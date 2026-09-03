@@ -393,8 +393,10 @@ const workflowAppSettings = {
     },
 
     /** Danh sách point move của preset đang sửa — [kéo] | checkbox | tên | nhân bản | xoá | sửa.
-     * Kéo trên tay cầm (⠿) HOÁN ĐỔI timingX với hàng thả vào (phản hồi Giang, pointer-events THUẦN —
-     * touch-compatible, không dùng HTML5 Drag-and-Drop API vì hỗ trợ cảm ứng/mobile kém). */
+     * Kéo trên tay cầm (⠿) HOÁN ĐỔI TOÀN BỘ 2 point move (order N + mọi field, bao gồm timingX —
+     * CÙNG LÚC, phản hồi Giang) — hàng đang kéo NỔI LÊN bám con trỏ (translateY/z-index/shadow),
+     * pointer-events THUẦN (touch-compatible, không dùng HTML5 Drag-and-Drop API vì hỗ trợ cảm ứng/
+     * mobile kém). */
     _renderPointMoveList() {
         this._currentRenderFn = () => this._renderPointMoveList();
         const preset = findMotionPresetById(appState.get('motionPresets'), workflowMotionPresets._editingId); // core/motion-presets.js
@@ -418,33 +420,61 @@ const workflowAppSettings = {
                 const addBtn = body.querySelector('#btn-ptmove-add');
                 if (addBtn) addBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.add.click', payload: {} }));
 
-                // Kéo-thả hoán đổi timingX — pointer-events thuần (touch OK), gom addEventListener tại đây (Workflow, không bị Rule 5a giới hạn).
+                // Kéo-thả sắp xếp lại — pointer-events thuần (touch OK), gom addEventListener tại đây
+                // (Workflow, không bị Rule 5a giới hạn). Node ĐANG kéo NỔI LÊN + BÁM THEO con trỏ
+                // (translateY, z-index, shadow) — phản hồi Giang: "phải nổi lên và kéo được, không
+                // phải thêm border rồi coi như đã kéo" — + `user-select:none` lúc đang kéo (phản hồi
+                // Giang) tránh bôi đen chữ ngoài ý muốn. Thả xong gửi ĐÚNG 1 thao tác hoán đổi TOÀN
+                // BỘ (order N + mọi field, bao gồm timingX — CÙNG LÚC, xem
+                // event/workflow/motion-presets.js::swapPointMoveOrder()).
                 const rows = Array.from(body.querySelectorAll('[data-ptmove-row]'));
                 let draggingId = null;
+                let draggingRowEl = null;
+                let dragStartClientY = 0;
                 let hoverRowEl = null;
                 body.querySelectorAll('[data-ptmove-drag-handle]').forEach((handle) => {
                     handle.addEventListener('pointerdown', (e) => {
                         e.preventDefault();
                         draggingId = handle.dataset.ptmoveDragHandle;
+                        draggingRowEl = rows.find((row) => row.dataset.ptmoveRow === draggingId) || null;
+                        dragStartClientY = e.clientY;
+                        if (draggingRowEl) {
+                            draggingRowEl.style.position = 'relative';
+                            draggingRowEl.style.zIndex = '30';
+                            draggingRowEl.style.boxShadow = '0 10px 24px rgba(0,0,0,0.25)';
+                            draggingRowEl.style.userSelect = 'none';
+                        }
+                        document.body.style.userSelect = 'none';
                     });
                 });
                 document.addEventListener('pointermove', (e) => {
-                    if (!draggingId) return;
-                    if (hoverRowEl) hoverRowEl.classList.remove('ring-2', 'ring-sky-400');
+                    if (!draggingId || !draggingRowEl) return;
+                    draggingRowEl.style.transform = `translateY(${e.clientY - dragStartClientY}px) scale(1.02)`;
+                    if (hoverRowEl) hoverRowEl.classList.remove('bg-sky-100');
                     hoverRowEl = rows.find((row) => {
+                        if (row === draggingRowEl) return false;
                         const rect = row.getBoundingClientRect();
                         return e.clientY >= rect.top && e.clientY <= rect.bottom;
                     }) || null;
-                    if (hoverRowEl) hoverRowEl.classList.add('ring-2', 'ring-sky-400');
+                    if (hoverRowEl) hoverRowEl.classList.add('bg-sky-100');
                 });
                 document.addEventListener('pointerup', () => {
                     if (!draggingId) return;
-                    if (hoverRowEl) hoverRowEl.classList.remove('ring-2', 'ring-sky-400');
+                    if (draggingRowEl) {
+                        draggingRowEl.style.position = '';
+                        draggingRowEl.style.zIndex = '';
+                        draggingRowEl.style.boxShadow = '';
+                        draggingRowEl.style.transform = '';
+                        draggingRowEl.style.userSelect = '';
+                    }
+                    document.body.style.userSelect = '';
+                    if (hoverRowEl) hoverRowEl.classList.remove('bg-sky-100');
                     const targetId = hoverRowEl ? hoverRowEl.dataset.ptmoveRow : null;
                     if (targetId && targetId !== draggingId) {
-                        eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.swapTimingX.change', payload: { idA: draggingId, idB: targetId } });
+                        eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.swapOrder.change', payload: { idA: draggingId, idB: targetId } });
                     }
                     draggingId = null;
+                    draggingRowEl = null;
                     hoverRowEl = null;
                 });
             },

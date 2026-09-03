@@ -318,21 +318,23 @@ const workflowMotionPresets = {
         workflowAppSettings._renderPointMoveList(); // liên tuyến domain
     },
 
-    /** Ứng kéo-thả đổi vị trí TRONG màn Danh sách — HOÁN ĐỔI `timingX` giữa 2 point move (phản hồi
-     * Giang), KHÔNG đụng tới thứ tự MẢNG/danh tính (id, tên "Point move N", khoá checked của vị trí
-     * đầu) — chỉ 2 con số timingX trao đổi cho nhau. Vị trí đầu (index 0) VẪN kéo-thả hoán đổi được
-     * bình thường (chỉ checked của nó bị khoá, timingX thì tự do — xem core/motion-presets.js).
+    /** Ứng kéo-thả đổi vị trí TRONG màn Danh sách — HOÁN ĐỔI TOÀN BỘ 2 phần tử mảng (order N VÀ mọi
+     * field khác, bao gồm `timingX` — phản hồi Giang: "hai cái hoán đổi là đồng thời", đây là 1 thao
+     * tác DUY NHẤT (trao đổi hẳn 2 object trong mảng), KHÔNG PHẢI 2 bước tách rời — `timingX` tự
+     * "đi theo" object vì nó là field CỦA object đó, giống mọi list kéo-thả sắp xếp lại tiêu chuẩn.
+     * Vị trí ĐẦU (index 0) VẪN hoán đổi được bình thường — nếu kết quả đẩy 1 object KHÁC vào index 0,
+     * nó TỰ bị khoá `checked:true` qua `sanitizeMotionPointMoves()` (khoá theo VỊ TRÍ, không theo
+     * object cụ thể nào — đúng quy tắc đã chốt từ đầu).
      * @param {string} idA @param {string} idB */
-    async swapPointMoveTimingX(idA, idB) {
+    async swapPointMoveOrder(idA, idB) {
         if (idA === idB) return;
         await this._mutateEditing((p) => {
             const idxA = p.pointMoves.findIndex((pm) => pm.id === idA);
             const idxB = p.pointMoves.findIndex((pm) => pm.id === idB);
             if (idxA === -1 || idxB === -1) return;
-            const timingXA = p.pointMoves[idxA].timingX;
-            const timingXB = p.pointMoves[idxB].timingX;
-            p.pointMoves[idxA] = { ...p.pointMoves[idxA], timingX: timingXB };
-            p.pointMoves[idxB] = { ...p.pointMoves[idxB], timingX: timingXA };
+            const newList = [...p.pointMoves];
+            [newList[idxA], newList[idxB]] = [newList[idxB], newList[idxA]];
+            p.pointMoves = sanitizeMotionPointMoves(newList); // core/motion-presets.js — ép lại khoá checked vị trí đầu ngay
         });
         workflowAppSettings._renderPointMoveList(); // liên tuyến domain
     },
@@ -496,7 +498,7 @@ const workflowMotionPresets = {
         const realPoints = preset.pointMoves
             .filter((p) => p.checked)
             .map((p) => (p.id === overrideId ? { ...p, timingX: overrideTimingX, timingY: overrideTimingY } : p))
-            .map((p) => ({ id: p.id, timingX: p.timingX, timingY: p.timingY, locked: preset.pointMoves[0].id === p.id }))
+            .map((p) => ({ id: p.id, timingX: p.timingX, timingY: p.timingY, locked: preset.pointMoves[0].id === p.id, n: preset.pointMoves.findIndex((pm) => pm.id === p.id) })) // `n` = ĐÚNG index trong MẢNG GỐC (khớp tên "Point move N" ở màn Danh sách), không phải vị trí sau khi lọc/sort ở đây
             .sort((a, b) => a.timingX - b.timingX);
         const points = [
             { id: POINT_MOVE_TIMING_START_ID, timingX: 0, timingY: 0, locked: false }, // core/point-move-timing-ui.js (const) — CỐ ĐỊNH CỨNG, xem docstring
