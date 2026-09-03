@@ -54,7 +54,7 @@ input[type=range].ptmove-range-input::-moz-range-thumb { pointer-events: auto; w
 .ptmove-timing-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; border-radius: 0.75rem; } /* SỬA — chỉ cuộn NGANG, scaleX không đụng chiều cao nên không cần cuộn dọc */
 .ptmove-timing-zoomable { transform-origin: 0 0; transition: transform 0.15s ease; }
 .ptmove-timing-svg { width: 100%; height: auto; aspect-ratio: 700 / 260; display: block; touch-action: none; } /* 700/260 PHẢI khớp POINT_MOVE_TIMING_SVG_W/H (core/point-move-timing-ui.js) — đổi 1 chỗ phải đổi luôn chỗ kia. */
-.ptmove-timing-grid { stroke: rgba(255, 255, 255, 0.14); stroke-width: 1; } /* SỬA — 0.06 gần như vô hình trên nền tối, tăng lên 0.14 mới thấy rõ là lưới */
+.ptmove-timing-grid { stroke: #475569; stroke-width: 1; opacity: 1; } /* SỬA (phản hồi Giang) — bỏ hẳn rgba/alpha (dễ bị render mờ ảo tuỳ engine), dùng màu ĐẶC (#475569, slate-600) + opacity:1 tường minh; vẽ ĐẦU TIÊN (append trước) nên tự nằm dưới trục/đường cong/node, không cần z-index */
 .ptmove-timing-grid-label { fill: rgba(255, 255, 255, 0.3); font-size: 9px; font-family: inherit; }
 .ptmove-timing-axis { stroke: rgba(255, 255, 255, 0.25); stroke-width: 1; }
 .ptmove-timing-bound { stroke: rgba(255, 255, 255, 0.15); stroke-width: 1; stroke-dasharray: 4 4; }
