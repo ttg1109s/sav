@@ -35,7 +35,11 @@
 const MOTION_ENGINE_NO_OP_PRESET = { transitionEnabled: false, transitionType: 'fade', transitionDurationMs: 1000, transitionInOutRatio: 50, transitionEasing: 'linear', pointMoves: [], pointMoveEnabled: false, pointMoveRunMode: 'all', pointMoveOneOrder: 'sequential', reactBeatAudio: { enabled: false, zoom: { enabled: false }, pan: { enabled: false }, rotate: { enabled: false } } };
 
 /** Baseline "không đổi" — dùng làm điểm XUẤT PHÁT khi tween 'one' mode (baseline -> target). */
-const POINT_MOVE_BASELINE_TARGET = { linearX: 0, linearXUnit: '%', linearY: 0, linearYUnit: '%', rotate: 0, zoom: 0, flipX: 0, flipY: 0 };
+/** Baseline "không đổi" — dùng làm điểm XUẤT PHÁT khi tween 'one' mode (baseline -> target) VÀ làm
+ * `target` của node ảo "vị trí ban đầu" ở 'all' mode (xem `_buildPointMoveAllKeyframes()`). 6 cờ
+ * `*ApplyIntensity` LUÔN false — KHÔNG ảnh hưởng số học gì (target=0, nhân intensity vẫn ra 0), chỉ
+ * để tránh đọc `undefined` khi `seg.b` trỏ vào node ảo này (xem `_findPointMoveSegment()`). */
+const POINT_MOVE_BASELINE_TARGET = { linearX: 0, linearXUnit: '%', linearXApplyIntensity: false, linearY: 0, linearYUnit: '%', linearYApplyIntensity: false, rotate: 0, rotateApplyIntensity: false, zoom: 0, zoomApplyIntensity: false, flipX: 0, flipXApplyIntensity: false, flipY: 0, flipYApplyIntensity: false };
 
 /** Số keyframe sample cho đường cong Timing ('all' mode) — càng cao càng mượt, đổi lại nặng hơn 1
  * chút cho `.animate()`. 50 mẫu (~2%/mẫu) đủ mượt cho mắt người ở tốc độ chuyển ảnh thông thường. */
@@ -248,21 +252,23 @@ const workflowMotionEngine = {
         const points = checked
             .map((p) => ({ x: p.timingX, y: p.timingY, target: this._resolvePointMoveTarget(p) }))
             .sort((a, b) => a.x - b.x);
-        const keyframes = this._buildPointMoveAllKeyframes(points);
+        const keyframes = this._buildPointMoveAllKeyframes(points, preset.pointMoveTimingStartY, preset.pointMoveTimingEndY);
         const anim = startPointMoveAnimation(panEl, keyframes, this._lastAdvanceMs, 'linear'); // core
         this._setPointMoveAnim(panEl, anim);
     },
 
     /** Resolve 6 field/point move thành giá trị SỐ THẬT (random range resolve 1 LẦN, giữ nguyên
-     * suốt lượt hiển thị đó — không resolve lại mỗi frame). */
+     * suốt lượt hiển thị đó — không resolve lại mỗi frame) + mang theo CỜ `applyTimingIntensity`
+     * của TỪNG field (phản hồi Giang — mỗi thông số tự chọn có bị trục Y Timing ảnh hưởng hay
+     * không, mặc định TẮT) để `_buildPointMoveAllKeyframes()` biết field nào cần nhân cường độ. */
     _resolvePointMoveTarget(pointMove) {
         return {
-            linearX: resolvePointMoveFieldValue(pointMove.linearX), linearXUnit: pointMove.linearX.unit, // core
-            linearY: resolvePointMoveFieldValue(pointMove.linearY), linearYUnit: pointMove.linearY.unit, // core
-            rotate: resolvePointMoveFieldValue(pointMove.rotate), // core
-            zoom: resolvePointMoveFieldValue(pointMove.zoom), // core
-            flipX: resolvePointMoveFieldValue(pointMove.flipX), // core
-            flipY: resolvePointMoveFieldValue(pointMove.flipY), // core
+            linearX: resolvePointMoveFieldValue(pointMove.linearX), linearXUnit: pointMove.linearX.unit, linearXApplyIntensity: pointMove.linearX.applyTimingIntensity, // core
+            linearY: resolvePointMoveFieldValue(pointMove.linearY), linearYUnit: pointMove.linearY.unit, linearYApplyIntensity: pointMove.linearY.applyTimingIntensity, // core
+            rotate: resolvePointMoveFieldValue(pointMove.rotate), rotateApplyIntensity: pointMove.rotate.applyTimingIntensity, // core
+            zoom: resolvePointMoveFieldValue(pointMove.zoom), zoomApplyIntensity: pointMove.zoom.applyTimingIntensity, // core
+            flipX: resolvePointMoveFieldValue(pointMove.flipX), flipXApplyIntensity: pointMove.flipX.applyTimingIntensity, // core
+            flipY: resolvePointMoveFieldValue(pointMove.flipY), flipYApplyIntensity: pointMove.flipY.applyTimingIntensity, // core
         };
     },
 
@@ -271,31 +277,38 @@ const workflowMotionEngine = {
      * `targetPoints` (= `points` + 1 node "vị trí ban đầu" ẢO chèn đầu, x=0/target trung tính —
      * phản hồi Giang: animation LUÔN xuất phát từ mốc trung tính CỐ ĐỊNH này trước khi tới point
      * move gần nhất, point move #0 KHÔNG còn bị ép đứng ở 0% nữa), lerp 6 field giữa `A.target`/
-     * `B.target` theo tiến độ THỜI GIAN cục bộ trong đoạn đó; (2) nhân thêm cường độ `Y(xPercent)`
-     * đọc từ `points` GỐC (`computePointMoveCurveIntensityAt()`, core — nội suy Catmull-Rom qua
-     * ĐÚNG các node đã tick, KHÔNG tính node ảo — khớp nguyên trạng đường cong hiển thị trên SVG,
-     * xem core/point-move-timing-ui.js) — 2 trục X (thời gian/vị trí target) và Y (cường độ) tách
-     * biệt hoàn toàn, không giẫm chân nhau dù field nào đang randomRange (đã resolve xong 1 lần
-     * trước khi vào đây).
+     * `B.target` theo tiến độ THỜI GIAN cục bộ trong đoạn đó; (2) NẾU field đó có
+     * `applyTimingIntensity=true` (đọc từ `B.target`, điểm ĐANG hướng tới — phản hồi Giang, mặc
+     * định TẮT cho CẢ 6 field) thì nhân thêm cường độ `Y(xPercent)` đọc từ `curveNodes` (=
+     * `points` + 2 node ẢO 2 đầu tại x=0/x=100, y=`startY`/`endY` — phản hồi Giang: "dù có 1 point
+     * duy nhất đều tạo được đường cong", LUÔN có mặt bất kể bao nhiêu point move đã tick — KHỚP
+     * NGUYÊN TRẠNG đường cong hiển thị trên SVG lúc sửa, xem event/workflow/motion-presets.js::
+     * _computeTimingCurveData(), core/point-move-timing-ui.js) — `computePointMoveCurveIntensityAt()`,
+     * core, nội suy Catmull-Rom; field TẮT thì bỏ qua nhân, LUÔN đạt ĐỦ giá trị đã lerp theo thời
+     * gian — 2 trục X (thời gian/vị trí target) và Y (cường độ) tách biệt hoàn toàn, không giẫm
+     * chân nhau dù field nào đang randomRange (đã resolve xong 1 lần trước khi vào đây).
      * @param {{x:number,y:number,target:object}[]} points
+     * @param {number} startY - `preset.pointMoveTimingStartY`.
+     * @param {number} endY - `preset.pointMoveTimingEndY`.
      * @returns {object[]}
      */
-    _buildPointMoveAllKeyframes(points) {
-        const targetPoints = [{ x: 0, y: 100, target: POINT_MOVE_BASELINE_TARGET }, ...points]; // node ảo "vị trí ban đầu" — CHỈ dùng nội suy target, không thuộc đường cong cường độ hiển thị
+    _buildPointMoveAllKeyframes(points, startY, endY) {
+        const targetPoints = [{ x: 0, y: startY, target: POINT_MOVE_BASELINE_TARGET }, ...points]; // node ảo "vị trí ban đầu" — CHỈ dùng nội suy target
+        const curveNodes = [{ x: 0, y: startY }, ...points.map((p) => ({ x: p.x, y: p.y })), { x: 100, y: endY }]; // 2 node ảo 2 đầu — dùng cho đường cong CƯỜNG ĐỘ, KHÁC targetPoints (không node cuối, không .target)
         const keyframes = [];
         for (let i = 0; i <= MOTION_ENGINE_POINT_MOVE_ALL_STEPS; i++) {
             const xPercent = (i / MOTION_ENGINE_POINT_MOVE_ALL_STEPS) * 100;
             const seg = this._findPointMoveSegment(targetPoints, xPercent);
-            const intensity = computePointMoveCurveIntensityAt(points, xPercent) / 100; // core — dùng `points` GỐC, không phải `targetPoints`
+            const intensity = computePointMoveCurveIntensityAt(curveNodes, xPercent) / 100; // core
             const v = {
-                linearX: lerpPointMoveNumber(seg.a.target.linearX, seg.b.target.linearX, seg.progress) * intensity, // core
+                linearX: lerpPointMoveNumber(seg.a.target.linearX, seg.b.target.linearX, seg.progress) * (seg.b.target.linearXApplyIntensity ? intensity : 1), // core
                 linearXUnit: seg.a.target.linearXUnit,
-                linearY: lerpPointMoveNumber(seg.a.target.linearY, seg.b.target.linearY, seg.progress) * intensity, // core
+                linearY: lerpPointMoveNumber(seg.a.target.linearY, seg.b.target.linearY, seg.progress) * (seg.b.target.linearYApplyIntensity ? intensity : 1), // core
                 linearYUnit: seg.a.target.linearYUnit,
-                rotate: lerpPointMoveNumber(seg.a.target.rotate, seg.b.target.rotate, seg.progress) * intensity, // core
-                zoom: lerpPointMoveNumber(seg.a.target.zoom, seg.b.target.zoom, seg.progress) * intensity, // core
-                flipX: lerpPointMoveNumber(seg.a.target.flipX, seg.b.target.flipX, seg.progress) * intensity, // core
-                flipY: lerpPointMoveNumber(seg.a.target.flipY, seg.b.target.flipY, seg.progress) * intensity, // core
+                rotate: lerpPointMoveNumber(seg.a.target.rotate, seg.b.target.rotate, seg.progress) * (seg.b.target.rotateApplyIntensity ? intensity : 1), // core
+                zoom: lerpPointMoveNumber(seg.a.target.zoom, seg.b.target.zoom, seg.progress) * (seg.b.target.zoomApplyIntensity ? intensity : 1), // core
+                flipX: lerpPointMoveNumber(seg.a.target.flipX, seg.b.target.flipX, seg.progress) * (seg.b.target.flipXApplyIntensity ? intensity : 1), // core
+                flipY: lerpPointMoveNumber(seg.a.target.flipY, seg.b.target.flipY, seg.progress) * (seg.b.target.flipYApplyIntensity ? intensity : 1), // core
             };
             keyframes.push({ transform: buildPointMoveTransformString(v) }); // core
         }

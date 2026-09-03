@@ -435,6 +435,8 @@ const workflowAppSettings = {
                     }
                     const modeSelect = body.querySelector(`[data-ptmove-mode="${fieldKey}"]`);
                     if (modeSelect) modeSelect.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldMode.change', payload: { fieldKey, mode: e.target.value } }));
+                    const applyIntensityCheckbox = body.querySelector(`[data-ptmove-applyintensity="${fieldKey}"]`);
+                    if (applyIntensityCheckbox) applyIntensityCheckbox.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldApplyTimingIntensity.change', payload: { fieldKey, checked: e.target.checked } }));
                     const singleInput = body.querySelector(`#setting-ptmove-${fieldKey}-single`);
                     if (singleInput) {
                         singleInput.addEventListener('input', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldSingle.preview', payload: { fieldKey, value: Number(e.target.value) } }));
@@ -476,8 +478,12 @@ const workflowAppSettings = {
     },
 
     /** Đường cong Timing (chỉ dùng khi `pointMoveRunMode==='all'`) — SVG THẬT dựng bởi
-     * `workflowMotionPresets._renderTimingCurve()` (gọi core-ui, xem core/point-move-timing-ui.js),
-     * kèm danh sách ô nhập số timingX/timingY đồng bộ 2 chiều với việc kéo trên SVG. */
+     * `workflowMotionPresets._renderTimingCurve()` (gọi core-ui, xem core/point-move-timing-ui.js).
+     * Zoom (+/-) thuần view, KHÔNG persist — chỉ đổi CSS `transform:scaleX()` cục bộ NGAY TẠI ĐÂY
+     * (SỬA, phản hồi Giang — mục đích zoom là GIÃN KHOẢNG CÁCH GIỮA CÁC NODE theo trục thời gian để
+     * đỡ bấm/kéo nhầm, KHÔNG phải phóng to toàn bộ hình — chỉ scaleX, giữ NGUYÊN chiều cao/cỡ node/
+     * chữ; thang hiển thị 0%-100% ĐÚNG NGHĨA "mức giãn thêm", KHÔNG phải % kích thước kết quả kiểu
+     * 100%-300% như bản trước), không qua eventBus/workflow (không có state nào cần ghi nhớ). */
     _renderPointMoveTiming() {
         this._currentRenderFn = () => this._renderPointMoveTiming();
         const preset = findMotionPresetById(appState.get('motionPresets'), workflowMotionPresets._editingId); // core/motion-presets.js
@@ -487,14 +493,21 @@ const workflowAppSettings = {
             renderPointMoveTimingBody(preset.pointMoves), // components/motion-settings-drawer.js
             (body) => {
                 workflowMotionPresets._renderTimingCurve(body.querySelector('#ptmove-timing-container')); // event/workflow/motion-presets.js
-                body.querySelectorAll('[data-ptmove-timing-row]').forEach((row) => {
-                    const id = row.dataset.ptmoveTimingRow;
-                    row.querySelectorAll('[data-ptmove-timing-field]').forEach((input) => {
-                        const field = input.dataset.ptmoveTimingField;
-                        input.addEventListener('input', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMoveTiming.numberPreview', payload: { id, field, value: Number(e.target.value) } }));
-                        input.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMoveTiming.numberCommit', payload: { id, field, value: Number(e.target.value) } }));
-                    });
-                });
+
+                const ZOOM_STEPS_PCT = [0, 25, 50, 75, 100]; // "mức giãn thêm" (0 = không giãn) — KHÔNG phải % kích thước kết quả
+                const ZOOM_MAX_EXTRA_SCALE_X = 1; // 100% giãn thêm -> scaleX tối đa = 1 + 1 = 2 (gấp đôi khoảng cách ngang, giữ nguyên chiều cao)
+                let zoomIdx = 0;
+                const zoomableEl = body.querySelector('#ptmove-timing-container');
+                const zoomLabelEl = body.querySelector('#ptmove-timing-zoom-label');
+                const applyZoom = () => {
+                    const extraPct = ZOOM_STEPS_PCT[zoomIdx];
+                    if (zoomableEl) zoomableEl.style.transform = `scaleX(${1 + (extraPct / 100) * ZOOM_MAX_EXTRA_SCALE_X})`;
+                    if (zoomLabelEl) zoomLabelEl.textContent = `${extraPct}%`;
+                };
+                const zoomInBtn = body.querySelector('#btn-ptmove-timing-zoom-in');
+                if (zoomInBtn) zoomInBtn.addEventListener('click', () => { zoomIdx = Math.min(ZOOM_STEPS_PCT.length - 1, zoomIdx + 1); applyZoom(); });
+                const zoomOutBtn = body.querySelector('#btn-ptmove-timing-zoom-out');
+                if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => { zoomIdx = Math.max(0, zoomIdx - 1); applyZoom(); });
             },
         );
     },
