@@ -30,7 +30,18 @@
 #visual-motion-container {
     position: absolute; inset: 0;
     overflow: hidden;
-    perspective: 1600px; /* dùng cho transition 'flipCard'/'flipEdge' (rotateY/rotateX 3D) */
+}
+
+/* MỚI (phản hồi Giang — "point move phải là 1 div cha bao quanh layer A, B") — bọc RIÊNG cả 2
+   `.motion-layer`, thêm 1 lớp `overflow:hidden` NGAY SÁT chúng (khác `#visual-motion-container` ở
+   trên — clip TỪ XA hơn 1 cấp qua `.me-beat-react`, nơi tự có transform riêng của React Beat Audio
+   cộng dồn vào) — chặn triệt để mọi rò rỉ nội dung ra ngoài khung dù Point Move của layer nào đó kết
+   hợp với transform các lớp cha bên ngoài. `perspective` LẶP LẠI ở đây (không chỉ ở container) — giữ
+   đúng hiệu ứng 3D cho 'flipCard'/'flipEdge' dù thêm 1 tầng bọc mới. */
+.me-pointmove-players {
+    position: absolute; inset: 0;
+    overflow: hidden;
+    perspective: 1600px;
 }
 
 .motion-layer {
