@@ -27,6 +27,19 @@
  *   'all' — `_activatePointMoveAll()`: nội suy tuyến tính TỪNG SEGMENT theo `timingX` giữa 2 point
  *      move liền kề, sample thành N keyframe — xem `_buildPointMoveAllKeyframes()`.
  *
+ * SỬA (phản hồi Giang — bug "point move cuối cùng bị kéo cứng về baseline lúc transition/chuyển
+ * ảnh, thậm chí không thấy animation") — NGUYÊN NHÂN GỐC: bản trước chỉ vá keyframe ĐẦU tiên bằng
+ * `getComputedStyle()` (vị trí thật), còn TOÀN BỘ đường cong phía sau vẫn tính độc lập từ 1 mốc ẢO
+ * cố định ở x=0 (baseline) — 2% thời lượng ĐẦU tiên (keyframe 0->1) vì vậy nhảy CỰC NHANH từ vị trí
+ * thật về gần baseline trước khi mới đi tiếp theo đường cong thật, nhìn như cắt cứng. FIX: mốc ẢO ở
+ * x=0 giờ ĐỘNG — `pointMoveStartForceBaseline` (core/motion-presets.js) quyết định mốc đó là
+ * baseline CỐ ĐỊNH (bật) hay chính vị trí THẬT suy ra từ đường cong LƯỢT TRƯỚC (tắt, mặc định — xem
+ * `_deriveLivePointMoveTarget()`, tái dùng `_findPointMoveSegment()`/`lerpPointMoveNumber()` trên
+ * `_lastAllModePoints`/`_lastAllModeDurationMs` ĐÃ LƯU từ lượt 'all' mode gần nhất, KHÔNG parse
+ * ngược ma trận CSS — chính xác tuyệt đối, không mơ hồ như decompose matrix). Tương tự,
+ * `pointMoveEndForceBaseline` chèn thêm 1 mốc ẢO ở x=100 = baseline (tắt = giữ nguyên hành vi cũ:
+ * đứng yên ở target point move CUỐI cho tới hết 100%). CHỈ được bật 1 trong 2 (phản hồi Giang).
+ *
  * NẠP SAU: core/motion-engine.js, core/dom-refs.js (motionEngineContainer/motionEnginePointMoveWrapper/
  * motionEngineLayer1,2/motionEngineLayer1,2Pan/motionEngineReactLayer), service/task-manager.js (chỉ
  * còn dùng cho MOTION_ENGINE_BEATREACT_TASK — animation per-frame CỦA ẢNH ĐANG HIỆN, KHÔNG phải hẹn
@@ -36,7 +49,7 @@
 /** Preset "tắt hết" — dùng khi nơi gọi truyền `null`/`undefined` (chưa gắn Motion) — KHÔNG fallback
  * về bất kỳ hiệu ứng mặc định nào. Vẫn export ở đây (không phải nơi gọi) vì đây là "hình dạng
  * preset hợp lệ tối thiểu", thuộc kiến thức của Engine. */
-const MOTION_ENGINE_NO_OP_PRESET = { transitionEnabled: false, transitionType: 'fade', transitionDurationMs: 1000, transitionInOutRatio: 50, transitionEasing: 'linear', pointMoves: [], pointMoveEnabled: false, pointMoveRunMode: 'all', pointMoveOneOrder: 'sequential', reactBeatAudio: { enabled: false, zoom: { enabled: false }, pan: { enabled: false }, rotate: { enabled: false } } };
+const MOTION_ENGINE_NO_OP_PRESET = { transitionEnabled: false, transitionType: 'fade', transitionDurationMs: 1000, transitionInOutRatio: 50, transitionEasing: 'linear', pointMoves: [], pointMoveEnabled: false, pointMoveRunMode: 'all', pointMoveOneOrder: 'sequential', pointMoveStartForceBaseline: false, pointMoveEndForceBaseline: false, reactBeatAudio: { enabled: false, zoom: { enabled: false }, pan: { enabled: false }, rotate: { enabled: false } } };
 
 /** Baseline "không đổi" — dùng làm điểm XUẤT PHÁT khi tween 'one' mode (baseline -> target) VÀ làm
  * `target` của node ảo "vị trí ban đầu" ở 'all' mode (xem `_buildPointMoveAllKeyframes()`). */
@@ -82,6 +95,14 @@ const workflowMotionEngine = {
     _idlePanLayer() { return this._layerToggle ? motionEngineLayer1Pan : motionEngineLayer2Pan; },
 
     _pointMoveAnim: null, // Animation DUY NHẤT trên motionEnginePointMoveWrapper (bọc CHUNG cả 2 layer A/B, xem core/dom-refs.js) — SỬA, phản hồi Giang, không còn tách theo từng layer nữa
+
+    // MỚI (phản hồi Giang, sửa bug hard-cut baseline) — snapshot đường cong 'all' mode GẦN NHẤT
+    // (mảng {x,target} ĐÃ gồm sẵn 2 mốc ảo đầu/cuối nếu có) + thời lượng của nó — dùng bởi
+    // `_deriveLivePointMoveTarget()` để suy CHÍNH XÁC vị trí thật đang hiển thị cho lượt KẾ TIẾP.
+    // null = lượt gần nhất KHÔNG phải 'all' mode (hoặc chưa từng chạy) -> không có gì để suy, tự
+    // fallback về baseline (xem `_activatePointMoveAll()`).
+    _lastAllModePoints: null,
+    _lastAllModeDurationMs: 0,
 
     /** Hiện ẢNH ĐẦU tĩnh (không transition — chỉ có 1 ảnh, chưa có ảnh "cũ" nào để chuyển từ đó) +
      * bật Point Move/BeatReact NGAY nếu `preset` có gì để chạy.
@@ -223,10 +244,41 @@ const workflowMotionEngine = {
     _activatePointMove(preset) {
         if (!preset.pointMoveEnabled) return;
         const fromTransform = motionEnginePointMoveWrapper ? getComputedStyle(motionEnginePointMoveWrapper).transform : 'none'; // core/dom-refs.js
+        // MỚI (phản hồi Giang, sửa bug hard-cut baseline) — suy vị trí thật (field thật, KHÔNG phải
+        // chuỗi transform) TRƯỚC khi huỷ animation cũ (`.currentTime` chỉ đọc được lúc animation còn
+        // sống, `stopPointMoveAnimation()` bên dưới `.cancel()` nó ngay) — null nếu lượt trước không
+        // phải 'all' mode (`_activatePointMoveOne()` tự reset `_lastAllModePoints`) hoặc chưa từng
+        // chạy (lượt `reveal()` đầu tiên).
+        const liveStartTarget = this._deriveLivePointMoveTarget();
         stopPointMoveAnimation(motionEnginePointMoveWrapper, this._pointMoveAnim); // core/dom-refs.js, core/motion-engine.js
         this._pointMoveAnim = null;
         if (preset.pointMoveRunMode === 'one') { this._activatePointMoveOne(preset, fromTransform); return; }
-        this._activatePointMoveAll(preset, fromTransform);
+        this._activatePointMoveAll(preset, fromTransform, liveStartTarget);
+    },
+
+    /** Suy 6 giá trị field THẬT tại vị trí ĐANG hiển thị của đường cong 'all' mode LƯỢT TRƯỚC (nếu
+     * có) — dùng `animation.currentTime` (WAAPI) + `_lastAllModePoints`/`_lastAllModeDurationMs` ĐÃ
+     * LƯU (snapshot ĐÚNG những gì đã dùng dựng đường cong đó, kể cả random range ĐÃ resolve — không
+     * resolve lại, tránh ra số khác) tái dùng THẲNG `_findPointMoveSegment()`/`lerpPointMoveNumber()`
+     * — chính xác tuyệt đối, KHÔNG cần decompose ngược ma trận CSS (mơ hồ với rotate/flip/% vs px).
+     * @returns {object|null} null nếu không có đường cong 'all' mode nào để suy (lượt trước là 'one'
+     *   mode, point move đang tắt, hoặc đây là lượt kích hoạt ĐẦU TIÊN). */
+    _deriveLivePointMoveTarget() {
+        if (!this._pointMoveAnim || !this._lastAllModePoints) return null;
+        let currentTimeMs = 0;
+        try { currentTimeMs = this._pointMoveAnim.currentTime || 0; } catch (e) { return null; }
+        const oldXPercent = Math.max(0, Math.min(100, (currentTimeMs / (this._lastAllModeDurationMs || 1)) * 100));
+        const seg = this._findPointMoveSegment(this._lastAllModePoints, oldXPercent);
+        return {
+            linearX: lerpPointMoveNumber(seg.a.target.linearX, seg.b.target.linearX, seg.progress), // core
+            linearXUnit: seg.a.target.linearXUnit,
+            linearY: lerpPointMoveNumber(seg.a.target.linearY, seg.b.target.linearY, seg.progress), // core
+            linearYUnit: seg.a.target.linearYUnit,
+            rotate: lerpPointMoveNumber(seg.a.target.rotate, seg.b.target.rotate, seg.progress), // core
+            zoom: lerpPointMoveNumber(seg.a.target.zoom, seg.b.target.zoom, seg.progress), // core
+            flipX: lerpPointMoveNumber(seg.a.target.flipX, seg.b.target.flipX, seg.progress), // core
+            flipY: lerpPointMoveNumber(seg.a.target.flipY, seg.b.target.flipY, seg.progress), // core
+        };
     },
 
     /** 'one' mode — chọn ĐÚNG 1 point move (trong số đã tick) theo `pointMoveOneOrder`, tween
@@ -234,6 +286,7 @@ const workflowMotionEngine = {
      * `_lastAdvanceMs` — KHÔNG còn ép về baseline trước (SỬA, phản hồi Giang — tránh giật lúc
      * chuyển ảnh). */
     _activatePointMoveOne(preset, fromTransform) {
+        this._lastAllModePoints = null; // lượt này KHÔNG phải 'all' mode -> không còn đường cong nào để lượt SAU suy tiếp (tự fallback baseline)
         const checkedIndices = [];
         preset.pointMoves.forEach((p, i) => { if (p.checked) checkedIndices.push(i); });
         const pickFn = preset.pointMoveOneOrder === 'random' ? pickPointMoveOneIndexRandom : pickPointMoveOneIndexSequential; // core
@@ -250,17 +303,36 @@ const workflowMotionEngine = {
 
     /** 'all' mode — sample đường cong Timing của TẤT CẢ point move đã tick thành N keyframe, feed
      * WAAPI easing 'linear' (đường cong ĐÃ tự mượt qua sampling, easing khác sẽ làm méo lại) — GHI
-     * ĐÈ keyframe ĐẦU bằng `fromTransform` (SỬA, phản hồi Giang — cùng lý do `_activatePointMoveOne()`,
-     * tránh giật: mẫu đầu tiên bản tính sẵn LUÔN là baseline cố định, cần thay bằng vị trí THẬT). */
-    _activatePointMoveAll(preset, fromTransform) {
+     * ĐÈ keyframe ĐẦU bằng `fromTransform` (giữ ĐÚNG pixel đầu tiên 100%, phòng sai số làm tròn của
+     * lerp) — nhưng khác bản trước, giờ TOÀN BỘ đường cong phía sau cũng xuất phát từ vị trí THẬT
+     * (`liveStartTarget`, field thật, xem `_deriveLivePointMoveTarget()`) thay vì luôn từ baseline —
+     * SỬA (phản hồi Giang, bug hard-cut). Mốc x=0/x=100 giờ ĐỘNG theo `pointMoveStartForceBaseline`/
+     * `pointMoveEndForceBaseline` (core/motion-presets.js, CHỈ 1 trong 2 được bật):
+     *   - Start: bật -> mốc x=0 = baseline CỐ ĐỊNH (hành vi CŨ); tắt (mặc định) -> mốc x=0 =
+     *     `liveStartTarget` nếu có (liền mạch), fallback baseline nếu KHÔNG có (lượt `reveal()` đầu
+     *     tiên/lượt trước là 'one' mode).
+     *   - End: bật -> CHÈN THÊM 1 mốc ẢO x=100 = baseline, ĐỒNG THỜI loại bỏ mọi point move đang ở
+     *     ĐÚNG x=100 khỏi `points` (mốc ảo "vô hiệu hoá và thay thế" nó, phản hồi Giang — phòng dữ
+     *     liệu cũ trước khi UI chặn kéo/nhập tới đúng 100%); tắt (mặc định) -> giữ NGUYÊN hành vi cũ,
+     *     đứng yên ở target point move CUỐI cho tới hết 100% (`_findPointMoveSegment()` tự clamp).
+     * @param {object} preset @param {string} fromTransform
+     * @param {object|null} liveStartTarget - từ `_deriveLivePointMoveTarget()`, null nếu không có. */
+    _activatePointMoveAll(preset, fromTransform, liveStartTarget) {
         const checked = preset.pointMoves.filter((p) => p.checked);
-        if (checked.length === 0) return;
-        const points = checked
+        const usable = preset.pointMoveEndForceBaseline ? checked.filter((p) => p.timingX < 100) : checked;
+        if (usable.length === 0 && !preset.pointMoveEndForceBaseline) return; // không có gì để chạy (giữ nguyên guard cũ)
+        const points = usable
             .map((p) => ({ x: p.timingX, target: this._resolvePointMoveTarget(p) }))
             .sort((a, b) => a.x - b.x);
-        const keyframes = this._buildPointMoveAllKeyframes(points);
+        const startTarget = (preset.pointMoveStartForceBaseline || !liveStartTarget) ? POINT_MOVE_BASELINE_TARGET : liveStartTarget;
+        const targetPoints = [{ x: 0, target: startTarget }, ...points];
+        if (preset.pointMoveEndForceBaseline) targetPoints.push({ x: 100, target: POINT_MOVE_BASELINE_TARGET });
+
+        const keyframes = this._buildPointMoveAllKeyframes(targetPoints);
         if (keyframes.length > 0) keyframes[0] = { transform: fromTransform };
         this._pointMoveAnim = startPointMoveAnimation(motionEnginePointMoveWrapper, keyframes, this._lastAdvanceMs, 'linear'); // core/dom-refs.js, core/motion-engine.js
+        this._lastAllModePoints = targetPoints; // snapshot cho `_deriveLivePointMoveTarget()` LƯỢT KẾ TIẾP
+        this._lastAllModeDurationMs = this._lastAdvanceMs;
     },
 
     /** Resolve 6 field/point move thành giá trị SỐ THẬT (random range resolve 1 LẦN, giữ nguyên
@@ -276,18 +348,18 @@ const workflowMotionEngine = {
         };
     },
 
-    /** Sample `points` (đã sort theo `x`, mỗi phần tử {x,target}) thành mảng keyframe {transform} —
-     * mỗi mẫu: tìm đoạn [A,B] chứa `xPercent` (`_findPointMoveSegment()`) trong `targetPoints`
-     * (= `points` + 1 node "vị trí ban đầu" ẢO chèn đầu, x=0/target trung tính — animation LUÔN xuất
-     * phát từ mốc trung tính CỐ ĐỊNH này trước khi tới point move gần nhất, point move #0 KHÔNG bị
-     * ép đứng ở 0%), rồi lerp 6 field giữa `A.target`/`B.target` theo tiến độ THỜI GIAN cục bộ trong
-     * đoạn đó (phản hồi Giang — "loại bỏ toàn bộ timing Y" — ĐÃ XOÁ HẲN hệ số cường độ/đường cong Y,
-     * field LUÔN đạt ĐỦ giá trị đã lerp theo vị trí thời gian, không còn field nào bị nhân thêm gì).
-     * @param {{x:number,target:object}[]} points
+    /** Sample `targetPoints` (ĐÃ sort theo `x`, ĐÃ gồm sẵn mốc ảo đầu/cuối nếu có — xem
+     * `_activatePointMoveAll()`, nơi DUY NHẤT gọi hàm này) thành mảng keyframe {transform} — mỗi
+     * mẫu: tìm đoạn [A,B] chứa `xPercent` (`_findPointMoveSegment()`), rồi lerp 6 field giữa
+     * `A.target`/`B.target` theo tiến độ THỜI GIAN cục bộ trong đoạn đó (phản hồi Giang — "loại bỏ
+     * toàn bộ timing Y" — ĐÃ XOÁ HẲN hệ số cường độ/đường cong Y, field LUÔN đạt ĐỦ giá trị đã lerp
+     * theo vị trí thời gian, không còn field nào bị nhân thêm gì). SỬA (phản hồi Giang, bug hard-cut)
+     * — KHÔNG còn tự chèn mốc ảo x=0=baseline ở ĐÂY nữa (mốc đó giờ ĐỘNG, nơi gọi tự quyết + tự
+     * chèn TRƯỚC khi gọi hàm này — xem docstring `_activatePointMoveAll()`).
+     * @param {{x:number,target:object}[]} targetPoints
      * @returns {object[]}
      */
-    _buildPointMoveAllKeyframes(points) {
-        const targetPoints = [{ x: 0, target: POINT_MOVE_BASELINE_TARGET }, ...points]; // node ảo "vị trí ban đầu"
+    _buildPointMoveAllKeyframes(targetPoints) {
         const keyframes = [];
         for (let i = 0; i <= MOTION_ENGINE_POINT_MOVE_ALL_STEPS; i++) {
             const xPercent = (i / MOTION_ENGINE_POINT_MOVE_ALL_STEPS) * 100;
@@ -344,6 +416,8 @@ const workflowMotionEngine = {
         setMotionEngineContainerVisible(motionEngineContainer, false); // core
         stopPointMoveAnimation(motionEnginePointMoveWrapper, this._pointMoveAnim); // core/dom-refs.js, core/motion-engine.js
         this._pointMoveAnim = null;
+        this._lastAllModePoints = null; // dọn sạch — dừng hẳn thì không còn gì để lượt SAU suy tiếp
+        this._lastAllModeDurationMs = 0;
         [[motionEngineLayer1, motionEngineLayer1Pan], [motionEngineLayer2, motionEngineLayer2Pan]].forEach(([layerEl, panEl]) => {
             setMotionEngineLayerImage(panEl, ''); // core
             resetMotionEngineLayerClasses(layerEl); // core

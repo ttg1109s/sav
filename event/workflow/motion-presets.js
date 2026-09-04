@@ -120,11 +120,22 @@ const workflowMotionPresets = {
         const ratioSlider = q('#setting-motion-transition-ratio');
         if (ratioSlider) ratioSlider.value = preset.transitionInOutRatio;
         this._updateTransitionRatioLabel(preset.transitionDurationMs, preset.transitionInOutRatio);
-        // Point Move — dòng "Thứ tự chọn" CHỈ hiện khi runMode==='one', nút "Timing" CHỈ hiện khi 'all'.
+        // Point Move — dòng "Thứ tự chọn" CHỈ hiện khi runMode==='one', nút "Timing" + 2 checkbox
+        // "force baseline" CHỈ hiện khi 'all' (MỚI — phản hồi Giang, sửa bug hard-cut baseline).
         const orderRow = q('#motion-pointmove-order-row');
         if (orderRow) orderRow.classList.toggle('hidden', preset.pointMoveRunMode !== 'one');
         const timingBtn = q('#btn-motion-pointmove-timing');
         if (timingBtn) timingBtn.classList.toggle('hidden', preset.pointMoveRunMode !== 'all');
+        const startForceRow = q('#motion-pointmove-start-force-row');
+        if (startForceRow) startForceRow.classList.toggle('hidden', preset.pointMoveRunMode !== 'all');
+        const endForceRow = q('#motion-pointmove-end-force-row');
+        if (endForceRow) endForceRow.classList.toggle('hidden', preset.pointMoveRunMode !== 'all');
+        // Đồng bộ trạng thái tick (bật 1 cái có thể đã tự TẮT cái kia — xem
+        // changePointMoveStartForceBaseline()/changePointMoveEndForceBaseline() ngay dưới).
+        const startForceCb = q('#setting-motion-pointmove-start-force-baseline');
+        if (startForceCb) startForceCb.checked = preset.pointMoveStartForceBaseline;
+        const endForceCb = q('#setting-motion-pointmove-end-force-baseline');
+        if (endForceCb) endForceCb.checked = preset.pointMoveEndForceBaseline;
     },
 
     _updateTransitionRatioLabel(transitionDurationMs, ratioPercent) {
@@ -267,6 +278,49 @@ const workflowMotionPresets = {
         await this._mutateEditing((p) => { p.pointMoveOneOrder = order; });
     },
 
+    /** Checkbox "Start point: force baseline" (MỚI, phản hồi Giang — sửa bug hard-cut baseline,
+     * CHỈ có ý nghĩa khi `pointMoveRunMode==='all'`) — CHỈ ĐƯỢC 1 TRONG 2 (start/end) bật cùng lúc:
+     * bật cái này TỰ TẮT "End force baseline" nếu đang bật. Bật xong, đẩy nhẹ (+0.1%, CÙNG quy ước
+     * +0.2% ở addPointMove()) mọi point move đang đứng ĐÚNG x=0% ra khỏi mốc — mốc đó giờ do baseline
+     * chiếm, tránh 1 node đứng "chết" bị mốc ảo ghi đè vô hình.
+     * @param {boolean} checked */
+    async changePointMoveStartForceBaseline(checked) {
+        await this._mutateEditing((p) => {
+            p.pointMoveStartForceBaseline = checked;
+            if (checked) {
+                p.pointMoveEndForceBaseline = false;
+                p.pointMoves = p.pointMoves.map((pm) => (pm.timingX === 0 ? { ...pm, timingX: 0.1 } : pm));
+            }
+        });
+        this._syncEditUI();
+    },
+
+    /** Checkbox "Endpoint: force baseline" — tương tự `changePointMoveStartForceBaseline()` ngay
+     * trên, chỉ khác đầu trục (x=100%, -0.1%).
+     * @param {boolean} checked */
+    async changePointMoveEndForceBaseline(checked) {
+        await this._mutateEditing((p) => {
+            p.pointMoveEndForceBaseline = checked;
+            if (checked) {
+                p.pointMoveStartForceBaseline = false;
+                p.pointMoves = p.pointMoves.map((pm) => (pm.timingX === 100 ? { ...pm, timingX: 99.9 } : pm));
+            }
+        });
+        this._syncEditUI();
+    },
+
+    /** Biên [minX,maxX] kéo/nhập `timingX` HIỆN TẠI của preset đang sửa — hẹp lại (0.1/99.9) khi
+     * cờ force-baseline tương ứng đang bật (mốc đó do baseline chiếm, xem docstring 2 hàm trên).
+     * DÙNG CHUNG cho thanh Timing (`_renderTimingCurve()`) LẪN modal nhập số
+     * (`_commitPointMoveTimingModal()`) — tránh lệch biên giữa 2 nơi.
+     * @param {object} preset @returns {{minX:number, maxX:number}} */
+    _pointMoveTimingBounds(preset) {
+        return {
+            minX: preset.pointMoveStartForceBaseline ? 0.1 : 0,
+            maxX: preset.pointMoveEndForceBaseline ? 99.9 : 100,
+        };
+    },
+
     /** Ứng checkbox 1 dòng trong danh sách point move — VỊ TRÍ ĐẦU (index 0) khoá `checked:true`,
      * UI đã disable checkbox đó nên message này thực tế KHÔNG bao giờ gửi cho id ở vị trí 0 (phòng
      * hờ vẫn guard lại ở đây — không tin payload mù).
@@ -287,7 +341,7 @@ const workflowMotionPresets = {
         await this._mutateEditing((p) => {
             const blank = buildBlankPointMove(); // core/motion-presets.js
             const lastTimingX = p.pointMoves.length > 0 ? p.pointMoves[p.pointMoves.length - 1].timingX : 0;
-            blank.timingX = Math.min(100, lastTimingX + 0.2);
+            blank.timingX = Math.min(this._pointMoveTimingBounds(p).maxX, lastTimingX + 0.2); // SỬA (phản hồi Giang) — kẹp theo biên ĐỘNG, không còn cố định 100
             p.pointMoves = [...p.pointMoves, blank];
         });
         workflowAppSettings._renderPointMoveList(); // liên tuyến domain
@@ -307,7 +361,7 @@ const workflowMotionPresets = {
                 ...original,
                 id: generatePointMoveId(), // core/motion-presets.js
                 checked: true,
-                timingX: Math.min(100, lastTimingX + 0.2),
+                timingX: Math.min(this._pointMoveTimingBounds(p).maxX, lastTimingX + 0.2), // SỬA (phản hồi Giang) — kẹp theo biên ĐỘNG, không còn cố định 100
                 linearX: { ...original.linearX }, linearY: { ...original.linearY },
                 rotate: { ...original.rotate }, zoom: { ...original.zoom },
                 flipX: { ...original.flipX }, flipY: { ...original.flipY },
@@ -496,8 +550,9 @@ const workflowMotionPresets = {
         const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
         if (!preset) return;
         const points = this._computeTimingPoints(preset, this._dragPreviewPointMoveId, this._dragPreviewTimingX);
+        const { minX, maxX } = this._pointMoveTimingBounds(preset);
         containerEl.innerHTML = '';
-        containerEl.appendChild(buildPointMoveTimingCurveEl(points)); // core/point-move-timing-ui.js
+        containerEl.appendChild(buildPointMoveTimingCurveEl(points, minX, maxX)); // core/point-move-timing-ui.js
     },
 
     /** Vá LIVE vị trí 1 node NGAY TRONG SVG đang có (KHÔNG xoá/dựng lại — xem lý do ở
@@ -545,6 +600,7 @@ const workflowMotionPresets = {
         const idx = preset.pointMoves.findIndex((p) => p.id === id);
         if (idx === -1) return;
         const pm = preset.pointMoves[idx];
+        const { minX, maxX } = this._pointMoveTimingBounds(preset); // SỬA (phản hồi Giang) — biên ĐỘNG, không còn cố định [0,100]
         let draftX = pm.timingX;
         modalChoice( // core/modal-choice-ui.js
             tFormat('motionSettingsDrawer.pointMove.itemName', { n: idx }),
@@ -556,7 +612,7 @@ const workflowMotionPresets = {
             {
                 bodyHtml: `
                     <label class="block text-xs text-slate-400 mb-1">${escapeHtml(t('motionSettingsDrawer.pointMove.timing.xLabel'))}</label>
-                    <input type="number" id="ptmove-modal-x-input" min="0" max="100" step="1" value="${pm.timingX}" class="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none">
+                    <input type="number" id="ptmove-modal-x-input" min="${minX}" max="${maxX}" step="1" value="${pm.timingX}" class="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none">
                 `,
             },
         );
@@ -569,7 +625,10 @@ const workflowMotionPresets = {
      * @param {string} id @param {number} timingX */
     async _commitPointMoveTimingModal(id, timingX) {
         if (typeof timingX !== 'number' || Number.isNaN(timingX)) return;
-        const clampedX = Math.max(0, Math.min(100, timingX));
+        const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
+        if (!preset) return;
+        const { minX, maxX } = this._pointMoveTimingBounds(preset); // SỬA (phản hồi Giang) — biên ĐỘNG, không còn cố định [0,100]
+        const clampedX = Math.max(minX, Math.min(maxX, timingX));
         await this._mutateEditing((p) => {
             const idx = p.pointMoves.findIndex((pm) => pm.id === id);
             if (idx === -1) return;

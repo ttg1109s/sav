@@ -355,6 +355,10 @@ const workflowAppSettings = {
                 if (pointMoveRunMode) pointMoveRunMode.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.runMode.change', payload: { value: e.target.value } }));
                 const pointMoveOrder = body.querySelector('#setting-motion-pointmove-order');
                 if (pointMoveOrder) pointMoveOrder.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.oneOrder.change', payload: { value: e.target.value } }));
+                const pointMoveStartForce = body.querySelector('#setting-motion-pointmove-start-force-baseline');
+                if (pointMoveStartForce) pointMoveStartForce.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.startForceBaseline.change', payload: { checked: e.target.checked } }));
+                const pointMoveEndForce = body.querySelector('#setting-motion-pointmove-end-force-baseline');
+                if (pointMoveEndForce) pointMoveEndForce.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.endForceBaseline.change', payload: { checked: e.target.checked } }));
                 const pointMoveTimingBtn = body.querySelector('#btn-motion-pointmove-timing');
                 if (pointMoveTimingBtn) pointMoveTimingBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.openTiming.click', payload: {} }));
 
