@@ -26,7 +26,11 @@
  * trong `VISUALIZER_DRAWERS`), 2 style con qua `customEffect.lighting.lightingStyle`: 'thunder'
  * (`_tickLightingThunder()`) và 'fireworks' (`_tickLightingFireworks()`, tự gom rocket/particle —
  * `fwRockets`/`fwParticles`). Cả 2 style dùng chung hàm Core ở `core/visualizer/types/lighting.js`.
- * Xem `_tickLighting()` bên dưới.
+ * Xem `_tickLighting()` bên dưới. [SỬA — rà soát Rule 3] Style "fireworks": `explodeFireworksXXX()`/
+ * `splitFireworksParticle()`/`explodeFireworksText()` (core) giờ trả về SPEC thuần, không tự gọi
+ * `getComputedColor()`/`createFireworksParticle()` nữa — Workflow tự `_fwMaterializeSpecs()` (mới,
+ * xem bên dưới) để vật chất hoá thành particle thật, TRƯỚC KHI gọi tiếp `applyFireworksDepth()`/
+ * `applyFireworksSizeScale()` như cũ.
  *
  * MÔ HÌNH GALAXY — VIẾT LẠI HOÀN TOÀN (26/08/2026, phản hồi Giang — "loại bỏ mô hình cũ, không
  * cần ý kiến"). SỬA LẠI CÙNG NGÀY (lượt 2, phản hồi Giang — tách RÕ 2 khái niệm bản đầu gộp
@@ -353,7 +357,8 @@ const workflowVisualizerRender = {
                 const power = computeFireworksBurstPower(cfg.burstPower, beatScale) * sizeScale; // core
                 const exploder = FIREWORKS_EXPLODERS[rocket.style] || FIREWORKS_EXPLODERS.chrysanthemum; // core
                 const count = Math.max(8, Math.round(cfg.particleCount * rocket.depthScale * sizeScale));
-                const burst = exploder(rocket.x, rocket.y, count, power, cfg.gravity, spectrumBin);
+                const burstSpecs = exploder(rocket.x, rocket.y, count, power, cfg.gravity, spectrumBin); // core — trả SPEC thuần (Rule 3)
+                const burst = this._fwMaterializeSpecs(burstSpecs); // Workflow tự resolve màu + tạo particle thật
                 const scaled = applyFireworksSizeScale(applyFireworksDepth(burst, rocket.depthScale), sizeScale); // core
                 burstParticles = burstParticles.concat(scaled);
                 flashTarget = Math.max(flashTarget, computeFireworksFlashAlpha(beatScale, cfg.flashThreshold) * rocket.depthScale); // core — flashThreshold DÙNG CHUNG với style thunder
@@ -372,8 +377,11 @@ const workflowVisualizerRender = {
         const survivors = [];
         fwParticles.concat(burstParticles).forEach((particle) => {
             const status = updateFireworksParticle(particle); // core
-            if (status === 'split') survivors.push(...applyFireworksDepth(splitFireworksParticle(particle), particle.depthAlpha)); // core
-            else if (status === 'alive') survivors.push(particle);
+            if (status === 'split') {
+                const splitSpecs = splitFireworksParticle(particle); // core — trả SPEC thuần (Rule 3)
+                const splitParticles = this._fwMaterializeSpecs(splitSpecs); // Workflow tự resolve
+                survivors.push(...applyFireworksDepth(splitParticles, particle.depthAlpha)); // core
+            } else if (status === 'alive') survivors.push(particle);
         });
         survivors.forEach((particle) => drawFireworksParticle(ctx, particle, perf.blurMult, dpr)); // core
         appState.set('fwParticles', survivors, { skipCheck: true });
@@ -391,6 +399,26 @@ const workflowVisualizerRender = {
         if (appState.get('fwRockets').length >= cfg.maxConcurrentRockets) return;
         _fwLastLaunchAt = now;
         this._fwLaunchOne(cfg, beatScale);
+    },
+
+    /**
+     * [MỚI — rà soát Rule 3] Vật chất hoá 1 mảng SPEC thuần (từ `explodeFireworksXXX()`/
+     * `splitFireworksParticle()`/`explodeFireworksText()`, core/visualizer/types/lighting.js)
+     * thành particle THẬT — nơi DUY NHẤT gọi `getComputedColor()` (core/audio-analysis.js) +
+     * `createFireworksParticle()` (core/visualizer/types/lighting.js) cho nhóm fireworks, đúng
+     * tinh thần "core gọi core PHẢI chuyển ra Workflow" (Rule 3a/3c điều kiện 2). Mỗi spec đã tự
+     * quyết định `fixedColor` (dùng nguyên) hay `colorArgs` (bộ 3 tham số gọi `getComputedColor`) —
+     * hàm này không biết/không cần biết ý nghĩa nghiệp vụ của từng field, chỉ resolve rồi tạo.
+     * @param {object[]} specs @returns {object[]} particle thật, cùng thứ tự với `specs`.
+     */
+    _fwMaterializeSpecs(specs) {
+        return specs.map((spec) => {
+            const color = spec.fixedColor !== undefined ? spec.fixedColor : getComputedColor(...spec.colorArgs).fill; // core
+            const options = spec.targetColorArgs
+                ? { ...spec.options, targetColor: getComputedColor(...spec.targetColorArgs).fill } // core
+                : spec.options;
+            return createFireworksParticle(spec.x, spec.y, color, options); // core
+        });
     },
 
     /** Bắn 1 rocket — kiểu nổ random trong enabledStyles, `depthScale` random (0.4 xa..1.0 gần)
@@ -456,7 +484,8 @@ const workflowVisualizerRender = {
         if (!picked) return;
         _fwTextIndex = picked.nextIndex;
         const points = buildFireworksTextPoints(picked.text); // core
-        const particles = explodeFireworksText(canvas.width / 2, canvas.height * 0.35, points, cfg.burstPower, 0); // core
+        const textSpecs = explodeFireworksText(canvas.width / 2, canvas.height * 0.35, points, cfg.burstPower, 0); // core — trả SPEC thuần (Rule 3)
+        const particles = this._fwMaterializeSpecs(textSpecs); // Workflow tự resolve màu + tạo particle thật
         appState.mutate('fwParticles', (arr) => { particles.forEach((p) => arr.push(p)); }, { skipCheck: true });
     },
 
