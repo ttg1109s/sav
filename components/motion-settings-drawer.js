@@ -1,23 +1,19 @@
 /**
  * Component: màn hình "Cấu hình Motion" — hệ PRESET độc lập, đặt tên/thêm/xoá được (CÙNG KHUÔN
- * hệ preset EQ — core/eq-presets.js/components/eq-presets-drawer.js). Visual Background (Photo)
- * chỉ là 1 trong các "nơi tiêu thụ" CÓ THỂ gắn 1 preset vào dùng — KHÔNG sở hữu/quản lý hệ preset
- * này. Lối vào DUY NHẤT: Settings > System > Motion.
+ * hệ preset EQ — core/eq-presets.js/components/eq-presets-drawer.js). Preset TỰ đăng ký cho nơi
+ * tiêu thụ (VBG Photo) ngay trong màn Edit, chứ KHÔNG sở hữu/quản lý nơi tiêu thụ. Lối vào DUY
+ * NHẤT: Settings > System > Motion -> thẳng danh sách preset.
  *
- * 7 màn (mỗi màn 1 hàm render, tất cả điều hướng qua workflowAppSettings.navigateTo(), xem
+ * 5 màn (mỗi màn 1 hàm render, tất cả điều hướng qua workflowAppSettings.navigateTo(), xem
  * event/workflow/app-settings.js + event/workflow/motion-presets.js):
- *   1. `renderMotionMenuBody()` — 2 dòng: "Quản lý cấu hình" / "Áp dụng cấu hình".
- *   2. `renderMotionListBody(presets, pickMode)` — danh sách preset — DÙNG CHUNG cho CẢ "Quản lý"
- *      (tap = sửa, có nút xoá nhanh mỗi dòng) LẪN "Áp dụng > chọn" (tap = CHỌN gắn vào, không có nút
- *      xoá) — `pickMode` phân biệt 2 hành vi.
- *   3. `renderMotionEditBody(preset)` — sửa 1 preset: Transition (toggle riêng + type/duration/
- *      ratio/easing LUÔN hiện) + Point Move (danh sách điểm chuyển động — thay Ken Burns, xem
- *      core/motion-presets.js) + React Beat Audio + nhóm CUỐI "Quản lý" (đổi tên/Reset/Xoá).
- *   4. `renderPointMoveListBody(pointMoves)` — danh sách point move: checkbox | tên | xoá | sửa.
- *   5. `renderPointMoveEditBody(pointMove)` — sửa 6 thông số (Linear X/Y, Rotate, Zoom, Flip X/Y).
- *   6. `renderPointMoveTimingBody()` — khung chứa đường cong Timing (SVG dựng bởi
+ *   1. `renderMotionListBody(presets)` — danh sách preset, tap = sửa, nút xoá nhanh mỗi dòng.
+ *   2. `renderMotionEditBody(preset, motionApply, consumerKey)` — sửa 1 preset: Transition +
+ *      Point Move (thay Ken Burns, xem core/motion-presets.js) + React Beat Audio + "Áp dụng cho"
+ *      (đăng ký nơi tiêu thụ) + "Quản lý" (đổi tên/Reset/Xoá).
+ *   3. `renderPointMoveListBody(pointMoves)` — danh sách point move: checkbox | tên | xoá | sửa.
+ *   4. `renderPointMoveEditBody(pointMove)` — sửa 6 thông số (Linear X/Y, Rotate, Zoom, Flip X/Y).
+ *   5. `renderPointMoveTimingBody()` — khung chứa đường cong Timing (SVG dựng bởi
  *      core/point-move-timing-ui.js, workflow tự append vào #ptmove-timing-container).
- *   7. `renderMotionApplyListBody()` — 1 dòng "Photo visual background" + `renderMotionApplyDetailBody()`.
  *
  * Logic: event/workflow/motion-presets.js (workflowMotionPresets). Router/Listener: cụm
  * "motionPresets" (event/router/motion-presets.js).
@@ -25,32 +21,20 @@
  * components/settings/app-settings-main.js (renderAppSettingsRowList()).
  */
 
-function renderMotionMenuBody() {
-    const rows = [
-        { key: 'motionManage', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4', labelKey: 'motionPresetsDrawer.menu.manage.label', hintKey: 'motionPresetsDrawer.menu.manage.hint' },
-        { key: 'motionApply', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', labelKey: 'motionPresetsDrawer.menu.apply.label', hintKey: 'motionPresetsDrawer.menu.apply.hint' },
-    ];
-    return renderAppSettingsRowList(rows); // components/settings/app-settings-main.js — data-app-settings-nav, tái dùng cơ chế chung
-}
-
-/** @param {{id:string, name:string}[]} presets @param {boolean} pickMode */
-function renderMotionListBody(presets, pickMode) {
-    const addRowHtml = pickMode ? '' : `
+/** @param {{id:string, name:string}[]} presets */
+function renderMotionListBody(presets) {
+    const addRowHtml = `
         <button type="button" id="btn-motion-list-add" class="w-full text-center px-4 py-3.5 rounded-2xl mb-2 bg-sky-50 border border-sky-200 hover:bg-sky-100 transition-colors text-sm font-semibold text-sky-600">${t('motionPresetsDrawer.list.add.label')}</button>
     `;
     if (presets.length === 0) {
-        return addRowHtml + `<p class="text-sm text-slate-500 text-center py-10 px-6">${t(pickMode ? 'motionPresetsDrawer.list.emptyPick' : 'motionPresetsDrawer.list.emptyManage')}</p>`;
+        return addRowHtml + `<p class="text-sm text-slate-500 text-center py-10 px-6">${t('motionPresetsDrawer.list.empty')}</p>`;
     }
     const itemsHtml = presets.map((p) => `
         <div data-motion-preset-tile="${escapeHtml(p.id)}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-3 bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer">
             <span class="text-sm font-semibold text-slate-700 truncate">${escapeHtml(p.name)}</span>
-            ${pickMode ? `
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-            ` : `
             <button type="button" data-motion-preset-quickdelete="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors shrink-0" title="${t('motionPresetsDrawer.list.delete.title')}">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
             </button>
-            `}
         </div>
     `).join('');
     return addRowHtml + itemsHtml;
@@ -96,7 +80,8 @@ function renderMotionBeatReactEffectRows(key, effect, cfg) {
 }
 
 /** @param {object} preset - 1 phần tử `appState.motionPresets` (core/motion-presets.js). */
-function renderMotionEditBody(preset) {
+/** @param {object} preset @param {Object<string,string[]>} motionApply @param {string} consumerKey - đang chọn ở dropdown "Áp dụng cho". */
+function renderMotionEditBody(preset, motionApply, consumerKey) {
     return `
                 <!-- ===================== NHÓM 1: CHUYỂN CẢNH ===================== -->
                 <div>
@@ -324,6 +309,17 @@ function renderMotionEditBody(preset) {
                         </button>
                     </div>
                 </div>
+
+                <!-- ===================== NHÓM 5: ÁP DỤNG CHO — đăng ký nơi tiêu thụ ===================== -->
+                <div>
+                    <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2 mt-4" data-i18n="motionPresetsDrawer.apply.groupTitle">${t('motionPresetsDrawer.apply.groupTitle')}</h3>
+                    <div class="glass-modal rounded-2xl flex items-center gap-2 p-4">
+                        <select id="setting-motion-apply-consumer" class="flex-1 min-w-0 bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none">
+                            ${MOTION_APPLY_CONSUMERS.map((c) => `<option value="${c.key}" ${c.key === consumerKey ? 'selected' : ''}>${t(c.labelKey)}</option>`).join('')}
+                        </select>
+                        <button type="button" id="btn-motion-apply-toggle" class="shrink-0 px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors ${isMotionApplySubscribed(motionApply, consumerKey, preset.id) ? 'bg-rose-500 hover:bg-rose-400' : 'bg-emerald-500 hover:bg-emerald-400'}">${t(isMotionApplySubscribed(motionApply, consumerKey, preset.id) ? 'motionPresetsDrawer.apply.unsubscribe.label' : 'motionPresetsDrawer.apply.subscribe.label')}</button>
+                    </div>
+                </div>
     `;
 }
 
@@ -447,41 +443,5 @@ function renderPointMoveTimingBody(pointMoves) {
                 <button type="button" id="btn-ptmove-timing-zoom-in" class="w-7 h-7 rounded-lg bg-black/40 hover:bg-black/60 text-slate-300 text-base font-bold transition-colors">+</button>
             </div>
         </div>
-    `;
-}
-
-/** Màn "Áp dụng cấu hình" — danh sách "nơi tiêu thụ". Tạm thời DUY NHẤT 1 dòng "Photo visual
- * background". Hint hiện tên preset đang gắn (hoặc "Chưa gắn").
- * @param {string} attachedName */
-function renderMotionApplyListBody(attachedName) {
-    const hint = attachedName || t('motionPresetsDrawer.apply.notAttached');
-    return `
-        <button type="button" data-app-settings-nav="motionApplyPhotoVisualBg" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-3 bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors">
-            <div class="min-w-0">
-                <div class="text-sm font-semibold text-slate-700 truncate">${t('motionPresetsDrawer.apply.photoVisualBg.label')}</div>
-                <div class="text-xs text-slate-400 mt-0.5 truncate">${escapeHtml(hint)}</div>
-            </div>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-        </button>
-    `;
-}
-
-/** Chi tiết 1 nơi tiêu thụ (hiện chỉ "Photo visual background") — tên preset đang gắn bên trái + nút
- * "Gỡ" (chỉ hiện khi ĐÃ gắn), cùng nút mở lại danh sách preset ở chế độ CHỌN.
- * @param {string} attachedName - '' nếu chưa gắn. */
-function renderMotionApplyDetailBody(attachedName) {
-    return `
-        <div class="glass-modal rounded-2xl flex flex-col overflow-hidden mb-4">
-            <div class="flex justify-between items-center gap-3 p-4">
-                <div class="min-w-0">
-                    <div class="text-xs text-slate-400 mb-0.5" data-i18n="motionPresetsDrawer.apply.currentLabel">${t('motionPresetsDrawer.apply.currentLabel')}</div>
-                    <div class="text-sm font-semibold truncate">${escapeHtml(attachedName || t('motionPresetsDrawer.apply.notAttached'))}</div>
-                </div>
-                ${attachedName ? `
-                <button type="button" id="btn-motion-apply-detach" class="text-xs font-semibold text-rose-400 px-2 shrink-0 hover:text-rose-300">${t('motionPresetsDrawer.apply.detach.label')}</button>
-                ` : ''}
-            </div>
-        </div>
-        <button type="button" id="btn-motion-apply-pick" class="w-full text-center py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors">${t('motionPresetsDrawer.apply.pickButton')}</button>
     `;
 }

@@ -1,21 +1,19 @@
 /**
- * Component: panel body "Visual Background" (v15, MỚI 29/08/2026, phản hồi Giang — bỏ dropdown
- * "Kiểu" thủ công, thay bằng 3 nút chọn nguồn TRỰC TIẾP: Video/Ảnh/Thư mục — `type` giờ là HỆ QUẢ
- * của nút vừa bấm (không còn field UI riêng để chọn trước). Cả 3 picker giờ hỗ trợ CHỌN NHIỀU
- * (multi-select, đánh số theo thứ tự chọn) — 1 item vẫn hoạt động y hệt "chọn 1" cũ (mảng độ dài 1).
- * Logic: event/workflow/visual-bg.js (workflowVisualBg) + event/workflow/motion-engine.js
- * (workflowMotionEngine — engine cycle ảnh thật, đọc cấu hình từ preset Motion đang gắn qua
+ * Component: panel body "Visual Background" — 3 nút chọn nguồn trực tiếp: Video/Ảnh/Thư mục —
+ * `type` là HỆ QUẢ của nút vừa bấm. Cả 3 picker hỗ trợ CHỌN NHIỀU (multi-select, đánh số theo thứ
+ * tự chọn) — 1 item vẫn hoạt động y hệt "chọn 1" (mảng độ dài 1).
+ * Logic: event/workflow/visual-bg-common.js (workflowVisualBg) + event/workflow/motion-engine.js
+ * (workflowMotionEngine — engine cycle ảnh thật, đọc preset Motion đang gắn qua
  * `appConfigVisualBg.motionPresetId`, xem event/workflow/motion-presets.js). Listener/router: cụm
  * "visualBg".
  */
 function renderVisualBgPanelBody() {
     return `
-                <!-- ===================== NGUỒN ===================== -->
+                <!-- ===================== MEDIA — chọn nguồn ===================== -->
                 <div>
-                    <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2" data-i18n="visualBgSettingsDrawer.groupSource.title">${t('visualBgSettingsDrawer.groupSource.title')}</h3>
+                    <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2" data-i18n="visualBgSettingsDrawer.groupMedia.title">${t('visualBgSettingsDrawer.groupMedia.title')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-
-                        <div class="p-4 border-b border-white/5">
+                        <div class="p-4">
                             <!-- Nhãn nguồn + 2 nút Làm tươi/Gỡ — Workflow ghi #visual-bg-source-name qua DOM API sau khi đọc DB (Rule 5d). -->
                             <div class="flex justify-between items-center gap-3 mb-3">
                                 <div class="min-w-0">
@@ -30,15 +28,21 @@ function renderVisualBgPanelBody() {
                                     </button>
                                 </div>
                             </div>
-                            <!-- 3 nút CHỌN NGUỒN trực tiếp — MỚI (29/08/2026), thay hẳn dropdown Kiểu + 2 nút "Chọn 1"/"Chọn nhóm" cũ. -->
                             <div class="flex gap-2">
                                 <button type="button" id="setting-visual-bg-pick-video" class="flex-1 text-xs font-medium text-center py-2.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors" data-i18n="visualBgSettingsDrawer.pickVideo.label">${t('visualBgSettingsDrawer.pickVideo.label')}</button>
                                 <button type="button" id="setting-visual-bg-pick-photo" class="flex-1 text-xs font-medium text-center py-2.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors" data-i18n="visualBgSettingsDrawer.pickPhoto.label">${t('visualBgSettingsDrawer.pickPhoto.label')}</button>
                                 <button type="button" id="setting-visual-bg-pick-folder" class="flex-1 text-xs font-medium text-center py-2.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors" data-i18n="visualBgSettingsDrawer.pickFolder.label">${t('visualBgSettingsDrawer.pickFolder.label')}</button>
                             </div>
                         </div>
+                    </div>
+                </div>
 
-                        <!-- 3 hàng dưới CHỈ hiện khi source.list còn >1 item sống (Workflow toggle class). -->
+                <!-- ===================== PLAYBACK — cách phát + Motion, tách khỏi Media ===================== -->
+                <div class="mt-6">
+                    <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2" data-i18n="visualBgSettingsDrawer.groupPlayback.title">${t('visualBgSettingsDrawer.groupPlayback.title')}</h3>
+                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
+
+                        <!-- 2 hàng dưới CHỈ hiện khi source.list còn >1 item sống (Workflow toggle class). -->
                         <div id="visual-bg-list-playback-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors hidden">
                             <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.listPlaybackMode.label">${t('visualBgSettingsDrawer.listPlaybackMode.label')}</span>
                             <select id="setting-visual-bg-list-playback-mode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
@@ -56,9 +60,8 @@ function renderVisualBgPanelBody() {
                             </select>
                         </div>
 
-                        <!-- MỚI (29/08/2026) — 2 hàng dời từ Slideshow ("Seconds per photo") sang
-                             đây, dùng CHUNG video/ảnh (Giang chốt) — CÙNG điều kiện hiện isList với
-                             2 hàng Playback/Next order ngay trên (workflowVisualBg.refreshPanelUI()). -->
+                        <!-- "Seconds per video/photo" — dùng CHUNG video/ảnh, CÙNG điều kiện hiện isList
+                             với 2 hàng Playback/Next order ngay trên (workflowVisualBg.refreshPanelUI()). -->
                         <div id="visual-bg-duration-mode-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors hidden">
                             <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.durationMode.label">${t('visualBgSettingsDrawer.durationMode.label')}</span>
                             <select id="setting-visual-bg-duration-mode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
@@ -72,14 +75,15 @@ function renderVisualBgPanelBody() {
                             <button type="button" id="setting-visual-bg-duration-seconds" class="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none w-20 text-right shrink-0 hover:bg-white/10 transition-colors">5s</button>
                         </div>
 
-                        <!-- XOÁ (29/08/2026, phản hồi Giang — Slideshow tách hẳn khỏi VBG, thành hệ
-                             preset độc lập, lối vào DUY NHẤT System > Slideshow > "Áp dụng cấu hình")
-                             — hàng "Slideshow options..." (setting-visual-bg-open-slideshow) bỏ hẳn,
-                             panel VBG không còn liên kết trực tiếp nào tới Slideshow nữa. -->
+                        <!-- Motion — CHỈ hiện khi type='photo' (nơi tiêu thụ Motion duy nhất hiện tại,
+                             xem core/motion-presets.js::MOTION_APPLY_CONSUMERS). Option dựng động từ
+                             preset ĐÃ đăng ký cho 'photoVisualBg' — Workflow tự đổ qua refreshPanelUI(). -->
+                        <div id="visual-bg-motion-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors hidden">
+                            <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.motion.label">${t('visualBgSettingsDrawer.motion.label')}</span>
+                            <select id="setting-visual-bg-motion-preset" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right"></select>
+                        </div>
 
-                        <!-- MỚI (08/08/2026) — hiện khi type='video' VÀ ≥1 item sống (CẢ single lẫn
-                             list, khác hàng Slideshow ở trên chỉ dành cho list ảnh) — Workflow tự
-                             toggle qua refreshPanelUI(). -->
+                        <!-- Hiện khi type='video' VÀ ≥1 item sống — Workflow tự toggle qua refreshPanelUI(). -->
                         <button id="setting-visual-bg-open-video-audio" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left hidden">
                             <div class="flex items-center gap-3 min-w-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-sky-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M12 6v12M6 9v6a2 2 0 002 2h2l4 4V3l-4 4H8a2 2 0 00-2 2z" /></svg>
