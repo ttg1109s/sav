@@ -4,51 +4,51 @@
  * trong Settings), KHÔNG phải Generic Drawer List<->Edit riêng như EQ.
  *
  * Danh sách preset SỐNG ở `appState.motionPresets` (nạp lúc boot từ `meta.motionPresets`, xem
- * loadPresetsOnBoot() — rỗng là HỢP LỆ, KHÔNG seed gì cả). "Nơi tiêu thụ" (hiện DUY NHẤT Photo
- * Visual Background) chỉ giữ 1 tham chiếu `appConfigVisualBg.motionPresetId` — Motion KHÔNG biết/
- * không cần biết ai đang dùng mình, chỉ cung cấp danh sách + CRUD.
+ * loadPresetsOnBoot() — rỗng là HỢP LỆ, KHÔNG seed gì cả). Preset TỰ đăng ký cho nơi tiêu thụ (hiện
+ * DUY NHẤT Photo Visual Background) qua `appState.motionApply` (từ màn Edit — nhóm "Áp dụng cho"),
+ * nơi tiêu thụ tự chọn 1 preset TRONG SỐ đã đăng ký qua field riêng
+ * (`appConfigVisualBg.motionPresetId`) — xem core/motion-presets.js.
  *
  * NẠP SAU: core/motion-presets.js, core/motion-engine.js, core/point-move-timing-ui.js,
  * components/motion-settings-drawer.js, service/db.js (getMeta/setMeta), event/workflow/
- * app-settings.js (workflowAppSettings — liên tuyến domain), event/workflow/visual-bg.js
+ * app-settings.js (workflowAppSettings — liên tuyến domain), event/workflow/visual-bg-common.js
  * (workflowVisualBg — liên tuyến domain, đọc/ghi `motionPresetId`), core/time-picker-modal.js.
  */
 
 const workflowMotionPresets = {
     _editingId: null,   // preset đang sửa (màn Edit) — null nếu không ở màn Edit
-    _pickMode: false,    // true khi màn Danh sách đang ở chế độ "Áp dụng > Chọn" (tap = gắn, không phải sửa)
+    _editingApplyConsumerKey: MOTION_APPLY_CONSUMERS[0].key, // consumer ĐANG chọn ở dropdown "Áp dụng cho" (màn Edit)
     _editingPointMoveId: null, // point move đang sửa (màn Point Move Edit) — null nếu không ở màn đó
     _dragPreviewPointMoveId: null, // point move ĐANG kéo trên thanh Timing — null nếu không kéo
     _dragPreviewTimingX: 0,
 
-    /** Gọi từ event/workflow/app-boot.js — đọc `meta.motionPresets`, sanitize từng phần tử (phòng
-     * dữ liệu hỏng/thiếu field). Danh sách RỖNG là hợp lệ — KHÔNG seed gì (khác EQ).
+    /** Gọi từ event/workflow/app-boot.js — đọc `meta.motionPresets`/`meta.motionApply`, sanitize.
+     * Danh sách preset RỖNG là hợp lệ — KHÔNG seed gì (khác EQ).
      * MIGRATE — bản cũ (trước khi Motion tách khỏi Visual Background) lưu CẢ cấu hình Transition/
-     * Ken Burns NGAY TRONG `meta.visualBgConfig.motion` — đọc thẳng RAW meta đó (KHÔNG qua
-     * `appConfigVisualBg.getAll()`, vì schema hiện tại không còn field `motion` nữa) để dựng preset
-     * ĐẦU TIÊN + gán luôn `motionPresetId` — GHI THẲNG vào meta (domain đó CHƯA nạp lúc hàm này
-     * chạy) — để lúc VBG đọc lại `meta.visualBgConfig` ngay sau đó, thấy ĐÚNG `motionPresetId` đã
-     * gán, không mất cấu hình cũ. Trường `kenBurnsEnabled`/`kenBurnsMode` trong preset MIGRATE (nếu
-     * có) bị `sanitizeMotionPreset()` bỏ qua tự nhiên (schema mới không còn field đó) — preset
-     * MIGRATE chỉ giữ được phần Transition, Point Move bắt đầu trắng (đúng — Ken Burns không có
-     * tương đương 1-1 để tự quy đổi sang Point Move). CHỈ chạy 1 LẦN DUY NHẤT (guard:
+     * Ken Burns NGAY TRONG `meta.visualBgConfig.motion` — đọc thẳng RAW meta đó để dựng preset ĐẦU
+     * TIÊN + gán `motionPresetId` + tự đăng ký preset đó cho 'photoVisualBg' trong `motionApply`
+     * (đúng ý nghĩa preset MIGRATE — nó VỐN được gắn cho VBG Photo). CHỈ chạy 1 LẦN DUY NHẤT (guard:
      * `visualBgRaw.motionPresetId` CHƯA từng có). */
     async loadPresetsOnBoot() {
         const raw = await getMeta('motionPresets'); // service/db.js
         let presets = Array.isArray(raw) ? raw.map((p) => sanitizeMotionPreset(p)) : []; // core/motion-presets.js
+        let motionApply = sanitizeMotionApply(await getMeta('motionApply')); // service/db.js, core/motion-presets.js
 
-        const visualBgRaw = await getMeta('visualBgConfig'); // service/db.js — RAW, xem docstring trên
+        const visualBgRaw = await getMeta('visualBgConfig'); // service/db.js — RAW
         if (visualBgRaw && typeof visualBgRaw === 'object' && visualBgRaw.motion && typeof visualBgRaw.motion === 'object' && !('motionPresetId' in visualBgRaw)) {
             const migrated = sanitizeMotionPreset({ ...visualBgRaw.motion, name: t('motionPresetsDrawer.migratedName'), transitionEnabled: true }); // core/motion-presets.js — bản cũ luôn "bật" Transition (chưa có khái niệm tắt)
             presets = [...presets, migrated];
+            motionApply = subscribeMotionApply(motionApply, 'photoVisualBg', migrated.id); // core/motion-presets.js
             visualBgRaw.motionPresetId = migrated.id;
-            delete visualBgRaw.motion; // dọn field cũ — schema hiện tại không còn định nghĩa, để lại chỉ tổ rác
-            await setMeta('visualBgConfig', visualBgRaw); // service/db.js — GHI THẲNG, xem docstring trên (VBG chưa nạp domain lúc này)
-            console.log(`writer: "workflowMotionPresets.loadPresetsOnBoot", page: "motionPresets", content: "migrated legacy motion -> preset ${migrated.id}, gán motionPresetId"`);
+            delete visualBgRaw.motion; // dọn field cũ — schema hiện tại không còn định nghĩa
+            await setMeta('visualBgConfig', visualBgRaw); // service/db.js — GHI THẲNG (VBG chưa nạp domain lúc này)
+            console.log(`writer: "workflowMotionPresets.loadPresetsOnBoot", page: "motionPresets", content: "migrated legacy motion -> preset ${migrated.id}, gán motionPresetId + đăng ký photoVisualBg"`);
         }
 
         appState.set('motionPresets', presets);
-        await setMeta('motionPresets', presets); // ghi lại bản đã sanitize (+ preset migrate nếu có)
+        appState.set('motionApply', motionApply);
+        await setMeta('motionPresets', presets);
+        await setMeta('motionApply', motionApply); // service/db.js
         console.log(`writer: "workflowMotionPresets.loadPresetsOnBoot", page: "motionPresets", content: "${presets.length} preset"`);
     },
 
@@ -72,20 +72,18 @@ const workflowMotionPresets = {
         workflowAppSettings.navigateTo(() => workflowAppSettings._renderMotionEdit()); // liên tuyến domain
     },
 
-    /** Ứng tap 1 dòng preset trong danh sách — `pickMode` quyết định hành vi: đang Quản lý -> mở Edit;
-     * đang Áp dụng > Chọn -> gắn NGAY vào Photo VBG rồi quay lại (KHÔNG mở Edit).
+    /** Ứng tap 1 dòng preset trong danh sách — mở màn Edit.
      * @param {string} id */
     async tileClick(id) {
-        if (this._pickMode) { await this._pickForConsumer(id); return; }
         this._editingId = id;
         workflowAppSettings.navigateTo(() => workflowAppSettings._renderMotionEdit()); // liên tuyến domain
     },
 
-    /** Ứng nút xoá nhanh trên 1 dòng (chỉ hiện khi KHÔNG pickMode) — xoá thẳng, KHÔNG mở Edit trước.
+    /** Ứng nút xoá nhanh trên 1 dòng — xoá thẳng, KHÔNG mở Edit trước.
      * @param {string} id */
     async quickDelete(id) {
         await this._deletePresetById(id);
-        workflowAppSettings._renderMotionManage(); // liên tuyến domain — vẽ lại TẠI CHỖ
+        workflowAppSettings._renderMotionList(); // liên tuyến domain — vẽ lại TẠI CHỖ
     },
 
     // ===================== Sửa 1 preset (màn Edit) =====================
@@ -136,6 +134,7 @@ const workflowMotionPresets = {
         if (startForceCb) startForceCb.checked = preset.pointMoveStartForceBaseline;
         const endForceCb = q('#setting-motion-pointmove-end-force-baseline');
         if (endForceCb) endForceCb.checked = preset.pointMoveEndForceBaseline;
+        this._syncApplyButton();
     },
 
     _updateTransitionRatioLabel(transitionDurationMs, ratioPercent) {
@@ -715,44 +714,59 @@ const workflowMotionPresets = {
     },
 
     /** Dùng CHUNG cho `quickDelete()` (danh sách) VÀ `deleteEditing()` (header Edit) — xoá khỏi
-     * `appState.motionPresets`, gỡ tham chiếu bên Photo VBG NẾU đang gắn đúng preset này.
+     * `appState.motionPresets`, gỡ tham chiếu bên Photo VBG NẾU đang gắn đúng preset này, gỡ khỏi
+     * `motionApply` (mọi nơi tiêu thụ đã đăng ký).
      * @param {string} id */
     async _deletePresetById(id) {
         const presets = appState.get('motionPresets').filter((p) => p.id !== id);
         appState.set('motionPresets', presets);
+        const motionApply = removeMotionApplyEverywhere(appState.get('motionApply'), id); // core/motion-presets.js
+        appState.set('motionApply', motionApply);
         await this._persist();
+        await setMeta('motionApply', motionApply); // service/db.js
         if (typeof workflowVisualBg !== 'undefined' && appConfigVisualBg.getAll().motionPresetId === id) { // liên tuyến domain
             appConfigVisualBg.mutateAll((c) => { c.motionPresetId = null; });
             await workflowVisualBg._persist(); // liên tuyến domain
         }
     },
 
-    // ===================== Áp dụng cấu hình =====================
+    // ===================== Áp dụng cho nơi tiêu thụ (màn Edit) =====================
 
-    /** Ứng tap dòng "Photo visual background" trong màn Áp dụng — mở màn chi tiết. */
-    openApplyDetail() {
-        workflowAppSettings.navigateTo(() => workflowAppSettings._renderMotionApplyPhotoVisualBg()); // liên tuyến domain
+    /** Ứng select đổi consumer đang xem trong dropdown — chỉ đổi state UI cục bộ, KHÔNG persist gì
+     * (chưa bấm nút đăng ký/huỷ). Vẽ lại nút cho ĐÚNG trạng thái sub/unsub của consumer mới chọn.
+     * @param {string} key */
+    changeApplyConsumer(key) {
+        if (!MOTION_APPLY_CONSUMER_KEYS.includes(key)) return; // core/motion-presets.js
+        this._editingApplyConsumerKey = key;
+        this._syncApplyButton();
     },
 
-    /** Ứng nút "Chọn cấu hình" trong màn chi tiết — mở lại danh sách preset ở CHẾ ĐỘ CHỌN. */
-    openPickForPhotoVisualBg() {
-        this._pickMode = true;
-        workflowAppSettings.navigateTo(() => workflowAppSettings._renderMotionManage()); // liên tuyến domain
+    /** Ứng nút Đăng ký/Huỷ đăng ký — toggle theo đúng trạng thái HIỆN TẠI của consumer đang chọn.
+     * @see core/motion-presets.js — subscribeMotionApply()/unsubscribeMotionApply(). */
+    async toggleApplySubscription() {
+        const key = this._editingApplyConsumerKey;
+        const motionApply = appState.get('motionApply');
+        const subscribed = isMotionApplySubscribed(motionApply, key, this._editingId); // core/motion-presets.js
+        const next = subscribed
+            ? unsubscribeMotionApply(motionApply, key, this._editingId) // core/motion-presets.js
+            : subscribeMotionApply(motionApply, key, this._editingId); // core/motion-presets.js
+        appState.set('motionApply', next);
+        await setMeta('motionApply', next); // service/db.js
+        console.log(`writer: "workflowMotionPresets.toggleApplySubscription", page: "motionApply", content: "${key}.${this._editingId}=${!subscribed}"`);
+        this._syncApplyButton();
     },
 
-    /** Gắn preset `id` vào Photo VBG.
-     * @param {string} id */
-    async _pickForConsumer(id) {
-        this._pickMode = false;
-        appConfigVisualBg.mutateAll((c) => { c.motionPresetId = id; }); // liên tuyến domain
-        await workflowVisualBg._persist(); // liên tuyến domain
-        workflowAppSettings.back(); // liên tuyến domain — quay về đúng màn chi tiết "Photo visual background"
-    },
-
-    /** Ứng nút "Gỡ" trong màn chi tiết — bỏ tham chiếu, vẽ lại TẠI CHỖ. */
-    async detachFromPhotoVisualBg() {
-        appConfigVisualBg.mutateAll((c) => { c.motionPresetId = null; }); // liên tuyến domain
-        await workflowVisualBg._persist(); // liên tuyến domain
-        workflowAppSettings._renderMotionApplyPhotoVisualBg(); // liên tuyến domain — vẽ lại TẠI CHỖ
+    /** Đồng bộ nút Đăng ký/Huỷ đăng ký theo đúng trạng thái consumer đang chọn — gọi sau đổi
+     * dropdown/toggle xong, VÀ lúc mở màn Edit (`_syncEditUI()`). */
+    _syncApplyButton() {
+        if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
+        const btn = genericDrawerBody.querySelector('#btn-motion-apply-toggle'); // core/dom-refs.js
+        if (!btn) return;
+        const subscribed = isMotionApplySubscribed(appState.get('motionApply'), this._editingApplyConsumerKey, this._editingId); // core/motion-presets.js
+        btn.textContent = t(subscribed ? 'motionPresetsDrawer.apply.unsubscribe.label' : 'motionPresetsDrawer.apply.subscribe.label');
+        btn.classList.toggle('bg-emerald-500', !subscribed);
+        btn.classList.toggle('hover:bg-emerald-400', !subscribed);
+        btn.classList.toggle('bg-rose-500', subscribed);
+        btn.classList.toggle('hover:bg-rose-400', subscribed);
     },
 };

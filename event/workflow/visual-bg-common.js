@@ -844,6 +844,11 @@ const workflowVisualBg = {
         const videoAudioRow = q('#setting-visual-bg-open-video-audio');
         if (videoAudioRow) videoAudioRow.classList.toggle('hidden', !(cfg.type === 'video' && count >= 1));
 
+        const motionRow = q('#visual-bg-motion-row');
+        if (motionRow) motionRow.classList.toggle('hidden', cfg.type !== 'photo');
+        const motionSelect = q('#setting-visual-bg-motion-preset');
+        if (motionSelect && cfg.type === 'photo') this._renderMotionPresetOptions(motionSelect, cfg.motionPresetId);
+
         const colorModeSelect = q('#setting-visual-bg-color-mode');
         const openGradientBtn = q('#setting-visual-bg-open-gradient');
         const solidColorRow = q('#visual-bg-solid-color-row');
@@ -857,6 +862,29 @@ const workflowVisualBg = {
         if (gradientSwatch) gradientSwatch.style.backgroundImage = buildVisualBgGradientCss(cfg.gradientStops, cfg.gradientAngleDeg);
 
         await this._refreshSourceNameLabel(cfg);
+    },
+
+    /** Đổ `<option>` cho dropdown Motion — CHỈ preset ĐÃ đăng ký cho 'photoVisualBg' trong
+     * `appState.motionApply` (xem core/motion-presets.js), luôn kèm 1 option "Không" (value='').
+     * `currentId` không nằm trong danh sách đã đăng ký (vừa bị huỷ đăng ký) -> chọn "Không" tự
+     * nhiên (không ép xoá `motionPresetId`, chỉ đơn giản không còn hiện trong lựa chọn).
+     * @param {HTMLSelectElement} selectEl @param {string|null} currentId */
+    _renderMotionPresetOptions(selectEl, currentId) {
+        const subscribedIds = appState.get('motionApply').photoVisualBg || []; // core/motion-presets.js — MOTION_APPLY_CONSUMERS
+        const presets = appState.get('motionPresets').filter((p) => subscribedIds.includes(p.id));
+        const noneOption = `<option value="">${t('visualBgSettingsDrawer.motion.none')}</option>`;
+        selectEl.innerHTML = noneOption + presets.map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('');
+        selectEl.value = presets.some((p) => p.id === currentId) ? currentId : '';
+    },
+
+    /** Ứng select Motion đổi — ghi thẳng `motionPresetId` ('' -> null = gỡ). Có hiệu lực NGAY lần
+     * transition ảnh kế tiếp (Motion Engine tự đọc `motionPresetId` mới mỗi lần kích hoạt, không
+     * cần gọi lại applyCurrentVisualBg()).
+     * @param {string} value */
+    async changeMotionPresetId(value) {
+        appConfigVisualBg.mutateAll((cfg) => { cfg.motionPresetId = value || null; });
+        console.log(`writer: "workflowVisualBg.changeMotionPresetId", page: "visualBgConfig", content: "motionPresetId=${value || null}"`);
+        await this._persist();
     },
 
     /** Ghi tên nguồn đang chọn vào `#visual-bg-source-name` + hiện/ẩn nút Làm tươi/Gỡ nguồn theo

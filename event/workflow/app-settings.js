@@ -269,30 +269,18 @@ const workflowAppSettings = {
         });
     },
 
-    // ===================== Motion — hệ Cấu hình độc lập (MỚI 29/08/2026, phản hồi Giang) =====
-    // Lối vào DUY NHẤT: System > Motion. 2 mục con: "Quản lý cấu hình" (danh sách preset, CRUD)
-    // và "Áp dụng cấu hình" (danh sách "nơi tiêu thụ" — hiện chỉ "Photo visual background"). Logic:
-    // event/workflow/motion-presets.js (workflowMotionPresets).
+    // ===================== Motion — hệ Cấu hình độc lập =====================
+    // Lối vào DUY NHẤT: System > Motion -> thẳng danh sách preset (CRUD). Đăng ký nơi tiêu thụ
+    // ("Áp dụng cho") giờ nằm NGAY trong màn Edit từng preset — xem components/motion-settings-
+    // drawer.js + event/workflow/motion-presets.js (workflowMotionPresets).
 
-    _renderMotion() {
-        this._currentRenderFn = () => this._renderMotion();
-        const rows = [
-            { key: 'motionManage', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', labelKey: 'motionPresetsDrawer.menu.manage.label', hintKey: 'motionPresetsDrawer.menu.manage.hint' },
-            { key: 'motionApply', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', labelKey: 'motionPresetsDrawer.menu.apply.label', hintKey: 'motionPresetsDrawer.menu.apply.hint' },
-        ];
-        this._render(t('motionPresetsDrawer.menu.title'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // components/settings/app-settings-main.js, core/app-settings-ui.js
-    },
-
-    /** Danh sách preset — DÙNG CHUNG "Quản lý" (`workflowMotionPresets._pickMode===false`, có nút
-     * "+" header + xoá nhanh mỗi dòng) và "Áp dụng > Chọn" (`_pickMode===true`, KHÔNG có 2 nút đó,
-     * tap dòng = gắn NGAY thay vì mở Edit — xem `workflowMotionPresets.tileClick()`). */
-    _renderMotionManage() {
-        this._currentRenderFn = () => this._renderMotionManage();
-        const pickMode = workflowMotionPresets._pickMode; // event/workflow/motion-presets.js
+    /** Danh sách preset — tap = sửa, nút xoá nhanh mỗi dòng. */
+    _renderMotionList() {
+        this._currentRenderFn = () => this._renderMotionList();
         const presets = appState.get('motionPresets');
         this._render(
-            t(pickMode ? 'motionPresetsDrawer.list.pickTitle' : 'motionPresetsDrawer.menu.manage.label'),
-            renderMotionListBody(presets, pickMode), // components/motion-settings-drawer.js
+            t('motionPresetsDrawer.list.title'),
+            renderMotionListBody(presets), // components/motion-settings-drawer.js
             (body) => {
                 body.querySelectorAll('[data-motion-preset-tile]').forEach((el) => {
                     el.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.tile.click', payload: { id: el.dataset.motionPresetTile } }));
@@ -300,7 +288,7 @@ const workflowAppSettings = {
                 body.querySelectorAll('[data-motion-preset-quickdelete]').forEach((el) => {
                     el.addEventListener('click', (e) => { e.stopPropagation(); eventBus.send({ router: 'motionPresets', type: 'motionPresets.quickDelete.click', payload: { id: el.dataset.motionPresetQuickdelete } }); });
                 });
-                const addBtn = body.querySelector('#btn-motion-list-add'); // SỬA (29/08/2026) — dời từ header xuống hàng trong body, xem renderMotionListBody()
+                const addBtn = body.querySelector('#btn-motion-list-add');
                 if (addBtn) addBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.add.click', payload: {} }));
             },
         );
@@ -313,7 +301,7 @@ const workflowAppSettings = {
         if (!preset) { this.back(); return; } // guard: preset vừa bị xoá ở nơi khác giữa lúc đang sửa — quay lại danh sách an toàn
         this._render(
             t('motionPresetsDrawer.edit.title'),
-            renderMotionEditBody(preset), // components/motion-settings-drawer.js
+            renderMotionEditBody(preset, appState.get('motionApply'), workflowMotionPresets._editingApplyConsumerKey), // components/motion-settings-drawer.js
             (body) => {
                 const nameInput = body.querySelector('#setting-motion-name');
                 if (nameInput) nameInput.addEventListener('blur', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.name.change', payload: { value: e.target.value } }));
@@ -388,10 +376,16 @@ const workflowAppSettings = {
                 wireBeatReactCheckbox('setting-motion-beatreact-pan-reverse', 'pan', 'reverse');
                 wireBeatReactCheckbox('setting-motion-beatreact-rotate-reverse', 'rotate', 'reverse');
 
-                const resetBtn = body.querySelector('#btn-motion-edit-reset'); // SỬA (29/08/2026) — dời từ header xuống hàng cuối trong body, xem renderMotionEditBody() nhóm "Quản lý"
+                const resetBtn = body.querySelector('#btn-motion-edit-reset');
                 if (resetBtn) resetBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.reset.click', payload: {} }));
-                const deleteBtn = body.querySelector('#btn-motion-edit-delete'); // SỬA (29/08/2026) — cùng lý do resetBtn ngay trên
+                const deleteBtn = body.querySelector('#btn-motion-edit-delete');
                 if (deleteBtn) deleteBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.delete.click', payload: {} }));
+
+                // "Áp dụng cho" — select nơi tiêu thụ + nút Đăng ký/Huỷ đăng ký.
+                const applyConsumer = body.querySelector('#setting-motion-apply-consumer');
+                if (applyConsumer) applyConsumer.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.applyConsumer.change', payload: { value: e.target.value } }));
+                const applyToggleBtn = body.querySelector('#btn-motion-apply-toggle');
+                if (applyToggleBtn) applyToggleBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.applyToggle.click', payload: {} }));
             },
         );
     },
@@ -577,26 +571,6 @@ const workflowAppSettings = {
                 if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => { zoomIdx = Math.max(0, zoomIdx - 1); applyZoom(); });
             },
         );
-    },
-
-    /** "Áp dụng cấu hình" — danh sách "nơi tiêu thụ" (tạm thời 1 dòng, DÙNG THẲNG
-     * `data-app-settings-nav`/NAV_TARGETS, không cần wiring riêng). */
-    _renderMotionApply() {
-        this._currentRenderFn = () => this._renderMotionApply();
-        const preset = findMotionPresetById(appState.get('motionPresets'), appConfigVisualBg.getAll().motionPresetId); // core/motion-presets.js, liên tuyến domain
-        this._render(t('motionPresetsDrawer.menu.apply.label'), renderMotionApplyListBody(preset ? preset.name : ''), wireAppSettingsSystem); // components/motion-settings-drawer.js, core/app-settings-ui.js
-    },
-
-    /** Chi tiết "Photo visual background". */
-    _renderMotionApplyPhotoVisualBg() {
-        this._currentRenderFn = () => this._renderMotionApplyPhotoVisualBg();
-        const preset = findMotionPresetById(appState.get('motionPresets'), appConfigVisualBg.getAll().motionPresetId); // core/motion-presets.js, liên tuyến domain
-        this._render(t('motionPresetsDrawer.apply.photoVisualBg.label'), renderMotionApplyDetailBody(preset ? preset.name : ''), (body) => { // components/motion-settings-drawer.js
-            const pickBtn = body.querySelector('#btn-motion-apply-pick');
-            if (pickBtn) pickBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.openPickForPhotoVisualBg.click', payload: {} }));
-            const detachBtn = body.querySelector('#btn-motion-apply-detach');
-            if (detachBtn) detachBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.detachFromPhotoVisualBg.click', payload: {} }));
-        });
     },
 
     // ===================== Language (TÁI DÙNG NGUYÊN TPL_SETTINGS_LANGUAGE +
