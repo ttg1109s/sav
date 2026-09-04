@@ -51,22 +51,18 @@ input[type=range].ptmove-range-input::-moz-range-thumb { pointer-events: auto; w
 
 /* Đường cong Timing (Point Move 'all' mode) — SVG kéo-thả, xem core/point-move-timing-ui.js. */
 .ptmove-timing-wrapper { width: 100%; }
-.ptmove-timing-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; border-radius: 0.75rem; } /* SỬA — chỉ cuộn NGANG, scaleX không đụng chiều cao nên không cần cuộn dọc */
+.ptmove-timing-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; border-radius: 0.75rem; }
 .ptmove-timing-zoomable { transform-origin: 0 0; transition: transform 0.15s ease; }
-.ptmove-timing-svg { width: 100%; height: auto; aspect-ratio: 700 / 260; display: block; touch-action: none; } /* 700/260 PHẢI khớp POINT_MOVE_TIMING_SVG_W/H (core/point-move-timing-ui.js) — đổi 1 chỗ phải đổi luôn chỗ kia. */
-.ptmove-timing-grid { stroke: #475569; stroke-width: 1; opacity: 1; } /* SỬA (phản hồi Giang) — bỏ hẳn rgba/alpha (dễ bị render mờ ảo tuỳ engine), dùng màu ĐẶC (#475569, slate-600) + opacity:1 tường minh; vẽ ĐẦU TIÊN (append trước) nên tự nằm dưới trục/đường cong/node, không cần z-index */
-.ptmove-timing-grid-label { fill: rgba(255, 255, 255, 0.3); font-size: 9px; font-family: inherit; }
-.ptmove-timing-axis { stroke: rgba(255, 255, 255, 0.25); stroke-width: 1; }
-.ptmove-timing-bound { stroke: rgba(255, 255, 255, 0.15); stroke-width: 1; stroke-dasharray: 4 4; }
-.ptmove-timing-vaxis { stroke: rgba(255, 255, 255, 0.25); stroke-width: 1; }
-.ptmove-timing-curve { fill: none; stroke: #f5c542; stroke-width: 2.5; }
-.ptmove-timing-node { fill: #0f172a; stroke: #ffffff; stroke-width: 3; cursor: grab; touch-action: none; }
+.ptmove-timing-svg { width: 100%; height: auto; aspect-ratio: 700 / 110; display: block; touch-action: none; } /* SỬA (phản hồi Giang — "chỉ có trục X") — 700/110 PHẢI khớp POINT_MOVE_TIMING_SVG_W/H (core/point-move-timing-ui.js) — đổi 1 chỗ phải đổi luôn chỗ kia. */
+.ptmove-timing-track { stroke: #475569; stroke-width: 2; }
+.ptmove-timing-tick { stroke: #475569; stroke-width: 1; }
+.ptmove-timing-tick-label { fill: rgba(255, 255, 255, 0.3); font-size: 9px; font-family: inherit; }
+.ptmove-timing-node { fill: #0f172a; stroke: #ffffff; stroke-width: 3.5; cursor: grab; touch-action: none; }
 .ptmove-timing-node:active { cursor: grabbing; }
 .ptmove-timing-node[data-locked="true"] { stroke: #38bdf8; }
-.ptmove-timing-node-phantom { fill: rgba(15, 23, 42, 0.5); stroke: #f5c542; stroke-dasharray: 3 2; cursor: default; } /* node ảo 2 đầu — THUẦN hiển thị (không kéo được), khác hẳn node thật (viền vàng nét đứt, cùng tông với đường cong, cursor mặc định thay vì grab) */
-.ptmove-timing-node-label { fill: #cbd5e1; font-size: 10px; font-weight: 600; font-family: inherit; pointer-events: none; } /* số thứ tự "N" phía trên mỗi node thật */
-.ptmove-timing-readout-bg { fill: rgba(15, 23, 42, 0.9); pointer-events: none; }
-.ptmove-timing-readout-text { fill: #38bdf8; font-size: 11px; font-weight: 700; font-family: inherit; pointer-events: none; } /* nhãn "X%, Y" sống lúc đang kéo */
+.ptmove-timing-point-label { fill: #38bdf8; font-size: 12px; font-weight: 700; font-family: inherit; pointer-events: none; } /* "Point N" — bám node, chỉ hiện lúc ấn/kéo */
+.ptmove-timing-corner-bg { fill: rgba(15, 23, 42, 0.9); pointer-events: none; }
+.ptmove-timing-corner-text { fill: #38bdf8; font-size: 11px; font-weight: 700; font-family: inherit; pointer-events: none; } /* "X: NN%" — cố định góc trái trên, chỉ hiện lúc ấn/kéo */
 
 /* Thanh tiến trình nhạc — thumb luôn NHỎ HƠN HOẶC BẰNG track ở mọi trạng thái (không cần
    div bọc + overflow:hidden để cắt phần nhô ra như bản cũ). */
