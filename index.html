@@ -243,8 +243,8 @@
          SỬA (Giang chỉ ra đúng — "vbg chỉ hợp lệ với song thì quan tâm gì đang phát video/photo bị
          ngắt quãng") — "Photo Player mode" (ảnh đang phát như 1 track) từng có element RIÊNG
          `#photo-player-image` ở đây, ĐÃ XOÁ — giờ tái dùng ĐÚNG `#visual-bg-image` này, CÙNG cơ chế
-         `clearMediaLayers()`/`applyCurrentVisualBg()` (event/workflow/visual-bg.js) Video Player
-         mode đã dùng từ trước — xem event/workflow/photo-player.js. -->
+         `clearMediaLayers()`/`applyCurrentVisualBg()` (event/workflow/visual-bg-common.js) Video
+         Player mode đã dùng từ trước — xem event/workflow/photo-player.js. -->
     <!-- FIX (04/07/2026, mục 1a phản hồi Giang) — nền màu Settings (bgColor) tách hẳn khỏi
          `document.body` (trước đây `document.body.style.backgroundColor = cfg.bgColor` — nghi
          ngờ 1 phần nguyên nhân màu tràn vào status bar/tai thỏ OS). `<body>` ở trên giữ NGUYÊN
@@ -252,7 +252,7 @@
          Settings. Xem core/color-utils.js (updateDOMBackground) + assets/css/base.css. -->
     <div id="visualizer-solid-bg"></div>
     <!-- Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual). Xem
-         assets/css/base.css (#visual-bg-image) + core/visual-bg.js (applyVisualBgImageToDOM). -->
+         assets/css/base.css (#visual-bg-image) + core/visual-bg-photo.js (applyVisualBgImageToDOM). -->
     <div id="visual-bg-image" class="hidden"></div>
     <!-- Motion Engine nền Visual (nguồn nền thứ 3) — 2 lớp ảnh xen kẽ ("player" A/B), JS ở
          core/motion-engine.js + event/workflow/motion-engine.js. CSS: assets/css/motion-engine.css
@@ -674,9 +674,12 @@
     <script src="core/gameplay/game-panel-ui.js?v=20260902v3"></script>
     <!-- Icon loa Volume HUD, 5 mốc 0-100% (event/workflow/volume-hud.js). -->
     <script src="core/volume-hud.js?v=20260811v1"></script>
-    <!-- MỚI (v13 Batch A) — Core THUẦN domain "Visual Background" (gộp video nền/ảnh nền tĩnh/
-         slideshow). Nạp SAU service/state.js + core/dom-refs.js. -->
-    <script src="core/visual-bg.js?v=20260808v1"></script>
+    <!-- Core THUẦN domain "Visual Background" — tách 3 file: common (type/list/màu nền), video,
+         photo (chỉ tách file tổ chức, vẫn 1 hệ thống). Nạp SAU service/state.js + core/dom-refs.js,
+         common PHẢI nạp trước video/photo. -->
+    <script src="core/visual-bg-common.js?v=20260904v1"></script>
+    <script src="core/visual-bg-video.js?v=20260904v1"></script>
+    <script src="core/visual-bg-photo.js?v=20260904v1"></script>
     <!-- core/subtitle/subtitles.js ĐÃ CHUYỂN (10/07/2026) — CHỈ nạp ở subtitle-editor.html giờ
          (soạn phụ đề chuyển sang trang riêng). core/subtitle/subtitle-display.js (hiển thị phụ đề
          lúc phát, đọc appState.get('subtitles')) và subtitle-style-settings.js (toggle nhanh)
@@ -741,7 +744,7 @@
          tính elapsed đồng hồ giả + toggle icon Play/Pause/progress bar, CHỈ hàm THUẦN (Rule 1-4).
          SỬA (Giang chỉ ra đúng, "vbg chỉ hợp lệ với song") — KHÔNG còn tự toggle DOM ảnh nền riêng
          (từng có `setPhotoPlayerElementForMode()`/`#photo-player-image`, ĐÃ XOÁ) — ảnh hiện qua
-         `applyVisualBgImageToDOM()` (core/visual-bg.js) tái dùng `#visual-bg-image`, gọi thẳng từ
+         `applyVisualBgImageToDOM()` (core/visual-bg-photo.js) tái dùng `#visual-bg-image`, gọi thẳng từ
          event/workflow/photo-player.js. Đặt CẠNH core/video-player.js cho dễ đọc, cùng lý do
          comment ngay trên. NẠP SAU service/state.js. -->
     <script src="core/photo-player.js?v=20260825v1"></script>
@@ -891,8 +894,11 @@
     <script src="event/workflow/motion-presets.js?v=20260903v5"></script>
     <script src="event/router/motion-presets.js?v=20260903v5"></script>
 
-    <!-- MỚI (v13 Batch A) — cụm "visualBg". -->
-    <script src="event/workflow/visual-bg.js?v=20260903v1"></script>
+    <!-- Cụm "visualBg" — Workflow tách 3 file: common (định nghĩa `workflowVisualBg`), video/photo
+         (`Object.assign()` thêm vào) — common PHẢI nạp trước video/photo. -->
+    <script src="event/workflow/visual-bg-common.js?v=20260904v1"></script>
+    <script src="event/workflow/visual-bg-video.js?v=20260904v1"></script>
+    <script src="event/workflow/visual-bg-photo.js?v=20260904v1"></script>
     <script src="event/router/visual-bg.js?v=20260819v1"></script>
     <script src="event/listener/visual-bg.js?v=20260808v5"></script>
 
@@ -994,7 +1000,7 @@
     <!-- Cụm "videoPlayer" — PHẢI nạp trước event/router/player-controls.js (case 'playPause.click'/
          'next.click'/'prev.click'/'audio.ended' gọi thẳng workflowVideoPlayer khi
          isVideoPlayerMode=true). CẦN core/video-player.js + core/file-manager/video.js +
-         core/visual-bg.js (đã nạp ở nhóm CORE). -->
+         core/visual-bg-common.js/visual-bg-video.js (đã nạp ở nhóm CORE). -->
     <!-- event/router/video-player.js — caller hiện tại: `workflowPlayer.playMedia()` dispatch theo
          mediaType khi click video trong Playlist (đi qua eventBus để Block gate chặn khoá chéo với
          Video nền). PHẢI nạp SAU event/workflow/video-player.js (cần workflowVideoPlayer.
@@ -1010,7 +1016,7 @@
          sự kiện DOM thật (play/pause/timeupdate) để 1 file listener lắng nghe — đồng hồ tự viết
          trong chính Workflow này gọi thẳng handler, không cần round-trip qua bus. PHẢI nạp SAU
          core/photo-player.js + core/playlist/loader.js (đọc playlistCache lấy duration) + event/
-         workflow/visual-bg.js (SỬA — "vbg chỉ hợp lệ với song" nên tái dùng ĐÚNG cơ chế
+         workflow/visual-bg-common.js/visual-bg-video.js ("vbg chỉ hợp lệ với song" nên tái dùng
          clearMediaLayers()/applyCurrentVisualBg() Video Player mode đã dùng thay vì tự vẽ DOM
          riêng, cần workflowVisualBg tồn tại trước). -->
     <script src="event/workflow/photo-player.js?v=20260825v1"></script>
