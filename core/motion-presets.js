@@ -37,16 +37,27 @@
  * Point move VỊ TRÍ ĐẦU (index 0) LUÔN checked=true, KHÔNG bỏ tick được — ràng buộc theo VỊ TRÍ,
  * không theo id (xem sanitizeMotionPointMoves()). `timingX` của nó KHÔNG bị khoá.
  *
- * MỚI (phản hồi Giang — sửa bug "point move cuối cùng bị kéo cứng về baseline lúc chuyển ảnh") —
+ * SỬA (phản hồi Giang, lần 2 — bug "giật cứng về baseline" VẪN còn khi Start-force bật) —
  * `pointMoveStartForceBaseline`/`pointMoveEndForceBaseline` (CHỈ có ý nghĩa với `pointMoveRunMode:
- * 'all'`, bool, mặc định `false` cả 2) — quyết định mốc ẢO ở 2 đầu trục Timing (x=0/x=100) là
- * baseline CỐ ĐỊNH (bật) hay LIỀN MẠCH từ vị trí thật (tắt, xem event/workflow/motion-engine.js::
- * _deriveLivePointMoveTarget()). CHỈ ĐƯỢC BẬT 1 TRONG 2 (phản hồi Giang) — bật cái này tự tắt cái
- * kia (xem event/workflow/motion-presets.js::changePointMoveStartForceBaseline()/
- * changePointMoveEndForceBaseline()). Khi 1 trong 2 đang bật, mốc đó "vô hiệu hoá và thay thế" bất
- * kỳ point move nào đang đứng ĐÚNG x=0%/x=100% (UI chặn kéo/nhập tới đúng mốc đó, xem
- * core/point-move-timing-ui.js — `minX`/`maxX`); `sanitizeMotionPreset()` tự đẩy nhẹ point move cũ
- * (dữ liệu trước khi có field này) ra khỏi mốc bị khoá.
+ * 'all'`, bool, mặc định `false` cả 2) THỰC RA cùng chung 1 CƠ CHẾ: chèn 1 mốc ẢO x=100=baseline
+ * vào đường cong CỦA MỌI VÒNG (round) — vòng đó tự NỚI TỪ point move CUỐI (theo timingX) êm về
+ * baseline suốt quãng [timingX đó, 100%], KHÔNG còn đứng im rồi tới vòng KẾ TIẾP mới giật cứng
+ * (NGUYÊN NHÂN gốc bug: mốc ảo x=0 CỐ ĐỊNH ở baseline của vòng SAU + `fromTransform` override
+ * keyframe đầu = vị trí THẬT [đứng im từ trước, KHÔNG phải baseline] tạo 1 bước nhảy CỰC LỚN nén
+ * trong 2% thời lượng ĐẦU vòng sau — vì 2 layer A/B DÙNG CHUNG 1 phần tử nhận transform, giật này
+ * LỘ RÕ trên CẢ layer đang fade-out. Muốn êm thì quãng chuyển về baseline PHẢI nằm trong ngân sách
+ * thời gian ĐÃ CÓ SẴN của vòng ĐANG chạy — tức đuôi [timingX cuối, 100%] vốn đang "đứng im chờ",
+ * không phải nén vào khoảnh khắc chuyển vòng). Mốc x=0 (điểm khởi đầu MỖI vòng) do đó LUÔN chỉ dùng
+ * LIỀN MẠCH từ vị trí thật (`_deriveLivePointMoveTarget()`, event/workflow/motion-engine.js) — vị
+ * trí đó giờ TỰ NHIÊN đã là baseline (vì vòng trước vừa êm về đó), không cần ép riêng nữa. 2 field
+ * VẪN tách riêng (CHỈ ĐƯỢC BẬT 1 TRONG 2, phản hồi Giang — bật cái này tự tắt cái kia, xem
+ * event/workflow/motion-presets.js::changePointMoveStartForceBaseline()/
+ * changePointMoveEndForceBaseline()) — cùng hiệu quả runtime (đuôi MỌI vòng êm về baseline), khác
+ * nhau Ở KHUNG NHÌN người dùng chọn ("mỗi ảnh MỚI bắt đầu sạch" vs "mỗi ảnh KẾT lại về gốc"), không
+ * cho bật cùng lúc vì thừa/vô nghĩa. Khi 1 trong 2 đang bật, mốc x=100 đó "vô hiệu hoá và thay thế"
+ * bất kỳ point move nào đang đứng ĐÚNG x=100% (UI chặn kéo/nhập tới đúng 100%, xem
+ * core/point-move-timing-ui.js — `maxX`); `sanitizeMotionPreset()` tự đẩy nhẹ point move cũ (dữ
+ * liệu trước khi có field này) ra khỏi mốc bị khoá.
  *
  * 6 field/point move — mỗi field {mode:'single'|'randomRange', unit, single, rangeMin, rangeMax}:
  * `mode==='single'` dùng thẳng `single`; `mode==='randomRange'` mỗi lượt resolve random đều trong
@@ -219,10 +230,10 @@ function sanitizeMotionPreset(raw) {
     let pointMoveEndForceBaseline = typeof raw.pointMoveEndForceBaseline === 'boolean' ? raw.pointMoveEndForceBaseline : blank.pointMoveEndForceBaseline;
     if (pointMoveStartForceBaseline && pointMoveEndForceBaseline) { pointMoveStartForceBaseline = false; pointMoveEndForceBaseline = false; }
     // Đẩy nhẹ (CÙNG bước +0.2%/-0.2% dùng ở addPointMove()/duplicatePointMove()) bất kỳ point move
-    // nào ĐANG đứng đúng mốc bị khoá — phòng dữ liệu cũ (trước khi có 2 field này) hoặc dữ liệu hỏng.
+    // nào ĐANG đứng đúng x=100% — CẢ 2 field đều dùng mốc x=100 (xem docstring đầu file, lần sửa
+    // thứ 2) — phòng dữ liệu cũ (trước khi có field này, hoặc trước lần sửa cơ chế thứ 2) hoặc hỏng.
     let pointMoves = sanitizeMotionPointMoves(raw.pointMoves);
-    if (pointMoveStartForceBaseline) pointMoves = pointMoves.map((pm) => pm.timingX === 0 ? { ...pm, timingX: 0.1 } : pm);
-    if (pointMoveEndForceBaseline) pointMoves = pointMoves.map((pm) => pm.timingX === 100 ? { ...pm, timingX: 99.9 } : pm);
+    if (pointMoveStartForceBaseline || pointMoveEndForceBaseline) pointMoves = pointMoves.map((pm) => pm.timingX === 100 ? { ...pm, timingX: 99.9 } : pm);
     return {
         id: typeof raw.id === 'string' && raw.id ? raw.id : blank.id,
         name: blank.name,

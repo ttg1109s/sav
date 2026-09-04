@@ -41,11 +41,13 @@ const POINT_MOVE_TIMING_TAP_THRESHOLD_PX = 6;
  * @param {{id:string, timingX:number, locked:boolean, n:number}[]} points - point move ĐÃ tick, sort
  *   theo `timingX` tăng dần (nơi gọi tự sort — Rule 2, hàm này chỉ vẽ theo thứ tự nhận được). `n` =
  *   số thứ tự "Point move N" hiển thị lúc ấn vào node.
- * @param {number} [minX] - MỚI (phản hồi Giang) — biên kéo trái, mặc định 0. Nơi gọi truyền >0
- *   (0.1) khi `pointMoveStartForceBaseline` đang bật (core/motion-presets.js) — mốc x=0 lúc đó do
- *   baseline CỐ ĐỊNH chiếm, không cho kéo/tap-nhập 1 point move khác đè lên đúng mốc đó.
- * @param {number} [maxX] - biên kéo phải, mặc định 100. Tương tự `minX`, dùng khi
- *   `pointMoveEndForceBaseline` đang bật (<100, vd 99.9).
+ * @param {number} [minX] - biên kéo trái, mặc định 0. (SỬA LẦN 2, phản hồi Giang — hiện LUÔN 0, mốc
+ *   x=0 không còn bị field nào khoá nữa, xem event/workflow/motion-engine.js::_activatePointMoveAll();
+ *   tham số vẫn giữ lại cho tổng quát/phòng cần lại sau này).
+ * @param {number} [maxX] - biên kéo phải, mặc định 100. Nơi gọi truyền <100 (99.9) khi 1 trong 2
+ *   field `pointMoveStartForceBaseline`/`pointMoveEndForceBaseline` (core/motion-presets.js) đang
+ *   bật — mốc x=100 lúc đó do baseline CỐ ĐỊNH chiếm, không cho kéo/tap-nhập 1 point move khác đè
+ *   lên đúng mốc đó.
  * @returns {HTMLElement} phần tử wrapper chứa SVG, sẵn sàng append vào DOM.
  */
 function buildPointMoveTimingCurveEl(points, minX, maxX) {
