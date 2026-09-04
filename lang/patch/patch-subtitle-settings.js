@@ -213,6 +213,8 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'motionSettingsDrawer.pointMove.oneOrder.label': 'Pick order',
     'motionSettingsDrawer.pointMove.oneOrder.sequential': 'Sequential',
     'motionSettingsDrawer.pointMove.oneOrder.random': 'Random',
+    'motionSettingsDrawer.pointMove.startForceBaseline.label': 'Start point: force baseline',
+    'motionSettingsDrawer.pointMove.endForceBaseline.label': 'Endpoint: force baseline',
     'motionSettingsDrawer.pointMove.timing.label': 'Timing',
     'motionSettingsDrawer.pointMove.timing.hint': 'Drag each point to set when (left-right) and how strongly (up-down) it applies — tap a point to type exact numbers.',
     'motionSettingsDrawer.pointMove.timing.xLabel': 'Time %',
