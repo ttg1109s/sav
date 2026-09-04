@@ -597,7 +597,9 @@ const workflowMotionPresets = {
     },
 
     /** `pointerup` sau khi ĐÃ kéo đủ xa (core-ui tự phân biệt tap/kéo) — CHỐT giá trị đang preview
-     * vào preset thật (persist), dựng lại TOÀN MÀN cho chắc ăn đồng bộ tuyệt đối sau khi ghi. */
+     * vào preset thật (persist), dựng lại TOÀN MÀN cho chắc ăn đồng bộ tuyệt đối sau khi ghi.
+     * SỬA (phản hồi Giang — chống 2 node trùng vị trí) — `resolvePointMoveTimingX()` tự làm tròn 2
+     * chữ số thập phân + đẩy nhẹ nếu trùng 1 point move khác trước khi ghi. */
     async commitPointMoveTimingDrag() {
         const id = this._dragPreviewPointMoveId;
         if (!id) return;
@@ -606,7 +608,10 @@ const workflowMotionPresets = {
         await this._mutateEditing((p) => {
             const idx = p.pointMoves.findIndex((pm) => pm.id === id);
             if (idx === -1) return;
-            p.pointMoves[idx] = { ...p.pointMoves[idx], timingX };
+            const { minX, maxX } = this._pointMoveTimingBounds(p);
+            const others = p.pointMoves.filter((pm) => pm.id !== id).map((pm) => pm.timingX);
+            const resolved = resolvePointMoveTimingX(timingX, others, minX, maxX); // core/motion-presets.js
+            p.pointMoves[idx] = { ...p.pointMoves[idx], timingX: resolved };
         });
         if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
         workflowAppSettings._renderPointMoveTiming(); // liên tuyến domain — dựng lại TOÀN màn (an toàn, commit chỉ xảy ra 1 lần lúc thả tay, không phải mỗi pixel)
@@ -632,7 +637,7 @@ const workflowMotionPresets = {
             {
                 bodyHtml: `
                     <label class="block text-xs text-slate-400 mb-1">${escapeHtml(t('motionSettingsDrawer.pointMove.timing.xLabel'))}</label>
-                    <input type="number" id="ptmove-modal-x-input" min="${minX}" max="${maxX}" step="1" value="${pm.timingX}" class="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none">
+                    <input type="number" id="ptmove-modal-x-input" min="${minX}" max="${maxX}" step="0.01" value="${pm.timingX}" class="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none">
                 `,
             },
         );
@@ -642,17 +647,19 @@ const workflowMotionPresets = {
 
     /** Ứng nút "Lưu" trong modal (`openPointMoveTimingNodeModal()`) — commit số ĐÃ gõ, tự kẹp biên
      * (phòng số ngoài min/max input, dù browser thường tự chặn — vẫn không tin mù).
+     * SỬA (phản hồi Giang — chống 2 node trùng vị trí) — `resolvePointMoveTimingX()` tự làm tròn 2
+     * chữ số thập phân + đẩy nhẹ nếu trùng 1 point move khác trước khi ghi.
      * @param {string} id @param {number} timingX */
     async _commitPointMoveTimingModal(id, timingX) {
         if (typeof timingX !== 'number' || Number.isNaN(timingX)) return;
-        const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
-        if (!preset) return;
-        const { minX, maxX } = this._pointMoveTimingBounds(preset); // SỬA (phản hồi Giang) — biên ĐỘNG, không còn cố định [0,100]
-        const clampedX = Math.max(minX, Math.min(maxX, timingX));
         await this._mutateEditing((p) => {
             const idx = p.pointMoves.findIndex((pm) => pm.id === id);
             if (idx === -1) return;
-            p.pointMoves[idx] = { ...p.pointMoves[idx], timingX: clampedX };
+            const { minX, maxX } = this._pointMoveTimingBounds(p);
+            const clampedX = Math.max(minX, Math.min(maxX, timingX));
+            const others = p.pointMoves.filter((pm) => pm.id !== id).map((pm) => pm.timingX);
+            const resolved = resolvePointMoveTimingX(clampedX, others, minX, maxX); // core/motion-presets.js
+            p.pointMoves[idx] = { ...p.pointMoves[idx], timingX: resolved };
         });
         if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
         workflowAppSettings._renderPointMoveTiming(); // liên tuyến domain
