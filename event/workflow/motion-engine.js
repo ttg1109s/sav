@@ -209,26 +209,34 @@ const workflowMotionEngine = {
     },
 
     /** Dispatcher — `pointMoveEnabled=false` -> bỏ qua HẲN (công tắc tổng, cùng khuôn
-     * `transitionEnabled`). Nếu bật, DỪNG animation CŨ trên `motionEnginePointMoveWrapper` (nếu có
-     * — SỬA, phản hồi Giang: Point Move giờ là 1 transform DUY NHẤT cho CẢ 2 layer A/B, dùng LẶP
-     * LẠI đúng 1 phần tử mỗi lượt reveal/transition, PHẢI tự dọn animation lượt TRƯỚC trước khi bắt
-     * animation MỚI — khác bản cũ mỗi layer có phần tử riêng, animation cũ tự có chỗ dọn ở cleanup
-     * transition) rồi chọn `_activatePointMoveOne()`/`_activatePointMoveAll()` theo
-     * `preset.pointMoveRunMode`. Đây là Workflow (được phép rẽ nhánh chọn Core/logic nào chạy),
-     * KHÔNG phải Core — Rule 1 (đơn tuyến) chỉ áp cho `core/`.
+     * `transitionEnabled`). Nếu bật, ĐỌC transform THẬT đang hiển thị (`getComputedStyle`) TRƯỚC khi
+     * dừng animation cũ (SỬA, phản hồi Giang báo bug — "point move X -> transition -> hard cut cứng
+     * về gốc -> rồi mới move point, giật" — bản trước `stopPointMoveAnimation()` set thẳng
+     * `transform=''` (về gốc) rồi mới bắt animation MỚI xuất phát từ baseline, tạo 1 bước NHẢY CỨNG
+     * ngay lúc chuyển ảnh, LỘ RÕ vì giờ Point Move dùng CHUNG 1 phần tử cho cả 2 layer A/B — layer
+     * đang fade-out cũng bị giật theo. Animation MỚI giờ LUÔN xuất phát từ ĐÚNG giá trị ĐANG hiển thị
+     * — `getComputedStyle(...).transform` trả `'none'` (= identity, coi như baseline) nếu CHƯA từng
+     * chạy animation nào — TỰ ĐÚNG cho lượt `reveal()` đầu tiên mà không cần xử lý riêng) rồi chọn
+     * `_activatePointMoveOne()`/`_activatePointMoveAll()` theo `preset.pointMoveRunMode`. Đây là
+     * Workflow (được phép rẽ nhánh chọn Core/logic nào chạy, tự đọc DOM), KHÔNG phải Core — Rule 1
+     * (đơn tuyến)/Rule 2 (không tự đọc appState — đây là đọc DOM, không phải appState) chỉ áp cho
+     * `core/`.
      * @param {object} preset
      */
     _activatePointMove(preset) {
         if (!preset.pointMoveEnabled) return;
+        const fromTransform = motionEnginePointMoveWrapper ? getComputedStyle(motionEnginePointMoveWrapper).transform : 'none'; // core/dom-refs.js
         stopPointMoveAnimation(motionEnginePointMoveWrapper, this._pointMoveAnim); // core/dom-refs.js, core/motion-engine.js
         this._pointMoveAnim = null;
-        if (preset.pointMoveRunMode === 'one') { this._activatePointMoveOne(preset); return; }
-        this._activatePointMoveAll(preset);
+        if (preset.pointMoveRunMode === 'one') { this._activatePointMoveOne(preset, fromTransform); return; }
+        this._activatePointMoveAll(preset, fromTransform);
     },
 
     /** 'one' mode — chọn ĐÚNG 1 point move (trong số đã tick) theo `pointMoveOneOrder`, tween
-     * baseline -> target suốt `_lastAdvanceMs`. */
-    _activatePointMoveOne(preset) {
+     * TỪ VỊ TRÍ THẬT ĐANG HIỂN THỊ (`fromTransform`, xem `_activatePointMove()`) -> target suốt
+     * `_lastAdvanceMs` — KHÔNG còn ép về baseline trước (SỬA, phản hồi Giang — tránh giật lúc
+     * chuyển ảnh). */
+    _activatePointMoveOne(preset, fromTransform) {
         const checkedIndices = [];
         preset.pointMoves.forEach((p, i) => { if (p.checked) checkedIndices.push(i); });
         const pickFn = preset.pointMoveOneOrder === 'random' ? pickPointMoveOneIndexRandom : pickPointMoveOneIndexSequential; // core
@@ -237,21 +245,24 @@ const workflowMotionEngine = {
         if (index === -1) return; // không point move nào được tick (không nên xảy ra — #0 luôn checked — phòng hờ dữ liệu hỏng)
         const target = this._resolvePointMoveTarget(preset.pointMoves[index]);
         const keyframes = [
-            { transform: buildPointMoveTransformString(POINT_MOVE_BASELINE_TARGET) }, // core
+            { transform: fromTransform },
             { transform: buildPointMoveTransformString(target) }, // core
         ];
         this._pointMoveAnim = startPointMoveAnimation(motionEnginePointMoveWrapper, keyframes, this._lastAdvanceMs, 'ease-in-out'); // core/dom-refs.js, core/motion-engine.js
     },
 
     /** 'all' mode — sample đường cong Timing của TẤT CẢ point move đã tick thành N keyframe, feed
-     * WAAPI easing 'linear' (đường cong ĐÃ tự mượt qua sampling, easing khác sẽ làm méo lại). */
-    _activatePointMoveAll(preset) {
+     * WAAPI easing 'linear' (đường cong ĐÃ tự mượt qua sampling, easing khác sẽ làm méo lại) — GHI
+     * ĐÈ keyframe ĐẦU bằng `fromTransform` (SỬA, phản hồi Giang — cùng lý do `_activatePointMoveOne()`,
+     * tránh giật: mẫu đầu tiên bản tính sẵn LUÔN là baseline cố định, cần thay bằng vị trí THẬT). */
+    _activatePointMoveAll(preset, fromTransform) {
         const checked = preset.pointMoves.filter((p) => p.checked);
         if (checked.length === 0) return;
         const points = checked
             .map((p) => ({ x: p.timingX, y: p.timingY, target: this._resolvePointMoveTarget(p) }))
             .sort((a, b) => a.x - b.x);
         const keyframes = this._buildPointMoveAllKeyframes(points);
+        if (keyframes.length > 0) keyframes[0] = { transform: fromTransform };
         this._pointMoveAnim = startPointMoveAnimation(motionEnginePointMoveWrapper, keyframes, this._lastAdvanceMs, 'linear'); // core/dom-refs.js, core/motion-engine.js
     },
 
