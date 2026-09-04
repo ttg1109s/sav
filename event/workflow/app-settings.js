@@ -500,8 +500,6 @@ const workflowAppSettings = {
                     }
                     const modeSelect = body.querySelector(`[data-ptmove-mode="${fieldKey}"]`);
                     if (modeSelect) modeSelect.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldMode.change', payload: { fieldKey, mode: e.target.value } }));
-                    const applyIntensityCheckbox = body.querySelector(`[data-ptmove-applyintensity="${fieldKey}"]`);
-                    if (applyIntensityCheckbox) applyIntensityCheckbox.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldApplyTimingIntensity.change', payload: { fieldKey, checked: e.target.checked } }));
                     const singleInput = body.querySelector(`#setting-ptmove-${fieldKey}-single`);
                     if (singleInput) {
                         singleInput.addEventListener('input', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldSingle.preview', payload: { fieldKey, value: Number(e.target.value) } }));

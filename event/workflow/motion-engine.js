@@ -24,8 +24,8 @@
  * đó). 2 chế độ chạy (`pointMoveRunMode`):
  *   'one' — `_activatePointMoveOne()`: chọn 1 point move (trong số đã tick) tween thẳng baseline ->
  *      target suốt `advanceMs`.
- *   'all' — `_activatePointMoveAll()`: sample đường cong Timing (`computePointMoveCurveIntensityAt()`,
- *      core) thành N keyframe rồi feed WAAPI easing 'linear' — xem `_buildPointMoveAllKeyframes()`.
+ *   'all' — `_activatePointMoveAll()`: nội suy tuyến tính TỪNG SEGMENT theo `timingX` giữa 2 point
+ *      move liền kề, sample thành N keyframe — xem `_buildPointMoveAllKeyframes()`.
  *
  * NẠP SAU: core/motion-engine.js, core/dom-refs.js (motionEngineContainer/motionEnginePointMoveWrapper/
  * motionEngineLayer1,2/motionEngineLayer1,2Pan/motionEngineReactLayer), service/task-manager.js (chỉ
@@ -38,12 +38,9 @@
  * preset hợp lệ tối thiểu", thuộc kiến thức của Engine. */
 const MOTION_ENGINE_NO_OP_PRESET = { transitionEnabled: false, transitionType: 'fade', transitionDurationMs: 1000, transitionInOutRatio: 50, transitionEasing: 'linear', pointMoves: [], pointMoveEnabled: false, pointMoveRunMode: 'all', pointMoveOneOrder: 'sequential', reactBeatAudio: { enabled: false, zoom: { enabled: false }, pan: { enabled: false }, rotate: { enabled: false } } };
 
-/** Baseline "không đổi" — dùng làm điểm XUẤT PHÁT khi tween 'one' mode (baseline -> target). */
 /** Baseline "không đổi" — dùng làm điểm XUẤT PHÁT khi tween 'one' mode (baseline -> target) VÀ làm
- * `target` của node ảo "vị trí ban đầu" ở 'all' mode (xem `_buildPointMoveAllKeyframes()`). 6 cờ
- * `*ApplyIntensity` LUÔN false — KHÔNG ảnh hưởng số học gì (target=0, nhân intensity vẫn ra 0), chỉ
- * để tránh đọc `undefined` khi `seg.b` trỏ vào node ảo này (xem `_findPointMoveSegment()`). */
-const POINT_MOVE_BASELINE_TARGET = { linearX: 0, linearXUnit: '%', linearXApplyIntensity: false, linearY: 0, linearYUnit: '%', linearYApplyIntensity: false, rotate: 0, rotateApplyIntensity: false, zoom: 0, zoomApplyIntensity: false, flipX: 0, flipXApplyIntensity: false, flipY: 0, flipYApplyIntensity: false };
+ * `target` của node ảo "vị trí ban đầu" ở 'all' mode (xem `_buildPointMoveAllKeyframes()`). */
+const POINT_MOVE_BASELINE_TARGET = { linearX: 0, linearXUnit: '%', linearY: 0, linearYUnit: '%', rotate: 0, zoom: 0, flipX: 0, flipY: 0 };
 
 /** Số keyframe sample cho đường cong Timing ('all' mode) — càng cao càng mượt, đổi lại nặng hơn 1
  * chút cho `.animate()`. 50 mẫu (~2%/mẫu) đủ mượt cho mắt người ở tốc độ chuyển ảnh thông thường. */
@@ -259,7 +256,7 @@ const workflowMotionEngine = {
         const checked = preset.pointMoves.filter((p) => p.checked);
         if (checked.length === 0) return;
         const points = checked
-            .map((p) => ({ x: p.timingX, y: p.timingY, target: this._resolvePointMoveTarget(p) }))
+            .map((p) => ({ x: p.timingX, target: this._resolvePointMoveTarget(p) }))
             .sort((a, b) => a.x - b.x);
         const keyframes = this._buildPointMoveAllKeyframes(points);
         if (keyframes.length > 0) keyframes[0] = { transform: fromTransform };
@@ -267,57 +264,43 @@ const workflowMotionEngine = {
     },
 
     /** Resolve 6 field/point move thành giá trị SỐ THẬT (random range resolve 1 LẦN, giữ nguyên
-     * suốt lượt hiển thị đó — không resolve lại mỗi frame) + mang theo CỜ `applyTimingIntensity`
-     * của TỪNG field (phản hồi Giang — mỗi thông số tự chọn có bị trục Y Timing ảnh hưởng hay
-     * không, mặc định TẮT) để `_buildPointMoveAllKeyframes()` biết field nào cần nhân cường độ. */
+     * suốt lượt hiển thị đó — không resolve lại mỗi frame). */
     _resolvePointMoveTarget(pointMove) {
         return {
-            linearX: resolvePointMoveFieldValue(pointMove.linearX), linearXUnit: pointMove.linearX.unit, linearXApplyIntensity: pointMove.linearX.applyTimingIntensity, // core
-            linearY: resolvePointMoveFieldValue(pointMove.linearY), linearYUnit: pointMove.linearY.unit, linearYApplyIntensity: pointMove.linearY.applyTimingIntensity, // core
-            rotate: resolvePointMoveFieldValue(pointMove.rotate), rotateApplyIntensity: pointMove.rotate.applyTimingIntensity, // core
-            zoom: resolvePointMoveFieldValue(pointMove.zoom), zoomApplyIntensity: pointMove.zoom.applyTimingIntensity, // core
-            flipX: resolvePointMoveFieldValue(pointMove.flipX), flipXApplyIntensity: pointMove.flipX.applyTimingIntensity, // core
-            flipY: resolvePointMoveFieldValue(pointMove.flipY), flipYApplyIntensity: pointMove.flipY.applyTimingIntensity, // core
+            linearX: resolvePointMoveFieldValue(pointMove.linearX), linearXUnit: pointMove.linearX.unit, // core
+            linearY: resolvePointMoveFieldValue(pointMove.linearY), linearYUnit: pointMove.linearY.unit, // core
+            rotate: resolvePointMoveFieldValue(pointMove.rotate), // core
+            zoom: resolvePointMoveFieldValue(pointMove.zoom), // core
+            flipX: resolvePointMoveFieldValue(pointMove.flipX), // core
+            flipY: resolvePointMoveFieldValue(pointMove.flipY), // core
         };
     },
 
-    /** Sample `points` (đã sort theo `x`, mỗi phần tử {x,y,target}) thành mảng keyframe {transform}
-     * — mỗi mẫu: (1) tìm đoạn [A,B] chứa `xPercent` (`_findPointMoveSegment()`) trong
-     * `targetPoints` (= `points` + 1 node "vị trí ban đầu" ẢO chèn đầu, x=0/y=0/target trung tính —
-     * phản hồi Giang: animation LUÔN xuất phát từ mốc trung tính CỐ ĐỊNH này trước khi tới point
-     * move gần nhất, point move #0 KHÔNG còn bị ép đứng ở 0% nữa), lerp 6 field giữa `A.target`/
-     * `B.target` theo tiến độ THỜI GIAN cục bộ trong đoạn đó; (2) NẾU field đó có
-     * `applyTimingIntensity=true` (đọc từ `B.target`, điểm ĐANG hướng tới — phản hồi Giang, mặc
-     * định TẮT cho CẢ 6 field) thì nhân thêm cường độ `Y(xPercent)` đọc từ `curveNodes` (= `points`
-     * + 2 node ẢO 2 đầu CỐ ĐỊNH CỨNG tại (0%, 0) và (100%, 0) — phản hồi Giang: "dù có 1 point duy
-     * nhất đều tạo được đường cong", LUÔN có mặt bất kể bao nhiêu point move đã tick, KHÔNG chỉnh
-     * được (khác targetPoints ở x=0 — 2 điểm CÙNG toạ độ (0,0) nhưng phục vụ 2 việc khác nhau, một
-     * cho nội suy target, một cho đường cong cường độ) — KHỚP NGUYÊN TRẠNG đường cong hiển thị trên
-     * SVG lúc sửa, xem event/workflow/motion-presets.js::_computeTimingCurveData(), core/
-     * point-move-timing-ui.js) — `computePointMoveCurveIntensityAt()`, core, nội suy Catmull-Rom;
-     * field TẮT thì bỏ qua nhân, LUÔN đạt ĐỦ giá trị đã lerp theo thời gian — 2 trục X (thời gian/
-     * vị trí target) và Y (cường độ) tách biệt hoàn toàn, không giẫm chân nhau dù field nào đang
-     * randomRange (đã resolve xong 1 lần trước khi vào đây).
-     * @param {{x:number,y:number,target:object}[]} points
+    /** Sample `points` (đã sort theo `x`, mỗi phần tử {x,target}) thành mảng keyframe {transform} —
+     * mỗi mẫu: tìm đoạn [A,B] chứa `xPercent` (`_findPointMoveSegment()`) trong `targetPoints`
+     * (= `points` + 1 node "vị trí ban đầu" ẢO chèn đầu, x=0/target trung tính — animation LUÔN xuất
+     * phát từ mốc trung tính CỐ ĐỊNH này trước khi tới point move gần nhất, point move #0 KHÔNG bị
+     * ép đứng ở 0%), rồi lerp 6 field giữa `A.target`/`B.target` theo tiến độ THỜI GIAN cục bộ trong
+     * đoạn đó (phản hồi Giang — "loại bỏ toàn bộ timing Y" — ĐÃ XOÁ HẲN hệ số cường độ/đường cong Y,
+     * field LUÔN đạt ĐỦ giá trị đã lerp theo vị trí thời gian, không còn field nào bị nhân thêm gì).
+     * @param {{x:number,target:object}[]} points
      * @returns {object[]}
      */
     _buildPointMoveAllKeyframes(points) {
-        const targetPoints = [{ x: 0, y: 0, target: POINT_MOVE_BASELINE_TARGET }, ...points]; // node ảo "vị trí ban đầu" — CHỈ dùng nội suy target
-        const curveNodes = [{ x: 0, y: 0 }, ...points.map((p) => ({ x: p.x, y: p.y })), { x: 100, y: 0 }]; // 2 node ảo 2 đầu, CỐ ĐỊNH (0,0)/(100,0) — dùng cho đường cong CƯỜNG ĐỘ, KHÁC targetPoints (không node cuối, không .target)
+        const targetPoints = [{ x: 0, target: POINT_MOVE_BASELINE_TARGET }, ...points]; // node ảo "vị trí ban đầu"
         const keyframes = [];
         for (let i = 0; i <= MOTION_ENGINE_POINT_MOVE_ALL_STEPS; i++) {
             const xPercent = (i / MOTION_ENGINE_POINT_MOVE_ALL_STEPS) * 100;
             const seg = this._findPointMoveSegment(targetPoints, xPercent);
-            const intensity = computePointMoveCurveIntensityAt(curveNodes, xPercent) / 100; // core
             const v = {
-                linearX: lerpPointMoveNumber(seg.a.target.linearX, seg.b.target.linearX, seg.progress) * (seg.b.target.linearXApplyIntensity ? intensity : 1), // core
+                linearX: lerpPointMoveNumber(seg.a.target.linearX, seg.b.target.linearX, seg.progress), // core
                 linearXUnit: seg.a.target.linearXUnit,
-                linearY: lerpPointMoveNumber(seg.a.target.linearY, seg.b.target.linearY, seg.progress) * (seg.b.target.linearYApplyIntensity ? intensity : 1), // core
+                linearY: lerpPointMoveNumber(seg.a.target.linearY, seg.b.target.linearY, seg.progress), // core
                 linearYUnit: seg.a.target.linearYUnit,
-                rotate: lerpPointMoveNumber(seg.a.target.rotate, seg.b.target.rotate, seg.progress) * (seg.b.target.rotateApplyIntensity ? intensity : 1), // core
-                zoom: lerpPointMoveNumber(seg.a.target.zoom, seg.b.target.zoom, seg.progress) * (seg.b.target.zoomApplyIntensity ? intensity : 1), // core
-                flipX: lerpPointMoveNumber(seg.a.target.flipX, seg.b.target.flipX, seg.progress) * (seg.b.target.flipXApplyIntensity ? intensity : 1), // core
-                flipY: lerpPointMoveNumber(seg.a.target.flipY, seg.b.target.flipY, seg.progress) * (seg.b.target.flipYApplyIntensity ? intensity : 1), // core
+                rotate: lerpPointMoveNumber(seg.a.target.rotate, seg.b.target.rotate, seg.progress), // core
+                zoom: lerpPointMoveNumber(seg.a.target.zoom, seg.b.target.zoom, seg.progress), // core
+                flipX: lerpPointMoveNumber(seg.a.target.flipX, seg.b.target.flipX, seg.progress), // core
+                flipY: lerpPointMoveNumber(seg.a.target.flipY, seg.b.target.flipY, seg.progress), // core
             };
             keyframes.push({ transform: buildPointMoveTransformString(v) }); // core
         }
@@ -326,8 +309,7 @@ const workflowMotionEngine = {
 
     /** Tìm đoạn [A,B] (2 point move LIỀN KỀ trong `points`, đã sort theo `x`) chứa `xPercent`, +
      * tiến độ THỜI GIAN cục bộ (0-1) trong đoạn đó — plain JS thuần (không phải Core, Workflow được
-     * tự do tính toán), KHÔNG liên quan `computePointMoveCurveIntensityAt()` (hàm đó tính CƯỜNG ĐỘ
-     * trên toàn đường cong, hàm NÀY tìm 2 target để lerp — 2 việc độc lập nhau). */
+     * tự do tính toán). */
     _findPointMoveSegment(points, xPercent) {
         if (points.length === 1 || xPercent <= points[0].x) return { a: points[0], b: points[0], progress: 0 };
         const last = points[points.length - 1];

@@ -18,9 +18,8 @@ const workflowMotionPresets = {
     _editingId: null,   // preset đang sửa (màn Edit) — null nếu không ở màn Edit
     _pickMode: false,    // true khi màn Danh sách đang ở chế độ "Áp dụng > Chọn" (tap = gắn, không phải sửa)
     _editingPointMoveId: null, // point move đang sửa (màn Point Move Edit) — null nếu không ở màn đó
-    _dragPreviewPointMoveId: null, // point move ĐANG kéo trên đường cong Timing — null nếu không kéo
+    _dragPreviewPointMoveId: null, // point move ĐANG kéo trên thanh Timing — null nếu không kéo
     _dragPreviewTimingX: 0,
-    _dragPreviewTimingY: 0,
 
     /** Gọi từ event/workflow/app-boot.js — đọc `meta.motionPresets`, sanitize từng phần tử (phòng
      * dữ liệu hỏng/thiếu field). Danh sách RỖNG là hợp lệ — KHÔNG seed gì (khác EQ).
@@ -391,13 +390,6 @@ const workflowMotionPresets = {
         this._syncPointMoveEditUI(fieldKey);
     },
 
-    /** Ứng checkbox "Áp dụng trục Y (Timing)" — field CÓ bị nhân cường độ đường cong Timing hay
-     * không lúc chạy 'all' mode (mặc định TẮT, xem core/motion-presets.js::buildBlankPointMoveField()).
-     * @param {string} fieldKey @param {boolean} checked */
-    async changePointMoveFieldApplyTimingIntensity(fieldKey, checked) {
-        await this._mutateEditingPointMove((pm) => { pm[fieldKey] = { ...pm[fieldKey], applyTimingIntensity: checked }; });
-    },
-
     /** Ứng slider "single" (mode==='single') — LIVE preview lúc kéo (`input`), KHÔNG persist mỗi
      * pixel (cùng convention `previewTransitionRatio()`/`transitionRatio.preview` đã có) — chỉ cập
      * nhật nhãn giá trị, persist THẬT diễn ra ở `changePointMoveFieldSingle()` lúc thả tay (`change`). */
@@ -474,124 +466,78 @@ const workflowMotionPresets = {
 
     // ===================== Point Move — Timing (chỉ dùng khi pointMoveRunMode==='all') =====================
 
-    /** Ứng nút "Timing" trong màn Edit — mở màn đường cong. */
+    /** Ứng nút "Timing" trong màn Edit — mở màn thanh Timing. */
     openPointMoveTiming() {
         workflowAppSettings.navigateTo(() => workflowAppSettings._renderPointMoveTiming()); // liên tuyến domain
     },
 
-    /** Tính dữ liệu vẽ đường cong (danh sách node ĐÃ GỒM 2 node ẢO 2 đầu + chuỗi toạ độ polyline ĐÃ
-     * sample mượt) — DÙNG CHUNG cho `_renderTimingCurve()` (dựng lại TOÀN BỘ SVG) LẪN
-     * `_patchTimingPreview()` (chỉ vá lại phần tử ĐANG có, xem 2 hàm dưới) — tránh trùng lặp việc
-     * sample `computePointMoveCurveIntensityAt()` (core) ở 2 nơi. `overrideId` khác null -> point
-     * move THẬT đó dùng `overrideTimingX`/`overrideTimingY` thay vì giá trị đã lưu (preview LIVE,
-     * chưa persist) — 2 node ẢO 2 đầu KHÔNG BAO GIỜ truyền vào đây (core-ui không gắn listener kéo/
-     * tap cho chúng, phản hồi Giang "không được kéo X/Y gì hết"), LUÔN CỐ ĐỊNH CỨNG (0%, 0) và
-     * (100%, 0) — hằng số thuần, KHÔNG lưu trong preset (phản hồi Giang — "phải ở vị trí 0-0 và
-     * 100-0"), chỉ tồn tại để đường cong LUÔN có hình dạng dù 0/1 point move được tick (phản hồi
-     * Giang — "dù có 1 point duy nhất đều tạo được đường cong"). CÙNG công thức với runtime THẬT
-     * (event/workflow/motion-engine.js::_buildPointMoveAllKeyframes()), khớp nguyên trạng những gì
-     * sẽ chạy lúc phát. Workflow là tầng DUY NHẤT được lặp gọi Core nhiều lần (Rule 3, core cấm gọi
-     * core).
-     * @param {object} preset @param {string|null} overrideId @param {number} [overrideTimingX] @param {number} [overrideTimingY]
-     * @returns {{points: object[], curveCoordsStr: string}} */
-    _computeTimingCurveData(preset, overrideId, overrideTimingX, overrideTimingY) {
-        const realPoints = preset.pointMoves
+    /** Tính danh sách node (CHỈ point move đã tick, sort theo `timingX`) — DÙNG CHUNG cho
+     * `_renderTimingCurve()` (dựng lại TOÀN BỘ SVG) LẪN `_patchTimingPreview()` (chỉ vá lại phần tử
+     * ĐANG có, xem 2 hàm dưới). `overrideId` khác null -> point move ĐÓ dùng `overrideTimingX` thay
+     * vì giá trị đã lưu (preview LIVE, chưa persist).
+     * @param {object} preset @param {string|null} overrideId @param {number} [overrideTimingX]
+     * @returns {object[]} */
+    _computeTimingPoints(preset, overrideId, overrideTimingX) {
+        return preset.pointMoves
             .filter((p) => p.checked)
-            .map((p) => (p.id === overrideId ? { ...p, timingX: overrideTimingX, timingY: overrideTimingY } : p))
-            .map((p) => ({ id: p.id, timingX: p.timingX, timingY: p.timingY, locked: preset.pointMoves[0].id === p.id, n: preset.pointMoves.findIndex((pm) => pm.id === p.id) })) // `n` = ĐÚNG index trong MẢNG GỐC (khớp tên "Point move N" ở màn Danh sách), không phải vị trí sau khi lọc/sort ở đây
+            .map((p) => (p.id === overrideId ? { ...p, timingX: overrideTimingX } : p))
+            .map((p) => ({ id: p.id, timingX: p.timingX, locked: preset.pointMoves[0].id === p.id, n: preset.pointMoves.findIndex((pm) => pm.id === p.id) })) // `n` = ĐÚNG index trong MẢNG GỐC (khớp tên "Point move N" ở màn Danh sách), không phải vị trí sau khi lọc/sort ở đây
             .sort((a, b) => a.timingX - b.timingX);
-        const points = [
-            { id: POINT_MOVE_TIMING_START_ID, timingX: 0, timingY: 0, locked: false }, // core/point-move-timing-ui.js (const) — CỐ ĐỊNH CỨNG, xem docstring
-            ...realPoints,
-            { id: POINT_MOVE_TIMING_END_ID, timingX: 100, timingY: 0, locked: false },
-        ];
-        const nodesForCurve = points.map((p) => ({ x: p.timingX, y: p.timingY }));
-        const SAMPLES = 60;
-        const curveCoords = [];
-        for (let i = 0; i <= SAMPLES; i++) {
-            const xPercent = (i / SAMPLES) * 100;
-            const yValue = computePointMoveCurveIntensityAt(nodesForCurve, xPercent); // core
-            const svgX = POINT_MOVE_TIMING_PAD_X + (xPercent / 100) * (POINT_MOVE_TIMING_SVG_W - POINT_MOVE_TIMING_PAD_X - 6); // core/point-move-timing-ui.js (consts)
-            const yRatio = 1 - (yValue - POINT_MOVE_TIMING_Y_MIN) / (POINT_MOVE_TIMING_Y_MAX - POINT_MOVE_TIMING_Y_MIN);
-            const svgY = POINT_MOVE_TIMING_PAD_Y + yRatio * (POINT_MOVE_TIMING_SVG_H - POINT_MOVE_TIMING_PAD_Y * 2);
-            curveCoords.push(`${svgX},${svgY}`);
-        }
-        return { points, curveCoordsStr: curveCoords.join(' ') };
     },
 
     /** Dựng lại TOÀN BỘ SVG (xoá sạch + `buildPointMoveTimingCurveEl()` mới) — CHỈ gọi lúc mở màn
      * lần đầu hoặc SAU KHI đã persist xong 1 lượt sửa (commit) — KHÔNG gọi liên tục lúc đang kéo
      * (xem `_patchTimingPreview()`, tách riêng đúng vì lý do đó: xoá/dựng lại SVG giữa chừng lúc
      * đang kéo sẽ làm `draggingEl`/toạ độ core-ui đang giữ bị "treo" — phần tử cũ đã bị gỡ khỏi DOM,
-     * `getBoundingClientRect()` trả về rỗng, toạ độ tính tiếp sẽ sai/NaN. Đây là lỗi THẬT đã xảy ra
-     * ở bản trước khi gộp preview LIVE vào chung hàm này — SỬA bằng cách tách hẳn 2 luồng).
+     * `getBoundingClientRect()` trả về rỗng, toạ độ tính tiếp sẽ sai/NaN).
      * @param {HTMLElement} containerEl - `#ptmove-timing-container`. */
     _renderTimingCurve(containerEl) {
         if (!containerEl) return;
         const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
         if (!preset) return;
-        const { points, curveCoordsStr } = this._computeTimingCurveData(preset, this._dragPreviewPointMoveId, this._dragPreviewTimingX, this._dragPreviewTimingY);
+        const points = this._computeTimingPoints(preset, this._dragPreviewPointMoveId, this._dragPreviewTimingX);
         containerEl.innerHTML = '';
-        containerEl.appendChild(buildPointMoveTimingCurveEl(points, curveCoordsStr)); // core/point-move-timing-ui.js
+        containerEl.appendChild(buildPointMoveTimingCurveEl(points)); // core/point-move-timing-ui.js
     },
 
-    /** Vá LIVE 1 node + polyline NGAY TRONG SVG đang có (KHÔNG xoá/dựng lại — xem lý do ở
-     * `_renderTimingCurve()`). Dùng CHUNG cho preview lúc kéo node THẬT LẪN 2 node ẢO 2 đầu (`id` =
-     * `POINT_MOVE_TIMING_START_ID`/`END_ID`, xem `_computeTimingCurveData()`).
-     * @param {string} id @param {number} timingX @param {number} timingY */
-    _patchTimingPreview(id, timingX, timingY) {
+    /** Vá LIVE vị trí 1 node NGAY TRONG SVG đang có (KHÔNG xoá/dựng lại — xem lý do ở
+     * `_renderTimingCurve()`).
+     * @param {string} id @param {number} timingX */
+    _patchTimingPreview(id, timingX) {
         if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
-        const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
-        if (!preset) return;
-        const { points, curveCoordsStr } = this._computeTimingCurveData(preset, id, timingX, timingY);
         const container = genericDrawerBody.querySelector('#ptmove-timing-container'); // core/dom-refs.js
         const svgEl = container ? container.querySelector('.ptmove-timing-svg') : null;
-        if (!svgEl) return;
-        const polylineEl = svgEl.querySelector('.ptmove-timing-curve');
-        if (polylineEl) polylineEl.setAttribute('points', curveCoordsStr);
-        const nodeEl = svgEl.querySelector(`circle[data-point-move-id="${id}"]`);
-        const point = points.find((p) => p.id === id);
-        if (nodeEl && point) {
-            const cx = POINT_MOVE_TIMING_PAD_X + (point.timingX / 100) * (POINT_MOVE_TIMING_SVG_W - POINT_MOVE_TIMING_PAD_X - 6); // core/point-move-timing-ui.js (consts)
-            const yRatio = 1 - (point.timingY - POINT_MOVE_TIMING_Y_MIN) / (POINT_MOVE_TIMING_Y_MAX - POINT_MOVE_TIMING_Y_MIN);
-            const cy = POINT_MOVE_TIMING_PAD_Y + yRatio * (POINT_MOVE_TIMING_SVG_H - POINT_MOVE_TIMING_PAD_Y * 2);
-            nodeEl.setAttribute('cx', cx);
-            nodeEl.setAttribute('cy', cy);
-        }
+        const nodeEl = svgEl ? svgEl.querySelector(`circle[data-point-move-id="${id}"]`) : null;
+        if (!nodeEl) return;
+        const usableW = POINT_MOVE_TIMING_SVG_W - POINT_MOVE_TIMING_PAD_X * 2; // core/point-move-timing-ui.js (consts)
+        nodeEl.setAttribute('cx', POINT_MOVE_TIMING_PAD_X + (timingX / 100) * usableW);
     },
 
     /** Preview LIVE khi đang kéo 1 node (mỗi `pointermove`, KHÔNG persist) — vá tại chỗ.
-     * @param {string} id @param {number} timingX @param {number} timingY */
-    previewPointMoveTimingDrag(id, timingX, timingY) {
+     * @param {string} id @param {number} timingX */
+    previewPointMoveTimingDrag(id, timingX) {
         this._dragPreviewPointMoveId = id;
         this._dragPreviewTimingX = timingX;
-        this._dragPreviewTimingY = timingY;
-        this._patchTimingPreview(id, timingX, timingY);
+        this._patchTimingPreview(id, timingX);
     },
 
     /** `pointerup` sau khi ĐÃ kéo đủ xa (core-ui tự phân biệt tap/kéo) — CHỐT giá trị đang preview
-     * vào preset thật (persist), dựng lại TOÀN MÀN cho chắc ăn đồng bộ tuyệt đối sau khi ghi. `id`
-     * LUÔN là point move THẬT — 2 node ẢO 2 đầu KHÔNG BAO GIỜ gọi tới hàm này (core-ui không gắn
-     * listener kéo cho chúng, cố định cứng, xem core/point-move-timing-ui.js). */
+     * vào preset thật (persist), dựng lại TOÀN MÀN cho chắc ăn đồng bộ tuyệt đối sau khi ghi. */
     async commitPointMoveTimingDrag() {
         const id = this._dragPreviewPointMoveId;
         if (!id) return;
         const timingX = this._dragPreviewTimingX;
-        const timingY = this._dragPreviewTimingY;
         this._dragPreviewPointMoveId = null;
         await this._mutateEditing((p) => {
             const idx = p.pointMoves.findIndex((pm) => pm.id === id);
             if (idx === -1) return;
-            p.pointMoves[idx] = { ...p.pointMoves[idx], timingX, timingY };
+            p.pointMoves[idx] = { ...p.pointMoves[idx], timingX };
         });
         if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
         workflowAppSettings._renderPointMoveTiming(); // liên tuyến domain — dựng lại TOÀN màn (an toàn, commit chỉ xảy ra 1 lần lúc thả tay, không phải mỗi pixel)
     },
 
-    /** Ứng TAP (không kéo) 1 node THẬT trên đồ thị — mở modal nhập số CHÍNH XÁC thay vì kéo tay
-     * (phản hồi Giang — thay cho list ô nhập số cũ). `id` LUÔN là point move THẬT — 2 node ẢO 2 đầu
-     * KHÔNG BAO GIỜ gọi tới hàm này (core-ui không gắn listener nào cho chúng, phản hồi Giang
-     * "không được kéo X/Y gì hết", cố định cứng, xem core/point-move-timing-ui.js).
+    /** Ứng TAP (không kéo) 1 node trên thanh — mở modal nhập số CHÍNH XÁC thay vì kéo tay.
      * @param {string} id */
     openPointMoveTimingNodeModal(id) {
         const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
@@ -600,41 +546,34 @@ const workflowMotionPresets = {
         if (idx === -1) return;
         const pm = preset.pointMoves[idx];
         let draftX = pm.timingX;
-        let draftY = pm.timingY;
         modalChoice( // core/modal-choice-ui.js
             tFormat('motionSettingsDrawer.pointMove.itemName', { n: idx }),
             [{
                 label: t('common.save'),
                 className: 'flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold transition-colors',
-                onClick: () => this._commitPointMoveTimingModal(id, draftX, draftY),
+                onClick: () => this._commitPointMoveTimingModal(id, draftX),
             }],
             {
                 bodyHtml: `
                     <label class="block text-xs text-slate-400 mb-1">${escapeHtml(t('motionSettingsDrawer.pointMove.timing.xLabel'))}</label>
-                    <input type="number" id="ptmove-modal-x-input" min="0" max="100" step="1" value="${pm.timingX}" class="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none mb-3">
-                    <label class="block text-xs text-slate-400 mb-1">${escapeHtml(t('motionSettingsDrawer.pointMove.timing.yLabel'))}</label>
-                    <input type="number" id="ptmove-modal-y-input" min="${MOTION_POINT_MOVE_TIMING_Y_BOUNDS.min}" max="${MOTION_POINT_MOVE_TIMING_Y_BOUNDS.max}" step="1" value="${pm.timingY}" class="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none">
-                `, // core/motion-presets.js (bounds)
+                    <input type="number" id="ptmove-modal-x-input" min="0" max="100" step="1" value="${pm.timingX}" class="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none">
+                `,
             },
         );
         const xInput = document.getElementById('ptmove-modal-x-input');
-        const yInput = document.getElementById('ptmove-modal-y-input');
         if (xInput) xInput.addEventListener('input', (e) => { draftX = Number(e.target.value); });
-        if (yInput) yInput.addEventListener('input', (e) => { draftY = Number(e.target.value); });
     },
 
     /** Ứng nút "Lưu" trong modal (`openPointMoveTimingNodeModal()`) — commit số ĐÃ gõ, tự kẹp biên
-     * (phòng số ngoài min/max input, dù browser thường tự chặn — vẫn không tin mù). `id` LUÔN là
-     * point move THẬT (xem `openPointMoveTimingNodeModal()`).
-     * @param {string} id @param {number} timingX @param {number} timingY */
-    async _commitPointMoveTimingModal(id, timingX, timingY) {
-        if (typeof timingX !== 'number' || Number.isNaN(timingX) || typeof timingY !== 'number' || Number.isNaN(timingY)) return;
+     * (phòng số ngoài min/max input, dù browser thường tự chặn — vẫn không tin mù).
+     * @param {string} id @param {number} timingX */
+    async _commitPointMoveTimingModal(id, timingX) {
+        if (typeof timingX !== 'number' || Number.isNaN(timingX)) return;
         const clampedX = Math.max(0, Math.min(100, timingX));
-        const clampedY = Math.max(MOTION_POINT_MOVE_TIMING_Y_BOUNDS.min, Math.min(MOTION_POINT_MOVE_TIMING_Y_BOUNDS.max, timingY)); // core/motion-presets.js
         await this._mutateEditing((p) => {
             const idx = p.pointMoves.findIndex((pm) => pm.id === id);
             if (idx === -1) return;
-            p.pointMoves[idx] = { ...p.pointMoves[idx], timingX: clampedX, timingY: clampedY };
+            p.pointMoves[idx] = { ...p.pointMoves[idx], timingX: clampedX };
         });
         if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
         workflowAppSettings._renderPointMoveTiming(); // liên tuyến domain
