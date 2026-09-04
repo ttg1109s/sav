@@ -7,8 +7,9 @@
  * transitionWipeDirection, transitionCurtainDirection, edgeFlipVariant, edgeFlipStaticOld,
  * pointMoves, pointMoveRunMode, pointMoveOneOrder, reactBeatAudio}. Danh sách preset SỐNG ở
  * `appState.motionPresets` (nạp lúc boot từ `meta.motionPresets`), xem event/workflow/
- * motion-presets.js::loadPresetsOnBoot(). Preset ĐANG GẮN vào Visual Background (Photo) là 1 field
- * tham chiếu đơn giản `appConfigVisualBg.motionPresetId` (null = chưa gắn preset nào).
+ * motion-presets.js::loadPresetsOnBoot(). Nơi tiêu thụ (VBG Photo) tự chọn 1 preset qua
+ * `appConfigVisualBg.motionPresetId` (null = chưa gắn) — trong số preset ĐÃ ĐĂNG KÝ cho nó qua
+ * `appState.motionApply` (xem nhóm "Motion Apply" cuối file).
  *
  * Danh sách rỗng vẫn hợp lệ (Photo VBG không gắn gì thì đơn giản không animate).
  *
@@ -353,4 +354,67 @@ function sanitizeMotionBeatReact(raw, blank) {
             reverse: typeof rotate.reverse === 'boolean' ? rotate.reverse : blank.rotate.reverse,
         },
     };
+}
+
+// ===================== Motion Apply — đăng ký preset cho "nơi tiêu thụ" =====================
+// Thay cơ chế cũ (VBG tự mở danh sách preset, gắn 1 cái vào `motionPresetId`) — giờ preset TỰ ĐĂNG
+// KÝ cho từng nơi tiêu thụ (màn Edit preset), nơi tiêu thụ chỉ chọn 1 trong số đã đăng ký cho mình.
+// `motionApply` = {[consumerKey]: presetId[]}, sống ở `appState.motionApply` (nạp lúc boot từ
+// `meta.motionApply`, xem event/workflow/motion-presets.js::loadPresetsOnBoot()). Việc CHỌN 1
+// preset cụ thể (trong số đã đăng ký) vẫn qua field riêng của từng nơi tiêu thụ (VBG:
+// `appConfigVisualBg.motionPresetId`) — `motionApply` chỉ quyết định preset nào ĐỦ ĐIỀU KIỆN xuất
+// hiện trong dropdown chọn của nơi đó.
+
+/** Nơi tiêu thụ hợp lệ — hiện DUY NHẤT Photo Visual Background. */
+const MOTION_APPLY_CONSUMERS = [
+    { key: 'photoVisualBg', labelKey: 'motionPresetsDrawer.apply.photoVisualBg.label' },
+];
+const MOTION_APPLY_CONSUMER_KEYS = MOTION_APPLY_CONSUMERS.map((c) => c.key);
+
+/** Core thuần — validate `meta.motionApply` đọc lên: object thuần, mỗi key PHẢI nằm trong
+ * `MOTION_APPLY_CONSUMER_KEYS`, giá trị PHẢI là mảng string. Dữ liệu hỏng -> `{}`.
+ * @param {*} raw @returns {Object<string,string[]>} */
+function sanitizeMotionApply(raw) {
+    if (!raw || typeof raw !== 'object') return {};
+    const result = {};
+    MOTION_APPLY_CONSUMER_KEYS.forEach((key) => {
+        if (Array.isArray(raw[key])) result[key] = raw[key].filter((id) => typeof id === 'string');
+    });
+    return result;
+}
+
+/** Core thuần — preset `presetId` đã đăng ký cho `consumerKey` hay chưa.
+ * @param {Object<string,string[]>} motionApply @param {string} consumerKey @param {string} presetId
+ * @returns {boolean} */
+function isMotionApplySubscribed(motionApply, consumerKey, presetId) {
+    return (motionApply[consumerKey] || []).includes(presetId);
+}
+
+/** Core thuần — đăng ký `presetId` vào `consumerKey`, thêm cuối mảng nếu chưa có. Trả object MỚI.
+ * @param {Object<string,string[]>} motionApply @param {string} consumerKey @param {string} presetId
+ * @returns {Object<string,string[]>} */
+function subscribeMotionApply(motionApply, consumerKey, presetId) {
+    const list = motionApply[consumerKey] || [];
+    if (list.includes(presetId)) return motionApply;
+    return { ...motionApply, [consumerKey]: [...list, presetId] };
+}
+
+/** Core thuần — huỷ đăng ký `presetId` khỏi `consumerKey`. Dùng Set cho `.has()`/xoá O(1) thay vì
+ * `Array.indexOf`/`splice` O(n), map lại thành array rồi ghi đè lại đúng key. Trả object MỚI.
+ * @param {Object<string,string[]>} motionApply @param {string} consumerKey @param {string} presetId
+ * @returns {Object<string,string[]>} */
+function unsubscribeMotionApply(motionApply, consumerKey, presetId) {
+    const set = new Set(motionApply[consumerKey] || []);
+    if (!set.has(presetId)) return motionApply;
+    set.delete(presetId);
+    return { ...motionApply, [consumerKey]: Array.from(set) };
+}
+
+/** Core thuần — gỡ `presetId` khỏi TẤT CẢ nơi tiêu thụ (dùng khi xoá hẳn preset). Trả object MỚI.
+ * @param {Object<string,string[]>} motionApply @param {string} presetId
+ * @returns {Object<string,string[]>} */
+function removeMotionApplyEverywhere(motionApply, presetId) {
+    const result = {};
+    Object.keys(motionApply).forEach((key) => { result[key] = (motionApply[key] || []).filter((id) => id !== presetId); });
+    return result;
 }
