@@ -127,10 +127,6 @@ const routerMotionPresets = (() => {
                 workflowMotionPresets.changePointMoveFieldMode(msg.payload.fieldKey, msg.payload.mode);
                 break;
 
-            case 'motionPresets.pointMove.fieldApplyTimingIntensity.change':
-                workflowMotionPresets.changePointMoveFieldApplyTimingIntensity(msg.payload.fieldKey, msg.payload.checked);
-                break;
-
             case 'motionPresets.pointMove.fieldSingle.preview':
                 workflowMotionPresets.previewPointMoveFieldSingle(msg.payload.fieldKey, msg.payload.value);
                 break;
@@ -148,7 +144,7 @@ const routerMotionPresets = (() => {
                 break;
 
             case 'motionPresets.pointMoveTiming.nodeDrag.preview':
-                workflowMotionPresets.previewPointMoveTimingDrag(msg.payload.id, msg.payload.timingX, msg.payload.timingY);
+                workflowMotionPresets.previewPointMoveTimingDrag(msg.payload.id, msg.payload.timingX);
                 break;
 
             case 'motionPresets.pointMoveTiming.nodeDrag.end':
