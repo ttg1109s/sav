@@ -41,7 +41,10 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsVisualizer.gesture.label': 'Gestures',
     'settingsVisualizer.gesture.hint': 'Swipe/tap controls on the Visualizer screen',
     'visualBgSettingsDrawer.title': 'Visual Background',
-    'visualBgSettingsDrawer.groupSource.title': 'Source',
+    'visualBgSettingsDrawer.groupMedia.title': 'Media',
+    'visualBgSettingsDrawer.groupPlayback.title': 'Playback settings',
+    'visualBgSettingsDrawer.motion.label': 'Motion',
+    'visualBgSettingsDrawer.motion.none': 'None',
     'visualBgSettingsDrawer.groupColor.title': 'Background colour',
     'visualBgSettingsDrawer.colorMode.label': 'Colour style',
     'visualBgSettingsDrawer.colorMode.solid': 'Solid',
@@ -138,8 +141,6 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // MỚI (08/08/2026, phản hồi Giang mục 2) — tiêu đề modal chọn volume dùng chung (core/slider-input-modal.js).
     'visualBgSettingsDrawer.videoAudio.volumeModal.title': 'Video volume',
 
-    // XOÁ (29/08/2026) — 'motionSettingsDrawer.title' bỏ hẳn (không còn hàm nào gọi — màn Menu
-    // dùng 'motionPresetsDrawer.menu.title' ngay dưới thay thế).
     // VIẾT LẠI (Batch 9, 04/07/2026, mục 4) — gộp 2 section cũ ("Album"/"Playback") thành 1; 2 nút
     // "Choose album"/"Turn off" thay bằng 1 toggle "enable" duy nhất + hàng "album đang chạy".
     // SỬA (18/07/2026, phản hồi Giang — "tái cấu trúc panel theo nhóm mục") — 'sectionTitle' (1
@@ -249,37 +250,25 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'motionSettingsDrawer.transitionEasing.easeOut': 'Ease out',
     'motionSettingsDrawer.transitionEasing.easeInOut': 'Ease in-out',
 
-    // MỚI (29/08/2026, phản hồi Giang — hệ "Cấu hình Motion" độc lập, xem event/workflow/
-    // motion-presets.js/components/motion-settings-drawer.js). Lối vào DUY NHẤT: System >
-    // Motion — 2 mục con "Quản lý cấu hình"/"Áp dụng cấu hình". SỬA (29/08/2026, phản hồi Giang —
-    // "tránh nhầm giữa tên mục Settings với chế độ Playback 'Slideshow' của VBG") — namespace
-    // 'slideshowSettingsDrawer'/'slideshowPresetsDrawer' cũ đổi hẳn thành 'motionSettingsDrawer'/
-    // 'motionPresetsDrawer' — Slideshow (chế độ Playback: perSong/slideshow, xem
-    // visualBgSettingsDrawer.listPlaybackMode.slideshow ngay trên) KHÔNG đổi, vẫn "Slideshow" —
-    // 2 khái niệm khác nhau, giờ khác tên hẳn, không còn trùng chữ.
-    'motionPresetsDrawer.menu.title': 'Motion',
-    'motionPresetsDrawer.menu.manage.label': 'Manage configurations',
-    'motionPresetsDrawer.menu.manage.hint': 'Create, edit, or delete motion configurations',
-    'motionPresetsDrawer.menu.apply.label': 'Apply configuration',
-    'motionPresetsDrawer.menu.apply.hint': 'Choose which configuration each place uses',
+    // Namespace 'motionPresetsDrawer' — hệ "Cấu hình Motion" độc lập (event/workflow/
+    // motion-presets.js/components/motion-settings-drawer.js). Lối vào DUY NHẤT: System > Motion
+    // -> thẳng danh sách preset. Đăng ký nơi tiêu thụ ("Áp dụng cho") nằm trong màn Edit.
+    'motionPresetsDrawer.list.title': 'Motion',
     'motionPresetsDrawer.defaultName': 'Motion {n}',
     'motionPresetsDrawer.migratedName': 'Default',
-    'motionPresetsDrawer.list.pickTitle': 'Choose a configuration',
     'motionPresetsDrawer.list.add.label': 'Add new configuration',
     'motionPresetsDrawer.list.delete.title': 'Delete',
-    'motionPresetsDrawer.list.emptyManage': 'No configurations yet — add one to get started.',
-    'motionPresetsDrawer.list.emptyPick': 'No configurations yet — create one under "Manage configurations" first.',
+    'motionPresetsDrawer.list.empty': 'No configurations yet — add one to get started.',
     'motionPresetsDrawer.edit.title': 'Edit configuration',
     'motionPresetsDrawer.edit.groupManage.title': 'Manage',
     'motionPresetsDrawer.edit.nameLabel': 'Name',
     'motionPresetsDrawer.edit.namePlaceholder': 'Configuration name',
     'motionPresetsDrawer.edit.reset.label': 'Reset to defaults',
     'motionPresetsDrawer.edit.delete.label': 'Delete this configuration',
+    'motionPresetsDrawer.apply.groupTitle': 'Apply to',
     'motionPresetsDrawer.apply.photoVisualBg.label': 'Photo visual background',
-    'motionPresetsDrawer.apply.notAttached': 'Not attached',
-    'motionPresetsDrawer.apply.currentLabel': 'Current configuration',
-    'motionPresetsDrawer.apply.detach.label': 'Detach',
-    'motionPresetsDrawer.apply.pickButton': 'Choose configuration',
+    'motionPresetsDrawer.apply.subscribe.label': 'Subscribe',
+    'motionPresetsDrawer.apply.unsubscribe.label': 'Unsubscribe',
 
     // MỚI (29/08/2026, phản hồi Giang) — "React Beat Audio": pulse zoom/pan/rotate bắn theo beat nhạc.
     'motionPresetsDrawer.beatReact.groupTitle': 'React Beat Audio',
