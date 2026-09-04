@@ -37,6 +37,17 @@
  * Point move VỊ TRÍ ĐẦU (index 0) LUÔN checked=true, KHÔNG bỏ tick được — ràng buộc theo VỊ TRÍ,
  * không theo id (xem sanitizeMotionPointMoves()). `timingX` của nó KHÔNG bị khoá.
  *
+ * MỚI (phản hồi Giang — sửa bug "point move cuối cùng bị kéo cứng về baseline lúc chuyển ảnh") —
+ * `pointMoveStartForceBaseline`/`pointMoveEndForceBaseline` (CHỈ có ý nghĩa với `pointMoveRunMode:
+ * 'all'`, bool, mặc định `false` cả 2) — quyết định mốc ẢO ở 2 đầu trục Timing (x=0/x=100) là
+ * baseline CỐ ĐỊNH (bật) hay LIỀN MẠCH từ vị trí thật (tắt, xem event/workflow/motion-engine.js::
+ * _deriveLivePointMoveTarget()). CHỈ ĐƯỢC BẬT 1 TRONG 2 (phản hồi Giang) — bật cái này tự tắt cái
+ * kia (xem event/workflow/motion-presets.js::changePointMoveStartForceBaseline()/
+ * changePointMoveEndForceBaseline()). Khi 1 trong 2 đang bật, mốc đó "vô hiệu hoá và thay thế" bất
+ * kỳ point move nào đang đứng ĐÚNG x=0%/x=100% (UI chặn kéo/nhập tới đúng mốc đó, xem
+ * core/point-move-timing-ui.js — `minX`/`maxX`); `sanitizeMotionPreset()` tự đẩy nhẹ point move cũ
+ * (dữ liệu trước khi có field này) ra khỏi mốc bị khoá.
+ *
  * 6 field/point move — mỗi field {mode:'single'|'randomRange', unit, single, rangeMin, rangeMax}:
  * `mode==='single'` dùng thẳng `single`; `mode==='randomRange'` mỗi lượt resolve random đều trong
  * [rangeMin,rangeMax] (xem resolvePointMoveFieldValue(), core/motion-engine.js). Baseline (0) LUÔN
@@ -171,6 +182,8 @@ function buildBlankMotionPreset(name) {
         pointMoveEnabled: true,
         pointMoveRunMode: 'all',
         pointMoveOneOrder: 'sequential',
+        pointMoveStartForceBaseline: false,
+        pointMoveEndForceBaseline: false,
         reactBeatAudio: {
             enabled: false,
             zoom: { enabled: false, maxPct: 150 },
@@ -200,6 +213,16 @@ function generateMotionPresetId() {
  * @param {object} raw @returns {object} */
 function sanitizeMotionPreset(raw) {
     const blank = buildBlankMotionPreset(typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : 'Motion');
+    // MỚI (phản hồi Giang) — 2 cờ "force baseline" CHỈ ĐƯỢC 1 TRONG 2 bật; dữ liệu hỏng/xung đột
+    // (cả 2 true) -> về mặc định an toàn (tắt cả 2 = liền mạch 2 đầu) thay vì đoán ưu tiên bên nào.
+    let pointMoveStartForceBaseline = typeof raw.pointMoveStartForceBaseline === 'boolean' ? raw.pointMoveStartForceBaseline : blank.pointMoveStartForceBaseline;
+    let pointMoveEndForceBaseline = typeof raw.pointMoveEndForceBaseline === 'boolean' ? raw.pointMoveEndForceBaseline : blank.pointMoveEndForceBaseline;
+    if (pointMoveStartForceBaseline && pointMoveEndForceBaseline) { pointMoveStartForceBaseline = false; pointMoveEndForceBaseline = false; }
+    // Đẩy nhẹ (CÙNG bước +0.2%/-0.2% dùng ở addPointMove()/duplicatePointMove()) bất kỳ point move
+    // nào ĐANG đứng đúng mốc bị khoá — phòng dữ liệu cũ (trước khi có 2 field này) hoặc dữ liệu hỏng.
+    let pointMoves = sanitizeMotionPointMoves(raw.pointMoves);
+    if (pointMoveStartForceBaseline) pointMoves = pointMoves.map((pm) => pm.timingX === 0 ? { ...pm, timingX: 0.1 } : pm);
+    if (pointMoveEndForceBaseline) pointMoves = pointMoves.map((pm) => pm.timingX === 100 ? { ...pm, timingX: 99.9 } : pm);
     return {
         id: typeof raw.id === 'string' && raw.id ? raw.id : blank.id,
         name: blank.name,
@@ -215,10 +238,12 @@ function sanitizeMotionPreset(raw) {
         transitionCurtainDirection: MOTION_ENGINE_CURTAIN_DIRECTIONS_WITH_RANDOM.includes(raw.transitionCurtainDirection) ? raw.transitionCurtainDirection : blank.transitionCurtainDirection,
         edgeFlipVariant: MOTION_ENGINE_EDGE_FLIP_VARIANTS.includes(raw.edgeFlipVariant) ? raw.edgeFlipVariant : blank.edgeFlipVariant,
         edgeFlipStaticOld: typeof raw.edgeFlipStaticOld === 'boolean' ? raw.edgeFlipStaticOld : blank.edgeFlipStaticOld,
-        pointMoves: sanitizeMotionPointMoves(raw.pointMoves),
+        pointMoves,
         pointMoveEnabled: typeof raw.pointMoveEnabled === 'boolean' ? raw.pointMoveEnabled : blank.pointMoveEnabled,
         pointMoveRunMode: MOTION_POINT_MOVE_RUN_MODES.includes(raw.pointMoveRunMode) ? raw.pointMoveRunMode : blank.pointMoveRunMode,
         pointMoveOneOrder: MOTION_POINT_MOVE_ONE_ORDERS.includes(raw.pointMoveOneOrder) ? raw.pointMoveOneOrder : blank.pointMoveOneOrder,
+        pointMoveStartForceBaseline,
+        pointMoveEndForceBaseline,
         reactBeatAudio: sanitizeMotionBeatReact(raw.reactBeatAudio, blank.reactBeatAudio),
     };
 }

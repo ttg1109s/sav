@@ -41,9 +41,16 @@ const POINT_MOVE_TIMING_TAP_THRESHOLD_PX = 6;
  * @param {{id:string, timingX:number, locked:boolean, n:number}[]} points - point move ĐÃ tick, sort
  *   theo `timingX` tăng dần (nơi gọi tự sort — Rule 2, hàm này chỉ vẽ theo thứ tự nhận được). `n` =
  *   số thứ tự "Point move N" hiển thị lúc ấn vào node.
+ * @param {number} [minX] - MỚI (phản hồi Giang) — biên kéo trái, mặc định 0. Nơi gọi truyền >0
+ *   (0.1) khi `pointMoveStartForceBaseline` đang bật (core/motion-presets.js) — mốc x=0 lúc đó do
+ *   baseline CỐ ĐỊNH chiếm, không cho kéo/tap-nhập 1 point move khác đè lên đúng mốc đó.
+ * @param {number} [maxX] - biên kéo phải, mặc định 100. Tương tự `minX`, dùng khi
+ *   `pointMoveEndForceBaseline` đang bật (<100, vd 99.9).
  * @returns {HTMLElement} phần tử wrapper chứa SVG, sẵn sàng append vào DOM.
  */
-function buildPointMoveTimingCurveEl(points) {
+function buildPointMoveTimingCurveEl(points, minX, maxX) {
+    const boundMinX = typeof minX === 'number' ? minX : 0;
+    const boundMaxX = typeof maxX === 'number' ? maxX : 100;
     const wrapper = document.createElement('div');
     wrapper.className = 'ptmove-timing-wrapper';
 
@@ -160,7 +167,7 @@ function buildPointMoveTimingCurveEl(points) {
         const rect = svg.getBoundingClientRect();
         const scaleX = POINT_MOVE_TIMING_SVG_W / rect.width;
         const svgX = (e.clientX - rect.left) * scaleX;
-        const xPercent = Math.max(0, Math.min(100, ((svgX - POINT_MOVE_TIMING_PAD_X) / usableW) * 100));
+        const xPercent = Math.max(boundMinX, Math.min(boundMaxX, ((svgX - POINT_MOVE_TIMING_PAD_X) / usableW) * 100)); // SỬA (phản hồi Giang) — biên ĐỘNG, không còn cố định [0,100]
 
         const cx = POINT_MOVE_TIMING_PAD_X + (xPercent / 100) * usableW;
         draggingEl.setAttribute('cx', cx); // cập nhật NGAY vị trí trực quan — không đợi vòng qua eventBus/Workflow
