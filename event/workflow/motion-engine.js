@@ -232,23 +232,24 @@ const workflowMotionEngine = {
         return { direction, zoomDirection, spinDirection, wipeDirection, curtainDirection };
     },
 
-    /** Dispatcher — `pointMoveEnabled=false` -> bỏ qua HẲN (công tắc tổng, cùng khuôn
-     * `transitionEnabled`). Nếu bật, ĐỌC transform THẬT đang hiển thị (`getComputedStyle`) TRƯỚC khi
-     * dừng animation cũ (SỬA, phản hồi Giang báo bug — "point move X -> transition -> hard cut cứng
-     * về gốc -> rồi mới move point, giật" — bản trước `stopPointMoveAnimation()` set thẳng
-     * `transform=''` (về gốc) rồi mới bắt animation MỚI xuất phát từ baseline, tạo 1 bước NHẢY CỨNG
-     * ngay lúc chuyển ảnh, LỘ RÕ vì giờ Point Move dùng CHUNG 1 phần tử cho cả 2 layer A/B — layer
-     * đang fade-out cũng bị giật theo. Animation MỚI giờ LUÔN xuất phát từ ĐÚNG giá trị ĐANG hiển thị
-     * — `getComputedStyle(...).transform` trả `'none'` (= identity, coi như baseline) nếu CHƯA từng
-     * chạy animation nào — TỰ ĐÚNG cho lượt `reveal()` đầu tiên mà không cần xử lý riêng) rồi chọn
-     * `_activatePointMoveOne()`/`_activatePointMoveAll()` theo `preset.pointMoveRunMode`. Đây là
-     * Workflow (được phép rẽ nhánh chọn Core/logic nào chạy, tự đọc DOM), KHÔNG phải Core — Rule 1
-     * (đơn tuyến)/Rule 2 (không tự đọc appState — đây là đọc DOM, không phải appState) chỉ áp cho
-     * `core/`.
+    /** Dispatcher — `pointMoveEnabled=false` (công tắc tổng preset, hoặc preset NO_OP khi VBG gỡ
+     * Motion/chọn "None") -> dừng + RESET HẲN animation cũ về baseline (SỬA, phản hồi Giang báo bug
+     * "chọn None ở VBG, ảnh không tự về vị trí gốc, kẹt ở vị trí cuối" — bản trước return NGAY
+     * không qua `stopPointMoveAnimation()`, để nguyên Animation cũ (kể cả `fill:'forwards'` đang
+     * giữ) chạy/đứng mãi, không bao giờ dọn). Bật, đọc transform THẬT đang hiển thị TRƯỚC khi dừng
+     * animation cũ rồi chọn `_activatePointMoveOne()`/`_activatePointMoveAll()` theo
+     * `preset.pointMoveRunMode` — animation MỚI luôn xuất phát từ ĐÚNG giá trị đang hiển thị, tránh
+     * giật (bug cũ: reset transform=='' trước rồi mới bắt animation mới từ baseline, tạo 1 bước
+     * nhảy cứng ngay lúc chuyển ảnh). Là Workflow (đọc DOM), không phải Core.
      * @param {object} preset
      */
     _activatePointMove(preset) {
-        if (!preset.pointMoveEnabled) return;
+        if (!preset.pointMoveEnabled) {
+            stopPointMoveAnimation(motionEnginePointMoveWrapper, this._pointMoveAnim); // core/dom-refs.js, core/motion-engine.js
+            this._pointMoveAnim = null;
+            this._lastAllModePoints = null;
+            return;
+        }
         const fromTransform = motionEnginePointMoveWrapper ? getComputedStyle(motionEnginePointMoveWrapper).transform : 'none'; // core/dom-refs.js
         // MỚI (phản hồi Giang, sửa bug hard-cut baseline) — suy vị trí thật (field thật, KHÔNG phải
         // chuỗi transform) TRƯỚC khi huỷ animation cũ (`.currentTime` chỉ đọc được lúc animation còn
