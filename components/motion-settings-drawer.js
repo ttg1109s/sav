@@ -347,7 +347,7 @@ function renderPointMoveListBody(pointMoves) {
 
 /** Dựng 1 field/point move ("-n 0 n" slider hoặc dual-range) — DÙNG CHUNG cho 6 field.
  * @param {string} key - 'linearX'|'linearY'|'rotate'|'zoom'|'flipX'|'flipY' (dùng làm phần ID).
- * @param {object} field - `pointMove[key]` — {mode, unit, single, rangeMin, rangeMax, applyTimingIntensity}.
+ * @param {object} field - `pointMove[key]` — {mode, unit, single, rangeMin, rangeMax}.
  * @param {{titleKey:string, hasUnit:boolean, boundMin:number, boundMax:number, step:number, suffix:string, isLast?:boolean}} cfg
  */
 function renderPointMoveFieldRows(key, field, cfg) {
@@ -381,10 +381,6 @@ function renderPointMoveFieldRows(key, field, cfg) {
                                     </select>
                                 </div>
                             </div>
-                            <label class="flex items-center gap-2 mb-3 cursor-pointer">
-                                <input type="checkbox" data-ptmove-applyintensity="${key}" class="w-3.5 h-3.5 rounded accent-sky-500 shrink-0" ${field.applyTimingIntensity ? 'checked' : ''}>
-                                <span class="text-[11px] text-slate-400" data-i18n="motionSettingsDrawer.pointMove.field.applyTimingIntensity.label">${t('motionSettingsDrawer.pointMove.field.applyTimingIntensity.label')}</span>
-                            </label>
                             <div class="flex justify-end mb-1.5">
                                 <span id="ptmove-${key}-value-label" class="text-xs text-slate-300 font-mono">${isSingle ? `${field.single}${cfg.suffix}` : `${field.rangeMin}${cfg.suffix} ~ ${field.rangeMax}${cfg.suffix}`}</span>
                             </div>
@@ -414,23 +410,20 @@ function renderPointMoveEditBody(pointMove) {
     `;
 }
 
-/** Khung chứa đường cong Timing — SVG THẬT dựng bởi core/point-move-timing-ui.js, workflow tự
- * append vào `#ptmove-timing-container` sau khi `_render()` xong. Kéo trực tiếp trên đồ thị để
- * chỉnh gần đúng; TAP (không kéo) vào 1 node mở modal nhập số chính xác (phản hồi Giang — thay cho
- * list ô nhập số cũ, xem event/workflow/motion-presets.js::openPointMoveTimingNodeModal()).
- * 2 checkbox ĐỘC LẬP "Điều khiển X"/"Điều khiển Y" (mặc định CHỈ X — phản hồi Giang: KHÔNG loại trừ
- * nhau, có thể tick CẢ HAI để kéo tự do cả 2 trục cùng lúc) — core-ui tự đọc trực tiếp lúc kéo để
- * biết trục nào ĐANG BỊ KHOÁ (tránh chỉnh nhầm trục lúc tay lệch nhẹ, phản hồi Giang) — KHÔNG cần JS
- * wiring gì thêm (browser tự quản lý :checked, core-ui tự querySelector đọc). 2 nút zoom +/- CHỈ
- * đổi CSS `transform:scaleX()` cục bộ theo trục thời gian (KHÔNG lưu, KHÔNG qua eventBus — thuần
- * view, giãn khoảng cách giữa các node để đỡ bấm/kéo nhầm, KHÔNG phóng to toàn bộ hình, xem
- * event/workflow/app-settings.js::_renderPointMoveTiming()).
+/** Khung chứa thanh Timing — SVG THẬT dựng bởi core/point-move-timing-ui.js, workflow tự append
+ * vào `#ptmove-timing-container` sau khi `_render()` xong. CHỈ 1 TRỤC X (phản hồi Giang — "loại bỏ
+ * toàn bộ timing Y") — kéo trực tiếp trên thanh để chỉnh gần đúng (2 nhãn sống "Point N" bám node +
+ * "X: NN%" cố định góc trái trên tự hiện lúc ấn, core-ui tự lo — không cần gì thêm ở component này);
+ * TAP (không kéo) vào 1 node mở modal nhập số chính xác, xem event/workflow/motion-presets.js::
+ * openPointMoveTimingNodeModal(). 2 nút zoom +/- CHỈ đổi CSS `transform:scaleX()` cục bộ theo trục
+ * thời gian (KHÔNG lưu, KHÔNG qua eventBus — thuần view, giãn khoảng cách giữa các node để đỡ bấm/
+ * kéo nhầm, xem event/workflow/app-settings.js::_renderPointMoveTiming()).
  * @param {object[]} pointMoves - CHƯA dùng trực tiếp trong hàm này nữa (danh sách ô nhập số ĐÃ bỏ)
  *   — giữ tham số để chữ ký hàm ổn định, phòng cần lại sau này. */
 function renderPointMoveTimingBody(pointMoves) {
     return `
         <p class="text-xs text-slate-400 mb-2 px-1">${t('motionSettingsDrawer.pointMove.timing.hint')}</p>
-        <div class="glass-modal rounded-2xl p-2 mb-2">
+        <div class="glass-modal rounded-2xl p-2">
             <div id="ptmove-timing-scroll" class="ptmove-timing-scroll">
                 <div id="ptmove-timing-container" class="ptmove-timing-zoomable"></div>
             </div>
@@ -439,16 +432,6 @@ function renderPointMoveTimingBody(pointMoves) {
                 <span id="ptmove-timing-zoom-label" class="text-[11px] text-slate-400 w-10 text-center">0%</span>
                 <button type="button" id="btn-ptmove-timing-zoom-in" class="w-7 h-7 rounded-lg bg-black/40 hover:bg-black/60 text-slate-300 text-base font-bold transition-colors">+</button>
             </div>
-        </div>
-        <div class="flex gap-4 px-1">
-            <label class="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" id="ptmove-timing-axis-x" class="w-4 h-4 rounded accent-sky-500" checked>
-                <span class="text-xs text-slate-300">${t('motionSettingsDrawer.pointMove.timing.axisX')}</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" id="ptmove-timing-axis-y" class="w-4 h-4 rounded accent-sky-500">
-                <span class="text-xs text-slate-300">${t('motionSettingsDrawer.pointMove.timing.axisY')}</span>
-            </label>
         </div>
     `;
 }
