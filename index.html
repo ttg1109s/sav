@@ -220,7 +220,7 @@
 
     <!-- CSS tách riêng theo domain, ?v= ép tải lại khi deploy (không đụng CDN — đã tự version). -->
     <link rel="stylesheet" href="assets/css/base.css?v=20260816v1">
-    <link rel="stylesheet" href="assets/css/sliders.css?v=20260903v4">
+    <link rel="stylesheet" href="assets/css/sliders.css?v=20260903v5">
     <link rel="stylesheet" href="assets/css/glass.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/animations.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/layout-nav.css?v=20260902v3">
@@ -313,7 +313,7 @@
     <script src="lang/patch/patch-common.js?v=20260818v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260823v2"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260819v4"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260829v1"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260903v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260816v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 2 drawer con Song/Photo & Album, xem plan-v12-multimedia-decisions.md). -->
@@ -406,7 +406,7 @@
     <script src="components/subtitle-settings-drawer.js?v=20260816v2"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Motion Settings Drawer (Cấu hình Transition/Ken Burns/
          React Beat Audio, hệ preset độc lập — xem components/motion-settings-drawer.js). -->
-    <script src="components/motion-settings-drawer.js?v=20260903v4"></script>
+    <script src="components/motion-settings-drawer.js?v=20260903v5"></script>
     <script src="components/visual-bg-settings-drawer.js?v=20260808v1"></script>
     <script src="components/visual-bg-gradient-drawer.js?v=20260807v1"></script>
     <script src="components/visual-bg-video-audio-drawer.js?v=20260808v1"></script>
@@ -640,13 +640,13 @@
          FIX (04/07/2026, Rule 3 siết chặt) — KHÔNG còn dùng service/task-manager.js nữa (taskManager
          giờ CẤM trong core, chỉ Workflow dùng) — không phụ thuộc gì trong nhóm này (mọi phần tử DOM
          nhận qua tham số, không tự getElementById). -->
-    <script src="core/motion-engine.js?v=20260903v3"></script>
+    <script src="core/motion-engine.js?v=20260903v4"></script>
     <!-- Core THUẦN cho hệ "Cấu hình Motion" (preset đặt tên được, độc lập khỏi Visual Background)
          — xem core/motion-presets.js. -->
-    <script src="core/motion-presets.js?v=20260903v3"></script>
+    <script src="core/motion-presets.js?v=20260903v4"></script>
     <!-- MỚI — Core-UI (Rule 5c, hậu tố -ui.js) dựng đường cong Timing cho Point Move 'all' mode,
          xem core/point-move-timing-ui.js. NẠP SAU core/motion-presets.js/motion-engine.js. -->
-    <script src="core/point-move-timing-ui.js?v=20260903v4"></script>
+    <script src="core/point-move-timing-ui.js?v=20260903v5"></script>
     <script src="core/upload-validation.js?v=20260823v1"></script>
     <script src="core/listen-stats.js?v=20260625v10"></script>
     <script src="core/loading-shield-util.js?v=20260625v10"></script>
@@ -882,14 +882,14 @@
     <!-- Batch 8, ver 12 "Multi Media" — engine cycle ảnh Slideshow nền Visual (transition/Ken
          Burns), CHỈ còn đúng 1 vai trò: `_tick()` (taskManager) — cụm router "slideshowSettings"
          (từng ở đây) ĐÃ BỎ HẲN (29/08/2026), xem event/workflow/motion-presets.js ngay dưới. -->
-    <script src="event/workflow/motion-engine.js?v=20260903v5"></script>
+    <script src="event/workflow/motion-engine.js?v=20260903v6"></script>
     <!-- MỚI (29/08/2026) — hệ "Cấu hình Motion" độc lập (Settings > System > Motion), thay
          hẳn router/listener "slideshowSettings" cũ (2 file event/router,listener/slideshow.js ĐÃ
          XOÁ) — xem event/workflow/motion-presets.js, event/router/motion-presets.js. Không
          cần listener riêng — mọi wiring DOM động nằm trong event/workflow/app-settings.js
          (_render*() onMount, liên tuyến domain, xem docstring file đó). -->
-    <script src="event/workflow/motion-presets.js?v=20260903v4"></script>
-    <script src="event/router/motion-presets.js?v=20260903v4"></script>
+    <script src="event/workflow/motion-presets.js?v=20260903v5"></script>
+    <script src="event/router/motion-presets.js?v=20260903v5"></script>
 
     <!-- MỚI (v13 Batch A) — cụm "visualBg". -->
     <script src="event/workflow/visual-bg.js?v=20260903v1"></script>
@@ -969,7 +969,7 @@
          workflowFileManagerFolderBrowser/workflowFileManagerStorage đã nạp ở trên — KHÔNG bắt
          buộc thứ tự nạp CHẶT với các file đó, vì mọi tham chiếu đều nằm TRONG thân hàm, chỉ chạy
          SAU khi cả trang đã nạp xong, không chạy ngay lúc parse). -->
-    <script src="event/workflow/app-settings.js?v=20260903v4"></script>
+    <script src="event/workflow/app-settings.js?v=20260903v5"></script>
     <script src="event/router/app-settings.js?v=20260819v1"></script>
     <!-- Cụm "placeholderPanels" (đóng Game/Statis). Photo đã hợp nhất vào Playlist, không còn cụm
          "photoPanel" riêng. -->
