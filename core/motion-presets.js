@@ -215,6 +215,24 @@ function findPointMoveById(pointMoves, id) {
     return pointMoves.find((p) => p.id === id) || null;
 }
 
+/** Core thuần — làm tròn `timingX` về 2 chữ số thập phân, rồi đẩy nhẹ (bước 0.01) nếu TRÙNG (ở
+ * đúng 2 chữ số đó) với 1 point move KHÁC — không cho 2 node đứng đè lên nhau tại cùng 1 vị trí
+ * trên thanh Timing. Đẩy chiều TĂNG trước; chạm `maxX` mới đẩy chiều GIẢM. Dùng khi commit timingX
+ * từ kéo (`commitPointMoveTimingDrag()`) lẫn modal nhập số (`_commitPointMoveTimingModal()`).
+ * @param {number} timingX - giá trị thô (kéo/gõ).
+ * @param {number[]} otherTimingXs - timingX của MỌI point move KHÁC (không gồm chính nó).
+ * @param {number} minX @param {number} maxX
+ * @returns {number}
+ */
+function resolvePointMoveTimingX(timingX, otherTimingXs, minX, maxX) {
+    const round2 = (v) => Math.round(v * 100) / 100;
+    const taken = new Set(otherTimingXs.map(round2));
+    let value = Math.max(minX, Math.min(maxX, round2(timingX)));
+    while (taken.has(value) && value < maxX) value = round2(value + 0.01);
+    while (taken.has(value) && value > minX) value = round2(value - 0.01);
+    return value;
+}
+
 /** @returns {string} */
 function generateMotionPresetId() {
     return `motion_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
