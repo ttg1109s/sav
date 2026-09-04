@@ -2,10 +2,23 @@
  * core/visualizer/types/lighting.js — Core thuần cho visual "Lighting" (MODES key 'lighting'),
  * 2 style con qua customEffect.lighting.lightingStyle: 'thunder' (tia sét, style cũ đứng riêng
  * dưới tên 'lightning') và 'fireworks' (pháo hoa). Mỗi hàm 1 việc, KHÔNG hàm nào tự đọc appState
- * (Rule 2) hay gọi hàm khác trong CHÍNH FILE NÀY ngoài vòng lặp nội bộ thuần (Rule 3c) —
+ * (Rule 2) hay gọi hàm khác trong CHÍNH FILE NÀY (Rule 3) —
  * event/workflow/visualizer-render.js (_tickLighting()/_tickLightingThunder()/
  * _tickLightingFireworks()) đọc/ghi appState, tự gọi RIÊNG LẺ từng hàm dưới đây, cùng khuôn
  * core/visualizer/types/space.js. `flashThreshold` (chớp toàn màn hình) dùng CHUNG cho cả 2 style.
+ *
+ * [SỬA — rà soát Rule 3, không ngoại lệ] Nhóm "fireworks" TRƯỚC ĐÂY 14 hàm `explodeFireworksXXX()`
+ * + `splitFireworksParticle()` + `explodeFireworksText()` tự gọi thẳng `createFireworksParticle()`
+ * (cùng file) VÀ `getComputedColor()` (core/audio-analysis.js, khác file) — cả 2 đều là Core gọi
+ * Core, vi phạm Rule 3a, KHÔNG đạt điều kiện miễn trừ Rule 3c (createFireworksParticle() là hàm
+ * top-level tái dùng ở ≥14 nơi, tự nó là 1 GIÁ TRỊ HOÀN CHỈNH có ý nghĩa nghiệp vụ riêng — "1 hạt
+ * pháo hoa" — không phải hàm con chỉ phục vụ vòng lặp/giá trị trung gian). SỬA: 14 hàm explode* +
+ * `splitFireworksParticle()` + `explodeFireworksText()` giờ trả về mảng SPEC THUẦN (dữ liệu, không
+ * phải particle thật) — mỗi spec gồm `{x, y, fixedColor | colorArgs: [i, total, dataValue],
+ * targetColorArgs?, options}`. Workflow tự `_fwMaterializeSpecs()` (event/workflow/
+ * visualizer-render.js) — gọi RIÊNG LẺ `getComputedColor()` (nếu spec cần) rồi
+ * `createFireworksParticle()` cho TỪNG spec — đúng nguyên lý Rule 3c điều kiện 2 ("logic đã có ở 1
+ * core khác — PHẢI tái dùng core đó qua Workflow, không gọi thẳng từ core khác").
  *
  * NẠP SAU: core/dom-refs.js (canvas), core/config.js (FIREWORKS_STYLE_KEYS), core/custom-
  * effect.js (getActiveEffectConfig), core/audio-analysis.js (getComputedColor).
@@ -26,7 +39,8 @@ function shouldSpawnLightningBolt(isPlaying, energySpike, boltThreshold, boltSpa
     return isPlaying && energySpike > boltThreshold && Math.random() < boltSpawnChance && activeBoltCount < maxBoltCount;
 }
 
-/** Tạo 1 tia sét mới — zig-zag từ trên xuống đáy màn hình. */
+/** Tạo 1 tia sét mới — zig-zag từ trên xuống đáy màn hình. `color` do Workflow tự resolve SẴN
+ * (gọi getComputedColor() TRƯỚC khi gọi hàm này) — hàm này không tự gọi getComputedColor. */
 function createLightningBolt(canvasWidth, canvasHeight, dpr, horizontalDeviation, segmentLength, color) {
     const startX = (Math.random() * 0.8 + 0.1) * canvasWidth;
     const bolt = { life: 1.0, color, segments: [] };
@@ -74,7 +88,8 @@ function drawLightingFlash(ctx, width, height, alpha) {
 // Rocket — `depthScale` (0.4 xa .. 1.0 gần) quy định kích thước/tốc độ/độ sáng, tạo chiều sâu
 // xa/gần giữa các lần bắn; `binIndex`/`launchBeatScale` (MỚI) là 2 nguồn "zoom to/nhỏ" theo nhạc
 // (khác depthScale — đó là phối cảnh ngẫu nhiên, đây là do nhạc quyết định), xem
-// computeFireworksSizeScale() + _fwLaunchOne() (event/workflow/visualizer-render.js).
+// computeFireworksSizeScale() + _fwLaunchOne() (event/workflow/visualizer-render.js). `color`
+// tham số của createFireworksRocket() do Workflow tự resolve SẴN (getComputedColor() TRƯỚC).
 
 /** @returns {object} rocket mới, bay từ (startX,startY) tới (targetX,targetY). `binIndex` = dải
  * tần FFT gán cho rocket này lúc bắn, đọc lại LÚC NỔ để lấy độ cao bin hiện tại (mục 4, phản hồi
@@ -127,6 +142,10 @@ function drawFireworksRocket(ctx, rocket, dpr) {
 
 // ----- Particle -----
 
+/** Vật chất hoá 1 particle THẬT từ (x, y, color, options) ĐÃ resolve sẵn — hàm DUY NHẤT tạo
+ * particle. KHÔNG được gọi từ bất kỳ hàm core nào khác trong file này nữa (Rule 3) — CHỈ Workflow
+ * (`_fwMaterializeSpecs()`, event/workflow/visualizer-render.js) được gọi hàm này, cho TỪNG spec
+ * do các hàm explode* / `splitFireworksParticle()` trả về. */
 function createFireworksParticle(x, y, color, options = {}) {
     return {
         x, y, color,
@@ -215,25 +234,35 @@ function drawFireworksParticle(ctx, particle, blurMult, dpr) {
     ctx.restore();
 }
 
-/** Crossette — 1 hạt "gãy" giữa không thành 4 hạt con, hướng vuông góc nhau. */
+/** Crossette — 1 hạt "gãy" giữa không thành 4 hạt con, hướng vuông góc nhau. Trả về mảng SPEC
+ * thuần (`{x, y, fixedColor, options}`, dùng lại màu CỦA HẠT GỐC — không cần getComputedColor) —
+ * KHÔNG tự gọi createFireworksParticle() (Rule 3). Workflow tự `_fwMaterializeSpecs()` (event/
+ * workflow/visualizer-render.js). */
 function splitFireworksParticle(particle) {
-    return [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2].map((dir) => createFireworksParticle(particle.x, particle.y, particle.color, {
-        vx: Math.cos(dir) * 3.5, vy: Math.sin(dir) * 3.5,
-        gravity: particle.gravity, friction: 0.94, decay: 0.025, size: 1.5, trailLength: 4,
+    return [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2].map((dir) => ({
+        x: particle.x, y: particle.y, fixedColor: particle.color,
+        options: {
+            vx: Math.cos(dir) * 3.5, vy: Math.sin(dir) * 3.5,
+            gravity: particle.gravity, friction: 0.94, decay: 0.025, size: 1.5, trailLength: 4,
+        },
     }));
 }
 
 // ----- 14 kiểu nổ — mỗi hàm ĐÚNG 1 kiểu (Rule 1: không switch/case chọn giữa nhiều kiểu trong 1
 // hàm). Workflow tự chọn ĐÚNG hàm cần gọi qua FIREWORKS_EXPLODERS bên dưới. `spectrumBin` (0-255,
 // 1 dải tần vizDataArray do Workflow truyền vào) lệch dần theo index hạt để tạo biến thiên màu ở
-// mode 'gradient' — xem getComputedColor(), core/audio-analysis.js. -----
+// mode 'gradient'. MỖI HÀM TRẢ VỀ MẢNG SPEC THUẦN (`{x, y, fixedColor | colorArgs: [i, total,
+// dataValue], targetColorArgs?, options}`) — KHÔNG tự gọi getComputedColor()/createFireworksParticle()
+// (Rule 3, 2 hàm đó ở khác/cùng file nhưng đều là Core khác) — Workflow tự resolve màu (gọi
+// getComputedColor() với ĐÚNG colorArgs) rồi tạo particle thật qua `_fwMaterializeSpecs()` (event/
+// workflow/visualizer-render.js), xem docstring đầu file. -----
 
 function explodeFireworksCluster(x, y, count, power, gravity, spectrumBin) {
-    const particles = [];
+    const specs = [];
     for (let i = 0; i < 30; i++) {
         const a = Math.random() * Math.PI * 2;
         const s = (Math.random() * 4 + 1) * power;
-        particles.push(createFireworksParticle(x, y, '#ffffff', { vx: Math.cos(a) * s, vy: Math.sin(a) * s, gravity, friction: 0.94 }));
+        specs.push({ x, y, fixedColor: '#ffffff', options: { vx: Math.cos(a) * s, vy: Math.sin(a) * s, gravity, friction: 0.94 } });
     }
     const subClusters = 7;
     const subRadius = 45 * power;
@@ -241,206 +270,225 @@ function explodeFireworksCluster(x, y, count, power, gravity, spectrumBin) {
         const clusterAngle = (c / subClusters) * Math.PI * 2;
         const cx = x + Math.cos(clusterAngle) * subRadius;
         const cy = y + Math.sin(clusterAngle) * subRadius;
-        const clusterColor = getComputedColor(c, subClusters, spectrumBin).fill;
         const miniCount = Math.floor(count / subClusters);
         for (let i = 0; i < miniCount; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = (Math.random() * 5 + 1) * power;
-            particles.push(createFireworksParticle(cx, cy, clusterColor, {
-                vx: Math.cos(angle) * speed + Math.cos(clusterAngle) * 1.5,
-                vy: Math.sin(angle) * speed + Math.sin(clusterAngle) * 1.5,
-                gravity: gravity * 0.8, friction: 0.95, trailLength: 5, flicker: Math.random() < 0.4,
-            }));
+            specs.push({
+                x: cx, y: cy, colorArgs: [c, subClusters, spectrumBin],
+                options: {
+                    vx: Math.cos(angle) * speed + Math.cos(clusterAngle) * 1.5,
+                    vy: Math.sin(angle) * speed + Math.sin(clusterAngle) * 1.5,
+                    gravity: gravity * 0.8, friction: 0.95, trailLength: 5, flicker: Math.random() < 0.4,
+                },
+            });
         }
     }
-    return particles;
+    return specs;
 }
 
 function explodeFireworksKamuro(x, y, count, power, gravity, spectrumBin) {
-    const particles = [];
+    const specs = [];
     const kamuroCount = Math.floor(count * 1.5);
     for (let i = 0; i < kamuroCount; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = (Math.random() * 6.5 + 0.5) * power;
-        const color = getComputedColor(i, kamuroCount, spectrumBin).fill;
-        particles.push(createFireworksParticle(x, y, color, {
-            vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 0.5,
-            gravity: gravity * 0.4, friction: 0.975, decay: 0.004, trailLength: 16, size: 1.3, flicker: true,
-        }));
+        specs.push({
+            x, y, colorArgs: [i, kamuroCount, spectrumBin],
+            options: {
+                vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 0.5,
+                gravity: gravity * 0.4, friction: 0.975, decay: 0.004, trailLength: 16, size: 1.3, flicker: true,
+            },
+        });
     }
-    return particles;
+    return specs;
 }
 
 function explodeFireworksHorsetail(x, y, count, power, gravity, spectrumBin) {
-    const particles = [];
+    const specs = [];
     const tailCount = Math.floor(count * 1.1);
-    const cascadeColor = getComputedColor(0, 1, spectrumBin).fill;
     for (let i = 0; i < tailCount; i++) {
         const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
         const speed = (Math.random() * 5.5 + 2) * power;
-        particles.push(createFireworksParticle(x, y, cascadeColor, {
-            vx: Math.cos(angle) * speed * 0.6, vy: Math.sin(angle) * speed,
-            gravity: gravity * 1.1, friction: 0.96, decay: 0.008, trailLength: 10, size: 1.6, flicker: Math.random() < 0.3,
-        }));
+        specs.push({
+            x, y, colorArgs: [0, 1, spectrumBin],
+            options: {
+                vx: Math.cos(angle) * speed * 0.6, vy: Math.sin(angle) * speed,
+                gravity: gravity * 1.1, friction: 0.96, decay: 0.008, trailLength: 10, size: 1.6, flicker: Math.random() < 0.3,
+            },
+        });
     }
-    return particles;
+    return specs;
 }
 
 function explodeFireworksSpiral(x, y, count, power, gravity, spectrumBin) {
-    const particles = [];
+    const specs = [];
     const arms = 4;
     const particlesPerArm = Math.floor(count / arms);
     for (let a = 0; a < arms; a++) {
         const armBaseAngle = (a / arms) * Math.PI * 2;
-        const armColor = getComputedColor(a, arms, spectrumBin).fill;
         for (let i = 0; i < particlesPerArm; i++) {
             const step = i / particlesPerArm;
             const angle = armBaseAngle + step * Math.PI * 2.5;
             const speed = (step * 6 + 1) * power;
-            particles.push(createFireworksParticle(x, y, armColor, {
-                vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity, friction: 0.95, trailLength: 6, size: 1.8,
-            }));
+            specs.push({
+                x, y, colorArgs: [a, arms, spectrumBin],
+                options: { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity, friction: 0.95, trailLength: 6, size: 1.8 },
+            });
         }
     }
-    return particles;
+    return specs;
 }
 
 function explodeFireworksDoublering(x, y, count, power, gravity, spectrumBin) {
-    const particles = [];
-    const outerColor = getComputedColor(0, 2, spectrumBin).fill;
-    const innerColor = getComputedColor(1, 2, spectrumBin).fill;
+    const specs = [];
     const outerCount = Math.floor(count * 0.65);
     for (let i = 0; i < outerCount; i++) {
         const angle = (i / outerCount) * Math.PI * 2;
         const speed = (6 + Math.random() * 0.4) * power;
-        particles.push(createFireworksParticle(x, y, outerColor, { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity: gravity * 0.6, friction: 0.96, trailLength: 6 }));
+        specs.push({ x, y, colorArgs: [0, 2, spectrumBin], options: { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity: gravity * 0.6, friction: 0.96, trailLength: 6 } });
     }
     const innerCount = Math.floor(count * 0.35);
     for (let i = 0; i < innerCount; i++) {
         const angle = (i / innerCount) * Math.PI * 2;
         const speed = (3.2 + Math.random() * 0.3) * power;
-        particles.push(createFireworksParticle(x, y, innerColor, { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity: gravity * 0.6, friction: 0.96, trailLength: 5 }));
+        specs.push({ x, y, colorArgs: [1, 2, spectrumBin], options: { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity: gravity * 0.6, friction: 0.96, trailLength: 5 } });
     }
-    return particles;
+    return specs;
 }
 
 function explodeFireworksGhost(x, y, count, power, gravity, spectrumBin) {
-    const particles = [];
+    const specs = [];
     for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = (Math.random() * 6 + 1.5) * power;
-        const targetColor = getComputedColor(i, count, spectrumBin).fill;
-        particles.push(createFireworksParticle(x, y, '#ffffff', {
-            vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity, friction: 0.95, decay: 0.011,
-            trailLength: 6, colorShift: true, targetColor,
-        }));
+        specs.push({
+            x, y, fixedColor: '#ffffff', targetColorArgs: [i, count, spectrumBin],
+            options: { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity, friction: 0.95, decay: 0.011, trailLength: 6, colorShift: true },
+        });
     }
-    return particles;
+    return specs;
 }
 
 function explodeFireworksChrysanthemum(x, y, count, power, gravity, spectrumBin) {
-    const particles = [];
+    const specs = [];
     for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = (Math.random() * 6 + 1.5) * power;
-        const color = Math.random() < 0.2 ? '#ffffff' : getComputedColor(i, count, spectrumBin).fill;
-        particles.push(createFireworksParticle(x, y, color, { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity, friction: 0.95, trailLength: 6, flicker: Math.random() < 0.3 }));
+        const useWhite = Math.random() < 0.2;
+        specs.push({
+            x, y,
+            fixedColor: useWhite ? '#ffffff' : undefined,
+            colorArgs: useWhite ? undefined : [i, count, spectrumBin],
+            options: { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity, friction: 0.95, trailLength: 6, flicker: Math.random() < 0.3 },
+        });
     }
-    return particles;
+    return specs;
 }
 
 function explodeFireworksWillow(x, y, count, power, gravity, spectrumBin) {
-    const particles = [];
+    const specs = [];
     const willowCount = Math.floor(count * 1.2);
-    const willowColor = getComputedColor(0, 1, spectrumBin).fill;
     for (let i = 0; i < willowCount; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = (Math.random() * 5 + 0.5) * power;
-        particles.push(createFireworksParticle(x, y, willowColor, {
-            vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity: gravity * 0.6, friction: 0.97, decay: 0.007, trailLength: 12, size: 1.2, flicker: true,
-        }));
+        specs.push({
+            x, y, colorArgs: [0, 1, spectrumBin],
+            options: {
+                vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                gravity: gravity * 0.6, friction: 0.97, decay: 0.007, trailLength: 12, size: 1.2, flicker: true,
+            },
+        });
     }
-    return particles;
+    return specs;
 }
 
 function explodeFireworksHeart(x, y, count, power, gravity, spectrumBin) {
-    const particles = [];
+    const specs = [];
     const points = Math.floor(count * 0.9);
-    const heartColor = getComputedColor(0, 1, spectrumBin).fill;
     for (let i = 0; i < points; i++) {
         const t = (i / points) * Math.PI * 2;
         const hx = 16 * Math.pow(Math.sin(t), 3);
         const hy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
         const scale = 0.35 * power;
-        particles.push(createFireworksParticle(x, y, heartColor, { vx: hx * scale, vy: hy * scale, gravity: gravity * 0.5, friction: 0.94, decay: 0.012, trailLength: 5 }));
+        specs.push({
+            x, y, colorArgs: [0, 1, spectrumBin],
+            options: { vx: hx * scale, vy: hy * scale, gravity: gravity * 0.5, friction: 0.94, decay: 0.012, trailLength: 5 },
+        });
     }
-    return particles;
+    return specs;
 }
 
 function explodeFireworksRing(x, y, count, power, gravity, spectrumBin) {
-    const particles = [];
-    const ringColor = getComputedColor(0, 2, spectrumBin).fill;
+    const specs = [];
     for (let i = 0; i < Math.floor(count * 0.4); i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = Math.random() * 3 * power;
-        particles.push(createFireworksParticle(x, y, '#ffffff', { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity }));
+        specs.push({ x, y, fixedColor: '#ffffff', options: { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity } });
     }
     const ringCount = Math.floor(count * 0.8);
     const tiltAngle = Math.PI / 6;
     for (let i = 0; i < ringCount; i++) {
         const angle = (i / ringCount) * Math.PI * 2;
         const speed = (5 + Math.random() * 0.5) * power;
-        particles.push(createFireworksParticle(x, y, ringColor, {
-            vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed * Math.sin(tiltAngle), gravity: gravity * 0.4, friction: 0.96, trailLength: 6,
-        }));
+        specs.push({
+            x, y, colorArgs: [0, 2, spectrumBin],
+            options: { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed * Math.sin(tiltAngle), gravity: gravity * 0.4, friction: 0.96, trailLength: 6 },
+        });
     }
-    return particles;
+    return specs;
 }
 
 function explodeFireworksCrossette(x, y, count, power, gravity, spectrumBin) {
-    const particles = [];
-    const color = getComputedColor(0, 1, spectrumBin).fill;
+    const specs = [];
     for (let i = 0; i < 16; i++) {
         const angle = (i / 16) * Math.PI * 2;
         const speed = 6 * power;
-        particles.push(createFireworksParticle(x, y, color, { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity, friction: 0.95, decay: 0.015, size: 2.5, canSplit: true }));
+        specs.push({ x, y, colorArgs: [0, 1, spectrumBin], options: { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity, friction: 0.95, decay: 0.015, size: 2.5, canSplit: true } });
     }
-    return particles;
+    return specs;
 }
 
 function explodeFireworksPalm(x, y, count, power, gravity, spectrumBin) {
-    const particles = [];
-    const palmColor = getComputedColor(0, 1, spectrumBin).fill;
+    const specs = [];
     for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = (Math.random() * 6 + 2) * power;
-        particles.push(createFireworksParticle(x, y, palmColor, {
-            vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 1.5, gravity: gravity * 0.8, friction: 0.94, decay: 0.01, size: 2.2, trailLength: 8,
-        }));
+        specs.push({
+            x, y, colorArgs: [0, 1, spectrumBin],
+            options: { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 1.5, gravity: gravity * 0.8, friction: 0.94, decay: 0.01, size: 2.2, trailLength: 8 },
+        });
     }
-    return particles;
+    return specs;
 }
 
 function explodeFireworksCrackle(x, y, count, power, gravity, spectrumBin) {
-    const particles = [];
+    const specs = [];
     for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = (Math.random() * 7 + 1) * power;
-        const color = Math.random() < 0.5 ? '#ffffff' : getComputedColor(i, count, spectrumBin).fill;
-        particles.push(createFireworksParticle(x, y, color, { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity, friction: 0.92, decay: 0.02 + Math.random() * 0.02, flicker: true, trailLength: 3 }));
+        const useWhite = Math.random() < 0.5;
+        specs.push({
+            x, y,
+            fixedColor: useWhite ? '#ffffff' : undefined,
+            colorArgs: useWhite ? undefined : [i, count, spectrumBin],
+            options: { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity, friction: 0.92, decay: 0.02 + Math.random() * 0.02, flicker: true, trailLength: 3 },
+        });
     }
-    return particles;
+    return specs;
 }
 
 function explodeFireworksStrobe(x, y, count, power, gravity, spectrumBin) {
-    const particles = [];
+    const specs = [];
     for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = (Math.random() * 6 + 1) * power;
-        const color = getComputedColor(i, count, (spectrumBin + i * 23) % 256).fill;
-        particles.push(createFireworksParticle(x, y, color, { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity, friction: 0.95, flicker: true, decay: 0.012, trailLength: 5 }));
+        specs.push({
+            x, y, colorArgs: [i, count, (spectrumBin + i * 23) % 256],
+            options: { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity, friction: 0.95, flicker: true, decay: 0.012, trailLength: 5 },
+        });
     }
-    return particles;
+    return specs;
 }
 
 /** Bảng tra kiểu nổ -> hàm explode — key PHẢI khớp y hệt FIREWORKS_STYLE_KEYS (core/config.js). */
@@ -526,12 +574,16 @@ function buildFireworksTextPoints(text) {
     return points;
 }
 
+/** Trả về mảng SPEC thuần (1 spec/điểm chữ) — KHÔNG tự gọi getComputedColor()/
+ * createFireworksParticle() (Rule 3), xem docstring đầu file. */
 function explodeFireworksText(x, y, points, power, spectrumBin) {
-    const color = getComputedColor(0, 1, spectrumBin).fill;
-    return points.map((pt) => createFireworksParticle(x, y, color, {
-        vx: pt.x * 0.08 * power + (Math.random() - 0.5) * 0.5,
-        vy: pt.y * 0.08 * power + (Math.random() - 0.5) * 0.5,
-        gravity: 0.02, friction: 0.95, decay: 0.009, size: 1.8, trailLength: 3, flicker: true,
+    return points.map((pt) => ({
+        x, y, colorArgs: [0, 1, spectrumBin],
+        options: {
+            vx: pt.x * 0.08 * power + (Math.random() - 0.5) * 0.5,
+            vy: pt.y * 0.08 * power + (Math.random() - 0.5) * 0.5,
+            gravity: 0.02, friction: 0.95, decay: 0.009, size: 1.8, trailLength: 3, flicker: true,
+        },
     }));
 }
 
