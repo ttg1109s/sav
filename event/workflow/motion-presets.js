@@ -278,25 +278,27 @@ const workflowMotionPresets = {
         await this._mutateEditing((p) => { p.pointMoveOneOrder = order; });
     },
 
-    /** Checkbox "Start point: force baseline" (MỚI, phản hồi Giang — sửa bug hard-cut baseline,
-     * CHỈ có ý nghĩa khi `pointMoveRunMode==='all'`) — CHỈ ĐƯỢC 1 TRONG 2 (start/end) bật cùng lúc:
-     * bật cái này TỰ TẮT "End force baseline" nếu đang bật. Bật xong, đẩy nhẹ (+0.1%, CÙNG quy ước
-     * +0.2% ở addPointMove()) mọi point move đang đứng ĐÚNG x=0% ra khỏi mốc — mốc đó giờ do baseline
-     * chiếm, tránh 1 node đứng "chết" bị mốc ảo ghi đè vô hình.
+    /** Checkbox "Start point: force baseline" (CHỈ có ý nghĩa khi `pointMoveRunMode==='all'`) — CHỈ
+     * ĐƯỢC 1 TRONG 2 (start/end) bật cùng lúc (phản hồi Giang) — bật cái này tự TẮT "End force
+     * baseline" nếu đang bật. SỬA LẦN 2 (phản hồi Giang — bug "giật cứng" tái xuất hiện) — 2 field
+     * này giờ dùng CHUNG 1 cơ chế (chèn mốc ảo x=100=baseline vào đuôi MỌI vòng, xem
+     * event/workflow/motion-engine.js::_activatePointMoveAll()), nên nudge point move đang đứng
+     * đúng mốc bị khoá cũng DÙNG CHUNG mốc x=100 (KHÔNG còn x=0 nữa, +0.2% CÙNG quy ước
+     * addPointMove()).
      * @param {boolean} checked */
     async changePointMoveStartForceBaseline(checked) {
         await this._mutateEditing((p) => {
             p.pointMoveStartForceBaseline = checked;
             if (checked) {
                 p.pointMoveEndForceBaseline = false;
-                p.pointMoves = p.pointMoves.map((pm) => (pm.timingX === 0 ? { ...pm, timingX: 0.1 } : pm));
+                p.pointMoves = p.pointMoves.map((pm) => (pm.timingX === 100 ? { ...pm, timingX: 99.9 } : pm));
             }
         });
         this._syncEditUI();
     },
 
-    /** Checkbox "Endpoint: force baseline" — tương tự `changePointMoveStartForceBaseline()` ngay
-     * trên, chỉ khác đầu trục (x=100%, -0.1%).
+    /** Checkbox "Endpoint: force baseline" — CÙNG cơ chế `changePointMoveStartForceBaseline()` ngay
+     * trên (2 checkbox giờ chỉ khác NHÃN/khung nhìn người dùng chọn, không khác hành vi runtime).
      * @param {boolean} checked */
     async changePointMoveEndForceBaseline(checked) {
         await this._mutateEditing((p) => {
@@ -309,15 +311,17 @@ const workflowMotionPresets = {
         this._syncEditUI();
     },
 
-    /** Biên [minX,maxX] kéo/nhập `timingX` HIỆN TẠI của preset đang sửa — hẹp lại (0.1/99.9) khi
-     * cờ force-baseline tương ứng đang bật (mốc đó do baseline chiếm, xem docstring 2 hàm trên).
-     * DÙNG CHUNG cho thanh Timing (`_renderTimingCurve()`) LẪN modal nhập số
-     * (`_commitPointMoveTimingModal()`) — tránh lệch biên giữa 2 nơi.
+    /** Biên [minX,maxX] kéo/nhập `timingX` HIỆN TẠI của preset đang sửa — `maxX` hẹp lại (99.9) khi
+     * 1 trong 2 cờ force-baseline đang bật (mốc x=100 đó do baseline chiếm, xem docstring 2 hàm
+     * trên) — `minX` LUÔN 0 (SỬA LẦN 2 — mốc x=0 không còn bị field nào khoá nữa, xem
+     * event/workflow/motion-engine.js::_activatePointMoveAll()). DÙNG CHUNG cho thanh Timing
+     * (`_renderTimingCurve()`) LẪN modal nhập số (`_commitPointMoveTimingModal()`) — tránh lệch biên
+     * giữa 2 nơi.
      * @param {object} preset @returns {{minX:number, maxX:number}} */
     _pointMoveTimingBounds(preset) {
         return {
-            minX: preset.pointMoveStartForceBaseline ? 0.1 : 0,
-            maxX: preset.pointMoveEndForceBaseline ? 99.9 : 100,
+            minX: 0,
+            maxX: (preset.pointMoveStartForceBaseline || preset.pointMoveEndForceBaseline) ? 99.9 : 100,
         };
     },
 

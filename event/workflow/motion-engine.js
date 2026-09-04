@@ -32,13 +32,19 @@
  * `getComputedStyle()` (vị trí thật), còn TOÀN BỘ đường cong phía sau vẫn tính độc lập từ 1 mốc ẢO
  * cố định ở x=0 (baseline) — 2% thời lượng ĐẦU tiên (keyframe 0->1) vì vậy nhảy CỰC NHANH từ vị trí
  * thật về gần baseline trước khi mới đi tiếp theo đường cong thật, nhìn như cắt cứng. FIX: mốc ẢO ở
- * x=0 giờ ĐỘNG — `pointMoveStartForceBaseline` (core/motion-presets.js) quyết định mốc đó là
- * baseline CỐ ĐỊNH (bật) hay chính vị trí THẬT suy ra từ đường cong LƯỢT TRƯỚC (tắt, mặc định — xem
- * `_deriveLivePointMoveTarget()`, tái dùng `_findPointMoveSegment()`/`lerpPointMoveNumber()` trên
- * `_lastAllModePoints`/`_lastAllModeDurationMs` ĐÃ LƯU từ lượt 'all' mode gần nhất, KHÔNG parse
- * ngược ma trận CSS — chính xác tuyệt đối, không mơ hồ như decompose matrix). Tương tự,
- * `pointMoveEndForceBaseline` chèn thêm 1 mốc ẢO ở x=100 = baseline (tắt = giữ nguyên hành vi cũ:
- * đứng yên ở target point move CUỐI cho tới hết 100%). CHỈ được bật 1 trong 2 (phản hồi Giang).
+ * x=0 giờ LUÔN LÀ vị trí THẬT suy ra từ đường cong LƯỢT TRƯỚC (`_deriveLivePointMoveTarget()`, tái
+ * dùng `_findPointMoveSegment()`/`lerpPointMoveNumber()` trên `_lastAllModePoints`/
+ * `_lastAllModeDurationMs` ĐÃ LƯU từ lượt 'all' mode gần nhất, KHÔNG parse ngược ma trận CSS —
+ * chính xác tuyệt đối, không mơ hồ như decompose matrix), fallback baseline CHỈ khi không có (lượt
+ * `reveal()` đầu tiên/lượt trước là 'one' mode).
+ *
+ * SỬA LẦN 2 (phản hồi Giang — bug TÁI XUẤT HIỆN khi Start-force bật: "đứng im tới 100% rồi mới giật
+ * cứng về baseline") — mốc x=0 VỪA SỬA trên KHÔNG được ép về baseline khi `pointMoveStartForceBaseline`
+ * bật nữa (ép ở ĐÓ chính là tái tạo lại bug hard-cut, chỉ khác lúc này baseline là ĐÍCH thay vì
+ * đường cong cũ). `pointMoveStartForceBaseline`/`pointMoveEndForceBaseline` (core/motion-presets.js)
+ * giờ dùng CHUNG 1 cơ chế — chèn mốc ẢO x=100=baseline vào đường cong CỦA VÒNG ĐANG CHẠY, để quãng
+ * chuyển về baseline chiếm ĐÚNG khoảng thời gian ĐANG "đứng im chờ" sẵn có (từ point move cuối tới
+ * 100%) thay vì bị nén vào khoảnh khắc chuyển vòng — xem docstring `_activatePointMoveAll()`.
  *
  * NẠP SAU: core/motion-engine.js, core/dom-refs.js (motionEngineContainer/motionEnginePointMoveWrapper/
  * motionEngineLayer1,2/motionEngineLayer1,2Pan/motionEngineReactLayer), service/task-manager.js (chỉ
@@ -304,29 +310,31 @@ const workflowMotionEngine = {
     /** 'all' mode — sample đường cong Timing của TẤT CẢ point move đã tick thành N keyframe, feed
      * WAAPI easing 'linear' (đường cong ĐÃ tự mượt qua sampling, easing khác sẽ làm méo lại) — GHI
      * ĐÈ keyframe ĐẦU bằng `fromTransform` (giữ ĐÚNG pixel đầu tiên 100%, phòng sai số làm tròn của
-     * lerp) — nhưng khác bản trước, giờ TOÀN BỘ đường cong phía sau cũng xuất phát từ vị trí THẬT
-     * (`liveStartTarget`, field thật, xem `_deriveLivePointMoveTarget()`) thay vì luôn từ baseline —
-     * SỬA (phản hồi Giang, bug hard-cut). Mốc x=0/x=100 giờ ĐỘNG theo `pointMoveStartForceBaseline`/
-     * `pointMoveEndForceBaseline` (core/motion-presets.js, CHỈ 1 trong 2 được bật):
-     *   - Start: bật -> mốc x=0 = baseline CỐ ĐỊNH (hành vi CŨ); tắt (mặc định) -> mốc x=0 =
-     *     `liveStartTarget` nếu có (liền mạch), fallback baseline nếu KHÔNG có (lượt `reveal()` đầu
-     *     tiên/lượt trước là 'one' mode).
-     *   - End: bật -> CHÈN THÊM 1 mốc ẢO x=100 = baseline, ĐỒNG THỜI loại bỏ mọi point move đang ở
-     *     ĐÚNG x=100 khỏi `points` (mốc ảo "vô hiệu hoá và thay thế" nó, phản hồi Giang — phòng dữ
-     *     liệu cũ trước khi UI chặn kéo/nhập tới đúng 100%); tắt (mặc định) -> giữ NGUYÊN hành vi cũ,
-     *     đứng yên ở target point move CUỐI cho tới hết 100% (`_findPointMoveSegment()` tự clamp).
+     * lerp). Mốc x=0 LUÔN dùng `liveStartTarget` (field thật, liền mạch — `_deriveLivePointMoveTarget()`)
+     * nếu có, fallback baseline nếu KHÔNG (lượt `reveal()` đầu tiên/lượt trước là 'one' mode).
+     *
+     * SỬA LẦN 2 (phản hồi Giang — bug "giật cứng về baseline" VẪN còn khi Start-force bật) — mốc
+     * x=0 KHÔNG còn bị `pointMoveStartForceBaseline` ép baseline nữa (ĐÓ chính là nguyên nhân giật —
+     * xem docstring đầu core/motion-presets.js, phần "SỬA lần 2"). Thay vào đó, CẢ 2 field
+     * `pointMoveStartForceBaseline`/`pointMoveEndForceBaseline` (CHỈ 1 trong 2 bật) giờ cùng điều
+     * khiển 1 mốc DUY NHẤT — chèn thêm mốc ẢO x=100=baseline vào đường cong CỦA VÒNG NÀY (êm từ point
+     * move CUỐI về baseline suốt quãng [timingX đó, 100%], THAY VÌ đứng im rồi vòng SAU giật cứng) —
+     * đồng thời loại bỏ mọi point move đang ở ĐÚNG x=100 khỏi `points` (mốc ảo "vô hiệu hoá và thay
+     * thế" nó, phòng dữ liệu cũ trước khi UI chặn kéo/nhập tới đúng 100%). TẮT CẢ 2 (mặc định) -> giữ
+     * NGUYÊN hành vi cũ, đứng yên ở target point move CUỐI cho tới hết 100%.
      * @param {object} preset @param {string} fromTransform
      * @param {object|null} liveStartTarget - từ `_deriveLivePointMoveTarget()`, null nếu không có. */
     _activatePointMoveAll(preset, fromTransform, liveStartTarget) {
+        const forceBaselineTail = preset.pointMoveStartForceBaseline || preset.pointMoveEndForceBaseline;
         const checked = preset.pointMoves.filter((p) => p.checked);
-        const usable = preset.pointMoveEndForceBaseline ? checked.filter((p) => p.timingX < 100) : checked;
-        if (usable.length === 0 && !preset.pointMoveEndForceBaseline) return; // không có gì để chạy (giữ nguyên guard cũ)
+        const usable = forceBaselineTail ? checked.filter((p) => p.timingX < 100) : checked;
+        if (usable.length === 0 && !forceBaselineTail) return; // không có gì để chạy (giữ nguyên guard cũ)
         const points = usable
             .map((p) => ({ x: p.timingX, target: this._resolvePointMoveTarget(p) }))
             .sort((a, b) => a.x - b.x);
-        const startTarget = (preset.pointMoveStartForceBaseline || !liveStartTarget) ? POINT_MOVE_BASELINE_TARGET : liveStartTarget;
+        const startTarget = liveStartTarget || POINT_MOVE_BASELINE_TARGET;
         const targetPoints = [{ x: 0, target: startTarget }, ...points];
-        if (preset.pointMoveEndForceBaseline) targetPoints.push({ x: 100, target: POINT_MOVE_BASELINE_TARGET });
+        if (forceBaselineTail) targetPoints.push({ x: 100, target: POINT_MOVE_BASELINE_TARGET });
 
         const keyframes = this._buildPointMoveAllKeyframes(targetPoints);
         if (keyframes.length > 0) keyframes[0] = { transform: fromTransform };
