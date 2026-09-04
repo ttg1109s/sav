@@ -1,83 +1,49 @@
 /**
  * core/point-move-timing-ui.js — Core-UI (Rule 5, hậu tố `-ui.js` bắt buộc vì tự `createElement`
- * dựng cụm DOM MỚI) dựng đường cong Timing cho Point Move 'all' mode (Settings > Motion > sửa 1
- * cấu hình > Point move > Timing) — SVG kéo-thả N node + lưới (grid) tham chiếu:
- *   trục X = `timingX` (0-100%, thời điểm trong `advanceMs`).
- *   trục Y = `timingY` (cường độ, [POINT_MOVE_TIMING_Y_MIN, POINT_MOVE_TIMING_Y_MAX]).
+ * dựng cụm DOM MỚI) dựng thanh Timing cho Point Move 'all' mode (Settings > Motion > sửa 1 cấu
+ * hình > Point move > Timing) — CHỈ 1 TRỤC DUY NHẤT (phản hồi Giang — "loại bỏ toàn bộ timing Y") —
+ * kéo-thả N node dọc theo 1 thanh ngang, biểu diễn `timingX` (0-100%, thời điểm trong `advanceMs`).
  *
- * 3 LOẠI node:
- *   - Node ẢO 2 đầu (`id` = `POINT_MOVE_TIMING_START_ID`/`POINT_MOVE_TIMING_END_ID`) — LUÔN có mặt
- *     bất kể bao nhiêu point move đã tick (phản hồi Giang — "dù có 1 point duy nhất đều tạo được
- *     đường cong"), THUẦN HIỂN THỊ (phản hồi Giang — "không được kéo X/Y gì hết") — KHÔNG gắn
- *     listener nào (`dataset.interactive='false'`), CỐ ĐỊNH CỨNG tại (0%, 0) và (100%, 0) — hằng
- *     số thuần (phản hồi Giang — "phải ở vị trí 0-0 và 100-0"), KHÔNG lưu trong preset, KHÔNG có
- *     đường nào đổi được từ UI.
- *   - Node "khoá" (`locked:true`, ứng point move index 0) — CHỈ khác biệt MÀU (viền xanh, đánh dấu
- *     "không bỏ tick được") — kéo tự do CẢ X LẪN Y như node thường.
- *   - Node thường — mọi point move khác đã tick.
+ * KÉO vs TAP — `pointerup` KHÔNG di chuyển đủ xa (`POINT_MOVE_TIMING_TAP_THRESHOLD_PX`, tính bằng
+ * PIXEL MÀN HÌNH thật, không phải đơn vị SVG) tính là TAP (mở modal nhập số chính xác, xem
+ * event/workflow/motion-presets.js::openPointMoveTimingNodeModal()) THAY VÌ kéo — tránh tap nhẹ bị
+ * hiểu nhầm thành kéo lệch 1-2 đơn vị.
  *
- * KÉO vs TAP (2 node ẢO 2 đầu KHÔNG áp dụng — thuần hiển thị) — `pointerup` KHÔNG di chuyển đủ xa
- * (`POINT_MOVE_TIMING_TAP_THRESHOLD_PX`, tính bằng PIXEL MÀN HÌNH thật, không phải đơn vị SVG) tính
- * là TAP (mở modal nhập số chính xác, xem event/workflow/motion-presets.js::
- * openPointMoveTimingNodeModal()) THAY VÌ kéo — tránh tap nhẹ bị hiểu nhầm thành kéo lệch 1-2 đơn vị.
+ * 2 NHÃN hiện NGAY lúc `pointerdown` (phản hồi Giang — "label Point N ngay trên mỗi node khi ấn
+ * vào" + "toạ độ X ghi và chạy theo node dùng DOM chung ở góc trái bên trên"), ẩn lại lúc thả tay:
+ *   - "Point N" — BÁM THEO node (SVG text, x luôn = cx node, y cố định phía trên thanh).
+ *   - "X: NN%" — CỐ ĐỊNH ở góc trái bên trên đồ thị (KHÔNG bám node — 1 phần tử DUY NHẤT dùng
+ *     chung cho MỌI node, chỉ đổi nội dung theo node ĐANG được ấn).
  *
- * KHOÁ TRỤC — 2 checkbox ĐỘC LẬP "Điều khiển X"/"Điều khiển Y" (`id="ptmove-timing-axis-x"`/
- * `"ptmove-timing-axis-y"`, KHÔNG loại trừ nhau — phản hồi Giang) nằm NGOÀI cụm DOM này (component
- * tĩnh, xem components/motion-settings-drawer.js) — callback kéo tự `document.getElementById(...)
- * .checked` đọc TRỰC TIẾP lúc kéo (KHÔNG cần truyền qua tham số hàm hay eventBus, đơn giản là đọc
- * state DOM hiện có — không phải gọi hàm khác, không vi phạm Rule 5a): CẢ HAI tick = kéo tự do cả 2
- * trục; chỉ 1 tick = khoá trục còn lại (giữ nguyên giá trị TỪ LÚC `pointerdown`, tránh giật nhẹ trên
- * trục không mong muốn); KHÔNG tick nào = không di chuyển (giữ nguyên cả 2).
- *
- * VỊ TRÍ TRỰC QUAN của node ĐANG KÉO được cập nhật NGAY trong callback `pointermove` (set thẳng
- * `cx`/`cy` lên CHÍNH phần tử đang kéo) — KHÔNG đợi vòng qua eventBus/Workflow mới thấy di chuyển,
- * đảm bảo bám ngón tay/con trỏ tức thời (phản hồi Giang). KÈM 1 nhãn số "X%, Y" LUÔN hiện NGAY TRÊN
- * node lúc đang kéo (phản hồi Giang — "cập nhật x,y để biểu thị trực quan", không chỉ mỗi chấm tròn
- * di chuyển mà PHẢI thấy được con số) — ẩn lại lúc thả tay. Đường CONG (polyline) vẫn phải qua
- * Workflow vì cần gọi `computePointMoveCurveIntensityAt()` (core, cấm core gọi core).
- *
- * Rule 3 (core cấm gọi core khác) — file NÀY KHÔNG tự tính đường cong mượt (Catmull-Rom sống ở
- * core/motion-engine.js::computePointMoveCurveIntensityAt(), 1 file core KHÁC — cấm gọi). Nơi gọi
- * (event/workflow/motion-presets.js) TỰ sample đường cong (gọi hàm đó trong vòng lặp — Workflow
- * được phép) rồi truyền THẲNG chuỗi toạ độ điểm polyline đã tính sẵn (`curvePolylinePoints`) vào
- * đây — hàm NÀY chỉ vẽ, không tính toán nghiệp vụ nào.
+ * Rule 3 (core cấm gọi core khác) — mọi phép tính ở đây THUẦN HÌNH HỌC (quy đổi %/pixel qua lại),
+ * KHÔNG có nghiệp vụ nào cần gọi core khác.
  *
  * Rule 5a: `addEventListener` gom CUỐI hàm, callback CHỈ bắn `eventBus.send()` (không gọi core/
  * workflow nào khác trực tiếp) — kể cả `pointermove`/`pointerup` gắn trên `document` để theo dõi
  * kéo (node nhỏ, dễ tuột khỏi phạm vi phần tử lúc kéo nhanh) vẫn ĐÚNG Rule 5a, chỉ khác THỜI ĐIỂM
  * đăng ký (ngay trong hàm dựng UI, không phải `event/listener/*.js` tĩnh) — không ảnh hưởng nội
- * dung callback. Quy đổi pixel -> % dùng NGAY trong callback (phép tính thuần, không phải gọi hàm).
+ * dung callback. Cập nhật 2 nhãn sống + vị trí node đang kéo là thao tác DOM THUẦN trên chính cụm
+ * phần tử hàm này vừa tạo — KHÔNG phải gọi hàm khác, không vi phạm Rule 5a.
  */
 
 const POINT_MOVE_TIMING_SVG_W = 700;
-const POINT_MOVE_TIMING_SVG_H = 260;
-const POINT_MOVE_TIMING_PAD_X = 16; // SỬA (phản hồi Giang — "thu hẹp gap") — 30 -> 16, nhường thêm không gian vẽ thật
-const POINT_MOVE_TIMING_PAD_Y = 14; // 24 -> 14
-const POINT_MOVE_TIMING_Y_MIN = -150;
-const POINT_MOVE_TIMING_Y_MAX = 150;
-const POINT_MOVE_TIMING_NODE_RADIUS = 11;
-/** Bước lưới — 5% cho CẢ 2 trục (X: 5% của 0-100; Y: 5% của biên [Y_MIN,Y_MAX] = 300 đơn vị -> 15/bước). */
-const POINT_MOVE_TIMING_GRID_STEP_X = 5;
-const POINT_MOVE_TIMING_GRID_STEP_Y = (POINT_MOVE_TIMING_Y_MAX - POINT_MOVE_TIMING_Y_MIN) * 0.05;
-/** id 2 node ẢO 2 đầu — namespace riêng (`ptmove_...` là id THẬT sinh bởi generatePointMoveId(),
- * core/motion-presets.js — không bao giờ trùng). */
-const POINT_MOVE_TIMING_START_ID = '__timing_start__';
-const POINT_MOVE_TIMING_END_ID = '__timing_end__';
+const POINT_MOVE_TIMING_SVG_H = 110;
+const POINT_MOVE_TIMING_PAD_X = 20;
+const POINT_MOVE_TIMING_TRACK_Y = 62; // vị trí Y CỐ ĐỊNH của thanh + MỌI node (không còn biến thiên theo trục Y nữa)
+const POINT_MOVE_TIMING_NODE_RADIUS = 16; // SỬA (phản hồi Giang — "node trông to hơn") — 11 -> 16
+/** Bước tick trên thanh — 5% (giữ nguyên mật độ đã chốt trước đó, chỉ còn áp cho 1 trục duy nhất). */
+const POINT_MOVE_TIMING_TICK_STEP = 5;
 /** Ngưỡng phân biệt TAP/KÉO — pixel MÀN HÌNH thật (không phải đơn vị SVG, ổn định bất kể zoom CSS). */
 const POINT_MOVE_TIMING_TAP_THRESHOLD_PX = 6;
 
 /**
- * Dựng SVG đường cong Timing.
- * @param {{id:string, timingX:number, timingY:number, locked:boolean, n?:number}[]} points -
- *   ĐÃ gồm sẵn 2 node ảo 2 đầu (nơi gọi tự thêm, xem event/workflow/motion-presets.js::
- *   _computeTimingCurveData()), sort theo `timingX` tăng dần (nơi gọi tự sort — Rule 2, hàm này chỉ
- *   vẽ theo thứ tự nhận được, không tự sắp xếp lại). `n` = số thứ tự "Point move N" hiển thị phía
- *   trên node (CHỈ node THẬT có — 2 node ảo 2 đầu không có `n`, không hiện số).
- * @param {string} curvePolylinePoints - chuỗi "x1,y1 x2,y2 ..." (toạ độ SVG THẬT, ĐÃ quy đổi sẵn
- *   bởi nơi gọi) cho `<polyline>` — đường cong mượt giữa các node.
+ * Dựng thanh Timing.
+ * @param {{id:string, timingX:number, locked:boolean, n:number}[]} points - point move ĐÃ tick, sort
+ *   theo `timingX` tăng dần (nơi gọi tự sort — Rule 2, hàm này chỉ vẽ theo thứ tự nhận được). `n` =
+ *   số thứ tự "Point move N" hiển thị lúc ấn vào node.
  * @returns {HTMLElement} phần tử wrapper chứa SVG, sẵn sàng append vào DOM.
  */
-function buildPointMoveTimingCurveEl(points, curvePolylinePoints) {
+function buildPointMoveTimingCurveEl(points) {
     const wrapper = document.createElement('div');
     wrapper.className = 'ptmove-timing-wrapper';
 
@@ -86,171 +52,125 @@ function buildPointMoveTimingCurveEl(points, curvePolylinePoints) {
     svg.setAttribute('viewBox', `0 0 ${POINT_MOVE_TIMING_SVG_W} ${POINT_MOVE_TIMING_SVG_H}`);
     svg.setAttribute('class', 'ptmove-timing-svg');
 
-    const usableW = POINT_MOVE_TIMING_SVG_W - POINT_MOVE_TIMING_PAD_X - 6;
-    const usableH = POINT_MOVE_TIMING_SVG_H - POINT_MOVE_TIMING_PAD_Y * 2;
-    const zeroY = POINT_MOVE_TIMING_PAD_Y + (1 - (0 - POINT_MOVE_TIMING_Y_MIN) / (POINT_MOVE_TIMING_Y_MAX - POINT_MOVE_TIMING_Y_MIN)) * usableH;
-    const maxY = POINT_MOVE_TIMING_PAD_Y;
-    const minY = POINT_MOVE_TIMING_SVG_H - POINT_MOVE_TIMING_PAD_Y;
+    const usableW = POINT_MOVE_TIMING_SVG_W - POINT_MOVE_TIMING_PAD_X * 2;
 
-    // --- lưới (grid) tham chiếu, bước 5%:5% — TĨNH, vẽ TRƯỚC TIÊN (nằm dưới mọi thứ khác) ---
-    for (let gx = 0; gx <= 100; gx += POINT_MOVE_TIMING_GRID_STEP_X) {
+    // --- thanh ngang (track) + tick 5% — TĨNH, vẽ TRƯỚC TIÊN (nằm dưới node) ---
+    const trackEl = document.createElementNS(svgNs, 'line');
+    trackEl.setAttribute('x1', POINT_MOVE_TIMING_PAD_X); trackEl.setAttribute('x2', POINT_MOVE_TIMING_SVG_W - POINT_MOVE_TIMING_PAD_X);
+    trackEl.setAttribute('y1', POINT_MOVE_TIMING_TRACK_Y); trackEl.setAttribute('y2', POINT_MOVE_TIMING_TRACK_Y);
+    trackEl.setAttribute('class', 'ptmove-timing-track');
+    svg.appendChild(trackEl);
+    for (let gx = 0; gx <= 100; gx += POINT_MOVE_TIMING_TICK_STEP) {
         const x = POINT_MOVE_TIMING_PAD_X + (gx / 100) * usableW;
-        const gridV = document.createElementNS(svgNs, 'line');
-        gridV.setAttribute('x1', x); gridV.setAttribute('x2', x);
-        gridV.setAttribute('y1', maxY); gridV.setAttribute('y2', minY);
-        gridV.setAttribute('class', 'ptmove-timing-grid');
-        svg.appendChild(gridV);
+        const tickEl = document.createElementNS(svgNs, 'line');
+        tickEl.setAttribute('x1', x); tickEl.setAttribute('x2', x);
+        tickEl.setAttribute('y1', POINT_MOVE_TIMING_TRACK_Y - 4); tickEl.setAttribute('y2', POINT_MOVE_TIMING_TRACK_Y + 4);
+        tickEl.setAttribute('class', 'ptmove-timing-tick');
+        svg.appendChild(tickEl);
         if (gx % 25 === 0) {
-            const labelX = document.createElementNS(svgNs, 'text');
-            labelX.setAttribute('x', x); labelX.setAttribute('y', minY + 10); // SỬA — offset giảm theo PAD_Y mới (14, trước 24) để nhãn không tràn ra ngoài viewBox
-            labelX.setAttribute('class', 'ptmove-timing-grid-label');
-            labelX.setAttribute('text-anchor', gx === 0 ? 'start' : (gx === 100 ? 'end' : 'middle'));
-            labelX.textContent = `${gx}%`;
-            svg.appendChild(labelX);
+            const labelEl = document.createElementNS(svgNs, 'text');
+            labelEl.setAttribute('x', x); labelEl.setAttribute('y', POINT_MOVE_TIMING_TRACK_Y + 20);
+            labelEl.setAttribute('class', 'ptmove-timing-tick-label');
+            labelEl.setAttribute('text-anchor', gx === 0 ? 'start' : (gx === 100 ? 'end' : 'middle'));
+            labelEl.textContent = `${gx}%`;
+            svg.appendChild(labelEl);
         }
     }
-    for (let gy = POINT_MOVE_TIMING_Y_MIN; gy <= POINT_MOVE_TIMING_Y_MAX; gy += POINT_MOVE_TIMING_GRID_STEP_Y) {
-        const y = POINT_MOVE_TIMING_PAD_Y + (1 - (gy - POINT_MOVE_TIMING_Y_MIN) / (POINT_MOVE_TIMING_Y_MAX - POINT_MOVE_TIMING_Y_MIN)) * usableH;
-        const gridH = document.createElementNS(svgNs, 'line');
-        gridH.setAttribute('x1', POINT_MOVE_TIMING_PAD_X); gridH.setAttribute('x2', POINT_MOVE_TIMING_SVG_W - 6);
-        gridH.setAttribute('y1', y); gridH.setAttribute('y2', y);
-        gridH.setAttribute('class', 'ptmove-timing-grid');
-        svg.appendChild(gridH);
-    }
 
-    // --- trục + biên trên/dưới (đường nét đứt, tham chiếu — TĨNH, không tương tác) ---
-    const axisEl = document.createElementNS(svgNs, 'line');
-    axisEl.setAttribute('x1', POINT_MOVE_TIMING_PAD_X); axisEl.setAttribute('x2', POINT_MOVE_TIMING_SVG_W - 6);
-    axisEl.setAttribute('y1', zeroY); axisEl.setAttribute('y2', zeroY);
-    axisEl.setAttribute('class', 'ptmove-timing-axis');
-    svg.appendChild(axisEl);
-    [maxY, minY].forEach((y) => {
-        const boundEl = document.createElementNS(svgNs, 'line');
-        boundEl.setAttribute('x1', POINT_MOVE_TIMING_PAD_X); boundEl.setAttribute('x2', POINT_MOVE_TIMING_SVG_W - 6);
-        boundEl.setAttribute('y1', y); boundEl.setAttribute('y2', y);
-        boundEl.setAttribute('class', 'ptmove-timing-bound');
-        svg.appendChild(boundEl);
-    });
-    const vAxisEl = document.createElementNS(svgNs, 'line');
-    vAxisEl.setAttribute('x1', POINT_MOVE_TIMING_PAD_X); vAxisEl.setAttribute('x2', POINT_MOVE_TIMING_PAD_X);
-    vAxisEl.setAttribute('y1', maxY); vAxisEl.setAttribute('y2', minY);
-    vAxisEl.setAttribute('class', 'ptmove-timing-vaxis');
-    svg.appendChild(vAxisEl);
-
-    // --- đường cong mượt (polyline, toạ độ ĐÃ tính sẵn từ nơi gọi) ---
-    const curveEl = document.createElementNS(svgNs, 'polyline');
-    curveEl.setAttribute('points', curvePolylinePoints);
-    curveEl.setAttribute('class', 'ptmove-timing-curve');
-    svg.appendChild(curveEl);
-
-    // --- node (2 node ẢO 2 đầu + 1 node/point move đã tick) — kèm số thứ tự "N" phía trên (node
-    // thật) và 1 nhãn X/Y CHỈ hiện lúc đang kéo (readout, xem addEventListener bên dưới) ---
+    // --- node (1 node/point move đã tick, LUÔN cùng 1 độ cao POINT_MOVE_TIMING_TRACK_Y) ---
     const nodeEls = points.map((p) => {
         const cx = POINT_MOVE_TIMING_PAD_X + (p.timingX / 100) * usableW;
-        const cy = POINT_MOVE_TIMING_PAD_Y + (1 - (p.timingY - POINT_MOVE_TIMING_Y_MIN) / (POINT_MOVE_TIMING_Y_MAX - POINT_MOVE_TIMING_Y_MIN)) * usableH;
-        const isPhantom = p.id === POINT_MOVE_TIMING_START_ID || p.id === POINT_MOVE_TIMING_END_ID;
-        if (!isPhantom && typeof p.n === 'number') {
-            const numEl = document.createElementNS(svgNs, 'text');
-            numEl.setAttribute('x', cx); numEl.setAttribute('y', cy - POINT_MOVE_TIMING_NODE_RADIUS - 6);
-            numEl.setAttribute('class', 'ptmove-timing-node-label');
-            numEl.setAttribute('text-anchor', 'middle');
-            numEl.textContent = p.n;
-            svg.appendChild(numEl);
-        }
         const nodeEl = document.createElementNS(svgNs, 'circle');
-        nodeEl.setAttribute('cx', cx); nodeEl.setAttribute('cy', cy);
+        nodeEl.setAttribute('cx', cx); nodeEl.setAttribute('cy', POINT_MOVE_TIMING_TRACK_Y);
         nodeEl.setAttribute('r', POINT_MOVE_TIMING_NODE_RADIUS);
-        nodeEl.setAttribute('class', `ptmove-timing-node${isPhantom ? ' ptmove-timing-node-phantom' : ''}`);
+        nodeEl.setAttribute('class', 'ptmove-timing-node');
         nodeEl.dataset.pointMoveId = p.id;
-        nodeEl.dataset.locked = p.locked ? 'true' : 'false'; // CHỈ còn ý nghĩa MÀU SẮC
+        nodeEl.dataset.locked = p.locked ? 'true' : 'false'; // CHỈ còn ý nghĩa MÀU SẮC — node "không bỏ tick được" (index 0)
         nodeEl.dataset.timingX = p.timingX;
-        nodeEl.dataset.timingY = p.timingY;
-        nodeEl.dataset.interactive = isPhantom ? 'false' : 'true'; // 2 node ẢO 2 đầu THUẦN hiển thị — phản hồi Giang, KHÔNG kéo/tap được, không gắn listener nào
+        nodeEl.dataset.n = p.n;
         svg.appendChild(nodeEl);
         return nodeEl;
     });
 
-    // --- nhãn X/Y sống (readout) — CHỈ hiện lúc đang kéo, xem addEventListener bên dưới. Nền + chữ
-    // tách 2 phần tử (rect làm nền cho chữ dễ đọc đè lên lưới/đường cong). ---
-    const readoutBg = document.createElementNS(svgNs, 'rect');
-    readoutBg.setAttribute('class', 'ptmove-timing-readout-bg');
-    readoutBg.setAttribute('rx', 4);
-    readoutBg.setAttribute('visibility', 'hidden');
-    svg.appendChild(readoutBg);
-    const readoutText = document.createElementNS(svgNs, 'text');
-    readoutText.setAttribute('class', 'ptmove-timing-readout-text');
-    readoutText.setAttribute('text-anchor', 'middle');
-    readoutText.setAttribute('visibility', 'hidden');
-    svg.appendChild(readoutText);
+    // --- 2 nhãn sống, DÙNG CHUNG cho mọi node — ẩn mặc định, chỉ hiện lúc pointerdown/kéo ---
+    const pointLabelEl = document.createElementNS(svgNs, 'text'); // "Point N" — bám theo node
+    pointLabelEl.setAttribute('class', 'ptmove-timing-point-label');
+    pointLabelEl.setAttribute('text-anchor', 'middle');
+    pointLabelEl.setAttribute('y', POINT_MOVE_TIMING_TRACK_Y - POINT_MOVE_TIMING_NODE_RADIUS - 10);
+    pointLabelEl.setAttribute('visibility', 'hidden');
+    svg.appendChild(pointLabelEl);
+
+    const cornerBg = document.createElementNS(svgNs, 'rect'); // "X: NN%" — CỐ ĐỊNH góc trái trên
+    cornerBg.setAttribute('class', 'ptmove-timing-corner-bg');
+    cornerBg.setAttribute('x', 4); cornerBg.setAttribute('y', 4);
+    cornerBg.setAttribute('rx', 4);
+    cornerBg.setAttribute('height', 20);
+    cornerBg.setAttribute('visibility', 'hidden');
+    svg.appendChild(cornerBg);
+    const cornerText = document.createElementNS(svgNs, 'text');
+    cornerText.setAttribute('class', 'ptmove-timing-corner-text');
+    cornerText.setAttribute('x', 10); cornerText.setAttribute('y', 18);
+    cornerText.setAttribute('visibility', 'hidden');
+    svg.appendChild(cornerText);
 
     wrapper.appendChild(svg);
+
+    /** Cập nhật CẢ 2 nhãn sống theo `nodeEl` (id + N + timingX HIỆN TẠI) — dùng CHUNG cho pointerdown
+     * LẪN pointermove (Rule 5a: thao tác DOM thuần trên cụm phần tử hàm này tự tạo, không gọi hàm
+     * khác). `cx` truyền riêng (không đọc lại từ `nodeEl.getAttribute('cx')`) vì lúc gọi TỪ
+     * pointermove, giá trị mới có thể CHƯA kịp set lên `nodeEl` (thứ tự set trong callback đó). */
+    function showLiveLabels(nodeEl, cx, timingXDisplay) {
+        pointLabelEl.setAttribute('x', cx);
+        pointLabelEl.textContent = `Point ${nodeEl.dataset.n}`;
+        pointLabelEl.setAttribute('visibility', 'visible');
+        cornerText.textContent = `X: ${timingXDisplay}%`;
+        cornerText.setAttribute('visibility', 'visible');
+        const textWidthEstimate = cornerText.textContent.length * 6 + 10;
+        cornerBg.setAttribute('width', textWidthEstimate);
+        cornerBg.setAttribute('visibility', 'visible');
+    }
+    function hideLiveLabels() {
+        pointLabelEl.setAttribute('visibility', 'hidden');
+        cornerText.setAttribute('visibility', 'hidden');
+        cornerBg.setAttribute('visibility', 'hidden');
+    }
 
     // ===================== addEventListener: gom cuối hàm (Rule 5a) =====================
     let draggingEl = null;
     let dragStartClientX = 0;
-    let dragStartClientY = 0;
     let dragStartTimingX = 0;
-    let dragStartTimingY = 0;
     let dragMoved = false;
 
-    nodeEls.filter((nodeEl) => nodeEl.dataset.interactive === 'true').forEach((nodeEl) => {
+    nodeEls.forEach((nodeEl) => {
         nodeEl.addEventListener('pointerdown', (e) => {
             e.preventDefault();
             draggingEl = nodeEl;
             dragStartClientX = e.clientX;
-            dragStartClientY = e.clientY;
             dragStartTimingX = Number(nodeEl.dataset.timingX);
-            dragStartTimingY = Number(nodeEl.dataset.timingY);
             dragMoved = false;
+            showLiveLabels(nodeEl, Number(nodeEl.getAttribute('cx')), dragStartTimingX.toFixed(1));
         });
     });
     document.addEventListener('pointermove', (e) => {
         if (!draggingEl) return;
-        const distPx = Math.hypot(e.clientX - dragStartClientX, e.clientY - dragStartClientY);
+        const distPx = Math.abs(e.clientX - dragStartClientX);
         if (distPx < POINT_MOVE_TIMING_TAP_THRESHOLD_PX) return; // chưa đủ xa -> coi như chưa kéo, KHÔNG gửi preview (tránh tap nhẹ lệch 1-2 đơn vị)
         dragMoved = true;
 
         const rect = svg.getBoundingClientRect();
         const scaleX = POINT_MOVE_TIMING_SVG_W / rect.width;
-        const scaleY = POINT_MOVE_TIMING_SVG_H / rect.height;
         const svgX = (e.clientX - rect.left) * scaleX;
-        const svgY = (e.clientY - rect.top) * scaleY;
-        const rawXPercent = Math.max(0, Math.min(100, ((svgX - POINT_MOVE_TIMING_PAD_X) / usableW) * 100));
-        const yRatio = Math.max(0, Math.min(1, (POINT_MOVE_TIMING_PAD_Y + usableH - svgY) / usableH));
-        const rawYValue = POINT_MOVE_TIMING_Y_MIN + yRatio * (POINT_MOVE_TIMING_Y_MAX - POINT_MOVE_TIMING_Y_MIN);
+        const xPercent = Math.max(0, Math.min(100, ((svgX - POINT_MOVE_TIMING_PAD_X) / usableW) * 100));
 
-        // 2 checkbox ĐỘC LẬP (KHÔNG loại trừ nhau, phản hồi Giang) — cả 2 tick = kéo tự do CẢ 2 trục;
-        // chỉ 1 tick = khoá trục còn lại; KHÔNG tick nào = giữ nguyên cả 2 (không di chuyển).
-        const xEnabled = document.getElementById('ptmove-timing-axis-x') ? document.getElementById('ptmove-timing-axis-x').checked : true; // mặc định X nếu không tìm thấy checkbox (phòng hờ)
-        const yEnabled = document.getElementById('ptmove-timing-axis-y') ? document.getElementById('ptmove-timing-axis-y').checked : false;
-        const xPercent = xEnabled ? rawXPercent : dragStartTimingX;
-        const yValue = yEnabled ? rawYValue : dragStartTimingY;
-
-        // Cập nhật NGAY vị trí trực quan của CHÍNH node đang kéo (không đợi vòng qua eventBus/Workflow)
-        // — đảm bảo node LUÔN bám theo ngón tay/con trỏ tức thời, không phụ thuộc round-trip nào khác.
         const cx = POINT_MOVE_TIMING_PAD_X + (xPercent / 100) * usableW;
-        const cy = POINT_MOVE_TIMING_PAD_Y + (1 - (yValue - POINT_MOVE_TIMING_Y_MIN) / (POINT_MOVE_TIMING_Y_MAX - POINT_MOVE_TIMING_Y_MIN)) * usableH;
-        draggingEl.setAttribute('cx', cx);
-        draggingEl.setAttribute('cy', cy);
+        draggingEl.setAttribute('cx', cx); // cập nhật NGAY vị trí trực quan — không đợi vòng qua eventBus/Workflow
+        showLiveLabels(draggingEl, cx, xPercent.toFixed(1));
 
-        // Nhãn X/Y sống — đặt NGAY TRÊN node đang kéo (phản hồi Giang — "biểu thị trực quan" toạ độ
-        // ĐANG kéo, không chỉ mỗi chấm tròn di chuyển).
-        const readoutLabel = `${xPercent.toFixed(1)}%, ${yValue.toFixed(1)}`;
-        const readoutY = Math.max(POINT_MOVE_TIMING_PAD_Y + 8, cy - POINT_MOVE_TIMING_NODE_RADIUS - 10);
-        readoutText.setAttribute('x', cx); readoutText.setAttribute('y', readoutY);
-        readoutText.textContent = readoutLabel;
-        readoutText.setAttribute('visibility', 'visible');
-        const textWidthEstimate = readoutLabel.length * 5.6 + 12; // ước lượng bề rộng (canvas đo chính xác cần thêm 1 lượt reflow — không cần thiết cho nhãn nhỏ này)
-        readoutBg.setAttribute('x', cx - textWidthEstimate / 2); readoutBg.setAttribute('y', readoutY - 11);
-        readoutBg.setAttribute('width', textWidthEstimate); readoutBg.setAttribute('height', 15);
-        readoutBg.setAttribute('visibility', 'visible');
-
-        eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMoveTiming.nodeDrag.preview', payload: { id: draggingEl.dataset.pointMoveId, timingX: xPercent, timingY: yValue } });
+        eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMoveTiming.nodeDrag.preview', payload: { id: draggingEl.dataset.pointMoveId, timingX: xPercent } });
     });
     document.addEventListener('pointerup', () => {
         if (!draggingEl) return;
-        readoutText.setAttribute('visibility', 'hidden');
-        readoutBg.setAttribute('visibility', 'hidden');
+        hideLiveLabels();
         if (dragMoved) {
             eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMoveTiming.nodeDrag.end', payload: {} });
         } else {

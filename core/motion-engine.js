@@ -270,38 +270,12 @@ function buildPointMoveTransformString(v) {
 
 /**
  * Core thuần: nội suy tuyến tính thuần (không đơn vị) — dùng CHUNG cho MỌI cặp giá trị cần lerp
- * trong Point Move (từng field/segment, LẪN cường độ đường cong Timing).
+ * trong Point Move (từng field/segment theo thời gian).
  * @param {number} from @param {number} to @param {number} progress01 - 0-1.
  * @returns {number}
  */
 function lerpPointMoveNumber(from, to, progress01) {
     return from + (to - from) * progress01;
-}
-
-/**
- * Core thuần: cường độ (`timingY`) tại 1 thời điểm `xPercent` bất kỳ trên đường cong Timing — nội
- * suy MƯỢT (Catmull-Rom) qua toàn bộ node đã sắp theo `x` tăng dần. `xPercent` ngoài 2 đầu mút ->
- * kẹp về giá trị node đầu/cuối (không ngoại suy). Công thức viết THẲNG (không gọi hàm con khác) —
- * Rule 3 cấm core gọi core, nên toán Catmull-Rom nằm nguyên trong hàm này.
- * @param {{x:number, y:number}[]} nodesSortedByX - ÍT NHẤT 1 phần tử, đã sắp theo `x` tăng dần.
- * @param {number} xPercent
- * @returns {number}
- */
-function computePointMoveCurveIntensityAt(nodesSortedByX, xPercent) {
-    if (nodesSortedByX.length === 1) return nodesSortedByX[0].y;
-    if (xPercent <= nodesSortedByX[0].x) return nodesSortedByX[0].y;
-    const lastNode = nodesSortedByX[nodesSortedByX.length - 1];
-    if (xPercent >= lastNode.x) return lastNode.y;
-    let i = 0;
-    while (i < nodesSortedByX.length - 2 && nodesSortedByX[i + 1].x < xPercent) i++;
-    const p0 = nodesSortedByX[Math.max(0, i - 1)];
-    const p1 = nodesSortedByX[i];
-    const p2 = nodesSortedByX[i + 1];
-    const p3 = nodesSortedByX[Math.min(nodesSortedByX.length - 1, i + 2)];
-    const span = p2.x - p1.x;
-    const t = span <= 0 ? 0 : (xPercent - p1.x) / span;
-    const t2 = t * t, t3 = t2 * t;
-    return 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
 }
 
 /**

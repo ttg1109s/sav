@@ -22,21 +22,14 @@
  * (Linear X/Y, Rotate, Zoom, Flip X/Y) + `pointMoveEnabled` (công tắc tổng, CÙNG khuôn
  * `transitionEnabled` — chi tiết LUÔN hiển thị/chỉnh được bất kể bật/tắt, chỉ ẢNH HƯỞNG lúc phát)
  * + 2 chế độ chạy:
- *   `pointMoveRunMode: 'all'` — chạy TẤT CẢ point move đã tick, theo đúng vị trí thời gian
- *      (`pointMove.timingX`, % trên trục 0-100 của `advanceMs`) + cường độ (`pointMove.timingY`) đã
- *      xếp trên đường cong Timing (xem components/motion-settings-drawer.js, core/
- *      point-move-timing-ui.js). Cường độ và toạ độ THỜI GIAN là 2 trục ĐỘC LẬP (progress-domain
- *      thuần, KHÔNG biết gì về đơn vị thật của 6 field) — công thức áp dụng cuối cùng ở event/
- *      workflow/motion-engine.js::_buildPointMoveAllKeyframes(). Đường cong LUÔN có 2 node "ẢO" CỐ
- *      ĐỊNH CỨNG ở 2 đầu — (0%, 0) và (100%, 0), KHÔNG thuộc `pointMoves`, KHÔNG lưu trong preset
- *      (hằng số thuần, xem event/workflow/motion-engine.js/motion-presets.js), THUẦN HIỂN THỊ —
- *      KHÔNG kéo/sửa được (phản hồi Giang — "không được kéo X/Y gì hết") — chỉ đảm bảo đường cong
- *      LUÔN có hình dạng, kể cả 0/1 point move được tick (phản hồi Giang — "dù có 1 point duy nhất
- *      đều tạo được đường cong"), KHÔNG dùng để chỉnh cường độ đầu/cuối. Riêng việc NỘI SUY GIÁ TRỊ
- *      TARGET (6 field) chỉ dùng node ẢO ĐẦU (x=0, target trung tính) làm điểm xuất phát — node ẢO
- *      CUỐI (x=100) CHỈ ảnh hưởng hình dạng đường cong cường độ, KHÔNG có "target" nào (point move
- *      gần 100% nhất giữ nguyên giá trị của nó tới hết `advanceMs`) — point move #0 KHÔNG bắt buộc
- *      đứng ở 0% (phản hồi Giang — có thể ở n% bất kỳ, tự do kéo/nhập số như mọi point move khác).
+ *   `pointMoveRunMode: 'all'` — chạy TẤT CẢ point move đã tick, THEO ĐÚNG THỨ TỰ VỊ TRÍ THỜI GIAN
+ *      (`pointMove.timingX`, % trên trục 0-100 của `advanceMs` — CHỈ 1 TRỤC DUY NHẤT, phản hồi
+ *      Giang — "loại bỏ toàn bộ timing Y" — ĐÃ XOÁ HẲN khái niệm cường độ/đường cong Timing Y trước
+ *      đó, animation giờ CHỈ còn nội suy tuyến tính theo THỜI GIAN giữa 2 point move liền kề, xem
+ *      event/workflow/motion-engine.js::_buildPointMoveAllKeyframes()). Animation LUÔN xuất phát từ
+ *      1 mốc "vị trí ban đầu" ẢO (x=0, target trung tính — HẰNG SỐ thuần, KHÔNG lưu trong preset,
+ *      KHÔNG hiển thị/chỉnh được) trước khi tới point move gần nhất theo thời gian — point move #0
+ *      KHÔNG bắt buộc đứng ở 0% (có thể ở n% bất kỳ, tự do kéo/nhập số như mọi point move khác).
  *   `pointMoveRunMode: 'one'` — mỗi lượt kích hoạt Motion, CHỈ 1 point move (trong số đã tick)
  *      được chọn để tween từ baseline -> target trong suốt `advanceMs`, chọn theo
  *      `pointMoveOneOrder` ('sequential' — tăng dần theo vị trí trong mảng; 'random' — loại trừ
@@ -123,33 +116,25 @@ const MOTION_POINT_MOVE_BOUNDS = {
     zoom: { min: -2, max: 2 },
     flip: { min: -360, max: 360 },
 };
-/** Biên toạ độ Timing (chỉ dùng khi `pointMoveRunMode==='all'`) — `timingX` % trên trục thời gian,
- * `timingY` cường độ (100 = đạt ĐỦ giá trị 6 field đã cấu hình của point move đó; 0 = baseline,
- * cho phép âm/vượt 100 để undershoot/overshoot — xem event/workflow/motion-engine.js). */
+/** Biên toạ độ Timing (chỉ dùng khi `pointMoveRunMode==='all'`) — `timingX` % trên trục thời gian
+ * (phản hồi Giang — "loại bỏ toàn bộ timing Y" — Timing giờ CHỈ 1 TRỤC DUY NHẤT). */
 const MOTION_POINT_MOVE_TIMING_X_BOUNDS = { min: 0, max: 100 };
-const MOTION_POINT_MOVE_TIMING_Y_BOUNDS = { min: -150, max: 150 };
 
-/** 1 field trắng ({mode, unit, single, rangeMin, rangeMax, applyTimingIntensity}) — dùng cho cả 6
- * thông số/point move, `unit` chỉ có ý nghĩa với linearX/linearY (null cho 4 field còn lại).
- * `applyTimingIntensity` (phản hồi Giang) — field này CÓ bị nhân thêm hệ số cường độ (trục Y đường
- * cong Timing, 'all' mode) hay không — MẶC ĐỊNH TẮT (false): field LUÔN đạt ĐỦ giá trị đã lerp theo
- * vị trí thời gian, KHÔNG bị trục Y ảnh hưởng, trừ khi người dùng chủ động bật. Không có ý nghĩa gì
- * ở 'one' mode (không có đường cong Timing) — vẫn LƯU bình thường, chỉ đơn giản KHÔNG được đọc tới.
+/** 1 field trắng ({mode, unit, single, rangeMin, rangeMax}) — dùng cho cả 6 thông số/point move,
+ * `unit` chỉ có ý nghĩa với linearX/linearY (null cho 4 field còn lại).
  * @param {string|null} unit @returns {object} */
 function buildBlankPointMoveField(unit) {
-    return { mode: 'single', unit: unit || null, single: 0, rangeMin: 0, rangeMax: 0, applyTimingIntensity: false };
+    return { mode: 'single', unit: unit || null, single: 0, rangeMin: 0, rangeMax: 0 };
 }
 
 /** 1 point move trắng — `checked:true` mặc định (point move ĐẦU danh sách khoá true vĩnh viễn theo
- * VỊ TRÍ, xem sanitizeMotionPointMoves()); `timingY:100` mặc định = "đạt đủ giá trị đã cấu hình"
- * khi vừa thêm (chưa tuỳ chỉnh đường cong Timing thì hành vi vẫn đúng như mong đợi).
+ * VỊ TRÍ, xem sanitizeMotionPointMoves()).
  * @returns {object} */
 function buildBlankPointMove() {
     return {
         id: generatePointMoveId(),
         checked: true,
         timingX: 0,
-        timingY: 100,
         linearX: buildBlankPointMoveField('%'),
         linearY: buildBlankPointMoveField('%'),
         rotate: buildBlankPointMoveField(null),
@@ -262,7 +247,6 @@ function sanitizePointMove(raw) {
         id: typeof raw.id === 'string' && raw.id ? raw.id : blank.id,
         checked: typeof raw.checked === 'boolean' ? raw.checked : blank.checked,
         timingX: inRange(raw.timingX, MOTION_POINT_MOVE_TIMING_X_BOUNDS, blank.timingX),
-        timingY: inRange(raw.timingY, MOTION_POINT_MOVE_TIMING_Y_BOUNDS, blank.timingY),
         linearX: sanitizePointMoveLinearField(raw.linearX, blank.linearX),
         linearY: sanitizePointMoveLinearField(raw.linearY, blank.linearY),
         rotate: sanitizePointMoveField(raw.rotate, blank.rotate, MOTION_POINT_MOVE_BOUNDS.rotate),
@@ -272,9 +256,8 @@ function sanitizePointMove(raw) {
     };
 }
 
-/** Validate 1 field {mode,unit,single,rangeMin,rangeMax,applyTimingIntensity} KHÔNG có unit
- * (rotate/zoom/flipX/flipY) — biên số học CỐ ĐỊNH truyền thẳng qua `bounds` (mỗi field 1 loại biên
- * riêng, tra ở nơi gọi).
+/** Validate 1 field {mode,unit,single,rangeMin,rangeMax} KHÔNG có unit (rotate/zoom/flipX/flipY) —
+ * biên số học CỐ ĐỊNH truyền thẳng qua `bounds` (mỗi field 1 loại biên riêng, tra ở nơi gọi).
  * @param {*} raw @param {object} blank @param {{min:number,max:number}} bounds @returns {object} */
 function sanitizePointMoveField(raw, blank, bounds) {
     if (!raw || typeof raw !== 'object') return blank;
@@ -285,7 +268,6 @@ function sanitizePointMoveField(raw, blank, bounds) {
         single: inRange(raw.single, blank.single),
         rangeMin: inRange(raw.rangeMin, blank.rangeMin),
         rangeMax: inRange(raw.rangeMax, blank.rangeMax),
-        applyTimingIntensity: typeof raw.applyTimingIntensity === 'boolean' ? raw.applyTimingIntensity : blank.applyTimingIntensity,
     };
 }
 
@@ -303,7 +285,6 @@ function sanitizePointMoveLinearField(raw, blank) {
         single: inRange(raw.single, blank.single),
         rangeMin: inRange(raw.rangeMin, blank.rangeMin),
         rangeMax: inRange(raw.rangeMax, blank.rangeMax),
-        applyTimingIntensity: typeof raw.applyTimingIntensity === 'boolean' ? raw.applyTimingIntensity : blank.applyTimingIntensity,
     };
 }
 
