@@ -246,6 +246,20 @@ function renderMotionEditBody(preset) {
                                 <option value="one" ${preset.pointMoveRunMode === 'one' ? 'selected' : ''} data-i18n="motionSettingsDrawer.pointMove.runMode.one">${t('motionSettingsDrawer.pointMove.runMode.one')}</option>
                             </select>
                         </div>
+                        <div id="motion-pointmove-start-force-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors${preset.pointMoveRunMode === 'all' ? '' : ' hidden'}">
+                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.startForceBaseline.label">${t('motionSettingsDrawer.pointMove.startForceBaseline.label')}</span>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="setting-motion-pointmove-start-force-baseline" class="sr-only peer" ${preset.pointMoveStartForceBaseline ? 'checked' : ''}>
+                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                            </label>
+                        </div>
+                        <div id="motion-pointmove-end-force-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors${preset.pointMoveRunMode === 'all' ? '' : ' hidden'}">
+                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.endForceBaseline.label">${t('motionSettingsDrawer.pointMove.endForceBaseline.label')}</span>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="setting-motion-pointmove-end-force-baseline" class="sr-only peer" ${preset.pointMoveEndForceBaseline ? 'checked' : ''}>
+                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                            </label>
+                        </div>
                         <div id="motion-pointmove-order-row" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors${preset.pointMoveRunMode === 'one' ? '' : ' hidden'}">
                             <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.oneOrder.label">${t('motionSettingsDrawer.pointMove.oneOrder.label')}</span>
                             <select id="setting-motion-pointmove-order" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
