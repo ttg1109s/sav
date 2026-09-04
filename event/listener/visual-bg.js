@@ -15,13 +15,9 @@ if (btnOpenVisualBgSettings) {
 const VISUAL_BG_SETTINGS_INPUT_MAP = {
     'setting-visual-bg-list-playback-mode:change': { type: 'visualBg.listPlaybackMode.change' },
     'setting-visual-bg-next-order:change': { type: 'visualBg.nextOrder.change' },
-    // MỚI (29/08/2026) — "Duration mode"/"Seconds per video/photo", dời từ Motion (panel Settings
-    // cũ, trước khi tách hệ preset độc lập), dùng chung
-    // video/ảnh (xem components/visual-bg-settings-drawer.js).
     'setting-visual-bg-duration-mode:change': { type: 'visualBg.durationMode.change' },
     'setting-visual-bg-duration-seconds:click': { type: 'visualBg.durationSeconds.openPicker', bare: true },
-    // MỚI (29/08/2026) — 3 nút chọn nguồn trực tiếp, thay dropdown Kiểu + 2 nút "Chọn 1"/"Chọn
-    // nhóm" cũ (xem components/visual-bg-settings-drawer.js).
+    'setting-visual-bg-motion-preset:change': { type: 'visualBg.motionPresetId.change' },
     'setting-visual-bg-pick-video:click': { type: 'visualBg.pickVideo.click', bare: true },
     'setting-visual-bg-pick-photo:click': { type: 'visualBg.pickPhoto.click', bare: true },
     'setting-visual-bg-pick-folder:click': { type: 'visualBg.pickFolder.click', bare: true },
@@ -32,12 +28,9 @@ const VISUAL_BG_SETTINGS_INPUT_MAP = {
     'setting-visual-bg-gradient-angle:input': { type: 'visualBg.gradientAngle.input' },
     'setting-visual-bg-gradient-add:click': { type: 'visualBg.gradientStop.add.click', bare: true },
     'setting-visual-bg-open-gradient:click': { type: 'visualBg.openGradientPanel.click', bare: true },
-    // XOÁ (29/08/2026) — 'setting-visual-bg-open-slideshow:click' bỏ hẳn cùng hàng UI, xem
-    // components/visual-bg-settings-drawer.js.
     'setting-visual-bg-open-video-audio:click': { type: 'visualBg.openVideoAudioPanel.click', bare: true },
-    // MỚI (12/08/2026, Giang yêu cầu mục 6 — "Movement" + "Color swap") — 4 input number dùng
-    // 'change' (KHÔNG 'input' như 2 slider gradient ở trên) — đây là ô GÕ số, không phải kéo trượt,
-    // 'change' (bắn lúc blur) tránh commit giá trị dở dang giữa lúc đang gõ nhiều chữ số.
+    // 4 ô GÕ số dùng 'change' (không 'input' như 2 slider gradient ở trên) — 'change' (bắn lúc blur)
+    // tránh commit giá trị dở dang giữa lúc đang gõ nhiều chữ số.
     'setting-visual-bg-gradient-movement-enable:change': { type: 'visualBg.gradientMovement.enable.change', checkbox: true },
     'setting-visual-bg-gradient-movement-mode:change': { type: 'visualBg.gradientMovement.mode.change' },
     'setting-visual-bg-gradient-movement-open-duration:click': { type: 'visualBg.gradientMovement.openDurationPicker.click', bare: true },
@@ -112,7 +105,7 @@ if (genericDrawerBody) { // SỬA (đợt migrate Visualizer Screen) — setting
 // event/listener/video-player.js (nơi đó CHỈ xử lý khi player mode TRUE, dispatch playNext()) — ở
 // đây CHỈ xử lý khi player mode FALSE (đang dùng bgVideoElement để trang trí VBG), tránh dispatch 2
 // message cho cùng 1 sự kiện gốc. Chỉ THẬT SỰ bắn được khi `loop=false` — tức đúng lúc VBG đang
-// cycle nhiều video theo mode 'slideshow' (xem `_playVideoKey()`, event/workflow/visual-bg.js) —
+// cycle nhiều video theo mode 'slideshow' (xem `_playVideoKey()`, event/workflow/visual-bg-video.js) —
 // perSong/1 item luôn loop=true nên trình duyệt không bao giờ bắn 'ended' cho 2 case đó, không cần
 // lọc thêm ở Listener (Workflow tự guard lại 1 lần nữa trong `_onVideoEnded()`, phòng thủ kép).
 if (bgVideoElement) {
