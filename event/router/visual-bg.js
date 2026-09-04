@@ -23,14 +23,16 @@ const routerVisualBg = (() => {
                 workflowVisualBg.changeNextOrder(msg.payload.value);
                 break;
 
-            // MỚI (29/08/2026) — "Duration mode"/"Seconds per video/photo", dời từ Motion (panel
-            // Settings cũ, trước khi tách hệ preset độc lập).
             case 'visualBg.durationMode.change':
                 workflowVisualBg.changeDurationMode(msg.payload.value);
                 break;
 
             case 'visualBg.durationSeconds.openPicker':
                 workflowVisualBg.openDurationSecondsPicker();
+                break;
+
+            case 'visualBg.motionPresetId.change':
+                workflowVisualBg.changeMotionPresetId(msg.payload.value);
                 break;
 
             case 'visualBg.openGradientPanel.click':

@@ -20,17 +20,13 @@ const routerAppSettings = (() => {
         troubleshooting: () => workflowAppSettings._renderTroubleshooting(),
         theme: () => workflowAppSettings._renderTheme(),
         gesture: () => workflowAppSettings._renderGesture(),
-        motion: () => workflowAppSettings._renderMotion(),
+        motion: () => workflowAppSettings._renderMotionList(),
         language: () => workflowAppSettings._renderLanguage(),
         playlistSort: () => workflowAppSettings._renderPlaylistSort(),
         playlistFilter: () => workflowAppSettings._renderPlaylistFilter(),
         display: () => workflowAppSettings._renderDisplay(),
         autoSwitch: () => workflowAppSettings._renderAutoSwitch(),
         visualBg: () => workflowAppSettings._renderVisualBg(),
-        // MỚI (29/08/2026) — hệ Cấu hình Motion, xem event/workflow/motion-presets.js.
-        motionManage: () => workflowAppSettings._renderMotionManage(),
-        motionApply: () => workflowAppSettings._renderMotionApply(),
-        motionApplyPhotoVisualBg: () => workflowAppSettings._renderMotionApplyPhotoVisualBg(),
     };
 
     function handle(msg) {

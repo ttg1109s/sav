@@ -177,12 +177,14 @@ const routerMotionPresets = (() => {
                 workflowMotionPresets.deleteEditing();
                 break;
 
-            case 'motionPresets.openPickForPhotoVisualBg.click':
-                workflowMotionPresets.openPickForPhotoVisualBg();
+            // ===================== Áp dụng cho nơi tiêu thụ =====================
+
+            case 'motionPresets.applyConsumer.change':
+                workflowMotionPresets.changeApplyConsumer(msg.payload.value);
                 break;
 
-            case 'motionPresets.detachFromPhotoVisualBg.click':
-                workflowMotionPresets.detachFromPhotoVisualBg();
+            case 'motionPresets.applyToggle.click':
+                workflowMotionPresets.toggleApplySubscription();
                 break;
 
             default:
