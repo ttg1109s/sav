@@ -46,10 +46,11 @@
  * chuyển về baseline chiếm ĐÚNG khoảng thời gian ĐANG "đứng im chờ" sẵn có (từ point move cuối tới
  * 100%) thay vì bị nén vào khoảnh khắc chuyển vòng — xem docstring `_activatePointMoveAll()`.
  *
- * NẠP SAU: core/motion-engine.js, core/dom-refs.js (motionEngineContainer/motionEnginePointMoveWrapper/
- * motionEngineLayer1,2/motionEngineLayer1,2Pan/motionEngineReactLayer), service/task-manager.js (chỉ
- * còn dùng cho MOTION_ENGINE_BEATREACT_TASK — animation per-frame CỦA ẢNH ĐANG HIỆN, KHÔNG phải hẹn
- * giờ chuyển ảnh — cái đó sống ở workflowVisualBg).
+ * NẠP SAU: core/motion-engine.js, core/motion-presets.js (findMotionPresetById() — dùng ở
+ * livePointMoveToggle()/liveBeatReactToggle()), core/dom-refs.js (motionEngineContainer/
+ * motionEnginePointMoveWrapper/motionEngineLayer1,2/motionEngineLayer1,2Pan/motionEngineReactLayer),
+ * service/task-manager.js (chỉ còn dùng cho MOTION_ENGINE_BEATREACT_TASK — animation per-frame CỦA
+ * ẢNH ĐANG HIỆN, KHÔNG phải hẹn giờ chuyển ảnh — cái đó sống ở workflowVisualBg).
  */
 
 /** Preset "tắt hết" — dùng khi nơi gọi truyền `null`/`undefined` (chưa gắn Motion) — KHÔNG fallback
@@ -101,6 +102,7 @@ const workflowMotionEngine = {
     _idlePanLayer() { return this._layerToggle ? motionEngineLayer1Pan : motionEngineLayer2Pan; },
 
     _pointMoveAnim: null, // Animation DUY NHẤT trên motionEnginePointMoveWrapper (bọc CHUNG cả 2 layer A/B, xem core/dom-refs.js) — SỬA, phản hồi Giang, không còn tách theo từng layer nữa
+    _activationStartAtRealTime: 0, // Date.now() lúc ẢNH HIỆN TẠI bắt đầu hiện (reveal()/transitionTo()) — mốc suy "thời gian ĐÁNG LẼ point move phải ở đâu" khi bật lại sống, xem livePointMoveToggle()
 
     // MỚI (phản hồi Giang, sửa bug hard-cut baseline) — snapshot đường cong 'all' mode GẦN NHẤT
     // (mảng {x,target} ĐÃ gồm sẵn 2 mốc ảo đầu/cuối nếu có) + thời lượng của nó — dùng bởi
@@ -109,6 +111,19 @@ const workflowMotionEngine = {
     // fallback về baseline (xem `_activatePointMoveAll()`).
     _lastAllModePoints: null,
     _lastAllModeDurationMs: 0,
+
+    /** Gán preset ĐANG active + đẩy `appState.motionRunning` — DUY NHẤT 1 chỗ ghi state này. Motion
+     * Engine là engine render THẬT, tự quyết "cái gì đang thật sự chạy" — khác `motionPresetId`
+     * phía nơi tiêu thụ (đó là "đang CHỌN gì", vẫn có giá trị dù Engine chưa/không chạy gì). Preset
+     * không có `.id` (MOTION_ENGINE_NO_OP_PRESET) -> `motionRunning` về null. Màn Edit Motion đọc
+     * lại field này để biết mình có đang là preset ĐANG CHẠY hay không mà áp SỐNG toggle Point
+     * Move/React Beat Audio (livePointMoveToggle()/liveBeatReactToggle() ngay dưới) — KHÔNG cần
+     * biết/gọi qua bất kỳ nơi tiêu thụ nào (Motion Engine + Motion Preset cùng 1 domain "Motion").
+     * @param {object} preset */
+    _setActivePreset(preset) {
+        this._activePreset = preset;
+        appState.set('motionRunning', preset.id || null);
+    },
 
     /** Hiện ẢNH ĐẦU tĩnh (không transition — chỉ có 1 ảnh, chưa có ảnh "cũ" nào để chuyển từ đó) +
      * bật Point Move/BeatReact NGAY nếu `preset` có gì để chạy.
@@ -124,9 +139,10 @@ const workflowMotionEngine = {
         setMotionEngineContainerVisible(motionEngineContainer, true); // core
         const ok = await this._loadImageIntoLayer(imageKey, this._currentPanLayer(), this._currentLayer());
         if (!ok) return; // record mất — nơi gọi (workflowVisualBg) tự lo self-heal, Engine không tự thử ảnh khác
-        this._activePreset = preset;
+        this._setActivePreset(preset);
         this._lastAdvanceMs = advanceMs;
         this._isActive = true;
+        this._activationStartAtRealTime = Date.now();
         this._activatePointMove(preset);
         this._syncBeatReactLoop();
     },
@@ -142,8 +158,9 @@ const workflowMotionEngine = {
         const record = await getImageRecord(imageKey); // service/db.js
         if (!record || !record.blob) return false;
 
-        this._activePreset = preset;
+        this._setActivePreset(preset);
         this._lastAdvanceMs = advanceMs;
+        this._activationStartAtRealTime = Date.now();
         const image = record;
         this._currentRecord = image; // NGAY TẠI ĐÂY (không phải cuối hàm) — nếu sau này có chỗ nào cần duration ảnh SẮP hiện thì đã sẵn
         const objectUrl = URL.createObjectURL(image.blob);
@@ -261,6 +278,61 @@ const workflowMotionEngine = {
         this._pointMoveAnim = null;
         if (preset.pointMoveRunMode === 'one') { this._activatePointMoveOne(preset, fromTransform); return; }
         this._activatePointMoveAll(preset, fromTransform, liveStartTarget);
+    },
+
+    // ===================== Toggle sống từ màn Edit Motion (phản hồi Giang — "off/on Point
+    // move/React Beat giữa lúc ảnh đang hiện phải áp NGAY, không đợi ảnh đổi") =====================
+    // `workflowMotionPresets` gọi THẲNG sang ĐÂY (KHÔNG qua nơi tiêu thụ nào — Motion Engine +
+    // Motion Preset cùng 1 domain "Motion", nơi tiêu thụ có thể là bất kỳ ai trong tương lai, Motion
+    // không cần/không nên biết) mỗi lần công tắc tổng đổi — event-driven (Giang chốt, phương án B)
+    // thay vì 1 task liên tục poll state (phương án A, tốn hiệu năng vô ích vì thay đổi CHỈ đến từ
+    // 1 hành động bấm rời rạc của người dùng). Cả 2 hàm dưới tự guard bằng `appState.motionRunning`
+    // (SSOT "preset nào đang THẬT SỰ render" do chính `_setActivePreset()` ghi — KHÁC
+    // `motionPresetId` phía nơi tiêu thụ, đó là "đang CHỌN gì") — caller (workflowMotionPresets)
+    // cũng tự check field này TRƯỚC khi gọi (tránh gọi thừa), 2 lớp guard không xung đột.
+
+    /** Bật/tắt Point Move SỐNG — CHỈ có tác dụng nếu `presetId` TRÙNG `appState.motionRunning`
+     * (preset đang THẬT SỰ render, xem `_setActivePreset()`) — sửa preset KHÁC preset đang chạy
+     * thì bỏ qua, không có gì đang chạy cũng bỏ qua.
+     * Tắt: dừng + về baseline NGAY (tái dùng nhánh `pointMoveEnabled=false` của `_activatePointMove()`).
+     * Bật lại: dựng lại đường cong FULL cho ảnh hiện tại (`_activatePointMove()` bình thường) rồi
+     * NHẢY THẲNG `animation.currentTime` tới đúng mốc thời gian ĐÁNG LẼ đã tới (tính từ
+     * `_activationStartAtRealTime` — mốc ảnh này bắt đầu hiện, KHÔNG đổi bởi việc tắt/bật giữa
+     * chừng) — tránh sai giờ đến các point move kế tiếp so với thời điểm chuyển ảnh THẬT. React
+     * Beat Audio (`liveBeatReactToggle()` ngay dưới) KHÔNG cần bước nhảy này — không có khái niệm
+     * "vị trí trên đường thời gian" để đuổi kịp, chỉ cần bật lại vòng lặp là tự bám nhạc ngay.
+     * @param {string} presetId @param {boolean} enabled
+     */
+    livePointMoveToggle(presetId, enabled) {
+        if (!this._isActive || appState.get('motionRunning') !== presetId) return;
+        const preset = findMotionPresetById(appState.get('motionPresets'), presetId); // core/motion-presets.js
+        if (!preset) return;
+        this._setActivePreset(preset); // đồng bộ bản cache theo đúng dữ liệu vừa lưu (enabled mới)
+        if (!enabled) {
+            stopPointMoveAnimation(motionEnginePointMoveWrapper, this._pointMoveAnim); // core/dom-refs.js, core/motion-engine.js
+            this._pointMoveAnim = null;
+            this._lastAllModePoints = null;
+            return;
+        }
+        this._activatePointMove(preset);
+        if (this._pointMoveAnim) {
+            const elapsedMs = Math.min(this._lastAdvanceMs, Math.max(0, Date.now() - this._activationStartAtRealTime));
+            try { this._pointMoveAnim.currentTime = elapsedMs; } catch (e) {}
+        }
+    },
+
+    /** Bật/tắt React Beat Audio SỐNG — cùng guard `appState.motionRunning` với `livePointMoveToggle()`
+     * ngay trên. Chỉ cần đồng bộ `_activePreset` rồi gọi lại `_syncBeatReactLoop()` (đã tự đọc
+     * `reactBeatAudio.enabled` mới nhất, tự bật/tắt vòng lặp RAF tương ứng) — không có "vị trí" nào
+     * cần đuổi kịp, tắt là về baseline ngay (`_syncBeatReactLoop()`), bật là tự bám nhạc lại từ đầu.
+     * @param {string} presetId @param {boolean} enabled
+     */
+    liveBeatReactToggle(presetId, enabled) {
+        if (!this._isActive || appState.get('motionRunning') !== presetId) return;
+        const preset = findMotionPresetById(appState.get('motionPresets'), presetId); // core/motion-presets.js
+        if (!preset) return;
+        this._setActivePreset(preset);
+        this._syncBeatReactLoop();
     },
 
     /** Suy 6 giá trị field THẬT tại vị trí ĐANG hiển thị của đường cong 'all' mode LƯỢT TRƯỚC (nếu
@@ -440,7 +512,7 @@ const workflowMotionEngine = {
         this._lastTransitionWipeDirection = null;
         this._lastTransitionCurtainDirection = null;
         this._lastPointMoveOneIndex = -1;
-        this._activePreset = MOTION_ENGINE_NO_OP_PRESET;
+        this._setActivePreset(MOTION_ENGINE_NO_OP_PRESET);
     },
 
     /** Bật/tắt vòng lặp per-frame react-beat. Gọi ở MỌI điểm `_activePreset` CÓ THỂ vừa đổi

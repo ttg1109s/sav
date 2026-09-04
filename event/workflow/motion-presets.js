@@ -9,9 +9,18 @@
  * nơi tiêu thụ tự chọn 1 preset TRONG SỐ đã đăng ký qua field riêng
  * (`appConfigVisualBg.motionPresetId`) — xem core/motion-presets.js.
  *
+ * Toggle Point Move/React Beat Audio (công tắc tổng, `changePointMoveEnabled()`/
+ * `changeBeatReactField()`) gọi THẲNG `workflowMotionEngine` (KHÔNG qua nơi tiêu thụ nào) để áp
+ * SỐNG ngay lúc đang hiển thị — Motion Engine + Motion Preset cùng 1 domain "Motion", nơi tiêu thụ
+ * CÓ THỂ là bất kỳ ai (hiện tại/tương lai), Motion không cần/không nên biết. Guard qua
+ * `appState.motionRunning` (preset ĐANG THẬT SỰ render — Motion Engine tự ghi mỗi lần kích hoạt,
+ * xem `workflowMotionEngine._setActivePreset()`) — KHÁC `motionPresetId` phía nơi tiêu thụ (đó là
+ * "đang CHỌN gì", không phải "đang chạy gì").
+ *
  * NẠP SAU: core/motion-presets.js, core/motion-engine.js, core/point-move-timing-ui.js,
  * components/motion-settings-drawer.js, service/db.js (getMeta/setMeta), event/workflow/
- * app-settings.js (workflowAppSettings — liên tuyến domain), event/workflow/visual-bg-common.js
+ * app-settings.js (workflowAppSettings — liên tuyến domain), event/workflow/motion-engine.js
+ * (workflowMotionEngine — liên tuyến domain, áp sống toggle), event/workflow/visual-bg-common.js
  * (workflowVisualBg — liên tuyến domain, đọc/ghi `motionPresetId`), core/time-picker-modal.js.
  */
 
@@ -256,9 +265,17 @@ const workflowMotionPresets = {
 
     /** Công tắc TỔNG (CÙNG khuôn `transitionEnabled`/`reactBeatAudio.enabled`) — Point Move có được
      * ÁP DỤNG lúc phát hay không, ĐỘC LẬP với việc list/run mode/timing đã cấu hình gì (LUÔN hiển
-     * thị/chỉnh được bất kể bật/tắt — xem event/workflow/motion-engine.js::_activatePointMove()). */
+     * thị/chỉnh được bất kể bật/tắt — xem event/workflow/motion-engine.js::_activatePointMove()).
+     * SỬA (phản hồi Giang — off/on giữa lúc ảnh đang hiện phải áp NGAY, không đợi ảnh đổi) — check
+     * THẲNG `appState.motionRunning` (preset ĐANG THẬT SỰ render — Motion Engine tự ghi, xem
+     * `_setActivePreset()`) rồi gọi THẲNG Motion Engine áp sống — KHÔNG qua nơi tiêu thụ nào (Motion
+     * Engine + Motion Preset cùng 1 domain "Motion", nơi tiêu thụ CÓ THỂ là bất kỳ ai, Motion không
+     * cần/không nên biết — xem `workflowMotionEngine.livePointMoveToggle()`). */
     async changePointMoveEnabled(checked) {
         await this._mutateEditing((p) => { p.pointMoveEnabled = checked; });
+        if (appState.get('motionRunning') === this._editingId && typeof workflowMotionEngine !== 'undefined') {
+            workflowMotionEngine.livePointMoveToggle(this._editingId, checked); // liên tuyến domain — Motion Engine, KHÔNG qua nơi tiêu thụ
+        }
     },
 
     /** Ứng dòng "Point move" trong màn Edit — mở danh sách point move. */
@@ -647,6 +664,9 @@ const workflowMotionPresets = {
      * top-level (`enabled`, `effectKey=null`) LẪN 3 cụm con zoom/pan/rotate (`effectKey` tương ứng).
      * `replaceMovement` ĐÃ XOÁ (hết ý nghĩa từ khi Ken Burns không còn để "thay thế" — xem
      * core/motion-presets.js) — KHÔNG còn trong danh sách `fieldKey` hợp lệ.
+     * Công tắc tổng (`effectKey===null, fieldKey==='enabled'`) đổi thì check THẲNG
+     * `appState.motionRunning` rồi báo SỐNG sang Motion Engine NGAY (KHÔNG qua nơi tiêu thụ, cùng
+     * lý do `changePointMoveEnabled()` ngay trên, xem `workflowMotionEngine.liveBeatReactToggle()`).
      * @param {'zoom'|'pan'|'rotate'|null} effectKey - null = field top-level.
      * @param {string} fieldKey - 'enabled' | 'maxPct' | 'maxDeg' | 'direction' | 'reverse'.
      * @param {boolean|number|string} value
@@ -668,6 +688,9 @@ const workflowMotionPresets = {
             const target = effectKey ? p.reactBeatAudio[effectKey] : p.reactBeatAudio;
             target[fieldKey] = value;
         });
+        if (effectKey === null && fieldKey === 'enabled' && appState.get('motionRunning') === this._editingId && typeof workflowMotionEngine !== 'undefined') {
+            workflowMotionEngine.liveBeatReactToggle(this._editingId, value); // liên tuyến domain — Motion Engine, KHÔNG qua nơi tiêu thụ
+        }
         if (genericDrawerPanel.classList.contains('hidden') || !effectKey) return;
         if (fieldKey === 'maxPct' || fieldKey === 'maxDeg') {
             const el = genericDrawerBody.querySelector(`#motion-beatreact-${effectKey}-max-label`);
