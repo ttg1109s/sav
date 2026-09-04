@@ -33,8 +33,20 @@ Object.assign(workflowVisualBg, {
      * @param {object|null} record - record ảnh đang/sắp hiện (mode 'duration' cần `record.duration`).
      * @returns {number}
      */
+    /** Thời lượng hiển thị 1 ảnh (ms) — CHỈ có ý nghĩa ở mode 'slideshow' (nơi VBG THẬT SỰ hẹn giờ
+     * chuyển ảnh theo 1 khoảng cụ thể) — dùng cho hẹn giờ tự chuyển ảnh (`_syncPhotoTicking()`) và
+     * tham số `advanceMs` truyền cho `workflowMotionEngine` (Point Move dựng đường cong dựa trên
+     * đây). Mode 'perSong' KHÔNG có khái niệm "hiển thị bao lâu" (ảnh đổi theo lúc bài hát đổi —
+     * thời lượng đó VBG không biết trước, `durationMode`/`durationSeconds` là tuỳ chọn RIÊNG của
+     * slideshow, không được đem vào ca này) -> trả THẲNG 0, KHÔNG fallback `record.duration`/5s
+     * (Motion Engine tự hiểu `advanceMs<=0` = bỏ qua Point Move hoàn toàn, xem `_activatePointMove()`,
+     * event/workflow/motion-engine.js).
+     * @param {object|null} record - record ảnh đang/sắp hiện (mode 'duration' cần `record.duration`).
+     * @returns {number}
+     */
     _computePhotoAdvanceMs(record) {
         const cfg = appConfigVisualBg.getAll();
+        if (cfg.listPlaybackMode === 'perSong') return 0;
         if (cfg.durationMode === 'fixtime') return Math.max(0.5, cfg.durationSeconds) * 1000;
         const durationSec = (record && record.duration) || 5;
         return Math.max(1000, durationSec * 1000);

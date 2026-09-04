@@ -253,18 +253,27 @@ const workflowMotionEngine = {
      * Motion/chọn "None") -> dừng + RESET HẲN animation cũ về baseline (SỬA, phản hồi Giang báo bug
      * "chọn None ở VBG, ảnh không tự về vị trí gốc, kẹt ở vị trí cuối" — bản trước return NGAY
      * không qua `stopPointMoveAnimation()`, để nguyên Animation cũ (kể cả `fill:'forwards'` đang
-     * giữ) chạy/đứng mãi, không bao giờ dọn). Bật, đọc transform THẬT đang hiển thị TRƯỚC khi dừng
-     * animation cũ rồi chọn `_activatePointMoveOne()`/`_activatePointMoveAll()` theo
-     * `preset.pointMoveRunMode` — animation MỚI luôn xuất phát từ ĐÚNG giá trị đang hiển thị, tránh
-     * giật (bug cũ: reset transform=='' trước rồi mới bắt animation mới từ baseline, tạo 1 bước
-     * nhảy cứng ngay lúc chuyển ảnh). Là Workflow (đọc DOM), không phải Core.
+     * giữ) chạy/đứng mãi, không bao giờ dọn).
+     * `this._lastAdvanceMs<=0` (VBG gửi 0 — mode 'one per song', không có khái niệm "hiển thị bao
+     * lâu", xem `workflowVisualBg._computePhotoAdvanceMs()`) -> CÙNG dừng + reset baseline như trên
+     * (phản hồi Giang — 0ms không có gì để phân giải % thành mốc thời gian thật, đường cong
+     * KHÔNG chạy được, bất kể `pointMoveEnabled`/có list hay không) — TRỪ 'all' mode có ĐÚNG 1
+     * point move đã tick nằm tại `timingX===0`: giá trị đó tự nhiên "resolve" về CHÍNH NÓ tại t=0
+     * dù không có gì để animate qua, nên áp TĨNH (không animation, xem `_applyStaticPointMoveAtZero()`)
+     * thay vì bỏ hẳn về baseline.
+     * Bật (advanceMs>0), đọc transform THẬT đang hiển thị TRƯỚC khi dừng animation cũ rồi chọn
+     * `_activatePointMoveOne()`/`_activatePointMoveAll()` theo `preset.pointMoveRunMode` — animation
+     * MỚI luôn xuất phát từ ĐÚNG giá trị đang hiển thị, tránh giật (bug cũ: reset transform=='' trước
+     * rồi mới bắt animation mới từ baseline, tạo 1 bước nhảy cứng ngay lúc chuyển ảnh). Là Workflow
+     * (đọc DOM), không phải Core.
      * @param {object} preset
      */
     _activatePointMove(preset) {
-        if (!preset.pointMoveEnabled) {
+        if (!preset.pointMoveEnabled || this._lastAdvanceMs <= 0) {
             stopPointMoveAnimation(motionEnginePointMoveWrapper, this._pointMoveAnim); // core/dom-refs.js, core/motion-engine.js
             this._pointMoveAnim = null;
             this._lastAllModePoints = null;
+            if (preset.pointMoveEnabled && this._lastAdvanceMs <= 0 && preset.pointMoveRunMode === 'all') this._applyStaticPointMoveAtZero(preset);
             return;
         }
         const fromTransform = motionEnginePointMoveWrapper ? getComputedStyle(motionEnginePointMoveWrapper).transform : 'none'; // core/dom-refs.js
@@ -278,6 +287,19 @@ const workflowMotionEngine = {
         this._pointMoveAnim = null;
         if (preset.pointMoveRunMode === 'one') { this._activatePointMoveOne(preset, fromTransform); return; }
         this._activatePointMoveAll(preset, fromTransform, liveStartTarget);
+    },
+
+    /** `advanceMs<=0` (mode 'one per song') NHƯNG có ĐÚNG 1 point move đã tick nằm tại
+     * `timingX===0` — không có gì để ANIMATE QUA (0ms), nhưng giá trị point đó tự nhiên "resolve"
+     * về CHÍNH NÓ tại t=0, nên áp TĨNH thẳng lên `motionEnginePointMoveWrapper` (không qua WAAPI,
+     * không animation) thay vì bỏ hẳn về baseline như mọi point khác trong ca này. Nhiều point
+     * cùng tại x=0% (dữ liệu hỏng/hiếm) -> lấy point ĐẦU TIÊN khớp theo thứ tự mảng.
+     * @param {object} preset */
+    _applyStaticPointMoveAtZero(preset) {
+        const zeroPoint = preset.pointMoves.find((p) => p.checked && p.timingX === 0);
+        if (!zeroPoint || !motionEnginePointMoveWrapper) return;
+        const target = this._resolvePointMoveTarget(zeroPoint);
+        motionEnginePointMoveWrapper.style.transform = buildPointMoveTransformString(target); // core
     },
 
     // ===================== Toggle sống từ màn Edit Motion (phản hồi Giang — "off/on Point
