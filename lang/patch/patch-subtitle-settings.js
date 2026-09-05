@@ -359,6 +359,15 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsVisualizer.type.rain': 'Rain',
     'settingsVisualizer.type.space': 'Space (Galaxy)',
     'settingsVisualizer.type.lighting': 'Lighting',
+    // MỚI (05/09/2026, yêu cầu Giang, "group hoá" effect picker) — 5/6 group TÁI DÙNG nguyên 5 key
+    // .type.* ở trên (bar/rain/vortex/space/lighting, tên group không đổi) làm
+    // VISUALIZER_GROUP_LABEL_KEYS (core/visualizer/visualizer-display.js, dropdown 1 modal chọn
+    // effect) — CHỈ group "shape" (trước đây group tên "rubik") cần key MỚI vì đổi tên.
+    // .type.rubik/.type.blackHole ở trên GIỮ LẠI (không xoá) dù không còn dùng làm nhãn GROUP nữa —
+    // tránh rủi ro nếu còn chỗ nào khác lỡ tham chiếu chưa rà hết; 2 style con tương ứng giờ dùng
+    // key MỚI bên dưới (lang/patch/patch-visualizer.js: visualizerSettingsDrawer.barStyle.
+    // blackHole/shapeStyle.rubik), tái sử dụng ĐÚNG chuỗi text ở đây ('Black Hole'/'Rubik').
+    'settingsVisualizer.group.shape': 'Shape',
     // MỚI (12/08/2026, mục 4f) — "Auto-Switch Effect", tách thành panel RIÊNG ngang hàng "Customize
     // Visualizer" — panel body: components/settings/visualizer-auto-switch-drawer.js.
     'settingsVisualizer.openAutoSwitch.label': 'Auto-Switch Effect',
