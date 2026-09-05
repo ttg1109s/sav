@@ -57,10 +57,33 @@
             // SỬA THÊM (Rule 2, cùng đợt "xử lý triệt để") — nhận `isGridView` qua THAM SỐ thay vì
             // tự `appState.get('isGridView')` bên trong — nơi gọi (Workflow, hoặc bootstrap
             // top-level cuối file) chịu trách nhiệm đọc appState rồi truyền vào.
+            //
+            // SỬA LẠI (mục 2, Giang báo lại ĐÚNG bug NÀY tái xuất — "Grid -> thoát ra -> vào lại ->
+            // vỡ layout") — bug hồi 05/08 tưởng đã sửa xong, NHƯNG fix cũ đặt CẢ 2 dòng gán
+            // className phía SAU guard `if (!viewModeSelect) return;`, dựa trên giả định lúc đó
+            // ĐÚNG (Settings còn là panel TĨNH gắn sẵn cả phiên, `viewModeSelect` — core/dom-refs.js,
+            // 1 lần `document.getElementById()` lúc nạp script — không bao giờ null). Settings SAU
+            // ĐÓ migrate sang Generic Drawer (event/workflow/app-settings.js) — nội dung panel
+            // (kể cả `<select id="setting-playlist-view-mode">`) giờ CHỈ tồn tại trong khoảng thời
+            // gian panel "Playlist" đang MỞ, bị huỷ/dựng lại mỗi lần đóng/mở — dom-refs.js CHƯA
+            // từng cập nhật theo kiến trúc mới. Ngay sau mỗi lần mở lại app (chưa từng mở Settings
+            // > Playlist trong phiên đó), phần tử này CHƯA tồn tại lúc dom-refs.js chạy ->
+            // `viewModeSelect` = `null` VĨNH VIỄN cho hết phiên (const, không tự truy vấn lại) ->
+            // guard cũ chặn LUÔN cả dòng gán `playlistContainer.className` — restore lúc boot
+            // (`workflowPlaylist.loadPersistedPlaylistConfigOnBoot()` -> `syncPlaylistSettingsUI()`
+            // -> hàm NÀY) âm thầm bỏ qua, className mặc định TĨNH trong HTML ("list") đứng yên
+            // trong khi buildSongNode() vẫn dựng từng item ĐÚNG kiểu GRID theo appState -> vỡ
+            // layout đúng y hệt trước — chỉ khác NGUYÊN NHÂN gốc, không phải cùng 1 chỗ hổng.
+            // Chọn thủ công List rồi Grid lại "tự sửa" được vì `setPlaylistViewMode()` (ngay dưới)
+            // gán `playlistContainer.className` TRỰC TIẾP, không hề đụng `viewModeSelect` — không
+            // đi qua guard này nên không bao giờ dính bug.
+            // SỬA TẬN GỐC — TÁCH riêng 2 việc: `.value` của select (CÓ THỂ không tồn tại nếu panel
+            // Settings đang đóng, chỉ áp KHI có) và `className` của `playlistContainer` (LUÔN LUÔN
+            // phải áp — 2 phần tử độc lập, không có lý do gì để chung 1 guard khiến 1 cái kẹt theo
+            // cái kia).
             // @param {boolean} isGridView
             initViewMode(isGridView) {
-                if (!viewModeSelect) return;
-                viewModeSelect.value = isGridView ? 'grid' : 'list';
+                if (viewModeSelect) viewModeSelect.value = isGridView ? 'grid' : 'list';
                 playlistContainer.className = isGridView
                     ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-6 px-5 pb-32'
                     : 'flex flex-col pb-32';
