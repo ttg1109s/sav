@@ -9,27 +9,22 @@
 const CE_TOGGLE_MARKUP = (checked) => `
     <div class="w-9 h-5 bg-slate-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500"></div>`;
 
-function renderCustomEffectHeader(type) {
+function renderCustomEffectHeader(type, cfg) {
+    // [SỬA — 05/09/2026, yêu cầu Giang] Header hiện tên STYLE con đang chạy (không phải tên
+    // GROUP) — cùng tinh thần "icon Effect hiện tên style", core/visualizer/visualizer-display.js.
+    // Fallback về nhãn GROUP nếu vì lý do gì đó không tra được style (config hỏng/style lạ).
+    const styleField = GROUP_STYLE_FIELD[type]; // service/state/visualizer-runtime.js
+    const style = cfg[styleField];
+    const styleLabelKey = (CUSTOM_EFFECT_STYLE_LABEL_KEYS[type] || {})[style]; // core/custom-effect.js
+    const title = styleLabelKey ? t(styleLabelKey) : t(VISUALIZER_GROUP_LABEL_KEYS[type] || type);
     return `
         <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
-            <h3 class="text-base font-bold text-slate-900">${t(VISUALIZER_TYPE_LABEL_KEYS[type] || type)}</h3>
+            <h3 class="text-base font-bold text-slate-900">${title}</h3>
             <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
         </div>
     `;
 }
 
-function _renderCeStyleRow(type, cfg) {
-    const style = CUSTOM_EFFECT_STYLE[type]; // core/custom-effect.js
-    if (!style) return '';
-    const labelKeys = CUSTOM_EFFECT_STYLE_LABEL_KEYS[type];
-    const options = style.options.map((opt) => `<option value="${opt}" ${cfg[style.field] === opt ? 'selected' : ''}>${t(labelKeys[opt])}</option>`).join('');
-    return `
-        <div class="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
-            <span class="text-sm text-slate-700" data-i18n="customEffectDrawer.styleLabel">${t('customEffectDrawer.styleLabel')}</span>
-            <select id="ce-style" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none">${options}</select>
-        </div>
-    `;
-}
 
 function _renderCeColorSection(cfg) {
     return `
@@ -227,7 +222,6 @@ function renderCustomEffectBody(type, cfg) {
     const showBlur = !CUSTOM_EFFECT_NO_BLUR.includes(type); // core/custom-effect.js
     return `
         <div class="flex flex-col gap-4 px-4 py-3">
-            ${_renderCeStyleRow(type, cfg)}
             ${_renderCeColorSection(cfg)}
             ${_renderCeMusicSection(musicFields, cfg)}
             ${showBlur ? _renderCeBlurSection(cfg) : ''}
