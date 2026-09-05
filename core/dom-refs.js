@@ -181,7 +181,10 @@
         // Ver 10 refine: KHÔNG còn #btn-toggle-view/#icon-grid-view/#icon-list-view trong HTML —
         // "Kiểu xem" (grid/list) đã chuyển vào Settings (#setting-playlist-view-mode, xem
         // core/playlist/main.js: PlaylistMain.initViewMode()). Đã xoá 3 ref tương ứng ở đây.
-        const btnCycleMode = document.getElementById('btn-cycle-mode'), modeBadge = document.getElementById('mode-badge');
+        // BỎ modeBadge (05/09/2026, yêu cầu Giang "bỏ đánh số x/total effect ở icon center
+        // effect") — badge #mode-badge (đếm x/tổng, absolute top-1 right-3 trên icon) ĐÃ XOÁ khỏi
+        // HTML (components/visualizer-overlay.js), không còn phần tử nào để getElementById nữa.
+        const btnCycleMode = document.getElementById('btn-cycle-mode');
         // FIX (12/08/2026, Giang yêu cầu — "icon Effect đổi text theo tên effect đang chạy") —
         // nhãn dưới icon #btn-cycle-mode TRƯỚC ĐÂY tĩnh cố định "Hiệu ứng" (data-i18n) — giờ
         // updateTypeUI() (core/visualizer/visualizer-display.js) tự ghi tên hiệu ứng đang chạy vào
