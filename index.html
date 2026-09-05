@@ -796,31 +796,53 @@
     <script src="core/auto-switch-visual.js?v=20260706v1"></script>
     <!-- MỚI (19/07/2026, yêu cầu Giang) — core/visualizer/draw-helpers.js (file gộp) TÁCH thành 4
          file riêng, mỗi hàm 1 file, trong core/visualizer/draw/ — thứ tự nạp giữa các file này
-         KHÔNG quan trọng (không phụ thuộc lẫn nhau, giống types/*.js). XOÁ TAY file cũ
+         KHÔNG quan trọng (không phụ thuộc lẫn nhau, giống các file trong groups/*/*.js). XOÁ TAY file cũ
          core/visualizer/draw-helpers.js. -->
     <script src="core/visualizer/draw/water-drop.js?v=20260719v1"></script>
     <script src="core/visualizer/draw/window-frame.js?v=20260719v1"></script>
     <script src="core/visualizer/draw/space-collision-flash.js?v=20260719v2"></script>
     <script src="core/visualizer/draw/flying-note.js?v=20260719v1"></script>
-    <script src="core/visualizer/types/bar.js?v=20260625v8e"></script>
-    <script src="core/visualizer/types/rubik.js?v=20260625v8e"></script>
-    <script src="core/visualizer/types/vortex.js?v=20260625v8e"></script>
-    <!-- core/visualizer/types/space.js — VIẾT LẠI HOÀN TOÀN (20/07/2026, plan-space-galaxy.md
-         Phần B) — không còn rỗng. Vài hàm Core nhỏ chạy MỖI FRAME (camera/chain/render/dust),
-         gọi bởi event/workflow/visualizer-render.js::_tickSpace() — xem đầu file để biết quy tắc
-         "không hàm nào gọi hàm khác" áp dụng CẢ 2 file core/webgl/three-space.js lẫn file này. -->
-    <script src="core/visualizer/types/space.js?v=20260721v10"></script>
-    <script src="core/visualizer/types/black-hole.js?v=20260811v1"></script>
-    <script src="core/visualizer/types/rain.js?v=20260811v1"></script>
-    <!-- core/visualizer/types/lighting.js — THAY cho lightning.js cũ (đã XOÁ) + fireworks.js MỚI
-         GỘP LUÔN vào ĐÂY (không tách file riêng, phản hồi Giang) — MODES key 'lighting', 2 style
-         con qua customEffect.lighting.lightingStyle: 'thunder' (tia sét, port thuần từ
-         drawLightning() cũ) và 'fireworks' (pháo hoa). Hàm Core nhỏ, thuần, gọi RIÊNG LẺ bởi
+    <!-- [CHUYỂN NHÓM + LÀM PHẲNG, 05/09/2026, yêu cầu Giang] core/visualizer/types/*.js (mỗi file
+         gộp nhiều style con) ĐÃ THAY bằng core/visualizer/groups/<group>/<style>.js — mỗi style 1
+         file riêng, mỗi group có thêm common.js (registry style con + biến/cơ chế dùng chung nếu
+         có, NẠP TRƯỚC style con trong cùng group — thứ tự GIỮA các group không quan trọng, không
+         phụ thuộc lẫn nhau). Giang cần XOÁ TAY 7 file cũ: core/visualizer/types/{bar,rubik,vortex,
+         space,black-hole,rain,lighting}.js (không tự xoá qua patch). -->
+    <script src="core/visualizer/groups/bar/common.js?v=20260905v1"></script>
+    <script src="core/visualizer/groups/bar/mirror.js?v=20260905v1"></script>
+    <script src="core/visualizer/groups/bar/cascade.js?v=20260905v1"></script>
+    <script src="core/visualizer/groups/bar/black-hole.js?v=20260905v1"></script>
+    <script src="core/visualizer/groups/shape/common.js?v=20260905v1"></script>
+    <script src="core/visualizer/groups/shape/rubik.js?v=20260905v1"></script>
+    <script src="core/visualizer/groups/vortex/common.js?v=20260905v1"></script>
+    <script src="core/visualizer/groups/vortex/rings.js?v=20260905v1"></script>
+    <script src="core/visualizer/groups/vortex/bars.js?v=20260905v1"></script>
+    <script src="core/visualizer/groups/vortex/wave.js?v=20260905v1"></script>
+    <!-- core/visualizer/groups/space/galaxy-explore.js — [ĐỔI TÊN, 05/09/2026] trước đây
+         core/visualizer/types/space.js ("space"/Galaxy) — VIẾT LẠI HOÀN TOÀN (20/07/2026,
+         plan-space-galaxy.md Phần B) — không còn rỗng. Vài hàm Core nhỏ chạy MỖI FRAME
+         (camera/chain/render/dust), gọi bởi event/workflow/visualizer-render.js::_tickSpace() —
+         xem đầu file để biết quy tắc "không hàm nào gọi hàm khác" áp dụng CẢ 2 file
+         core/webgl/three-space.js lẫn file này. -->
+    <script src="core/visualizer/groups/space/common.js?v=20260905v1"></script>
+    <script src="core/visualizer/groups/space/galaxy-explore.js?v=20260905v1"></script>
+    <!-- core/visualizer/groups/rain/{common,glass,street}.js — trước đây core/visualizer/types/
+         rain.js (gộp 2 style). -->
+    <script src="core/visualizer/groups/rain/common.js?v=20260905v1"></script>
+    <script src="core/visualizer/groups/rain/glass.js?v=20260905v1"></script>
+    <script src="core/visualizer/groups/rain/street.js?v=20260905v1"></script>
+    <!-- core/visualizer/groups/lighting/{common,thunder,fireworks}.js — THAY cho lightning.js cũ
+         (đã XOÁ) + core/visualizer/types/lighting.js cũ (gộp 2 style, đã XOÁ) — MODES key
+         'lighting', 2 style con qua customEffect.lighting.lightingStyle: 'thunder' (tia sét, port
+         thuần từ drawLightning() cũ) và 'fireworks' (pháo hoa), mỗi style 1 file riêng, cơ chế
+         chớp sáng dùng chung ở common.js. Hàm Core nhỏ, thuần, gọi RIÊNG LẺ bởi
          event/workflow/visualizer-render.js::_tickLightingThunder()/_tickLightingFireworks(),
-         cùng khuôn space.js. Cần FIREWORKS_STYLE_KEYS (core/config.js), getActiveEffectConfig
-         (core/custom-effect.js), getComputedColor (core/audio-analysis.js) — cả 3 đã nạp ở khu
-         CORE phía trên. -->
-    <script src="core/visualizer/types/lighting.js?v=20260828v2"></script>
+         cùng khuôn galaxy-explore.js. Cần FIREWORKS_STYLE_KEYS (core/config.js),
+         getActiveEffectConfig (core/custom-effect.js), getComputedColor (core/audio-analysis.js)
+         — cả 3 đã nạp ở khu CORE phía trên. -->
+    <script src="core/visualizer/groups/lighting/common.js?v=20260905v1"></script>
+    <script src="core/visualizer/groups/lighting/thunder.js?v=20260905v1"></script>
+    <script src="core/visualizer/groups/lighting/fireworks.js?v=20260905v1"></script>
     <!-- draw-visualizer.js GIẢI THỂ HOÀN TOÀN (0 byte, 20/07/2026, plan-space-galaxy.md Phần A) —
          vai trò dispatch dời hết sang event/workflow/visualizer-render.js (script ngay dưới, NẠP
          SAU CÙNG trong khu VISUALIZERS vì tham chiếu tới mọi hàm draw*/type*/webgl* ở trên). Tag
@@ -830,7 +852,7 @@
          mode 'raf'). Khởi động thật từ core/audio-engine.js::setupAudioContext() gọi
          workflowVisualizerRender.start() lúc phát bài đầu tiên. Đặt ở đây (không phải /event/ phía
          dưới) vì thuộc nhóm "vòng lặp render 60fps tự taskManager", không qua eventBus/Router. -->
-    <script src="event/workflow/visualizer-render.js?v=20260816v1"></script>
+    <script src="event/workflow/visualizer-render.js?v=20260905v1"></script>
 
 
     <!-- Kiến trúc /event/ — nạp CUỐI CÙNG, sau toàn bộ js/* (router/workflow chỉ gọi lại hàm core
