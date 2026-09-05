@@ -262,7 +262,11 @@ const workflowElementStyleEditor = {
         if (!list) return;
         list.querySelectorAll('.ese-font-option').forEach((btn) => {
             btn.addEventListener('click', () => {
-                setElementStyleField('text', 'fontFamily', { value: btn.dataset.fontName }); // core
+                // SỬA (mục 1 — "giờ mặc định sẽ chỉ có google font") — LUÔN ghi kèm `source:'google'`
+                // (KHÔNG chỉ `value`) — phòng draft đang parse ra `source:'system'` từ 1 style ĐÃ LƯU
+                // TỪ TRƯỚC (initialCssString, applyElementStyleCssStringToDraft() core) lúc app còn
+                // hỗ trợ nguồn đó — chọn lại font 1 lần ở đây là tự sửa đúng luôn, không cần UI riêng.
+                setElementStyleField('text', 'fontFamily', { value: btn.dataset.fontName, source: 'google' }); // core
                 this._fontPickerOpen = false; // "ghi nhớ back lại" — tự quay về màn chính, không kẹt ở danh sách
                 this._render(); // vẽ lại màn chính, nút font name giờ hiện ĐÚNG tên vừa chọn + preview tự cập nhật (_wire() cuối _render() gọi _updatePreview())
             });
