@@ -51,9 +51,21 @@ function renderElementStyleEditorHeader(activeTab) {
  * PHẢI dính lại đỉnh khi cuộn qua các card field bên dưới, KHÔNG cuộn mất — sticky (KHÔNG phải
  * fixed thật) chính là cách làm ĐÚNG cho 1 phần tử "cố định bên trong 1 vùng cuộn cụ thể" (fixed
  * thật sẽ neo theo viewport, sai ngữ cảnh — trôi ra ngoài Drawer lúc Drawer tự cuộn/đóng).
- * `-mx-4 -mt-3 px-4 pt-3` — triệt tiêu padding `px-4 py-3` của chính body (bodyClass, truyền từ
- * Workflow) CHỈ cho riêng khối này, để nền trắng (`bg-white`) phủ TRÀN 2 mép khi dính đỉnh (không
- * vậy sẽ hở 2 bên, thấy card bên dưới lọt qua viền trái/phải lúc cuộn).
+ * `-mx-4 px-4` — triệt tiêu padding NGANG `px-4` của chính body (bodyClass, truyền từ Workflow) CHỈ
+ * cho riêng khối này, để nền trắng (`bg-white`) phủ TRÀN 2 mép khi dính đỉnh (không vậy sẽ hở 2
+ * bên, thấy card bên dưới lọt qua viền trái/phải lúc cuộn).
+ *
+ * SỬA (mục 3, Giang chỉ ra "preview đang có khe hở ở top") — TỪNG dùng THÊM `-mt-3` (bù trừ padding
+ * DỌC `py-3` của body, cùng cơ chế với `-mx-4`) NHƯNG margin ÂM không triệt tiêu ĐÁNG TIN CẬY padding-
+ * top của vùng cuộn cha khi áp lên 1 phần tử `position: sticky` (khác hẳn phần tử thường) — vài
+ * engine (đặc biệt Safari/WebKit, xem lịch sử khó khăn tương tự ở components/generic-drawer.js) tính
+ * điểm "dính" của sticky dựa trên mép PADDING của vùng cuộn cha, bỏ qua phần margin âm đã kéo box
+ * lên — kết quả: dù vị trí TĨNH (trước khi cuộn) đúng khớp mép trên, lúc đã "dính" lại hở ra ĐÚNG 1
+ * khoảng bằng `py-3` gốc của body. SỬA TẬN GỐC — bỏ hẳn cơ chế "trừ đi rồi cộng lại" cho TRỤC DỌC:
+ * body (event/workflow/element-style-editor.js::_render()) đổi bodyClass bỏ hẳn `pt-*` (chỉ còn
+ * `pb-3`, không đụng gì trục ngang), NHƯỜNG TOÀN BỘ padding-top cho ĐÚNG 1 nơi — `pt-3` của chính
+ * khối preview này — không còn gì để "triệt tiêu" nữa nên không còn phụ thuộc hành vi margin âm +
+ * sticky của bất kỳ engine nào.
  * Nội dung preview LUÔN hiển thị CHUNG cả Box lẫn Text (KHÔNG đổi theo tab đang xem) — vì Style áp
  * dụng đồng thời cả 2 nhóm property lúc build CSS cuối (buildElementStyleCssString(), core/
  * element-style-editor.js đọc CẢ `draft.box` LẪN `draft.text` cùng lúc, không tách theo tab).
@@ -63,7 +75,7 @@ function renderElementStyleEditorHeader(activeTab) {
  * thật, đảm bảo preview KHÔNG BAO GIỜ lệch so với kết quả thật sẽ áp lên targetEl. */
 function _renderEsePreviewBox() {
     return `
-        <div class="sticky top-0 z-10 -mx-4 -mt-3 px-4 pt-3 pb-3 mb-1 bg-white border-b border-slate-200">
+        <div class="sticky top-0 z-10 -mx-4 px-4 pt-3 pb-3 mb-1 bg-white border-b border-slate-200">
             <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">${t('elementStyleEditor.preview.label')}</div>
             <div class="h-20 rounded-xl bg-slate-100 flex items-center justify-center overflow-auto px-2">
                 <div id="ese-preview-box" class="max-w-full">${t('elementStyleEditor.preview.sampleText')}</div>
@@ -318,12 +330,17 @@ function _renderEseTextShadowField(ts) {
         </div>`;
 }
 
-/** SỬA (16/08/2026 — Giang cung cấp `core/google-fonts-list.js`, "chọn thành dropdown + search
- * bên trong") — nguồn 'google' ĐỔI ô nhập text tự do -> dropdown + search (_renderEseGoogleFontPicker()
- * dưới), đọc từ `listGoogleFont` (đã XÁC NHẬN hỗ trợ Việt/Nhật/Hàn/Trung, KHÔNG còn gõ tay tự do -
- * tránh gõ nhầm tên font KHÔNG hỗ trợ tiếng Việt, đúng tinh thần yêu cầu gốc "không cung cấp list
- * thì ai biết được mà chọn"). Nguồn 'system' GIỮ NGUYÊN input text tự do (KHÔNG thể liệt kê trước
- * font cài sẵn máy người dùng — không có list nào cho trường hợp này). */
+/** SỬA (mục 2, Giang yêu cầu "chuyển dropdown google > dạng drawer generic list (subpanel), nhấn
+ * vào để chọn > ghi nhớ back lại và đưa vào font name, không dùng input hay dropdown nữa") — ô
+ * search+dropdown tự chế (`_renderEseGoogleFontPicker()`/`_renderEseFontDropdownItems()` cũ, absolute
+ * positioned, ĐÃ XOÁ) THAY bằng 1 nút thuần hiển thị tên đang chọn (`#ese-fontfamily-open-picker`) —
+ * bấm vào ĐẨY SANG 1 màn riêng TRONG CÙNG Generic Drawer (danh sách Google Font cuộn dọc thật, có
+ * nút Back ở header — CÙNG khuôn "push/back 1 màn" mà `workflowAppSettings._screenStack` dùng cho
+ * Settings, xem `workflowElementStyleEditor._fontPickerOpen`/`_renderFontPicker()`, event/workflow/
+ * element-style-editor.js) THAY vì dropdown nổi đè lên UI xung quanh. Chọn 1 font trong danh sách đó
+ * TỰ ĐỘNG quay lại màn này (Workflow tự nhớ để back, người dùng không cần bấm Back tay) — tên font
+ * MỚI hiện NGAY trên nút. Nguồn 'system' GIỮ NGUYÊN input text tự do (KHÔNG thể liệt kê trước font
+ * cài sẵn máy người dùng — không có list nào cho trường hợp này, ngoài phạm vi yêu cầu này). */
 function _renderEseFontFamilyField(f, loadedGoogleFonts) {
     const sourceOptions = [{ value: 'system', label: t('elementStyleEditor.font.sourceSystem') }, { value: 'google', label: t('elementStyleEditor.font.sourceGoogle') }];
     const isGoogle = f.source === 'google';
@@ -334,7 +351,11 @@ function _renderEseFontFamilyField(f, loadedGoogleFonts) {
         </div>
         <button id="ese-fontfamily-load-btn" class="w-full py-1.5 rounded-lg bg-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-300 transition-colors">${t('elementStyleEditor.font.loadButton')}</button>
         ${loadedGoogleFonts.includes(f.value) ? `<span class="text-[10px] text-emerald-600">${t('elementStyleEditor.font.loadedNote')}</span>` : ''}` : '';
-    const nameField = isGoogle ? _renderEseGoogleFontPicker(f.value) : `
+    const nameField = isGoogle ? `
+        <button type="button" id="ese-fontfamily-open-picker" class="w-32 flex items-center justify-between gap-1 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none hover:bg-slate-50 transition-colors">
+            <span class="truncate">${f.value || t('elementStyleEditor.font.namePlaceholder')}</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+        </button>` : `
         <input type="text" value="${f.value}" placeholder="${t('elementStyleEditor.font.namePlaceholder')}" class="ese-field w-32 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none" data-section="text" data-field="fontFamily" data-subkey="value">`;
     return `
         <div class="flex justify-between items-center">
@@ -348,34 +369,50 @@ function _renderEseFontFamilyField(f, loadedGoogleFonts) {
         ${googleRow}`;
 }
 
-/** MỚI (16/08/2026) — ô "vừa hiển thị giá trị đang chọn, vừa là ô tìm kiếm" cho nguồn 'google' —
- * gõ để LỌC, danh sách kết quả xổ xuống ngay dưới (`#ese-fontfamily-dropdown`, absolute). KHÔNG
- * mang class `.ese-field` (khác input thường trong Drawer này) — input NÀY KHÔNG tự ghi state qua
- * cơ chế `.ese-field` chung lúc gõ (gõ dở dang CHƯA phải tên hợp lệ, ghi ngay sẽ lưu rác) — CHỈ ghi
- * state lúc người dùng THỰC SỰ CHỌN 1 mục trong dropdown (click), xem `_wireFontFamilyPicker()`,
- * event/workflow/element-style-editor.js. `position:relative` bọc RIÊNG input+dropdown (không bọc
- * cả label) để dropdown neo `absolute` đúng ngay dưới input, không lệch theo label. */
-function _renderEseGoogleFontPicker(currentValue) {
+/** MỚI (mục 2) — header màn con "Chọn Google Font" (đẩy sang bởi `#ese-fontfamily-open-picker`) —
+ * CÙNG khuôn header có nút Back của `workflowAppSettings._render()` (event/workflow/app-settings.js),
+ * viết riêng ở đây vì màn này KHÔNG thuộc ngăn xếp đó (Element Style Editor tự quản lý push/back 1
+ * màn của riêng nó, xem `workflowElementStyleEditor._renderFontPicker()`). */
+function renderEseFontPickerHeader() {
     return `
-        <div class="relative">
-            <input type="text" id="ese-fontfamily-search" autocomplete="off" value="${currentValue}" placeholder="${t('elementStyleEditor.font.searchPlaceholder')}" class="w-32 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none">
-            <div id="ese-fontfamily-dropdown" class="hidden absolute z-10 top-full right-0 mt-1 w-56 max-h-56 overflow-y-auto bg-white border border-slate-300 rounded-lg shadow-lg"></div>
+        <div class="relative flex items-center justify-center px-14 py-3 border-b border-slate-200">
+            <button id="btn-ese-fontpicker-back" class="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <h3 class="text-base font-bold text-slate-900 truncate text-center">${t('elementStyleEditor.font.name')}</h3>
         </div>`;
 }
 
-/** MỚI (16/08/2026) — dựng danh sách kết quả lọc trong dropdown, gọi LẠI mỗi lần gõ (Workflow tự
- * gán `dropdown.innerHTML`, KHÔNG re-render lại toàn Drawer — nhẹ hơn, tránh input mất focus giữa
- * chừng lúc gõ). Lọc theo tên, KHÔNG phân biệt hoa/thường, so khớp CHỨA (substring, không cần gõ
- * đúng từ đầu). `f.scripts` hiện kèm bên phải mỗi dòng (vd "VI JA") — gợi ý nhanh font nào phủ
- * ngôn ngữ nào, KHÔNG cần mở link Google Fonts riêng để tra. */
-function _renderEseFontDropdownItems(query) {
+/** MỚI (mục 2) — body màn con: 1 ô tìm kiếm tĩnh (KHÔNG sticky — tránh lặp lại đúng bug "khe hở"
+ * ở mục 3, xem docstring `_renderEsePreviewBox()`) + danh sách cuộn dọc thật (KHÔNG absolute/nổi
+ * đè, đúng yêu cầu "dạng drawer generic list"). `currentValue` để tô đậm + tick dòng đang chọn. */
+function renderEseFontPickerBody(currentValue) {
+    return `
+        <div class="flex flex-col gap-3">
+            <input type="text" id="ese-fontpicker-search" autocomplete="off" placeholder="${t('elementStyleEditor.font.searchPlaceholder')}" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-900 outline-none">
+            <div id="ese-fontpicker-list" class="flex flex-col divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden">${_renderEseFontListItems('', currentValue)}</div>
+        </div>`;
+}
+
+/** MỚI (mục 2, thay `_renderEseFontDropdownItems()` cũ) — dựng danh sách kết quả lọc TRONG màn con
+ * (KHÔNG phải dropdown nổi) — gọi lại mỗi lần gõ (Workflow tự gán `list.innerHTML`, xem
+ * `_wireFontPicker()`, event/workflow/element-style-editor.js). Lọc theo tên, KHÔNG phân biệt hoa/
+ * thường, so khớp CHỨA. `f.scripts` hiện kèm bên phải mỗi dòng (vd "VI JA"). Dòng TRÙNG
+ * `currentValue` tô đậm xanh + tick — người dùng thấy ngay đang chọn font nào lúc mở lại danh sách. */
+function _renderEseFontListItems(query, currentValue) {
     const q = (query || '').trim().toLowerCase();
     const source = typeof listGoogleFont !== 'undefined' ? listGoogleFont : []; // core/google-fonts-list.js
     const matches = q ? source.filter((f) => f.name.toLowerCase().includes(q)) : source;
-    if (!matches.length) return `<div class="px-3 py-2 text-xs text-slate-400">${t('elementStyleEditor.font.noMatch')}</div>`;
-    return matches.map((f) => `
-        <button type="button" data-font-name="${f.name.replace(/"/g, '&quot;')}" class="ese-font-option w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-sky-50 transition-colors flex items-center justify-between gap-2">
+    if (!matches.length) return `<div class="px-3 py-6 text-center text-xs text-slate-400">${t('elementStyleEditor.font.noMatch')}</div>`;
+    return matches.map((f) => {
+        const isSelected = f.name === currentValue;
+        return `
+        <button type="button" data-font-name="${f.name.replace(/"/g, '&quot;')}" class="ese-font-option w-full text-left px-3 py-3 text-sm ${isSelected ? 'text-sky-600 font-semibold bg-sky-50' : 'text-slate-700'} hover:bg-sky-50 transition-colors flex items-center justify-between gap-2">
             <span class="truncate">${f.name}</span>
-            <span class="text-[9px] text-slate-400 uppercase tracking-wide shrink-0">${f.scripts.join(' ')}</span>
-        </button>`).join('');
+            <span class="flex items-center gap-2 shrink-0">
+                <span class="text-[10px] text-slate-400 uppercase tracking-wide">${f.scripts.join(' ')}</span>
+                ${isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>' : ''}
+            </span>
+        </button>`;
+    }).join('');
 }

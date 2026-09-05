@@ -28,22 +28,20 @@
  * MỚI (15/08/2026, mục 4b) — 3 hàng Comming/In/Outing (_renderSubtitleTransitionSection()) — đọc
  * `SUBTITLE_TRANSITION_EFFECTS`/`SUBTITLE_IN_EFFECTS` (core/subtitle/subtitle-transition.js) để
  * dựng option — file NÀY PHẢI nạp SAU file đó (xem index.html).
+ *
+ * CHUYỂN (mục 1, Giang yêu cầu "chuyển Show subtitles sang Display > section card COMPONENTS") —
+ * card toggle `#setting-subtitles-enabled` ("Show subtitles") ĐÃ DỜI KHỎI panel con này, giờ nằm
+ * trong card "Thành phần" của panel cha "Display" (components/settings/visualizer-display-
+ * panel.js) — ID GIỮ NGUYÊN nên listener/router/workflow cũ (event/listener/subtitle-style-
+ * settings.js, event/router/subtitle-style-settings.js) KHÔNG cần đổi gì (delegation trên
+ * `genericDrawerBody`, không phụ thuộc phần tử đó nằm ở panel con nào — xem docstring đầu file
+ * event/listener/subtitle-style-settings.js). Đồng bộ giá trị lúc mở panel ĐÃ CHUYỂN từ
+ * `workflowSubtitleStyleSettings.refresh()` sang `workflowVisualizerDisplay.openDisplayPanel()`
+ * (event/workflow/visualizer-display.js) — panel con này giờ CHỈ còn Custom Styling + Transition.
  */
 function renderSubtitlePanelBody() {
     return `
                 <div class="flex flex-col gap-4">
-                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-                        <div class="flex justify-between items-center p-4">
-                            <div class="pr-3">
-                                <div class="text-sm font-medium truncate" data-i18n="settingsSubtitleStyle.enable.label">${t('settingsSubtitleStyle.enable.label')}</div>
-                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="settingsSubtitleStyle.enable.hint">${t('settingsSubtitleStyle.enable.hint')}</div>
-                            </div>
-                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="setting-subtitles-enabled" class="sr-only peer" checked>
-                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
-                            </label>
-                        </div>
-                    </div>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                         <div class="flex justify-between items-center p-4">
                             <div class="pr-3">
