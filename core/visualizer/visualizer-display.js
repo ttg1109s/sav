@@ -1,12 +1,21 @@
 /**
- * Cài đặt hiển thị Visualizer: kiểu hiệu ứng (cycle button), ảnh nền, độ mờ nền, volume, EQ preset,
- * vẽ lại CSS thanh tiến trình theo màu effect đang chạy.
+ * Cài đặt hiển thị Visualizer: kiểu hiệu ứng (CLICK #btn-cycle-mode mở modal chọn effect — MỚI
+ * 05/09/2026, xem openEffectPickerModal()/applyVisualizerStyleChoice()), ảnh nền, độ mờ nền,
+ * volume, EQ preset, vẽ lại CSS thanh tiến trình theo màu effect đang chạy.
  *
  * Màu sắc/blur/style con/kích thước hình học (12/08/2026 trở về trước từng ở đây) ĐÃ DỜI HẲN sang
- * customEffect[type] riêng từng effect — xem core/custom-effect.js + event/workflow/custom-effect.js
- * (Custom Effect Drawer, mở qua GIỮ 1.5s #btn-cycle-mode).
+ * customEffect[group] riêng từng group — xem core/custom-effect.js + event/workflow/custom-effect.js
+ * (Custom Effect Drawer, mở qua GIỮ 1.5s #btn-cycle-mode — KHÔNG đổi, vẫn mở thẳng Drawer).
  *
- * PHẢI nạp SAU: core/player-controls.js, core/dom-refs.js, core/config.js, core/custom-effect.js.
+ * [SỬA — 05/09/2026, yêu cầu Giang, "group hoá" effect picker] `MODES` (service/state/
+ * visualizer-runtime.js) giờ là 12 STYLE con phẳng (trước đây 7 GROUP) — `cfg.type` = GROUP,
+ * style con hiện tại lưu ở `cfg.customEffect[group][GROUP_STYLE_FIELD[group]]`. Icon hiện tên
+ * STYLE (VISUALIZER_STYLE_LABEL_KEYS), modal chọn effect (CLICK) cho chọn thẳng group + style
+ * bất kỳ thay vì phải bấm nhiều lần mới tới đúng cái cần.
+ *
+ * PHẢI nạp SAU: core/player-controls.js, core/dom-refs.js, core/config.js, core/custom-effect.js,
+ * service/state/visualizer-runtime.js (MODES/EFFECT_GROUPS/STYLE_TO_GROUP/GROUP_STYLE_FIELD),
+ * service/z-index.js (Z_INDEX, openEffectPickerModal()).
  */
         // Biến NỘI BỘ (KHÔNG thuộc STATE): lưu tạm tone mapping mặc định của renderer dùng chung
         // (Vortex) để trả lại đúng giá trị khi rời khỏi 'space' — xem updateTypeUI() bên dưới.
@@ -14,15 +23,39 @@
         // Bán kính vùng trôi của SpaceDust (đơn vị Three.js) — hằng số cấu hình.
         const SPACE_DUST_RANGE = 500;
 
-        // Key i18n tên hiển thị cho từng giá trị MODES (service/state/visualizer-runtime.js), DÙNG
-        // CHUNG bộ text đã có ở Custom Effect Drawer.
-        const VISUALIZER_TYPE_LABEL_KEYS = {
+        // [SỬA — 05/09/2026, yêu cầu Giang, "group hoá" effect picker] Key i18n tên hiển thị CHO
+        // TỪNG STYLE con (không phải group nữa) — nhãn dưới icon #btn-cycle-mode + header Custom
+        // Effect Drawer (components/custom-effect-drawer.js) giờ hiện tên STYLE. TÁI DÙNG bộ text
+        // đã có ở Custom Effect Drawer/Settings (visualizerSettingsDrawer.*Style.*), 3 style
+        // "black hole"/"rubik"/"galaxy explore" cần thêm i18n key mới (trước đây là tên GROUP,
+        // không phải "style con", nên chưa có key dạng barStyle.blackHole/shapeStyle.rubik/
+        // spaceStyle.galaxyExplore — xem lang/patch/patch-visualizer.js).
+        const VISUALIZER_STYLE_LABEL_KEYS = {
+            mirror: 'visualizerSettingsDrawer.barStyle.mirror',
+            cascade: 'visualizerSettingsDrawer.barStyle.cascade',
+            'black hole': 'visualizerSettingsDrawer.barStyle.blackHole',
+            thunder: 'visualizerSettingsDrawer.lightingStyle.thunder',
+            fireworks: 'visualizerSettingsDrawer.lightingStyle.fireworks',
+            glass: 'visualizerSettingsDrawer.rainStyle.glass',
+            street: 'visualizerSettingsDrawer.rainStyle.street',
+            rings: 'visualizerSettingsDrawer.vortexStyle.rings',
+            bars: 'visualizerSettingsDrawer.vortexStyle.bars',
+            wave: 'visualizerSettingsDrawer.vortexStyle.wave',
+            rubik: 'visualizerSettingsDrawer.shapeStyle.rubik',
+            'galaxy explore': 'visualizerSettingsDrawer.spaceStyle.galaxyExplore',
+        };
+
+        // Key i18n tên hiển thị CHO TỪNG GROUP — dùng ở dropdown 1 (chọn group) của modal chọn
+        // effect, xem openEffectPickerModal() bên dưới. 4/6 group TÁI DÙNG nguyên nhãn "type" cũ
+        // (bar/lighting/rain/vortex không đổi tên); 'shape' MỚI (trước đây group tên 'rubik');
+        // 'space' TÁI DÙNG nhãn cũ (group không đổi tên, chỉ style bên trong đổi thành
+        // "galaxy explore").
+        const VISUALIZER_GROUP_LABEL_KEYS = {
             bar: 'settingsVisualizer.type.bar',
             lighting: 'settingsVisualizer.type.lighting',
-            rubik: 'settingsVisualizer.type.rubik',
-            vortex: 'settingsVisualizer.type.vortex',
-            'black hole': 'settingsVisualizer.type.blackHole',
             rain: 'settingsVisualizer.type.rain',
+            vortex: 'settingsVisualizer.type.vortex',
+            shape: 'settingsVisualizer.group.shape',
             space: 'settingsVisualizer.type.space',
         };
 
@@ -59,23 +92,125 @@
         }
 
         /**
-         * Xoay vòng kiểu hiệu ứng kế tiếp (MODES) — CHỈ chạy khi "Tự động đổi hiệu ứng" đang TẮT.
-         *
-         * FIX (yêu cầu mới): khi "Tự động đổi hiệu ứng" đang BẬT (vizConfig.autoSwitchVisualEnabled),
-         * nút "Đổi hiệu ứng" (#btn-cycle-mode) ở Control Center PHẢI vô hiệu — không bấm được, bấm
-         * cũng không có tác dụng gì. Trước đây nút này luôn hoạt động bất kể auto-switch đang bật
-         * hay tắt, gây xung đột: tự động đang đếm giờ để đổi, nhưng người dùng bấm tay cũng đổi
-         * được luôn, 2 cơ chế dẫm chân nhau. Kiểm tra ĐIỀU KIỆN NGAY ĐẦU hàm (không chỉ dựa vào
-         * thuộc tính HTML `disabled` của nút — xem updateCycleModeButtonState() ở
-         * auto-switch-visual.js, nơi đồng bộ CẢ thuộc tính disabled/style THỊ GIÁC lẫn cờ JS này)
-         * để chắc chắn không có đường nào lách qua được, kể cả khi nút được kích hoạt bằng cách
-         * khác ngoài click chuột thật (ví dụ gọi .click() bằng JS từ nơi khác).
-         *
-         * Ứng với msg.type 'visualizerDisplay.cycleMode.click'.
+         * [MỚI — 05/09/2026, yêu cầu Giang] Áp 1 STYLE cụ thể đã chọn (modal chọn effect, mở qua
+         * CLICK #btn-cycle-mode — xem openEffectPickerModal() bên dưới) — KHÔNG check
+         * autoSwitchVisualEnabled (khác cycleVisualizerType() cũ ĐÃ XOÁ: người dùng CHỦ ĐỘNG mở
+         * modal + chọn, nút cycle tự khoá cứng — disabled — khi auto-switch đang bật nên modal
+         * còn không mở được nếu tính năng đó đang bật, xem updateCycleModeButtonState(),
+         * core/auto-switch-visual.js). Refresh thêm resizeCanvas()/updateVortexVisibility() khi
+         * cần — CÙNG lý do + CÙNG chỗ gọi với `#ce-style` dropdown cũ ĐÃ BỎ (components/
+         * custom-effect-drawer.js).
+         * @param {string} style - 1 trong MODES (service/state/visualizer-runtime.js)
          */
-        function cycleVisualizerType() {
-            if (appConfigViz.getAll().autoSwitchVisualEnabled) return;
-            appState.set('currentModeIndex', (appState.get('currentModeIndex') + 1) % MODES.length); updateTypeUI(); saveConfig();
+        function applyVisualizerStyleChoice(style) {
+            const idx = MODES.indexOf(style);
+            if (idx === -1) return;
+            appState.set('currentModeIndex', idx);
+            updateTypeUI();
+            saveConfig();
+            const group = STYLE_TO_GROUP[style];
+            if (group === 'rain') resizeCanvas();
+            else if (group === 'vortex') updateVortexVisibility();
+        }
+
+        /**
+         * [MỚI — 05/09/2026, yêu cầu Giang, "cải tiến -> modal choice, 2 dropdown + select"] Modal
+         * chọn effect: dropdown 1 = GROUP (Object.keys(EFFECT_GROUPS), service/state/
+         * visualizer-runtime.js), dropdown 2 = STYLE con của group ĐANG chọn ở dropdown 1 — đổi
+         * dropdown 1 tự nạp lại dropdown 2 theo đúng group mới. Bấm "Chọn" gọi `onConfirm(style)`
+         * với style ĐANG chọn ở dropdown 2, bấm "Huỷ" chỉ đóng modal.
+         *
+         * KHÔNG dùng `modalChoice()` (core/modal-choice-ui.js) — component đó chỉ hỗ trợ ĐÚNG 1
+         * dropdown phẳng (N lựa chọn -> 1 hành động), không có khái niệm "2 dropdown lồng nhau, đổi
+         * cái này nạp lại cái kia". Modal này TỰ DỰNG DOM riêng — CÙNG phong cách thị giác (class
+         * Tailwind, `Z_INDEX.MODAL_CHOICE`) để nhất quán, KHÔNG sửa/mở rộng `modal-choice-ui.js`
+         * (tránh rủi ro cho mọi chỗ khác đang dùng `modalChoice()` chung trong app).
+         *
+         * Mở qua CLICK #btn-cycle-mode (`onCycleModeClick()`, event/workflow/custom-effect.js) —
+         * GIỮ (hold) KHÔNG đụng, vẫn mở thẳng Custom Effect Drawer như trước.
+         * @param {function(string):void} onConfirm - nhận style con ĐÃ chọn khi bấm "Chọn".
+         */
+        function openEffectPickerModal(onConfirm) {
+            const stale = document.getElementById('effect-picker-overlay');
+            if (stale) stale.remove();
+
+            const currentStyle = MODES[appState.get('currentModeIndex')];
+            const currentGroup = STYLE_TO_GROUP[currentStyle];
+
+            const overlay = document.createElement('div');
+            overlay.id = 'effect-picker-overlay';
+            overlay.className = 'fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
+            overlay.style.zIndex = String(Z_INDEX.MODAL_CHOICE); // service/z-index.js — cùng lớp modalChoice()
+
+            const card = document.createElement('div');
+            card.className = 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
+
+            const titleEl = document.createElement('h3');
+            titleEl.className = 'text-base font-bold text-white';
+            titleEl.textContent = t('effectPicker.title');
+            card.appendChild(titleEl);
+
+            function buildSelectRow(labelKey) {
+                const row = document.createElement('div');
+                row.className = 'flex flex-col gap-1';
+                const label = document.createElement('span');
+                label.className = 'text-xs text-slate-400';
+                label.textContent = t(labelKey);
+                const select = document.createElement('select');
+                select.className = 'w-full py-2.5 px-3 rounded-xl bg-slate-800 border border-slate-600 text-sm text-white outline-none';
+                row.appendChild(label);
+                row.appendChild(select);
+                card.appendChild(row);
+                return select;
+            }
+
+            const groupSelect = buildSelectRow('effectPicker.groupLabel');
+            Object.keys(EFFECT_GROUPS).forEach((group) => { // service/state/visualizer-runtime.js
+                const opt = document.createElement('option');
+                opt.value = group;
+                opt.textContent = t(VISUALIZER_GROUP_LABEL_KEYS[group] || group);
+                if (group === currentGroup) opt.selected = true;
+                groupSelect.appendChild(opt);
+            });
+
+            const styleSelect = buildSelectRow('effectPicker.styleLabel');
+            function populateStyles(group, preselectStyle) {
+                styleSelect.innerHTML = '';
+                EFFECT_GROUPS[group].forEach((style) => {
+                    const opt = document.createElement('option');
+                    opt.value = style;
+                    opt.textContent = t(VISUALIZER_STYLE_LABEL_KEYS[style] || style);
+                    if (style === preselectStyle) opt.selected = true;
+                    styleSelect.appendChild(opt);
+                });
+            }
+            populateStyles(currentGroup, currentStyle);
+            // Đổi group -> nạp lại style theo group MỚI — không giữ style cũ (khác group thì
+            // không còn nghĩa lý), luôn chọn style ĐẦU TIÊN của group mới.
+            groupSelect.addEventListener('change', () => populateStyles(groupSelect.value, null));
+
+            function closeModal() { overlay.remove(); }
+
+            const btnRow = document.createElement('div');
+            btnRow.className = 'flex gap-3 mt-1';
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors';
+            cancelBtn.textContent = t('common.cancel');
+            cancelBtn.addEventListener('click', closeModal);
+            const confirmBtn = document.createElement('button');
+            confirmBtn.className = 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold transition-colors';
+            confirmBtn.textContent = t('common.select');
+            confirmBtn.addEventListener('click', () => {
+                const chosenStyle = styleSelect.value;
+                closeModal();
+                onConfirm(chosenStyle);
+            });
+            btnRow.appendChild(cancelBtn);
+            btnRow.appendChild(confirmBtn);
+            card.appendChild(btnRow);
+
+            overlay.appendChild(card);
+            document.body.appendChild(overlay);
         }
 
         /**
@@ -88,20 +223,34 @@
          * `document.getElementById()` TRUY VẤN TƯƠI mỗi lần gọi (an toàn tuyệt đối, trả `null` nếu
          * không tìm thấy, KHÔNG BAO GIỜ ném ReferenceError) THAY vì dựa vào biến toàn cục — đúng
          * bản chất "phần tử này sống động, có thể không tồn tại tại thời điểm gọi".
+         *
+         * [SỬA — 05/09/2026, yêu cầu Giang, "group hoá" effect picker] `MODES[currentModeIndex]`
+         * giờ là 1 STYLE con phẳng (không phải group) — suy ra `group`/`styleField` từ
+         * STYLE_TO_GROUP/GROUP_STYLE_FIELD (service/state/visualizer-runtime.js) rồi ghi CẢ
+         * `cfg.type` (= group) LẪN `cfg.customEffect[group][styleField]` (= style). Nhãn icon
+         * (`modeCycleLabel`) giờ hiện tên STYLE (VISUALIZER_STYLE_LABEL_KEYS), không phải tên
+         * group nữa.
          */
         function updateTypeUI() {
             const currentModeIndex = appState.get('currentModeIndex');
             // MỚI (Phần B, Galaxy) — bắt lại kiểu CŨ TRƯỚC khi ghi đè, cần biết có đang RỜI KHỎI
             // 'space' hay không (trả tone mapping renderer dùng chung về mặc định của Vortex).
             const previousType = appConfigViz.getAll().type;
-            appConfigViz.mutateAll(cfg => { cfg.type = MODES[currentModeIndex]; });
+            const style = MODES[currentModeIndex];
+            const group = STYLE_TO_GROUP[style];
+            const styleField = GROUP_STYLE_FIELD[group];
+            appConfigViz.mutateAll(cfg => {
+                cfg.type = group;
+                if (!cfg.customEffect[group]) cfg.customEffect[group] = { ...DEFAULT_CUSTOM_EFFECT[group] };
+                cfg.customEffect[group][styleField] = style;
+            });
             const cfg = appConfigViz.getAll();
             modeBadge.textContent = `${currentModeIndex + 1}/${MODES.length}`;
             // FIX (12/08/2026, Giang yêu cầu — "icon Effect đổi text theo tên effect đang chạy") —
             // nhãn dưới icon #btn-cycle-mode giờ hiện ĐÚNG tên hiệu ứng đang chạy, CÙNG khuôn
             // #eq-badge-label (core/eq-presets.js::syncEqBadgeLabel()), thay vì chữ tĩnh "Hiệu ứng"
-            // cố định trước đây.
-            if (modeCycleLabel) modeCycleLabel.textContent = t(VISUALIZER_TYPE_LABEL_KEYS[cfg.type] || cfg.type);
+            // cố định trước đây. SỬA (05/09/2026) — hiện tên STYLE (không phải group).
+            if (modeCycleLabel) modeCycleLabel.textContent = t(VISUALIZER_STYLE_LABEL_KEYS[style] || style);
 
             if (cfg.type === 'vortex' || cfg.type === 'space') {
                 // Space (MỚI, Phần B) DÙNG CHUNG canvas #webgl-canvas + tRenderer với Vortex — KHÔNG
