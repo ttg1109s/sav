@@ -354,10 +354,10 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // visualizer/visualizer-display.js + Custom Effect Drawer, core/custom-effect.js).
     'settingsVisualizer.type.bar': 'Bar',
     'settingsVisualizer.type.rubik': 'Rubik',
-    'settingsVisualizer.type.vortex': 'Vortex (Tunnel)',
+    'settingsVisualizer.type.vortex': 'Tunnel',
     'settingsVisualizer.type.blackHole': 'Black Hole',
     'settingsVisualizer.type.rain': 'Rain',
-    'settingsVisualizer.type.space': 'Space (Galaxy)',
+    'settingsVisualizer.type.space': 'Space',
     'settingsVisualizer.type.lighting': 'Lighting',
     // MỚI (05/09/2026, yêu cầu Giang, "group hoá" effect picker) — 5/6 group TÁI DÙNG nguyên 5 key
     // .type.* ở trên (bar/rain/vortex/space/lighting, tên group không đổi) làm
