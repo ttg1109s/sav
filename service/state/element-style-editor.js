@@ -45,9 +45,13 @@ function cloneElementStyleDraftDefaults() {
             opacity: { enabled: false, value: 100 },
         },
         text: {
-            // source: 'system' (font có sẵn máy, gõ tay tên) | 'google' (tải qua loadGoogleFont(),
-            // core/element-style-editor.js — CẦN MẠNG, xem docstring hàm đó).
-            fontFamily: { enabled: false, source: 'system', value: '', googleWeight: '400' },
+            // SỬA (mục 1, Giang yêu cầu "bỏ row source vì giờ mặc định sẽ chỉ có google font") —
+            // mặc định ĐỔI 'system' -> 'google' (KHÔNG còn dropdown chọn nguồn trong UI nữa, xem
+            // components/element-style-editor-drawer.js::_renderEseFontFamilyField()) — 'system'
+            // (font có sẵn máy, gõ tay tên) vẫn là giá trị HỢP LỆ có thể xuất hiện khi
+            // applyElementStyleCssStringToDraft() (core) nạp lại 1 style ĐÃ LƯU TỪ TRƯỚC lúc còn
+            // nguồn đó, chỉ không còn ĐƯỜNG VÀO nào từ UI để CHỌN 'system' nữa.
+            fontFamily: { enabled: false, source: 'google', value: '', googleWeight: '400' },
             fontSize: { enabled: false, value: 16, unit: 'px' },
             // 6 field DROPDOWN-THUẦN dưới đây — string thuần, 'none' = không áp (xem docstring
             // hàm), KHÔNG còn {enabled,value}.
