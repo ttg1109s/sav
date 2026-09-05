@@ -1,8 +1,9 @@
 /**
- * Component: panel "Display" (push/pop Settings Stack, nav từ Main "Visualizer Screen") — 5
- * toggle: Hiện Visual + 3 toggle UI chrome cố định (bottom player/playlist button/control center
- * button) + Stats panel. Trước đây 4 toggle sau nằm trong panel "Customize Visualizer" (đã xoá),
- * "Hiện Visual" trước đây tĩnh ở Main — gộp cả 5 vào 1 panel riêng theo yêu cầu Giang.
+ * Component: panel "Display" (push/pop Settings Stack, nav từ Main "Visualizer Screen") — 6
+ * toggle: Hiện Visual + Show subtitles + 3 toggle UI chrome cố định (bottom player/playlist
+ * button/control center button) + Stats panel. Trước đây 4 toggle sau nằm trong panel "Customize
+ * Visualizer" (đã xoá), "Hiện Visual" trước đây tĩnh ở Main — gộp cả vào 1 panel riêng theo yêu
+ * cầu Giang.
  *
  * SỬA (15/08/2026, chốt LẦN 2, Giang yêu cầu "Không header bao gồm toggle on/off visual, và panel
  * setting của subtitle. Section header 'Thành phần' cho các mục còn lại") — THAY HẲN cách chia 3
@@ -12,8 +13,16 @@
  *   2. Header "Thành phần" (visualizerSettingsDrawer.section.components) — 1 card GỘP CHUNG Stats
  *      panel + Bottom player + Playlist button + Control Center button (4 toggle UI chrome còn
  *      lại — TRƯỚC tách riêng "Hiển thị"/"Giao diện điều khiển", giờ gộp làm 1 theo đúng yêu cầu).
- * ID mọi input GIỮ NGUYÊN — workflowVisualizerDisplay.openDisplayPanel() (event/workflow/
- * visualizer-display.js) query theo ID, không phụ thuộc cấu trúc DOM cha/con.
+ *
+ * CHUYỂN (mục 1, Giang yêu cầu "chuyển Show subtitles sang Display > section card COMPONENTS") —
+ * toggle `#setting-subtitles-enabled` DỜI TỪ panel con "Phụ đề" (components/subtitle-settings-
+ * drawer.js) SANG ĐÂY, đặt làm hàng ĐẦU TIÊN trong card "Thành phần" (mục 2). Nút mở panel con
+ * "Phụ đề" NGAY DƯỚI (khối 1) giờ CHỈ còn dẫn tới Custom Styling + Transition — hint của nút đó
+ * đổi từ tái dùng `.enable.hint` (giờ SAI nghĩa — đã là hint của chính toggle mới) sang key MỚI
+ * `settingsSubtitleStyle.openPanel.hint`. ID mọi input GIỮ NGUYÊN — workflowVisualizerDisplay.
+ * openDisplayPanel() (event/workflow/visualizer-display.js) query theo ID, không phụ thuộc cấu
+ * trúc DOM cha/con — đồng bộ giá trị toggle mới CŨNG chuyển sang đúng hàm đó (KHÔNG còn ở
+ * workflowSubtitleStyleSettings.refresh(), event/workflow/subtitle-style-settings.js).
  */
 function renderVisualizerDisplayPanelBody() {
     const toggleRow = (id, labelKey, hintKey, checked, borderClass) => `
@@ -46,7 +55,7 @@ function renderVisualizerDisplayPanelBody() {
                                  sẵn, hiện text thô ra UI) — đổi đúng theo 2 key comment đó CHỈ ĐỊNH thay
                                  thế: tái dùng 'sectionTitle'/'.enable.hint'. -->
                             <div class="text-sm font-medium truncate" data-i18n="settingsSubtitleStyle.sectionTitle">${t('settingsSubtitleStyle.sectionTitle')}</div>
-                            <div class="text-xs text-slate-400 mt-0.5 truncate" data-i18n="settingsSubtitleStyle.enable.hint">${t('settingsSubtitleStyle.enable.hint')}</div>
+                            <div class="text-xs text-slate-400 mt-0.5 truncate" data-i18n="settingsSubtitleStyle.openPanel.hint">${t('settingsSubtitleStyle.openPanel.hint')}</div>
                         </div>
                     </div>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
@@ -57,6 +66,7 @@ function renderVisualizerDisplayPanelBody() {
             <div>
                 <h3 class="text-xs font-bold text-yellow-400 uppercase tracking-widest mb-2 ml-2" data-i18n="visualizerSettingsDrawer.section.components">${t('visualizerSettingsDrawer.section.components')}</h3>
                 <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
+                    ${toggleRow('setting-subtitles-enabled', 'settingsSubtitleStyle.enable.label', 'settingsSubtitleStyle.enable.hint', true, 'border-b border-white/5')}
                     ${toggleRow('setting-stats-panel-enable', 'visualizerSettingsDrawer.statsPanelEnable.label', 'visualizerSettingsDrawer.statsPanelEnable.hint', false, 'border-b border-white/5')}
                     ${toggleRow('setting-bottom-player-enable', 'visualizerSettingsDrawer.bottomPlayerEnable.label', 'visualizerSettingsDrawer.bottomPlayerEnable.hint', false, 'border-b border-white/5')}
                     ${toggleRow('setting-playlist-button-enable', 'visualizerSettingsDrawer.playlistButtonEnable.label', 'visualizerSettingsDrawer.playlistButtonEnable.hint', false, 'border-b border-white/5')}
