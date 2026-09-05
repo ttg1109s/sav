@@ -339,34 +339,33 @@ function _renderEseTextShadowField(ts) {
  * Settings, xem `workflowElementStyleEditor._fontPickerOpen`/`_renderFontPicker()`, event/workflow/
  * element-style-editor.js) THAY vì dropdown nổi đè lên UI xung quanh. Chọn 1 font trong danh sách đó
  * TỰ ĐỘNG quay lại màn này (Workflow tự nhớ để back, người dùng không cần bấm Back tay) — tên font
- * MỚI hiện NGAY trên nút. Nguồn 'system' GIỮ NGUYÊN input text tự do (KHÔNG thể liệt kê trước font
- * cài sẵn máy người dùng — không có list nào cho trường hợp này, ngoài phạm vi yêu cầu này). */
+ * MỚI hiện NGAY trên nút.
+ *
+ * XOÁ (mục 1, Giang yêu cầu "bỏ row source vì giờ mặc định sẽ chỉ có google font") — dropdown chọn
+ * nguồn 'system'/'google' (`sourceOptions`) + nhánh input tự do cho nguồn 'system' ĐÃ XOÁ HẲN — app
+ * giờ CHỈ hỗ trợ Google Font, không còn lựa chọn nào khác nên KHÔNG cần hàng "Source" nữa. Field
+ * `source` VẪN giữ trong state/CSS xuất ra (core/element-style-editor.js dùng để quyết định thêm
+ * fallback `, sans-serif`) — mặc định draft MỚI giờ `'google'` (service/state/element-style-
+ * editor.js) + Workflow LUÔN ghi ĐÈ lại `'google'` mỗi lần chọn font qua picker (xem event/workflow/
+ * element-style-editor.js::_wireFontPickerListClicks()), phòng trường hợp NẠP LẠI 1 style đã lưu
+ * TỪ TRƯỚC (lúc còn nguồn 'system') qua `initialCssString` — parse ra `source:'system'` nhưng
+ * KHÔNG còn UI nào cho thấy sự khác biệt đó nữa, chọn lại font 1 lần là tự sửa đúng luôn. */
 function _renderEseFontFamilyField(f, loadedGoogleFonts) {
-    const sourceOptions = [{ value: 'system', label: t('elementStyleEditor.font.sourceSystem') }, { value: 'google', label: t('elementStyleEditor.font.sourceGoogle') }];
-    const isGoogle = f.source === 'google';
-    const googleRow = isGoogle ? `
+    return `
+        <div class="flex justify-between items-center">
+            <span class="text-xs text-slate-500">${t('elementStyleEditor.font.name')}</span>
+            <button type="button" id="ese-fontfamily-open-picker" class="w-32 flex items-center justify-between gap-1 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none hover:bg-slate-50 transition-colors">
+                <span class="truncate">${f.value || t('elementStyleEditor.font.namePlaceholder')}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+            </button>
+        </div>
         <div class="flex justify-between items-center">
             <span class="text-xs text-slate-500">${t('elementStyleEditor.font.weightToLoad')}</span>
             ${_eseSelect('text', 'fontFamily', 'googleWeight', ['100', '300', '400', '500', '700', '900'].map((v) => ({ value: v, label: v })), f.googleWeight, false)}
         </div>
         <button id="ese-fontfamily-load-btn" class="w-full py-1.5 rounded-lg bg-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-300 transition-colors">${t('elementStyleEditor.font.loadButton')}</button>
-        ${loadedGoogleFonts.includes(f.value) ? `<span class="text-[10px] text-emerald-600">${t('elementStyleEditor.font.loadedNote')}</span>` : ''}` : '';
-    const nameField = isGoogle ? `
-        <button type="button" id="ese-fontfamily-open-picker" class="w-32 flex items-center justify-between gap-1 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none hover:bg-slate-50 transition-colors">
-            <span class="truncate">${f.value || t('elementStyleEditor.font.namePlaceholder')}</span>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-        </button>` : `
-        <input type="text" value="${f.value}" placeholder="${t('elementStyleEditor.font.namePlaceholder')}" class="ese-field w-32 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none" data-section="text" data-field="fontFamily" data-subkey="value">`;
-    return `
-        <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-500">${t('elementStyleEditor.font.source')}</span>
-            ${_eseSelect('text', 'fontFamily', 'source', sourceOptions, f.source, true)}
-        </div>
-        <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-500">${t('elementStyleEditor.font.name')}</span>
-            ${nameField}
-        </div>
-        ${googleRow}`;
+        ${loadedGoogleFonts.includes(f.value) ? `<span class="text-[10px] text-emerald-600">${t('elementStyleEditor.font.loadedNote')}</span>` : ''}
+    `;
 }
 
 /** MỚI (mục 2) — header màn con "Chọn Google Font" (đẩy sang bởi `#ese-fontfamily-open-picker`) —
