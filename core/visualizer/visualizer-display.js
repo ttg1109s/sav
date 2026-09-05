@@ -115,31 +115,78 @@
         }
 
         /**
-         * [MỚI — 05/09/2026, yêu cầu Giang, "cải tiến -> modal choice, 2 dropdown + select"] Modal
-         * chọn effect: TÁI DÙNG THẲNG `modalChoice()` có sẵn (core/modal-choice-ui.js) — gọi 2 LẦN
-         * NỐI TIẾP, không tự dựng DOM riêng: lần 1 hỏi GROUP (Object.keys(EFFECT_GROUPS), service/
-         * state/visualizer-runtime.js) — ≥2 lựa chọn nên `modalChoice()` TỰ render thành 1
-         * dropdown + nút Chọn/Huỷ (đúng cơ chế có sẵn, xem docstring `modalChoice()`); bấm "Chọn"
-         * ở modal 1 mở NGAY modal 2 hỏi STYLE con của ĐÚNG group vừa chọn — cũng 1 dropdown +
-         * Chọn/Huỷ. Bấm "Chọn" ở modal 2 mới gọi `onConfirm(style)`.
+         * [SỬA — 05/09/2026, yêu cầu Giang, "modal choice hỗ trợ html, dùng 2 dropdown đồng thời"]
+         * Modal chọn effect: TÁI DÙNG THẲNG `modalChoice()` có sẵn (core/modal-choice-ui.js) — CHỈ
+         * 1 LẦN GỌI DUY NHẤT (KHÔNG còn 2 modal nối tiếp như bản trước) — 2 dropdown (group + style
+         * con của group đang chọn) nhét vào CÙNG 1 modal qua `options.bodyHtml` (HTML tự do,
+         * modalChoice() đã hỗ trợ sẵn cho đúng trường hợp "nội dung không hợp trong 1 dòng text
+         * đơn giản"). `choices` truyền ĐÚNG 1 lựa chọn thật ("Chọn") — modalChoice() tự render hàng
+         * [Huỷ][Chọn] (≤1 lựa chọn thật, xem docstring `modalChoice()`) — bấm "Chọn" mới đọc giá
+         * trị 2 dropdown lúc đó qua `document.getElementById()` (DOM đã có sẵn trong `document.body`
+         * ngay khi `modalChoice()` return — đồng bộ, không cần đợi gì thêm) rồi gọi `onConfirm(style)`.
+         *
+         * Đổi dropdown 1 (group) tự nạp lại dropdown 2 (style) theo group mới — wiring 'change'
+         * gắn NGAY SAU lời gọi `modalChoice()` (cùng lý do: DOM đã tồn tại đồng bộ).
          *
          * Mở qua CLICK #btn-cycle-mode (`onCycleModeClick()`, event/workflow/custom-effect.js) —
          * GIỮ (hold) KHÔNG đụng, vẫn mở thẳng Custom Effect Drawer như trước.
-         * @param {function(string):void} onConfirm - nhận style con ĐÃ chọn khi bấm "Chọn" ở modal 2.
+         * @param {function(string):void} onConfirm - nhận style con ĐÃ chọn khi bấm "Chọn".
          */
         function openEffectPickerModal(onConfirm) {
-            const groupChoices = Object.keys(EFFECT_GROUPS).map((group) => ({ // service/state/visualizer-runtime.js
-                label: t(VISUALIZER_GROUP_LABEL_KEYS[group] || group),
-                onClick: () => {
-                    const styleChoices = EFFECT_GROUPS[group].map((style) => ({
-                        label: t(VISUALIZER_STYLE_LABEL_KEYS[style] || style),
-                        onClick: () => onConfirm(style),
-                    }));
-                    modalChoice(t('effectPicker.styleLabel'), styleChoices, { title: t(VISUALIZER_GROUP_LABEL_KEYS[group] || group) }); // core/modal-choice-ui.js
+            const currentStyle = MODES[appState.get('currentModeIndex')];
+            const currentGroup = STYLE_TO_GROUP[currentStyle];
+
+            function renderStyleOptions(group, preselectStyle) {
+                return EFFECT_GROUPS[group].map((style) => // service/state/visualizer-runtime.js
+                    `<option value="${style}" ${style === preselectStyle ? 'selected' : ''}>${t(VISUALIZER_STYLE_LABEL_KEYS[style] || style)}</option>`
+                ).join('');
+            }
+            const groupOptions = Object.keys(EFFECT_GROUPS).map((group) =>
+                `<option value="${group}" ${group === currentGroup ? 'selected' : ''}>${t(VISUALIZER_GROUP_LABEL_KEYS[group] || group)}</option>`
+            ).join('');
+
+            const bodyHtml = `
+                <div class="flex flex-col gap-3">
+                    <div class="flex flex-col gap-1">
+                        <span class="text-xs text-slate-400">${t('effectPicker.groupLabel')}</span>
+                        <select id="effect-picker-group" class="w-full py-2.5 px-3 rounded-xl bg-slate-800 border border-slate-600 text-sm text-white outline-none">${groupOptions}</select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <span class="text-xs text-slate-400">${t('effectPicker.styleLabel')}</span>
+                        <select id="effect-picker-style" class="w-full py-2.5 px-3 rounded-xl bg-slate-800 border border-slate-600 text-sm text-white outline-none">${renderStyleOptions(currentGroup, currentStyle)}</select>
+                    </div>
+                </div>
+            `;
+
+            // Khai TRƯỚC (chưa gán) — onClick bên dưới CHỈ đọc lúc bấm "Chọn" (rất sau, sau khi 2
+            // dòng querySelector cuối hàm đã chạy xong) nên đóng vai trò biến CHUNG bình thường,
+            // không phải lỗi thứ tự khai báo.
+            let groupSelect, styleSelect;
+
+            modalChoice('', [ // core/modal-choice-ui.js — text='' (nội dung thật nằm ở bodyHtml)
+                {
+                    label: t('common.select'),
+                    className: 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold transition-colors',
+                    // FIX QUAN TRỌNG: modalChoice() tự đóng modal (gỡ khỏi DOM) NGAY TRƯỚC khi gọi
+                    // onClick (xem docstring/_appendButtonRow() modalChoice() — `closeModal()` LUÔN
+                    // chạy trước) — lúc onClick này thực thi, `#effect-picker-style` KHÔNG CÒN nằm
+                    // trong `document` nữa, `document.getElementById()` sẽ trả `null`. Đọc qua
+                    // THAM CHIẾU `styleSelect` đã giữ sẵn (biến JS, không phải querySelector lại) —
+                    // đọc `.value` trên phần tử ĐÃ GỠ KHỎI DOM vẫn hoạt động bình thường (thuộc
+                    // tính của node JS không mất khi chỉ bị gỡ khỏi cây DOM).
+                    onClick: () => onConfirm(styleSelect.value),
                 },
-            }));
-            modalChoice(t('effectPicker.groupLabel'), groupChoices, { title: t('effectPicker.title') }); // core/modal-choice-ui.js
+            ], { title: t('effectPicker.title'), bodyHtml });
+
+            // DOM đã có sẵn (modalChoice() dựng + gắn document.body ĐỒNG BỘ, không async) — giữ
+            // tham chiếu NGAY ở đây (KHÔNG được query lại trong onClick ở trên — xem FIX ngay trên).
+            groupSelect = document.getElementById('effect-picker-group');
+            styleSelect = document.getElementById('effect-picker-style');
+            groupSelect.addEventListener('change', () => {
+                styleSelect.innerHTML = renderStyleOptions(groupSelect.value, null);
+            });
         }
+
 
         /**
          * HOTFIX 2 (07/07/2026, bug do Giang báo qua screenshot lỗi thật khi phát nhạc — SỬA LẠI
