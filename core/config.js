@@ -31,15 +31,22 @@
         ];
 
         const DEFAULT_CUSTOM_EFFECT = {
+            // [SỬA — 05/09/2026, yêu cầu Giang, "group hoá" effect picker] Key giờ = GROUP (khớp
+            // cfg.type MỚI: bar/lighting/rain/vortex/shape/space — 6 khoá, không phải 12 style con
+            // phẳng như MODES, xem service/state/visualizer-runtime.js). Style con hiện tại của
+            // MỖI group lưu ở field riêng (barStyle/lightingStyle/rainStyle/vortexStyle/
+            // shapeStyle/spaceStyle, khớp GROUP_STYLE_FIELD) — CÙNG 1 bucket màu/blur cho MỌI style
+            // con trong CÙNG group (đổi màu lúc đang ở 'mirror' cũng đổi luôn cho 'cascade'/'black
+            // hole' — cố ý, cùng tinh thần "1 group = 1 cấu hình" của việc gộp file/thư mục
+            // core/visualizer/groups/).
             bar: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
                 barStyle: 'mirror', minH: 4, maxH: 400, mirrorBarCount: 32,
                 barFillRatio: 0.6, barCornerRadius: 3, centerBarBeatRatio: 0.7,
                 cascadeBaseAlpha: 0.2, cascadeKeyCount: 64,
-            },
-            'black hole': {
-                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
-                minH: 4, maxH: 400, barWidth: 4, starCount: 200,
+                // Style "black hole" (CHUYỂN NHÓM 05/09/2026 — trước đây bucket 'black hole' riêng)
+                // — dùng CHUNG minH/maxH ở trên (cùng field, cùng ý nghĩa "chiều cao cột tần số").
+                barWidth: 4, starCount: 200,
                 radiusRatio: 0.13, radiusEnergyMult: 0.05, suctionBase: 0.2, suctionEnergyMult: 2.5,
                 flareThreshold: 0.65, flashFadeSpeed: 0.08,
             },
@@ -74,8 +81,11 @@
                 // core/canvas-scene-setup.js. Mỗi đèn: xPercent/heightPx/flareScale riêng.
                 customLamps: [],
             },
-            rubik: {
+            shape: { // ĐỔI TÊN (05/09/2026) — trước đây khoá 'rubik' (group giờ tên "shape", vẫn
+                      // chỉ 1 style con 'rubik' — xem EFFECT_GROUPS, service/state/visualizer-
+                      // runtime.js).
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
+                shapeStyle: 'rubik',
                 cubeSizeRatio: 0.08, pitchSensitivity: 0.9, rotationEnergyThreshold: 0.35, layerTurnSpeed: 0.08,
             },
             vortex: {
@@ -91,6 +101,8 @@
             },
             space: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
+                spaceStyle: 'galaxy explore', // MỚI (05/09/2026) — group chỉ 1 style, field vẫn
+                                                // khai cho nhất quán cơ chế chung (GROUP_STYLE_FIELD).
                 starCountMin: 3800, starCountMax: 6000, nebulaCount: 35, dustCount: 1500,
                 // MỚI (26/08/2026, mô hình cụm thiên hà — thay mapNodeCount/mapRadius cũ).
                 clusterGalaxyCountMin: 4, clusterGalaxyCountMax: 8,
@@ -103,6 +115,7 @@
                 energyWindowBeats: 4, sectionWindowBeats: 12, fluxThreshold: 0.5,
             },
         };
+
 
         const DEFAULT_VIZ_CONFIG = {
             type: 'bar',
@@ -567,6 +580,27 @@
                 // loại bỏ — quy về 'bar' để không vỡ trải nghiệm người dùng cũ.
                 if (cfg.type === 'synthesia' || cfg.type === 'firefly_forest' || cfg.type === 'seasons' || cfg.type === 'wave') cfg.type = 'bar';
 
+                // MIGRATE (05/09/2026, "group hoá" effect picker, yêu cầu Giang) — 'black hole'
+                // (type riêng cũ) CHUYỂN thành 1 style của group 'bar'; 'rubik' (type riêng cũ)
+                // CHUYỂN thành group 'shape' (đổi tên, vẫn 1 style 'rubik'). PHẢI chạy TRƯỚC vòng
+                // merge DEFAULT_CUSTOM_EFFECT ngay dưới — DEFAULT_CUSTOM_EFFECT không còn 2 khoá
+                // 'black hole'/'rubik' nữa (đã đổi tên/gộp), nếu không di trú trước, tinh chỉnh
+                // riêng Giang từng lưu cho 2 effect đó (nếu có) sẽ bị bỏ quên, không ai đọc nữa.
+                if (cfg.customEffect) {
+                    if (cfg.customEffect['black hole']) {
+                        const wasActive = cfg.type === 'black hole';
+                        cfg.customEffect.bar = { ...cfg.customEffect['black hole'], ...cfg.customEffect.bar };
+                        if (wasActive) cfg.customEffect.bar.barStyle = 'black hole';
+                        delete cfg.customEffect['black hole'];
+                    }
+                    if (cfg.customEffect['rubik']) {
+                        cfg.customEffect.shape = { ...cfg.customEffect['rubik'], shapeStyle: 'rubik' };
+                        delete cfg.customEffect['rubik'];
+                    }
+                }
+                if (cfg.type === 'black hole') cfg.type = 'bar';
+                else if (cfg.type === 'rubik') cfg.type = 'shape';
+
                 // MIGRATE (12/08/2026, bỏ field phẳng cũ + chế độ hiệu năng) — customEffect() là
                 // OBJECT MỚI, seed đủ 7 effect từ default rồi merge field CŨ (nếu save trước bản
                 // này còn sót lại field phẳng ở gốc cfg) vào ĐÚNG effect tương ứng 1 lần duy nhất.
@@ -670,7 +704,20 @@
             // open(), đọc appConfigViz tươi) — không cần đồng bộ UI tĩnh nào ở đây (khác bản cũ có
             // #setting-volume tĩnh từ lúc boot, đã xoá cùng UI Settings EQ/Volume cũ).
 
-            { let idx = MODES.indexOf(appConfigViz.getAll().type); if (idx === -1) idx = 0; appState.set('currentModeIndex', idx); }
+            {
+                // [SỬA — 05/09/2026] MODES giờ là 12 STYLE con phẳng, không phải group — suy style
+                // hiện tại từ cfg.type (group, đã di trú ở trên) + field style riêng của group đó
+                // (GROUP_STYLE_FIELD, service/state/visualizer-runtime.js), rồi mới tìm index
+                // trong MODES. Fallback về style mặc định của group nếu field trống/lạ, fallback
+                // cuối cùng về index 0 nếu cfg.type cũng lạ nốt (config hỏng/rất cũ).
+                const group = EFFECT_GROUPS[appConfigViz.getAll().type] ? appConfigViz.getAll().type : 'bar';
+                const styleField = GROUP_STYLE_FIELD[group];
+                const savedStyle = (appConfigViz.getAll().customEffect[group] || {})[styleField];
+                let idx = MODES.indexOf(savedStyle);
+                if (idx === -1) idx = MODES.indexOf(DEFAULT_CUSTOM_EFFECT[group][styleField]);
+                if (idx === -1) idx = 0;
+                appState.set('currentModeIndex', idx);
+            }
             updateDOMBackground(); updatePlaylistBg(); updateProgressBarCSS(); updateTypeUI();
 
             if (typeof initVisualizerMiscSettingsUIFromConfig === 'function') initVisualizerMiscSettingsUIFromConfig();

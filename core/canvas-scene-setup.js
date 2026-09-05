@@ -110,7 +110,7 @@
 
         function initStars() {
             const dpr = appState.get('dpr');
-            let starList = []; const maxDist = Math.max(canvas.width, canvas.height); const count = getEffectConfig('black hole').starCount;
+            let starList = []; const maxDist = Math.max(canvas.width, canvas.height); const count = getEffectConfig('bar').starCount; // SỬA (05/09/2026) — 'black hole' CHUYỂN thành style con của group 'bar'
             for(let i=0; i < count; i++) {
                 let clusterAngle = (Math.floor(Math.random() * 5) / 5) * Math.PI * 2; let angle = clusterAngle + (Math.random() * 1.5 - 0.75); 
                 let layer = Math.random(); let baseSpeed, sizeMult;
