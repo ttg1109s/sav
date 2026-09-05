@@ -271,10 +271,15 @@
          */
         /** Đồng bộ class/badge nút Repeat theo ĐÚNG state hiện có — TÁCH từ cycleRepeatMode(),
          * CÙNG LÝ DO syncShuffleUI() ngay trên (phản hồi Giang mục 3). */
+        /** SỬA (05/09/2026, yêu cầu Giang "bỏ đánh dấu 1 đi, dùng icon repeat nhưng có số 1 ở
+         * giữa") — trước đây bật/tắt `repeatBadge` (span góc riêng NGOÀI icon, `#repeat-badge`) —
+         * giờ bật/tắt `repeatOneDigit` (`#repeat-one-digit`, phần tử `<text>` NẰM TRONG chính SVG
+         * icon repeat, components/visualizer-overlay.js) — cùng cơ chế ẩn/hiện qua class `hidden`,
+         * chỉ đổi phần tử đích. */
         function syncRepeatUI(repeatModeNow) {
-            if (repeatModeNow === 0) { btnRepeat.classList.remove('!text-sky-400'); btnRepeat.classList.add('text-slate-400'); repeatBadge.classList.add('hidden'); }
-            else if (repeatModeNow === 1) { btnRepeat.classList.remove('text-slate-400'); btnRepeat.classList.add('!text-sky-400'); repeatBadge.classList.add('hidden'); }
-            else if (repeatModeNow === 2) { btnRepeat.classList.add('!text-sky-400'); repeatBadge.classList.remove('hidden'); }
+            if (repeatModeNow === 0) { btnRepeat.classList.remove('!text-sky-400'); btnRepeat.classList.add('text-slate-400'); repeatOneDigit.classList.add('hidden'); }
+            else if (repeatModeNow === 1) { btnRepeat.classList.remove('text-slate-400'); btnRepeat.classList.add('!text-sky-400'); repeatOneDigit.classList.add('hidden'); }
+            else if (repeatModeNow === 2) { btnRepeat.classList.add('!text-sky-400'); repeatOneDigit.classList.remove('hidden'); }
         }
 
         function cycleRepeatMode() {

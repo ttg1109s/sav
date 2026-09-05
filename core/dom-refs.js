@@ -101,7 +101,12 @@
         
         const playPauseBtn = document.getElementById('play-pause-btn'), iconPlay = document.getElementById('icon-play'), iconPause = document.getElementById('icon-pause');
         const btnPrev = document.getElementById('btn-prev'), btnNext = document.getElementById('btn-next');
-        const btnShuffle = document.getElementById('btn-shuffle'), btnRepeat = document.getElementById('btn-repeat'), repeatBadge = document.getElementById('repeat-badge');
+        // SỬA (05/09/2026, yêu cầu Giang "bỏ đánh dấu 1 đi, dùng icon repeat nhưng có số 1 ở
+        // giữa") — `repeatBadge` (span góc riêng, `#repeat-badge`) ĐÃ XOÁ khỏi HTML — thay bằng
+        // `repeatOneDigit` (`#repeat-one-digit`, phần tử `<text>` NẰM TRONG SVG icon repeat,
+        // components/visualizer-overlay.js) — ẩn/hiện qua class y hệt bản cũ, xem
+        // core/player-controls.js::syncRepeatUI().
+        const btnShuffle = document.getElementById('btn-shuffle'), btnRepeat = document.getElementById('btn-repeat'), repeatOneDigit = document.getElementById('repeat-one-digit');
         const progressBar = document.getElementById('progress-bar');
         const currentTimeDisplay = document.getElementById('current-time'), durationTimeDisplay = document.getElementById('duration-time');
         const playerTitle = document.getElementById('player-title'), playerArtist = document.getElementById('player-artist');

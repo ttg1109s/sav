@@ -216,10 +216,13 @@
                 btnShuffle.classList.toggle('!text-sky-400', appState.get('isShuffle'));
                 btnShuffle.classList.toggle('text-slate-400', !appState.get('isShuffle'));
             }
-            if (typeof btnRepeat !== 'undefined' && btnRepeat && typeof repeatBadge !== 'undefined' && repeatBadge) {
-                if (appState.get('repeatMode') === 0) { btnRepeat.classList.remove('!text-sky-400'); btnRepeat.classList.add('text-slate-400'); repeatBadge.classList.add('hidden'); }
-                else if (appState.get('repeatMode') === 1) { btnRepeat.classList.remove('text-slate-400'); btnRepeat.classList.add('!text-sky-400'); repeatBadge.classList.add('hidden'); }
-                else if (appState.get('repeatMode') === 2) { btnRepeat.classList.add('!text-sky-400'); repeatBadge.classList.remove('hidden'); }
+            // SỬA (05/09/2026, yêu cầu Giang "bỏ đánh dấu 1 đi, dùng icon repeat nhưng có số 1 ở
+            // giữa") — `repeatBadge` (span góc riêng) ĐÃ XOÁ, thay bằng `repeatOneDigit` (`<text>`
+            // NẰM TRONG icon repeat, components/visualizer-overlay.js) — cùng cơ chế class `hidden`.
+            if (typeof btnRepeat !== 'undefined' && btnRepeat && typeof repeatOneDigit !== 'undefined' && repeatOneDigit) {
+                if (appState.get('repeatMode') === 0) { btnRepeat.classList.remove('!text-sky-400'); btnRepeat.classList.add('text-slate-400'); repeatOneDigit.classList.add('hidden'); }
+                else if (appState.get('repeatMode') === 1) { btnRepeat.classList.remove('text-slate-400'); btnRepeat.classList.add('!text-sky-400'); repeatOneDigit.classList.add('hidden'); }
+                else if (appState.get('repeatMode') === 2) { btnRepeat.classList.add('!text-sky-400'); repeatOneDigit.classList.remove('hidden'); }
             }
 
             // ---- 2. Video nền — khôi phục đúng vị trí đang xem ----
