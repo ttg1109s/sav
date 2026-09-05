@@ -220,7 +220,10 @@
                 cfg.customEffect[group][styleField] = style;
             });
             const cfg = appConfigViz.getAll();
-            modeBadge.textContent = `${currentModeIndex + 1}/${MODES.length}`;
+            // BỎ (05/09/2026, yêu cầu Giang) — trước đây có dòng `modeBadge.textContent =
+            // "${currentModeIndex + 1}/${MODES.length}"` ghi số thứ tự "x/tổng" lên badge góc icon
+            // — badge đó (`#mode-badge`, components/visualizer-overlay.js) ĐÃ XOÁ khỏi HTML, không
+            // còn hiện đếm số nữa.
             // FIX (12/08/2026, Giang yêu cầu — "icon Effect đổi text theo tên effect đang chạy") —
             // nhãn dưới icon #btn-cycle-mode giờ hiện ĐÚNG tên hiệu ứng đang chạy, CÙNG khuôn
             // #eq-badge-label (core/eq-presets.js::syncEqBadgeLabel()), thay vì chữ tĩnh "Hiệu ứng"
