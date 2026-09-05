@@ -15,7 +15,8 @@
  *
  * PHẢI nạp SAU: core/player-controls.js, core/dom-refs.js, core/config.js, core/custom-effect.js,
  * service/state/visualizer-runtime.js (MODES/EFFECT_GROUPS/STYLE_TO_GROUP/GROUP_STYLE_FIELD),
- * service/z-index.js (Z_INDEX, openEffectPickerModal()).
+ * core/modal-choice-ui.js (modalChoice() — TÁI DÙNG cho openEffectPickerModal(), không tự dựng
+ * modal riêng).
  */
         // Biến NỘI BỘ (KHÔNG thuộc STATE): lưu tạm tone mapping mặc định của renderer dùng chung
         // (Vortex) để trả lại đúng giá trị khi rời khỏi 'space' — xem updateTypeUI() bên dưới.
@@ -115,102 +116,29 @@
 
         /**
          * [MỚI — 05/09/2026, yêu cầu Giang, "cải tiến -> modal choice, 2 dropdown + select"] Modal
-         * chọn effect: dropdown 1 = GROUP (Object.keys(EFFECT_GROUPS), service/state/
-         * visualizer-runtime.js), dropdown 2 = STYLE con của group ĐANG chọn ở dropdown 1 — đổi
-         * dropdown 1 tự nạp lại dropdown 2 theo đúng group mới. Bấm "Chọn" gọi `onConfirm(style)`
-         * với style ĐANG chọn ở dropdown 2, bấm "Huỷ" chỉ đóng modal.
-         *
-         * KHÔNG dùng `modalChoice()` (core/modal-choice-ui.js) — component đó chỉ hỗ trợ ĐÚNG 1
-         * dropdown phẳng (N lựa chọn -> 1 hành động), không có khái niệm "2 dropdown lồng nhau, đổi
-         * cái này nạp lại cái kia". Modal này TỰ DỰNG DOM riêng — CÙNG phong cách thị giác (class
-         * Tailwind, `Z_INDEX.MODAL_CHOICE`) để nhất quán, KHÔNG sửa/mở rộng `modal-choice-ui.js`
-         * (tránh rủi ro cho mọi chỗ khác đang dùng `modalChoice()` chung trong app).
+         * chọn effect: TÁI DÙNG THẲNG `modalChoice()` có sẵn (core/modal-choice-ui.js) — gọi 2 LẦN
+         * NỐI TIẾP, không tự dựng DOM riêng: lần 1 hỏi GROUP (Object.keys(EFFECT_GROUPS), service/
+         * state/visualizer-runtime.js) — ≥2 lựa chọn nên `modalChoice()` TỰ render thành 1
+         * dropdown + nút Chọn/Huỷ (đúng cơ chế có sẵn, xem docstring `modalChoice()`); bấm "Chọn"
+         * ở modal 1 mở NGAY modal 2 hỏi STYLE con của ĐÚNG group vừa chọn — cũng 1 dropdown +
+         * Chọn/Huỷ. Bấm "Chọn" ở modal 2 mới gọi `onConfirm(style)`.
          *
          * Mở qua CLICK #btn-cycle-mode (`onCycleModeClick()`, event/workflow/custom-effect.js) —
          * GIỮ (hold) KHÔNG đụng, vẫn mở thẳng Custom Effect Drawer như trước.
-         * @param {function(string):void} onConfirm - nhận style con ĐÃ chọn khi bấm "Chọn".
+         * @param {function(string):void} onConfirm - nhận style con ĐÃ chọn khi bấm "Chọn" ở modal 2.
          */
         function openEffectPickerModal(onConfirm) {
-            const stale = document.getElementById('effect-picker-overlay');
-            if (stale) stale.remove();
-
-            const currentStyle = MODES[appState.get('currentModeIndex')];
-            const currentGroup = STYLE_TO_GROUP[currentStyle];
-
-            const overlay = document.createElement('div');
-            overlay.id = 'effect-picker-overlay';
-            overlay.className = 'fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
-            overlay.style.zIndex = String(Z_INDEX.MODAL_CHOICE); // service/z-index.js — cùng lớp modalChoice()
-
-            const card = document.createElement('div');
-            card.className = 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
-
-            const titleEl = document.createElement('h3');
-            titleEl.className = 'text-base font-bold text-white';
-            titleEl.textContent = t('effectPicker.title');
-            card.appendChild(titleEl);
-
-            function buildSelectRow(labelKey) {
-                const row = document.createElement('div');
-                row.className = 'flex flex-col gap-1';
-                const label = document.createElement('span');
-                label.className = 'text-xs text-slate-400';
-                label.textContent = t(labelKey);
-                const select = document.createElement('select');
-                select.className = 'w-full py-2.5 px-3 rounded-xl bg-slate-800 border border-slate-600 text-sm text-white outline-none';
-                row.appendChild(label);
-                row.appendChild(select);
-                card.appendChild(row);
-                return select;
-            }
-
-            const groupSelect = buildSelectRow('effectPicker.groupLabel');
-            Object.keys(EFFECT_GROUPS).forEach((group) => { // service/state/visualizer-runtime.js
-                const opt = document.createElement('option');
-                opt.value = group;
-                opt.textContent = t(VISUALIZER_GROUP_LABEL_KEYS[group] || group);
-                if (group === currentGroup) opt.selected = true;
-                groupSelect.appendChild(opt);
-            });
-
-            const styleSelect = buildSelectRow('effectPicker.styleLabel');
-            function populateStyles(group, preselectStyle) {
-                styleSelect.innerHTML = '';
-                EFFECT_GROUPS[group].forEach((style) => {
-                    const opt = document.createElement('option');
-                    opt.value = style;
-                    opt.textContent = t(VISUALIZER_STYLE_LABEL_KEYS[style] || style);
-                    if (style === preselectStyle) opt.selected = true;
-                    styleSelect.appendChild(opt);
-                });
-            }
-            populateStyles(currentGroup, currentStyle);
-            // Đổi group -> nạp lại style theo group MỚI — không giữ style cũ (khác group thì
-            // không còn nghĩa lý), luôn chọn style ĐẦU TIÊN của group mới.
-            groupSelect.addEventListener('change', () => populateStyles(groupSelect.value, null));
-
-            function closeModal() { overlay.remove(); }
-
-            const btnRow = document.createElement('div');
-            btnRow.className = 'flex gap-3 mt-1';
-            const cancelBtn = document.createElement('button');
-            cancelBtn.className = 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors';
-            cancelBtn.textContent = t('common.cancel');
-            cancelBtn.addEventListener('click', closeModal);
-            const confirmBtn = document.createElement('button');
-            confirmBtn.className = 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold transition-colors';
-            confirmBtn.textContent = t('common.select');
-            confirmBtn.addEventListener('click', () => {
-                const chosenStyle = styleSelect.value;
-                closeModal();
-                onConfirm(chosenStyle);
-            });
-            btnRow.appendChild(cancelBtn);
-            btnRow.appendChild(confirmBtn);
-            card.appendChild(btnRow);
-
-            overlay.appendChild(card);
-            document.body.appendChild(overlay);
+            const groupChoices = Object.keys(EFFECT_GROUPS).map((group) => ({ // service/state/visualizer-runtime.js
+                label: t(VISUALIZER_GROUP_LABEL_KEYS[group] || group),
+                onClick: () => {
+                    const styleChoices = EFFECT_GROUPS[group].map((style) => ({
+                        label: t(VISUALIZER_STYLE_LABEL_KEYS[style] || style),
+                        onClick: () => onConfirm(style),
+                    }));
+                    modalChoice(t('effectPicker.styleLabel'), styleChoices, { title: t(VISUALIZER_GROUP_LABEL_KEYS[group] || group) }); // core/modal-choice-ui.js
+                },
+            }));
+            modalChoice(t('effectPicker.groupLabel'), groupChoices, { title: t('effectPicker.title') }); // core/modal-choice-ui.js
         }
 
         /**
