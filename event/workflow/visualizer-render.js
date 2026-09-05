@@ -18,7 +18,8 @@
  * trong `core/visualizer/types/*.js`). Cả 5 hàm `drawXxx()` đó ĐÃ XOÁ (từng vi phạm Rule 1/2/3:
  * tự `appState.get()`, tự gọi `getActiveEffectConfig()`/`getComputedColor()`/hàm core khác cùng
  * hoặc khác file, `bar`/`rain`/`vortex` còn if/else tự chọn style con). Workflow giờ điều phối
- * THẬT SỰ, cùng khuôn Galaxy: `_tickBar()`/`_tickRubik()`/`_tickVortexRender()`/`_tickBlackHole()`/
+ * THẬT SỰ, cùng khuôn Galaxy: `_tickBar()` (gồm cả style 'black hole', gộp từ `_tickBlackHole()`
+ * cũ 05/09/2026)/`_tickRubik()` (dispatch qua `cfg.type === 'shape'`)/`_tickVortexRender()`/
  * `_tickRain()` bên dưới — tự gom appState/cfg TRƯỚC, tự vòng lặp gọi RIÊNG LẺ từng hàm Core.
  * [CHUYỂN NHÓM, 05/09/2026, yêu cầu Giang] Core của 5 visual này giờ nằm ở
  * `core/visualizer/groups/<group>/<style>.js` (mỗi style 1 file riêng, không gộp chung nữa) thay
@@ -91,11 +92,12 @@
 const RENDER_TASK = 'visualizerRender';
 
 // Tra cứu hàm vẽ 2D theo `vizConfig.type` — dời nguyên từ `draw-visualizer.js` cũ (đã RỖNG).
-// `bar`/`black hole`/`rain`/`rubik`/`vortex`/`space` KHÔNG nằm trong bảng này: `bar`/`rain` có
-// style con nên Workflow tự chọn qua `_tickBar()`/`_tickRain()` (Rule 1); `black hole`/`rubik` cần
-// nhiều bước state/mutate/xoay 3D nối tiếp nên qua `_tickBlackHole()`/`_tickRubik()`; `vortex`/
-// `space` render qua WebGL (canvas riêng), xử lý RIÊNG trong `_tick()` TRƯỚC khi canvas 2D được
-// clear. Bảng để lại rỗng (thay vì xoá hẳn) để không phá cấu trúc dispatch `if (drawFn)` bên dưới.
+// `bar`/`rain`/`shape`/`vortex`/`space` KHÔNG nằm trong bảng này: `bar` có 3 style con (mirror/
+// cascade/'black hole', CHUYỂN NHÓM 05/09/2026 — trước đây 'black hole' là type riêng) nên
+// Workflow tự chọn qua `_tickBar()` (Rule 1), `rain` tương tự qua `_tickRain()`; `shape` (đổi tên
+// từ 'rubik' 05/09/2026) cần nhiều bước xoay 3D nối tiếp nên qua `_tickRubik()`; `vortex`/`space`
+// render qua WebGL (canvas riêng), xử lý RIÊNG trong `_tick()` TRƯỚC khi canvas 2D được clear.
+// Bảng để lại rỗng (thay vì xoá hẳn) để không phá cấu trúc dispatch `if (drawFn)` bên dưới.
 const VISUALIZER_DRAWERS = {};
 
 // ===== Mô hình Galaxy — hằng số (VIẾT LẠI HOÀN TOÀN 26/08/2026, xem docstring đầu file) =====
@@ -256,16 +258,19 @@ const workflowVisualizerRender = {
         if (drawFn) {
             drawFn(ctx, perf, isPlaying, newBeatScale);
         } else if (cfg.type === 'bar') {
-            // ================== VISUAL Bar — Workflow tự chọn style mirror/cascade (Rule 1) ==================
-            this._tickBar(ctx, perf, newBeatScale, newSmoothedEnergy, vizDataArray, analyser);
-        } else if (cfg.type === 'black hole') {
-            // ================== VISUAL Black Hole — Workflow điều phối nhiều bước nối tiếp ==================
-            this._tickBlackHole(ctx, perf, isPlaying, newSmoothedEnergy, newBeatScale, newGlobalHueOffset, vizDataArray, analyser);
+            // ============= VISUAL Bar — Workflow tự chọn style mirror/cascade/'black hole' (Rule 1) =============
+            // [SỬA — 05/09/2026, yêu cầu Giang, "group hoá" effect picker] "Black Hole" CHUYỂN từ
+            // type riêng thành 1 style của group "bar" (cfg.barStyle==='black hole') — _tickBar()
+            // giờ rẽ 3 nhánh thay vì 2, cần thêm isPlaying/globalHueOffset (trước đây chỉ
+            // _tickBlackHole() cũ cần).
+            this._tickBar(ctx, perf, isPlaying, newBeatScale, newSmoothedEnergy, newGlobalHueOffset, vizDataArray, analyser);
         } else if (cfg.type === 'rain') {
             // ================== VISUAL Rain — Workflow tự chọn style glass/street (Rule 1) ==================
             this._tickRain(ctx, perf, isPlaying, newSmoothedEnergy, newBeatScale, vizDataArray);
-        } else if (cfg.type === 'rubik') {
-            // ================== VISUAL Rubik — Workflow điều phối xoay 3D + vẽ ==================
+        } else if (cfg.type === 'shape') {
+            // ================== VISUAL Shape (style 'rubik') — Workflow điều phối xoay 3D + vẽ ==================
+            // ĐỔI TÊN (05/09/2026) — trước đây cfg.type === 'rubik' (group giờ tên "shape", vẫn
+            // chỉ 1 style con 'rubik' — xem EFFECT_GROUPS, service/state/visualizer-runtime.js).
             this._tickRubik(ctx, isPlaying, appState.get('dpr'), newSmoothedEnergy, newBeatScale, vizDataArray);
         } else if (cfg.type === 'lighting') {
             // ================== VISUAL Lighting — Workflow điều phối style thunder/fireworks ==================
@@ -402,11 +407,15 @@ const workflowVisualizerRender = {
         appState.get('tRenderer').render(appState.get('tScene'), tCamera);
     },
 
-    /** [MỚI — rà soát Rule 3] VISUAL Bar — Workflow tự đọc `cfg.barStyle` rồi gọi ĐÚNG 1 trong 2
-     * hàm `computeBarXxxFrame()` (Rule 1 — chọn style KHÔNG được nằm trong 1 hàm core nữa), tự
+    /** [MỚI — rà soát Rule 3] VISUAL Bar — Workflow tự đọc `cfg.barStyle` rồi gọi ĐÚNG 1 trong 3
+     * nhánh (Rule 1 — chọn style KHÔNG được nằm trong 1 hàm core nữa): 'mirror'/'cascade' tự
      * resolve màu qua `getComputedColor()` rồi `paintBarRects()` cho từng lô (core/visualizer/
-     * groups/bar/{mirror,cascade}.js). Thay hẳn `drawBar()` cũ (đã xoá, vi phạm Rule 1/2/3). */
-    _tickBar(ctx, perf, beatScale, smoothedEnergy, vizDataArray, analyser) {
+     * groups/bar/{mirror,cascade}.js); 'black hole' [CHUYỂN NHÓM 05/09/2026, yêu cầu Giang — trước
+     * đây `cfg.type === 'black hole'` riêng, `_tickBlackHole()` riêng] gọi RIÊNG LẺ từng hàm Core
+     * theo đúng thứ tự bản gốc (core/visualizer/groups/bar/black-hole.js): bán kính mượt -> flare
+     * (nếu đủ năng lượng) -> bước+vẽ sao -> tiến+vẽ flash -> dải cột tần số -> tâm hố đen. Thay hẳn
+     * `drawBar()`/`drawBlackHole()` cũ (đã xoá, vi phạm Rule 1/2/3). */
+    _tickBar(ctx, perf, isPlaying, beatScale, smoothedEnergy, globalHueOffset, vizDataArray, analyser) {
         const cfg = getActiveEffectConfig(); // core/custom-effect.js
         const dpr = appState.get('dpr');
         if (cfg.barStyle === 'cascade') {
@@ -415,6 +424,36 @@ const workflowVisualizerRender = {
                 const color = getComputedColor(...k.colorArgs); // core/audio-analysis.js
                 paintBarRects(ctx, [k.shadowRect, k.capRect], color.fill, color.glow, dpr, perf.blurMult, 10); // core
             });
+            ctx.shadowBlur = 0;
+        } else if (cfg.barStyle === 'black hole') {
+            const centerX = canvas.width / 2, centerY = canvas.height / 2;
+            const minDimension = Math.min(canvas.width, canvas.height);
+            const maxDist = Math.max(canvas.width, canvas.height);
+
+            const currentRadius = computeBlackHoleRadius(minDimension, smoothedEnergy, beatScale, cfg.radiusRatio, cfg.radiusEnergyMult); // core
+            const currentSuction = cfg.suctionBase + (isPlaying ? smoothedEnergy * cfg.suctionEnergyMult : 0);
+
+            if (isPlaying && smoothedEnergy > cfg.flareThreshold) {
+                const flareAlpha = (smoothedEnergy - cfg.flareThreshold) * 2.5;
+                paintBlackHoleFlare(ctx, canvas.width, canvas.height, centerX, centerY, currentRadius, globalHueOffset, flareAlpha); // core
+            }
+
+            stepAndDrawBlackHoleStars(ctx, dpr, centerX, centerY, maxDist, currentRadius, currentSuction); // core
+
+            const starFlashes = appState.get('starFlashes');
+            advanceAndDrawBlackHoleFlashes(ctx, dpr, starFlashes, cfg.flashFadeSpeed); // core
+
+            const usefulLength = Math.floor(analyser.frequencyBinCount * 0.35);
+            const dynamicMaxBarHeight = (cfg.maxH / 1000) * (minDimension * 0.25);
+            paintBlackHoleBarsSetup(ctx, dpr, cfg.barWidth); // core
+            const bars = computeBlackHoleBarsFrame(vizDataArray, usefulLength, cfg.minH, dpr, dynamicMaxBarHeight, centerX, centerY, currentRadius); // core
+            bars.forEach((b) => {
+                const color = getComputedColor(...b.colorArgs); // core/audio-analysis.js
+                paintBlackHoleBarLines(ctx, b.lines, color.fill, color.glow, dpr, perf.blurMult); // core
+            });
+            ctx.shadowBlur = 0;
+
+            paintBlackHoleCore(ctx, centerX, centerY, currentRadius); // core
         } else {
             const maxBin = analyser.frequencyBinCount * 0.5;
             const frame = computeBarMirrorFrame(cfg, canvas.width, canvas.height, dpr, vizDataArray, maxBin, beatScale, smoothedEnergy); // core
@@ -424,45 +463,8 @@ const workflowVisualizerRender = {
             });
             const centerColor = getComputedColor(...frame.center.colorArgs); // core/audio-analysis.js
             paintBarRects(ctx, frame.center.rects, centerColor.fill, centerColor.glow, dpr, perf.blurMult, 15); // core
+            ctx.shadowBlur = 0;
         }
-        ctx.shadowBlur = 0;
-    },
-
-    /** [MỚI — rà soát Rule 3] VISUAL Black Hole — Workflow tự gom state + gọi RIÊNG LẺ từng hàm
-     * Core theo đúng thứ tự bản gốc (core/visualizer/groups/bar/black-hole.js): bán kính mượt -> flare
-     * (nếu đủ năng lượng) -> bước+vẽ sao -> tiến+vẽ flash -> dải cột tần số -> tâm hố đen. Thay hẳn
-     * `drawBlackHole()` cũ (đã xoá, vi phạm Rule 2/3). */
-    _tickBlackHole(ctx, perf, isPlaying, smoothedEnergy, beatScale, globalHueOffset, vizDataArray, analyser) {
-        const cfg = getActiveEffectConfig(); // core/custom-effect.js
-        const dpr = appState.get('dpr');
-        const centerX = canvas.width / 2, centerY = canvas.height / 2;
-        const minDimension = Math.min(canvas.width, canvas.height);
-        const maxDist = Math.max(canvas.width, canvas.height);
-
-        const currentRadius = computeBlackHoleRadius(minDimension, smoothedEnergy, beatScale, cfg.radiusRatio, cfg.radiusEnergyMult); // core
-        const currentSuction = cfg.suctionBase + (isPlaying ? smoothedEnergy * cfg.suctionEnergyMult : 0);
-
-        if (isPlaying && smoothedEnergy > cfg.flareThreshold) {
-            const flareAlpha = (smoothedEnergy - cfg.flareThreshold) * 2.5;
-            paintBlackHoleFlare(ctx, canvas.width, canvas.height, centerX, centerY, currentRadius, globalHueOffset, flareAlpha); // core
-        }
-
-        stepAndDrawBlackHoleStars(ctx, dpr, centerX, centerY, maxDist, currentRadius, currentSuction); // core
-
-        const starFlashes = appState.get('starFlashes');
-        advanceAndDrawBlackHoleFlashes(ctx, dpr, starFlashes, cfg.flashFadeSpeed); // core
-
-        const usefulLength = Math.floor(analyser.frequencyBinCount * 0.35);
-        const dynamicMaxBarHeight = (cfg.maxH / 1000) * (minDimension * 0.25);
-        paintBlackHoleBarsSetup(ctx, dpr, cfg.barWidth); // core
-        const bars = computeBlackHoleBarsFrame(vizDataArray, usefulLength, cfg.minH, dpr, dynamicMaxBarHeight, centerX, centerY, currentRadius); // core
-        bars.forEach((b) => {
-            const color = getComputedColor(...b.colorArgs); // core/audio-analysis.js
-            paintBlackHoleBarLines(ctx, b.lines, color.fill, color.glow, dpr, perf.blurMult); // core
-        });
-        ctx.shadowBlur = 0;
-
-        paintBlackHoleCore(ctx, centerX, centerY, currentRadius); // core
     },
 
     /** [MỚI — rà soát Rule 3] VISUAL Rain — Workflow tự đọc `cfg.rainStyle` rồi gọi ĐÚNG 1 trong

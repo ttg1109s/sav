@@ -3,16 +3,22 @@
  *
  * #btn-cycle-mode — DUY NHẤT 1 nút cho 2 việc (CÙNG khuôn #btn-cycle-eq, event/workflow/
  * eq-presets.js):
- *   - BẤM NGẮN (thả tay TRƯỚC 1.5s) — xoay effect kế tiếp (cycleVisualizerType(), core).
- *   - GIỮ đủ 1.5s — mở Generic Drawer, hiện custom của effect ĐANG CHẠY.
- * Đếm giờ qua taskManager.once(), cờ `_holdFired` chặn cycle chạy thêm lúc thả tay sau khi đã mở
- * drawer. Workflow tự querySelector + addEventListener trực tiếp lên genericDrawerBody/Header sau
- * mỗi lần render (KHÔNG qua eventBus cho nội dung động bên trong Drawer).
+ *   - BẤM NGẮN (thả tay TRƯỚC 1.5s) — [SỬA 05/09/2026, yêu cầu Giang, "cải tiến -> modal choice,
+ *     2 dropdown + select"] mở modal chọn effect (group -> style, `openEffectPickerModal()`,
+ *     core/visualizer/visualizer-display.js) THAY VÌ tự xoay 1 bước như trước (`cycleVisualizerType()`
+ *     cũ) — chọn thẳng effect muốn thay vì phải bấm nhiều lần mới tới đúng cái cần trong 12 style.
+ *   - GIỮ đủ 1.5s — KHÔNG đổi gì (Giang chốt "hold ko đụng vào") — vẫn mở thẳng Custom Effect
+ *     Drawer, hiện custom của effect ĐANG CHẠY, y hệt bản gốc.
+ * Đếm giờ qua taskManager.once(), cờ `_holdFired` chặn action click chạy thêm lúc thả tay sau khi
+ * đã mở Drawer bằng hold. Workflow tự querySelector + addEventListener trực tiếp lên
+ * genericDrawerBody/Header sau mỗi lần render (KHÔNG qua eventBus cho nội dung động bên trong
+ * Drawer).
  *
  * NẠP SAU: core/custom-effect.js, core/generic-drawer.js, components/custom-effect-drawer.js,
  * core/dom-refs.js (btnCycleMode, genericDrawer*), service/task-manager.js, event/workflow/
  * generic-drawer-helpers.js, core/visualizer-control-center.js (closeControlCenter() — SỬA
- * 14/08/2026, xem _fireHold()).
+ * 14/08/2026, xem _fireHold()), core/visualizer/visualizer-display.js
+ * (applyVisualizerStyleChoice(), openEffectPickerModal() — MỚI 05/09/2026).
  */
 
 const CUSTOM_EFFECT_HOLD_MS = 1500;
@@ -37,17 +43,24 @@ const workflowCustomEffect = {
      * nằm trong Control Center (core/visualizer-control-center.js), panel đó trước đây chỉ tự đóng
      * lúc `click` DOM thật bắn ra (SAU `pointerup`) — giữ đủ 1.5s thì Drawer mở nhưng Control Center
      * vẫn còn mở, chỉ thu gọn khi thả tay sau đó. Gọi thẳng `closeControlCenter()` (liên tuyến
-     * domain, CÙNG tiền lệ `core/player-controls.js`) NGAY TRƯỚC khi mở Drawer để đồng thời. */
+     * domain, CÙNG tiền lệ `core/player-controls.js`) NGAY TRƯỚC khi mở Drawer để đồng thời.
+     *
+     * GIỮ (hold) KHÔNG đổi gì (chốt lại 05/09/2026, Giang: "hold ko đụng vào") — vẫn mở thẳng
+     * Custom Effect Drawer như trước giờ, y hệt bản gốc. Phần cải tiến modal chọn effect
+     * (2 dropdown group -> style) chuyển sang CLICK, xem `onCycleModeClick()` ngay dưới. */
     _fireHold() {
         this._holdFired = true;
         if (typeof closeControlCenter === 'function') closeControlCenter(); // core/visualizer-control-center.js
         this.open();
     },
 
-    /** Ứng với `click` DOM thật trên #btn-cycle-mode. */
+    /** Ứng với `click` DOM thật trên #btn-cycle-mode. [SỬA — 05/09/2026, yêu cầu Giang, "cải tiến
+     * -> modal choice, 2 dropdown + select"] Giờ mở modal chọn effect (group -> style,
+     * `openEffectPickerModal()`) thay vì tự xoay 1 bước (`cycleVisualizerType()` cũ) — chọn thẳng
+     * effect muốn thay vì phải bấm nhiều lần mới tới đúng cái cần trong 12 style. */
     onCycleModeClick() {
         if (this._holdFired) { this._holdFired = false; return; }
-        cycleVisualizerType(); // core
+        openEffectPickerModal((style) => applyVisualizerStyleChoice(style)); // core/visualizer/visualizer-display.js
     },
 
     /** Mở Drawer cho effect ĐANG CHẠY. */
@@ -63,7 +76,7 @@ const workflowCustomEffect = {
         const config = {
             height: 'auto',
             maxHeight: '70vh',
-            headerHtml: renderCustomEffectHeader(type), // components/custom-effect-drawer.js
+            headerHtml: renderCustomEffectHeader(type, cfg), // components/custom-effect-drawer.js — SỬA: nhận thêm cfg (hiện tên STYLE, không phải group)
             bodyHtml: renderCustomEffectBody(type, cfg),
             bodyClass: 'overflow-y-auto px-4 py-3',
         };
@@ -80,7 +93,7 @@ const workflowCustomEffect = {
         updateGenericDrawer({
             height: 'auto',
             maxHeight: '70vh',
-            headerHtml: renderCustomEffectHeader(type),
+            headerHtml: renderCustomEffectHeader(type, cfg),
             bodyHtml: renderCustomEffectBody(type, cfg),
             bodyClass: 'overflow-y-auto px-4 py-3',
         });
@@ -97,18 +110,6 @@ const workflowCustomEffect = {
     _wire(type) {
         const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
         if (closeBtn) closeBtn.addEventListener('click', () => workflowGenericDrawerHelpers.closeFully());
-
-        const styleSelect = genericDrawerBody.querySelector('#ce-style');
-        if (styleSelect) {
-            styleSelect.addEventListener('change', (e) => {
-                const styleField = CUSTOM_EFFECT_STYLE[type].field; // core/custom-effect.js
-                setCustomEffectField(type, styleField, e.target.value); // core
-                saveConfig();
-                if (type === 'rain') resizeCanvas();
-                else if (type === 'vortex') updateVortexVisibility();
-                this._rerenderBody(type);
-            });
-        }
 
         const colorModeSelect = genericDrawerBody.querySelector('#ce-color-mode');
         const solidRow = genericDrawerBody.querySelector('#ce-solid-color-row');
