@@ -386,6 +386,11 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsSubtitleStyle.sectionTitle': 'Subtitles',
     'settingsSubtitleStyle.enable.label': 'Show subtitles',
     'settingsSubtitleStyle.enable.hint': "Turn off to hide subtitles during playback, without deleting what you've written.",
+    // MỚI (mục 1, Giang yêu cầu dời toggle "Show subtitles" sang Display > Thành phần) — nút mở
+    // panel con "Phụ đề" (components/settings/visualizer-display-panel.js) giờ CHỈ còn dẫn tới
+    // Custom Styling + Transition, không còn là hint của toggle enable/disable nữa — TÁCH riêng
+    // khỏi `.enable.hint` (giờ dùng ĐÚNG nghĩa cho chính toggle mới trong card "Thành phần").
+    'settingsSubtitleStyle.openPanel.hint': 'Styling and entrance/exit timing for subtitles',
     // MỚI (15/08/2026, mục 4a) — nút "Styling" trong panel con Phụ đề, mở Element Style Editor.
     'settingsSubtitleStyle.styling.label': 'Styling',
     'settingsSubtitleStyle.styling.hint': 'Customize the box that wraps subtitle lines (size, spacing, border, background...)',
@@ -410,10 +415,10 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsSubtitleStyle.effect.pulse': 'Pulse',
     'settingsSubtitleStyle.effect.glow': 'Glow',
     // XOÁ (mục 2) — 'settingsSubtitleStyle.openDrawer.label'/'.hint' (nút "Tuỳ chỉnh" cũ mở drawer
-    // 10 style) — panel con giờ chỉ có 1 toggle, mở thẳng qua nút trong panel "Display"
-    // (visualizerDisplayPanel.title dùng chung, KHÔNG cần label/hint riêng — xem components/
-    // settings/visualizer-display-panel.js, tái dùng 'settingsSubtitleStyle.sectionTitle'/
-    // '.enable.hint' làm label/hint cho chính nút đó).
+    // 10 style) — mở thẳng qua nút trong panel "Display" (xem components/settings/visualizer-
+    // display-panel.js), tái dùng 'settingsSubtitleStyle.sectionTitle' làm label + MỚI
+    // '.openPanel.hint' làm hint cho chính nút đó (mục 1 — '.enable.hint' giờ thuộc về toggle
+    // "Show subtitles" đã dời sang card "Thành phần" của panel "Display", KHÔNG còn ở đây).
 
     // MỚI (mục 1b/1c, Sort subpanel) — panel "Sắp xếp": 2 trục. SỬA (mục 3, phản hồi Giang — "đổi
     // tên Listening stats thành Stats, tách field/hướng thành 2 dropdown riêng") — statMode.* (1
