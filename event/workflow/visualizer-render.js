@@ -13,19 +13,32 @@
  * double-start nên an toàn tuyệt đối dù `setupAudioContext()` được gọi lại nhiều lần (Next/Prev/
  * chọn bài khác... — guard "chỉ chạy thật lần đầu" nằm ngay trong hàm đó).
  *
- * VISUAL CŨ (bar/rubik/vortex/black hole/rain) — gọi THẲNG, y nguyên tham số, y hệt
- * `drawVisualizer()` cũ đang làm — KHÔNG đụng logic bên trong các file `core/visualizer/types/*.js`
- * này.
+ * VISUAL bar/rubik/vortex/black hole/rain — [SỬA, rà soát Rule 3, không ngoại lệ] TRƯỚC ĐÂY gọi
+ * THẲNG 1 hàm `drawXxx()` duy nhất mỗi visual (y hệt `drawVisualizer()` cũ, không đụng logic bên
+ * trong `core/visualizer/types/*.js`). Cả 5 hàm `drawXxx()` đó ĐÃ XOÁ (từng vi phạm Rule 1/2/3:
+ * tự `appState.get()`, tự gọi `getActiveEffectConfig()`/`getComputedColor()`/hàm core khác cùng
+ * hoặc khác file, `bar`/`rain`/`vortex` còn if/else tự chọn style con). Workflow giờ điều phối
+ * THẬT SỰ, cùng khuôn Galaxy: `_tickBar()`/`_tickRubik()`/`_tickVortexRender()`/`_tickBlackHole()`/
+ * `_tickRain()` bên dưới — tự gom appState/cfg TRƯỚC, tự vòng lặp gọi RIÊNG LẺ từng hàm Core.
+ * [CHUYỂN NHÓM, 05/09/2026, yêu cầu Giang] Core của 5 visual này giờ nằm ở
+ * `core/visualizer/groups/<group>/<style>.js` (mỗi style 1 file riêng, không gộp chung nữa) thay
+ * vì `core/visualizer/types/*.js` cũ: `bar/mirror.js`, `bar/cascade.js`, `bar/black-hole.js` (Black
+ * Hole CHUYỂN vào group "bar"), `shape/rubik.js` (Rubik CHUYỂN vào group "shape"),
+ * `vortex/rings.js`, `vortex/bars.js`, `vortex/wave.js`, `rain/glass.js`, `rain/street.js` — mỗi
+ * group có thêm 1 `common.js` (registry style con + biến/cơ chế dùng chung, nếu có).
  *
  * VISUAL Galaxy (`type: 'space'`) — Workflow điều phối THẬT SỰ: tự gom state, tự gọi RIÊNG LẺ
- * từng hàm/method Core của `core/webgl/three-space.js` + `core/visualizer/types/space.js` — không
- * hàm Core nào trong engine Galaxy gọi hàm Core khác, Workflow đứng NGOÀI gọi CẢ tất cả. Xem
- * `_tickSpace()` bên dưới.
+ * từng hàm/method Core của `core/webgl/three-space.js` + `core/visualizer/groups/space/
+ * galaxy-explore.js` (CHUYỂN NHÓM + ĐỔI TÊN, 05/09/2026, yêu cầu Giang — trước đây đứng riêng
+ * `core/visualizer/types/space.js`, style giờ gọi "galaxy explore") — không hàm Core nào trong
+ * engine Galaxy gọi hàm Core khác, Workflow đứng NGOÀI gọi CẢ tất cả. Xem `_tickSpace()` bên dưới.
  *
  * VISUAL Lighting (`type: 'lighting'`) — CÙNG khuôn Galaxy (Workflow điều phối thật, không nằm
  * trong `VISUALIZER_DRAWERS`), 2 style con qua `customEffect.lighting.lightingStyle`: 'thunder'
  * (`_tickLightingThunder()`) và 'fireworks' (`_tickLightingFireworks()`, tự gom rocket/particle —
- * `fwRockets`/`fwParticles`). Cả 2 style dùng chung hàm Core ở `core/visualizer/types/lighting.js`.
+ * `fwRockets`/`fwParticles`). Mỗi style 1 file riêng — `core/visualizer/groups/lighting/thunder.js`/
+ * `fireworks.js` (CHUYỂN NHÓM, 05/09/2026 — trước đây gộp chung `core/visualizer/types/
+ * lighting.js`), cơ chế chớp sáng dùng chung ở `groups/lighting/common.js`.
  * Xem `_tickLighting()` bên dưới. [SỬA — rà soát Rule 3] Style "fireworks": `explodeFireworksXXX()`/
  * `splitFireworksParticle()`/`explodeFireworksText()` (core) giờ trả về SPEC thuần, không tự gọi
  * `getComputedColor()`/`createFireworksParticle()` nữa — Workflow tự `_fwMaterializeSpecs()` (mới,
@@ -67,7 +80,8 @@
  * Mọi lúc CHỈ ĐÚNG 1 pha camera chạy (KHÔNG BAO GIỜ 2 pha cùng lúc) — RIÊNG bên trong
  * `galaxyTravel`, vị trí VÀ hướng nhìn nội suy ĐỘC LẬP nhưng SONG SONG (cùng progress, mục 2b(5)).
  *
- * NẠP: SAU toàn bộ `core/visualizer/types/*.js`, `core/visualizer/draw/*.js`,
+ * NẠP: SAU toàn bộ `core/visualizer/groups/<group>/<style>.js` (mỗi group's `common.js` trước, style con sau —
+ * xem index.html), `core/visualizer/draw/*.js`,
  * `core/webgl/three-vortex.js`, `core/webgl/three-space.js`, `core/audio-analysis.js` (cần
  * `detectMusicTransition()`/`isPhraseBoundary()` đã định nghĩa), `core/visualizer/visualizer-
  * display.js` — xem vị trí thẻ `<script>` trong index.html (đặt ngay vị trí cũ của
@@ -77,14 +91,12 @@
 const RENDER_TASK = 'visualizerRender';
 
 // Tra cứu hàm vẽ 2D theo `vizConfig.type` — dời nguyên từ `draw-visualizer.js` cũ (đã RỖNG).
-// `vortex`/`space` KHÔNG nằm trong bảng này: 2 visual đó render qua WebGL (canvas riêng), xử lý
-// RIÊNG trong `_tick()` TRƯỚC khi canvas 2D được clear.
-const VISUALIZER_DRAWERS = {
-    'bar':        (ctx, perf) => drawBar(ctx, perf),
-    'rubik':      (ctx, perf, isPlaying) => drawRubik(ctx, isPlaying),
-    'black hole': (ctx, perf, isPlaying) => drawBlackHole(ctx, perf, isPlaying),
-    'rain':       (ctx, perf, isPlaying) => drawRain(ctx, isPlaying)
-};
+// `bar`/`black hole`/`rain`/`rubik`/`vortex`/`space` KHÔNG nằm trong bảng này: `bar`/`rain` có
+// style con nên Workflow tự chọn qua `_tickBar()`/`_tickRain()` (Rule 1); `black hole`/`rubik` cần
+// nhiều bước state/mutate/xoay 3D nối tiếp nên qua `_tickBlackHole()`/`_tickRubik()`; `vortex`/
+// `space` render qua WebGL (canvas riêng), xử lý RIÊNG trong `_tick()` TRƯỚC khi canvas 2D được
+// clear. Bảng để lại rỗng (thay vì xoá hẳn) để không phá cấu trúc dispatch `if (drawFn)` bên dưới.
+const VISUALIZER_DRAWERS = {};
 
 // ===== Mô hình Galaxy — hằng số (VIẾT LẠI HOÀN TOÀN 26/08/2026, xem docstring đầu file) =====
 
@@ -229,9 +241,10 @@ const workflowVisualizerRender = {
         // ================== VISUAL CŨ — gọi THẲNG, y nguyên tham số ==================
         if (cfg.type === 'vortex') {
             // Hướng rẽ ống (Workflow điều phối thật — beat flux/pitch/ghi tPathTarget) TRƯỚC,
-            // rồi mới tới phần vẽ/nội suy cũ (drawVortex(), vẫn legacy, không đụng).
+            // rồi tới phần cập nhật vị trí/màu/camera mỗi frame (_tickVortexRender() — rà soát
+            // Rule 3, Workflow điều phối thật, không còn gọi thẳng drawVortex() cũ).
             this._tickVortexCurve(isPlaying);
-            drawVortex(perf, isPlaying);
+            this._tickVortexRender(perf, isPlaying, newSmoothedEnergy, vizDataArray);
         } else if (cfg.type === 'space') {
             // ================== VISUAL Galaxy — Workflow điều phối THẬT SỰ ==================
             this._tickSpace(isPlaying, newSmoothedEnergy, newGlobalHueOffset);
@@ -242,6 +255,18 @@ const workflowVisualizerRender = {
         const drawFn = VISUALIZER_DRAWERS[cfg.type];
         if (drawFn) {
             drawFn(ctx, perf, isPlaying, newBeatScale);
+        } else if (cfg.type === 'bar') {
+            // ================== VISUAL Bar — Workflow tự chọn style mirror/cascade (Rule 1) ==================
+            this._tickBar(ctx, perf, newBeatScale, newSmoothedEnergy, vizDataArray, analyser);
+        } else if (cfg.type === 'black hole') {
+            // ================== VISUAL Black Hole — Workflow điều phối nhiều bước nối tiếp ==================
+            this._tickBlackHole(ctx, perf, isPlaying, newSmoothedEnergy, newBeatScale, newGlobalHueOffset, vizDataArray, analyser);
+        } else if (cfg.type === 'rain') {
+            // ================== VISUAL Rain — Workflow tự chọn style glass/street (Rule 1) ==================
+            this._tickRain(ctx, perf, isPlaying, newSmoothedEnergy, newBeatScale, vizDataArray);
+        } else if (cfg.type === 'rubik') {
+            // ================== VISUAL Rubik — Workflow điều phối xoay 3D + vẽ ==================
+            this._tickRubik(ctx, isPlaying, appState.get('dpr'), newSmoothedEnergy, newBeatScale, vizDataArray);
         } else if (cfg.type === 'lighting') {
             // ================== VISUAL Lighting — Workflow điều phối style thunder/fireworks ==================
             this._tickLighting(ctx, perf, isPlaying, newBeatScale, newSmoothedEnergy, vizDataArray);
@@ -256,8 +281,8 @@ const workflowVisualizerRender = {
      * chặn dội liên tiếp mỗi beat suốt 1 đoạn nhạc biến động kéo dài. Đủ điều kiện "nhạc vừa biến
      * động" (detectMusicTransition(), core/audio-analysis.js) -> chọn hướng rẽ theo nốt MIDI TỨC
      * THỜI (lastValidMidiNote, null thì Core tự fallback random) + z hiện tại của camera, ghi
-     * thẳng target mới vào tPathTarget — phần vẽ/nội suy còn lại vẫn ở drawVortex() (legacy,
-     * không đụng). */
+     * thẳng target mới vào tPathTarget — phần cập nhật vị trí/màu/camera mỗi frame nằm ở
+     * `_tickVortexRender()` (bên dưới, rà soát Rule 3). */
     _tickVortexCurve(isPlaying) {
         const fluxHistory = appState.get('fluxHistory');
         if (fluxHistory.length > 0) {
@@ -296,7 +321,319 @@ const workflowVisualizerRender = {
         appState.set('tPathTarget', nextTarget, { skipCheck: true });
     },
 
-    /** Chọn ĐÚNG 1 style con để tick — customEffect.lighting.lightingStyle (core/custom-effect.js). */
+    /** [MỚI — rà soát Rule 3] VISUAL Vortex — Workflow tự gom TOÀN BỘ appState/cfg, tự chọn ĐÚNG
+     * style rings/bars/wave (Rule 1 — chọn style KHÔNG được nằm trong 1 hàm core nữa), tự vòng lặp
+     * gọi RIÊNG LẺ từng hàm "1 bước/1 item" (core/visualizer/groups/vortex/{rings,bars,wave}.js) —
+     * center/màu tự
+     * resolve qua `getVortexCenterAt()`/`getComputedColor()` (core/webgl/three-vortex.js, core/
+     * audio-analysis.js) TRƯỚC khi truyền vào. Thay hẳn `drawVortex()` cũ (đã xoá, vi phạm
+     * Rule 1/2/3). */
+    _tickVortexRender(perf, isPlaying, smoothedEnergy, vizDataArray) {
+        if (!appState.get('tInitialized')) return;
+        const bufferLength = appState.get('analyser').frequencyBinCount;
+        const cfg = getActiveEffectConfig(); // core/custom-effect.js
+
+        updateVortexCurveLerp(); // core/webgl/three-vortex.js
+
+        const tWarpSpeed = computeVortexWarpSpeed(cfg.warpSpeedBase, cfg.warpSpeedEnergyMult, smoothedEnergy); // core
+        const tCurrentWarpZ = appState.get('tCurrentWarpZ') - tWarpSpeed;
+        appState.set('tCurrentWarpZ', tCurrentWarpZ, { skipCheck: true });
+
+        if (cfg.vortexStyle === 'rings') {
+            const tRings = appState.get('tRings');
+            tRings.forEach((ring, idx) => {
+                stepVortexRingZ(ring, tWarpSpeed, tCurrentWarpZ, TUNNEL_DEPTH); // core
+                const center = getVortexCenterAt(ring.position.z); // core/webgl/three-vortex.js
+                const val = vizDataArray[idx % bufferLength] || 0;
+                const color = getComputedColor(idx, tRings.length, val); // core/audio-analysis.js
+                let colorToApply;
+                if (cfg.mode === 'gradient') colorToApply = color.fill;
+                else if (cfg.mode === 'dynamic') colorToApply = idx % 2 === 0 ? cfg.dynA : cfg.dynB;
+                else colorToApply = cfg.solidColor;
+                finishVortexRingFrame(ring, center, val, smoothedEnergy, colorToApply); // core
+            });
+        } else if (cfg.vortexStyle === 'bars') {
+            const dummy = new THREE.Object3D();
+            const barsRingCount = cfg.barsRingCount, barsPerRing = cfg.barsPerRing;
+            const twistPerRing = (Math.PI * 2 / barsRingCount) * cfg.barsTwistFactor;
+            const globalTwist = appState.get('frameCounter') * 0.004;
+            const tBarsMesh = appState.get('tBarsMesh');
+            const tBarRingZs = appState.get('tBarRingZs');
+            for (let r = 0; r < barsRingCount; r++) {
+                stepVortexBarRingZ(r, tWarpSpeed, tCurrentWarpZ, TUNNEL_DEPTH); // core
+                const z = tBarRingZs[r];
+                const center = getVortexCenterAt(z); // core/webgl/three-vortex.js
+                const val = vizDataArray[r % 40] || 0;
+                const color = getComputedColor(r, barsRingCount, val); // core/audio-analysis.js
+                let ringColor;
+                if (cfg.mode === 'gradient') ringColor = color.fill;
+                else if (cfg.mode === 'dynamic') ringColor = (r % 2 === 0) ? cfg.dynA : cfg.dynB;
+                else ringColor = cfg.solidColor;
+                const threeColor = new THREE.Color(ringColor);
+                computeVortexBarsRingFrame(dummy, tBarsMesh, r, barsPerRing, z, center, val, smoothedEnergy, twistPerRing, globalTwist, threeColor); // core
+            }
+            tBarsMesh.instanceMatrix.needsUpdate = true;
+            if (tBarsMesh.instanceColor) tBarsMesh.instanceColor.needsUpdate = true;
+        } else if (cfg.vortexStyle === 'wave') {
+            const tWaveMeshes = appState.get('tWaveMeshes');
+            tWaveMeshes.forEach((wave, idx) => {
+                stepVortexWaveZ(wave, tWarpSpeed, tCurrentWarpZ, TUNNEL_DEPTH); // core
+                const center = getVortexCenterAt(wave.position.z); // core/webgl/three-vortex.js
+                const val = vizDataArray[idx % bufferLength] || 0;
+                const color = getComputedColor(idx, tWaveMeshes.length, val); // core/audio-analysis.js
+                let colorToApply;
+                if (cfg.mode === 'gradient') colorToApply = color.fill;
+                else if (cfg.mode === 'dynamic') colorToApply = idx % 2 === 0 ? cfg.dynA : cfg.dynB;
+                else colorToApply = cfg.solidColor;
+                finishVortexWaveFrame(wave, center, cfg.waveRotationBase, cfg.waveRotationEnergyMult, cfg.waveScaleBase, cfg.waveScaleEnergyMult, smoothedEnergy, colorToApply); // core
+            });
+        }
+
+        const camTargetPos = getVortexCenterAt(tCurrentWarpZ); // core/webgl/three-vortex.js
+        const tCamera = appState.get('tCamera');
+        dampVortexCameraPosition(tCamera, camTargetPos, tCurrentWarpZ); // core
+        const clampedPos = clampVortexCameraOffset(tCamera.position.x, tCamera.position.y, camTargetPos.x, camTargetPos.y, VORTEX_CAMERA_SAFE_RADIUS); // core/webgl/three-vortex.js
+        applyVortexCameraClamp(tCamera, clampedPos); // core
+
+        const lookAheadZ = tCurrentWarpZ - 800;
+        const lookPos = getVortexCenterAt(lookAheadZ); // core/webgl/three-vortex.js
+        tCamera.lookAt(lookPos.x, lookPos.y, lookAheadZ);
+
+        appState.get('tRenderer').render(appState.get('tScene'), tCamera);
+    },
+
+    /** [MỚI — rà soát Rule 3] VISUAL Bar — Workflow tự đọc `cfg.barStyle` rồi gọi ĐÚNG 1 trong 2
+     * hàm `computeBarXxxFrame()` (Rule 1 — chọn style KHÔNG được nằm trong 1 hàm core nữa), tự
+     * resolve màu qua `getComputedColor()` rồi `paintBarRects()` cho từng lô (core/visualizer/
+     * groups/bar/{mirror,cascade}.js). Thay hẳn `drawBar()` cũ (đã xoá, vi phạm Rule 1/2/3). */
+    _tickBar(ctx, perf, beatScale, smoothedEnergy, vizDataArray, analyser) {
+        const cfg = getActiveEffectConfig(); // core/custom-effect.js
+        const dpr = appState.get('dpr');
+        if (cfg.barStyle === 'cascade') {
+            const keys = computeBarCascadeFrame(cfg, canvas.width, canvas.height, dpr, vizDataArray); // core
+            keys.forEach((k) => {
+                const color = getComputedColor(...k.colorArgs); // core/audio-analysis.js
+                paintBarRects(ctx, [k.shadowRect, k.capRect], color.fill, color.glow, dpr, perf.blurMult, 10); // core
+            });
+        } else {
+            const maxBin = analyser.frequencyBinCount * 0.5;
+            const frame = computeBarMirrorFrame(cfg, canvas.width, canvas.height, dpr, vizDataArray, maxBin, beatScale, smoothedEnergy); // core
+            frame.bars.forEach((b) => {
+                const color = getComputedColor(...b.colorArgs); // core/audio-analysis.js
+                paintBarRects(ctx, b.rects, color.fill, color.glow, dpr, perf.blurMult, 15); // core
+            });
+            const centerColor = getComputedColor(...frame.center.colorArgs); // core/audio-analysis.js
+            paintBarRects(ctx, frame.center.rects, centerColor.fill, centerColor.glow, dpr, perf.blurMult, 15); // core
+        }
+        ctx.shadowBlur = 0;
+    },
+
+    /** [MỚI — rà soát Rule 3] VISUAL Black Hole — Workflow tự gom state + gọi RIÊNG LẺ từng hàm
+     * Core theo đúng thứ tự bản gốc (core/visualizer/groups/bar/black-hole.js): bán kính mượt -> flare
+     * (nếu đủ năng lượng) -> bước+vẽ sao -> tiến+vẽ flash -> dải cột tần số -> tâm hố đen. Thay hẳn
+     * `drawBlackHole()` cũ (đã xoá, vi phạm Rule 2/3). */
+    _tickBlackHole(ctx, perf, isPlaying, smoothedEnergy, beatScale, globalHueOffset, vizDataArray, analyser) {
+        const cfg = getActiveEffectConfig(); // core/custom-effect.js
+        const dpr = appState.get('dpr');
+        const centerX = canvas.width / 2, centerY = canvas.height / 2;
+        const minDimension = Math.min(canvas.width, canvas.height);
+        const maxDist = Math.max(canvas.width, canvas.height);
+
+        const currentRadius = computeBlackHoleRadius(minDimension, smoothedEnergy, beatScale, cfg.radiusRatio, cfg.radiusEnergyMult); // core
+        const currentSuction = cfg.suctionBase + (isPlaying ? smoothedEnergy * cfg.suctionEnergyMult : 0);
+
+        if (isPlaying && smoothedEnergy > cfg.flareThreshold) {
+            const flareAlpha = (smoothedEnergy - cfg.flareThreshold) * 2.5;
+            paintBlackHoleFlare(ctx, canvas.width, canvas.height, centerX, centerY, currentRadius, globalHueOffset, flareAlpha); // core
+        }
+
+        stepAndDrawBlackHoleStars(ctx, dpr, centerX, centerY, maxDist, currentRadius, currentSuction); // core
+
+        const starFlashes = appState.get('starFlashes');
+        advanceAndDrawBlackHoleFlashes(ctx, dpr, starFlashes, cfg.flashFadeSpeed); // core
+
+        const usefulLength = Math.floor(analyser.frequencyBinCount * 0.35);
+        const dynamicMaxBarHeight = (cfg.maxH / 1000) * (minDimension * 0.25);
+        paintBlackHoleBarsSetup(ctx, dpr, cfg.barWidth); // core
+        const bars = computeBlackHoleBarsFrame(vizDataArray, usefulLength, cfg.minH, dpr, dynamicMaxBarHeight, centerX, centerY, currentRadius); // core
+        bars.forEach((b) => {
+            const color = getComputedColor(...b.colorArgs); // core/audio-analysis.js
+            paintBlackHoleBarLines(ctx, b.lines, color.fill, color.glow, dpr, perf.blurMult); // core
+        });
+        ctx.shadowBlur = 0;
+
+        paintBlackHoleCore(ctx, centerX, centerY, currentRadius); // core
+    },
+
+    /** [MỚI — rà soát Rule 3] VISUAL Rain — Workflow tự đọc `cfg.rainStyle` rồi gọi ĐÚNG 1 trong
+     * `_tickRainGlass()`/`_tickRainStreet()` (Rule 1 — chọn style KHÔNG được nằm trong 1 hàm core
+     * nữa). Thay hẳn `drawRain()` cũ (đã xoá, vi phạm Rule 1/2/3). */
+    _tickRain(ctx, perf, isPlaying, smoothedEnergy, beatScale, vizDataArray) {
+        ctx.lineCap = 'round';
+        const cfg = getActiveEffectConfig(); // core/custom-effect.js
+        if (cfg.rainStyle === 'street') {
+            this._tickRainStreet(ctx, perf, isPlaying, cfg, smoothedEnergy, beatScale, vizDataArray);
+        } else {
+            this._tickRainGlass(ctx, perf, isPlaying, cfg, smoothedEnergy, vizDataArray);
+        }
+    },
+
+    /** Kiểu 'glass' — Workflow tự gom state + gọi RIÊNG LẺ từng hàm Core theo đúng thứ tự bản gốc
+     * (core/visualizer/groups/rain/glass.js). */
+    _tickRainGlass(ctx, perf, isPlaying, cfg, smoothedEnergy, vizDataArray) {
+        const dpr = appState.get('dpr');
+        const hasCustomBg = appConfigVisualBg.getAll().source.list.some((k) => k !== null) || appState.get('isVideoPlayerMode');
+        if (!hasCustomBg) {
+            const bgFill = getVisualBgFillStyle(ctx, canvas.width, canvas.height); // core/visual-bg.js
+            ctx.fillStyle = bgFill;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        const moon = computeRainMoonFrame(canvas.width, canvas.height, dpr, smoothedEnergy, cfg.glassMoonVisible); // core
+        paintRainMoon(ctx, moon); // core
+
+        const flashAlpha = computeRainFlashAlpha(cfg.glassFlash, isPlaying, smoothedEnergy, vizDataArray); // core
+        paintRainFlash(ctx, canvas.width, canvas.height, flashAlpha, (a) => `rgba(200, 220, 255, ${a})`); // core
+
+        if (cfg.glassCityVisible !== false) {
+            const cityOpacity = (typeof cfg.glassCityOpacity === 'number' ? cfg.glassCityOpacity : 40) / 100;
+            paintRainCity(ctx, canvas.height, appState.get('cityBuildings'), dpr, vizDataArray, isPlaying, cityOpacity); // core
+        }
+
+        ctx.globalAlpha = 1.0;
+        ctx.fillStyle = 'rgba(10, 15, 25, 0.2)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        appState.get('glassStaticDrops').forEach((d) => drawWaterDrop(ctx, d.x, d.y, d.r, 0.6)); // core
+
+        maybeSpawnRainStreak(canvas.width, vizDataArray, isPlaying, smoothedEnergy, cfg.glassStreakFrequency, dpr); // core
+
+        const glassStreaks = appState.get('glassStreaks');
+        const glassStaticDrops = appState.get('glassStaticDrops');
+        for (let i = glassStreaks.length - 1; i >= 0; i--) {
+            const streak = glassStreaks[i];
+            const result = advanceRainStreak(streak, glassStaticDrops, smoothedEnergy, dpr, canvas.width, canvas.height, cfg.glassDropDensity); // core
+            drawWaterDrop(ctx, ...result.drawArgs); // core
+            if (!result.alive) appState.mutate('glassStreaks', (arr) => arr.splice(i, 1), { skipCheck: true });
+        }
+
+        const glassGradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        glassGradient.addColorStop(0, 'rgba(255, 255, 255, 0.0)'); glassGradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.02)');
+        glassGradient.addColorStop(0.4, 'rgba(255, 255, 255, 0.08)'); glassGradient.addColorStop(0.41, 'transparent'); glassGradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = glassGradient; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        drawWindowFrame(ctx); // core
+    },
+
+    /** Kiểu 'street' — Workflow tự gom state + gọi RIÊNG LẺ từng hàm Core theo đúng thứ tự bản gốc
+     * (core/visualizer/groups/rain/street.js). */
+    _tickRainStreet(ctx, perf, isPlaying, cfg, smoothedEnergy, beatScale, vizDataArray) {
+        const dpr = appState.get('dpr');
+        const hasCustomBg = appConfigVisualBg.getAll().source.list.some((k) => k !== null) || appState.get('isVideoPlayerMode');
+        if (!hasCustomBg) {
+            const bgFill = getVisualBgFillStyle(ctx, canvas.width, canvas.height); // core/visual-bg.js
+            ctx.fillStyle = bgFill;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        const flashAlpha = computeRainFlashAlpha(cfg.glassFlash, isPlaying, smoothedEnergy, vizDataArray); // core
+        paintRainFlash(ctx, canvas.width, canvas.height, flashAlpha, (a) => `rgba(220, 225, 255, ${a * 0.8})`); // core
+
+        const rainIntensity = computeRainIntensity(isPlaying, smoothedEnergy); // core
+        const streetRain = appState.get('streetRain');
+        paintRainStreetDrops(ctx, canvas.width, canvas.height, dpr, streetRain.length, rainIntensity); // core
+
+        const groundY = appState.get('streetGroundY') || canvas.height * 0.88;
+        let stopColors;
+        if (cfg.mode === 'solid') {
+            stopColors = [{ offset: 0, color: interpolateColor('#0f141c', cfg.solidColor, 0.08) }, { offset: 1, color: '#08090f' }]; // core/color-utils.js
+        } else if (cfg.mode === 'dynamic') {
+            stopColors = [{ offset: 0, color: interpolateColor('#0f141c', cfg.dynA, 0.1) }, { offset: 1, color: interpolateColor('#08090f', cfg.dynB, 0.1) }]; // core/color-utils.js
+        } else {
+            stopColors = [{ offset: 0, color: 'rgba(15, 20, 28, 0.9)' }, { offset: 1, color: 'rgba(8, 10, 15, 0.95)' }];
+        }
+        paintRainGroundGradient(ctx, canvas.width, canvas.height, groundY, stopColors); // core
+
+        paintParkFence(ctx, canvas.width, groundY, dpr); // core
+
+        const streetLamps = appState.get('streetLamps');
+        const lampSpecs = advanceRainLampsAndBuildSpecs(streetLamps, isPlaying, beatScale, dpr); // core
+        lampSpecs.forEach((spec) => {
+            const lampColor = getComputedColor(...spec.colorArgs); // core/audio-analysis.js
+            let lampFill;
+            if (cfg.mode === 'solid') lampFill = cfg.solidColor;
+            else if (cfg.mode === 'dynamic') lampFill = spec.colorArgs[0] % 2 === 0 ? cfg.dynA : cfg.dynB;
+            else lampFill = lampColor.fill;
+            paintRainLamp(ctx, spec, lampFill, dpr); // core
+        });
+
+        if (isPlaying && beatScale > 0.55 && Math.random() > 0.92) {
+            const mainLamp = streetLamps.find((l) => l.main);
+            if (mainLamp) {
+                const rippleColor = getComputedColor(0, 1, 200); // core/audio-analysis.js
+                spawnRainRipple(mainLamp.x, groundY, canvas.height, dpr, rippleColor.fill, rippleColor.glow); // core
+            }
+        }
+        const ripples = appState.get('ripples');
+        advanceAndDrawRainRipples(ctx, ripples, dpr); // core
+        ctx.globalAlpha = 1.0;
+    },
+
+    /** [MỚI — rà soát Rule 3] VISUAL Rubik — Workflow tự gom appState/cfg, tự vòng lặp gọi RIÊNG
+     * LẺ `rotate3D()`/`project3D()`/`rotateRubikIndices()` (core/rubik-math.js) +
+     * `getComputedColor()` (core/audio-analysis.js) cho từng khối/đỉnh — core/visualizer/groups/
+     * shape/rubik.js chỉ còn tính toán thuần + vẽ. Thay hẳn `drawRubik()` cũ (đã xoá, vi phạm Rule 2/3). */
+    _tickRubik(ctx, isPlaying, dpr, smoothedEnergy, beatScale, vizDataArray) {
+        const cfg = getActiveEffectConfig(); // core/custom-effect.js
+        const currentMidi = appState.get('lastValidMidiNote');
+        const rubikPitchAvg = appState.get('rubikPitchAvg');
+
+        advanceRubikSelfSpin(isPlaying, currentMidi, rubikPitchAvg, smoothedEnergy, cfg.pitchSensitivity); // core
+
+        maybeTriggerRubikLayerTurn(isPlaying, smoothedEnergy, currentMidi, cfg.rotationEnergyThreshold, rubikPitchAvg); // core
+        const completedTurn = advanceRubikLayerTurnProgress(cfg.layerTurnSpeed, smoothedEnergy); // core
+        if (completedTurn) rotateRubikIndices(completedTurn.axis, completedTurn.layer, completedTurn.dir); // core/rubik-math.js
+
+        const cubeSize = Math.min(canvas.width, canvas.height) * cfg.cubeSizeRatio;
+        const spacing = cubeSize * 1.05;
+        const viewDist = cubeSize * 25;
+        const fov = cubeSize * 18;
+        const centerX = canvas.width / 2, centerY = canvas.height / 2;
+
+        const rubikCubes = appState.get('rubikCubes');
+        const drawnCubes = [];
+        for (let i = 0; i < rubikCubes.length; i++) {
+            const rc = rubikCubes[i];
+            const val = vizDataArray[rc.binIdx * 4] || 0;
+            const base = computeRubikCubeBase(rc, val, isPlaying, beatScale, cubeSize, spacing); // core
+            let pos = base.pos;
+            if (base.turnRotAxis === 'x') pos = rotate3D(pos, base.turnRotAngle, 0, 0); // core/rubik-math.js
+            else if (base.turnRotAxis === 'y') pos = rotate3D(pos, 0, base.turnRotAngle, 0); // core/rubik-math.js
+            else if (base.turnRotAxis === 'z') pos = rotate3D(pos, 0, 0, base.turnRotAngle); // core/rubik-math.js
+            const cCenter = rotate3D(pos, rubikRotX, rubikRotY, 0); // core/rubik-math.js
+            drawnCubes.push({ rc, centerZ: cCenter.z, val, pos, scale: base.scale });
+        }
+
+        drawnCubes.sort((a, b) => b.centerZ - a.centerZ);
+        drawnCubes.forEach((c) => {
+            const colors = getComputedColor(c.rc.binIdx, 27, c.val); // core/audio-analysis.js
+            const projVerts = RUBIK_UNIT_VERTICES.map((uv) => {
+                let vertPos = computeRubikVertexLocalPos(c.pos, uv, cubeSize, c.scale); // core
+                if (rubikAnim.active && c.rc['c' + rubikAnim.axis] === rubikAnim.layer) {
+                    const currentRot = rubikAnim.angle * rubikAnim.dir;
+                    vertPos = { x: vertPos.x - c.pos.x, y: vertPos.y - c.pos.y, z: vertPos.z - c.pos.z };
+                    if (rubikAnim.axis === 'x') vertPos = rotate3D(vertPos, currentRot, 0, 0); // core/rubik-math.js
+                    else if (rubikAnim.axis === 'y') vertPos = rotate3D(vertPos, 0, currentRot, 0); // core/rubik-math.js
+                    else if (rubikAnim.axis === 'z') vertPos = rotate3D(vertPos, 0, 0, currentRot); // core/rubik-math.js
+                    vertPos = { x: vertPos.x + c.pos.x, y: vertPos.y + c.pos.y, z: vertPos.z + c.pos.z };
+                }
+                const rotV = rotate3D(vertPos, rubikRotX, rubikRotY, 0); // core/rubik-math.js
+                return project3D(rotV, fov, viewDist, centerX, centerY); // core/rubik-math.js
+            });
+            paintRubikCubeFaces(ctx, projVerts, colors.fill, dpr); // core
+            if (c.val > 140) paintRubikCubeGlow(ctx, projVerts, colors.glow, dpr); // core
+        });
+    },
+
     _tickLighting(ctx, perf, isPlaying, beatScale, smoothedEnergy, vizDataArray) {
         const cfg = getActiveEffectConfig(); // core/custom-effect.js
         if (cfg.lightingStyle === 'fireworks') {
@@ -307,7 +644,7 @@ const workflowVisualizerRender = {
     },
 
     /** Style "thunder" (tia sét) — đọc/ghi appState, gọi RIÊNG LẺ từng hàm Core (core/visualizer/
-     * types/lighting.js). Port thuần từ drawLightning() cũ (đã xoá, vi phạm Rule 2). */
+     * groups/lighting/thunder.js). Port thuần từ drawLightning() cũ (đã xoá, vi phạm Rule 2). */
     _tickLightingThunder(ctx, perf, isPlaying, smoothedEnergy, vizDataArray, cfg) {
         const { dpr, activeLightnings } = appState.get(['dpr', 'activeLightnings']);
         ctx.lineCap = 'round';
@@ -334,7 +671,7 @@ const workflowVisualizerRender = {
     },
 
     /** Style "fireworks" (pháo hoa) — đọc/ghi appState, gọi RIÊNG LẺ từng hàm Core (core/
-     * visualizer/types/lighting.js), cùng khuôn _tickSpace(). @param {object} perf - { blurMult } */
+     * visualizer/groups/lighting/fireworks.js), cùng khuôn _tickSpace(). @param {object} perf - { blurMult } */
     _tickLightingFireworks(ctx, perf, isPlaying, beatScale, smoothedEnergy, vizDataArray, cfg) {
         const { dpr, currentCalculatedBpm } = appState.get(['dpr', 'currentCalculatedBpm']);
 
@@ -403,9 +740,10 @@ const workflowVisualizerRender = {
 
     /**
      * [MỚI — rà soát Rule 3] Vật chất hoá 1 mảng SPEC thuần (từ `explodeFireworksXXX()`/
-     * `splitFireworksParticle()`/`explodeFireworksText()`, core/visualizer/types/lighting.js)
-     * thành particle THẬT — nơi DUY NHẤT gọi `getComputedColor()` (core/audio-analysis.js) +
-     * `createFireworksParticle()` (core/visualizer/types/lighting.js) cho nhóm fireworks, đúng
+     * `splitFireworksParticle()`/`explodeFireworksText()`, core/visualizer/groups/lighting/
+     * fireworks.js) thành particle THẬT — nơi DUY NHẤT gọi `getComputedColor()` (core/audio-
+     * analysis.js) + `createFireworksParticle()` (core/visualizer/groups/lighting/fireworks.js)
+     * cho nhóm fireworks, đúng
      * tinh thần "core gọi core PHẢI chuyển ra Workflow" (Rule 3a/3c điều kiện 2). Mỗi spec đã tự
      * quyết định `fixedColor` (dùng nguyên) hay `colorArgs` (bộ 3 tham số gọi `getComputedColor`) —
      * hàm này không biết/không cần biết ý nghĩa nghiệp vụ của từng field, chỉ resolve rồi tạo.
