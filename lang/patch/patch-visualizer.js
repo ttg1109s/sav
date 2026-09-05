@@ -335,9 +335,9 @@ const LANG_PATCH_VISUALIZER = {
     'elementStyleEditor.textShadow.offsetY': 'Offset Y (px)',
     'elementStyleEditor.textShadow.blur': 'Blur (px)',
     'elementStyleEditor.textShadow.color': 'Color',
-    'elementStyleEditor.font.source': 'Source',
-    'elementStyleEditor.font.sourceSystem': 'System font',
-    'elementStyleEditor.font.sourceGoogle': 'Google Font',
+    // XOÁ (mục 1, Giang yêu cầu "bỏ row source vì giờ mặc định sẽ chỉ có google font") —
+    // 'elementStyleEditor.font.source'/'.sourceSystem'/'.sourceGoogle' (dropdown chọn nguồn font) —
+    // xem components/element-style-editor-drawer.js::_renderEseFontFamilyField().
     'elementStyleEditor.font.name': 'Font name',
     'elementStyleEditor.font.namePlaceholder': 'e.g. Roboto',
     // MỚI (16/08/2026 — dropdown + search cho nguồn Google, core/google-fonts-list.js).
