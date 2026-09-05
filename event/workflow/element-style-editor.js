@@ -53,6 +53,13 @@ const workflowElementStyleEditor = {
      * truyền (undefined) -> giữ NGUYÊN hành vi cũ 100% (Subtitle Styling — mặc định 128). */
     _zIndex: null,
 
+    /** MỚI (mục 2, Giang yêu cầu "chuyển dropdown google > dạng drawer generic list (subpanel)") —
+     * cờ đánh dấu đang ở màn con "Chọn Google Font" (true) hay màn chính Box/Text (false, mặc
+     * định) — Element Style Editor tự quản lý push/back 1 màn CỦA RIÊNG NÓ (KHÔNG dùng
+     * `workflowAppSettings._screenStack`, tool đó thuộc domain Settings khác, xem `_render()`/
+     * `_renderFontPicker()` bên dưới). Reset mỗi lần `open()` — phiên mới luôn bắt đầu ở màn chính. */
+    _fontPickerOpen: false,
+
     /** Mở Drawer cho 1 DOM cụ thể — mặc định bắt đầu từ draft TRẮNG (mọi property tắt).
      * MỚI (16/08/2026, mục 2 — Giang yêu cầu "cung cấp cấu hình mặc định giống hiện tại") — tham số
      * `initialCssString` (optional) — nếu nơi gọi TRUYỀN VÀO 1 chuỗi CSS đã lưu sẵn trước đó (đúng
@@ -75,6 +82,7 @@ const workflowElementStyleEditor = {
         this._onApply = onApply || null;
         this._onClose = onClose || null;
         this._zIndex = options.zIndex || null;
+        this._fontPickerOpen = false; // MỚI (mục 2) — phiên mới luôn bắt đầu ở màn chính, không kẹt ở màn con font còn dở từ lần mở trước
         resetElementStyleDraft(); // core
         if (initialCssString) applyElementStyleCssStringToDraft(initialCssString); // core — MỚI, nạp khớp style đã lưu
         setElementStyleActiveTab(options.startTab || 'box'); // core
@@ -82,6 +90,7 @@ const workflowElementStyleEditor = {
     },
 
     _render() {
+        if (this._fontPickerOpen) { this._renderFontPicker(); return; } // MỚI (mục 2) — đang ở màn con "Chọn Google Font"
         const activeTab = appState.get('eseActiveTab');
         const draft = appState.get('eseDraft');
         const loadedFonts = appState.get('eseLoadedGoogleFonts');
@@ -100,8 +109,11 @@ const workflowElementStyleEditor = {
             height: 'auto',
             maxHeight: '80vh',
             headerHtml: renderElementStyleEditorHeader(activeTab), // components/element-style-editor-drawer.js
+            // SỬA (mục 3, "preview đang có khe hở ở top") — bỏ `pt-3` (KHÔNG còn gì cho khối Preview
+            // sticky ở đầu body phải triệt tiêu bằng margin âm nữa — nó tự cấp `pt-3` riêng, xem
+            // docstring `_renderEsePreviewBox()`, components/element-style-editor-drawer.js).
             bodyHtml: renderElementStyleEditorBody(draft, activeTab, loadedFonts),
-            bodyClass: 'overflow-y-auto px-4 py-3',
+            bodyClass: 'overflow-y-auto px-4 pb-3',
         };
         if (this._zIndex) config.zIndex = this._zIndex; // xem docstring field `_zIndex` — mặc định (không set) giữ NGUYÊN hành vi cũ
         if (genericDrawerPanel.classList.contains('hidden')) openGenericDrawer(config); // core/generic-drawer.js
@@ -174,7 +186,10 @@ const workflowElementStyleEditor = {
             });
         }
 
-        this._wireFontFamilyPicker();
+        // MỚI (mục 2, thay `_wireFontFamilyPicker()` cũ) — nút hiển thị tên font (nguồn 'google')
+        // giờ CHỈ mở màn con danh sách, KHÔNG tự gõ/lọc tại chỗ nữa.
+        const openFontPickerBtn = genericDrawerBody.querySelector('#ese-fontfamily-open-picker');
+        if (openFontPickerBtn) openFontPickerBtn.addEventListener('click', () => { this._fontPickerOpen = true; this._render(); });
 
         const applyBtn = genericDrawerBody.querySelector('#ese-apply-btn');
         if (applyBtn) applyBtn.addEventListener('click', () => this._apply());
@@ -199,43 +214,58 @@ const workflowElementStyleEditor = {
         applyElementStyleToDom(previewBox, buildElementStyleCssString(appState.get('eseDraft'))); // core
     },
 
-    /** MỚI (16/08/2026 — Giang cung cấp `core/google-fonts-list.js`, "chọn thành dropdown + search
-     * bên trong") — wire riêng cho ô search+dropdown font nguồn 'google' (`_renderEseGoogleFontPicker()`,
-     * components/element-style-editor-drawer.js) — KHÔNG đi qua cơ chế `.ese-field` chung (ô này cố
-     * ý KHÔNG mang class đó, xem docstring hàm render).
-     * - focus: chọn hết chữ (gõ lại dễ hơn) + mở dropdown ngay (hiện TOÀN BỘ list nếu ô đang trống).
-     * - input: lọc lại danh sách theo chữ vừa gõ (KHÔNG ghi state — gõ dở dang chưa phải tên hợp lệ).
-     * - mousedown trên dropdown (KHÔNG phải 'click') + `preventDefault()` — bắt buộc: mousedown bắn
-     *   TRƯỚC blur/focusout của input, `preventDefault()` chặn luôn việc input MẤT FOCUS do click ra
-     *   ngoài, nên `blur` KHÔNG kịp bắn trước khi mình xử lý chọn xong — tránh đúng race-condition
-     *   kinh điển của combobox tự chế (blur ẩn dropdown trước khi kịp nhận click bên trong nó).
-     * - blur (còn lại, vd click ra ngoài Drawer): ẩn dropdown + TRẢ ô hiển thị VỀ ĐÚNG giá trị đang
-     *   lưu thật trong state (đọc appState.get('eseDraft')) — phòng người dùng gõ dở rồi bỏ đi,
-     *   tránh lệch giữa chữ đang HIỆN trên ô với giá trị THẬT SỰ đã lưu. */
-    _wireFontFamilyPicker() {
-        const searchInput = genericDrawerBody.querySelector('#ese-fontfamily-search');
-        const dropdown = genericDrawerBody.querySelector('#ese-fontfamily-dropdown');
-        if (!searchInput || !dropdown) return; // guard: đang ở Box tab, hoặc nguồn 'system' -> không có 2 phần tử này
-
-        const openDropdown = () => {
-            dropdown.innerHTML = _renderEseFontDropdownItems(searchInput.value); // components/element-style-editor-drawer.js
-            dropdown.classList.remove('hidden');
+    /** MỚI (mục 2, thay `_wireFontFamilyPicker()` cũ — Giang yêu cầu "chuyển dropdown google > dạng
+     * drawer generic list (subpanel), nhấn vào để chọn > ghi nhớ back lại") — vẽ màn con "Chọn
+     * Google Font": header có nút Back RIÊNG (KHÔNG phải tab Box/Text), body là ô tìm kiếm + danh
+     * sách cuộn dọc thật (components/element-style-editor-drawer.js::renderEseFontPickerHeader()/
+     * renderEseFontPickerBody()). CÙNG khuôn `height`/`maxHeight` với `_render()` (tránh lặp lại
+     * đúng bug "quên height/maxHeight -> kẹt 70vh cố định" đã ghi trong docstring `_render()`). */
+    _renderFontPicker() {
+        const draft = appState.get('eseDraft');
+        const currentValue = draft.text.fontFamily.value;
+        const config = {
+            height: 'auto',
+            maxHeight: '80vh',
+            headerHtml: renderEseFontPickerHeader(), // components/element-style-editor-drawer.js
+            bodyHtml: renderEseFontPickerBody(currentValue),
+            bodyClass: 'overflow-y-auto px-4 py-3',
         };
-        searchInput.addEventListener('focus', () => { searchInput.select(); openDropdown(); });
-        searchInput.addEventListener('input', openDropdown);
-        searchInput.addEventListener('blur', () => {
-            dropdown.classList.add('hidden');
-            searchInput.value = appState.get('eseDraft').text.fontFamily.value;
-        });
-        dropdown.addEventListener('mousedown', (e) => {
-            const btn = e.target.closest('.ese-font-option');
-            if (!btn) return;
-            e.preventDefault(); // xem docstring — chặn input mất focus trước khi xử lý xong
-            const fontName = btn.dataset.fontName;
-            searchInput.value = fontName;
-            setElementStyleField('text', 'fontFamily', { value: fontName }); // core
-            dropdown.classList.add('hidden');
-            this._updatePreview();
+        if (this._zIndex) config.zIndex = this._zIndex;
+        if (genericDrawerPanel.classList.contains('hidden')) openGenericDrawer(config); // core/generic-drawer.js
+        else updateGenericDrawer(config);
+        this._wireFontPicker();
+    },
+
+    /** Wire màn con font: nút Back (đóng màn con, KHÔNG đóng cả Drawer — "ghi nhớ back lại" đúng
+     * yêu cầu Giang) + ô tìm kiếm (lọc lại danh sách tại chỗ, KHÔNG re-render cả màn — chỉ gán lại
+     * `list.innerHTML`, tránh input mất focus giữa chừng lúc gõ, CÙNG lý do bản dropdown cũ) + click
+     * 1 dòng font = ghi state rồi TỰ ĐỘNG quay lại màn chính (KHÔNG cần người dùng bấm Back tay). */
+    _wireFontPicker() {
+        const backBtn = genericDrawerHeader.querySelector('#btn-ese-fontpicker-back');
+        if (backBtn) backBtn.addEventListener('click', () => { this._fontPickerOpen = false; this._render(); });
+
+        const searchInput = genericDrawerBody.querySelector('#ese-fontpicker-search');
+        const list = genericDrawerBody.querySelector('#ese-fontpicker-list');
+        this._wireFontPickerListClicks(list);
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const currentValue = appState.get('eseDraft').text.fontFamily.value;
+                list.innerHTML = _renderEseFontListItems(searchInput.value, currentValue); // components/element-style-editor-drawer.js
+                this._wireFontPickerListClicks(list);
+            });
+        }
+    },
+
+    /** Tách riêng khỏi `_wireFontPicker()` — cần gọi LẠI mỗi lần `list.innerHTML` bị gán lại lúc
+     * gõ tìm kiếm (nút cũ trong DOM bị thay hẳn, listener cũ mất theo, phải wire lại nút MỚI). */
+    _wireFontPickerListClicks(list) {
+        if (!list) return;
+        list.querySelectorAll('.ese-font-option').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                setElementStyleField('text', 'fontFamily', { value: btn.dataset.fontName }); // core
+                this._fontPickerOpen = false; // "ghi nhớ back lại" — tự quay về màn chính, không kẹt ở danh sách
+                this._render(); // vẽ lại màn chính, nút font name giờ hiện ĐÚNG tên vừa chọn + preview tự cập nhật (_wire() cuối _render() gọi _updatePreview())
+            });
         });
     },
 

@@ -15,14 +15,18 @@
  */
 const workflowVisualizerDisplay = {
 
-    /** Đồng bộ 5 toggle panel "Display" (components/settings/visualizer-display-panel.js). SỬA
+    /** Đồng bộ 6 toggle panel "Display" (components/settings/visualizer-display-panel.js). SỬA
      * (đợt migrate Visualizer Screen, phản hồi Giang "làm nốt visualizer") — KHÔNG còn
      * `pushSettingsPanel()`, bodyHtml do event/workflow/app-settings.js cung cấp SẴN qua
-     * `navigateTo()` — chỉ còn đồng bộ giá trị vào `genericDrawerBody`. */
+     * `navigateTo()` — chỉ còn đồng bộ giá trị vào `genericDrawerBody`.
+     * CHUYỂN (mục 1, Giang yêu cầu dời "Show subtitles" từ panel con "Phụ đề" sang đây, card
+     * "Thành phần") — thêm dòng đồng bộ `#setting-subtitles-enabled` (trước đây ở
+     * `workflowSubtitleStyleSettings.refresh()`, event/workflow/subtitle-style-settings.js). */
     openDisplayPanel() {
         const panelEl = genericDrawerBody;
         const cfg = appConfigViz.getAll();
         panelEl.querySelector('#setting-visual-enable').checked = cfg.visualEnabled !== false;
+        panelEl.querySelector('#setting-subtitles-enabled').checked = cfg.subtitlesEnabled !== false;
         panelEl.querySelector('#setting-stats-panel-enable').checked = appConfigPlayer.getAll().isStatsPanelVisible !== false;
         panelEl.querySelector('#setting-bottom-player-enable').checked = cfg.bottomPlayerVisible !== false;
         panelEl.querySelector('#setting-playlist-button-enable').checked = cfg.playlistButtonVisible !== false;

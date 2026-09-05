@@ -39,11 +39,13 @@ const workflowSubtitleStyleSettings = {
      * SỬA (16/08/2026, mục 3) — 2 dòng đổ độ lớn ĐỔI từ gán `.value` (input số cũ) sang gọi
      * `_syncMagnitudeButton()` (nút mới, xem hàm dưới).
      * SỬA (16/08/2026, mục 3 tiếp) — đồng bộ THÊM toggle Custom Styling + 2 field mặc định +
-     * ẩn/hiện đúng khối tương ứng (xem `_syncCustomStylingVisibility()`). */
+     * ẩn/hiện đúng khối tương ứng (xem `_syncCustomStylingVisibility()`).
+     * CHUYỂN (mục 1, Giang yêu cầu dời "Show subtitles" sang Display > Thành phần) — dòng đồng bộ
+     * `#setting-subtitles-enabled` ĐÃ DỜI sang `workflowVisualizerDisplay.openDisplayPanel()`
+     * (event/workflow/visualizer-display.js) — phần tử đó KHÔNG còn nằm trong panel con này nữa. */
     refresh() {
         if (genericDrawerPanel.classList.contains('hidden')) return; // guard: panel đã đóng
         const cfg = appConfigViz.getAll();
-        subtitleSettingsPanelEl.querySelector('#setting-subtitles-enabled').checked = cfg.subtitlesEnabled !== false;
         subtitleSettingsPanelEl.querySelector('#setting-subtitle-use-custom-styling').checked = !!cfg.subtitleUseCustomStyling;
         subtitleSettingsPanelEl.querySelector('#setting-subtitle-default-fontsize').value = cfg.subtitleDefaultFontSize || 16;
         subtitleSettingsPanelEl.querySelector('#setting-subtitle-default-color').value = cfg.subtitleDefaultColor || '#ffffff';
