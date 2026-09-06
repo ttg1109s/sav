@@ -9,13 +9,30 @@
  *
  * [REFACTOR 23/07/2026] `matchesSearch()` (lớp trung gian tự appState.get()) ĐÃ XOÁ — logic so
  * khớp chuyển hẳn sang `songMatchesQuery()` (core/song-search.js, THUẦN, dùng CHUNG với module Video
- * Editor). `recomputeRenderOrder()` bên dưới giờ tự đọc appState rồi gọi thẳng hàm đó (xem comment
- * tại chỗ).
+ * Editor).
+ *
+ * SỬA (Giang chỉ ra "vài hàm đó tự get state, rõ là vi phạm rule core") — `liveKeys()`/
+ * `recomputeRenderOrder()`/`recomputeDisplayOrder()` TRƯỚC ĐÂY tự `appState.get()` bên trong, tự
+ * biện minh "đã LÀ Workflow theo định nghĩa" để né Rule 3 — Giang bác bỏ lý lẽ đó. Cả 3 giờ THUẦN
+ * (Rule 2: chỉ nhận tham số, không tự đọc `appState`) — nơi gọi (Workflow, hoặc core khác đã tự
+ * đọc appState theo quy ước riêng của nó) tự đọc rồi truyền vào, xem docstring từng hàm. 4 hàm
+ * NGAY SAU (`applyNewSongsToDisplayOrder()`/`setDisplaySortMode()`/`setDisplayStatSortField()`/
+ * `setDisplayStatSortDirection()`) VẪN tự `appState.get()`/gọi `renderPlaylistDiff()` — vi phạm
+ * Rule 2/3 CỦA RIÊNG CHÚNG, chưa sửa (NGOÀI PHẠM VI đợt này, Giang chỉ nêu đích danh 2 hàm
+ * recompute*) — chỉ cập nhật lời gọi recompute* trong 4 hàm đó cho ĐỦ tham số, không vỡ.
  */
 
-        /** Mảng key đã lọc bỏ bài lỗi (confirmedBrokenKeys) — nền chung cho cả render lẫn hàng đợi. */
-        function liveKeys() {
-            return appState.get('playlistOrder').filter(k => !appState.get('confirmedBrokenKeys').has(k));
+        /** Mảng key đã lọc bỏ bài lỗi (confirmedBrokenKeys) — nền chung cho cả render lẫn hàng đợi.
+         * SỬA (Giang chỉ ra "vài hàm đó tự get state, rõ là vi phạm rule core") — TRƯỚC ĐÂY hàm
+         * NÀY tự `appState.get('playlistOrder'/'confirmedBrokenKeys')` bên trong (vi phạm Rule 2).
+         * Nhận cả 2 qua THAM SỐ — nơi gọi (`recomputeRenderOrder()`/`recomputeDisplayOrder()` ngay
+         * dưới, `updateEmptyState()` — core/playlist/render.js) tự đọc appState trước, TRUYỀN vào.
+         * @param {string[]} playlistOrder - appState.get('playlistOrder') hiện tại
+         * @param {Set<string>} confirmedBrokenKeys - appState.get('confirmedBrokenKeys') hiện tại
+         * @returns {string[]}
+         */
+        function liveKeys(playlistOrder, confirmedBrokenKeys) {
+            return playlistOrder.filter(k => !confirmedBrokenKeys.has(k));
         }
 
         /**
@@ -104,24 +121,41 @@
          *
          * [REFACTOR 23/07/2026, phản hồi Giang] — bỏ hẳn `matchesSearch()` làm lớp trung gian (hàm
          * đó tự `appState.get()` bên trong, không tái dùng được cho Video Editor — trang không nạp
-         * `appState`). Hàm NÀY vốn đã tự đọc/ghi `appState` trực tiếp (`liveKeys()`, `appState.set(
-         * 'renderOrder', ...)`) — tức đã LÀ Workflow theo định nghĩa (event-bus-flow.md mục 4B: đọc
-         * state để chuẩn bị input cho Core = Workflow), nên gọi thẳng Core thuần `songMatchesQuery()`
-         * (core/song-search.js, dùng CHUNG với Video Editor) ở đây KHÔNG vi phạm Rule 3 (Rule 3 chỉ
-         * cấm Core gọi Core — đây là Workflow gọi Core).
+         * `appState`). Logic so khớp chuyển hẳn sang `songMatchesQuery()` (core/song-search.js,
+         * THUẦN, dùng CHUNG với Video Editor).
+         *
+         * SỬA (Giang chỉ ra "vài hàm đó tự get state, rõ là vi phạm rule core") — TRƯỚC ĐÂY hàm
+         * NÀY tự `appState.get()` 6 field bên trong rồi mới gọi `liveKeys()`/`songMatchesQuery()`/
+         * `sortKeysByMode()`, tự biện minh "đã LÀ Workflow theo định nghĩa nên không tính Rule 3" —
+         * Giang bác bỏ lý lẽ đó: hàm nằm trong `core/playlist/order.js` thì tính là Core, PHẢI theo
+         * đúng Rule 2 (chỉ nhận tham số, KHÔNG tự đọc `appState`). SỬA ĐÚNG: nhận ĐỦ 9 tham số —
+         * nơi gọi (Workflow, hoặc core khác đã tự đọc appState theo đúng quy ước riêng của nó) tự
+         * `appState.get()` rồi TRUYỀN vào. `liveKeys()`/`songMatchesQuery()`/`sortKeysByMode()` vẫn
+         * được gọi TỪ ĐÂY — cả 3 đều THUẦN (Rule-2-compliant, không đụng `appState`, không side
+         * effect) nên đây là ghép nối hàm thuần (function composition), KHÔNG phải "Core gọi Core"
+         * theo nghĩa Rule 3 cấm (orchestrate nhiều side-effect độc lập) — CÙNG tiền lệ
+         * `sortKeysByMode()` tự gọi `_buildNameComparator()`/`_buildStatComparator()` ngay phía
+         * trên. Duy nhất `appState.set('renderOrder', ...)` + `console.log` (Rule 4) là side effect
+         * — giữ nguyên TẠI ĐÂY, đúng vai "hàm core mà bản chất công việc LÀ ghi state này".
+         * @param {string[]} playlistOrder - appState.get('playlistOrder') hiện tại
+         * @param {Set<string>} confirmedBrokenKeys - appState.get('confirmedBrokenKeys') hiện tại
+         * @param {string} searchQuery - appState.get('searchQuery') hiện tại (ĐÃ chuẩn hoá sẵn lúc gõ, applySearchQuery(), render.js)
+         * @param {Map} playlistCache - appState.get('playlistCache') hiện tại
+         * @param {string} nameMode - appState.get('displaySortMode') hiện tại
+         * @param {string} statField - appState.get('displayStatSortField') hiện tại
+         * @param {string} statDirection - appState.get('displayStatSortDirection') hiện tại
+         * @param {Map} songNameIndex - appState.get('songNameIndex') hiện tại
+         * @param {Map} mediaStatsMap - appState.get('mediaStatsMap') hiện tại
          */
-        function recomputeRenderOrder() {
+        function recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap) {
             const _t0 = performance.now(); // MỚI (chẩn đoán boot chậm, phản hồi Giang) — đo thời gian THẬT, không đổi logic
-            const query = appState.get('searchQuery'); // ĐÃ chuẩn hoá sẵn lúc gõ (applySearchQuery(), render.js)
-            const cache = appState.get('playlistCache');
-            // SỬA (mục 3) — displayStatSortMode (gộp) tách thành displayStatSortField/
-            // displayStatSortDirection (2 field riêng, khớp sortKeysByMode() bản mới).
-            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, mediaStatsMap } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'mediaStatsMap']);
-            appState.set('renderOrder', sortKeysByMode(liveKeys().filter((key) => {
-                const cached = cache.get(key);
-                return songMatchesQuery(query, cached ? cached.tag.title : key, cached ? cached.tag.artist : '', cached ? cached.tag.album : '');
-            }), nameMode, statField, statDirection, songNameIndex, cache, mediaStatsMap));
-            console.log(`writer: "recomputeRenderOrder", page: "(chẩn đoán)", content: "${(performance.now() - _t0).toFixed(0)}ms cho ${appState.get('renderOrder').length} item"`);
+            const filtered = liveKeys(playlistOrder, confirmedBrokenKeys).filter((key) => {
+                const cached = playlistCache.get(key);
+                return songMatchesQuery(searchQuery, cached ? cached.tag.title : key, cached ? cached.tag.artist : '', cached ? cached.tag.album : '');
+            });
+            const sorted = sortKeysByMode(filtered, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);
+            appState.set('renderOrder', sorted);
+            console.log(`writer: "recomputeRenderOrder", page: "renderOrder", content: "${(performance.now() - _t0).toFixed(0)}ms cho ${sorted.length} item"`);
         }
 
         // ===================== (B) HÀNG ĐỢI PHÁT =====================
@@ -130,15 +164,27 @@
          * FIX (03/07/2026, mục 3a/3b) — displayOrder sau lời gọi này LUÔN phản ánh ĐÚNG top-level
          * (liveKeys(), tức playlistOrder đã lọc bài lỗi) — nghĩa là bất kỳ "section" nào đang active
          * (playSelectedSongs(), event/workflow/playlist.js) coi như đã kết thúc tại đây -> đặt lại
-         * sectionQueueActive = false cho khớp. Thêm console.log Rule 4 cho 2 lượt ghi appState CŨ
-         * (trước đây chưa có, hàm này chưa từng vi phạm Rule 1/2/3 nên KHÔNG cần đổi gì khác ngoài
-         * việc bổ sung log — xem core-function-conventions.md mục 0.5: hàm bị đụng tới phải tuân đủ
-         * 4 rule, kể cả phần code cũ không đổi logic).
+         * sectionQueueActive = false cho khớp.
+         *
+         * SỬA (Giang chỉ ra "vài hàm đó tự get state, rõ là vi phạm rule core") — CÙNG LÝ DO
+         * recomputeRenderOrder() ngay trên — TRƯỚC ĐÂY tự `appState.get()` 6 field bên trong, giờ
+         * nhận ĐỦ 8 tham số, nơi gọi tự đọc appState rồi truyền vào. `liveKeys()`/`sortKeysByMode()`
+         * vẫn gọi TỪ ĐÂY — cả 2 THUẦN (Rule-2-compliant), ghép nối hàm thuần, không phải "Core gọi
+         * Core" theo nghĩa Rule 3 cấm — CÙNG lý giải recomputeRenderOrder(). 3 lượt ghi appState
+         * (displayOrder/pendingResortKeys/sectionQueueActive) + `console.log` (Rule 4) giữ nguyên
+         * TẠI ĐÂY, đúng vai "hàm core mà bản chất công việc LÀ ghi 3 state này thành 1 nhóm".
+         * @param {string[]} playlistOrder - appState.get('playlistOrder') hiện tại
+         * @param {Set<string>} confirmedBrokenKeys - appState.get('confirmedBrokenKeys') hiện tại
+         * @param {string} nameMode - appState.get('displaySortMode') hiện tại
+         * @param {string} statField - appState.get('displayStatSortField') hiện tại
+         * @param {string} statDirection - appState.get('displayStatSortDirection') hiện tại
+         * @param {Map} songNameIndex - appState.get('songNameIndex') hiện tại
+         * @param {Map} playlistCache - appState.get('playlistCache') hiện tại
+         * @param {Map} mediaStatsMap - appState.get('mediaStatsMap') hiện tại
          */
-        function recomputeDisplayOrder() {
-            // SỬA (mục 3) — CÙNG LÝ DO recomputeRenderOrder() ngay trên.
-            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache: cache, mediaStatsMap } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap']);
-            appState.set('displayOrder', sortKeysByMode(liveKeys(), nameMode, statField, statDirection, songNameIndex, cache, mediaStatsMap));
+        function recomputeDisplayOrder(playlistOrder, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap) {
+            const sorted = sortKeysByMode(liveKeys(playlistOrder, confirmedBrokenKeys), nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);
+            appState.set('displayOrder', sorted);
             console.log(`writer: "recomputeDisplayOrder", page: "displayOrder", content: "resort lại theo displaySortMode, về top-level"`);
             appState.mutate('pendingResortKeys', s => s.clear());
             console.log(`writer: "recomputeDisplayOrder", page: "pendingResortKeys", content: "clear toàn bộ"`);
@@ -159,11 +205,26 @@
          * (thứ tự nối vào cuối displayOrder, tập pendingResortKeys) giữ nguyên 100% so với bản cũ.
          */
         function applyNewSongsToDisplayOrder(newKeys) {
+            // GHI CHÚ (phạm vi sửa) — recomputeDisplayOrder() VỪA được sửa Rule 2 (nhận tham số
+            // thay vì tự appState.get(), xem docstring hàm đó) — 2 lời gọi dưới đây CẦN cập nhật
+            // theo, nếu không sẽ vỡ (gọi thiếu tham số). Hàm NÀY (applyNewSongsToDisplayOrder) tự
+            // nó CŨNG đang tự appState.get() sẵn (displayOrder/currentKey) — vi phạm Rule 2 riêng
+            // của chính nó — NGOÀI PHẠM VI đợt sửa này (Giang chỉ nêu đích danh recomputeRenderOrder/
+            // recomputeDisplayOrder), chỉ cập nhật ĐỦ để không vỡ, không dọn thêm.
+            const playlistOrder = appState.get('playlistOrder');
+            const confirmedBrokenKeys = appState.get('confirmedBrokenKeys');
             if (newKeys.length === 0) {
-                if (appState.get('displayOrder').length !== liveKeys().length) recomputeDisplayOrder();
+                if (appState.get('displayOrder').length !== liveKeys(playlistOrder, confirmedBrokenKeys).length) {
+                    const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap']);
+                    recomputeDisplayOrder(playlistOrder, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);
+                }
                 return;
             }
-            if (!appState.get('currentKey')) { recomputeDisplayOrder(); return; }
+            if (!appState.get('currentKey')) {
+                const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap']);
+                recomputeDisplayOrder(playlistOrder, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);
+                return;
+            }
             const displaySet = new Set(appState.get('displayOrder')); // tra cứu O(1) thay cho .includes() O(n)
             for (const k of newKeys) {
                 if (!displaySet.has(k)) {
@@ -246,12 +307,16 @@
          * option list tĩnh, components/settings/playlist-view.js) — giá trị cũ 'default' còn sót
          * trong state lưu trữ của người dùng cũ vẫn được `sortKeysByMode()` tự rơi về az an toàn,
          * chỉ là không set lại được NỮA qua hàm này (không sao, không ai còn chọn được 'default'
-         * từ UI để gọi lại hàm này với giá trị đó). */
+         * từ UI để gọi lại hàm này với giá trị đó).
+         * GHI CHÚ (phạm vi sửa, CÙNG applyNewSongsToDisplayOrder() ngay trên) — recomputeDisplayOrder()/
+         * recomputeRenderOrder() VỪA sửa Rule 2, cập nhật lời gọi ĐỦ tham số để không vỡ. Hàm NÀY tự
+         * gọi `renderPlaylistDiff()` (core khác) — vi phạm Rule 3 riêng, NGOÀI PHẠM VI đợt sửa này. */
         function setDisplaySortMode(mode) {
             if (!['az', 'za', 'newest', 'oldest'].includes(mode)) return;
             appState.set('displaySortMode', mode);
-            recomputeDisplayOrder();   // hàng đợi: resort thật (đổi mode là hành động chủ động)
-            recomputeRenderOrder();    // UI: sắp lại ngay
+            const { displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
+            recomputeDisplayOrder(playlistOrder, confirmedBrokenKeys, mode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);   // hàng đợi: resort thật (đổi mode là hành động chủ động)
+            recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, mode, statField, statDirection, songNameIndex, mediaStatsMap);    // UI: sắp lại ngay
             renderPlaylistDiff();
         }
 
@@ -260,8 +325,9 @@
         function setDisplayStatSortField(field) {
             if (!['none', 'count', 'times', 'size', 'duration'].includes(field)) return;
             appState.set('displayStatSortField', field);
-            recomputeDisplayOrder();
-            recomputeRenderOrder();
+            const { displaySortMode: nameMode, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
+            recomputeDisplayOrder(playlistOrder, confirmedBrokenKeys, nameMode, field, statDirection, songNameIndex, playlistCache, mediaStatsMap);
+            recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, field, statDirection, songNameIndex, mediaStatsMap);
             renderPlaylistDiff();
         }
 
@@ -270,8 +336,9 @@
         function setDisplayStatSortDirection(direction) {
             if (!['desc', 'asc'].includes(direction)) return;
             appState.set('displayStatSortDirection', direction);
-            recomputeDisplayOrder();
-            recomputeRenderOrder();
+            const { displaySortMode: nameMode, displayStatSortField: statField, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
+            recomputeDisplayOrder(playlistOrder, confirmedBrokenKeys, nameMode, statField, direction, songNameIndex, playlistCache, mediaStatsMap);
+            recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, direction, songNameIndex, mediaStatsMap);
             renderPlaylistDiff();
         }
 

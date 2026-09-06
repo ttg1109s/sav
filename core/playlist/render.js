@@ -180,9 +180,11 @@
             taskManager.once(() => el.classList.add('hidden'), 320); // khớp transition-opacity duration-300
         }
 
-        /** Cập nhật trạng thái rỗng/không-kết-quả thuần từ dữ liệu (không liên quan hàng đợi phát). */
+        /** Cập nhật trạng thái rỗng/không-kết-quả thuần từ dữ liệu (không liên quan hàng đợi phát).
+         * SỬA — `liveKeys()` (core/playlist/order.js) VỪA sửa Rule 2 (nhận tham số thay vì tự
+         * appState.get()), cập nhật lời gọi ĐỦ tham số để không vỡ. */
         function updateEmptyState() {
-            const totalSongs = liveKeys().length;
+            const totalSongs = liveKeys(appState.get('playlistOrder'), appState.get('confirmedBrokenKeys')).length;
             const emptyEl = playlistEmpty;
             const searchEmptyEl = document.getElementById('playlist-search-empty');
             // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — 2 chuỗi rỗng/không-
@@ -385,9 +387,13 @@
             playlistContainer.parentElement.scrollTop = 0;
         }
 
-        /** Ô tìm kiếm thay đổi: CHỈ lọc lại danh sách hiển thị (renderOrder) — KHÔNG đụng hàng đợi phát. */
+        /** Ô tìm kiếm thay đổi: CHỈ lọc lại danh sách hiển thị (renderOrder) — KHÔNG đụng hàng đợi phát.
+         * SỬA — `recomputeRenderOrder()` (core/playlist/order.js) VỪA sửa Rule 2, cập nhật lời gọi
+         * ĐỦ tham số để không vỡ (hàm NÀY tự appState.get()/gọi renderPlaylistDiff() sẵn — ngoài
+         * phạm vi đợt sửa này). */
         function applySearchQuery(raw) {
             appState.set('searchQuery', normalizeSongName(raw));
-            recomputeRenderOrder();
+            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
+            recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);
             renderPlaylistDiff();
         }

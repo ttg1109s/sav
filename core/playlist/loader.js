@@ -154,7 +154,12 @@
                 }
                 updateShuffleArray();
                 applyNewSongsToDisplayOrder(newlyAddedKeys); // (B) hàng đợi phát: nối cuối / pending
-                recomputeRenderOrder();                       // (A) UI: sắp xếp lại NGAY
+                // SỬA — recomputeRenderOrder() (core/playlist/order.js) VỪA sửa Rule 2, cập nhật
+                // lời gọi ĐỦ tham số để không vỡ.
+                {
+                    const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
+                    recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap); // (A) UI: sắp xếp lại NGAY
+                }
                 renderPlaylistDiff();
             });
 
@@ -456,8 +461,13 @@
                 // Thực sự rỗng -> hiện luôn trạng thái "chưa có bài nào", KHÔNG nháy lớp loading.
                 appState.set('playlistOrder', []);
                 updateShuffleArray();
-                recomputeDisplayOrder();
-                recomputeRenderOrder();
+                // SỬA — recomputeDisplayOrder()/recomputeRenderOrder() (core/playlist/order.js) VỪA
+                // sửa Rule 2, cập nhật lời gọi ĐỦ tham số để không vỡ.
+                {
+                    const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
+                    recomputeDisplayOrder(playlistOrder, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);
+                    recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);
+                }
                 renderPlaylistDiff();
                 updateEmptyState();
                 return;
@@ -467,8 +477,12 @@
             showPlaylistLoading(0, rawKeys.length);
             appState.set('playlistOrder', await scanValidSongsFromDB((done, total) => updatePlaylistLoading(done, total)));
             updateShuffleArray();
-            recomputeDisplayOrder();   // hàng đợi phát
-            recomputeRenderOrder();    // danh sách hiển thị
+            // SỬA — CÙNG LÝ DO nhánh rỗng ngay trên.
+            {
+                const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
+                recomputeDisplayOrder(playlistOrder, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);   // hàng đợi phát
+                recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);    // danh sách hiển thị
+            }
             renderPlaylistDiff();
             updateEmptyState();        // dựng xong -> fade out lớp loading (hoặc hiện empty nếu mọi record hỏng)
             hidePlaylistLoading();     // chốt fade out (an toàn kể cả khi tất cả record lỗi -> renderOrder rỗng)

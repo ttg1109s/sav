@@ -31,6 +31,8 @@
         /**
          * Loại 1 key khỏi playlist (xoá tay / "Xóa luôn" / "Giữ lại" lúc phát lỗi). Cập nhật CẢ
          * nguồn chân lý, hàng đợi phát LẪN danh sách hiển thị rồi vẽ lại.
+         * SỬA — `recomputeRenderOrder()` (core/playlist/order.js) VỪA sửa Rule 2, cập nhật lời gọi
+         * ĐỦ tham số để không vỡ.
          */
         function removeKeyFromDisplay(key) {
             appState.set('playlistOrder', appState.get('playlistOrder').filter(k => k !== key));
@@ -38,7 +40,10 @@
             appState.mutate('pendingResortKeys', s => s.delete(key));
             appState.mutate('playlistCache', m => m.delete(key)); appState.mutate('songNameIndex', m => m.delete(key));
             updateShuffleArray();
-            recomputeRenderOrder();
+            {
+                const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
+                recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);
+            }
             renderPlaylistDiff();
             updateEmptyState();
         }
@@ -691,13 +696,16 @@
         /**
          * Phần "dọn dẹp sau khi lưu" (vẽ lại danh sách, sắp xếp lại nếu cần) — core thuần, không
          * shield/modal, gọi SAU KHI applySongEditAndSave() đã resolve (workflow gọi nối tiếp).
+         * SỬA — `recomputeDisplayOrder()`/`recomputeRenderOrder()` (core/playlist/order.js) VỪA
+         * sửa Rule 2, cập nhật lời gọi ĐỦ tham số để không vỡ.
          * @param {string} key
          */
         function refreshAfterSongEditSave(key) {
             refreshSongNode(key); // vẽ lại ảnh/tên mới ngay trong danh sách (ảnh cũ trong DOM không tự đổi)
             // Đổi tên -> ảnh hưởng sort: cập nhật cả hàng đợi phát (nếu az/za) lẫn danh sách hiển thị.
-            if (appState.get('displaySortMode') === 'az' || appState.get('displaySortMode') === 'za') recomputeDisplayOrder();
-            recomputeRenderOrder();
+            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
+            if (nameMode === 'az' || nameMode === 'za') recomputeDisplayOrder(playlistOrder, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);
+            recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);
             renderPlaylistDiff();
         }
 
