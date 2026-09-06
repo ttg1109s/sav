@@ -91,9 +91,17 @@
 
             // ---- MỚI (ver12 "Song/Video Unification", Batch 1) — "Nguồn" (Song/Video), select
             //      trong Settings, cùng khu vực Sắp xếp/Kiểu xem ngay trên. ----
-            initMediaSource() {
-                if (!mediaSourceSelect) return;
-                mediaSourceSelect.value = appState.get('activeMediaSource'); // đồng bộ giá trị hiện tại lúc Settings mở ra
+            // SỬA (06/09/2026, Giang chỉ ra bug) — nhận `selectEl` qua THAM SỐ thay vì tự đọc biến
+            // toàn cục `mediaSourceSelect` (dom-refs.js, document.getElementById() 1 LẦN lúc script
+            // nạp — TỪ LÚC Settings migrate sang Generic Drawer content-swap, phần tử này CHƯA tồn
+            // tại lúc dom-refs.js chạy nên biến đó `null` VĨNH VIỄN cả phiên, y hệt bug `viewModeSelect`
+            // đã sửa trước đó). Nơi gọi tự truy vấn LẠI DOM MỖI LẦN cần (querySelector trên
+            // `genericDrawerBody`/`body` đang render), KHÔNG cache — xem event/workflow/app-settings.js
+            // ::_renderPlaylist() (nơi gọi CHÍNH, mỗi lần màn Playlist Settings mở) và
+            // event/workflow/playlist.js::syncPlaylistSettingsUI().
+            initMediaSource(selectEl) {
+                if (!selectEl) return;
+                selectEl.value = appState.get('activeMediaSource'); // đồng bộ giá trị hiện tại lúc Settings mở ra
             },
 
             /**
@@ -108,19 +116,30 @@
              * Gọi lúc boot/mở Settings (qua `workflowPlaylist.syncPlaylistSettingsUI()` hoặc
              * bootstrap cuối file) VÀ ngay sau mỗi lần `persistScopeChoice()` đổi
              * (workflowPlaylistScope) để phản ánh đúng NGAY, không cần đợi reload.
+             * SỬA (06/09/2026, Giang chỉ ra bug — "khoá Nguồn khi có Scope không hoạt động") — hàm
+             * này TRƯỚC ĐÂY tự đọc biến toàn cục `mediaSourceSelect` (dom-refs.js), capture 1 LẦN
+             * lúc script nạp — luôn `null` từ lúc Settings migrate sang Generic Drawer content-swap
+             * (phần tử `<select>` chỉ tồn tại đúng lúc màn Playlist Settings đang MỞ), khiến guard
+             * `if (!mediaSourceSelect) return;` chặn HẲN, function no-op ÂM THẦM ở MỌI lần gọi — tính
+             * năng khoá <select> khi có Folder Scope active KHÔNG BAO GIỜ thật sự chạy, dù
+             * `_renderPlaylist()` (event/workflow/app-settings.js) vẫn đồng bộ đúng `.value` mỗi lần
+             * mở (nên bug không lộ ra ở đó, chỉ riêng phần khoá/option folder là mất). Nhận `selectEl`
+             * qua THAM SỐ, nơi gọi tự truy vấn DOM sống ngay trước khi gọi (KHÔNG cache) — xem
+             * event/workflow/app-settings.js::_renderPlaylist() (nơi gọi MỚI thêm, sửa đúng gốc).
+             * @param {HTMLSelectElement|null} selectEl
              */
-            async updateActiveFolderUI() {
-                if (!mediaSourceSelect) return;
+            async updateActiveFolderUI(selectEl) {
+                if (!selectEl) return;
                 // Dọn option folder CŨ (nếu có) trước — tránh đọng lại option của lần Scope trước
                 // khi đổi/bỏ Scope (mỗi lần gọi hàm này tự dựng lại ĐÚNG 1 option, không cộng dồn).
-                const oldOption = mediaSourceSelect.querySelector('option[data-folder-option]');
+                const oldOption = selectEl.querySelector('option[data-folder-option]');
                 if (oldOption) oldOption.remove();
 
                 const folderId = appState.get('activePlayListFolder');
                 if (!folderId) {
-                    mediaSourceSelect.disabled = false;
-                    mediaSourceSelect.classList.remove('opacity-40');
-                    mediaSourceSelect.title = '';
+                    selectEl.disabled = false;
+                    selectEl.classList.remove('opacity-40');
+                    selectEl.title = '';
                     return;
                 }
 
@@ -129,11 +148,11 @@
                 opt.dataset.folderOption = 'true';
                 opt.value = appState.get('activeMediaSource'); // giữ ĐÚNG value song/video hiện tại — chỉ đổi CHỮ hiển thị
                 opt.textContent = folderRecord ? folderRecord.name : t('settingsPlaylistBg.activeFolder.none');
-                mediaSourceSelect.appendChild(opt);
+                selectEl.appendChild(opt);
                 opt.selected = true;
-                mediaSourceSelect.disabled = true;
-                mediaSourceSelect.classList.add('opacity-40');
-                mediaSourceSelect.title = t('settingsPlaylistBg.mediaSource.lockedByFolderScope');
+                selectEl.disabled = true;
+                selectEl.classList.add('opacity-40');
+                selectEl.title = t('settingsPlaylistBg.mediaSource.lockedByFolderScope');
             }
         };
 
@@ -179,5 +198,9 @@
         // `workflowPlaylist.syncPlaylistSettingsUI()` vì event/workflow/playlist.js nạp SAU file
         // này (thứ tự <script> trong index.html), `workflowPlaylist` chưa tồn tại lúc dòng này chạy.
         PlaylistMain.initViewMode(appState.get('isGridView'));
-        PlaylistMain.initMediaSource();
-        PlaylistMain.updateActiveFolderUI();
+        // SỬA (06/09/2026) — `genericDrawerBody.querySelector(...)` thay biến toàn cục
+        // `mediaSourceSelect` (dom-refs.js) đã XOÁ — tại đúng dòng này (bootstrap lúc script vừa
+        // nạp) chắc chắn trả `null` (Settings chưa từng mở), NO-OP đúng ý nghĩa như trước giờ.
+        const bootMediaSourceSelectEl = genericDrawerBody.querySelector('#setting-playlist-media-source');
+        PlaylistMain.initMediaSource(bootMediaSourceSelectEl);
+        PlaylistMain.updateActiveFolderUI(bootMediaSourceSelectEl);
