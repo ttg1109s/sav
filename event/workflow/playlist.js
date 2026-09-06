@@ -497,11 +497,27 @@ const workflowPlaylist = {
 
         // MỚI (ver12 Batch1) — sortKeysByMode() đổi chữ ký, nhận tham số thay vì tự appState.get()
         // (Rule 2, xem comment tại định nghĩa hàm, core/playlist/order.js) — gộp 1 lần get([...]).
-        const { displaySortMode: mode, songNameIndex, playlistCache: cache } = appState.get(['displaySortMode', 'songNameIndex', 'playlistCache']);
-        const sorted = sortKeysByMode(keys, mode, songNameIndex, cache); // core có sẵn, CÓ return, DÙNG NGAY dưới -> hợp lệ Rule 3
+        // FIX (regression, phản hồi Giang — "Chọn nhiều -> Phát ném TypeError") — sortKeysByMode()
+        // SAU ĐÓ đổi chữ ký THÊM LẦN NỮA (mục 3, tách trục thống kê: statField/statDirection chen
+        // vào GIỮA nameMode và songNameIndex, thêm mediaStatsMap cuối cùng — core/playlist/
+        // order.js) nhưng caller NÀY sót lại, vẫn gọi theo VỊ TRÍ CŨ 4 tham số — `songNameIndex`/
+        // `playlistCache` bị đẩy LỆCH xuống đúng vị trí `statField`/`statDirection`, 3 tham số
+        // cuối cùng (`songNameIndex`/`playlistCache`/`mediaStatsMap` THẬT) luôn `undefined` ->
+        // `_buildStatComparator()` rơi vào nhánh mặc định 'duration', gọi `playlistCache.get(k)`
+        // trên `undefined` -> TypeError ngay lần so sánh đầu (chắc chắn xảy ra khi chọn ≥2 bài).
+        // Đọc ĐỦ 6 field, gọi ĐÚNG thứ tự 7 tham số — CÙNG khuôn đã dùng đúng ở
+        // recomputeRenderOrder()/recomputeDisplayOrder() (core/playlist/order.js).
+        const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache: cache, mediaStatsMap } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap']);
+        const sorted = sortKeysByMode(keys, nameMode, statField, statDirection, songNameIndex, cache, mediaStatsMap); // core có sẵn, CÓ return, DÙNG NGAY dưới -> hợp lệ Rule 3
         appState.set('displayOrder', sorted);
         console.log(`writer: "playSelectedSongs", page: "displayOrder", content: "${sorted.length} bài đã chọn, sort theo displaySortMode hiện tại"`);
+        // FIX (vi phạm Rule 4 — core-function-conventions.md, mỗi lượt ghi appState phải có log)
+        // — dòng mutate() này TỪ TRƯỚC đã thiếu console.log, sót lại trong lúc hàm chỉ được sửa vì
+        // bug sortKeysByMode() ở trên — tiện sửa LUÔN, CÙNG khuôn "writer" đã dùng cho 2 lượt ghi
+        // còn lại trong CHÍNH hàm này, và đúng tiền lệ recomputeDisplayOrder() (core/playlist/
+        // order.js) đã bổ sung log cho ĐÚNG dòng `pendingResortKeys` y hệt.
         appState.mutate('pendingResortKeys', s => s.clear());
+        console.log(`writer: "playSelectedSongs", page: "pendingResortKeys", content: "clear toàn bộ"`);
 
         appState.set('sectionQueueActive', true);
         console.log(`writer: "playSelectedSongs", page: "sectionQueueActive", content: "true"`);
