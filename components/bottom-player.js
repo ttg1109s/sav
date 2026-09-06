@@ -15,7 +15,14 @@ const TPL_BOTTOM_PLAYER = `
          'hidden') ở JS vẫn giữ (dọn dẹp/accessibility), giờ chỉ là dọn "âm thầm" phía sau lớp phủ
          đã che kín từ trước, không còn là cú thay đổi NHÌN THẤY ĐƯỢC. -->
     <div id="player-container" class="bg-gradient-to-t from-black via-black/70 to-transparent fixed bottom-0 left-0 w-full z-40 pointer-events-auto flex flex-col hidden">
-        <div class="w-full p-2"><input type="range" id="progress-bar" value="0" step="0.1" min="0" class="music-slider block"></div>
+        <!-- SỬA (Giang yêu cầu "kéo seek được cả ms thay vì chỉ được s") — step ĐỔI từ "0.1"
+             (100ms/nấc) sang "0.001" (1ms/nấc) — <input type="range"> kẹp giá trị theo ĐÚNG step
+             này khi kéo tay (không chỉ áp cho phím mũi tên), nên nấc kéo mịn hơn 100 lần. Không đổi
+             gì ở JS — event/listener/player-controls.js gửi thẳng e.target.value (core/player-
+             controls.js::handleProgressBarSeeking()/handleProgressBarSeekCommit() dùng NGUYÊN giá
+             trị đó, không làm tròn) nên giá trị ms lẻ đi thẳng tới audioPlayer.currentTime/
+             bgVideoElement.currentTime không mất độ chính xác. -->
+        <div class="w-full p-2"><input type="range" id="progress-bar" value="0" step="0.001" min="0" class="music-slider block"></div>
 
         <div class="w-full  pt-3 pb-3 px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-6">
             
