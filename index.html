@@ -890,6 +890,17 @@
          (Áp dụng cho Playlist / boot khôi phục / xoá folder đang active) — CẦN core/playlist/
          scope.js (loadAllSongs/loadSongsFromFolder) + core/db.js (setMeta) + core/playlist/order.js
          + core/playlist/render.js (đã nạp ở nhóm CORE, phía trên nhóm EVENT này). -->
+    <!-- MỚI (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — event/workflow/playlist-order.js:
+         workflowPlaylistOrder, dời NGUYÊN VẸN 6 hàm từ core/playlist/order.js (recomputeRenderOrder/
+         recomputeDisplayOrder/updateShuffleArray/applyNewSongsToDisplayOrder/setDisplaySortMode/
+         setDisplayStatSortField/setDisplayStatSortDirection — vi phạm Rule 3a khi còn ở core, xem
+         docstring đầu core/playlist/order.js VÀ đầu file này). PHẢI nạp TRƯỚC MỌI file gọi
+         workflowPlaylistOrder.* — event/workflow/playlist-scope.js (ngay dưới), file-manager-
+         storage.js, playlist.js, video-player.js, player-controls.js, playlist-empty-state.js (đều
+         nạp sau trong cùng nhóm EVENT này). CẦN core/playlist/order.js (liveKeys/sortKeysByMode),
+         core/song-search.js (songMatchesQuery), core/playlist/render.js (renderPlaylistDiff) — cả 3
+         đã nạp ở nhóm CORE phía trên. -->
+    <script src="event/workflow/playlist-order.js?v=20260906v1"></script>
     <script src="event/workflow/playlist-scope.js?v=20260703v3"></script>
     <!-- Panel "Song & Video" cũ (file-manager-song.js) đã xoá, thay bằng "Quản lý lưu trữ" (gộp 3
          domain: song/video/photo) — CẦN core/file-manager/{image,album}.js,
