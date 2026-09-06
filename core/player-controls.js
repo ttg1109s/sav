@@ -84,7 +84,7 @@
             if (typeof closeControlCenter === 'function') closeControlCenter(); // phòng panel còn mở sót
             // 300 -> 500ms, khớp ĐÚNG duration của transition transform (0.5s, assets/css/style.css)
             // — dọn hidden/renderPlaylistDiff() SAU KHI slide ngang chạy xong hẳn.
-            taskManager.once(() => { visualizerUI.classList.add('hidden'); playerContainer.classList.add('hidden'); renderPlaylistDiff(); }, 500, 'hideVisualizerUiAfterFade');
+            taskManager.once(() => { visualizerUI.classList.add('hidden'); playerContainer.classList.add('hidden'); workflowPlaylistRender.renderPlaylistDiff(); }, 500, 'hideVisualizerUiAfterFade');
         }
 
         /**
@@ -401,7 +401,7 @@
             iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden'); 
             let recordArtDynamic = document.getElementById('record-art'); if(recordArtDynamic) recordArtDynamic.classList.remove('paused');
             if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
-            if (appState.get('currentKey')) refreshSongNode(appState.get('currentKey'));
+            if (appState.get('currentKey')) workflowPlaylistRender.refreshSongNode(appState.get('currentKey'));
             startListenClock();
             if (typeof syncAutoSwitchVisualPlayState === 'function') syncAutoSwitchVisualPlayState(); // ver 10: xem auto-switch-visual.js
             // Chỉ ĐỒNG BỘ phát video nền theo nhạc — nguồn đã thiết lập 1 lần lúc bật/chọn nguồn/
@@ -425,7 +425,7 @@
             iconPlay.classList.remove('hidden'); iconPause.classList.add('hidden'); 
             let recordArtDynamic = document.getElementById('record-art'); if(recordArtDynamic) recordArtDynamic.classList.add('paused');
             releaseWakeLock(); if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "paused";
-            if (appState.get('currentKey')) refreshSongNode(appState.get('currentKey'));
+            if (appState.get('currentKey')) workflowPlaylistRender.refreshSongNode(appState.get('currentKey'));
             stopListenClock();
             if (typeof syncAutoSwitchVisualPlayState === 'function') syncAutoSwitchVisualPlayState(); // ver 10: xem auto-switch-visual.js
             if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.syncPlaybackToAudio(); // v13 Batch A — xem handleAudioPlay() ngay trên
