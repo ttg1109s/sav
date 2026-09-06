@@ -880,10 +880,14 @@ const workflowPlaylist = {
         const itemsHtml = renderItemList(null, this._folderPickerFolders, itemTemplateFolderTile, { editingFolderId: this._folderPickerEditingId, selectedOrder }); // components/items.js
         // SỬA (14/07/2026, Giang yêu cầu) — justify-center -> justify-start (căn trái thay vì căn
         // giữa cả cụm khi hàng cuối chưa đầy).
+        // SỬA THÊM (06/09/2026, Giang chỉ ra bug tiếp — hàng ĐẦY vẫn dồn trái, thừa khoảng trống
+        // bên phải) — `justify-start` KHÔNG giải quyết được cùng lúc "hàng đầy giãn đều" VÀ "hàng
+        // cuối lẻ căn trái", đổi hẳn sang `buildFolderGridWrapperHtml()` (components/items.js, CSS
+        // Grid `auto-fill`/`minmax` — xem docstring ở đó cho lý do đầy đủ).
         const addTileHtml = this._folderPickerShowAddTile ? buildAddFolderTileHtml() : ''; // components/items.js
         const bodyHtml = (this._folderPickerFolders.length === 0 && !this._folderPickerShowAddTile && this._folderPickerEmptyMsg)
             ? `<p class="text-sm text-slate-500 text-center py-10 px-6">${this._folderPickerEmptyMsg}</p>`
-            : `<div class="flex flex-wrap justify-start gap-4 p-5">${itemsHtml}${addTileHtml}</div>`; // components/items.js
+            : buildFolderGridWrapperHtml(`${itemsHtml}${addTileHtml}`); // components/items.js
         const config = {
             // SỬA (14/07/2026, Giang báo — "layout grid thừa khoảng trống") — TRƯỚC ĐÂY height cố
             // định '60vh' bất kể có bao nhiêu folder, để lại khoảng trống lớn phía dưới khi chỉ có
