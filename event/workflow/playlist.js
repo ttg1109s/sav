@@ -469,14 +469,13 @@ const workflowPlaylist = {
             const keys = buildPhotoPlaylistCache(imageRecords); // core/playlist/loader.js
             appState.set('playlistOrder', keys);
             console.log(`writer: "uploadPhotos", page: "playlistOrder", content: "${keys.length} ảnh (làm mới sau upload)"`);
-            updateShuffleArray();
-            // SỬA — recomputeDisplayOrder()/recomputeRenderOrder() (core/playlist/order.js) VỪA
-            // sửa Rule 2 (nhận tham số thay vì tự appState.get()) — tự đọc rồi truyền vào.
-            {
-                const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'confirmedBrokenKeys', 'searchQuery']);
-                recomputeDisplayOrder(keys, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);
-                recomputeRenderOrder(keys, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);
-            }
+            // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — updateShuffleArray()/
+            // recomputeDisplayOrder()/recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/
+            // playlist-order.js (workflowPlaylistOrder) — gọi trực tiếp, tự đọc playlistOrder MỚI
+            // (keys vừa set ở trên) qua appState, không cần truyền tham số nữa.
+            workflowPlaylistOrder.updateShuffleArray();
+            workflowPlaylistOrder.recomputeDisplayOrder();
+            workflowPlaylistOrder.recomputeRenderOrder();
             renderPlaylistDiff();
         }
         const successCount = fileArray.length - failedCount;
@@ -1103,14 +1102,12 @@ const workflowPlaylist = {
             // Đồng bộ appState (core THUẦN, xem core/playlist/bulk-actions.js) rồi vẽ lại — đọc
             // playlistOrder/displayOrder hiện tại TRƯỚC khi gọi (Rule 2: core không tự đọc).
             removeKeysFromDisplayState(deletedKeys, appState.get('playlistOrder'), appState.get('displayOrder'));
-            updateShuffleArray(); // core có sẵn (core/playlist/order.js)
-            // SỬA — recomputeRenderOrder() (core/playlist/order.js) VỪA sửa Rule 2, cập nhật lời
-            // gọi ĐỦ tham số để không vỡ — playlistOrder/confirmedBrokenKeys đọc LẠI SAU
-            // removeKeysFromDisplayState() ở trên (đã gỡ deletedKeys khỏi playlistOrder).
-            {
-                const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
-                recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap); // core có sẵn (core/playlist/order.js)
-            }
+            // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — updateShuffleArray()/
+            // recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/playlist-order.js
+            // (workflowPlaylistOrder) — gọi trực tiếp, tự đọc playlistOrder MỚI (đã gỡ deletedKeys
+            // ở removeKeysFromDisplayState() trên) qua appState, không cần truyền tham số nữa.
+            workflowPlaylistOrder.updateShuffleArray();
+            workflowPlaylistOrder.recomputeRenderOrder();
             renderPlaylistDiff(); // core có sẵn (core/playlist/render.js)
             updateEmptyState(); // core có sẵn (core/playlist/render.js)
         });
@@ -1136,6 +1133,15 @@ const workflowPlaylist = {
      * renderVideoSortModeOptions() ĐÃ XOÁ, core/playlist/order.js).
      */
     async switchToVideoSource() {
+        // FIX (Giang báo — "đổi Source khi đang Multi-select không clear selection") — `selectedSongKeys`
+        // KHÔNG phụ thuộc source, chỉ được clear khi tắt Selection Mode (`toggleSelectionMode()`/
+        // `disableSelectionMode()`, core/playlist/selection.js) — đổi Source TRƯỚC ĐÂY không gọi
+        // gì tới đó, nên selection của Nguồn CŨ vẫn còn khi Playlist đã render Nguồn MỚI. Nếu 2
+        // Nguồn có key trùng slug filename (xem bug Exclude collision, core/file-manager/
+        // folder.js::getExcludedSongKeysFromFolders()), thao tác Xoá/Phát hàng loạt sau đó có thể
+        // nhắm NHẦM record của Nguồn mới dù người dùng chọn ở Nguồn cũ. Thoát hẳn Selection Mode
+        // NGAY khi đổi Source — an toàn tuyệt đối, không phụ thuộc key có trùng hay không.
+        this._exitSelectionMode();
         appState.set('activeMediaSource', 'video');
         console.log(`writer: "switchToVideoSource", page: "activeMediaSource", content: "video"`);
 
@@ -1158,14 +1164,13 @@ const workflowPlaylist = {
             appState.set('playlistOrder', filteredKeys);
             console.log(`writer: "switchToVideoSource", page: "playlistOrder", content: "${filteredKeys.length}/${keys.length} video (đã áp Filter)"`);
 
-            updateShuffleArray();      // core có sẵn (core/playlist/order.js)
-            // SỬA — recomputeDisplayOrder()/recomputeRenderOrder() (core/playlist/order.js) VỪA
-            // sửa Rule 2 (nhận tham số thay vì tự appState.get()) — tự đọc rồi truyền vào.
-            {
-                const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'confirmedBrokenKeys', 'searchQuery']);
-                recomputeDisplayOrder(filteredKeys, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);   // core có sẵn (core/playlist/order.js)
-                recomputeRenderOrder(filteredKeys, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);    // core có sẵn (core/playlist/order.js)
-            }
+            workflowPlaylistOrder.updateShuffleArray(); // event/workflow/playlist-order.js (dời từ core/playlist/order.js)
+            // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — recomputeDisplayOrder()/
+            // recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/playlist-order.js
+            // (workflowPlaylistOrder) — gọi trực tiếp, tự đọc playlistOrder MỚI (filteredKeys vừa
+            // set ở trên) qua appState, không cần truyền tham số nữa.
+            workflowPlaylistOrder.recomputeDisplayOrder();
+            workflowPlaylistOrder.recomputeRenderOrder();
             renderPlaylistDiff();      // core có sẵn (core/playlist/render.js)
             resetPlaylistScrollTop();  // core (MỚI, 29/07/2026, phản hồi Giang mục 2) — danh sách vừa đổi hẳn Nguồn, scrollTop cũ vô nghĩa -> về 0 tức thì
             updateEmptyState();        // core có sẵn (core/playlist/render.js)
@@ -1201,6 +1206,9 @@ const workflowPlaylist = {
         // playMedia()`, event/workflow/player.js [SỬA — plan-playmedia-reorg.md, thay
         // window.playSong() cũ], dùng CHUNG cho next/prev). Panel giờ tự mở khoá
         // qua `activeMediaSource` (event/block.js), không cần ép thoát mode ở đây nữa.
+        // FIX (Giang báo — "đổi Source khi đang Multi-select không clear selection") — CÙNG LÝ DO
+        // switchToVideoSource() ngay trên.
+        this._exitSelectionMode();
         appState.set('activeMediaSource', 'song');
         console.log(`writer: "switchToSongSource", page: "activeMediaSource", content: "song"`);
 
@@ -1216,15 +1224,12 @@ const workflowPlaylist = {
             appState.set('playlistOrder', filteredKeys);
             console.log(`writer: "switchToSongSource", page: "playlistOrder", content: "${filteredKeys.length}/${keys.length} bài hát (đã áp Filter)"`);
 
-            updateShuffleArray();
-            // SỬA — recomputeDisplayOrder()/recomputeRenderOrder() (core/playlist/order.js) VỪA
-            // sửa Rule 2 (nhận tham số thay vì tự appState.get()) — tự đọc rồi truyền vào, CÙNG
-            // LÝ DO switchToVideoSource() ngay trên.
-            {
-                const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'confirmedBrokenKeys', 'searchQuery']);
-                recomputeDisplayOrder(filteredKeys, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);
-                recomputeRenderOrder(filteredKeys, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);
-            }
+            workflowPlaylistOrder.updateShuffleArray(); // event/workflow/playlist-order.js (dời từ core/playlist/order.js)
+            // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — recomputeDisplayOrder()/
+            // recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/playlist-order.js
+            // (workflowPlaylistOrder) — gọi trực tiếp, CÙNG LÝ DO switchToVideoSource() ngay trên.
+            workflowPlaylistOrder.recomputeDisplayOrder();
+            workflowPlaylistOrder.recomputeRenderOrder();
             renderPlaylistDiff();
             resetPlaylistScrollTop();  // core (MỚI, 29/07/2026, phản hồi Giang mục 2) — cùng lý do switchToVideoSource(), scrollTop cũ vô nghĩa với danh sách vừa đổi hẳn Nguồn
             updateEmptyState();
@@ -1251,6 +1256,8 @@ const workflowPlaylist = {
      * Playlist — vẫn upload qua File Manager -> Photo như cũ) — ẩn CẢ 2 nút khi ở Nguồn này.
      */
     async switchToPhotoSource() {
+        // FIX — CÙNG LÝ DO switchToVideoSource()/switchToSongSource() ngay trên.
+        this._exitSelectionMode();
         appState.set('activeMediaSource', 'photo');
         console.log(`writer: "switchToPhotoSource", page: "activeMediaSource", content: "photo"`);
 
@@ -1271,15 +1278,13 @@ const workflowPlaylist = {
             appState.set('playlistOrder', filteredKeys);
             console.log(`writer: "switchToPhotoSource", page: "playlistOrder", content: "${filteredKeys.length}/${keys.length} ảnh (đã áp Filter)"`);
 
-            updateShuffleArray();      // core có sẵn (core/playlist/order.js) — vô hại dù Photo chưa dùng Shuffle (CHỐT Giang: player controls ẩn hẳn ở Nguồn này, tạm hoãn)
-            // SỬA — recomputeDisplayOrder()/recomputeRenderOrder() (core/playlist/order.js) VỪA
-            // sửa Rule 2 (nhận tham số thay vì tự appState.get()) — tự đọc rồi truyền vào, CÙNG
-            // LÝ DO switchToVideoSource()/switchToSongSource() ngay trên.
-            {
-                const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'confirmedBrokenKeys', 'searchQuery']);
-                recomputeDisplayOrder(filteredKeys, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);   // core có sẵn (core/playlist/order.js)
-                recomputeRenderOrder(filteredKeys, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);    // core có sẵn (core/playlist/order.js) — áp Search box + Sort lên trên Filter
-            }
+            workflowPlaylistOrder.updateShuffleArray(); // event/workflow/playlist-order.js (dời từ core/playlist/order.js) — vô hại dù Photo chưa dùng Shuffle (CHỐT Giang: player controls ẩn hẳn ở Nguồn này, tạm hoãn)
+            // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — recomputeDisplayOrder()/
+            // recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/playlist-order.js
+            // (workflowPlaylistOrder) — gọi trực tiếp, CÙNG LÝ DO switchToVideoSource()/
+            // switchToSongSource() ngay trên.
+            workflowPlaylistOrder.recomputeDisplayOrder();
+            workflowPlaylistOrder.recomputeRenderOrder();
             renderPlaylistDiff();      // core có sẵn (core/playlist/render.js) — CHẠY Y HỆT Song/Video, KHÔNG rẽ nhánh
             resetPlaylistScrollTop();  // core — danh sách vừa đổi hẳn Nguồn, scrollTop cũ vô nghĩa -> về 0 tức thì
             updateEmptyState();        // core có sẵn (core/playlist/render.js)
@@ -1309,14 +1314,14 @@ const workflowPlaylist = {
      * docstring đầu event/router/playlist.js).
      */
     async changeSortMode(mode) {
-        setDisplaySortMode(mode); // core có sẵn (core/playlist/order.js)
+        workflowPlaylistOrder.setDisplaySortMode(mode); // event/workflow/playlist-order.js (dời từ core/playlist/order.js, Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ")
         await this._persistPlaylistConfig();
     },
 
     /** Trục (2) — field thống kê (mục 1b/1c, panel "Sắp xếp", dropdown (1)) — SỬA (mục 3) tách
      * khỏi hướng. CÙNG LÝ DO tách khỏi router như changeSortMode() ngay trên. */
     async changeStatSortField(field) {
-        setDisplayStatSortField(field); // core có sẵn (core/playlist/order.js)
+        workflowPlaylistOrder.setDisplayStatSortField(field); // event/workflow/playlist-order.js (dời từ core/playlist/order.js)
         // MỚI (mục 3) — hiện/ẩn dropdown (2) "hướng" NGAY khi đổi field — CHỈ có ý nghĩa khi field
         // khác 'none'. SỬA (đợt tái cấu trúc bottom nav App Panel) — panel Sắp xếp giờ sống trong
         // `genericDrawerBody` (core/generic-drawer.js), KHÔNG còn qua `peekTopSettingsPanel()`
@@ -1330,7 +1335,7 @@ const workflowPlaylist = {
 
     /** Trục (2) — hướng (mục 3, phản hồi Giang, dropdown (2), CHỈ hiện khi field khác 'none'). */
     async changeStatSortDirection(direction) {
-        setDisplayStatSortDirection(direction); // core có sẵn (core/playlist/order.js)
+        workflowPlaylistOrder.setDisplayStatSortDirection(direction); // event/workflow/playlist-order.js (dời từ core/playlist/order.js)
         await this._persistPlaylistConfig();
     },
 

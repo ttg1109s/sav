@@ -25,8 +25,9 @@
  * event/workflow/file-manager-song.js).
  *
  * NẠP SAU: core/playlist/scope.js (loadAllSongs/loadSongsFromFolder), service/db.js (setMeta),
- * core/playlist/order.js (updateShuffleArray/recomputeDisplayOrder/recomputeRenderOrder),
- * core/playlist/render.js (renderPlaylistDiff/updateEmptyState), core/modal-choice-ui.js (modalChoice),
+ * event/workflow/playlist-order.js (workflowPlaylistOrder.updateShuffleArray/recomputeDisplayOrder/
+ * recomputeRenderOrder — dời từ core/playlist/order.js), core/playlist/render.js
+ * (renderPlaylistDiff/updateEmptyState), core/modal-choice-ui.js (modalChoice),
  * core/file-manager/folder.js (getExcludedSongKeysFromFolders() — MỚI, Batch 4, dùng bởi
  * applyAllSongsScope()), core/playlist/filter.js (applyPlaylistFilter() — MỚI, mục 1d).
  */
@@ -74,14 +75,13 @@ const workflowPlaylistScope = {
         // playlistOrder, TRƯỚC updateShuffleArray()/recompute*Order() — nếu boot bị treo NGAY SAU
         // dòng này thì chắc chắn KHÔNG phải do applyPlaylistFilter(), mà do 1 trong 4 hàm ngay dưới.
         console.log(`writer: "applyFolderScope", page: "playlistOrder", content: "Filter: ${filteredKeys.length}/${beforeCount} sau lọc (source=${source})"`);
-        updateShuffleArray();
-        // SỬA — recomputeDisplayOrder()/recomputeRenderOrder() (core/playlist/order.js) VỪA sửa
-        // Rule 2 (nhận tham số thay vì tự appState.get()) — tự đọc rồi truyền vào.
-        {
-            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'confirmedBrokenKeys', 'searchQuery']);
-            recomputeDisplayOrder(filteredKeys, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);
-            recomputeRenderOrder(filteredKeys, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);
-        }
+        // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — updateShuffleArray()/
+        // recomputeDisplayOrder()/recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/
+        // playlist-order.js (workflowPlaylistOrder) — gọi trực tiếp, tự đọc playlistOrder MỚI
+        // (filteredKeys vừa set ở trên) qua appState, không cần truyền tham số nữa.
+        workflowPlaylistOrder.updateShuffleArray();
+        workflowPlaylistOrder.recomputeDisplayOrder();
+        workflowPlaylistOrder.recomputeRenderOrder();
         renderPlaylistDiff();
         updateEmptyState();
     },
@@ -95,7 +95,11 @@ const workflowPlaylistScope = {
      * để Exclude (mới, chỉ ảnh hưởng view "Tất cả") có tác dụng đúng ngay từ lúc boot.
      */
     async applyAllSongsScope() {
-        const excludedKeys = await getExcludedSongKeysFromFolders(); // core/file-manager/folder.js
+        // FIX (Giang báo — "Exclude của Folder có thể loại nhầm media khác loại nếu key trùng") —
+        // getExcludedSongKeysFromFolders() (core/file-manager/folder.js) VỪA sửa nhận `mediaType`
+        // qua tham số, CHỈ gom Exclude của ĐÚNG loại folder đang browse — tự đọc activeMediaSource
+        // rồi truyền vào TRƯỚC khi gọi (Rule 2).
+        const excludedKeys = await getExcludedSongKeysFromFolders(appState.get('activeMediaSource')); // core/file-manager/folder.js
         loadAllSongs(appState.get('playlistCache'), excludedKeys); // core/playlist/scope.js
         // MỚI (mục 1d, Playlist Filter) — CÙNG LÝ DO applyFolderScope() ngay trên.
         const source = appState.get('activeMediaSource');
@@ -105,13 +109,10 @@ const workflowPlaylistScope = {
         // MỚI (mục 2, phản hồi Giang — "thêm log của filter xem") — CÙNG LÝ DO applyFolderScope().
         console.log(`writer: "applyAllSongsScope", page: "playlistOrder", content: "Filter: ${filteredKeys.length}/${beforeCount} sau lọc (source=${source})"`);
 
-        updateShuffleArray();
         // SỬA — CÙNG LÝ DO applyFolderScope() ngay trên.
-        {
-            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'confirmedBrokenKeys', 'searchQuery']);
-            recomputeDisplayOrder(filteredKeys, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);
-            recomputeRenderOrder(filteredKeys, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);
-        }
+        workflowPlaylistOrder.updateShuffleArray();
+        workflowPlaylistOrder.recomputeDisplayOrder();
+        workflowPlaylistOrder.recomputeRenderOrder();
         renderPlaylistDiff();
         updateEmptyState();
     },

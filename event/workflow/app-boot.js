@@ -128,6 +128,18 @@ const workflowAppBoot = {
                         console.log(`writer: "boot", page: "activeMediaSource", content: "song (sửa lệch theo type folder đã Apply)"`);
                         await initPlaylistFromDB();
                         if (typeof workflowPlaylist !== 'undefined') await workflowPlaylist.syncPlaylistSettingsUI();
+                    } else if (folderType === 'photo' && currentSource !== 'photo') {
+                        // FIX (Giang báo — "Folder Photo không được khôi phục đúng lúc boot") —
+                        // NHÁNH NÀY THIẾU HOÀN TOÀN trước đây (chỉ có video/song) — Photo được thêm
+                        // SAU làm Nguồn thứ 3 (hợp nhất Photo vào Playlist) nhưng boot recovery ở
+                        // đây chưa từng mở rộng theo, đúng CÙNG LÝ DO/CÙNG KHUÔN nhánh 'video' ngay
+                        // trên: applyFolderScope(savedFolderId) ngay dưới sẽ giao (intersect) folder
+                        // Photo với playlistCache — nếu cache vẫn đang là Song/Video (do
+                        // activeMediaSource restore lệch loại), Playlist thành RỖNG.
+                        appState.set('activeMediaSource', 'photo');
+                        console.log(`writer: "boot", page: "activeMediaSource", content: "photo (sửa lệch theo type folder đã Apply)"`);
+                        buildPhotoPlaylistCache(await listImages());
+                        if (typeof workflowPlaylist !== 'undefined') await workflowPlaylist.syncPlaylistSettingsUI();
                     }
                     await workflowPlaylistScope.applyFolderScope(savedFolderId);
                 } },

@@ -232,10 +232,11 @@ const workflowFileManagerStorage = {
         if (appState.get('activeMediaSource') === 'video') {
             appState.set('playlistOrder', []);
             appState.mutate('playlistCache', (m) => m.clear());
-            // SỬA — recomputeDisplayOrder()/recomputeRenderOrder() (core/playlist/order.js) VỪA
-            // sửa Rule 2 (nhận tham số thay vì tự appState.get()) — tự đọc rồi truyền vào.
-            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'confirmedBrokenKeys', 'searchQuery']);
-            updateShuffleArray(); recomputeDisplayOrder([], confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap); recomputeRenderOrder([], confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap); renderPlaylistDiff(); updateEmptyState(); // core/playlist/*, có sẵn
+            // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — updateShuffleArray()/
+            // recomputeDisplayOrder()/recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/
+            // playlist-order.js (workflowPlaylistOrder) — gọi trực tiếp, tự đọc playlistOrder=[]
+            // vừa set ở trên qua appState, không cần truyền tham số nữa.
+            workflowPlaylistOrder.updateShuffleArray(); workflowPlaylistOrder.recomputeDisplayOrder(); workflowPlaylistOrder.recomputeRenderOrder(); renderPlaylistDiff(); updateEmptyState(); // core/playlist/*, có sẵn
         }
     },
 
@@ -250,8 +251,7 @@ const workflowFileManagerStorage = {
             appState.set('playlistOrder', []);
             appState.mutate('playlistCache', (m) => m.clear());
             // SỬA — CÙNG LÝ DO _resetVideoRuntimeStateAfterClear() ngay trên.
-            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'confirmedBrokenKeys', 'searchQuery']);
-            updateShuffleArray(); recomputeDisplayOrder([], confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap); recomputeRenderOrder([], confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap); renderPlaylistDiff(); updateEmptyState(); // core/playlist/*, có sẵn
+            workflowPlaylistOrder.updateShuffleArray(); workflowPlaylistOrder.recomputeDisplayOrder(); workflowPlaylistOrder.recomputeRenderOrder(); renderPlaylistDiff(); updateEmptyState(); // core/playlist/*, có sẵn
         }
     },
 

@@ -14,27 +14,27 @@
  * appState.sectionQueueActive rồi VirtualMachineState chọn: true -> 2 method dưới đây; false -> vẫn
  * gọi thẳng core như cũ (giữ nguyên hành vi gốc khi không có section nào active).
  *
- * NẠP SAU: core/playlist/order.js (recomputeDisplayOrder/updateShuffleArray/recomputeRenderOrder/
- * updateShuffleArrayFromQueue), core/playlist/render.js (renderPlaylistDiff), event/workflow/
- * player.js (`workflowPlayer.playMedia()` — [SỬA, plan-playmedia-reorg.md] thay `window.playSong()`
- * cũ), core/dom-refs.js (btnShuffle). NẠP TRƯỚC: event/router/playlist-empty-state.js.
+ * NẠP SAU: event/workflow/playlist-order.js (workflowPlaylistOrder.recomputeDisplayOrder/
+ * recomputeRenderOrder — dời từ core/playlist/order.js, xem docstring đầu file đó), core/playlist/
+ * order.js (updateShuffleArrayFromQueue — vẫn core, thuần), core/playlist/render.js
+ * (renderPlaylistDiff), event/workflow/player.js (`workflowPlayer.playMedia()` — [SỬA,
+ * plan-playmedia-reorg.md] thay `window.playSong()` cũ), core/dom-refs.js (btnShuffle). NẠP TRƯỚC:
+ * event/router/playlist-empty-state.js.
  */
 const workflowPlaylistEmptyState = {
 
     /**
      * Ứng với 'playlistEmptyState.play.click' khi sectionQueueActive=true (xem router) — đưa
      * displayOrder về ĐÚNG top-level (thoát khỏi section — recomputeDisplayOrder() tự đặt
-     * sectionQueueActive=false bên trong, xem core/playlist/order.js) rồi phát tiếp: ưu tiên
+     * sectionQueueActive=false bên trong, xem event/workflow/playlist-order.js) rồi phát tiếp: ưu tiên
      * currentKey nếu bài đang phát vẫn còn hợp lệ trong top-level mới, không thì phát bài đầu.
      */
     resetToTopLevelThenPlay() {
-        // SỬA — recomputeDisplayOrder()/recomputeRenderOrder() (core/playlist/order.js) VỪA sửa
-        // Rule 2 (nhận tham số thay vì tự appState.get()) — Workflow ở đây tự đọc rồi truyền vào.
-        {
-            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
-            recomputeDisplayOrder(playlistOrder, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap); // core có sẵn (order.js) — tự đặt sectionQueueActive=false bên trong
-            recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);  // core có sẵn (order.js)
-        }
+        // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — recomputeDisplayOrder()/
+        // recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/playlist-order.js
+        // (workflowPlaylistOrder) — gọi trực tiếp, không cần tự gom tham số nữa.
+        workflowPlaylistOrder.recomputeDisplayOrder(); // tự đặt sectionQueueActive=false bên trong
+        workflowPlaylistOrder.recomputeRenderOrder();
         renderPlaylistDiff();    // core có sẵn (render.js)
 
         const displayOrder = appState.get('displayOrder');
@@ -55,11 +55,8 @@ const workflowPlaylistEmptyState = {
      */
     resetToTopLevelThenShuffle() {
         // SỬA — CÙNG LÝ DO resetToTopLevelThenPlay() ngay trên.
-        {
-            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
-            recomputeDisplayOrder(playlistOrder, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap); // tự đặt sectionQueueActive=false bên trong
-            recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);
-        }
+        workflowPlaylistOrder.recomputeDisplayOrder(); // tự đặt sectionQueueActive=false bên trong
+        workflowPlaylistOrder.recomputeRenderOrder();
         renderPlaylistDiff();
 
         if (!appState.get('isShuffle')) {
