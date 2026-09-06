@@ -216,12 +216,15 @@ if (viewModeSelect) {
     });
 }
 
-// MỚI (ver12 "Song/Video Unification", Batch 1) — select "Nguồn" (Song/Video).
-if (mediaSourceSelect) {
-    mediaSourceSelect.addEventListener('change', (e) => {
-        eventBus.send({ router: 'playlist', type: 'playlist.mediaSource.change', payload: { source: e.target.value } });
-    });
-}
+// XOÁ (06/09/2026, Giang chỉ ra bug liên quan) — listener cũ gắn lên biến toàn cục
+// `mediaSourceSelect` (core/dom-refs.js), capture 1 LẦN qua document.getElementById() lúc script
+// nạp — TỪ LÚC Settings migrate sang Generic Drawer content-swap, phần tử `<select>` này chỉ tồn
+// tại đúng lúc màn Playlist Settings đang MỞ (bị huỷ/dựng lại mỗi lần đóng/mở), nên biến đó luôn
+// `null` cả phiên -> guard `if (mediaSourceSelect)` chặn HẲN, listener này CHẾT, chưa từng thật sự
+// gắn được. Listener THẬT đang chạy là `wireAppSettingsPlaylist()` (core/app-settings-ui.js),
+// query lại `#setting-playlist-media-source` SỐNG mỗi lần render — dọn hẳn bản chết ở đây, tránh
+// nhầm 2 nơi cùng lo 1 việc. Biến `mediaSourceSelect` (dom-refs.js) cũng đã xoá theo, xem
+// core/dom-refs.js.
 
 // MỚI (mục 1b, Sort subpanel) — nút mở panel "Sắp xếp" (Main list, tĩnh).
 if (btnOpenPlaylistSort) {
