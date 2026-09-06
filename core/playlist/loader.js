@@ -171,7 +171,7 @@
                 workflowPlaylistOrder.updateShuffleArray();
                 workflowPlaylistOrder.applyNewSongsToDisplayOrder(newlyAddedKeys); // (B) hàng đợi phát: nối cuối / pending
                 workflowPlaylistOrder.recomputeRenderOrder(); // (A) UI: sắp xếp lại NGAY
-                renderPlaylistDiff();
+                workflowPlaylistRender.renderPlaylistDiff();
             });
 
             if (!shieldRan) {
@@ -478,7 +478,7 @@
                 workflowPlaylistOrder.updateShuffleArray();
                 workflowPlaylistOrder.recomputeDisplayOrder();
                 workflowPlaylistOrder.recomputeRenderOrder();
-                renderPlaylistDiff();
+                workflowPlaylistRender.renderPlaylistDiff();
                 updateEmptyState();
                 return;
             }
@@ -490,7 +490,7 @@
             workflowPlaylistOrder.updateShuffleArray();
             workflowPlaylistOrder.recomputeDisplayOrder();   // hàng đợi phát
             workflowPlaylistOrder.recomputeRenderOrder();    // danh sách hiển thị
-            renderPlaylistDiff();
+            workflowPlaylistRender.renderPlaylistDiff();
             updateEmptyState();        // dựng xong -> fade out lớp loading (hoặc hiện empty nếu mọi record hỏng)
             hidePlaylistLoading();     // chốt fade out (an toàn kể cả khi tất cả record lỗi -> renderOrder rỗng)
         }

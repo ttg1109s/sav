@@ -8,6 +8,15 @@
  *   - Còn lại                         -> ẩn cả hai.
  * (Sửa lỗi v6: trước đây #playlist-empty không bao giờ được tự ẩn khi đã có bài, nên hiện đè
  *  lên cả danh sách.)
+ *
+ * SỬA TẬN GỐC (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — `buildSongNode()`/
+ * `renderPlaylistFull()`/`renderPlaylistDiff()`/`refreshSongNode()` TRƯỚC ĐÂY ở file này, tự
+ * `appState.get()` VÀ gọi lẫn nhau (Rule 3a: `buildSongNode()` trả về giá trị có Ý NGHĨA NGHIỆP
+ * VỤ RIÊNG — không đủ điều kiện Rule 3c để làm closure lồng) — CẢ 4 ĐÃ DỜI sang event/workflow/
+ * playlist-render.js (`workflowPlaylistRender`), CÙNG đợt dời order.js -> playlist-order.js. File
+ * NÀY giờ CHỈ còn hàm THUẦN/tiện ích nhỏ + nhóm tự đọc `appState` nhưng KHÔNG gọi chéo hàm nào
+ * trong cụm vừa dời (`updateEmptyState`/3 hàm scroll/`applySearchQuery` — nợ kỹ thuật RIÊNG, chưa
+ * relocate đợt này, xem docstring từng hàm).
  */
 
         function songActionMenuButtonHtml(key) {
@@ -76,87 +85,6 @@
             return `<div class="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-sky-500 border-sky-500' : 'bg-black/30 border-white/30'}">${isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : ''}</div>`;
         }
 
-        function buildSongNode(key) {
-            const cached = appState.get('playlistCache').get(key);
-            const title = cached ? cached.tag.title : key;
-            const artist = cached ? cached.tag.artist : '';
-            // MỚI (phản hồi Giang, mục 8 — "thêm duration tại playlist của cả hai song và video") —
-            // `cached.duration` (giây) đã có sẵn cho CẢ Song (core/playlist/loader.js::
-            // scanValidSongsFromDB()) lẫn Video (buildVideoPlaylistCache()) — chỉ cần hiển thị,
-            // KHÔNG cần đọc thêm gì. Tái dùng NGUYÊN formatTime() (core/playlist/state.js, đã dùng
-            // ở tab "Chi tiết") — formatTime(undefined) tự trả "0:00", an toàn khi cached rỗng.
-            // SỬA (phản hồi Giang, mục 3 — "duration phải ở row cùng với artist, video ở hàng dưới
-            // tên") — bỏ hẳn vị trí RIÊNG (badge góc ảnh ở grid / cột lề phải ở list), GỘP vào
-            // đúng dòng thứ 2 (dòng artist) — Song: "Artist · 3:45"; Video: artist rỗng nên dòng
-            // này chỉ còn "3:45" (đúng "hàng dưới của tên" Giang yêu cầu, dùng CHUNG 1 dòng, không
-            // cần 2 dòng riêng). Dùng CHUNG 1 biến cho cả list lẫn grid (2 nơi có cùng ý nghĩa "dòng
-            // phụ dưới tên").
-            // MỞ RỘNG (hợp nhất Photo vào Playlist, CHỐT Giang "dùng hẳn UI Song/Video, chỉ thay nội
-            // dung") — TRƯỚC ĐÂY Photo không có duration nên dòng phụ này hiện ĐỘ PHÂN GIẢI (width×
-            // height) thay vì formatTime(). SỬA (Giang yêu cầu — "thay duration cho w&h") — Photo
-            // giờ có `duration` THẬT (tính lúc upload — event/workflow/file-manager-photo.js::
-            // computePhotoDuration()), dòng phụ quay lại dùng formatTime() giống hệt Song/Video,
-            // KHÔNG còn nhánh riêng nào cho Photo nữa (width/height vẫn giữ trong playlistCache —
-            // core/playlist/loader.js — cho modal Chi tiết dùng, chỉ không còn hiện ở dòng này).
-            const durationLabel = formatTime(cached ? cached.duration : 0);
-            const secondLineHtml = artist
-                ? `${artist} <span class="opacity-50">·</span> ${durationLabel}`
-                : durationLabel;
-            // Chỉ Blob cover (record.cover) mới cần tạo + theo dõi object URL để revoke sau; ảnh
-            // DEFAULT_VINYL là data: URI tĩnh, không phải object URL — node._coverObjectUrl giữ
-            // null cho trường hợp này để revokeNodeCoverUrl() không vô tình revoke nhầm data: URI.
-            // Photo: `cached.cover` LÀ thumbBlob (fallback blob gốc nếu record cũ thiếu thumbBlob) —
-            // xem buildPhotoPlaylistCache() — dùng NGUYÊN cơ chế object URL sẵn có, không cần đổi gì.
-            const hasRealCover = !!(cached && cached.cover);
-            const coverUrl = hasRealCover ? URL.createObjectURL(cached.cover) : DEFAULT_VINYL;
-
-            const isPlaying = (key === appState.get('currentKey'));
-            // SỬA (fix bar animation, phản hồi Giang 29/07/2026, "làm nốt") — TRƯỚC ĐÂY hard-code
-            // `!audioPlayer.paused`, vô nghĩa với dòng Video (Video Player mode dùng `bgVideoElement`
-            // làm nguồn phát THẬT, `audioPlayer` không chạy — xem docstring đầu event/workflow/
-            // video-player.js) nên dòng Video LUÔN rơi vào nhánh "đã chọn nhưng coi như đang tạm
-            // dừng" (chấm xanh, KHÔNG BAO GIỜ có bar animation) dù đang phát thật. Đọc ĐÚNG element
-            // theo `cached.mediaType` — GIỮ NGUYÊN 100% hành vi cũ cho Song (audioPlayer.paused).
-            const isActuallyPlaying = isPlaying && !((cached && cached.mediaType === 'video') ? bgVideoElement.paused : audioPlayer.paused);
-            const eqIconHtml = isActuallyPlaying ? `<div class="flex items-end gap-[2px] h-3 w-3"><div class="w-[3px] bg-sky-400 eq-1"></div><div class="w-[3px] bg-sky-400 eq-2"></div><div class="w-[3px] bg-sky-400 eq-3"></div></div>` : (isPlaying ? `<div class="w-2 h-2 rounded-full bg-sky-500 shadow-[0_0_5px_rgba(14,165,233,0.8)]"></div>` : '');
-            const selectionMode = appState.get('selectionMode');
-            const isSelected = selectionMode && appState.get('selectedSongKeys').has(key);
-            // CHỐT Giang (giữ nguyên nút "..." cho Photo — không ẩn nữa, giờ "Thêm vào thư mục" đã
-            // hoạt động thật cho Photo qua Folder type='photo' MỚI, xem core/file-manager/folder.js).
-            const menuBtnHtml = selectionMode ? '' : songActionMenuButtonHtml(key); // ẩn menu 3 chấm khi đang chọn nhiều, tránh 2 mục tiêu bấm cạnh tranh nhau
-
-            const wrapper = document.createElement('div');
-            wrapper.dataset.key = key;
-            wrapper._coverObjectUrl = hasRealCover ? coverUrl : null;
-
-            if (appState.get('isGridView')) {
-                wrapper.className = `flex flex-col cursor-pointer active:scale-[0.98] transition-transform group relative w-full`;
-                wrapper.dataset.role = 'play-item';
-                wrapper.innerHTML = `
-                    <div class="w-full aspect-square relative mb-2.5">
-                        <img src="${coverUrl}" class="w-full h-full rounded-2xl object-cover shadow-lg">
-                        ${isPlaying ? `<div class="absolute inset-0 bg-black/30 rounded-2xl flex items-center justify-center backdrop-blur-[2px]">${eqIconHtml}</div>` : ''}
-                        ${selectionMode ? `<div class="absolute top-2 left-2">${selectionIndicatorHtml(isSelected)}</div>` : ''}
-                        <div class="absolute top-2 right-2 flex bg-black/40 rounded-full">${menuBtnHtml}</div>
-                    </div>
-                    <h3 class="text-white text-[15px] font-semibold leading-tight line-clamp-1 px-1">${title}</h3>
-                    <p class="text-slate-400 text-[13px] font-medium line-clamp-1 px-1 mt-0.5">${secondLineHtml}</p>`;
-            } else {
-                wrapper.className = `flex items-center gap-4 px-5 py-3 hover:bg-white/5 active:bg-white/10 transition-colors cursor-pointer w-full group border-b border-white/5 ${isSelected ? 'bg-sky-500/10' : ''}`;
-                wrapper.dataset.role = 'play-item';
-                wrapper.innerHTML = `
-                    ${selectionMode ? selectionIndicatorHtml(isSelected) : ''}
-                    <img src="${coverUrl}" class="w-12 h-12 rounded-lg flex-shrink-0 object-cover shadow-md">
-                    <div class="flex-grow flex flex-col justify-center overflow-hidden gap-0.5">
-                        <div class="flex items-center gap-2"><h3 class="text-[16px] leading-tight font-semibold truncate ${isPlaying ? 'text-sky-300' : 'text-slate-100'}">${title}</h3>${isPlaying ? eqIconHtml : ''}</div>
-                        <p class="text-[13px] text-slate-400 truncate font-medium">${secondLineHtml}</p>
-                    </div>
-                    <div class="flex">${menuBtnHtml}</div>`;
-            }
-            attachCoverFallback(wrapper.querySelector('img'));
-            return wrapper;
-        }
-
         /** Hiện lớp "đang nạp danh sách" (phủ vùng list). total để hiển thị "x / y bài". */
         function showPlaylistLoading(done, total) {
             const el = document.getElementById('playlist-loading-list');
@@ -213,80 +141,16 @@
             }
         }
 
-        function renderPlaylistFull() {
-            const _t0 = performance.now(); // MỚI (chẩn đoán boot chậm, phản hồi Giang) — đo thời gian THẬT, không đổi logic
-            // Revoke TOÀN BỘ object URL cover của các node cũ TRƯỚC khi xoá — renderPlaylistFull
-            // dựng lại từ đầu (layout grid/list đổi, hoặc lệch số lượng node), mọi node cũ chắc
-            // chắn bị bỏ, không có ngoại lệ nào cần giữ lại.
-            appState.get('domNodesByKey').forEach(revokeNodeCoverUrl);
-            playlistContainer.innerHTML = '';
-            appState.mutate('domNodesByKey', m => m.clear());
-            appState.get('renderOrder').forEach((key) => {
-                const node = buildSongNode(key);
-                appState.mutate('domNodesByKey', m => m.set(key, node));
-                playlistContainer.appendChild(node);
-            });
-            if (appState.get('currentKey')) btnReturnVisual.classList.remove('hidden'); else btnReturnVisual.classList.add('hidden');
-            updateEmptyState();
-            console.log(`writer: "renderPlaylistFull", page: "(chẩn đoán)", content: "${(performance.now() - _t0).toFixed(0)}ms cho ${appState.get('renderOrder').length} item (dựng lại TOÀN BỘ DOM)"`);
-        }
-
-        function renderPlaylistDiff() {
-            const _t0 = performance.now(); // MỚI (chẩn đoán boot chậm, phản hồi Giang) — đo thời gian THẬT, không đổi logic
-            if (playlistContainer.children.length !== appState.get('domNodesByKey').size) {
-                renderPlaylistFull(); // hàm này TỰ log riêng — không log trùng ở đây
-                return;
-            }
-
-            const renderKeySet = new Set(appState.get('renderOrder'));
-
-            for (const [key, node] of Array.from(appState.get('domNodesByKey').entries())) {
-                if (!renderKeySet.has(key)) {
-                    revokeNodeCoverUrl(node); // bài đã bị lọc khỏi danh sách hiển thị (xoá/tìm kiếm) -> node này bỏ vĩnh viễn
-                    node.remove();
-                    appState.mutate('domNodesByKey', m => m.delete(key));
-                }
-            }
-
-            let prevNode = null;
-            let _builtCount = 0; // MỚI (chẩn đoán) — đếm số node PHẢI DỰNG MỚI (buildSongNode) trong lượt diff này
-            for (const key of appState.get('renderOrder')) {
-                let node = appState.get('domNodesByKey').get(key);
-                if (!node) {
-                    node = buildSongNode(key);
-                    _builtCount++;
-                    appState.mutate('domNodesByKey', m => m.set(key, node));
-                }
-                const expectedNextSibling = prevNode ? prevNode.nextSibling : playlistContainer.firstChild;
-                if (expectedNextSibling !== node) {
-                    playlistContainer.insertBefore(node, expectedNextSibling);
-                }
-                prevNode = node;
-            }
-
-            if (appState.get('currentKey')) btnReturnVisual.classList.remove('hidden'); else btnReturnVisual.classList.add('hidden');
-            updateEmptyState();
-            console.log(`writer: "renderPlaylistDiff", page: "(chẩn đoán)", content: "${(performance.now() - _t0).toFixed(0)}ms — dựng mới ${_builtCount}/${appState.get('renderOrder').length} node"`);
-        }
-
-        function refreshSongNode(key) {
-            const oldNode = appState.get('domNodesByKey').get(key);
-            if (!oldNode) return;
-            const newNode = buildSongNode(key);
-            revokeNodeCoverUrl(oldNode); // node cũ bị thay hẳn bằng node mới (cover mới tạo riêng ở buildSongNode trên) -> revoke URL cũ ngay
-            oldNode.replaceWith(newNode);
-            appState.mutate('domNodesByKey', m => m.set(key, newNode));
-        }
-
         /** SỬA (yêu cầu Giang) — cuộn tới ĐÚNG bài hát vừa sửa phụ đề xong (quay lại từ
          * subtitle-editor.html qua `location.href`, KHÔNG còn `history.back()` — xem
          * event/workflow/subtitle-editor.js::back()) — đọc CỜ RÕ RÀNG `sav_editingSubtitle` +
          * key riêng `sav_scrollToSongKey`, CẢ HAI lưu qua `localStorage` (KHÔNG phải sessionStorage
          * nữa). Cờ `false`/chưa từng có -> KHÔNG làm gì cả; cờ `true` -> cuộn tới đúng bài (tra
-         * THẲNG qua `domNodesByKey`, Map bền vững renderPlaylistDiff() đang dùng, LUÔN khớp đúng
-         * node THẬT đang hiển thị — không tự dò lại DOM bằng querySelector), KHÔNG kèm hiệu ứng
-         * nháy/chớp UI gì cả (yêu cầu Giang — chỉ cuộn mượt, không viền sáng tạm thời như bản
-         * trước) — rồi đặt cờ về `false` + xoá hẳn key bài hát NGAY, chỉ dùng ĐÚNG 1 lần.
+         * THẲNG qua `domNodesByKey`, Map bền vững `workflowPlaylistRender.renderPlaylistDiff()`
+         * (event/workflow/playlist-render.js) đang dùng, LUÔN khớp đúng node THẬT đang hiển thị —
+         * không tự dò lại DOM bằng querySelector), KHÔNG kèm hiệu ứng nháy/chớp UI gì cả (yêu cầu
+         * Giang — chỉ cuộn mượt, không viền sáng tạm thời như bản trước) — rồi đặt cờ về `false` +
+         * xoá hẳn key bài hát NGAY, chỉ dùng ĐÚNG 1 lần.
          * Gọi từ core/visualizer/draw-visualizer.js, NGAY SAU initPlaylistFromDB() + khôi phục
          * activePlayListFolder (đảm bảo scope/danh sách đã ở trạng thái CUỐI CÙNG trước khi cuộn —
          * cuộn sớm hơn có thể nhắm nhầm lúc danh sách còn đang lọc lại theo folder). */
@@ -388,21 +252,20 @@
         }
 
         /** Ô tìm kiếm thay đổi: CHỈ lọc lại danh sách hiển thị (renderOrder) — KHÔNG đụng hàng đợi phát.
-         * SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — recomputeRenderOrder() ĐÃ DỜI
-         * hẳn sang event/workflow/playlist-order.js (workflowPlaylistOrder) vì nó cần gọi
-         * liveKeys()/songMatchesQuery()/sortKeysByMode() (Rule 3a cấm core gọi core). Hàm NÀY
-         * (applySearchQuery) VẪN nằm trong core/playlist/render.js, tự appState.get()/set() sẵn từ
-         * trước (nợ kỹ thuật riêng, core-legacy-audit.md — hầu hết render.js đang ở tình trạng
-         * này: buildSongNode/renderPlaylistFull/renderPlaylistDiff/refreshSongNode/3 hàm scroll
-         * đều tự appState.get()) — CHƯA relocate cả file trong đợt này (phạm vi Giang xác nhận là
-         * recomputeRenderOrder/recomputeDisplayOrder cụ thể, không phải toàn bộ render.js). Gọi
-         * `workflowPlaylistOrder.recomputeRenderOrder()` từ ĐÂY về hình thức là Core gọi Workflow —
-         * KHÔNG bị Rule 3a cấm theo đúng câu chữ (rule đó chỉ nói Core-gọi-Core), nhưng ngược hướng
-         * "Core thi hành/Workflow chuẩn bị" (Rule 3b) — ghi nhận là nợ CÒN LẠI, cùng loại với nợ
-         * DB-read đã biết của `loader.js` (xem core-function-conventions.md mục 3b, bảng nợ kỹ
-         * thuật), chỉ dứt điểm được nếu relocate NGUYÊN file render.js sang workflow ở đợt sau. */
+         * SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — `recomputeRenderOrder()`/
+         * `renderPlaylistDiff()` ĐÃ DỜI hẳn sang event/workflow/playlist-order.js
+         * (`workflowPlaylistOrder`)/event/workflow/playlist-render.js (`workflowPlaylistRender`) —
+         * cả 2 đều cần gọi hàm khác (`liveKeys`/`songMatchesQuery`/`sortKeysByMode`/`buildSongNode`,
+         * Rule 3a cấm core gọi core). Hàm NÀY (`applySearchQuery`) VẪN nằm trong core/playlist/
+         * render.js, tự `appState.get()`/`.set()` sẵn từ trước (nợ kỹ thuật riêng — file này còn
+         * `updateEmptyState`/3 hàm scroll tự đọc appState tương tự) — CHƯA relocate cả hàm trong
+         * đợt này (phạm vi Giang xác nhận là 2 hàm/cụm cụ thể, không phải toàn bộ render.js). Gọi
+         * cả 2 method Workflow từ ĐÂY về hình thức là Core gọi Workflow — KHÔNG bị Rule 3a cấm theo
+         * đúng câu chữ (rule đó chỉ nói Core-gọi-Core), nhưng ngược hướng "Core thi hành/Workflow
+         * chuẩn bị" (Rule 3b) — ghi nhận là nợ CÒN LẠI, cùng loại với nợ DB-read đã biết của
+         * `loader.js`, chỉ dứt điểm được nếu relocate NGUYÊN hàm này sang workflow ở đợt sau. */
         function applySearchQuery(raw) {
             appState.set('searchQuery', normalizeSongName(raw));
             workflowPlaylistOrder.recomputeRenderOrder(); // event/workflow/playlist-order.js (dời từ core/playlist/order.js) — tự đọc searchQuery vừa set ở trên qua appState
-            renderPlaylistDiff();
+            workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — FIX kèm theo: chỉ ẨN key bị Search lọc còn tồn tại trong playlistOrder, không rebuild
         }

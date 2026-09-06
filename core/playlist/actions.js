@@ -45,7 +45,7 @@
             appState.mutate('playlistCache', m => m.delete(key)); appState.mutate('songNameIndex', m => m.delete(key));
             workflowPlaylistOrder.updateShuffleArray();
             workflowPlaylistOrder.recomputeRenderOrder();
-            renderPlaylistDiff();
+            workflowPlaylistRender.renderPlaylistDiff();
             updateEmptyState();
         }
 
@@ -706,12 +706,12 @@
          * @param {string} key
          */
         function refreshAfterSongEditSave(key) {
-            refreshSongNode(key); // vẽ lại ảnh/tên mới ngay trong danh sách (ảnh cũ trong DOM không tự đổi)
+            workflowPlaylistRender.refreshSongNode(key); // vẽ lại ảnh/tên mới ngay trong danh sách (ảnh cũ trong DOM không tự đổi)
             // Đổi tên -> ảnh hưởng sort: cập nhật cả hàng đợi phát (nếu az/za) lẫn danh sách hiển thị.
             const nameMode = appState.get('displaySortMode');
             if (nameMode === 'az' || nameMode === 'za') workflowPlaylistOrder.recomputeDisplayOrder();
             workflowPlaylistOrder.recomputeRenderOrder();
-            renderPlaylistDiff();
+            workflowPlaylistRender.renderPlaylistDiff();
         }
 
         // ===================== Chi tiết bài hát (gộp vào tab đầu của song-edit-modal, 10/07/2026) =====================
