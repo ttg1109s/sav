@@ -42,9 +42,19 @@ const routerGameplay = (() => {
                 // `gameplayArmedGameId` giờ SỐNG Ở APPSTATE (service/state/gameplay-runtime.js,
                 // session-only) — KHÔNG còn ở appConfigViz/vizConfig (PERSISTENT) như bản trước đó
                 // cùng ngày nữa.
+                //
+                // FIX (Giang chỉ ra log spam "[VirtualMachineState] run() — không rule nào khớp"
+                // bắn MỖI LẦN đổi bài/video khi KHÔNG có game nào armed — tức hầu hết mọi lúc) —
+                // TRƯỚC ĐÂY chỉ có ĐÚNG 1 rule cho nhánh "có armed" (`!== null`), thiếu hẳn rule
+                // cho nhánh "không armed" (`=== null`, trường hợp BÌNH THƯỜNG) — run() cảnh báo bất
+                // cứ khi nào KHÔNG rule nào khớp, kể cả khi "không làm gì" chính là hành vi ĐÚNG.
+                // Thêm rule no-op có chủ đích cho nhánh còn lại — CÙNG khuôn đã dùng ở
+                // core/file-manager/folder.js::addSongsToFolder() ("đã ở trong rồi — no-op có chủ
+                // đích, khai báo rõ, tránh cảnh báo"). KHÔNG đổi hành vi thật, chỉ dọn log noise.
                 const armedGameId = appState.get('gameplayArmedGameId');
                 VirtualMachineState.run([
                     { state: armedGameId, operation: '!==', value: null, callback: () => workflowGameplay.start(armedGameId) },
+                    { state: armedGameId, operation: '===', value: null, callback: () => {} }, // không có game armed — no-op có chủ đích (khai báo rõ, tránh cảnh báo "không rule nào khớp")
                 ]);
                 break;
             }
