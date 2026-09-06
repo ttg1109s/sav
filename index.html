@@ -901,6 +901,17 @@
          core/song-search.js (songMatchesQuery), core/playlist/render.js (renderPlaylistDiff) — cả 3
          đã nạp ở nhóm CORE phía trên. -->
     <script src="event/workflow/playlist-order.js?v=20260906v1"></script>
+    <!-- MỚI (CÙNG đợt trên, Giang chỉ ra "search rồi tắt từ khoá lại rebuild thay vì chỉ ẩn/hiện
+         tạm") — event/workflow/playlist-render.js: workflowPlaylistRender, dời NGUYÊN VẸN 4 hàm từ
+         core/playlist/render.js (buildSongNode/renderPlaylistFull/renderPlaylistDiff/
+         refreshSongNode — vi phạm Rule 3a khi còn ở core, gọi lẫn nhau; renderPlaylistDiff() kèm fix
+         hide-vs-destroy). PHẢI nạp TRƯỚC MỌI file gọi workflowPlaylistRender.* — CÙNG danh sách file
+         nạp sau playlist-order.js ở trên (playlist-scope.js, file-manager-storage.js, playlist.js,
+         video-player.js, player-controls.js, playlist-empty-state.js, photo-player.js, player.js).
+         CẦN core/playlist/render.js (revokeNodeCoverUrl/songActionMenuButtonHtml/
+         attachCoverFallback/selectionIndicatorHtml/updateEmptyState), core/playlist/state.js
+         (formatTime) — đã nạp ở nhóm CORE phía trên. -->
+    <script src="event/workflow/playlist-render.js?v=20260906v1"></script>
     <script src="event/workflow/playlist-scope.js?v=20260703v3"></script>
     <!-- Panel "Song & Video" cũ (file-manager-song.js) đã xoá, thay bằng "Quản lý lưu trữ" (gộp 3
          domain: song/video/photo) — CẦN core/file-manager/{image,album}.js,
