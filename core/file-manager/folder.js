@@ -424,16 +424,26 @@ async function setFolderExcludeFlag(folderId, enabled) {
 
 /**
  * Gom OR (hợp) toàn bộ songKey đang bị loại khỏi view "Tất cả" — hợp của `folder_song.list` của
- * MỌI folder có `excludeFromMainPlaylist === true` (mục 5, "Exclude là OR trên mọi folder chứa bài
- * đó"). Rule 1: đơn tuyến — CHỈ tính 1 tập hợp duy nhất, không rẽ nhánh nghiệp vụ nào khác. Rule 3:
- * chỉ gọi API `service/db.js` (data layer, ngoại lệ — xem docstring đầu file) — KHÔNG gọi core nào
- * khác trong file này.
+ * MỌI folder CÙNG LOẠI `mediaType` có `excludeFromMainPlaylist === true` (mục 5, "Exclude là OR
+ * trên mọi folder chứa bài đó"). Rule 1: đơn tuyến — CHỈ tính 1 tập hợp duy nhất, không rẽ nhánh
+ * nghiệp vụ nào khác. Rule 3: chỉ gọi API `service/db.js` (data layer, ngoại lệ — xem docstring đầu
+ * file) — KHÔNG gọi core nào khác trong file này.
+ *
+ * FIX (Giang báo — "Exclude của Folder có thể loại nhầm media khác loại nếu key trùng") — TRƯỚC
+ * ĐÂY gom key từ CẢ 3 loại folder (song/video/photo) vào chung 1 Set, mất thông tin loại. Song,
+ * Video, Photo dùng namespace store KHÁC NHAU nhưng key đều sinh từ CÙNG kiểu slug filename — 2
+ * file trùng tên ở 2 nguồn khác nhau (vd `songs:hello-world` và `videos:hello-world`) hoàn toàn có
+ * thể tồn tại. Set gộp chung khiến `applyAllSongsScope()` (event/workflow/playlist-scope.js) lọc
+ * NHẦM: Exclude áp cho Song lại loại luôn Video cùng tên dù Video đó KHÔNG nằm trong folder Exclude
+ * nào. SỬA: nhận `mediaType` qua tham số (Rule 2), CHỈ gom key từ folder ĐÚNG loại đó — nơi gọi tự
+ * `appState.get('activeMediaSource')` rồi truyền vào (nguồn đang browse quyết định loại cần lọc).
+ * @param {'song'|'video'|'photo'} mediaType
  * @returns {Promise<Set<string>>}
  */
-async function getExcludedSongKeysFromFolders() {
+async function getExcludedSongKeysFromFolders(mediaType) {
     const ids = await getAllFolderKeys(); // service/db.js
     const records = await Promise.all(ids.map((id) => getFolderRecord(id))); // service/db.js
-    const excludedFolderIds = records.filter((r) => r && r.excludeFromMainPlaylist).map((r) => r.id);
+    const excludedFolderIds = records.filter((r) => r && r.excludeFromMainPlaylist && r.type === mediaType).map((r) => r.id);
 
     const excludedKeys = new Set();
     for (const folderId of excludedFolderIds) {
