@@ -542,8 +542,13 @@
         const btnOpenPlaylistSort = document.getElementById('setting-open-playlist-sort');
         const btnOpenPlaylistFilter = document.getElementById('setting-open-playlist-filter');
         const viewModeSelect = document.getElementById('setting-playlist-view-mode');
-        // MỚI (ver12 "Song/Video Unification", Batch 1) — select "Nguồn" (Song/Video), xem
-        // components/settings/playlist-view.js.
-        const mediaSourceSelect = document.getElementById('setting-playlist-media-source');
+        // XOÁ (06/09/2026, Giang chỉ ra bug) — `mediaSourceSelect` (capture 1 lần lúc script nạp,
+        // TRƯỚC KHI Settings/Generic Drawer từng mở lần nào -> luôn null cả phiên, y hệt nguyên
+        // nhân bug `viewModeSelect` đã sửa trước đó) đã bỏ hẳn — mọi chỗ cần select "Nguồn" giờ tự
+        // query lại DOM SỐNG (`genericDrawerBody.querySelector('#setting-playlist-media-source')`
+        // hoặc `body.querySelector(...)` ngay trong callback render), xem
+        // event/workflow/app-settings.js::_renderPlaylist(), core/app-settings-ui.js::
+        // wireAppSettingsPlaylist(), event/workflow/playlist.js::syncPlaylistSettingsUI(),
+        // core/playlist/main.js::initMediaSource()/updateActiveFolderUI().
         const playlistSearchInput = document.getElementById('playlist-search-input');
         const playlistSearchClear = document.getElementById('playlist-search-clear');
