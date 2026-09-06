@@ -226,7 +226,7 @@ const workflowVideoPlayer = {
         if (previousSongKey !== null) {
             audioPlayer.pause(); // bắn sự kiện 'pause' NGUYÊN BẢN -> handleAudioPause() (core/player-controls.js, KHÔNG đụng) tự lo icon/wake lock/Media Session cho Song
             appState.set('currentKey', null);
-            refreshSongNode(previousSongKey); // core/playlist/render.js — patch riêng đúng 1 hàng, xoá highlight "đang phát"
+            workflowPlaylistRender.refreshSongNode(previousSongKey); // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — patch riêng đúng 1 hàng, xoá highlight "đang phát"
         }
 
         visualizerSolidBg.style.backgroundColor = '#000000'; // nền đen cưỡng chế phía sau video — cùng kết quả updateDOMBackground() (core/color-utils.js) cho nhánh video nền
@@ -366,8 +366,8 @@ const workflowVideoPlayer = {
 
             requestWakeLock(); // core/player-controls.js — cùng khuôn goToNextTrack()/goToPrevTrack()/togglePlayPause() của Song
 
-            if (previousKey && previousKey !== videoKey) refreshSongNode(previousKey); // core/playlist/render.js — dòng video/song TRƯỚC đó, CHỈ khi khác videoKey
-            refreshSongNode(videoKey); // core/playlist/render.js — dòng video NÀY, cập nhật isPlaying/eq indicator, ĐỌC ĐÚNG bgVideoElement.paused=false (đã 'playing' ở trên, hoặc hết timeout)
+            if (previousKey && previousKey !== videoKey) workflowPlaylistRender.refreshSongNode(previousKey); // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — dòng video/song TRƯỚC đó, CHỈ khi khác videoKey
+            workflowPlaylistRender.refreshSongNode(videoKey); // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — dòng video NÀY, cập nhật isPlaying/eq indicator, ĐỌC ĐÚNG bgVideoElement.paused=false (đã 'playing' ở trên, hoặc hết timeout)
             if (appState.get('currentKey')) btnReturnVisual.classList.remove('hidden'); // core/dom-refs.js — hiện tray icon
 
             // MỚI (phản hồi Giang 29/07/2026, mục 2 — scroll animated Next/Prev) — dời logic
@@ -421,7 +421,7 @@ const workflowVideoPlayer = {
         workflowPlaylistOrder.updateShuffleArray();
         workflowPlaylistOrder.recomputeDisplayOrder();
         workflowPlaylistOrder.recomputeRenderOrder();
-        renderPlaylistDiff(); // core có sẵn (core/playlist/render.js)
+        workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
     },
 
     /** Ứng với 'playerControls.playPause.click' khi `isVideoPlayerMode=true` — toggle
@@ -446,7 +446,7 @@ const workflowVideoPlayer = {
         // bgVideoElement.paused cho row mediaType='video') mới là nơi vẽ lại EQ bars (đang phát)
         // hay chấm tròn xanh (đang pause) cho dòng Playlist — thiếu nó khiến dòng đứng yên ở trạng
         // thái lúc `playVideoByKey()` gọi lần cuối (lúc 'playing'), không cập nhật theo Play/Pause.
-        if (appState.get('currentKey')) refreshSongNode(appState.get('currentKey'));
+        if (appState.get('currentKey')) workflowPlaylistRender.refreshSongNode(appState.get('currentKey'));
         requestWakeLock(); startListenClock(); // core/player-controls.js
     },
 
@@ -455,7 +455,7 @@ const workflowVideoPlayer = {
         iconPlay.classList.remove('hidden'); iconPause.classList.add('hidden');
         const recordArtDynamic = document.getElementById('record-art'); if (recordArtDynamic) recordArtDynamic.classList.add('paused'); // cùng khuôn handleAudioPause() core/player-controls.js
         if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
-        if (appState.get('currentKey')) refreshSongNode(appState.get('currentKey')); // FIX (31/07/2026) — xem giải thích ở handleVideoPlayState()
+        if (appState.get('currentKey')) workflowPlaylistRender.refreshSongNode(appState.get('currentKey')); // FIX (31/07/2026) — xem giải thích ở handleVideoPlayState()
         releaseWakeLock(); stopListenClock(); // core/player-controls.js
     },
 

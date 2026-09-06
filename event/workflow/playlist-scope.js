@@ -82,7 +82,7 @@ const workflowPlaylistScope = {
         workflowPlaylistOrder.updateShuffleArray();
         workflowPlaylistOrder.recomputeDisplayOrder();
         workflowPlaylistOrder.recomputeRenderOrder();
-        renderPlaylistDiff();
+        workflowPlaylistRender.renderPlaylistDiff();
         updateEmptyState();
     },
 
@@ -113,7 +113,7 @@ const workflowPlaylistScope = {
         workflowPlaylistOrder.updateShuffleArray();
         workflowPlaylistOrder.recomputeDisplayOrder();
         workflowPlaylistOrder.recomputeRenderOrder();
-        renderPlaylistDiff();
+        workflowPlaylistRender.renderPlaylistDiff();
         updateEmptyState();
     },
 

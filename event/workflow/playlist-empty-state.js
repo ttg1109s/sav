@@ -35,7 +35,7 @@ const workflowPlaylistEmptyState = {
         // (workflowPlaylistOrder) — gọi trực tiếp, không cần tự gom tham số nữa.
         workflowPlaylistOrder.recomputeDisplayOrder(); // tự đặt sectionQueueActive=false bên trong
         workflowPlaylistOrder.recomputeRenderOrder();
-        renderPlaylistDiff();    // core có sẵn (render.js)
+        workflowPlaylistRender.renderPlaylistDiff();    // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
 
         const displayOrder = appState.get('displayOrder');
         updateShuffleArrayFromQueue(displayOrder, appState.get('playlistOrder'), appState.get('isShuffle')); // core mới (order.js) — resync shuffleIndices theo top-level luôn, phòng trường hợp Shuffle đang bật
@@ -57,7 +57,7 @@ const workflowPlaylistEmptyState = {
         // SỬA — CÙNG LÝ DO resetToTopLevelThenPlay() ngay trên.
         workflowPlaylistOrder.recomputeDisplayOrder(); // tự đặt sectionQueueActive=false bên trong
         workflowPlaylistOrder.recomputeRenderOrder();
-        renderPlaylistDiff();
+        workflowPlaylistRender.renderPlaylistDiff();
 
         if (!appState.get('isShuffle')) {
             btnShuffle.click(); // bấm hộ nút thật -> tự chạy workflowPlayerControls.toggleShuffleAndReshuffle() qua bus, tự bật cờ + tự shuffle theo displayOrder (đã là top-level ở trên)

@@ -476,7 +476,7 @@ const workflowPlaylist = {
             workflowPlaylistOrder.updateShuffleArray();
             workflowPlaylistOrder.recomputeDisplayOrder();
             workflowPlaylistOrder.recomputeRenderOrder();
-            renderPlaylistDiff();
+            workflowPlaylistRender.renderPlaylistDiff();
         }
         const successCount = fileArray.length - failedCount;
         await alertModal(tFormat('fileManager.photo.image.uploadSuccess', { count: successCount })); // tái dùng NGUYÊN lang key cũ của Photo Panel
@@ -1108,8 +1108,8 @@ const workflowPlaylist = {
             // ở removeKeysFromDisplayState() trên) qua appState, không cần truyền tham số nữa.
             workflowPlaylistOrder.updateShuffleArray();
             workflowPlaylistOrder.recomputeRenderOrder();
-            renderPlaylistDiff(); // core có sẵn (core/playlist/render.js)
-            updateEmptyState(); // core có sẵn (core/playlist/render.js)
+            workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
+            updateEmptyState(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
         });
 
         this._exitSelectionMode();
@@ -1171,9 +1171,9 @@ const workflowPlaylist = {
             // set ở trên) qua appState, không cần truyền tham số nữa.
             workflowPlaylistOrder.recomputeDisplayOrder();
             workflowPlaylistOrder.recomputeRenderOrder();
-            renderPlaylistDiff();      // core có sẵn (core/playlist/render.js)
+            workflowPlaylistRender.renderPlaylistDiff();      // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
             resetPlaylistScrollTop();  // core (MỚI, 29/07/2026, phản hồi Giang mục 2) — danh sách vừa đổi hẳn Nguồn, scrollTop cũ vô nghĩa -> về 0 tức thì
-            updateEmptyState();        // core có sẵn (core/playlist/render.js)
+            updateEmptyState();        // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
         });
         // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — placeholder ô tìm kiếm
         // đổi theo Nguồn (Song có artist/album để tìm, Video thì không).
@@ -1230,7 +1230,7 @@ const workflowPlaylist = {
             // (workflowPlaylistOrder) — gọi trực tiếp, CÙNG LÝ DO switchToVideoSource() ngay trên.
             workflowPlaylistOrder.recomputeDisplayOrder();
             workflowPlaylistOrder.recomputeRenderOrder();
-            renderPlaylistDiff();
+            workflowPlaylistRender.renderPlaylistDiff();
             resetPlaylistScrollTop();  // core (MỚI, 29/07/2026, phản hồi Giang mục 2) — cùng lý do switchToVideoSource(), scrollTop cũ vô nghĩa với danh sách vừa đổi hẳn Nguồn
             updateEmptyState();
         });
@@ -1285,9 +1285,9 @@ const workflowPlaylist = {
             // switchToSongSource() ngay trên.
             workflowPlaylistOrder.recomputeDisplayOrder();
             workflowPlaylistOrder.recomputeRenderOrder();
-            renderPlaylistDiff();      // core có sẵn (core/playlist/render.js) — CHẠY Y HỆT Song/Video, KHÔNG rẽ nhánh
+            workflowPlaylistRender.renderPlaylistDiff();      // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — CHẠY Y HỆT Song/Video, KHÔNG rẽ nhánh
             resetPlaylistScrollTop();  // core — danh sách vừa đổi hẳn Nguồn, scrollTop cũ vô nghĩa -> về 0 tức thì
-            updateEmptyState();        // core có sẵn (core/playlist/render.js)
+            updateEmptyState();        // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
         });
         if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholderPhoto');
         // SỬA (phản hồi Giang — "1 khung, không nhân bản") — nút upload giờ DÙNG CHUNG cho cả 3
@@ -1347,7 +1347,7 @@ const workflowPlaylist = {
      */
     async changeViewMode(mode) {
         setPlaylistViewMode(mode); // core (core/playlist/main.js) — chỉ ghi isGridView + className
-        renderPlaylistFull(); // core (core/playlist/render.js) — layout grid/list đổi cấu trúc node hoàn toàn, không diff được
+        workflowPlaylistRender.renderPlaylistFull(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — layout grid/list đổi cấu trúc node hoàn toàn, không diff được
         await this._persistPlaylistConfig();
     },
 

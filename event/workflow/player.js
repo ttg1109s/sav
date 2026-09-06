@@ -249,9 +249,9 @@ const workflowPlayer = {
             // ở luồng Video (event/workflow/video-player.js::playVideoByKey(), refreshSongNode()
             // xong rồi mới switchToVisualizer()/scrollToCurrentKeyAnimated()).
             audioPlayer.play(); if (switchScreen) switchToVisualizer();
-            if (previousKey) refreshSongNode(previousKey);
-            refreshSongNode(key);
-            if (!appState.get('domNodesByKey').has(key)) renderPlaylistDiff();
+            if (previousKey) workflowPlaylistRender.refreshSongNode(previousKey);
+            workflowPlaylistRender.refreshSongNode(key);
+            if (!appState.get('domNodesByKey').has(key)) workflowPlaylistRender.renderPlaylistDiff();
             if (!switchScreen) scrollToCurrentKeyAnimated();
             if (appState.get('currentKey')) btnReturnVisual.classList.remove('hidden');
             appState.set('beatTimes', []); appState.set('fluxHistory', []); appState.set('currentCalculatedBpm', "---"); statBpm.textContent = "---"; statNote.textContent = "---";

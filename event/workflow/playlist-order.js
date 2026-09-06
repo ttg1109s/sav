@@ -25,11 +25,13 @@
  * `shouldRestartInsteadOfAdvance()`.
  *
  * Workflow ở ĐÂY ĐƯỢC PHÉP tự `appState.get()` (Rule 2 CHỈ áp cho Core) và gọi nhiều Core nối tiếp
- * nhau (`liveKeys`/`songMatchesQuery`/`sortKeysByMode`/`renderPlaylistDiff` — Rule 3 CHỈ cấm Core
- * gọi Core, không cấm Workflow gọi Core) — đúng vai trò CHUẨN BỊ + ĐIỀU PHỐI.
+ * nhau (`liveKeys`/`songMatchesQuery`/`sortKeysByMode` — Core; `renderPlaylistDiff` giờ CŨNG là
+ * Workflow, gọi qua `workflowPlaylistRender.renderPlaylistDiff()` — Workflow gọi Workflow khác
+ * domain, tự do) — Rule 3 CHỈ cấm Core gọi Core, không cấm Workflow gọi Core/Workflow khác.
  *
  * NẠP SAU: core/playlist/order.js (liveKeys/sortKeysByMode), core/song-search.js (songMatchesQuery),
- * core/playlist/render.js (renderPlaylistDiff), service/state.js (appState). NẠP TRƯỚC: mọi
+ * event/workflow/playlist-render.js (workflowPlaylistRender.renderPlaylistDiff — dời từ
+ * core/playlist/render.js), service/state.js (appState). NẠP TRƯỚC: mọi
  * event/workflow/*.js hoặc core/*.js gọi 7 method dưới đây (xem danh sách callsite đã cập nhật ở
  * event/workflow/playlist.js, playlist-scope.js, playlist-empty-state.js, player-controls.js,
  * video-player.js, file-manager-storage.js, core/playlist/render.js, actions.js, loader.js,
@@ -126,7 +128,7 @@ const workflowPlaylistOrder = {
         console.log(`writer: "workflowPlaylistOrder.setDisplaySortMode", page: "displaySortMode", content: "${mode}"`);
         this.recomputeDisplayOrder();   // hàng đợi: resort thật (đổi mode là hành động chủ động)
         this.recomputeRenderOrder();    // UI: sắp lại ngay
-        renderPlaylistDiff(); // core/playlist/render.js
+        workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js, Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ")
     },
 
     /** Đổi trục (2) — field thống kê. Dời NGUYÊN VẸN từ core/playlist/order.js::
@@ -137,7 +139,7 @@ const workflowPlaylistOrder = {
         console.log(`writer: "workflowPlaylistOrder.setDisplayStatSortField", page: "displayStatSortField", content: "${field}"`);
         this.recomputeDisplayOrder();
         this.recomputeRenderOrder();
-        renderPlaylistDiff(); // core/playlist/render.js
+        workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js, Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ")
     },
 
     /** Đổi trục (2) — hướng sắp xếp. Dời NGUYÊN VẸN từ core/playlist/order.js::
@@ -148,6 +150,6 @@ const workflowPlaylistOrder = {
         console.log(`writer: "workflowPlaylistOrder.setDisplayStatSortDirection", page: "displayStatSortDirection", content: "${direction}"`);
         this.recomputeDisplayOrder();
         this.recomputeRenderOrder();
-        renderPlaylistDiff(); // core/playlist/render.js
+        workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js, Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ")
     },
 };

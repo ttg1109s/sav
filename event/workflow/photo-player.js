@@ -86,7 +86,7 @@ const workflowPhotoPlayer = {
         if (appState.get('isVideoPlayerMode')) await workflowVideoPlayer.exitVideoPlayerMode(); // event/workflow/video-player.js — dọn HẲN bgVideoElement/state trước khi vào Photo mode
         if (previousKey !== null) {
             appState.set('currentKey', null);
-            refreshSongNode(previousKey); // core/playlist/render.js — patch riêng đúng 1 hàng, xoá highlight "đang phát"
+            workflowPlaylistRender.refreshSongNode(previousKey); // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — patch riêng đúng 1 hàng, xoá highlight "đang phát"
         }
 
         // MỚI (Giang chỉ ra đúng — dùng lại cơ chế VBG có sẵn) — dọn lớp VBG đang hiện (nếu có)
@@ -169,8 +169,8 @@ const workflowPhotoPlayer = {
 
         requestWakeLock(); // core/player-controls.js — cùng khuôn goToNextTrack()/goToPrevTrack()/togglePlayPause() của Song
 
-        if (previousKey && previousKey !== photoKey) refreshSongNode(previousKey); // core/playlist/render.js
-        refreshSongNode(photoKey);
+        if (previousKey && previousKey !== photoKey) workflowPlaylistRender.refreshSongNode(previousKey); // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
+        workflowPlaylistRender.refreshSongNode(photoKey);
         if (appState.get('currentKey')) btnReturnVisual.classList.remove('hidden'); // core/dom-refs.js — hiện tray icon
 
         if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated(); // core/player-controls.js / core/playlist/render.js
