@@ -415,8 +415,13 @@ const workflowVideoPlayer = {
         appState.set('playlistOrder', keys);
         console.log(`writer: "refreshVideoPlaylistIfActive", page: "playlistOrder", content: "${keys.length} video"`);
         updateShuffleArray(); // core có sẵn (core/playlist/order.js)
-        recomputeDisplayOrder(); // core có sẵn (core/playlist/order.js)
-        recomputeRenderOrder(); // core có sẵn (core/playlist/order.js)
+        // SỬA — recomputeDisplayOrder()/recomputeRenderOrder() (core/playlist/order.js) VỪA sửa
+        // Rule 2 (nhận tham số thay vì tự appState.get()) — Workflow ở đây tự đọc rồi truyền vào.
+        {
+            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'confirmedBrokenKeys', 'searchQuery']);
+            recomputeDisplayOrder(keys, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap); // core có sẵn (core/playlist/order.js)
+            recomputeRenderOrder(keys, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap); // core có sẵn (core/playlist/order.js)
+        }
         renderPlaylistDiff(); // core có sẵn (core/playlist/render.js)
     },
 

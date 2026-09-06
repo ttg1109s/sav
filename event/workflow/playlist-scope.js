@@ -75,8 +75,13 @@ const workflowPlaylistScope = {
         // dòng này thì chắc chắn KHÔNG phải do applyPlaylistFilter(), mà do 1 trong 4 hàm ngay dưới.
         console.log(`writer: "applyFolderScope", page: "playlistOrder", content: "Filter: ${filteredKeys.length}/${beforeCount} sau lọc (source=${source})"`);
         updateShuffleArray();
-        recomputeDisplayOrder();
-        recomputeRenderOrder();
+        // SỬA — recomputeDisplayOrder()/recomputeRenderOrder() (core/playlist/order.js) VỪA sửa
+        // Rule 2 (nhận tham số thay vì tự appState.get()) — tự đọc rồi truyền vào.
+        {
+            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'confirmedBrokenKeys', 'searchQuery']);
+            recomputeDisplayOrder(filteredKeys, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);
+            recomputeRenderOrder(filteredKeys, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);
+        }
         renderPlaylistDiff();
         updateEmptyState();
     },
@@ -101,8 +106,12 @@ const workflowPlaylistScope = {
         console.log(`writer: "applyAllSongsScope", page: "playlistOrder", content: "Filter: ${filteredKeys.length}/${beforeCount} sau lọc (source=${source})"`);
 
         updateShuffleArray();
-        recomputeDisplayOrder();
-        recomputeRenderOrder();
+        // SỬA — CÙNG LÝ DO applyFolderScope() ngay trên.
+        {
+            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'confirmedBrokenKeys', 'searchQuery']);
+            recomputeDisplayOrder(filteredKeys, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);
+            recomputeRenderOrder(filteredKeys, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);
+        }
         renderPlaylistDiff();
         updateEmptyState();
     },

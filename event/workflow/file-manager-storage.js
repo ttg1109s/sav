@@ -232,7 +232,10 @@ const workflowFileManagerStorage = {
         if (appState.get('activeMediaSource') === 'video') {
             appState.set('playlistOrder', []);
             appState.mutate('playlistCache', (m) => m.clear());
-            updateShuffleArray(); recomputeDisplayOrder(); recomputeRenderOrder(); renderPlaylistDiff(); updateEmptyState(); // core/playlist/*, có sẵn
+            // SỬA — recomputeDisplayOrder()/recomputeRenderOrder() (core/playlist/order.js) VỪA
+            // sửa Rule 2 (nhận tham số thay vì tự appState.get()) — tự đọc rồi truyền vào.
+            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'confirmedBrokenKeys', 'searchQuery']);
+            updateShuffleArray(); recomputeDisplayOrder([], confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap); recomputeRenderOrder([], confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap); renderPlaylistDiff(); updateEmptyState(); // core/playlist/*, có sẵn
         }
     },
 
@@ -246,7 +249,9 @@ const workflowFileManagerStorage = {
         if (appState.get('activeMediaSource') === 'photo') {
             appState.set('playlistOrder', []);
             appState.mutate('playlistCache', (m) => m.clear());
-            updateShuffleArray(); recomputeDisplayOrder(); recomputeRenderOrder(); renderPlaylistDiff(); updateEmptyState(); // core/playlist/*, có sẵn
+            // SỬA — CÙNG LÝ DO _resetVideoRuntimeStateAfterClear() ngay trên.
+            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'confirmedBrokenKeys', 'searchQuery']);
+            updateShuffleArray(); recomputeDisplayOrder([], confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap); recomputeRenderOrder([], confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap); renderPlaylistDiff(); updateEmptyState(); // core/playlist/*, có sẵn
         }
     },
 

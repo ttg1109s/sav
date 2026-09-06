@@ -28,8 +28,13 @@ const workflowPlaylistEmptyState = {
      * currentKey nếu bài đang phát vẫn còn hợp lệ trong top-level mới, không thì phát bài đầu.
      */
     resetToTopLevelThenPlay() {
-        recomputeDisplayOrder(); // core có sẵn (order.js) — tự đặt sectionQueueActive=false bên trong
-        recomputeRenderOrder();  // core có sẵn (order.js)
+        // SỬA — recomputeDisplayOrder()/recomputeRenderOrder() (core/playlist/order.js) VỪA sửa
+        // Rule 2 (nhận tham số thay vì tự appState.get()) — Workflow ở đây tự đọc rồi truyền vào.
+        {
+            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
+            recomputeDisplayOrder(playlistOrder, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap); // core có sẵn (order.js) — tự đặt sectionQueueActive=false bên trong
+            recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);  // core có sẵn (order.js)
+        }
         renderPlaylistDiff();    // core có sẵn (render.js)
 
         const displayOrder = appState.get('displayOrder');
@@ -49,8 +54,12 @@ const workflowPlaylistEmptyState = {
      * đúng CHỐT mục 3a: 2 nút to luôn "chèn lại top-level" khi đang phát 1 section.
      */
     resetToTopLevelThenShuffle() {
-        recomputeDisplayOrder(); // tự đặt sectionQueueActive=false bên trong
-        recomputeRenderOrder();
+        // SỬA — CÙNG LÝ DO resetToTopLevelThenPlay() ngay trên.
+        {
+            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
+            recomputeDisplayOrder(playlistOrder, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap); // tự đặt sectionQueueActive=false bên trong
+            recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);
+        }
         renderPlaylistDiff();
 
         if (!appState.get('isShuffle')) {

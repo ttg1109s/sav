@@ -88,8 +88,10 @@ const workflowPlayerControls = {
      */
     goToNextTrack(force = false) {
         requestWakeLock(); // core
-        const { isVideoPlayerMode, isPhotoPlayerMode, repeatMode, isShuffle, currentKey, shuffleIndices, displayOrder, playlistOrder, pendingResortKeys } = appState.get([
-            'isVideoPlayerMode', 'isPhotoPlayerMode', 'repeatMode', 'isShuffle', 'currentKey', 'shuffleIndices', 'displayOrder', 'playlistOrder', 'pendingResortKeys',
+        // SỬA — recomputeDisplayOrder() (core/playlist/order.js) VỪA sửa Rule 2 (nhận tham số thay
+        // vì tự appState.get()) — thêm 6 field cần cho lời gọi đó vào CHUNG 1 lượt get() sẵn có.
+        const { isVideoPlayerMode, isPhotoPlayerMode, repeatMode, isShuffle, currentKey, shuffleIndices, displayOrder, playlistOrder, pendingResortKeys, confirmedBrokenKeys, displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap } = appState.get([
+            'isVideoPlayerMode', 'isPhotoPlayerMode', 'repeatMode', 'isShuffle', 'currentKey', 'shuffleIndices', 'displayOrder', 'playlistOrder', 'pendingResortKeys', 'confirmedBrokenKeys', 'displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap',
         ]);
         if (playlistOrder.length === 0) return;
         const activeEl = getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode); // core/player-controls.js — DÙNG CHUNG Song/Video/Photo (Next/Prev + Game Mode) — SỬA (Giang yêu cầu, Photo tích hợp duration) thêm isPhotoPlayerMode
@@ -117,7 +119,7 @@ const workflowPlayerControls = {
             }
             // wrapToStart — CHỈ nhánh tuần tự (KHÔNG shuffle) mới áp lại sort thật cho bài mới
             // thêm giữa lúc nghe (pendingResortKeys), ĐÚNG hành vi gốc — shuffle KHÔNG có bước này.
-            if (!isShuffle && pendingResortKeys.size > 0) recomputeDisplayOrder(); // core có sẵn (order.js), side-effect -> đọc lại displayOrder MỚI ngay dưới
+            if (!isShuffle && pendingResortKeys.size > 0) recomputeDisplayOrder(playlistOrder, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap); // core có sẵn (order.js), side-effect -> đọc lại displayOrder MỚI ngay dưới
             const freshList = isShuffle ? shuffleIndices : appState.get('displayOrder');
             nextKey = freshList[0];
         } else {
@@ -134,8 +136,9 @@ const workflowPlayerControls = {
      */
     goToPrevTrack() {
         requestWakeLock(); // core
-        const { isVideoPlayerMode, isPhotoPlayerMode, isShuffle, currentKey, shuffleIndices, displayOrder, playlistOrder, pendingResortKeys } = appState.get([
-            'isVideoPlayerMode', 'isPhotoPlayerMode', 'isShuffle', 'currentKey', 'shuffleIndices', 'displayOrder', 'playlistOrder', 'pendingResortKeys',
+        // SỬA — CÙNG LÝ DO goToNextTrack() ở trên.
+        const { isVideoPlayerMode, isPhotoPlayerMode, isShuffle, currentKey, shuffleIndices, displayOrder, playlistOrder, pendingResortKeys, confirmedBrokenKeys, displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap } = appState.get([
+            'isVideoPlayerMode', 'isPhotoPlayerMode', 'isShuffle', 'currentKey', 'shuffleIndices', 'displayOrder', 'playlistOrder', 'pendingResortKeys', 'confirmedBrokenKeys', 'displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap',
         ]);
         if (playlistOrder.length === 0) return;
         const activeEl = getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode); // core/player-controls.js — SỬA (Giang yêu cầu, Photo tích hợp duration) thêm isPhotoPlayerMode
@@ -147,7 +150,7 @@ const workflowPlayerControls = {
         const step = computeListStep(list, currentKey, -1); // core mới (order.js)
         let prevKey;
         if (step.atBoundary) {
-            if (!isShuffle && pendingResortKeys.size > 0) recomputeDisplayOrder(); // CHỈ nhánh tuần tự, ĐÚNG hành vi gốc
+            if (!isShuffle && pendingResortKeys.size > 0) recomputeDisplayOrder(playlistOrder, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap); // CHỈ nhánh tuần tự, ĐÚNG hành vi gốc
             const freshList = isShuffle ? shuffleIndices : appState.get('displayOrder');
             prevKey = freshList[freshList.length - 1];
         } else {
