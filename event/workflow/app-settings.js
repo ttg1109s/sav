@@ -130,6 +130,15 @@ const workflowAppSettings = {
         this._render(t('appSettings.row.playlist'), TPL_SETTINGS_PLAYLIST_VIEW, (body) => {
             const mediaSourceSelect = body.querySelector('#setting-playlist-media-source');
             if (mediaSourceSelect) mediaSourceSelect.value = appState.get('activeMediaSource');
+            // SỬA (06/09/2026, Giang chỉ ra bug "khoá Nguồn khi có Scope không hoạt động") — TRƯỚC
+            // ĐÂY chỉ đồng bộ `.value`, KHÔNG hề gọi PlaylistMain.updateActiveFolderUI() ở đây —
+            // hàm đó trước giờ chỉ được gọi từ nơi khác (syncPlaylistSettingsUI()/
+            // persistScopeChoice()/boot), luôn dùng biến toàn cục `mediaSourceSelect` (dom-refs.js)
+            // đã `null` vĩnh viễn từ lúc Settings migrate sang Generic Drawer — nên option/disabled
+            // khoá Folder Scope KHÔNG BAO GIỜ thật sự áp lên `<select>` sống, kể cả lúc mở lại panel.
+            // Gọi THẲNG ở đây, dùng ĐÚNG `mediaSourceSelect` vừa query sống ngay trên — đây là nơi
+            // DUY NHẤT đảm bảo phần tử luôn tồn tại (vừa render xong).
+            if (typeof PlaylistMain !== 'undefined') PlaylistMain.updateActiveFolderUI(mediaSourceSelect);
             const viewModeSelect = body.querySelector('#setting-playlist-view-mode');
             if (viewModeSelect) viewModeSelect.value = appState.get('isGridView') ? 'grid' : 'list';
             wireAppSettingsPlaylist(body); // core/app-settings-ui.js

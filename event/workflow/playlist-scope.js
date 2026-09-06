@@ -49,7 +49,11 @@ const workflowPlaylistScope = {
         // MỚI (phản hồi Giang, mục 5 — "thêm dòng folder đang active source" + mục 2 — "khoá đổi
         // Nguồn khi có Scope") — phản ánh đúng NGAY ở Settings → Playlist, không cần đợi reload
         // (đúng tinh thần "badge phản ánh đúng NGAY" đã ghi ở docstring hàm này).
-        if (typeof PlaylistMain !== 'undefined') await PlaylistMain.updateActiveFolderUI();
+        // SỬA (06/09/2026, Giang chỉ ra bug) — truy vấn LẠI DOM sống thay vì biến toàn cục
+        // `mediaSourceSelect` (dom-refs.js) đã XOÁ, xem docstring updateActiveFolderUI()
+        // (core/playlist/main.js). Trả `null` nếu màn Playlist Settings hiện không mở — no-op
+        // đúng ý (không có gì để khoá lúc đó, lần MỞ TIẾP THEO qua _renderPlaylist() tự áp đúng).
+        if (typeof PlaylistMain !== 'undefined') await PlaylistMain.updateActiveFolderUI(genericDrawerBody.querySelector('#setting-playlist-media-source'));
     },
 
     /**

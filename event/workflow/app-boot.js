@@ -155,7 +155,10 @@ const workflowAppBoot = {
         // LẠI đúng 1 lần Ở ĐÂY, SAU CÙNG khối quyết định Scope (giờ đã `await` được nhờ
         // `runAsync()`, xem event/virtual-machine-state.js), để phản ánh đúng giá trị thật đã khôi
         // phục.
-        if (typeof PlaylistMain !== 'undefined') await PlaylistMain.updateActiveFolderUI();
+        // SỬA (06/09/2026, Giang chỉ ra bug) — truy vấn LẠI DOM sống thay vì biến toàn cục
+        // `mediaSourceSelect` (dom-refs.js) đã XOÁ, xem docstring updateActiveFolderUI()
+        // (core/playlist/main.js). Lúc boot chắc chắn `null` (Settings chưa mở) — no-op đúng ý.
+        if (typeof PlaylistMain !== 'undefined') await PlaylistMain.updateActiveFolderUI(genericDrawerBody.querySelector('#setting-playlist-media-source'));
         // Cuộn tới bài vừa sửa phụ đề xong (quay lại từ subtitle-editor.html qua nút "←") — đặt
         // SAU CÙNG (đã initPlaylistFromDB() + khôi phục activePlayListFolder xong).
         if (typeof scrollToSongIfPending === 'function') scrollToSongIfPending();

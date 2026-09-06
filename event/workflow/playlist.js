@@ -1643,8 +1643,13 @@ const workflowPlaylist = {
     async syncPlaylistSettingsUI() {
         if (typeof PlaylistMain === 'undefined') return; // guard clause thuần (Rule 1) — giữ đúng kiểu phòng thủ cũ ở mọi nơi từng gọi PlaylistMain.init()
         PlaylistMain.initViewMode(appState.get('isGridView'));
-        PlaylistMain.initMediaSource();
-        await PlaylistMain.updateActiveFolderUI();
+        // SỬA (06/09/2026, Giang chỉ ra bug "khoá Nguồn khi có Scope không hoạt động") — truy vấn
+        // LẠI DOM sống ngay đây (`null` nếu màn Playlist Settings hiện KHÔNG mở, phần tử THẬT nếu
+        // đang mở) thay vì biến toàn cục `mediaSourceSelect` (dom-refs.js) đã XOÁ — biến đó capture
+        // 1 lần lúc script nạp nên luôn `null`, khiến updateActiveFolderUI() no-op ÂM THẦM mọi lúc.
+        const mediaSourceSelectEl = genericDrawerBody.querySelector('#setting-playlist-media-source');
+        PlaylistMain.initMediaSource(mediaSourceSelectEl);
+        await PlaylistMain.updateActiveFolderUI(mediaSourceSelectEl);
     }
 };
 
