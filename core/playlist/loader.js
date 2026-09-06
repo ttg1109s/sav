@@ -143,7 +143,17 @@
                         await setSongRecord(key, record);
 
                         if (!isOverwrite) { appState.mutate('playlistOrder', arr => arr.push(key)); playlistOrderSet.add(key); newlyAddedKeys.push(key); }
-                        appState.mutate('playlistCache', m => m.set(key, { filename: record.filename, tag: record.tag, cover: record.cover, duration: record.duration }));
+                        // FIX (Giang báo — "song mới upload thiếu addedAt/size trong playlistCache") —
+                        // TRƯỚC ĐÂY object ghi vào cache CHỈ có filename/tag/cover/duration, thiếu
+                        // addedAt/size mà scanValidSongsFromDB() (dòng ~324, cùng file) LUÔN có đủ —
+                        // khiến Sort newest/oldest/size VÀ Filter theo ngày/dung lượng coi bài vừa
+                        // upload như addedAt=0/size=0 CHO TỚI KHI reload trang (F5 chạy lại
+                        // scanValidSongsFromDB(), tự vá đủ field). `record.addedAt` đã có sẵn (gán
+                        // Date.now() lúc tạo record ở trên); `record.blob` CHÍNH LÀ `file` (File
+                        // extends Blob, có `.size` sẵn) — dùng ĐÚNG `record.blob.size` cho khớp 100%
+                        // với cách scanValidSongsFromDB() đọc (`record.blob.size`), không suy ra từ
+                        // biến `file` riêng để tránh lệch nếu sau này `record.blob` đổi nguồn khác `file`.
+                        appState.mutate('playlistCache', m => m.set(key, { filename: record.filename, tag: record.tag, cover: record.cover, duration: record.duration, addedAt: record.addedAt, size: record.blob.size || 0 }));
                         appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(record.tag.title)));
                         appState.mutate('confirmedBrokenKeys', s => s.delete(key));
                     } catch (err) {
@@ -152,14 +162,15 @@
                         failedFiles.push(`${escapeHtml(file.name)} — ${escapeHtml(errMsg)}`);
                     }
                 }
-                updateShuffleArray();
-                applyNewSongsToDisplayOrder(newlyAddedKeys); // (B) hàng đợi phát: nối cuối / pending
-                // SỬA — recomputeRenderOrder() (core/playlist/order.js) VỪA sửa Rule 2, cập nhật
-                // lời gọi ĐỦ tham số để không vỡ.
-                {
-                    const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
-                    recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap); // (A) UI: sắp xếp lại NGAY
-                }
+                // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — updateShuffleArray()/
+                // applyNewSongsToDisplayOrder()/recomputeRenderOrder() ĐÃ DỜI hẳn sang
+                // event/workflow/playlist-order.js (workflowPlaylistOrder) — gọi từ ĐÂY về hình
+                // thức là Core gọi Workflow (hàm bao NGOÀI đã tự appState.mutate() sẵn từ trước —
+                // nợ kỹ thuật riêng của loader.js, CHƯA relocate cả hàm trong đợt này, CÙNG loại nợ
+                // DB-read đã biết của file này, xem core-function-conventions.md mục 3b).
+                workflowPlaylistOrder.updateShuffleArray();
+                workflowPlaylistOrder.applyNewSongsToDisplayOrder(newlyAddedKeys); // (B) hàng đợi phát: nối cuối / pending
+                workflowPlaylistOrder.recomputeRenderOrder(); // (A) UI: sắp xếp lại NGAY
                 renderPlaylistDiff();
             });
 
@@ -460,14 +471,13 @@
             if (rawKeys.length <= 0) {
                 // Thực sự rỗng -> hiện luôn trạng thái "chưa có bài nào", KHÔNG nháy lớp loading.
                 appState.set('playlistOrder', []);
-                updateShuffleArray();
-                // SỬA — recomputeDisplayOrder()/recomputeRenderOrder() (core/playlist/order.js) VỪA
-                // sửa Rule 2, cập nhật lời gọi ĐỦ tham số để không vỡ.
-                {
-                    const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
-                    recomputeDisplayOrder(playlistOrder, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);
-                    recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);
-                }
+                // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — updateShuffleArray()/
+                // recomputeDisplayOrder()/recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/
+                // playlist-order.js (workflowPlaylistOrder) — CÙNG ghi chú nợ "Core gọi Workflow"
+                // như khối upload phía trên.
+                workflowPlaylistOrder.updateShuffleArray();
+                workflowPlaylistOrder.recomputeDisplayOrder();
+                workflowPlaylistOrder.recomputeRenderOrder();
                 renderPlaylistDiff();
                 updateEmptyState();
                 return;
@@ -476,13 +486,10 @@
             // "chưa có bài nào". Lớp này sẽ tự fade out khi DOM list dựng xong (updateEmptyState).
             showPlaylistLoading(0, rawKeys.length);
             appState.set('playlistOrder', await scanValidSongsFromDB((done, total) => updatePlaylistLoading(done, total)));
-            updateShuffleArray();
             // SỬA — CÙNG LÝ DO nhánh rỗng ngay trên.
-            {
-                const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
-                recomputeDisplayOrder(playlistOrder, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);   // hàng đợi phát
-                recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);    // danh sách hiển thị
-            }
+            workflowPlaylistOrder.updateShuffleArray();
+            workflowPlaylistOrder.recomputeDisplayOrder();   // hàng đợi phát
+            workflowPlaylistOrder.recomputeRenderOrder();    // danh sách hiển thị
             renderPlaylistDiff();
             updateEmptyState();        // dựng xong -> fade out lớp loading (hoặc hiện empty nếu mọi record hỏng)
             hidePlaylistLoading();     // chốt fade out (an toàn kể cả khi tất cả record lỗi -> renderOrder rỗng)

@@ -31,19 +31,20 @@
         /**
          * Loại 1 key khỏi playlist (xoá tay / "Xóa luôn" / "Giữ lại" lúc phát lỗi). Cập nhật CẢ
          * nguồn chân lý, hàng đợi phát LẪN danh sách hiển thị rồi vẽ lại.
-         * SỬA — `recomputeRenderOrder()` (core/playlist/order.js) VỪA sửa Rule 2, cập nhật lời gọi
-         * ĐỦ tham số để không vỡ.
+         * SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — `updateShuffleArray()`/
+         * `recomputeRenderOrder()` ĐÃ DỜI hẳn sang `event/workflow/playlist-order.js`
+         * (`workflowPlaylistOrder`, xem docstring đầu file đó) — gọi từ ĐÂY về hình thức là Core
+         * gọi Workflow (hàm NÀY vẫn ở `core/playlist/actions.js`, tự `appState.get()`/`.set()` sẵn
+         * từ trước — nợ kỹ thuật riêng, CHƯA relocate cả hàm trong đợt này, xem lý giải tương tự ở
+         * `core/playlist/render.js::applySearchQuery()`).
          */
         function removeKeyFromDisplay(key) {
             appState.set('playlistOrder', appState.get('playlistOrder').filter(k => k !== key));
             appState.set('displayOrder', appState.get('displayOrder').filter(k => k !== key));
             appState.mutate('pendingResortKeys', s => s.delete(key));
             appState.mutate('playlistCache', m => m.delete(key)); appState.mutate('songNameIndex', m => m.delete(key));
-            updateShuffleArray();
-            {
-                const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
-                recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);
-            }
+            workflowPlaylistOrder.updateShuffleArray();
+            workflowPlaylistOrder.recomputeRenderOrder();
             renderPlaylistDiff();
             updateEmptyState();
         }
@@ -696,16 +697,20 @@
         /**
          * Phần "dọn dẹp sau khi lưu" (vẽ lại danh sách, sắp xếp lại nếu cần) — core thuần, không
          * shield/modal, gọi SAU KHI applySongEditAndSave() đã resolve (workflow gọi nối tiếp).
-         * SỬA — `recomputeDisplayOrder()`/`recomputeRenderOrder()` (core/playlist/order.js) VỪA
-         * sửa Rule 2, cập nhật lời gọi ĐỦ tham số để không vỡ.
+         * SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — `recomputeDisplayOrder()`/
+         * `recomputeRenderOrder()` ĐÃ DỜI hẳn sang `event/workflow/playlist-order.js`
+         * (`workflowPlaylistOrder`) — CÙNG GHI CHÚ nợ kỹ thuật "Core gọi Workflow" như
+         * `removeKeyFromDisplay()` ngay trên. Cần đọc `displaySortMode` TRƯỚC để chọn nhánh
+         * `recomputeDisplayOrder()` (CHỈ chạy khi 'az'/'za') — đọc riêng 1 field đó ở đây, phần còn
+         * lại 2 method kia tự đọc.
          * @param {string} key
          */
         function refreshAfterSongEditSave(key) {
             refreshSongNode(key); // vẽ lại ảnh/tên mới ngay trong danh sách (ảnh cũ trong DOM không tự đổi)
             // Đổi tên -> ảnh hưởng sort: cập nhật cả hàng đợi phát (nếu az/za) lẫn danh sách hiển thị.
-            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
-            if (nameMode === 'az' || nameMode === 'za') recomputeDisplayOrder(playlistOrder, confirmedBrokenKeys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap);
-            recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);
+            const nameMode = appState.get('displaySortMode');
+            if (nameMode === 'az' || nameMode === 'za') workflowPlaylistOrder.recomputeDisplayOrder();
+            workflowPlaylistOrder.recomputeRenderOrder();
             renderPlaylistDiff();
         }
 

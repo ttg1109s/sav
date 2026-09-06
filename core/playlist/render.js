@@ -388,12 +388,21 @@
         }
 
         /** Ô tìm kiếm thay đổi: CHỈ lọc lại danh sách hiển thị (renderOrder) — KHÔNG đụng hàng đợi phát.
-         * SỬA — `recomputeRenderOrder()` (core/playlist/order.js) VỪA sửa Rule 2, cập nhật lời gọi
-         * ĐỦ tham số để không vỡ (hàm NÀY tự appState.get()/gọi renderPlaylistDiff() sẵn — ngoài
-         * phạm vi đợt sửa này). */
+         * SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — recomputeRenderOrder() ĐÃ DỜI
+         * hẳn sang event/workflow/playlist-order.js (workflowPlaylistOrder) vì nó cần gọi
+         * liveKeys()/songMatchesQuery()/sortKeysByMode() (Rule 3a cấm core gọi core). Hàm NÀY
+         * (applySearchQuery) VẪN nằm trong core/playlist/render.js, tự appState.get()/set() sẵn từ
+         * trước (nợ kỹ thuật riêng, core-legacy-audit.md — hầu hết render.js đang ở tình trạng
+         * này: buildSongNode/renderPlaylistFull/renderPlaylistDiff/refreshSongNode/3 hàm scroll
+         * đều tự appState.get()) — CHƯA relocate cả file trong đợt này (phạm vi Giang xác nhận là
+         * recomputeRenderOrder/recomputeDisplayOrder cụ thể, không phải toàn bộ render.js). Gọi
+         * `workflowPlaylistOrder.recomputeRenderOrder()` từ ĐÂY về hình thức là Core gọi Workflow —
+         * KHÔNG bị Rule 3a cấm theo đúng câu chữ (rule đó chỉ nói Core-gọi-Core), nhưng ngược hướng
+         * "Core thi hành/Workflow chuẩn bị" (Rule 3b) — ghi nhận là nợ CÒN LẠI, cùng loại với nợ
+         * DB-read đã biết của `loader.js` (xem core-function-conventions.md mục 3b, bảng nợ kỹ
+         * thuật), chỉ dứt điểm được nếu relocate NGUYÊN file render.js sang workflow ở đợt sau. */
         function applySearchQuery(raw) {
             appState.set('searchQuery', normalizeSongName(raw));
-            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
-            recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);
+            workflowPlaylistOrder.recomputeRenderOrder(); // event/workflow/playlist-order.js (dời từ core/playlist/order.js) — tự đọc searchQuery vừa set ở trên qua appState
             renderPlaylistDiff();
         }
