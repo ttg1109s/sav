@@ -5,12 +5,13 @@
  *
  * TÁCH `normalizeSongName()` ra khỏi `core/playlist/state.js` (chuyển hẳn, không còn bản nào ở đó
  * nữa) + rút `songMatchesQuery()` từ logic so khớp cũ của `matchesSearch()`
- * (`core/playlist/order.js`, ĐÃ XOÁ hàm đó — xem `recomputeRenderOrder()` mới, giờ tự
- * `appState.get()` rồi gọi thẳng `songMatchesQuery()` ở đây, đúng vai Workflow gọi Core).
+ * (`core/playlist/order.js`, ĐÃ XOÁ hàm đó).
  *
  * Dùng ở CẢ 2 nơi:
- *   - `core/playlist/order.js::recomputeRenderOrder()` — Workflow (tự đọc/ghi `appState` trực
- *     tiếp), gọi hàm ở đây làm Core thuần.
+ *   - `core/playlist/order.js::recomputeRenderOrder()` — GIỜ THUẦN (Rule 2, sửa sau khi Giang chỉ
+ *     ra "tự get state, rõ là vi phạm rule core" — không còn tự `appState.get()`, xem docstring
+ *     hàm đó), gọi hàm ở đây làm ghép nối hàm thuần (function composition, KHÔNG phải Core gọi
+ *     Core theo nghĩa Rule 3 cấm).
  *   - `event/workflow/video-editor.js` (panel "Nhạc") — tự lấy `tag.title/artist/album` qua
  *     `getSongRecord()` (KHÔNG qua `playlistCache`/`appState`), gọi CHUNG 2 hàm này.
  *

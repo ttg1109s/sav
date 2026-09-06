@@ -162,7 +162,12 @@
                 // Đồng bộ lại toàn bộ state RAM — không reload trang, để người dùng thấy ngay kết quả.
                 appState.set('playlistOrder', []); appState.set('displayOrder', []); appState.mutate('playlistCache', m => m.clear()); appState.mutate('songNameIndex', m => m.clear()); appState.mutate('confirmedBrokenKeys', s => s.clear());
                 appState.mutate('pendingResortKeys', s => s.clear());
-                if (typeof recomputeRenderOrder === 'function') recomputeRenderOrder();
+                // SỬA — recomputeRenderOrder() (core/playlist/order.js) VỪA sửa Rule 2, cập nhật
+                // lời gọi ĐỦ tham số để không vỡ.
+                if (typeof recomputeRenderOrder === 'function') {
+                    const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, playlistOrder, confirmedBrokenKeys, searchQuery } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'playlistOrder', 'confirmedBrokenKeys', 'searchQuery']);
+                    recomputeRenderOrder(playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, nameMode, statField, statDirection, songNameIndex, mediaStatsMap);
+                }
                 if (appState.get('currentKey')) { audioPlayer.pause(); audioPlayer.src = ''; appState.set('currentKey', null); }
                 if (typeof killAllAutoSwitchVisualTasks === 'function') killAllAutoSwitchVisualTasks();
                 if (appState.get('currentObjectURL')) { URL.revokeObjectURL(appState.get('currentObjectURL')); appState.set('currentObjectURL', null); }
