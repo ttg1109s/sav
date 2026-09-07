@@ -1,7 +1,7 @@
 /**
  * event/workflow/file-manager-photo.js — "THẰNG THỰC THI CUỐI" cho phần còn lại của miền Photo sau
  * khi Photo Panel full-screen bị xoá (hợp nhất vào Playlist làm 1 Source, xem event/workflow/
- * playlist.js::switchToPhotoSource()). Còn 2 nhóm việc:
+ * playlist.js::switchSource()). Còn 2 nhóm việc:
  *   1. Modal xem ảnh full-screen — mở từ mục "Edit image" trong dropdown dòng Photo ở Playlist
  *      (event/workflow/playlist.js), KHÔNG còn mở từ tap ảnh trong lưới cũ. View/Zoom/Edit đã GỘP
  *      làm 1 THẬT SỰ, KHÔNG có khái niệm "mode" nào cần thoát HAY pause/resume (bỏ dropdown "..."

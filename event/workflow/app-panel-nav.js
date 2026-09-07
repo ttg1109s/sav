@@ -3,7 +3,7 @@
  * Home Screen mặc định (đứng dưới CÙNG, LUÔN hiện); Folder/Storage/Setting = overlay Generic
  * Drawer (singleton core/generic-drawer.js) đè lên; Game/Statis = overlay full-screen RIÊNG (ngang
  * cấp nhau, KHÔNG dùng Generic Drawer). Photo đã hợp nhất vào Playlist làm 1 Source (xem
- * event/workflow/playlist.js::switchToPhotoSource()) — không còn tab/overlay riêng ở đây. Đóng bất
+ * event/workflow/playlist.js::switchSource()) — không còn tab/overlay riêng ở đây. Đóng bất
  * kỳ overlay nào đều gọi lại `activateMedia()` (liên tuyến domain, tái dùng THẲNG, mỗi cụm không
  * tự viết lại logic "quay về Media").
  *

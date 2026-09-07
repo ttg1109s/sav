@@ -20,12 +20,9 @@
  *
  * NẠP SAU: core/video-player.js, core/playlist/order.js (updateShuffleArray/recomputeDisplayOrder/
  * recomputeRenderOrder), service/db.js (getVideoRecord), core/audio-engine.js (setupAudioContext),
- * event/workflow/player-controls.js (`workflowPlayerControls.goToNextTrack()` — MỚI, dùng ở
+ * event/workflow/player-controls.js (`workflowPlayerControls.goToNextTrack()` — dùng ở
  * handleVideoPlayerEnded() bên dưới), event/workflow/playlist-scope.js
- * (`workflowPlaylistScope.loadPlaylistCacheForSource()`/`applyFolderScope()`/`applyAllSongsScope()`
- * — MỚI, dùng ở refreshVideoPlaylistIfActive() bên dưới để giữ đúng folder scope sau upload, xem
- * FIX 07/09/2026 ở đó — TÁI DÙNG hẳn workflow này thay vì tự gọi buildVideoPlaylistCache()/
- * core/playlist/scope.js trực tiếp).
+ * (`applyFolderScope()`/`applyAllSongsScope()` — dùng ở refreshVideoPlaylistIfActive() bên dưới).
  */
 const workflowVideoPlayer = {
     _objectUrl: null, // object URL HIỆN TẠI đang gán cho bgVideoElement (revoke trước khi tạo url mới)
@@ -399,40 +396,18 @@ const workflowVideoPlayer = {
         });
     },
 
-    /** MỚI (21/07/2026, Giang chỉ ra "không cập nhật lại list của video") — làm mới lại Playlist
-     * (đọc lại DB) TRONG LÚC đang browse nguồn Video — gọi khi video được thêm/xoá (giờ luôn qua
-     * chính Playlist — nút "Thêm nhạc"/dropdown 3 chấm, xem event/workflow/file-manager-video.js::
-     * uploadVideos(), Batch 6) MÀ KHÔNG cần đổi Nguồn tắt/bật lại mới thấy video mới.
-     * [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt "video thừa hưởng cơ chế
-     * Playlist, không tạo cơ chế riêng"] TRƯỚC ĐÂY hàm này tự quản lý mảng `videoPlaylist` RIÊNG
-     * (đã xoá, xem service/state/video-player-mode.js) — giờ refresh ĐÚNG `playlistCache`/
-     * `playlistOrder` hợp nhất (Batch 1: `buildVideoPlaylistCache()`, core/playlist/loader.js),
-     * TÁI DÙNG y hệt luồng `switchToVideoSource()` (event/workflow/playlist.js) trừ phần reset sort
-     * mode (không cần đổi sort mode đang chọn chỉ vì có video mới). Guard đổi từ `isVideoPlayerMode`
-     * sang `activeMediaSource` — đúng điều kiện thật cần refresh (Playlist đang browse Video, KHÔNG
-     * nhất thiết đang PHÁT — vd đang ở Settings mà vẫn cần list Playlist đúng khi quay lại).
-     * FIX (07/09/2026, Giang báo "upload video khi folder đang active -> không thêm được, tự bỏ
-     * active folder rồi về all") — TRƯỚC ĐÂY `buildVideoPlaylistCache()` trả về TOÀN BỘ key hợp lệ
-     * trong DB rồi gán THẲNG vào `playlistOrder` — ĐÚNG khi không Scope, nhưng SAI khi đang Scope 1
-     * folder Video (`activePlayListFolder.video`): video vừa upload đã được `addSongsToFolder()`
-     * gắn vào ĐÚNG folder đó (xem uploadVideos(), event/workflow/playlist.js), nhưng ngay sau đó
-     * hàm này lại NẠP ĐÈ `playlistOrder` bằng danh sách KHÔNG lọc — kết quả nhìn như "không thêm
-     * được vào folder, tự thoát scope về Tất cả video".
-     * SỬA TIẾP (07/09/2026, "workflow chuẩn dùng chung app boot + chuyển Nguồn + upload-refresh") —
-     * bản vá đầu tiên (đoạn trên) tự gọi `loadSongsFromFolder()`/`loadAllSongs()` trực tiếp — ĐÚNG
-     * nhưng lặp lại logic đã có sẵn ở `applyFolderScope()`/`applyAllSongsScope()` (event/workflow/
-     * playlist-scope.js, vốn CŨNG tự áp Playlist Filter sau Scope — điều bản vá đầu tiên BỎ SÓT).
-     * Giờ DÙNG THẲNG `workflowPlaylistScope.loadPlaylistCacheForSource('video')` (MỚI, CÙNG hàm
-     * `switchToVideoSource()`/app-boot.js dùng) để nạp lại `playlistCache`, rồi gọi ĐÚNG 1 trong 2
-     * `applyFolderScope()`/`applyAllSongsScope()` — hàm đó tự lo HẾT phần còn lại (Scope + Filter +
-     * updateShuffleArray/recompute*Order/renderPlaylistDiff/updateEmptyState/badge), không cần tự
-     * gọi lại `workflowPlaylistOrder.*` ở đây nữa. */
+    /** Làm mới lại Playlist (đọc lại DB) TRONG LÚC đang browse Nguồn Video — gọi khi video được
+     * thêm/xoá (nút "Thêm nhạc"/dropdown 3 chấm, event/workflow/file-manager-video.js::uploadVideos())
+     * MÀ KHÔNG cần đổi Nguồn tắt/bật lại mới thấy video mới. Guard theo `activeMediaSource` (không
+     * phải `isVideoPlayerMode` — Playlist đang browse Video KHÔNG nhất thiết đang PHÁT).
+     * `applyFolderScope()`/`applyAllSongsScope()` (event/workflow/playlist-scope.js) tự lo HẾT: nạp
+     * lại cache ĐÚNG phạm vi (folder đang active nếu có, nhặt luôn video vừa upload) + Filter +
+     * render — không cần gọi gì thêm trước đó. */
     async refreshVideoPlaylistIfActive() {
         if (appState.get('activeMediaSource') !== 'video') return;
-        await workflowPlaylistScope.loadPlaylistCacheForSource('video'); // event/workflow/playlist-scope.js — chỉ nạp lại playlistCache, chưa render
         const activeFolderIdForVideo = appState.get('activePlayListFolder').video;
-        if (activeFolderIdForVideo) await workflowPlaylistScope.applyFolderScope(activeFolderIdForVideo, 'video'); // GIỮ ĐÚNG scope đang active + tự render
-        else await workflowPlaylistScope.applyAllSongsScope('video'); // không Scope -> "Tất cả" (đã loại Exclude) + tự render
+        if (activeFolderIdForVideo) await workflowPlaylistScope.applyFolderScope(activeFolderIdForVideo, 'video');
+        else await workflowPlaylistScope.applyAllSongsScope('video');
         console.log(`writer: "refreshVideoPlaylistIfActive", page: "playlistOrder", content: "${appState.get('playlistOrder').length} video"`);
     },
 
