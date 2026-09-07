@@ -136,11 +136,15 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.selection.btnExport': 'Export ZIP',
     'playlistView.selection.btnAddToFolder': 'Add to folder',
     'playlistView.selection.btnDelete': 'Delete',
+    // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 5).
+    'playlistView.selection.btnRemoveFromFolder': 'Remove from folder',
     'playlistView.selection.deleteSuccess': 'Deleted {count} song(s).',
     'playlistView.selection.exportZipFilename': 'songs.zip',
     // MỚI (Batch "Export dọn nợ kiến trúc", phản hồi Giang) — tên file zip RIÊNG cho Video (bulk
     // export selection, exportSelectedVideosZip() — event/workflow/playlist.js).
     'playlistView.selection.exportZipFilenameVideo': 'videos.zip',
+    // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 5 — Photo export ở Selection mode).
+    'playlistView.selection.exportZipFilenamePhoto': 'photos.zip',
     'playlistView.selection.exportPartialFail': 'Some files could not be re-tagged and were exported using their original tag.',
     'playlistView.selection.uploadBlocked': 'Exit selection mode before uploading files.',
     'playlistView.playbackError.title': "Can't play this song",
