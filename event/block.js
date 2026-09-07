@@ -57,6 +57,23 @@ eventBus.registerBlock('fileManagerFolderBrowser.open.click', [
     ],
 ]);
 
+// MỚI (06/09/2026, hợp nhất Folder vào Playlist, mục 4b — "Read-only", Giang chỉ định RÕ dùng
+// event/block.js cho ca này) — CHẶN HẲN mở menu upload khi folder đang Scope của Nguồn hiện tại có
+// `isReadOnly: true` — không cho thêm item mới vào 1 folder read-only (upload tự gắn vào folder
+// active, xem event/workflow/playlist.js::uploadVideos()/uploadPhotos()/core/playlist/loader.js::
+// handleAudioFiles()). `isActiveFolderReadOnly` (service/state/file-manager.js) là 1 giá trị PHẲNG
+// (không phải object theo Nguồn như `activePlayListFolder`) — LUÔN đồng bộ đúng Nguồn ĐANG HIỂN
+// THỊ tại mọi thời điểm (xem event/workflow/playlist-scope.js::applyFolderScope()/
+// applyAllSongsScope()), nên field tĩnh này đủ dùng cho Block gate (không cần đọc `activeMediaSource`
+// động — đúng giới hạn của `resolveFieldPath()`, event/bus.js, chỉ đọc field CỐ ĐỊNH). Có `notify`
+// (khác gate 'fileManagerFolderBrowser.open.click' ngay trên, gate đó im lặng đúng ý) — người dùng
+// cần biết TẠI SAO không mở được upload, không phải chặn hẳn không giải thích gì.
+eventBus.registerBlock('playlist.uploadMenu.open', [
+    [
+        { field: 'isActiveFolderReadOnly', operator: '===', value: true },
+    ],
+], { notify: t('fileManager.folderBrowser.uploadBlockedReadOnly') });
+
 // MỚI (14/07/2026, tích hợp Add to Folder -> Generic Drawer grid) — 'playlist.actionMenu.addToFolder'
 // là msg.type RIÊNG (không chia sẻ với hành động khác, khác 'playlist.selection.moreMenu.select'
 // bản chọn nhiều — msg.type đó CHUNG cho cả play/export/addToFolder/delete qua payload.action, KHÔNG
