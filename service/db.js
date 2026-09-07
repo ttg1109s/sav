@@ -340,7 +340,7 @@
         // KHÔNG còn getPlaylistOrder/setPlaylistOrder: playlist không lưu thứ tự riêng trong
         // store `meta` nữa — store `songs` là chân lý duy nhất. Mỗi lần cần danh sách (khởi động,
         // sau khi thêm/xoá bài), quét lại toàn bộ key qua getAllSongKeys() + lọc hợp lệ ngay trong
-        // RAM (xem scanValidSongsFromDB() trong playlist.js) — không cố lưu/khôi phục thứ tự cũ.
+        // RAM (xem core/playlist/loader.js) — không cố lưu/khôi phục thứ tự cũ.
 
         // MIME type hợp lệ cho mp3 — trình duyệt/thiết bị khác nhau có thể báo hơi khác nhau, nên
         // chấp nhận cả audio/mpeg, audio/mp3 (không chuẩn nhưng vẫn gặp), và rỗng (file picker một số
