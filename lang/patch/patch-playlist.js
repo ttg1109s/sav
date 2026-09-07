@@ -15,8 +15,8 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.btnSettings.title': 'Settings',
     'playlistView.search.placeholder': 'Search songs, artists, albums...',
     // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — placeholder RIÊNG cho Video
-    // (không có artist/album để tìm) — đổi qua JS khi Nguồn đổi, xem switchToVideoSource()/
-    // switchToSongSource() (event/workflow/playlist.js).
+    // (không có artist/album để tìm) — đổi qua JS khi Nguồn đổi, xem switchSource()
+    // (event/workflow/playlist.js).
     'playlistView.search.placeholderVideo': 'Search videos...',
     // MỚI (hợp nhất Photo vào Playlist) — cùng cơ chế, Photo cũng không có artist/album để tìm.
     'playlistView.search.placeholderPhoto': 'Search photos...',
