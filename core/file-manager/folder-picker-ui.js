@@ -112,6 +112,12 @@ function openRenameFolderModal(currentName, folderId) {
  * @param {string} routerName - tên router đích, vd 'playlist' | 'fileManagerFolderBrowser' | 'visualBg'.
  * @param {string} msgPrefix - tiền tố msg.type, vd 'playlist.folderPicker' | 'fileManagerFolderBrowser.list'.
  */
+// MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 4) — ngưỡng giữ tay mở menu hành động 1
+// folder tile (đổi tên/xoá/ẩn-hiện/thuộc tính) — CÙNG khuôn `EQ_CYCLE_HOLD_MS`
+// (event/workflow/eq-presets.js)/`CUSTOM_EFFECT_HOLD_MS` (event/workflow/custom-effect.js), cố
+// định 1.5s, không phải setting.
+const FOLDER_TILE_HOLD_MS = 1500;
+
 function wireFolderPickerDrawerEvents(routerName, msgPrefix) {
     const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
     if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: routerName, type: `${msgPrefix}.close.click`, payload: {} }));
@@ -126,8 +132,33 @@ function wireFolderPickerDrawerEvents(routerName, msgPrefix) {
     const typeSelect = genericDrawerHeader.querySelector('#playlist-folder-picker-type');
     if (typeSelect) typeSelect.addEventListener('change', (e) => eventBus.send({ router: routerName, type: `${msgPrefix}.typeChange`, payload: { value: e.target.value } }));
 
+    // SỬA (06/09/2026, hợp nhất Folder vào Playlist, Batch 4) — thêm giữ tay 1.5s ->
+    // `${msgPrefix}.tile.longpress` (CÙNG khuôn EQ_CYCLE_HOLD_MS, xem hằng số ngay trên) — `click`
+    // bình thường (tap ngắn) VẪN bắn `${msgPrefix}.tile.click` y hệt trước giờ, CHỈ bị nuốt (không
+    // bắn) đúng 1 lần NGAY SAU 1 lượt long-press vừa nổ (trình duyệt luôn tự phát `click` NGAY SAU
+    // `pointerup`, kể cả sau khi đã giữ đủ lâu — không chặn thì tap-áp-folder sẽ chạy NGAY SAU khi
+    // đóng/mở menu hành động, sai ý). Cờ `holdFired` khai báo RIÊNG mỗi lượt forEach (mỗi tile 1
+    // biến đóng riêng — nhiều tile cùng tồn tại trong lưới, không dùng chung 1 cờ module-level như
+    // eq-presets.js (chỉ có đúng 1 nút)). `taskId` gắn kèm `folderId` để 2 tile giữ cùng lúc (hiếm)
+    // không đụng chung 1 task.
     genericDrawerBody.querySelectorAll('.generic-item-folder-tile').forEach((tileEl) => {
-        tileEl.addEventListener('click', () => eventBus.send({ router: routerName, type: `${msgPrefix}.tile.click`, payload: { folderId: tileEl.dataset.folderId } }));
+        const folderId = tileEl.dataset.folderId;
+        const holdTaskId = `folder-tile-longpress-${folderId}`;
+        let holdFired = false;
+        tileEl.addEventListener('pointerdown', () => {
+            holdFired = false;
+            taskManager.once(() => {
+                holdFired = true;
+                eventBus.send({ router: routerName, type: `${msgPrefix}.tile.longpress`, payload: { folderId } });
+            }, FOLDER_TILE_HOLD_MS, holdTaskId);
+        });
+        tileEl.addEventListener('pointerup', () => taskManager.kill(holdTaskId));
+        tileEl.addEventListener('pointercancel', () => { taskManager.kill(holdTaskId); holdFired = false; });
+        tileEl.addEventListener('pointerleave', () => { taskManager.kill(holdTaskId); holdFired = false; });
+        tileEl.addEventListener('click', () => {
+            if (holdFired) { holdFired = false; return; } // vừa long-press xong — click phát sinh theo sau không còn ý nghĩa "tap"
+            eventBus.send({ router: routerName, type: `${msgPrefix}.tile.click`, payload: { folderId } });
+        });
     });
 
     const addTileEl = genericDrawerBody.querySelector('#generic-folder-picker-add-tile');
@@ -143,49 +174,8 @@ function wireFolderPickerDrawerEvents(routerName, msgPrefix) {
     }
 }
 
-/** Wire lại Read (nội dung 1 folder) của File Manager Folder Browser — cùng lý do SỬA như
- * `wireFolderPickerDrawerEvents()`.
- * SỬA (v13 Batch F) — thêm tham số `folderId` để 'read.delete.click' MANG THEO id folder đang mở.
- * Trước đây payload rỗng, id chỉ nằm ở biến closure `workflowFileManagerFolderBrowser._readFolderId`
- * — Block gate không với tới được (nó chỉ đọc `appState`/`appConfig`/`payload`). Message phải TỰ MÔ
- * TẢ đối tượng nó tác động lên; đây là sửa thiếu sót sẵn có, không phải chiều theo Block.
- * SỬA (v13) — thêm `folderType`: bật Scope cho folder VIDEO khi Visual Background đang on sẽ đẩy
- * app vào trạng thái xung đột SAU KHI RELOAD (nguồn Playlist thành Video mà nền vẫn bật). Block gate
- * cần biết LOẠI folder ngay trong payload mới chặn được.
- * @param {string} folderId - folder đang mở ở khung Read.
- * @param {string|null} folderType - 'song' | 'video' | null (folder rỗng, chưa xác định).
- */
-function wireFolderBrowserReadEvents(folderId, folderType) {
-    const backBtn = genericDrawerHeader.querySelector('#btn-folder-browser-read-back');
-    if (backBtn) backBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.read.back.click', payload: {} }));
-
-    const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-    if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.read.close.click', payload: {} }));
-
-    const renameBtn = genericDrawerHeader.querySelector('#btn-folder-browser-read-rename');
-    if (renameBtn) renameBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.read.rename.click', payload: {} }));
-
-    const deleteBtn = genericDrawerHeader.querySelector('#btn-folder-browser-read-delete');
-    if (deleteBtn) deleteBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.read.delete.click', payload: { folderId } }));
-
-    genericDrawerBody.querySelectorAll('[data-remove-song-key]').forEach((btn) => {
-        btn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.read.removeItem.click', payload: { songKey: btn.dataset.removeSongKey } }));
-    });
-
-    const removeAllBtn = genericDrawerBody.querySelector('#btn-folder-browser-read-remove-all');
-    if (removeAllBtn) removeAllBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.read.removeAll.click', payload: {} }));
-
-    // data-pagination-action="goto" + data-page-index="N" — ĐÚNG thuộc tính thật core/pagination.js
-    // phát ra (mode 'list', xem buildPaginationListHtml()).
-    const paginationEl = genericDrawerBody.querySelector('#folder-browser-read-pagination');
-    if (paginationEl) paginationEl.querySelectorAll('[data-pagination-action="goto"]').forEach((btn) => {
-        btn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.read.pagination.click', payload: { pageIndex: parseInt(btn.dataset.pageIndex, 10) } }));
-    });
-
-    const scopeToggle = genericDrawerBody.querySelector('#toggle-folder-browser-read-scope');
-    if (scopeToggle) scopeToggle.addEventListener('change', (e) => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.read.scope.change', payload: { checked: e.target.checked, folderType } }));
-
-    const excludeToggle = genericDrawerBody.querySelector('#toggle-folder-browser-read-exclude');
-    if (excludeToggle) excludeToggle.addEventListener('change', (e) => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.read.exclude.change', payload: { checked: e.target.checked } }));
-}
-
+// XOÁ (06/09/2026, Giang chốt mục 3.6 — "bỏ hẳn màn Read") — `wireFolderBrowserReadEvents()`
+// (wiring cho màn Read cũ: back/rename/delete/removeItem/removeAll/pagination/2 toggle Scope-
+// Exclude) bỏ hẳn cùng màn hình đó — Folder Browser giờ CHỈ còn màn List (tap = áp dụng ngay, giữ
+// tay 1.5s = menu hành động, xem `wireFolderPickerDrawerEvents()` ngay trên +
+// event/workflow/file-manager-folder-browser.js).
