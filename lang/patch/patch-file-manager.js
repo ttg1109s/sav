@@ -146,6 +146,15 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.folderBrowser.entryButton': 'Browse folders',
     'fileManager.folderBrowser.listTitle': 'Folders',
     'fileManager.folderBrowser.defaultNewFolderName': 'Folder {n}',
+    // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 4) — menu hành động giữ tay 1.5s trên 1
+    // folder tile, xem event/workflow/file-manager-folder-browser.js::openTileActionsMenu().
+    'fileManager.folderBrowser.tileMenu.subtitle': 'Choose an action',
+    'fileManager.folderBrowser.tileMenu.unhide': 'Show in "All songs" view',
+    'fileManager.folderBrowser.tileMenu.unhideVideo': 'Show in "All videos" view',
+    'fileManager.folderBrowser.tileMenu.unhidePhoto': 'Show in "All photos" view',
+    'fileManager.folderBrowser.tileMenu.properties': 'Properties',
+    'fileManager.folderBrowser.tileMenu.propertiesBody': '{count} items · {size}',
+    'fileManager.folderBrowser.tileMenu.propertiesDownload': 'Download all as .zip',
     'fileManager.song.renameFolderTitle': 'Rename folder',
     'fileManager.song.deleteFolderTitle': 'Delete folder',
     'fileManager.song.deleteFolderConfirm': 'Delete folder "{name}"? Songs inside stay in your library, only the folder is removed.',
@@ -184,36 +193,16 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.song.storageAction.doneDownloadOnly': 'Zip file(s) downloaded.',
     'fileManager.song.storageAction.doneDeleteOnly': '{scope} deleted from this device.',
     'fileManager.song.storageAction.zipErrorSkippedDelete': "Couldn't build the zip file: {message}. Deletion was skipped to avoid losing data without a backup.",
-    // ── File Manager -> Song & Video -> Folder Browser Read (nội dung 1 folder) ───────────────
-    // MỚI (Batch 4, "Song/Video Unification" mục 5) — 2 toggle ĐỘC LẬP THAY nút Áp dụng/Bỏ áp
-    // dụng cũ ('btnApply'/'btnUnapply' XOÁ, không còn nút chữ đổi nhãn).
-    'fileManager.song.folderDetail.scopeToggle.label': 'Use as Playlist source',
-    'fileManager.song.folderDetail.scopeToggle.hint': 'When on, the Playlist only shows songs from this folder.',
-    'fileManager.song.folderDetail.scopeToggle.hintVideo': 'When on, the Playlist only shows videos from this folder.',
-    'fileManager.song.folderDetail.scopeToggle.hintPhoto': 'When on, the Playlist only shows photos from this folder.',
+    // ── File Manager -> Song & Video -> Folder Browser (grid folder) ──────────────────────────
+    // XOÁ (06/09/2026, Giang chốt mục 3.6 — "bỏ hẳn màn Read") — toàn bộ key riêng cho màn Read cũ
+    // (2 toggle Scope/Exclude + hint, trạng thái rỗng, nút "Xoá hết bài", tiêu đề "Gỡ khỏi folder")
+    // bỏ hẳn cùng màn hình đó — xem event/workflow/file-manager-folder-browser.js. GIỮ LẠI, tái
+    // dùng làm nhãn menu long-press mới (xem fileManager.folderBrowser.tileMenu.* ở trên):
+    // `excludeToggle.label`/`labelVideo`/`labelPhoto` ("Hide from ... view") và `renameTitle`.
     'fileManager.song.folderDetail.excludeToggle.label': 'Hide from "All songs" view',
     'fileManager.song.folderDetail.excludeToggle.labelVideo': 'Hide from "All videos" view',
     'fileManager.song.folderDetail.excludeToggle.labelPhoto': 'Hide from "All photos" view',
-    'fileManager.song.folderDetail.excludeToggle.hint': 'When on, songs in this folder are skipped while browsing all songs (does not affect any specific folder scope).',
-    'fileManager.song.folderDetail.excludeToggle.hintVideo': 'When on, videos in this folder are skipped while browsing all videos (does not affect any specific folder scope).',
-    'fileManager.song.folderDetail.excludeToggle.hintPhoto': 'When on, photos in this folder are skipped while browsing all photos (does not affect any specific folder scope).',
-    'fileManager.song.folderDetail.empty': 'No songs in this folder yet.',
-    'fileManager.song.folderDetail.emptyVideo': 'No videos in this folder yet.',
-    'fileManager.song.folderDetail.emptyPhoto': 'No photos in this folder yet.',
-    'fileManager.song.folderDetail.removeSongTitle': 'Remove from folder',
-    // MỚI (14/07/2026, Giang yêu cầu layout lại — icon Sửa tên cạnh tên folder).
     'fileManager.song.folderDetail.renameTitle': 'Rename folder',
-    // MỚI (14/07/2026, Giang yêu cầu — nút "Xoá hết bài" CĂN GIỮA cuối panel, CHỈ dọn rỗng folder,
-    // KHÔNG xoá folder — khác hẳn "Xoá folder" ở panel Song, deleteActiveFolderById()).
-    'fileManager.song.folderDetail.btnRemoveAll': 'Remove all songs',
-    'fileManager.song.folderDetail.btnRemoveAllVideo': 'Remove all videos',
-    'fileManager.song.folderDetail.btnRemoveAllPhoto': 'Remove all photos',
-    'fileManager.song.folderDetail.removeAllTitle': 'Remove all songs',
-    'fileManager.song.folderDetail.removeAllTitleVideo': 'Remove all videos',
-    'fileManager.song.folderDetail.removeAllTitlePhoto': 'Remove all photos',
-    'fileManager.song.folderDetail.removeAllConfirm': 'Remove all songs from this folder? The folder itself stays — only its contents are cleared. Songs remain in your library.',
-    'fileManager.song.folderDetail.removeAllConfirmVideo': 'Remove all videos from this folder? The folder itself stays — only its contents are cleared. Videos remain in your library.',
-    'fileManager.song.folderDetail.removeAllConfirmPhoto': 'Remove all photos from this folder? The folder itself stays — only its contents are cleared. Photos remain in your library.',
     'fileManager.song.folderDetail.reloadTitle': 'Apply now?',
     'fileManager.song.folderDetail.reloadBtnNow': 'Reload now',
     // XOÁ (06/09/2026, Giang chốt "bỏ hỏi reload, áp sống luôn") — toàn bộ key

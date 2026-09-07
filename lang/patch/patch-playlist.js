@@ -21,6 +21,9 @@ const LANG_PATCH_PLAYLIST = {
     // MỚI (hợp nhất Photo vào Playlist) — cùng cơ chế, Photo cũng không có artist/album để tìm.
     'playlistView.search.placeholderPhoto': 'Search photos...',
     'playlistView.search.clear.title': 'Clear search',
+    // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 3) — badge tên folder đang Scope, xem
+    // components/playlist-view.js.
+    'playlistView.activeFolderBadge.exit.title': 'Exit folder',
     'playlistView.btnPlay': 'Play',
     'playlistView.btnShuffleAll': 'Shuffle',
     'playlistView.empty.noSongs': 'No songs yet. Add some music to get started.',
