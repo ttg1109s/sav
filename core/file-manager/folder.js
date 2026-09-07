@@ -376,6 +376,37 @@ async function removeSongFromFolder(songKey, folderId, mediaType) {
 }
 
 /**
+ * Gỡ NHIỀU bài cùng lúc khỏi 1 folder cụ thể — bulk-subset, đối xứng `addSongsToFolder()` (nhận
+ * mảng key, 1 lượt đọc/ghi `folderMap` DUY NHẤT thay vì gọi `removeSongFromFolder()` N lần riêng lẻ
+ * — N lượt gọi riêng sẽ đọc/ghi lại `folder_song` N LẦN, tốn kém không cần thiết khi Selection mode
+ * có thể chọn hàng chục bài cùng lúc). MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 5 —
+ * Selection mode "Gỡ khỏi thư mục", xem event/workflow/playlist.js::removeSelectedSongsFromFolder()).
+ * @param {string[]} songKeys
+ * @param {string} folderId
+ * @param {'song'|'video'|'photo'} [mediaType] - mặc định 'song'.
+ * @returns {Promise<{status: 'notFound'|'ok', removedCount: number}>}
+ */
+async function removeSongsFromFolder(songKeys, folderId, mediaType) {
+    const folderMap = await getFolderSongMap(folderId);
+    if (!folderMap) return { status: 'notFound', removedCount: 0 };
+
+    const getRecordFn = mediaType === 'video' ? getVideoRecord : mediaType === 'photo' ? getImageRecord : getSongRecord; // service/db.js
+    let removedCount = 0;
+    for (const songKey of songKeys) {
+        const record = await getRecordFn(songKey);
+        if (!record || !record.folder || !(folderId in record.folder)) continue; // guard: bài không tồn tại/không thuộc folder này — bỏ qua, không chặn cả lô
+        const position = record.folder[folderId];
+        if (folderMap.list[position] !== null) {
+            folderMap.list[position] = null;
+            folderMap.empty++;
+            removedCount++;
+        }
+    }
+    await setFolderSongMap(folderId, folderMap);
+    return { status: 'ok', removedCount };
+}
+
+/**
  * Gỡ TẤT CẢ bài khỏi 1 folder (rỗng hoá nội dung) — KHÁC hẳn deleteFolder(): folder (metadata/tên)
  * VẪN GIỮ NGUYÊN, chỉ dọn sạch danh sách bài BÊN TRONG. MỚI (14/07/2026, Giang yêu cầu — nút "Xoá
  * hết bài" trong Folder Detail). Cùng thứ tự AN TOÀN với deleteFolder(): dọn field
