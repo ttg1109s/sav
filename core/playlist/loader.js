@@ -356,109 +356,101 @@
         }
 
         /**
-         * ===================== Ver 12 "Song/Video Unification" — Batch 1 (mục 1, Adapter) =====================
-         * Chuẩn hoá 1 mảng video record (đọc từ store `videos`) thành ĐÚNG shape mà `playlistCache`
-         * đang dùng cho Song — nhờ vậy `recomputeRenderOrder()`/`recomputeDisplayOrder()`/
-         * `songMatchesQuery()`/`core/playlist/render.js` chạy NGUYÊN VẸN, không cần biết gì về
-         * nguồn Video (xem plan-v12-song-video-unification.md mục 1).
+         * ===================== Bảng cấu hình Adapter — MỚI (07/09/2026, gộp buildVideoPlaylistCache()/
+         * buildPhotoPlaylistCache() cũ, Giang yêu cầu "thêm media sau này chỉ cần gửi type + shape,
+         * không nhân bản hàm") =====================
+         * THUẦN DỮ LIỆU (string/number/mảng tên field) — TUYỆT ĐỐI KHÔNG chứa function reference nào
+         * (tránh lách Rule 3 "core cấm gọi core" qua đường vòng "gọi hàm khác qua tham số/cấu hình").
+         * `buildAdaptedPlaylistCache()` ngay dưới đọc bảng này để quyết định GIÁ TRỊ fallback dùng
+         * trong CÙNG 1 công thức — đây KHÔNG phải rẽ nhánh TIẾN TRÌNH theo Rule 1 (không có ≥2 kịch
+         * bản/thuật toán khác nhau, chỉ 1 thuật toán DUY NHẤT được tham số hoá bằng dữ liệu).
+         * - `coverFromOwnBlob` (boolean): cover fallback khi thiếu `thumbBlob` — `true` = dùng CHÍNH
+         *   `record.blob` (Photo — "ảnh cover -> thumb của ảnh", hết thumb thì dùng ảnh gốc); `false`
+         *   = không fallback, để `null` (Video — giữ NGUYÊN hành vi cũ).
+         * - `durationFallback` (number): `record.duration || durationFallback`. Video giữ `0`
+         *   (record Video LUÔN có `duration` thật từ lúc upload — `_extractVideoThumbAndMeta()`,
+         *   event/workflow/playlist.js — `0` chỉ phòng record hỏng hiếm gặp, KHÔNG đổi hành vi thực
+         *   tế). Photo giữ nguyên `5` (khớp `DURATION_MIN_SEC`, event/workflow/file-manager-photo.js
+         *   — KHÔNG import hằng số đó vào đây, Core không phụ thuộc ngược Workflow; đổi
+         *   `DURATION_MIN_SEC` thì sửa CẢ literal `5` này theo cho khớp).
+         * - `extraFields` (string[]): tên field PHỤ copy thẳng từ `record` (fallback `0` nếu thiếu) —
+         *   Photo có `width`/`height` (ảnh GỐC, KHÔNG có ở Song/Video — buildSongNode() đọc 2 field
+         *   này thay `duration` khi `mediaType==='photo'` để hiện "WxH"); Video không có field phụ
+         *   nào ngoài shape chung.
+         * - `logLabel` (string): nhãn hiện trong `console.log` (thay cho tên hàm cũ dùng làm nhãn).
          *
-         * Rule 2 — nhận `videoRecords` qua THAM SỐ (KHÔNG tự gọi `listVideos()` ở đây — hàm đó
-         * sống ở `core/file-manager/video.js`, MỘT file core KHÁC, Rule 3 cấm core gọi core dù có
-         * return value hay không). Nơi gọi (Workflow — `event/workflow/playlist.js::
-         * switchToVideoSource()`) tự `await listVideos()` TRƯỚC rồi truyền kết quả vào đây.
+         * MUỐN THÊM 1 loại media MỚI (miễn nó CŨNG đã có sẵn 1 mảng record ĐẦY ĐỦ trong tay — khác
+         * hẳn Song, `scanValidSongsFromDB()` GIỮ RIÊNG bên dưới, tự đọc TỪNG key qua DB + lọc
+         * broken/MIME, không có sẵn mảng record để truyền vào đây): chỉ cần thêm 1 entry vào bảng
+         * này (+ 1 entry vào `MEDIA_LIST_FN`, event/workflow/playlist-scope.js — trỏ tới hàm
+         * `listX()` core/file-manager/x.js trả về mảng record cùng shape tối thiểu
+         * `{key, blob, filename, customName?, album?, addedAt}`) — KHÔNG cần viết thêm 1 hàm
+         * `buildXPlaylistCache()` mới.
+         */
+        const MEDIA_ADAPTER_SHAPE = {
+            video: { coverFromOwnBlob: false, durationFallback: 0, extraFields: [], logLabel: 'Video' },
+            photo: { coverFromOwnBlob: true, durationFallback: 5, extraFields: ['width', 'height'], logLabel: 'Photo' },
+        };
+
+        /**
+         * ===================== Ver 12 "Song/Video Unification" — Batch 1 (mục 1, Adapter); GỘP
+         * 07/09/2026 (xem `MEDIA_ADAPTER_SHAPE` ngay trên) =====================
+         * Chuẩn hoá 1 mảng record Video/Photo (đọc từ store `videos`/`images`) thành ĐÚNG shape mà
+         * `playlistCache` đang dùng cho Song — nhờ vậy `recomputeRenderOrder()`/
+         * `recomputeDisplayOrder()`/`songMatchesQuery()`/`core/playlist/render.js` chạy NGUYÊN VẸN,
+         * không cần biết gì về nguồn Video/Photo (xem plan-v12-song-video-unification.md mục 1).
+         * Trước 07/09/2026 đây là 2 hàm riêng gần như GIỐNG HỆT nhau (`buildVideoPlaylistCache()`/
+         * `buildPhotoPlaylistCache()`) — chỉ khác vài GIÁ TRỊ (fallback cover/duration, có field phụ
+         * hay không), không khác THUẬT TOÁN, nên gộp thành 1 hàm + bảng cấu hình `MEDIA_ADAPTER_SHAPE`.
          *
-         * [SỬA — Giang chốt "dùng chung hết" 4 kiểu sort (az/za/newest/oldest) cho CẢ Song lẫn
-         * Video, không tách riêng theo nguồn nữa] `songNameIndex` giờ CŨNG populate cho Video —
-         * dùng `filename` làm "tên" để so az/za (Video không có tag.title riêng — filename chính là
-         * title, xem tag Adapter bên dưới) — CLEAR + rebuild lại TOÀN BỘ mỗi lần gọi hàm này, cùng
-         * cách `playlistCache` đang làm (source đổi = thay hẳn toàn bộ danh sách, không cộng dồn).
+         * Rule 2 — nhận `records` qua THAM SỐ (KHÔNG tự gọi `listVideos()`/`listImages()` ở đây —
+         * 2 hàm đó sống ở `core/file-manager/video.js`/`image.js`, Rule 3 cấm core gọi core dù có
+         * return value hay không). Nơi gọi (Workflow — `event/workflow/playlist-scope.js::
+         * loadPlaylistCacheForSource()`) tự `await listX()` TRƯỚC rồi truyền kết quả vào đây.
+         *
+         * [SỬA — Giang chốt "dùng chung hết" 4 kiểu sort (az/za/newest/oldest) cho mọi Nguồn]
+         * `songNameIndex` CŨNG populate cho Video/Photo — dùng `title` (customName hoặc filename bỏ
+         * đuôi) làm "tên" để so az/za — CLEAR + rebuild lại TOÀN BỘ mỗi lần gọi hàm này, cùng cách
+         * `playlistCache` đang làm (source đổi = thay hẳn toàn bộ danh sách, không cộng dồn).
          *
          * Rule 4 ngoại lệ (cùng lý do hot-path 60fps ở core-function-conventions.md — bulk-populate
-         * 1 LƯỢT có thể hàng trăm/nghìn video, log MỖI vòng lặp gây spam console mà không thêm giá
+         * 1 LƯỢT có thể hàng trăm/nghìn item, log MỖI vòng lặp gây spam console mà không thêm giá
          * trị truy vết) — chỉ log 1 lần TRƯỚC vòng lặp (clear) + 1 lần SAU vòng lặp (tổng số đã nạp),
          * không log riêng từng `mutate()` bên trong `for`.
          *
-         * @param {Array<{key:string, blob:Blob, thumbBlob:Blob, duration:number, filename:string, customName?:string|null, album?:string|null, addedAt:number}>} videoRecords
-         * @returns {string[]} danh sách videoKey hợp lệ (có blob gốc) vừa nạp vào playlistCache, theo ĐÚNG thứ tự videoRecords truyền vào (chưa sort — nơi gọi tự sortKeysByMode() sau).
+         * @param {Array<{key:string, blob:Blob, thumbBlob?:Blob, width?:number, height?:number, duration?:number, filename:string, customName?:string|null, album?:string|null, addedAt:number}>} records
+         * @param {'video'|'photo'} mediaType
+         * @returns {string[]} danh sách key hợp lệ (có blob gốc) vừa nạp vào playlistCache, theo ĐÚNG thứ tự records truyền vào (chưa sort — nơi gọi tự sortKeysByMode() sau).
          */
-        function buildVideoPlaylistCache(videoRecords) {
+        function buildAdaptedPlaylistCache(records, mediaType) {
+            const shape = MEDIA_ADAPTER_SHAPE[mediaType];
             appState.mutate('playlistCache', m => m.clear());
             appState.mutate('songNameIndex', m => m.clear());
-            console.log(`writer: "buildVideoPlaylistCache", page: "playlistCache", content: "clear toàn bộ trước khi nạp Video"`);
+            console.log(`writer: "buildAdaptedPlaylistCache", page: "playlistCache", content: "clear toàn bộ trước khi nạp ${shape.logLabel}"`);
 
             const validKeys = [];
-            for (const record of videoRecords) {
+            for (const record of records) {
                 if (!record.blob) continue; // guard — record hỏng/thiếu blob gốc, bỏ qua (giống isQuickValidMime() của Song)
                 validKeys.push(record.key);
-                appState.mutate('playlistCache', m => m.set(record.key, {
-                    filename: record.filename,
-                    tag: { title: record.customName || stripFileExtension(record.filename), artist: '', album: record.album || '' }, // Adapter shape — MỚI (Batch 5, mục 6c) ưu tiên customName; SỬA (phản hồi Giang 28/07) bỏ đuôi mở rộng khi rơi về filename gốc; SỬA (Giang yêu cầu — field Album) — đọc record.album thay vì hard-code rỗng, search/filter (order.js/filter.js) đã đọc field này SẴN, chỉ cần có dữ liệu
-                    cover: record.thumbBlob || null, // Blob THÔ — giống HỆT Song (record.cover) — buildSongNode() (core/playlist/render.js, dùng CHUNG, KHÔNG đụng) tự URL.createObjectURL(cached.cover) lúc render + tự revoke qua node._coverObjectUrl. KHÔNG được tự tạo URL ở đây (trước đây làm sai chỗ này -> render gọi createObjectURL() LẦN 2 trên 1 string, ném TypeError).
-                    duration: record.duration,
-                    addedAt: record.addedAt,
-                    mediaType: 'video',
-                    size: record.blob.size || 0, // MỚI (mục 1e) — cùng lý do Song, xem comment ở scanValidSongsFromDB()
-                }));
-                appState.mutate('songNameIndex', m => m.set(record.key, normalizeSongName(record.customName || stripFileExtension(record.filename))));
-            }
-            console.log(`writer: "buildVideoPlaylistCache", page: "playlistCache", content: "đã nạp ${validKeys.length} video"`);
-            return validKeys;
-        }
-
-        /**
-         * Adapter cho Photo — MỚI (hợp nhất Photo vào Playlist). Ảnh không có "tên tự đặt" riêng
-         * (khác Song/Video có customName) — title LUÔN là filename (bỏ đuôi mở rộng, cùng công thức
-         * stripFileExtension() dùng chung). `tag.album`/`tag.artist` để rỗng — Filter Photo CHỈ có
-         * field 'name' (đọc qua songNameIndex, không qua tag.album/artist), 2 field đó không bao
-         * giờ được truy vấn cho Photo nhưng giữ ĐỦ shape cho nhất quán với Song/Video.
-         *
-         * CHỐT Giang (dùng hẳn UI Playlist Song/Video cho Photo, KHÔNG view riêng): `cover` LÀ
-         * thumbBlob (fallback blob gốc nếu record cũ thiếu thumbBlob) — buildSongNode() dùng
-         * NGUYÊN cơ chế `<img>` + object URL sẵn có, không cần đổi gì. `width`/`height` (ảnH GỐC,
-         * KHÔNG có ở Song/Video) MỚI THÊM vào shape Adapter — buildSongNode() đọc 2 field này thay
-         * cho `duration` khi `mediaType==='photo'` để hiện "WxH" thay vì "3:45" ở dòng phụ dưới tên.
-         * SỬA (Giang yêu cầu — Photo tích hợp `duration` THẬT như Song/Video, chạy trong Playlist/
-         * visualizer thừa hưởng đúng cơ chế Play/Next-Prev/Shuffle) — `duration: 0` cố định TRƯỚC
-         * ĐÂY giờ đọc THẬT từ `record.duration` (event/workflow/file-manager-photo.js::
-         * computePhotoDuration(), tính lúc upload/sửa ảnh). Record CŨ (upload trước field này tồn
-         * tại) THIẾU `duration` -> fallback literal `5` giây (khớp `DURATION_MIN_SEC` — event/
-         * workflow/file-manager-photo.js — KHÔNG import hằng số đó vào đây, Core không được phụ
-         * thuộc ngược vào Workflow, xem Rule 3 core-function-conventions.md; đổi `DURATION_MIN_SEC`
-         * thì sửa CẢ literal `5` này theo cho khớp). render.js/Sort-Filter HIỆN VẪN ẩn field này
-         * khỏi UI cho Photo (đọc width/height thay) — CHƯA đổi ở batch này, việc hiển thị/dùng
-         * `duration` thật trong Playlist+Player+VBG thuộc batch riêng (playMedia() thêm nhánh Photo).
-         * @param {Array<{key:string, blob:Blob, thumbBlob?:Blob, width?:number, height?:number, duration?:number, filename:string, customName?:string|null, album?:string|null, addedAt:number}>} imageRecords
-         * @returns {string[]} danh sách imageKey hợp lệ (có blob gốc) vừa nạp vào playlistCache, theo ĐÚNG thứ tự imageRecords truyền vào (chưa sort — nơi gọi tự sortKeysByMode() sau).
-         */
-        function buildPhotoPlaylistCache(imageRecords) {
-            appState.mutate('playlistCache', m => m.clear());
-            appState.mutate('songNameIndex', m => m.clear());
-            console.log(`writer: "buildPhotoPlaylistCache", page: "playlistCache", content: "clear toàn bộ trước khi nạp Photo"`);
-
-            const validKeys = [];
-            for (const record of imageRecords) {
-                if (!record.blob) continue; // guard — record hỏng/thiếu blob gốc, bỏ qua (giống isQuickValidMime() của Song)
-                validKeys.push(record.key);
-                // SỬA (Giang yêu cầu — Photo tích hợp duration như Song/Video, thêm rename qua tab
-                // "Sửa") — TRƯỚC ĐÂY title LUÔN là filename (Photo "không có tên tự đặt riêng") —
-                // giờ ưu tiên `customName` (event/workflow/photo-player.js đã đọc field này từ
-                // trước, chỉ thiếu đường GHI — core/playlist/actions.js::applyPhotoEditAndSave()),
-                // CÙNG công thức Video (buildVideoPlaylistCache() phía trên).
+                // MỚI (Batch 5, mục 6c) ưu tiên customName; SỬA (phản hồi Giang 28/07) bỏ đuôi mở
+                // rộng khi rơi về filename gốc — CÙNG công thức cho cả Video/Photo (Photo: SỬA, Giang
+                // yêu cầu Photo tích hợp duration như Song/Video, thêm rename qua tab "Sửa" — TRƯỚC
+                // ĐÂY title LUÔN là filename, giờ ưu tiên customName giống Video).
                 const title = record.customName || stripFileExtension(record.filename);
-                appState.mutate('playlistCache', m => m.set(record.key, {
+                const entry = {
                     filename: record.filename,
-                    tag: { title, artist: '', album: record.album || '' }, // Adapter shape — artist LUÔN rỗng cho Photo; SỬA (Giang yêu cầu — field Album) — CÙNG lý do buildVideoPlaylistCache() phía trên
-                    cover: record.thumbBlob || record.blob, // thumbBlob — CHỐT Giang "ảnh cover -> thumb của ảnh"
-                    duration: record.duration || 5, // SỬA — đọc THẬT, fallback 5s cho record cũ chưa có field này
-                    width: record.width || 0,  // MỚI — width/height GIỮ trong cache cho modal Chi tiết (core/playlist/actions.js::openSongEditModal())
-                    height: record.height || 0,
+                    tag: { title, artist: '', album: record.album || '' }, // Adapter shape — artist LUÔN rỗng cho Photo, có giá trị thật cho Video nếu record.album có; SỬA (Giang yêu cầu — field Album) — đọc record.album thay vì hard-code rỗng, search/filter (order.js/filter.js) đã đọc field này SẴN
+                    cover: record.thumbBlob || (shape.coverFromOwnBlob ? record.blob : null), // Blob THÔ — giống HỆT Song (record.cover) — buildSongNode() (core/playlist/render.js, dùng CHUNG, KHÔNG đụng) tự URL.createObjectURL(cached.cover) lúc render + tự revoke qua node._coverObjectUrl. KHÔNG được tự tạo URL ở đây (trước đây làm sai chỗ này -> render gọi createObjectURL() LẦN 2 trên 1 string, ném TypeError).
+                    duration: record.duration || shape.durationFallback,
                     addedAt: record.addedAt,
-                    mediaType: 'photo',
-                    size: record.blob.size || 0,
-                }));
+                    mediaType,
+                    size: record.blob.size || 0, // MỚI (mục 1e) — cùng lý do Song, xem comment ở scanValidSongsFromDB()
+                };
+                for (const field of shape.extraFields) entry[field] = record[field] || 0; // MỚI — field phụ theo type (vd width/height của Photo — modal Chi tiết, core/playlist/actions.js::openSongEditModal())
+                appState.mutate('playlistCache', m => m.set(record.key, entry));
                 appState.mutate('songNameIndex', m => m.set(record.key, normalizeSongName(title)));
             }
-            console.log(`writer: "buildPhotoPlaylistCache", page: "playlistCache", content: "đã nạp ${validKeys.length} ảnh"`);
+            console.log(`writer: "buildAdaptedPlaylistCache", page: "playlistCache", content: "đã nạp ${validKeys.length} ${shape.logLabel}"`);
             return validKeys;
         }
 

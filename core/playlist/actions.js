@@ -390,7 +390,7 @@
                 songEditCustomNameInput.placeholder = '';
                 // MỚI (Giang yêu cầu — "bổ sung field album edit ở details của video/photo") — mirror
                 // ĐÚNG cách songEditAlbumInput của Song hoạt động (core/playlist/loader.js::
-                // buildVideoPlaylistCache() đọc record.album vào cached.tag.album).
+                // buildAdaptedPlaylistCache() đọc record.album vào cached.tag.album).
                 if (songEditVideoAlbumInput) songEditVideoAlbumInput.value = videoRecord ? (videoRecord.album || '') : '';
 
                 const resolutionText = (videoRecord && videoRecord.width && videoRecord.height) ? `${videoRecord.width}×${videoRecord.height}` : emptyVal;
