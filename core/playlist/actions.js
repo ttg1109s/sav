@@ -201,6 +201,15 @@
             // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video, "thêm dropdown edit
             // image -> mở openImagePreview()") — mirror songMenuBtnEditVideo ngay trên.
             if (songMenuBtnEditImage) songMenuBtnEditImage.classList.toggle('hidden', !isPhoto);
+            // MỚI (06/09/2026, hợp nhất Folder vào Playlist) — chỉ hiện khi đang Scope 1 folder của
+            // ĐÚNG Nguồn hiện tại VÀ folder đó không phải Read-only (mục 4b), CÙNG điều kiện
+            // `canRemoveFromFolder` đã tính cho bản Selection mode (event/router/playlist.js, case
+            // 'playlist.selection.moreMenu.open') — ở đây tính lại tại chỗ vì hàm này KHÔNG nhận
+            // tham số ngoài (đã theo đúng chữ ký cũ, khớp mọi nơi gọi hiện có).
+            if (songMenuBtnRemoveFromFolder) {
+                const canRemoveFromFolder = appState.get('activePlayListFolder')[appState.get('activeMediaSource')] != null && !appState.get('isActiveFolderReadOnly');
+                songMenuBtnRemoveFromFolder.classList.toggle('hidden', !canRemoveFromFolder);
+            }
             // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — nhãn nút "Xoá" đổi
             // chữ đúng loại item đang mở menu (trước đây LUÔN nói "Delete song" kể cả khi xoá Video).
             // MỞ RỘNG (hợp nhất Photo) — thêm nhánh photo.
