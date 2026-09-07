@@ -9,8 +9,9 @@
  *
  * SỬA (06/09/2026, Giang chốt mục 3.6 — "bỏ hẳn màn Read") — mọi case 'read.*' (back/close/rename/
  * delete/removeItem/removeAll/pagination/2 toggle Scope-Exclude) bỏ hẳn cùng màn hình đó. Thêm 2
- * case MỚI cho tile: `.tile.click` (áp dụng Scope ngay) và `.tile.longpress` (mở menu hành động) —
- * xem event/workflow/file-manager-folder-browser.js.
+ * case MỚI cho tile: `.tile.click` (áp dụng Scope ngay) và `.tile.longpress` (mở dropdown hành
+ * động, xem event/workflow/file-manager-folder-browser.js) + 4 case đích của dropdown đó
+ * (`.tileMenu.rename/delete/toggleExclude/properties.click`).
  *
  * NẠP SAU: event/bus.js, event/workflow/file-manager-folder-browser.js.
  * NẠP TRƯỚC: event/listener/file-manager-song.js (nút "Duyệt thư mục" delegate ở đó).
@@ -40,9 +41,9 @@ const routerFileManagerFolderBrowser = (() => {
                 workflowFileManagerFolderBrowser.applyFolderFromTile(msg.payload.folderId);
                 break;
             }
-            // MỚI (06/09/2026, mục 2.7 — long-press mở menu hành động).
+            // MỚI (06/09/2026, mục 2.7 — long-press mở dropdown, xem `openTileActionsMenu()`).
             case 'fileManagerFolderBrowser.list.tile.longpress': {
-                workflowFileManagerFolderBrowser.openTileActionsMenu(msg.payload.folderId);
+                workflowFileManagerFolderBrowser.openTileActionsMenu(msg.payload.folderId, msg.payload.anchorEl);
                 break;
             }
             case 'fileManagerFolderBrowser.list.addTile.click': {
@@ -51,6 +52,24 @@ const routerFileManagerFolderBrowser = (() => {
             }
             case 'fileManagerFolderBrowser.list.rename.commit': {
                 workflowFileManagerFolderBrowser.commitListRename(msg.payload.folderId, msg.payload.name);
+                break;
+            }
+
+            // ===================== Dropdown menu long-press (core/dropdown-menu.js) =====================
+            case 'fileManagerFolderBrowser.tileMenu.rename.click': {
+                workflowFileManagerFolderBrowser.renameFromTileMenu(msg.payload.folderId);
+                break;
+            }
+            case 'fileManagerFolderBrowser.tileMenu.delete.click': {
+                workflowFileManagerFolderBrowser.deleteFromTileMenu(msg.payload.folderId);
+                break;
+            }
+            case 'fileManagerFolderBrowser.tileMenu.toggleExclude.click': {
+                workflowFileManagerFolderBrowser.toggleExcludeFromTileMenu(msg.payload.folderId);
+                break;
+            }
+            case 'fileManagerFolderBrowser.tileMenu.properties.click': {
+                workflowFileManagerFolderBrowser.propertiesFromTileMenu(msg.payload.folderId);
                 break;
             }
 
