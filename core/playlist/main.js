@@ -135,7 +135,9 @@
                 const oldOption = selectEl.querySelector('option[data-folder-option]');
                 if (oldOption) oldOption.remove();
 
-                const folderId = appState.get('activePlayListFolder');
+                // SỬA (06/09/2026, đổi schema activePlayListFolder theo Nguồn) — object
+                // {song,video,photo} thay vì 1 giá trị phẳng, đọc ĐÚNG field của Nguồn đang browse.
+                const folderId = appState.get('activePlayListFolder')[appState.get('activeMediaSource')];
                 if (!folderId) {
                     selectEl.disabled = false;
                     selectEl.classList.remove('opacity-40');
