@@ -216,24 +216,16 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.song.folderDetail.removeAllConfirmPhoto': 'Remove all photos from this folder? The folder itself stays — only its contents are cleared. Photos remain in your library.',
     'fileManager.song.folderDetail.reloadTitle': 'Apply now?',
     'fileManager.song.folderDetail.reloadBtnNow': 'Reload now',
-    'fileManager.song.folderDetail.applyReloadBody': 'Saved — the Playlist will show songs from "{name}" after reloading. Reload now?',
-    'fileManager.song.folderDetail.applyReloadBodyVideo': 'Saved — the Playlist will show videos from "{name}" after reloading. Reload now?',
-    'fileManager.song.folderDetail.applyReloadBodyPhoto': 'Saved — the Playlist will show photos from "{name}" after reloading. Reload now?',
-    'fileManager.song.folderDetail.unapplyReloadBody': 'Saved — the Playlist will show all songs again after reloading. Reload now?',
-    'fileManager.song.folderDetail.unapplyReloadBodyVideo': 'Saved — the Playlist will show all videos again after reloading. Reload now?',
-    'fileManager.song.folderDetail.unapplyReloadBodyPhoto': 'Saved — the Playlist will show all photos again after reloading. Reload now?',
-    'fileManager.song.folderDetail.autoUnapplyReloadBody': 'This folder is now empty, so it was removed as the Playlist source. The Playlist will show all songs again after reloading. Reload now?',
-    'fileManager.song.folderDetail.autoUnapplyReloadBodyVideo': 'This folder is now empty, so it was removed as the Playlist source. The Playlist will show all videos again after reloading. Reload now?',
-    'fileManager.song.folderDetail.autoUnapplyReloadBodyPhoto': 'This folder is now empty, so it was removed as the Playlist source. The Playlist will show all photos again after reloading. Reload now?',
-    'fileManager.song.folderDetail.deleteReloadBody': 'Folder deleted — the Playlist will show all songs again after reloading. Reload now?',
-    'fileManager.song.folderDetail.deleteReloadBodyVideo': 'Folder deleted — the Playlist will show all videos again after reloading. Reload now?',
-    'fileManager.song.folderDetail.deleteReloadBodyPhoto': 'Folder deleted — the Playlist will show all photos again after reloading. Reload now?',
-    'fileManager.song.deleteActiveFolderConfirm': 'Delete folder "{name}"? This folder is currently applied to the Playlist.',
-    // MỚI (Batch 4, "Song/Video Unification" mục 5) — toggle Exclude.
-    'fileManager.song.folderDetail.excludeOnReloadBody': 'Saved — songs in this folder will be hidden from the "All songs" view after reloading. Reload now?',
-    'fileManager.song.folderDetail.excludeOnReloadBodyVideo': 'Saved — videos in this folder will be hidden from the "All videos" view after reloading. Reload now?',
-    'fileManager.song.folderDetail.excludeOnReloadBodyPhoto': 'Saved — photos in this folder will be hidden from the "All photos" view after reloading. Reload now?',
-    'fileManager.song.folderDetail.excludeOffReloadBody': 'Saved — songs in this folder will show again in the "All songs" view after reloading. Reload now?',
-    'fileManager.song.folderDetail.excludeOffReloadBodyVideo': 'Saved — videos in this folder will show again in the "All videos" view after reloading. Reload now?',
-    'fileManager.song.folderDetail.excludeOffReloadBodyPhoto': 'Saved — photos in this folder will show again in the "All photos" view after reloading. Reload now?',
+    // XOÁ (06/09/2026, Giang chốt "bỏ hỏi reload, áp sống luôn") — toàn bộ key
+    // '...ReloadBody...' (apply/unapply/autoUnapply/delete/exclude, cả 3 biến thể Song/Video/Photo)
+    // đã bỏ hẳn cùng lúc bỏ askReloadToApplyNow() khỏi Folder Browser Read (event/workflow/
+    // file-manager-folder-browser.js) — Scope/Exclude/Xoá giờ áp sống ngay, không còn modal hỏi
+    // reload nào cho các hành động đó nữa. 'reloadTitle'/'reloadBtnNow' GIỮ NGUYÊN — vẫn phục vụ
+    // askReloadToApplyNow() cho Playlist Filter (tính năng KHÁC, event/workflow/playlist.js::
+    // applyFilterChanges()).
+    // SỬA (06/09/2026, Giang chốt mục 3.2 — "chặn hẳn, không tự unapply-rồi-xoá") —
+    // 'deleteActiveFolderConfirm' (cho phép xoá + tự unapply) thay bằng
+    // 'deleteActiveFolderBlocked' (chặn hẳn, không mở modal xác nhận xoá nữa).
+    'fileManager.song.deleteActiveFolderBlocked': '"{name}" is currently applied to the Playlist. Exit this folder first before deleting it.',
 };
+
