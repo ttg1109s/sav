@@ -6,27 +6,33 @@
  * folder), với 2 tương tác trên MỖI tile:
  *   - Tap (click) — ÁP DỤNG NGAY folder đó làm Scope của Playlist (mục 2.1 plan-folder-playlist-
  *     merge.md) — thay hẳn "vào xem rồi tự bật switch Scope" cũ. Xem `applyFolderFromTile()`.
- *   - Giữ tay 1.5s (long-press) — mở menu hành động (đổi tên/xoá/ẩn-hiện khỏi "Tất cả"/thuộc tính +
- *     tải xuống), xem `openTileActionsMenu()` — THAY cho các nút riêng lẻ ở header Read cũ, dồn hết
+ *   - Giữ tay 1.5s (long-press) — mở DROPDOWN (SỬA 06/09/2026, Giang chỉ ra bản trước dùng SAI
+ *     modalChoice cho cả menu — `core/dropdown-menu.js::openDropdownMenu()`, dropdown neo-theo-nút
+ *     dùng CHUNG, cùng khuôn `event/workflow/image-edit.js::openSaveMenu()`) với 4 lựa chọn: đổi
+ *     tên/xoá/ẩn-hiện khỏi "Tất cả"/thuộc tính — THAY cho các nút riêng lẻ ở header Read cũ, dồn hết
  *     vào đây (rename/delete/setExclude core đã có sẵn từ trước, KHÔNG viết lại, chỉ đổi NƠI GỌI).
+ *     `modalChoice()` CHỈ còn dùng ở 2 chỗ hẹp: xác nhận Xoá (hành động phá huỷ) và màn "Thuộc
+ *     tính" (số lượng + dung lượng + nút Tải xuống) — xem `showFolderProperties()`.
  * Xem nội dung 1 folder giờ làm THẲNG trên Playlist chính (đã Scope, xem event/workflow/playlist-
  * scope.js) — không còn màn duyệt riêng trong Generic Drawer nữa.
  *
  * TÁI DÙNG (không viết lại) — `itemTemplateFolderTile()`/`buildAddFolderTileHtml()`/
  * `renderItemList()`/`buildFolderGridWrapperHtml()` (components/items.js, cùng template "Add to
- * Folder" picker ở event/workflow/playlist.js) cho grid List; `createFolder()`/`renameFolder()`/
- * `deleteFolder()`/`setFolderExcludeFlag()`/`getFolderRecord()`/`getFolderSongMap()`/
- * `getFolderSongKeys()`/`listFolders()`/`resolveFolderId()` (core/file-manager/folder.js,
- * service/db.js) cho toàn bộ nghiệp vụ; `buildAllSongsZipBlob()`/`buildAllVideosZipBlob()`/
- * `buildAllPhotosZipBlob()` (core/storage-manager.js, SỬA 06/09/2026 thêm tham số `keys` tuỳ chọn)
- * cho nút Tải xuống ở "Thuộc tính" — ĐÚNG core Storage Management như Giang yêu cầu, không viết
- * logic zip riêng.
+ * Folder" picker ở event/workflow/playlist.js) cho grid List; `openDropdownMenu()`
+ * (core/dropdown-menu.js) cho menu long-press; `createFolder()`/`renameFolder()`/`deleteFolder()`/
+ * `setFolderExcludeFlag()`/`getFolderRecord()`/`getFolderSongMap()`/`getFolderSongKeys()`/
+ * `listFolders()`/`resolveFolderId()` (core/file-manager/folder.js, service/db.js) cho toàn bộ
+ * nghiệp vụ; `buildAllSongsZipBlob()`/`buildAllVideosZipBlob()`/`buildAllPhotosZipBlob()`
+ * (core/storage-manager.js, SỬA 06/09/2026 thêm tham số `keys` tuỳ chọn) cho nút Tải xuống ở
+ * "Thuộc tính" — ĐÚNG core Storage Management như Giang yêu cầu, không viết logic zip riêng.
  *
  * WIRING SỰ KIỆN — giữ nguyên nguyên tắc đã chốt 31/07/2026 (Rule 5a: DOM động do CORE wire, callback
  * CHỈ `eventBus.send()`) — toàn bộ đi qua `wireFolderPickerDrawerEvents()` (core/file-manager/
  * folder-picker-ui.js, dùng CHUNG với Add to Folder picker/VBG picker — long-press MỚI thêm ở đó
- * cùng đợt) + Router (event/router/file-manager-folder-browser.js). `wireFolderBrowserReadEvents()`
- * (wiring riêng cho Read cũ) đã xoá cùng file đó.
+ * cùng đợt, payload mang theo `anchorEl` để neo dropdown) + `openDropdownMenu()` (core/dropdown-
+ * menu.js, tự wire click cho từng mục — callback truyền vào CHỈ `eventBus.send()`, không viết
+ * nghiệp vụ trực tiếp trong callback) + Router (event/router/file-manager-folder-browser.js).
+ * `wireFolderBrowserReadEvents()` (wiring riêng cho Read cũ) đã xoá cùng file đó.
  *
  * VIDEO/PHOTO — `addSongsToFolder()`/`removeSongFromFolder()`/`removeAllSongsFromFolder()`/
  * `deleteFolder()` (core/file-manager/folder.js) đã hỗ trợ đủ 3 `mediaType` từ trước, không đổi gì
@@ -35,6 +41,7 @@
  * NẠP SAU: core/file-manager/folder.js, core/generic-drawer.js, components/items.js
  * (renderItemList/itemTemplateFolderTile/buildAddFolderTileHtml/buildFolderGridWrapperHtml),
  * core/file-manager/folder-picker-ui.js (openRenameFolderModal, wireFolderPickerDrawerEvents),
+ * core/dropdown-menu.js (openDropdownMenu), service/z-index.js (Z_INDEX),
  * core/storage-manager.js (buildAllSongsZipBlob/buildAllVideosZipBlob/buildAllPhotosZipBlob),
  * core/about-stats.js (formatBytes), core/dom-refs.js (genericDrawerHeader/Body/Panel),
  * event/workflow/playlist-scope.js (persistScopeChoice/applyFolderScope/applyAllSongsScope).
@@ -165,43 +172,80 @@ const workflowFileManagerFolderBrowser = {
 
     // ============================== Long-press tile — menu hành động ==============================
 
-    /** Ứng với 'fileManagerFolderBrowser.list.tile.longpress' — MỚI (06/09/2026, Batch 4). Menu
-     * hành động (modalChoice, xem core/modal-choice-ui.js) THAY cho 4 nút rải rác ở header Read cũ:
+    /** Ứng với 'fileManagerFolderBrowser.list.tile.longpress' — SỬA (06/09/2026, Giang chỉ ra sai —
+     * "nhấn giữ phải ra DROPDOWN, không phải modalChoice; modalChoice CHỈ dùng khi bấm 'Thuộc
+     * tính'") — bản trước dùng SAI `modalChoice()` cho cả 4 lựa chọn. Giờ dùng ĐÚNG
+     * `openDropdownMenu()` (core/dropdown-menu.js, component dropdown-neo-theo-nút DÙNG CHUNG có
+     * sẵn — CÙNG khuôn `event/workflow/image-edit.js::openSaveMenu()`): mỗi mục chỉ
+     * `eventBus.send()`, KHÔNG tự làm nghiệp vụ trong callback (Rule 5a) — 4 case đích riêng ngay
+     * dưới (`renameFromTileMenu`/`deleteFromTileMenu`/`toggleExcludeFromTileMenu`/
+     * `propertiesFromTileMenu`) mới THẬT SỰ làm việc, mỗi hàm tự đọc lại `getFolderRecord()` (Rule
+     * 2 — không truyền cả object qua payload eventBus, chỉ truyền `folderId`).
      * Đổi tên / Xoá thư mục (ẨN nếu đang active — mục 3.2, chặn hẳn) / Ẩn khỏi "Tất cả" ↔ Hiện lại
-     * (đổi nhãn động theo `excludeFromMainPlaylist` hiện tại) / Thuộc tính (tổng số + dung lượng +
-     * nút Tải xuống).
+     * (đổi nhãn động theo `excludeFromMainPlaylist` hiện tại) / Thuộc tính (mở modalChoice — CHỈ
+     * mục NÀY, hiện tổng số + dung lượng + nút Tải xuống, xem `showFolderProperties()`).
      * @param {string} folderId
+     * @param {HTMLElement} anchorEl - tile vừa long-press, neo dropdown ngay cạnh nó.
      */
-    async openTileActionsMenu(folderId) {
+    async openTileActionsMenu(folderId, anchorEl) {
         const folderRecord = await getFolderRecord(folderId); // service/db.js
         if (!folderRecord) return; // guard hiếm: folder vừa bị xoá ở nơi khác đúng lúc long-press
         const mediaType = folderRecord.type || 'song';
         const isActiveFolder = folderId === appState.get('activePlayListFolder')[mediaType];
         const isExcluded = !!folderRecord.excludeFromMainPlaylist;
-        const btnClassSecondary = 'flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-semibold transition-colors';
-        const btnClassDanger = 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition-colors';
 
-        const choices = [
-            { label: t('fileManager.song.folderDetail.renameTitle'), className: btnClassSecondary, onClick: () => this.promptRename(folderId, folderRecord) },
+        const ICON_RENAME = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>';
+        const ICON_DELETE = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
+        const ICON_HIDE = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.774 3.162 10.066 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/></svg>';
+        const ICON_UNHIDE = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>';
+        const ICON_PROPERTIES = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/></svg>';
+
+        const items = [
+            { icon: ICON_RENAME, name: t('fileManager.song.folderDetail.renameTitle'), callback: () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.tileMenu.rename.click', payload: { folderId } }) },
         ];
         // SỬA (06/09/2026, Giang chốt mục 3.2 — "chặn hẳn, không tự unapply-rồi-xoá") — ẨN HẲN mục
         // Xoá khi đang active, thay vì hiện ra rồi báo lỗi lúc bấm — người dùng thấy NGAY trong menu
         // là chưa xoá được lúc này, không cần thử mới biết.
         if (!isActiveFolder) {
-            choices.push({ label: t('fileManager.song.btnDeleteFolder'), className: btnClassDanger, onClick: () => this._confirmDeleteFromMenu(folderId, folderRecord) });
+            items.push({ icon: ICON_DELETE, name: t('fileManager.song.btnDeleteFolder'), destructive: true, callback: () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.tileMenu.delete.click', payload: { folderId } }) });
         }
-        choices.push({
-            label: this._folderText(isExcluded ? 'fileManager.folderBrowser.tileMenu.unhide' : 'fileManager.song.folderDetail.excludeToggle.label', folderRecord),
-            className: btnClassSecondary,
-            onClick: () => this._toggleExcludeFromMenu(folderId, folderRecord, !isExcluded),
+        items.push({
+            icon: isExcluded ? ICON_UNHIDE : ICON_HIDE,
+            name: this._folderText(isExcluded ? 'fileManager.folderBrowser.tileMenu.unhide' : 'fileManager.song.folderDetail.excludeToggle.label', folderRecord),
+            callback: () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.tileMenu.toggleExclude.click', payload: { folderId } }),
         });
-        choices.push({ label: t('fileManager.folderBrowser.tileMenu.properties'), className: btnClassSecondary, onClick: () => this.showFolderProperties(folderId, folderRecord) });
+        items.push({ icon: ICON_PROPERTIES, name: t('fileManager.folderBrowser.tileMenu.properties'), callback: () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.tileMenu.properties.click', payload: { folderId } }) });
 
-        modalChoice( // core/modal-choice-ui.js
-            t('fileManager.folderBrowser.tileMenu.subtitle'),
-            choices,
-            { title: escapeHtml(folderRecord.name) }
-        );
+        openDropdownMenu(anchorEl, items, { zIndex: Z_INDEX.FOLDER_TILE_ACTION_MENU }); // core/dropdown-menu.js
+    },
+
+    /** Ứng với 'fileManagerFolderBrowser.tileMenu.rename.click'. */
+    async renameFromTileMenu(folderId) {
+        const folderRecord = await getFolderRecord(folderId); // service/db.js
+        if (!folderRecord) return; // guard hiếm: đã bị xoá ở đâu đó giữa lúc mở menu và bấm mục này
+        this.promptRename(folderId, folderRecord);
+    },
+
+    /** Ứng với 'fileManagerFolderBrowser.tileMenu.delete.click'. */
+    async deleteFromTileMenu(folderId) {
+        const folderRecord = await getFolderRecord(folderId); // service/db.js
+        if (!folderRecord) return; // guard hiếm — cùng lý do renameFromTileMenu()
+        this._confirmDeleteFromMenu(folderId, folderRecord); // modalChoice CHỈ để XÁC NHẬN 1 hành động phá huỷ — khác hẳn bản thân menu, giữ nguyên
+    },
+
+    /** Ứng với 'fileManagerFolderBrowser.tileMenu.toggleExclude.click'. */
+    async toggleExcludeFromTileMenu(folderId) {
+        const folderRecord = await getFolderRecord(folderId); // service/db.js
+        if (!folderRecord) return; // guard hiếm — cùng lý do renameFromTileMenu()
+        await this._toggleExcludeFromMenu(folderId, folderRecord, !folderRecord.excludeFromMainPlaylist);
+    },
+
+    /** Ứng với 'fileManagerFolderBrowser.tileMenu.properties.click' — ĐÂY MỚI ĐÚNG LÀ chỗ DUY NHẤT
+     * mở `modalChoice()` trong toàn bộ menu long-press (Giang chốt). */
+    async propertiesFromTileMenu(folderId) {
+        const folderRecord = await getFolderRecord(folderId); // service/db.js
+        if (!folderRecord) return; // guard hiếm — cùng lý do renameFromTileMenu()
+        await this.showFolderProperties(folderId, folderRecord);
     },
 
     /** Ứng với 'fileManagerFolderBrowser.rename.confirm' (modal đổi tên — DOM overlay NGOÀI
