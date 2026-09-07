@@ -99,25 +99,37 @@ const TPL_PLAYLIST_VIEW = `
                  Playlist dùng chung cho cả Video (đổi Nguồn qua Settings) — bỏ hẳn thay vì đổi chữ
                  theo nguồn, đơn giản hơn và khớp đúng yêu cầu "search full width". -->
             <div class="mb-3">
-                <div class="relative">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                    <input id="playlist-search-input" type="text" inputmode="search" autocomplete="off" data-i18n-placeholder="playlistView.search.placeholder" placeholder="${t('playlistView.search.placeholder')}" class="w-full bg-white/10 focus:bg-white/15 border border-white/10 focus:border-sky-500/60 rounded-2xl pl-10 pr-10 py-2.5 text-[15px] text-white placeholder-slate-400 outline-none transition-colors backdrop-blur-md">
-                    <button id="playlist-search-clear" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors p-1" data-i18n-title="playlistView.search.clear.title" title="${t('playlistView.search.clear.title')}">
+                <!-- SỬA (06/09/2026, Giang yêu cầu — "đưa badge tên thư mục vào trong khung của
+                     search") — TRƯỚC ĐÂY input tự có border/nền riêng (khung tròn của CHÍNH nó),
+                     icon kính lúp/nút X là 2 overlay absolute ĐÈ LÊN input đó, badge nằm THÀNH 1
+                     hàng RIÊNG NGAY DƯỚI (mt-2, ngoài khung input). Giờ khung tròn (bg/border/
+                     rounded/padding) CHUYỂN sang chính div NGOÀI này (focus-within thay focus vì
+                     tiêu điểm giờ nằm ở input con, không phải div cha) — icon/badge/input/nút X
+                     xếp NGANG HÀNG trong CÙNG 1 flex container, input tự bỏ hết border/nền riêng
+                     (bg-transparent border-none, chỉ còn flex-1 min-w-0 để co giãn) — badge (nếu
+                     đang Scope) NẰM THẬT SỰ bên trong khung viền đó, không phải 1 hàng tách biệt
+                     nữa. Mọi id/JS wiring (playlistSearchInput/playlistSearchClear/
+                     playlistActiveFolderBadge/...) GIỮ NGUYÊN — chỉ đổi vị trí/lớp CSS bọc ngoài. -->
+                <div class="relative flex items-center gap-2 w-full bg-white/10 focus-within:bg-white/15 border border-white/10 focus-within:border-sky-500/60 rounded-2xl pl-3.5 pr-3 py-2.5 transition-colors backdrop-blur-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 pointer-events-none shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    <!-- MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 3 — SỬA VỊ TRÍ cùng đợt
+                         này) — badge tên folder đang Scope, THAY HẲN UI khoá select "Nguồn" ở
+                         Settings → Playlist (mục 3.1) — ẩn mặc định (class hidden), hiện/đổi tên qua
+                         PlaylistMain.updateActiveFolderBadge() (core/playlist/main.js), gọi từ mọi
+                         nơi scope thật sự đổi (xem event/workflow/playlist-scope.js
+                         applyFolderScope()/applyAllSongsScope()). -->
+                    <div id="playlist-active-folder-badge" class="hidden shrink-0 min-w-0">
+                        <div class="inline-flex items-center gap-1 max-w-[110px] bg-sky-500/20 border border-sky-400/30 text-sky-100 text-xs font-medium pl-2 pr-1 py-0.5 rounded-full">
+                            <span id="playlist-active-folder-badge-name" class="truncate"></span>
+                            <button id="playlist-active-folder-badge-close" class="w-3.5 h-3.5 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors shrink-0" data-i18n-title="playlistView.activeFolderBadge.exit.title" title="${t('playlistView.activeFolderBadge.exit.title')}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <input id="playlist-search-input" type="text" inputmode="search" autocomplete="off" data-i18n-placeholder="playlistView.search.placeholder" placeholder="${t('playlistView.search.placeholder')}" class="flex-1 min-w-0 bg-transparent border-none outline-none text-[15px] text-white placeholder-slate-400 py-0">
+                    <button id="playlist-search-clear" class="hidden shrink-0 text-slate-400 hover:text-white transition-colors p-1" data-i18n-title="playlistView.search.clear.title" title="${t('playlistView.search.clear.title')}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
-                </div>
-                <!-- MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 3) — badge tên folder
-                     đang Scope, THAY HẲN UI khoá select "Nguồn" ở Settings → Playlist (mục 3.1) —
-                     ẩn mặc định (class hidden), hiện/đổi tên qua PlaylistMain.updateActiveFolderBadge()
-                     (core/playlist/main.js), gọi từ mọi nơi scope thật sự đổi (xem
-                     event/workflow/playlist-scope.js applyFolderScope()/applyAllSongsScope()). -->
-                <div id="playlist-active-folder-badge" class="hidden mt-2">
-                    <div class="inline-flex items-center gap-1.5 max-w-full bg-sky-500/20 border border-sky-400/30 text-sky-100 text-[13px] font-medium pl-3 pr-1.5 py-1 rounded-full">
-                        <span id="playlist-active-folder-badge-name" class="truncate max-w-[220px]"></span>
-                        <button id="playlist-active-folder-badge-close" class="w-5 h-5 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors shrink-0" data-i18n-title="playlistView.activeFolderBadge.exit.title" title="${t('playlistView.activeFolderBadge.exit.title')}">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                    </div>
                 </div>
             </div>
 
@@ -456,6 +468,15 @@ const TPL_PLAYLIST_VIEW = `
         <button data-menu-action="addToFolder" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 border-t border-white/5">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
             <span data-i18n="playlistView.songMenu.addToFolder">${t('playlistView.songMenu.addToFolder')}</span>
+        </button>
+        <!-- MỚI (06/09/2026, hợp nhất Folder vào Playlist — "mọi item trong Playlist thêm action Gỡ
+             khỏi thư mục khi đang Scope 1 folder") — mặc định class hidden, JS chỉ hiện khi đang
+             Scope (xem openSongActionMenu(), core/playlist/actions.js) VÀ folder đó không phải
+             Read-only (mục 4b). Gỡ khỏi RIÊNG folder này, KHÁC hẳn "delete" ngay dưới (không đụng
+             bản ghi gốc/thư viện, xem event/workflow/playlist.js removeSongFromFolderMenu()). -->
+        <button id="song-menu-btn-remove-from-folder" data-menu-action="removeFromFolder" class="hidden flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 border-t border-white/5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.5 13h5" /></svg>
+            <span data-i18n="playlistView.songMenu.removeFromFolder">${t('playlistView.songMenu.removeFromFolder')}</span>
         </button>
         <!-- SỬA (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — id "song-menu-delete-
              label" để JS ("openSongActionMenu()") đổi chữ "Xoá bài hát"/"Xoá video" đúng ngữ cảnh
