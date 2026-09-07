@@ -122,6 +122,8 @@ const LANG_PATCH_PLAYLIST = {
     // MỚI (hợp nhất Photo vào Playlist).
     'playlistView.songMenu.deletePhoto': 'Delete photo',
     'playlistView.songMenu.addToFolder': 'Add to Folder',
+    // MỚI (06/09/2026, hợp nhất Folder vào Playlist).
+    'playlistView.songMenu.removeFromFolder': 'Remove from folder',
     'playlistView.songMenu.deleteBlockedPlaying': "Can't delete <b>{title}</b> while it's playing. Pause the song first, then try again.",
     'playlistView.songMenu.deleteBlockedPlayingVideo': "Can't delete <b>{title}</b> while it's playing. Pause the video first, then try again.",
     'playlistView.songMenu.deleteSuccess': 'Deleted <b>{title}</b>.',

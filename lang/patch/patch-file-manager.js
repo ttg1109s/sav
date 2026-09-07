@@ -148,13 +148,21 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.folderBrowser.defaultNewFolderName': 'Folder {n}',
     // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 4) — menu hành động giữ tay 1.5s trên 1
     // folder tile, xem event/workflow/file-manager-folder-browser.js::openTileActionsMenu().
-    'fileManager.folderBrowser.tileMenu.subtitle': 'Choose an action',
-    'fileManager.folderBrowser.tileMenu.unhide': 'Show in "All songs" view',
-    'fileManager.folderBrowser.tileMenu.unhideVideo': 'Show in "All videos" view',
-    'fileManager.folderBrowser.tileMenu.unhidePhoto': 'Show in "All photos" view',
+    // XOÁ (06/09/2026, mục 4a — "Hidden" dời sang checkbox Properties, "subtitle"/dropdown giờ
+    // dùng openDropdownMenu() không cần subtitle) — 'tileMenu.subtitle'/'unhide'/'unhideVideo'/
+    // 'unhidePhoto' bỏ hẳn. 'propertiesBody' (chuỗi phẳng "{count} items · {size}") thay bằng 3 key
+    // Windows-style rời (Contains/Size + nhãn đếm riêng theo type).
     'fileManager.folderBrowser.tileMenu.properties': 'Properties',
-    'fileManager.folderBrowser.tileMenu.propertiesBody': '{count} items · {size}',
-    'fileManager.folderBrowser.tileMenu.propertiesDownload': 'Download all as .zip',
+    'fileManager.folderBrowser.tileMenu.propertiesContains': 'Contains:',
+    'fileManager.folderBrowser.tileMenu.propertiesSize': 'Size:',
+    'fileManager.folderBrowser.tileMenu.countSongs': '{count} songs',
+    'fileManager.folderBrowser.tileMenu.countVideos': '{count} videos',
+    'fileManager.folderBrowser.tileMenu.countPhotos': '{count} photos',
+    'fileManager.folderBrowser.tileMenu.readOnlyLabel': 'Read-only',
+    'fileManager.folderBrowser.tileMenu.hiddenLabel': 'Hidden',
+    'fileManager.folderBrowser.tileMenu.propertiesDownload': 'Download',
+    // MỚI (06/09/2026, hợp nhất Folder vào Playlist, mục 4b — "Read-only").
+    'fileManager.folderBrowser.uploadBlockedReadOnly': 'This folder is read-only. Turn off "Read-only" in its Properties before uploading.',
     'fileManager.song.renameFolderTitle': 'Rename folder',
     'fileManager.song.deleteFolderTitle': 'Delete folder',
     'fileManager.song.deleteFolderConfirm': 'Delete folder "{name}"? Songs inside stay in your library, only the folder is removed.',
@@ -196,12 +204,11 @@ const LANG_PATCH_FILE_MANAGER = {
     // ── File Manager -> Song & Video -> Folder Browser (grid folder) ──────────────────────────
     // XOÁ (06/09/2026, Giang chốt mục 3.6 — "bỏ hẳn màn Read") — toàn bộ key riêng cho màn Read cũ
     // (2 toggle Scope/Exclude + hint, trạng thái rỗng, nút "Xoá hết bài", tiêu đề "Gỡ khỏi folder")
-    // bỏ hẳn cùng màn hình đó — xem event/workflow/file-manager-folder-browser.js. GIỮ LẠI, tái
-    // dùng làm nhãn menu long-press mới (xem fileManager.folderBrowser.tileMenu.* ở trên):
-    // `excludeToggle.label`/`labelVideo`/`labelPhoto` ("Hide from ... view") và `renameTitle`.
-    'fileManager.song.folderDetail.excludeToggle.label': 'Hide from "All songs" view',
-    'fileManager.song.folderDetail.excludeToggle.labelVideo': 'Hide from "All videos" view',
-    'fileManager.song.folderDetail.excludeToggle.labelPhoto': 'Hide from "All photos" view',
+    // bỏ hẳn cùng màn hình đó — xem event/workflow/file-manager-folder-browser.js. `renameTitle`
+    // GIỮ LẠI, tái dùng làm nhãn dropdown long-press mới (mục "Đổi tên"). `excludeToggle.label`/
+    // `labelVideo`/`labelPhoto` (từng tái dùng cho mục "Hide" ở dropdown) đã XOÁ THEO cùng đợt mục
+    // 4a — "Hidden" giờ là checkbox phẳng trong Properties (`tileMenu.hiddenLabel`), không cần
+    // biến thể Song/Video/Photo nữa.
     'fileManager.song.folderDetail.renameTitle': 'Rename folder',
     'fileManager.song.folderDetail.reloadTitle': 'Apply now?',
     'fileManager.song.folderDetail.reloadBtnNow': 'Reload now',
