@@ -480,15 +480,29 @@ const workflowPlaylist = {
         // Làm mới playlistOrder NGAY nếu Playlist đang đứng ở Nguồn Photo — CÙNG LÝ DO/CÙNG CÁCH SỬA
         // `refreshVideoPlaylistIfActive()` (event/workflow/video-player.js), nhưng viết TRỰC TIẾP ở
         // đây (không tách hàm riêng) vì `switchToPhotoSource()` đã SẴN cùng 1 object `workflowPlaylist`.
+        // FIX (07/09/2026, Giang báo "upload khi folder đang active -> không thêm được, tự bỏ active
+        // folder rồi về all") — CÙNG BUG/CÙNG SỬA `refreshVideoPlaylistIfActive()` ngay trên: TRƯỚC
+        // ĐÂY `buildPhotoPlaylistCache()` trả về TOÀN BỘ key rồi gán THẲNG vào `playlistOrder`, ghi
+        // đè mất scope folder Photo (`activePlayListFolder.photo`) vừa gắn ảnh mới vào qua
+        // `addSongsToFolder()` ở trên. Giờ CHỈ dùng để nạp lại `playlistCache`, `playlistOrder` tính
+        // LẠI theo ĐÚNG scope hiện tại (Scope -> `loadSongsFromFolder()`; không Scope ->
+        // `loadAllSongs()` + loại Exclude), CÙNG công thức `applyFolderScope()`/`applyAllSongsScope()`
+        // (event/workflow/playlist-scope.js).
         if (appState.get('activeMediaSource') === 'photo') {
             const imageRecords = await listImages(); // core/file-manager/image.js
-            const keys = buildPhotoPlaylistCache(imageRecords); // core/playlist/loader.js
-            appState.set('playlistOrder', keys);
-            console.log(`writer: "uploadPhotos", page: "playlistOrder", content: "${keys.length} ảnh (làm mới sau upload)"`);
+            buildPhotoPlaylistCache(imageRecords); // core/playlist/loader.js — chỉ nạp lại playlistCache, KHÔNG dùng return value làm playlistOrder trực tiếp nữa (bỏ qua scope, xem FIX ở trên)
+            const activeFolderIdForPhotoRefresh = appState.get('activePlayListFolder').photo;
+            if (activeFolderIdForPhotoRefresh) {
+                await loadSongsFromFolder(activeFolderIdForPhotoRefresh, appState.get('playlistCache')); // core/playlist/scope.js — GIỮ ĐÚNG scope đang active thay vì nạp full list
+            } else {
+                const excludedKeys = await getExcludedSongKeysFromFolders('photo'); // core/file-manager/folder.js
+                loadAllSongs(appState.get('playlistCache'), excludedKeys); // core/playlist/scope.js
+            }
+            console.log(`writer: "uploadPhotos", page: "playlistOrder", content: "${appState.get('playlistOrder').length} ảnh (làm mới sau upload)"`);
             // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — updateShuffleArray()/
             // recomputeDisplayOrder()/recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/
             // playlist-order.js (workflowPlaylistOrder) — gọi trực tiếp, tự đọc playlistOrder MỚI
-            // (keys vừa set ở trên) qua appState, không cần truyền tham số nữa.
+            // (vừa tính lại ở trên) qua appState, không cần truyền tham số nữa.
             workflowPlaylistOrder.updateShuffleArray();
             workflowPlaylistOrder.recomputeDisplayOrder();
             workflowPlaylistOrder.recomputeRenderOrder();
