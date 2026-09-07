@@ -134,6 +134,35 @@ function buildAddFolderTileHtml() {
 }
 
 /**
+ * Wrapper CHUNG cho MỌI grid folder tile (Folder Browser List, Add to Folder picker, Thư mục VBG
+ * picker — 3 nơi TÁI DÙNG `itemTemplateFolderTile()`/`buildAddFolderTileHtml()`, giờ tái dùng LUÔN
+ * đúng 1 wrapper, tránh 2 chuỗi CSS trùng nhau dễ lệch khi sửa sau này).
+ *
+ * SỬA (06/09/2026, Giang chỉ ra bug tiếp — ảnh chụp màn Folder Browser List, khoảng trống thừa bên
+ * phải khi hàng đầy, tile dồn hẳn về trái) — bản CŨ `flex flex-wrap justify-start gap-4` (đổi từ
+ * `justify-center` hồi 14/07/2026, xem event/workflow/playlist.js) chỉ giải quyết ĐƯỢC 1 nửa: hàng
+ * cuối chưa đầy thì đúng là căn trái (không bị "cả cụm" kéo về giữa), NHƯNG đổi lại các hàng ĐÃ ĐẦY
+ * cũng bị dồn trái ln, để trống hẳn 1 dải bên phải nếu bề ngang khung KHÔNG chia hết cho
+ * (width tile + gap) — Flexbox không có cách nào vừa "hàng đầy giãn đều 2 bên" vừa "hàng cuối lẻ
+ * căn trái" CÙNG LÚC (`justify-between`/`justify-around` sẽ kéo luôn cả hàng lẻ dở dang ra giãn
+ * đều, ngược lại đúng thứ Giang KHÔNG muốn).
+ * FIX: đổi hẳn sang CSS Grid — `grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr))` (số
+ * cột tự tính theo bề ngang khung, mỗi cột tối thiểu 5rem = đúng bề ngang 1 tile `w-20` hiện có,
+ * *co giãn thêm bằng `1fr` để lấp hết khoảng trống thừa* — trả lời đúng ý "chỉnh kích thước/gap để
+ * tận dụng khoảng trống, giãn đều 2 bên"). `justify-items-center` canh tile (vẫn giữ nguyên `w-20`,
+ * không đổi) vào GIỮA mỗi cột đã giãn rộng ra — trả lời đúng ý "icon folder ở giữa". Khác Flexbox,
+ * Grid xếp item theo đúng cột/hàng CỐ ĐỊNH (`grid-auto-flow` mặc định `row`) — hàng cuối thiếu tile
+ * tự nhiên chỉ chiếm các cột ĐẦU (trái), KHÔNG có khái niệm "giãn đều cả hàng lẻ" như Flexbox —
+ * cùng lúc thoả cả 2 yêu cầu tưởng chừng ngược nhau ở trên mà không cần media query/breakpoint nào.
+ * @param {string} innerHtml - chuỗi HTML các tile (renderItemList() + buildAddFolderTileHtml() nối
+ *        sẵn), hàm này CHỈ bọc wrapper, không tự dựng tile.
+ * @returns {string}
+ */
+function buildFolderGridWrapperHtml(innerHtml) {
+    return `<div class="grid grid-cols-[repeat(auto-fill,minmax(5rem,1fr))] justify-items-center gap-4 p-5">${innerHtml}</div>`;
+}
+
+/**
  * Dựng 1 danh sách item bằng cách gán `containerEl.innerHTML` (nếu có) **1 LẦN DUY NHẤT** (thay N
  * lần createElement+appendChild) — đủ mượt tới ~100-200 item trên mobile webview (xem docstring
  * đầu file). Hàm THUẦN, KHÔNG tự gắn sự kiện click — nơi gọi (Workflow) tự querySelector +
