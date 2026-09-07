@@ -48,7 +48,7 @@
                 // MỚI (ver12 "Song/Video Unification", Batch 1, xem
                 // plan-v12-song-video-unification.md mục 1) — 'song' | 'video'. Quyết định Playlist
                 // đang browse nguồn nào (đổi qua Settings → Playlist → "Nguồn", xem event/workflow/
-                // playlist.js::switchToVideoSource()/switchToSongSource()). Mặc định 'song' — hành
+                // playlist.js::switchSource()). Mặc định 'song' — hành
                 // vi/UI hiện có của Song KHÔNG đổi gì khi field này giữ nguyên giá trị mặc định.
                 activeMediaSource: 'string',
                 // SỬA (mục 3, phản hồi Giang — "đổi tên Listening stats thành Stats, tách field/
@@ -63,7 +63,7 @@
                 displayStatSortField: 'string',
                 displayStatSortDirection: 'string',
                 // MỚI (Filter subpanel, mục 1d) — CHỈ áp dụng lúc playlistOrder được TÍNH LẠI (boot/
-                // đổi Nguồn/đổi Scope — xem workflowPlaylist.switchToSongSource()/switchToVideoSource(),
+                // đổi Nguồn/đổi Scope — xem workflowPlaylist.switchSource(),
                 // workflowPlaylistScope.applyFolderScope()/applyAllSongsScope()), KHÔNG đụng
                 // renderOrder/ô tìm kiếm (2 cơ chế TÁCH BIỆT, xem core/playlist/filter.js). Cấu
                 // trúc: { song: { <field>: rule|null }, video: { <field>: rule|null } } — field rỗng
