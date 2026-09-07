@@ -305,6 +305,15 @@ if (playlistSearchClear) {
     });
 }
 
+// MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 3) — nút X badge "đang Scope folder nào",
+// xem components/playlist-view.js. Tĩnh, KHÔNG thuộc Generic Drawer content-swap — wiring 1 lần ở
+// đây an toàn (đối xứng playlistSearchClear ngay trên), xem dom-refs.js.
+if (playlistActiveFolderBadgeClose) {
+    playlistActiveFolderBadgeClose.addEventListener('click', () => {
+        eventBus.send({ router: 'playlist', type: 'playlist.activeFolderBadge.exit.click', payload: {} });
+    });
+}
+
 // ===================== Ver 12 "Multi Media" — Chọn nhiều (mục 4.b1) =====================
 if (btnToggleSelection) {
     btnToggleSelection.addEventListener('click', () => {
