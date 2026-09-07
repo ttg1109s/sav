@@ -126,7 +126,10 @@ async function createFolder(folderId, name, type) {
     const sameTypeFolders = (await Promise.all(sameTypeIds.map((id) => getFolderRecord(id)))).filter(Boolean); // service/db.js
     if (sameTypeFolders.some(f => f.name === name)) return { status: 'duplicateName' };
 
-    await setFolderRecord(folderId, { id: folderId, name, type });
+    // MỚI (06/09/2026, hợp nhất Folder vào Playlist, mục 4b) — `isReadOnly: false` mặc định. Folder
+    // TẠO TRƯỚC field này thiếu hẳn — nơi ĐỌC luôn qua `!!record.isReadOnly` (undefined -> false),
+    // cùng quy ước `excludeFromMainPlaylist` ngay dưới, không cần migrate dữ liệu cũ.
+    await setFolderRecord(folderId, { id: folderId, name, type, isReadOnly: false });
     await setFolderSongMap(folderId, { list: [], empty: 0 });
 
     if (!folderIndex[type]) folderIndex[type] = [];
@@ -449,6 +452,27 @@ async function setFolderExcludeFlag(folderId, enabled) {
     const record = await getFolderRecord(folderId);
     if (!record) return { status: 'notFound' };
     record.excludeFromMainPlaylist = enabled;
+    await setFolderRecord(folderId, record);
+    return { status: 'ok' };
+}
+
+/**
+ * Bật/tắt "Read-only" 1 folder — MỚI (06/09/2026, hợp nhất Folder vào Playlist, mục 4b, Giang yêu
+ * cầu "giống Windows"). Khi `true`: KHÔNG cho remove item khỏi folder (Selection mode/menu 3-chấm
+ * lẻ), KHÔNG cho thêm item mới (upload tự gắn — chặn qua event/block.js, field
+ * `isActiveFolderReadOnly`, xem event/workflow/playlist-scope.js; "Thêm vào thư mục" picker cũng tự
+ * loại folder này khỏi danh sách, xem event/workflow/playlist.js), KHÔNG cho đổi tên (ẩn mục Đổi
+ * tên khỏi dropdown long-press, xem event/workflow/file-manager-folder-browser.js). XOÁ folder vẫn
+ * cho phép bình thường (Giang chốt "trừ delete") — hàm `deleteFolder()` không đọc field này.
+ * Mirror `setFolderExcludeFlag()` ngay trên — CÙNG cấu trúc.
+ * @param {string} folderId
+ * @param {boolean} enabled
+ * @returns {Promise<{status: 'notFound'|'ok'}>}
+ */
+async function setFolderReadOnlyFlag(folderId, enabled) {
+    const record = await getFolderRecord(folderId);
+    if (!record) return { status: 'notFound' };
+    record.isReadOnly = enabled;
     await setFolderRecord(folderId, record);
     return { status: 'ok' };
 }
