@@ -16,7 +16,7 @@
  * file-manager-photo.js::openImagePreview() — bumpSongPlayCount()).
  * SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — field 'duration' TRƯỚC ĐÂY ẩn
  * cho Photo (lúc đó `duration` hard-code 0, vô nghĩa) — giờ `duration` là số THẬT (tính lúc upload,
- * core/playlist/loader.js::buildPhotoPlaylistCache()), HIỆN LẠI cho Photo giống Song/Video.
+ * core/playlist/loader.js::buildAdaptedPlaylistCache()), HIỆN LẠI cho Photo giống Song/Video.
  * @param {string} source - 'song' | 'video' | 'photo'.
  */
 function renderPlaylistSortPanelBody(source) {
