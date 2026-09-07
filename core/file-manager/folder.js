@@ -537,6 +537,33 @@ async function migrateFolderIndexIfNeeded() {
     await setMeta('folderIndexMigrated', true);
 }
 
+/**
+ * Migrate 1 LẦN DUY NHẤT — `meta.activePlayListFolder` đổi schema (06/09/2026, Giang chốt "mỗi
+ * Nguồn tự nhớ folder riêng") từ 1 giá trị PHẲNG (string folderId, hoặc null = không scope) sang
+ * object `{song,video,photo}` (mỗi field tự nhớ folder RIÊNG của đúng Nguồn đó, xem
+ * service/state/file-manager.js). Idempotent qua `meta.activePlayListFolderMigrated` (boolean),
+ * cùng khuôn `migrateFolderIndexIfNeeded()` ngay trên. Gọi 1 LẦN lúc boot, TRƯỚC bất kỳ chỗ nào đọc
+ * `meta.activePlayListFolder`/`appState.activePlayListFolder` (event/workflow/app-boot.js).
+ * Giá trị cũ (nếu có, 1 folderId phẳng) được gán vào ĐÚNG field theo `type` của chính folder đó
+ * (đọc qua `getFolderRecord()`) — folder không còn tồn tại (đã bị xoá) hoặc đọc lỗi thì bỏ qua,
+ * coi như phiên trước chưa từng scope gì (an toàn hơn giữ tham chiếu chết).
+ * @returns {Promise<void>}
+ */
+async function migrateActivePlayListFolderIfNeeded() {
+    const migrated = await getMeta('activePlayListFolderMigrated'); // data layer
+    if (migrated) return;
+
+    const old = await getMeta('activePlayListFolder'); // data layer — dạng CŨ: string|null|undefined
+    const next = { song: null, video: null, photo: null };
+    if (typeof old === 'string' && old) {
+        const folderRecord = await getFolderRecord(old); // service/db.js
+        const type = folderRecord ? (folderRecord.type || 'song') : null; // legacy folder chưa có type -> coi như 'song', cùng quy ước migrateFolderIndexIfNeeded()
+        if (type && Object.prototype.hasOwnProperty.call(next, type)) next[type] = old;
+    }
+    await setMeta('activePlayListFolder', next);
+    await setMeta('activePlayListFolderMigrated', true);
+}
+
 /** Pure — danh sách songKey ĐANG THẬT trong folder (lọc bỏ lỗ tombstone null). Không I/O. */
 function getFolderSongKeys(folderMap) {
     return folderMap.list.filter(k => k != null);
