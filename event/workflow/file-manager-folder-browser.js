@@ -1,117 +1,83 @@
 /**
- * event/workflow/file-manager-folder-browser.js — MỚI (ver12 "Song/Video Unification", Batch 5,
- * mục 6e plan-v12-song-video-unification.md). "Duyệt thư mục" — THAY HẲN Folder List/Folder Detail
- * kiểu Settings-panel-stack cũ (core/file-manager/folder-list-ui.js + phần lớn
- * event/workflow/file-manager-song.js — ĐÃ XOÁ, xem changelog) bằng 2 tầng List↔Read DÙNG CHUNG 1
- * Generic Drawer (core/generic-drawer.js) — ĐÚNG use-case gốc Generic Drawer sinh ra để làm, mirror
- * kiến trúc 2 tầng List↔Read qua Generic Drawer (khuôn CHUNG đã dùng cho nhiều tính năng khác —
- * xem core/generic-drawer.js):
- *   - List: grid folder — TÁI DÙNG NGUYÊN `itemTemplateFolderTile()`/`buildAddFolderTileHtml()`/
- *     `renderItemList()` (components/items.js, cùng template đang dùng cho "Add to Folder" picker ở
- *     event/workflow/playlist.js) — KHÔNG viết UI grid mới.
- *   - Read: danh sách item (Song HOẶC Video — KHÔNG BAO GIỜ trộn 2 loại trong 1 folder, xem
- *     addSongsToFolder()) của 1 folder — TÁI DÙNG NGUYÊN `renderFolderDetailSongList()`/
- *     `setFolderDetailTitle()` (core/file-manager/folder-detail-ui.js, đã Rule-1-4-compliant từ
- *     Batch 4, không đổi gì) + 2 toggle Scope/Exclude (Batch 4, mục 5).
+ * event/workflow/file-manager-folder-browser.js — VIẾT LẠI (06/09/2026, hợp nhất Folder vào
+ * Playlist, Giang chốt mục 3.6 "bỏ hẳn màn Read"). TRƯỚC ĐÂY 2 tầng List↔Read qua 1 Generic Drawer
+ * (xem lịch sử ở git/bản cũ) — Read (browse nội dung 1 folder: danh sách item phân trang + 2
+ * toggle Scope/Exclude + nút đổi tên/xoá trong header) ĐÃ BỎ HẲN. Giờ CHỈ còn 1 màn (List, grid
+ * folder), với 2 tương tác trên MỖI tile:
+ *   - Tap (click) — ÁP DỤNG NGAY folder đó làm Scope của Playlist (mục 2.1 plan-folder-playlist-
+ *     merge.md) — thay hẳn "vào xem rồi tự bật switch Scope" cũ. Xem `applyFolderFromTile()`.
+ *   - Giữ tay 1.5s (long-press) — mở menu hành động (đổi tên/xoá/ẩn-hiện khỏi "Tất cả"/thuộc tính +
+ *     tải xuống), xem `openTileActionsMenu()` — THAY cho các nút riêng lẻ ở header Read cũ, dồn hết
+ *     vào đây (rename/delete/setExclude core đã có sẵn từ trước, KHÔNG viết lại, chỉ đổi NƠI GỌI).
+ * Xem nội dung 1 folder giờ làm THẲNG trên Playlist chính (đã Scope, xem event/workflow/playlist-
+ * scope.js) — không còn màn duyệt riêng trong Generic Drawer nữa.
  *
- * LÝ DO CẦN VIẾT LẠI (không chỉ đổi vỏ) — `getFolderSongsForDisplay()` cũ đọc tên/nghệ sĩ qua
- * `playlistCache`, CHỈ đúng khi Playlist đang browse ĐÚNG loại của folder đó (`playlistCache` chỉ
- * chứa 1 nguồn tại 1 thời điểm, theo `activeMediaSource`) — folder Video xem lúc Playlist đang
- * browse Song sẽ hiện sai tên. Đã thay `getFolderItemsForDisplay()` (core/file-manager/folder.js,
- * MỚI) đọc TRỰC TIẾP `service/db.js` theo `folder.type`.
+ * TÁI DÙNG (không viết lại) — `itemTemplateFolderTile()`/`buildAddFolderTileHtml()`/
+ * `renderItemList()`/`buildFolderGridWrapperHtml()` (components/items.js, cùng template "Add to
+ * Folder" picker ở event/workflow/playlist.js) cho grid List; `createFolder()`/`renameFolder()`/
+ * `deleteFolder()`/`setFolderExcludeFlag()`/`getFolderRecord()`/`getFolderSongMap()`/
+ * `getFolderSongKeys()`/`listFolders()`/`resolveFolderId()` (core/file-manager/folder.js,
+ * service/db.js) cho toàn bộ nghiệp vụ; `buildAllSongsZipBlob()`/`buildAllVideosZipBlob()`/
+ * `buildAllPhotosZipBlob()` (core/storage-manager.js, SỬA 06/09/2026 thêm tham số `keys` tuỳ chọn)
+ * cho nút Tải xuống ở "Thuộc tính" — ĐÚNG core Storage Management như Giang yêu cầu, không viết
+ * logic zip riêng.
  *
- * WIRING SỰ KIỆN — SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải
- * workflow") — TRƯỚC ĐÂY mọi tương tác BÊN TRONG Generic Drawer (tile/back/đóng/sửa tên/xoá/remove
- * item/toggle/phân trang) gọi THẲNG `this.xxx()`, KHÔNG qua eventBus (tự nhận "Workflow tự gọi
- * Workflow, không bị Rule 3" để biện minh) — SAI: vấn đề không phải Rule 3 (Core gọi Core), mà là
- * Rule 5a (DOM động phải do CORE wire, callback CHỈ được `eventBus.send()`). Toàn bộ wiring ĐÃ DỜI
- * sang core/file-manager/folder-picker-ui.js::wireFolderBrowserListEvents()/
- * wireFolderBrowserReadEvents() — đi qua ĐÚNG Router (event/router/file-manager-folder-browser.js)
- * như mọi domain khác, KHÔNG còn ngoại lệ nào.
+ * WIRING SỰ KIỆN — giữ nguyên nguyên tắc đã chốt 31/07/2026 (Rule 5a: DOM động do CORE wire, callback
+ * CHỈ `eventBus.send()`) — toàn bộ đi qua `wireFolderPickerDrawerEvents()` (core/file-manager/
+ * folder-picker-ui.js, dùng CHUNG với Add to Folder picker/VBG picker — long-press MỚI thêm ở đó
+ * cùng đợt) + Router (event/router/file-manager-folder-browser.js). `wireFolderBrowserReadEvents()`
+ * (wiring riêng cho Read cũ) đã xoá cùng file đó.
  *
- * BLOCK GATE (event/block.js) — VẪN chưa đăng ký lại cho toggle Scope (nay lại đi qua eventBus,
- * có thể đăng ký được) — giữ nguyên guard clause trong `enableScope()` làm lớp phòng vệ chính (đủ
- * dùng, không bắt buộc phải có Block gate) + `disabled` attribute trên checkbox (Batch 4).
+ * VIDEO/PHOTO — `addSongsToFolder()`/`removeSongFromFolder()`/`removeAllSongsFromFolder()`/
+ * `deleteFolder()` (core/file-manager/folder.js) đã hỗ trợ đủ 3 `mediaType` từ trước, không đổi gì
+ * ở đây.
  *
- * VIDEO — SỬA (phản hồi Giang 28/07/2026, HOÀN THIỆN "thêm Video vào folder") — `folder.type ===
- * 'video'` giờ hoạt động ĐẦY ĐỦ: `addSongsToFolder()`/`removeSongFromFolder()`/
- * `removeAllSongsFromFolder()`/`deleteFolder()` (core/file-manager/folder.js) ĐÃ thêm tham số
- * `mediaType`, tự chọn ĐÚNG `getVideoRecord`/`setVideoRecord` (thay vì hardcode Song) — record
- * Video giờ CŨNG có field `.folder` (thêm ĐỘNG lúc gọi, không cần đổi schema). "Thêm Video vào
- * folder" đã nối vào menu 3 chấm Playlist (event/workflow/playlist.js::
- * openAddToFolderPickerForSongMenu()/openAddToFolderPicker(), đọc `activeMediaSource` để chọn
- * đúng mediaType, KHÔNG hardcode 'song' nữa).
- *
- * NẠP SAU: core/file-manager/folder.js, core/file-manager/folder-detail-ui.js, core/generic-
- * drawer.js, components/items.js (renderItemList/itemTemplateFolderTile/buildAddFolderTileHtml),
- * core/file-manager/folder-picker-ui.js (openRenameFolderModal), core/pagination.js,
- * event/workflow/playlist-scope.js (persistScopeChoice/askReloadToApplyNow), core/dom-refs.js
- * (genericDrawerHeader/Body/Panel), service/task-manager.js.
+ * NẠP SAU: core/file-manager/folder.js, core/generic-drawer.js, components/items.js
+ * (renderItemList/itemTemplateFolderTile/buildAddFolderTileHtml/buildFolderGridWrapperHtml),
+ * core/file-manager/folder-picker-ui.js (openRenameFolderModal, wireFolderPickerDrawerEvents),
+ * core/storage-manager.js (buildAllSongsZipBlob/buildAllVideosZipBlob/buildAllPhotosZipBlob),
+ * core/about-stats.js (formatBytes), core/dom-refs.js (genericDrawerHeader/Body/Panel),
+ * event/workflow/playlist-scope.js (persistScopeChoice/applyFolderScope/applyAllSongsScope).
  * NẠP TRƯỚC: event/router/file-manager-folder-browser.js.
  */
 const workflowFileManagerFolderBrowser = {
-    _mode: null, // 'list' | 'read' | null (đóng hẳn)
-
-    // ---- List ----
-    _folders: [],          // cache RAM danh sách folder đang hiển thị — chỉ dùng lúc Drawer đang mở
+    _folders: [],           // cache RAM danh sách folder đang hiển thị — chỉ dùng lúc Drawer đang mở
     _editingFolderId: null, // tile đang ở chế độ sửa tên (vừa tạo) — null = không có
 
-    // ---- Read ----
-    _readFolderId: null,
-    _readFolderRecord: null, // { id, name, type, excludeFromMainPlaylist }
-    _readAllItems: [],       // TOÀN BỘ item (chưa phân trang) của folder đang xem — dùng tính lại count mỗi lần
-
-    /** SỬA (khôi phục — Giang báo "thông báo thêm vào thư mục của photo hiển thị add 'song'") —
-     * TRƯỚC ĐÂY chỉ phân biệt Video vs còn-lại (`_folderIsVideo()`), nên MỌI chữ trong Folder
-     * Browser Read (rỗng/xoá hết/áp dụng scope/exclude/xoá folder...) hiện bản Song khi đang xem
-     * folder Photo (Photo hợp nhất vào Playlist SAU Video, bộ chuỗi gốc chỉ viết cho Song rồi thêm
-     * biến thể Video — Photo bị bỏ sót). Đổi hẳn sang đọc TRỰC TIẾP `type` folder, trả về ĐÚNG hậu
-     * tố ('' = Song, 'Video', 'Photo') — `_folderText()` chỉ còn nối chuỗi, không còn nhánh nhị
-     * phân cũ. Cần đủ 3 biến thể key tương ứng (xem lang/patch/patch-file-manager.js — mọi key
-     * "...Video" giờ có thêm cặp "...Photo" song song).
+    /** Chọn ĐÚNG biến thể Song/Video/Photo của 1 key (key gốc = Song, key + hậu tố = Video/Photo).
+     * SỬA (06/09/2026, bỏ màn Read) — nhận `folderRecord` qua THAM SỐ thay vì đọc
+     * `this._readFolderRecord` (đã xoá cùng màn Read — không còn 1 folder "đang mở" cố định nào để
+     * đóng vai instance state nữa, mọi hàm giờ tự nhận đúng folder đang thao tác qua tham số, Rule 2).
+     * @param {{type?: string}|null} folderRecord
      * @returns {''|'Video'|'Photo'}
      */
-    _folderTypeSuffix() {
-        const type = this._readFolderRecord && this._readFolderRecord.type;
+    _folderTypeSuffix(folderRecord) {
+        const type = folderRecord && folderRecord.type;
         return type === 'video' ? 'Video' : type === 'photo' ? 'Photo' : '';
     },
 
-    /** MỚI (06/09/2026, per-source activePlayListFolder) — 'song'|'video'|'photo' của folder đang
-     * xem ở Read, cùng quy ước `type || 'song'` cho folder cũ chưa có field này (xem docstring đầu
-     * core/file-manager/folder.js). Dùng để đọc/ghi ĐÚNG field trong object `activePlayListFolder`.
-     * @returns {'song'|'video'|'photo'}
-     */
-    _folderMediaType() {
-        return (this._readFolderRecord && this._readFolderRecord.type) || 'song';
-    },
-
-    /** Chọn ĐÚNG biến thể Song/Video/Photo của 1 key (key gốc = Song, key + hậu tố = Video/Photo)
-     * — chỉ dùng cho các key ĐÃ CÓ đủ 3 biến thể (xem lang/patch/patch-file-manager.js), KHÔNG dùng
-     * cho key trung lập/không cần biến thể (ví dụ renameTitle/btnDeleteFolder). */
-    _folderText(baseKey, params) {
-        const fullKey = `${baseKey}${this._folderTypeSuffix()}`;
+    /** SỬA (06/09/2026) — nhận `folderRecord` qua tham số, cùng lý do `_folderTypeSuffix()` ngay trên. */
+    _folderText(baseKey, folderRecord, params) {
+        const fullKey = `${baseKey}${this._folderTypeSuffix(folderRecord)}`;
         return params ? tFormat(fullKey, params) : t(fullKey);
     },
 
     // ============================== LIST (grid folder) ==============================
 
     /** Ứng với 'fileManagerFolderBrowser.open.click' — ĐIỂM VÀO DUY NHẤT (nút "Duyệt thư mục" ở
-     * panel Song & Video) VÀ đích "back" từ Read — vẽ lại danh sách MỚI NHẤT mỗi lần (phòng vừa
-     * thêm/xoá/đổi tên ở nơi khác).
+     * panel Song & Video) — vẽ lại danh sách MỚI NHẤT mỗi lần (phòng vừa thêm/xoá/đổi tên ở nơi khác).
      * CHỐT Giang (hợp nhất Photo vào Playlist) — "playlist source nào thì chỉ hiển thị type folder
      * của source tương ứng": lọc NGAY tại nguồn qua `listFolders(activeMediaSource)` (core/file-
      * manager/folder.js) — Folder Browser giờ LUÔN đúng ĐÚNG loại folder khớp Nguồn Playlist đang
      * active, bất kể mở từ đâu.
      */
     async openList() {
-        this._mode = 'list';
-        this._readFolderId = null;
         this._folders = await listFolders(appState.get('activeMediaSource')); // core/file-manager/folder.js
         this._editingFolderId = null;
         this._renderList(true);
     },
 
-    /** @param {boolean} isFirstOpen - true: openGenericDrawer(); false: updateGenericDrawer() (đang mở sẵn, vd từ Read back về). */
+    /** @param {boolean} isFirstOpen - true: openGenericDrawer(); false: updateGenericDrawer() (đang mở sẵn). */
     _renderList(isFirstOpen) {
         const itemsHtml = renderItemList(null, this._folders, itemTemplateFolderTile, { editingFolderId: this._editingFolderId }); // components/items.js
         const bodyHtml = buildFolderGridWrapperHtml(`${itemsHtml}${buildAddFolderTileHtml()}`); // components/items.js
@@ -123,7 +89,7 @@ const workflowFileManagerFolderBrowser = {
             bodyClass: 'overflow-y-auto',
         };
         if (isFirstOpen) openGenericDrawer(config); else updateGenericDrawer(config); // core/generic-drawer.js
-        wireFolderPickerDrawerEvents('fileManagerFolderBrowser', 'fileManagerFolderBrowser.list'); // core/file-manager/folder-picker-ui.js — hàm GỘP (v13 Batch B), msg.type KHÔNG đổi // core/file-manager/folder-picker-ui.js
+        wireFolderPickerDrawerEvents('fileManagerFolderBrowser', 'fileManagerFolderBrowser.list'); // core/file-manager/folder-picker-ui.js
     },
 
     _buildListHeaderHtml() {
@@ -174,285 +140,166 @@ const workflowFileManagerFolderBrowser = {
         this._renderList(false);
     },
 
-    /** Ứng với nút X ở List, hoặc gián tiếp từ Read (đóng hẳn, không phải back). */
+    /** Ứng với nút X ở List. */
     closeBrowser() {
-        this._mode = null;
-        this._readFolderId = null;
         workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
     },
 
-    // ============================== READ (nội dung 1 folder) ==============================
+    // ============================== Tap tile — áp dụng Scope NGAY ==============================
 
-    /** Mở 1 folder vào Read — LUÔN dùng updateGenericDrawer() (Drawer đã mở sẵn ở List). */
-    async openRead(folderId) {
-        appState.set('pageCurrentFolderDetailSongList', 0); // MỚI mở 1 folder khác -> luôn về trang 1
-        this._mode = 'read';
-        this._readFolderId = folderId;
-        await this._refreshRead();
-    },
-
-    /** Đọc lại folder record + items + vẽ lại TOÀN BỘ Read (tiêu đề, danh sách, phân trang, 2
-     * toggle) — dùng lúc mở lần đầu VÀ sau MỌI thao tác đổi dữ liệu (gỡ item/xoá hết/đổi scope). */
-    async _refreshRead() {
-        const folderId = this._readFolderId;
-        if (!folderId) return; // guard: đã rời Read
-        const folderRecord = await getFolderRecord(folderId); // service/db.js
-        this._readFolderRecord = folderRecord;
-        if (!folderRecord) { await this.openList(); return; } // guard hiếm: folder vừa bị xoá ở nơi khác trong lúc đang xem -> quay về List
-
-        const folderMap = await getFolderSongMap(folderId); // service/db.js
-        const effectiveType = folderRecord.type ?? ((folderMap.list.some((k) => k != null)) ? 'song' : null);
-        this._readAllItems = await getFolderItemsForDisplay(folderMap, effectiveType); // core/file-manager/folder.js
-
-        const pageResult = computePage(this._readAllItems, appState.get('pageCurrentFolderDetailSongList'), 30); // core/pagination.js
-        if (pageResult.pageIndex !== appState.get('pageCurrentFolderDetailSongList')) {
-            appState.set('pageCurrentFolderDetailSongList', pageResult.pageIndex);
-            console.log(`writer: "_refreshRead", page: "pageCurrentFolderDetailSongList", content: "${pageResult.pageIndex}"`);
-        }
-
-        updateGenericDrawer({ // core/generic-drawer.js
-            height: 'auto',
-            maxHeight: '80vh',
-            headerHtml: this._buildReadHeaderHtml(folderRecord.name),
-            bodyHtml: this._buildReadBodyHtml(pageResult),
-            bodyClass: 'overflow-y-auto',
-        });
-
-        // SỬA (tự audit lại) — renderFolderDetailSongList() PHẢI chạy TRƯỚC _wireReadEvents(): hàm
-        // đó mới THẬT SỰ tạo các nút "gỡ item" (`[data-remove-song-key]`) bên trong
-        // `#folder-browser-read-item-list` (lúc updateGenericDrawer() vừa xong, container này còn
-        // RỖNG — _buildReadBodyHtml() chỉ dựng cái khung). Gọi wire TRƯỚC render sẽ khiến
-        // querySelectorAll() không tìm thấy nút nào, nút "gỡ item" sẽ hiện ra nhưng KHÔNG bấm được.
-        renderFolderDetailSongList( // core/file-manager/folder-detail-ui.js — TÁI DÙNG NGUYÊN, không đổi
-            pageResult.pageItems,
-            genericDrawerBody.querySelector('#folder-browser-read-item-list'),
-            genericDrawerBody.querySelector('#folder-browser-read-empty'),
-            genericDrawerBody.querySelector('#btn-folder-browser-read-remove-all')
-        );
-        this._wireReadEvents();
-        this._updateScopeToggleUI(this._readAllItems.length === 0);
-        this._updateExcludeToggleUI();
-    },
-
-    _buildReadHeaderHtml(folderName) {
-        return `
-            <div class="flex items-center gap-1 px-3 pb-3 border-b border-slate-200">
-                <button id="btn-folder-browser-read-back" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-600 shrink-0" title="${t('common.back')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h3 class="flex-1 min-w-0 truncate text-base font-bold text-slate-900">${escapeHtml(folderName)}</h3>
-                <button id="btn-folder-browser-read-rename" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500 shrink-0" title="${t('fileManager.song.folderDetail.renameTitle')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                </button>
-                <button id="btn-folder-browser-read-delete" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-rose-50 transition-colors text-slate-500 hover:text-rose-500 shrink-0" title="${t('fileManager.song.btnDeleteFolder')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
-                <button id="btn-generic-drawer-close" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500 shrink-0" title="${t('common.close')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-            </div>
-        `;
-    },
-
-    /** @param {{pageIndex: number, totalPages: number}} pageResult */
-    _buildReadBodyHtml(pageResult) {
-        return `
-            <div class="px-4 pt-4 flex flex-col gap-4">
-                <div class="rounded-2xl border border-slate-200 flex flex-col overflow-hidden">
-                    <div id="folder-browser-read-item-list" class="flex flex-col divide-y divide-slate-100 text-slate-800"></div>
-                    <p id="folder-browser-read-empty" class="hidden text-sm text-slate-400 p-4 text-center">${this._folderText('fileManager.song.folderDetail.empty')}</p>
-                    <div id="folder-browser-read-pagination" class="border-t border-slate-100">${buildPaginationListHtml(pageResult.pageIndex, pageResult.totalPages)}</div>
-                </div>
-
-                <div class="rounded-2xl border border-slate-200 flex flex-col overflow-hidden">
-                    <div class="flex justify-between items-center p-4 border-b border-slate-100">
-                        <div class="pr-3">
-                            <div class="text-sm font-medium text-slate-800 truncate">${t('fileManager.song.folderDetail.scopeToggle.label')}</div>
-                            <div class="text-xs text-slate-400 mt-0.5">${this._folderText('fileManager.song.folderDetail.scopeToggle.hint')}</div>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                            <input type="checkbox" id="toggle-folder-browser-read-scope" class="sr-only peer">
-                            <div class="w-9 h-5 bg-slate-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner peer-disabled:opacity-40"></div>
-                        </label>
-                    </div>
-                    <div class="flex justify-between items-center p-4">
-                        <div class="pr-3">
-                            <div class="text-sm font-medium text-slate-800 truncate">${this._folderText('fileManager.song.folderDetail.excludeToggle.label')}</div>
-                            <div class="text-xs text-slate-400 mt-0.5">${this._folderText('fileManager.song.folderDetail.excludeToggle.hint')}</div>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                            <input type="checkbox" id="toggle-folder-browser-read-exclude" class="sr-only peer">
-                            <div class="w-9 h-5 bg-slate-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-500 shadow-inner"></div>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="flex justify-center pb-2">
-                    <button id="btn-folder-browser-read-remove-all" class="hidden px-5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 text-sm font-semibold transition-colors">${this._folderText('fileManager.song.folderDetail.btnRemoveAll')}</button>
-                </div>
-            </div>
-        `;
-    },
-
-    _wireReadEvents() {
-        wireFolderBrowserReadEvents(this._readFolderId, this._readFolderRecord ? this._readFolderRecord.type : null); // core/file-manager/folder-picker-ui.js
-    },
-
-    async goToReadPage(pageIndex) {
-        appState.set('pageCurrentFolderDetailSongList', pageIndex);
-        console.log(`writer: "goToReadPage", page: "pageCurrentFolderDetailSongList", content: "${pageIndex}"`);
-        await this._refreshRead();
-    },
-
-    /** DOM-patch thuần — đồng bộ checkbox Scope. Rỗng + chưa active -> `disabled` (không cho bật) —
-     * cùng lý do đã áp dụng ở Batch 4, giờ càng QUAN TRỌNG hơn vì Block gate không còn chặn được
-     * đường này nữa (xem docstring đầu file).
-     * SỬA (06/09/2026, per-source) — so với `activePlayListFolder[_folderMediaType()]` thay vì so
-     * thẳng 1 giá trị phẳng như trước (đổi schema, xem service/state/file-manager.js). */
-    _updateScopeToggleUI(isEmpty) {
-        const toggle = genericDrawerBody.querySelector('#toggle-folder-browser-read-scope');
-        if (!toggle) return;
-        const isActive = this._readFolderId === appState.get('activePlayListFolder')[this._folderMediaType()];
-        toggle.checked = isActive;
-        toggle.disabled = isEmpty && !isActive;
-    },
-
-    _updateExcludeToggleUI() {
-        const toggle = genericDrawerBody.querySelector('#toggle-folder-browser-read-exclude');
-        if (!toggle) return;
-        toggle.checked = !!(this._readFolderRecord && this._readFolderRecord.excludeFromMainPlaylist);
-    },
-
-    /** Bật Scope. Guard THẲNG (thay Block gate cũ, xem docstring đầu file): rỗng + chưa active ->
-     * không làm gì (checkbox đã `disabled` nên bình thường không tới được đây, guard này là lớp
-     * phòng vệ thứ 2).
-     * SỬA (06/09/2026, Giang chốt "bỏ hỏi reload, áp sống luôn" + per-source) — gọi thẳng
-     * `applyFolderScope()` (đã áp được sống, xem event/workflow/playlist-scope.js), không còn
-     * `askReloadToApplyNow()`. Folder Browser List đã tự lọc ĐÚNG type khớp `activeMediaSource`
-     * (xem `openList()`), nên `_folderMediaType()` ở đây LUÔN trùng `activeMediaSource` hiện tại —
-     * áp sống chắc chắn phản ánh đúng ngay trên Playlist đang hiển thị. */
-    async enableScope() {
-        const mediaType = this._folderMediaType();
-        if (this._readAllItems.length === 0 && this._readFolderId !== appState.get('activePlayListFolder')[mediaType]) return;
-        const folderId = this._readFolderId;
+    /** Ứng với 'fileManagerFolderBrowser.list.tile.click' — MỚI (06/09/2026, thay hẳn `openRead()`
+     * cũ). Nguồn CHẮC CHẮN khớp `activeMediaSource` hiện tại (List đã tự lọc đúng type từ
+     * `openList()`) — áp SỐNG (xem event/workflow/playlist-scope.js, đã bỏ hỏi reload từ trước),
+     * rồi đóng Drawer NGAY — người dùng thấy kết quả trên Playlist chính lập tức, không qua bước
+     * xem/xác nhận nào nữa. Tap lại ĐÚNG folder đang active cũng chạy y hệt (vô hại, idempotent).
+     * @param {string} folderId
+     */
+    async applyFolderFromTile(folderId) {
+        const mediaType = appState.get('activeMediaSource');
         await withLoadingShield(t('common.loading.generic'), async () => {
             await workflowPlaylistScope.persistScopeChoice(folderId, mediaType);
             await workflowPlaylistScope.applyFolderScope(folderId, mediaType);
         });
-        this._updateScopeToggleUI(this._readAllItems.length === 0);
+        this.closeBrowser();
     },
 
-    /** SỬA (06/09/2026, cùng lý do enableScope() ngay trên) — áp sống, bỏ hỏi reload. */
-    async disableScope() {
-        const mediaType = this._folderMediaType();
-        await withLoadingShield(t('common.loading.generic'), async () => {
-            await workflowPlaylistScope.persistScopeChoice(null, mediaType);
-            await workflowPlaylistScope.applyAllSongsScope(mediaType);
+    // ============================== Long-press tile — menu hành động ==============================
+
+    /** Ứng với 'fileManagerFolderBrowser.list.tile.longpress' — MỚI (06/09/2026, Batch 4). Menu
+     * hành động (modalChoice, xem core/modal-choice-ui.js) THAY cho 4 nút rải rác ở header Read cũ:
+     * Đổi tên / Xoá thư mục (ẨN nếu đang active — mục 3.2, chặn hẳn) / Ẩn khỏi "Tất cả" ↔ Hiện lại
+     * (đổi nhãn động theo `excludeFromMainPlaylist` hiện tại) / Thuộc tính (tổng số + dung lượng +
+     * nút Tải xuống).
+     * @param {string} folderId
+     */
+    async openTileActionsMenu(folderId) {
+        const folderRecord = await getFolderRecord(folderId); // service/db.js
+        if (!folderRecord) return; // guard hiếm: folder vừa bị xoá ở nơi khác đúng lúc long-press
+        const mediaType = folderRecord.type || 'song';
+        const isActiveFolder = folderId === appState.get('activePlayListFolder')[mediaType];
+        const isExcluded = !!folderRecord.excludeFromMainPlaylist;
+        const btnClassSecondary = 'flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-semibold transition-colors';
+        const btnClassDanger = 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition-colors';
+
+        const choices = [
+            { label: t('fileManager.song.folderDetail.renameTitle'), className: btnClassSecondary, onClick: () => this.promptRename(folderId, folderRecord) },
+        ];
+        // SỬA (06/09/2026, Giang chốt mục 3.2 — "chặn hẳn, không tự unapply-rồi-xoá") — ẨN HẲN mục
+        // Xoá khi đang active, thay vì hiện ra rồi báo lỗi lúc bấm — người dùng thấy NGAY trong menu
+        // là chưa xoá được lúc này, không cần thử mới biết.
+        if (!isActiveFolder) {
+            choices.push({ label: t('fileManager.song.btnDeleteFolder'), className: btnClassDanger, onClick: () => this._confirmDeleteFromMenu(folderId, folderRecord) });
+        }
+        choices.push({
+            label: this._folderText(isExcluded ? 'fileManager.folderBrowser.tileMenu.unhide' : 'fileManager.song.folderDetail.excludeToggle.label', folderRecord),
+            className: btnClassSecondary,
+            onClick: () => this._toggleExcludeFromMenu(folderId, folderRecord, !isExcluded),
         });
-        this._updateScopeToggleUI(this._readAllItems.length === 0);
-    },
+        choices.push({ label: t('fileManager.folderBrowser.tileMenu.properties'), className: btnClassSecondary, onClick: () => this.showFolderProperties(folderId, folderRecord) });
 
-    /** SỬA (06/09/2026, cùng chủ trương "áp sống" — Exclude chỉ ảnh hưởng view "Tất cả", xem
-     * docstring `excludeFromMainPlaylist` đầu core/file-manager/folder.js) — CHỈ có gì để áp SỐNG
-     * khi Nguồn hiện tại ĐANG ở "Tất cả" (không đang Scope 1 folder khác) — nếu đang Scope 1 folder
-     * cụ thể (kể cả chính folder này), đổi Exclude không đổi gì đang hiển thị NGAY LÚC NÀY, chỉ có
-     * tác dụng lần sau quay về "Tất cả" (đã tự đúng, `getExcludedSongKeysFromFolders()` luôn đọc
-     * lại tươi mỗi lần applyAllSongsScope() chạy, không cache) — không cần làm gì thêm, cũng không
-     * cần hỏi reload nữa. */
-    async setExclude(enabled) {
-        const mediaType = this._folderMediaType();
-        await setFolderExcludeFlag(this._readFolderId, enabled); // core/file-manager/folder.js
-        if (appState.get('activePlayListFolder')[mediaType] == null) {
-            await withLoadingShield(t('common.loading.generic'), () => workflowPlaylistScope.applyAllSongsScope(mediaType));
-        }
-    },
-
-    /** Gỡ 1 item khỏi folder (KHÔNG xoá bài/video thật). Rỗng hoàn toàn + đang là scope hiện tại ->
-     * tự bỏ áp dụng (cùng logic đã có từ trước Batch 4).
-     * SỬA (06/09/2026, áp sống + per-source) — bỏ `askReloadToApplyNow()`, gọi thẳng
-     * `applyAllSongsScope()`. */
-    async removeItem(key) {
-        const folderId = this._readFolderId;
-        const mediaType = this._folderMediaType();
-        await removeSongFromFolder(key, folderId, mediaType); // core/file-manager/folder.js
-        const folderMap = await getFolderSongMap(folderId); // service/db.js — CÓ return, DÙNG ngay dưới để check rỗng
-        await this._refreshRead();
-        if (isFolderEmpty(folderMap) && folderId === appState.get('activePlayListFolder')[mediaType]) { // core/file-manager/folder.js
-            await withLoadingShield(t('common.loading.generic'), async () => {
-                await workflowPlaylistScope.persistScopeChoice(null, mediaType);
-                await workflowPlaylistScope.applyAllSongsScope(mediaType);
-            });
-            await this._refreshRead();
-        }
-    },
-
-    /** SỬA (06/09/2026, cùng lý do removeItem() ngay trên) — áp sống, bỏ hỏi reload. */
-    confirmRemoveAllItems() {
-        const folderId = this._readFolderId;
-        const mediaType = this._folderMediaType();
         modalChoice( // core/modal-choice-ui.js
-            this._folderText('fileManager.song.folderDetail.removeAllConfirm'),
-            [
-                { label: this._folderText('fileManager.song.folderDetail.btnRemoveAll'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
-                    await removeAllSongsFromFolder(folderId, mediaType); // core/file-manager/folder.js
-                    await this._refreshRead();
-                    if (folderId === appState.get('activePlayListFolder')[mediaType]) {
-                        await withLoadingShield(t('common.loading.generic'), async () => {
-                            await workflowPlaylistScope.persistScopeChoice(null, mediaType);
-                            await workflowPlaylistScope.applyAllSongsScope(mediaType);
-                        });
-                        await this._refreshRead();
-                    }
-                } }
-            ],
-            { title: this._folderText('fileManager.song.folderDetail.removeAllTitle') }
+            t('fileManager.folderBrowser.tileMenu.subtitle'),
+            choices,
+            { title: escapeHtml(folderRecord.name) }
         );
     },
 
-    promptRename() {
-        if (!this._readFolderRecord) return;
-        openRenameFolderModal(this._readFolderRecord.name, this._readFolderId); // core/file-manager/folder-picker-ui.js — tự bắn eventBus router 'fileManagerFolderBrowser' khi bấm Lưu
+    /** Ứng với 'fileManagerFolderBrowser.rename.confirm' (modal đổi tên — DOM overlay NGOÀI
+     * genericDrawerBody, giữ nguyên eventBus).
+     * SỬA (06/09/2026, bỏ màn Read) — nhận `folderId`/`folderRecord` qua tham số (mở modal từ menu
+     * long-press, không còn `this._readFolderId`/`this._readFolderRecord`). */
+    promptRename(folderId, folderRecord) {
+        if (!folderRecord) return;
+        openRenameFolderModal(folderRecord.name, folderId); // core/file-manager/folder-picker-ui.js — tự bắn eventBus router 'fileManagerFolderBrowser' khi bấm Lưu
     },
 
-    /** Ứng với 'fileManagerFolderBrowser.rename.confirm' (modal đổi tên — DOM overlay NGOÀI
-     * genericDrawerBody, giữ nguyên eventBus, xem docstring đầu file). */
+    /** Ứng với 'fileManagerFolderBrowser.rename.confirm'. SỬA (06/09/2026, bỏ màn Read) — không
+     * còn `this._mode`/refresh Read gì cả, chỉ cần vẽ lại List nếu Drawer đang mở đúng lúc đó (tile
+     * vừa đổi tên vẫn còn hiển thị trong `this._folders`). */
     async confirmRenameFolder(folderId, name) {
         const result = await renameFolder(folderId, name); // core/file-manager/folder.js
         if (result.status === 'duplicateName') {
             await alertModal(tFormat('fileManager.folderPicker.duplicateName', { name: escapeHtml(name) }));
             return;
         }
-        if (this._mode === 'read' && this._readFolderId === folderId) await this._refreshRead();
+        const folder = this._folders.find((f) => f.id === folderId);
+        if (folder) { folder.name = name; this._renderList(false); }
     },
 
-    /** SỬA (06/09/2026, Giang chốt mục 3.2 — "chặn hẳn, không tự unapply-rồi-xoá") — TRƯỚC ĐÂY cho
-     * xoá folder đang active + tự bỏ scope. Giờ CHẶN HẲN: folder đang là Scope hiện tại của ĐÚNG
-     * Nguồn của nó (so `activePlayListFolder[folderType]`) thì báo lỗi, không mở modal xác nhận xoá
-     * — người dùng phải tự thoát Scope trước (nút X badge/tắt toggle Scope). Cơ chế so trực tiếp
-     * trong guard clause (KHÔNG đăng ký qua event/block.js `registerBlock()`): điều kiện cần so
-     * `payload.folderId` với ĐÚNG field `activePlayListFolder[folderType của payload đó]` — field
-     * bên phải phụ thuộc GIÁ TRỊ của 1 field khác trong CÙNG payload (dynamic key), khác hẳn khuôn
-     * `field`/`valueField` tĩnh mà `resolveFieldPath()` (event/bus.js) hỗ trợ — mở rộng cơ chế đó
-     * cho 1 ca duy nhất này không đáng, guard clause thường ở đây là đủ và rõ ràng hơn. */
-    confirmDeleteFolder() {
-        if (!this._readFolderRecord) return;
-        const folderId = this._readFolderId;
-        const folderName = this._readFolderRecord.name;
-        const folderType = this._readFolderRecord.type; // capture NGAY — xem SỬA 28/07/2026 ở core/file-manager/folder.js
-        const isActiveFolder = folderId === appState.get('activePlayListFolder')[this._folderMediaType()];
-        if (isActiveFolder) {
-            alertModal(tFormat('fileManager.song.deleteActiveFolderBlocked', { name: escapeHtml(folderName) }));
-            return;
-        }
+    /** SỬA (06/09/2026, Giang chốt mục 3.2 — "chặn hẳn, không tự unapply-rồi-xoá") — mục Xoá đã ẨN
+     * HẲN khỏi menu khi folder đang active (xem `openTileActionsMenu()`), nên hàm này CHỈ còn được
+     * gọi khi CHẮC CHẮN không active — không cần check lại `isActiveFolder` ở đây nữa. */
+    _confirmDeleteFromMenu(folderId, folderRecord) {
+        const folderName = folderRecord.name;
+        const folderType = folderRecord.type; // capture NGAY — xem SỬA 28/07/2026 ở core/file-manager/folder.js
         modalChoice( // core/modal-choice-ui.js
-            this._folderText('fileManager.song.deleteFolderConfirm', { name: escapeHtml(folderName) }),
+            this._folderText('fileManager.song.deleteFolderConfirm', folderRecord, { name: escapeHtml(folderName) }),
             [
                 { label: t('fileManager.song.btnDeleteFolder'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
                     await deleteFolder(folderId, folderType); // core/file-manager/folder.js
-                    await this.openList(); // folder đã mất -> luôn quay về List
+                    await this.openList(); // vẽ lại List — folder đã mất, tự động không còn trong danh sách
                 } }
             ],
             { title: t('fileManager.song.deleteFolderTitle') }
         );
+    },
+
+    /** Ẩn/hiện khỏi view "Tất cả" — tái dùng THẲNG `setFolderExcludeFlag()` (core/file-manager/
+     * folder.js, có sẵn từ Batch 4, không đổi gì). SỬA (06/09/2026, áp sống) — CÙNG LÝ DO
+     * `setExclude()` bản cũ (đã xoá cùng màn Read): chỉ có gì để áp SỐNG khi Nguồn hiện tại ĐANG ở
+     * "Tất cả" (không đang Scope 1 folder khác) — nếu đang Scope 1 folder cụ thể, đổi Exclude không
+     * đổi gì đang hiển thị NGAY LÚC NÀY, chỉ có tác dụng lần sau quay về "Tất cả" (tự đúng,
+     * `getExcludedSongKeysFromFolders()` luôn đọc lại tươi mỗi lần `applyAllSongsScope()` chạy). */
+    async _toggleExcludeFromMenu(folderId, folderRecord, enabled) {
+        const mediaType = folderRecord.type || 'song';
+        await setFolderExcludeFlag(folderId, enabled); // core/file-manager/folder.js
+        if (appState.get('activePlayListFolder')[mediaType] == null) {
+            await withLoadingShield(t('common.loading.generic'), () => workflowPlaylistScope.applyAllSongsScope(mediaType));
+        }
+    },
+
+    /** Thuộc tính: tổng số item + tổng dung lượng + nút Tải xuống (zip). MỚI (06/09/2026, mục 2.7). */
+    async showFolderProperties(folderId, folderRecord) {
+        const mediaType = folderRecord.type || 'song';
+        const folderMap = await getFolderSongMap(folderId); // service/db.js
+        const keys = getFolderSongKeys(folderMap); // core/file-manager/folder.js — pure, lọc tombstone
+        const getRecordFn = mediaType === 'video' ? getVideoRecord : mediaType === 'photo' ? getImageRecord : getSongRecord; // service/db.js
+        let totalBytes = 0;
+        for (const key of keys) {
+            const record = await getRecordFn(key);
+            if (record && record.blob) totalBytes += record.blob.size;
+        }
+        const bodyText = tFormat('fileManager.folderBrowser.tileMenu.propertiesBody', { count: String(keys.length), size: formatBytes(totalBytes) }); // core/about-stats.js
+        modalChoice( // core/modal-choice-ui.js
+            bodyText,
+            keys.length > 0 ? [
+                { label: t('fileManager.folderBrowser.tileMenu.propertiesDownload'), className: 'flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold transition-colors', onClick: () => this._downloadFolderZip(folderRecord.name, mediaType, keys) }
+            ] : [],
+            { title: escapeHtml(folderRecord.name) }
+        );
+    },
+
+    /** Tải toàn bộ item của 1 folder thành 1 file .zip — tái dùng THẲNG core Storage Management
+     * (`buildAllSongsZipBlob()`/`buildAllVideosZipBlob()`/`buildAllPhotosZipBlob()`,
+     * core/storage-manager.js) — CHỈ khác Storage Management ở chỗ truyền `keys` là danh sách CỦA
+     * RIÊNG folder này (tham số `keys` tuỳ chọn MỚI thêm ở 3 hàm đó, SỬA 06/09/2026) thay vì để hàm
+     * tự lấy TOÀN BỘ thư viện — đúng ý Giang "sử dụng core của storage management trong phạm vi
+     * folder". */
+    async _downloadFolderZip(folderName, mediaType, keys) {
+        const buildFn = mediaType === 'video' ? buildAllVideosZipBlob : mediaType === 'photo' ? buildAllPhotosZipBlob : buildAllSongsZipBlob; // core/storage-manager.js
+        let zipBlob;
+        try {
+            await withLoadingShield(t('common.storage.zippingStart'), async () => {
+                zipBlob = await buildFn(keys, (done, total, percent) => {
+                    const pct = percent != null ? Math.round(percent) : Math.round((done / total) * 100);
+                    loadingText.textContent = tFormat('common.storage.zippingProgress', { percent: pct });
+                });
+            });
+        } catch (err) {
+            console.error('[file-manager-folder-browser] Lỗi đóng gói zip:', err);
+            await alertModal(t('common.storage.zipLibMissing'));
+            return;
+        }
+        triggerDownload(zipBlob, `${folderName}.zip`); // core/id3-export.js
     },
 };

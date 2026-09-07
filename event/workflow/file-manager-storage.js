@@ -195,8 +195,12 @@ const workflowFileManagerStorage = {
     },
 
     /** DÙNG CHUNG bởi Song/Video/Photo — build zip (nếu có gì để đóng gói) rồi tải xuống ngay.
+     * SỬA (06/09/2026, hợp nhất Folder vào Playlist — buildAllSongsZipBlob()/buildAllVideosZipBlob()/
+     * buildAllPhotosZipBlob() thêm tham số `keys` tuỳ chọn, xem core/storage-manager.js) — truyền
+     * THẲNG `keys` vừa lấy được ở dòng dưới vào `buildZipFn`, tránh gọi `getKeysFn()` LẦN 2 một cách
+     * ngầm bên trong `buildZipFn` (trước đây `buildZipFn` tự gọi `getAllSongKeys()` v.v. riêng).
      * @param {() => Promise<string[]>} getKeysFn
-     * @param {(onProgress: function) => Promise<Blob>} buildZipFn
+     * @param {(keys: string[], onProgress: function) => Promise<Blob>} buildZipFn
      * @param {string} zipNamePrefix - đã dịch sẵn qua t(), dùng làm tên file
      * @returns {Promise<{status: 'ok'|'noItems'|'zipError', message?: string}>}
      */
@@ -207,7 +211,7 @@ const workflowFileManagerStorage = {
         let zipBlob;
         try {
             await withLoadingShield(t('common.storage.zippingStart'), async () => {
-                zipBlob = await buildZipFn((done, total, percent) => {
+                zipBlob = await buildZipFn(keys, (done, total, percent) => {
                     const pct = percent != null ? Math.round(percent) : Math.round((done / total) * 100);
                     loadingText.textContent = tFormat('common.storage.zippingProgress', { percent: pct });
                 });

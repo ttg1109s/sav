@@ -116,19 +116,12 @@ const workflowAppBoot = {
                 await workflowPlaylistScope.applyAllSongsScope(currentSource);
             }
         }
-        // MỚI (fix bug #1, phản hồi Giang — "Active folder vẫn hiện none dù có folder đang active")
-        // — workflowPlaylist.syncPlaylistSettingsUI() (gọi TRONG loadPersistedPlaylistConfigOnBoot()
-        // ở trên VÀ lúc nạp script core/playlist/main.js — tên cũ PlaylistMain.init(), đã BỎ 05/08/2026
-        // theo Rule 3a) đều chạy TRƯỚC KHI activePlayListFolder được khôi phục XONG ở khối
-        // if/else Scope ngay trên (SỬA 06/09/2026 — trước là VirtualMachineState.runAsync(), đã đơn
-        // giản hoá cùng đợt đổi schema per-source, xem comment ngay trên) — badge/khoá Nguồn ở
-        // Settings → Playlist vì vậy luôn hiện sai (mặc định rỗng) cho tới khi Giang tự đổi Scope 1
-        // lần trong phiên. Gọi LẠI đúng 1 lần Ở ĐÂY, SAU CÙNG khối quyết định Scope, để phản ánh
-        // đúng giá trị thật đã khôi phục.
-        // SỬA (06/09/2026, Giang chỉ ra bug) — truy vấn LẠI DOM sống thay vì biến toàn cục
-        // `mediaSourceSelect` (dom-refs.js) đã XOÁ, xem docstring updateActiveFolderUI()
-        // (core/playlist/main.js). Lúc boot chắc chắn `null` (Settings chưa mở) — no-op đúng ý.
-        if (typeof PlaylistMain !== 'undefined') await PlaylistMain.updateActiveFolderUI(genericDrawerBody.querySelector('#setting-playlist-media-source'));
+        // XOÁ (06/09/2026, Giang chốt mục 3.1 — "badge thay HẲN UI khoá select") — lời gọi
+        // `PlaylistMain.updateActiveFolderUI(...)` từng cần lặp lại RIÊNG ở đây (SAU khối if/else
+        // Scope ngay trên) đã bỏ hẳn cùng hàm đó — `applyFolderScope()`/`applyAllSongsScope()` (gọi
+        // ngay trong khối if/else ngay trên) giờ tự cập nhật badge mới
+        // (`PlaylistMain.updateActiveFolderBadge()`) ở CUỐI chính nó, không cần gọi lặp lại ở đây
+        // nữa (xem event/workflow/playlist-scope.js).
         // Cuộn tới bài vừa sửa phụ đề xong (quay lại từ subtitle-editor.html qua nút "←") — đặt
         // SAU CÙNG (đã initPlaylistFromDB() + khôi phục activePlayListFolder xong).
         if (typeof scrollToSongIfPending === 'function') scrollToSongIfPending();

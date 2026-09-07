@@ -54,13 +54,11 @@ const workflowPlaylistScope = {
         appState.set('activePlayListFolder', next);
         console.log(`writer: "persistScopeChoice", page: "activePlayListFolder", content: "${JSON.stringify(next)}"`);
         await setMeta('activePlayListFolder', next);
-        // MỚI (phản hồi Giang, mục 5 — "thêm dòng folder đang active source" + mục 2 — "khoá đổi
-        // Nguồn khi có Scope") — phản ánh đúng NGAY ở Settings → Playlist, không cần đợi reload.
-        // SỬA (06/09/2026, Giang chỉ ra bug) — truy vấn LẠI DOM sống thay vì biến toàn cục
-        // `mediaSourceSelect` (dom-refs.js) đã XOÁ, xem docstring updateActiveFolderUI()
-        // (core/playlist/main.js). Trả `null` nếu màn Playlist Settings hiện không mở — no-op
-        // đúng ý (không có gì để khoá lúc đó, lần MỞ TIẾP THEO qua _renderPlaylist() tự áp đúng).
-        if (typeof PlaylistMain !== 'undefined') await PlaylistMain.updateActiveFolderUI(genericDrawerBody.querySelector('#setting-playlist-media-source'));
+        // XOÁ (06/09/2026, Giang chốt mục 3.1 — "badge thay HẲN UI khoá select") — lời gọi
+        // `PlaylistMain.updateActiveFolderUI(...)` (khoá <select> Settings → Playlist) từng ở đây
+        // đã bỏ — badge mới (`PlaylistMain.updateActiveFolderBadge()`) được gọi từ
+        // `applyFolderScope()`/`applyAllSongsScope()` ngay dưới thay vì ở đây, vì đó mới là nơi
+        // phản ánh SCOPE THẬT SỰ đang áp dụng (persistScopeChoice() chỉ lưu Ý ĐỊNH).
     },
 
     /**
@@ -94,6 +92,10 @@ const workflowPlaylistScope = {
         workflowPlaylistOrder.recomputeRenderOrder();
         workflowPlaylistRender.renderPlaylistDiff();
         updateEmptyState();
+        // MỚI (06/09/2026, Giang chốt mục 3.1 — "badge thay HẲN UI khoá select") — cập nhật badge
+        // NGAY sau khi scope đã THẬT SỰ áp xong (không đặt ở persistScopeChoice() — xem docstring
+        // hàm đó).
+        if (typeof PlaylistMain !== 'undefined') await PlaylistMain.updateActiveFolderBadge();
     },
 
     /**
@@ -131,6 +133,8 @@ const workflowPlaylistScope = {
         workflowPlaylistOrder.recomputeRenderOrder();
         workflowPlaylistRender.renderPlaylistDiff();
         updateEmptyState();
+        // MỚI (06/09/2026) — CÙNG LÝ DO applyFolderScope() ngay trên.
+        if (typeof PlaylistMain !== 'undefined') await PlaylistMain.updateActiveFolderBadge();
     },
 
     /**

@@ -1659,6 +1659,17 @@ const workflowPlaylist = {
         workflowPlaylistScope.askReloadToApplyNow(t('playlistFilterPanel.reloadPrompt'));
     },
 
+    /** Ứng với nút X ở badge "đang Scope folder nào" (components/playlist-view.js) — MỚI (06/09/2026,
+     * hợp nhất Folder vào Playlist, Batch 3). Thoát Scope của ĐÚNG Nguồn hiện tại, áp SỐNG (xem
+     * event/workflow/playlist-scope.js) — `applyAllSongsScope()` tự ẩn badge lại (updateActiveFolderBadge()). */
+    async exitActiveFolderScope() {
+        const mediaType = appState.get('activeMediaSource');
+        await withLoadingShield(t('common.loading.generic'), async () => {
+            await workflowPlaylistScope.persistScopeChoice(null, mediaType);
+            await workflowPlaylistScope.applyAllSongsScope(mediaType);
+        });
+    },
+
     /**
      * MỚI (05/08/2026, Rule 3a, phản hồi Giang "xử lý triệt để... theo event bus, rule core") —
      * thay thế `PlaylistMain.init()` đã BỊ BỎ (core/playlist/main.js): hàm đó cũ gọi lần lượt 4
@@ -1671,13 +1682,11 @@ const workflowPlaylist = {
     async syncPlaylistSettingsUI() {
         if (typeof PlaylistMain === 'undefined') return; // guard clause thuần (Rule 1) — giữ đúng kiểu phòng thủ cũ ở mọi nơi từng gọi PlaylistMain.init()
         PlaylistMain.initViewMode(appState.get('isGridView'));
-        // SỬA (06/09/2026, Giang chỉ ra bug "khoá Nguồn khi có Scope không hoạt động") — truy vấn
-        // LẠI DOM sống ngay đây (`null` nếu màn Playlist Settings hiện KHÔNG mở, phần tử THẬT nếu
-        // đang mở) thay vì biến toàn cục `mediaSourceSelect` (dom-refs.js) đã XOÁ — biến đó capture
-        // 1 lần lúc script nạp nên luôn `null`, khiến updateActiveFolderUI() no-op ÂM THẦM mọi lúc.
-        const mediaSourceSelectEl = genericDrawerBody.querySelector('#setting-playlist-media-source');
-        PlaylistMain.initMediaSource(mediaSourceSelectEl);
-        await PlaylistMain.updateActiveFolderUI(mediaSourceSelectEl);
+        // XOÁ (06/09/2026, Giang chốt mục 3.1 — "badge thay HẲN UI khoá select") — truy vấn
+        // `mediaSourceSelectEl` + gọi `PlaylistMain.updateActiveFolderUI(...)` từng ở đây đã bỏ hẳn
+        // cùng hàm đó — badge mới tự cập nhật từ event/workflow/playlist-scope.js, không cần đồng
+        // bộ gì thêm ở đây nữa.
+        PlaylistMain.initMediaSource(genericDrawerBody.querySelector('#setting-playlist-media-source'));
     }
 };
 
