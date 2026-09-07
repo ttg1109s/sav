@@ -404,7 +404,7 @@
         // plan-v12-multimedia-decisions.md mục 1a/7. Không còn overlay/tab-bar cấp cao nữa.
         const btnOpenFileManagerSong = document.getElementById('setting-open-file-manager-song');
         // XOÁ (Photo hợp nhất vào Playlist làm 1 Source) — btnOpenFileManagerPhoto (hàng Settings
-        // mở Photo Panel riêng) — panel đó đã xoá hẳn, xem event/workflow/playlist.js::switchToPhotoSource().
+        // mở Photo Panel riêng) — panel đó đã xoá hẳn, xem event/workflow/playlist.js::switchSource().
         // XOÁ (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) —
         // btnOpenFileManagerVideo (hàng Settings riêng cho panel Video) — panel đó đã gộp hẳn vào
         // "Song & Video" (btnOpenFileManagerSong ngay trên), không còn tồn tại độc lập.
