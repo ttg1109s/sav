@@ -561,7 +561,9 @@
          (itemTemplateFolderTile), xem event/workflow/file-manager-folder-browser.js. -->
     <!-- Phase 2 (mục 1b/c, CHỐT 03/07/2026) — Folder Detail Drawer. CẦN core/file-manager/folder.js
          (getFolderSongKeys) + core/dom-refs.js (đã nạp ngay trên). -->
-    <script src="core/file-manager/folder-detail-ui.js?v=20260714v3"></script>
+    <!-- XOÁ (06/09/2026, Giang chốt mục 3.6 — "bỏ hẳn màn Read") — core/file-manager/folder-detail-ui.js
+         (renderFolderDetailSongList/setFolderDetailTitle, chỉ phục vụ màn Read cũ) bỏ hẳn cùng màn
+         hình đó, xem event/workflow/file-manager-folder-browser.js. -->
     <!-- Batch 3 (03/07/2026) — Ảnh. image.js độc lập với folder.js (không dùng chung hàm nào ngoài
          slugify()/getMeta()/setMeta() ở core/db.js) — chỉ cần SAU core/db.js. photo-ui.js CẦN
          dom-refs.js (đã nạp ở block DOM refs phía trên) + image.js (dùng trong workflow, không
