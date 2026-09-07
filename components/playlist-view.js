@@ -106,6 +106,19 @@ const TPL_PLAYLIST_VIEW = `
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
+                <!-- MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 3) — badge tên folder
+                     đang Scope, THAY HẲN UI khoá select "Nguồn" ở Settings → Playlist (mục 3.1) —
+                     ẩn mặc định (class hidden), hiện/đổi tên qua PlaylistMain.updateActiveFolderBadge()
+                     (core/playlist/main.js), gọi từ mọi nơi scope thật sự đổi (xem
+                     event/workflow/playlist-scope.js applyFolderScope()/applyAllSongsScope()). -->
+                <div id="playlist-active-folder-badge" class="hidden mt-2">
+                    <div class="inline-flex items-center gap-1.5 max-w-full bg-sky-500/20 border border-sky-400/30 text-sky-100 text-[13px] font-medium pl-3 pr-1.5 py-1 rounded-full">
+                        <span id="playlist-active-folder-badge-name" class="truncate max-w-[220px]"></span>
+                        <button id="playlist-active-folder-badge-close" class="w-5 h-5 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors shrink-0" data-i18n-title="playlistView.activeFolderBadge.exit.title" title="${t('playlistView.activeFolderBadge.exit.title')}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- Hàng 3: Phát | Trộn bài. "Sắp xếp" + "Kiểu xem" (Grid/List) đã dồn vào Settings
