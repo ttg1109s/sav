@@ -26,7 +26,7 @@
  *
  * SỬA (05/08/2026, Rule 3a, phản hồi Giang "xử lý triệt để... theo event bus, rule core") — ĐÃ BỎ
  * HẲN method `PlaylistMain.init()`: nội bộ nó gọi lần lượt 4 method core khác trong CHÍNH object
- * này (`this.initSortMenu()`/`initViewMode()`/`initMediaSource()`/`updateActiveFolderUI()`) — core
+ * này (`this.initSortMenu()`/`initViewMode()`/`initMediaSource()`/`updateActiveFolderBadge()`) — core
  * gọi core, vi phạm Rule 3a bất kể gói trong 1 method "init" tiện tay hay không. Việc GỌI TUẦN TỰ
  * 4 method này (điều phối, không phải nghiệp vụ core) giờ thuộc về Workflow — xem
  * `workflowPlaylist.syncPlaylistSettingsUI()` (event/workflow/playlist.js), dùng lại ở MỌI nơi
@@ -105,56 +105,32 @@
             },
 
             /**
-             * SỬA (mục 1a, phản hồi Giang — "bỏ row active folder, thêm vào dropdown của Nguồn") —
-             * dòng đọc-thôi RIÊNG (`#setting-playlist-active-folder`) ĐÃ XOÁ khỏi Settings →
-             * Playlist (components/settings/playlist-view.js). Tên folder đang Scope giờ hiện
-             * NGAY TRONG `<select>` "Nguồn" — chèn thêm 1 `<option>` MANG TÊN folder, tự chọn
-             * (`selected`) option đó, rồi khoá `<select>` — CƠ CHẾ KHOÁ GIỮ NGUYÊN Y HỆT bản cũ
-             * (`disabled` + class mờ + tooltip, KHÔNG qua block gate — xem event/block.js, đã bỏ
-             * hẳn 2 block cho 'playlist.mediaSource.change' từ v14, `disabled` là đủ vì browser tự
-             * chặn sự kiện 'change' bắn ra từ 1 <select> đang `disabled`).
-             * Gọi lúc boot/mở Settings (qua `workflowPlaylist.syncPlaylistSettingsUI()` hoặc
-             * bootstrap cuối file) VÀ ngay sau mỗi lần `persistScopeChoice()` đổi
-             * (workflowPlaylistScope) để phản ánh đúng NGAY, không cần đợi reload.
-             * SỬA (06/09/2026, Giang chỉ ra bug — "khoá Nguồn khi có Scope không hoạt động") — hàm
-             * này TRƯỚC ĐÂY tự đọc biến toàn cục `mediaSourceSelect` (dom-refs.js), capture 1 LẦN
-             * lúc script nạp — luôn `null` từ lúc Settings migrate sang Generic Drawer content-swap
-             * (phần tử `<select>` chỉ tồn tại đúng lúc màn Playlist Settings đang MỞ), khiến guard
-             * `if (!mediaSourceSelect) return;` chặn HẲN, function no-op ÂM THẦM ở MỌI lần gọi — tính
-             * năng khoá <select> khi có Folder Scope active KHÔNG BAO GIỜ thật sự chạy, dù
-             * `_renderPlaylist()` (event/workflow/app-settings.js) vẫn đồng bộ đúng `.value` mỗi lần
-             * mở (nên bug không lộ ra ở đó, chỉ riêng phần khoá/option folder là mất). Nhận `selectEl`
-             * qua THAM SỐ, nơi gọi tự truy vấn DOM sống ngay trước khi gọi (KHÔNG cache) — xem
-             * event/workflow/app-settings.js::_renderPlaylist() (nơi gọi MỚI thêm, sửa đúng gốc).
-             * @param {HTMLSelectElement|null} selectEl
+             * XOÁ (06/09/2026, Giang chốt mục 3.1 — "badge thay HẲN UI khoá select") —
+             * `updateActiveFolderUI(selectEl)` (khoá `<select>` "Nguồn" + chèn option mang tên
+             * folder, sống ở đây từ mục 1a) bỏ hẳn — badge mới trong ô tìm kiếm Playlist
+             * (components/playlist-view.js, `#playlist-active-folder-badge`) đảm nhiệm việc báo
+             * "đang Scope folder nào" — `<select>` "Nguồn" ở Settings → Playlist trở lại bình
+             * thường (không khoá/không chèn option gì nữa), chỉ còn `initMediaSource()` ngay trên lo
+             * đồng bộ `.value`.
+             * MỚI (06/09/2026, cùng đợt) — `updateActiveFolderBadge()` thay thế, đọc field ĐÚNG
+             * Nguồn hiện tại trong object `activePlayListFolder` ({song,video,photo}), hiện/ẩn
+             * badge tĩnh (`playlist-active-folder-badge`, dom-refs.js — mounted CỐ ĐỊNH cùng màn
+             * Playlist chính, KHÔNG cần nhận tham số DOM như `updateActiveFolderUI()` cũ, vì phần tử
+             * này không thuộc Generic Drawer content-swap nên không bị stale). Gọi từ
+             * `event/workflow/playlist-scope.js::applyFolderScope()`/`applyAllSongsScope()` (thay vì
+             * `persistScopeChoice()` như hàm cũ — badge phản ánh SCOPE THẬT ĐANG ÁP DỤNG, không chỉ
+             * ý định vừa lưu, dù 2 hàm đó luôn gọi liền nhau trong thực tế nên khác biệt không lộ ra).
              */
-            async updateActiveFolderUI(selectEl) {
-                if (!selectEl) return;
-                // Dọn option folder CŨ (nếu có) trước — tránh đọng lại option của lần Scope trước
-                // khi đổi/bỏ Scope (mỗi lần gọi hàm này tự dựng lại ĐÚNG 1 option, không cộng dồn).
-                const oldOption = selectEl.querySelector('option[data-folder-option]');
-                if (oldOption) oldOption.remove();
-
-                // SỬA (06/09/2026, đổi schema activePlayListFolder theo Nguồn) — object
-                // {song,video,photo} thay vì 1 giá trị phẳng, đọc ĐÚNG field của Nguồn đang browse.
+            async updateActiveFolderBadge() {
+                if (!playlistActiveFolderBadge) return; // guard phòng vệ thuần — thực tế luôn mounted (tĩnh, không thuộc content-swap)
                 const folderId = appState.get('activePlayListFolder')[appState.get('activeMediaSource')];
                 if (!folderId) {
-                    selectEl.disabled = false;
-                    selectEl.classList.remove('opacity-40');
-                    selectEl.title = '';
+                    playlistActiveFolderBadge.classList.add('hidden');
                     return;
                 }
-
                 const folderRecord = typeof getFolderRecord === 'function' ? await getFolderRecord(folderId) : null;
-                const opt = document.createElement('option');
-                opt.dataset.folderOption = 'true';
-                opt.value = appState.get('activeMediaSource'); // giữ ĐÚNG value song/video hiện tại — chỉ đổi CHỮ hiển thị
-                opt.textContent = folderRecord ? folderRecord.name : t('settingsPlaylistBg.activeFolder.none');
-                selectEl.appendChild(opt);
-                opt.selected = true;
-                selectEl.disabled = true;
-                selectEl.classList.add('opacity-40');
-                selectEl.title = t('settingsPlaylistBg.mediaSource.lockedByFolderScope');
+                if (playlistActiveFolderBadgeName) playlistActiveFolderBadgeName.textContent = folderRecord ? folderRecord.name : '';
+                playlistActiveFolderBadge.classList.remove('hidden');
             }
         };
 
@@ -205,4 +181,8 @@
         // nạp) chắc chắn trả `null` (Settings chưa từng mở), NO-OP đúng ý nghĩa như trước giờ.
         const bootMediaSourceSelectEl = genericDrawerBody.querySelector('#setting-playlist-media-source');
         PlaylistMain.initMediaSource(bootMediaSourceSelectEl);
-        PlaylistMain.updateActiveFolderUI(bootMediaSourceSelectEl);
+        // XOÁ (06/09/2026) — `PlaylistMain.updateActiveFolderUI(bootMediaSourceSelectEl)` bỏ theo
+        // hàm đã xoá (mục 3.1, xem docstring updateActiveFolderBadge() ngay trên). Không gọi
+        // `updateActiveFolderBadge()` thay thế Ở ĐÂY: badge tĩnh đã `hidden` sẵn trong HTML gốc,
+        // và `appState.activePlayListFolder` còn giữ default (chưa nạp từ meta — việc đó xảy ra
+        // sau, trong `event/workflow/app-boot.js::boot()`) — gọi lúc này chỉ là 1 lượt async vô ích.
