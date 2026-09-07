@@ -357,17 +357,12 @@ const routerPlaylist = (() => {
                 break;
             }
 
-            // MỚI (ver12 "Song/Video Unification", Batch 1) — đổi Nguồn (Song/Video), select mới ở
-            // Settings → Playlist. `source` ('song'|'video') LOẠI TRỪ NHAU, tới từ msg.payload —
-            // cùng khuôn VirtualMachineState.run() đơn đích như case 'playlist.selection.moreMenu.
-            // select' phía dưới (mutual-exclusive dispatch giữa ≥2 Workflow).
+            // MỚI (ver12 "Song/Video Unification", Batch 1; GỘP 07/09/2026) — đổi Nguồn (Song/
+            // Video/Photo), select ở Settings → Playlist. `switchSource()` (event/workflow/
+            // playlist.js) gộp 3 hàm cũ thành 1, nhận thẳng `source` — không cần VMState chọn hàm nữa.
             case 'playlist.mediaSource.change': {
                 const { source } = msg.payload;
-                VirtualMachineState.run([
-                    { state: source, operation: '===', value: 'video', callback: () => workflowPlaylist.switchToVideoSource() },
-                    { state: source, operation: '===', value: 'song', callback: () => workflowPlaylist.switchToSongSource() },
-                    { state: source, operation: '===', value: 'photo', callback: () => workflowPlaylist.switchToPhotoSource() },
-                ]);
+                workflowPlaylist.switchSource(source);
                 break;
             }
 
