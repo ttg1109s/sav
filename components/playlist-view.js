@@ -80,8 +80,7 @@ const TPL_PLAYLIST_VIEW = `
                      riêng — Video từng có <label id="btn-upload-video"> tách hẳn khỏi nút này, ĐÃ
                      XOÁ). #upload-action-menu (2 lựa chọn: file rời/thư mục — xem template bên
                      dưới) mở ra là 1 khung DUY NHẤT cho cả 3 Nguồn; "accept" của 2 input BÊN TRONG
-                     đổi động theo Nguồn (switchToSongSource()/switchToVideoSource()/
-                     switchToPhotoSource(), event/workflow/playlist.js::_applyUploadInputAccept()) —
+                     đổi động theo Nguồn (switchSource(), event/workflow/playlist.js::_applyUploadInputAccept()) —
                      KHÔNG còn 2 input riêng theo từng Nguồn. -->
                 <button id="btn-upload-audio" class="hover:text-sky-400 transition-colors" data-i18n-title="playlistView.btnUploadAudio.title" title="${t('playlistView.btnUploadAudio.title')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>

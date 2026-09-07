@@ -5,7 +5,7 @@
  *
  * SỬA (Giang yêu cầu "loại bỏ photo, setting ở nav bottom") — 2 nút Photo/Setting BỎ HẲN khỏi
  * thanh nav (còn 5/7 mục cũ). Photo: đã hợp nhất vào Playlist làm 1 Nguồn (activeMediaSource=
- * 'photo', xem event/workflow/playlist.js::switchToPhotoSource()) — không còn cần entry riêng.
+ * 'photo', xem event/workflow/playlist.js::switchSource()) — không còn cần entry riêng.
  * Setting: KHÔNG còn điểm vào nào khác trong UI sau khi bỏ nút này (trước đây CHỈ mở qua đây, xem
  * event/workflow/app-panel-nav.js::openSetting()) — router/workflow/listener của cả 2 (`photo`/
  * `setting` case trong event/router/app-panel-nav.js, workflowAppPanelNav.openPhoto()/
