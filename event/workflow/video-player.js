@@ -18,13 +18,14 @@
  * CHUNG cơ chế Playlist (`displayOrder`/`shuffleIndices`/`currentKey`) — không có mảng/cơ chế
  * riêng cho Video.
  *
- * NẠP SAU: core/video-player.js, core/file-manager/video.js (listVideos), core/playlist/loader.js
- * (buildVideoPlaylistCache), core/playlist/order.js (updateShuffleArray/recomputeDisplayOrder/
+ * NẠP SAU: core/video-player.js, core/playlist/order.js (updateShuffleArray/recomputeDisplayOrder/
  * recomputeRenderOrder), service/db.js (getVideoRecord), core/audio-engine.js (setupAudioContext),
  * event/workflow/player-controls.js (`workflowPlayerControls.goToNextTrack()` — MỚI, dùng ở
- * handleVideoPlayerEnded() bên dưới), core/playlist/scope.js (loadSongsFromFolder/loadAllSongs —
- * MỚI, dùng ở refreshVideoPlaylistIfActive() bên dưới để giữ đúng folder scope sau upload, xem FIX
- * 07/09/2026 ở đó), core/file-manager/folder.js (getExcludedSongKeysFromFolders — CÙNG chỗ).
+ * handleVideoPlayerEnded() bên dưới), event/workflow/playlist-scope.js
+ * (`workflowPlaylistScope.loadPlaylistCacheForSource()`/`applyFolderScope()`/`applyAllSongsScope()`
+ * — MỚI, dùng ở refreshVideoPlaylistIfActive() bên dưới để giữ đúng folder scope sau upload, xem
+ * FIX 07/09/2026 ở đó — TÁI DÙNG hẳn workflow này thay vì tự gọi buildVideoPlaylistCache()/
+ * core/playlist/scope.js trực tiếp).
  */
 const workflowVideoPlayer = {
     _objectUrl: null, // object URL HIỆN TẠI đang gán cho bgVideoElement (revoke trước khi tạo url mới)
@@ -416,31 +417,23 @@ const workflowVideoPlayer = {
      * folder Video (`activePlayListFolder.video`): video vừa upload đã được `addSongsToFolder()`
      * gắn vào ĐÚNG folder đó (xem uploadVideos(), event/workflow/playlist.js), nhưng ngay sau đó
      * hàm này lại NẠP ĐÈ `playlistOrder` bằng danh sách KHÔNG lọc — kết quả nhìn như "không thêm
-     * được vào folder, tự thoát scope về Tất cả video". Giờ CHỈ dùng `buildVideoPlaylistCache()` để
-     * nạp lại `playlistCache` (side effect cũ, vẫn cần để thấy metadata video mới) — `playlistOrder`
-     * tính LẠI theo ĐÚNG scope hiện tại, CÙNG công thức `applyFolderScope()`/`applyAllSongsScope()`
-     * (event/workflow/playlist-scope.js): còn Scope -> `loadSongsFromFolder()`; không Scope ->
-     * `loadAllSongs()` + loại Exclude (core/playlist/scope.js, core/file-manager/folder.js). */
+     * được vào folder, tự thoát scope về Tất cả video".
+     * SỬA TIẾP (07/09/2026, "workflow chuẩn dùng chung app boot + chuyển Nguồn + upload-refresh") —
+     * bản vá đầu tiên (đoạn trên) tự gọi `loadSongsFromFolder()`/`loadAllSongs()` trực tiếp — ĐÚNG
+     * nhưng lặp lại logic đã có sẵn ở `applyFolderScope()`/`applyAllSongsScope()` (event/workflow/
+     * playlist-scope.js, vốn CŨNG tự áp Playlist Filter sau Scope — điều bản vá đầu tiên BỎ SÓT).
+     * Giờ DÙNG THẲNG `workflowPlaylistScope.loadPlaylistCacheForSource('video')` (MỚI, CÙNG hàm
+     * `switchToVideoSource()`/app-boot.js dùng) để nạp lại `playlistCache`, rồi gọi ĐÚNG 1 trong 2
+     * `applyFolderScope()`/`applyAllSongsScope()` — hàm đó tự lo HẾT phần còn lại (Scope + Filter +
+     * updateShuffleArray/recompute*Order/renderPlaylistDiff/updateEmptyState/badge), không cần tự
+     * gọi lại `workflowPlaylistOrder.*` ở đây nữa. */
     async refreshVideoPlaylistIfActive() {
         if (appState.get('activeMediaSource') !== 'video') return;
-        const videoRecords = await listVideos(); // core/file-manager/video.js
-        buildVideoPlaylistCache(videoRecords); // core/playlist/loader.js — chỉ nạp lại playlistCache, KHÔNG dùng return value làm playlistOrder trực tiếp nữa (bỏ qua scope, xem FIX ở trên)
+        await workflowPlaylistScope.loadPlaylistCacheForSource('video'); // event/workflow/playlist-scope.js — chỉ nạp lại playlistCache, chưa render
         const activeFolderIdForVideo = appState.get('activePlayListFolder').video;
-        if (activeFolderIdForVideo) {
-            await loadSongsFromFolder(activeFolderIdForVideo, appState.get('playlistCache')); // core/playlist/scope.js — GIỮ ĐÚNG scope đang active thay vì nạp full list
-        } else {
-            const excludedKeys = await getExcludedSongKeysFromFolders('video'); // core/file-manager/folder.js
-            loadAllSongs(appState.get('playlistCache'), excludedKeys); // core/playlist/scope.js
-        }
+        if (activeFolderIdForVideo) await workflowPlaylistScope.applyFolderScope(activeFolderIdForVideo, 'video'); // GIỮ ĐÚNG scope đang active + tự render
+        else await workflowPlaylistScope.applyAllSongsScope('video'); // không Scope -> "Tất cả" (đã loại Exclude) + tự render
         console.log(`writer: "refreshVideoPlaylistIfActive", page: "playlistOrder", content: "${appState.get('playlistOrder').length} video"`);
-        // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — updateShuffleArray()/
-        // recomputeDisplayOrder()/recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/
-        // playlist-order.js (workflowPlaylistOrder — Rule 3a: core không được gọi core, cả 3 hàm
-        // CŨ ở order.js đều tự appState.get() và/hoặc gọi core khác nên buộc phải là Workflow).
-        workflowPlaylistOrder.updateShuffleArray();
-        workflowPlaylistOrder.recomputeDisplayOrder();
-        workflowPlaylistOrder.recomputeRenderOrder();
-        workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
     },
 
     /** Ứng với 'playerControls.playPause.click' khi `isVideoPlayerMode=true` — toggle

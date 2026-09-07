@@ -83,15 +83,23 @@ const workflowAppBoot = {
         // applyFolderScope() bên dưới so sánh key Video với 1 playlistCache toàn Song -> luôn lọc
         // ra 0 kết quả. Giờ nạp ĐÚNG playlistCache theo activeMediaSource vừa khôi phục ở trên.
         const bootMediaSource = (typeof appState !== 'undefined') ? appState.get('activeMediaSource') : 'song';
-        if (bootMediaSource === 'video' && typeof listVideos === 'function' && typeof buildVideoPlaylistCache === 'function') {
-            buildVideoPlaylistCache(await listVideos()); // core có sẵn (core/playlist/loader.js)
-        } else if (bootMediaSource === 'photo' && typeof listImages === 'function' && typeof buildPhotoPlaylistCache === 'function') {
-            // MỚI (hợp nhất Photo vào Playlist) — cùng lý do nhánh 'video' ngay trên: nạp ĐÚNG
-            // playlistCache theo type TRƯỚC khi bước Scope ngay dưới chạy, tránh applyFolderScope()
-            // giao (intersect) nhầm với 1 cache khác type (SỬA 06/09/2026 — comment cũ ở đây từng
-            // nói "Photo không có Folder Scope" — SAI/lỗi thời, Photo có Folder Scope đầy đủ y hệt
-            // Song/Video, xem event/workflow/playlist-scope.js).
-            buildPhotoPlaylistCache(await listImages()); // core có sẵn (core/file-manager/image.js + core/playlist/loader.js)
+        // SỬA (07/09/2026, Giang chỉ ra "chuyển Nguồn qua lại không giống app boot" — tạo 1
+        // workflow chuẩn dùng chung) — 2 nhánh 'video'/'photo' TRƯỚC ĐÂY tự gọi
+        // buildVideoPlaylistCache()/buildPhotoPlaylistCache() riêng lẻ ngay tại đây, giờ gọi qua
+        // `workflowPlaylistScope.loadPlaylistCacheForSource()` (event/workflow/playlist-scope.js,
+        // MỚI) — CÙNG 1 hàm giờ cũng dùng ở switchToVideoSource()/switchToPhotoSource()
+        // (event/workflow/playlist.js), tránh 2 nơi tự lặp lại y hệt 1 logic. Hành vi TẠI ĐÂY giữ
+        // NGUYÊN 100% (chỉ nạp playlistCache theo ĐÚNG type, KHÔNG đụng playlistOrder — khối
+        // Scope/render ngay dưới vẫn chạy y hệt như cũ, nạp ĐÚNG playlistCache theo type TRƯỚC khi
+        // applyFolderScope() giao (intersect) — tránh giao nhầm với 1 cache khác type, SỬA
+        // 06/09/2026 — Photo có Folder Scope đầy đủ y hệt Song/Video, xem event/workflow/
+        // playlist-scope.js). Song vẫn GIỮ NGUYÊN nhánh `initPlaylistFromDB()` riêng (KHÔNG gộp
+        // vào hàm chung) — hàm đó có thêm bước hồi phục "Clear All bị gián đoạn" + tối ưu "rỗng thì
+        // hiện luôn, không nháy loading" CHỈ cần đúng 1 lần lúc boot, không phải việc của
+        // loadPlaylistCacheForSource() (dùng lại được ở cả switchToSongSource(), nơi 2 việc đó
+        // không áp dụng).
+        if ((bootMediaSource === 'video' || bootMediaSource === 'photo') && typeof workflowPlaylistScope !== 'undefined') {
+            await workflowPlaylistScope.loadPlaylistCacheForSource(bootMediaSource);
         } else {
             await initPlaylistFromDB();
         }

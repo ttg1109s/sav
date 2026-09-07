@@ -31,9 +31,59 @@
  * recomputeRenderOrder — dời từ core/playlist/order.js), core/playlist/render.js
  * (renderPlaylistDiff/updateEmptyState), core/modal-choice-ui.js (modalChoice),
  * core/file-manager/folder.js (getExcludedSongKeysFromFolders() — MỚI, Batch 4, dùng bởi
- * applyAllSongsScope()), core/playlist/filter.js (applyPlaylistFilter() — MỚI, mục 1d).
+ * applyAllSongsScope()), core/playlist/filter.js (applyPlaylistFilter() — MỚI, mục 1d),
+ * core/file-manager/video.js (listVideos), core/file-manager/image.js (listImages),
+ * core/playlist/loader.js (buildVideoPlaylistCache/buildPhotoPlaylistCache/scanValidSongsFromDB —
+ * dùng bởi loadPlaylistCacheForSource() MỚI, xem docstring ngay dưới).
+ *
+ * MỚI (07/09/2026, Giang chỉ ra "chuyển Nguồn qua lại đang nạp Tất cả rồi mới lọc theo folder,
+ * không giống app boot") — `loadPlaylistCacheForSource(mediaSource, onProgress)` là "workflow
+ * chuẩn" DÙNG CHUNG cho app boot (event/workflow/app-boot.js) VÀ 3 hàm switchToXSource()
+ * (event/workflow/playlist.js): CHỈ nạp lại `playlistCache`/`songNameIndex` cho ĐÚNG
+ * `mediaSource` — KHÔNG đụng `playlistOrder`, KHÔNG render gì cả. Nơi gọi PHẢI tự gọi
+ * `applyFolderScope()`/`applyAllSongsScope()` NGAY SAU (đọc `activePlayListFolder[mediaSource]` để
+ * quyết định) — đó mới là bước DUY NHẤT tính `playlistOrder` (Scope + Filter) + render, ĐÚNG thứ
+ * tự "hỏi Scope nào trước, xong mới render" Giang chốt, thay cho pattern SAI trước đây ở
+ * switchToXSource() (nạp TOÀN BỘ + Filter + render 1 lần, RỒI Scope lại + Filter + render LẦN
+ * NỮA — vừa tốn công gấp đôi, vừa có 1 nhịp hiện SAI "Tất cả" trước khi nhảy về đúng folder).
+ * `loadSongsFromFolder()`/`loadAllSongs()` (core/playlist/scope.js) + `getExcludedSongKeysFromFolders()`
+ * (core/file-manager/folder.js) đều O(n) sẵn (Set/Map lookup, không lồng vòng lặp) — nối
+ * `loadPlaylistCacheForSource()` (1 lượt đọc DB O(n)) với `applyFolderScope()`/`applyAllSongsScope()`
+ * (1 lượt tính playlistOrder O(n) + render 1 lần) cho tổng CẢ QUY TRÌNH đúng O(n), không còn 2 lượt
+ * O(n) nối tiếp như bản cũ.
  */
 const workflowPlaylistScope = {
+
+    /**
+     * "Bước 1" của workflow chuẩn — xem docstring đầu file. CHỈ nạp lại `playlistCache`/
+     * `songNameIndex` cho ĐÚNG `mediaSource` (KHÔNG đụng `playlistOrder`/DOM — đó là việc của
+     * `applyFolderScope()`/`applyAllSongsScope()` ngay dưới, nơi gọi PHẢI tự gọi 1 trong 2 hàm đó
+     * NGAY SAU). Dispatch theo `mediaSource` — Workflow điều phối 3 core khác nhau tuỳ nguồn (Rule
+     * 3 không áp cho Workflow, đúng bản chất orchestration).
+     * Video/Photo dùng `buildVideoPlaylistCache()`/`buildPhotoPlaylistCache()` (core/playlist/
+     * loader.js, Adapter pattern) — CÓ return (danh sách key ĐẦY ĐỦ, không lọc) nhưng KHÔNG dùng ở
+     * đây, bỏ qua có chủ đích (đúng pattern app-boot.js đã làm cho 2 nguồn này từ trước). Song dùng
+     * THẲNG `scanValidSongsFromDB()` — hàm ĐÃ SẴN đúng hình dạng "chỉ nạp cache, trả về keys,
+     * KHÔNG set playlistOrder" (khác `initPlaylistFromDB()`, hàm boot-only tự set playlistOrder +
+     * tự render + có thêm bước hồi phục "Clear All bị gián đoạn" riêng của boot — KHÔNG dùng lại ở
+     * đây, xem event/workflow/app-boot.js), nên không cần viết thêm Adapter riêng cho Song.
+     * @param {'song'|'video'|'photo'} mediaSource
+     * @param {(done:number,total:number)=>void} [onProgress] - tuỳ chọn, hiện tiến trình "x/y" khi
+     *        có (switchToXSource() truyền vào để cập nhật loadingText; app boot KHÔNG truyền, giữ
+     *        ĐÚNG hành vi cũ — listVideos()/listImages()/scanValidSongsFromDB() đều tự no-op nếu
+     *        không nhận được callback).
+     */
+    async loadPlaylistCacheForSource(mediaSource, onProgress) {
+        if (mediaSource === 'video') {
+            const videoRecords = await listVideos(onProgress); // core/file-manager/video.js
+            buildVideoPlaylistCache(videoRecords); // core/playlist/loader.js — CHỈ nạp cache, bỏ qua return value có chủ đích (xem docstring)
+        } else if (mediaSource === 'photo') {
+            const imageRecords = await listImages(onProgress); // core/file-manager/image.js
+            buildPhotoPlaylistCache(imageRecords); // core/playlist/loader.js — CÙNG LÝ DO nhánh 'video'
+        } else {
+            await scanValidSongsFromDB(onProgress); // core/playlist/loader.js — ĐÃ SẴN đúng hình dạng, dùng thẳng (xem docstring)
+        }
+    },
 
     /**
      * Lưu bền lựa chọn scope mới vào `meta` VÀ cập nhật `appState.activePlayListFolder` (bookkeeping

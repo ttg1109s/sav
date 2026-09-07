@@ -484,29 +484,21 @@ const workflowPlaylist = {
         // folder rồi về all") — CÙNG BUG/CÙNG SỬA `refreshVideoPlaylistIfActive()` ngay trên: TRƯỚC
         // ĐÂY `buildPhotoPlaylistCache()` trả về TOÀN BỘ key rồi gán THẲNG vào `playlistOrder`, ghi
         // đè mất scope folder Photo (`activePlayListFolder.photo`) vừa gắn ảnh mới vào qua
-        // `addSongsToFolder()` ở trên. Giờ CHỈ dùng để nạp lại `playlistCache`, `playlistOrder` tính
-        // LẠI theo ĐÚNG scope hiện tại (Scope -> `loadSongsFromFolder()`; không Scope ->
-        // `loadAllSongs()` + loại Exclude), CÙNG công thức `applyFolderScope()`/`applyAllSongsScope()`
-        // (event/workflow/playlist-scope.js).
+        // `addSongsToFolder()` ở trên.
+        // SỬA TIẾP (07/09/2026, "workflow chuẩn dùng chung app boot + chuyển Nguồn + upload-refresh")
+        // — CÙNG SỬA `refreshVideoPlaylistIfActive()` ngay trên: DÙNG THẲNG
+        // `workflowPlaylistScope.loadPlaylistCacheForSource('photo')` (MỚI, event/workflow/
+        // playlist-scope.js, CÙNG hàm switchToPhotoSource()/app-boot.js dùng) để nạp lại
+        // `playlistCache`, rồi gọi ĐÚNG 1 trong 2 `applyFolderScope()`/`applyAllSongsScope()` — tự lo
+        // HẾT phần còn lại (Scope + Filter + updateShuffleArray/recompute*Order/renderPlaylistDiff/
+        // updateEmptyState/badge), không cần tự gọi lại `workflowPlaylistOrder.*` ở đây nữa (bản vá
+        // đầu tiên tự gọi loadSongsFromFolder()/loadAllSongs() trực tiếp — ĐÚNG nhưng bỏ sót Filter).
         if (appState.get('activeMediaSource') === 'photo') {
-            const imageRecords = await listImages(); // core/file-manager/image.js
-            buildPhotoPlaylistCache(imageRecords); // core/playlist/loader.js — chỉ nạp lại playlistCache, KHÔNG dùng return value làm playlistOrder trực tiếp nữa (bỏ qua scope, xem FIX ở trên)
+            await workflowPlaylistScope.loadPlaylistCacheForSource('photo'); // chỉ nạp lại playlistCache, chưa render
             const activeFolderIdForPhotoRefresh = appState.get('activePlayListFolder').photo;
-            if (activeFolderIdForPhotoRefresh) {
-                await loadSongsFromFolder(activeFolderIdForPhotoRefresh, appState.get('playlistCache')); // core/playlist/scope.js — GIỮ ĐÚNG scope đang active thay vì nạp full list
-            } else {
-                const excludedKeys = await getExcludedSongKeysFromFolders('photo'); // core/file-manager/folder.js
-                loadAllSongs(appState.get('playlistCache'), excludedKeys); // core/playlist/scope.js
-            }
+            if (activeFolderIdForPhotoRefresh) await workflowPlaylistScope.applyFolderScope(activeFolderIdForPhotoRefresh, 'photo'); // GIỮ ĐÚNG scope đang active + tự render
+            else await workflowPlaylistScope.applyAllSongsScope('photo'); // không Scope -> "Tất cả" (đã loại Exclude) + tự render
             console.log(`writer: "uploadPhotos", page: "playlistOrder", content: "${appState.get('playlistOrder').length} ảnh (làm mới sau upload)"`);
-            // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — updateShuffleArray()/
-            // recomputeDisplayOrder()/recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/
-            // playlist-order.js (workflowPlaylistOrder) — gọi trực tiếp, tự đọc playlistOrder MỚI
-            // (vừa tính lại ở trên) qua appState, không cần truyền tham số nữa.
-            workflowPlaylistOrder.updateShuffleArray();
-            workflowPlaylistOrder.recomputeDisplayOrder();
-            workflowPlaylistOrder.recomputeRenderOrder();
-            workflowPlaylistRender.renderPlaylistDiff();
         }
         const successCount = fileArray.length - failedCount;
         await alertModal(tFormat('fileManager.photo.image.uploadSuccess', { count: successCount })); // tái dùng NGUYÊN lang key cũ của Photo Panel
@@ -1270,10 +1262,19 @@ const workflowPlaylist = {
     // đụng gì tới dispatch phát nhạc (Batch 2, xem plan-v12-song-video-unification.md mục 3).
 
     /**
-     * Đổi Nguồn sang Video — nạp lại TOÀN BỘ playlistCache/playlistOrder từ store `videos` qua
-     * Adapter (buildVideoPlaylistCache(), core/playlist/loader.js), rồi vẽ lại UI — TÁI DÙNG
-     * NGUYÊN các hàm core đã phục vụ Song (recomputeDisplayOrder/RenderOrder, renderPlaylistDiff,
-     * updateEmptyState, updateShuffleArray), không viết lại gì.
+     * Đổi Nguồn sang Video — TÁI DÙNG "workflow chuẩn" DÙNG CHUNG với app boot (MỚI 07/09/2026, xem
+     * `workflowPlaylistScope.loadPlaylistCacheForSource()`, event/workflow/playlist-scope.js):
+     * (1) nạp lại `playlistCache` từ store `videos` qua Adapter — KHÔNG đụng `playlistOrder`; (2)
+     * ĐỌC `activePlayListFolder.video` rồi gọi ĐÚNG 1 trong 2 `applyFolderScope()`/
+     * `applyAllSongsScope()` — hàm đó tự Scope + Filter + render 1 LẦN DUY NHẤT.
+     * FIX (07/09/2026, Giang chỉ ra "chuyển Nguồn qua lại đang nạp Tất cả rồi mới lọc theo folder,
+     * không giống app boot") — TRƯỚC ĐÂY hàm này tự `buildVideoPlaylistCache()` + `applyPlaylistFilter()`
+     * + set `playlistOrder` + render NGAY (danh sách KHÔNG lọc folder), RỒI mới gọi `applyFolderScope()`/
+     * `applyAllSongsScope()` render LẦN NỮA — tốn công gấp đôi + có 1 nhịp hiện SAI "Tất cả video"
+     * trước khi nhảy về đúng folder. Giờ CHỈ còn 1 lượt tính `playlistOrder` + render, ĐÚNG thứ tự
+     * "hỏi Scope nào trước, xong mới render" — TÁI DÙNG NGUYÊN các hàm core đã phục vụ Song
+     * (recomputeDisplayOrder/RenderOrder, renderPlaylistDiff, updateEmptyState, updateShuffleArray)
+     * đã có sẵn BÊN TRONG applyFolderScope()/applyAllSongsScope(), không viết lại gì.
      * [SỬA — Giang chốt "dùng chung hết" 4 kiểu sort (az/za/newest/oldest) cho CẢ 2 nguồn] KHÔNG
      * còn reset `displaySortMode`/dựng lại option list nữa — sort mode giờ là 1 lựa chọn CHUNG,
      * độc lập với Nguồn, giữ nguyên qua lại giữa Song/Video (renderSongSortModeOptions()/
@@ -1299,39 +1300,24 @@ const workflowPlaylist = {
         // shield` (fixed inset-0, z-[200]) che ĐÚNG toàn app, ĐỒNG THỜI finally{} của nó tự đảm
         // bảo tắt shield dù `fn()` bên trong ném lỗi (trước đây 1 lỗi giữa chừng sẽ để
         // showPlaylistLoading() treo vĩnh viễn vì hidePlaylistLoading() không bao giờ được gọi tới).
+        // SỬA (07/09/2026) — GIỮ shield mở xuyên suốt CẢ 2 bước (nạp cache + Scope/render), không
+        // còn đóng shield rồi mới áp Scope ở NGOÀI như bản cũ — người dùng chỉ thấy ĐÚNG 1 lần
+        // render (danh sách ĐÃ Scope đúng), không còn nhịp hở thấy "Tất cả video" trước đó.
         await withLoadingShield(t('playlistView.loading.generic'), async () => {
-            const videoRecords = await listVideos((done, total) => { // core/file-manager/video.js — MỚI, onProgress cho x/total
+            await workflowPlaylistScope.loadPlaylistCacheForSource('video', (done, total) => { // event/workflow/playlist-scope.js (MỚI) — chỉ nạp playlistCache, chưa render
                 loadingText.textContent = tFormat('playlistView.loading.withCountVideo', { done, total });
             });
-            const keys = buildVideoPlaylistCache(videoRecords); // core/playlist/loader.js (MỚI, Batch 1), CÓ return, DÙNG ngay dưới
-            // MỚI (mục 1d, Playlist Filter) — áp filter (nếu có) NGAY SAU khi playlistOrder vừa được
-            // tính lại theo Nguồn Video, TRƯỚC updateShuffleArray()/recompute*Order() — xem docstring
-            // đầu core/playlist/filter.js (đúng vị trí "Scope xong, Sort chưa chạy").
-            const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig').video);
-            appState.set('playlistOrder', filteredKeys);
-            console.log(`writer: "switchToVideoSource", page: "playlistOrder", content: "${filteredKeys.length}/${keys.length} video (đã áp Filter)"`);
-
-            workflowPlaylistOrder.updateShuffleArray(); // event/workflow/playlist-order.js (dời từ core/playlist/order.js)
-            // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — recomputeDisplayOrder()/
-            // recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/playlist-order.js
-            // (workflowPlaylistOrder) — gọi trực tiếp, tự đọc playlistOrder MỚI (filteredKeys vừa
-            // set ở trên) qua appState, không cần truyền tham số nữa.
-            workflowPlaylistOrder.recomputeDisplayOrder();
-            workflowPlaylistOrder.recomputeRenderOrder();
-            workflowPlaylistRender.renderPlaylistDiff();      // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
-            resetPlaylistScrollTop();  // core (MỚI, 29/07/2026, phản hồi Giang mục 2) — danh sách vừa đổi hẳn Nguồn, scrollTop cũ vô nghĩa -> về 0 tức thì
-            updateEmptyState();        // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
-        });
-        // MỚI (06/09/2026, Giang chốt "mỗi Nguồn tự nhớ folder riêng") — Nguồn Video có thể đang
-        // Scope 1 folder từ TRƯỚC lúc rời đi Nguồn khác — tự áp lại NGAY, không cần bấm lại (cùng
-        // khuôn boot sequence, xem event/workflow/app-boot.js). Không có folder nhớ sẵn ->
-        // applyAllSongsScope() (không phải chỉ giữ nguyên khối trên) để Exclude cũng được áp đúng —
-        // khối withLoadingShield() ngay trên chỉ lọc Playlist Filter, chưa từng lọc Exclude.
-        {
+            // MỚI (06/09/2026, Giang chốt "mỗi Nguồn tự nhớ folder riêng") — Nguồn Video có thể
+            // đang Scope 1 folder từ TRƯỚC lúc rời đi Nguồn khác — tự áp lại NGAY, không cần bấm
+            // lại (cùng khuôn boot sequence, xem event/workflow/app-boot.js). `applyFolderScope()`/
+            // `applyAllSongsScope()` (event/workflow/playlist-scope.js) tự lo HẾT phần còn lại:
+            // tính playlistOrder (Scope + Exclude/Filter) + updateShuffleArray/recompute*Order/
+            // renderPlaylistDiff/updateEmptyState/badge — CHỈ 1 lần render duy nhất.
             const folderForThisSource = appState.get('activePlayListFolder').video;
             if (folderForThisSource) await workflowPlaylistScope.applyFolderScope(folderForThisSource, 'video');
             else await workflowPlaylistScope.applyAllSongsScope('video');
-        }
+            resetPlaylistScrollTop();  // core (MỚI, 29/07/2026, phản hồi Giang mục 2) — danh sách vừa đổi hẳn Nguồn, scrollTop cũ vô nghĩa -> về 0 tức thì
+        });
         // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — placeholder ô tìm kiếm
         // đổi theo Nguồn (Song có artist/album để tìm, Video thì không).
         if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholderVideo');
@@ -1350,9 +1336,13 @@ const workflowPlaylist = {
     },
 
     /**
-     * Đổi Nguồn về lại Song — TÁI DÙNG NGUYÊN `scanValidSongsFromDB()` (core/playlist/loader.js,
-     * hàm Song hiện có, KHÔNG sửa gì — nguyên tắc riêng của plan), rồi vẽ lại UI y hệt
-     * switchToVideoSource(). Cùng lý do KHÔNG reset displaySortMode — xem docstring hàm đó.
+     * Đổi Nguồn về lại Song — TÁI DÙNG "workflow chuẩn" DÙNG CHUNG với app boot (MỚI 07/09/2026,
+     * xem `workflowPlaylistScope.loadPlaylistCacheForSource()`, event/workflow/playlist-scope.js
+     * và docstring đầy đủ ở `switchToVideoSource()` ngay trên — CÙNG BUG/CÙNG FIX, không lặp lại ở
+     * đây): (1) nạp lại `playlistCache` qua `scanValidSongsFromDB()` (core/playlist/loader.js, hàm
+     * Song hiện có, KHÔNG sửa gì) — KHÔNG đụng `playlistOrder`; (2) đọc `activePlayListFolder.song`
+     * rồi gọi ĐÚNG 1 trong 2 `applyFolderScope()`/`applyAllSongsScope()` — Scope + Filter + render 1
+     * LẦN DUY NHẤT. Cùng lý do KHÔNG reset displaySortMode — xem docstring switchToVideoSource().
      */
     async switchToSongSource() {
         // XOÁ (08/08/2026, phản hồi Giang — "đổi tab chỉ mở khoá panel, không có nghĩa video đang
@@ -1372,32 +1362,20 @@ const workflowPlaylist = {
         // SỬA (phản hồi Giang, mục 3 "loading shield không full view toàn app") — CÙNG LÝ DO/CÙNG
         // CÁCH SỬA switchToVideoSource() ngay trên — đổi showPlaylistLoading() (chỉ che vùng list)
         // sang withLoadingShield() (che toàn app, tự tắt qua finally{} dù fn() bên trong lỗi).
+        // SỬA (07/09/2026) — CÙNG LÝ DO switchToVideoSource() ngay trên: giữ shield mở xuyên suốt
+        // CẢ nạp cache LẪN Scope/render, chỉ còn 1 lần render duy nhất.
         await withLoadingShield(t('playlistView.loading.generic'), async () => {
-            const keys = await scanValidSongsFromDB((done, total) => { // core có sẵn (core/playlist/loader.js, Song, KHÔNG đụng) — đã có onProgress từ trước, giờ nối vào shield toàn app
+            await workflowPlaylistScope.loadPlaylistCacheForSource('song', (done, total) => { // event/workflow/playlist-scope.js (MỚI) — chỉ nạp playlistCache, chưa render
                 loadingText.textContent = tFormat('playlistView.loading.withCount', { done, total });
             });
-            // MỚI (mục 1d, Playlist Filter) — CÙNG LÝ DO switchToVideoSource() ngay trên.
-            const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig').song);
-            appState.set('playlistOrder', filteredKeys);
-            console.log(`writer: "switchToSongSource", page: "playlistOrder", content: "${filteredKeys.length}/${keys.length} bài hát (đã áp Filter)"`);
-
-            workflowPlaylistOrder.updateShuffleArray(); // event/workflow/playlist-order.js (dời từ core/playlist/order.js)
-            // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — recomputeDisplayOrder()/
-            // recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/playlist-order.js
-            // (workflowPlaylistOrder) — gọi trực tiếp, CÙNG LÝ DO switchToVideoSource() ngay trên.
-            workflowPlaylistOrder.recomputeDisplayOrder();
-            workflowPlaylistOrder.recomputeRenderOrder();
-            workflowPlaylistRender.renderPlaylistDiff();
-            resetPlaylistScrollTop();  // core (MỚI, 29/07/2026, phản hồi Giang mục 2) — cùng lý do switchToVideoSource(), scrollTop cũ vô nghĩa với danh sách vừa đổi hẳn Nguồn
-            updateEmptyState();
-        });
-        // MỚI (06/09/2026, Giang chốt "mỗi Nguồn tự nhớ folder riêng") — cùng lý do
-        // switchToVideoSource() ngay trên.
-        {
+            // MỚI (06/09/2026, Giang chốt "mỗi Nguồn tự nhớ folder riêng") — CÙNG LÝ DO
+            // switchToVideoSource() ngay trên — applyFolderScope()/applyAllSongsScope() tự lo hết
+            // phần tính playlistOrder (Scope + Exclude/Filter) + render.
             const folderForThisSource = appState.get('activePlayListFolder').song;
             if (folderForThisSource) await workflowPlaylistScope.applyFolderScope(folderForThisSource, 'song');
             else await workflowPlaylistScope.applyAllSongsScope('song');
-        }
+            resetPlaylistScrollTop();  // core (MỚI, 29/07/2026, phản hồi Giang mục 2) — cùng lý do switchToVideoSource(), scrollTop cũ vô nghĩa với danh sách vừa đổi hẳn Nguồn
+        });
         if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholder');
         // SỬA (phản hồi Giang — "1 khung, không nhân bản") — cùng lý do switchToVideoSource().
         this._applyUploadInputAccept('song');
@@ -1408,14 +1386,18 @@ const workflowPlaylist = {
     },
 
     /**
-     * Đổi Nguồn sang Photo — MỚI (hợp nhất Photo vào Playlist). Nạp lại TOÀN BỘ playlistCache/
-     * playlistOrder từ store `images` qua Adapter (buildPhotoPlaylistCache(), core/playlist/
-     * loader.js), rồi vẽ lại UI — TÁI DÙNG NGUYÊN 100% các hàm core đã phục vụ Song/Video
-     * (recomputeDisplayOrder/RenderOrder, updateEmptyState, updateShuffleArray, renderPlaylistDiff()
-     * -> buildSongNode()). CHỐT Giang: dùng HẲN UI Playlist Song/Video cho Photo, KHÔNG view riêng —
-     * `renderPlaylistDiff()` KHÔNG rẽ nhánh gì cả, chạy Y HỆT Song/Video. Khác biệt DUY NHẤT nằm
-     * trong shape dữ liệu Adapter tạo ra (`cover`=thumbBlob, `width`/`height` thay `duration` —
-     * buildSongNode() tự đọc `cached.mediaType==='photo'` để hiện "WxH" thay vì thời lượng).
+     * Đổi Nguồn sang Photo — MỚI (hợp nhất Photo vào Playlist). TÁI DÙNG "workflow chuẩn" DÙNG
+     * CHUNG với app boot (MỚI 07/09/2026, xem `workflowPlaylistScope.loadPlaylistCacheForSource()`,
+     * event/workflow/playlist-scope.js và docstring đầy đủ ở `switchToVideoSource()` — CÙNG BUG/
+     * CÙNG FIX, không lặp lại ở đây): (1) nạp lại `playlistCache` từ store `images` qua Adapter
+     * (buildPhotoPlaylistCache()) — KHÔNG đụng `playlistOrder`; (2) đọc `activePlayListFolder.photo`
+     * rồi gọi ĐÚNG 1 trong 2 `applyFolderScope()`/`applyAllSongsScope()` — Scope + Filter + render 1
+     * LẦN DUY NHẤT — TÁI DÙNG NGUYÊN 100% các hàm core đã phục vụ Song/Video (recomputeDisplayOrder/
+     * RenderOrder, updateEmptyState, updateShuffleArray, renderPlaylistDiff() -> buildSongNode()).
+     * CHỐT Giang: dùng HẲN UI Playlist Song/Video cho Photo, KHÔNG view riêng — `renderPlaylistDiff()`
+     * KHÔNG rẽ nhánh gì cả, chạy Y HỆT Song/Video. Khác biệt DUY NHẤT nằm trong shape dữ liệu
+     * Adapter tạo ra (`cover`=thumbBlob, `width`/`height` thay `duration` — buildSongNode() tự đọc
+     * `cached.mediaType==='photo'` để hiện "WxH" thay vì thời lượng).
      * Không toggle #btn-upload-audio/#btn-upload-video (Photo chưa có nút upload riêng trong
      * Playlist — vẫn upload qua File Manager -> Photo như cũ) — ẩn CẢ 2 nút khi ở Nguồn này.
      */
@@ -1429,37 +1411,25 @@ const workflowPlaylist = {
         // CÁCH SỬA switchToVideoSource()/switchToSongSource() ngay trên — đổi showPlaylistLoading()
         // (chỉ che vùng list) sang withLoadingShield() (che toàn app). Lợi ích PHỤ (mục 1, xem fix
         // loadPersistedFilterConfigOnBoot() cùng đợt): finally{} của withLoadingShield() tự tắt
-        // shield dù fn() bên trong ném lỗi — trước đây showPlaylistLoading()/hidePlaylistLoading()
-        // KHÔNG có cơ chế này, nên khi applyPlaylistFilter() ném lỗi giữa chừng (playlistFilterConfig.
-        // photo undefined do dữ liệu lưu bền cũ thiếu key 'photo'), hidePlaylistLoading() không bao
-        // giờ chạy tới -> treo loading vĩnh viễn, đúng hiện tượng Giang báo ở mục 1.
+        // shield dù fn() bên trong ném lỗi — applyPlaylistFilter() (giờ nằm BÊN TRONG
+        // applyFolderScope()/applyAllSongsScope()) ném lỗi giữa chừng (playlistFilterConfig.photo
+        // undefined do dữ liệu lưu bền cũ thiếu key 'photo') vẫn không còn treo loading vĩnh viễn,
+        // đúng hiện tượng Giang báo ở mục 1.
+        // SỬA (07/09/2026) — CÙNG LÝ DO switchToVideoSource() ngay trên: giữ shield mở xuyên suốt
+        // CẢ nạp cache LẪN Scope/render, chỉ còn 1 lần render duy nhất.
         await withLoadingShield(t('playlistView.loading.generic'), async () => {
-            const imageRecords = await listImages((done, total) => { // core/file-manager/image.js — MỚI, onProgress cho x/total
+            await workflowPlaylistScope.loadPlaylistCacheForSource('photo', (done, total) => { // event/workflow/playlist-scope.js (MỚI) — chỉ nạp playlistCache, chưa render
                 loadingText.textContent = tFormat('playlistView.loading.withCountPhoto', { done, total });
             });
-            const keys = buildPhotoPlaylistCache(imageRecords); // core/playlist/loader.js (MỚI), CÓ return, DÙNG ngay dưới
-            const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig').photo);
-            appState.set('playlistOrder', filteredKeys);
-            console.log(`writer: "switchToPhotoSource", page: "playlistOrder", content: "${filteredKeys.length}/${keys.length} ảnh (đã áp Filter)"`);
-
-            workflowPlaylistOrder.updateShuffleArray(); // event/workflow/playlist-order.js (dời từ core/playlist/order.js) — vô hại dù Photo chưa dùng Shuffle (CHỐT Giang: player controls ẩn hẳn ở Nguồn này, tạm hoãn)
-            // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — recomputeDisplayOrder()/
-            // recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/playlist-order.js
-            // (workflowPlaylistOrder) — gọi trực tiếp, CÙNG LÝ DO switchToVideoSource()/
-            // switchToSongSource() ngay trên.
-            workflowPlaylistOrder.recomputeDisplayOrder();
-            workflowPlaylistOrder.recomputeRenderOrder();
-            workflowPlaylistRender.renderPlaylistDiff();      // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — CHẠY Y HỆT Song/Video, KHÔNG rẽ nhánh
-            resetPlaylistScrollTop();  // core — danh sách vừa đổi hẳn Nguồn, scrollTop cũ vô nghĩa -> về 0 tức thì
-            updateEmptyState();        // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
-        });
-        // MỚI (06/09/2026, Giang chốt "mỗi Nguồn tự nhớ folder riêng") — cùng lý do
-        // switchToVideoSource() ngay trên.
-        {
+            // MỚI (06/09/2026, Giang chốt "mỗi Nguồn tự nhớ folder riêng") — CÙNG LÝ DO
+            // switchToVideoSource() ngay trên — applyFolderScope()/applyAllSongsScope() tự lo hết
+            // phần tính playlistOrder (Scope + Exclude/Filter) + render (vô hại dù Photo chưa dùng
+            // Shuffle — CHỐT Giang: player controls ẩn hẳn ở Nguồn này, tạm hoãn).
             const folderForThisSource = appState.get('activePlayListFolder').photo;
             if (folderForThisSource) await workflowPlaylistScope.applyFolderScope(folderForThisSource, 'photo');
             else await workflowPlaylistScope.applyAllSongsScope('photo');
-        }
+            resetPlaylistScrollTop();  // core — danh sách vừa đổi hẳn Nguồn, scrollTop cũ vô nghĩa -> về 0 tức thì
+        });
         if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholderPhoto');
         // SỬA (phản hồi Giang — "1 khung, không nhân bản") — nút upload giờ DÙNG CHUNG cho cả 3
         // Nguồn (kể cả Photo — trước đây Photo hoàn toàn KHÔNG có upload trong Playlist, giờ có
