@@ -240,7 +240,7 @@
         }
 
         /** MỚI (29/07/2026, yêu cầu Giang mục 2 — "đổi song <-> video playlist thì scroll = 0
-         * ngay") — đổi Nguồn (switchToVideoSource()/switchToSongSource(), event/workflow/
+         * ngay") — đổi Nguồn (switchSource(), event/workflow/
          * playlist.js) dựng lại TOÀN BỘ danh sách khác hẳn nhau (renderPlaylistDiff() với
          * `renderOrder` hoàn toàn mới) — `scrollTop` CŨ (từ danh sách trước đó) không còn ý nghĩa
          * gì với danh sách MỚI, giữ nguyên trông như "cuộn dở/lệch" ngay khi vừa đổi Nguồn. Đây là

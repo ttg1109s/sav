@@ -7,10 +7,9 @@
  *
  * KHÁC BIỆT VỚI Ô TÌM KIẾM (`songMatchesQuery()`, core/song-search.js): Search lọc `renderOrder`
  * (chỉ UI, đổi ngay theo từng ký tự gõ), CHUẨN HOÁ dấu tiếng Việt (`normalizeSongName()`). Filter
- * lọc `playlistOrder` NGAY GỐC — chỉ chạy lại ở ĐÚNG 4 nơi `playlistOrder` được TÍNH MỚI (đổi
- * Nguồn/áp Scope folder/boot — xem `applyPlaylistFilter()` gọi từ `event/workflow/playlist.js::
- * switchToSongSource()`/`switchToVideoSource()` + `event/workflow/playlist-scope.js::
- * applyFolderScope()`/`applyAllSongsScope()`). 2 cơ chế KHÔNG đụng nhau, không tái dùng logic của
+ * lọc `playlistOrder` NGAY GỐC — chỉ chạy lại ở ĐÚNG 2 nơi `playlistOrder` được TÍNH MỚI (đổi
+ * Nguồn/áp Scope folder/boot — nay đều gói trong `event/workflow/playlist-scope.js::
+ * applyFolderScope()`/`applyAllSongsScope()`, tự áp Filter bên trong). 2 cơ chế KHÔNG đụng nhau, không tái dùng logic của
  * nhau — Filter so khớp text KHÔNG phân biệt hoa/thường (`.toLowerCase()` JS builtin, viết NGAY
  * TRONG file này) nhưng CÓ phân biệt dấu tiếng Việt (KHÔNG gọi `normalizeSongName()`,
  * core/song-search.js — đó là 1 core KHÁC của project, Rule 3 cấm tuyệt đối Core gọi Core khác,
