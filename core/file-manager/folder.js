@@ -41,7 +41,8 @@
  *     `type || 'song'` (xem addSongsToFolder()) — KHÔNG cần migration/backfill DB riêng.
  *   - `excludeFromMainPlaylist: boolean` (default false, field vắng mặt = false) — Scope vs
  *     Exclude (mục 5): CHỈ ảnh hưởng view "Tất cả" (core/playlist/scope.js::loadAllSongs()), không
- *     đụng gì view Scope theo 1 folder cụ thể (loadSongsFromFolder() không đọc field này).
+ *     đụng gì view Scope theo 1 folder cụ thể (List step, event/workflow/playlist-scope.js, chỉ
+ *     đọc key thuộc folder đó, không quan tâm field này).
  *   songs (field mới trên record có sẵn) : record.folder = { [folderId]: position (number) } —
  *                 sự TỒN TẠI của key folderId đã đủ biết "từng thêm vào folder này chưa"; trạng
  *                 thái đang-ở-trong hay đã-gỡ đọc thẳng từ folder_song[folderId].list[position].
