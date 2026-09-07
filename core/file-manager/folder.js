@@ -517,7 +517,7 @@ async function getExcludedSongKeysFromFolders(mediaType) {
  * browse nguồn nào. 1 folder KHÔNG BAO GIỜ trộn loại (type cố định từ lúc tạo, xem createFolder())
  * nên chỉ cần đọc ĐÚNG 1 store cho toàn bộ danh sách, không phải phán đoán từng item riêng lẻ.
  * MỞ RỘNG (hợp nhất Photo vào Playlist) — thêm nhánh 'photo' (đọc `images`, title = filename bỏ
- * đuôi, không có artist — cùng công thức Adapter buildPhotoPlaylistCache(), core/playlist/loader.js).
+ * đuôi, không có artist — cùng công thức Adapter buildAdaptedPlaylistCache(), core/playlist/loader.js).
  * Bài/video/ảnh không còn tồn tại (đã xoá, còn sót key trong folder_song) vẫn hiển thị bằng chính
  * key làm tên tạm — KHÔNG loại khỏi danh sách, để người dùng vẫn gỡ được tham chiếu rác đó.
  * @param {Object} folderMap - { list, empty } của 1 folder

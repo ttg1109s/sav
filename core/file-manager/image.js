@@ -17,7 +17,7 @@
  * `duration` (giây, số thực — event/workflow/file-manager-photo.js::computePhotoDuration(),
  * deterministic từ size+resolution+SHA-256 của chính file). CÙNG NGUYÊN TẮC fallback record cũ như
  * `thumbBlob`/`width`/`height` — record cũ (upload trước field này tồn tại) THIẾU `duration`, nơi
- * đọc PHẢI tự fallback (xem core/playlist/loader.js::buildPhotoPlaylistCache()).
+ * đọc PHẢI tự fallback (xem core/playlist/loader.js::buildAdaptedPlaylistCache()).
  *
  * XOÁ (loại bỏ Album khỏi Photo Panel) — không còn cascade dọn ảnh khỏi album lúc xoá (Album đã
  * xoá hẳn khỏi app, xem core/file-manager/image.js::deleteImage()).
