@@ -15,6 +15,16 @@
                 // dạng string phẳng qua meta) tự migrate 1 lần lúc boot, xem
                 // core/file-manager/folder.js::migrateActivePlayListFolderIfNeeded().
                 activePlayListFolder: 'object', // {song: string|null, video: string|null, photo: string|null}
+                // MỚI (06/09/2026, hợp nhất Folder vào Playlist, mục 4b — "Read-only" folder, dùng
+                // Block gate chặn upload) — LUÔN phản ánh field `isReadOnly` của folder đang active
+                // TẠI ĐÚNG `activeMediaSource` hiện tại (không phải object theo Nguồn như
+                // `activePlayListFolder` — Block gate (event/block.js) chỉ đọc được field TĨNH, 1
+                // giá trị phẳng là đủ vì tại 1 thời điểm chỉ có 1 Nguồn đang hiển thị/có thể upload).
+                // Cập nhật ở event/workflow/playlist-scope.js::applyFolderScope()/applyAllSongsScope()
+                // (chạy đúng lúc `activeMediaSource` thay đổi hoặc Scope đổi) VÀ ngay khi checkbox
+                // "Read-only" ở Properties bị đổi trong lúc CHÍNH folder đó đang active (xem
+                // event/workflow/file-manager-folder-browser.js::showFolderProperties()).
+                isActiveFolderReadOnly: 'boolean',
                 selectionMode: 'boolean',                // chế độ chọn nhiều (checkbox) trong Playlist
                 selectedSongKeys: 'set',                 // tập songKey đang được chọn khi selectionMode = true
                 // true = displayOrder hiện đang là 1 "section" (tập con vừa chọn-rồi-phát qua
@@ -23,7 +33,9 @@
                 sectionQueueActive: 'boolean',
                 // (activeBackgroundAlbum XOÁ — v13 Batch B: "album nào đang làm nền" giờ nằm
                 //  trong `visualBgConfig.source` (v14: originId/list), KHÔNG còn bản sao trong AppState.)
-                pageCurrentFolderDetailSongList: 'number',   // trang ĐANG xem của danh sách item BÊN TRONG 1 folder (Folder Browser Read, event/workflow/file-manager-folder-browser.js)
+                // XOÁ (06/09/2026, Giang chốt mục 3.6 — "bỏ hẳn màn Read") — pageCurrentFolderDetailSongList
+                // (trang đang xem BÊN TRONG 1 folder, Folder Browser Read) mồ côi hoàn toàn cùng màn
+                // hình đó — không còn phân trang gì cả, nội dung folder xem thẳng qua Playlist chính.
                 // XOÁ (loại bỏ Document Reader khỏi app) — pageCurrentDocumentList (trang danh sách
                 // tài liệu Documents) bỏ hẳn cùng tính năng.
                 // XOÁ (chỉ 1 mặt canvas dùng chung xem/zoom/pan/edit modal xem ảnh, bỏ dropdown
@@ -39,10 +51,10 @@
             buildDefaults() {
                 return {
                     activePlayListFolder: { song: null, video: null, photo: null },
+                    isActiveFolderReadOnly: false,
                     selectionMode: false,
                     selectedSongKeys: new Set(),
                     sectionQueueActive: false,
-                    pageCurrentFolderDetailSongList: 0,
                 };
             },
         });
