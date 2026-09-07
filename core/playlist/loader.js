@@ -42,6 +42,9 @@
 
             const failedFiles = [];
             const newlyAddedKeys = [];
+            // MỚI (06/09/2026, Batch 6) — mọi key THẬT SỰ setSongRecord() thành công trong lượt
+            // này (mới HOẶC ghi đè) — xem chỗ push ở vòng lặp bên dưới + gắn folder cuối hàm.
+            const allProcessedKeys = [];
 
             // (3a) Lọc định dạng nhạc NGAY khi nhận file — accept="" của <input> chỉ là gợi ý UI,
             // không chặn thật (xem upload-validation.js). File không hợp lệ bị loại khỏi danh sách
@@ -141,6 +144,12 @@
                             if (old && old.subtitles) record.subtitles = old.subtitles;
                         }
                         await setSongRecord(key, record);
+                        // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 6 — "upload tự gắn
+                        // vào folder đang active") — gom key vào ĐÂY (CẢ 2 nhánh mới/ghi đè, xem
+                        // docstring cuối vòng lặp for) — gắn folder hàng loạt SAU vòng lặp, không
+                        // gọi addSongsToFolder() N lần riêng lẻ trong lúc lặp (tốn kém, xem docstring
+                        // addSongsToFolder()/removeSongsFromFolder(), core/file-manager/folder.js).
+                        allProcessedKeys.push(key);
 
                         if (!isOverwrite) { appState.mutate('playlistOrder', arr => arr.push(key)); playlistOrderSet.add(key); newlyAddedKeys.push(key); }
                         // FIX (Giang báo — "song mới upload thiếu addedAt/size trong playlistCache") —
@@ -172,6 +181,14 @@
                 workflowPlaylistOrder.applyNewSongsToDisplayOrder(newlyAddedKeys); // (B) hàng đợi phát: nối cuối / pending
                 workflowPlaylistOrder.recomputeRenderOrder(); // (A) UI: sắp xếp lại NGAY
                 workflowPlaylistRender.renderPlaylistDiff();
+                // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 6) — nếu đang Scope 1 folder
+                // Song, gắn LUÔN mọi file vừa upload (mới HOẶC ghi đè) vào ĐÚNG folder đó — 1 lượt
+                // bulk duy nhất (Rule 3b: core-gọi-core không áp cho vòng lặp workflow-orchestration
+                // này, đã có tiền lệ removeSongFromAllFolders() ngay trên cùng file).
+                const activeFolderIdForSong = appState.get('activePlayListFolder').song;
+                if (activeFolderIdForSong && allProcessedKeys.length > 0) {
+                    await addSongsToFolder(allProcessedKeys, activeFolderIdForSong, 'song'); // core/file-manager/folder.js
+                }
             });
 
             if (!shieldRan) {

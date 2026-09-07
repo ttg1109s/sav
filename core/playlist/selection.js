@@ -114,13 +114,16 @@ function applySelectionChrome(selectionMode) {
 }
 
 /**
- * Mở dropup 4 hành động (Phát/Xuất ZIP/Thêm vào thư mục/Xoá) — CÙNG PATTERN định vị với
- * openSongActionMenu()/openUploadActionMenu() (core/playlist/actions.js, loader.js), CHỈ khác:
+ * Mở dropup hành động (Phát/Xuất ZIP/Thêm vào thư mục/Xoá[/Gỡ khỏi thư mục]) — CÙNG PATTERN định vị
+ * với openSongActionMenu()/openUploadActionMenu() (core/playlist/actions.js, loader.js), CHỈ khác:
  * luôn mở PHÍA TRÊN #btn-selection-more bằng `bottom` (không cần nhánh "đủ chỗ bên dưới không" vì
  * nút này LUÔN nằm sát đáy màn hình trong thanh hành động — khác 2 menu kia có thể mở ở bất kỳ vị
- * trí cuộn nào). Hàm THUẦN UI, không I/O, không appState.
+ * trí cuộn nào). Hàm THUẦN UI, không tự appState — Rule 2, nhận `canRemoveFromFolder` qua tham số
+ * (MỚI 06/09/2026, hợp nhất Folder vào Playlist, Batch 5 — nơi gọi/Router tự tính, xem
+ * event/router/playlist.js).
+ * @param {boolean} [canRemoveFromFolder] - true = hiện mục "Gỡ khỏi thư mục" (đang Scope 1 folder).
  */
-function openSelectionMoreMenu() {
+function openSelectionMoreMenu(canRemoveFromFolder) {
     if (!btnSelectionMore || !selectionMoreMenu) return; // guard
     const rect = btnSelectionMore.getBoundingClientRect();
     const menuWidth = 208;
@@ -130,6 +133,9 @@ function openSelectionMoreMenu() {
     selectionMoreMenu.style.bottom = `${window.innerHeight - rect.top + 8}px`;
     selectionMoreMenu.classList.remove('hidden');
     songActionOverlay.classList.remove('hidden');
+    // MỚI (06/09/2026) — mục "Gỡ khỏi thư mục" chỉ có ý nghĩa khi đang Scope 1 folder cụ thể.
+    const removeFromFolderBtn = selectionMoreMenu.querySelector('[data-menu-action="removeFromFolder"]');
+    if (removeFromFolderBtn) removeFromFolderBtn.classList.toggle('hidden', !canRemoveFromFolder);
 }
 
 /** Đóng dropup 4 hành động — dùng CHUNG songActionOverlay (xem comment ở openSelectionMoreMenu). */
