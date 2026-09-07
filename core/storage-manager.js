@@ -101,13 +101,18 @@
         /**
          * Đóng gói toàn bộ blob mp3 GỐC (không gắn tag mới, giữ nguyên file thật) thành 1 file .zip,
          * tên file giữ nguyên filename gốc — trùng tên tự thêm số đếm để JSZip không ghi đè lẫn nhau.
+         * SỬA (06/09/2026, hợp nhất Folder vào Playlist — "Properties -> Download" cho 1 folder cụ
+         * thể) — thêm tham số `keys` TUỲ CHỌN: có truyền thì zip ĐÚNG danh sách đó (không tự
+         * `getAllSongKeys()` nữa); không truyền (`undefined`, mọi lời gọi CŨ) thì giữ NGUYÊN hành vi
+         * gốc (toàn bộ thư viện) — tương thích ngược 100%, không cần sửa nơi gọi cũ.
+         * @param {string[]} [keys]
          */
-        async function buildAllSongsZipBlob(onProgress) {
+        async function buildAllSongsZipBlob(keys, onProgress) {
             if (typeof JSZip === 'undefined') {
                 throw new Error(t('common.storage.zipLibMissing'));
             }
             const zip = new JSZip();
-            const keys = await getAllSongKeys();
+            if (!keys) keys = await getAllSongKeys();
             const usedNames = new Map(); // filename -> số lần đã dùng, để chống trùng tên trong zip
             let done = 0;
             for (const key of keys) {
@@ -188,13 +193,15 @@
          * MỚI (ver12 "Song/Video Unification", Batch 5, mục 6b) — mirror buildAllSongsZipBlob()
          * ngay trên, bản của Video (mỗi domain viết riêng, cùng quy ước "mỗi domain 1 hàm" đã dùng
          * cho renderVideoStorageStats()/computeVideoStats()).
+         * SỬA (06/09/2026) — thêm `keys` tuỳ chọn, CÙNG LÝ DO buildAllSongsZipBlob() ngay trên.
+         * @param {string[]} [keys]
          */
-        async function buildAllVideosZipBlob(onProgress) {
+        async function buildAllVideosZipBlob(keys, onProgress) {
             if (typeof JSZip === 'undefined') {
                 throw new Error(t('common.storage.zipLibMissing'));
             }
             const zip = new JSZip();
-            const keys = await getAllVideoKeys(); // service/db.js
+            if (!keys) keys = await getAllVideoKeys(); // service/db.js
             const usedNames = new Map();
             let done = 0;
             for (const key of keys) {
@@ -412,13 +419,16 @@
         // deleteImageRecord). =====================
 
         /** Đóng gói TOÀN BỘ ảnh GỐC (blob thật, không phải thumbBlob) thành 1 file .zip. Mirror
-         * `buildAllVideosZipBlob()` ngay trên. */
-        async function buildAllPhotosZipBlob(onProgress) {
+         * `buildAllVideosZipBlob()` ngay trên.
+         * SỬA (06/09/2026) — thêm `keys` tuỳ chọn, CÙNG LÝ DO buildAllSongsZipBlob() ở trên.
+         * @param {string[]} [keys]
+         */
+        async function buildAllPhotosZipBlob(keys, onProgress) {
             if (typeof JSZip === 'undefined') {
                 throw new Error(t('common.storage.zipLibMissing'));
             }
             const zip = new JSZip();
-            const keys = await getAllImageKeys(); // service/db.js
+            if (!keys) keys = await getAllImageKeys(); // service/db.js
             const usedNames = new Map();
             let done = 0;
             for (const key of keys) {

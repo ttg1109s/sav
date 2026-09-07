@@ -552,3 +552,11 @@
         // core/playlist/main.js::initMediaSource()/updateActiveFolderUI().
         const playlistSearchInput = document.getElementById('playlist-search-input');
         const playlistSearchClear = document.getElementById('playlist-search-clear');
+        // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 3) — badge tên folder đang Scope,
+        // xem components/playlist-view.js. Tĩnh, LUÔN có sẵn trong DOM cùng lúc màn Playlist chính
+        // dựng lần đầu (KHÔNG thuộc Generic Drawer content-swap) — an toàn để capture 1 lần ở đây,
+        // KHÔNG rơi vào bug stale-reference như `mediaSourceSelect`/`viewModeSelect` (2 biến đó đã
+        // xoá khỏi file này, xem lịch sử SỬA 06/09/2026 phía trên).
+        const playlistActiveFolderBadge = document.getElementById('playlist-active-folder-badge');
+        const playlistActiveFolderBadgeName = document.getElementById('playlist-active-folder-badge-name');
+        const playlistActiveFolderBadgeClose = document.getElementById('playlist-active-folder-badge-close');
