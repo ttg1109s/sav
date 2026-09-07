@@ -1179,6 +1179,16 @@ const workflowPlaylist = {
             resetPlaylistScrollTop();  // core (MỚI, 29/07/2026, phản hồi Giang mục 2) — danh sách vừa đổi hẳn Nguồn, scrollTop cũ vô nghĩa -> về 0 tức thì
             updateEmptyState();        // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
         });
+        // MỚI (06/09/2026, Giang chốt "mỗi Nguồn tự nhớ folder riêng") — Nguồn Video có thể đang
+        // Scope 1 folder từ TRƯỚC lúc rời đi Nguồn khác — tự áp lại NGAY, không cần bấm lại (cùng
+        // khuôn boot sequence, xem event/workflow/app-boot.js). Không có folder nhớ sẵn ->
+        // applyAllSongsScope() (không phải chỉ giữ nguyên khối trên) để Exclude cũng được áp đúng —
+        // khối withLoadingShield() ngay trên chỉ lọc Playlist Filter, chưa từng lọc Exclude.
+        {
+            const folderForThisSource = appState.get('activePlayListFolder').video;
+            if (folderForThisSource) await workflowPlaylistScope.applyFolderScope(folderForThisSource, 'video');
+            else await workflowPlaylistScope.applyAllSongsScope('video');
+        }
         // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — placeholder ô tìm kiếm
         // đổi theo Nguồn (Song có artist/album để tìm, Video thì không).
         if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholderVideo');
@@ -1238,6 +1248,13 @@ const workflowPlaylist = {
             resetPlaylistScrollTop();  // core (MỚI, 29/07/2026, phản hồi Giang mục 2) — cùng lý do switchToVideoSource(), scrollTop cũ vô nghĩa với danh sách vừa đổi hẳn Nguồn
             updateEmptyState();
         });
+        // MỚI (06/09/2026, Giang chốt "mỗi Nguồn tự nhớ folder riêng") — cùng lý do
+        // switchToVideoSource() ngay trên.
+        {
+            const folderForThisSource = appState.get('activePlayListFolder').song;
+            if (folderForThisSource) await workflowPlaylistScope.applyFolderScope(folderForThisSource, 'song');
+            else await workflowPlaylistScope.applyAllSongsScope('song');
+        }
         if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholder');
         // SỬA (phản hồi Giang — "1 khung, không nhân bản") — cùng lý do switchToVideoSource().
         this._applyUploadInputAccept('song');
@@ -1293,6 +1310,13 @@ const workflowPlaylist = {
             resetPlaylistScrollTop();  // core — danh sách vừa đổi hẳn Nguồn, scrollTop cũ vô nghĩa -> về 0 tức thì
             updateEmptyState();        // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
         });
+        // MỚI (06/09/2026, Giang chốt "mỗi Nguồn tự nhớ folder riêng") — cùng lý do
+        // switchToVideoSource() ngay trên.
+        {
+            const folderForThisSource = appState.get('activePlayListFolder').photo;
+            if (folderForThisSource) await workflowPlaylistScope.applyFolderScope(folderForThisSource, 'photo');
+            else await workflowPlaylistScope.applyAllSongsScope('photo');
+        }
         if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholderPhoto');
         // SỬA (phản hồi Giang — "1 khung, không nhân bản") — nút upload giờ DÙNG CHUNG cho cả 3
         // Nguồn (kể cả Photo — trước đây Photo hoàn toàn KHÔNG có upload trong Playlist, giờ có

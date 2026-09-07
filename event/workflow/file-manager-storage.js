@@ -272,7 +272,7 @@ const workflowFileManagerStorage = {
             if (deleteEnabled && result.status !== 'zipError') {
                 await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllStoredData(); }); // core/storage-manager.js (Song, GIỮ NGUYÊN 100%)
                 await clearAllFolderSongData(); // core/file-manager/folder.js
-                if (appState.get('activePlayListFolder')) await workflowPlaylistScope.persistScopeChoice(null);
+                if (appState.get('activePlayListFolder').song) await workflowPlaylistScope.persistScopeChoice(null, 'song');
             }
             return result;
         }

@@ -76,6 +76,15 @@ const workflowFileManagerFolderBrowser = {
         return type === 'video' ? 'Video' : type === 'photo' ? 'Photo' : '';
     },
 
+    /** MỚI (06/09/2026, per-source activePlayListFolder) — 'song'|'video'|'photo' của folder đang
+     * xem ở Read, cùng quy ước `type || 'song'` cho folder cũ chưa có field này (xem docstring đầu
+     * core/file-manager/folder.js). Dùng để đọc/ghi ĐÚNG field trong object `activePlayListFolder`.
+     * @returns {'song'|'video'|'photo'}
+     */
+    _folderMediaType() {
+        return (this._readFolderRecord && this._readFolderRecord.type) || 'song';
+    },
+
     /** Chọn ĐÚNG biến thể Song/Video/Photo của 1 key (key gốc = Song, key + hậu tố = Video/Photo)
      * — chỉ dùng cho các key ĐÃ CÓ đủ 3 biến thể (xem lang/patch/patch-file-manager.js), KHÔNG dùng
      * cho key trung lập/không cần biến thể (ví dụ renameTitle/btnDeleteFolder). */
@@ -297,11 +306,13 @@ const workflowFileManagerFolderBrowser = {
 
     /** DOM-patch thuần — đồng bộ checkbox Scope. Rỗng + chưa active -> `disabled` (không cho bật) —
      * cùng lý do đã áp dụng ở Batch 4, giờ càng QUAN TRỌNG hơn vì Block gate không còn chặn được
-     * đường này nữa (xem docstring đầu file). */
+     * đường này nữa (xem docstring đầu file).
+     * SỬA (06/09/2026, per-source) — so với `activePlayListFolder[_folderMediaType()]` thay vì so
+     * thẳng 1 giá trị phẳng như trước (đổi schema, xem service/state/file-manager.js). */
     _updateScopeToggleUI(isEmpty) {
         const toggle = genericDrawerBody.querySelector('#toggle-folder-browser-read-scope');
         if (!toggle) return;
-        const isActive = this._readFolderId === appState.get('activePlayListFolder');
+        const isActive = this._readFolderId === appState.get('activePlayListFolder')[this._folderMediaType()];
         toggle.checked = isActive;
         toggle.disabled = isEmpty && !isActive;
     },
@@ -314,56 +325,83 @@ const workflowFileManagerFolderBrowser = {
 
     /** Bật Scope. Guard THẲNG (thay Block gate cũ, xem docstring đầu file): rỗng + chưa active ->
      * không làm gì (checkbox đã `disabled` nên bình thường không tới được đây, guard này là lớp
-     * phòng vệ thứ 2). */
+     * phòng vệ thứ 2).
+     * SỬA (06/09/2026, Giang chốt "bỏ hỏi reload, áp sống luôn" + per-source) — gọi thẳng
+     * `applyFolderScope()` (đã áp được sống, xem event/workflow/playlist-scope.js), không còn
+     * `askReloadToApplyNow()`. Folder Browser List đã tự lọc ĐÚNG type khớp `activeMediaSource`
+     * (xem `openList()`), nên `_folderMediaType()` ở đây LUÔN trùng `activeMediaSource` hiện tại —
+     * áp sống chắc chắn phản ánh đúng ngay trên Playlist đang hiển thị. */
     async enableScope() {
-        if (this._readAllItems.length === 0 && this._readFolderId !== appState.get('activePlayListFolder')) return;
+        const mediaType = this._folderMediaType();
+        if (this._readAllItems.length === 0 && this._readFolderId !== appState.get('activePlayListFolder')[mediaType]) return;
         const folderId = this._readFolderId;
-        await workflowPlaylistScope.persistScopeChoice(folderId);
+        await withLoadingShield(t('common.loading.generic'), async () => {
+            await workflowPlaylistScope.persistScopeChoice(folderId, mediaType);
+            await workflowPlaylistScope.applyFolderScope(folderId, mediaType);
+        });
         this._updateScopeToggleUI(this._readAllItems.length === 0);
-        workflowPlaylistScope.askReloadToApplyNow(this._folderText('fileManager.song.folderDetail.applyReloadBody', { name: escapeHtml(this._readFolderRecord ? this._readFolderRecord.name : '') }));
     },
 
+    /** SỬA (06/09/2026, cùng lý do enableScope() ngay trên) — áp sống, bỏ hỏi reload. */
     async disableScope() {
-        await workflowPlaylistScope.persistScopeChoice(null);
+        const mediaType = this._folderMediaType();
+        await withLoadingShield(t('common.loading.generic'), async () => {
+            await workflowPlaylistScope.persistScopeChoice(null, mediaType);
+            await workflowPlaylistScope.applyAllSongsScope(mediaType);
+        });
         this._updateScopeToggleUI(this._readAllItems.length === 0);
-        workflowPlaylistScope.askReloadToApplyNow(this._folderText('fileManager.song.folderDetail.unapplyReloadBody'));
     },
 
+    /** SỬA (06/09/2026, cùng chủ trương "áp sống" — Exclude chỉ ảnh hưởng view "Tất cả", xem
+     * docstring `excludeFromMainPlaylist` đầu core/file-manager/folder.js) — CHỈ có gì để áp SỐNG
+     * khi Nguồn hiện tại ĐANG ở "Tất cả" (không đang Scope 1 folder khác) — nếu đang Scope 1 folder
+     * cụ thể (kể cả chính folder này), đổi Exclude không đổi gì đang hiển thị NGAY LÚC NÀY, chỉ có
+     * tác dụng lần sau quay về "Tất cả" (đã tự đúng, `getExcludedSongKeysFromFolders()` luôn đọc
+     * lại tươi mỗi lần applyAllSongsScope() chạy, không cache) — không cần làm gì thêm, cũng không
+     * cần hỏi reload nữa. */
     async setExclude(enabled) {
+        const mediaType = this._folderMediaType();
         await setFolderExcludeFlag(this._readFolderId, enabled); // core/file-manager/folder.js
-        workflowPlaylistScope.askReloadToApplyNow(enabled
-            ? this._folderText('fileManager.song.folderDetail.excludeOnReloadBody')
-            : this._folderText('fileManager.song.folderDetail.excludeOffReloadBody'));
-    },
-
-    /** Gỡ 1 item khỏi folder (KHÔNG xoá bài/video thật). Rỗng hoàn toàn + đang là scope hiện tại ->
-     * tự bỏ áp dụng (cùng logic đã có từ trước Batch 4). */
-    async removeItem(key) {
-        const folderId = this._readFolderId;
-        const mediaType = this._readFolderRecord && this._readFolderRecord.type; // xem SỬA 28/07/2026 ở core/file-manager/folder.js — đọc đúng type đã khoá của folder
-        await removeSongFromFolder(key, folderId, mediaType); // core/file-manager/folder.js
-        const folderMap = await getFolderSongMap(folderId); // service/db.js — CÓ return, DÙNG ngay dưới để check rỗng
-        await this._refreshRead();
-        if (isFolderEmpty(folderMap) && folderId === appState.get('activePlayListFolder')) { // core/file-manager/folder.js
-            await workflowPlaylistScope.persistScopeChoice(null);
-            await this._refreshRead();
-            workflowPlaylistScope.askReloadToApplyNow(this._folderText('fileManager.song.folderDetail.autoUnapplyReloadBody'));
+        if (appState.get('activePlayListFolder')[mediaType] == null) {
+            await withLoadingShield(t('common.loading.generic'), () => workflowPlaylistScope.applyAllSongsScope(mediaType));
         }
     },
 
+    /** Gỡ 1 item khỏi folder (KHÔNG xoá bài/video thật). Rỗng hoàn toàn + đang là scope hiện tại ->
+     * tự bỏ áp dụng (cùng logic đã có từ trước Batch 4).
+     * SỬA (06/09/2026, áp sống + per-source) — bỏ `askReloadToApplyNow()`, gọi thẳng
+     * `applyAllSongsScope()`. */
+    async removeItem(key) {
+        const folderId = this._readFolderId;
+        const mediaType = this._folderMediaType();
+        await removeSongFromFolder(key, folderId, mediaType); // core/file-manager/folder.js
+        const folderMap = await getFolderSongMap(folderId); // service/db.js — CÓ return, DÙNG ngay dưới để check rỗng
+        await this._refreshRead();
+        if (isFolderEmpty(folderMap) && folderId === appState.get('activePlayListFolder')[mediaType]) { // core/file-manager/folder.js
+            await withLoadingShield(t('common.loading.generic'), async () => {
+                await workflowPlaylistScope.persistScopeChoice(null, mediaType);
+                await workflowPlaylistScope.applyAllSongsScope(mediaType);
+            });
+            await this._refreshRead();
+        }
+    },
+
+    /** SỬA (06/09/2026, cùng lý do removeItem() ngay trên) — áp sống, bỏ hỏi reload. */
     confirmRemoveAllItems() {
         const folderId = this._readFolderId;
+        const mediaType = this._folderMediaType();
         modalChoice( // core/modal-choice-ui.js
             this._folderText('fileManager.song.folderDetail.removeAllConfirm'),
             [
                 { label: this._folderText('fileManager.song.folderDetail.btnRemoveAll'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
-                    const mediaType = this._readFolderRecord && this._readFolderRecord.type; // xem SỬA 28/07/2026 ở core/file-manager/folder.js
                     await removeAllSongsFromFolder(folderId, mediaType); // core/file-manager/folder.js
                     await this._refreshRead();
-                    if (folderId === appState.get('activePlayListFolder')) {
-                        await workflowPlaylistScope.persistScopeChoice(null);
+                    if (folderId === appState.get('activePlayListFolder')[mediaType]) {
+                        await withLoadingShield(t('common.loading.generic'), async () => {
+                            await workflowPlaylistScope.persistScopeChoice(null, mediaType);
+                            await workflowPlaylistScope.applyAllSongsScope(mediaType);
+                        });
                         await this._refreshRead();
-                        workflowPlaylistScope.askReloadToApplyNow(this._folderText('fileManager.song.folderDetail.autoUnapplyReloadBody'));
                     }
                 } }
             ],
@@ -387,26 +425,31 @@ const workflowFileManagerFolderBrowser = {
         if (this._mode === 'read' && this._readFolderId === folderId) await this._refreshRead();
     },
 
+    /** SỬA (06/09/2026, Giang chốt mục 3.2 — "chặn hẳn, không tự unapply-rồi-xoá") — TRƯỚC ĐÂY cho
+     * xoá folder đang active + tự bỏ scope. Giờ CHẶN HẲN: folder đang là Scope hiện tại của ĐÚNG
+     * Nguồn của nó (so `activePlayListFolder[folderType]`) thì báo lỗi, không mở modal xác nhận xoá
+     * — người dùng phải tự thoát Scope trước (nút X badge/tắt toggle Scope). Cơ chế so trực tiếp
+     * trong guard clause (KHÔNG đăng ký qua event/block.js `registerBlock()`): điều kiện cần so
+     * `payload.folderId` với ĐÚNG field `activePlayListFolder[folderType của payload đó]` — field
+     * bên phải phụ thuộc GIÁ TRỊ của 1 field khác trong CÙNG payload (dynamic key), khác hẳn khuôn
+     * `field`/`valueField` tĩnh mà `resolveFieldPath()` (event/bus.js) hỗ trợ — mở rộng cơ chế đó
+     * cho 1 ca duy nhất này không đáng, guard clause thường ở đây là đủ và rõ ràng hơn. */
     confirmDeleteFolder() {
         if (!this._readFolderRecord) return;
         const folderId = this._readFolderId;
         const folderName = this._readFolderRecord.name;
         const folderType = this._readFolderRecord.type; // capture NGAY — xem SỬA 28/07/2026 ở core/file-manager/folder.js
-        const isActiveFolder = folderId === appState.get('activePlayListFolder');
-        // SỬA (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — 'deleteActiveFolderConfirm'
-        // vốn đã trung lập (không nói "song"), CHỈ 'deleteFolderConfirm' cần biến thể Video
-        // ("Songs inside stay in your library..." — dùng _folderText() thay vì tFormat() thẳng).
-        const confirmBody = isActiveFolder
-            ? tFormat('fileManager.song.deleteActiveFolderConfirm', { name: escapeHtml(folderName) })
-            : this._folderText('fileManager.song.deleteFolderConfirm', { name: escapeHtml(folderName) });
+        const isActiveFolder = folderId === appState.get('activePlayListFolder')[this._folderMediaType()];
+        if (isActiveFolder) {
+            alertModal(tFormat('fileManager.song.deleteActiveFolderBlocked', { name: escapeHtml(folderName) }));
+            return;
+        }
         modalChoice( // core/modal-choice-ui.js
-            confirmBody,
+            this._folderText('fileManager.song.deleteFolderConfirm', { name: escapeHtml(folderName) }),
             [
                 { label: t('fileManager.song.btnDeleteFolder'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
                     await deleteFolder(folderId, folderType); // core/file-manager/folder.js
-                    if (isActiveFolder) await workflowPlaylistScope.persistScopeChoice(null);
                     await this.openList(); // folder đã mất -> luôn quay về List
-                    if (isActiveFolder) workflowPlaylistScope.askReloadToApplyNow(this._folderText('fileManager.song.folderDetail.deleteReloadBody'));
                 } }
             ],
             { title: t('fileManager.song.deleteFolderTitle') }

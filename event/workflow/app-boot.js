@@ -40,6 +40,15 @@ const workflowAppBoot = {
         // dùng có thể mở Folder Browser/Add to Folder (ngay sau boot), tránh race hiếm "index rỗng
         // tạm thời trong lúc đang build" khiến folder cũ hiện biến mất 1 nhịp.
         await migrateFolderIndexIfNeeded(); // core/file-manager/folder.js
+        // MỚI (06/09/2026, đổi schema activePlayListFolder theo Nguồn) — migrate 1 lần dữ liệu cũ
+        // (1 giá trị phẳng) sang object {song,video,photo}, PHẢI chạy TRƯỚC bất kỳ chỗ nào đọc
+        // `meta.activePlayListFolder`/`appState.activePlayListFolder` ngay dưới trong file này.
+        await migrateActivePlayListFolderIfNeeded(); // core/file-manager/folder.js
+        // Nạp giá trị đã lưu bền (nay CHẮC CHẮN đúng schema object nhờ migrate ngay trên) vào
+        // appState — mọi chỗ đọc `activePlayListFolder[type]` ngay dưới trong file này (và về sau
+        // ở event/workflow/playlist.js::switchToXSource()) đều qua appState, không tự getMeta()
+        // riêng lẻ (cùng khuôn playlistConfig/playlistFilterConfig ngay trên).
+        appState.set('activePlayListFolder', (await getMeta('activePlayListFolder')) || { song: null, video: null, photo: null });
         // XOÁ (29/08/2026) — comment cũ "Domain slideshow đã gộp vào visualBgConfig.slideshow (v13
         // Batch C)" không còn đúng — Motion tách hẳn thành hệ preset độc lập (migrate ở dòng
         // `workflowMotionPresets.loadPresetsOnBoot()` phía trên), không còn nhúng trong VBG.
@@ -77,84 +86,45 @@ const workflowAppBoot = {
         if (bootMediaSource === 'video' && typeof listVideos === 'function' && typeof buildVideoPlaylistCache === 'function') {
             buildVideoPlaylistCache(await listVideos()); // core có sẵn (core/playlist/loader.js)
         } else if (bootMediaSource === 'photo' && typeof listImages === 'function' && typeof buildPhotoPlaylistCache === 'function') {
-            // MỚI (hợp nhất Photo vào Playlist) — cùng lý do nhánh 'video' ngay trên, tránh lặp lại
-            // đúng bug mục 7 (initPlaylistFromDB() chỉ nạp Song, applyFolderScope() bên dưới sẽ so
-            // sánh nhầm key nếu activeMediaSource đã khôi phục là 'photo'). Photo không có Folder
-            // Scope (Folder chỉ áp dụng Song/Video) nên KHÔNG cần nhánh sửa lệch type ở khối
-            // VirtualMachineState bên dưới — chỉ cần nạp ĐÚNG playlistCache ở bước này là đủ.
+            // MỚI (hợp nhất Photo vào Playlist) — cùng lý do nhánh 'video' ngay trên: nạp ĐÚNG
+            // playlistCache theo type TRƯỚC khi bước Scope ngay dưới chạy, tránh applyFolderScope()
+            // giao (intersect) nhầm với 1 cache khác type (SỬA 06/09/2026 — comment cũ ở đây từng
+            // nói "Photo không có Folder Scope" — SAI/lỗi thời, Photo có Folder Scope đầy đủ y hệt
+            // Song/Video, xem event/workflow/playlist-scope.js).
             buildPhotoPlaylistCache(await listImages()); // core có sẵn (core/file-manager/image.js + core/playlist/loader.js)
         } else {
             await initPlaylistFromDB();
         }
         // Khôi phục activePlayListFolder đã lưu bền (nếu có) NGAY SAU khi playlistCache đã đầy đủ
         // ĐÚNG nguồn ở trên.
-        if (typeof getMeta === 'function' && typeof workflowPlaylistScope !== 'undefined') {
-            const savedFolderId = await getMeta('activePlayListFolder');
-            // SỬA (phản hồi Giang — "ai bảo file đấy được miễn, không đọc đầu plan à?") — bản
-            // trước Ở ĐÂY từng tự ý bỏ VirtualMachineState, thay bằng if/else thường, viện dẫn nhầm
-            // "file này miễn audit" (dòng miễn-audit đầu file CHỈ áp cho loadConfig()/
-            // loadPlaylistBgImageAsset() CŨ, không cấp phép cho code MỚI né rule) — SAI theo đúng "LƯU
-            // Ý BẮT BUỘC" đầu plan-v12-song-video-unification.md ("cần mở rộng 1 pattern kiến trúc
-            // — dừng lại hỏi Giang trước"). Đã hỏi lại, Giang chốt: mở rộng
-            // VirtualMachineState (thêm `runAsync()`, giữ nguyên `run()` đồng bộ — xem
-            // event/virtual-machine-state.js) — DÙNG LẠI ĐÚNG VMState ở đây, `await` được nhờ
-            // `runAsync()` trả `Promise.all()`.
-            await VirtualMachineState.runAsync([
-                // MỚI (Batch 4, "Song/Video Unification" mục 5) — trước đây no-op ("đã đúng Tất cả
-                // bài sẵn từ initPlaylistFromDB()") — giờ CẦN chạy applyAllSongsScope() để lọc
-                // Exclude (chỉ ảnh hưởng view "Tất cả") ngay từ lúc boot, xem
-                // event/workflow/playlist-scope.js.
-                { state: savedFolderId, operation: 'in', value: [null, undefined], callback: () => workflowPlaylistScope.applyAllSongsScope() },
-                { state: savedFolderId, operation: 'notIn', value: [null, undefined], callback: async () => {
-                    // MỚI (fix mục 7) — folder đã lưu HIẾM KHI lệch loại với activeMediaSource vừa
-                    // khôi phục (dữ liệu cũ/lệch), nhưng nếu có thì TYPE CỦA FOLDER thắng tuyệt đối
-                    // (tín hiệu cụ thể hơn 1 lựa chọn Nguồn chung chung) — tự sửa lại
-                    // playlistCache/activeMediaSource TRƯỚC KHI applyFolderScope() so sánh key,
-                    // tránh lặp lại đúng bug mục 7.
-                    const folderRecord = typeof getFolderRecord === 'function' ? await getFolderRecord(savedFolderId) : null;
-                    const folderType = folderRecord ? folderRecord.type : null;
-                    const currentSource = appState.get('activeMediaSource');
-                    if (folderType === 'video' && currentSource !== 'video') {
-                        appState.set('activeMediaSource', 'video');
-                        console.log(`writer: "boot", page: "activeMediaSource", content: "video (sửa lệch theo type folder đã Apply)"`);
-                        buildVideoPlaylistCache(await listVideos());
-                        // SỬA (05/08/2026, Rule 3a, phản hồi Giang "xử lý triệt để") — thay
-                        // `PlaylistMain.init()` (đã BỎ, xem event/workflow/playlist.js) bằng
-                        // `workflowPlaylist.syncPlaylistSettingsUI()`, cùng chỗ Workflow-to-Workflow
-                        // được phép (khác domain: app-boot -> playlist).
-                        if (typeof workflowPlaylist !== 'undefined') await workflowPlaylist.syncPlaylistSettingsUI();
-                    } else if (folderType === 'song' && currentSource !== 'song') {
-                        appState.set('activeMediaSource', 'song');
-                        console.log(`writer: "boot", page: "activeMediaSource", content: "song (sửa lệch theo type folder đã Apply)"`);
-                        await initPlaylistFromDB();
-                        if (typeof workflowPlaylist !== 'undefined') await workflowPlaylist.syncPlaylistSettingsUI();
-                    } else if (folderType === 'photo' && currentSource !== 'photo') {
-                        // FIX (Giang báo — "Folder Photo không được khôi phục đúng lúc boot") —
-                        // NHÁNH NÀY THIẾU HOÀN TOÀN trước đây (chỉ có video/song) — Photo được thêm
-                        // SAU làm Nguồn thứ 3 (hợp nhất Photo vào Playlist) nhưng boot recovery ở
-                        // đây chưa từng mở rộng theo, đúng CÙNG LÝ DO/CÙNG KHUÔN nhánh 'video' ngay
-                        // trên: applyFolderScope(savedFolderId) ngay dưới sẽ giao (intersect) folder
-                        // Photo với playlistCache — nếu cache vẫn đang là Song/Video (do
-                        // activeMediaSource restore lệch loại), Playlist thành RỖNG.
-                        appState.set('activeMediaSource', 'photo');
-                        console.log(`writer: "boot", page: "activeMediaSource", content: "photo (sửa lệch theo type folder đã Apply)"`);
-                        buildPhotoPlaylistCache(await listImages());
-                        if (typeof workflowPlaylist !== 'undefined') await workflowPlaylist.syncPlaylistSettingsUI();
-                    }
-                    await workflowPlaylistScope.applyFolderScope(savedFolderId);
-                } },
-            ]);
+        // SỬA (06/09/2026, đổi schema activePlayListFolder theo Nguồn — {song,video,photo}) — bỏ
+        // hẳn khối VirtualMachineState 3 nhánh "sửa lệch type" cũ (mục 7): dữ liệu cũ 1 giá trị
+        // PHẲNG có thể lệch type với `activeMediaSource` vừa khôi phục (vd folder Video nhưng
+        // Nguồn lại là Song) vì bản chất chỉ có 1 chỗ lưu DÙNG CHUNG cho mọi Nguồn — schema MỚI
+        // mỗi Nguồn có field RIÊNG, `persistScopeChoice()`/`applyFolderScope()` LUÔN ghi ĐÚNG field
+        // theo type của chính folder đó (xem event/workflow/playlist-scope.js) nên lệch type không
+        // còn xảy ra được nữa VỀ MẶT CẤU TRÚC — chỉ còn cần đọc ĐÚNG field của
+        // `activeMediaSource` hiện tại rồi áp hoặc bỏ scope, không cần "sửa" gì thêm.
+        if (typeof workflowPlaylistScope !== 'undefined') {
+            const currentSource = appState.get('activeMediaSource');
+            const folderIdForCurrentSource = appState.get('activePlayListFolder')[currentSource];
+            if (folderIdForCurrentSource) {
+                await workflowPlaylistScope.applyFolderScope(folderIdForCurrentSource, currentSource);
+            } else {
+                // MỚI (Batch 4, "Song/Video Unification" mục 5) — CẦN chạy dù không có Scope, để
+                // lọc Exclude (chỉ ảnh hưởng view "Tất cả") có tác dụng đúng ngay từ lúc boot.
+                await workflowPlaylistScope.applyAllSongsScope(currentSource);
+            }
         }
         // MỚI (fix bug #1, phản hồi Giang — "Active folder vẫn hiện none dù có folder đang active")
         // — workflowPlaylist.syncPlaylistSettingsUI() (gọi TRONG loadPersistedPlaylistConfigOnBoot()
         // ở trên VÀ lúc nạp script core/playlist/main.js — tên cũ PlaylistMain.init(), đã BỎ 05/08/2026
-        // theo Rule 3a) đều chạy TRƯỚC KHI activePlayListFolder được khôi phục
-        // XONG ở khối VirtualMachineState.runAsync() ngay trên (applyAllSongsScope()/
-        // applyFolderScope() mới THẬT SỰ set đúng giá trị) — badge/khoá Nguồn ở Settings → Playlist
-        // vì vậy luôn hiện sai (mặc định rỗng) cho tới khi Giang tự đổi Scope 1 lần trong phiên. Gọi
-        // LẠI đúng 1 lần Ở ĐÂY, SAU CÙNG khối quyết định Scope (giờ đã `await` được nhờ
-        // `runAsync()`, xem event/virtual-machine-state.js), để phản ánh đúng giá trị thật đã khôi
-        // phục.
+        // theo Rule 3a) đều chạy TRƯỚC KHI activePlayListFolder được khôi phục XONG ở khối
+        // if/else Scope ngay trên (SỬA 06/09/2026 — trước là VirtualMachineState.runAsync(), đã đơn
+        // giản hoá cùng đợt đổi schema per-source, xem comment ngay trên) — badge/khoá Nguồn ở
+        // Settings → Playlist vì vậy luôn hiện sai (mặc định rỗng) cho tới khi Giang tự đổi Scope 1
+        // lần trong phiên. Gọi LẠI đúng 1 lần Ở ĐÂY, SAU CÙNG khối quyết định Scope, để phản ánh
+        // đúng giá trị thật đã khôi phục.
         // SỬA (06/09/2026, Giang chỉ ra bug) — truy vấn LẠI DOM sống thay vì biến toàn cục
         // `mediaSourceSelect` (dom-refs.js) đã XOÁ, xem docstring updateActiveFolderUI()
         // (core/playlist/main.js). Lúc boot chắc chắn `null` (Settings chưa mở) — no-op đúng ý.
