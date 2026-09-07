@@ -159,8 +159,8 @@ const TPL_PLAYLIST_VIEW = `
             </div>
             <!-- Lớp "đang nạp danh sách": phủ lên vùng list lúc khởi động đọc record từ IndexedDB, fade
                  out khi DOM list dựng xong. Mục đích: tránh nháy "Chưa có bài hát nào" trong lúc đang
-                 đọc dữ liệu. Logic ở initPlaylistFromDB: keys<=0 -> hiện #playlist-empty; else -> hiện
-                 lớp này (cập nhật "x / y bài") rồi fade out sau khi render. -->
+                 đọc dữ liệu. Logic ở event/workflow/app-boot.js (nhánh Song): keys<=0 -> hiện
+                 #playlist-empty; else -> hiện lớp này (cập nhật "x / y bài") rồi fade out sau khi render. -->
             <div id="playlist-loading-list" class="hidden absolute inset-0 z-10 flex flex-col items-center justify-center text-slate-300 gap-3 bg-black/30 backdrop-blur-sm transition-opacity duration-300" style="opacity:0;">
                 <svg class="animate-spin h-10 w-10 text-sky-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 <p id="playlist-loading-text" class="text-sm font-medium tracking-wide">${t('playlistView.loading.generic')}</p>
