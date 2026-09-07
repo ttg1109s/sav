@@ -3,11 +3,14 @@
  * với eventBus lúc nạp. MỚI (ver12 "Song/Video Unification", Batch 5, mục 6e).
  *
  * SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow") — TRƯỚC
- * ĐÂY toàn bộ tương tác BÊN TRONG Generic Drawer (tile/back/đóng/xoá/gỡ item/toggle/phân trang/tạo
- * folder/sửa tên inline) đi THẲNG `workflowFileManagerFolderBrowser.xxx()` (Workflow tự
- * `addEventListener` lên genericDrawerHeader/Body), CỐ Ý "bỏ qua Router" — SAI Rule 5a. Toàn bộ đã
- * dời wiring sang core/file-manager/folder-picker-ui.js::wireFolderBrowserListEvents()/
- * wireFolderBrowserReadEvents(), giờ ĐI QUA ĐÚNG router này như mọi domain khác.
+ * ĐÂY toàn bộ tương tác BÊN TRONG Generic Drawer đi THẲNG `workflowFileManagerFolderBrowser.xxx()`
+ * (Workflow tự `addEventListener`), CỐ Ý "bỏ qua Router" — SAI Rule 5a. Toàn bộ wiring đã dời sang
+ * core/file-manager/folder-picker-ui.js::wireFolderPickerDrawerEvents(), đi qua ĐÚNG router này.
+ *
+ * SỬA (06/09/2026, Giang chốt mục 3.6 — "bỏ hẳn màn Read") — mọi case 'read.*' (back/close/rename/
+ * delete/removeItem/removeAll/pagination/2 toggle Scope-Exclude) bỏ hẳn cùng màn hình đó. Thêm 2
+ * case MỚI cho tile: `.tile.click` (áp dụng Scope ngay) và `.tile.longpress` (mở menu hành động) —
+ * xem event/workflow/file-manager-folder-browser.js.
  *
  * NẠP SAU: event/bus.js, event/workflow/file-manager-folder-browser.js.
  * NẠP TRƯỚC: event/listener/file-manager-song.js (nút "Duyệt thư mục" delegate ở đó).
@@ -31,8 +34,15 @@ const routerFileManagerFolderBrowser = (() => {
                 workflowFileManagerFolderBrowser.closeBrowser();
                 break;
             }
+            // SỬA (06/09/2026, mục 2.1 — "tap thư mục -> áp dụng ngay") — TRƯỚC ĐÂY gọi openRead()
+            // (chuyển sang màn xem nội dung folder, ĐÃ XOÁ). Giờ áp Scope THẲNG.
             case 'fileManagerFolderBrowser.list.tile.click': {
-                workflowFileManagerFolderBrowser.openRead(msg.payload.folderId);
+                workflowFileManagerFolderBrowser.applyFolderFromTile(msg.payload.folderId);
+                break;
+            }
+            // MỚI (06/09/2026, mục 2.7 — long-press mở menu hành động).
+            case 'fileManagerFolderBrowser.list.tile.longpress': {
+                workflowFileManagerFolderBrowser.openTileActionsMenu(msg.payload.folderId);
                 break;
             }
             case 'fileManagerFolderBrowser.list.addTile.click': {
@@ -41,49 +51,6 @@ const routerFileManagerFolderBrowser = (() => {
             }
             case 'fileManagerFolderBrowser.list.rename.commit': {
                 workflowFileManagerFolderBrowser.commitListRename(msg.payload.folderId, msg.payload.name);
-                break;
-            }
-
-            // ===================== Read =====================
-
-            case 'fileManagerFolderBrowser.read.back.click': {
-                workflowFileManagerFolderBrowser.openList();
-                break;
-            }
-            case 'fileManagerFolderBrowser.read.close.click': {
-                workflowFileManagerFolderBrowser.closeBrowser();
-                break;
-            }
-            case 'fileManagerFolderBrowser.read.rename.click': {
-                workflowFileManagerFolderBrowser.promptRename();
-                break;
-            }
-            case 'fileManagerFolderBrowser.read.delete.click': {
-                workflowFileManagerFolderBrowser.confirmDeleteFolder();
-                break;
-            }
-            case 'fileManagerFolderBrowser.read.removeItem.click': {
-                workflowFileManagerFolderBrowser.removeItem(msg.payload.songKey);
-                break;
-            }
-            case 'fileManagerFolderBrowser.read.removeAll.click': {
-                workflowFileManagerFolderBrowser.confirmRemoveAllItems();
-                break;
-            }
-            case 'fileManagerFolderBrowser.read.pagination.click': {
-                workflowFileManagerFolderBrowser.goToReadPage(msg.payload.pageIndex);
-                break;
-            }
-            // Toggle "Chỉ trong folder"/"Loại trừ" — Router tự đọc `payload.checked` để CHỌN đúng
-            // hàm (Rule 1: nơi gọi chọn hàm, TRƯỚC ĐÂY logic if/else này nằm lẫn trong chính
-            // callback addEventListener ở Workflow, giờ chuyển đúng vai trò Router).
-            case 'fileManagerFolderBrowser.read.scope.change': {
-                if (msg.payload.checked) workflowFileManagerFolderBrowser.enableScope();
-                else workflowFileManagerFolderBrowser.disableScope();
-                break;
-            }
-            case 'fileManagerFolderBrowser.read.exclude.change': {
-                workflowFileManagerFolderBrowser.setExclude(msg.payload.checked);
                 break;
             }
 

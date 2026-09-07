@@ -382,6 +382,14 @@ const routerPlaylist = (() => {
                 break;
             }
 
+            // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 3) — nút X badge "thoát folder"
+            // (components/playlist-view.js) — ≥2 bước (persistScopeChoice + applyAllSongsScope) ->
+            // Workflow.
+            case 'playlist.activeFolderBadge.exit.click': {
+                workflowPlaylist.exitActiveFolderScope();
+                break;
+            }
+
             // ===================== Ver 12 "Multi Media" — Chọn nhiều (mục 4.b1) =====================
             case 'playlist.selection.toggle': {
                 workflowPlaylist.toggleSelectionMode(); // CẦN đọc domNodesByKey + patch DOM nối tiếp sau khi đổi state -> workflow
