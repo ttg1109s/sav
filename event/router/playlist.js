@@ -397,7 +397,12 @@ const routerPlaylist = (() => {
             }
 
             case 'playlist.selection.moreMenu.open': {
-                openSelectionMoreMenu(); // CHỈ 1 hàm core thuần UI -> gọi thẳng
+                // SỬA (06/09/2026, hợp nhất Folder vào Playlist, Batch 5) — chỉ hiện mục "Gỡ khỏi
+                // thư mục" khi Playlist đang Scope 1 folder của ĐÚNG Nguồn hiện tại — Router tự đọc
+                // appState tính SẴN boolean (cùng tiền lệ payload.checked cũ), core chỉ nhận qua
+                // tham số, không tự đọc (Rule 2).
+                const canRemoveFromFolder = appState.get('activePlayListFolder')[appState.get('activeMediaSource')] != null;
+                openSelectionMoreMenu(canRemoveFromFolder); // core thuần UI (nhận tham số) -> gọi thẳng
                 break;
             }
 
@@ -418,14 +423,24 @@ const routerPlaylist = (() => {
                         // VirtualMachineState.run() đọc activeMediaSource, CÙNG KHUÔN nested VMState
                         // đã dùng ở 'playlist.uploadMenu.open' — Song GIỮ NGUYÊN
                         // exportSelectedSongsZip() (không đụng), Video dùng exportSelectedVideosZip() MỚI.
+                        // SỬA (06/09/2026, Giang chốt mục 3.5 — "Photo cũng cần Download riêng ở
+                        // Selection mode") — TRƯỚC ĐÂY chỉ 2 nhánh (video / notIn video), nghĩa là
+                        // Photo rơi NHẦM vào nhánh 'notIn video' -> gọi exportSelectedSongsZip() (đọc
+                        // getSongRecord() trên photo key -> không tìm thấy gì, zip rỗng, lỗi ÂM
+                        // THẦM). Tách rõ 3 nhánh loại trừ nhau.
                         const mediaSource = appState.get('activeMediaSource');
                         VirtualMachineState.run([
                             { state: mediaSource, operation: '===', value: 'video', callback: () => workflowPlaylist.exportSelectedVideosZip() },
-                            { state: mediaSource, operation: 'notIn', value: ['video'], callback: () => workflowPlaylist.exportSelectedSongsZip() },
+                            { state: mediaSource, operation: '===', value: 'photo', callback: () => workflowPlaylist.exportSelectedImagesZip() },
+                            { state: mediaSource, operation: 'notIn', value: ['video', 'photo'], callback: () => workflowPlaylist.exportSelectedSongsZip() },
                         ]);
                     } },
                     { state: action, operation: '===', value: 'addToFolder', callback: () => workflowPlaylist.openAddToFolderPicker() },
                     { state: action, operation: '===', value: 'delete', callback: () => workflowPlaylist.deleteSelectedSongs() },
+                    // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 5) — chỉ hiện trong menu
+                    // khi đang Scope 1 folder (xem 'playlist.selection.moreMenu.open' ngay trên), nên
+                    // callback này CHỈ chạy khi hợp lệ — không cần guard lại action này ở đây nữa.
+                    { state: action, operation: '===', value: 'removeFromFolder', callback: () => workflowPlaylist.removeSelectedSongsFromFolder() },
                 ]);
                 break;
             }
