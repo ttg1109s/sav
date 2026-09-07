@@ -401,17 +401,26 @@ const workflowPlaylist = {
         if (fileArray.length === 0) return;
 
         let failedCount = 0;
+        const uploadedVideoKeys = []; // MỚI (06/09/2026, Batch 6) — gắn folder hàng loạt SAU vòng lặp, xem cuối hàm
         await withLoadingShield(tFormat('common.upload.loadingProgress', { done: 1, total: fileArray.length }), async () => {
             for (let i = 0; i < fileArray.length; i++) {
                 const file = fileArray[i];
                 loadingText.textContent = tFormat('common.upload.loadingProgress', { done: i + 1, total: fileArray.length });
                 try {
                     const { thumbBlob, thumbFullBlob, width, height, duration } = await this._extractVideoThumbAndMeta(file);
-                    await saveVideo(file, file.name, thumbBlob, width, height, duration, thumbFullBlob); // core/file-manager/video.js
+                    const videoKey = await saveVideo(file, file.name, thumbBlob, width, height, duration, thumbFullBlob); // core/file-manager/video.js — CÓ return (videoKey), trước đây bị bỏ qua
+                    uploadedVideoKeys.push(videoKey);
                 } catch (err) {
                     console.error(`[uploadVideos] chụp thumbnail/lưu thất bại cho file "${file.name}":`, err);
                     failedCount++;
                 }
+            }
+            // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 6) — nếu đang Scope 1 folder
+            // Video, gắn LUÔN mọi file vừa upload vào ĐÚNG folder đó, CÙNG LÝ DO/CÙNG CHỖ GỌI
+            // handleAudioFiles() (core/playlist/loader.js).
+            const activeFolderIdForVideo = appState.get('activePlayListFolder').video;
+            if (activeFolderIdForVideo && uploadedVideoKeys.length > 0) {
+                await addSongsToFolder(uploadedVideoKeys, activeFolderIdForVideo, 'video'); // core/file-manager/folder.js
             }
         });
         // input tự dọn value trong chính listener của nó (event/listener/playlist.js, fileInput/folderInput dùng chung).
@@ -446,6 +455,7 @@ const workflowPlaylist = {
         if (fileArray.length === 0) return;
 
         let failedCount = 0;
+        const uploadedImageKeys = []; // MỚI (06/09/2026, Batch 6) — gắn folder hàng loạt SAU vòng lặp, xem cuối hàm
         await withLoadingShield(tFormat('common.upload.loadingProgress', { done: 1, total: fileArray.length }), async () => {
             for (let i = 0; i < fileArray.length; i++) {
                 const file = fileArray[i];
@@ -453,11 +463,17 @@ const workflowPlaylist = {
                 try {
                     const { thumbBlob, width, height } = await workflowFileManagerPhoto.resizeImageForThumbnail(file); // event/workflow/file-manager-photo.js — tái dùng NGUYÊN thuật toán resize cũ
                     const duration = await workflowFileManagerPhoto.computePhotoDuration(file, width, height); // MỚI — Photo tích hợp duration như Song/Video (event/workflow/file-manager-photo.js)
-                    await saveImage(file, file.name, thumbBlob, width, height, duration); // core/file-manager/image.js
+                    const imageKey = await saveImage(file, file.name, thumbBlob, width, height, duration); // core/file-manager/image.js — CÓ return (imageKey), trước đây bị bỏ qua
+                    uploadedImageKeys.push(imageKey);
                 } catch (err) {
                     console.error(`[uploadPhotos] resize/lưu thất bại cho file "${file.name}":`, err);
                     failedCount++;
                 }
+            }
+            // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 6) — CÙNG LÝ DO uploadVideos() ngay trên.
+            const activeFolderIdForPhoto = appState.get('activePlayListFolder').photo;
+            if (activeFolderIdForPhoto && uploadedImageKeys.length > 0) {
+                await addSongsToFolder(uploadedImageKeys, activeFolderIdForPhoto, 'photo'); // core/file-manager/folder.js
             }
         });
         // input tự dọn value trong chính listener của nó (event/listener/playlist.js, fileInput/folderInput dùng chung).
@@ -660,6 +676,33 @@ const workflowPlaylist = {
             }
             const zipBlob = await zip.generateAsync({ type: 'blob' });
             triggerDownload(zipBlob, t('playlistView.selection.exportZipFilenameVideo')); // core có sẵn ở id3-export.js
+        });
+
+        this._exitSelectionMode();
+        if (failedCount > 0) await alertModal(t('playlistView.selection.exportPartialFail'));
+    },
+
+    /**
+     * "Xuất ZIP" cho Photo — bản hàng loạt, MỚI (06/09/2026, Giang chốt mục 3.5 — "Photo cũng cần
+     * Download riêng ở Selection mode") — CÙNG CẤU TRÚC `exportSelectedVideosZip()` ngay trên
+     * (Photo cũng không có tag ID3 gì để ghi, zip thẳng `record.blob`/`record.filename` GỐC).
+     * Trước đây Photo rơi NHẦM vào nhánh Song ở router (đọc `getSongRecord()` trên photo key, luôn
+     * rỗng) — xem SỬA event/router/playlist.js, case 'playlist.selection.moreMenu.select'.
+     */
+    async exportSelectedImagesZip() {
+        const keys = Array.from(appState.get('selectedSongKeys'));
+        if (keys.length === 0) return;
+
+        let failedCount = 0;
+        await withLoadingShield(t('common.loading.exportingFile'), async () => {
+            const zip = new JSZip();
+            for (const key of keys) {
+                const record = await getImageRecord(key); // service/db.js
+                if (!record) { failedCount++; continue; } // guard: ảnh không còn tồn tại (race) — bỏ qua
+                zip.file(record.filename, record.blob);
+            }
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+            triggerDownload(zipBlob, t('playlistView.selection.exportZipFilenamePhoto')); // core có sẵn ở id3-export.js
         });
 
         this._exitSelectionMode();
@@ -1119,6 +1162,44 @@ const workflowPlaylist = {
         this._exitSelectionMode();
         // Shield đã đóng HẲN tới đây — an toàn để hiện modal.
         await alertModal(tFormat('playlistView.selection.deleteSuccess', { count: deletedCount }));
+    },
+
+    /**
+     * "Gỡ khỏi thư mục" — Selection mode, MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 5).
+     * KHÁC hẳn `deleteSelectedSongs()` ngay trên: KHÔNG đụng bản ghi gốc/thư viện, chỉ gỡ khỏi
+     * DANH SÁCH của folder đang Scope — dùng `removeSongsFromFolder()` (core/file-manager/
+     * folder.js, bulk-subset, MỚI cùng đợt) rồi splice các key đó khỏi `playlistOrder`/
+     * `displayOrder` đang hiển thị (CÙNG khuôn `removeKeysFromDisplayState()`,
+     * core/playlist/bulk-actions.js, TÁI DÙNG NGUYÊN — bản chất đều là "gỡ N key khỏi danh sách
+     * đang hiển thị", không cần viết hàm core mới). Chỉ hiện được trong menu khi đang Scope 1
+     * folder (xem event/router/playlist.js, case 'playlist.selection.moreMenu.open'), nên
+     * `folderId` ở đây LUÔN có giá trị — không cần guard `!folderId`.
+     * Folder trống hẳn sau khi gỡ (gỡ hết mọi item còn lại) -> tự thoát Scope NGAY (áp sống, cùng
+     * chủ trương `removeItem()`/`confirmRemoveAllItems()` bản Read cũ đã bỏ — hành vi giữ nguyên,
+     * chỉ đổi nơi gọi).
+     */
+    async removeSelectedSongsFromFolder() {
+        const keys = Array.from(appState.get('selectedSongKeys'));
+        if (keys.length === 0) return;
+        const mediaType = appState.get('activeMediaSource');
+        const folderId = appState.get('activePlayListFolder')[mediaType];
+
+        await withLoadingShield(t('common.loading.generic'), async () => {
+            await removeSongsFromFolder(keys, folderId, mediaType); // core/file-manager/folder.js
+            removeKeysFromDisplayState(keys, appState.get('playlistOrder'), appState.get('displayOrder')); // core/playlist/bulk-actions.js
+            workflowPlaylistOrder.updateShuffleArray();
+            workflowPlaylistOrder.recomputeRenderOrder();
+            workflowPlaylistRender.renderPlaylistDiff();
+            updateEmptyState();
+
+            const folderMap = await getFolderSongMap(folderId); // service/db.js
+            if (isFolderEmpty(folderMap)) { // core/file-manager/folder.js
+                await workflowPlaylistScope.persistScopeChoice(null, mediaType);
+                await workflowPlaylistScope.applyAllSongsScope(mediaType);
+            }
+        });
+
+        this._exitSelectionMode();
     },
 
     // ===================== Ver 12 "Song/Video Unification" — Batch 1 (mục 1-2) =====================
