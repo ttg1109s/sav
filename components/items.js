@@ -109,7 +109,7 @@ function itemTemplateFolderTile(folder, ctx) {
     const selectedRingClass = order ? ' generic-item-folder-tile-selected' : '';
     const selectedBadgeHtml = order ? `<span class="generic-folder-tile-badge">${order}</span>` : '';
     return `
-        <button type="button" class="generic-item-folder-tile flex flex-col items-center gap-1.5 w-20${selectedRingClass}" data-folder-id="${escapeHtml(folder.id)}">
+        <button type="button" class="generic-item-folder-tile select-none flex flex-col items-center gap-1.5 w-20${selectedRingClass}" data-folder-id="${escapeHtml(folder.id)}">
             <div class="generic-folder-tile-icon-wrap relative">${iconBoxHtml}${selectedBadgeHtml}</div>
             <span class="text-xs font-medium text-slate-700 text-center leading-tight break-words" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escapeHtml(folder.name)}</span>
         </button>
