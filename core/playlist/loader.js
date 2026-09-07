@@ -379,13 +379,12 @@
          *   nào ngoài shape chung.
          * - `logLabel` (string): nhãn hiện trong `console.log` (thay cho tên hàm cũ dùng làm nhãn).
          *
-         * MUỐN THÊM 1 loại media MỚI (miễn nó CŨNG đã có sẵn 1 mảng record ĐẦY ĐỦ trong tay — khác
-         * hẳn Song, `scanValidSongsFromDB()` GIỮ RIÊNG bên dưới, tự đọc TỪNG key qua DB + lọc
-         * broken/MIME, không có sẵn mảng record để truyền vào đây): chỉ cần thêm 1 entry vào bảng
-         * này (+ 1 entry vào `MEDIA_LIST_FN`, event/workflow/playlist-scope.js — trỏ tới hàm
-         * `listX()` core/file-manager/x.js trả về mảng record cùng shape tối thiểu
-         * `{key, blob, filename, customName?, album?, addedAt}`) — KHÔNG cần viết thêm 1 hàm
-         * `buildXPlaylistCache()` mới.
+         * MUỐN THÊM 1 loại media MỚI (miễn nó dùng CHUNG được cơ chế đọc DB "list toàn bộ key rồi
+         * fetch từng record" — xem `workflowPlaylistScope.listMediaRecords()`/`MEDIA_DB_ACCESSOR`,
+         * event/workflow/playlist-scope.js): chỉ cần thêm 1 entry vào bảng này (+ 1 entry vào
+         * `MEDIA_DB_ACCESSOR` trỏ tới `{getAllKeys, getRecord}` của store đó, service/db.js) —
+         * KHÔNG cần viết thêm 1 hàm `buildXPlaylistCache()`/`listX()` mới. Song KHÔNG dùng bảng này
+         * (tag/cover đã có sẵn THẬT, không synthesize — xem `buildSongPlaylistCache()` ngay dưới).
          */
         const MEDIA_ADAPTER_SHAPE = {
             video: { coverFromOwnBlob: false, durationFallback: 0, extraFields: [], logLabel: 'Video' },
@@ -403,10 +402,10 @@
          * `buildPhotoPlaylistCache()`) — chỉ khác vài GIÁ TRỊ (fallback cover/duration, có field phụ
          * hay không), không khác THUẬT TOÁN, nên gộp thành 1 hàm + bảng cấu hình `MEDIA_ADAPTER_SHAPE`.
          *
-         * Rule 2 — nhận `records` qua THAM SỐ (KHÔNG tự gọi `listVideos()`/`listImages()` ở đây —
-         * 2 hàm đó sống ở `core/file-manager/video.js`/`image.js`, Rule 3 cấm core gọi core dù có
-         * return value hay không). Nơi gọi (Workflow — `event/workflow/playlist-scope.js::
-         * loadPlaylistCacheForSource()`) tự `await listX()` TRƯỚC rồi truyền kết quả vào đây.
+         * Rule 2 — nhận `records` qua THAM SỐ (KHÔNG tự đọc DB ở đây — Rule 3 siết 03/08/2026 CẤM
+         * Core tự gọi `service/db.js` để ĐỌC). Nơi gọi (Workflow — `event/workflow/playlist-scope.js::
+         * loadPlaylistCacheForSource()`) tự `await this.listMediaRecords(mediaType)` TRƯỚC (đọc DB
+         * qua `MEDIA_DB_ACCESSOR`, CÙNG file) rồi truyền kết quả vào đây.
          *
          * [SỬA — Giang chốt "dùng chung hết" 4 kiểu sort (az/za/newest/oldest) cho mọi Nguồn]
          * `songNameIndex` CŨNG populate cho Video/Photo — dùng `title` (customName hoặc filename bỏ
@@ -451,6 +450,69 @@
                 appState.mutate('songNameIndex', m => m.set(record.key, normalizeSongName(title)));
             }
             console.log(`writer: "buildAdaptedPlaylistCache", page: "playlistCache", content: "đã nạp ${validKeys.length} ${shape.logLabel}"`);
+            return validKeys;
+        }
+
+        /**
+         * ===================== "Validate" — MỚI (07/09/2026, hợp nhất bước "List" cho cả 3 Nguồn qua
+         * `workflowPlaylistScope.listMediaRecords()`, event/workflow/playlist-scope.js) =====================
+         * CHỈ Song cần bước Validate RIÊNG (Video/Photo không cần — guard duy nhất `!record.blob` đã
+         * nằm sẵn trong `buildAdaptedPlaylistCache()` ngay trên). Lọc bỏ record hỏng/không hợp lệ —
+         * Y HỆT 3 điều kiện `continue` trong `scanValidSongsFromDB()` cũ (hàm đó GIỮ NGUYÊN, vẫn
+         * đang phục vụ `initPlaylistFromDB()` boot-only, KHÔNG xoá):
+         * - đã đánh dấu hỏng (`confirmedBrokenKeys`, xác nhận thủ công qua modal báo lỗi phát nhạc)
+         * - thiếu `blob` (file gốc) hoặc `tag` (metadata ID3 đọc lúc upload)
+         * - MIME không hợp lệ (`isQuickValidMime()`, service/db.js — utility thuần, không phải đọc
+         *   DB, được phép gọi từ Core)
+         *
+         * Rule 2 — nhận `confirmedBrokenKeys` qua THAM SỐ (Workflow tự `appState.get()` trước).
+         * @param {Array<{key:string, blob?:Blob, tag?:object}>} records
+         * @param {Set<string>} confirmedBrokenKeys
+         * @returns {Array} records hợp lệ, GIỮ NGUYÊN thứ tự records truyền vào
+         */
+        function filterValidSongRecords(records, confirmedBrokenKeys) {
+            return records.filter((record) =>
+                !confirmedBrokenKeys.has(record.key) &&
+                record.blob &&
+                record.tag &&
+                isQuickValidMime(record.blob.type)
+            );
+        }
+
+        /**
+         * "Adapt" — CHỈ Song. KHÁC `buildAdaptedPlaylistCache()` (Video/Photo): Song record đã có
+         * `tag` (title/artist/album THẬT, đọc ID3 lúc upload qua jsmediatags) VÀ `cover` (Blob ảnh
+         * bìa nhúng trong file, nếu có) — dùng THẲNG, KHÔNG synthesize từ filename như Video/Photo
+         * (2 nguồn đó không có ID3, phải tự bịa `tag.title` từ tên file). Vì khác NHAU về CHÍNH
+         * NGUỒN DỮ LIỆU field `tag`/`cover` (không phải khác giá trị fallback), không nhét được vào
+         * chung `MEDIA_ADAPTER_SHAPE`/`buildAdaptedPlaylistCache()` — giữ hàm riêng, ĐÚNG Rule 1
+         * (khác thuật toán thật, không phải khác tham số hoá được bằng dữ liệu).
+         * KHÔNG set `mediaType` (giữ NGUYÊN hành vi cũ — `cached.mediaType==='photo'`/`'video'` mới
+         * cần đánh dấu để buildSongNode() rẽ UI, Song là nhánh mặc định/else, không cần đánh dấu).
+         *
+         * Rule 4 ngoại lệ (cùng lý do hot-path — xem `buildAdaptedPlaylistCache()` ngay trên).
+         * @param {Array<{key:string, blob:Blob, tag:object, cover?:Blob, duration:number, filename:string, addedAt:number}>} records - ĐÃ qua `filterValidSongRecords()`
+         * @returns {string[]} danh sách key vừa nạp vào playlistCache, ĐÚNG thứ tự records truyền vào (chưa sort — nơi gọi tự sortKeysByMode() sau).
+         */
+        function buildSongPlaylistCache(records) {
+            appState.mutate('playlistCache', m => m.clear());
+            appState.mutate('songNameIndex', m => m.clear());
+            console.log(`writer: "buildSongPlaylistCache", page: "playlistCache", content: "clear toàn bộ trước khi nạp Song"`);
+
+            const validKeys = [];
+            for (const record of records) {
+                validKeys.push(record.key);
+                appState.mutate('playlistCache', m => m.set(record.key, {
+                    filename: record.filename,
+                    tag: record.tag, // dùng THẲNG — khác Video/Photo (synthesize), xem docstring
+                    cover: record.cover,
+                    duration: record.duration,
+                    addedAt: record.addedAt,
+                    size: record.blob.size || 0, // MỚI (mục 1e) — cùng lý do buildAdaptedPlaylistCache()
+                }));
+                appState.mutate('songNameIndex', m => m.set(record.key, normalizeSongName(record.tag.title)));
+            }
+            console.log(`writer: "buildSongPlaylistCache", page: "playlistCache", content: "đã nạp ${validKeys.length} bài hát"`);
             return validKeys;
         }
 
