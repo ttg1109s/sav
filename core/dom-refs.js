@@ -486,6 +486,8 @@
         // định, JS chỉ hiện khi item đang mở menu là Photo — xem openSongActionMenu(), core/
         // playlist/actions.js).
         const songMenuBtnEditImage = document.getElementById('song-menu-btn-edit-image');
+        // MỚI (06/09/2026, hợp nhất Folder vào Playlist) — nút "Gỡ khỏi thư mục" ở menu 3-chấm.
+        const songMenuBtnRemoveFromFolder = document.getElementById('song-menu-btn-remove-from-folder');
         const playbackErrorModal = document.getElementById('playback-error-modal');
         const playbackErrorFilename = document.getElementById('playback-error-filename');
         const btnPlaybackErrorKeep = document.getElementById('playback-error-keep');

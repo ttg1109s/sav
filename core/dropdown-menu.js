@@ -34,7 +34,7 @@
  */
 function openDropdownMenu(anchorEl, items, options) {
     options = options || {};
-    closeDropdownMenu(); // chỉ 1 menu mở tại 1 thời điểm — đóng cái cũ (nếu còn) trước khi dựng cái mới
+    _removeDropdownMenuImmediately(); // dọn stale (nếu còn) NGAY, không animate — đây là dọn dẹp phòng vệ, không phải hành động người dùng chủ động đóng (xem closeDropdownMenu() bên dưới cho lượt đóng THẬT có animate)
 
     const overlay = document.createElement('div');
     overlay.id = 'dropdown-menu-overlay';
@@ -44,7 +44,10 @@ function openDropdownMenu(anchorEl, items, options) {
 
     const menu = document.createElement('div');
     menu.id = 'dropdown-menu-panel';
-    menu.className = 'fixed w-48 py-1.5 rounded-xl glass-modal shadow-2xl overflow-hidden';
+    // MỚI (06/09/2026, Giang yêu cầu — "animation thả xuống/lên") — transition riêng cho
+    // opacity/transform, KHÔNG đụng các thuộc tính khác (layout/màu nền...) để tránh animate
+    // nhầm thứ không cố ý.
+    menu.className = 'fixed w-48 py-1.5 rounded-xl glass-modal shadow-2xl overflow-hidden transition-[opacity,transform] duration-150 ease-out';
     menu.style.zIndex = String(options.zIndex || 127);
 
     items.forEach((item) => {
@@ -70,17 +73,49 @@ function openDropdownMenu(anchorEl, items, options) {
     if (left < 8) left = 8;
     const estimatedHeight = items.length * 44 + 12; // ước lượng thô (mỗi mục ~44px + padding) — đủ để quyết định lật lên/xuống, không cần đo DOM thật
     let top = rect.bottom + 6;
-    if (top + estimatedHeight > (window.innerHeight || 800)) top = rect.top - estimatedHeight - 6;
+    let openedAbove = false; // MỚI (mục 5) — hướng đã mở, đọc lại lúc đóng để animate NGƯỢC lại đúng hướng
+    if (top + estimatedHeight > (window.innerHeight || 800)) { top = rect.top - estimatedHeight - 6; openedAbove = true; }
     menu.style.left = `${left}px`;
     menu.style.top = `${top}px`;
+    menu.dataset.openedAbove = String(openedAbove);
+
+    // MỚI (mục 5) — "thả xuống" (mở dưới nút: trượt từ TRÊN xuống đúng vị trí) hoặc "thả lên" (mở
+    // trên nút: trượt từ DƯỚI lên) — bắt đầu ở trạng thái lệch + trong suốt, ép reflow rồi mới đổi
+    // sang đích thật (transition đã khai báo ở class `menu` từ đầu sẽ tự chạy animate đúng 2 thuộc
+    // tính opacity/transform).
+    menu.style.opacity = '0';
+    menu.style.transform = `translateY(${openedAbove ? '8px' : '-8px'})`;
+    void menu.offsetHeight; // ép reflow — chốt trạng thái ban đầu TRƯỚC khi đổi sang đích, đảm bảo transition chạy
+    requestAnimationFrame(() => {
+        menu.style.opacity = '1';
+        menu.style.transform = 'translateY(0)';
+    });
 }
 
-/** Đóng menu đang mở (nếu có) — an toàn gọi kể cả khi không có menu nào đang mở (no-op). */
-function closeDropdownMenu() {
+/** Dọn NGAY, không animate — dùng nội bộ (mở menu mới trong lúc lỡ còn menu cũ) và cho ca hiếm khi
+ * đóng mà không có menu nào để animate (xem closeDropdownMenu() ngay dưới). */
+function _removeDropdownMenuImmediately() {
     const overlay = document.getElementById('dropdown-menu-overlay');
     const menu = document.getElementById('dropdown-menu-panel');
     if (overlay) overlay.remove();
     if (menu) menu.remove();
+}
+
+/** Đóng menu đang mở (nếu có) — an toàn gọi kể cả khi không có menu nào đang mở (no-op).
+ * SỬA (06/09/2026, Giang yêu cầu — "animation thả xuống/lên") — animate NGƯỢC LẠI đúng hướng đã mở
+ * (`menu.dataset.openedAbove`, gán lúc mở) rồi mới xoá khỏi DOM sau khi transition kịp chạy (khớp
+ * `duration-150` khai báo ở class lúc mở) — KHÔNG dùng `transitionend` (như
+ * `workflowGenericDrawerHelpers.closeFully()`) vì component này không có state/lifecycle phức tạp
+ * bằng Generic Drawer, `setTimeout` khớp đúng thời lượng là đủ, tránh phụ thuộc thêm 1 listener. */
+function closeDropdownMenu() {
+    const overlay = document.getElementById('dropdown-menu-overlay');
+    const menu = document.getElementById('dropdown-menu-panel');
+    if (!menu) { if (overlay) overlay.remove(); return; } // không có menu nào đang mở (hiếm, race) — dọn overlay lỡ còn sót, không animate gì
+    if (overlay) overlay.remove(); // overlay trong suốt (chỉ để bắt click ra ngoài) — không cần animate, gỡ ngay để KHÔNG còn chặn tương tác trong lúc menu đang animate ra
+    const openedAbove = menu.dataset.openedAbove === 'true';
+    menu.style.opacity = '0';
+    menu.style.transform = `translateY(${openedAbove ? '8px' : '-8px'})`;
+    setTimeout(() => menu.remove(), 150);
 }
 
 /** Neo tạm 1x1 vô hình tại toạ độ CLIENT cho trước — dùng khi cần mở `openDropdownMenu()` tại 1
