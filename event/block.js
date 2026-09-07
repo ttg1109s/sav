@@ -30,15 +30,12 @@
  * trước khi thêm vào đây, chưa làm trong patch này.]
  */
 
-// ===================== fileManagerFolderBrowser — chặn "Áp dụng cho Playlist" khi folder rỗng =====
-// XOÁ (Batch 5, "Song/Video Unification" mục 6e) — msg.type 'fileManagerSong.folder.
-// applyToPlaylist.click' KHÔNG CÒN TỒN TẠI: toggle Scope trong Folder Browser (Generic Drawer) từng
-// gọi THẲNG `workflowFileManagerFolderBrowser.enableScope()` (bỏ qua eventBus) một thời gian — Block
-// gate không còn message nào để chặn lúc đó. SỬA (31/07/2026, Giang chỉ ra "core tạo ra
-// addEventListener chứ không phải workflow") — đã khôi phục đi qua eventBus/Router
-// ('fileManagerFolderBrowser.read.scope.change'), NHƯNG Block gate ở đây CHƯA đăng ký lại — guard
-// clause thẳng trong `enableScope()` (cùng điều kiện cũ) + `disabled` attribute trên checkbox (Batch
-// 4) vẫn đang là lớp phòng vệ chính, xem docstring đầu event/workflow/file-manager-folder-browser.js.
+// ===================== fileManagerFolderBrowser — (lịch sử, xem bên dưới) =====================
+// XOÁ (06/09/2026, Giang chốt mục 3.6 — "bỏ hẳn màn Read") — toàn bộ đoạn lịch sử dưới đây nói về
+// message 'fileManagerFolderBrowser.read.scope.change' (toggle Scope ở màn Read cũ) — message đó
+// VÀ màn Read đã bỏ hẳn (xem event/workflow/file-manager-folder-browser.js). Không đăng ký Block
+// gate nào thay thế: tap tile giờ áp Scope NGAY (không qua bước bật/tắt toggle nào để chặn), guard
+// clause cần thiết (nếu có) nằm thẳng trong `applyFolderFromTile()`.
 
 // ===================== Generic Drawer — chặn mở chồng khi đang mở =====================
 // MỚI (13/07/2026, Giang yêu cầu) — Generic Drawer dùng CHUNG cho nhiều tính năng, CHỈ 1 bodyHtml
