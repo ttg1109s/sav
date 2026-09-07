@@ -64,9 +64,9 @@
  *      `listVideos()`/`listImages()` (core/file-manager/video.js/image.js — 2 hàm đó VẪN GIỮ
  *      NGUYÊN, còn dùng ở nơi khác: event/workflow/visual-bg-video.js, visual-bg-photo.js,
  *      file-manager-photo.js) và Song tự loop `getSongRecord()` NGAY TRONG
- *      `scanValidSongsFromDB()` (core/playlist/loader.js — hàm đó CŨNG GIỮ NGUYÊN, vẫn phục vụ
- *      `initPlaylistFromDB()` boot-only riêng, xem lý do KHÔNG gộp nốt ở cuối docstring này) — 3 nơi
- *      gần như GIỐNG HỆT nhau (loop key -> fetch record -> gom mảng), giờ chỉ còn 1 bản DUY NHẤT.
+ *      `scanValidSongsFromDB()` (core/playlist/loader.js — hàm đó ĐÃ XOÁ, cùng
+ *      `initPlaylistFromDB()`, xem lý do ở cuối docstring này) — 3 nơi gần như GIỐNG HỆT nhau
+ *      (loop key -> fetch record -> gom mảng), giờ chỉ còn 1 bản DUY NHẤT.
  *
  *      Đặt `listMediaRecords()` ở TẦNG WORKFLOW (KHÔNG phải Core) vì nó gọi thẳng
  *      `service/db.js` để ĐỌC (`getAllXKeys`/`getXRecord`) — Rule 3 (siết 03/08/2026) CẤM TUYỆT ĐỐI
@@ -86,15 +86,13 @@
  *      core/playlist/loader.js) — VẪN tách hàm theo type ở bước NÀY vì đây mới là chỗ khác THUẬT
  *      TOÁN thật (nguồn field `tag`/`cover` khác nhau), không phải khác giá trị tham số hoá được.
  *
- * Vì sao KHÔNG gộp nốt vào `initPlaylistFromDB()` (nhánh Song lúc app boot, core/playlist/loader.js)
- * — hàm đó có thêm 2 việc CHỈ boot mới cần (hồi phục "Clear All bị gián đoạn" qua cờ
- * `clearingInProgress` + tối ưu "0 bài thì hiện luôn, không nháy loading") VÀ tự set
- * `playlistOrder` + tự render (khác hẳn `loadPlaylistCacheForSource()` — CHỈ nạp cache, không
- * đụng playlistOrder/render) — gộp đòi hỏi tách 2 việc boot-only đó ra khỏi 1 hàm Core hiện tại
- * thành code Workflow riêng ở app-boot.js, MỘT thay đổi lớn hơn hẳn phạm vi đợt này. Ghi nhận nợ kỹ
- * thuật: nhánh Song lúc boot (app-boot.js, nhánh `else` gọi `initPlaylistFromDB()`) VẪN double-
- * render y hệt bug đã sửa cho Video/Photo 2 đợt trước — CHƯA sửa, chỉ Video/Photo/switchToSongSource()
- * (đã qua `loadPlaylistCacheForSource()`) được hưởng pipeline O(n) 1 lượt.
+ * SỬA TIẾP (07/09/2026, Giang: "làm luôn đi chứ" — dứt điểm nợ kỹ thuật ghi ở đây trước đó) —
+ * `initPlaylistFromDB()` (nhánh Song lúc app boot, core/playlist/loader.js) ĐÃ XOÁ HẲN cùng
+ * `scanValidSongsFromDB()`: 2 việc CHỈ boot mới cần (hồi phục "Clear All bị gián đoạn" qua cờ
+ * `clearingInProgress` + tối ưu "0 bài thì hiện luôn, không nháy loading") tách RA thành code
+ * Workflow riêng NGAY TẠI `app-boot.js` (Rule 3 cho phép Workflow tự đọc DB) — CẢ BA Nguồn (Song/
+ * Video/Photo) giờ ĐỀU gọi `loadPlaylistCacheForSource()` rồi để khối Scope chung SAU ĐÓ render
+ * ĐÚNG 1 LẦN, không còn double-render nào sót lại lúc boot.
  */
 // Registry Workflow (MỚI, 07/09/2026) — map `mediaSource` -> {getAllKeys, getRecord} ở tầng
 // service/db.js, dùng bởi `listMediaRecords()` ngay dưới. Thêm 1 loại media MỚI chỉ cần thêm 1

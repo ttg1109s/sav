@@ -84,24 +84,45 @@ const workflowAppBoot = {
         // ra 0 kết quả. Giờ nạp ĐÚNG playlistCache theo activeMediaSource vừa khôi phục ở trên.
         const bootMediaSource = (typeof appState !== 'undefined') ? appState.get('activeMediaSource') : 'song';
         // SỬA (07/09/2026, Giang chỉ ra "chuyển Nguồn qua lại không giống app boot" — tạo 1
-        // workflow chuẩn dùng chung) — 2 nhánh 'video'/'photo' TRƯỚC ĐÂY tự gọi
-        // buildVideoPlaylistCache()/buildPhotoPlaylistCache() riêng lẻ ngay tại đây, giờ gọi qua
-        // `workflowPlaylistScope.loadPlaylistCacheForSource()` (event/workflow/playlist-scope.js,
-        // MỚI) — CÙNG 1 hàm giờ cũng dùng ở switchToVideoSource()/switchToPhotoSource()
-        // (event/workflow/playlist.js), tránh 2 nơi tự lặp lại y hệt 1 logic. Hành vi TẠI ĐÂY giữ
-        // NGUYÊN 100% (chỉ nạp playlistCache theo ĐÚNG type, KHÔNG đụng playlistOrder — khối
-        // Scope/render ngay dưới vẫn chạy y hệt như cũ, nạp ĐÚNG playlistCache theo type TRƯỚC khi
-        // applyFolderScope() giao (intersect) — tránh giao nhầm với 1 cache khác type, SỬA
-        // 06/09/2026 — Photo có Folder Scope đầy đủ y hệt Song/Video, xem event/workflow/
-        // playlist-scope.js). Song vẫn GIỮ NGUYÊN nhánh `initPlaylistFromDB()` riêng (KHÔNG gộp
-        // vào hàm chung) — hàm đó có thêm bước hồi phục "Clear All bị gián đoạn" + tối ưu "rỗng thì
-        // hiện luôn, không nháy loading" CHỈ cần đúng 1 lần lúc boot, không phải việc của
-        // loadPlaylistCacheForSource() (dùng lại được ở cả switchToSongSource(), nơi 2 việc đó
-        // không áp dụng).
-        if ((bootMediaSource === 'video' || bootMediaSource === 'photo') && typeof workflowPlaylistScope !== 'undefined') {
+        // workflow chuẩn dùng chung) — CẢ BA nhánh Song/Video/Photo giờ ĐỀU qua
+        // `workflowPlaylistScope.loadPlaylistCacheForSource()` (event/workflow/playlist-scope.js) —
+        // CÙNG 1 hàm dùng ở switchToSongSource()/switchToVideoSource()/switchToPhotoSource()
+        // (event/workflow/playlist.js), tránh nhiều nơi tự lặp lại y hệt 1 logic đọc DB.
+        // SỬA TIẾP (07/09/2026, Giang: "làm luôn đi chứ" — dứt điểm nợ kỹ thuật ghi nhận ở
+        // event/workflow/playlist-scope.js) — TRƯỚC ĐÂY nhánh Song riêng gọi `initPlaylistFromDB()`
+        // (core/playlist/loader.js, ĐÃ XOÁ HẲN hàm đó) vì nó gói CHUNG 2 việc CHỈ boot mới cần (hồi
+        // phục "Clear All bị gián đoạn" qua cờ `clearingInProgress` + tối ưu "rỗng thì hiện luôn,
+        // không nháy loading") VỚI việc nạp cache/render — khiến Song KHÔNG hưởng được pipeline
+        // O(n) 1 lượt dùng chung, còn double-render y hệt bug đã sửa cho Video/Photo. Giờ tách 2
+        // việc boot-only đó RA làm code Workflow NGAY TẠI ĐÂY (Rule 3, siết 03/08/2026, CẤM Core tự
+        // đọc `service/db.js` — 2 việc này giờ nằm ở TẦNG WORKFLOW, được phép đọc DB trực tiếp),
+        // rồi CẢ BA nhánh cùng gọi 1 `loadPlaylistCacheForSource()` — KHÔNG đụng playlistOrder/
+        // render, để khối Scope ngay dưới lo render ĐÚNG 1 LẦN DUY NHẤT cho cả 3 Nguồn.
+        if (bootMediaSource === 'song') {
+            // PHÒNG THỦ "Clear All bị gián đoạn" (đóng tab/crash giữa lúc đang xoá — xem comment
+            // đầy đủ ở clearAllStoredData(), core/storage-manager.js): nếu cờ này còn `true` từ
+            // phiên trước, nghĩa là lượt xoá đó CHƯA xoá xong hoàn toàn. Dọn tiếp NGAY TỪ ĐÂY, dưới
+            // lớp loading shield, TRƯỚC khi load playlist — tránh người dùng mở app thấy vài bài
+            // "sống sót" lẫn trong danh sách dù nghĩ đã xoá hết (zip/confirm đã chạy ở phiên trước).
+            // clearAllStoredData() AN TOÀN để gọi lại (idempotent) dù phiên trước đã xoá hết/xoá
+            // dở/chưa xoá gì — kết quả cuối luôn đúng là "đã xoá sạch", không phụ thuộc xoá dở ở đâu.
+            const wasClearing = await getMeta('clearingInProgress');
+            if (wasClearing) {
+                await withLoadingShield(t('common.playlist.cleaningUpPrevious'), async () => {
+                    await clearAllStoredData();
+                });
+            }
+            // Quyết định hiển thị TRƯỚC khi đọc sâu (yêu cầu: if key<=0 -> "chưa có bài", KHÔNG nháy
+            // lớp loading; else -> hiện lớp "đang nạp x/y bài" trong lúc đọc từng record). Khối Scope
+            // ngay dưới (applyFolderScope()/applyAllSongsScope()) LUÔN chạy tiếp bất kể nhánh nào —
+            // tự render ĐÚNG cả 2 trường hợp (kể cả playlistCache rỗng -> "chưa có bài nào").
+            const rawSongKeys = await getAllSongKeys();
+            if (rawSongKeys.length > 0) {
+                showPlaylistLoading(0, rawSongKeys.length); // core/playlist/render.js — lớp này tự fade out khi DOM list dựng xong (updateEmptyState(), trong khối Scope ngay dưới)
+                await workflowPlaylistScope.loadPlaylistCacheForSource('song', (done, total) => updatePlaylistLoading(done, total));
+            }
+        } else if (typeof workflowPlaylistScope !== 'undefined') {
             await workflowPlaylistScope.loadPlaylistCacheForSource(bootMediaSource);
-        } else {
-            await initPlaylistFromDB();
         }
         // Khôi phục activePlayListFolder đã lưu bền (nếu có) NGAY SAU khi playlistCache đã đầy đủ
         // ĐÚNG nguồn ở trên.
@@ -131,7 +152,7 @@ const workflowAppBoot = {
         // (`PlaylistMain.updateActiveFolderBadge()`) ở CUỐI chính nó, không cần gọi lặp lại ở đây
         // nữa (xem event/workflow/playlist-scope.js).
         // Cuộn tới bài vừa sửa phụ đề xong (quay lại từ subtitle-editor.html qua nút "←") — đặt
-        // SAU CÙNG (đã initPlaylistFromDB() + khôi phục activePlayListFolder xong).
+        // SAU CÙNG (đã nạp cache + khôi phục activePlayListFolder xong).
         if (typeof scrollToSongIfPending === 'function') scrollToSongIfPending();
 
         // XOÁ (30/07/2026, cùng ngày) — `workflowFileManagerVideo.regenerateAllVideoThumbFull()`
@@ -139,6 +160,12 @@ const workflowAppBoot = {
         // Giang chốt: kỹ thuật chụp khung đầu robust (readyState>=2 + play()/pause() nudge) chỉ áp
         // dụng cho video UPLOAD MỚI (event/workflow/file-manager-video.js::_extractVideoThumbAndMeta()),
         // không cần thêm 1 lượt quét lại video cũ nữa — xem lịch sử đầy đủ ở file đó.
+
+        // "Chốt fade out" lớp `showPlaylistLoading()` (core/playlist/render.js) — AN TOÀN kể cả khi
+        // Nguồn boot không phải Song (chưa từng show()) hoặc render xong renderOrder vẫn rỗng (mọi
+        // record hỏng — `updateEmptyState()` trong khối Scope ngay trên chỉ tự hide khi renderOrder
+        // > 0, xem hàm đó) — hidePlaylistLoading() tự no-op nếu lớp chưa từng hiện/đã ẩn.
+        hidePlaylistLoading(); // core/playlist/render.js
 
         // MỚI (phản hồi Giang — "shield loading không full-screen + Video không có shield") — báo
         // cho preloader full-screen (index.html, đầu <body>) biết Playlist đã THẬT SỰ dựng xong (renderOrder
