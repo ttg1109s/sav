@@ -20,6 +20,13 @@
         const Z_INDEX = Object.freeze({
             APP_STACK: 60,                  // #app-stack (main.js) — mốc tham chiếu thấp nhất
             GENERIC_DRAWER: 128,             // core/generic-drawer.js — panel; overlay tự dùng GENERIC_DRAWER - 1
+            // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 4, sửa lại theo Giang chỉ ra —
+            // menu long-press PHẢI là dropdown thật (core/dropdown-menu.js), không phải modalChoice)
+            // — mở TỪ TRONG Folder Browser (Generic Drawer, z=128) đang hiện, cần cao hơn 128 để
+            // không bị chính Drawer đó đè lên. event/workflow/file-manager-folder-browser.js::
+            // openTileActionsMenu() truyền qua `openDropdownMenu(anchorEl, items, {zIndex:
+            // Z_INDEX.FOLDER_TILE_ACTION_MENU})`.
+            FOLDER_TILE_ACTION_MENU: 129,
             IMAGE_PREVIEW: 130,              // core/file-manager/photo-ui.js::openImagePreviewModal()
             IMAGE_ACTION_MENU_DRAWER: 131,   // event/workflow/image-edit.js::openEditToolGrid() — Generic Drawer (lưới tool Edit mode) mở TRÊN Image Preview.
             VIDEO_PREVIEW: 130,              // core/file-manager/video-ui.js::openVideoPreviewModal() — cùng lớp modal xem Ảnh
