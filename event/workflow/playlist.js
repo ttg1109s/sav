@@ -788,6 +788,21 @@ const workflowPlaylist = {
         workflowFileManagerPhoto.openImagePreview(key); // event/workflow/file-manager-photo.js
     },
 
+    /** Lọc danh sách folder cho picker "Thêm vào thư mục" — MỚI (06/09/2026, hợp nhất Folder vào
+     * Playlist, mục 2 + 4b). Loại 2 loại folder KHÔNG hợp lệ làm đích "thêm vào":
+     *   - Folder ĐANG là Scope hiện tại của ĐÚNG Nguồn này — thêm vào chính folder đang xem không
+     *     có ý nghĩa (bài đã hiển thị THÔNG QUA scope đó rồi).
+     *   - Folder Read-only (mục 4b, Giang chốt "không cho add thêm item").
+     * Pure — nhận `folders` (đã fetch qua `listFolders()`) qua tham số, không tự đọc DB (Rule 2).
+     * @param {Array<{id:string, isReadOnly?:boolean}>} folders
+     * @param {'song'|'video'|'photo'} mediaType
+     * @returns {Array}
+     */
+    _filterFoldersForAddPicker(folders, mediaType) {
+        const activeFolderId = appState.get('activePlayListFolder')[mediaType];
+        return folders.filter((f) => f.id !== activeFolderId && !f.isReadOnly);
+    },
+
     async openAddToFolderPickerForSongMenu() {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return;
@@ -815,7 +830,7 @@ const workflowPlaylist = {
             // SỬA (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — trước đây LUÔN
             // "Added X song(s)" kể cả khi vừa thêm Video. MỞ RỘNG (hợp nhất Photo) — thêm nhánh photo.
             await alertModal(tFormat(mediaType === 'video' ? 'fileManager.folderPicker.addSuccessVideo' : mediaType === 'photo' ? 'fileManager.folderPicker.addSuccessPhoto' : 'fileManager.folderPicker.addSuccess', { count: 1 }));
-        }, { folders: await listFolders(mediaType) });
+        }, { folders: this._filterFoldersForAddPicker(await listFolders(mediaType), mediaType) });
     },
 
     /**
@@ -840,7 +855,7 @@ const workflowPlaylist = {
             // ở finishAdd() bản 1-bài phía trên (openAddToFolderPickerForSongMenu).
             this._exitSelectionMode();
             await alertModal(tFormat(mediaType === 'video' ? 'fileManager.folderPicker.addSuccessVideo' : mediaType === 'photo' ? 'fileManager.folderPicker.addSuccessPhoto' : 'fileManager.folderPicker.addSuccess', { count: keys.length }));
-        }, { folders: await listFolders(mediaType) });
+        }, { folders: this._filterFoldersForAddPicker(await listFolders(mediaType), mediaType) });
     },
 
     // ===================== Add to Folder — Generic Drawer grid (MỚI 14/07/2026) =====================
@@ -1183,6 +1198,11 @@ const workflowPlaylist = {
         if (keys.length === 0) return;
         const mediaType = appState.get('activeMediaSource');
         const folderId = appState.get('activePlayListFolder')[mediaType];
+        if (!folderId) return; // guard hiếm: nút lẽ ra đã ẩn nếu không có Scope, phòng vệ thêm
+        // MỚI (06/09/2026, hợp nhất Folder vào Playlist, mục 4b — "Read-only") — folder đang active
+        // Read-only thì không cho gỡ item — nút lẽ ra đã ẩn (xem event/router/playlist.js, case
+        // 'playlist.selection.moreMenu.open'), guard này là lớp phòng vệ thứ 2.
+        if (appState.get('isActiveFolderReadOnly')) return;
 
         await withLoadingShield(t('common.loading.generic'), async () => {
             await removeSongsFromFolder(keys, folderId, mediaType); // core/file-manager/folder.js
@@ -1200,6 +1220,34 @@ const workflowPlaylist = {
         });
 
         this._exitSelectionMode();
+    },
+
+    /** "Gỡ khỏi thư mục" — 1 item lẻ qua menu 3-chấm (khác hẳn bản Selection mode ngay trên: 1 key
+     * thay vì mảng đã chọn, không cần `_exitSelectionMode()`). MỚI (06/09/2026, hợp nhất Folder vào
+     * Playlist) — CÙNG ý nghĩa/CÙNG guard Read-only (mục 4b) với `removeSelectedSongsFromFolder()}`
+     * ngay trên — không đụng bản ghi gốc/thư viện, chỉ gỡ khỏi DANH SÁCH của folder đang Scope.
+     * @param {string} songKey
+     */
+    async removeSongFromFolderMenu(songKey) {
+        const mediaType = appState.get('activeMediaSource');
+        const folderId = appState.get('activePlayListFolder')[mediaType];
+        if (!folderId) return; // guard hiếm — cùng lý do removeSelectedSongsFromFolder()
+        if (appState.get('isActiveFolderReadOnly')) return; // guard: Read-only (mục 4b) — nút lẽ ra đã ẩn, phòng vệ thêm
+
+        await withLoadingShield(t('common.loading.generic'), async () => {
+            await removeSongFromFolder(songKey, folderId, mediaType); // core/file-manager/folder.js
+            removeKeysFromDisplayState([songKey], appState.get('playlistOrder'), appState.get('displayOrder')); // core/playlist/bulk-actions.js
+            workflowPlaylistOrder.updateShuffleArray();
+            workflowPlaylistOrder.recomputeRenderOrder();
+            workflowPlaylistRender.renderPlaylistDiff();
+            updateEmptyState();
+
+            const folderMap = await getFolderSongMap(folderId); // service/db.js
+            if (isFolderEmpty(folderMap)) { // core/file-manager/folder.js
+                await workflowPlaylistScope.persistScopeChoice(null, mediaType);
+                await workflowPlaylistScope.applyAllSongsScope(mediaType);
+            }
+        });
     },
 
     // ===================== Ver 12 "Song/Video Unification" — Batch 1 (mục 1-2) =====================

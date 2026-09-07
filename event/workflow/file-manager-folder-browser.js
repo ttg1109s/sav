@@ -177,13 +177,18 @@ const workflowFileManagerFolderBrowser = {
      * tính'") — bản trước dùng SAI `modalChoice()` cho cả 4 lựa chọn. Giờ dùng ĐÚNG
      * `openDropdownMenu()` (core/dropdown-menu.js, component dropdown-neo-theo-nút DÙNG CHUNG có
      * sẵn — CÙNG khuôn `event/workflow/image-edit.js::openSaveMenu()`): mỗi mục chỉ
-     * `eventBus.send()`, KHÔNG tự làm nghiệp vụ trong callback (Rule 5a) — 4 case đích riêng ngay
-     * dưới (`renameFromTileMenu`/`deleteFromTileMenu`/`toggleExcludeFromTileMenu`/
-     * `propertiesFromTileMenu`) mới THẬT SỰ làm việc, mỗi hàm tự đọc lại `getFolderRecord()` (Rule
-     * 2 — không truyền cả object qua payload eventBus, chỉ truyền `folderId`).
-     * Đổi tên / Xoá thư mục (ẨN nếu đang active — mục 3.2, chặn hẳn) / Ẩn khỏi "Tất cả" ↔ Hiện lại
-     * (đổi nhãn động theo `excludeFromMainPlaylist` hiện tại) / Thuộc tính (mở modalChoice — CHỈ
-     * mục NÀY, hiện tổng số + dung lượng + nút Tải xuống, xem `showFolderProperties()`).
+     * `eventBus.send()`, KHÔNG tự làm nghiệp vụ trong callback (Rule 5a) — case đích riêng ngay
+     * dưới (`renameFromTileMenu`/`deleteFromTileMenu`/`propertiesFromTileMenu`) mới THẬT SỰ làm
+     * việc, mỗi hàm tự đọc lại `getFolderRecord()` (Rule 2 — không truyền cả object qua payload
+     * eventBus, chỉ truyền `folderId`).
+     * SỬA (06/09/2026, mục 4a — "Hidden" dời vào checkbox Properties) — mục "Ẩn khỏi Tất cả ↔ Hiện
+     * lại" bỏ HẲN khỏi dropdown này — nay là checkbox trong `showFolderProperties()`.
+     * SỬA (06/09/2026, mục 4b — Read-only) — ẨN HẲN mục Đổi tên khi `folderRecord.isReadOnly`
+     * (không phân biệt đang active hay không — Read-only áp cho chính folder đó, không phải chỉ
+     * lúc đang Scope).
+     * Đổi tên (ẨN nếu Read-only) / Xoá thư mục (ẨN nếu đang active — mục 3.2, chặn hẳn) / Thuộc
+     * tính (mở modalChoice — CHỈ mục NÀY, hiện Contains/Size + 2 checkbox Read-only/Hidden + nút
+     * Download, xem `showFolderProperties()`).
      * @param {string} folderId
      * @param {HTMLElement} anchorEl - tile vừa long-press, neo dropdown ngay cạnh nó.
      */
@@ -192,28 +197,22 @@ const workflowFileManagerFolderBrowser = {
         if (!folderRecord) return; // guard hiếm: folder vừa bị xoá ở nơi khác đúng lúc long-press
         const mediaType = folderRecord.type || 'song';
         const isActiveFolder = folderId === appState.get('activePlayListFolder')[mediaType];
-        const isExcluded = !!folderRecord.excludeFromMainPlaylist;
 
         const ICON_RENAME = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>';
         const ICON_DELETE = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
-        const ICON_HIDE = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.774 3.162 10.066 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/></svg>';
-        const ICON_UNHIDE = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>';
         const ICON_PROPERTIES = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/></svg>';
 
-        const items = [
-            { icon: ICON_RENAME, name: t('fileManager.song.folderDetail.renameTitle'), callback: () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.tileMenu.rename.click', payload: { folderId } }) },
-        ];
+        const items = [];
+        if (!folderRecord.isReadOnly) {
+            items.push({ icon: ICON_RENAME, name: t('fileManager.song.folderDetail.renameTitle'), callback: () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.tileMenu.rename.click', payload: { folderId } }) });
+        }
         // SỬA (06/09/2026, Giang chốt mục 3.2 — "chặn hẳn, không tự unapply-rồi-xoá") — ẨN HẲN mục
         // Xoá khi đang active, thay vì hiện ra rồi báo lỗi lúc bấm — người dùng thấy NGAY trong menu
-        // là chưa xoá được lúc này, không cần thử mới biết.
+        // là chưa xoá được lúc này, không cần thử mới biết. Xoá KHÔNG bị Read-only chặn (Giang chốt
+        // "tất nhiên trừ delete").
         if (!isActiveFolder) {
             items.push({ icon: ICON_DELETE, name: t('fileManager.song.btnDeleteFolder'), destructive: true, callback: () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.tileMenu.delete.click', payload: { folderId } }) });
         }
-        items.push({
-            icon: isExcluded ? ICON_UNHIDE : ICON_HIDE,
-            name: this._folderText(isExcluded ? 'fileManager.folderBrowser.tileMenu.unhide' : 'fileManager.song.folderDetail.excludeToggle.label', folderRecord),
-            callback: () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.tileMenu.toggleExclude.click', payload: { folderId } }),
-        });
         items.push({ icon: ICON_PROPERTIES, name: t('fileManager.folderBrowser.tileMenu.properties'), callback: () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.tileMenu.properties.click', payload: { folderId } }) });
 
         openDropdownMenu(anchorEl, items, { zIndex: Z_INDEX.FOLDER_TILE_ACTION_MENU }); // core/dropdown-menu.js
@@ -231,13 +230,6 @@ const workflowFileManagerFolderBrowser = {
         const folderRecord = await getFolderRecord(folderId); // service/db.js
         if (!folderRecord) return; // guard hiếm — cùng lý do renameFromTileMenu()
         this._confirmDeleteFromMenu(folderId, folderRecord); // modalChoice CHỈ để XÁC NHẬN 1 hành động phá huỷ — khác hẳn bản thân menu, giữ nguyên
-    },
-
-    /** Ứng với 'fileManagerFolderBrowser.tileMenu.toggleExclude.click'. */
-    async toggleExcludeFromTileMenu(folderId) {
-        const folderRecord = await getFolderRecord(folderId); // service/db.js
-        if (!folderRecord) return; // guard hiếm — cùng lý do renameFromTileMenu()
-        await this._toggleExcludeFromMenu(folderId, folderRecord, !folderRecord.excludeFromMainPlaylist);
     },
 
     /** Ứng với 'fileManagerFolderBrowser.tileMenu.properties.click' — ĐÂY MỚI ĐÚNG LÀ chỗ DUY NHẤT
@@ -302,7 +294,17 @@ const workflowFileManagerFolderBrowser = {
         }
     },
 
-    /** Thuộc tính: tổng số item + tổng dung lượng + nút Tải xuống (zip). MỚI (06/09/2026, mục 2.7). */
+    /** Thuộc tính — SỬA (06/09/2026, Giang chốt "thiết kế lại giống Windows") — layout kiểu Windows
+     * Properties (hàng "Contains"/"Size" + 2 checkbox Read-only/Hidden ở dưới, vẫn trong khuôn
+     * `modalChoice()` hệ thống qua `options.bodyHtml` — KHÔNG tự chế modal riêng). Nhãn số lượng đổi
+     * theo type (`{n} songs`/`videos`/`photos`, không còn "items" chung chung). 2 checkbox áp dụng
+     * NGAY khi tick (không có nút Lưu riêng) — wiring TRỰC TIẾP ngay sau lời gọi `modalChoice()`,
+     * CÙNG khuôn đã có sẵn ở `event/workflow/image-edit.js::editLayerTextContent()` (query
+     * `#modal-choice-body` NGAY SAU khi modal đã dựng DOM xong, gắn listener 'change'/'input') — chỉ
+     * còn ĐÚNG 1 lựa chọn thật (Tải xuống, ẩn nếu rỗng) nên `modalChoice()` tự render hàng nút
+     * ngang [Đóng][Tải xuống], không phải dropdown.
+     * "Hide/Unhide" ĐÃ RỜI từ mục riêng trong dropdown long-press sang checkbox "Hidden" ở đây (xem
+     * `openTileActionsMenu()` — mục đó đã bỏ khỏi `items[]`). */
     async showFolderProperties(folderId, folderRecord) {
         const mediaType = folderRecord.type || 'song';
         const folderMap = await getFolderSongMap(folderId); // service/db.js
@@ -313,14 +315,53 @@ const workflowFileManagerFolderBrowser = {
             const record = await getRecordFn(key);
             if (record && record.blob) totalBytes += record.blob.size;
         }
-        const bodyText = tFormat('fileManager.folderBrowser.tileMenu.propertiesBody', { count: String(keys.length), size: formatBytes(totalBytes) }); // core/about-stats.js
+        const countLabel = tFormat(
+            mediaType === 'video' ? 'fileManager.folderBrowser.tileMenu.countVideos' : mediaType === 'photo' ? 'fileManager.folderBrowser.tileMenu.countPhotos' : 'fileManager.folderBrowser.tileMenu.countSongs',
+            { count: String(keys.length) }
+        );
+        const bodyHtml = `
+            <div class="space-y-3">
+                <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+                    <span class="text-slate-400">${t('fileManager.folderBrowser.tileMenu.propertiesContains')}</span><span class="text-slate-100 font-medium">${escapeHtml(countLabel)}</span>
+                    <span class="text-slate-400">${t('fileManager.folderBrowser.tileMenu.propertiesSize')}</span><span class="text-slate-100 font-medium">${formatBytes(totalBytes)}</span>
+                </div>
+                <div class="border-t border-white/10 pt-3 space-y-2.5">
+                    <label class="flex items-center gap-2.5 text-sm text-slate-200 cursor-pointer">
+                        <input type="checkbox" id="folder-properties-readonly-checkbox" class="w-4 h-4 rounded accent-sky-500"${folderRecord.isReadOnly ? ' checked' : ''}>
+                        ${t('fileManager.folderBrowser.tileMenu.readOnlyLabel')}
+                    </label>
+                    <label class="flex items-center gap-2.5 text-sm text-slate-200 cursor-pointer">
+                        <input type="checkbox" id="folder-properties-hidden-checkbox" class="w-4 h-4 rounded accent-sky-500"${folderRecord.excludeFromMainPlaylist ? ' checked' : ''}>
+                        ${t('fileManager.folderBrowser.tileMenu.hiddenLabel')}
+                    </label>
+                </div>
+            </div>
+        `;
         modalChoice( // core/modal-choice-ui.js
-            bodyText,
+            '',
             keys.length > 0 ? [
                 { label: t('fileManager.folderBrowser.tileMenu.propertiesDownload'), className: 'flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold transition-colors', onClick: () => this._downloadFolderZip(folderRecord.name, mediaType, keys) }
             ] : [],
-            { title: escapeHtml(folderRecord.name) }
+            { title: escapeHtml(folderRecord.name), bodyHtml }
         );
+
+        const modalBody = document.getElementById('modal-choice-body');
+        const readOnlyCheckbox = modalBody.querySelector('#folder-properties-readonly-checkbox');
+        readOnlyCheckbox.addEventListener('change', (e) => this._onPropertiesReadOnlyChange(folderId, mediaType, e.target.checked));
+        const hiddenCheckbox = modalBody.querySelector('#folder-properties-hidden-checkbox');
+        hiddenCheckbox.addEventListener('change', (e) => this._toggleExcludeFromMenu(folderId, folderRecord, e.target.checked));
+    },
+
+    /** Checkbox "Read-only" đổi — MỚI (06/09/2026, mục 4b). Ghi `isReadOnly` xong, NẾU folder này
+     * đang chính là Scope hiện tại của Nguồn hiện tại thì đồng bộ NGAY `isActiveFolderReadOnly`
+     * (field phẳng dùng cho Block gate chặn upload, xem event/block.js) — không đợi lần
+     * applyFolderScope() kế tiếp mới cập nhật, vì folder có thể đang active NGAY LÚC tick checkbox
+     * này (mở Thuộc tính của chính folder đang xem). */
+    async _onPropertiesReadOnlyChange(folderId, mediaType, enabled) {
+        await setFolderReadOnlyFlag(folderId, enabled); // core/file-manager/folder.js
+        if (mediaType === appState.get('activeMediaSource') && folderId === appState.get('activePlayListFolder')[mediaType]) {
+            appState.set('isActiveFolderReadOnly', enabled);
+        }
     },
 
     /** Tải toàn bộ item của 1 folder thành 1 file .zip — tái dùng THẲNG core Storage Management

@@ -78,6 +78,13 @@ const workflowPlaylistScope = {
         const next = { ...appState.get('activePlayListFolder'), [mediaType]: folderId };
         appState.set('activePlayListFolder', next);
         console.log(`writer: "applyFolderScope", page: "activePlayListFolder", content: "${JSON.stringify(next)}"`);
+        // MỚI (06/09/2026, hợp nhất Folder vào Playlist, mục 4b — "Read-only", dùng Block gate chặn
+        // upload) — đồng bộ `isActiveFolderReadOnly` (1 giá trị phẳng, xem service/state/
+        // file-manager.js) NGAY khi 1 folder THẬT SỰ trở thành Scope — hàm này LUÔN chạy đúng lúc
+        // `mediaType === activeMediaSource` (bất biến toàn hệ thống: tap tile/badge-X/switch-source
+        // đều gọi hàm này cho ĐÚNG Nguồn đang hiển thị), nên không cần so sánh lại.
+        const folderRecordForReadOnly = await getFolderRecord(folderId); // core/file-manager/folder.js
+        appState.set('isActiveFolderReadOnly', !!(folderRecordForReadOnly && folderRecordForReadOnly.isReadOnly));
 
         await loadSongsFromFolder(folderId, appState.get('playlistCache'));
         // MỚI (mục 1d, Playlist Filter) — áp filter (nếu có) NGAY SAU khi playlistOrder vừa được
@@ -116,6 +123,9 @@ const workflowPlaylistScope = {
             appState.set('activePlayListFolder', next);
             console.log(`writer: "applyAllSongsScope", page: "activePlayListFolder", content: "${JSON.stringify(next)}"`);
         }
+        // MỚI (06/09/2026, cùng lý do applyFolderScope() ngay trên) — không có folder Scope thì
+        // chắc chắn không "read-only" gì cả.
+        appState.set('isActiveFolderReadOnly', false);
         // FIX (Giang báo — "Exclude của Folder có thể loại nhầm media khác loại nếu key trùng") —
         // getExcludedSongKeysFromFolders() (core/file-manager/folder.js) nhận `mediaType` qua tham
         // số, CHỈ gom Exclude của ĐÚNG loại folder đang browse — dùng THẲNG tham số của chính hàm
