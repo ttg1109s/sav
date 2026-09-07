@@ -64,7 +64,7 @@ const workflowPlayer = {
     playMedia(key, options) {
         // ===================== Ver 12 "Song/Video Unification" — Batch 2 (mục 3) =====================
         // Guard clause ĐẦU hàm — hàm "phát nhạc hợp nhất" giờ đọc `cached.mediaType` (chuẩn hoá
-        // bởi buildVideoPlaylistCache(), Batch 1) để quyết định delegate hẳn sang Video Player
+        // bởi buildAdaptedPlaylistCache(), Batch 1) để quyết định delegate hẳn sang Video Player
         // mode hay tiếp tục luồng Song gốc bên dưới. Rule 1: đây là guard clause thuần — bỏ 2
         // khối if này đi, phần còn lại của hàm vẫn giữ NGUYÊN 100% ĐÚNG 1 kịch bản (phát Song),
         // không đổi bất kỳ dòng nào — đúng nguyên tắc riêng của plan "KHÔNG sửa/động code đang

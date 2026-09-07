@@ -33,8 +33,8 @@
  * core/file-manager/folder.js (getExcludedSongKeysFromFolders() — MỚI, Batch 4, dùng bởi
  * applyAllSongsScope()), core/playlist/filter.js (applyPlaylistFilter() — MỚI, mục 1d),
  * core/file-manager/video.js (listVideos), core/file-manager/image.js (listImages),
- * core/playlist/loader.js (buildVideoPlaylistCache/buildPhotoPlaylistCache/scanValidSongsFromDB —
- * dùng bởi loadPlaylistCacheForSource() MỚI, xem docstring ngay dưới).
+ * core/playlist/loader.js (buildAdaptedPlaylistCache/scanValidSongsFromDB — dùng bởi
+ * loadPlaylistCacheForSource() MỚI, xem docstring ngay dưới).
  *
  * MỚI (07/09/2026, Giang chỉ ra "chuyển Nguồn qua lại đang nạp Tất cả rồi mới lọc theo folder,
  * không giống app boot") — `loadPlaylistCacheForSource(mediaSource, onProgress)` là "workflow
@@ -51,22 +51,45 @@
  * `loadPlaylistCacheForSource()` (1 lượt đọc DB O(n)) với `applyFolderScope()`/`applyAllSongsScope()`
  * (1 lượt tính playlistOrder O(n) + render 1 lần) cho tổng CẢ QUY TRÌNH đúng O(n), không còn 2 lượt
  * O(n) nối tiếp như bản cũ.
+ *
+ * MỚI TIẾP (07/09/2026, Giang yêu cầu "gộp mà vẫn đảm bảo logic, thêm media sau này chỉ cần gửi
+ * type + shape thay vì nhân bản hàm") — `MEDIA_LIST_FN` (registry Workflow, ngay dưới) map
+ * `mediaSource` -> hàm `listX()` tương ứng (core/file-manager/x.js), CHỈ áp dụng cho media theo
+ * Adapter pattern (đã có sẵn 1 mảng record đầy đủ trong tay — Video/Photo). `buildVideoPlaylistCache()`/
+ * `buildPhotoPlaylistCache()` (2 hàm core gần như GIỐNG HỆT nhau) đã gộp thành 1 hàm DUY NHẤT
+ * `buildAdaptedPlaylistCache(records, mediaType)` + bảng cấu hình THUẦN DỮ LIỆU `MEDIA_ADAPTER_SHAPE`
+ * (core/playlist/loader.js — xem docstring đầy đủ ở đó). Registry `MEDIA_LIST_FN` ở TẦNG WORKFLOW
+ * (KHÔNG phải Core) nên lưu function reference trong đó KHÔNG vi phạm Rule 3 "core cấm gọi core" —
+ * rule đó CHỈ áp cho function core (xem readme/core-function-conventions.md, dòng đầu file: "Áp
+ * dụng cho function MỚI viết... từ ver 12"), Workflow là tầng orchestration, tự do gọi/lưu tham
+ * chiếu hàm. Thêm 1 loại media MỚI kiểu Adapter (đã có sẵn mảng record) từ nay chỉ cần: (1) 1 dòng ở
+ * `MEDIA_LIST_FN`, (2) 1 entry ở `MEDIA_ADAPTER_SHAPE` (core/playlist/loader.js) — KHÔNG cần viết
+ * thêm hàm nào ở tầng Core. Song KHÔNG nằm trong registry này (tự đọc DB theo TỪNG key + lọc broken/
+ * MIME, không có sẵn mảng record — xem nhánh `else` trong `loadPlaylistCacheForSource()`), giữ
+ * `scanValidSongsFromDB()` riêng.
  */
+// Registry Workflow (MỚI, 07/09/2026) — map `mediaSource` -> hàm `listX()` core tương ứng, CHỈ cho
+// media theo Adapter pattern (đã có sẵn 1 mảng record đầy đủ). Thêm 1 loại media MỚI kiểu này chỉ
+// cần thêm 1 dòng ở đây + 1 entry ở `MEDIA_ADAPTER_SHAPE` (core/playlist/loader.js) — xem docstring
+// đầu file. Lưu function reference ở TẦNG WORKFLOW này KHÔNG vi phạm Rule 3 (rule đó chỉ áp cho
+// Core, xem readme/core-function-conventions.md).
+const MEDIA_LIST_FN = { video: listVideos, photo: listImages };
+
 const workflowPlaylistScope = {
 
     /**
      * "Bước 1" của workflow chuẩn — xem docstring đầu file. CHỈ nạp lại `playlistCache`/
      * `songNameIndex` cho ĐÚNG `mediaSource` (KHÔNG đụng `playlistOrder`/DOM — đó là việc của
      * `applyFolderScope()`/`applyAllSongsScope()` ngay dưới, nơi gọi PHẢI tự gọi 1 trong 2 hàm đó
-     * NGAY SAU). Dispatch theo `mediaSource` — Workflow điều phối 3 core khác nhau tuỳ nguồn (Rule
-     * 3 không áp cho Workflow, đúng bản chất orchestration).
-     * Video/Photo dùng `buildVideoPlaylistCache()`/`buildPhotoPlaylistCache()` (core/playlist/
-     * loader.js, Adapter pattern) — CÓ return (danh sách key ĐẦY ĐỦ, không lọc) nhưng KHÔNG dùng ở
-     * đây, bỏ qua có chủ đích (đúng pattern app-boot.js đã làm cho 2 nguồn này từ trước). Song dùng
-     * THẲNG `scanValidSongsFromDB()` — hàm ĐÃ SẴN đúng hình dạng "chỉ nạp cache, trả về keys,
-     * KHÔNG set playlistOrder" (khác `initPlaylistFromDB()`, hàm boot-only tự set playlistOrder +
-     * tự render + có thêm bước hồi phục "Clear All bị gián đoạn" riêng của boot — KHÔNG dùng lại ở
-     * đây, xem event/workflow/app-boot.js), nên không cần viết thêm Adapter riêng cho Song.
+     * NGAY SAU). Dispatch theo `mediaSource` qua registry `MEDIA_LIST_FN` — Workflow điều phối
+     * (Rule 3 không áp cho Workflow, đúng bản chất orchestration).
+     * Media có trong `MEDIA_LIST_FN` (Video/Photo — Adapter pattern) dùng THẲNG
+     * `buildAdaptedPlaylistCache()` (core/playlist/loader.js) — CÓ return (danh sách key ĐẦY ĐỦ,
+     * không lọc) nhưng KHÔNG dùng ở đây, bỏ qua có chủ đích (đúng pattern app-boot.js đã làm từ
+     * trước). Song (KHÔNG có trong registry) dùng THẲNG `scanValidSongsFromDB()` — hàm ĐÃ SẴN đúng
+     * hình dạng "chỉ nạp cache, trả về keys, KHÔNG set playlistOrder" (khác `initPlaylistFromDB()`,
+     * hàm boot-only tự set playlistOrder + tự render + có thêm bước hồi phục "Clear All bị gián
+     * đoạn" riêng của boot — KHÔNG dùng lại ở đây, xem event/workflow/app-boot.js).
      * @param {'song'|'video'|'photo'} mediaSource
      * @param {(done:number,total:number)=>void} [onProgress] - tuỳ chọn, hiện tiến trình "x/y" khi
      *        có (switchToXSource() truyền vào để cập nhật loadingText; app boot KHÔNG truyền, giữ
@@ -74,12 +97,10 @@ const workflowPlaylistScope = {
      *        không nhận được callback).
      */
     async loadPlaylistCacheForSource(mediaSource, onProgress) {
-        if (mediaSource === 'video') {
-            const videoRecords = await listVideos(onProgress); // core/file-manager/video.js
-            buildVideoPlaylistCache(videoRecords); // core/playlist/loader.js — CHỈ nạp cache, bỏ qua return value có chủ đích (xem docstring)
-        } else if (mediaSource === 'photo') {
-            const imageRecords = await listImages(onProgress); // core/file-manager/image.js
-            buildPhotoPlaylistCache(imageRecords); // core/playlist/loader.js — CÙNG LÝ DO nhánh 'video'
+        const listFn = MEDIA_LIST_FN[mediaSource]; // registry ngay dưới — undefined cho 'song' (không theo Adapter pattern)
+        if (listFn) {
+            const records = await listFn(onProgress); // core/file-manager/video.js hoặc image.js, tuỳ mediaSource
+            buildAdaptedPlaylistCache(records, mediaSource); // core/playlist/loader.js — CHỈ nạp cache, bỏ qua return value có chủ đích (xem docstring)
         } else {
             await scanValidSongsFromDB(onProgress); // core/playlist/loader.js — ĐÃ SẴN đúng hình dạng, dùng thẳng (xem docstring)
         }

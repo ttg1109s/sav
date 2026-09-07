@@ -1390,7 +1390,8 @@ const workflowPlaylist = {
      * CHUNG với app boot (MỚI 07/09/2026, xem `workflowPlaylistScope.loadPlaylistCacheForSource()`,
      * event/workflow/playlist-scope.js và docstring đầy đủ ở `switchToVideoSource()` — CÙNG BUG/
      * CÙNG FIX, không lặp lại ở đây): (1) nạp lại `playlistCache` từ store `images` qua Adapter
-     * (buildPhotoPlaylistCache()) — KHÔNG đụng `playlistOrder`; (2) đọc `activePlayListFolder.photo`
+     * (`buildAdaptedPlaylistCache()`, core/playlist/loader.js — MỚI 07/09/2026, gộp chung với Video)
+     * — KHÔNG đụng `playlistOrder`; (2) đọc `activePlayListFolder.photo`
      * rồi gọi ĐÚNG 1 trong 2 `applyFolderScope()`/`applyAllSongsScope()` — Scope + Filter + render 1
      * LẦN DUY NHẤT — TÁI DÙNG NGUYÊN 100% các hàm core đã phục vụ Song/Video (recomputeDisplayOrder/
      * RenderOrder, updateEmptyState, updateShuffleArray, renderPlaylistDiff() -> buildSongNode()).

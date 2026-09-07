@@ -148,7 +148,7 @@ const workflowPhotoPlayer = {
         console.log(`writer: "playPhotoByKey", page: "currentKey", content: "${photoKey}"`);
         bumpSongPlayCount(photoKey); // core/listen-stats.js — mediaStatsMap key-agnostic, dùng thẳng được (CÙNG cách Video làm)
 
-        const durationSec = record.duration || 5; // CÙNG fallback core/playlist/loader.js::buildPhotoPlaylistCache() cho record cũ thiếu field
+        const durationSec = record.duration || 5; // CÙNG fallback core/playlist/loader.js::buildAdaptedPlaylistCache() (MEDIA_ADAPTER_SHAPE.photo.durationFallback) cho record cũ thiếu field
         appState.set('photoPlayerDurationSec', durationSec, { skipCheck: true });
         appState.set('photoPlayerElapsedBeforePauseSec', 0, { skipCheck: true });
         appState.set('photoPlayerStartedAtMs', performance.now(), { skipCheck: true });
@@ -156,7 +156,7 @@ const workflowPhotoPlayer = {
 
         const title = record.customName || stripFileExtension(record.filename) || t('photoPlayer.untitled');
         playerTitle.textContent = title;
-        playerArtist.textContent = ''; // Adapter shape — Photo không có artist, KHỚP buildPhotoPlaylistCache() (core/playlist/loader.js)
+        playerArtist.textContent = ''; // Adapter shape — Photo không có artist, KHỚP buildAdaptedPlaylistCache() (core/playlist/loader.js)
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({ title, artist: '', artwork: [] });
         }
