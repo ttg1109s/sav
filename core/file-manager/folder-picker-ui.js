@@ -149,7 +149,7 @@ function wireFolderPickerDrawerEvents(routerName, msgPrefix) {
             holdFired = false;
             taskManager.once(() => {
                 holdFired = true;
-                eventBus.send({ router: routerName, type: `${msgPrefix}.tile.longpress`, payload: { folderId } });
+                eventBus.send({ router: routerName, type: `${msgPrefix}.tile.longpress`, payload: { folderId, anchorEl: tileEl } });
             }, FOLDER_TILE_HOLD_MS, holdTaskId);
         });
         tileEl.addEventListener('pointerup', () => taskManager.kill(holdTaskId));
