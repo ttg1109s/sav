@@ -7,7 +7,14 @@
  */
         AppState.definePackage('file-manager', {
             schema: {
-                activePlayListFolder: 'nullable-string', // null/undefined = tất cả bài; có giá trị = đang scoping theo folderId
+                // SỬA (06/09/2026, Giang chốt "mỗi Nguồn tự nhớ folder đang áp dụng riêng") — đổi
+                // từ 1 giá trị phẳng (chỉ 1 folder áp dụng được tại 1 thời điểm, mất dấu khi đổi
+                // Nguồn) sang object theo TỪNG Nguồn — mỗi field null/undefined = Nguồn đó đang
+                // "Tất cả bài"; có giá trị = đang scoping theo đúng folderId (CÙNG type) của Nguồn
+                // đó. Đổi source không còn xoá mất lựa chọn Scope của Nguồn kia. Dữ liệu cũ (lưu
+                // dạng string phẳng qua meta) tự migrate 1 lần lúc boot, xem
+                // core/file-manager/folder.js::migrateActivePlayListFolderIfNeeded().
+                activePlayListFolder: 'object', // {song: string|null, video: string|null, photo: string|null}
                 selectionMode: 'boolean',                // chế độ chọn nhiều (checkbox) trong Playlist
                 selectedSongKeys: 'set',                 // tập songKey đang được chọn khi selectionMode = true
                 // true = displayOrder hiện đang là 1 "section" (tập con vừa chọn-rồi-phát qua
@@ -31,7 +38,7 @@
             },
             buildDefaults() {
                 return {
-                    activePlayListFolder: null,
+                    activePlayListFolder: { song: null, video: null, photo: null },
                     selectionMode: false,
                     selectedSongKeys: new Set(),
                     sectionQueueActive: false,
