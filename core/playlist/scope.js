@@ -1,9 +1,10 @@
 /**
  * core/playlist/scope.js — Scoping Playlist theo folder (mục 4.b1, bước 3 plan-v12-multimedia.md).
- * VIẾT MỚI HOÀN TOÀN, KHÔNG đụng core/playlist/loader.js (initPlaylistFromDB/scanValidSongsFromDB
- * — code di sản, chưa qua 4 rule) — xem plan-v12-multimedia-decisions.md phần trao đổi 03/07/2026:
- * `playlistCache` (đã được initPlaylistFromDB() nạp đầy đủ từ lúc boot, cập nhật liên tục mỗi khi
- * thêm/xoá bài) đủ để suy ra CẢ 2 trạng thái mà không cần quét lại IndexedDB:
+ * VIẾT MỚI HOÀN TOÀN, KHÔNG đụng core/playlist/loader.js — xem plan-v12-multimedia-decisions.md
+ * phần trao đổi 03/07/2026: `playlistCache` (đã được nạp đầy đủ từ lúc boot qua
+ * `workflowPlaylistScope.loadPlaylistCacheForSource()`, event/workflow/playlist-scope.js — trước
+ * 07/09/2026 là `initPlaylistFromDB()`/`scanValidSongsFromDB()`, ĐÃ XOÁ, xem file đó — cập nhật
+ * liên tục mỗi khi thêm/xoá bài) đủ để suy ra CẢ 2 trạng thái mà không cần quét lại IndexedDB:
  *   - "Tất cả bài"   = toàn bộ key trong playlistCache.
  *   - "Theo 1 folder" = giao giữa danh sách key của folder đó và playlistCache (loại bỏ key nào
  *     đã không còn hợp lệ — bài lỗi/đã xoá — dù vẫn còn sót trong folder_song).

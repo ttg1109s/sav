@@ -154,14 +154,15 @@
                         if (!isOverwrite) { appState.mutate('playlistOrder', arr => arr.push(key)); playlistOrderSet.add(key); newlyAddedKeys.push(key); }
                         // FIX (Giang báo — "song mới upload thiếu addedAt/size trong playlistCache") —
                         // TRƯỚC ĐÂY object ghi vào cache CHỈ có filename/tag/cover/duration, thiếu
-                        // addedAt/size mà scanValidSongsFromDB() (dòng ~324, cùng file) LUÔN có đủ —
-                        // khiến Sort newest/oldest/size VÀ Filter theo ngày/dung lượng coi bài vừa
-                        // upload như addedAt=0/size=0 CHO TỚI KHI reload trang (F5 chạy lại
-                        // scanValidSongsFromDB(), tự vá đủ field). `record.addedAt` đã có sẵn (gán
-                        // Date.now() lúc tạo record ở trên); `record.blob` CHÍNH LÀ `file` (File
-                        // extends Blob, có `.size` sẵn) — dùng ĐÚNG `record.blob.size` cho khớp 100%
-                        // với cách scanValidSongsFromDB() đọc (`record.blob.size`), không suy ra từ
-                        // biến `file` riêng để tránh lệch nếu sau này `record.blob` đổi nguồn khác `file`.
+                        // addedAt/size mà `buildSongPlaylistCache()` (core/playlist/loader.js, gọi
+                        // qua `workflowPlaylistScope.loadPlaylistCacheForSource('song', ...)`) LUÔN
+                        // có đủ — khiến Sort newest/oldest/size VÀ Filter theo ngày/dung lượng coi bài
+                        // vừa upload như addedAt=0/size=0 CHO TỚI KHI reload trang (F5 chạy lại nạp
+                        // cache, tự vá đủ field). `record.addedAt` đã có sẵn (gán Date.now() lúc tạo
+                        // record ở trên); `record.blob` CHÍNH LÀ `file` (File extends Blob, có `.size`
+                        // sẵn) — dùng ĐÚNG `record.blob.size` cho khớp 100% với cách
+                        // `buildSongPlaylistCache()` đọc (`record.blob.size`), không suy ra từ biến
+                        // `file` riêng để tránh lệch nếu sau này `record.blob` đổi nguồn khác `file`.
                         appState.mutate('playlistCache', m => m.set(key, { filename: record.filename, tag: record.tag, cover: record.cover, duration: record.duration, addedAt: record.addedAt, size: record.blob.size || 0 }));
                         appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(record.tag.title)));
                         appState.mutate('confirmedBrokenKeys', s => s.delete(key));
@@ -328,34 +329,6 @@
         }
 
         /**
-         * Quét NHANH store `songs` (KHÔNG decode duration) — record hợp lệ (blob + tag + MIME đúng)
-         * thì nạp vào playlist; không hợp lệ thì bỏ qua (sẽ hiện ở Quản lý dung lượng khi quét sâu).
-         */
-        async function scanValidSongsFromDB(onProgress) {
-            const keys = await getAllSongKeys();
-            const validKeys = [];
-            appState.mutate('playlistCache', m => m.clear()); appState.mutate('songNameIndex', m => m.clear());
-            let processed = 0;
-            for (const key of keys) {
-                processed++;
-                if (typeof onProgress === 'function') onProgress(processed, keys.length);
-                if (appState.get('confirmedBrokenKeys').has(key)) continue;
-                const record = await getSongRecord(key);
-                if (!record || !record.blob || !record.tag) continue;
-                if (!isQuickValidMime(record.blob.type)) continue;
-                validKeys.push(key);
-                // MỚI (mục 1e, phản hồi Giang — "detail modal thêm dung lượng") — `size` (byte) đọc
-                // thẳng từ `record.blob.size`, CÙNG ĐỢT với `addedAt` trước đây (đã có sẵn record,
-                // không cần đọc thêm gì khác từ DB) — dùng ở modal chi tiết (core/playlist/
-                // actions.js::songInfoRowHtml()) VÀ field số "Dung lượng" của Playlist Filter (core/
-                // playlist/filter.js).
-                appState.mutate('playlistCache', m => m.set(key, { filename: record.filename, tag: record.tag, cover: record.cover, duration: record.duration, addedAt: record.addedAt, size: record.blob.size || 0 }));
-                appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(record.tag.title)));
-            }
-            return validKeys;
-        }
-
-        /**
          * ===================== Bảng cấu hình Adapter — MỚI (07/09/2026, gộp buildVideoPlaylistCache()/
          * buildPhotoPlaylistCache() cũ, Giang yêu cầu "thêm media sau này chỉ cần gửi type + shape,
          * không nhân bản hàm") =====================
@@ -443,7 +416,7 @@
                     duration: record.duration || shape.durationFallback,
                     addedAt: record.addedAt,
                     mediaType,
-                    size: record.blob.size || 0, // MỚI (mục 1e) — cùng lý do Song, xem comment ở scanValidSongsFromDB()
+                    size: record.blob.size || 0, // MỚI (mục 1e) — cùng lý do Song, xem comment ở buildSongPlaylistCache()
                 };
                 for (const field of shape.extraFields) entry[field] = record[field] || 0; // MỚI — field phụ theo type (vd width/height của Photo — modal Chi tiết, core/playlist/actions.js::openSongEditModal())
                 appState.mutate('playlistCache', m => m.set(record.key, entry));
@@ -458,8 +431,9 @@
          * `workflowPlaylistScope.listMediaRecords()`, event/workflow/playlist-scope.js) =====================
          * CHỈ Song cần bước Validate RIÊNG (Video/Photo không cần — guard duy nhất `!record.blob` đã
          * nằm sẵn trong `buildAdaptedPlaylistCache()` ngay trên). Lọc bỏ record hỏng/không hợp lệ —
-         * Y HỆT 3 điều kiện `continue` trong `scanValidSongsFromDB()` cũ (hàm đó GIỮ NGUYÊN, vẫn
-         * đang phục vụ `initPlaylistFromDB()` boot-only, KHÔNG xoá):
+         * Y HỆT 3 điều kiện `continue` trong `scanValidSongsFromDB()` cũ (hàm đó ĐÃ XOÁ 07/09/2026
+         * cùng đợt — cùng `initPlaylistFromDB()`, không còn nơi nào gọi tới sau khi app-boot.js
+         * cũng chuyển hẳn sang gọi `loadPlaylistCacheForSource()`, xem event/workflow/app-boot.js):
          * - đã đánh dấu hỏng (`confirmedBrokenKeys`, xác nhận thủ công qua modal báo lỗi phát nhạc)
          * - thiếu `blob` (file gốc) hoặc `tag` (metadata ID3 đọc lúc upload)
          * - MIME không hợp lệ (`isQuickValidMime()`, service/db.js — utility thuần, không phải đọc
@@ -514,54 +488,4 @@
             }
             console.log(`writer: "buildSongPlaylistCache", page: "playlistCache", content: "đã nạp ${validKeys.length} bài hát"`);
             return validKeys;
-        }
-
-        /** Khởi động app / quét lại: store `songs` là chân lý duy nhất — quét nhanh rồi dựng cả 2 thứ tự. */
-        async function initPlaylistFromDB() {
-            // PHÒNG THỦ "Clear All bị gián đoạn" (đóng tab/crash giữa lúc đang xoá — xem comment
-            // đầy đủ ở clearAllStoredData(), storage-manager.js): nếu cờ này còn `true` từ phiên
-            // trước, nghĩa là lượt xoá đó CHƯA xoá xong hoàn toàn. Dọn tiếp NGAY TỪ ĐÂY, dưới lớp
-            // loading shield, TRƯỚC khi load playlist — tránh người dùng mở app thấy vài bài "sống
-            // sót" lẫn trong danh sách dù nghĩ đã xoá hết (zip/confirm đã chạy ở phiên trước).
-            // clearAllStoredData() AN TOÀN để gọi lại (idempotent) dù phiên trước đã xoá hết/xoá dở/
-            // chưa xoá gì — kết quả cuối luôn đúng là "đã xoá sạch", không phụ thuộc xoá dở ở đâu.
-            // LƯU Ý thứ tự nạp: storage-manager.js (định nghĩa clearAllStoredData) nạp SAU file
-            // này trong index.html — nhưng AN TOÀN, vì initPlaylistFromDB() chỉ được GỌI lúc
-            // 'DOMContentLoaded' (xem draw-visualizer.js), tức SAU KHI toàn bộ <script> (kể cả
-            // storage-manager.js) đã thực thi xong; clearAllStoredData đã tồn tại trên global tại
-            // thời điểm gọi, dù được ĐỊNH NGHĨA ở file nạp sau file này.
-            const wasClearing = await getMeta('clearingInProgress');
-            if (wasClearing) {
-                await withLoadingShield(t('common.playlist.cleaningUpPrevious'), async () => {
-                    await clearAllStoredData();
-                });
-            }
-
-            // Quyết định hiển thị TRƯỚC khi đọc sâu (yêu cầu: if key<=0 -> "chưa có bài"; else -> loading list):
-            const rawKeys = await getAllSongKeys();
-            if (rawKeys.length <= 0) {
-                // Thực sự rỗng -> hiện luôn trạng thái "chưa có bài nào", KHÔNG nháy lớp loading.
-                appState.set('playlistOrder', []);
-                // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — updateShuffleArray()/
-                // recomputeDisplayOrder()/recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/
-                // playlist-order.js (workflowPlaylistOrder) — CÙNG ghi chú nợ "Core gọi Workflow"
-                // như khối upload phía trên.
-                workflowPlaylistOrder.updateShuffleArray();
-                workflowPlaylistOrder.recomputeDisplayOrder();
-                workflowPlaylistOrder.recomputeRenderOrder();
-                workflowPlaylistRender.renderPlaylistDiff();
-                updateEmptyState();
-                return;
-            }
-            // Có dữ liệu -> phủ lớp "đang nạp danh sách x / y bài" trong lúc đọc từng record, tránh nháy
-            // "chưa có bài nào". Lớp này sẽ tự fade out khi DOM list dựng xong (updateEmptyState).
-            showPlaylistLoading(0, rawKeys.length);
-            appState.set('playlistOrder', await scanValidSongsFromDB((done, total) => updatePlaylistLoading(done, total)));
-            // SỬA — CÙNG LÝ DO nhánh rỗng ngay trên.
-            workflowPlaylistOrder.updateShuffleArray();
-            workflowPlaylistOrder.recomputeDisplayOrder();   // hàng đợi phát
-            workflowPlaylistOrder.recomputeRenderOrder();    // danh sách hiển thị
-            workflowPlaylistRender.renderPlaylistDiff();
-            updateEmptyState();        // dựng xong -> fade out lớp loading (hoặc hiện empty nếu mọi record hỏng)
-            hidePlaylistLoading();     // chốt fade out (an toàn kể cả khi tất cả record lỗi -> renderOrder rỗng)
         }
