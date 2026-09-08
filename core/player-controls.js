@@ -52,7 +52,7 @@
          * 1 việc). Tách riêng `setVisualizerActiveFalse()` (core mới, ngay dưới) — NƠI GỌI PHẢI TỰ
          * THÊM hàm đó nếu muốn state đổi thành `false` (4 nơi hiện tại ĐANG cần:
          * handleBackToPlaylistClick() ngay dưới, clearAllStoredData() storage-manager.js,
-         * window.removeSong()/xoá hàng loạt core/playlist/actions.js + event/workflow/playlist.js
+         * deleteMediaFromActionMenu()/xoá hàng loạt (event/workflow/playlist.js)
          * — đã cập nhật đủ cả 4).
          *
          * (HOTFIX 11, 08/07/2026 — batch này TỪNG có thêm 1 nơi gọi nữa, tái dùng hàm này cho "mở
