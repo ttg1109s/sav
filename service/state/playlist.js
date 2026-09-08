@@ -70,6 +70,21 @@
                 // (null) = không áp. Xem DEFAULT_PLAYLIST_FILTER_CONFIG (core/playlist/filter.js)
                 // cho danh sách field hợp lệ theo từng Nguồn.
                 playlistFilterConfig: 'object',
+                // MỚI (08/09/2026, "Playlist Filter Presets" — thay hệ 1-bộ-rule-sống bằng preset
+                // đặt tên, mirror hệ preset EQ/Motion) — `playlistFilterConfig` ở trên GIỜ LÀ giá
+                // trị SỐNG SUY RA (KHÔNG còn tự lưu bền riêng, đọc bởi applyPlaylistFilter() như cũ,
+                // KHÔNG đổi gì ở phía đọc) — được `workflowPlaylistFilterPresets._recomputeLiveConfig()`
+                // (event/workflow/playlist-filter-presets.js) tính lại từ 3 field MỚI dưới đây mỗi
+                // lúc boot/bật-tắt/chọn preset. `playlistFilterEnabled` — công tắc TỔNG (Settings →
+                // Playlist → Lọc, thay cho nút mở panel trực tiếp cũ). `playlistFilterPresets` —
+                // danh sách {id,name,config} (config CÙNG SHAPE clonePlaylistFilterConfigDefaults()).
+                // `playlistFilterActivePresetId` — preset ĐANG áp dụng (null = chưa chọn preset nào,
+                // dù toggle có bật). Điều kiện filter CÓ hiệu lực = enabled=true VÀ activePresetId
+                // trỏ tới 1 preset tồn tại — thiếu 1 trong 2 thì playlistFilterConfig suy ra rỗng
+                // (clonePlaylistFilterConfigDefaults(), hành vi giống hệt "chưa có Filter").
+                playlistFilterEnabled: 'boolean',
+                playlistFilterPresets: 'array',
+                playlistFilterActivePresetId: 'nullable-string',
             },
             buildDefaults() {
                 return {
@@ -88,6 +103,9 @@
                     displayStatSortField: 'none',
                     displayStatSortDirection: 'desc',
                     playlistFilterConfig: clonePlaylistFilterConfigDefaults(),
+                    playlistFilterEnabled: false,
+                    playlistFilterPresets: [],
+                    playlistFilterActivePresetId: null,
                 };
             },
         });
