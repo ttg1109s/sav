@@ -233,10 +233,12 @@ if (btnOpenPlaylistSort) {
     });
 }
 
-// MỚI (mục 1d, Filter subpanel) — nút mở panel "Lọc" (Main list, tĩnh).
+// MỚI (mục 1d, Filter subpanel) — nút mở panel "Lọc" (Main list, tĩnh). SỬA (08/09/2026, hệ
+// "Playlist Filter Presets") — mở danh sách preset (router "playlistFilterPresets", CÙNG lối vào
+// Settings → Playlist → "Quản lý bộ lọc") thay vì thẳng bộ rule sống cũ.
 if (btnOpenPlaylistFilter) {
     btnOpenPlaylistFilter.addEventListener('click', () => {
-        eventBus.send({ router: 'playlist', type: 'playlist.filterPanel.open.click', payload: {} });
+        eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.openManage.click', payload: {} });
     });
 }
 
@@ -256,16 +258,18 @@ function handlePlaylistSortPanelChange(e) {
     eventBus.send({ router: 'playlist', type: entry.type, payload: { [entry.payloadKey]: e.target.value } });
 }
 
-// ===================== Panel "Lọc" (settings-stack, delegate) =====================
+// ===================== Màn Edit preset Filter (settings-stack, delegate) =====================
 // Field theo Nguồn (name/album/artist/addedAt/count/totalTime/size) — mỗi control mang
 // data-filter-field/data-filter-prop TƯỜNG MINH (xem components/playlist-filter-drawer.js) —
 // KHÔNG suy field/prop từ `id` (khối "đơn"/"range" của field số CÙNG prop 'value' nhưng khác id).
+// SỬA (08/09/2026, hệ "Playlist Filter Presets") — router đổi từ "playlist" sang
+// "playlistFilterPresets" (ghi vào preset đang sửa thay vì bộ rule sống trực tiếp); nhánh
+// `#btn-playlist-filter-apply` cũ ĐÃ BỎ — 2 nút "Chọn áp dụng"/"Xoá" giờ wire trực tiếp trong
+// onMount() của event/workflow/app-settings.js::_renderPlaylistFilterEdit() (CÙNG khuôn EQ/Motion
+// Edit, KHÔNG qua delegate chung này — data-filter-field CHỈ dùng cho field rule, không phải nút
+// hành động cuối trang).
 
 function handlePlaylistFilterPanelEvent(e) {
-    if (e.type === 'click' && e.target.closest('#btn-playlist-filter-apply')) {
-        eventBus.send({ router: 'playlist', type: 'playlist.filterPanel.apply.click', payload: {} });
-        return;
-    }
     const el = e.target.closest('[data-filter-field]');
     if (!el) return;
     const { filterField: field, filterProp: prop } = el.dataset;
@@ -275,13 +279,13 @@ function handlePlaylistFilterPanelEvent(e) {
     // những cái đó chỉ nghe 'change'/'input', xem 2 guard clause ngay dưới) — bắt TRƯỚC 2 guard đó.
     if (el.hasAttribute('data-filter-time-trigger')) {
         if (e.type !== 'click') return;
-        eventBus.send({ router: 'playlist', type: 'playlist.filterPanel.openTimePicker.click', payload: { field, prop } });
+        eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.openTimePicker.click', payload: { field, prop } });
         return;
     }
     if (prop === 'enabled' && e.type !== 'change') return; // checkbox chỉ nghe 'change'
     if (prop !== 'enabled' && e.type === 'click') return; // op/mode/value/valueTo không có 'click'
     const value = prop === 'enabled' ? el.checked : el.value;
-    eventBus.send({ router: 'playlist', type: 'playlist.filterPanel.field.change', payload: { field, prop, value } });
+    eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.field.change', payload: { field, prop, value } });
 }
 
 if (genericDrawerBody) { // SỬA (đợt tái cấu trúc bottom nav) — settingsStackBody nay thuộc Photo, nội dung này sống trong genericDrawerBody
