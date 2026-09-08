@@ -39,20 +39,12 @@ function wireAppSettingsPlaylist(bodyEl) {
     if (viewModeSelect) viewModeSelect.addEventListener('change', (e) => eventBus.send({ router: 'playlist', type: 'playlist.viewMode.change', payload: { mode: e.target.value } }));
     const sortBtn = bodyEl.querySelector('#setting-open-playlist-sort');
     if (sortBtn) sortBtn.addEventListener('click', () => eventBus.send({ router: 'appSettings', type: 'appSettings.nav.click', payload: { key: 'playlistSort' } }));
-    // SỬA (08/09/2026, hệ "Playlist Filter Presets") — nút mở panel Lọc trực tiếp cũ ĐÃ BỎ, thay
-    // bằng công tắc tổng + nút "Quản lý bộ lọc" (chỉ hiện khi công tắc bật) — xem
-    // event/workflow/playlist-filter-presets.js (workflowPlaylistFilterPresets).
-    const filterEnabledToggle = bodyEl.querySelector('#setting-playlist-filter-enabled');
-    const filterManageBtn = bodyEl.querySelector('#btn-playlist-filter-manage');
-    if (filterEnabledToggle) {
-        filterEnabledToggle.checked = appState.get('playlistFilterEnabled');
-        if (filterManageBtn) filterManageBtn.classList.toggle('hidden', !filterEnabledToggle.checked);
-        filterEnabledToggle.addEventListener('change', (e) => {
-            if (filterManageBtn) filterManageBtn.classList.toggle('hidden', !e.target.checked); // đổi hiện/ẩn NGAY, không cần đợi mở lại màn
-            eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.enabledToggle.change', payload: { checked: e.target.checked } });
-        });
-    }
-    if (filterManageBtn) filterManageBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.openManage.click', payload: {} }));
+    // SỬA (09/09/2026, phản hồi Giang mục 2 — "bỏ toggle, bỏ manage filter, chỉ giữ Filter để vào
+    // nơi quản lý") — RÚT GỌN lại bản 08/09/2026 (từng có công tắc tổng + nút "Quản lý bộ lọc"
+    // riêng) — về lại ĐÚNG 1 nút, mở thẳng danh sách preset — xem event/workflow/
+    // playlist-filter-presets.js (workflowPlaylistFilterPresets.openList()).
+    const filterBtn = bodyEl.querySelector('#setting-open-playlist-filter');
+    if (filterBtn) filterBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.openManage.click', payload: {} }));
 }
 
 /** Màn Theme — dropdown Theme (light/dark/glass) + dropdown loại nền glass (solid/gradient/image) +
