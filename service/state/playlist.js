@@ -74,15 +74,13 @@
                 // đặt tên, mirror hệ preset EQ/Motion) — `playlistFilterConfig` ở trên GIỜ LÀ giá
                 // trị SỐNG SUY RA (KHÔNG còn tự lưu bền riêng, đọc bởi applyPlaylistFilter() như cũ,
                 // KHÔNG đổi gì ở phía đọc) — được `workflowPlaylistFilterPresets._recomputeLiveConfig()`
-                // (event/workflow/playlist-filter-presets.js) tính lại từ 3 field MỚI dưới đây mỗi
-                // lúc boot/bật-tắt/chọn preset. `playlistFilterEnabled` — công tắc TỔNG (Settings →
-                // Playlist → Lọc, thay cho nút mở panel trực tiếp cũ). `playlistFilterPresets` —
-                // danh sách {id,name,config} (config CÙNG SHAPE clonePlaylistFilterConfigDefaults()).
-                // `playlistFilterActivePresetId` — preset ĐANG áp dụng (null = chưa chọn preset nào,
-                // dù toggle có bật). Điều kiện filter CÓ hiệu lực = enabled=true VÀ activePresetId
-                // trỏ tới 1 preset tồn tại — thiếu 1 trong 2 thì playlistFilterConfig suy ra rỗng
+                // (event/workflow/playlist-filter-presets.js) tính lại mỗi lúc boot/chọn preset.
+                // `playlistFilterPresets` — danh sách {id,name,config} (config CÙNG SHAPE
+                // clonePlaylistFilterConfigDefaults()). `playlistFilterActivePresetId` — preset
+                // ĐANG áp dụng (null = chưa chọn preset nào — KHÔNG còn công tắc tổng riêng, SỬA
+                // 09/09/2026, phản hồi Giang "bỏ toggle" — preset ĐANG active TỰ LÀ trạng thái bật/
+                // tắt). Thiếu preset active hợp lệ thì playlistFilterConfig suy ra rỗng
                 // (clonePlaylistFilterConfigDefaults(), hành vi giống hệt "chưa có Filter").
-                playlistFilterEnabled: 'boolean',
                 playlistFilterPresets: 'array',
                 playlistFilterActivePresetId: 'nullable-string',
                 // MỚI (09/09/2026, phản hồi Giang — "sửa preset đang active mà CHƯA bấm Áp dụng lại
@@ -113,7 +111,6 @@
                     displayStatSortField: 'none',
                     displayStatSortDirection: 'desc',
                     playlistFilterConfig: clonePlaylistFilterConfigDefaults(),
-                    playlistFilterEnabled: false,
                     playlistFilterPresets: [],
                     playlistFilterActivePresetId: null,
                     playlistFilterAppliedConfig: clonePlaylistFilterConfigDefaults(),
