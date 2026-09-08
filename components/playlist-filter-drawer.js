@@ -7,14 +7,15 @@
  *      dòng có thêm 2 nút riêng (chọn áp dụng + xoá nhanh) — KHÁC Motion (chỉ có xoá nhanh, "chọn
  *      áp dụng" nằm trong màn Edit) vì Giang yêu cầu rõ "chọn áp dụng" phải bấm được NGAY từ danh
  *      sách, không bắt buộc vào Edit trước.
- *   2. `renderPlaylistFilterEditBody(preset, source)` — sửa 1 preset: hàng "Name" (đầu, CÙNG khuôn
- *      EQ) + field rule theo ĐÚNG Nguồn hiện tại (`_renderFilterTextFieldRow()`/
+ *   2. `renderPlaylistFilterEditBody(preset, source, isActive)` — sửa 1 preset: hàng "Name" (đầu,
+ *      CÙNG khuôn EQ) + field rule theo ĐÚNG Nguồn hiện tại (`_renderFilterTextFieldRow()`/
  *      `_renderFilterNumericFieldRow()`, KHÔNG đổi — 1 hàng PER FIELD, mỗi field ĐÚNG 1 điều kiện,
- *      bật/tắt qua checkbox riêng) + 2 nút cuối "Chọn áp dụng"/"Xoá" (CÙNG khuôn EQ `eq-drawer-
- *      apply`/`eq-drawer-delete`). MỌI thay đổi field GHI THẲNG vào preset đang sửa NGAY (live-
- *      commit, KHÔNG còn nút "Lưu" riêng — xem workflowPlaylistFilterPresets.setFilterField()) —
- *      preset đó CHỈ thật sự ảnh hưởng Playlist khi bấm "Chọn áp dụng" (ghi
- *      playlistFilterActivePresetId + bật playlistFilterEnabled + hỏi reload).
+ *      bật/tắt qua checkbox riêng) + 2 nút cuối "Chọn áp dụng"/"Cập nhật"/"Xoá" (CÙNG khuôn EQ
+ *      `eq-drawer-apply`/`eq-drawer-delete` — chữ nút đầu đổi "Cập nhật" khi `isActive`, xem
+ *      docstring hàm dưới). MỌI thay đổi field GHI THẲNG vào preset đang sửa NGAY (live-commit,
+ *      KHÔNG còn nút "Lưu" riêng — xem workflowPlaylistFilterPresets.setFilterField()) — preset đó
+ *      CHỈ thật sự ảnh hưởng Playlist khi bấm "Chọn áp dụng"/"Cập nhật" (ghi
+ *      playlistFilterActivePresetId + hỏi reload).
  *
  * Field theo ĐÚNG Nguồn (`source`, 'song'|'video'|'photo') — song có 3 field text (tên/album/nghệ
  * sĩ), video/photo chỉ có "tên"+"album"; cả 3 CÙNG field số/ngày (ngày tải/số lần phát/dung lượng/
@@ -39,9 +40,9 @@
  * thêm 1 nút "chọn áp dụng" riêng mỗi dòng (Motion không có, "Áp dụng cho" của Motion nằm trong màn
  * Edit — Playlist Filter cần bấm được NGAY từ danh sách, phản hồi Giang). Dòng đang active
  * (`p.id === activeId`) tô viền sky + chấm tròn, CÙNG khuôn renderEqListBody() (components/
- * eq-presets-drawer.js). `activeId` chỉ có ý nghĩa hiển thị khi `playlistFilterEnabled` đang bật —
- * Workflow (event/workflow/app-settings.js::_renderPlaylistFilterList()) tự truyền `null` nếu tắt,
- * component không tự đọc appState (Rule 2).
+ * eq-presets-drawer.js). `activeId` = `playlistFilterActivePresetId` hiện tại (KHÔNG còn gate qua
+ * công tắc tổng — field đó đã bỏ, SỬA 09/09/2026, xem event/workflow/app-settings.js::
+ * _renderPlaylistFilterList()), component không tự đọc appState (Rule 2).
  * @param {{id:string,name:string}[]} presets @param {string|null} activeId */
 function renderPlaylistFilterListBody(presets, activeId) {
     const addRowHtml = `
@@ -168,8 +169,14 @@ function _renderFilterNumericFieldRow(field, labelKey, inputType, step) {
  *   photo.js::computePhotoDuration()). Danh sách field PHẢI khớp ĐÚNG với
  *   `clonePlaylistFilterConfigDefaults()` (service/state/playlist.js) cho từng Nguồn — 2 nơi
  *   này KHÔNG import chéo (why-no-es6-module.md), phải tự đối chiếu tay khi sửa 1 trong 2.
+ * @param {boolean} isActive - MỚI (09/09/2026, phản hồi Giang mục 1) — preset đang sửa CHÍNH LÀ
+ *   preset đang active (`playlistFilterActivePresetId`) hay không — Workflow tự tính rồi truyền
+ *   vào (Rule 2, component KHÔNG tự đọc appState). `true` -> nút đầu đổi chữ thành "Cập nhật"
+ *   (`playlistFilterPresetsDrawer.update`) thay vì "Chọn áp dụng" (`.select`) — CÙNG 1 hành động
+ *   `selectPreset()` phía sau (chụp ảnh chốt MỚI), chỉ đổi CHỮ cho đúng ngữ cảnh "đang active rồi,
+ *   bấm lại = cập nhật" thay vì "chưa active, bấm để chọn".
  */
-function renderPlaylistFilterEditBody(preset, source) {
+function renderPlaylistFilterEditBody(preset, source, isActive) {
     // SỬA (hợp nhất Photo vào Playlist) — THAY ternary nhị phân cũ (chỉ đúng khi source CHẮC CHẮN
     // là 'song' hoặc 'video') bằng bảng tra theo TỪNG source — ternary cũ sẽ ÂM THẦM gán field của
     // Song (album/artist) cho bất kỳ source thứ 3 nào lọt vào nhánh else, đúng bug đã phát hiện lúc
@@ -202,7 +209,7 @@ function renderPlaylistFilterEditBody(preset, source) {
                         ${_renderFilterNumericFieldRow('size', 'playlistFilterPanel.field.size', 'number', '0.1')}
                     </div>
                     <div class="flex gap-2 mt-4">
-                        <button id="btn-playlist-filter-select" type="button" class="flex-1 py-3 rounded-2xl bg-sky-50 hover:bg-sky-100 transition-colors text-sky-600 text-sm font-medium" data-i18n="playlistFilterPresetsDrawer.select">${t('playlistFilterPresetsDrawer.select')}</button>
+                        <button id="btn-playlist-filter-select" type="button" class="flex-1 py-3 rounded-2xl bg-sky-50 hover:bg-sky-100 transition-colors text-sky-600 text-sm font-medium" data-i18n="${isActive ? 'playlistFilterPresetsDrawer.update' : 'playlistFilterPresetsDrawer.select'}">${isActive ? t('playlistFilterPresetsDrawer.update') : t('playlistFilterPresetsDrawer.select')}</button>
                         <button id="btn-playlist-filter-delete" type="button" class="flex-1 py-3 rounded-2xl bg-rose-50 hover:bg-rose-100 transition-colors text-rose-600 text-sm font-medium" data-i18n="playlistFilterPresetsDrawer.delete">${t('playlistFilterPresetsDrawer.delete')}</button>
                     </div>
                     <div class="text-xs text-slate-400 mt-2 text-center" data-i18n="playlistFilterPanel.hint">${t('playlistFilterPanel.hint')}</div>
