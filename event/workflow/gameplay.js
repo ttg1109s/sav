@@ -443,9 +443,27 @@ const workflowGameplay = {
         return map;
     },
 
-    /** Resize/xoay màn hình giữa ván — tính lại lưới VÀ xáo lại bảng gán luôn (sự kiện hiếm, chủ
-     * động, khác trigger tự động theo audio nên không gate qua pending). */
-    _handleWindowResize() {
+    /** [SỬA TÊN — 08/09/2026, phản hồi Giang bug "về lại Visualizer sau khi Game Mode đã armed lúc
+     * còn ở Playlist không thấy màn chơi"] ĐỔI TÊN từ `_handleWindowResize()` — giờ dùng CHUNG cho
+     * CẢ 2 nguồn kích hoạt (xem 2 nơi gọi cuối file): resize/xoay màn hình cửa sổ THẬT (như cũ) VÀ
+     * ResizeObserver trên `#gameplay-layer` (MỚI).
+     *
+     * Lý do cần thêm nguồn thứ 2: `start()` (dòng ~112) gọi `_recomputeGridGeometry()` NGAY LÚC
+     * ARMED — nếu lúc đó `#visualizer-ui` (tổ tiên DOM của `#gameplay-layer`) đang `.hidden`
+     * (`display:none`, user còn ở Playlist, CHƯA từng `switchToVisualizer()` — hoàn toàn hợp lệ,
+     * Giang chốt "không bắt buộc phải về thẳng Visualizer lúc chơi"), `gameplayCanvas.
+     * clientWidth/clientHeight` (đọc trong `resizeGameplayCanvas()`, core/gameplay/
+     * circle-mode-ui.js) trả về 0 — canvas bị set bitmap THẬT 0×0, lưới suy biến 1×1 ở gốc toạ độ.
+     * Sự kiện `window.resize` KHÔNG bắn khi chỉ đổi CSS `display` (đổi màn Playlist<->Visualizer
+     * không phải resize cửa sổ thật) — user quay lại Visualizer sau đó (icon "Now playing"/
+     * `btnReturnVisual` hay bất kỳ đường nào khác) KHÔNG có gì kích hoạt tính lại, canvas kẹt 0×0
+     * vĩnh viễn dù layer giờ đã hiện đúng. ResizeObserver bắt ĐÚNG lúc layer chuyển từ không có
+     * kích thước thật sang có — tự phục hồi bất kể user quay lại Visualizer bằng đường nào (đúng
+     * tinh thần "1 điểm sửa chung", không vá riêng từng lối vào).
+     *
+     * Tính lại lưới VÀ xáo lại bảng gán luôn (sự kiện hiếm, chủ động, khác trigger tự động theo
+     * audio nên không gate qua pending). */
+    _handleLayoutResize() {
         if (appState.get('gameplayPhase') === 'idle') return;
         this._recomputeGridGeometry();
         this._rebuildPitchCellMap();
@@ -586,4 +604,10 @@ const workflowGameplay = {
 // Lưới pitch→ô phải khớp kích thước layer thật — resize/xoay màn hình giữa ván phải tính lại (đúng
 // tiền lệ core/canvas-scene-setup.js cho canvas visualizer chính, ngoại lệ browser-level đứng ngoài
 // /event/ bus).
-window.addEventListener('resize', () => workflowGameplay._handleWindowResize());
+window.addEventListener('resize', () => workflowGameplay._handleLayoutResize());
+// MỚI (08/09/2026) — xem docstring _handleLayoutResize() ở trên: window 'resize' không bắt được
+// case layer chuyển display:none -> hiện do đổi màn hình (Playlist<->Visualizer), CHỈ đổi kích
+// thước cửa sổ/xoay máy thật. ResizeObserver trên chính `#gameplay-layer` bắt đúng cả 2 loại thay
+// đổi kích thước (kể cả từ 0×0 lúc ẩn sang kích thước thật lúc hiện), dùng CHUNG 1 hàm xử lý ở
+// trên — không viết logic riêng.
+new ResizeObserver(() => workflowGameplay._handleLayoutResize()).observe(gameplayLayer);

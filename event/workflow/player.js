@@ -146,7 +146,14 @@ const workflowPlayer = {
         // phát" thật, an toàn gửi vô điều kiện).
         if (key === appState.get('currentKey')) {
             if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated();
-            if (audioPlayer.paused) audioPlayer.play();
+            // SỬA (08/09/2026, Giang yêu cầu "toàn bộ case không được phát trước khi cooldown
+            // xong") — bấm lại ĐÚNG bài đang armed Game Mode KHÔNG được .play() ngay tại đây nữa,
+            // kể cả đang pause (đang phát dở cũng phải reset qua cooldown, không riêng gì lúc đang
+            // dừng). `gameplay.mediaChanged` gửi ngay dưới kích `workflowGameplay.start()` (event/
+            // workflow/gameplay.js) -> pause/seek 0 (vô hại, audioPlayer CHƯA kịp phát) -> countdown
+            // -> `_beginPlaying()` MỚI thật sự gọi `.play()`. KHÔNG armed: giữ NGUYÊN 100% hành vi
+            // cũ (.play() ngay tại đây nếu đang pause).
+            if (appState.get('gameplayArmedGameId') == null && audioPlayer.paused) audioPlayer.play();
             eventBus.send({ router: 'gameplay', type: 'gameplay.mediaChanged', payload: {} });
             return;
         }
@@ -248,7 +255,13 @@ const workflowPlayer = {
             // có node ĐÚNG (mới nhất) cho `key` trước khi tính offset cuộn — cùng thứ tự đã đúng
             // ở luồng Video (event/workflow/video-player.js::playVideoByKey(), refreshSongNode()
             // xong rồi mới switchToVisualizer()/scrollToCurrentKeyAnimated()).
-            audioPlayer.play(); if (switchScreen) switchToVisualizer();
+            // SỬA (08/09/2026, cùng đợt/cùng lý do nhánh `key === currentKey` phía trên) — armed
+            // Game Mode thì KHÔNG `.play()` ở đây, nhường cho `_beginPlaying()` (event/workflow/
+            // gameplay.js) tự phát ĐÚNG audioPlayer sau cooldown qua 'gameplay.mediaChanged' gửi
+            // cuối hàm này. `switchToVisualizer()` KHÔNG bị gate — Giang chốt: vào Game Mode không
+            // bắt buộc phải về thẳng Visualizer, 2 việc độc lập nhau.
+            if (appState.get('gameplayArmedGameId') == null) audioPlayer.play();
+            if (switchScreen) switchToVisualizer();
             if (previousKey) workflowPlaylistRender.refreshSongNode(previousKey);
             workflowPlaylistRender.refreshSongNode(key);
             if (!appState.get('domNodesByKey').has(key)) workflowPlaylistRender.renderPlaylistDiff();

@@ -72,9 +72,18 @@ const workflowVideoPlayer = {
      *   SẴN — không thêm cơ chế chờ nào khác). Video Player mode KHÔNG truyền (mặc định `false`,
      *   giữ NGUYÊN hành vi đang ổn định — Giang chốt lấy nhánh đó làm chuẩn, không đụng) — CHỈ
      *   `workflowVisualBg._playVideoKey()` truyền `true`.
-     * @returns {Promise<object|null>} record đã đọc (`null` nếu không tồn tại — caller tự lo, KHÔNG throw).
+     * @param {boolean} [skipAutoplay=false] - MỚI (08/09/2026, Game Mode gate, phản hồi Giang
+     *   "toàn bộ case không được phát trước khi cooldown xong") — gán poster/src NHƯ CŨ nhưng
+     *   KHÔNG gọi .play() ở bước (3) — playVideoByKey() truyền true khi phát hiện đang armed Game
+     *   Mode (gameplayArmedGameId != null), nhường việc gọi .play() thật cho
+     *   workflowGameplay._beginPlaying() (event/workflow/gameplay.js) sau khi countdown xong.
+     *   _swapReadyPromise bên dưới TỰ resolve ngay (KHÔNG đợi sự kiện 'playing' — sẽ không bao
+     *   giờ bắn tới lúc .play() thật sự chạy) để waitBgVideoReady() không treo oan 2s.
+     *   Visual Background KHÔNG truyền (luôn false mặc định — VBG là lớp trang trí, KHÔNG thuộc
+     *   phạm vi gate Game Mode, chỉ áp dụng cho media THẬT đang chọn qua Playlist).
+     * @returns {Promise<object|null>} record đã đọc (null nếu không tồn tại — caller tự lo, KHÔNG throw).
      */
-    async swapBgVideoSource(videoKey, isTransition = false, beforePlay = null, hideUntilReady = false) {
+    async swapBgVideoSource(videoKey, isTransition = false, beforePlay = null, hideUntilReady = false, skipAutoplay = false) {
         bgVideoElement.pause(); // (1) đứng hình NGAY — CHƯA đụng src, khung hình cũ giữ nguyên
         const record = await getVideoRecord(videoKey); // (2) service/db.js — trong lúc đợi, màn hình vẫn đứng yên ở khung hình cũ
         if (!record) return null;
@@ -102,7 +111,10 @@ const workflowVideoPlayer = {
         // (3) Gán 1 lần liền mạch — KHÔNG còn khoảng hở giữa các dòng.
         bgVideoElement.poster = this._thumbObjectUrl;
         bgVideoElement.src = this._objectUrl;
-        bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
+        // SỬA (08/09/2026, Game Mode gate) — skipAutoplay=true (playVideoByKey() truyền lúc đang
+        // armed) bỏ hẳn .play() ở đây, chỉ nạp khung hình tĩnh (poster) — xem docstring tham số
+        // skipAutoplay đầu hàm.
+        if (!skipAutoplay) bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
 
         // KHÔNG dọn/ẩn `_forcedBgObjectUrl` ở đây sau khi 'playing' bắn — GIỮ NGUYÊN quyết định gốc
         // (31/07/2026): cứ để đó, lần transition/swap KẾ TIẾP tự ghi đè (đầu hàm này, guard revoke
@@ -116,8 +128,16 @@ const workflowVideoPlayer = {
                 if (hideUntilReady) bgVideoElement.classList.remove('hidden'); // video thật đã có khung hình (hoặc hết 2s chờ) -> gỡ ẩn, dùng CHUNG đúng 1 mốc sẵn có, không thêm cơ chế chờ riêng
                 resolve();
             };
-            bgVideoElement.addEventListener('playing', finish, { once: true });
-            taskManager.once(finish, 2000, 'videoPlayingReadyFallback');
+            if (skipAutoplay) {
+                // SỬA (08/09/2026, Game Mode gate) — KHÔNG gọi .play() ở bước (3) nên sự kiện
+                // 'playing' sẽ KHÔNG bắn tới lúc _beginPlaying() (event/workflow/gameplay.js) tự
+                // .play() sau cooldown — coi "sẵn sàng" NGAY (đã có poster tĩnh), tránh
+                // waitBgVideoReady() phía dưới treo oan hết 2s timeout vô ích.
+                finish();
+            } else {
+                bgVideoElement.addEventListener('playing', finish, { once: true });
+                taskManager.once(finish, 2000, 'videoPlayingReadyFallback');
+            }
         });
 
         return record;
@@ -283,7 +303,10 @@ const workflowVideoPlayer = {
         // đúng src hiện tại mới coi là "đang thật sự phát", tránh bỏ qua nhầm để lại màn đen.
         if (videoKey === appState.get('currentKey') && this._objectUrl && bgVideoElement.getAttribute('src') === this._objectUrl) {
             if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated();
-            if (bgVideoElement.paused) bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
+            // SỬA (08/09/2026, Game Mode gate, cùng lý do event/workflow/player.js) — armed thì
+            // KHÔNG .play() ở đây kể cả đang pause — _beginPlaying() tự phát sau cooldown qua
+            // 'gameplay.mediaChanged' gửi ngay dưới.
+            if (appState.get('gameplayArmedGameId') == null && bgVideoElement.paused) bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
             // [SỬA — 02/09/2026, cùng lý do event/workflow/player.js] Nhánh "bấm lại đúng video đang
             // phát" `return` NGAY — dòng gửi 'gameplay.mediaChanged' ở cuối hàm (đợt sửa gate
             // `previousKey !== videoKey` hôm trước) KHÔNG BAO GIỜ chạy tới được ở nhánh này.
@@ -316,7 +339,7 @@ const workflowVideoPlayer = {
                 // sau khi node chắc chắn đã tồn tại — luôn đúng bất kể lần đầu tạo node hay node đã có
                 // sẵn từ trước (Next/Prev/vào lại mode).
                 setVideoBgGain(1); // core/video-player.js
-            });
+            }, false, appState.get('gameplayArmedGameId') != null); // hideUntilReady=false (Video Player mode không dùng) — SỬA (08/09/2026) thêm skipAutoplay: armed Game Mode thì chỉ nạp khung hình tĩnh, KHÔNG .play() ở swapBgVideoSource(), xem docstring hàm đó.
             if (!record) {
                 // guard: video vừa bị xoá ở nơi khác giữa lúc đang phát. KHÔNG gọi
                 // workflowPlayerControls.goToNextTrack(true) NGAY TẠI ĐÂY — vẫn đang ở TRONG
