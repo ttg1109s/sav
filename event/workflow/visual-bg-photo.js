@@ -28,11 +28,6 @@ Object.assign(workflowVisualBg, {
         return preset || (typeof MOTION_ENGINE_NO_OP_PRESET !== 'undefined' ? MOTION_ENGINE_NO_OP_PRESET : null);
     },
 
-    /** Thời lượng hiển thị 1 ảnh (ms) — dùng cho hẹn giờ tự chuyển ảnh (`_syncPhotoTicking()`) và
-     * tham số duration truyền cho `workflowMotionEngine`.
-     * @param {object|null} record - record ảnh đang/sắp hiện (mode 'duration' cần `record.duration`).
-     * @returns {number}
-     */
     /** Thời lượng hiển thị 1 ảnh (ms) — CHỈ có ý nghĩa ở mode 'slideshow' (nơi VBG THẬT SỰ hẹn giờ
      * chuyển ảnh theo 1 khoảng cụ thể) — dùng cho hẹn giờ tự chuyển ảnh (`_syncPhotoTicking()`) và
      * tham số `advanceMs` truyền cho `workflowMotionEngine` (Point Move dựng đường cong dựa trên
@@ -52,38 +47,51 @@ Object.assign(workflowVisualBg, {
         return Math.max(1000, durationSec * 1000);
     },
 
-    /** list.length<=1 -> áp tĩnh trực tiếp (không qua Motion Engine, không hẹn giờ chuyển ảnh — chỉ
-     * 1 ảnh thì không có gì để chuyển sang); >1 -> bắt đầu cycle (VBG tự sở hữu hẹn giờ, xem
-     * `_startPhotoCycle()`). */
+    /** Bắt đầu áp ảnh MỚI cho toàn bộ `source.list` (boot/đổi nguồn/đổi scope) — chọn item đầu
+     * (`firstIndex()`, DÙNG CHUNG với video, tự đúng cho cả list rỗng/1 phần tử/nhiều phần tử —
+     * KHÔNG còn cần rẽ nhánh riêng theo độ dài list, xem `_showCurrentPhoto()`), rồi tự đặt/không
+     * đặt hẹn giờ tuỳ điều kiện HIỆN TẠI (`_syncPhotoTicking()`).
+     * SỬA (Giang chỉ ra tách trách nhiệm VBG/Motion Engine) — trước đây rẽ nhánh `list.length<=1`
+     * gọi thẳng `applyVisualBgImageToDOM()` (bypass hẳn Motion Engine, #visual-bg-image), khiến
+     * Point Move/React Beat không chạy được cho nguồn 1 ảnh. Giờ MỌI trường hợp đều qua
+     * `workflowMotionEngine.showImage()` — Engine tự quyết hiện tĩnh hay transition dựa trên
+     * `_hasCurrentResource` CỦA NÓ, VBG không cần biết/không còn phân biệt 1 ảnh hay nhiều ảnh. */
     async _applyPhoto(cfg) {
-        const list = cfg.source.list;
-        if (list.length <= 1) {
-            if (list[0]) await this._playSinglePhotoKey(list[0]);
-            return;
-        }
-        await this._startPhotoCycle(cfg);
-    },
-
-    /** Bắt đầu 1 vòng cycle ảnh MỚI — chọn item đầu (`firstIndex()`, DÙNG CHUNG với video), hiện nó
-     * TĨNH qua `workflowMotionEngine.reveal()` (đã resolve preset + advanceMs sẵn), rồi tự đặt/không
-     * đặt hẹn giờ tuỳ điều kiện HIỆN TẠI (`_syncPhotoTicking()`). */
-    async _startPhotoCycle(cfg) {
         const { list: startList, index } = this.firstIndex(cfg.source.list, cfg.nextOrder === 'random');
         if (startList !== cfg.source.list) await this.persistSourceListMutation(startList);
         this._listIndex = index;
-        const key = startList[index];
-        if (!key) { this._syncPhotoTicking(); return; }
+        await this._showCurrentPhoto(startList[index]);
+        this._syncPhotoTicking();
+    },
+
+    /** Đọc record + tạo blob URL + giao cho Motion Engine hiện — DÙNG CHUNG cho `_applyPhoto()`
+     * (ảnh đầu) VÀ `_photoTick()` (ảnh kế) — cả 2 nơi đều chỉ khác nhau ở cách CHỌN `key`, còn cách
+     * HIỆN nó thì giống hệt nhau, không còn lý do tách riêng. `key` rỗng/null (list rỗng sau lọc) ->
+     * báo Engine gỡ hẳn resource (`showImage(null, ...)`, tương đương `stop()`). Record mất -> tự
+     * đánh dấu null trong list, KHÔNG tự thử ảnh khác (nơi gọi rearm hẹn giờ/advance lượt sau tự lo).
+     * SỬA (đối chiếu đánh giá — không được khẳng định "không có đường fail sau createBlobUrl()")
+     * — bọc try/catch quanh bước giao ownership: `workflowMotionEngine` không tồn tại (load-order
+     * hỏng) hoặc `showImage()` throw giữa chừng -> Engine CHƯA NHẬN ownership, VBG tự revoke ngay,
+     * không để URL treo lại không ai dọn. Lỗi thật (nếu có) vẫn ném tiếp ra ngoài, không nuốt.
+     * @param {string|null} key */
+    async _showCurrentPhoto(key) {
+        if (!key) { if (typeof workflowMotionEngine !== 'undefined') await workflowMotionEngine.showImage(null); return; }
         const record = await getImageRecord(key);
         if (!record || !record.blob) {
-            const newList = markVisualBgListItemMissing(startList, index);
+            const newList = markVisualBgListItemMissing(appConfigVisualBg.getAll().source.list, this._listIndex);
             await this.persistSourceListMutation(newList);
-            this._syncPhotoTicking();
             return;
         }
         this._photoRecord = record;
+        const objectUrl = createBlobUrl(record.blob); // service/blob-url.js
         const advanceMs = this._computePhotoAdvanceMs(record);
-        if (typeof workflowMotionEngine !== 'undefined') await workflowMotionEngine.reveal(key, this._currentMotionPreset(), advanceMs);
-        this._syncPhotoTicking();
+        if (typeof workflowMotionEngine === 'undefined') { revokeBlobUrl(objectUrl); return; } // Engine chưa nạp -> chưa ai nhận ownership, tự dọn
+        try {
+            await workflowMotionEngine.showImage(objectUrl, this._currentMotionPreset(), advanceMs); // thành công -> Engine nhận ownership NGAY, VBG không revoke lại
+        } catch (e) {
+            revokeBlobUrl(objectUrl); // giao thất bại giữa chừng -> Engine chưa kịp giữ URL, VBG tự thu hồi
+            throw e;
+        }
     },
 
     /** Bật/tắt hẹn giờ tự chuyển ảnh kế theo đúng điều kiện HIỆN TẠI — gọi lại MỖI LẦN điều kiện CÓ
@@ -102,10 +110,10 @@ Object.assign(workflowVisualBg, {
 
     /** 1 nhịp cycle: check pending TRƯỚC (cùng nguyên tắc `_checkAndApplyPendingSource()` dùng
      * chung mọi điểm "lượt kế tiếp"), rồi bước index qua `advanceList()` (DÙNG CHUNG video, dọn null
-     * nếu vừa hết 1 vòng, random tự xáo lại nếu vừa chạm vị trí cuối), đọc DB, gọi
-     * `workflowMotionEngine.transitionTo()`. Null/record mất -> đánh dấu/giữ nguyên ảnh cũ (KHÔNG tự
-     * thử tiếp), vẫn rearm hẹn giờ cho vòng SAU (khác bug cũ — hẹn giờ giờ KHÔNG BAO GIỜ đứng hình,
-     * kể cả gặp item hỏng liên tiếp, vì rearm nằm ở `_syncPhotoTicking()` gọi CUỐI MỌI nhánh). */
+     * nếu vừa hết 1 vòng, random tự xáo lại nếu vừa chạm vị trí cuối), giao `_showCurrentPhoto()`
+     * hiện ảnh kế (Engine tự vào nhánh transition vì đã có resource từ lượt trước). Null/record mất
+     * -> giữ nguyên ảnh cũ (KHÔNG tự thử tiếp), vẫn rearm hẹn giờ cho vòng SAU (hẹn giờ KHÔNG BAO GIỜ
+     * đứng hình, kể cả gặp item hỏng liên tiếp, vì rearm nằm ở `_syncPhotoTicking()` gọi CUỐI). */
     async _photoTick() {
         if (await this._checkAndApplyPendingSource()) return;
         const cfg = appConfigVisualBg.getAll();
@@ -115,30 +123,8 @@ Object.assign(workflowVisualBg, {
         if (index === -1) { await this.selfHealEmptySource(); return; }
         if (list !== cfg.source.list) await this.persistSourceListMutation(list);
         this._listIndex = index;
-        const key = list[index];
-        if (!key) { this._syncPhotoTicking(); return; }
-
-        const record = await getImageRecord(key);
-        if (!record || !record.blob) {
-            const newList = markVisualBgListItemMissing(list, index);
-            await this.persistSourceListMutation(newList);
-            this._syncPhotoTicking();
-            return;
-        }
-        this._photoRecord = record;
-        const advanceMs = this._computePhotoAdvanceMs(record);
-        if (typeof workflowMotionEngine !== 'undefined') await workflowMotionEngine.transitionTo(key, this._currentMotionPreset(), advanceMs);
+        await this._showCurrentPhoto(list[index]);
         this._syncPhotoTicking();
-    },
-
-    /** Nguồn duy nhất mất (record không đọc được) -> không có gì để chờ advance() tiếp, tự chữa
-     * lành hẳn (gỡ source) luôn thay vì đánh dấu null. */
-    async _playSinglePhotoKey(imageKey) {
-        const record = await getImageRecord(imageKey);
-        if (!record || !record.blob) { await this.clearSource(); return; }
-        const objectUrl = createBlobUrl(record.blob);
-        appState.set('visualBgImageObjectUrl', objectUrl);
-        applyVisualBgImageToDOM(true, objectUrl);
     },
 
     /** Mở picker Ảnh multi-select — cùng khuôn `openPickVideo()`. */

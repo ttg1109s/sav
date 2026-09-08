@@ -877,14 +877,20 @@ const workflowVisualBg = {
         selectEl.value = presets.some((p) => p.id === currentId) ? currentId : '';
     },
 
-    /** Ứng select Motion đổi — ghi thẳng `motionPresetId` ('' -> null = gỡ). Có hiệu lực NGAY lần
-     * transition ảnh kế tiếp (Motion Engine tự đọc `motionPresetId` mới mỗi lần kích hoạt, không
-     * cần gọi lại applyCurrentVisualBg()).
+    /** Ứng select Motion đổi — ghi thẳng `motionPresetId` ('' -> null = gỡ) rồi ÁP LIVE NGAY lên
+     * ảnh đang hiện qua `workflowMotionEngine.updatePreset()` (SỬA, Giang chỉ ra bug: trước đây chỉ
+     * ghi config, đợi tới lần transition/song-change kế tiếp preset mới mới thật sự chạy — chọn
+     * "Không"/đổi preset không có tác dụng gì lên ảnh đang hiện). `updatePreset()` tự no-op nếu
+     * chưa có ảnh nào đang hiện (`_hasCurrentResource=false`) — KHÔNG cần check trước ở đây, đúng
+     * ranh giới: VBG chỉ nói "đổi preset", Motion tự quyết có áp được hay không.
      * @param {string} value */
     async changeMotionPresetId(value) {
         appConfigVisualBg.mutateAll((cfg) => { cfg.motionPresetId = value || null; });
         console.log(`writer: "workflowVisualBg.changeMotionPresetId", page: "visualBgConfig", content: "motionPresetId=${value || null}"`);
         await this._persist();
+        if (typeof workflowMotionEngine !== 'undefined') {
+            workflowMotionEngine.updatePreset(this._currentMotionPreset(), this._photoRecord ? this._computePhotoAdvanceMs(this._photoRecord) : 0);
+        }
     },
 
     /** Ghi tên nguồn đang chọn vào `#visual-bg-source-name` + hiện/ẩn nút Làm tươi/Gỡ nguồn theo

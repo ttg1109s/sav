@@ -1,12 +1,16 @@
 /**
  * event/workflow/motion-engine.js — Motion Engine: RENDERER THUẦN cho transition/Point Move/React
  * Beat Audio của Visual Background (`type='photo'`). File này KHÔNG timer chuyển ảnh, KHÔNG biết
- * `source.list`/`nextOrder`/`listPlaybackMode`/`motionPresetId` tồn tại — CHỈ còn 4 hàm public:
- *   `reveal(imageKey, preset, advanceMs)`      — hiện ảnh ĐẦU tĩnh (Point Move/BeatReact áp được
- *                                     cho ảnh đơn, transition thì KHÔNG vì cần 2 ảnh để chuyển).
- *   `transitionTo(imageKey, preset, advanceMs)` — 1 lượt CHUYỂN từ ảnh đang hiện sang `imageKey`;
- *                                     trả `true` (thành công) / `false` (record mất — nơi gọi tự lo
- *                                     self-heal/thử lại, Engine KHÔNG tự thử index khác).
+ * `source.list`/`nextOrder`/`listPlaybackMode`/`motionPresetId` tồn tại, KHÔNG biết ảnh đến từ đâu
+ * (không tự đọc DB, không có khái niệm imageKey) — CHỈ còn 5 hàm public:
+ *   `showImage(objectUrl, preset, advanceMs)` — hiện `objectUrl` lên layer hiện hành; Engine TỰ QUYẾT
+ *                                     hiện tĩnh (chưa có ảnh nào) hay transition từ ảnh đang hiện sang
+ *                                     (đã có), dựa trên `_hasCurrentResource` CỦA CHÍNH NÓ — nơi gọi
+ *                                     không cần/không được biết đây là ảnh đầu hay ảnh kế.
+ *                                     `objectUrl` rỗng/null -> coi như `stop()`.
+ *   `updatePreset(preset, advanceMs)` — đổi preset đang áp cho ẢNH ĐANG HIỆN, KHÔNG đổi ảnh/không
+ *                                     chạy transition — chỉ Point Move/React Beat đổi theo preset mới
+ *                                     NGAY. No-op nếu chưa có ảnh nào (`_hasCurrentResource=false`).
  *   `pause()`/`resume()`            — đóng băng/tiếp tục animation ĐANG chạy (nơi gọi tự quyết lúc
  *                                     nào — vd Song dừng/phát lại).
  *   `stop()`                        — dọn sạch layer/state.
@@ -14,12 +18,16 @@
  * `motionPresetId`/tra `appState.motionPresets` (xem `workflowVisualBg._currentMotionPreset()`).
  * `advanceMs` LUÔN được TRUYỀN VÀO — nơi gọi tự tính theo `durationMode`/`durationSeconds`/
  * `record.duration` của MÌNH (Engine không đọc field nào trong số đó nữa).
+ * `objectUrl` do nơi gọi tự resolve (`getImageRecord()` + `createBlobUrl()`, service/db.js +
+ * service/blob-url.js) rồi GIAO ownership cho Engine ngay khi gọi `showImage()` — kể từ đó Engine
+ * chịu trách nhiệm giữ/chuyển layer/revoke URL đó, nơi gọi KHÔNG revoke lại. Ranh giới này tách hẳn
+ * "ảnh lấy từ đâu" (VBG/service, có thể đổi nguồn sau này) khỏi "hiện ảnh như thế nào" (Engine).
  *
  * Point Move (thay Ken Burns, phản hồi Giang) — công tắc tổng `pointMoveEnabled` (cùng khuôn
  * `transitionEnabled`, xem `_activatePointMove()`). SỬA (phản hồi Giang — "point move phải là 1
  * div cha bao quanh layer A, B chứ không phải chỉ A hoặc B, tránh việc move A rồi lộ B") — transform
  * áp lên `motionEnginePointMoveWrapper` DUY NHẤT (bọc CHUNG cả 2 layer A/B, xem core/dom-refs.js),
- * KHÔNG còn tách riêng per-layer — mỗi lượt `reveal()`/`transitionTo()` tự DỪNG animation lượt
+ * KHÔNG còn tách riêng per-layer — mỗi lượt `_staticReveal()`/`_showNext()` tự DỪNG animation lượt
  * TRƯỚC trên phần tử đó rồi mới bắt animation MỚI (`_activatePointMove()` tự lo, xem docstring hàm
  * đó). 2 chế độ chạy (`pointMoveRunMode`):
  *   'one' — `_activatePointMoveOne()`: chọn 1 point move (trong số đã tick) tween thẳng baseline ->
@@ -36,7 +44,7 @@
  * dùng `_findPointMoveSegment()`/`lerpPointMoveNumber()` trên `_lastAllModePoints`/
  * `_lastAllModeDurationMs` ĐÃ LƯU từ lượt 'all' mode gần nhất, KHÔNG parse ngược ma trận CSS —
  * chính xác tuyệt đối, không mơ hồ như decompose matrix), fallback baseline CHỈ khi không có (lượt
- * `reveal()` đầu tiên/lượt trước là 'one' mode).
+ * `_staticReveal()` đầu tiên/lượt trước là 'one' mode).
  *
  * SỬA LẦN 2 (phản hồi Giang — bug TÁI XUẤT HIỆN khi Start-force bật: "đứng im tới 100% rồi mới giật
  * cứng về baseline") — mốc x=0 VỪA SỬA trên KHÔNG được ép về baseline khi `pointMoveStartForceBaseline`
@@ -50,7 +58,8 @@
  * livePointMoveToggle()/liveBeatReactToggle()), core/dom-refs.js (motionEngineContainer/
  * motionEnginePointMoveWrapper/motionEngineLayer1,2/motionEngineLayer1,2Pan/motionEngineReactLayer),
  * service/task-manager.js (chỉ còn dùng cho MOTION_ENGINE_BEATREACT_TASK — animation per-frame CỦA
- * ẢNH ĐANG HIỆN, KHÔNG phải hẹn giờ chuyển ảnh — cái đó sống ở workflowVisualBg).
+ * ẢNH ĐANG HIỆN, KHÔNG phải hẹn giờ chuyển ảnh — cái đó sống ở workflowVisualBg). KHÔNG còn phụ
+ * thuộc service/db.js — Engine không tự đọc record nữa (SỬA, tách "resolve ảnh" khỏi "hiện ảnh").
  */
 
 /** Preset "tắt hết" — dùng khi nơi gọi truyền `null`/`undefined` (chưa gắn Motion) — KHÔNG fallback
@@ -76,9 +85,16 @@ const MOTION_ENGINE_BEATREACT_DECAY_MS = 250;
 
 const workflowMotionEngine = {
     _currentObjectUrl: null,
-    _currentRecord: null,   // record ảnh ĐANG hiện — giữ lại để _activatePointMove() dùng mà không đọc DB lại
     _layerToggle: false,    // false = layer1 đang 'current', true = layer2
-    _isActive: false,       // Point Move/BeatReact animation ĐANG chạy (khác "đứng yên chờ") — pause()/resume() thao tác trên cờ này
+    _hasCurrentResource: false, // Engine đang giữ/hiện 1 resource hay chưa — QUYẾT ĐỊNH showImage() gọi
+        // _staticReveal() (chưa có) hay _showNext() (đã có, cần transition/hard-cut). KHÔNG liên quan
+        // animation đang chạy hay đang pause — pause()/resume() KHÔNG đụng cờ này (chúng tự pause/resume
+        // thẳng trên animation/task, xem pause()/resume() bên dưới). ĐỔI TÊN từ `_isActive` (SỬA — tên cũ
+        // + comment cũ nói cờ này theo animation, nhưng thực tế pause()/resume() chưa từng đụng nó; giữ
+        // tên sai dễ khiến người sau "sửa cho khớp comment" rồi phá logic showImage() dựa vào cờ này).
+    _pendingTransitionCleanup: null, // {outgoingLayer, outgoingPan, incomingLayer} của lượt _showNext()
+        // GẦN NHẤT còn đang chờ taskManager.once('motionEngineTransitionCleanup') tới hẹn, null nếu đã
+        // settle. Đọc bởi _settlePendingTransition() — xem docstring hàm đó.
     // Random riêng cho 5 field "hướng" của transition (xem resolveMotionEngineTransitionOption(), core).
     _lastTransitionDirection: null,
     _lastTransitionZoomDirection: null,
@@ -87,7 +103,7 @@ const workflowMotionEngine = {
     _lastTransitionCurtainDirection: null,
     _lastPointMoveOneIndex: -1, // index (trong preset.pointMoves) dùng ở lượt 'one' mode LIỀN TRƯỚC — loại trừ, xem pickPointMoveOneIndexRandom()/Sequential() (core)
     _activePreset: MOTION_ENGINE_NO_OP_PRESET, // preset của LƯỢT HIỂN THỊ GẦN NHẤT — _tickBeatReact() (chạy mỗi frame, không có tham số) đọc lại từ đây
-    _lastAdvanceMs: 5000, // advanceMs của LƯỢT HIỂN THỊ GẦN NHẤT (gán ở reveal()/transitionTo()) — _activatePointMove() dùng thẳng, KHÔNG tự tính nữa
+    _lastAdvanceMs: 5000, // advanceMs của LƯỢT HIỂN THỊ GẦN NHẤT (gán ở _staticReveal()/_showNext()/updatePreset()) — _activatePointMove() dùng thẳng, KHÔNG tự tính nữa
 
     _beatReactActive: false,
     _beatReactEnvelope: 0,       // 0-1 — giá trị THẬT dùng tính transform (không phải beatScale thô), xem computeMotionEngineBeatReactEnvelope()
@@ -102,7 +118,7 @@ const workflowMotionEngine = {
     _idlePanLayer() { return this._layerToggle ? motionEngineLayer1Pan : motionEngineLayer2Pan; },
 
     _pointMoveAnim: null, // Animation DUY NHẤT trên motionEnginePointMoveWrapper (bọc CHUNG cả 2 layer A/B, xem core/dom-refs.js) — SỬA, phản hồi Giang, không còn tách theo từng layer nữa
-    _activationStartAtRealTime: 0, // Date.now() lúc ẢNH HIỆN TẠI bắt đầu hiện (reveal()/transitionTo()) — mốc suy "thời gian ĐÁNG LẼ point move phải ở đâu" khi bật lại sống, xem livePointMoveToggle()
+    _activationStartAtRealTime: 0, // Date.now() lúc ẢNH HIỆN TẠI bắt đầu hiện (_staticReveal()/_showNext()) — mốc suy "thời gian ĐÁNG LẼ point move phải ở đâu" khi bật lại sống, xem livePointMoveToggle()
 
     // MỚI (phản hồi Giang, sửa bug hard-cut baseline) — snapshot đường cong 'all' mode GẦN NHẤT
     // (mảng {x,target} ĐÃ gồm sẵn 2 mốc ảo đầu/cuối nếu có) + thời lượng của nó — dùng bởi
@@ -125,45 +141,102 @@ const workflowMotionEngine = {
         appState.set('motionRunning', preset.id || null);
     },
 
-    /** Hiện ẢNH ĐẦU tĩnh (không transition — chỉ có 1 ảnh, chưa có ảnh "cũ" nào để chuyển từ đó) +
-     * bật Point Move/BeatReact NGAY nếu `preset` có gì để chạy.
-     * `imageKey` rỗng/null -> ẩn hẳn container, dọn sạch (coi như `stop()`).
-     * @param {string|null} imageKey
+    /** SỬA (đối chiếu đánh giá, mục concurrency — xử lý dứt điểm, không chỉ "cần test" nữa) — ép
+     * lượt cleanup transition TRƯỚC (nếu còn treo) chạy NGAY thay vì chờ `taskManager.once()` tới
+     * hẹn. Gọi ở ĐẦU `_showNext()` (đảm bảo layer đích luôn sạch trước khi bắt đầu lượt mới — KHÔNG
+     * còn cộng dồn `.me-layer-exit` cũ + `.me-layer-enter` mới lên cùng 1 layer khi `showImage()` bị
+     * gọi dồn dập) và trong `stop()` (kill timer treo, không cần chạy settle logic vì `stop()` đã tự
+     * reset CẢ 2 layer vô điều kiện ngay sau đó — chỉ cần đảm bảo timer cũ không nổ TRỄ sau khi
+     * `stop()`/lượt reveal kế tiếp đã xong, gắn nhầm class lên layer đã bị dùng lại). */
+    _settlePendingTransition() {
+        if (!this._pendingTransitionCleanup) return;
+        taskManager.kill('motionEngineTransitionCleanup');
+        const { outgoingLayer, outgoingPan, incomingLayer } = this._pendingTransitionCleanup;
+        setMotionEngineLayerImage(outgoingPan, ''); // core
+        finishMotionEngineTransitionVisuals(outgoingLayer, incomingLayer); // core
+        this._pendingTransitionCleanup = null;
+    },
+
+    /** Public — ĐIỂM VÀO DUY NHẤT để hiện 1 resource. Engine tự đọc `_hasCurrentResource` CỦA CHÍNH
+     * NÓ để quyết hiện tĩnh hay transition — nơi gọi (VBG) KHÔNG cần/KHÔNG được biết đây là ảnh đầu
+     * hay ảnh kế, KHÔNG đọc `_hasCurrentResource`/gọi thẳng `_staticReveal()`/`_showNext()`.
+     * @param {string|null} objectUrl - ĐÃ resolve sẵn (createBlobUrl(), service/blob-url.js) — Engine
+     *        nhận ownership NGAY khi hàm này được gọi (giữ/chuyển layer/revoke), nơi gọi không revoke
+     *        lại. Rỗng/null -> coi như `stop()`.
      * @param {object} preset - ĐÃ resolve sẵn (MOTION_ENGINE_NO_OP_PRESET nếu chưa gắn Motion).
-     * @param {number} advanceMs - thời lượng hiển thị ảnh NÀY — nơi gọi tự tính (durationMode/
-     *        durationSeconds/record.duration đều thuộc VBG) — dùng làm thời lượng chạy Point Move.
+     * @param {number} advanceMs - thời lượng hiển thị ảnh NÀY — nơi gọi tự tính, dùng làm thời lượng
+     *        chạy Point Move/transition.
      */
-    async reveal(imageKey, preset, advanceMs) {
-        this.stop();
-        if (!imageKey) { setMotionEngineContainerVisible(motionEngineContainer, false); return; } // core
-        setMotionEngineContainerVisible(motionEngineContainer, true); // core
-        const ok = await this._loadImageIntoLayer(imageKey, this._currentPanLayer(), this._currentLayer());
-        if (!ok) return; // record mất — nơi gọi (workflowVisualBg) tự lo self-heal, Engine không tự thử ảnh khác
-        this._setActivePreset(preset);
+    async showImage(objectUrl, preset, advanceMs) {
+        if (!objectUrl) { this.stop(); return; }
+        if (this._hasCurrentResource) { await this._showNext(objectUrl, preset, advanceMs); return; }
+        await this._staticReveal(objectUrl, preset, advanceMs);
+    },
+
+    /** Public — đổi preset đang áp cho ẢNH ĐANG HIỆN tại chỗ: KHÔNG đổi ảnh, KHÔNG chạy transition,
+     * chỉ Point Move/React Beat chuyển sang preset mới NGAY (`_activatePointMove()` tự tiếp diễn mượt
+     * từ vị trí thật đang hiển thị, không giật về baseline — xem docstring hàm đó). No-op nếu chưa có
+     * resource nào đang hiện.
+     * @param {object} preset - preset MỚI (MOTION_ENGINE_NO_OP_PRESET nếu chọn "Không") @param {number} advanceMs */
+    updatePreset(preset, advanceMs) {
+        if (!this._hasCurrentResource) return;
+        this._setActivePreset(preset || MOTION_ENGINE_NO_OP_PRESET);
         this._lastAdvanceMs = advanceMs;
-        this._isActive = true;
+        this._activatePointMove(this._activePreset);
+        this._syncBeatReactLoop();
+    },
+
+    /** Internal — hiện resource ĐẦU tĩnh (chưa có ảnh "cũ" nào để transition từ đó). CHỈ gọi từ
+     * `showImage()` khi `_hasCurrentResource===false`.
+     * SỬA (Giang yêu cầu đối chiếu invariant trước khi coi là xong) — bản `reveal()`/
+     * `_loadImageIntoLayer()` cũ set `[data-transition]`/edge-flip/direction TRƯỚC khi
+     * `_setActivePreset(preset)` chạy, nên vô tình dùng preset CŨ (NO_OP còn sót từ `stop()`) thay vì
+     * preset thật. Hàm này gọi `_setActivePreset(preset)` TRƯỚC, dùng đúng `preset` tham số cho các
+     * lệnh set attribute — ĐÃ XÁC MINH đổi thứ tự này không đổi bất kỳ hiển thị nào: mọi rule CSS
+     * khớp `[data-transition=...]` (assets/css/motion-engine.css) đều SCOPE THEO `.me-layer-enter`/
+     * `.me-layer-exit` — 2 class đó CHỈ được gắn trong `_showNext()` (transition thật), KHÔNG BAO GIỜ
+     * gắn ở đây (`_staticReveal()` chỉ gắn `.me-current`, style của nó không phụ thuộc
+     * `[data-transition]`); và trước khi `_showNext()` chạy transition đầu tiên, nó tự ghi đè lại
+     * đúng attribute theo preset thật (dòng ~214) — nên attribute set ở ĐÂY chưa từng được CSS đọc
+     * lúc còn giá trị cũ. Không cần giữ nguyên thứ tự gốc. */
+    async _staticReveal(objectUrl, preset, advanceMs) {
+        this.stop();
+        setMotionEngineContainerVisible(motionEngineContainer, true); // core
+        this._currentObjectUrl = objectUrl;
+        const panEl = this._currentPanLayer();
+        const layerEl = this._currentLayer();
+        setMotionEngineLayerImage(panEl, objectUrl); // core
+        if (layerEl) layerEl.classList.add('me-current');
+        this._setActivePreset(preset);
+        setMotionEngineTransitionType(motionEngineContainer, preset.transitionType); // core — chỉ set thuộc tính, KHÔNG chạy animation
+        setMotionEngineEdgeFlipOptions(motionEngineContainer, preset.edgeFlipVariant, preset.edgeFlipStaticOld); // core
+        const revealDirs = this._resolveTransitionDirections(preset);
+        setMotionEngineTransitionDirections(motionEngineContainer, revealDirs.direction, revealDirs.zoomDirection, revealDirs.spinDirection, revealDirs.wipeDirection, revealDirs.curtainDirection); // core
+        this._lastAdvanceMs = advanceMs;
+        this._hasCurrentResource = true;
         this._activationStartAtRealTime = Date.now();
         this._activatePointMove(preset);
         this._syncBeatReactLoop();
     },
 
-    /** 1 lượt CHUYỂN từ ảnh đang hiện sang `imageKey` — áp Transition/Point Move theo `preset`.
-     * @param {string} imageKey
-     * @param {object} preset
-     * @param {number} advanceMs
-     * @returns {Promise<boolean>} false nếu record mất (nơi gọi tự lo self-heal/thử ảnh khác, KHÔNG
-     *   đổi gì trên layer — ảnh ĐANG hiện vẫn đứng yên).
-     */
-    async transitionTo(imageKey, preset, advanceMs) {
-        const record = await getImageRecord(imageKey); // service/db.js
-        if (!record || !record.blob) return false;
-
+    /** Internal — 1 lượt CHUYỂN từ resource đang hiện sang `objectUrl` — áp Transition/Point Move
+     * theo `preset`. CHỈ gọi từ `showImage()` khi `_hasCurrentResource===true`. GIỮ NGUYÊN thứ tự
+     * cleanup/URL của bản `transitionTo()` cũ (capture `staleUrl` LOCAL trước khi gán
+     * `_currentObjectUrl` mới, revoke qua closure chứ không đọc lại field lúc cleanup chạy).
+     * SỬA (đối chiếu đánh giá, mục concurrency) — gọi `_settlePendingTransition()` NGAY ĐẦU hàm:
+     * nếu `showImage()` bị gọi dồn dập (lượt TRƯỚC chưa kịp cleanup — vd đổi nguồn/preset nhanh tay
+     * giữa lúc 1 transition đang chạy), layer đích của lượt NÀY có thể vẫn còn `.me-layer-exit`/
+     * `.me-layer-enter` sót lại từ lượt TRƯỚC (KHÔNG được `startMotionEngineTransitionVisuals()`
+     * dưới đây tự dọn — nó chỉ THÊM class, không gỡ class cũ) — cộng dồn 2 lượt lên cùng 1 layer sẽ
+     * xung đột animation. `_settlePendingTransition()` ép lượt cleanup TRƯỚC chạy NGAY (thay vì đợi
+     * timer), đưa layer về trạng thái sạch trước khi lượt MỚI bắt đầu — không còn cần "lượt mới nhất
+     * tự dọn đúng layer" (nhận định cũ SAI — lượt mới không hề gỡ class cũ, chỉ thêm class mới).
+     * @param {string} objectUrl @param {object} preset @param {number} advanceMs */
+    async _showNext(objectUrl, preset, advanceMs) {
+        this._settlePendingTransition();
         this._setActivePreset(preset);
         this._lastAdvanceMs = advanceMs;
         this._activationStartAtRealTime = Date.now();
-        const image = record;
-        this._currentRecord = image; // NGAY TẠI ĐÂY (không phải cuối hàm) — nếu sau này có chỗ nào cần duration ảnh SẮP hiện thì đã sẵn
-        const objectUrl = URL.createObjectURL(image.blob);
         const outgoingLayer = this._currentLayer();
         const incomingLayer = this._idleLayer();
         const outgoingPan = this._currentPanLayer();
@@ -189,14 +262,23 @@ const workflowMotionEngine = {
 
             startMotionEngineTransitionVisuals(outgoingLayer, incomingLayer); // core
             const cleanupDelayMs = Math.max(inMs, outMs);
+            this._pendingTransitionCleanup = { outgoingLayer, outgoingPan, incomingLayer }; // đọc bởi _settlePendingTransition() nếu lượt KẾ gọi tới trước khi timer dưới đây kịp chạy
             taskManager.once(() => { // service/task-manager.js
                 setMotionEngineLayerImage(outgoingPan, ''); // core
                 finishMotionEngineTransitionVisuals(outgoingLayer, incomingLayer); // core
+                this._pendingTransitionCleanup = null;
             }, cleanupDelayMs, 'motionEngineTransitionCleanup');
 
             if (this._currentObjectUrl) {
                 const staleUrl = this._currentObjectUrl;
-                taskManager.once(() => { try { URL.revokeObjectURL(staleUrl); } catch (e) {} }, cleanupDelayMs + 100, 'motionEngineRevokeStale');
+                // taskManager.once() tên CỐ ĐỊNH tự huỷ bản cũ CÙNG tên khi gọi lại (xem docstring
+                // taskManager.once(), service/task-manager.js dòng ~38-41) — KHÔNG dùng tên cố định
+                // ở đây vì mỗi lượt đóng gói 1 `staleUrl` KHÁC NHAU qua closure, huỷ nhầm lượt trước
+                // = URL đó rò rỉ vĩnh viễn. KHÔNG truyền `name` -> mỗi lượt tự sinh tên riêng, luôn
+                // chạy đủ, không lượt nào đè lượt nào (khác `motionEngineTransitionCleanup` ở trên —
+                // task đó ĐÚNG khi debounce theo tên, vì `_settlePendingTransition()` đã đảm bảo lượt
+                // TRƯỚC luôn được ép chạy xong trước khi lượt SAU kịp đăng ký task cùng tên).
+                taskManager.once(() => { try { URL.revokeObjectURL(staleUrl); } catch (e) {} }, cleanupDelayMs + 100);
             }
         } else {
             outgoingLayer.classList.remove('me-current');
@@ -208,30 +290,12 @@ const workflowMotionEngine = {
         this._currentObjectUrl = objectUrl;
         this._layerToggle = !this._layerToggle;
         this._syncBeatReactLoop();
-        return true;
-    },
-
-    /** Đọc record + gán ảnh vào layer (dùng CHUNG cho `reveal()` — KHÔNG dùng cho `transitionTo()`,
-     * hàm đó tự inline vì cần cả outgoing/incoming layer cùng lúc). Trả false nếu record mất. */
-    async _loadImageIntoLayer(imageKey, panEl, layerEl) {
-        const record = await getImageRecord(imageKey); // service/db.js
-        if (!record || !record.blob) return false;
-        const objectUrl = URL.createObjectURL(record.blob);
-        this._currentObjectUrl = objectUrl;
-        this._currentRecord = record;
-        setMotionEngineLayerImage(panEl, objectUrl); // core
-        if (layerEl) layerEl.classList.add('me-current');
-        setMotionEngineTransitionType(motionEngineContainer, this._activePreset.transitionType); // core — chỉ set thuộc tính, KHÔNG chạy animation nào ở đây
-        setMotionEngineEdgeFlipOptions(motionEngineContainer, this._activePreset.edgeFlipVariant, this._activePreset.edgeFlipStaticOld); // core
-        const revealDirs = this._resolveTransitionDirections(this._activePreset);
-        setMotionEngineTransitionDirections(motionEngineContainer, revealDirs.direction, revealDirs.zoomDirection, revealDirs.spinDirection, revealDirs.wipeDirection, revealDirs.curtainDirection); // core
-        return true;
     },
 
     /** Resolve 5 field "hướng" transition của `preset` — field nào ĐANG là 'random' thì chọn 1 giá
      * trị CỤ THỂ (loại trừ giá trị dùng lượt liền trước, tự nhớ ở `_lastTransitionDirection`/...)
      * rồi CẬP NHẬT LUÔN "lượt vừa dùng" cho lần gọi kế tiếp; field CỤ THỂ giữ nguyên, KHÔNG đụng
-     * state nhớ. Gọi ở CẢ 2 nơi set data-attribute xuống DOM (`_loadImageIntoLayer()`/`transitionTo()`).
+     * state nhớ. Gọi ở CẢ 2 nơi set data-attribute xuống DOM (`_staticReveal()`/`_showNext()`).
      * @param {object} preset
      * @returns {{direction: string, zoomDirection: string, spinDirection: string, wipeDirection: string, curtainDirection: string}}
      */
@@ -281,7 +345,7 @@ const workflowMotionEngine = {
         // chuỗi transform) TRƯỚC khi huỷ animation cũ (`.currentTime` chỉ đọc được lúc animation còn
         // sống, `stopPointMoveAnimation()` bên dưới `.cancel()` nó ngay) — null nếu lượt trước không
         // phải 'all' mode (`_activatePointMoveOne()` tự reset `_lastAllModePoints`) hoặc chưa từng
-        // chạy (lượt `reveal()` đầu tiên).
+        // chạy (lượt `_staticReveal()` đầu tiên).
         const liveStartTarget = this._deriveLivePointMoveTarget();
         stopPointMoveAnimation(motionEnginePointMoveWrapper, this._pointMoveAnim); // core/dom-refs.js, core/motion-engine.js
         this._pointMoveAnim = null;
@@ -326,7 +390,7 @@ const workflowMotionEngine = {
      * @param {string} presetId @param {boolean} enabled
      */
     livePointMoveToggle(presetId, enabled) {
-        if (!this._isActive || appState.get('motionRunning') !== presetId) return;
+        if (!this._hasCurrentResource || appState.get('motionRunning') !== presetId) return;
         const preset = findMotionPresetById(appState.get('motionPresets'), presetId); // core/motion-presets.js
         if (!preset) return;
         this._setActivePreset(preset); // đồng bộ bản cache theo đúng dữ liệu vừa lưu (enabled mới)
@@ -350,7 +414,7 @@ const workflowMotionEngine = {
      * @param {string} presetId @param {boolean} enabled
      */
     liveBeatReactToggle(presetId, enabled) {
-        if (!this._isActive || appState.get('motionRunning') !== presetId) return;
+        if (!this._hasCurrentResource || appState.get('motionRunning') !== presetId) return;
         const preset = findMotionPresetById(appState.get('motionPresets'), presetId); // core/motion-presets.js
         if (!preset) return;
         this._setActivePreset(preset);
@@ -406,7 +470,7 @@ const workflowMotionEngine = {
      * WAAPI easing 'linear' (đường cong ĐÃ tự mượt qua sampling, easing khác sẽ làm méo lại) — GHI
      * ĐÈ keyframe ĐẦU bằng `fromTransform` (giữ ĐÚNG pixel đầu tiên 100%, phòng sai số làm tròn của
      * lerp). Mốc x=0 LUÔN dùng `liveStartTarget` (field thật, liền mạch — `_deriveLivePointMoveTarget()`)
-     * nếu có, fallback baseline nếu KHÔNG (lượt `reveal()` đầu tiên/lượt trước là 'one' mode).
+     * nếu có, fallback baseline nếu KHÔNG (lượt `_staticReveal()` đầu tiên/lượt trước là 'one' mode).
      *
      * SỬA LẦN 2 (phản hồi Giang — bug "giật cứng về baseline" VẪN còn khi Start-force bật) — mốc
      * x=0 KHÔNG còn bị `pointMoveStartForceBaseline` ép baseline nữa (ĐÓ chính là nguyên nhân giật —
@@ -511,8 +575,18 @@ const workflowMotionEngine = {
         resumePointMoveAnimation(this._pointMoveAnim); // core
     },
 
-    /** Dừng hẳn — dọn layer + object URL + reset bookkeeping. */
+    /** Dừng hẳn — dọn layer + object URL + reset bookkeeping.
+     * SỬA — huỷ trước task `'motionEngineTransitionCleanup'` + clear `_pendingTransitionCleanup`
+     * (nếu đang chờ từ 1 lượt `_showNext()` chưa kịp cleanup) — nếu không, callback đó có thể nổ
+     * TRỄ sau khi `stop()` đã dọn xong (hoặc sau khi 1 lượt reveal MỚI đã dùng lại đúng 2 layer đó),
+     * gắn nhầm `.me-current`/xoá nhầm ảnh MỚI. KHÔNG cần tự chạy `_settlePendingTransition()` đầy đủ
+     * ở đây — vòng `forEach` dưới đã tự reset CẢ 2 layer vô điều kiện, không cần chạy lại. KHÔNG cần
+     * huỷ revoke-URL task tương ứng: nó không còn dùng tên cố định (xem `_showNext()`) nên không ai
+     * "chồng lượt" nó — để nó tự nổ trễ vẫn AN TOÀN (revoke 1 URL không còn cần dùng không bao giờ
+     * là lỗi, chỉ cần đảm bảo nó CÓ chạy, không cần đảm bảo chạy ĐÚNG LÚC). */
     stop() {
+        taskManager.kill('motionEngineTransitionCleanup');
+        this._pendingTransitionCleanup = null;
         taskManager.kill(MOTION_ENGINE_BEATREACT_TASK); // service/task-manager.js
         this._beatReactActive = false;
         this._resetBeatReactTransform();
@@ -526,8 +600,7 @@ const workflowMotionEngine = {
             resetMotionEngineLayerClasses(layerEl); // core
         });
         if (this._currentObjectUrl) { try { URL.revokeObjectURL(this._currentObjectUrl); } catch (e) {} this._currentObjectUrl = null; }
-        this._currentRecord = null;
-        this._isActive = false;
+        this._hasCurrentResource = false;
         this._lastTransitionDirection = null;
         this._lastTransitionZoomDirection = null;
         this._lastTransitionSpinDirection = null;
@@ -538,10 +611,10 @@ const workflowMotionEngine = {
     },
 
     /** Bật/tắt vòng lặp per-frame react-beat. Gọi ở MỌI điểm `_activePreset` CÓ THỂ vừa đổi
-     * (`reveal()`/`transitionTo()`). KHÔNG addNew() trùng tên nếu đã chạy sẵn (`_beatReactActive` guard). */
+     * (`_staticReveal()`/`_showNext()`). KHÔNG addNew() trùng tên nếu đã chạy sẵn (`_beatReactActive` guard). */
     _syncBeatReactLoop() {
         const rb = this._activePreset.reactBeatAudio;
-        const shouldRun = this._isActive && rb.enabled && (rb.zoom.enabled || rb.pan.enabled || rb.rotate.enabled);
+        const shouldRun = this._hasCurrentResource && rb.enabled && (rb.zoom.enabled || rb.pan.enabled || rb.rotate.enabled);
         if (shouldRun && !this._beatReactActive) {
             this._beatReactActive = true;
             this._beatReactEnvelope = 0; // bắt đầu vòng MỚI luôn từ baseline — không kế thừa envelope dở từ lượt trước
