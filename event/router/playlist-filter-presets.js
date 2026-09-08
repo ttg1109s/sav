@@ -42,7 +42,7 @@ const routerPlaylistFilterPresets = (() => {
                 break;
 
             case 'playlistFilterPresets.select.click':
-                workflowPlaylistFilterPresets.selectPreset(msg.payload.id);
+                workflowPlaylistFilterPresets.selectPreset(msg.payload.id, msg.payload.source);
                 break;
 
             case 'playlistFilterPresets.delete.click':
