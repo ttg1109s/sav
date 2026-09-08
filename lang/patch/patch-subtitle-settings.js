@@ -458,8 +458,28 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'playlistFilterPanel.mode.outRange': 'Out of range',
     'playlistFilterPanel.rangeFrom': 'From',
     'playlistFilterPanel.rangeTo': 'To',
+    // XOÁ khỏi UI (08/09/2026, hệ "Playlist Filter Presets") — '.title'/'.apply' hết chỗ dùng (màn
+    // Edit giờ dùng 'playlistFilterPresetsDrawer.edit.title'/'.select') — GIỮ NGUYÊN key (không xoá
+    // hẳn, an toàn cho bản dịch ngôn ngữ khác chưa đồng bộ kịp), chỉ không còn nơi nào đọc.
     'playlistFilterPanel.apply': 'Apply',
-    'playlistFilterPanel.hint': 'Every field turned on is combined with AND. Changes are saved now — reload to see the filtered list.',
+    // SỬA (08/09/2026) — nội dung cũ nhắc "Changes are saved now — reload..." (đúng cho nút Áp dụng
+    // đơn cũ) — giờ field live-commit vào preset, chỉ "Select & apply" mới thật sự đẩy lên Playlist.
+    'playlistFilterPanel.hint': 'Every field turned on is combined with AND. Tap "Select & apply" below to use this filter.',
     'playlistFilterPanel.reloadPrompt': 'Filter saved. Reload now to apply it to your Playlist?',
+
+    // MỚI (08/09/2026, hệ "Playlist Filter Presets", phản hồi Giang) — danh sách preset (mirror
+    // motionPresetsDrawer.*/eqPresets.*) + nút "Quản lý bộ lọc" (Settings → Playlist).
+    'settingsPlaylistBg.filter.manage': 'Manage filters',
+    'playlistFilterPresetsDrawer.list.title': 'Filters',
+    'playlistFilterPresetsDrawer.list.add.label': '+ New filter',
+    'playlistFilterPresetsDrawer.list.empty': 'No filters yet. Tap "New filter" to create one.',
+    'playlistFilterPresetsDrawer.list.select.title': 'Select & apply',
+    'playlistFilterPresetsDrawer.list.delete.title': 'Delete',
+    'playlistFilterPresetsDrawer.defaultName': 'New filter {n}',
+    'playlistFilterPresetsDrawer.edit.title': 'Edit filter',
+    'playlistFilterPresetsDrawer.name.label': 'Name',
+    'playlistFilterPresetsDrawer.select': 'Select & apply',
+    'playlistFilterPresetsDrawer.delete': 'Delete',
+    'playlistFilterPresetsDrawer.reloadPrompt': 'Filter selected. Reload now to apply it to your Playlist?',
 
 };
