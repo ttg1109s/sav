@@ -61,7 +61,7 @@ const workflowPlaylistRender = {
         const isActuallyPlaying = isPlaying && !((cached && cached.mediaType === 'video') ? bgVideoElement.paused : audioPlayer.paused);
         const eqIconHtml = isActuallyPlaying ? `<div class="flex items-end gap-[2px] h-3 w-3"><div class="w-[3px] bg-sky-400 eq-1"></div><div class="w-[3px] bg-sky-400 eq-2"></div><div class="w-[3px] bg-sky-400 eq-3"></div></div>` : (isPlaying ? `<div class="w-2 h-2 rounded-full bg-sky-500 shadow-[0_0_5px_rgba(14,165,233,0.8)]"></div>` : '');
         const selectionMode = appState.get('selectionMode');
-        const isSelected = selectionMode && appState.get('selectedSongKeys').has(key);
+        const isSelected = selectionMode && appState.get('selectedMediaKeys').has(key);
         const menuBtnHtml = selectionMode ? '' : songActionMenuButtonHtml(key); // core/playlist/render.js
 
         const wrapper = document.createElement('div');

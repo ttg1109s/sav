@@ -54,6 +54,22 @@ const MEDIA_SWITCH_I18N = {
     photo: { loadingKey: 'playlistView.loading.withCountPhoto', placeholderKey: 'playlistView.search.placeholderPhoto' },
 };
 
+/** MỚI (07/09/2026, gộp phần "chọn đúng get/delete record theo mediaType" — trước đây lặp lại y hệt
+ * bằng ternary ở CẢ `deleteMediaFromActionMenu()` LẪN `deleteSelectedMedia()` bên dưới) — dùng bởi cả
+ * 2 hàm đó, VÀ tái dùng ở `event/workflow/file-manager-storage.js::executeDeleteBroken()` (xoá
+ * broken qua Quản lý dung lượng — CÙNG 3 bước get record/dọn folder/xoá record, chỉ khác nguồn key
+ * đến từ đâu).
+ * SỬA (07/09/2026, Giang chỉ ra "đằng nào cũng sửa, đổi tên luôn đỡ nhầm") — CẢ 3 `deleteRecord` đều
+ * là hàm CRUD THUẦN (`service/db.js`, KHÔNG tự cascade folder) — đối xứng thật sự, không còn 2 tầng
+ * hành vi khác nhau (trước đây `deleteVideo()`/`deleteImage()`, core/file-manager/video.js/image.js,
+ * tự cascade RỒI xoá — 2 hàm đó ĐÃ XOÁ). Nơi gọi (Workflow) LUÔN tự gọi `removeSongFromAllFolders()`
+ * TRƯỚC bước `deleteRecord` — ĐỒNG NHẤT cho cả 3 loại, không còn ai "tự lo" khác ai. */
+const MEDIA_DELETE_ACCESSOR = {
+    song: { getRecord: getSongRecord, deleteRecord: deleteSongRecord },
+    video: { getRecord: getVideoRecord, deleteRecord: deleteVideoRecord },
+    photo: { getRecord: getImageRecord, deleteRecord: deleteImageRecord },
+};
+
 const workflowPlaylist = {
 
     /** MỚI (phản hồi Giang — "1 khung, không nhân bản, VMState theo activeMediaSource") — đổi
@@ -70,12 +86,70 @@ const workflowPlaylist = {
 
     /** MỚI (v13 Batch F) — ứng với 'playlist.actionMenu.delete.click'. THAY nhánh `action==='delete'`
      * của core `handleSongActionMenuSelect()` (đã xoá).
-     * @param {string} songKey - key do listener đọc sẵn từ `playlistStore` và đặt vào payload.
+     * SỬA (07/09/2026, "đưa về chuẩn event bus + core rule") — GỘP THẲNG thân `window.removeSong()`
+     * cũ (core/playlist/actions.js, ĐÃ XOÁ) vào đây thay vì gọi chéo qua `window.` — hàm đó vốn
+     * mixed core/workflow (tự gọi alertModal/withLoadingShield, "core không biết shield/modal"
+     * không áp dụng) và CHỈ CÓ ĐÚNG 1 caller (chính hàm này, đã kiểm tra toàn project), nên gộp về
+     * ĐÚNG tầng Workflow thay vì giữ 2 lớp giả không cần thiết. Các bước con (get record theo
+     * mediaType, removeSongFromAllFolders/deleteRecord/removeSongStats/removeKeyFromDisplay) VẪN LÀ
+     * core thuần (core/file-manager/*.js, core/playlist/actions.js, service/db.js), giữ nguyên 100%
+     * — chỉ orchestration đổi CHỖ GỌI.
+     * ĐỔI TÊN (07/09/2026, Giang chỉ ra "đằng nào cũng sửa, đổi tên đỡ nhầm") — `deleteSongFromActionMenu`
+     * (cũ, tên gợi ý CHỈ xử lý Song dù đã xử lý cả Video/Photo từ lâu — CÙNG kiểu nhầm lẫn tên gọi
+     * đã sửa cho `window.removeSong`) đổi thành `deleteMediaFromActionMenu` cho khớp thực tế.
+     * @param {string} mediaKey - key do listener đọc sẵn từ `playlistStore` và đặt vào payload.
      */
-    deleteSongFromActionMenu(songKey) {
-        if (!songKey) return; // guard: menu không mở/không xác định được bài nào
+    deleteMediaFromActionMenu(mediaKey) {
+        if (!mediaKey) return; // guard: menu không mở/không xác định được bài nào
         closeSongActionMenu(); // core/playlist/actions.js
-        window.removeSong(songKey);
+
+        const cached = appState.get('playlistCache').get(mediaKey);
+        const title = cached && cached.tag && cached.tag.title ? cached.tag.title : (cached ? cached.filename : mediaKey);
+        const mediaType = cached ? cached.mediaType : 'song'; // 'song'|'video'|'photo' — playlistCache.mediaType luôn có giá trị đúng cho item đang hiển thị thật
+        const isVideo = mediaType === 'video';
+        const isCurrent = mediaKey === appState.get('currentKey');
+        const isActuallyPlaying = isVideo ? (appState.get('isVideoPlayerMode') && !bgVideoElement.paused) : !audioPlayer.paused;
+
+        if (isCurrent && isActuallyPlaying) {
+            // Ngôn ngữ theo ngữ cảnh Song/Video — bản Song nói "Pause the song first", sai ngữ
+            // cảnh khi chặn xoá 1 Video đang phát.
+            alertModal(tFormat(isVideo ? 'playlistView.songMenu.deleteBlockedPlayingVideo' : 'playlistView.songMenu.deleteBlockedPlaying', { title }));
+            return;
+        }
+
+        return withLoadingShield(t('common.loading.deleting'), async () => {
+            // Dọn tham chiếu folder TRƯỚC khi xoá record — tránh để lại "ghost" trong folder_song
+            // nếu bài/video/ảnh đó đang nằm trong 1 folder (cùng thứ tự deleteSelectedMedia(), xoá
+            // hàng loạt, ngay trong file này).
+            const { getRecord, deleteRecord } = MEDIA_DELETE_ACCESSOR[mediaType];
+            const record = await getRecord(mediaKey);
+            if (record) await removeSongFromAllFolders(record); // core/file-manager/folder.js
+            await deleteRecord(mediaKey);
+            removeSongStats(mediaKey); // dọn luôn thống kê nghe của bài đã xoá — key-agnostic, dùng chung được cho Video/Photo
+            removeKeyFromDisplay(mediaKey); // core/playlist/actions.js
+
+            if (isCurrent && isVideo) {
+                // Video đang là currentKey (đã pause, hoặc chưa từng phát) — dọn bgVideoElement/
+                // trạng thái Video Player mode qua ĐÚNG hàm đã có sẵn (event/workflow/video-player.js).
+                if (appState.get('isVideoPlayerMode')) await workflowVideoPlayer.exitVideoPlayerMode();
+                appState.set('currentKey', null);
+                playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
+            } else if (isCurrent) {
+                // Bài vừa xoá là currentKey (đang pause) — dọn player/UI giống hệt khối tương ứng
+                // trong clearAllStoredData() (storage-manager.js) để không còn currentKey "ma".
+                if (appState.get('currentObjectURL')) { URL.revokeObjectURL(appState.get('currentObjectURL')); appState.set('currentObjectURL', null); }
+                if (appState.get('currentCoverObjectURL')) { URL.revokeObjectURL(appState.get('currentCoverObjectURL')); appState.set('currentCoverObjectURL', null); }
+                audioPlayer.pause(); audioPlayer.src = ''; appState.set('currentKey', null);
+                playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
+                if (typeof killAllAutoSwitchVisualTasks === 'function') killAllAutoSwitchVisualTasks();
+                if (typeof forceBackToPlaylistUI === 'function') forceBackToPlaylistUI();
+                if (typeof setVisualizerActiveFalse === 'function') setVisualizerActiveFalse();
+            }
+        }).then(() => {
+            // Shield đã đóng hẳn tới đây — an toàn để hiện modal, không bị #loading-shield
+            // (z-[200]) đè lên modalChoice (z-[130]).
+            alertModal(tFormat('playlistView.songMenu.deleteSuccess', { title }));
+        });
     },
 
     /** MỚI (v13 Batch F) — ứng với 'playlist.actionMenu.edit.click'. THAY nhánh `action==='edit'`.
@@ -231,7 +305,7 @@ const workflowPlaylist = {
     // Cụm sở hữu ĐÃ CHỐT: `playlist` (không phải `fileManagerSong`).
     //
     // SỬA (sau trao đổi Rule 1/2/VMState): render.js (buildSongNode/renderPlaylistFull/
-    // renderPlaylistDiff) KHÔNG được sửa để tự đọc selectionMode/selectedSongKeys — những field đó
+    // renderPlaylistDiff) KHÔNG được sửa để tự đọc selectionMode/selectedMediaKeys — những field đó
     // CHỈ ảnh hưởng 1 lớp DOM-patch riêng, tách hẳn theo tiến trình đơn tuyến (showSelectionIndicator/
     // hideSelectionIndicator/refreshAllSelectionVisuals/updateSelectionActionBar/applySelectionChrome,
     // core/playlist/selection.js — hàm THUẦN, nhận state qua tham số, tự chọn hàm nào chạy qua
@@ -254,35 +328,35 @@ const workflowPlaylist = {
             { state: enabled, operation: '===', value: true, callback: () => enableSelectionMode() },
             { state: enabled, operation: '===', value: false, callback: () => disableSelectionMode() },
         ]);
-        const selectedSongKeys = appState.get('selectedSongKeys'); // đọc LẠI sau khi core ghi xong (disableSelectionMode có thể vừa clear nó)
+        const selectedMediaKeys = appState.get('selectedMediaKeys'); // đọc LẠI sau khi core ghi xong (disableSelectionMode có thể vừa clear nó)
         const domNodesByKey = appState.get('domNodesByKey');
         // Vòng lặp + chọn showSelectionIndicator/hideSelectionIndicator theo `enabled` ĐẶT Ở ĐÂY
         // (workflow), KHÔNG phải core — đây là ≥2 lời gọi core void nối tiếp nhau (đúng hình dạng
         // Workflow theo Rule 3/event-bus-flow.md mục 4B), workflow được phép làm việc này tự do.
         VirtualMachineState.run([
-            { state: enabled, operation: '===', value: true, callback: () => domNodesByKey.forEach((node, key) => showSelectionIndicator(node, key, selectedSongKeys)) },
+            { state: enabled, operation: '===', value: true, callback: () => domNodesByKey.forEach((node, key) => showSelectionIndicator(node, key, selectedMediaKeys)) },
             { state: enabled, operation: '===', value: false, callback: () => domNodesByKey.forEach((node) => hideSelectionIndicator(node)) },
         ]);
-        updateSelectionActionBar(enabled, selectedSongKeys.size);
+        updateSelectionActionBar(enabled, selectedMediaKeys.size);
         applySelectionChrome(enabled);
     },
 
     /** Ứng với 'playlist.item.playClick' khi selectionMode=true (xem router). */
     toggleSongSelectionAndRefresh(key) {
-        const isCurrentlySelected = appState.get('selectedSongKeys').has(key);
+        const isCurrentlySelected = appState.get('selectedMediaKeys').has(key);
         VirtualMachineState.run([
-            { state: isCurrentlySelected, operation: '===', value: true, callback: () => deselectSong(key) },
-            { state: isCurrentlySelected, operation: '===', value: false, callback: () => selectSong(key) },
+            { state: isCurrentlySelected, operation: '===', value: true, callback: () => deselectMedia(key) },
+            { state: isCurrentlySelected, operation: '===', value: false, callback: () => selectMedia(key) },
         ]);
 
-        const selectedSongKeys = appState.get('selectedSongKeys'); // đọc LẠI sau khi core ghi xong ở trên
+        const selectedMediaKeys = appState.get('selectedMediaKeys'); // đọc LẠI sau khi core ghi xong ở trên
         const node = appState.get('domNodesByKey').get(key);
         // Không cần VMState ở đây: đang Ở TRONG chế độ chọn (hàm này chỉ được router gọi khi
         // selectionMode=true, xem router/playlist.js), nên LUÔN showSelectionIndicator — việc
         // chọn/bỏ-chọn CHỈ đổi màu/tick bên trong nó (ternary trình bày thuần theo isSelected,
         // không phải rẽ nhánh tiến trình, khác hẳn quyết định BẬT/TẮT cả chế độ chọn ở trên).
-        showSelectionIndicator(node, key, selectedSongKeys);
-        updateSelectionActionBar(appState.get('selectionMode'), selectedSongKeys.size);
+        showSelectionIndicator(node, key, selectedMediaKeys);
+        updateSelectionActionBar(appState.get('selectionMode'), selectedMediaKeys.size);
     },
 
     /** Ứng với 'playlist.uploadMenu.open' khi selectionMode=true (xem router) — CHỈ hiện modal,
@@ -513,7 +587,7 @@ const workflowPlaylist = {
      * thuộc phạm vi khác.
      */
     playSelectedSongs() {
-        const keys = Array.from(appState.get('selectedSongKeys'));
+        const keys = Array.from(appState.get('selectedMediaKeys'));
         if (keys.length === 0) return; // guard — chưa chọn gì thì không làm gì
 
         // MỚI (ver12 Batch1) — sortKeysByMode() đổi chữ ký, nhận tham số thay vì tự appState.get()
@@ -557,7 +631,7 @@ const workflowPlaylist = {
      * sẽ bị chặn bởi isShieldBusy, xem loading-shield-util.js).
      */
     async exportSelectedSongsZip() {
-        const keys = Array.from(appState.get('selectedSongKeys'));
+        const keys = Array.from(appState.get('selectedMediaKeys'));
         if (keys.length === 0) return;
 
         let failedCount = 0;
@@ -664,7 +738,7 @@ const workflowPlaylist = {
      * không cần try/catch riêng vì không có bước ghi tag nào có thể lỗi).
      */
     async exportSelectedVideosZip() {
-        const keys = Array.from(appState.get('selectedSongKeys'));
+        const keys = Array.from(appState.get('selectedMediaKeys'));
         if (keys.length === 0) return;
 
         let failedCount = 0;
@@ -691,7 +765,7 @@ const workflowPlaylist = {
      * rỗng) — xem SỬA event/router/playlist.js, case 'playlist.selection.moreMenu.select'.
      */
     async exportSelectedImagesZip() {
-        const keys = Array.from(appState.get('selectedSongKeys'));
+        const keys = Array.from(appState.get('selectedMediaKeys'));
         if (keys.length === 0) return;
 
         let failedCount = 0;
@@ -740,7 +814,7 @@ const workflowPlaylist = {
      * MỚI (mục 1d, CHỐT 03/07/2026) — "Thêm vào thư mục" cho ĐÚNG 1 bài từ menu 3 chấm đơn lẻ.
      * Song song với openAddToFolderPicker() ở dưới (chọn nhiều) — KHÔNG gộp chung 1 method vì 2
      * message trigger khác nhau (đơn lẻ đọc `songActionMenuKey` trong playlistStore, chọn nhiều
-     * đọc `selectedSongKeys` trong appState) và cần đóng đúng menu tương ứng (songActionMenu vs
+     * đọc `selectedMediaKeys` trong appState) và cần đóng đúng menu tương ứng (songActionMenu vs
      * chế độ chọn nhiều) — viết chung sẽ phải rẽ nhánh theo "nguồn nào gọi tới", đúng thứ vi phạm
      * Rule 1 nếu đặt trong core, và không cần thiết ở tầng workflow (workflow không bị Rule 1 ràng
      * buộc, nhưng tách riêng vẫn rõ ràng hơn khi đọc). CẢ 2 giờ dùng CHUNG `_openFolderPickerDrawer()`
@@ -839,7 +913,7 @@ const workflowPlaylist = {
      * khác `onPick` (nhiều key + thoát chế độ chọn).
      */
     async openAddToFolderPicker() {
-        const keys = Array.from(appState.get('selectedSongKeys'));
+        const keys = Array.from(appState.get('selectedMediaKeys'));
         if (keys.length === 0) return;
 
         // SỬA (hợp nhất Photo vào Playlist) — cùng lý do openAddToFolderPickerForSongMenu() ngay
@@ -1097,15 +1171,21 @@ const workflowPlaylist = {
 
     /**
      * "Xoá hàng loạt" — ĐÚNG luồng bác chốt (câu 4 mục 6 plan): nếu bài đang phát nằm trong tập bị
-     * xoá, ép DỪNG phát + về UI Playlist NGAY (không hỏi/không chặn, khác hẳn window.removeSong
+     * xoá, ép DỪNG phát + về UI Playlist NGAY (không hỏi/không chặn, khác hẳn `deleteMediaFromActionMenu()`
      * đơn lẻ vốn chặn xoá nếu đang thực sự phát) -> bật shield -> xoá -> tắt shield -> modal "đã xoá".
      * SỬA (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — media-aware: chọn
      * nhiều CHỈ xảy ra trong ĐÚNG 1 nguồn tại 1 thời điểm (Playlist chỉ browse 1 nguồn) nên đọc
      * `activeMediaSource` MỘT LẦN cho CẢ LÔ, không cần kiểm tra từng key. TRƯỚC ĐÂY hardcode
      * getSongRecord/deleteSongRecord — Video sẽ ÂM THẦM không xoá được gì (record nằm store khác).
+     * ĐỔI TÊN (07/09/2026, cùng lý do `deleteSongFromActionMenu` -> `deleteMediaFromActionMenu`) —
+     * hàm này CŨNG xử lý cả Video/Photo từ Batch 6, tên cũ `deleteSelectedSongs` gây hiểu lầm y hệt.
+     * SỬA TIẾP (07/09/2026, "xử lý luôn") — `appState.selectedSongKeys` CŨNG đổi tên thành
+     * `selectedMediaKeys` (service/state/file-manager.js, cùng `selectSong()`/`deselectSong()` ->
+     * `selectMedia()`/`deselectMedia()`, core/playlist/selection.js) — cùng lý do, xử lý triệt để
+     * thay vì để dở dang.
      */
-    async deleteSelectedSongs() {
-        const keys = Array.from(appState.get('selectedSongKeys'));
+    async deleteSelectedMedia() {
+        const keys = Array.from(appState.get('selectedMediaKeys'));
         if (keys.length === 0) return;
         const mediaType = appState.get('activeMediaSource'); // 'song'|'video'|'photo'
         const isVideo = mediaType === 'video';
@@ -1122,7 +1202,7 @@ const workflowPlaylist = {
                 playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
                 forceBackToPlaylistUI();
             } else {
-                // Dừng player + dọn RAM — GIỐNG HỆT khối tương ứng trong window.removeSong() (đơn lẻ)/
+                // Dừng player + dọn RAM — GIỐNG HỆT khối tương ứng trong deleteMediaFromActionMenu() (đơn lẻ)/
                 // clearAllStoredData() (storage-manager.js) khi currentKey biến mất, để không còn
                 // currentKey "ma". Khác 2 nơi đó: KHÔNG kiểm tra audioPlayer.paused — ép dừng vô điều
                 // kiện, đúng ý bác (không chặn/không hỏi, chỉ dừng rồi xoá).
@@ -1145,18 +1225,19 @@ const workflowPlaylist = {
             // nguồn giờ là 1 mảng key riêng của workflowVisualBg (đã copy tách khỏi Playlist), xoá
             // video gốc ở đây không cần biết gì tới nó — lần advance()/apply() kế tiếp bên đó tự
             // phát hiện record mất + tự chữa lành.
-            // MỞ RỘNG (hợp nhất Photo vào Playlist) — thêm nhánh 'photo' (store `images`, hàm xoá
-            // riêng deleteImage() — trước đây thiếu nhánh này sẽ khiến deleteSongRecord() gọi nhầm
-            // lên key không tồn tại trong store `songs`, âm thầm KHÔNG xoá được gì).
-            const getRecordFn = isVideo ? getVideoRecord : mediaType === 'photo' ? getImageRecord : getSongRecord; // service/db.js
+            // MỞ RỘNG (hợp nhất Photo vào Playlist) — thêm nhánh 'photo' (store `images`) — trước
+            // đây thiếu nhánh này sẽ khiến deleteSongRecord() gọi nhầm lên key không tồn tại trong
+            // store `songs`, âm thầm KHÔNG xoá được gì.
+            // SỬA (07/09/2026) — tra bảng `MEDIA_DELETE_ACCESSOR` (đầu file) 1 LẦN trước vòng lặp
+            // (mediaType KHÔNG đổi trong suốt lô, = activeMediaSource) thay vì lặp lại ternary bên
+            // trong `for` — rẻ hơn, cùng registry dùng ở `deleteMediaFromActionMenu()`.
+            const { getRecord, deleteRecord } = MEDIA_DELETE_ACCESSOR[mediaType];
             const deletedKeys = [];
             for (const key of keys) {
-                const record = await getRecordFn(key);
+                const record = await getRecord(key);
                 if (!record) continue; // guard: đã bị xoá từ trước (hiếm, race) — bỏ qua, không chặn cả lô
                 await removeSongFromAllFolders(record); // core có sẵn (core/file-manager/folder.js) — nhận record THÔ qua tham số, generic cho cả Song/Video/Photo
-                if (isVideo) await deleteVideo(key); // core/file-manager/video.js
-                else if (mediaType === 'photo') await deleteImage(key); // core/file-manager/image.js
-                else await deleteSongRecord(key); // core CRUD thô (service/db.js)
+                await deleteRecord(key);
                 removeSongStats(key); // core có sẵn (core/listen-stats.js)
                 deletedKeys.push(key);
             }
@@ -1182,7 +1263,7 @@ const workflowPlaylist = {
 
     /**
      * "Gỡ khỏi thư mục" — Selection mode, MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 5).
-     * KHÁC hẳn `deleteSelectedSongs()` ngay trên: KHÔNG đụng bản ghi gốc/thư viện, chỉ gỡ khỏi
+     * KHÁC hẳn `deleteSelectedMedia()` ngay trên: KHÔNG đụng bản ghi gốc/thư viện, chỉ gỡ khỏi
      * DANH SÁCH của folder đang Scope — dùng `removeSongsFromFolder()` (core/file-manager/
      * folder.js, bulk-subset, MỚI cùng đợt) rồi splice các key đó khỏi `playlistOrder`/
      * `displayOrder` đang hiển thị (CÙNG khuôn `removeKeysFromDisplayState()`,
@@ -1195,7 +1276,7 @@ const workflowPlaylist = {
      * chỉ đổi nơi gọi).
      */
     async removeSelectedSongsFromFolder() {
-        const keys = Array.from(appState.get('selectedSongKeys'));
+        const keys = Array.from(appState.get('selectedMediaKeys'));
         if (keys.length === 0) return;
         const mediaType = appState.get('activeMediaSource');
         const folderId = appState.get('activePlayListFolder')[mediaType];
