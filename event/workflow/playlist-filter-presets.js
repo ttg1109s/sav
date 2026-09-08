@@ -8,128 +8,105 @@
  * applyFilterChanges()): Settings → Playlist → "Lọc" mở THẲNG 1 bộ rule sống DUY NHẤT
  * (`playlistFilterConfig`), nút "Áp dụng" lưu bền + hỏi reload.
  *
- * SAU: Settings → Playlist → "Lọc" giờ là 1 CÔNG TẮC TỔNG (`playlistFilterEnabled`, wire ở
- * core/app-settings-ui.js::wireAppSettingsPlaylist() — CÙNG hàng, KHÔNG còn mở panel trực tiếp) +
- * 1 nút "Quản lý bộ lọc" CHỈ hiện khi công tắc bật, mở danh sách preset (mirror EQ/Motion — tap
- * dòng = sửa, mỗi dòng có thêm nút xoá nhanh + chọn áp dụng nhanh, xem components/
- * playlist-filter-drawer.js::renderPlaylistFilterListBody()). Điều kiện filter CÓ hiệu lực trên
- * Playlist thật = `playlistFilterEnabled===true` VÀ `playlistFilterActivePresetId` trỏ 1 preset còn
- * tồn tại — CẢ 2 field này + `playlistFilterPresets` quyết định `playlistFilterConfig` SUY RA
- * (`_recomputeLiveConfig()`), đọc bởi `applyPlaylistFilter()`/`applyFolderScope()`/
- * `applyAllSongsScope()` (core/playlist/filter.js, event/workflow/playlist-scope.js) — 2 nơi đó
- * KHÔNG đổi gì.
+ * SAU: Settings → Playlist → "Lọc" là 1 NÚT DUY NHẤT (SỬA 09/09/2026, phản hồi Giang — "bỏ toggle,
+ * bỏ manage filter, chỉ giữ Filter để vào nơi quản lý", RÚT GỌN lại bản 08/09 từng thêm công tắc
+ * tổng + nút "Quản lý bộ lọc" riêng) mở THẲNG danh sách preset (mirror EQ/Motion — tap dòng = sửa,
+ * mỗi dòng có thêm nút xoá nhanh + chọn áp dụng nhanh, xem components/playlist-filter-drawer.js::
+ * renderPlaylistFilterListBody()). KHÔNG còn công tắc tổng riêng (`playlistFilterEnabled` ĐÃ XOÁ) —
+ * điều kiện filter CÓ hiệu lực trên Playlist thật = CHỈ `playlistFilterActivePresetId` trỏ 1 preset
+ * còn tồn tại (preset ĐANG active TỰ LÀ công tắc, không cần field riêng) — quyết định
+ * `playlistFilterConfig` SUY RA (`_recomputeLiveConfig()`), đọc bởi `applyPlaylistFilter()`/
+ * `applyFolderScope()`/`applyAllSongsScope()` (core/playlist/filter.js, event/workflow/
+ * playlist-scope.js) — 2 nơi đó KHÔNG đổi gì.
  *
- * "Chọn áp dụng" (list HOẶC màn Edit, CÙNG hành động `selectPreset()`) — ghi
- * `playlistFilterActivePresetId` + TỰ bật `playlistFilterEnabled=true` (chọn 1 preset để dùng ngầm
- * định nghĩa là MUỐN filter có hiệu lực) rồi hỏi reload (tái dùng thẳng
- * `workflowPlaylistScope.askReloadToApplyNow()`, CÙNG modal Scope đã dùng — event/workflow/
- * playlist-scope.js) — CÙNG UX bản cũ (lưu bền + hỏi reload, không áp ngay trong phiên).
- *
- * Tắt công tắc tổng (`setEnabled(false)`) — TỰ bỏ chọn preset đang dùng
- * (`playlistFilterActivePresetId=null`) rồi reload NGAY, KHÔNG hỏi (phản hồi Giang — tắt Filter là
- * NỚI kết quả hiển thị ra, không cần xác nhận, khác hẳn BẬT + chọn preset là THU HẸP kết quả).
+ * "Chọn áp dụng"/"Cập nhật" (list HOẶC màn Edit, CÙNG hành động `selectPreset()`; label đổi thành
+ * "Cập nhật" khi preset đang sửa CHÍNH LÀ preset đang active — SỬA 09/09/2026, xem
+ * `_renderPlaylistFilterEdit()` event/workflow/app-settings.js) — ghi `playlistFilterActivePresetId`
+ * rồi hỏi reload (tái dùng thẳng `workflowPlaylistScope.askReloadToApplyNow()`, CÙNG modal Scope đã
+ * dùng — event/workflow/playlist-scope.js) — CÙNG UX bản cũ (lưu bền + hỏi reload, không áp ngay
+ * trong phiên). CHẶN bấm (mở `alertModal()` cảnh báo, KHÔNG áp gì cả) nếu preset chưa có field rule
+ * hợp lệ nào cho Nguồn đang xem — xem `hasValidPlaylistFilterField()` (core/playlist/
+ * filter-presets.js) + docstring `selectPreset()` dưới (phản hồi Giang mục 3a).
  *
  * Sửa field rule trong 1 preset — GHI THẲNG (live-commit) vào `playlistFilterPresets[_editingId]`
  * NGAY mỗi lần đổi (KHÔNG còn nút "Lưu" riêng, CÙNG khuôn Motion Edit) — preset đó chỉ thật sự ảnh
- * hưởng Playlist SAU KHI bấm "Chọn áp dụng" + reload, sửa preset KHÁC preset đang active không ảnh
- * hưởng gì tới danh sách đang hiển thị (giống hệt EQ — sửa preset không active không ảnh hưởng âm
- * thanh đang phát) — QUAN TRỌNG, câu này ĐÚNG luôn cho CẢ preset ĐANG active (SỬA 09/09/2026, phản
- * hồi Giang — xem đoạn "ảnh chốt" ngay dưới): sửa field của preset đang active KHÔNG tự đổi filter
- * thật đang chạy, dù đã lưu bền.
+ * hưởng Playlist SAU KHI bấm "Chọn áp dụng"/"Cập nhật" + reload, sửa preset KHÁC preset đang active
+ * không ảnh hưởng gì tới danh sách đang hiển thị (giống hệt EQ — sửa preset không active không ảnh
+ * hưởng âm thanh đang phát) — QUAN TRỌNG, câu này ĐÚNG luôn cho CẢ preset ĐANG active (xem đoạn "ảnh
+ * chốt" ngay dưới): sửa field của preset đang active KHÔNG tự đổi filter thật đang chạy, dù đã lưu
+ * bền.
  *
- * "Ảnh chốt" (`playlistFilterAppliedConfig`, MỚI 09/09/2026) — TRƯỚC ĐÂY `_recomputeLiveConfig()`
- * đọc THẲNG `playlistFilterPresets[activeId].config` (bản đang sửa dở) — nghĩa là sửa field của
- * preset ĐANG active rồi lỡ reload trang (KHÔNG bấm lại "Chọn áp dụng") vẫn ÂM THẦM đổi filter thật
- * đang chạy, vì field đó đã lưu bền từ lúc gõ. Giang chỉ ra đây KHÔNG phải hành vi mong muốn — "Nếu
- * ko cập nhật [bấm Chọn áp dụng] thì vẫn giữ cái đặt [preset lưu field mới] nhưng không áp dụng
- * chính thức". Giờ tách hẳn: `selectPreset()` (nút "Chọn áp dụng") deep-clone `preset.config` NGAY
- * LÚC BẤM vào `playlistFilterAppliedConfig` — `_recomputeLiveConfig()` đọc TỪ ĐÂY, KHÔNG đọc
- * `preset.config` nữa. Field sửa sau đó (kể cả của preset đang active) vẫn lưu bền bình thường
- * (thấy lại lúc mở Edit) nhưng KHÔNG ảnh hưởng `playlistFilterAppliedConfig`/`playlistFilterConfig`
- * cho tới khi bấm "Chọn áp dụng" LẦN NỮA (chụp ảnh chốt MỚI — "Nút áp dụng -> cập nhật", đúng ý
- * Giang).
+ * "Ảnh chốt" (`playlistFilterAppliedConfig`) — `_recomputeLiveConfig()` đọc TỪ ĐÂY (KHÔNG đọc
+ * `playlistFilterPresets[activeId].config` — bản đang sửa dở — trực tiếp). `selectPreset()` (nút
+ * "Chọn áp dụng"/"Cập nhật") deep-clone `preset.config` NGAY LÚC BẤM vào field này — field sửa sau
+ * đó (kể cả của preset đang active) vẫn lưu bền bình thường (thấy lại lúc mở Edit) nhưng KHÔNG ảnh
+ * hưởng filter thật cho tới khi bấm "Chọn áp dụng"/"Cập nhật" LẦN NỮA (chụp ảnh chốt MỚI).
+ *
+ * MỚI (09/09/2026, phản hồi Giang mục 3b — "sửa preset đang chọn: xoá -> tự gỡ; hết field hợp lệ mà
+ * thoát X/Back -> tự gỡ") — 2 đường TỰ ĐỘNG gỡ filter khỏi Playlist, cho ĐÚNG preset đang active:
+ *   1. Xoá preset đang active (`_deletePresetById()`) — ĐÃ CÓ SẴN từ trước, không đổi gì thêm.
+ *   2. Sửa preset đang active tới mức KHÔNG còn field hợp lệ nào (`hasValidPlaylistFilterField()`
+ *      trả `false`), rồi rời màn Edit qua nút Back/Close (X) MÀ KHÔNG bấm "Cập nhật" trước — GỌI
+ *      `autoUnapplyIfInvalid()` (xem hàm đó) qua móc `workflowAppSettings._leaveGuard` (MỚI, gắn ở
+ *      `_renderPlaylistFilterEdit()`, tự chạy 1 lần đúng lúc Back/Close, xem docstring 2 hàm đó ở
+ *      event/workflow/app-settings.js) — tự bỏ chọn preset + reset ảnh chốt + reload NGAY, không
+ *      hỏi (CÙNG lý do bỏ preset = nới kết quả ra, không cần xác nhận).
  *
  * KHÔNG MIGRATE `meta.playlistFilterConfig` cũ (bản 1-bộ-rule-sống trước 08/09/2026) — CHỐT Giang
  * (mục 2, đợt này) "bắt đầu lại từ đầu, không cần giữ rule cũ" — field đó giờ MỒ CÔI trong DB, an
  * toàn (chỉ đọc lúc boot bản cũ, giờ không nơi nào đọc nữa).
  *
  * NẠP SAU: core/playlist/filter-presets.js, core/playlist/filter.js (clonePlaylistFilterConfigDefaults()),
- * components/playlist-filter-drawer.js, service/db.js (getMeta/setMeta), event/workflow/
- * app-settings.js (workflowAppSettings — liên tuyến domain), event/workflow/playlist-scope.js
- * (workflowPlaylistScope.askReloadToApplyNow() — liên tuyến domain).
+ * core/modal-choice-ui.js (alertModal()), components/playlist-filter-drawer.js, service/db.js
+ * (getMeta/setMeta), event/workflow/app-settings.js (workflowAppSettings — liên tuyến domain),
+ * event/workflow/playlist-scope.js (workflowPlaylistScope.askReloadToApplyNow() — liên tuyến domain).
  */
 const workflowPlaylistFilterPresets = {
     _editingId: null, // preset đang sửa (màn Edit) — null nếu không ở màn đó
 
     /** Gọi từ event/workflow/app-boot.js (THAY workflowPlaylist.loadPersistedFilterConfigOnBoot()
-     * cũ — xem hàm đó, event/workflow/playlist.js, giờ chỉ delegate thẳng sang đây) — đọc 3 field
-     * MỚI từ meta, sanitize, rồi tính lại playlistFilterConfig sống. PHẢI chạy TRƯỚC khối Scope
+     * cũ — xem hàm đó, event/workflow/playlist.js, giờ chỉ delegate thẳng sang đây) — đọc field MỚI
+     * từ meta, sanitize, rồi tính lại playlistFilterConfig sống. PHẢI chạy TRƯỚC khối Scope
      * (applyAllSongsScope()/applyFolderScope() đọc playlistFilterConfig để lọc playlistOrder). */
     async loadOnBoot() {
         const rawPresets = await getMeta('playlistFilterPresets');
         const presets = sanitizePlaylistFilterPresets(rawPresets); // core/playlist/filter-presets.js
-        const enabled = (await getMeta('playlistFilterEnabled')) === true;
         const rawActiveId = await getMeta('playlistFilterActivePresetId');
         const activeId = (typeof rawActiveId === 'string' && findPlaylistFilterPresetById(presets, rawActiveId)) ? rawActiveId : null; // core
         const rawApplied = await getMeta('playlistFilterAppliedConfig');
         const appliedConfig = (rawApplied && typeof rawApplied === 'object') ? { ...clonePlaylistFilterConfigDefaults(), ...rawApplied } : clonePlaylistFilterConfigDefaults();
 
         appState.set('playlistFilterPresets', presets);
-        appState.set('playlistFilterEnabled', enabled);
         appState.set('playlistFilterActivePresetId', activeId);
         appState.set('playlistFilterAppliedConfig', appliedConfig);
-        console.log(`writer: "workflowPlaylistFilterPresets.loadOnBoot", page: "playlistFilterPresets", content: "${presets.length} preset, enabled=${enabled}, active=${activeId}"`);
+        console.log(`writer: "workflowPlaylistFilterPresets.loadOnBoot", page: "playlistFilterPresets", content: "${presets.length} preset, active=${activeId}"`);
         this._recomputeLiveConfig();
     },
 
     /** Tính lại `playlistFilterConfig` (giá trị SỐNG, đọc bởi applyPlaylistFilter()) — gọi sau MỌI
-     * lần đổi 1 trong 3 field enabled/activePresetId/playlistFilterAppliedConfig. KHÔNG tự render/
-     * reload gì ở đây (thuần tính state) — nơi gọi tự lo phần đó theo đúng ngữ cảnh.
-     * SỬA (09/09/2026, phản hồi Giang — "sửa preset đang active mà chưa bấm Áp dụng lại thì không
-     * được đổi filter thật") — TRƯỚC ĐÂY đọc THẲNG `preset.config` (bản đang sửa dở, đổi ngay mỗi
-     * lần setFilterField()) — giờ đọc `playlistFilterAppliedConfig` (ảnh chốt lúc `selectPreset()`
-     * chạy lần gần nhất, xem docstring field đó ở service/state/playlist.js), HOÀN TOÀN không phụ
-     * thuộc preset.config hiện tại nữa — chỉ cần biết activeId CÓ còn trỏ tới 1 preset hợp lệ hay
-     * không (preset bị xoá thì coi như mất active, rơi về rỗng) — KHÔNG cần đọc nội dung preset đó. */
+     * lần đổi activePresetId/playlistFilterAppliedConfig. KHÔNG tự render/reload gì ở đây (thuần
+     * tính state) — nơi gọi tự lo phần đó theo đúng ngữ cảnh. Đọc `playlistFilterAppliedConfig`
+     * (ảnh chốt lúc `selectPreset()` chạy lần gần nhất) — HOÀN TOÀN không phụ thuộc `preset.config`
+     * hiện tại — chỉ cần biết activeId CÓ còn trỏ tới 1 preset hợp lệ hay không (preset bị xoá thì
+     * coi như mất active, rơi về rỗng) — KHÔNG cần đọc nội dung preset đó. */
     _recomputeLiveConfig() {
-        const enabled = appState.get('playlistFilterEnabled');
         const activeId = appState.get('playlistFilterActivePresetId');
-        const hasValidActive = enabled && !!findPlaylistFilterPresetById(appState.get('playlistFilterPresets'), activeId); // core
+        const hasValidActive = !!findPlaylistFilterPresetById(appState.get('playlistFilterPresets'), activeId); // core
         const applied = appState.get('playlistFilterAppliedConfig');
         appState.set('playlistFilterConfig', hasValidActive ? { ...clonePlaylistFilterConfigDefaults(), ...applied } : clonePlaylistFilterConfigDefaults());
-        console.log(`writer: "workflowPlaylistFilterPresets._recomputeLiveConfig", page: "playlistFilterConfig", content: "${hasValidActive ? 'từ playlistFilterAppliedConfig (ảnh chốt lần Áp dụng gần nhất)' : 'rỗng (tắt hoặc chưa chọn preset)'}"`);
+        console.log(`writer: "workflowPlaylistFilterPresets._recomputeLiveConfig", page: "playlistFilterConfig", content: "${hasValidActive ? 'từ playlistFilterAppliedConfig (ảnh chốt lần Áp dụng gần nhất)' : 'rỗng (chưa chọn preset)'}"`);
     },
 
     async _persist() {
         await setMeta('playlistFilterPresets', appState.get('playlistFilterPresets'));
-        await setMeta('playlistFilterEnabled', appState.get('playlistFilterEnabled'));
         await setMeta('playlistFilterActivePresetId', appState.get('playlistFilterActivePresetId'));
         await setMeta('playlistFilterAppliedConfig', appState.get('playlistFilterAppliedConfig'));
     },
 
-    // ===================== Công tắc tổng (Settings → Playlist → "Lọc") =====================
-
-    /** Ứng checkbox công tắc tổng — BẬT chỉ lưu trạng thái (chưa preset nào active thì
-     * playlistFilterConfig vẫn suy ra rỗng, KHÔNG đổi gì hiển thị, KHÔNG cần reload). TẮT — tự bỏ
-     * chọn preset đang dùng rồi reload NGAY, không hỏi (xem docstring đầu file).
-     * @param {boolean} checked */
-    async setEnabled(checked) {
-        appState.set('playlistFilterEnabled', checked);
-        console.log(`writer: "setEnabled", page: "playlistFilterEnabled", content: "${checked}"`);
-        if (!checked) {
-            appState.set('playlistFilterActivePresetId', null);
-            console.log(`writer: "setEnabled", page: "playlistFilterActivePresetId", content: "null (tắt công tắc tổng, tự bỏ chọn)"`);
-        }
-        this._recomputeLiveConfig();
-        await this._persist();
-        if (!checked) window.location.reload(); // tắt = nới kết quả ra, áp NGAY không cần hỏi (khác BẬT+chọn preset)
-    },
-
     // ===================== Màn danh sách =====================
 
-    /** Ứng nút "Quản lý bộ lọc" (chỉ hiện khi công tắc tổng đang bật) HOẶC nút Lọc tĩnh trên màn
-     * Playlist chính (event/router/playlist.js, "playlist.filterPanel.open.click" — TRƯỚC ĐÂY mở
-     * thẳng bộ rule sống, giờ mở danh sách preset CÙNG lối vào Settings). */
+    /** Ứng nút "Lọc" (Settings → Playlist) — mở THẲNG danh sách preset (KHÔNG còn công tắc tổng/nút
+     * "Quản lý" riêng — SỬA 09/09/2026, xem docstring đầu file). */
     openList() {
         workflowAppSettings.navigateTo(() => workflowAppSettings._renderPlaylistFilterList()); // liên tuyến domain
     },
@@ -317,10 +294,9 @@ const workflowPlaylistFilterPresets = {
         });
     },
 
-    /** Nút "Chọn áp dụng" (list HOẶC màn Edit) — preset `id` thành preset ĐANG DÙNG, TỰ bật công
-     * tắc tổng nếu đang tắt (chọn preset ngầm định nghĩa muốn Filter có hiệu lực), CHỤP "ảnh chốt"
-     * (`playlistFilterAppliedConfig` — deep clone `preset.config` NGAY LÚC NÀY, xem docstring field
-     * đó ở service/state/playlist.js) rồi lưu bền + hỏi reload (tái dùng
+    /** Nút "Chọn áp dụng"/"Cập nhật" (list HOẶC màn Edit) — preset `id` thành preset ĐANG DÙNG,
+     * CHỤP "ảnh chốt" (`playlistFilterAppliedConfig` — deep clone `preset.config` NGAY LÚC NÀY, xem
+     * docstring field đó ở service/state/playlist.js) rồi lưu bền + hỏi reload (tái dùng
      * workflowPlaylistScope.askReloadToApplyNow() — CÙNG modal Scope). Giữ NGUYÊN màn đang đứng sau
      * khi bấm (KHÔNG tự điều hướng đi đâu, CÙNG khuôn EQ _applyPreset() — có thể chỉnh tiếp rồi
      * Chọn áp dụng lại nhiều lần, MỖI LẦN bấm là 1 lần chụp ảnh chốt MỚI — "cập nhật" ĐÚNG như Giang
@@ -332,17 +308,48 @@ const workflowPlaylistFilterPresets = {
      * — ảnh chốt sẽ ÂM THẦM đổi theo mọi lần sửa sau nếu không deep-clone, phá hỏng toàn bộ mục
      * đích tách biệt của field này. `config` chỉ chứa dữ liệu thuần (string/number/boolean/null/
      * object lồng) nên JSON round-trip an toàn, không mất field nào.
+     * MỚI (09/09/2026, phản hồi Giang mục 3a) — CHẶN hẳn nếu preset KHÔNG có field rule hợp lệ nào
+     * cho Nguồn đang xem (`hasValidPlaylistFilterField()`, core/playlist/filter-presets.js — không
+     * field nào bật, HOẶC field bật rồi mà chưa nhập dữ liệu, vd field text để trống) — mở
+     * `alertModal()` (core/modal-choice-ui.js) cảnh báo, KHÔNG ghi/reload gì cả, `return` NGAY.
      * @param {string} id */
     async selectPreset(id) {
         const preset = findPlaylistFilterPresetById(appState.get('playlistFilterPresets'), id); // core
         if (!preset) return;
+        const source = appState.get('activeMediaSource');
+        if (!hasValidPlaylistFilterField(preset.config[source])) { // core/playlist/filter-presets.js
+            alertModal(t('playlistFilterPresetsDrawer.invalidWarning')); // core/modal-choice-ui.js
+            return;
+        }
         appState.set('playlistFilterActivePresetId', id);
-        appState.set('playlistFilterEnabled', true);
         appState.set('playlistFilterAppliedConfig', JSON.parse(JSON.stringify(preset.config)));
-        console.log(`writer: "selectPreset", page: "playlistFilterActivePresetId", content: "${id} (\"${preset.name}\"), enabled=true, đã chụp ảnh chốt config"`);
+        console.log(`writer: "selectPreset", page: "playlistFilterActivePresetId", content: "${id} (\"${preset.name}\"), đã chụp ảnh chốt config"`);
         this._recomputeLiveConfig();
         await this._persist();
         workflowPlaylistScope.askReloadToApplyNow(t('playlistFilterPresetsDrawer.reloadPrompt')); // liên tuyến domain, event/workflow/playlist-scope.js
+    },
+
+    /** MỚI (09/09/2026, phản hồi Giang mục 3b.2) — gọi từ `workflowAppSettings._leaveGuard` (móc
+     * chạy đúng 1 lần lúc Back/Close, gắn ở `_renderPlaylistFilterEdit()`, xem event/workflow/
+     * app-settings.js) khi rời màn Edit MÀ KHÔNG bấm "Cập nhật" — nếu preset vừa sửa (`presetId`)
+     * ĐÚNG là preset đang active VÀ giờ không còn field hợp lệ nào cho Nguồn đang xem
+     * (`hasValidPlaylistFilterField()`), tự bỏ chọn + reset ảnh chốt + reload NGAY (không hỏi, CÙNG
+     * lý do "bỏ preset = nới kết quả ra"). Preset vẫn HỢP LỆ (còn field) hoặc KHÔNG PHẢI preset đang
+     * active thì không làm gì — giữ nguyên ảnh chốt cũ (đã giải thích ở đầu file: sửa preset đang
+     * active mà chưa bấm Cập nhật KHÔNG tự đổi filter thật).
+     * @param {string} presetId */
+    autoUnapplyIfInvalid(presetId) {
+        if (appState.get('playlistFilterActivePresetId') !== presetId) return; // không phải preset đang active — không việc gì phải gỡ
+        const preset = findPlaylistFilterPresetById(appState.get('playlistFilterPresets'), presetId); // core
+        if (!preset) return; // đã bị xoá ở nhánh khác (deletePreset() tự lo phần gỡ rồi) — khỏi làm gì thêm
+        const source = appState.get('activeMediaSource');
+        if (hasValidPlaylistFilterField(preset.config[source])) return; // vẫn còn field hợp lệ — không cần gỡ
+        appState.set('playlistFilterActivePresetId', null);
+        appState.set('playlistFilterAppliedConfig', clonePlaylistFilterConfigDefaults());
+        console.log(`writer: "autoUnapplyIfInvalid", page: "playlistFilterActivePresetId", content: "null (preset \"${preset.name}\" hết field hợp lệ lúc rời màn Edit, tự gỡ)"`);
+        this._recomputeLiveConfig();
+        this._persist(); // không await — đang rời màn, reload ngay sau đó nên không cần chờ
+        window.location.reload();
     },
 
     /** Nút "Xoá" ở màn Edit — xoá preset đang sửa, quay lại danh sách.
@@ -353,10 +360,8 @@ const workflowPlaylistFilterPresets = {
     },
 
     /** Dùng CHUNG cho quickDelete() (danh sách) VÀ deletePreset() (màn Edit) — xoá khỏi
-     * playlistFilterPresets; nếu ĐÚNG preset đang active thì tự bỏ chọn (KHÔNG tự reload — CÙNG lý
-     * do "xoá preset không active thì Playlist hiện tại không đổi gì", còn nếu xoá ĐÚNG preset đang
-     * active, Filter coi như vừa TẮT hiệu lực — nới kết quả ra, không cần hỏi, CÙNG lý do
-     * setEnabled(false), reload NGAY).
+     * playlistFilterPresets; nếu ĐÚNG preset đang active thì tự bỏ chọn + reload NGAY, không hỏi
+     * (CÙNG lý do autoUnapplyIfInvalid() — xoá = nới kết quả ra).
      * @param {string} id */
     async _deletePresetById(id) {
         const wasActive = appState.get('playlistFilterActivePresetId') === id;

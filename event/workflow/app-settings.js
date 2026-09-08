@@ -51,6 +51,12 @@
 const workflowAppSettings = {
 
     _screenStack: [], // mảng hàm render (KHÔNG gồm màn hiện tại) — back() pop ra màn NGAY TRƯỚC
+    // MỚI (09/09/2026, phản hồi Giang — "sửa filter đang chọn, hết field hợp lệ mà thoát X/Back thì
+    // tự gỡ filter") — hàm dọn dẹp GẮN TẠM cho ĐÚNG 1 lần rời màn kế tiếp (Back HOẶC Close/X), tự
+    // reset về null NGAY sau khi gọi. Đa số màn KHÔNG cần (giữ null) — CHỈ `_renderPlaylistFilterEdit()`
+    // (event/workflow/playlist-filter-presets.js) gắn, xem docstring hàm đó. Named-liên-tuyến-domain
+    // thuần (Workflow này KHÔNG biết/không cần biết logic bên trong móc là gì).
+    _leaveGuard: null,
 
     open() {
         this._screenStack = [];
@@ -58,21 +64,27 @@ const workflowAppSettings = {
         workflowAppPanelNav.setActiveTab('setting');
     },
 
+    /** SỬA (09/09/2026) — chạy `_leaveGuard` (nếu có) TRƯỚC khi đóng hẳn, xem docstring field đó. */
     close() {
+        if (this._leaveGuard) { const fn = this._leaveGuard; this._leaveGuard = null; fn(); }
         this._screenStack = [];
         workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
         workflowAppPanelNav.activateMedia(); // event/workflow/app-panel-nav.js
     },
 
-    /** Điều hướng TỚI 1 màn mới — đẩy màn HIỆN TẠI vào ngăn xếp để back() quay lại đúng.
+    /** Điều hướng TỚI 1 màn mới — đẩy màn HIỆN TẠI vào ngăn xếp để back() quay lại đúng. KHÔNG tự
+     * chạy `_leaveGuard` ở đây (điều hướng TIẾP trong luồng, vd mở time-picker con — KHÔNG phải
+     * "rời màn" theo nghĩa Back/Close, xem docstring field đó) — CHỈ back()/close() mới chạy.
      * @param {() => void} renderFn */
     navigateTo(renderFn) {
         this._screenStack.push(this._currentRenderFn);
         renderFn();
     },
 
-    /** Ứng với nút Back động ở header (mọi màn trừ Main). */
+    /** Ứng với nút Back động ở header (mọi màn trừ Main). SỬA (09/09/2026) — chạy `_leaveGuard`
+     * (nếu có) TRƯỚC khi lùi màn. */
     back() {
+        if (this._leaveGuard) { const fn = this._leaveGuard; this._leaveGuard = null; fn(); }
         const prev = this._screenStack.pop();
         if (!prev) { this.close(); return; } // không còn gì để lùi (không nên xảy ra — Main không có nút Back) -> đóng hẳn cho an toàn
         prev();
@@ -154,16 +166,14 @@ const workflowAppSettings = {
 
     /** Danh sách preset Filter — tap dòng = sửa, mỗi dòng có thêm nút chọn áp dụng nhanh + xoá
      * nhanh (CÙNG khuôn _renderMotionList() — KHÁC Motion 1 chỗ: Motion "Áp dụng cho" chỉ có ở màn
-     * Edit, Playlist Filter cần bấm "chọn áp dụng" được NGAY từ danh sách, phản hồi Giang). Preset
-     * đang active (dot xanh) CHỈ tô khi `playlistFilterEnabled` đang bật — tắt công tắc tổng thì
-     * KHÔNG dòng nào tô active dù `playlistFilterActivePresetId` vẫn còn lưu (đã tự null hoá lúc
-     * tắt, xem workflowPlaylistFilterPresets.setEnabled(), nên thực ra luôn khớp — truyền tường
-     * minh ở đây cho RÕ Ý, không dựa ngầm vào bất biến đó). SỬA (08/09/2026, hệ "Playlist Filter
-     * Presets") — THAY `_renderPlaylistFilter()` cũ (panel Lọc mở thẳng bộ rule sống). */
+     * Edit, Playlist Filter cần bấm "chọn áp dụng" được NGAY từ danh sách, phản hồi Giang). SỬA
+     * (08/09/2026, hệ "Playlist Filter Presets") — THAY `_renderPlaylistFilter()` cũ (panel Lọc mở
+     * thẳng bộ rule sống). SỬA (09/09/2026, bỏ công tắc tổng) — dot active giờ chỉ theo THẲNG
+     * `playlistFilterActivePresetId` (KHÔNG còn gate qua `playlistFilterEnabled` — field đó đã xoá). */
     _renderPlaylistFilterList() {
         this._currentRenderFn = () => this._renderPlaylistFilterList();
         const presets = appState.get('playlistFilterPresets');
-        const activeId = appState.get('playlistFilterEnabled') ? appState.get('playlistFilterActivePresetId') : null;
+        const activeId = appState.get('playlistFilterActivePresetId');
         this._render(
             t('playlistFilterPresetsDrawer.list.title'),
             renderPlaylistFilterListBody(presets, activeId), // components/playlist-filter-drawer.js
@@ -185,15 +195,25 @@ const workflowAppSettings = {
 
     /** Sửa 1 preset (`workflowPlaylistFilterPresets._editingId`) — field rule theo Nguồn hiện tại
      * (component render RỖNG, `_syncEditUI()` tự bind giá trị NGAY sau khi mount, CÙNG khuôn
-     * openSortPanel()/_syncFilterPanelUI() bản cũ) + 2 nút "Chọn áp dụng"/"Xoá" cuối. */
+     * openSortPanel()/_syncFilterPanelUI() bản cũ) + 2 nút "Chọn áp dụng"/"Xoá" cuối — nút đầu đổi
+     * chữ thành "Cập nhật" khi preset đang sửa CHÍNH LÀ preset đang active (`isActive`, SỬA
+     * 09/09/2026, phản hồi Giang mục 1 — xem components/playlist-filter-drawer.js::
+     * renderPlaylistFilterEditBody()).
+     * MỚI (09/09/2026, phản hồi Giang mục 3b.2) — gắn `_leaveGuard` (xem field đó, đầu file) MỖI
+     * lần vào màn này — chạy `workflowPlaylistFilterPresets.autoUnapplyIfInvalid(preset.id)` đúng 1
+     * lần lúc rời màn (Back HOẶC Close/X), tự gỡ filter khỏi Playlist nếu preset đang sửa VỪA LÀ
+     * preset active VỪA hết field hợp lệ mà KHÔNG bấm "Cập nhật" trước khi rời — xem docstring hàm
+     * đó, event/workflow/playlist-filter-presets.js. */
     _renderPlaylistFilterEdit() {
         this._currentRenderFn = () => this._renderPlaylistFilterEdit();
         const preset = findPlaylistFilterPresetById(appState.get('playlistFilterPresets'), workflowPlaylistFilterPresets._editingId); // core/playlist/filter-presets.js
         if (!preset) { this.back(); return; } // guard: preset vừa bị xoá ở nơi khác giữa lúc đang sửa — quay lại danh sách an toàn
         const source = appState.get('activeMediaSource');
+        const isActive = preset.id === appState.get('playlistFilterActivePresetId');
+        this._leaveGuard = () => workflowPlaylistFilterPresets.autoUnapplyIfInvalid(preset.id); // liên tuyến domain
         this._render(
             t('playlistFilterPresetsDrawer.edit.title'),
-            renderPlaylistFilterEditBody(preset, source), // components/playlist-filter-drawer.js
+            renderPlaylistFilterEditBody(preset, source, isActive), // components/playlist-filter-drawer.js
             (body) => {
                 workflowPlaylistFilterPresets._syncEditUI(); // event/workflow/playlist-filter-presets.js — bind giá trị field NGAY sau mount
                 const nameInput = body.querySelector('#playlist-filter-drawer-name');
