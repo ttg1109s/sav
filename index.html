@@ -721,6 +721,11 @@
          core/song-search.js (Rule 3 cấm Core gọi Core khác, xem docstring đầu file) và
          KHÔNG phụ thuộc core/playlist/order.js. -->
     <script src="core/playlist/filter.js?v=20260815v3"></script>
+    <!-- MỚI (08/09/2026, hệ "Playlist Filter Presets") — preset CRUD thuần (mirror
+         core/motion-presets.js), CẦN clonePlaylistFilterConfigDefaults() (service/state/
+         playlist.js, đã nạp) — xem event/workflow/playlist-filter-presets.js (nạp SAU, cùng khu
+         playlist-scope.js). -->
+    <script src="core/playlist/filter-presets.js?v=20260908v1"></script>
     <!-- Phase 2 (bước 3 scoping, CHỐT 03/07/2026) — loadAllSongs()/loadSongsFromFolder(), viết
          MỚI hoàn toàn, KHÔNG đụng loader.js — chỉ lọc trên playlistCache đã có sẵn trong RAM.
          CẦN core/file-manager/folder.js (getFolderSongKeys) + core/db.js (getFolderSongMap). -->
@@ -915,6 +920,13 @@
          (formatTime) — đã nạp ở nhóm CORE phía trên. -->
     <script src="event/workflow/playlist-render.js?v=20260906v1"></script>
     <script src="event/workflow/playlist-scope.js?v=20260703v3"></script>
+    <!-- MỚI (08/09/2026, hệ "Playlist Filter Presets") — CRUD danh sách preset + công tắc tổng,
+         mirror event/workflow/motion-presets.js. CẦN core/playlist/filter-presets.js,
+         components/playlist-filter-drawer.js (nạp ở nhóm components phía trên), workflowPlaylistScope
+         (askReloadToApplyNow(), vừa nạp) — workflowAppSettings (navigateTo()) là liên tuyến domain,
+         gọi lúc RUNTIME nên KHÔNG bắt buộc thứ tự nạp. -->
+    <script src="event/workflow/playlist-filter-presets.js?v=20260908v1"></script>
+    <script src="event/router/playlist-filter-presets.js?v=20260908v1"></script>
     <!-- Panel "Song & Video" cũ (file-manager-song.js) đã xoá, thay bằng "Quản lý lưu trữ" (gộp 3
          domain: song/video/photo) — CẦN core/file-manager/{image,album}.js,
          components/file-manager-storage.js (đã nạp ở nhóm CORE/COMPONENTS). -->
