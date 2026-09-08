@@ -1,6 +1,6 @@
 /**
  * event/router/playlist-filter-presets.js — Router tên "playlistFilterPresets", tự đăng ký với
- * eventBus lúc nạp. Mọi msg.type của hệ "Playlist Filter Presets" (công tắc tổng/danh sách/sửa),
+ * eventBus lúc nạp. Mọi msg.type của hệ "Playlist Filter Presets" (danh sách/sửa/chọn áp dụng),
  * xem event/workflow/playlist-filter-presets.js (workflowPlaylistFilterPresets).
  *
  * NẠP SAU: event/bus.js, event/workflow/playlist-filter-presets.js.
@@ -8,10 +8,6 @@
 const routerPlaylistFilterPresets = (() => {
     function handle(msg) {
         switch (msg.type) {
-
-            case 'playlistFilterPresets.enabledToggle.change':
-                workflowPlaylistFilterPresets.setEnabled(msg.payload.checked);
-                break;
 
             case 'playlistFilterPresets.openManage.click':
                 workflowPlaylistFilterPresets.openList();
