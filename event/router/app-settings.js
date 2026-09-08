@@ -23,7 +23,6 @@ const routerAppSettings = (() => {
         motion: () => workflowAppSettings._renderMotionList(),
         language: () => workflowAppSettings._renderLanguage(),
         playlistSort: () => workflowAppSettings._renderPlaylistSort(),
-        playlistFilter: () => workflowAppSettings._renderPlaylistFilter(),
         display: () => workflowAppSettings._renderDisplay(),
         autoSwitch: () => workflowAppSettings._renderAutoSwitch(),
         visualBg: () => workflowAppSettings._renderVisualBg(),

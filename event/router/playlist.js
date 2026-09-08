@@ -328,28 +328,11 @@ const routerPlaylist = (() => {
             }
 
             // ===================== Ver 12 "Filter subpanel" (mục 1d) =====================
-            case 'playlist.filterPanel.open.click': {
-                workflowPlaylist.openFilterPanel();
-                break;
-            }
-
-            case 'playlist.filterPanel.field.change': {
-                const { field, prop, value } = msg.payload;
-                workflowPlaylist.setFilterField(field, prop, value);
-                break;
-            }
+            // XOÁ (08/09/2026, hệ "Playlist Filter Presets") — 4 case cũ (open/field.change/
+            // openTimePicker/apply) đã dời sang router "playlistFilterPresets", xem
+            // event/router/playlist-filter-presets.js + event/workflow/playlist-filter-presets.js.
 
             // MỚI (phản hồi Giang — "totalTime/duration dùng time picker modal, h:m:s").
-            case 'playlist.filterPanel.openTimePicker.click': {
-                const { field, prop } = msg.payload;
-                workflowPlaylist.openFilterTimePicker(field, prop);
-                break;
-            }
-
-            case 'playlist.filterPanel.apply.click': {
-                workflowPlaylist.applyFilterChanges();
-                break;
-            }
 
             case 'playlist.viewMode.change': {
                 const { mode } = msg.payload;
