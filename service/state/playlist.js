@@ -85,6 +85,16 @@
                 playlistFilterEnabled: 'boolean',
                 playlistFilterPresets: 'array',
                 playlistFilterActivePresetId: 'nullable-string',
+                // MỚI (09/09/2026, phản hồi Giang — "sửa preset đang active mà CHƯA bấm Áp dụng lại
+                // thì KHÔNG được đổi filter thật đang chạy, chỉ preset lưu thay đổi thôi") — "ảnh
+                // chốt" (snapshot) CỦA config lúc `selectPreset()` (nút "Chọn áp dụng") chạy LẦN GẦN
+                // NHẤT — TÁCH HẲN khỏi `playlistFilterPresets[activeId].config` (bản ĐANG sửa dở,
+                // ghi thẳng mỗi lần đổi field, xem workflowPlaylistFilterPresets.setFilterField()).
+                // `_recomputeLiveConfig()` đọc TỪ ĐÂY (KHÔNG đọc thẳng preset.config nữa) — sửa
+                // field của preset đang active vẫn LƯU BÌNH THƯỜNG (không mất khi rời màn Edit) nhưng
+                // filter thật sự áp dụng giữ NGUYÊN bản cũ tới khi bấm lại "Chọn áp dụng" (chụp ảnh
+                // chốt MỚI, ghi đè field này).
+                playlistFilterAppliedConfig: 'object',
             },
             buildDefaults() {
                 return {
@@ -106,6 +116,7 @@
                     playlistFilterEnabled: false,
                     playlistFilterPresets: [],
                     playlistFilterActivePresetId: null,
+                    playlistFilterAppliedConfig: clonePlaylistFilterConfigDefaults(),
                 };
             },
         });
