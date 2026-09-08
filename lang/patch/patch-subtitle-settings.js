@@ -469,6 +469,9 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
 
     // MỚI (08/09/2026, hệ "Playlist Filter Presets", phản hồi Giang) — danh sách preset (mirror
     // motionPresetsDrawer.*/eqPresets.*) + nút "Quản lý bộ lọc" (Settings → Playlist).
+    // XOÁ (09/09/2026, Giang chốt "bỏ toggle, bỏ manage filter") — 'settingsPlaylistBg.filter.manage'
+    // hết chỗ dùng (nút "Quản lý bộ lọc" riêng đã bỏ, "Lọc" về lại 1 nút duy nhất) — GIỮ NGUYÊN key
+    // (không xoá hẳn, an toàn cho bản dịch ngôn ngữ khác), chỉ không còn nơi nào đọc.
     'settingsPlaylistBg.filter.manage': 'Manage filters',
     'playlistFilterPresetsDrawer.list.title': 'Filters',
     'playlistFilterPresetsDrawer.list.add.label': '+ New filter',
@@ -479,7 +482,14 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'playlistFilterPresetsDrawer.edit.title': 'Edit filter',
     'playlistFilterPresetsDrawer.name.label': 'Name',
     'playlistFilterPresetsDrawer.select': 'Select & apply',
+    // MỚI (09/09/2026, phản hồi Giang mục 1) — chữ nút đầu (thay ".select") khi preset đang sửa
+    // CHÍNH LÀ preset đang active — xem components/playlist-filter-drawer.js::
+    // renderPlaylistFilterEditBody().
+    'playlistFilterPresetsDrawer.update': 'Update',
     'playlistFilterPresetsDrawer.delete': 'Delete',
     'playlistFilterPresetsDrawer.reloadPrompt': 'Filter selected. Reload now to apply it to your Playlist?',
+    // MỚI (09/09/2026, phản hồi Giang mục 3a) — cảnh báo lúc bấm "Chọn áp dụng"/"Cập nhật" mà preset
+    // chưa có field rule hợp lệ nào (chưa bật field nào, hoặc field đã bật nhưng chưa nhập dữ liệu).
+    'playlistFilterPresetsDrawer.invalidWarning': 'Turn on at least 1 field and enter a value before applying this filter.',
 
 };
