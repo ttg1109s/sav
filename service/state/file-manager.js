@@ -26,7 +26,10 @@
                 // event/workflow/file-manager-folder-browser.js::showFolderProperties()).
                 isActiveFolderReadOnly: 'boolean',
                 selectionMode: 'boolean',                // chế độ chọn nhiều (checkbox) trong Playlist
-                selectedSongKeys: 'set',                 // tập songKey đang được chọn khi selectionMode = true
+                // SỬA (07/09/2026, Giang chỉ ra "đằng nào cũng sửa, đổi tên đỡ nhầm" — cùng đợt đổi
+                // deleteSongFromActionMenu/deleteSelectedSongs) — tên cũ `selectedSongKeys` gợi ý
+                // CHỈ Song trong khi Selection Mode chọn được cả Video/Photo từ Batch 6.
+                selectedMediaKeys: 'set',                // tập key đang được chọn khi selectionMode = true
                 // true = displayOrder hiện đang là 1 "section" (tập con vừa chọn-rồi-phát qua
                 // playSelectedSongs(), event/workflow/playlist.js), KHÁC hẳn displayOrder
                 // top-level. Tự về false khi recomputeDisplayOrder() chạy.
@@ -53,7 +56,7 @@
                     activePlayListFolder: { song: null, video: null, photo: null },
                     isActiveFolderReadOnly: false,
                     selectionMode: false,
-                    selectedSongKeys: new Set(),
+                    selectedMediaKeys: new Set(),
                     sectionQueueActive: false,
                 };
             },
