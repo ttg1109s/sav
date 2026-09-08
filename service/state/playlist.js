@@ -75,23 +75,33 @@
                 // trị SỐNG SUY RA (KHÔNG còn tự lưu bền riêng, đọc bởi applyPlaylistFilter() như cũ,
                 // KHÔNG đổi gì ở phía đọc) — được `workflowPlaylistFilterPresets._recomputeLiveConfig()`
                 // (event/workflow/playlist-filter-presets.js) tính lại mỗi lúc boot/chọn preset.
-                // `playlistFilterPresets` — danh sách {id,name,config} (config CÙNG SHAPE
-                // clonePlaylistFilterConfigDefaults()). `playlistFilterActivePresetId` — preset
-                // ĐANG áp dụng (null = chưa chọn preset nào — KHÔNG còn công tắc tổng riêng, SỬA
-                // 09/09/2026, phản hồi Giang "bỏ toggle" — preset ĐANG active TỰ LÀ trạng thái bật/
-                // tắt). Thiếu preset active hợp lệ thì playlistFilterConfig suy ra rỗng
-                // (clonePlaylistFilterConfigDefaults(), hành vi giống hệt "chưa có Filter").
-                playlistFilterPresets: 'array',
-                playlistFilterActivePresetId: 'nullable-string',
+                // SỬA (09/09/2026, phản hồi Giang — "mỗi source media 1 list filter khác nhau + mỗi
+                // source có filter active khác nhau", tham khảo mẫu `activePlayListFolder` —
+                // service/state/file-manager.js) — `playlistFilterPresets`/
+                // `playlistFilterActivePresetId` giờ là OBJECT keyed theo Nguồn {song,video,photo}
+                // (KHÔNG còn mảng/id PHẲNG dùng chung mọi Nguồn) — MỖI Nguồn có danh sách preset
+                // RIÊNG + preset active RIÊNG. `playlistFilterPresets[source]` — mảng {id,name,
+                // config} (config CHÍNH LÀ bucket rule của Nguồn đó, KHÔNG còn ôm cả 3 Nguồn như
+                // bản 08/09 — xem docstring core/playlist/filter-presets.js).
+                // `playlistFilterActivePresetId[source]` — preset ĐANG áp dụng cho Nguồn đó (null =
+                // chưa chọn — KHÔNG còn công tắc tổng riêng, preset active TỰ LÀ trạng thái bật/
+                // tắt). Thiếu preset active hợp lệ cho Nguồn nào thì
+                // `playlistFilterConfig[source]` suy ra rỗng (hành vi giống hệt "chưa có Filter"
+                // cho ĐÚNG Nguồn đó — Nguồn khác không ảnh hưởng).
+                playlistFilterPresets: 'object',
+                playlistFilterActivePresetId: 'object',
                 // MỚI (09/09/2026, phản hồi Giang — "sửa preset đang active mà CHƯA bấm Áp dụng lại
                 // thì KHÔNG được đổi filter thật đang chạy, chỉ preset lưu thay đổi thôi") — "ảnh
-                // chốt" (snapshot) CỦA config lúc `selectPreset()` (nút "Chọn áp dụng") chạy LẦN GẦN
-                // NHẤT — TÁCH HẲN khỏi `playlistFilterPresets[activeId].config` (bản ĐANG sửa dở,
-                // ghi thẳng mỗi lần đổi field, xem workflowPlaylistFilterPresets.setFilterField()).
+                // chốt" (snapshot), keyed theo Nguồn CÙNG 2 field trên — `playlistFilterAppliedConfig
+                // [source]` = config lúc `selectPreset()` (nút "Chọn áp dụng") chạy LẦN GẦN NHẤT CHO
+                // NGUỒN ĐÓ — TÁCH HẲN khỏi `playlistFilterPresets[source][i].config` (bản ĐANG sửa
+                // dở, ghi thẳng mỗi lần đổi field, xem workflowPlaylistFilterPresets.setFilterField()).
                 // `_recomputeLiveConfig()` đọc TỪ ĐÂY (KHÔNG đọc thẳng preset.config nữa) — sửa
                 // field của preset đang active vẫn LƯU BÌNH THƯỜNG (không mất khi rời màn Edit) nhưng
                 // filter thật sự áp dụng giữ NGUYÊN bản cũ tới khi bấm lại "Chọn áp dụng" (chụp ảnh
-                // chốt MỚI, ghi đè field này).
+                // chốt MỚI, ghi đè field này). Field này VẪN CÙNG SHAPE `clonePlaylistFilterConfigDefaults()`
+                // ({song:{...},video:{...},photo:{...}}) như trước — KHÔNG cần đổi vì đã sẵn keyed
+                // theo Nguồn từ đầu.
                 playlistFilterAppliedConfig: 'object',
             },
             buildDefaults() {
@@ -111,8 +121,8 @@
                     displayStatSortField: 'none',
                     displayStatSortDirection: 'desc',
                     playlistFilterConfig: clonePlaylistFilterConfigDefaults(),
-                    playlistFilterPresets: [],
-                    playlistFilterActivePresetId: null,
+                    playlistFilterPresets: { song: [], video: [], photo: [] },
+                    playlistFilterActivePresetId: { song: null, video: null, photo: null },
                     playlistFilterAppliedConfig: clonePlaylistFilterConfigDefaults(),
                 };
             },
