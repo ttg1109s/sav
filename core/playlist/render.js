@@ -74,7 +74,7 @@
          * GHI CHÚ (ngoại lệ có chủ đích, không phải sơ suất): buildSongNode() là hàm core DI SẢN
          * (trước ver 12), đã tự appState.get() nhiều field khác (currentKey, isGridView...) theo
          * đúng quy ước CŨ ở service/state.js — mở rộng thêm 2 field mới (selectionMode/
-         * selectedSongKeys) theo ĐÚNG pattern đã có sẵn của chính hàm này, KHÔNG tính là "viết mới
+         * selectedMediaKeys) theo ĐÚNG pattern đã có sẵn của chính hàm này, KHÔNG tính là "viết mới
          * theo Rule 2" (core-function-conventions.md — rule đó nhắm hàm MỚI hoặc bị viết lại hẳn,
          * không nhắm việc bổ sung tối thiểu vào 1 hàm di sản theo đúng quy ước cũ nó đang dùng).
          * Rewrite hẳn buildSongNode()/renderPlaylistFull()/renderPlaylistDiff() sang nhận tham số

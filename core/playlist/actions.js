@@ -12,10 +12,14 @@
  * MIGRATE (kiến trúc /event/): toàn bộ addEventListener TRƯỚC ĐÂY nằm trong file này đã dời sang
  * event/listener/playlist.js — file này giờ CHỈ còn các hàm CORE THUẦN (không tự gọi
  * withLoadingShield/alertModal/confirm/document.getElementById, trừ ngoại lệ #record-art đã ghi
- * chú riêng) mà event/router/playlist.js + event/workflow/playlist.js gọi tới. `window.removeSong`
- * GIỮ NGUYÊN là hàm core toàn cục (gắn vào window) — KHÔNG tách vào /event/, vì được gọi từ RẤT
- * NHIỀU nơi trong toàn project như 1 API core công khai, không phải điểm bắt đầu của 1 lượt bấm
- * riêng.
+ * chú riêng) mà event/router/playlist.js + event/workflow/playlist.js gọi tới.
+ *
+ * [SỬA 07/09/2026 — "đưa về chuẩn event bus + core rule"] `window.removeSong` (từng GIỮ Ở ĐÂY với
+ * lý do "được gọi từ rất nhiều nơi như 1 API core công khai") ĐÃ DỜI HẲN sang
+ * `event/workflow/playlist.js::deleteMediaFromActionMenu()` — kiểm tra lại toàn project cho thấy
+ * CHỈ CÓ ĐÚNG 1 caller (chính hàm đó), không phải "rất nhiều nơi" như giả định ban đầu, nên lý do
+ * giữ ở tầng Core không còn đúng — dời hẳn về nơi orchestration thật sự (Workflow, nơi
+ * alertModal/withLoadingShield được phép dùng).
  *
  * [SỬA — plan-playmedia-reorg.md] `window.playSong` ĐÃ DỜI KHỎI FILE NÀY, sang
  * `workflowPlayer.playMedia()` (event/workflow/player.js) — hàm đó chưa từng là Core thuần (đọc
@@ -65,85 +69,15 @@
          * @param {string} key
          */
         /**
-         * SỬA (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — TRƯỚC ĐÂY hàm
-         * này hardcode `deleteSongRecord()` + kiểm tra "đang thực sự phát" qua `audioPlayer.paused`
-         * — cả 2 SAI cho Video (record Video nằm store khác hẳn `deleteSongRecord()` không đọc
-         * được — xoá ÂM THẦM KHÔNG THÀNH CÔNG dù UI tưởng đã xoá xong; Video phát qua
-         * `bgVideoElement`, không phải `audioPlayer`, nên chốt chặn "đang phát" chưa từng kích hoạt
-         * cho Video). Phát hiện lúc xoá dropdown tile "File Manager → Video" (đường xoá Video DUY
-         * NHẤT từng hoạt động đúng, qua `confirmDeleteSingleVideo()` → `deleteVideo()`) — giờ nút
-         * "Xoá" DÙNG CHUNG trong menu 3 chấm Playlist là đường xoá Video DUY NHẤT còn lại, phải
-         * hoạt động đúng. Hàm này VỐN ĐÃ mixed core/workflow (dùng alertModal/withLoadingShield —
-         * "core không biết shield/modal" không áp dụng ở đây từ trước) nên gọi thẳng
-         * `workflowVideoPlayer.exitVideoPlayerMode()` (thay vì tự inline lại y hệt logic đó, vốn
-         * cần đọc `_objectUrl`/`_thumbObjectUrl` riêng của Workflow đó) — nhất quán với cách file
-         * này VỐN đã không tuân Rule 1-4 nghiêm ngặt cho hàm cụ thể này.
+         * SỬA (07/09/2026, "đưa về chuẩn event bus + core rule") — `window.removeSong()` (thân hàm
+         * đầy đủ: check "đang phát" + shield + rẽ nhánh mediaType + dọn player/UI) ĐÃ DỜI HẲN sang
+         * `event/workflow/playlist.js::deleteMediaFromActionMenu()` — hàm đó là caller DUY NHẤT (xem
+         * kiểm tra toàn project trước đợt sửa này), và bản thân hàm cũ VỐN ĐÃ mixed core/workflow
+         * (tự gọi alertModal/withLoadingShield — vi phạm "core không biết shield/modal") nên gộp
+         * thẳng vào caller thay vì giữ 2 lớp giả. Các bước con dưới đây (getRecordFn theo mediaType,
+         * removeSongFromAllFolders/deleteRecord (registry)/removeSongStats/
+         * removeKeyFromDisplay) VẪN core thuần, KHÔNG đổi gì — Workflow mới chỉ đổi CHỖ GỌI.
          */
-        /**
-         * MỞ RỘNG (hợp nhất Photo vào Playlist) — thêm nhánh Photo (store `images`, hàm xoá riêng
-         * `deleteImage()` — core/file-manager/image.js). Photo KHÔNG BAO GIỜ là `currentKey` (Photo
-         * không có khái niệm "đang phát" — chưa từng gọi playMedia()), nên `isActuallyPlaying`/khối
-         * dọn player phía dưới tự nhiên không bao giờ kích hoạt cho Photo, không cần thêm nhánh gì
-         * ở 2 chỗ đó.
-         */
-        window.removeSong = function(key) {
-            const cached = appState.get('playlistCache').get(key);
-            const title = cached && cached.tag && cached.tag.title ? cached.tag.title : (cached ? cached.filename : key);
-            const mediaType = cached ? cached.mediaType : 'song'; // 'song'|'video'|'photo' — playlistCache.mediaType luôn có giá trị đúng cho item đang hiển thị thật (Adapter 3 nguồn đều set field này)
-            const isVideo = mediaType === 'video';
-            const isCurrent = key === appState.get('currentKey');
-            const isActuallyPlaying = isVideo ? (appState.get('isVideoPlayerMode') && !bgVideoElement.paused) : !audioPlayer.paused;
-
-            if (isCurrent && isActuallyPlaying) {
-                // SỬA (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — bản Song nói
-                // "Pause the song first" — sai ngữ cảnh khi chặn xoá 1 Video đang phát.
-                alertModal(tFormat(isVideo ? 'playlistView.songMenu.deleteBlockedPlayingVideo' : 'playlistView.songMenu.deleteBlockedPlaying', { title }));
-                return;
-            }
-
-            return withLoadingShield(t('common.loading.deleting'), async () => {
-                // MỚI (phát hiện thêm lúc sửa Video, phản hồi Giang) — TRƯỚC ĐÂY hàm này (kể cả
-                // nhánh Song) KHÔNG dọn tham chiếu folder trước khi xoá record, khác hẳn
-                // deleteSelectedSongs() (xoá hàng loạt, event/workflow/playlist.js) VỐN ĐÃ gọi
-                // removeSongFromAllFolders() đúng thứ tự — để lại "ghost" trong folder_song nếu
-                // bài/video đó đang nằm trong 1 folder. Sửa đối xứng cho CẢ 2 nhánh.
-                // MỞ RỘNG (hợp nhất Photo) — 3 nhánh get/delete theo mediaType (trước đây thiếu
-                // nhánh Photo sẽ khiến deleteSongRecord() gọi nhầm lên key không tồn tại trong store
-                // `songs` — âm thầm KHÔNG xoá được gì, ảnh vẫn còn nguyên trong `images`).
-                const getRecordFn = isVideo ? getVideoRecord : mediaType === 'photo' ? getImageRecord : getSongRecord;
-                const record = await getRecordFn(key);
-                if (record) await removeSongFromAllFolders(record); // core/file-manager/folder.js
-
-                if (isVideo) await deleteVideo(key); // core/file-manager/video.js
-                else if (mediaType === 'photo') await deleteImage(key); // core/file-manager/image.js
-                else await deleteSongRecord(key);
-                removeSongStats(key); // dọn luôn thống kê nghe của bài đã xoá — key-agnostic, dùng chung được cho Video/Photo
-                removeKeyFromDisplay(key);
-
-                if (isCurrent && isVideo) {
-                    // Video đang là currentKey (đã pause, hoặc chưa từng phát) — dọn bgVideoElement/
-                    // trạng thái Video Player mode qua ĐÚNG hàm đã có sẵn (event/workflow/
-                    // video-player.js), tránh tự inline lại (cần _objectUrl riêng của Workflow đó).
-                    if (appState.get('isVideoPlayerMode')) await workflowVideoPlayer.exitVideoPlayerMode();
-                    appState.set('currentKey', null);
-                    playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
-                } else if (isCurrent) {
-                    // Bài vừa xoá là currentKey (đang pause) — dọn player/UI giống hệt khối tương ứng
-                    // trong clearAllStoredData() (storage-manager.js) để không còn currentKey "ma".
-                    if (appState.get('currentObjectURL')) { URL.revokeObjectURL(appState.get('currentObjectURL')); appState.set('currentObjectURL', null); }
-                    if (appState.get('currentCoverObjectURL')) { URL.revokeObjectURL(appState.get('currentCoverObjectURL')); appState.set('currentCoverObjectURL', null); }
-                    audioPlayer.pause(); audioPlayer.src = ''; appState.set('currentKey', null);
-                    playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
-                    if (typeof killAllAutoSwitchVisualTasks === 'function') killAllAutoSwitchVisualTasks();
-                    if (typeof forceBackToPlaylistUI === 'function') forceBackToPlaylistUI();
-                    if (typeof setVisualizerActiveFalse === 'function') setVisualizerActiveFalse(); // MỚI (08/07/2026, HOTFIX 10) — forceBackToPlaylistUI() không còn tự set nữa
-                }
-            }).then(() => {
-                // Shield đã đóng hẳn tới đây (cùng lý do đã giải thích ở window.playSong) — an toàn
-                // để hiện modal, không bị #loading-shield (z-[200]) đè lên modalChoice (z-[130]).
-                alertModal(tFormat('playlistView.songMenu.deleteSuccess', { title }));
-            });
-        };
 
         // [SỬA — plan-playmedia-reorg.md] `window.playSong` (thân hàm đầy đủ, switchScreen
         // option, guard video, withLoadingShield...) ĐÃ DỜI sang `workflowPlayer.playMedia()`
@@ -172,7 +106,8 @@
          * "Sửa phụ đề" (giống Video) VÀ "Chi tiết"/"Xuất file" (chưa có view/export riêng cho Photo
          * — 2 hành động đó đọc/ghi tag ID3 kiểu Song, không áp dụng được, tránh mở ra hành động lỗi
          * thay vì hiện rồi báo lỗi khi bấm). "Thêm vào thư mục"/"Xoá" GIỮ NGUYÊN — cả 2 đã hoạt
-         * động đúng cho Photo (Folder type='photo' MỚI; window.removeSong() đã thêm nhánh photo).
+         * động đúng cho Photo (Folder type='photo' MỚI; deleteMediaFromActionMenu() — event/
+         * workflow/playlist.js — đã có nhánh photo).
          */
         function openSongActionMenu(key, anchorBtn) {
             playlistStore.set({ songActionMenuKey: key });

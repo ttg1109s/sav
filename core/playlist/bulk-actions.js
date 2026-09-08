@@ -10,7 +10,7 @@
  * lượt ghi appState (vi phạm Rule 4). Sửa đúng:
  *   - Bỏ hẳn `deleteSongsBatch()` khỏi core — vòng lặp xoá (đọc record + gọi
  *     `removeSongFromAllFolders`/`deleteSongRecord`/`removeSongStats` nối tiếp nhau) dời THẲNG vào
- *     workflow (`event/workflow/playlist.js`, `deleteSelectedSongs()`) — đúng vai trò workflow
+ *     workflow (`event/workflow/playlist.js`, `deleteSelectedMedia()`) — đúng vai trò workflow
  *     (được gọi nhiều hàm core void tự do), không cần bọc qua 1 lớp core giả.
  *   - `removeKeysFromDisplay()` → `removeKeysFromDisplayState()`: CHỈ còn phần đồng bộ appState
  *     thuần (set/mutate, không gọi hàm nào khác) — nhận `playlistOrder`/`displayOrder` hiện tại
@@ -48,6 +48,6 @@ function removeKeysFromDisplayState(keys, playlistOrder, displayOrder) {
     appState.mutate('songNameIndex', m => keys.forEach(k => m.delete(k)));
     console.log(`writer: "removeKeysFromDisplayState", page: "songNameIndex", content: "gỡ ${keys.length} key vừa xoá"`);
 
-    appState.mutate('selectedSongKeys', s => keys.forEach(k => s.delete(k)));
-    console.log(`writer: "removeKeysFromDisplayState", page: "selectedSongKeys", content: "gỡ ${keys.length} key vừa xoá"`);
+    appState.mutate('selectedMediaKeys', s => keys.forEach(k => s.delete(k)));
+    console.log(`writer: "removeKeysFromDisplayState", page: "selectedMediaKeys", content: "gỡ ${keys.length} key vừa xoá"`);
 }

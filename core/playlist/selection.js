@@ -11,7 +11,7 @@
  *
  * SỬA LẦN 1 (Rule 2): buildSongNode()/renderPlaylistFull()/renderPlaylistDiff() KHÔNG chạy trong
  * workflow, bị gọi THẲNG bởi core khác/router ở nhiều nơi khác — KHÔNG được sửa để tự
- * appState.get() selectionMode/selectedSongKeys. Chỉ báo "đã chọn" là 1 lớp DOM-patch ĐỘC LẬP
+ * appState.get() selectionMode/selectedMediaKeys. Chỉ báo "đã chọn" là 1 lớp DOM-patch ĐỘC LẬP
  * hoàn toàn (hàm THUẦN dưới đây, nhận state qua tham số) — buildSongNode() giữ NGUYÊN VẸN bản gốc.
  *
  * Nơi ĐỌC appState rồi ĐIỀU PHỐI (set/mutate state -> patch DOM -> cập nhật action bar) là WORKFLOW
@@ -34,18 +34,20 @@ function enableSelectionMode() {
 function disableSelectionMode() {
     appState.set('selectionMode', false);
     console.log(`writer: "disableSelectionMode", page: "selectionMode", content: "false"`);
-    appState.mutate('selectedSongKeys', s => s.clear());
-    console.log(`writer: "disableSelectionMode", page: "selectedSongKeys", content: "clear khi tắt chế độ chọn"`);
+    appState.mutate('selectedMediaKeys', s => s.clear());
+    console.log(`writer: "disableSelectionMode", page: "selectedMediaKeys", content: "clear khi tắt chế độ chọn"`);
 }
 
-function selectSong(key) {
-    appState.mutate('selectedSongKeys', s => s.add(key));
-    console.log(`writer: "selectSong", page: "selectedSongKeys", content: "add ${key}"`);
+/** ĐỔI TÊN (07/09/2026, cùng lý do deleteSongFromActionMenu -> deleteMediaFromActionMenu) —
+ * `selectSong`/`deselectSong` cũ chọn được cả Video/Photo từ Batch 6, tên gây hiểu lầm y hệt. */
+function selectMedia(key) {
+    appState.mutate('selectedMediaKeys', s => s.add(key));
+    console.log(`writer: "selectMedia", page: "selectedMediaKeys", content: "add ${key}"`);
 }
 
-function deselectSong(key) {
-    appState.mutate('selectedSongKeys', s => s.delete(key));
-    console.log(`writer: "deselectSong", page: "selectedSongKeys", content: "delete ${key}"`);
+function deselectMedia(key) {
+    appState.mutate('selectedMediaKeys', s => s.delete(key));
+    console.log(`writer: "deselectMedia", page: "selectedMediaKeys", content: "delete ${key}"`);
 }
 
 // ===================== DOM-patch — hàm THUẦN, không I/O, không appState =====================
@@ -63,12 +65,12 @@ function deselectSong(key) {
  */
 
 /** Hiện chỉ báo đã/chưa chọn + ẩn menu 3 chấm cho 1 node. */
-function showSelectionIndicator(node, key, selectedSongKeys) {
+function showSelectionIndicator(node, key, selectedMediaKeys) {
     if (!node) return; // guard: node không tồn tại (hiếm, race với render) — bỏ qua
     const menuBtn = node.querySelector('button[data-action="menu"]');
     if (menuBtn) menuBtn.classList.add('hidden'); // tránh 2 mục tiêu bấm cạnh tranh nhau
 
-    const isSelected = selectedSongKeys.has(key);
+    const isSelected = selectedMediaKeys.has(key);
     node.classList.toggle('bg-sky-500/10', isSelected);
     node.classList.add('relative'); // positioning context cho overlay — vô hại nếu đã có sẵn (grid view)
 
