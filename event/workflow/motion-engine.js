@@ -253,7 +253,20 @@ const workflowMotionEngine = {
             setMotionEngineEdgeFlipOptions(motionEngineContainer, preset.edgeFlipVariant, preset.edgeFlipStaticOld); // core
             const dirs = this._resolveTransitionDirections(preset);
             setMotionEngineTransitionDirections(motionEngineContainer, dirs.direction, dirs.zoomDirection, dirs.spinDirection, dirs.wipeDirection, dirs.curtainDirection); // core
-            const totalMs = capMotionEngineTransitionDurationMs(preset.transitionDurationMs, advanceMs); // core
+            // SỬA (Giang báo — perSong transition không theo cài đặt Motion) — capMotionEngineTransitionDurationMs()
+            // kẹp transition NGẮN HƠN khoảng cách tới lượt tick TỰ ĐỘNG kế tiếp (đúng cho slideshow —
+            // xem docstring hàm đó, core/motion-engine.js) — nhưng `advanceMs<=0` CHỈ xảy ra ở mode
+            // 'perSong' (_computePhotoAdvanceMs() — 2 nhánh còn lại có sàn cứng 500ms/1000ms, không
+            // bao giờ về 0), và perSong KHÔNG có tick tự động nào để tranh chấp (`_syncPhotoTicking()`
+            // tắt hẳn hẹn giờ khi `listPlaybackMode==='perSong'`) — ảnh đổi lúc nào là do BÀI HÁT đổi
+            // quyết định, không đoán trước được, nên "kẹp để không bị tick cắt ngang" không áp dụng
+            // được cho ca này. Trước đây vẫn gọi chung 1 hàm nên advanceMs=0 bị hiểu nhầm thành
+            // "khoảng cách 0ms", kẹp cứng transition xuống còn 300ms (MOTION_ENGINE_TRANSITION_MIN_TIME_MS)
+            // bất kể preset cấu hình bao nhiêu. Giờ perSong dùng THẲNG `preset.transitionDurationMs`,
+            // không kẹp theo interval.
+            const totalMs = advanceMs > 0
+                ? capMotionEngineTransitionDurationMs(preset.transitionDurationMs, advanceMs) // core
+                : preset.transitionDurationMs;
             const { inMs, outMs } = transitionSupportsInOutRatio(preset.transitionType) // core
                 ? computeMotionEngineTransitionInOutMs(totalMs, preset.transitionInOutRatio) // core
                 : { inMs: totalMs, outMs: totalMs };
