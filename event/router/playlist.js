@@ -14,7 +14,7 @@
  *
  * NGOẠI LỆ ĐÃ CHỐT: handleFilePickerChange()/handleFolderPickerChange() (nạp nhạc mới) GIỮ
  * NGUYÊN là hàm core "lớn" có sẵn withLoadingShield + nhiều alertModal LỒNG SẴN bên trong (giống
- * `workflowPlayer.playMedia()`/window.removeSong) — router gọi THẲNG, KHÔNG tách shield/modal ra
+ * `workflowPlayer.playMedia()`) — router gọi THẲNG, KHÔNG tách shield/modal ra
  * workflow riêng. Lý do: logic quá phức tạp (jsmediatags đọc tag, timeout an toàn nhiều lớp, vòng
  * lặp xử lý từng file) để tách an toàn mà không viết lại gần như toàn bộ — rủi ro cao hơn lợi ích.
  *
@@ -60,7 +60,7 @@ const routerPlaylist = (() => {
             // đã 3 lần né nó thay vì sửa. Mỗi hành động giờ là 1 msg.type + 1 Workflow riêng.
             // Cả 2 đều cần ≥2 lời gọi side-effect nối tiếp (đóng menu + hành động) -> (B) Workflow.
             case 'playlist.actionMenu.delete.click': {
-                workflowPlaylist.deleteSongFromActionMenu(msg.payload.songKey);
+                workflowPlaylist.deleteMediaFromActionMenu(msg.payload.songKey);
                 break;
             }
 
@@ -127,7 +127,7 @@ const routerPlaylist = (() => {
                 const { key } = msg.payload;
                 // Ver 12 "Multi Media": rẽ nhánh theo appState KHÁC (selectionMode) -> BẮT BUỘC qua
                 // VirtualMachineState. Nhánh selectionMode=true gọi WORKFLOW (không phải core thẳng)
-                // vì cần ĐỌC thêm domNodesByKey/selectedSongKeys rồi patch DOM nối tiếp — đúng hình
+                // vì cần ĐỌC thêm domNodesByKey/selectedMediaKeys rồi patch DOM nối tiếp — đúng hình
                 // dạng Workflow (event-bus-flow.md mục 4B), xem toggleSongSelectionAndRefresh().
                 // MỞ RỘNG (hợp nhất Photo vào Playlist, CHỐT Giang — dùng hẳn UI Song/Video) —
                 // TRƯỚC ĐÂY click ảnh mở XEM (`openImagePreview()`) thay vì playMedia()/vào
@@ -431,7 +431,7 @@ const routerPlaylist = (() => {
                         ]);
                     } },
                     { state: action, operation: '===', value: 'addToFolder', callback: () => workflowPlaylist.openAddToFolderPicker() },
-                    { state: action, operation: '===', value: 'delete', callback: () => workflowPlaylist.deleteSelectedSongs() },
+                    { state: action, operation: '===', value: 'delete', callback: () => workflowPlaylist.deleteSelectedMedia() },
                     // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 5) — chỉ hiện trong menu
                     // khi đang Scope 1 folder (xem 'playlist.selection.moreMenu.open' ngay trên), nên
                     // callback này CHỈ chạy khi hợp lệ — không cần guard lại action này ở đây nữa.
