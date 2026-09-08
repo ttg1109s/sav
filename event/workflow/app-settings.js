@@ -13,7 +13,8 @@
  * TÁI DÙNG NGUYÊN VẸN mọi hàm render/hàm đồng bộ giá trị đã có (renderGestureSettingsPanelBody(),
  * workflowGestureSettings.openPanel(), TPL_SETTINGS_LANGUAGE, renderLanguageOptions(), renderDebugConsolePanelBody(),
  * workflowSettingsMisc.openDebugConsole(), TPL_SETTINGS_PLAYLIST_VIEW, workflowPlaylist.
- * openSortPanel()/openFilterPanel(), 3 hàm askRestartApp/askRestoreDefaults/askClearCache) — các
+ * workflowPlaylist.openSortPanel() (Filter giờ tự quản qua workflowPlaylistFilterPresets, KHÔNG
+ * còn openFilterPanel()), 3 hàm askRestartApp/askRestoreDefaults/askClearCache) — các
  * hàm đó ĐÃ được sửa (đợt này) để đọc/ghi qua `genericDrawerBody` thay vì panel push động cũ
  * (`fooPanelEl = pushSettingsPanel(...)` -> `fooPanelEl = genericDrawerBody`) — bản thân NGHIỆP VỤ
  * (field nào ghi gì, gọi core nào) HOÀN TOÀN KHÔNG đổi, chỉ đổi "nội dung sống ở container nào".
@@ -36,7 +37,8 @@
  * NẠP SAU: core/generic-drawer.js, core/app-panel-nav.js, components/settings/app-settings-main.js,
  * components/settings/playlist-view.js, components/settings/language.js, components/gesture-
  * settings-drawer.js, components/motion-settings-drawer.js, components/debug-console-drawer.js,
- * components/playlist-sort-drawer.js, components/playlist-filter-drawer.js, components/settings/
+ * components/playlist-sort-drawer.js, components/playlist-filter-drawer.js, core/playlist/
+ * filter-presets.js, event/workflow/playlist-filter-presets.js, components/settings/
  * visualizer-display-panel.js, components/settings/visualizer-auto-switch-drawer.js, components/
  * visual-bg-settings-drawer.js, components/visual-bg-gradient-drawer.js, components/visual-bg-
  * video-audio-drawer.js, event/workflow/generic-drawer-helpers.js, event/workflow/app-panel-nav.js,
@@ -150,12 +152,58 @@ const workflowAppSettings = {
         });
     },
 
-    _renderPlaylistFilter() {
-        this._currentRenderFn = () => this._renderPlaylistFilter();
+    /** Danh sách preset Filter — tap dòng = sửa, mỗi dòng có thêm nút chọn áp dụng nhanh + xoá
+     * nhanh (CÙNG khuôn _renderMotionList() — KHÁC Motion 1 chỗ: Motion "Áp dụng cho" chỉ có ở màn
+     * Edit, Playlist Filter cần bấm "chọn áp dụng" được NGAY từ danh sách, phản hồi Giang). Preset
+     * đang active (dot xanh) CHỈ tô khi `playlistFilterEnabled` đang bật — tắt công tắc tổng thì
+     * KHÔNG dòng nào tô active dù `playlistFilterActivePresetId` vẫn còn lưu (đã tự null hoá lúc
+     * tắt, xem workflowPlaylistFilterPresets.setEnabled(), nên thực ra luôn khớp — truyền tường
+     * minh ở đây cho RÕ Ý, không dựa ngầm vào bất biến đó). SỬA (08/09/2026, hệ "Playlist Filter
+     * Presets") — THAY `_renderPlaylistFilter()` cũ (panel Lọc mở thẳng bộ rule sống). */
+    _renderPlaylistFilterList() {
+        this._currentRenderFn = () => this._renderPlaylistFilterList();
+        const presets = appState.get('playlistFilterPresets');
+        const activeId = appState.get('playlistFilterEnabled') ? appState.get('playlistFilterActivePresetId') : null;
+        this._render(
+            t('playlistFilterPresetsDrawer.list.title'),
+            renderPlaylistFilterListBody(presets, activeId), // components/playlist-filter-drawer.js
+            (body) => {
+                body.querySelectorAll('[data-playlist-filter-tile]').forEach((el) => {
+                    el.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.tile.click', payload: { id: el.dataset.playlistFilterTile } }));
+                });
+                body.querySelectorAll('[data-playlist-filter-quickselect]').forEach((el) => {
+                    el.addEventListener('click', (e) => { e.stopPropagation(); eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.quickSelect.click', payload: { id: el.dataset.playlistFilterQuickselect } }); });
+                });
+                body.querySelectorAll('[data-playlist-filter-quickdelete]').forEach((el) => {
+                    el.addEventListener('click', (e) => { e.stopPropagation(); eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.quickDelete.click', payload: { id: el.dataset.playlistFilterQuickdelete } }); });
+                });
+                const addBtn = body.querySelector('#btn-playlist-filter-list-add');
+                if (addBtn) addBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.add.click', payload: {} }));
+            },
+        );
+    },
+
+    /** Sửa 1 preset (`workflowPlaylistFilterPresets._editingId`) — field rule theo Nguồn hiện tại
+     * (component render RỖNG, `_syncEditUI()` tự bind giá trị NGAY sau khi mount, CÙNG khuôn
+     * openSortPanel()/_syncFilterPanelUI() bản cũ) + 2 nút "Chọn áp dụng"/"Xoá" cuối. */
+    _renderPlaylistFilterEdit() {
+        this._currentRenderFn = () => this._renderPlaylistFilterEdit();
+        const preset = findPlaylistFilterPresetById(appState.get('playlistFilterPresets'), workflowPlaylistFilterPresets._editingId); // core/playlist/filter-presets.js
+        if (!preset) { this.back(); return; } // guard: preset vừa bị xoá ở nơi khác giữa lúc đang sửa — quay lại danh sách an toàn
         const source = appState.get('activeMediaSource');
-        this._render(t('playlistFilterPanel.title'), renderPlaylistFilterPanelBody(source), () => {
-            workflowPlaylist.openFilterPanel(); // event/workflow/playlist.js
-        });
+        this._render(
+            t('playlistFilterPresetsDrawer.edit.title'),
+            renderPlaylistFilterEditBody(preset, source), // components/playlist-filter-drawer.js
+            (body) => {
+                workflowPlaylistFilterPresets._syncEditUI(); // event/workflow/playlist-filter-presets.js — bind giá trị field NGAY sau mount
+                const nameInput = body.querySelector('#playlist-filter-drawer-name');
+                if (nameInput) nameInput.addEventListener('blur', (e) => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.name.change', payload: { value: e.target.value } }));
+                const selectBtn = body.querySelector('#btn-playlist-filter-select');
+                if (selectBtn) selectBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.select.click', payload: { id: preset.id } }));
+                const deleteBtn = body.querySelector('#btn-playlist-filter-delete');
+                if (deleteBtn) deleteBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.delete.click', payload: { id: preset.id } }));
+            },
+        );
     },
 
     // ===================== System (Theme/Gesture/Motion/Language) =====================

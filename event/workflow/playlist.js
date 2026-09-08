@@ -1490,33 +1490,16 @@ const workflowPlaylist = {
      * (service/state/playlist.js) — mọi field `null`, applyPlaylistFilter() fast-path trả nguyên
      * playlistOrder, hành vi giống hệt trước khi có Filter.
      */
+    /** SỬA (08/09/2026, hệ "Playlist Filter Presets") — TRƯỚC ĐÂY hàm này tự đọc/migrate
+     * `meta.playlistFilterConfig` (bộ rule sống DUY NHẤT). Giờ chỉ delegate THẲNG sang
+     * `workflowPlaylistFilterPresets.loadOnBoot()` (event/workflow/playlist-filter-presets.js) —
+     * GIỮ NGUYÊN tên hàm + điểm gọi (event/workflow/app-boot.js, TRƯỚC khối Scope) để KHÔNG phải
+     * sửa app-boot.js, chỉ đổi NƠI logic thật sự sống. `meta.playlistFilterConfig` cũ KHÔNG migrate
+     * (CHỐT Giang — "bắt đầu lại từ đầu"), giờ mồ côi trong DB, an toàn (không nơi nào còn đọc). */
     async loadPersistedFilterConfigOnBoot() {
-        const saved = await getMeta('playlistFilterConfig');
-        if (saved && typeof saved === 'object' && saved.song && saved.video) {
-            // SỬA (phản hồi Giang, mục 1 "treo loading khi đổi Nguồn sang Photo") — TRƯỚC ĐÂY
-            // `appState.set('playlistFilterConfig', saved)` GHI ĐÈ HOÀN TOÀN bằng `saved`: dữ liệu
-            // lưu bền TỪ TRƯỚC lúc Photo được hợp nhất vào Playlist chỉ có 2 key `song`/`video`,
-            // hoàn toàn THIẾU key `photo` — khiến `appState.get('playlistFilterConfig').photo`
-            // thành `undefined`, rồi `applyPlaylistFilter()` (core/playlist/filter.js) chạy
-            // `Object.keys(undefined)` NÉM TypeError giữa chừng `switchToPhotoSource()`, dừng thực
-            // thi TRƯỚC MỌI bước vẽ lại UI phía sau -> treo loading vĩnh viễn, ảnh không lên đúng
-            // hiện tượng Giang báo. ĐÚNG lỗi này ĐÃ được sửa cho `activeMediaSource` ở hàm sinh đôi
-            // `loadPersistedPlaylistConfigOnBoot()` ngay phía trên (danh sách `validSources` tường
-            // minh, không rơi về mặc định) — sửa bỏ sót ở đây. Giờ MERGE `saved` LÊN TRÊN
-            // `clonePlaylistFilterConfigDefaults()` (service/state/playlist.js — nguồn sự thật DUY
-            // NHẤT cho "field nào hợp lệ theo Nguồn", cùng cách `appConfigViz` đang merge lúc khôi
-            // phục, core/config.js dòng ~493) — Nguồn nào saved ĐÃ CÓ (song/video) dùng nguyên dữ
-            // liệu saved; Nguồn MỚI thêm sau này mà saved CHƯA CÓ (photo) tự rơi về default rỗng
-            // (mọi field null, applyPlaylistFilter() fast-path) thay vì undefined.
-            appState.set('playlistFilterConfig', { ...clonePlaylistFilterConfigDefaults(), ...saved });
-            console.log(`writer: "loadPersistedFilterConfigOnBoot", page: "playlistFilterConfig", content: "khôi phục từ meta.playlistFilterConfig (merge lên default để bù Nguồn mới thiếu trong dữ liệu cũ)"`);
-        } else {
-            // MỚI (mục 2, phản hồi Giang — "thêm log của filter xem") — log CẢ nhánh không có gì để
-            // khôi phục (lần đầu dùng tính năng, hoặc dữ liệu hỏng) — để thấy đúng bước này CÓ chạy
-            // và chạy NHANH, không phải nguồn treo boot.
-            console.log(`writer: "loadPersistedFilterConfigOnBoot", page: "playlistFilterConfig", content: "không có gì để khôi phục — giữ default rỗng"`);
-        }
+        await workflowPlaylistFilterPresets.loadOnBoot(); // liên tuyến domain, event/workflow/playlist-filter-presets.js
     },
+
 
     /** Push panel "Sắp xếp" (mục 1b/1c; SỬA mục 3 — dropdown Stats tách field/hướng riêng, dropdown
      * hướng CHỈ hiện khi field khác 'none') — đồng bộ giá trị hiện tại lúc mở. SỬA (đợt tái cấu
@@ -1532,169 +1515,14 @@ const workflowPlaylist = {
         panelEl.querySelector('[data-sort-direction-row]').classList.toggle('hidden', statField === 'none');
     },
 
-    /** Push panel "Lọc" (mục 1d) — field hiện theo ĐÚNG Nguồn (song/video) đang active, đồng bộ
-     * từ `playlistFilterConfig[source]` đã lưu. SỬA (đợt tái cấu trúc bottom nav + phân phối lại
-     * Settings) — cùng khuôn openSortPanel() ngay trên. */
-    openFilterPanel() {
-        const source = appState.get('activeMediaSource');
-        const panelEl = genericDrawerBody;
-        this._syncFilterPanelUI(panelEl, source);
-    },
+    // XOÁ (08/09/2026, hệ "Playlist Filter Presets") — openFilterPanel()/_syncFilterPanelUI()/
+    // openFilterTimePicker()/setFilterField()/applyFilterChanges() (bộ rule sống DUY NHẤT, nút
+    // "Áp dụng" đơn) đã thay bằng workflowPlaylistFilterPresets (event/workflow/
+    // playlist-filter-presets.js) — danh sách preset đặt tên, mirror EQ/Motion. _syncFilterPanelUI()
+    // ĐÃ PORT sang workflowPlaylistFilterPresets._syncEditUI() (đọc preset đang sửa thay vì
+    // playlistFilterConfig sống); 4 hàm còn lại có bản mirror bên đó (openFilterTimePicker/
+    // setFilterField giữ nguyên tên, "Áp dụng" đổi tên thành selectPreset() — "chọn áp dụng").
 
-    /** Đồng bộ toàn bộ field trong panel Lọc theo `playlistFilterConfig[source]` hiện tại — dùng
-     * ĐÚNG data-attribute đã dựng ở components/playlist-filter-drawer.js (data-filter-row/
-     * data-filter-prop) để tìm input, KHÔNG hard-code id từng field (field theo Nguồn khác nhau
-     * về số lượng — xem PLAYLIST_FILTER_TEXT_FIELDS/PLAYLIST_FILTER_NUMERIC_FIELDS,
-     * core/playlist/filter.js). */
-    _syncFilterPanelUI(panelEl, source) {
-        const rules = appState.get('playlistFilterConfig')[source];
-        // MỚI (phản hồi Giang — "totalTime/duration dùng time picker, h:m:s") — kind 'seconds' là
-        // NÚT (`<button>`, data-filter-time-trigger), set `.textContent` qua `_formatSecondsAsHms()`
-        // — KHÁC mọi kind khác (`<input>`, set `.value` qua `_formatFilterNumberForInput()`).
-        const setDisplay = (el, kind, value) => {
-            if (!el) return;
-            if (kind === 'seconds') el.textContent = _formatSecondsAsHms(value);
-            else el.value = kind === 'text' ? (value || '') : _formatFilterNumberForInput(kind, value);
-        };
-        for (const field of Object.keys(rules)) {
-            const rule = rules[field];
-            const rowEl = panelEl.querySelector(`[data-filter-row="${field}"]`);
-            if (!rowEl) continue;
-            const kind = _filterFieldKind(field);
-            const enableEl = rowEl.querySelector('[data-filter-prop="enabled"]');
-            if (enableEl) enableEl.checked = !!rule;
-            // FIX (bug — checkbox bị khoá theo cả row, Giang phát hiện) — CHỈ khoá phần
-            // `data-filter-body` (control BÊN DƯỚI checkbox), KHÔNG khoá cả `rowEl` nữa — checkbox
-            // enable nằm NGOÀI khối này nên luôn bấm lại được dù field đang tắt.
-            const bodyEl = rowEl.querySelector('[data-filter-body]');
-            if (bodyEl) {
-                bodyEl.classList.toggle('opacity-40', !rule);
-                bodyEl.classList.toggle('pointer-events-none', !rule);
-            }
-            if (!rule) continue;
-            const opEl = rowEl.querySelector('[data-filter-prop="op"]');
-            if (opEl && rule.op !== undefined) opEl.value = rule.op;
-            const modeEl = rowEl.querySelector('[data-filter-prop="mode"]');
-            if (modeEl && rule.mode !== undefined) modeEl.value = rule.mode;
-            const rangeBlock = rowEl.querySelector('[data-filter-range-block]');
-            const singleBlock = rowEl.querySelector('[data-filter-single-block]');
-            // Field TEXT không có khối single/range (luôn 1 ô value DUY NHẤT) -> querySelector
-            // thẳng trên rowEl là đủ, KHÔNG cần phân biệt khối.
-            if (!rangeBlock && !singleBlock) {
-                setDisplay(rowEl.querySelector('[data-filter-prop="value"]'), kind, rule.value);
-                continue;
-            }
-            // Field SỐ/NGÀY/GIÂY — 2 khối CÙNG có 1 control data-filter-prop="value" (khác id) —
-            // set ĐÚNG khối, để trống khối kia (không cần thiết, đang `hidden`).
-            setDisplay(singleBlock && singleBlock.querySelector('[data-filter-prop="value"]'), kind, rule.value);
-            setDisplay(rangeBlock && rangeBlock.querySelector('[data-filter-prop="value"]'), kind, rule.value);
-            setDisplay(rangeBlock && rangeBlock.querySelector('[data-filter-prop="valueTo"]'), kind, rule.valueTo);
-            if (rangeBlock && singleBlock && rule.mode !== undefined) {
-                // SỬA (15/08/2026, thêm mode 'outRange') — range-block hiện cho MỌI mode KHÁC
-                // 'single' (trước chỉ so === 'range'), vì 'outRange' dùng CHUNG khối 2 ô from/to.
-                rangeBlock.classList.toggle('hidden', rule.mode === 'single');
-                singleBlock.classList.toggle('hidden', rule.mode !== 'single');
-            }
-        }
-    },
-
-    /**
-     * Ứng với nút mở time-picker (totalTime/duration, mục Filter) — mở `openTimePickerModal()`
-     * (core/time-picker-modal.js, format 'h-m-s') đọc giá trị HIỆN TẠI từ state, `onConfirm` ghi
-     * lại qua `setFilterField()` (tái dùng NGUYÊN, `rawValue` truyền dạng chuỗi giây — giống hệt
-     * input thường) + cập nhật text hiển thị trên nút NGAY, không cần đợi mở lại panel.
-     * @param {string} field - 'totalTime' | 'duration'
-     * @param {string} prop - 'value' | 'valueTo'
-     */
-    openFilterTimePicker(field, prop) {
-        const source = appState.get('activeMediaSource');
-        const rule = appState.get('playlistFilterConfig')[source][field];
-        if (!rule) return; // guard — field đang tắt (không nên xảy ra, nút bị pointer-events-none)
-        const currentSeconds = (prop === 'valueTo' ? rule.valueTo : rule.value) || 0;
-        openTimePickerModal({
-            title: t(field === 'totalTime' ? 'playlistFilterPanel.field.totalTime' : 'playlistFilterPanel.field.duration'),
-            format: 'h-m-s',
-            valueMs: currentSeconds * 1000,
-            minMs: 0,
-            maxMs: 359999000, // 99:59:59 — đủ lớn cho mọi giá trị thực tế (thời lượng video/tổng giờ nghe)
-            onConfirm: (resultMs) => {
-                const seconds = Math.round(resultMs / 1000);
-                this.setFilterField(field, prop, String(seconds));
-                // SỬA (đợt tái cấu trúc bottom nav App Panel) — panel Lọc giờ sống trong genericDrawerBody, KHÔNG còn peekTopSettingsPanel() (xem ghi chú ở setFilterField()).
-                const btn = genericDrawerBody.querySelector(`[data-filter-field="${field}"][data-filter-prop="${prop}"][data-filter-time-trigger]`);
-                if (btn) btn.textContent = _formatSecondsAsHms(seconds);
-            },
-        });
-    },
-
-    /**
-     * Ứng với 1 input BẤT KỲ trong panel Lọc đổi giá trị (mục 1d) — `prop` quyết định nhánh:
-     *   - 'enabled' — bật/tắt field đó (bật -> tạo rule mặc định rỗng; tắt -> null hẳn).
-     *   - 'op'/'mode' — đổi toán tử / đổi đơn-giá-trị↔range (numeric/date).
-     *   - 'value'/'valueTo' — đổi giá trị (text giữ nguyên chuỗi; numeric/date/size tự parse qua
-     *     `_parseFilterNumberInput()`, size nhập vào là MB, lưu bytes).
-     * KHÔNG tự resort/re-render gì ở đây — Filter chỉ thật sự áp dụng lúc `applyFilterChanges()`
-     * (nút "Áp dụng") + reload, xem docstring đầu core/playlist/filter.js.
-     * @param {string} field @param {string} prop @param {string|boolean} rawValue
-     */
-    setFilterField(field, prop, rawValue) {
-        const source = appState.get('activeMediaSource');
-        const kind = _filterFieldKind(field);
-        appState.mutate('playlistFilterConfig', (cfg) => {
-            const bucket = cfg[source];
-            if (!(field in bucket)) return; // guard — field không thuộc Nguồn hiện tại (không nên xảy ra, UI đã lọc sẵn theo Nguồn)
-            if (prop === 'enabled') {
-                bucket[field] = rawValue
-                    ? (kind === 'text' ? { op: '===', value: '' } : { mode: 'single', op: '===', value: 0, valueTo: 0 })
-                    : null;
-                return;
-            }
-            const rule = bucket[field];
-            if (!rule) return; // guard — field đang tắt, bỏ qua input ẩn (mờ/pointer-events-none phía UI)
-            if (prop === 'op') rule.op = rawValue;
-            else if (prop === 'mode') rule.mode = rawValue;
-            else if (prop === 'value') rule.value = kind === 'text' ? rawValue : _parseFilterNumberInput(kind, rawValue);
-            else if (prop === 'valueTo') rule.valueTo = _parseFilterNumberInput(kind, rawValue);
-        });
-        // Toggle mờ/khoá `data-filter-body` NGAY khi bật/tắt field — SỬA (đợt tái cấu trúc bottom
-        // nav App Panel, bug "bật toggle vẫn không bấm được input") — panel Lọc giờ sống trong
-        // `genericDrawerBody`, KHÔNG còn `peekTopSettingsPanel()` (stack CŨ, nay thuộc Photo —
-        // tìm sai chỗ nên khối mở khoá KHÔNG BAO GIỜ chạy, dù checkbox đã bật).
-        if (prop === 'enabled') {
-            const rowEl = genericDrawerBody.querySelector(`[data-filter-row="${field}"]`);
-            const bodyEl = rowEl && rowEl.querySelector('[data-filter-body]');
-            if (bodyEl) {
-                bodyEl.classList.toggle('opacity-40', !rawValue);
-                bodyEl.classList.toggle('pointer-events-none', !rawValue);
-            }
-        }
-        // Toggle hiện/ẩn khối single/range NGAY khi đổi 'mode' — SỬA (đợt tái cấu trúc bottom nav
-        // App Panel) — panel Lọc giờ sống trong genericDrawerBody, KHÔNG còn peekTopSettingsPanel()
-        // (CÙNG LÝ DO nhánh 'enabled' ở trên).
-        if (prop === 'mode') {
-            const rowEl = genericDrawerBody.querySelector(`[data-filter-row="${field}"]`);
-            if (rowEl) {
-                const rangeBlock = rowEl.querySelector('[data-filter-range-block]');
-                const singleBlock = rowEl.querySelector('[data-filter-single-block]');
-                if (rangeBlock && singleBlock) {
-                    // SỬA (15/08/2026, thêm mode 'outRange') — CÙNG LOGIC nhánh _syncFilterPanelUI()
-                    // ở trên (rule.mode !== undefined): hiện range-block cho mọi mode KHÁC 'single'.
-                    rangeBlock.classList.toggle('hidden', rawValue === 'single');
-                    singleBlock.classList.toggle('hidden', rawValue !== 'single');
-                }
-            }
-        }
-    },
-
-    /** Nút "Áp dụng" panel Lọc — lưu bền NGAY (đọc thấy lần boot/đổi Nguồn/đổi Scope SAU) + hỏi
-     * reload để thấy kết quả NGAY trong phiên đang chạy — CÙNG UX với Scope (mục "Filter đổi lúc
-     * app đang chạy", phản hồi Giang), tái dùng thẳng modal chung đã có
-     * (workflowPlaylistScope.askReloadToApplyNow(), event/workflow/playlist-scope.js). */
-    async applyFilterChanges() {
-        await setMeta('playlistFilterConfig', appState.get('playlistFilterConfig'));
-        console.log(`writer: "applyFilterChanges", page: "playlistFilterConfig", content: "đã lưu bền"`);
-        workflowPlaylistScope.askReloadToApplyNow(t('playlistFilterPanel.reloadPrompt'));
-    },
 
     /** Ứng với nút X ở badge "đang Scope folder nào" (components/playlist-view.js) — MỚI (06/09/2026,
      * hợp nhất Folder vào Playlist, Batch 3). Thoát Scope của ĐÚNG Nguồn hiện tại, áp SỐNG (xem

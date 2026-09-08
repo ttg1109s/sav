@@ -25,8 +25,9 @@
  *   thẳng applyFolderScope()/applyAllSongsScope(), tự đọc field đã lưu từ trước.
  *
  *   `askReloadToApplyNow(bodyText)` — modal dùng chung, KHÔNG liên quan Scope — phục vụ
- *   `event/workflow/playlist.js::applyFilterChanges()` (đổi Playlist Filter qua Settings, bắt reload
- *   trang, tính năng riêng).
+ *   `event/workflow/playlist-filter-presets.js::selectPreset()` (chọn áp dụng 1 preset Filter qua
+ *   Settings, bắt reload trang, tính năng riêng — SỬA 08/09/2026, hàm cũ `workflowPlaylist.
+ *   applyFilterChanges()` đã xoá, hệ Filter giờ dùng preset).
  *
  * Rule 3 (siết 03/08/2026, readme/core-function-conventions.md) — Core CẤM tự đọc service/db.js;
  * `listMediaRecords()` đọc DB trực tiếp nên PHẢI nằm ở Workflow này, không phải Core.
