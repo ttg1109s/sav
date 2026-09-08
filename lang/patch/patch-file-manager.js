@@ -125,7 +125,7 @@ const LANG_PATCH_FILE_MANAGER = {
     // playlistView.songMenu.editVideoFile (lang/patch/patch-playlist.js) — "Set làm nền" (dropdown)
     // ĐÃ BỎ HẲN (phản hồi Giang), `setAsBgVideo.blockedByPlayerMode`/`.success` mồ côi theo, XOÁ
     // luôn (hàm setVideoAsBackground() dùng 2 key này cũng đã xoá, 0 lời gọi còn lại). Nút "Xoá"
-    // dùng chung window.removeSong(), key playlistView.songMenu.deleteBlockedPlaying(Video)/
+    // dùng chung deleteMediaFromActionMenu(), key playlistView.songMenu.deleteBlockedPlaying(Video)/
     // deleteSuccess (đã có sẵn ở patch-playlist.js).
     'fileManager.video.empty': 'No videos yet. Tap the + button above to add some.',
     'fileManager.video.uploadSuccess': 'Added {count} video(s).',

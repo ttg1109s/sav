@@ -155,7 +155,7 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.playbackError.btnDelete': 'Delete now',
 
     // SỬA (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — chuỗi này dùng lại y hệt khi
-    // dọn player Video (window.removeSong()/deleteSelectedSongs(), core/playlist/actions.js +
+    // dọn player Video (deleteMediaFromActionMenu()/deleteSelectedMedia(),
     // event/workflow/playlist.js) — "No song selected" sai ngữ cảnh, đổi chữ trung lập thay vì
     // thêm biến thể/JS riêng (đơn giản hơn, đúng cho cả 2 nguồn).
     'bottomPlayer.noSongSelected': 'Nothing playing',
