@@ -87,7 +87,7 @@ function _parseFilterNumberInput(kind, rawValue) {
 
 /**
  * Chiều NGƯỢC LẠI `_parseFilterNumberInput()` — đổi giá trị LƯU TRONG STATE thành chuỗi hiển thị
- * lại đúng lên `<input>` lúc mở panel (`workflowPlaylist._syncFilterPanelUI()`). KHÔNG dùng cho
+ * lại đúng lên `<input>` lúc mở panel (`workflowPlaylistFilterPresets._syncEditUI()`). KHÔNG dùng cho
  * kind 'seconds' (nút time-picker dùng `_formatSecondsAsHms()` riêng, TEXT không phải `.value`).
  * @param {'text'|'date'|'sizeMb'|'number'} kind @param {number|undefined} value
  */
