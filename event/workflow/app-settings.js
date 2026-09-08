@@ -164,18 +164,21 @@ const workflowAppSettings = {
         });
     },
 
-    /** Danh sách preset Filter — tap dòng = sửa, mỗi dòng có thêm nút chọn áp dụng nhanh + xoá
-     * nhanh (CÙNG khuôn _renderMotionList() — KHÁC Motion 1 chỗ: Motion "Áp dụng cho" chỉ có ở màn
-     * Edit, Playlist Filter cần bấm "chọn áp dụng" được NGAY từ danh sách, phản hồi Giang). SỬA
-     * (08/09/2026, hệ "Playlist Filter Presets") — THAY `_renderPlaylistFilter()` cũ (panel Lọc mở
-     * thẳng bộ rule sống). SỬA (09/09/2026, bỏ công tắc tổng) — dot active giờ chỉ theo THẲNG
-     * `playlistFilterActivePresetId` (KHÔNG còn gate qua `playlistFilterEnabled` — field đó đã xoá). */
+    /** Danh sách preset Filter CỦA Nguồn đang chọn (`activeMediaSource`) — tap dòng = sửa, mỗi dòng
+     * có thêm nút chọn áp dụng nhanh + xoá nhanh (CÙNG khuôn _renderMotionList() — KHÁC Motion 1
+     * chỗ: Motion "Áp dụng cho" chỉ có ở màn Edit, Playlist Filter cần bấm "chọn áp dụng" được NGAY
+     * từ danh sách, phản hồi Giang). SỬA (09/09/2026, phản hồi Giang mục cuối — "mỗi source media 1
+     * list filter khác nhau") — `playlistFilterPresets`/`playlistFilterActivePresetId` giờ keyed
+     * theo Nguồn, danh sách này CHỈ đọc/hiện đúng phần của Nguồn đang chọn — đổi Nguồn ở Settings →
+     * Playlist rồi mở lại "Lọc" sẽ thấy danh sách KHÁC hẳn (độc lập, không lẫn giữa Song/Video/
+     * Photo). Tiêu đề có thêm tên Nguồn cho rõ đang xem preset của Nguồn nào. */
     _renderPlaylistFilterList() {
         this._currentRenderFn = () => this._renderPlaylistFilterList();
-        const presets = appState.get('playlistFilterPresets');
-        const activeId = appState.get('playlistFilterActivePresetId');
+        const source = appState.get('activeMediaSource');
+        const presets = appState.get('playlistFilterPresets')[source];
+        const activeId = appState.get('playlistFilterActivePresetId')[source];
         this._render(
-            t('playlistFilterPresetsDrawer.list.title'),
+            `${t('playlistFilterPresetsDrawer.list.title')} — ${t('settingsPlaylistBg.mediaSource.' + source)}`,
             renderPlaylistFilterListBody(presets, activeId), // components/playlist-filter-drawer.js
             (body) => {
                 body.querySelectorAll('[data-playlist-filter-tile]').forEach((el) => {
@@ -193,33 +196,32 @@ const workflowAppSettings = {
         );
     },
 
-    /** Sửa 1 preset (`workflowPlaylistFilterPresets._editingId`) — field rule theo Nguồn hiện tại
-     * (component render RỖNG, `_syncEditUI()` tự bind giá trị NGAY sau khi mount, CÙNG khuôn
-     * openSortPanel()/_syncFilterPanelUI() bản cũ) + 2 nút "Chọn áp dụng"/"Xoá" cuối — nút đầu đổi
-     * chữ thành "Cập nhật" khi preset đang sửa CHÍNH LÀ preset đang active (`isActive`, SỬA
-     * 09/09/2026, phản hồi Giang mục 1 — xem components/playlist-filter-drawer.js::
-     * renderPlaylistFilterEditBody()).
-     * MỚI (09/09/2026, phản hồi Giang mục 3b.2) — gắn `_leaveGuard` (xem field đó, đầu file) MỖI
-     * lần vào màn này — chạy `workflowPlaylistFilterPresets.autoUnapplyIfInvalid(preset.id)` đúng 1
-     * lần lúc rời màn (Back HOẶC Close/X), tự gỡ filter khỏi Playlist nếu preset đang sửa VỪA LÀ
-     * preset active VỪA hết field hợp lệ mà KHÔNG bấm "Cập nhật" trước khi rời — xem docstring hàm
-     * đó, event/workflow/playlist-filter-presets.js. */
+    /** Sửa 1 preset (`workflowPlaylistFilterPresets._editingId`, Nguồn `_editingSource` — CHỐT lúc
+     * mở màn, KHÔNG đọc lại `activeMediaSource`, xem docstring đầu event/workflow/
+     * playlist-filter-presets.js) — field rule theo ĐÚNG Nguồn đó (component render RỖNG,
+     * `_syncEditUI()` tự bind giá trị NGAY sau khi mount) + 2 nút "Chọn áp dụng"/"Xoá" cuối — nút
+     * đầu đổi chữ thành "Cập nhật" khi preset đang sửa CHÍNH LÀ preset đang active CHO ĐÚNG NGUỒN
+     * ĐÓ (`isActive`, xem components/playlist-filter-drawer.js::renderPlaylistFilterEditBody()).
+     * Gắn `_leaveGuard` (xem field đó, đầu file) MỖI lần vào màn này — chạy
+     * `workflowPlaylistFilterPresets.autoUnapplyIfInvalid(preset.id, source)` đúng 1 lần lúc rời màn
+     * (Back HOẶC Close/X), tự gỡ filter khỏi Playlist (CHO ĐÚNG NGUỒN) nếu preset đang sửa VỪA LÀ
+     * preset active VỪA hết field hợp lệ mà KHÔNG bấm "Cập nhật" trước khi rời. */
     _renderPlaylistFilterEdit() {
         this._currentRenderFn = () => this._renderPlaylistFilterEdit();
-        const preset = findPlaylistFilterPresetById(appState.get('playlistFilterPresets'), workflowPlaylistFilterPresets._editingId); // core/playlist/filter-presets.js
+        const source = workflowPlaylistFilterPresets._editingSource;
+        const preset = findPlaylistFilterPresetById(appState.get('playlistFilterPresets')[source], workflowPlaylistFilterPresets._editingId); // core/playlist/filter-presets.js
         if (!preset) { this.back(); return; } // guard: preset vừa bị xoá ở nơi khác giữa lúc đang sửa — quay lại danh sách an toàn
-        const source = appState.get('activeMediaSource');
-        const isActive = preset.id === appState.get('playlistFilterActivePresetId');
-        this._leaveGuard = () => workflowPlaylistFilterPresets.autoUnapplyIfInvalid(preset.id); // liên tuyến domain
+        const isActive = preset.id === appState.get('playlistFilterActivePresetId')[source];
+        this._leaveGuard = () => workflowPlaylistFilterPresets.autoUnapplyIfInvalid(preset.id, source); // liên tuyến domain
         this._render(
-            t('playlistFilterPresetsDrawer.edit.title'),
+            `${t('playlistFilterPresetsDrawer.edit.title')} — ${t('settingsPlaylistBg.mediaSource.' + source)}`,
             renderPlaylistFilterEditBody(preset, source, isActive), // components/playlist-filter-drawer.js
             (body) => {
                 workflowPlaylistFilterPresets._syncEditUI(); // event/workflow/playlist-filter-presets.js — bind giá trị field NGAY sau mount
                 const nameInput = body.querySelector('#playlist-filter-drawer-name');
                 if (nameInput) nameInput.addEventListener('blur', (e) => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.name.change', payload: { value: e.target.value } }));
                 const selectBtn = body.querySelector('#btn-playlist-filter-select');
-                if (selectBtn) selectBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.select.click', payload: { id: preset.id } }));
+                if (selectBtn) selectBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.select.click', payload: { id: preset.id, source } }));
                 const deleteBtn = body.querySelector('#btn-playlist-filter-delete');
                 if (deleteBtn) deleteBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.delete.click', payload: { id: preset.id } }));
             },
