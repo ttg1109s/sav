@@ -31,8 +31,9 @@
  * `canvas` — DOM API, core không được đụng theo Rule 1-4). THÊM `duration` (giây, số thực) — riêng
  * của Video, đo cùng lúc lấy thumbnail.
  *
- * KHÔNG có Album cho Video (Giang chốt — chỉ Photo mới có khái niệm Album) — `deleteVideo()` do đó
- * `deleteVideo()` dọn cascade folder (đối xứng `deleteImage()` dọn cascade album) — xem hàm đó.
+ * KHÔNG có Album cho Video (Giang chốt — chỉ Photo mới có khái niệm Album) — cascade dọn folder khi
+ * xoá 1 video nằm ở tầng Workflow (`event/workflow/playlist.js::MEDIA_DELETE_ACCESSOR`), KHÔNG còn
+ * ở đây (xem `deleteVideo()` — ĐÃ XOÁ, thay bằng `deleteVideoRecord()` thuần CRUD, service/db.js).
  *
  * NẠP SAU: service/db.js (getVideoRecord/setVideoRecord/deleteVideoRecord/getAllVideoKeys/slugify).
  */
@@ -109,25 +110,16 @@ async function setVideoCustomName(videoKey, customName) {
 }
 
 /**
- * Xoá hẳn 1 video khỏi thư viện + GỠ key khỏi MỌI folder đang chứa nó.
- * SỬA (v13 Batch F) — docstring cũ ghi "KHÔNG có cascade nào (Video không có Album)", viết từ trước
- * khi Video có Folder (v12). Thiếu cascade này để lại KEY CHẾT trong `folderSongMap`, gây 3 triệu
- * chứng: (1) Visual Background nguồn Folder trúng key chết -> guard `!record` nuốt -> nền đứng im
- * không nhảy tiếp; (2) đếm số item của Folder tính cả key chết -> folder rỗng vẫn báo đủ; (3) picker
- * Folder liệt kê cả folder thực chất đã rỗng.
- * TÁI DÙNG `removeSongFromAllFolders()` (core/file-manager/folder.js) — hàm ĐÃ CÓ SẴN, chính là thứ
- * luồng xoá hàng loạt ở event/workflow/playlist.js gọi ngay TRƯỚC `deleteVideo()`; sau sửa này thì
- * `deleteVideo()` tự đủ, không phụ thuộc nơi gọi có nhớ gọi kèm hay không.
- * @param {string} videoKey
- * @returns {Promise<{status: 'notFound'|'ok'}>}
+ * SỬA (07/09/2026, Giang chỉ ra "đằng nào cũng sửa, đổi tên luôn đỡ nhầm") — hàm `deleteVideo()`
+ * (tự dọn cascade folder rồi mới xoá record) ĐÃ XOÁ — không còn nơi nào gọi (kiểm tra lại toàn
+ * project). Lý do xoá: Workflow (`event/workflow/playlist.js::MEDIA_DELETE_ACCESSOR`, dùng bởi
+ * `deleteMediaFromActionMenu()`/`deleteSelectedMedia()`, VÀ `event/workflow/file-manager-storage.js::
+ * executeDeleteBroken()`) giờ LUÔN tự gọi `removeSongFromAllFolders()` TRƯỚC khi xoá — ĐỒNG NHẤT
+ * cho cả Song/Video/Photo — nên registry đó dùng THẲNG `deleteVideoRecord()` (service/db.js, CRUD
+ * thô, KHÔNG cascade) thay vì hàm này, đối xứng với `deleteSongRecord()`/`deleteImageRecord()` (2
+ * hàm đó CŨNG thuần CRUD, không cascade) — tránh 3 entry trong CÙNG 1 bảng có 3 "tầng" hành vi khác
+ * nhau (2 thuần CRUD, 1 tự cascade) gây nhầm lẫn khi đọc code.
  */
-async function deleteVideo(videoKey) {
-    const record = await getVideoRecord(videoKey);
-    if (!record) return { status: 'notFound' };
-    await removeSongFromAllFolders(record); // core/file-manager/folder.js — nhận record THÔ qua tham số
-    await deleteVideoRecord(videoKey);
-    return { status: 'ok' };
-}
 
 /**
  * Liệt kê toàn bộ video hiện có.
