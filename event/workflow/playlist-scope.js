@@ -117,12 +117,29 @@ const workflowPlaylistScope = {
      * upload-refresh) — mỗi lần gọi tự nạp lại cache đúng theo `folderId` truyền vào, không phụ
      * thuộc cache cũ. Đánh đổi CHỦ Ý: không dừng bài đang phát nằm ngoài scope mới, chỉ biến mất
      * khỏi list, tự phát hết bình thường (giống hệt hành vi đổi Nguồn).
+     * SỬA (09/09/2026, phản hồi Giang — "loading x/total phải tính theo số lượng cuối cùng sau
+     * filter, kể cả appboot lẫn đổi Nguồn") — `onProgress(done, total)` gọi bên trong
+     * `loadPlaylistCacheForSource()` (qua `listMediaRecords()`) chỉ báo được `total` = số record THÔ
+     * trong scope (folder/toàn thư viện) — filter CHỈ tính được SAU khi cache đã dựng xong (Filter
+     * cần đọc `playlistCache`/`mediaStatsMap`, KHÔNG THỂ chạy trước lúc còn đang fetch record), nên
+     * không thể biết trước tổng SAU lọc trong lúc đang tải. Khắc phục bằng cách gọi LẠI
+     * `onProgress()` 1 LẦN NỮA ngay sau khi Filter xong, với số ĐÃ SAU LỌC — đây là con số CUỐI CÙNG
+     * người dùng thấy đọng lại trên màn hình loading (`#playlist-loading-text`, core/playlist/
+     * render.js::updatePlaylistLoading()) ngay trước khi nó ẩn đi (updateEmptyState() dưới), khớp
+     * ĐÚNG số item thật sự hiện ra trong Playlist — KHÔNG còn lệch với số THÔ đã thấy trong lúc tải.
      * @param {string} folderId
      * @param {'song'|'video'|'photo'} mediaType
      * @param {(done:number,total:number)=>void} [onProgress]
      */
     async applyFolderScope(folderId, mediaType, onProgress) {
-        await this.loadPlaylistCacheForSource(mediaType, folderId, onProgress);
+        // MỚI (09/09/2026) — bọc onProgress để biết nó CÓ thực sự được gọi lần nào trong lúc fetch
+        // thô hay không (thư viện/folder rỗng -> KHÔNG lần nào, xem event/workflow/app-boot.js —
+        // "lớp loading tự nhiên KHÔNG hiện" khi rỗng) — nếu KHÔNG, bỏ qua bước sửa lại total cuối
+        // hàm, tránh vô tình LÀM HIỆN overlay loading (qua lần gọi sửa lại) cho trường hợp vốn dĩ
+        // không nên hiện gì cả.
+        let progressWasCalled = false;
+        const trackedOnProgress = typeof onProgress === 'function' ? (done, total) => { progressWasCalled = true; onProgress(done, total); } : undefined;
+        await this.loadPlaylistCacheForSource(mediaType, folderId, trackedOnProgress);
         const next = { ...appState.get('activePlayListFolder'), [mediaType]: folderId };
         appState.set('activePlayListFolder', next);
         console.log(`writer: "applyFolderScope", page: "activePlayListFolder", content: "${JSON.stringify(next)}"`);
@@ -135,6 +152,7 @@ const workflowPlaylistScope = {
         const filteredKeys = applyPlaylistFilter(appState.get('playlistOrder'), appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig')[mediaType]);
         appState.set('playlistOrder', filteredKeys);
         console.log(`writer: "applyFolderScope", page: "playlistOrder", content: "Filter: ${filteredKeys.length}/${beforeCount} sau lọc (source=${mediaType})"`);
+        if (progressWasCalled) onProgress(filteredKeys.length, filteredKeys.length); // sửa lại "x/total" đọng lại trên màn loading — số CUỐI CÙNG sau Filter, xem docstring trên
         workflowPlaylistOrder.updateShuffleArray();
         workflowPlaylistOrder.recomputeDisplayOrder();
         workflowPlaylistOrder.recomputeRenderOrder();
@@ -147,11 +165,15 @@ const workflowPlaylistScope = {
      * Áp "Tất cả bài" THẬT — nạp lại TOÀN BỘ cache rồi tính playlistOrder (trừ Exclude) + Filter +
      * render + badge. CÙNG nguyên tắc `applyFolderScope()` — gọi lại bất kỳ lúc nào, tự nạp cache
      * đúng (toàn bộ) mỗi lần.
+     * SỬA (09/09/2026) — CÙNG lý do/cách sửa `applyFolderScope()` ở trên, xem docstring hàm đó.
      * @param {'song'|'video'|'photo'} mediaType
      * @param {(done:number,total:number)=>void} [onProgress]
      */
     async applyAllSongsScope(mediaType, onProgress) {
-        await this.loadPlaylistCacheForSource(mediaType, null, onProgress);
+        // MỚI (09/09/2026) — CÙNG lý do/cách bọc onProgress như applyFolderScope() ở trên.
+        let progressWasCalled = false;
+        const trackedOnProgress = typeof onProgress === 'function' ? (done, total) => { progressWasCalled = true; onProgress(done, total); } : undefined;
+        await this.loadPlaylistCacheForSource(mediaType, null, trackedOnProgress);
         const current = appState.get('activePlayListFolder');
         if (current[mediaType] != null) {
             const next = { ...current, [mediaType]: null };
@@ -165,6 +187,7 @@ const workflowPlaylistScope = {
         const filteredKeys = applyPlaylistFilter(appState.get('playlistOrder'), appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig')[mediaType]);
         appState.set('playlistOrder', filteredKeys);
         console.log(`writer: "applyAllSongsScope", page: "playlistOrder", content: "Filter: ${filteredKeys.length}/${beforeCount} sau lọc (source=${mediaType})"`);
+        if (progressWasCalled) onProgress(filteredKeys.length, filteredKeys.length); // sửa lại "x/total" đọng lại trên màn loading — số CUỐI CÙNG sau Filter, xem docstring applyFolderScope()
         workflowPlaylistOrder.updateShuffleArray();
         workflowPlaylistOrder.recomputeDisplayOrder();
         workflowPlaylistOrder.recomputeRenderOrder();

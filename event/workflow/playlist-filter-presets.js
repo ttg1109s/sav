@@ -55,15 +55,13 @@
  * sửa sau đó vẫn lưu bền bình thường (thấy lại lúc mở Edit) nhưng KHÔNG ảnh hưởng filter thật cho
  * tới khi bấm "Chọn áp dụng"/"Cập nhật" LẦN NỮA (chụp ảnh chốt MỚI, CHỈ CHO NGUỒN ĐÓ).
  *
- * 2 đường TỰ ĐỘNG gỡ filter khỏi Playlist (CHO ĐÚNG NGUỒN, không đụng Nguồn khác), CHO ĐÚNG preset
- * đang active:
- *   1. Xoá preset đang active (`_deletePresetById()`).
- *   2. Sửa preset đang active tới mức KHÔNG còn field hợp lệ nào (`hasValidPlaylistFilterField()`
- *      trả `false`), rồi rời màn Edit qua nút Back/Close (X) MÀ KHÔNG bấm "Cập nhật" trước — GỌI
- *      `autoUnapplyIfInvalid()` qua móc `workflowAppSettings._leaveGuard` (gắn ở
- *      `_renderPlaylistFilterEdit()`, tự chạy 1 lần đúng lúc Back/Close, xem docstring 2 hàm đó ở
- *      event/workflow/app-settings.js) — tự bỏ chọn preset + reset ảnh chốt (CHO ĐÚNG NGUỒN) + reload
- *      NGAY, không hỏi (bỏ preset = nới kết quả ra, không cần xác nhận).
+ * Xoá preset đang active (`_deletePresetById()`, CHO ĐÚNG NGUỒN, không đụng Nguồn khác) — TỰ ĐỘNG
+ * gỡ filter khỏi Playlist (bỏ chọn + reset ảnh chốt + reload NGAY, không hỏi — xoá = nới kết quả
+ * ra). XOÁ (09/09/2026, phản hồi Giang mục 1 — "loại bỏ cơ chế này") — đường tự-gỡ THỨ 2 (sửa
+ * preset đang active xuống hết field hợp lệ rồi thoát Edit qua Back/Close mà KHÔNG bấm "Cập nhật"
+ * → tự gỡ, qua cơ chế `workflowAppSettings._leaveGuard`/`autoUnapplyIfInvalid()`) ĐÃ BỎ HẲN — sửa
+ * field (kể cả xuống hết field hợp lệ) không còn tự gỡ gì khi thoát nữa, CHỈ xoá hẳn preset hoặc
+ * bấm "Chọn áp dụng"/"Cập nhật" mới thay đổi filter thật đang áp dụng.
  *
  * KHÔNG MIGRATE dữ liệu Filter của các bản trước (1-bộ-rule-sống trước 08/09, hay preset-dùng-
  * chung-mọi-Nguồn trước 09/09) — CHỐT Giang mỗi đợt "bắt đầu lại từ đầu" — field cũ mồ côi trong
@@ -345,28 +343,6 @@ const workflowPlaylistFilterPresets = {
         workflowPlaylistScope.askReloadToApplyNow(t('playlistFilterPresetsDrawer.reloadPrompt')); // liên tuyến domain, event/workflow/playlist-scope.js
     },
 
-    /** Gọi từ `workflowAppSettings._leaveGuard` (móc chạy đúng 1 lần lúc Back/Close, gắn ở
-     * `_renderPlaylistFilterEdit()`, xem event/workflow/app-settings.js) khi rời màn Edit MÀ KHÔNG
-     * bấm "Cập nhật" — nếu preset vừa sửa (`presetId`, Nguồn `source`) ĐÚNG là preset đang active
-     * CHO NGUỒN ĐÓ VÀ giờ không còn field hợp lệ nào, tự bỏ chọn + reset ảnh chốt (CHỈ CHO NGUỒN
-     * ĐÓ) + reload NGAY (không hỏi, CÙNG lý do "bỏ preset = nới kết quả ra"). Preset vẫn HỢP LỆ
-     * (còn field) hoặc KHÔNG PHẢI preset đang active thì không làm gì.
-     * @param {string} presetId @param {string} source */
-    autoUnapplyIfInvalid(presetId, source) {
-        const activeIdMap = appState.get('playlistFilterActivePresetId');
-        if (activeIdMap[source] !== presetId) return; // không phải preset đang active CỦA NGUỒN NÀY — không việc gì phải gỡ
-        const preset = findPlaylistFilterPresetById(appState.get('playlistFilterPresets')[source], presetId); // core
-        if (!preset) return; // đã bị xoá ở nhánh khác (deletePreset() tự lo phần gỡ rồi) — khỏi làm gì thêm
-        if (hasValidPlaylistFilterField(preset.config)) return; // vẫn còn field hợp lệ — không cần gỡ
-        appState.set('playlistFilterActivePresetId', { ...activeIdMap, [source]: null });
-        const appliedMap = appState.get('playlistFilterAppliedConfig');
-        appState.set('playlistFilterAppliedConfig', { ...appliedMap, [source]: clonePlaylistFilterConfigDefaults()[source] });
-        console.log(`writer: "autoUnapplyIfInvalid", page: "playlistFilterActivePresetId", content: "[${source}] null (preset \"${preset.name}\" hết field hợp lệ lúc rời màn Edit, tự gỡ)"`);
-        this._recomputeLiveConfig();
-        this._persist(); // không await — đang rời màn, reload ngay sau đó nên không cần chờ
-        window.location.reload();
-    },
-
     /** Nút "Xoá" ở màn Edit — xoá preset đang sửa, quay lại danh sách.
      * @param {string} id */
     async deletePreset(id) {
@@ -376,7 +352,7 @@ const workflowPlaylistFilterPresets = {
 
     /** Dùng CHUNG cho quickDelete() (danh sách) VÀ deletePreset() (màn Edit) — xoá khỏi
      * `playlistFilterPresets[source]`; nếu ĐÚNG preset đang active CỦA NGUỒN ĐÓ thì tự bỏ chọn +
-     * reload NGAY, không hỏi (CÙNG lý do autoUnapplyIfInvalid() — xoá = nới kết quả ra).
+     * reload NGAY, không hỏi (bỏ preset đang active = nới kết quả ra, không cần xác nhận).
      * @param {string} id @param {string} source */
     async _deletePresetById(id, source) {
         const activeIdMap = appState.get('playlistFilterActivePresetId');
