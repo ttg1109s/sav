@@ -76,6 +76,16 @@ if (songActionMenu) {
             eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.delete.click', payload: { songKey: playlistStore.get('songActionMenuKey') } });
             return;
         }
+        // MỚI (09/09/2026, Giang báo bug "Gỡ khỏi thư mục ở menu 1 item không dùng được") — action
+        // NÀY đã có nút trong HTML (song-menu-btn-remove-from-folder, components/playlist-view.js)
+        // + hàm workflow xử lý sẵn (workflowPlaylist.removeSongFromFolderMenu(), event/workflow/
+        // playlist.js) TỪ TRƯỚC (06/09/2026, hợp nhất Folder vào Playlist) nhưng LỠ SÓT không nối
+        // dây ở listener này — bấm không gửi msg nào, hàm workflow không bao giờ được gọi. Cùng
+        // PRECEDENT với 'delete' ngay trên (cần songKey trong payload).
+        if (btn.dataset.menuAction === 'removeFromFolder') {
+            eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.removeFromFolder.click', payload: { songKey: playlistStore.get('songActionMenuKey') } });
+            return;
+        }
         if (btn.dataset.menuAction === 'edit') {
             eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.edit.click', payload: {} });
             return;
