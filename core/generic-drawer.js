@@ -1,6 +1,13 @@
 
 const GENERIC_DRAWER_DEFAULT_Z_INDEX = Z_INDEX.GENERIC_DRAWER; // SỬA (25/07/2026, đợt tái cấu trúc state) — trước đây hardcode `128` riêng ở đây, trùng lặp với Z_INDEX.GENERIC_DRAWER (service/z-index.js) — nay đọc thẳng từ bảng chung, tránh lệch nếu 1 trong 2 chỗ bị sửa mà quên chỗ kia.
 
+// XOÁ (09/09/2026, hệ UI Theme mở rộng "đụng hết, áp dụng toàn app") — cache
+// `_activeUiThemeKeyList`/`setGenericDrawerUiTheme()` từng khai RIÊNG ở đây đã DỜI sang
+// `core/ui-theme/apply-ui.js` (`_activeUiThemeKeyList`/`setActiveUiThemeKeyList()`) — DÙNG CHUNG
+// cho mọi component tự dựng DOM, không chỉ Generic Drawer. `openGenericDrawer()`/
+// `updateGenericDrawer()` ngay dưới đọc THẲNG `_activeUiThemeKeyList` (biến module-level của file
+// apply-ui.js, đã nạp TRƯỚC file này — xem index.html).
+
 
 function _cssLengthToPx(cssLength) {
     // Dùng 1 phần tử dò ẩn để trình duyệt TỰ quy đổi bất kỳ đơn vị CSS nào (vh/%/calc()/px...) ra
@@ -79,6 +86,7 @@ function openGenericDrawer(config) {
     genericDrawerHeader.innerHTML = config.headerHtml || '';
     genericDrawerBody.innerHTML = config.bodyHtml || '';
     genericDrawerBody.className = `flex-1 min-h-0 ${config.bodyClass || ''}`.trim(); // 'flex-1 min-h-0' LUÔN giữ, bodyClass CHỈ bổ sung
+    applyUiThemeToDom(genericDrawerPanel, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — áp NGAY cho panel/handle + header/body vừa gán (mọi phần tử có data-uitk, hiện đa số nội dung feature CHƯA gắn — xem "CÒN NỢ", core/ui-theme/light.js)
 
     // Bước 1.
     genericDrawerPanel.style.opacity = '0';
@@ -127,6 +135,7 @@ function updateGenericDrawer(config) {
     genericDrawerHeader.innerHTML = config.headerHtml || '';
     genericDrawerBody.innerHTML = config.bodyHtml || '';
     genericDrawerBody.className = `flex-1 min-h-0 ${config.bodyClass || ''}`.trim();
+    applyUiThemeToDom(genericDrawerPanel, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — cùng lý do openGenericDrawer()
     genericDrawerOverlay.style.zIndex = String(zIndex - 1);
     genericDrawerBody.scrollTop = 0; // nội dung MỚI luôn bắt đầu từ đầu, không giữ vị trí cuộn của nội dung TRƯỚC đó
 

@@ -165,7 +165,8 @@ function openTimePickerModal(config) {
         const padWidth = String(count - 1).length < 2 ? 2 : String(count - 1).length;
         for (let i = 0; i < count; i++) {
             const item = document.createElement('div');
-            item.className = 'h-11 flex items-center justify-center snap-center text-lg font-mono text-white';
+            item.className = 'h-11 flex items-center justify-center snap-center text-lg font-mono';
+            item.dataset.uitk = 'textPrimary';
             item.textContent = String(i).padStart(padWidth, '0');
             col.appendChild(item);
             items.push(item);
@@ -204,20 +205,24 @@ function openTimePickerModal(config) {
 
     const overlay = document.createElement('div');
     overlay.id = 'time-picker-modal-overlay';
-    overlay.className = 'fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
+    overlay.className = 'fixed inset-0 backdrop-blur-sm flex items-center justify-center px-5';
+    overlay.dataset.uitk = 'overlayBg';
     overlay.style.zIndex = String(zIndex);
 
     const card = document.createElement('div');
-    card.className = 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-3';
+    card.className = 'rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-3';
+    card.dataset.uitk = 'modalCardBg modalCardBorder';
 
     const titleEl = document.createElement('h3');
-    titleEl.className = 'text-base font-bold text-white';
+    titleEl.className = 'text-base';
+    titleEl.dataset.uitk = 'modalTitleText';
     titleEl.textContent = config.title || '';
     card.appendChild(titleEl);
 
     if (config.rangeHintText) {
         const rangeHintEl = document.createElement('p');
-        rangeHintEl.className = 'text-[11px] text-slate-400 font-mono';
+        rangeHintEl.className = 'text-[11px] font-mono';
+        rangeHintEl.dataset.uitk = 'textSecondary';
         rangeHintEl.textContent = config.rangeHintText;
         card.appendChild(rangeHintEl);
     }
@@ -225,13 +230,15 @@ function openTimePickerModal(config) {
     const wheelWrap = document.createElement('div');
     wheelWrap.className = 'relative flex gap-1';
     const highlightBand = document.createElement('div');
-    highlightBand.className = 'absolute inset-x-0 top-1/2 -translate-y-1/2 h-11 bg-white/10 rounded-lg pointer-events-none border-y border-white/20';
+    highlightBand.className = 'absolute inset-x-0 top-1/2 -translate-y-1/2 h-11 rounded-lg pointer-events-none border-y';
+    highlightBand.dataset.uitk = 'cardBg dividerBorder'; // SỬA (09/09/2026, hệ UI Theme mở rộng) — trước đây bg-white/10 border-white/20 (vô hình trên nền trắng), giờ dải nổi bật thật trên card sáng
     wheelWrap.appendChild(highlightBand);
     cols.forEach((col) => wheelWrap.appendChild(col));
     card.appendChild(wheelWrap);
 
     const labelRow = document.createElement('div');
-    labelRow.className = 'flex gap-1 text-[10px] text-slate-500 text-center';
+    labelRow.className = 'flex gap-1 text-[10px] text-center';
+    labelRow.dataset.uitk = 'textSecondary';
     units.forEach((u) => {
         const span = document.createElement('span'); span.className = 'flex-1'; span.textContent = u.label; labelRow.appendChild(span);
     });
@@ -241,12 +248,14 @@ function openTimePickerModal(config) {
     buttonRow.className = 'flex gap-3 mt-1';
     const cancelBtn = document.createElement('button');
     cancelBtn.type = 'button';
-    cancelBtn.className = 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors';
+    cancelBtn.className = 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors';
+    cancelBtn.dataset.uitk = 'btnNeutralBg btnNeutralHoverBg btnNeutralText';
     cancelBtn.textContent = t('common.cancel');
     buttonRow.appendChild(cancelBtn);
     const confirmBtn = document.createElement('button');
     confirmBtn.type = 'button';
-    confirmBtn.className = 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-bold transition-colors';
+    confirmBtn.className = 'flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors';
+    confirmBtn.dataset.uitk = 'btnPrimaryBg btnPrimaryHoverBg textOnAccent';
     confirmBtn.textContent = t('common.ok');
     buttonRow.appendChild(confirmBtn);
     card.appendChild(buttonRow);
@@ -271,6 +280,10 @@ function openTimePickerModal(config) {
     });
 
     document.body.appendChild(overlay);
+    // GUARD (09/09/2026) — file này còn nạp ở subtitle-editor.html (trang RIÊNG, KHÔNG có
+    // core/ui-theme/*.js) — gọi thẳng applyUiThemeToDom() ở đó sẽ ReferenceError. Chỉ áp
+    // theme khi hạ tầng ĐÃ nạp (index.html), bỏ qua im lặng nếu chưa (trang khác).
+    if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(overlay, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
 
     // FIX BUG (18/07/2026, phản hồi Giang — "input ban đầu là 1 nhưng khi click vẫn là 0 0 0, tắt
     // đi ấn lần 2 mới đúng") — set `scrollTop` NGAY SAU `appendChild()` (như bản trước) đôi khi

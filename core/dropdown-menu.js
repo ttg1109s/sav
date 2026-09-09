@@ -47,13 +47,15 @@ function openDropdownMenu(anchorEl, items, options) {
     // MỚI (06/09/2026, Giang yêu cầu — "animation thả xuống/lên") — transition riêng cho
     // opacity/transform, KHÔNG đụng các thuộc tính khác (layout/màu nền...) để tránh animate
     // nhầm thứ không cố ý.
-    menu.className = 'fixed w-48 py-1.5 rounded-xl glass-modal shadow-2xl overflow-hidden transition-[opacity,transform] duration-150 ease-out';
+    menu.className = 'fixed w-48 py-1.5 rounded-xl shadow-2xl overflow-hidden transition-[opacity,transform] duration-150 ease-out';
+    menu.dataset.uitk = 'cardBg cardBorder'; // SỬA (09/09/2026, hệ UI Theme mở rộng) — trước đây `.glass-modal` (kính mờ TỐI, assets/css/glass.css), giờ ăn theo UI Theme như mọi card khác
     menu.style.zIndex = String(options.zIndex || 127);
 
     items.forEach((item) => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = `w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-left hover:bg-white/10 transition-colors ${item.destructive ? 'text-rose-400' : 'text-slate-100'}`;
+        btn.className = 'w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-left transition-colors';
+        btn.dataset.uitk = item.destructive ? 'destructiveText cardHoverBg' : 'textPrimary cardHoverBg';
         btn.innerHTML = `<span class="w-4 h-4 shrink-0 flex items-center justify-center [&>svg]:w-full [&>svg]:h-full">${item.icon}</span><span class="truncate">${item.name}</span>`;
         btn.addEventListener('click', () => {
             closeDropdownMenu();
@@ -64,6 +66,10 @@ function openDropdownMenu(anchorEl, items, options) {
 
     document.body.appendChild(overlay);
     document.body.appendChild(menu);
+    // GUARD (09/09/2026) — file này còn nạp ở subtitle-editor.html (trang RIÊNG, KHÔNG có
+    // core/ui-theme/*.js) — gọi thẳng applyUiThemeToDom() ở đó sẽ ReferenceError. Chỉ áp
+    // theme khi hạ tầng ĐÃ nạp (index.html), bỏ qua im lặng nếu chưa (trang khác).
+    if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(menu, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
 
     // Định vị neo theo anchorEl — CÙNG công thức openSongActionMenu() (core/playlist/actions.js):
     // mặc định trồi xuống DƯỚI nút, tự lật lên TRÊN nếu không đủ chỗ phía dưới màn hình.

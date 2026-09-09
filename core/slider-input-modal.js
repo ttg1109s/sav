@@ -46,20 +46,24 @@ function openSliderInputModal(config) {
 
     const overlay = document.createElement('div');
     overlay.id = 'slider-input-modal-overlay';
-    overlay.className = 'fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
+    overlay.className = 'fixed inset-0 backdrop-blur-sm flex items-center justify-center px-5';
+    overlay.dataset.uitk = 'overlayBg';
     overlay.style.zIndex = String(zIndex);
 
     const card = document.createElement('div');
-    card.className = 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
+    card.className = 'rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
+    card.dataset.uitk = 'modalCardBg modalCardBorder';
 
     const titleEl = document.createElement('h3');
-    titleEl.className = 'text-base font-bold text-white';
+    titleEl.className = 'text-base';
+    titleEl.dataset.uitk = 'modalTitleText';
     titleEl.textContent = config.title || '';
     card.appendChild(titleEl);
 
     if (config.hintText) {
         const hintEl = document.createElement('p');
-        hintEl.className = 'text-xs text-slate-400 truncate';
+        hintEl.className = 'text-xs truncate';
+        hintEl.dataset.uitk = 'textSecondary';
         hintEl.textContent = config.hintText;
         card.appendChild(hintEl);
     }
@@ -84,11 +88,13 @@ function openSliderInputModal(config) {
     numberEl.max = String(max);
     numberEl.step = String(step);
     numberEl.value = String(currentValue);
-    numberEl.className = 'w-16 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-white text-right';
+    numberEl.className = 'w-16 rounded-lg px-2 py-1.5 text-sm text-right';
+    numberEl.dataset.uitk = 'inputBg inputBorder inputText';
     numberWrap.appendChild(numberEl);
     if (unitSuffix) {
         const suffixEl = document.createElement('span');
-        suffixEl.className = 'text-xs text-slate-400';
+        suffixEl.className = 'text-xs';
+        suffixEl.dataset.uitk = 'textSecondary';
         suffixEl.textContent = unitSuffix;
         numberWrap.appendChild(suffixEl);
     }
@@ -99,12 +105,14 @@ function openSliderInputModal(config) {
     buttonRow.className = 'flex gap-3 mt-1';
     const cancelBtn = document.createElement('button');
     cancelBtn.type = 'button';
-    cancelBtn.className = 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors';
+    cancelBtn.className = 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors';
+    cancelBtn.dataset.uitk = 'btnNeutralBg btnNeutralHoverBg btnNeutralText';
     cancelBtn.textContent = t('common.cancel');
     buttonRow.appendChild(cancelBtn);
     const applyBtn = document.createElement('button');
     applyBtn.type = 'button';
-    applyBtn.className = 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-bold transition-colors';
+    applyBtn.className = 'flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors';
+    applyBtn.dataset.uitk = 'btnPrimaryBg btnPrimaryHoverBg textOnAccent';
     applyBtn.textContent = t('common.apply');
     buttonRow.appendChild(applyBtn);
     card.appendChild(buttonRow);
@@ -131,4 +139,8 @@ function openSliderInputModal(config) {
     });
 
     document.body.appendChild(overlay);
+    // GUARD (09/09/2026) — file này còn nạp ở subtitle-editor.html (trang RIÊNG, KHÔNG có
+    // core/ui-theme/*.js) — gọi thẳng applyUiThemeToDom() ở đó sẽ ReferenceError. Chỉ áp
+    // theme khi hạ tầng ĐÃ nạp (index.html), bỏ qua im lặng nếu chưa (trang khác).
+    if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(overlay, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
 }

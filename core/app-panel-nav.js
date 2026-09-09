@@ -14,10 +14,26 @@
 
 /** Tô sáng đúng nút bottom nav khớp `tab` — mọi nút khác bỏ `.active`.
  * @param {string} tab - 'media'|'folder'|'storage'|'game'|'statis' */
+/** SỬA (09/09/2026, hệ UI Theme mở rộng "đổi hết trừ Visualizer") — nút active TRƯỚC ĐÂY đổi màu
+ * qua class CSS tĩnh `.app-bottom-nav-btn.active` (`color: #2dd4bf` hardcode) — giờ tra màu accent
+ * THẬT của theme đang chạy (`accentText`, core/ui-theme/light.js) qua `resolveUiThemeClass()`, gán
+ * trực tiếp làm class Tailwind trên ĐÚNG nút đang active (KHÔNG còn dựa vào `.active` cho MÀU nữa,
+ * chỉ còn dùng cho mục đích khác nếu có sau này) — fallback hardcode `text-sky-600` nếu hạ tầng
+ * theme lỡ chưa nạp (không nên xảy ra ở index.html, chỉ phòng hờ). Nút KHÔNG active rơi về
+ * `textMutedIcon` (core/ui-theme/light.js) qua chính class đó, KHÔNG cần .active nữa. */
 function setAppPanelNavActiveTab(tab) {
     if (!appBottomNav) return;
+    const activeCls = (typeof resolveUiThemeClass === 'function' && typeof _activeUiThemeKeyList !== 'undefined')
+        ? resolveUiThemeClass(_activeUiThemeKeyList, 'accentText')
+        : 'text-sky-600';
+    const inactiveCls = (typeof resolveUiThemeClass === 'function' && typeof _activeUiThemeKeyList !== 'undefined')
+        ? resolveUiThemeClass(_activeUiThemeKeyList, 'textMutedIcon')
+        : 'text-slate-400';
     appBottomNav.querySelectorAll('.app-bottom-nav-btn').forEach((btn) => {
-        btn.classList.toggle('active', btn.dataset.tab === tab);
+        const isActive = btn.dataset.tab === tab;
+        btn.classList.toggle('active', isActive);
+        btn.classList.remove(activeCls, inactiveCls); // gỡ CẢ 2 khả năng trước, tránh tồn dư lần trước nếu theme vừa đổi
+        btn.classList.add(isActive ? activeCls : inactiveCls);
     });
 }
 

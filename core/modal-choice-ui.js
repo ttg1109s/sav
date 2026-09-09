@@ -116,7 +116,8 @@
                     [
                         {
                             label: okLabel,
-                            className: 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold transition-colors',
+                            className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors',
+                            themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent', // SỬA (09/09/2026, hệ UI Theme mở rộng) — trước đây bg-indigo-600 hardcode riêng, giờ hợp nhất về ĐÚNG màu primary chung toàn app (sky) thay vì 1 màu indigo lẻ loi chỉ dùng đúng đây
                             onClick: () => resolve()
                         }
                     ],
@@ -129,7 +130,8 @@
          * động, không cần tự dựng tay") — tự đóng modal rồi gọi options.onCancel (nếu có). */
         function _buildCancelButton(closeModal, options) {
             const btnEl = document.createElement('button');
-            btnEl.className = 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors';
+            btnEl.className = 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors';
+            btnEl.dataset.uitk = 'btnNeutralBg btnNeutralHoverBg btnNeutralText';
             btnEl.textContent = typeof t === 'function' ? t('common.cancel') : 'Cancel';
             btnEl.addEventListener('click', () => {
                 closeModal();
@@ -145,7 +147,12 @@
             if (options.showCancel !== false) buttonRow.appendChild(_buildCancelButton(closeModal, options));
             choices.forEach((btnDef) => {
                 const btnEl = document.createElement('button');
-                btnEl.className = btnDef.className || 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors';
+                // SỬA (09/09/2026) — `themeKeys` tuỳ chọn MỚI (vd alertModal() ngay trên) cho lựa
+                // chọn nào muốn ăn theo UI Theme thay vì tự cứng `className` màu riêng — KHÔNG bắt
+                // buộc, mọi nơi gọi CŨ chưa truyền vẫn y nguyên hành vi cũ (className tự lo màu).
+                btnEl.className = btnDef.className || 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors';
+                if (btnDef.themeKeys) btnEl.dataset.uitk = btnDef.themeKeys;
+                if (!btnDef.className && !btnDef.themeKeys) btnEl.dataset.uitk = 'btnNeutralBg btnNeutralHoverBg btnNeutralText';
                 btnEl.textContent = btnDef.label;
                 if (btnDef.dataset) Object.keys(btnDef.dataset).forEach(k => { btnEl.dataset[k] = btnDef.dataset[k]; });
                 if (btnDef.disabled) {
@@ -163,7 +170,8 @@
          * option đang chọn trong dropdown. */
         function _appendDropdownRow(card, choices, closeModal, options) {
             const selectEl = document.createElement('select');
-            selectEl.className = 'w-full py-2.5 px-3 rounded-xl bg-slate-800 border border-slate-600 text-sm text-white mt-1';
+            selectEl.className = 'w-full py-2.5 px-3 rounded-xl text-sm mt-1';
+            selectEl.dataset.uitk = 'inputBg inputBorder inputText';
             choices.forEach((btnDef, i) => {
                 const optionEl = document.createElement('option');
                 optionEl.value = String(i);
@@ -179,7 +187,8 @@
             if (options.showCancel !== false) row.appendChild(_buildCancelButton(closeModal, options));
 
             const confirmBtn = document.createElement('button');
-            confirmBtn.className = 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold transition-colors';
+            confirmBtn.className = 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors';
+            confirmBtn.dataset.uitk = 'btnPrimaryBg btnPrimaryHoverBg textOnAccent';
             confirmBtn.textContent = typeof t === 'function' ? t('common.select') : 'Chọn';
             confirmBtn.addEventListener('click', () => {
                 const chosen = choices[Number(selectEl.value)];
@@ -200,21 +209,25 @@
 
             const overlay = document.createElement('div');
             overlay.id = 'modal-choice-overlay';
-            overlay.className = 'fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
+            overlay.className = 'fixed inset-0 backdrop-blur-sm flex items-center justify-center px-5';
+            overlay.dataset.uitk = 'overlayBg'; // SỬA (09/09/2026) — trước đây bg-black/70 hardcode riêng, giờ DÙNG CHUNG đúng overlayBg với Generic Drawer (bg-black/50, cố ý KHÔNG đổi theo theme — xem docstring core/ui-theme/light.js)
             overlay.style.zIndex = String(Z_INDEX.MODAL_CHOICE);
 
             const card = document.createElement('div');
-            card.className = 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
+            card.className = 'rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
+            card.dataset.uitk = 'modalCardBg modalCardBorder';
 
             if (options.title) {
                 const titleEl = document.createElement('h3');
-                titleEl.className = 'text-base font-bold text-white';
+                titleEl.className = 'text-base';
+                titleEl.dataset.uitk = 'modalTitleText';
                 titleEl.textContent = options.title;
                 card.appendChild(titleEl);
             }
 
             const textEl = document.createElement('p');
-            textEl.className = 'text-sm text-slate-300 leading-relaxed whitespace-pre-line';
+            textEl.className = 'text-sm leading-relaxed whitespace-pre-line';
+            textEl.dataset.uitk = 'modalBodyText';
             textEl.innerHTML = text; // cho phép <b>/<br> đơn giản — nội dung luôn do code app tự dựng, không lấy trực tiếp từ input người dùng chưa qua escape
             textEl.id = 'modal-choice-text'; // cho phép code bên ngoài cập nhật lại nội dung sau khi mở
             card.appendChild(textEl);
@@ -244,5 +257,9 @@
             }
 
             document.body.appendChild(overlay);
+            // GUARD (09/09/2026) — file này còn nạp ở subtitle-editor.html (trang RIÊNG, KHÔNG có
+    // core/ui-theme/*.js) — gọi thẳng applyUiThemeToDom() ở đó sẽ ReferenceError. Chỉ áp
+    // theme khi hạ tầng ĐÃ nạp (index.html), bỏ qua im lặng nếu chưa (trang khác).
+    if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(overlay, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — modalChoice từng đứng ngoài hệ theme, giờ áp NGAY lúc dựng DOM, cùng cơ chế Generic Drawer
             return closeModal; // trả về hàm đóng, phòng trường hợp code gọi cần tự đóng modal sớm hơn (hiếm dùng)
         }

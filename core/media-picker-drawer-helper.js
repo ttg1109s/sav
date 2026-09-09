@@ -53,9 +53,9 @@ function openMediaPickerDrawerUi(routerName, msgPrefix, title, bodyHtml, tileSel
         maxHeight: '90vh',
         zIndex: Z_INDEX.GENERIC_DRAWER, // service/z-index.js — mặc định, KHÔNG có modal xem ảnh nào mở đồng thời với picker này (khác action-menu cần z=131)
         headerHtml: `
-            <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
-                <h3 class="text-base font-bold text-slate-900">${title}</h3>
-                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
+            <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
+                <h3 class="text-base font-bold" data-uitk="headerTitle">${title}</h3>
+                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.close')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>

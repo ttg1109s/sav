@@ -399,6 +399,20 @@
             isStatsPanelVisible: true,
         };
 
+        /**
+         * Domain config RIÊNG cho hệ UI Theme (MỚI 09/09/2026, Giang yêu cầu "theme light/dark/
+         * morphin, tự động áp dụng toàn app") — KHÔNG liên quan gì tới `viz.themeMode` ('light'|
+         * 'dark'|'background'|'gradient', event/workflow/theme.js) — field ĐÓ chỉ đổi ẢNH/MÀU NỀN
+         * PHÍA SAU Playlist/Visualizer (bgImage/gradient), CHƯA hề áp dụng lại màu app thật (xem
+         * chính docstring `DEFAULT_VIZ_CONFIG.themeMode` ngay trên). `activeUiTheme` ở đây là theme
+         * MÀU SẮC CHUNG toàn app (panel/card/text/nút bấm...) — xem core/ui-theme/*.js.
+         * Domain RIÊNG (không gộp vào `viz`) vì 2 khái niệm "theme" này ĐỘC LẬP hoàn toàn, không
+         * loại trừ nhau (vd: Playlist Background đang 'gradient' KHÔNG ngăn UI Theme là 'dark').
+         */
+        const DEFAULT_UI_THEME_CONFIG = {
+            activeUiTheme: 'light', // 'light' | 'dark' | 'morphin' — xem UI_THEME_REGISTRY, core/ui-theme/registry.js
+        };
+
         AppConfig.defineDomain('viz', {
             schema: {
                 type: 'string', customEffect: 'object',
@@ -469,6 +483,13 @@
             defaults: DEFAULT_PLAYER_CONFIG,
         });
 
+        AppConfig.defineDomain('uiTheme', {
+            schema: {
+                activeUiTheme: 'string',
+            },
+            defaults: DEFAULT_UI_THEME_CONFIG,
+        });
+
         /** Seed CẢ 3 domain config NGAY TẠI ĐÂY — lúc nạp core/config.js (SỬA 27/07/2026, trước
          * đây gọi trễ hơn từ event/workflow/app-boot.js lúc DOMContentLoaded, để hở 1 khoảng giữa
          * lúc tạo accessor bên dưới và lúc seed thật sự -> access() console.warn "chưa seed()" 3
@@ -483,15 +504,17 @@
             appConfig.seed('reader');
             appConfig.seed('playlist');
             appConfig.seed('player');
+            appConfig.seed('uiTheme');
         }
         seedConfig();
 
-        /** Accessor tiện dụng, dùng khắp core/event cho 5 domain config — xem AppConfig.access(). */
+        /** Accessor tiện dụng, dùng khắp core/event cho 6 domain config — xem AppConfig.access(). */
         const appConfigViz = appConfig.access('viz');
         const appConfigVisualBg = appConfig.access('visualBg');
         const appConfigReader = appConfig.access('reader');
         const appConfigPlaylist = appConfig.access('playlist');
         const appConfigPlayer = appConfig.access('player');
+        const appConfigUiTheme = appConfig.access('uiTheme');
 
         /** Reset vizConfig về default (gộp từ core/app-recovery.js::executeRestoreDefaults() cũ —
          * CHỈ phần reset, KHÔNG gồm saveConfig()/reload(), 2 việc đó vẫn ở app-recovery.js). */
