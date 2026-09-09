@@ -38,7 +38,7 @@ function renderVisualizerDisplayPanelBody() {
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                 <input type="checkbox" id="${id}" class="sr-only peer" ${checked ? 'checked' : ''}>
-                                <div class="w-9 h-5 bg-slate-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
                             </label>
                         </div>`;
 
@@ -48,9 +48,9 @@ function renderVisualizerDisplayPanelBody() {
                  "vẫn cấp cho subtitle một sub panel ở trong Display Visualizer"). Panel con giờ
                  có thêm Styling + coming/in/outing (mục 4), xem components/subtitle-settings-
                  drawer.js. -->
-            <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
+            <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                 ${toggleRow('setting-visual-enable', 'settingsVisualizer.visualEnable.label', 'settingsVisualizer.visualEnable.hint', true, 'border-b border-slate-200')}
-                <button id="setting-open-subtitle-panel" class="flex justify-between items-center p-4 hover:bg-slate-100 transition-colors w-full text-left">
+                <button id="setting-open-subtitle-panel" class="flex justify-between items-center p-4 w-full text-left" data-uitk="cardHoverBg">
                     <div class="flex items-center gap-3 min-w-0">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
                         <div class="min-w-0">
@@ -70,13 +70,13 @@ function renderVisualizerDisplayPanelBody() {
             <!-- SECTION: THÀNH PHẦN — gộp chung Stats panel + 3 toggle UI chrome cố định. -->
             <div>
                 <h3 class="text-xs font-bold text-yellow-600 uppercase tracking-widest mb-2 ml-2" data-i18n="visualizerSettingsDrawer.section.components">${t('visualizerSettingsDrawer.section.components')}</h3>
-                <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
+                <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                     ${toggleRow('setting-subtitles-enabled', 'settingsSubtitleStyle.enable.label', 'settingsSubtitleStyle.enable.hint', true, 'border-b border-slate-200')}
                     ${toggleRow('setting-stats-panel-enable', 'visualizerSettingsDrawer.statsPanelEnable.label', 'visualizerSettingsDrawer.statsPanelEnable.hint', false, 'border-b border-slate-200')}
                     ${toggleRow('setting-bottom-player-enable', 'visualizerSettingsDrawer.bottomPlayerEnable.label', 'visualizerSettingsDrawer.bottomPlayerEnable.hint', false, 'border-b border-slate-200')}
                     ${toggleRow('setting-playlist-button-enable', 'visualizerSettingsDrawer.playlistButtonEnable.label', 'visualizerSettingsDrawer.playlistButtonEnable.hint', false, 'border-b border-slate-200')}
                     ${toggleRow('setting-control-center-button-enable', 'visualizerSettingsDrawer.controlCenterButtonEnable.label', 'visualizerSettingsDrawer.controlCenterButtonEnable.hint', false, '')}
-                    <div class="px-4 py-3 text-xs text-slate-500 border-t border-slate-200" data-i18n="visualizerSettingsDrawer.uiToggleGroupHint">${t('visualizerSettingsDrawer.uiToggleGroupHint')}</div>
+                    <div class="px-4 py-3 text-xs text-slate-500 border-t" data-uitk="dividerBorder" data-i18n="visualizerSettingsDrawer.uiToggleGroupHint">${t('visualizerSettingsDrawer.uiToggleGroupHint')}</div>
                 </div>
             </div>
         </div>

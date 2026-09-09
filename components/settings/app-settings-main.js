@@ -30,7 +30,7 @@ function renderAppSettingsMainBody() {
  * @param {{key:string, icon:string, labelKey:string, hintKey?:string}[]} rows */
 function renderAppSettingsRowList(rows) {
     return rows.map((row) => `
-        <button type="button" data-app-settings-nav="${row.key}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-3 bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors">
+        <button type="button" data-app-settings-nav="${row.key}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-3" data-uitk="cardBg cardBorder cardHoverBg">
             <div class="flex items-center gap-3 min-w-0">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-sky-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${row.icon}" /></svg>
                 <div class="min-w-0">

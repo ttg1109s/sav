@@ -25,19 +25,19 @@ const TPL_SETTINGS_LANGUAGE = `
         <!-- SECTION: NGÔN NGỮ (mới, batch i18n) -->
         <div>
             <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2" data-i18n="settingsLanguage.sectionTitle">${t('settingsLanguage.sectionTitle')}</h3>
-            <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
-                <div class="flex justify-between items-center p-4 border-b border-slate-200 hover:bg-slate-100 transition-colors">
+            <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
+                <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder cardHoverBg">
                     <span class="text-sm font-medium flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.6 9h16.8M3.6 15h16.8M11.5 3a17 17 0 000 18M12.5 3a17 17 0 010 18M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         <span data-i18n="settingsLanguage.select.label">${t('settingsLanguage.select.label')}</span>
                     </span>
-                    <select id="setting-language-select" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-36 text-right">
+                    <select id="setting-language-select" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
                         <!-- <option> dựng bằng JS — xem renderLanguageOptions() ở language-settings.js -->
                     </select>
                 </div>
-                <div class="flex justify-between items-center p-4 border-b border-slate-200">
+                <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder">
                     <span class="text-sm font-medium truncate" data-i18n="settingsLanguage.upload.label">${t('settingsLanguage.upload.label')}</span>
-                    <label class="px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow">
+                    <label class="px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors shadow" data-uitk="btnPrimaryPillBg btnPrimaryPillHoverBg textOnAccent">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline -mt-0.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3-3 3 3m-3-3v6" /></svg>
                         <span data-i18n="common.btn.upload">${t('common.btn.upload')}</span>
                         <input type="file" id="setting-language-upload" accept=".json,application/json" class="hidden">
