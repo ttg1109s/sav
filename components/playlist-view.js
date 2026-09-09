@@ -260,7 +260,7 @@ const TPL_PLAYLIST_VIEW = `
             <!-- Tab 1 (MẶC ĐỊNH/đầu): Chi tiết — gộp từ #song-info-modal cũ (title/artist/album/
                  duration/lượt nghe/thời gian đã nghe, đọc-thôi) — populate qua JS
                  (core/playlist/actions.js::openSongEditModal(), dùng songInfoRowHtml()). -->
-            <div id="song-edit-tab-details" class="flex flex-col gap-2 p-5"></div>
+            <div id="song-edit-tab-details" class="flex flex-col p-5"></div>
 
             <!-- Tab 2: Sửa — ĐỔI TÊN từ "Thông tin" (tab đầu cũ) — 2 nhóm LOẠI TRỪ NHAU tuỳ media
                  type (SỬA phản hồi Giang 28/07/2026, "video/song modal": Song = 3 field title/
