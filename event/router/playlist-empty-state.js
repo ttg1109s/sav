@@ -9,10 +9,14 @@
  *
  * SỬA (09/09/2026, Giang yêu cầu 2 việc):
  *   1. "Gộp nút icon visualizer riêng vào nút Phát" — #btn-return-visual (icon nhấp nháy ở header)
- *      ĐÃ XOÁ hẳn. `playlistEmptyState.play.click` giờ rẽ nhánh THÊM 1 tầng qua
- *      `btnPlaylistEmptyPlay.dataset.playing` (tự đồng bộ bởi updatePlayButtonPlayingState(),
- *      core/playlist/render.js) TRƯỚC khi xét sectionQueueActive như cũ: đang "Đang phát" -> gọi
- *      thẳng `returnToVisualizer()` (core/visualizer-control-center.js), KHÔNG phát lại.
+ *      ĐÃ XOÁ hẳn. `playlistEmptyState.play.click` giờ rẽ nhánh THÊM 1 tầng, TỰ TÍNH LẠI trực tiếp
+ *      từ `currentKey`/`displayOrder` (ĐÚNG công thức updatePlayButtonPlayingState() dùng để đặt
+ *      nhãn nút — core/playlist/render.js, KHÔNG đọc `dataset.playing` cache của nút — SỬA tiếp
+ *      cùng ngày, Giang báo bug "hiện Phát nhưng bấm vẫn vào Visualizer": cache lệch nếu lỡ sót 1
+ *      đường gọi lại updatePlayButtonPlayingState() sau khi đổi playlist, tự tính lại loại bỏ hẳn
+ *      rủi ro đó) TRƯỚC khi xét sectionQueueActive như cũ: đang phát (còn nằm trong displayOrder
+ *      hiện hành) -> gọi thẳng `returnToVisualizer()` (core/visualizer-control-center.js), KHÔNG
+ *      phát lại.
  *   2. "Ấn Shuffle bất kể trạng thái đều tạo ngẫu nhiên mới" — nhánh sectionQueueActive=false của
  *      `playlistEmptyState.shuffle.click` KHÔNG còn gọi thẳng tại đây (hành vi cũ: Shuffle đã bật
  *      sẵn thì bấm lại không đổi gì) — giao hẳn `workflowPlaylistEmptyState.
@@ -26,13 +30,16 @@ const routerPlaylistEmptyState = (() => {
     function handle(msg) {
         switch (msg.type) {
             case 'playlistEmptyState.play.click': {
-                // MỚI (09/09/2026, Giang yêu cầu "gộp nút icon visualizer riêng vào nút Phát") —
-                // nút đang ở trạng thái "Đang phát" (dataset.playing, tự đồng bộ bởi
-                // updatePlayButtonPlayingState(), core/playlist/render.js) -> bấm vào CHUYỂN SANG
-                // Visualizer, KHÔNG phát lại từ đầu. Đọc thẳng dataset (đã tính sẵn, không cần suy
-                // lại currentKey/displayOrder ở đây — đúng vai trò Router "chỉ đọc state để rẽ
-                // nhánh", không tính toán nghiệp vụ).
-                const isPlayingState = btnPlaylistEmptyPlay.dataset.playing === 'true';
+                // SỬA (09/09/2026, Giang báo bug "hiện Play nhưng bấm vẫn vào Visualizer") — TRƯỚC
+                // ĐÂY đọc `btnPlaylistEmptyPlay.dataset.playing` (giá trị CACHE, chỉ đúng nếu
+                // updatePlayButtonPlayingState() — core/playlist/render.js — vừa được gọi lại đúng
+                // lúc trước khi bấm; lỡ sót 1 đường gọi nào đó sau khi đổi playlist là cache lệch
+                // khỏi state thật NGAY, dataset vẫn 'true' dù nhãn đã về "Phát"). Giờ TỰ TÍNH LẠI
+                // trực tiếp từ `currentKey`/`displayOrder` — ĐÚNG 1 nguồn sự thật DUY NHẤT, y hệt
+                // công thức `updatePlayButtonPlayingState()` dùng để đặt nhãn — không còn phụ thuộc
+                // cache nào phải nhớ đồng bộ đúng lúc nữa, tự nhiên khớp nhãu 100% mọi lúc.
+                const currentKey = appState.get('currentKey');
+                const isPlayingState = currentKey != null && appState.get('displayOrder').includes(currentKey);
                 VirtualMachineState.run([
                     { state: isPlayingState, operation: '===', value: true, callback: () => returnToVisualizer() }, // core/visualizer-control-center.js
                     { state: isPlayingState, operation: '===', value: false, callback: () => {
@@ -41,7 +48,7 @@ const routerPlaylistEmptyState = (() => {
                             { state: sectionActive, operation: '===', value: true, callback: () => workflowPlaylistEmptyState.resetToTopLevelThenPlay() },
                             { state: sectionActive, operation: '===', value: false, callback: () => {
                                 const displayOrder = appState.get('displayOrder');
-                                if (displayOrder.length > 0) workflowPlayer.playMedia(appState.get('currentKey') || displayOrder[0]);
+                                if (displayOrder.length > 0) workflowPlayer.playMedia(currentKey || displayOrder[0]);
                             } },
                         ]);
                     } },
