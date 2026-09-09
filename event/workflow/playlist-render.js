@@ -62,13 +62,14 @@ const workflowPlaylistRender = {
         const eqIconHtml = isActuallyPlaying ? `<div class="flex items-end gap-[2px] h-3 w-3"><div class="w-[3px] bg-sky-400 eq-1"></div><div class="w-[3px] bg-sky-400 eq-2"></div><div class="w-[3px] bg-sky-400 eq-3"></div></div>` : (isPlaying ? `<div class="w-2 h-2 rounded-full bg-sky-500 shadow-[0_0_5px_rgba(14,165,233,0.8)]"></div>` : '');
         const selectionMode = appState.get('selectionMode');
         const isSelected = selectionMode && appState.get('selectedMediaKeys').has(key);
-        const menuBtnHtml = selectionMode ? '' : songActionMenuButtonHtml(key); // core/playlist/render.js
+        const isGridViewNow = appState.get('isGridView'); // đọc 1 lần, dùng lại cho cả menuBtnHtml lẫn nhánh render bên dưới
+        const menuBtnHtml = selectionMode ? '' : songActionMenuButtonHtml(key, isGridViewNow); // core/playlist/render.js — tham số 2 MỚI (09/09/2026), xem docstring hàm đó
 
         const wrapper = document.createElement('div');
         wrapper.dataset.key = key;
         wrapper._coverObjectUrl = hasRealCover ? coverUrl : null;
 
-        if (appState.get('isGridView')) {
+        if (isGridViewNow) {
             wrapper.className = `flex flex-col cursor-pointer active:scale-[0.98] transition-transform group relative w-full`;
             wrapper.dataset.role = 'play-item';
             wrapper.innerHTML = `
@@ -81,8 +82,8 @@ const workflowPlaylistRender = {
                 <h3 class="text-[15px] font-semibold leading-tight line-clamp-1 px-1" data-uitk="textPrimary">${title}</h3>
                 <p class="text-[13px] font-medium line-clamp-1 px-1 mt-0.5" data-uitk="textSecondary">${secondLineHtml}</p>`;
         } else {
-            wrapper.className = `flex items-center gap-4 px-5 py-3 active:bg-slate-100 transition-colors cursor-pointer w-full group border-b ${isSelected ? 'bg-sky-50' : ''}`;
-            wrapper.dataset.uitk = isSelected ? 'dividerBorder' : 'dividerBorder cardHoverBg';
+            wrapper.className = `flex items-center gap-4 px-5 py-3 active:bg-slate-100 transition-colors cursor-pointer w-full group ${isSelected ? 'bg-sky-50' : ''}`;
+            wrapper.dataset.uitk = isSelected ? '' : 'cardHoverBg';
             wrapper.dataset.role = 'play-item';
             wrapper.innerHTML = `
                 ${selectionMode ? selectionIndicatorHtml(isSelected) : ''}

@@ -322,15 +322,15 @@ const workflowFileManagerFolderBrowser = {
         const bodyHtml = `
             <div class="space-y-3">
                 <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-                    <span class="text-slate-400">${t('fileManager.folderBrowser.tileMenu.propertiesContains')}</span><span class="text-slate-100 font-medium">${escapeHtml(countLabel)}</span>
-                    <span class="text-slate-400">${t('fileManager.folderBrowser.tileMenu.propertiesSize')}</span><span class="text-slate-100 font-medium">${formatBytes(totalBytes)}</span>
+                    <span data-uitk="textSecondary">${t('fileManager.folderBrowser.tileMenu.propertiesContains')}</span><span class="font-medium" data-uitk="textPrimary">${escapeHtml(countLabel)}</span>
+                    <span data-uitk="textSecondary">${t('fileManager.folderBrowser.tileMenu.propertiesSize')}</span><span class="font-medium" data-uitk="textPrimary">${formatBytes(totalBytes)}</span>
                 </div>
-                <div class="border-t border-white/10 pt-3 space-y-2.5">
-                    <label class="flex items-center gap-2.5 text-sm text-slate-200 cursor-pointer">
+                <div class="border-t pt-3 space-y-2.5" data-uitk="dividerBorder">
+                    <label class="flex items-center gap-2.5 text-sm cursor-pointer" data-uitk="textPrimary">
                         <input type="checkbox" id="folder-properties-readonly-checkbox" class="w-4 h-4 rounded accent-sky-500"${folderRecord.isReadOnly ? ' checked' : ''}>
                         ${t('fileManager.folderBrowser.tileMenu.readOnlyLabel')}
                     </label>
-                    <label class="flex items-center gap-2.5 text-sm text-slate-200 cursor-pointer">
+                    <label class="flex items-center gap-2.5 text-sm cursor-pointer" data-uitk="textPrimary">
                         <input type="checkbox" id="folder-properties-hidden-checkbox" class="w-4 h-4 rounded accent-sky-500"${folderRecord.excludeFromMainPlaylist ? ' checked' : ''}>
                         ${t('fileManager.folderBrowser.tileMenu.hiddenLabel')}
                     </label>

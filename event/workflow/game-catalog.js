@@ -52,6 +52,7 @@ const workflowGameCatalog = {
         const { gameplayPhase, gameplayArmedGameId } = appState.get(['gameplayPhase', 'gameplayArmedGameId']);
         const difficultyByGameId = appConfigViz.getAll().gameplayDifficultyByGame; // core/config.js — PERSISTENT
         gamePanelList.innerHTML = buildGamePanelListHtml(GAMEPLAY_GAMES_CATALOG, gameplayArmedGameId, gameplayPhase, difficultyByGameId, t); // core-ui (game-panel-ui.js)
+        if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(gamePanelList, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — MỚI (09/09/2026, hệ UI Theme mở rộng) — nội dung dựng ĐỘNG (gamePanelList.innerHTML = ...), không tự ăn theme lúc boot, phải tự áp mỗi lần renderList() chạy lại
         setAppBottomNavGameIndicator(gameplayArmedGameId != null); // core (app-panel-nav.js)
     },
 
