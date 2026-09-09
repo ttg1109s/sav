@@ -343,6 +343,24 @@ const workflowPlaylistFilterPresets = {
         workflowPlaylistScope.askReloadToApplyNow(t('playlistFilterPresetsDrawer.reloadPrompt')); // liên tuyến domain, event/workflow/playlist-scope.js
     },
 
+    /** Nút "Bỏ chọn" (list quick-action HOẶC màn Edit, CÙNG hành động — MỚI 09/09/2026, phản hồi
+     * Giang — "với filter đang active, thay vì nút delete -> unselect") — CHỈ gỡ preset khỏi vai
+     * trò active CHO NGUỒN `source` (bỏ chọn + reset ảnh chốt về rỗng + reload NGAY, không hỏi —
+     * CÙNG lý do mọi hành động "gỡ" khác: nới kết quả ra, không cần xác nhận), KHÔNG xoá preset
+     * khỏi danh sách — preset vẫn còn nguyên để chọn lại sau. KHÁC hẳn `deletePreset()`/
+     * `_deletePresetById()` (xoá HẲN preset khỏi `playlistFilterPresets[source]`).
+     * @param {string} source - 'song'|'video'|'photo' */
+    async unselectPreset(source) {
+        const activeIdMap = appState.get('playlistFilterActivePresetId');
+        appState.set('playlistFilterActivePresetId', { ...activeIdMap, [source]: null });
+        const appliedMap = appState.get('playlistFilterAppliedConfig');
+        appState.set('playlistFilterAppliedConfig', { ...appliedMap, [source]: clonePlaylistFilterConfigDefaults()[source] });
+        console.log(`writer: "unselectPreset", page: "playlistFilterActivePresetId", content: "[${source}] null (bỏ chọn, KHÔNG xoá preset)"`);
+        this._recomputeLiveConfig();
+        await this._persist();
+        window.location.reload();
+    },
+
     /** Nút "Xoá" ở màn Edit — xoá preset đang sửa, quay lại danh sách.
      * @param {string} id */
     async deletePreset(id) {

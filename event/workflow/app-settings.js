@@ -179,6 +179,12 @@ const workflowAppSettings = {
                 body.querySelectorAll('[data-playlist-filter-quickdelete]').forEach((el) => {
                     el.addEventListener('click', (e) => { e.stopPropagation(); eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.quickDelete.click', payload: { id: el.dataset.playlistFilterQuickdelete } }); });
                 });
+                // MỚI (09/09/2026, phản hồi Giang — "với filter đang active, thay vì nút delete ->
+                // unselect") — dòng active hiện nút bỏ chọn thay vì xoá nhanh, xem components/
+                // playlist-filter-drawer.js::renderPlaylistFilterListBody().
+                body.querySelectorAll('[data-playlist-filter-quickunselect]').forEach((el) => {
+                    el.addEventListener('click', (e) => { e.stopPropagation(); eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.quickUnselect.click', payload: { source } }); });
+                });
                 const addBtn = body.querySelector('#btn-playlist-filter-list-add');
                 if (addBtn) addBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.add.click', payload: {} }));
             },
@@ -215,6 +221,10 @@ const workflowAppSettings = {
                 if (selectBtn) selectBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.select.click', payload: { id: preset.id, source } }));
                 const deleteBtn = body.querySelector('#btn-playlist-filter-delete');
                 if (deleteBtn) deleteBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.delete.click', payload: { id: preset.id } }));
+                // MỚI (09/09/2026) — preset đang active hiện nút "Bỏ chọn" thay vì "Xoá" (id khác,
+                // xem renderPlaylistFilterEditBody()) — CHỈ 1 trong 2 nút tồn tại trong DOM mỗi lần.
+                const unselectBtn = body.querySelector('#btn-playlist-filter-unselect');
+                if (unselectBtn) unselectBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.unselect.click', payload: { source } }));
             },
         );
     },
