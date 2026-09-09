@@ -64,6 +64,14 @@ const routerPlaylist = (() => {
                 break;
             }
 
+            // MỚI (09/09/2026, Giang báo bug "Gỡ khỏi thư mục ở menu 1 item không dùng được") —
+            // nút + hàm workflow đã có sẵn từ 06/09/2026 (hợp nhất Folder vào Playlist) nhưng LỠ SÓT
+            // không nối dây msg.type này — xem comment cùng ngày ở event/listener/playlist.js.
+            case 'playlist.actionMenu.removeFromFolder.click': {
+                workflowPlaylist.removeSongFromFolderMenu(msg.payload.songKey);
+                break;
+            }
+
             case 'playlist.actionMenu.edit.click': {
                 workflowPlaylist.openSongEditFromActionMenu();
                 break;
