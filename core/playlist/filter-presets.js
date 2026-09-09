@@ -23,14 +23,16 @@
  * hành vi giống hệt "chưa có Filter" — xem `_recomputeLiveConfig()` ở workflow.
  */
 
-/** Preset trắng (mọi field rule = null) cho ĐÚNG 1 Nguồn — dùng cho nút "+" ở màn danh sách.
+/** Preset trắng (mọi field rule = null, `appliesToFolder` mặc định BẬT — phản hồi Giang 09/09/2026)
+ * cho ĐÚNG 1 Nguồn — dùng cho nút "+" ở màn danh sách.
  * @param {string} name @param {string} source - 'song'|'video'|'photo'
- * @returns {{id:string,name:string,config:object}} */
+ * @returns {{id:string,name:string,config:object,appliesToFolder:boolean}} */
 function buildBlankPlaylistFilterPreset(name, source) {
     return {
         id: 'pf-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
         name,
         config: clonePlaylistFilterConfigDefaults()[source], // service/state/playlist.js — CHỈ lấy bucket của ĐÚNG Nguồn, không ôm cả 3 nữa
+        appliesToFolder: true,
     };
 }
 
@@ -43,6 +45,8 @@ function findPlaylistFilterPresetById(presets, id) {
 
 /** Validate 1 mảng preset (của ĐÚNG 1 Nguồn) đọc lên lúc boot — mảng lạ/phần tử hỏng bị loại,
  * `config` luôn được merge lên trên default CỦA ĐÚNG Nguồn đó (bù field mới nếu dữ liệu cũ thiếu).
+ * `appliesToFolder` — MỚI (09/09/2026) — thiếu/hỏng (dữ liệu cũ trước tính năng này) tự rơi về `true`
+ * (mặc định BẬT, CHỐT Giang).
  * @param {*} raw @param {string} source - 'song'|'video'|'photo' @returns {object[]} */
 function sanitizePlaylistFilterPresets(raw, source) {
     if (!Array.isArray(raw)) return [];
@@ -55,6 +59,7 @@ function sanitizePlaylistFilterPresets(raw, source) {
             config: (p.config && typeof p.config === 'object')
                 ? { ...defaultBucket, ...p.config }
                 : { ...defaultBucket },
+            appliesToFolder: typeof p.appliesToFolder === 'boolean' ? p.appliesToFolder : true,
         }));
 }
 
