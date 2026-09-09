@@ -19,8 +19,11 @@
  * (`fooPanelEl = pushSettingsPanel(...)` -> `fooPanelEl = genericDrawerBody`) — bản thân NGHIỆP VỤ
  * (field nào ghi gì, gọi core nào) HOÀN TOÀN KHÔNG đổi, chỉ đổi "nội dung sống ở container nào".
  *
- * STYLING: bodyHtml mọi màn đều bọc trong `.app-settings-scope` — CSS đè màu sang light theme khớp
- * Generic Drawer (assets/css/layout-nav.css), KHÔNG sửa màu trực tiếp trong từng template cũ.
+ * STYLING (SỬA 09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — TRƯỚC ĐÂY bodyHtml mọi màn bọc
+ * trong `.app-settings-scope`, CSS đè màu sang light theme (assets/css/layout-nav.css), KHÔNG sửa
+ * màu trực tiếp trong từng template cũ. Giờ mọi template con đã tự viết LẠI bằng đúng bảng màu
+ * sáng (xem docstring từng file), override CSS đó ĐÃ XOÁ HẲN — wrapper chỉ còn `class="text-slate-
+ * 900 p-4"` (màu chữ mặc định kế thừa xuống + padding, không còn ý nghĩa "scope đè màu" nào nữa).
  *
  * Visualizer Screen (Display/Auto-Switch/Visual Background, kể cả 2 sub-panel Gradient/Video Audio
  * + picker con video/ảnh/thư mục của Visual Background) ĐÃ migrate xong (đợt "làm nốt visualizer") —
@@ -80,7 +83,7 @@ const workflowAppSettings = {
 
     // ===================== Khung dùng chung =====================
 
-    /** Dựng header (Back nếu không phải Main + Close X luôn có) + bodyHtml bọc `.app-settings-scope`
+    /** Dựng header (Back nếu không phải Main + Close X luôn có) + bodyHtml bọc `text-slate-900 p-4`
      * rồi mở/swap Generic Drawer + gọi `onMount(genericDrawerBody)` để màn tự đồng bộ giá trị/wire.
      * MỞ RỘNG (29/08/2026, hệ "Cấu hình Motion") — tham số thứ 4 `extraHeaderHtml` (tuỳ chọn,
      * KHÔNG đổi gì cho mọi màn cũ không truyền) — chèn THÊM 1 nút hành động vào header (vd "+" ở màn
@@ -109,7 +112,7 @@ const workflowAppSettings = {
                     </div>
                 </div>
             `,
-            bodyHtml: `<div class="app-settings-scope p-4">${bodyHtml}</div>`,
+            bodyHtml: `<div class="text-slate-900 p-4">${bodyHtml}</div>`,
             bodyClass: 'overflow-y-auto',
         };
         if (genericDrawerPanel.classList.contains('hidden')) openGenericDrawer(config); else updateGenericDrawer(config); // core/generic-drawer.js

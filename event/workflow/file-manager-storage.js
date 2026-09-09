@@ -67,12 +67,17 @@ const workflowFileManagerStorage = {
             // Drawer chỉ còn làm mờ chính nền trắng của panel, không có tác dụng, VÀ tạo 1 stacking
             // context riêng (CSS spec) — nhiều khả năng CHÍNH LÀ nguyên nhân nút X không ấn được
             // (WebKit/iOS có nhiều bug đã biết về backdrop-filter chồng lấn hit-test trong bottom
-            // sheet). SỬA: bọc `.app-settings-scope` — ĐÚNG kỹ thuật event/workflow/app-settings.js
-            // đã dùng cho CHÍNH bug này ở Settings (xem assets/css/layout-nav.css, "phản hồi Giang
-            // mục 3") — đè toàn bộ class tối kể trên sang sáng, khớp CHÍNH XÁC bảng màu Custom
-            // Effect/EQ, KHÔNG cần viết CSS mới. `p-4` DỜI vào wrapper này (khỏi bodyClass) — ĐÚNG
-            // quy ước Settings (bodyClass CHỈ còn overflow-y-auto, không tự có padding).
-            bodyHtml: `<div class="app-settings-scope p-4">${renderFileManagerStorageManagementPanelBody()}</div>`,
+            // sheet). SỬA LÚC ĐÓ: bọc `.app-settings-scope` — mượn kỹ thuật event/workflow/
+            // app-settings.js đã dùng cho CHÍNH bug này ở Settings (đè toàn bộ class tối kể trên sang
+            // sáng qua CSS `!important`, KHÔNG cần viết lại template). `p-4` DỜI vào wrapper này (khỏi
+            // bodyClass) — ĐÚNG quy ước Settings (bodyClass CHỈ còn overflow-y-auto, không tự có
+            // padding).
+            // SỬA TIẾP (09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — `.app-settings-scope`
+            // (CSS đè màu) ĐÃ XOÁ HẲN — renderFileManagerStorageManagementPanelBody() giờ tự viết
+            // TRỰC TIẾP bằng bảng màu sáng (xem docstring components/file-manager-storage.js), không
+            // còn 1 class tối nào cần đè. Wrapper chỉ còn `text-slate-900` (màu chữ mặc định kế thừa
+            // xuống) + `p-4`, không còn ý nghĩa "scope đè màu" nào nữa.
+            bodyHtml: `<div class="text-slate-900 p-4">${renderFileManagerStorageManagementPanelBody()}</div>`,
             bodyClass: 'overflow-y-auto',
         });
         const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
