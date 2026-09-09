@@ -106,11 +106,23 @@
          * Gọi lại ở MỌI mốc renderOrder/currentKey có thể đổi (renderPlaylistFull/renderPlaylistDiff
          * ngay trong file này, + workflowPlayer.playMedia() lúc đổi bài — event/workflow/player.js)
          * — TRƯỚC ĐÂY 3 chỗ đó tự show/hide riêng nút #btn-return-visual (đã bỏ), giờ gọi CHUNG 1
-         * hàm này thay thế. */
-        function updatePlayButtonPlayingState() {
+         * hàm này thay thế.
+         *
+         * FIX (10/09/2026, Giang chỉ ra đúng — "Core sao lại tự đọc appState, không dùng tham số?")
+         * — hàm này nằm ở core/playlist/render.js (tầng Core) nhưng TRƯỚC ĐÂY tự
+         * `appState.get('currentKey')`/`appState.get('displayOrder')` bên trong, VI PHẠM Rule 2
+         * (core-function-conventions.md — Core cấm tự đọc appState, CHỈ tầng Workflow được đọc rồi
+         * TRUYỀN xuống qua tham số). Giờ nhận cả 2 qua tham số — 5 nơi gọi (renderPlaylistFull/
+         * renderPlaylistDiff ngay dưới, event/workflow/player.js, video-player.js, photo-player.js)
+         * tự `appState.get()` rồi truyền vào, đúng vai Workflow "chuẩn bị dữ liệu cho Core thi
+         * hành". KHÔNG đổi 1 dòng LOGIC bên trong — chỉ đổi nguồn lấy 2 giá trị từ tự đọc sang nhận
+         * tham số.
+         * @param {string|null} currentKey
+         * @param {string[]} displayOrder
+         */
+        function updatePlayButtonPlayingState(currentKey, displayOrder) {
             if (!btnPlaylistEmptyPlay) return;
-            const currentKey = appState.get('currentKey');
-            const isPlaying = currentKey != null && appState.get('displayOrder').includes(currentKey);
+            const isPlaying = currentKey != null && displayOrder.includes(currentKey);
             btnPlaylistEmptyPlay.classList.toggle('animate-pulse', isPlaying);
             btnPlaylistEmptyPlay.dataset.playing = String(isPlaying);
             if (btnPlaylistEmptyPlayLabel) btnPlaylistEmptyPlayLabel.textContent = isPlaying ? t('playlistView.btnPlaying') : t('playlistView.btnPlay');
