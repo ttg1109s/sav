@@ -33,6 +33,10 @@ const routerPlaylistFilterPresets = (() => {
                 workflowPlaylistFilterPresets.setName(msg.payload.value);
                 break;
 
+            case 'playlistFilterPresets.appliesToFolder.change':
+                workflowPlaylistFilterPresets.setAppliesToFolder(msg.payload.value);
+                break;
+
             case 'playlistFilterPresets.field.change':
                 workflowPlaylistFilterPresets.setFilterField(msg.payload.field, msg.payload.prop, msg.payload.value);
                 break;
