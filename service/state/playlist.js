@@ -103,6 +103,16 @@
                 // ({song:{...},video:{...},photo:{...}}) như trước — KHÔNG cần đổi vì đã sẵn keyed
                 // theo Nguồn từ đầu.
                 playlistFilterAppliedConfig: 'object',
+                // MỚI (09/09/2026, phản hồi Giang — "checkbox 'có áp dụng cho thư mục hay không',
+                // mặc định bật") — snapshot CỦA `preset.appliesToFolder` lúc `selectPreset()` chạy
+                // lần gần nhất, keyed theo Nguồn CÙNG khuôn 3 field trên — TÁCH KHỎI
+                // `playlistFilterPresets[source][i].appliesToFolder` (bản đang sửa dở) giống hệt
+                // cách `playlistFilterAppliedConfig` tách khỏi `preset.config` — sửa checkbox của
+                // preset đang active KHÔNG tự đổi hành vi thật cho tới khi bấm lại "Chọn áp dụng"/
+                // "Cập nhật". Đọc bởi event/workflow/playlist-scope.js::applyFolderScope() — tắt
+                // (`false`) thì Nguồn đó KHÔNG áp Filter lúc đang xem 1 thư mục cụ thể (vẫn áp bình
+                // thường lúc xem "Tất cả", applyAllSongsScope() không đọc field này).
+                playlistFilterAppliesToFolder: 'object',
             },
             buildDefaults() {
                 return {
@@ -124,6 +134,7 @@
                     playlistFilterPresets: { song: [], video: [], photo: [] },
                     playlistFilterActivePresetId: { song: null, video: null, photo: null },
                     playlistFilterAppliedConfig: clonePlaylistFilterConfigDefaults(),
+                    playlistFilterAppliesToFolder: { song: true, video: true, photo: true },
                 };
             },
         });
