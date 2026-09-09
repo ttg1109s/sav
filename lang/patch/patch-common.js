@@ -46,6 +46,11 @@ const LANG_PATCH_COMMON = {
 
     'common.export.notFound': "Couldn't read this song, the data may be corrupted.",
     'common.export.tagWriteFailed': "Couldn't write the tag to the file, exporting the original file instead.",
+    // MỚI (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — dùng bởi
+    // promptDownloadReady() (core/id3-export.js), DÙNG CHUNG cho mọi luồng export/tải xuống.
+    'common.export.readyTitle': 'Ready to download',
+    'common.export.readyBody': 'File size: {size}.',
+    'common.export.readyBtnDownload': 'Download',
 
     'common.storage.zipLibMissing': 'The JSZip library failed to load (check your network connection to the CDN).',
     'common.storage.zippingProgress': 'Packing zip file ({percent}%)...',
