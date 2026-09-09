@@ -40,6 +40,13 @@
  * GESTURE_ACTION_SLOT_CONFIG_FIELD). Dropdown gán nút Control Center trực tiếp (CHỈ còn 3 Slot ở
  * section Action) DÙNG 1 pool 7 nút KHÁC (controlCenterTargetOptions, KHÔNG lẫn với pool 5+3 ở
  * trên — 2 tầng lựa chọn khác nhau: "chọn 1 trong 7 nút" vs "chọn 1 trong 5+3 hành động").
+ *
+ * SỬA (09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — viết LẠI TRỰC TIẾP bằng bảng màu sáng
+ * (trước đây `glass-modal`/`border-white/5`/toggle track `bg-slate-600`/select `bg-black/50`, phụ
+ * thuộc `.app-settings-scope` đè màu — assets/css/layout-nav.css). GIỮ NGUYÊN 5 màu accent riêng
+ * từng section (violet/sky/emerald/amber/fuchsia — cố ý phân biệt nhanh 5 nhóm cử chỉ khác nhau),
+ * chỉ đậm từ -400 lên -600 để đủ tương phản trên nền trắng (thay vì hiệu chỉnh về 1 màu sky chung
+ * như đa số panel khác).
  */
 function renderGestureSettingsPanelBody() {
     // FIX (12/08/2026, Giang yêu cầu "Action") — thêm 3 <option> actionSlot1/2/3 NGOÀI 5 lựa chọn
@@ -56,9 +63,9 @@ function renderGestureSettingsPanelBody() {
         <option value="none" data-i18n="gestureSettings.action.none">${t('gestureSettings.action.none')}</option>
     `;
     const actionRow = (id, labelKey, lastInGroup) => `
-        <div class="flex justify-between items-center p-4${lastInGroup ? '' : ' border-b border-white/5'}">
+        <div class="flex justify-between items-center p-4${lastInGroup ? '' : ' border-b border-slate-200'}">
             <span class="text-sm font-medium" data-i18n="${labelKey}">${t(labelKey)}</span>
-            <select id="${id}" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">${actionOptions}</select>
+            <select id="${id}" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-32 text-right">${actionOptions}</select>
         </div>
     `;
     const sectionTitle = (labelKey, colorClass) => `<h3 class="text-xs font-bold ${colorClass} uppercase tracking-widest mb-2 ml-2" data-i18n="${labelKey}">${t(labelKey)}</h3>`;
@@ -67,7 +74,7 @@ function renderGestureSettingsPanelBody() {
     // cạnh) — giải thích chức năng 3 Slot ở ĐÚNG 1 chỗ, khỏi phải nhồi vào tên từng hàng.
     const sectionTitleWithHint = (labelKey, colorClass, hintKey) => `
         ${sectionTitle(labelKey, colorClass)}
-        <p class="text-xs text-slate-400 -mt-1.5 mb-2 ml-2" data-i18n="${hintKey}">${t(hintKey)}</p>
+        <p class="text-xs text-slate-500 -mt-1.5 mb-2 ml-2" data-i18n="${hintKey}">${t(hintKey)}</p>
     `;
     // FIX (12/08/2026) — bổ sung 3 <option> CÒN THIẾU so với TOÀN BỘ nút Control Center thật sự có
     // (openVolume/cycleEq/editEq — xem GESTURE_TRIPLE_TAP_TARGET_ELS, event/workflow/
@@ -94,17 +101,17 @@ function renderGestureSettingsPanelBody() {
         <option value="cycleEq" data-i18n="visualizerOverlay.cycleEq.label">${t('visualizerOverlay.cycleEq.label')}</option>
     `;
     const actionSlotRow = (id, labelKey) => `
-        <div class="flex justify-between items-center p-4 border-b border-white/5 last:border-b-0">
+        <div class="flex justify-between items-center p-4 border-b border-slate-200 last:border-b-0">
             <span class="text-sm font-medium" data-i18n="${labelKey}">${t(labelKey)}</span>
-            <select id="${id}" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">${controlCenterTargetOptions}</select>
+            <select id="${id}" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-32 text-right">${controlCenterTargetOptions}</select>
         </div>
     `;
 
     return `
         <div class="flex flex-col gap-5">
             <div>
-                ${sectionTitleWithHint('gestureSettings.sectionActions', 'text-violet-400', 'gestureSettings.sectionActions.hint')}
-                <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
+                ${sectionTitleWithHint('gestureSettings.sectionActions', 'text-violet-600', 'gestureSettings.sectionActions.hint')}
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
                     ${actionSlotRow('setting-gesture-action-slot-1', 'gestureSettings.action.actionSlot1')}
                     ${actionSlotRow('setting-gesture-action-slot-2', 'gestureSettings.action.actionSlot2')}
                     ${actionSlotRow('setting-gesture-action-slot-3', 'gestureSettings.action.actionSlot3')}
@@ -112,8 +119,8 @@ function renderGestureSettingsPanelBody() {
             </div>
 
             <div>
-                ${sectionTitle('gestureSettings.sectionNav', 'text-sky-400')}
-                <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
+                ${sectionTitle('gestureSettings.sectionNav', 'text-sky-600')}
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
                     ${actionRow('setting-gesture-action-swipe-up', 'gestureSettings.swipeUp.label')}
                     ${actionRow('setting-gesture-action-swipe-down', 'gestureSettings.swipeDown.label')}
                     ${actionRow('setting-gesture-action-swipe-left', 'gestureSettings.swipeLeft.label')}
@@ -122,8 +129,8 @@ function renderGestureSettingsPanelBody() {
             </div>
 
             <div>
-                ${sectionTitle('gestureSettings.sectionTap', 'text-emerald-400')}
-                <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
+                ${sectionTitle('gestureSettings.sectionTap', 'text-emerald-600')}
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
                     ${actionRow('setting-gesture-action-tap-single', 'gestureSettings.tapSingle.label')}
                     ${actionRow('setting-gesture-action-tap-double', 'gestureSettings.tapDouble.label')}
                     ${actionRow('setting-gesture-triple-tap-target', 'gestureSettings.tripleTapTarget.label', true)}
@@ -131,40 +138,40 @@ function renderGestureSettingsPanelBody() {
             </div>
 
             <div>
-                ${sectionTitle('gestureSettings.sectionSeek', 'text-amber-400')}
-                <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-                    <div class="flex justify-between items-center p-4 border-b border-white/5">
+                ${sectionTitle('gestureSettings.sectionSeek', 'text-amber-600')}
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
+                    <div class="flex justify-between items-center p-4 border-b border-slate-200">
                         <div class="pr-3">
                             <div class="text-sm font-medium" data-i18n="gestureSettings.seekHoldEnable.label">${t('gestureSettings.seekHoldEnable.label')}</div>
-                            <div class="text-xs text-slate-400 mt-0.5" data-i18n="gestureSettings.seekHoldEnable.hint">${t('gestureSettings.seekHoldEnable.hint')}</div>
+                            <div class="text-xs text-slate-500 mt-0.5" data-i18n="gestureSettings.seekHoldEnable.hint">${t('gestureSettings.seekHoldEnable.hint')}</div>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer shrink-0">
                             <input type="checkbox" id="setting-gesture-seek-hold-enable" class="sr-only peer">
-                            <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                            <div class="w-9 h-5 bg-slate-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                         </label>
                     </div>
-                    <button id="setting-gesture-open-seek-step-picker" type="button" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left">
+                    <button id="setting-gesture-open-seek-step-picker" type="button" class="flex justify-between items-center p-4 border-b border-slate-200 hover:bg-slate-100 transition-colors w-full text-left">
                         <span class="text-sm font-medium" data-i18n="gestureSettings.seekStep.label">${t('gestureSettings.seekStep.label')}</span>
-                        <span id="gesture-seek-step-value" class="text-xs text-slate-300 font-mono"></span>
+                        <span id="gesture-seek-step-value" class="text-xs text-slate-900 font-mono"></span>
                     </button>
-                    <button id="setting-gesture-open-seek-hold-interval-picker" type="button" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left">
+                    <button id="setting-gesture-open-seek-hold-interval-picker" type="button" class="flex justify-between items-center p-4 hover:bg-slate-100 transition-colors w-full text-left">
                         <span class="text-sm font-medium" data-i18n="gestureSettings.seekHoldInterval.label">${t('gestureSettings.seekHoldInterval.label')}</span>
-                        <span id="gesture-seek-hold-interval-value" class="text-xs text-slate-300 font-mono"></span>
+                        <span id="gesture-seek-hold-interval-value" class="text-xs text-slate-900 font-mono"></span>
                     </button>
                 </div>
             </div>
 
             <div>
-                ${sectionTitle('gestureSettings.sectionEdge', 'text-fuchsia-400')}
-                <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
+                ${sectionTitle('gestureSettings.sectionEdge', 'text-fuchsia-600')}
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
                     <div class="flex justify-between items-center p-4">
                         <div class="pr-3">
                             <div class="text-sm font-medium" data-i18n="gestureSettings.edgeTop.label">${t('gestureSettings.edgeTop.label')}</div>
-                            <div class="text-xs text-slate-400 mt-0.5" data-i18n="gestureSettings.edgeTop.hint">${t('gestureSettings.edgeTop.hint')}</div>
+                            <div class="text-xs text-slate-500 mt-0.5" data-i18n="gestureSettings.edgeTop.hint">${t('gestureSettings.edgeTop.hint')}</div>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer shrink-0">
                             <input type="checkbox" id="setting-gesture-edge-top" class="sr-only peer">
-                            <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                            <div class="w-9 h-5 bg-slate-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                         </label>
                     </div>
                 </div>

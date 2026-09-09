@@ -38,39 +38,44 @@
  * event/listener/subtitle-style-settings.js). Đồng bộ giá trị lúc mở panel ĐÃ CHUYỂN từ
  * `workflowSubtitleStyleSettings.refresh()` sang `workflowVisualizerDisplay.openDisplayPanel()`
  * (event/workflow/visualizer-display.js) — panel con này giờ CHỈ còn Custom Styling + Transition.
+ *
+ * SỬA (09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — viết LẠI TRỰC TIẾP bằng bảng màu sáng,
+ * không còn phụ thuộc `.app-settings-scope` đè màu (assets/css/layout-nav.css). (Lưu ý: `text-white`
+ * nhắc ở docstring trên là màu CHỮ PHỤ ĐỀ THẬT hiển thị đè lên video/ảnh nền — KHÔNG phải màu UI
+ * panel Settings này, không liên quan tới đợt sửa này.)
  */
 function renderSubtitlePanelBody() {
     return `
                 <div class="flex flex-col gap-4">
-                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
                         <div class="flex justify-between items-center p-4">
                             <div class="pr-3">
                                 <div class="text-sm font-medium truncate" data-i18n="settingsSubtitleStyle.useCustom.label">${t('settingsSubtitleStyle.useCustom.label')}</div>
-                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="settingsSubtitleStyle.useCustom.hint">${t('settingsSubtitleStyle.useCustom.hint')}</div>
+                                <div class="text-xs text-slate-500 mt-0.5" data-i18n="settingsSubtitleStyle.useCustom.hint">${t('settingsSubtitleStyle.useCustom.hint')}</div>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                 <input type="checkbox" id="setting-subtitle-use-custom-styling" class="sr-only peer">
-                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                                <div class="w-9 h-5 bg-slate-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                             </label>
                         </div>
-                        <button id="setting-open-subtitle-styling" class="hidden flex justify-between items-center p-4 border-t border-white/5 hover:bg-white/5 transition-colors w-full text-left">
+                        <button id="setting-open-subtitle-styling" class="hidden flex justify-between items-center p-4 border-t border-slate-200 hover:bg-slate-100 transition-colors w-full text-left">
                             <div class="flex items-center gap-3 min-w-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10M12 17v4M5 3h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10M12 17v4M5 3h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" /></svg>
                                 <div class="min-w-0">
                                     <div class="text-sm font-medium truncate" data-i18n="settingsSubtitleStyle.styling.label">${t('settingsSubtitleStyle.styling.label')}</div>
-                                    <div class="text-xs text-slate-400 mt-0.5 truncate" data-i18n="settingsSubtitleStyle.styling.hint">${t('settingsSubtitleStyle.styling.hint')}</div>
+                                    <div class="text-xs text-slate-500 mt-0.5 truncate" data-i18n="settingsSubtitleStyle.styling.hint">${t('settingsSubtitleStyle.styling.hint')}</div>
                                 </div>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                         </button>
-                        <div id="setting-subtitle-default-fields" class="flex flex-col gap-3 p-4 border-t border-white/5">
+                        <div id="setting-subtitle-default-fields" class="flex flex-col gap-3 p-4 border-t border-slate-200">
                             <div class="flex justify-between items-center gap-2">
                                 <span class="text-sm font-medium" data-i18n="settingsSubtitleStyle.defaultFontSize.label">${t('settingsSubtitleStyle.defaultFontSize.label')}</span>
-                                <select id="setting-subtitle-default-fontsize" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none">${_subtitleFontSizeOptions()}</select>
+                                <select id="setting-subtitle-default-fontsize" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none">${_subtitleFontSizeOptions()}</select>
                             </div>
                             <div class="flex justify-between items-center gap-2">
                                 <span class="text-sm font-medium" data-i18n="settingsSubtitleStyle.defaultColor.label">${t('settingsSubtitleStyle.defaultColor.label')}</span>
-                                <input type="color" id="setting-subtitle-default-color" value="#ffffff" class="w-10 h-8 rounded-lg border border-white/10 bg-transparent cursor-pointer p-0.5">
+                                <input type="color" id="setting-subtitle-default-color" value="#ffffff" class="w-10 h-8 rounded-lg border border-slate-300 bg-transparent cursor-pointer p-0.5">
                             </div>
                         </div>
                     </div>
@@ -118,34 +123,34 @@ function _renderSubtitleTransitionSection() {
     // event/workflow/subtitle-style-settings.js::openMagnitudePicker(). `data-ms` = giá trị mili
     // giây ĐANG có (Workflow tự đồng bộ mỗi lần đổi, KHÔNG cần đọc ngược từ chữ hiển thị).
     const valueField = (prefix) => `
-                            <select id="setting-subtitle-${prefix}-sign" class="bg-black/50 border border-white/10 rounded-lg px-1.5 py-1.5 text-xs text-white outline-none">
+                            <select id="setting-subtitle-${prefix}-sign" class="bg-white border border-slate-300 rounded-lg px-1.5 py-1.5 text-xs text-slate-900 outline-none">
                                 <option value="+">+</option>
                                 <option value="-">−</option>
                             </select>
-                            <button type="button" id="setting-subtitle-${prefix}-magnitude" data-ms="0" class="w-16 bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none text-right hover:bg-white/10 transition-colors">0.0s</button>`;
+                            <button type="button" id="setting-subtitle-${prefix}-magnitude" data-ms="0" class="w-16 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none text-right hover:bg-slate-100 transition-colors">0.0s</button>`;
 
     return `
                     <div>
-                        <h3 class="text-xs font-bold text-yellow-400 uppercase tracking-widest mb-2 ml-2" data-i18n="settingsSubtitleStyle.transition.sectionTitle">${t('settingsSubtitleStyle.transition.sectionTitle')}</h3>
-                        <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-                            <div class="flex flex-col gap-2 p-4 border-b border-white/5">
+                        <h3 class="text-xs font-bold text-yellow-600 uppercase tracking-widest mb-2 ml-2" data-i18n="settingsSubtitleStyle.transition.sectionTitle">${t('settingsSubtitleStyle.transition.sectionTitle')}</h3>
+                        <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
+                            <div class="flex flex-col gap-2 p-4 border-b border-slate-200">
                                 <div class="flex justify-between items-center gap-2">
                                     <span class="text-sm font-medium" data-i18n="settingsSubtitleStyle.comming.label">${t('settingsSubtitleStyle.comming.label')}</span>
                                     <div class="flex items-center gap-2">
-                                        <select id="setting-subtitle-comming-effect" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none">${effectOptions(SUBTITLE_TRANSITION_EFFECTS)}</select>
+                                        <select id="setting-subtitle-comming-effect" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none">${effectOptions(SUBTITLE_TRANSITION_EFFECTS)}</select>
                                         ${valueField('comming')}
                                     </div>
                                 </div>
                                 <p class="text-[11px] text-slate-500" data-i18n="settingsSubtitleStyle.transition.hint">${t('settingsSubtitleStyle.transition.hint')}</p>
                             </div>
-                            <div class="flex justify-between items-center p-4 border-b border-white/5 gap-2">
+                            <div class="flex justify-between items-center p-4 border-b border-slate-200 gap-2">
                                 <span class="text-sm font-medium" data-i18n="settingsSubtitleStyle.in.label">${t('settingsSubtitleStyle.in.label')}</span>
-                                <select id="setting-subtitle-in-effect" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none">${effectOptions(SUBTITLE_IN_EFFECTS)}</select>
+                                <select id="setting-subtitle-in-effect" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none">${effectOptions(SUBTITLE_IN_EFFECTS)}</select>
                             </div>
                             <div class="flex justify-between items-center p-4 gap-2">
                                 <span class="text-sm font-medium" data-i18n="settingsSubtitleStyle.outing.label">${t('settingsSubtitleStyle.outing.label')}</span>
                                 <div class="flex items-center gap-2">
-                                    <select id="setting-subtitle-outing-effect" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none">${effectOptions(SUBTITLE_TRANSITION_EFFECTS)}</select>
+                                    <select id="setting-subtitle-outing-effect" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none">${effectOptions(SUBTITLE_TRANSITION_EFFECTS)}</select>
                                     ${valueField('outing')}
                                 </div>
                             </div>

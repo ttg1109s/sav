@@ -18,24 +18,28 @@
  * cho Photo (lúc đó `duration` hard-code 0, vô nghĩa) — giờ `duration` là số THẬT (tính lúc upload,
  * core/playlist/loader.js::buildAdaptedPlaylistCache()), HIỆN LẠI cho Photo giống Song/Video.
  * @param {string} source - 'song' | 'video' | 'photo'.
+ *
+ * SỬA (09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — viết LẠI TRỰC TIẾP bằng bảng màu sáng,
+ * không còn phụ thuộc `.app-settings-scope` đè màu (assets/css/layout-nav.css) để hiện đúng trên
+ * Generic Drawer nền trắng.
  */
 function renderPlaylistSortPanelBody(source) {
     const isPhoto = source === 'photo';
     return `
                 <div>
-                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
+                        <div class="flex justify-between items-center p-4 border-b border-slate-200 hover:bg-slate-100 transition-colors">
                             <span class="text-sm font-medium truncate" data-i18n="playlistSortPanel.nameMode.label">${t('playlistSortPanel.nameMode.label')}</span>
-                            <select id="setting-playlist-sort-name" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
+                            <select id="setting-playlist-sort-name" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-36 text-right">
                                 <option value="az" data-i18n="settingsPlaylistBg.sortMode.az">${t('settingsPlaylistBg.sortMode.az')}</option>
                                 <option value="za" data-i18n="settingsPlaylistBg.sortMode.za">${t('settingsPlaylistBg.sortMode.za')}</option>
                                 <option value="newest" data-i18n="settingsPlaylistBg.sortMode.newest">${t('settingsPlaylistBg.sortMode.newest')}</option>
                                 <option value="oldest" data-i18n="settingsPlaylistBg.sortMode.oldest">${t('settingsPlaylistBg.sortMode.oldest')}</option>
                             </select>
                         </div>
-                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
+                        <div class="flex justify-between items-center p-4 border-b border-slate-200 hover:bg-slate-100 transition-colors">
                             <span class="text-sm font-medium truncate" data-i18n="playlistSortPanel.statField.label">${t('playlistSortPanel.statField.label')}</span>
-                            <select id="setting-playlist-sort-stat-field" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
+                            <select id="setting-playlist-sort-stat-field" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-36 text-right">
                                 <option value="none" data-i18n="playlistSortPanel.statField.none">${t('playlistSortPanel.statField.none')}</option>
                                 <option value="count" data-i18n="playlistSortPanel.statField.count">${t('playlistSortPanel.statField.count')}</option>
                                 ${isPhoto ? '' : `<option value="times" data-i18n="playlistSortPanel.statField.times">${t('playlistSortPanel.statField.times')}</option>`}
@@ -49,12 +53,12 @@ function renderPlaylistSortPanelBody(source) {
                         <div data-sort-direction-row class="hidden flex flex-col p-4 gap-1.5">
                             <div class="flex justify-between items-center">
                                 <span class="text-sm font-medium truncate" data-i18n="playlistSortPanel.statDirection.label">${t('playlistSortPanel.statDirection.label')}</span>
-                                <select id="setting-playlist-sort-stat-direction" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
+                                <select id="setting-playlist-sort-stat-direction" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-36 text-right">
                                     <option value="desc" data-i18n="playlistSortPanel.statDirection.desc">${t('playlistSortPanel.statDirection.desc')}</option>
                                     <option value="asc" data-i18n="playlistSortPanel.statDirection.asc">${t('playlistSortPanel.statDirection.asc')}</option>
                                 </select>
                             </div>
-                            <div class="text-xs text-slate-400" data-i18n="playlistSortPanel.statField.hint">${t('playlistSortPanel.statField.hint')}</div>
+                            <div class="text-xs text-slate-500" data-i18n="playlistSortPanel.statField.hint">${t('playlistSortPanel.statField.hint')}</div>
                         </div>
                     </div>
                 </div>

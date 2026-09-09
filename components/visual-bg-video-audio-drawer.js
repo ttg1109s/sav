@@ -15,8 +15,8 @@
 function renderVisualBgVideoAudioPanelBody() {
     return `
                 <div>
-                    <p class="text-xs text-slate-400 mb-3 ml-2" data-i18n="visualBgSettingsDrawer.videoAudio.hint">${t('visualBgSettingsDrawer.videoAudio.hint')}</p>
-                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
+                    <p class="text-xs text-slate-500 mb-3 ml-2" data-i18n="visualBgSettingsDrawer.videoAudio.hint">${t('visualBgSettingsDrawer.videoAudio.hint')}</p>
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
                         <div id="visual-bg-video-audio-list" class="flex flex-col"></div>
                     </div>
                 </div>
