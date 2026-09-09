@@ -93,6 +93,26 @@
             return `<div class="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-sky-500 border-sky-500' : 'bg-black/30 border-white/30'}">${isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : ''}</div>`;
         }
 
+        /** MỚI (09/09/2026, Giang yêu cầu "gộp nút icon visualizer riêng vào nút Phát to") — đồng bộ
+         * trạng thái "Đang phát" của #btn-playlist-empty-play: có `currentKey` VÀ vẫn còn nằm trong
+         * `displayOrder` hiện hành (nghĩa là playlist/scope/tìm kiếm CHƯA đổi khỏi lúc phát bài đó)
+         * -> nút chuyển nhãn "Đang phát" + nhấp nháy (`animate-pulse`), bấm vào lúc này chuyển sang
+         * Visualizer thay vì phát lại (đọc `dataset.playing` ở router, xem event/router/
+         * playlist-empty-state.js). Ngược lại (chưa từng phát gì, HOẶC bài đang phát đã rơi khỏi
+         * danh sách hiện hành do đổi tìm kiếm/scope) -> về lại nhãn "Phát" thường, hết nhấp nháy.
+         * Gọi lại ở MỌI mốc renderOrder/currentKey có thể đổi (renderPlaylistFull/renderPlaylistDiff
+         * ngay trong file này, + workflowPlayer.playMedia() lúc đổi bài — event/workflow/player.js)
+         * — TRƯỚC ĐÂY 3 chỗ đó tự show/hide riêng nút #btn-return-visual (đã bỏ), giờ gọi CHUNG 1
+         * hàm này thay thế. */
+        function updatePlayButtonPlayingState() {
+            if (!btnPlaylistEmptyPlay) return;
+            const currentKey = appState.get('currentKey');
+            const isPlaying = currentKey != null && appState.get('displayOrder').includes(currentKey);
+            btnPlaylistEmptyPlay.classList.toggle('animate-pulse', isPlaying);
+            btnPlaylistEmptyPlay.dataset.playing = String(isPlaying);
+            if (btnPlaylistEmptyPlayLabel) btnPlaylistEmptyPlayLabel.textContent = isPlaying ? t('playlistView.btnPlaying') : t('playlistView.btnPlay');
+        }
+
         /** Hiện lớp "đang nạp danh sách" (phủ vùng list). total để hiển thị "x / y bài". */
         function showPlaylistLoading(done, total) {
             const el = document.getElementById('playlist-loading-list');
