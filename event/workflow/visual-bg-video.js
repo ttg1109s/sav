@@ -275,7 +275,7 @@ Object.assign(workflowVisualBg, {
         listEl.innerHTML = rows.map(({ key, name }) => {
             const { enabled, volumePercent } = getVisualBgVideoAudioSetting(videoAudioMap, key);
             return `
-            <div class="p-4 border-b border-slate-200 last:border-b-0 flex items-center gap-2">
+            <div class="p-4 last:border-b-0 flex items-center gap-2 border-b" data-uitk="dividerBorder">
                 <span class="text-sm font-medium truncate min-w-0 flex-1">${escapeHtml(name)}</span>
                 <button type="button" data-visual-bg-video-audio-toggle="${escapeHtml(key)}" class="shrink-0 p-2 transition-colors">${this._videoAudioIconInnerHtml(enabled)}</button>
                 <button type="button" data-visual-bg-video-audio-open-volume="${escapeHtml(key)}" class="shrink-0 px-1 py-2 transition-colors"><span data-visual-bg-video-audio-volume-display="${escapeHtml(key)}" class="text-xs font-mono tabular-nums ${enabled ? 'text-sky-600' : 'text-slate-500'}">${volumePercent}%</span></button>

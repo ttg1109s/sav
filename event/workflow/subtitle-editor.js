@@ -595,18 +595,22 @@ const workflowSubtitleEditor = {
 
         const overlay = document.createElement('div');
         overlay.id = 'split-modal-overlay';
-        overlay.className = 'fixed inset-0 z-[130] bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
+        overlay.className = 'fixed inset-0 z-[130] backdrop-blur-sm flex items-center justify-center px-5';
+        overlay.dataset.uitk = 'overlayBg';
 
         const card = document.createElement('div');
-        card.className = 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
+        card.className = 'rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
+        card.dataset.uitk = 'modalCardBg modalCardBorder';
 
         const titleEl = document.createElement('h3');
-        titleEl.className = 'text-base font-bold text-white';
+        titleEl.className = 'text-base';
+        titleEl.dataset.uitk = 'modalTitleText';
         titleEl.textContent = t('subtitleEditor.split.title');
         card.appendChild(titleEl);
 
         const descEl = document.createElement('p');
-        descEl.className = 'text-sm text-slate-300 leading-relaxed';
+        descEl.className = 'text-sm leading-relaxed';
+        descEl.dataset.uitk = 'modalBodyText';
         descEl.textContent = tFormat('subtitleEditor.split.desc', { start: secToStr(appState.get('_region').start), end: secToStr(appState.get('_region').end) }); // core secToStr
         card.appendChild(descEl);
 
@@ -616,7 +620,8 @@ const workflowSubtitleEditor = {
         countInput.max = '50';
         countInput.value = '2';
         countInput.inputMode = 'numeric';
-        countInput.className = 'w-full text-center text-lg font-mono bg-black/40 border border-white/10 rounded-xl px-3 py-2 outline-none focus:border-sky-500 text-white';
+        countInput.className = 'w-full text-center text-lg font-mono rounded-xl px-3 py-2 outline-none';
+        countInput.dataset.uitk = 'inputBg inputBorder inputText';
         card.appendChild(countInput);
 
         const buttonRow = document.createElement('div');
@@ -624,13 +629,15 @@ const workflowSubtitleEditor = {
 
         const cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
-        cancelBtn.className = 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors';
+        cancelBtn.className = 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors';
+        cancelBtn.dataset.uitk = 'btnNeutralBg btnNeutralHoverBg btnNeutralText';
         cancelBtn.textContent = t('common.cancel');
         buttonRow.appendChild(cancelBtn);
 
         const confirmBtn = document.createElement('button');
         confirmBtn.type = 'button';
-        confirmBtn.className = 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold transition-colors';
+        confirmBtn.className = 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors';
+        confirmBtn.dataset.uitk = 'btnPrimaryBg btnPrimaryHoverBg textOnAccent';
         confirmBtn.textContent = t('subtitleEditor.split.confirm');
         buttonRow.appendChild(confirmBtn);
 
@@ -648,6 +655,7 @@ const workflowSubtitleEditor = {
         });
 
         document.body.appendChild(overlay);
+        if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(overlay, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
     },
 
     /** Chia ĐỀU appState.get('_region') hiện tại thành `count` dòng phụ đề LIỀN NHAU (dòng sau nối đúng mốc
@@ -1004,23 +1012,28 @@ const workflowSubtitleEditor = {
 
         const overlay = document.createElement('div');
         overlay.id = 'shift-modal-overlay';
-        overlay.className = 'fixed inset-0 z-[130] bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
+        overlay.className = 'fixed inset-0 z-[130] backdrop-blur-sm flex items-center justify-center px-5';
+        overlay.dataset.uitk = 'overlayBg';
 
         const card = document.createElement('div');
-        card.className = 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-3';
+        card.className = 'rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-3';
+        card.dataset.uitk = 'modalCardBg modalCardBorder';
 
         const titleEl = document.createElement('h3');
-        titleEl.className = 'text-base font-bold text-white';
+        titleEl.className = 'text-base';
+        titleEl.dataset.uitk = 'modalTitleText';
         titleEl.textContent = t('subtitleEditor.shift.modalTitle');
         card.appendChild(titleEl);
 
         const descEl = document.createElement('p');
-        descEl.className = 'text-sm text-slate-300';
+        descEl.className = 'text-sm';
+        descEl.dataset.uitk = 'modalBodyText';
         descEl.textContent = tFormat('subtitleEditor.shift.modalDesc', { n: appState.get('_shiftSelectedIds').size });
         card.appendChild(descEl);
 
         const amountLabel = document.createElement('label');
-        amountLabel.className = 'text-[11px] font-semibold text-slate-400 uppercase tracking-wide';
+        amountLabel.className = 'text-[11px] font-semibold uppercase tracking-wide';
+        amountLabel.dataset.uitk = 'textSecondary';
         amountLabel.textContent = t('subtitleEditor.shift.amountLabel');
         card.appendChild(amountLabel);
 
@@ -1030,27 +1043,42 @@ const workflowSubtitleEditor = {
         amountInput.step = '0.1';
         amountInput.value = '0';
         amountInput.inputMode = 'decimal';
-        amountInput.className = 'w-full text-center text-lg font-mono bg-black/40 border border-white/10 rounded-xl px-3 py-2 outline-none focus:border-sky-500 text-white';
+        amountInput.className = 'w-full text-center text-lg font-mono rounded-xl px-3 py-2 outline-none';
+        amountInput.dataset.uitk = 'inputBg inputBorder inputText';
         card.appendChild(amountInput);
 
         const targetLabel = document.createElement('label');
-        targetLabel.className = 'text-[11px] font-semibold text-slate-400 uppercase tracking-wide';
+        targetLabel.className = 'text-[11px] font-semibold uppercase tracking-wide';
+        targetLabel.dataset.uitk = 'textSecondary';
         targetLabel.textContent = t('subtitleEditor.shift.targetLabel');
         card.appendChild(targetLabel);
 
         const targetRow = document.createElement('div');
-        targetRow.className = 'flex w-full p-1 rounded-xl bg-black/30 border border-white/10 gap-1';
+        targetRow.className = 'flex w-full p-1 rounded-xl gap-1';
+        targetRow.dataset.uitk = 'cardBg cardBorder';
         let selectedTarget = 'both';
         const targets = [
             { key: 'both', label: t('subtitleEditor.shift.targetBoth') },
             { key: 'start', label: t('subtitleEditor.shift.targetStart') },
             { key: 'end', label: t('subtitleEditor.shift.targetEnd') },
         ];
+        // SỬA (09/09/2026, hệ UI Theme mở rộng) — trạng thái chọn/không chọn của 3 nút này đổi qua
+        // classList.toggle() lúc bấm (KHÔNG qua data-uitk tĩnh, vì cần đổi NGAY lúc click, không đợi
+        // applyUiThemeToDom() quét lại) — tự tra class active/inactive 1 LẦN qua resolveUiThemeClass()
+        // (core/ui-theme/registry.js) nếu hạ tầng đã nạp, fallback hardcode y hệt giá trị Light nếu
+        // chưa (trang chưa kịp nạp core/ui-theme/*.js — không nên xảy ra ở cả 2 trang sau đợt này,
+        // nhưng giữ fallback cho an toàn tuyệt đối).
+        const activeCls = (typeof resolveUiThemeClass === 'function' && typeof _activeUiThemeKeyList !== 'undefined')
+            ? `${resolveUiThemeClass(_activeUiThemeKeyList, 'modalCardBg')} ${resolveUiThemeClass(_activeUiThemeKeyList, 'textPrimary')}`
+            : 'bg-white text-slate-900';
+        const inactiveCls = (typeof resolveUiThemeClass === 'function' && typeof _activeUiThemeKeyList !== 'undefined')
+            ? resolveUiThemeClass(_activeUiThemeKeyList, 'textSecondary')
+            : 'text-slate-500';
         const targetButtons = targets.map(({ key, label }) => {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.dataset.target = key;
-            btn.className = 'flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ' + (key === selectedTarget ? 'bg-white/10 text-white shadow' : 'text-slate-400');
+            btn.className = 'flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ' + (key === selectedTarget ? `${activeCls} shadow` : inactiveCls);
             btn.textContent = label;
             targetRow.appendChild(btn);
             return btn;
@@ -1061,12 +1089,14 @@ const workflowSubtitleEditor = {
         buttonRow.className = 'flex gap-3 mt-1';
         const cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
-        cancelBtn.className = 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors';
+        cancelBtn.className = 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors';
+        cancelBtn.dataset.uitk = 'btnNeutralBg btnNeutralHoverBg btnNeutralText';
         cancelBtn.textContent = t('common.cancel');
         buttonRow.appendChild(cancelBtn);
         const confirmBtn = document.createElement('button');
         confirmBtn.type = 'button';
-        confirmBtn.className = 'flex-1 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-sm font-bold transition-colors';
+        confirmBtn.className = 'flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors';
+        confirmBtn.dataset.uitk = 'btnPrimaryBg btnPrimaryHoverBg textOnAccent'; // SỬA (09/09/2026) — trước đây bg-cyan-600 riêng, giờ hợp nhất về primary chung (sky)
         confirmBtn.textContent = t('subtitleEditor.shift.applyBtn');
         buttonRow.appendChild(confirmBtn);
         card.appendChild(buttonRow);
@@ -1081,10 +1111,7 @@ const workflowSubtitleEditor = {
                 selectedTarget = btn.dataset.target;
                 targetButtons.forEach((b) => {
                     const active = b.dataset.target === selectedTarget;
-                    b.classList.toggle('bg-white/10', active);
-                    b.classList.toggle('text-white', active);
-                    b.classList.toggle('shadow', active);
-                    b.classList.toggle('text-slate-400', !active);
+                    b.className = 'flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ' + (active ? `${activeCls} shadow` : inactiveCls);
                 });
             });
         });
@@ -1096,6 +1123,7 @@ const workflowSubtitleEditor = {
         });
 
         document.body.appendChild(overlay);
+        if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(overlay, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
     },
 
     /** Cộng `amountSec` (có thể âm) vào start/end/cả 2 của MỌI dòng đang chọn qua
@@ -1148,7 +1176,7 @@ const workflowSubtitleEditor = {
         modalChoice( // core/modal-choice-ui.js
             t('subtitleEditor.reloadConfirm.desc'),
             [
-                { label: t('subtitleEditor.reloadConfirm.confirmBtn'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-bold transition-colors', onClick: () => this._doReloadWithoutCache() },
+                { label: t('subtitleEditor.reloadConfirm.confirmBtn'), className: 'flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors', themeKeys: 'btnDestructiveBg btnDestructiveHoverBg textOnAccent', onClick: () => this._doReloadWithoutCache() },
             ],
             { title: t('subtitleEditor.reloadConfirm.title') }
         );

@@ -36,7 +36,7 @@ const workflowLanguageSettings = {
         modalChoice(
             tFormat('settingsLanguage.delete.confirm', { name }),
             [
-                { label: t('settingsLanguage.delete.label'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: onConfirmSend }
+                { label: t('settingsLanguage.delete.label'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnDestructiveBg btnDestructiveHoverBg textOnAccent', onClick: onConfirmSend }
             ],
             { title: t('settingsLanguage.delete.label') }
         );

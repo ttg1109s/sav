@@ -17,6 +17,20 @@
 const workflowAppBoot = {
     async boot() {
         await loadConfig();
+        // MỚI (09/09/2026, hệ UI Theme Light/Dark/Morphin) — áp theme màu app THẬT (panel/card/
+        // text/nút bấm) CÀNG SỚM CÀNG TỐT, trước khi bất kỳ Generic Drawer nào có thể mở — KHÔNG
+        // phụ thuộc thứ tự với các dòng migrate/khôi phục config bên dưới (domain độc lập hoàn
+        // toàn, xem core/ui-theme/light.js). KHÔNG await chặn phần còn lại của boot — chỉ đổi màu
+        // 1 khung DOM tĩnh (Generic Drawer đang ẩn), không ảnh hưởng gì tới Playlist/Visualizer
+        // hiện lên ngay sau.
+        if (typeof workflowUiTheme !== 'undefined') workflowUiTheme.loadPersistedUiThemeOnBoot();
+        // MỚI (09/09/2026, cùng đợt UI Theme) — tô màu ĐÚNG tab "Media" (mặc định active lúc boot,
+        // xem components/app-bottom-nav.js) NGAY LÚC BOOT — setAppPanelNavActiveTab() (core/
+        // app-panel-nav.js) giờ tự tra màu accent THẬT của theme thay vì hardcode CSS tĩnh, nhưng
+        // hàm đó chỉ CHẠY khi có người bấm chuyển tab/đóng overlay — PHẢI gọi tay 1 LẦN ở đây để
+        // khớp đúng theme NGAY từ khung hình đầu, không đợi tương tác đầu tiên. Đặt SAU dòng
+        // loadPersistedUiThemeOnBoot() ngay trên (cần theme cache đã sẵn sàng trước khi tô).
+        if (typeof setAppPanelNavActiveTab === 'function') setAppPanelNavActiveTab('media');
         // MỚI (29/08/2026, hệ Cấu hình Motion) — PHẢI chạy TRƯỚC dòng
         // `workflowVisualBg.loadPersistedSettingsOnBoot()` ngay dưới: hàm này tự migrate cấu hình
         // Motion CŨ (từng nhúng thẳng trong `meta.visualBgConfig.slideshow`) thành preset đầu

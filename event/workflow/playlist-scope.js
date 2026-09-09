@@ -217,7 +217,7 @@ const workflowPlaylistScope = {
         modalChoice(
             bodyText,
             [
-                { label: t('fileManager.song.folderDetail.reloadBtnNow'), className: 'flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold transition-colors', onClick: () => { window.location.reload(); } }
+                { label: t('fileManager.song.folderDetail.reloadBtnNow'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent', onClick: () => { window.location.reload(); } }
             ],
             { title: t('fileManager.song.folderDetail.reloadTitle') }
         );

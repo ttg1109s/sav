@@ -98,15 +98,15 @@ const workflowAppSettings = {
             height: 'auto', // MỚI (phản hồi Giang mục 2) — tự co theo nội dung, xem core/generic-drawer.js
             maxHeight: '85vh',
             headerHtml: `
-                <div class="relative flex items-center justify-center px-14 py-3 border-b border-slate-200">
+                <div class="relative flex items-center justify-center px-14 py-3 border-b" data-uitk="dividerBorder">
                     ${hasBack ? `
-                    <button id="btn-app-settings-back" class="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-600">
+                    <button id="btn-app-settings-back" class="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full text-slate-600" data-uitk="cardHoverBg">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
                     </button>` : ''}
                     <h3 class="text-base font-bold text-slate-900 truncate text-center">${title}</h3>
                     <div class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
                         ${extraHeaderHtml || ''}
-                        <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-600">
+                        <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-600" data-uitk="cardHoverBg">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                     </div>
@@ -263,19 +263,19 @@ const workflowAppSettings = {
         const glassType = cfg.themeMode === 'background' ? 'image' : (isSolidGuess ? 'solid' : 'gradient');
         const bodyHtml = `
             <div class="flex flex-col gap-2">
-                <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
-                    <div class="flex justify-between items-center px-4 py-3.5 ${isGlass ? 'border-b border-slate-200' : ''}">
+                <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
+                    <div class="flex justify-between items-center px-4 py-3.5 ${isGlass ? '' : ''} border-b" data-uitk="dividerBorder">
                         <span class="text-sm font-semibold text-slate-700 truncate">${t('appSettings.theme.select.label')}</span>
-                        <select id="app-settings-theme-select" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-40 text-right">
+                        <select id="app-settings-theme-select" class="rounded-lg px-2 py-1.5 text-xs outline-none w-40 text-right" data-uitk="inputBg inputBorder inputText">
                             <option value="light">${t('appSettings.theme.select.light')}</option>
                             <option value="dark">${t('appSettings.theme.select.dark')}</option>
                             <option value="glass">${t('appSettings.theme.select.glass')}</option>
                         </select>
                     </div>
                     <div id="app-settings-theme-glass-row" class="${isGlass ? '' : 'hidden'} flex-col">
-                        <div class="flex justify-between items-center px-4 py-3.5 border-b border-slate-200">
+                        <div class="flex justify-between items-center px-4 py-3.5 border-b" data-uitk="dividerBorder">
                             <span class="text-sm font-semibold text-slate-700 truncate">${t('appSettings.theme.glassType.label')}</span>
-                            <select id="app-settings-theme-glass-type" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-40 text-right">
+                            <select id="app-settings-theme-glass-type" class="rounded-lg px-2 py-1.5 text-xs outline-none w-40 text-right" data-uitk="inputBg inputBorder inputText">
                                 <option value="solid">${t('appSettings.theme.glassType.solid')}</option>
                                 <option value="gradient">${t('appSettings.theme.glassType.gradient')}</option>
                                 <option value="image">${t('appSettings.theme.glassType.image')}</option>

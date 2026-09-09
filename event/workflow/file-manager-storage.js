@@ -49,9 +49,9 @@ const workflowFileManagerStorage = {
             height: 'auto', // MỚI (phản hồi Giang mục 2) — tự co theo nội dung, xem core/generic-drawer.js
             maxHeight: '85vh',
             headerHtml: `
-                <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
-                    <h3 class="text-base font-bold text-slate-900">${t('storageDrawer.title')}</h3>
-                    <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
+                <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
+                    <h3 class="text-base font-bold" data-uitk="headerTitle">${t('storageDrawer.title')}</h3>
+                    <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.close')}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
@@ -193,7 +193,7 @@ const workflowFileManagerStorage = {
         modalChoice(
             tFormat(bodyKey, { scope: scopeLabel }),
             [
-                { label: t(deleteEnabled ? 'fileManager.song.storageAction.confirmBtnDelete' : 'fileManager.song.storageAction.confirmBtnDownload'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: onConfirmSend }
+                { label: t(deleteEnabled ? 'fileManager.song.storageAction.confirmBtnDelete' : 'fileManager.song.storageAction.confirmBtnDownload'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnDestructiveBg btnDestructiveHoverBg textOnAccent', onClick: onConfirmSend }
             ],
             { title: t('fileManager.song.storageAction.confirmTitle') }
         );
@@ -366,7 +366,7 @@ const workflowFileManagerStorage = {
         modalChoice(
             bodyHtml,
             [
-                { label: t('fileManager.song.storageAction.btnExecute'), className: 'flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-sm font-semibold transition-colors', onClick: () => onConfirmSend(selectEl.value) }
+                { label: t('fileManager.song.storageAction.btnExecute'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnCautionBg btnCautionHoverBg textOnAccent', onClick: () => onConfirmSend(selectEl.value) }
             ],
             { title: t('storageDrawer.scanBroken.label') }
         );
@@ -397,7 +397,7 @@ const workflowFileManagerStorage = {
         modalChoice(
             tFormat('common.storage.deleteBrokenConfirm', { n: scanResults.length }),
             [
-                { label: t('common.storage.deleteBrokenConfirmBtn'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: onConfirmSend }
+                { label: t('common.storage.deleteBrokenConfirmBtn'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnDestructiveBg btnDestructiveHoverBg textOnAccent', onClick: onConfirmSend }
             ],
             { title: t('common.storage.deleteBrokenTitle') }
         );

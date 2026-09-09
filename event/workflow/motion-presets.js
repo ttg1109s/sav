@@ -631,7 +631,7 @@ const workflowMotionPresets = {
             tFormat('motionSettingsDrawer.pointMove.itemName', { n: idx }),
             [{
                 label: t('common.save'),
-                className: 'flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold transition-colors',
+                className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent',
                 onClick: () => this._commitPointMoveTimingModal(id, draftX),
             }],
             {

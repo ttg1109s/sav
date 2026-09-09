@@ -78,21 +78,23 @@ const workflowPlaylistRender = {
                     ${selectionMode ? `<div class="absolute top-2 left-2">${selectionIndicatorHtml(isSelected)}</div>` : ''}
                     <div class="absolute top-2 right-2 flex bg-black/40 rounded-full">${menuBtnHtml}</div>
                 </div>
-                <h3 class="text-white text-[15px] font-semibold leading-tight line-clamp-1 px-1">${title}</h3>
-                <p class="text-slate-400 text-[13px] font-medium line-clamp-1 px-1 mt-0.5">${secondLineHtml}</p>`;
+                <h3 class="text-[15px] font-semibold leading-tight line-clamp-1 px-1" data-uitk="textPrimary">${title}</h3>
+                <p class="text-[13px] font-medium line-clamp-1 px-1 mt-0.5" data-uitk="textSecondary">${secondLineHtml}</p>`;
         } else {
-            wrapper.className = `flex items-center gap-4 px-5 py-3 hover:bg-white/5 active:bg-white/10 transition-colors cursor-pointer w-full group border-b border-white/5 ${isSelected ? 'bg-sky-500/10' : ''}`;
+            wrapper.className = `flex items-center gap-4 px-5 py-3 active:bg-slate-100 transition-colors cursor-pointer w-full group border-b ${isSelected ? 'bg-sky-50' : ''}`;
+            wrapper.dataset.uitk = isSelected ? 'dividerBorder' : 'dividerBorder cardHoverBg';
             wrapper.dataset.role = 'play-item';
             wrapper.innerHTML = `
                 ${selectionMode ? selectionIndicatorHtml(isSelected) : ''}
                 <img src="${coverUrl}" class="w-12 h-12 rounded-lg flex-shrink-0 object-cover shadow-md">
                 <div class="flex-grow flex flex-col justify-center overflow-hidden gap-0.5">
-                    <div class="flex items-center gap-2"><h3 class="text-[16px] leading-tight font-semibold truncate ${isPlaying ? 'text-sky-300' : 'text-slate-100'}">${title}</h3>${isPlaying ? eqIconHtml : ''}</div>
-                    <p class="text-[13px] text-slate-400 truncate font-medium">${secondLineHtml}</p>
+                    <div class="flex items-center gap-2"><h3 class="text-[16px] leading-tight font-semibold truncate ${isPlaying ? 'text-sky-600' : ''}" ${isPlaying ? '' : 'data-uitk="textPrimary"'}>${title}</h3>${isPlaying ? eqIconHtml : ''}</div>
+                    <p class="text-[13px] truncate font-medium" data-uitk="textSecondary">${secondLineHtml}</p>
                 </div>
                 <div class="flex">${menuBtnHtml}</div>`;
         }
         attachCoverFallback(wrapper.querySelector('img')); // core/playlist/render.js
+        if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(wrapper, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — MỚI (09/09/2026, hệ UI Theme mở rộng "đổi hết trừ Visualizer") — node dựng ĐỘNG (createElement+innerHTML), KHÔNG tự động qua applyUiThemeToDom(document,...) lúc boot như nội dung tĩnh — phải tự áp NGAY ở đây mỗi khi dựng 1 node mới
         return wrapper;
     },
 

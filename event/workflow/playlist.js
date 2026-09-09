@@ -1055,12 +1055,12 @@ const workflowPlaylist = {
         const confirmBtnHtml = this._folderPickerMultiSelect ? `
             <button type="button" id="playlist-folder-picker-confirm" class="text-xs font-semibold text-sky-600 px-1 disabled:opacity-40 disabled:cursor-not-allowed" ${confirmCount === 0 ? 'disabled' : ''}>${confirmCount === 0 ? t('visualBgSettingsDrawer.picker.confirmEmpty') : tFormat('visualBgSettingsDrawer.picker.confirm', { count: confirmCount })}</button>` : '';
         return `
-            <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200 gap-2">
-                <h3 class="text-base font-bold text-slate-900 shrink-0">${t('fileManager.folderPicker.title')}</h3>
+            <div class="flex justify-between items-center px-5 pb-3 gap-2" data-uitk="headerBorder">
+                <h3 class="text-base font-bold shrink-0" data-uitk="headerTitle">${t('fileManager.folderPicker.title')}</h3>
                 <div class="flex items-center gap-2 shrink-0">
                     ${typeDropdownHtml}
                     ${confirmBtnHtml}
-                    <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
+                    <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.close')}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>

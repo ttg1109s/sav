@@ -969,8 +969,8 @@ const workflowVisualBg = {
             <div class="flex-1 min-h-0 overflow-y-auto relative" id="${scrollId}">
                 <p id="${emptyId}" class="hidden text-sm text-slate-500 text-center py-10 px-6">${emptyText}</p>
             </div>
-            <div class="px-5 py-3 border-t border-slate-200 shrink-0">
-                <button type="button" id="btn-file-manager-image-picker-confirm" class="w-full py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed" disabled>${t('visualBgSettingsDrawer.picker.confirmEmpty')}</button>
+            <div class="px-5 py-3 shrink-0 border-t" data-uitk="dividerBorder">
+                <button type="button" id="btn-file-manager-image-picker-confirm" class="w-full py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed" data-uitk="btnPrimaryPillBg btnPrimaryPillHoverBg textOnAccent" disabled>${t('visualBgSettingsDrawer.picker.confirmEmpty')}</button>
             </div>
         `;
     },

@@ -101,9 +101,9 @@ const workflowFileManagerFolderBrowser = {
 
     _buildListHeaderHtml() {
         return `
-            <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
-                <h3 class="text-base font-bold text-slate-900">${t('fileManager.folderBrowser.listTitle')}</h3>
-                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
+            <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
+                <h3 class="text-base font-bold" data-uitk="headerTitle">${t('fileManager.folderBrowser.listTitle')}</h3>
+                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.close')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
@@ -271,7 +271,7 @@ const workflowFileManagerFolderBrowser = {
         modalChoice( // core/modal-choice-ui.js
             this._folderText('fileManager.song.deleteFolderConfirm', folderRecord, { name: escapeHtml(folderName) }),
             [
-                { label: t('fileManager.song.btnDeleteFolder'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
+                { label: t('fileManager.song.btnDeleteFolder'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnDestructiveBg btnDestructiveHoverBg textOnAccent', onClick: async () => {
                     await deleteFolder(folderId, folderType); // core/file-manager/folder.js
                     await this.openList(); // vẽ lại List — folder đã mất, tự động không còn trong danh sách
                 } }
@@ -340,7 +340,7 @@ const workflowFileManagerFolderBrowser = {
         modalChoice( // core/modal-choice-ui.js
             '',
             keys.length > 0 ? [
-                { label: t('fileManager.folderBrowser.tileMenu.propertiesDownload'), className: 'flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold transition-colors', onClick: () => this._downloadFolderZip(folderRecord.name, mediaType, keys) }
+                { label: t('fileManager.folderBrowser.tileMenu.propertiesDownload'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent', onClick: () => this._downloadFolderZip(folderRecord.name, mediaType, keys) }
             ] : [],
             { title: escapeHtml(folderRecord.name), bodyHtml }
         );

@@ -537,7 +537,7 @@ const workflowVideoPreview = {
         modalChoice( // core/modal-choice-ui.js
             t('videoPreview.resetConfirm.desc'),
             [
-                { label: t('videoPreview.resetConfirm.confirm'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: () => this._reallyReset() },
+                { label: t('videoPreview.resetConfirm.confirm'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnDestructiveBg btnDestructiveHoverBg textOnAccent', onClick: () => this._reallyReset() },
             ],
             { title: t('videoPreview.resetConfirm.title') }
         );
@@ -693,7 +693,7 @@ const workflowVideoPreview = {
         modalChoice( // core/modal-choice-ui.js
             t('videoPreview.discardConfirm.desc'),
             [
-                { label: t('videoPreview.discardConfirm.title'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: () => this._reallyClose() },
+                { label: t('videoPreview.discardConfirm.title'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnDestructiveBg btnDestructiveHoverBg textOnAccent', onClick: () => this._reallyClose() },
             ],
             { title: t('videoPreview.discardConfirm.title') }
         );

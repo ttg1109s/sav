@@ -920,7 +920,7 @@ const workflowImageEdit = {
             t('fileManager.photo.image.layerEditContentTitle'),
             [
                 {
-                    label: t('common.save'), className: 'flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-semibold transition-colors text-white',
+                    label: t('common.save'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent',
                     onClick: () => {
                         const trimmed = draftText.trim();
                         if (trimmed) layer.text = trimmed; // guard: rỗng thì giữ nguyên chữ cũ, không cho xoá trắng qua đường này
