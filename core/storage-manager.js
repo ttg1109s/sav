@@ -98,6 +98,60 @@
 
         // ===================== Giải phóng bộ nhớ =====================
 
+        /** Ngưỡng an toàn (byte) cho 1 lượt zip trong bộ nhớ trình duyệt — MỚI (10/09/2026, Giang
+         * báo bug "zip video >1GB làm crash PWA, bị cưỡng chế reload"). `JSZip.generateAsync({type:
+         * 'blob'})` (3 hàm buildAllXZipBlob() ngay dưới) phải dựng NGUYÊN file .zip cuối cùng liền
+         * 1 khối trong RAM (cộng thêm bản đọc tạm của từng blob đầu vào lúc nén) — với Video, tổng
+         * dung lượng vài trăm MB tới hơn 1GB là bình thường, vượt xa giới hạn bộ nhớ 1 tab/PWA (đặc
+         * biệt Safari/WebKit iOS, vốn siết RAM 1 process rất chặt) -> OS tự kill tiến trình, PWA
+         * "crash" rồi bị hệ thống tự reload lại — ĐÚNG triệu chứng Giang báo, là giới hạn CỨNG của
+         * nền tảng chứ không phải lỗi logic. Ngưỡng chọn 500MB (dè dặt, còn margin cho các bản sao
+         * tạm JSZip cần trong lúc nén, thường gấp 2-3 lần dữ liệu gốc) — vượt ngưỡng này, nơi gọi
+         * (`workflowFileManagerStorage.zipAndDownloadOrFallback()`, event/workflow/
+         * file-manager-storage.js) hỏi người dùng chuyển sang tải RIÊNG TỪNG FILE (xem
+         * `downloadRecordsIndividually()` ngay dưới) thay vì gộp 1 file .zip — tải riêng không có
+         * bước "dựng liền 1 khối" nên không dính giới hạn này. */
+        const ZIP_MEMORY_SAFE_LIMIT_BYTES = 500 * 1024 * 1024;
+
+        /** Cộng dồn dung lượng THẬT (`record.blob.size` — chỉ đọc metadata, KHÔNG đọc nội dung
+         * blob nên rẻ) của 1 danh sách key — DÙNG CHUNG cho cả 3 domain (Song/Video/Photo), gọi
+         * TRƯỚC buildAllXZipBlob() để quyết định có an toàn nén trong RAM hay không (xem
+         * ZIP_MEMORY_SAFE_LIMIT_BYTES ngay trên).
+         * @param {string[]} keys
+         * @param {(key:string) => Promise<object|undefined>} getRecordFn - getSongRecord/getVideoRecord/getImageRecord (service/db.js)
+         * @returns {Promise<number>} tổng byte
+         */
+        async function estimateTotalBytesForKeys(keys, getRecordFn) {
+            let total = 0;
+            for (const key of keys) {
+                const record = await getRecordFn(key);
+                if (record && record.blob) total += record.blob.size;
+            }
+            return total;
+        }
+
+        /** Tải xuống RIÊNG TỪNG FILE (không gộp .zip) — fallback khi tổng dung lượng vượt
+         * ZIP_MEMORY_SAFE_LIMIT_BYTES: mỗi file qua `triggerDownload()` (core/id3-export.js) là 1
+         * lượt Blob -> download ĐỘC LẬP, không cần dựng liền 1 khối lớn trong RAM như JSZip nên
+         * không dính giới hạn bộ nhớ tương tự. Dừng 1 nhịp ngắn giữa các lượt — trình duyệt (đặc
+         * biệt Safari) có thể chặn/hỏi xin phép nếu bắn quá nhiều download liên tiếp không nghỉ.
+         * @param {string[]} keys
+         * @param {(key:string) => Promise<object|undefined>} getRecordFn
+         * @param {(done:number,total:number) => void} [onProgress]
+         */
+        async function downloadRecordsIndividually(keys, getRecordFn, onProgress) {
+            let done = 0;
+            for (const key of keys) {
+                const record = await getRecordFn(key);
+                if (record && record.blob) {
+                    triggerDownload(record.blob, record.filename || key); // core/id3-export.js
+                    await new Promise((resolve) => setTimeout(resolve, 300));
+                }
+                done++;
+                if (onProgress) onProgress(done, keys.length);
+            }
+        }
+
         /**
          * Đóng gói toàn bộ blob mp3 GỐC (không gắn tag mới, giữ nguyên file thật) thành 1 file .zip,
          * tên file giữ nguyên filename gốc — trùng tên tự thêm số đếm để JSZip không ghi đè lẫn nhau.
