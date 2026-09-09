@@ -62,12 +62,12 @@ const TPL_PLAYLIST_VIEW = `
                     <span class="text-base font-extrabold">S</span><span class="sav-logo-expand text-base font-extrabold whitespace-pre overflow-hidden inline-block max-w-0 transition-all duration-300 ease-in-out" data-expand-width="4.2em">imple </span><span class="text-base font-extrabold">A</span><span class="sav-logo-expand text-base font-extrabold whitespace-pre overflow-hidden inline-block max-w-0 transition-all duration-300 ease-in-out delay-[60ms]" data-expand-width="3.6em">udio </span><span class="text-base font-extrabold">V</span><span class="sav-logo-expand text-base font-extrabold whitespace-nowrap overflow-hidden inline-block max-w-0 transition-all duration-300 ease-in-out delay-[120ms]" data-expand-width="6em">isualizer</span>
                 </div>
                 <div class="flex items-center gap-5 shrink-0">
-                <button id="btn-return-visual" class="hidden hover:text-emerald-600 transition-colors animate-pulse" data-i18n-title="playlistView.btnReturnVisual.title" title="${t('playlistView.btnReturnVisual.title')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <circle cx="12" cy="12" r="3"></circle>
-                    </svg>
-                </button>
+                <!-- XOÁ (09/09/2026, Giang yêu cầu "loại bỏ nút icon visualizer playing ở header,
+                     gộp vào nút Phát") — #btn-return-visual (icon "chấm tròn" nhấp nháy, bấm quay
+                     lại Visualizer khi đang phát) ĐÃ BỎ HẲN khỏi header. Chức năng gộp vào
+                     #btn-playlist-empty-play (Hàng 3 bên dưới) — xem
+                     updatePlayButtonPlayingState() (core/playlist/render.js) + router
+                     event/router/playlist-empty-state.js. -->
                 <!-- #btn-open-file-manager ĐÃ XOÁ (CHỐT 03/07/2026, plan-v12-multimedia-decisions.md
                      mục 1a) — File Manager giờ mở từ Settings (section mới), không còn icon riêng
                      ở header Playlist nữa. -->
@@ -136,9 +136,9 @@ const TPL_PLAYLIST_VIEW = `
                  (section "Danh sách phát & Nền", xem js/components/settings/playlist-background.js)
                  — không còn icon riêng ở đây, theo yêu cầu dọn header gọn lại. -->
             <div class="flex gap-3">
-                <button id="btn-playlist-empty-play" class="flex-1 min-w-0 active:scale-95 transition-all py-3 rounded-2xl flex items-center justify-center gap-1.5 font-semibold text-[14px]" data-uitk="cardBg cardBorder cardHoverBg textPrimary">
+                <button id="btn-playlist-empty-play" class="flex-1 min-w-0 active:scale-95 transition-all py-3 rounded-2xl flex items-center justify-center gap-1.5 font-semibold text-[14px]" data-uitk="cardBg cardBorder cardHoverBg textPrimary" data-playing="false">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
-                    <span data-i18n="playlistView.btnPlay">${t('playlistView.btnPlay')}</span>
+                    <span id="btn-playlist-empty-play-label" data-i18n="playlistView.btnPlay">${t('playlistView.btnPlay')}</span>
                 </button>
                 <button id="btn-playlist-empty-shuffle" class="flex-1 min-w-0 active:scale-95 transition-all py-3 rounded-2xl flex items-center justify-center gap-1.5 font-semibold text-[14px] whitespace-nowrap" data-uitk="cardBg cardBorder cardHoverBg textPrimary">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
