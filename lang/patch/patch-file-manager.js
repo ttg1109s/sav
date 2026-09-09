@@ -201,6 +201,10 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.song.storageAction.doneDownloadOnly': 'Zip file(s) downloaded.',
     'fileManager.song.storageAction.doneDeleteOnly': '{scope} deleted from this device.',
     'fileManager.song.storageAction.zipErrorSkippedDelete': "Couldn't build the zip file: {message}. Deletion was skipped to avoid losing data without a backup.",
+    // MỚI (10/09/2026, Giang báo bug "zip video >1GB làm crash PWA") — người dùng bấm Huỷ ở modal
+    // "dung lượng quá lớn" (common.storage.zipTooLargeTitle) — xoá đã bị bỏ qua CÙNG lý do
+    // zipErrorSkippedDelete ngay trên (chưa có bản sao nào, không an toàn để xoá).
+    'fileManager.song.storageAction.cancelledSkippedDelete': 'Download was cancelled. Deletion was skipped to avoid losing data without a backup.',
     // ── File Manager -> Song & Video -> Folder Browser (grid folder) ──────────────────────────
     // XOÁ (06/09/2026, Giang chốt mục 3.6 — "bỏ hẳn màn Read") — toàn bộ key riêng cho màn Read cũ
     // (2 toggle Scope/Exclude + hint, trạng thái rỗng, nút "Xoá hết bài", tiêu đề "Gỡ khỏi folder")

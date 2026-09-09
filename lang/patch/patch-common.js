@@ -51,6 +51,16 @@ const LANG_PATCH_COMMON = {
     'common.storage.zippingProgress': 'Packing zip file ({percent}%)...',
     'common.storage.zippingStart': 'Packing zip file (0%)...',
     'common.storage.deletingData': 'Deleting data...',
+    // MỚI (10/09/2026, Giang báo bug "zip video >1GB làm crash PWA, bị cưỡng chế reload") — xem
+    // ZIP_MEMORY_SAFE_LIMIT_BYTES (core/storage-manager.js) + zipAndDownloadOrFallback() (event/
+    // workflow/file-manager-storage.js).
+    'common.storage.calculatingSize': 'Calculating total size...',
+    'common.storage.zipTooLargeTitle': 'Too large to zip',
+    'common.storage.zipTooLargeBody': 'Total size is {size} — packing this into a single zip file could crash the app. You can download each file separately instead.',
+    'common.storage.zipTooLargeBtnIndividual': 'Download files separately',
+    'common.storage.downloadingIndividuallyStart': 'Downloading files...',
+    'common.storage.downloadingIndividuallyProgress': 'Downloading files ({done}/{total})...',
+    'common.storage.zipDownloadError': "Couldn't complete the download: {message}",
     // SỬA (ver12 "Song/Video Unification", Batch 5, mục 6b) — 'noSongsToDownload'/'zipBuildError'/
     // 'downloadThenClear*'/'clearNoDownload*' (2 nút tách rời cũ) ĐÃ XOÁ, thay bằng
     // fileManager.song.storageAction.* (lang/patch/patch-file-manager.js) — 3 field cấu hình độc lập.
