@@ -166,7 +166,7 @@
             modalChoice('', [ // core/modal-choice-ui.js — text='' (nội dung thật nằm ở bodyHtml)
                 {
                     label: t('common.select'),
-                    className: 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold transition-colors',
+                    className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent',
                     // FIX QUAN TRỌNG: modalChoice() tự đóng modal (gỡ khỏi DOM) NGAY TRƯỚC khi gọi
                     // onClick (xem docstring/_appendButtonRow() modalChoice() — `closeModal()` LUÔN
                     // chạy trước) — lúc onClick này thực thi, `#effect-picker-style` KHÔNG CÒN nằm
