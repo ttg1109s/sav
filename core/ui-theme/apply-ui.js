@@ -23,7 +23,22 @@
  * @param {object} keyList - 1 trong UI_THEME_LIGHT/DARK/MORPHIN (core/ui-theme/registry.js).
  */
 function applyUiThemeToDom(rootEl, keyList) {
-    rootEl.querySelectorAll('[data-uitk]').forEach((el) => {
+    // FIX (09/09/2026, Giang báo qua ảnh chụp — dropdown folder "không có bg") — TRƯỚC ĐÂY chỉ
+    // `rootEl.querySelectorAll('[data-uitk]')`, bỏ SÓT chính `rootEl` nếu nó TỰ mang `data-uitk`
+    // (querySelectorAll KHÔNG BAO GIỜ khớp với chính phần tử gọi nó, chỉ khớp CON/cháu) — mọi modal/
+    // dropdown dựng động gọi `applyUiThemeToDom(overlay, ...)` với chính `overlay` mang
+    // `data-uitk="overlayBg"` đều dính: nội dung BÊN TRONG lên màu đúng (là con/cháu, được
+    // querySelectorAll khớp), nhưng chính `overlay`/`menu`/`wrapper` (nền/viền/backdrop) thì KHÔNG,
+    // dù data-uitk vẫn khai đúng trên đó. Generic Drawer thoát nạn (data-uitk="panelBg panelShadow"
+    // trên CHÍNH #generic-drawer-panel) chỉ vì lần gọi ĐẦU lúc boot dùng `document` làm rootEl
+    // (panel là CON của document -> khớp đúng); các lần gọi SAU (openGenericDrawer()/
+    // updateGenericDrawer(), rootEl = CHÍNH panel) mới lại dính y hệt bug này nhưng vô hình vì class
+    // đã bám sẵn từ lần boot, không bị gỡ. Sửa: gộp rootEl (nếu chính nó khớp `[data-uitk]`) vào
+    // cùng danh sách xử lý với mọi con/cháu tìm được — 1 vòng lặp DUY NHẤT, không tách riêng.
+    const targets = rootEl.matches && rootEl.matches('[data-uitk]')
+        ? [rootEl, ...rootEl.querySelectorAll('[data-uitk]')]
+        : [...rootEl.querySelectorAll('[data-uitk]')];
+    targets.forEach((el) => {
         const keys = el.dataset.uitk.trim().split(/\s+/);
         const prevApplied = el.dataset.uitkApplied;
         if (prevApplied) el.classList.remove(...prevApplied.split(/\s+/).filter(Boolean));
