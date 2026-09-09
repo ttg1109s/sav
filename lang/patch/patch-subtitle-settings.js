@@ -485,6 +485,8 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'playlistFilterPresetsDrawer.list.empty': 'No filters yet. Tap "New filter" to create one.',
     'playlistFilterPresetsDrawer.list.select.title': 'Select & apply',
     'playlistFilterPresetsDrawer.list.delete.title': 'Delete',
+    // MỚI (09/09/2026, phản hồi Giang — "với filter đang active, thay vì nút delete -> unselect")
+    'playlistFilterPresetsDrawer.list.unselect.title': 'Unselect',
     'playlistFilterPresetsDrawer.defaultName': 'New filter {n}',
     'playlistFilterPresetsDrawer.edit.title': 'Edit filter',
     'playlistFilterPresetsDrawer.name.label': 'Name',
@@ -494,6 +496,7 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // renderPlaylistFilterEditBody().
     'playlistFilterPresetsDrawer.update': 'Update',
     'playlistFilterPresetsDrawer.delete': 'Delete',
+    'playlistFilterPresetsDrawer.unselect': 'Unselect',
     'playlistFilterPresetsDrawer.reloadPrompt': 'Filter selected. Reload now to apply it to your Playlist?',
     // MỚI (09/09/2026, phản hồi Giang mục 3a) — cảnh báo lúc bấm "Chọn áp dụng"/"Cập nhật" mà preset
     // chưa có field rule hợp lệ nào (chưa bật field nào, hoặc field đã bật nhưng chưa nhập dữ liệu).
