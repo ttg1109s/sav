@@ -154,12 +154,39 @@ function buildAddFolderTileHtml() {
  * Grid xếp item theo đúng cột/hàng CỐ ĐỊNH (`grid-auto-flow` mặc định `row`) — hàng cuối thiếu tile
  * tự nhiên chỉ chiếm các cột ĐẦU (trái), KHÔNG có khái niệm "giãn đều cả hàng lẻ" như Flexbox —
  * cùng lúc thoả cả 2 yêu cầu tưởng chừng ngược nhau ở trên mà không cần media query/breakpoint nào.
+ *
+ * SỬA (09/09/2026, Giang báo lại bug "mở Folder Browser LẦN ĐẦU trong phiên -> panel dư/hụt so với
+ * nội dung thật (khoảng trống dưới), đóng-mở lại thì ĐÚNG" — bug từng fix ở lượt 14/07/2026
+ * (event/workflow/playlist.js, height cố định '60vh' -> 'auto') nhưng đó là fix cho NGUYÊN NHÂN
+ * KHÁC (panel không co theo nội dung); bug NÀY tái xuất hiện đúng từ lượt đổi Flexbox -> CSS Grid
+ * ở CHÍNH hàm này (06/09/2026, ngay trên).
+ * NGUYÊN NHÂN GỐC: Tailwind nạp qua CDN (`<script src="https://cdn.tailwindcss.com">`, index.html)
+ * — bản CDN này tự quét DOM và TIÊM CSS cho class MỚI GẶP LẦN ĐẦU một cách BẤT ĐỒNG BỘ (qua
+ * MutationObserver RIÊNG của chính nó, không đồng bộ với luồng JS của app). 2 class Tailwind ở
+ * wrapper này — `grid-cols-[repeat(auto-fill,minmax(5rem,1fr))]` (trừu tượng) VÀ
+ * `justify-items-center` — grep xác nhận CHỈ xuất hiện ĐÚNG 1 CHỖ NÀY trong toàn bộ app, nên CSS
+ * thật của chúng CHƯA được Tailwind CDN tiêm kịp đúng lúc `_measureGenericDrawerNaturalHeightPx()`
+ * (core/generic-drawer.js) đo chiều cao tự nhiên — hàm đó chạy ĐỒNG BỘ, NGAY SAU KHI gán `bodyHtml`
+ * (cùng tick), tức là đo TRÚNG lúc div còn CHƯA thật sự là `display:grid` (trình duyệt rơi về
+ * block mặc định, tile xếp dọc). Min-height của Generic Drawer chốt theo con số ĐO SAI đó; Tailwind
+ * CDN tiêm CSS thật xong ngay sau (không đồng bộ với animation mở Drawer), nội dung tự co lại
+ * ĐÚNG theo Grid thật — NGẮN hơn hẳn min-height đã chốt trước đó -> để lại khoảng trống dưới, đúng
+ * triệu chứng Giang mô tả. Mở lại (CSS 2 class này Tailwind CDN đã tiêm sẵn vào <style> từ lượt
+ * trước, không mất đi khi đóng Drawer) đo ĐÚNG ngay từ đầu -> hết bug, đúng cũng là triệu chứng.
+ * FIX: 2 thuộc tính quyết định layout/kích thước (`display:grid`, `grid-template-columns`,
+ * `justify-items`) chuyển hẳn qua `style` inline — trình duyệt áp dụng NGAY, không phụ thuộc
+ * Tailwind CDN tiêm kịp hay chưa. CÙNG cách né mà `itemTemplateFolderTile()` (phía trên trong file
+ * này) đã dùng cho `-webkit-line-clamp` (khác nhau ở NGUYÊN NHÂN — chỗ đó là CDN có thể THIẾU hẳn
+ * plugin `line-clamp`, chỗ này là CDN có tiêm nhưng KHÔNG KỊP lúc đo — nhưng CÙNG cách né: CSS thật
+ * nằm ngay trong `style`, không qua class phải chờ Tailwind sinh). `gap-4`/`p-5` GIỮ NGUYÊN dạng
+ * class Tailwind — cả 2 đã dùng rộng rãi ở nhiều nơi khác trong app từ trước (CSS đã có sẵn trong
+ * stylesheet Tailwind tiêm từ lúc app boot, không có nguy cơ tương tự).
  * @param {string} innerHtml - chuỗi HTML các tile (renderItemList() + buildAddFolderTileHtml() nối
  *        sẵn), hàm này CHỈ bọc wrapper, không tự dựng tile.
  * @returns {string}
  */
 function buildFolderGridWrapperHtml(innerHtml) {
-    return `<div class="grid grid-cols-[repeat(auto-fill,minmax(5rem,1fr))] justify-items-center gap-4 p-5">${innerHtml}</div>`;
+    return `<div class="gap-4 p-5" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr)); justify-items: center;">${innerHtml}</div>`;
 }
 
 /**
