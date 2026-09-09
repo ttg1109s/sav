@@ -2,11 +2,10 @@
  * event/listener/visualizer-control-center.js — TẤT CẢ listener của cụm
  * "visualizerControlCenter".
  */
-if (btnReturnVisual) {
-    btnReturnVisual.addEventListener('click', () => {
-        eventBus.send({ router: 'visualizerControlCenter', type: 'visualizerControlCenter.returnToVisualizer.click', payload: {} });
-    });
-}
+// XOÁ (09/09/2026, Giang yêu cầu "loại bỏ nút icon visualizer riêng ở header") — listener
+// btnReturnVisual ĐÃ BỎ (nút không còn tồn tại trong DOM) — returnToVisualizer() (core/
+// visualizer-control-center.js) giờ được gọi TRỰC TIẾP từ event/router/playlist-empty-state.js khi
+// nút Phát to đang ở trạng thái "Đang phát".
 
 if (btnOpenControlCenter) {
     btnOpenControlCenter.addEventListener('click', () => {
