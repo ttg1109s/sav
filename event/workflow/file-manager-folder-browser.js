@@ -369,22 +369,22 @@ const workflowFileManagerFolderBrowser = {
      * core/storage-manager.js) — CHỈ khác Storage Management ở chỗ truyền `keys` là danh sách CỦA
      * RIÊNG folder này (tham số `keys` tuỳ chọn MỚI thêm ở 3 hàm đó, SỬA 06/09/2026) thay vì để hàm
      * tự lấy TOÀN BỘ thư viện — đúng ý Giang "sử dụng core của storage management trong phạm vi
-     * folder". */
+     * folder".
+     *
+     * FIX (10/09/2026, Giang báo bug "zip video >1GB làm crash PWA, bị cưỡng chế reload") — TRƯỚC
+     * ĐÂY gọi thẳng `buildFn()` bất kể tổng dung lượng, dính ĐÚNG rủi ro JSZip phải dựng liền 1
+     * khối trong RAM đã ghi nhận ở `ZIP_MEMORY_SAFE_LIMIT_BYTES` (core/storage-manager.js) — 1
+     * folder Video chỉ vài file cũng dễ vượt 1GB. Giờ giao hẳn cho
+     * `workflowFileManagerStorage.zipAndDownloadOrFallback()` (event/workflow/
+     * file-manager-storage.js — method DÙNG CHUNG mới, cùng hỏi/cùng fallback tải riêng từng file
+     * với Storage Management) thay vì tự lặp lại logic build+tải ở đây. */
     async _downloadFolderZip(folderName, mediaType, keys) {
         const buildFn = mediaType === 'video' ? buildAllVideosZipBlob : mediaType === 'photo' ? buildAllPhotosZipBlob : buildAllSongsZipBlob; // core/storage-manager.js
-        let zipBlob;
-        try {
-            await withLoadingShield(t('common.storage.zippingStart'), async () => {
-                zipBlob = await buildFn(keys, (done, total, percent) => {
-                    const pct = percent != null ? Math.round(percent) : Math.round((done / total) * 100);
-                    loadingText.textContent = tFormat('common.storage.zippingProgress', { percent: pct });
-                });
-            });
-        } catch (err) {
-            console.error('[file-manager-folder-browser] Lỗi đóng gói zip:', err);
-            await alertModal(t('common.storage.zipLibMissing'));
-            return;
-        }
-        triggerDownload(zipBlob, `${folderName}.zip`); // core/id3-export.js
+        const getRecordFn = mediaType === 'video' ? getVideoRecord : mediaType === 'photo' ? getImageRecord : getSongRecord; // service/db.js
+        const result = await workflowFileManagerStorage.zipAndDownloadOrFallback(keys, getRecordFn, buildFn, `${folderName}.zip`); // event/workflow/file-manager-storage.js
+        // KHÔNG có bước "xoá" nào ở luồng Folder Download này (khác Storage Management) — chỉ cần
+        // báo lỗi thẳng khi build/tải fallback thất bại; 'cancelled' (người dùng tự bấm Huỷ ở modal
+        // "quá lớn") không cần báo gì thêm, modal đó đã đủ rõ ràng.
+        if (result.status === 'zipError') await alertModal(tFormat('common.storage.zipDownloadError', { message: escapeHtml(result.message || '') }));
     },
 };

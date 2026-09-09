@@ -204,14 +204,74 @@ const workflowFileManagerStorage = {
      * buildAllPhotosZipBlob() thêm tham số `keys` tuỳ chọn, xem core/storage-manager.js) — truyền
      * THẲNG `keys` vừa lấy được ở dòng dưới vào `buildZipFn`, tránh gọi `getKeysFn()` LẦN 2 một cách
      * ngầm bên trong `buildZipFn` (trước đây `buildZipFn` tự gọi `getAllSongKeys()` v.v. riêng).
+     *
+     * SỬA (10/09/2026, Giang báo bug "zip video >1GB làm crash PWA") — thêm tham số `getRecordFn`,
+     * giao hẳn phần "tính dung lượng + build zip/fallback tải riêng" cho
+     * `zipAndDownloadOrFallback()` (method chung mới, DÙNG CHUNG với `_downloadFolderZip()`,
+     * event/workflow/file-manager-folder-browser.js — cùng 1 rủi ro, cùng 1 cách sửa).
      * @param {() => Promise<string[]>} getKeysFn
+     * @param {(key:string) => Promise<object|undefined>} getRecordFn - getSongRecord/getVideoRecord/getImageRecord (service/db.js)
      * @param {(keys: string[], onProgress: function) => Promise<Blob>} buildZipFn
      * @param {string} zipNamePrefix - đã dịch sẵn qua t(), dùng làm tên file
-     * @returns {Promise<{status: 'ok'|'noItems'|'zipError', message?: string}>}
+     * @returns {Promise<{status: 'ok'|'noItems'|'cancelled'|'zipError', message?: string}>}
      */
-    async _downloadZipFor(getKeysFn, buildZipFn, zipNamePrefix) {
+    async _downloadZipFor(getKeysFn, getRecordFn, buildZipFn, zipNamePrefix) {
         const keys = await getKeysFn();
         if (keys.length === 0) return { status: 'noItems' }; // guard: không có gì để đóng gói
+
+        const dateStr = new Date().toISOString().slice(0, 10);
+        return this.zipAndDownloadOrFallback(keys, getRecordFn, buildZipFn, `${zipNamePrefix}-${dateStr}.zip`);
+    },
+
+    /**
+     * MỚI (10/09/2026, Giang báo bug "zip video >1GB làm crash PWA, bị cưỡng chế reload") — DÙNG
+     * CHUNG bởi `_downloadZipFor()` ngay trên (Storage Management) VÀ `_downloadFolderZip()`
+     * (event/workflow/file-manager-folder-browser.js — "Folder Properties -> Download", TRƯỚC ĐÂY
+     * gọi thẳng buildAllXZipBlob() không qua đây, cùng dính rủi ro y hệt vì gộp 1 folder video vài
+     * file cũng dễ vượt 1GB).
+     *
+     * Tính TRƯỚC tổng dung lượng thật (`estimateTotalBytesForKeys()`, core/storage-manager.js —
+     * chỉ đọc metadata blob.size, rẻ) — vượt `ZIP_MEMORY_SAFE_LIMIT_BYTES` (core/storage-manager.js,
+     * xem docstring hằng số đó để biết lý do đầy đủ: JSZip phải dựng liền 1 khối trong RAM, vượt
+     * giới hạn bộ nhớ 1 tab/PWA là crash) thì hỏi người dùng qua modalChoice() — ĐỒNG Ý -> tải RIÊNG
+     * TỪNG FILE (`downloadRecordsIndividually()`, core/storage-manager.js, không dính giới hạn
+     * tương tự); HUỶ (Cancel mặc định của modalChoice()) -> dừng hẳn, trả `status: 'cancelled'` —
+     * BẮT BUỘC nơi gọi CHỈ được xoá dữ liệu khi `status === 'ok'` (không phải chỉ khác 'zipError'
+     * như trước đây), tránh xoá mất dữ liệu mà người dùng chưa thật sự có bản sao nào.
+     * @param {string[]} keys
+     * @param {(key:string) => Promise<object|undefined>} getRecordFn
+     * @param {(keys:string[], onProgress:function) => Promise<Blob>} buildZipFn
+     * @param {string} zipFileName - tên file .zip ĐẦY ĐỦ (đã gồm ".zip"), dùng khi thật sự gộp 1 file
+     * @returns {Promise<{status:'ok'|'cancelled'|'zipError', message?:string}>}
+     */
+    async zipAndDownloadOrFallback(keys, getRecordFn, buildZipFn, zipFileName) {
+        let totalBytes = 0;
+        await withLoadingShield(t('common.storage.calculatingSize'), async () => {
+            totalBytes = await estimateTotalBytesForKeys(keys, getRecordFn); // core/storage-manager.js
+        });
+
+        if (totalBytes > ZIP_MEMORY_SAFE_LIMIT_BYTES) { // core/storage-manager.js
+            const choice = await new Promise((resolve) => {
+                modalChoice( // core/modal-choice-ui.js
+                    tFormat('common.storage.zipTooLargeBody', { size: formatBytes(totalBytes) }), // core/about-stats.js
+                    [{ label: t('common.storage.zipTooLargeBtnIndividual'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent', onClick: () => resolve('individual') }],
+                    { title: t('common.storage.zipTooLargeTitle'), onCancel: () => resolve('cancel') }
+                );
+            });
+            if (choice === 'cancel') return { status: 'cancelled' };
+
+            try {
+                await withLoadingShield(t('common.storage.downloadingIndividuallyStart'), async () => {
+                    await downloadRecordsIndividually(keys, getRecordFn, (done, total) => { // core/storage-manager.js
+                        loadingText.textContent = tFormat('common.storage.downloadingIndividuallyProgress', { done, total });
+                    });
+                });
+            } catch (err) {
+                console.error('[file-manager-storage] Lỗi tải riêng từng file:', err);
+                return { status: 'zipError', message: err && err.message ? err.message : String(err) };
+            }
+            return { status: 'ok' };
+        }
 
         let zipBlob;
         try {
@@ -225,8 +285,7 @@ const workflowFileManagerStorage = {
             console.error('[file-manager-storage] Lỗi đóng gói zip:', err);
             return { status: 'zipError', message: err && err.message ? err.message : String(err) };
         }
-        const dateStr = new Date().toISOString().slice(0, 10);
-        triggerDownload(zipBlob, `${zipNamePrefix}-${dateStr}.zip`); // core/id3-export.js
+        triggerDownload(zipBlob, zipFileName); // core/id3-export.js
         return { status: 'ok' };
     },
 
@@ -274,11 +333,18 @@ const workflowFileManagerStorage = {
      * @returns {Promise<{status: string, message?: string}>}
      */
     async _runStorageActionForSource(sourceKey, downloadEnabled, deleteEnabled) {
+        // FIX (10/09/2026, Giang báo bug "zip video >1GB làm crash PWA") — điều kiện xoá dữ liệu
+        // TRƯỚC ĐÂY chỉ chặn khi `status === 'zipError'`, KHÔNG chặn `status === 'cancelled'` (trạng
+        // thái MỚI, xem `zipAndDownloadOrFallback()`) — nếu không sửa, người dùng bấm Huỷ ở modal
+        // "quá lớn" vẫn bị XOÁ SẠCH dữ liệu dù CHƯA hề có bản sao nào (cực kỳ nguy hiểm, mất dữ liệu
+        // thật). Đổi hẳn sang chỉ cho xoá khi `status === 'ok'` (thành công THẬT SỰ, dù bằng zip hay
+        // tải riêng từng file) — an toàn với MỌI status mới phát sinh sau này, không cần liệt kê tay
+        // từng trạng thái "không phải lỗi".
         if (sourceKey === 'song') {
             const result = downloadEnabled
-                ? await this._downloadZipFor(getAllSongKeys, buildAllSongsZipBlob, t('fileManager.song.storageAction.zipNameSong'))
+                ? await this._downloadZipFor(getAllSongKeys, getSongRecord, buildAllSongsZipBlob, t('fileManager.song.storageAction.zipNameSong'))
                 : { status: 'ok' };
-            if (deleteEnabled && result.status !== 'zipError') {
+            if (deleteEnabled && result.status === 'ok') {
                 await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllStoredData(); }); // core/storage-manager.js (Song, GIỮ NGUYÊN 100%)
                 await clearAllFolderSongData(); // core/file-manager/folder.js
                 if (appState.get('activePlayListFolder').song) await workflowPlaylistScope.persistScopeChoice(null, 'song');
@@ -287,9 +353,9 @@ const workflowFileManagerStorage = {
         }
         if (sourceKey === 'video') {
             const result = downloadEnabled
-                ? await this._downloadZipFor(getAllVideoKeys, buildAllVideosZipBlob, t('fileManager.song.storageAction.zipNameVideo'))
+                ? await this._downloadZipFor(getAllVideoKeys, getVideoRecord, buildAllVideosZipBlob, t('fileManager.song.storageAction.zipNameVideo'))
                 : { status: 'ok' };
-            if (deleteEnabled && result.status !== 'zipError') {
+            if (deleteEnabled && result.status === 'ok') {
                 await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllVideosData(); }); // core/storage-manager.js
                 await this._resetVideoRuntimeStateAfterClear();
             }
@@ -297,9 +363,9 @@ const workflowFileManagerStorage = {
         }
         if (sourceKey === 'photo') {
             const result = downloadEnabled
-                ? await this._downloadZipFor(getAllImageKeys, buildAllPhotosZipBlob, t('storageDrawer.zipNamePhoto'))
+                ? await this._downloadZipFor(getAllImageKeys, getImageRecord, buildAllPhotosZipBlob, t('storageDrawer.zipNamePhoto'))
                 : { status: 'ok' };
-            if (deleteEnabled && result.status !== 'zipError') {
+            if (deleteEnabled && result.status === 'ok') {
                 await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllPhotosData(); }); // core/storage-manager.js
                 await this._resetPhotoRuntimeStateAfterClear();
             }
@@ -319,6 +385,16 @@ const workflowFileManagerStorage = {
         if (downloadEnabled && zipError) {
             // Xoá đã bị BỎ QUA cho (các) nguồn lỗi zip (xem _runStorageActionForSource), báo rõ.
             alertModal(tFormat('fileManager.song.storageAction.zipErrorSkippedDelete', { message: escapeHtml(zipError.message) }));
+            return;
+        }
+        // FIX (10/09/2026, Giang báo bug "zip video >1GB làm crash PWA") — người dùng bấm Huỷ ở
+        // modal "dung lượng quá lớn" (xem zipAndDownloadOrFallback() ngay trên) cho ÍT NHẤT 1 nguồn
+        // -> xoá ĐÃ bị bỏ qua ĐÚNG cho (các) nguồn đó (result.status !== 'ok', xem
+        // _runStorageActionForSource() ngay trên) — báo rõ thay vì hiện nhầm thông báo "đã xong"
+        // chung chung, CÙNG lý do với nhánh zipError ngay trên.
+        const cancelled = results.some((r) => r && r.status === 'cancelled');
+        if (downloadEnabled && cancelled) {
+            alertModal(t('fileManager.song.storageAction.cancelledSkippedDelete'));
             return;
         }
         if (downloadEnabled && deleteEnabled) alertModal(tFormat('fileManager.song.storageAction.doneDownloadAndDelete', { scope: scopeLabel }));
