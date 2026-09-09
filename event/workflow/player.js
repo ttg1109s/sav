@@ -266,7 +266,7 @@ const workflowPlayer = {
             workflowPlaylistRender.refreshSongNode(key);
             if (!appState.get('domNodesByKey').has(key)) workflowPlaylistRender.renderPlaylistDiff();
             if (!switchScreen) scrollToCurrentKeyAnimated();
-            if (appState.get('currentKey')) btnReturnVisual.classList.remove('hidden');
+            updatePlayButtonPlayingState(); // core/playlist/render.js — MỚI (09/09/2026), THAY show/hide btnReturnVisual cũ (đã xoá nút đó)
             appState.set('beatTimes', []); appState.set('fluxHistory', []); appState.set('currentCalculatedBpm', "---"); statBpm.textContent = "---"; statNote.textContent = "---";
             // Reset trạng thái pitch worker — tránh hiện sót nốt nhạc của bài VỪA đổi trong vài
             // chục ms đầu (worker là bất đồng bộ, kết quả cũ có thể vẫn đang "bay" lúc đổi bài).

@@ -67,4 +67,25 @@ const workflowPlaylistEmptyState = {
 
         if (appState.get('playlistOrder').length > 0) workflowPlayer.playMedia(appState.get('shuffleIndices')[0]); // [SỬA — plan-playmedia-reorg.md] thay window.playSong() cũ
     },
+
+    /**
+     * MỚI (09/09/2026, Giang yêu cầu "ấn Shuffle bất kể trạng thái đều tạo ngẫu nhiên MỚI, kể cả
+     * đang phát") — ứng với 'playlistEmptyState.shuffle.click' khi sectionQueueActive=false (nhánh
+     * "bình thường", KHÔNG đang phát 1 section con). TRƯỚC ĐÂY (xem git blame/docstring cũ) router
+     * gọi thẳng: Shuffle đang TẮT -> bấm hộ `btnShuffle.click()` (tự bật + tự trộn); Shuffle ĐÃ BẬT
+     * SẴN -> bỏ qua, chỉ phát lại `shuffleIndices[0]` CŨ — bấm nút to nhiều lần khi đang phát không
+     * hề đổi thứ tự. Giờ LUÔN trộn MỚI bất kể trạng thái: Shuffle đang TẮT vẫn bấm hộ nút thật như
+     * cũ (tự bật cờ + tự trộn qua toggleShuffleAndReshuffle() — 1 bước, đủ dùng); Shuffle ĐÃ BẬT SẴN
+     * thì KHÔNG được bấm hộ nút thật nữa (`toggleShuffleAndReshuffle()` sẽ TẮT cờ đi, sai ý) — tự
+     * gọi thẳng `updateShuffleArrayFromQueue()` với cờ `true` cố định (bỏ qua bước toggle), hàm đó
+     * luôn dùng `Math.random()` mới nên KẾT QUẢ LUÔN NGẪU NHIÊN LẠI dù cờ không đổi.
+     */
+    reshuffleTopLevelAlways() {
+        if (!appState.get('isShuffle')) {
+            btnShuffle.click();
+        } else {
+            updateShuffleArrayFromQueue(appState.get('displayOrder'), appState.get('playlistOrder'), true); // core (order.js) — gọi THẲNG, KHÔNG qua btnShuffle.click() (sẽ tắt cờ) — cờ true cố định + Math.random() mới bên trong đảm bảo luôn ra thứ tự khác
+        }
+        if (appState.get('playlistOrder').length > 0) workflowPlayer.playMedia(appState.get('shuffleIndices')[0]);
+    },
 };

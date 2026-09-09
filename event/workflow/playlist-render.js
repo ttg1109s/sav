@@ -34,7 +34,7 @@
  *
  * NẠP SAU: core/playlist/render.js (revokeNodeCoverUrl/songActionMenuButtonHtml/
  * attachCoverFallback/selectionIndicatorHtml/updateEmptyState), core/playlist/state.js
- * (formatTime), core/dom-refs.js (playlistContainer/btnReturnVisual/DEFAULT_VINYL/bgVideoElement/
+ * (formatTime), core/dom-refs.js (playlistContainer/btnPlaylistEmptyPlay/DEFAULT_VINYL/bgVideoElement/
  * audioPlayer). NẠP TRƯỚC: mọi file gọi `workflowPlaylistRender.*` — event/workflow/playlist.js,
  * video-player.js, photo-player.js, player.js, playlist-scope.js, playlist-empty-state.js,
  * playlist-order.js, file-manager-storage.js (đều nạp sau trong cùng nhóm EVENT), core/playlist/
@@ -111,7 +111,7 @@ const workflowPlaylistRender = {
             appState.mutate('domNodesByKey', m => m.set(key, node));
             playlistContainer.appendChild(node);
         });
-        if (appState.get('currentKey')) btnReturnVisual.classList.remove('hidden'); else btnReturnVisual.classList.add('hidden');
+        updatePlayButtonPlayingState(); // core/playlist/render.js — MỚI (09/09/2026), THAY show/hide btnReturnVisual cũ (đã xoá nút đó)
         updateEmptyState(); // core/playlist/render.js
         console.log(`writer: "workflowPlaylistRender.renderPlaylistFull", page: "(chẩn đoán)", content: "${(performance.now() - _t0).toFixed(0)}ms cho ${appState.get('renderOrder').length} item (dựng lại TOÀN BỘ DOM)"`);
     },
@@ -166,7 +166,7 @@ const workflowPlaylistRender = {
             prevNode = node;
         }
 
-        if (appState.get('currentKey')) btnReturnVisual.classList.remove('hidden'); else btnReturnVisual.classList.add('hidden');
+        updatePlayButtonPlayingState(); // core/playlist/render.js — MỚI (09/09/2026), THAY show/hide btnReturnVisual cũ (đã xoá nút đó)
         updateEmptyState(); // core/playlist/render.js
         console.log(`writer: "workflowPlaylistRender.renderPlaylistDiff", page: "(chẩn đoán)", content: "${(performance.now() - _t0).toFixed(0)}ms — dựng mới ${_builtCount}/${appState.get('renderOrder').length} node, ẩn tạm ${_hiddenCount}, xoá hẳn ${_destroyedCount}"`);
     },
