@@ -43,6 +43,12 @@
  * eq-presets-drawer.js). `activeId` = `playlistFilterActivePresetId` hiện tại (KHÔNG còn gate qua
  * công tắc tổng — field đó đã bỏ, SỬA 09/09/2026, xem event/workflow/app-settings.js::
  * _renderPlaylistFilterList()), component không tự đọc appState (Rule 2).
+ * SỬA (09/09/2026, phản hồi Giang — "với filter đang active, thay vì nút delete -> unselect") —
+ * dòng ĐANG ACTIVE đổi nút xoá nhanh (`data-playlist-filter-quickdelete`) thành nút "bỏ chọn"
+ * (`data-playlist-filter-quickunselect`, icon khác — dấu trừ trong vòng tròn, KHÔNG phải thùng rác)
+ * — bỏ chọn CHỈ gỡ preset khỏi vai trò active (KHÔNG xoá hẳn preset, vẫn còn trong danh sách để
+ * chọn lại sau) — xem workflowPlaylistFilterPresets.unselectPreset(). Dòng KHÔNG active vẫn xoá
+ * nhanh như cũ.
  * @param {{id:string,name:string}[]} presets @param {string|null} activeId */
 function renderPlaylistFilterListBody(presets, activeId) {
     const addRowHtml = `
@@ -54,6 +60,13 @@ function renderPlaylistFilterListBody(presets, activeId) {
     const itemsHtml = presets.map((p) => {
         const isActive = p.id === activeId;
         const rowClass = isActive ? 'bg-sky-50 border border-sky-300' : 'bg-slate-50 border border-slate-200 hover:bg-slate-100';
+        const secondButtonHtml = isActive
+            ? `<button type="button" data-playlist-filter-quickunselect="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-amber-500 hover:bg-amber-50 transition-colors" title="${t('playlistFilterPresetsDrawer.list.unselect.title')}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" /></svg>
+                </button>`
+            : `<button type="button" data-playlist-filter-quickdelete="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors" title="${t('playlistFilterPresetsDrawer.list.delete.title')}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>`;
         return `
         <div data-playlist-filter-tile="${escapeHtml(p.id)}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-2 transition-colors cursor-pointer ${rowClass}">
             <span class="flex items-center gap-2 min-w-0">
@@ -64,9 +77,7 @@ function renderPlaylistFilterListBody(presets, activeId) {
                 <button type="button" data-playlist-filter-quickselect="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full ${isActive ? 'text-sky-500' : 'text-slate-400 hover:text-sky-500 hover:bg-sky-50'} transition-colors" title="${t('playlistFilterPresetsDrawer.list.select.title')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
                 </button>
-                <button type="button" data-playlist-filter-quickdelete="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors" title="${t('playlistFilterPresetsDrawer.list.delete.title')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
+                ${secondButtonHtml}
             </span>
         </div>
     `;
@@ -154,11 +165,14 @@ function _renderFilterNumericFieldRow(field, labelKey, inputType, step) {
 }
 
 /**
- * Sửa 1 preset — hàng "Name" (CÙNG khuôn EQ, `eq-drawer-name`) + field rule theo Nguồn + 2 nút
- * "Chọn áp dụng"/"Xoá" cuối (CÙNG khuôn `eq-drawer-apply`/`eq-drawer-delete`, KHÔNG còn nút "Áp
- * dụng" đơn lẻ như bản cũ 1-bộ-rule-sống — mọi field GHI THẲNG (live-commit) vào preset đang sửa,
- * xem workflowPlaylistFilterPresets.setFilterField(), "Chọn áp dụng" mới thật sự đẩy preset này lên
- * Playlist).
+ * Sửa 1 preset — hàng "Name" (CÙNG khuôn EQ, `eq-drawer-name`) + field rule theo Nguồn + 2 nút cuối
+ * (CÙNG khuôn `eq-drawer-apply`/`eq-drawer-delete`, KHÔNG còn nút "Áp dụng" đơn lẻ như bản cũ 1-bộ-
+ * rule-sống — mọi field GHI THẲNG (live-commit) vào preset đang sửa, xem
+ * workflowPlaylistFilterPresets.setFilterField(), "Chọn áp dụng" mới thật sự đẩy preset này lên
+ * Playlist). SỬA (09/09/2026, phản hồi Giang — "với filter đang active, thay vì nút delete ->
+ * unselect") — nút thứ 2 đổi thành "Bỏ chọn" (`#btn-playlist-filter-unselect`) khi `isActive` —
+ * CHỈ gỡ preset khỏi vai trò active (không xoá hẳn preset), thay vì "Xoá" (`#btn-playlist-filter-
+ * delete`) như preset không active.
  * @param {{id:string,name:string,config:object}} preset
  * @param {string} source - 'song' | 'video' | 'photo' — quyết định field TEXT nào hiện (album/
  *   artist — SỬA (Giang yêu cầu, "filter/search hỗ trợ field Album của video/photo") — `artist`
@@ -210,7 +224,7 @@ function renderPlaylistFilterEditBody(preset, source, isActive) {
                     </div>
                     <div class="flex gap-2 mt-4">
                         <button id="btn-playlist-filter-select" type="button" class="flex-1 py-3 rounded-2xl bg-sky-50 hover:bg-sky-100 transition-colors text-sky-600 text-sm font-medium" data-i18n="${isActive ? 'playlistFilterPresetsDrawer.update' : 'playlistFilterPresetsDrawer.select'}">${isActive ? t('playlistFilterPresetsDrawer.update') : t('playlistFilterPresetsDrawer.select')}</button>
-                        <button id="btn-playlist-filter-delete" type="button" class="flex-1 py-3 rounded-2xl bg-rose-50 hover:bg-rose-100 transition-colors text-rose-600 text-sm font-medium" data-i18n="playlistFilterPresetsDrawer.delete">${t('playlistFilterPresetsDrawer.delete')}</button>
+                        <button id="${isActive ? 'btn-playlist-filter-unselect' : 'btn-playlist-filter-delete'}" type="button" class="flex-1 py-3 rounded-2xl ${isActive ? 'bg-amber-50 hover:bg-amber-100 text-amber-600' : 'bg-rose-50 hover:bg-rose-100 text-rose-600'} transition-colors text-sm font-medium" data-i18n="${isActive ? 'playlistFilterPresetsDrawer.unselect' : 'playlistFilterPresetsDrawer.delete'}">${isActive ? t('playlistFilterPresetsDrawer.unselect') : t('playlistFilterPresetsDrawer.delete')}</button>
                     </div>
                     <div class="text-xs text-slate-400 mt-2 text-center" data-i18n="playlistFilterPanel.hint">${t('playlistFilterPanel.hint')}</div>
                 </div>
