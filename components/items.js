@@ -91,13 +91,18 @@ function itemTemplateFolderTile(folder, ctx) {
     const typeOverlayHtml = typeOverlaySvg
         ? `<div class="absolute inset-0 flex items-center justify-center"><div class="w-6 h-6 rounded-full bg-[#0f172a] flex items-center justify-center ${typeOverlayColorClass}">${typeOverlaySvg}</div></div>`
         : '';
-    const iconBoxHtml = `<div class="relative w-14 h-14 rounded-2xl bg-sky-100 text-sky-600 flex items-center justify-center shrink-0">${folderIconSvg}${typeOverlayHtml}</div>`;
+    // SỬA (09/09/2026, hệ UI Theme) — icon box màu ĐI QUA `data-uitk` (accentIconBoxBg/Text, core/
+    // ui-theme/light.js) THAY hardcode `bg-sky-100 text-sky-600` — badge tròn TỐI phủ giữa (loại
+    // media song/video/photo) GIỮ NGUYÊN hardcode, KHÔNG qua theme (màu PHÂN LOẠI dữ liệu, không
+    // phải màu giao diện — cùng tinh thần 3 màu thanh Storage Management giữ nguyên khi "xử lý
+    // triệt để dark cũ").
+    const iconBoxHtml = `<div class="relative w-14 h-14 rounded-2xl flex items-center justify-center shrink-0" data-uitk="accentIconBoxBg accentIconBoxText">${folderIconSvg}${typeOverlayHtml}</div>`;
 
     if (isEditing) {
         return `
             <div class="generic-item-folder-tile-editing flex flex-col items-center gap-1.5 w-20" data-folder-id="${escapeHtml(folder.id)}">
                 ${iconBoxHtml}
-                <input type="text" value="${escapeHtml(folder.name)}" class="generic-folder-tile-rename-input w-full text-xs text-center text-slate-800 border border-sky-400 rounded-lg px-1 py-1 outline-none" />
+                <input type="text" value="${escapeHtml(folder.name)}" class="generic-folder-tile-rename-input w-full text-xs text-center border rounded-lg px-1 py-1 outline-none" data-uitk="textPrimary inputBorderFocus" />
             </div>
         `;
     }
@@ -111,7 +116,7 @@ function itemTemplateFolderTile(folder, ctx) {
     return `
         <button type="button" class="generic-item-folder-tile select-none flex flex-col items-center gap-1.5 w-20${selectedRingClass}" data-folder-id="${escapeHtml(folder.id)}">
             <div class="generic-folder-tile-icon-wrap relative">${iconBoxHtml}${selectedBadgeHtml}</div>
-            <span class="text-xs font-medium text-slate-700 text-center leading-tight break-words" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escapeHtml(folder.name)}</span>
+            <span class="text-xs font-medium text-center leading-tight break-words" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;" data-uitk="textSecondaryStrong">${escapeHtml(folder.name)}</span>
         </button>
     `;
 }
@@ -125,10 +130,10 @@ function itemTemplateFolderTile(folder, ctx) {
 function buildAddFolderTileHtml() {
     return `
         <button type="button" id="generic-folder-picker-add-tile" class="flex flex-col items-center gap-1.5 w-20">
-            <div class="w-14 h-14 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center shrink-0 border-2 border-dashed border-slate-300">
+            <div class="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border-2 border-dashed" data-uitk="cardBg textMutedIcon dashedBorder">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4" /></svg>
             </div>
-            <span class="text-xs font-medium text-slate-500 text-center">${t('fileManager.folderPicker.newTileLabel')}</span>
+            <span class="text-xs font-medium text-center" data-uitk="textSecondary">${t('fileManager.folderPicker.newTileLabel')}</span>
         </button>
     `;
 }

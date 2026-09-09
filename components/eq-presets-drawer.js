@@ -48,11 +48,11 @@
 
 function renderEqListHeader() {
     return `
-        <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
-            <h3 class="text-base font-bold text-slate-900" data-i18n="eqPresets.title">${t('eqPresets.title')}</h3>
+        <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
+            <h3 class="text-base font-bold" data-uitk="headerTitle" data-i18n="eqPresets.title">${t('eqPresets.title')}</h3>
             <div class="flex items-center gap-1 shrink-0">
-                <button id="btn-eq-drawer-add" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-600" title="${t('eqPresets.addButton.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg></button>
-                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                <button id="btn-eq-drawer-add" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-600" data-uitk="cardHoverBg" title="${t('eqPresets.addButton.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg></button>
+                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.close')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
             </div>
         </div>
     `;
@@ -87,12 +87,12 @@ function renderEqEditHeader(preset, isBuiltIn) {
     // lúc seed lần đầu (KHÔNG tự lưu DB — vẫn phải bấm Lưu mới ghi, cùng 1 cửa duy nhất với sửa
     // tay), xem event/workflow/eq-presets.js::_resetEditToDefault().
     const resetBtn = (!preset.locked && isBuiltIn)
-        ? `<button id="btn-eq-drawer-reset" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500 shrink-0" title="${t('eqPresets.resetButton.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M4 9a8 8 0 1 1 2.34 5.66" /></svg></button>`
+        ? `<button id="btn-eq-drawer-reset" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors shrink-0" data-uitk="headerCloseHover headerCloseIcon" title="${t('eqPresets.resetButton.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M4 9a8 8 0 1 1 2.34 5.66" /></svg></button>`
         : '';
-    const saveBtn = preset.locked ? '' : `<button id="btn-generic-drawer-save" class="px-3 py-1.5 rounded-full bg-sky-500 hover:bg-sky-400 transition-colors text-white text-sm font-medium shrink-0" data-i18n="eqPresets.save">${t('eqPresets.save')}</button>`;
+    const saveBtn = preset.locked ? '' : `<button id="btn-generic-drawer-save" class="px-3 py-1.5 rounded-full transition-colors text-sm font-medium shrink-0" data-uitk="btnPrimaryPillBg btnPrimaryPillHoverBg textOnAccent" data-i18n="eqPresets.save">${t('eqPresets.save')}</button>`;
     return `
-        <div class="relative flex items-center justify-center px-14 py-3 border-b border-slate-200">
-            <button id="btn-generic-drawer-back" class="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-600 shrink-0" title="${t('eqPresets.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg></button>
+        <div class="relative flex items-center justify-center px-14 py-3 border-b" data-uitk="dividerBorder">
+            <button id="btn-generic-drawer-back" class="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full text-slate-600 shrink-0" data-uitk="cardHoverBg" title="${t('eqPresets.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg></button>
             <h3 class="text-sm font-bold text-slate-900 truncate px-10" data-i18n="eqPresets.editTitle">${t('eqPresets.editTitle')}</h3>
             <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 shrink-0">${resetBtn}${saveBtn}</div>
         </div>
@@ -128,12 +128,12 @@ function renderEqEditBody(preset) {
 
     return `
         <div class="flex flex-col gap-4">
-            <div class="bg-slate-50 border border-slate-200 rounded-2xl px-4 flex items-center justify-between gap-3">
+            <div class="rounded-2xl px-4 flex items-center justify-between gap-3" data-uitk="cardBg cardBorder">
                 <label for="eq-drawer-name" class="text-sm text-slate-500 shrink-0" data-i18n="eqPresets.name.label">${t('eqPresets.name.label')}</label>
                 <input type="text" id="eq-drawer-name" maxlength="24" value="${escapeHtml(preset.name)}" ${preset.locked ? 'disabled' : ''} class="flex-1 min-w-0 bg-transparent text-right py-3 text-sm text-slate-900 outline-none disabled:opacity-60">
             </div>
             ${preset.locked ? `<p class="text-xs text-slate-400 -mt-2 px-1" data-i18n="eqPresets.lockedHint">${t('eqPresets.lockedHint')}</p>` : ''}
-            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3">
+            <div class="rounded-2xl p-3" data-uitk="cardBg cardBorder">
                 <div class="flex items-end gap-2 overflow-x-auto px-1 pb-0.5">${sliders}</div>
             </div>
             ${preset.locked ? '' : `

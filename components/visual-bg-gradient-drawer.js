@@ -33,12 +33,12 @@
 function renderVisualBgGradientPanelBody() {
     return `
                 <div>
-                    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4">
+                    <div class="rounded-2xl p-4 mb-4" data-uitk="cardBg cardBorder">
                         <div id="visual-bg-gradient-preview" class="w-full aspect-square rounded-xl border border-slate-200"></div>
                     </div>
 
                     <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2" data-i18n="visualBgSettingsDrawer.gradientAngle.label">${t('visualBgSettingsDrawer.gradientAngle.label')}</h3>
-                    <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden mb-4">
+                    <div class="rounded-2xl flex flex-col overflow-hidden mb-4" data-uitk="cardBg cardBorder">
                         <div class="flex justify-between items-center gap-3 p-4">
                             <input type="range" id="setting-visual-bg-gradient-angle" min="0" max="360" step="1" class="flex-1 accent-sky-500">
                             <span id="visual-bg-gradient-angle-value" class="text-xs text-slate-500 w-12 text-right tabular-nums"></span>
@@ -46,9 +46,9 @@ function renderVisualBgGradientPanelBody() {
                     </div>
 
                     <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2" data-i18n="visualBgSettingsDrawer.gradientStops.label">${t('visualBgSettingsDrawer.gradientStops.label')}</h3>
-                    <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
+                    <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                         <div id="visual-bg-gradient-stop-list" class="flex flex-col gap-3 p-4"></div>
-                        <button type="button" id="setting-visual-bg-gradient-add" class="p-4 border-t border-slate-200 text-sm font-medium text-sky-600 hover:bg-slate-100 transition-colors" data-i18n="visualBgSettingsDrawer.gradientStops.add">${t('visualBgSettingsDrawer.gradientStops.add')}</button>
+                        <button type="button" id="setting-visual-bg-gradient-add" class="p-4 text-sm font-medium text-sky-600 border-t" data-uitk="dividerBorder cardHoverBg" data-i18n="visualBgSettingsDrawer.gradientStops.add">${t('visualBgSettingsDrawer.gradientStops.add')}</button>
                     </div>
 
                     <!-- MỚI (12/08/2026, Giang yêu cầu mục 6) — "Movement": gradient tự xoay/dao
@@ -60,50 +60,50 @@ function renderVisualBgGradientPanelBody() {
                                      liên tục, xem phân tích chọn thông số ở docstring
                                      core/config.js::DEFAULT_VISUAL_BG_CONFIG.gradientMovement). -->
                     <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2 mt-4" data-i18n="visualBgSettingsDrawer.gradientMovement.label">${t('visualBgSettingsDrawer.gradientMovement.label')}</h3>
-                    <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden mb-4">
-                        <div class="flex justify-between items-center p-4 border-b border-slate-200">
+                    <div class="rounded-2xl flex flex-col overflow-hidden mb-4" data-uitk="cardBg cardBorder">
+                        <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder">
                             <div class="pr-3">
                                 <div class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.gradientMovement.enable.label">${t('visualBgSettingsDrawer.gradientMovement.enable.label')}</div>
                                 <div class="text-xs text-slate-500 mt-0.5" data-i18n="visualBgSettingsDrawer.gradientMovement.enable.hint">${t('visualBgSettingsDrawer.gradientMovement.enable.hint')}</div>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                 <input type="checkbox" id="setting-visual-bg-gradient-movement-enable" class="sr-only peer">
-                                <div class="w-9 h-5 bg-slate-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
                             </label>
                         </div>
                         <div id="visual-bg-gradient-movement-options" class="hidden flex-col">
-                            <div class="flex justify-between items-center p-4 border-b border-slate-200 hover:bg-slate-100 transition-colors">
+                            <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder cardHoverBg">
                                 <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.gradientMovement.mode.label">${t('visualBgSettingsDrawer.gradientMovement.mode.label')}</span>
-                                <select id="setting-visual-bg-gradient-movement-mode" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-36 text-right">
+                                <select id="setting-visual-bg-gradient-movement-mode" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
                                     <option value="time" data-i18n="visualBgSettingsDrawer.gradientMovement.mode.time">${t('visualBgSettingsDrawer.gradientMovement.mode.time')}</option>
                                     <option value="audio" data-i18n="visualBgSettingsDrawer.gradientMovement.mode.audio">${t('visualBgSettingsDrawer.gradientMovement.mode.audio')}</option>
                                 </select>
                             </div>
 
                             <div id="visual-bg-gradient-movement-time-block" class="hidden flex-col">
-                                <button type="button" id="setting-visual-bg-gradient-movement-open-duration" class="flex justify-between items-center p-4 border-b border-slate-200 hover:bg-slate-100 transition-colors w-full text-left">
+                                <button type="button" id="setting-visual-bg-gradient-movement-open-duration" class="flex justify-between items-center p-4 w-full text-left border-b" data-uitk="dividerBorder cardHoverBg">
                                     <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.gradientMovement.duration.label">${t('visualBgSettingsDrawer.gradientMovement.duration.label')}</span>
                                     <span id="visual-bg-gradient-movement-duration-value" class="text-xs text-slate-900 font-mono"></span>
                                 </button>
                             </div>
 
                             <div id="visual-bg-gradient-movement-audio-block" class="hidden flex-col">
-                                <div class="p-4 border-b border-slate-200">
+                                <div class="p-4 border-b" data-uitk="dividerBorder">
                                     <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.gradientMovement.audioRotate.label">${t('visualBgSettingsDrawer.gradientMovement.audioRotate.label')}</span>
                                     <div class="flex items-center gap-2 mt-2">
                                         <span class="text-xs text-slate-500 shrink-0" data-i18n="visualBgSettingsDrawer.gradientMovement.rangeFrom">${t('visualBgSettingsDrawer.gradientMovement.rangeFrom')}</span>
-                                        <input type="number" id="setting-visual-bg-gradient-movement-audio-rotate-from" min="0" max="360" step="1" class="flex-1 min-w-0 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none text-right">
+                                        <input type="number" id="setting-visual-bg-gradient-movement-audio-rotate-from" min="0" max="360" step="1" class="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-xs outline-none text-right" data-uitk="inputBg inputBorder inputText">
                                         <span class="text-xs text-slate-500 shrink-0" data-i18n="visualBgSettingsDrawer.gradientMovement.rangeTo">${t('visualBgSettingsDrawer.gradientMovement.rangeTo')}</span>
-                                        <input type="number" id="setting-visual-bg-gradient-movement-audio-rotate-to" min="0" max="360" step="1" class="flex-1 min-w-0 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none text-right">
+                                        <input type="number" id="setting-visual-bg-gradient-movement-audio-rotate-to" min="0" max="360" step="1" class="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-xs outline-none text-right" data-uitk="inputBg inputBorder inputText">
                                     </div>
                                 </div>
                                 <div class="p-4">
                                     <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.gradientMovement.audioSpread.label">${t('visualBgSettingsDrawer.gradientMovement.audioSpread.label')}</span>
                                     <div class="flex items-center gap-2 mt-2">
                                         <span class="text-xs text-slate-500 shrink-0" data-i18n="visualBgSettingsDrawer.gradientMovement.rangeFrom">${t('visualBgSettingsDrawer.gradientMovement.rangeFrom')}</span>
-                                        <input type="number" id="setting-visual-bg-gradient-movement-audio-spread-from" min="0" max="50" step="1" class="flex-1 min-w-0 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none text-right">
+                                        <input type="number" id="setting-visual-bg-gradient-movement-audio-spread-from" min="0" max="50" step="1" class="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-xs outline-none text-right" data-uitk="inputBg inputBorder inputText">
                                         <span class="text-xs text-slate-500 shrink-0" data-i18n="visualBgSettingsDrawer.gradientMovement.rangeTo">${t('visualBgSettingsDrawer.gradientMovement.rangeTo')}</span>
-                                        <input type="number" id="setting-visual-bg-gradient-movement-audio-spread-to" min="0" max="50" step="1" class="flex-1 min-w-0 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none text-right">
+                                        <input type="number" id="setting-visual-bg-gradient-movement-audio-spread-to" min="0" max="50" step="1" class="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-xs outline-none text-right" data-uitk="inputBg inputBorder inputText">
                                     </div>
                                 </div>
                             </div>
@@ -111,23 +111,23 @@ function renderVisualBgGradientPanelBody() {
                     </div>
 
                     <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2" data-i18n="visualBgSettingsDrawer.gradientMovement.colorSwapSectionTitle">${t('visualBgSettingsDrawer.gradientMovement.colorSwapSectionTitle')}</h3>
-                    <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
-                        <div class="flex justify-between items-center p-4 border-b border-slate-200">
+                    <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
+                        <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder">
                             <div class="pr-3">
                                 <div class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.gradientMovement.colorSwapEnable.label">${t('visualBgSettingsDrawer.gradientMovement.colorSwapEnable.label')}</div>
                                 <div class="text-xs text-slate-500 mt-0.5" data-i18n="visualBgSettingsDrawer.gradientMovement.colorSwapEnable.hint">${t('visualBgSettingsDrawer.gradientMovement.colorSwapEnable.hint')}</div>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                 <input type="checkbox" id="setting-visual-bg-gradient-colorswap-enable" class="sr-only peer">
-                                <div class="w-9 h-5 bg-slate-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
                             </label>
                         </div>
                         <div id="visual-bg-gradient-colorswap-options" class="hidden flex-col">
-                            <button type="button" id="setting-visual-bg-gradient-colorswap-open-interval" class="flex justify-between items-center p-4 border-b border-slate-200 hover:bg-slate-100 transition-colors w-full text-left">
+                            <button type="button" id="setting-visual-bg-gradient-colorswap-open-interval" class="flex justify-between items-center p-4 w-full text-left border-b" data-uitk="dividerBorder cardHoverBg">
                                 <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.gradientMovement.colorSwapInterval.label">${t('visualBgSettingsDrawer.gradientMovement.colorSwapInterval.label')}</span>
                                 <span id="visual-bg-gradient-colorswap-interval-value" class="text-xs text-slate-900 font-mono"></span>
                             </button>
-                            <button type="button" id="setting-visual-bg-gradient-colorswap-open-transition" class="flex justify-between items-center p-4 hover:bg-slate-100 transition-colors w-full text-left">
+                            <button type="button" id="setting-visual-bg-gradient-colorswap-open-transition" class="flex justify-between items-center p-4 w-full text-left" data-uitk="cardHoverBg">
                                 <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.gradientMovement.colorSwapTransition.label">${t('visualBgSettingsDrawer.gradientMovement.colorSwapTransition.label')}</span>
                                 <span id="visual-bg-gradient-colorswap-transition-value" class="text-xs text-slate-900 font-mono"></span>
                             </button>

@@ -27,19 +27,19 @@ function renderPlaylistSortPanelBody(source) {
     const isPhoto = source === 'photo';
     return `
                 <div>
-                    <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
-                        <div class="flex justify-between items-center p-4 border-b border-slate-200 hover:bg-slate-100 transition-colors">
+                    <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
+                        <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder cardHoverBg">
                             <span class="text-sm font-medium truncate" data-i18n="playlistSortPanel.nameMode.label">${t('playlistSortPanel.nameMode.label')}</span>
-                            <select id="setting-playlist-sort-name" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-36 text-right">
+                            <select id="setting-playlist-sort-name" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
                                 <option value="az" data-i18n="settingsPlaylistBg.sortMode.az">${t('settingsPlaylistBg.sortMode.az')}</option>
                                 <option value="za" data-i18n="settingsPlaylistBg.sortMode.za">${t('settingsPlaylistBg.sortMode.za')}</option>
                                 <option value="newest" data-i18n="settingsPlaylistBg.sortMode.newest">${t('settingsPlaylistBg.sortMode.newest')}</option>
                                 <option value="oldest" data-i18n="settingsPlaylistBg.sortMode.oldest">${t('settingsPlaylistBg.sortMode.oldest')}</option>
                             </select>
                         </div>
-                        <div class="flex justify-between items-center p-4 border-b border-slate-200 hover:bg-slate-100 transition-colors">
+                        <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder cardHoverBg">
                             <span class="text-sm font-medium truncate" data-i18n="playlistSortPanel.statField.label">${t('playlistSortPanel.statField.label')}</span>
-                            <select id="setting-playlist-sort-stat-field" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-36 text-right">
+                            <select id="setting-playlist-sort-stat-field" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
                                 <option value="none" data-i18n="playlistSortPanel.statField.none">${t('playlistSortPanel.statField.none')}</option>
                                 <option value="count" data-i18n="playlistSortPanel.statField.count">${t('playlistSortPanel.statField.count')}</option>
                                 ${isPhoto ? '' : `<option value="times" data-i18n="playlistSortPanel.statField.times">${t('playlistSortPanel.statField.times')}</option>`}
@@ -53,7 +53,7 @@ function renderPlaylistSortPanelBody(source) {
                         <div data-sort-direction-row class="hidden flex flex-col p-4 gap-1.5">
                             <div class="flex justify-between items-center">
                                 <span class="text-sm font-medium truncate" data-i18n="playlistSortPanel.statDirection.label">${t('playlistSortPanel.statDirection.label')}</span>
-                                <select id="setting-playlist-sort-stat-direction" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-36 text-right">
+                                <select id="setting-playlist-sort-stat-direction" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
                                     <option value="desc" data-i18n="playlistSortPanel.statDirection.desc">${t('playlistSortPanel.statDirection.desc')}</option>
                                     <option value="asc" data-i18n="playlistSortPanel.statDirection.asc">${t('playlistSortPanel.statDirection.asc')}</option>
                                 </select>

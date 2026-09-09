@@ -70,7 +70,7 @@
  */
 const TPL_APP_VIEW_STACK_OPEN = `
     <div id="app-stack" class="fixed inset-0 z-[60]">
-        <div id="app-bg" class="bg-black pointer-events-none overflow-hidden">
+        <div id="app-bg" class="pointer-events-none overflow-hidden" data-uitk="panelBg">
             <div id="app-bg-image" class="bg-cover bg-center bg-no-repeat"></div>
             <div id="app-bg-blur-layer" class="bg-cover bg-center bg-no-repeat"></div>
         </div>

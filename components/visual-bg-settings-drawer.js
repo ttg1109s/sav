@@ -16,7 +16,7 @@ function renderVisualBgPanelBody() {
                 <!-- ===================== MEDIA — chọn nguồn ===================== -->
                 <div>
                     <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2" data-i18n="visualBgSettingsDrawer.groupMedia.title">${t('visualBgSettingsDrawer.groupMedia.title')}</h3>
-                    <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
+                    <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                         <div class="p-4">
                             <!-- Nhãn nguồn + 2 nút Làm tươi/Gỡ — Workflow ghi #visual-bg-source-name qua DOM API sau khi đọc DB (Rule 5d). -->
                             <div class="flex justify-between items-center gap-3 mb-3">
@@ -44,20 +44,20 @@ function renderVisualBgPanelBody() {
                 <!-- ===================== PLAYBACK — cách phát + Motion, tách khỏi Media ===================== -->
                 <div class="mt-6">
                     <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2" data-i18n="visualBgSettingsDrawer.groupPlayback.title">${t('visualBgSettingsDrawer.groupPlayback.title')}</h3>
-                    <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
+                    <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
 
                         <!-- 2 hàng dưới CHỈ hiện khi source.list còn >1 item sống (Workflow toggle class). -->
-                        <div id="visual-bg-list-playback-row" class="flex justify-between items-center p-4 border-b border-slate-200 hover:bg-slate-100 transition-colors hidden">
+                        <div id="visual-bg-list-playback-row" class="flex justify-between items-center p-4 hidden border-b" data-uitk="dividerBorder cardHoverBg">
                             <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.listPlaybackMode.label">${t('visualBgSettingsDrawer.listPlaybackMode.label')}</span>
-                            <select id="setting-visual-bg-list-playback-mode" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-36 text-right">
+                            <select id="setting-visual-bg-list-playback-mode" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
                                 <option value="perSong" data-i18n="visualBgSettingsDrawer.listPlaybackMode.perSong">${t('visualBgSettingsDrawer.listPlaybackMode.perSong')}</option>
                                 <option value="slideshow" data-i18n="visualBgSettingsDrawer.listPlaybackMode.slideshow">${t('visualBgSettingsDrawer.listPlaybackMode.slideshow')}</option>
                             </select>
                         </div>
 
-                        <div id="visual-bg-next-order-row" class="flex justify-between items-center p-4 border-b border-slate-200 hover:bg-slate-100 transition-colors hidden">
+                        <div id="visual-bg-next-order-row" class="flex justify-between items-center p-4 hidden border-b" data-uitk="dividerBorder cardHoverBg">
                             <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.nextOrder.label">${t('visualBgSettingsDrawer.nextOrder.label')}</span>
-                            <select id="setting-visual-bg-next-order" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-36 text-right">
+                            <select id="setting-visual-bg-next-order" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
                                 <option value="random" data-i18n="visualBgSettingsDrawer.nextOrder.random">${t('visualBgSettingsDrawer.nextOrder.random')}</option>
                                 <option value="sequential" data-i18n="visualBgSettingsDrawer.nextOrder.sequential">${t('visualBgSettingsDrawer.nextOrder.sequential')}</option>
                                 <option value="playlist" data-i18n="visualBgSettingsDrawer.nextOrder.playlist">${t('visualBgSettingsDrawer.nextOrder.playlist')}</option>
@@ -66,29 +66,29 @@ function renderVisualBgPanelBody() {
 
                         <!-- "Seconds per video/photo" — dùng CHUNG video/ảnh, CÙNG điều kiện hiện isList
                              với 2 hàng Playback/Next order ngay trên (workflowVisualBg.refreshPanelUI()). -->
-                        <div id="visual-bg-duration-mode-row" class="flex justify-between items-center p-4 border-b border-slate-200 hover:bg-slate-100 transition-colors hidden">
+                        <div id="visual-bg-duration-mode-row" class="flex justify-between items-center p-4 hidden border-b" data-uitk="dividerBorder cardHoverBg">
                             <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.durationMode.label">${t('visualBgSettingsDrawer.durationMode.label')}</span>
-                            <select id="setting-visual-bg-duration-mode" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-36 text-right">
+                            <select id="setting-visual-bg-duration-mode" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
                                 <option value="duration" data-i18n="visualBgSettingsDrawer.durationMode.duration">${t('visualBgSettingsDrawer.durationMode.duration')}</option>
                                 <option value="fixtime" data-i18n="visualBgSettingsDrawer.durationMode.fixtime">${t('visualBgSettingsDrawer.durationMode.fixtime')}</option>
                             </select>
                         </div>
 
-                        <div id="visual-bg-duration-seconds-row" class="flex justify-between items-center p-4 border-b border-slate-200 hover:bg-slate-100 transition-colors hidden">
+                        <div id="visual-bg-duration-seconds-row" class="flex justify-between items-center p-4 hidden border-b" data-uitk="dividerBorder cardHoverBg">
                             <span id="visual-bg-duration-seconds-label" class="text-sm font-medium"></span>
-                            <button type="button" id="setting-visual-bg-duration-seconds" class="bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 outline-none w-20 text-right shrink-0 hover:bg-slate-100 transition-colors">5s</button>
+                            <button type="button" id="setting-visual-bg-duration-seconds" class="rounded-lg px-3 py-1.5 text-xs outline-none w-20 text-right shrink-0" data-uitk="cardHoverBg" data-uitk="inputBg inputBorder inputText">5s</button>
                         </div>
 
                         <!-- Motion — CHỈ hiện khi type='photo' (nơi tiêu thụ Motion duy nhất hiện tại,
                              xem core/motion-presets.js::MOTION_APPLY_CONSUMERS). Option dựng động từ
                              preset ĐÃ đăng ký cho 'photoVisualBg' — Workflow tự đổ qua refreshPanelUI(). -->
-                        <div id="visual-bg-motion-row" class="flex justify-between items-center p-4 border-b border-slate-200 hover:bg-slate-100 transition-colors hidden">
+                        <div id="visual-bg-motion-row" class="flex justify-between items-center p-4 hidden border-b" data-uitk="dividerBorder cardHoverBg">
                             <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.motion.label">${t('visualBgSettingsDrawer.motion.label')}</span>
-                            <select id="setting-visual-bg-motion-preset" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-36 text-right"></select>
+                            <select id="setting-visual-bg-motion-preset" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText"></select>
                         </div>
 
                         <!-- Hiện khi type='video' VÀ ≥1 item sống — Workflow tự toggle qua refreshPanelUI(). -->
-                        <button id="setting-visual-bg-open-video-audio" class="flex justify-between items-center p-4 hover:bg-slate-100 transition-colors w-full text-left hidden">
+                        <button id="setting-visual-bg-open-video-audio" class="flex justify-between items-center p-4 w-full text-left hidden" data-uitk="cardHoverBg">
                             <div class="flex items-center gap-3 min-w-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-sky-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M12 6v12M6 9v6a2 2 0 002 2h2l4 4V3l-4 4H8a2 2 0 00-2 2z" /></svg>
                                 <div class="min-w-0">
@@ -104,21 +104,21 @@ function renderVisualBgPanelBody() {
                 <!-- ===================== MÀU NỀN — độc lập, luôn hiện ===================== -->
                 <div class="mt-6">
                     <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2" data-i18n="visualBgSettingsDrawer.groupColor.title">${t('visualBgSettingsDrawer.groupColor.title')}</h3>
-                    <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
-                        <div class="flex justify-between items-center p-4 border-b border-slate-200 hover:bg-slate-100 transition-colors">
+                    <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
+                        <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder cardHoverBg">
                             <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.colorMode.label">${t('visualBgSettingsDrawer.colorMode.label')}</span>
-                            <select id="setting-visual-bg-color-mode" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-36 text-right">
+                            <select id="setting-visual-bg-color-mode" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
                                 <option value="solid" data-i18n="visualBgSettingsDrawer.colorMode.solid">${t('visualBgSettingsDrawer.colorMode.solid')}</option>
                                 <option value="gradient" data-i18n="visualBgSettingsDrawer.colorMode.gradient">${t('visualBgSettingsDrawer.colorMode.gradient')}</option>
                             </select>
                         </div>
 
-                        <div id="visual-bg-solid-color-row" class="flex justify-between items-center p-4 border-b border-slate-200 hover:bg-slate-100 transition-colors">
+                        <div id="visual-bg-solid-color-row" class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder cardHoverBg">
                             <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.solidColor.label">${t('visualBgSettingsDrawer.solidColor.label')}</span>
                             <div class="w-8 h-8 rounded-full border border-slate-300 overflow-hidden shrink-0"><input type="color" id="setting-visual-bg-solid-color" class="w-12 h-12 -m-2 cursor-pointer bg-transparent border-0"></div>
                         </div>
 
-                        <button id="setting-visual-bg-open-gradient" class="flex justify-between items-center p-4 hover:bg-slate-100 transition-colors w-full text-left hidden">
+                        <button id="setting-visual-bg-open-gradient" class="flex justify-between items-center p-4 w-full text-left hidden" data-uitk="cardHoverBg">
                             <div class="flex items-center gap-3 min-w-0">
                                 <div id="visual-bg-gradient-swatch" class="w-8 h-8 rounded-lg border border-slate-300 shrink-0"></div>
                                 <div class="text-sm font-medium truncate" data-i18n="visualBgSettingsDrawer.openGradient.label">${t('visualBgSettingsDrawer.openGradient.label')}</div>

@@ -7,7 +7,7 @@
  */
 
 const CE_TOGGLE_MARKUP = (checked) => `
-    <div class="w-9 h-5 bg-slate-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500"></div>`;
+    <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500" data-uitk="toggleTrackOff"></div>`;
 
 function renderCustomEffectHeader(type, cfg) {
     // [SỬA — 05/09/2026, yêu cầu Giang] Header hiện tên STYLE con đang chạy (không phải tên
@@ -18,9 +18,9 @@ function renderCustomEffectHeader(type, cfg) {
     const styleLabelKey = (CUSTOM_EFFECT_STYLE_LABEL_KEYS[type] || {})[style]; // core/custom-effect.js
     const title = styleLabelKey ? t(styleLabelKey) : t(VISUALIZER_GROUP_LABEL_KEYS[type] || type);
     return `
-        <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
-            <h3 class="text-base font-bold text-slate-900">${title}</h3>
-            <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+        <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
+            <h3 class="text-base font-bold" data-uitk="headerTitle">${title}</h3>
+            <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
         </div>
     `;
 }
@@ -28,10 +28,10 @@ function renderCustomEffectHeader(type, cfg) {
 
 function _renderCeColorSection(cfg) {
     return `
-        <div class="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
-            <div class="flex justify-between items-center px-4 py-3 border-b border-slate-200">
+        <div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">
+            <div class="flex justify-between items-center px-4 py-3 border-b" data-uitk="dividerBorder">
                 <span class="text-sm text-slate-700" data-i18n="visualizerSettingsDrawer.colorMode.label">${t('visualizerSettingsDrawer.colorMode.label')}</span>
-                <select id="ce-color-mode" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none">
+                <select id="ce-color-mode" class="rounded-lg px-2 py-1.5 text-xs outline-none" data-uitk="inputBg inputBorder inputText">
                     <option value="solid" ${cfg.mode === 'solid' ? 'selected' : ''} data-i18n="visualizerSettingsDrawer.colorMode.solid">${t('visualizerSettingsDrawer.colorMode.solid')}</option>
                     <option value="dynamic" ${cfg.mode === 'dynamic' ? 'selected' : ''} data-i18n="visualizerSettingsDrawer.colorMode.dynamic">${t('visualizerSettingsDrawer.colorMode.dynamic')}</option>
                     <option value="gradient" ${cfg.mode === 'gradient' ? 'selected' : ''} data-i18n="visualizerSettingsDrawer.colorMode.gradient">${t('visualizerSettingsDrawer.colorMode.gradient')}</option>
@@ -67,8 +67,8 @@ function _renderCeMusicSection(musicFields, cfg) {
     const rows = musicFields.map((f) => _renderCeFieldRow(f, cfg)).join('');
     if (!rows.trim()) return '';
     return `
-        <div class="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
-            <div class="px-4 py-3 border-b border-slate-200">
+        <div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">
+            <div class="px-4 py-3 border-b" data-uitk="dividerBorder">
                 <span class="text-sm text-slate-700" data-i18n="customEffectDrawer.musicSection.title">${t('customEffectDrawer.musicSection.title')}</span>
             </div>
             ${rows}
@@ -78,8 +78,8 @@ function _renderCeMusicSection(musicFields, cfg) {
 
 function _renderCeBlurSection(cfg) {
     return `
-        <div class="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
-            <div class="flex justify-between items-center px-4 py-3 ${cfg.blurEnabled ? 'border-b border-slate-200' : ''}">
+        <div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">
+            <div class="flex justify-between items-center px-4 py-3 ${cfg.blurEnabled ? 'border-b' : ''}" data-uitk="dividerBorder">
                 <span class="text-sm text-slate-700" data-i18n="customEffectDrawer.blurEnable">${t('customEffectDrawer.blurEnable')}</span>
                 <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id="ce-blur-enable" class="sr-only peer" ${cfg.blurEnabled ? 'checked' : ''}>
@@ -98,7 +98,7 @@ function _renderCeFieldRow(field, cfg) {
     if (field.showIf && !field.showIf(cfg)) return '';
     if (field.type === 'toggle') {
         return `
-            <div class="flex justify-between items-center px-4 py-3 border-b border-slate-200 last:border-b-0">
+            <div class="flex justify-between items-center px-4 py-3 border-b last:border-b-0" data-uitk="dividerBorder">
                 <span class="text-sm text-slate-700" data-i18n="${field.labelKey}">${t(field.labelKey)}</span>
                 <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" class="sr-only peer ce-field-toggle" data-field="${field.id}" ${cfg[field.id] !== false ? 'checked' : ''}>
@@ -110,7 +110,7 @@ function _renderCeFieldRow(field, cfg) {
     const value = cfg[field.id];
     const displayValue = field.type === 'sliderFloat' ? value.toFixed(field.decimals || 1) : value;
     return `
-        <div class="flex flex-col px-4 py-3 border-b border-slate-200 last:border-b-0">
+        <div class="flex flex-col px-4 py-3 border-b last:border-b-0" data-uitk="dividerBorder">
             <div class="flex justify-between items-center mb-2"><span class="text-sm text-slate-700" data-i18n="${field.labelKey}">${t(field.labelKey)}</span><span class="text-xs text-sky-600 font-mono ce-field-val" data-field-val="${field.id}">${displayValue}</span></div>
             <input type="range" class="ce-slider ce-field-slider" data-field="${field.id}" data-float="${field.type === 'sliderFloat' ? '1' : ''}" min="${field.min}" max="${field.max}" step="${field.step}" value="${value}">
         </div>
@@ -130,7 +130,7 @@ function _renderCeFieldRow(field, cfg) {
 function _renderCeLampsSection(cfg) {
     const lamps = cfg.customLamps || [];
     const rows = lamps.map((lamp, i) => `
-        <div class="ce-lamp-row flex flex-col gap-2 px-4 py-3 border-b border-slate-200" data-lamp-index="${i}">
+        <div class="ce-lamp-row flex flex-col gap-2 px-4 py-3 border-b" data-uitk="dividerBorder" data-lamp-index="${i}">
             <div class="flex justify-between items-center">
                 <span class="text-xs font-semibold text-slate-500">${t('customEffectDrawer.lamps.itemLabel')} ${i + 1}</span>
                 <button class="ce-lamp-remove text-rose-500 text-xs font-medium" data-lamp-index="${i}">${t('customEffectDrawer.lamps.remove')}</button>
@@ -151,8 +151,8 @@ function _renderCeLampsSection(cfg) {
     `).join('');
     const atMax = lamps.length >= CUSTOM_EFFECT_MAX_LAMPS; // core/custom-effect.js
     return `
-        <div class="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
-            <div class="flex justify-between items-center px-4 py-3 border-b border-slate-200">
+        <div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">
+            <div class="flex justify-between items-center px-4 py-3 border-b" data-uitk="dividerBorder">
                 <span class="text-sm text-slate-700" data-i18n="customEffectDrawer.lamps.title">${t('customEffectDrawer.lamps.title')}</span>
                 <span class="text-xs text-slate-400">${lamps.length}/${CUSTOM_EFFECT_MAX_LAMPS}</span>
             </div>
@@ -175,8 +175,8 @@ function _renderCeFireworksStylesSection(cfg) {
         </label>
     `).join('');
     return `
-        <div class="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
-            <div class="px-4 py-3 border-b border-slate-200">
+        <div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">
+            <div class="px-4 py-3 border-b" data-uitk="dividerBorder">
                 <span class="text-sm text-slate-700" data-i18n="customEffectDrawer.fireworks.stylesTitle">${t('customEffectDrawer.fireworks.stylesTitle')}</span>
             </div>
             <div class="grid grid-cols-2">${items}</div>
@@ -189,21 +189,21 @@ function _renderCeFireworksStylesSection(cfg) {
 function _renderCeFireworksTextsSection(cfg) {
     const texts = cfg.customTexts || [];
     const rows = texts.map((text, i) => `
-        <div class="flex items-center justify-between gap-2 px-4 py-2 border-b border-slate-200">
+        <div class="flex items-center justify-between gap-2 px-4 py-2 border-b" data-uitk="dividerBorder">
             <span class="text-sm text-slate-800 font-mono truncate">${text}</span>
             <button class="ce-fw-text-remove text-rose-500 text-xs font-medium shrink-0" data-text-index="${i}">${t('customEffectDrawer.lamps.remove')}</button>
         </div>
     `).join('');
     const atMax = texts.length >= CUSTOM_EFFECT_MAX_TEXTS; // core/custom-effect.js
     return `
-        <div class="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
-            <div class="flex justify-between items-center px-4 py-3 border-b border-slate-200">
+        <div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">
+            <div class="flex justify-between items-center px-4 py-3 border-b" data-uitk="dividerBorder">
                 <span class="text-sm text-slate-700" data-i18n="customEffectDrawer.fireworks.textsTitle">${t('customEffectDrawer.fireworks.textsTitle')}</span>
                 <span class="text-xs text-slate-400">${texts.length}/${CUSTOM_EFFECT_MAX_TEXTS}</span>
             </div>
             ${rows}
             <div class="flex items-center gap-2 px-4 py-3 ${atMax ? 'opacity-40 pointer-events-none' : ''}">
-                <input type="text" id="ce-fw-text-input" maxlength="10" placeholder="${t('customEffectDrawer.fireworks.textPlaceholder')}" class="flex-1 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none uppercase font-mono">
+                <input type="text" id="ce-fw-text-input" maxlength="10" placeholder="${t('customEffectDrawer.fireworks.textPlaceholder')}" class="flex-1 rounded-lg px-2 py-1.5 text-xs outline-none uppercase font-mono" data-uitk="inputBg inputBorder inputText">
                 <button id="ce-fw-text-add" class="text-sm font-medium text-sky-600 shrink-0" data-i18n="customEffectDrawer.lamps.add">${t('customEffectDrawer.lamps.add')}</button>
             </div>
         </div>
@@ -225,7 +225,7 @@ function renderCustomEffectBody(type, cfg) {
             ${_renderCeColorSection(cfg)}
             ${_renderCeMusicSection(musicFields, cfg)}
             ${showBlur ? _renderCeBlurSection(cfg) : ''}
-            ${fields ? `<div class="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">${fields}</div>` : ''}
+            ${fields ? `<div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">${fields}</div>` : ''}
             ${lampsSection}
             ${fireworksStylesSection}
             ${fireworksTextsSection}

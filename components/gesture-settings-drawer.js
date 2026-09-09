@@ -63,9 +63,9 @@ function renderGestureSettingsPanelBody() {
         <option value="none" data-i18n="gestureSettings.action.none">${t('gestureSettings.action.none')}</option>
     `;
     const actionRow = (id, labelKey, lastInGroup) => `
-        <div class="flex justify-between items-center p-4${lastInGroup ? '' : ' border-b border-slate-200'}">
+        <div class="flex justify-between items-center p-4${lastInGroup ? '' : ' '} border-b" data-uitk="dividerBorder">
             <span class="text-sm font-medium" data-i18n="${labelKey}">${t(labelKey)}</span>
-            <select id="${id}" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-32 text-right">${actionOptions}</select>
+            <select id="${id}" class="rounded-lg px-2 py-1.5 text-xs outline-none w-32 text-right" data-uitk="inputBg inputBorder inputText">${actionOptions}</select>
         </div>
     `;
     const sectionTitle = (labelKey, colorClass) => `<h3 class="text-xs font-bold ${colorClass} uppercase tracking-widest mb-2 ml-2" data-i18n="${labelKey}">${t(labelKey)}</h3>`;
@@ -101,9 +101,9 @@ function renderGestureSettingsPanelBody() {
         <option value="cycleEq" data-i18n="visualizerOverlay.cycleEq.label">${t('visualizerOverlay.cycleEq.label')}</option>
     `;
     const actionSlotRow = (id, labelKey) => `
-        <div class="flex justify-between items-center p-4 border-b border-slate-200 last:border-b-0">
+        <div class="flex justify-between items-center p-4 last:border-b-0 border-b" data-uitk="dividerBorder">
             <span class="text-sm font-medium" data-i18n="${labelKey}">${t(labelKey)}</span>
-            <select id="${id}" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-32 text-right">${controlCenterTargetOptions}</select>
+            <select id="${id}" class="rounded-lg px-2 py-1.5 text-xs outline-none w-32 text-right" data-uitk="inputBg inputBorder inputText">${controlCenterTargetOptions}</select>
         </div>
     `;
 
@@ -111,7 +111,7 @@ function renderGestureSettingsPanelBody() {
         <div class="flex flex-col gap-5">
             <div>
                 ${sectionTitleWithHint('gestureSettings.sectionActions', 'text-violet-600', 'gestureSettings.sectionActions.hint')}
-                <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
+                <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                     ${actionSlotRow('setting-gesture-action-slot-1', 'gestureSettings.action.actionSlot1')}
                     ${actionSlotRow('setting-gesture-action-slot-2', 'gestureSettings.action.actionSlot2')}
                     ${actionSlotRow('setting-gesture-action-slot-3', 'gestureSettings.action.actionSlot3')}
@@ -120,7 +120,7 @@ function renderGestureSettingsPanelBody() {
 
             <div>
                 ${sectionTitle('gestureSettings.sectionNav', 'text-sky-600')}
-                <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
+                <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                     ${actionRow('setting-gesture-action-swipe-up', 'gestureSettings.swipeUp.label')}
                     ${actionRow('setting-gesture-action-swipe-down', 'gestureSettings.swipeDown.label')}
                     ${actionRow('setting-gesture-action-swipe-left', 'gestureSettings.swipeLeft.label')}
@@ -130,7 +130,7 @@ function renderGestureSettingsPanelBody() {
 
             <div>
                 ${sectionTitle('gestureSettings.sectionTap', 'text-emerald-600')}
-                <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
+                <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                     ${actionRow('setting-gesture-action-tap-single', 'gestureSettings.tapSingle.label')}
                     ${actionRow('setting-gesture-action-tap-double', 'gestureSettings.tapDouble.label')}
                     ${actionRow('setting-gesture-triple-tap-target', 'gestureSettings.tripleTapTarget.label', true)}
@@ -139,22 +139,22 @@ function renderGestureSettingsPanelBody() {
 
             <div>
                 ${sectionTitle('gestureSettings.sectionSeek', 'text-amber-600')}
-                <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
-                    <div class="flex justify-between items-center p-4 border-b border-slate-200">
+                <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
+                    <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder">
                         <div class="pr-3">
                             <div class="text-sm font-medium" data-i18n="gestureSettings.seekHoldEnable.label">${t('gestureSettings.seekHoldEnable.label')}</div>
                             <div class="text-xs text-slate-500 mt-0.5" data-i18n="gestureSettings.seekHoldEnable.hint">${t('gestureSettings.seekHoldEnable.hint')}</div>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer shrink-0">
                             <input type="checkbox" id="setting-gesture-seek-hold-enable" class="sr-only peer">
-                            <div class="w-9 h-5 bg-slate-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
                         </label>
                     </div>
-                    <button id="setting-gesture-open-seek-step-picker" type="button" class="flex justify-between items-center p-4 border-b border-slate-200 hover:bg-slate-100 transition-colors w-full text-left">
+                    <button id="setting-gesture-open-seek-step-picker" type="button" class="flex justify-between items-center p-4 w-full text-left border-b" data-uitk="dividerBorder cardHoverBg">
                         <span class="text-sm font-medium" data-i18n="gestureSettings.seekStep.label">${t('gestureSettings.seekStep.label')}</span>
                         <span id="gesture-seek-step-value" class="text-xs text-slate-900 font-mono"></span>
                     </button>
-                    <button id="setting-gesture-open-seek-hold-interval-picker" type="button" class="flex justify-between items-center p-4 hover:bg-slate-100 transition-colors w-full text-left">
+                    <button id="setting-gesture-open-seek-hold-interval-picker" type="button" class="flex justify-between items-center p-4 w-full text-left" data-uitk="cardHoverBg">
                         <span class="text-sm font-medium" data-i18n="gestureSettings.seekHoldInterval.label">${t('gestureSettings.seekHoldInterval.label')}</span>
                         <span id="gesture-seek-hold-interval-value" class="text-xs text-slate-900 font-mono"></span>
                     </button>
@@ -163,7 +163,7 @@ function renderGestureSettingsPanelBody() {
 
             <div>
                 ${sectionTitle('gestureSettings.sectionEdge', 'text-fuchsia-600')}
-                <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
+                <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                     <div class="flex justify-between items-center p-4">
                         <div class="pr-3">
                             <div class="text-sm font-medium" data-i18n="gestureSettings.edgeTop.label">${t('gestureSettings.edgeTop.label')}</div>
@@ -171,7 +171,7 @@ function renderGestureSettingsPanelBody() {
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer shrink-0">
                             <input type="checkbox" id="setting-gesture-edge-top" class="sr-only peer">
-                            <div class="w-9 h-5 bg-slate-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
                         </label>
                     </div>
                 </div>

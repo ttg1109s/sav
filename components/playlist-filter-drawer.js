@@ -69,7 +69,7 @@ function renderPlaylistFilterListBody(presets, activeId) {
     }
     const itemsHtml = presets.map((p) => {
         const isActive = p.id === activeId;
-        const rowClass = isActive ? 'bg-sky-50 border border-sky-300' : 'bg-slate-50 border border-slate-200 hover:bg-slate-100';
+        const rowThemeKeys = isActive ? 'rowActiveBg rowActiveBorder' : 'cardBg cardBorder cardHoverBg';
         // SỬA (09/09/2026, phản hồi Giang — "bỏ nút apply cho filter đang active ở list") — dòng
         // ĐANG ACTIVE giờ CHỈ còn 1 nút "Bỏ chọn" (KHÔNG còn nút chọn áp dụng/checkmark nữa — chọn
         // lại preset đang active không có ý nghĩa từ danh sách, "Cập nhật" đã có sẵn trong màn Edit
@@ -86,7 +86,7 @@ function renderPlaylistFilterListBody(presets, activeId) {
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>`;
         return `
-        <div data-playlist-filter-tile="${escapeHtml(p.id)}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-2 transition-colors cursor-pointer ${rowClass}">
+        <div data-playlist-filter-tile="${escapeHtml(p.id)}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-2 transition-colors cursor-pointer" data-uitk="${rowThemeKeys}">
             <span class="flex items-center gap-2 min-w-0">
                 <span class="text-sm font-semibold text-slate-700 truncate">${escapeHtml(p.name)}</span>
             </span>
@@ -102,12 +102,12 @@ function renderPlaylistFilterListBody(presets, activeId) {
 /** 1 hàng field TEXT (tên/album/nghệ sĩ) — checkbox bật + select toán tử (=, !=, Contains) + ô nhập. */
 function _renderFilterTextFieldRow(field, labelKey) {
     return `
-                        <div data-filter-row="${field}" class="flex flex-col p-4 border-b border-slate-200 gap-2 transition-opacity">
+                        <div data-filter-row="${field}" class="flex flex-col p-4 gap-2 transition-opacity border-b" data-uitk="dividerBorder">
                             <div class="flex justify-between items-center">
                                 <span class="text-sm font-medium truncate" data-i18n="${labelKey}">${t(labelKey)}</span>
                                 <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                     <input type="checkbox" data-filter-field="${field}" data-filter-prop="enabled" class="sr-only peer">
-                                    <div class="w-9 h-5 bg-slate-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                                    <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
                                 </label>
                             </div>
                             <!-- FIX (bug — checkbox bị khoá theo cả row) — data-filter-body BỌC
@@ -115,13 +115,13 @@ function _renderFilterTextFieldRow(field, labelKey) {
                                  field tắt (workflowPlaylistFilterPresets._syncEditUI()/setFilterField()),
                                  checkbox ở NGOÀI khối này nên luôn bấm lại được. -->
                             <div data-filter-body class="flex gap-2">
-                                <select data-filter-field="${field}" data-filter-prop="op" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-28">
+                                <select data-filter-field="${field}" data-filter-prop="op" class="rounded-lg px-2 py-1.5 text-xs outline-none w-28" data-uitk="inputBg inputBorder inputText">
                                     <option value="===" data-i18n="playlistFilterPanel.op.eq">${t('playlistFilterPanel.op.eq')}</option>
                                     <option value="!==" data-i18n="playlistFilterPanel.op.neq">${t('playlistFilterPanel.op.neq')}</option>
                                     <option value="contains" data-i18n="playlistFilterPanel.op.contains">${t('playlistFilterPanel.op.contains')}</option>
                                     <option value="notContains" data-i18n="playlistFilterPanel.op.notContains">${t('playlistFilterPanel.op.notContains')}</option>
                                 </select>
-                                <input type="text" data-filter-field="${field}" data-filter-prop="value" class="flex-1 min-w-0 bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 outline-none">
+                                <input type="text" data-filter-field="${field}" data-filter-prop="value" class="flex-1 min-w-0 rounded-lg px-3 py-1.5 text-xs outline-none" data-uitk="inputBg inputBorder inputText">
                             </div>
                         </div>
 `;
@@ -139,26 +139,26 @@ function _renderFilterNumericFieldRow(field, labelKey, inputType, step) {
     const isTimePicker = inputType === 'time-picker';
     const stepAttr = step ? `step="${step}"` : '';
     const valueControl = (prop, placeholderKey) => isTimePicker
-        ? `<button type="button" data-filter-field="${field}" data-filter-prop="${prop}" data-filter-time-trigger class="flex-1 min-w-0 bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 text-left outline-none">0:00:00</button>`
-        : `<input type="${inputType}" ${stepAttr} data-filter-field="${field}" data-filter-prop="${prop}" class="flex-1 min-w-0 bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 outline-none"${placeholderKey ? ` data-i18n-placeholder="${placeholderKey}" placeholder="${t(placeholderKey)}"` : ''}>`;
+        ? `<button type="button" data-filter-field="${field}" data-filter-prop="${prop}" data-filter-time-trigger class="flex-1 min-w-0 rounded-lg px-3 py-1.5 text-xs text-left outline-none" data-uitk="inputBg inputBorder inputText">0:00:00</button>`
+        : `<input type="${inputType}" ${stepAttr} data-filter-field="${field}" data-filter-prop="${prop}" class="flex-1 min-w-0 rounded-lg px-3 py-1.5 text-xs outline-none" data-uitk="inputBg inputBorder inputText"${placeholderKey ? ` data-i18n-placeholder="${placeholderKey}" placeholder="${t(placeholderKey)}"` : ''}>`;
     return `
-                        <div data-filter-row="${field}" class="flex flex-col p-4 border-b border-slate-200 gap-2 transition-opacity">
+                        <div data-filter-row="${field}" class="flex flex-col p-4 gap-2 transition-opacity border-b" data-uitk="dividerBorder">
                             <div class="flex justify-between items-center">
                                 <span class="text-sm font-medium truncate" data-i18n="${labelKey}">${t(labelKey)}</span>
                                 <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                     <input type="checkbox" data-filter-field="${field}" data-filter-prop="enabled" class="sr-only peer">
-                                    <div class="w-9 h-5 bg-slate-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                                    <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
                                 </label>
                             </div>
                             <!-- FIX (bug — checkbox bị khoá theo cả row), CÙNG LÝ DO _renderFilterTextFieldRow() ở trên. -->
                             <div data-filter-body class="flex flex-col gap-2">
-                                <select data-filter-field="${field}" data-filter-prop="mode" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-full">
+                                <select data-filter-field="${field}" data-filter-prop="mode" class="rounded-lg px-2 py-1.5 text-xs outline-none w-full" data-uitk="inputBg inputBorder inputText">
                                     <option value="single" data-i18n="playlistFilterPanel.mode.single">${t('playlistFilterPanel.mode.single')}</option>
                                     <option value="range" data-i18n="playlistFilterPanel.mode.range">${t('playlistFilterPanel.mode.range')}</option>
                                     <option value="outRange" data-i18n="playlistFilterPanel.mode.outRange">${t('playlistFilterPanel.mode.outRange')}</option>
                                 </select>
                                 <div data-filter-single-block class="flex gap-2">
-                                    <select data-filter-field="${field}" data-filter-prop="op" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-24">
+                                    <select data-filter-field="${field}" data-filter-prop="op" class="rounded-lg px-2 py-1.5 text-xs outline-none w-24" data-uitk="inputBg inputBorder inputText">
                                         <option value="===">=</option>
                                         <option value="!==">≠</option>
                                         <option value=">">&gt;</option>
@@ -228,7 +228,7 @@ function renderPlaylistFilterEditBody(preset, source, isActive) {
 
     return `
                 <div>
-                    <div class="bg-slate-50 border border-slate-200 rounded-2xl px-4 flex items-center justify-between gap-3 mb-4">
+                    <div class="rounded-2xl px-4 flex items-center justify-between gap-3 mb-4" data-uitk="cardBg cardBorder">
                         <label for="playlist-filter-drawer-name" class="text-sm text-slate-500 shrink-0" data-i18n="playlistFilterPresetsDrawer.name.label">${t('playlistFilterPresetsDrawer.name.label')}</label>
                         <input type="text" id="playlist-filter-drawer-name" maxlength="24" value="${escapeHtml(preset.name)}" class="flex-1 min-w-0 bg-transparent border-0 text-right py-3 text-sm text-slate-900 outline-none focus:ring-0">
                     </div>
@@ -243,7 +243,7 @@ function renderPlaylistFilterEditBody(preset, source, isActive) {
                         <input type="checkbox" id="playlist-filter-drawer-appliestofolder" class="w-4 h-4 rounded accent-sky-500 shrink-0"${preset.appliesToFolder ? ' checked' : ''}>
                         <span data-i18n="playlistFilterPresetsDrawer.appliesToFolder.label">${t('playlistFilterPresetsDrawer.appliesToFolder.label')}</span>
                     </label>
-                    <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
+                    <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                         ${textFields.map(([field, labelKey]) => _renderFilterTextFieldRow(field, labelKey)).join('')}
                         ${_renderFilterNumericFieldRow('addedAt', 'playlistFilterPanel.field.addedAt', 'date')}
                         ${_renderFilterNumericFieldRow('count', 'playlistFilterPanel.field.count', 'number', '1')}

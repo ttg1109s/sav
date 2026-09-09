@@ -27,8 +27,14 @@
  * bị ghi đè NGAY bằng style.zIndex inline mỗi lần openGenericDrawer()/updateGenericDrawer() chạy
  * (overlay luôn = zIndex panel - 1).
  *
- * Mục 7 plan-v12-extended.md (Theme Light/Dark/System, KHÔNG code ở Nhóm A): Generic Drawer thuộc
- * vùng LOẠI TRỪ theme — giữ nền TRẮNG cố định, không đổi theo Light/Dark/System.
+ * Mục 7 plan-v12-extended.md (Theme Light/Dark/System, KHÔNG code ở Nhóm A) TỪNG loại Generic
+ * Drawer khỏi mọi hệ theme, giữ nền TRẮNG cố định — QUYẾT ĐỊNH ĐÓ ĐÃ HUỶ (09/09/2026, Giang yêu cầu
+ * xây hệ UI Theme Light/Dark/Morphin THẬT, lấy CHÍNH styling Generic Drawer làm bộ Light gốc — xem
+ * core/ui-theme/light.js). Panel/header/handle giờ gắn `data-uitk` (core/ui-theme/apply-ui.js tự
+ * đồng bộ class theo theme đang active) THAY vì hardcode `bg-white`/`border-slate-*` tĩnh như bản
+ * cũ — CHỈ `#generic-drawer-overlay` (nền mờ phía sau) GIỮ NGUYÊN không đổi theo theme (chủ đích,
+ * xem docstring `overlayBg` ở core/ui-theme/light.js — lớp phủ này là "làm tối phần còn lại của
+ * app", ý nghĩa không đổi dù panel đang theme nào).
  *
  * [SỬA 20/08/2026, Giang xác nhận — ĐẢO NGƯỢC quyết định "bỏ transform, dùng position" trước đó,
  * xem lịch sử ngay dưới] — panel giờ có `bottom-0` TĨNH trong class (neo đáy CỐ ĐỊNH, không đổi
@@ -42,10 +48,10 @@
  * đầy đủ ở docstring `openGenericDrawer()`.
  */
 const TPL_GENERIC_DRAWER = `
-    <div id="generic-drawer-overlay" class="hidden fixed inset-0 z-[39] bg-black/50 opacity-0 transition-opacity duration-300 ease-out"></div>
-    <div id="generic-drawer-panel" class="hidden fixed inset-x-0 bottom-0 z-40 bg-white rounded-t-3xl shadow-2xl flex flex-col pointer-events-auto">
+    <div id="generic-drawer-overlay" class="hidden fixed inset-0 z-[39] opacity-0 transition-opacity duration-300 ease-out" data-uitk="overlayBg"></div>
+    <div id="generic-drawer-panel" class="hidden fixed inset-x-0 bottom-0 z-40 rounded-t-3xl flex flex-col pointer-events-auto" data-uitk="panelBg panelShadow">
         <div class="flex justify-center pt-3 pb-1 shrink-0">
-            <div class="w-10 h-1.5 rounded-full bg-slate-300"></div>
+            <div class="w-10 h-1.5 rounded-full" data-uitk="dragHandleBg"></div>
         </div>
         <div id="generic-drawer-header" class="shrink-0"></div>
         <div id="generic-drawer-body" class="flex-1 min-h-0"></div>

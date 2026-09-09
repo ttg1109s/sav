@@ -41,7 +41,7 @@
  * app-view-stack.js).
  */
 const TPL_APP_BOTTOM_NAV = `
-    <div id="app-bottom-nav">
+    <div id="app-bottom-nav" class="border-t" data-uitk="dividerBorder">
         <button class="app-bottom-nav-btn active" data-tab="media">
             <svg xmlns="http://www.w3.org/2000/svg" class="" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-2v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
             <span class="app-bottom-nav-label" data-i18n="appPanelNav.tab.media">${t('appPanelNav.tab.media')}</span>
