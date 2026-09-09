@@ -132,7 +132,13 @@ const workflowPlayer = {
             if (appState.get('isPhotoPlayerMode')) {
                 workflowPhotoPlayer.playPhotoByKey(key, switchScreen); // event/workflow/photo-player.js — đã ở mode, chỉ đổi ảnh
             } else {
-                workflowPhotoPlayer.startFromPlaylist(key); // event/workflow/photo-player.js — vào mode lần đầu, tự switchToVisualizer() bên trong (switchScreen mặc định true, mirror Video)
+                // FIX (10/09/2026, Giang báo bug "hết bài lúc đang duyệt Playlist Video/Photo bị ép
+                // mở Visualizer") — TRƯỚC ĐÂY gọi `startFromPlaylist(key)` KHÔNG kèm `switchScreen`
+                // (biến đã tính đúng ở dòng trên bị RỚT MẤT ngay tại đây) — hàm đó tự mặc định
+                // `true` VÔ ĐIỀU KIỆN, ép mở Visualizer kể cả lúc auto-next (switchScreen=false)
+                // đang đứng ở Playlist. Giờ truyền xuống đúng, xem docstring `startFromPlaylist()`
+                // (event/workflow/photo-player.js).
+                workflowPhotoPlayer.startFromPlaylist(key, switchScreen); // event/workflow/photo-player.js — vào mode lần đầu
             }
             return;
         }
@@ -266,7 +272,7 @@ const workflowPlayer = {
             workflowPlaylistRender.refreshSongNode(key);
             if (!appState.get('domNodesByKey').has(key)) workflowPlaylistRender.renderPlaylistDiff();
             if (!switchScreen) scrollToCurrentKeyAnimated();
-            updatePlayButtonPlayingState(); // core/playlist/render.js — MỚI (09/09/2026), THAY show/hide btnReturnVisual cũ (đã xoá nút đó)
+            updatePlayButtonPlayingState(appState.get('currentKey'), appState.get('displayOrder')); // core/playlist/render.js — FIX (10/09/2026) Rule 2: Core nhận tham số, không tự appState.get()
             appState.set('beatTimes', []); appState.set('fluxHistory', []); appState.set('currentCalculatedBpm', "---"); statBpm.textContent = "---"; statNote.textContent = "---";
             // Reset trạng thái pitch worker — tránh hiện sót nốt nhạc của bài VỪA đổi trong vài
             // chục ms đầu (worker là bất đồng bộ, kết quả cũ có thể vẫn đang "bay" lúc đổi bài).

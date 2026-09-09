@@ -239,9 +239,23 @@ const workflowVideoPlayer = {
      * goToNextTrack()`/`goToPrevTrack()` (event/workflow/player-controls.js — [SỬA] thay
      * `playNext()`/`playPrev()` cũ) DÙNG CHUNG với Song, nên hàm NÀY không cần tự dựng gì
      * cho việc đó nữa — chỉ còn lo dọn Song cũ + bật state + phát ĐÚNG video vừa click.
+     *
+     * FIX (10/09/2026, Giang báo bug "hết bài lúc đang duyệt Playlist Video/Photo bị ép mở
+     * Visualizer") — TRƯỚC ĐÂY hàm này LUÔN gọi `playVideoByKey(startKey)` KHÔNG kèm
+     * `switchScreen` -> tự rơi về mặc định `true` VÔ ĐIỀU KIỆN, bất kể người GỌI hàm này
+     * (event/router/video-player.js) đã tính đúng `switchScreen=false` (Next/Prev vật lý, hoặc
+     * auto-next lúc hết bài — xem workflowPlayer.playMedia()) hay chưa — tham số đó bị RỚT MẤT
+     * ngay tại điểm "vào mode lần đầu" này. Hệ quả: Song đang phát, đang duyệt Playlist ở Nguồn
+     * Video/Photo (KHÔNG đổi màn hình), Song hết bài tự next mà "bài tiếp theo" tính ra lại rơi
+     * vào 1 Video/Photo (danh sách Next/Prev dùng chung `displayOrder` đang phản ánh ĐÚNG Nguồn
+     * đang duyệt) -> vào Video Player mode LẦN ĐẦU qua `startFromPlaylist()`, ép
+     * `switchToVisualizer()` dù đang đứng ở Playlist. Giờ nhận thêm `switchScreen` (mirror ĐÚNG
+     * tham số `playVideoByKey()` đã có sẵn) rồi truyền xuống ĐÚNG ý định người gọi.
      * @param {string} startKey - videoKey vừa được chọn để phát.
+     * @param {boolean} [switchScreen=true] - đổi màn hình sau khi video sẵn sàng, xem
+     *        docstring `playVideoByKey()` — Next/Prev vật lý/auto-next truyền `false`.
      */
-    async startFromPlaylist(startKey) {
+    async startFromPlaylist(startKey, switchScreen = true) {
         const previousSongKey = appState.get('currentKey');
         if (previousSongKey !== null) {
             audioPlayer.pause(); // bắn sự kiện 'pause' NGUYÊN BẢN -> handleAudioPause() (core/player-controls.js, KHÔNG đụng) tự lo icon/wake lock/Media Session cho Song
@@ -257,7 +271,7 @@ const workflowVideoPlayer = {
         if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.clearMediaLayers(); // event/workflow/visual-bg.js — liên tuyến domain
         setBgVideoElementForPlayerMode(true); // core/video-player.js — bỏ muted + tắt loop + hiện + pointer-events
 
-        await this.playVideoByKey(startKey); // switchScreen mặc định true — TỰ switchToVisualizer() BÊN TRONG (sau khi video mới thật sự sẵn sàng), xem docstring playVideoByKey()
+        await this.playVideoByKey(startKey, switchScreen); // FIX (10/09/2026) — truyền ĐÚNG switchScreen của người gọi thay vì luôn mặc định true, xem docstring startFromPlaylist() ở trên
     },
 
     /** Thoát Video Player mode: dừng + dọn `bgVideoElement`, trả về mặc định trang trí + khôi phục
@@ -391,7 +405,7 @@ const workflowVideoPlayer = {
 
             if (previousKey && previousKey !== videoKey) workflowPlaylistRender.refreshSongNode(previousKey); // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — dòng video/song TRƯỚC đó, CHỈ khi khác videoKey
             workflowPlaylistRender.refreshSongNode(videoKey); // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — dòng video NÀY, cập nhật isPlaying/eq indicator, ĐỌC ĐÚNG bgVideoElement.paused=false (đã 'playing' ở trên, hoặc hết timeout)
-            updatePlayButtonPlayingState(); // core/playlist/render.js — MỚI (09/09/2026), THAY show/hide btnReturnVisual cũ (đã xoá nút đó)
+            updatePlayButtonPlayingState(appState.get('currentKey'), appState.get('displayOrder')); // core/playlist/render.js — FIX (10/09/2026) Rule 2: Core nhận tham số, không tự appState.get()
 
             // MỚI (phản hồi Giang 29/07/2026, mục 2 — scroll animated Next/Prev) — dời logic
             // switchToVisualizer()/scrollToCurrentKeyAnimated() vào ĐÂY (TRƯỚC ĐÂY router/

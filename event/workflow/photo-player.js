@@ -55,9 +55,19 @@ const workflowPhotoPlayer = {
      * `workflowVideoPlayer.startFromPlaylist()`. Next/Prev VẬT LÝ trong lúc ĐÃ ở mode dùng
      * `playPhotoByKey()` thẳng (qua `workflowPlayer.playMedia()`, KHÔNG gọi lại hàm này — hàm này
      * CHỈ lo phần "vào mode": im lặng nguồn cũ + set state).
+     *
+     * FIX (10/09/2026, Giang báo bug "hết bài lúc đang duyệt Playlist Video/Photo bị ép mở
+     * Visualizer") — CÙNG lỗi/CÙNG sửa như `workflowVideoPlayer.startFromPlaylist()`: TRƯỚC ĐÂY
+     * hàm này LUÔN gọi `playPhotoByKey(startKey)` KHÔNG kèm `switchScreen`, rơi về mặc định
+     * `true` VÔ ĐIỀU KIỆN — làm rớt mất ý định "không đổi màn hình" của `workflowPlayer.
+     * playMedia()` (event/workflow/player.js) mỗi khi "bài/ảnh tiếp theo" tính ra lại LÀ Photo
+     * trong lúc đang duyệt Playlist (không phải bấm tay 1 dòng). Giờ nhận thêm `switchScreen`
+     * rồi truyền xuống ĐÚNG ý định người gọi.
      * @param {string} startKey
+     * @param {boolean} [switchScreen=true] - đổi màn hình sau khi ảnh đã hiện, xem docstring
+     *        `playPhotoByKey()` — Next/Prev vật lý/auto-next truyền `false`.
      */
-    async startFromPlaylist(startKey) {
+    async startFromPlaylist(startKey, switchScreen = true) {
         // FIX (Giang báo "visual effect phải hiện dù đang phát photo, theo đúng setting" — dò LẠI
         // TỪ ĐẦU bằng cách bám theo lời gọi hàm thật, KHÔNG dựa vào comment cũ) — `setupAudioContext()`
         // (core/audio-engine.js) là nơi DUY NHẤT gọi `workflowVisualizerRender.start()` — tức là
@@ -98,7 +108,7 @@ const workflowPhotoPlayer = {
         if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.clearMediaLayers(); // event/workflow/visual-bg.js — liên tuyến domain
 
         enterPhotoPlayerModeState(); // core/photo-player.js
-        await this.playPhotoByKey(startKey); // switchScreen mặc định true — TỰ switchToVisualizer() bên trong
+        await this.playPhotoByKey(startKey, switchScreen); // FIX (10/09/2026) — truyền ĐÚNG switchScreen của người gọi thay vì luôn mặc định true, xem docstring startFromPlaylist() ở trên
     },
 
     /** Thoát Photo Player mode: dừng đồng hồ, khôi phục `#visual-bg-image` về ĐÚNG cấu hình VBG
@@ -171,7 +181,7 @@ const workflowPhotoPlayer = {
 
         if (previousKey && previousKey !== photoKey) workflowPlaylistRender.refreshSongNode(previousKey); // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
         workflowPlaylistRender.refreshSongNode(photoKey);
-        updatePlayButtonPlayingState(); // core/playlist/render.js — MỚI (09/09/2026), THAY show/hide btnReturnVisual cũ (đã xoá nút đó)
+        updatePlayButtonPlayingState(appState.get('currentKey'), appState.get('displayOrder')); // core/playlist/render.js — FIX (10/09/2026) Rule 2: Core nhận tham số, không tự appState.get()
 
         if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated(); // core/player-controls.js / core/playlist/render.js
 

@@ -1355,6 +1355,28 @@ const workflowPlaylist = {
         // filename (Exclude collision, core/file-manager/folder.js::getExcludedSongKeysFromFolders())
         // có thể khiến Xoá/Phát hàng loạt nhắm nhầm record — thoát Selection Mode NGAY khi đổi Nguồn.
         this._exitSelectionMode();
+
+        // FIX (10/09/2026, Giang báo bug "chuyển qua lại giữa các playlist bị thừa icon 'đang
+        // phát'") — CÙNG gốc key-trùng-slug-filename đã ghi nhận ở comment trên (Song/Video/Photo
+        // SINH KEY THEO CÙNG kiểu slug filename dù 3 namespace DB khác nhau): renderPlaylistDiff()
+        // (event/workflow/playlist-render.js) coi 1 key "vẫn còn trong playlistOrder MỚI" là CHỈ
+        // ẨN/HIỆN LẠI node DOM CŨ (tái dùng nguyên, KHÔNG buildSongNode() lại) — ĐÚNG ý đồ thiết kế
+        // cho tình huống nó viết ra (gõ rồi xoá ô tìm kiếm, CÙNG 1 Nguồn) nhưng SAI khi đổi HẲN
+        // Nguồn: nếu 1 Video/Photo tình cờ trùng key (trùng tên file) với Song đang chiếm dòng đó
+        // trong domNodesByKey, node CŨ (đã build lúc còn là Song — có thể đang mang icon "đang
+        // phát" nếu Song đó chính là currentKey) bị giữ nguyên hiện lại CHO Video/Photo hoàn toàn
+        // khác, không hề gọi lại buildSongNode() để tính lại đúng nội dung/trạng thái. Dọn hẳn
+        // domNodesByKey NGAY khi Nguồn thật sự đổi — kích hoạt đúng lưới an toàn có sẵn của
+        // renderPlaylistDiff() (playlistContainer.children.length lệch domNodesByKey.size -> tự
+        // renderPlaylistFull() dựng lại HOÀN TOÀN MỚI mọi node), loại bỏ hẳn rủi ro tái dùng nhầm.
+        // KHÔNG áp dụng khi mediaType KHÔNG đổi (vd bấm lại đúng Nguồn đang xem) — giữ nguyên tối
+        // ưu diff cho các lượt gọi applyFolderScope()/applyAllSongsScope() khác (tap folder, upload-
+        // refresh...) vốn không đổi Nguồn nên không có rủi ro trùng key này.
+        if (mediaType !== appState.get('activeMediaSource')) {
+            appState.get('domNodesByKey').forEach(revokeNodeCoverUrl); // core/playlist/render.js
+            appState.mutate('domNodesByKey', m => m.clear());
+        }
+
         appState.set('activeMediaSource', mediaType);
         console.log(`writer: "switchSource", page: "activeMediaSource", content: "${mediaType}"`);
 

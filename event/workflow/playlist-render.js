@@ -111,7 +111,7 @@ const workflowPlaylistRender = {
             appState.mutate('domNodesByKey', m => m.set(key, node));
             playlistContainer.appendChild(node);
         });
-        updatePlayButtonPlayingState(); // core/playlist/render.js — MỚI (09/09/2026), THAY show/hide btnReturnVisual cũ (đã xoá nút đó)
+        updatePlayButtonPlayingState(appState.get('currentKey'), appState.get('displayOrder')); // core/playlist/render.js — FIX (10/09/2026) Rule 2: Core nhận tham số, không tự appState.get()
         updateEmptyState(); // core/playlist/render.js
         console.log(`writer: "workflowPlaylistRender.renderPlaylistFull", page: "(chẩn đoán)", content: "${(performance.now() - _t0).toFixed(0)}ms cho ${appState.get('renderOrder').length} item (dựng lại TOÀN BỘ DOM)"`);
     },
@@ -166,7 +166,7 @@ const workflowPlaylistRender = {
             prevNode = node;
         }
 
-        updatePlayButtonPlayingState(); // core/playlist/render.js — MỚI (09/09/2026), THAY show/hide btnReturnVisual cũ (đã xoá nút đó)
+        updatePlayButtonPlayingState(appState.get('currentKey'), appState.get('displayOrder')); // core/playlist/render.js — FIX (10/09/2026) Rule 2: Core nhận tham số, không tự appState.get()
         updateEmptyState(); // core/playlist/render.js
         console.log(`writer: "workflowPlaylistRender.renderPlaylistDiff", page: "(chẩn đoán)", content: "${(performance.now() - _t0).toFixed(0)}ms — dựng mới ${_builtCount}/${appState.get('renderOrder').length} node, ẩn tạm ${_hiddenCount}, xoá hẳn ${_destroyedCount}"`);
     },
