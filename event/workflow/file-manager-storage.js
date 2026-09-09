@@ -285,7 +285,15 @@ const workflowFileManagerStorage = {
             console.error('[file-manager-storage] Lỗi đóng gói zip:', err);
             return { status: 'zipError', message: err && err.message ? err.message : String(err) };
         }
-        triggerDownload(zipBlob, zipFileName); // core/id3-export.js
+        // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — KHÔNG
+        // triggerDownload() thẳng ngay đây nữa (user-activation của lượt bấm gốc gần như chắc chắn
+        // đã hết hạn sau khi chờ tính dung lượng + build zip xong) — giao cho promptDownloadReady()
+        // (core/id3-export.js), nút "Tải xuống" bên trong modal đó mới thật sự gọi
+        // triggerDownload() với activation MỚI/còn nguyên. Nhánh "tải riêng từng file" ngay trên
+        // CỐ Ý giữ nguyên tự động (KHÔNG đổi sang prompt-mỗi-file — có thể là rất nhiều file, bắt
+        // bấm tay từng cái là tệ hơn) — chấp nhận nhánh đó vẫn có thể hiện Quick Look, đây là fallback
+        // hiếm khi chạy tới (chỉ khi vượt ZIP_MEMORY_SAFE_LIMIT_BYTES).
+        await promptDownloadReady(zipBlob, zipFileName); // core/id3-export.js
         return { status: 'ok' };
     },
 

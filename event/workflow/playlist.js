@@ -635,6 +635,7 @@ const workflowPlaylist = {
         if (keys.length === 0) return;
 
         let failedCount = 0;
+        let zipBlob;
         await withLoadingShield(t('common.loading.exportingFile'), async () => {
             const zip = new JSZip();
             for (const key of keys) {
@@ -649,12 +650,17 @@ const workflowPlaylist = {
                     failedCount++;
                 }
             }
-            const zipBlob = await zip.generateAsync({ type: 'blob' });
-            triggerDownload(zipBlob, t('playlistView.selection.exportZipFilename')); // core có sẵn ở id3-export.js
+            zipBlob = await zip.generateAsync({ type: 'blob' });
         });
 
         this._exitSelectionMode();
         // Shield đã đóng HẲN tới đây — an toàn để hiện modal.
+        // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — KHÔNG
+        // triggerDownload() thẳng ngay đây nữa (user-activation của lượt bấm gốc gần như chắc chắn
+        // đã hết hạn sau khi chờ build zip xong) — giao cho promptDownloadReady() (core/
+        // id3-export.js), nút "Tải xuống" bên trong modal đó mới thật sự gọi triggerDownload() với
+        // activation MỚI/còn nguyên.
+        await promptDownloadReady(zipBlob, t('playlistView.selection.exportZipFilename')); // core/id3-export.js
         if (failedCount > 0) await alertModal(t('playlistView.selection.exportPartialFail'));
     },
 
@@ -673,30 +679,34 @@ const workflowPlaylist = {
         // modalChoice() (z-[130]) suốt thời gian chờ. Dùng cờ mang thông tin ra ngoài, hiện modal
         // SAU KHI withLoadingShield() đã resolve hoàn toàn.
         let resultFlag = null; // null = ổn (không cần báo gì) | 'notFound' | 'tagWriteFailed'
-        let failedRecord = null; // giữ lại record gốc khi ghi tag lỗi — dùng để triggerDownload(record.blob,...) ở ngoài, tránh query lại DB lần 2
+        let successBlob = null; let successFilename = null; // MỚI (10/09/2026) — mang blob THÀNH CÔNG ra ngoài shield để prompt download sau, CÙNG lý do failedRecord ngay dưới
+        let failedRecord = null; // giữ lại record gốc khi ghi tag lỗi — dùng để tải file gốc ở ngoài, tránh query lại DB lần 2
         await withLoadingShield(t('common.loading.exportingFile'), async () => {
             const record = await getSongRecord(key);
             if (!record) { resultFlag = 'notFound'; return; }
             try {
                 const taggedBlob = await buildTaggedBlob(record); // core có sẵn (core/id3-export.js)
-                triggerDownload(taggedBlob, record.filename); // core có sẵn (core/id3-export.js)
+                successBlob = taggedBlob; successFilename = record.filename;
             } catch (e) {
                 console.error('[workflow:playlist] Lỗi ghi tag lúc xuất file:', e);
                 resultFlag = 'tagWriteFailed';
                 failedRecord = record;
-                // Giữ ĐÚNG thứ tự hành vi gốc: alertModal() chạy XONG rồi mới tới
-                // triggerDownload(record.blob,...) — người dùng đọc thông báo lỗi TRƯỚC khi file
-                // (chưa ghi tag) được tải xuống. Đưa triggerDownload này ra ngoài CÙNG với
-                // alertModal() (xem dưới) để giữ đúng thứ tự đó.
+                // Giữ ĐÚNG thứ tự hành vi gốc: alertModal() chạy XONG rồi mới tới bước tải file gốc
+                // — người dùng đọc thông báo lỗi TRƯỚC khi file (chưa ghi tag) được tải xuống.
             }
         });
 
         // Shield đã đóng HẲN tới đây — an toàn để hiện modal.
+        // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — KHÔNG
+        // triggerDownload() thẳng nữa, giao cho promptDownloadReady() (core/id3-export.js) — xem
+        // docstring hàm đó/exportSelectedSongsZip() ngay trên.
         if (resultFlag === 'notFound') {
             await alertModal(t('common.export.notFound'));
         } else if (resultFlag === 'tagWriteFailed') {
             await alertModal(t('common.export.tagWriteFailed'));
-            triggerDownload(failedRecord.blob, failedRecord.filename);
+            await promptDownloadReady(failedRecord.blob, failedRecord.filename); // core/id3-export.js
+        } else {
+            await promptDownloadReady(successBlob, successFilename); // core/id3-export.js
         }
     },
 
@@ -708,12 +718,16 @@ const workflowPlaylist = {
      */
     async exportVideoFile(key) {
         let notFound = false;
+        let blob = null; let filename = null;
         await withLoadingShield(t('common.loading.exportingFile'), async () => {
             const record = await getVideoRecord(key); // service/db.js
             if (!record) { notFound = true; return; }
-            triggerDownload(record.blob, record.filename); // core có sẵn (core/id3-export.js)
+            blob = record.blob; filename = record.filename;
         });
-        if (notFound) await alertModal(t('common.export.notFound'));
+        if (notFound) { await alertModal(t('common.export.notFound')); return; }
+        // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — xem
+        // docstring exportSelectedSongsZip()/promptDownloadReady() (core/id3-export.js).
+        await promptDownloadReady(blob, filename); // core/id3-export.js
     },
 
     /**
@@ -724,12 +738,16 @@ const workflowPlaylist = {
      */
     async exportImageFile(key) {
         let notFound = false;
+        let blob = null; let filename = null;
         await withLoadingShield(t('common.loading.exportingFile'), async () => {
             const record = await getImageRecord(key); // service/db.js
             if (!record) { notFound = true; return; }
-            triggerDownload(record.blob, record.filename); // core có sẵn (core/id3-export.js)
+            blob = record.blob; filename = record.filename;
         });
-        if (notFound) await alertModal(t('common.export.notFound'));
+        if (notFound) { await alertModal(t('common.export.notFound')); return; }
+        // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — xem
+        // docstring exportSelectedSongsZip()/promptDownloadReady() (core/id3-export.js).
+        await promptDownloadReady(blob, filename); // core/id3-export.js
     },
 
     /**
@@ -742,6 +760,7 @@ const workflowPlaylist = {
         if (keys.length === 0) return;
 
         let failedCount = 0;
+        let zipBlob;
         await withLoadingShield(t('common.loading.exportingFile'), async () => {
             const zip = new JSZip();
             for (const key of keys) {
@@ -749,11 +768,13 @@ const workflowPlaylist = {
                 if (!record) { failedCount++; continue; } // guard: video không còn tồn tại (race) — bỏ qua
                 zip.file(record.filename, record.blob);
             }
-            const zipBlob = await zip.generateAsync({ type: 'blob' });
-            triggerDownload(zipBlob, t('playlistView.selection.exportZipFilenameVideo')); // core có sẵn ở id3-export.js
+            zipBlob = await zip.generateAsync({ type: 'blob' });
         });
 
         this._exitSelectionMode();
+        // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — xem
+        // docstring exportSelectedSongsZip()/promptDownloadReady() (core/id3-export.js).
+        await promptDownloadReady(zipBlob, t('playlistView.selection.exportZipFilenameVideo')); // core/id3-export.js
         if (failedCount > 0) await alertModal(t('playlistView.selection.exportPartialFail'));
     },
 
@@ -769,6 +790,7 @@ const workflowPlaylist = {
         if (keys.length === 0) return;
 
         let failedCount = 0;
+        let zipBlob;
         await withLoadingShield(t('common.loading.exportingFile'), async () => {
             const zip = new JSZip();
             for (const key of keys) {
@@ -776,11 +798,13 @@ const workflowPlaylist = {
                 if (!record) { failedCount++; continue; } // guard: ảnh không còn tồn tại (race) — bỏ qua
                 zip.file(record.filename, record.blob);
             }
-            const zipBlob = await zip.generateAsync({ type: 'blob' });
-            triggerDownload(zipBlob, t('playlistView.selection.exportZipFilenamePhoto')); // core có sẵn ở id3-export.js
+            zipBlob = await zip.generateAsync({ type: 'blob' });
         });
 
         this._exitSelectionMode();
+        // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — xem
+        // docstring exportSelectedSongsZip()/promptDownloadReady() (core/id3-export.js).
+        await promptDownloadReady(zipBlob, t('playlistView.selection.exportZipFilenamePhoto')); // core/id3-export.js
         if (failedCount > 0) await alertModal(t('playlistView.selection.exportPartialFail'));
     },
 
