@@ -102,7 +102,7 @@
    qua .hidden — core/{photo,game,statis}-panel.js toggle. z-index: Z_INDEX.GENERIC_DRAWER (128,
    service/z-index.js) — cùng lớp Generic Drawer, chỉ 1 trong các overlay này hiện tại 1 thời điểm
    (Block gate riêng từng cụm tự đảm bảo, xem event/block.js). */
-#photo-panel, #game-panel, #statis-panel { position: fixed; inset: 0; background: #0a0a0a; }
+#photo-panel, #game-panel, #statis-panel { position: fixed; inset: 0; }
 
 /* XOÁ (09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — toàn bộ khối `.app-settings-scope`
    (đè màu qua CSS `!important` cho nội dung Settings/Storage/Motion tái dùng từ template nền TỐI

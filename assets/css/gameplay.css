@@ -105,7 +105,7 @@
 }
 .gameplay-ring-track {
     fill: none;
-    stroke: rgba(255, 255, 255, 0.08);
+    stroke: #e2e8f0; /* SỬA (09/09/2026, hệ UI Theme — Giang báo qua ảnh "border vòng tròn trùng màu bg") — trước đây rgba(255,255,255,0.08) (gần như vô hình trên nền tối cũ), giờ modal kết quả Game đã sáng -> đổi sang slate-200 đặc, thấy rõ trên nền trắng */
 }
 .gameplay-ring-fill {
     fill: none;
@@ -125,7 +125,7 @@
  * hồi 0.92 mới về 1, thay vì chỉ 1 lần overshoot 1.3 cũ) + glow đỉnh sáng hơn hẳn (16px thay 10px)
  * — sao "bật" rõ ràng hơn thay vì mờ nhạt như trước. */
 .gameplay-star {
-    color: rgba(255, 255, 255, 0.15);
+    color: #cbd5e1; /* SỬA (09/09/2026, hệ UI Theme) — trước đây rgba(255,255,255,0.15) (gần vô hình trên nền tối cũ), giờ đổi slate-300 đặc cho placeholder sao CHƯA đạt, thấy rõ trên modal sáng */
     display: inline-block;
 }
 .gameplay-star--lit {
