@@ -173,7 +173,14 @@ function _renderFilterNumericFieldRow(field, labelKey, inputType, step) {
  * unselect") — nút thứ 2 đổi thành "Bỏ chọn" (`#btn-playlist-filter-unselect`) khi `isActive` —
  * CHỈ gỡ preset khỏi vai trò active (không xoá hẳn preset), thay vì "Xoá" (`#btn-playlist-filter-
  * delete`) như preset không active.
- * @param {{id:string,name:string,config:object}} preset
+ * SỬA (09/09/2026, phản hồi Giang) — 2 việc:
+ *   1. Input Name thêm `border-0 focus:ring-0` — TRƯỚC ĐÂY thiếu, để lộ viền mặc định của trình
+ *      duyệt (UA style) tạo cảm giác 1 khung riêng cách viền row 1 khoảng, lộ nền `bg-slate-50` của
+ *      row ở khe hở đó — giờ input hoà HẲN vào row, không còn khung/viền riêng.
+ *   2. Thêm checkbox VUÔNG "Có áp dụng cho thư mục hay không" ngay dưới hàng Name (mặc định BẬT,
+ *      `preset.appliesToFolder`) — tắt = preset CHỈ áp dụng lúc xem "Tất cả", KHÔNG áp dụng khi
+ *      đang xem 1 thư mục cụ thể — xem event/workflow/playlist-scope.js::applyFolderScope().
+ * @param {{id:string,name:string,config:object,appliesToFolder:boolean}} preset
  * @param {string} source - 'song' | 'video' | 'photo' — quyết định field TEXT nào hiện (album/
  *   artist — SỬA (Giang yêu cầu, "filter/search hỗ trợ field Album của video/photo") — `artist`
  *   VẪN CHỈ Song có (Video/Photo không có field này), `album` giờ CẢ 3 mediaType đều có (record.album,
@@ -209,8 +216,19 @@ function renderPlaylistFilterEditBody(preset, source, isActive) {
                 <div>
                     <div class="bg-slate-50 border border-slate-200 rounded-2xl px-4 flex items-center justify-between gap-3 mb-4">
                         <label for="playlist-filter-drawer-name" class="text-sm text-slate-500 shrink-0" data-i18n="playlistFilterPresetsDrawer.name.label">${t('playlistFilterPresetsDrawer.name.label')}</label>
-                        <input type="text" id="playlist-filter-drawer-name" maxlength="24" value="${escapeHtml(preset.name)}" class="flex-1 min-w-0 bg-transparent text-right py-3 text-sm text-slate-900 outline-none">
+                        <input type="text" id="playlist-filter-drawer-name" maxlength="24" value="${escapeHtml(preset.name)}" class="flex-1 min-w-0 bg-transparent border-0 text-right py-3 text-sm text-slate-900 outline-none focus:ring-0">
                     </div>
+                    <!-- MỚI (09/09/2026, phản hồi Giang — "checkbox tick vuông riêng ở dưới Name: có
+                         áp dụng cho thư mục hay không, mặc định bật") — checkbox VUÔNG (accent-sky-500,
+                         KHÁC toggle tròn của field rule bên dưới, CÙNG khuôn folder-properties-
+                         readonly-checkbox — event/workflow/file-manager-folder-browser.js) — tắt =
+                         preset này CHỈ áp dụng lúc xem "Tất cả" (applyAllSongsScope()), KHÔNG áp dụng
+                         lúc đang xem 1 thư mục cụ thể (applyFolderScope() bỏ qua Filter cho Nguồn này)
+                         — xem event/workflow/playlist-scope.js::applyFolderScope(). -->
+                    <label class="flex items-center gap-2.5 text-sm text-slate-600 cursor-pointer mb-4 px-1">
+                        <input type="checkbox" id="playlist-filter-drawer-appliestofolder" class="w-4 h-4 rounded accent-sky-500 shrink-0"${preset.appliesToFolder ? ' checked' : ''}>
+                        <span data-i18n="playlistFilterPresetsDrawer.appliesToFolder.label">${t('playlistFilterPresetsDrawer.appliesToFolder.label')}</span>
+                    </label>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                         ${textFields.map(([field, labelKey]) => _renderFilterTextFieldRow(field, labelKey)).join('')}
                         ${_renderFilterNumericFieldRow('addedAt', 'playlistFilterPanel.field.addedAt', 'date')}
