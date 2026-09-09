@@ -490,6 +490,8 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'playlistFilterPresetsDrawer.defaultName': 'New filter {n}',
     'playlistFilterPresetsDrawer.edit.title': 'Edit filter',
     'playlistFilterPresetsDrawer.name.label': 'Name',
+    // MỚI (09/09/2026, phản hồi Giang — checkbox "Có áp dụng cho thư mục hay không", mặc định bật)
+    'playlistFilterPresetsDrawer.appliesToFolder.label': 'Also apply within folders',
     'playlistFilterPresetsDrawer.select': 'Select & apply',
     // MỚI (09/09/2026, phản hồi Giang mục 1) — chữ nút đầu (thay ".select") khi preset đang sửa
     // CHÍNH LÀ preset đang active — xem components/playlist-filter-drawer.js::
