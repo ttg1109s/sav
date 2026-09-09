@@ -10,7 +10,6 @@
  */
 const LANG_PATCH_PLAYLIST = {
     'playlistView.logo.title': 'Simple Audio Visualizer',
-    'playlistView.btnReturnVisual.title': 'Now playing (return)',
     'playlistView.btnUploadAudio.title': 'Add music',
     'playlistView.btnSettings.title': 'Settings',
     'playlistView.search.placeholder': 'Search songs, artists, albums...',
@@ -25,6 +24,10 @@ const LANG_PATCH_PLAYLIST = {
     // components/playlist-view.js.
     'playlistView.activeFolderBadge.exit.title': 'Exit folder',
     'playlistView.btnPlay': 'Play',
+    // MỚI (09/09/2026, Giang yêu cầu "gộp nút return-visual vào nút Phát") — nhãn nút Phát khi
+    // ĐANG có bài phát thật + vẫn còn trong danh sách hiện hành (xem updatePlayButtonPlayingState(),
+    // core/playlist/render.js) — bấm lúc này chuyển sang Visualizer thay vì phát lại.
+    'playlistView.btnPlaying': 'Now Playing',
     'playlistView.btnShuffleAll': 'Shuffle',
     'playlistView.empty.noSongs': 'No songs yet. Add some music to get started.',
     'playlistView.empty.noSearchResults': 'No matching songs found.',
