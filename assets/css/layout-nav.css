@@ -56,8 +56,6 @@
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: none;
-    border-top: 1px solid rgba(255,255,255,0.08);
-    background: rgba(0,0,0,0.35);
     backdrop-filter: blur(12px);
 }
 #app-bottom-nav::-webkit-scrollbar { display: none; }
@@ -70,11 +68,9 @@
     flex: 0 0 auto;
     min-width: 88px;
     padding: 12px 18px 10px;
-    color: rgba(255,255,255,0.55);
     transition: color 0.2s;
 }
 .app-bottom-nav-btn svg { width: 26px; height: 26px; }
-.app-bottom-nav-btn.active { color: #2dd4bf; } /* teal-400, đồng bộ màu nhấn đang dùng toàn app */
 .app-bottom-nav-btn .app-bottom-nav-label { font-size: 12px; font-weight: 600; white-space: nowrap; }
 
 /* Chấm đỏ báo "đang trong Game Mode" trên icon nút Game — MỚI (02/09/2026), xem
