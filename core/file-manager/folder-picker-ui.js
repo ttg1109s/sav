@@ -36,13 +36,16 @@ function openRenameFolderModal(currentName, folderId) {
 
     const overlay = document.createElement('div');
     overlay.id = 'rename-folder-overlay';
-    overlay.className = 'fixed inset-0 z-[130] bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
+    overlay.className = 'fixed inset-0 z-[130] backdrop-blur-sm flex items-center justify-center px-5';
+    overlay.dataset.uitk = 'overlayBg'; // SỬA (09/09/2026, hệ UI Theme mở rộng) — trước đây bg-black/70 riêng, giờ DÙNG CHUNG overlayBg (bg-black/50, cố ý không đổi theo theme)
 
     const card = document.createElement('div');
-    card.className = 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
+    card.className = 'rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
+    card.dataset.uitk = 'modalCardBg modalCardBorder';
 
     const titleEl = document.createElement('h3');
-    titleEl.className = 'text-base font-bold text-white';
+    titleEl.className = 'text-base';
+    titleEl.dataset.uitk = 'modalTitleText';
     titleEl.textContent = t('fileManager.song.renameFolderTitle');
     card.appendChild(titleEl);
 
@@ -51,16 +54,19 @@ function openRenameFolderModal(currentName, folderId) {
     const inputEl = document.createElement('input');
     inputEl.type = 'text';
     inputEl.value = currentName;
-    inputEl.className = 'bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sky-500 focus:bg-black/60 transition-colors';
+    inputEl.className = 'rounded-lg px-3 py-2 text-sm outline-none transition-colors';
+    inputEl.dataset.uitk = 'inputBg inputBorder inputText';
     card.appendChild(inputEl);
 
     const btnRow = document.createElement('div');
     btnRow.className = 'flex gap-3';
     const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-sm font-semibold transition-colors';
+    cancelBtn.className = 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors';
+    cancelBtn.dataset.uitk = 'btnNeutralBg btnNeutralHoverBg btnNeutralText';
     cancelBtn.textContent = t('common.cancel');
     const saveBtn = document.createElement('button');
-    saveBtn.className = 'flex-1 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors';
+    saveBtn.className = 'flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors';
+    saveBtn.dataset.uitk = 'btnPrimaryPillBg btnPrimaryPillHoverBg textOnAccent';
     saveBtn.textContent = t('common.ok');
     btnRow.appendChild(cancelBtn);
     btnRow.appendChild(saveBtn);
@@ -68,6 +74,10 @@ function openRenameFolderModal(currentName, folderId) {
 
     overlay.appendChild(card);
     document.body.appendChild(overlay);
+    // GUARD (09/09/2026) — file này còn nạp ở subtitle-editor.html (trang RIÊNG, KHÔNG có
+    // core/ui-theme/*.js) — gọi thẳng applyUiThemeToDom() ở đó sẽ ReferenceError. Chỉ áp
+    // theme khi hạ tầng ĐÃ nạp (index.html), bỏ qua im lặng nếu chưa (trang khác).
+    if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(overlay, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
     inputEl.focus();
     inputEl.select();
 
