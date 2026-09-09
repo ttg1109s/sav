@@ -49,6 +49,14 @@ const routerPlaylistFilterPresets = (() => {
                 workflowPlaylistFilterPresets.deletePreset(msg.payload.id);
                 break;
 
+            case 'playlistFilterPresets.quickUnselect.click':
+                workflowPlaylistFilterPresets.unselectPreset(msg.payload.source);
+                break;
+
+            case 'playlistFilterPresets.unselect.click':
+                workflowPlaylistFilterPresets.unselectPreset(msg.payload.source);
+                break;
+
             default:
                 console.warn(`[router:playlistFilterPresets] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`, msg);
         }
