@@ -1311,6 +1311,7 @@ const workflowPlaylist = {
      * @param {string} songKey
      */
     async removeSongFromFolderMenu(songKey) {
+        closeSongActionMenu(); // core/playlist/actions.js — SỬA (09/09/2026, cùng đợt nối dây lại action này) — mọi hành động khác từ menu 3-chấm đều tự đóng menu trước khi chạy (xem deleteMediaFromActionMenu() ngay trên), hàm này thiếu luôn từ đầu
         const mediaType = appState.get('activeMediaSource');
         const folderId = appState.get('activePlayListFolder')[mediaType];
         if (!folderId) return; // guard hiếm — cùng lý do removeSelectedSongsFromFolder()
