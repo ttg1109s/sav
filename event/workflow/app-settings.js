@@ -217,6 +217,9 @@ const workflowAppSettings = {
                 workflowPlaylistFilterPresets._syncEditUI(); // event/workflow/playlist-filter-presets.js — bind giá trị field NGAY sau mount
                 const nameInput = body.querySelector('#playlist-filter-drawer-name');
                 if (nameInput) nameInput.addEventListener('blur', (e) => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.name.change', payload: { value: e.target.value } }));
+                // MỚI (09/09/2026, phản hồi Giang — checkbox "Có áp dụng cho thư mục hay không")
+                const appliesToFolderCheckbox = body.querySelector('#playlist-filter-drawer-appliestofolder');
+                if (appliesToFolderCheckbox) appliesToFolderCheckbox.addEventListener('change', (e) => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.appliesToFolder.change', payload: { value: e.target.checked } }));
                 const selectBtn = body.querySelector('#btn-playlist-filter-select');
                 if (selectBtn) selectBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.select.click', payload: { id: preset.id, source } }));
                 const deleteBtn = body.querySelector('#btn-playlist-filter-delete');

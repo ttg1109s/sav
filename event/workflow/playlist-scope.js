@@ -127,6 +127,10 @@ const workflowPlaylistScope = {
      * người dùng thấy đọng lại trên màn hình loading (`#playlist-loading-text`, core/playlist/
      * render.js::updatePlaylistLoading()) ngay trước khi nó ẩn đi (updateEmptyState() dưới), khớp
      * ĐÚNG số item thật sự hiện ra trong Playlist — KHÔNG còn lệch với số THÔ đã thấy trong lúc tải.
+     * MỚI (09/09/2026, phản hồi Giang — checkbox preset "Có áp dụng cho thư mục hay không") — CHỈ
+     * hàm NÀY đọc `playlistFilterAppliesToFolder[mediaType]` (mặc định BẬT) — tắt thì Filter KHÔNG
+     * áp dụng lúc đang xem 1 thư mục cụ thể (vẫn áp bình thường lúc xem "Tất cả",
+     * `applyAllSongsScope()` không đọc field này).
      * @param {string} folderId
      * @param {'song'|'video'|'photo'} mediaType
      * @param {(done:number,total:number)=>void} [onProgress]
@@ -149,9 +153,17 @@ const workflowPlaylistScope = {
         // cache vừa nạp CHỈ chứa đúng folder này -> không cần giao (intersect) lại, không có Exclude
         loadAllSongs(appState.get('playlistCache'), new Set()); // core/playlist/scope.js
         const beforeCount = appState.get('playlistOrder').length;
-        const filteredKeys = applyPlaylistFilter(appState.get('playlistOrder'), appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig')[mediaType]);
+        // MỚI (09/09/2026, phản hồi Giang — checkbox preset "Có áp dụng cho thư mục hay không",
+        // mặc định BẬT) — CHỈ applyFolderScope() (đang xem 1 thư mục cụ thể) đọc field này;
+        // applyAllSongsScope() ("Tất cả") LUÔN áp Filter bình thường, không liên quan field này.
+        // Tắt (`false`) -> rơi về bucket rỗng (clonePlaylistFilterConfigDefaults()[mediaType], mọi
+        // field null) -> applyPlaylistFilter() fast-path trả nguyên keys, tức KHÔNG lọc gì cả cho
+        // Nguồn này trong lúc đang xem thư mục.
+        const appliesToFolder = appState.get('playlistFilterAppliesToFolder')[mediaType];
+        const rulesBucket = appliesToFolder ? appState.get('playlistFilterConfig')[mediaType] : clonePlaylistFilterConfigDefaults()[mediaType];
+        const filteredKeys = applyPlaylistFilter(appState.get('playlistOrder'), appState.get('playlistCache'), appState.get('mediaStatsMap'), rulesBucket);
         appState.set('playlistOrder', filteredKeys);
-        console.log(`writer: "applyFolderScope", page: "playlistOrder", content: "Filter: ${filteredKeys.length}/${beforeCount} sau lọc (source=${mediaType})"`);
+        console.log(`writer: "applyFolderScope", page: "playlistOrder", content: "Filter: ${filteredKeys.length}/${beforeCount} sau lọc (source=${mediaType}, appliesToFolder=${appliesToFolder})"`);
         if (progressWasCalled) onProgress(filteredKeys.length, filteredKeys.length); // sửa lại "x/total" đọng lại trên màn loading — số CUỐI CÙNG sau Filter, xem docstring trên
         workflowPlaylistOrder.updateShuffleArray();
         workflowPlaylistOrder.recomputeDisplayOrder();

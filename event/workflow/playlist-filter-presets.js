@@ -87,10 +87,17 @@ const workflowPlaylistFilterPresets = {
         const activeIdMap = sanitizePlaylistFilterActiveIdMap(rawActiveIdMap, presetsMap); // core
         const rawApplied = await getMeta('playlistFilterAppliedConfig');
         const appliedConfig = (rawApplied && typeof rawApplied === 'object') ? { ...clonePlaylistFilterConfigDefaults(), ...rawApplied } : clonePlaylistFilterConfigDefaults();
+        const rawAppliesToFolder = await getMeta('playlistFilterAppliesToFolder');
+        const appliesToFolderMap = {
+            song: typeof rawAppliesToFolder?.song === 'boolean' ? rawAppliesToFolder.song : true,
+            video: typeof rawAppliesToFolder?.video === 'boolean' ? rawAppliesToFolder.video : true,
+            photo: typeof rawAppliesToFolder?.photo === 'boolean' ? rawAppliesToFolder.photo : true,
+        };
 
         appState.set('playlistFilterPresets', presetsMap);
         appState.set('playlistFilterActivePresetId', activeIdMap);
         appState.set('playlistFilterAppliedConfig', appliedConfig);
+        appState.set('playlistFilterAppliesToFolder', appliesToFolderMap);
         console.log(`writer: "workflowPlaylistFilterPresets.loadOnBoot", page: "playlistFilterPresets", content: "song=${presetsMap.song.length}/video=${presetsMap.video.length}/photo=${presetsMap.photo.length} preset, active song=${activeIdMap.song}/video=${activeIdMap.video}/photo=${activeIdMap.photo}"`);
         this._recomputeLiveConfig();
     },
@@ -118,6 +125,7 @@ const workflowPlaylistFilterPresets = {
         await setMeta('playlistFilterPresets', appState.get('playlistFilterPresets'));
         await setMeta('playlistFilterActivePresetId', appState.get('playlistFilterActivePresetId'));
         await setMeta('playlistFilterAppliedConfig', appState.get('playlistFilterAppliedConfig'));
+        await setMeta('playlistFilterAppliesToFolder', appState.get('playlistFilterAppliesToFolder'));
     },
 
     // ===================== Màn danh sách (theo activeMediaSource hiện tại) =====================
@@ -236,6 +244,21 @@ const workflowPlaylistFilterPresets = {
         await this._persist();
     },
 
+    /** Checkbox vuông "Có áp dụng cho thư mục hay không" dưới hàng Name (MỚI 09/09/2026, phản hồi
+     * Giang, mặc định BẬT) — live-commit vào `preset.appliesToFolder` NGAY (CÙNG khuôn setName()),
+     * KHÔNG tự đổi hành vi Filter thật đang áp dụng (đã có ảnh chốt riêng, xem
+     * `playlistFilterAppliesToFolder` — service/state/playlist.js) cho tới khi bấm lại "Chọn áp
+     * dụng"/"Cập nhật".
+     * @param {boolean} value */
+    async setAppliesToFolder(value) {
+        const id = this._editingId, source = this._editingSource;
+        const presetsMap = appState.get('playlistFilterPresets');
+        const list = presetsMap[source].map((p) => (p.id === id ? { ...p, appliesToFolder: value } : p));
+        appState.set('playlistFilterPresets', { ...presetsMap, [source]: list });
+        console.log(`writer: "setAppliesToFolder", page: "playlistFilterPresets", content: "[${source}] ${id} -> appliesToFolder=${value}"`);
+        await this._persist();
+    },
+
     /** Đổi 1 rule field của preset đang sửa — GHI THẲNG (live-commit) vào `config` (bucket trực
      * tiếp, KHÔNG còn index `[source]` — preset đã thuộc riêng 1 Nguồn) + toggle mờ/khoá
      * `data-filter-body`/hiện single-range block NGAY.
@@ -337,7 +360,9 @@ const workflowPlaylistFilterPresets = {
         appState.set('playlistFilterActivePresetId', { ...activeIdMap, [source]: id });
         const appliedMap = appState.get('playlistFilterAppliedConfig');
         appState.set('playlistFilterAppliedConfig', { ...appliedMap, [source]: JSON.parse(JSON.stringify(preset.config)) });
-        console.log(`writer: "selectPreset", page: "playlistFilterActivePresetId", content: "[${source}] ${id} (\"${preset.name}\"), đã chụp ảnh chốt config"`);
+        const appliesToFolderMap = appState.get('playlistFilterAppliesToFolder');
+        appState.set('playlistFilterAppliesToFolder', { ...appliesToFolderMap, [source]: preset.appliesToFolder });
+        console.log(`writer: "selectPreset", page: "playlistFilterActivePresetId", content: "[${source}] ${id} (\"${preset.name}\"), đã chụp ảnh chốt config + appliesToFolder=${preset.appliesToFolder}"`);
         this._recomputeLiveConfig();
         await this._persist();
         workflowPlaylistScope.askReloadToApplyNow(t('playlistFilterPresetsDrawer.reloadPrompt')); // liên tuyến domain, event/workflow/playlist-scope.js
@@ -355,6 +380,8 @@ const workflowPlaylistFilterPresets = {
         appState.set('playlistFilterActivePresetId', { ...activeIdMap, [source]: null });
         const appliedMap = appState.get('playlistFilterAppliedConfig');
         appState.set('playlistFilterAppliedConfig', { ...appliedMap, [source]: clonePlaylistFilterConfigDefaults()[source] });
+        const appliesToFolderMap = appState.get('playlistFilterAppliesToFolder');
+        appState.set('playlistFilterAppliesToFolder', { ...appliesToFolderMap, [source]: true }); // dọn về mặc định BẬT — không còn preset nào giữ ảnh chốt nữa
         console.log(`writer: "unselectPreset", page: "playlistFilterActivePresetId", content: "[${source}] null (bỏ chọn, KHÔNG xoá preset)"`);
         this._recomputeLiveConfig();
         await this._persist();
@@ -383,6 +410,8 @@ const workflowPlaylistFilterPresets = {
             appState.set('playlistFilterActivePresetId', { ...activeIdMap, [source]: null });
             const appliedMap = appState.get('playlistFilterAppliedConfig');
             appState.set('playlistFilterAppliedConfig', { ...appliedMap, [source]: clonePlaylistFilterConfigDefaults()[source] }); // dọn ảnh chốt cũ CỦA NGUỒN NÀY — không còn preset nào giữ nó nữa
+            const appliesToFolderMap = appState.get('playlistFilterAppliesToFolder');
+            appState.set('playlistFilterAppliesToFolder', { ...appliesToFolderMap, [source]: true }); // dọn về mặc định BẬT — CÙNG lý do ảnh chốt config
         }
         console.log(`writer: "_deletePresetById", page: "playlistFilterPresets", content: "[${source}] -${id}${wasActive ? ' (đang active, tự bỏ chọn + dọn ảnh chốt)' : ''}"`);
         this._recomputeLiveConfig();
