@@ -675,12 +675,14 @@
         // Batch "Export dọn nợ kiến trúc" — không mất tính năng, chỉ gộp điểm vào).
 
         /**
-         * Dựng 1 dòng thông tin dạng "card" nhỏ (icon tròn màu + label + giá trị) — dùng trong tab
-         * "Chi tiết" (đầu) của song-edit-modal.
+         * SỬA (09/09/2026, Giang yêu cầu "xoá box bao quanh, làm phẳng") — TRƯỚC ĐÂY mỗi dòng là 1
+         * "card" riêng (nền + viền + bo góc, data-uitk="cardBg cardBorder") — bỏ hẳn, giờ chỉ còn 1
+         * hàng phẳng (icon tròn màu + label + giá trị), phân tách bằng đường viền mảnh phía dưới
+         * (border-b, trừ dòng CUỐI qua CSS `:last-child` ngay dưới) thay vì khối riêng biệt.
          */
         function songInfoRowHtml(iconPath, accentClass, label, value) {
             return `
-                <div class="flex items-center gap-3 rounded-xl px-3 py-2.5" data-uitk="cardBg cardBorder">
+                <div class="flex items-center gap-3 py-2.5 border-b last:border-b-0" data-uitk="dividerBorder">
                     <div class="w-7 h-7 rounded-full ${accentClass} flex items-center justify-center shrink-0">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${iconPath}" /></svg>
                     </div>
