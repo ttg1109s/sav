@@ -349,6 +349,19 @@
     <!-- service/z-index.js — bảng z-index TẬP TRUNG (dời từ core/config.js, đợt tái cấu trúc
          state 25/07/2026) — PHẢI nạp TRƯỚC core/modal-choice-ui.js (dùng Z_INDEX.MODAL_CHOICE). -->
     <script src="service/z-index.js?v=20260725v1"></script>
+    <!-- MỚI (09/09/2026, hệ UI Theme) — trang này KHÔNG nạp core/config.js (không cần domain config
+         đầy đủ, chỉ cần chuỗi class Light) — CHỈ nạp 5 file thuần (light/dark/morphin/registry/
+         apply-ui, KHÔNG phụ thuộc appConfig/service/db) để core/modal-choice-ui.js/core/time-picker-
+         modal.js (2 file DÙNG CHUNG với index.html, nạp ngay dưới) không còn phải tự guard "chưa nạp
+         hạ tầng" nữa — `_activeUiThemeKeyList` (core/ui-theme/apply-ui.js) mặc định sẵn
+         UI_THEME_LIGHT, ĐÚNG vì trang này không có UI đổi theme (chỉ Light tồn tại, xem
+         UI_THEME_SELECTABLE_NAMES, core/ui-theme/registry.js) — không cần khôi phục lựa chọn đã lưu
+         như index.html. PHẢI nạp TRƯỚC core/modal-choice-ui.js ngay dưới. -->
+    <script src="core/ui-theme/light.js?v=20260909v1"></script>
+    <script src="core/ui-theme/dark.js?v=20260909v1"></script>
+    <script src="core/ui-theme/morphin.js?v=20260909v1"></script>
+    <script src="core/ui-theme/registry.js?v=20260909v1"></script>
+    <script src="core/ui-theme/apply-ui.js?v=20260909v1"></script>
     <script src="core/modal-choice-ui.js?v=20260818v1"></script>
     <!-- service/state.js — TÁI CẤU TRÚC 25/07/2026, lượt 2: trang này TRƯỚC ĐÂY chưa từng nạp
          appState (lượt 1 nhét 20 field state của trang vào EventStore — SAI ranh giới, xem

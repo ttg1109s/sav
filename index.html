@@ -220,7 +220,7 @@
 
     <!-- CSS tách riêng theo domain, ?v= ép tải lại khi deploy (không đụng CDN — đã tự version). -->
     <link rel="stylesheet" href="assets/css/base.css?v=20260816v1">
-    <link rel="stylesheet" href="assets/css/sliders.css?v=20260903v5">
+    <link rel="stylesheet" href="assets/css/sliders.css?v=20260909v1">
     <link rel="stylesheet" href="assets/css/glass.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/animations.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/layout-nav.css?v=20260902v3">
@@ -606,7 +606,17 @@
          tools/migrate-video-thumbs-320.js (xoá tay thủ công, xem thông báo bàn giao). -->
     <!-- XOÁ (loại bỏ Document Reader khỏi app) — Generic Drawer đặt cạnh nhóm Documents cũ, giờ
          chỉ còn phục vụ Folder Browser/Add to Folder picker (không phụ thuộc gì thêm). -->
-    <script src="core/generic-drawer.js?v=20260823v1"></script>
+    <!-- MỚI (09/09/2026, hệ UI Theme Light/Dark/Morphin, Giang yêu cầu) — Light/Dark/Morphin
+         thuần DATA (không phụ thuộc gì) nạp trước, registry.js gộp cả 3 thành 1 bảng tra + hàm tra
+         THUẦN, apply-ui.js là hàm DUY NHẤT thao tác DOM (đọc `data-uitk`, gán class theo theme
+         active) — PHẢI nạp TRƯỚC core/generic-drawer.js ngay dưới (file đó cache 1 theme mặc định
+         + gọi applyUiThemeToDom() mỗi lần mở/vẽ lại Drawer). Xem core/ui-theme/light.js. -->
+    <script src="core/ui-theme/light.js?v=20260909v1"></script>
+    <script src="core/ui-theme/dark.js?v=20260909v1"></script>
+    <script src="core/ui-theme/morphin.js?v=20260909v1"></script>
+    <script src="core/ui-theme/registry.js?v=20260909v1"></script>
+    <script src="core/ui-theme/apply-ui.js?v=20260909v1"></script>
+    <script src="core/generic-drawer.js?v=20260909v1"></script>
     <!-- GỘP LẠI (31/07/2026, Giang chỉ ra "xây Generic Drawer mà vẫn phải nhân bản là vô lý") — 2
          helper Workflow (closeFully()/buildSimpleHeaderHtml()) từng chép tay ở nhiều file khác
          nhau (file-manager-photo/file-manager-video/file-manager-folder-browser/playlist/
@@ -1192,6 +1202,13 @@
     <!-- event/tab.js — lifecycle listener của tab (beforeunload). Gọi thẳng hàm, không qua bus.
          Nạp CUỐI CÙNG trong toàn bộ /event/ vì phụ thuộc core/app-cleanup.js đã nạp từ trên. -->
     <script src="event/tab.js?v=20260818v1"></script>
+    <!-- event/workflow/ui-theme.js (MỚI 09/09/2026, hệ UI Theme) — CẦN core/ui-theme/registry.js,
+         core/ui-theme/apply-ui.js, core/generic-drawer.js (setGenericDrawerUiTheme, đã nạp ở
+         nhóm trên), core/config.js (appConfigUiTheme), service/db.js (getMeta/setMeta, đã nạp ở
+         nhóm trên) — CHƯA có Router/Listener riêng (chưa có UI bấm đổi theme), chỉ gọi thẳng
+         `workflowUiTheme.loadPersistedUiThemeOnBoot()` từ app-boot.js ngay dưới. NẠP TRƯỚC
+         app-boot.js vì boot() gọi hàm đó. -->
+    <script src="event/workflow/ui-theme.js?v=20260909v1"></script>
     <!-- event/workflow/app-boot.js + event/router/app-boot.js (SỬA 25/07/2026, đợt tái cấu trúc
          state) — router giờ CHỈ eventBus.register('appBoot', ...) (KHÔNG còn tự đăng ký
          DOMContentLoaded — việc đó dời sang event/listener/app-boot.js, nạp SỚM ở đầu tài liệu,
