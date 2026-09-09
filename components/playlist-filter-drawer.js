@@ -39,9 +39,10 @@
 /** Danh sách preset — CÙNG khuôn renderMotionListBody() (components/motion-settings-drawer.js) +
  * thêm 1 nút "chọn áp dụng" riêng mỗi dòng (Motion không có, "Áp dụng cho" của Motion nằm trong màn
  * Edit — Playlist Filter cần bấm được NGAY từ danh sách, phản hồi Giang). Dòng đang active
- * (`p.id === activeId`) tô viền sky + chấm tròn, CÙNG khuôn renderEqListBody() (components/
- * eq-presets-drawer.js). `activeId` = `playlistFilterActivePresetId` hiện tại (KHÔNG còn gate qua
- * công tắc tổng — field đó đã bỏ, SỬA 09/09/2026, xem event/workflow/app-settings.js::
+ * (`p.id === activeId`) tô viền sky (KHÔNG còn thêm chấm tròn — XOÁ 09/09/2026, phản hồi Giang "ở
+ * list filter đang active sẽ không có icon active" — viền/nền sky + nút "Bỏ chọn" thay "Xoá" đã đủ
+ * phân biệt, chấm tròn dư thừa). `activeId` = `playlistFilterActivePresetId` hiện tại (KHÔNG còn
+ * gate qua công tắc tổng — field đó đã bỏ, SỬA 09/09/2026, xem event/workflow/app-settings.js::
  * _renderPlaylistFilterList()), component không tự đọc appState (Rule 2).
  * SỬA (09/09/2026, phản hồi Giang — "với filter đang active, thay vì nút delete -> unselect") —
  * dòng ĐANG ACTIVE đổi nút xoá nhanh (`data-playlist-filter-quickdelete`) thành nút "bỏ chọn"
@@ -71,7 +72,6 @@ function renderPlaylistFilterListBody(presets, activeId) {
         <div data-playlist-filter-tile="${escapeHtml(p.id)}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-2 transition-colors cursor-pointer ${rowClass}">
             <span class="flex items-center gap-2 min-w-0">
                 <span class="text-sm font-semibold text-slate-700 truncate">${escapeHtml(p.name)}</span>
-                ${isActive ? `<span class="shrink-0 w-1.5 h-1.5 rounded-full bg-sky-500"></span>` : ''}
             </span>
             <span class="flex items-center gap-1 shrink-0">
                 <button type="button" data-playlist-filter-quickselect="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full ${isActive ? 'text-sky-500' : 'text-slate-400 hover:text-sky-500 hover:bg-sky-50'} transition-colors" title="${t('playlistFilterPresetsDrawer.list.select.title')}">
