@@ -19,7 +19,7 @@
  * relocate đợt này, xem docstring từng hàm).
  */
 
-        function songActionMenuButtonHtml(key) {
+        function songActionMenuButtonHtml(key, onDarkBg) {
             // FIX (11/07/2026, phản hồi Giang — "thiếu dấu ba chấm như trước đây mỗi song item"):
             // NGUYÊN NHÂN THẬT (đợt trước đoán SAI là do màu/nền — Giang xác nhận không liên quan):
             // 2 chỗ GỌI hàm này (dòng ~104/118 bên dưới) bọc nút trong
@@ -29,8 +29,16 @@
             // TỪNG hiện ra được là NHỜ chính cái bug đó — sửa xong bug hover kẹt (đúng), tác dụng
             // phụ là nút này mất luôn khả năng hiện trên cảm ứng (chưa từng có cách hiện HỢP LỆ).
             // Đã xoá `opacity-0 group-hover:opacity-100` ở 2 nơi gọi — LUÔN hiện, không phụ thuộc
-            // hover (nền tròn mờ thêm ở đây chỉ là tăng tương phản, không phải fix chính).
-            return `<button data-action="menu" data-key="${key}" class="p-2 rounded-full bg-black/30 text-slate-200 hover:text-white hover:bg-black/50 transition-colors z-10" title="${t('playlistView.songMenu.title')}">
+            // hover.
+            // SỬA (09/09/2026, Giang yêu cầu "bỏ vòng tròn bao quanh, sửa màu") — bỏ hẳn nền tròn mờ
+            // riêng của CHÍNH nút này (`rounded-full bg-black/30`) — Grid view vẫn có vòng tròn
+            // riêng BỌC NGOÀI (`bg-black/40`, event/workflow/playlist-render.js dòng ~79, KHÔNG phải
+            // ở đây) nên vẫn đủ tương phản trên ảnh bìa bất kỳ. Màu icon giờ tách theo `onDarkBg`
+            // (tham số MỚI — nơi gọi tự truyền `appState.get('isGridView')`): List view (false) nút
+            // nằm trực tiếp trên nền sáng -> icon tối; Grid view (true) nút nằm trong vòng tròn tối
+            // ở trên -> icon vẫn phải sáng.
+            const colorCls = onDarkBg ? 'text-white/70 hover:text-white' : 'text-slate-400 hover:text-slate-700';
+            return `<button data-action="menu" data-key="${key}" class="p-2 rounded-full transition-colors z-10 ${colorCls}" title="${t('playlistView.songMenu.title')}">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 6a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg>
             </button>`;
         }
