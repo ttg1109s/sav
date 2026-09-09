@@ -474,6 +474,13 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // (không xoá hẳn, an toàn cho bản dịch ngôn ngữ khác), chỉ không còn nơi nào đọc.
     'settingsPlaylistBg.filter.manage': 'Manage filters',
     'playlistFilterPresetsDrawer.list.title': 'Filters',
+    // MỚI (09/09/2026, phản hồi Giang mục 2 — "tiêu đề filter for song/video/photo thay vì '-'") —
+    // key CÓ tên Nguồn, nối bằng "for" (KHÔNG phải dấu "—" như bản trước) — xem event/workflow/
+    // app-settings.js::_renderPlaylistFilterList()/_renderPlaylistFilterEdit(). 2 key '.list.title'/
+    // '.edit.title' ở trên/dưới giờ KHÔNG còn dùng riêng lẻ (luôn ghép qua tFormat() với '.titleForSource')
+    // — GIỮ NGUYÊN (không xoá hẳn, an toàn cho bản dịch ngôn ngữ khác).
+    'playlistFilterPresetsDrawer.list.titleForSource': 'Filters for {source}',
+    'playlistFilterPresetsDrawer.edit.titleForSource': 'Edit filter for {source}',
     'playlistFilterPresetsDrawer.list.add.label': '+ New filter',
     'playlistFilterPresetsDrawer.list.empty': 'No filters yet. Tap "New filter" to create one.',
     'playlistFilterPresetsDrawer.list.select.title': 'Select & apply',
