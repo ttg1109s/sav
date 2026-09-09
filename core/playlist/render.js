@@ -96,10 +96,13 @@
         /** MỚI (09/09/2026, Giang yêu cầu "gộp nút icon visualizer riêng vào nút Phát to") — đồng bộ
          * trạng thái "Đang phát" của #btn-playlist-empty-play: có `currentKey` VÀ vẫn còn nằm trong
          * `displayOrder` hiện hành (nghĩa là playlist/scope/tìm kiếm CHƯA đổi khỏi lúc phát bài đó)
-         * -> nút chuyển nhãn "Đang phát" + nhấp nháy (`animate-pulse`), bấm vào lúc này chuyển sang
-         * Visualizer thay vì phát lại (đọc `dataset.playing` ở router, xem event/router/
-         * playlist-empty-state.js). Ngược lại (chưa từng phát gì, HOẶC bài đang phát đã rơi khỏi
-         * danh sách hiện hành do đổi tìm kiếm/scope) -> về lại nhãn "Phát" thường, hết nhấp nháy.
+         * -> nút chuyển nhãn "Đang phát" + nhấp nháy (`animate-pulse`). Hàm này CHỈ lo phần NHÌN
+         * THẤY (nhãn/nhấp nháy/`dataset.playing` — dataset giữ lại để CSS/debug soi trạng thái,
+         * không còn ai đọc lại để RẼ NHÁNH nữa) — router (event/router/playlist-empty-state.js) từ
+         * SỬA 09/09/2026 (Giang báo bug "hiện Phát nhưng bấm vẫn vào Visualizer" — cache
+         * dataset.playing lệch nếu lỡ sót 1 đường gọi lại hàm này) đã đổi sang TỰ TÍNH LẠI trực
+         * tiếp từ currentKey/displayOrder bằng ĐÚNG công thức bên dưới, không đọc dataset của hàm
+         * này nữa — 2 nơi tính cùng 1 công thức nên luôn khớp nhau tự nhiên, không cần đồng bộ tay.
          * Gọi lại ở MỌI mốc renderOrder/currentKey có thể đổi (renderPlaylistFull/renderPlaylistDiff
          * ngay trong file này, + workflowPlayer.playMedia() lúc đổi bài — event/workflow/player.js)
          * — TRƯỚC ĐÂY 3 chỗ đó tự show/hide riêng nút #btn-return-visual (đã bỏ), giờ gọi CHUNG 1
