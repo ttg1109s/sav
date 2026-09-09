@@ -1,6 +1,15 @@
 /* sliders.css — mọi input[type=range]/input[type=color] trong app. 3 nhóm nền TRẮNG (.eq-preset-
    slider/.ce-slider) TÁCH RIÊNG khỏi nhóm nền TỐI (.setting-slider/.eq-slider) — track
-   rgba(255,255,255,0.1) của nhóm tối gần như vô hình trên nền trắng của Generic Drawer. */
+   rgba(255,255,255,0.1) của nhóm tối gần như vô hình trên nền trắng của Generic Drawer.
+   [.setting-slider/.eq-slider CHỈ còn dùng ở nền THẬT tối (components/visualizer-overlay.js,
+   core/volume-hud.js) — KHÔNG sửa 2 class này, hợp lệ ở đúng chỗ đang dùng.]
+   SỬA (09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — phát hiện thêm 3 rule `.ptmove-*`
+   (Point Move edit/Timing, Motion presets, sống trong Generic Drawer qua Settings > System > Motion)
+   VẪN còn `rgba(255,255,255,x)` y hệt lỗi đã fix cho EQ — track/tick-label gần như vô hình trên nền
+   trắng. Đổi sang mốc sáng cụ thể (`#e2e8f0`/`#94a3b8`, cùng bảng `.eq-preset-slider-track`/
+   `::after` ngay dưới) — CHỈ riêng `.ptmove-timing-corner-bg` (bong bóng "X: NN%" nổi cố định góc
+   trên lúc kéo) GIỮ NGUYÊN nền tối — bong bóng nổi tự tạo tương phản riêng, không phụ thuộc nền
+   Generic Drawer, cùng tinh thần khung log Debug Console (components/debug-console-drawer.js). */
 
 input[type=range].setting-slider { -webkit-appearance: none; width: 100%; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; outline: none; }
 input[type=range].setting-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #ffffff; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
@@ -35,7 +44,7 @@ input[type=color].color-picker::-webkit-color-swatch { border: none; border-radi
 .ptmove-single-slider-wrap { position: relative; padding-top: 2px; }
 .ptmove-single-slider-wrap::before {
     content: ''; position: absolute; top: 2px; bottom: 2px; left: var(--ptmove-zero-pct, 50%);
-    width: 1px; background: rgba(255, 255, 255, 0.25); pointer-events: none;
+    width: 1px; background: #94a3b8; pointer-events: none;
 }
 
 /* Slider đôi (Point Move edit — mode 'randomRange') — 2 input[type=range] chồng lên nhau, mỗi cái
@@ -43,7 +52,7 @@ input[type=color].color-picker::-webkit-color-swatch { border: none; border-radi
    chuẩn cho dual-handle range bằng native input, không cần tự viết drag. Dải tô màu giữa 2 tay kéo
    (`.ptmove-range-fill`) JS tự set left/width% (event/workflow/motion-presets.js). */
 .ptmove-range-wrap { position: relative; height: 24px; }
-.ptmove-range-track { position: absolute; left: 0; right: 0; top: 50%; height: 4px; margin-top: -2px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
+.ptmove-range-track { position: absolute; left: 0; right: 0; top: 50%; height: 4px; margin-top: -2px; background: #e2e8f0; border-radius: 2px; }
 .ptmove-range-fill { position: absolute; top: 50%; height: 4px; margin-top: -2px; background: #0ea5e9; border-radius: 2px; }
 input[type=range].ptmove-range-input { position: absolute; left: 0; top: 0; width: 100%; height: 24px; margin: 0; background: transparent; -webkit-appearance: none; appearance: none; pointer-events: none; }
 input[type=range].ptmove-range-input::-webkit-slider-thumb { pointer-events: auto; -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #ffffff; border: 3px solid #0ea5e9; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
@@ -56,7 +65,7 @@ input[type=range].ptmove-range-input::-moz-range-thumb { pointer-events: auto; w
 .ptmove-timing-svg { width: 100%; height: auto; aspect-ratio: 700 / 110; display: block; touch-action: none; } /* SỬA (phản hồi Giang — "chỉ có trục X") — 700/110 PHẢI khớp POINT_MOVE_TIMING_SVG_W/H (core/point-move-timing-ui.js) — đổi 1 chỗ phải đổi luôn chỗ kia. */
 .ptmove-timing-track { stroke: #475569; stroke-width: 2; }
 .ptmove-timing-tick { stroke: #475569; stroke-width: 1; }
-.ptmove-timing-tick-label { fill: rgba(255, 255, 255, 0.3); font-size: 9px; font-family: inherit; }
+.ptmove-timing-tick-label { fill: #94a3b8; font-size: 9px; font-family: inherit; }
 .ptmove-timing-node { fill: #0f172a; stroke: #ffffff; stroke-width: 3.5; cursor: grab; touch-action: none; }
 .ptmove-timing-node:active { cursor: grabbing; }
 .ptmove-timing-node[data-locked="true"] { stroke: #38bdf8; }

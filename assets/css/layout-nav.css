@@ -108,63 +108,18 @@
    (Block gate riêng từng cụm tự đảm bảo, xem event/block.js). */
 #photo-panel, #game-panel, #statis-panel { position: fixed; inset: 0; background: #0a0a0a; }
 
-/* ===================== Setting — light theme scope (MỚI, phản hồi Giang "styling toàn bộ phải
-   theo generic drawer") ===================== Nội dung TÁI DÙNG từ các component Settings cũ
-   (Gesture/Slideshow/Language/Visualizer Display/Auto-Switch/Debug console...) vốn thiết kế cho
-   nền TỐI (#drawer-settings cũ) — giờ sống trong Generic Drawer nền TRẮNG (core/generic-drawer.js
-   loại trừ theme, luôn trắng). KHÔNG sửa từng file template (giữ nguyên 100% UI/id/logic cũ, đúng
-   yêu cầu "không đụng core/workflow nếu không cần thiết") — chỉ ĐÈ MÀU qua CSS, scope trong
-   `.app-settings-scope` (bọc quanh bodyHtml mỗi lần workflowAppSettings render 1 màn hình, xem
-   event/workflow/app-settings.js). */
-/* SỬA (phản hồi Giang mục 3 — "input/nút chưa đồng bộ màu, xem lại generic drawer custom") — ĐÈ
-   MÀU cho khớp CHÍNH XÁC bảng màu components/custom-effect-drawer.js/eq-presets-drawer.js đang
-   dùng (input `bg-white border-slate-300`, KHÔNG phải `bg-black/50` tối cũ hay xám phẳng
-   `#f1f5f9` — input CẦN nổi rõ khỏi card `bg-slate-50` bao quanh nó, giống hệt EQ/Custom Effect). */
-.app-settings-scope, .app-settings-scope h3 { color: #0f172a; } /* slate-900 mặc định thay text-white ngầm định của khối cha cũ */
-.app-settings-scope .text-white,
-.app-settings-scope .text-slate-200,
-.app-settings-scope .text-slate-300:not(select):not(input) { color: #0f172a !important; }
-.app-settings-scope .text-slate-400 { color: #64748b !important; } /* slate-500 — vẫn đủ tương phản trên nền trắng */
-.app-settings-scope .glass-modal {
-    background: #f8fafc !important; /* slate-50 — ĐÚNG card bg-slate-50 của EQ/Custom Effect */
-    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
-    border: 1px solid #e2e8f0 !important; /* slate-200 */
-    box-shadow: none !important; text-shadow: none !important;
-}
-.app-settings-scope [class*="border-white/"] { border-color: #e2e8f0 !important; }
-.app-settings-scope [class*="bg-white/5"],
-.app-settings-scope [class*="bg-white/10"] { background-color: #f1f5f9 !important; } /* hover row */
-/* Input/select — ĐÚNG khuôn EQ/Custom Effect: nền TRẮNG + viền slate-300 (không phải slate-200 —
-   input cần viền ĐẬM hơn card bao quanh nó 1 bậc để phân biệt rõ). */
-.app-settings-scope select,
-.app-settings-scope input[type="text"],
-.app-settings-scope input[type="number"],
-.app-settings-scope input[type="date"],
-.app-settings-scope button[data-filter-time-trigger] {
-    background-color: #ffffff !important;
-    border-color: #cbd5e1 !important; /* slate-300 */
-    color: #0f172a !important;
-}
-.app-settings-scope [class*="bg-black/50"] { background-color: #ffffff !important; border-color: #cbd5e1 !important; color: #0f172a !important; }
-/* Toggle switch (peer/after markup, xem CE_TOGGLE_MARKUP components/custom-effect-drawer.js) —
-   trạng thái TẮT của track TRƯỚC đây `bg-slate-600` (tối, thiết kế cho nền tối) — đổi sang
-   `bg-slate-300` (ĐÚNG track sáng EQ/Custom Effect dùng) — trạng thái BẬT (`peer-checked:bg-sky-500`)
-   đã đúng sẵn, không cần đổi. */
-/* SỬA (phản hồi Giang mục 3 — "sao sửa màu luôn cả toggle, không phân biệt input thường với
-   checkbox toggle à") — ĐÚNG: rule cũ chọn theo class TRÙNG HỢP (`.bg-slate-600.rounded-full.peer`)
-   — không phân biệt bằng Ý NGHĨA thật, chỉ đoán mò qua tổ hợp class. Đổi sang chọn theo ĐÚNG quan hệ
-   cấu trúc thật của khuôn toggle (`<input type="checkbox" class="...peer"><div class="...">` —
-   xem CE_TOGGLE_MARKUP components/custom-effect-drawer.js) — CHỈ khớp div NGAY SAU 1
-   input[type=checkbox].peer, không đụng bất kỳ phần tử nào khác dù trùng class ngẫu nhiên. */
-/* [SỬA 20/08/2026, Giang báo "toggle on đang bị xám, không xanh"] — GỐC BỆNH: rule TRÊN áp
-   `!important` KHÔNG PHÂN BIỆT checked/chưa checked -> LUÔN đè lên `peer-checked:bg-sky-500`
-   (utility Tailwind thường KHÔNG có !important nên thua tuyệt đối, bất kể thứ tự CSS) -> toggle
-   KHÔNG BAO GIỜ chuyển xanh dù đã bật. Comment cũ ở trên tưởng "trạng thái BẬT đã đúng sẵn" nhưng
-   quên chính rule NÀY đang đè luôn cả trạng thái BẬT. SỬA: thêm `:not(:checked)` — CHỈ ép xám lúc
-   CHƯA bật, nhường trạng thái BẬT lại đúng cho peer-checked:bg-sky-500 (không còn rule !important
-   nào tranh chấp ở trạng thái đó nữa). */
-.app-settings-scope input[type="checkbox"].peer:not(:checked) ~ div { background-color: #cbd5e1 !important; }
-.app-settings-scope .border-t.border-white\/10, .app-settings-scope .border-b.border-white\/5 { border-color: #e2e8f0 !important; }
+/* XOÁ (09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — toàn bộ khối `.app-settings-scope`
+   (đè màu qua CSS `!important` cho nội dung Settings/Storage/Motion tái dùng từ template nền TỐI
+   cũ — MỚI thêm lúc migrate sang Generic Drawer, xem lịch sử ở git) ĐÃ BỎ HẲN — mọi template từng
+   phụ thuộc override này (language.js, playlist-view.js, playlist-sort-drawer.js, playlist-filter-
+   drawer.js, gesture-settings-drawer.js, visualizer-display-panel.js, visualizer-auto-switch-
+   drawer.js, visual-bg-settings/gradient/video-audio-drawer.js, subtitle-settings-drawer.js,
+   motion-settings-drawer.js, file-manager-storage.js) đã viết LẠI TRỰC TIẾP bằng đúng bảng màu sáng
+   (bg-slate-50/border-slate-200 card, bg-white/border-slate-300 input, toggle track bg-slate-300),
+   không còn class nào cần đè nữa — xem docstring từng file. Wrapper `class="app-settings-scope p-4"`
+   (event/workflow/app-settings.js, event/workflow/file-manager-storage.js) đổi thành
+   `class="text-slate-900 p-4"` — giữ đúng 1 hiệu ứng còn cần (màu chữ mặc định slate-900 kế thừa
+   xuống mọi span/div con không tự khai màu riêng), bằng utility Tailwind thật thay vì CSS riêng. */
 
 /* #settings-stack-body/#settings-stack-panel-main — cơ chế cuộn ngang push/pop TÁI DÙNG từ
    core/settings-panel-stack-ui.js, giờ sống bên trong #photo-panel (Album List sub-panel) thay vì
