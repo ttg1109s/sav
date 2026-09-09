@@ -49,9 +49,9 @@ function buildGamePanelListHtml(games, armedGameId, gameplayPhase, difficultyByG
     const difficultyLocked = armedGameId != null;
     const difficultyGlyph = { easy: '●', medium: '●●', hard: '∞' };
     const difficultyAccent = {
-        easy: 'text-emerald-300 bg-emerald-500/15 border-emerald-400/40',
-        medium: 'text-amber-300 bg-amber-500/15 border-amber-400/40',
-        hard: 'text-rose-300 bg-rose-500/15 border-rose-400/40',
+        easy: 'text-emerald-600 bg-emerald-100 border-emerald-300',
+        medium: 'text-amber-600 bg-amber-100 border-amber-300',
+        hard: 'text-rose-600 bg-rose-100 border-rose-300',
     };
 
     const cards = games.map((game, index) => {
@@ -64,18 +64,18 @@ function buildGamePanelListHtml(games, armedGameId, gameplayPhase, difficultyByG
             ? `<button type="button" class="game-card-exit-btn shrink-0 w-11 h-11 rounded-full flex items-center justify-center bg-rose-500/90 hover:bg-rose-500 text-white shadow-lg shadow-rose-500/20 transition-colors" data-game-id="${game.id}" aria-label="${t('gamePanel.card.exit')}">` +
                 `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>` +
                 `</button>`
-            : `<button type="button" class="game-card-play-btn shrink-0 w-11 h-11 rounded-full flex items-center justify-center transition-colors ${isLocked ? 'bg-white/5 text-slate-500 cursor-not-allowed' : 'bg-sky-500 hover:bg-sky-400 text-white shadow-lg shadow-sky-500/20'}" data-game-id="${game.id}" ${isLocked ? 'disabled' : ''} aria-label="${t('gamePanel.card.play')}" ${isLocked ? `title="${t('gamePanel.card.lockedHint')}" data-i18n-title="gamePanel.card.lockedHint"` : ''}>` +
+            : `<button type="button" class="game-card-play-btn shrink-0 w-11 h-11 rounded-full flex items-center justify-center transition-colors ${isLocked ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-sky-500 hover:bg-sky-400 text-white shadow-lg shadow-sky-500/20'}" data-game-id="${game.id}" ${isLocked ? 'disabled' : ''} aria-label="${t('gamePanel.card.play')}" ${isLocked ? `title="${t('gamePanel.card.lockedHint')}" data-i18n-title="gamePanel.card.lockedHint"` : ''}>` +
                 `<svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 ml-0.5"><path d="M8 5v14l11-7z"/></svg>` +
                 `</button>`;
 
-        const difficultyBtn = `<button type="button" class="game-card-difficulty-btn shrink-0 h-11 flex items-center gap-1.5 px-3.5 rounded-full border text-xs font-bold tracking-wide transition-colors ${difficultyAccent[difficulty]} ${difficultyLocked ? 'opacity-40 cursor-not-allowed' : 'hover:brightness-125'}" data-game-id="${game.id}" ${difficultyLocked ? 'disabled' : ''}>` +
+        const difficultyBtn = `<button type="button" class="game-card-difficulty-btn shrink-0 h-11 flex items-center gap-1.5 px-3.5 rounded-full border text-xs font-bold tracking-wide transition-colors ${difficultyAccent[difficulty]} ${difficultyLocked ? 'opacity-40 cursor-not-allowed' : 'hover:brightness-95'}" data-game-id="${game.id}" ${difficultyLocked ? 'disabled' : ''}>` +
             `<span class="font-mono leading-none text-sm">${difficultyGlyph[difficulty]}</span>` +
             `<span data-i18n="gameplayCircle.difficulty.${difficulty}">${t('gameplayCircle.difficulty.' + difficulty)}</span>` +
             `</button>`;
 
         const statusBadge = isLive
             ? `<span class="game-card-live-badge absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500 text-white text-[10px] font-bold tracking-widest"><span class="game-card-live-dot"></span><span data-i18n="gamePanel.card.live">${t('gamePanel.card.live')}</span></span>`
-            : (isArmed ? `<span class="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-white/15 text-white text-[10px] font-bold tracking-widest backdrop-blur-sm" data-i18n="gamePanel.card.armed">${t('gamePanel.card.armed')}</span>` : '');
+            : (isArmed ? `<span class="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-white/85 text-slate-900 text-[10px] font-bold tracking-widest backdrop-blur-sm" data-i18n="gamePanel.card.armed">${t('gamePanel.card.armed')}</span>` : '');
 
         const cover = game.coverImageUrl
             ? `<img src="${game.coverImageUrl}" alt="" class="absolute inset-0 w-full h-full object-cover">`
@@ -83,7 +83,7 @@ function buildGamePanelListHtml(games, armedGameId, gameplayPhase, difficultyByG
               `<svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.5" class="w-14 h-14 relative z-10">${game.coverIconSvg}</svg>`;
 
         return `
-            <div class="game-card glass-modal rounded-2xl overflow-hidden${isLocked ? ' opacity-60' : ''}" style="animation-delay:${index * 60}ms" data-game-id="${game.id}">
+            <div class="game-card rounded-2xl overflow-hidden${isLocked ? ' opacity-60' : ''}" style="animation-delay:${index * 60}ms" data-game-id="${game.id}" data-uitk="cardBg cardBorder">
                 <div class="game-card-cover relative h-28 flex items-center justify-center overflow-hidden">
                     ${cover}
                     <div class="game-card-cover-shine"></div>
@@ -91,13 +91,13 @@ function buildGamePanelListHtml(games, armedGameId, gameplayPhase, difficultyByG
                 </div>
                 <div class="p-4 flex flex-col gap-2">
                     <div class="flex items-center justify-between gap-2">
-                        <h3 class="text-base font-bold text-white truncate" data-i18n="${game.nameKey}">${t(game.nameKey)}</h3>
+                        <h3 class="text-base font-bold truncate" data-i18n="${game.nameKey}" data-uitk="textPrimary">${t(game.nameKey)}</h3>
                         <div class="flex items-center gap-2 shrink-0">
                             ${actionBtn}
                             ${difficultyBtn}
                         </div>
                     </div>
-                    <p class="text-xs text-slate-400 leading-relaxed" data-i18n="${game.descriptionKey}">${t(game.descriptionKey)}</p>
+                    <p class="text-xs leading-relaxed" data-i18n="${game.descriptionKey}" data-uitk="textSecondary">${t(game.descriptionKey)}</p>
                 </div>
             </div>
         `;

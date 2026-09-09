@@ -47,26 +47,26 @@ function buildResultBodyHtml({ ringSvg, starMax, starRating, hitCounts, tierOrde
 
     const hitGrid = tierOrder.map((name) => `
         <div>
-            <div class="font-mono font-bold text-white" id="gameplay-hit-${name}">0</div>
-            <div class="text-[10px] text-slate-500">${tierLabels[name]}</div>
+            <div class="font-mono font-bold" id="gameplay-hit-${name}" data-uitk="textPrimary">0</div>
+            <div class="text-[10px]" data-uitk="textSecondary">${tierLabels[name]}</div>
         </div>
     `).join('');
 
     return `
         <div class="flex flex-col items-center gap-3">
             <div class="w-full text-center">
-                <div class="text-sm font-semibold text-white truncate px-2">${title}</div>
-                <div class="text-xs text-slate-400 mt-0.5">${durationLabel} · ${difficultyLabel} · ${playCountLabel}</div>
+                <div class="text-sm font-semibold truncate px-2" data-uitk="textPrimary">${title}</div>
+                <div class="text-xs mt-0.5" data-uitk="textSecondary">${durationLabel} · ${difficultyLabel} · ${playCountLabel}</div>
             </div>
             <div class="relative w-[120px] h-[120px]">
                 ${ringSvg}
                 <div class="absolute inset-0 flex flex-col items-center justify-center">
-                    <div class="font-mono text-2xl font-bold text-white" id="gameplay-score-main">0.000</div>
-                    <div class="font-mono text-xs text-slate-400" id="gameplay-score-sub">0/0</div>
+                    <div class="font-mono text-2xl font-bold" id="gameplay-score-main" data-uitk="textPrimary">0.000</div>
+                    <div class="font-mono text-xs" id="gameplay-score-sub" data-uitk="textSecondary">0/0</div>
                 </div>
             </div>
             <div class="flex gap-1 text-2xl">${stars}</div>
-            <div class="grid grid-cols-5 gap-2 text-center w-full pt-2 border-t border-white/10">${hitGrid}</div>
+            <div class="grid grid-cols-5 gap-2 text-center w-full pt-2 border-t" data-uitk="dividerBorder">${hitGrid}</div>
         </div>
     `;
 }
