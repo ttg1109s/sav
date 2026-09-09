@@ -67,12 +67,15 @@
         // TRƯỚC ĐÂY dùng onclick="..." inline trong components/playlist-view.js (xem plan.md mục
         // 2b.8) — đã đổi sang id + addEventListener qua event/listener/playlist-empty-state.js.
         const btnPlaylistEmptyPlay = document.getElementById('btn-playlist-empty-play');
+        const btnPlaylistEmptyPlayLabel = document.getElementById('btn-playlist-empty-play-label'); // MỚI (09/09/2026) — span nhãn BÊN TRONG btnPlaylistEmptyPlay, đổi chữ Phát<->Đang phát qua updatePlayButtonPlayingState() (core/playlist/render.js)
         const btnPlaylistEmptyShuffle = document.getElementById('btn-playlist-empty-shuffle');
         const btnBackPlaylist = document.getElementById('btn-back-playlist'), loadingShield = document.getElementById('loading-shield'), loadingText = document.getElementById('loading-text');
         // SỬA (21/07/2026) — btnVideoPlayerToggle (nút header, thêm Batch 3) ĐÃ XOÁ — toggle "Video
         // Player mode" giờ SỐNG trong panel File Manager -> Video (DOM động, push/pop — KHÔNG phải
         // dom-refs tĩnh nữa, xem event/workflow/file-manager-video.js::openPanel()).
-        const btnReturnVisual = document.getElementById('btn-return-visual');
+        // XOÁ (09/09/2026, Giang yêu cầu "loại bỏ nút icon visualizer riêng ở header") —
+        // btnReturnVisual (#btn-return-visual) ĐÃ BỎ HẲN khỏi template (components/playlist-view.js)
+        // — chức năng gộp vào btnPlaylistEmptyPlay ở trên.
         // "Control Center" của màn Visualizer (ver 8 refine) — thay cho dải dọc 6 nút cũ. Nút mở
         // ở góc trái, panel trượt từ trên xuống chứa grid icon; overlay mờ để bấm ra ngoài là đóng.
         const btnOpenControlCenter = document.getElementById('btn-open-control-center');
