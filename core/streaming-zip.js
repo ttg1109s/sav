@@ -117,9 +117,16 @@ function _withTimeout(promise, ms, label) {
  *   qua `cleanupStreamingZipTemp()` sau khi đã tải/share xong, không cần tự nhớ tên riêng.
  */
 async function buildZipStreamingToOpfs(entries, onProgress) {
-    await _ensureZipJsLoaded();
-    const root = await navigator.storage.getDirectory();
-    const tmpDirHandle = await root.getDirectoryHandle(OPFS_ZIP_TEMP_DIR, { create: true });
+    let hbStart = Date.now();
+    let hb = setInterval(() => console.log(`[streaming-zip] ...${Math.round((Date.now() - hbStart) / 1000)}s nạp zip.js + mở OPFS`), 1000);
+    let root, tmpDirHandle;
+    try {
+        await _ensureZipJsLoaded();
+        root = await navigator.storage.getDirectory();
+        tmpDirHandle = await root.getDirectoryHandle(OPFS_ZIP_TEMP_DIR, { create: true });
+    } finally {
+        clearInterval(hb);
+    }
     let tmpFileName = `zip-${Date.now()}-${Math.random().toString(36).slice(2)}.zip`;
     let fileHandle = await tmpDirHandle.getFileHandle(tmpFileName, { create: true });
 
@@ -134,7 +141,9 @@ async function buildZipStreamingToOpfs(entries, onProgress) {
         // sau đợt vá trước: đây là bước DUY NHẤT trong toàn luồng fallback còn thiếu bảo vệ) — lỗi/
         // timeout ở bước dọn này KHÔNG chặn fallback, luôn cấp TÊN MỚI cho Path B bất kể dọn được
         // hay không.
-        try { await _withTimeout(tmpDirHandle.removeEntry(tmpFileName), 3000, 'removeEntry() file tạm Path A'); } catch (e) { /* đang khoá/đã mất/hết giờ — bỏ qua */ }
+        hbStart = Date.now();
+        hb = setInterval(() => console.log(`[streaming-zip] ...${Math.round((Date.now() - hbStart) / 1000)}s dọn file tạm Path A bỏ dở`), 1000);
+        try { await _withTimeout(tmpDirHandle.removeEntry(tmpFileName), 3000, 'removeEntry() file tạm Path A'); } catch (e) { /* đang khoá/đã mất/hết giờ — bỏ qua */ } finally { clearInterval(hb); }
         tmpFileName = `zip-${Date.now()}-${Math.random().toString(36).slice(2)}.zip`;
         fileHandle = await tmpDirHandle.getFileHandle(tmpFileName, { create: true });
         await _writeViaWorker(tmpFileName, entries, onProgress); // Path B
@@ -174,6 +183,16 @@ const ENTRY_STALL_TIMEOUT_MS = 20000;
  * byte THẬT) — CHỈ reject khi trôi quá `ENTRY_STALL_TIMEOUT_MS` mà KHÔNG có bất kỳ tiến triển nào,
  * kể cả từ lúc BẮT ĐẦU (đồng hồ chạy NGAY từ đầu — đúng triệu chứng Giang gặp: kẹt cứng ở 0%, chưa
  * từng bắn onprogress lần nào để có cơ hội reset).
+ *
+ * SỬA (10/09/2026, Giang báo "mở Debug Console lên không thấy log gì") — Debug Console (core/debug-
+ * console.js) chỉ bắt được console.log/warn/error ĐÃ XẢY RA — nếu 1 entry treo mà KHÔNG log gì thêm
+ * cho tới lúc TỰ xong/lỗi (đúng hành vi trước đây: chỉ log lúc BẮT ĐẦU + lúc XONG), mở Debug Console
+ * giữa chừng lúc đang treo chỉ thấy im lặng tuyệt đối từ lúc entry đó bắt đầu, không biết CHÍNH XÁC
+ * đã trôi bao lâu, càng không phân biệt được "đang nén chậm bình thường" (bytes vẫn tăng) với "treo
+ * thật" (bytes đứng yên). Giờ bắn 1 dòng console.log MỖI GIÂY (`setInterval`) SUỐT lúc entry đang
+ * nén, kèm số byte đã xử lý gần nhất (đọc từ chính tham số `onprogress` của zip.js) — mở Debug
+ * Console lên bất cứ lúc nào cũng thấy dòng log MỚI trong 1 giây gần nhất, biết ngay đang ở entry
+ * nào + đã trôi bao lâu + có đang thật sự tiến triển hay không.
  * @param {zip.ZipWriter} zipWriter @param {{filename:string, blob:Blob}} entry
  * @returns {Promise<void>}
  */
@@ -181,25 +200,42 @@ function _addEntryWithStallGuard(zipWriter, entry) {
     return new Promise((resolve, reject) => {
         let settled = false;
         let stallTimer;
+        let lastProgress = 0;
+        let lastTotal = null;
+        const startedAt = Date.now();
+
+        const heartbeat = setInterval(() => {
+            if (settled) return;
+            const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
+            const byteInfo = lastTotal != null ? `${lastProgress}/${lastTotal} byte` : `${lastProgress} byte`;
+            console.log(`[streaming-zip] Path A ...${elapsedSec}s nén "${entry.filename}" — đã xử lý ${byteInfo}${lastProgress === 0 ? ' (CHƯA có tiến triển nào)' : ''}`);
+        }, 1000);
+
         const armStallTimer = () => {
             clearTimeout(stallTimer);
             stallTimer = setTimeout(() => {
                 if (settled) return;
                 settled = true;
+                clearInterval(heartbeat);
                 reject(new Error(`Treo khi nén "${entry.filename}" — không có tiến triển byte nào trong ${ENTRY_STALL_TIMEOUT_MS / 1000}s (nghi Path A/createWritable kẹt)`));
             }, ENTRY_STALL_TIMEOUT_MS);
         };
         armStallTimer();
         zipWriter.add(entry.filename, new zip.BlobReader(entry.blob), {
-            onprogress: () => { if (!settled) armStallTimer(); }, // zip.js — có tiến triển byte thật, reset đồng hồ
+            onprogress: (progress, total) => { // zip.js — có tiến triển byte thật, reset đồng hồ + cập nhật số byte cho heartbeat
+                lastProgress = progress; lastTotal = total;
+                if (!settled) armStallTimer();
+            },
         }).then(() => {
             if (settled) return; // đã reject vì stall từ trước (hiếm, race) — kết quả trễ này bỏ qua
             settled = true;
+            clearInterval(heartbeat);
             clearTimeout(stallTimer);
             resolve();
         }).catch((err) => {
             if (settled) return;
             settled = true;
+            clearInterval(heartbeat);
             clearTimeout(stallTimer);
             reject(err);
         });
@@ -216,7 +252,19 @@ function _addEntryWithStallGuard(zipWriter, entry) {
  * thoát nào. Lỗi/stall ném ra ngoài -> `buildZipStreamingToOpfs()` bắt, huỷ writable (best-effort)
  * rồi rơi xuống Path B. */
 async function _writeViaMainThread(fileHandle, entries, onProgress) {
-    const writable = await _withTimeout(fileHandle.createWritable(), 10000, 'createWritable()');
+    // SỬA (10/09/2026, cùng đợt "mở Debug Console không thấy log gì") — heartbeat riêng cho bước
+    // bắt tay createWritable() — bước này ĐÃ có `_withTimeout()` 10s nên hiếm khi thật sự cần, nhưng
+    // vẫn thêm để Debug Console KHÔNG im lặng ngay cả trong 10s đầu đó.
+    let hbStart = Date.now();
+    const createWritableHb = setInterval(() => {
+        console.log(`[streaming-zip] Path A ...${Math.round((Date.now() - hbStart) / 1000)}s createWritable()`);
+    }, 1000);
+    let writable;
+    try {
+        writable = await _withTimeout(fileHandle.createWritable(), 10000, 'createWritable()');
+    } finally {
+        clearInterval(createWritableHb);
+    }
     const zipWriter = new zip.ZipWriter(writable, { bufferedWrite: true });
     let done = 0;
     try {
@@ -230,7 +278,15 @@ async function _writeViaMainThread(fileHandle, entries, onProgress) {
         // hổng vừa vá ở Worker (core/workers/opfs-zip-worker.js) — nếu mọi entry nén xong nhưng
         // riêng bước đóng file treo thì vẫn lọt lưới stall-guard ở trên. `_withTimeout()` sẵn có
         // (khai báo đầu file) — 20s, cùng ngưỡng `ENTRY_STALL_TIMEOUT_MS`.
-        await _withTimeout(zipWriter.close(), ENTRY_STALL_TIMEOUT_MS, 'zipWriter.close()');
+        hbStart = Date.now();
+        const closeHb = setInterval(() => {
+            console.log(`[streaming-zip] Path A ...${Math.round((Date.now() - hbStart) / 1000)}s zipWriter.close()`);
+        }, 1000);
+        try {
+            await _withTimeout(zipWriter.close(), ENTRY_STALL_TIMEOUT_MS, 'zipWriter.close()');
+        } finally {
+            clearInterval(closeHb);
+        }
     } catch (err) {
         // Best-effort huỷ writable đang dở — KHÔNG await vô thời hạn (bản thân writable có thể
         // CHÍNH LÀ nguồn treo), bọc timeout ngắn riêng; lỗi/timeout ở bước dọn này KHÔNG che lỗi
@@ -245,14 +301,25 @@ async function _writeViaMainThread(fileHandle, entries, onProgress) {
  * pong" TỪNG entry một (gửi 1 -> đợi Worker báo xong -> gửi tiếp) — KHÔNG gộp cả mảng gửi 1 lần,
  * tránh giữ nhiều Blob lớn cùng lúc ở CẢ 2 phía. Bước bắt tay đầu ('init' -> đợi 'ready') bọc
  * `_withTimeout()` (15s, đủ thời gian Worker tải zip.js qua importScripts() qua mạng) — CÁC bước
- * sau đó (từng entry) KHÔNG có timeout, vì nén file lớn hợp lệ có thể mất nhiều thời gian, không
- * nên bị huỷ giữa chừng. */
+ * sau đó (từng entry) KHÔNG có timeout ở tầng NÀY (chính Worker đã tự stall-guard nội bộ, xem core/
+ * workers/opfs-zip-worker.js).
+ *
+ * SỬA (10/09/2026, Giang báo "mở Debug Console không thấy log gì") — Worker chạy trong 1 global
+ * scope RIÊNG, có `console` RIÊNG — việc bọc `console.log` của `core/debug-console.js` (chạy ở main
+ * thread) KHÔNG hề ảnh hưởng gì tới `console.*` BÊN TRONG Worker, nên MỌI `console.log()` gọi trực
+ * tiếp trong core/workers/opfs-zip-worker.js sẽ KHÔNG BAO GIỜ xuất hiện trong Debug Console (dù có
+ * thấy trong DevTools thật, lọc đúng context Worker). Worker giờ tự đóng gói log thành
+ * `postMessage({type:'heartbeat', text})` thay vì gọi console.log() trực tiếp — Ở ĐÂY (main thread,
+ * console ĐÃ bị debug-console.js bọc) mới thật sự gọi `console.log()` để relay, cho Debug Console
+ * thấy được log dù đang nén ở Path B. */
 function _writeViaWorker(tmpFileName, entries, onProgress) {
     const worker = new Worker('core/workers/opfs-zip-worker.js');
     const ready = new Promise((resolve, reject) => {
         worker.onmessage = (e) => {
-            if (e.data.type === 'ready') resolve();
-            else if (e.data.type === 'error') reject(new Error(e.data.message));
+            const msg = e.data;
+            if (msg.type === 'heartbeat') { console.log(`[streaming-zip] ${msg.text}`); return; } // relay log Worker -> Debug Console, xem docstring hàm này
+            if (msg.type === 'ready') resolve();
+            else if (msg.type === 'error') reject(new Error(msg.message));
         };
         worker.onerror = (err) => reject(new Error(err && err.message ? err.message : 'Lỗi Worker OPFS zip không xác định'));
         worker.postMessage({ type: 'init', tmpDirName: OPFS_ZIP_TEMP_DIR, tmpFileName, zipJsUrl: ZIP_JS_CDN_URL, totalEntries: entries.length });
@@ -267,6 +334,7 @@ function _writeViaWorker(tmpFileName, entries, onProgress) {
         }
         worker.onmessage = (e) => {
             const msg = e.data;
+            if (msg.type === 'heartbeat') { console.log(`[streaming-zip] ${msg.text}`); return; } // cùng lý do relay ở trên
             if (msg.type === 'entry-done') {
                 idx++;
                 if (onProgress) onProgress(msg.done, entries.length, Math.round((msg.done / entries.length) * 100));
