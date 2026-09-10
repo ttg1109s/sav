@@ -58,23 +58,42 @@ function isStreamingZipAvailable() {
     return typeof navigator !== 'undefined' && !!(navigator.storage && typeof navigator.storage.getDirectory === 'function');
 }
 
-/** Nạp zip.js qua CDN (bản no-worker, global `zip.*`) ĐÚNG 1 LẦN — tái dùng cho mọi lượt gọi sau,
- * cùng mẫu lazy-load 1 thư viện ngoài lúc thật sự cần (JSZip nạp tĩnh sẵn trong index.html từ
- * trước; zip.js MỚI nên nạp ĐỘNG ở đây thay vì thêm dòng <script> tĩnh, tự chịu trách nhiệm nạp).
+/** Nạp zip.js — BÌNH THƯỜNG đã có sẵn qua thẻ `<script>` tĩnh trong index.html (cùng chỗ khai báo
+ * JSZip) nên hàm này chỉ cần CHECK sự tồn tại; hàm CHỈ thật sự tải động (dự phòng) nếu vì lý do nào
+ * đó thẻ tĩnh đó chưa chạy kịp/lỗi mạng lúc boot — bọc `_withTimeout()` (10s) để không treo vô hạn
+ * nếu request mạng không bao giờ tự bắn `load`/`error` (hiếm nhưng có thể xảy ra trên mạng chập
+ * chờn) — SỬA (10/09/2026, Giang báo bug "treo ở màn Packing zip file", cùng đợt sửa
+ * makeSyncHandleWritable() ở core/workers/opfs-zip-worker.js).
  * @returns {Promise<void>}
  */
 let _zipJsLoadPromise = null;
 function _ensureZipJsLoaded() {
     if (typeof zip !== 'undefined') return Promise.resolve();
     if (_zipJsLoadPromise) return _zipJsLoadPromise;
-    _zipJsLoadPromise = new Promise((resolve, reject) => {
+    const loadPromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = ZIP_JS_CDN_URL;
         script.onload = () => resolve();
         script.onerror = () => reject(new Error('Không tải được thư viện zip.js (kiểm tra kết nối mạng tới CDN).'));
         document.head.appendChild(script);
     });
+    _zipJsLoadPromise = _withTimeout(loadPromise, 10000, 'Nạp thư viện zip.js');
     return _zipJsLoadPromise;
+}
+
+/** Đua 1 Promise với thời hạn — SỬA (10/09/2026, Giang báo bug "treo ở màn Packing zip file") —
+ * PHÒNG THỦ THÊM cho các bước "bắt đầu/bắt tay" (createWritable()/Worker báo 'ready') — nếu API
+ * KHÔNG hỗ trợ đúng cách nhưng KHÔNG throw ngay (treo im lặng thay vì reject) thì vẫn có lối thoát
+ * để rơi xuống Path kế tiếp/JSZip, thay vì treo UI vĩnh viễn không có cách nào tự phục hồi. CHỈ áp
+ * dụng cho bước "bắt tay" (nên gần như tức thời nếu hoạt động đúng) — KHÔNG áp dụng cho việc nén
+ * từng entry (file lớn nén lâu là bình thường, không phải treo, không nên bị huỷ giữa chừng).
+ */
+function _withTimeout(promise, ms, label) {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Hết thời gian chờ (${label})`)), ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 /**
@@ -123,9 +142,11 @@ async function cleanupStreamingZipTemp(tmpFileName) {
 }
 
 /** Path A — `createWritable()`, chạy thẳng main thread, không cần Worker. Ném lỗi nếu Safari chưa
- * hỗ trợ (bắt ở `buildZipStreamingToOpfs()` để rơi xuống Path B). */
+ * hỗ trợ (bắt ở `buildZipStreamingToOpfs()` để rơi xuống Path B) — bước `createWritable()` bọc
+ * `_withTimeout()` (10s, xem docstring hàm đó) phòng trường hợp API không hỗ trợ đúng cách nhưng
+ * treo thay vì reject ngay. */
 async function _writeViaMainThread(fileHandle, entries, onProgress) {
-    const writable = await fileHandle.createWritable();
+    const writable = await _withTimeout(fileHandle.createWritable(), 10000, 'createWritable()');
     const zipWriter = new zip.ZipWriter(writable, { bufferedWrite: true });
     let done = 0;
     for (const entry of entries) {
@@ -139,10 +160,22 @@ async function _writeViaMainThread(fileHandle, entries, onProgress) {
 /** Path B — giao hẳn cho core/workers/opfs-zip-worker.js (createSyncAccessHandle() BẮT BUỘC chạy
  * trong dedicated Worker, main thread gọi thẳng sẽ lỗi). Giao tiếp qua postMessage() dạng "ping-
  * pong" TỪNG entry một (gửi 1 -> đợi Worker báo xong -> gửi tiếp) — KHÔNG gộp cả mảng gửi 1 lần,
- * tránh giữ nhiều Blob lớn cùng lúc ở CẢ 2 phía. */
+ * tránh giữ nhiều Blob lớn cùng lúc ở CẢ 2 phía. Bước bắt tay đầu ('init' -> đợi 'ready') bọc
+ * `_withTimeout()` (15s, đủ thời gian Worker tải zip.js qua importScripts() qua mạng) — CÁC bước
+ * sau đó (từng entry) KHÔNG có timeout, vì nén file lớn hợp lệ có thể mất nhiều thời gian, không
+ * nên bị huỷ giữa chừng. */
 function _writeViaWorker(tmpFileName, entries, onProgress) {
-    return new Promise((resolve, reject) => {
-        const worker = new Worker('core/workers/opfs-zip-worker.js');
+    const worker = new Worker('core/workers/opfs-zip-worker.js');
+    const ready = new Promise((resolve, reject) => {
+        worker.onmessage = (e) => {
+            if (e.data.type === 'ready') resolve();
+            else if (e.data.type === 'error') reject(new Error(e.data.message));
+        };
+        worker.onerror = (err) => reject(new Error(err && err.message ? err.message : 'Lỗi Worker OPFS zip không xác định'));
+        worker.postMessage({ type: 'init', tmpDirName: OPFS_ZIP_TEMP_DIR, tmpFileName, zipJsUrl: ZIP_JS_CDN_URL, totalEntries: entries.length });
+    });
+
+    return _withTimeout(ready, 15000, 'Worker khởi động (createSyncAccessHandle)').then(() => new Promise((resolve, reject) => {
         let idx = 0;
         function sendNextEntry() {
             if (idx >= entries.length) { worker.postMessage({ type: 'finish' }); return; }
@@ -151,9 +184,7 @@ function _writeViaWorker(tmpFileName, entries, onProgress) {
         }
         worker.onmessage = (e) => {
             const msg = e.data;
-            if (msg.type === 'ready') {
-                sendNextEntry();
-            } else if (msg.type === 'entry-done') {
+            if (msg.type === 'entry-done') {
                 idx++;
                 if (onProgress) onProgress(msg.done, entries.length, Math.round((msg.done / entries.length) * 100));
                 sendNextEntry();
@@ -166,6 +197,11 @@ function _writeViaWorker(tmpFileName, entries, onProgress) {
             }
         };
         worker.onerror = (err) => { worker.terminate(); reject(new Error(err && err.message ? err.message : 'Lỗi Worker OPFS zip không xác định')); };
-        worker.postMessage({ type: 'init', tmpDirName: OPFS_ZIP_TEMP_DIR, tmpFileName, zipJsUrl: ZIP_JS_CDN_URL, totalEntries: entries.length });
+        sendNextEntry(); // đã 'ready' từ bước trên — bắt đầu gửi entry đầu tiên NGAY, KHÔNG gửi lại 'init'
+    })).finally(() => {
+        // Timeout ở bước 'ready' (Promise.race thua) thì Worker vẫn có thể đang chạy ngầm (không có
+        // cách huỷ importScripts()/createSyncAccessHandle() đang treo giữa chừng) — terminate() dứt
+        // khoát tại đây để không rò rỉ Worker treo mãi trong nền dù luồng chính đã rơi về JSZip.
+        worker.terminate();
     });
 }
