@@ -45,7 +45,20 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
         const cache = await caches.open(SAV_DOWNLOAD_CACHE);
         const cached = await cache.match(event.request);
-        if (cached) return cached;
+        if (cached) {
+            // MỚI (10/09/2026, Giang yêu cầu "thêm log báo Service Worker thành công") — relay xác
+            // nhận ĐÃ PHỤC VỤ THÀNH CÔNG về client (main thread) qua postMessage() — Service Worker
+            // chạy trong global scope RIÊNG, có `console` RIÊNG, `console.log()` gọi thẳng Ở ĐÂY sẽ
+            // KHÔNG BAO GIỜ xuất hiện trong Debug Console (core/debug-console.js, chỉ bọc console
+            // của main thread) — core/large-file-download.js nhận message này rồi MỚI thật sự
+            // console.log() ở phía main thread để relay vào Debug Console (CÙNG kỹ thuật đã dùng
+            // cho core/workers/opfs-zip-worker.js lúc nén zip).
+            try {
+                const client = await self.clients.get(event.clientId);
+                if (client) client.postMessage({ type: 'sav-download-served', url: url.pathname });
+            } catch (e) { /* không lấy được client (hiếm) — bỏ qua, không ảnh hưởng việc trả file */ }
+            return cached;
+        }
         // Không tìm thấy (đã bị dọn/hết hạn, hoặc bấm lại link cũ) — 404 rõ ràng thay vì để trình
         // duyệt tự đoán, core/large-file-download.js không có cơ chế retry cho case hiếm này.
         return new Response('Không tìm thấy file để tải (có thể đã hết hạn) — Service Worker sav-download.', { status: 404 });
