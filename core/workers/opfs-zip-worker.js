@@ -36,8 +36,8 @@ let doneEntries = 0;
  * phút". Giờ Path B CŨNG có stall-guard y hệt Path A — treo thật (đo qua `onprogress` của zip.js,
  * KHÔNG phải tổng thời gian nén — file lớn nén chậm nhưng vẫn tiến triển sẽ KHÔNG bị huỷ oan) thì
  * `postMessage({type:'error'})` về main thread, `_writeViaWorker()` reject, CẢ 2 Path đã thất bại ->
- * `_compressZipEntries()` (core/storage-manager.js) tự rơi về JSZip cũ (KHÔNG dùng CompressionStream,
- * tránh đúng gốc nghi vấn). */
+ * `_compressZipEntries()` (core/storage-manager.js) ném lỗi thẳng ra ngoài (KHÔNG còn JSZip để rơi
+ * về, đã bỏ hẳn khỏi app — 10/09/2026), nơi gọi tự bắt và báo lỗi rõ ràng cho người dùng. */
 const ENTRY_STALL_TIMEOUT_MS = 20000;
 
 /** Ngưỡng riêng cho bước `zipWriter.close()` (finish) — bước này KHÔNG xử lý byte theo entry (chỉ
