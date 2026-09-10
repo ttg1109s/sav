@@ -50,6 +50,9 @@ const LANG_PATCH_COMMON = {
     // promptDownloadReady() (core/id3-export.js), DÙNG CHUNG cho mọi luồng export/tải xuống.
     'common.export.readyTitle': 'Ready to download',
     'common.export.readyBody': 'File size: {size}.',
+    // MỚI (10/09/2026, Giang yêu cầu) — chỉ dùng khi blob có sẵn _zipDurationMs (mọi luồng zip, xem
+    // core/storage-manager.js::_compressZipEntries()) — export lẻ 1 file dùng bản readyBody ở trên.
+    'common.export.readyBodyWithDuration': 'File size: {size}. Processing time: {duration}.',
     'common.export.readyBodyMulti': '{count} files ready to download (total {size}).',
     'common.export.readyBtnDownload': 'Download',
 
