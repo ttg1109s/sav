@@ -656,13 +656,12 @@ const workflowPlaylist = {
                     failedCount++;
                 }
             }
-            // SỬA (10/09/2026, Giang yêu cầu "làm đầy đủ, thay JSZip toàn app") — TRƯỚC ĐÂY dùng
-            // thẳng `new JSZip()...generateAsync()` ở đây; giờ giao cho `_compressZipEntries()`
-            // (core/storage-manager.js — ưu tiên streaming OPFS qua zip.js, JSZip chỉ còn là lưới
-            // an toàn cuối khi OPFS hoàn toàn không hỗ trợ, xem docstring đầy đủ ở đó/core/
-            // streaming-zip.js) — Song KHÔNG dùng `buildAllSongsZipBlob()` được vì cần
-            // `buildTaggedBlob()` cho từng file TRƯỚC khi nén (khác Video/Photo, xem 2 hàm export
-            // zip ngay dưới), nên gọi thẳng `_compressZipEntries()` với entries đã gắn tag sẵn.
+            // XOÁ (10/09/2026, Giang yêu cầu "loại bỏ toàn bộ JSZip") — TRƯỚC ĐÂY dùng thẳng
+            // `new JSZip()...generateAsync()` ở đây; giờ giao hẳn cho `_compressZipEntries()`
+            // (core/storage-manager.js — ĐƯỜNG DUY NHẤT để nén zip, JSZip đã bỏ hẳn khỏi app) —
+            // Song KHÔNG dùng `buildAllSongsZipBlob()` được vì cần `buildTaggedBlob()` cho từng
+            // file TRƯỚC khi nén (khác Video/Photo, xem 2 hàm export zip ngay dưới), nên gọi thẳng
+            // `_compressZipEntries()` với entries đã gắn tag sẵn.
             zipBlob = await _compressZipEntries(entries, (done, total, percent) => { // core/storage-manager.js
                 const pct = percent != null ? Math.round(percent) : Math.round((done / total) * 100);
                 loadingText.textContent = tFormat('common.storage.zippingProgress', { percent: pct });
@@ -781,10 +780,10 @@ const workflowPlaylist = {
         // SỬA (10/09/2026, Giang yêu cầu "làm giống Folder Download/Storage Management") — xem lý do
         // đầy đủ ở exportSelectedSongsZip() ngay trên.
         await withLoadingShield(t('common.storage.zippingStart'), async () => {
-            // SỬA (10/09/2026, Giang yêu cầu "làm đầy đủ, thay JSZip toàn app") — TRƯỚC ĐÂY dùng
-            // thẳng `new JSZip()...generateAsync()` ở đây; giờ giao cho `_collectZipEntries()` +
-            // `_compressZipEntries()` (core/storage-manager.js — ưu tiên streaming OPFS qua zip.js,
-            // JSZip chỉ còn là lưới an toàn cuối, xem docstring đầy đủ ở đó/core/streaming-zip.js).
+            // XOÁ (10/09/2026, Giang yêu cầu "loại bỏ toàn bộ JSZip") — TRƯỚC ĐÂY dùng thẳng
+            // `new JSZip()...generateAsync()` ở đây; giờ giao cho `_collectZipEntries()` +
+            // `_compressZipEntries()` (core/storage-manager.js — ĐƯỜNG DUY NHẤT để nén zip, JSZip
+            // đã bỏ hẳn khỏi app, xem docstring đầy đủ ở đó/core/streaming-zip.js).
             entries = await _collectZipEntries(keys, getVideoRecord, '.mp4'); // core/storage-manager.js — tự bỏ qua key không còn tồn tại (record undefined)
             zipBlob = await _compressZipEntries(entries, (done, total, percent) => { // core/storage-manager.js
                 const pct = percent != null ? Math.round(percent) : Math.round((done / total) * 100);
