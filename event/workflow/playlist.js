@@ -637,7 +637,12 @@ const workflowPlaylist = {
 
         let failedCount = 0;
         let zipBlob;
-        await withLoadingShield(t('common.loading.exportingFile'), async () => {
+        // SỬA (10/09/2026, Giang yêu cầu "làm giống Folder Download/Storage Management") — TRƯỚC ĐÂY
+        // dùng `t('common.loading.exportingFile')` (chữ TĨNH, không hiện %) suốt cả quá trình — giờ
+        // ĐỔI sang ĐÚNG chữ + cách cập nhật % y hệt `zipAndDownloadOrFallback()`
+        // (event/workflow/file-manager-storage.js): `common.storage.zippingStart` lúc bắt đầu, rồi
+        // `onProgress` cập nhật `loadingText.textContent` theo `common.storage.zippingProgress`.
+        await withLoadingShield(t('common.storage.zippingStart'), async () => {
             const entries = [];
             for (const key of keys) {
                 const record = await getSongRecord(key);
@@ -658,7 +663,10 @@ const workflowPlaylist = {
             // streaming-zip.js) — Song KHÔNG dùng `buildAllSongsZipBlob()` được vì cần
             // `buildTaggedBlob()` cho từng file TRƯỚC khi nén (khác Video/Photo, xem 2 hàm export
             // zip ngay dưới), nên gọi thẳng `_compressZipEntries()` với entries đã gắn tag sẵn.
-            zipBlob = await _compressZipEntries(entries); // core/storage-manager.js
+            zipBlob = await _compressZipEntries(entries, (done, total, percent) => { // core/storage-manager.js
+                const pct = percent != null ? Math.round(percent) : Math.round((done / total) * 100);
+                loadingText.textContent = tFormat('common.storage.zippingProgress', { percent: pct });
+            });
         });
 
         this._exitSelectionMode();
@@ -770,13 +778,18 @@ const workflowPlaylist = {
 
         let zipBlob;
         let entries;
-        await withLoadingShield(t('common.loading.exportingFile'), async () => {
+        // SỬA (10/09/2026, Giang yêu cầu "làm giống Folder Download/Storage Management") — xem lý do
+        // đầy đủ ở exportSelectedSongsZip() ngay trên.
+        await withLoadingShield(t('common.storage.zippingStart'), async () => {
             // SỬA (10/09/2026, Giang yêu cầu "làm đầy đủ, thay JSZip toàn app") — TRƯỚC ĐÂY dùng
             // thẳng `new JSZip()...generateAsync()` ở đây; giờ giao cho `_collectZipEntries()` +
             // `_compressZipEntries()` (core/storage-manager.js — ưu tiên streaming OPFS qua zip.js,
             // JSZip chỉ còn là lưới an toàn cuối, xem docstring đầy đủ ở đó/core/streaming-zip.js).
             entries = await _collectZipEntries(keys, getVideoRecord, '.mp4'); // core/storage-manager.js — tự bỏ qua key không còn tồn tại (record undefined)
-            zipBlob = await _compressZipEntries(entries); // core/storage-manager.js
+            zipBlob = await _compressZipEntries(entries, (done, total, percent) => { // core/storage-manager.js
+                const pct = percent != null ? Math.round(percent) : Math.round((done / total) * 100);
+                loadingText.textContent = tFormat('common.storage.zippingProgress', { percent: pct });
+            });
         });
         const failedCount = keys.length - entries.length; // key bị bỏ qua trong _collectZipEntries() (video không còn tồn tại, race) — CÙNG cách đếm cũ, không đọc lại DB lần 2
 
@@ -801,9 +814,14 @@ const workflowPlaylist = {
 
         let zipBlob;
         let entries;
-        await withLoadingShield(t('common.loading.exportingFile'), async () => {
+        // SỬA (10/09/2026, Giang yêu cầu "làm giống Folder Download/Storage Management") — xem lý do
+        // đầy đủ ở exportSelectedSongsZip() ngay trên.
+        await withLoadingShield(t('common.storage.zippingStart'), async () => {
             entries = await _collectZipEntries(keys, getImageRecord, '.jpg'); // core/storage-manager.js — tự bỏ qua key không còn tồn tại (record undefined)
-            zipBlob = await _compressZipEntries(entries); // core/storage-manager.js
+            zipBlob = await _compressZipEntries(entries, (done, total, percent) => { // core/storage-manager.js
+                const pct = percent != null ? Math.round(percent) : Math.round((done / total) * 100);
+                loadingText.textContent = tFormat('common.storage.zippingProgress', { percent: pct });
+            });
         });
         const failedCount = keys.length - entries.length; // CÙNG cách đếm ở exportSelectedVideosZip() ngay trên
 
