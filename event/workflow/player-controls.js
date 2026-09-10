@@ -97,7 +97,17 @@ const workflowPlayerControls = {
         if (shouldRestartInsteadOfAdvance(repeatMode, force)) { // core mới (order.js) — repeat-mode-2, KHÔNG force
             activeEl.currentTime = 0;
             if (isVideoPlayerMode) activeEl.play().catch((err) => console.error('[workflowPlayerControls] bgVideoElement.play() lỗi:', err));
-            else if (isPhotoPlayerMode) activeEl.play(); // photoPlayerFakeMediaElement.play() KHÔNG async, KHÔNG cần .catch()
+            // FIX (Giang yêu cầu "thêm thời gian listen cho photo") — nhánh này CHỈ tới được từ
+            // `handleMediaEnded()` (photo hết TỰ NHIÊN, repeat-single) — hàm đó LUÔN gọi
+            // `stopListenClock()` NGAY TRƯỚC KHI gọi `goToNextTrack(false)` (xem handleMediaEnded()
+            // dưới), nên lúc chạy tới đây đồng hồ totalTime CHẮC CHẮN vừa bị dừng. Song/Video tự
+            // khởi động lại đồng hồ đó qua sự kiện 'play' THẬT của thẻ <audio>/<video> (handleAudio-
+            // Play()/handleVideoPlayState(), core/player-controls.js & event/workflow/video-
+            // player.js) — Photo KHÔNG có sự kiện DOM thật (`photoPlayerFakeMediaElement.play()`
+            // CHỈ đổi cờ `photoPlayerPaused`, KHÔNG tự bắn gì thêm — xem core/photo-player.js) nên
+            // PHẢI gọi `startListenClock()` THẲNG ở đây, nếu không ảnh lặp lại (repeat-single) sẽ
+            // câm lặng ngừng tính totalTime sau đúng 1 vòng đầu tiên.
+            else if (isPhotoPlayerMode) { activeEl.play(); startListenClock(); } // photoPlayerFakeMediaElement.play() KHÔNG async, KHÔNG cần .catch()
             else activeEl.play();
             return;
         }

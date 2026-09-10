@@ -41,7 +41,15 @@
  *
  * NẠP SAU: core/photo-player.js, core/playlist/loader.js (đọc duration qua playlistCache), event/
  * workflow/player-controls.js (goToNextTrack/goToPrevTrack, requestWakeLock/releaseWakeLock/
- * stopListenClock), event/workflow/visual-bg.js (clearMediaLayers()/applyCurrentVisualBg()).
+ * startListenClock/stopListenClock), event/workflow/visual-bg.js (clearMediaLayers()/
+ * applyCurrentVisualBg()).
+ *
+ * SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — Photo giờ TÍNH totalTime giống Video:
+ * startListenClock() lúc bắt đầu phát/resume, stopListenClock() lúc pause/thoát mode (core/
+ * player-controls.js — cơ chế key-agnostic sẵn có, chỉ thiếu lời gọi bật/tắt cho Photo trước đây).
+ * Nhãn hiển thị ("Đã nghe"/"Listened") đổi thành "Watch time" riêng cho Video/Photo — CHỈ khác
+ * chữ hiển thị, logic/field (`totalTime`, `formatListenTime()`) giữ NGUYÊN — xem core/playlist/
+ * actions.js.
  */
 const PHOTO_PLAYER_TICK_TASK = 'photoPlayerTick';
 const PHOTO_PLAYER_TICK_INTERVAL_MS = 200; // 5 lần/giây — đủ mượt cho progress bar, rẻ cho pin/CPU
@@ -127,7 +135,7 @@ const workflowPhotoPlayer = {
         if (typeof workflowVisualBg !== 'undefined') await workflowVisualBg.applyCurrentVisualBg(); // event/workflow/visual-bg.js — liên tuyến domain, tự clearMediaLayers() rồi áp lại ĐÚNG cấu hình
         this._revokeObjectUrls();
         exitPhotoPlayerModeState(); // core/photo-player.js
-        releaseWakeLock(); // core/player-controls.js — Photo không dùng startListenClock()/stopListenClock() (nghe ảnh không tính "thời gian nghe nhạc")
+        releaseWakeLock(); stopListenClock(); // core/player-controls.js — SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — dừng đồng hồ totalTime lúc thoát mode, CÙNG khuôn workflowVideoPlayer.exitVideoPlayerMode()
     },
 
     /** Đổi ảnh ĐANG hiển thị (vào mode lần đầu HOẶC Next/Prev vật lý trong lúc đã ở mode) — mirror
@@ -177,7 +185,7 @@ const workflowPhotoPlayer = {
         updatePhotoPlayerProgressUI(0, durationSec); // core/photo-player.js
         updatePhotoPlayerPlayPauseIcon(true); // core/photo-player.js
 
-        requestWakeLock(); // core/player-controls.js — cùng khuôn goToNextTrack()/goToPrevTrack()/togglePlayPause() của Song
+        requestWakeLock(); startListenClock(); // core/player-controls.js — SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — Photo giờ đếm totalTime CÙNG cơ chế Video (mediaStatsMap key-agnostic đã sẵn key-agnostic từ trước, chỉ thiếu lời gọi bật đồng hồ); label hiển thị đổi thành "Watch time" (chỉ khác chữ hiển thị, xem core/playlist/actions.js), logic đếm giữ NGUYÊN
 
         if (previousKey && previousKey !== photoKey) workflowPlaylistRender.refreshSongNode(previousKey); // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
         workflowPlaylistRender.refreshSongNode(photoKey);
@@ -207,8 +215,10 @@ const workflowPhotoPlayer = {
             ]);
             const frozenElapsed = computePhotoPlayerElapsedSec(photoPlayerElapsedBeforePauseSec, photoPlayerStartedAtMs, photoPlayerPaused, performance.now()); // core/photo-player.js
             appState.set('photoPlayerElapsedBeforePauseSec', frozenElapsed, { skipCheck: true });
+            stopListenClock(); // core/player-controls.js — MỚI (Giang yêu cầu "thêm thời gian listen cho photo") — dừng đếm totalTime lúc pause, không tính giờ đứng yên là "đã xem"
         } else {
             appState.set('photoPlayerStartedAtMs', performance.now(), { skipCheck: true });
+            startListenClock(); // core/player-controls.js — MỚI — tiếp tục đếm totalTime lúc resume
         }
         appState.set('photoPlayerPaused', nowPaused, { skipCheck: true });
         updatePhotoPlayerPlayPauseIcon(!nowPaused); // core/photo-player.js
