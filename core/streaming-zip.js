@@ -128,9 +128,13 @@ async function buildZipStreamingToOpfs(entries, onProgress) {
     } catch (errA) {
         console.warn('[streaming-zip] Path A (createWritable) lỗi/treo, thử qua Worker (createSyncAccessHandle):', errA);
         // Path A có thể đã bỏ dở GIỮA CHỪNG (không chỉ lỗi NGAY từ createWritable() như trước) —
-        // dọn thử file tạm cũ (best-effort, có thể vẫn đang khoá nếu treo thật, bỏ qua lỗi — không
-        // chặn fallback) rồi cấp TÊN MỚI cho Path B, xem docstring hàm này để biết lý do đầy đủ.
-        try { await tmpDirHandle.removeEntry(tmpFileName); } catch (e) { /* đang khoá/đã mất — bỏ qua */ }
+        // dọn thử file tạm cũ (best-effort, bọc timeout ngắn RIÊNG — ĐÚNG file này có thể vẫn đang
+        // bị chính writable/zipWriter bỏ dở của Path A khoá ghi, removeEntry() trên 1 file đang khoá
+        // CÓ THỂ tự nó cũng treo — lỗ hổng phát hiện thêm 10/09/2026, Giang báo "vẫn treo hơn 20s"
+        // sau đợt vá trước: đây là bước DUY NHẤT trong toàn luồng fallback còn thiếu bảo vệ) — lỗi/
+        // timeout ở bước dọn này KHÔNG chặn fallback, luôn cấp TÊN MỚI cho Path B bất kể dọn được
+        // hay không.
+        try { await _withTimeout(tmpDirHandle.removeEntry(tmpFileName), 3000, 'removeEntry() file tạm Path A'); } catch (e) { /* đang khoá/đã mất/hết giờ — bỏ qua */ }
         tmpFileName = `zip-${Date.now()}-${Math.random().toString(36).slice(2)}.zip`;
         fileHandle = await tmpDirHandle.getFileHandle(tmpFileName, { create: true });
         await _writeViaWorker(tmpFileName, entries, onProgress); // Path B
