@@ -56,6 +56,44 @@ const workflowSettingsMisc = {
         wireDebugConsolePanelActions(panelEl); // core/settings-misc-ui.js
     },
 
+    /** Ứng với 'settingsMisc.debugConsole.forceOpen' — MỚI (10/09/2026, Giang yêu cầu — "lối tắt
+     * cưỡng chế mở Debug Console ngay cả khi đang bị #loading-shield che", phục vụ debug lúc app bị
+     * kẹt/treo giữa chừng 1 tác vụ, không đợi tác vụ đó xong mới xem được log). Nút kích hoạt
+     * (`#btn-loading-shield-debug`) SỐNG NGAY BÊN TRONG chính `#loading-shield` (components/loading-
+     * shield.js, z-[200]) nên LUÔN bấm được bất kể tác vụ nào đang chạy dở/treo bên dưới.
+     *
+     * KHÔNG đi qua `workflowAppSettings.navigateTo()`/`_render()` (luồng Settings > Troubleshooting
+     * bình thường) — luồng đó mở Generic Drawer ở z-index MẶC ĐỊNH (128, THẤP HƠN shield 200), mở
+     * lúc shield đang hiện sẽ bị chính shield đè kín, không thấy/không bấm được gì. Mở THẲNG qua
+     * `openGenericDrawer()` với `zIndex` ĐÈ LÊN TRÊN shield (Z_INDEX.LOADING_SHIELD + 10, service/
+     * z-index.js — chừa khoảng cách rộng, không chỉ +1, để chắc chắn overlay (zIndex-1) của Generic
+     * Drawer vẫn nằm trên shield bất kể thứ tự DOM), header CHỈ có nút Đóng (KHÔNG có Back — đây là
+     * lối tắt độc lập, không thuộc ngăn xếp điều hướng của `workflowAppSettings`), rồi tái dùng
+     * NGUYÊN `openDebugConsole()` ngay trên để vẽ danh sách log + wire nút Copy/Xoá, y hệt luồng
+     * Settings bình thường. Đóng bằng `workflowGenericDrawerHelpers.closeFully()` — CHỈ đóng Generic
+     * Drawer, KHÔNG đụng gì tới shield/tác vụ đang chạy dở bên dưới (2 lớp hoàn toàn độc lập).
+     */
+    forceOpenDebugConsole() {
+        openGenericDrawer({ // core/generic-drawer.js
+            height: 'auto',
+            maxHeight: '85vh',
+            zIndex: Z_INDEX.LOADING_SHIELD + 10, // service/z-index.js
+            headerHtml: `
+                <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
+                    <h3 class="text-base font-bold" data-uitk="headerTitle">${t('settingsMisc.debugConsole.title')}</h3>
+                    <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.close')}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+            `,
+            bodyHtml: `<div class="text-slate-900 p-4">${renderDebugConsolePanelBody()}</div>`, // components/debug-console-drawer.js
+            bodyClass: 'overflow-y-auto',
+        });
+        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
+        if (closeBtn) closeBtn.addEventListener('click', () => workflowGenericDrawerHelpers.closeFully()); // event/workflow/generic-drawer-helpers.js
+        this.openDebugConsole(); // vẽ danh sách log + wire nút Copy/Xoá — TÁI DÙNG nguyên logic có sẵn ngay trên
+    },
+
     /** Ứng với `settingsMisc.debugConsole.copy.click` (nút Copy, wire 1 lần ở core/settings-misc-
      * ui.js). Public — Router gọi trực tiếp. */
     async copyDebugConsoleLog() {
