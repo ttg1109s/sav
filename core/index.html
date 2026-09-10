@@ -195,13 +195,12 @@
     <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
     <!-- Ghi ID3 tag mới vào blob lúc Export/Restore (jsmediatags chỉ đọc, không viết) -->
     <script src="https://cdn.jsdelivr.net/npm/browser-id3-writer@4/dist/browser-id3-writer.js"></script>
-    <!-- Đóng gói nhiều file mp3 thành 1 file .zip lúc "Tải toàn bộ rồi xóa" (Quản lý dung lượng) -->
-    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <!-- MỚI (10/09/2026, Giang yêu cầu "làm đầy đủ, thay JSZip toàn app") — zip.js (@zip.js/zip.js),
-         core/streaming-zip.js dùng để nén STREAM thẳng vào OPFS, không giới hạn dung lượng RAM như
-         JSZip (generateAsync({type:'blob'}) bắt buộc dựng liền 1 khối trong RAM). JSZip GIỮ LẠI ở
-         trên — core/storage-manager.js vẫn rơi về JSZip làm lưới an toàn cuối cùng khi OPFS hoàn
-         toàn không hỗ trợ (browser rất cũ), xem docstring core/streaming-zip.js để biết đầy đủ. -->
+    <!-- XOÁ (10/09/2026, Giang yêu cầu "loại bỏ toàn bộ JSZip") — thẻ CDN JSZip (dựng .zip liền 1
+         khối trong RAM, gốc bug "zip video >1GB crash PWA") đã bỏ hẳn — zip.js (@zip.js/zip.js,
+         thẻ script ngay dưới) giờ là đường DUY NHẤT để nén .zip trong toàn app, không còn nhánh dự
+         phòng nào — trình duyệt không hỗ trợ OPFS (rất cũ) sẽ không zip được nữa, chỉ còn tải riêng
+         từng file (xem `_compressZipEntries()`, core/storage-manager.js +
+         `zipAndDownloadOrFallback()`, event/workflow/file-manager-storage.js). -->
     <script src="https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.62/dist/zip-no-worker.min.js"></script>
     <!-- XOÁ (29/07/2026, yêu cầu Giang mục 1/2) — mediainfo.js (WASM, CDN unpkg) từng dùng phân
          tích codec/fps/bitrate video lúc upload (event/workflow/file-manager-video.js::
@@ -316,14 +315,14 @@
          .json vì chạy qua file://). /lang/lang.js gộp cả 5 (Object.assign) rồi định nghĩa t()/
          tFormat() — PHẢI nạp trước mọi components/*.js (template TPL_* gọi t() ngay lúc parse).
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
-    <script src="lang/patch/patch-common.js?v=20260818v1"></script>
+    <script src="lang/patch/patch-common.js?v=20260910v2"></script>
     <script src="lang/patch/patch-playlist.js?v=20260823v2"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260905v2"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260905v2"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260816v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 2 drawer con Song/Photo & Album, xem plan-v12-multimedia-decisions.md). -->
-    <script src="lang/patch/patch-file-manager.js?v=20260731v4"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20260910v1"></script>
     <!-- MỚI (10/07/2026) — dùng ở CẢ index.html LẪN subtitle-editor.html, xem lang/lang.js. -->
     <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
     <!-- MỚI ("Song/Video Unification" v12, gộp Video Editor vào Modal xem Video) — modal xem Video
@@ -653,7 +652,7 @@
     <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — công cụ dọn rác chung File Manager (registry) —
          CỐ Ý đặt cuối cùng trong nhóm core/file-manager/ (mọi tính năng khác đã có mặt trước đó,
          registry chỉ cần service/db.js). -->
-    <script src="core/file-manager/cleanup.js?v=20260704v1"></script>
+    <script src="core/file-manager/cleanup.js?v=20260910v2"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Slideshow nền Visual (hàm THUẦN, xem comment đầu file).
          FIX (04/07/2026, Rule 3 siết chặt) — KHÔNG còn dùng service/task-manager.js nữa (taskManager
          giờ CẤM trong core, chỉ Workflow dùng) — không phụ thuộc gì trong nhóm này (mọi phần tử DOM
@@ -801,11 +800,11 @@
          từ đầu <body>, luôn có mặt), db.js (cần deleteLanguagePack), modal-choice-ui.js (cần
          modalChoice() hỏi xác nhận trước khi xóa). Xem comment đầu file lang/language-settings.js. -->
     <script src="lang/language-settings.js?v=20260627v1"></script>
-    <script src="core/id3-export.js?v=20260910v2"></script>
+    <script src="core/id3-export.js?v=20260910v5"></script>
     <!-- MỚI (10/09/2026) — core/streaming-zip.js: nén .zip STREAM thẳng vào OPFS thay JSZip, xem
          docstring đầu file đó. NẠP TRƯỚC storage-manager.js (hàm buildAllXZipBlob() ở đó gọi tới). -->
-    <script src="core/streaming-zip.js?v=20260910v6"></script>
-    <script src="core/storage-manager.js?v=20260729v2"></script>
+    <script src="core/streaming-zip.js?v=20260910v10"></script>
+    <script src="core/storage-manager.js?v=20260910v2"></script>
 
     <!-- 4) VISUALIZERS: hàm vẽ canvas dùng chung (core/visualizer/draw/), từng visual riêng
          (types/), rồi vòng lặp render chính (draw-visualizer.js) nạp sau cùng vì tham chiếu các
@@ -949,14 +948,14 @@
     <!-- Panel "Song & Video" cũ (file-manager-song.js) đã xoá, thay bằng "Quản lý lưu trữ" (gộp 3
          domain: song/video/photo) — CẦN core/file-manager/{image,album}.js,
          components/file-manager-storage.js (đã nạp ở nhóm CORE/COMPONENTS). -->
-    <script src="event/workflow/file-manager-storage.js?v=20260823v1"></script>
+    <script src="event/workflow/file-manager-storage.js?v=20260910v1"></script>
     <script src="event/router/file-manager-storage.js?v=20260729v2"></script>
     <!-- Folder Browser — Generic Drawer List↔Read thay Folder List/Detail kiểu panel-stack cũ. CẦN
          core/generic-drawer.js, components/items.js, core/file-manager/{folder,folder-detail-ui,
          folder-picker-ui}.js, core/pagination.js — đều đã nạp ở nhóm CORE. PHẢI nạp TRƯỚC
          event/listener/file-manager-storage.js (hàng "Song & Video" gửi eventBus thẳng tới router
          này). -->
-    <script src="event/workflow/file-manager-folder-browser.js?v=20260731v2"></script>
+    <script src="event/workflow/file-manager-folder-browser.js?v=20260910v1"></script>
     <script src="event/router/file-manager-folder-browser.js?v=20260731v1"></script>
     <script src="event/listener/file-manager-storage.js?v=20260729v2"></script>
     <!-- Batch 8, ver 12 "Multi Media" — engine cycle ảnh Slideshow nền Visual (transition/Ken
@@ -1043,7 +1042,7 @@
          core/listen-stats.js (bumpSongPlayCount), event/workflow/video-player.js (workflowVideoPlayer
          — chỉ dùng trong callback runtime, không bắt buộc thứ tự nạp so với dòng NGAY DƯỚI). -->
     <script src="event/workflow/player.js?v=20260902v2"></script>
-    <script src="event/workflow/playlist.js?v=20260823v1"></script>
+    <script src="event/workflow/playlist.js?v=20260910v2"></script>
     <script src="event/router/playlist.js?v=20260823v1"></script>
     <script src="event/listener/playlist.js?v=20260823v1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel + phân phối lại section Settings, phản hồi
