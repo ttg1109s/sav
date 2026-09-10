@@ -49,10 +49,39 @@
          * bug Quick Look). Nơi gọi PHẢI đảm bảo hàm này chạy TRỰC TIẾP trong 1 event handler thật
          * (vd nút "Tải xuống" của modalChoice(), xem `promptDownloadReady()` ngay dưới — KHÔNG gọi
          * thẳng `triggerDownload()` ngay sau khi 1 blob build xong nữa).
+         *
+         * FIX (10/09/2026, Giang báo bug "nén xong không crash, nhưng bấm Tải xuống với file lớn
+         * (zip >500MB) vẫn crash app") — tìm hiểu + kiểm chứng qua nhiều nguồn: (1) Safari/WebKit có
+         * lịch sử lỗi/giới hạn thật với Blob rất lớn qua `URL.createObjectURL()`/đọc lại (nhiều báo
+         * cáo độc lập, không phải lỗi code app); (2) StreamSaver.js — giải pháp phổ biến nhất để tải
+         * file lớn không tốn RAM — CHÍNH THỨC không hỗ trợ Safari (thiếu Streams/Service Worker theo
+         * đúng cách cần), không dùng được cho đúng nền tảng đang gặp lỗi; (3) `navigator.share()`
+         * phải bàn giao dữ liệu qua tiến trình OS (Share Sheet) — nhiều khả năng cần 1 bản sao ĐẦY ĐỦ
+         * trong bộ nhớ để chuyển giao, không "stream" được như ghi file thường — ĐÚNG bước duy nhất
+         * KHÁC với lúc packing (packing stream thẳng vào OPFS, không hề dựng lại Blob nào).
+         *
+         * SỬA: file vượt `LARGE_FILE_SKIP_SHARE_BYTES` (500MB, Giang đề xuất) bỏ HẲN
+         * `navigator.share()` — né bước OS phải nhận toàn bộ file cùng lúc — dùng thẳng `<a
+         * download>` như cơ chế tải mặc định của trình duyệt. Đồng thời bỏ luôn bước bọc
+         * `new File([blob], filename, {type})` cho nhánh `<a download>` (dù file lớn hay nhỏ) —
+         * `a.download` đã tự đặt tên hiển thị, KHÔNG cần dựng Blob/File MỚI chỉ để đổi tên (dựng
+         * Blob mới từ 1 Blob/File đã có là bước có khả năng ép sao chép lại toàn bộ byte, nghi vấn
+         * hàng đầu gây crash) — dùng thẳng `blob` GỐC (đã sẵn là 1 File thật nếu tới từ OPFS, xem
+         * `buildZipStreamingToOpfs()`, core/streaming-zip.js).
+         *
+         * ĐÁNH ĐỔI: file lớn trong PWA/standalone sẽ quay lại đúng hành vi Quick Look đã sửa trước
+         * đó (không tự lưu, chỉ xem trước) — CHƯA có cách nào khác được xác nhận hoạt động trên
+         * Safari cho file cỡ lớn (StreamSaver.js không hỗ trợ Safari); ưu tiên "tải được, dù bất
+         * tiện" hơn "chắc chắn crash app". CHƯA KIỂM CHỨNG THỰC TẾ trên thiết bị — nếu `<a download>`
+         * VẪN crash với file cỡ này, đây là giới hạn hiện tại của WebKit với Blob lớn, không phải lỗi
+         * code app — Giang báo lại kết quả test.
          * @param {Blob} blob @param {string} filename
          */
+        const LARGE_FILE_SKIP_SHARE_BYTES = 500 * 1024 * 1024; // 500MB — Giang đề xuất
+
         async function triggerDownload(blob, filename) {
-            if (navigator.canShare && navigator.share) {
+            const isLargeFile = blob.size > LARGE_FILE_SKIP_SHARE_BYTES;
+            if (!isLargeFile && navigator.canShare && navigator.share) {
                 try {
                     const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
                     if (navigator.canShare({ files: [file] })) {
@@ -66,6 +95,8 @@
                     console.warn('[triggerDownload] navigator.share() lỗi, dùng lại <a download>:', err);
                 }
             }
+            // <a download> trực tiếp trên `blob` GỐC — KHÔNG bọc new File() (xem lý do đầy đủ ở
+            // docstring hàm này) — `a.download` tự lo phần đặt tên hiển thị.
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url; a.download = filename; a.click();
