@@ -56,28 +56,33 @@ function _raceTimeout(promise, ms, label) {
     return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-/** Nén 1 entry trong Worker, đua với "đồng hồ báo treo" tự reset mỗi khi zip.js bắn `onprogress` —
- * bản LOCAL của `_addEntryWithStallGuard()` (core/streaming-zip.js), xem docstring đầy đủ ở
+/** Nén 1 entry trong Worker, đua với "đồng hồ báo treo" tự reset mỗi khi có tiến triển thật — bản
+ * LOCAL của `_addEntryWithStallGuard()` (core/streaming-zip.js), xem docstring đầy đủ ở
  * `ENTRY_STALL_TIMEOUT_MS` ngay trên.
  * SỬA (10/09/2026, Giang báo "mở Debug Console không thấy log gì") — bắn heartbeat MỖI GIÂY qua
  * `postMessage({type:'heartbeat'})` (KHÔNG gọi `console.log()` trực tiếp trong Worker — Worker có
  * `console` RIÊNG, việc bọc console.log của core/debug-console.js chạy ở MAIN THREAD không ảnh
  * hưởng gì tới đây, log gọi thẳng ở Worker sẽ KHÔNG BAO GIỜ xuất hiện trong Debug Console — main
  * thread (core/streaming-zip.js::_writeViaWorker()) nhận heartbeat này rồi MỚI thật sự console.log()
- * Ở ĐÓ để relay vào Debug Console). */
+ * Ở ĐÓ để relay vào Debug Console).
+ * SỬA (10/09/2026, Giang xác nhận qua log — gốc bệnh treo là `zip.BlobReader`/`blob.slice()` đọc
+ * Blob nguồn IndexedDB, xem docstring đầy đủ ở bản Path A/streaming-zip.js) — CÙNG SỬA: đọc hẳn
+ * `blob.arrayBuffer()` 1 lần rồi đưa `zip.Uint8ArrayReader` thay vì `zip.BlobReader`. */
 function _addEntryWithStallGuard(filename, blob) {
     return new Promise((resolve, reject) => {
         let settled = false;
         let stallTimer;
         let lastProgress = 0;
         let lastTotal = null;
+        let phase = 'đọc blob.arrayBuffer()';
         const startedAt = Date.now();
 
         const heartbeat = setInterval(() => {
             if (settled) return;
             const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
             const byteInfo = lastTotal != null ? `${lastProgress}/${lastTotal} byte` : `${lastProgress} byte`;
-            self.postMessage({ type: 'heartbeat', text: `Path B (Worker) ...${elapsedSec}s nén "${filename}" — đã xử lý ${byteInfo}${lastProgress === 0 ? ' (CHƯA có tiến triển nào)' : ''}` });
+            const stallNote = phase === 'nén' && lastProgress === 0 ? ' (CHƯA có tiến triển nào)' : '';
+            self.postMessage({ type: 'heartbeat', text: `Path B (Worker) ...${elapsedSec}s "${filename}" — ${phase} — ${byteInfo}${stallNote}` });
         }, 1000);
 
         const armStallTimer = () => {
@@ -86,27 +91,40 @@ function _addEntryWithStallGuard(filename, blob) {
                 if (settled) return;
                 settled = true;
                 clearInterval(heartbeat);
-                reject(new Error(`Treo khi nén "${filename}" trong Worker — không có tiến triển byte nào trong ${ENTRY_STALL_TIMEOUT_MS / 1000}s`));
+                reject(new Error(`Treo khi "${phase}" cho "${filename}" trong Worker — không có tiến triển nào trong ${ENTRY_STALL_TIMEOUT_MS / 1000}s`));
             }, ENTRY_STALL_TIMEOUT_MS);
         };
         armStallTimer();
-        zipWriter.add(filename, new zip.BlobReader(blob), {
-            onprogress: (progress, total) => { // zip.js — có tiến triển byte thật, reset đồng hồ + cập nhật số byte cho heartbeat
-                lastProgress = progress; lastTotal = total;
-                if (!settled) armStallTimer();
-            },
-        }).then(() => {
-            if (settled) return; // đã reject vì stall từ trước (hiếm, race) — kết quả trễ này bỏ qua
-            settled = true;
-            clearInterval(heartbeat);
-            clearTimeout(stallTimer);
-            resolve();
+
+        blob.arrayBuffer().then((buffer) => {
+            if (settled) return; // đã reject vì stall trong lúc đọc arrayBuffer() — bỏ qua kết quả trễ
+            phase = 'nén';
+            armStallTimer(); // đọc xong buffer thật (tiến triển thật) -> reset đồng hồ, sang giai đoạn nén
+            const reader = new zip.Uint8ArrayReader(new Uint8Array(buffer));
+            zipWriter.add(filename, reader, {
+                onprogress: (progress, total) => { // zip.js — có tiến triển byte thật, reset đồng hồ + cập nhật số byte cho heartbeat
+                    lastProgress = progress; lastTotal = total;
+                    if (!settled) armStallTimer();
+                },
+            }).then(() => {
+                if (settled) return; // đã reject vì stall từ trước (hiếm, race) — kết quả trễ này bỏ qua
+                settled = true;
+                clearInterval(heartbeat);
+                clearTimeout(stallTimer);
+                resolve();
+            }).catch((err) => {
+                if (settled) return;
+                settled = true;
+                clearInterval(heartbeat);
+                clearTimeout(stallTimer);
+                reject(err);
+            });
         }).catch((err) => {
-            if (settled) return;
+            if (settled) return; // đã reject vì stall trong lúc đọc arrayBuffer() — kết quả lỗi trễ này bỏ qua
             settled = true;
             clearInterval(heartbeat);
             clearTimeout(stallTimer);
-            reject(err);
+            reject(new Error(`Lỗi đọc blob.arrayBuffer() cho "${filename}" trong Worker: ${err && err.message ? err.message : err}`));
         });
     });
 }
@@ -144,6 +162,14 @@ self.onmessage = async (e) => {
             const hb = setInterval(() => self.postMessage({ type: 'heartbeat', text: `Path B (Worker) ...${Math.round((Date.now() - hbStart) / 1000)}s khởi tạo (importScripts + createSyncAccessHandle)` }), 1000);
             try {
                 self.importScripts(msg.zipJsUrl);
+                // SỬA (10/09/2026, Giang xác nhận qua log — gốc bệnh treo THẬT SỰ: zip.js mặc định
+                // `useWebWorkers: true`, tự cố spin 1 Worker RIÊNG CỦA CHÍNH NÓ để nén — bản
+                // "no-worker" đang nạp không có code lo việc đó, treo im lặng nếu không tắt rõ ràng.
+                // Xem docstring đầy đủ ở core/streaming-zip.js::_ensureZipJsLoaded(). Gọi NGAY sau
+                // importScripts(), TRƯỚC khi dựng ZipWriter bất kỳ.
+                if (typeof zip !== 'undefined' && typeof zip.configure === 'function') {
+                    zip.configure({ useWebWorkers: false });
+                }
                 const root = await navigator.storage.getDirectory();
                 const dirHandle = await root.getDirectoryHandle(msg.tmpDirName, { create: true });
                 const fileHandle = await dirHandle.getFileHandle(msg.tmpFileName, { create: true });
