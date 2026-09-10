@@ -11,24 +11,27 @@
  */
         /**
          * Khung mặc định của `playlistFilterConfig` — DANH SÁCH field hợp lệ theo từng Nguồn (song
-         * có 3 field text + 4 field số/ngày; video CHỈ 1 field text "name" + CÙNG 4 field số/ngày
-         * — video không có album/artist; photo CHỈ 1 field text "name" + 3 field số/ngày — CHỐT
-         * Giang: bỏ hẳn totalTime/duration cho Photo, ảnh không có khái niệm "lượt nghe/tổng thời
-         * gian nghe" hay "thời lượng"). Mọi field khởi tạo `null` (chưa áp filter nào). Đây LÀ
-         * nguồn sự thật DUY NHẤT cho "field nào hợp lệ theo Nguồn" — core/playlist/filter.js (áp
-         * dụng) và components/playlist-filter-drawer.js (dựng UI) đều đối chiếu ĐÚNG danh sách này
-         * (lặp lại tên field ở đó cho mục đích dựng template tĩnh, KHÔNG import chéo — service/
-         * state/ không phụ thuộc core/components, xem why-no-es6-module.md).
+         * có 3 field text + 5 field số/ngày; video/photo có 2 field text "name"/"album" + CÙNG 5
+         * field số/ngày — video/photo chỉ thiếu `artist` so với song, KHÔNG còn khác biệt gì khác
+         * giữa video/photo nữa). Mọi field khởi tạo `null` (chưa áp filter nào). Đây LÀ nguồn sự thật DUY NHẤT cho "field
+         * nào hợp lệ theo Nguồn" — core/playlist/filter.js (áp dụng) và components/playlist-
+         * filter-drawer.js (dựng UI) đều đối chiếu ĐÚNG danh sách này (lặp lại tên field ở đó cho
+         * mục đích dựng template tĩnh, KHÔNG import chéo — service/state/ không phụ thuộc core/
+         * components, xem why-no-es6-module.md).
          */
         function clonePlaylistFilterConfigDefaults() {
             // SỬA (Giang yêu cầu — "filter/search hỗ trợ field Album của video/photo") — thêm
             // `album` cho video/photo (TRƯỚC ĐÂY chỉ Song có); thêm `duration` cho photo (TRƯỚC ĐÂY
             // ẩn hẳn — Photo giờ có duration THẬT, xem components/playlist-filter-drawer.js).
-            // `totalTime`/`artist` VẪN không thêm cho photo/video (không áp dụng — CHỐT Giang).
+            // SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — thêm `totalTime` cho photo
+            // (TRƯỚC ĐÂY loại trừ — giờ Photo cũng đếm totalTime CÙNG cơ chế Video, xem event/
+            // workflow/photo-player.js; nhãn hiển thị đổi thành "Watch time" cho video/photo —
+            // CHỈ khác chữ, field/logic giữ NGUYÊN). `artist` VẪN không thêm cho video/photo (không
+            // áp dụng — CHỐT Giang) — video/photo giờ CÙNG shape hệt nhau.
             return {
                 song: { name: null, album: null, artist: null, addedAt: null, count: null, totalTime: null, size: null, duration: null },
                 video: { name: null, album: null, addedAt: null, count: null, totalTime: null, size: null, duration: null },
-                photo: { name: null, album: null, addedAt: null, count: null, size: null, duration: null },
+                photo: { name: null, album: null, addedAt: null, count: null, totalTime: null, size: null, duration: null },
             };
         }
 
