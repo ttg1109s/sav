@@ -53,22 +53,15 @@ const LANG_PATCH_COMMON = {
     // MỚI (10/09/2026, Giang yêu cầu) — chỉ dùng khi blob có sẵn _zipDurationMs (mọi luồng zip, xem
     // core/storage-manager.js::_compressZipEntries()) — export lẻ 1 file dùng bản readyBody ở trên.
     'common.export.readyBodyWithDuration': 'File size: {size}. Processing time: {duration}.',
-    'common.export.readyBodyMulti': '{count} files ready to download (total {size}).',
     'common.export.readyBtnDownload': 'Download',
 
-    'common.storage.zipLibMissing': 'The JSZip library failed to load (check your network connection to the CDN).',
+    // MỚI (10/09/2026, Giang yêu cầu "loại bỏ toàn bộ JSZip") — ném ra khi `isStreamingZipAvailable()`
+    // (core/streaming-zip.js) false, tức trình duyệt không hỗ trợ OPFS — KHÔNG còn JSZip để rơi về
+    // nữa, xem `_compressZipEntries()` (core/storage-manager.js).
+    'common.storage.zipNotSupported': "Your browser doesn't support the file system features needed to create zip files. Please update your browser.",
     'common.storage.zippingProgress': 'Packing zip file ({percent}%)...',
     'common.storage.zippingStart': 'Packing zip file (0%)...',
     'common.storage.deletingData': 'Deleting data...',
-    // MỚI (10/09/2026, Giang báo bug "zip video >1GB làm crash PWA, bị cưỡng chế reload") — xem
-    // ZIP_MEMORY_SAFE_LIMIT_BYTES (core/storage-manager.js) + zipAndDownloadOrFallback() (event/
-    // workflow/file-manager-storage.js).
-    'common.storage.calculatingSize': 'Calculating total size...',
-    'common.storage.zipTooLargeTitle': 'Too large to zip',
-    'common.storage.zipTooLargeBody': 'Total size is {size} — packing this into a single zip file could crash the app. You can download each file separately instead.',
-    'common.storage.zipTooLargeBtnIndividual': 'Download files separately',
-    'common.storage.preparingFiles': 'Preparing files...',
-    'common.storage.preparingFilesProgress': 'Preparing files ({done}/{total})...',
     'common.storage.zipDownloadError': "Couldn't complete the download: {message}",
     // SỬA (ver12 "Song/Video Unification", Batch 5, mục 6b) — 'noSongsToDownload'/'zipBuildError'/
     // 'downloadThenClear*'/'clearNoDownload*' (2 nút tách rời cũ) ĐÃ XOÁ, thay bằng
