@@ -17,6 +17,14 @@
 const workflowAppBoot = {
     async boot() {
         await loadConfig();
+        // MỚI (10/09/2026, Giang yêu cầu "tạm thời dùng Service Worker" — vá bug tải file zip lớn
+        // (>500MB) lỗi "WebKitBlobResource error 1" trên Safari, xem docstring đầy đủ ở core/
+        // large-file-download.js) — đăng ký NGAY LÚC BOOT, KHÔNG await (không ảnh hưởng gì tới hiển
+        // thị Playlist/Visualizer ngay sau, tự âm thầm bỏ qua nếu môi trường không hỗ trợ — vd chạy
+        // qua file://) — cần đăng ký sớm để `navigator.serviceWorker.controller` (điều kiện của
+        // `isLargeFileDownloadSupported()`) kịp có giá trị trước khi người dùng bấm "Tải xuống" lần
+        // đầu.
+        if (typeof registerLargeFileDownloadWorker === 'function') registerLargeFileDownloadWorker(); // core/large-file-download.js
         // MỚI (09/09/2026, hệ UI Theme Light/Dark/Morphin) — áp theme màu app THẬT (panel/card/
         // text/nút bấm) CÀNG SỚM CÀNG TỐT, trước khi bất kỳ Generic Drawer nào có thể mở — KHÔNG
         // phụ thuộc thứ tự với các dòng migrate/khôi phục config bên dưới (domain độc lập hoàn
