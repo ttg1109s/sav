@@ -64,20 +64,40 @@ function isStreamingZipAvailable() {
  * nếu request mạng không bao giờ tự bắn `load`/`error` (hiếm nhưng có thể xảy ra trên mạng chập
  * chờn) — SỬA (10/09/2026, Giang báo bug "treo ở màn Packing zip file", cùng đợt sửa
  * makeSyncHandleWritable() ở core/workers/opfs-zip-worker.js).
+ *
+ * SỬA (10/09/2026, Giang xác nhận qua log — TÌM RA GỐC BỆNH THẬT của toàn bộ chuỗi "treo vô thời
+ * hạn" đã điều tra suốt các lần sửa trước) — zip.js mặc định `useWebWorkers: true` (tài liệu chính
+ * thức `configure()`), tức TỰ ĐỘNG cố spin lên 1 Web Worker RIÊNG CỦA CHÍNH NÓ để nén, trừ khi được
+ * cấu hình tắt rõ ràng. Bản CDN đang nạp (`zip-no-worker.min.js`) KHÔNG có code lo Worker nội bộ đó
+ * (đúng như tên gọi) — nhưng code TRƯỚC ĐÂY chưa từng gọi `zip.configure({useWebWorkers:false})`
+ * lần nào, nên zip.js vẫn ÂM THẦM cố dùng đường Worker nội bộ (không có), treo VÔ THỜI HẠN ngay từ
+ * bước đầu tiên — không throw, không timeout tự nhiên. Điều này giải thích ĐÚNG NGUYÊN VĂN mọi triệu
+ * chứng đã log qua nhiều lần sửa trước (treo giống hệt bất kể Path A/B của APP — 2 Worker khác hẳn
+ * nhau, Worker app không liên quan gì Worker nội bộ zip.js; bất kể nén/không nén — level:0 vẫn qua
+ * đúng nhánh cố dùng Worker; bất kể BlobReader hay Uint8ArrayReader — đều treo TRƯỚC KHI kịp đọc byte
+ * nào; bất kể Song/Video/Photo) — TOÀN BỘ các giả thuyết trước (WritableStream Safari 26,
+ * CompressionStream, cách đọc Blob từ IndexedDB) đều SAI, chỉ là hệ quả gián tiếp của việc cùng đứng
+ * chờ 1 Worker nội bộ không bao giờ tồn tại. Gọi `zip.configure({useWebWorkers:false})` NGAY sau khi
+ * zip.js sẵn sàng — CHỈ 1 LẦN cho suốt vòng đời app (nhờ `_zipJsLoadPromise` đã memo hoá sẵn).
  * @returns {Promise<void>}
  */
 let _zipJsLoadPromise = null;
 function _ensureZipJsLoaded() {
-    if (typeof zip !== 'undefined') return Promise.resolve();
     if (_zipJsLoadPromise) return _zipJsLoadPromise;
-    const loadPromise = new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = ZIP_JS_CDN_URL;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Không tải được thư viện zip.js (kiểm tra kết nối mạng tới CDN).'));
-        document.head.appendChild(script);
+    const ready = typeof zip !== 'undefined'
+        ? Promise.resolve()
+        : _withTimeout(new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = ZIP_JS_CDN_URL;
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Không tải được thư viện zip.js (kiểm tra kết nối mạng tới CDN).'));
+            document.head.appendChild(script);
+        }), 10000, 'Nạp thư viện zip.js');
+    _zipJsLoadPromise = ready.then(() => {
+        if (typeof zip !== 'undefined' && typeof zip.configure === 'function') {
+            zip.configure({ useWebWorkers: false });
+        }
     });
-    _zipJsLoadPromise = _withTimeout(loadPromise, 10000, 'Nạp thư viện zip.js');
     return _zipJsLoadPromise;
 }
 
