@@ -120,7 +120,7 @@ async function cleanupOrphanedFolderSongMaps() {
  * streaming-zip.js) — LẤY TUỔI file từ chính `<timestamp>` nhúng sẵn trong tên (không cần đọc
  * metadata riêng) — CHỈ xoá file CŨ HƠN 1 giờ, tránh xoá NHẦM 1 file đang được GHI DỞ THẬT SỰ bởi 1
  * tab/cửa sổ KHÁC của CÙNG app đang mở song song (OPFS dùng chung theo origin, không tách riêng
- * theo tab) — 1 giờ đủ rộng so với bất kỳ zip nào thực tế có thể mất (kể cả rơi qua Path B/JSZip).
+ * theo tab) — 1 giờ đủ rộng so với bất kỳ zip nào thực tế có thể mất (kể cả rơi qua Path B).
  * @returns {Promise<number>} số file tạm đã dọn.
  */
 async function cleanupOrphanedZipTempFiles() {
