@@ -29,6 +29,15 @@ if (btnOpenDebugConsole) {
     });
 }
 
+// MỚI (10/09/2026, Giang yêu cầu — "lối tắt cưỡng chế mở Debug Console ngay trên layer loading
+// shield", phục vụ debug lúc app bị kẹt/treo dưới #loading-shield, xem docstring TPL_LOADING_SHIELD
+// components/loading-shield.js + workflowSettingsMisc.forceOpenDebugConsole()).
+if (btnLoadingShieldDebug) {
+    btnLoadingShieldDebug.addEventListener('click', () => {
+        eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.debugConsole.forceOpen', payload: {} });
+    });
+}
+
 // (btnBackAbout ĐÃ XOÁ — Batch D1: About không còn header/nút Back riêng, `#drawer-about` cũ
 // không còn tồn tại. Back giờ dùng CHUNG `#btn-settings-stack-back`, xem
 // event/listener/settings-stack-nav.js — KHÔNG để lại `if (x)` rỗng cho biến đã xoá.)
