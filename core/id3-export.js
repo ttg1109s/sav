@@ -80,14 +80,29 @@
          * export lẻ + zip hàng loạt ở event/workflow/playlist.js, zip Storage Management + Folder
          * Download ở event/workflow/file-manager-storage.js) — nơi gọi CHỈ cần build xong blob rồi
          * gọi hàm này THAY VÌ tự gọi `triggerDownload()` trực tiếp.
+         *
+         * FIX (10/09/2026, Giang báo bug "tải zip lỗi/rỗng ở Storage Management, Folder, chế độ
+         * Chọn") — GỐC BỆNH: nút "Tải xuống" TRƯỚC ĐÂY gọi `triggerDownload(blob, filename)` (hàm
+         * ASYNC — `navigator.share()`/đọc Blob vẫn đang chạy dở) nhưng KHÔNG `await` nó trước khi
+         * gọi `resolve()` ngay dòng sau — Promise của `promptDownloadReady()` vì vậy resolve gần
+         * như NGAY LẬP TỨC, trước khi việc tải/share thật sự xong. Với zip STREAM từ OPFS
+         * (`buildZipStreamingToOpfs()`, core/streaming-zip.js — mọi zip ở Storage Management/Folder
+         * Download/chế độ Chọn giờ đều đi qua đường này), nơi gọi (`zipAndDownloadOrFallback()`,
+         * event/workflow/file-manager-storage.js; `exportSelectedSongsZip()` và 2 hàm zip Video/
+         * Photo tương ứng, event/workflow/playlist.js) LUÔN `await promptDownloadReady(...)` XONG
+         * RỒI MỚI gọi `cleanupStreamingZipTemp()` xoá file .zip tạm khỏi OPFS — resolve sớm khiến
+         * bước xoá đó chạy CHỒNG LẤN lúc `navigator.share()`/`<a download>` còn đang đọc dở đúng
+         * file vừa bị xoá, sinh lỗi/file rỗng/Share Sheet báo thất bại. Giờ `.finally(resolve)` —
+         * đợi `triggerDownload()` chạy XONG (thành công hay lỗi đều tính là xong) rồi mới resolve,
+         * đảm bảo bước dọn OPFS ở nơi gọi luôn diễn ra SAU khi đã đọc xong dữ liệu thật.
          * @param {Blob} blob @param {string} filename
-         * @returns {Promise<void>} resolve khi modal đã đóng (bấm Tải xuống HOẶC Huỷ)
+         * @returns {Promise<void>} resolve khi modal đã đóng VÀ triggerDownload() đã chạy xong (bấm Tải xuống), hoặc đóng ngay (bấm Huỷ)
          */
         function promptDownloadReady(blob, filename) {
             return new Promise((resolve) => {
                 modalChoice( // core/modal-choice-ui.js
                     tFormat('common.export.readyBody', { size: formatBytes(blob.size) }), // core/about-stats.js
-                    [{ label: t('common.export.readyBtnDownload'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent', onClick: () => { triggerDownload(blob, filename); resolve(); } }],
+                    [{ label: t('common.export.readyBtnDownload'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent', onClick: () => { triggerDownload(blob, filename).finally(resolve); } }],
                     { title: t('common.export.readyTitle'), onCancel: () => resolve() }
                 );
             });
@@ -126,11 +141,15 @@
             if (records.length === 0) return;
             if (records.length === 1) return promptDownloadReady(records[0].blob, records[0].filename); // 1 file -> dùng lại bản đơn, gọn hơn
 
+            // FIX (10/09/2026, CÙNG bug/lý do vừa sửa ở promptDownloadReady() ngay trên) —
+            // `.finally(resolve)` THAY vì gọi resolve() ngay sau khi gọi (không đợi)
+            // `_downloadAllRecords()` (ASYNC) — đảm bảo `await promptDownloadReadyMulti(...)` ở nơi
+            // gọi chỉ thật sự xong SAU KHI đã tải/share xong toàn bộ file, không resolve sớm.
             const totalBytes = records.reduce((sum, r) => sum + (r.blob.size || 0), 0);
             await new Promise((resolve) => {
                 modalChoice( // core/modal-choice-ui.js
                     tFormat('common.export.readyBodyMulti', { count: records.length, size: formatBytes(totalBytes) }), // core/about-stats.js
-                    [{ label: t('common.export.readyBtnDownload'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent', onClick: () => { _downloadAllRecords(records); resolve(); } }],
+                    [{ label: t('common.export.readyBtnDownload'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent', onClick: () => { _downloadAllRecords(records).finally(resolve); } }],
                     { title: t('common.export.readyTitle'), onCancel: () => resolve() }
                 );
             });
