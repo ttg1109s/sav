@@ -70,6 +70,9 @@
         const btnPlaylistEmptyPlayLabel = document.getElementById('btn-playlist-empty-play-label'); // MỚI (09/09/2026) — span nhãn BÊN TRONG btnPlaylistEmptyPlay, đổi chữ Phát<->Đang phát qua updatePlayButtonPlayingState() (core/playlist/render.js)
         const btnPlaylistEmptyShuffle = document.getElementById('btn-playlist-empty-shuffle');
         const btnBackPlaylist = document.getElementById('btn-back-playlist'), loadingShield = document.getElementById('loading-shield'), loadingText = document.getElementById('loading-text');
+        // MỚI (10/09/2026) — nút lối tắt cưỡng chế mở Debug Console, SỐNG NGAY BÊN TRONG #loading-
+        // shield (xem docstring TPL_LOADING_SHIELD, components/loading-shield.js).
+        const btnLoadingShieldDebug = document.getElementById('btn-loading-shield-debug');
         // SỬA (21/07/2026) — btnVideoPlayerToggle (nút header, thêm Batch 3) ĐÃ XOÁ — toggle "Video
         // Player mode" giờ SỐNG trong panel File Manager -> Video (DOM động, push/pop — KHÔNG phải
         // dom-refs tĩnh nữa, xem event/workflow/file-manager-video.js::openPanel()).
