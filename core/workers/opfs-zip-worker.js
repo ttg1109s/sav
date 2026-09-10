@@ -22,26 +22,29 @@ let writeOffset = 0;
 let zipWriter = null;
 let doneEntries = 0;
 
-/** "Writable" tối giản GIẢ LẬP đúng 2 method zip.js's ZipWriter thực sự gọi (getWriter().write()/
- * .close()) — ghi thẳng qua accessHandle ĐỒNG BỘ (createSyncAccessHandle() vốn là API đồng bộ,
- * không cần bọc lại thành WritableStream chuẩn — zip.js chỉ cần đúng hình dạng này, không kiểm tra
- * instanceof WritableStream thật). */
+/** "Writable" GIẢ LẬP cho `createSyncAccessHandle()` — ghi thẳng qua accessHandle ĐỒNG BỘ.
+ * SỬA (10/09/2026, Giang báo bug "treo ở màn Packing zip file") — TRƯỚC ĐÂY trả về 1 object TỰ CHẾ
+ * (chỉ có `getWriter()` trả `{write, close, releaseLock}` viết tay) — KHÔNG phải WritableStream
+ * chuẩn thật, chỉ "giống hình dạng". zip.js (ZipWriter) nhiều khả năng gọi `.pipeTo()`/kiểm tra tín
+ * hiệu backpressure chuẩn (`writer.ready`, giá trị trả về của `write()` theo đúng Streams API) mà
+ * object tự chế đó KHÔNG hề implement — 1 await nội bộ của zip.js có thể không bao giờ resolve ->
+ * TREO VĨNH VIỄN, không throw, không timeout — đúng triệu chứng "treo ở màn Packing zip file".
+ * Giờ dùng ĐÚNG `new WritableStream({...})` (Web Streams API thật, có sẵn trong Worker) — zip.js
+ * chắc chắn tương thích đầy đủ (đây chính là loại object ZipWriter được viết ra để nhận). */
 function makeSyncHandleWritable() {
-    return {
-        getWriter() {
-            return {
-                async write(chunk) {
-                    const bytes = chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
-                    accessHandle.write(bytes, { at: writeOffset });
-                    writeOffset += bytes.byteLength;
-                },
-                async close() {
-                    accessHandle.flush();
-                },
-                releaseLock() {},
-            };
+    return new WritableStream({
+        write(chunk) {
+            const bytes = chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
+            accessHandle.write(bytes, { at: writeOffset });
+            writeOffset += bytes.byteLength;
         },
-    };
+        close() {
+            accessHandle.flush();
+        },
+        abort() {
+            try { accessHandle.close(); } catch (e) { /* đã lỗi từ trước, bỏ qua lỗi dọn dẹp phụ */ }
+        },
+    });
 }
 
 self.onmessage = async (e) => {
