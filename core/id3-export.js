@@ -51,36 +51,46 @@
          * thẳng `triggerDownload()` ngay sau khi 1 blob build xong nữa).
          *
          * FIX (10/09/2026, Giang báo bug "nén xong không crash, nhưng bấm Tải xuống với file lớn
-         * (zip >500MB) vẫn crash app") — tìm hiểu + kiểm chứng qua nhiều nguồn: (1) Safari/WebKit có
-         * lịch sử lỗi/giới hạn thật với Blob rất lớn qua `URL.createObjectURL()`/đọc lại (nhiều báo
-         * cáo độc lập, không phải lỗi code app); (2) StreamSaver.js — giải pháp phổ biến nhất để tải
-         * file lớn không tốn RAM — CHÍNH THỨC không hỗ trợ Safari (thiếu Streams/Service Worker theo
-         * đúng cách cần), không dùng được cho đúng nền tảng đang gặp lỗi; (3) `navigator.share()`
-         * phải bàn giao dữ liệu qua tiến trình OS (Share Sheet) — nhiều khả năng cần 1 bản sao ĐẦY ĐỦ
-         * trong bộ nhớ để chuyển giao, không "stream" được như ghi file thường — ĐÚNG bước duy nhất
-         * KHÁC với lúc packing (packing stream thẳng vào OPFS, không hề dựng lại Blob nào).
+         * (zip >500MB) vẫn crash app") — `navigator.share()` với file lớn phải bàn giao dữ liệu qua
+         * tiến trình OS (Share Sheet), nhiều khả năng cần 1 bản sao ĐẦY ĐỦ trong bộ nhớ để chuyển
+         * giao — ĐÚNG bước duy nhất KHÁC với lúc packing (packing stream thẳng vào OPFS, không hề
+         * dựng lại Blob nào). File vượt `LARGE_FILE_SKIP_SHARE_BYTES` (500MB, Giang đề xuất) bỏ HẲN
+         * `navigator.share()` — né bước OS phải nhận toàn bộ file cùng lúc.
          *
-         * SỬA: file vượt `LARGE_FILE_SKIP_SHARE_BYTES` (500MB, Giang đề xuất) bỏ HẲN
-         * `navigator.share()` — né bước OS phải nhận toàn bộ file cùng lúc — dùng thẳng `<a
-         * download>` như cơ chế tải mặc định của trình duyệt. Đồng thời bỏ luôn bước bọc
-         * `new File([blob], filename, {type})` cho nhánh `<a download>` (dù file lớn hay nhỏ) —
-         * `a.download` đã tự đặt tên hiển thị, KHÔNG cần dựng Blob/File MỚI chỉ để đổi tên (dựng
-         * Blob mới từ 1 Blob/File đã có là bước có khả năng ép sao chép lại toàn bộ byte, nghi vấn
-         * hàng đầu gây crash) — dùng thẳng `blob` GỐC (đã sẵn là 1 File thật nếu tới từ OPFS, xem
-         * `buildZipStreamingToOpfs()`, core/streaming-zip.js).
+         * FIX (10/09/2026, Giang báo qua ảnh chụp — bỏ navigator.share() cho file lớn KHÔNG còn
+         * crash, nhưng `<a download>` với `blob:` URL lại lỗi "Không thể hoàn tất tác vụ (Lỗi
+         * WebKitBlobResource 1.)" — bug WebKit đã ghi nhận từ 2019, chưa sửa, CHỈ xảy ra với URL
+         * `blob:` lớn, tìm kiếm không thấy cách vá ở tầng JS cho chính đường `blob:` này) — file lớn
+         * giờ ưu tiên `triggerLargeFileDownloadViaServiceWorker()` (core/large-file-download.js —
+         * Cache Storage + Service Worker, phục vụ qua 1 URL CÙNG ORIGIN THẬT thay vì `blob:`, né hẳn
+         * lớp bug đó) NẾU khả dụng (`isLargeFileDownloadSupported()` — cần HTTPS, KHÔNG hoạt động
+         * qua `file://`); không khả dụng thì mới rơi về `<a download>`/`blob:` cũ như trước (vẫn có
+         * thể dính đúng bug WebKitBlobResource, CHƯA có cách nào khác đã xác nhận hoạt động qua
+         * `file://`).
          *
-         * ĐÁNH ĐỔI: file lớn trong PWA/standalone sẽ quay lại đúng hành vi Quick Look đã sửa trước
-         * đó (không tự lưu, chỉ xem trước) — CHƯA có cách nào khác được xác nhận hoạt động trên
-         * Safari cho file cỡ lớn (StreamSaver.js không hỗ trợ Safari); ưu tiên "tải được, dù bất
-         * tiện" hơn "chắc chắn crash app". CHƯA KIỂM CHỨNG THỰC TẾ trên thiết bị — nếu `<a download>`
-         * VẪN crash với file cỡ này, đây là giới hạn hiện tại của WebKit với Blob lớn, không phải lỗi
-         * code app — Giang báo lại kết quả test.
+         * Đồng thời bỏ luôn bước bọc `new File([blob], filename, {type})` cho nhánh `<a download>`/
+         * `blob:` cuối (dù file lớn hay nhỏ) — `a.download` đã tự đặt tên hiển thị, KHÔNG cần dựng
+         * Blob/File MỚI chỉ để đổi tên (dựng Blob mới từ 1 Blob/File đã có là bước có khả năng ép
+         * sao chép lại toàn bộ byte, nghi vấn hàng đầu gây crash ở `navigator.share()`) — dùng thẳng
+         * `blob` GỐC (đã sẵn là 1 File thật nếu tới từ OPFS, xem `buildZipStreamingToOpfs()`, core/
+         * streaming-zip.js).
+         *
+         * CHƯA KIỂM CHỨNG THỰC TẾ trên thiết bị (nhánh Service Worker MỚI thêm) — Giang cần tự test
+         * lại với file zip lớn thật, chạy qua HTTPS, trước khi coi đây đã xong dứt điểm.
          * @param {Blob} blob @param {string} filename
          */
         const LARGE_FILE_SKIP_SHARE_BYTES = 500 * 1024 * 1024; // 500MB — Giang đề xuất
 
         async function triggerDownload(blob, filename) {
             const isLargeFile = blob.size > LARGE_FILE_SKIP_SHARE_BYTES;
+            if (isLargeFile && isLargeFileDownloadSupported()) { // core/large-file-download.js
+                try {
+                    await triggerLargeFileDownloadViaServiceWorker(blob, filename); // core/large-file-download.js
+                    return;
+                } catch (err) {
+                    console.warn('[triggerDownload] Tải qua Service Worker (Cache Storage) lỗi, rơi về <a download> (blob:):', err);
+                }
+            }
             if (!isLargeFile && navigator.canShare && navigator.share) {
                 try {
                     const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
@@ -95,8 +105,10 @@
                     console.warn('[triggerDownload] navigator.share() lỗi, dùng lại <a download>:', err);
                 }
             }
-            // <a download> trực tiếp trên `blob` GỐC — KHÔNG bọc new File() (xem lý do đầy đủ ở
-            // docstring hàm này) — `a.download` tự lo phần đặt tên hiển thị.
+            // <a download> trực tiếp trên `blob` GỐC (blob: URL) — KHÔNG bọc new File() (xem lý do
+            // đầy đủ ở docstring hàm này) — `a.download` tự lo phần đặt tên hiển thị. Lưới an toàn
+            // cuối cùng khi Service Worker không khả dụng (vd chạy qua file://) — vẫn có thể dính
+            // bug WebKitBlobResource với file rất lớn, chưa có cách nào khác đã xác nhận hoạt động.
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url; a.download = filename; a.click();
