@@ -202,20 +202,32 @@ async function cleanupStreamingZipTemp(tmpFileName) {
  * khoảng này mới bị coi là treo thật. */
 const ENTRY_STALL_TIMEOUT_MS = 20000;
 
-/** Nén 1 entry, đua với 1 "đồng hồ báo treo" TỰ RESET mỗi khi zip.js bắn `onprogress` (tiến triển
- * byte THẬT) — CHỈ reject khi trôi quá `ENTRY_STALL_TIMEOUT_MS` mà KHÔNG có bất kỳ tiến triển nào,
- * kể cả từ lúc BẮT ĐẦU (đồng hồ chạy NGAY từ đầu — đúng triệu chứng Giang gặp: kẹt cứng ở 0%, chưa
- * từng bắn onprogress lần nào để có cơ hội reset).
+/** Nén 1 entry, đua với 1 "đồng hồ báo treo" TỰ RESET mỗi khi có tiến triển THẬT — CHỈ reject khi
+ * trôi quá `ENTRY_STALL_TIMEOUT_MS` mà KHÔNG có bất kỳ tiến triển nào, kể cả từ lúc BẮT ĐẦU (đồng hồ
+ * chạy NGAY từ đầu).
  *
- * SỬA (10/09/2026, Giang báo "mở Debug Console lên không thấy log gì") — Debug Console (core/debug-
- * console.js) chỉ bắt được console.log/warn/error ĐÃ XẢY RA — nếu 1 entry treo mà KHÔNG log gì thêm
- * cho tới lúc TỰ xong/lỗi (đúng hành vi trước đây: chỉ log lúc BẮT ĐẦU + lúc XONG), mở Debug Console
- * giữa chừng lúc đang treo chỉ thấy im lặng tuyệt đối từ lúc entry đó bắt đầu, không biết CHÍNH XÁC
- * đã trôi bao lâu, càng không phân biệt được "đang nén chậm bình thường" (bytes vẫn tăng) với "treo
- * thật" (bytes đứng yên). Giờ bắn 1 dòng console.log MỖI GIÂY (`setInterval`) SUỐT lúc entry đang
- * nén, kèm số byte đã xử lý gần nhất (đọc từ chính tham số `onprogress` của zip.js) — mở Debug
- * Console lên bất cứ lúc nào cũng thấy dòng log MỚI trong 1 giây gần nhất, biết ngay đang ở entry
- * nào + đã trôi bao lâu + có đang thật sự tiến triển hay không.
+ * SỬA (10/09/2026, Giang báo "mở Debug Console lên không thấy log gì") — bắn 1 dòng console.log MỖI
+ * GIÂY (`setInterval`) SUỐT lúc entry đang xử lý, xem docstring `ENTRY_STALL_TIMEOUT_MS` để biết lý
+ * do đầy đủ.
+ *
+ * SỬA (10/09/2026, Giang xác nhận qua log — JSZip đọc Blob nguyên khối 1 lần (`.arrayBuffer()`) CHẠY
+ * ĐƯỢC, RẤT NHANH (2s cho 1 file mp3 vài MB); trong khi `zip.BlobReader` (đọc CẮT LÁT nhiều lần qua
+ * `blob.slice()` nội bộ) treo VÔ THỜI HẠN 0 byte — TRÊN CẢ 3 đường ghi độc lập khác nhau (Path A/A'/
+ * B — khác thread, khác API ghi, có/không nén) — đều đứng yên ở ĐÚNG điểm đọc Blob nguồn IndexedDB
+ * này. Kết luận: gốc bệnh nằm ở cách `zip.BlobReader`/`blob.slice()` đọc 1 Blob nguồn gốc IndexedDB
+ * trên Safari, KHÔNG liên quan OPFS/WritableStream/CompressionStream như các giả thuyết trước) — giờ
+ * đọc hẳn `entry.blob.arrayBuffer()` 1 LẦN DUY NHẤT (giống hệt cách JSZip đọc, đã xác nhận hoạt
+ * động) rồi đưa `Uint8Array` kết quả vào `zip.Uint8ArrayReader` — KHÔNG dùng `zip.BlobReader`/
+ * `blob.slice()` nữa, né đúng bước treo.
+ *
+ * ĐÁNH ĐỔI: RAM cho bước ĐỌC giờ tỉ lệ thuận với kích thước 1 FILE ĐANG xử lý (trước đây `BlobReader`
+ * cắt lát giữ RAM cực thấp, không phụ thuộc kích thước file) — vẫn AN TOÀN hơn hẳn JSZip cũ (JSZip
+ * giữ CẢ ARCHIVE — TỔNG mọi file — trong RAM CÙNG LÚC; đây chỉ giữ ĐÚNG 1 file đang xử lý TẠI 1 THỜI
+ * ĐIỂM, đúng tinh thần "1 file tại 1 thời điểm" đã áp dụng xuyên suốt các lần sửa trước) — rủi ro CHỈ
+ * còn với 1 file ĐƠN LẺ cực lớn (video nhiều GB) — nếu Giang gặp lại "crash PWA" với video khổng lồ,
+ * đây là chỗ cần xem lại đầu tiên (cân nhắc tự cắt lát TAY, bằng `blob.slice()` + `arrayBuffer()`
+ * từng đoạn, thay vì để zip.js cắt lát — CHƯA làm ở bản này vì chưa có bằng chứng `blob.slice()` tự
+ * nó có lỗi hay không, chỉ mới biết `zip.BlobReader` nội bộ dùng nó bị treo).
  * @param {zip.ZipWriter} zipWriter @param {{filename:string, blob:Blob}} entry
  * @param {string} [pathLabel] - MỚI (10/09/2026) — nhãn hiển thị trong log (vd "Path A" hay
  *   "Path A (level:0, KHÔNG nén)") — phân biệt được đang chạy nhánh nén nào lúc đọc Debug Console.
@@ -228,13 +240,15 @@ function _addEntryWithStallGuard(zipWriter, entry, pathLabel) {
         let stallTimer;
         let lastProgress = 0;
         let lastTotal = null;
+        let phase = 'đọc blob.arrayBuffer()'; // đổi sang 'nén' ngay khi đọc xong, xem log rõ đang kẹt ở giai đoạn nào
         const startedAt = Date.now();
 
         const heartbeat = setInterval(() => {
             if (settled) return;
             const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
             const byteInfo = lastTotal != null ? `${lastProgress}/${lastTotal} byte` : `${lastProgress} byte`;
-            console.log(`[streaming-zip] ${pathLabel} ...${elapsedSec}s nén "${entry.filename}" — đã xử lý ${byteInfo}${lastProgress === 0 ? ' (CHƯA có tiến triển nào)' : ''}`);
+            const stallNote = phase === 'nén' && lastProgress === 0 ? ' (CHƯA có tiến triển nào)' : '';
+            console.log(`[streaming-zip] ${pathLabel} ...${elapsedSec}s "${entry.filename}" — ${phase} — ${byteInfo}${stallNote}`);
         }, 1000);
 
         const armStallTimer = () => {
@@ -243,27 +257,40 @@ function _addEntryWithStallGuard(zipWriter, entry, pathLabel) {
                 if (settled) return;
                 settled = true;
                 clearInterval(heartbeat);
-                reject(new Error(`Treo khi nén "${entry.filename}" (${pathLabel}) — không có tiến triển byte nào trong ${ENTRY_STALL_TIMEOUT_MS / 1000}s`));
+                reject(new Error(`Treo khi "${phase}" cho "${entry.filename}" (${pathLabel}) — không có tiến triển nào trong ${ENTRY_STALL_TIMEOUT_MS / 1000}s`));
             }, ENTRY_STALL_TIMEOUT_MS);
         };
         armStallTimer();
-        zipWriter.add(entry.filename, new zip.BlobReader(entry.blob), {
-            onprogress: (progress, total) => { // zip.js — có tiến triển byte thật, reset đồng hồ + cập nhật số byte cho heartbeat
-                lastProgress = progress; lastTotal = total;
-                if (!settled) armStallTimer();
-            },
-        }).then(() => {
-            if (settled) return; // đã reject vì stall từ trước (hiếm, race) — kết quả trễ này bỏ qua
-            settled = true;
-            clearInterval(heartbeat);
-            clearTimeout(stallTimer);
-            resolve();
+
+        entry.blob.arrayBuffer().then((buffer) => {
+            if (settled) return; // đã reject vì stall trong lúc đọc arrayBuffer() — bỏ qua kết quả trễ
+            phase = 'nén';
+            armStallTimer(); // đọc xong buffer thật (tiến triển thật) -> reset đồng hồ, sang giai đoạn nén
+            const reader = new zip.Uint8ArrayReader(new Uint8Array(buffer));
+            zipWriter.add(entry.filename, reader, {
+                onprogress: (progress, total) => { // zip.js — có tiến triển byte thật, reset đồng hồ + cập nhật số byte cho heartbeat
+                    lastProgress = progress; lastTotal = total;
+                    if (!settled) armStallTimer();
+                },
+            }).then(() => {
+                if (settled) return; // đã reject vì stall từ trước (hiếm, race) — kết quả trễ này bỏ qua
+                settled = true;
+                clearInterval(heartbeat);
+                clearTimeout(stallTimer);
+                resolve();
+            }).catch((err) => {
+                if (settled) return;
+                settled = true;
+                clearInterval(heartbeat);
+                clearTimeout(stallTimer);
+                reject(err);
+            });
         }).catch((err) => {
-            if (settled) return;
+            if (settled) return; // đã reject vì stall trong lúc đọc arrayBuffer() — kết quả lỗi trễ này bỏ qua
             settled = true;
             clearInterval(heartbeat);
             clearTimeout(stallTimer);
-            reject(err);
+            reject(new Error(`Lỗi đọc blob.arrayBuffer() cho "${entry.filename}" (${pathLabel}): ${err && err.message ? err.message : err}`));
         });
     });
 }
