@@ -43,6 +43,13 @@ const routerSettingsMisc = (() => {
                 break;
             }
 
+            // MỚI (10/09/2026, Giang yêu cầu — lối tắt cưỡng chế mở Debug Console ngay trên layer
+            // loading shield, xem docstring workflowSettingsMisc.forceOpenDebugConsole()).
+            case 'settingsMisc.debugConsole.forceOpen': {
+                workflowSettingsMisc.forceOpenDebugConsole();
+                break;
+            }
+
             // MỚI (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow")
             // — nút Copy/Xoá wire 1 lần ở core/settings-misc-ui.js, KHÔNG còn gán trực tiếp trong
             // Workflow.
