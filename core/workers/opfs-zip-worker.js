@@ -12,6 +12,9 @@
  *   Main -> Worker: {type:'finish'}                              (hết entry, đóng zip)
  *   Worker -> Main: {type:'done'}                                (đã ghi xong, file OPFS sẵn sàng)
  *   Worker -> Main: {type:'error', message}                      (lỗi ở BẤT KỲ bước nào ở trên)
+ *   Worker -> Main: {type:'heartbeat', text}                     (MỚI 10/09/2026 — log tiến độ mỗi
+ *     giây trong lúc init/entry/finish đang chạy — main thread relay qua console.log() để Debug
+ *     Console, core/debug-console.js, thấy được; xem docstring _addEntryWithStallGuard() ngay dưới)
  *
  * KHÔNG dùng ES module (`self.importScripts()`, không phải `import`) — khớp quy ước "không ES
  * module" của project, Worker script cổ điển vẫn dùng importScripts() bình thường dù project chạy
@@ -55,30 +58,53 @@ function _raceTimeout(promise, ms, label) {
 
 /** Nén 1 entry trong Worker, đua với "đồng hồ báo treo" tự reset mỗi khi zip.js bắn `onprogress` —
  * bản LOCAL của `_addEntryWithStallGuard()` (core/streaming-zip.js), xem docstring đầy đủ ở
- * `ENTRY_STALL_TIMEOUT_MS` ngay trên. */
+ * `ENTRY_STALL_TIMEOUT_MS` ngay trên.
+ * SỬA (10/09/2026, Giang báo "mở Debug Console không thấy log gì") — bắn heartbeat MỖI GIÂY qua
+ * `postMessage({type:'heartbeat'})` (KHÔNG gọi `console.log()` trực tiếp trong Worker — Worker có
+ * `console` RIÊNG, việc bọc console.log của core/debug-console.js chạy ở MAIN THREAD không ảnh
+ * hưởng gì tới đây, log gọi thẳng ở Worker sẽ KHÔNG BAO GIỜ xuất hiện trong Debug Console — main
+ * thread (core/streaming-zip.js::_writeViaWorker()) nhận heartbeat này rồi MỚI thật sự console.log()
+ * Ở ĐÓ để relay vào Debug Console). */
 function _addEntryWithStallGuard(filename, blob) {
     return new Promise((resolve, reject) => {
         let settled = false;
         let stallTimer;
+        let lastProgress = 0;
+        let lastTotal = null;
+        const startedAt = Date.now();
+
+        const heartbeat = setInterval(() => {
+            if (settled) return;
+            const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
+            const byteInfo = lastTotal != null ? `${lastProgress}/${lastTotal} byte` : `${lastProgress} byte`;
+            self.postMessage({ type: 'heartbeat', text: `Path B (Worker) ...${elapsedSec}s nén "${filename}" — đã xử lý ${byteInfo}${lastProgress === 0 ? ' (CHƯA có tiến triển nào)' : ''}` });
+        }, 1000);
+
         const armStallTimer = () => {
             clearTimeout(stallTimer);
             stallTimer = setTimeout(() => {
                 if (settled) return;
                 settled = true;
+                clearInterval(heartbeat);
                 reject(new Error(`Treo khi nén "${filename}" trong Worker — không có tiến triển byte nào trong ${ENTRY_STALL_TIMEOUT_MS / 1000}s`));
             }, ENTRY_STALL_TIMEOUT_MS);
         };
         armStallTimer();
         zipWriter.add(filename, new zip.BlobReader(blob), {
-            onprogress: () => { if (!settled) armStallTimer(); }, // zip.js — có tiến triển byte thật, reset đồng hồ
+            onprogress: (progress, total) => { // zip.js — có tiến triển byte thật, reset đồng hồ + cập nhật số byte cho heartbeat
+                lastProgress = progress; lastTotal = total;
+                if (!settled) armStallTimer();
+            },
         }).then(() => {
             if (settled) return; // đã reject vì stall từ trước (hiếm, race) — kết quả trễ này bỏ qua
             settled = true;
+            clearInterval(heartbeat);
             clearTimeout(stallTimer);
             resolve();
         }).catch((err) => {
             if (settled) return;
             settled = true;
+            clearInterval(heartbeat);
             clearTimeout(stallTimer);
             reject(err);
         });
@@ -114,15 +140,21 @@ self.onmessage = async (e) => {
     const msg = e.data;
     try {
         if (msg.type === 'init') {
-            self.importScripts(msg.zipJsUrl);
-            const root = await navigator.storage.getDirectory();
-            const dirHandle = await root.getDirectoryHandle(msg.tmpDirName, { create: true });
-            const fileHandle = await dirHandle.getFileHandle(msg.tmpFileName, { create: true });
-            accessHandle = await fileHandle.createSyncAccessHandle();
-            accessHandle.truncate(0); // phòng thủ — đảm bảo file rỗng nếu lỡ tái dùng tên cũ (hiếm, tên file có timestamp+random)
-            writeOffset = 0;
-            doneEntries = 0;
-            zipWriter = new zip.ZipWriter(makeSyncHandleWritable(), { bufferedWrite: true });
+            const hbStart = Date.now();
+            const hb = setInterval(() => self.postMessage({ type: 'heartbeat', text: `Path B (Worker) ...${Math.round((Date.now() - hbStart) / 1000)}s khởi tạo (importScripts + createSyncAccessHandle)` }), 1000);
+            try {
+                self.importScripts(msg.zipJsUrl);
+                const root = await navigator.storage.getDirectory();
+                const dirHandle = await root.getDirectoryHandle(msg.tmpDirName, { create: true });
+                const fileHandle = await dirHandle.getFileHandle(msg.tmpFileName, { create: true });
+                accessHandle = await fileHandle.createSyncAccessHandle();
+                accessHandle.truncate(0); // phòng thủ — đảm bảo file rỗng nếu lỡ tái dùng tên cũ (hiếm, tên file có timestamp+random)
+                writeOffset = 0;
+                doneEntries = 0;
+                zipWriter = new zip.ZipWriter(makeSyncHandleWritable(), { bufferedWrite: true });
+            } finally {
+                clearInterval(hb);
+            }
             self.postMessage({ type: 'ready' });
             return;
         }
@@ -133,7 +165,13 @@ self.onmessage = async (e) => {
             return;
         }
         if (msg.type === 'finish') {
-            await _raceTimeout(zipWriter.close(), CLOSE_STALL_TIMEOUT_MS, 'zipWriter.close()');
+            const hbStart = Date.now();
+            const hb = setInterval(() => self.postMessage({ type: 'heartbeat', text: `Path B (Worker) ...${Math.round((Date.now() - hbStart) / 1000)}s zipWriter.close()` }), 1000);
+            try {
+                await _raceTimeout(zipWriter.close(), CLOSE_STALL_TIMEOUT_MS, 'zipWriter.close()');
+            } finally {
+                clearInterval(hb);
+            }
             accessHandle.flush();
             accessHandle.close();
             self.postMessage({ type: 'done' });
