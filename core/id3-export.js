@@ -95,17 +95,41 @@
          * file vừa bị xoá, sinh lỗi/file rỗng/Share Sheet báo thất bại. Giờ `.finally(resolve)` —
          * đợi `triggerDownload()` chạy XONG (thành công hay lỗi đều tính là xong) rồi mới resolve,
          * đảm bảo bước dọn OPFS ở nơi gọi luôn diễn ra SAU khi đã đọc xong dữ liệu thật.
+         *
+         * MỚI (10/09/2026, Giang yêu cầu) — nếu `blob` đi qua `_compressZipEntries()` (core/storage-
+         * manager.js — MỌI luồng zip: Storage Management/Folder/chế độ Chọn), nó có sẵn thuộc tính
+         * JS tuỳ biến `_zipDurationMs` (tổng thời gian nén, đo ở đó) — đọc lại đây để hiện thêm
+         * "thời gian xử lý" trong modal. Export lẻ 1 file (Song/Video/Photo, KHÔNG qua
+         * `_compressZipEntries()`) sẽ KHÔNG có thuộc tính này — modal tự rơi về bản KHÔNG có dòng
+         * thời gian xử lý (2 chuỗi dịch riêng, xem lang/patch/patch-common.js).
          * @param {Blob} blob @param {string} filename
          * @returns {Promise<void>} resolve khi modal đã đóng VÀ triggerDownload() đã chạy xong (bấm Tải xuống), hoặc đóng ngay (bấm Huỷ)
          */
         function promptDownloadReady(blob, filename) {
             return new Promise((resolve) => {
+                const bodyText = blob._zipDurationMs != null
+                    ? tFormat('common.export.readyBodyWithDuration', { size: formatBytes(blob.size), duration: _formatProcessingDuration(blob._zipDurationMs) })
+                    : tFormat('common.export.readyBody', { size: formatBytes(blob.size) }); // core/about-stats.js
                 modalChoice( // core/modal-choice-ui.js
-                    tFormat('common.export.readyBody', { size: formatBytes(blob.size) }), // core/about-stats.js
+                    bodyText,
                     [{ label: t('common.export.readyBtnDownload'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent', onClick: () => { triggerDownload(blob, filename).finally(resolve); } }],
                     { title: t('common.export.readyTitle'), onCancel: () => resolve() }
                 );
             });
+        }
+
+        /** Định dạng số mili-giây thành chuỗi ngắn cho "thời gian xử lý" trong modal
+         * `promptDownloadReady()` ngay trên — MỚI (10/09/2026, Giang yêu cầu). Cố tình KHÔNG dùng
+         * `formatDurationLong()` (core/about-stats.js, đơn vị giờ/phút — dành cho tổng thời lượng
+         * nghe, quá thô cho việc đo vài giây/vài chục giây của bước nén zip).
+         * @param {number} ms @returns {string}
+         */
+        function _formatProcessingDuration(ms) {
+            const totalSeconds = ms / 1000;
+            if (totalSeconds < 60) return `${totalSeconds.toFixed(1)}s`;
+            const m = Math.floor(totalSeconds / 60);
+            const s = Math.round(totalSeconds % 60);
+            return `${m}m ${s}s`;
         }
 
         /**

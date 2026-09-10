@@ -201,26 +201,43 @@
          * MỚI 10/09/2026 thay JSZip — xem docstring đầy đủ ở file đó) — KHÔNG hỗ trợ/lỗi (OPFS hoàn
          * toàn không tồn tại, browser rất cũ) thì mới rơi về JSZip cũ (dựng liền 1 khối Blob trong
          * RAM — GIỮ LẠI làm lưới an toàn cuối cùng, không có browser nào "không tải được gì cả").
+         *
+         * MỚI (10/09/2026, Giang yêu cầu) — log thời điểm BẮT ĐẦU/KẾT THÚC toàn bộ bước nén (bọc
+         * CẢ 2 nhánh OPFS lẫn JSZip, vì đây là điểm hội tụ DUY NHẤT của mọi luồng zip trong app —
+         * xem core/streaming-zip.js đã có heartbeat/stall-guard log chi tiết TỪNG entry, còn đây là
+         * mốc THỜI GIAN TỔNG cho cả quá trình). Đính kèm `_zipDurationMs` (thuộc tính JS tuỳ biến,
+         * KHÔNG phải attribute chuẩn nào) lên chính Blob trả về — nơi gọi cuối cùng
+         * (`promptDownloadReady()`, core/id3-export.js) đọc lại để hiện "thời gian xử lý" trong modal
+         * "File đã sẵn sàng", không cần đo lại/truyền riêng qua nhiều tầng workflow.
          * @param {Array<{filename:string, blob:Blob}>} entries
          * @param {(done:number,total:number,percent:number|null) => void} [onProgress]
          * @returns {Promise<Blob>}
          */
         async function _compressZipEntries(entries, onProgress) {
+            const startedAt = Date.now();
+            console.log(`[storage-manager] Bắt đầu nén zip (${entries.length} file) lúc ${new Date(startedAt).toLocaleTimeString()}.`);
+            let blob = null;
             if (isStreamingZipAvailable()) { // core/streaming-zip.js
                 try {
-                    return await buildZipStreamingToOpfs(entries, onProgress); // core/streaming-zip.js
+                    blob = await buildZipStreamingToOpfs(entries, onProgress); // core/streaming-zip.js
                 } catch (err) {
                     console.warn('[storage-manager] Streaming zip qua OPFS thất bại, rơi về JSZip (dựng liền Blob trong RAM):', err);
                 }
             }
-            if (typeof JSZip === 'undefined') {
-                throw new Error(t('common.storage.zipLibMissing'));
+            if (!blob) {
+                if (typeof JSZip === 'undefined') {
+                    throw new Error(t('common.storage.zipLibMissing'));
+                }
+                const legacyZip = new JSZip();
+                for (const entry of entries) legacyZip.file(entry.filename, entry.blob);
+                blob = await legacyZip.generateAsync({ type: 'blob' }, (meta) => {
+                    if (onProgress) onProgress(entries.length, entries.length, meta.percent);
+                });
             }
-            const legacyZip = new JSZip();
-            for (const entry of entries) legacyZip.file(entry.filename, entry.blob);
-            return legacyZip.generateAsync({ type: 'blob' }, (meta) => {
-                if (onProgress) onProgress(entries.length, entries.length, meta.percent);
-            });
+            const durationMs = Date.now() - startedAt;
+            console.log(`[storage-manager] Nén zip xong lúc ${new Date().toLocaleTimeString()} — mất ${(durationMs / 1000).toFixed(1)}s.`);
+            blob._zipDurationMs = durationMs;
+            return blob;
         }
 
         /**
