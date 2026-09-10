@@ -336,7 +336,11 @@
                     // MỚI (Giang yêu cầu — thêm field Album) — mirror ĐÚNG hàng Album của Song ngay dưới.
                     songInfoRowHtml('M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0', 'bg-fuchsia-100 text-fuchsia-600', t('playlistView.songInfo.fieldAlbum'), (videoRecord && videoRecord.album) || emptyVal) +
                     songInfoRowHtml('M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z', 'bg-rose-100 text-rose-600', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count })) +
-                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-indigo-100 text-indigo-600', t('playlistView.songInfo.fieldListened'), formatListenTime(stats.totalTime)) +
+                    // SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — nhãn đổi từ
+                    // 'fieldListened' ("Listened") sang 'fieldViewDuration' ("Watch time") cho
+                    // Video (Photo dưới nhánh else if cũng dùng key này) — CHỈ khác chữ hiển thị,
+                    // field/logic (`stats.totalTime`, `formatListenTime()`) giữ NGUYÊN.
+                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-indigo-100 text-indigo-600', t('playlistView.songInfo.fieldViewDuration'), formatListenTime(stats.totalTime)) +
                     // MỚI (mục 1e, phản hồi Giang — "detail modal thêm dung lượng") — formatBytes()
                     // có sẵn (core/about-stats.js, dùng chung với Quản lý dung lượng), đọc thẳng
                     // `cached.size` (core/playlist/loader.js, cùng đợt thêm với addedAt).
@@ -344,9 +348,14 @@
             } else if (isPhoto) {
                 // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video, "trong đó sẽ hiển thị
                 // tên file, kích thước, duration, count, filesize" — ĐÚNG 5 field theo thứ tự Giang
-                // liệt kê, KHÔNG có "Đã nghe" — ảnh không tính thời gian nghe, xem docstring đầu
-                // event/workflow/photo-player.js). MỚI (Giang yêu cầu sau — thêm field Album) —
-                // chèn thêm 1 hàng, KHÔNG đổi thứ tự 5 field gốc.
+                // liệt kê). MỚI (Giang yêu cầu sau — thêm field Album) — chèn thêm 1 hàng, KHÔNG
+                // đổi thứ tự 5 field gốc.
+                // SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — thêm lại hàng "View
+                // duration" (TRƯỚC ĐÂY loại trừ hẳn — ảnh chưa tính thời gian xem) — Photo giờ đếm
+                // `totalTime` CÙNG cơ chế Video (event/workflow/photo-player.js), đặt NGAY SAU
+                // PlayCount, TRƯỚC Size — khớp ĐÚNG vị trí tương đối của hàng này ở nhánh Video
+                // ngay trên. Nhãn dùng 'fieldViewDuration' ("Watch time"), KHÁC 'fieldListened'
+                // ("Listened") Song vẫn dùng — CHỈ khác chữ hiển thị.
                 const imageRecord = await getImageRecord(key); // service/db.js
                 // FIX (Giang báo — "edit name chỉ là placeholder, cần chèn sẵn vào input") — CÙNG
                 // lý do nhánh Video ngay trên.
@@ -364,6 +373,7 @@
                     songInfoRowHtml('M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0', 'bg-fuchsia-100 text-fuchsia-600', t('playlistView.songInfo.fieldAlbum'), (imageRecord && imageRecord.album) || emptyVal) +
                     songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-amber-100 text-amber-600', t('playlistView.songInfo.fieldDuration'), formatTime(cached.duration)) +
                     songInfoRowHtml('M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z', 'bg-rose-100 text-rose-600', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count })) +
+                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-indigo-100 text-indigo-600', t('playlistView.songInfo.fieldViewDuration'), formatListenTime(stats.totalTime)) +
                     songInfoRowHtml('M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0l-2 7H6l-2-7m16 0H4', 'bg-teal-100 text-teal-600', t('playlistView.songInfo.fieldSize'), formatBytes(cached.size));
             } else {
                 songEditTitleInput.value = cached.tag.title || '';

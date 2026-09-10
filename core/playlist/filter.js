@@ -22,12 +22,13 @@
  * NẠP SAU: service/operation.js (operation.evaluate).
  */
 
-/** 3 field text theo từng Nguồn — song có 3, video/photo chỉ 1 (không có album/artist). */
-const PLAYLIST_FILTER_TEXT_FIELDS = { song: ['name', 'album', 'artist'], video: ['name'], photo: ['name'] };
-/** 5 field số/ngày — DÙNG CHUNG cho cả 3 Nguồn (addedAt=ngày tải, count/totalTime=thống kê nghe,
- * size=dung lượng byte, duration=thời lượng bài/video giây) — Photo CHỈ dùng 3/5 (addedAt/count/
- * size, xem clonePlaylistFilterConfigDefaults(), service/state/playlist.js — bucket photo không có
- * 2 key totalTime/duration nên applyPlaylistFilter() không bao giờ đọc tới chúng cho Photo). */
+/** 2 hằng số dưới đây KHÔNG được `applyPlaylistFilter()` dùng tới (đọc field động qua
+ * `Object.keys(rulesBucket)`, xem hàm đó) — mồ côi từ trước, giữ nguyên vị trí, CHỈ sửa lại nội
+ * dung cho ĐÚNG hiện trạng (trước đây ghi sai/cũ, xem clonePlaylistFilterConfigDefaults(),
+ * service/state/playlist.js — nguồn sự thật thật sự): song có 3 field text, video/photo có 2
+ * (name/album, không có artist); cả 3 Nguồn giờ CÙNG 5 field số/ngày (SỬA, Giang yêu cầu "thêm
+ * thời gian listen cho photo" — photo giờ cũng có totalTime, hết còn khác biệt với video). */
+const PLAYLIST_FILTER_TEXT_FIELDS = { song: ['name', 'album', 'artist'], video: ['name', 'album'], photo: ['name', 'album'] };
 const PLAYLIST_FILTER_NUMERIC_FIELDS = ['addedAt', 'count', 'totalTime', 'size', 'duration'];
 
 /**
