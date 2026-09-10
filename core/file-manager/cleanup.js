@@ -10,14 +10,20 @@
  * chạy lúc boot (quét toàn bộ thư viện có thể chậm với thư viện lớn — để người dùng tự quyết định
  * lúc nào chạy, đúng tinh thần "công cụ").
  *
+ * MỚI (10/09/2026, Giang yêu cầu) — `cleanupOrphanedZipTempFiles()` MỞ RỘNG phạm vi file này thêm 1
+ * bậc: KHÔNG chỉ IndexedDB nữa mà còn quét rác OPFS (file .zip tạm bỏ dở khi phiên nén bị gián đoạn
+ * — xem docstring hàm đó) — gọi thẳng `navigator.storage` (API trình duyệt gốc, KHÔNG tính "core
+ * khác" theo Rule 1-4 ngay dưới, cùng tinh thần core/streaming-zip.js cũng gọi thẳng API này).
+ *
  * REGISTRY: mỗi kiểu quan hệ mồ côi đăng ký 1 hàm quét+tự sửa riêng qua `registerCleanupCheck()` —
  * tính năng SAU NÀY phát sinh quan hệ mới chỉ cần viết thêm 1 hàm + đăng ký thêm 1 dòng, KHÔNG sửa
  * lại orchestration (event/workflow/file-manager-cleanup.js lặp qua registry, không biết/không cần
  * biết chi tiết từng check).
  *
  * Core THUẦN — tuân Rule 1-4 (siết chặt 04/07/2026): mỗi hàm CHỈ gọi service/db.js (dịch vụ hạ
- * tầng, KHÔNG tính "core khác" — xem giải thích gốc ở core/file-manager/folder.js dòng 6-15) và
- * chỉ làm ĐÚNG 1 tiến trình "phát hiện + tự sửa 1 KIỂU quan hệ mồ côi cụ thể" (Rule 1).
+ * tầng, KHÔNG tính "core khác" — xem giải thích gốc ở core/file-manager/folder.js dòng 6-15) HOẶC
+ * API trình duyệt gốc (`navigator.storage`, KHÔNG phải core khác) và chỉ làm ĐÚNG 1 tiến trình
+ * "phát hiện + tự sửa 1 KIỂU rác/quan hệ mồ côi cụ thể" (Rule 1).
  *
  * NẠP SAU: service/db.js.
  */
@@ -100,8 +106,55 @@ async function cleanupOrphanedFolderSongMaps() {
 // 'user' tạo rồi bỏ dở) bỏ hẳn cùng tính năng — store 'documents' không còn nơi nào trong app
 // đọc/ghi tới nữa (xem service/db.js).
 
+/**
+ * MỒ CÔI #6 — file .zip tạm trong OPFS (thư mục `sav-zip-tmp/`, tên lặp lại Ở ĐÂY thay vì tham
+ * chiếu `OPFS_ZIP_TEMP_DIR` (core/streaming-zip.js) — giữ đúng nguyên tắc "Core THUẦN" ở đầu file:
+ * mỗi hàm dọn CHỈ phụ thuộc service/db.js, KHÔNG phụ thuộc core khác) bị BỎ LẠI khi phiên làm việc
+ * bị gián đoạn giữa chừng lúc đang nén zip (app crash/đóng tab/mất điện thoại/lỗi mạng...) TRƯỚC KHI
+ * `cleanupStreamingZipTemp()` (core/streaming-zip.js, chỉ chạy SAU khi người dùng đã tải/share xong)
+ * kịp dọn — đây là lỗ hổng ĐÃ BIẾT TỪ TRƯỚC (ghi rõ trong docstring gốc core/streaming-zip.js:
+ * "OPFS temp-file cleanup on an interrupted/crashed session is a known gap"), giờ vá bằng registry
+ * dọn rác chung này thay vì để tích rác vô thời hạn.
+ *
+ * MỖI file tạm có tên dạng `zip-<timestamp>-<random>.zip` (xem `buildZipStreamingToOpfs()`, core/
+ * streaming-zip.js) — LẤY TUỔI file từ chính `<timestamp>` nhúng sẵn trong tên (không cần đọc
+ * metadata riêng) — CHỈ xoá file CŨ HƠN 1 giờ, tránh xoá NHẦM 1 file đang được GHI DỞ THẬT SỰ bởi 1
+ * tab/cửa sổ KHÁC của CÙNG app đang mở song song (OPFS dùng chung theo origin, không tách riêng
+ * theo tab) — 1 giờ đủ rộng so với bất kỳ zip nào thực tế có thể mất (kể cả rơi qua Path B/JSZip).
+ * @returns {Promise<number>} số file tạm đã dọn.
+ */
+async function cleanupOrphanedZipTempFiles() {
+    if (typeof navigator === 'undefined' || !navigator.storage || typeof navigator.storage.getDirectory !== 'function') return 0; // OPFS không khả dụng -> chắc chắn không có gì để dọn
+    const ZIP_TEMP_DIR_NAME = 'sav-zip-tmp'; // PHẢI khớp OPFS_ZIP_TEMP_DIR, core/streaming-zip.js
+    const MAX_AGE_MS = 60 * 60 * 1000; // 1 giờ — xem giải thích ở docstring hàm này
+    let fixedCount = 0;
+    try {
+        const root = await navigator.storage.getDirectory();
+        const tmpDirHandle = await root.getDirectoryHandle(ZIP_TEMP_DIR_NAME, { create: false }).catch(() => null);
+        if (!tmpDirHandle) return 0; // thư mục chưa từng được tạo -> sạch
+        const now = Date.now();
+        const staleNames = [];
+        for await (const name of tmpDirHandle.keys()) {
+            const match = /^zip-(\d+)-/.exec(name);
+            const createdAt = match ? Number(match[1]) : 0;
+            if (createdAt && (now - createdAt) < MAX_AGE_MS) continue; // còn quá mới -> có thể đang ghi dở THẬT, bỏ qua, để lần dọn sau tự xử lý
+            staleNames.push(name);
+        }
+        for (const name of staleNames) {
+            try {
+                await tmpDirHandle.removeEntry(name);
+                fixedCount++;
+            } catch (e) { /* đang khoá (hiếm) — bỏ qua, thử lại lần dọn sau */ }
+        }
+    } catch (err) {
+        console.warn('[file-manager/cleanup] Không quét được thư mục tạm zip OPFS (bỏ qua, không nghiêm trọng):', err);
+    }
+    return fixedCount;
+}
+
 registerCleanupCheck('orphanedSongFolderFields', cleanupOrphanedSongFolderFields);
 registerCleanupCheck('orphanedFolderSongMaps', cleanupOrphanedFolderSongMaps);
+registerCleanupCheck('orphanedZipTempFiles', cleanupOrphanedZipTempFiles);
 
 /**
  * Dọn 4 khoá `meta` MỒ CÔI của cơ chế nền cũ (v13 Batch F) — đều đã ngừng ghi từ Batch A/B/C:
