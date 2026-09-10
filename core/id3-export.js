@@ -92,3 +92,70 @@
                 );
             });
         }
+
+        /**
+         * MỚI (10/09/2026, Giang báo bug "tải từng file vẫn ép Quick Look mỗi lần, rất bất tiện —
+         * sao không stream?") — bản NHIỀU FILE của `promptDownloadReady()` ngay trên, dùng cho
+         * fallback "tải riêng từng file" khi zip vượt `ZIP_MEMORY_SAFE_LIMIT_BYTES` (core/
+         * storage-manager.js — xem docstring hằng số đó để biết TẠI SAO không stream thẳng xuống
+         * đĩa được trên Safari/iOS: File System Access API/StreamSaver.js đều không dùng được).
+         *
+         * 1 nút bấm DUY NHẤT → 1 lượt `navigator.share({files:[...]})` DUY NHẤT cho TẤT CẢ file
+         * cùng lúc (Web Share API level 2 nhận cả MẢNG nhiều file, mở 1 Share Sheet DUY NHẤT kiểu
+         * "Lưu N ảnh/video") — THAY vì lặp `triggerDownload()` (tức lặp `<a download>`) cho từng
+         * file như bản cũ: mỗi lượt `navigator.share()` tiêu user-activation của lượt bấm, gọi lặp
+         * lại nhiều lần trong cùng 1 lượt bấm chắc chắn thất bại từ file thứ 2 trở đi, nên bản cũ
+         * hầu như LUÔN rơi về `<a download>` (Quick Look) cho gần hết số file — đúng triệu chứng
+         * Giang báo "rất bất tiện". Không hỗ trợ/lỗi (kể cả do quá nhiều/quá lớn file cho 1 Share
+         * Sheet) → rơi về `<a download>` TỪNG file 1 (y hệt hành vi cũ, KHÔNG tệ hơn — chỉ là
+         * không cải thiện được).
+         *
+         * CHƯA KIỂM CHỨNG THỰC TẾ (Giang cân nhắc trước khi tin tuyệt đối là đã xong hẳn) — giữ N
+         * Blob cùng lúc trong tham số `records` VỀ MẶT ĐẶC TẢ không nhất thiết tốn RAM tương ứng
+         * (Blob từ IndexedDB thường chỉ là tay cầm trỏ vào kho lưu trữ riêng của trình duyệt, không
+         * phải bản sao đầy đủ nằm sẵn trong heap JS, khác hẳn JSZip phải đọc `.arrayBuffer()` từng
+         * file). Nhưng CHƯA có cách kiểm chứng tĩnh (đọc code) việc Safari/iOS xử lý
+         * `navigator.share()` với nhiều file/tổng dung lượng lớn (đúng ngay case >500MB đang bàn)
+         * có thật sự nhẹ RAM như suy luận hay không, hay bản thân Share Sheet có giới hạn riêng —
+         * CẦN TEST TRÊN THIẾT BỊ THẬT (nhiều video, tổng >500MB) trước khi coi bug "bất tiện" này
+         * đã giải quyết dứt điểm.
+         * @param {Array<{blob:Blob, filename:string}>} records
+         * @returns {Promise<void>}
+         */
+        async function promptDownloadReadyMulti(records) {
+            if (records.length === 0) return;
+            if (records.length === 1) return promptDownloadReady(records[0].blob, records[0].filename); // 1 file -> dùng lại bản đơn, gọn hơn
+
+            const totalBytes = records.reduce((sum, r) => sum + (r.blob.size || 0), 0);
+            await new Promise((resolve) => {
+                modalChoice( // core/modal-choice-ui.js
+                    tFormat('common.export.readyBodyMulti', { count: records.length, size: formatBytes(totalBytes) }), // core/about-stats.js
+                    [{ label: t('common.export.readyBtnDownload'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent', onClick: () => { _downloadAllRecords(records); resolve(); } }],
+                    { title: t('common.export.readyTitle'), onCancel: () => resolve() }
+                );
+            });
+        }
+
+        /** Phần thực thi RIÊNG của `promptDownloadReadyMulti()` ngay trên — tách hàm để đọc rõ hơn
+         * (chạy trong onClick của nút "Tải xuống", giữ đúng user-activation MỚI của lượt bấm đó). */
+        async function _downloadAllRecords(records) {
+            if (navigator.canShare && navigator.share) {
+                try {
+                    const files = records.map((r) => new File([r.blob], r.filename, { type: r.blob.type || 'application/octet-stream' }));
+                    if (navigator.canShare({ files })) {
+                        await navigator.share({ files });
+                        return;
+                    }
+                } catch (err) {
+                    if (err && err.name === 'AbortError') return; // người dùng tự Huỷ Share Sheet — tôn trọng, không fallback
+                    console.warn('[_downloadAllRecords] navigator.share() nhiều file lỗi, rơi về tải từng file <a download>:', err);
+                }
+            }
+            for (const r of records) {
+                const url = URL.createObjectURL(r.blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = r.filename; a.click();
+                URL.revokeObjectURL(url);
+                await new Promise((resolve) => setTimeout(resolve, 300)); // nghỉ ngắn giữa các lượt — tránh trình duyệt chặn "quá nhiều download liên tiếp"
+            }
+        }

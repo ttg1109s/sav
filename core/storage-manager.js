@@ -98,19 +98,25 @@
 
         // ===================== Giải phóng bộ nhớ =====================
 
-        /** Ngưỡng an toàn (byte) cho 1 lượt zip trong bộ nhớ trình duyệt — MỚI (10/09/2026, Giang
-         * báo bug "zip video >1GB làm crash PWA, bị cưỡng chế reload"). `JSZip.generateAsync({type:
-         * 'blob'})` (3 hàm buildAllXZipBlob() ngay dưới) phải dựng NGUYÊN file .zip cuối cùng liền
-         * 1 khối trong RAM (cộng thêm bản đọc tạm của từng blob đầu vào lúc nén) — với Video, tổng
-         * dung lượng vài trăm MB tới hơn 1GB là bình thường, vượt xa giới hạn bộ nhớ 1 tab/PWA (đặc
-         * biệt Safari/WebKit iOS, vốn siết RAM 1 process rất chặt) -> OS tự kill tiến trình, PWA
-         * "crash" rồi bị hệ thống tự reload lại — ĐÚNG triệu chứng Giang báo, là giới hạn CỨNG của
-         * nền tảng chứ không phải lỗi logic. Ngưỡng chọn 500MB (dè dặt, còn margin cho các bản sao
-         * tạm JSZip cần trong lúc nén, thường gấp 2-3 lần dữ liệu gốc) — vượt ngưỡng này, nơi gọi
-         * (`workflowFileManagerStorage.zipAndDownloadOrFallback()`, event/workflow/
+        /** Ngưỡng an toàn (byte) cho nhánh JSZip DI SẢN (chỉ còn chạy khi OPFS hoàn toàn không tồn
+         * tại — xem `isStreamingZipAvailable()`, core/streaming-zip.js) — MỚI (10/09/2026, Giang
+         * báo bug "zip video >1GB làm crash PWA, bị cưỡng chế reload").
+         *
+         * SỬA (10/09/2026, Giang yêu cầu "làm đầy đủ, thay JSZip toàn app") — TRƯỚC ĐÂY ngưỡng này
+         * áp dụng cho MỌI trình duyệt (JSZip là đường DUY NHẤT). Giờ `_compressZipEntries()` (ngay
+         * dưới) ưu tiên `buildZipStreamingToOpfs()` (core/streaming-zip.js — thư viện zip.js, ghi
+         * TĂNG DẦN vào OPFS, KHÔNG giới hạn dung lượng RAM nào cả, bất kể archive lớn cỡ nào) — chỉ
+         * khi OPFS hoàn toàn không hỗ trợ (browser rất cũ, gần như không còn theo Baseline hiện tại)
+         * mới rơi về JSZip cũ, và CHỈ lúc đó ngưỡng này mới còn ý nghĩa: `JSZip.generateAsync({type:
+         * 'blob'})` phải dựng NGUYÊN file .zip cuối cùng liền 1 khối trong RAM (cộng thêm bản đọc
+         * tạm của từng blob đầu vào lúc nén) — với Video, tổng dung lượng vài trăm MB tới hơn 1GB là
+         * bình thường, vượt xa giới hạn bộ nhớ 1 tab/PWA -> OS tự kill tiến trình, PWA "crash" rồi
+         * bị hệ thống tự reload lại. Ngưỡng chọn 500MB (dè dặt, còn margin cho các bản sao tạm JSZip
+         * cần trong lúc nén, thường gấp 2-3 lần dữ liệu gốc) — vượt ngưỡng này ở nhánh JSZip, nơi
+         * gọi (`workflowFileManagerStorage.zipAndDownloadOrFallback()`, event/workflow/
          * file-manager-storage.js) hỏi người dùng chuyển sang tải RIÊNG TỪNG FILE (xem
-         * `downloadRecordsIndividually()` ngay dưới) thay vì gộp 1 file .zip — tải riêng không có
-         * bước "dựng liền 1 khối" nên không dính giới hạn này. */
+         * `collectRecordsForKeys()`/`promptDownloadReadyMulti()`, core/id3-export.js) thay vì gộp 1
+         * file .zip — tải riêng không có bước "dựng liền 1 khối" nên không dính giới hạn này. */
         const ZIP_MEMORY_SAFE_LIMIT_BYTES = 500 * 1024 * 1024;
 
         /** Cộng dồn dung lượng THẬT (`record.blob.size` — chỉ đọc metadata, KHÔNG đọc nội dung
@@ -130,61 +136,110 @@
             return total;
         }
 
-        /** Tải xuống RIÊNG TỪNG FILE (không gộp .zip) — fallback khi tổng dung lượng vượt
-         * ZIP_MEMORY_SAFE_LIMIT_BYTES: mỗi file qua `triggerDownload()` (core/id3-export.js) là 1
-         * lượt Blob -> download ĐỘC LẬP, không cần dựng liền 1 khối lớn trong RAM như JSZip nên
-         * không dính giới hạn bộ nhớ tương tự. Dừng 1 nhịp ngắn giữa các lượt — trình duyệt (đặc
-         * biệt Safari) có thể chặn/hỏi xin phép nếu bắn quá nhiều download liên tiếp không nghỉ.
+        /**
+         * SỬA (10/09/2026, Giang báo "tải từng file vẫn ép Quick Look mỗi lần, rất bất tiện") — THAY
+         * hẳn `downloadRecordsIndividually()` cũ (tự lặp `triggerDownload()` — tức lặp `<a
+         * download>` — cho từng file, KHÔNG bao giờ mở được Share Sheet thật vì user-activation chỉ
+         * còn hạn cho lượt gọi ĐẦU TIÊN, mọi lượt sau chắc chắn rơi về `<a download>` = Quick Look
+         * lặp lại N lần). Hàm NÀY giờ CHỈ lo phần "đọc DB, gom `{blob, filename}` vào 1 mảng" (THUẦN
+         * — không tải/không gọi triggerDownload() gì cả) — phần "tải" đẩy hẳn sang
+         * `promptDownloadReadyMulti()` (core/id3-export.js): 1 nút bấm DUY NHẤT, 1 lượt
+         * `navigator.share({files:[...]})` DUY NHẤT cho TẤT CẢ (Web Share API lv2 nhận cả MẢNG
+         * nhiều file — mở 1 Share Sheet DUY NHẤT "Lưu N ảnh/video", KHÔNG lặp share() nhiều lần
+         * (mỗi lượt share() tiêu user-activation, gọi lặp chắc chắn thất bại từ lần 2). Giữ N Blob
+         * cùng lúc ở mảng trả về KHÔNG hẳn tốn RAM tương ứng — Blob đọc từ IndexedDB thường chỉ là
+         * "tay cầm" trỏ vào kho lưu trữ riêng của trình duyệt (hay ở đĩa), khác hẳn JSZip (bắt buộc
+         * đọc `.arrayBuffer()` từng file để nén/nối — nạp THẬT vào RAM) — nhưng ĐÂY LÀ SUY LUẬN THEO
+         * ĐẶC TẢ, CHƯA kiểm chứng thực tế trên thiết bị Safari/iOS thật với file lớn, xem ghi chú
+         * "CHƯA KIỂM CHỨNG" ở docstring `promptDownloadReadyMulti()`.
          * @param {string[]} keys
          * @param {(key:string) => Promise<object|undefined>} getRecordFn
          * @param {(done:number,total:number) => void} [onProgress]
+         * @returns {Promise<Array<{blob:Blob, filename:string}>>}
          */
-        async function downloadRecordsIndividually(keys, getRecordFn, onProgress) {
+        async function collectRecordsForKeys(keys, getRecordFn, onProgress) {
+            const records = [];
             let done = 0;
             for (const key of keys) {
                 const record = await getRecordFn(key);
-                if (record && record.blob) {
-                    triggerDownload(record.blob, record.filename || key); // core/id3-export.js
-                    await new Promise((resolve) => setTimeout(resolve, 300));
-                }
+                if (record && record.blob) records.push({ blob: record.blob, filename: record.filename || key });
                 done++;
                 if (onProgress) onProgress(done, keys.length);
             }
+            return records;
         }
 
-        /**
-         * Đóng gói toàn bộ blob mp3 GỐC (không gắn tag mới, giữ nguyên file thật) thành 1 file .zip,
-         * tên file giữ nguyên filename gốc — trùng tên tự thêm số đếm để JSZip không ghi đè lẫn nhau.
-         * SỬA (06/09/2026, hợp nhất Folder vào Playlist — "Properties -> Download" cho 1 folder cụ
-         * thể) — thêm tham số `keys` TUỲ CHỌN: có truyền thì zip ĐÚNG danh sách đó (không tự
-         * `getAllSongKeys()` nữa); không truyền (`undefined`, mọi lời gọi CŨ) thì giữ NGUYÊN hành vi
-         * gốc (toàn bộ thư viện) — tương thích ngược 100%, không cần sửa nơi gọi cũ.
-         * @param {string[]} [keys]
+        /** Gom `{filename, blob}` đã khử trùng tên (thêm hậu tố "(n)" nếu trùng) cho 1 danh sách
+         * key — DÙNG CHUNG bởi cả 3 hàm buildAllXZipBlob() ngay dưới (TRƯỚC ĐÂY mỗi hàm tự viết
+         * lặp lại Y HỆT logic đặt tên này). Tách riêng "đọc DB + đặt tên" khỏi "nén/ghi" để dùng lại
+         * được cho CẢ nhánh streaming MỚI (core/streaming-zip.js) LẪN nhánh JSZip di sản bên dưới.
+         * @param {string[]} keys
+         * @param {(key:string) => Promise<object|undefined>} getRecordFn
+         * @param {string} defaultExt - đuôi mặc định nếu record thiếu filename (vd ".mp3"/".mp4")
+         * @returns {Promise<Array<{filename:string, blob:Blob}>>}
          */
-        async function buildAllSongsZipBlob(keys, onProgress) {
-            if (typeof JSZip === 'undefined') {
-                throw new Error(t('common.storage.zipLibMissing'));
-            }
-            const zip = new JSZip();
-            if (!keys) keys = await getAllSongKeys();
+        async function _collectZipEntries(keys, getRecordFn, defaultExt) {
             const usedNames = new Map(); // filename -> số lần đã dùng, để chống trùng tên trong zip
-            let done = 0;
+            const entries = [];
             for (const key of keys) {
-                const record = await getSongRecord(key);
-                if (!record || !record.blob) { done++; continue; }
-                let name = record.filename || `${key}.mp3`;
+                const record = await getRecordFn(key);
+                if (!record || !record.blob) continue;
+                let name = record.filename || `${key}${defaultExt}`;
                 if (usedNames.has(name)) {
                     const count = usedNames.get(name) + 1; usedNames.set(name, count);
                     const dot = name.lastIndexOf('.');
                     name = dot > -1 ? `${name.slice(0, dot)} (${count})${name.slice(dot)}` : `${name} (${count})`;
                 } else { usedNames.set(name, 0); }
-                zip.file(name, record.blob);
-                done++;
-                if (onProgress) onProgress(done, keys.length);
+                entries.push({ filename: name, blob: record.blob });
             }
-            return zip.generateAsync({ type: 'blob' }, (meta) => {
-                if (onProgress) onProgress(keys.length, keys.length, meta.percent);
+            return entries;
+        }
+
+        /** Nén `entries` (đã gom sẵn qua `_collectZipEntries()`) thành 1 Blob .zip — DÙNG CHUNG bởi
+         * cả 3 hàm buildAllXZipBlob() ngay dưới. Ưu tiên `buildZipStreamingToOpfs()` (core/
+         * streaming-zip.js — thư viện zip.js, ghi TĂNG DẦN vào OPFS, không giới hạn dung lượng RAM,
+         * MỚI 10/09/2026 thay JSZip — xem docstring đầy đủ ở file đó) — KHÔNG hỗ trợ/lỗi (OPFS hoàn
+         * toàn không tồn tại, browser rất cũ) thì mới rơi về JSZip cũ (dựng liền 1 khối Blob trong
+         * RAM — GIỮ LẠI làm lưới an toàn cuối cùng, không có browser nào "không tải được gì cả").
+         * @param {Array<{filename:string, blob:Blob}>} entries
+         * @param {(done:number,total:number,percent:number|null) => void} [onProgress]
+         * @returns {Promise<Blob>}
+         */
+        async function _compressZipEntries(entries, onProgress) {
+            if (isStreamingZipAvailable()) { // core/streaming-zip.js
+                try {
+                    return await buildZipStreamingToOpfs(entries, onProgress); // core/streaming-zip.js
+                } catch (err) {
+                    console.warn('[storage-manager] Streaming zip qua OPFS thất bại, rơi về JSZip (dựng liền Blob trong RAM):', err);
+                }
+            }
+            if (typeof JSZip === 'undefined') {
+                throw new Error(t('common.storage.zipLibMissing'));
+            }
+            const legacyZip = new JSZip();
+            for (const entry of entries) legacyZip.file(entry.filename, entry.blob);
+            return legacyZip.generateAsync({ type: 'blob' }, (meta) => {
+                if (onProgress) onProgress(entries.length, entries.length, meta.percent);
             });
+        }
+
+        /**
+         * Đóng gói toàn bộ blob mp3 GỐC (không gắn tag mới, giữ nguyên file thật) thành 1 file .zip,
+         * tên file giữ nguyên filename gốc — trùng tên tự thêm số đếm để không ghi đè lẫn nhau.
+         * SỬA (06/09/2026, hợp nhất Folder vào Playlist — "Properties -> Download" cho 1 folder cụ
+         * thể) — thêm tham số `keys` TUỲ CHỌN: có truyền thì zip ĐÚNG danh sách đó (không tự
+         * `getAllSongKeys()` nữa); không truyền (`undefined`, mọi lời gọi CŨ) thì giữ NGUYÊN hành vi
+         * gốc (toàn bộ thư viện) — tương thích ngược 100%, không cần sửa nơi gọi cũ.
+         * SỬA (10/09/2026, Giang yêu cầu "làm đầy đủ, thay JSZip toàn app") — thân hàm tách sang 2
+         * hàm dùng chung `_collectZipEntries()`/`_compressZipEntries()` ngay trên (KHÔNG đổi hành
+         * vi/tham số bên ngoài, vẫn nhận `(keys, onProgress)` trả `Promise<Blob>` y hệt cũ — mọi nơi
+         * gọi hàm này KHÔNG cần sửa gì).
+         * @param {string[]} [keys]
+         */
+        async function buildAllSongsZipBlob(keys, onProgress) {
+            if (!keys) keys = await getAllSongKeys();
+            const entries = await _collectZipEntries(keys, getSongRecord, '.mp3');
+            return _compressZipEntries(entries, onProgress);
         }
 
         /**
@@ -251,29 +306,9 @@
          * @param {string[]} [keys]
          */
         async function buildAllVideosZipBlob(keys, onProgress) {
-            if (typeof JSZip === 'undefined') {
-                throw new Error(t('common.storage.zipLibMissing'));
-            }
-            const zip = new JSZip();
             if (!keys) keys = await getAllVideoKeys(); // service/db.js
-            const usedNames = new Map();
-            let done = 0;
-            for (const key of keys) {
-                const record = await getVideoRecord(key); // service/db.js
-                if (!record || !record.blob) { done++; continue; }
-                let name = record.filename || `${key}.mp4`;
-                if (usedNames.has(name)) {
-                    const count = usedNames.get(name) + 1; usedNames.set(name, count);
-                    const dot = name.lastIndexOf('.');
-                    name = dot > -1 ? `${name.slice(0, dot)} (${count})${name.slice(dot)}` : `${name} (${count})`;
-                } else { usedNames.set(name, 0); }
-                zip.file(name, record.blob);
-                done++;
-                if (onProgress) onProgress(done, keys.length);
-            }
-            return zip.generateAsync({ type: 'blob' }, (meta) => {
-                if (onProgress) onProgress(keys.length, keys.length, meta.percent);
-            });
+            const entries = await _collectZipEntries(keys, getVideoRecord, '.mp4');
+            return _compressZipEntries(entries, onProgress);
         }
 
         /**
@@ -478,29 +513,9 @@
          * @param {string[]} [keys]
          */
         async function buildAllPhotosZipBlob(keys, onProgress) {
-            if (typeof JSZip === 'undefined') {
-                throw new Error(t('common.storage.zipLibMissing'));
-            }
-            const zip = new JSZip();
             if (!keys) keys = await getAllImageKeys(); // service/db.js
-            const usedNames = new Map();
-            let done = 0;
-            for (const key of keys) {
-                const record = await getImageRecord(key); // service/db.js
-                if (!record || !record.blob) { done++; continue; }
-                let name = record.filename || `${key}.jpg`;
-                if (usedNames.has(name)) {
-                    const count = usedNames.get(name) + 1; usedNames.set(name, count);
-                    const dot = name.lastIndexOf('.');
-                    name = dot > -1 ? `${name.slice(0, dot)} (${count})${name.slice(dot)}` : `${name} (${count})`;
-                } else { usedNames.set(name, 0); }
-                zip.file(name, record.blob);
-                done++;
-                if (onProgress) onProgress(done, keys.length);
-            }
-            return zip.generateAsync({ type: 'blob' }, (meta) => {
-                if (onProgress) onProgress(keys.length, keys.length, meta.percent);
-            });
+            const entries = await _collectZipEntries(keys, getImageRecord, '.jpg');
+            return _compressZipEntries(entries, onProgress);
         }
 
         /**
