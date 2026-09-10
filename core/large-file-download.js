@@ -34,6 +34,20 @@ const SAV_DOWNLOAD_CACHE = 'sav-download-cache-v1'; // PHẢI khớp hằng số
 const SAV_DOWNLOAD_PATH_PREFIX = '/__sav-download__/'; // PHẢI khớp hằng số cùng tên trong sw.js
 const SAV_DOWNLOAD_CACHE_CLEANUP_DELAY_MS = 60000; // xem giải thích ở triggerLargeFileDownloadViaServiceWorker()
 
+// MỚI (10/09/2026, Giang yêu cầu "thêm log báo Service Worker thành công") — nhận relay từ sw.js
+// (postMessage() lúc fetch handler THẬT SỰ chặn + trả lời được đúng file — bằng chứng trực tiếp
+// nhất "Service Worker đang hoạt động", xem docstring 'fetch' trong sw.js để biết lý do phải relay
+// thay vì console.log() thẳng bên đó) — đăng ký NGAY LÚC NẠP SCRIPT (không cần đợi
+// registerLargeFileDownloadWorker() chạy xong — nếu 1 SW từ phiên TRƯỚC đó đã đang điều khiển trang
+// này, message vẫn có thể tới sớm).
+if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'sav-download-served') {
+            console.log(`[large-file-download] Service Worker ĐÃ PHỤC VỤ THÀNH CÔNG file qua Cache Storage — url: ${event.data.url}.`);
+        }
+    });
+}
+
 let _swRegisterPromise = null;
 
 /**
@@ -52,8 +66,13 @@ function registerLargeFileDownloadWorker() {
         return _swRegisterPromise;
     }
     _swRegisterPromise = navigator.serviceWorker.register('./sw.js')
-        .then(() => navigator.serviceWorker.ready)
-        .then(() => {}) // chuẩn hoá kết quả về undefined, nơi gọi không cần giá trị trả về
+        .then((registration) => navigator.serviceWorker.ready.then(() => registration))
+        .then((registration) => {
+            // MỚI (10/09/2026, Giang yêu cầu) — log THÀNH CÔNG rõ ràng, xem được qua Debug Console
+            // (core/debug-console.js) — không cần mở DevTools thật để biết Service Worker đã đăng
+            // ký + kích hoạt xong trên đúng thiết bị đang test.
+            console.log(`[large-file-download] Đăng ký Service Worker (sw.js) THÀNH CÔNG — scope: ${registration.scope}.`);
+        })
         .catch((err) => {
             console.warn('[large-file-download] Đăng ký Service Worker (sw.js) thất bại — tính năng tải file lớn qua đường này sẽ không khả dụng, tự rơi về <a download> với blob::', err);
         });
@@ -104,5 +123,9 @@ async function triggerLargeFileDownloadViaServiceWorker(blob, filename) {
     await cache.put(url, response);
     const a = document.createElement('a');
     a.href = url; a.download = filename; a.click();
+    // MỚI (10/09/2026, Giang yêu cầu) — log THÀNH CÔNG ngay khi đã ghi cache + kích hoạt điều
+    // hướng tải xong (KHÔNG có cách biết trình duyệt đọc xong file CHƯA, xem lý do ở docstring hàm
+    // này — log này xác nhận ĐÚNG đường Service Worker đã được dùng, không phải rơi về blob: cũ).
+    console.log(`[large-file-download] Đã ghi Cache Storage + kích hoạt tải qua Service Worker THÀNH CÔNG — "${filename}" (${(blob.size / (1024 * 1024)).toFixed(1)} MB), url: ${url}.`);
     setTimeout(() => { cache.delete(url).catch((e) => { /* dọn thất bại — bỏ qua, không nghiêm trọng, chỉ tích 1 entry cache tạm, cleanupOrphanedLargeFileDownloadCacheEntries() sẽ dọn tiếp sau */ }); }, SAV_DOWNLOAD_CACHE_CLEANUP_DELAY_MS);
 }
