@@ -50,6 +50,7 @@ const LANG_PATCH_COMMON = {
     // promptDownloadReady() (core/id3-export.js), DÙNG CHUNG cho mọi luồng export/tải xuống.
     'common.export.readyTitle': 'Ready to download',
     'common.export.readyBody': 'File size: {size}.',
+    'common.export.readyBodyMulti': '{count} files ready to download (total {size}).',
     'common.export.readyBtnDownload': 'Download',
 
     'common.storage.zipLibMissing': 'The JSZip library failed to load (check your network connection to the CDN).',
@@ -63,8 +64,8 @@ const LANG_PATCH_COMMON = {
     'common.storage.zipTooLargeTitle': 'Too large to zip',
     'common.storage.zipTooLargeBody': 'Total size is {size} — packing this into a single zip file could crash the app. You can download each file separately instead.',
     'common.storage.zipTooLargeBtnIndividual': 'Download files separately',
-    'common.storage.downloadingIndividuallyStart': 'Downloading files...',
-    'common.storage.downloadingIndividuallyProgress': 'Downloading files ({done}/{total})...',
+    'common.storage.preparingFiles': 'Preparing files...',
+    'common.storage.preparingFilesProgress': 'Preparing files ({done}/{total})...',
     'common.storage.zipDownloadError': "Couldn't complete the download: {message}",
     // SỬA (ver12 "Song/Video Unification", Batch 5, mục 6b) — 'noSongsToDownload'/'zipBuildError'/
     // 'downloadThenClear*'/'clearNoDownload*' (2 nút tách rời cũ) ĐÃ XOÁ, thay bằng
