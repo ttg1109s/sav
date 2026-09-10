@@ -9,11 +9,14 @@
  * Khi field khác 'none', trục này LÀ CHÍNH — trục (1) chỉ còn vai trò phá thế bằng (2 bài bằng
  * nhau) — xem core/playlist/order.js::sortKeysByMode().
  *
- * MỞ RỘNG (hợp nhất Photo vào Playlist) — field 'times' (tổng thời gian nghe) KHÔNG áp dụng cho
- * Photo (ảnh không tính "thời gian nghe" — xem event/workflow/photo-player.js, docstring đầu file:
- * Photo KHÔNG dùng startListenClock()/stopListenClock()) — ẩn khỏi dropdown khi `source==='photo'`
- * (CHỐT Giang). `count` GIỮ LẠI cho Photo, đổi ý nghĩa thành "lượt click xem" (xem event/workflow/
- * file-manager-photo.js::openImagePreview() — bumpSongPlayCount()).
+ * MỞ RỘNG (hợp nhất Photo vào Playlist) — `count` GIỮ LẠI cho Photo, đổi ý nghĩa thành "lượt click
+ * xem" (xem event/workflow/file-manager-photo.js::openImagePreview() — bumpSongPlayCount()).
+ * SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — field 'times' (tổng thời gian nghe/xem)
+ * TRƯỚC ĐÂY ẩn khỏi dropdown khi `source==='photo'` (ảnh chưa tính thời gian nghe) — Photo giờ
+ * CŨNG đếm totalTime CÙNG cơ chế Video (startListenClock()/stopListenClock(), xem event/workflow/
+ * photo-player.js) nên field này hiện LẠI cho Photo, giống Video. NHÃN đổi khác theo Nguồn: Song
+ * vẫn "Listen time", Video/Photo đổi thành "Watch time" — CHỈ khác chữ hiển thị, value dropdown
+ * ('times') và logic sort (core/playlist/order.js) giữ NGUYÊN.
  * SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — field 'duration' TRƯỚC ĐÂY ẩn
  * cho Photo (lúc đó `duration` hard-code 0, vô nghĩa) — giờ `duration` là số THẬT (tính lúc upload,
  * core/playlist/loader.js::buildAdaptedPlaylistCache()), HIỆN LẠI cho Photo giống Song/Video.
@@ -24,7 +27,10 @@
  * Generic Drawer nền trắng.
  */
 function renderPlaylistSortPanelBody(source) {
-    const isPhoto = source === 'photo';
+    // SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — field 'times' KHÔNG còn ẩn theo
+    // Nguồn nữa (Photo giờ hiện field này giống Video) — biến `isPhoto` cũ (dùng để ẩn) đã bỏ,
+    // thay bằng biến chọn NHÃN hiển thị theo Nguồn dưới đây.
+    const timesLabelKey = source === 'song' ? 'playlistSortPanel.statField.times' : 'playlistSortPanel.statField.viewDuration';
     return `
                 <div>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
@@ -42,7 +48,7 @@ function renderPlaylistSortPanelBody(source) {
                             <select id="setting-playlist-sort-stat-field" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
                                 <option value="none" data-i18n="playlistSortPanel.statField.none">${t('playlistSortPanel.statField.none')}</option>
                                 <option value="count" data-i18n="playlistSortPanel.statField.count">${t('playlistSortPanel.statField.count')}</option>
-                                ${isPhoto ? '' : `<option value="times" data-i18n="playlistSortPanel.statField.times">${t('playlistSortPanel.statField.times')}</option>`}
+                                <option value="times" data-i18n="${timesLabelKey}">${t(timesLabelKey)}</option>
                                 <option value="size" data-i18n="playlistSortPanel.statField.size">${t('playlistSortPanel.statField.size')}</option>
                                 <option value="duration" data-i18n="playlistSortPanel.statField.duration">${t('playlistSortPanel.statField.duration')}</option>
                             </select>

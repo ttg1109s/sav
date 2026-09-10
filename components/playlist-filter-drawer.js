@@ -199,9 +199,11 @@ function _renderFilterNumericFieldRow(field, labelKey, inputType, step) {
  *   artist — SỬA (Giang yêu cầu, "filter/search hỗ trợ field Album của video/photo") — `artist`
  *   VẪN CHỈ Song có (Video/Photo không có field này), `album` giờ CẢ 3 mediaType đều có (record.album,
  *   core/playlist/actions.js::applyVideoEditAndSave()/applyPhotoEditAndSave())) VÀ field SỐ/NGÀY
- *   nào hiện (totalTime KHÔNG áp dụng cho Photo — CHỐT Giang, ảnh không có khái niệm "lượt nghe";
- *   `duration` giờ áp dụng CẢ Photo — Photo đã có duration thật, xem event/workflow/file-manager-
- *   photo.js::computePhotoDuration()). Danh sách field PHẢI khớp ĐÚNG với
+ *   nào hiện (`duration` áp dụng CẢ Photo — Photo đã có duration thật, xem event/workflow/
+ *   file-manager-photo.js::computePhotoDuration(); SỬA, Giang yêu cầu "thêm thời gian listen cho
+ *   photo" — `totalTime` giờ CŨNG áp dụng CẢ Photo, hết còn khác biệt với Video — nhãn hiển thị
+ *   đổi thành "Watch time" riêng cho video/photo, Song vẫn "Listen time", CHỈ khác chữ). Danh
+ *   sách field PHẢI khớp ĐÚNG với
  *   `clonePlaylistFilterConfigDefaults()` (service/state/playlist.js) cho từng Nguồn — 2 nơi
  *   này KHÔNG import chéo (why-no-es6-module.md), phải tự đối chiếu tay khi sửa 1 trong 2.
  * @param {boolean} isActive - MỚI (09/09/2026, phản hồi Giang mục 1) — preset đang sửa CHÍNH LÀ
@@ -224,7 +226,10 @@ function renderPlaylistFilterEditBody(preset, source, isActive) {
         photo: [['name', 'playlistFilterPanel.field.name'], ['album', 'playlistFilterPanel.field.album']],
     };
     const textFields = textFieldsBySource[source] || textFieldsBySource.song; // guard — source lạ rơi về Song (an toàn hơn rỗng)
-    const isPhoto = source === 'photo';
+    // SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — totalTime giờ áp dụng CẢ Photo (CÙNG
+    // Video), KHÔNG còn ẩn theo `isPhoto` nữa — chỉ còn khác NHÃN hiển thị: Song "Listen time",
+    // Video/Photo "Watch time" (field/logic giữ NGUYÊN, xem core/playlist/filter.js).
+    const totalTimeLabelKey = source === 'song' ? 'playlistFilterPanel.field.totalTime' : 'playlistFilterPanel.field.viewDuration';
 
     return `
                 <div>
@@ -247,7 +252,7 @@ function renderPlaylistFilterEditBody(preset, source, isActive) {
                         ${textFields.map(([field, labelKey]) => _renderFilterTextFieldRow(field, labelKey)).join('')}
                         ${_renderFilterNumericFieldRow('addedAt', 'playlistFilterPanel.field.addedAt', 'date')}
                         ${_renderFilterNumericFieldRow('count', 'playlistFilterPanel.field.count', 'number', '1')}
-                        ${isPhoto ? '' : _renderFilterNumericFieldRow('totalTime', 'playlistFilterPanel.field.totalTime', 'time-picker')}
+                        ${_renderFilterNumericFieldRow('totalTime', totalTimeLabelKey, 'time-picker')}
                         <!-- SỬA (Giang yêu cầu — Photo tích hợp duration như Song/Video) — TRƯỚC ĐÂY
                              ẩn hẳn cho Photo (lúc đó duration hard-code 0) — giờ LUÔN hiện, khớp
                              cách Sort panel đã un-hide trước đó (components/playlist-sort-drawer.js). -->
