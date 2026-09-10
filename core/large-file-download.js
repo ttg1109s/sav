@@ -11,8 +11,8 @@
  *
  * CÁCH KHẮC PHỤC duy nhất tìm được có cơ sở kỹ thuật thật (đúng cách WebKit tự gợi ý sửa cho 1 bug
  * tương tự khi tải video lớn, #232076): dùng Cache Storage API + Service Worker (sw.js, gốc dự án)
- * để phục vụ file qua 1 URL CÙNG ORIGIN THẬT (`/__sav-download__/<tên file>`, KHÔNG phải `blob:`) —
- * Safari xử lý đây như 1 tải file MẠNG bình thường, né hẳn lớp bug "WebKitBlobResource".
+ * để phục vụ file qua 1 URL CÙNG ORIGIN THẬT (`/__sav-download__/<timestamp>-<tên file>`, KHÔNG
+ * phải `blob:`) — Safari xử lý đây như 1 tải file MẠNG bình thường, né hẳn lớp bug "WebKitBlobResource".
  *
  * ĐÁNH ĐỔI ĐÃ BIẾT TRƯỚC (Giang xác nhận "tạm thời dùng Service Worker", chấp nhận đánh đổi này):
  *   - Service Worker BẮT BUỘC "secure context" — CHỈ hoạt động khi app chạy qua HTTPS, KHÔNG đăng
@@ -80,12 +80,20 @@ function isLargeFileDownloadSupported() {
  * không bắn sự kiện "đã xong" nào về JS, khác hẳn `navigator.share()`/`fetch()` có Promise chờ
  * được) — xoá entry cache SAU 1 khoảng trễ cố định (`SAV_DOWNLOAD_CACHE_CLEANUP_DELAY_MS`, 60s, đủ
  * rộng cho hầu hết trường hợp) thay vì chờ tín hiệu hoàn tất không tồn tại.
+ *
+ * SỬA (10/09/2026, Giang yêu cầu "thêm vào Dọn dẹp dữ liệu") — `setTimeout` 60s ngay trên CHỈ chạy
+ * nếu trang còn mở đủ lâu — đóng tab/thoát app sớm hơn thì entry bị bỏ lại VĨNH VIỄN, không có gì
+ * dọn tiếp. URL giờ nhúng THÊM `Date.now()` ngay sau tiền tố (`/__sav-download__/<timestamp>-<tên
+ * file>`) — cùng quy ước với file tạm OPFS (`zip-<timestamp>-<random>.zip`, core/streaming-zip.js)
+ * — để `cleanupOrphanedLargeFileDownloadCacheEntries()` (core/file-manager/cleanup.js, registry
+ * "Dọn dẹp dữ liệu") biết được TUỔI của entry mà không cần đọc metadata riêng, tự dọn phần bị bỏ
+ * lại nếu `setTimeout` này không kịp chạy.
  * @param {Blob} blob @param {string} filename
  * @returns {Promise<void>}
  */
 async function triggerLargeFileDownloadViaServiceWorker(blob, filename) {
     const cache = await caches.open(SAV_DOWNLOAD_CACHE);
-    const url = SAV_DOWNLOAD_PATH_PREFIX + encodeURIComponent(filename);
+    const url = `${SAV_DOWNLOAD_PATH_PREFIX}${Date.now()}-${encodeURIComponent(filename)}`;
     const response = new Response(blob, {
         headers: {
             'Content-Type': blob.type || 'application/octet-stream',
@@ -96,5 +104,5 @@ async function triggerLargeFileDownloadViaServiceWorker(blob, filename) {
     await cache.put(url, response);
     const a = document.createElement('a');
     a.href = url; a.download = filename; a.click();
-    setTimeout(() => { cache.delete(url).catch((e) => { /* dọn thất bại — bỏ qua, không nghiêm trọng, chỉ tích 1 entry cache tạm */ }); }, SAV_DOWNLOAD_CACHE_CLEANUP_DELAY_MS);
+    setTimeout(() => { cache.delete(url).catch((e) => { /* dọn thất bại — bỏ qua, không nghiêm trọng, chỉ tích 1 entry cache tạm, cleanupOrphanedLargeFileDownloadCacheEntries() sẽ dọn tiếp sau */ }); }, SAV_DOWNLOAD_CACHE_CLEANUP_DELAY_MS);
 }
