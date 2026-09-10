@@ -22,6 +22,69 @@ let writeOffset = 0;
 let zipWriter = null;
 let doneEntries = 0;
 
+/** Ngưỡng "treo thật" cho nén 1 entry (giống hệt lý do/giá trị `ENTRY_STALL_TIMEOUT_MS`,
+ * core/streaming-zip.js::_addEntryWithStallGuard() — Worker là script RIÊNG, thread RIÊNG, không
+ * gọi được hàm từ file đó nên viết LẠI bản tương đương ở đây) — SỬA (10/09/2026, Giang báo bug
+ * "hơn 1 phút vẫn không thoát loading shield") — Path A (main thread) đã có stall-guard, đúng như kỳ
+ * vọng tự rơi xuống Path B sau 20s treo, NHƯNG Path B (file NÀY) trước đây KHÔNG có bảo vệ nào ở bước
+ * nén từng entry — nếu gốc treo KHÔNG phải riêng `WritableStream` của Path A (vd do chính zip.js
+ * dùng `CompressionStream` gốc bị treo trên bản Safari 26 này, ẢNH HƯỞNG CẢ 2 Path vì dùng chung 1
+ * logic nén) thì Path B treo tiếp VÔ THỜI HẠN, không có lối thoát nào — đúng triệu chứng "hơn 1
+ * phút". Giờ Path B CŨNG có stall-guard y hệt Path A — treo thật (đo qua `onprogress` của zip.js,
+ * KHÔNG phải tổng thời gian nén — file lớn nén chậm nhưng vẫn tiến triển sẽ KHÔNG bị huỷ oan) thì
+ * `postMessage({type:'error'})` về main thread, `_writeViaWorker()` reject, CẢ 2 Path đã thất bại ->
+ * `_compressZipEntries()` (core/storage-manager.js) tự rơi về JSZip cũ (KHÔNG dùng CompressionStream,
+ * tránh đúng gốc nghi vấn). */
+const ENTRY_STALL_TIMEOUT_MS = 20000;
+
+/** Ngưỡng riêng cho bước `zipWriter.close()` (finish) — bước này KHÔNG xử lý byte theo entry (chỉ
+ * ghi central directory, bình thường rất nhanh) nên dùng 1 timeout CỐ ĐỊNH đơn giản, cùng tinh thần
+ * timeout "bắt tay" (`_withTimeout()`, core/streaming-zip.js) thay vì cơ chế đo tiến triển như
+ * `_addEntryWithStallGuard()`. */
+const CLOSE_STALL_TIMEOUT_MS = 20000;
+
+/** Đua 1 Promise với thời hạn cố định — bản LOCAL của `_withTimeout()` (core/streaming-zip.js, thread
+ * khác không gọi chéo được). Dùng cho bước `close()`. */
+function _raceTimeout(promise, ms, label) {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Hết thời gian chờ (${label})`)), ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+/** Nén 1 entry trong Worker, đua với "đồng hồ báo treo" tự reset mỗi khi zip.js bắn `onprogress` —
+ * bản LOCAL của `_addEntryWithStallGuard()` (core/streaming-zip.js), xem docstring đầy đủ ở
+ * `ENTRY_STALL_TIMEOUT_MS` ngay trên. */
+function _addEntryWithStallGuard(filename, blob) {
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        let stallTimer;
+        const armStallTimer = () => {
+            clearTimeout(stallTimer);
+            stallTimer = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                reject(new Error(`Treo khi nén "${filename}" trong Worker — không có tiến triển byte nào trong ${ENTRY_STALL_TIMEOUT_MS / 1000}s`));
+            }, ENTRY_STALL_TIMEOUT_MS);
+        };
+        armStallTimer();
+        zipWriter.add(filename, new zip.BlobReader(blob), {
+            onprogress: () => { if (!settled) armStallTimer(); }, // zip.js — có tiến triển byte thật, reset đồng hồ
+        }).then(() => {
+            if (settled) return; // đã reject vì stall từ trước (hiếm, race) — kết quả trễ này bỏ qua
+            settled = true;
+            clearTimeout(stallTimer);
+            resolve();
+        }).catch((err) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(stallTimer);
+            reject(err);
+        });
+    });
+}
+
 /** "Writable" GIẢ LẬP cho `createSyncAccessHandle()` — ghi thẳng qua accessHandle ĐỒNG BỘ.
  * SỬA (10/09/2026, Giang báo bug "treo ở màn Packing zip file") — TRƯỚC ĐÂY trả về 1 object TỰ CHẾ
  * (chỉ có `getWriter()` trả `{write, close, releaseLock}` viết tay) — KHÔNG phải WritableStream
@@ -64,13 +127,13 @@ self.onmessage = async (e) => {
             return;
         }
         if (msg.type === 'entry') {
-            await zipWriter.add(msg.filename, new zip.BlobReader(msg.blob));
+            await _addEntryWithStallGuard(msg.filename, msg.blob);
             doneEntries++;
             self.postMessage({ type: 'entry-done', done: doneEntries });
             return;
         }
         if (msg.type === 'finish') {
-            await zipWriter.close();
+            await _raceTimeout(zipWriter.close(), CLOSE_STALL_TIMEOUT_MS, 'zipWriter.close()');
             accessHandle.flush();
             accessHandle.close();
             self.postMessage({ type: 'done' });
