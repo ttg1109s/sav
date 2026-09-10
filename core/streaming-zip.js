@@ -100,6 +100,16 @@ function _withTimeout(promise, ms, label) {
  * Xây dựng .zip STREAM thẳng vào 1 file OPFS tạm — KHÔNG dựng liền 1 khối Blob trong RAM (xem
  * docstring đầu file để biết đầy đủ 2 cách A/B). Ném lỗi ra ngoài nếu CẢ 2 cách đều thất bại — nơi
  * gọi (`buildAllXZipBlob()`, core/storage-manager.js) tự bắt để rơi về JSZip cũ.
+ *
+ * SỬA (10/09/2026, Giang báo bug "treo vô thời hạn ở màn Packing zip file (0%)" — xác nhận xảy ra
+ * trên iOS 26/Safari 26 MỚI NHẤT, cờ "File System WritableStream" đã BẬT sẵn — nghĩa là KHÔNG phải
+ * do Safari thiếu hỗ trợ `createWritable()` như trước đây, mà nghi do 1 kiểu tương tác lỗi/kẹt giữa
+ * zip.js và bản cài WritableStream còn non của Safari 26, CHƯA rõ nguyên nhân sâu) — `_writeViaMainThread()`
+ * giờ tự huỷ giữa chừng qua `_addEntryWithStallGuard()` nếu 1 entry hoàn toàn KHÔNG có tiến triển
+ * byte nào (không phải "chậm", mà "đứng hình" thật) — lỗi đó ném ra tới ĐÂY, rơi xuống Path B (Worker)
+ * giống mọi lỗi Path A khác. Path A bỏ dở CÓ THỂ vẫn giữ khoá ghi trên file OPFS đang dùng (huỷ giữa
+ * chừng, không có cách chắc chắn giải phóng khoá đó từ ngoài) — nên Path B (VÀ file trả về cuối
+ * cùng) giờ dùng 1 TÊN FILE MỚI, KHÔNG tái dùng tên đã cấp cho Path A, tránh bị chính khoá đó chặn.
  * @param {Array<{filename:string, blob:Blob}>} entries
  * @param {(done:number,total:number,percent:number|null) => void} [onProgress]
  * @returns {Promise<File>} - 1 File (là Blob) trỏ vào file OPFS vừa ghi, có thêm thuộc tính JS tuỳ
@@ -110,13 +120,19 @@ async function buildZipStreamingToOpfs(entries, onProgress) {
     await _ensureZipJsLoaded();
     const root = await navigator.storage.getDirectory();
     const tmpDirHandle = await root.getDirectoryHandle(OPFS_ZIP_TEMP_DIR, { create: true });
-    const tmpFileName = `zip-${Date.now()}-${Math.random().toString(36).slice(2)}.zip`;
-    const fileHandle = await tmpDirHandle.getFileHandle(tmpFileName, { create: true });
+    let tmpFileName = `zip-${Date.now()}-${Math.random().toString(36).slice(2)}.zip`;
+    let fileHandle = await tmpDirHandle.getFileHandle(tmpFileName, { create: true });
 
     try {
         await _writeViaMainThread(fileHandle, entries, onProgress); // Path A
     } catch (errA) {
-        console.warn('[streaming-zip] createWritable() không dùng được (thường do Safari chưa hỗ trợ), thử qua Worker (createSyncAccessHandle):', errA);
+        console.warn('[streaming-zip] Path A (createWritable) lỗi/treo, thử qua Worker (createSyncAccessHandle):', errA);
+        // Path A có thể đã bỏ dở GIỮA CHỪNG (không chỉ lỗi NGAY từ createWritable() như trước) —
+        // dọn thử file tạm cũ (best-effort, có thể vẫn đang khoá nếu treo thật, bỏ qua lỗi — không
+        // chặn fallback) rồi cấp TÊN MỚI cho Path B, xem docstring hàm này để biết lý do đầy đủ.
+        try { await tmpDirHandle.removeEntry(tmpFileName); } catch (e) { /* đang khoá/đã mất — bỏ qua */ }
+        tmpFileName = `zip-${Date.now()}-${Math.random().toString(36).slice(2)}.zip`;
+        fileHandle = await tmpDirHandle.getFileHandle(tmpFileName, { create: true });
         await _writeViaWorker(tmpFileName, entries, onProgress); // Path B
     }
 
@@ -141,20 +157,78 @@ async function cleanupStreamingZipTemp(tmpFileName) {
     }
 }
 
+/** Ngưỡng "treo thật" cho việc nén 1 entry ở Path A — SỬA (10/09/2026, Giang báo bug "treo vô thời
+ * hạn ở màn Packing zip file (0%)" trên iOS 26/Safari 26 mới nhất). KHÔNG phải ngưỡng THỜI GIAN NÉN
+ * (file lớn nén lâu vẫn bình thường, KHÔNG nên bị huỷ — lý do trước đây vòng lặp nén cố tình không
+ * có timeout nào) — mà là ngưỡng THỜI GIAN KHÔNG CÓ TIẾN TRIỂN byte nào, đo qua callback `onprogress`
+ * của zip.js (xem `_addEntryWithStallGuard()` ngay dưới). File lớn đang nén chậm nhưng VẪN bắn
+ * onprogress đều (dù thưa) sẽ KHÔNG bao giờ bị huỷ oan — chỉ "hoàn toàn không nhúc nhích" trong suốt
+ * khoảng này mới bị coi là treo thật. */
+const ENTRY_STALL_TIMEOUT_MS = 20000;
+
+/** Nén 1 entry, đua với 1 "đồng hồ báo treo" TỰ RESET mỗi khi zip.js bắn `onprogress` (tiến triển
+ * byte THẬT) — CHỈ reject khi trôi quá `ENTRY_STALL_TIMEOUT_MS` mà KHÔNG có bất kỳ tiến triển nào,
+ * kể cả từ lúc BẮT ĐẦU (đồng hồ chạy NGAY từ đầu — đúng triệu chứng Giang gặp: kẹt cứng ở 0%, chưa
+ * từng bắn onprogress lần nào để có cơ hội reset).
+ * @param {zip.ZipWriter} zipWriter @param {{filename:string, blob:Blob}} entry
+ * @returns {Promise<void>}
+ */
+function _addEntryWithStallGuard(zipWriter, entry) {
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        let stallTimer;
+        const armStallTimer = () => {
+            clearTimeout(stallTimer);
+            stallTimer = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                reject(new Error(`Treo khi nén "${entry.filename}" — không có tiến triển byte nào trong ${ENTRY_STALL_TIMEOUT_MS / 1000}s (nghi Path A/createWritable kẹt)`));
+            }, ENTRY_STALL_TIMEOUT_MS);
+        };
+        armStallTimer();
+        zipWriter.add(entry.filename, new zip.BlobReader(entry.blob), {
+            onprogress: () => { if (!settled) armStallTimer(); }, // zip.js — có tiến triển byte thật, reset đồng hồ
+        }).then(() => {
+            if (settled) return; // đã reject vì stall từ trước (hiếm, race) — kết quả trễ này bỏ qua
+            settled = true;
+            clearTimeout(stallTimer);
+            resolve();
+        }).catch((err) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(stallTimer);
+            reject(err);
+        });
+    });
+}
+
 /** Path A — `createWritable()`, chạy thẳng main thread, không cần Worker. Ném lỗi nếu Safari chưa
  * hỗ trợ (bắt ở `buildZipStreamingToOpfs()` để rơi xuống Path B) — bước `createWritable()` bọc
  * `_withTimeout()` (10s, xem docstring hàm đó) phòng trường hợp API không hỗ trợ đúng cách nhưng
- * treo thay vì reject ngay. */
+ * treo thay vì reject ngay.
+ * SỬA (10/09/2026, Giang báo bug "treo vô thời hạn ở màn Packing zip file (0%)") — từng entry giờ
+ * nén qua `_addEntryWithStallGuard()` (ngay trên) thay vì gọi thẳng `zipWriter.add()` — phát hiện
+ * đúng kiểu "treo thật, không nhúc nhích byte nào" thay vì để `for` đứng yên vô thời hạn không có lối
+ * thoát nào. Lỗi/stall ném ra ngoài -> `buildZipStreamingToOpfs()` bắt, huỷ writable (best-effort)
+ * rồi rơi xuống Path B. */
 async function _writeViaMainThread(fileHandle, entries, onProgress) {
     const writable = await _withTimeout(fileHandle.createWritable(), 10000, 'createWritable()');
     const zipWriter = new zip.ZipWriter(writable, { bufferedWrite: true });
     let done = 0;
-    for (const entry of entries) {
-        await zipWriter.add(entry.filename, new zip.BlobReader(entry.blob));
-        done++;
-        if (onProgress) onProgress(done, entries.length, Math.round((done / entries.length) * 100));
+    try {
+        for (const entry of entries) {
+            await _addEntryWithStallGuard(zipWriter, entry);
+            done++;
+            if (onProgress) onProgress(done, entries.length, Math.round((done / entries.length) * 100));
+        }
+        await zipWriter.close();
+    } catch (err) {
+        // Best-effort huỷ writable đang dở — KHÔNG await vô thời hạn (bản thân writable có thể
+        // CHÍNH LÀ nguồn treo), bọc timeout ngắn riêng; lỗi/timeout ở bước dọn này KHÔNG che lỗi
+        // gốc (vẫn throw err gốc ra ngoài để buildZipStreamingToOpfs() rơi đúng nhánh Path B).
+        try { await _withTimeout(writable.abort(), 3000, 'writable.abort()'); } catch (e2) { /* dọn thất bại — bỏ qua, không chặn fallback */ }
+        throw err;
     }
-    await zipWriter.close();
 }
 
 /** Path B — giao hẳn cho core/workers/opfs-zip-worker.js (createSyncAccessHandle() BẮT BUỘC chạy
