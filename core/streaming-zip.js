@@ -26,8 +26,9 @@
  *      lần sửa trước).
  * Thử A trước (đơn giản, không cần Worker) — lỗi/không hỗ trợ thì rơi xuống B. Cả 2 đều thất bại
  * (OPFS hoàn toàn không tồn tại — browser rất cũ, gần như không còn theo Baseline hiện tại) thì ném
- * lỗi ra ngoài — nơi gọi (`buildAllXZipBlob()`, core/storage-manager.js) tự bắt để rơi về nhánh
- * JSZip cũ làm lưới an toàn cuối cùng, không có browser nào "không tải được gì cả".
+ * lỗi ra ngoài — nơi gọi (`_compressZipEntries()`, core/storage-manager.js) tự bắt và báo lỗi rõ
+ * ràng cho người dùng. XOÁ (10/09/2026, Giang yêu cầu "loại bỏ toàn bộ JSZip") — KHÔNG còn nhánh
+ * JSZip nào để rơi về nữa, zip.js/OPFS giờ là đường DUY NHẤT trong toàn app.
  *
  * NẠP SAU: (không phụ thuộc file core nào khác — chỉ cần `t()`, lang/lang.js, cho thông báo lỗi).
  * NẠP TRƯỚC: core/storage-manager.js (gọi `isStreamingZipAvailable()`/`buildZipStreamingToOpfs()`).
@@ -49,9 +50,9 @@ const ZIP_JS_CDN_URL = 'https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.62/dist/
 const OPFS_ZIP_TEMP_DIR = 'sav-zip-tmp'; // thư mục tạm riêng trong OPFS — chỉ chứa file .zip vừa ghi xong, chờ người dùng tải/share rồi dọn (cleanupStreamingZipTemp())
 
 /** Kiểm tra NHANH (đồng bộ, chỉ soi sự TỒN TẠI của API — không gọi thật, không async) có khả năng
- * dùng đường streaming OPFS hay không — dùng ở event/workflow/file-manager-storage.js để quyết định
- * có cần hỏi cảnh báo dung lượng (ngưỡng cũ, ZIP_MEMORY_SAFE_LIMIT_BYTES) hay bỏ hẳn bước đó (OPFS
- * sẵn có thì không còn giới hạn dung lượng nào để cảnh báo nữa).
+ * dùng đường streaming OPFS hay không — dùng ở core/storage-manager.js (`_compressZipEntries()`) để
+ * quyết định nén được hay ném lỗi (KHÔNG còn nhánh JSZip nào để rơi về — 10/09/2026, Giang yêu cầu
+ * "loại bỏ toàn bộ JSZip").
  * @returns {boolean}
  */
 function isStreamingZipAvailable() {
@@ -104,7 +105,7 @@ function _ensureZipJsLoaded() {
 /** Đua 1 Promise với thời hạn — SỬA (10/09/2026, Giang báo bug "treo ở màn Packing zip file") —
  * PHÒNG THỦ THÊM cho các bước "bắt đầu/bắt tay" (createWritable()/Worker báo 'ready') — nếu API
  * KHÔNG hỗ trợ đúng cách nhưng KHÔNG throw ngay (treo im lặng thay vì reject) thì vẫn có lối thoát
- * để rơi xuống Path kế tiếp/JSZip, thay vì treo UI vĩnh viễn không có cách nào tự phục hồi. CHỈ áp
+ * để rơi xuống Path kế tiếp, thay vì treo UI vĩnh viễn không có cách nào tự phục hồi. CHỈ áp
  * dụng cho bước "bắt tay" (nên gần như tức thời nếu hoạt động đúng) — KHÔNG áp dụng cho việc nén
  * từng entry (file lớn nén lâu là bình thường, không phải treo, không nên bị huỷ giữa chừng).
  */
@@ -119,7 +120,8 @@ function _withTimeout(promise, ms, label) {
 /**
  * Xây dựng .zip STREAM thẳng vào 1 file OPFS tạm — KHÔNG dựng liền 1 khối Blob trong RAM (xem
  * docstring đầu file để biết đầy đủ 2 cách A/B). Ném lỗi ra ngoài nếu CẢ 2 cách đều thất bại — nơi
- * gọi (`buildAllXZipBlob()`, core/storage-manager.js) tự bắt để rơi về JSZip cũ.
+ * gọi (`_compressZipEntries()`, core/storage-manager.js) tự bắt và báo lỗi rõ ràng cho người dùng
+ * (KHÔNG còn JSZip để rơi về — 10/09/2026, Giang yêu cầu "loại bỏ toàn bộ JSZip").
  *
  * SỬA (10/09/2026, Giang báo bug "treo vô thời hạn ở màn Packing zip file (0%)") — `_writeViaMainThread()`
  * tự huỷ giữa chừng qua `_addEntryWithStallGuard()` nếu 1 entry hoàn toàn KHÔNG có tiến triển byte
@@ -387,7 +389,7 @@ function _writeViaWorker(tmpFileName, entries, onProgress) {
     })).finally(() => {
         // Timeout ở bước 'ready' (Promise.race thua) thì Worker vẫn có thể đang chạy ngầm (không có
         // cách huỷ importScripts()/createSyncAccessHandle() đang treo giữa chừng) — terminate() dứt
-        // khoát tại đây để không rò rỉ Worker treo mãi trong nền dù luồng chính đã rơi về JSZip.
+        // khoát tại đây để không rò rỉ Worker treo mãi trong nền dù luồng chính đã báo lỗi.
         worker.terminate();
     });
 }
