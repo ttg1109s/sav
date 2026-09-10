@@ -29,7 +29,13 @@ const routerVideoPlayer = (() => {
                         workflowVideoPlayer.playVideoByKey(key, switchScreen, true); // đã ở Video Player mode (Next/Prev/shuffle, hoặc bấm lại video đang phát từ Playlist) -> CHỈ đổi video, KHÔNG lặp lại bước "vào mode". isTransition=true — cưỡng chế bg thumb dự phòng (event/workflow/video-player.js::playVideoByKey())
                     } },
                     { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
-                        workflowVideoPlayer.startFromPlaylist(key); // CHƯA ở mode -> vào mode đầy đủ (>1 hàm core nối tiếp: đọc DB + mutate state + điều khiển nhiều element) -> workflow, luôn switchScreen=true (vào mode lần đầu luôn cần chuyển màn), xem playVideoByKey() bên trong
+                        // FIX (10/09/2026, Giang báo bug "hết bài lúc đang duyệt Playlist Video/Photo
+                        // bị ép mở Visualizer") — TRƯỚC ĐÂY gọi `startFromPlaylist(key)` KHÔNG kèm
+                        // `switchScreen`, LUÔN ép chuyển màn hình dù người gọi (vd auto-next lúc Song
+                        // hết bài trong lúc đang duyệt Playlist ở Nguồn Video) đã tính đúng `false` —
+                        // giờ truyền xuống ĐÚNG giá trị vừa nhận ở payload, xem docstring
+                        // `startFromPlaylist()` (event/workflow/video-player.js).
+                        workflowVideoPlayer.startFromPlaylist(key, switchScreen); // CHƯA ở mode -> vào mode đầy đủ (>1 hàm core nối tiếp: đọc DB + mutate state + điều khiển nhiều element) -> workflow
                     } },
                 ]);
                 break;
