@@ -121,23 +121,18 @@ function _withTimeout(promise, ms, label) {
  * docstring đầu file để biết đầy đủ 2 cách A/B). Ném lỗi ra ngoài nếu CẢ 2 cách đều thất bại — nơi
  * gọi (`buildAllXZipBlob()`, core/storage-manager.js) tự bắt để rơi về JSZip cũ.
  *
- * SỬA (10/09/2026, Giang báo bug "treo vô thời hạn ở màn Packing zip file (0%)" — xác nhận xảy ra
- * trên iOS 26/Safari 26 MỚI NHẤT, cờ "File System WritableStream" đã BẬT sẵn — nghĩa là KHÔNG phải
- * do Safari thiếu hỗ trợ `createWritable()` như trước đây, mà nghi do 1 kiểu tương tác lỗi/kẹt giữa
- * zip.js và bản cài WritableStream còn non của Safari 26, CHƯA rõ nguyên nhân sâu) — `_writeViaMainThread()`
- * giờ tự huỷ giữa chừng qua `_addEntryWithStallGuard()` nếu 1 entry hoàn toàn KHÔNG có tiến triển
- * byte nào (không phải "chậm", mà "đứng hình" thật) — lỗi đó ném ra tới ĐÂY, rơi xuống Path B (Worker)
- * giống mọi lỗi Path A khác. Path A bỏ dở CÓ THỂ vẫn giữ khoá ghi trên file OPFS đang dùng (huỷ giữa
- * chừng, không có cách chắc chắn giải phóng khoá đó từ ngoài) — nên Path B (VÀ file trả về cuối
- * cùng) giờ dùng 1 TÊN FILE MỚI, KHÔNG tái dùng tên đã cấp cho Path A, tránh bị chính khoá đó chặn.
+ * SỬA (10/09/2026, Giang báo bug "treo vô thời hạn ở màn Packing zip file (0%)") — `_writeViaMainThread()`
+ * tự huỷ giữa chừng qua `_addEntryWithStallGuard()` nếu 1 entry hoàn toàn KHÔNG có tiến triển byte
+ * nào — lỗi đó ném ra tới ĐÂY, rơi xuống Path B (Worker). Path A bỏ dở CÓ THỂ vẫn giữ khoá ghi trên
+ * file OPFS đang dùng (huỷ giữa chừng, không có cách chắc chắn giải phóng khoá đó từ ngoài) — nên
+ * Path B (VÀ file trả về cuối cùng) dùng 1 TÊN FILE MỚI, KHÔNG tái dùng tên đã cấp cho Path A.
  *
- * SỬA (10/09/2026, Giang yêu cầu tìm hiểu gốc bệnh treo) — GIỮA Path A (nén bình thường) và Path B
- * (Worker), giờ chen thêm 1 nhánh "Path A'": THỬ LẠI CHÍNH `_writeViaMainThread()` (vẫn
- * `createWritable()`, chưa cần bật Worker) nhưng với `{level: 0}` (tắt hẳn nén) — kiểm chứng giả
- * thuyết gốc bệnh là `CompressionStream` (WebKit), KHÔNG PHẢI `createWritable()`/OPFS (xem docstring
- * `_writeViaMainThread()` để biết đầy đủ bằng chứng: Node.js #51728 "CompressionStream hangs", WebKit
- * bug #254021). Path A' CŨNG lỗi/treo mới thật sự rơi xuống Path B — Path B GIỮ NGUYÊN nén bình
- * thường (chưa đổi mặc định cho Path B, chỉ đang kiểm chứng ở Path A' trước).
+ * SỬA (10/09/2026, Giang xác nhận qua log — TÌM RA + SỬA GỐC BỆNH THẬT: zip.js mặc định
+ * `useWebWorkers: true`, xem docstring đầy đủ ở `_ensureZipJsLoaded()`) — trong lúc điều tra đã từng
+ * thử qua nhiều giả thuyết SAI (WritableStream Safari 26, CompressionStream — có đợt chen thêm 1
+ * nhánh "Path A'" thử `level:0` để kiểm chứng — ĐÃ BỎ vì không còn cần thiết, gốc bệnh thật không
+ * liên quan gì tới nén/không nén). Giờ về lại ĐÚNG 2 nhánh gốc: Path A (nén bình thường,
+ * `createWritable()`) rồi Path B (Worker, `createSyncAccessHandle()`) nếu Path A lỗi/treo.
  * @param {Array<{filename:string, blob:Blob}>} entries
  * @param {(done:number,total:number,percent:number|null) => void} [onProgress]
  * @returns {Promise<File>} - 1 File (là Blob) trỏ vào file OPFS vừa ghi, có thêm thuộc tính JS tuỳ
@@ -156,20 +151,11 @@ async function buildZipStreamingToOpfs(entries, onProgress) {
         clearInterval(hb);
     }
 
-    /** Cấp 1 tên file tạm MỚI + mở handle — DÙNG CHUNG cho mọi lượt thử (Path A/A'/B), tách hàm vì
-     * giờ có TỚI 3 lượt thử thay vì 2 như trước. */
+    /** Cấp 1 tên file tạm MỚI + mở handle — DÙNG CHUNG cho Path A/B. */
     async function freshFileHandle() {
         const name = `zip-${Date.now()}-${Math.random().toString(36).slice(2)}.zip`;
         const handle = await tmpDirHandle.getFileHandle(name, { create: true });
         return { name, handle };
-    }
-
-    /** Dọn thử 1 file tạm bỏ dở (best-effort, timeout ngắn RIÊNG — xem lý do đầy đủ ở lần SỬA
-     * 10/09/2026 "vẫn treo hơn 20s" trước đó) — DÙNG CHUNG cho mọi lượt fallback. */
-    async function cleanupBestEffort(name, label) {
-        hbStart = Date.now();
-        hb = setInterval(() => console.log(`[streaming-zip] ...${Math.round((Date.now() - hbStart) / 1000)}s ${label}`), 1000);
-        try { await _withTimeout(tmpDirHandle.removeEntry(name), 3000, `removeEntry() ${label}`); } catch (e) { /* đang khoá/đã mất/hết giờ — bỏ qua */ } finally { clearInterval(hb); }
     }
 
     let { name: tmpFileName, handle: fileHandle } = await freshFileHandle();
@@ -177,19 +163,16 @@ async function buildZipStreamingToOpfs(entries, onProgress) {
     try {
         await _writeViaMainThread(fileHandle, entries, onProgress); // Path A — nén bình thường
     } catch (errA) {
-        console.warn('[streaming-zip] Path A (nén bình thường) lỗi/treo, thử lại với level:0 (tắt nén, kiểm chứng CompressionStream):', errA);
-        await cleanupBestEffort(tmpFileName, 'dọn file tạm Path A bỏ dở');
+        console.warn('[streaming-zip] Path A (createWritable) lỗi/treo, thử qua Worker (createSyncAccessHandle):', errA);
+        // Path A có thể đã bỏ dở GIỮA CHỪNG — dọn thử file tạm cũ (best-effort, bọc timeout ngắn
+        // RIÊNG — file này có thể vẫn đang bị chính writable/zipWriter bỏ dở của Path A khoá ghi,
+        // removeEntry() trên 1 file đang khoá CÓ THỂ tự nó cũng treo) rồi cấp TÊN MỚI cho Path B,
+        // bất kể dọn được hay không.
+        hbStart = Date.now();
+        hb = setInterval(() => console.log(`[streaming-zip] ...${Math.round((Date.now() - hbStart) / 1000)}s dọn file tạm Path A bỏ dở`), 1000);
+        try { await _withTimeout(tmpDirHandle.removeEntry(tmpFileName), 3000, 'removeEntry() file tạm Path A'); } catch (e) { /* đang khoá/đã mất/hết giờ — bỏ qua */ } finally { clearInterval(hb); }
         ({ name: tmpFileName, handle: fileHandle } = await freshFileHandle());
-
-        try {
-            await _writeViaMainThread(fileHandle, entries, onProgress, { level: 0 }); // Path A' — createWritable, TẮT NÉN
-            console.warn('[streaming-zip] Path A với level:0 (KHÔNG nén) THÀNH CÔNG sau khi bản có nén treo — xác nhận CompressionStream nhiều khả năng là gốc bệnh.');
-        } catch (errA0) {
-            console.warn('[streaming-zip] Path A (level:0) CŨNG lỗi/treo — vậy gốc bệnh KHÔNG chỉ ở CompressionStream — thử qua Worker (createSyncAccessHandle):', errA0);
-            await cleanupBestEffort(tmpFileName, 'dọn file tạm Path A (level:0) bỏ dở');
-            ({ name: tmpFileName, handle: fileHandle } = await freshFileHandle());
-            await _writeViaWorker(tmpFileName, entries, onProgress); // Path B
-        }
+        await _writeViaWorker(tmpFileName, entries, onProgress); // Path B
     }
 
     const file = await fileHandle.getFile();
@@ -222,35 +205,25 @@ async function cleanupStreamingZipTemp(tmpFileName) {
  * khoảng này mới bị coi là treo thật. */
 const ENTRY_STALL_TIMEOUT_MS = 20000;
 
-/** Nén 1 entry, đua với 1 "đồng hồ báo treo" TỰ RESET mỗi khi có tiến triển THẬT — CHỈ reject khi
- * trôi quá `ENTRY_STALL_TIMEOUT_MS` mà KHÔNG có bất kỳ tiến triển nào, kể cả từ lúc BẮT ĐẦU (đồng hồ
- * chạy NGAY từ đầu).
+/** Nén 1 entry, đua với 1 "đồng hồ báo treo" TỰ RESET mỗi khi zip.js bắn `onprogress` (tiến triển
+ * byte THẬT) — CHỈ reject khi trôi quá `ENTRY_STALL_TIMEOUT_MS` mà KHÔNG có bất kỳ tiến triển nào,
+ * kể cả từ lúc BẮT ĐẦU (đồng hồ chạy NGAY từ đầu).
  *
  * SỬA (10/09/2026, Giang báo "mở Debug Console lên không thấy log gì") — bắn 1 dòng console.log MỖI
  * GIÂY (`setInterval`) SUỐT lúc entry đang xử lý, xem docstring `ENTRY_STALL_TIMEOUT_MS` để biết lý
  * do đầy đủ.
  *
- * SỬA (10/09/2026, Giang xác nhận qua log — JSZip đọc Blob nguyên khối 1 lần (`.arrayBuffer()`) CHẠY
- * ĐƯỢC, RẤT NHANH (2s cho 1 file mp3 vài MB); trong khi `zip.BlobReader` (đọc CẮT LÁT nhiều lần qua
- * `blob.slice()` nội bộ) treo VÔ THỜI HẠN 0 byte — TRÊN CẢ 3 đường ghi độc lập khác nhau (Path A/A'/
- * B — khác thread, khác API ghi, có/không nén) — đều đứng yên ở ĐÚNG điểm đọc Blob nguồn IndexedDB
- * này. Kết luận: gốc bệnh nằm ở cách `zip.BlobReader`/`blob.slice()` đọc 1 Blob nguồn gốc IndexedDB
- * trên Safari, KHÔNG liên quan OPFS/WritableStream/CompressionStream như các giả thuyết trước) — giờ
- * đọc hẳn `entry.blob.arrayBuffer()` 1 LẦN DUY NHẤT (giống hệt cách JSZip đọc, đã xác nhận hoạt
- * động) rồi đưa `Uint8Array` kết quả vào `zip.Uint8ArrayReader` — KHÔNG dùng `zip.BlobReader`/
- * `blob.slice()` nữa, né đúng bước treo.
- *
- * ĐÁNH ĐỔI: RAM cho bước ĐỌC giờ tỉ lệ thuận với kích thước 1 FILE ĐANG xử lý (trước đây `BlobReader`
- * cắt lát giữ RAM cực thấp, không phụ thuộc kích thước file) — vẫn AN TOÀN hơn hẳn JSZip cũ (JSZip
- * giữ CẢ ARCHIVE — TỔNG mọi file — trong RAM CÙNG LÚC; đây chỉ giữ ĐÚNG 1 file đang xử lý TẠI 1 THỜI
- * ĐIỂM, đúng tinh thần "1 file tại 1 thời điểm" đã áp dụng xuyên suốt các lần sửa trước) — rủi ro CHỈ
- * còn với 1 file ĐƠN LẺ cực lớn (video nhiều GB) — nếu Giang gặp lại "crash PWA" với video khổng lồ,
- * đây là chỗ cần xem lại đầu tiên (cân nhắc tự cắt lát TAY, bằng `blob.slice()` + `arrayBuffer()`
- * từng đoạn, thay vì để zip.js cắt lát — CHƯA làm ở bản này vì chưa có bằng chứng `blob.slice()` tự
- * nó có lỗi hay không, chỉ mới biết `zip.BlobReader` nội bộ dùng nó bị treo).
+ * SỬA (10/09/2026, Giang xác nhận qua log — GỐC BỆNH TREO THẬT SỰ là `zip.js` mặc định
+ * `useWebWorkers: true`, tự cố spin 1 Worker nội bộ không tồn tại trong bản "no-worker" đang nạp —
+ * xem docstring đầy đủ ở `_ensureZipJsLoaded()`, ĐÃ SỬA bằng `zip.configure({useWebWorkers:false})`)
+ * — trong lúc điều tra, có đợt đổi tạm sang đọc hẳn `blob.arrayBuffer()` 1 lần + `Uint8ArrayReader`
+ * (nghi `zip.BlobReader`/`blob.slice()` là gốc bệnh, SAI — chỉ là hệ quả gián tiếp của cùng đứng chờ
+ * Worker nội bộ không tồn tại). Giờ ĐÃ XÁC NHẬN gốc bệnh thật, KHÔI PHỤC LẠI `zip.BlobReader` chuẩn
+ * (đọc CẮT LÁT qua `blob.slice()` nội bộ, KHÔNG đọc nguyên khối) — giữ đúng tinh thần RAM thấp ban
+ * đầu của toàn bộ thiết kế streaming OPFS (không phụ thuộc kích thước 1 file, an toàn cả với video
+ * nhiều GB, khác bản `Uint8ArrayReader` tạm thời vừa rồi).
  * @param {zip.ZipWriter} zipWriter @param {{filename:string, blob:Blob}} entry
- * @param {string} [pathLabel] - MỚI (10/09/2026) — nhãn hiển thị trong log (vd "Path A" hay
- *   "Path A (level:0, KHÔNG nén)") — phân biệt được đang chạy nhánh nén nào lúc đọc Debug Console.
+ * @param {string} [pathLabel] - nhãn hiển thị trong log (vd "Path A") — phân biệt nhánh nén nào lúc đọc Debug Console.
  * @returns {Promise<void>}
  */
 function _addEntryWithStallGuard(zipWriter, entry, pathLabel) {
@@ -260,15 +233,13 @@ function _addEntryWithStallGuard(zipWriter, entry, pathLabel) {
         let stallTimer;
         let lastProgress = 0;
         let lastTotal = null;
-        let phase = 'đọc blob.arrayBuffer()'; // đổi sang 'nén' ngay khi đọc xong, xem log rõ đang kẹt ở giai đoạn nào
         const startedAt = Date.now();
 
         const heartbeat = setInterval(() => {
             if (settled) return;
             const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
             const byteInfo = lastTotal != null ? `${lastProgress}/${lastTotal} byte` : `${lastProgress} byte`;
-            const stallNote = phase === 'nén' && lastProgress === 0 ? ' (CHƯA có tiến triển nào)' : '';
-            console.log(`[streaming-zip] ${pathLabel} ...${elapsedSec}s "${entry.filename}" — ${phase} — ${byteInfo}${stallNote}`);
+            console.log(`[streaming-zip] ${pathLabel} ...${elapsedSec}s nén "${entry.filename}" — đã xử lý ${byteInfo}${lastProgress === 0 ? ' (CHƯA có tiến triển nào)' : ''}`);
         }, 1000);
 
         const armStallTimer = () => {
@@ -277,40 +248,27 @@ function _addEntryWithStallGuard(zipWriter, entry, pathLabel) {
                 if (settled) return;
                 settled = true;
                 clearInterval(heartbeat);
-                reject(new Error(`Treo khi "${phase}" cho "${entry.filename}" (${pathLabel}) — không có tiến triển nào trong ${ENTRY_STALL_TIMEOUT_MS / 1000}s`));
+                reject(new Error(`Treo khi nén "${entry.filename}" (${pathLabel}) — không có tiến triển byte nào trong ${ENTRY_STALL_TIMEOUT_MS / 1000}s`));
             }, ENTRY_STALL_TIMEOUT_MS);
         };
         armStallTimer();
-
-        entry.blob.arrayBuffer().then((buffer) => {
-            if (settled) return; // đã reject vì stall trong lúc đọc arrayBuffer() — bỏ qua kết quả trễ
-            phase = 'nén';
-            armStallTimer(); // đọc xong buffer thật (tiến triển thật) -> reset đồng hồ, sang giai đoạn nén
-            const reader = new zip.Uint8ArrayReader(new Uint8Array(buffer));
-            zipWriter.add(entry.filename, reader, {
-                onprogress: (progress, total) => { // zip.js — có tiến triển byte thật, reset đồng hồ + cập nhật số byte cho heartbeat
-                    lastProgress = progress; lastTotal = total;
-                    if (!settled) armStallTimer();
-                },
-            }).then(() => {
-                if (settled) return; // đã reject vì stall từ trước (hiếm, race) — kết quả trễ này bỏ qua
-                settled = true;
-                clearInterval(heartbeat);
-                clearTimeout(stallTimer);
-                resolve();
-            }).catch((err) => {
-                if (settled) return;
-                settled = true;
-                clearInterval(heartbeat);
-                clearTimeout(stallTimer);
-                reject(err);
-            });
-        }).catch((err) => {
-            if (settled) return; // đã reject vì stall trong lúc đọc arrayBuffer() — kết quả lỗi trễ này bỏ qua
+        zipWriter.add(entry.filename, new zip.BlobReader(entry.blob), {
+            onprogress: (progress, total) => { // zip.js — có tiến triển byte thật, reset đồng hồ + cập nhật số byte cho heartbeat
+                lastProgress = progress; lastTotal = total;
+                if (!settled) armStallTimer();
+            },
+        }).then(() => {
+            if (settled) return; // đã reject vì stall từ trước (hiếm, race) — kết quả trễ này bỏ qua
             settled = true;
             clearInterval(heartbeat);
             clearTimeout(stallTimer);
-            reject(new Error(`Lỗi đọc blob.arrayBuffer() cho "${entry.filename}" (${pathLabel}): ${err && err.message ? err.message : err}`));
+            resolve();
+        }).catch((err) => {
+            if (settled) return;
+            settled = true;
+            clearInterval(heartbeat);
+            clearTimeout(stallTimer);
+            reject(err);
         });
     });
 }
@@ -324,21 +282,11 @@ function _addEntryWithStallGuard(zipWriter, entry, pathLabel) {
  * đúng kiểu "treo thật, không nhúc nhích byte nào" thay vì để `for` đứng yên vô thời hạn không có lối
  * thoát nào. Lỗi/stall ném ra ngoài -> `buildZipStreamingToOpfs()` bắt, huỷ writable (best-effort)
  * rồi rơi xuống Path B.
- *
- * SỬA (10/09/2026, Giang yêu cầu tìm hiểu gốc bệnh treo) — thêm tham số `zipWriterOptions` (tuỳ
- * chọn) — `buildZipStreamingToOpfs()` giờ gọi lại hàm NÀY LẦN 2 với `{level: 0}` (tắt hẳn nén, chỉ
- * "store") nếu lượt nén bình thường bị treo, để KIỂM CHỨNG giả thuyết `CompressionStream` (WebKit)
- * mới là gốc bệnh thật (đã ghi nhận ĐỘC LẬP ở nhiều engine — Node.js issue #51728 "CompressionStream
- * hangs", WebKit bug #254021 xử lý sai output lớn ở bước flush — KHÔNG liên quan gì tới
- * `createWritable()`/OPFS, mà tới chính bước NÉN, ảnh hưởng CẢ Path A lẫn Path B vì cả 2 đều gọi
- * chung `zipWriter.add()`). `level: 0` né HOÀN TOÀN CompressionStream (chỉ đóng gói, không nén) —
- * nếu nhánh này chạy được, xác nhận đúng giả thuyết, file to hơn 1 chút nhưng ít nhất tải được.
  * @param {FileSystemFileHandle} fileHandle @param {Array<{filename:string, blob:Blob}>} entries
  * @param {(done:number,total:number,percent:number|null) => void} [onProgress]
- * @param {{level?: number}} [zipWriterOptions] - truyền thẳng vào `new zip.ZipWriter(writable, {...})`
  */
-async function _writeViaMainThread(fileHandle, entries, onProgress, zipWriterOptions) {
-    const pathLabel = zipWriterOptions && zipWriterOptions.level === 0 ? 'Path A (level:0, KHÔNG nén)' : 'Path A';
+async function _writeViaMainThread(fileHandle, entries, onProgress) {
+    const pathLabel = 'Path A';
     // SỬA (10/09/2026, cùng đợt "mở Debug Console không thấy log gì") — heartbeat riêng cho bước
     // bắt tay createWritable() — bước này ĐÃ có `_withTimeout()` 10s nên hiếm khi thật sự cần, nhưng
     // vẫn thêm để Debug Console KHÔNG im lặng ngay cả trong 10s đầu đó.
@@ -352,7 +300,7 @@ async function _writeViaMainThread(fileHandle, entries, onProgress, zipWriterOpt
     } finally {
         clearInterval(createWritableHb);
     }
-    const zipWriter = new zip.ZipWriter(writable, { bufferedWrite: true, ...(zipWriterOptions || {}) });
+    const zipWriter = new zip.ZipWriter(writable, { bufferedWrite: true });
     let done = 0;
     try {
         for (const entry of entries) {
