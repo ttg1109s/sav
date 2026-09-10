@@ -197,6 +197,12 @@
     <script src="https://cdn.jsdelivr.net/npm/browser-id3-writer@4/dist/browser-id3-writer.js"></script>
     <!-- Đóng gói nhiều file mp3 thành 1 file .zip lúc "Tải toàn bộ rồi xóa" (Quản lý dung lượng) -->
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <!-- MỚI (10/09/2026, Giang yêu cầu "làm đầy đủ, thay JSZip toàn app") — zip.js (@zip.js/zip.js),
+         core/streaming-zip.js dùng để nén STREAM thẳng vào OPFS, không giới hạn dung lượng RAM như
+         JSZip (generateAsync({type:'blob'}) bắt buộc dựng liền 1 khối trong RAM). JSZip GIỮ LẠI ở
+         trên — core/storage-manager.js vẫn rơi về JSZip làm lưới an toàn cuối cùng khi OPFS hoàn
+         toàn không hỗ trợ (browser rất cũ), xem docstring core/streaming-zip.js để biết đầy đủ. -->
+    <script src="https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.62/dist/zip-no-worker.min.js"></script>
     <!-- XOÁ (29/07/2026, yêu cầu Giang mục 1/2) — mediainfo.js (WASM, CDN unpkg) từng dùng phân
          tích codec/fps/bitrate video lúc upload (event/workflow/file-manager-video.js::
          _extractVideoMediaInfo(), ĐÃ XOÁ) — tab "Chi tiết" không còn hiển thị các field này nữa
@@ -796,6 +802,9 @@
          modalChoice() hỏi xác nhận trước khi xóa). Xem comment đầu file lang/language-settings.js. -->
     <script src="lang/language-settings.js?v=20260627v1"></script>
     <script src="core/id3-export.js?v=20260625v8e"></script>
+    <!-- MỚI (10/09/2026) — core/streaming-zip.js: nén .zip STREAM thẳng vào OPFS thay JSZip, xem
+         docstring đầu file đó. NẠP TRƯỚC storage-manager.js (hàm buildAllXZipBlob() ở đó gọi tới). -->
+    <script src="core/streaming-zip.js?v=20260910v1"></script>
     <script src="core/storage-manager.js?v=20260729v2"></script>
 
     <!-- 4) VISUALIZERS: hàm vẽ canvas dùng chung (core/visualizer/draw/), từng visual riêng
