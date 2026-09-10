@@ -221,7 +221,12 @@ async function _writeViaMainThread(fileHandle, entries, onProgress) {
             done++;
             if (onProgress) onProgress(done, entries.length, Math.round((done / entries.length) * 100));
         }
-        await zipWriter.close();
+        // SỬA (10/09/2026, cùng đợt bug "hơn 1 phút vẫn không thoát loading shield") — bước
+        // `close()` (chốt file, ghi central directory) TRƯỚC ĐÂY không có timeout, đối xứng đúng lỗ
+        // hổng vừa vá ở Worker (core/workers/opfs-zip-worker.js) — nếu mọi entry nén xong nhưng
+        // riêng bước đóng file treo thì vẫn lọt lưới stall-guard ở trên. `_withTimeout()` sẵn có
+        // (khai báo đầu file) — 20s, cùng ngưỡng `ENTRY_STALL_TIMEOUT_MS`.
+        await _withTimeout(zipWriter.close(), ENTRY_STALL_TIMEOUT_MS, 'zipWriter.close()');
     } catch (err) {
         // Best-effort huỷ writable đang dở — KHÔNG await vô thời hạn (bản thân writable có thể
         // CHÍNH LÀ nguồn treo), bọc timeout ngắn riêng; lỗi/timeout ở bước dọn này KHÔNG che lỗi
