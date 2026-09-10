@@ -626,7 +626,8 @@ const workflowPlaylist = {
 
     /**
      * "Xuất ZIP" — build tag mới nhất cho từng bài (tái dùng buildTaggedBlob() có sẵn ở
-     * core/id3-export.js), gom vào 1 file .zip (JSZip, đã có sẵn qua CDN) rồi tải xuống 1 lần —
+     * core/id3-export.js), gom vào 1 file .zip (`_compressZipEntries()`, core/storage-manager.js —
+     * SỬA 10/09/2026, ưu tiên streaming OPFS qua zip.js thay JSZip trực tiếp) rồi tải xuống 1 lần —
      * KHÔNG gọi exportSongWithTag() có sẵn (mỗi lần tự bọc withLoadingShield() riêng — lồng shield
      * sẽ bị chặn bởi isShieldBusy, xem loading-shield-util.js).
      */
@@ -637,20 +638,27 @@ const workflowPlaylist = {
         let failedCount = 0;
         let zipBlob;
         await withLoadingShield(t('common.loading.exportingFile'), async () => {
-            const zip = new JSZip();
+            const entries = [];
             for (const key of keys) {
                 const record = await getSongRecord(key);
                 if (!record) { failedCount++; continue; } // guard: bài không còn tồn tại (race) — bỏ qua
                 try {
                     const taggedBlob = await buildTaggedBlob(record); // core có sẵn, CÓ return, DÙNG ngay dưới
-                    zip.file(record.filename, taggedBlob);
+                    entries.push({ filename: record.filename, blob: taggedBlob });
                 } catch (e) {
                     console.error('[workflow:playlist] Lỗi ghi tag lúc xuất ZIP hàng loạt, dùng file gốc thay thế:', e);
-                    zip.file(record.filename, record.blob);
+                    entries.push({ filename: record.filename, blob: record.blob });
                     failedCount++;
                 }
             }
-            zipBlob = await zip.generateAsync({ type: 'blob' });
+            // SỬA (10/09/2026, Giang yêu cầu "làm đầy đủ, thay JSZip toàn app") — TRƯỚC ĐÂY dùng
+            // thẳng `new JSZip()...generateAsync()` ở đây; giờ giao cho `_compressZipEntries()`
+            // (core/storage-manager.js — ưu tiên streaming OPFS qua zip.js, JSZip chỉ còn là lưới
+            // an toàn cuối khi OPFS hoàn toàn không hỗ trợ, xem docstring đầy đủ ở đó/core/
+            // streaming-zip.js) — Song KHÔNG dùng `buildAllSongsZipBlob()` được vì cần
+            // `buildTaggedBlob()` cho từng file TRƯỚC khi nén (khác Video/Photo, xem 2 hàm export
+            // zip ngay dưới), nên gọi thẳng `_compressZipEntries()` với entries đã gắn tag sẵn.
+            zipBlob = await _compressZipEntries(entries); // core/storage-manager.js
         });
 
         this._exitSelectionMode();
@@ -661,6 +669,7 @@ const workflowPlaylist = {
         // id3-export.js), nút "Tải xuống" bên trong modal đó mới thật sự gọi triggerDownload() với
         // activation MỚI/còn nguyên.
         await promptDownloadReady(zipBlob, t('playlistView.selection.exportZipFilename')); // core/id3-export.js
+        if (zipBlob._opfsTempName) await cleanupStreamingZipTemp(zipBlob._opfsTempName); // core/streaming-zip.js — dọn file tạm OPFS sau khi modal đã đóng
         if (failedCount > 0) await alertModal(t('playlistView.selection.exportPartialFail'));
     },
 
@@ -759,22 +768,23 @@ const workflowPlaylist = {
         const keys = Array.from(appState.get('selectedMediaKeys'));
         if (keys.length === 0) return;
 
-        let failedCount = 0;
         let zipBlob;
+        let entries;
         await withLoadingShield(t('common.loading.exportingFile'), async () => {
-            const zip = new JSZip();
-            for (const key of keys) {
-                const record = await getVideoRecord(key); // service/db.js
-                if (!record) { failedCount++; continue; } // guard: video không còn tồn tại (race) — bỏ qua
-                zip.file(record.filename, record.blob);
-            }
-            zipBlob = await zip.generateAsync({ type: 'blob' });
+            // SỬA (10/09/2026, Giang yêu cầu "làm đầy đủ, thay JSZip toàn app") — TRƯỚC ĐÂY dùng
+            // thẳng `new JSZip()...generateAsync()` ở đây; giờ giao cho `_collectZipEntries()` +
+            // `_compressZipEntries()` (core/storage-manager.js — ưu tiên streaming OPFS qua zip.js,
+            // JSZip chỉ còn là lưới an toàn cuối, xem docstring đầy đủ ở đó/core/streaming-zip.js).
+            entries = await _collectZipEntries(keys, getVideoRecord, '.mp4'); // core/storage-manager.js — tự bỏ qua key không còn tồn tại (record undefined)
+            zipBlob = await _compressZipEntries(entries); // core/storage-manager.js
         });
+        const failedCount = keys.length - entries.length; // key bị bỏ qua trong _collectZipEntries() (video không còn tồn tại, race) — CÙNG cách đếm cũ, không đọc lại DB lần 2
 
         this._exitSelectionMode();
         // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — xem
         // docstring exportSelectedSongsZip()/promptDownloadReady() (core/id3-export.js).
         await promptDownloadReady(zipBlob, t('playlistView.selection.exportZipFilenameVideo')); // core/id3-export.js
+        if (zipBlob._opfsTempName) await cleanupStreamingZipTemp(zipBlob._opfsTempName); // core/streaming-zip.js — dọn file tạm OPFS sau khi modal đã đóng
         if (failedCount > 0) await alertModal(t('playlistView.selection.exportPartialFail'));
     },
 
@@ -789,22 +799,19 @@ const workflowPlaylist = {
         const keys = Array.from(appState.get('selectedMediaKeys'));
         if (keys.length === 0) return;
 
-        let failedCount = 0;
         let zipBlob;
+        let entries;
         await withLoadingShield(t('common.loading.exportingFile'), async () => {
-            const zip = new JSZip();
-            for (const key of keys) {
-                const record = await getImageRecord(key); // service/db.js
-                if (!record) { failedCount++; continue; } // guard: ảnh không còn tồn tại (race) — bỏ qua
-                zip.file(record.filename, record.blob);
-            }
-            zipBlob = await zip.generateAsync({ type: 'blob' });
+            entries = await _collectZipEntries(keys, getImageRecord, '.jpg'); // core/storage-manager.js — tự bỏ qua key không còn tồn tại (record undefined)
+            zipBlob = await _compressZipEntries(entries); // core/storage-manager.js
         });
+        const failedCount = keys.length - entries.length; // CÙNG cách đếm ở exportSelectedVideosZip() ngay trên
 
         this._exitSelectionMode();
         // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — xem
         // docstring exportSelectedSongsZip()/promptDownloadReady() (core/id3-export.js).
         await promptDownloadReady(zipBlob, t('playlistView.selection.exportZipFilenamePhoto')); // core/id3-export.js
+        if (zipBlob._opfsTempName) await cleanupStreamingZipTemp(zipBlob._opfsTempName); // core/streaming-zip.js — dọn file tạm OPFS sau khi modal đã đóng
         if (failedCount > 0) await alertModal(t('playlistView.selection.exportPartialFail'));
     },
 

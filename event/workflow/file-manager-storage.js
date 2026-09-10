@@ -226,18 +226,32 @@ const workflowFileManagerStorage = {
     /**
      * MỚI (10/09/2026, Giang báo bug "zip video >1GB làm crash PWA, bị cưỡng chế reload") — DÙNG
      * CHUNG bởi `_downloadZipFor()` ngay trên (Storage Management) VÀ `_downloadFolderZip()`
-     * (event/workflow/file-manager-folder-browser.js — "Folder Properties -> Download", TRƯỚC ĐÂY
-     * gọi thẳng buildAllXZipBlob() không qua đây, cùng dính rủi ro y hệt vì gộp 1 folder video vài
-     * file cũng dễ vượt 1GB).
+     * (event/workflow/file-manager-folder-browser.js — "Folder Properties -> Download").
      *
-     * Tính TRƯỚC tổng dung lượng thật (`estimateTotalBytesForKeys()`, core/storage-manager.js —
-     * chỉ đọc metadata blob.size, rẻ) — vượt `ZIP_MEMORY_SAFE_LIMIT_BYTES` (core/storage-manager.js,
-     * xem docstring hằng số đó để biết lý do đầy đủ: JSZip phải dựng liền 1 khối trong RAM, vượt
-     * giới hạn bộ nhớ 1 tab/PWA là crash) thì hỏi người dùng qua modalChoice() — ĐỒNG Ý -> tải RIÊNG
-     * TỪNG FILE (`downloadRecordsIndividually()`, core/storage-manager.js, không dính giới hạn
-     * tương tự); HUỶ (Cancel mặc định của modalChoice()) -> dừng hẳn, trả `status: 'cancelled'` —
-     * BẮT BUỘC nơi gọi CHỈ được xoá dữ liệu khi `status === 'ok'` (không phải chỉ khác 'zipError'
-     * như trước đây), tránh xoá mất dữ liệu mà người dùng chưa thật sự có bản sao nào.
+     * SỬA (10/09/2026, Giang yêu cầu "làm đầy đủ, thay JSZip toàn app") — `buildZipFn` (thực chất
+     * là `buildAllSongsZipBlob()`/`buildAllVideosZipBlob()`/`buildAllPhotosZipBlob()`, core/
+     * storage-manager.js) giờ tự ưu tiên STREAM thẳng vào OPFS (core/streaming-zip.js — thư viện
+     * zip.js, không giới hạn dung lượng RAM nào) — nên bước "ước lượng dung lượng + hỏi tải riêng
+     * từng file" NGAY DƯỚI giờ CHỈ còn cần thiết khi streaming HOÀN TOÀN không khả dụng
+     * (`isStreamingZipAvailable()`, core/streaming-zip.js — OPFS không tồn tại, browser rất cũ):
+     * lúc đó `buildZipFn` sẽ tự rơi về JSZip cũ bên trong, VẪN dính đúng rủi ro RAM như trước, nên
+     * VẪN cần ngưỡng cảnh báo này làm lưới an toàn.
+     *
+     * Streaming khả dụng (áp dụng cho hầu hết trình duyệt hiện đại — OPFS "widely available" từ
+     * 2023) -> build thẳng, KHÔNG hỏi gì thêm, KHÔNG giới hạn dung lượng archive. Không khả dụng ->
+     * giữ nguyên luồng cũ: tính trước tổng dung lượng thật (`estimateTotalBytesForKeys()`, core/
+     * storage-manager.js) — vượt `ZIP_MEMORY_SAFE_LIMIT_BYTES` (core/storage-manager.js) thì hỏi
+     * người dùng qua modalChoice() — ĐỒNG Ý -> gom `{blob, filename}` từng file
+     * (`collectRecordsForKeys()`, core/storage-manager.js, KHÔNG tự tải) rồi giao hẳn cho
+     * `promptDownloadReadyMulti()` (core/id3-export.js: 1 nút bấm, 1 lượt `navigator.share()` DUY
+     * NHẤT cho TẤT CẢ file); HUỶ (Cancel mặc định của modalChoice()) -> dừng hẳn, trả `status:
+     * 'cancelled'` — BẮT BUỘC nơi gọi CHỈ được xoá dữ liệu khi `status === 'ok'` (không phải chỉ
+     * khác 'zipError' như trước đây), tránh xoá mất dữ liệu mà người dùng chưa thật sự có bản sao.
+     *
+     * DỌN FILE TẠM OPFS: khi `zipBlob` build ra là 1 File streaming (có `_opfsTempName`, xem
+     * `buildZipStreamingToOpfs()`, core/streaming-zip.js), gọi `cleanupStreamingZipTemp()` NGAY SAU
+     * khi `promptDownloadReady()` đóng (đã tải/share xong hoặc người dùng Huỷ) — không để rác tích
+     * lại trong OPFS qua nhiều lượt dùng.
      * @param {string[]} keys
      * @param {(key:string) => Promise<object|undefined>} getRecordFn
      * @param {(keys:string[], onProgress:function) => Promise<Blob>} buildZipFn
@@ -245,32 +259,38 @@ const workflowFileManagerStorage = {
      * @returns {Promise<{status:'ok'|'cancelled'|'zipError', message?:string}>}
      */
     async zipAndDownloadOrFallback(keys, getRecordFn, buildZipFn, zipFileName) {
-        let totalBytes = 0;
-        await withLoadingShield(t('common.storage.calculatingSize'), async () => {
-            totalBytes = await estimateTotalBytesForKeys(keys, getRecordFn); // core/storage-manager.js
-        });
-
-        if (totalBytes > ZIP_MEMORY_SAFE_LIMIT_BYTES) { // core/storage-manager.js
-            const choice = await new Promise((resolve) => {
-                modalChoice( // core/modal-choice-ui.js
-                    tFormat('common.storage.zipTooLargeBody', { size: formatBytes(totalBytes) }), // core/about-stats.js
-                    [{ label: t('common.storage.zipTooLargeBtnIndividual'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent', onClick: () => resolve('individual') }],
-                    { title: t('common.storage.zipTooLargeTitle'), onCancel: () => resolve('cancel') }
-                );
+        if (!isStreamingZipAvailable()) { // core/streaming-zip.js — lưới an toàn CHỈ cho browser không có OPFS
+            let totalBytes = 0;
+            await withLoadingShield(t('common.storage.calculatingSize'), async () => {
+                totalBytes = await estimateTotalBytesForKeys(keys, getRecordFn); // core/storage-manager.js
             });
-            if (choice === 'cancel') return { status: 'cancelled' };
 
-            try {
-                await withLoadingShield(t('common.storage.downloadingIndividuallyStart'), async () => {
-                    await downloadRecordsIndividually(keys, getRecordFn, (done, total) => { // core/storage-manager.js
-                        loadingText.textContent = tFormat('common.storage.downloadingIndividuallyProgress', { done, total });
-                    });
+            if (totalBytes > ZIP_MEMORY_SAFE_LIMIT_BYTES) { // core/storage-manager.js
+                const choice = await new Promise((resolve) => {
+                    modalChoice( // core/modal-choice-ui.js
+                        tFormat('common.storage.zipTooLargeBody', { size: formatBytes(totalBytes) }), // core/about-stats.js
+                        [{ label: t('common.storage.zipTooLargeBtnIndividual'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent', onClick: () => resolve('individual') }],
+                        { title: t('common.storage.zipTooLargeTitle'), onCancel: () => resolve('cancel') }
+                    );
                 });
-            } catch (err) {
-                console.error('[file-manager-storage] Lỗi tải riêng từng file:', err);
-                return { status: 'zipError', message: err && err.message ? err.message : String(err) };
+                if (choice === 'cancel') return { status: 'cancelled' };
+
+                let records;
+                try {
+                    await withLoadingShield(t('common.storage.preparingFiles'), async () => {
+                        records = await collectRecordsForKeys(keys, getRecordFn, (done, total) => { // core/storage-manager.js
+                            loadingText.textContent = tFormat('common.storage.preparingFilesProgress', { done, total });
+                        });
+                    });
+                } catch (err) {
+                    console.error('[file-manager-storage] Lỗi chuẩn bị file để tải riêng:', err);
+                    return { status: 'zipError', message: err && err.message ? err.message : String(err) };
+                }
+                // Shield đã đóng HẲN tới đây — an toàn để hiện modal (modalChoice thấp z-index hơn
+                // #loading-shield, xem docstring nơi khác đã ghi chú y hệt).
+                await promptDownloadReadyMulti(records); // core/id3-export.js — 1 nút bấm, 1 lượt navigator.share() cho TẤT CẢ file
+                return { status: 'ok' };
             }
-            return { status: 'ok' };
         }
 
         let zipBlob;
@@ -289,11 +309,9 @@ const workflowFileManagerStorage = {
         // triggerDownload() thẳng ngay đây nữa (user-activation của lượt bấm gốc gần như chắc chắn
         // đã hết hạn sau khi chờ tính dung lượng + build zip xong) — giao cho promptDownloadReady()
         // (core/id3-export.js), nút "Tải xuống" bên trong modal đó mới thật sự gọi
-        // triggerDownload() với activation MỚI/còn nguyên. Nhánh "tải riêng từng file" ngay trên
-        // CỐ Ý giữ nguyên tự động (KHÔNG đổi sang prompt-mỗi-file — có thể là rất nhiều file, bắt
-        // bấm tay từng cái là tệ hơn) — chấp nhận nhánh đó vẫn có thể hiện Quick Look, đây là fallback
-        // hiếm khi chạy tới (chỉ khi vượt ZIP_MEMORY_SAFE_LIMIT_BYTES).
+        // triggerDownload() với activation MỚI/còn nguyên.
         await promptDownloadReady(zipBlob, zipFileName); // core/id3-export.js
+        if (zipBlob._opfsTempName) await cleanupStreamingZipTemp(zipBlob._opfsTempName); // core/streaming-zip.js — dọn file tạm OPFS SAU khi modal đã đóng (tải/share xong hoặc Huỷ), tránh tích rác
         return { status: 'ok' };
     },
 
