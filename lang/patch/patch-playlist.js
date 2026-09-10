@@ -82,6 +82,11 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.songInfo.fieldPlayCount': 'Play count',
     'playlistView.songInfo.fieldPlayCountValue': '{n} times',
     'playlistView.songInfo.fieldListened': 'Listened',
+    // MỚI (Giang yêu cầu "thêm thời gian listen cho photo") — nhãn RIÊNG cho Video/Photo, dùng
+    // thay 'fieldListened' ở 2 nhánh đó (core/playlist/actions.js::openSongEditModal()) — CÙNG
+    // field `stats.totalTime`/`formatListenTime()` với Song, CHỈ khác chữ hiển thị ("xem" thay vì
+    // "nghe", đúng ngữ cảnh Video/Photo không có audio thật để "nghe").
+    'playlistView.songInfo.fieldViewDuration': 'Watch time',
     // MỚI (mục 1e, phản hồi Giang — "detail modal thêm dung lượng") — DÙNG CHUNG cho CẢ Song lẫn
     // Video (songInfoRowHtml() ở cả 2 nhánh, core/playlist/actions.js::openSongEditModal()) —
     // KHÁC 'fieldFileSize' cũ (xoá 29/07/2026, mồ côi lúc đó) — key MỚI, có nơi dùng thật.

@@ -430,6 +430,10 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'playlistSortPanel.statField.none': 'None (use Name/date)',
     'playlistSortPanel.statField.count': 'Play count',
     'playlistSortPanel.statField.times': 'Listen time',
+    // MỚI (Giang yêu cầu "thêm thời gian listen cho photo") — nhãn RIÊNG cho Video/Photo, dùng
+    // thay '.times' ở dropdown Sort khi Nguồn khác Song (components/playlist-sort-drawer.js) —
+    // CÙNG value 'times'/logic sort, CHỈ khác chữ hiển thị.
+    'playlistSortPanel.statField.viewDuration': 'Watch time',
     'playlistSortPanel.statField.size': 'File size',
     'playlistSortPanel.statField.duration': 'Duration',
     'playlistSortPanel.statField.hint': 'When set, this decides the order first — Name/date only breaks ties.',
@@ -445,6 +449,10 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'playlistFilterPanel.field.addedAt': 'Date added',
     'playlistFilterPanel.field.count': 'Play count',
     'playlistFilterPanel.field.totalTime': 'Listen time',
+    // MỚI (Giang yêu cầu "thêm thời gian listen cho photo") — nhãn RIÊNG cho Video/Photo, dùng
+    // thay '.totalTime' ở panel Filter khi Nguồn khác Song (components/playlist-filter-drawer.js)
+    // — CÙNG field `totalTime`/logic lọc, CHỈ khác chữ hiển thị.
+    'playlistFilterPanel.field.viewDuration': 'Watch time',
     'playlistFilterPanel.field.duration': 'Duration',
     'playlistFilterPanel.field.size': 'File size (MB)',
     'playlistFilterPanel.op.eq': 'Is',
