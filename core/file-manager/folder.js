@@ -15,7 +15,7 @@
  * vẫn là 1 tiến trình "xoá 1 folder", không phải nhiều tiến trình khác nhau.
  *
  * Schema (CHỐT — xem plan-v12-multimedia.md mục 4.b1):
- *   folders     : { [folderId]: { id, name, type, excludeFromMainPlaylist } }
+ *   folders     : { [folderId]: { id, name, type, excludeFromMainPlaylist, isReadOnly, applyFilter, filterConfig } }
  *   folder_song : { [folderId]: { list: [songKey|null, ...], empty: number } } — tombstone null
  *                 khi gỡ bài khỏi folder, KHÔNG splice (giữ nguyên index/position).
  *
@@ -50,6 +50,19 @@
  *                 dùng để KHÔNG BAO GIỜ cấp lại (xem resolveFolderId()) — chặn bug tham chiếu cũ
  *                 (record.folder[folderId] còn sót trên bài đã tombstone-rồi-folder-bị-xoá) đọc
  *                 nhầm sang 1 folder MỚI trùng id.
+ *
+ * MỚI (Giang yêu cầu — folder tự quyết áp dụng Filter hay không, "như lãnh chúa có quyền bật/tắt
+ * nghe theo filter") — 2 field MỚI trên record `folders`:
+ *   - `applyFilter: boolean` (mặc định `true`, field vắng mặt = `true` — NGƯỢC CHIỀU 2 field trên,
+ *     đọc bằng `record.applyFilter !== false`, KHÔNG được `!!record.applyFilter`) — `false` = folder
+ *     này CÃI LỆNH, không bị Filter tổng hay Filter riêng nào áp cả, bất kể `filterConfig` gì.
+ *   - `filterConfig: object|null` (mặc định `null`) — bộ rule filter RIÊNG của folder này, CÙNG
+ *     shape `playlistFilterConfig[mediaType]` (core/playlist/filter.js đọc thẳng được). `applyFilter
+ *     =true` + `filterConfig` có ít nhất 1 field bật (`hasValidPlaylistFilterField()`, core/
+ *     playlist/filter-presets.js) -> dùng `filterConfig` NÀY, KHÔNG quan tâm Filter tổng đang gì.
+ *     `applyFilter=true` + `filterConfig` rỗng/null/không field nào hợp lệ -> mượn TẠM Filter tổng
+ *     đang sống (`playlistFilterConfig[mediaType]`, appState) — xem event/workflow/playlist-scope.js
+ *     ::applyFolderScope() cho công thức đầy đủ 3 nhánh.
  *
  * NẠP SAU: service/db.js (cần mọi hàm CRUD kể trên + slugify() dùng chung cho resolveFolderId),
  * event/virtual-machine-state.js (addSongsToFolder() dùng VirtualMachineState.run() để chọn đúng
@@ -130,7 +143,12 @@ async function createFolder(folderId, name, type) {
     // MỚI (06/09/2026, hợp nhất Folder vào Playlist, mục 4b) — `isReadOnly: false` mặc định. Folder
     // TẠO TRƯỚC field này thiếu hẳn — nơi ĐỌC luôn qua `!!record.isReadOnly` (undefined -> false),
     // cùng quy ước `excludeFromMainPlaylist` ngay dưới, không cần migrate dữ liệu cũ.
-    await setFolderRecord(folderId, { id: folderId, name, type, isReadOnly: false });
+    // MỚI (Giang yêu cầu "folder như lãnh chúa có quyền bật/tắt filter") — `applyFilter: true` mặc
+    // định (NGƯỢC chiều 2 field trên — vắng mặt = TRUE, không phải false — nơi ĐỌC PHẢI dùng
+    // `record.applyFilter !== false`, KHÔNG được `!!record.applyFilter`, xem event/workflow/
+    // playlist-scope.js::applyFolderScope()). `filterConfig: null` mặc định — chưa cấu hình field
+    // nào (mở màn "Cài đặt filter" lần đầu sẽ thấy TOÀN BỘ field tắt, giống filter tổng lúc trống).
+    await setFolderRecord(folderId, { id: folderId, name, type, isReadOnly: false, applyFilter: true, filterConfig: null });
     await setFolderSongMap(folderId, { list: [], empty: 0 });
 
     if (!folderIndex[type]) folderIndex[type] = [];
@@ -474,6 +492,43 @@ async function setFolderReadOnlyFlag(folderId, enabled) {
     const record = await getFolderRecord(folderId);
     if (!record) return { status: 'notFound' };
     record.isReadOnly = enabled;
+    await setFolderRecord(folderId, record);
+    return { status: 'ok' };
+}
+
+/**
+ * Bật/tắt "Áp dụng filter" 1 folder — MỚI (Giang yêu cầu "folder như lãnh chúa có quyền bật/tắt
+ * nghe hay không nghe theo filter"). Field vắng mặt (folder tạo TRƯỚC tính năng này) = coi như
+ * `true` (mặc định VÂNG LỆNH filter tổng — hành vi hệt hiện tại lúc tính năng này chưa tồn tại,
+ * xem event/workflow/playlist-scope.js::applyFolderScope()). Mirror `setFolderReadOnlyFlag()` ngay
+ * trên — CÙNG cấu trúc, KHÔNG có "trạng thái chưa quyết" nào khác ngoài `true`/`false` (CHỐT
+ * Giang — "mặc định checkbox chỉ có true hoặc false thôi").
+ * @param {string} folderId
+ * @param {boolean} enabled
+ * @returns {Promise<{status: 'notFound'|'ok'}>}
+ */
+async function setFolderApplyFilterFlag(folderId, enabled) {
+    const record = await getFolderRecord(folderId);
+    if (!record) return { status: 'notFound' };
+    record.applyFilter = enabled;
+    await setFolderRecord(folderId, record);
+    return { status: 'ok' };
+}
+
+/**
+ * Ghi bộ rule filter RIÊNG của 1 folder — MỚI (Giang yêu cầu tính năng "Cài đặt filter" riêng cho
+ * folder, mở qua dropdown long-press, xem event/workflow/file-manager-folder-browser.js). `config`
+ * CÙNG SHAPE `playlistFilterConfig[mediaType]` hiện có (core/playlist/filter.js đọc thẳng được,
+ * không cần chuyển đổi) — `null` = chưa cấu hình field nào (mặc định lúc folder chưa từng mở màn
+ * "Cài đặt filter"). Mirror `setFolderExcludeFlag()`/`setFolderReadOnlyFlag()` — CÙNG cấu trúc.
+ * @param {string} folderId
+ * @param {object|null} config
+ * @returns {Promise<{status: 'notFound'|'ok'}>}
+ */
+async function setFolderFilterConfig(folderId, config) {
+    const record = await getFolderRecord(folderId);
+    if (!record) return { status: 'notFound' };
+    record.filterConfig = config;
     await setFolderRecord(folderId, record);
     return { status: 'ok' };
 }
