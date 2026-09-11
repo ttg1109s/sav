@@ -77,6 +77,15 @@ const routerFileManagerFolderBrowser = (() => {
                 workflowFileManagerFolderBrowser.filterFromTileMenu(msg.payload.folderId);
                 break;
             }
+            // MỚI — 2 nút header màn Filter Edit (Back/Áp dụng, xem showFolderFilterEditor()).
+            case 'fileManagerFolderBrowser.filterEdit.back.click': {
+                workflowFileManagerFolderBrowser.backFromFilterEdit();
+                break;
+            }
+            case 'fileManagerFolderBrowser.filterEdit.apply.click': {
+                workflowFileManagerFolderBrowser.applyFolderFilterEdit();
+                break;
+            }
 
             default:
                 console.warn(`[router:fileManagerFolderBrowser] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`, msg);
