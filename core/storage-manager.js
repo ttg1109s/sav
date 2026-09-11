@@ -106,7 +106,19 @@
          * @param {string} defaultExt - đuôi mặc định nếu record thiếu filename (vd ".mp3"/".mp4")
          * @returns {Promise<Array<{filename:string, blob:Blob}>>}
          */
-        async function _collectZipEntries(keys, getRecordFn, defaultExt) {
+        /**
+         * Gom `keys` thành mảng `{filename, blob}` sẵn sàng nén — DÙNG CHUNG bởi cả 3
+         * buildAllXZipBlob() (Song/Video/Photo).
+         * @param {string[]} keys
+         * @param {(key:string) => Promise<object>} getRecordFn
+         * @param {string} defaultExt
+         * @param {(record:object) => Promise<Blob>} [resolveBlobFn] - FIX (Giang báo bug "nén song
+         *   Storage Manager bỏ qua hoàn toàn phần gán lại tag mp3") — MỚI, mặc định trả thẳng
+         *   `record.blob` (raw, HÀNH VI CŨ — giữ nguyên 100% cho Video/Photo, 2 hàm đó KHÔNG truyền
+         *   tham số này). Song truyền `buildTaggedBlob` (core/id3-export.js) vào đây — xem
+         *   buildAllSongsZipBlob() ngay dưới.
+         */
+        async function _collectZipEntries(keys, getRecordFn, defaultExt, resolveBlobFn = async (record) => record.blob) {
             const usedNames = new Map(); // filename -> số lần đã dùng, để chống trùng tên trong zip
             const entries = [];
             for (const key of keys) {
@@ -118,7 +130,20 @@
                     const dot = name.lastIndexOf('.');
                     name = dot > -1 ? `${name.slice(0, dot)} (${count})${name.slice(dot)}` : `${name} (${count})`;
                 } else { usedNames.set(name, 0); }
-                entries.push({ filename: name, blob: record.blob });
+                // FIX (Giang báo bug "nén song Storage Manager bỏ qua hoàn toàn phần gán lại tag
+                // mp3") — bọc try/catch quanh `resolveBlobFn()`: CÙNG khuôn resilience
+                // `exportSelectedSongsZip()` (event/workflow/playlist.js) đã có sẵn — 1 file lỗi
+                // (vd blob hỏng khiến ID3Writer ném lỗi) KHÔNG được phép làm rớt TOÀN BỘ lượt tải
+                // hàng loạt (có thể hàng trăm/nghìn file); rơi về `record.blob` GỐC cho riêng file
+                // đó, các file khác vẫn tiếp tục bình thường.
+                let blob;
+                try {
+                    blob = await resolveBlobFn(record); // record.blob (mặc định) HOẶC buildTaggedBlob(record) cho Song
+                } catch (e) {
+                    console.error(`[storage-manager] Lỗi resolveBlobFn() cho "${name}", dùng file gốc thay thế:`, e);
+                    blob = record.blob;
+                }
+                entries.push({ filename: name, blob });
             }
             return entries;
         }
@@ -159,8 +184,20 @@
         }
 
         /**
-         * Đóng gói toàn bộ blob mp3 GỐC (không gắn tag mới, giữ nguyên file thật) thành 1 file .zip,
-         * tên file giữ nguyên filename gốc — trùng tên tự thêm số đếm để không ghi đè lẫn nhau.
+         * Đóng gói toàn bộ MP3 thành 1 file .zip, tên file giữ nguyên filename gốc — trùng tên tự
+         * thêm số đếm để không ghi đè lẫn nhau.
+         * FIX (Giang báo bug "nén song Storage Manager bỏ qua hoàn toàn phần gán lại tag mp3") —
+         * TRƯỚC ĐÂY đóng gói THẲNG `record.blob` gốc (không gắn tag mới, giữ nguyên file thật) —
+         * nghĩa là mọi thay đổi Tiêu đề/Nghệ sĩ/Album/Ảnh bìa sửa qua app (`record.tag`/
+         * `record.cover`) KHÔNG hề có mặt trong file MP3 tải về hàng loạt qua đây (dù màn "Sửa" 1
+         * bài lẻ, event/workflow/playlist.js::exportSongWithTag(), VẪN gắn đúng — 2 đường tải khác
+         * nhau, đường lẻ được sửa từ trước, đường hàng loạt này thì SÓT). SỬA — truyền
+         * `buildTaggedBlob` (core/id3-export.js, CÙNG hàm đường tải lẻ dùng) làm `resolveBlobFn` cho
+         * `_collectZipEntries()` — mỗi bài giờ được ghi lại tag MỚI NHẤT trước khi nén, khớp ĐÚNG
+         * những gì đang hiển thị trong app. Đánh đổi: chậm hơn ĐÔI CHÚT cho thư viện rất lớn (mỗi
+         * bài phải đọc `arrayBuffer()` + ghi lại tag, thay vì tham chiếu thẳng Blob có sẵn) — ID3
+         * Writer chỉ thao tác trực tiếp phần header tag (không giải mã/mã hoá lại audio) nên KHÔNG
+         * đáng kể với cỡ thư viện thông thường.
          * SỬA (06/09/2026, hợp nhất Folder vào Playlist — "Properties -> Download" cho 1 folder cụ
          * thể) — thêm tham số `keys` TUỲ CHỌN: có truyền thì zip ĐÚNG danh sách đó (không tự
          * `getAllSongKeys()` nữa); không truyền (`undefined`, mọi lời gọi CŨ) thì giữ NGUYÊN hành vi
@@ -173,7 +210,7 @@
          */
         async function buildAllSongsZipBlob(keys, onProgress) {
             if (!keys) keys = await getAllSongKeys();
-            const entries = await _collectZipEntries(keys, getSongRecord, '.mp3');
+            const entries = await _collectZipEntries(keys, getSongRecord, '.mp3', buildTaggedBlob); // core/id3-export.js
             return _compressZipEntries(entries, onProgress);
         }
 
