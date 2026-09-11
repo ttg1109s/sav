@@ -9,7 +9,11 @@
  * Nạp TRƯỚC /lang/lang.js (xem index.html, khối nạp /lang/patch/*.js đứng trước /lang/lang.js).
  */
 const LANG_PATCH_PLAYLIST = {
-    'playlistView.logo.title': 'Simple Audio Visualizer',
+    // SỬA (Giang yêu cầu đổi tên app thành "Audio Visualizer", bỏ "Simple") — đây là tooltip
+    // (title attribute) của logo #sav-logo trong header Playlist, KHÔNG phải chữ hiển thị (chữ
+    // hiển thị tự dựng bằng các span riêng trong components/playlist-view.js, xem SỬA cùng đợt ở
+    // đó — thu gọn còn "AV", mở ra "Audio Visualizer").
+    'playlistView.logo.title': 'Audio Visualizer',
     'playlistView.btnUploadAudio.title': 'Add music',
     'playlistView.btnSettings.title': 'Settings',
     'playlistView.search.placeholder': 'Search songs, artists, albums...',
