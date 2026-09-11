@@ -146,7 +146,7 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.folderBrowser.entryButton': 'Browse folders',
     'fileManager.folderBrowser.listTitle': 'Folders',
     'fileManager.folderBrowser.defaultNewFolderName': 'Folder {n}',
-    // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 4) — menu hành động giữ tay 1.5s trên 1
+    // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 4) — menu hành động giữ tay 1s trên 1
     // folder tile, xem event/workflow/file-manager-folder-browser.js::openTileActionsMenu().
     // XOÁ (06/09/2026, mục 4a — "Hidden" dời sang checkbox Properties, "subtitle"/dropdown giờ
     // dùng openDropdownMenu() không cần subtitle) — 'tileMenu.subtitle'/'unhide'/'unhideVideo'/

@@ -125,6 +125,11 @@ const LANG_PATCH_COMMON = {
     'common.apply': 'Apply',
     // MỚI (10/07/2026, Nhóm A — nút đóng Generic Drawer, dùng chung nhiều tính năng).
     'common.close': 'Close',
+    // MỚI (Giang yêu cầu tính năng "folder tự quyết áp dụng Filter") — nút Back (mũi tên trái,
+    // header màn Filter Edit trong Generic Drawer, xem event/workflow/file-manager-folder-
+    // browser.js::_buildFilterEditHeaderHtml()) — dùng chung được cho bất kỳ màn nào khác sau này
+    // cần nút Back tương tự (khác `common.close`, ngữ nghĩa "quay lại" chứ không phải "đóng hẳn").
+    'common.back': 'Back',
     'common.btn.upload': 'Upload',
 
     // MỚI (03/08/2026) — dải tỉ lệ Crop dùng CHUNG (event/workflow/crop-ratio-helpers.js) — hiện
