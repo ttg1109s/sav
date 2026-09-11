@@ -58,8 +58,14 @@ const TPL_PLAYLIST_VIEW = `
                      thành double-tap vì không còn phụ thuộc CSS hover nữa. Thuộc tính
                      touch-action: manipulation khai báo thêm trực tiếp trên thẻ làm lớp chặn
                      double-tap-zoom thứ 2 ở tầng trình duyệt. -->
+                <!-- SỬA (Giang yêu cầu đổi tên app thành "Audio Visualizer", bỏ "Simple") — bỏ hẳn
+                     2 span đầu ("S"/"imple ") của logo "SAV" cũ — thu gọn giờ còn "AV" (2 chữ),
+                     mở ra "Audio Visualizer" (KHÔNG còn "Simple"). core/sav-logo.js đọc động qua
+                     querySelectorAll('.sav-logo-expand') — KHÔNG hardcode số span, xoá bớt 1 cặp
+                     span an toàn, không cần sửa gì bên đó. id="sav-logo"/class="sav-logo-expand"
+                     GIỮ NGUYÊN tên (định danh kỹ thuật nội bộ, không phải chữ hiển thị). -->
                 <div id="sav-logo" class="flex items-baseline shrink-0 cursor-pointer select-none leading-none" style="touch-action: manipulation;" data-i18n-title="playlistView.logo.title" title="${t('playlistView.logo.title')}">
-                    <span class="text-base font-extrabold">S</span><span class="sav-logo-expand text-base font-extrabold whitespace-pre overflow-hidden inline-block max-w-0 transition-all duration-300 ease-in-out" data-expand-width="4.2em">imple </span><span class="text-base font-extrabold">A</span><span class="sav-logo-expand text-base font-extrabold whitespace-pre overflow-hidden inline-block max-w-0 transition-all duration-300 ease-in-out delay-[60ms]" data-expand-width="3.6em">udio </span><span class="text-base font-extrabold">V</span><span class="sav-logo-expand text-base font-extrabold whitespace-nowrap overflow-hidden inline-block max-w-0 transition-all duration-300 ease-in-out delay-[120ms]" data-expand-width="6em">isualizer</span>
+                    <span class="text-base font-extrabold">A</span><span class="sav-logo-expand text-base font-extrabold whitespace-pre overflow-hidden inline-block max-w-0 transition-all duration-300 ease-in-out" data-expand-width="3.6em">udio </span><span class="text-base font-extrabold">V</span><span class="sav-logo-expand text-base font-extrabold whitespace-nowrap overflow-hidden inline-block max-w-0 transition-all duration-300 ease-in-out delay-[60ms]" data-expand-width="6em">isualizer</span>
                 </div>
                 <div class="flex items-center gap-5 shrink-0">
                 <!-- XOÁ (09/09/2026, Giang yêu cầu "loại bỏ nút icon visualizer playing ở header,
