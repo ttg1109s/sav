@@ -27,45 +27,35 @@
 const TPL_PLAYLIST_VIEW = `
     <div id="playlist-view" class="flex flex-col overflow-hidden">
         <div class="px-5 pt-4 pb-3 z-20 relative shrink-0" data-uitk="panelBg">
-            <!-- Hàng 1: logo SAV bên trái (hover trượt ra thành tên đầy đủ) + cụm icon góc phải
-                 (Thêm nhạc + Cài đặt + Đổi giao diện). -->
+            <!-- Hàng 1: logo header bên trái (tĩnh, full text) + cụm icon góc phải (Thêm nhạc +
+                 Cài đặt + Đổi giao diện). -->
             <div class="flex justify-between items-center gap-5 mb-3" data-uitk="textPrimary">
-                <!-- Logo "SAV" — không khung/nền/viền, in đậm màu trắng (kiểu logo Facebook).
-                     LUÔN 1 DÒNG NGANG (cả lúc nghỉ và lúc mở rộng). Nghỉ: chỉ hiện "S A V". Mở
-                     rộng: ngay sau mỗi chữ hoa, phần chữ thường còn lại của từ (imple/udio/
-                     isualizer) TRƯỢT RA theo chiều ngang (max-width 0 -> giá trị đích, đúng kiểu
-                     logo HTML5 nổi tiếng), nối liền nhau trên cùng 1 dòng thành "Simple Audio
-                     Visualizer". Thu lại thì animate NGƯỢC LẠI co về "SAV" — cùng 1 transition
-                     nên 2 chiều tự đối xứng. Mỗi chữ thường delay tăng dần (0/60/120ms) để có cảm
-                     giác "trượt nối tiếp" từ trái qua phải thay vì cả 3 nở cùng lúc.
-
-                     FIX (bug "bấm logo không ăn, có lúc còn bị zoom vào trang"): bản trước dùng
-                     THUẦN CSS hover/group-hover — trên mobile Safari/Chrome, phần tử này là 1
-                     div chữ thường (không phải button/a), không có thuộc tính touch-action riêng.
-                     Trình duyệt có thể nhận lầm 1 chạm vào nó là tín hiệu "double-tap vào đoạn
-                     văn bản" và kích hoạt ZOOM trang vào đúng vùng đó (tính năng "double-tap to
-                     zoom paragraph" của WebKit) thay vì coi đó là 1 lượt hover/tap bình thường —
-                     đúng triệu chứng quan sát được. Khi trang đã bị zoom, toạ độ chạm các lần sau
-                     không còn khớp vị trí thật của logo nữa (lệch theo tỉ lệ zoom), trông như
-                     "logo không bấm được" dù các nút khác (vốn là button thật) không bị ảnh
-                     hưởng vì trình duyệt xử lý phần tử tương tác chuẩn khác hẳn.
-
-                     SỬA: bỏ hẳn hover/group-hover, chuyển toggle mở/thu sang JS lắng nghe trực
-                     tiếp (xem dom-refs.js) — desktop (chuột thật, phát hiện qua matchMedia
-                     hover:hover and pointer:fine) dùng mouseenter/mouseleave để giữ ĐÚNG cảm giác
-                     hover như cũ; mobile/cảm ứng dùng click (bắn ra từ 1 tap thật, không phải
-                     gesture đoán) để toggle mở/thu — không tap nào còn bị trình duyệt hiểu nhầm
-                     thành double-tap vì không còn phụ thuộc CSS hover nữa. Thuộc tính
-                     touch-action: manipulation khai báo thêm trực tiếp trên thẻ làm lớp chặn
-                     double-tap-zoom thứ 2 ở tầng trình duyệt. -->
-                <!-- SỬA (Giang yêu cầu đổi tên app thành "Audio Visualizer", bỏ "Simple") — bỏ hẳn
-                     2 span đầu ("S"/"imple ") của logo "SAV" cũ — thu gọn giờ còn "AV" (2 chữ),
-                     mở ra "Audio Visualizer" (KHÔNG còn "Simple"). core/sav-logo.js đọc động qua
-                     querySelectorAll('.sav-logo-expand') — KHÔNG hardcode số span, xoá bớt 1 cặp
-                     span an toàn, không cần sửa gì bên đó. id="sav-logo"/class="sav-logo-expand"
-                     GIỮ NGUYÊN tên (định danh kỹ thuật nội bộ, không phải chữ hiển thị). -->
-                <div id="sav-logo" class="flex items-baseline shrink-0 cursor-pointer select-none leading-none" style="touch-action: manipulation;" data-i18n-title="playlistView.logo.title" title="${t('playlistView.logo.title')}">
-                    <span class="text-base font-extrabold">A</span><span class="sav-logo-expand text-base font-extrabold whitespace-pre overflow-hidden inline-block max-w-0 transition-all duration-300 ease-in-out" data-expand-width="3.6em">udio </span><span class="text-base font-extrabold">V</span><span class="sav-logo-expand text-base font-extrabold whitespace-nowrap overflow-hidden inline-block max-w-0 transition-all duration-300 ease-in-out delay-[60ms]" data-expand-width="6em">isualizer</span>
+                <!-- Logo "Audio Visualizer" — không khung/nền/viền, in đậm, "A"/"V" tô màu accent.
+                     LỊCH SỬ (giữ lại vì vẫn còn liên quan touch-action bên dưới) — bản CŨ (trước
+                     "thiết kế lại theo hướng simple") có animation thu/mở "SAV" <-> tên đầy đủ khi
+                     hover/tap, và từng dính bug "bấm logo không ăn, có lúc còn bị zoom vào trang":
+                     div chữ thường không có touch-action riêng khiến WebKit mobile hiểu lầm 1 chạm
+                     là "double-tap vào đoạn văn bản" rồi tự ZOOM trang vào đúng vùng đó, làm lệch
+                     toạ độ chạm các lần sau — GIỮ touch-action: manipulation ở div dưới đây để
+                     phòng đúng bug đó tái diễn, dù giờ logo không còn animation/tương tác gì nữa. -->
+                <!-- SỬA (Giang yêu cầu "thiết kế lại theo hướng simple... logo ở header playlist
+                     chuyển sang dạng full text, không animation") — BỎ HẲN toàn bộ cơ chế thu/mở
+                     khi hover (desktop)/tap (mobile) mô tả ở lịch sử comment phía trên (matchMedia
+                     hover:hover, mouseenter/mouseleave, click toggle, touch-action fix double-tap-
+                     zoom...) — logo giờ LUÔN hiện ĐẦY ĐỦ "Audio Visualizer" tĩnh, không còn trạng
+                     thái thu gọn "AV" nào nữa nên không còn gì để toggle. "A"/"V" tô màu đậm —
+                     CÙNG style + CÙNG 2 màu (#0ea5e9/#8b5cf6) với logo preloader mới (index.html).
+                     touch-action: manipulation GIỮ LẠI dù không còn bấm được — vẫn phòng đúng bug
+                     "double-tap-zoom" cũ (WebKit hiểu lầm double-tap vào đoạn văn bản tĩnh là zoom
+                     trang), bug đó không liên quan gì tới việc phần tử có tương tác hay không.
+                     core/sav-logo.js + cụm event/{workflow,router,listener}/sav-logo.js (đọc/toggle
+                     `.sav-logo-expand`, hasRealHoverDevice()...) giờ MỒ CÔI — không còn phần tử
+                     `.sav-logo-expand` nào để chúng thao tác — ĐÃ NGỪNG NẠP 4 file đó trong
+                     index.html (CHƯA xoá file khỏi dự án, chỉ ngừng dùng, chờ Giang quyết định dọn
+                     hẳn hay không). id="sav-logo" GIỮ NGUYÊN tên (định danh kỹ thuật, không phải
+                     chữ hiển thị) dù không còn ai gọi tới qua JS nữa. -->
+                <div id="sav-logo" class="flex items-baseline shrink-0 select-none leading-none" style="touch-action: manipulation;">
+                    <span class="text-base font-extrabold" style="color:#0ea5e9">A</span><span class="text-base font-semibold">udio </span><span class="text-base font-extrabold" style="color:#8b5cf6">V</span><span class="text-base font-semibold">isualizer</span>
                 </div>
                 <div class="flex items-center gap-5 shrink-0">
                 <!-- XOÁ (09/09/2026, Giang yêu cầu "loại bỏ nút icon visualizer playing ở header,
