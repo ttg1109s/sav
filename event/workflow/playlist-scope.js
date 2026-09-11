@@ -127,11 +127,12 @@ const workflowPlaylistScope = {
      * người dùng thấy đọng lại trên màn hình loading (`#playlist-loading-text`, core/playlist/
      * render.js::updatePlaylistLoading()) ngay trước khi nó ẩn đi (updateEmptyState() dưới), khớp
      * ĐÚNG số item thật sự hiện ra trong Playlist — KHÔNG còn lệch với số THÔ đã thấy trong lúc tải.
-     * SỬA (Giang yêu cầu tính năng "folder tự quyết áp dụng Filter") — THAY HẲN đoạn "checkbox
-     * preset 'Có áp dụng cho thư mục hay không'" cũ (field `playlistFilterAppliesToFolder[mediaType]`
-     * — KHÔNG CÒN được hàm này đọc nữa) bằng công thức 3 nhánh theo field RIÊNG của TỪNG folder
-     * (`applyFilter`/`filterConfig`, core/file-manager/folder.js) — xem toàn bộ công thức + lý do
-     * ngay tại chỗ đọc `folderRecordForFilter` trong thân hàm dưới đây. `applyAllSongsScope()`
+     * SỬA (Giang yêu cầu tính năng "folder tự quyết áp dụng Filter") — checkbox preset "Có áp dụng
+     * cho thư mục hay không" (`playlistFilterAppliesToFolder[mediaType]`) VẪN được hàm này đọc,
+     * nhưng giờ CHỈ có tác dụng ở ĐÚNG 1 nhánh (folder chưa tự cấu hình `filterConfig` riêng) —
+     * kết hợp field RIÊNG của TỪNG folder (`applyFilter`/`filterConfig`, core/file-manager/
+     * folder.js) thành công thức 3 nhánh — xem toàn bộ công thức + lý do ngay tại chỗ đọc
+     * `folderRecordForFilter` trong thân hàm dưới đây. `applyAllSongsScope()`
      * ("Tất cả") KHÔNG đụng gì tới các field này, LUÔN áp Filter tổng bình thường — CHỈ hàm này
      * (đang xem 1 folder cụ thể) mới có khái niệm "folder tự quyết".
      * @param {string} folderId
@@ -156,32 +157,34 @@ const workflowPlaylistScope = {
         // cache vừa nạp CHỈ chứa đúng folder này -> không cần giao (intersect) lại, không có Exclude
         loadAllSongs(appState.get('playlistCache'), new Set()); // core/playlist/scope.js
         const beforeCount = appState.get('playlistOrder').length;
-        // SỬA (Giang yêu cầu tính năng "folder tự quyết áp dụng Filter" — CHỐT sau nhiều vòng trao
-        // đổi, xem docstring `applyFilter`/`filterConfig`, core/file-manager/folder.js) — THAY HẲN
-        // công thức cũ (chỉ đọc `playlistFilterAppliesToFolder[mediaType]`) bằng 3 nhánh theo field
-        // RIÊNG của TỪNG folder — "vua" (Filter tổng, `playlistFilterConfig`) đặt lệnh cho MỌI
-        // folder, nhưng TỪNG folder có quyền tự quyết qua `applyFilter` (CÃI LỆNH hẳn nếu `false`)
-        // VÀ có thể có `filterConfig` RIÊNG (ưu tiên cao nhất nếu đã cấu hình field nào đó):
+        // SỬA (Giang yêu cầu tính năng "folder tự quyết áp dụng Filter" — CHỐT SAU CÙNG, đổi lại lần
+        // 2 — xem docstring `applyFilter`/`filterConfig`, core/file-manager/folder.js) — "vua"
+        // (Filter tổng, `playlistFilterConfig`) đặt lệnh cho MỌI folder qua 2 field: rule THẬT
+        // (`playlistFilterConfig[mediaType]`) VÀ quyền "CHO MƯỢN rule đó lúc folder chưa tự cấu
+        // hình" (`playlistFilterAppliesToFolder[mediaType]`, service/state/playlist.js — checkbox
+        // "Có áp dụng cho thư mục" trong Filter Presets). TỪNG folder có quyền tự quyết qua
+        // `applyFilter` (CÃI LỆNH hẳn nếu `false`, bỏ qua CẢ 2 field vua) VÀ có thể có `filterConfig`
+        // RIÊNG (ưu tiên cao nhất, LUÔN thắng — mặc kệ vua cho mượn hay không):
         //   1. `folderRecord.applyFilter === false` -> bucket RỖNG (KHÔNG áp gì, folder cãi lệnh
         //      hoàn toàn — mặc kệ Filter tổng đang gì, mặc kệ filterConfig riêng có gì).
         //   2. `applyFilter !== false` (mặc định `true`) + `filterConfig` CÓ field hợp lệ
         //      (`hasValidPlaylistFilterField()`, core/playlist/filter-presets.js — CÙNG hàm dùng
         //      để chặn "Chọn áp dụng" 1 preset rỗng) -> dùng THẲNG `filterConfig` RIÊNG, KHÔNG
-        //      quan tâm Filter tổng đang có gì.
-        //   3. `applyFilter !== false` + `filterConfig` rỗng/null/không field hợp lệ -> MƯỢN TẠM
-        //      Filter tổng đang sống (`playlistFilterConfig[mediaType]`) — field cũ
-        //      `playlistFilterAppliesToFolder[mediaType]` (2) KHÔNG còn được đọc ở đây nữa (đã bị
-        //      `applyFilter` cấp-folder thay thế hoàn toàn — xem trao đổi trong lịch sử chat, Giang
-        //      chốt "(3) luôn thắng, (2) không tham gia phép tính cho từng folder cụ thể nữa").
+        //      quan tâm Filter tổng/`playlistFilterAppliesToFolder` đang gì.
+        //   3. `applyFilter !== false` + `filterConfig` rỗng/null/không field hợp lệ (folder CHƯA
+        //      tự cấu hình gì) -> CHỈ nhánh này mới hỏi tới `playlistFilterAppliesToFolder[mediaType]`
+        //      (2): `true` -> MƯỢN TẠM Filter tổng đang sống; `false` -> vua TỪ CHỐI cho mượn, bucket
+        //      RỖNG (KHÔNG áp gì) dù folder đã bật `applyFilter=true`.
         const folderRecordForFilter = folderRecordForReadOnly; // ĐÃ fetch sẵn ngay trên (readonly) — dùng lại, tránh gọi getFolderRecord() 2 lần cho CÙNG 1 folder trong CÙNG 1 hàm
         const folderApplyFilter = !folderRecordForFilter || folderRecordForFilter.applyFilter !== false; // guard record null hiếm gặp -> coi như mặc định true, KHÔNG chặn hẳn scope
         const folderHasOwnFilter = folderApplyFilter && hasValidPlaylistFilterField(folderRecordForFilter && folderRecordForFilter.filterConfig); // core/playlist/filter-presets.js
+        const globalAppliesToFolder = appState.get('playlistFilterAppliesToFolder')[mediaType]; // service/state/playlist.js — CHỈ đọc tới lúc rơi vào nhánh 3 ngay trên
         const rulesBucket = !folderApplyFilter
             ? clonePlaylistFilterConfigDefaults()[mediaType]
-            : (folderHasOwnFilter ? folderRecordForFilter.filterConfig : appState.get('playlistFilterConfig')[mediaType]);
+            : (folderHasOwnFilter ? folderRecordForFilter.filterConfig : (globalAppliesToFolder ? appState.get('playlistFilterConfig')[mediaType] : clonePlaylistFilterConfigDefaults()[mediaType]));
         const filteredKeys = applyPlaylistFilter(appState.get('playlistOrder'), appState.get('playlistCache'), appState.get('mediaStatsMap'), rulesBucket);
         appState.set('playlistOrder', filteredKeys);
-        console.log(`writer: "applyFolderScope", page: "playlistOrder", content: "Filter: ${filteredKeys.length}/${beforeCount} sau lọc (source=${mediaType}, applyFilter=${folderApplyFilter}, ownFilter=${folderHasOwnFilter})"`);
+        console.log(`writer: "applyFolderScope", page: "playlistOrder", content: "Filter: ${filteredKeys.length}/${beforeCount} sau lọc (source=${mediaType}, applyFilter=${folderApplyFilter}, ownFilter=${folderHasOwnFilter}, globalAppliesToFolder=${globalAppliesToFolder})"`);
         if (progressWasCalled) onProgress(filteredKeys.length, filteredKeys.length); // sửa lại "x/total" đọng lại trên màn loading — số CUỐI CÙNG sau Filter, xem docstring trên
         workflowPlaylistOrder.updateShuffleArray();
         workflowPlaylistOrder.recomputeDisplayOrder();
