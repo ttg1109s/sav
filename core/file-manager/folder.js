@@ -59,10 +59,12 @@
  *   - `filterConfig: object|null` (mặc định `null`) — bộ rule filter RIÊNG của folder này, CÙNG
  *     shape `playlistFilterConfig[mediaType]` (core/playlist/filter.js đọc thẳng được). `applyFilter
  *     =true` + `filterConfig` có ít nhất 1 field bật (`hasValidPlaylistFilterField()`, core/
- *     playlist/filter-presets.js) -> dùng `filterConfig` NÀY, KHÔNG quan tâm Filter tổng đang gì.
- *     `applyFilter=true` + `filterConfig` rỗng/null/không field nào hợp lệ -> mượn TẠM Filter tổng
- *     đang sống (`playlistFilterConfig[mediaType]`, appState) — xem event/workflow/playlist-scope.js
- *     ::applyFolderScope() cho công thức đầy đủ 3 nhánh.
+ *     playlist/filter-presets.js) -> dùng `filterConfig` NÀY, KHÔNG quan tâm Filter tổng/checkbox
+ *     "Có áp dụng cho thư mục" đang gì. `applyFilter=true` + `filterConfig` rỗng/null/không field
+ *     nào hợp lệ (CHƯA tự cấu hình gì) -> hỏi tới checkbox preset "Có áp dụng cho thư mục hay
+ *     không" (`playlistFilterAppliesToFolder[mediaType]`, service/state/playlist.js): bật -> mượn
+ *     TẠM Filter tổng đang sống (`playlistFilterConfig[mediaType]`, appState); tắt -> KHÔNG áp gì
+ *     — xem event/workflow/playlist-scope.js::applyFolderScope() cho công thức đầy đủ 3 nhánh.
  *
  * NẠP SAU: service/db.js (cần mọi hàm CRUD kể trên + slugify() dùng chung cho resolveFolderId),
  * event/virtual-machine-state.js (addSongsToFolder() dùng VirtualMachineState.run() để chọn đúng
