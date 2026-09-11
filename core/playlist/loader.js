@@ -461,8 +461,18 @@
          * NGUỒN DỮ LIỆU field `tag`/`cover` (không phải khác giá trị fallback), không nhét được vào
          * chung `MEDIA_ADAPTER_SHAPE`/`buildAdaptedPlaylistCache()` — giữ hàm riêng, ĐÚNG Rule 1
          * (khác thuật toán thật, không phải khác tham số hoá được bằng dữ liệu).
-         * KHÔNG set `mediaType` (giữ NGUYÊN hành vi cũ — `cached.mediaType==='photo'`/`'video'` mới
-         * cần đánh dấu để buildSongNode() rẽ UI, Song là nhánh mặc định/else, không cần đánh dấu).
+         * SỬA (Giang báo bug "Xoá Song không hoạt động") — TRƯỚC ĐÂY cố tình KHÔNG set `mediaType`
+         * cho Song (lý do gốc: buildSongNode() rẽ UI qua `cached.mediaType === 'video'`/`'photo'`,
+         * Song là nhánh else nên "không cần đánh dấu" — ĐÚNG cho KIỂU SO SÁNH ĐÓ, undefined !==
+         * 'video' vẫn rơi đúng nhánh else). NHƯNG `deleteMediaFromActionMenu()` (event/workflow/
+         * playlist.js) lại dùng `mediaType` làm KEY tra bảng (`MEDIA_DELETE_ACCESSOR[mediaType]`) —
+         * kiểu dùng này CẦN giá trị THẬT là chuỗi 'song', `undefined` tra bảng ra `undefined`, phá
+         * huỷ (`{getRecord,deleteRecord} = undefined` ném lỗi ngay, âm thầm vì nằm trong async
+         * callback của withLoadingShield không ai bắt) — ĐÚNG lý do "Xoá bài hát không phản ứng gì"
+         * trong khi Xoá Video/Photo vẫn bình thường (2 loại đó luôn có `mediaType` thật). Set thẳng
+         * `mediaType: 'song'` ở đây — AN TOÀN 100% với mọi chỗ đang so `=== 'video'`/`=== 'photo'`
+         * (đã rà toàn bộ project, không chỗ nào check kiểu `typeof cached.mediaType === 'undefined'`
+         * để phân biệt Song) — chỉ thêm dữ liệu, không đổi ý nghĩa bất kỳ so sánh nào đang có.
          *
          * Rule 4 ngoại lệ (cùng lý do hot-path — xem `buildAdaptedPlaylistCache()` ngay trên).
          * @param {Array<{key:string, blob:Blob, tag:object, cover?:Blob, duration:number, filename:string, addedAt:number}>} records - ĐÃ qua `filterValidSongRecords()`
@@ -483,6 +493,7 @@
                     duration: record.duration,
                     addedAt: record.addedAt,
                     size: record.blob.size || 0, // MỚI (mục 1e) — cùng lý do buildAdaptedPlaylistCache()
+                    mediaType: 'song', // MỚI (FIX bug "Xoá Song không hoạt động") — xem docstring hàm này ngay trên
                 }));
                 appState.mutate('songNameIndex', m => m.set(record.key, normalizeSongName(record.tag.title)));
             }
