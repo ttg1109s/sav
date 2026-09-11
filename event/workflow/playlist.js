@@ -105,7 +105,14 @@ const workflowPlaylist = {
 
         const cached = appState.get('playlistCache').get(mediaKey);
         const title = cached && cached.tag && cached.tag.title ? cached.tag.title : (cached ? cached.filename : mediaKey);
-        const mediaType = cached ? cached.mediaType : 'song'; // 'song'|'video'|'photo' — playlistCache.mediaType luôn có giá trị đúng cho item đang hiển thị thật
+        // FIX (Giang báo bug "Xoá Song không hoạt động") — TRƯỚC ĐÂY `cached ? cached.mediaType :
+        // 'song'` chỉ fallback lúc `cached` không tồn tại — Song's `cached.mediaType` từng luôn
+        // `undefined` (thiếu field, xem core/playlist/loader.js::buildSongPlaylistCache()) nên
+        // NHÁNH ĐÓ không chạy dù cached tồn tại, ra `mediaType=undefined`, phá
+        // `MEDIA_DELETE_ACCESSOR[undefined]`. ĐÃ SỬA GỐC ở loader.js (giờ Song luôn có
+        // `mediaType:'song'` thật), NHƯNG giữ luôn `||` ở đây làm lưới an toàn thứ 2 — fallback
+        // đúng cả khi `cached.mediaType` falsy vì BẤT KỲ lý do gì khác trong tương lai.
+        const mediaType = (cached && cached.mediaType) || 'song'; // 'song'|'video'|'photo'
         const isVideo = mediaType === 'video';
         const isCurrent = mediaKey === appState.get('currentKey');
         const isActuallyPlaying = isVideo ? (appState.get('isVideoPlayerMode') && !bgVideoElement.paused) : !audioPlayer.paused;
