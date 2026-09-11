@@ -72,6 +72,11 @@ const routerFileManagerFolderBrowser = (() => {
                 workflowFileManagerFolderBrowser.propertiesFromTileMenu(msg.payload.folderId);
                 break;
             }
+            // MỚI (Giang yêu cầu tính năng "folder tự quyết áp dụng Filter", mục "Cài đặt filter").
+            case 'fileManagerFolderBrowser.tileMenu.filter.click': {
+                workflowFileManagerFolderBrowser.filterFromTileMenu(msg.payload.folderId);
+                break;
+            }
 
             default:
                 console.warn(`[router:fileManagerFolderBrowser] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`, msg);
