@@ -159,6 +159,11 @@
         // cụm (event/listener/game-catalog.js), cùng khuôn genericDrawerBody.
         const gamePanelList = document.getElementById('game-panel-list');
         const statisPanel = document.getElementById('statis-panel'), btnStatisPanelClose = document.getElementById('btn-statis-panel-close');
+        // statisPanelBody: SỬA (Giang yêu cầu "tích hợp 1+2+3") — container RỖNG trong
+        // TPL_STATIS_PANEL, đổ HTML qua .innerHTML (event/workflow/statis-panel.js::renderContent(),
+        // core/statis-panel-ui.js dựng chuỗi) + là gốc delegation click cho toggle sort/filter
+        // (event/listener/statis-panel.js), cùng khuôn gamePanelList.
+        const statisPanelBody = document.getElementById('statis-panel-body');
         // Card "Visualizer Screen" (Main) — 4 nút điều hướng: Display (panel mới, thay hẳn
         // "Customize Visualizer"/Custom Effect cũ), Auto-Switch Effect, Visual Background. "Cử
         // chỉ" dùng delegate trên settingsStackBody (KHÔNG cần ref tĩnh — xem event/listener/
