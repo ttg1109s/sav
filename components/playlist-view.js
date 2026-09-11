@@ -50,8 +50,8 @@ const TPL_PLAYLIST_VIEW = `
                      "double-tap-zoom" cũ (WebKit hiểu lầm double-tap vào đoạn văn bản tĩnh là zoom
                      trang), bug đó không liên quan gì tới việc phần tử có tương tác hay không.
                      core/sav-logo.js + cụm event/{workflow,router,listener}/sav-logo.js (đọc/toggle
-                     `.sav-logo-expand`, hasRealHoverDevice()...) giờ MỒ CÔI — không còn phần tử
-                     `.sav-logo-expand` nào để chúng thao tác — ĐÃ NGỪNG NẠP 4 file đó trong
+                     '.sav-logo-expand', hasRealHoverDevice()...) giờ MỒ CÔI — không còn phần tử
+                     '.sav-logo-expand' nào để chúng thao tác — ĐÃ NGỪNG NẠP 4 file đó trong
                      index.html (CHƯA xoá file khỏi dự án, chỉ ngừng dùng, chờ Giang quyết định dọn
                      hẳn hay không). id="sav-logo" GIỮ NGUYÊN tên (định danh kỹ thuật, không phải
                      chữ hiển thị) dù không còn ai gọi tới qua JS nữa. -->
