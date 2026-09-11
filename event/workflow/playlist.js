@@ -658,10 +658,13 @@ const workflowPlaylist = {
             }
             // XOÁ (10/09/2026, Giang yêu cầu "loại bỏ toàn bộ JSZip") — TRƯỚC ĐÂY dùng thẳng
             // `new JSZip()...generateAsync()` ở đây; giờ giao hẳn cho `_compressZipEntries()`
-            // (core/storage-manager.js — ĐƯỜNG DUY NHẤT để nén zip, JSZip đã bỏ hẳn khỏi app) —
-            // Song KHÔNG dùng `buildAllSongsZipBlob()` được vì cần `buildTaggedBlob()` cho từng
-            // file TRƯỚC khi nén (khác Video/Photo, xem 2 hàm export zip ngay dưới), nên gọi thẳng
-            // `_compressZipEntries()` với entries đã gắn tag sẵn.
+            // (core/storage-manager.js — ĐƯỜNG DUY NHẤT để nén zip, JSZip đã bỏ hẳn khỏi app).
+            // SỬA (Giang báo bug "Storage Manager bỏ qua tag mp3") — `buildAllSongsZipBlob()`
+            // (core/storage-manager.js) GIỜ ĐÃ tự gọi `buildTaggedBlob()` cho từng file qua
+            // `_collectZipEntries()`, lẽ ra dùng lại được — nhưng hàm này VẪN giữ code riêng vì có
+            // thêm resilience per-file RIÊNG (`failedCount` báo người dùng biết CHÍNH XÁC bao nhiêu
+            // bài bị fallback, xem catch() ngay trên) mà `buildAllSongsZipBlob()` không trả ra
+            // ngoài (chỉ tự log console) — giữ 2 đường tách nhau CÓ CHỦ Ý cho khác biệt UI này.
             zipBlob = await _compressZipEntries(entries, (done, total, percent) => { // core/storage-manager.js
                 const pct = percent != null ? Math.round(percent) : Math.round((done / total) * 100);
                 loadingText.textContent = tFormat('common.storage.zippingProgress', { percent: pct });
