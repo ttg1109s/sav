@@ -30,7 +30,7 @@ const TPL_PLAYLIST_VIEW = `
             <!-- Hàng 1: logo header bên trái (tĩnh, full text) + cụm icon góc phải (Thêm nhạc +
                  Cài đặt + Đổi giao diện). -->
             <div class="flex justify-between items-center gap-5 mb-3" data-uitk="textPrimary">
-                <!-- Logo "Audio Visualizer" — không khung/nền/viền, in đậm, "A"/"V" tô màu accent.
+                <!-- Logo "Audio Visualizer" — không khung/nền/viền, in đậm, 1 màu (theo theme).
                      LỊCH SỬ (giữ lại vì vẫn còn liên quan touch-action bên dưới) — bản CŨ (trước
                      "thiết kế lại theo hướng simple") có animation thu/mở "SAV" <-> tên đầy đủ khi
                      hover/tap, và từng dính bug "bấm logo không ăn, có lúc còn bị zoom vào trang":
@@ -43,8 +43,9 @@ const TPL_PLAYLIST_VIEW = `
                      khi hover (desktop)/tap (mobile) mô tả ở lịch sử comment phía trên (matchMedia
                      hover:hover, mouseenter/mouseleave, click toggle, touch-action fix double-tap-
                      zoom...) — logo giờ LUÔN hiện ĐẦY ĐỦ "Audio Visualizer" tĩnh, không còn trạng
-                     thái thu gọn "AV" nào nữa nên không còn gì để toggle. "A"/"V" tô màu đậm —
-                     CÙNG style + CÙNG 2 màu (#0ea5e9/#8b5cf6) với logo preloader mới (index.html).
+                     thái thu gọn "AV" nào nữa nên không còn gì để toggle. KHÔNG tô màu (CHỐT sau —
+                     Giang chỉ ra hiểu sai, xem SỬA ngay dưới) — animation reveal "A(udio) V
+                     (isualizer)" ĐÃ CHUYỂN hẳn sang preloader (index.html) thay vì bỏ hẳn.
                      touch-action: manipulation GIỮ LẠI dù không còn bấm được — vẫn phòng đúng bug
                      "double-tap-zoom" cũ (WebKit hiểu lầm double-tap vào đoạn văn bản tĩnh là zoom
                      trang), bug đó không liên quan gì tới việc phần tử có tương tác hay không.
@@ -54,9 +55,14 @@ const TPL_PLAYLIST_VIEW = `
                      index.html (CHƯA xoá file khỏi dự án, chỉ ngừng dùng, chờ Giang quyết định dọn
                      hẳn hay không). id="sav-logo" GIỮ NGUYÊN tên (định danh kỹ thuật, không phải
                      chữ hiển thị) dù không còn ai gọi tới qua JS nữa. -->
-                <div id="sav-logo" class="flex items-baseline shrink-0 select-none leading-none" style="touch-action: manipulation;">
-                    <span class="text-base font-extrabold" style="color:#0ea5e9">A</span><span class="text-base font-semibold">udio </span><span class="text-base font-extrabold" style="color:#8b5cf6">V</span><span class="text-base font-semibold">isualizer</span>
-                </div>
+                <!-- SỬA (Giang chỉ ra hiểu sai lượt trước — "chưa từng bảo tô màu A/V", "tách
+                     A/udio V/isualizer nghĩa là CHUYỂN animation cũ của header sang cho preloader,
+                     header không dùng nó nữa") — bỏ hẳn 2 span màu đã thêm sai, header giờ CHỈ còn
+                     text tĩnh trơn 1 màu (data-uitk="textPrimary" ở div cha đã lo màu chữ theo
+                     theme), không có gì để phân biệt "A"/"V" với phần còn lại nữa — animation
+                     reveal đã chuyển hẳn sang preloader (index.html, xem @keyframes
+                     app-preloader-expand-*). -->
+                <div id="sav-logo" class="flex items-baseline shrink-0 select-none leading-none font-extrabold text-base" style="touch-action: manipulation;">Audio Visualizer</div>
                 <div class="flex items-center gap-5 shrink-0">
                 <!-- XOÁ (09/09/2026, Giang yêu cầu "loại bỏ nút icon visualizer playing ở header,
                      gộp vào nút Phát") — #btn-return-visual (icon "chấm tròn" nhấp nháy, bấm quay
