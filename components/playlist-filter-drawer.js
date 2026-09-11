@@ -267,3 +267,45 @@ function renderPlaylistFilterEditBody(preset, source, isActive) {
                 </div>
 `;
 }
+
+/**
+ * MỚI (Giang yêu cầu tính năng "folder tự quyết áp dụng Filter", màn "Cài đặt filter" RIÊNG cho 1
+ * folder, mở qua dropdown long-press — event/workflow/file-manager-folder-browser.js). TÁI DÙNG
+ * THẲNG `_renderFilterTextFieldRow()`/`_renderFilterNumericFieldRow()` ngay trên (CÙNG field rule y
+ * hệt màn Edit preset) — KHÁC màn đó ở việc KHÔNG có hàng "Name"/checkbox "Có áp dụng cho thư mục"
+ * (2 khái niệm đó thuộc hệ Preset, không liên quan filter RIÊNG của 1 folder) và KHÔNG có 2 nút
+ * Select/Update/Delete cuối trang (modalChoice() tự có nút Đóng mặc định — xem
+ * event/workflow/file-manager-folder-browser.js::showFolderFilterEditor()). Bọc trong
+ * `max-h-[55vh] overflow-y-auto` RIÊNG — CHỈ ở đây cần, vì đây là nội dung TỰ DO trong `modalChoice()`
+ * (core/modal-choice-ui.js — card KHÔNG có sẵn giới hạn chiều cao/scroll, chỉ hợp cho nội dung ngắn
+ * như showFolderProperties() 2 checkbox; ĐẾN 8 field row ở đây chắc chắn tràn màn hình mobile nếu
+ * không tự bọc scroll).
+ * @param {object} config - `playlistFilterConfig[mediaType]` shape — CÙNG `folderRecord.filterConfig`
+ *   (core/file-manager/folder.js), KHÔNG cần chuyển đổi.
+ * @param {'song'|'video'|'photo'} mediaType
+ * @param {function} t
+ * @returns {string}
+ */
+function buildFolderFilterEditBodyHtml(config, mediaType, t) {
+    const textFieldsBySource = {
+        song: [['name', 'playlistFilterPanel.field.name'], ['album', 'playlistFilterPanel.field.album'], ['artist', 'playlistFilterPanel.field.artist']],
+        video: [['name', 'playlistFilterPanel.field.name'], ['album', 'playlistFilterPanel.field.album']],
+        photo: [['name', 'playlistFilterPanel.field.name'], ['album', 'playlistFilterPanel.field.album']],
+    };
+    const textFields = textFieldsBySource[mediaType] || textFieldsBySource.song; // guard — CÙNG lý do renderPlaylistFilterEditBody()
+    const totalTimeLabelKey = mediaType === 'song' ? 'playlistFilterPanel.field.totalTime' : 'playlistFilterPanel.field.viewDuration'; // CÙNG quy ước "Watch time" cho Video/Photo đã chốt trước đó
+
+    return `
+        <div class="max-h-[55vh] overflow-y-auto">
+            <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
+                ${textFields.map(([field, labelKey]) => _renderFilterTextFieldRow(field, labelKey)).join('')}
+                ${_renderFilterNumericFieldRow('addedAt', 'playlistFilterPanel.field.addedAt', 'date')}
+                ${_renderFilterNumericFieldRow('count', 'playlistFilterPanel.field.count', 'number', '1')}
+                ${_renderFilterNumericFieldRow('totalTime', totalTimeLabelKey, 'time-picker')}
+                ${_renderFilterNumericFieldRow('duration', 'playlistFilterPanel.field.duration', 'time-picker')}
+                ${_renderFilterNumericFieldRow('size', 'playlistFilterPanel.field.size', 'number', '0.1')}
+            </div>
+        </div>
+`;
+}
+
