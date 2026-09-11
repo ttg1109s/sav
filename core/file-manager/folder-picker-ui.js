@@ -125,8 +125,9 @@ function openRenameFolderModal(currentName, folderId) {
 // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 4) — ngưỡng giữ tay mở menu hành động 1
 // folder tile (đổi tên/xoá/ẩn-hiện/thuộc tính) — CÙNG khuôn `EQ_CYCLE_HOLD_MS`
 // (event/workflow/eq-presets.js)/`CUSTOM_EFFECT_HOLD_MS` (event/workflow/custom-effect.js), cố
-// định 1.5s, không phải setting.
-const FOLDER_TILE_HOLD_MS = 1500;
+// định, không phải setting.
+// SỬA (Giang yêu cầu — "1.5s hold -> 1s") — rút ngắn từ 1500ms xuống 1000ms, nhạy tay hơn.
+const FOLDER_TILE_HOLD_MS = 1000;
 
 function wireFolderPickerDrawerEvents(routerName, msgPrefix) {
     const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
@@ -142,7 +143,7 @@ function wireFolderPickerDrawerEvents(routerName, msgPrefix) {
     const typeSelect = genericDrawerHeader.querySelector('#playlist-folder-picker-type');
     if (typeSelect) typeSelect.addEventListener('change', (e) => eventBus.send({ router: routerName, type: `${msgPrefix}.typeChange`, payload: { value: e.target.value } }));
 
-    // SỬA (06/09/2026, hợp nhất Folder vào Playlist, Batch 4) — thêm giữ tay 1.5s ->
+    // SỬA (06/09/2026, hợp nhất Folder vào Playlist, Batch 4) — thêm giữ tay 1s ->
     // `${msgPrefix}.tile.longpress` (CÙNG khuôn EQ_CYCLE_HOLD_MS, xem hằng số ngay trên) — `click`
     // bình thường (tap ngắn) VẪN bắn `${msgPrefix}.tile.click` y hệt trước giờ, CHỈ bị nuốt (không
     // bắn) đúng 1 lần NGAY SAU 1 lượt long-press vừa nổ (trình duyệt luôn tự phát `click` NGAY SAU
@@ -187,5 +188,5 @@ function wireFolderPickerDrawerEvents(routerName, msgPrefix) {
 // XOÁ (06/09/2026, Giang chốt mục 3.6 — "bỏ hẳn màn Read") — `wireFolderBrowserReadEvents()`
 // (wiring cho màn Read cũ: back/rename/delete/removeItem/removeAll/pagination/2 toggle Scope-
 // Exclude) bỏ hẳn cùng màn hình đó — Folder Browser giờ CHỈ còn màn List (tap = áp dụng ngay, giữ
-// tay 1.5s = menu hành động, xem `wireFolderPickerDrawerEvents()` ngay trên +
+// tay 1s = menu hành động, xem `wireFolderPickerDrawerEvents()` ngay trên +
 // event/workflow/file-manager-folder-browser.js).
