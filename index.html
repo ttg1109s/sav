@@ -46,7 +46,7 @@
     <!-- <head> chỉ còn meta/title/favicon (nhẹ, không chờ mạng) — mọi <script> CDN/<link> CSS dời
          xuống <body>, sau khối Preloader, để Preloader vẽ ra màn hình sớm nhất có thể. -->
 </head>
-<body class="text-white h-screen flex flex-col relative overflow-hidden bg-[#000000]">
+<body class="text-slate-900 h-screen flex flex-col relative overflow-hidden bg-white">
 
     <!-- Preloader — SỬA (Giang yêu cầu "thiết kế lại theo hướng simple") — THAY HẲN bản cũ (5 cột
          EQ nhảy + quầng sáng phập phồng + % thật đếm qua Resource Timing API) bằng bản ĐƠN GIẢN:
@@ -57,26 +57,23 @@
          app-preloader-expand-* dưới) + 1 vòng chấm tròn xoay gần đáy (LOADING THẬT — chỉ ẩn khi
          markPlaylistBootReady() báo boot xong, KHÔNG đếm % nữa vì "boot xong = tải xong", không
          cần biết TIẾN ĐỘ giữa chừng). Đặt đầu <body> trước mọi <script>/<link> (đồng bộ, chặn
-         parser) để hiện ra ngay lập tức, không đợi CDN tải xong.
-         SỬA (Giang báo bug "sau khi ẩn preloader còn màn hình đen xì") — TỪNG thử đổi mặc định
-         sang nền TRẮNG (đúng nghĩa đen của "theo theme" — Light là theme active duy nhất hiện có)
-         nhưng gây LỆCH PHA với màn Playlist/Visualizer thật (vẫn nền tối — 2 canvas #visualizer/
-         #webgl-canvas + #app-bg CHỈ đổi màu SAU khi JS chạy xong applyUiThemeToDom(), hệ Theme
-         Light/Dark hiện CHỈ chắc chắn áp cho UI kiểu Settings/Generic Drawer). ĐÃ ĐẢO LẠI: mặc
-         định ĐEN (khớp `<body>`/màn chính thật) — nhánh đọc `localStorage['uiThemeName']` VẪN giữ
-         hạ tầng (event/workflow/ui-theme.js tự mirror) nhưng TẠM COMMENT phần đổi sang trắng, chờ
-         Giang xác nhận màn Playlist/Visualizer chính có thật sự chuyển sáng theo Theme hay không
-         rồi mới bật lại. -->
+         parser) để hiện ra ngay lập tức, không đợi CDN tải xong. Nền theo Theme: đọc
+         `localStorage['uiThemeName']` ĐỒNG BỘ (KHÔNG đợi được `meta.uiThemeConfig` trong
+         IndexedDB — bất đồng bộ, preloader phải vẽ NGAY) — event/workflow/ui-theme.js tự mirror
+         giá trị này mỗi lần đổi/khôi phục theme lúc boot (xem SỬA ở file đó). Theme 'dark' hiện
+         CHƯA có bảng màu thật riêng (core/ui-theme/dark.js vẫn y hệt Light, xem docstring file đó)
+         nên nhánh `.app-preloader-dark` dưới đây tạm dùng màu tối HỢP LÝ (chưa phải màu chính thức)
+         — chỉ để không bị lệch tông một khi Dark có màu thật, không cần sửa lại preloader lúc đó. -->
     <style>
-        #app-preloader { position: fixed; inset: 0; z-index: 9999; background: #000000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; transition: opacity 0.35s ease-out; }
+        #app-preloader { position: fixed; inset: 0; z-index: 9999; background: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; transition: opacity 0.35s ease-out; }
         #app-preloader.app-preloader-hidden { opacity: 0; pointer-events: none; }
-        #app-preloader.app-preloader-light { background: #ffffff; }
+        #app-preloader.app-preloader-dark { background: #0f172a; }
 
         #app-preloader-logo { width: 64px; height: 64px; border-radius: 18px; background: linear-gradient(135deg, #38bdf8, #8b5cf6); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(99,102,241,0.28); }
         #app-preloader-logo svg { width: 28px; height: 28px; }
 
-        #app-preloader-name { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 20px; font-weight: 800; text-align: center; color: #ffffff; }
-        .app-preloader-light #app-preloader-name { color: #0f172a; }
+        #app-preloader-name { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 20px; font-weight: 800; text-align: center; color: #0f172a; }
+        .app-preloader-dark #app-preloader-name { color: #f1f5f9; }
         /* SỬA (Giang chỉ ra hiểu sai — "chuyển animation của header sang cho preload, header không
            dùng nó nữa") — 2 span dưới đây tái hiện ĐÚNG hiệu ứng reveal cũ của logo header (core/
            sav-logo.js/.sav-logo-expand, ĐÃ NGỪNG NẠP — xem components/playlist-view.js): "A"/"V"
@@ -89,8 +86,8 @@
         @keyframes app-preloader-expand-udio { from { max-width: 0; } to { max-width: 3.2em; } }
         @keyframes app-preloader-expand-isualizer { from { max-width: 0; } to { max-width: 5.4em; } }
 
-        #app-preloader-dots { position: relative; width: 36px; height: 36px; margin-top: 8px; color: #64748b; }
-        .app-preloader-light #app-preloader-dots { color: #94a3b8; }
+        #app-preloader-dots { position: relative; width: 36px; height: 36px; margin-top: 8px; color: #94a3b8; }
+        .app-preloader-dark #app-preloader-dots { color: #64748b; }
         .app-preloader-dot { position: absolute; top: 50%; left: 50%; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: currentColor; opacity: 0.15; animation: app-preloader-dot-fade 1s ease-in-out infinite; }
         .app-preloader-dot:nth-child(1) { transform: rotate(0deg) translate(16px); animation-delay: 0s; }
         .app-preloader-dot:nth-child(2) { transform: rotate(45deg) translate(16px); animation-delay: 0.125s; }
@@ -125,19 +122,13 @@
         (function () {
             var preloaderEl = document.getElementById('app-preloader');
 
-            // Nền theo Theme — SỬA (Giang báo bug "sau khi ẩn preloader còn màn hình đen xì") —
-            // ĐẢO LẠI mặc định: preloader giờ mặc định ĐEN (khớp `<body>`/màn Playlist-Visualizer
-            // thật — 2 canvas #visualizer/#webgl-canvas + #app-bg CHỈ đổi màu SAU khi JS chạy xong
-            // applyUiThemeToDom(), có khoảng hở trước đó luôn là nền tối gốc). Hệ Theme Light/Dark
-            // (data-uitk) hiện CHỈ áp cho UI kiểu Settings/Generic Drawer — CHƯA chắc áp cho chính
-            // màn Playlist/Visualizer, nên "theo theme" ở đây tạm hiểu là "đen mặc định, chỉ đổi
-            // trắng nếu Giang xác nhận màn chính thật sự cũng sáng" — CHƯA đổi mặc định sang Light
-            // cho tới khi có xác nhận đó (tránh lặp lại đúng bug vừa gặp).
+            // Nền theo Theme — đọc SYNCHRONOUS qua localStorage (mirror của meta.uiThemeConfig
+            // thật trong IndexedDB, ghi bởi event/workflow/ui-theme.js — xem docstring khối trên).
             try {
-                if (localStorage.getItem('uiThemeName') === 'light') {
-                    // preloaderEl.classList.add('app-preloader-light'); // TẠM COMMENT — xem ghi chú trên, chờ Giang xác nhận màn chính có thật sự sáng không rồi mới bật lại
+                if (localStorage.getItem('uiThemeName') === 'dark') {
+                    preloaderEl.classList.add('app-preloader-dark');
                 }
-            } catch (e) { /* Safari Private Mode/... chặn localStorage — bỏ qua, giữ đen mặc định */ }
+            } catch (e) { /* Safari Private Mode/... chặn localStorage — bỏ qua, giữ Light mặc định */ }
 
             /**
              * Gọi TỪ event/workflow/app-boot.js, NGAY SAU khi Playlist đã render xong (cuối chuỗi
@@ -169,75 +160,6 @@
                 preloaderEl.classList.add('app-preloader-hidden');
                 setTimeout(function () { preloaderEl.remove(); }, 400); // sau khi fade xong hẳn (transition 0.35s + đệm)
             }
-        })();
-    </script>
-
-    <!-- Nút Debug Console THƯỜNG TRỰC — MỚI (Giang yêu cầu "nút bấm có sẵn thường trực top ở index
-         chạy trực tiếp debug-console.js") — phục vụ xem log NGAY TRÊN MÁY THẬT lúc app boot lỗi/
-         kẹt, không cần kết nối Mac/Web Inspector. VANILLA JS THUẦN, KHÔNG phụ thuộc Tailwind/
-         Generic Drawer/appState/eventBus/bất kỳ file app nào khác (CÙNG triết lý preloader ngay
-         trên) — để LUÔN bấm được kể cả khi cả app crash/treo giữa boot, ĐÚNG lúc cần xem log NHẤT
-         (nếu phụ thuộc dù chỉ 1 file khác, file đó lỗi/chưa nạp kịp là nút này cũng chết theo,
-         mất hết tác dụng). CHỈ cần `getDebugConsoleLogs()` (core/debug-console.js, nạp SỚM NHẤT
-         toàn project, xem docstring file đó) — gọi lúc CLICK (đã nạp xong từ lâu tới lúc đó), có
-         guard `typeof` phòng trường hợp hiếm bấm NGAY tức khắc trước khi kịp nạp. z-index
-         10000/10001 — CAO HƠN preloader (9999), bấm/xem được NGAY CẢ lúc đang hiện preloader. -->
-    <button id="app-debug-console-btn" style="position: fixed; top: 44px; right: 8px; z-index: 10000; width: 34px; height: 34px; border-radius: 50%; background: rgba(15,23,42,0.72); color: #facc15; border: none; font-size: 16px; line-height: 34px; text-align: center; padding: 0; cursor: pointer;">🐞</button>
-    <div id="app-debug-console-panel" style="display: none; position: fixed; inset: 0; z-index: 10001; background: #0f172a; color: #e2e8f0; font-family: ui-monospace, monospace; font-size: 11px; overflow-y: auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px; padding-top: max(12px, env(safe-area-inset-top)); position: sticky; top: 0; background: #0f172a; border-bottom: 1px solid #334155;">
-            <strong style="color: #fff; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 13px;">Debug Console (<span id="app-debug-console-count">0</span>)</strong>
-            <span style="display: flex; gap: 6px;">
-                <button id="app-debug-console-copy" style="padding: 5px 12px; border-radius: 6px; background: #334155; color: #fff; border: none; font-size: 12px;">Copy</button>
-                <button id="app-debug-console-clear" style="padding: 5px 12px; border-radius: 6px; background: #334155; color: #fff; border: none; font-size: 12px;">Xoá</button>
-                <button id="app-debug-console-close" style="padding: 5px 12px; border-radius: 6px; background: #334155; color: #fff; border: none; font-size: 12px;">Đóng</button>
-            </span>
-        </div>
-        <div id="app-debug-console-list" style="padding: 12px; white-space: pre-wrap; word-break: break-all;"></div>
-    </div>
-    <script>
-        (function () {
-            var btn = document.getElementById('app-debug-console-btn');
-            var panel = document.getElementById('app-debug-console-panel');
-            var listEl = document.getElementById('app-debug-console-list');
-            var countEl = document.getElementById('app-debug-console-count');
-            var colorByLevel = { log: '#e2e8f0', warn: '#facc15', error: '#f87171' };
-
-            function escapeHtmlLite(str) {
-                return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            }
-
-            function readLogs() {
-                return (typeof getDebugConsoleLogs === 'function') ? getDebugConsoleLogs() : []; // core/debug-console.js
-            }
-
-            function renderLogs() {
-                var logs = readLogs();
-                countEl.textContent = logs.length;
-                if (logs.length === 0) { listEl.textContent = '(chưa có log nào — hoặc core/debug-console.js chưa kịp nạp)'; return; }
-                listEl.innerHTML = logs.map(function (entry) {
-                    var time = new Date(entry.time).toLocaleTimeString();
-                    var color = colorByLevel[entry.level] || colorByLevel.log;
-                    return '<div style="color:' + color + '; margin-bottom: 5px;">[' + time + '] ' + escapeHtmlLite(entry.text) + '</div>';
-                }).join('');
-            }
-
-            btn.addEventListener('click', function () {
-                renderLogs();
-                panel.style.display = 'block';
-            });
-            document.getElementById('app-debug-console-close').addEventListener('click', function () {
-                panel.style.display = 'none';
-            });
-            document.getElementById('app-debug-console-clear').addEventListener('click', function () {
-                if (typeof clearDebugConsoleLogs === 'function') clearDebugConsoleLogs(); // core/debug-console.js
-                renderLogs();
-            });
-            document.getElementById('app-debug-console-copy').addEventListener('click', function () {
-                var text = readLogs().map(function (e) { return '[' + e.level + '] ' + e.text; }).join('\n');
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(text).catch(function () {});
-                }
-            });
         })();
     </script>
 
