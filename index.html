@@ -46,157 +46,111 @@
     <!-- <head> chỉ còn meta/title/favicon (nhẹ, không chờ mạng) — mọi <script> CDN/<link> CSS dời
          xuống <body>, sau khối Preloader, để Preloader vẽ ra màn hình sớm nhất có thể. -->
 </head>
-<body class="text-white h-screen flex flex-col relative overflow-hidden bg-[#000000]">
+<body class="text-slate-900 h-screen flex flex-col relative overflow-hidden bg-white">
 
-    <!-- Preloader — HTML/CSS/JS thuần, đặt đầu <body> trước mọi <script>/<link> (đồng bộ, chặn
-         parser) để hiện ra ngay lập tức thay vì đợi CDN tải xong. % thật: đếm số <script src> đã
-         tải xong (Resource Timing API) so với tổng số thẻ hiện có trong DOM — không hardcode số cụ
-         thể. Tự ẩn khi window.load bắn. Animation tự đứng độc lập trong <style> này (không tách CSS
-         riêng — không được chờ mạng/cache), mượn ý tưởng .eq-1/.eq-2/.eq-3 + .animate-spin-slow
-         (assets/css/animations.css) dựng thành logo 5 cột EQ + quầng sáng phập phồng. Tôn trọng
-         prefers-reduced-motion (chỉ tắt phần trang trí, giữ animation chức năng). -->
+    <!-- Preloader — SỬA (Giang yêu cầu "thiết kế lại theo hướng simple") — THAY HẲN bản cũ (5 cột
+         EQ nhảy + quầng sáng phập phồng + % thật đếm qua Resource Timing API) bằng bản ĐƠN GIẢN:
+         1 logo tĩnh (badge gradient + icon play, KHÔNG animation trang trí) + tên app "Audio
+         Visualizer" ("A"/"V" tô màu, style CÙNG logo header Playlist mới — xem components/
+         playlist-view.js) + 1 vòng chấm tròn xoay gần đáy (LOADING THẬT — chỉ ẩn khi
+         markPlaylistBootReady() báo boot xong, KHÔNG đếm % nữa vì "boot xong = tải xong", không
+         cần biết TIẾN ĐỘ giữa chừng). Đặt đầu <body> trước mọi <script>/<link> (đồng bộ, chặn
+         parser) để hiện ra ngay lập tức, không đợi CDN tải xong. Nền theo Theme: đọc
+         `localStorage['uiThemeName']` ĐỒNG BỘ (KHÔNG đợi được `meta.uiThemeConfig` trong
+         IndexedDB — bất đồng bộ, preloader phải vẽ NGAY) — event/workflow/ui-theme.js tự mirror
+         giá trị này mỗi lần đổi/khôi phục theme lúc boot (xem SỬA ở file đó). Theme 'dark' hiện
+         CHƯA có bảng màu thật riêng (core/ui-theme/dark.js vẫn y hệt Light, xem docstring file đó)
+         nên nhánh `.app-preloader-dark` dưới đây tạm dùng màu tối HỢP LÝ (chưa phải màu chính thức)
+         — chỉ để không bị lệch tông một khi Dark có màu thật, không cần sửa lại preloader lúc đó. -->
     <style>
-        #app-preloader { position: fixed; inset: 0; z-index: 9999; background: #000000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; transition: opacity 0.4s ease-out; }
+        #app-preloader { position: fixed; inset: 0; z-index: 9999; background: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; transition: opacity 0.35s ease-out; }
         #app-preloader.app-preloader-hidden { opacity: 0; pointer-events: none; }
+        #app-preloader.app-preloader-dark { background: #0f172a; }
 
-        #app-preloader-logo { position: relative; width: 84px; height: 52px; display: flex; align-items: flex-end; justify-content: center; gap: 6px; }
-        #app-preloader-glow { position: absolute; inset: -28px; border-radius: 999px; background: radial-gradient(circle, rgba(56,189,248,0.35) 0%, rgba(139,92,246,0.16) 45%, transparent 72%); animation: app-preloader-glow-pulse 2.6s ease-in-out infinite; }
-        .app-preloader-bar { position: relative; width: 8px; height: 22%; border-radius: 4px; background: linear-gradient(180deg, #38bdf8, #8b5cf6); box-shadow: 0 0 10px rgba(56,189,248,0.55); animation-name: app-preloader-eq; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+        #app-preloader-logo { width: 64px; height: 64px; border-radius: 18px; background: linear-gradient(135deg, #38bdf8, #8b5cf6); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(99,102,241,0.28); }
+        #app-preloader-logo svg { width: 28px; height: 28px; }
 
-        #app-preloader-name { position: relative; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 26px; font-weight: 800; letter-spacing: 0.02em; color: #fff; text-align: center; padding: 0 24px; animation: app-preloader-fade-in 0.6s ease-out both; }
-        #app-preloader-bar-track { width: min(260px, 70vw); height: 4px; border-radius: 999px; background: rgba(255,255,255,0.12); overflow: hidden; }
-        #app-preloader-bar-fill { position: relative; height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, #38bdf8, #8b5cf6); transition: width 0.15s ease-out; overflow: hidden; }
-        #app-preloader-bar-fill::after { content: ''; position: absolute; inset: 0; width: 40%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.65), transparent); animation: app-preloader-shimmer 1.3s linear infinite; }
-        #app-preloader-percent { font-family: ui-monospace, monospace; font-size: 12px; color: rgba(255,255,255,0.5); }
+        #app-preloader-name { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 20px; font-weight: 700; text-align: center; color: #0f172a; }
+        .app-preloader-dark #app-preloader-name { color: #f1f5f9; }
+        #app-preloader-name .app-preloader-accent-a { color: #0ea5e9; font-weight: 800; }
+        #app-preloader-name .app-preloader-accent-v { color: #8b5cf6; font-weight: 800; }
 
-        @keyframes app-preloader-eq { 0%, 100% { height: 22%; } 50% { height: 100%; } }
-        @keyframes app-preloader-glow-pulse { 0%, 100% { transform: scale(1); opacity: 0.55; } 50% { transform: scale(1.12); opacity: 0.9; } }
-        @keyframes app-preloader-fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes app-preloader-shimmer { from { transform: translateX(-130%); } to { transform: translateX(230%); } }
+        #app-preloader-dots { position: relative; width: 36px; height: 36px; margin-top: 8px; color: #94a3b8; }
+        .app-preloader-dark #app-preloader-dots { color: #64748b; }
+        .app-preloader-dot { position: absolute; top: 50%; left: 50%; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: currentColor; opacity: 0.15; animation: app-preloader-dot-fade 1s ease-in-out infinite; }
+        .app-preloader-dot:nth-child(1) { transform: rotate(0deg) translate(16px); animation-delay: 0s; }
+        .app-preloader-dot:nth-child(2) { transform: rotate(45deg) translate(16px); animation-delay: 0.125s; }
+        .app-preloader-dot:nth-child(3) { transform: rotate(90deg) translate(16px); animation-delay: 0.25s; }
+        .app-preloader-dot:nth-child(4) { transform: rotate(135deg) translate(16px); animation-delay: 0.375s; }
+        .app-preloader-dot:nth-child(5) { transform: rotate(180deg) translate(16px); animation-delay: 0.5s; }
+        .app-preloader-dot:nth-child(6) { transform: rotate(225deg) translate(16px); animation-delay: 0.625s; }
+        .app-preloader-dot:nth-child(7) { transform: rotate(270deg) translate(16px); animation-delay: 0.75s; }
+        .app-preloader-dot:nth-child(8) { transform: rotate(315deg) translate(16px); animation-delay: 0.875s; }
 
-        /* Tôn trọng lựa chọn hệ thống "giảm hiệu ứng chuyển động" — chỉ tắt phần TRANG TRÍ thuần
-           tuý, KHÔNG đụng #app-preloader-bar-fill (width do JS set trực tiếp mỗi 80ms, là animation
-           CHỨC NĂNG thể hiện % thật, không phải @keyframes trang trí). */
+        @keyframes app-preloader-dot-fade { 0%, 100% { opacity: 0.15; } 50% { opacity: 1; } }
+
+        /* Tôn trọng "giảm hiệu ứng chuyển động" — vòng chấm vẫn là LOADING CHỨC NĂNG (không phải
+           trang trí thuần tuý), nhưng đổi sang nhịp chậm + đều hơn thay vì tắt hẳn animation, để
+           người dùng vẫn biết app đang tải mà không bị hiệu ứng "xoay/nhảy" gây khó chịu. */
         @media (prefers-reduced-motion: reduce) {
-            #app-preloader-glow, .app-preloader-bar, #app-preloader-name, #app-preloader-bar-fill::after { animation: none !important; }
+            .app-preloader-dot { animation-duration: 1.8s; }
         }
     </style>
     <div id="app-preloader">
         <div id="app-preloader-logo">
-            <div id="app-preloader-glow"></div>
-            <span class="app-preloader-bar" style="animation-duration:0.8s; animation-delay:0s;"></span>
-            <span class="app-preloader-bar" style="animation-duration:0.65s; animation-delay:0.12s;"></span>
-            <span class="app-preloader-bar" style="animation-duration:0.9s; animation-delay:0.04s;"></span>
-            <span class="app-preloader-bar" style="animation-duration:0.7s; animation-delay:0.18s;"></span>
-            <span class="app-preloader-bar" style="animation-duration:0.85s; animation-delay:0.08s;"></span>
+            <svg viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
         </div>
-        <div id="app-preloader-name">Audio Visualizer</div>
-        <div id="app-preloader-bar-track"><div id="app-preloader-bar-fill"></div></div>
-        <div id="app-preloader-percent">0%</div>
+        <div id="app-preloader-name"><span class="app-preloader-accent-a">A</span>udio <span class="app-preloader-accent-v">V</span>isualizer</div>
+        <div id="app-preloader-dots">
+            <span class="app-preloader-dot"></span><span class="app-preloader-dot"></span><span class="app-preloader-dot"></span><span class="app-preloader-dot"></span>
+            <span class="app-preloader-dot"></span><span class="app-preloader-dot"></span><span class="app-preloader-dot"></span><span class="app-preloader-dot"></span>
+        </div>
     </div>
     <script>
         (function () {
-            var fillEl = document.getElementById('app-preloader-bar-fill');
-            var percentEl = document.getElementById('app-preloader-percent');
             var preloaderEl = document.getElementById('app-preloader');
 
-            // FIX (yêu cầu Giang — "% không chạy thật, mặc định 0% hoặc 100%") — 2 NGUYÊN NHÂN GỐC
-            // tìm được, cả 2 đều liên quan tới cách đo % (đếm resource qua Performance API):
-            //
-            // (1) Resource Timing API có GIỚI HẠN BUFFER MẶC ĐỊNH (thường ~150-250 entry tuỳ trình
-            //     duyệt) — VƯỢT quá giới hạn này, entry MỚI bị ÂM THẦM BỎ QUA (không lỗi, không
-            //     cảnh báo). App này có tới ~176 file <script src> RIÊNG (chưa tính CSS/CDN/ảnh...) —
-            //     cộng dồn TOÀN BỘ resource khác của trang, tổng số entry rất dễ VƯỢT NGƯỠNG MẶC ĐỊNH
-            //     — `loaded` (đếm qua `performance.getEntriesByType('resource')`) NGỪNG TĂNG giữa
-            //     chừng dù script vẫn đang tải tiếp thật — % bị "đứng hình" ở 1 mức nào đó rồi nhảy
-            //     thẳng lên 100% khi `window.load` bắn (ép cứng, xem hidePreloader()) — ĐÚNG hiện
-            //     tượng "% không chạy thật, chỉ thấy 0%/100%". FIX: chủ động tăng buffer lên dư dả
-            //     (500, gấp gần 3 lần số script hiện có, chừa chỗ cho tăng trưởng sau này) NGAY LÚC
-            //     BẮT ĐẦU, trước khi bất kỳ resource nào kịp tải xong.
-            //
-            // (2) Trên mạng nhanh (hoặc cache trình duyệt còn hiệu lực từ lần ghé trước) — TOÀN BỘ
-            //     176+ script có thể tải xong trong CHƯA TỚI 80ms (chu kỳ poll đầu tiên) — `window.
-            //     load` bắn TRƯỚC KHI setInterval() kịp chạy lần nào — % thật (đang tăng dần) KHÔNG
-            //     BAO GIỜ kịp vẽ ra màn hình, người dùng chỉ thấy "0%" tĩnh (giá trị khởi tạo cứng
-            //     trong HTML) rồi NHẢY THẲNG "100%" (ép cứng bởi hidePreloader()) — ĐÚNG PHẦN CÒN
-            //     LẠI của hiện tượng Giang mô tả. FIX: tách phần đo % ra 1 hàm riêng, gọi NGAY LẬP
-            //     TỨC (đồng bộ, không đợi tick đầu của setInterval) TRƯỚC KHI đăng ký interval — dù
-            //     mạng nhanh cỡ nào, ít nhất 1 lần đo % thật cũng kịp render trước khi có gì ép 100%.
-            if (typeof performance.setResourceTimingBufferSize === 'function') {
-                performance.setResourceTimingBufferSize(500);
-            }
-
-            function measureProgress() {
-                var total = document.querySelectorAll('script[src]').length;
-                if (total === 0) return; // guard: parser chưa tới thẻ script nào (cực hiếm)
-                var loaded = 0;
-                try {
-                    var resources = performance.getEntriesByType('resource');
-                    for (var i = 0; i < resources.length; i++) {
-                        if (resources[i].initiatorType === 'script') loaded++;
-                    }
-                } catch (e) { loaded = 0; } // guard: trình duyệt cổ không có Resource Timing API
-                var percent = Math.min(100, Math.round((loaded / total) * 100));
-                fillEl.style.width = percent + '%';
-                percentEl.textContent = percent + '%';
-            }
-
-            measureProgress(); // (2) đo NGAY LẬP TỨC, không đợi tick đầu 80ms
-            var pollTimer = setInterval(measureProgress, 80);
-
-            // MỚI (phản hồi Giang — "shield loading không full-screen + Video không có shield") —
-            // TRƯỚC ĐÂY preloader ẩn NGAY khi `window.load` bắn (script tải xong) — nhưng Playlist
-            // THẬT SỰ sẵn sàng (đọc IndexedDB xong + render DOM xong) diễn ra SAU đó, bất đồng bộ
-            // (event/workflow/app-boot.js) — khoảng hở giữa 2 mốc này để lộ UI nửa-sẵn-sàng (header/
-            // search/Play/Shuffle đã hiện, list vẫn trống) — ĐÚNG hiện tượng quay màn hình thấy.
-            // Giải pháp: giữ preloader (ĐÃ full-screen sẵn, z-index 9999) hiện tới khi CẢ HAI điều
-            // kiện xong — không dựng thêm overlay nào mới, tái dùng cái đã có.
-            var scriptsLoaded = false;
-            var playlistReady = false;
-            function tryHidePreloader() {
-                if (scriptsLoaded && playlistReady) hidePreloader();
-            }
+            // Nền theo Theme — đọc SYNCHRONOUS qua localStorage (mirror của meta.uiThemeConfig
+            // thật trong IndexedDB, ghi bởi event/workflow/ui-theme.js — xem docstring khối trên).
+            try {
+                if (localStorage.getItem('uiThemeName') === 'dark') {
+                    preloaderEl.classList.add('app-preloader-dark');
+                }
+            } catch (e) { /* Safari Private Mode/... chặn localStorage — bỏ qua, giữ Light mặc định */ }
 
             /**
              * Gọi TỪ event/workflow/app-boot.js, NGAY SAU khi Playlist đã render xong (cuối chuỗi
-             * boot) — báo cho preloader biết "sẵn sàng thật" (KHÔNG chỉ "script tải xong"). Gắn vào
-             * `window` vì file này là <script> đồng bộ đầu <body>, chạy TRƯỚC MỌI file khác — không
-             * có cách nào gọi thẳng 1 hàm closure ở đây từ file tải SAU, phải lộ qua `window`.
+             * boot) — SỬA (Giang yêu cầu "không cần đếm %, boot xong = tải xong") — TRƯỚC ĐÂY còn
+             * đợi CẢ 2 cờ (`scriptsLoaded` từ `window.load` LẪN `playlistReady` từ hàm này) — giờ
+             * CHỈ cần tín hiệu DUY NHẤT này (boot xong nghĩa là mọi script cần thiết ĐÃ tải VÀ chạy
+             * xong, tự nó bao hàm luôn "tải xong", không cần đo/đợi riêng `window.load` nữa). Gắn
+             * vào `window` vì file này là <script> đồng bộ đầu <body>, chạy TRƯỚC MỌI file khác —
+             * không có cách nào gọi thẳng 1 hàm closure ở đây từ file tải SAU, phải lộ qua `window`.
              */
             window.markPlaylistBootReady = function () {
-                playlistReady = true;
-                tryHidePreloader();
+                hidePreloader();
             };
 
-            window.addEventListener('load', function () {
-                scriptsLoaded = true;
-                tryHidePreloader();
-                // Guard an toàn: lỡ boot lỗi/treo bất thường (JS throw giữa chừng trước khi kịp gọi
-                // markPlaylistBootReady()) — timeout 8s tự ẩn preloader, tránh app kẹt màn đen VĨNH
-                // VIỄN (tệ hơn hẳn tình trạng HIỆN TẠI, dù hiếm khi xảy ra).
-                setTimeout(function () {
-                    if (!playlistReady) {
-                        console.warn('[preloader] Playlist chưa báo sẵn sàng sau 8s kể từ window.load — tự ẩn preloader (an toàn), có thể do lỗi JS ở boot sequence.');
-                        playlistReady = true;
-                        tryHidePreloader();
-                    }
-                }, 8000);
-            });
+            // Lưới an toàn — lỡ boot lỗi/treo bất thường (JS throw giữa chừng trước khi kịp gọi
+            // markPlaylistBootReady()) — timeout tự ẩn preloader, tránh app kẹt màn hình preloader
+            // VĨNH VIỄN (tệ hơn hẳn hiện ra dù chưa sẵn sàng thật). KHÔNG còn phụ thuộc window.load
+            // (đơn giản hoá — timeout chạy từ lúc script này thực thi, không cần biết mốc nào khác).
+            var safetyTimer = setTimeout(function () {
+                console.warn('[preloader] Chưa nhận tín hiệu markPlaylistBootReady() sau 10s — tự ẩn preloader (an toàn), có thể do lỗi JS ở boot sequence.');
+                hidePreloader();
+            }, 10000);
 
+            var hidden = false;
             function hidePreloader() {
-                clearInterval(pollTimer);
-                fillEl.style.width = '100%';
-                percentEl.textContent = '100%';
-                setTimeout(function () {
-                    preloaderEl.classList.add('app-preloader-hidden');
-                    setTimeout(function () { preloaderEl.remove(); }, 450); // sau khi fade xong hẳn (transition 0.4s + đệm)
-                }, 150);
+                if (hidden) return; // guard: markPlaylistBootReady() gọi SAU khi lưới an toàn đã tự kích hoạt (hiếm) — không ẩn/gỡ 2 lần
+                hidden = true;
+                clearTimeout(safetyTimer);
+                preloaderEl.classList.add('app-preloader-hidden');
+                setTimeout(function () { preloaderEl.remove(); }, 400); // sau khi fade xong hẳn (transition 0.35s + đệm)
             }
-            // XOÁ `window.addEventListener('load', hidePreloader);` (bản cũ, gọi THẲNG không qua
-            // điều kiện) — hidePreloader() giờ CHỈ được gọi từ tryHidePreloader() (đợi ĐỦ CẢ 2 cờ
-            // scriptsLoaded + playlistReady, xem khối ngay trên), tránh gọi 2 lần/gọi sớm.
         })();
     </script>
+
 
     <!-- Thư viện bên thứ 3 (CDN) — DỜI TỪ <head> XUỐNG ĐÂY (xem giải thích đầy đủ ở comment đầu
          khối Preloader phía trên) — giữ NGUYÊN THỨ TỰ TƯƠNG ĐỐI với nhau như bản gốc, chỉ đổi vị
@@ -367,7 +321,7 @@
     <!-- MỚI (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings chung 1 container cuộn
          ngang) — chỉ định nghĩa 2 biến chuỗi mở/đóng khung bọc, xem components/app-view-stack.js. -->
     <script src="components/app-view-stack.js?v=20260813v1"></script>
-    <script src="components/playlist-view.js?v=20260911v1"></script>
+    <script src="components/playlist-view.js?v=20260911v2"></script>
     <!-- Game Mode overlay (Circle mode v1, MỚI 16/08/2026) — PHẢI nạp TRƯỚC components/visualizer-
          overlay.js (file đó nội suy ${TPL_GAMEPLAY_OVERLAY}, xem components/gameplay-overlay.js). -->
     <script src="components/gameplay-overlay.js?v=20260819v1"></script>
@@ -553,8 +507,11 @@
          panel-scroll.js (đã nạp ngay trên). Nhận title đã dịch sẵn qua tham số, không tự chờ
          animation. -->
     <script src="core/settings-panel-stack-ui.js?v=20260717v1"></script>
-    <!-- Logo "SAV" (cụm /event/ "savLogo") — cần biến `savLogo` vừa nạp từ dom-refs.js ngay trên. -->
-    <script src="core/sav-logo.js?v=20260629v1"></script>
+    <!-- Logo "Audio Visualizer" giờ TĨNH, không còn cụm /event/ "savLogo" nào cần nạp — SỬA (Giang
+         yêu cầu "thiết kế lại theo hướng simple... logo header chuyển full text, không animation")
+         — 4 file cụm savLogo (core/sav-logo.js + event/{workflow,router,listener}/sav-logo.js) đã
+         MỒ CÔI (không còn phần tử `.sav-logo-expand` nào để chúng thao tác, xem components/
+         playlist-view.js) — NGỪNG NẠP ở đây (và ở cụm /event/ phía dưới), CHƯA xoá file khỏi dự án. -->
     <!-- service/task-manager.js — quản lý tập trung mọi setInterval/setTimeout của app (kể cả
          timeout bắn 1 lần). Nạp ngay sau dom-refs.js, trước modal-choice-ui.js/db.js và mọi file core
          khác — hầu hết gọi taskManager.once()/addNew() ngay khi gắn listener lúc parse. -->
@@ -1186,11 +1143,8 @@
     <script src="event/listener/theme.js?v=20260709v1"></script>
     <!-- Cụm "statsPanel" ĐÃ XOÁ (checkbox toggle stats panel dời vào Settings, dùng chung
          cụm "visualizerDisplay" — xem event/workflow/visualizer-display.js::setStatsPanelEnabled()). -->
-    <!-- Cụm "savLogo" (ver 11, patch 6) — MỚI (12/07/2026): giờ CÓ event/workflow/sav-logo.js
-         (xem comment đầu file — case 'toggle' cần Workflow vì tự chuẩn bị appState cho Core). -->
-    <script src="event/workflow/sav-logo.js?v=20260712v1"></script>
-    <script src="event/router/sav-logo.js?v=20260712v1"></script>
-    <script src="event/listener/sav-logo.js?v=20260629v1"></script>
+    <!-- Cụm "savLogo" ĐÃ NGỪNG NẠP (SỬA — Giang yêu cầu "logo header full text, không animation")
+         — xem ghi chú đầy đủ ở chỗ ngừng nạp core/sav-logo.js phía trên. -->
     <!-- Cụm "languageSettings" (ver 11, patch 7). -->
     <script src="event/workflow/language-settings.js?v=20260629v1"></script>
     <script src="event/router/language-settings.js?v=20260629v1"></script>
@@ -1262,7 +1216,7 @@
          nhóm trên) — CHƯA có Router/Listener riêng (chưa có UI bấm đổi theme), chỉ gọi thẳng
          `workflowUiTheme.loadPersistedUiThemeOnBoot()` từ app-boot.js ngay dưới. NẠP TRƯỚC
          app-boot.js vì boot() gọi hàm đó. -->
-    <script src="event/workflow/ui-theme.js?v=20260909v1"></script>
+    <script src="event/workflow/ui-theme.js?v=20260911v1"></script>
     <!-- event/workflow/app-boot.js + event/router/app-boot.js (SỬA 25/07/2026, đợt tái cấu trúc
          state) — router giờ CHỈ eventBus.register('appBoot', ...) (KHÔNG còn tự đăng ký
          DOMContentLoaded — việc đó dời sang event/listener/app-boot.js, nạp SỚM ở đầu tài liệu,
