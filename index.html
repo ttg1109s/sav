@@ -20,17 +20,26 @@
             <link rel="icon"> (favicon.png) làm icon màn hình chính — nó CHỈ đọc apple-touch-icon
             riêng; thiếu thẻ này, iOS (bản mới) tự vẽ 1 ô icon thay thế (nền màu đặc + chữ cái đầu
             tên app) — ĐÚNG triệu chứng "không có icon, chỉ thấy ô đen chữ S" trong ảnh Giang chụp.
-         2. Thiếu apple-mobile-web-app-title: không có thẻ này, iOS phải tự suy ra tên hiển thị
-            dưới icon (rơi về <title> hoặc tự suy diễn khác tuỳ phiên bản/luồng "Add to Home
-            Screen") — hành vi không ổn định, ĐÚNG khớp triệu chứng "tên dính liền, mất dấu cách"
-            (không phải lỗi có chủ đích trong <title> ngay dưới, title đó VẪN có dấu cách bình
-            thường — chỉ là iOS không dùng chuẩn nguồn này khi thiếu meta riêng). Khai báo THẲNG
-            meta này buộc iOS dùng ĐÚNG chuỗi ở đây, không suy diễn gì thêm.
+            ĐÃ SỬA — có icon, Giang xác nhận đúng.
+         2. SỬA LẦN 2 (Giang báo "vẫn bị liền chữ" dù đã có apple-mobile-web-app-title) — nguyên
+            nhân THẬT không phải thiếu thẻ meta (thẻ đó đã khai đúng, có dấu cách hẳn hoi) mà là
+            TÊN QUÁ DÀI: SpringBoard (màn hình chính iOS) khi tên icon không đủ chỗ hiển thị sẽ tự
+            "nén" bằng cách XOÁ DẤU CÁCH trước, rồi mới cắt "..." nếu vẫn chưa vừa — hành vi CHUẨN
+            của SpringBoard cho MỌI icon màn hình chính (app thật lẫn PWA), không riêng gì web app.
+            "Simple Audio Visualizer" (23 ký tự) quá dài, rơi đúng vào trường hợp này. Bản vá tạm
+            đổi thành "SAV" (3 ký tự, chắc chắn không bị nén).
+         3. SỬA LẦN 3 (Giang yêu cầu đổi tên app thành "Audio Visualizer", bỏ "Simple") — đổi luôn
+            "SAV" ở đây thành CHÍNH TÊN MỚI "Audio Visualizer" (17 ký tự, 2 từ ngắn — nhiều khả năng
+            KHÔNG rơi vào ngưỡng bị SpringBoard nén như "Simple Audio Visualizer", nhưng CHƯA có
+            xác nhận thật trên máy — nếu Giang test lại vẫn thấy dính chữ, quay về dùng "SAV" hoặc
+            tên ngắn hơn nữa cho riêng home-screen label này). Đổi tên ở đây CÙNG lúc đổi luôn
+            <title> ngay dưới (khác lần sửa trước — lần đó CHỈ đổi riêng thẻ này, giữ <title> là tên
+            đầy đủ cũ; giờ đổi tên app THẬT nên cả 2 CÙNG "Audio Visualizer").
          apple-touch-icon.png (180×180, nền đặc — KHÔNG để trong suốt, iOS tự bo góc/viền riêng,
          icon nguồn để trong suốt dễ bị viền đen/trắng lệch) tạo từ chính favicon.png (chỉ khác
          iOS bỏ qua favicon.png cho mục đích này, phải có file/thẻ riêng). -->
-    <meta name="apple-mobile-web-app-title" content="Simple Audio Visualizer">
-    <title>Simple Audio Visualizer</title>
+    <meta name="apple-mobile-web-app-title" content="Audio Visualizer">
+    <title>Audio Visualizer</title>
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
 
@@ -81,7 +90,7 @@
             <span class="app-preloader-bar" style="animation-duration:0.7s; animation-delay:0.18s;"></span>
             <span class="app-preloader-bar" style="animation-duration:0.85s; animation-delay:0.08s;"></span>
         </div>
-        <div id="app-preloader-name">Simple Audio Visualizer</div>
+        <div id="app-preloader-name">Audio Visualizer</div>
         <div id="app-preloader-bar-track"><div id="app-preloader-bar-fill"></div></div>
         <div id="app-preloader-percent">0%</div>
     </div>
@@ -332,7 +341,7 @@
          tFormat() — PHẢI nạp trước mọi components/*.js (template TPL_* gọi t() ngay lúc parse).
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
     <script src="lang/patch/patch-common.js?v=20260911v1"></script>
-    <script src="lang/patch/patch-playlist.js?v=20260911v1"></script>
+    <script src="lang/patch/patch-playlist.js?v=20260911v2"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260905v2"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260911v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260816v1"></script>
@@ -358,7 +367,7 @@
     <!-- MỚI (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings chung 1 container cuộn
          ngang) — chỉ định nghĩa 2 biến chuỗi mở/đóng khung bọc, xem components/app-view-stack.js. -->
     <script src="components/app-view-stack.js?v=20260813v1"></script>
-    <script src="components/playlist-view.js?v=20260823v1"></script>
+    <script src="components/playlist-view.js?v=20260911v1"></script>
     <!-- Game Mode overlay (Circle mode v1, MỚI 16/08/2026) — PHẢI nạp TRƯỚC components/visualizer-
          overlay.js (file đó nội suy ${TPL_GAMEPLAY_OVERLAY}, xem components/gameplay-overlay.js). -->
     <script src="components/gameplay-overlay.js?v=20260819v1"></script>
