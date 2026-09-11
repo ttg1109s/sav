@@ -316,9 +316,9 @@
          tFormat() — PHẢI nạp trước mọi components/*.js (template TPL_* gọi t() ngay lúc parse).
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
     <script src="lang/patch/patch-common.js?v=20260910v2"></script>
-    <script src="lang/patch/patch-playlist.js?v=20260823v2"></script>
+    <script src="lang/patch/patch-playlist.js?v=20260911v1"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260905v2"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260905v2"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260911v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260816v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 2 drawer con Song/Photo & Album, xem plan-v12-multimedia-decisions.md). -->
@@ -355,8 +355,8 @@
          (`#setting-open-playlist-sort/-filter`, TPL_SETTINGS_PLAYLIST_VIEW) đã mất cùng đợt bỏ
          Settings cũ (xem ngay dưới), tạm KHÔNG có lối vào UI nào — GIỮ NGUYÊN script (chỉ là hàm
          render, vô hại khi chưa gọi tới, đợi hướng dẫn nối lại sau). -->
-    <script src="components/playlist-sort-drawer.js?v=20260815v1"></script>
-    <script src="components/playlist-filter-drawer.js?v=20260815v2"></script>
+    <script src="components/playlist-sort-drawer.js?v=20260911v1"></script>
+    <script src="components/playlist-filter-drawer.js?v=20260911v1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel, phản hồi Giang) — bottom nav 7 mục Media/
          Folder/Photo/Storage/Game/Statis/Setting. -->
     <script src="components/app-bottom-nav.js?v=20260902v4"></script>
@@ -374,7 +374,7 @@
          phải TPL_* tĩnh — gọi lại mỗi lần mở Generic Drawer, xem event/workflow/app-settings.js). -->
     <script src="components/settings/app-settings-main.js?v=20260819v1"></script>
     <script src="components/game-panel.js?v=20260819v1"></script>
-    <script src="components/statis-panel.js?v=20260819v1"></script>
+    <script src="components/statis-panel.js?v=20260911v1"></script>
     <script src="components/about-drawer.js?v=20260707v1"></script>
     <!-- MỚI (18/07/2026, Giang yêu cầu) — panel xem console log (Settings > Misc). -->
     <script src="components/debug-console-drawer.js?v=20260718v1"></script>
@@ -461,7 +461,7 @@
     <!-- 18 package STATE theo domain (đợt tái cấu trúc 25/07/2026) — mỗi file tự
          AppState.definePackage(...) lúc nạp, CHƯA dựng STATE sống (chỉ đăng ký metadata). PHẢI
          nạp TRƯỚC service/state/record/index.js (dòng registry() cần mọi package đã đăng ký). -->
-    <script src="service/state/playlist.js?v=20260725v1"></script>
+    <script src="service/state/playlist.js?v=20260911v1"></script>
     <script src="service/state/player.js?v=20260725v1"></script>
     <script src="service/state/visualizer-runtime.js?v=20260905v2"></script>
     <script src="service/state/visualizer-scenes.js?v=20260725v1"></script>
@@ -519,7 +519,7 @@
          actions.js (core, dòng dưới) cần `new EventStore(...)` ngay lúc nạp. Tự đứng độc lập
          (không phụ thuộc eventBus), nên tách riêng lên đây an toàn. -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260910v1"></script>
+    <script src="core/dom-refs.js?v=20260911v1"></script>
     <!-- core/slider-panel-scroll.js — 2 hàm dùng chung (getPositionStart/scrollSliderTo) cho mọi
          khung cuộn ngang kiểu "slider panel" (settings-panel-stack-ui.js, player-controls.js). -->
     <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
@@ -689,6 +689,10 @@
          DOM/appState tại thời điểm nạp) — đặt cạnh 2 file gameplay/*-ui.js trên cho cùng nhóm. -->
     <script src="core/gameplay/catalog.js?v=20260902v1"></script>
     <script src="core/gameplay/game-panel-ui.js?v=20260902v3"></script>
+    <!-- Statis Panel (App Panel tab "Statis", stat-grid + so sánh + Top list — MỚI, Giang yêu cầu
+         "tích hợp 1+2+3") — CHỈ dựng chuỗi HTML (không phụ thuộc DOM/appState tại thời điểm nạp),
+         đặt cạnh game-panel-ui.js cho cùng nhóm "Core-ui panel App Panel". -->
+    <script src="core/statis-panel-ui.js?v=20260911v1"></script>
     <!-- Icon loa Volume HUD, 5 mốc 0-100% (event/workflow/volume-hud.js). -->
     <script src="core/volume-hud.js?v=20260811v1"></script>
     <!-- Core THUẦN domain "Visual Background" — tách 3 file: common (type/list/màu nền), video,
@@ -727,7 +731,7 @@
     <script src="core/playlist/order.js?v=20260818v1"></script>
     <script src="core/playlist/render.js?v=20260712v2"></script>
     <script src="core/playlist/loader.js?v=20260823v1"></script>
-    <script src="core/playlist/actions.js?v=20260818v1"></script>
+    <script src="core/playlist/actions.js?v=20260911v1"></script>
     <script src="core/playlist/main.js?v=20260625v10"></script>
     <!-- MỚI (mục 1d, Playlist Filter, phản hồi Giang) — applyPlaylistFilter() (SQL
          WHERE...AND style), dùng bởi switchToSongSource()/switchToVideoSource() (event/
@@ -735,7 +739,7 @@
          playlist-scope.js, nạp NGAY DƯỚI). CẦN service/operation.js (đã nạp) — KHÔNG gọi
          core/song-search.js (Rule 3 cấm Core gọi Core khác, xem docstring đầu file) và
          KHÔNG phụ thuộc core/playlist/order.js. -->
-    <script src="core/playlist/filter.js?v=20260815v3"></script>
+    <script src="core/playlist/filter.js?v=20260911v1"></script>
     <!-- MỚI (08/09/2026, hệ "Playlist Filter Presets") — preset CRUD thuần (mirror
          core/motion-presets.js), CẦN clonePlaylistFilterConfigDefaults() (service/state/
          playlist.js, đã nạp) — xem event/workflow/playlist-filter-presets.js (nạp SAU, cùng khu
@@ -1069,7 +1073,7 @@
          gọi tới workflowAppSettings/workflowPlaceholderPanels/workflowFileManagerFolderBrowser/
          workflowFileManagerStorage (đều đã nạp ở trên, dù không bắt buộc thứ tự chặt như ghi chú
          trên). -->
-    <script src="event/workflow/app-panel-nav.js?v=20260819v1"></script>
+    <script src="event/workflow/app-panel-nav.js?v=20260911v1"></script>
     <script src="event/router/app-panel-nav.js?v=20260819v1"></script>
     <script src="event/listener/app-panel-nav.js?v=20260819v1"></script>
     <!-- Cụm "playerControls" (ver 11, patch 3). MỚI (fix 03/07/2026, mục 3b): 'playerControls.
@@ -1101,7 +1105,7 @@
          workflow/visual-bg-common.js/visual-bg-video.js ("vbg chỉ hợp lệ với song" nên tái dùng
          clearMediaLayers()/applyCurrentVisualBg() Video Player mode đã dùng thay vì tự vẽ DOM
          riêng, cần workflowVisualBg tồn tại trước). -->
-    <script src="event/workflow/photo-player.js?v=20260825v1"></script>
+    <script src="event/workflow/photo-player.js?v=20260911v1"></script>
     <!-- Cụm "gameplay" — Game Mode. gameplay-engine.js (Workflow DÙNG CHUNG mọi mode: cooldown/
          modal Start-End/lưu điểm) PHẢI nạp TRƯỚC gameplay.js (mode "Circle", gọi vào engine cho
          mọi phần không đặc thù). Cả cụm PHẢI nạp TRƯỚC event/router/player-controls.js NGAY DƯỚI
@@ -1122,7 +1126,18 @@
     <script src="event/workflow/game-catalog.js?v=20260902v6"></script>
     <script src="event/router/game-catalog.js?v=20260902v2"></script>
     <script src="event/listener/game-catalog.js?v=20260902v1"></script>
-    <script src="event/workflow/player-controls.js?v=20260819v1"></script>
+    <!-- Cụm "statisPanel" — panel Statis (App Panel tab "Statis", stat-grid + so sánh Song/Video/
+         Photo + Top list, MỚI — Giang yêu cầu "tích hợp 1+2+3", xem event/workflow/statis-panel.js).
+         CẦN core/statis-panel-ui.js + core/listen-stats.js + core/playlist/loader.js +
+         core/file-manager/video.js (đã nạp ở nhóm CORE) VÀ event/workflow/playlist-scope.js (đã nạp
+         ở nhóm trên, dòng ~946, KHÔNG phụ thuộc cụm "gameplay"/"gameCatalog" ngay trên — chỉ đặt
+         cạnh nhau vì cùng nhóm "panel App Panel có nghiệp vụ thật"). event/workflow/app-panel-nav.js
+         ::openStatis() gọi workflowStatisPanel.openPanel() dù file đó KHAI BÁO SỚM HƠN — an toàn vì
+         là lời gọi lúc RUNTIME, CÙNG lý do openGame() đã ghi chú ngay trên. -->
+    <script src="event/workflow/statis-panel.js?v=20260911v1"></script>
+    <script src="event/router/statis-panel.js?v=20260911v1"></script>
+    <script src="event/listener/statis-panel.js?v=20260911v1"></script>
+    <script src="event/workflow/player-controls.js?v=20260911v1"></script>
     <script src="event/router/player-controls.js?v=20260819v1"></script>
     <script src="event/listener/player-controls.js?v=20260708v1"></script>
     <!-- Cụm "visualizerDisplay": ảnh nền, độ mờ nền, cycle effect, panel "Display". Cấu hình riêng
