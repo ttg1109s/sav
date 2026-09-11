@@ -15,8 +15,24 @@
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <!-- FIX (Giang báo — "PWA trên iOS tên bị dính liền, không có icon") — 2 nguyên nhân:
+         1. Thiếu HẲN <link rel="apple-touch-icon">: iOS "Add to Home Screen" KHÔNG dùng
+            <link rel="icon"> (favicon.png) làm icon màn hình chính — nó CHỈ đọc apple-touch-icon
+            riêng; thiếu thẻ này, iOS (bản mới) tự vẽ 1 ô icon thay thế (nền màu đặc + chữ cái đầu
+            tên app) — ĐÚNG triệu chứng "không có icon, chỉ thấy ô đen chữ S" trong ảnh Giang chụp.
+         2. Thiếu apple-mobile-web-app-title: không có thẻ này, iOS phải tự suy ra tên hiển thị
+            dưới icon (rơi về <title> hoặc tự suy diễn khác tuỳ phiên bản/luồng "Add to Home
+            Screen") — hành vi không ổn định, ĐÚNG khớp triệu chứng "tên dính liền, mất dấu cách"
+            (không phải lỗi có chủ đích trong <title> ngay dưới, title đó VẪN có dấu cách bình
+            thường — chỉ là iOS không dùng chuẩn nguồn này khi thiếu meta riêng). Khai báo THẲNG
+            meta này buộc iOS dùng ĐÚNG chuỗi ở đây, không suy diễn gì thêm.
+         apple-touch-icon.png (180×180, nền đặc — KHÔNG để trong suốt, iOS tự bo góc/viền riêng,
+         icon nguồn để trong suốt dễ bị viền đen/trắng lệch) tạo từ chính favicon.png (chỉ khác
+         iOS bỏ qua favicon.png cho mục đích này, phải có file/thẻ riêng). -->
+    <meta name="apple-mobile-web-app-title" content="Simple Audio Visualizer">
     <title>Simple Audio Visualizer</title>
     <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
 
     <!-- <head> chỉ còn meta/title/favicon (nhẹ, không chờ mạng) — mọi <script> CDN/<link> CSS dời
          xuống <body>, sau khối Preloader, để Preloader vẽ ra màn hình sớm nhất có thể. -->
