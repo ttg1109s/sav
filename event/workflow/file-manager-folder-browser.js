@@ -45,6 +45,13 @@
  * core/storage-manager.js (buildAllSongsZipBlob/buildAllVideosZipBlob/buildAllPhotosZipBlob),
  * core/about-stats.js (formatBytes), core/dom-refs.js (genericDrawerHeader/Body/Panel),
  * event/workflow/playlist-scope.js (persistScopeChoice/applyFolderScope/applyAllSongsScope).
+ * MỚI (Giang yêu cầu tính năng "folder tự quyết áp dụng Filter") — thêm: components/
+ * playlist-filter-drawer.js (buildFolderFilterEditBodyHtml, _renderFilterTextFieldRow/
+ * _renderFilterNumericFieldRow dùng GIÁN TIẾP qua hàm đó), core/playlist/filter.js
+ * (_filterFieldKind/_formatSecondsAsHms/_formatFilterNumberForInput/_parseFilterNumberInput —
+ * MIRROR lại cách event/workflow/playlist-filter-presets.js dùng, xem docstring
+ * showFolderFilterEditor()), service/state/playlist.js (clonePlaylistFilterConfigDefaults),
+ * core/time-picker-modal.js (openTimePickerModal).
  * NẠP TRƯỚC: event/router/file-manager-folder-browser.js.
  */
 const workflowFileManagerFolderBrowser = {
@@ -201,6 +208,7 @@ const workflowFileManagerFolderBrowser = {
         const ICON_RENAME = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>';
         const ICON_DELETE = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
         const ICON_PROPERTIES = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/></svg>';
+        const ICON_FILTER = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>';
 
         const items = [];
         if (!folderRecord.isReadOnly) {
@@ -214,6 +222,11 @@ const workflowFileManagerFolderBrowser = {
             items.push({ icon: ICON_DELETE, name: t('fileManager.song.btnDeleteFolder'), destructive: true, callback: () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.tileMenu.delete.click', payload: { folderId } }) });
         }
         items.push({ icon: ICON_PROPERTIES, name: t('fileManager.folderBrowser.tileMenu.properties'), callback: () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.tileMenu.properties.click', payload: { folderId } }) });
+        // MỚI (Giang yêu cầu tính năng "folder tự quyết áp dụng Filter", mục 4 "Cài đặt filter") —
+        // LUÔN hiện, KHÔNG phụ thuộc `applyFilter` đang bật/tắt (Giang có thể cấu hình field TRƯỚC
+        // rồi mới bật checkbox "Áp dụng filter" SAU trong Properties, hoặc ngược lại) — 2 mục ĐỘC
+        // LẬP nhau trên dropdown này.
+        items.push({ icon: ICON_FILTER, name: t('fileManager.folderBrowser.tileMenu.filterSettings'), callback: () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.tileMenu.filter.click', payload: { folderId } }) });
 
         openDropdownMenu(anchorEl, items, { zIndex: Z_INDEX.FOLDER_TILE_ACTION_MENU }); // core/dropdown-menu.js
     },
@@ -238,6 +251,14 @@ const workflowFileManagerFolderBrowser = {
         const folderRecord = await getFolderRecord(folderId); // service/db.js
         if (!folderRecord) return; // guard hiếm — cùng lý do renameFromTileMenu()
         await this.showFolderProperties(folderId, folderRecord);
+    },
+
+    /** Ứng với 'fileManagerFolderBrowser.tileMenu.filter.click' — MỚI (Giang yêu cầu tính năng
+     * "folder tự quyết áp dụng Filter", mục 4 "Cài đặt filter"). */
+    async filterFromTileMenu(folderId) {
+        const folderRecord = await getFolderRecord(folderId); // service/db.js
+        if (!folderRecord) return; // guard hiếm — cùng lý do renameFromTileMenu()
+        this.showFolderFilterEditor(folderId, folderRecord);
     },
 
     /** Ứng với 'fileManagerFolderBrowser.rename.confirm' (modal đổi tên — DOM overlay NGOÀI
@@ -334,6 +355,14 @@ const workflowFileManagerFolderBrowser = {
                         <input type="checkbox" id="folder-properties-hidden-checkbox" class="w-4 h-4 rounded accent-sky-500"${folderRecord.excludeFromMainPlaylist ? ' checked' : ''}>
                         ${t('fileManager.folderBrowser.tileMenu.hiddenLabel')}
                     </label>
+                    <!-- MỚI (Giang yêu cầu tính năng "folder tự quyết áp dụng Filter") — checkbox
+                         thứ 3, CÙNG khuôn 2 checkbox trên. Field vắng mặt (folder tạo TRƯỚC tính
+                         năng này) = coi như true (mặc định VÂNG LỆNH filter tổng), xem
+                         record.applyFilter !== false — KHÁC 2 checkbox trên (vắng mặt = false). -->
+                    <label class="flex items-center gap-2.5 text-sm cursor-pointer" data-uitk="textPrimary">
+                        <input type="checkbox" id="folder-properties-applyfilter-checkbox" class="w-4 h-4 rounded accent-sky-500"${folderRecord.applyFilter !== false ? ' checked' : ''}>
+                        ${t('fileManager.folderBrowser.tileMenu.applyFilterLabel')}
+                    </label>
                 </div>
             </div>
         `;
@@ -350,6 +379,8 @@ const workflowFileManagerFolderBrowser = {
         readOnlyCheckbox.addEventListener('change', (e) => this._onPropertiesReadOnlyChange(folderId, mediaType, e.target.checked));
         const hiddenCheckbox = modalBody.querySelector('#folder-properties-hidden-checkbox');
         hiddenCheckbox.addEventListener('change', (e) => this._toggleExcludeFromMenu(folderId, folderRecord, e.target.checked));
+        const applyFilterCheckbox = modalBody.querySelector('#folder-properties-applyfilter-checkbox');
+        applyFilterCheckbox.addEventListener('change', (e) => this._onPropertiesApplyFilterChange(folderId, mediaType, e.target.checked));
     },
 
     /** Checkbox "Read-only" đổi — MỚI (06/09/2026, mục 4b). Ghi `isReadOnly` xong, NẾU folder này
@@ -361,6 +392,191 @@ const workflowFileManagerFolderBrowser = {
         await setFolderReadOnlyFlag(folderId, enabled); // core/file-manager/folder.js
         if (mediaType === appState.get('activeMediaSource') && folderId === appState.get('activePlayListFolder')[mediaType]) {
             appState.set('isActiveFolderReadOnly', enabled);
+        }
+    },
+
+    /** Checkbox "Áp dụng filter" đổi — MỚI (Giang yêu cầu tính năng "folder tự quyết áp dụng
+     * Filter"). KHÁC `_onPropertiesReadOnlyChange()` ở chỗ ảnh hưởng THẲNG tới danh sách item đang
+     * hiển thị (không chỉ 1 field phẳng chặn thao tác) — NẾU folder này đang chính là Scope hiện
+     * tại thì phải gọi lại `applyFolderScope()` NGAY để Playlist phản ánh đúng công thức mới (xem
+     * event/workflow/playlist-scope.js), CÙNG khuôn `_toggleExcludeFromMenu()` ngay dưới (bọc
+     * `withLoadingShield` — dù thường rất nhanh vì cache đã sẵn, tránh nháy UI giữa chừng). */
+    async _onPropertiesApplyFilterChange(folderId, mediaType, enabled) {
+        await setFolderApplyFilterFlag(folderId, enabled); // core/file-manager/folder.js
+        if (mediaType === appState.get('activeMediaSource') && folderId === appState.get('activePlayListFolder')[mediaType]) {
+            await withLoadingShield(t('common.loading.generic'), () => workflowPlaylistScope.applyFolderScope(folderId, mediaType));
+        }
+    },
+
+    // ============================== "Cài đặt filter" riêng cho 1 folder ==============================
+
+    /** Dựng + mở modal "Cài đặt filter" — MỚI (Giang yêu cầu tính năng "folder tự quyết áp dụng
+     * Filter"). CÙNG khuôn `showFolderProperties()` (modalChoice() + wiring trực tiếp NGAY SAU khi
+     * DOM vừa chèn, KHÔNG qua eventBus — modal ephemeral, wiring xong trong CÙNG 1 lần gọi hàm,
+     * không có rủi ro tham chiếu cũ).
+     *
+     * `liveConfig` — bản nháp RAM, deep-clone từ `folderRecord.filterConfig` (hoặc bucket rỗng nếu
+     * chưa từng cấu hình) — mọi thay đổi field GHI THẲNG (live-commit) vào đây RỒI persist qua
+     * `setFolderFilterConfig()` mỗi lần đổi, CÙNG khuôn `workflowPlaylistFilterPresets.
+     * setFilterField()` (event/workflow/playlist-filter-presets.js) — KHÔNG tái dùng THẲNG hệ đó vì
+     * nó gắn chặt với khái niệm Preset (đọc/ghi qua `appState.playlistFilterPresets[source]` theo
+     * id + query cứng `genericDrawerBody`) — modal này KHÔNG nằm trong Generic Drawer, KHÔNG có tên/
+     * danh sách/Select/Delete, CHỈ đúng 1 bộ rule RIÊNG của folder này. 3 hàm dưới đây
+     * (`_syncFolderFilterEditUI`/`_handleFolderFilterFieldEvent`) mirror lại đúng logic
+     * `_syncEditUI()`/`setFilterField()`/`openFilterTimePicker()` của hệ Preset — trùng lặp CÓ CHỦ
+     * Ý, đổi tối thiểu (nhận `bodyEl`/`liveConfig` qua tham số thay vì query cứng/tra theo id).
+     * @param {string} folderId
+     * @param {{name:string, type?:string, filterConfig?:object|null}} folderRecord
+     */
+    showFolderFilterEditor(folderId, folderRecord) {
+        const mediaType = folderRecord.type || 'song';
+        const liveConfig = folderRecord.filterConfig
+            ? JSON.parse(JSON.stringify(folderRecord.filterConfig)) // deep clone — KHÔNG mutate thẳng object đang sống trong `this._folders` cache/record vừa đọc
+            : clonePlaylistFilterConfigDefaults()[mediaType]; // core/playlist/filter.js — folder chưa từng cấu hình field nào
+        const bodyHtml = buildFolderFilterEditBodyHtml(liveConfig, mediaType, t); // components/playlist-filter-drawer.js
+        modalChoice('', [], { title: escapeHtml(folderRecord.name), bodyHtml }); // core/modal-choice-ui.js — 0 choices thật, dùng nút Đóng mặc định của modalChoice
+
+        const modalBody = document.getElementById('modal-choice-body');
+        this._syncFolderFilterEditUI(modalBody, liveConfig);
+        const handler = (e) => this._handleFolderFilterFieldEvent(e, folderId, mediaType, liveConfig, modalBody);
+        modalBody.addEventListener('change', handler);
+        modalBody.addEventListener('input', handler);
+        modalBody.addEventListener('click', handler); // nút mở time-picker (data-filter-time-trigger) là 'click' thật — CÙNG lý do gộp 3 listener của handlePlaylistFilterPanelEvent() (event/listener/playlist.js)
+    },
+
+    /** Đổ giá trị `config` HIỆN TẠI lên DOM vừa dựng — MIRROR `workflowPlaylistFilterPresets.
+     * _syncEditUI()` (event/workflow/playlist-filter-presets.js) NHƯNG nhận `bodyEl`/`config` qua
+     * THAM SỐ thay vì query `genericDrawerBody`/tra preset theo id (xem docstring
+     * showFolderFilterEditor() — lý do KHÔNG tái dùng thẳng). */
+    _syncFolderFilterEditUI(bodyEl, config) {
+        const setDisplay = (el, kind, value) => {
+            if (!el) return;
+            if (kind === 'seconds') el.textContent = _formatSecondsAsHms(value); // core/playlist/filter.js
+            else el.value = kind === 'text' ? (value || '') : _formatFilterNumberForInput(kind, value); // core/playlist/filter.js
+        };
+        for (const field of Object.keys(config)) {
+            const rule = config[field];
+            const rowEl = bodyEl.querySelector(`[data-filter-row="${field}"]`);
+            if (!rowEl) continue;
+            const kind = _filterFieldKind(field); // core/playlist/filter.js
+            const enableEl = rowEl.querySelector('[data-filter-prop="enabled"]');
+            if (enableEl) enableEl.checked = !!rule;
+            const bodyBlockEl = rowEl.querySelector('[data-filter-body]');
+            if (bodyBlockEl) {
+                bodyBlockEl.classList.toggle('opacity-40', !rule);
+                bodyBlockEl.classList.toggle('pointer-events-none', !rule);
+            }
+            if (!rule) continue;
+            const opEl = rowEl.querySelector('[data-filter-prop="op"]');
+            if (opEl && rule.op !== undefined) opEl.value = rule.op;
+            const modeEl = rowEl.querySelector('[data-filter-prop="mode"]');
+            if (modeEl && rule.mode !== undefined) modeEl.value = rule.mode;
+            const rangeBlock = rowEl.querySelector('[data-filter-range-block]');
+            const singleBlock = rowEl.querySelector('[data-filter-single-block]');
+            if (!rangeBlock && !singleBlock) {
+                setDisplay(rowEl.querySelector('[data-filter-prop="value"]'), kind, rule.value);
+                continue;
+            }
+            setDisplay(singleBlock && singleBlock.querySelector('[data-filter-prop="value"]'), kind, rule.value);
+            setDisplay(rangeBlock && rangeBlock.querySelector('[data-filter-prop="value"]'), kind, rule.value);
+            setDisplay(rangeBlock && rangeBlock.querySelector('[data-filter-prop="valueTo"]'), kind, rule.valueTo);
+            if (rangeBlock && singleBlock && rule.mode !== undefined) {
+                rangeBlock.classList.toggle('hidden', rule.mode === 'single');
+                singleBlock.classList.toggle('hidden', rule.mode !== 'single');
+            }
+        }
+    },
+
+    /** Xử lý 1 sự kiện đổi field rule trong modal "Cài đặt filter" — MIRROR
+     * `workflowPlaylistFilterPresets.setFilterField()`/`openFilterTimePicker()` NHƯNG ghi thẳng vào
+     * `liveConfig` (tham số, đối tượng RAM cục bộ của phiên sửa NÀY) rồi persist qua
+     * `setFolderFilterConfig()` (core/file-manager/folder.js) thay vì `appState.
+     * playlistFilterPresets`. Gộp CHUNG 1 handler cho cả 3 loại sự kiện (change/input/click) — CÙNG
+     * lý do `handlePlaylistFilterPanelEvent()` (event/listener/playlist.js): nút time-picker cần
+     * 'click', input/select cần 'change'/'input'.
+     *
+     * ÁP SỐNG NGAY mỗi lần đổi field — KHÁC hệ Preset (edit KHÔNG tự đổi filter thật đang chạy, cần
+     * bấm "Chọn áp dụng" riêng) — CHỐT ở đây theo hướng đơn giản hơn: folder KHÔNG có khái niệm
+     * preset/nhiều bộ rule đặt tên, CHỈ đúng 1 bộ rule RIÊNG của chính nó, nên "sửa xong là dùng
+     * luôn" hợp lý hơn thêm 1 bước "áp dụng" nữa — CÙNG mức áp sống với 2 checkbox Properties
+     * (Read-only/Hidden/Áp dụng filter) đã có sẵn.
+     * @param {Event} e @param {string} folderId @param {'song'|'video'|'photo'} mediaType
+     * @param {object} liveConfig @param {HTMLElement} bodyEl */
+    async _handleFolderFilterFieldEvent(e, folderId, mediaType, liveConfig, bodyEl) {
+        const el = e.target.closest('[data-filter-field]');
+        if (!el) return;
+        const { filterField: field, filterProp: prop } = el.dataset;
+        if (!field || !prop) return;
+
+        if (el.hasAttribute('data-filter-time-trigger')) {
+            if (e.type !== 'click') return;
+            const rule = liveConfig[field];
+            if (!rule) return; // guard — field đang tắt, nút bị pointer-events-none nên hiếm khi lọt vào đây
+            const currentSeconds = (prop === 'valueTo' ? rule.valueTo : rule.value) || 0;
+            openTimePickerModal({ // core/time-picker-modal.js
+                title: t(field === 'totalTime' ? 'playlistFilterPanel.field.totalTime' : 'playlistFilterPanel.field.duration'),
+                format: 'h-m-s',
+                valueMs: currentSeconds * 1000,
+                minMs: 0,
+                maxMs: 359999000, // 99:59:59 — CÙNG hằng số openFilterTimePicker() (event/workflow/playlist-filter-presets.js)
+                onConfirm: async (resultMs) => {
+                    const seconds = Math.round(resultMs / 1000);
+                    if (prop === 'valueTo') rule.valueTo = seconds; else rule.value = seconds;
+                    await this._commitFolderFilterConfig(folderId, mediaType, liveConfig);
+                    const btn = bodyEl.querySelector(`[data-filter-field="${field}"][data-filter-prop="${prop}"][data-filter-time-trigger]`);
+                    if (btn) btn.textContent = _formatSecondsAsHms(seconds); // core/playlist/filter.js
+                },
+            });
+            return;
+        }
+        if (prop === 'enabled' && e.type !== 'change') return; // checkbox chỉ nghe 'change'
+        if (prop !== 'enabled' && e.type === 'click') return; // op/mode/value/valueTo không có 'click'
+
+        const kind = _filterFieldKind(field); // core/playlist/filter.js
+        if (prop === 'enabled') {
+            liveConfig[field] = el.checked
+                ? (kind === 'text' ? { op: '===', value: '' } : { mode: 'single', op: '===', value: 0, valueTo: 0 })
+                : null;
+        } else {
+            const rule = liveConfig[field];
+            if (!rule) return; // guard — field đang tắt, bỏ qua input ẩn
+            if (prop === 'op') rule.op = el.value;
+            else if (prop === 'mode') rule.mode = el.value;
+            else if (prop === 'value') rule.value = kind === 'text' ? el.value : _parseFilterNumberInput(kind, el.value);
+            else if (prop === 'valueTo') rule.valueTo = _parseFilterNumberInput(kind, el.value);
+        }
+        await this._commitFolderFilterConfig(folderId, mediaType, liveConfig);
+
+        // Toggle mờ/khoá data-filter-body NGAY khi bật/tắt field — NGUYÊN VẸN hiệu ứng bản Preset.
+        if (prop === 'enabled') {
+            const rowEl = bodyEl.querySelector(`[data-filter-row="${field}"]`);
+            const bodyBlockEl = rowEl && rowEl.querySelector('[data-filter-body]');
+            if (bodyBlockEl) {
+                bodyBlockEl.classList.toggle('opacity-40', !el.checked);
+                bodyBlockEl.classList.toggle('pointer-events-none', !el.checked);
+            }
+        }
+        if (prop === 'mode') {
+            const rowEl = bodyEl.querySelector(`[data-filter-row="${field}"]`);
+            if (rowEl) {
+                const rangeBlock = rowEl.querySelector('[data-filter-range-block]');
+                const singleBlock = rowEl.querySelector('[data-filter-single-block]');
+                if (rangeBlock && singleBlock) {
+                    rangeBlock.classList.toggle('hidden', el.value === 'single');
+                    singleBlock.classList.toggle('hidden', el.value !== 'single');
+                }
+            }
+        }
+    },
+
+    /** Persist `liveConfig` vào record folder RỒI áp sống NGAY nếu folder này đang chính là Scope
+     * hiện tại — tách riêng khỏi `_handleFolderFilterFieldEvent()` vì được gọi từ 2 chỗ (field
+     * thường VÀ callback `onConfirm` của time-picker, xem ngay trên). CÙNG khuôn
+     * `_onPropertiesApplyFilterChange()` — bọc `withLoadingShield`. */
+    async _commitFolderFilterConfig(folderId, mediaType, liveConfig) {
+        await setFolderFilterConfig(folderId, liveConfig); // core/file-manager/folder.js
+        if (mediaType === appState.get('activeMediaSource') && folderId === appState.get('activePlayListFolder')[mediaType]) {
+            await withLoadingShield(t('common.loading.generic'), () => workflowPlaylistScope.applyFolderScope(folderId, mediaType));
         }
     },
 
