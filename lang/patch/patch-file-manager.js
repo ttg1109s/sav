@@ -161,6 +161,11 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.folderBrowser.tileMenu.readOnlyLabel': 'Read-only',
     'fileManager.folderBrowser.tileMenu.hiddenLabel': 'Hidden',
     'fileManager.folderBrowser.tileMenu.propertiesDownload': 'Download',
+    // MỚI (Giang yêu cầu tính năng "folder tự quyết áp dụng Filter") — mục dropdown "Cài đặt
+    // filter" (LUÔN hiện, mở modal riêng — xem showFolderFilterEditor()) + checkbox thứ 3 trong
+    // Properties (CÙNG khuôn Read-only/Hidden ngay trên, mặc định BẬT — field vắng mặt = true).
+    'fileManager.folderBrowser.tileMenu.filterSettings': 'Filter settings',
+    'fileManager.folderBrowser.tileMenu.applyFilterLabel': 'Apply filter',
     // MỚI (06/09/2026, hợp nhất Folder vào Playlist, mục 4b — "Read-only").
     'fileManager.folderBrowser.uploadBlockedReadOnly': 'This folder is read-only. Turn off "Read-only" in its Properties before uploading.',
     'fileManager.song.renameFolderTitle': 'Rename folder',
