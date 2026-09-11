@@ -51,8 +51,10 @@
     <!-- Preloader — SỬA (Giang yêu cầu "thiết kế lại theo hướng simple") — THAY HẲN bản cũ (5 cột
          EQ nhảy + quầng sáng phập phồng + % thật đếm qua Resource Timing API) bằng bản ĐƠN GIẢN:
          1 logo tĩnh (badge gradient + icon play, KHÔNG animation trang trí) + tên app "Audio
-         Visualizer" ("A"/"V" tô màu, style CÙNG logo header Playlist mới — xem components/
-         playlist-view.js) + 1 vòng chấm tròn xoay gần đáy (LOADING THẬT — chỉ ẩn khi
+         Visualizer" (tái hiện ĐÚNG hiệu ứng reveal "A(udio) V(isualizer)" của logo header CŨ —
+         core/sav-logo.js, ĐÃ NGỪNG NẠP, header giờ text tĩnh không animation — chuyển hẳn hiệu ứng
+         đó SANG ĐÂY, tự chạy 1 lần lúc preloader hiện, không cần JS/hover/tap, xem @keyframes
+         app-preloader-expand-* dưới) + 1 vòng chấm tròn xoay gần đáy (LOADING THẬT — chỉ ẩn khi
          markPlaylistBootReady() báo boot xong, KHÔNG đếm % nữa vì "boot xong = tải xong", không
          cần biết TIẾN ĐỘ giữa chừng). Đặt đầu <body> trước mọi <script>/<link> (đồng bộ, chặn
          parser) để hiện ra ngay lập tức, không đợi CDN tải xong. Nền theo Theme: đọc
@@ -70,10 +72,19 @@
         #app-preloader-logo { width: 64px; height: 64px; border-radius: 18px; background: linear-gradient(135deg, #38bdf8, #8b5cf6); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(99,102,241,0.28); }
         #app-preloader-logo svg { width: 28px; height: 28px; }
 
-        #app-preloader-name { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 20px; font-weight: 700; text-align: center; color: #0f172a; }
+        #app-preloader-name { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 20px; font-weight: 800; text-align: center; color: #0f172a; }
         .app-preloader-dark #app-preloader-name { color: #f1f5f9; }
-        #app-preloader-name .app-preloader-accent-a { color: #0ea5e9; font-weight: 800; }
-        #app-preloader-name .app-preloader-accent-v { color: #8b5cf6; font-weight: 800; }
+        /* SỬA (Giang chỉ ra hiểu sai — "chuyển animation của header sang cho preload, header không
+           dùng nó nữa") — 2 span dưới đây tái hiện ĐÚNG hiệu ứng reveal cũ của logo header (core/
+           sav-logo.js/.sav-logo-expand, ĐÃ NGỪNG NẠP — xem components/playlist-view.js): "A"/"V"
+           hiện NGAY, phần chữ thường (udio /isualizer) TRƯỢT RA sau — nhưng giờ tự động chạy 1 LẦN
+           lúc preloader vừa hiện (CSS @keyframes, KHÔNG cần JS/hover/tap nữa — trước đây cần JS vì
+           kích hoạt bằng tương tác người dùng, preloader thì phải tự chạy). KHÔNG tô màu (đã bỏ
+           theo phản hồi Giang) — cùng 1 màu, chỉ khác đang ẩn/hiện. */
+        #app-preloader-name .app-preloader-expand-1 { display: inline-block; overflow: hidden; white-space: pre; vertical-align: bottom; max-width: 0; animation: app-preloader-expand-udio 0.4s ease-out 0.5s both; }
+        #app-preloader-name .app-preloader-expand-2 { display: inline-block; overflow: hidden; white-space: nowrap; vertical-align: bottom; max-width: 0; animation: app-preloader-expand-isualizer 0.4s ease-out 0.7s both; }
+        @keyframes app-preloader-expand-udio { from { max-width: 0; } to { max-width: 3.2em; } }
+        @keyframes app-preloader-expand-isualizer { from { max-width: 0; } to { max-width: 5.4em; } }
 
         #app-preloader-dots { position: relative; width: 36px; height: 36px; margin-top: 8px; color: #94a3b8; }
         .app-preloader-dark #app-preloader-dots { color: #64748b; }
@@ -94,13 +105,14 @@
            người dùng vẫn biết app đang tải mà không bị hiệu ứng "xoay/nhảy" gây khó chịu. */
         @media (prefers-reduced-motion: reduce) {
             .app-preloader-dot { animation-duration: 1.8s; }
+            #app-preloader-name .app-preloader-expand-1, #app-preloader-name .app-preloader-expand-2 { animation: none; max-width: none; }
         }
     </style>
     <div id="app-preloader">
         <div id="app-preloader-logo">
             <svg viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
         </div>
-        <div id="app-preloader-name"><span class="app-preloader-accent-a">A</span>udio <span class="app-preloader-accent-v">V</span>isualizer</div>
+        <div id="app-preloader-name">A<span class="app-preloader-expand-1">udio </span>V<span class="app-preloader-expand-2">isualizer</span></div>
         <div id="app-preloader-dots">
             <span class="app-preloader-dot"></span><span class="app-preloader-dot"></span><span class="app-preloader-dot"></span><span class="app-preloader-dot"></span>
             <span class="app-preloader-dot"></span><span class="app-preloader-dot"></span><span class="app-preloader-dot"></span><span class="app-preloader-dot"></span>
@@ -321,7 +333,7 @@
     <!-- MỚI (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings chung 1 container cuộn
          ngang) — chỉ định nghĩa 2 biến chuỗi mở/đóng khung bọc, xem components/app-view-stack.js. -->
     <script src="components/app-view-stack.js?v=20260813v1"></script>
-    <script src="components/playlist-view.js?v=20260911v2"></script>
+    <script src="components/playlist-view.js?v=20260911v3"></script>
     <!-- Game Mode overlay (Circle mode v1, MỚI 16/08/2026) — PHẢI nạp TRƯỚC components/visualizer-
          overlay.js (file đó nội suy ${TPL_GAMEPLAY_OVERLAY}, xem components/gameplay-overlay.js). -->
     <script src="components/gameplay-overlay.js?v=20260819v1"></script>
