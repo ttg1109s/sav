@@ -14,6 +14,10 @@
  * `openGame()` [SỬA 02/09/2026] gọi `workflowGameCatalog.openPanel()` (event/workflow/
  * game-catalog.js) — panel Game giờ có nghiệp vụ thật (danh sách card, xem docstring file đó).
  *
+ * `openStatis()` [SỬA — Giang yêu cầu "tích hợp 1+2+3"] gọi `workflowStatisPanel.openPanel()`
+ * (event/workflow/statis-panel.js) — CÙNG lý do/khuôn `openGame()` ngay trên, panel Statis giờ có
+ * nghiệp vụ thật (stat-grid + so sánh + Top list, xem docstring file đó).
+ *
  * NẠP SAU: core/app-panel-nav.js (setAppPanelNavActiveTab), core/placeholder-panel.js
  * (showPlaceholderPanel/hidePlaceholderPanel), core/generic-drawer.js,
  * event/workflow/generic-drawer-helpers.js (closeFully), event/workflow/
@@ -76,10 +80,15 @@ const workflowAppPanelNav = {
         workflowGameCatalog.openPanel(); // event/workflow/game-catalog.js
     },
 
-    /** Ứng với 'appPanelNav.statis.click' — placeholder, chưa có nghiệp vụ. */
+    /** Ứng với 'appPanelNav.statis.click' — [SỬA — Giang yêu cầu "tích hợp 1+2+3"] KHÔNG còn
+     * placeholder — liên tuyến domain, tái dùng THẲNG `workflowStatisPanel.openPanel()`
+     * (event/workflow/statis-panel.js, tự lo render nội dung + hiện panel, CÙNG khuôn openGame()
+     * ngay trên). LƯU Ý nạp: file đó khai báo SAU file này trong index.html — vẫn AN TOÀN vì đây
+     * là lời gọi lúc RUNTIME (bấm tab Statis, sau khi toàn bộ script đã nạp xong), không phải lúc
+     * parse file (cùng lý do openGame() đã ghi chú). */
     openStatis() {
         this.setActiveTab('statis');
-        showPlaceholderPanel(statisPanel); // core/placeholder-panel.js
+        workflowStatisPanel.openPanel(); // event/workflow/statis-panel.js
     },
 
     /** Ứng với 'appPanelNav.setting.click' — liên tuyến domain, tái dùng THẲNG workflowAppSettings
