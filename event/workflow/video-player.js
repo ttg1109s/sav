@@ -270,6 +270,12 @@ const workflowVideoPlayer = {
         // cho Block gate cũ từng chặn HẲN việc vào mode này khi Visual Background đang hiện media.
         if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.clearMediaLayers(); // event/workflow/visual-bg.js — liên tuyến domain
         setBgVideoElementForPlayerMode(true); // core/video-player.js — bỏ muted + tắt loop + hiện + pointer-events
+        // MỚI (Giang yêu cầu "Resolution cho player video&photo, không liên quan VBG") — áp NGAY
+        // lúc vào mode, đọc từ config đã lưu (Settings > Visualizer Screen > Player > Video).
+        if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.applyVideoPlayerResolutionOnEnter(); // event/workflow/player-display-settings.js
+        // MỚI (Giang yêu cầu "bổ sung backend react — chỉ Video vì Photo không có audio") — bật vòng
+        // lặp React Beat NẾU đang có preset gắn cho videoShowingPresetId + preset đó enabled.
+        if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.syncVideoPlayerReactBeat(); // event/workflow/player-display-settings.js
 
         await this.playVideoByKey(startKey, switchScreen); // FIX (10/09/2026) — truyền ĐÚNG switchScreen của người gọi thay vì luôn mặc định true, xem docstring startFromPlaylist() ở trên
     },
@@ -281,6 +287,14 @@ const workflowVideoPlayer = {
      * trả `visualizerSolidBg` về đúng màu/gradient cấu hình. */
     async exitVideoPlayerMode() {
         setBgVideoElementForPlayerMode(false); // core/video-player.js — trả lại muted+loop=true, pointer-events mặc định
+        // MỚI (Giang yêu cầu "Resolution cho player video&photo, không liên quan VBG") — gỡ override
+        // NGAY lúc thoát mode — BẮT BUỘC, để #bg-video trả về CSS mặc định (object-fit: cover) phục
+        // vụ ĐÚNG Visual Background, xem docstring core/player-display-apply.js.
+        if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.clearVideoPlayerResolution(); // event/workflow/player-display-settings.js
+        // MỚI (Giang yêu cầu "bổ sung backend react — chỉ Video") — dừng HẲN vòng lặp React Beat +
+        // gỡ transform — BẮT BUỘC, cùng lý do Resolution ngay trên (tránh kẹt transform ảnh hưởng
+        // VBG dùng chung `bgVideoElement`).
+        if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.stopVideoPlayerReactBeat(); // event/workflow/player-display-settings.js
         this.clearBgVideoSource(); // dừng + dọn HẲN (pause, ẩn, gỡ src/poster, revoke cả 3 URL) — CƠ CHẾ DÙNG CHUNG
         bgVideoElement.load(); // buộc <video> bỏ hẳn tham chiếu blob URL vừa revoke (tránh giữ RAM)
         updateDOMBackground(); // core/color-utils.js, hàm CÓ SẴN — trả visualizerSolidBg về cfg.bgColor

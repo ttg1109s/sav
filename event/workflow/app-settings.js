@@ -770,7 +770,7 @@ const workflowAppSettings = {
         const cfg = appConfigPlayerDisplay.getAll(); // core/config.js
         const motionPresetOptions = getPresetsSubscribedToConsumer(appState.get('motionPresets'), appState.get('motionApply'), 'player'); // core/motion-presets.js
         const titleKey = kind === 'video' ? 'appSettings.player.video.label' : 'appSettings.player.photo.label';
-        this._render(t(titleKey), renderPlayerDisplayBody(kind, cfg, motionPresetOptions), (body) => {
+        this._render(t(titleKey), renderPlayerDisplayBody(kind, cfg, motionPresetOptions, window.innerWidth, window.innerHeight), (body) => {
             wireAppSettingsPlayerDetail(body, kind); // core/app-settings-ui.js
         });
     },

@@ -133,6 +133,10 @@ const workflowPhotoPlayer = {
     async exitPhotoPlayerMode() {
         taskManager.kill(PHOTO_PLAYER_TICK_TASK);
         if (typeof workflowVisualBg !== 'undefined') await workflowVisualBg.applyCurrentVisualBg(); // event/workflow/visual-bg.js — liên tuyến domain, tự clearMediaLayers() rồi áp lại ĐÚNG cấu hình
+        // MỚI (Giang yêu cầu "Resolution cho player video&photo, không liên quan VBG") — gỡ override
+        // NGAY lúc thoát mode — BẮT BUỘC, để #visual-bg-image trả về CSS mặc định (background-size:
+        // cover) phục vụ ĐÚNG Visual Background, xem docstring core/player-display-apply.js.
+        if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.clearPhotoPlayerResolution(); // event/workflow/player-display-settings.js
         this._revokeObjectUrls();
         exitPhotoPlayerModeState(); // core/photo-player.js
         releaseWakeLock(); stopListenClock(); // core/player-controls.js — SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — dừng đồng hồ totalTime lúc thoát mode, CÙNG khuôn workflowVideoPlayer.exitVideoPlayerMode()
@@ -182,6 +186,10 @@ const workflowPhotoPlayer = {
         recordContainer.innerHTML = `<img id="record-art" src="${this._thumbObjectUrl}" class="w-full h-full rounded-full object-cover shadow-lg relative z-20 animate-spin-slow" alt="${title}"><div class="absolute inset-0 m-auto w-3 h-3 bg-slate-900 rounded-full border border-slate-700 z-30"></div>`;
 
         applyVisualBgImageToDOM(true, this._objectUrl); // core/visual-bg.js — SỬA (Giang chỉ ra đúng, dọn code thừa) — tái dùng #visual-bg-image thay vì setPhotoPlayerElementForMode()/#photo-player-image (ĐÃ XOÁ)
+        // MỚI (Giang yêu cầu "Resolution cho player video&photo, không liên quan VBG") — áp lại MỖI
+        // LẦN 1 ảnh mới hiện (vào mode lần đầu HOẶC Next/Prev) — `trueMax` phụ thuộc kích thước GỐC
+        // của TỪNG ảnh (`record.width`/`.height`), KHÔNG thể áp 1 lần như Video.
+        if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.applyPhotoPlayerResolutionForRecord(record); // event/workflow/player-display-settings.js
         updatePhotoPlayerProgressUI(0, durationSec); // core/photo-player.js
         updatePhotoPlayerPlayPauseIcon(true); // core/photo-player.js
 
