@@ -1,7 +1,7 @@
 /**
  * event/router/app-settings.js — Router tên "appSettings", tự đăng ký với eventBus lúc nạp.
  * Điều phối toàn bộ điều hướng Setting (Main/System/Playlist/Theme/Gesture/Motion/Language/
- * Visualizer Screen/Troubleshooting) — mọi nút động (Rule 5a) chỉ gửi message tới đây, KHÔNG gọi
+ * Visualizer Screen/Player/Troubleshooting) — mọi nút động (Rule 5a) chỉ gửi message tới đây, KHÔNG gọi
  * thẳng workflowAppSettings (xem core/app-settings-ui.js).
  *
  * `NAV_TARGETS` — bảng tra key -> hàm render đích, dùng cho case 'appSettings.nav.click'. Đây là
@@ -26,6 +26,9 @@ const routerAppSettings = (() => {
         display: () => workflowAppSettings._renderDisplay(),
         autoSwitch: () => workflowAppSettings._renderAutoSwitch(),
         visualBg: () => workflowAppSettings._renderVisualBg(),
+        player: () => workflowAppSettings._renderPlayer(),
+        playerVideo: () => workflowAppSettings._renderPlayerVideo(),
+        playerPhoto: () => workflowAppSettings._renderPlayerPhoto(),
     };
 
     function handle(msg) {
@@ -56,6 +59,16 @@ const routerAppSettings = (() => {
 
             case 'appSettings.theme.selectGlassType.change': {
                 workflowAppSettings.handleThemeSelectGlassType(msg.payload.glassType, msg.payload.solidColor);
+                break;
+            }
+
+            case 'appSettings.player.resolution.change': {
+                workflowAppSettings.handlePlayerResolutionChange(msg.payload.kind, msg.payload.value);
+                break;
+            }
+
+            case 'appSettings.player.motionSlot.change': {
+                workflowAppSettings.handlePlayerMotionSlotChange(msg.payload.kind, msg.payload.slot, msg.payload.value);
                 break;
             }
 
