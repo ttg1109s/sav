@@ -93,6 +93,15 @@ const workflowVideoPlayer = {
             if (this._forcedBgObjectUrl) { try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {} }
             this._forcedBgObjectUrl = forcedUrl;
             applyVisualBgImageToDOM(true, forcedUrl); // core/visual-bg.js
+            // SỬA BUG (Giang chỉ ra: "video bị lộ ảnh bg dưới khi cài resolution nhỏ hơn") — thumb
+            // vừa chèn PHẢI khớp Resolution hiện tại của Video, nếu không khoảng hở của video (lúc
+            // Resolution 'fit'/'trueMax') sẽ lộ ra đúng thumb NÀY với kích thước KHÔNG khớp (mặc
+            // định luôn 'cover'). CHỈ áp lúc THẬT SỰ đang ở Video Player mode — hàm swapBgVideoSource()
+            // này DÙNG CHUNG với Visual Background (workflowVisualBg._playVideoKey()), không liên
+            // quan gì tới Resolution của Player.
+            if (appState.get('isVideoPlayerMode') && typeof workflowPlayerDisplaySettings !== 'undefined') {
+                workflowPlayerDisplaySettings.syncVideoPlayerResolutionFallbackThumb(); // event/workflow/player-display-settings.js
+            }
         }
 
         // Lớp thumb full-res (nếu có) đã PAINT xong ở bước trên — ẩn `bgVideoElement` ngay bây giờ

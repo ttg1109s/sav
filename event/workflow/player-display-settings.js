@@ -82,6 +82,7 @@ const workflowPlayerDisplaySettings = {
 
         if (kind === 'video' && appState.get('isVideoPlayerMode')) {
             applyVideoPlayerResolutionToDOM(value); // core/player-display-apply.js
+            applyVideoPlayerResolutionToVisualBgFallbackDOM(value); // core/player-display-apply.js — SỬA BUG (Giang chỉ ra) — đồng bộ LUÔN lớp thumb dự phòng, tránh lộ ảnh sai kích thước
         } else if (kind === 'photo' && appState.get('isPhotoPlayerMode')) {
             const record = await getImageRecord(appState.get('currentKey')); // service/db.js — ảnh ĐANG hiện
             applyPhotoPlayerResolutionToDOM(value, record && record.width, record && record.height); // core/player-display-apply.js
@@ -112,9 +113,25 @@ const workflowPlayerDisplaySettings = {
 
     /** Áp Resolution Video (đọc từ config đã lưu) lên `bgVideoElement` — gọi ĐÚNG 1 LẦN lúc VÀO
      * Video Player mode (event/workflow/video-player.js::startFromPlaylist()) — không cần gọi lại
-     * mỗi lần Next/Prev, xem docstring core/player-display-apply.js. */
+     * mỗi lần Next/Prev, xem docstring core/player-display-apply.js. ĐỒNG THỜI áp luôn cho lớp thumb
+     * dự phòng chống nháy đen (`visualBgImageElement`, SỬA BUG Giang chỉ ra — 2 lớp PHẢI khớp nhau,
+     * nếu không khoảng hở của video [lúc Resolution kiểu 'fit'/'trueMax'] sẽ lộ ra thumb sai kích
+     * thước phía dưới). */
     applyVideoPlayerResolutionOnEnter() {
-        applyVideoPlayerResolutionToDOM(appConfigPlayerDisplay.getAll().videoResolutionMode); // core/player-display-apply.js + core/config.js
+        const mode = appConfigPlayerDisplay.getAll().videoResolutionMode; // core/config.js
+        applyVideoPlayerResolutionToDOM(mode); // core/player-display-apply.js
+        applyVideoPlayerResolutionToVisualBgFallbackDOM(mode); // core/player-display-apply.js
+    },
+
+    /** Đồng bộ lại Resolution cho lớp thumb dự phòng (`visualBgImageElement`) NGAY sau khi 1 thumb
+     * MỚI được chèn vào lúc swap video (event/workflow/video-player.js::swapBgVideoSource(), CHỈ
+     * lúc THẬT SỰ đang ở Video Player mode — hàm đó DÙNG CHUNG với Visual Background, guard ở nơi
+     * gọi) — SỬA BUG Giang chỉ ra: "video bị lộ ảnh bg dưới khi cài resolution nhỏ hơn". Đọc
+     * `bgVideoElement.videoWidth`/`.videoHeight` của video VỪA pause (thumb vừa chèn chính là ảnh
+     * chụp video đó) làm kích thước gốc cho mode 'trueMax' — xem docstring core/player-display-
+     * apply.js::applyVideoPlayerResolutionToVisualBgFallbackDOM(). */
+    syncVideoPlayerResolutionFallbackThumb() {
+        applyVideoPlayerResolutionToVisualBgFallbackDOM(appConfigPlayerDisplay.getAll().videoResolutionMode); // core/player-display-apply.js + core/config.js
     },
 
     /** Gỡ override Resolution khỏi `bgVideoElement` — gọi lúc THOÁT Video Player mode
@@ -165,12 +182,17 @@ const workflowPlayerDisplaySettings = {
     syncVideoPlayerReactBeat() {
         const preset = this._getAssignedVideoShowingPreset();
         const shouldRun = !!preset && appState.get('isVideoPlayerMode');
-        const isRunning = !!taskManager.plan[PLAYER_VIDEO_BEATREACT_TASK]; // service/task-manager.js
+        // SỬA BUG (Giang báo: "React Beat đang chọn motion rồi nhưng không áp dụng") — `taskManager.
+        // plan[name]` CHỈ cho biết task ĐÃ ĐĂNG KÝ (addNew() tạo xong là có mặt trong `plan` NGAY,
+        // dù chưa hề `operator(..., 'enabled')`), KHÔNG phải "đang thật sự chạy" — phải dùng
+        // `isTaskRunning()` (xem docstring hàm đó, service/task-manager.js) mới đúng.
+        const isRunning = taskManager.isTaskRunning(PLAYER_VIDEO_BEATREACT_TASK); // service/task-manager.js
         if (shouldRun && !isRunning) {
             this._videoBeatReactEnvelope = 0; this._videoBeatReactWasAttacking = false; // bắt đầu vòng MỚI luôn từ baseline, CÙNG quy ước workflowMotionEngine.updatePreset() lúc bật lại beat-react
             this._videoBeatReactPanPolarity = 0; this._videoBeatReactRotatePolarity = 0;
             this._videoBeatReactLastTickMs = 0;
-            taskManager.addNew(PLAYER_VIDEO_BEATREACT_TASK, { time: 0, exe: () => this._tickVideoBeatReact(), mode: 'raf', count: 0 }); // service/task-manager.js
+            taskManager.addNew(PLAYER_VIDEO_BEATREACT_TASK, { time: 0, exe: () => this._tickVideoBeatReact(), mode: 'raf', count: 0 }); // service/task-manager.js — CHỈ đăng ký, CHƯA chạy
+            taskManager.operator(PLAYER_VIDEO_BEATREACT_TASK, 'enabled'); // SỬA BUG — DÒNG BỊ THIẾU: addNew() không tự bật, phải gọi operator('enabled') task mới thật sự chạy (CÙNG cặp lệnh event/workflow/motion-engine.js::_syncBeatReactLoop() dùng)
         } else if (!shouldRun && isRunning) {
             this.stopVideoPlayerReactBeat();
         }
