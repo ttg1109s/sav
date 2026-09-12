@@ -3,12 +3,11 @@
  * ĐỐI XỨNG nhau (chỉ khác field config đọc/ghi + Video gộp Point Move+React Beat làm 1 slot
  * `showing` duy nhất, trong khi Photo giữ `pointMove` riêng — Photo không có audio để "react" theo
  * nên không có gì để gộp cùng), nên dùng CHUNG đúng 1 hàm render
- * `renderPlayerDisplayBody(kind, cfg, motionPresetOptions, visualizerWidth, visualizerHeight)` thay
- * vì viết 2 lần.
+ * `renderPlayerDisplayBody(kind, cfg, motionPresetOptions)` thay vì viết 2 lần.
  *
  * 2 nhóm card:
- *   1. Resolution — 1 select 3 lựa chọn (PLAYER_RESOLUTION_MODES, core/player-display-settings.js)
- *      + 1 dòng text tham khảo kích thước màn Visualizer hiện tại.
+ *   1. Resolution — 1 select 4 lựa chọn (PLAYER_RESOLUTION_MODES, core/player-display-settings.js
+ *      — 'cover' MỚI thêm, mặc định).
  *   2. Motion — 3 select ĐỘC LẬP mỗi kind (PLAYER_MOTION_SLOTS lọc theo `kinds`, core/player-
  *      display-settings.js::getPlayerMotionSlotsForKind() — Video: transitionNext/transitionPrev/
  *      showing; Photo: transitionNext/transitionPrev/pointMove), option dựng từ
@@ -43,12 +42,8 @@ function _buildPlayerMotionSelectOptionsHtml(motionPresetOptions, currentId) {
 
 /** @param {'video'|'photo'} kind @param {object} cfg - appConfigPlayerDisplay.getAll()
  * @param {{id:string,name:string}[]} motionPresetOptions - preset đã đăng ký cho consumer 'player'
- * @param {number} visualizerWidth - MỚI (Giang yêu cầu "thêm text hiển thị chiều rộng/dài màn
- *   Visualizer") — `window.innerWidth`, nơi gọi (event/workflow/app-settings.js) tự đọc, component
- *   KHÔNG tự đụng `window` (Rule 5d — thuần, nhận qua tham số).
- * @param {number} visualizerHeight - `window.innerHeight`, cùng lý do trên.
  * @returns {string} */
-function renderPlayerDisplayBody(kind, cfg, motionPresetOptions, visualizerWidth, visualizerHeight) {
+function renderPlayerDisplayBody(kind, cfg, motionPresetOptions) {
     const resolutionField = resolvePlayerResolutionField(kind); // core/player-display-settings.js
     const resolutionOptionsHtml = PLAYER_RESOLUTION_MODES.map((m) => `<option value="${m.value}" ${cfg[resolutionField] === m.value ? 'selected' : ''}>${t(m.labelKey)}</option>`).join('');
 
@@ -75,12 +70,6 @@ function renderPlayerDisplayBody(kind, cfg, motionPresetOptions, visualizerWidth
                     <select id="setting-player-${kind}-resolution" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
                         ${resolutionOptionsHtml}
                     </select>
-                </div>
-                <!-- MỚI (Giang yêu cầu) — text tham khảo, KHÔNG tương tác, cho biết 'trueMax' đang so
-                     với khung bao nhiêu — CÙNG số window.innerWidth/innerHeight core/player-display-
-                     apply.js dùng để tính background-size Photo lúc 'trueMax'. -->
-                <div class="px-4 py-3 text-xs text-slate-500 border-t" data-uitk="dividerBorder">
-                    ${tFormat('playerDisplaySettings.resolution.visualizerSize', { width: visualizerWidth, height: visualizerHeight })}
                 </div>
             </div>
         </div>
