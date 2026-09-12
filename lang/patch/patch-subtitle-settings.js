@@ -267,8 +267,25 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'motionPresetsDrawer.edit.delete.label': 'Delete this configuration',
     'motionPresetsDrawer.apply.groupTitle': 'Apply to',
     'motionPresetsDrawer.apply.photoVisualBg.label': 'Photo visual background',
+    'motionPresetsDrawer.apply.player.label': 'Player',
     'motionPresetsDrawer.apply.subscribe.label': 'Subscribe',
     'motionPresetsDrawer.apply.unsubscribe.label': 'Unsubscribe',
+
+    // MỚI (Giang yêu cầu "Player") — màn Settings > Visualizer Screen > Player > Video/Photo, xem
+    // components/settings/player-display-settings.js. CÙNG khuôn 'visualBgSettingsDrawer.motion.none'
+    // ngay trên cho lựa chọn "Không" — dùng lại CHUNG cho cả 4 select Motion (Transition Next/Prev,
+    // Point Move, React Beat), không tách riêng key theo từng select.
+    'playerDisplaySettings.resolution.groupTitle': 'Resolution',
+    'playerDisplaySettings.resolution.label': 'Resolution',
+    'playerDisplaySettings.resolution.fit': 'Fit (center)',
+    'playerDisplaySettings.resolution.stretch': 'Stretch',
+    'playerDisplaySettings.resolution.trueMax': 'True size (max-capped)',
+    'playerDisplaySettings.motion.groupTitle': 'Motion',
+    'playerDisplaySettings.motion.transitionNext.label': 'Transition — Next',
+    'playerDisplaySettings.motion.transitionPrev.label': 'Transition — Previous',
+    'playerDisplaySettings.motion.pointMove.label': 'Point Move',
+    'playerDisplaySettings.motion.reactBeat.label': 'React Beat Audio',
+    'playerDisplaySettings.motion.none': 'None',
 
     // MỚI (29/08/2026, phản hồi Giang) — "React Beat Audio": pulse zoom/pan/rotate bắn theo beat nhạc.
     'motionPresetsDrawer.beatReact.groupTitle': 'React Beat Audio',

@@ -69,6 +69,15 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.row.troubleshooting': 'Troubleshooting',
     'appSettings.row.resetApp': 'Reset app',
 
+    // MỚI (Giang yêu cầu "Player" — Resolution + Motion của Video/Photo lúc phát chính, Settings >
+    // Visualizer Screen > Player > Video/Photo, xem core/player-display-settings.js).
+    'appSettings.player.label': 'Player',
+    'appSettings.player.hint': 'Resolution and Motion for Video/Photo playback',
+    'appSettings.player.video.label': 'Video',
+    'appSettings.player.video.hint': 'Resolution and Motion for Video playback',
+    'appSettings.player.photo.label': 'Photo',
+    'appSettings.player.photo.hint': 'Resolution and Motion for Photo playback',
+
     'appSettings.system.title': 'System',
     'appSettings.system.theme.label': 'Theme',
     'appSettings.system.theme.hint': 'Light, dark, or transparent glass',
