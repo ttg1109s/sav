@@ -280,11 +280,20 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'playerDisplaySettings.resolution.fit': 'Fit (center)',
     'playerDisplaySettings.resolution.stretch': 'Stretch',
     'playerDisplaySettings.resolution.trueMax': 'True size (max-capped)',
+    // MỚI (Giang yêu cầu "thêm text hiển thị chiều rộng/dài màn Visualizer") — text tham khảo dưới
+    // select Resolution, dùng tFormat() (KHÔNG dùng data-i18n — mẫu có biến số, đổi ngôn ngữ giữa
+    // chừng sẽ tự đúng lại lúc màn render lại lần sau, xem components/settings/player-display-
+    // settings.js). {width}/{height} là window.innerWidth/innerHeight (core/canvas-scene-setup.js
+    // cũng dùng đúng 2 số này để resize canvas #visualizer, xem docstring event/workflow/app-settings.js).
+    'playerDisplaySettings.resolution.visualizerSize': 'Visualizer screen: {width} × {height}px',
     'playerDisplaySettings.motion.groupTitle': 'Motion',
     'playerDisplaySettings.motion.transitionNext.label': 'Transition — Next',
     'playerDisplaySettings.motion.transitionPrev.label': 'Transition — Previous',
     'playerDisplaySettings.motion.pointMove.label': 'Point Move',
-    'playerDisplaySettings.motion.reactBeat.label': 'React Beat Audio',
+    // SỬA (Giang chốt gộp Point Move + React Beat của Video làm 1 lựa chọn) — 'reactBeat.label'
+    // riêng đã BỎ (không còn slot nào dùng, xem core/player-display-settings.js::PLAYER_MOTION_SLOTS),
+    // thay bằng 'showing.label' — DUY NHẤT cho Video.
+    'playerDisplaySettings.motion.showing.label': 'Showing (Point Move + React Beat)',
     'playerDisplaySettings.motion.none': 'None',
 
     // MỚI (29/08/2026, phản hồi Giang) — "React Beat Audio": pulse zoom/pan/rotate bắn theo beat nhạc.
