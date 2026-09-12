@@ -34,6 +34,35 @@ function applyVideoPlayerResolutionToDOM(resolutionMode) {
 function clearVideoPlayerResolutionFromDOM() {
     if (!bgVideoElement) return;
     bgVideoElement.style.objectFit = '';
+    // SỬA BUG (Giang chỉ ra: "video bị lộ ảnh bg dưới khi cài resolution nhỏ hơn") — gỡ LUÔN override
+    // đồng bộ ở `visualBgImageElement` (xem applyVideoPlayerResolutionToVisualBgFallbackDOM() cuối
+    // file) — field NÀY cũng do Video Player mode ghi, nên cũng phải dọn cùng lúc thoát mode, đúng
+    // lý do docstring đầu file (trả lại default cho VBG).
+    if (visualBgImageElement) visualBgImageElement.style.backgroundSize = '';
+}
+
+/** MỚI (Giang chỉ ra bug: Photo/Video Player mode dùng CHUNG `visualBgImageElement` — lúc Next/Prev/
+ * hết bài TRONG Video Player mode, `swapBgVideoSource()` (event/workflow/video-player.js) chèn 1
+ * ảnh thumb full-res VÀO ĐÚNG element này làm lớp dự phòng chống nháy đen [nằm Z-INDEX THẤP HƠN
+ * `bgVideoElement`, luôn bị nó che khi video phủ HẾT khung — nhưng NẾU Resolution đang cài kiểu có
+ * khoảng hở, vd 'fit'/'trueMax', phần hở đó sẽ LỘ RA đúng cái thumb này, mà thumb lại luôn
+ * `background-size: cover` mặc định — khác kích thước với video -> lộ ảnh không khớp]) — hàm này áp
+ * ĐÚNG Resolution hiện tại của Video CHO CẢ lớp thumb dự phòng đó, để khoảng hở (nếu có) của thumb
+ * KHỚP luôn với khoảng hở của video thật (cùng tỉ lệ khung hình → 2 lớp trùng khít, khoảng hở lộ ra
+ * đúng màu nền đen phía sau `#visualizer-solid-bg`, KHÔNG lộ ảnh thumb sai kích thước nữa).
+ *
+ * `naturalWidth`/`naturalHeight` dùng `bgVideoElement.videoWidth`/`.videoHeight` (KHÔNG dùng
+ * `record.width`/`.height` như Photo — Video không có field đó) — tại thời điểm gọi từ
+ * `swapBgVideoSource()` (đã `pause()` nhưng CHƯA đổi `src`), 2 giá trị này vẫn PHẢN ÁNH ĐÚNG video
+ * VỪA dừng (chính là video mà thumb vừa chèn là ảnh chụp lại) — trùng tỉ lệ khung hình, đúng ý.
+ * @param {string} resolutionMode - appConfigPlayerDisplay.getAll().videoResolutionMode */
+function applyVideoPlayerResolutionToVisualBgFallbackDOM(resolutionMode) {
+    if (!visualBgImageElement) return; // core/dom-refs.js
+    const containerWidth = visualBgImageElement.clientWidth || window.innerWidth;
+    const containerHeight = visualBgImageElement.clientHeight || window.innerHeight;
+    const naturalWidth = (bgVideoElement && bgVideoElement.videoWidth) || null;
+    const naturalHeight = (bgVideoElement && bgVideoElement.videoHeight) || null;
+    visualBgImageElement.style.backgroundSize = resolvePlayerBackgroundSizeCss(resolutionMode, naturalWidth, naturalHeight, containerWidth, containerHeight); // core/player-display-settings.js
 }
 
 /** Áp Resolution lên `visualBgImageElement` — gọi lúc mỗi lần ảnh MỚI hiện ra trong Photo Player

@@ -27,12 +27,15 @@
  * display-settings.js, event/workflow/player-display-settings.js, event/workflow/app-settings.js.
  */
 
-/** 3 mode Resolution — áp dụng riêng cho Video và Photo (2 field độc lập `videoResolutionMode`/
- * `photoResolutionMode`, xem core/config.js). 'fit' — giữ tỉ lệ, căn giữa, có thể dư viền (object-fit:
- * contain). 'stretch' — kéo giãn lấp đầy khung, KHÔNG giữ tỉ lệ (object-fit: fill). 'trueMax' — giữ
- * NGUYÊN kích thước gốc, CHỈ co lại (KHÔNG phóng to) nếu vượt khung — khác 'fit' ở chỗ ảnh/video NHỎ
- * hơn khung thì đứng nguyên kích thước gốc, không bị kéo lớn lên. */
+/** 4 mode Resolution — áp dụng riêng cho Video và Photo (2 field độc lập `videoResolutionMode`/
+ * `photoResolutionMode`, xem core/config.js). 'cover' — kéo giãn lấp đầy khung, giữ tỉ lệ, CẮT bớt
+ * phần dư (object-fit: cover) — ĐÚNG hành vi mặc định gốc trước khi có tính năng Resolution (MỚI,
+ * Giang yêu cầu bổ sung lại). 'fit' — giữ tỉ lệ, căn giữa, có thể dư viền (object-fit: contain).
+ * 'stretch' — kéo giãn lấp đầy khung, KHÔNG giữ tỉ lệ (object-fit: fill). 'trueMax' — giữ NGUYÊN
+ * kích thước gốc, CHỈ co lại (KHÔNG phóng to) nếu vượt khung — khác 'fit' ở chỗ ảnh/video NHỎ hơn
+ * khung thì đứng nguyên kích thước gốc, không bị kéo lớn lên. */
 const PLAYER_RESOLUTION_MODES = [
+    { value: 'cover', labelKey: 'playerDisplaySettings.resolution.cover' },
     { value: 'fit', labelKey: 'playerDisplaySettings.resolution.fit' },
     { value: 'stretch', labelKey: 'playerDisplaySettings.resolution.stretch' },
     { value: 'trueMax', labelKey: 'playerDisplaySettings.resolution.trueMax' },
@@ -113,12 +116,15 @@ function resolvePlayerResolutionField(kind) {
 function resolvePlayerObjectFitCss(resolutionMode) {
     if (resolutionMode === 'stretch') return 'fill';
     if (resolutionMode === 'trueMax') return 'scale-down';
-    return 'contain'; // 'fit' — cũng là fallback an toàn cho giá trị lạ/thiếu
+    if (resolutionMode === 'fit') return 'contain';
+    return 'cover'; // 'cover' — cũng là fallback an toàn cho giá trị lạ/thiếu (ĐÚNG hành vi mặc định gốc)
 }
 
 /** Core thuần — chuỗi CSS `background-size` (dùng cho `#visual-bg-image`, 1 <div> nền
  * background-image, KHÔNG có `object-fit` như <img>/<video> nên phải tự tính tay thay vì có sẵn
- * 1 từ khoá CSS như Video) ứng với 1 giá trị PLAYER_RESOLUTION_MODES.
+ * 1 từ khoá CSS như Video) ứng với 1 giá trị PLAYER_RESOLUTION_MODES. 'cover'/'fit'/'stretch' map
+ * thẳng 1-1 sang từ khoá CSS cùng tên (`cover`/`contain`/`100% 100%`) — không cần `naturalWidth`/
+ * `naturalHeight`/kích thước khung.
  *
  * 'trueMax' tự viết lại ĐÚNG ngữ nghĩa `object-fit: scale-down`: ảnh NHỎ hơn khung ở CẢ 2 chiều ->
  * giữ nguyên kích thước gốc (`'auto'`, KHÔNG phóng to) — NGƯỢC LẠI (vượt khung ở ÍT NHẤT 1 chiều)
@@ -130,10 +136,11 @@ function resolvePlayerObjectFitCss(resolutionMode) {
  * @returns {string} giá trị hợp lệ cho CSS `background-size` */
 function resolvePlayerBackgroundSizeCss(resolutionMode, naturalWidth, naturalHeight, containerWidth, containerHeight) {
     if (resolutionMode === 'stretch') return '100% 100%';
+    if (resolutionMode === 'fit') return 'contain';
     if (resolutionMode === 'trueMax') {
         if (!naturalWidth || !naturalHeight) return 'contain';
         const fitsWithoutScaling = naturalWidth <= containerWidth && naturalHeight <= containerHeight;
         return fitsWithoutScaling ? 'auto' : 'contain';
     }
-    return 'contain'; // 'fit' — cũng là fallback an toàn cho giá trị lạ/thiếu
+    return 'cover'; // 'cover' — cũng là fallback an toàn cho giá trị lạ/thiếu (ĐÚNG hành vi mặc định gốc)
 }

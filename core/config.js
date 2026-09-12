@@ -419,7 +419,7 @@
          * Stats-panel] — trùng tên nghe dễ nhầm nhưng 2 khái niệm khác nhau, xem docstring
          * DEFAULT_PLAYER_CONFIG] và KHÁC `appConfigVisualBg` [nền trang trí đứng sau Visualizer lúc
          * Song phát] — đây là chính Video/Photo đang được PHÁT LÀM NỘI DUNG CHÍNH, xem core/player-
-         * display-settings.js cho danh sách 4 "vai trò" Motion + 3 mode Resolution).
+         * display-settings.js cho danh sách 3 "vai trò" Motion + 4 mode Resolution).
          *
          * MỚI (giai đoạn 1, Giang yêu cầu "code backend đăng ký + hiển thị list, CHƯA code cơ chế
          * hoạt động") — domain này lưu LỰA CHỌN của người dùng (mode Resolution + preset nào gắn cho
@@ -428,10 +428,13 @@
          * (Giang chốt: "nơi tiêu thụ chỉ thêm player trong 1 danh sách" — KHÔNG tách riêng theo
          * Video/Photo hay theo vai trò).
          *
-         * `videoResolutionMode`/`photoResolutionMode` — 'fit' (giữ tỉ lệ, căn giữa, có thể có viền
-         * đen) | 'stretch' (kéo giãn lấp đầy khung, KHÔNG giữ tỉ lệ) | 'trueMax' (giữ nguyên kích
-         * thước gốc, CHỈ co lại — không phóng to — nếu vượt khung, xem core/player-display-settings.js
-         * ::PLAYER_RESOLUTION_MODES). ĐÃ có cơ chế hoạt động thật (core/player-display-apply.js).
+         * `videoResolutionMode`/`photoResolutionMode` — 'cover' (kéo giãn lấp đầy khung, giữ tỉ lệ,
+         * CẮT bớt phần dư — mặc định, ĐÚNG hành vi gốc trước khi có Resolution) | 'fit' (giữ tỉ lệ,
+         * căn giữa, có thể có viền đen) | 'stretch' (kéo giãn lấp đầy khung, KHÔNG giữ tỉ lệ) |
+         * 'trueMax' (giữ nguyên kích thước gốc, CHỈ co lại — không phóng to — nếu vượt khung, xem
+         * core/player-display-settings.js::PLAYER_RESOLUTION_MODES). ĐÃ có cơ chế hoạt động thật
+         * (core/player-display-apply.js) — RIÊNG Video, đồng thời áp CẢ cho lớp thumb dự phòng chống
+         * nháy đen (`visualBgImageElement`) mỗi lần swap, tránh lộ ảnh sai kích thước (Giang chỉ ra).
          *
          * 6 field `*PresetId` — `{kind}TransitionNextPresetId`/`{kind}TransitionPrevPresetId` (CHỈ
          * đọc field `transition*` của preset được gắn — CHƯA có cơ chế hoạt động) ở CẢ 2 kind;
@@ -447,11 +450,11 @@
          * kind. `null` = chưa gắn preset nào cho vai trò đó.
          */
         const DEFAULT_PLAYER_DISPLAY_CONFIG = {
-            videoResolutionMode: 'fit',
+            videoResolutionMode: 'cover',
             videoTransitionNextPresetId: null,
             videoTransitionPrevPresetId: null,
             videoShowingPresetId: null,
-            photoResolutionMode: 'fit',
+            photoResolutionMode: 'cover',
             photoTransitionNextPresetId: null,
             photoTransitionPrevPresetId: null,
             photoPointMovePresetId: null,
