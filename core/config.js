@@ -413,6 +413,50 @@
             activeUiTheme: 'light', // 'light' | 'dark' | 'morphin' — xem UI_THEME_REGISTRY, core/ui-theme/registry.js
         };
 
+        /**
+         * Domain config RIÊNG cho "Player" (Settings > Visualizer Screen > Player — Resolution +
+         * Motion của Video/Photo LÚC PHÁT chính, KHÁC HẲN domain 'player' ở trên [Shuffle/Repeat/
+         * Stats-panel] — trùng tên nghe dễ nhầm nhưng 2 khái niệm khác nhau, xem docstring
+         * DEFAULT_PLAYER_CONFIG] và KHÁC `appConfigVisualBg` [nền trang trí đứng sau Visualizer lúc
+         * Song phát] — đây là chính Video/Photo đang được PHÁT LÀM NỘI DUNG CHÍNH, xem core/player-
+         * display-settings.js cho danh sách 4 "vai trò" Motion + 3 mode Resolution).
+         *
+         * MỚI (giai đoạn 1, Giang yêu cầu "code backend đăng ký + hiển thị list, CHƯA code cơ chế
+         * hoạt động") — domain này CHỈ lưu LỰA CHỌN của người dùng (mode Resolution + preset nào
+         * gắn cho từng vai trò Motion), KHÔNG có bất kỳ hàm nào đọc lại các field này để thực sự vẽ
+         * lên #bg-video/#visual-bg-image hay chạy Motion Engine — đó là việc của giai đoạn 2 (backend
+         * "cơ chế hoạt động", CHƯA làm). Nơi tiêu thụ preset ('player', core/motion-presets.js
+         * ::MOTION_APPLY_CONSUMERS) DÙNG CHUNG 1 danh sách đăng ký cho CẢ 7 field *PresetId dưới đây
+         * (Giang chốt: "nơi tiêu thụ chỉ thêm player trong 1 danh sách" — KHÔNG tách riêng theo
+         * Video/Photo hay theo vai trò Transition/Showing).
+         *
+         * `videoResolutionMode`/`photoResolutionMode` — 'fit' (giữ tỉ lệ, căn giữa, có thể có viền
+         * đen) | 'stretch' (kéo giãn lấp đầy khung, KHÔNG giữ tỉ lệ) | 'trueMax' (giữ nguyên kích
+         * thước gốc, CHỈ co lại — không phóng to — nếu vượt khung, xem core/player-display-settings.js
+         * ::PLAYER_RESOLUTION_MODES).
+         *
+         * 7 field `*PresetId` — mỗi field 1 "vai trò" Motion ĐỘC LẬP (Giang chốt tách rời hoàn toàn,
+         * KHÔNG gộp Next+Prev hay Point Move+React Beat làm 1 lựa chọn): `{kind}TransitionNextPresetId`/
+         * `{kind}TransitionPrevPresetId` (CHỈ đọc field `transition*` của preset được gắn — lúc có
+         * cơ chế hoạt động), `{kind}PointMovePresetId` (CHỈ đọc `pointMoves`/`pointMoveEnabled`/...) +
+         * RIÊNG Video còn có `videoReactBeatPresetId` (CHỈ đọc `reactBeatAudio`) — Photo KHÔNG có field
+         * này (Giang chỉ ra: Photo Player mode phát im lặng, không có audio nào để "react" theo, xem
+         * docstring core/photo-player.js) — xem core/player-display-settings.js::PLAYER_MOTION_SLOTS
+         * (field `kinds`) cho bảng tra slot -> tên field đầy đủ theo TỪNG kind. `null` = chưa gắn
+         * preset nào cho vai trò đó.
+         */
+        const DEFAULT_PLAYER_DISPLAY_CONFIG = {
+            videoResolutionMode: 'fit',
+            videoTransitionNextPresetId: null,
+            videoTransitionPrevPresetId: null,
+            videoPointMovePresetId: null,
+            videoReactBeatPresetId: null,
+            photoResolutionMode: 'fit',
+            photoTransitionNextPresetId: null,
+            photoTransitionPrevPresetId: null,
+            photoPointMovePresetId: null,
+        };
+
         AppConfig.defineDomain('viz', {
             schema: {
                 type: 'string', customEffect: 'object',
@@ -490,6 +534,24 @@
             defaults: DEFAULT_UI_THEME_CONFIG,
         });
 
+        AppConfig.defineDomain('playerDisplay', {
+            schema: {
+                videoResolutionMode: 'string',
+                videoTransitionNextPresetId: 'nullable-string',
+                videoTransitionPrevPresetId: 'nullable-string',
+                videoPointMovePresetId: 'nullable-string',
+                videoReactBeatPresetId: 'nullable-string',
+                photoResolutionMode: 'string',
+                photoTransitionNextPresetId: 'nullable-string',
+                photoTransitionPrevPresetId: 'nullable-string',
+                photoPointMovePresetId: 'nullable-string',
+                // Photo KHÔNG có 'photoReactBeatPresetId' — Photo Player mode phát im lặng, không
+                // có audio để "react" theo (Giang chỉ ra), xem core/player-display-settings.js
+                // ::PLAYER_MOTION_SLOTS (field `kinds`).
+            },
+            defaults: DEFAULT_PLAYER_DISPLAY_CONFIG,
+        });
+
         /** Seed CẢ 3 domain config NGAY TẠI ĐÂY — lúc nạp core/config.js (SỬA 27/07/2026, trước
          * đây gọi trễ hơn từ event/workflow/app-boot.js lúc DOMContentLoaded, để hở 1 khoảng giữa
          * lúc tạo accessor bên dưới và lúc seed thật sự -> access() console.warn "chưa seed()" 3
@@ -505,16 +567,18 @@
             appConfig.seed('playlist');
             appConfig.seed('player');
             appConfig.seed('uiTheme');
+            appConfig.seed('playerDisplay');
         }
         seedConfig();
 
-        /** Accessor tiện dụng, dùng khắp core/event cho 6 domain config — xem AppConfig.access(). */
+        /** Accessor tiện dụng, dùng khắp core/event cho 7 domain config — xem AppConfig.access(). */
         const appConfigViz = appConfig.access('viz');
         const appConfigVisualBg = appConfig.access('visualBg');
         const appConfigReader = appConfig.access('reader');
         const appConfigPlaylist = appConfig.access('playlist');
         const appConfigPlayer = appConfig.access('player');
         const appConfigUiTheme = appConfig.access('uiTheme');
+        const appConfigPlayerDisplay = appConfig.access('playerDisplay');
 
         /** Reset vizConfig về default (gộp từ core/app-recovery.js::executeRestoreDefaults() cũ —
          * CHỈ phần reset, KHÔNG gồm saveConfig()/reload(), 2 việc đó vẫn ở app-recovery.js). */

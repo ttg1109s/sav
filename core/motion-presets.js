@@ -7,9 +7,11 @@
  * transitionWipeDirection, transitionCurtainDirection, edgeFlipVariant, edgeFlipStaticOld,
  * pointMoves, pointMoveRunMode, pointMoveOneOrder, reactBeatAudio}. Danh sách preset SỐNG ở
  * `appState.motionPresets` (nạp lúc boot từ `meta.motionPresets`), xem event/workflow/
- * motion-presets.js::loadPresetsOnBoot(). Nơi tiêu thụ (VBG Photo) tự chọn 1 preset qua
- * `appConfigVisualBg.motionPresetId` (null = chưa gắn) — trong số preset ĐÃ ĐĂNG KÝ cho nó qua
- * `appState.motionApply` (xem nhóm "Motion Apply" cuối file).
+ * motion-presets.js::loadPresetsOnBoot(). Nơi tiêu thụ tự chọn 1 preset/vai trò qua field riêng
+ * của mình (VBG Photo: `appConfigVisualBg.motionPresetId`; Player — Video/Photo, 4 vai trò mỗi
+ * loại: `appConfigPlayerDisplay.*PresetId`, xem core/player-display-settings.js) — null = chưa gắn
+ * — trong số preset ĐÃ ĐĂNG KÝ cho consumer đó qua `appState.motionApply` (xem nhóm "Motion Apply"
+ * cuối file).
  *
  * Danh sách rỗng vẫn hợp lệ (Photo VBG không gắn gì thì đơn giản không animate).
  *
@@ -383,9 +385,17 @@ function sanitizeMotionBeatReact(raw, blank) {
 // `appConfigVisualBg.motionPresetId`) — `motionApply` chỉ quyết định preset nào ĐỦ ĐIỀU KIỆN xuất
 // hiện trong dropdown chọn của nơi đó.
 
-/** Nơi tiêu thụ hợp lệ — hiện DUY NHẤT Photo Visual Background. */
+/** Nơi tiêu thụ hợp lệ. MỚI (Giang yêu cầu "Player" — Settings > Visualizer Screen > Player) —
+ * thêm ĐÚNG 1 consumer `player`, DÙNG CHUNG cho CẢ Video lẫn Photo Player, CẢ 4 "vai trò" Motion
+ * (Transition Next/Prev, Point Move, React Beat) — Giang chốt "nơi tiêu thụ chỉ thêm player trong
+ * 1 danh sách", KHÔNG tách thành 4-8 consumer riêng theo Video/Photo/vai trò. 1 preset đăng ký cho
+ * `player` MỘT LẦN là đủ điều kiện xuất hiện ở CẢ 8 dropdown chọn (xem core/player-display-
+ * settings.js::PLAYER_MOTION_SLOTS + getPresetsSubscribedToConsumer() ngay dưới) — field riêng của
+ * TỪNG dropdown (appConfigPlayerDisplay, core/config.js) mới là nơi quyết định preset NÀO đang
+ * thật sự gắn cho vai trò nào. */
 const MOTION_APPLY_CONSUMERS = [
     { key: 'photoVisualBg', labelKey: 'motionPresetsDrawer.apply.photoVisualBg.label' },
+    { key: 'player', labelKey: 'motionPresetsDrawer.apply.player.label' },
 ];
 const MOTION_APPLY_CONSUMER_KEYS = MOTION_APPLY_CONSUMERS.map((c) => c.key);
 
@@ -435,4 +445,16 @@ function removeMotionApplyEverywhere(motionApply, presetId) {
     const result = {};
     Object.keys(motionApply).forEach((key) => { result[key] = (motionApply[key] || []).filter((id) => id !== presetId); });
     return result;
+}
+
+/** Core thuần — preset ĐÃ đăng ký cho `consumerKey` (lọc `motionPresets` theo `motionApply[consumerKey]`,
+ * giữ nguyên thứ tự trong `motionPresets`) — dùng để đổ `<option>` cho MỌI dropdown chọn preset của
+ * nơi tiêu thụ đó. TỔNG QUÁT HOÁ từ cách VBG tự lọc trực tiếp (event/workflow/visual-bg-common.js
+ * ::_renderMotionPresetOptions() — CHƯA đổi file đó sang dùng hàm này, tránh rủi ro ngoài phạm vi);
+ * Player (core/player-display-settings.js) dùng hàm này làm chuẩn cho cả 8 dropdown của mình.
+ * @param {object[]} motionPresets @param {Object<string,string[]>} motionApply @param {string} consumerKey
+ * @returns {{id:string,name:string}[]} */
+function getPresetsSubscribedToConsumer(motionPresets, motionApply, consumerKey) {
+    const subscribedIds = motionApply[consumerKey] || [];
+    return motionPresets.filter((p) => subscribedIds.includes(p.id));
 }
