@@ -47,7 +47,9 @@
  * video-audio-drawer.js, event/workflow/generic-drawer-helpers.js, event/workflow/app-panel-nav.js,
  * event/workflow/gesture-settings.js, event/workflow/motion-engine.js, event/workflow/playlist.js,
  * event/workflow/settings-misc.js, event/workflow/visualizer-display.js, event/workflow/
- * visual-bg.js, lang/language-settings.js (renderLanguageOptions/updateLanguageDeleteButtonVisibility).
+ * visual-bg.js, lang/language-settings.js (renderLanguageOptions/updateLanguageDeleteButtonVisibility),
+ * core/player-display-settings.js, components/settings/player-display-settings.js, event/workflow/
+ * player-display-settings.js (MỚI — "Player", xem docstring nhóm hàm _renderPlayer() ngay dưới).
  * NẠP TRƯỚC: event/router/player-controls.js, event/router/app-settings.js,
  * event/router/app-panel-nav.js, event/router/visual-bg.js.
  */
@@ -241,7 +243,6 @@ const workflowAppSettings = {
         this._currentRenderFn = () => this._renderSystem();
         const rows = [
             { key: 'theme', icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h9a2 2 0 012 2v12a4 4 0 01-4 4H7zm0 0h10a2 2 0 002-2v-9', labelKey: 'appSettings.system.theme.label', hintKey: 'appSettings.system.theme.hint' },
-            { key: 'gesture', icon: 'M7 11.5V9a2 2 0 114 0v1.5M11 9.5V6a2 2 0 114 0v5m0-3.5V8a2 2 0 114 0v4c0 4-2 6-6 6s-5.5-1-7-4l-1.5-3a1.7 1.7 0 012.6-2.1L8 10', labelKey: 'appSettings.system.gesture.label', hintKey: 'appSettings.system.gesture.hint' },
             { key: 'motion', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', labelKey: 'appSettings.system.motion.label', hintKey: 'appSettings.system.motion.hint' },
             { key: 'language', icon: 'M3.6 9h16.8M3.6 15h16.8M11.5 3a17 17 0 000 18M12.5 3a17 17 0 010 18M21 12a9 9 0 11-18 0 9 9 0 0118 0z', labelKey: 'appSettings.system.language.label', hintKey: 'appSettings.system.language.hint' },
         ];
@@ -677,6 +678,16 @@ const workflowAppSettings = {
             { key: 'display', icon: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v10a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM8 21h8m-4-4v4', labelKey: 'settingsVisualizer.openDisplay.label', hintKey: 'settingsVisualizer.openDisplay.hint' },
             { key: 'autoSwitch', icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15', labelKey: 'settingsVisualizer.openAutoSwitch.label', hintKey: 'settingsVisualizer.openAutoSwitch.hint' },
             { key: 'visualBg', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', labelKey: 'settingsVisualizer.visualBg.label', hintKey: 'settingsVisualizer.visualBg.hint' },
+            // MỚI (Giang chốt "gesture cùng nhóm chủ đề với Display/Visual Background — cử chỉ chỉ
+            // có tác dụng trên #visualizer-gesture-surface") — DỜI từ System sang đây, đổi
+            // labelKey/hintKey sang cặp key CÙNG namespace 'settingsVisualizer.*' đã có sẵn (chưa
+            // từng dùng tới trước đợt này, xem lang/patch/patch-subtitle-settings.js) thay vì giữ
+            // cặp key cũ 'appSettings.system.gesture.*' (namespace đó giờ không còn khớp vị trí
+            // thật) — router 'gesture' -> _renderGesture() KHÔNG đổi gì, chỉ đổi CHỖ trỏ tới nó.
+            { key: 'gesture', icon: 'M7 11.5V9a2 2 0 114 0v1.5M11 9.5V6a2 2 0 114 0v5m0-3.5V8a2 2 0 114 0v4c0 4-2 6-6 6s-5.5-1-7-4l-1.5-3a1.7 1.7 0 012.6-2.1L8 10', labelKey: 'settingsVisualizer.gesture.label', hintKey: 'settingsVisualizer.gesture.hint' },
+            // MỚI (Giang yêu cầu "Player" — Resolution + Motion của Video/Photo lúc phát chính,
+            // xem core/player-display-settings.js) — CÙNG nhóm chủ đề, đặt cuối danh sách.
+            { key: 'player', icon: 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664zM21 12a9 9 0 11-18 0 9 9 0 0118 0z', labelKey: 'appSettings.player.label', hintKey: 'appSettings.player.hint' },
         ];
         this._render(t('appSettings.row.visualizerScreen'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js — data-app-settings-nav, TÁI DÙNG cơ chế chung
     },
@@ -718,6 +729,61 @@ const workflowAppSettings = {
         this._render(t('visualBgSettingsDrawer.openVideoAudio.label'), renderVisualBgVideoAudioPanelBody(), () => {
             workflowVisualBg.openVideoAudioPanel(); // event/workflow/visual-bg.js
         });
+    },
+
+    // ===================== Player (MỚI, Giang yêu cầu — Resolution + Motion của Video/Photo lúc
+    // PHÁT CHÍNH, xem core/player-display-settings.js/core/config.js::DEFAULT_PLAYER_DISPLAY_CONFIG.
+    // GIAI ĐOẠN 1 ĐÃ CHỐT: chỉ code đăng ký (core/motion-presets.js::MOTION_APPLY_CONSUMERS thêm
+    // 'player') + hiển thị/ghi lựa chọn (domain 'playerDisplay') — CHƯA có "cơ chế hoạt động" nào
+    // đọc lại các field này để thực sự áp lên Video/Photo đang phát, xem event/workflow/player-
+    // display-settings.js. 2 kind 'video'/'photo' hoàn toàn ĐỐI XỨNG -> dùng chung _renderPlayerDetail()
+    // thay vì viết 2 hàm gần như giống hệt nhau) =====================
+
+    /** Danh sách con — 2 row Video/Photo, CÙNG khuôn renderAppSettingsRowList() (data-app-settings-nav). */
+    _renderPlayer() {
+        this._currentRenderFn = () => this._renderPlayer();
+        const rows = [
+            { key: 'playerVideo', icon: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z', labelKey: 'appSettings.player.video.label', hintKey: 'appSettings.player.video.hint' },
+            { key: 'playerPhoto', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', labelKey: 'appSettings.player.photo.label', hintKey: 'appSettings.player.photo.hint' },
+        ];
+        this._render(t('appSettings.player.label'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js — TÁI DÙNG cơ chế chung data-app-settings-nav
+    },
+
+    _renderPlayerVideo() {
+        this._currentRenderFn = () => this._renderPlayerVideo();
+        this._renderPlayerDetail('video');
+    },
+
+    _renderPlayerPhoto() {
+        this._currentRenderFn = () => this._renderPlayerPhoto();
+        this._renderPlayerDetail('photo');
+    },
+
+    /** Dựng CHUNG 1 màn Resolution + Motion cho Video/Photo (2 kind gần như đối xứng, chỉ khác
+     * field config đọc/ghi — Photo lọc bỏ vai trò `reactBeat`, xem core/player-display-settings.js
+     * ::getPlayerMotionSlotsForKind()) — xem components/settings/player-display-settings.js
+     * ::renderPlayerDisplayBody(). Option của các select Motion lấy từ preset ĐÃ đăng ký cho
+     * consumer 'player' (getPresetsSubscribedToConsumer(), core/motion-presets.js) — CÙNG 1 danh
+     * sách cho cả Video lẫn Photo, mọi vai trò (Giang chốt).
+     * @param {'video'|'photo'} kind */
+    _renderPlayerDetail(kind) {
+        const cfg = appConfigPlayerDisplay.getAll(); // core/config.js
+        const motionPresetOptions = getPresetsSubscribedToConsumer(appState.get('motionPresets'), appState.get('motionApply'), 'player'); // core/motion-presets.js
+        const titleKey = kind === 'video' ? 'appSettings.player.video.label' : 'appSettings.player.photo.label';
+        this._render(t(titleKey), renderPlayerDisplayBody(kind, cfg, motionPresetOptions), (body) => {
+            wireAppSettingsPlayerDetail(body, kind); // core/app-settings-ui.js
+        });
+    },
+
+    /** Ứng select Resolution đổi (Player > Video hoặc Photo). CHƯA re-render lại màn — không field
+     * nào khác phụ thuộc lựa chọn Resolution (khác Theme, nơi đổi mode phải hiện/ẩn khối con). */
+    async handlePlayerResolutionChange(kind, value) {
+        await workflowPlayerDisplaySettings.changeResolutionMode(kind, value); // event/workflow/player-display-settings.js
+    },
+
+    /** Ứng 1 trong các select Motion đổi (Player > Video hoặc Photo). */
+    async handlePlayerMotionSlotChange(kind, slot, value) {
+        await workflowPlayerDisplaySettings.changeMotionSlot(kind, slot, value); // event/workflow/player-display-settings.js
     },
 
     /** Subtitle — MỚI phát hiện lúc migrate: nằm LỒNG bên trong Display (nút "Phụ đề", components/

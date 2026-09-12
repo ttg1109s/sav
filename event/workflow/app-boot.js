@@ -46,6 +46,11 @@ const workflowAppBoot = {
         // NGAY SAU sẽ thấy đúng giá trị đã migrate, xem docstring loadPresetsOnBoot()
         // (event/workflow/motion-presets.js).
         if (typeof workflowMotionPresets !== 'undefined') await workflowMotionPresets.loadPresetsOnBoot();
+        // MỚI (Giang yêu cầu "Player" — Resolution + Motion của Video/Photo lúc phát chính) — domain
+        // 'playerDisplay' ĐỘC LẬP hoàn toàn (không migrate/phụ thuộc gì Motion Preset ở trên, chỉ đặt
+        // gần đây cho dễ theo dõi nhóm "nạp cấu hình Motion-liên-quan"), xem event/workflow/player-
+        // display-settings.js. CHƯA áp dụng gì lên DOM (chưa có cơ chế hoạt động, giai đoạn 1).
+        if (typeof workflowPlayerDisplaySettings !== 'undefined') await workflowPlayerDisplaySettings.loadPersistedPlayerDisplayOnBoot();
         // SỬA (fix bug "bật vbg nguồn video -> playlist mãi mới render") — KHÔNG await ở đây nữa.
         // `loadPersistedSettingsOnBoot()` tự áp nền ngầm (video không còn chặn chờ 'playing' lúc
         // boot — xem event/workflow/visual-bg.js::_playVideoKey()); boot() chạy thẳng xuống playlist
