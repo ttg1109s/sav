@@ -277,15 +277,12 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // Point Move, React Beat), không tách riêng key theo từng select.
     'playerDisplaySettings.resolution.groupTitle': 'Resolution',
     'playerDisplaySettings.resolution.label': 'Resolution',
+    // MỚI (Giang yêu cầu bổ sung lại) — mặc định (DEFAULT_PLAYER_DISPLAY_CONFIG, core/config.js),
+    // ĐÚNG hành vi gốc trước khi có tính năng Resolution (object-fit/background-size: cover).
+    'playerDisplaySettings.resolution.cover': 'Cover',
     'playerDisplaySettings.resolution.fit': 'Fit (center)',
     'playerDisplaySettings.resolution.stretch': 'Stretch',
     'playerDisplaySettings.resolution.trueMax': 'True size (max-capped)',
-    // MỚI (Giang yêu cầu "thêm text hiển thị chiều rộng/dài màn Visualizer") — text tham khảo dưới
-    // select Resolution, dùng tFormat() (KHÔNG dùng data-i18n — mẫu có biến số, đổi ngôn ngữ giữa
-    // chừng sẽ tự đúng lại lúc màn render lại lần sau, xem components/settings/player-display-
-    // settings.js). {width}/{height} là window.innerWidth/innerHeight (core/canvas-scene-setup.js
-    // cũng dùng đúng 2 số này để resize canvas #visualizer, xem docstring event/workflow/app-settings.js).
-    'playerDisplaySettings.resolution.visualizerSize': 'Visualizer screen: {width} × {height}px',
     'playerDisplaySettings.motion.groupTitle': 'Motion',
     'playerDisplaySettings.motion.transitionNext.label': 'Transition — Next',
     'playerDisplaySettings.motion.transitionPrev.label': 'Transition — Previous',
