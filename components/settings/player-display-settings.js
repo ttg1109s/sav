@@ -1,19 +1,27 @@
 /**
  * Component: màn hình Settings > Visualizer Screen > Player > Video (hoặc Photo) — 2 kind gần như
- * ĐỐI XỨNG nhau (chỉ khác field config đọc/ghi + Photo bỏ vai trò Motion `reactBeat` — không có
- * audio để "react" theo), nên dùng CHUNG đúng 1 hàm render
- * `renderPlayerDisplayBody(kind, cfg, motionPresetOptions)` thay vì viết 2 lần.
+ * ĐỐI XỨNG nhau (chỉ khác field config đọc/ghi + Video gộp Point Move+React Beat làm 1 slot
+ * `showing` duy nhất, trong khi Photo giữ `pointMove` riêng — Photo không có audio để "react" theo
+ * nên không có gì để gộp cùng), nên dùng CHUNG đúng 1 hàm render
+ * `renderPlayerDisplayBody(kind, cfg, motionPresetOptions, visualizerWidth, visualizerHeight)` thay
+ * vì viết 2 lần.
  *
  * 2 nhóm card:
- *   1. Resolution — 1 select 3 lựa chọn (PLAYER_RESOLUTION_MODES, core/player-display-settings.js).
- *   2. Motion — 3-4 select ĐỘC LẬP tuỳ kind (PLAYER_MOTION_SLOTS lọc theo `kinds`, core/player-
- *      display-settings.js::getPlayerMotionSlotsForKind() — Photo bỏ `reactBeat`), option dựng từ
+ *   1. Resolution — 1 select 3 lựa chọn (PLAYER_RESOLUTION_MODES, core/player-display-settings.js)
+ *      + 1 dòng text tham khảo kích thước màn Visualizer hiện tại.
+ *   2. Motion — 3 select ĐỘC LẬP mỗi kind (PLAYER_MOTION_SLOTS lọc theo `kinds`, core/player-
+ *      display-settings.js::getPlayerMotionSlotsForKind() — Video: transitionNext/transitionPrev/
+ *      showing; Photo: transitionNext/transitionPrev/pointMove), option dựng từ
  *      `motionPresetOptions` (preset ĐÃ đăng ký cho consumer 'player', xem core/motion-
  *      presets.js::getPresetsSubscribedToConsumer()) — CÙNG danh sách cho MỌI select (Giang chốt
  *      "transition/showing chỉ lấy các motion trong danh sách này").
  *
- * GIAI ĐOẠN 1 (Giang chốt "CHƯA code cơ chế hoạt động") — màn này CHỈ đọc/ghi lựa chọn, KHÔNG có
- * preview/áp dụng sống nào lên Video/Photo đang phát thật.
+ * GIAI ĐOẠN 1 (đăng ký + hiển thị/lưu list) ĐÃ XONG cho MỌI select. GIAI ĐOẠN 2 (cơ chế hoạt động
+ * THẬT) — Resolution (core/player-display-apply.js) VÀ React Beat của Video (đọc từ
+ * `videoShowingPresetId`, event/workflow/player-display-settings.js) ĐÃ XONG; Transition Next/Prev
+ * (cả 2 kind) VÀ Point Move (Photo riêng + phần Point Move của preset gắn ở 'showing' của Video)
+ * VẪN CHƯA. Màn hình NÀY tự nó KHÔNG hiện preview sống gì cả — chỉ đọc/ghi lựa chọn, hiệu ứng thấy
+ * được lúc THẬT SỰ đang ở Video/Photo Player mode (ngoài Settings).
  *
  * Logic: event/workflow/app-settings.js (_renderPlayerDetail()) + event/workflow/player-display-
  * settings.js (workflowPlayerDisplaySettings). Wiring: core/app-settings-ui.js
@@ -35,12 +43,16 @@ function _buildPlayerMotionSelectOptionsHtml(motionPresetOptions, currentId) {
 
 /** @param {'video'|'photo'} kind @param {object} cfg - appConfigPlayerDisplay.getAll()
  * @param {{id:string,name:string}[]} motionPresetOptions - preset đã đăng ký cho consumer 'player'
+ * @param {number} visualizerWidth - MỚI (Giang yêu cầu "thêm text hiển thị chiều rộng/dài màn
+ *   Visualizer") — `window.innerWidth`, nơi gọi (event/workflow/app-settings.js) tự đọc, component
+ *   KHÔNG tự đụng `window` (Rule 5d — thuần, nhận qua tham số).
+ * @param {number} visualizerHeight - `window.innerHeight`, cùng lý do trên.
  * @returns {string} */
-function renderPlayerDisplayBody(kind, cfg, motionPresetOptions) {
+function renderPlayerDisplayBody(kind, cfg, motionPresetOptions, visualizerWidth, visualizerHeight) {
     const resolutionField = resolvePlayerResolutionField(kind); // core/player-display-settings.js
     const resolutionOptionsHtml = PLAYER_RESOLUTION_MODES.map((m) => `<option value="${m.value}" ${cfg[resolutionField] === m.value ? 'selected' : ''}>${t(m.labelKey)}</option>`).join('');
 
-    const motionSlots = getPlayerMotionSlotsForKind(kind); // core/player-display-settings.js — Photo lọc bỏ 'reactBeat'
+    const motionSlots = getPlayerMotionSlotsForKind(kind); // core/player-display-settings.js — mỗi kind chỉ lấy đúng slot của mình (Video: showing; Photo: pointMove)
     const motionRowsHtml = motionSlots.map((s, i) => {
         const field = resolvePlayerMotionPresetField(kind, s.slot); // core/player-display-settings.js
         const isLast = i === motionSlots.length - 1;
@@ -63,6 +75,12 @@ function renderPlayerDisplayBody(kind, cfg, motionPresetOptions) {
                     <select id="setting-player-${kind}-resolution" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
                         ${resolutionOptionsHtml}
                     </select>
+                </div>
+                <!-- MỚI (Giang yêu cầu) — text tham khảo, KHÔNG tương tác, cho biết 'trueMax' đang so
+                     với khung bao nhiêu — CÙNG số window.innerWidth/innerHeight core/player-display-
+                     apply.js dùng để tính background-size Photo lúc 'trueMax'. -->
+                <div class="px-4 py-3 text-xs text-slate-500 border-t" data-uitk="dividerBorder">
+                    ${tFormat('playerDisplaySettings.resolution.visualizerSize', { width: visualizerWidth, height: visualizerHeight })}
                 </div>
             </div>
         </div>
