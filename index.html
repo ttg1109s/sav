@@ -406,6 +406,10 @@
     <script src="components/visual-bg-settings-drawer.js?v=20260808v1"></script>
     <script src="components/visual-bg-gradient-drawer.js?v=20260807v1"></script>
     <script src="components/visual-bg-video-audio-drawer.js?v=20260808v1"></script>
+    <!-- MỚI (Giang yêu cầu "Player" — Resolution + Motion của Video/Photo lúc phát chính) — CẦN
+         core/player-display-settings.js (nạp bên dưới, PLAYER_RESOLUTION_MODES/PLAYER_MOTION_SLOTS/
+         resolvePlayer*Field()). -->
+    <script src="components/settings/player-display-settings.js?v=20260912v1"></script>
     <!-- Panel Settings "Cử chỉ" (cụm gestureSettings) — cùng pattern push/pop Settings Stack. -->
     <script src="components/gesture-settings-drawer.js?v=20260813v1"></script>
 
@@ -655,6 +659,9 @@
     <!-- Core THUẦN cho hệ "Cấu hình Motion" (preset đặt tên được, độc lập khỏi Visual Background)
          — xem core/motion-presets.js. -->
     <script src="core/motion-presets.js?v=20260903v4"></script>
+    <!-- MỚI (Giang yêu cầu "Player") — hằng số thuần PLAYER_RESOLUTION_MODES/PLAYER_MOTION_SLOTS +
+         2 hàm resolve tên field, xem core/player-display-settings.js. Không phụ thuộc file nào. -->
+    <script src="core/player-display-settings.js?v=20260912v1"></script>
     <!-- MỚI — Core-UI (Rule 5c, hậu tố -ui.js) dựng đường cong Timing cho Point Move 'all' mode,
          xem core/point-move-timing-ui.js. NẠP SAU core/motion-presets.js/motion-engine.js. -->
     <script src="core/point-move-timing-ui.js?v=20260903v5"></script>
@@ -973,6 +980,12 @@
          (_render*() onMount, liên tuyến domain, xem docstring file đó). -->
     <script src="event/workflow/motion-presets.js?v=20260903v5"></script>
     <script src="event/router/motion-presets.js?v=20260903v5"></script>
+
+    <!-- MỚI (Giang yêu cầu "Player") — workflowPlayerDisplaySettings (load/ghi bền domain
+         'playerDisplay', GIAI ĐOẠN 1 — CHƯA có cơ chế áp dụng lên runtime), xem event/workflow/
+         player-display-settings.js. NẠP TRƯỚC event/workflow/app-settings.js (gọi trực tiếp, không
+         qua router riêng) và event/workflow/app-boot.js (gọi loadPersistedPlayerDisplayOnBoot()). -->
+    <script src="event/workflow/player-display-settings.js?v=20260912v1"></script>
 
     <!-- Cụm "visualBg" — Workflow tách 3 file: common (định nghĩa `workflowVisualBg`), video/photo
          (`Object.assign()` thêm vào) — common PHẢI nạp trước video/photo. -->
