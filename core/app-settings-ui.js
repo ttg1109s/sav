@@ -31,16 +31,16 @@ function wireAppSettingsSystem(bodyEl) {
     wireAppSettingsMain(bodyEl); // cùng cơ chế data-app-settings-nav — tái dùng thẳng
 }
 
-/** Màn Player > Video/Photo (Settings > Visualizer Screen > Player) — 1 select Resolution + 4
- * select Motion (PLAYER_MOTION_SLOTS, core/player-display-settings.js), MỖI select đổi gửi 1
- * msg.type riêng kèm `kind` ('video'|'photo') để Router/Workflow biết đang sửa domain field nào —
- * xem workflowAppSettings.handlePlayerResolutionChange()/handlePlayerMotionSlotChange().
+/** Màn Player > Video/Photo (Settings > Visualizer Screen > Player) — 1 select Resolution + 3
+ * select Motion (PLAYER_MOTION_SLOTS lọc theo kind, core/player-display-settings.js), MỖI select
+ * đổi gửi 1 msg.type riêng kèm `kind` ('video'|'photo') để Router/Workflow biết đang sửa domain
+ * field nào — xem workflowAppSettings.handlePlayerResolutionChange()/handlePlayerMotionSlotChange().
  * @param {HTMLElement} bodyEl @param {'video'|'photo'} kind */
 function wireAppSettingsPlayerDetail(bodyEl, kind) {
     const resolutionSelect = bodyEl.querySelector(`#setting-player-${kind}-resolution`);
     if (resolutionSelect) resolutionSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.player.resolution.change', payload: { kind, value: e.target.value } }));
 
-    getPlayerMotionSlotsForKind(kind).forEach((s) => { // core/player-display-settings.js — Photo lọc bỏ 'reactBeat'
+    getPlayerMotionSlotsForKind(kind).forEach((s) => { // core/player-display-settings.js — mỗi kind chỉ lấy đúng slot của mình (Video: showing; Photo: pointMove)
         const slotSelect = bodyEl.querySelector(`#setting-player-${kind}-motion-${s.slot}`);
         if (slotSelect) slotSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.player.motionSlot.change', payload: { kind, slot: s.slot, value: e.target.value } }));
     });

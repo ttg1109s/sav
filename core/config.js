@@ -422,35 +422,35 @@
          * display-settings.js cho danh sách 4 "vai trò" Motion + 3 mode Resolution).
          *
          * MỚI (giai đoạn 1, Giang yêu cầu "code backend đăng ký + hiển thị list, CHƯA code cơ chế
-         * hoạt động") — domain này CHỈ lưu LỰA CHỌN của người dùng (mode Resolution + preset nào
-         * gắn cho từng vai trò Motion), KHÔNG có bất kỳ hàm nào đọc lại các field này để thực sự vẽ
-         * lên #bg-video/#visual-bg-image hay chạy Motion Engine — đó là việc của giai đoạn 2 (backend
-         * "cơ chế hoạt động", CHƯA làm). Nơi tiêu thụ preset ('player', core/motion-presets.js
-         * ::MOTION_APPLY_CONSUMERS) DÙNG CHUNG 1 danh sách đăng ký cho CẢ 7 field *PresetId dưới đây
+         * hoạt động") — domain này lưu LỰA CHỌN của người dùng (mode Resolution + preset nào gắn cho
+         * từng vai trò Motion). Nơi tiêu thụ preset ('player', core/motion-presets.js
+         * ::MOTION_APPLY_CONSUMERS) DÙNG CHUNG 1 danh sách đăng ký cho CẢ 6 field *PresetId dưới đây
          * (Giang chốt: "nơi tiêu thụ chỉ thêm player trong 1 danh sách" — KHÔNG tách riêng theo
-         * Video/Photo hay theo vai trò Transition/Showing).
+         * Video/Photo hay theo vai trò).
          *
          * `videoResolutionMode`/`photoResolutionMode` — 'fit' (giữ tỉ lệ, căn giữa, có thể có viền
          * đen) | 'stretch' (kéo giãn lấp đầy khung, KHÔNG giữ tỉ lệ) | 'trueMax' (giữ nguyên kích
          * thước gốc, CHỈ co lại — không phóng to — nếu vượt khung, xem core/player-display-settings.js
-         * ::PLAYER_RESOLUTION_MODES).
+         * ::PLAYER_RESOLUTION_MODES). ĐÃ có cơ chế hoạt động thật (core/player-display-apply.js).
          *
-         * 7 field `*PresetId` — mỗi field 1 "vai trò" Motion ĐỘC LẬP (Giang chốt tách rời hoàn toàn,
-         * KHÔNG gộp Next+Prev hay Point Move+React Beat làm 1 lựa chọn): `{kind}TransitionNextPresetId`/
-         * `{kind}TransitionPrevPresetId` (CHỈ đọc field `transition*` của preset được gắn — lúc có
-         * cơ chế hoạt động), `{kind}PointMovePresetId` (CHỈ đọc `pointMoves`/`pointMoveEnabled`/...) +
-         * RIÊNG Video còn có `videoReactBeatPresetId` (CHỈ đọc `reactBeatAudio`) — Photo KHÔNG có field
-         * này (Giang chỉ ra: Photo Player mode phát im lặng, không có audio nào để "react" theo, xem
-         * docstring core/photo-player.js) — xem core/player-display-settings.js::PLAYER_MOTION_SLOTS
-         * (field `kinds`) cho bảng tra slot -> tên field đầy đủ theo TỪNG kind. `null` = chưa gắn
-         * preset nào cho vai trò đó.
+         * 6 field `*PresetId` — `{kind}TransitionNextPresetId`/`{kind}TransitionPrevPresetId` (CHỈ
+         * đọc field `transition*` của preset được gắn — CHƯA có cơ chế hoạt động) ở CẢ 2 kind;
+         * `photoPointMovePresetId` (CHỈ đọc `pointMoves`/`pointMoveEnabled`/... — CHƯA có cơ chế
+         * hoạt động, Photo riêng); `videoShowingPresetId` (SỬA — Giang chốt GỘP Point Move + React
+         * Beat của Video thành 1 field DUY NHẤT, KHÔNG còn `videoPointMovePresetId`/
+         * `videoReactBeatPresetId` riêng nữa — preset gắn ở đây vừa lái Point Move [CHƯA có cơ chế
+         * hoạt động] VỪA lái React Beat [ĐÃ có, đọc `reactBeatAudio`, xem event/workflow/player-
+         * display-settings.js::_tickVideoBeatReact()] cùng lúc). Photo KHÔNG có field tương đương
+         * `videoShowingPresetId` (không có React Beat để gộp cùng — Photo Player mode phát im lặng,
+         * xem docstring core/photo-player.js) — xem core/player-display-settings.js
+         * ::PLAYER_MOTION_SLOTS (field `kinds`) cho bảng tra slot -> tên field đầy đủ theo TỪNG
+         * kind. `null` = chưa gắn preset nào cho vai trò đó.
          */
         const DEFAULT_PLAYER_DISPLAY_CONFIG = {
             videoResolutionMode: 'fit',
             videoTransitionNextPresetId: null,
             videoTransitionPrevPresetId: null,
-            videoPointMovePresetId: null,
-            videoReactBeatPresetId: null,
+            videoShowingPresetId: null,
             photoResolutionMode: 'fit',
             photoTransitionNextPresetId: null,
             photoTransitionPrevPresetId: null,
@@ -539,15 +539,15 @@
                 videoResolutionMode: 'string',
                 videoTransitionNextPresetId: 'nullable-string',
                 videoTransitionPrevPresetId: 'nullable-string',
-                videoPointMovePresetId: 'nullable-string',
-                videoReactBeatPresetId: 'nullable-string',
+                videoShowingPresetId: 'nullable-string',
                 photoResolutionMode: 'string',
                 photoTransitionNextPresetId: 'nullable-string',
                 photoTransitionPrevPresetId: 'nullable-string',
                 photoPointMovePresetId: 'nullable-string',
-                // Photo KHÔNG có 'photoReactBeatPresetId' — Photo Player mode phát im lặng, không
-                // có audio để "react" theo (Giang chỉ ra), xem core/player-display-settings.js
-                // ::PLAYER_MOTION_SLOTS (field `kinds`).
+                // Video KHÔNG còn 'videoPointMovePresetId'/'videoReactBeatPresetId' riêng — ĐÃ GỘP
+                // thành 'videoShowingPresetId' (Giang chốt). Photo KHÔNG có field tương đương —
+                // không có React Beat để gộp cùng (Photo Player mode phát im lặng, Giang chỉ ra),
+                // xem core/player-display-settings.js::PLAYER_MOTION_SLOTS (field `kinds`).
             },
             defaults: DEFAULT_PLAYER_DISPLAY_CONFIG,
         });
