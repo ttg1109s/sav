@@ -433,8 +433,9 @@
          * căn giữa, có thể có viền đen) | 'stretch' (kéo giãn lấp đầy khung, KHÔNG giữ tỉ lệ) |
          * 'trueMax' (giữ nguyên kích thước gốc, CHỈ co lại — không phóng to — nếu vượt khung, xem
          * core/player-display-settings.js::PLAYER_RESOLUTION_MODES). ĐÃ có cơ chế hoạt động thật
-         * (core/player-display-apply.js) — RIÊNG Video, đồng thời áp CẢ cho lớp thumb dự phòng chống
-         * nháy đen (`visualBgImageElement`) mỗi lần swap, tránh lộ ảnh sai kích thước (Giang chỉ ra).
+         * (core/player-display-apply.js) — RIÊNG Video, `bgVideoElement`/`visualBgImageElement`
+         * được coi là 2 layer A/B NGANG HÀNG (mô hình giống VBG) — CÙNG giá trị mode áp cho CẢ 2
+         * mỗi lần swap, tránh lệch kích thước giữa 2 layer (Giang chỉ ra).
          *
          * 6 field `*PresetId` — `{kind}TransitionNextPresetId`/`{kind}TransitionPrevPresetId` (CHỈ
          * đọc field `transition*` của preset được gắn — CHƯA có cơ chế hoạt động) ở CẢ 2 kind;

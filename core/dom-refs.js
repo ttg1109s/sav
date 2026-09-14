@@ -276,7 +276,7 @@
         // `visualBgImageElement` KHÔNG bao giờ tranh quyền/xung đột với VBG cả — vậy đặt lớp cha lên
         // trên đó có vấn đề gì?") — bản trước NGẠI di chuyển hẳn element DÙNG CHUNG này vào lớp cha
         // Motion (sợ ảnh hưởng VBG), phải tự đồng bộ RIÊNG background-size cho nó mỗi lần Resolution
-        // đổi (core/player-display-apply.js::applyVideoPlayerResolutionToVisualBgFallbackDOM()) —
+        // đổi (core/player-display-apply.js::applyVideoPlayerResolutionToLayerBDOM()) —
         // NHẬN RA SAI: VBG và Video Player mode LOẠI TRỪ NHAU TUYỆT ĐỐI (clearMediaLayers() luôn
         // chạy TRƯỚC lúc vào mode, applyCurrentVisualBg() luôn chạy SAU lúc thoát) nên MƯỢN THẲNG
         // element này (di chuyển hẳn vào `motionEngineReactLayer` lúc vào mode, trả về lúc thoát) —
