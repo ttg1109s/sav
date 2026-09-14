@@ -215,7 +215,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.6.2/dist/panzoom.min.js"></script>
 
     <!-- CSS tách riêng theo domain, ?v= ép tải lại khi deploy (không đụng CDN — đã tự version). -->
-    <link rel="stylesheet" href="assets/css/base.css?v=20260816v1">
+    <link rel="stylesheet" href="assets/css/base.css?v=20260912v1">
     <link rel="stylesheet" href="assets/css/sliders.css?v=20260909v1">
     <link rel="stylesheet" href="assets/css/glass.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/animations.css?v=20260813v1">
@@ -231,7 +231,27 @@
          core/gameplay/game-panel-ui.js. -->
     <link rel="stylesheet" href="assets/css/game-panel.css?v=20260902v1">
 
-    <video id="bg-video" loop muted playsinline class="hidden"></video>
+    <!-- SỬA (Giang chỉ ra: "React beat, point move khi ở player áp dụng motion beat, point thì phải
+         gán lên 1 lớp cha của nó giống như cấu trúc của hệ thống visual background" — rồi hỏi lại
+         "tôi tưởng motion đã tách khỏi nơi tiêu thụ?" khi thấy bản đầu tạo hẳn 1 lớp cha MỚI thay
+         vì dùng lại lớp CÓ SẴN của Motion Engine) — KHÔNG còn `#video-player-motion-react` riêng
+         nữa. Video Player mode giờ TÁI DÙNG THẲNG `#visual-motion-react` (motionEngineReactLayer,
+         xem assets/css/motion-engine.css) — element ĐÓ vốn ĐÃ được thiết kế chỉ quan tâm "ai đang
+         AppendChild vào tôi", không quan tâm nội dung là ảnh (VBG) hay video (Player). `#video-
+         player-motion-pointmove` (bọc `#bg-video`, chuẩn bị sẵn cho Point Move sau này — CHƯA có
+         cơ chế hoạt động) đứng Ở ĐÂY làm vị trí "nhà" mặc định — event/workflow/video-player.js tự
+         `appendChild` nó VÀO `#visual-motion-react` lúc vào Video Player mode, rồi chuyển VỀ ĐÚNG
+         vị trí này lúc thoát (xem core/player-display-apply.js::attachVideoPlayerMotionToSharedReactLayer()/
+         detachVideoPlayerMotionFromSharedReactLayer()) — Motion Engine (`workflowMotionEngine`)
+         HOÀN TOÀN không biết/không cần biết việc di chuyển này, chỉ quan tâm target trả về từ
+         Runner của MÌNH (`() => motionEngineReactLayer`, luôn đúng vị trí cố định, xem event/
+         workflow/motion-engine.js). LƯU Ý phân biệt với bài học "thumb overlay" ngay dưới đây: đó
+         là chuyện ĐÈ 1 LỚP KHÁC LÊN TRÊN `<video>` (z-index/stacking, KHÔNG dùng được vì WKWebView/
+         iOS compositing riêng) — còn đây là DI CHUYỂN `#bg-video` VÀO LÀM CON của 1 lớp cha nhận
+         transform (scale/pan/rotate), 2 cơ chế CSS khác nhau hoàn toàn. -->
+    <div id="video-player-motion-pointmove">
+        <video id="bg-video" loop muted playsinline class="hidden"></video>
+    </div>
     <!-- Từng thử 1 #video-player-thumb-overlay riêng ở đây (đè LÊN video) — BỎ, <video> hardware-
          decode trên WKWebView/iOS nằm ở compositing layer riêng, không CSS nào đè lên được (xem
          core/video-player.js). MỚI (31/07/2026) — lớp dự phòng multi-browser giờ chèn vào
@@ -501,7 +521,7 @@
          restoreDefaultVizConfig/saveConfig/loadConfig) — KHÔNG còn giữ Z_INDEX/global
          error-handler (dời ở trên) hay CONST dùng chéo domain khác (nay sống trong đúng package
          service/state/*.js). PHẢI nạp SAU service/state.js (cần class AppConfig). -->
-    <script src="core/config.js?v=20260912v3"></script>
+    <script src="core/config.js?v=20260912v4"></script>
     <!-- core/custom-effect.js — Core thuần hệ Custom Effect (getEffectConfig/setCustomEffectField),
          NẠP NGAY SAU core/config.js (cần DEFAULT_CUSTOM_EFFECT/appConfigViz) — mọi hàm vẽ/scene-setup
          phía dưới đều cần file này. -->
@@ -514,7 +534,7 @@
          actions.js (core, dòng dưới) cần `new EventStore(...)` ngay lúc nạp. Tự đứng độc lập
          (không phụ thuộc eventBus), nên tách riêng lên đây an toàn. -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260911v1"></script>
+    <script src="core/dom-refs.js?v=20260912v1"></script>
     <!-- core/slider-panel-scroll.js — 2 hàm dùng chung (getPositionStart/scrollSliderTo) cho mọi
          khung cuộn ngang kiểu "slider panel" (settings-panel-stack-ui.js, player-controls.js). -->
     <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
@@ -661,11 +681,11 @@
     <script src="core/motion-presets.js?v=20260912v2"></script>
     <!-- MỚI (Giang yêu cầu "Player") — hằng số thuần PLAYER_RESOLUTION_MODES/PLAYER_MOTION_SLOTS +
          2 hàm resolve tên field, xem core/player-display-settings.js. Không phụ thuộc file nào. -->
-    <script src="core/player-display-settings.js?v=20260912v4"></script>
+    <script src="core/player-display-settings.js?v=20260912v5"></script>
     <!-- MỚI (Giang yêu cầu "Resolution cho player video&photo, không liên quan VBG") — Core-DOM áp/gỡ
          object-fit/background-size THẬT lên bgVideoElement/visualBgImageElement, xem core/player-
          display-apply.js. NẠP SAU core/dom-refs.js (đã nạp từ trước, dòng 517) + file phía trên. -->
-    <script src="core/player-display-apply.js?v=20260912v3"></script>
+    <script src="core/player-display-apply.js?v=20260912v5"></script>
     <!-- MỚI — Core-UI (Rule 5c, hậu tố -ui.js) dựng đường cong Timing cho Point Move 'all' mode,
          xem core/point-move-timing-ui.js. NẠP SAU core/motion-presets.js/motion-engine.js. -->
     <script src="core/point-move-timing-ui.js?v=20260903v5"></script>
@@ -976,20 +996,34 @@
     <!-- Batch 8, ver 12 "Multi Media" — engine cycle ảnh Slideshow nền Visual (transition/Ken
          Burns), CHỈ còn đúng 1 vai trò: `_tick()` (taskManager) — cụm router "slideshowSettings"
          (từng ở đây) ĐÃ BỎ HẲN (29/08/2026), xem event/workflow/motion-presets.js ngay dưới. -->
-    <script src="event/workflow/motion-engine.js?v=20260903v6"></script>
+    <script src="event/workflow/motion-engine.js?v=20260914v1"></script>
     <!-- MỚI (29/08/2026) — hệ "Cấu hình Motion" độc lập (Settings > System > Motion), thay
          hẳn router/listener "slideshowSettings" cũ (2 file event/router,listener/slideshow.js ĐÃ
          XOÁ) — xem event/workflow/motion-presets.js, event/router/motion-presets.js. Không
          cần listener riêng — mọi wiring DOM động nằm trong event/workflow/app-settings.js
          (_render*() onMount, liên tuyến domain, xem docstring file đó). -->
-    <script src="event/workflow/motion-presets.js?v=20260903v5"></script>
+    <script src="event/workflow/motion-presets.js?v=20260914v1"></script>
     <script src="event/router/motion-presets.js?v=20260903v5"></script>
+
+    <!-- MỚI (Giang chỉ ra: "đã tách bạch rõ trách nhiệm motion phải quản lý việc apply live bất kể
+         nơi tiêu thụ... sau này có N nơi tiêu thụ thì cũng ko thể nhân bản để áp dụng") — 2 module
+         Runner DÙNG CHUNG: React Beat (event/workflow/motion-beat-react-runner.js, ĐÃ dùng cho CẢ
+         VBG lẫn Video Player) + Point Move (event/workflow/motion-point-move-runner.js, MỚI — ĐÃ
+         dùng cho VBG, CHƯA có nơi tiêu thụ thứ 2, xem docstring đầu file đó) — NẠP SAU
+         core/motion-engine.js + event/workflow/motion-engine.js (MOTION_ENGINE_BEATREACT_DECAY_MS,
+         đã nạp phía trên) + service/task-manager.js. NẠP TRƯỚC event/workflow/motion-engine.js
+         (dùng làm Runner cho VBG — dù bản thân tag <script> KHÔNG bắt buộc thứ tự ngặt nghèo vì chỉ
+         gọi bên trong method body, chạy sau khi mọi script đã nạp xong) VÀ event/workflow/player-
+         display-settings.js (nơi tiêu thụ ĐẦU TIÊN của React Beat Runner, không dùng Point Move
+         Runner). -->
+    <script src="event/workflow/motion-point-move-runner.js?v=20260914v1"></script>
+    <script src="event/workflow/motion-beat-react-runner.js?v=20260912v1"></script>
 
     <!-- MỚI (Giang yêu cầu "Player") — workflowPlayerDisplaySettings (load/ghi bền domain
          'playerDisplay', GIAI ĐOẠN 1 — CHƯA có cơ chế áp dụng lên runtime), xem event/workflow/
          player-display-settings.js. NẠP TRƯỚC event/workflow/app-settings.js (gọi trực tiếp, không
          qua router riêng) và event/workflow/app-boot.js (gọi loadPersistedPlayerDisplayOnBoot()). -->
-    <script src="event/workflow/player-display-settings.js?v=20260912v4"></script>
+    <script src="event/workflow/player-display-settings.js?v=20260912v6"></script>
 
     <!-- Cụm "visualBg" — Workflow tách 3 file: common (định nghĩa `workflowVisualBg`), video/photo
          (`Object.assign()` thêm vào) — common PHẢI nạp trước video/photo. -->
