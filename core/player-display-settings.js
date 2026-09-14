@@ -14,9 +14,9 @@
  * xem docstring core/photo-player.js).
  * GIAI ĐOẠN 2 — MOTION — Resolution KHÔNG liên quan mục này (xem trên). React Beat của Video ĐÃ có
  * cơ chế hoạt động (đọc từ field `videoShowingPresetId`, xem PLAYER_MOTION_SLOTS ngay dưới +
- * event/workflow/player-display-settings.js::_tickVideoBeatReact()); Transition (cả 2 kind) VÀ
- * Point Move (Photo + phần Point Move của preset gắn cho Video's `showing`) vẫn CHỈ lưu lựa chọn,
- * CHƯA có hàm nào đọc lại rồi chạy Motion Engine thật.
+ * event/workflow/motion-beat-react-runner.js — module DÙNG CHUNG, KHÔNG riêng cho Video); Transition
+ * (cả 2 kind) VÀ Point Move (Photo + phần Point Move của preset gắn cho Video's `showing`) vẫn CHỈ
+ * lưu lựa chọn, CHƯA có hàm nào đọc lại rồi chạy Motion Engine thật.
  *
  * Dữ liệu SỐNG ở domain 'playerDisplay' (core/config.js::DEFAULT_PLAYER_DISPLAY_CONFIG) — xem
  * docstring tại đó cho ý nghĩa từng field. Danh sách preset khả dụng cho dropdown Motion dùng CHUNG
@@ -70,7 +70,7 @@ const PLAYER_RESOLUTION_MODES = [
  *   pointMove (CHỈ Photo)  — CHỈ đọc `pointMoves`/`pointMoveEnabled`/`pointMoveRunMode`/... của
  *     preset. CHƯA có cơ chế hoạt động (giai đoạn sau).
  *   showing (CHỈ Video)    — ĐỌC CẢ 2: `reactBeatAudio` (ĐÃ có cơ chế hoạt động, xem event/workflow/
- *     player-display-settings.js::_tickVideoBeatReact()) VÀ `pointMoves`/`pointMoveEnabled`/...
+ *     motion-beat-react-runner.js — module DÙNG CHUNG) VÀ `pointMoves`/`pointMoveEnabled`/...
  *     (CHƯA có cơ chế hoạt động — Giang chốt rõ "chưa backend point move cho video", chỉ phần React
  *     Beat của preset gắn ở đây là THẬT SỰ chạy lúc này).
  */

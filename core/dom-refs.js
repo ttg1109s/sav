@@ -250,6 +250,20 @@
         // gộp vào panel "Visual Background". `bgVideoElement` GIỮ NGUYÊN — thẻ <video> dùng CHUNG
         // cho CẢ Video nền LẪN Video Player mode, không liên quan tới việc gộp 3 toggle.)
         const bgVideoElement = document.getElementById('bg-video');
+        // MỚI (Giang chỉ ra: "React beat, point move khi ở player áp dụng motion beat, point thì
+        // phải gán lên 1 lớp cha của nó giống như cấu trúc của hệ thống visual background") — 2 lớp
+        // cha bọc `bgVideoElement`, mirror cấu trúc Motion Engine (#visual-motion-react/-players) —
+        // xem CSS + giải thích đầy đủ ở assets/css/base.css, dùng bởi core/player-display-apply.js.
+        // SỬA (Giang chỉ ra: "tôi tưởng motion đã tách khỏi nơi tiêu thụ?") — KHÔNG còn
+        // `videoPlayerMotionReactElement` riêng nữa. Video Player mode giờ TÁI DÙNG THẲNG
+        // `motionEngineReactLayer` (xem 2 dòng bên dưới, biến ĐÃ tồn tại sẵn) — chỉ còn GIỮ ref
+        // `videoPlayerMotionPointMoveElement` (bọc `#bg-video`, cần `appendChild` được vào/ra khỏi
+        // `motionEngineReactLayer`, xem core/player-display-apply.js) + ghi lại vị trí "nhà" GỐC
+        // của nó (parent + nextSibling, đo NGAY LÚC BOOT trước khi bất kỳ ai kịp di chuyển gì) để
+        // biết đường trả VỀ lúc thoát Video Player mode.
+        const videoPlayerMotionPointMoveElement = document.getElementById('video-player-motion-pointmove');
+        const videoPlayerMotionPointMoveHomeParent = videoPlayerMotionPointMoveElement ? videoPlayerMotionPointMoveElement.parentNode : null;
+        const videoPlayerMotionPointMoveHomeNextSibling = videoPlayerMotionPointMoveElement ? videoPlayerMotionPointMoveElement.nextSibling : null;
         // SỬA (Giang chỉ ra đúng — "vbg chỉ hợp lệ với song thì quan tâm gì đang phát video/photo
         // bị ngắt quãng") — "Photo Player mode" từng có element RIÊNG `photoPlayerImageEl` ở đây,
         // ĐÃ XOÁ — giờ tái dùng ĐÚNG `visualBgImageElement` ngay dưới (CÙNG cơ chế clearMediaLayers()/

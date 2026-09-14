@@ -1,10 +1,24 @@
 /**
  * core/player-display-apply.js — Core-DOM (mirror `core/video-player.js`::setBgVideoElementForPlayerMode()
  * — Rule 2: nhận giá trị QUA THAM SỐ, KHÔNG tự `appState.get()`/`appConfigPlayerDisplay.getAll()`,
- * nhưng ĐƯỢC PHÉP đọc/ghi trực tiếp `bgVideoElement`/`visualBgImageElement`, biến DOM tĩnh toàn cục
- * từ core/dom-refs.js) — áp/gỡ Resolution + React Beat Audio (Video, xem docstring nhóm hàm
- * `applyVideoPlayerReactBeatTransformToDOM()` cuối file — Photo không có, không có audio) THẬT lên
- * đúng 2 element Video/Photo Player mode TÁI DÙNG với Visual Background.
+ * nhưng ĐƯỢC PHÉP đọc/ghi trực tiếp `bgVideoElement`/`visualBgImageElement`/
+ * `videoPlayerMotionPointMoveElement`/`motionEngineReactLayer` (biến DOM tĩnh toàn cục từ
+ * core/dom-refs.js)) — áp/gỡ Resolution (Video/Photo) + di chuyển `#bg-video` vào/ra khỏi lớp React
+ * Beat DÙNG CHUNG với VBG.
+ *
+ * SỬA (Giang chỉ ra: "React beat, point move khi ở player áp dụng motion beat, point thì phải gán
+ * lên 1 lớp cha của nó giống như cấu trúc của hệ thống visual background" — rồi "tôi tưởng motion đã
+ * tách khỏi nơi tiêu thụ?" khi thấy bản đầu tạo hẳn 1 lớp cha MỚI riêng cho Video thay vì dùng lại
+ * lớp CÓ SẴN của Motion Engine) — 2 hàm React Beat từng ở ĐÂY
+ * (`applyVideoPlayerReactBeatTransformToDOM()`/`clearVideoPlayerReactBeatTransformFromDOM()`) ĐÃ
+ * CHUYỂN HẲN sang `event/workflow/motion-beat-react-runner.js` (`createMotionBeatReactRunner()`,
+ * module DÙNG CHUNG cho MỌI nơi tiêu thụ React Beat — Motion CHỈ cung cấp CƠ CHẾ [Runner], nơi tiêu
+ * thụ tự quyết dùng cơ chế đó cho TARGET nào của mình, giống gọi API). File NÀY giờ giữ 2 việc:
+ * Resolution (`object-fit`/`background-size`) VÀ 2 hàm MỚI `attachVideoPlayerMotionToSharedReactLayer()`/
+ * `detachVideoPlayerMotionFromSharedReactLayer()` — DI CHUYỂN `videoPlayerMotionPointMoveElement`
+ * (bọc `#bg-video`) vào/ra khỏi `motionEngineReactLayer` (CÓ SẴN, DÙNG CHUNG với VBG, KHÔNG tạo
+ * element mới) — Motion Engine hoàn toàn KHÔNG biết/không cần biết việc di chuyển này, Runner của
+ * nó chỉ hỏi `() => motionEngineReactLayer`, luôn đúng 1 element cố định.
  *
  * CHỈ ÁP DỤNG lúc CHÍNH Video/Photo đang phát làm nội dung (Video/Photo Player mode) — 2 hàm
  * `apply*()` do event/workflow/player-display-settings.js gọi lúc VÀO mode (+ mỗi lần đổi ảnh cho
@@ -85,26 +99,30 @@ function clearPhotoPlayerResolutionFromDOM() {
     visualBgImageElement.style.backgroundSize = '';
 }
 
-/** MỚI (Giang yêu cầu "bổ sung backend react — chỉ Video vì Photo không có audio") — áp transform
- * React Beat Audio LÊN THẲNG `bgVideoElement` (KHÁC VBG: Motion Engine áp lên `motionEngineReactLayer`,
- * 1 layer riêng CHỈ tồn tại cho slideshow ảnh nền, xem event/workflow/motion-engine.js — Video Player
- * mode không có layer trung gian nào, `bgVideoElement` CHÍNH LÀ nội dung đang hiện nên áp thẳng lên
- * nó luôn). 3 số đã tính sẵn (Rule 2 — nhận qua tham số, KHÔNG tự đọc appState/preset) do
- * event/workflow/player-display-settings.js::_tickVideoBeatReact() gọi mỗi frame, TÁI DÙNG NGUYÊN 4
- * hàm THUẦN tính toán của core/motion-engine.js (computeMotionEngineBeatReactZoomScale()/...Offset()).
- * @param {number} zoomScale - hệ số scale (1 = không zoom) @param {number} panPct - % translateX
- * @param {number} rotateDeg - độ rotate */
-function applyVideoPlayerReactBeatTransformToDOM(zoomScale, panPct, rotateDeg) {
-    if (!bgVideoElement) return;
-    bgVideoElement.style.transform = `scale(${zoomScale}) translateX(${panPct}%) rotate(${rotateDeg}deg)`;
+/** SỬA (Giang chỉ ra: "React beat, point move khi ở player áp dụng motion beat, point thì phải gán
+ * lên 1 lớp cha của nó giống như cấu trúc của hệ thống visual background" — rồi "tôi tưởng motion
+ * đã tách khỏi nơi tiêu thụ?") — DI CHUYỂN `videoPlayerMotionPointMoveElement` (bọc `#bg-video`,
+ * core/dom-refs.js) VÀO LÀM CON của `motionEngineReactLayer` (CÓ SẴN, DÙNG CHUNG với VBG — KHÔNG
+ * tạo element mới) — gọi lúc VÀO Video Player mode (event/workflow/video-player.js::startFromPlaylist()).
+ *
+ * AN TOÀN với VBG: `clearMediaLayers()` (event/workflow/visual-bg-common.js, LUÔN chạy TRƯỚC bước
+ * này trong `startFromPlaylist()`) đã gọi `workflowMotionEngine.stop()` — dọn SẠCH transform +
+ * dừng hẳn Runner của VBG TRƯỚC KHI hàm này chạy, nên `motionEngineReactLayer` LUÔN ở trạng thái
+ * "sạch" (transform rỗng, không task nào đang chạy) lúc Video Player mode bắt đầu dùng — không có
+ * xung đột ghi `style.transform` giữa 2 bên (2 mode loại trừ nhau, KHÔNG BAO GIỜ cùng lúc dùng
+ * chung element này để chạy React Beat thật). */
+function attachVideoPlayerMotionToSharedReactLayer() {
+    if (!motionEngineReactLayer || !videoPlayerMotionPointMoveElement) return; // core/dom-refs.js
+    motionEngineReactLayer.appendChild(videoPlayerMotionPointMoveElement);
 }
 
-/** Gỡ transform React Beat khỏi `bgVideoElement` — gọi lúc: (1) THOÁT Video Player mode (BẮT BUỘC,
- * cùng lý do Resolution — tránh kẹt transform ảnh hưởng VBG dùng chung element), (2) preset gắn cho
- * `videoShowingPresetId` bị gỡ/tắt/xoá giữa chừng (vòng lặp tự dừng, xem event/workflow/player-
- * display-settings.js::stopVideoPlayerReactBeat()) — trả về khung hình "đứng yên" bình thường, KHÔNG
- * kẹt ở giá trị scale/pan/rotate cuối cùng trước lúc dừng. */
-function clearVideoPlayerReactBeatTransformFromDOM() {
-    if (!bgVideoElement) return;
-    bgVideoElement.style.transform = '';
+/** Trả `videoPlayerMotionPointMoveElement` VỀ ĐÚNG vị trí "nhà" gốc (đo lúc boot, trước khi bất kỳ
+ * ai di chuyển gì — `videoPlayerMotionPointMoveHomeParent`/`HomeNextSibling`, core/dom-refs.js) —
+ * gọi lúc THOÁT Video Player mode (event/workflow/video-player.js::exitVideoPlayerMode()) — BẮT
+ * BUỘC, TRƯỚC khi `workflowVisualBg.applyCurrentVisualBg()` tái sử dụng `motionEngineReactLayer`
+ * cho chính VBG — nếu không, `#bg-video` (đã ẩn qua `setBgVideoElementForPlayerMode(false)`, vô
+ * hại về mặt hiển thị) vẫn còn kẹt làm con của layer đó mãi mãi, rò rỉ cấu trúc DOM không cần thiết. */
+function detachVideoPlayerMotionFromSharedReactLayer() {
+    if (!videoPlayerMotionPointMoveElement || !videoPlayerMotionPointMoveHomeParent) return; // core/dom-refs.js
+    videoPlayerMotionPointMoveHomeParent.insertBefore(videoPlayerMotionPointMoveElement, videoPlayerMotionPointMoveHomeNextSibling);
 }

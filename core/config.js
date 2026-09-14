@@ -442,8 +442,8 @@
          * hoạt động, Photo riêng); `videoShowingPresetId` (SỬA — Giang chốt GỘP Point Move + React
          * Beat của Video thành 1 field DUY NHẤT, KHÔNG còn `videoPointMovePresetId`/
          * `videoReactBeatPresetId` riêng nữa — preset gắn ở đây vừa lái Point Move [CHƯA có cơ chế
-         * hoạt động] VỪA lái React Beat [ĐÃ có, đọc `reactBeatAudio`, xem event/workflow/player-
-         * display-settings.js::_tickVideoBeatReact()] cùng lúc). Photo KHÔNG có field tương đương
+         * hoạt động] VỪA lái React Beat [ĐÃ có, đọc `reactBeatAudio`, xem event/workflow/motion-
+         * beat-react-runner.js — module DÙNG CHUNG] cùng lúc). Photo KHÔNG có field tương đương
          * `videoShowingPresetId` (không có React Beat để gộp cùng — Photo Player mode phát im lặng,
          * xem docstring core/photo-player.js) — xem core/player-display-settings.js
          * ::PLAYER_MOTION_SLOTS (field `kinds`) cho bảng tra slot -> tên field đầy đủ theo TỪNG
