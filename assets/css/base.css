@@ -41,8 +41,15 @@ body { min-height: 100dvh; background: #000; }
    (core/video-player.js::setBgVideoElementForPlayerMode()) — override được bình thường (con luôn
    thắng cha), không bị chặn dù element cha đổi (motionEngineReactLayer cũng `pointer-events:none`,
    assets/css/motion-engine.css). */
+/* SỬA (Giang chỉ ra: "đưa position của N cái vào CÙNG 1 vị trí, CÙNG 1 kích thước, chỉ khác z-index
+   cái nào đè cái nào" — dùng `inset:0` ở đây trước đó "trùng" với `#bg-video`/`#visual-bg-image`
+   CHỈ NHỜ giả định phần tử cha (`#video-player-motion-pointmove`) đúng bằng kích thước viewport —
+   giả định ĐÚNG hiện tại nhưng KHÔNG tường minh/không được đảm bảo chắc chắn) — ĐỔI sang y HỆT công
+   thức `top/left/width/height` mà `#bg-video`/`#visual-bg-image` đang dùng (assets/css/base.css) —
+   giờ CẢ 3 phần tử (layer A, layer B, lớp bọc của A) chung ĐÚNG 1 vị trí/kích thước tường minh, chỉ
+   z-index tự nhiên khác nhau quyết định thứ tự đè. */
 #video-player-motion-pointmove {
-    position: absolute; inset: 0;
+    position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh;
     overflow: hidden;
 }
 
