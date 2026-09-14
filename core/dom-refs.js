@@ -272,6 +272,19 @@
         // FIX (04/07/2026, mục 1a) — nền màu Settings (bgColor), TÁCH khỏi document.body.
         const visualizerSolidBg = document.getElementById('visualizer-solid-bg');
         const visualBgImageElement = document.getElementById('visual-bg-image');
+        // SỬA (Giang chỉ ra đúng — "VBG chỉ hoạt động ở Song, Video/Photo Player mode dùng
+        // `visualBgImageElement` KHÔNG bao giờ tranh quyền/xung đột với VBG cả — vậy đặt lớp cha lên
+        // trên đó có vấn đề gì?") — bản trước NGẠI di chuyển hẳn element DÙNG CHUNG này vào lớp cha
+        // Motion (sợ ảnh hưởng VBG), phải tự đồng bộ RIÊNG background-size cho nó mỗi lần Resolution
+        // đổi (core/player-display-apply.js::applyVideoPlayerResolutionToVisualBgFallbackDOM()) —
+        // NHẬN RA SAI: VBG và Video Player mode LOẠI TRỪ NHAU TUYỆT ĐỐI (clearMediaLayers() luôn
+        // chạy TRƯỚC lúc vào mode, applyCurrentVisualBg() luôn chạy SAU lúc thoát) nên MƯỢN THẲNG
+        // element này (di chuyển hẳn vào `motionEngineReactLayer` lúc vào mode, trả về lúc thoát) —
+        // giống HỆT cách `videoPlayerMotionPointMoveElement` đã làm — là AN TOÀN, không cần tạo
+        // thêm element/đồng bộ tay gì cả. Ghi lại vị trí "nhà" GỐC (đo NGAY LÚC BOOT, trước khi ai
+        // kịp di chuyển) để biết đường trả VỀ — CÙNG khuôn `videoPlayerMotionPointMoveElement` ở trên.
+        const visualBgImageHomeParent = visualBgImageElement ? visualBgImageElement.parentNode : null;
+        const visualBgImageHomeNextSibling = visualBgImageElement ? visualBgImageElement.nextSibling : null;
         // Motion Engine nền Visual (nguồn nền thứ 3, Batch 8, ver 12 "Multi Media") — xem
         // core/motion-engine.js / event/workflow/motion-engine.js.
         // MỚI ("React Beat Audio", 29/08/2026, VIẾT LẠI 30/08/2026 phản hồi Giang mục 3) — layer

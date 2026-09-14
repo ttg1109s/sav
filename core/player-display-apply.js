@@ -3,22 +3,24 @@
  * — Rule 2: nhận giá trị QUA THAM SỐ, KHÔNG tự `appState.get()`/`appConfigPlayerDisplay.getAll()`,
  * nhưng ĐƯỢC PHÉP đọc/ghi trực tiếp `bgVideoElement`/`visualBgImageElement`/
  * `videoPlayerMotionPointMoveElement`/`motionEngineReactLayer` (biến DOM tĩnh toàn cục từ
- * core/dom-refs.js)) — áp/gỡ Resolution (Video/Photo) + di chuyển `#bg-video` vào/ra khỏi lớp React
- * Beat DÙNG CHUNG với VBG.
+ * core/dom-refs.js)) — áp/gỡ Resolution (Video/Photo) + di chuyển CẢ `#bg-video` LẪN
+ * `visualBgImageElement` (thumb dự phòng) vào/ra khỏi lớp React Beat DÙNG CHUNG với VBG.
  *
  * SỬA (Giang chỉ ra: "React beat, point move khi ở player áp dụng motion beat, point thì phải gán
- * lên 1 lớp cha của nó giống như cấu trúc của hệ thống visual background" — rồi "tôi tưởng motion đã
- * tách khỏi nơi tiêu thụ?" khi thấy bản đầu tạo hẳn 1 lớp cha MỚI riêng cho Video thay vì dùng lại
- * lớp CÓ SẴN của Motion Engine) — 2 hàm React Beat từng ở ĐÂY
- * (`applyVideoPlayerReactBeatTransformToDOM()`/`clearVideoPlayerReactBeatTransformFromDOM()`) ĐÃ
- * CHUYỂN HẲN sang `event/workflow/motion-beat-react-runner.js` (`createMotionBeatReactRunner()`,
- * module DÙNG CHUNG cho MỌI nơi tiêu thụ React Beat — Motion CHỈ cung cấp CƠ CHẾ [Runner], nơi tiêu
- * thụ tự quyết dùng cơ chế đó cho TARGET nào của mình, giống gọi API). File NÀY giờ giữ 2 việc:
- * Resolution (`object-fit`/`background-size`) VÀ 2 hàm MỚI `attachVideoPlayerMotionToSharedReactLayer()`/
- * `detachVideoPlayerMotionFromSharedReactLayer()` — DI CHUYỂN `videoPlayerMotionPointMoveElement`
- * (bọc `#bg-video`) vào/ra khỏi `motionEngineReactLayer` (CÓ SẴN, DÙNG CHUNG với VBG, KHÔNG tạo
- * element mới) — Motion Engine hoàn toàn KHÔNG biết/không cần biết việc di chuyển này, Runner của
- * nó chỉ hỏi `() => motionEngineReactLayer`, luôn đúng 1 element cố định.
+ * lên 1 lớp cha của nó giống như cấu trúc của hệ thống visual background" — rồi "VBG chỉ hoạt động
+ * ở Song, Video/Photo Player mode dùng `visualBgImageElement` không bao giờ tranh quyền/xung đột —
+ * vậy đặt lớp cha lên trên đó có vấn đề gì?") — bản đầu chỉ di chuyển `videoPlayerMotionPointMoveElement`
+ * (bọc `#bg-video`) vào `motionEngineReactLayer`, CÒN `visualBgImageElement` (thumb dự phòng chống
+ * nháy đen) vẫn đứng NGOÀI — kết quả: React Beat chỉ di chuyển video, thumb đứng yên, càng LỘ RÕ
+ * lệch nhau lúc animation chạy nếu Resolution đang có khoảng hở. SỬA — GIỜ CẢ 2 element cùng được
+ * `attachVideoPlayerMotionToSharedReactLayer()` di chuyển vào `motionEngineReactLayer` lúc vào
+ * mode, `detachVideoPlayerMotionFromSharedReactLayer()` trả VỀ ĐÚNG "nhà" gốc của TỪNG đứa lúc
+ * thoát — AN TOÀN vì VBG không bao giờ dùng `visualBgImageElement` cùng lúc Video Player mode đang
+ * mượn nó (2 mode loại trừ nhau tuyệt đối). Resolution (`object-fit`/`background-size`) VẪN phải
+ * đồng bộ THỦ CÔNG riêng — 2 CSS property khác hẳn nhau giữa <video>/div nền, DOM lồng chung cha
+ * KHÔNG tự giải quyết được sự khác biệt kích thước NÀY, chỉ giải quyết được việc TRANSFORM (React
+ * Beat/Point Move) áp CHUNG cho cả 2 — Motion Engine hoàn toàn KHÔNG biết/không cần biết việc di
+ * chuyển này, Runner của nó chỉ hỏi `() => motionEngineReactLayer`, luôn đúng 1 element cố định.
  *
  * CHỈ ÁP DỤNG lúc CHÍNH Video/Photo đang phát làm nội dung (Video/Photo Player mode) — 2 hàm
  * `apply*()` do event/workflow/player-display-settings.js gọi lúc VÀO mode (+ mỗi lần đổi ảnh cho
@@ -29,9 +31,11 @@
  * xoá `.style.objectFit`/`.style.backgroundSize` (chuỗi rỗng) trả CSS tĩnh mặc định
  * (`object-fit: cover`/`background-size: cover`, assets/css/base.css) lại quyền cho VBG.
  *
- * NẠP SAU: core/dom-refs.js (bgVideoElement/visualBgImageElement), core/player-display-settings.js
+ * NẠP SAU: core/dom-refs.js (bgVideoElement/visualBgImageElement/videoPlayerMotionPointMoveElement/
+ * visualBgImageHomeParent,NextSibling/videoPlayerMotionPointMoveHomeParent,NextSibling/
+ * motionEngineReactLayer), core/player-display-settings.js
  * (resolvePlayerObjectFitCss()/resolvePlayerBackgroundSizeCss()).
- * NẠP TRƯỚC: event/workflow/player-display-settings.js.
+ * NẠP TRƯỚC: event/workflow/player-display-settings.js, event/workflow/video-player.js.
  */
 
 /** Áp Resolution lên `bgVideoElement` — gọi lúc VÀO Video Player mode + mỗi lần Settings đổi
@@ -99,30 +103,49 @@ function clearPhotoPlayerResolutionFromDOM() {
     visualBgImageElement.style.backgroundSize = '';
 }
 
-/** SỬA (Giang chỉ ra: "React beat, point move khi ở player áp dụng motion beat, point thì phải gán
- * lên 1 lớp cha của nó giống như cấu trúc của hệ thống visual background" — rồi "tôi tưởng motion
- * đã tách khỏi nơi tiêu thụ?") — DI CHUYỂN `videoPlayerMotionPointMoveElement` (bọc `#bg-video`,
- * core/dom-refs.js) VÀO LÀM CON của `motionEngineReactLayer` (CÓ SẴN, DÙNG CHUNG với VBG — KHÔNG
- * tạo element mới) — gọi lúc VÀO Video Player mode (event/workflow/video-player.js::startFromPlaylist()).
+/** SỬA (Giang chỉ ra: "VBG chỉ hoạt động ở Song, Video/Photo Player mode dùng `visualBgImageElement`
+ * không bao giờ tranh quyền/xung đột — vậy đặt lớp cha lên trên đó có vấn đề gì?") — DI CHUYỂN CẢ 2
+ * `videoPlayerMotionPointMoveElement` (bọc `#bg-video`) LẪN `visualBgImageElement` (lớp thumb dự
+ * phòng chống nháy đen, core/dom-refs.js) VÀO LÀM CON của `motionEngineReactLayer` (CÓ SẴN, DÙNG
+ * CHUNG với VBG — KHÔNG tạo element mới) — gọi lúc VÀO Video Player mode (event/workflow/
+ * video-player.js::startFromPlaylist()). `visualBgImageElement` chèn TRƯỚC (DOM order sớm hơn) —
+ * z-index -2 riêng của nó (assets/css/base.css) đã tự đứng SAU video trong stacking context MỚI mà
+ * `motionEngineReactLayer` tạo ra, thứ tự DOM chỉ để chắc chắn thêm (không phụ thuộc z-index parse
+ * đúng hay không) — thumb LUÔN núp sau video, đúng vai trò "dự phòng chống nháy đen" của nó.
+ *
+ * CẢ 2 giờ CÙNG NHẬN transform React Beat/Point Move (giai đoạn sau) của Video Player mode — KHÔNG
+ * còn lệch nhau lúc animation chạy (bug Giang chỉ ra trước đó: transform chỉ di chuyển video, thumb
+ * đứng yên) — Resolution (`object-fit`/`background-size`) vẫn phải đồng bộ THỦ CÔNG riêng (2 CSS
+ * property khác hẳn nhau giữa <video> và div nền background-image, DOM lồng nhau không tự giải
+ * quyết được sự khác biệt NÀY, xem applyVideoPlayerResolutionToVisualBgFallbackDOM() bên dưới) —
+ * nhưng giờ 2 lớp DI CHUYỂN CÙNG NHAU nên khoảng hở (nếu có do Resolution) không còn bị transform
+ * kéo lệch pha giữa 2 lớp nữa.
  *
  * AN TOÀN với VBG: `clearMediaLayers()` (event/workflow/visual-bg-common.js, LUÔN chạy TRƯỚC bước
  * này trong `startFromPlaylist()`) đã gọi `workflowMotionEngine.stop()` — dọn SẠCH transform +
  * dừng hẳn Runner của VBG TRƯỚC KHI hàm này chạy, nên `motionEngineReactLayer` LUÔN ở trạng thái
  * "sạch" (transform rỗng, không task nào đang chạy) lúc Video Player mode bắt đầu dùng — không có
  * xung đột ghi `style.transform` giữa 2 bên (2 mode loại trừ nhau, KHÔNG BAO GIỜ cùng lúc dùng
- * chung element này để chạy React Beat thật). */
+ * chung element này để chạy React Beat thật) — VÀ VBG cũng KHÔNG đang hiển thị `visualBgImageElement`
+ * lúc này (clearMediaLayers() đã ẩn nó qua applyVisualBgImageToDOM(false, ...), core/visual-bg.js),
+ * nên mượn nó đi là hoàn toàn an toàn. */
 function attachVideoPlayerMotionToSharedReactLayer() {
-    if (!motionEngineReactLayer || !videoPlayerMotionPointMoveElement) return; // core/dom-refs.js
-    motionEngineReactLayer.appendChild(videoPlayerMotionPointMoveElement);
+    if (!motionEngineReactLayer) return; // core/dom-refs.js
+    if (visualBgImageElement) motionEngineReactLayer.appendChild(visualBgImageElement);
+    if (videoPlayerMotionPointMoveElement) motionEngineReactLayer.appendChild(videoPlayerMotionPointMoveElement);
 }
 
-/** Trả `videoPlayerMotionPointMoveElement` VỀ ĐÚNG vị trí "nhà" gốc (đo lúc boot, trước khi bất kỳ
- * ai di chuyển gì — `videoPlayerMotionPointMoveHomeParent`/`HomeNextSibling`, core/dom-refs.js) —
- * gọi lúc THOÁT Video Player mode (event/workflow/video-player.js::exitVideoPlayerMode()) — BẮT
- * BUỘC, TRƯỚC khi `workflowVisualBg.applyCurrentVisualBg()` tái sử dụng `motionEngineReactLayer`
- * cho chính VBG — nếu không, `#bg-video` (đã ẩn qua `setBgVideoElementForPlayerMode(false)`, vô
- * hại về mặt hiển thị) vẫn còn kẹt làm con của layer đó mãi mãi, rò rỉ cấu trúc DOM không cần thiết. */
+/** Trả CẢ 2 `videoPlayerMotionPointMoveElement`/`visualBgImageElement` VỀ ĐÚNG vị trí "nhà" gốc của
+ * TỪNG đứa (đo lúc boot, trước khi bất kỳ ai di chuyển gì — core/dom-refs.js) — gọi lúc THOÁT Video
+ * Player mode (event/workflow/video-player.js::exitVideoPlayerMode()) — BẮT BUỘC, TRƯỚC khi
+ * `workflowVisualBg.applyCurrentVisualBg()` tái sử dụng CẢ `motionEngineReactLayer` LẪN
+ * `visualBgImageElement` cho chính VBG — nếu không, VBG sẽ tìm `visualBgImageElement` tại vị trí cũ
+ * mà không thấy (đã bị dời đi), hỏng hẳn cách VBG hiển thị ảnh nền. */
 function detachVideoPlayerMotionFromSharedReactLayer() {
-    if (!videoPlayerMotionPointMoveElement || !videoPlayerMotionPointMoveHomeParent) return; // core/dom-refs.js
-    videoPlayerMotionPointMoveHomeParent.insertBefore(videoPlayerMotionPointMoveElement, videoPlayerMotionPointMoveHomeNextSibling);
+    if (videoPlayerMotionPointMoveElement && videoPlayerMotionPointMoveHomeParent) {
+        videoPlayerMotionPointMoveHomeParent.insertBefore(videoPlayerMotionPointMoveElement, videoPlayerMotionPointMoveHomeNextSibling); // core/dom-refs.js
+    }
+    if (visualBgImageElement && visualBgImageHomeParent) {
+        visualBgImageHomeParent.insertBefore(visualBgImageElement, visualBgImageHomeNextSibling); // core/dom-refs.js
+    }
 }
