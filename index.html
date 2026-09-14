@@ -996,7 +996,7 @@
     <!-- Batch 8, ver 12 "Multi Media" — engine cycle ảnh Slideshow nền Visual (transition/Ken
          Burns), CHỈ còn đúng 1 vai trò: `_tick()` (taskManager) — cụm router "slideshowSettings"
          (từng ở đây) ĐÃ BỎ HẲN (29/08/2026), xem event/workflow/motion-presets.js ngay dưới. -->
-    <script src="event/workflow/motion-engine.js?v=20260914v1"></script>
+    <script src="event/workflow/motion-engine.js?v=20260914v2"></script>
     <!-- MỚI (29/08/2026) — hệ "Cấu hình Motion" độc lập (Settings > System > Motion), thay
          hẳn router/listener "slideshowSettings" cũ (2 file event/router,listener/slideshow.js ĐÃ
          XOÁ) — xem event/workflow/motion-presets.js, event/router/motion-presets.js. Không
@@ -1006,16 +1006,18 @@
     <script src="event/router/motion-presets.js?v=20260903v5"></script>
 
     <!-- MỚI (Giang chỉ ra: "đã tách bạch rõ trách nhiệm motion phải quản lý việc apply live bất kể
-         nơi tiêu thụ... sau này có N nơi tiêu thụ thì cũng ko thể nhân bản để áp dụng") — 2 module
+         nơi tiêu thụ... sau này có N nơi tiêu thụ thì cũng ko thể nhân bản để áp dụng") — 3 module
          Runner DÙNG CHUNG: React Beat (event/workflow/motion-beat-react-runner.js, ĐÃ dùng cho CẢ
-         VBG lẫn Video Player) + Point Move (event/workflow/motion-point-move-runner.js, MỚI — ĐÃ
-         dùng cho VBG, CHƯA có nơi tiêu thụ thứ 2, xem docstring đầu file đó) — NẠP SAU
-         core/motion-engine.js + event/workflow/motion-engine.js (MOTION_ENGINE_BEATREACT_DECAY_MS,
-         đã nạp phía trên) + service/task-manager.js. NẠP TRƯỚC event/workflow/motion-engine.js
-         (dùng làm Runner cho VBG — dù bản thân tag <script> KHÔNG bắt buộc thứ tự ngặt nghèo vì chỉ
-         gọi bên trong method body, chạy sau khi mọi script đã nạp xong) VÀ event/workflow/player-
-         display-settings.js (nơi tiêu thụ ĐẦU TIÊN của React Beat Runner, không dùng Point Move
-         Runner). -->
+         VBG lẫn Video Player) + Point Move (event/workflow/motion-point-move-runner.js, ĐÃ dùng cho
+         VBG, CHƯA có nơi tiêu thụ thứ 2) + Transition (event/workflow/motion-transition-runner.js,
+         MỚI — ĐÃ dùng cho VBG, CHƯA có nơi tiêu thụ thứ 2 — Player chưa quyết cách "chuyển bài" nên
+         trông thế nào, xem docstring đầu file đó) — NẠP SAU core/motion-engine.js +
+         core/motion-presets.js (5 hằng số hướng transition) + service/task-manager.js. NẠP TRƯỚC
+         event/workflow/motion-engine.js (dùng làm Runner cho VBG — dù bản thân tag <script> KHÔNG
+         bắt buộc thứ tự ngặt nghèo vì chỉ gọi bên trong method body, chạy sau khi mọi script đã nạp
+         xong) VÀ event/workflow/player-display-settings.js (nơi tiêu thụ ĐẦU TIÊN của React Beat
+         Runner, không dùng Point Move/Transition Runner). -->
+    <script src="event/workflow/motion-transition-runner.js?v=20260914v1"></script>
     <script src="event/workflow/motion-point-move-runner.js?v=20260914v1"></script>
     <script src="event/workflow/motion-beat-react-runner.js?v=20260912v1"></script>
 
