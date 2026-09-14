@@ -521,7 +521,7 @@
          restoreDefaultVizConfig/saveConfig/loadConfig) — KHÔNG còn giữ Z_INDEX/global
          error-handler (dời ở trên) hay CONST dùng chéo domain khác (nay sống trong đúng package
          service/state/*.js). PHẢI nạp SAU service/state.js (cần class AppConfig). -->
-    <script src="core/config.js?v=20260912v4"></script>
+    <script src="core/config.js?v=20260914v2"></script>
     <!-- core/custom-effect.js — Core thuần hệ Custom Effect (getEffectConfig/setCustomEffectField),
          NẠP NGAY SAU core/config.js (cần DEFAULT_CUSTOM_EFFECT/appConfigViz) — mọi hàm vẽ/scene-setup
          phía dưới đều cần file này. -->
@@ -534,7 +534,7 @@
          actions.js (core, dòng dưới) cần `new EventStore(...)` ngay lúc nạp. Tự đứng độc lập
          (không phụ thuộc eventBus), nên tách riêng lên đây an toàn. -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260914v1"></script>
+    <script src="core/dom-refs.js?v=20260914v2"></script>
     <!-- core/slider-panel-scroll.js — 2 hàm dùng chung (getPositionStart/scrollSliderTo) cho mọi
          khung cuộn ngang kiểu "slider panel" (settings-panel-stack-ui.js, player-controls.js). -->
     <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
@@ -685,7 +685,7 @@
     <!-- MỚI (Giang yêu cầu "Resolution cho player video&photo, không liên quan VBG") — Core-DOM áp/gỡ
          object-fit/background-size THẬT lên bgVideoElement/visualBgImageElement, xem core/player-
          display-apply.js. NẠP SAU core/dom-refs.js (đã nạp từ trước, dòng 517) + file phía trên. -->
-    <script src="core/player-display-apply.js?v=20260914v1"></script>
+    <script src="core/player-display-apply.js?v=20260914v2"></script>
     <!-- MỚI — Core-UI (Rule 5c, hậu tố -ui.js) dựng đường cong Timing cho Point Move 'all' mode,
          xem core/point-move-timing-ui.js. NẠP SAU core/motion-presets.js/motion-engine.js. -->
     <script src="core/point-move-timing-ui.js?v=20260903v5"></script>
@@ -1025,7 +1025,7 @@
          'playerDisplay', GIAI ĐOẠN 1 — CHƯA có cơ chế áp dụng lên runtime), xem event/workflow/
          player-display-settings.js. NẠP TRƯỚC event/workflow/app-settings.js (gọi trực tiếp, không
          qua router riêng) và event/workflow/app-boot.js (gọi loadPersistedPlayerDisplayOnBoot()). -->
-    <script src="event/workflow/player-display-settings.js?v=20260912v6"></script>
+    <script src="event/workflow/player-display-settings.js?v=20260914v1"></script>
 
     <!-- Cụm "visualBg" — Workflow tách 3 file: common (định nghĩa `workflowVisualBg`), video/photo
          (`Object.assign()` thêm vào) — common PHẢI nạp trước video/photo. -->
@@ -1138,7 +1138,7 @@
          mediaType khi click video trong Playlist (đi qua eventBus để Block gate chặn khoá chéo với
          Video nền). PHẢI nạp SAU event/workflow/video-player.js (cần workflowVideoPlayer.
          startFromPlaylist() đã tồn tại). -->
-    <script src="event/workflow/video-player.js?v=20260912v3"></script>
+    <script src="event/workflow/video-player.js?v=20260914v1"></script>
     <script src="event/router/video-player.js?v=20260818v1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
     <!-- MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — event/workflow/photo-
