@@ -75,7 +75,14 @@ body { min-height: 100dvh; background: #000; }
 #generic-drawer-panel { transition: height 300ms ease-out, min-height 300ms ease-out, transform 300ms ease-out; }
 
 #visualizer-solid-bg { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; z-index: -3; pointer-events: none; background-color: #000000; }
-#visual-bg-image { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; background-size: cover; background-position: center; z-index: -2; pointer-events: none; }
+/* SỬA BUG (Giang chụp màn hình chỉ ra: nội dung bị LẶP LẠI/tile cả trên lẫn dưới) — THIẾU
+   `background-repeat: no-repeat` từ trước tới giờ, chỉ KHÔNG lộ ra vì `background-size` trước đây
+   luôn cứng `cover` (lấp đầy 100%, không có khoảng trống nào để lặp). Từ lúc có Resolution (mode
+   'fit'/'trueMax' có thể ra `contain`/`auto`, để lại khoảng trống quanh ảnh nếu tỉ lệ khung không
+   khớp — core/player-display-settings.js::resolvePlayerBackgroundSizeCss()), khoảng trống đó bị
+   trình duyệt mặc định LẶP LẠI ảnh nền để lấp đầy (CSS `background-repeat` mặc định là `repeat`) —
+   thêm `no-repeat` để khoảng trống hiện đúng màu nền phía sau, KHÔNG lặp ảnh. */
+#visual-bg-image { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; background-size: cover; background-position: center; background-repeat: no-repeat; z-index: -2; pointer-events: none; }
 
 canvas { display: block; width: 100vw; height: 100dvh; position: absolute; top: 0; left: 0; pointer-events: none;}
 #webgl-canvas { z-index: 1; }
