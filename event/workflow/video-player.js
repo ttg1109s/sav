@@ -277,7 +277,12 @@ const workflowVideoPlayer = {
         // MỚI (v14, Giang chốt mục 2) — nhường bgVideoElement cho Video Player mode NGAY tại đây
         // (dọn task/object URL/DOM của Visual Background, KHÔNG đụng visualBgConfig đã lưu) — thay
         // cho Block gate cũ từng chặn HẲN việc vào mode này khi Visual Background đang hiện media.
-        if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.clearMediaLayers(); // event/workflow/visual-bg.js — liên tuyến domain
+        if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.clearMediaLayers(); // event/workflow/visual-bg.js — liên tuyến domain, ĐỒNG THỜI dừng hẳn Runner React Beat của VBG (workflowMotionEngine.stop()) — đảm bảo motionEngineReactLayer "sạch" (transform rỗng, không task nào chạy) TRƯỚC khi Video Player mode dùng chung nó ngay dưới
+        // SỬA (Giang chỉ ra: "React beat, point move khi ở player... phải gán lên 1 lớp cha của nó
+        // giống như cấu trúc của hệ thống visual background" — rồi "tôi tưởng motion đã tách khỏi
+        // nơi tiêu thụ?") — di chuyển `#bg-video` (qua `videoPlayerMotionPointMoveElement`) VÀO
+        // THẲNG `motionEngineReactLayer` — lớp CÓ SẴN, DÙNG CHUNG với VBG (KHÔNG tạo element mới).
+        attachVideoPlayerMotionToSharedReactLayer(); // core/player-display-apply.js
         setBgVideoElementForPlayerMode(true); // core/video-player.js — bỏ muted + tắt loop + hiện + pointer-events
         // MỚI (Giang yêu cầu "Resolution cho player video&photo, không liên quan VBG") — áp NGAY
         // lúc vào mode, đọc từ config đã lưu (Settings > Visualizer Screen > Player > Video).
@@ -304,6 +309,11 @@ const workflowVideoPlayer = {
         // gỡ transform — BẮT BUỘC, cùng lý do Resolution ngay trên (tránh kẹt transform ảnh hưởng
         // VBG dùng chung `bgVideoElement`).
         if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.stopVideoPlayerReactBeat(); // event/workflow/player-display-settings.js
+        // SỬA (cùng lý do attach lúc vào mode, xem startFromPlaylist()) — trả `#bg-video` VỀ ĐÚNG
+        // vị trí "nhà" gốc — BẮT BUỘC, TRƯỚC khi VBG tái dùng `motionEngineReactLayer` cho chính nó
+        // (applyCurrentVisualBg() ngay dưới) — nếu không, #bg-video (đã ẩn, vô hại hiển thị) vẫn
+        // kẹt làm con của layer đó, rò rỉ cấu trúc DOM không cần thiết.
+        detachVideoPlayerMotionFromSharedReactLayer(); // core/player-display-apply.js
         this.clearBgVideoSource(); // dừng + dọn HẲN (pause, ẩn, gỡ src/poster, revoke cả 3 URL) — CƠ CHẾ DÙNG CHUNG
         bgVideoElement.load(); // buộc <video> bỏ hẳn tham chiếu blob URL vừa revoke (tránh giữ RAM)
         updateDOMBackground(); // core/color-utils.js, hàm CÓ SẴN — trả visualizerSolidBg về cfg.bgColor

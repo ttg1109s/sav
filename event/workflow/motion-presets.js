@@ -153,7 +153,14 @@ const workflowMotionPresets = {
         labelEl.textContent = tFormat('motionSettingsDrawer.transitionRatio.previewFormat', { in: (inMs / 1000).toFixed(1), out: (outMs / 1000).toFixed(1) });
     },
 
-    /** Ghi đè 1 (vài) field của preset ĐANG SỬA (`_editingId`).
+    /** Ghi đè 1 (vài) field của preset ĐANG SỬA (`_editingId`). SỬA (Giang chỉ ra qua việc soát lại
+     * — sửa nội dung 1 preset ĐANG CHẠY trước đây KHÔNG live theo, trừ đúng 1 field "công tắc tổng"
+     * React Beat có kênh `liveBeatReactToggle()` riêng, MỌI field khác — vd zoom.maxPct — bị BỎ SÓT)
+     * — GỌI THÊM `notifyMotionBeatReactPresetsChanged()` (event/workflow/motion-beat-react-runner.js)
+     * NGAY SAU mỗi lần lưu, bất kể field nào — broadcast tới MỌI runner React Beat đang tồn tại (VBG
+     * lẫn Player, và bất kỳ ai sau này), mỗi runner tự biết có liên quan tới mình hay không. THAY
+     * THẾ HẲN cơ chế `liveBeatReactToggle()` cũ (chỉ phủ 1 field, chỉ phủ VBG) — xem
+     * event/workflow/motion-engine.js.
      * @param {(preset: object) => void} mutatorFn */
     async _mutateEditing(mutatorFn) {
         const presets = appState.get('motionPresets').map((p) => {
@@ -164,6 +171,7 @@ const workflowMotionPresets = {
         });
         appState.set('motionPresets', presets);
         await this._persist();
+        if (typeof notifyMotionBeatReactPresetsChanged !== 'undefined') notifyMotionBeatReactPresetsChanged(); // event/workflow/motion-beat-react-runner.js — liên tuyến domain
     },
 
     async changeName(name) {
@@ -671,9 +679,10 @@ const workflowMotionPresets = {
      * top-level (`enabled`, `effectKey=null`) LẪN 3 cụm con zoom/pan/rotate (`effectKey` tương ứng).
      * `replaceMovement` ĐÃ XOÁ (hết ý nghĩa từ khi Ken Burns không còn để "thay thế" — xem
      * core/motion-presets.js) — KHÔNG còn trong danh sách `fieldKey` hợp lệ.
-     * Công tắc tổng (`effectKey===null, fieldKey==='enabled'`) đổi thì check THẲNG
-     * `appState.motionRunning` rồi báo SỐNG sang Motion Engine NGAY (KHÔNG qua nơi tiêu thụ, cùng
-     * lý do `changePointMoveEnabled()` ngay trên, xem `workflowMotionEngine.liveBeatReactToggle()`).
+     * SỬA (Giang chỉ ra — sửa nội dung preset đang chạy trước đây không live) — KHÔNG còn tự gọi
+     * `workflowMotionEngine.liveBeatReactToggle()` riêng ở ĐÂY nữa (chỉ phủ đúng 1 field, chỉ phủ
+     * VBG) — `_mutateEditing()` giờ tự broadcast `notifyMotionBeatReactPresetsChanged()` SAU MỌI
+     * field, phủ CẢ VBG lẫn Player (và ai sau này), xem event/workflow/motion-beat-react-runner.js.
      * @param {'zoom'|'pan'|'rotate'|null} effectKey - null = field top-level.
      * @param {string} fieldKey - 'enabled' | 'maxPct' | 'maxDeg' | 'direction' | 'reverse'.
      * @param {boolean|number|string} value
@@ -695,9 +704,6 @@ const workflowMotionPresets = {
             const target = effectKey ? p.reactBeatAudio[effectKey] : p.reactBeatAudio;
             target[fieldKey] = value;
         });
-        if (effectKey === null && fieldKey === 'enabled' && appState.get('motionRunning') === this._editingId && typeof workflowMotionEngine !== 'undefined') {
-            workflowMotionEngine.liveBeatReactToggle(this._editingId, value); // liên tuyến domain — Motion Engine, KHÔNG qua nơi tiêu thụ
-        }
         if (genericDrawerPanel.classList.contains('hidden') || !effectKey) return;
         if (fieldKey === 'maxPct' || fieldKey === 'maxDeg') {
             const el = genericDrawerBody.querySelector(`#motion-beatreact-${effectKey}-max-label`);

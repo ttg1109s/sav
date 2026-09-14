@@ -12,15 +12,20 @@
  * video-player.js/photo-player.js gọi lúc VÀO/THOÁT mode (bắt buộc gọi cặp — xem docstring core/
  * player-display-apply.js, KHÔNG gọi clear() lúc thoát sẽ làm SAI VBG dù 2 thứ không liên quan
  * nhau về Ý NGHĨA).
- * GIAI ĐOẠN 2 — REACT BEAT AUDIO, CHỈ VIDEO (ĐÃ XONG, Giang chỉ ra Photo Player mode không có
- * audio nên bỏ hẳn, xem core/player-display-settings.js::PLAYER_MOTION_SLOTS field `kinds`) — vòng
- * lặp RAF RIÊNG (`PLAYER_VIDEO_BEATREACT_TASK`, TÁCH BIỆT HẲN task của Motion Engine — 2 vòng ĐỘC
- * LẬP, không dùng chung state, dù TÁI DÙNG NGUYÊN 4 hàm THUẦN tính toán của core/motion-engine.js
- * — pure, không lý do viết lại) — `bgVideoElement` đã nối SẴN vào CHUNG analyser từ trước
- * (core/video-player.js::connectBgVideoElementToAnalyser()) nên `appState.beatScale` PHẢN ÁNH ĐÚNG
- * audio của chính video đang phát, không cần thiết lập gì thêm. `syncVideoPlayerReactBeat()`/
- * `stopVideoPlayerReactBeat()` do video-player.js gọi lúc vào/thoát mode + `changeMotionSlot()` tự
- * gọi lại lúc đổi slot 'showing' trong lúc đang ở mode (LIVE, cùng tinh thần Resolution).
+ * GIAI ĐOẠN 2 — REACT BEAT AUDIO, CHỈ VIDEO (ĐÃ XONG) — SỬA (Giang chỉ ra: bản đầu tự viết RIÊNG 1
+ * task RAF + tick function trùng lặp với `workflowMotionEngine`, VI PHẠM nguyên tắc "trách nhiệm
+ * apply live thuộc về Motion, không nhân bản theo từng nơi tiêu thụ") — giờ dùng
+ * `createMotionBeatReactRunner()` (event/workflow/motion-beat-react-runner.js, DÙNG CHUNG, KHÔNG
+ * viết riêng gì nữa) — `_videoShowingRunner` là 1 INSTANCE của runner đó, tạo LƯỜI lúc cần
+ * (`_ensureVideoShowingRunner()`). `syncVideoPlayerReactBeat()`/`stopVideoPlayerReactBeat()` giờ
+ * CHỈ còn gọi thẳng `.sync()`/`.stop()` của runner — KHÔNG tự quản lý task/state gì nữa.
+ * `bgVideoElement` đã nối SẴN vào CHUNG analyser từ trước (core/video-player.js
+ * ::connectBgVideoElementToAnalyser()) nên `appState.beatScale` PHẢN ÁNH ĐÚNG audio của chính video
+ * đang phát, không cần thiết lập gì thêm. `syncVideoPlayerReactBeat()` do video-player.js gọi lúc
+ * vào mode + `changeMotionSlot()` tự gọi lại lúc đổi slot 'showing' trong lúc đang ở mode (LIVE,
+ * cùng tinh thần Resolution) — VÀ giờ sửa nội dung preset ĐANG chạy (Motion Edit, không đổi preset
+ * nào đang gắn) cũng LIVE theo THẬT SỰ, vì Runner tự tra `getPresetFn()` lại theo id MỖI FRAME,
+ * không cache preset cũ (xem docstring event/workflow/motion-beat-react-runner.js).
  * GIAI ĐOẠN 2 — TRANSITION/POINT MOVE (CHƯA làm) — 4 field còn lại vẫn CHỈ ghi/đọc.
  *
  * Router/Listener: CHƯA có router riêng — được gọi TRỰC TIẾP từ `workflowAppSettings`
@@ -29,29 +34,15 @@
  *
  * NẠP SAU: core/config.js (appConfigPlayerDisplay), core/player-display-settings.js
  * (PLAYER_MOTION_SLOTS/resolvePlayerMotionPresetField/resolvePlayerResolutionField),
- * core/player-display-apply.js (apply*ToDOM()/clear*FromDOM()), core/motion-engine.js
- * (computeMotionEngineBeatReactZoomScale()/...Offset()/...NextPolarity()/...Envelope() — TÁI DÙNG,
- * pure), event/workflow/motion-engine.js (MOTION_ENGINE_BEATREACT_DECAY_MS — TÁI DÙNG hằng số decay
- * CHUNG cảm giác với VBG), service/task-manager.js (taskManager), service/db.js
- * (getMeta/setMeta/getImageRecord).
+ * core/player-display-apply.js (apply*ToDOM()/clear*FromDOM()), core/dom-refs.js
+ * (motionEngineReactLayer), event/workflow/motion-beat-react-runner.js
+ * (createMotionBeatReactRunner()), service/db.js (getMeta/setMeta/getImageRecord).
  * NẠP TRƯỚC: event/workflow/video-player.js, event/workflow/photo-player.js,
  * event/workflow/app-settings.js, event/workflow/app-boot.js.
  */
 
-/** Tên task RAF của vòng lặp React Beat Video Player — TÁCH RIÊNG HẲN `MOTION_ENGINE_BEATREACT_TASK`
- * (event/workflow/motion-engine.js), 2 vòng không bao giờ chạy cùng lúc trên CÙNG 1 element trong
- * thực tế (Video Player mode và VBG Photo slideshow loại trừ nhau, xem docstring core/photo-player.js)
- * nhưng vẫn để tên riêng cho rõ ràng/dễ debug (taskManager.plan[...] theo tên). */
-const PLAYER_VIDEO_BEATREACT_TASK = 'playerVideoBeatReactTick';
-
 const workflowPlayerDisplaySettings = {
-    // State RIÊNG của vòng lặp React Beat Video — CÙNG khuôn `workflowMotionEngine` giữ
-    // `_beatReactEnvelope`/`_beatReactPanPolarity`/... của nó, TÁCH BIỆT HẲN (không đọc/ghi lẫn nhau).
-    _videoBeatReactEnvelope: 0,
-    _videoBeatReactWasAttacking: false,
-    _videoBeatReactPanPolarity: 0,
-    _videoBeatReactRotatePolarity: 0,
-    _videoBeatReactLastTickMs: 0,
+    _videoShowingRunner: null, // instance createMotionBeatReactRunner(), tạo LƯỜI — xem _ensureVideoShowingRunner()
 
     /** Khôi phục lựa chọn đã lưu bền LÚC BOOT — gọi từ event/workflow/app-boot.js. Chưa từng lưu
      * (boot lần đầu) -> `saved` rỗng, giữ nguyên default đã seed sẵn trong appConfigPlayerDisplay
@@ -66,7 +57,7 @@ const workflowPlayerDisplaySettings = {
     },
 
     /** Ứng select Resolution đổi (màn Player > Video hoặc Photo). KHÔNG validate `value` khớp
-     * PLAYER_RESOLUTION_MODES ở đây — `<select>` chỉ có đúng 3 `<option>` hợp lệ nên giá trị luôn
+     * PLAYER_RESOLUTION_MODES ở đây — `<select>` chỉ có đúng 4 `<option>` hợp lệ nên giá trị luôn
      * sạch, cùng tinh thần các select đơn giản khác trong app-settings.js (vd Theme mode).
      *
      * ÁP LIVE ngay nếu đang Ở ĐÚNG mode kind vừa đổi — người dùng thấy hiệu ứng NGAY trong lúc
@@ -162,9 +153,11 @@ const workflowPlayerDisplaySettings = {
      * trả về nếu preset đó còn tồn tại (chưa bị xoá) VÀ `reactBeatAudio.enabled === true` — ngược
      * lại `null` (coi như chưa có gì để React Beat chạy). KHÔNG xét `pointMoveEnabled` ở đây —
      * Point Move của preset này CHƯA có cơ chế hoạt động (Giang chốt rõ), hàm này chỉ phục vụ
-     * React Beat. Đọc TƯƠI mỗi lần gọi (KHÔNG cache) — `_tickVideoBeatReact()` gọi lại MỖI FRAME
-     * nên tự động bắt kịp NGAY nếu người dùng đổi preset khác giữa chừng (không cần logic
-     * "restart" riêng, xem `syncVideoPlayerReactBeat()`).
+     * React Beat. Đọc TƯƠI mỗi lần gọi (KHÔNG cache) — Runner (event/workflow/motion-beat-react-
+     * runner.js) tự gọi lại hàm này MỖI FRAME, nên tự động bắt kịp NGAY nếu người dùng đổi preset
+     * khác giữa chừng HOẶC sửa nội dung preset đang gắn (Motion Edit thay preset bằng object MỚI
+     * mỗi lần lưu, xem event/workflow/motion-presets.js::_mutateEditing() — tra lại theo id ở ĐÂY
+     * mỗi lần là điều BẮT BUỘC để không stale, không cần logic "restart" riêng).
      * @returns {object|null} */
     _getAssignedVideoShowingPreset() {
         const presetId = appConfigPlayerDisplay.getAll().videoShowingPresetId; // core/config.js
@@ -173,73 +166,39 @@ const workflowPlayerDisplaySettings = {
         return (preset && preset.reactBeatAudio && preset.reactBeatAudio.enabled) ? preset : null;
     },
 
-    /** Bật/tắt vòng lặp React Beat Video CHO ĐÚNG hiện trạng (preset đang gắn cho `videoShowingPresetId`
-     * có tồn tại+enabled hay không, VÀ có đang ở Video Player mode hay không) — gọi lúc VÀO mode
-     * (event/workflow/video-player.js::startFromPlaylist()) VÀ mỗi lần đổi slot 'showing' trong
-     * Settings lúc đang ở mode (changeMotionSlot() ở trên). Đang chạy + preset đổi sang 1 preset
-     * KHÁC nhưng VẪN enabled -> KHÔNG cần restart gì — _tickVideoBeatReact() tự đọc preset mới NGAY
-     * frame kế tiếp (xem docstring _getAssignedVideoShowingPreset()). */
+    /** Tạo (LƯỜI, ĐÚNG 1 LẦN) instance `createMotionBeatReactRunner()` cho React Beat của Video —
+     * target là `motionEngineReactLayer` (SỬA — Giang chỉ ra "tôi tưởng motion đã tách khỏi nơi
+     * tiêu thụ?": KHÔNG tạo lớp cha riêng cho Video nữa, TÁI DÙNG THẲNG lớp CÓ SẴN của Motion
+     * Engine, core/dom-refs.js — `videoPlayerMotionPointMoveElement` [bọc `#bg-video`] tự
+     * `appendChild`/gỡ vào/ra khỏi lớp đó lúc vào/thoát mode, xem core/player-display-apply.js
+     * ::attachVideoPlayerMotionToSharedReactLayer()/detachVideoPlayerMotionFromSharedReactLayer(),
+     * gọi từ event/workflow/video-player.js). Motion Engine hoàn toàn không biết việc di chuyển
+     * này — Runner chỉ hỏi target qua hàm, KHÔNG quan tâm ai đang thật sự nằm trong đó.
+     * @returns {{sync: () => void, stop: () => void, pause: () => void, resume: () => void}} */
+    _ensureVideoShowingRunner() {
+        if (!this._videoShowingRunner) {
+            this._videoShowingRunner = createMotionBeatReactRunner( // event/workflow/motion-beat-react-runner.js
+                'playerVideoBeatReactTick',
+                () => motionEngineReactLayer, // core/dom-refs.js
+                () => this._getAssignedVideoShowingPreset(),
+            );
+        }
+        return this._videoShowingRunner;
+    },
+
+    /** Bật/tắt React Beat Video CHO ĐÚNG hiện trạng — gọi lúc VÀO mode (event/workflow/
+     * video-player.js::startFromPlaylist()) VÀ mỗi lần đổi slot 'showing' trong Settings lúc đang
+     * ở mode (changeMotionSlot() ở trên). CHỈ còn 1 dòng gọi thẳng Runner — KHÔNG tự quản lý
+     * task/state gì nữa (xem event/workflow/motion-beat-react-runner.js). */
     syncVideoPlayerReactBeat() {
-        const preset = this._getAssignedVideoShowingPreset();
-        const shouldRun = !!preset && appState.get('isVideoPlayerMode');
-        // SỬA BUG (Giang báo: "React Beat đang chọn motion rồi nhưng không áp dụng") — `taskManager.
-        // plan[name]` CHỈ cho biết task ĐÃ ĐĂNG KÝ (addNew() tạo xong là có mặt trong `plan` NGAY,
-        // dù chưa hề `operator(..., 'enabled')`), KHÔNG phải "đang thật sự chạy" — phải dùng
-        // `isTaskRunning()` (xem docstring hàm đó, service/task-manager.js) mới đúng.
-        const isRunning = taskManager.isTaskRunning(PLAYER_VIDEO_BEATREACT_TASK); // service/task-manager.js
-        if (shouldRun && !isRunning) {
-            this._videoBeatReactEnvelope = 0; this._videoBeatReactWasAttacking = false; // bắt đầu vòng MỚI luôn từ baseline, CÙNG quy ước workflowMotionEngine.updatePreset() lúc bật lại beat-react
-            this._videoBeatReactPanPolarity = 0; this._videoBeatReactRotatePolarity = 0;
-            this._videoBeatReactLastTickMs = 0;
-            taskManager.addNew(PLAYER_VIDEO_BEATREACT_TASK, { time: 0, exe: () => this._tickVideoBeatReact(), mode: 'raf', count: 0 }); // service/task-manager.js — CHỈ đăng ký, CHƯA chạy
-            taskManager.operator(PLAYER_VIDEO_BEATREACT_TASK, 'enabled'); // SỬA BUG — DÒNG BỊ THIẾU: addNew() không tự bật, phải gọi operator('enabled') task mới thật sự chạy (CÙNG cặp lệnh event/workflow/motion-engine.js::_syncBeatReactLoop() dùng)
-        } else if (!shouldRun && isRunning) {
-            this.stopVideoPlayerReactBeat();
-        }
+        this._ensureVideoShowingRunner().sync();
     },
 
-    /** Dừng HẲN vòng lặp React Beat Video + trả `bgVideoElement` về KHÔNG transform — gọi lúc THOÁT
-     * Video Player mode (event/workflow/video-player.js::exitVideoPlayerMode()) — BẮT BUỘC, cùng lý
-     * do Resolution (tránh kẹt transform ảnh hưởng VBG dùng chung element) — VÀ tự gọi từ
-     * `_tickVideoBeatReact()` nếu preset bị gỡ/tắt/xoá giữa chừng. */
+    /** Dừng hẳn React Beat Video — gọi lúc THOÁT Video Player mode (event/workflow/video-player.js
+     * ::exitVideoPlayerMode()) — BẮT BUỘC, cùng lý do Resolution (tránh kẹt transform ảnh hưởng VBG
+     * dùng chung `bgVideoElement` — dù transform áp lên lớp cha bọc riêng, không phải chính
+     * `bgVideoElement`, vẫn phải dọn vì lớp cha đó luôn hiện diện bất kể mode). */
     stopVideoPlayerReactBeat() {
-        if (taskManager.plan[PLAYER_VIDEO_BEATREACT_TASK]) taskManager.kill(PLAYER_VIDEO_BEATREACT_TASK); // service/task-manager.js
-        clearVideoPlayerReactBeatTransformFromDOM(); // core/player-display-apply.js
-    },
-
-    /** 1 frame RAF của vòng lặp React Beat Video — CÙNG công thức `workflowMotionEngine.
-     * _tickBeatReact()` (event/workflow/motion-engine.js) NGUYÊN VẸN (envelope follower + zoom/pan/
-     * rotate nội suy theo `energy` + đảo cực mỗi beat mới cho hướng leftToRight/rightToLeft), CHỈ
-     * khác: đọc state RIÊNG (`_videoBeatReact*`, không đụng state của Motion Engine) + áp transform
-     * LÊN `bgVideoElement` (core/player-display-apply.js) THAY VÌ `motionEngineReactLayer`. */
-    _tickVideoBeatReact() {
-        const preset = this._getAssignedVideoShowingPreset();
-        if (!preset) { this.stopVideoPlayerReactBeat(); return; } // preset vừa bị gỡ/tắt/xoá giữa chừng -> tự dừng NGAY frame này
-        const rb = preset.reactBeatAudio;
-        const now = performance.now();
-        const deltaMs = this._videoBeatReactLastTickMs ? (now - this._videoBeatReactLastTickMs) : 16; // lượt tick đầu (chưa có mốc trước) -> giả định 1 frame ~16ms
-        this._videoBeatReactLastTickMs = now;
-        const beatScale = appState.get('beatScale'); // service/state/visualizer-runtime.js — bgVideoElement đã nối CHUNG analyser (core/video-player.js) nên PHẢN ÁNH ĐÚNG audio của video đang phát
-
-        const isAttacking = beatScale >= this._videoBeatReactEnvelope;
-        const isNewBeat = isAttacking && !this._videoBeatReactWasAttacking; // rising edge — "beat mới"
-        this._videoBeatReactWasAttacking = isAttacking;
-        if (isNewBeat) {
-            if (rb.pan.direction === 'leftToRight' || rb.pan.direction === 'rightToLeft') {
-                this._videoBeatReactPanPolarity = computeMotionEngineBeatReactNextPolarity(this._videoBeatReactPanPolarity, rb.pan.direction, rb.pan.reverse); // core/motion-engine.js — TÁI DÙNG, pure
-            }
-            if (rb.rotate.direction === 'leftToRight' || rb.rotate.direction === 'rightToLeft') {
-                this._videoBeatReactRotatePolarity = computeMotionEngineBeatReactNextPolarity(this._videoBeatReactRotatePolarity, rb.rotate.direction, rb.rotate.reverse); // core/motion-engine.js
-            }
-        }
-
-        this._videoBeatReactEnvelope = computeMotionEngineBeatReactEnvelope(this._videoBeatReactEnvelope, beatScale, deltaMs, MOTION_ENGINE_BEATREACT_DECAY_MS); // core/motion-engine.js + event/workflow/motion-engine.js (hằng số decay) — TÁI DÙNG
-        const energy = this._videoBeatReactEnvelope;
-
-        const zoomScale = rb.zoom.enabled ? computeMotionEngineBeatReactZoomScale(rb.zoom.maxPct, energy) : 1; // core/motion-engine.js
-        const panPct = rb.pan.enabled ? computeMotionEngineBeatReactOffset(rb.pan.direction, rb.pan.maxPct - 100, energy, this._videoBeatReactPanPolarity || 1) : 0; // core/motion-engine.js — trừ baseline 100% trước khi truyền
-        const rotateDeg = rb.rotate.enabled ? computeMotionEngineBeatReactOffset(rb.rotate.direction, rb.rotate.maxDeg, energy, this._videoBeatReactRotatePolarity || 1) : 0; // core/motion-engine.js — baseline 0°
-
-        applyVideoPlayerReactBeatTransformToDOM(zoomScale, panPct, rotateDeg); // core/player-display-apply.js
+        this._ensureVideoShowingRunner().stop();
     },
 };

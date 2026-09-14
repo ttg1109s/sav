@@ -23,43 +23,33 @@
  * chịu trách nhiệm giữ/chuyển layer/revoke URL đó, nơi gọi KHÔNG revoke lại. Ranh giới này tách hẳn
  * "ảnh lấy từ đâu" (VBG/service, có thể đổi nguồn sau này) khỏi "hiện ảnh như thế nào" (Engine).
  *
- * Point Move (thay Ken Burns, phản hồi Giang) — công tắc tổng `pointMoveEnabled` (cùng khuôn
- * `transitionEnabled`, xem `_activatePointMove()`). SỬA (phản hồi Giang — "point move phải là 1
- * div cha bao quanh layer A, B chứ không phải chỉ A hoặc B, tránh việc move A rồi lộ B") — transform
- * áp lên `motionEnginePointMoveWrapper` DUY NHẤT (bọc CHUNG cả 2 layer A/B, xem core/dom-refs.js),
- * KHÔNG còn tách riêng per-layer — mỗi lượt `_staticReveal()`/`_showNext()` tự DỪNG animation lượt
- * TRƯỚC trên phần tử đó rồi mới bắt animation MỚI (`_activatePointMove()` tự lo, xem docstring hàm
- * đó). 2 chế độ chạy (`pointMoveRunMode`):
- *   'one' — `_activatePointMoveOne()`: chọn 1 point move (trong số đã tick) tween thẳng baseline ->
- *      target suốt `advanceMs`.
- *   'all' — `_activatePointMoveAll()`: nội suy tuyến tính TỪNG SEGMENT theo `timingX` giữa 2 point
- *      move liền kề, sample thành N keyframe — xem `_buildPointMoveAllKeyframes()`.
+ * SỬA (Giang chỉ ra: "Motion cung cấp cơ chế, nơi tiêu thụ quyết hành vi của mình và sử dụng cơ chế
+ * đó như thế nào, giống như gọi API" — audit sau khi làm xong React Beat) — TOÀN BỘ điều phối Point
+ * Move (dispatcher 'one'/'all', đường cong Timing sample N keyframe, suy vị trí SỐNG liền mạch giữa
+ * 2 lượt preset đổi, force-baseline start/end — cùng LỊCH SỬ đầy đủ các bug đã sửa qua nhiều lần
+ * phản hồi) ĐÃ CHUYỂN HẲN sang `createMotionPointMoveRunner()` (event/workflow/motion-point-move-
+ * runner.js, DÙNG CHUNG — đọc docstring file đó cho toàn bộ chi tiết cơ chế + lịch sử bugfix, giữ
+ * NGUYÊN VẸN, không tóm tắt lại ở đây tránh 2 nguồn sự thật lệch nhau). File NÀY giờ CHỈ còn gọi
+ * ĐÚNG lúc (`activateForNewContent()` ở `_staticReveal()`/`_showNext()`, `activateForPresetChange()`
+ * ở `updatePreset()`, `liveToggle()` ở `livePointMoveToggle()`) qua 1 instance Runner LƯỜI
+ * (`_pointMoveRunner`, xem `_ensurePointMoveRunner()`) — KHÔNG còn giữ state/logic gì của chính
+ * Point Move nữa, y hệt React Beat đã làm trước đó (`_beatReactRunner`).
  *
- * SỬA (phản hồi Giang — bug "point move cuối cùng bị kéo cứng về baseline lúc transition/chuyển
- * ảnh, thậm chí không thấy animation") — NGUYÊN NHÂN GỐC: bản trước chỉ vá keyframe ĐẦU tiên bằng
- * `getComputedStyle()` (vị trí thật), còn TOÀN BỘ đường cong phía sau vẫn tính độc lập từ 1 mốc ẢO
- * cố định ở x=0 (baseline) — 2% thời lượng ĐẦU tiên (keyframe 0->1) vì vậy nhảy CỰC NHANH từ vị trí
- * thật về gần baseline trước khi mới đi tiếp theo đường cong thật, nhìn như cắt cứng. FIX: mốc ẢO ở
- * x=0 giờ LUÔN LÀ vị trí THẬT suy ra từ đường cong LƯỢT TRƯỚC (`_deriveLivePointMoveTarget()`, tái
- * dùng `_findPointMoveSegment()`/`lerpPointMoveNumber()` trên `_lastAllModePoints`/
- * `_lastAllModeDurationMs` ĐÃ LƯU từ lượt 'all' mode gần nhất, KHÔNG parse ngược ma trận CSS —
- * chính xác tuyệt đối, không mơ hồ như decompose matrix), fallback baseline CHỈ khi không có (lượt
- * `_staticReveal()` đầu tiên/lượt trước là 'one' mode).
- *
- * SỬA LẦN 2 (phản hồi Giang — bug TÁI XUẤT HIỆN khi Start-force bật: "đứng im tới 100% rồi mới giật
- * cứng về baseline") — mốc x=0 VỪA SỬA trên KHÔNG được ép về baseline khi `pointMoveStartForceBaseline`
- * bật nữa (ép ở ĐÓ chính là tái tạo lại bug hard-cut, chỉ khác lúc này baseline là ĐÍCH thay vì
- * đường cong cũ). `pointMoveStartForceBaseline`/`pointMoveEndForceBaseline` (core/motion-presets.js)
- * giờ dùng CHUNG 1 cơ chế — chèn mốc ẢO x=100=baseline vào đường cong CỦA VÒNG ĐANG CHẠY, để quãng
- * chuyển về baseline chiếm ĐÚNG khoảng thời gian ĐANG "đứng im chờ" sẵn có (từ point move cuối tới
- * 100%) thay vì bị nén vào khoảnh khắc chuyển vòng — xem docstring `_activatePointMoveAll()`.
+ * Transition (2 layer A/B crossfade, `motionEngineLayer1`/`motionEngineLayer2`) — CHƯA rút ra Runner
+ * dùng chung (audit cùng đợt, Giang đồng ý trì hoãn) — lõi CSS/timing (core/motion-engine.js) đã
+ * nhận element qua tham số đúng chuẩn, chỉ tầng điều phối `_staticReveal()`/`_showNext()` ở file này
+ * còn gắn cứng 2 layer — chưa có nơi tiêu thụ thứ 2 thật để đối chiếu hình dạng API đúng (Video có
+ * cần crossfade 2 layer hay cơ chế khác hẳn — CHƯA quyết).
  *
  * NẠP SAU: core/motion-engine.js, core/motion-presets.js (findMotionPresetById() — dùng ở
- * livePointMoveToggle()/liveBeatReactToggle()), core/dom-refs.js (motionEngineContainer/
- * motionEnginePointMoveWrapper/motionEngineLayer1,2/motionEngineLayer1,2Pan/motionEngineReactLayer),
- * service/task-manager.js (chỉ còn dùng cho MOTION_ENGINE_BEATREACT_TASK — animation per-frame CỦA
- * ẢNH ĐANG HIỆN, KHÔNG phải hẹn giờ chuyển ảnh — cái đó sống ở workflowVisualBg). KHÔNG còn phụ
- * thuộc service/db.js — Engine không tự đọc record nữa (SỬA, tách "resolve ảnh" khỏi "hiện ảnh").
+ * livePointMoveToggle()/_getBeatReactPreset()), event/workflow/motion-beat-react-runner.js
+ * (createMotionBeatReactRunner()), event/workflow/motion-point-move-runner.js
+ * (createMotionPointMoveRunner()), core/dom-refs.js (motionEngineContainer/
+ * motionEnginePointMoveWrapper/motionEngineLayer1,2/motionEngineLayer1,2Pan/motionEngineReactLayer).
+ * KHÔNG còn phụ thuộc service/task-manager.js trực tiếp (Point Move VÀ React Beat đều nằm HẲN trong
+ * Runner riêng của chúng — file này chỉ còn dùng `taskManager.kill('motionEngineTransitionCleanup')`
+ * cho Transition). KHÔNG còn phụ thuộc service/db.js — Engine không tự đọc record nữa (SỬA, tách
+ * "resolve ảnh" khỏi "hiện ảnh").
  */
 
 /** Preset "tắt hết" — dùng khi nơi gọi truyền `null`/`undefined` (chưa gắn Motion) — KHÔNG fallback
@@ -67,13 +57,10 @@
  * preset hợp lệ tối thiểu", thuộc kiến thức của Engine. */
 const MOTION_ENGINE_NO_OP_PRESET = { transitionEnabled: false, transitionType: 'fade', transitionDurationMs: 1000, transitionInOutRatio: 50, transitionEasing: 'linear', pointMoves: [], pointMoveEnabled: false, pointMoveRunMode: 'all', pointMoveOneOrder: 'sequential', pointMoveStartForceBaseline: false, pointMoveEndForceBaseline: false, reactBeatAudio: { enabled: false, zoom: { enabled: false }, pan: { enabled: false }, rotate: { enabled: false } } };
 
-/** Baseline "không đổi" — dùng làm điểm XUẤT PHÁT khi tween 'one' mode (baseline -> target) VÀ làm
- * `target` của node ảo "vị trí ban đầu" ở 'all' mode (xem `_buildPointMoveAllKeyframes()`). */
-const POINT_MOVE_BASELINE_TARGET = { linearX: 0, linearXUnit: '%', linearY: 0, linearYUnit: '%', rotate: 0, zoom: 0, flipX: 0, flipY: 0 };
-
-/** Số keyframe sample cho đường cong Timing ('all' mode) — càng cao càng mượt, đổi lại nặng hơn 1
- * chút cho `.animate()`. 50 mẫu (~2%/mẫu) đủ mượt cho mắt người ở tốc độ chuyển ảnh thông thường. */
-const MOTION_ENGINE_POINT_MOVE_ALL_STEPS = 50;
+// POINT_MOVE_BASELINE_TARGET/MOTION_ENGINE_POINT_MOVE_ALL_STEPS ĐÃ XOÁ — dời hẳn vào
+// event/workflow/motion-point-move-runner.js (POINT_MOVE_RUNNER_BASELINE_TARGET/
+// POINT_MOVE_RUNNER_ALL_STEPS) cùng lúc rút toàn bộ điều phối Point Move ra Runner DÙNG CHUNG
+// (Giang chỉ ra: "Motion cung cấp cơ chế, nơi tiêu thụ quyết hành vi... giống gọi API").
 
 // Task RAF RIÊNG, per-frame, CHỈ chạy khi preset đang HIỂN THỊ có `reactBeatAudio.enabled` + ít
 // nhất 1 hiệu ứng con bật (xem `_syncBeatReactLoop()`) — animation của ẢNH ĐANG HIỆN, không phải
@@ -101,40 +88,36 @@ const workflowMotionEngine = {
     _lastTransitionSpinDirection: null,
     _lastTransitionWipeDirection: null,
     _lastTransitionCurtainDirection: null,
-    _lastPointMoveOneIndex: -1, // index (trong preset.pointMoves) dùng ở lượt 'one' mode LIỀN TRƯỚC — loại trừ, xem pickPointMoveOneIndexRandom()/Sequential() (core)
-    _activePreset: MOTION_ENGINE_NO_OP_PRESET, // preset của LƯỢT HIỂN THỊ GẦN NHẤT — _tickBeatReact() (chạy mỗi frame, không có tham số) đọc lại từ đây
-    _lastAdvanceMs: 5000, // advanceMs của LƯỢT HIỂN THỊ GẦN NHẤT (gán ở _staticReveal()/_showNext()/updatePreset()) — _activatePointMove() dùng thẳng, KHÔNG tự tính nữa
+    // _lastPointMoveOneIndex ĐÃ XOÁ — dời vào Runner (xem _pointMoveRunner ngay dưới).
+    _activePreset: MOTION_ENGINE_NO_OP_PRESET, // preset của LƯỢT HIỂN THỊ GẦN NHẤT — Transition đọc từ đây (Point Move giờ Runner tự giữ preset riêng qua tham số mỗi lệnh gọi)
 
-    _beatReactActive: false,
-    _beatReactEnvelope: 0,       // 0-1 — giá trị THẬT dùng tính transform (không phải beatScale thô), xem computeMotionEngineBeatReactEnvelope()
-    _beatReactLastTickMs: 0,     // dùng tính deltaMs cho decay không phụ thuộc framerate — 0 = "lượt tick đầu, chưa có gì để trừ"
-    _beatReactWasAttacking: false, // frame TRƯỚC: envelope đang ở pha "attack" (bắt theo beatScale) hay "decay" — dùng phát hiện rising-edge "beat mới" cho polarity pan/rotate leftToRight/rightToLeft
-    _beatReactPanPolarity: 0,      // 1/-1 — cực HIỆN TẠI cho pan khi direction leftToRight/rightToLeft; 0 = CHƯA có lượt nào (xem computeMotionEngineBeatReactNextPolarity())
-    _beatReactRotatePolarity: 0,   // tương tự, riêng cho rotate — pan/rotate có thể khác direction/reverse nên tách state riêng
+    // SỬA (Giang chỉ ra — "tách bạch trách nhiệm motion phải quản lý apply live bất kể nơi tiêu
+    // thụ" + "Motion cung cấp cơ chế, nơi tiêu thụ quyết hành vi... giống gọi API") — 6 field
+    // `_beatReact*` ĐÃ XOÁ trước đó (dời vào createMotionBeatReactRunner()); giờ THÊM 6 field Point
+    // Move (`_pointMoveAnim`/`_activationStartAtRealTime`/`_lastAdvanceMs`/`_lastAllModePoints`/
+    // `_lastAllModeDurationMs`/`_lastPointMoveOneIndex`) CŨNG XOÁ, dời hẳn vào
+    // createMotionPointMoveRunner() (event/workflow/motion-point-move-runner.js) — Runner giữ state
+    // RIÊNG của chính nó, VBG giờ chỉ còn giữ 2 THAM CHIẾU tới 2 instance.
+    _beatReactRunner: null, // tạo LƯỜI — xem _ensureBeatReactRunner()
+    _pointMoveRunner: null, // tạo LƯỜI — xem _ensurePointMoveRunner()
 
     _currentLayer() { return this._layerToggle ? motionEngineLayer2 : motionEngineLayer1; },
     _idleLayer() { return this._layerToggle ? motionEngineLayer1 : motionEngineLayer2; },
     _currentPanLayer() { return this._layerToggle ? motionEngineLayer2Pan : motionEngineLayer1Pan; },
     _idlePanLayer() { return this._layerToggle ? motionEngineLayer1Pan : motionEngineLayer2Pan; },
 
-    _pointMoveAnim: null, // Animation DUY NHẤT trên motionEnginePointMoveWrapper (bọc CHUNG cả 2 layer A/B, xem core/dom-refs.js) — SỬA, phản hồi Giang, không còn tách theo từng layer nữa
-    _activationStartAtRealTime: 0, // Date.now() lúc ẢNH HIỆN TẠI bắt đầu hiện (_staticReveal()/_showNext()) — mốc suy "thời gian ĐÁNG LẼ point move phải ở đâu" khi bật lại sống, xem livePointMoveToggle()
-
-    // MỚI (phản hồi Giang, sửa bug hard-cut baseline) — snapshot đường cong 'all' mode GẦN NHẤT
-    // (mảng {x,target} ĐÃ gồm sẵn 2 mốc ảo đầu/cuối nếu có) + thời lượng của nó — dùng bởi
-    // `_deriveLivePointMoveTarget()` để suy CHÍNH XÁC vị trí thật đang hiển thị cho lượt KẾ TIẾP.
-    // null = lượt gần nhất KHÔNG phải 'all' mode (hoặc chưa từng chạy) -> không có gì để suy, tự
-    // fallback về baseline (xem `_activatePointMoveAll()`).
-    _lastAllModePoints: null,
-    _lastAllModeDurationMs: 0,
+    // _lastAllModePoints/_lastAllModeDurationMs (snapshot đường cong 'all' mode cho
+    // _deriveLivePointMoveTarget()) ĐÃ XOÁ khỏi ĐÂY — dời hẳn vào createMotionPointMoveRunner()
+    // (event/workflow/motion-point-move-runner.js) cùng lúc rút toàn bộ điều phối Point Move.
 
     /** Gán preset ĐANG active + đẩy `appState.motionRunning` — DUY NHẤT 1 chỗ ghi state này. Motion
      * Engine là engine render THẬT, tự quyết "cái gì đang thật sự chạy" — khác `motionPresetId`
      * phía nơi tiêu thụ (đó là "đang CHỌN gì", vẫn có giá trị dù Engine chưa/không chạy gì). Preset
      * không có `.id` (MOTION_ENGINE_NO_OP_PRESET) -> `motionRunning` về null. Màn Edit Motion đọc
      * lại field này để biết mình có đang là preset ĐANG CHẠY hay không mà áp SỐNG toggle Point
-     * Move/React Beat Audio (livePointMoveToggle()/liveBeatReactToggle() ngay dưới) — KHÔNG cần
-     * biết/gọi qua bất kỳ nơi tiêu thụ nào (Motion Engine + Motion Preset cùng 1 domain "Motion").
+     * Move (`livePointMoveToggle()` ngay dưới) — React Beat KHÔNG còn cần field này nữa, giờ dùng
+     * broadcast chung `notifyMotionBeatReactPresetsChanged()` (event/workflow/motion-beat-react-
+     * runner.js), phủ MỌI field + MỌI nơi tiêu thụ, không chỉ VBG.
      * @param {object} preset */
     _setActivePreset(preset) {
         this._activePreset = preset;
@@ -174,15 +157,14 @@ const workflowMotionEngine = {
     },
 
     /** Public — đổi preset đang áp cho ẢNH ĐANG HIỆN tại chỗ: KHÔNG đổi ảnh, KHÔNG chạy transition,
-     * chỉ Point Move/React Beat chuyển sang preset mới NGAY (`_activatePointMove()` tự tiếp diễn mượt
-     * từ vị trí thật đang hiển thị, không giật về baseline — xem docstring hàm đó). No-op nếu chưa có
-     * resource nào đang hiện.
+     * chỉ Point Move/React Beat chuyển sang preset mới NGAY (`activateForPresetChange()` của Runner
+     * tự tiếp diễn mượt từ vị trí thật đang hiển thị, không giật về baseline — xem docstring
+     * event/workflow/motion-point-move-runner.js). No-op nếu chưa có resource nào đang hiện.
      * @param {object} preset - preset MỚI (MOTION_ENGINE_NO_OP_PRESET nếu chọn "Không") @param {number} advanceMs */
     updatePreset(preset, advanceMs) {
         if (!this._hasCurrentResource) return;
         this._setActivePreset(preset || MOTION_ENGINE_NO_OP_PRESET);
-        this._lastAdvanceMs = advanceMs;
-        this._activatePointMove(this._activePreset);
+        this._ensurePointMoveRunner().activateForPresetChange(this._activePreset, advanceMs); // event/workflow/motion-point-move-runner.js
         this._syncBeatReactLoop();
     },
 
@@ -212,10 +194,8 @@ const workflowMotionEngine = {
         setMotionEngineEdgeFlipOptions(motionEngineContainer, preset.edgeFlipVariant, preset.edgeFlipStaticOld); // core
         const revealDirs = this._resolveTransitionDirections(preset);
         setMotionEngineTransitionDirections(motionEngineContainer, revealDirs.direction, revealDirs.zoomDirection, revealDirs.spinDirection, revealDirs.wipeDirection, revealDirs.curtainDirection); // core
-        this._lastAdvanceMs = advanceMs;
         this._hasCurrentResource = true;
-        this._activationStartAtRealTime = Date.now();
-        this._activatePointMove(preset);
+        this._ensurePointMoveRunner().activateForNewContent(preset, advanceMs); // event/workflow/motion-point-move-runner.js
         this._syncBeatReactLoop();
     },
 
@@ -235,15 +215,13 @@ const workflowMotionEngine = {
     async _showNext(objectUrl, preset, advanceMs) {
         this._settlePendingTransition();
         this._setActivePreset(preset);
-        this._lastAdvanceMs = advanceMs;
-        this._activationStartAtRealTime = Date.now();
         const outgoingLayer = this._currentLayer();
         const incomingLayer = this._idleLayer();
         const outgoingPan = this._currentPanLayer();
         const incomingPan = this._idlePanLayer();
 
         setMotionEngineLayerImage(incomingPan, objectUrl); // core — LUÔN cần, bất kể có Transition hay không
-        this._activatePointMove(preset); // SỬA (phản hồi Giang) — KHÔNG còn theo layer, activate CHUNG cho cả 2 (trên motionEnginePointMoveWrapper)
+        this._ensurePointMoveRunner().activateForNewContent(preset, advanceMs); // event/workflow/motion-point-move-runner.js — SỬA (phản hồi Giang) — KHÔNG còn theo layer, activate CHUNG cho cả 2 (trên motionEnginePointMoveWrapper)
 
         // transitionEnabled=false -> CẮT CỨNG, đi THẲNG tới đúng trạng thái nghỉ mà 1 lượt
         // Transition bình thường sẽ kết thúc ở đó (xem finishMotionEngineTransitionVisuals(), core),
@@ -326,80 +304,38 @@ const workflowMotionEngine = {
         return { direction, zoomDirection, spinDirection, wipeDirection, curtainDirection };
     },
 
-    /** Dispatcher — `pointMoveEnabled=false` (công tắc tổng preset, hoặc preset NO_OP khi VBG gỡ
-     * Motion/chọn "None") -> dừng + RESET HẲN animation cũ về baseline (SỬA, phản hồi Giang báo bug
-     * "chọn None ở VBG, ảnh không tự về vị trí gốc, kẹt ở vị trí cuối" — bản trước return NGAY
-     * không qua `stopPointMoveAnimation()`, để nguyên Animation cũ (kể cả `fill:'forwards'` đang
-     * giữ) chạy/đứng mãi, không bao giờ dọn).
-     * `this._lastAdvanceMs<=0` (VBG gửi 0 — mode 'one per song', không có khái niệm "hiển thị bao
-     * lâu", xem `workflowVisualBg._computePhotoAdvanceMs()`) -> CÙNG dừng + reset baseline như trên
-     * (phản hồi Giang — 0ms không có gì để phân giải % thành mốc thời gian thật, đường cong
-     * KHÔNG chạy được, bất kể `pointMoveEnabled`/có list hay không) — TRỪ 'all' mode có ĐÚNG 1
-     * point move đã tick nằm tại `timingX===0`: giá trị đó tự nhiên "resolve" về CHÍNH NÓ tại t=0
-     * dù không có gì để animate qua, nên áp TĨNH (không animation, xem `_applyStaticPointMoveAtZero()`)
-     * thay vì bỏ hẳn về baseline.
-     * Bật (advanceMs>0), đọc transform THẬT đang hiển thị TRƯỚC khi dừng animation cũ rồi chọn
-     * `_activatePointMoveOne()`/`_activatePointMoveAll()` theo `preset.pointMoveRunMode` — animation
-     * MỚI luôn xuất phát từ ĐÚNG giá trị đang hiển thị, tránh giật (bug cũ: reset transform=='' trước
-     * rồi mới bắt animation mới từ baseline, tạo 1 bước nhảy cứng ngay lúc chuyển ảnh). Là Workflow
-     * (đọc DOM), không phải Core.
-     * @param {object} preset
-     */
-    _activatePointMove(preset) {
-        if (!preset.pointMoveEnabled || this._lastAdvanceMs <= 0) {
-            stopPointMoveAnimation(motionEnginePointMoveWrapper, this._pointMoveAnim); // core/dom-refs.js, core/motion-engine.js
-            this._pointMoveAnim = null;
-            this._lastAllModePoints = null;
-            if (preset.pointMoveEnabled && this._lastAdvanceMs <= 0 && preset.pointMoveRunMode === 'all') this._applyStaticPointMoveAtZero(preset);
-            return;
+    /** Tạo (LƯỜI, ĐÚNG 1 LẦN) instance `createMotionPointMoveRunner()` cho Point Move của VBG —
+     * target CỐ ĐỊNH `motionEnginePointMoveWrapper` (VBG luôn sở hữu nó tại chỗ). SỬA (Giang chỉ
+     * ra: "Motion cung cấp cơ chế, nơi tiêu thụ quyết hành vi của mình... giống gọi API") — toàn bộ
+     * điều phối Point Move (dispatcher 'one'/'all', đường cong Timing, force-baseline, suy vị trí
+     * SỐNG liền mạch...) ĐÃ CHUYỂN HẲN sang Runner DÙNG CHUNG (event/workflow/motion-point-move-
+     * runner.js) — file NÀY giờ CHỈ còn gọi ĐÚNG lúc (`activateForNewContent()` ở `_staticReveal()`/
+     * `_showNext()`, `activateForPresetChange()` ở `updatePreset()`), KHÔNG còn giữ state/logic gì
+     * của chính Point Move nữa.
+     * @returns {ReturnType<typeof createMotionPointMoveRunner>} */
+    _ensurePointMoveRunner() {
+        if (!this._pointMoveRunner) {
+            this._pointMoveRunner = createMotionPointMoveRunner(() => motionEnginePointMoveWrapper); // event/workflow/motion-point-move-runner.js, core/dom-refs.js
         }
-        const fromTransform = motionEnginePointMoveWrapper ? getComputedStyle(motionEnginePointMoveWrapper).transform : 'none'; // core/dom-refs.js
-        // MỚI (phản hồi Giang, sửa bug hard-cut baseline) — suy vị trí thật (field thật, KHÔNG phải
-        // chuỗi transform) TRƯỚC khi huỷ animation cũ (`.currentTime` chỉ đọc được lúc animation còn
-        // sống, `stopPointMoveAnimation()` bên dưới `.cancel()` nó ngay) — null nếu lượt trước không
-        // phải 'all' mode (`_activatePointMoveOne()` tự reset `_lastAllModePoints`) hoặc chưa từng
-        // chạy (lượt `_staticReveal()` đầu tiên).
-        const liveStartTarget = this._deriveLivePointMoveTarget();
-        stopPointMoveAnimation(motionEnginePointMoveWrapper, this._pointMoveAnim); // core/dom-refs.js, core/motion-engine.js
-        this._pointMoveAnim = null;
-        if (preset.pointMoveRunMode === 'one') { this._activatePointMoveOne(preset, fromTransform); return; }
-        this._activatePointMoveAll(preset, fromTransform, liveStartTarget);
-    },
-
-    /** `advanceMs<=0` (mode 'one per song') NHƯNG có ĐÚNG 1 point move đã tick nằm tại
-     * `timingX===0` — không có gì để ANIMATE QUA (0ms), nhưng giá trị point đó tự nhiên "resolve"
-     * về CHÍNH NÓ tại t=0, nên áp TĨNH thẳng lên `motionEnginePointMoveWrapper` (không qua WAAPI,
-     * không animation) thay vì bỏ hẳn về baseline như mọi point khác trong ca này. Nhiều point
-     * cùng tại x=0% (dữ liệu hỏng/hiếm) -> lấy point ĐẦU TIÊN khớp theo thứ tự mảng.
-     * @param {object} preset */
-    _applyStaticPointMoveAtZero(preset) {
-        const zeroPoint = preset.pointMoves.find((p) => p.checked && p.timingX === 0);
-        if (!zeroPoint || !motionEnginePointMoveWrapper) return;
-        const target = this._resolvePointMoveTarget(zeroPoint);
-        motionEnginePointMoveWrapper.style.transform = buildPointMoveTransformString(target); // core
+        return this._pointMoveRunner;
     },
 
     // ===================== Toggle sống từ màn Edit Motion (phản hồi Giang — "off/on Point
-    // move/React Beat giữa lúc ảnh đang hiện phải áp NGAY, không đợi ảnh đổi") =====================
+    // move giữa lúc ảnh đang hiện phải áp NGAY, không đợi ảnh đổi") =====================
     // `workflowMotionPresets` gọi THẲNG sang ĐÂY (KHÔNG qua nơi tiêu thụ nào — Motion Engine +
     // Motion Preset cùng 1 domain "Motion", nơi tiêu thụ có thể là bất kỳ ai trong tương lai, Motion
-    // không cần/không nên biết) mỗi lần công tắc tổng đổi — event-driven (Giang chốt, phương án B)
-    // thay vì 1 task liên tục poll state (phương án A, tốn hiệu năng vô ích vì thay đổi CHỈ đến từ
-    // 1 hành động bấm rời rạc của người dùng). Cả 2 hàm dưới tự guard bằng `appState.motionRunning`
-    // (SSOT "preset nào đang THẬT SỰ render" do chính `_setActivePreset()` ghi — KHÁC
-    // `motionPresetId` phía nơi tiêu thụ, đó là "đang CHỌN gì") — caller (workflowMotionPresets)
+    // không cần/không nên biết) mỗi lần công tắc tổng Point Move đổi — event-driven (Giang chốt,
+    // phương án B) thay vì 1 task liên tục poll state (phương án A, tốn hiệu năng vô ích vì thay
+    // đổi CHỈ đến từ 1 hành động bấm rời rạc của người dùng). Hàm dưới tự guard bằng
+    // `appState.motionRunning` (SSOT "preset nào đang THẬT SỰ render" do chính `_setActivePreset()`
+    // ghi — KHÁC `motionPresetId` phía nơi tiêu thụ, đó là "đang CHỌN gì") — caller (workflowMotionPresets)
     // cũng tự check field này TRƯỚC khi gọi (tránh gọi thừa), 2 lớp guard không xung đột.
 
     /** Bật/tắt Point Move SỐNG — CHỈ có tác dụng nếu `presetId` TRÙNG `appState.motionRunning`
      * (preset đang THẬT SỰ render, xem `_setActivePreset()`) — sửa preset KHÁC preset đang chạy
-     * thì bỏ qua, không có gì đang chạy cũng bỏ qua.
-     * Tắt: dừng + về baseline NGAY (tái dùng nhánh `pointMoveEnabled=false` của `_activatePointMove()`).
-     * Bật lại: dựng lại đường cong FULL cho ảnh hiện tại (`_activatePointMove()` bình thường) rồi
-     * NHẢY THẲNG `animation.currentTime` tới đúng mốc thời gian ĐÁNG LẼ đã tới (tính từ
-     * `_activationStartAtRealTime` — mốc ảnh này bắt đầu hiện, KHÔNG đổi bởi việc tắt/bật giữa
-     * chừng) — tránh sai giờ đến các point move kế tiếp so với thời điểm chuyển ảnh THẬT. React
-     * Beat Audio (`liveBeatReactToggle()` ngay dưới) KHÔNG cần bước nhảy này — không có khái niệm
-     * "vị trí trên đường thời gian" để đuổi kịp, chỉ cần bật lại vòng lặp là tự bám nhạc ngay.
+     * thì bỏ qua, không có gì đang chạy cũng bỏ qua. Đồng bộ `_activePreset` rồi giao THẲNG cho
+     * Runner (`liveToggle()`, event/workflow/motion-point-move-runner.js) — Runner tự lo dừng/dựng
+     * lại + nhảy đúng mốc thời gian, VBG chỉ còn việc GUARD "đúng preset đang chạy hay không".
      * @param {string} presetId @param {boolean} enabled
      */
     livePointMoveToggle(presetId, enabled) {
@@ -407,185 +343,21 @@ const workflowMotionEngine = {
         const preset = findMotionPresetById(appState.get('motionPresets'), presetId); // core/motion-presets.js
         if (!preset) return;
         this._setActivePreset(preset); // đồng bộ bản cache theo đúng dữ liệu vừa lưu (enabled mới)
-        if (!enabled) {
-            stopPointMoveAnimation(motionEnginePointMoveWrapper, this._pointMoveAnim); // core/dom-refs.js, core/motion-engine.js
-            this._pointMoveAnim = null;
-            this._lastAllModePoints = null;
-            return;
-        }
-        this._activatePointMove(preset);
-        if (this._pointMoveAnim) {
-            const elapsedMs = Math.min(this._lastAdvanceMs, Math.max(0, Date.now() - this._activationStartAtRealTime));
-            try { this._pointMoveAnim.currentTime = elapsedMs; } catch (e) {}
-        }
+        this._ensurePointMoveRunner().liveToggle(preset, enabled); // event/workflow/motion-point-move-runner.js
     },
 
-    /** Bật/tắt React Beat Audio SỐNG — cùng guard `appState.motionRunning` với `livePointMoveToggle()`
-     * ngay trên. Chỉ cần đồng bộ `_activePreset` rồi gọi lại `_syncBeatReactLoop()` (đã tự đọc
-     * `reactBeatAudio.enabled` mới nhất, tự bật/tắt vòng lặp RAF tương ứng) — không có "vị trí" nào
-     * cần đuổi kịp, tắt là về baseline ngay (`_syncBeatReactLoop()`), bật là tự bám nhạc lại từ đầu.
-     * @param {string} presetId @param {boolean} enabled
-     */
-    liveBeatReactToggle(presetId, enabled) {
-        if (!this._hasCurrentResource || appState.get('motionRunning') !== presetId) return;
-        const preset = findMotionPresetById(appState.get('motionPresets'), presetId); // core/motion-presets.js
-        if (!preset) return;
-        this._setActivePreset(preset);
-        this._syncBeatReactLoop();
-    },
-
-    /** Suy 6 giá trị field THẬT tại vị trí ĐANG hiển thị của đường cong 'all' mode LƯỢT TRƯỚC (nếu
-     * có) — dùng `animation.currentTime` (WAAPI) + `_lastAllModePoints`/`_lastAllModeDurationMs` ĐÃ
-     * LƯU (snapshot ĐÚNG những gì đã dùng dựng đường cong đó, kể cả random range ĐÃ resolve — không
-     * resolve lại, tránh ra số khác) tái dùng THẲNG `_findPointMoveSegment()`/`lerpPointMoveNumber()`
-     * — chính xác tuyệt đối, KHÔNG cần decompose ngược ma trận CSS (mơ hồ với rotate/flip/% vs px).
-     * @returns {object|null} null nếu không có đường cong 'all' mode nào để suy (lượt trước là 'one'
-     *   mode, point move đang tắt, hoặc đây là lượt kích hoạt ĐẦU TIÊN). */
-    _deriveLivePointMoveTarget() {
-        if (!this._pointMoveAnim || !this._lastAllModePoints) return null;
-        let currentTimeMs = 0;
-        try { currentTimeMs = this._pointMoveAnim.currentTime || 0; } catch (e) { return null; }
-        const oldXPercent = Math.max(0, Math.min(100, (currentTimeMs / (this._lastAllModeDurationMs || 1)) * 100));
-        const seg = this._findPointMoveSegment(this._lastAllModePoints, oldXPercent);
-        return {
-            linearX: lerpPointMoveNumber(seg.a.target.linearX, seg.b.target.linearX, seg.progress), // core
-            linearXUnit: seg.a.target.linearXUnit,
-            linearY: lerpPointMoveNumber(seg.a.target.linearY, seg.b.target.linearY, seg.progress), // core
-            linearYUnit: seg.a.target.linearYUnit,
-            rotate: lerpPointMoveNumber(seg.a.target.rotate, seg.b.target.rotate, seg.progress), // core
-            zoom: lerpPointMoveNumber(seg.a.target.zoom, seg.b.target.zoom, seg.progress), // core
-            flipX: lerpPointMoveNumber(seg.a.target.flipX, seg.b.target.flipX, seg.progress), // core
-            flipY: lerpPointMoveNumber(seg.a.target.flipY, seg.b.target.flipY, seg.progress), // core
-        };
-    },
-
-    /** 'one' mode — chọn ĐÚNG 1 point move (trong số đã tick) theo `pointMoveOneOrder`, tween
-     * TỪ VỊ TRÍ THẬT ĐANG HIỂN THỊ (`fromTransform`, xem `_activatePointMove()`) -> target suốt
-     * `_lastAdvanceMs` — KHÔNG còn ép về baseline trước (SỬA, phản hồi Giang — tránh giật lúc
-     * chuyển ảnh). */
-    _activatePointMoveOne(preset, fromTransform) {
-        this._lastAllModePoints = null; // lượt này KHÔNG phải 'all' mode -> không còn đường cong nào để lượt SAU suy tiếp (tự fallback baseline)
-        const checkedIndices = [];
-        preset.pointMoves.forEach((p, i) => { if (p.checked) checkedIndices.push(i); });
-        const pickFn = preset.pointMoveOneOrder === 'random' ? pickPointMoveOneIndexRandom : pickPointMoveOneIndexSequential; // core
-        const index = pickFn(checkedIndices, this._lastPointMoveOneIndex);
-        this._lastPointMoveOneIndex = index;
-        if (index === -1) return; // không point move nào được tick (không nên xảy ra — #0 luôn checked — phòng hờ dữ liệu hỏng)
-        const target = this._resolvePointMoveTarget(preset.pointMoves[index]);
-        const keyframes = [
-            { transform: fromTransform },
-            { transform: buildPointMoveTransformString(target) }, // core
-        ];
-        this._pointMoveAnim = startPointMoveAnimation(motionEnginePointMoveWrapper, keyframes, this._lastAdvanceMs, 'ease-in-out'); // core/dom-refs.js, core/motion-engine.js
-    },
-
-    /** 'all' mode — sample đường cong Timing của TẤT CẢ point move đã tick thành N keyframe, feed
-     * WAAPI easing 'linear' (đường cong ĐÃ tự mượt qua sampling, easing khác sẽ làm méo lại) — GHI
-     * ĐÈ keyframe ĐẦU bằng `fromTransform` (giữ ĐÚNG pixel đầu tiên 100%, phòng sai số làm tròn của
-     * lerp). Mốc x=0 LUÔN dùng `liveStartTarget` (field thật, liền mạch — `_deriveLivePointMoveTarget()`)
-     * nếu có, fallback baseline nếu KHÔNG (lượt `_staticReveal()` đầu tiên/lượt trước là 'one' mode).
-     *
-     * SỬA LẦN 2 (phản hồi Giang — bug "giật cứng về baseline" VẪN còn khi Start-force bật) — mốc
-     * x=0 KHÔNG còn bị `pointMoveStartForceBaseline` ép baseline nữa (ĐÓ chính là nguyên nhân giật —
-     * xem docstring đầu core/motion-presets.js, phần "SỬA lần 2"). Thay vào đó, CẢ 2 field
-     * `pointMoveStartForceBaseline`/`pointMoveEndForceBaseline` (CHỈ 1 trong 2 bật) giờ cùng điều
-     * khiển 1 mốc DUY NHẤT — chèn thêm mốc ẢO x=100=baseline vào đường cong CỦA VÒNG NÀY (êm từ point
-     * move CUỐI về baseline suốt quãng [timingX đó, 100%], THAY VÌ đứng im rồi vòng SAU giật cứng) —
-     * đồng thời loại bỏ mọi point move đang ở ĐÚNG x=100 khỏi `points` (mốc ảo "vô hiệu hoá và thay
-     * thế" nó, phòng dữ liệu cũ trước khi UI chặn kéo/nhập tới đúng 100%). TẮT CẢ 2 (mặc định) -> giữ
-     * NGUYÊN hành vi cũ, đứng yên ở target point move CUỐI cho tới hết 100%.
-     * @param {object} preset @param {string} fromTransform
-     * @param {object|null} liveStartTarget - từ `_deriveLivePointMoveTarget()`, null nếu không có. */
-    _activatePointMoveAll(preset, fromTransform, liveStartTarget) {
-        const forceBaselineTail = preset.pointMoveStartForceBaseline || preset.pointMoveEndForceBaseline;
-        const checked = preset.pointMoves.filter((p) => p.checked);
-        const usable = forceBaselineTail ? checked.filter((p) => p.timingX < 100) : checked;
-        if (usable.length === 0 && !forceBaselineTail) return; // không có gì để chạy (giữ nguyên guard cũ)
-        const points = usable
-            .map((p) => ({ x: p.timingX, target: this._resolvePointMoveTarget(p) }))
-            .sort((a, b) => a.x - b.x);
-        const startTarget = liveStartTarget || POINT_MOVE_BASELINE_TARGET;
-        const targetPoints = [{ x: 0, target: startTarget }, ...points];
-        if (forceBaselineTail) targetPoints.push({ x: 100, target: POINT_MOVE_BASELINE_TARGET });
-
-        const keyframes = this._buildPointMoveAllKeyframes(targetPoints);
-        if (keyframes.length > 0) keyframes[0] = { transform: fromTransform };
-        this._pointMoveAnim = startPointMoveAnimation(motionEnginePointMoveWrapper, keyframes, this._lastAdvanceMs, 'linear'); // core/dom-refs.js, core/motion-engine.js
-        this._lastAllModePoints = targetPoints; // snapshot cho `_deriveLivePointMoveTarget()` LƯỢT KẾ TIẾP
-        this._lastAllModeDurationMs = this._lastAdvanceMs;
-    },
-
-    /** Resolve 6 field/point move thành giá trị SỐ THẬT (random range resolve 1 LẦN, giữ nguyên
-     * suốt lượt hiển thị đó — không resolve lại mỗi frame). */
-    _resolvePointMoveTarget(pointMove) {
-        return {
-            linearX: resolvePointMoveFieldValue(pointMove.linearX), linearXUnit: pointMove.linearX.unit, // core
-            linearY: resolvePointMoveFieldValue(pointMove.linearY), linearYUnit: pointMove.linearY.unit, // core
-            rotate: resolvePointMoveFieldValue(pointMove.rotate), // core
-            zoom: resolvePointMoveFieldValue(pointMove.zoom), // core
-            flipX: resolvePointMoveFieldValue(pointMove.flipX), // core
-            flipY: resolvePointMoveFieldValue(pointMove.flipY), // core
-        };
-    },
-
-    /** Sample `targetPoints` (ĐÃ sort theo `x`, ĐÃ gồm sẵn mốc ảo đầu/cuối nếu có — xem
-     * `_activatePointMoveAll()`, nơi DUY NHẤT gọi hàm này) thành mảng keyframe {transform} — mỗi
-     * mẫu: tìm đoạn [A,B] chứa `xPercent` (`_findPointMoveSegment()`), rồi lerp 6 field giữa
-     * `A.target`/`B.target` theo tiến độ THỜI GIAN cục bộ trong đoạn đó (phản hồi Giang — "loại bỏ
-     * toàn bộ timing Y" — ĐÃ XOÁ HẲN hệ số cường độ/đường cong Y, field LUÔN đạt ĐỦ giá trị đã lerp
-     * theo vị trí thời gian, không còn field nào bị nhân thêm gì). SỬA (phản hồi Giang, bug hard-cut)
-     * — KHÔNG còn tự chèn mốc ảo x=0=baseline ở ĐÂY nữa (mốc đó giờ ĐỘNG, nơi gọi tự quyết + tự
-     * chèn TRƯỚC khi gọi hàm này — xem docstring `_activatePointMoveAll()`).
-     * @param {{x:number,target:object}[]} targetPoints
-     * @returns {object[]}
-     */
-    _buildPointMoveAllKeyframes(targetPoints) {
-        const keyframes = [];
-        for (let i = 0; i <= MOTION_ENGINE_POINT_MOVE_ALL_STEPS; i++) {
-            const xPercent = (i / MOTION_ENGINE_POINT_MOVE_ALL_STEPS) * 100;
-            const seg = this._findPointMoveSegment(targetPoints, xPercent);
-            const v = {
-                linearX: lerpPointMoveNumber(seg.a.target.linearX, seg.b.target.linearX, seg.progress), // core
-                linearXUnit: seg.a.target.linearXUnit,
-                linearY: lerpPointMoveNumber(seg.a.target.linearY, seg.b.target.linearY, seg.progress), // core
-                linearYUnit: seg.a.target.linearYUnit,
-                rotate: lerpPointMoveNumber(seg.a.target.rotate, seg.b.target.rotate, seg.progress), // core
-                zoom: lerpPointMoveNumber(seg.a.target.zoom, seg.b.target.zoom, seg.progress), // core
-                flipX: lerpPointMoveNumber(seg.a.target.flipX, seg.b.target.flipX, seg.progress), // core
-                flipY: lerpPointMoveNumber(seg.a.target.flipY, seg.b.target.flipY, seg.progress), // core
-            };
-            keyframes.push({ transform: buildPointMoveTransformString(v) }); // core
-        }
-        return keyframes;
-    },
-
-    /** Tìm đoạn [A,B] (2 point move LIỀN KỀ trong `points`, đã sort theo `x`) chứa `xPercent`, +
-     * tiến độ THỜI GIAN cục bộ (0-1) trong đoạn đó — plain JS thuần (không phải Core, Workflow được
-     * tự do tính toán). */
-    _findPointMoveSegment(points, xPercent) {
-        if (points.length === 1 || xPercent <= points[0].x) return { a: points[0], b: points[0], progress: 0 };
-        const last = points[points.length - 1];
-        if (xPercent >= last.x) return { a: last, b: last, progress: 0 };
-        for (let i = 0; i < points.length - 1; i++) {
-            if (xPercent >= points[i].x && xPercent <= points[i + 1].x) {
-                const span = points[i + 1].x - points[i].x;
-                return { a: points[i], b: points[i + 1], progress: span <= 0 ? 0 : (xPercent - points[i].x) / span };
-            }
-        }
-        return { a: last, b: last, progress: 0 };
-    },
 
     /** Đóng băng animation (Point Move + BeatReact) TẠI ĐÚNG VỊ TRÍ đang chạy — nơi gọi
      * (workflowVisualBg) tự quyết lúc nào (Song dừng). KHÔNG dừng hẳn (khác `stop()`) — `resume()`
      * tiếp tục đúng chỗ. */
     pause() {
-        if (taskManager.plan[MOTION_ENGINE_BEATREACT_TASK]) taskManager.pause(MOTION_ENGINE_BEATREACT_TASK); // service/task-manager.js
-        pausePointMoveAnimation(this._pointMoveAnim); // core
+        if (this._beatReactRunner) this._beatReactRunner.pause(); // event/workflow/motion-beat-react-runner.js
+        if (this._pointMoveRunner) this._pointMoveRunner.pause(); // event/workflow/motion-point-move-runner.js
     },
 
     resume() {
-        if (taskManager.plan[MOTION_ENGINE_BEATREACT_TASK]) taskManager.resume(MOTION_ENGINE_BEATREACT_TASK); // service/task-manager.js
-        resumePointMoveAnimation(this._pointMoveAnim); // core
+        if (this._beatReactRunner) this._beatReactRunner.resume(); // event/workflow/motion-beat-react-runner.js
+        if (this._pointMoveRunner) this._pointMoveRunner.resume(); // event/workflow/motion-point-move-runner.js
     },
 
     /** Dừng hẳn — dọn layer + object URL + reset bookkeeping.
@@ -600,14 +372,9 @@ const workflowMotionEngine = {
     stop() {
         taskManager.kill('motionEngineTransitionCleanup');
         this._pendingTransitionCleanup = null;
-        taskManager.kill(MOTION_ENGINE_BEATREACT_TASK); // service/task-manager.js
-        this._beatReactActive = false;
-        this._resetBeatReactTransform();
+        if (this._beatReactRunner) this._beatReactRunner.stop(); // event/workflow/motion-beat-react-runner.js — kill task + trả transform về rỗng
+        if (this._pointMoveRunner) this._pointMoveRunner.stop(); // event/workflow/motion-point-move-runner.js — dừng animation + dọn state suy tiếp
         setMotionEngineContainerVisible(motionEngineContainer, false); // core
-        stopPointMoveAnimation(motionEnginePointMoveWrapper, this._pointMoveAnim); // core/dom-refs.js, core/motion-engine.js
-        this._pointMoveAnim = null;
-        this._lastAllModePoints = null; // dọn sạch — dừng hẳn thì không còn gì để lượt SAU suy tiếp
-        this._lastAllModeDurationMs = 0;
         [[motionEngineLayer1, motionEngineLayer1Pan], [motionEngineLayer2, motionEngineLayer2Pan]].forEach(([layerEl, panEl]) => {
             setMotionEngineLayerImage(panEl, ''); // core
             resetMotionEngineLayerClasses(layerEl); // core
@@ -619,72 +386,47 @@ const workflowMotionEngine = {
         this._lastTransitionSpinDirection = null;
         this._lastTransitionWipeDirection = null;
         this._lastTransitionCurtainDirection = null;
-        this._lastPointMoveOneIndex = -1;
         this._setActivePreset(MOTION_ENGINE_NO_OP_PRESET);
     },
 
-    /** Bật/tắt vòng lặp per-frame react-beat. Gọi ở MỌI điểm `_activePreset` CÓ THỂ vừa đổi
-     * (`_staticReveal()`/`_showNext()`). KHÔNG addNew() trùng tên nếu đã chạy sẵn (`_beatReactActive` guard). */
+    /** Preset dùng cho React Beat Audio — gọi bởi Runner LÚC `sync()` (event-driven, KHÔNG mỗi
+     * frame, xem event/workflow/motion-beat-react-runner.js). Tra LẠI theo id (KHÔNG dùng thẳng
+     * `this._activePreset` — object đó có thể đã CŨ nếu preset bị sửa nội dung SAU lúc gán, Motion
+     * Edit thay hẳn bằng object MỚI mỗi lần lưu field bất kỳ, xem event/workflow/motion-presets.js
+     * ::_mutateEditing()) — SỬA bug (Giang chỉ ra qua soát lại): trước đây chỉ
+     * `reactBeatAudio.enabled` có kênh "đẩy" cache riêng (`liveBeatReactToggle()`, ĐÃ XOÁ — thay
+     * bằng broadcast chung), mọi field khác (vd `zoom.maxPct`) sửa xong KHÔNG live theo — giờ tra
+     * tươi Ở ĐÂY thì LUÔN bắt đúng bản mới nhất, không sót field nào. `id` giữ NGUYÊN dù nội dung
+     * đổi (chỉ object reference đổi), nên tra theo id vẫn đúng.
+     * @returns {object|null} */
+    _getBeatReactPreset() {
+        if (!this._hasCurrentResource) return null;
+        const presetId = this._activePreset.id;
+        if (!presetId) return null; // MOTION_ENGINE_NO_OP_PRESET (chưa gắn gì) không có field `id`
+        const preset = findMotionPresetById(appState.get('motionPresets'), presetId) || this._activePreset; // core/motion-presets.js — preset vừa bị XOÁ hẳn (hiếm) -> fallback bản cache cũ
+        const rb = preset.reactBeatAudio;
+        return (rb.enabled && (rb.zoom.enabled || rb.pan.enabled || rb.rotate.enabled)) ? preset : null;
+    },
+
+    /** Tạo (LƯỜI, ĐÚNG 1 LẦN) instance `createMotionBeatReactRunner()` cho React Beat của VBG —
+     * target CỐ ĐỊNH `motionEngineReactLayer` (VBG luôn sở hữu nó tại chỗ — KHÁC Video Player mode,
+     * nơi phải TỰ di chuyển nội dung của mình vào/ra element này, xem event/workflow/video-player.js).
+     * @returns {{sync: () => void, stop: () => void, pause: () => void, resume: () => void}} */
+    _ensureBeatReactRunner() {
+        if (!this._beatReactRunner) {
+            this._beatReactRunner = createMotionBeatReactRunner( // event/workflow/motion-beat-react-runner.js
+                MOTION_ENGINE_BEATREACT_TASK, // giữ NGUYÊN tên task cũ — không đổi cách debug taskManager.plan[...]
+                () => motionEngineReactLayer, // core/dom-refs.js
+                () => this._getBeatReactPreset(),
+            );
+        }
+        return this._beatReactRunner;
+    },
+
+    /** Bật/tắt React Beat Audio CHO ĐÚNG hiện trạng — gọi ở MỌI điểm `_activePreset` CÓ THỂ vừa đổi
+     * (`_staticReveal()`/`_showNext()`/`updatePreset()`). CHỈ còn 1 dòng gọi thẳng Runner — KHÔNG
+     * tự quản lý task/state gì nữa (xem event/workflow/motion-beat-react-runner.js). */
     _syncBeatReactLoop() {
-        const rb = this._activePreset.reactBeatAudio;
-        const shouldRun = this._hasCurrentResource && rb.enabled && (rb.zoom.enabled || rb.pan.enabled || rb.rotate.enabled);
-        if (shouldRun && !this._beatReactActive) {
-            this._beatReactActive = true;
-            this._beatReactEnvelope = 0; // bắt đầu vòng MỚI luôn từ baseline — không kế thừa envelope dở từ lượt trước
-            this._beatReactLastTickMs = 0;
-            this._beatReactWasAttacking = false;
-            this._beatReactPanPolarity = 0;    // reset về "chưa có lượt nào" — lượt beat ĐẦU của ảnh/preset MỚI tự tính lại cực khởi đầu theo direction/reverse
-            this._beatReactRotatePolarity = 0;
-            taskManager.addNew(MOTION_ENGINE_BEATREACT_TASK, { time: 0, exe: () => this._tickBeatReact(), mode: 'raf', count: 0 }); // service/task-manager.js
-            taskManager.operator(MOTION_ENGINE_BEATREACT_TASK, 'enabled');
-        } else if (!shouldRun && this._beatReactActive) {
-            this._beatReactActive = false;
-            taskManager.kill(MOTION_ENGINE_BEATREACT_TASK);
-            this._resetBeatReactTransform(); // về identity — tắt là về ngay baseline
-        }
-    },
-
-    /** Xoá `transform` khỏi lớp react DUY NHẤT (identity, vô hình) — gọi lúc tắt hẳn beat-react VÀ
-     * lúc `stop()` dọn toàn bộ MotionEngine. */
-    _resetBeatReactTransform() {
-        if (motionEngineReactLayer) motionEngineReactLayer.style.transform = '';
-    },
-
-    /** Tick per-frame (RAF) — đọc `beatScale` (năng lượng bass tức thời, 0-1, CÙNG tín hiệu mọi
-     * hiệu ứng "beatscale" khác trong app) MỖI FRAME qua 1 bước ENVELOPE (attack tức thời theo đỉnh,
-     * decay êm về nhưng KHÔNG khoá/gate gì cả — computeMotionEngineBeatReactEnvelope(), core). Mỗi
-     * lần envelope CHUYỂN từ pha decay sang pha attack (rising edge — "beat mới", xem
-     * `_beatReactWasAttacking`) thì ĐẢO cực (computeMotionEngineBeatReactNextPolarity(), core) cho
-     * pan/rotate ĐANG dùng direction "leftToRight"/"rightToLeft" — 2 cực TÁCH RIÊNG (pan/rotate có
-     * thể khác direction/reverse). Nội suy tuyến tính rồi CỘNG DỒN cả 3 hiệu ứng thành 1 chuỗi
-     * `transform` áp lên lớp react DUY NHẤT (bao cả 2 player A/B). */
-    _tickBeatReact() {
-        const rb = this._activePreset.reactBeatAudio;
-        if (!rb.enabled) { this._syncBeatReactLoop(); return; } // preset vừa bị gỡ/tắt beat-react giữa chừng -> tự dừng vòng lặp ĐÚNG NGAY frame này
-        const now = performance.now();
-        const deltaMs = this._beatReactLastTickMs ? (now - this._beatReactLastTickMs) : 16; // lượt tick đầu (chưa có mốc trước) -> giả định 1 frame ~16ms
-        this._beatReactLastTickMs = now;
-        const beatScale = appState.get('beatScale'); // service/state/visualizer-runtime.js — năng lượng bass tức thời, tính mỗi frame ở event/workflow/visualizer-render.js
-
-        const isAttacking = beatScale >= this._beatReactEnvelope; // SO với envelope CŨ (trước khi update) — đúng điều kiện "attack" bên trong computeMotionEngineBeatReactEnvelope()
-        const isNewBeat = isAttacking && !this._beatReactWasAttacking; // rising edge — vừa hết 1 đợt decay, bắt đầu attack MỚI = "beat mới"
-        this._beatReactWasAttacking = isAttacking;
-        if (isNewBeat) {
-            if (rb.pan.direction === 'leftToRight' || rb.pan.direction === 'rightToLeft') {
-                this._beatReactPanPolarity = computeMotionEngineBeatReactNextPolarity(this._beatReactPanPolarity, rb.pan.direction, rb.pan.reverse); // core
-            }
-            if (rb.rotate.direction === 'leftToRight' || rb.rotate.direction === 'rightToLeft') {
-                this._beatReactRotatePolarity = computeMotionEngineBeatReactNextPolarity(this._beatReactRotatePolarity, rb.rotate.direction, rb.rotate.reverse); // core
-            }
-        }
-
-        this._beatReactEnvelope = computeMotionEngineBeatReactEnvelope(this._beatReactEnvelope, beatScale, deltaMs, MOTION_ENGINE_BEATREACT_DECAY_MS); // core
-        const energy = this._beatReactEnvelope;
-
-        const zoomScale = rb.zoom.enabled ? computeMotionEngineBeatReactZoomScale(rb.zoom.maxPct, energy) : 1; // core
-        const panPct = rb.pan.enabled ? computeMotionEngineBeatReactOffset(rb.pan.direction, rb.pan.maxPct - 100, energy, this._beatReactPanPolarity || 1) : 0; // core — trừ baseline 100% (cố định) trước khi truyền; polarity||1 phòng lượt ĐẦU (0) chưa kịp tính khi left/right (bỏ qua tham số này)
-        const rotateDeg = rb.rotate.enabled ? computeMotionEngineBeatReactOffset(rb.rotate.direction, rb.rotate.maxDeg, energy, this._beatReactRotatePolarity || 1) : 0; // core — baseline 0° (cố định), không cần trừ
-
-        if (motionEngineReactLayer) motionEngineReactLayer.style.transform = `scale(${zoomScale}) translateX(${panPct}%) rotate(${rotateDeg}deg)`;
+        this._ensureBeatReactRunner().sync();
     },
 };
