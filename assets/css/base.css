@@ -1,6 +1,8 @@
 /* base.css — reset gốc, khung #app-root (safe-area), 4 lớp nền toàn màn hình (màu/ảnh/video/canvas,
    thứ tự z-index thấp -> cao: #visualizer-solid-bg -3 < #visual-bg-image -2 < Motion Engine -1
-   (assets/css/motion-engine.css) < #bg-video 0 < #webgl-canvas 1 < #visualizer 10), scrollbar mảnh dùng chung. */
+   (assets/css/motion-engine.css, gồm cả #bg-video lúc Video Player mode TÁI DÙNG lớp này, xem ngay
+   dưới) < #bg-video 0 (lúc KHÔNG ở Video Player mode, đứng "nhà" 1 mình, không lồng trong Motion
+   Engine) < #webgl-canvas 1 < #visualizer 10), scrollbar mảnh dùng chung. */
 
 :root { --item-bg-opacity: 0.1; }
 body { margin: 0; overflow: hidden; background-color: #000000; transition: background-color 0.3s ease; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; touch-action: manipulation; }
@@ -13,6 +15,35 @@ body { min-height: 100dvh; background: #000; }
     height: 100dvh;
     width: 100%;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* SỬA (Giang chỉ ra: "React beat, point move khi ở player áp dụng motion beat, point thì phải gán
+   lên 1 lớp cha của nó giống như cấu trúc của hệ thống visual background" — rồi "tôi tưởng motion
+   đã tách khỏi nơi tiêu thụ?" khi thấy bản đầu tự tạo 1 lớp cha MỚI thay vì DÙNG LẠI lớp CÓ SẴN của
+   Motion Engine) — KHÔNG còn `#video-player-motion-react` riêng nữa (đã XOÁ hẳn rule CSS đó).
+   `#video-player-motion-pointmove` (bọc `#bg-video`) giờ CHỈ có 1 vai trò tĩnh: chuẩn bị SẴN cho
+   Point Move của Video sau này (GIAI ĐOẠN SAU — CHƯA có cơ chế hoạt động, Giang chốt rõ "chưa
+   backend point move cho video") — `inset:0` đơn giản, không cần overscan riêng (Video không có
+   crossfade 2 layer A/B như Photo nên không cần -2px như `.me-pointmove-players`).
+
+   VỊ TRÍ trong DOM tree — mặc định (index.html) đứng "nhà" 1 mình, KHÔNG lồng trong bất kỳ ai. Lúc
+   VÀO Video Player mode, event/workflow/video-player.js tự `appendChild` NGUYÊN element này (+
+   `#bg-video` bên trong) VÀO THẲNG `#visual-motion-react` (motionEngineReactLayer, CÓ SẴN, DÙNG
+   CHUNG với VBG — xem assets/css/motion-engine.css) để NHẬN LUÔN transform React Beat Audio của
+   Video (event/workflow/player-display-settings.js, qua Runner DÙNG CHUNG event/workflow/motion-
+   beat-react-runner.js) — rồi CHUYỂN VỀ ĐÚNG vị trí "nhà" lúc THOÁT mode (xem core/player-display-
+   apply.js::attachVideoPlayerMotionToSharedReactLayer()/detachVideoPlayerMotionFromSharedReactLayer()).
+   Motion Engine (`workflowMotionEngine`) HOÀN TOÀN không biết/không cần biết việc di chuyển này —
+   Runner của nó chỉ hỏi `() => motionEngineReactLayer`, LUÔN đúng 1 element cố định bất kể ai đang
+   nằm bên trong (đúng nguyên tắc "Motion không quan tâm lớp cha ở đâu, nơi tiêu thụ tự quyết").
+
+   `pointer-events:none` — `#bg-video` tự set `pointer-events:auto` RIÊNG lúc Video Player mode
+   (core/video-player.js::setBgVideoElementForPlayerMode()) — override được bình thường (con luôn
+   thắng cha), không bị chặn dù element cha đổi (motionEngineReactLayer cũng `pointer-events:none`,
+   assets/css/motion-engine.css). */
+#video-player-motion-pointmove {
+    position: absolute; inset: 0;
+    overflow: hidden;
 }
 
 #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; object-fit: cover; z-index: 0; pointer-events: none; background-size: cover; background-position: center; }
