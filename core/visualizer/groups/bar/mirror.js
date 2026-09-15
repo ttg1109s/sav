@@ -1,13 +1,15 @@
 /**
  * core/visualizer/groups/bar/mirror.js — [LÀM PHẲNG, 05/09/2026, yêu cầu Giang] Style 'mirror'
- * tách riêng khỏi `core/visualizer/types/bar.js` cũ (trước đây gộp chung với 'cascade'). Nội dung
- * hàm GIỮ NGUYÊN 100%. Phản chiếu — dải cánh bướm, số lượng thanh mỗi bên TÙY CHỈNH 10-32 qua
- * setting (vizConfig.mirrorBarCount, mặc định 32), mỗi bar đối xứng trên/dưới quanh centerY. KHÔNG
- * còn vòng tròn ở tâm (đã bỏ). Có một BAR TRUNG TÂM nhỏ ngay tại centerX, đập theo beat nhạc
- * (không tĩnh) — bar này cách bar gần nhất của mỗi dải đúng bằng khoảng hở TỰ THÂN giữa các bar
- * trong dải (cùng "nhịp" khoảng cách như mọi cặp bar liền kề khác, không phải số px cố định tùy
- * ý), nên trông liền mạch tự nhiên thay vì để hai dải dính thẳng vào nhau qua tâm hoặc cách nhau
- * một khoảng tùy hứng. Hai bên (trái/phải) ĐỐI XỨNG GƯƠNG thật qua tâm: tại cùng một khoảng cách
+ * tách riêng khỏi `core/visualizer/types/bar.js` cũ (trước đây gộp chung với 'cascade'). Phản
+ * chiếu — dải cánh bướm, số lượng thanh mỗi bên TÙY CHỈNH 10-32 qua setting (vizConfig.mirrorBarCount,
+ * mặc định 32), mỗi bar đối xứng trên/dưới quanh centerY.
+ *
+ * [XOÁ — 15/09/2026, yêu cầu Giang, "bỏ thanh bar ở center đi. Nhưng vẫn giữ nguyên gap của bar đó
+ * để lại, không được dịch vào"] BAR TRUNG TÂM (đập theo beat, dùng centerBarBeatRatio) đã BỎ HẲN —
+ * field centerBarBeatRatio cũng đã xoá (core/config.js, core/custom-effect.js, lang). `centerOffset`
+ * (khoảng dịch 2 dải trái/phải ra xa tâm) GIỮ NGUYÊN công thức cũ — dải bar KHÔNG dịch vào lấp chỗ
+ * trống, để lại đúng khoảng hở mà bar trung tâm từng chiếm (đúng yêu cầu, không phải vô tình sót).
+ * Hai bên (trái/phải) ĐỐI XỨNG GƯƠNG thật qua tâm: tại cùng một khoảng cách
  * từ tâm, bên trái và bên phải dùng CÙNG một bin tần số (binLeft === binRight) nên độ cao bar luôn
  * bằng nhau hai bên — đúng nghĩa "phản chiếu". Slot GẦN tâm lấy bin CAO (treble), slot XA tâm (gần
  * mép màn hình) lấy bin THẤP (bass, biên độ thường lớn hơn) -> bar có xu hướng cao dần khi ra xa
@@ -24,9 +26,9 @@ const BAR_MIRROR_COUNT_PER_SIDE = 32;
 
 /**
  * Tính khung hình BAR MIRROR — THUẦN, không side-effect, không đọc appState/getActiveEffectConfig.
- * @returns {{ bars: {colorArgs:number[], rects:object[]}[], center: {colorArgs:number[], rects:object[]} }}
+ * @returns {{ bars: {colorArgs:number[], rects:object[]}[] }}
  */
-function computeBarMirrorFrame(cfg, canvasWidth, canvasHeight, dpr, vizDataArray, maxBin, beatScale, smoothedEnergy) {
+function computeBarMirrorFrame(cfg, canvasWidth, canvasHeight, dpr, vizDataArray, maxBin) {
     const centerX = canvasWidth / 2, centerY = canvasHeight / 2;
     const halfWidth = canvasWidth / 2;
     const maxBarLen = cfg.maxH * dpr * 0.5;
@@ -43,9 +45,8 @@ function computeBarMirrorFrame(cfg, canvasWidth, canvasHeight, dpr, vizDataArray
     const gapW = barSlotWidth - slotW;
     const cornerR = cfg.barCornerRadius * dpr;
 
-    // BAR TRUNG TÂM chiếm phần giữa rộng slotW; lấy đúng gapW làm khoảng cách với bar gần
-    // nhất của mỗi dải (cùng "nhịp" khoảng hở tự thân như các bar khác) -> toàn bộ dải
-    // trái/phải dịch ra xa tâm thêm (slotW/2 + gapW) so với khi không có bar trung tâm.
+    // Khoảng dịch 2 dải trái/phải ra xa tâm — GIỮ NGUYÊN công thức thời còn bar trung tâm (slotW/2
+    // + gapW) dù bar trung tâm đã bỏ, để lại đúng khoảng hở ở giữa thay vì dịch bar vào lấp chỗ.
     const centerOffset = slotW / 2 + gapW;
 
     const bars = [];
@@ -76,20 +77,5 @@ function computeBarMirrorFrame(cfg, canvasWidth, canvasHeight, dpr, vizDataArray
         });
     }
 
-    // BAR TRUNG TÂM — nhỏ mặc định, đập theo beat nhạc thật (beatScale, không tĩnh). Cộng
-    // một sàn nhỏ (minH) để luôn hiện hình ngay cả khi không có nhạc/biên độ = 0, cộng
-    // thêm theo beatScale + smoothedEnergy (tỉ lệ centerBarBeatRatio, tuỳ chỉnh) để nhảy
-    // động giống cách vòng tròn cũ từng đập.
-    const centerScaledMinH = cfg.minH * dpr;
-    const beatRatio = cfg.centerBarBeatRatio;
-    const centerLen = centerScaledMinH + beatScale * maxBarLen * beatRatio + smoothedEnergy * maxBarLen * (1 - beatRatio);
-    const center = {
-        colorArgs: [0, barCount, Math.round(beatScale * 255)],
-        rects: [
-            { x: centerX - slotW / 2, y: centerY - centerLen, w: slotW, h: centerLen, cornerR },
-            { x: centerX - slotW / 2, y: centerY, w: slotW, h: centerLen, cornerR },
-        ],
-    };
-
-    return { bars, center };
+    return { bars };
 }
