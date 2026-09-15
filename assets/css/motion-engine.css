@@ -72,6 +72,49 @@
 .motion-layer.me-layer-enter { z-index: 3; animation-duration: 900ms; animation-timing-function: ease; animation-fill-mode: forwards; }
 .motion-layer.me-layer-exit  { z-index: 2; animation-duration: 900ms; animation-timing-function: ease; animation-fill-mode: forwards; }
 
+/* FIX (Giang báo bug "1 số kiểu Transition Video Player mode không chạy") — 4 rule z-index ngay
+   trên (`.motion-layer`/`.me-current`/`.me-layer-enter`/`.me-layer-exit`) KHÔNG BAO GIỜ thắng được
+   `#bg-video{z-index:0}`/`#visual-bg-image{z-index:-2}` (assets/css/base.css) khi 2 phần tử đó
+   ĐANG mượn làm layer A/B của Video Player mode (core/player-display-apply.js
+   ::attachVideoPlayerMotionToSharedReactLayer() gán `.motion-layer` lên THẲNG 2 ID này, KHÔNG như
+   VBG dùng `#visual-motion-layer-1`/`-2` — 2 ID KHÔNG có rule z-index riêng nào, nên bộ rule class ở
+   trên áp được bình thường cho VBG) — selector ID (specificity 1-0-0) LUÔN thắng selector class dù
+   gộp bao nhiêu class (`.motion-layer.me-current` chỉ 0-2-0), bất kể thứ tự khai báo trước/sau.
+   Hệ quả: z-index của `#bg-video`/`#visual-bg-image` kẹt CỨNG ở giá trị base.css (0/-2) suốt
+   Transition — layer NÀO đang "vào" (`.me-layer-enter`) không bao giờ được đẩy lên TRÊN layer đang
+   "ra" — mọi kiểu Transition cần layer B lộ ra TRÊN layer A (clip-path reveal: wipe/curtain/
+   circleReveal, hoặc layer A tự cắt cứng opacity:1 đứng yên) đều vô hình do bị `#bg-video` (kẹt
+   z-index 0, LUÔN cao hơn `#visual-bg-image` kẹt -2) che khuất suốt lúc animate.
+   GIỜ lặp lại ĐÚNG 4 rule trên nhưng khoá THÊM vào chính 2 ID này (specificity 1-1-0 tới 1-2-0, LUÔN
+   thắng base.css) — z-index THẬT SỰ đổi theo state Transition trong lúc `.motion-layer` còn gắn
+   (CHỈ lúc đang ở Video Player mode); base.css (0/-2) vẫn nguyên vẹn cho MỌI lúc khác (VBG trang
+   trí, hay bất kỳ ai không mang `.motion-layer`) vì detach đã gỡ hẳn `.motion-layer` lúc thoát mode. */
+#bg-video.motion-layer, #visual-bg-image.motion-layer { z-index: 1; }
+#bg-video.motion-layer.me-current, #visual-bg-image.motion-layer.me-current { z-index: 2; }
+#bg-video.motion-layer.me-layer-enter, #visual-bg-image.motion-layer.me-layer-enter { z-index: 3; }
+#bg-video.motion-layer.me-layer-exit, #visual-bg-image.motion-layer.me-layer-exit { z-index: 2; }
+
+/* FIX (tiếp) — 4 chỗ RIÊNG lẻ (fade+out, zoom+out, flipEdge open ngang/dọc, xem 4 rule
+   `[data-transition=...] .me-layer-exit { z-index: 4; ... }` bên dưới trong file) tự ĐẢO NGƯỢC z-
+   index — đẩy layer ĐANG RA (exit) lên TRÊN layer đang VÀO (enter, mặc định 3) để layer exit tự lộ
+   dần/xoay ra NGOÀI, để LỘ layer enter TĨNH nằm dưới — cũng bị chính 2 ID `#bg-video`/
+   `#visual-bg-image` (base.css) VÀ 4 rule chung ngay trên đè mất (cùng lý do). Lặp lại y hệt 4 chỗ
+   đó, khoá thêm ID lên phần tử ĐÍCH (giữ nguyên selector tổ tiên `.me-transition-scope[...]`, generic
+   — VẪN áp được cho cả VBG lẫn Video Player mode, không hardcode ai là exit/enter) — specificity 1-
+   4-0, thắng cả 4 rule chung ngay trên (1-2-0). */
+.me-transition-scope[data-transition="fade"][data-zoom-direction="out"] #bg-video.me-layer-exit,
+.me-transition-scope[data-transition="fade"][data-zoom-direction="out"] #visual-bg-image.me-layer-exit,
+.me-transition-scope[data-transition="zoom"][data-zoom-direction="out"] #bg-video.me-layer-exit,
+.me-transition-scope[data-transition="zoom"][data-zoom-direction="out"] #visual-bg-image.me-layer-exit,
+.me-transition-scope[data-transition="flipEdge"][data-direction="left"][data-flip-variant="open"] #bg-video.me-layer-exit,
+.me-transition-scope[data-transition="flipEdge"][data-direction="left"][data-flip-variant="open"] #visual-bg-image.me-layer-exit,
+.me-transition-scope[data-transition="flipEdge"][data-direction="right"][data-flip-variant="open"] #bg-video.me-layer-exit,
+.me-transition-scope[data-transition="flipEdge"][data-direction="right"][data-flip-variant="open"] #visual-bg-image.me-layer-exit,
+.me-transition-scope[data-transition="flipEdge"][data-direction="up"][data-flip-variant="open"] #bg-video.me-layer-exit,
+.me-transition-scope[data-transition="flipEdge"][data-direction="up"][data-flip-variant="open"] #visual-bg-image.me-layer-exit,
+.me-transition-scope[data-transition="flipEdge"][data-direction="down"][data-flip-variant="open"] #bg-video.me-layer-exit,
+.me-transition-scope[data-transition="flipEdge"][data-direction="down"][data-flip-variant="open"] #visual-bg-image.me-layer-exit { z-index: 4; }
+
 /* Layer NGOÀI CÙNG (MỚI, "React Beat Audio" 29/08/2026; VIẾT LẠI 30/08/2026, phản hồi Giang mục 3 —
    chuyển ra bao TRỌN #visual-motion-container, tức CẢ 2 player A/B, THAY vì 1 layer riêng lồng bên
    trong từng player như bản trước) — nhận trọn mốc z-index -1 (CHỪA SẴN ở style.css, giữa
