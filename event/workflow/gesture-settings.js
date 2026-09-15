@@ -64,34 +64,40 @@ const workflowGestureSettings = {
 
     /** Ứng với 'gestureSettings.openSeekHoldIntervalPicker.click' — Time 2: SAU KHI đã vào seek
      * mode, giữ thêm bao lâu thì kích hoạt 1 lệnh seek theo Time 1 (KHÁC ngưỡng kích hoạt 2s CỐ
-     * ĐỊNH — xem docstring event/workflow/visualizer-gesture.js). SỬA (13/08/2026, Giang yêu cầu
-     * "giảm min hold to per step thành 100ms") — min RIÊNG 100ms cho picker NÀY (khác Time 1, vẫn
-     * giữ min mặc định 500ms — xem tham số thứ 4 _openSeekTimePicker()) — nhịp giữ càng nhỏ, tua
-     * càng "mượt" giống kéo tay thật, người dùng có thể muốn xuống rất thấp. */
+     * ĐỊNH — xem docstring event/workflow/visualizer-gesture.js). min dùng ĐÚNG mặc định 100ms của
+     * _openSeekTimePicker() (SỬA — trước đây truyền riêng qua tham số thứ 4, giờ Time 1 CŨNG đã hạ
+     * xuống 100ms nên không còn cần truyền khác Time 1 nữa, xem docstring _openSeekTimePicker()). */
     openSeekHoldIntervalPicker() {
-        this._openSeekTimePicker('gestureSeekHoldIntervalMs', 'gesture-seek-hold-interval-value', 'gestureSettings.seekHoldInterval.pickerTitle', 100);
+        this._openSeekTimePicker('gestureSeekHoldIntervalMs', 'gesture-seek-hold-interval-value', 'gestureSettings.seekHoldInterval.pickerTitle');
     },
 
     /** Dùng chung bởi 2 hàm trên — mở modal "bánh xe cuộn số" DÙNG CHUNG (core/time-picker-modal.js,
      * cùng khuôn workflowSubtitleEditor.openTimePickerModal()), format 's-ms' (giây + phần mười
-     * giây) — max 59900ms cả 2 (hết cỡ format này biểu diễn được). min MẶC ĐỊNH 500ms (Time 1 —
-     * "Bước tua") — SỬA (13/08/2026) — Time 2 ("Giữ để tua tiếp") truyền `minMs=100` riêng qua
-     * tham số thứ 4 (Giang yêu cầu "giảm min hold to per step thành 100ms"), KHÔNG đụng min của
-     * Time 1 (vẫn 500ms, không được yêu cầu đổi).
+     * giây) — max 59900ms cả 2 (hết cỡ format này biểu diễn được). SỬA (phản hồi Giang — "giới hạn
+     * lại min của cả hai là 0.1") — min CHUNG 100ms (0.1s) cho CẢ Time 1 lẫn Time 2 (trước đây Time 1
+     * min 500ms, Time 2 min 100ms riêng qua tham số thứ 4 — giờ cả 2 CÙNG 100ms nên bỏ hẳn tham số
+     * đó, không còn khác biệt giữa 2 picker nữa).
      * @param {string} field @param {string} valueElId - id span hiển thị giá trị trong panel.
-     * @param {string} titleKey @param {number} [minMs] - mặc định 500 nếu không truyền. */
-    _openSeekTimePicker(field, valueElId, titleKey, minMs) {
+     * @param {string} titleKey */
+    _openSeekTimePicker(field, valueElId, titleKey) {
         const cfg = appConfigViz.getAll();
         openTimePickerModal({ // core/time-picker-modal.js — dùng chung
             title: t(titleKey),
             format: 's-ms',
             valueMs: cfg[field] || 2000,
-            minMs: minMs || 500,
+            minMs: 100,
             maxMs: 59900,
             onConfirm: (resultMs) => {
                 this.setField(field, resultMs);
-                if (settingsStackBody) {
-                    const el = settingsStackBody.querySelector(`#${valueElId}`);
+                // FIX BUG (phản hồi Giang — "UI giá trị Seek step, Hold time per step không cập nhật
+                // theo") — `settingsStackBody` là tham chiếu CŨ từ trước đợt tái cấu trúc bottom nav
+                // (Gesture Settings giờ sống trong Generic Drawer, `#settings-stack-body` KHÔNG còn
+                // tồn tại trong index.html nữa) — CÙNG lớp bug đã fix ở `viewModeSelect`/
+                // `updateActiveFolderUI()` (dom-refs.js tham chiếu "chết" sau khi nội dung migrate
+                // sang Generic Drawer). Đổi sang `genericDrawerBody` — ĐÚNG container panel này đang
+                // sống trong (khớp `openPanel()` ngay trên, đã dùng đúng `genericDrawerBody`).
+                if (genericDrawerBody) {
+                    const el = genericDrawerBody.querySelector(`#${valueElId}`);
                     if (el) el.textContent = this._formatSeekMs(resultMs);
                 }
             },
