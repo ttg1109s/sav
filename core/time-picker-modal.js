@@ -158,7 +158,15 @@ function openTimePickerModal(config) {
     function buildColumn(levelIndex, initIndex) {
         const { count } = units[levelIndex];
         const col = document.createElement('div');
-        col.className = 'time-picker-col flex-1 h-[132px] overflow-y-scroll snap-y snap-mandatory';
+        col.className = 'time-picker-col flex-1 overflow-y-scroll snap-y snap-mandatory';
+        // FIX BUG (phản hồi Giang — "giá trị current không thấy được", cột lệch hẳn khỏi
+        // highlightBand) — TRƯỚC dùng class Tailwind arbitrary `h-[132px]`, có thể KHÔNG kịp lên CSS
+        // đúng lúc `scrollTop` được set ở lần mở modal ĐẦU TIÊN trong phiên (Tailwind CDN tiêm CSS
+        // cho class MỚI THẤY LẦN ĐẦU bất đồng bộ — CÙNG lớp bug đã fix ở Folder Browser,
+        // components/items.js::buildFolderGridWrapperHtml()): cột không bị giới hạn chiều cao đúng
+        // lúc cần, khiến item hiện tại (đáng lẽ nằm giữa, trong highlightBand) trôi lệch hẳn ra
+        // ngoài. Set thẳng qua `style.height` — luôn có ngay lập tức, không phụ thuộc Tailwind.
+        col.style.height = (ITEM_H * 3) + 'px';
         col.style.scrollSnapStop = 'always';
         const topSpacer = document.createElement('div'); topSpacer.style.height = ITEM_H + 'px'; col.appendChild(topSpacer);
         const items = [];
@@ -231,7 +239,12 @@ function openTimePickerModal(config) {
     wheelWrap.className = 'relative flex gap-1';
     const highlightBand = document.createElement('div');
     highlightBand.className = 'absolute inset-x-0 top-1/2 -translate-y-1/2 h-11 rounded-lg pointer-events-none border-y';
-    highlightBand.dataset.uitk = 'cardBg dividerBorder'; // SỬA (09/09/2026, hệ UI Theme mở rộng) — trước đây bg-white/10 border-white/20 (vô hình trên nền trắng), giờ dải nổi bật thật trên card sáng
+    // SỬA (phản hồi Giang — "không hiển thị được giá trị current đang ở") — `cardBg` (bg-slate-50)
+    // gần như không phân biệt được với nền card trắng (modalCardBg) phía sau, dải nổi bật gần như vô
+    // hình, không rõ đâu là giá trị đang chọn. Đổi sang `rowActiveBg`/`rowActiveBorder` (tông sky
+    // nhạt, ĐÚNG ngữ nghĩa "hàng đang active" — cùng cặp key dùng cho hàng preset EQ/Motion đang
+    // chọn) — tương phản rõ hẳn trên nền trắng.
+    highlightBand.dataset.uitk = 'rowActiveBg rowActiveBorder';
     wheelWrap.appendChild(highlightBand);
     cols.forEach((col) => wheelWrap.appendChild(col));
     card.appendChild(wheelWrap);
