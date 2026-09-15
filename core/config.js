@@ -42,7 +42,7 @@
             bar: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
                 barStyle: 'mirror', minH: 4, maxH: 400, mirrorBarCount: 32,
-                barFillRatio: 0.6, barCornerRadius: 3, centerBarBeatRatio: 0.7,
+                barFillRatio: 0.6, barCornerRadius: 3,
                 cascadeBaseAlpha: 0.2, cascadeKeyCount: 64,
                 // Style "black hole" (CHUYỂN NHÓM 05/09/2026 — trước đây bucket 'black hole' riêng)
                 // — dùng CHUNG minH/maxH ở trên (cùng field, cùng ý nghĩa "chiều cao cột tần số").
@@ -59,15 +59,17 @@
                 boltFadeSpeed: 0.04, boltHorizontalDeviation: 120, boltSegmentLength: 60,
                 // Style "fireworks" (pháo hoa) — enabledStyles/customTexts không qua cơ chế
                 // CUSTOM_EFFECT_STYLE 1-dropdown, xem core/custom-effect.js. maxConcurrentRockets
-                // = trần số rocket đang bay CÙNG LÚC (mục 2, phản hồi Giang). finaleIntervalBeats
-                // = nhịp ép "Đại Tiệc Pháo Hoa" định kỳ nếu nhạc không tự chuyển đoạn (mục 3).
+                // = trần số rocket đang bay CÙNG LÚC (mục 2, phản hồi Giang).
                 particleCount: 140, burstPower: 1.0, gravity: 0.06, autoLaunchDensity: 50,
-                maxConcurrentRockets: 12, finaleIntervalBeats: 24,
-                // Trước ĐÂY hardcode FIREWORKS_ENERGY_WINDOW_BEATS/FIREWORKS_SECTION_WINDOW_BEATS/
-                // FIREWORKS_FLUX_TRANSITION_THRESHOLD (event/workflow/visualizer-render.js) — giờ
-                // expose thật thành field, đúng tham số của detectMusicTransition() (core/audio-
-                // analysis.js), CHỈ nghĩa lý khi lightingStyle==='fireworks' (không phải 'thunder').
-                energyWindowBeats: 4, sectionWindowBeats: 12, fluxThreshold: 0.5,
+                maxConcurrentRockets: 12,
+                // [SỬA — 15/09/2026, yêu cầu Giang] finaleIntervalBeats (nhịp ép định kỳ dù nhạc
+                // không đổi) ĐÃ BỎ HẲN — Finale giờ CHỈ trigger theo detectMusicTransition() (core/
+                // audio-analysis.js), bật/tắt hẳn cơ chế qua finaleEnabled. sectionWindowBeats/
+                // fluxThreshold vẫn là tham số THẬT của detectMusicTransition() — energyWindowBeats
+                // (cửa sổ ngắn) không còn là field, hardcode 2 thẳng trong
+                // _fwUpdateFinaleTrigger() (event/workflow/visualizer-render.js).
+                finaleEnabled: true,
+                sectionWindowBeats: 12, fluxThreshold: 0.5,
                 enabledStyles: [...FIREWORKS_STYLE_KEYS],
                 customTexts: [],
             },
@@ -95,7 +97,11 @@
                 // Hướng rẽ ống theo nốt nhạc, kích hoạt khi "nhạc vừa biến động" — thay hẳn cơ chế
                 // xác suất-mỗi-frame cũ (curveChangeChance). Xem detectMusicTransition()
                 // (core/audio-analysis.js) + _tickVortexCurve() (event/workflow/visualizer-render.js).
-                energyWindowBeats: 4, sectionWindowBeats: 12, fluxThreshold: 0.5,
+                // [SỬA — 15/09/2026, yêu cầu Giang] redirectEnabled — tắt thì ống đi thẳng mãi,
+                // không bao giờ tự rẽ theo nhạc nữa. energyWindowBeats (cửa sổ ngắn) không còn là
+                // field, hardcode 2 thẳng trong _tickVortexCurve().
+                redirectEnabled: true,
+                sectionWindowBeats: 12, fluxThreshold: 0.5,
                 barsRingCount: 40, barsPerRing: 24, barsTwistFactor: 2.4,
                 waveRotationBase: 0.01, waveRotationEnergyMult: 0.05, waveScaleBase: 0.8, waveScaleEnergyMult: 0.4,
             },

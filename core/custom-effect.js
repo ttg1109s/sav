@@ -50,6 +50,17 @@ const CUSTOM_EFFECT_STYLE = {
     shape: { field: 'shapeStyle', options: ['rubik'] },
 };
 
+/** Tiêu đề card "Music Transition" (components/custom-effect-drawer.js::_renderCeMusicSection())
+ * THEO TỪNG GROUP — MỚI (15/09/2026, yêu cầu Giang, "curv đang phản ánh sai chức năng") — group
+ * nào không có mặt ở đây rơi về tên chung "Music Transition" (customEffectDrawer.musicSection.title).
+ * Fireworks gọi "Finale" (toggle finaleEnabled quyết định có tự bắn "Đại Tiệc Pháo Hoa" theo nhạc
+ * hay không); Vortex gọi "Redirect" (toggle redirectEnabled quyết định có tự rẽ hướng ống theo
+ * nhạc hay không). */
+const CUSTOM_EFFECT_MUSIC_SECTION_TITLE_KEYS = {
+    lighting: 'customEffectDrawer.musicSection.finaleTitle',
+    vortex: 'customEffectDrawer.musicSection.redirectTitle',
+};
+
 /** Key i18n cho từng option style — TÁI DÙNG bộ text sẵn có (visualizerSettingsDrawer.*), không
  * dịch trùng 1 khái niệm ở 2 nơi. */
 const CUSTOM_EFFECT_STYLE_LABEL_KEYS = {
@@ -74,7 +85,6 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'mirrorBarCount', labelKey: 'visualizerSettingsDrawer.mirrorCount.label', type: 'slider', min: 10, max: 32, step: 1, showIf: (cfg) => cfg.barStyle === 'mirror' },
         { id: 'barFillRatio', labelKey: 'customEffectDrawer.field.barFillRatio', type: 'sliderFloat', min: 0.3, max: 0.9, step: 0.05, decimals: 2, showIf: (cfg) => cfg.barStyle === 'mirror' },
         { id: 'barCornerRadius', labelKey: 'customEffectDrawer.field.barCornerRadius', type: 'slider', min: 0, max: 15, step: 1, showIf: (cfg) => cfg.barStyle === 'mirror' },
-        { id: 'centerBarBeatRatio', labelKey: 'customEffectDrawer.field.centerBarBeatRatio', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.barStyle === 'mirror' },
         { id: 'cascadeBaseAlpha', labelKey: 'customEffectDrawer.field.cascadeBaseAlpha', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.barStyle === 'cascade' },
         { id: 'cascadeKeyCount', labelKey: 'customEffectDrawer.field.cascadeKeyCount', type: 'slider', min: 16, max: 128, step: 4, showIf: (cfg) => cfg.barStyle === 'cascade' },
         // Style "black hole" (CHUYỂN NHÓM 05/09/2026 — trước đây bucket 'black hole' riêng, dùng
@@ -108,7 +118,7 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'tunnelRingCount', labelKey: 'customEffectDrawer.field.tunnelRingCount', type: 'slider', min: 10, max: 100, step: 5, refresh: 'initThreeJS' },
         { id: 'warpSpeedBase', labelKey: 'customEffectDrawer.field.warpSpeedBase', type: 'slider', min: 0, max: 50, step: 1 },
         { id: 'warpSpeedEnergyMult', labelKey: 'customEffectDrawer.field.warpSpeedEnergyMult', type: 'slider', min: 0, max: 100, step: 5 },
-        { id: 'energyWindowBeats', labelKey: 'customEffectDrawer.field.curveEnergyWindowBeats', type: 'slider', min: 2, max: 12, step: 1, group: 'music' },
+        { id: 'redirectEnabled', labelKey: 'customEffectDrawer.field.redirectEnabled', type: 'toggle', group: 'music' },
         { id: 'sectionWindowBeats', labelKey: 'customEffectDrawer.field.curveSectionWindowBeats', type: 'slider', min: 6, max: 32, step: 1, group: 'music' },
         { id: 'fluxThreshold', labelKey: 'customEffectDrawer.field.curveFluxThreshold', type: 'sliderFloat', min: 0.1, max: 1, step: 0.05, decimals: 2, group: 'music' },
         { id: 'barsRingCount', labelKey: 'customEffectDrawer.field.barsRingCount', type: 'slider', min: 10, max: 80, step: 2, showIf: (cfg) => cfg.vortexStyle === 'bars', refresh: 'initThreeJS' },
@@ -135,11 +145,10 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'gravity', labelKey: 'customEffectDrawer.field.fwGravity', type: 'sliderFloat', min: 0.02, max: 0.12, step: 0.01, decimals: 2, showIf: (cfg) => cfg.lightingStyle === 'fireworks' },
         { id: 'autoLaunchDensity', labelKey: 'customEffectDrawer.field.fwAutoLaunchDensity', type: 'slider', min: 5, max: 100, step: 5, showIf: (cfg) => cfg.lightingStyle === 'fireworks' },
         { id: 'maxConcurrentRockets', labelKey: 'customEffectDrawer.field.fwMaxConcurrentRockets', type: 'slider', min: 3, max: 30, step: 1, showIf: (cfg) => cfg.lightingStyle === 'fireworks' },
-        { id: 'finaleIntervalBeats', labelKey: 'customEffectDrawer.field.fwFinaleIntervalBeats', type: 'slider', min: 8, max: 64, step: 4, showIf: (cfg) => cfg.lightingStyle === 'fireworks' },
+        { id: 'finaleEnabled', labelKey: 'customEffectDrawer.field.finaleEnabled', type: 'toggle', showIf: (cfg) => cfg.lightingStyle === 'fireworks', group: 'music' },
         // Tham số THẬT của detectMusicTransition() (core/audio-analysis.js) — CHỈ nghĩa lý ở style
         // "fireworks" (quyết định finale, xem event/workflow/visualizer-render.js::
         // _fwUpdateFinaleTrigger()), style "thunder" không dùng detectMusicTransition().
-        { id: 'energyWindowBeats', labelKey: 'customEffectDrawer.field.musicEnergyWindowBeats', type: 'slider', min: 2, max: 12, step: 1, showIf: (cfg) => cfg.lightingStyle === 'fireworks', group: 'music' },
         { id: 'sectionWindowBeats', labelKey: 'customEffectDrawer.field.musicSectionWindowBeats', type: 'slider', min: 6, max: 32, step: 1, showIf: (cfg) => cfg.lightingStyle === 'fireworks', group: 'music' },
         { id: 'fluxThreshold', labelKey: 'customEffectDrawer.field.musicFluxThreshold', type: 'sliderFloat', min: 0.1, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.lightingStyle === 'fireworks', group: 'music' },
     ],
