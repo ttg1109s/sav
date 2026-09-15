@@ -133,7 +133,7 @@ const workflowPlayerControls = {
         } else {
             nextKey = list[step.index];
         }
-        workflowPlayer.playMedia(nextKey, { switchScreen: false }); // event/workflow/player.js
+        workflowPlayer.playMedia(nextKey, { switchScreen: false, direction: 'next' }); // event/workflow/player.js — MỚI `direction` (Giang yêu cầu Transition Video Player mode — Next/Prev dùng 2 preset RIÊNG, xem core/player-display-settings.js::PLAYER_MOTION_SLOTS)
     },
 
     /**
@@ -163,7 +163,7 @@ const workflowPlayerControls = {
         } else {
             prevKey = list[step.index];
         }
-        workflowPlayer.playMedia(prevKey, { switchScreen: false }); // event/workflow/player.js
+        workflowPlayer.playMedia(prevKey, { switchScreen: false, direction: 'prev' }); // event/workflow/player.js — MỚI `direction`, cùng lý do goToNextTrack() ở trên
     },
 
     /**

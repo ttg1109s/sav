@@ -59,7 +59,9 @@ const workflowPlayer = {
      * với phạm vi đợt reorg này (chỉ đổi CHỖ Ở, không đổi logic) — KHÔNG động thêm gì trong thân
      * hàm ngoài việc bỏ tiền tố `window.`/đổi khai báo hàm.
      * @param {string} key
-     * @param {{switchScreen?: boolean}} [options]
+     * @param {{switchScreen?: boolean, direction?: 'next'|'prev'}} [options] - `direction` MỚI
+     *        (Giang yêu cầu Transition Video Player mode) — CHỈ Video Player mode dùng (Next/Prev
+     *        dùng 2 preset Transition RIÊNG), Song/Photo bỏ qua.
      */
     playMedia(key, options) {
         // ===================== Ver 12 "Song/Video Unification" — Batch 2 (mục 3) =====================
@@ -115,7 +117,8 @@ const workflowPlayer = {
             // options.switchScreen !== false`) rồi gửi kèm — router giờ quyết định switch màn
             // hình dựa vào ĐÚNG ý định của người gọi, không dựa vào isVideoPlayerMode nữa.
             const switchScreen = !options || options.switchScreen !== false;
-            eventBus.send({ router: 'videoPlayer', type: 'videoPlayer.startFromPlaylist.click', payload: { key, switchScreen } });
+            const direction = (options && options.direction) || 'next'; // MỚI — mặc định 'next' (đúng cho auto-advance hết bài, KHÔNG có "hướng" thật)
+            eventBus.send({ router: 'videoPlayer', type: 'videoPlayer.startFromPlaylist.click', payload: { key, switchScreen, direction } });
             return;
         }
 

@@ -26,7 +26,16 @@
  * cùng tinh thần Resolution) — VÀ giờ sửa nội dung preset ĐANG chạy (Motion Edit, không đổi preset
  * nào đang gắn) cũng LIVE theo THẬT SỰ, vì Runner tự tra `getPresetFn()` lại theo id MỖI FRAME,
  * không cache preset cũ (xem docstring event/workflow/motion-beat-react-runner.js).
- * GIAI ĐOẠN 2 — TRANSITION/POINT MOVE (CHƯA làm) — 4 field còn lại vẫn CHỈ ghi/đọc.
+ * GIAI ĐOẠN 2 — TRANSITION VIDEO (ĐÃ XONG — 2 field `videoTransitionNextPresetId`/
+ * `videoTransitionPrevPresetId`, PRESET RIÊNG cho next/prev, Giang chốt từ đầu) — CHẠY GIỮA layer A
+ * (`bgVideoElement`, đang đứng hình frame CŨ) và layer B (`visualBgImageElement`, vừa nhận thumb
+ * MỚI) — mirror ĐÚNG mô hình layer A/B của VBG (Giang chỉ ra), dùng `createMotionTransitionRunner()`
+ * DÙNG CHUNG (event/workflow/motion-transition-runner.js, ĐÃ viết lại đúng nguyên tắc "tua vít" —
+ * không tự quyết nội dung layer). `runVideoPlayerTransition(direction)` do event/workflow/
+ * video-player.js::swapBgVideoSource() gọi "chen vào giữa" bước decode thumb xong và bước phát
+ * video mới (Giang mô tả chi tiết) — advanceMs truyền `0` (Video KHÔNG tính trước "thời lượng hiển
+ * thị" như VBG — next/prev/end tự nhiên, không có mốc thời gian định trước để kẹp theo).
+ * GIAI ĐOẠN 2 — TRANSITION PHOTO/POINT MOVE (CHƯA làm) — 2 field còn lại vẫn CHỈ ghi/đọc.
  *
  * Router/Listener: CHƯA có router riêng — được gọi TRỰC TIẾP từ `workflowAppSettings`
  * (event/workflow/app-settings.js, cùng cách `handleThemeSelectMode()` gọi qua router 'theme')
@@ -35,14 +44,84 @@
  * NẠP SAU: core/config.js (appConfigPlayerDisplay), core/player-display-settings.js
  * (PLAYER_MOTION_SLOTS/resolvePlayerMotionPresetField/resolvePlayerResolutionField),
  * core/player-display-apply.js (apply*ToDOM()/clear*FromDOM()), core/dom-refs.js
- * (motionEngineReactLayer), event/workflow/motion-beat-react-runner.js
- * (createMotionBeatReactRunner()), service/db.js (getMeta/setMeta/getImageRecord).
+ * (motionEngineReactLayer/bgVideoElement/visualBgImageElement), core/motion-presets.js
+ * (findMotionPresetById()), event/workflow/motion-engine.js (MOTION_ENGINE_NO_OP_PRESET),
+ * event/workflow/motion-beat-react-runner.js (createMotionBeatReactRunner()), event/workflow/
+ * motion-transition-runner.js (createMotionTransitionRunner()), service/db.js
+ * (getMeta/setMeta/getImageRecord).
  * NẠP TRƯỚC: event/workflow/video-player.js, event/workflow/photo-player.js,
  * event/workflow/app-settings.js, event/workflow/app-boot.js.
  */
 
 const workflowPlayerDisplaySettings = {
     _videoShowingRunner: null, // instance createMotionBeatReactRunner(), tạo LƯỜI — xem _ensureVideoShowingRunner()
+    _videoTransitionRunner: null, // instance createMotionTransitionRunner(), tạo LƯỜI — xem _ensureVideoTransitionRunner()
+
+    /** Resolve preset Transition cho `direction` ('next'|'prev') của Video — đọc field TƯƠNG ỨNG
+     * (`videoTransitionNextPresetId`/`videoTransitionPrevPresetId`, core/config.js — 2 field TÁCH
+     * RIÊNG, Giang chốt từ đầu "transition tách ra chọn riêng motion transition cho next, prev"),
+     * tra `appState.motionPresets`. Preset chưa gắn/preset đã bị xoá -> `MOTION_ENGINE_NO_OP_PRESET`
+     * (event/workflow/motion-engine.js — `transitionEnabled:false`) — Runner tự cắt cứng, không
+     * animation gì, ĐÚNG hành vi "chưa gắn Motion" cho vai trò này.
+     * @param {'next'|'prev'} direction @returns {object} */
+    _resolveVideoTransitionPreset(direction) {
+        const field = direction === 'prev' ? 'videoTransitionPrevPresetId' : 'videoTransitionNextPresetId';
+        const presetId = appConfigPlayerDisplay.getAll()[field]; // core/config.js
+        if (!presetId) return MOTION_ENGINE_NO_OP_PRESET; // event/workflow/motion-engine.js
+        return findMotionPresetById(appState.get('motionPresets'), presetId) || MOTION_ENGINE_NO_OP_PRESET; // core/motion-presets.js
+    },
+
+    /** Tạo (LƯỜI, ĐÚNG 1 LẦN) instance `createMotionTransitionRunner()` RIÊNG của Video Player mode
+     * (taskName riêng, KHÔNG trùng VBG — mỗi Runner tự giữ bộ nhớ hướng random + timer dọn dẹp CỦA
+     * RIÊNG mình, xem event/workflow/motion-transition-runner.js).
+     * @returns {ReturnType<typeof createMotionTransitionRunner>} */
+    _ensureVideoTransitionRunner() {
+        if (!this._videoTransitionRunner) {
+            this._videoTransitionRunner = createMotionTransitionRunner('playerVideoTransitionCleanup'); // event/workflow/motion-transition-runner.js
+        }
+        return this._videoTransitionRunner;
+    },
+
+    /** Chạy Transition (hoặc cắt cứng, tuỳ preset) giữa layer A (`bgVideoElement`, ĐANG đứng hình
+     * frame CŨ — gọi hàm này SAU khi đã `pause()`, TRƯỚC khi đụng `src` mới) và layer B
+     * (`visualBgImageElement`, VỪA nhận thumb MỚI — gọi SAU khi đã chèn xong thumb đó) — mirror
+     * ĐÚNG mô hình layer A/B của VBG (Giang chỉ ra) — CHỈ khác: container DÙNG CHUNG là
+     * `motionEngineReactLayer` (element Video Player mode đã mượn làm cha chung của layer A/B,
+     * xem core/player-display-apply.js::attachVideoPlayerMotionToSharedReactLayer()), KHÔNG phải
+     * `#visual-motion-container` riêng của VBG.
+     *
+     * KHÔNG gán/gỡ NỘI DUNG layer nào ở đây (Runner không biết/không đụng, xem docstring event/
+     * workflow/motion-transition-runner.js — "tua vít") — nơi gọi (event/workflow/video-player.js
+     * ::swapBgVideoSource()) đã tự gán nội dung layer B TRƯỚC khi gọi hàm này, và tự lo layer A
+     * (opacity/src mới) SAU KHI Promise trả về đây resolve.
+     *
+     * `advanceMs` truyền `0` — Video KHÔNG tính trước "thời lượng hiển thị" như VBG (Giang chỉ ra:
+     * next/prev/end tự nhiên, KHÔNG có mốc thời gian định trước để kẹp theo) — Runner tự hiểu `0`
+     * là "không kẹp, dùng thẳng `preset.transitionDurationMs`" (xem docstring `runTransition()`,
+     * event/workflow/motion-transition-runner.js — nhánh vốn đã có sẵn cho mode 'perSong' của VBG).
+     * @param {'next'|'prev'} direction @returns {Promise<void>} resolve khi layer A "xong việc". */
+    runVideoPlayerTransition(direction) {
+        const preset = this._resolveVideoTransitionPreset(direction);
+        return new Promise((resolve) => {
+            this._ensureVideoTransitionRunner().runTransition( // event/workflow/motion-transition-runner.js
+                motionEngineReactLayer, // container — core/dom-refs.js
+                bgVideoElement, // outgoing (layer A) — core/dom-refs.js
+                visualBgImageElement, // incoming (layer B) — core/dom-refs.js
+                preset,
+                0, // advanceMs — xem docstring trên
+                resolve,
+            );
+        });
+    },
+
+    /** Huỷ timer dọn dẹp Transition CÒN TREO (nếu có lượt nào chưa kịp settle — vd vừa Next xong
+     * thoát mode ngay) — gọi lúc THOÁT Video Player mode (event/workflow/video-player.js
+     * ::exitVideoPlayerMode()) — BẮT BUỘC, cùng lý do `stopVideoPlayerReactBeat()`: Runner gọi
+     * `onSettle` (Promise `resolve` của lượt `runVideoPlayerTransition()` dở dang, nếu có) NGAY khi
+     * `stop()` chạy, tránh treo mãi 1 Promise không bao giờ resolve. No-op nếu chưa từng tạo Runner. */
+    stopVideoPlayerTransition() {
+        if (this._videoTransitionRunner) this._videoTransitionRunner.stop(); // event/workflow/motion-transition-runner.js
+    },
 
     /** Khôi phục lựa chọn đã lưu bền LÚC BOOT — gọi từ event/workflow/app-boot.js. Chưa từng lưu
      * (boot lần đầu) -> `saved` rỗng, giữ nguyên default đã seed sẵn trong appConfigPlayerDisplay
