@@ -159,10 +159,18 @@ const workflowVideoPlayer = {
         // skipAutoplay đầu hàm.
         if (!skipAutoplay) bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
 
-        // KHÔNG dọn/ẩn `_forcedBgObjectUrl` ở đây sau khi 'playing' bắn — GIỮ NGUYÊN quyết định gốc
-        // (31/07/2026): cứ để đó, lần transition/swap KẾ TIẾP tự ghi đè (đầu hàm này, guard revoke
-        // phía trên) — layer đó z-index -2, NẰM DƯỚI `bgVideoElement` (z-index 0), vô hại khi video
-        // đang phát thật đè lên trên, không cần dọn ngay.
+        // SỬA (Giang báo bug "video không hiện lại, chỉ còn lớp ảnh full-res đứng mãi") — TRƯỚC ĐÂY
+        // comment dưới đây giả định z-index CỐ ĐỊNH `#visual-bg-image:-2` < `#bg-video:0` (base.css)
+        // nên "không cần dọn/đổi gì thêm" — giả định đó SAI kể từ khi z-index của 2 layer này được
+        // ĐIỀU KHIỂN SỐNG theo class `.me-current`/`.me-layer-enter`/`.me-layer-exit`
+        // (assets/css/motion-engine.css, fix trước) — cuối 1 lượt Transition, `visualBgImageElement`
+        // LÀ bên giữ `.me-current` (z-index 2), còn `bgVideoElement` chỉ còn `.motion-layer` trơn
+        // (z-index 1) — tức layer ẢNH giờ ĐÈ LÊN TRÊN layer VIDEO, dù JS có set lại
+        // `bgVideoElement.style.opacity='1'` thì cũng bị ảnh che mất, KHÔNG bao giờ lộ lại. `finish()`
+        // dưới đây giờ tự trả `.me-current` VỀ ĐÚNG `bgVideoElement` (video THẬT, giờ đã sẵn sàng/
+        // đang phát) VÀ gỡ khỏi `visualBgImageElement` (ảnh full-res chỉ còn là lớp DỰ PHÒNG, không
+        // cần đứng "current" nữa) — khôi phục ĐÚNG trật tự z-index (video trên, ảnh dưới) trước khi
+        // lượt Transition KẾ TIẾP cần trạng thái sạch này làm điểm xuất phát.
         this._swapReadyPromise = new Promise((resolve) => {
             let done = false;
             const finish = () => {
@@ -173,7 +181,11 @@ const workflowVideoPlayer = {
                 // best-effort — CÙNG mốc `hideUntilReady` dùng, không thêm cơ chế chờ riêng) -> LỘ
                 // layer A (opacity 1), đúng bước CUỐI Giang mô tả ("playing check -> ok -> opacity
                 // 1 và phát").
-                if (isVideoPlayerModeSwap) bgVideoElement.style.opacity = '1';
+                if (isVideoPlayerModeSwap) {
+                    bgVideoElement.style.opacity = '1';
+                    bgVideoElement.classList.add('me-current'); // FIX — xem comment trên _swapReadyPromise
+                    if (visualBgImageElement) visualBgImageElement.classList.remove('me-current');
+                }
                 resolve();
             };
             if (skipAutoplay) {
