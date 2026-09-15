@@ -75,16 +75,14 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.barStyle.label': 'Bar style',
     'visualizerSettingsDrawer.barStyle.mirror': 'Mirror (butterfly)',
     'visualizerSettingsDrawer.barStyle.cascade': 'Cascade',
-    // MỚI (05/09/2026, yêu cầu Giang, "group hoá" effect picker) — "Black Hole"/"Rubik"/"Space"
-    // TRƯỚC ĐÂY là tên GROUP/type riêng (settingsVisualizer.type.*, lang/patch/
-    // patch-subtitle-settings.js) — giờ "Black Hole" là 1 STYLE của group "bar", "Rubik" là 1
-    // STYLE của group "shape" (MỚI), "Galaxy Explore" là 1 STYLE của group "space" (TÊN MỚI, trước
-    // đây group "space" không có khái niệm style con) — cần key riêng theo đúng field/group chứa
-    // nó (khớp CUSTOM_EFFECT_STYLE_LABEL_KEYS, core/custom-effect.js), TÁI DÙNG y nguyên text
+    // MỚI (05/09/2026, yêu cầu Giang, "group hoá" effect picker) — "Black Hole"/"Rubik" TRƯỚC
+    // ĐÂY là tên GROUP/type riêng (settingsVisualizer.type.*, lang/patch/patch-subtitle-
+    // settings.js) — giờ "Black Hole" là 1 STYLE của group "bar", "Rubik" là 1 STYLE của group
+    // "shape" (MỚI) — cần key riêng theo đúng field/group chứa nó (khớp
+    // CUSTOM_EFFECT_STYLE_LABEL_KEYS, core/custom-effect.js), TÁI DÙNG y nguyên text
     // 'Black Hole'/'Rubik' đã dịch sẵn ở 2 key .type.blackHole/.type.rubik.
     'visualizerSettingsDrawer.barStyle.blackHole': 'Black Hole',
     'visualizerSettingsDrawer.shapeStyle.rubik': 'Rubik',
-    'visualizerSettingsDrawer.spaceStyle.galaxyExplore': 'Galaxy Explore',
     // MỚI (05/09/2026, yêu cầu Giang) — Modal chọn effect (2 dropdown group -> style + nút Chọn),
     // mở qua GIỮ 1.5s #btn-cycle-mode — xem core/visualizer/visualizer-display.js::
     // openEffectPickerModal(). Nút "Chọn"/"Huỷ" TÁI DÙNG common.select/common.cancel có sẵn
@@ -124,15 +122,6 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.streetDensity': 'Rain density',
     'customEffectDrawer.field.streetBuildingScale': 'Building size',
     'customEffectDrawer.field.tunnelRingCount': 'Number of rings',
-    'customEffectDrawer.field.starCountMin': 'Stars per galaxy (min)',
-    'customEffectDrawer.field.starCountMax': 'Stars per galaxy (max)',
-    'customEffectDrawer.field.nebulaCount': 'Nebula density',
-    'customEffectDrawer.field.dustCount': 'Space dust density',
-    'customEffectDrawer.field.clusterGalaxyCountMin': 'Galaxies per cluster (min)',
-    'customEffectDrawer.field.clusterGalaxyCountMax': 'Galaxies per cluster (max)',
-    'customEffectDrawer.field.clusterSpreadRadius': 'Cluster spread radius',
-    'customEffectDrawer.field.clusterDistanceMin': 'Cluster distance (min)',
-    'customEffectDrawer.field.clusterDistanceMax': 'Cluster distance (max)',
 
     // Style "fireworks" (nhóm Lighting) — field số + checkbox 14 kiểu nổ + danh sách chữ bắn
     // pháo hoa. flashThreshold (chớp màn hình) DÙNG CHUNG với style "thunder", xem bên dưới. Xem
