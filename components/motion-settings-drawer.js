@@ -424,11 +424,23 @@ function renderPointMoveFieldRows(key, field, cfg) {
     // MỚI (phản hồi Giang — ô nhập số type=number sync 2 chiều với slider) — single mode: 1 ô; range
     // mode: 2 ô (min/max), cùng min/max/step với slider tương ứng (validate JS ở event/workflow/
     // app-settings.js — kẹp biên trước khi gửi qua eventBus).
-    const singleInputHtml = `<input type="number" inputmode="decimal" id="ptmove-${key}-single-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.single}" class="w-20 rounded-lg px-2 py-1 text-xs text-right outline-none${isSingle ? '' : ' hidden'}" data-uitk="inputBg inputBorder inputText">`;
+    // MỚI LẦN 2 (phản hồi Giang — `inputmode="decimal"` fix được bàn phím full nhưng bàn phím decimal
+    // của iOS KHÔNG có phím trừ, field cho phép âm (boundMin<0 — CẢ 6 field Point Move) không gõ được
+    // số âm nữa) — thêm nút "±" nhỏ cạnh MỖI ô input thuộc field cho phép âm, bấm để ĐẢO DẤU giá trị
+    // hiện tại (thay cho việc gõ dấu trừ bằng bàn phím) — CHỈ hiện khi `cfg.boundMin < 0` (field
+    // React Beat max — zoom/panX/panY/rotate — toàn số dương, KHÔNG cần nút này).
+    const signToggleBtnHtml = (inputId) => cfg.boundMin < 0 ? `<button type="button" data-ptmove-sign-toggle="${inputId}" class="w-7 h-7 shrink-0 flex items-center justify-center rounded-lg text-sm font-bold" data-uitk="inputBg inputBorder inputText" title="${escapeHtml(t('motionSettingsDrawer.pointMove.signToggle.title'))}">±</button>` : '';
+    const singleInputHtml = `
+                    <div class="flex items-center gap-1${isSingle ? '' : ' hidden'}" id="ptmove-${key}-single-input-wrap">
+                        ${signToggleBtnHtml(`ptmove-${key}-single-input`)}
+                        <input type="number" inputmode="decimal" id="ptmove-${key}-single-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.single}" class="w-20 rounded-lg px-2 py-1 text-xs text-right outline-none" data-uitk="inputBg inputBorder inputText">
+                    </div>`;
     const rangeInputHtml = `<div class="flex items-center gap-1${isSingle ? ' hidden' : ''}" id="ptmove-${key}-range-input-wrap">
+                                    ${signToggleBtnHtml(`ptmove-${key}-rangemin-input`)}
                                     <input type="number" inputmode="decimal" id="ptmove-${key}-rangemin-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.rangeMin}" class="w-16 rounded-lg px-2 py-1 text-xs text-right outline-none" data-uitk="inputBg inputBorder inputText">
                                     <span class="text-xs text-slate-400">~</span>
                                     <input type="number" inputmode="decimal" id="ptmove-${key}-rangemax-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.rangeMax}" class="w-16 rounded-lg px-2 py-1 text-xs text-right outline-none" data-uitk="inputBg inputBorder inputText">
+                                    ${signToggleBtnHtml(`ptmove-${key}-rangemax-input`)}
                                 </div>`;
     return `
                         <div class="p-4${borderClass}">
