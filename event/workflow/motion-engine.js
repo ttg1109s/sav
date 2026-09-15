@@ -5,8 +5,8 @@
  * (không tự đọc DB, không có khái niệm imageKey) — CHỈ còn 5 hàm public:
  *   `showImage(objectUrl, preset, advanceMs)` — hiện `objectUrl` lên layer hiện hành; Engine TỰ QUYẾT
  *                                     hiện tĩnh (chưa có ảnh nào) hay transition từ ảnh đang hiện sang
- *                                     (đã có), dựa trên `hasResource()` CỦA Transition Runner — nơi
- *                                     gọi (VBG) không cần/không được biết đây là ảnh đầu hay ảnh kế.
+ *                                     (đã có), dựa trên `_hasCurrentResource` CỦA CHÍNH NÓ — nơi gọi
+ *                                     không cần/không được biết đây là ảnh đầu hay ảnh kế.
  *                                     `objectUrl` rỗng/null -> coi như `stop()`.
  *   `updatePreset(preset, advanceMs)` — đổi preset đang áp cho ẢNH ĐANG HIỆN, KHÔNG đổi ảnh/không
  *                                     chạy transition — chỉ Point Move/React Beat đổi theo preset mới
@@ -23,19 +23,21 @@
  * chịu trách nhiệm giữ/chuyển layer/revoke URL đó, nơi gọi KHÔNG revoke lại. Ranh giới này tách hẳn
  * "ảnh lấy từ đâu" (VBG/service, có thể đổi nguồn sau này) khỏi "hiện ảnh như thế nào" (Engine).
  *
- * SỬA (Giang chỉ ra: "Motion cung cấp cơ chế, nơi tiêu thụ quyết hành vi của mình và sử dụng cơ chế
- * đó như thế nào, giống như gọi API" — audit toàn diện, "tiếp tục làm Transition cho VBG") — TOÀN
- * BỘ 3 mảng (React Beat, Point Move, Transition) giờ ĐÃ CHUYỂN HẲN ra Runner DÙNG CHUNG:
- *   `createMotionBeatReactRunner()` (event/workflow/motion-beat-react-runner.js) — `_beatReactRunner`.
- *   `createMotionPointMoveRunner()` (event/workflow/motion-point-move-runner.js) — `_pointMoveRunner`.
- *   `createMotionTransitionRunner()` (event/workflow/motion-transition-runner.js) — `_transitionRunner`.
- * Đọc docstring TỪNG file Runner cho toàn bộ chi tiết cơ chế + lịch sử bugfix, giữ NGUYÊN VẸN,
- * không tóm tắt lại ở đây tránh 2 nguồn sự thật lệch nhau. File NÀY giờ CHỈ còn ĐIỀU PHỐI — biết KHI
- * NÀO gọi Runner nào, KHÔNG còn giữ state/logic THẬT của bất kỳ mảng nào trong 3 mảng trên. VBG giờ
- * là 1 "nơi tiêu thụ" của cả 3 Runner, đúng nghĩa "Motion tách khỏi nơi tiêu thụ" — Player (Video/
- * Photo) CHƯA dùng Transition Runner (chưa quyết cách "chuyển bài" nên trông thế nào — crossfade 2
- * layer như Photo, cắt cứng, hay tái dùng cơ chế thumb chống nháy đen sẵn có), NHƯNG cơ chế đã sẵn
- * sàng dùng ngay khi cần, không cần rút lại lần nữa.
+ * SỬA (Giang chỉ ra: "Motion cung cấp cơ chế THUẦN [như cái tua vít] — không quan tâm ai dùng/dùng
+ * vào việc gì, nơi tiêu thụ tự quyết gắn ở đâu, dùng ra sao") — React Beat/Point Move ĐÃ chuyển hẳn
+ * ra Runner DÙNG CHUNG (event/workflow/motion-beat-react-runner.js/motion-point-move-runner.js).
+ * Transition CŨNG vậy (event/workflow/motion-transition-runner.js) — NHƯNG bản Runner Transition
+ * ĐẦU (audit lần trước) vẫn CÒN SAI: tự ý quản lý object URL + tự gọi `setMotionEngineLayerImage()`
+ * gán/gỡ nội dung layer — ĐÓ là quyết định CỦA VBG (ảnh lấy từ URL, nội dung là background-image),
+ * KHÔNG phải bản chất "transition" (bằng chứng: Video Player mode dùng layer A = `<video>`, không
+ * có background-image, "chuẩn bị nội dung" của nó là KHÔNG LÀM GÌ — Runner cũ ép `setMotionEngineLayerImage()`
+ * lên layer A sẽ vô nghĩa). SỬA LẦN 2 — Runner giờ CHỈ còn `runTransition(containerEl, outgoingEl,
+ * incomingEl, preset, advanceMs, onSettle)`: set thuộc tính transition + class + timing + hẹn giờ,
+ * gọi `onSettle()` khi outgoing "xong việc" — KHÔNG đụng nội dung. File NÀY (nơi tiêu thụ CỦA
+ * Transition Runner, đại diện VBG) giờ tự giữ LẠI toàn bộ state/quyết định thuộc về mình:
+ * `_layerToggle`/`_hasCurrentResource`/`_currentObjectUrl`/`_currentLayer()`/`_idleLayer()`/
+ * `_currentPanLayer()`/`_idlePanLayer()` — VÀ tự gán/gỡ `background-image` (`setMotionEngineLayerImage()`)
+ * + tự revoke URL NGAY TRONG callback `onSettle` truyền cho `runTransition()`.
  *
  * NẠP SAU: core/motion-engine.js, core/motion-presets.js (findMotionPresetById() — dùng ở
  * livePointMoveToggle()/_getBeatReactPreset()), event/workflow/motion-beat-react-runner.js
@@ -43,9 +45,9 @@
  * (createMotionPointMoveRunner()), event/workflow/motion-transition-runner.js
  * (createMotionTransitionRunner()), core/dom-refs.js (motionEngineContainer/
  * motionEnginePointMoveWrapper/motionEngineLayer1,2/motionEngineLayer1,2Pan/motionEngineReactLayer).
- * KHÔNG còn phụ thuộc service/task-manager.js trực tiếp — Cả 3 mảng (React Beat/Point Move/
- * Transition) đều nằm HẲN trong Runner riêng của chúng. KHÔNG còn phụ thuộc service/db.js — Engine
- * không tự đọc record nữa (SỬA, tách "resolve ảnh" khỏi "hiện ảnh").
+ * service/task-manager.js — CHỈ còn dùng cho `_thumbFullBlobDecode`-style chờ gì đó CỦA RIÊNG file
+ * này nếu có (hiện KHÔNG dùng trực tiếp — cả 3 mảng React Beat/Point Move/Transition đều nằm HẲN
+ * trong Runner riêng của chúng). KHÔNG còn phụ thuộc service/db.js — Engine không tự đọc record nữa.
  */
 
 /** Preset "tắt hết" — dùng khi nơi gọi truyền `null`/`undefined` (chưa gắn Motion) — KHÔNG fallback
@@ -65,15 +67,27 @@ const MOTION_ENGINE_BEATREACT_DECAY_MS = 250;
 const MOTION_ENGINE_TRANSITION_CLEANUP_TASK = 'motionEngineTransitionCleanup';
 
 const workflowMotionEngine = {
-    _activePreset: MOTION_ENGINE_NO_OP_PRESET, // preset của LƯỢT HIỂN THỊ GẦN NHẤT — React Beat đọc id từ đây rồi tự tra tươi (Point Move/Transition giờ Runner tự giữ preset riêng qua tham số mỗi lệnh gọi)
+    _activePreset: MOTION_ENGINE_NO_OP_PRESET, // preset của LƯỢT HIỂN THỊ GẦN NHẤT — React Beat đọc id từ đây rồi tự tra tươi (Point Move giờ Runner tự giữ preset riêng qua tham số mỗi lệnh gọi)
+    _layerToggle: false,    // false = layer1 đang 'current', true = layer2 — SỞ HỮU của VBG (Runner KHÔNG còn giữ khái niệm này, xem docstring đầu file)
+    _hasCurrentResource: false, // Engine đang giữ/hiện 1 resource hay chưa — QUYẾT ĐỊNH showImage() gọi
+        // _staticReveal() (chưa có) hay _showNext() (đã có, cần transition/hard-cut). KHÔNG liên quan
+        // animation đang chạy hay đang pause — pause()/resume() KHÔNG đụng cờ này.
+    _currentObjectUrl: null, // object URL ẢNH ĐANG HIỆN — SỞ HỮU của VBG (Runner KHÔNG còn quản lý URL, xem docstring đầu file)
 
     // SỬA (Giang chỉ ra — "tách bạch trách nhiệm motion phải quản lý apply live bất kể nơi tiêu
-    // thụ" + "Motion cung cấp cơ chế, nơi tiêu thụ quyết hành vi... giống gọi API") — CẢ 3 mảng
-    // (React Beat, Point Move, Transition) giờ đều là 1 THAM CHIẾU tới 1 instance Runner DÙNG
-    // CHUNG, KHÔNG còn field state THẬT của riêng chúng ở file này nữa.
+    // thụ" + "Motion cung cấp cơ chế THUẦN, nơi tiêu thụ quyết hành vi... giống cái tua vít") — CẢ 3
+    // mảng (React Beat, Point Move, Transition) giờ đều là 1 THAM CHIẾU tới 1 instance Runner DÙNG
+    // CHUNG, KHÔNG còn field state THẬT của riêng chúng ở file này nữa — TRỪ Transition, phần STATE
+    // THUỘC VỀ VBG (layerToggle/hasCurrentResource/currentObjectUrl ở trên) vẫn Ở ĐÂY vì Runner mới
+    // KHÔNG còn quản lý nội dung/resource nữa, đúng nguyên tắc.
     _beatReactRunner: null, // tạo LƯỜI — xem _ensureBeatReactRunner()
     _pointMoveRunner: null, // tạo LƯỜI — xem _ensurePointMoveRunner()
     _transitionRunner: null, // tạo LƯỜI — xem _ensureTransitionRunner()
+
+    _currentLayer() { return this._layerToggle ? motionEngineLayer2 : motionEngineLayer1; },
+    _idleLayer() { return this._layerToggle ? motionEngineLayer1 : motionEngineLayer2; },
+    _currentPanLayer() { return this._layerToggle ? motionEngineLayer2Pan : motionEngineLayer1Pan; },
+    _idlePanLayer() { return this._layerToggle ? motionEngineLayer1Pan : motionEngineLayer2Pan; },
 
     /** Gán preset ĐANG active + đẩy `appState.motionRunning` — DUY NHẤT 1 chỗ ghi state này. Motion
      * Engine là engine render THẬT, tự quyết "cái gì đang thật sự chạy" — khác `motionPresetId`
@@ -89,77 +103,88 @@ const workflowMotionEngine = {
         appState.set('motionRunning', preset.id || null);
     },
 
-    /** Tạo (LƯỜI, ĐÚNG 1 LẦN) instance `createMotionTransitionRunner()` cho Transition của VBG —
-     * 5 element CỐ ĐỊNH (VBG luôn sở hữu chúng tại chỗ, KHÔNG như `motionEngineReactLayer` mà Video
-     * Player mode phải tự di chuyển nội dung vào/ra). SỬA (Giang chỉ ra, "tiếp tục làm Transition
-     * cho VBG") — toàn bộ điều phối Transition (2 layer A/B luân phiên, vòng đời object URL, timer
-     * dọn dẹp sau animation, 5 field hướng random) ĐÃ CHUYỂN HẲN sang Runner DÙNG CHUNG (event/
-     * workflow/motion-transition-runner.js) — file NÀY giờ CHỈ còn gọi `showImage()`/`stop()`/
-     * `hasResource()`, KHÔNG còn giữ state/logic gì của chính Transition nữa.
+    /** Tạo (LƯỜI, ĐÚNG 1 LẦN) instance `createMotionTransitionRunner()` — CHỈ còn tham số
+     * `taskName` (Runner MỚI không giữ "layers" cố định nữa, xem docstring đầu file + event/
+     * workflow/motion-transition-runner.js) — mỗi lần gọi `runTransition()` VBG tự truyền
+     * `motionEngineContainer`/2 layer hiện hành của MÌNH.
      * @returns {ReturnType<typeof createMotionTransitionRunner>} */
     _ensureTransitionRunner() {
         if (!this._transitionRunner) {
-            this._transitionRunner = createMotionTransitionRunner( // event/workflow/motion-transition-runner.js
-                MOTION_ENGINE_TRANSITION_CLEANUP_TASK,
-                { // core/dom-refs.js
-                    container: motionEngineContainer,
-                    layer1: motionEngineLayer1,
-                    layer1Pan: motionEngineLayer1Pan,
-                    layer2: motionEngineLayer2,
-                    layer2Pan: motionEngineLayer2Pan,
-                },
-            );
+            this._transitionRunner = createMotionTransitionRunner(MOTION_ENGINE_TRANSITION_CLEANUP_TASK); // event/workflow/motion-transition-runner.js
         }
         return this._transitionRunner;
     },
 
     /** Public — ĐIỂM VÀO DUY NHẤT để hiện 1 resource. `objectUrl` rỗng/null -> `stop()` HẲN (cả 3
-     * Runner — Transition Runner tự nó KHÔNG xử lý rỗng/null, xem docstring event/workflow/motion-
-     * transition-runner.js). Có nội dung -> giao THẲNG cho Transition Runner quyết tĩnh hay
-     * transition (`hasResource()` CỦA CHÍNH NÓ, KHÔNG phải field nào ở đây) — xong thì Point
-     * Move/React Beat mới activate theo, ĐÚNG thứ tự bản gốc (Transition set xong DOM rồi Point
-     * Move/React Beat mới bắt đầu animate lên đó).
-     * @param {string|null} objectUrl - ĐÃ resolve sẵn (createBlobUrl(), service/blob-url.js) —
-     *        Transition Runner nhận ownership NGAY khi hàm này được gọi (giữ/chuyển layer/revoke),
-     *        nơi gọi (VBG) không revoke lại. Rỗng/null -> coi như `stop()`.
+     * Runner). Có nội dung -> `_hasCurrentResource` (CỦA VBG, KHÔNG phải Runner) quyết tĩnh hay
+     * transition.
+     * @param {string|null} objectUrl - ĐÃ resolve sẵn (createBlobUrl(), service/blob-url.js) — VBG
+     *        nhận ownership NGAY khi hàm này được gọi (giữ/chuyển layer/revoke), nơi gọi không
+     *        revoke lại. Rỗng/null -> coi như `stop()`.
      * @param {object} preset - ĐÃ resolve sẵn (MOTION_ENGINE_NO_OP_PRESET nếu chưa gắn Motion).
      * @param {number} advanceMs - thời lượng hiển thị ảnh NÀY — nơi gọi tự tính, dùng làm thời lượng
      *        chạy Point Move/transition.
      */
     async showImage(objectUrl, preset, advanceMs) {
         if (!objectUrl) { this.stop(); return; }
-        this._setActivePreset(preset);
-        await this._ensureTransitionRunner().showImage(objectUrl, preset, advanceMs); // event/workflow/motion-transition-runner.js
-        this._ensurePointMoveRunner().activateForNewContent(this._activePreset, advanceMs); // event/workflow/motion-point-move-runner.js
-        this._syncBeatReactLoop();
+        if (this._hasCurrentResource) { await this._showNext(objectUrl, preset, advanceMs); return; }
+        await this._staticReveal(objectUrl, preset, advanceMs);
     },
 
     /** Public — đổi preset đang áp cho ẢNH ĐANG HIỆN tại chỗ: KHÔNG đổi ảnh, KHÔNG chạy transition,
-     * chỉ Point Move/React Beat chuyển sang preset mới NGAY (`activateForPresetChange()` của Runner
-     * tự tiếp diễn mượt từ vị trí thật đang hiển thị, không giật về baseline — xem docstring
-     * event/workflow/motion-point-move-runner.js). No-op nếu chưa có resource nào đang hiện
-     * (`_ensureTransitionRunner().hasResource()`).
+     * chỉ Point Move/React Beat chuyển sang preset mới NGAY. No-op nếu chưa có resource nào đang hiện.
      * @param {object} preset - preset MỚI (MOTION_ENGINE_NO_OP_PRESET nếu chọn "Không") @param {number} advanceMs */
     updatePreset(preset, advanceMs) {
-        if (!this._ensureTransitionRunner().hasResource()) return; // event/workflow/motion-transition-runner.js
+        if (!this._hasCurrentResource) return;
         this._setActivePreset(preset || MOTION_ENGINE_NO_OP_PRESET);
         this._ensurePointMoveRunner().activateForPresetChange(this._activePreset, advanceMs); // event/workflow/motion-point-move-runner.js
         this._syncBeatReactLoop();
     },
 
-    /** Tạo (LƯỜI, ĐÚNG 1 LẦN) instance `createMotionPointMoveRunner()` cho Point Move của VBG —
-     * target CỐ ĐỊNH `motionEnginePointMoveWrapper` (VBG luôn sở hữu nó tại chỗ). Toàn bộ điều phối
-     * Point Move (dispatcher 'one'/'all', đường cong Timing, force-baseline, suy vị trí SỐNG liền
-     * mạch...) nằm HẲN trong Runner DÙNG CHUNG (event/workflow/motion-point-move-runner.js) — file
-     * NÀY giờ CHỈ còn gọi ĐÚNG lúc (`activateForNewContent()` ở `showImage()`,
-     * `activateForPresetChange()` ở `updatePreset()`), KHÔNG còn giữ state/logic gì của chính
-     * Point Move nữa.
-     * @returns {ReturnType<typeof createMotionPointMoveRunner>} */
-    _ensurePointMoveRunner() {
-        if (!this._pointMoveRunner) {
-            this._pointMoveRunner = createMotionPointMoveRunner(() => motionEnginePointMoveWrapper); // event/workflow/motion-point-move-runner.js, core/dom-refs.js
-        }
-        return this._pointMoveRunner;
+    /** Internal — hiện resource ĐẦU tĩnh (chưa có ảnh "cũ" nào để transition từ đó). CHỈ gọi từ
+     * `showImage()` khi `_hasCurrentResource===false`. KHÔNG gọi Transition Runner — không có gì để
+     * transition TỪ, chỉ set nội dung/class thẳng lên layer hiện hành. */
+    async _staticReveal(objectUrl, preset, advanceMs) {
+        this.stop();
+        setMotionEngineContainerVisible(motionEngineContainer, true); // core
+        this._currentObjectUrl = objectUrl;
+        const panEl = this._currentPanLayer();
+        const layerEl = this._currentLayer();
+        setMotionEngineLayerImage(panEl, objectUrl); // core
+        if (layerEl) layerEl.classList.add('me-current');
+        this._setActivePreset(preset);
+        this._hasCurrentResource = true;
+        this._ensurePointMoveRunner().activateForNewContent(preset, advanceMs); // event/workflow/motion-point-move-runner.js
+        this._syncBeatReactLoop();
+    },
+
+    /** Internal — 1 lượt CHUYỂN từ resource đang hiện sang `objectUrl` — GÁN nội dung layer đích
+     * TRƯỚC (LUÔN cần, bất kể có Transition hay không), rồi giao cho Transition Runner CHẠY animation
+     * (hoặc cắt cứng) — VBG tự dọn nội dung layer nguồn (`outgoingPan`) + revoke URL cũ NGAY TRONG
+     * `onSettle` (callback Runner gọi khi outgoing layer "xong việc").
+     * @param {string} objectUrl @param {object} preset @param {number} advanceMs */
+    async _showNext(objectUrl, preset, advanceMs) {
+        this._setActivePreset(preset);
+        const outgoingLayer = this._currentLayer();
+        const incomingLayer = this._idleLayer();
+        const outgoingPan = this._currentPanLayer();
+        const incomingPan = this._idlePanLayer();
+
+        setMotionEngineLayerImage(incomingPan, objectUrl); // core — LUÔN cần, bất kể có Transition hay không
+        this._ensurePointMoveRunner().activateForNewContent(preset, advanceMs); // event/workflow/motion-point-move-runner.js — KHÔNG còn theo layer, activate CHUNG cho cả 2 (trên motionEnginePointMoveWrapper)
+
+        const staleUrl = this._currentObjectUrl; // capture LOCAL trước khi gán mới — revoke qua closure trong onSettle, không đọc lại field (có thể đã bị lượt SAU ghi đè lúc onSettle chạy)
+        this._ensureTransitionRunner().runTransition( // event/workflow/motion-transition-runner.js
+            motionEngineContainer, outgoingLayer, incomingLayer, preset, advanceMs,
+            () => { // onSettle — outgoingLayer "xong việc", VBG tự dọn NỘI DUNG của nó (Runner không biết/không đụng)
+                setMotionEngineLayerImage(outgoingPan, ''); // core
+                if (staleUrl) { try { URL.revokeObjectURL(staleUrl); } catch (e) {} }
+            },
+        );
+
+        this._currentObjectUrl = objectUrl;
+        this._layerToggle = !this._layerToggle;
+        this._syncBeatReactLoop();
     },
 
     // ===================== Toggle sống từ màn Edit Motion (phản hồi Giang — "off/on Point
@@ -181,11 +206,26 @@ const workflowMotionEngine = {
      * @param {string} presetId @param {boolean} enabled
      */
     livePointMoveToggle(presetId, enabled) {
-        if (!this._ensureTransitionRunner().hasResource() || appState.get('motionRunning') !== presetId) return; // event/workflow/motion-transition-runner.js
+        if (!this._hasCurrentResource || appState.get('motionRunning') !== presetId) return;
         const preset = findMotionPresetById(appState.get('motionPresets'), presetId); // core/motion-presets.js
         if (!preset) return;
         this._setActivePreset(preset); // đồng bộ bản cache theo đúng dữ liệu vừa lưu (enabled mới)
         this._ensurePointMoveRunner().liveToggle(preset, enabled); // event/workflow/motion-point-move-runner.js
+    },
+
+    /** Tạo (LƯỜI, ĐÚNG 1 LẦN) instance `createMotionPointMoveRunner()` cho Point Move của VBG —
+     * target CỐ ĐỊNH `motionEnginePointMoveWrapper` (VBG luôn sở hữu nó tại chỗ). Toàn bộ điều phối
+     * Point Move (dispatcher 'one'/'all', đường cong Timing, force-baseline, suy vị trí SỐNG liền
+     * mạch...) nằm HẲN trong Runner DÙNG CHUNG (event/workflow/motion-point-move-runner.js) — file
+     * NÀY giờ CHỈ còn gọi ĐÚNG lúc (`activateForNewContent()` ở `_staticReveal()`/`_showNext()`,
+     * `activateForPresetChange()` ở `updatePreset()`), KHÔNG còn giữ state/logic gì của chính
+     * Point Move nữa.
+     * @returns {ReturnType<typeof createMotionPointMoveRunner>} */
+    _ensurePointMoveRunner() {
+        if (!this._pointMoveRunner) {
+            this._pointMoveRunner = createMotionPointMoveRunner(() => motionEnginePointMoveWrapper); // event/workflow/motion-point-move-runner.js, core/dom-refs.js
+        }
+        return this._pointMoveRunner;
     },
 
     /** Đóng băng animation (Point Move + BeatReact) TẠI ĐÚNG VỊ TRÍ đang chạy — nơi gọi
@@ -202,12 +242,20 @@ const workflowMotionEngine = {
         if (this._pointMoveRunner) this._pointMoveRunner.resume(); // event/workflow/motion-point-move-runner.js
     },
 
-    /** Dừng hẳn — dọn CẢ 3 Runner + reset preset active. Transition Runner tự lo dọn layer/URL/
-     * timer treo của chính nó (event/workflow/motion-transition-runner.js::stop()). */
+    /** Dừng hẳn — dọn CẢ 3 Runner (Transition Runner giờ chỉ huỷ timer treo + gọi `onSettle` dở
+     * dang nếu có, KHÔNG còn tự dọn layer — VBG tự dọn NGAY dưới) + dọn layer/URL/state CỦA VBG +
+     * reset preset active. */
     stop() {
         if (this._transitionRunner) this._transitionRunner.stop(); // event/workflow/motion-transition-runner.js
         if (this._beatReactRunner) this._beatReactRunner.stop(); // event/workflow/motion-beat-react-runner.js — kill task + trả transform về rỗng
         if (this._pointMoveRunner) this._pointMoveRunner.stop(); // event/workflow/motion-point-move-runner.js — dừng animation + dọn state suy tiếp
+        setMotionEngineContainerVisible(motionEngineContainer, false); // core
+        [[motionEngineLayer1, motionEngineLayer1Pan], [motionEngineLayer2, motionEngineLayer2Pan]].forEach(([layerEl, panEl]) => {
+            setMotionEngineLayerImage(panEl, ''); // core
+            resetMotionEngineLayerClasses(layerEl); // core
+        });
+        if (this._currentObjectUrl) { try { URL.revokeObjectURL(this._currentObjectUrl); } catch (e) {} this._currentObjectUrl = null; }
+        this._hasCurrentResource = false;
         this._setActivePreset(MOTION_ENGINE_NO_OP_PRESET);
     },
 
@@ -222,7 +270,7 @@ const workflowMotionEngine = {
      * đổi (chỉ object reference đổi), nên tra theo id vẫn đúng.
      * @returns {object|null} */
     _getBeatReactPreset() {
-        if (!this._ensureTransitionRunner().hasResource()) return null; // event/workflow/motion-transition-runner.js
+        if (!this._hasCurrentResource) return null;
         const presetId = this._activePreset.id;
         if (!presetId) return null; // MOTION_ENGINE_NO_OP_PRESET (chưa gắn gì) không có field `id`
         const preset = findMotionPresetById(appState.get('motionPresets'), presetId) || this._activePreset; // core/motion-presets.js — preset vừa bị XOÁ hẳn (hiếm) -> fallback bản cache cũ
@@ -246,8 +294,8 @@ const workflowMotionEngine = {
     },
 
     /** Bật/tắt React Beat Audio CHO ĐÚNG hiện trạng — gọi ở MỌI điểm `_activePreset` CÓ THỂ vừa đổi
-     * (`showImage()`/`updatePreset()`). CHỈ còn 1 dòng gọi thẳng Runner — KHÔNG tự quản lý task/
-     * state gì nữa (xem event/workflow/motion-beat-react-runner.js). */
+     * (`_staticReveal()`/`_showNext()`/`updatePreset()`). CHỈ còn 1 dòng gọi thẳng Runner — KHÔNG
+     * tự quản lý task/state gì nữa (xem event/workflow/motion-beat-react-runner.js). */
     _syncBeatReactLoop() {
         this._ensureBeatReactRunner().sync();
     },
