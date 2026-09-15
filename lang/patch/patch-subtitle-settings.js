@@ -152,7 +152,8 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // panel VBG cha — xem visualBgSettingsDrawer.durationSeconds.*/durationMode.* ngay dưới.
     // MỚI (29/08/2026, phản hồi Giang) — toggle "Có áp dụng Transition hay không", ĐỘC LẬP với việc
     // chọn hiệu ứng (select ngay dưới LUÔN hiện, kể cả tắt).
-    'motionSettingsDrawer.transitionEnabled.label': 'Apply transition',
+    // 'motionSettingsDrawer.transitionEnabled.label' XOÁ (phản hồi Giang — dời toggle lên hàng title
+    // "Transition", không còn hàng riêng để dùng nhãn này nữa).
     'motionSettingsDrawer.transition.label': 'Transition effect',
     'motionSettingsDrawer.transition.fade': 'Fade',
     'motionSettingsDrawer.transition.slide': 'Slide',
@@ -205,7 +206,8 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'motionSettingsDrawer.edgeFlipStaticOld.label': 'Keep before image still',
     // Point Move (thay Ken Burns, phản hồi Giang) — danh sách điểm chuyển động NGƯỜI DÙNG tự định
     // nghĩa (Linear X/Y, Rotate, Zoom, Flip X/Y), thay cho 13 chế độ Ken Burns cố định.
-    'motionSettingsDrawer.pointMove.enabled.label': 'Apply point move',
+    // 'motionSettingsDrawer.pointMove.enabled.label' XOÁ (phản hồi Giang — dời toggle lên hàng title
+    // "Point Move", không còn hàng riêng để dùng nhãn này nữa).
     'motionSettingsDrawer.pointMove.list.label': 'Point moves',
     'motionSettingsDrawer.pointMove.list.count': '{n} point move',
     'motionSettingsDrawer.pointMove.runMode.label': 'Run mode',
@@ -214,8 +216,11 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'motionSettingsDrawer.pointMove.oneOrder.label': 'Pick order',
     'motionSettingsDrawer.pointMove.oneOrder.sequential': 'Sequential',
     'motionSettingsDrawer.pointMove.oneOrder.random': 'Random',
-    'motionSettingsDrawer.pointMove.startForceBaseline.label': 'Start point: force baseline',
-    'motionSettingsDrawer.pointMove.endForceBaseline.label': 'Endpoint: force baseline',
+    // 'motionSettingsDrawer.pointMove.startForceBaseline.label' XOÁ (phản hồi Giang — bỏ hẳn field
+    // "Start point force", Point 0 giờ CHÍNH LÀ start point, xem core/motion-presets.js).
+    // SỬA (phản hồi Giang) — "Endpoint: force baseline" -> "Return baseline" + dời vào subpanel
+    // Point moves (xem components/motion-settings-drawer.js::renderPointMoveListBody()).
+    'motionSettingsDrawer.pointMove.endForceBaseline.label': 'Return baseline',
     'motionSettingsDrawer.pointMove.timing.label': 'Timing',
     'motionSettingsDrawer.pointMove.timing.hint': 'Drag each point to set when (left-right) and how strongly (up-down) it applies — tap a point to type exact numbers.',
     'motionSettingsDrawer.pointMove.timing.xLabel': 'Time %',
@@ -305,19 +310,33 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
 
     // MỚI (29/08/2026, phản hồi Giang) — "React Beat Audio": pulse zoom/pan/rotate bắn theo beat nhạc.
     'motionPresetsDrawer.beatReact.groupTitle': 'React Beat Audio',
-    'motionPresetsDrawer.beatReact.enabled.label': 'React to beat',
+    // 'motionPresetsDrawer.beatReact.enabled.label' XOÁ (phản hồi Giang — dời toggle lên hàng title
+    // "React Beat Audio", không còn hàng riêng để dùng nhãn này nữa).
     'motionPresetsDrawer.beatReact.zoom.title': 'Zoom',
     'motionPresetsDrawer.beatReact.zoom.maxLabel': 'Zoom max',
-    'motionPresetsDrawer.beatReact.pan.title': 'Pan',
-    'motionPresetsDrawer.beatReact.pan.maxLabel': 'Pan max',
+    // SỬA (phản hồi Giang — "chia Pan thành Pan X, Pan Y") — 'pan.title'/'pan.maxLabel' cũ tách
+    // thành panX/panY, ĐỘC LẬP hoàn toàn (xem core/motion-presets.js).
+    'motionPresetsDrawer.beatReact.panX.title': 'Pan X',
+    'motionPresetsDrawer.beatReact.panX.maxLabel': 'Pan X max',
+    'motionPresetsDrawer.beatReact.panY.title': 'Pan Y',
+    'motionPresetsDrawer.beatReact.panY.maxLabel': 'Pan Y max',
     'motionPresetsDrawer.beatReact.rotate.title': 'Rotate',
     'motionPresetsDrawer.beatReact.rotate.maxLabel': 'Rotate max',
     'motionPresetsDrawer.beatReact.direction.label': 'Direction',
     'motionPresetsDrawer.beatReact.reverse.label': 'Reverse (flip starting side)',
+    // MỚI (phản hồi Giang — "bổ sung tick random Max ở dưới Reverse") — xem core/motion-presets.js
+    // (`randomMax`) + event/workflow/motion-beat-react-runner.js::_rollEffectiveMax().
+    'motionPresetsDrawer.beatReact.randomMax.label': 'Random max',
     'motionPresetsDrawer.beatReact.direction.left': 'Left only',
     'motionPresetsDrawer.beatReact.direction.right': 'Right only',
     'motionPresetsDrawer.beatReact.direction.leftToRight': 'Left \u2192 Right',
     'motionPresetsDrawer.beatReact.direction.rightToLeft': 'Right \u2192 Left',
+    // MỚI (phản hồi Giang — hướng RIÊNG cho Pan Y, trục dọc) — xem
+    // core/motion-presets.js::MOTION_BEAT_REACT_DIRECTIONS_Y.
+    'motionPresetsDrawer.beatReact.direction.up': 'Up only',
+    'motionPresetsDrawer.beatReact.direction.down': 'Down only',
+    'motionPresetsDrawer.beatReact.direction.upToDown': 'Up \u2192 Down',
+    'motionPresetsDrawer.beatReact.direction.downToUp': 'Down \u2192 Up',
 
     // Tái tổ chức (07/07/2026, phản hồi Giang mục 4) — section cũ "Playlist & Background" TÁCH
     // làm 2: "Playlist" (file này, chỉ còn view/sort) + "Background" (KEY MỚI, xem
