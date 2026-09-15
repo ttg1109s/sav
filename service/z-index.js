@@ -32,6 +32,7 @@
             VIDEO_PREVIEW: 130,              // core/file-manager/video-ui.js::openVideoPreviewModal() — cùng lớp modal xem Ảnh
             VIDEO_PREVIEW_MENU: 131,         // dropdown "Lưu đè/Lưu mới" (core/dropdown-menu.js) mở TỪ TRONG modal xem Video — TRÊN modal đó
             MODAL_CHOICE: 130,               // core/modal-choice-ui.js — CÙNG lớp với các modal overlay ảnh (không phải cao nhất)
+            INFO_POPUP: 130,                 // core/info-icon-ui.js::showInfoPopup() — CÙNG lớp modalChoice (icon (i) + popup có thể mở TỪ TRONG Generic Drawer z=128, cần cao hơn 128)
             LOADING_SHIELD: 200,             // components/loading-shield.js — luôn cao nhất, KHÔNG dùng constant này được (xem ghi chú cuối file service/z-index.js)
         });
 
