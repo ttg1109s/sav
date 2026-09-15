@@ -23,10 +23,10 @@ const routerVideoPlayer = (() => {
                 // riêng, độc lập. Router chỉ CHỌN HÀM rồi truyền switchScreen xuống — quyết định
                 // switch màn hình thật sự nằm trong playVideoByKey()/startFromPlaylist() (đúng lúc
                 // video mới đã sẵn sàng, xem event/workflow/video-player.js), không quyết ở đây.
-                const { key, switchScreen = true } = msg.payload;
+                const { key, switchScreen = true, direction = 'next' } = msg.payload; // `direction` MỚI (Giang yêu cầu Transition Video Player mode)
                 VirtualMachineState.run([
                     { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
-                        workflowVideoPlayer.playVideoByKey(key, switchScreen, true); // đã ở Video Player mode (Next/Prev/shuffle, hoặc bấm lại video đang phát từ Playlist) -> CHỈ đổi video, KHÔNG lặp lại bước "vào mode". isTransition=true — cưỡng chế bg thumb dự phòng (event/workflow/video-player.js::playVideoByKey())
+                        workflowVideoPlayer.playVideoByKey(key, switchScreen, true, direction); // đã ở Video Player mode (Next/Prev/shuffle, hoặc bấm lại video đang phát từ Playlist) -> CHỈ đổi video, KHÔNG lặp lại bước "vào mode". isTransition=true — cưỡng chế bg thumb dự phòng (event/workflow/video-player.js::playVideoByKey())
                     } },
                     { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
                         // FIX (10/09/2026, Giang báo bug "hết bài lúc đang duyệt Playlist Video/Photo
