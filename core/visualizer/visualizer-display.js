@@ -18,19 +18,18 @@
  * core/modal-choice-ui.js (modalChoice() — TÁI DÙNG cho openEffectPickerModal(), không tự dựng
  * modal riêng).
  */
-        // Biến NỘI BỘ (KHÔNG thuộc STATE): lưu tạm tone mapping mặc định của renderer dùng chung
-        // (Vortex) để trả lại đúng giá trị khi rời khỏi 'space' — xem updateTypeUI() bên dưới.
-        let _spDefaultToneMapping = null;
-        // Bán kính vùng trôi của SpaceDust (đơn vị Three.js) — hằng số cấu hình.
-        const SPACE_DUST_RANGE = 500;
+        // [XOÁ — 15/09/2026, yêu cầu Giang, "dọn sạch visualizer effect space"] Group "space"
+        // (Galaxy Journey) đã BỎ HẲN — 2 biến nội bộ _spDefaultToneMapping/SPACE_DUST_RANGE trước
+        // đây ở đây (chỉ dùng trong nhánh 'space' của updateTypeUI()) đã xoá theo, cùng entry
+        // 'galaxy explore'/'space' bên dưới.
 
         // [SỬA — 05/09/2026, yêu cầu Giang, "group hoá" effect picker] Key i18n tên hiển thị CHO
         // TỪNG STYLE con (không phải group nữa) — nhãn dưới icon #btn-cycle-mode + header Custom
         // Effect Drawer (components/custom-effect-drawer.js) giờ hiện tên STYLE. TÁI DÙNG bộ text
-        // đã có ở Custom Effect Drawer/Settings (visualizerSettingsDrawer.*Style.*), 3 style
-        // "black hole"/"rubik"/"galaxy explore" cần thêm i18n key mới (trước đây là tên GROUP,
-        // không phải "style con", nên chưa có key dạng barStyle.blackHole/shapeStyle.rubik/
-        // spaceStyle.galaxyExplore — xem lang/patch/patch-visualizer.js).
+        // đã có ở Custom Effect Drawer/Settings (visualizerSettingsDrawer.*Style.*), 2 style
+        // "black hole"/"rubik" cần thêm i18n key mới (trước đây là tên GROUP, không phải "style
+        // con", nên chưa có key dạng barStyle.blackHole/shapeStyle.rubik — xem lang/patch/
+        // patch-visualizer.js).
         const VISUALIZER_STYLE_LABEL_KEYS = {
             mirror: 'visualizerSettingsDrawer.barStyle.mirror',
             cascade: 'visualizerSettingsDrawer.barStyle.cascade',
@@ -43,21 +42,17 @@
             bars: 'visualizerSettingsDrawer.vortexStyle.bars',
             wave: 'visualizerSettingsDrawer.vortexStyle.wave',
             rubik: 'visualizerSettingsDrawer.shapeStyle.rubik',
-            'galaxy explore': 'visualizerSettingsDrawer.spaceStyle.galaxyExplore',
         };
 
         // Key i18n tên hiển thị CHO TỪNG GROUP — dùng ở dropdown 1 (chọn group) của modal chọn
-        // effect, xem openEffectPickerModal() bên dưới. 4/6 group TÁI DÙNG nguyên nhãn "type" cũ
-        // (bar/lighting/rain/vortex không đổi tên); 'shape' MỚI (trước đây group tên 'rubik');
-        // 'space' TÁI DÙNG nhãn cũ (group không đổi tên, chỉ style bên trong đổi thành
-        // "galaxy explore").
+        // effect, xem openEffectPickerModal() bên dưới. 4/5 group TÁI DÙNG nguyên nhãn "type" cũ
+        // (bar/lighting/rain/vortex không đổi tên); 'shape' MỚI (trước đây group tên 'rubik').
         const VISUALIZER_GROUP_LABEL_KEYS = {
             bar: 'settingsVisualizer.type.bar',
             lighting: 'settingsVisualizer.type.lighting',
             rain: 'settingsVisualizer.type.rain',
             vortex: 'settingsVisualizer.type.vortex',
             shape: 'settingsVisualizer.group.shape',
-            space: 'settingsVisualizer.type.space',
         };
 
         /**
@@ -69,7 +64,7 @@
          * theo isVisualOff", chỉ mất phần "bỏ qua nếu đã đúng trạng thái rồi" (tối ưu, tránh ghi
          * DOM thừa mỗi frame).
          * @param {HTMLElement} canvasEl - canvas 2D chính (#visualizer)
-         * @param {HTMLElement} webglCanvasEl - canvas WebGL (#webgl-canvas, dùng chung Vortex/Space)
+         * @param {HTMLElement} webglCanvasEl - canvas WebGL (#webgl-canvas, Vortex)
          * @param {boolean} isVisualOff
          */
         function updateCanvasVisibility(canvasEl, webglCanvasEl, isVisualOff) {
@@ -208,9 +203,6 @@
          */
         function updateTypeUI() {
             const currentModeIndex = appState.get('currentModeIndex');
-            // MỚI (Phần B, Galaxy) — bắt lại kiểu CŨ TRƯỚC khi ghi đè, cần biết có đang RỜI KHỎI
-            // 'space' hay không (trả tone mapping renderer dùng chung về mặc định của Vortex).
-            const previousType = appConfigViz.getAll().type;
             const style = MODES[currentModeIndex];
             const group = STYLE_TO_GROUP[style];
             const styleField = GROUP_STYLE_FIELD[group];
@@ -230,64 +222,14 @@
             // cố định trước đây. SỬA (05/09/2026) — hiện tên STYLE (không phải group).
             if (modeCycleLabel) modeCycleLabel.textContent = t(VISUALIZER_STYLE_LABEL_KEYS[style] || style);
 
-            if (cfg.type === 'vortex' || cfg.type === 'space') {
-                // Space (MỚI, Phần B) DÙNG CHUNG canvas #webgl-canvas + tRenderer với Vortex — KHÔNG
-                // tạo WebGLRenderer/resize listener riêng (plan B2) — vẫn cần initThreeJS() (Vortex)
-                // chạy trước ÍT NHẤT 1 lần để tRenderer tồn tại, bất kể Space hay Vortex vào trước.
+            if (cfg.type === 'vortex') {
+                // [XOÁ — 15/09/2026, "dọn sạch visualizer effect space"] Trước đây nhánh này dùng
+                // CHUNG canvas #webgl-canvas + tRenderer với Space (if 'vortex' || 'space', kèm
+                // khối khởi tạo engine Galaxy + tone mapping ACES riêng cho 'space') — group
+                // "space" đã BỎ HẲN, giờ chỉ còn Vortex ở đây, initThreeJS() vẫn giữ (Vortex tự
+                // cần).
                 if (!appState.get('tInitialized')) initThreeJS();
-                if (cfg.type === 'vortex') {
-                    updateVortexVisibility();
-                } else {
-                    // 'space' — khởi tạo engine Galaxy đúng 1 LẦN (spInitialized), TÁI SỬ DỤNG
-                    // appState.get('tRenderer') vừa đảm bảo tồn tại ở dòng trên.
-                    if (!appState.get('spInitialized')) {
-                        const created = initThreeSpace(appState.get('tRenderer'));
-                        appState.set('spScene', created.spScene);
-                        appState.set('spCamera', created.spCamera);
-                        appState.set('spGlowTexture', createGalaxyStarTexture());
-                        appState.set('spNebulaTexture', createGalaxyNebulaTexture());
-                        const dustCount = getEffectConfig('space').dustCount; // core/custom-effect.js
-                        const dustMesh = buildSpaceDustMesh(dustCount, SPACE_DUST_RANGE, appState.get('spGlowTexture'));
-                        appState.get('spScene').add(dustMesh);
-                        appState.set('spDustMesh', dustMesh);
-                        appState.set('spGalaxyTypeBag', []); // túi xáo trộn hình thái, rỗng lúc đầu tự nạp lại ở lần spawn đầu tiên
-                        appState.set('spTotalGalaxiesSpawned', 0);
-                        // VIẾT LẠI (26/08/2026, phản hồi Giang — mô hình cụm thiên hà, thay hẳn
-                        // bản đồ TĨNH + travel/rotate 2 pha cũ, xem đầu core/webgl/three-space.js)
-                        // — KHÔNG dựng sẵn 5 cụm ở ĐÂY (mảng `spCurrentClusters` rỗng bên dưới tự
-                        // báo hiệu "chưa dựng" cho event/workflow/visualizer-render.js::_tickSpace()
-                        // tự phát hiện ở lần tick ĐẦU TIÊN và tự sinh 5 cụm + chọn cụm đầu tiên —
-                        // tránh trùng lặp logic "sinh cụm" ở 2 nơi khác nhau).
-                        appState.set('spCurrentClusters', []);
-                        appState.set('spTargetCluster', undefined);
-                        appState.set('spClusterSwitchPending', false);
-                        appState.set('spTargetGalaxy', undefined);
-                        appState.set('spPhase', 'clusterRotate');
-                        appState.set('spForward', undefined);
-                        appState.set('spRotateFromForward', undefined);
-                        appState.set('spRotateToForward', undefined);
-                        appState.set('spRotateElapsed', 0);
-                        appState.set('spRotateDuration', 0);
-                        appState.set('spTravelStartPos', undefined);
-                        appState.set('spTravelNextPos', undefined);
-                        appState.set('spTravelDistanceCovered', 0);
-                        appState.set('spTravelTotalDistance', 0);
-                        appState.set('spTravelSpeedRandomFactor', 1);
-                        appState.set('spGalaxyTravelMidPos', undefined);
-                        appState.set('spGalaxyTravelFromForward', undefined);
-                        appState.set('spGalaxyTravelToForward', undefined);
-                        appState.set('spInitialized', true);
-                    }
-                    // Tone mapping (plan B2) — lưu mặc định (Vortex, KHÔNG set tone mapping riêng —
-                    // xem core/webgl/three-vortex.js — mặc định THREE.NoToneMapping) vào biến NỘI
-                    // BỘ (KHÔNG thuộc STATE, cùng kiểu với `tWarpSpeed` ở three-vortex.js), set ACES
-                    // khi VÀO 'space', trả lại mặc định khi RA (nhánh else phía dưới).
-                    const tRenderer = appState.get('tRenderer');
-                    if (tRenderer) {
-                        if (_spDefaultToneMapping === null) _spDefaultToneMapping = tRenderer.toneMapping;
-                        tRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-                    }
-                }
+                updateVortexVisibility();
                 // FIX (04/07/2026, mục 4) — 'playlist-hidden' THAY '-translate-y-full' (dọc -> ngang).
                 // SỬA (07/07/2026, batch gộp container) — class `playlist-hidden` đã DỜI từ
                 // `#playlist-view` sang `#side-left-container`. HOTFIX 16 (08/07/2026) — dời TIẾP
@@ -297,11 +239,6 @@
                 if (!appStack.classList.contains('playlist-hidden')) {} else { document.getElementById('webgl-canvas').classList.remove('opacity-0'); }
             } else {
                 document.getElementById('webgl-canvas').classList.add('opacity-0');
-                // Rời khỏi 'space' — trả tone mapping renderer dùng chung về mặc định của Vortex.
-                if (previousType === 'space') {
-                    const tRenderer = appState.get('tRenderer');
-                    if (tRenderer && _spDefaultToneMapping !== null) tRenderer.toneMapping = _spDefaultToneMapping;
-                }
             }
 
             // fftSizeHighRes cho 'vortex' (mượt tunnel) và 'lighting' (cả 2 style thunder/
