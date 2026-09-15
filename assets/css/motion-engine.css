@@ -105,6 +105,22 @@
     background-size: cover; background-position: center;
 }
 
+/* SỬA (Giang chỉ ra: "Motion cung cấp cơ chế THUẦN — cái tua vít — không quan tâm ai dùng/gắn ở đâu,
+   nơi tiêu thụ tự quyết") — TOÀN BỘ 89 selector animation-name dưới đây ĐỔI khoá từ ID CỤ THỂ
+   `#visual-motion-container[data-transition=...]` sang CLASS DÙNG CHUNG `.me-transition-scope[data-
+   transition=...]` — trước đây hiệu ứng CSS chỉ chạy được nếu 2 layer `.motion-layer` nằm ĐÚNG bên
+   trong `#visual-motion-container` (ID riêng của VBG) — nơi tiêu thụ KHÁC (vd Video Player mode,
+   dùng `motionEngineReactLayer` làm cha chung cho layer A/B của mình, KHÔNG phải
+   `#visual-motion-container`) sẽ KHÔNG chạy được animation nào cả dù đã gắn đúng class/data-attribute
+   khác. Giờ BẤT KỲ container nào mang class `.me-transition-scope` + set đúng `data-transition`/
+   hướng (qua setMotionEngineTransitionType()/setMotionEngineTransitionDirections(), core/
+   motion-engine.js — nhận containerEl qua tham số, không đổi gì) đều kích hoạt được CÙNG bộ hiệu ứng
+   — `#visual-motion-container` (index.html) đã thêm class này; Video Player mode gắn thêm lên
+   `motionEngineReactLayer` (index.html) để dùng CHUNG animation-name, KHÔNG cần duplicate keyframe
+   nào. Runner (event/workflow/motion-transition-runner.js) không đụng gì việc này — nó chỉ set
+   `containerEl.dataset.transition` qua tham số, KHÔNG biết/không cần biết class CSS nào đang chờ
+   sẵn ở container đó. */
+
 /* ==================== VIẾT LẠI HOÀN TOÀN (30/08/2026, phản hồi Giang — "gộp các type có hướng lại
    thành field direction") — nhiều lượt trước tách slide/wipe/flip/zoom thành TỪNG type riêng theo
    hướng (vd slideLeft/slideRight/slideUp/slideDown, 4 type) — giờ GỘP LẠI 1 type/nhóm + field
@@ -115,23 +131,23 @@
 /* ==================== fade — mờ chồng, + field zoomDirection (in/out). "in" — ảnh MỚI (enter) fade
    0→1 TRÊN ảnh CŨ (exit) đứng yên. "out" — NGƯỢC LẠI: ảnh CŨ (exit) fade 1→0 ĐỂ LỘ ảnh MỚI (enter)
    đứng yên bên dưới — z-index đảo ngược quy ước chung (CÙNG cơ chế "open" của flipEdge). ==================== */
-#visual-motion-container[data-transition="fade"][data-zoom-direction="in"] .me-layer-enter { animation-name: me-fade-in; }
-#visual-motion-container[data-transition="fade"][data-zoom-direction="in"] .me-layer-exit  { animation: none; opacity: 1; }
-#visual-motion-container[data-transition="fade"][data-zoom-direction="out"] .me-layer-exit  { z-index: 4; animation-name: me-fade-out; }
-#visual-motion-container[data-transition="fade"][data-zoom-direction="out"] .me-layer-enter { animation: none; opacity: 1; }
+.me-transition-scope[data-transition="fade"][data-zoom-direction="in"] .me-layer-enter { animation-name: me-fade-in; }
+.me-transition-scope[data-transition="fade"][data-zoom-direction="in"] .me-layer-exit  { animation: none; opacity: 1; }
+.me-transition-scope[data-transition="fade"][data-zoom-direction="out"] .me-layer-exit  { z-index: 4; animation-name: me-fade-out; }
+.me-transition-scope[data-transition="fade"][data-zoom-direction="out"] .me-layer-enter { animation: none; opacity: 1; }
 @keyframes me-fade-in  { from { opacity: 0; } to { opacity: 1; } }
 @keyframes me-fade-out { from { opacity: 1; } to { opacity: 0; } }
 
 /* ==================== slide — cả cặp layer cùng di chuyển theo field direction (left/right/up/
    down, Giang gọi "hướng cả cặp layer di chuyển") ==================== */
-#visual-motion-container[data-transition="slide"][data-direction="left"] .me-layer-enter  { animation-name: me-slide-in-from-right; }
-#visual-motion-container[data-transition="slide"][data-direction="left"] .me-layer-exit   { animation-name: me-slide-out-to-left; }
-#visual-motion-container[data-transition="slide"][data-direction="right"] .me-layer-enter { animation-name: me-slide-in-from-left; }
-#visual-motion-container[data-transition="slide"][data-direction="right"] .me-layer-exit  { animation-name: me-slide-out-to-right; }
-#visual-motion-container[data-transition="slide"][data-direction="up"] .me-layer-enter    { animation-name: me-slide-in-from-bottom; }
-#visual-motion-container[data-transition="slide"][data-direction="up"] .me-layer-exit     { animation-name: me-slide-out-to-top; }
-#visual-motion-container[data-transition="slide"][data-direction="down"] .me-layer-enter  { animation-name: me-slide-in-from-top; }
-#visual-motion-container[data-transition="slide"][data-direction="down"] .me-layer-exit   { animation-name: me-slide-out-to-bottom; }
+.me-transition-scope[data-transition="slide"][data-direction="left"] .me-layer-enter  { animation-name: me-slide-in-from-right; }
+.me-transition-scope[data-transition="slide"][data-direction="left"] .me-layer-exit   { animation-name: me-slide-out-to-left; }
+.me-transition-scope[data-transition="slide"][data-direction="right"] .me-layer-enter { animation-name: me-slide-in-from-left; }
+.me-transition-scope[data-transition="slide"][data-direction="right"] .me-layer-exit  { animation-name: me-slide-out-to-right; }
+.me-transition-scope[data-transition="slide"][data-direction="up"] .me-layer-enter    { animation-name: me-slide-in-from-bottom; }
+.me-transition-scope[data-transition="slide"][data-direction="up"] .me-layer-exit     { animation-name: me-slide-out-to-top; }
+.me-transition-scope[data-transition="slide"][data-direction="down"] .me-layer-enter  { animation-name: me-slide-in-from-top; }
+.me-transition-scope[data-transition="slide"][data-direction="down"] .me-layer-exit   { animation-name: me-slide-out-to-bottom; }
 @keyframes me-slide-in-from-right { from { transform: translateX(100%); opacity: 1; } to { transform: translateX(0); opacity: 1; } }
 @keyframes me-slide-out-to-left   { from { transform: translateX(0); opacity: 1; } to { transform: translateX(-100%); opacity: 1; } }
 @keyframes me-slide-in-from-left  { from { transform: translateX(-100%); opacity: 1; } to { transform: translateX(0); opacity: 1; } }
@@ -160,15 +176,15 @@
    vuông (tỉ lệ khác 1:1) sẽ khiến góc chéo lệch khỏi đúng 45° — chấp nhận được, vẫn đọc rõ là hiệu
    ứng "quét chéo", không cần chính xác tuyệt đối. Lớp cũ LUÔN đứng yên (KHÔNG có pha "out" độc lập,
    mọi hướng — xem MOTION_ENGINE_TRANSITION_TYPES_NO_OUT, core/motion-engine.js). ==================== */
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="left"] .me-layer-enter  { animation-name: me-wipe-enter-left; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="right"] .me-layer-enter { animation-name: me-wipe-enter-right; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="up"] .me-layer-enter    { animation-name: me-wipe-enter-up; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="down"] .me-layer-enter  { animation-name: me-wipe-enter-down; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="cornerTopLeft"] .me-layer-enter     { animation-name: me-wipe-enter-corner-top-left; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="cornerTopRight"] .me-layer-enter    { animation-name: me-wipe-enter-corner-top-right; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="cornerBottomLeft"] .me-layer-enter  { animation-name: me-wipe-enter-corner-bottom-left; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="cornerBottomRight"] .me-layer-enter { animation-name: me-wipe-enter-corner-bottom-right; }
-#visual-motion-container[data-transition="wipe"] .me-layer-exit { animation: none; opacity: 1; }
+.me-transition-scope[data-transition="wipe"][data-wipe-direction="left"] .me-layer-enter  { animation-name: me-wipe-enter-left; }
+.me-transition-scope[data-transition="wipe"][data-wipe-direction="right"] .me-layer-enter { animation-name: me-wipe-enter-right; }
+.me-transition-scope[data-transition="wipe"][data-wipe-direction="up"] .me-layer-enter    { animation-name: me-wipe-enter-up; }
+.me-transition-scope[data-transition="wipe"][data-wipe-direction="down"] .me-layer-enter  { animation-name: me-wipe-enter-down; }
+.me-transition-scope[data-transition="wipe"][data-wipe-direction="cornerTopLeft"] .me-layer-enter     { animation-name: me-wipe-enter-corner-top-left; }
+.me-transition-scope[data-transition="wipe"][data-wipe-direction="cornerTopRight"] .me-layer-enter    { animation-name: me-wipe-enter-corner-top-right; }
+.me-transition-scope[data-transition="wipe"][data-wipe-direction="cornerBottomLeft"] .me-layer-enter  { animation-name: me-wipe-enter-corner-bottom-left; }
+.me-transition-scope[data-transition="wipe"][data-wipe-direction="cornerBottomRight"] .me-layer-enter { animation-name: me-wipe-enter-corner-bottom-right; }
+.me-transition-scope[data-transition="wipe"] .me-layer-exit { animation: none; opacity: 1; }
 @keyframes me-wipe-enter-left  { from { clip-path: inset(0 100% 0 0); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
 @keyframes me-wipe-enter-right { from { clip-path: inset(0 0 0 100%); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
 @keyframes me-wipe-enter-up    { from { clip-path: inset(100% 0 0 0); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
@@ -196,14 +212,14 @@
    ĐÃ ở vị trí ∓180° NGAY từ đầu) quay ∓180°→0°, ĐỒNG BỘ cùng lúc/tốc độ/hướng với exit — 2 layer DOM
    riêng biệt nhưng nhìn CHUYỂN ĐỘNG y hệt 1 thẻ bài DUY NHẤT lật 180°. field direction (left/right/
    up/down) chọn trục (left/right = rotateY/ngang, up/down = rotateX/dọc) + dấu góc quay. ==================== */
-#visual-motion-container[data-transition="flipCard"][data-direction="left"] .me-layer-enter  { animation-name: me-flip-back-in; }
-#visual-motion-container[data-transition="flipCard"][data-direction="left"] .me-layer-exit   { animation-name: me-flip-front-out; }
-#visual-motion-container[data-transition="flipCard"][data-direction="right"] .me-layer-enter { animation-name: me-flip-back-in-mirror; }
-#visual-motion-container[data-transition="flipCard"][data-direction="right"] .me-layer-exit  { animation-name: me-flip-front-out-mirror; }
-#visual-motion-container[data-transition="flipCard"][data-direction="up"] .me-layer-enter    { animation-name: me-flip-back-in-vertical; }
-#visual-motion-container[data-transition="flipCard"][data-direction="up"] .me-layer-exit     { animation-name: me-flip-front-out-vertical; }
-#visual-motion-container[data-transition="flipCard"][data-direction="down"] .me-layer-enter  { animation-name: me-flip-back-in-vertical-mirror; }
-#visual-motion-container[data-transition="flipCard"][data-direction="down"] .me-layer-exit   { animation-name: me-flip-front-out-vertical-mirror; }
+.me-transition-scope[data-transition="flipCard"][data-direction="left"] .me-layer-enter  { animation-name: me-flip-back-in; }
+.me-transition-scope[data-transition="flipCard"][data-direction="left"] .me-layer-exit   { animation-name: me-flip-front-out; }
+.me-transition-scope[data-transition="flipCard"][data-direction="right"] .me-layer-enter { animation-name: me-flip-back-in-mirror; }
+.me-transition-scope[data-transition="flipCard"][data-direction="right"] .me-layer-exit  { animation-name: me-flip-front-out-mirror; }
+.me-transition-scope[data-transition="flipCard"][data-direction="up"] .me-layer-enter    { animation-name: me-flip-back-in-vertical; }
+.me-transition-scope[data-transition="flipCard"][data-direction="up"] .me-layer-exit     { animation-name: me-flip-front-out-vertical; }
+.me-transition-scope[data-transition="flipCard"][data-direction="down"] .me-layer-enter  { animation-name: me-flip-back-in-vertical-mirror; }
+.me-transition-scope[data-transition="flipCard"][data-direction="down"] .me-layer-exit   { animation-name: me-flip-front-out-vertical-mirror; }
 @keyframes me-flip-back-in    { from { opacity: 1; transform: rotateY(-180deg); } to { opacity: 1; transform: rotateY(0deg); } }
 @keyframes me-flip-front-out  { from { opacity: 1; transform: rotateY(0deg); } to { opacity: 1; transform: rotateY(180deg); } }
 @keyframes me-flip-back-in-mirror   { from { opacity: 1; transform: rotateY(180deg); } to { opacity: 1; transform: rotateY(0deg); } }
@@ -227,41 +243,41 @@
    RIÊNG bản 90° đã có sẵn `me-flip-out`/`me-flip-in-mirror`/`me-flip-out-mirror`); up/down dùng cặp
    rotateX 90° (`me-flip-out-vertical`/`me-flip-in-vertical-mirror`/`me-flip-out-vertical-mirror`).
    ==================== */
-#visual-motion-container[data-transition="flipEdge"][data-direction="left"] .me-layer-enter,
-#visual-motion-container[data-transition="flipEdge"][data-direction="left"] .me-layer-exit { transform-origin: left; }
-#visual-motion-container[data-transition="flipEdge"][data-direction="right"] .me-layer-enter,
-#visual-motion-container[data-transition="flipEdge"][data-direction="right"] .me-layer-exit { transform-origin: right; }
-#visual-motion-container[data-transition="flipEdge"][data-direction="up"] .me-layer-enter,
-#visual-motion-container[data-transition="flipEdge"][data-direction="up"] .me-layer-exit { transform-origin: top; }
-#visual-motion-container[data-transition="flipEdge"][data-direction="down"] .me-layer-enter,
-#visual-motion-container[data-transition="flipEdge"][data-direction="down"] .me-layer-exit { transform-origin: bottom; }
+.me-transition-scope[data-transition="flipEdge"][data-direction="left"] .me-layer-enter,
+.me-transition-scope[data-transition="flipEdge"][data-direction="left"] .me-layer-exit { transform-origin: left; }
+.me-transition-scope[data-transition="flipEdge"][data-direction="right"] .me-layer-enter,
+.me-transition-scope[data-transition="flipEdge"][data-direction="right"] .me-layer-exit { transform-origin: right; }
+.me-transition-scope[data-transition="flipEdge"][data-direction="up"] .me-layer-enter,
+.me-transition-scope[data-transition="flipEdge"][data-direction="up"] .me-layer-exit { transform-origin: top; }
+.me-transition-scope[data-transition="flipEdge"][data-direction="down"] .me-layer-enter,
+.me-transition-scope[data-transition="flipEdge"][data-direction="down"] .me-layer-exit { transform-origin: bottom; }
 
-#visual-motion-container[data-transition="flipEdge"][data-direction="left"][data-flip-variant="open"] .me-layer-exit,
-#visual-motion-container[data-transition="flipEdge"][data-direction="right"][data-flip-variant="open"] .me-layer-exit { z-index: 4; animation-name: me-flip-out; }
-#visual-motion-container[data-transition="flipEdge"][data-direction="left"][data-flip-variant="open"] .me-layer-enter,
-#visual-motion-container[data-transition="flipEdge"][data-direction="right"][data-flip-variant="open"] .me-layer-enter { animation: none; opacity: 1; transform: none; }
-#visual-motion-container[data-transition="flipEdge"][data-direction="up"][data-flip-variant="open"] .me-layer-exit,
-#visual-motion-container[data-transition="flipEdge"][data-direction="down"][data-flip-variant="open"] .me-layer-exit { z-index: 4; animation-name: me-flip-out-vertical; }
-#visual-motion-container[data-transition="flipEdge"][data-direction="up"][data-flip-variant="open"] .me-layer-enter,
-#visual-motion-container[data-transition="flipEdge"][data-direction="down"][data-flip-variant="open"] .me-layer-enter { animation: none; opacity: 1; transform: none; }
+.me-transition-scope[data-transition="flipEdge"][data-direction="left"][data-flip-variant="open"] .me-layer-exit,
+.me-transition-scope[data-transition="flipEdge"][data-direction="right"][data-flip-variant="open"] .me-layer-exit { z-index: 4; animation-name: me-flip-out; }
+.me-transition-scope[data-transition="flipEdge"][data-direction="left"][data-flip-variant="open"] .me-layer-enter,
+.me-transition-scope[data-transition="flipEdge"][data-direction="right"][data-flip-variant="open"] .me-layer-enter { animation: none; opacity: 1; transform: none; }
+.me-transition-scope[data-transition="flipEdge"][data-direction="up"][data-flip-variant="open"] .me-layer-exit,
+.me-transition-scope[data-transition="flipEdge"][data-direction="down"][data-flip-variant="open"] .me-layer-exit { z-index: 4; animation-name: me-flip-out-vertical; }
+.me-transition-scope[data-transition="flipEdge"][data-direction="up"][data-flip-variant="open"] .me-layer-enter,
+.me-transition-scope[data-transition="flipEdge"][data-direction="down"][data-flip-variant="open"] .me-layer-enter { animation: none; opacity: 1; transform: none; }
 
-#visual-motion-container[data-transition="flipEdge"][data-direction="left"][data-flip-variant="close"][data-flip-static-old="false"] .me-layer-enter,
-#visual-motion-container[data-transition="flipEdge"][data-direction="right"][data-flip-variant="close"][data-flip-static-old="false"] .me-layer-enter { animation-name: me-flip-in-mirror; }
-#visual-motion-container[data-transition="flipEdge"][data-direction="left"][data-flip-variant="close"][data-flip-static-old="false"] .me-layer-exit,
-#visual-motion-container[data-transition="flipEdge"][data-direction="right"][data-flip-variant="close"][data-flip-static-old="false"] .me-layer-exit { animation-name: me-flip-out-mirror; }
-#visual-motion-container[data-transition="flipEdge"][data-direction="left"][data-flip-variant="close"][data-flip-static-old="true"] .me-layer-enter,
-#visual-motion-container[data-transition="flipEdge"][data-direction="right"][data-flip-variant="close"][data-flip-static-old="true"] .me-layer-enter { animation-name: me-flip-in-mirror; }
-#visual-motion-container[data-transition="flipEdge"][data-direction="left"][data-flip-variant="close"][data-flip-static-old="true"] .me-layer-exit,
-#visual-motion-container[data-transition="flipEdge"][data-direction="right"][data-flip-variant="close"][data-flip-static-old="true"] .me-layer-exit { animation: none; opacity: 1; transform: none; }
+.me-transition-scope[data-transition="flipEdge"][data-direction="left"][data-flip-variant="close"][data-flip-static-old="false"] .me-layer-enter,
+.me-transition-scope[data-transition="flipEdge"][data-direction="right"][data-flip-variant="close"][data-flip-static-old="false"] .me-layer-enter { animation-name: me-flip-in-mirror; }
+.me-transition-scope[data-transition="flipEdge"][data-direction="left"][data-flip-variant="close"][data-flip-static-old="false"] .me-layer-exit,
+.me-transition-scope[data-transition="flipEdge"][data-direction="right"][data-flip-variant="close"][data-flip-static-old="false"] .me-layer-exit { animation-name: me-flip-out-mirror; }
+.me-transition-scope[data-transition="flipEdge"][data-direction="left"][data-flip-variant="close"][data-flip-static-old="true"] .me-layer-enter,
+.me-transition-scope[data-transition="flipEdge"][data-direction="right"][data-flip-variant="close"][data-flip-static-old="true"] .me-layer-enter { animation-name: me-flip-in-mirror; }
+.me-transition-scope[data-transition="flipEdge"][data-direction="left"][data-flip-variant="close"][data-flip-static-old="true"] .me-layer-exit,
+.me-transition-scope[data-transition="flipEdge"][data-direction="right"][data-flip-variant="close"][data-flip-static-old="true"] .me-layer-exit { animation: none; opacity: 1; transform: none; }
 
-#visual-motion-container[data-transition="flipEdge"][data-direction="up"][data-flip-variant="close"][data-flip-static-old="false"] .me-layer-enter,
-#visual-motion-container[data-transition="flipEdge"][data-direction="down"][data-flip-variant="close"][data-flip-static-old="false"] .me-layer-enter { animation-name: me-flip-in-vertical-mirror; }
-#visual-motion-container[data-transition="flipEdge"][data-direction="up"][data-flip-variant="close"][data-flip-static-old="false"] .me-layer-exit,
-#visual-motion-container[data-transition="flipEdge"][data-direction="down"][data-flip-variant="close"][data-flip-static-old="false"] .me-layer-exit { animation-name: me-flip-out-vertical-mirror; }
-#visual-motion-container[data-transition="flipEdge"][data-direction="up"][data-flip-variant="close"][data-flip-static-old="true"] .me-layer-enter,
-#visual-motion-container[data-transition="flipEdge"][data-direction="down"][data-flip-variant="close"][data-flip-static-old="true"] .me-layer-enter { animation-name: me-flip-in-vertical-mirror; }
-#visual-motion-container[data-transition="flipEdge"][data-direction="up"][data-flip-variant="close"][data-flip-static-old="true"] .me-layer-exit,
-#visual-motion-container[data-transition="flipEdge"][data-direction="down"][data-flip-variant="close"][data-flip-static-old="true"] .me-layer-exit { animation: none; opacity: 1; transform: none; }
+.me-transition-scope[data-transition="flipEdge"][data-direction="up"][data-flip-variant="close"][data-flip-static-old="false"] .me-layer-enter,
+.me-transition-scope[data-transition="flipEdge"][data-direction="down"][data-flip-variant="close"][data-flip-static-old="false"] .me-layer-enter { animation-name: me-flip-in-vertical-mirror; }
+.me-transition-scope[data-transition="flipEdge"][data-direction="up"][data-flip-variant="close"][data-flip-static-old="false"] .me-layer-exit,
+.me-transition-scope[data-transition="flipEdge"][data-direction="down"][data-flip-variant="close"][data-flip-static-old="false"] .me-layer-exit { animation-name: me-flip-out-vertical-mirror; }
+.me-transition-scope[data-transition="flipEdge"][data-direction="up"][data-flip-variant="close"][data-flip-static-old="true"] .me-layer-enter,
+.me-transition-scope[data-transition="flipEdge"][data-direction="down"][data-flip-variant="close"][data-flip-static-old="true"] .me-layer-enter { animation-name: me-flip-in-vertical-mirror; }
+.me-transition-scope[data-transition="flipEdge"][data-direction="up"][data-flip-variant="close"][data-flip-static-old="true"] .me-layer-exit,
+.me-transition-scope[data-transition="flipEdge"][data-direction="down"][data-flip-variant="close"][data-flip-static-old="true"] .me-layer-exit { animation: none; opacity: 1; transform: none; }
 
 @keyframes me-flip-out { from { opacity: 1; transform: rotateY(0deg); } to { opacity: 1; transform: rotateY(90deg); } }
 @keyframes me-flip-in-mirror  { from { opacity: 1; transform: rotateY(90deg); } to { opacity: 1; transform: rotateY(0deg); } }
@@ -273,22 +289,22 @@
 /* ==================== zoom — field zoomDirection (in/out), CÙNG cơ chế tĩnh/đảo z-index như "fade"
    ngay trên: "in" — ảnh MỚI phóng to dần 0.6→1 TRÊN ảnh CŨ đứng yên; "out" — ảnh CŨ phóng to dần
    1→1.6 (mờ dần) ĐỂ LỘ ảnh MỚI đứng yên bên dưới, z-index đảo ngược. ==================== */
-#visual-motion-container[data-transition="zoom"][data-zoom-direction="in"] .me-layer-enter { animation-name: me-zoom-in-enter; }
-#visual-motion-container[data-transition="zoom"][data-zoom-direction="in"] .me-layer-exit  { animation: none; opacity: 1; }
-#visual-motion-container[data-transition="zoom"][data-zoom-direction="out"] .me-layer-exit  { z-index: 4; animation-name: me-zoom-out-exit; }
-#visual-motion-container[data-transition="zoom"][data-zoom-direction="out"] .me-layer-enter { animation: none; opacity: 1; }
+.me-transition-scope[data-transition="zoom"][data-zoom-direction="in"] .me-layer-enter { animation-name: me-zoom-in-enter; }
+.me-transition-scope[data-transition="zoom"][data-zoom-direction="in"] .me-layer-exit  { animation: none; opacity: 1; }
+.me-transition-scope[data-transition="zoom"][data-zoom-direction="out"] .me-layer-exit  { z-index: 4; animation-name: me-zoom-out-exit; }
+.me-transition-scope[data-transition="zoom"][data-zoom-direction="out"] .me-layer-enter { animation: none; opacity: 1; }
 @keyframes me-zoom-in-enter { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
 @keyframes me-zoom-out-exit { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(1.6); } }
 
 /* ==================== blur — ảnh cũ mờ dần, ảnh mới nét dần ==================== */
-#visual-motion-container[data-transition="blur"] .me-layer-enter { animation-name: me-blur-in; }
-#visual-motion-container[data-transition="blur"] .me-layer-exit  { animation-name: me-blur-out; }
+.me-transition-scope[data-transition="blur"] .me-layer-enter { animation-name: me-blur-in; }
+.me-transition-scope[data-transition="blur"] .me-layer-exit  { animation-name: me-blur-out; }
 @keyframes me-blur-in  { from { opacity: 0; filter: blur(24px); } to { opacity: 1; filter: blur(0); } }
 @keyframes me-blur-out { from { opacity: 1; filter: blur(0); } to { opacity: 0; filter: blur(24px); } }
 
 /* ==================== rotateFade — ảnh mới xoay nhẹ vài độ + fade in cùng lúc ==================== */
-#visual-motion-container[data-transition="rotateFade"] .me-layer-enter { animation-name: me-rotate-fade-in; }
-#visual-motion-container[data-transition="rotateFade"] .me-layer-exit  { animation-name: me-fade-out; }
+.me-transition-scope[data-transition="rotateFade"] .me-layer-enter { animation-name: me-rotate-fade-in; }
+.me-transition-scope[data-transition="rotateFade"] .me-layer-exit  { animation-name: me-fade-out; }
 @keyframes me-rotate-fade-in { from { opacity: 0; transform: rotate(-4deg) scale(1.03); } to { opacity: 1; transform: rotate(0deg) scale(1); } }
 
 /* ==================== curtain — lộ dần từ GIỮA/1 GÓC ra khắp khung (khác wipe: wipe LUÔN co dần
@@ -317,15 +333,15 @@
    trượt dọc 2 cạnh KỀ góc neo từ 0%→100% (khi chạm 100%, polygon TRÙNG khít hình chữ nhật đầy đủ) —
    cảm giác "mở quạt" lệch từ 1 góc, khác "tách đôi cân đối theo đường chéo" của diagonalRight/Left.
    ==================== */
-#visual-motion-container[data-transition="curtain"][data-curtain-direction="horizontal"] .me-layer-enter { animation-name: me-curtain-enter-horizontal; }
-#visual-motion-container[data-transition="curtain"][data-curtain-direction="vertical"] .me-layer-enter   { animation-name: me-curtain-enter-vertical; }
-#visual-motion-container[data-transition="curtain"][data-curtain-direction="diagonalRight"] .me-layer-enter { animation-name: me-curtain-enter-diagonal-right; }
-#visual-motion-container[data-transition="curtain"][data-curtain-direction="diagonalLeft"] .me-layer-enter   { animation-name: me-curtain-enter-diagonal-left; }
-#visual-motion-container[data-transition="curtain"][data-curtain-direction="cornerTopLeft"] .me-layer-enter     { animation-name: me-curtain-enter-top-left; }
-#visual-motion-container[data-transition="curtain"][data-curtain-direction="cornerTopRight"] .me-layer-enter    { animation-name: me-curtain-enter-top-right; }
-#visual-motion-container[data-transition="curtain"][data-curtain-direction="cornerBottomLeft"] .me-layer-enter  { animation-name: me-curtain-enter-bottom-left; }
-#visual-motion-container[data-transition="curtain"][data-curtain-direction="cornerBottomRight"] .me-layer-enter { animation-name: me-curtain-enter-bottom-right; }
-#visual-motion-container[data-transition="curtain"] .me-layer-exit { animation: none; opacity: 1; }
+.me-transition-scope[data-transition="curtain"][data-curtain-direction="horizontal"] .me-layer-enter { animation-name: me-curtain-enter-horizontal; }
+.me-transition-scope[data-transition="curtain"][data-curtain-direction="vertical"] .me-layer-enter   { animation-name: me-curtain-enter-vertical; }
+.me-transition-scope[data-transition="curtain"][data-curtain-direction="diagonalRight"] .me-layer-enter { animation-name: me-curtain-enter-diagonal-right; }
+.me-transition-scope[data-transition="curtain"][data-curtain-direction="diagonalLeft"] .me-layer-enter   { animation-name: me-curtain-enter-diagonal-left; }
+.me-transition-scope[data-transition="curtain"][data-curtain-direction="cornerTopLeft"] .me-layer-enter     { animation-name: me-curtain-enter-top-left; }
+.me-transition-scope[data-transition="curtain"][data-curtain-direction="cornerTopRight"] .me-layer-enter    { animation-name: me-curtain-enter-top-right; }
+.me-transition-scope[data-transition="curtain"][data-curtain-direction="cornerBottomLeft"] .me-layer-enter  { animation-name: me-curtain-enter-bottom-left; }
+.me-transition-scope[data-transition="curtain"][data-curtain-direction="cornerBottomRight"] .me-layer-enter { animation-name: me-curtain-enter-bottom-right; }
+.me-transition-scope[data-transition="curtain"] .me-layer-exit { animation: none; opacity: 1; }
 @keyframes me-curtain-enter-horizontal { from { clip-path: inset(0% 50% 0% 50%); opacity: 1; } to { clip-path: inset(0% 0% 0% 0%); opacity: 1; } }
 @keyframes me-curtain-enter-vertical   { from { clip-path: inset(50% 0% 50% 0%); opacity: 1; } to { clip-path: inset(0% 0% 0% 0%); opacity: 1; } }
 @keyframes me-curtain-enter-diagonal-right {
@@ -342,16 +358,16 @@
 @keyframes me-curtain-enter-bottom-left  { from { clip-path: polygon(0% 100%, 0% 100%, 100% 0%, 0% 100%); opacity: 1; } to { clip-path: polygon(0% 100%, 100% 100%, 100% 0%, 0% 0%); opacity: 1; } }
 
 /* ==================== circleReveal — ảnh mới lộ ra từ 1 vòng tròn phóng to dần từ tâm ==================== */
-#visual-motion-container[data-transition="circleReveal"] .me-layer-enter { animation-name: me-circle-reveal-enter; }
-#visual-motion-container[data-transition="circleReveal"] .me-layer-exit  { animation: none; opacity: 1; }
+.me-transition-scope[data-transition="circleReveal"] .me-layer-enter { animation-name: me-circle-reveal-enter; }
+.me-transition-scope[data-transition="circleReveal"] .me-layer-exit  { animation: none; opacity: 1; }
 @keyframes me-circle-reveal-enter { from { clip-path: circle(0% at 50% 50%); opacity: 1; } to { clip-path: circle(75% at 50% 50%); opacity: 1; } }
 
 /* ==================== glitch — 1-2 khung hình dịch ngang ngẫu nhiên nhỏ + đổi màu nhẹ ngay lúc
    chuyển, hợp nhạc điện tử/mạnh. Tần suất/độ mạnh giữ THẤP (chỉ 900ms lúc chuyển, không lặp lại
    giữa chừng) — tránh gây rối mắt nếu lạm dụng, đúng lưu ý ở plan-v12-multimedia.md mục 4.b3.
    ==================== */
-#visual-motion-container[data-transition="glitch"] .me-layer-enter { animation-name: me-glitch-enter; }
-#visual-motion-container[data-transition="glitch"] .me-layer-exit  { animation-name: me-glitch-exit; }
+.me-transition-scope[data-transition="glitch"] .me-layer-enter { animation-name: me-glitch-enter; }
+.me-transition-scope[data-transition="glitch"] .me-layer-exit  { animation-name: me-glitch-exit; }
 @keyframes me-glitch-enter {
     0%   { opacity: 0; transform: translateX(-3%); filter: hue-rotate(0deg); }
     20%  { opacity: 1; transform: translateX(2%); filter: hue-rotate(60deg); }
@@ -367,8 +383,8 @@
 /* ==================== whipPan — ảnh mới VỤT vào cực nhanh kèm motion-blur nặng rồi nét dần lúc
    dừng hẳn, ảnh cũ vụt ra theo hướng ngược lại kèm blur tăng dần — mô phỏng máy quay "quét" cực
    nhanh. ==================== */
-#visual-motion-container[data-transition="whipPan"] .me-layer-enter { animation-name: me-whip-pan-in; }
-#visual-motion-container[data-transition="whipPan"] .me-layer-exit  { animation-name: me-whip-pan-out; }
+.me-transition-scope[data-transition="whipPan"] .me-layer-enter { animation-name: me-whip-pan-in; }
+.me-transition-scope[data-transition="whipPan"] .me-layer-exit  { animation-name: me-whip-pan-out; }
 @keyframes me-whip-pan-in  { from { transform: translateX(100%); filter: blur(24px); opacity: 1; } to { transform: translateX(0); filter: blur(0); opacity: 1; } }
 @keyframes me-whip-pan-out { from { transform: translateX(0); filter: blur(0); opacity: 1; } to { transform: translateX(-100%); filter: blur(24px); opacity: 1; } }
 
@@ -378,11 +394,11 @@
    scale bắt đầu từ NHỎ (in, 0.7→1, "phóng to vào") hay TO (out, 1.3→1, "thu nhỏ vào"). Ảnh cũ CHỈ
    fade ra đơn giản (`me-fade-out`) — KHÔNG đổi theo zoomDirection (Giang không yêu cầu tĩnh/đảo
    z-index cho spin, khác fade/zoom/flipEdge). ==================== */
-#visual-motion-container[data-transition="spin"][data-spin-direction="counterclockwise"][data-zoom-direction="in"] .me-layer-enter { animation-name: me-spin-ccw-in; }
-#visual-motion-container[data-transition="spin"][data-spin-direction="clockwise"][data-zoom-direction="in"] .me-layer-enter { animation-name: me-spin-cw-in; }
-#visual-motion-container[data-transition="spin"][data-spin-direction="counterclockwise"][data-zoom-direction="out"] .me-layer-enter { animation-name: me-spin-ccw-out; }
-#visual-motion-container[data-transition="spin"][data-spin-direction="clockwise"][data-zoom-direction="out"] .me-layer-enter { animation-name: me-spin-cw-out; }
-#visual-motion-container[data-transition="spin"] .me-layer-exit { animation-name: me-fade-out; }
+.me-transition-scope[data-transition="spin"][data-spin-direction="counterclockwise"][data-zoom-direction="in"] .me-layer-enter { animation-name: me-spin-ccw-in; }
+.me-transition-scope[data-transition="spin"][data-spin-direction="clockwise"][data-zoom-direction="in"] .me-layer-enter { animation-name: me-spin-cw-in; }
+.me-transition-scope[data-transition="spin"][data-spin-direction="counterclockwise"][data-zoom-direction="out"] .me-layer-enter { animation-name: me-spin-ccw-out; }
+.me-transition-scope[data-transition="spin"][data-spin-direction="clockwise"][data-zoom-direction="out"] .me-layer-enter { animation-name: me-spin-cw-out; }
+.me-transition-scope[data-transition="spin"] .me-layer-exit { animation-name: me-fade-out; }
 @keyframes me-spin-ccw-in  { from { opacity: 0; transform: rotate(-25deg) scale(0.7); } to { opacity: 1; transform: rotate(0deg) scale(1); } }
 @keyframes me-spin-cw-in   { from { opacity: 0; transform: rotate(25deg) scale(0.7); } to { opacity: 1; transform: rotate(0deg) scale(1); } }
 @keyframes me-spin-ccw-out { from { opacity: 0; transform: rotate(-25deg) scale(1.3); } to { opacity: 1; transform: rotate(0deg) scale(1); } }
