@@ -238,6 +238,9 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'motionSettingsDrawer.pointMove.field.zoom': 'Zoom',
     'motionSettingsDrawer.pointMove.field.flipX': 'Flip X',
     'motionSettingsDrawer.pointMove.field.flipY': 'Flip Y',
+    // MỚI (phản hồi Giang — nút "±" đảo dấu cạnh ô input số, bù bàn phím iOS `inputmode="decimal"`
+    // không có phím trừ) — title/aria cho nút, xem components/motion-settings-drawer.js.
+    'motionSettingsDrawer.pointMove.signToggle.title': 'Toggle +/-',
 
     // MỚI (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh"). XOÁ
     // 'transitionDuration.hint' — dòng phụ dưới nhãn đã bỏ khỏi template.
