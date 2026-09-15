@@ -47,29 +47,55 @@ function renderMotionListBody(presets) {
     return addRowHtml + itemsHtml;
 }
 
-/** Dựng 3 hàng (checkbox bật + [select hướng + checkbox reverse] + 1 slider max biên độ) cho 1
- * hiệu ứng con (zoom/pan/rotate) trong nhóm "React Beat Audio" — DÙNG CHUNG cả 3.
- * @param {'zoom'|'pan'|'rotate'} key @param {object} effect - `preset.reactBeatAudio[key]`.
- * @param {{titleKey:string, maxLabelKey:string, boundMin:number, boundMax:number, step:number, suffix:string, hasDirection:boolean, isLast?:boolean}} cfg
+/** Option {value,labelKey} cho select hướng — trục ngang (Pan X/Rotate) vs trục dọc (Pan Y, MỚI —
+ * phản hồi Giang "chia Pan thành Pan X/Pan Y"). Dùng bởi renderMotionBeatReactEffectRows() ngay dưới. */
+const MOTION_SETTINGS_BEATREACT_DIRECTIONS_X = [
+    { value: 'left', labelKey: 'motionPresetsDrawer.beatReact.direction.left' },
+    { value: 'right', labelKey: 'motionPresetsDrawer.beatReact.direction.right' },
+    { value: 'leftToRight', labelKey: 'motionPresetsDrawer.beatReact.direction.leftToRight' },
+    { value: 'rightToLeft', labelKey: 'motionPresetsDrawer.beatReact.direction.rightToLeft' },
+];
+const MOTION_SETTINGS_BEATREACT_DIRECTIONS_Y = [
+    { value: 'up', labelKey: 'motionPresetsDrawer.beatReact.direction.up' },
+    { value: 'down', labelKey: 'motionPresetsDrawer.beatReact.direction.down' },
+    { value: 'upToDown', labelKey: 'motionPresetsDrawer.beatReact.direction.upToDown' },
+    { value: 'downToUp', labelKey: 'motionPresetsDrawer.beatReact.direction.downToUp' },
+];
+
+/** Dựng các hàng (checkbox bật + [select hướng + checkbox reverse + tick Random Max] + ô nhập số +
+ * slider max biên độ) cho 1 hiệu ứng con (zoom/panX/panY/rotate) trong nhóm "React Beat Audio" —
+ * DÙNG CHUNG cả 4. SỬA (phản hồi Giang — ô input số sync 2 chiều với slider + tick "Random Max" dưới
+ * Reverse) — `cfg.directions` (mảng {value,labelKey}) thay vì hard-code trái/phải, để Pan Y dùng
+ * được bộ hướng lên/xuống riêng (core/motion-presets.js::MOTION_BEAT_REACT_DIRECTIONS_Y) mà không
+ * cần viết lại cả hàm. Hiệu ứng KHÔNG có hướng (zoom) vẫn có Random Max — đặt ngay dưới ô nhập số/
+ * slider max (không có hàng Reverse để bám vào).
+ * @param {'zoom'|'panX'|'panY'|'rotate'} key @param {object} effect - `preset.reactBeatAudio[key]`.
+ * @param {{titleKey:string, maxLabelKey:string, boundMin:number, boundMax:number, step:number, suffix:string, hasDirection:boolean, directions?:{value:string,labelKey:string}[], isLast?:boolean}} cfg
  */
 function renderMotionBeatReactEffectRows(key, effect, cfg) {
     const isDeg = key === 'rotate';
     const maxVal = isDeg ? effect.maxDeg : effect.maxPct;
     const borderClass = cfg.isLast ? '' : ' border-b border-slate-200';
+    const directionOptionsHtml = cfg.hasDirection ? cfg.directions.map((d) => `<option value="${d.value}" ${effect.direction === d.value ? 'selected' : ''} data-i18n="${d.labelKey}">${t(d.labelKey)}</option>`).join('') : '';
     const directionHtml = cfg.hasDirection ? `
                         <div class="flex justify-between items-center px-4 pb-3">
                             <span class="text-xs text-slate-500" data-i18n="motionPresetsDrawer.beatReact.direction.label">${t('motionPresetsDrawer.beatReact.direction.label')}</span>
                             <select id="setting-motion-beatreact-${key}-direction" class="rounded-lg px-2 py-1 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
-                                <option value="left" ${effect.direction === 'left' ? 'selected' : ''} data-i18n="motionPresetsDrawer.beatReact.direction.left">${t('motionPresetsDrawer.beatReact.direction.left')}</option>
-                                <option value="right" ${effect.direction === 'right' ? 'selected' : ''} data-i18n="motionPresetsDrawer.beatReact.direction.right">${t('motionPresetsDrawer.beatReact.direction.right')}</option>
-                                <option value="leftToRight" ${effect.direction === 'leftToRight' ? 'selected' : ''} data-i18n="motionPresetsDrawer.beatReact.direction.leftToRight">${t('motionPresetsDrawer.beatReact.direction.leftToRight')}</option>
-                                <option value="rightToLeft" ${effect.direction === 'rightToLeft' ? 'selected' : ''} data-i18n="motionPresetsDrawer.beatReact.direction.rightToLeft">${t('motionPresetsDrawer.beatReact.direction.rightToLeft')}</option>
+                                ${directionOptionsHtml}
                             </select>
                         </div>
                         <label class="flex items-center gap-2.5 px-4 pb-3 cursor-pointer">
                             <input type="checkbox" id="setting-motion-beatreact-${key}-reverse" class="w-4 h-4 rounded accent-sky-500 shrink-0" ${effect.reverse ? 'checked' : ''}>
                             <span class="text-xs text-slate-500" data-i18n="motionPresetsDrawer.beatReact.reverse.label">${t('motionPresetsDrawer.beatReact.reverse.label')}</span>
                         </label>` : '';
+    // MỚI (phản hồi Giang — "bổ sung tick random Max ở dưới Reverse") — hiệu ứng CÓ hướng (Reverse
+    // đứng trên) thì Random Max nối NGAY sau; hiệu ứng KHÔNG có hướng (zoom, không có Reverse) thì
+    // Random Max đặt ngay dưới ô nhập số/slider max (xem cuối template).
+    const randomMaxHtml = `
+                        <label class="flex items-center gap-2.5 px-4 ${cfg.hasDirection ? 'pb-3' : 'pt-3'} cursor-pointer">
+                            <input type="checkbox" id="setting-motion-beatreact-${key}-randommax" class="w-4 h-4 rounded accent-sky-500 shrink-0" ${effect.randomMax ? 'checked' : ''}>
+                            <span class="text-xs text-slate-500" data-i18n="motionPresetsDrawer.beatReact.randomMax.label">${t('motionPresetsDrawer.beatReact.randomMax.label')}</span>
+                        </label>`;
     return `
                         <div class="p-4${borderClass}">
                             <label class="flex items-center gap-2.5 mb-3 cursor-pointer">
@@ -77,11 +103,16 @@ function renderMotionBeatReactEffectRows(key, effect, cfg) {
                                 <span class="text-sm font-medium" data-i18n="${cfg.titleKey}">${t(cfg.titleKey)}</span>
                             </label>
                             ${directionHtml}
-                            <div class="flex justify-between items-center mb-1.5">
-                                <span class="text-xs text-slate-500" data-i18n="${cfg.maxLabelKey}">${t(cfg.maxLabelKey)}</span>
-                                <span id="motion-beatreact-${key}-max-label" class="text-xs text-slate-900 font-mono">${maxVal}${cfg.suffix}</span>
+                            ${cfg.hasDirection ? randomMaxHtml : ''}
+                            <div class="flex justify-between items-center mb-1.5 gap-2">
+                                <span class="text-xs text-slate-500 shrink-0" data-i18n="${cfg.maxLabelKey}">${t(cfg.maxLabelKey)}</span>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="motion-beatreact-${key}-max-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${maxVal}" class="w-20 rounded-lg px-2 py-1 text-xs text-right outline-none" data-uitk="inputBg inputBorder inputText">
+                                    <span class="text-xs text-slate-500">${cfg.suffix}</span>
+                                </div>
                             </div>
                             <input type="range" id="setting-motion-beatreact-${key}-max" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${maxVal}" class="w-full accent-sky-500">
+                            ${cfg.hasDirection ? '' : randomMaxHtml}
                         </div>
     `;
 }
@@ -92,15 +123,14 @@ function renderMotionEditBody(preset, motionApply, consumerKey) {
     return `
                 <!-- ===================== NHÓM 1: CHUYỂN CẢNH ===================== -->
                 <div>
-                    <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2" data-i18n="motionSettingsDrawer.groupTransition.title">${t('motionSettingsDrawer.groupTransition.title')}</h3>
+                    <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2 flex items-center justify-between">
+                        <span data-i18n="motionSettingsDrawer.groupTransition.title">${t('motionSettingsDrawer.groupTransition.title')}</span>
+                        <label class="relative inline-flex items-center cursor-pointer shrink-0 normal-case tracking-normal">
+                            <input type="checkbox" id="setting-motion-transition-enabled" class="sr-only peer" ${preset.transitionEnabled ? 'checked' : ''}>
+                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                        </label>
+                    </h3>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
-                        <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder cardHoverBg">
-                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.transitionEnabled.label">${t('motionSettingsDrawer.transitionEnabled.label')}</span>
-                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="setting-motion-transition-enabled" class="sr-only peer" ${preset.transitionEnabled ? 'checked' : ''}>
-                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
-                            </label>
-                        </div>
                         <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder cardHoverBg">
                             <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.transition.label">${t('motionSettingsDrawer.transition.label')}</span>
                             <select id="setting-motion-transition" class="rounded-lg px-2 py-1.5 text-xs outline-none w-40 text-right" data-uitk="inputBg inputBorder inputText">
@@ -215,15 +245,14 @@ function renderMotionEditBody(preset, motionApply, consumerKey) {
 
                 <!-- ===================== NHÓM 2: POINT MOVE (thay Ken Burns) ===================== -->
                 <div>
-                    <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2 mt-4" data-i18n="motionSettingsDrawer.groupPointMove.title">${t('motionSettingsDrawer.groupPointMove.title')}</h3>
+                    <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2 mt-4 flex items-center justify-between">
+                        <span data-i18n="motionSettingsDrawer.groupPointMove.title">${t('motionSettingsDrawer.groupPointMove.title')}</span>
+                        <label class="relative inline-flex items-center cursor-pointer shrink-0 normal-case tracking-normal">
+                            <input type="checkbox" id="setting-motion-pointmove-enabled" class="sr-only peer" ${preset.pointMoveEnabled ? 'checked' : ''}>
+                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                        </label>
+                    </h3>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
-                        <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder cardHoverBg">
-                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.enabled.label">${t('motionSettingsDrawer.pointMove.enabled.label')}</span>
-                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="setting-motion-pointmove-enabled" class="sr-only peer" ${preset.pointMoveEnabled ? 'checked' : ''}>
-                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
-                            </label>
-                        </div>
                         <button type="button" id="btn-motion-pointmove-list" class="flex justify-between items-center p-4 w-full text-left border-b" data-uitk="dividerBorder cardHoverBg">
                             <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.list.label">${t('motionSettingsDrawer.pointMove.list.label')}</span>
                             <span class="flex items-center gap-1.5 text-xs text-slate-500 shrink-0">
@@ -231,26 +260,12 @@ function renderMotionEditBody(preset, motionApply, consumerKey) {
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                             </span>
                         </button>
-                        <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder cardHoverBg">
+                        <div class="flex justify-between items-center p-4${preset.pointMoveRunMode === 'one' ? ' border-b' : ''}" data-uitk="dividerBorder cardHoverBg">
                             <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.runMode.label">${t('motionSettingsDrawer.pointMove.runMode.label')}</span>
                             <select id="setting-motion-pointmove-runmode" class="rounded-lg px-2 py-1.5 text-xs outline-none w-32 text-right" data-uitk="inputBg inputBorder inputText">
                                 <option value="all" ${preset.pointMoveRunMode === 'all' ? 'selected' : ''} data-i18n="motionSettingsDrawer.pointMove.runMode.all">${t('motionSettingsDrawer.pointMove.runMode.all')}</option>
                                 <option value="one" ${preset.pointMoveRunMode === 'one' ? 'selected' : ''} data-i18n="motionSettingsDrawer.pointMove.runMode.one">${t('motionSettingsDrawer.pointMove.runMode.one')}</option>
                             </select>
-                        </div>
-                        <div id="motion-pointmove-start-force-row" class="flex justify-between items-center p-4 ${preset.pointMoveRunMode === 'all' ? '' : ' hidden'} border-b" data-uitk="dividerBorder cardHoverBg">
-                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.startForceBaseline.label">${t('motionSettingsDrawer.pointMove.startForceBaseline.label')}</span>
-                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="setting-motion-pointmove-start-force-baseline" class="sr-only peer" ${preset.pointMoveStartForceBaseline ? 'checked' : ''}>
-                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
-                            </label>
-                        </div>
-                        <div id="motion-pointmove-end-force-row" class="flex justify-between items-center p-4 ${preset.pointMoveRunMode === 'all' ? '' : ' hidden'} border-b" data-uitk="dividerBorder cardHoverBg">
-                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.endForceBaseline.label">${t('motionSettingsDrawer.pointMove.endForceBaseline.label')}</span>
-                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="setting-motion-pointmove-end-force-baseline" class="sr-only peer" ${preset.pointMoveEndForceBaseline ? 'checked' : ''}>
-                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
-                            </label>
                         </div>
                         <div id="motion-pointmove-order-row" class="flex justify-between items-center p-4 ${preset.pointMoveRunMode === 'one' ? '' : ' hidden'}" data-uitk="cardHoverBg">
                             <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.oneOrder.label">${t('motionSettingsDrawer.pointMove.oneOrder.label')}</span>
@@ -259,42 +274,42 @@ function renderMotionEditBody(preset, motionApply, consumerKey) {
                                 <option value="random" ${preset.pointMoveOneOrder === 'random' ? 'selected' : ''} data-i18n="motionSettingsDrawer.pointMove.oneOrder.random">${t('motionSettingsDrawer.pointMove.oneOrder.random')}</option>
                             </select>
                         </div>
-                        <button type="button" id="btn-motion-pointmove-timing" class="flex justify-between items-center p-4 w-full text-left${preset.pointMoveRunMode === 'all' ? '' : ' hidden'}" data-uitk="cardHoverBg">
-                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.timing.label">${t('motionSettingsDrawer.pointMove.timing.label')}</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-                        </button>
                     </div>
                 </div>
 
                 <!-- ===================== NHÓM 3: REACT BEAT AUDIO ===================== -->
                 <div>
-                    <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2 mt-4" data-i18n="motionPresetsDrawer.beatReact.groupTitle">${t('motionPresetsDrawer.beatReact.groupTitle')}</h3>
+                    <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2 mt-4 flex items-center justify-between">
+                        <span data-i18n="motionPresetsDrawer.beatReact.groupTitle">${t('motionPresetsDrawer.beatReact.groupTitle')}</span>
+                        <label class="relative inline-flex items-center cursor-pointer shrink-0 normal-case tracking-normal">
+                            <input type="checkbox" id="setting-motion-beatreact-enabled" class="sr-only peer" ${preset.reactBeatAudio.enabled ? 'checked' : ''}>
+                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                        </label>
+                    </h3>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
-                        <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder cardHoverBg">
-                            <span class="text-sm font-medium" data-i18n="motionPresetsDrawer.beatReact.enabled.label">${t('motionPresetsDrawer.beatReact.enabled.label')}</span>
-                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="setting-motion-beatreact-enabled" class="sr-only peer" ${preset.reactBeatAudio.enabled ? 'checked' : ''}>
-                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
-                            </label>
-                        </div>
-
                         ${renderMotionBeatReactEffectRows('zoom', preset.reactBeatAudio.zoom, {
                             titleKey: 'motionPresetsDrawer.beatReact.zoom.title',
                             maxLabelKey: 'motionPresetsDrawer.beatReact.zoom.maxLabel',
                             boundMin: 100, boundMax: 200, step: 5, suffix: '%',
                             hasDirection: false,
                         })}
-                        ${renderMotionBeatReactEffectRows('pan', preset.reactBeatAudio.pan, {
-                            titleKey: 'motionPresetsDrawer.beatReact.pan.title',
-                            maxLabelKey: 'motionPresetsDrawer.beatReact.pan.maxLabel',
+                        ${renderMotionBeatReactEffectRows('panX', preset.reactBeatAudio.panX, {
+                            titleKey: 'motionPresetsDrawer.beatReact.panX.title',
+                            maxLabelKey: 'motionPresetsDrawer.beatReact.panX.maxLabel',
                             boundMin: 100, boundMax: 150, step: 5, suffix: '%',
-                            hasDirection: true,
+                            hasDirection: true, directions: MOTION_SETTINGS_BEATREACT_DIRECTIONS_X,
+                        })}
+                        ${renderMotionBeatReactEffectRows('panY', preset.reactBeatAudio.panY, {
+                            titleKey: 'motionPresetsDrawer.beatReact.panY.title',
+                            maxLabelKey: 'motionPresetsDrawer.beatReact.panY.maxLabel',
+                            boundMin: 100, boundMax: 150, step: 5, suffix: '%',
+                            hasDirection: true, directions: MOTION_SETTINGS_BEATREACT_DIRECTIONS_Y,
                         })}
                         ${renderMotionBeatReactEffectRows('rotate', preset.reactBeatAudio.rotate, {
                             titleKey: 'motionPresetsDrawer.beatReact.rotate.title',
                             maxLabelKey: 'motionPresetsDrawer.beatReact.rotate.maxLabel',
                             boundMin: 0, boundMax: 360, step: 15, suffix: '°',
-                            hasDirection: true,
+                            hasDirection: true, directions: MOTION_SETTINGS_BEATREACT_DIRECTIONS_X,
                             isLast: true,
                         })}
                     </div>
@@ -330,26 +345,46 @@ function renderMotionEditBody(preset, motionApply, consumerKey) {
     `;
 }
 
-/** Danh sách point move — [kéo] | checkbox | tên | icon nhân bản | icon xoá | icon sửa. Point move
- * VỊ TRÍ ĐẦU (index 0) checkbox khoá (disabled, luôn checked) — xem core/motion-presets.js::
- * sanitizeMotionPointMoves(); vẫn KÉO-THẢ hoán đổi được bình thường như mọi hàng khác. Nút
- * xoá disabled khi CHỈ CÒN 1 point move (luôn phải giữ ít nhất 1). Kéo trên tay cầm (⠿) để HOÁN ĐỔI
- * timingX với hàng thả vào (phản hồi Giang) — xem event/workflow/app-settings.js wiring +
- * event/workflow/motion-presets.js::swapPointMoveOrder().
- * @param {object[]} pointMoves */
-function renderPointMoveListBody(pointMoves) {
+/** Danh sách point move — [kéo] | checkbox | tên | icon nhân bản | icon xoá | icon sửa. SỬA (phản
+ * hồi Giang — "Point 0 = start point") — Point 0 (index 0) giờ KHÔNG BAO GIỜ kéo-thả/xoá được nữa
+ * (start point CỐ ĐỊNH, `timingX` khoá cứng = 0 — xem core/motion-presets.js), CHỈ còn bấm SỬA được
+ * (6 field chuyển động vẫn chỉnh bình thường) — bỏ hẳn tay cầm kéo + nút xoá LUÔN disabled ở hàng đó
+ * (KHÔNG còn phụ thuộc `canDelete`/số lượng còn lại như các hàng khác). Checkbox vẫn khoá
+ * (disabled, luôn checked) như trước.
+ * MỚI (phản hồi Giang — dời "Endpoint: force baseline" (đổi tên "Return baseline") + "Timing" vào
+ * ĐÂY, bỏ khỏi màn Edit chính) — 1 card nhỏ phía trên danh sách, CHỈ hiện khi `pointMoveRunMode ===
+ * 'all'` (2 field này vốn chỉ có ý nghĩa với mode đó).
+ * @param {object} preset - preset ĐANG sửa (cần `pointMoves`/`pointMoveEndForceBaseline`/`pointMoveRunMode`). */
+function renderPointMoveListBody(preset) {
+    const pointMoves = preset.pointMoves;
     const canDelete = pointMoves.length > 1;
+    const topCardHtml = preset.pointMoveRunMode === 'all' ? `
+        <div class="rounded-2xl flex flex-col overflow-hidden mb-3" data-uitk="cardBg cardBorder">
+            <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder cardHoverBg">
+                <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.endForceBaseline.label">${t('motionSettingsDrawer.pointMove.endForceBaseline.label')}</span>
+                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input type="checkbox" id="setting-motion-pointmove-end-force-baseline" class="sr-only peer" ${preset.pointMoveEndForceBaseline ? 'checked' : ''}>
+                    <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                </label>
+            </div>
+            <button type="button" id="btn-motion-pointmove-timing" class="flex justify-between items-center p-4 w-full text-left" data-uitk="cardHoverBg">
+                <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.timing.label">${t('motionSettingsDrawer.pointMove.timing.label')}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+            </button>
+        </div>
+    ` : '';
     const itemsHtml = pointMoves.map((p, i) => `
         <div class="w-full px-2 py-2.5 rounded-2xl mb-2 flex items-center gap-1.5 bg-slate-50 border border-slate-200" data-ptmove-row="${escapeHtml(p.id)}">
+            ${i === 0 ? `<span class="w-5 h-8 shrink-0"></span>` : `
             <span class="w-5 h-8 flex items-center justify-center text-slate-400 shrink-0 cursor-grab touch-none" data-ptmove-drag-handle="${escapeHtml(p.id)}" title="${t('motionSettingsDrawer.pointMove.dragHandle.title')}">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><circle cx="6" cy="5" r="1.4"/><circle cx="14" cy="5" r="1.4"/><circle cx="6" cy="10" r="1.4"/><circle cx="14" cy="10" r="1.4"/><circle cx="6" cy="15" r="1.4"/><circle cx="14" cy="15" r="1.4"/></svg>
-            </span>
+            </span>`}
             <input type="checkbox" data-ptmove-checkbox="${escapeHtml(p.id)}" class="w-4 h-4 rounded accent-sky-500 shrink-0" ${p.checked ? 'checked' : ''} ${i === 0 ? 'disabled' : ''}>
             <span class="flex-1 text-sm font-semibold text-slate-700 truncate">${tFormat('motionSettingsDrawer.pointMove.itemName', { n: i })}</span>
             <button type="button" data-ptmove-duplicate="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-500 hover:text-sky-500 hover:bg-sky-50 transition-colors shrink-0" title="${t('motionSettingsDrawer.pointMove.duplicate.title')}">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
             </button>
-            <button type="button" data-ptmove-delete="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-500 hover:text-rose-500 hover:bg-rose-50 transition-colors shrink-0 disabled:opacity-30 disabled:pointer-events-none" ${canDelete ? '' : 'disabled'} title="${t('motionPresetsDrawer.list.delete.title')}">
+            <button type="button" data-ptmove-delete="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-500 hover:text-rose-500 hover:bg-rose-50 transition-colors shrink-0 disabled:opacity-30 disabled:pointer-events-none" ${(canDelete && i !== 0) ? '' : 'disabled'} title="${t('motionPresetsDrawer.list.delete.title')}">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
             </button>
             <button type="button" data-ptmove-edit="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-500 hover:text-sky-500 hover:bg-sky-50 transition-colors shrink-0">
@@ -357,7 +392,7 @@ function renderPointMoveListBody(pointMoves) {
             </button>
         </div>
     `).join('');
-    return `<p class="text-xs text-slate-500 mb-3 px-1">${t('motionSettingsDrawer.pointMove.dragHint')}</p>` + itemsHtml + `
+    return topCardHtml + `<p class="text-xs text-slate-500 mb-3 px-1">${t('motionSettingsDrawer.pointMove.dragHint')}</p>` + itemsHtml + `
         <button type="button" id="btn-ptmove-add" class="w-full text-center px-4 py-3.5 rounded-2xl bg-sky-50 border border-sky-200 hover:bg-sky-100 transition-colors text-sm font-semibold text-sky-600">${t('motionSettingsDrawer.pointMove.add.label')}</button>
     `;
 }
@@ -386,6 +421,15 @@ function renderPointMoveFieldRows(key, field, cfg) {
                         <input type="range" data-ptmove-range="min" data-suffix="${cfg.suffix}" id="setting-ptmove-${key}-rangemin" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.rangeMin}" class="ptmove-range-input">
                         <input type="range" data-ptmove-range="max" data-suffix="${cfg.suffix}" id="setting-ptmove-${key}-rangemax" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.rangeMax}" class="ptmove-range-input">
                     </div>`;
+    // MỚI (phản hồi Giang — ô nhập số type=number sync 2 chiều với slider) — single mode: 1 ô; range
+    // mode: 2 ô (min/max), cùng min/max/step với slider tương ứng (validate JS ở event/workflow/
+    // app-settings.js — kẹp biên trước khi gửi qua eventBus).
+    const singleInputHtml = `<input type="number" id="ptmove-${key}-single-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.single}" class="w-20 rounded-lg px-2 py-1 text-xs text-right outline-none${isSingle ? '' : ' hidden'}" data-uitk="inputBg inputBorder inputText">`;
+    const rangeInputHtml = `<div class="flex items-center gap-1${isSingle ? ' hidden' : ''}" id="ptmove-${key}-range-input-wrap">
+                                    <input type="number" id="ptmove-${key}-rangemin-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.rangeMin}" class="w-16 rounded-lg px-2 py-1 text-xs text-right outline-none" data-uitk="inputBg inputBorder inputText">
+                                    <span class="text-xs text-slate-400">~</span>
+                                    <input type="number" id="ptmove-${key}-rangemax-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.rangeMax}" class="w-16 rounded-lg px-2 py-1 text-xs text-right outline-none" data-uitk="inputBg inputBorder inputText">
+                                </div>`;
     return `
                         <div class="p-4${borderClass}">
                             <div class="flex justify-between items-center mb-3">
@@ -399,7 +443,8 @@ function renderPointMoveFieldRows(key, field, cfg) {
                                 </div>
                             </div>
                             <div class="flex justify-end mb-1.5">
-                                <span id="ptmove-${key}-value-label" class="text-xs text-slate-900 font-mono">${isSingle ? `${field.single}${cfg.suffix}` : `${field.rangeMin}${cfg.suffix} ~ ${field.rangeMax}${cfg.suffix}`}</span>
+                                ${singleInputHtml}
+                                ${rangeInputHtml}
                             </div>
                             ${singleHtml}
                             ${rangeHtml}
