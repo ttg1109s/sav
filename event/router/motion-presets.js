@@ -95,10 +95,6 @@ const routerMotionPresets = (() => {
                 workflowMotionPresets.changePointMoveOneOrder(msg.payload.value);
                 break;
 
-            case 'motionPresets.pointMove.startForceBaseline.change':
-                workflowMotionPresets.changePointMoveStartForceBaseline(msg.payload.checked);
-                break;
-
             case 'motionPresets.pointMove.endForceBaseline.change':
                 workflowMotionPresets.changePointMoveEndForceBaseline(msg.payload.checked);
                 break;
