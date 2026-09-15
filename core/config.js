@@ -32,10 +32,10 @@
 
         const DEFAULT_CUSTOM_EFFECT = {
             // [SỬA — 05/09/2026, yêu cầu Giang, "group hoá" effect picker] Key giờ = GROUP (khớp
-            // cfg.type MỚI: bar/lighting/rain/vortex/shape/space — 6 khoá, không phải 12 style con
+            // cfg.type MỚI: bar/lighting/rain/vortex/shape — 5 khoá, không phải 12 style con
             // phẳng như MODES, xem service/state/visualizer-runtime.js). Style con hiện tại của
             // MỖI group lưu ở field riêng (barStyle/lightingStyle/rainStyle/vortexStyle/
-            // shapeStyle/spaceStyle, khớp GROUP_STYLE_FIELD) — CÙNG 1 bucket màu/blur cho MỌI style
+            // shapeStyle, khớp GROUP_STYLE_FIELD) — CÙNG 1 bucket màu/blur cho MỌI style
             // con trong CÙNG group (đổi màu lúc đang ở 'mirror' cũng đổi luôn cho 'cascade'/'black
             // hole' — cố ý, cùng tinh thần "1 group = 1 cấu hình" của việc gộp file/thư mục
             // core/visualizer/groups/).
@@ -98,21 +98,6 @@
                 energyWindowBeats: 4, sectionWindowBeats: 12, fluxThreshold: 0.5,
                 barsRingCount: 40, barsPerRing: 24, barsTwistFactor: 2.4,
                 waveRotationBase: 0.01, waveRotationEnergyMult: 0.05, waveScaleBase: 0.8, waveScaleEnergyMult: 0.4,
-            },
-            space: {
-                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
-                spaceStyle: 'galaxy explore', // MỚI (05/09/2026) — group chỉ 1 style, field vẫn
-                                                // khai cho nhất quán cơ chế chung (GROUP_STYLE_FIELD).
-                starCountMin: 3800, starCountMax: 6000, nebulaCount: 35, dustCount: 1500,
-                // MỚI (26/08/2026, mô hình cụm thiên hà — thay mapNodeCount/mapRadius cũ).
-                clusterGalaxyCountMin: 4, clusterGalaxyCountMax: 8,
-                clusterSpreadRadius: 90, clusterDistanceMin: 300, clusterDistanceMax: 700,
-                // Trước ĐÂY hardcode SPACE_ENERGY_WINDOW_BEATS/SPACE_SECTION_WINDOW_BEATS/
-                // SPACE_FLUX_TRANSITION_THRESHOLD (event/workflow/visualizer-render.js) — giờ
-                // expose thật thành field, đúng tham số của detectMusicTransition() (core/audio-
-                // analysis.js). SPACE_PHRASE_REFRESH_BEATS (isPhraseBoundary(), cơ chế KHÁC) vẫn
-                // giữ hằng số, không đụng.
-                energyWindowBeats: 4, sectionWindowBeats: 12, fluxThreshold: 0.5,
             },
         };
 

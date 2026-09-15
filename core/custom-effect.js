@@ -1,7 +1,7 @@
 /**
  * core/custom-effect.js — Core thuần cho hệ Custom Effect (config riêng từng effect, xem
  * DEFAULT_CUSTOM_EFFECT ở core/config.js). Key = đúng giá trị GROUP (khớp Object.keys(EFFECT_GROUPS),
- * service/state/visualizer-runtime.js — bar/lighting/rain/vortex/shape/space).
+ * service/state/visualizer-runtime.js — bar/lighting/rain/vortex/shape).
  *
  * [SỬA — 05/09/2026, yêu cầu Giang, "group hoá" effect picker] Trước đây key = giá trị MODES phẳng
  * ('bar'/'black hole'/'lighting'/...), CUSTOM_EFFECT_STYLE dùng để dựng dropdown "chọn style con"
@@ -26,25 +26,28 @@ const CUSTOM_EFFECT_DEFAULT_LAMP = { xPercent: 50, heightPx: 150, flareScale: 1 
 const CUSTOM_EFFECT_MAX_TEXTS = 10;
 
 // Effect KHÔNG dùng blur/glow tuỳ chỉnh (Drawer ẩn khối blur) — glow của các effect này (nếu có)
-// là phối cảnh cố định, không đọc blurEnabled/blurIntensity: Vortex/Space không shadowBlur/bloom
-// nào cả; Rain (quầng Trăng) và Shape/Rubik (viền khối sáng) glow LUÔN bật, giá trị cố định trong
+// là phối cảnh cố định, không đọc blurEnabled/blurIntensity: Vortex không shadowBlur/bloom nào
+// cả; Rain (quầng Trăng) và Shape/Rubik (viền khối sáng) glow LUÔN bật, giá trị cố định trong
 // code. Fireworks CÓ dùng (shadowBlur quanh mỗi hạt tại vùng nổ, xem drawFireworksParticle()) —
 // KHÔNG nằm trong danh sách này. Bar (group, gồm cả style "black hole") CÓ dùng blur — không nằm
 // trong danh sách.
-const CUSTOM_EFFECT_NO_BLUR = ['vortex', 'space', 'rain', 'shape'];
+// [XOÁ — 15/09/2026, yêu cầu Giang, "dọn sạch visualizer effect space"] Group "space" (Galaxy
+// Journey) đã BỎ HẲN — engine core/webgl/three-space.js, core/visualizer/groups/space/,
+// service/state/three-space.js đã xoá; mọi entry "space" trong các bảng dưới đây trong file này
+// cũng đã bỏ theo (14 field riêng của space trong CUSTOM_EFFECT_FIELDS).
+const CUSTOM_EFFECT_NO_BLUR = ['vortex', 'rain', 'shape'];
 
 /** Style con của effect (nếu có) — field trong customEffect[group] + danh sách option. TRƯỚC ĐÂY
  * dùng để dựng dropdown ĐẦU TIÊN trong Custom Effect Drawer — dropdown đó ĐÃ BỎ (xem docstring đầu
  * file); giờ là nguồn dữ liệu CHO modal chọn effect 2-dropdown (core/visualizer/
  * visualizer-display.js::openEffectPickerModal()). MỌI group đều có entry, kể cả group chỉ 1
- * style (shape/space) — nhất quán, không cần rẽ nhánh riêng. */
+ * style (shape) — nhất quán, không cần rẽ nhánh riêng. */
 const CUSTOM_EFFECT_STYLE = {
     bar: { field: 'barStyle', options: ['mirror', 'cascade', 'black hole'] },
     rain: { field: 'rainStyle', options: ['glass', 'street'] },
     vortex: { field: 'vortexStyle', options: ['rings', 'bars', 'wave'] },
     lighting: { field: 'lightingStyle', options: ['thunder', 'fireworks'] },
     shape: { field: 'shapeStyle', options: ['rubik'] },
-    space: { field: 'spaceStyle', options: ['galaxy explore'] },
 };
 
 /** Key i18n cho từng option style — TÁI DÙNG bộ text sẵn có (visualizerSettingsDrawer.*), không
@@ -58,7 +61,6 @@ const CUSTOM_EFFECT_STYLE_LABEL_KEYS = {
     vortex: { rings: 'visualizerSettingsDrawer.vortexStyle.rings', bars: 'visualizerSettingsDrawer.vortexStyle.bars', wave: 'visualizerSettingsDrawer.vortexStyle.wave' },
     lighting: { thunder: 'visualizerSettingsDrawer.lightingStyle.thunder', fireworks: 'visualizerSettingsDrawer.lightingStyle.fireworks' },
     shape: { rubik: 'visualizerSettingsDrawer.shapeStyle.rubik' },
-    space: { 'galaxy explore': 'visualizerSettingsDrawer.spaceStyle.galaxyExplore' },
 };
 
 /** Field riêng của TỪNG effect, hiện SAU khối chung (style/color/blur) trong Drawer — dựng UI
@@ -116,26 +118,6 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'waveRotationEnergyMult', labelKey: 'customEffectDrawer.field.waveRotationEnergyMult', type: 'sliderFloat', min: 0, max: 0.3, step: 0.01, decimals: 2, showIf: (cfg) => cfg.vortexStyle === 'wave' },
         { id: 'waveScaleBase', labelKey: 'customEffectDrawer.field.waveScaleBase', type: 'sliderFloat', min: 0.3, max: 1.5, step: 0.05, decimals: 2, showIf: (cfg) => cfg.vortexStyle === 'wave' },
         { id: 'waveScaleEnergyMult', labelKey: 'customEffectDrawer.field.waveScaleEnergyMult', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.vortexStyle === 'wave' },
-    ],
-    space: [
-        { id: 'starCountMin', labelKey: 'customEffectDrawer.field.starCountMin', type: 'slider', min: 500, max: 6000, step: 100 },
-        { id: 'starCountMax', labelKey: 'customEffectDrawer.field.starCountMax', type: 'slider', min: 1000, max: 10000, step: 100 },
-        { id: 'nebulaCount', labelKey: 'customEffectDrawer.field.nebulaCount', type: 'slider', min: 0, max: 60, step: 1 },
-        { id: 'dustCount', labelKey: 'customEffectDrawer.field.dustCount', type: 'slider', min: 100, max: 3000, step: 100 },
-        // THAY (26/08/2026, mô hình cụm thiên hà — xem event/workflow/visualizer-render.js) —
-        // mapNodeCount/mapRadius (bản đồ TĨNH cũ) ĐÃ BỎ, thay bằng 5 field cho mô hình cụm/thiên
-        // hà MỚI: số thiên hà mỗi cụm, bán kính rải quanh tâm cụm, khoảng cách đặt 5 cụm quanh
-        // camera lúc tái tạo.
-        { id: 'clusterGalaxyCountMin', labelKey: 'customEffectDrawer.field.clusterGalaxyCountMin', type: 'slider', min: 2, max: 10, step: 1 },
-        { id: 'clusterGalaxyCountMax', labelKey: 'customEffectDrawer.field.clusterGalaxyCountMax', type: 'slider', min: 4, max: 16, step: 1 },
-        { id: 'clusterSpreadRadius', labelKey: 'customEffectDrawer.field.clusterSpreadRadius', type: 'slider', min: 40, max: 250, step: 10 },
-        { id: 'clusterDistanceMin', labelKey: 'customEffectDrawer.field.clusterDistanceMin', type: 'slider', min: 100, max: 800, step: 20 },
-        { id: 'clusterDistanceMax', labelKey: 'customEffectDrawer.field.clusterDistanceMax', type: 'slider', min: 300, max: 1500, step: 20 },
-        // Tham số THẬT của detectMusicTransition() — quyết định thời điểm chuyển cụm thiên hà, xem
-        // event/workflow/visualizer-render.js::_updateClusterSwitchTrigger().
-        { id: 'energyWindowBeats', labelKey: 'customEffectDrawer.field.musicEnergyWindowBeats', type: 'slider', min: 2, max: 12, step: 1, group: 'music' },
-        { id: 'sectionWindowBeats', labelKey: 'customEffectDrawer.field.musicSectionWindowBeats', type: 'slider', min: 6, max: 32, step: 1, group: 'music' },
-        { id: 'fluxThreshold', labelKey: 'customEffectDrawer.field.musicFluxThreshold', type: 'sliderFloat', min: 0.1, max: 1, step: 0.05, decimals: 2, group: 'music' },
     ],
     lighting: [
         // Chung cho cả 2 style — chớp sáng toàn màn hình khi năng lượng vượt ngưỡng.
