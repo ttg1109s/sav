@@ -336,7 +336,7 @@
     <script src="lang/patch/patch-common.js?v=20260911v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260911v2"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260905v2"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260915v3"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260915v4"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260816v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 2 drawer con Song/Photo & Album, xem plan-v12-multimedia-decisions.md). -->
@@ -429,7 +429,7 @@
     <script src="components/subtitle-settings-drawer.js?v=20260816v2"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Motion Settings Drawer (Cấu hình Transition/Ken Burns/
          React Beat Audio, hệ preset độc lập — xem components/motion-settings-drawer.js). -->
-    <script src="components/motion-settings-drawer.js?v=20260915v4"></script>
+    <script src="components/motion-settings-drawer.js?v=20260915v5"></script>
     <script src="components/visual-bg-settings-drawer.js?v=20260808v1"></script>
     <script src="components/visual-bg-gradient-drawer.js?v=20260807v1"></script>
     <script src="components/visual-bg-video-audio-drawer.js?v=20260808v1"></script>
@@ -1019,7 +1019,7 @@
          XOÁ) — xem event/workflow/motion-presets.js, event/router/motion-presets.js. Không
          cần listener riêng — mọi wiring DOM động nằm trong event/workflow/app-settings.js
          (_render*() onMount, liên tuyến domain, xem docstring file đó). -->
-    <script src="event/workflow/motion-presets.js?v=20260915v3"></script>
+    <script src="event/workflow/motion-presets.js?v=20260915v4"></script>
     <script src="event/router/motion-presets.js?v=20260915v3"></script>
 
     <!-- MỚI (Giang chỉ ra: "đã tách bạch rõ trách nhiệm motion phải quản lý việc apply live bất kể
@@ -1125,7 +1125,7 @@
          workflowFileManagerFolderBrowser/workflowFileManagerStorage đã nạp ở trên — KHÔNG bắt
          buộc thứ tự nạp CHẶT với các file đó, vì mọi tham chiếu đều nằm TRONG thân hàm, chỉ chạy
          SAU khi cả trang đã nạp xong, không chạy ngay lúc parse). -->
-    <script src="event/workflow/app-settings.js?v=20260915v3"></script>
+    <script src="event/workflow/app-settings.js?v=20260915v4"></script>
     <script src="event/router/app-settings.js?v=20260912v1"></script>
     <!-- Cụm "placeholderPanels" (đóng Game/Statis). Photo đã hợp nhất vào Playlist, không còn cụm
          "photoPanel" riêng. -->
