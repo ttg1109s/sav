@@ -56,20 +56,24 @@ function _renderCeColorSection(cfg) {
     `;
 }
 
-/** Card "Music Transition" — CHỈ field nào là tham số THẬT của detectMusicTransition() (core/
- * audio-analysis.js: energyWindowBeats/sectionWindowBeats/fluxThreshold) mới đánh `group: 'music'`
- * — KHÔNG gồm mọi field "đọc audio" nói chung (vd flashThreshold/boltThreshold chỉ so 1 giá trị
- * TỨC THỜI với ngưỡng, finaleIntervalBeats là tham số isPhraseBoundary() — cơ chế đếm beat cố
- * định, khác hẳn detectMusicTransition()). Xếp NGAY DƯỚI Color (phản hồi Giang). Vẫn tôn trọng
- * showIf riêng từng field — Lighting chỉ hiện ở style "fireworks" (thunder không dùng
- * detectMusicTransition()); card CHỈ hiện khi có ít nhất 1 field đang hiển thị. */
-function _renderCeMusicSection(musicFields, cfg) {
+/** Card "Music Transition" (hoặc tên riêng theo group — xem CUSTOM_EFFECT_MUSIC_SECTION_TITLE_KEYS,
+ * core/custom-effect.js: "Finale" cho Fireworks, "Redirect" cho Vortex, fallback tên chung "Music
+ * Transition" cho group nào khác lỡ có field group:'music' sau này) — CHỈ field nào là tham số
+ * THẬT của detectMusicTransition() (core/audio-analysis.js: sectionWindowBeats/fluxThreshold) hoặc
+ * toggle bật/tắt CẢ cơ chế (finaleEnabled/redirectEnabled) mới đánh `group: 'music'` — KHÔNG gồm
+ * mọi field "đọc audio" nói chung (vd flashThreshold/boltThreshold chỉ so 1 giá trị TỨC THỜI với
+ * ngưỡng). Xếp NGAY DƯỚI Color (phản hồi Giang). Vẫn tôn trọng showIf riêng từng field — Lighting
+ * chỉ hiện ở style "fireworks" (thunder không dùng detectMusicTransition()); card CHỈ hiện khi có
+ * ít nhất 1 field đang hiển thị.
+ * @param {string} type - group (bar/lighting/rain/vortex/shape), quyết định tiêu đề card. */
+function _renderCeMusicSection(type, musicFields, cfg) {
     const rows = musicFields.map((f) => _renderCeFieldRow(f, cfg)).join('');
     if (!rows.trim()) return '';
+    const titleKey = CUSTOM_EFFECT_MUSIC_SECTION_TITLE_KEYS[type] || 'customEffectDrawer.musicSection.title'; // core/custom-effect.js
     return `
         <div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">
             <div class="px-4 py-3 border-b" data-uitk="dividerBorder">
-                <span class="text-sm text-slate-700" data-i18n="customEffectDrawer.musicSection.title">${t('customEffectDrawer.musicSection.title')}</span>
+                <span class="text-sm text-slate-700" data-i18n="${titleKey}">${t(titleKey)}</span>
             </div>
             ${rows}
         </div>
@@ -223,7 +227,7 @@ function renderCustomEffectBody(type, cfg) {
     return `
         <div class="flex flex-col gap-4 px-4 py-3">
             ${_renderCeColorSection(cfg)}
-            ${_renderCeMusicSection(musicFields, cfg)}
+            ${_renderCeMusicSection(type, musicFields, cfg)}
             ${showBlur ? _renderCeBlurSection(cfg) : ''}
             ${fields ? `<div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">${fields}</div>` : ''}
             ${lampsSection}
