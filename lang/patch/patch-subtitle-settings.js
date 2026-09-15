@@ -284,14 +284,24 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'playerDisplaySettings.resolution.stretch': 'Stretch',
     'playerDisplaySettings.resolution.trueMax': 'True size (max-capped)',
     'playerDisplaySettings.motion.groupTitle': 'Motion',
-    'playerDisplaySettings.motion.transitionNext.label': 'Transition — Next',
-    'playerDisplaySettings.motion.transitionPrev.label': 'Transition — Previous',
+    // SỬA (phản hồi Giang, đổi tên cho gọn/rõ) — "Transition — Next/Previous" -> "Next/Previous
+    // Transition".
+    'playerDisplaySettings.motion.transitionNext.label': 'Next Transition',
+    'playerDisplaySettings.motion.transitionPrev.label': 'Previous Transition',
     'playerDisplaySettings.motion.pointMove.label': 'Point Move',
     // SỬA (Giang chốt gộp Point Move + React Beat của Video làm 1 lựa chọn) — 'reactBeat.label'
     // riêng đã BỎ (không còn slot nào dùng, xem core/player-display-settings.js::PLAYER_MOTION_SLOTS),
-    // thay bằng 'showing.label' — DUY NHẤT cho Video.
-    'playerDisplaySettings.motion.showing.label': 'Showing (Point Move + React Beat)',
+    // thay bằng 'showing.label' — DUY NHẤT cho Video. SỬA (phản hồi Giang) — bỏ phần chú thích
+    // "(Point Move + React Beat)" trong ngoặc, chỉ còn "Showing" (phần giải thích giờ chuyển qua
+    // icon (i) cạnh tiêu đề "Motion", xem 'playerDisplaySettings.motion.infoText' + components/
+    // settings/player-display-settings.js).
+    'playerDisplaySettings.motion.showing.label': 'Showing',
     'playerDisplaySettings.motion.none': 'None',
+    // MỚI (phản hồi Giang — icon (i) cạnh tiêu đề "Motion", giải thích ngắn gọn các lựa chọn) — xem
+    // core/info-icon-ui.js::infoIconHtml() + components/settings/player-display-settings.js.
+    // LANG_EN_KEYS là ngôn ngữ gốc (xem lang/lang.js) nên viết tiếng Anh, cùng ngôn ngữ với mọi
+    // key khác trong file này.
+    'playerDisplaySettings.motion.infoText': 'Next/Previous Transition: the effect played when switching to the next/previous track. Point Move: continuous drift/movement of the image. Showing: combines Point Move and React Beat (pulses with the music) into one choice (Video only — Photo has no audio to react to). Pick "None" to turn an effect off.',
 
     // MỚI (29/08/2026, phản hồi Giang) — "React Beat Audio": pulse zoom/pan/rotate bắn theo beat nhạc.
     'motionPresetsDrawer.beatReact.groupTitle': 'React Beat Audio',
