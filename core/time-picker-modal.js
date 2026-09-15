@@ -158,8 +158,16 @@ function openTimePickerModal(config) {
     function buildColumn(levelIndex, initIndex) {
         const { count } = units[levelIndex];
         const col = document.createElement('div');
-        col.className = 'time-picker-col flex-1 overflow-y-scroll snap-y snap-mandatory';
-        // FIX BUG (phản hồi Giang — "giá trị current không thấy được", cột lệch hẳn khỏi
+        // SỬA LẦN 3 (ảnh chụp mới, phản hồi Giang — "01/08 bị che" — ĐÚNG, không phải trùng màu) —
+        // ROOT CAUSE THẬT SỰ: `highlightBand` là `position: absolute`, còn cột số (`.time-picker-col`)
+        // MẶC ĐỊNH `position: static` — theo đúng thứ tự vẽ (paint order) của CSS, phần tử `positioned`
+        // (absolute/relative/...) LUÔN được vẽ ĐÈ LÊN phần tử `static`, BẤT KỂ thứ tự trong DOM —
+        // "append cột SAU highlightBand" (tưởng sẽ vẽ chồng lên trên) KHÔNG có tác dụng gì vì 2 bên
+        // không cùng 1 "tầng" stacking. Thêm `relative` cho cột -> cả 2 (band lẫn cột) giờ CÙNG
+        // "tầng" positioned/z-index:auto -> lúc đó thứ tự DOM mới thật sự quyết định (band append
+        // TRƯỚC -> vẽ DƯỚI; cột append SAU -> vẽ TRÊN, số hiện đúng như ý muốn ban đầu).
+        col.className = 'time-picker-col relative flex-1 overflow-y-scroll snap-y snap-mandatory';
+        // SỬA (ảnh chụp trước, phản hồi Giang — "giá trị current không thấy được", cột lệch hẳn khỏi
         // highlightBand) — TRƯỚC dùng class Tailwind arbitrary `h-[132px]`, có thể KHÔNG kịp lên CSS
         // đúng lúc `scrollTop` được set ở lần mở modal ĐẦU TIÊN trong phiên (Tailwind CDN tiêm CSS
         // cho class MỚI THẤY LẦN ĐẦU bất đồng bộ — CÙNG lớp bug đã fix ở Folder Browser,
