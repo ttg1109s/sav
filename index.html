@@ -1032,7 +1032,7 @@
          'playerDisplay', GIAI ĐOẠN 1 — CHƯA có cơ chế áp dụng lên runtime), xem event/workflow/
          player-display-settings.js. NẠP TRƯỚC event/workflow/app-settings.js (gọi trực tiếp, không
          qua router riêng) và event/workflow/app-boot.js (gọi loadPersistedPlayerDisplayOnBoot()). -->
-    <script src="event/workflow/player-display-settings.js?v=20260914v1"></script>
+    <script src="event/workflow/player-display-settings.js?v=20260915v1"></script>
 
     <!-- Cụm "visualBg" — Workflow tách 3 file: common (định nghĩa `workflowVisualBg`), video/photo
          (`Object.assign()` thêm vào) — common PHẢI nạp trước video/photo. -->
@@ -1105,7 +1105,7 @@
          core/playlist/render.js, core/player-controls.js (requestWakeLock/switchToVisualizer),
          core/listen-stats.js (bumpSongPlayCount), event/workflow/video-player.js (workflowVideoPlayer
          — chỉ dùng trong callback runtime, không bắt buộc thứ tự nạp so với dòng NGAY DƯỚI). -->
-    <script src="event/workflow/player.js?v=20260902v2"></script>
+    <script src="event/workflow/player.js?v=20260915v1"></script>
     <script src="event/workflow/playlist.js?v=20260911v2"></script>
     <script src="event/router/playlist.js?v=20260823v1"></script>
     <script src="event/listener/playlist.js?v=20260823v1"></script>
@@ -1145,8 +1145,8 @@
          mediaType khi click video trong Playlist (đi qua eventBus để Block gate chặn khoá chéo với
          Video nền). PHẢI nạp SAU event/workflow/video-player.js (cần workflowVideoPlayer.
          startFromPlaylist() đã tồn tại). -->
-    <script src="event/workflow/video-player.js?v=20260914v1"></script>
-    <script src="event/router/video-player.js?v=20260818v1"></script>
+    <script src="event/workflow/video-player.js?v=20260915v1"></script>
+    <script src="event/router/video-player.js?v=20260915v1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
     <!-- MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — event/workflow/photo-
          player.js: orchestration (đọc DB, taskManager đếm giờ tự next). KHÔNG có router/listener
@@ -1191,7 +1191,7 @@
     <script src="event/workflow/statis-panel.js?v=20260911v1"></script>
     <script src="event/router/statis-panel.js?v=20260911v1"></script>
     <script src="event/listener/statis-panel.js?v=20260911v1"></script>
-    <script src="event/workflow/player-controls.js?v=20260911v1"></script>
+    <script src="event/workflow/player-controls.js?v=20260915v1"></script>
     <script src="event/router/player-controls.js?v=20260819v1"></script>
     <script src="event/listener/player-controls.js?v=20260708v1"></script>
     <!-- Cụm "visualizerDisplay": ảnh nền, độ mờ nền, cycle effect, panel "Display". Cấu hình riêng
