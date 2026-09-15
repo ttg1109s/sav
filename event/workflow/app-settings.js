@@ -680,6 +680,21 @@ const workflowAppSettings = {
                 wirePointMoveField('zoom', false);
                 wirePointMoveField('flipX', false);
                 wirePointMoveField('flipY', false);
+
+                // MỚI (phản hồi Giang — nút "±" đảo dấu, bù bàn phím `inputmode="decimal"` của iOS
+                // KHÔNG có phím trừ) — GENERIC 1 wiring DUY NHẤT cho MỌI nút (data-ptmove-sign-toggle
+                // = id của ô input nó đảo dấu, xem components/motion-settings-drawer.js). Bấm -> đảo
+                // dấu giá trị `.value` hiện có, kẹp lại [min,max], rồi TÁI DÙNG đúng luồng 'change' đã
+                // wire sẵn cho ô input đó ở trên (clamp/đồng bộ slider/persist) — KHÔNG lặp code.
+                body.querySelectorAll('[data-ptmove-sign-toggle]').forEach((btn) => {
+                    btn.addEventListener('click', () => {
+                        const inputEl = body.querySelector(`#${btn.dataset.ptmoveSignToggle}`);
+                        if (!inputEl) return;
+                        const negated = -(Number(inputEl.value) || 0);
+                        inputEl.value = Math.max(Number(inputEl.min), Math.min(Number(inputEl.max), negated));
+                        inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                });
             },
         );
     },

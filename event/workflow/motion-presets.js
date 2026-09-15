@@ -493,9 +493,12 @@ const workflowMotionPresets = {
         const rangeWrap = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-range-wrap`);
         if (singleWrap) singleWrap.style.display = isSingle ? '' : 'none';
         if (rangeWrap) rangeWrap.style.display = isSingle ? 'none' : '';
-        const singleInput = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-single-input`);
+        // SỬA (phản hồi Giang — thêm nút "±" đảo dấu, xem components/motion-settings-drawer.js) — ô
+        // input single giờ nằm TRONG 1 wrapper (cùng nút ±), toggle hidden ở WRAPPER thay vì bản thân
+        // input.
+        const singleInputWrap = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-single-input-wrap`);
         const rangeInputWrap = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-range-input-wrap`);
-        if (singleInput) singleInput.classList.toggle('hidden', !isSingle);
+        if (singleInputWrap) singleInputWrap.classList.toggle('hidden', !isSingle);
         if (rangeInputWrap) rangeInputWrap.classList.toggle('hidden', isSingle);
         this._updatePointMoveFieldLabel(fieldKey);
     },
