@@ -238,7 +238,18 @@ function openTimePickerModal(config) {
     const wheelWrap = document.createElement('div');
     wheelWrap.className = 'relative flex gap-1';
     const highlightBand = document.createElement('div');
-    highlightBand.className = 'absolute inset-x-0 top-1/2 -translate-y-1/2 h-11 rounded-lg pointer-events-none border-y';
+    highlightBand.className = 'absolute inset-x-0 rounded-lg pointer-events-none border-y';
+    // SỬA LẦN 2 (ảnh chụp mới, phản hồi Giang — vẫn lệch dù đã fix chiều cao cột) — root cause THẬT:
+    // `top-1/2 -translate-y-1/2` định vị theo PHẦN TRĂM chiều cao `wheelWrap` (containing block của
+    // phần tử `absolute`) — nhưng `wheelWrap` là flex container chiều cao TỰ TÍNH (auto, suy ra từ 2
+    // cột con), KHÔNG phải 1 chiều cao "khai báo rõ ràng" theo đúng nghĩa spec CSS cho việc quy đổi
+    // % — độ tin cậy của trình duyệt cho ca này (absolute % top trong 1 flex auto-height) không nhất
+    // quán, y hệt triệu chứng ảnh chụp (dải trôi tự do, không bám 3 cột). SỬA: bỏ hẳn %, dùng pixel
+    // TUYỆT ĐỐI `top: ITEM_H` (= đúng mép trên của HÀNG GIỮA trong khung nhìn 3 hàng của mỗi cột,
+    // xem topSpacer/scrollTop trong buildColumn()) — không phụ thuộc chiều cao wheelWrap tính ra bao
+    // nhiêu nữa, LUÔN khớp đúng hàng đang cuộn tới bất kể trình duyệt/thời điểm nào.
+    highlightBand.style.top = ITEM_H + 'px';
+    highlightBand.style.height = ITEM_H + 'px';
     // SỬA (phản hồi Giang — "không hiển thị được giá trị current đang ở") — `cardBg` (bg-slate-50)
     // gần như không phân biệt được với nền card trắng (modalCardBg) phía sau, dải nổi bật gần như vô
     // hình, không rõ đâu là giá trị đang chọn. Đổi sang `rowActiveBg`/`rowActiveBorder` (tông sky
