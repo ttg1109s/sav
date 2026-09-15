@@ -336,7 +336,7 @@
     <script src="lang/patch/patch-common.js?v=20260911v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260911v2"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260905v2"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260912v3"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260915v2"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260816v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 2 drawer con Song/Photo & Album, xem plan-v12-multimedia-decisions.md). -->
@@ -436,7 +436,7 @@
     <!-- MỚI (Giang yêu cầu "Player" — Resolution + Motion của Video/Photo lúc phát chính) — CẦN
          core/player-display-settings.js (nạp bên dưới, PLAYER_RESOLUTION_MODES/PLAYER_MOTION_SLOTS/
          resolvePlayer*Field()). -->
-    <script src="components/settings/player-display-settings.js?v=20260912v3"></script>
+    <script src="components/settings/player-display-settings.js?v=20260915v2"></script>
     <!-- Panel Settings "Cử chỉ" (cụm gestureSettings) — cùng pattern push/pop Settings Stack. -->
     <script src="components/gesture-settings-drawer.js?v=20260813v1"></script>
 
@@ -452,16 +452,20 @@
          file gọi hàm helper của chúng (playlist/*.js, equalizer.js, subtitle/*.js...). -->
     <!-- service/z-index.js — bảng z-index tập trung, PHẢI nạp trước core/modal-choice-ui.js
          (Z_INDEX.MODAL_CHOICE) và mọi core/ dùng z-index. Zero dependency. -->
-    <script src="service/z-index.js?v=20260731v1"></script>
+    <script src="service/z-index.js?v=20260915v2"></script>
     <!-- modalChoice() — modal "hỏi quyết định" dùng chung, tự dựng/xoá DOM động. Nạp sớm: service/
          state.js cần modal-choice-ui.js sẵn sàng trước (option notifyUI của appState.set/mutate). -->
     <script src="core/modal-choice-ui.js?v=20260818v1"></script>
+    <!-- infoIconHtml()/showInfoPopup() — icon (i) nhỏ dùng chung + popup giải thích (text + nút X),
+         MỚI (phản hồi Giang). CẦN Z_INDEX (đã nạp dòng trên) + escapeHtml() (modal-choice-ui.js, đã
+         nạp ngay trên) — nạp SAU cả 2. -->
+    <script src="core/info-icon-ui.js?v=20260915v1"></script>
     <!-- Undo/Redo phổ quát, zero-dependency (chỉ thao tác mảng/object thuần) — nơi dùng đầu tiên là
          Video Preview, nhưng đúng bản chất "core dùng chung". -->
     <script src="core/edit-history.js?v=20260803v1"></script>
     <!-- openTimePickerModal() dùng chung (Subtitle Editor + Motion transition-duration picker) —
          chỉ phụ thuộc t(). -->
-    <script src="core/time-picker-modal.js?v=20260718v1"></script>
+    <script src="core/time-picker-modal.js?v=20260915v4"></script>
     <!-- openSliderInputModal() dùng chung (VBG "Âm thanh Video" dùng đầu tiên) — cùng khuôn
          time-picker-modal.js. -->
     <script src="core/slider-input-modal.js?v=20260808v3"></script>
@@ -930,6 +934,12 @@
     <script src="event/bus.js?v=20260703v1"></script>
     <script src="event/block.js?v=20260731v3"></script>
     <script src="event/virtual-machine-state.js?v=20260701v1"></script>
+    <!-- Cụm "infoIcon" (MỚI, phản hồi Giang — icon (i) nhỏ dùng chung) — CẦN core/info-icon-ui.js
+         (đã nạp ở nhóm CORE phía trên). Listener delegate trên document.body — luôn có sẵn, không
+         cần dom-refs.js nào. -->
+    <script src="event/workflow/info-icon.js?v=20260915v1"></script>
+    <script src="event/router/info-icon.js?v=20260915v1"></script>
+    <script src="event/listener/info-icon.js?v=20260915v1"></script>
     <!-- Cụm "settingsStackNav" (Batch D1, Settings restructure, 06/07/2026) — nút Back DÙNG CHUNG
          cho MỌI panel con Settings (About/Visualizer/.../File Manager, bất kể panel nào đang mở).
          CẦN core/settings-panel-stack-ui.js (đã nạp ở nhóm CORE phía trên). NẠP TRƯỚC settingsMisc
@@ -1046,7 +1056,7 @@
          4 section (Điều hướng/Tap/Seek/Vuốt cạnh — components/gesture-settings-drawer.js).
          openSeekStepPicker() cần core/time-picker-modal.js (đã nạp dòng ~456, DÙNG CHUNG, không
          viết picker riêng). -->
-    <script src="event/workflow/gesture-settings.js?v=20260813v1"></script>
+    <script src="event/workflow/gesture-settings.js?v=20260915v2"></script>
     <script src="event/router/gesture-settings.js?v=20260811v6"></script>
     <script src="event/listener/gesture-settings.js?v=20260811v6"></script>
     <!-- workflowFileManagerPhoto — panel Photo push/pop động, fullBleed:true (lưới ảnh tràn viền).
