@@ -107,7 +107,7 @@ function renderMotionBeatReactEffectRows(key, effect, cfg) {
                             <div class="flex justify-between items-center mb-1.5 gap-2">
                                 <span class="text-xs text-slate-500 shrink-0" data-i18n="${cfg.maxLabelKey}">${t(cfg.maxLabelKey)}</span>
                                 <div class="flex items-center gap-1">
-                                    <input type="number" id="motion-beatreact-${key}-max-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${maxVal}" class="w-20 rounded-lg px-2 py-1 text-xs text-right outline-none" data-uitk="inputBg inputBorder inputText">
+                                    <input type="number" inputmode="decimal" id="motion-beatreact-${key}-max-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${maxVal}" class="w-20 rounded-lg px-2 py-1 text-xs text-right outline-none" data-uitk="inputBg inputBorder inputText">
                                     <span class="text-xs text-slate-500">${cfg.suffix}</span>
                                 </div>
                             </div>
@@ -424,11 +424,11 @@ function renderPointMoveFieldRows(key, field, cfg) {
     // MỚI (phản hồi Giang — ô nhập số type=number sync 2 chiều với slider) — single mode: 1 ô; range
     // mode: 2 ô (min/max), cùng min/max/step với slider tương ứng (validate JS ở event/workflow/
     // app-settings.js — kẹp biên trước khi gửi qua eventBus).
-    const singleInputHtml = `<input type="number" id="ptmove-${key}-single-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.single}" class="w-20 rounded-lg px-2 py-1 text-xs text-right outline-none${isSingle ? '' : ' hidden'}" data-uitk="inputBg inputBorder inputText">`;
+    const singleInputHtml = `<input type="number" inputmode="decimal" id="ptmove-${key}-single-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.single}" class="w-20 rounded-lg px-2 py-1 text-xs text-right outline-none${isSingle ? '' : ' hidden'}" data-uitk="inputBg inputBorder inputText">`;
     const rangeInputHtml = `<div class="flex items-center gap-1${isSingle ? ' hidden' : ''}" id="ptmove-${key}-range-input-wrap">
-                                    <input type="number" id="ptmove-${key}-rangemin-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.rangeMin}" class="w-16 rounded-lg px-2 py-1 text-xs text-right outline-none" data-uitk="inputBg inputBorder inputText">
+                                    <input type="number" inputmode="decimal" id="ptmove-${key}-rangemin-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.rangeMin}" class="w-16 rounded-lg px-2 py-1 text-xs text-right outline-none" data-uitk="inputBg inputBorder inputText">
                                     <span class="text-xs text-slate-400">~</span>
-                                    <input type="number" id="ptmove-${key}-rangemax-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.rangeMax}" class="w-16 rounded-lg px-2 py-1 text-xs text-right outline-none" data-uitk="inputBg inputBorder inputText">
+                                    <input type="number" inputmode="decimal" id="ptmove-${key}-rangemax-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.rangeMax}" class="w-16 rounded-lg px-2 py-1 text-xs text-right outline-none" data-uitk="inputBg inputBorder inputText">
                                 </div>`;
     return `
                         <div class="p-4${borderClass}">
