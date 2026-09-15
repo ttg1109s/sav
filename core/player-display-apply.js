@@ -44,7 +44,8 @@
  * NẠP SAU: core/dom-refs.js (bgVideoElement/visualBgImageElement/videoPlayerMotionPointMoveElement/
  * visualBgImageHomeParent,NextSibling/videoPlayerMotionPointMoveHomeParent,NextSibling/
  * motionEngineReactLayer), core/player-display-settings.js
- * (resolvePlayerObjectFitCss()/resolvePlayerBackgroundSizeCss()).
+ * (resolvePlayerObjectFitCss()/resolvePlayerBackgroundSizeCss()), core/motion-engine.js
+ * (resetMotionEngineLayerClasses() — dùng ở detachVideoPlayerMotionFromSharedReactLayer()).
  * NẠP TRƯỚC: event/workflow/player-display-settings.js, event/workflow/video-player.js.
  */
 
@@ -123,6 +124,22 @@ function clearPhotoPlayerResolutionFromDOM() {
  * của nó (assets/css/base.css) đã tự đứng SAU trong stacking context MỚI mà `motionEngineReactLayer`
  * tạo ra, thứ tự DOM chỉ để chắc chắn thêm.
  *
+ * FIX (Giang báo bug "chọn Motion cho Next/Prev nhưng Transition không kích hoạt") — TOÀN BỘ cơ
+ * chế opacity/z-index của Transition (`.motion-layer`/`.me-current`/`.me-layer-enter`/
+ * `.me-layer-exit`, assets/css/motion-engine.css) đọc qua class NỀN `.motion-layer` — class này
+ * TRƯỚC ĐÂY chỉ hard-code sẵn trong index.html cho 2 layer RIÊNG của VBG
+ * (`#visual-motion-layer-1`/`-2`), KHÔNG hề được gán cho `bgVideoElement`/`visualBgImageElement`
+ * (2 layer A/B THẬT của Video Player mode, truyền thẳng vào `runTransition()` — xem
+ * event/workflow/player-display-settings.js::runVideoPlayerTransition()) — thiếu `.motion-layer`
+ * khiến rule z-index promotion (`.motion-layer.me-layer-enter{z-index:3}`) không bao giờ áp dụng,
+ * layer ĐANG VÀO kẹt mãi ở z-index tĩnh (bgVideoElement:0/visualBgImageElement:-2, base.css) —
+ * `bgVideoElement` LUÔN đè lên `visualBgImageElement` bất kể animation nào đang chạy, nên hầu hết
+ * kiểu Transition (slide/wipe/zoom/flip/spin...) không thấy gì cả. Gán `.motion-layer` NGAY tại
+ * đây (gỡ lại ở `detachVideoPlayerMotionFromSharedReactLayer()` — BẮT BUỘC đi cặp, xem hàm đó) +
+ * `.me-current` CHỈ cho `bgVideoElement` (layer A, ĐANG là layer hiện tại lúc mới vào mode —
+ * `visualBgImageElement` lúc này CHƯA có nội dung gì, giữ `.motion-layer` mặc định `opacity:0` là
+ * ĐÚNG, không cần `.me-current`).
+ *
  * AN TOÀN với VBG: `clearMediaLayers()` (event/workflow/visual-bg-common.js, LUÔN chạy TRƯỚC bước
  * này trong `startFromPlaylist()`) đã gọi `workflowMotionEngine.stop()` — dọn SẠCH transform + dừng
  * hẳn Runner của VBG, VÀ ẩn `visualBgImageElement` (`applyVisualBgImageToDOM(false, ...)`, core/
@@ -130,8 +147,12 @@ function clearPhotoPlayerResolutionFromDOM() {
  * `visualBgImageElement` lúc này (2 mode loại trừ nhau TUYỆT ĐỐI), nên mượn cả 2 là an toàn. */
 function attachVideoPlayerMotionToSharedReactLayer() {
     if (!motionEngineReactLayer) return; // core/dom-refs.js
-    if (visualBgImageElement) motionEngineReactLayer.appendChild(visualBgImageElement);
+    if (visualBgImageElement) {
+        motionEngineReactLayer.appendChild(visualBgImageElement);
+        visualBgImageElement.classList.add('motion-layer'); // FIX — xem docstring hàm này
+    }
     if (videoPlayerMotionPointMoveElement) motionEngineReactLayer.appendChild(videoPlayerMotionPointMoveElement);
+    if (bgVideoElement) bgVideoElement.classList.add('motion-layer', 'me-current'); // FIX — xem docstring hàm này
 }
 
 /** Trả CẢ layer A (`videoPlayerMotionPointMoveElement`) LẪN layer B (`visualBgImageElement`) VỀ
@@ -139,8 +160,25 @@ function attachVideoPlayerMotionToSharedReactLayer() {
  * — gọi lúc THOÁT Video Player mode (event/workflow/video-player.js::exitVideoPlayerMode()) — BẮT
  * BUỘC, TRƯỚC khi `workflowVisualBg.applyCurrentVisualBg()` tái sử dụng CẢ `motionEngineReactLayer`
  * LẪN `visualBgImageElement` cho chính VBG — nếu không, VBG sẽ tìm `visualBgImageElement` tại vị
- * trí cũ mà không thấy (đã bị dời đi), hỏng hẳn cách VBG hiển thị ảnh nền. */
+ * trí cũ mà không thấy (đã bị dời đi), hỏng hẳn cách VBG hiển thị ảnh nền.
+ *
+ * FIX (đi CẶP với `.motion-layer`/`.me-current` gán ở `attachVideoPlayerMotionToSharedReactLayer()`
+ * — xem docstring hàm đó) — gỡ SẠCH `.motion-layer` + 3 class trạng thái Transition còn sót
+ * (`resetMotionEngineLayerClasses()`, core/motion-engine.js) khỏi `bgVideoElement`/
+ * `visualBgImageElement` TRƯỚC khi trả 2 phần tử về "nhà" — BẮT BUỘC, không thì `bgVideoElement`
+ * (dùng chung với Video nền trang trí của VBG) kẹt mãi `opacity:0` mặc định của `.motion-layer`
+ * (chỉ thoát nhờ trùng hợp inline `style.opacity` đang set, không phải cơ chế đúng), và
+ * `visualBgImageElement` kẹt z-index promotion sai lúc VBG tái dùng lại chính layer đó cho ảnh nền
+ * thật của nó. */
 function detachVideoPlayerMotionFromSharedReactLayer() {
+    if (bgVideoElement) {
+        resetMotionEngineLayerClasses(bgVideoElement); // core/motion-engine.js — gỡ me-current/me-layer-enter/me-layer-exit còn sót
+        bgVideoElement.classList.remove('motion-layer');
+    }
+    if (visualBgImageElement) {
+        resetMotionEngineLayerClasses(visualBgImageElement); // core/motion-engine.js
+        visualBgImageElement.classList.remove('motion-layer');
+    }
     if (videoPlayerMotionPointMoveElement && videoPlayerMotionPointMoveHomeParent) {
         videoPlayerMotionPointMoveHomeParent.insertBefore(videoPlayerMotionPointMoveElement, videoPlayerMotionPointMoveHomeNextSibling); // core/dom-refs.js
     }
