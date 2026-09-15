@@ -70,10 +70,10 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.barWidth.label': 'Bar thickness (px)',
     'visualizerSettingsDrawer.vortexStyle.label': 'Vortex tunnel style',
     'visualizerSettingsDrawer.vortexStyle.rings': 'Light rings',
-    'visualizerSettingsDrawer.vortexStyle.bars': '3D bar segments (Equalizer)',
-    'visualizerSettingsDrawer.vortexStyle.wave': 'Wave noise (fade)',
+    'visualizerSettingsDrawer.vortexStyle.bars': 'Segments',
+    'visualizerSettingsDrawer.vortexStyle.wave': 'Wave noise',
     'visualizerSettingsDrawer.barStyle.label': 'Bar style',
-    'visualizerSettingsDrawer.barStyle.mirror': 'Mirror (butterfly)',
+    'visualizerSettingsDrawer.barStyle.mirror': 'Mirror butterfly',
     'visualizerSettingsDrawer.barStyle.cascade': 'Cascade',
     // MỚI (05/09/2026, yêu cầu Giang, "group hoá" effect picker) — "Black Hole"/"Rubik" TRƯỚC
     // ĐÂY là tên GROUP/type riêng (settingsVisualizer.type.*, lang/patch/patch-subtitle-
@@ -116,6 +116,8 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.blurEnable': 'Glow / blur',
     'customEffectDrawer.blurIntensity': 'Glow intensity',
     'customEffectDrawer.musicSection.title': 'Music Transition',
+    'customEffectDrawer.musicSection.finaleTitle': 'Finale',
+    'customEffectDrawer.musicSection.redirectTitle': 'Redirect',
     'customEffectDrawer.field.starCount': 'Number of stars',
     'customEffectDrawer.field.glassDropDensity': 'Droplet density',
     'customEffectDrawer.field.glassStreakFrequency': 'Streak frequency',
@@ -131,7 +133,8 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.fwGravity': 'Gravity',
     'customEffectDrawer.field.fwAutoLaunchDensity': 'Auto-launch density',
     'customEffectDrawer.field.fwMaxConcurrentRockets': 'Max fireworks at once',
-    'customEffectDrawer.field.fwFinaleIntervalBeats': 'Finale interval (beats)',
+    // (fwFinaleIntervalBeats ĐÃ BỎ 15/09/2026, yêu cầu Giang — không còn nhịp ép định kỳ, xem
+    // finaleEnabled bên dưới, khối customEffectDrawer.field.musicSectionWindowBeats/*)
     'customEffectDrawer.fireworks.stylesTitle': 'Burst styles (random among checked)',
     'customEffectDrawer.fireworks.style.cluster': 'Cluster burst',
     'customEffectDrawer.fireworks.style.kamuro': 'Kamuro waterfall',
@@ -154,7 +157,6 @@ const LANG_PATCH_VISUALIZER = {
     // hardcode trong từng file draw, giờ mở custom theo đúng danh sách đã thống nhất.
     'customEffectDrawer.field.barFillRatio': 'Bar/gap ratio',
     'customEffectDrawer.field.barCornerRadius': 'Bar corner radius',
-    'customEffectDrawer.field.centerBarBeatRatio': 'Center bar beat mix',
     'customEffectDrawer.field.cascadeBaseAlpha': 'Cascade base opacity',
     'customEffectDrawer.field.cascadeKeyCount': 'Number of cascade keys',
     'customEffectDrawer.field.radiusRatio': 'Black hole radius',
@@ -176,12 +178,18 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.layerTurnSpeed': 'Layer-turn speed',
     'customEffectDrawer.field.warpSpeedBase': 'Base warp speed',
     'customEffectDrawer.field.warpSpeedEnergyMult': 'Warp speed energy reactivity',
-    'customEffectDrawer.field.curveEnergyWindowBeats': 'Curve turn — short window (beats)',
-    'customEffectDrawer.field.curveSectionWindowBeats': 'Curve turn — long window (beats)',
-    'customEffectDrawer.field.curveFluxThreshold': 'Curve turn sensitivity',
-    'customEffectDrawer.field.musicEnergyWindowBeats': 'Music transition — short window (beats)',
-    'customEffectDrawer.field.musicSectionWindowBeats': 'Music transition — long window (beats)',
-    'customEffectDrawer.field.musicFluxThreshold': 'Music transition sensitivity',
+    'customEffectDrawer.field.curveSectionWindowBeats': 'Chain beats period',
+    'customEffectDrawer.field.curveFluxThreshold': 'Sensitivity',
+    'customEffectDrawer.field.musicSectionWindowBeats': 'Chain beats period',
+    'customEffectDrawer.field.musicFluxThreshold': 'Sensitivity',
+    // MỚI (15/09/2026, yêu cầu Giang) — toggle bật/tắt CẢ CƠ CHẾ tự trigger theo nhạc: Fireworks
+    // (Finale, style "fireworks") / Vortex (Redirect, mọi style) — tắt thì KHÔNG bao giờ tự
+    // trigger nữa dù nhạc có chuyển đoạn, xem finaleEnabled/redirectEnabled (core/config.js,
+    // core/custom-effect.js) + _fwUpdateFinaleTrigger()/_tickVortexCurve() (event/workflow/
+    // visualizer-render.js). Cùng chữ với tiêu đề card (musicSection.finaleTitle/redirectTitle
+    // ở trên) — toggle nằm NGAY ĐẦU card đó.
+    'customEffectDrawer.field.finaleEnabled': 'Finale',
+    'customEffectDrawer.field.redirectEnabled': 'Redirect',
     'customEffectDrawer.field.barsRingCount': 'Number of bar rings',
     'customEffectDrawer.field.barsPerRing': 'Bars per ring',
     'customEffectDrawer.field.barsTwistFactor': 'Spiral twist amount',
