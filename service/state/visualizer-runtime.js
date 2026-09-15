@@ -44,13 +44,15 @@
         // core/visualizer/visualizer-display.js::updateTypeUI()). "Black Hole" CHUYỂN từ type
         // riêng thành 1 style của group "bar"; "Rubik" CHUYỂN thành 1 style của group "shape" (MỚI,
         // thay tên group "rubik" cũ — group vẫn chỉ 1 style, đặt tên chung để dễ mở rộng sau);
-        // "Space" đổi tên style thành "galaxy explore" (group vẫn tên "space").
+        // [XOÁ — 15/09/2026, yêu cầu Giang, "dọn sạch visualizer effect space"] Group "space"
+        // (Galaxy Journey, style "galaxy explore") đã BỎ HẲN khỏi EFFECT_GROUPS/GROUP_STYLE_FIELD
+        // bên dưới — MODES (12 style phẳng cũ) còn lại 11.
         //
         // STYLE_TO_GROUP: style -> group chứa nó (dùng để suy ra cfg.type = group khi cycle/chọn
         // style, xem updateTypeUI()/applyVisualizerStyleChoice()).
         // GROUP_STYLE_FIELD: group -> tên field lưu style con hiện tại trong customEffect[group]
         // (khớp CUSTOM_EFFECT_STYLE, core/custom-effect.js) — MỌI group đều có field này, kể cả
-        // group chỉ 1 style (shape/space), để cơ chế chung nhất quán, không cần rẽ nhánh riêng.
+        // group chỉ 1 style (shape), để cơ chế chung nhất quán, không cần rẽ nhánh riêng.
         // EFFECT_GROUPS: group -> danh sách style con thuộc group đó, ĐÚNG THỨ TỰ hiện trong
         // dropdown 2 của modal chọn effect (xem core/visualizer/visualizer-display.js::
         // openEffectPickerModal()) — nguồn CHÂN LÝ DUY NHẤT cho việc "style nào thuộc group nào",
@@ -61,11 +63,10 @@
             rain: ['glass', 'street'],
             vortex: ['rings', 'bars', 'wave'],
             shape: ['rubik'],
-            space: ['galaxy explore'],
         };
         const GROUP_STYLE_FIELD = {
             bar: 'barStyle', lighting: 'lightingStyle', rain: 'rainStyle',
-            vortex: 'vortexStyle', shape: 'shapeStyle', space: 'spaceStyle',
+            vortex: 'vortexStyle', shape: 'shapeStyle',
         };
         const STYLE_TO_GROUP = {};
         Object.keys(EFFECT_GROUPS).forEach((group) => {
