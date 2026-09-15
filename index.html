@@ -492,7 +492,6 @@
     <script src="service/state/visualizer-runtime.js?v=20260905v2"></script>
     <script src="service/state/visualizer-scenes.js?v=20260725v1"></script>
     <script src="service/state/three-vortex.js?v=20260725v1"></script>
-    <script src="service/state/three-space.js?v=20260725v1"></script>
     <script src="service/state/audio-engine.js?v=20260725v1"></script>
     <script src="service/state/subtitle.js?v=20260725v1"></script>
     <script src="service/state/shuffle-repeat.js?v=20260725v1"></script>
@@ -704,10 +703,6 @@
     <script src="core/listen-stats.js?v=20260625v10"></script>
     <script src="core/loading-shield-util.js?v=20260625v10"></script>
     <script src="core/webgl/three-vortex.js?v=20260719v1"></script>
-    <!-- core/webgl/three-space.js — VIẾT LẠI HOÀN TOÀN (20/07/2026, plan-space-galaxy.md Phần B,
-         "Galaxy Journey") — không còn rỗng. Engine dùng CHUNG canvas/renderer với Vortex (dòng
-         script ngay trên) — KHÔNG tạo WebGLRenderer/resize listener riêng, xem initThreeSpace(). -->
-    <script src="core/webgl/three-space.js?v=20260721v11"></script>
     <script src="core/visualizer-control-center.js?v=20260806v1"></script>
     <!-- Core thuần: phân loại toạ độ chạm cho hệ thống cử chỉ (event/workflow/visualizer-gesture.js). -->
     <script src="core/visualizer-gesture.js?v=20260811v4"></script>
@@ -889,14 +884,6 @@
     <script src="core/visualizer/groups/vortex/rings.js?v=20260905v1"></script>
     <script src="core/visualizer/groups/vortex/bars.js?v=20260905v1"></script>
     <script src="core/visualizer/groups/vortex/wave.js?v=20260905v1"></script>
-    <!-- core/visualizer/groups/space/galaxy-explore.js — [ĐỔI TÊN, 05/09/2026] trước đây
-         core/visualizer/types/space.js ("space"/Galaxy) — VIẾT LẠI HOÀN TOÀN (20/07/2026,
-         plan-space-galaxy.md Phần B) — không còn rỗng. Vài hàm Core nhỏ chạy MỖI FRAME
-         (camera/chain/render/dust), gọi bởi event/workflow/visualizer-render.js::_tickSpace() —
-         xem đầu file để biết quy tắc "không hàm nào gọi hàm khác" áp dụng CẢ 2 file
-         core/webgl/three-space.js lẫn file này. -->
-    <script src="core/visualizer/groups/space/common.js?v=20260905v1"></script>
-    <script src="core/visualizer/groups/space/galaxy-explore.js?v=20260905v1"></script>
     <!-- core/visualizer/groups/rain/{common,glass,street}.js — trước đây core/visualizer/types/
          rain.js (gộp 2 style). -->
     <script src="core/visualizer/groups/rain/common.js?v=20260905v1"></script>
