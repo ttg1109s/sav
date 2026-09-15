@@ -72,7 +72,6 @@ let _fwLastConsumedBeatTime = 0;
 let _fwPendingBeatFluxSum = 0;
 let _fwPendingBeatFluxCount = 0;
 let _fwBeatFluxHistory = [];
-let _fwBeatsSincePhraseRefresh = 0;
 // Bin FFT gán cho rocket kế tiếp (mục 4, phản hồi Giang) — CỘNG DỒN mỗi lần bắn để rải đều qua 1
 // dải tần thay vì luôn rơi vào 1-2 bin cố định; giới hạn trong dải bass/mid (thường có năng lượng
 // ổn định hơn treble, tránh rocket luôn đọc bin gần như im lặng -> luôn nhỏ).
@@ -185,9 +184,11 @@ const workflowVisualizerRender = {
 
     /** Hướng rẽ ống Vortex theo nhạc — mirror _fwUpdateFinaleTrigger()
      * (tích luỹ beat flux RIÊNG, không dùng chung mảng với Fireworks/Circle). Debounce bằng
-     * `_vxBeatsSinceLastTurn >= cfg.energyWindowBeats` (mirror debounce tương tự của Fireworks) —
-     * chặn dội liên tiếp mỗi beat suốt 1 đoạn nhạc biến động kéo dài. Đủ điều kiện "nhạc vừa biến
-     * động" (detectMusicTransition(), core/audio-analysis.js) -> chọn hướng rẽ theo nốt MIDI TỨC
+     * `_vxBeatsSinceLastTurn >= 2` (cửa sổ ngắn HARDCODE — [SỬA 15/09/2026, yêu cầu Giang] không
+     * còn field cfg.energyWindowBeats nữa) — chặn dội liên tiếp mỗi beat suốt 1 đoạn nhạc biến
+     * động kéo dài. `cfg.redirectEnabled` (MỚI, toggle "Redirect") tắt thì KHÔNG BAO GIỜ rẽ nữa,
+     * bất kể nhạc có biến động hay không — ống đi thẳng mãi. Đủ điều kiện "nhạc vừa biến động"
+     * (detectMusicTransition(), core/audio-analysis.js) -> chọn hướng rẽ theo nốt MIDI TỨC
      * THỜI (lastValidMidiNote, null thì Core tự fallback random) + z hiện tại của camera, ghi
      * thẳng target mới vào tPathTarget — phần cập nhật vị trí/màu/camera mỗi frame nằm ở
      * `_tickVortexRender()` (bên dưới, rà soát Rule 3). */
@@ -211,15 +212,16 @@ const workflowVisualizerRender = {
         if (!isPlaying) return;
 
         const cfg = getActiveEffectConfig(); // core/custom-effect.js
-        // Debounce — chỉ xét rẽ tiếp khi đã tích đủ 1 CỬA SỔ MỚI (energyWindowBeats) kể từ lần rẽ
+        if (!cfg.redirectEnabled) return; // toggle tắt -> không bao giờ rẽ
+        // Debounce — chỉ xét rẽ tiếp khi đã tích đủ 1 CỬA SỔ MỚI (2 beat, hardcode) kể từ lần rẽ
         // trước, tránh dội liên tiếp mỗi beat suốt 1 đoạn build-up/drop kéo dài nhiều beat (mục 1,
         // phản hồi Giang — "dao động liên tục theo trục x,y" + "văng ra nhìn thấy ống từ ngoài"):
         // không debounce thì target bị ghi đè liên tục, params không bao giờ kịp hội tụ, trong khi
         // ring/bar/wave (không có damping) bám sát target MỚI ngay lập tức -> camera (có damping
         // 0.045) lệch hẳn ra khỏi hình học ống thật.
-        if (_vxBeatsSinceLastTurn < cfg.energyWindowBeats) return;
+        if (_vxBeatsSinceLastTurn < 2) return;
 
-        const musicTransition = detectMusicTransition(_vxBeatFluxHistory, cfg.energyWindowBeats, cfg.sectionWindowBeats, cfg.fluxThreshold); // core (audio-analysis.js)
+        const musicTransition = detectMusicTransition(_vxBeatFluxHistory, 2, cfg.sectionWindowBeats, cfg.fluxThreshold); // core (audio-analysis.js)
         if (!musicTransition) return;
         _vxBeatsSinceLastTurn = 0;
 
@@ -359,13 +361,13 @@ const workflowVisualizerRender = {
             paintBlackHoleCore(ctx, centerX, centerY, currentRadius); // core
         } else {
             const maxBin = analyser.frequencyBinCount * 0.5;
-            const frame = computeBarMirrorFrame(cfg, canvas.width, canvas.height, dpr, vizDataArray, maxBin, beatScale, smoothedEnergy); // core
+            // [SỬA — 15/09/2026, yêu cầu Giang] Bỏ hẳn bar trung tâm — computeBarMirrorFrame() (core)
+            // không còn trả `center` nữa, chỉ còn `bars`.
+            const frame = computeBarMirrorFrame(cfg, canvas.width, canvas.height, dpr, vizDataArray, maxBin); // core
             frame.bars.forEach((b) => {
                 const color = getComputedColor(...b.colorArgs); // core/audio-analysis.js
                 paintBarRects(ctx, b.rects, color.fill, color.glow, dpr, perf.blurMult, 15); // core
             });
-            const centerColor = getComputedColor(...frame.center.colorArgs); // core/audio-analysis.js
-            paintBarRects(ctx, frame.center.rects, centerColor.fill, centerColor.glow, dpr, perf.blurMult, 15); // core
             ctx.shadowBlur = 0;
         }
     },
@@ -687,8 +689,10 @@ const workflowVisualizerRender = {
 
     /** Tích luỹ flux/beat riêng cho Fireworks (mirror detectMusicTransition() của Vortex ở trên) —
      * chuyển đoạn/phrase nhạc -> tự bắn 1 chuỗi "Đại Tiệc Pháo Hoa" thay nút bấm thủ công cũ.
-     * Nhịp ép định kỳ (`cfg.finaleIntervalBeats`, mục 3, phản hồi Giang) giờ do Giang tự chỉnh,
-     * không còn hằng số cứng. */
+     * [XOÁ — 15/09/2026, yêu cầu Giang] Nhịp ép định kỳ (`cfg.finaleIntervalBeats`, isPhraseBoundary())
+     * ĐÃ BỎ HẲN — Finale giờ CHỈ trigger theo detectMusicTransition(), `cfg.finaleEnabled` (MỚI,
+     * toggle "Finale") tắt thì KHÔNG BAO GIỜ tự bắn nữa dù nhạc có chuyển đoạn. Cửa sổ ngắn
+     * (energyWindowBeats) không còn field, hardcode 2. */
     _fwUpdateFinaleTrigger(isPlaying, beatScale, cfg) {
         const fluxHistory = appState.get('fluxHistory');
         if (fluxHistory.length > 0) {
@@ -705,13 +709,10 @@ const workflowVisualizerRender = {
         }
         _fwPendingBeatFluxSum = 0;
         _fwPendingBeatFluxCount = 0;
-        _fwBeatsSincePhraseRefresh++;
-        if (!isPlaying) return;
+        if (!isPlaying || !cfg.finaleEnabled) return;
 
-        const musicTransition = detectMusicTransition(_fwBeatFluxHistory, cfg.energyWindowBeats, cfg.sectionWindowBeats, cfg.fluxThreshold); // core (audio-analysis.js)
-        const phraseBoundary = isPhraseBoundary(_fwBeatsSincePhraseRefresh, cfg.finaleIntervalBeats); // core (audio-analysis.js)
-        if (musicTransition || phraseBoundary) {
-            _fwBeatsSincePhraseRefresh = 0;
+        const musicTransition = detectMusicTransition(_fwBeatFluxHistory, 2, cfg.sectionWindowBeats, cfg.fluxThreshold); // core (audio-analysis.js)
+        if (musicTransition) {
             this._fwFireFinale(cfg, beatScale);
         }
     },
