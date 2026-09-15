@@ -29,38 +29,32 @@
  *      (`pointMove.timingX`, % trên trục 0-100 của `advanceMs` — CHỈ 1 TRỤC DUY NHẤT, phản hồi
  *      Giang — "loại bỏ toàn bộ timing Y" — ĐÃ XOÁ HẲN khái niệm cường độ/đường cong Timing Y trước
  *      đó, animation giờ CHỈ còn nội suy tuyến tính theo THỜI GIAN giữa 2 point move liền kề, xem
- *      event/workflow/motion-engine.js::_buildPointMoveAllKeyframes()). Animation LUÔN xuất phát từ
- *      1 mốc "vị trí ban đầu" ẢO (x=0, target trung tính — HẰNG SỐ thuần, KHÔNG lưu trong preset,
- *      KHÔNG hiển thị/chỉnh được) trước khi tới point move gần nhất theo thời gian — point move #0
- *      KHÔNG bắt buộc đứng ở 0% (có thể ở n% bất kỳ, tự do kéo/nhập số như mọi point move khác).
+ *      event/workflow/motion-engine.js::_buildPointMoveAllKeyframes()).
  *   `pointMoveRunMode: 'one'` — mỗi lượt kích hoạt Motion, CHỈ 1 point move (trong số đã tick)
  *      được chọn để tween từ baseline -> target trong suốt `advanceMs`, chọn theo
  *      `pointMoveOneOrder` ('sequential' — tăng dần theo vị trí trong mảng; 'random' — loại trừ
  *      lượt liền trước, cùng convention resolveMotionEngineTransitionOption()).
- * Point move VỊ TRÍ ĐẦU (index 0) LUÔN checked=true, KHÔNG bỏ tick được — ràng buộc theo VỊ TRÍ,
- * không theo id (xem sanitizeMotionPointMoves()). `timingX` của nó KHÔNG bị khoá.
  *
- * SỬA (phản hồi Giang, lần 2 — bug "giật cứng về baseline" VẪN còn khi Start-force bật) —
- * `pointMoveStartForceBaseline`/`pointMoveEndForceBaseline` (CHỈ có ý nghĩa với `pointMoveRunMode:
- * 'all'`, bool, mặc định `false` cả 2) THỰC RA cùng chung 1 CƠ CHẾ: chèn 1 mốc ẢO x=100=baseline
- * vào đường cong CỦA MỌI VÒNG (round) — vòng đó tự NỚI TỪ point move CUỐI (theo timingX) êm về
- * baseline suốt quãng [timingX đó, 100%], KHÔNG còn đứng im rồi tới vòng KẾ TIẾP mới giật cứng
- * (NGUYÊN NHÂN gốc bug: mốc ảo x=0 CỐ ĐỊNH ở baseline của vòng SAU + `fromTransform` override
- * keyframe đầu = vị trí THẬT [đứng im từ trước, KHÔNG phải baseline] tạo 1 bước nhảy CỰC LỚN nén
- * trong 2% thời lượng ĐẦU vòng sau — vì 2 layer A/B DÙNG CHUNG 1 phần tử nhận transform, giật này
- * LỘ RÕ trên CẢ layer đang fade-out. Muốn êm thì quãng chuyển về baseline PHẢI nằm trong ngân sách
- * thời gian ĐÃ CÓ SẴN của vòng ĐANG chạy — tức đuôi [timingX cuối, 100%] vốn đang "đứng im chờ",
- * không phải nén vào khoảnh khắc chuyển vòng). Mốc x=0 (điểm khởi đầu MỖI vòng) do đó LUÔN chỉ dùng
- * LIỀN MẠCH từ vị trí thật (`_deriveLivePointMoveTarget()`, event/workflow/motion-engine.js) — vị
- * trí đó giờ TỰ NHIÊN đã là baseline (vì vòng trước vừa êm về đó), không cần ép riêng nữa. 2 field
- * VẪN tách riêng (CHỈ ĐƯỢC BẬT 1 TRONG 2, phản hồi Giang — bật cái này tự tắt cái kia, xem
- * event/workflow/motion-presets.js::changePointMoveStartForceBaseline()/
- * changePointMoveEndForceBaseline()) — cùng hiệu quả runtime (đuôi MỌI vòng êm về baseline), khác
- * nhau Ở KHUNG NHÌN người dùng chọn ("mỗi ảnh MỚI bắt đầu sạch" vs "mỗi ảnh KẾT lại về gốc"), không
- * cho bật cùng lúc vì thừa/vô nghĩa. Khi 1 trong 2 đang bật, mốc x=100 đó "vô hiệu hoá và thay thế"
- * bất kỳ point move nào đang đứng ĐÚNG x=100% (UI chặn kéo/nhập tới đúng 100%, xem
- * core/point-move-timing-ui.js — `maxX`); `sanitizeMotionPreset()` tự đẩy nhẹ point move cũ (dữ
- * liệu trước khi có field này) ra khỏi mốc bị khoá.
+ * VIẾT LẠI LẦN 2 (phản hồi Giang — "Point 0 = start point", bỏ "Start point force") — point move
+ * VỊ TRÍ ĐẦU (index 0) giờ là "Start point" ĐÚNG NGHĨA: `timingX` KHOÁ CỨNG = 0 vĩnh viễn (KHÔNG kéo/
+ * nhập số được nữa — xem sanitizeMotionPointMoves()), NHƯNG 6 field chuyển động của nó (linearX/Y,
+ * rotate, zoom, flipX/Y) VẪN sửa được đầy đủ như mọi point move khác — KHÔNG mất/khoá dữ liệu gì. Vì
+ * `timingX` cố định, Point 0 KHÔNG còn là 1 node kéo được trên đồ thị Timing nữa (không có gì để kéo
+ * — xem event/workflow/motion-presets.js::_computeTimingPoints(), tự loại index 0 ra khỏi danh sách
+ * node vẽ), nhưng VẪN hiện trong màn Danh sách Point move (để sửa field) — chỉ bỏ tay cầm kéo-thả
+ * (không đổi vị trí được) và nút xoá (không xoá được, KHÔNG bao giờ hết Start point). Nhờ vậy field
+ * `pointMoveStartForceBaseline` (mốc ảo x=0 tách biệt trước đây) THỪA hẳn — XOÁ, vì chính Point 0
+ * (giá trị THẬT do người dùng chỉnh) giờ tự nhiên đóng vai trò mốc x=0 đó.
+ *
+ * `pointMoveEndForceBaseline` (CHỈ có ý nghĩa với `pointMoveRunMode: 'all'`, bool, mặc định `false`)
+ * — GIỮ NGUYÊN cơ chế cũ: bật -> chèn 1 mốc ẢO x=100=baseline vào đường cong CỦA MỌI VÒNG (round),
+ * vòng đó tự NỚI TỪ point move CUỐI (theo timingX) êm về baseline suốt quãng [timingX đó, 100%],
+ * rồi vòng KẾ TIẾP mới bắt đầu lại từ Point 0 (start point, x=0) — KHÔNG giật cứng. Tắt -> KHÔNG có
+ * mốc ảo này, đuôi vòng nối THẲNG liền mạch từ vị trí thật sang Point 0 của vòng sau (qua
+ * `_deriveLivePointMoveTarget()`, event/workflow/motion-point-move-runner.js). Khi đang bật, mốc
+ * x=100 đó "vô hiệu hoá và thay thế" bất kỳ point move nào đang đứng ĐÚNG x=100% (UI chặn kéo/nhập
+ * tới đúng 100%, xem core/point-move-timing-ui.js — `maxX`); `sanitizeMotionPreset()` tự đẩy nhẹ
+ * point move cũ (dữ liệu trước khi có field này) ra khỏi mốc bị khoá.
  *
  * 6 field/point move — mỗi field {mode:'single'|'randomRange', unit, single, rangeMin, rangeMax}:
  * `mode==='single'` dùng thẳng `single`; `mode==='randomRange'` mỗi lượt resolve random đều trong
@@ -72,21 +66,36 @@
  *   flipX/flipY     — lật 3D (rotateY/rotateX tương ứng, phối cảnh CSS `.motion-layer` có sẵn),
  *                     độ, biên [-360,360] (CÙNG Rotate — Giang chốt "flip theo rotate").
  *
- * `reactBeatAudio` — pulse zoom/pan/rotate LIÊN TỤC theo `appState.beatScale` (năng lượng bass tức
- * thời, cùng tín hiệu mọi hiệu ứng "beatscale" khác). `replaceMovement` ĐÃ XOÁ (phản hồi Giang —
+ * `reactBeatAudio` — pulse zoom/panX/panY/rotate LIÊN TỤC theo `appState.beatScale` (năng lượng bass
+ * tức thời, cùng tín hiệu mọi hiệu ứng "beatscale" khác). `replaceMovement` ĐÃ XOÁ (phản hồi Giang —
  * hết ý nghĩa từ khi Ken Burns không còn tồn tại để "thay thế") — giờ LUÔN chạy song song với
- * Point Move, transform cộng dồn theo cây DOM. 3 hiệu ứng con (zoom/pan/rotate) ĐỘC LẬP nhau, mỗi
- * cái CHỈ có field `max` NGƯỜI DÙNG chỉnh — biên DƯỚI (baseline) CỐ ĐỊNH CỨNG trong công thức nội
- * suy (core/motion-engine.js::computeMotionEngineBeatReactZoomScale()/...Offset()):
- *   zoom.maxPct  — % zoom (100 = không zoom), nội suy liên tục [100,maxPct].
- *   pan.maxPct   — % dịch chuyển theo `direction`, nội suy liên tục [100,maxPct].
+ * Point Move, transform cộng dồn theo cây DOM. VIẾT LẠI (phản hồi Giang — "chia Pan thành Pan X/Pan
+ * Y") — `pan` (1 cụm duy nhất) tách thành `panX`/`panY` ĐỘC LẬP HOÀN TOÀN (mỗi trục tự
+ * enabled/direction/maxPct/reverse/randomMax riêng, dịch chuyển CỘNG DỒN cả 2 trục cùng lúc nếu cả 2
+ * cùng bật — xem event/workflow/motion-beat-react-runner.js). 4 hiệu ứng con (zoom/panX/panY/rotate)
+ * ĐỘC LẬP nhau, mỗi cái field `max` NGƯỜI DÙNG chỉnh — biên DƯỚI (baseline) CỐ ĐỊNH CỨNG trong công
+ * thức nội suy (core/motion-engine.js::computeMotionEngineBeatReactZoomScale()/...Offset()):
+ *   zoom.maxPct   — % zoom (100 = không zoom), nội suy liên tục [100,maxPct].
+ *   panX/panY.maxPct — % dịch chuyển theo `direction`, nội suy liên tục [100,maxPct].
  *   rotate.maxDeg — độ xoay theo `direction`, nội suy liên tục [0,maxDeg].
- * `pan.direction`/`rotate.direction` (MOTION_BEAT_REACT_DIRECTIONS) — "left"/"right": dấu CỐ ĐỊNH.
- * "leftToRight"/"rightToLeft": XEN KẼ dấu mỗi lượt "beat mới" (envelope attack lại sau decay, xem
- * event/workflow/motion-engine.js::_tickBeatReact()); "leftToRight" mặc định lượt 1 lệch PHẢI,
- * "rightToLeft" mặc định lệch TRÁI — `reverse` (boolean) đảo cực lượt ĐẦU TIÊN.
+ * `panX.direction`/`rotate.direction` dùng `MOTION_BEAT_REACT_DIRECTIONS` (trái/phải); `panY.direction`
+ * dùng RIÊNG `MOTION_BEAT_REACT_DIRECTIONS_Y` (lên/xuống) — "left/right"/"up/down": dấu CỐ ĐỊNH.
+ * "leftToRight/rightToLeft"/"upToDown/downToUp": XEN KẼ dấu mỗi lượt "beat mới" (envelope attack lại
+ * sau decay, xem event/workflow/motion-beat-react-runner.js::_tick()); mặc định lượt 1 lệch
+ * phải/xuống — `reverse` (boolean) đảo cực lượt ĐẦU TIÊN.
+ * `randomMax` (MỚI, phản hồi Giang — "bổ sung tick random Max") — mỗi hiệu ứng con 1 cờ RIÊNG, bool,
+ * mặc định `false`. Bật -> MỖI LƯỢT "beat mới" (không phải mỗi frame — cùng nhịp với đảo `polarity`),
+ * biên trần THẬT SỰ dùng cho lượt đó được resolve NGẪU NHIÊN trong [biên dưới tuyệt đối của hiệu ứng
+ * (100 cho zoom/panX/panY, 0 cho rotate), `max` đã cấu hình] THAY VÌ luôn dùng ĐÚNG giá trị `max` cấu
+ * hình — vd `max`=60° thì mỗi beat có thể đạt bất kỳ đỉnh nào trong [0°,60°], không phải luôn đúng
+ * 60°. Tắt (mặc định) -> hành vi CŨ y nguyên (luôn dùng đúng `max`). Xem
+ * event/workflow/motion-beat-react-runner.js::_rollEffectiveMax().
  */
+/** Hướng cho Zoom/Rotate/Pan X (trục ngang) — GIỮ NGUYÊN tên value cũ. */
 const MOTION_BEAT_REACT_DIRECTIONS = ['left', 'right', 'leftToRight', 'rightToLeft'];
+/** MỚI (phản hồi Giang — "chia Pan thành Pan X/Pan Y") — hướng RIÊNG cho Pan Y (trục dọc), cùng khuôn
+ * left/right/leftToRight/rightToLeft ở trên nhưng đổi ngữ nghĩa sang lên/xuống. */
+const MOTION_BEAT_REACT_DIRECTIONS_Y = ['up', 'down', 'upToDown', 'downToUp'];
 
 /** CHỈ áp dụng khi `transitionType` là 'flipEdge' (`transitionIsEdgeFlip()`, core/motion-engine.js).
  * "open" — ảnh CŨ lật RA để lộ ảnh MỚI đứng YÊN bên dưới. "close" — ảnh MỚI lật VÀO; có thêm
@@ -196,13 +205,13 @@ function buildBlankMotionPreset(name) {
         pointMoveEnabled: true,
         pointMoveRunMode: 'all',
         pointMoveOneOrder: 'sequential',
-        pointMoveStartForceBaseline: false,
         pointMoveEndForceBaseline: false,
         reactBeatAudio: {
             enabled: false,
-            zoom: { enabled: false, maxPct: 150 },
-            pan: { enabled: false, direction: 'leftToRight', maxPct: 120, reverse: false },
-            rotate: { enabled: false, direction: 'leftToRight', maxDeg: 90, reverse: false },
+            zoom: { enabled: false, maxPct: 150, randomMax: false },
+            panX: { enabled: false, direction: 'leftToRight', maxPct: 120, reverse: false, randomMax: false },
+            panY: { enabled: false, direction: 'upToDown', maxPct: 120, reverse: false, randomMax: false },
+            rotate: { enabled: false, direction: 'leftToRight', maxDeg: 90, reverse: false, randomMax: false },
         },
     };
 }
@@ -245,16 +254,11 @@ function generateMotionPresetId() {
  * @param {object} raw @returns {object} */
 function sanitizeMotionPreset(raw) {
     const blank = buildBlankMotionPreset(typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : 'Motion');
-    // MỚI (phản hồi Giang) — 2 cờ "force baseline" CHỈ ĐƯỢC 1 TRONG 2 bật; dữ liệu hỏng/xung đột
-    // (cả 2 true) -> về mặc định an toàn (tắt cả 2 = liền mạch 2 đầu) thay vì đoán ưu tiên bên nào.
-    let pointMoveStartForceBaseline = typeof raw.pointMoveStartForceBaseline === 'boolean' ? raw.pointMoveStartForceBaseline : blank.pointMoveStartForceBaseline;
-    let pointMoveEndForceBaseline = typeof raw.pointMoveEndForceBaseline === 'boolean' ? raw.pointMoveEndForceBaseline : blank.pointMoveEndForceBaseline;
-    if (pointMoveStartForceBaseline && pointMoveEndForceBaseline) { pointMoveStartForceBaseline = false; pointMoveEndForceBaseline = false; }
+    const pointMoveEndForceBaseline = typeof raw.pointMoveEndForceBaseline === 'boolean' ? raw.pointMoveEndForceBaseline : blank.pointMoveEndForceBaseline;
     // Đẩy nhẹ (CÙNG bước +0.2%/-0.2% dùng ở addPointMove()/duplicatePointMove()) bất kỳ point move
-    // nào ĐANG đứng đúng x=100% — CẢ 2 field đều dùng mốc x=100 (xem docstring đầu file, lần sửa
-    // thứ 2) — phòng dữ liệu cũ (trước khi có field này, hoặc trước lần sửa cơ chế thứ 2) hoặc hỏng.
+    // nào ĐANG đứng đúng x=100% (xem docstring đầu file) — phòng dữ liệu cũ hoặc hỏng.
     let pointMoves = sanitizeMotionPointMoves(raw.pointMoves);
-    if (pointMoveStartForceBaseline || pointMoveEndForceBaseline) pointMoves = pointMoves.map((pm) => pm.timingX === 100 ? { ...pm, timingX: 99.9 } : pm);
+    if (pointMoveEndForceBaseline) pointMoves = pointMoves.map((pm) => pm.timingX === 100 ? { ...pm, timingX: 99.9 } : pm);
     return {
         id: typeof raw.id === 'string' && raw.id ? raw.id : blank.id,
         name: blank.name,
@@ -274,23 +278,22 @@ function sanitizeMotionPreset(raw) {
         pointMoveEnabled: typeof raw.pointMoveEnabled === 'boolean' ? raw.pointMoveEnabled : blank.pointMoveEnabled,
         pointMoveRunMode: MOTION_POINT_MOVE_RUN_MODES.includes(raw.pointMoveRunMode) ? raw.pointMoveRunMode : blank.pointMoveRunMode,
         pointMoveOneOrder: MOTION_POINT_MOVE_ONE_ORDERS.includes(raw.pointMoveOneOrder) ? raw.pointMoveOneOrder : blank.pointMoveOneOrder,
-        pointMoveStartForceBaseline,
         pointMoveEndForceBaseline,
         reactBeatAudio: sanitizeMotionBeatReact(raw.reactBeatAudio, blank.reactBeatAudio),
     };
 }
 
 /** Validate danh sách `pointMoves` — LUÔN trả về ÍT NHẤT 1 phần tử ("luôn có point move = 0",
- * phản hồi Giang), và ÉP CỨNG phần tử VỊ TRÍ ĐẦU (index 0) `checked:true` — ràng buộc theo VỊ TRÍ
- * trong mảng (không theo `id`), nên vẫn đúng kể cả sau khi thêm/xoá làm đổi thứ tự. `timingX` của
- * điểm này KHÔNG bị khoá (phản hồi Giang — "không nhất định phải ở gốc 0%") — nó là 1 node kéo tự
- * do như mọi point move khác; "vị trí ban đầu" (mốc trung tính LUÔN cố định ở 0%, animation xuất
- * phát từ đó) là 1 khái niệm TÁCH RIÊNG khỏi point move #0, xem event/workflow/motion-engine.js::
- * _buildPointMoveAllKeyframes() (implicit baseline node, không thuộc `pointMoves`).
+ * phản hồi Giang), và ÉP CỨNG phần tử VỊ TRÍ ĐẦU (index 0) `checked:true` + `timingX:0` — ràng buộc
+ * theo VỊ TRÍ trong mảng (không theo `id`), nên vẫn đúng kể cả sau khi thêm/xoá/hoán đổi làm đổi thứ
+ * tự. VIẾT LẠI (phản hồi Giang — "Point 0 = start point") — TRƯỚC ĐÂY `timingX` của điểm này KHÔNG bị
+ * khoá; giờ khoá CỨNG = 0 vĩnh viễn (Point 0 CHÍNH LÀ start point, xem docstring đầu file) — 6 field
+ * chuyển động của nó VẪN sửa được bình thường, CHỈ `timingX` là cố định.
  * @param {*} raw @returns {object[]} */
 function sanitizeMotionPointMoves(raw) {
     const list = Array.isArray(raw) && raw.length > 0 ? raw.map((p) => sanitizePointMove(p)) : [buildBlankPointMove()];
     list[0].checked = true;
+    list[0].timingX = 0;
     return list;
 }
 
@@ -347,12 +350,17 @@ function sanitizePointMoveLinearField(raw, blank) {
 
 /** Validate riêng cụm `reactBeatAudio` — `raw` không hợp lệ -> trả nguyên `blank`. `replaceMovement`
  * ĐÃ XOÁ (xem docstring đầu file) — KHÔNG còn field này trong shape trả về.
+ * MIGRATE (phản hồi Giang — "chia Pan thành Pan X/Pan Y") — data CŨ chỉ có `raw.pan` (chưa có
+ * `panX`/`panY`) -> convert nguyên `pan` cũ thành `panX` (giữ đúng cảm giác cũ, trục ngang), `panY`
+ * về mặc định (tắt) — KHÔNG suy đoán gì thêm cho panY vì data cũ không hề có khái niệm trục dọc.
  * @param {*} raw @param {object} blank @returns {object} */
 function sanitizeMotionBeatReact(raw, blank) {
     if (!raw || typeof raw !== 'object') return blank;
     const inRange = (v, lo, hi, fallback) => (typeof v === 'number' && v >= lo && v <= hi) ? v : fallback;
     const zoom = raw.zoom && typeof raw.zoom === 'object' ? raw.zoom : {};
-    const pan = raw.pan && typeof raw.pan === 'object' ? raw.pan : {};
+    const legacyPan = raw.pan && typeof raw.pan === 'object' ? raw.pan : null; // data CŨ trước khi tách Pan X/Y
+    const panX = (raw.panX && typeof raw.panX === 'object') ? raw.panX : (legacyPan || {});
+    const panY = raw.panY && typeof raw.panY === 'object' ? raw.panY : {};
     const rotate = raw.rotate && typeof raw.rotate === 'object' ? raw.rotate : {};
 
     return {
@@ -360,18 +368,28 @@ function sanitizeMotionBeatReact(raw, blank) {
         zoom: {
             enabled: typeof zoom.enabled === 'boolean' ? zoom.enabled : blank.zoom.enabled,
             maxPct: inRange(zoom.maxPct, 100, 200, blank.zoom.maxPct),
+            randomMax: typeof zoom.randomMax === 'boolean' ? zoom.randomMax : blank.zoom.randomMax,
         },
-        pan: {
-            enabled: typeof pan.enabled === 'boolean' ? pan.enabled : blank.pan.enabled,
-            direction: MOTION_BEAT_REACT_DIRECTIONS.includes(pan.direction) ? pan.direction : blank.pan.direction,
-            maxPct: inRange(pan.maxPct, 100, 150, blank.pan.maxPct),
-            reverse: typeof pan.reverse === 'boolean' ? pan.reverse : blank.pan.reverse,
+        panX: {
+            enabled: typeof panX.enabled === 'boolean' ? panX.enabled : blank.panX.enabled,
+            direction: MOTION_BEAT_REACT_DIRECTIONS.includes(panX.direction) ? panX.direction : blank.panX.direction,
+            maxPct: inRange(panX.maxPct, 100, 150, blank.panX.maxPct),
+            reverse: typeof panX.reverse === 'boolean' ? panX.reverse : blank.panX.reverse,
+            randomMax: typeof panX.randomMax === 'boolean' ? panX.randomMax : blank.panX.randomMax,
+        },
+        panY: {
+            enabled: typeof panY.enabled === 'boolean' ? panY.enabled : blank.panY.enabled,
+            direction: MOTION_BEAT_REACT_DIRECTIONS_Y.includes(panY.direction) ? panY.direction : blank.panY.direction,
+            maxPct: inRange(panY.maxPct, 100, 150, blank.panY.maxPct),
+            reverse: typeof panY.reverse === 'boolean' ? panY.reverse : blank.panY.reverse,
+            randomMax: typeof panY.randomMax === 'boolean' ? panY.randomMax : blank.panY.randomMax,
         },
         rotate: {
             enabled: typeof rotate.enabled === 'boolean' ? rotate.enabled : blank.rotate.enabled,
             direction: MOTION_BEAT_REACT_DIRECTIONS.includes(rotate.direction) ? rotate.direction : blank.rotate.direction,
             maxDeg: inRange(rotate.maxDeg, 0, 360, blank.rotate.maxDeg),
             reverse: typeof rotate.reverse === 'boolean' ? rotate.reverse : blank.rotate.reverse,
+            randomMax: typeof rotate.randomMax === 'boolean' ? rotate.randomMax : blank.rotate.randomMax,
         },
     };
 }
