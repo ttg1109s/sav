@@ -418,7 +418,9 @@ const workflowAppSettings = {
                 const easingSelect = body.querySelector('#setting-motion-transition-easing');
                 if (easingSelect) easingSelect.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.transitionEasing.change', payload: { value: e.target.value } }));
 
-                // Point Move (thay Ken Burns) — nav "danh sách"/"Timing" + 2 select (chế độ chạy/thứ tự).
+                // Point Move (thay Ken Burns) — nav "danh sách" + 2 select (chế độ chạy/thứ tự).
+                // SỬA (phản hồi Giang — dời "Return baseline"/"Timing" sang subpanel Point moves) —
+                // 2 wiring đó KHÔNG còn ở đây nữa, xem _renderPointMoveList() bên dưới.
                 const pointMoveEnabled = body.querySelector('#setting-motion-pointmove-enabled');
                 if (pointMoveEnabled) pointMoveEnabled.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.enabled.change', payload: { checked: e.target.checked } }));
                 const pointMoveListBtn = body.querySelector('#btn-motion-pointmove-list');
@@ -427,12 +429,6 @@ const workflowAppSettings = {
                 if (pointMoveRunMode) pointMoveRunMode.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.runMode.change', payload: { value: e.target.value } }));
                 const pointMoveOrder = body.querySelector('#setting-motion-pointmove-order');
                 if (pointMoveOrder) pointMoveOrder.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.oneOrder.change', payload: { value: e.target.value } }));
-                const pointMoveStartForce = body.querySelector('#setting-motion-pointmove-start-force-baseline');
-                if (pointMoveStartForce) pointMoveStartForce.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.startForceBaseline.change', payload: { checked: e.target.checked } }));
-                const pointMoveEndForce = body.querySelector('#setting-motion-pointmove-end-force-baseline');
-                if (pointMoveEndForce) pointMoveEndForce.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.endForceBaseline.change', payload: { checked: e.target.checked } }));
-                const pointMoveTimingBtn = body.querySelector('#btn-motion-pointmove-timing');
-                if (pointMoveTimingBtn) pointMoveTimingBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.openTiming.click', payload: {} }));
 
                 // "React Beat Audio" — mọi control (checkbox/slider/select) gửi CÙNG 1 msg.type, chỉ
                 // khác payload {effectKey, fieldKey, value} — GENERIC, khớp đúng
@@ -442,22 +438,38 @@ const workflowAppSettings = {
                     const el = body.querySelector(`#${id}`);
                     if (el) el.addEventListener('change', (e) => sendBeatReact(effectKey, fieldKey, e.target.checked));
                 };
-                const wireBeatReactRange = (id, effectKey, fieldKey) => {
-                    const el = body.querySelector(`#${id}`);
-                    if (el) el.addEventListener('change', (e) => sendBeatReact(effectKey, fieldKey, Number(e.target.value)));
-                };
                 const wireBeatReactSelect = (id, effectKey, fieldKey) => {
                     const el = body.querySelector(`#${id}`);
                     if (el) el.addEventListener('change', (e) => sendBeatReact(effectKey, fieldKey, e.target.value));
                 };
+                // MỚI (phản hồi Giang — ô nhập số type=number sync 2 chiều với slider) — slider kéo
+                // (`input`) chỉ cập nhật LIVE ô input (chưa persist); thả tay (`change`) MỚI persist.
+                // Gõ tay vào ô input, thoát focus/Enter (`change`) — tự kẹp [min,max] (validate JS,
+                // không tin số ngoài biên dù `type=number` đã hạn chế phần lớn), đồng bộ NGƯỢC lại
+                // slider, rồi persist CÙNG msg.type với slider (server không phân biệt nguồn).
+                const wireBeatReactMax = (key, fieldKey) => {
+                    const slider = body.querySelector(`#setting-motion-beatreact-${key}-max`);
+                    const input = body.querySelector(`#motion-beatreact-${key}-max-input`);
+                    if (slider && input) slider.addEventListener('input', (e) => { input.value = e.target.value; });
+                    if (slider) slider.addEventListener('change', (e) => sendBeatReact(key, fieldKey, Number(e.target.value)));
+                    if (input) input.addEventListener('change', (e) => {
+                        const v = Math.max(Number(input.min), Math.min(Number(input.max), Number(e.target.value) || 0));
+                        input.value = v;
+                        if (slider) slider.value = v;
+                        sendBeatReact(key, fieldKey, v);
+                    });
+                };
                 wireBeatReactCheckbox('setting-motion-beatreact-enabled', null, 'enabled');
-                ['zoom', 'pan', 'rotate'].forEach((key) => {
+                ['zoom', 'panX', 'panY', 'rotate'].forEach((key) => {
                     wireBeatReactCheckbox(`setting-motion-beatreact-${key}-enabled`, key, 'enabled');
-                    wireBeatReactRange(`setting-motion-beatreact-${key}-max`, key, key === 'rotate' ? 'maxDeg' : 'maxPct');
+                    wireBeatReactMax(key, key === 'rotate' ? 'maxDeg' : 'maxPct');
+                    wireBeatReactCheckbox(`setting-motion-beatreact-${key}-randommax`, key, 'randomMax'); // MỚI — Random Max, xem core/motion-presets.js
                 });
-                wireBeatReactSelect('setting-motion-beatreact-pan-direction', 'pan', 'direction');
+                wireBeatReactSelect('setting-motion-beatreact-panX-direction', 'panX', 'direction');
+                wireBeatReactSelect('setting-motion-beatreact-panY-direction', 'panY', 'direction');
                 wireBeatReactSelect('setting-motion-beatreact-rotate-direction', 'rotate', 'direction');
-                wireBeatReactCheckbox('setting-motion-beatreact-pan-reverse', 'pan', 'reverse');
+                wireBeatReactCheckbox('setting-motion-beatreact-panX-reverse', 'panX', 'reverse');
+                wireBeatReactCheckbox('setting-motion-beatreact-panY-reverse', 'panY', 'reverse');
                 wireBeatReactCheckbox('setting-motion-beatreact-rotate-reverse', 'rotate', 'reverse');
 
                 const resetBtn = body.querySelector('#btn-motion-edit-reset');
@@ -485,7 +497,7 @@ const workflowAppSettings = {
         if (!preset) { this.back(); return; }
         this._render(
             t('motionSettingsDrawer.pointMove.list.label'),
-            renderPointMoveListBody(preset.pointMoves), // components/motion-settings-drawer.js
+            renderPointMoveListBody(preset), // components/motion-settings-drawer.js — SỬA (phản hồi Giang) — nhận CẢ preset (cần pointMoveEndForceBaseline/pointMoveRunMode cho card "Return baseline"/"Timing" MỚI dời vào đây)
             (body) => {
                 body.querySelectorAll('[data-ptmove-checkbox]').forEach((el) => {
                     el.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.toggleChecked.change', payload: { id: el.dataset.ptmoveCheckbox, checked: e.target.checked } }));
@@ -502,14 +514,28 @@ const workflowAppSettings = {
                 const addBtn = body.querySelector('#btn-ptmove-add');
                 if (addBtn) addBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.add.click', payload: {} }));
 
+                // MỚI (phản hồi Giang — dời từ màn Edit chính vào đây) — "Return baseline" (đổi tên
+                // từ "Endpoint: force baseline") + "Timing", CHỈ hiện khi pointMoveRunMode==='all'
+                // (renderPointMoveListBody() đã tự ẩn cả card khi khác 'all', ở đây querySelector chỉ
+                // trả null vô hại nếu card không tồn tại).
+                const endForce = body.querySelector('#setting-motion-pointmove-end-force-baseline');
+                if (endForce) endForce.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.endForceBaseline.change', payload: { checked: e.target.checked } }));
+                const timingBtn = body.querySelector('#btn-motion-pointmove-timing');
+                if (timingBtn) timingBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.openTiming.click', payload: {} }));
+
                 // Kéo-thả sắp xếp lại — pointer-events thuần (touch OK), gom addEventListener tại đây
                 // (Workflow, không bị Rule 5a giới hạn). Node ĐANG kéo NỔI LÊN + BÁM THEO con trỏ
                 // (translateY, z-index, shadow) — phản hồi Giang: "phải nổi lên và kéo được, không
                 // phải thêm border rồi coi như đã kéo" — + `user-select:none` lúc đang kéo (phản hồi
                 // Giang) tránh bôi đen chữ ngoài ý muốn. Thả xong gửi ĐÚNG 1 thao tác hoán đổi TOÀN
                 // BỘ (order N + mọi field, bao gồm timingX — CÙNG LÚC, xem
-                // event/workflow/motion-presets.js::swapPointMoveOrder()).
+                // event/workflow/motion-presets.js::swapPointMoveOrder()). SỬA (phản hồi Giang —
+                // "Point 0 = start point") — hàng ĐẦU (index 0, `pointMoves[0].id`) KHÔNG còn tay cầm
+                // kéo trong template (renderPointMoveListBody()) nên KHÔNG BAO GIỜ là `draggingId`;
+                // ở đây CHẶN THÊM nó khỏi làm ĐÍCH thả (hoverRowEl) — kéo hàng khác THẢ ĐÈ lên hàng 0
+                // vẫn phải vô hiệu, không chỉ chặn chiều kéo-ra.
                 const rows = Array.from(body.querySelectorAll('[data-ptmove-row]'));
+                const point0Id = preset.pointMoves[0] ? preset.pointMoves[0].id : null;
                 let draggingId = null;
                 let draggingRowEl = null;
                 let dragStartClientY = 0;
@@ -534,7 +560,7 @@ const workflowAppSettings = {
                     draggingRowEl.style.transform = `translateY(${e.clientY - dragStartClientY}px) scale(1.02)`;
                     if (hoverRowEl) hoverRowEl.classList.remove('bg-sky-100');
                     hoverRowEl = rows.find((row) => {
-                        if (row === draggingRowEl) return false;
+                        if (row === draggingRowEl || row.dataset.ptmoveRow === point0Id) return false; // Point 0 KHÔNG nhận thả (start point cố định)
                         const rect = row.getBoundingClientRect();
                         return e.clientY >= rect.top && e.clientY <= rect.bottom;
                     }) || null;
@@ -582,16 +608,32 @@ const workflowAppSettings = {
                     }
                     const modeSelect = body.querySelector(`[data-ptmove-mode="${fieldKey}"]`);
                     if (modeSelect) modeSelect.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldMode.change', payload: { fieldKey, mode: e.target.value } }));
+
+                    // MỚI (phản hồi Giang — ô nhập số type=number sync 2 chiều với slider "single").
                     const singleInput = body.querySelector(`#setting-ptmove-${fieldKey}-single`);
+                    const singleInputNum = body.querySelector(`#ptmove-${fieldKey}-single-input`);
                     if (singleInput) {
-                        singleInput.addEventListener('input', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldSingle.preview', payload: { fieldKey, value: Number(e.target.value) } }));
+                        singleInput.addEventListener('input', (e) => {
+                            if (singleInputNum) singleInputNum.value = e.target.value; // slider kéo -> cập nhật LIVE ô input, chưa persist
+                            eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldSingle.preview', payload: { fieldKey, value: Number(e.target.value) } });
+                        });
                         singleInput.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldSingle.change', payload: { fieldKey, value: Number(e.target.value) } }));
                     }
+                    if (singleInputNum) {
+                        singleInputNum.addEventListener('change', (e) => { // gõ tay xong (blur/Enter) -> tự kẹp biên, đồng bộ NGƯỢC slider, persist
+                            const v = Math.max(Number(singleInputNum.min), Math.min(Number(singleInputNum.max), Number(e.target.value) || 0));
+                            singleInputNum.value = v;
+                            if (singleInput) singleInput.value = v;
+                            eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldSingle.change', payload: { fieldKey, value: v } });
+                        });
+                    }
+
                     const rangeMinInput = body.querySelector(`#setting-ptmove-${fieldKey}-rangemin`);
                     const rangeMaxInput = body.querySelector(`#setting-ptmove-${fieldKey}-rangemax`);
+                    const rangeMinInputNum = body.querySelector(`#ptmove-${fieldKey}-rangemin-input`);
+                    const rangeMaxInputNum = body.querySelector(`#ptmove-${fieldKey}-rangemax-input`);
                     const fillEl = body.querySelector(`#ptmove-${fieldKey}-range-fill`);
-                    const labelEl = body.querySelector(`#ptmove-${fieldKey}-value-label`);
-                    const previewRangeFill = () => { // cập nhật dải tô màu + nhãn NGAY lúc kéo — thuần DOM cục bộ, KHÔNG qua eventBus (không phải state, không cần persist)
+                    const previewRangeFill = () => { // cập nhật dải tô màu + 2 ô input số NGAY lúc kéo — thuần DOM cục bộ, KHÔNG qua eventBus (không phải state, không cần persist)
                         if (!rangeMinInput || !rangeMaxInput) return;
                         if (fillEl) {
                             const lo = Number(rangeMinInput.min), hi = Number(rangeMinInput.max);
@@ -600,7 +642,8 @@ const workflowAppSettings = {
                             fillEl.style.left = `${leftPct}%`;
                             fillEl.style.width = `${Math.max(0, rightPct - leftPct)}%`;
                         }
-                        if (labelEl) labelEl.textContent = `${rangeMinInput.value}${rangeMinInput.dataset.suffix || ''} ~ ${rangeMaxInput.value}${rangeMaxInput.dataset.suffix || ''}`;
+                        if (rangeMinInputNum) rangeMinInputNum.value = rangeMinInput.value;
+                        if (rangeMaxInputNum) rangeMaxInputNum.value = rangeMaxInput.value;
                     };
                     if (rangeMinInput) {
                         rangeMinInput.addEventListener('input', previewRangeFill);
@@ -610,7 +653,26 @@ const workflowAppSettings = {
                         rangeMaxInput.addEventListener('input', previewRangeFill);
                         rangeMaxInput.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldRange.change', payload: { fieldKey, which: 'max', value: Number(e.target.value) } }));
                     }
-                    workflowMotionPresets._updatePointMoveFieldLabel(fieldKey); // event/workflow/motion-presets.js — set dải tô màu dual-range lúc mở màn
+                    // MỚI (phản hồi Giang) — 2 ô nhập số min/max sync 2 chiều với 2 tay kéo dual-range.
+                    if (rangeMinInputNum) {
+                        rangeMinInputNum.addEventListener('change', (e) => {
+                            const v = Math.max(Number(rangeMinInputNum.min), Math.min(Number(rangeMinInputNum.max), Number(e.target.value) || 0));
+                            rangeMinInputNum.value = v;
+                            if (rangeMinInput) rangeMinInput.value = v;
+                            previewRangeFill();
+                            eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldRange.change', payload: { fieldKey, which: 'min', value: v } });
+                        });
+                    }
+                    if (rangeMaxInputNum) {
+                        rangeMaxInputNum.addEventListener('change', (e) => {
+                            const v = Math.max(Number(rangeMaxInputNum.min), Math.min(Number(rangeMaxInputNum.max), Number(e.target.value) || 0));
+                            rangeMaxInputNum.value = v;
+                            if (rangeMaxInput) rangeMaxInput.value = v;
+                            previewRangeFill();
+                            eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldRange.change', payload: { fieldKey, which: 'max', value: v } });
+                        });
+                    }
+                    workflowMotionPresets._updatePointMoveFieldLabel(fieldKey); // event/workflow/motion-presets.js — set dải tô màu + ô input dual-range lúc mở màn
                 };
                 wirePointMoveField('linearX', true);
                 wirePointMoveField('linearY', true);

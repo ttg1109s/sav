@@ -82,14 +82,36 @@ function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn) 
     // ĐỘC LẬP, nên N nơi tiêu thụ gọi N lần là có N runner tách biệt hoàn toàn, không đụng nhau.
     let envelope = 0;
     let wasAttacking = false;
-    let panPolarity = 0;
+    // SỬA (phản hồi Giang — "chia Pan thành Pan X/Pan Y") — `panPolarity` tách thành
+    // `panXPolarity`/`panYPolarity`, 2 trục ĐỘC LẬP hoàn toàn (đảo cực riêng theo beat của CHÍNH nó).
+    let panXPolarity = 0;
+    let panYPolarity = 0;
     let rotatePolarity = 0;
     let lastTickMs = 0;
+    // MỚI (phản hồi Giang — "bổ sung tick Random Max") — biên trần THẬT SỰ đang dùng cho lượt "beat"
+    // hiện tại, mỗi hiệu ứng 1 biến riêng — `null` = CHƯA roll lần nào (khởi tạo lười ở `_tick()` đầu
+    // tiên), reset về `null` mỗi lần `sync()` bắt đầu 1 vòng chạy MỚI (xem `sync()` bên dưới).
+    let zoomEffectiveMax = null;
+    let panXEffectiveMax = null;
+    let panYEffectiveMax = null;
+    let rotateEffectiveMax = null;
     let cachedPreset = null; // CHỈ cập nhật lúc sync() chạy (event-driven) — _tick() ĐỌC từ đây, KHÔNG tự .find() mỗi frame
 
+    /** MỚI (phản hồi Giang — Random Max) — biên trần dùng cho 1 lượt "beat": `randomMax` tắt -> LUÔN
+     * đúng `configuredMax` (hành vi CŨ, không đổi). `randomMax` bật -> resolve NGẪU NHIÊN 1 lần mỗi
+     * lượt beat, trong [absoluteMin, configuredMax] — vd configuredMax=60°, mỗi beat có thể đạt bất
+     * kỳ đỉnh nào trong [0°,60°], không phải luôn đúng 60°.
+     * @param {{randomMax:boolean}} effect @param {number} absoluteMin - biên dưới TUYỆT ĐỐI (100 cho
+     *   zoom/panX/panY, 0 cho rotate). @param {number} configuredMax @returns {number} */
+    function _rollEffectiveMax(effect, absoluteMin, configuredMax) {
+        if (!effect.randomMax) return configuredMax;
+        return absoluteMin + Math.random() * (configuredMax - absoluteMin);
+    }
+
     /** 1 frame RAF — CÙNG công thức `_tickBeatReact()` gốc của workflowMotionEngine NGUYÊN VẸN:
-     * envelope follower + zoom/pan/rotate nội suy theo `energy` + đảo cực mỗi beat mới cho hướng
-     * leftToRight/rightToLeft — CHỈ đọc `cachedPreset` (KHÔNG gọi `getPresetFn()` ở đây). */
+     * envelope follower + zoom/panX/panY/rotate nội suy theo `energy` + đảo cực mỗi beat mới cho
+     * hướng leftToRight/rightToLeft (panX/rotate) hoặc upToDown/downToUp (panY) — CHỈ đọc
+     * `cachedPreset` (KHÔNG gọi `getPresetFn()` ở đây). */
     function _tick() {
         if (!cachedPreset) { stop(); return; } // phòng hờ — bình thường sync() đã dừng task TRƯỚC khi cachedPreset về null
         const rb = cachedPreset.reactBeatAudio;
@@ -102,9 +124,23 @@ function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn) 
         const isAttacking = beatScale >= envelope;
         const isNewBeat = isAttacking && !wasAttacking; // rising edge — "beat mới"
         wasAttacking = isAttacking;
+        // Khởi tạo LƯỜI (lượt tick đầu tiên, effectiveMax vẫn null) + roll LẠI mỗi khi có "beat mới"
+        // — CÙNG NHỊP với đảo polarity ngay dưới (1 lượt beat = 1 lần roll, không phải mỗi frame).
+        if (isNewBeat || zoomEffectiveMax === null) zoomEffectiveMax = _rollEffectiveMax(rb.zoom, 100, rb.zoom.maxPct);
+        if (isNewBeat || panXEffectiveMax === null) panXEffectiveMax = _rollEffectiveMax(rb.panX, 100, rb.panX.maxPct);
+        if (isNewBeat || panYEffectiveMax === null) panYEffectiveMax = _rollEffectiveMax(rb.panY, 100, rb.panY.maxPct);
+        if (isNewBeat || rotateEffectiveMax === null) rotateEffectiveMax = _rollEffectiveMax(rb.rotate, 0, rb.rotate.maxDeg);
         if (isNewBeat) {
-            if (rb.pan.direction === 'leftToRight' || rb.pan.direction === 'rightToLeft') {
-                panPolarity = computeMotionEngineBeatReactNextPolarity(panPolarity, rb.pan.direction, rb.pan.reverse); // core/motion-engine.js
+            if (rb.panX.direction === 'leftToRight' || rb.panX.direction === 'rightToLeft') {
+                panXPolarity = computeMotionEngineBeatReactNextPolarity(panXPolarity, rb.panX.direction, rb.panX.reverse); // core/motion-engine.js
+            }
+            if (rb.panY.direction === 'upToDown' || rb.panY.direction === 'downToUp') {
+                // MIRROR ĐÚNG panX — "upToDown"/"downToUp" cùng cơ chế "leftToRight"/"rightToLeft",
+                // computeMotionEngineBeatReactNextPolarity() chỉ so sánh CHUỖI direction với hằng số
+                // 'leftToRight' để quyết cực khởi đầu -> truyền thẳng 'leftToRight' khi upToDown (cùng
+                // ngữ nghĩa "chiều thuận"), 'rightToLeft' khi downToUp, KHÔNG cần sửa hàm core dùng chung.
+                const mappedDirection = rb.panY.direction === 'upToDown' ? 'leftToRight' : 'rightToLeft';
+                panYPolarity = computeMotionEngineBeatReactNextPolarity(panYPolarity, mappedDirection, rb.panY.reverse); // core/motion-engine.js
             }
             if (rb.rotate.direction === 'leftToRight' || rb.rotate.direction === 'rightToLeft') {
                 rotatePolarity = computeMotionEngineBeatReactNextPolarity(rotatePolarity, rb.rotate.direction, rb.rotate.reverse); // core/motion-engine.js
@@ -114,11 +150,16 @@ function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn) 
         envelope = computeMotionEngineBeatReactEnvelope(envelope, beatScale, deltaMs, MOTION_ENGINE_BEATREACT_DECAY_MS); // core/motion-engine.js + event/workflow/motion-engine.js
         const energy = envelope;
 
-        const zoomScale = rb.zoom.enabled ? computeMotionEngineBeatReactZoomScale(rb.zoom.maxPct, energy) : 1; // core/motion-engine.js
-        const panPct = rb.pan.enabled ? computeMotionEngineBeatReactOffset(rb.pan.direction, rb.pan.maxPct - 100, energy, panPolarity || 1) : 0; // core/motion-engine.js — trừ baseline 100% trước khi truyền
-        const rotateDeg = rb.rotate.enabled ? computeMotionEngineBeatReactOffset(rb.rotate.direction, rb.rotate.maxDeg, energy, rotatePolarity || 1) : 0; // core/motion-engine.js — baseline 0°
+        const zoomScale = rb.zoom.enabled ? computeMotionEngineBeatReactZoomScale(zoomEffectiveMax, energy) : 1; // core/motion-engine.js
+        // panX dùng NGUYÊN 'left'/'right'/'leftToRight'/'rightToLeft'; panY MIRROR qua 'up'->'left',
+        // 'down'->'right' (computeMotionEngineBeatReactOffset() chỉ so sánh CHUỖI 'left'/'right' để
+        // quyết dấu cố định — 'up'/'down' cũng cần map lại, KHÔNG cần sửa hàm core dùng chung).
+        const panXPct = rb.panX.enabled ? computeMotionEngineBeatReactOffset(rb.panX.direction, panXEffectiveMax - 100, energy, panXPolarity || 1) : 0; // core/motion-engine.js — trừ baseline 100% trước khi truyền
+        const panYDirectionForOffset = rb.panY.direction === 'up' ? 'left' : (rb.panY.direction === 'down' ? 'right' : rb.panY.direction);
+        const panYPct = rb.panY.enabled ? computeMotionEngineBeatReactOffset(panYDirectionForOffset, panYEffectiveMax - 100, energy, panYPolarity || 1) : 0; // core/motion-engine.js
+        const rotateDeg = rb.rotate.enabled ? computeMotionEngineBeatReactOffset(rb.rotate.direction, rotateEffectiveMax, energy, rotatePolarity || 1) : 0; // core/motion-engine.js — baseline 0°
 
-        if (target) target.style.transform = `scale(${zoomScale}) translateX(${panPct}%) rotate(${rotateDeg}deg)`;
+        if (target) target.style.transform = `scale(${zoomScale}) translateX(${panXPct}%) translateY(${panYPct}%) rotate(${rotateDeg}deg)`;
     }
 
     /** Tra lại `getPresetFn()` (EVENT-DRIVEN — gọi lúc context CÓ THỂ vừa đổi, KHÔNG phải mỗi
@@ -131,7 +172,8 @@ function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn) 
         const shouldRun = !!preset;
         const isRunning = taskManager.isTaskRunning(taskName); // service/task-manager.js
         if (shouldRun && !isRunning) {
-            envelope = 0; wasAttacking = false; panPolarity = 0; rotatePolarity = 0; lastTickMs = 0; // bắt đầu vòng MỚI luôn từ baseline
+            envelope = 0; wasAttacking = false; panXPolarity = 0; panYPolarity = 0; rotatePolarity = 0; lastTickMs = 0; // bắt đầu vòng MỚI luôn từ baseline
+            zoomEffectiveMax = null; panXEffectiveMax = null; panYEffectiveMax = null; rotateEffectiveMax = null; // reset Random Max — roll LẠI ngay lượt beat đầu của vòng mới
             taskManager.addNew(taskName, { time: 0, exe: _tick, mode: 'raf', count: 0 }); // service/task-manager.js — CHỈ đăng ký, CHƯA chạy
             taskManager.operator(taskName, 'enabled'); // BẮT BUỘC — addNew() không tự bật
         } else if (!shouldRun && isRunning) {

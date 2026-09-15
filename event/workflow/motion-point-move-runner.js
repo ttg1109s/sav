@@ -156,16 +156,21 @@ function createMotionPointMoveRunner(getTargetElementFn) {
         pointMoveAnim = startPointMoveAnimation(getTargetElementFn(), keyframes, lastAdvanceMs, 'ease-in-out'); // core
     }
 
-    /** 'all' mode. MIRROR NGUYÊN VẸN logic gốc `_activatePointMoveAll()`. */
+    /** 'all' mode. SỬA (phản hồi Giang — "Point 0 = start point", bỏ Start-force) — Point 0
+     * (`preset.pointMoves[0]`, `timingX` khoá cứng = 0, xem core/motion-presets.js) giờ CHÍNH LÀ mốc
+     * x=0 — KHÔNG còn mốc ảo `POINT_MOVE_RUNNER_BASELINE_TARGET` tách biệt cho x=0 nữa (hằng số đó
+     * giờ CHỈ còn dùng cho mốc x=100 của `pointMoveEndForceBaseline` + baseline "one" mode). Index 0
+     * bị LOẠI khỏi danh sách point thường (`checked`) — nó không còn là 1 point move giữa đường, mà
+     * LÀ chính mốc khởi đầu. `liveStartTarget` (tiếp diễn mượt từ vị trí thật, nếu có) VẪN ưu tiên
+     * hơn giá trị Point 0 — CHỈ dùng Point 0 khi CHƯA có gì để tiếp diễn (activate LẦN ĐẦU). */
     function _activatePointMoveAll(preset, fromTransform, liveStartTarget) {
-        const forceBaselineTail = preset.pointMoveStartForceBaseline || preset.pointMoveEndForceBaseline;
-        const checked = preset.pointMoves.filter((p) => p.checked);
+        const forceBaselineTail = preset.pointMoveEndForceBaseline;
+        const checked = preset.pointMoves.filter((p, i) => i !== 0 && p.checked); // Point 0 (index 0) KHÔNG còn nằm trong danh sách point "giữa đường"
         const usable = forceBaselineTail ? checked.filter((p) => p.timingX < 100) : checked;
-        if (usable.length === 0 && !forceBaselineTail) return;
         const points = usable
             .map((p) => ({ x: p.timingX, target: _resolvePointMoveTarget(p) }))
             .sort((a, b) => a.x - b.x);
-        const startTarget = liveStartTarget || POINT_MOVE_RUNNER_BASELINE_TARGET;
+        const startTarget = liveStartTarget || _resolvePointMoveTarget(preset.pointMoves[0]); // Point 0 (start point) THẬT, không còn baseline ảo trung tính
         const targetPoints = [{ x: 0, target: startTarget }, ...points];
         if (forceBaselineTail) targetPoints.push({ x: 100, target: POINT_MOVE_RUNNER_BASELINE_TARGET });
 

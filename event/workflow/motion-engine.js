@@ -53,7 +53,7 @@
 /** Preset "tắt hết" — dùng khi nơi gọi truyền `null`/`undefined` (chưa gắn Motion) — KHÔNG fallback
  * về bất kỳ hiệu ứng mặc định nào. Vẫn export ở đây (không phải nơi gọi) vì đây là "hình dạng
  * preset hợp lệ tối thiểu", thuộc kiến thức của Engine. */
-const MOTION_ENGINE_NO_OP_PRESET = { transitionEnabled: false, transitionType: 'fade', transitionDurationMs: 1000, transitionInOutRatio: 50, transitionEasing: 'linear', pointMoves: [], pointMoveEnabled: false, pointMoveRunMode: 'all', pointMoveOneOrder: 'sequential', pointMoveStartForceBaseline: false, pointMoveEndForceBaseline: false, reactBeatAudio: { enabled: false, zoom: { enabled: false }, pan: { enabled: false }, rotate: { enabled: false } } };
+const MOTION_ENGINE_NO_OP_PRESET = { transitionEnabled: false, transitionType: 'fade', transitionDurationMs: 1000, transitionInOutRatio: 50, transitionEasing: 'linear', pointMoves: [], pointMoveEnabled: false, pointMoveRunMode: 'all', pointMoveOneOrder: 'sequential', pointMoveEndForceBaseline: false, reactBeatAudio: { enabled: false, zoom: { enabled: false }, panX: { enabled: false }, panY: { enabled: false }, rotate: { enabled: false } } }; // SỬA (phản hồi Giang) — bỏ pointMoveStartForceBaseline (field đã xoá), pan -> panX/panY
 
 // Task RAF RIÊNG, per-frame, CHỈ chạy khi preset đang HIỂN THỊ có `reactBeatAudio.enabled` + ít
 // nhất 1 hiệu ứng con bật (xem `_syncBeatReactLoop()`) — animation của ẢNH ĐANG HIỆN, không phải
@@ -275,7 +275,7 @@ const workflowMotionEngine = {
         if (!presetId) return null; // MOTION_ENGINE_NO_OP_PRESET (chưa gắn gì) không có field `id`
         const preset = findMotionPresetById(appState.get('motionPresets'), presetId) || this._activePreset; // core/motion-presets.js — preset vừa bị XOÁ hẳn (hiếm) -> fallback bản cache cũ
         const rb = preset.reactBeatAudio;
-        return (rb.enabled && (rb.zoom.enabled || rb.pan.enabled || rb.rotate.enabled)) ? preset : null;
+        return (rb.enabled && (rb.zoom.enabled || rb.panX.enabled || rb.panY.enabled || rb.rotate.enabled)) ? preset : null; // SỬA (phản hồi Giang — chia Pan X/Pan Y) — rb.pan.enabled -> rb.panX.enabled || rb.panY.enabled
     },
 
     /** Tạo (LƯỜI, ĐÚNG 1 LẦN) instance `createMotionBeatReactRunner()` cho React Beat của VBG —

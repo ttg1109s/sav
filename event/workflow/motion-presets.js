@@ -131,18 +131,8 @@ const workflowMotionPresets = {
         // "force baseline" CHỈ hiện khi 'all' (MỚI — phản hồi Giang, sửa bug hard-cut baseline).
         const orderRow = q('#motion-pointmove-order-row');
         if (orderRow) orderRow.classList.toggle('hidden', preset.pointMoveRunMode !== 'one');
-        const timingBtn = q('#btn-motion-pointmove-timing');
-        if (timingBtn) timingBtn.classList.toggle('hidden', preset.pointMoveRunMode !== 'all');
-        const startForceRow = q('#motion-pointmove-start-force-row');
-        if (startForceRow) startForceRow.classList.toggle('hidden', preset.pointMoveRunMode !== 'all');
-        const endForceRow = q('#motion-pointmove-end-force-row');
-        if (endForceRow) endForceRow.classList.toggle('hidden', preset.pointMoveRunMode !== 'all');
-        // Đồng bộ trạng thái tick (bật 1 cái có thể đã tự TẮT cái kia — xem
-        // changePointMoveStartForceBaseline()/changePointMoveEndForceBaseline() ngay dưới).
-        const startForceCb = q('#setting-motion-pointmove-start-force-baseline');
-        if (startForceCb) startForceCb.checked = preset.pointMoveStartForceBaseline;
-        const endForceCb = q('#setting-motion-pointmove-end-force-baseline');
-        if (endForceCb) endForceCb.checked = preset.pointMoveEndForceBaseline;
+        // "Return baseline" + "Timing" đã dời sang subpanel Point moves (phản hồi Giang) — KHÔNG còn
+        // sống trong màn Edit chính, xem workflowAppSettings._renderPointMoveList().
         this._syncApplyButton();
     },
 
@@ -302,50 +292,30 @@ const workflowMotionPresets = {
         await this._mutateEditing((p) => { p.pointMoveOneOrder = order; });
     },
 
-    /** Checkbox "Start point: force baseline" (CHỈ có ý nghĩa khi `pointMoveRunMode==='all'`) — CHỈ
-     * ĐƯỢC 1 TRONG 2 (start/end) bật cùng lúc (phản hồi Giang) — bật cái này tự TẮT "End force
-     * baseline" nếu đang bật. SỬA LẦN 2 (phản hồi Giang — bug "giật cứng" tái xuất hiện) — 2 field
-     * này giờ dùng CHUNG 1 cơ chế (chèn mốc ảo x=100=baseline vào đuôi MỌI vòng, xem
-     * event/workflow/motion-engine.js::_activatePointMoveAll()), nên nudge point move đang đứng
-     * đúng mốc bị khoá cũng DÙNG CHUNG mốc x=100 (KHÔNG còn x=0 nữa, +0.2% CÙNG quy ước
-     * addPointMove()).
-     * @param {boolean} checked */
-    async changePointMoveStartForceBaseline(checked) {
-        await this._mutateEditing((p) => {
-            p.pointMoveStartForceBaseline = checked;
-            if (checked) {
-                p.pointMoveEndForceBaseline = false;
-                p.pointMoves = p.pointMoves.map((pm) => (pm.timingX === 100 ? { ...pm, timingX: 99.9 } : pm));
-            }
-        });
-        this._syncEditUI();
-    },
-
-    /** Checkbox "Endpoint: force baseline" — CÙNG cơ chế `changePointMoveStartForceBaseline()` ngay
-     * trên (2 checkbox giờ chỉ khác NHÃN/khung nhìn người dùng chọn, không khác hành vi runtime).
+    /** Checkbox "Return baseline" (đổi tên từ "Endpoint: force baseline", dời sang subpanel Point
+     * moves — phản hồi Giang) — CHỈ có ý nghĩa khi `pointMoveRunMode==='all'`. SỬA (phản hồi Giang —
+     * bỏ "Start point force", Point 0 giờ CHÍNH LÀ start point) — không còn field song song nào để
+     * tắt chéo nữa, chỉ còn ĐÚNG 1 mutation. Bật -> chèn mốc ảo x=100=baseline vào đuôi MỌI vòng (xem
+     * docstring đầu core/motion-presets.js) — nudge point move đang đứng đúng mốc x=100 bị khoá
+     * (+0.2%, CÙNG quy ước addPointMove()). KHÔNG cần `_syncEditUI()` sau đó nữa (không còn checkbox
+     * nào khác phụ thuộc trạng thái này để đồng bộ theo).
      * @param {boolean} checked */
     async changePointMoveEndForceBaseline(checked) {
         await this._mutateEditing((p) => {
             p.pointMoveEndForceBaseline = checked;
-            if (checked) {
-                p.pointMoveStartForceBaseline = false;
-                p.pointMoves = p.pointMoves.map((pm) => (pm.timingX === 100 ? { ...pm, timingX: 99.9 } : pm));
-            }
+            if (checked) p.pointMoves = p.pointMoves.map((pm) => (pm.timingX === 100 ? { ...pm, timingX: 99.9 } : pm));
         });
-        this._syncEditUI();
     },
 
     /** Biên [minX,maxX] kéo/nhập `timingX` HIỆN TẠI của preset đang sửa — `maxX` hẹp lại (99.9) khi
-     * 1 trong 2 cờ force-baseline đang bật (mốc x=100 đó do baseline chiếm, xem docstring 2 hàm
-     * trên) — `minX` LUÔN 0 (SỬA LẦN 2 — mốc x=0 không còn bị field nào khoá nữa, xem
-     * event/workflow/motion-engine.js::_activatePointMoveAll()). DÙNG CHUNG cho thanh Timing
-     * (`_renderTimingCurve()`) LẪN modal nhập số (`_commitPointMoveTimingModal()`) — tránh lệch biên
-     * giữa 2 nơi.
+     * `pointMoveEndForceBaseline` đang bật (mốc x=100 đó do baseline chiếm, xem docstring hàm trên)
+     * — `minX` LUÔN 0. DÙNG CHUNG cho thanh Timing (`_renderTimingCurve()`) LẪN modal nhập số
+     * (`_commitPointMoveTimingModal()`) — tránh lệch biên giữa 2 nơi.
      * @param {object} preset @returns {{minX:number, maxX:number}} */
     _pointMoveTimingBounds(preset) {
         return {
             minX: 0,
-            maxX: (preset.pointMoveStartForceBaseline || preset.pointMoveEndForceBaseline) ? 99.9 : 100,
+            maxX: preset.pointMoveEndForceBaseline ? 99.9 : 100,
         };
     },
 
@@ -403,33 +373,37 @@ const workflowMotionPresets = {
      * field khác, bao gồm `timingX` — phản hồi Giang: "hai cái hoán đổi là đồng thời", đây là 1 thao
      * tác DUY NHẤT (trao đổi hẳn 2 object trong mảng), KHÔNG PHẢI 2 bước tách rời — `timingX` tự
      * "đi theo" object vì nó là field CỦA object đó, giống mọi list kéo-thả sắp xếp lại tiêu chuẩn.
-     * Vị trí ĐẦU (index 0) VẪN hoán đổi được bình thường — nếu kết quả đẩy 1 object KHÁC vào index 0,
-     * nó TỰ bị khoá `checked:true` qua `sanitizeMotionPointMoves()` (khoá theo VỊ TRÍ, không theo
-     * object cụ thể nào — đúng quy tắc đã chốt từ đầu).
+     * SỬA (phản hồi Giang — "Point 0 = start point") — TRƯỚC ĐÂY vị trí ĐẦU (index 0) vẫn hoán đổi
+     * được bình thường (ai vào đó tự bị khoá theo VỊ TRÍ); giờ Point 0 đã là start point CỐ ĐỊNH
+     * (`timingX` khoá cứng = 0, xem core/motion-presets.js), KHÔNG còn ý nghĩa "hoán đổi vào/ra vị
+     * trí 0" nữa — CHẶN HẲN nếu 1 trong 2 index liên quan là 0 (UI cũng đã bỏ tay cầm kéo ở hàng đó,
+     * guard ở đây phòng hờ payload không tin mù).
      * @param {string} idA @param {string} idB */
     async swapPointMoveOrder(idA, idB) {
         if (idA === idB) return;
         await this._mutateEditing((p) => {
             const idxA = p.pointMoves.findIndex((pm) => pm.id === idA);
             const idxB = p.pointMoves.findIndex((pm) => pm.id === idB);
-            if (idxA === -1 || idxB === -1) return;
+            if (idxA === -1 || idxB === -1 || idxA === 0 || idxB === 0) return;
             const newList = [...p.pointMoves];
             [newList[idxA], newList[idxB]] = [newList[idxB], newList[idxA]];
-            p.pointMoves = sanitizeMotionPointMoves(newList); // core/motion-presets.js — ép lại khoá checked vị trí đầu ngay
+            p.pointMoves = sanitizeMotionPointMoves(newList); // core/motion-presets.js
         });
         workflowAppSettings._renderPointMoveList(); // liên tuyến domain
     },
 
     /** Xoá 1 point move — LUÔN giữ ít nhất 1 phần tử (guard, UI đã disable nút xoá khi chỉ còn 1,
-     * phòng hờ vẫn chặn lại ở đây). Nếu phần tử VỊ TRÍ ĐẦU bị xoá, phần tử KẾ TIẾP tự trở thành vị
-     * trí đầu MỚI và tự bị khoá `checked` qua `sanitizeMotionPointMoves()` lúc `_mutateEditing` ghi
-     * lại — KHÔNG cần xử lý riêng ở đây.
+     * phòng hờ vẫn chặn lại ở đây). SỬA (phản hồi Giang — "Point 0 = start point") — Point 0 (vị trí
+     * ĐẦU) giờ KHÔNG BAO GIỜ xoá được nữa, bất kể danh sách còn bao nhiêu phần tử (UI đã disable nút
+     * xoá ở hàng đó, guard ở đây phòng hờ payload không tin mù).
      * @param {string} id */
     async deletePointMove(id) {
         await this._mutateEditing((p) => {
             if (p.pointMoves.length <= 1) return; // guard: không xoá xuống dưới 1
+            const idx = p.pointMoves.findIndex((pm) => pm.id === id);
+            if (idx === 0) return; // guard: Point 0 (start point) không xoá được
             const filtered = p.pointMoves.filter((pm) => pm.id !== id);
-            p.pointMoves = sanitizeMotionPointMoves(filtered); // core/motion-presets.js — ép lại khoá checked vị trí đầu ngay (không đợi lượt sanitize kế tiếp)
+            p.pointMoves = sanitizeMotionPointMoves(filtered); // core/motion-presets.js — ép lại khoá checked+timingX vị trí đầu ngay (không đợi lượt sanitize kế tiếp)
         });
         workflowAppSettings._renderPointMoveList(); // liên tuyến domain
     },
@@ -473,16 +447,14 @@ const workflowMotionPresets = {
     },
 
     /** Ứng slider "single" (mode==='single') — LIVE preview lúc kéo (`input`), KHÔNG persist mỗi
-     * pixel (cùng convention `previewTransitionRatio()`/`transitionRatio.preview` đã có) — chỉ cập
-     * nhật nhãn giá trị, persist THẬT diễn ra ở `changePointMoveFieldSingle()` lúc thả tay (`change`). */
+     * pixel (cùng convention `previewTransitionRatio()`/`transitionRatio.preview` đã có) — SỬA (phản
+     * hồi Giang — ô input số sync 2 chiều với slider) — cập nhật thẳng `.value` của ô input số (thay
+     * `textContent` của span chỉ-đọc cũ), persist THẬT diễn ra ở `changePointMoveFieldSingle()` lúc
+     * thả tay (`change`). */
     previewPointMoveFieldSingle(fieldKey, value) {
         if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
-        const labelEl = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-value-label`);
-        if (!labelEl) return;
-        const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
-        const pointMove = preset ? findPointMoveById(preset.pointMoves, this._editingPointMoveId) : null; // core/motion-presets.js
-        const suffix = pointMove ? (pointMove[fieldKey].unit || (fieldKey === 'zoom' ? '' : '°')) : '';
-        labelEl.textContent = `${value}${suffix}`;
+        const inputEl = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-single-input`);
+        if (inputEl) inputEl.value = value;
     },
 
     /** Ứng slider "single" (mode==='single') — persist THẬT lúc thả tay (`change`). */
@@ -507,31 +479,44 @@ const workflowMotionPresets = {
         workflowAppSettings._renderPointMoveEdit(); // liên tuyến domain — vẽ lại TẠI CHỖ (2 tay kéo có thể cùng đổi vị trí)
     },
 
-    /** Đồng bộ UI 1 field sau khi đổi mode (single<->randomRange) — ẨN/HIỆN đúng cụm slider, KHÔNG
-     * full re-render (giữ nguyên vị trí cuộn màn hình). */
+    /** Đồng bộ UI 1 field sau khi đổi mode (single<->randomRange) — ẨN/HIỆN đúng cụm slider LẪN cụm
+     * ô input số tương ứng (MỚI, phản hồi Giang), KHÔNG full re-render (giữ nguyên vị trí cuộn màn
+     * hình). */
     _syncPointMoveEditUI(fieldKey) {
         if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
         const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
         const pointMove = preset ? findPointMoveById(preset.pointMoves, this._editingPointMoveId) : null;
         if (!pointMove) return;
         const field = pointMove[fieldKey];
+        const isSingle = field.mode === 'single';
         const singleWrap = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-single-wrap`);
         const rangeWrap = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-range-wrap`);
-        if (singleWrap) singleWrap.style.display = field.mode === 'single' ? '' : 'none';
-        if (rangeWrap) rangeWrap.style.display = field.mode === 'single' ? 'none' : '';
+        if (singleWrap) singleWrap.style.display = isSingle ? '' : 'none';
+        if (rangeWrap) rangeWrap.style.display = isSingle ? 'none' : '';
+        const singleInput = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-single-input`);
+        const rangeInputWrap = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-range-input-wrap`);
+        if (singleInput) singleInput.classList.toggle('hidden', !isSingle);
+        if (rangeInputWrap) rangeInputWrap.classList.toggle('hidden', isSingle);
         this._updatePointMoveFieldLabel(fieldKey);
     },
 
+    /** SỬA (phản hồi Giang — ô input số sync 2 chiều với slider) — cập nhật `.value` của ô(các) input
+     * số THAY VÌ `textContent` của span chỉ-đọc cũ (đã bỏ khỏi template). */
     _updatePointMoveFieldLabel(fieldKey) {
         if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
         const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
         const pointMove = preset ? findPointMoveById(preset.pointMoves, this._editingPointMoveId) : null;
         if (!pointMove) return;
         const field = pointMove[fieldKey];
-        const labelEl = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-value-label`);
-        if (!labelEl) return;
-        const suffix = field.unit || (fieldKey === 'zoom' ? '' : '°');
-        labelEl.textContent = field.mode === 'single' ? `${field.single}${suffix}` : `${field.rangeMin}${suffix} ~ ${field.rangeMax}${suffix}`;
+        if (field.mode === 'single') {
+            const singleInput = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-single-input`);
+            if (singleInput) singleInput.value = field.single;
+        } else {
+            const minInputNum = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-rangemin-input`);
+            const maxInputNum = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-rangemax-input`);
+            if (minInputNum) minInputNum.value = field.rangeMin;
+            if (maxInputNum) maxInputNum.value = field.rangeMax;
+        }
         const fillEl = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-range-fill`);
         if (fillEl) {
             const minInput = genericDrawerBody.querySelector(`#setting-ptmove-${fieldKey}-rangemin`);
@@ -561,9 +546,9 @@ const workflowMotionPresets = {
      * @returns {object[]} */
     _computeTimingPoints(preset, overrideId, overrideTimingX) {
         return preset.pointMoves
-            .filter((p) => p.checked)
+            .filter((p, i) => i !== 0 && p.checked) // SỬA (phản hồi Giang — "Point 0 = start point") — Point 0 (index 0) KHÔNG còn hiện trên đồ thị (timingX khoá cứng = 0, không có gì để kéo)
             .map((p) => (p.id === overrideId ? { ...p, timingX: overrideTimingX } : p))
-            .map((p) => ({ id: p.id, timingX: p.timingX, locked: preset.pointMoves[0].id === p.id, n: preset.pointMoves.findIndex((pm) => pm.id === p.id) })) // `n` = ĐÚNG index trong MẢNG GỐC (khớp tên "Point move N" ở màn Danh sách), không phải vị trí sau khi lọc/sort ở đây
+            .map((p) => ({ id: p.id, timingX: p.timingX, locked: false, n: preset.pointMoves.findIndex((pm) => pm.id === p.id) })) // `n` = ĐÚNG index trong MẢNG GỐC (khớp tên "Point move N" ở màn Danh sách), không phải vị trí sau khi lọc/sort ở đây
             .sort((a, b) => a.timingX - b.timingX);
     },
 
@@ -615,7 +600,7 @@ const workflowMotionPresets = {
         this._dragPreviewPointMoveId = null;
         await this._mutateEditing((p) => {
             const idx = p.pointMoves.findIndex((pm) => pm.id === id);
-            if (idx === -1) return;
+            if (idx <= 0) return; // guard: không tìm thấy HOẶC đúng Point 0 (start point, timingX khoá cứng) — phòng hờ, không tin payload mù
             const { minX, maxX } = this._pointMoveTimingBounds(p);
             const others = p.pointMoves.filter((pm) => pm.id !== id).map((pm) => pm.timingX);
             const resolved = resolvePointMoveTimingX(timingX, others, minX, maxX); // core/motion-presets.js
@@ -631,7 +616,7 @@ const workflowMotionPresets = {
         const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
         if (!preset) return;
         const idx = preset.pointMoves.findIndex((p) => p.id === id);
-        if (idx === -1) return;
+        if (idx <= 0) return; // guard: không tìm thấy HOẶC đúng Point 0 (không còn là node trên đồ thị nữa) — phòng hờ
         const pm = preset.pointMoves[idx];
         const { minX, maxX } = this._pointMoveTimingBounds(preset); // SỬA (phản hồi Giang) — biên ĐỘNG, không còn cố định [0,100]
         let draftX = pm.timingX;
@@ -662,7 +647,7 @@ const workflowMotionPresets = {
         if (typeof timingX !== 'number' || Number.isNaN(timingX)) return;
         await this._mutateEditing((p) => {
             const idx = p.pointMoves.findIndex((pm) => pm.id === id);
-            if (idx === -1) return;
+            if (idx <= 0) return; // guard: không tìm thấy HOẶC đúng Point 0 — phòng hờ, không tin payload mù
             const { minX, maxX } = this._pointMoveTimingBounds(p);
             const clampedX = Math.max(minX, Math.min(maxX, timingX));
             const others = p.pointMoves.filter((pm) => pm.id !== id).map((pm) => pm.timingX);
@@ -676,27 +661,31 @@ const workflowMotionPresets = {
     // ===================== React Beat Audio =====================
 
     /** Ứng MỌI thay đổi field trong nhóm "React Beat Audio" — GENERIC 1 hàm DUY NHẤT cho cả field
-     * top-level (`enabled`, `effectKey=null`) LẪN 3 cụm con zoom/pan/rotate (`effectKey` tương ứng).
+     * top-level (`enabled`, `effectKey=null`) LẪN 4 cụm con zoom/panX/panY/rotate (`effectKey` tương
+     * ứng — SỬA, phản hồi Giang "chia Pan thành Pan X/Pan Y": `pan` cũ tách thành `panX`/`panY`).
      * `replaceMovement` ĐÃ XOÁ (hết ý nghĩa từ khi Ken Burns không còn để "thay thế" — xem
      * core/motion-presets.js) — KHÔNG còn trong danh sách `fieldKey` hợp lệ.
      * SỬA (Giang chỉ ra — sửa nội dung preset đang chạy trước đây không live) — KHÔNG còn tự gọi
      * `workflowMotionEngine.liveBeatReactToggle()` riêng ở ĐÂY nữa (chỉ phủ đúng 1 field, chỉ phủ
      * VBG) — `_mutateEditing()` giờ tự broadcast `notifyMotionBeatReactPresetsChanged()` SAU MỌI
      * field, phủ CẢ VBG lẫn Player (và ai sau này), xem event/workflow/motion-beat-react-runner.js.
-     * @param {'zoom'|'pan'|'rotate'|null} effectKey - null = field top-level.
-     * @param {string} fieldKey - 'enabled' | 'maxPct' | 'maxDeg' | 'direction' | 'reverse'.
+     * MỚI `randomMax` (phản hồi Giang — "bổ sung tick Random Max") — boolean, CÙNG khuôn `enabled`/
+     * `reverse`.
+     * @param {'zoom'|'panX'|'panY'|'rotate'|null} effectKey - null = field top-level.
+     * @param {string} fieldKey - 'enabled' | 'maxPct' | 'maxDeg' | 'direction' | 'reverse' | 'randomMax'.
      * @param {boolean|number|string} value
      */
     async changeBeatReactField(effectKey, fieldKey, value) {
-        if (fieldKey === 'enabled' || fieldKey === 'reverse') {
+        if (fieldKey === 'enabled' || fieldKey === 'reverse' || fieldKey === 'randomMax') {
             if (typeof value !== 'boolean') return;
         } else if (fieldKey === 'maxPct') {
-            const [min, max] = effectKey === 'pan' ? [100, 150] : [100, 200]; // zoom
+            const [min, max] = (effectKey === 'panX' || effectKey === 'panY') ? [100, 150] : [100, 200]; // zoom
             if (typeof value !== 'number' || value < min || value > max) return;
         } else if (fieldKey === 'maxDeg') {
             if (typeof value !== 'number' || value < 0 || value > 360) return;
         } else if (fieldKey === 'direction') {
-            if (!MOTION_BEAT_REACT_DIRECTIONS.includes(value)) return; // core/motion-presets.js
+            const validDirections = effectKey === 'panY' ? MOTION_BEAT_REACT_DIRECTIONS_Y : MOTION_BEAT_REACT_DIRECTIONS; // core/motion-presets.js
+            if (!validDirections.includes(value)) return;
         } else {
             return; // fieldKey lạ -> bỏ qua, không ghi mù
         }
@@ -706,8 +695,13 @@ const workflowMotionPresets = {
         });
         if (genericDrawerPanel.classList.contains('hidden') || !effectKey) return;
         if (fieldKey === 'maxPct' || fieldKey === 'maxDeg') {
-            const el = genericDrawerBody.querySelector(`#motion-beatreact-${effectKey}-max-label`);
-            if (el) el.textContent = `${value}${fieldKey === 'maxDeg' ? '°' : '%'}`;
+            // MỚI (phản hồi Giang — ô nhập số sync 2 chiều với slider) — đồng bộ input số (thay hẳn
+            // span chỉ-đọc cũ) VỀ giá trị vừa persist (phòng trường hợp value đến từ chính input đó,
+            // gõ tay đã đúng rồi thì set lại vô hại; đến từ slider thì input cần cập nhật theo).
+            const inputEl = genericDrawerBody.querySelector(`#motion-beatreact-${effectKey}-max-input`);
+            if (inputEl) inputEl.value = value;
+            const sliderEl = genericDrawerBody.querySelector(`#setting-motion-beatreact-${effectKey}-max`);
+            if (sliderEl) sliderEl.value = value;
         }
     },
 
