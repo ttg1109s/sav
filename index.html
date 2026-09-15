@@ -224,7 +224,7 @@
     <link rel="stylesheet" href="assets/css/video-gallery.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/video-preview.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/misc.css?v=20260813v1">
-    <link rel="stylesheet" href="assets/css/motion-engine.css?v=20260903v4">
+    <link rel="stylesheet" href="assets/css/motion-engine.css?v=20260914v1">
     <!-- Game Mode (Circle mode v1, MỚI 16/08/2026) — xem components/gameplay-overlay.js. -->
     <link rel="stylesheet" href="assets/css/gameplay.css?v=20260902v4">
     <!-- Game Panel (App Panel tab "Game", danh sách card kiểu appstore, MỚI 02/09/2026) — xem
@@ -286,8 +286,15 @@
          React Beat Audio (event/workflow/motion-engine.js::_tickBeatReact()) — transform CỘNG DỒN
          theo cây DOM với `.me-pointmove-players` bên trong, LUÔN chạy song song (không còn khái
          niệm "thay thế" Point Move). -->
-    <div id="visual-motion-react" class="me-beat-react">
-        <div id="visual-motion-container" class="hidden">
+    <!-- MỚI (Giang chỉ ra: "Motion cung cấp cơ chế THUẦN, nơi tiêu thụ tự quyết gắn ở đâu") — class
+         `.me-transition-scope` (assets/css/motion-engine.css) — điều kiện ĐỂ hiệu ứng CSS transition
+         (fade/slide/wipe/...) chạy được là 1 phần tử mang class NÀY set `data-transition`/hướng
+         (setMotionEngineTransitionType()/setMotionEngineTransitionDirections(), core/motion-engine.js)
+         — KHÔNG có tác dụng gì nếu KHÔNG kèm `data-transition`, nên gắn SẴN, TĨNH ở đây vô hại. VBG
+         dùng `#visual-motion-container` (bên dưới); Video Player mode dùng THẲNG `#visual-motion-react`
+         (element NÀY, cha chung của layer A/B của nó — xem event/workflow/video-player.js). -->
+    <div id="visual-motion-react" class="me-beat-react me-transition-scope">
+        <div id="visual-motion-container" class="hidden me-transition-scope">
             <div id="visual-motion-players" class="me-pointmove-players">
                 <div id="visual-motion-layer-1" class="motion-layer">
                     <div id="visual-motion-layer-1-pan" class="me-pointmove-pan"></div>
@@ -996,7 +1003,7 @@
     <!-- Batch 8, ver 12 "Multi Media" — engine cycle ảnh Slideshow nền Visual (transition/Ken
          Burns), CHỈ còn đúng 1 vai trò: `_tick()` (taskManager) — cụm router "slideshowSettings"
          (từng ở đây) ĐÃ BỎ HẲN (29/08/2026), xem event/workflow/motion-presets.js ngay dưới. -->
-    <script src="event/workflow/motion-engine.js?v=20260914v2"></script>
+    <script src="event/workflow/motion-engine.js?v=20260914v3"></script>
     <!-- MỚI (29/08/2026) — hệ "Cấu hình Motion" độc lập (Settings > System > Motion), thay
          hẳn router/listener "slideshowSettings" cũ (2 file event/router,listener/slideshow.js ĐÃ
          XOÁ) — xem event/workflow/motion-presets.js, event/router/motion-presets.js. Không
@@ -1017,7 +1024,7 @@
          bắt buộc thứ tự ngặt nghèo vì chỉ gọi bên trong method body, chạy sau khi mọi script đã nạp
          xong) VÀ event/workflow/player-display-settings.js (nơi tiêu thụ ĐẦU TIÊN của React Beat
          Runner, không dùng Point Move/Transition Runner). -->
-    <script src="event/workflow/motion-transition-runner.js?v=20260914v1"></script>
+    <script src="event/workflow/motion-transition-runner.js?v=20260914v2"></script>
     <script src="event/workflow/motion-point-move-runner.js?v=20260914v1"></script>
     <script src="event/workflow/motion-beat-react-runner.js?v=20260912v1"></script>
 
