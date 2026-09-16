@@ -561,6 +561,7 @@ function initThreeJSConnector() {
     if (!appState.get('tRenderer')) {
         appState.set('tRenderer', new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true }), { skipCheck: true });
         appState.get('tRenderer').setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        appState.get('tRenderer').setClearAlpha(0); // tường minh — đảm bảo clear về trong suốt, không ngầm định opaque
     }
     const tRenderer = appState.get('tRenderer');
     tRenderer.setSize(window.innerWidth, window.innerHeight);
@@ -628,6 +629,27 @@ function initThreeJSConnector() {
 
 // ĐỔI: reconfigure fog/camera/controls theo style active — 2 demo gốc có thông số camera/fog
 // khác nhau, giờ dùng chung 1 cnScene/cnCamera nên phải áp lại đúng bộ số của style vừa chọn.
+// MỚI (phản hồi Giang — trạng thái tạm bị "kẹt" qua bài mới, cảm giác không theo nhạc thật): dọn
+// tia/tín hiệu ĐANG BAY của bài cũ (dispose mesh, tránh rò rỉ) + reset baseline onset — cùng tinh
+// thần player.js reset raindrops/ripples/activeLightnings mỗi lần đổi bài. Không rebuild network
+// (mạng/vị trí neuron giữ nguyên, chỉ dọn trạng thái CHUYỂN ĐỘNG tạm thời).
+function resetConnectorPerTrackState() {
+    if (!appState.get('cnInitialized')) return;
+
+    const neurons = appState.get('cnNeurons');
+    neurons.forEach((n) => { n.prevBinEnergy = 0; n.lastFiredFrame = -9999; n.energy = 0; });
+    appState.get('cnActiveSignalsSynapse').forEach((s) => {
+        s.synapse.fromNeuron.container.remove(s.mesh);
+        s.mesh.geometry.dispose(); s.mesh.material.dispose();
+    });
+    appState.set('cnActiveSignalsSynapse', [], { skipCheck: true });
+
+    const cnGroupCircuit = appState.get('cnGroupCircuit');
+    appState.get('cnActiveSignalsCircuit').forEach((s) => destroyCircuitSignal(s, cnGroupCircuit));
+    appState.set('cnActiveSignalsCircuit', [], { skipCheck: true });
+    appState.get('cnChips').forEach((c) => c.pins.forEach((p) => { p.busy = false; }));
+}
+
 function updateConnectorVisibility() {
     if (!appState.get('cnInitialized')) return;
     const style = getEffectConfig('connector').connectorStyle; // core/custom-effect.js
