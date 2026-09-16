@@ -15,11 +15,26 @@ function computeNeuronBinEnergy(vizDataArray, bufferLength, neuronIndex, neuronC
 }
 
 // GIỮ NGUYÊN công thức Hooke's Law + decay energy (1.7/s) của updatePhysicsAndSignals() gốc.
+// SỬA (phản hồi Giang 16/09/2026 — "đàn hồi mạnh, thậm chí văng mất"): xung Z giờ LUÔN CÙNG DẤU
+// (+Z, xem _tickConnectorSynapse, event/workflow/visualizer-render.js — trước đây 3 trục ngẫu
+// nhiên tự triệt tiêu bớt lẫn nhau, giờ không còn). Nơ-ron bậc-vào cao (nhiều dây tới — đặc biệt
+// sau khi buildSynapseGraph() đảm bảo tối thiểu 1 dây/nơ-ron) có thể nhận NHIỀU xung dồn dập gần
+// như cùng lúc (xung khi tín hiệu TỚI không qua cooldown, khác xung tự bắn theo onset) -> vận
+// tốc/độ lệch cộng dồn không giới hạn theo thời gian -> văng khỏi mặt lưới. Kẹp velocity.z +
+// position.z (theo neuron.scale — nơ-ron to thì biên độ đàn hồi cho phép lớn hơn theo) NGAY TẠI
+// ĐÂY — lớp bảo vệ CUỐI CÙNG, đúng bất kể xung tới từ đâu/dồn bao nhiêu lần, không cần sửa từng
+// nơi phát xung.
+const MAX_ELASTIC_VELOCITY = 34;
+const MAX_ELASTIC_OFFSET = 40;
+
 function stepNeuronSpring(neuron, stiffness, damping, deltaTime) {
     const displacement = neuron.position.clone().sub(neuron.restPosition);
     neuron.velocity.add(displacement.multiplyScalar(-stiffness));
     neuron.velocity.multiplyScalar(damping);
+    neuron.velocity.z = Math.max(-MAX_ELASTIC_VELOCITY, Math.min(MAX_ELASTIC_VELOCITY, neuron.velocity.z));
     neuron.position.add(neuron.velocity);
+    const maxOffset = MAX_ELASTIC_OFFSET * neuron.scale;
+    neuron.position.z = Math.max(neuron.restPosition.z - maxOffset, Math.min(neuron.restPosition.z + maxOffset, neuron.position.z));
     neuron.container.position.copy(neuron.position);
     if (neuron.energy > 0) neuron.energy = Math.max(0, neuron.energy - deltaTime * 1.7);
 }
