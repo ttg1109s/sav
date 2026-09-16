@@ -160,10 +160,14 @@ const CUSTOM_EFFECT_FIELDS = {
     connector: [
         { id: 'glowEnabled', labelKey: 'customEffectDrawer.field.connectorGlowEnabled', type: 'toggle' },
         { id: 'glowIntensity', labelKey: 'customEffectDrawer.field.connectorGlowIntensity', type: 'slider', min: 0, max: 100, step: 5 },
-        { id: 'connectorAvgDegree', labelKey: 'customEffectDrawer.field.connectorAvgDegree', type: 'slider', min: 2, max: 6, step: 1, refresh: 'initThreeJSConnector' },
         { id: 'neuronCount', labelKey: 'customEffectDrawer.field.neuronCount', type: 'slider', min: 12, max: 48, step: 3, showIf: (cfg) => cfg.connectorStyle === 'synapse', refresh: 'initThreeJSConnector' },
         { id: 'fireThreshold', labelKey: 'customEffectDrawer.field.fireThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
-        { id: 'springStiffness', labelKey: 'customEffectDrawer.field.springStiffness', type: 'sliderFloat', min: 0.05, max: 0.4, step: 0.01, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
+        { id: 'springStiffnessBase', labelKey: 'customEffectDrawer.field.springStiffnessBase', type: 'sliderFloat', min: 0.05, max: 0.4, step: 0.01, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
+        { id: 'springStiffnessEnergyMult', labelKey: 'customEffectDrawer.field.springStiffnessEnergyMult', type: 'sliderFloat', min: -0.3, max: 0.3, step: 0.01, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
+        { id: 'dampingBase', labelKey: 'customEffectDrawer.field.dampingBase', type: 'sliderFloat', min: 0.3, max: 0.95, step: 0.01, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
+        { id: 'dampingEnergyMult', labelKey: 'customEffectDrawer.field.dampingEnergyMult', type: 'sliderFloat', min: -0.3, max: 0.3, step: 0.01, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
+        { id: 'rotateSpeedBase', labelKey: 'customEffectDrawer.field.rotateSpeedBase', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
+        { id: 'rotateSpeedEnergyMult', labelKey: 'customEffectDrawer.field.rotateSpeedEnergyMult', type: 'sliderFloat', min: 0, max: 2, step: 0.05, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
         { id: 'synapseSpeedBase', labelKey: 'customEffectDrawer.field.synapseSpeedBase', type: 'slider', min: 20, max: 200, step: 5, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
         { id: 'synapseSpeedEnergyMult', labelKey: 'customEffectDrawer.field.synapseSpeedEnergyMult', type: 'slider', min: 0, max: 150, step: 5, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
         { id: 'nodeCount', labelKey: 'customEffectDrawer.field.nodeCount', type: 'slider', min: 20, max: 80, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit', refresh: 'initThreeJSConnector' },
@@ -172,6 +176,11 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'trailLength', labelKey: 'customEffectDrawer.field.trailLength', type: 'slider', min: 5, max: 60, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
         { id: 'circuitSpeedBase', labelKey: 'customEffectDrawer.field.circuitSpeedBase', type: 'slider', min: 20, max: 200, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
         { id: 'circuitSpeedEnergyMult', labelKey: 'customEffectDrawer.field.circuitSpeedEnergyMult', type: 'slider', min: 0, max: 150, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
+        { id: 'bloomStrengthBase', labelKey: 'customEffectDrawer.field.bloomStrengthBase', type: 'sliderFloat', min: 0, max: 4, step: 0.1, decimals: 1, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
+        { id: 'bloomStrengthEnergyMult', labelKey: 'customEffectDrawer.field.bloomStrengthEnergyMult', type: 'sliderFloat', min: 0, max: 4, step: 0.1, decimals: 1, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
+        { id: 'cameraShiftEnabled', labelKey: 'customEffectDrawer.field.connectorCameraShiftEnabled', type: 'toggle', showIf: (cfg) => cfg.connectorStyle === 'circuit' },
+        { id: 'sectionWindowBeats', labelKey: 'customEffectDrawer.field.musicSectionWindowBeats', type: 'slider', min: 6, max: 32, step: 1, showIf: (cfg) => cfg.connectorStyle === 'circuit' && cfg.cameraShiftEnabled, group: 'music' },
+        { id: 'fluxThreshold', labelKey: 'customEffectDrawer.field.musicFluxThreshold', type: 'sliderFloat', min: 0.1, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'circuit' && cfg.cameraShiftEnabled, group: 'music' },
     ],
 };
 /** Config đầy đủ (default merge field thiếu) của 1 effect theo type. */

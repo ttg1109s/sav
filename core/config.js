@@ -109,11 +109,15 @@
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
                 connectorStyle: 'synapse',
                 glowEnabled: true, glowIntensity: 100,
-                connectorAvgDegree: 3,
-                neuronCount: 30, fireThreshold: 0.55, springStiffness: 0.18,
+                neuronCount: 30, fireThreshold: 0.55,
+                springStiffnessBase: 0.22, springStiffnessEnergyMult: 0.1,
+                dampingBase: 0.80, dampingEnergyMult: 0.05,
+                rotateSpeedBase: 0.3, rotateSpeedEnergyMult: 0.4,
                 synapseSpeedBase: 85, synapseSpeedEnergyMult: 60,
                 nodeCount: 55, signalsPerBeat: 2, maxConcurrentSignals: 60, trailLength: 20,
                 circuitSpeedBase: 80, circuitSpeedEnergyMult: 60,
+                bloomStrengthBase: 2.2, bloomStrengthEnergyMult: 0.8,
+                cameraShiftEnabled: true, sectionWindowBeats: 12, fluxThreshold: 0.5,
             },
         };
 
