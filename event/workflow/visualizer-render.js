@@ -126,6 +126,19 @@ const workflowVisualizerRender = {
         const perf = { blurMult: getActiveBlurMult() }; // core/audio-analysis.js
         if (!vizDataArray) return; // guard — audio context chưa init (giống hệt hành vi cũ)
 
+        // SỬA (bug Giang phát hiện 17/09/2026 — connector synapse bắn vài giây đầu mỗi bài rồi im
+        // hẳn dù audio vẫn còn): `frameCounter` (service/state/visualizer-runtime.js) được ĐỌC ở
+        // nhiều nơi (cooldown bắn synapse ngay dưới, globalTwist vortex, nhịp spawnFlyingNote()
+        // mỗi-8-frame) nhưng rà toàn bộ codebase KHÔNG CÓ CHỖ NÀO TĂNG nó — đứng yên ở giá trị mặc
+        // định (0) suốt đời app. Hệ quả rõ nhất: CONNECTOR_FIRE_COOLDOWN_FRAMES so
+        // `frameCounter - neuron.lastFiredFrame` mãi mãi = 0 ngay sau lần bắn ĐẦU TIÊN của mỗi
+        // nơ-ron (lastFiredFrame gán = frameCounter tĩnh đó) → không bao giờ > 12 nữa → nơ-ron tự
+        // khoá cooldown vĩnh viễn (giai đoạn ngắn bắn được lúc đầu là vì lastFiredFrame khởi tạo
+        // -9999, còn đủ hiệu số vượt cooldown). Tăng NGAY SAU guard audio-context (chỉ đếm frame
+        // THẬT SỰ có xử lý audio data, khớp tinh thần mọi field khác cùng package
+        // visualizer-runtime.js).
+        appState.set('frameCounter', frameCounter + 1, { skipCheck: true });
+
         analyser.getByteFrequencyData(vizDataArray);
         const bufferLength = analyser.frequencyBinCount;
         const isPlaying = appState.get('isVideoPlayerMode') ? !bgVideoElement.paused : !audioPlayer.paused;
@@ -425,7 +438,7 @@ const workflowVisualizerRender = {
             neuron.prevBinEnergy = energyByte;
             stepNeuronSpring(neuron, stiffness, damping, deltaTime); // core/visualizer/groups/connector/synapse.js
             const color = getComputedColor(i, neurons.length, energyByte); // core/audio-analysis.js
-            applyNeuronExcitement(neuron, color.fill); // core/visualizer/groups/connector/synapse.js
+            applyNeuronExcitement(neuron, color.fill, color.glow); // core/visualizer/groups/connector/synapse.js — SỬA: đồng bộ SỐNG mọi vật liệu (không chỉ soma), xem docblock hàm
             applyConnectorGlowSettings(neuron.glowSprite, cfg.glowEnabled, glowIntensity); // core/visualizer/groups/connector/common.js
         });
 
@@ -458,7 +471,9 @@ const workflowVisualizerRender = {
         const speed = computeConnectorSpeed(cfg.circuitSpeedBase, cfg.circuitSpeedEnergyMult, smoothedEnergy); // core/webgl
         appState.get('cnBloomPass').strength = computeConnectorSpeed(cfg.bloomStrengthBase, cfg.bloomStrengthEnergyMult, smoothedEnergy); // core/webgl
 
-        chips.forEach((chip) => {
+        chips.forEach((chip, i) => {
+            const chipColor = getComputedColor(i, chips.length, 128); // core/audio-analysis.js — dataValue=128 GIỮ NGUYÊN như lúc build (chip không có "giá trị audio riêng" như bar)
+            applyChipLiveColor(chip, chipColor.fill); // core/visualizer/groups/connector/circuit.js — MỚI, xem docblock hàm (đồng bộ màu sống, tránh phải rebuild)
             applyChipGlowSettings(chip.bodyMesh, cfg.glowEnabled, glowIntensity); // core/visualizer/groups/connector/common.js
             decayChipSpin(chip, deltaTime); // core/visualizer/groups/connector/circuit.js
         });
