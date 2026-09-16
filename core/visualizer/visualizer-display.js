@@ -42,6 +42,8 @@
             bars: 'visualizerSettingsDrawer.vortexStyle.bars',
             wave: 'visualizerSettingsDrawer.vortexStyle.wave',
             rubik: 'visualizerSettingsDrawer.shapeStyle.rubik',
+            synapse: 'visualizerSettingsDrawer.connectorStyle.synapse',
+            circuit: 'visualizerSettingsDrawer.connectorStyle.circuit',
         };
 
         // Key i18n tên hiển thị CHO TỪNG GROUP — dùng ở dropdown 1 (chọn group) của modal chọn
@@ -53,6 +55,7 @@
             rain: 'settingsVisualizer.type.rain',
             vortex: 'settingsVisualizer.type.vortex',
             shape: 'settingsVisualizer.group.shape',
+            connector: 'settingsVisualizer.type.connector',
         };
 
         /**
@@ -222,28 +225,18 @@
             // cố định trước đây. SỬA (05/09/2026) — hiện tên STYLE (không phải group).
             if (modeCycleLabel) modeCycleLabel.textContent = t(VISUALIZER_STYLE_LABEL_KEYS[style] || style);
 
-            if (cfg.type === 'vortex') {
-                // [XOÁ — 15/09/2026, "dọn sạch visualizer effect space"] Trước đây nhánh này dùng
-                // CHUNG canvas #webgl-canvas + tRenderer với Space (if 'vortex' || 'space', kèm
-                // khối khởi tạo engine Galaxy + tone mapping ACES riêng cho 'space') — group
-                // "space" đã BỎ HẲN, giờ chỉ còn Vortex ở đây, initThreeJS() vẫn giữ (Vortex tự
-                // cần).
-                if (!appState.get('tInitialized')) initThreeJS();
-                updateVortexVisibility();
-                // FIX (04/07/2026, mục 4) — 'playlist-hidden' THAY '-translate-y-full' (dọc -> ngang).
-                // SỬA (07/07/2026, batch gộp container) — class `playlist-hidden` đã DỜI từ
-                // `#playlist-view` sang `#side-left-container`. HOTFIX 16 (08/07/2026) — dời TIẾP
-                // sang `#app-stack` (components/app-view-stack.js) — `#side-left-container` giờ
-                // KHÔNG BAO GIỜ còn mang class này nữa (chỉ lo cuộn ngang) — kiểm tra SAI phần tử ở
-                // đây sẽ luôn trả về false, làm webgl-canvas không bao giờ hiện lại đúng lúc.
+            if (cfg.type === 'vortex' || cfg.type === 'connector') {
+                // 2 group dùng CHUNG canvas #webgl-canvas + tRenderer, scene RIÊNG mỗi group.
+                if (cfg.type === 'vortex') { if (!appState.get('tInitialized')) initThreeJS(); updateVortexVisibility(); }
+                else { if (!appState.get('cnInitialized')) initThreeJSConnector(); updateConnectorVisibility(); } // core/webgl/three-connector.js
+                // FIX (04/07/2026, mục 4) — 'playlist-hidden' THAY '-translate-y-full', giờ ở
+                // `#app-stack` (components/app-view-stack.js), KHÔNG phải `#side-left-container`.
                 if (!appStack.classList.contains('playlist-hidden')) {} else { document.getElementById('webgl-canvas').classList.remove('opacity-0'); }
             } else {
                 document.getElementById('webgl-canvas').classList.add('opacity-0');
             }
 
-            // fftSizeHighRes cho 'vortex' (mượt tunnel) và 'lighting' (cả 2 style thunder/
-            // fireworks đều đọc vizDataArray theo bin cụ thể, cần độ phân giải phổ cao hơn).
-            if(appState.get('analyser')) { appState.get('analyser').fftSize = (cfg.type === 'vortex' || cfg.type === 'lighting') ? APP_CONFIG.fftSizeHighRes : APP_CONFIG.fftSizeStandard; allocateBuffers(); }
+            if(appState.get('analyser')) { appState.get('analyser').fftSize = needsHighResFft(cfg.type) ? APP_CONFIG.fftSizeHighRes : APP_CONFIG.fftSizeStandard; allocateBuffers(); } // core/visualizer/helpers/fft-resolution.js
         }
 
         // (Phần B, Galaxy — updateSpaceStyleUI() ĐÃ BỎ 21/07/2026, cùng panel tinh chỉnh reroll/jump)
