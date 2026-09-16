@@ -27,7 +27,31 @@ function computeNeuronBinEnergy(vizDataArray, bufferLength, neuronIndex, neuronC
 const MAX_ELASTIC_VELOCITY = 34;
 const MAX_ELASTIC_OFFSET = 40;
 
+// MỚI (yêu cầu Giang 17/09/2026 — "đàn hồi cơ học, sợi dây tách khỏi nơ-ron lân cận, đáng lẽ phải
+// kéo nhẹ neuron lân cận"): trước đây MỖI nơ-ron dao động HOÀN TOÀN độc lập — lò xo Hooke's Law
+// riêng chỉ kéo về `restPosition` của chính nó, không hề biết tới nơ-ron nào đang nối dây (dù
+// `connectedSynapses` đã có sẵn danh sách). Thêm 1 lực coupling NHẸ: mỗi nơ-ron bị kéo về phía độ
+// lệch Z TRUNG BÌNH của các nơ-ron nối dây trực tiếp (cả chiều dây RA `connectedSynapses` lẫn dây
+// TỚI `incomingSynapses`, xem createPhysicalSynapticAxon(), core/webgl/three-connector.js) — đúng
+// cơ chế lò xo nối giữa 2 nút trong lưới vải (mass-spring mesh), không thay thế lò xo riêng
+// (Hooke's law) bên dưới, chỉ CỘNG THÊM. NEIGHBOR_COUPLE_STRENGTH cố tình nhỏ hơn hẳn stiffness
+// riêng — mục đích tạo cảm giác "cả lưới rung lan toả", không làm nơ-ron lân cận nảy MẠNH bằng
+// nơ-ron vừa bắn. Đọc `.position.z` của neighbor NGAY TRONG vòng lặp neurons.forEach()
+// (visualizer-render.js) nên 1 phần neighbor đã bước frame này/1 phần chưa (kiểu Gauss-Seidel) —
+// chấp nhận được, không cần tách thêm 1 pass riêng chỉ để đồng bộ tuyệt đối.
+const NEIGHBOR_COUPLE_STRENGTH = 0.05;
+
 function stepNeuronSpring(neuron, stiffness, damping, deltaTime) {
+    const neighborCount = neuron.connectedSynapses.length + neuron.incomingSynapses.length;
+    if (neighborCount > 0) {
+        const selfOffsetZ = neuron.position.z - neuron.restPosition.z;
+        let neighborOffsetSum = 0;
+        neuron.connectedSynapses.forEach((s) => { neighborOffsetSum += (s.toNeuron.position.z - s.toNeuron.restPosition.z); });
+        neuron.incomingSynapses.forEach((s) => { neighborOffsetSum += (s.fromNeuron.position.z - s.fromNeuron.restPosition.z); });
+        const avgNeighborOffsetZ = neighborOffsetSum / neighborCount;
+        neuron.velocity.z += (avgNeighborOffsetZ - selfOffsetZ) * NEIGHBOR_COUPLE_STRENGTH;
+    }
+
     const displacement = neuron.position.clone().sub(neuron.restPosition);
     neuron.velocity.add(displacement.multiplyScalar(-stiffness));
     neuron.velocity.multiplyScalar(damping);
@@ -42,14 +66,54 @@ function stepNeuronSpring(neuron, stiffness, damping, deltaTime) {
 // GIỮ NGUYÊN công thức "bioluminescent excitation" gốc — chỉ đổi base hue từ hardcode 0.52 sang
 // HSL của màu getComputedColor() đang active. MỚI (16/09/2026): glow pulse theo neuron.scale —
 // đồng bộ với nhân/dây đã scale theo màn hình (xem createAnatomicalNeuron(), core/webgl/three-connector.js).
-function applyNeuronExcitement(neuron, baseColorHex) {
+//
+// SỬA TIẾP (yêu cầu Giang 17/09/2026 — "đổi màu phải render lại từ đầu chứ không chuyển ngay tức
+// thì, render không có tính liên tục"): TRƯỚC ĐÂY hàm này chỉ chạm `somaMesh.material.color` —
+// nucleus/dendrite/glowSprite/axon (hillock/core/myelin/bouton, bake ở createAnatomicalNeuron()/
+// createPhysicalSynapticAxon(), three-connector.js) hoàn toàn KHÔNG được đọc lại, đứng yên màu lúc
+// buildSynapseNetwork() dựng lưới. Trong khi các effect khác (bar/vortex — xem
+// _tickVortexRender()/_tickBar(), visualizer-render.js) gọi getComputedColor() MỖI FRAME cho MỌI
+// phần tử nên đổi mode/dynA/dynB/solidColor tự thấy ngay, connector lại là mesh Three.js SỐNG LÂU
+// DÀI (persistent) — bake xong không ai đụng lại. Cách duy nhất thấy màu mới ĐÚNG ở mọi nơi trước
+// đây là rebuild cả lưới (initThreeJSConnector(), cơ chế `refresh` hiện chỉ gắn cho
+// neuronCount/nodeCount — CỐ Ý không gắn cho field màu chung, gắn vào sẽ ép MỌI effect khác cũng
+// phải rebuild cứng mỗi lần đổi màu, phá luôn tính liên tục vốn có của chúng).
+// Sửa: đồng bộ SỐNG mỗi frame ở ĐÚNG NGAY HÀM NÀY (được gọi mỗi frame/mỗi nơ-ron từ
+// _tickConnectorSynapse(), visualizer-render.js, với `color.fill`/`color.glow` tính MỚI mỗi lần) —
+// nucleus/soma (base + emissive), dendrite, glowSprite, VÀ lan qua toàn bộ axon của các synapse
+// XUẤT PHÁT từ nơ-ron này (`connectedSynapses` — màu axon vốn lấy nguyên từ fromNeuron.fillColorHex
+// lúc build, nay đồng bộ sống theo đúng gốc đó thay vì bake chết). `.set()` (không phải `.setHex()`)
+// vì `fillColorHex`/`glowColorHex` tham số có thể là chuỗi hsla()/hex tuỳ mode màu (getComputedColor(),
+// core/audio-analysis.js) — THREE.Color.set() tự nhận diện được cả 2 dạng.
+function applyNeuronExcitement(neuron, fillColorHex, glowColorHex) {
     const excite = Math.min(1.0, neuron.energy);
     const hsl = {};
-    new THREE.Color(baseColorHex).getHSL(hsl);
+    new THREE.Color(fillColorHex).getHSL(hsl);
+
+    neuron.nucleusMesh.material.color.set(fillColorHex);
+    neuron.nucleusMesh.material.emissive.set(fillColorHex);
     neuron.nucleusMesh.material.emissiveIntensity = 0.95 + excite * 3.5;
+
+    neuron.somaMesh.material.emissive.set(fillColorHex);
     neuron.somaMesh.material.emissiveIntensity = 0.65 + excite * 2.8;
     neuron.somaMesh.material.color.setHSL((hsl.h + excite * 0.08) % 1, 1.0, Math.min(0.9, hsl.l + excite * 0.4));
+
+    neuron.dendriteMat.color.set(fillColorHex);
+    neuron.dendriteMat.emissive.set(fillColorHex);
+
+    neuron.glowSprite.material.color.set(glowColorHex);
     neuron.glowSprite.scale.setScalar((25 + excite * 20) * neuron.scale);
+
+    neuron.connectedSynapses.forEach((synapse) => {
+        synapse.hillockMesh.material.color.set(fillColorHex);
+        synapse.hillockMesh.material.emissive.set(fillColorHex);
+        synapse.axonCoreMesh.material.color.set(fillColorHex);
+        synapse.axonCoreMesh.material.emissive.set(fillColorHex);
+        synapse.myelinMat.color.set(fillColorHex);
+        synapse.myelinMat.emissive.set(fillColorHex);
+        synapse.boutonMesh.material.color.set(fillColorHex);
+        synapse.boutonMesh.material.emissive.set(fillColorHex);
+    });
 }
 
 // GIỮ NGUYÊN mechanic lan truyền + saltatory pulse gần Node of Ranvier của gốc.

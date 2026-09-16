@@ -73,3 +73,22 @@ function updateCircuitSignal(signal, delta, speedUnitsPerSec, trailLength) {
 function decayChipSpin(chip, deltaTime) {
     chip.group.rotation.y += deltaTime * 0.6;
 }
+
+// MỚI (yêu cầu Giang 17/09/2026 — "đổi màu phải render lại từ đầu, render không có tính liên
+// tục"): TRƯỚC ĐÂY màu chip (body/pin/pointlight) bake 1 LẦN lúc buildCircuitNodes() (three-
+// connector.js), style circuit KHÔNG hề đọc lại getComputedColor() cho bất kỳ mesh nào mỗi frame
+// (khác hẳn style synapse — dù trước bản sửa này synapse cũng chỉ đọc lại 1 phần, xem
+// applyNeuronExcitement(), synapse.js) — cách duy nhất thấy màu mới trước đây là rebuild toàn bộ
+// qua initThreeJSConnector() (refresh hiện gắn cho nodeCount). Gọi hàm này mỗi frame/mỗi chip từ
+// _tickConnectorCircuit() (visualizer-render.js) với màu MỚI tính lại — cùng tinh thần
+// applyNeuronExcitement() bên style synapse. Cập nhật LUÔN `chip.color` (hex int, khớp kiểu dữ liệu
+// gốc) để signal MỚI spawn (spawnCircuitSignal(), three-connector.js) dùng đúng màu hiện tại —
+// signal ĐANG BAY giữ nguyên màu lúc spawn (không hồi tố, đúng hành vi tự nhiên của 1 "gói tin" đã
+// gửi đi).
+function applyChipLiveColor(chip, fillColor) {
+    chip.bodyMesh.material.color.set(fillColor);
+    chip.bodyMesh.material.emissive.set(fillColor);
+    chip.pinMat.color.set(fillColor);
+    chip.pLight.color.set(fillColor);
+    chip.color = new THREE.Color(fillColor).getHex();
+}
