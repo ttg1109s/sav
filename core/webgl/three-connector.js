@@ -48,26 +48,57 @@ function createActionPotentialSparkTexture() {
 /**
  * SỬA (yêu cầu Giang 16/09/2026 — "đang vo viên lẫn lộn -> làm phẳng map dạng 2D, nhưng vẫn cấu
  * trúc 3D"): bỏ hẳn layout 3 vỏ CẦU (fibonacciSpherePoint, đã xoá) — thay bằng LƯỚI PHẲNG (mặt
- * X-Y CỤC BỘ của cnGroupSynapse, Z=0 lúc rest). "Vẫn cấu trúc 3D" đến từ 2 chỗ GIỮ NGUYÊN:
- * cnGroupSynapse tự xoay theo nhạc (rotation.x/y, _tickConnectorSynapse) + trục Z cục bộ giờ là
- * trục "đàn hồi" (lún/phồng khi bắn tín hiệu, xem computeConnectorScreenScale() dưới và impulse
- * Z-only ở _tickConnectorSynapse, event/workflow/visualizer-render.js) — lưới phẳng nhưng KHÔNG
- * phẳng lì, vẫn gồ ghề động theo audio.
+ * X-Y CỤC BỘ của cnGroupSynapse, Z=0 lúc rest). "Vẫn cấu trúc 3D" đến từ trục Z cục bộ = trục
+ * "đàn hồi" (lún/phồng khi bắn tín hiệu — xem impulse Z-only ở _tickConnectorSynapse, event/
+ * workflow/visualizer-render.js) — lưới phẳng nhưng KHÔNG phẳng lì, vẫn gồ ghề động theo audio.
+ *
+ * SỬA TIẾP (phản hồi Giang cùng ngày — "map phải trải đều/diện tích bằng màn hình" + "bỏ camera
+ * xoay/zoom"): bản đầu tiên chỉ khớp XẤP XỈ theo tỉ lệ khung hình rồi để camera tự xoay quanh —
+ * KHÔNG đúng ý "diện tích bằng màn hình". Sửa lại đúng nghĩa đen: SYNAPSE_CAMERA_FOV_DEG/
+ * SYNAPSE_CAMERA_DISTANCE dưới đây PHẢI khớp NGUYÊN VĂN cnCamera.fov/position ở
+ * updateConnectorVisibility() (cuối file) — buildSynapseGridCells() tính NGƯỢC ra đúng khung hình
+ * (frustum) camera nhìn thấy ở mặt phẳng Z=0, rồi trải lưới KÍN 92% khung hình đó (chừa biên nhỏ
+ * tránh mesh rìa bị crop) — lấp ĐÚNG diện tích màn hình, không còn ước lượng. Camera giờ đứng
+ * THẲNG trục Z (không lệch Y), OrbitControls khoá HẲN rotate/zoom/pan — không tự xoay/orbit nữa
+ * (rotateSpeedBase/EnergyMult trong config vẫn còn field nhưng KHÔNG còn tác dụng cho style
+ * synapse — nợ kỹ thuật đã biết, chưa gỡ field/slider vì ngoài phạm vi yêu cầu lần này).
  *
  * Chốt với Giang (3 câu hỏi 16/09/2026):
  * 1) Lưới ĐỀU, vòng đồng tâm HÌNH CHỮ NHẬT ngoài->trong — giữ tinh thần "shell mạnh ngoài/yếu
  *    trong" cũ, chỉ đổi hình cầu -> hình chữ nhật phẳng (KHÔNG so le ngẫu nhiên như phác thảo).
  * 2) Lún/phồng: xem hàm _tickConnectorSynapse — 1 xung +Z duy nhất lúc bắn (khử cực), lò xo Hooke
- *    GIỮ NGUYÊN bên dưới (dampingBase mặc định 0.80 — thiếu hãm tới hạn) tự overshoot rồi
- *    undershoot ÂM trước khi ổn định — đúng dạng sóng điện thế hoạt động thật (depolarize ->
- *    hyperpolarization undershoot -> rest), không cần code tay pha lún riêng.
- * 3) Lân cận lan tín hiệu: đồ thị CỐ ĐỊNH dựng 1 LẦN lúc khởi tạo (như bản gốc) theo Ô LƯỚI THẬT
- *    kề nhau — bám đúng "cách neuron phát tín hiệu" (synapse giải phẫu cố định), KHÔNG chọn lại
- *    theo bin/khoảng-cách mỗi frame.
+ *    GIỮ NGUYÊN bên dưới tự overshoot rồi undershoot ÂM trước khi ổn định — đúng dạng sóng điện
+ *    thế hoạt động thật (depolarize -> hyperpolarization undershoot -> rest). MỚI (phản hồi Giang
+ *    "đàn hồi quá mạnh, văng mất") — kẹp biên velocity/displacement, xem stepNeuronSpring() (core/
+ *    visualizer/groups/connector/synapse.js): xung Z LUÔN CÙNG DẤU (không tự triệt tiêu như 3 trục
+ *    ngẫu nhiên cũ) nên nơ-ron bậc-vào cao (nhiều dây tới, nhất là sau SỬA TIẾP mục 3 dưới đảm bảo
+ *    tối thiểu 1 dây/nơ-ron) có thể nhận NHIỀU xung dồn dập cộng don không giới hạn — kẹp là lớp
+ *    bảo vệ cuối, không phụ thuộc xung tới từ đâu/dồn bao nhiêu lần.
+ * 3) Lân cận lan tín hiệu: đồ thị CỐ ĐỊNH dựng 1 LẦN lúc khởi tạo theo Ô LƯỚI THẬT kề nhau. SỬA
+ *    TIẾP (phản hồi Giang "không phát tín hiệu liên tục dù audio vẫn có") — bản đầu random-skip
+ *    35% ĐỘC LẬP mỗi hướng khiến nơ-ron ở biên/góc (ít ứng viên) có xác suất KHÔNG CÓ dây ra nào
+ *    (connectedSynapses rỗng) -> bắn tín hiệu nhưng không gì để lan -> im lặng dù vẫn còn audio.
+ *    Sửa: mọi nơ-ron còn ≥1 ứng viên hướng "tới" LUÔN được đảm bảo ÍT NHẤT 1 dây ra, phần ứng viên
+ *    còn lại mới random 50% thêm — cùng tinh thần connectCount=2-3/nơ-ron bảo đảm tối thiểu của
+ *    graph shell cũ, không phó mặc hoàn toàn cho random nữa.
  */
 
-// Cột/hàng khớp tỉ lệ khung hình MÀN HÌNH THẬT (window.innerWidth/innerHeight) — kẹp biên tránh
-// lưới dẹt bất thường ở màn siêu ngang/dọc.
+// PHẢI khớp NGUYÊN VĂN cnCamera.fov/position.z gán trong updateConnectorVisibility() (cuối file,
+// style synapse) — xem giải thích ở docblock trên.
+const SYNAPSE_CAMERA_FOV_DEG = 50;
+const SYNAPSE_CAMERA_DISTANCE = 380;
+
+// Kích thước thế giới (world units) camera nhìn thấy trọn khung hình ở mặt phẳng Z=0 (nơi lưới
+// nơ-ron đứng yên lúc rest) — suy ngược từ FOV/khoảng cách camera + tỉ lệ khung hình MÀN HÌNH
+// THẬT (window.innerWidth/innerHeight).
+function computeSynapseVisibleFrustum() {
+    const aspect = window.innerWidth / window.innerHeight;
+    const halfHeight = SYNAPSE_CAMERA_DISTANCE * Math.tan((SYNAPSE_CAMERA_FOV_DEG * Math.PI / 180) / 2);
+    return { width: halfHeight * 2 * aspect, height: halfHeight * 2 };
+}
+
+// Cột/hàng khớp tỉ lệ khung hình MÀN HÌNH THẬT — kẹp biên tránh lưới dẹt bất thường ở màn siêu
+// ngang/dọc.
 function computeSynapseGridDims(neuronCount) {
     const aspect = Math.max(0.5, Math.min(2.2, window.innerWidth / window.innerHeight));
     const rows = Math.max(1, Math.round(Math.sqrt(neuronCount / aspect)));
@@ -83,14 +114,17 @@ function ringIndexOf(col, row, cols, rows) {
 }
 
 /**
- * Trả về đúng neuronCount ô {col, row, ring, position(cục bộ, Z=0)}. targetSpan CỐ ĐỊNH theo
- * screenScale (không theo neuronCount) — cellSize = targetSpan / cạnh dài hơn, nên 64 nơ-ron vẫn
- * lọt khung hình y hệt 32 (ô nhỏ lại thay vì lưới phình to), tránh phải đổi camera/frustum riêng.
+ * Trả về đúng neuronCount ô {col, row, ring, position(cục bộ, Z=0)} + cellSize thật (world units)
+ * — lưới lấp KÍN 92% khung hình camera thấy (computeSynapseVisibleFrustum(), chừa biên nhỏ tránh
+ * mesh rìa bị bloom/khung hình cắt). cellSizeX/Y tính RIÊNG mỗi trục — khớp đúng hình chữ nhật
+ * màn hình thật (dọc/ngang/vuông), không còn ép về 1 span vuông như bản trước.
  */
-function buildSynapseGridCells(neuronCount, screenScale) {
+function buildSynapseGridCells(neuronCount) {
     const { cols, rows } = computeSynapseGridDims(neuronCount);
-    const targetSpan = 380 * screenScale;
-    const cellSize = targetSpan / Math.max(cols - 1, rows - 1, 1);
+    const frustum = computeSynapseVisibleFrustum();
+    const fillRatio = 0.92;
+    const cellSizeX = (frustum.width * fillRatio) / Math.max(cols - 1, 1);
+    const cellSizeY = (frustum.height * fillRatio) / Math.max(rows - 1, 1);
 
     const cells = [];
     for (let r = 0; r < rows; r++) {
@@ -99,15 +133,16 @@ function buildSynapseGridCells(neuronCount, screenScale) {
     cells.sort((a, b) => a.ring - b.ring || a.row - b.row || a.col - b.col);
     const chosen = cells.slice(0, neuronCount);
 
-    const halfW = (cols - 1) * cellSize / 2, halfH = (rows - 1) * cellSize / 2;
-    chosen.forEach((cell) => { cell.position = new THREE.Vector3(cell.col * cellSize - halfW, halfH - cell.row * cellSize, 0); });
-    return { cells: chosen, cellSize };
+    const halfW = (cols - 1) * cellSizeX / 2, halfH = (rows - 1) * cellSizeY / 2;
+    chosen.forEach((cell) => { cell.position = new THREE.Vector3(cell.col * cellSizeX - halfW, halfH - cell.row * cellSizeY, 0); });
+    return { cells: chosen, cellSize: Math.min(cellSizeX, cellSizeY) };
 }
 
-// ĐỔI: graph theo LÂN CẬN Ô LƯỚI THẬT (4 hướng "tới": phải/xuống/chéo-xuống-phải/chéo-lên-phải —
-// mỗi cặp ô chỉ nối 1 CHIỀU CỐ ĐỊNH, dựng 1 LẦN lúc khởi tạo) thay hẳn graph 3-vỏ-cầu+lateral
-// ngẫu nhiên gốc. Vẫn random-skip ~35% để mật độ dây gần giống gốc (2-3 dây/nơ-ron trung bình),
-// không nối đặc kín lưới trông rối mắt.
+// SỬA (phản hồi Giang "không phát tín hiệu liên tục") — mọi nơ-ron còn ≥1 ứng viên hướng "tới"
+// (phải/xuống/chéo-xuống-phải/chéo-lên-phải) LUÔN được đảm bảo ÍT NHẤT 1 dây ra (ép chọn ngẫu
+// nhiên 1 trong số ứng viên), phần còn lại mới random 50% thêm — không còn nơ-ron "câm" (0 dây
+// ra) chỉ vì xui rủi random như bản trước. Chỉ nơ-ron ở góc/biên tận cùng (0 ứng viên) chấp nhận
+// không có dây ra — đúng bản chất đồ thị có hướng có điểm cuối.
 function buildSynapseGraph(cells) {
     const cellMap = new Map();
     cells.forEach((cell, idx) => cellMap.set(`${cell.col},${cell.row}`, idx));
@@ -115,25 +150,30 @@ function buildSynapseGraph(cells) {
     const edges = [];
     const inDegree = new Array(cells.length).fill(0);
     cells.forEach((cell, idx) => {
-        DIRS.forEach(([dc, dr]) => {
-            const target = cellMap.get(`${cell.col + dc},${cell.row + dr}`);
-            if (target !== undefined && Math.random() > 0.35) { edges.push({ from: idx, to: target }); inDegree[target]++; }
+        const candidates = DIRS
+            .map(([dc, dr]) => cellMap.get(`${cell.col + dc},${cell.row + dr}`))
+            .filter((t) => t !== undefined);
+        if (candidates.length === 0) return;
+
+        const guaranteed = candidates[Math.floor(Math.random() * candidates.length)];
+        edges.push({ from: idx, to: guaranteed }); inDegree[guaranteed]++;
+        candidates.forEach((target) => {
+            if (target !== guaranteed && Math.random() > 0.5) { edges.push({ from: idx, to: target }); inDegree[target]++; }
         });
     });
     return { edges, inDegree };
 }
 
 /**
- * Quy đổi kích thước CSS THẬT của màn hình ra 1 hệ số nhân dùng chung cho khoảng cách lưới +
- * mọi bán kính mesh (nucleus/soma/dendrite/axon/myelin/bouton, xem createAnatomicalNeuron()/
- * createPhysicalSynapticAxon()) — "tự thân các nhân, dây, sợi to nhỏ theo kích thước hiển thị
- * của visualizer screen" (yêu cầu Giang). Mốc 420 = chiều rộng CSS điện thoại phổ biến đã test
- * trong app; kẹp 0.55-1.8 tránh 2 cực đoan (màn siêu nhỏ co quá bé nhìn không rõ / màn rất to
- * phình quá khổ).
+ * Bán kính mesh (nucleus/soma/dendrite/axon/myelin/bouton/spark, xem createAnatomicalNeuron()/
+ * createPhysicalSynapticAxon()) tỉ lệ theo cellSize THẬT sau khi lưới đã lấp kín khung hình —
+ * "tự thân các nhân, dây, sợi to nhỏ theo kích thước hiển thị của visualizer screen" (yêu cầu
+ * Giang). Mốc 60 ~ cellSize mặc định ở neuronCount=32 trên khung hình cỡ điện thoại phổ biến (đã
+ * test). Kẹp biên tránh 2 cực đoan (ô rất nhỏ ở neuronCount=64 màn hẹp / ô rất to ở neuronCount=16
+ * màn rộng).
  */
-function computeConnectorScreenScale() {
-    const span = Math.min(window.innerWidth, window.innerHeight);
-    return Math.max(0.55, Math.min(1.8, span / 420));
+function computeConnectorMeshScale(cellSize) {
+    return Math.max(0.4, Math.min(2.2, cellSize / 60));
 }
 
 /**
@@ -142,7 +182,7 @@ function computeConnectorScreenScale() {
  * dendriteCount = đúng inDegree (không random 5-7 nữa); màu nhận từ getComputedColor() thay
  * hardcode; MỚI (16/09/2026) — tham số `scale` nhân đều mọi bán kính/chiều dài tuyệt đối (nucleus/
  * nucleolus/soma/glow/dendrite/spine) — "tự thân nhân/dây/sợi to nhỏ theo kích thước hiển thị",
- * xem computeConnectorScreenScale(). Không đổi TỈ LỆ giữa các phần (mọi noise/offset tương đối
+ * xem computeConnectorMeshScale(). Không đổi TỈ LỆ giữa các phần (mọi noise/offset tương đối
  * theo somaRadius vẫn nguyên công thức gốc, tự động ăn theo khi somaRadius scale).
  */
 function createAnatomicalNeuron(id, position, dendriteCount, fillColorHex, glowColorHex, glowTexture, scale) {
@@ -260,7 +300,7 @@ function createPhysicalSynapticAxon(fromNeuron, toNeuron, colorHex, scale) {
     const axonGroup = new THREE.Group();
 
     // MỚI (16/09/2026): tham số `scale` nhân đều mọi bán kính/offset tuyệt đối — cùng lý do/cơ
-    // chế với createAnatomicalNeuron(), xem computeConnectorScreenScale().
+    // chế với createAnatomicalNeuron(), xem computeConnectorMeshScale().
     const hillockMesh = new THREE.Mesh(
         new THREE.CylinderGeometry(0.5 * scale, 2.2 * scale, 3.0 * scale, 10),
         new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 0.6 })
@@ -335,24 +375,24 @@ function createPhysicalSynapticAxon(fromNeuron, toNeuron, colorHex, scale) {
 // SỬA (16/09/2026 — lưới phẳng thay 3 vỏ cầu): orchestrator vẫn "graph trước, hình học sau" như
 // bản trước, chỉ đổi NGUỒN vị trí (buildSynapseGridCells thay fibonacciSpherePoint) + graph theo
 // lân cận ô lưới (buildSynapseGraph(cells) thay theo shell) — createAnatomicalNeuron()/
-// createPhysicalSynapticAxon() GIỮ NGUYÊN mô hình hình học, chỉ nhận thêm `scale`.
+// createPhysicalSynapticAxon() GIỮ NGUYÊN mô hình hình học, chỉ nhận thêm `meshScale`.
 function buildSynapseNetwork(cfg, networkGroup, glowTexture) {
     const neuronCount = cfg.neuronCount;
-    const screenScale = computeConnectorScreenScale();
-    const { cells } = buildSynapseGridCells(neuronCount, screenScale);
+    const { cells, cellSize } = buildSynapseGridCells(neuronCount);
+    const meshScale = computeConnectorMeshScale(cellSize);
     const { edges, inDegree } = buildSynapseGraph(cells);
 
     const neurons = cells.map((cell, i) => {
         const color = getComputedColor(i, neuronCount, 128); // core/audio-analysis.js
         const neuron = createAnatomicalNeuron(
             i, cell.position, inDegree[i],
-            new THREE.Color(color.fill).getHex(), new THREE.Color(color.glow).getHex(), glowTexture, screenScale
+            new THREE.Color(color.fill).getHex(), new THREE.Color(color.glow).getHex(), glowTexture, meshScale
         );
         networkGroup.add(neuron.container);
         return neuron;
     });
 
-    const synapses = edges.map((edge) => createPhysicalSynapticAxon(neurons[edge.from], neurons[edge.to], neurons[edge.from].fillColorHex, screenScale));
+    const synapses = edges.map((edge) => createPhysicalSynapticAxon(neurons[edge.from], neurons[edge.to], neurons[edge.from].fillColorHex, meshScale));
     return { neurons, synapses };
 }
 
@@ -719,20 +759,31 @@ function updateConnectorVisibility() {
 
     if (style === 'synapse') {
         cnScene.fog = new THREE.FogExp2(0x010308, 0.0018);
-        cnCamera.fov = 50; cnCamera.far = 1200;
-        // ĐỔI (phản hồi Giang): zoom CỐ ĐỊNH, đủ xa để thấy trọn khối 3 vỏ cầu (bán kính ngoài
-        // ~242) — không autoRotate camera nữa, KHỐI tự xoay quanh chính nó (giống shape rubik),
-        // xem cnGroupSynapse.rotation trong _tickConnectorSynapse().
-        cnCamera.position.set(0, 90, 600);
+        // SỬA (phản hồi Giang 16/09/2026 — "bỏ camera xoay và zoom", "map 2D diện tích bằng màn
+        // hình"): fov/position.z PHẢI khớp NGUYÊN VĂN SYNAPSE_CAMERA_FOV_DEG/SYNAPSE_CAMERA_DISTANCE
+        // (đầu file, buildSynapseGridCells() dùng 2 hằng số này để trải lưới KÍN khung hình camera
+        // thấy) — lệch 1 trong 2 chỗ là lưới hết khớp khung hình thật. Bỏ lệch Y (90) trước đây —
+        // camera đứng THẲNG trục Z nhìn thẳng vào mặt lưới, không còn nghiêng. Khoá HẲN
+        // OrbitControls (rotate/zoom/pan) — không autoRotate, không cho người dùng xoay/zoom/kéo
+        // tay nữa; KHỐI cũng không tự xoay nữa (bỏ cnGroupSynapse.rotation trong _tickConnectorSynapse).
+        cnCamera.fov = SYNAPSE_CAMERA_FOV_DEG; cnCamera.far = 1200;
+        cnCamera.position.set(0, 0, SYNAPSE_CAMERA_DISTANCE);
         cnControls.target.set(0, 0, 0);
-        cnControls.minDistance = 600; cnControls.maxDistance = 600;
+        cnControls.minDistance = SYNAPSE_CAMERA_DISTANCE; cnControls.maxDistance = SYNAPSE_CAMERA_DISTANCE;
         cnControls.enableZoom = false;
+        cnControls.enableRotate = false;
+        cnControls.enablePan = false;
         cnControls.autoRotate = false;
     } else {
         cnScene.fog = new THREE.FogExp2(0x02040a, 0.005);
         cnCamera.fov = 45; cnCamera.far = 1000;
         cnControls.minDistance = 5; cnControls.maxDistance = 180;
         cnControls.enableZoom = true;
+        // ĐỔI (16/09/2026): cnControls DÙNG CHUNG 1 instance cho cả 2 style — synapse giờ khoá
+        // hẳn rotate/pan (trên), phải TRẢ LẠI true ở đây kẻo circuit thừa hưởng trạng thái khoá từ
+        // lần cuối ở synapse (bản gốc circuit vẫn cho kéo/xoay tay bình thường, chỉ không autoRotate).
+        cnControls.enableRotate = true;
+        cnControls.enablePan = true;
         cnControls.autoRotate = false; // bản gốc circuit không autoRotate — dùng GSAP cinematic riêng
     }
     cnCamera.updateProjectionMatrix();
