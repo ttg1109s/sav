@@ -335,8 +335,8 @@
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
     <script src="lang/patch/patch-common.js?v=20260911v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260911v2"></script>
-    <script src="lang/patch/patch-visualizer.js?v=20260905v2"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260915v4"></script>
+    <script src="lang/patch/patch-visualizer.js?v=20260916v1"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260916v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260816v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 2 drawer con Song/Photo & Album, xem plan-v12-multimedia-decisions.md). -->
@@ -489,9 +489,10 @@
          nạp TRƯỚC service/state/record/index.js (dòng registry() cần mọi package đã đăng ký). -->
     <script src="service/state/playlist.js?v=20260911v1"></script>
     <script src="service/state/player.js?v=20260725v1"></script>
-    <script src="service/state/visualizer-runtime.js?v=20260905v2"></script>
+    <script src="service/state/visualizer-runtime.js?v=20260916v1"></script>
     <script src="service/state/visualizer-scenes.js?v=20260725v1"></script>
     <script src="service/state/three-vortex.js?v=20260725v1"></script>
+    <script src="service/state/three-connector.js?v=20260916v1"></script>
     <script src="service/state/audio-engine.js?v=20260725v1"></script>
     <script src="service/state/subtitle.js?v=20260725v1"></script>
     <script src="service/state/shuffle-repeat.js?v=20260725v1"></script>
@@ -531,11 +532,11 @@
          restoreDefaultVizConfig/saveConfig/loadConfig) — KHÔNG còn giữ Z_INDEX/global
          error-handler (dời ở trên) hay CONST dùng chéo domain khác (nay sống trong đúng package
          service/state/*.js). PHẢI nạp SAU service/state.js (cần class AppConfig). -->
-    <script src="core/config.js?v=20260914v2"></script>
+    <script src="core/config.js?v=20260916v1"></script>
     <!-- core/custom-effect.js — Core thuần hệ Custom Effect (getEffectConfig/setCustomEffectField),
          NẠP NGAY SAU core/config.js (cần DEFAULT_CUSTOM_EFFECT/appConfigViz) — mọi hàm vẽ/scene-setup
          phía dưới đều cần file này. -->
-    <script src="core/custom-effect.js?v=20260905v2"></script>
+    <script src="core/custom-effect.js?v=20260916v1"></script>
     <!-- MỚI — Core thuần công cụ CHUNG "Element Style Editor" (setElementStyleField/
          buildElementStyleCssString/applyElementStyleToDom/loadGoogleFont), xem core/
          element-style-editor.js. CẦN service/state/element-style-editor.js đã nạp (dòng trên). -->
@@ -703,6 +704,7 @@
     <script src="core/listen-stats.js?v=20260625v10"></script>
     <script src="core/loading-shield-util.js?v=20260625v10"></script>
     <script src="core/webgl/three-vortex.js?v=20260719v1"></script>
+    <script src="core/webgl/three-connector.js?v=20260916v1"></script>
     <script src="core/visualizer-control-center.js?v=20260806v1"></script>
     <!-- Core thuần: phân loại toạ độ chạm cho hệ thống cử chỉ (event/workflow/visualizer-gesture.js). -->
     <script src="core/visualizer-gesture.js?v=20260811v4"></script>
@@ -854,7 +856,7 @@
          ứng #btn-cycle-mode, volume, EQ preset). PHẢI nạp sau core/dom-refs.js, core/config.js,
          core/custom-effect.js, core/webgl/three-vortex.js, core/canvas-scene-setup.js,
          core/color-utils.js — đều đã nạp ở khu CORE. -->
-    <script src="core/visualizer/visualizer-display.js?v=20260905v2"></script>
+    <script src="core/visualizer/visualizer-display.js?v=20260916v1"></script>
     <!-- Tự động đổi hiệu ứng Visualizer theo thời gian (ver 10, ĐỔI vị trí ver 11: trước đây nạp
          ngay sau player-controls.js ở khu CORE — giờ PHẢI nạp SAU visualizer-display.js vì file
          đó định nghĩa updateTypeUI/saveConfig mà auto-switch-visual.js cần, xem comment đầu file
@@ -901,6 +903,9 @@
     <script src="core/visualizer/groups/lighting/common.js?v=20260905v1"></script>
     <script src="core/visualizer/groups/lighting/thunder.js?v=20260905v1"></script>
     <script src="core/visualizer/groups/lighting/fireworks.js?v=20260905v1"></script>
+    <script src="core/visualizer/groups/connector/common.js?v=20260916v1"></script>
+    <script src="core/visualizer/groups/connector/synapse.js?v=20260916v1"></script>
+    <script src="core/visualizer/groups/connector/circuit.js?v=20260916v1"></script>
     <!-- draw-visualizer.js GIẢI THỂ HOÀN TOÀN (0 byte, 20/07/2026, plan-space-galaxy.md Phần A) —
          vai trò dispatch dời hết sang event/workflow/visualizer-render.js (script ngay dưới, NẠP
          SAU CÙNG trong khu VISUALIZERS vì tham chiếu tới mọi hàm draw*/type*/webgl* ở trên). Tag
@@ -910,7 +915,7 @@
          mode 'raf'). Khởi động thật từ core/audio-engine.js::setupAudioContext() gọi
          workflowVisualizerRender.start() lúc phát bài đầu tiên. Đặt ở đây (không phải /event/ phía
          dưới) vì thuộc nhóm "vòng lặp render 60fps tự taskManager", không qua eventBus/Router. -->
-    <script src="event/workflow/visualizer-render.js?v=20260905v2"></script>
+    <script src="event/workflow/visualizer-render.js?v=20260916v1"></script>
 
 
     <!-- Kiến trúc /event/ — nạp CUỐI CÙNG, sau toàn bộ js/* (router/workflow chỉ gọi lại hàm core
@@ -1195,7 +1200,7 @@
          effect ĐÃ DỜI sang cụm "customEffect" (Custom Effect Drawer, xem file ngay dưới) — router
          visualizerDisplay dispatch case cyclePress/cycle.click sang workflowCustomEffect, nên
          event/workflow/custom-effect.js PHẢI nạp TRƯỚC event/router/visualizer-display.js. -->
-    <script src="event/workflow/custom-effect.js?v=20260905v2"></script>
+    <script src="event/workflow/custom-effect.js?v=20260916v1"></script>
     <!-- MỚI — Workflow công cụ CHUNG "Element Style Editor" (API duy nhất: open(targetEl), CHƯA
          có nơi nào gọi thật, xem docstring đầu file). CẦN core/generic-drawer.js, event/workflow/
          generic-drawer-helpers.js, core/element-style-editor.js, components/
