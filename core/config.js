@@ -105,6 +105,16 @@
                 barsRingCount: 40, barsPerRing: 24, barsTwistFactor: 2.4,
                 waveRotationBase: 0.01, waveRotationEnergyMult: 0.05, waveScaleBase: 0.8, waveScaleEnergyMult: 0.4,
             },
+            connector: {
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
+                connectorStyle: 'synapse',
+                glowEnabled: true, glowIntensity: 100,
+                connectorAvgDegree: 3,
+                neuronCount: 30, fireThreshold: 0.55, springStiffness: 0.18,
+                synapseSpeedBase: 85, synapseSpeedEnergyMult: 60,
+                nodeCount: 55, signalsPerBeat: 2, maxConcurrentSignals: 60, trailLength: 20,
+                circuitSpeedBase: 80, circuitSpeedEnergyMult: 60,
+            },
         };
 
 

@@ -35,7 +35,10 @@ const CUSTOM_EFFECT_MAX_TEXTS = 10;
 // Journey) đã BỎ HẲN — engine core/webgl/three-space.js, core/visualizer/groups/space/,
 // service/state/three-space.js đã xoá; mọi entry "space" trong các bảng dưới đây trong file này
 // cũng đã bỏ theo (14 field riêng của space trong CUSTOM_EFFECT_FIELDS).
-const CUSTOM_EFFECT_NO_BLUR = ['vortex', 'rain', 'shape'];
+// 'connector' glow là sprite Three.js riêng (glowEnabled/glowIntensity, CUSTOM_EFFECT_FIELDS bên
+// dưới), không phải shadowBlur canvas 2D — không dùng khối blur chung nên cũng nằm trong danh
+// sách này (getConnectorGlowMult() là hàm đọc RIÊNG, xem cuối file).
+const CUSTOM_EFFECT_NO_BLUR = ['vortex', 'rain', 'shape', 'connector'];
 
 /** Style con của effect (nếu có) — field trong customEffect[group] + danh sách option. TRƯỚC ĐÂY
  * dùng để dựng dropdown ĐẦU TIÊN trong Custom Effect Drawer — dropdown đó ĐÃ BỎ (xem docstring đầu
@@ -48,6 +51,7 @@ const CUSTOM_EFFECT_STYLE = {
     vortex: { field: 'vortexStyle', options: ['rings', 'bars', 'wave'] },
     lighting: { field: 'lightingStyle', options: ['thunder', 'fireworks'] },
     shape: { field: 'shapeStyle', options: ['rubik'] },
+    connector: { field: 'connectorStyle', options: ['synapse', 'circuit'] },
 };
 
 /** Tiêu đề card "Music Transition" (components/custom-effect-drawer.js::_renderCeMusicSection())
@@ -72,6 +76,7 @@ const CUSTOM_EFFECT_STYLE_LABEL_KEYS = {
     vortex: { rings: 'visualizerSettingsDrawer.vortexStyle.rings', bars: 'visualizerSettingsDrawer.vortexStyle.bars', wave: 'visualizerSettingsDrawer.vortexStyle.wave' },
     lighting: { thunder: 'visualizerSettingsDrawer.lightingStyle.thunder', fireworks: 'visualizerSettingsDrawer.lightingStyle.fireworks' },
     shape: { rubik: 'visualizerSettingsDrawer.shapeStyle.rubik' },
+    connector: { synapse: 'visualizerSettingsDrawer.connectorStyle.synapse', circuit: 'visualizerSettingsDrawer.connectorStyle.circuit' },
 };
 
 /** Field riêng của TỪNG effect, hiện SAU khối chung (style/color/blur) trong Drawer — dựng UI
@@ -152,6 +157,22 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'sectionWindowBeats', labelKey: 'customEffectDrawer.field.musicSectionWindowBeats', type: 'slider', min: 6, max: 32, step: 1, showIf: (cfg) => cfg.lightingStyle === 'fireworks', group: 'music' },
         { id: 'fluxThreshold', labelKey: 'customEffectDrawer.field.musicFluxThreshold', type: 'sliderFloat', min: 0.1, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.lightingStyle === 'fireworks', group: 'music' },
     ],
+    connector: [
+        { id: 'glowEnabled', labelKey: 'customEffectDrawer.field.connectorGlowEnabled', type: 'toggle' },
+        { id: 'glowIntensity', labelKey: 'customEffectDrawer.field.connectorGlowIntensity', type: 'slider', min: 0, max: 100, step: 5 },
+        { id: 'connectorAvgDegree', labelKey: 'customEffectDrawer.field.connectorAvgDegree', type: 'slider', min: 2, max: 6, step: 1, refresh: 'initThreeJSConnector' },
+        { id: 'neuronCount', labelKey: 'customEffectDrawer.field.neuronCount', type: 'slider', min: 12, max: 48, step: 3, showIf: (cfg) => cfg.connectorStyle === 'synapse', refresh: 'initThreeJSConnector' },
+        { id: 'fireThreshold', labelKey: 'customEffectDrawer.field.fireThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
+        { id: 'springStiffness', labelKey: 'customEffectDrawer.field.springStiffness', type: 'sliderFloat', min: 0.05, max: 0.4, step: 0.01, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
+        { id: 'synapseSpeedBase', labelKey: 'customEffectDrawer.field.synapseSpeedBase', type: 'slider', min: 20, max: 200, step: 5, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
+        { id: 'synapseSpeedEnergyMult', labelKey: 'customEffectDrawer.field.synapseSpeedEnergyMult', type: 'slider', min: 0, max: 150, step: 5, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
+        { id: 'nodeCount', labelKey: 'customEffectDrawer.field.nodeCount', type: 'slider', min: 20, max: 80, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit', refresh: 'initThreeJSConnector' },
+        { id: 'signalsPerBeat', labelKey: 'customEffectDrawer.field.signalsPerBeat', type: 'slider', min: 1, max: 6, step: 1, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
+        { id: 'maxConcurrentSignals', labelKey: 'customEffectDrawer.field.maxConcurrentSignals', type: 'slider', min: 20, max: 90, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
+        { id: 'trailLength', labelKey: 'customEffectDrawer.field.trailLength', type: 'slider', min: 5, max: 60, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
+        { id: 'circuitSpeedBase', labelKey: 'customEffectDrawer.field.circuitSpeedBase', type: 'slider', min: 20, max: 200, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
+        { id: 'circuitSpeedEnergyMult', labelKey: 'customEffectDrawer.field.circuitSpeedEnergyMult', type: 'slider', min: 0, max: 150, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
+    ],
 };
 /** Config đầy đủ (default merge field thiếu) của 1 effect theo type. */
 function getEffectConfig(type) {
@@ -180,4 +201,11 @@ function setCustomEffectField(type, field, value) {
 function getEffectBlurMult(type) {
     const ec = getEffectConfig(type);
     return ec.blurEnabled ? ec.blurIntensity / 100 : 0;
+}
+
+/** Glow sprite Three.js của connector — cơ chế khác hẳn shadowBlur canvas 2D nên đọc field riêng
+ * (glowEnabled/glowIntensity), không dùng chung getEffectBlurMult(). */
+function getConnectorGlowMult() {
+    const ec = getEffectConfig('connector');
+    return ec.glowEnabled ? ec.glowIntensity / 100 : 0;
 }
