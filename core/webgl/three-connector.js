@@ -262,11 +262,17 @@ function createAnatomicalNeuron(id, position, dendriteCount, fillColorHex, glowC
     }
     neuronGroup.add(dendriteGroup);
 
+    // MỚI (yêu cầu Giang 17/09/2026 — 2 việc):
+    // 1) `dendriteMat` trả ra ngoài — applyNeuronExcitement() (synapse.js) cần đồng bộ màu SỐNG
+    //    mỗi frame cho dendrite, trước đây bake 1 lần rồi bỏ luôn tham chiếu.
+    // 2) `incomingSynapses` — danh sách CHIỀU NGƯỢC (ai có dây TỚI nơ-ron này), để
+    //    stepNeuronSpring() (synapse.js) kéo nhẹ 2 chiều giữa nơ-ron liền kề, không chỉ 1 chiều
+    //    theo `connectedSynapses` (dây RA) như trước.
     return {
         id, position, restPosition, velocity: new THREE.Vector3(0, 0, 0),
-        container: neuronGroup, somaMesh, nucleusMesh, glowSprite, scale,
+        container: neuronGroup, somaMesh, nucleusMesh, glowSprite, dendriteMat, scale,
         dendriteEndpoints, dendriteTipCursor: 0, fillColorHex, glowColorHex,
-        energy: 0.0, connectedSynapses: [], prevBinEnergy: 0, lastFiredFrame: -9999,
+        energy: 0.0, connectedSynapses: [], incomingSynapses: [], prevBinEnergy: 0, lastFiredFrame: -9999,
     };
 }
 
@@ -367,8 +373,18 @@ function createPhysicalSynapticAxon(fromNeuron, toNeuron, colorHex, scale) {
 
     fromNeuron.container.add(axonGroup); // ĐỔI: con của neuron NGUỒN, không phải networkGroup — nảy cùng lúc lò xo nảy
 
-    const synapseObject = { fromNeuron, toNeuron, axonCurve, totalDistance, nodesOfRanvier: nodesOfRanvierGaps, groupMesh: axonGroup, originOffset: origin };
+    // MỚI (yêu cầu Giang 17/09/2026 — đổi màu phải render lại từ đầu): giữ riêng tham chiếu
+    // hillock/core/myelin/bouton — applyNeuronExcitement() (synapse.js) đồng bộ màu SỐNG mỗi frame
+    // qua các tham chiếu này thay vì chỉ bake 1 lần ở trên rồi bỏ quên.
+    const synapseObject = {
+        fromNeuron, toNeuron, axonCurve, totalDistance, nodesOfRanvier: nodesOfRanvierGaps,
+        groupMesh: axonGroup, originOffset: origin,
+        hillockMesh, axonCoreMesh, myelinMat, boutonMesh,
+    };
     fromNeuron.connectedSynapses.push(synapseObject);
+    // MỚI (yêu cầu Giang — đàn hồi "cơ học", dây tách khỏi nơ-ron lân cận): đăng ký thêm CHIỀU
+    // NGƯỢC ở toNeuron — xem giải thích đầy đủ ở stepNeuronSpring() (synapse.js).
+    toNeuron.incomingSynapses.push(synapseObject);
     return synapseObject;
 }
 
@@ -482,7 +498,10 @@ function createChipMesh(colorHex) {
     const pLight = new THREE.PointLight(colorHex, 1.2, 20);
     group.add(pLight);
 
-    return { group, bodyMesh, pins };
+    // MỚI (yêu cầu Giang 17/09/2026 — đổi màu phải render lại từ đầu): trả thêm pinMat/pLight —
+    // applyChipLiveColor() (core/visualizer/groups/connector/circuit.js) cần đồng bộ màu SỐNG mỗi
+    // frame, trước đây bake 1 lần ở đây rồi bỏ luôn tham chiếu.
+    return { group, bodyMesh, pins, pinMat, pLight };
 }
 
 // Chọn chân TRỐNG hướng gần nhất về phía node kia (không có graph cố định để khớp — tín hiệu
@@ -514,11 +533,11 @@ function buildCircuitNodes(cfg, nodeGroup) {
 
         const color = getComputedColor(i, cfg.nodeCount, 128); // core/audio-analysis.js
         const colorHex = new THREE.Color(color.fill).getHex();
-        const { group, bodyMesh, pins } = createChipMesh(colorHex);
+        const { group, bodyMesh, pins, pinMat, pLight } = createChipMesh(colorHex);
         group.position.set(gx, gy, gz);
         nodeGroup.add(group);
 
-        chips.push({ id: `NODE_${i}`, pos: new THREE.Vector3(gx, gy, gz), group, bodyMesh, pins, color: colorHex });
+        chips.push({ id: `NODE_${i}`, pos: new THREE.Vector3(gx, gy, gz), group, bodyMesh, pins, pinMat, pLight, color: colorHex });
     }
     return chips;
 }
