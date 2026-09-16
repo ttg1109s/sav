@@ -236,7 +236,7 @@
                 document.getElementById('webgl-canvas').classList.add('opacity-0');
             }
 
-            if(appState.get('analyser')) { appState.get('analyser').fftSize = needsHighResFft(cfg.type) ? APP_CONFIG.fftSizeHighRes : APP_CONFIG.fftSizeStandard; allocateBuffers(); } // core/visualizer/helpers/fft-resolution.js
+            if(appState.get('analyser')) { appState.get('analyser').fftSize = needsHighResFft(cfg.type) ? APP_CONFIG.fftSizeHighRes : APP_CONFIG.fftSizeStandard; allocateBuffers(); } // service/state/visualizer-runtime.js
         }
 
         // (Phần B, Galaxy — updateSpaceStyleUI() ĐÃ BỎ 21/07/2026, cùng panel tinh chỉnh reroll/jump)
