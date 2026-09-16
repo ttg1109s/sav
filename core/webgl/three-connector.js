@@ -209,13 +209,23 @@ function createPhysicalSynapticAxon(fromNeuron, toNeuron, colorHex) {
     axonGroup.add(hillockMesh);
 
     const curvePoints = [startPos.clone().add(axonDir.clone().multiplyScalar(3.5))];
+    // SỬA (phản hồi Giang — line thẳng đơ): bản trước chỉ 1 cung sin phẳng, biên độ quá nhỏ so
+    // khoảng cách 3 vỏ cầu mới (nhìn xa lại càng phẳng). Đổi sang uốn 3D thật — 2 trục vuông góc
+    // độc lập (perp1/perp2) + 2 tần số sin lệch pha mỗi nhánh (wiggle1/wiggle2) -> đường ngoằn
+    // ngoèo tự nhiên, biên độ ~18-36% chiều dài (đủ thấy rõ ở khoảng cách camera zoom-out cố
+    // định). envelope vẫn về 0 ở 2 đầu — không gãy khúc chỗ nối vào neuron.
+    const perp1 = new THREE.Vector3(-axonDir.y, axonDir.x, axonDir.z || 0.001).normalize();
+    const perp2 = new THREE.Vector3().crossVectors(axonDir, perp1).normalize();
+    const bendAmount = totalDistance * (0.18 + Math.random() * 0.18);
+    const phase = Math.random() * Math.PI * 2;
     const segments = 6;
-    const bendAmount = totalDistance * (0.08 + Math.random() * 0.08); // ĐỔI: tỉ lệ theo chiều dài, không còn hằng số tuyệt đối
     for (let i = 1; i < segments; i++) {
         const frac = i / segments;
         const midPoint = startPos.clone().lerp(targetPos, frac);
-        const perp = new THREE.Vector3(-axonDir.y, axonDir.x, axonDir.z).normalize();
-        const bend = perp.multiplyScalar(Math.sin(frac * Math.PI) * bendAmount);
+        const envelope = Math.sin(frac * Math.PI);
+        const wiggle1 = Math.sin(frac * Math.PI * 2 + phase) * bendAmount;
+        const wiggle2 = Math.cos(frac * Math.PI * 3 + phase * 1.3) * bendAmount * 0.6;
+        const bend = perp1.clone().multiplyScalar(envelope * wiggle1).add(perp2.clone().multiplyScalar(envelope * wiggle2));
         curvePoints.push(midPoint.add(bend));
     }
     curvePoints.push(targetPos.clone());
@@ -562,12 +572,17 @@ function initThreeJSConnector() {
     cnControls.zoomSpeed = 1.0;
     cnControls.autoRotate = true;
 
-    const ambientLight = new THREE.AmbientLight(0x0c2040, 2.5);
+    // SỬA (phản hồi Giang — màu setting không hiện ra): keyLight/fillLight màu bão hoà mạnh (cyan/
+    // tím) của gốc PHẢN XẠ đè lên MeshStandardMaterial bất kể color/emissive đặt gì — 2 màu đó
+    // vốn được chọn khớp riêng palette cứng hồng-lam-tím-ngọc của bản gốc, giờ vật liệu đổi màu
+    // động theo hệ màu core thì đèn màu cố định luôn lấn át. Trung tính hoá về trắng, GIỮ NGUYÊN
+    // vị trí/cường độ (rig ánh sáng không đổi, chỉ đổi màu đèn).
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.4);
     cnScene.add(ambientLight);
-    const keyLight = new THREE.DirectionalLight(0x00d2ff, 2.5);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 2.0);
     keyLight.position.set(100, 120, 80);
     cnScene.add(keyLight);
-    const fillLight = new THREE.DirectionalLight(0x9000ff, 2.0);
+    const fillLight = new THREE.DirectionalLight(0xffffff, 1.2);
     fillLight.position.set(-100, -80, -60);
     cnScene.add(fillLight);
     const centralLight = new THREE.PointLight(0x00f3ff, 2.0, 100);
