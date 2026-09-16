@@ -392,7 +392,12 @@ const workflowVisualizerRender = {
         const speed = computeConnectorSpeed(cfg.synapseSpeedBase, cfg.synapseSpeedEnergyMult, smoothedEnergy); // core/webgl
         const stiffness = computeConnectorSpeed(cfg.springStiffnessBase, cfg.springStiffnessEnergyMult, smoothedEnergy); // core/webgl
         const damping = Math.min(0.95, computeConnectorSpeed(cfg.dampingBase, cfg.dampingEnergyMult, smoothedEnergy)); // core/webgl
-        appState.get('cnControls').autoRotateSpeed = computeConnectorSpeed(cfg.rotateSpeedBase, cfg.rotateSpeedEnergyMult, smoothedEnergy); // core/webgl
+        // ĐỔI (phản hồi Giang): KHỐI tự xoay quanh chính nó (giống rubik, rubikRotX/rubikRotY 2
+        // trục) thay vì camera orbit quanh khối (autoRotate cũ) — camera giờ đứng yên, zoom cố định.
+        const rotateSpeed = computeConnectorSpeed(cfg.rotateSpeedBase, cfg.rotateSpeedEnergyMult, smoothedEnergy); // core/webgl
+        const cnGroupSynapse = appState.get('cnGroupSynapse');
+        cnGroupSynapse.rotation.y += rotateSpeed * deltaTime;
+        cnGroupSynapse.rotation.x += rotateSpeed * 0.6 * deltaTime;
 
         neurons.forEach((neuron, i) => {
             const energyByte = computeNeuronBinEnergy(vizDataArray, bufferLength, i, neurons.length); // core/visualizer/groups/connector/synapse.js
@@ -418,7 +423,7 @@ const workflowVisualizerRender = {
             const signal = activeSignals[i];
             const arrived = stepActionPotential(signal, signal.synapse, speed, deltaTime); // core/visualizer/groups/connector/synapse.js
             if (!arrived) continue;
-            appState.get('cnGroupSynapse').remove(signal.mesh);
+            signal.synapse.fromNeuron.container.remove(signal.mesh); // ĐỔI: spark là con của neuron nguồn (three-connector.js::fireNeuronActionPotential), không phải cnGroupSynapse
             signal.mesh.geometry.dispose(); signal.mesh.material.dispose();
             activeSignals.splice(i, 1);
             const toNeuron = signal.synapse.toNeuron, fromNeuron = signal.synapse.fromNeuron;
