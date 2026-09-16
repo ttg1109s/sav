@@ -47,8 +47,17 @@
             if (ec.mode === 'dynamic') return { fill: interpolateColor(ec.dynA, ec.dynB, i / totalLength), glow: interpolateColor(ec.dynA, ec.dynB, i / totalLength) };
             else if (ec.mode === 'gradient') {
                 let baseHue = (appState.get('globalHueOffset') + (i / totalLength) * 240) % 360;
-                let finalHue = (baseHue + (dataValue / 255) * 80) % 360; let lightness = 40 + (dataValue / 255) * 30;
-                return { fill: `hsla(${finalHue}, ${70 + (dataValue/255)*30}%, ${lightness}%, 0.9)`, glow: `hsl(${finalHue}, 100%, ${lightness+15}%)` };
+                let finalHue = (baseHue + (dataValue / 255) * 80) % 360;
+                // FIX (16/09/2026, Giang báo "THREE.Color: Unknown color hsla(...)"): saturation/
+                // lightness PHẢI là số nguyên — parser hsl()/hsla() của THREE.Color (r128) chỉ nhận
+                // %-value dạng \d+ (không hỗ trợ thập phân), trong khi hue thì hỗ trợ thập phân bình
+                // thường. Trước đây 2 giá trị này là số thập phân (vd "83.764...%") -> khớp regex
+                // thất bại toàn bộ -> "Unknown color" (không chỉ dừng ở mức cảnh báo "alpha ignored"
+                // như khi chúng tình cờ là số nguyên). Math.round() ở đây không ảnh hưởng canvas 2D
+                // (fillStyle vẫn nhận hsla() bình thường, sai khác <1% không nhận ra được bằng mắt).
+                let lightness = Math.round(40 + (dataValue / 255) * 30);
+                let saturation = Math.round(70 + (dataValue / 255) * 30);
+                return { fill: `hsla(${finalHue}, ${saturation}%, ${lightness}%, 0.9)`, glow: `hsl(${finalHue}, 100%, ${lightness + 15}%)` };
             } else return { fill: ec.solidColor, glow: ec.solidColor };
         }
 
