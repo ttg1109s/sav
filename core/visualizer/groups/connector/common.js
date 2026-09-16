@@ -1,26 +1,14 @@
 /**
- * core/visualizer/groups/connector/common.js — helper vẽ dùng chung synapse/circuit. THUẦN
- * (không appState.get) — Workflow tự gom rồi truyền vào.
+ * core/visualizer/groups/connector/common.js — helper dùng chung synapse/circuit, THUẦN. Riêng
+ * biệt với applyNeuronExcitement() (synapse.js) — glowIntensity là sở thích chung người dùng,
+ * excite là trạng thái bắn tức thời, không trộn 2 khái niệm.
  */
 
-function applyConnectorGlow(sprite, material, glowEnabled, glowIntensity, baseOpacity, baseScale) {
+function applyConnectorGlowSettings(sprite, glowEnabled, glowIntensity) {
     sprite.visible = glowEnabled;
-    if (!glowEnabled) { material.emissiveIntensity = 0.5; return; }
-    const mult = glowIntensity / 100;
-    sprite.material.opacity = baseOpacity * mult;
-    sprite.scale.setScalar(baseScale * (0.6 + mult));
-    material.emissiveIntensity = 0.5 + mult * 2.5;
+    if (glowEnabled) sprite.material.opacity = 0.85 * (glowIntensity / 100);
 }
 
-function applyConnectorNeuronColor(neuron, fill, glow) {
-    neuron.somaMesh.material.color.set(fill);
-    neuron.somaMesh.material.emissive.set(fill);
-    neuron.nucleusMesh.material.color.set(fill);
-    neuron.nucleusMesh.material.emissive.set(fill);
-    neuron.glowSprite.material.color.set(glow);
-}
-
-function applyConnectorChipColor(chip, fill) {
-    chip.bodyMesh.material.color.set(fill);
-    chip.bodyMesh.material.emissive.set(fill);
+function applyChipGlowSettings(bodyMesh, glowEnabled, glowIntensity) {
+    bodyMesh.material.emissiveIntensity = glowEnabled ? 0.8 * (glowIntensity / 100) : 0.15;
 }

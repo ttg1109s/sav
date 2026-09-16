@@ -17,35 +17,59 @@ function buildBitPattern(onBitCount) {
     return [0, 1, 2, 3, 4, 5, 6, 7].map((b) => on.has(b));
 }
 
-function stepCircuitSignal(signal, edge, speed, deltaTime, trailLength) {
-    const totalSteps = edge.points.length;
-    const avgStepDistance = edge.totalDistance / Math.max(1, totalSteps - 1);
-    const stepsPerSec = speed / Math.max(0.01, avgStepDistance);
-    signal.currentStep += stepsPerSec * deltaTime;
-    if (signal.currentStep >= totalSteps - 1) return true;
-    const drawCount = Math.min(Math.floor(signal.currentStep), trailLength);
-    const drawStart = Math.max(0, Math.floor(signal.currentStep) - trailLength);
-    edge.geometry.setDrawRange(drawStart, drawCount);
-    return false;
-}
+/**
+ * GIỮ NGUYÊN mechanic update() gốc (line grow-to-front theo progress, fade sau khi tới đích, bit
+ * pulse theo offsetIndex*bitSpacingSteps). ĐỔI: (1) speed nhận units/sec thật, quy đổi ra
+ * progress-fraction/sec THEO ĐÚNG chiều dài route này thay vì hằng số random 0.35-0.6 gốc;
+ * (2) thêm setDrawRange (đuôi wipe dần theo trailLength) — cộng thêm, không thay phần grow gốc.
+ * Trả về 'destroy' | 'arrive' | null.
+ */
+function updateCircuitSignal(signal, delta, speedUnitsPerSec, trailLength) {
+    if (signal.isFading) {
+        signal.fadeOpacity -= delta * 1.2;
+        if (signal.fadeOpacity <= 0) return 'destroy';
+        signal.lineMaterial.opacity = signal.fadeOpacity;
+        signal.bitMeshes.forEach((b) => { if (b.mesh.material) b.mesh.material.opacity = signal.fadeOpacity; });
+        return null;
+    }
 
-function stepCircuitBits(signal, edge, trailLength) {
-    if (!signal.bitMeshes) return;
-    const spacing = Math.max(1, Math.floor(trailLength / 8));
-    signal.bitMeshes.forEach((bm) => {
-        const stepIdx = Math.floor(signal.currentStep) - bm.slot * spacing;
-        if (stepIdx >= 0 && stepIdx < edge.points.length) {
-            bm.sprite.visible = true;
-            bm.sprite.position.copy(edge.points[stepIdx]);
+    const speedFraction = speedUnitsPerSec / Math.max(1, signal.totalDistance);
+    signal.progress += speedFraction * delta;
+    const currentStep = Math.min(signal.totalSteps - 1, Math.floor(signal.progress * (signal.totalSteps - 1)));
+
+    const posArr = signal.lineGeometry.attributes.position.array;
+    for (let i = 0; i <= currentStep; i++) {
+        const pt = signal.pathPoints[i];
+        posArr[i * 3] = pt.x; posArr[i * 3 + 1] = pt.y; posArr[i * 3 + 2] = pt.z;
+    }
+    const currentPos = signal.pathPoints[currentStep];
+    for (let i = currentStep + 1; i < signal.totalSteps; i++) {
+        posArr[i * 3] = currentPos.x; posArr[i * 3 + 1] = currentPos.y; posArr[i * 3 + 2] = currentPos.z;
+    }
+    signal.lineGeometry.attributes.position.needsUpdate = true;
+
+    const drawStart = Math.max(0, currentStep - trailLength);
+    signal.lineGeometry.setDrawRange(drawStart, currentStep - drawStart + 1);
+
+    signal.headSpark.position.copy(currentPos);
+
+    const bitSpacingSteps = Math.floor(signal.totalSteps / (signal.binaryPattern.length + 3));
+    signal.bitMeshes.forEach((item) => {
+        const stepIndex = currentStep - (item.offsetIndex * bitSpacingSteps);
+        if (stepIndex >= 0 && stepIndex < currentStep) {
+            item.mesh.visible = true;
+            item.mesh.position.copy(signal.pathPoints[stepIndex]);
+            if (stepIndex < signal.totalSteps - 1) item.mesh.lookAt(signal.pathPoints[stepIndex + 1]);
         } else {
-            bm.sprite.visible = false;
+            item.mesh.visible = false;
         }
     });
+
+    return signal.progress >= 1.0 ? 'arrive' : null;
 }
 
-function decayChipPulse(chip, deltaTime) {
-    if (chip.bodyMesh.scale.x > 1) {
-        const next = Math.max(1, chip.bodyMesh.scale.x - deltaTime * 2);
-        chip.bodyMesh.scale.setScalar(next);
-    }
+// GIỮ NGUYÊN nhịp tự quay của gốc (trước là ring.rotation.z/mesh.rotation.y riêng — chip không
+// còn ring, dùng mesh.rotation.y của cả group).
+function decayChipSpin(chip, deltaTime) {
+    chip.group.rotation.y += deltaTime * 0.6;
 }
