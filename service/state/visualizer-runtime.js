@@ -74,3 +74,10 @@
             EFFECT_GROUPS[group].forEach((style) => { STYLE_TO_GROUP[style] = group; });
         });
         const MODES = Object.values(EFFECT_GROUPS).flat();
+
+        // group nào cần fftSizeHighRes (đọc bởi visualizer-display.js::updateTypeUI()) — đặt CẠNH
+        // EFFECT_GROUPS, không tách file riêng, để không phát sinh 1 bảng "biết về group" thứ 2.
+        const FFT_HIGH_RES_GROUPS = ['vortex', 'lighting', 'connector'];
+        function needsHighResFft(group) {
+            return FFT_HIGH_RES_GROUPS.includes(group);
+        }
