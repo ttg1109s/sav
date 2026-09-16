@@ -25,7 +25,8 @@ function stepNeuronSpring(neuron, stiffness, damping, deltaTime) {
 }
 
 // GIỮ NGUYÊN công thức "bioluminescent excitation" gốc — chỉ đổi base hue từ hardcode 0.52 sang
-// HSL của màu getComputedColor() đang active.
+// HSL của màu getComputedColor() đang active. MỚI (16/09/2026): glow pulse theo neuron.scale —
+// đồng bộ với nhân/dây đã scale theo màn hình (xem createAnatomicalNeuron(), core/webgl/three-connector.js).
 function applyNeuronExcitement(neuron, baseColorHex) {
     const excite = Math.min(1.0, neuron.energy);
     const hsl = {};
@@ -33,7 +34,7 @@ function applyNeuronExcitement(neuron, baseColorHex) {
     neuron.nucleusMesh.material.emissiveIntensity = 0.95 + excite * 3.5;
     neuron.somaMesh.material.emissiveIntensity = 0.65 + excite * 2.8;
     neuron.somaMesh.material.color.setHSL((hsl.h + excite * 0.08) % 1, 1.0, Math.min(0.9, hsl.l + excite * 0.4));
-    neuron.glowSprite.scale.setScalar(25 + excite * 20);
+    neuron.glowSprite.scale.setScalar((25 + excite * 20) * neuron.scale);
 }
 
 // GIỮ NGUYÊN mechanic lan truyền + saltatory pulse gần Node of Ranvier của gốc.
