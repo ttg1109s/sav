@@ -714,7 +714,7 @@
     <script src="core/listen-stats.js?v=20260625v10"></script>
     <script src="core/loading-shield-util.js?v=20260625v10"></script>
     <script src="core/webgl/three-vortex.js?v=20260719v1"></script>
-    <script src="core/webgl/three-connector.js?v=20260916v5"></script>
+    <script src="core/webgl/three-connector.js?v=20260917v1"></script>
     <script src="core/visualizer-control-center.js?v=20260806v1"></script>
     <!-- Core thuần: phân loại toạ độ chạm cho hệ thống cử chỉ (event/workflow/visualizer-gesture.js). -->
     <script src="core/visualizer-gesture.js?v=20260811v4"></script>
@@ -913,8 +913,8 @@
     <script src="core/visualizer/groups/lighting/thunder.js?v=20260905v1"></script>
     <script src="core/visualizer/groups/lighting/fireworks.js?v=20260905v1"></script>
     <script src="core/visualizer/groups/connector/common.js?v=20260916v2"></script>
-    <script src="core/visualizer/groups/connector/synapse.js?v=20260916v3"></script>
-    <script src="core/visualizer/groups/connector/circuit.js?v=20260916v2"></script>
+    <script src="core/visualizer/groups/connector/synapse.js?v=20260917v1"></script>
+    <script src="core/visualizer/groups/connector/circuit.js?v=20260917v1"></script>
     <!-- draw-visualizer.js GIẢI THỂ HOÀN TOÀN (0 byte, 20/07/2026, plan-space-galaxy.md Phần A) —
          vai trò dispatch dời hết sang event/workflow/visualizer-render.js (script ngay dưới, NẠP
          SAU CÙNG trong khu VISUALIZERS vì tham chiếu tới mọi hàm draw*/type*/webgl* ở trên). Tag
@@ -924,7 +924,7 @@
          mode 'raf'). Khởi động thật từ core/audio-engine.js::setupAudioContext() gọi
          workflowVisualizerRender.start() lúc phát bài đầu tiên. Đặt ở đây (không phải /event/ phía
          dưới) vì thuộc nhóm "vòng lặp render 60fps tự taskManager", không qua eventBus/Router. -->
-    <script src="event/workflow/visualizer-render.js?v=20260916v3"></script>
+    <script src="event/workflow/visualizer-render.js?v=20260917v1"></script>
 
 
     <!-- Kiến trúc /event/ — nạp CUỐI CÙNG, sau toàn bộ js/* (router/workflow chỉ gọi lại hàm core
