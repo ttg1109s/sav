@@ -109,7 +109,7 @@
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
                 connectorStyle: 'synapse',
                 glowEnabled: true, glowIntensity: 100,
-                neuronCount: 30, fireThreshold: 0.55,
+                neuronCount: 32, fireThreshold: 0.55, // SỬA 16/09/2026: mặc định 30->32, xem custom-effect.js (slider max 48->64)
                 springStiffnessBase: 0.22, springStiffnessEnergyMult: 0.1,
                 dampingBase: 0.80, dampingEnergyMult: 0.05,
                 rotateSpeedBase: 0.3, rotateSpeedEnergyMult: 0.4,

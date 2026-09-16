@@ -160,7 +160,9 @@ const CUSTOM_EFFECT_FIELDS = {
     connector: [
         { id: 'glowEnabled', labelKey: 'customEffectDrawer.field.connectorGlowEnabled', type: 'toggle' },
         { id: 'glowIntensity', labelKey: 'customEffectDrawer.field.connectorGlowIntensity', type: 'slider', min: 0, max: 100, step: 5 },
-        { id: 'neuronCount', labelKey: 'customEffectDrawer.field.neuronCount', type: 'slider', min: 12, max: 48, step: 3, showIf: (cfg) => cfg.connectorStyle === 'synapse', refresh: 'initThreeJSConnector' },
+        // SỬA (yêu cầu Giang 16/09/2026, layout lưới phẳng) — max 48->64, min/step đổi 12/3->16/4
+        // để 32 (mặc định mới) và 64 (max mới) đều rơi đúng mốc slider.
+        { id: 'neuronCount', labelKey: 'customEffectDrawer.field.neuronCount', type: 'slider', min: 16, max: 64, step: 4, showIf: (cfg) => cfg.connectorStyle === 'synapse', refresh: 'initThreeJSConnector' },
         { id: 'fireThreshold', labelKey: 'customEffectDrawer.field.fireThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
         { id: 'springStiffnessBase', labelKey: 'customEffectDrawer.field.springStiffnessBase', type: 'sliderFloat', min: 0.05, max: 0.4, step: 0.01, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
         { id: 'springStiffnessEnergyMult', labelKey: 'customEffectDrawer.field.springStiffnessEnergyMult', type: 'sliderFloat', min: -0.3, max: 0.3, step: 0.01, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
