@@ -2,7 +2,7 @@
  * Khởi tạo AudioContext, chuỗi xử lý EQ (BiquadFilter nối tiếp), cầu nối Worker nhận diện cao độ YIN.
  * (Trích từ file gốc, dòng 973-1015 trong khối <script>)
  *
- * PITCH WORKER (v7): detectPitchYIN() đã dời sang core/pitch-worker.js, chạy trên thread riêng
+ * PITCH WORKER (v7): detectPitchYIN() đã dời sang core/workers/pitch-worker.js, chạy trên thread riêng
  * — xem audio-analysis.js để biết cách kết quả bất đồng bộ được tiêu thụ. Khu vực dưới đây chỉ còn
  * lại "cầu nối": khởi tạo 1 Worker duy nhất, gửi buffer (transfer, không copy) kèm reqId, và giữ
  * lại kết quả mới nhất hợp lệ cho audio-analysis.js đọc.
@@ -35,7 +35,7 @@
         function initPitchWorker() {
             if (appState.get('pitchWorker')) return;
             try {
-                appState.set('pitchWorker', new Worker('core/pitch-worker.js'));
+                appState.set('pitchWorker', new Worker('core/workers/pitch-worker.js'));
                 appState.get('pitchWorker').onmessage = function(e) {
                     const { frequency, reqId } = e.data;
                     // Chỉ nhận kết quả nếu nó MỚI HƠN reqId đã ghi nhận gần nhất — phòng trường hợp
