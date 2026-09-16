@@ -392,12 +392,13 @@ const workflowVisualizerRender = {
         const speed = computeConnectorSpeed(cfg.synapseSpeedBase, cfg.synapseSpeedEnergyMult, smoothedEnergy); // core/webgl
         const stiffness = computeConnectorSpeed(cfg.springStiffnessBase, cfg.springStiffnessEnergyMult, smoothedEnergy); // core/webgl
         const damping = Math.min(0.95, computeConnectorSpeed(cfg.dampingBase, cfg.dampingEnergyMult, smoothedEnergy)); // core/webgl
-        // ĐỔI (phản hồi Giang): KHỐI tự xoay quanh chính nó (giống rubik, rubikRotX/rubikRotY 2
-        // trục) thay vì camera orbit quanh khối (autoRotate cũ) — camera giờ đứng yên, zoom cố định.
-        const rotateSpeed = computeConnectorSpeed(cfg.rotateSpeedBase, cfg.rotateSpeedEnergyMult, smoothedEnergy); // core/webgl
-        const cnGroupSynapse = appState.get('cnGroupSynapse');
-        cnGroupSynapse.rotation.y += rotateSpeed * deltaTime;
-        cnGroupSynapse.rotation.x += rotateSpeed * 0.6 * deltaTime;
+        // BỎ (phản hồi Giang 16/09/2026 — "bỏ camera xoay và zoom", map phải trải đều đúng diện
+        // tích màn hình): trước đây KHỐI tự xoay quanh chính nó (rotation.x/y) để bù cho việc
+        // camera không autoRotate — giờ camera ĐỨNG YÊN HẲN (updateConnectorVisibility(), core/
+        // webgl/three-connector.js) và lưới cũng KHÔNG tự xoay nữa, đứng yên khớp đúng khung hình
+        // đã tính (buildSynapseGridCells()). cfg.rotateSpeedBase/EnergyMult (slider "Rotate
+        // speed") còn field/UI nhưng không còn tác dụng cho style synapse — nợ kỹ thuật đã biết,
+        // chưa gỡ field vì ngoài phạm vi yêu cầu lần này.
 
         neurons.forEach((neuron, i) => {
             const energyByte = computeNeuronBinEnergy(vizDataArray, bufferLength, i, neurons.length); // core/visualizer/groups/connector/synapse.js
@@ -407,7 +408,17 @@ const workflowVisualizerRender = {
                 if (diff > 0 && energyByte > cfg.fireThreshold * 255 && cooledDown) {
                     neuron.lastFiredFrame = frameCounter;
                     const magnitude = Math.min(20, 6 + diff / 8);
-                    const impulse = new THREE.Vector3((Math.random() - 0.5), (Math.random() - 0.5), (Math.random() - 0.5)).normalize().multiplyScalar(magnitude);
+                    // SỬA (16/09/2026, yêu cầu Giang — lưới phẳng, "đàn hồi = lún/phồng"): trước
+                    // bắn ngẫu nhiên 3 trục (khối "vo viên" tự do trong không gian) — giờ lưới
+                    // phẳng nằm mặt X-Y cục bộ, trục Z cục bộ MỚI LÀ trục đàn hồi (vuông góc mặt
+                    // lưới). Xung LUÔN +Z (khử cực, đúng sinh lý điện thế hoạt động — magnitude
+                    // vẫn theo `diff`, đúng thông số audio đã dùng từ trước) — lò xo Hooke's Law
+                    // GIỮ NGUYÊN bên dưới (stepNeuronSpring, dampingBase mặc định thiếu hãm tới
+                    // hạn) tự overshoot rồi undershoot ÂM trước khi ổn định — 1 xung dương duy
+                    // nhất tự sinh CẢ pha "phồng" lẫn pha "lún" đúng dạng sóng điện thế hoạt động
+                    // thật (depolarize -> hyperpolarization undershoot -> rest), không cần code
+                    // tay pha lún riêng.
+                    const impulse = new THREE.Vector3(0, 0, 1).multiplyScalar(magnitude);
                     fireNeuronActionPotential(i, impulse, Math.min(2.2, 1.2 + diff / 60)); // core/webgl/three-connector.js
                 }
             }
@@ -426,8 +437,11 @@ const workflowVisualizerRender = {
             signal.synapse.fromNeuron.container.remove(signal.mesh); // ĐỔI: spark là con của neuron nguồn (three-connector.js::fireNeuronActionPotential), không phải cnGroupSynapse
             signal.mesh.geometry.dispose(); signal.mesh.material.dispose();
             activeSignals.splice(i, 1);
-            const toNeuron = signal.synapse.toNeuron, fromNeuron = signal.synapse.fromNeuron;
-            const pushDir = toNeuron.position.clone().sub(fromNeuron.position).normalize().multiplyScalar(11.0); // GIỮ NGUYÊN gốc
+            const toNeuron = signal.synapse.toNeuron;
+            // SỬA (16/09/2026, cùng lý do ở trên): trước đẩy theo hướng 3D thật giữa 2 nơ-ron —
+            // lưới phẳng không còn ý nghĩa "hướng không gian" giữa nguồn/đích, đổi về cùng trục Z
+            // đàn hồi (magnitude 11.0 GIỮ NGUYÊN gốc).
+            const pushDir = new THREE.Vector3(0, 0, 1).multiplyScalar(11.0);
             fireNeuronActionPotential(toNeuron.id, pushDir); // core/webgl/three-connector.js — energyOverride mặc định 2.2 GIỮ NGUYÊN gốc
         }
     },
