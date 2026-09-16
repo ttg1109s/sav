@@ -63,10 +63,11 @@
             rain: ['glass', 'street'],
             vortex: ['rings', 'bars', 'wave'],
             shape: ['rubik'],
+            connector: ['synapse', 'circuit'],
         };
         const GROUP_STYLE_FIELD = {
             bar: 'barStyle', lighting: 'lightingStyle', rain: 'rainStyle',
-            vortex: 'vortexStyle', shape: 'shapeStyle',
+            vortex: 'vortexStyle', shape: 'shapeStyle', connector: 'connectorStyle',
         };
         const STYLE_TO_GROUP = {};
         Object.keys(EFFECT_GROUPS).forEach((group) => {
