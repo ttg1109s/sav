@@ -3,12 +3,15 @@
  * (_tickConnectorSynapse(), event/workflow/visualizer-render.js) tự gom appState rồi gọi.
  */
 
+// SỬA (phản hồi Giang — bắn quá thưa, không rõ theo nhạc): trung bình 34 bin/nơ-ron (1024 bin ÷
+// 30) làm loãng hẳn đỉnh phổ — 1 tần số nổi bật giữa nhiều bin yên tĩnh vẫn bị kéo tụt xuống dưới
+// ngưỡng. Đổi sang LẤY ĐỈNH (max) của dải — nhạy đúng với 1 nốt/nhạc cụ nổi lên trong dải đó.
 function computeNeuronBinEnergy(vizDataArray, bufferLength, neuronIndex, neuronCount) {
     const segment = Math.max(1, Math.floor(bufferLength / neuronCount));
     const start = neuronIndex * segment;
-    let sum = 0;
-    for (let i = 0; i < segment; i++) sum += vizDataArray[start + i] || 0;
-    return sum / segment;
+    let peak = 0;
+    for (let i = 0; i < segment; i++) peak = Math.max(peak, vizDataArray[start + i] || 0);
+    return peak;
 }
 
 // GIỮ NGUYÊN công thức Hooke's Law + decay energy (1.7/s) của updatePhysicsAndSignals() gốc.
