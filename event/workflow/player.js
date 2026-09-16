@@ -282,6 +282,7 @@ const workflowPlayer = {
             appState.set('latestPitchFrequency', -1); appState.set('lastValidNoteStr', null); appState.set('lastValidNoteTime', 0); appState.set('lastValidMidiNote', null);
             appState.set('rubikPitchHistory', []); appState.set('rubikPitchAvg', 0);
             appState.set('raindrops', []); appState.set('ripples', []); appState.set('glassStaticDrops', []); appState.set('glassStreaks', []); appState.set('activeLightnings', []); appState.set('starFlashes', []);
+            resetConnectorPerTrackState(); // core/webgl/three-connector.js — dọn tia/tín hiệu connector còn bay dở của bài cũ
             setupAudioContext(); updateTypeUI();
 
             appState.set('subtitles', record.subtitles ? record.subtitles.slice() : []);

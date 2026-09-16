@@ -449,6 +449,15 @@ const workflowVideoPlayer = {
                 // sau khi node chắc chắn đã tồn tại — luôn đúng bất kể lần đầu tạo node hay node đã có
                 // sẵn từ trước (Next/Prev/vào lại mode).
                 setVideoBgGain(1); // core/video-player.js
+                // SỬA (phản hồi Giang — "video mode phải chọn lại visualizer mới hiện, đổi video
+                // này sang video khác còn mất") — nhánh Song (event/workflow/player.js) gọi
+                // `setupAudioContext(); updateTypeUI();` mỗi lần đổi bài; nhánh Video trước đây
+                // CHỈ gọi `setupAudioContext()`, không bao giờ gọi `updateTypeUI()` — canvas
+                // #webgl-canvas (vortex/connector) không có gì tự làm hiện lại sau khi bị ẩn, và
+                // fftSize/allocateBuffers() không được refresh cho video mới. Gọi thêm ở đây,
+                // ĐÚNG vị trí tương ứng bên Song (sau khi audio graph đã nối xong).
+                updateTypeUI(); // core/visualizer/visualizer-display.js
+                resetConnectorPerTrackState(); // core/webgl/three-connector.js — cùng lý do bên Song
             }, false, appState.get('gameplayArmedGameId') != null, direction); // hideUntilReady=false (Video Player mode không dùng) — SỬA (08/09/2026) thêm skipAutoplay: armed Game Mode thì chỉ nạp khung hình tĩnh, KHÔNG .play() ở swapBgVideoSource(), xem docstring hàm đó. `direction` MỚI (Giang yêu cầu Transition Video Player mode) — truyền THẲNG xuống, xem docstring swapBgVideoSource().
             if (!record) {
                 // guard: video vừa bị xoá ở nơi khác giữa lúc đang phát. KHÔNG gọi
