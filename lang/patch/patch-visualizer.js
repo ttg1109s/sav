@@ -353,5 +353,21 @@ const LANG_PATCH_VISUALIZER = {
     // GỘP LẠI thành 1 key DUY NHẤT này (Giang yêu cầu bỏ tách riêng, gộp chung 1 section).
     'visualizerSettingsDrawer.section.components': 'Components',
 
+    'visualizerSettingsDrawer.connectorStyle.synapse': 'Synapse',
+    'visualizerSettingsDrawer.connectorStyle.circuit': 'Circuit',
+    'customEffectDrawer.field.connectorGlowEnabled': 'Glow',
+    'customEffectDrawer.field.connectorGlowIntensity': 'Glow intensity',
+    'customEffectDrawer.field.connectorAvgDegree': 'Connection density',
+    'customEffectDrawer.field.neuronCount': 'Neuron count',
+    'customEffectDrawer.field.fireThreshold': 'Fire threshold',
+    'customEffectDrawer.field.springStiffness': 'Spring stiffness',
+    'customEffectDrawer.field.synapseSpeedBase': 'Signal speed',
+    'customEffectDrawer.field.synapseSpeedEnergyMult': 'Signal speed (energy boost)',
+    'customEffectDrawer.field.nodeCount': 'Chip count',
+    'customEffectDrawer.field.signalsPerBeat': 'Signals per beat',
+    'customEffectDrawer.field.maxConcurrentSignals': 'Max concurrent signals',
+    'customEffectDrawer.field.trailLength': 'Trail length',
+    'customEffectDrawer.field.circuitSpeedBase': 'Signal speed',
+    'customEffectDrawer.field.circuitSpeedEnergyMult': 'Signal speed (energy boost)',
 
 };

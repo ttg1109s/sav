@@ -414,6 +414,7 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsVisualizer.type.rain': 'Rain',
     'settingsVisualizer.type.space': 'Space',
     'settingsVisualizer.type.lighting': 'Lighting',
+    'settingsVisualizer.type.connector': 'Connector',
     // MỚI (05/09/2026, yêu cầu Giang, "group hoá" effect picker) — 4/6 group TÁI DÙNG nguyên 4 key
     // .type.* ở trên (bar/rain/vortex/lighting, tên group không đổi) làm
     // VISUALIZER_GROUP_LABEL_KEYS (core/visualizer/visualizer-display.js, dropdown 1 modal chọn
