@@ -12,14 +12,6 @@ function computeConnectorSpeed(base, mult, energy) {
     return base + mult * energy;
 }
 
-function fibonacciSpherePoint(i, n, radius) {
-    const golden = Math.PI * (3 - Math.sqrt(5));
-    const y = 1 - (i / (n - 1 || 1)) * 2;
-    const r = Math.sqrt(Math.max(0, 1 - y * y));
-    const theta = golden * i;
-    return new THREE.Vector3(Math.cos(theta) * r * radius, y * radius, Math.sin(theta) * r * radius);
-}
-
 // ===================== SYNAPSE — port từ "3D Biological Neural Network Simulation" =====================
 
 function createGlowTexture() {
@@ -53,55 +45,122 @@ function createActionPotentialSparkTexture() {
     return texture;
 }
 
-// ĐỔI: graph tách riêng (trước hình học) — 3 vỏ cầu (mạnh/trung/yếu) thay 4 cột phẳng gốc, cùng
-// công thức "2-3 nearest layer kế + 50% lateral" gốc, chỉ đổi layer->shell.
-function buildSynapseGraph(neuronCount) {
-    const shellSize = Math.ceil(neuronCount / 3);
-    const shellOf = (i) => Math.min(2, Math.floor(i / shellSize));
-    const shells = [[], [], []];
-    for (let i = 0; i < neuronCount; i++) shells[shellOf(i)].push(i);
+/**
+ * SỬA (yêu cầu Giang 16/09/2026 — "đang vo viên lẫn lộn -> làm phẳng map dạng 2D, nhưng vẫn cấu
+ * trúc 3D"): bỏ hẳn layout 3 vỏ CẦU (fibonacciSpherePoint, đã xoá) — thay bằng LƯỚI PHẲNG (mặt
+ * X-Y CỤC BỘ của cnGroupSynapse, Z=0 lúc rest). "Vẫn cấu trúc 3D" đến từ 2 chỗ GIỮ NGUYÊN:
+ * cnGroupSynapse tự xoay theo nhạc (rotation.x/y, _tickConnectorSynapse) + trục Z cục bộ giờ là
+ * trục "đàn hồi" (lún/phồng khi bắn tín hiệu, xem computeConnectorScreenScale() dưới và impulse
+ * Z-only ở _tickConnectorSynapse, event/workflow/visualizer-render.js) — lưới phẳng nhưng KHÔNG
+ * phẳng lì, vẫn gồ ghề động theo audio.
+ *
+ * Chốt với Giang (3 câu hỏi 16/09/2026):
+ * 1) Lưới ĐỀU, vòng đồng tâm HÌNH CHỮ NHẬT ngoài->trong — giữ tinh thần "shell mạnh ngoài/yếu
+ *    trong" cũ, chỉ đổi hình cầu -> hình chữ nhật phẳng (KHÔNG so le ngẫu nhiên như phác thảo).
+ * 2) Lún/phồng: xem hàm _tickConnectorSynapse — 1 xung +Z duy nhất lúc bắn (khử cực), lò xo Hooke
+ *    GIỮ NGUYÊN bên dưới (dampingBase mặc định 0.80 — thiếu hãm tới hạn) tự overshoot rồi
+ *    undershoot ÂM trước khi ổn định — đúng dạng sóng điện thế hoạt động thật (depolarize ->
+ *    hyperpolarization undershoot -> rest), không cần code tay pha lún riêng.
+ * 3) Lân cận lan tín hiệu: đồ thị CỐ ĐỊNH dựng 1 LẦN lúc khởi tạo (như bản gốc) theo Ô LƯỚI THẬT
+ *    kề nhau — bám đúng "cách neuron phát tín hiệu" (synapse giải phẫu cố định), KHÔNG chọn lại
+ *    theo bin/khoảng-cách mỗi frame.
+ */
 
-    const edges = [];
-    const inDegree = new Array(neuronCount).fill(0);
+// Cột/hàng khớp tỉ lệ khung hình MÀN HÌNH THẬT (window.innerWidth/innerHeight) — kẹp biên tránh
+// lưới dẹt bất thường ở màn siêu ngang/dọc.
+function computeSynapseGridDims(neuronCount) {
+    const aspect = Math.max(0.5, Math.min(2.2, window.innerWidth / window.innerHeight));
+    const rows = Math.max(1, Math.round(Math.sqrt(neuronCount / aspect)));
+    const cols = Math.max(1, Math.ceil(neuronCount / rows));
+    return { cols, rows };
+}
 
-    for (let s = 0; s < 2; s++) {
-        shells[s].forEach((i) => {
-            const connectCount = 2 + (Math.random() > 0.5 ? 1 : 0);
-            for (let c = 0; c < connectCount; c++) {
-                const target = shells[s + 1][Math.floor(Math.random() * shells[s + 1].length)];
-                if (target !== undefined) { edges.push({ from: i, to: target }); inDegree[target]++; }
-            }
-        });
+// "Vòng" = khoảng cách Chebyshev tới viền lưới gần nhất (0 = ô viền ngoài cùng, tăng dần vào
+// tâm) — dùng để chọn ĐÚNG neuronCount ô, ưu tiên viền ngoài trước khi cols*rows > neuronCount
+// (hầu như luôn xảy ra) — đúng yêu cầu "phân bổ nơ-ron tại các điểm từ ngoài vào trong".
+function ringIndexOf(col, row, cols, rows) {
+    return Math.min(col, cols - 1 - col, row, rows - 1 - row);
+}
+
+/**
+ * Trả về đúng neuronCount ô {col, row, ring, position(cục bộ, Z=0)}. targetSpan CỐ ĐỊNH theo
+ * screenScale (không theo neuronCount) — cellSize = targetSpan / cạnh dài hơn, nên 64 nơ-ron vẫn
+ * lọt khung hình y hệt 32 (ô nhỏ lại thay vì lưới phình to), tránh phải đổi camera/frustum riêng.
+ */
+function buildSynapseGridCells(neuronCount, screenScale) {
+    const { cols, rows } = computeSynapseGridDims(neuronCount);
+    const targetSpan = 380 * screenScale;
+    const cellSize = targetSpan / Math.max(cols - 1, rows - 1, 1);
+
+    const cells = [];
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) cells.push({ col: c, row: r, ring: ringIndexOf(c, r, cols, rows) });
     }
-    shells.forEach((shell) => {
-        for (let i = 0; i < shell.length - 1; i++) {
-            if (Math.random() > 0.5) { edges.push({ from: shell[i], to: shell[i + 1] }); inDegree[shell[i + 1]]++; }
-        }
+    cells.sort((a, b) => a.ring - b.ring || a.row - b.row || a.col - b.col);
+    const chosen = cells.slice(0, neuronCount);
+
+    const halfW = (cols - 1) * cellSize / 2, halfH = (rows - 1) * cellSize / 2;
+    chosen.forEach((cell) => { cell.position = new THREE.Vector3(cell.col * cellSize - halfW, halfH - cell.row * cellSize, 0); });
+    return { cells: chosen, cellSize };
+}
+
+// ĐỔI: graph theo LÂN CẬN Ô LƯỚI THẬT (4 hướng "tới": phải/xuống/chéo-xuống-phải/chéo-lên-phải —
+// mỗi cặp ô chỉ nối 1 CHIỀU CỐ ĐỊNH, dựng 1 LẦN lúc khởi tạo) thay hẳn graph 3-vỏ-cầu+lateral
+// ngẫu nhiên gốc. Vẫn random-skip ~35% để mật độ dây gần giống gốc (2-3 dây/nơ-ron trung bình),
+// không nối đặc kín lưới trông rối mắt.
+function buildSynapseGraph(cells) {
+    const cellMap = new Map();
+    cells.forEach((cell, idx) => cellMap.set(`${cell.col},${cell.row}`, idx));
+    const DIRS = [[1, 0], [0, 1], [1, 1], [1, -1]];
+    const edges = [];
+    const inDegree = new Array(cells.length).fill(0);
+    cells.forEach((cell, idx) => {
+        DIRS.forEach(([dc, dr]) => {
+            const target = cellMap.get(`${cell.col + dc},${cell.row + dr}`);
+            if (target !== undefined && Math.random() > 0.35) { edges.push({ from: idx, to: target }); inDegree[target]++; }
+        });
     });
     return { edges, inDegree };
 }
 
 /**
- * Creates an anatomically authentic 3D Neuron Model — GIỮ NGUYÊN cấu trúc gốc (nucleus, soma
- * deform, dendrite arbor+spines). ĐỔI: dendriteCount = đúng inDegree (không random 5-7 nữa —
- * không còn nhánh thừa/thiếu); màu nucleus/soma/glow nhận từ getComputedColor() thay hardcode.
+ * Quy đổi kích thước CSS THẬT của màn hình ra 1 hệ số nhân dùng chung cho khoảng cách lưới +
+ * mọi bán kính mesh (nucleus/soma/dendrite/axon/myelin/bouton, xem createAnatomicalNeuron()/
+ * createPhysicalSynapticAxon()) — "tự thân các nhân, dây, sợi to nhỏ theo kích thước hiển thị
+ * của visualizer screen" (yêu cầu Giang). Mốc 420 = chiều rộng CSS điện thoại phổ biến đã test
+ * trong app; kẹp 0.55-1.8 tránh 2 cực đoan (màn siêu nhỏ co quá bé nhìn không rõ / màn rất to
+ * phình quá khổ).
  */
-function createAnatomicalNeuron(id, position, dendriteCount, fillColorHex, glowColorHex, glowTexture) {
+function computeConnectorScreenScale() {
+    const span = Math.min(window.innerWidth, window.innerHeight);
+    return Math.max(0.55, Math.min(1.8, span / 420));
+}
+
+/**
+ * Creates an anatomically authentic 3D Neuron Model — GIỮ NGUYÊN NGUYÊN VẸN mô hình hình học gốc
+ * (nucleus, soma deform, dendrite arbor+spines — cùng loại geometry/cấu trúc, không đổi). ĐỔI:
+ * dendriteCount = đúng inDegree (không random 5-7 nữa); màu nhận từ getComputedColor() thay
+ * hardcode; MỚI (16/09/2026) — tham số `scale` nhân đều mọi bán kính/chiều dài tuyệt đối (nucleus/
+ * nucleolus/soma/glow/dendrite/spine) — "tự thân nhân/dây/sợi to nhỏ theo kích thước hiển thị",
+ * xem computeConnectorScreenScale(). Không đổi TỈ LỆ giữa các phần (mọi noise/offset tương đối
+ * theo somaRadius vẫn nguyên công thức gốc, tự động ăn theo khi somaRadius scale).
+ */
+function createAnatomicalNeuron(id, position, dendriteCount, fillColorHex, glowColorHex, glowTexture, scale) {
     const neuronGroup = new THREE.Group();
     neuronGroup.position.copy(position);
     const restPosition = position.clone();
 
-    const nucleusGeo = new THREE.SphereGeometry(1.6, 20, 20);
+    const nucleusGeo = new THREE.SphereGeometry(1.6 * scale, 20, 20);
     const nucleusMat = new THREE.MeshStandardMaterial({
         color: fillColorHex, emissive: fillColorHex, emissiveIntensity: 0.95, roughness: 0.25, metalness: 0.5
     });
     const nucleusMesh = new THREE.Mesh(nucleusGeo, nucleusMat);
     neuronGroup.add(nucleusMesh);
 
-    const nucleolusMesh = new THREE.Mesh(new THREE.SphereGeometry(0.65, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    const nucleolusMesh = new THREE.Mesh(new THREE.SphereGeometry(0.65 * scale, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
     nucleusMesh.add(nucleolusMesh);
 
-    const somaRadius = 4.0;
+    const somaRadius = 4.0 * scale;
     const somaGeo = new THREE.IcosahedronGeometry(somaRadius, 3);
     const posAttr = somaGeo.attributes.position;
     const vertex = new THREE.Vector3();
@@ -124,7 +183,7 @@ function createAnatomicalNeuron(id, position, dendriteCount, fillColorHex, glowC
     const glowSprite = new THREE.Sprite(new THREE.SpriteMaterial({
         map: glowTexture, color: glowColorHex, transparent: true, blending: THREE.AdditiveBlending, opacity: 0.85
     }));
-    glowSprite.scale.setScalar(25);
+    glowSprite.scale.setScalar(25 * scale);
     neuronGroup.add(glowSprite);
 
     // ĐỔI: dendrite dùng ĐÚNG màu hệ core (fillColorHex) thay hardcode 0x00b3ff/0x0033aa.
@@ -140,21 +199,21 @@ function createAnatomicalNeuron(id, position, dendriteCount, fillColorHex, glowC
         curvePoints.push(currentPoint.clone());
 
         const segments = 4;
-        const branchLength = 11 + Math.random() * 8;
+        const branchLength = (11 + Math.random() * 8) * scale;
         for (let s = 1; s <= segments; s++) {
             const stepProgress = s / segments;
-            const jitter = new THREE.Vector3((Math.random() - 0.5) * 3.5, (Math.random() - 0.5) * 3.5, (Math.random() - 0.5) * 3.5);
+            const jitter = new THREE.Vector3((Math.random() - 0.5) * 3.5, (Math.random() - 0.5) * 3.5, (Math.random() - 0.5) * 3.5).multiplyScalar(scale);
             currentPoint = dDir.clone().multiplyScalar(somaRadius + branchLength * stepProgress).add(jitter);
             curvePoints.push(currentPoint.clone());
         }
 
         const dendriteCurve = new THREE.CatmullRomCurve3(curvePoints);
-        const dendriteMesh = new THREE.Mesh(new THREE.TubeGeometry(dendriteCurve, 14, 0.65, 8, false), dendriteMat);
+        const dendriteMesh = new THREE.Mesh(new THREE.TubeGeometry(dendriteCurve, 14, 0.65 * scale, 8, false), dendriteMat);
         dendriteGroup.add(dendriteMesh);
 
         for (let sp = 0; sp < 5; sp++) {
             const spineProgress = 0.3 + Math.random() * 0.6;
-            const spineMesh = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8), dendriteMat);
+            const spineMesh = new THREE.Mesh(new THREE.SphereGeometry(0.35 * scale, 8, 8), dendriteMat);
             spineMesh.position.copy(dendriteCurve.getPoint(spineProgress));
             dendriteGroup.add(spineMesh);
         }
@@ -165,7 +224,7 @@ function createAnatomicalNeuron(id, position, dendriteCount, fillColorHex, glowC
 
     return {
         id, position, restPosition, velocity: new THREE.Vector3(0, 0, 0),
-        container: neuronGroup, somaMesh, nucleusMesh, glowSprite,
+        container: neuronGroup, somaMesh, nucleusMesh, glowSprite, scale,
         dendriteEndpoints, dendriteTipCursor: 0, fillColorHex, glowColorHex,
         energy: 0.0, connectedSynapses: [], prevBinEnergy: 0, lastFiredFrame: -9999,
     };
@@ -183,7 +242,7 @@ function createAnatomicalNeuron(id, position, dendriteCount, fillColorHex, glowC
  * Màu hillock/core/myelin/bouton dùng `colorHex` (màu hệ core của fromNeuron) thay 4 màu
  * cyan-teal hardcode gốc.
  */
-function createPhysicalSynapticAxon(fromNeuron, toNeuron, colorHex) {
+function createPhysicalSynapticAxon(fromNeuron, toNeuron, colorHex, scale) {
     const origin = fromNeuron.restPosition;
     const startPos = fromNeuron.position.clone().sub(origin);
 
@@ -200,15 +259,17 @@ function createPhysicalSynapticAxon(fromNeuron, toNeuron, colorHex) {
 
     const axonGroup = new THREE.Group();
 
+    // MỚI (16/09/2026): tham số `scale` nhân đều mọi bán kính/offset tuyệt đối — cùng lý do/cơ
+    // chế với createAnatomicalNeuron(), xem computeConnectorScreenScale().
     const hillockMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.5, 2.2, 3.0, 10),
+        new THREE.CylinderGeometry(0.5 * scale, 2.2 * scale, 3.0 * scale, 10),
         new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 0.6 })
     );
-    hillockMesh.position.copy(startPos.clone().add(axonDir.clone().multiplyScalar(2.8)));
+    hillockMesh.position.copy(startPos.clone().add(axonDir.clone().multiplyScalar(2.8 * scale)));
     hillockMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), axonDir);
     axonGroup.add(hillockMesh);
 
-    const curvePoints = [startPos.clone().add(axonDir.clone().multiplyScalar(3.5))];
+    const curvePoints = [startPos.clone().add(axonDir.clone().multiplyScalar(3.5 * scale))];
     // SỬA (phản hồi Giang — line thẳng đơ): bản trước chỉ 1 cung sin phẳng, biên độ quá nhỏ so
     // khoảng cách 3 vỏ cầu mới (nhìn xa lại càng phẳng). Đổi sang uốn 3D thật — 2 trục vuông góc
     // độc lập (perp1/perp2) + 2 tần số sin lệch pha mỗi nhánh (wiggle1/wiggle2) -> đường ngoằn
@@ -233,13 +294,13 @@ function createPhysicalSynapticAxon(fromNeuron, toNeuron, colorHex) {
     const axonCurve = new THREE.CatmullRomCurve3(curvePoints);
 
     const axonCoreMesh = new THREE.Mesh(
-        new THREE.TubeGeometry(axonCurve, 36, 0.42, 8, false),
+        new THREE.TubeGeometry(axonCurve, 36, 0.42 * scale, 8, false),
         new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 0.8 })
     );
     axonGroup.add(axonCoreMesh);
 
     const myelinMat = new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 0.3, roughness: 0.25, metalness: 0.75 });
-    const myelinCount = Math.max(2, Math.floor(totalDistance / 18.0));
+    const myelinCount = Math.max(2, Math.floor(totalDistance / (18.0 * scale))); // mật độ đốt myelin/chiều dài GIỮ NGUYÊN cảm giác dù scale bao nhiêu
     const nodesOfRanvierGaps = [];
     for (let m = 0; m < myelinCount; m++) {
         const startT = (m / myelinCount) + 0.035;
@@ -251,14 +312,14 @@ function createPhysicalSynapticAxon(fromNeuron, toNeuron, colorHex) {
             segSubPoints.push(axonCurve.getPoint(t));
         }
         if (segSubPoints.length > 1) {
-            const myelinMesh = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(segSubPoints), 8, 0.9, 10, false), myelinMat);
+            const myelinMesh = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(segSubPoints), 8, 0.9 * scale, 10, false), myelinMat);
             axonGroup.add(myelinMesh);
         }
         nodesOfRanvierGaps.push(axonCurve.getPoint(Math.min(0.98, endT + 0.018)));
     }
 
     const boutonMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(1.1, 12, 12),
+        new THREE.SphereGeometry(1.1 * scale, 12, 12),
         new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 0.95 })
     );
     boutonMesh.position.copy(targetPos);
@@ -271,31 +332,27 @@ function createPhysicalSynapticAxon(fromNeuron, toNeuron, colorHex) {
     return synapseObject;
 }
 
-// ĐỔI: orchestrator MỚI (graph trước, hình học sau) thay buildDenseConnectedNeuralCircuit() gốc —
-// vị trí qua fibonacciSpherePoint 3 vỏ, còn lại (tạo neuron/axon) gọi lại đúng 2 hàm GIỮ NGUYÊN ở trên.
+// SỬA (16/09/2026 — lưới phẳng thay 3 vỏ cầu): orchestrator vẫn "graph trước, hình học sau" như
+// bản trước, chỉ đổi NGUỒN vị trí (buildSynapseGridCells thay fibonacciSpherePoint) + graph theo
+// lân cận ô lưới (buildSynapseGraph(cells) thay theo shell) — createAnatomicalNeuron()/
+// createPhysicalSynapticAxon() GIỮ NGUYÊN mô hình hình học, chỉ nhận thêm `scale`.
 function buildSynapseNetwork(cfg, networkGroup, glowTexture) {
     const neuronCount = cfg.neuronCount;
-    const { edges, inDegree } = buildSynapseGraph(neuronCount);
-    const shellSize = Math.ceil(neuronCount / 3);
-    const shellRadius = [220, 130, 60]; // ngoài(mạnh) -> giữa(trung) -> trong cùng(yếu)
+    const screenScale = computeConnectorScreenScale();
+    const { cells } = buildSynapseGridCells(neuronCount, screenScale);
+    const { edges, inDegree } = buildSynapseGraph(cells);
 
-    const neurons = [];
-    for (let i = 0; i < neuronCount; i++) {
-        const shell = Math.min(2, Math.floor(i / shellSize));
-        const indexInShell = i - shell * shellSize;
-        const shellCount = Math.min(shellSize, neuronCount - shell * shellSize);
-        const radius = shellRadius[shell] * (0.9 + Math.random() * 0.2);
-        const position = fibonacciSpherePoint(indexInShell, shellCount, radius);
+    const neurons = cells.map((cell, i) => {
         const color = getComputedColor(i, neuronCount, 128); // core/audio-analysis.js
         const neuron = createAnatomicalNeuron(
-            i, position, inDegree[i],
-            new THREE.Color(color.fill).getHex(), new THREE.Color(color.glow).getHex(), glowTexture
+            i, cell.position, inDegree[i],
+            new THREE.Color(color.fill).getHex(), new THREE.Color(color.glow).getHex(), glowTexture, screenScale
         );
         networkGroup.add(neuron.container);
-        neurons.push(neuron);
-    }
+        return neuron;
+    });
 
-    const synapses = edges.map((edge) => createPhysicalSynapticAxon(neurons[edge.from], neurons[edge.to], neurons[edge.from].fillColorHex));
+    const synapses = edges.map((edge) => createPhysicalSynapticAxon(neurons[edge.from], neurons[edge.to], neurons[edge.from].fillColorHex, screenScale));
     return { neurons, synapses };
 }
 
@@ -326,9 +383,10 @@ function fireNeuronActionPotential(neuronIdx, impulseVector, energyOverride) {
     neuron.energy = energyOverride != null ? energyOverride : 2.2;
 
     neuron.connectedSynapses.forEach((synapse) => {
-        const sparkMesh = new THREE.Mesh(new THREE.SphereGeometry(0.85, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+        // MỚI (16/09/2026): spark theo scale của neuron NGUỒN — đồng bộ kích thước với nhân/dây đã scale.
+        const sparkMesh = new THREE.Mesh(new THREE.SphereGeometry(0.85 * neuron.scale, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
         const sparkGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTexture, transparent: true, blending: THREE.AdditiveBlending }));
-        sparkGlow.scale.setScalar(8.5);
+        sparkGlow.scale.setScalar(8.5 * neuron.scale);
         sparkMesh.add(sparkGlow);
         synapse.fromNeuron.container.add(sparkMesh); // ĐỔI: con của neuron NGUỒN — axonCurve giờ ở toạ độ cục bộ quanh nó (xem createPhysicalSynapticAxon), spark phải cùng hệ toạ độ mới bám đúng ống
         appState.mutate('cnActiveSignalsSynapse', (arr) => arr.push({ synapse, progress: 0.0, mesh: sparkMesh }), { skipCheck: true });
