@@ -89,6 +89,12 @@ let _vxPendingBeatFluxCount = 0;
 let _vxBeatFluxHistory = [];
 let _vxBeatsSinceLastTurn = 999; // lớn sẵn — cho phép rẽ ngay từ lần đầu, không phải đợi
 
+// ===== Connector (circuit) — biến NỘI BỘ, quota khống chế theo beat =====
+let _cnLastConsumedBeatTime = 0;
+let _cnBeatSignalsRemaining = 0;
+let _cnBeatScaleAtBeat = 0;
+const CONNECTOR_FIRE_COOLDOWN_FRAMES = 12;
+
 const workflowVisualizerRender = {
     /** Đăng ký + bật task `raf` — xem docstring đầu file về điểm gọi DUY NHẤT + guard chống
      * double-start. */
@@ -152,6 +158,9 @@ const workflowVisualizerRender = {
             // Rule 3, Workflow điều phối thật, không còn gọi thẳng drawVortex() cũ).
             this._tickVortexCurve(isPlaying);
             this._tickVortexRender(perf, isPlaying, newSmoothedEnergy, vizDataArray);
+        } else if (cfg.type === 'connector') {
+            this._tickConnectorBeat(isPlaying, newBeatScale);
+            this._tickConnectorRender(isPlaying, newSmoothedEnergy, vizDataArray, bufferLength);
         }
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -310,6 +319,131 @@ const workflowVisualizerRender = {
         tCamera.lookAt(lookPos.x, lookPos.y, lookAheadZ);
 
         appState.get('tRenderer').render(appState.get('tScene'), tCamera);
+    },
+
+    /** Quota phát tín hiệu circuit — khống chế CHẶT theo beat thật (mirror _tickVortexCurve()),
+     * không phải setInterval tự do. Mỗi beat mới cấp lại `signalsPerBeat`, giá trị beatScale
+     * NGAY LÚC ĐÓ được giữ lại cho onBitCount (core/visualizer/groups/connector/circuit.js::
+     * pickOnBitCount()) — mọi signal sinh trong cùng đợt quota dùng chung giá trị này. */
+    _tickConnectorBeat(isPlaying, beatScale) {
+        const isNewBeat = lastBeatTime > 0 && lastBeatTime !== _cnLastConsumedBeatTime;
+        if (!isNewBeat) return;
+        _cnLastConsumedBeatTime = lastBeatTime;
+        if (!isPlaying) return;
+        const cfg = getActiveEffectConfig(); // core/custom-effect.js
+        if (cfg.connectorStyle !== 'circuit') return;
+        _cnBeatScaleAtBeat = beatScale;
+        _cnBeatSignalsRemaining = cfg.signalsPerBeat;
+    },
+
+    /** VISUAL Connector — chọn ĐÚNG style (synapse/circuit) rồi render chung 1 cnScene/cnCamera
+     * (2 group toggle visible, xem updateConnectorVisibility(), core/webgl/three-connector.js). */
+    _tickConnectorRender(isPlaying, smoothedEnergy, vizDataArray, bufferLength) {
+        if (!appState.get('cnInitialized')) return;
+        const cfg = getActiveEffectConfig(); // core/custom-effect.js
+        const glowIntensity = getConnectorGlowMult() * 100; // core/custom-effect.js
+        if (cfg.connectorStyle === 'synapse') this._tickConnectorSynapse(isPlaying, smoothedEnergy, vizDataArray, bufferLength, cfg, glowIntensity);
+        else this._tickConnectorCircuit(isPlaying, smoothedEnergy, cfg, glowIntensity);
+        appState.get('tRenderer').render(appState.get('cnScene'), appState.get('cnCamera'));
+    },
+
+    /** Mỗi nơ-ron: quét năng lượng ĐÚNG bin tần số riêng (32 vùng ↔ 32 nơ-ron), onset (diff>0) +
+     * vượt ngưỡng mới bắn — rời rạc theo vị trí phổ tần, không đồng loạt (plan-connector.md
+     * Phần B3). Vật lý lò xo + màu/glow cập nhật mỗi frame bất kể có bắn hay không. */
+    _tickConnectorSynapse(isPlaying, smoothedEnergy, vizDataArray, bufferLength, cfg, glowIntensity) {
+        const neurons = appState.get('cnNeurons');
+        const synapses = appState.get('cnSynapses');
+        const frameCounter = appState.get('frameCounter');
+        const speed = computeConnectorSignalSpeed(cfg.synapseSpeedBase, cfg.synapseSpeedEnergyMult, smoothedEnergy); // core/webgl
+
+        neurons.forEach((neuron, i) => {
+            const energyByte = computeNeuronBinEnergy(vizDataArray, bufferLength, i, neurons.length); // core/visualizer/groups/connector/synapse.js
+            if (isPlaying) {
+                const diff = energyByte - neuron.prevBinEnergy;
+                const cooledDown = frameCounter - neuron.lastFiredFrame > CONNECTOR_FIRE_COOLDOWN_FRAMES;
+                if (diff > 0 && energyByte > cfg.fireThreshold * 255 && cooledDown) {
+                    neuron.lastFiredFrame = frameCounter;
+                    const impulse = new THREE.Vector3((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6);
+                    fireNeuronActionPotential(i, impulse); // core/webgl/three-connector.js
+                }
+            }
+            neuron.prevBinEnergy = energyByte;
+            stepNeuronSpring(neuron, cfg.springStiffness, 0.82); // core/visualizer/groups/connector/synapse.js
+            const color = getComputedColor(i, neurons.length, energyByte); // core/audio-analysis.js
+            applyConnectorNeuronColor(neuron, color.fill, color.glow); // core/visualizer/groups/connector/common.js
+            applyConnectorGlow(neuron.glowSprite, neuron.somaMesh.material, cfg.glowEnabled, glowIntensity, 0.7, 20); // core/visualizer/groups/connector/common.js
+        });
+
+        const activeSignals = appState.get('cnActiveSignalsSynapse');
+        for (let i = activeSignals.length - 1; i >= 0; i--) {
+            const signal = activeSignals[i];
+            const synapse = synapses[signal.edgeIdx];
+            const arrived = stepActionPotential(signal, synapse, speed, 1 / 60); // core/visualizer/groups/connector/synapse.js
+            if (arrived) {
+                appState.get('cnGroupSynapse').remove(signal.mesh);
+                signal.mesh.geometry.dispose(); signal.mesh.material.dispose();
+                activeSignals.splice(i, 1);
+                const impulse = new THREE.Vector3((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6);
+                fireNeuronActionPotential(synapse.to, impulse); // core/webgl/three-connector.js
+            }
+        }
+    },
+
+    /** Spawn + chain reaction khống chế bằng `_cnBeatSignalsRemaining` (cấp mỗi beat,
+     * _tickConnectorBeat() phía trên) — hết quota chỉ còn shockwave thị giác trên chip, không đẻ
+     * thêm, đợi beat kế (plan-connector.md Phần C4). Line lan theo `setDrawRange` (sliding
+     * window) — đuôi wipe dần đúng lúc payload đi tới (Phần C2). */
+    _tickConnectorCircuit(isPlaying, smoothedEnergy, cfg, glowIntensity) {
+        const chips = appState.get('cnChips');
+        const edgesCircuit = appState.get('cnEdgesCircuit');
+        const activeSignals = appState.get('cnActiveSignalsCircuit');
+        const cnGroupCircuit = appState.get('cnGroupCircuit');
+        const speed = computeConnectorSignalSpeed(cfg.circuitSpeedBase, cfg.circuitSpeedEnergyMult, smoothedEnergy); // core/webgl
+        const emissive = cfg.glowEnabled ? 0.3 + (glowIntensity / 100) * 1.2 : 0.15;
+
+        chips.forEach((chip, i) => {
+            const color = getComputedColor(i, chips.length, 128); // core/audio-analysis.js
+            applyConnectorChipColor(chip, color.fill); // core/visualizer/groups/connector/common.js
+            chip.bodyMesh.material.emissiveIntensity = emissive;
+            decayChipPulse(chip, 1 / 60); // core/visualizer/groups/connector/circuit.js
+        });
+
+        const spawnOnto = (edgeIdx, bits) => {
+            const bitMeshes = [];
+            bits.forEach((on, slot) => {
+                if (!on) return;
+                const sourceChip = chips[edgesCircuit[edgeIdx].from];
+                const sprite = createCircuitBitSprite(sourceChip.bodyMesh.material.color.getHex()); // core/webgl/three-connector.js
+                cnGroupCircuit.add(sprite);
+                bitMeshes.push({ slot, sprite });
+            });
+            appState.mutate('cnActiveSignalsCircuit', (arr) => arr.push({ edgeIdx, currentStep: 0, bitMeshes }), { skipCheck: true });
+        };
+
+        if (isPlaying && _cnBeatSignalsRemaining > 0 && activeSignals.length < cfg.maxConcurrentSignals && edgesCircuit.length) {
+            _cnBeatSignalsRemaining--;
+            const onBitCount = pickOnBitCount(_cnBeatScaleAtBeat); // core/visualizer/groups/connector/circuit.js
+            spawnOnto(Math.floor(Math.random() * edgesCircuit.length), buildBitPattern(onBitCount)); // core/visualizer/groups/connector/circuit.js
+        }
+
+        for (let i = activeSignals.length - 1; i >= 0; i--) {
+            const signal = activeSignals[i];
+            const edge = edgesCircuit[signal.edgeIdx];
+            stepCircuitBits(signal, edge, cfg.trailLength); // core/visualizer/groups/connector/circuit.js
+            const arrived = stepCircuitSignal(signal, edge, speed, 1 / 60, cfg.trailLength); // core/visualizer/groups/connector/circuit.js
+            if (!arrived) continue;
+            edge.geometry.setDrawRange(0, 0);
+            signal.bitMeshes.forEach((bm) => { cnGroupCircuit.remove(bm.sprite); bm.sprite.material.dispose(); });
+            activeSignals.splice(i, 1);
+            const targetChip = chips[edge.to];
+            targetChip.bodyMesh.scale.setScalar(1.6);
+            if (_cnBeatSignalsRemaining > 0 && targetChip.edges.length) {
+                _cnBeatSignalsRemaining--;
+                const nextEdgeIdx = targetChip.edges[Math.floor(Math.random() * targetChip.edges.length)];
+                const onBitCount = pickOnBitCount(_cnBeatScaleAtBeat); // core/visualizer/groups/connector/circuit.js
+                spawnOnto(nextEdgeIdx, buildBitPattern(onBitCount)); // core/visualizer/groups/connector/circuit.js
+            }
+        }
     },
 
     /** [MỚI — rà soát Rule 3] VISUAL Bar — Workflow tự đọc `cfg.barStyle` rồi gọi ĐÚNG 1 trong 3

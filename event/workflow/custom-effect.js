@@ -105,6 +105,7 @@ const workflowCustomEffect = {
     _runRefresh(name) {
         if (name === 'resizeCanvas') resizeCanvas(); // core
         else if (name === 'initThreeJS') initThreeJS(); // core/webgl
+        else if (name === 'initThreeJSConnector') initThreeJSConnector(); // core/webgl
     },
 
     _wire(type) {
