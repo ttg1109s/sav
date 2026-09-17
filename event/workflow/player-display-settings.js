@@ -45,7 +45,7 @@
  * (PLAYER_MOTION_SLOTS/resolvePlayerMotionPresetField/resolvePlayerResolutionField),
  * core/player-display-apply.js (apply*ToDOM()/clear*FromDOM()), core/dom-refs.js
  * (motionEngineReactLayer/bgVideoElement/visualBgImageElement), core/motion-presets.js
- * (findMotionPresetById()), event/workflow/motion-engine.js (MOTION_ENGINE_NO_OP_PRESET),
+ * (findMotionPresetById()/isReactBeatPresetActive()), event/workflow/motion-engine.js (MOTION_ENGINE_NO_OP_PRESET),
  * event/workflow/motion-beat-react-runner.js (createMotionBeatReactRunner()), event/workflow/
  * motion-transition-runner.js (createMotionTransitionRunner()), service/db.js
  * (getMeta/setMeta/getImageRecord).
@@ -231,20 +231,26 @@ const workflowPlayerDisplaySettings = {
 
     /** Core thuần phụ — preset ĐANG gắn cho `videoShowingPresetId` (SỬA — Giang chốt GỘP Point
      * Move + React Beat của Video thành 1 field DUY NHẤT, KHÔNG còn field reactBeat riêng) — CHỈ
-     * trả về nếu preset đó còn tồn tại (chưa bị xoá) VÀ `reactBeatAudio.enabled === true` — ngược
-     * lại `null` (coi như chưa có gì để React Beat chạy). KHÔNG xét `pointMoveEnabled` ở đây —
-     * Point Move của preset này CHƯA có cơ chế hoạt động (Giang chốt rõ), hàm này chỉ phục vụ
-     * React Beat. Đọc TƯƠI mỗi lần gọi (KHÔNG cache) — Runner (event/workflow/motion-beat-react-
-     * runner.js) tự gọi lại hàm này MỖI FRAME, nên tự động bắt kịp NGAY nếu người dùng đổi preset
-     * khác giữa chừng HOẶC sửa nội dung preset đang gắn (Motion Edit thay preset bằng object MỚI
-     * mỗi lần lưu, xem event/workflow/motion-presets.js::_mutateEditing() — tra lại theo id ở ĐÂY
-     * mỗi lần là điều BẮT BUỘC để không stale, không cần logic "restart" riêng).
+     * trả về nếu preset đó còn tồn tại (chưa bị xoá) VÀ THẬT SỰ có React Beat để chạy. KHÔNG xét
+     * `pointMoveEnabled` ở đây — Point Move của preset này CHƯA có cơ chế hoạt động (Giang chốt
+     * rõ), hàm này chỉ phục vụ React Beat. Đọc TƯƠI mỗi lần gọi (KHÔNG cache) — Runner (event/
+     * workflow/motion-beat-react-runner.js) tự gọi lại hàm này MỖI FRAME, nên tự động bắt kịp NGAY
+     * nếu người dùng đổi preset khác giữa chừng HOẶC sửa nội dung preset đang gắn (Motion Edit thay
+     * preset bằng object MỚI mỗi lần lưu, xem event/workflow/motion-presets.js::_mutateEditing() —
+     * tra lại theo id ở ĐÂY mỗi lần là điều BẮT BUỘC để không stale, không cần logic "restart" riêng).
+     * SỬA (gộp trùng lặp với `workflowMotionEngine._getBeatReactPreset()`, event/workflow/motion-
+     * engine.js — 2 bản check `reactBeatAudio` từng lệch nhau: bản NÀY trước đây chỉ check
+     * `reactBeatAudio.enabled`, THIẾU điều kiện "phải có ít nhất 1 hiệu ứng con [zoom/panX/panY/
+     * rotate] đang bật" — VÁ lỗ hổng đó khi gộp về `isReactBeatPresetActive()` [core/motion-
+     * presets.js]; đồng thời đổi `.find()` tự chế sang `findMotionPresetById()` [core/motion-
+     * presets.js] cho ĐÚNG helper chung, tránh viết lại lookup lần nữa) — Player KHÔNG có cache
+     * riêng nên KHÔNG cần fallback như VBG, preset không tìm thấy/không active đều trả `null`.
      * @returns {object|null} */
     _getAssignedVideoShowingPreset() {
         const presetId = appConfigPlayerDisplay.getAll().videoShowingPresetId; // core/config.js
         if (!presetId) return null;
-        const preset = (appState.get('motionPresets') || []).find((p) => p.id === presetId); // core/motion-presets.js
-        return (preset && preset.reactBeatAudio && preset.reactBeatAudio.enabled) ? preset : null;
+        const preset = findMotionPresetById(appState.get('motionPresets'), presetId); // core/motion-presets.js
+        return isReactBeatPresetActive(preset) ? preset : null; // core/motion-presets.js
     },
 
     /** Tạo (LƯỜI, ĐÚNG 1 LẦN) instance `createMotionBeatReactRunner()` cho React Beat của Video —

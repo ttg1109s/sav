@@ -39,7 +39,7 @@
  * `_currentPanLayer()`/`_idlePanLayer()` — VÀ tự gán/gỡ `background-image` (`setMotionEngineLayerImage()`)
  * + tự revoke URL NGAY TRONG callback `onSettle` truyền cho `runTransition()`.
  *
- * NẠP SAU: core/motion-engine.js, core/motion-presets.js (findMotionPresetById() — dùng ở
+ * NẠP SAU: core/motion-engine.js, core/motion-presets.js (findMotionPresetById()/isReactBeatPresetActive() — dùng ở
  * livePointMoveToggle()/_getBeatReactPreset()), event/workflow/motion-beat-react-runner.js
  * (createMotionBeatReactRunner()), event/workflow/motion-point-move-runner.js
  * (createMotionPointMoveRunner()), event/workflow/motion-transition-runner.js
@@ -263,19 +263,21 @@ const workflowMotionEngine = {
      * frame, xem event/workflow/motion-beat-react-runner.js). Tra LẠI theo id (KHÔNG dùng thẳng
      * `this._activePreset` — object đó có thể đã CŨ nếu preset bị sửa nội dung SAU lúc gán, Motion
      * Edit thay hẳn bằng object MỚI mỗi lần lưu field bất kỳ, xem event/workflow/motion-presets.js
-     * ::_mutateEditing()) — SỬA bug (Giang chỉ ra qua soát lại): trước đây chỉ
-     * `reactBeatAudio.enabled` có kênh "đẩy" cache riêng (`liveBeatReactToggle()`, ĐÃ XOÁ — thay
-     * bằng broadcast chung), mọi field khác (vd `zoom.maxPct`) sửa xong KHÔNG live theo — giờ tra
-     * tươi Ở ĐÂY thì LUÔN bắt đúng bản mới nhất, không sót field nào. `id` giữ NGUYÊN dù nội dung
-     * đổi (chỉ object reference đổi), nên tra theo id vẫn đúng.
+     * ::_mutateEditing()) — tra tươi Ở ĐÂY thì LUÔN bắt đúng bản mới nhất, không sót field nào. `id`
+     * giữ NGUYÊN dù nội dung đổi (chỉ object reference đổi), nên tra theo id vẫn đúng.
+     * SỬA (gộp trùng lặp với `workflowPlayerDisplaySettings._getAssignedVideoShowingPreset()` —
+     * 2 bản check `reactBeatAudio` từng lệch nhau: bản Player thiếu điều kiện "phải có ít nhất 1
+     * hiệu ứng con bật") — phần check giờ DÙNG CHUNG qua `isReactBeatPresetActive()` (core/motion-
+     * presets.js). Phần TÌM + fallback (`|| this._activePreset` khi preset vừa bị XOÁ hẳn, hiếm)
+     * GIỮ NGUYÊN ở ĐÂY như cũ — riêng của VBG (có cache `_activePreset` để fallback), KHÔNG gộp
+     * chung vì Player không có/không cần khái niệm fallback này.
      * @returns {object|null} */
     _getBeatReactPreset() {
         if (!this._hasCurrentResource) return null;
         const presetId = this._activePreset.id;
         if (!presetId) return null; // MOTION_ENGINE_NO_OP_PRESET (chưa gắn gì) không có field `id`
         const preset = findMotionPresetById(appState.get('motionPresets'), presetId) || this._activePreset; // core/motion-presets.js — preset vừa bị XOÁ hẳn (hiếm) -> fallback bản cache cũ
-        const rb = preset.reactBeatAudio;
-        return (rb.enabled && (rb.zoom.enabled || rb.panX.enabled || rb.panY.enabled || rb.rotate.enabled)) ? preset : null; // SỬA (phản hồi Giang — chia Pan X/Pan Y) — rb.pan.enabled -> rb.panX.enabled || rb.panY.enabled
+        return isReactBeatPresetActive(preset) ? preset : null; // core/motion-presets.js
     },
 
     /** Tạo (LƯỜI, ĐÚNG 1 LẦN) instance `createMotionBeatReactRunner()` cho React Beat của VBG —
