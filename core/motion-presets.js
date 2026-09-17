@@ -221,6 +221,25 @@ function findMotionPresetById(presets, id) {
     return presets.find((p) => p.id === id) || null;
 }
 
+/**
+ * Core thuần — 1 preset (ĐÃ có sẵn qua tham số — nơi gọi tự `findMotionPresetById()` + tự fallback
+ * nếu cần TRƯỚC khi gọi hàm này, Rule 2) có THẬT SỰ "sống" để chạy React Beat Audio hay không —
+ * DÙNG CHUNG cho MỌI nơi tiêu thụ (VBG, Player Settings Video/Photo, v.v. — GỘP lại từ 2 bản kiểm
+ * tra trùng lặp đã lệch nhau: VBG `_getBeatReactPreset()` [event/workflow/motion-engine.js] có đủ
+ * 3 điều kiện dưới, bản Player `_getAssignedVideoShowingPreset()` [event/workflow/player-display-
+ * settings.js] TRƯỚC ĐÂY thiếu hẳn điều kiện thứ 3 — ĐÃ SỬA khi gộp về đây).
+ * `true` CHỈ KHI: `preset` tồn tại + `reactBeatAudio.enabled===true` + ÍT NHẤT 1 hiệu ứng con
+ * (zoom/panX/panY/rotate) đang bật — thiếu 1 trong 3 điều kiện -> `false` (coi như "không có gì để
+ * chạy"). KHÔNG tự lookup/fallback gì — đó là quyết định RIÊNG của từng nơi gọi (vd VBG fallback về
+ * bản cache cũ khi preset vừa bị xoá, Player thì không cần fallback).
+ * @param {object|null} preset @returns {boolean}
+ */
+function isReactBeatPresetActive(preset) {
+    if (!preset) return false;
+    const rb = preset.reactBeatAudio;
+    return !!(rb && rb.enabled && (rb.zoom.enabled || rb.panX.enabled || rb.panY.enabled || rb.rotate.enabled));
+}
+
 /** @param {object[]} pointMoves @param {string} id @returns {object|null} */
 function findPointMoveById(pointMoves, id) {
     return pointMoves.find((p) => p.id === id) || null;
