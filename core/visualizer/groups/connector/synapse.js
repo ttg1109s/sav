@@ -14,52 +14,15 @@ function computeNeuronBinEnergy(vizDataArray, bufferLength, neuronIndex, neuronC
     return peak;
 }
 
-// GIỮ NGUYÊN công thức Hooke's Law + decay energy (1.7/s) của updatePhysicsAndSignals() gốc.
-// SỬA (phản hồi Giang 16/09/2026 — "đàn hồi mạnh, thậm chí văng mất"): xung Z giờ LUÔN CÙNG DẤU
-// (+Z, xem _tickConnectorSynapse, event/workflow/visualizer-render.js — trước đây 3 trục ngẫu
-// nhiên tự triệt tiêu bớt lẫn nhau, giờ không còn). Nơ-ron bậc-vào cao (nhiều dây tới — đặc biệt
-// sau khi buildSynapseGraph() đảm bảo tối thiểu 1 dây/nơ-ron) có thể nhận NHIỀU xung dồn dập gần
-// như cùng lúc (xung khi tín hiệu TỚI không qua cooldown, khác xung tự bắn theo onset) -> vận
-// tốc/độ lệch cộng dồn không giới hạn theo thời gian -> văng khỏi mặt lưới. Kẹp velocity.z +
-// position.z (theo neuron.scale — nơ-ron to thì biên độ đàn hồi cho phép lớn hơn theo) NGAY TẠI
-// ĐÂY — lớp bảo vệ CUỐI CÙNG, đúng bất kể xung tới từ đâu/dồn bao nhiêu lần, không cần sửa từng
-// nơi phát xung.
-const MAX_ELASTIC_VELOCITY = 34;
-const MAX_ELASTIC_OFFSET = 40;
-
-// MỚI (yêu cầu Giang 17/09/2026 — "đàn hồi cơ học, sợi dây tách khỏi nơ-ron lân cận, đáng lẽ phải
-// kéo nhẹ neuron lân cận"): trước đây MỖI nơ-ron dao động HOÀN TOÀN độc lập — lò xo Hooke's Law
-// riêng chỉ kéo về `restPosition` của chính nó, không hề biết tới nơ-ron nào đang nối dây (dù
-// `connectedSynapses` đã có sẵn danh sách). Thêm 1 lực coupling NHẸ: mỗi nơ-ron bị kéo về phía độ
-// lệch Z TRUNG BÌNH của các nơ-ron nối dây trực tiếp (cả chiều dây RA `connectedSynapses` lẫn dây
-// TỚI `incomingSynapses`, xem createPhysicalSynapticAxon(), core/webgl/three-connector.js) — đúng
-// cơ chế lò xo nối giữa 2 nút trong lưới vải (mass-spring mesh), không thay thế lò xo riêng
-// (Hooke's law) bên dưới, chỉ CỘNG THÊM. NEIGHBOR_COUPLE_STRENGTH cố tình nhỏ hơn hẳn stiffness
-// riêng — mục đích tạo cảm giác "cả lưới rung lan toả", không làm nơ-ron lân cận nảy MẠNH bằng
-// nơ-ron vừa bắn. Đọc `.position.z` của neighbor NGAY TRONG vòng lặp neurons.forEach()
-// (visualizer-render.js) nên 1 phần neighbor đã bước frame này/1 phần chưa (kiểu Gauss-Seidel) —
-// chấp nhận được, không cần tách thêm 1 pass riêng chỉ để đồng bộ tuyệt đối.
-const NEIGHBOR_COUPLE_STRENGTH = 0.05;
-
-function stepNeuronSpring(neuron, stiffness, damping, deltaTime) {
-    const neighborCount = neuron.connectedSynapses.length + neuron.incomingSynapses.length;
-    if (neighborCount > 0) {
-        const selfOffsetZ = neuron.position.z - neuron.restPosition.z;
-        let neighborOffsetSum = 0;
-        neuron.connectedSynapses.forEach((s) => { neighborOffsetSum += (s.toNeuron.position.z - s.toNeuron.restPosition.z); });
-        neuron.incomingSynapses.forEach((s) => { neighborOffsetSum += (s.fromNeuron.position.z - s.fromNeuron.restPosition.z); });
-        const avgNeighborOffsetZ = neighborOffsetSum / neighborCount;
-        neuron.velocity.z += (avgNeighborOffsetZ - selfOffsetZ) * NEIGHBOR_COUPLE_STRENGTH;
-    }
-
-    const displacement = neuron.position.clone().sub(neuron.restPosition);
-    neuron.velocity.add(displacement.multiplyScalar(-stiffness));
-    neuron.velocity.multiplyScalar(damping);
-    neuron.velocity.z = Math.max(-MAX_ELASTIC_VELOCITY, Math.min(MAX_ELASTIC_VELOCITY, neuron.velocity.z));
-    neuron.position.add(neuron.velocity);
-    const maxOffset = MAX_ELASTIC_OFFSET * neuron.scale;
-    neuron.position.z = Math.max(neuron.restPosition.z - maxOffset, Math.min(neuron.restPosition.z + maxOffset, neuron.position.z));
-    neuron.container.position.copy(neuron.position);
+// XOÁ TOÀN BỘ (yêu cầu Giang 17/09/2026 — "loại bỏ tính đàn hồi"): trước đây ở đây là
+// stepNeuronSpring() — vật lý lò xo Hooke's Law (bake theo restPosition, xung Z lúc bắn, kẹp
+// velocity/offset qua 2 hằng số MAX_ELASTIC_VELOCITY/MAX_ELASTIC_OFFSET, coupling nhẹ với
+// connectedSynapses/incomingSynapses thêm hôm trước). Toàn bộ đã bỏ — nơ-ron giờ đứng CỐ ĐỊNH đúng
+// `restPosition` (đặt 1 lần lúc createAnatomicalNeuron(), three-connector.js, không ai đụng lại).
+// CHỈ giữ lại đúng phần "fade năng lượng bừng sáng" của stepNeuronSpring() cũ — KHÔNG liên quan vị
+// trí/đàn hồi, chỉ là fade độ sáng excite (dùng ở applyNeuronExcitement() bên dưới) theo thời gian
+// — chuyển qua hàm riêng, nhỏ gọn, tên phản ánh đúng việc nó làm.
+function decayNeuronExcitement(neuron, deltaTime) {
     if (neuron.energy > 0) neuron.energy = Math.max(0, neuron.energy - deltaTime * 1.7);
 }
 
