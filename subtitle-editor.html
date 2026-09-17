@@ -369,16 +369,36 @@
     <script src="core/ui-theme/morphin.js?v=20260909v1"></script>
     <script src="core/ui-theme/registry.js?v=20260909v1"></script>
     <script src="core/ui-theme/apply-ui.js?v=20260909v1"></script>
+    <!-- MỚI (17/09/2026, yêu cầu Giang — bổ sung tính năng karaoke, dùng Generic Drawer DÙNG CHUNG
+         với index.html) — trang này TRƯỚC ĐÂY không có Generic Drawer (không dom-refs.js/main.js
+         mount TPL_* như index.html) — mount TAY TPL_GENERIC_DRAWER (components/generic-drawer.js)
+         + khai 4 ref DOM ngay dưới, PHẢI XONG TRƯỚC core/generic-drawer.js (file đó đọc
+         genericDrawerBody ở TOP-LEVEL, ngoài hàm, lúc đăng ký MutationObserver — xem docstring
+         core/generic-drawer.js). CẦN Z_INDEX (service/z-index.js, đã nạp trên)+_activeUiThemeKeyList/
+         applyUiThemeToDom (core/ui-theme/apply-ui.js, đã nạp ngay trên) — KHÔNG cần gì khác của
+         index.html (không dom-refs.js/block.js đầy đủ). -->
+    <script src="components/generic-drawer.js?v=20260917v1"></script>
+    <script>
+        document.body.insertAdjacentHTML('beforeend', TPL_GENERIC_DRAWER);
+        const genericDrawerOverlay = document.getElementById('generic-drawer-overlay');
+        const genericDrawerPanel = document.getElementById('generic-drawer-panel');
+        const genericDrawerHeader = document.getElementById('generic-drawer-header');
+        const genericDrawerBody = document.getElementById('generic-drawer-body');
+    </script>
+    <script src="core/generic-drawer.js?v=20260917v1"></script>
     <script src="core/modal-choice-ui.js?v=20260818v1"></script>
     <!-- service/state.js — TÁI CẤU TRÚC 25/07/2026, lượt 2: trang này TRƯỚC ĐÂY chưa từng nạp
          appState (lượt 1 nhét 20 field state của trang vào EventStore — SAI ranh giới, xem
-         docstring event/store.js) — giờ nạp lõi (AppState) + đúng 2 package cần: 'subtitle-editor'
-         (20 field state riêng của trang) + 'app-misc' (CHỈ vì dbReadyPromise, xem
-         service/state/record/subtitle-editor.js). PHẢI nạp SAU core/modal-choice-ui.js (alertModal). -->
+         docstring event/store.js) — giờ nạp lõi (AppState) + 3 package cần: 'subtitle-editor'
+         (field state riêng của trang) + 'app-misc' (CHỈ vì dbReadyPromise, xem
+         service/state/record/subtitle-editor.js) + 'generic-drawer' (MỚI 17/09/2026, chỉ
+         isGenericDrawerOpen — DÙNG CHUNG y hệt index.html, xem service/state/generic-drawer.js).
+         PHẢI nạp SAU core/modal-choice-ui.js (alertModal). -->
     <script src="service/state.js?v=20260725v1"></script>
-    <script src="service/state/subtitle-editor.js?v=20260725v1"></script>
+    <script src="service/state/subtitle-editor.js?v=20260917v1"></script>
     <script src="service/state/app-misc.js?v=20260725v1"></script>
-    <script src="service/state/record/subtitle-editor.js?v=20260725v1"></script>
+    <script src="service/state/generic-drawer.js?v=20260917v1"></script>
+    <script src="service/state/record/subtitle-editor.js?v=20260917v1"></script>
     <!-- MỚI (18/07/2026) — openTimePickerModal() dùng chung (tách từ event/workflow/
          subtitle-editor.js::openTimePickerModal() cũ, xem docstring file này). -->
     <script src="core/time-picker-modal.js?v=20260718v1"></script>
@@ -395,13 +415,23 @@
          dom-refs.js nên đặt cạnh service/db.js cho gọn). -->
     <script src="service/task-manager.js?v=20260712v1"></script>
     <script src="core/subtitle/subtitles.js?v=20260711v1"></script>
-    <script src="core/subtitle/subtitles-ui.js?v=20260712v3"></script>
+    <script src="core/subtitle/subtitles-ui.js?v=20260917v1"></script>
+    <!-- MỚI (17/09/2026, yêu cầu Giang — tính năng karaoke) — core THUẦN tách từ/chia ms/kéo-gõ
+         chỉnh timing (subtitle-karaoke.js) + component dựng header/body Generic Drawer cho tính
+         năng này (subtitle-karaoke-drawer.js, CÙNG khuôn components/eq-presets-drawer.js) — component
+         cần escapeHtml() (core/modal-choice-ui.js, đã nạp trên) + KARAOKE_MIN_WORD_MS (file THUẦN
+         ngay trên). -->
+    <script src="core/subtitle/subtitle-karaoke.js?v=20260917v1"></script>
+    <script src="components/subtitle-karaoke-drawer.js?v=20260917v1"></script>
     <!-- MỚI (11/07/2026, yêu cầu Giang) — tái dùng ĐÚNG hàm cuộn ngang chung của app (đã tách ra
          cho #side-left-container/#settings-stack-body, xem sav12-handoff-plan.md Phần 1 mục 1) cho
          thanh công cụ cuộn ngang MỚI ở dưới (#toolbar-scroll-container) — không viết lại 1 bản
          `scrollTo()` riêng thứ 3. File này THUẦN, không phụ thuộc gì, an toàn nạp ở trang độc lập. -->
     <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
-    <script src="event/workflow/subtitle-editor.js?v=20260712v17"></script>
+    <!-- MỚI (17/09/2026) — closeFully() dùng chung cho MỌI tính năng Generic Drawer (ở đây: drawer
+         karaoke) — file THUẦN, chỉ cần core/generic-drawer.js + genericDrawerPanel (đã nạp trên). -->
+    <script src="event/workflow/generic-drawer-helpers.js?v=20260917v1"></script>
+    <script src="event/workflow/subtitle-editor.js?v=20260917v1"></script>
     <script src="event/router/subtitle-editor.js?v=20260712v7"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowSubtitleEditor.init() ngay khi chạy. -->
     <script src="event/listener/subtitle-editor.js?v=20260712v7"></script>
