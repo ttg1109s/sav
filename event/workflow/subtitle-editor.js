@@ -680,10 +680,17 @@ const workflowSubtitleEditor = {
      * thường qua ô input, chỉ mất phần kéo tay trực quan). */
     async _initKaraokeMiniWaveform() {
         const containerEl = document.getElementById('karaoke-mini-waveform');
-        if (!containerEl || typeof WaveSurfer === 'undefined' || typeof WaveSurfer.Regions === 'undefined') return;
+        if (!containerEl || typeof WaveSurfer === 'undefined' || typeof WaveSurfer.Regions === 'undefined') {
+            this._showKaraokeWaveformError(); // SỬA (17/09/2026, Giang báo "ko thấy waveform đâu cả") — TRƯỚC ĐÂY im lặng return, không có gì báo cho biết lý do
+            return;
+        }
         this._destroyKaraokeMiniWaveform(); // dọn instance CŨ (phòng hờ, dù drawer luôn đóng hẳn trước khi mở dòng khác)
         const record = appState.get('_record');
-        if (!record || !record.blob) return;
+        if (!record || !record.blob) {
+            console.error('[subtitle-editor] karaoke mini waveform: record.blob rỗng.');
+            this._showKaraokeWaveformError();
+            return;
+        }
         try {
             const freshBlob = await rematerializeBlob(record.blob); // service/db.js — CÙNG lý do _initWaveform() chính (né bug round-trip Blob qua IndexedDB)
             if (appState.get('_karaokeEditingLineId') === null) return; // drawer đã đóng trong lúc chờ await — bỏ, không dựng waveform mồ côi
@@ -692,15 +699,21 @@ const workflowSubtitleEditor = {
             const start = appState.get('_karaokeLineStart');
             const end = appState.get('_karaokeLineEnd');
             const durationSec = Math.max(0.05, end - start);
-            const pxPerSec = containerEl.clientWidth / durationSec;
+            // SỬA (17/09/2026, Giang báo "ko thấy waveform đâu cả") — containerEl.clientWidth có thể
+            // đọc ra 0 (layout chưa kịp ổn định lúc drawer vừa mở) -> pxPerSec = 0/NaN khiến
+            // WaveSurfer.create() dựng hỏng, KHÔNG throw gì để try/catch bắt được -> im lặng trống
+            // trơn. Kẹp sàn tối thiểu 50px, có fallback 100px/giây nếu đọc ra 0 hẳn.
+            const measuredWidth = containerEl.clientWidth;
+            const pxPerSec = measuredWidth > 0 ? Math.max(1, measuredWidth) / durationSec : 100;
             appState.set('_karaokeRegionsPlugin', WaveSurfer.Regions.create());
             appState.set('_karaokeWavesurfer', WaveSurfer.create({
                 container: containerEl,
-                height: containerEl.clientHeight || 80,
+                height: 80, // SỬA — số CỐ ĐỊNH khớp `style="height:80px"` của #karaoke-mini-waveform (components/subtitle-karaoke-drawer.js), KHÔNG đọc containerEl.clientHeight nữa (từng phụ thuộc class Tailwind `h-20` — CDN Play có thể chưa kịp sinh CSS lúc đọc, xem readme bug pattern "Tailwind CDN injects CSS async")
                 waveColor: '#94a3b8',
                 progressColor: '#0ea5e9',
                 cursorWidth: 0,
                 interact: false,
+                dragToSeek: false,
                 autoScroll: false,
                 autoCenter: false,
                 minPxPerSec: pxPerSec,
@@ -713,13 +726,25 @@ const workflowSubtitleEditor = {
             });
             appState.get('_karaokeWavesurfer').on('error', (err) => {
                 console.error('[subtitle-editor] karaoke mini waveform lỗi tải/giải mã audio:', err);
+                this._showKaraokeWaveformError();
             });
             appState.get('_karaokeWavesurfer').load(url).catch((err) => {
                 console.error('[subtitle-editor] karaoke mini waveform load() bị reject:', err);
+                this._showKaraokeWaveformError();
             });
         } catch (err) {
             console.error('[subtitle-editor] Lỗi khởi tạo karaoke mini waveform:', err);
+            this._showKaraokeWaveformError();
         }
+    },
+
+    /** SỬA (17/09/2026, Giang báo "ko thấy waveform đâu cả") — TRƯỚC ĐÂY mọi lỗi ở
+     * _initKaraokeMiniWaveform() chỉ console.error() rồi im lặng để khung trống trơn, không có gì
+     * báo cho người dùng biết — CÙNG triết lý _showWaveformError() (waveform CHÍNH): LUÔN báo lỗi
+     * NGAY TRONG khung, không biến mất. */
+    _showKaraokeWaveformError() {
+        const el = document.getElementById('karaoke-mini-waveform-error');
+        if (el) el.classList.remove('hidden');
     },
 
     _destroyKaraokeMiniWaveform() {
