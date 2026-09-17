@@ -396,15 +396,14 @@ const workflowVisualizerRender = {
     },
 
     /** Mỗi nơ-ron: quét năng lượng ĐÚNG bin tần số riêng (32 vùng ↔ 32 nơ-ron), onset (diff>0) +
-     * vượt ngưỡng mới bắn — rời rạc theo vị trí phổ tần, không đồng loạt. Xung lực/độ bừng sáng
-     * lúc bắn tỉ lệ theo `diff` (không còn hằng số 16/14 gốc — click đã bỏ). Vật lý lò xo
-     * (stiffness/damping base+audio) + màu/glow cập nhật mỗi frame bất kể có bắn hay không. */
+     * vượt ngưỡng mới bắn — rời rạc theo vị trí phổ tần, không đồng loạt. Độ bừng sáng lúc bắn tỉ
+     * lệ theo `diff`. KHÔNG còn vật lý lò xo (yêu cầu Giang 17/09/2026 — "loại bỏ tính đàn hồi",
+     * xem decayNeuronExcitement(), synapse.js) — chỉ còn màu/glow cập nhật mỗi frame bất kể có bắn
+     * hay không. */
     _tickConnectorSynapse(isPlaying, smoothedEnergy, vizDataArray, bufferLength, cfg, glowIntensity, deltaTime) {
         const neurons = appState.get('cnNeurons');
         const frameCounter = appState.get('frameCounter');
         const speed = computeConnectorSpeed(cfg.synapseSpeedBase, cfg.synapseSpeedEnergyMult, smoothedEnergy); // core/webgl
-        const stiffness = computeConnectorSpeed(cfg.springStiffnessBase, cfg.springStiffnessEnergyMult, smoothedEnergy); // core/webgl
-        const damping = Math.min(0.95, computeConnectorSpeed(cfg.dampingBase, cfg.dampingEnergyMult, smoothedEnergy)); // core/webgl
         // BỎ (phản hồi Giang 16/09/2026 — "bỏ camera xoay và zoom", map phải trải đều đúng diện
         // tích màn hình): trước đây KHỐI tự xoay quanh chính nó (rotation.x/y) để bù cho việc
         // camera không autoRotate — giờ camera ĐỨNG YÊN HẲN (updateConnectorVisibility(), core/
@@ -412,6 +411,11 @@ const workflowVisualizerRender = {
         // đã tính (buildSynapseGridCells()). cfg.rotateSpeedBase/EnergyMult (slider "Rotate
         // speed") còn field/UI nhưng không còn tác dụng cho style synapse — nợ kỹ thuật đã biết,
         // chưa gỡ field vì ngoài phạm vi yêu cầu lần này.
+        // BỎ (yêu cầu Giang 17/09/2026 — "loại bỏ tính đàn hồi"): `stiffness`/`damping`
+        // (cfg.springStiffnessBase/EnergyMult, cfg.dampingBase/EnergyMult) hết tác dụng cùng lúc
+        // với stepNeuronSpring() (ĐÃ XOÁ, synapse.js) — field/UI slider tương ứng còn trong
+        // core/custom-effect.js, cùng diện "nợ kỹ thuật đã biết, chưa gỡ" như rotateSpeedBase ở
+        // trên (ngoài phạm vi yêu cầu lần này).
 
         neurons.forEach((neuron, i) => {
             const energyByte = computeNeuronBinEnergy(vizDataArray, bufferLength, i, neurons.length); // core/visualizer/groups/connector/synapse.js
@@ -420,23 +424,15 @@ const workflowVisualizerRender = {
                 const cooledDown = frameCounter - neuron.lastFiredFrame > CONNECTOR_FIRE_COOLDOWN_FRAMES;
                 if (diff > 0 && energyByte > cfg.fireThreshold * 255 && cooledDown) {
                     neuron.lastFiredFrame = frameCounter;
-                    const magnitude = Math.min(20, 6 + diff / 8);
-                    // SỬA (16/09/2026, yêu cầu Giang — lưới phẳng, "đàn hồi = lún/phồng"): trước
-                    // bắn ngẫu nhiên 3 trục (khối "vo viên" tự do trong không gian) — giờ lưới
-                    // phẳng nằm mặt X-Y cục bộ, trục Z cục bộ MỚI LÀ trục đàn hồi (vuông góc mặt
-                    // lưới). Xung LUÔN +Z (khử cực, đúng sinh lý điện thế hoạt động — magnitude
-                    // vẫn theo `diff`, đúng thông số audio đã dùng từ trước) — lò xo Hooke's Law
-                    // GIỮ NGUYÊN bên dưới (stepNeuronSpring, dampingBase mặc định thiếu hãm tới
-                    // hạn) tự overshoot rồi undershoot ÂM trước khi ổn định — 1 xung dương duy
-                    // nhất tự sinh CẢ pha "phồng" lẫn pha "lún" đúng dạng sóng điện thế hoạt động
-                    // thật (depolarize -> hyperpolarization undershoot -> rest), không cần code
-                    // tay pha lún riêng.
-                    const impulse = new THREE.Vector3(0, 0, 1).multiplyScalar(magnitude);
-                    fireNeuronActionPotential(i, impulse, Math.min(2.2, 1.2 + diff / 60)); // core/webgl/three-connector.js
+                    // BỎ (yêu cầu Giang 17/09/2026 — "loại bỏ tính đàn hồi"): trước tính thêm
+                    // `magnitude`/`impulse` (Vector3 +Z) để cộng vào neuron.velocity qua
+                    // stepNeuronSpring() — không còn velocity/vị trí đàn hồi nào để cộng vào nữa,
+                    // chỉ còn energyOverride (độ bừng sáng, vẫn tỉ lệ theo `diff` như cũ).
+                    fireNeuronActionPotential(i, Math.min(2.2, 1.2 + diff / 60)); // core/webgl/three-connector.js
                 }
             }
             neuron.prevBinEnergy = energyByte;
-            stepNeuronSpring(neuron, stiffness, damping, deltaTime); // core/visualizer/groups/connector/synapse.js
+            decayNeuronExcitement(neuron, deltaTime); // core/visualizer/groups/connector/synapse.js — THAY stepNeuronSpring() (đã xoá), chỉ còn fade glow
             const color = getComputedColor(i, neurons.length, energyByte); // core/audio-analysis.js
             applyNeuronExcitement(neuron, color.fill, color.glow); // core/visualizer/groups/connector/synapse.js — SỬA: đồng bộ SỐNG mọi vật liệu (không chỉ soma), xem docblock hàm
             applyConnectorGlowSettings(neuron.glowSprite, cfg.glowEnabled, glowIntensity); // core/visualizer/groups/connector/common.js
@@ -451,11 +447,14 @@ const workflowVisualizerRender = {
             signal.mesh.geometry.dispose(); signal.mesh.material.dispose();
             activeSignals.splice(i, 1);
             const toNeuron = signal.synapse.toNeuron;
-            // SỬA (16/09/2026, cùng lý do ở trên): trước đẩy theo hướng 3D thật giữa 2 nơ-ron —
-            // lưới phẳng không còn ý nghĩa "hướng không gian" giữa nguồn/đích, đổi về cùng trục Z
-            // đàn hồi (magnitude 11.0 GIỮ NGUYÊN gốc).
-            const pushDir = new THREE.Vector3(0, 0, 1).multiplyScalar(11.0);
-            fireNeuronActionPotential(toNeuron.id, pushDir); // core/webgl/three-connector.js — energyOverride mặc định 2.2 GIỮ NGUYÊN gốc
+            // SỬA (bug Giang phát hiện 17/09/2026 — "chạy liên tục nhưng quá liên tục... toàn mạng
+            // đều phát tín hiệu -> lag"): TRƯỚC ĐÂY gọi lại fireNeuronActionPotential() ở đây —
+            // hàm đó spawn spark MỚI tới TẤT CẢ connectedSynapses của toNeuron, biến 1 lần bắn onset
+            // thật thành CHAIN REACTION vô điều kiện lan khắp đồ thị (không cooldown/ngưỡng nào
+            // chặn). Đổi sang litNeuronFromSignalArrival() (MỚI, core/webgl/three-connector.js) —
+            // chỉ bừng sáng tại đích, KHÔNG lan spark tiếp, dừng đúng 1 bước kể từ nơ-ron bắn onset
+            // thật. Bỏ luôn `pushDir` (Vector3 +Z 11.0) — không còn velocity/đàn hồi nào để đẩy vào.
+            litNeuronFromSignalArrival(toNeuron.id); // core/webgl/three-connector.js — energyOverride mặc định 2.2 GIỮ NGUYÊN gốc
         }
     },
 
