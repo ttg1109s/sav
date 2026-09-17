@@ -25,6 +25,11 @@ const LANG_PATCH_SUBTITLE_EDITOR = {
     'subtitleEditor.line.btnRemove': 'Remove line',
     // MỚI (yêu cầu Giang) — nút ▶ mỗi dòng, phát đúng [start,end] của dòng đó rồi dừng.
     'subtitleEditor.line.btnPlayRange': 'Play this line',
+    // MỚI (17/09/2026, yêu cầu Giang — tính năng karaoke).
+    'subtitleEditor.line.btnKaraoke': 'Karaoke timing',
+    'subtitleEditor.karaoke.title': 'Karaoke timing',
+    'subtitleEditor.karaoke.apply': 'Apply',
+    'subtitleEditor.karaoke.noWords': 'This line has no text yet — add words before timing karaoke.',
     'subtitleEditor.listEmpty': 'No subtitles yet. Use the tools below to add some.',
     'subtitleEditor.btnUpload.title': 'Upload .srt',
     'subtitleEditor.btnAutoTiming.title': 'Auto timing',
