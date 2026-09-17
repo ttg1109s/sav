@@ -129,6 +129,20 @@ function buildLineCard(sub, uiState, callbacks) {
     actionsWrap.className = 'flex items-center gap-1.5 shrink-0';
     footer.appendChild(actionsWrap);
 
+    // MỚI (17/09/2026, yêu cầu Giang — tính năng karaoke) — nút "kr" TRƯỚC nút ▶ nghe thử, mở
+    // Generic Drawer chỉnh timing từng từ (event/workflow/subtitle-editor.js::openKaraokeDrawer()).
+    // ẨN HẲN lúc mode 'selecting' (không chỉ mờ/khoá như ▶/✕ — Giang yêu cầu rõ "ẩn hẳn") + lúc
+    // ĐANG sửa CHÍNH dòng này (isEditingThis, "chưa vào edito mode" mới hiện) — VẪN dựng (mờ/khoá)
+    // lúc bị khoá bởi dòng KHÁC đang sửa (isBlockedByOtherEdit), CÙNG khuôn ▶/✕ ngay dưới.
+    const krBtn = (!isEditingThis && !isSelecting) ? document.createElement('button') : null;
+    if (krBtn) {
+        krBtn.type = 'button';
+        krBtn.title = t('subtitleEditor.line.btnKaraoke');
+        krBtn.className = 'sub-line-kr-btn px-2 h-7 flex items-center justify-center rounded-full bg-fuchsia-500/15 hover:bg-fuchsia-500/25 text-fuchsia-400 text-[11px] font-bold transition-colors' + (isBlockedByOtherEdit ? ' pointer-events-none opacity-40' : '');
+        krBtn.textContent = 'kr';
+        actionsWrap.appendChild(krBtn);
+    }
+
     // ▶ nghe thử — LUÔN hiện (bình thường lẫn đang sửa), CHỈ tắt lúc bị khoá bởi dòng khác đang sửa.
     const playRangeBtn = document.createElement('button');
     playRangeBtn.type = 'button';
@@ -175,9 +189,10 @@ function buildLineCard(sub, uiState, callbacks) {
     } else if (isBlockedByOtherEdit) {
         // KHÔNG gắn gì cả — pointer-events-none ở `card` đã chặn hết tương tác (mục 4).
     } else {
-        // Bình thường — bấm card để vào chế độ sửa; ▶/✕ dùng stopPropagation để bấm 2 nút này
+        // Bình thường — bấm card để vào chế độ sửa; kr/▶/✕ dùng stopPropagation để bấm các nút này
         // KHÔNG lỡ trigger vào chế độ sửa.
         card.addEventListener('click', () => callbacks.onEnterEdit(sub.id));
+        if (krBtn) krBtn.addEventListener('click', (e) => { e.stopPropagation(); callbacks.onOpenKaraoke(sub.id); });
         playRangeBtn.addEventListener('click', (e) => { e.stopPropagation(); callbacks.onPlayRange(sub.id, sub.startStr, sub.endStr); });
         removeBtn.addEventListener('click', (e) => { e.stopPropagation(); callbacks.onRemove(sub.id); });
     }
@@ -195,7 +210,8 @@ function buildLineCard(sub, uiState, callbacks) {
  *   onRemove: (id: string) => void,
  *   onPlayRange: (id: string, startStr: string, endStr: string) => void,
  *   onOpenTimePicker: (id: string, kind: 'start'|'end', currentSeconds: number) => void,
- *   onToggleSelect: (id: string) => void
+ *   onToggleSelect: (id: string) => void,
+ *   onOpenKaraoke: (id: string) => void
  * }} callbacks
  * @param {{
  *   mode: 'normal'|'selecting'|'editing',
