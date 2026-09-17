@@ -35,6 +35,17 @@
                 _editingPendingStart: 'nullable-number',
                 _editingPendingEnd: 'nullable-number',
                 _editingCardEl: 'any',              // DOM element | null
+
+                // MỚI (17/09/2026, tính năng karaoke) — xem core/subtitle/subtitle-karaoke.js +
+                // event/workflow/subtitle-editor.js (openKaraokeDrawer()...). Waveform mini TÁCH
+                // HẲN khỏi _wavesurfer/_regionsPlugin ở trên (thuần hiển thị, không phát audio riêng).
+                _karaokeEditingLineId: 'nullable-string', // id dòng đang mở drawer karaoke (null = đóng)
+                _karaokeWords: 'array',             // mảng làm việc {word, ms} — CHƯA chắc đã Apply (bấm Áp dụng mới ghi vào field `karaoke` của dòng)
+                _karaokeLineStart: 'number',        // cache start (giây) của dòng đang mở, phục vụ quy đổi mốc chia <-> giờ tuyệt đối
+                _karaokeLineEnd: 'number',
+                _karaokeWavesurfer: 'any',          // WaveSurfer instance MINI (waveform riêng vùng dòng đó) | null
+                _karaokeRegionsPlugin: 'any',
+                _karaokeAudioUrl: 'nullable-string', // URL.createObjectURL() riêng cho waveform mini — tự revoke lúc đóng drawer
             },
             buildDefaults() {
                 return {
@@ -62,6 +73,14 @@
                     _editingPendingStart: null,
                     _editingPendingEnd: null,
                     _editingCardEl: null,
+
+                    _karaokeEditingLineId: null,
+                    _karaokeWords: [],
+                    _karaokeLineStart: 0,
+                    _karaokeLineEnd: 0,
+                    _karaokeWavesurfer: null,
+                    _karaokeRegionsPlugin: null,
+                    _karaokeAudioUrl: null,
                 };
             },
         });
