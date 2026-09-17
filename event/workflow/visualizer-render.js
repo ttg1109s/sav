@@ -97,7 +97,11 @@ let _cnPendingBeatFluxSum = 0;
 let _cnPendingBeatFluxCount = 0;
 let _cnBeatFluxHistory = [];
 let _cnBeatsSinceLastShift = 999; // lớn sẵn, cho phép cinematic shift ngay lần đầu
-const CONNECTOR_FIRE_COOLDOWN_FRAMES = 12;
+// XOÁ (yêu cầu Giang 17/09/2026 — thay bằng "spike-frequency adaptation" mô phỏng đúng sinh lý
+// hơn): CONNECTOR_FIRE_COOLDOWN_FRAMES + so sánh frameCounter/lastFiredFrame — cổng cooldown NHỊ
+// PHÂN cứng, đã gắn liền với bug frameCounter đứng yên (17/09/2026). Xem
+// computeEffectiveFireThresholdByte()/triggerNeuronAdaptation() (core/visualizer/groups/connector/
+// synapse.js) — ngưỡng bắn giờ TĂNG DẦN rồi TỰ HẠ theo thời gian thay vì khoá/mở cứng theo frame.
 
 const workflowVisualizerRender = {
     /** Đăng ký + bật task `raf` — xem docstring đầu file về điểm gọi DUY NHẤT + guard chống
@@ -395,14 +399,16 @@ const workflowVisualizerRender = {
         else appState.get('cnComposer').render();
     },
 
-    /** Mỗi nơ-ron: quét năng lượng ĐÚNG bin tần số riêng (32 vùng ↔ 32 nơ-ron), onset (diff>0) +
-     * vượt ngưỡng mới bắn — rời rạc theo vị trí phổ tần, không đồng loạt. Độ bừng sáng lúc bắn tỉ
-     * lệ theo `diff`. KHÔNG còn vật lý lò xo (yêu cầu Giang 17/09/2026 — "loại bỏ tính đàn hồi",
-     * xem decayNeuronExcitement(), synapse.js) — chỉ còn màu/glow cập nhật mỗi frame bất kể có bắn
-     * hay không. */
+    /** Mỗi nơ-ron: quét năng lượng theo dải tần TONOTOPIC riêng (log, không đều tuyến tính —
+     * tonotopicBinRange(), synapse.js) qua bộ lọc mượt-hoá tăng dần theo tần số
+     * (applyTonotopicSmoothing() — mô phỏng phase-locking ở trầm/rate-coding ở cao). Onset (diff>0)
+     * + vượt ngưỡng HIỆU DỤNG (computeEffectiveFireThresholdByte() — gốc + tự thích nghi
+     * (adaptation) + bị lân cận ức chế (lateralInhibition), THAY cooldown nhị phân cũ, xem
+     * decayNeuronState()) mới bắn. Độ bừng sáng + tốc độ spark (computeSignalSpeedMult()) đều tỉ lệ
+     * theo `diff`. KHÔNG còn vật lý lò xo (yêu cầu Giang 17/09/2026 — "loại bỏ tính đàn hồi") — chỉ
+     * còn màu/glow cập nhật mỗi frame bất kể có bắn hay không. */
     _tickConnectorSynapse(isPlaying, smoothedEnergy, vizDataArray, bufferLength, cfg, glowIntensity, deltaTime) {
         const neurons = appState.get('cnNeurons');
-        const frameCounter = appState.get('frameCounter');
         const speed = computeConnectorSpeed(cfg.synapseSpeedBase, cfg.synapseSpeedEnergyMult, smoothedEnergy); // core/webgl
         // BỎ (phản hồi Giang 16/09/2026 — "bỏ camera xoay và zoom", map phải trải đều đúng diện
         // tích màn hình): trước đây KHỐI tự xoay quanh chính nó (rotation.x/y) để bù cho việc
@@ -418,21 +424,28 @@ const workflowVisualizerRender = {
         // trên (ngoài phạm vi yêu cầu lần này).
 
         neurons.forEach((neuron, i) => {
-            const energyByte = computeNeuronBinEnergy(vizDataArray, bufferLength, i, neurons.length); // core/visualizer/groups/connector/synapse.js
+            const rawPeak = computeNeuronBinEnergy(vizDataArray, bufferLength, i, neurons.length); // core/visualizer/groups/connector/synapse.js — dải tần tonotopic (log), không còn chia đều
+            const energyByte = applyTonotopicSmoothing(neuron, rawPeak, i, neurons.length); // core/visualizer/groups/connector/synapse.js — MỚI: mượt-hoá tăng dần theo tần số (rate/volley coding)
             const diff = energyByte - neuron.prevBinEnergy;
             if (isPlaying) {
-                const cooledDown = frameCounter - neuron.lastFiredFrame > CONNECTOR_FIRE_COOLDOWN_FRAMES;
-                if (diff > 0 && energyByte > cfg.fireThreshold * 255 && cooledDown) {
-                    neuron.lastFiredFrame = frameCounter;
+                const effectiveThresholdByte = computeEffectiveFireThresholdByte(neuron, cfg); // core/visualizer/groups/connector/synapse.js — MỚI: thay cooldown nhị phân bằng adaptation + lateralInhibition
+                if (diff > 0 && energyByte > effectiveThresholdByte) {
+                    triggerNeuronAdaptation(neuron); // core/visualizer/groups/connector/synapse.js — MỚI: tự đè ngưỡng lên (refractory), thay lastFiredFrame cũ
+                    // MỚI (yêu cầu Giang — lateral inhibition): đè tạm ngưỡng của NEURON LÂN CẬN
+                    // (cả 2 chiều dây — connectedSynapses/incomingSynapses) mỗi khi nơ-ron này bắn,
+                    // để 1 tiếng động broadband không làm cả cụm cùng sáng loạt.
+                    neuron.connectedSynapses.forEach((s) => applyLateralInhibition(s.toNeuron, cfg.lateralInhibitStrength)); // core/visualizer/groups/connector/synapse.js
+                    neuron.incomingSynapses.forEach((s) => applyLateralInhibition(s.fromNeuron, cfg.lateralInhibitStrength)); // core/visualizer/groups/connector/synapse.js
                     // BỎ (yêu cầu Giang 17/09/2026 — "loại bỏ tính đàn hồi"): trước tính thêm
                     // `magnitude`/`impulse` (Vector3 +Z) để cộng vào neuron.velocity qua
-                    // stepNeuronSpring() — không còn velocity/vị trí đàn hồi nào để cộng vào nữa,
-                    // chỉ còn energyOverride (độ bừng sáng, vẫn tỉ lệ theo `diff` như cũ).
-                    fireNeuronActionPotential(i, Math.min(2.2, 1.2 + diff / 60)); // core/webgl/three-connector.js
+                    // stepNeuronSpring() — không còn velocity/vị trí đàn hồi nào để cộng vào nữa.
+                    // energyOverride (độ bừng sáng) + speedMult (tốc độ spark, MỚI) đều tỉ lệ theo
+                    // `diff` — onset càng mạnh, càng sáng VÀ càng bắn nhanh.
+                    fireNeuronActionPotential(i, Math.min(2.2, 1.2 + diff / 60), computeSignalSpeedMult(diff)); // core/webgl/three-connector.js
                 }
             }
             neuron.prevBinEnergy = energyByte;
-            decayNeuronExcitement(neuron, deltaTime); // core/visualizer/groups/connector/synapse.js — THAY stepNeuronSpring() (đã xoá), chỉ còn fade glow
+            decayNeuronState(neuron, deltaTime); // core/visualizer/groups/connector/synapse.js — THAY stepNeuronSpring() (đã xoá) + decayNeuronExcitement() (đổi tên) — fade glow + adaptation + lateralInhibition
             const color = getComputedColor(i, neurons.length, energyByte); // core/audio-analysis.js
             applyNeuronExcitement(neuron, color.fill, color.glow); // core/visualizer/groups/connector/synapse.js — SỬA: đồng bộ SỐNG mọi vật liệu (không chỉ soma), xem docblock hàm
             applyConnectorGlowSettings(neuron.glowSprite, cfg.glowEnabled, glowIntensity); // core/visualizer/groups/connector/common.js
@@ -441,7 +454,7 @@ const workflowVisualizerRender = {
         const activeSignals = appState.get('cnActiveSignalsSynapse');
         for (let i = activeSignals.length - 1; i >= 0; i--) {
             const signal = activeSignals[i];
-            const arrived = stepActionPotential(signal, signal.synapse, speed, deltaTime); // core/visualizer/groups/connector/synapse.js
+            const arrived = stepActionPotential(signal, signal.synapse, speed * signal.speedMult, deltaTime); // core/visualizer/groups/connector/synapse.js — MỚI: speedMult riêng từng signal (tốc độ NỀN chung × độ mạnh onset đã sinh ra nó)
             if (!arrived) continue;
             signal.synapse.fromNeuron.container.remove(signal.mesh); // ĐỔI: spark là con của neuron nguồn (three-connector.js::fireNeuronActionPotential), không phải cnGroupSynapse
             signal.mesh.geometry.dispose(); signal.mesh.material.dispose();
