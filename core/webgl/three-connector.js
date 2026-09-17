@@ -81,6 +81,12 @@ function createActionPotentialSparkTexture() {
  *    Sửa: mọi nơ-ron còn ≥1 ứng viên hướng "tới" LUÔN được đảm bảo ÍT NHẤT 1 dây ra, phần ứng viên
  *    còn lại mới random 50% thêm — cùng tinh thần connectCount=2-3/nơ-ron bảo đảm tối thiểu của
  *    graph shell cũ, không phó mặc hoàn toàn cho random nữa.
+ *
+ * XOÁ HẲN (yêu cầu Giang 17/09/2026 — "loại bỏ tính đàn hồi"): toàn bộ mục 2) ở trên (lò xo Hooke,
+ * xung +Z, kẹp velocity/offset qua stepNeuronSpring()) không còn nữa — nơ-ron đứng CỐ ĐỊNH đúng
+ * restPosition, không còn dao động Z. Giữ nguyên đoạn mô tả trên như NHẬT KÝ quyết định (đã từng
+ * làm gì/vì sao), không xoá — tránh đọc nhầm tưởng lò xo còn tồn tại: xem decayNeuronExcitement()
+ * (core/visualizer/groups/connector/synapse.js) — chỉ còn phần fade glow được giữ lại.
  */
 
 // PHẢI khớp NGUYÊN VĂN cnCamera.fov/position.z gán trong updateConnectorVisibility() (cuối file,
@@ -265,11 +271,16 @@ function createAnatomicalNeuron(id, position, dendriteCount, fillColorHex, glowC
     // MỚI (yêu cầu Giang 17/09/2026 — 2 việc):
     // 1) `dendriteMat` trả ra ngoài — applyNeuronExcitement() (synapse.js) cần đồng bộ màu SỐNG
     //    mỗi frame cho dendrite, trước đây bake 1 lần rồi bỏ luôn tham chiếu.
-    // 2) `incomingSynapses` — danh sách CHIỀU NGƯỢC (ai có dây TỚI nơ-ron này), để
-    //    stepNeuronSpring() (synapse.js) kéo nhẹ 2 chiều giữa nơ-ron liền kề, không chỉ 1 chiều
-    //    theo `connectedSynapses` (dây RA) như trước.
+    // 2) `incomingSynapses` — danh sách CHIỀU NGƯỢC (ai có dây TỚI nơ-ron này). GIỮ LẠI dù đã bỏ
+    //    coupling đàn hồi dùng nó (stepNeuronSpring() đã xoá, synapse.js — "loại bỏ tính đàn hồi")
+    //    vì createPhysicalSynapticAxon() (bên dưới) đã đăng ký 2 chiều, để rỗng field mà vẫn có nơi
+    //    push() vào thì lại phải sửa 2 chỗ nếu sau này cần dùng lại — field không dùng runtime cũng
+    //    không tốn gì đáng kể.
+    // BỎ (yêu cầu Giang — "loại bỏ tính đàn hồi"): field `velocity` — chỉ tồn tại để
+    // stepNeuronSpring() (synapse.js, ĐÃ XOÁ) cộng dồn xung lực rồi tích vào `position`. Không còn
+    // vật lý lò xo nào đọc/ghi nó nữa.
     return {
-        id, position, restPosition, velocity: new THREE.Vector3(0, 0, 0),
+        id, position, restPosition,
         container: neuronGroup, somaMesh, nucleusMesh, glowSprite, dendriteMat, scale,
         dendriteEndpoints, dendriteTipCursor: 0, fillColorHex, glowColorHex,
         energy: 0.0, connectedSynapses: [], incomingSynapses: [], prevBinEnergy: 0, lastFiredFrame: -9999,
@@ -429,13 +440,25 @@ function buildMicroscopicFluidParticles() {
 
 // GIỮ NGUYÊN mesh spark + spawn theo MỌI connectedSynapses. ĐỔI: energyOverride (mặc định 2.2 y
 // hệt gốc cho trường hợp lan truyền tới; truyền riêng cho trường hợp bắn theo onset bin).
-function fireNeuronActionPotential(neuronIdx, impulseVector, energyOverride) {
+// SỬA (bug Giang phát hiện 17/09/2026 — "chạy liên tục nhưng quá liên tục, nhiều nhân gần như đồng
+// thời phát tín hiệu, toàn mạng đều phát -> lag"): TRƯỚC ĐÂY hàm này được gọi ở CẢ 2 nơi — (1) khi
+// 1 nơ-ron TỰ bắn do onset audio thật (_tickConnectorSynapse, có cooldown + ngưỡng), VÀ (2) khi 1
+// spark ĐÃ TỚI ĐÍCH (cuối stepActionPotential, KHÔNG qua cooldown/ngưỡng nào) — cả 2 trường hợp đều
+// unconditionally spawn spark MỚI tới TẤT CẢ `connectedSynapses` của nơ-ron đó. Trường hợp (2) biến
+// đây thành 1 CHAIN REACTION vô điều kiện: A bắn -> spark tới B -> B lại tự động bắn spark tới MỌI
+// nơ-ron B nối tới -> cứ thế lan tiếp không có gì chặn lại (không cooldown, không ngưỡng audio) —
+// qua vài nhịp là lan phủ gần hết mạng (đồ thị lưới liền kề, hầu như node nào cũng có đường tới),
+// đúng hiện tượng "toàn mạng đều phát tín hiệu" + lag (số spark sinh ra tăng nhanh mỗi khi 1 cụm
+// onset thật xảy ra). Tách riêng: hàm này giờ CHỈ dùng cho trường hợp (1) (bắn THẬT + lan tín hiệu
+// ra ngoài) — trường hợp (2) chuyển qua litNeuronFromSignalArrival() ngay dưới (chỉ sáng, không lan
+// tiếp). Bỏ luôn tham số `impulseVector` (không còn `neuron.velocity` để cộng vào — xem
+// stepNeuronSpring() ĐÃ XOÁ, synapse.js, "loại bỏ tính đàn hồi" theo yêu cầu Giang).
+function fireNeuronActionPotential(neuronIdx, energyOverride) {
     const neurons = appState.get('cnNeurons');
     const neuron = neurons[neuronIdx];
     if (!neuron) return;
     const sparkTexture = appState.get('cnSparkTexture');
 
-    neuron.velocity.add(impulseVector);
     neuron.energy = energyOverride != null ? energyOverride : 2.2;
 
     neuron.connectedSynapses.forEach((synapse) => {
@@ -447,6 +470,17 @@ function fireNeuronActionPotential(neuronIdx, impulseVector, energyOverride) {
         synapse.fromNeuron.container.add(sparkMesh); // ĐỔI: con của neuron NGUỒN — axonCurve giờ ở toạ độ cục bộ quanh nó (xem createPhysicalSynapticAxon), spark phải cùng hệ toạ độ mới bám đúng ống
         appState.mutate('cnActiveSignalsSynapse', (arr) => arr.push({ synapse, progress: 0.0, mesh: sparkMesh }), { skipCheck: true });
     });
+}
+
+// MỚI (yêu cầu Giang 17/09/2026 — chặn chain reaction, xem giải thích đầy đủ ở
+// fireNeuronActionPotential() ngay trên): gọi khi 1 spark ĐÃ TỚI ĐÍCH — chỉ bừng sáng (glow pulse
+// qua applyNeuronExcitement(), synapse.js) tại đúng nơ-ron đích, KHÔNG spawn thêm spark nào ra
+// connectedSynapses của nó — dừng lan truyền đúng 1 bước kể từ nơ-ron bắn onset thật.
+function litNeuronFromSignalArrival(neuronIdx, energyOverride) {
+    const neurons = appState.get('cnNeurons');
+    const neuron = neurons[neuronIdx];
+    if (!neuron) return;
+    neuron.energy = energyOverride != null ? energyOverride : 2.2;
 }
 
 // ===================== CIRCUIT — port từ "Mô Phỏng Tín Hiệu Điện Tử Lượng Tử 3D" =====================
@@ -773,6 +807,22 @@ function updateConnectorVisibility() {
     const cnScene = appState.get('cnScene');
     const cnCamera = appState.get('cnCamera');
     const cnControls = appState.get('cnControls');
+
+    // SỬA (bug Giang phát hiện 17/09/2026 — "synapse -> circuit -> camera di chuyển -> về synapse
+    // -> cam giữ nguyên chứ không reset, phải Next sang bài mới mới thấy về gốc"):
+    // triggerCinematicCameraShift() (phía trên) dùng gsap.to(camera.position/controls.target) chạy
+    // ĐỘC LẬP HẲN với vòng lặp render/tick — 1 lần bắn có thể mất tới 4.5s để hoàn tất, KHÔNG hề
+    // biết cũng không quan tâm style đã đổi. Nếu người dùng rời "circuit" ngay giữa lúc tween còn
+    // đang chạy: gsap TIẾP TỤC ghi đè camera.position/controls.target mỗi frame kế tiếp theo đúng
+    // quỹ đạo CŨ của circuit — override mất ngay việc set cứng vị trí synapse ngay bên dưới; tween
+    // chạy xong thì camera dừng lại VĨNH VIỄN ở điểm cuối quỹ đạo circuit đó (không còn ai set lại
+    // nữa cho tới lần đổi style kế tiếp — không liên quan gì tới việc Next bài, chỉ là trùng hợp về
+    // thời điểm tween tự chạy xong). Diệt MỌI tween đang treo trên 2 property này NGAY TẠI ĐÂY,
+    // TRƯỚC khi set giá trị style-specific bên dưới — chạy vô điều kiện (không chỉ khi vào synapse)
+    // vì tween cũ từ phiên circuit trước cũng có thể còn treo khi quay lại chính circuit lần nữa.
+    gsap.killTweensOf(cnCamera.position);
+    gsap.killTweensOf(cnControls.target);
+
     appState.get('cnGroupSynapse').visible = (style === 'synapse');
     appState.get('cnGroupCircuit').visible = (style === 'circuit');
 
