@@ -85,8 +85,9 @@ function createActionPotentialSparkTexture() {
  * XOÁ HẲN (yêu cầu Giang 17/09/2026 — "loại bỏ tính đàn hồi"): toàn bộ mục 2) ở trên (lò xo Hooke,
  * xung +Z, kẹp velocity/offset qua stepNeuronSpring()) không còn nữa — nơ-ron đứng CỐ ĐỊNH đúng
  * restPosition, không còn dao động Z. Giữ nguyên đoạn mô tả trên như NHẬT KÝ quyết định (đã từng
- * làm gì/vì sao), không xoá — tránh đọc nhầm tưởng lò xo còn tồn tại: xem decayNeuronExcitement()
- * (core/visualizer/groups/connector/synapse.js) — chỉ còn phần fade glow được giữ lại.
+ * làm gì/vì sao), không xoá — tránh đọc nhầm tưởng lò xo còn tồn tại: xem decayNeuronState()
+ * (core/visualizer/groups/connector/synapse.js, đổi tên từ decayNeuronExcitement() cùng đợt sửa
+ * 17/09/2026 khi thêm adaptation/lateralInhibition) — chỉ còn phần fade glow được giữ lại.
  */
 
 // PHẢI khớp NGUYÊN VĂN cnCamera.fov/position.z gán trong updateConnectorVisibility() (cuối file,
@@ -271,19 +272,23 @@ function createAnatomicalNeuron(id, position, dendriteCount, fillColorHex, glowC
     // MỚI (yêu cầu Giang 17/09/2026 — 2 việc):
     // 1) `dendriteMat` trả ra ngoài — applyNeuronExcitement() (synapse.js) cần đồng bộ màu SỐNG
     //    mỗi frame cho dendrite, trước đây bake 1 lần rồi bỏ luôn tham chiếu.
-    // 2) `incomingSynapses` — danh sách CHIỀU NGƯỢC (ai có dây TỚI nơ-ron này). GIỮ LẠI dù đã bỏ
-    //    coupling đàn hồi dùng nó (stepNeuronSpring() đã xoá, synapse.js — "loại bỏ tính đàn hồi")
-    //    vì createPhysicalSynapticAxon() (bên dưới) đã đăng ký 2 chiều, để rỗng field mà vẫn có nơi
-    //    push() vào thì lại phải sửa 2 chỗ nếu sau này cần dùng lại — field không dùng runtime cũng
-    //    không tốn gì đáng kể.
+    // 2) `incomingSynapses` — danh sách CHIỀU NGƯỢC (ai có dây TỚI nơ-ron này). Dùng lại hôm nay cho
+    //    lateral inhibition (applyLateralInhibition(), synapse.js) — khi 1 nơ-ron bắn, cả nơ-ron nó
+    //    NỐI TỚI lẫn nơ-ron NỐI TỚI nó đều bị coi là "lân cận trực tiếp", cần biết cả 2 chiều.
     // BỎ (yêu cầu Giang — "loại bỏ tính đàn hồi"): field `velocity` — chỉ tồn tại để
     // stepNeuronSpring() (synapse.js, ĐÃ XOÁ) cộng dồn xung lực rồi tích vào `position`. Không còn
     // vật lý lò xo nào đọc/ghi nó nữa.
+    // ĐỔI (yêu cầu Giang 17/09/2026 — "cải thiện mapping audio giống dẫn truyền tín hiệu thần
+    // kinh"): `lastFiredFrame` (cooldown nhị phân theo frameCounter) THAY bằng 3 trạng thái mới —
+    // `adaptation` (tự thích nghi sau khi CHÍNH nơ-ron này bắn), `lateralInhibition` (bị hàng xóm đè
+    // sau khi HỌ bắn), `smoothedBinEnergy` (bộ nhớ đệm cho applyTonotopicSmoothing() — mô phỏng
+    // rate coding ở dải tần cao) — cả 3 đều ở synapse.js, xem giải thích đầy đủ ở đó.
     return {
         id, position, restPosition,
         container: neuronGroup, somaMesh, nucleusMesh, glowSprite, dendriteMat, scale,
         dendriteEndpoints, dendriteTipCursor: 0, fillColorHex, glowColorHex,
-        energy: 0.0, connectedSynapses: [], incomingSynapses: [], prevBinEnergy: 0, lastFiredFrame: -9999,
+        energy: 0.0, connectedSynapses: [], incomingSynapses: [], prevBinEnergy: 0,
+        adaptation: 0, lateralInhibition: 0, smoothedBinEnergy: 0,
     };
 }
 
@@ -453,13 +458,18 @@ function buildMicroscopicFluidParticles() {
 // ra ngoài) — trường hợp (2) chuyển qua litNeuronFromSignalArrival() ngay dưới (chỉ sáng, không lan
 // tiếp). Bỏ luôn tham số `impulseVector` (không còn `neuron.velocity` để cộng vào — xem
 // stepNeuronSpring() ĐÃ XOÁ, synapse.js, "loại bỏ tính đàn hồi" theo yêu cầu Giang).
-function fireNeuronActionPotential(neuronIdx, energyOverride) {
+// THÊM (yêu cầu Giang 17/09/2026 — tốc độ truyền tín hiệu nên theo độ mạnh của chính onset): tham
+// số `speedMult` (từ computeSignalSpeedMult(diff), synapse.js) lưu thẳng vào từng signal spawn ra —
+// _tickConnectorSynapse() (visualizer-render.js) nhân nó với tốc độ NỀN chung khi gọi
+// stepActionPotential(). Mặc định 1 (không đổi tốc độ) nếu gọi thiếu tham số.
+function fireNeuronActionPotential(neuronIdx, energyOverride, speedMult) {
     const neurons = appState.get('cnNeurons');
     const neuron = neurons[neuronIdx];
     if (!neuron) return;
     const sparkTexture = appState.get('cnSparkTexture');
 
     neuron.energy = energyOverride != null ? energyOverride : 2.2;
+    const signalSpeedMult = speedMult != null ? speedMult : 1;
 
     neuron.connectedSynapses.forEach((synapse) => {
         // MỚI (16/09/2026): spark theo scale của neuron NGUỒN — đồng bộ kích thước với nhân/dây đã scale.
@@ -468,7 +478,7 @@ function fireNeuronActionPotential(neuronIdx, energyOverride) {
         sparkGlow.scale.setScalar(8.5 * neuron.scale);
         sparkMesh.add(sparkGlow);
         synapse.fromNeuron.container.add(sparkMesh); // ĐỔI: con của neuron NGUỒN — axonCurve giờ ở toạ độ cục bộ quanh nó (xem createPhysicalSynapticAxon), spark phải cùng hệ toạ độ mới bám đúng ống
-        appState.mutate('cnActiveSignalsSynapse', (arr) => arr.push({ synapse, progress: 0.0, mesh: sparkMesh }), { skipCheck: true });
+        appState.mutate('cnActiveSignalsSynapse', (arr) => arr.push({ synapse, progress: 0.0, mesh: sparkMesh, speedMult: signalSpeedMult }), { skipCheck: true });
     });
 }
 
@@ -788,7 +798,10 @@ function resetConnectorPerTrackState() {
     if (!appState.get('cnInitialized')) return;
 
     const neurons = appState.get('cnNeurons');
-    neurons.forEach((n) => { n.prevBinEnergy = 0; n.lastFiredFrame = -9999; n.energy = 0; });
+    // ĐỔI (yêu cầu Giang 17/09/2026 — thay cooldown/lastFiredFrame bằng adaptation/lateralInhibition/
+    // smoothedBinEnergy, xem synapse.js): reset đủ cả 3 trạng thái tạm thời mới cho sạch mỗi khi đổi
+    // bài, cùng tinh thần reset prevBinEnergy/energy cũ.
+    neurons.forEach((n) => { n.prevBinEnergy = 0; n.energy = 0; n.adaptation = 0; n.lateralInhibition = 0; n.smoothedBinEnergy = 0; });
     appState.get('cnActiveSignalsSynapse').forEach((s) => {
         s.synapse.fromNeuron.container.remove(s.mesh);
         s.mesh.geometry.dispose(); s.mesh.material.dispose();
