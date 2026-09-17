@@ -32,7 +32,10 @@ function renderKaraokeDrawerBody(words) {
     }
     return `
         <div class="px-4 pt-3 pb-4 flex flex-col gap-3">
-            <div id="karaoke-mini-waveform" class="w-full h-20 rounded-xl overflow-hidden" data-uitk="cardBg cardBorder"></div>
+            <div class="relative w-full" style="height:80px">
+                <div id="karaoke-mini-waveform" class="absolute inset-0 rounded-xl overflow-hidden" data-uitk="cardBg cardBorder"></div>
+                <div id="karaoke-mini-waveform-error" class="hidden absolute inset-0 rounded-xl flex items-center justify-center text-center text-xs px-3" data-uitk="cardBg cardBorder textSecondary">${t('subtitleEditor.karaoke.waveformError')}</div>
+            </div>
             <div class="flex flex-col gap-1.5">
                 ${words.map((w, i) => renderKaraokeWordRow(w.word, w.ms, i)).join('')}
             </div>
