@@ -518,6 +518,7 @@ const workflowSubtitleEditor = {
             appState.set('_subtitles', sortSubtitlesByStart([...appState.get('_subtitles'), newSub])); // core
             this._resetAutoTiming();
             this._renderLines();
+            this._scrollLineIntoView(newSub.id); // SỬA (17/09/2026) — thiếu dòng này, khác addNewLine()/createLineFromSelection() (đều có gọi)
         }
     },
 
