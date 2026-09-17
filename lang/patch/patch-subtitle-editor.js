@@ -30,6 +30,8 @@ const LANG_PATCH_SUBTITLE_EDITOR = {
     'subtitleEditor.karaoke.title': 'Karaoke timing',
     'subtitleEditor.karaoke.apply': 'Apply',
     'subtitleEditor.karaoke.noWords': 'This line has no text yet — add words before timing karaoke.',
+    // MỚI (17/09/2026, sửa lỗi waveform mini không hiện gì — báo lỗi RÕ thay vì im lặng console.error).
+    'subtitleEditor.karaoke.waveformError': 'Unable to load the mini waveform. You can still adjust timing using the ms fields above.',
     'subtitleEditor.listEmpty': 'No subtitles yet. Use the tools below to add some.',
     'subtitleEditor.btnUpload.title': 'Upload .srt',
     'subtitleEditor.btnAutoTiming.title': 'Auto timing',
