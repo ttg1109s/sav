@@ -110,9 +110,11 @@
                 connectorStyle: 'synapse',
                 glowEnabled: true, glowIntensity: 100,
                 neuronCount: 32, fireThreshold: 0.55, // SỬA 16/09/2026: mặc định 30->32, xem custom-effect.js (slider max 48->64)
-                springStiffnessBase: 0.22, springStiffnessEnergyMult: 0.1,
-                dampingBase: 0.80, dampingEnergyMult: 0.05,
-                rotateSpeedBase: 0.3, rotateSpeedEnergyMult: 0.4,
+                // XOÁ (yêu cầu Giang 17/09/2026 — "loại bỏ tính đàn hồi", "cơ cấu lại custom
+                // effect"): springStiffnessBase/EnergyMult, dampingBase/EnergyMult (stepNeuronSpring()
+                // đã xoá, synapse.js), rotateSpeedBase/EnergyMult (camera/lưới hết tự xoay từ
+                // 16/09/2026) — cả 6 default đều mồ côi, bỏ theo field/UI đã gỡ ở core/custom-effect.js.
+                lateralInhibitStrength: 70, // MỚI — mức đè ngưỡng lân cận khi 1 nơ-ron bắn, xem core/custom-effect.js
                 synapseSpeedBase: 85, synapseSpeedEnergyMult: 60,
                 nodeCount: 55, signalsPerBeat: 2, maxConcurrentSignals: 60, trailLength: 20,
                 circuitSpeedBase: 80, circuitSpeedEnergyMult: 60,

@@ -164,12 +164,12 @@ const CUSTOM_EFFECT_FIELDS = {
         // để 32 (mặc định mới) và 64 (max mới) đều rơi đúng mốc slider.
         { id: 'neuronCount', labelKey: 'customEffectDrawer.field.neuronCount', type: 'slider', min: 16, max: 64, step: 4, showIf: (cfg) => cfg.connectorStyle === 'synapse', refresh: 'initThreeJSConnector' },
         { id: 'fireThreshold', labelKey: 'customEffectDrawer.field.fireThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
-        { id: 'springStiffnessBase', labelKey: 'customEffectDrawer.field.springStiffnessBase', type: 'sliderFloat', min: 0.05, max: 0.4, step: 0.01, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
-        { id: 'springStiffnessEnergyMult', labelKey: 'customEffectDrawer.field.springStiffnessEnergyMult', type: 'sliderFloat', min: -0.3, max: 0.3, step: 0.01, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
-        { id: 'dampingBase', labelKey: 'customEffectDrawer.field.dampingBase', type: 'sliderFloat', min: 0.3, max: 0.95, step: 0.01, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
-        { id: 'dampingEnergyMult', labelKey: 'customEffectDrawer.field.dampingEnergyMult', type: 'sliderFloat', min: -0.3, max: 0.3, step: 0.01, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
-        { id: 'rotateSpeedBase', labelKey: 'customEffectDrawer.field.rotateSpeedBase', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
-        { id: 'rotateSpeedEnergyMult', labelKey: 'customEffectDrawer.field.rotateSpeedEnergyMult', type: 'sliderFloat', min: 0, max: 2, step: 0.05, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
+        // MỚI (yêu cầu Giang 17/09/2026 — "lateral inhibition", xem applyLateralInhibition(),
+        // core/visualizer/groups/connector/synapse.js): mức ngưỡng bắn bị ĐÈ LÊN (đơn vị byte,
+        // 0-255) ở các nơ-ron LÂN CẬN mỗi khi 1 nơ-ron vừa bắn — 0 = tắt hẳn (mọi nơ-ron độc lập
+        // hoàn toàn), càng cao càng "tương phản"/thưa (tránh cả cụm cùng sáng loạt khi có 1 tiếng
+        // động broadband).
+        { id: 'lateralInhibitStrength', labelKey: 'customEffectDrawer.field.lateralInhibitStrength', type: 'slider', min: 0, max: 150, step: 10, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
         { id: 'synapseSpeedBase', labelKey: 'customEffectDrawer.field.synapseSpeedBase', type: 'slider', min: 20, max: 200, step: 5, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
         { id: 'synapseSpeedEnergyMult', labelKey: 'customEffectDrawer.field.synapseSpeedEnergyMult', type: 'slider', min: 0, max: 150, step: 5, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
         { id: 'nodeCount', labelKey: 'customEffectDrawer.field.nodeCount', type: 'slider', min: 20, max: 80, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit', refresh: 'initThreeJSConnector' },
