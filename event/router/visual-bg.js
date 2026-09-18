@@ -1,6 +1,6 @@
 /**
  * event/router/visual-bg.js — Router "visualBg". Mọi case ≥2 bước phụ thuộc thứ tự -> giao hết cho
- * `workflowVisualBg`/`workflowMotionEngine`, không case nào gọi thẳng Core.
+ * `workflowVisualBg`/`workflowVisualBgPhotoMotion`, không case nào gọi thẳng Core.
  * NGOẠI LỆ: 'visualBg.pickVideo.click'/'visualBg.pickPhoto.click'/'visualBg.songChanged'
  * — rẽ theo `type`/`listPlaybackMode` qua VirtualMachineState (rẽ nhánh theo state đi qua đây,
  * không viết switch/if tay trong case).
@@ -176,9 +176,9 @@ const routerVisualBg = (() => {
             // SỬA (29/08/2026, phản hồi Giang — "Motion cung cấp cơ chế, VBG quyết định khi nào") —
             // KHÔNG còn rẽ theo `type` nữa — `workflowVisualBg.advanceForSongChange()` giờ tự xử lý
             // CẢ 2 nhánh bên trong (video/ảnh DÙNG CHUNG check pending + guard `perSong`, chỉ khác
-            // hàm advance cụ thể được gọi) — `workflowMotionEngine.advanceForSongChange()` đã BỎ HẲN
+            // hàm advance cụ thể được gọi) — `workflowVisualBgPhotoMotion.advanceForSongChange()` đã BỎ HẲN
             // (Motion Engine không còn biết `source.list`/`nextOrder`/Song đổi bài gì cả, chỉ còn
-            // render THUẦN — xem event/workflow/motion-engine.js).
+            // render THUẦN — xem event/workflow/visual-bg-photo-motion.js).
             case 'visualBg.songChanged':
                 workflowVisualBg.advanceForSongChange();
                 break;
