@@ -10,12 +10,14 @@
  * Mốc z-index -1 đã CHỪA SẴN ở style.css (giữa #visual-bg-image -2 và #bg-video 0, xem comment ở
  * đó) — thực thi THẬT tại đây.
  *
- * DOM (index.html): #visual-motion-react (`.me-beat-react`, bao NGOÀI, xem đoạn dưới) >
- * #visual-motion-container > #visual-motion-players (`.me-pointmove-players`) >
- * (#visual-motion-layer-1 + -layer-2, "player" A/B) — mỗi layer lại bọc 1 layer CON
- * (#visual-motion-layer-N-pan, class `.me-pointmove-pan`). JS điều khiển ở core/motion-engine.js
- * (hàm thuần, đổi class/style) + event/workflow/motion-engine.js (orchestration — chọn ảnh kế
- * tiếp, quản lý task lặp).
+ * DOM (index.html): #visual-motion-react (`.me-beat-react`, bao NGOÀI, xem đoạn dưới, GIỮ NGUYÊN
+ * tên — dùng CHUNG với Video Player mode) > #visual-bg-photo-motion-container >
+ * #visual-bg-photo-motion-players (`.me-pointmove-players`) >
+ * (#visual-bg-photo-motion-layer-1 + -layer-2, "player" A/B) — mỗi layer lại bọc 1 layer CON
+ * (#visual-bg-photo-motion-layer-N-pan, class `.me-pointmove-pan`). JS điều khiển ở core/motion-
+ * engine.js (hàm thuần, đổi class/style, DÙNG CHUNG) + event/workflow/visual-bg-photo-motion.js
+ * (orchestration, CHỈ VBG-Photo — ĐỔI TÊN 17/09/2026 từ event/workflow/motion-engine.js, VBG-Video
+ * KHÔNG dùng cơ chế này — chọn ảnh kế tiếp, quản lý task lặp).
  *
  * SỬA (phản hồi Giang — "point move phải là 1 div cha bao quanh layer A, B chứ không phải chỉ 1
  * layer A hoặc B, tránh việc move A rồi lộ B") — Point Move transform (translate/rotate/scale/
@@ -30,7 +32,7 @@
  *     không còn ý nghĩa "clip lúc Point Move scale to hơn khung" như trước — Point Move không còn
  *     chạy ở tầng này nữa).
  *   - `.me-pointmove-pan` (CON, TRONG CÙNG) — CHỈ còn mang `background-image`
- *     (setMotionEngineLayerImage(), xem event/workflow/motion-engine.js) — KHÔNG còn animation gì
+ *     (setMotionEngineLayerImage(), xem event/workflow/visual-bg-photo-motion.js) — KHÔNG còn animation gì
  *     của riêng nó nữa.
  * 3 tầng animation-name độc lập hoàn toàn (Point Move ở tầng NGOÀI CÙNG, Transition ở tầng GIỮA) —
  * dùng ĐƯỢC cùng lúc với BẤT KỲ kiểu Transition nào (xem MOTION_ENGINE_TRANSITION_TYPES,
@@ -38,7 +40,7 @@
  * đầu (đã lỗi thời — giữ nguyên cấu trúc 3 tầng vì lý do MỚI: cô lập rõ ràng theo TRÁCH NHIỆM).
  */
 
-#visual-motion-container {
+#visual-bg-photo-motion-container {
     position: absolute; inset: 0;
     overflow: hidden;
 }
@@ -46,7 +48,7 @@
 /* NHẬN transform Point Move DUY NHẤT cho CẢ 2 layer A/B (xem docstring đầu file) — `inset: -2px`
    (thay vì 0) che viền subpixel có thể lộ ra lúc scale/pan animation chạy gần biên (dời từ
    `.me-pointmove-pan` — nơi ĐÓ không còn nhận transform nữa, không cần overscan riêng ở đó). Vẫn
-   giữ `overflow:hidden` NGAY SÁT 2 layer (khác `#visual-motion-container` — clip TỪ XA hơn 1 cấp
+   giữ `overflow:hidden` NGAY SÁT 2 layer (khác `#visual-bg-photo-motion-container` — clip TỪ XA hơn 1 cấp
    qua `.me-beat-react`, nơi tự có transform riêng của React Beat Audio cộng dồn vào) — chặn triệt
    để mọi rò rỉ nội dung ra ngoài khung dù Point Move kết hợp với transform các lớp cha bên ngoài.
    `perspective` LẶP LẠI ở đây (không chỉ ở container) — giữ đúng hiệu ứng 3D cho
@@ -77,7 +79,7 @@
    `#bg-video{z-index:0}`/`#visual-bg-image{z-index:-2}` (assets/css/base.css) khi 2 phần tử đó
    ĐANG mượn làm layer A/B của Video Player mode (core/player-display-apply.js
    ::attachVideoPlayerMotionToSharedReactLayer() gán `.motion-layer` lên THẲNG 2 ID này, KHÔNG như
-   VBG dùng `#visual-motion-layer-1`/`-2` — 2 ID KHÔNG có rule z-index riêng nào, nên bộ rule class ở
+   VBG dùng `#visual-bg-photo-motion-layer-1`/`-2` — 2 ID KHÔNG có rule z-index riêng nào, nên bộ rule class ở
    trên áp được bình thường cho VBG) — selector ID (specificity 1-0-0) LUÔN thắng selector class dù
    gộp bao nhiêu class (`.motion-layer.me-current` chỉ 0-2-0), bất kể thứ tự khai báo trước/sau.
    Hệ quả: z-index của `#bg-video`/`#visual-bg-image` kẹt CỨNG ở giá trị base.css (0/-2) suốt
@@ -116,14 +118,16 @@
 .me-transition-scope[data-transition="flipEdge"][data-direction="down"][data-flip-variant="open"] #visual-bg-image.me-layer-exit { z-index: 4; }
 
 /* Layer NGOÀI CÙNG (MỚI, "React Beat Audio" 29/08/2026; VIẾT LẠI 30/08/2026, phản hồi Giang mục 3 —
-   chuyển ra bao TRỌN #visual-motion-container, tức CẢ 2 player A/B, THAY vì 1 layer riêng lồng bên
+   chuyển ra bao TRỌN #visual-bg-photo-motion-container, tức CẢ 2 player A/B, THAY vì 1 layer riêng lồng bên
    trong từng player như bản trước) — nhận trọn mốc z-index -1 (CHỪA SẴN ở style.css, giữa
-   #visual-bg-image và #bg-video) + `pointer-events: none` (dời từ #visual-motion-container lên đây,
+   #visual-bg-image và #bg-video) + `pointer-events: none` (dời từ #visual-bg-photo-motion-container lên đây,
    giờ đây mới là phần tử NGOÀI CÙNG thật sự). transform mặc định identity (vô hình) khi tính năng
    tắt, KHÔNG đổi layout gì cả. VIẾT LẠI (30/08/2026, phản hồi Giang mục 1 — bỏ cơ chế đếm beat) —
    không còn animate() theo pulse rời rạc, giờ set `style.transform` TRỰC TIẾP mỗi frame, nội suy
    LIÊN TỤC theo `beatScale` (CÙNG tín hiệu các hiệu ứng "beatscale" khác trong app) — xem
-   event/workflow/motion-engine.js::_tickBeatReact().
+   event/workflow/visual-bg-photo-motion.js::_tickBeatReact() (đổi tên 17/09/2026 từ event/
+   workflow/motion-engine.js — element `#visual-motion-react` NÀY GIỮ NGUYÊN tên, dùng chung
+   với Video Player mode).
    SỬA (30/08/2026, phản hồi Giang báo bug — "đang 100% bị hard move tới react beat luôn dù chưa vào
    bài nhạc, phải luôn hồi về 100 bất kể beat nhạc lúc đó") — `_tickBeatReact()` gán `style.transform`
    THẲNG mỗi frame KHÔNG hề có easing gì ở tầng JS (đúng ý đồ "liên tục theo audio, không pulse"), nên
@@ -140,7 +144,7 @@
 }
 
 /* Layer CON TRONG CÙNG — CHỈ còn mang background-image THẬT (setMotionEngineLayerImage(), xem
-   event/workflow/motion-engine.js) — KHÔNG còn animation/transform gì của riêng nó (Point Move đã
+   event/workflow/visual-bg-photo-motion.js) — KHÔNG còn animation/transform gì của riêng nó (Point Move đã
    dời lên `.me-pointmove-players`, xem docstring đầu file) — `inset: 0` đơn giản, KHÔNG cần overscan
    riêng ở tầng này nữa (overscan giờ nằm ở `.me-pointmove-players`, nơi THẬT SỰ nhận transform). */
 .me-pointmove-pan {
@@ -150,15 +154,15 @@
 
 /* SỬA (Giang chỉ ra: "Motion cung cấp cơ chế THUẦN — cái tua vít — không quan tâm ai dùng/gắn ở đâu,
    nơi tiêu thụ tự quyết") — TOÀN BỘ 89 selector animation-name dưới đây ĐỔI khoá từ ID CỤ THỂ
-   `#visual-motion-container[data-transition=...]` sang CLASS DÙNG CHUNG `.me-transition-scope[data-
+   `#visual-bg-photo-motion-container[data-transition=...]` sang CLASS DÙNG CHUNG `.me-transition-scope[data-
    transition=...]` — trước đây hiệu ứng CSS chỉ chạy được nếu 2 layer `.motion-layer` nằm ĐÚNG bên
-   trong `#visual-motion-container` (ID riêng của VBG) — nơi tiêu thụ KHÁC (vd Video Player mode,
+   trong `#visual-bg-photo-motion-container` (ID riêng của VBG-Photo) — nơi tiêu thụ KHÁC (vd Video Player mode,
    dùng `motionEngineReactLayer` làm cha chung cho layer A/B của mình, KHÔNG phải
-   `#visual-motion-container`) sẽ KHÔNG chạy được animation nào cả dù đã gắn đúng class/data-attribute
+   `#visual-bg-photo-motion-container`) sẽ KHÔNG chạy được animation nào cả dù đã gắn đúng class/data-attribute
    khác. Giờ BẤT KỲ container nào mang class `.me-transition-scope` + set đúng `data-transition`/
    hướng (qua setMotionEngineTransitionType()/setMotionEngineTransitionDirections(), core/
    motion-engine.js — nhận containerEl qua tham số, không đổi gì) đều kích hoạt được CÙNG bộ hiệu ứng
-   — `#visual-motion-container` (index.html) đã thêm class này; Video Player mode gắn thêm lên
+   — `#visual-bg-photo-motion-container` (index.html) đã thêm class này; Video Player mode gắn thêm lên
    `motionEngineReactLayer` (index.html) để dùng CHUNG animation-name, KHÔNG cần duplicate keyframe
    nào. Runner (event/workflow/motion-transition-runner.js) không đụng gì việc này — nó chỉ set
    `containerEl.dataset.transition` qua tham số, KHÔNG biết/không cần biết class CSS nào đang chờ

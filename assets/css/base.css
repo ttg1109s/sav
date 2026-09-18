@@ -33,7 +33,7 @@ body { min-height: 100dvh; background: #000; }
    Video (event/workflow/player-display-settings.js, qua Runner DÙNG CHUNG event/workflow/motion-
    beat-react-runner.js) — rồi CHUYỂN VỀ ĐÚNG vị trí "nhà" lúc THOÁT mode (xem core/player-display-
    apply.js::attachVideoPlayerMotionToSharedReactLayer()/detachVideoPlayerMotionFromSharedReactLayer()).
-   Motion Engine (`workflowMotionEngine`) HOÀN TOÀN không biết/không cần biết việc di chuyển này —
+   Motion Engine VBG-Photo (`workflowVisualBgPhotoMotion`) HOÀN TOÀN không biết/không cần biết việc di chuyển này —
    Runner của nó chỉ hỏi `() => motionEngineReactLayer`, LUÔN đúng 1 element cố định bất kể ai đang
    nằm bên trong (đúng nguyên tắc "Motion không quan tâm lớp cha ở đâu, nơi tiêu thụ tự quyết").
 
