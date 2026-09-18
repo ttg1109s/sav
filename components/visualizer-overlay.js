@@ -142,6 +142,7 @@ ${TPL_GAMEPLAY_OVERLAY}
                  slider liên tục. Cấu trúc: core/hud.js (auto-hide dùng chung) + event/workflow/hud.js. -->
             <div id="visualizer-speed-hud" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-[47] glass-control-center rounded-full shadow-2xl pointer-events-auto flex items-center gap-1 px-2 py-2">
                 <button type="button" data-speed-option="0.5" class="speed-hud-option px-3 py-1.5 rounded-full text-sm font-medium text-white/70 transition-colors">0.5x</button>
+                <button type="button" data-speed-option="0.7" class="speed-hud-option px-3 py-1.5 rounded-full text-sm font-medium text-white/70 transition-colors">0.7x</button>
                 <button type="button" data-speed-option="1" class="speed-hud-option px-3 py-1.5 rounded-full text-sm font-medium text-white/70 transition-colors">1x</button>
                 <button type="button" data-speed-option="1.2" class="speed-hud-option px-3 py-1.5 rounded-full text-sm font-medium text-white/70 transition-colors">1.2x</button>
                 <button type="button" data-speed-option="1.5" class="speed-hud-option px-3 py-1.5 rounded-full text-sm font-medium text-white/70 transition-colors">1.5x</button>
