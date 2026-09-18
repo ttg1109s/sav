@@ -205,6 +205,7 @@ Object.assign(workflowVisualBg, {
      * cũ còn đúng. */
     _applyVideoPlaybackSpeedSetting() {
         bgVideoElement.playbackRate = appConfigVisualBg.getAll().videoSyncPlaybackSpeed ? appConfigViz.getAll().playbackSpeed : 1;
+        bgVideoElement.preservesPitch = true; bgVideoElement.mozPreservesPitch = true; bgVideoElement.webkitPreservesPitch = true; // core/player-controls.js::applyPlaybackSpeedToActiveMedia() — cùng lý do
     },
 
     _applyVideoAudioSettingToElement(videoKey) {

@@ -28,12 +28,12 @@
  * `appState.visualBgImageObjectUrl` (bookkeeping RIÊNG của VBG, `clearMediaLayers()` tự lo revoke
  * đúng cái CỦA NÓ, không đụng gì tới object URL của Photo Player mode).
  *
- * "Hết ảnh" là 1 `taskManager.once()` ĐÚNG bằng thời lượng/thời lượng còn lại (KHÔNG còn tick định
- * kỳ — seek bar đã ẩn hẳn lúc Photo Player mode, core/photo-player.js::enterPhotoPlayerModeState())
- * — pause/resume (`togglePlayPausePhoto()`) tự kill/đặt lại đúng phần còn lại. Bất kỳ đường nào
- * khác đổi `currentTime` qua `photoPlayerFakeMediaElement` (core/photo-player.js — Rule 3 cấm Core
- * dùng taskManager nên KHÔNG tự đặt lại được) đều PHẢI gọi `rescheduleEndedTimer()`/`stopEndedTimer()`
- * NGAY SAU đó — xem 2 lời gọi ở event/workflow/player-controls.js::goToNextTrack()/goToPrevTrack().
+ * "Hết ảnh" phát hiện qua 1 `taskManager` LẶP LẠI mỗi giây (KHÔNG còn 200ms — seek bar đã ẩn hẳn lúc
+ * Photo Player mode, core/photo-player.js::enterPhotoPlayerModeState(), chỉ còn nhãn giờ
+ * current/duration cần cập nhật, 1 lần/giây đã đủ mượt cho mắt người) — mỗi tick tự đọc lại
+ * `photoPlayerPaused`/elapsed MỚI NHẤT nên tự "chữa lành" trước MỌI cách đổi `currentTime` (repeat-
+ * single restart, Prev "quá 3s về đầu", pause/resume) mà KHÔNG cần bất kỳ ai gọi lại/đặt lại gì cả —
+ * xem `_photoPlayerTick()`.
  *
  * KHÔNG bắn `'gameplay.mediaChanged'` (khác Song/Video) — Game Mode "Circle" spawn theo beat/pitch/
  * energy PHÂN TÍCH TỪ AUDIO THẬT (core/audio-analysis.js) — ảnh im lặng hoàn toàn nên không có tín
@@ -51,7 +51,8 @@
  * chữ hiển thị, logic/field (`totalTime`, `formatListenTime()`) giữ NGUYÊN — xem core/playlist/
  * actions.js.
  */
-const PHOTO_PLAYER_ENDED_TASK = 'photoPlayerEnded';
+const PHOTO_PLAYER_TICK_TASK = 'photoPlayerTick';
+const PHOTO_PLAYER_TICK_INTERVAL_MS = 1000; // 1 lần/giây — seek bar đã ẩn, chỉ còn nhãn giờ cần cập nhật
 
 const workflowPhotoPlayer = {
 
@@ -130,7 +131,7 @@ const workflowPhotoPlayer = {
      * trước khi áp lại nên KHÔNG cần tự tay ẩn gì thêm ở đây. Đổi hẳn sang `async` (hàm đó `async`).
      */
     async exitPhotoPlayerMode() {
-        taskManager.kill(PHOTO_PLAYER_ENDED_TASK);
+        taskManager.kill(PHOTO_PLAYER_TICK_TASK);
         if (typeof workflowVisualBg !== 'undefined') await workflowVisualBg.applyCurrentVisualBg(); // event/workflow/visual-bg.js — liên tuyến domain, tự clearMediaLayers() rồi áp lại ĐÚNG cấu hình
         // MỚI (Giang yêu cầu "Resolution cho player video&photo, không liên quan VBG") — gỡ override
         // NGAY lúc thoát mode — BẮT BUỘC, để #visual-bg-image trả về CSS mặc định (background-size:
@@ -189,6 +190,7 @@ const workflowPhotoPlayer = {
         // LẦN 1 ảnh mới hiện (vào mode lần đầu HOẶC Next/Prev) — `trueMax` phụ thuộc kích thước GỐC
         // của TỪNG ảnh (`record.width`/`.height`), KHÔNG thể áp 1 lần như Video.
         if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.applyPhotoPlayerResolutionForRecord(record); // event/workflow/player-display-settings.js
+        updatePhotoPlayerTimeLabels(0, durationSec); // core/photo-player.js — nhãn giờ ban đầu, seek bar không đụng tới (ẩn hẳn)
         updatePhotoPlayerPlayPauseIcon(true); // core/photo-player.js
 
         requestWakeLock(); startListenClock(); // core/player-controls.js — SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — Photo giờ đếm totalTime CÙNG cơ chế Video (mediaStatsMap key-agnostic đã sẵn key-agnostic từ trước, chỉ thiếu lời gọi bật đồng hồ); label hiển thị đổi thành "Watch time" (chỉ khác chữ hiển thị, xem core/playlist/actions.js), logic đếm giữ NGUYÊN
@@ -199,18 +201,18 @@ const workflowPhotoPlayer = {
 
         if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated(); // core/player-controls.js / core/playlist/render.js
 
-        // Hẹn giờ "hết ảnh" — ĐÚNG 1 LẦN, đúng thời lượng ảnh (KHÔNG còn tick định kỳ — seek bar đã
-        // ẩn hẳn, không còn gì cần cập nhật liên tục, xem docstring đầu file). Kill task CŨ (nếu lỡ
-        // còn sót từ ảnh trước) rồi đặt lại MỖI LẦN đổi ảnh.
-        taskManager.kill(PHOTO_PLAYER_ENDED_TASK);
-        taskManager.once(() => this._handlePhotoEnded(), durationSec * 1000, PHOTO_PLAYER_ENDED_TASK);
+        // Vòng lặp đồng hồ — kill task CŨ (nếu lỡ còn sót từ ảnh trước) rồi addNew() lại MỖI LẦN đổi
+        // ảnh (KHÔNG dùng taskManager.resume() — mỗi ảnh là 1 "phiên" đếm MỚI, cùng lý do
+        // startListenClock() làm vậy, xem core/player-controls.js).
+        taskManager.kill(PHOTO_PLAYER_TICK_TASK);
+        taskManager.addNew(PHOTO_PLAYER_TICK_TASK, { time: PHOTO_PLAYER_TICK_INTERVAL_MS, exe: () => this._photoPlayerTick(), mode: 'timeout', count: 0 });
+        taskManager.operator(PHOTO_PLAYER_TICK_TASK, 'enabled');
     },
 
     /** Toggle Play/Pause — ứng với `mode==='photo'` trong VirtualMachineState của case
-     * 'playerControls.playPause.click' (event/router/player-controls.js). Đổi cờ `photoPlayerPaused`
-     * + icon, VÀ kill/đặt lại task "hết ảnh" theo đúng thời lượng CÒN LẠI (KHÔNG có tick định kỳ
-     * nào để tự bỏ qua lúc pause như bản cũ — 1 timer duy nhất BẮT BUỘC phải dừng tay lúc pause,
-     * nếu không sẽ bắn "hết ảnh" ngay cả khi đang đứng yên). */
+     * 'playerControls.playPause.click' (event/router/player-controls.js). CHỈ đổi cờ
+     * `photoPlayerPaused` + icon — vòng lặp taskManager tự nhận lại ở tick kế tiếp (KHÔNG
+     * start/stop task ở đây, xem docstring đầu file). */
     togglePlayPausePhoto() {
         const nowPaused = !appState.get('photoPlayerPaused');
         if (nowPaused) {
@@ -222,49 +224,33 @@ const workflowPhotoPlayer = {
             const frozenElapsed = computePhotoPlayerElapsedSec(photoPlayerElapsedBeforePauseSec, photoPlayerStartedAtMs, photoPlayerPaused, performance.now()); // core/photo-player.js
             appState.set('photoPlayerElapsedBeforePauseSec', frozenElapsed, { skipCheck: true });
             stopListenClock(); // core/player-controls.js — MỚI (Giang yêu cầu "thêm thời gian listen cho photo") — dừng đếm totalTime lúc pause, không tính giờ đứng yên là "đã xem"
-            taskManager.kill(PHOTO_PLAYER_ENDED_TASK); // BẮT BUỘC — không thì "hết ảnh" vẫn bắn đúng hẹn giờ CŨ dù đang pause
         } else {
             appState.set('photoPlayerStartedAtMs', performance.now(), { skipCheck: true });
             startListenClock(); // core/player-controls.js — MỚI — tiếp tục đếm totalTime lúc resume
-            const remainingMs = Math.max(0, (appState.get('photoPlayerDurationSec') - appState.get('photoPlayerElapsedBeforePauseSec')) * 1000);
-            taskManager.once(() => this._handlePhotoEnded(), remainingMs, PHOTO_PLAYER_ENDED_TASK);
         }
         appState.set('photoPlayerPaused', nowPaused, { skipCheck: true });
         updatePhotoPlayerPlayPauseIcon(!nowPaused); // core/photo-player.js
     },
 
-    /** Hết thời lượng hiển thị ảnh — bắn message CHUNG với audio/video (event/router/
-     * player-controls.js, case 'playerControls.audio.ended'/'video.ended'/'photo.ended') để tự
-     * branch ĐÚNG theo gameplayPhase (idle -> auto next, khác idle -> hiện màn kết quả Game Mode),
-     * KHÔNG viết logic riêng ở đây. Gọi bởi 1 taskManager.once() ĐÚNG bằng thời lượng còn lại (xem
-     * playPhotoByKey()/togglePlayPausePhoto()) — KHÔNG còn tick định kỳ. */
-    _handlePhotoEnded() {
-        eventBus.send({ router: 'playerControls', type: 'playerControls.photo.ended', payload: {} });
-    },
-
-    /** Đặt lại task "hết ảnh" theo elapsed/duration HIỆN TẠI — BẮT BUỘC gọi sau bất kỳ thao tác nào
-     * đổi `photoPlayerElapsedBeforePauseSec`/`photoPlayerStartedAtMs` TỪ BÊN NGOÀI file này (qua
-     * `photoPlayerFakeMediaElement.currentTime =`, core/photo-player.js — repeat-single restart +
-     * Prev "quá 3s về đầu", xem event/workflow/player-controls.js::goToNextTrack()/goToPrevTrack())
-     * — 2 đường đó tự set `currentTime` qua fake element nhưng KHÔNG tự biết task này tồn tại (Rule
-     * 3, Core cấm dùng taskManager), nên phải gọi lại TỪ ĐÂY. No-op nếu đang pause (task đã bị kill
-     * sẵn ở `togglePlayPausePhoto()`, không có gì để đặt lại — resume sau đó tự đặt lại đúng). */
-    rescheduleEndedTimer() {
+    /** Tick nội bộ (taskManager, mỗi PHOTO_PLAYER_TICK_INTERVAL_MS) — đọc đồng hồ giả, cập nhật
+     * nhãn giờ current/duration (KHÔNG đụng progress bar — đã ẩn hẳn lúc Photo Player mode), tự bắn
+     * "hết ảnh" khi elapsed chạm duration. KHÔNG kill task khi paused — chỉ no-op, giữ vòng lặp
+     * sống (xem docstring đầu file, lý do Rule 3). */
+    _photoPlayerTick() {
         if (appState.get('photoPlayerPaused')) return;
         const { photoPlayerElapsedBeforePauseSec, photoPlayerStartedAtMs, photoPlayerDurationSec } = appState.get([
             'photoPlayerElapsedBeforePauseSec', 'photoPlayerStartedAtMs', 'photoPlayerDurationSec',
         ]);
         const elapsedSec = computePhotoPlayerElapsedSec(photoPlayerElapsedBeforePauseSec, photoPlayerStartedAtMs, false, performance.now()); // core/photo-player.js
-        const remainingMs = Math.max(0, (photoPlayerDurationSec - elapsedSec) * 1000);
-        taskManager.once(() => this._handlePhotoEnded(), remainingMs, PHOTO_PLAYER_ENDED_TASK);
-    },
-
-    /** Huỷ hẳn task "hết ảnh" ĐANG treo (nếu có) — gọi từ bên ngoài lúc dừng hẳn playback KHÔNG qua
-     * `togglePlayPausePhoto()` (vd dừng hẳn ở cuối Playlist, repeat='none', xem event/workflow/
-     * player-controls.js::goToNextTrack()) — tránh timer CŨ (của ảnh vừa rời khỏi) bắn "hết ảnh"
-     * trễ sau khi đã dừng hẳn. No-op an toàn nếu task không tồn tại. */
-    stopEndedTimer() {
-        taskManager.kill(PHOTO_PLAYER_ENDED_TASK);
+        if (elapsedSec >= photoPlayerDurationSec) {
+            // "Hết ảnh" — CÙNG msg.type router đã DÙNG CHUNG cho audio/video (event/router/
+            // player-controls.js, case 'playerControls.audio.ended'/'video.ended') — tự branch
+            // ĐÚNG theo gameplayPhase (idle -> auto next, khác idle -> hiện màn kết quả Game Mode),
+            // KHÔNG viết logic riêng ở đây.
+            eventBus.send({ router: 'playerControls', type: 'playerControls.photo.ended', payload: {} });
+            return;
+        }
+        updatePhotoPlayerTimeLabels(elapsedSec, photoPlayerDurationSec); // core/photo-player.js
     },
 
     /** Dọn CẢ 2 object URL (blob gốc + thumb) — gọi TRƯỚC khi tạo cặp mới (đổi ảnh) hoặc lúc thoát

@@ -107,7 +107,7 @@ const workflowPlayerControls = {
             // CHỈ đổi cờ `photoPlayerPaused`, KHÔNG tự bắn gì thêm — xem core/photo-player.js) nên
             // PHẢI gọi `startListenClock()` THẲNG ở đây, nếu không ảnh lặp lại (repeat-single) sẽ
             // câm lặng ngừng tính totalTime sau đúng 1 vòng đầu tiên.
-            else if (isPhotoPlayerMode) { activeEl.play(); startListenClock(); if (typeof workflowPhotoPlayer !== 'undefined') workflowPhotoPlayer.rescheduleEndedTimer(); } // photoPlayerFakeMediaElement.play() KHÔNG async, KHÔNG cần .catch() — currentTime vừa reset về 0 (dòng trên), hẹn lại "hết ảnh" đúng full duration (event/workflow/photo-player.js)
+            else if (isPhotoPlayerMode) { activeEl.play(); startListenClock(); } // photoPlayerFakeMediaElement.play() KHÔNG async, KHÔNG cần .catch()
             else activeEl.play();
             return;
         }
@@ -123,7 +123,6 @@ const workflowPlayerControls = {
                 appState.set('playbackStoppedAtPlaylistEnd', true);
                 console.log(`writer: "workflowPlayerControls.goToNextTrack", page: "playbackStoppedAtPlaylistEnd", content: "true"`);
                 activeEl.pause();
-                if (isPhotoPlayerMode && typeof workflowPhotoPlayer !== 'undefined') workflowPhotoPlayer.stopEndedTimer(); // event/workflow/photo-player.js — tránh timer CŨ bắn "hết ảnh" trễ sau khi đã dừng hẳn
                 return;
             }
             // wrapToStart — CHỈ nhánh tuần tự (KHÔNG shuffle) mới áp lại sort thật cho bài mới
@@ -152,11 +151,7 @@ const workflowPlayerControls = {
         const activeEl = getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode); // core/player-controls.js — SỬA (Giang yêu cầu, Photo tích hợp duration) thêm isPhotoPlayerMode
 
         // "Quá 3s vào bài/video hiện tại -> chỉ tua về đầu" — ĐÚNG hành vi gốc `playPrev()`.
-        if (activeEl.currentTime > 3) {
-            activeEl.currentTime = 0;
-            if (isPhotoPlayerMode && typeof workflowPhotoPlayer !== 'undefined') workflowPhotoPlayer.rescheduleEndedTimer(); // event/workflow/photo-player.js — currentTime vừa reset về 0, hẹn lại "hết ảnh" đúng full duration
-            return;
-        }
+        if (activeEl.currentTime > 3) { activeEl.currentTime = 0; return; }
 
         const list = isShuffle ? shuffleIndices : displayOrder;
         const step = computeListStep(list, currentKey, -1); // core mới (order.js)
