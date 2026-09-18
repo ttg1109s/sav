@@ -39,7 +39,7 @@
  *     ("New preset"/"New preset 2"...), KHÔNG còn ô nhập tên/nút Tạo trong body — CÙNG khuôn
  *     createFolderInPicker()/_computeDefaultFolderName() (event/workflow/playlist.js): tạo xong mở
  *     THẲNG view Sửa (đã có sẵn ô Name để đổi nếu muốn — Giang chỉ ra "đằng nào cũng sửa được sau").
- *   (Điểm 5 — Volume HUD không tô màu phần đã kéo — thuộc core/volume-hud.js, KHÔNG phải file này.)
+ *   (Điểm 5 — Volume HUD không tô màu phần đã kéo — thuộc core/hud.js, KHÔNG phải file này.)
  *
  * Generic Drawer KHÔNG biết nội dung là gì — event/workflow/eq-presets.js tự querySelector +
  * addEventListener SAU MỖI lần openGenericDrawer()/updateGenericDrawer() (KHÔNG qua eventBus cho

@@ -87,6 +87,17 @@ function renderVisualBgPanelBody() {
                             <select id="setting-visual-bg-motion-preset" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText"></select>
                         </div>
 
+                        <!-- Hiện khi type='video' — VBG mặc định KHÔNG theo tốc độ phát chung (chạy
+                             độc lập thời gian), bật cờ này mới theo. Workflow tự toggle qua
+                             refreshPanelUI(), xem event/workflow/visual-bg-common.js::changeSyncPlaybackSpeed(). -->
+                        <div id="visual-bg-sync-speed-row" class="flex justify-between items-center p-4 hidden border-b" data-uitk="dividerBorder cardHoverBg">
+                            <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.syncSpeed.label">${t('visualBgSettingsDrawer.syncSpeed.label')}</span>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="setting-visual-bg-sync-speed" class="sr-only peer">
+                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500" data-uitk="toggleTrackOff"></div>
+                            </label>
+                        </div>
+
                         <!-- Hiện khi type='video' VÀ ≥1 item sống — Workflow tự toggle qua refreshPanelUI(). -->
                         <button id="setting-visual-bg-open-video-audio" class="flex justify-between items-center p-4 w-full text-left hidden" data-uitk="cardHoverBg">
                             <div class="flex items-center gap-3 min-w-0">

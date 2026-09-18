@@ -22,7 +22,7 @@ const TPL_BOTTOM_PLAYER = `
              controls.js::handleProgressBarSeeking()/handleProgressBarSeekCommit() dùng NGUYÊN giá
              trị đó, không làm tròn) nên giá trị ms lẻ đi thẳng tới audioPlayer.currentTime/
              bgVideoElement.currentTime không mất độ chính xác. -->
-        <div class="w-full p-2"><input type="range" id="progress-bar" value="0" step="0.001" min="0" class="music-slider block"></div>
+        <div id="progress-bar-row" class="w-full p-2"><input type="range" id="progress-bar" value="0" step="0.001" min="0" class="music-slider block"></div>
 
         <div class="w-full  pt-3 pb-3 px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-6">
             
@@ -46,7 +46,7 @@ const TPL_BOTTOM_PLAYER = `
                 <button id="btn-next" class="w-8 h-8 flex items-center justify-center text-white hover:text-sky-400 transition-colors" data-i18n-title="bottomPlayer.btnNext.title" title="${t('bottomPlayer.btnNext.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 20 20" fill="currentColor"><path d="M11.555 14.832A1 1 0 0010 14v-2.798l-5.445 3.63A1 1 0 013 14V6a1 1 0 011.555-.832L10 8.798V6a1 1 0 011.555-.832l6 4a1 1 0 010 1.664l-6 4z" /></svg></button>
             </div>
 
-            <div class="flex items-center justify-end w-1/3 text-[10px] sm:text-xs font-mono text-slate-400 pr-2">
+            <div id="progress-time-row" class="flex items-center justify-end w-1/3 text-[10px] sm:text-xs font-mono text-slate-400 pr-2">
                 <span id="current-time" class="text-white font-semibold">0:00</span>&nbsp;/&nbsp;<span id="duration-time">0:00</span>
             </div>
         </div>

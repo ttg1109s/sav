@@ -24,7 +24,7 @@
  * core/video-player.js) — xem event/workflow/video-player.js::captureCurrentFrame().
  *
  * #btn-open-volume MỚI — mở #visualizer-volume-hud (panel nổi riêng, giống popup volume hệ thống
- * iOS — icon loa 5 mốc + 1 slider) — xem core/volume-hud.js + event/workflow/volume-hud.js.
+ * iOS — icon loa 5 mốc + 1 slider) — xem core/hud.js + event/workflow/hud.js.
  * #btn-cycle-eq (đổi preset EQ, CÙNG khuôn #btn-cycle-mode) — xem event/workflow/eq-presets.js.
  * Preset EQ lưu DB (meta.eqPresets, core/eq-presets.js), THAY HẲN bảng EQ_PRESETS tĩnh + chế độ
  * 'manual' cũ (core/equalizer.js/event/workflow/equalizer-settings.js đã xoá cùng UI Settings
@@ -101,6 +101,12 @@ const TPL_VISUALIZER_OVERLAY = `
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5 6 9H3v6h3l5 4V5z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.5 8.5a5 5 0 010 7M18 6a9 9 0 010 12" /></svg>
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.volume.label">${t('visualizerOverlay.volume.label')}</span>
                     </button>
+                    <!-- Ẩn ở Photo Player mode (không có playbackRate) — toggle bởi core/player-
+                         display-apply.js, cùng cách #btn-capture-video-frame ẩn/hiện theo mode. -->
+                    <button id="btn-open-speed" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.speed.title" title="${t('visualizerOverlay.speed.title')}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 12l4-3" /><path stroke-linecap="round" stroke-linejoin="round" d="M8 15a5 5 0 018-4" /></svg>
+                        <span id="speed-badge-label" class="text-[10px] font-medium">1x</span>
+                    </button>
                     <!-- #btn-cycle-eq (đổi preset EQ, giống #btn-cycle-mode) — SỬA (12/08/2026,
                          Giang yêu cầu "gộp eq edit vào hold 3s") — #btn-edit-eq (icon riêng mở
                          Generic Drawer) ĐÃ BỎ HẲN, gộp thẳng vào icon NÀY: bấm NGẮN = cycle preset
@@ -116,9 +122,9 @@ const TPL_VISUALIZER_OVERLAY = `
 ${TPL_GAMEPLAY_OVERLAY}
 
             <!-- Volume HUD — "phóng" gần nút #btn-open-volume, kính mờ, giống popup volume hệ
-                 thống iOS: icon loa BÊN TRÁI (5 mốc 0-100%, xem core/volume-hud.js) + 1 slider
+                 thống iOS: icon loa BÊN TRÁI (5 mốc 0-100%, xem core/hud.js) + 1 slider
                  chiếm hết phần còn lại. Tự ẩn sau ít giây không thao tác (taskManager, xem
-                 event/workflow/volume-hud.js) — KHÔNG dùng eventBus cho slider bên trong (cùng
+                 event/workflow/hud.js) — KHÔNG dùng eventBus cho slider bên trong (cùng
                  khuôn Generic Drawer, Workflow tự wire trực tiếp vì đây là panel nổi riêng, không
                  phải Settings Stack). -->
             <div id="visualizer-volume-hud" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-[47] glass-control-center rounded-full shadow-2xl pointer-events-auto flex items-center gap-3 px-5 py-3 w-64 max-w-[80vw]">
@@ -130,6 +136,16 @@ ${TPL_GAMEPLAY_OVERLAY}
                     <path id="volume-hud-mute" class="hidden" stroke-linecap="round" stroke-linejoin="round" d="M15.5 9.5l5 5m0-5l-5 5" />
                 </svg>
                 <input type="range" id="volume-hud-slider" min="0" max="100" step="1" class="setting-slider flex-1">
+            </div>
+
+            <!-- Speed HUD — cùng khuôn Volume HUD (vị trí/tự ẩn/glass) nhưng 5 nấc rời rạc thay vì
+                 slider liên tục. Cấu trúc: core/hud.js (auto-hide dùng chung) + event/workflow/hud.js. -->
+            <div id="visualizer-speed-hud" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-[47] glass-control-center rounded-full shadow-2xl pointer-events-auto flex items-center gap-1 px-2 py-2">
+                <button type="button" data-speed-option="0.5" class="speed-hud-option px-3 py-1.5 rounded-full text-sm font-medium text-white/70 transition-colors">0.5x</button>
+                <button type="button" data-speed-option="1" class="speed-hud-option px-3 py-1.5 rounded-full text-sm font-medium text-white/70 transition-colors">1x</button>
+                <button type="button" data-speed-option="1.2" class="speed-hud-option px-3 py-1.5 rounded-full text-sm font-medium text-white/70 transition-colors">1.2x</button>
+                <button type="button" data-speed-option="1.5" class="speed-hud-option px-3 py-1.5 rounded-full text-sm font-medium text-white/70 transition-colors">1.5x</button>
+                <button type="button" data-speed-option="2" class="speed-hud-option px-3 py-1.5 rounded-full text-sm font-medium text-white/70 transition-colors">2x</button>
             </div>
         </div>
     </div>
