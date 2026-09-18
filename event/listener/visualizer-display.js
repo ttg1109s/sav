@@ -48,7 +48,7 @@ if (bgBlurSlider) {
     });
 }
 
-// ===================== Volume (HUD Control Center, event/listener/volume-hud.js) =====================
+// ===================== Volume (HUD Control Center, event/listener/hud.js) =====================
 // EQ ở cụm "eqPresets" riêng (event/listener/eq-presets.js).
 
 // ===================== Panel "Display" (settings-stack, delegate) =====================

@@ -18,6 +18,7 @@ const VISUAL_BG_SETTINGS_INPUT_MAP = {
     'setting-visual-bg-duration-mode:change': { type: 'visualBg.durationMode.change' },
     'setting-visual-bg-duration-seconds:click': { type: 'visualBg.durationSeconds.openPicker', bare: true },
     'setting-visual-bg-motion-preset:change': { type: 'visualBg.motionPresetId.change' },
+    'setting-visual-bg-sync-speed:change': { type: 'visualBg.syncPlaybackSpeed.change', checkbox: true },
     'setting-visual-bg-pick-video:click': { type: 'visualBg.pickVideo.click', bare: true },
     'setting-visual-bg-pick-photo:click': { type: 'visualBg.pickPhoto.click', bare: true },
     'setting-visual-bg-pick-folder:click': { type: 'visualBg.pickFolder.click', bare: true },
