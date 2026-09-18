@@ -305,7 +305,7 @@
             appConfigViz.mutateAll(cfg => { cfg.volume = parseInt(value); });
             const volume = appConfigViz.getAll().volume;
             if(appState.get('masterGainNode')) appState.get('masterGainNode').gain.value = volume / 100; saveConfig();
-            // Icon loa Volume HUD (core/volume-hud.js) luôn khớp dù đổi âm lượng từ đâu.
+            // Icon loa Volume HUD (core/hud.js) luôn khớp dù đổi âm lượng từ đâu.
             if (typeof syncVolumeHudIcon === 'function') syncVolumeHudIcon(volume);
         }
 
