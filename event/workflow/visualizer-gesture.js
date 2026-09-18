@@ -144,7 +144,14 @@ const workflowVisualizerGesture = {
         this._startX = x; this._startY = y; this._startTime = Date.now();
         this._startEdge = isInTopEdgeZone(y, EDGE_ZONE_PX) ? 'top' : null; // core/visualizer-gesture.js — rìa DƯỚI đã bỏ (thay bằng tap 3 lần)
 
-        if (!this._startEdge && appConfigViz.getAll().gestureSeekHoldEnabled !== false) {
+        // Photo Player mode không có playbackRate/thanh seek thật (đã ẩn hẳn, xem core/photo-
+        // player.js::enterPhotoPlayerModeState()) — seek-hold dựa vào `_activateSeekHold()` chỉ rẽ
+        // nhị phân video/audioPlayer, sẽ pause/seek NHẦM audioPlayer (không phải player đang active)
+        // nếu để lọt qua — tắt RIÊNG seek-hold ở mode này, KHÔNG đụng gì tới tap/vuốt khác (2 biến
+        // trên vẫn cần set bình thường để touchend phân loại tap/vuốt đúng).
+        const isPhotoPlayerMode = appState.get('isPhotoPlayerMode');
+
+        if (!this._startEdge && !isPhotoPlayerMode && appConfigViz.getAll().gestureSeekHoldEnabled !== false) {
             this._seekHoldDirection = isInLeftHalf(x, window.innerWidth) ? -1 : 1; // core/visualizer-gesture.js
             taskManager.once(() => this._activateSeekHold(), SEEK_HOLD_ACTIVATE_MS, SEEK_HOLD_PENDING_TASK);
         }

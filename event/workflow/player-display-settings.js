@@ -1,41 +1,20 @@
 /**
  * event/workflow/player-display-settings.js — "THẰNG THỰC THI CUỐI" cho domain 'playerDisplay'
- * (Settings > Visualizer Screen > Player) — CÙNG khuôn tối giản `event/workflow/ui-theme.js`
- * (persist qua `meta.playerDisplayConfig`, IndexedDB, `setMeta()` trực tiếp mỗi lần đổi, KHÔNG
- * debounce — tần suất đổi cực thấp, chỉ lúc người dùng vào Settings chỉnh tay).
+ * (Settings > Visualizer Screen > Player) — persist qua `meta.playerDisplayConfig` (IndexedDB,
+ * `setMeta()` trực tiếp mỗi lần đổi, KHÔNG debounce — tần suất đổi cực thấp).
  *
- * GIAI ĐOẠN 1 (ĐÃ XONG) — đăng ký + hiển thị/lưu list.
- * GIAI ĐOẠN 2 — RESOLUTION (ĐÃ XONG) — `changeResolutionMode()` ÁP LIVE ngay (qua core/player-
- * display-apply.js) NẾU đang Ở ĐÚNG Video/Photo Player mode lúc đổi — mirror ĐÚNG tinh thần
- * `workflowVisualBg.changeMotionPresetId()` (event/workflow/visual-bg-common.js) áp LIVE qua
- * `workflowVisualBgPhotoMotion.updatePreset()`. 4 hàm `apply*OnEnter()`/`clear*()` do event/workflow/
- * video-player.js/photo-player.js gọi lúc VÀO/THOÁT mode (bắt buộc gọi cặp — xem docstring core/
- * player-display-apply.js, KHÔNG gọi clear() lúc thoát sẽ làm SAI VBG dù 2 thứ không liên quan
- * nhau về Ý NGHĨA).
- * GIAI ĐOẠN 2 — REACT BEAT AUDIO, CHỈ VIDEO (ĐÃ XONG) — SỬA (Giang chỉ ra: bản đầu tự viết RIÊNG 1
- * task RAF + tick function trùng lặp với `workflowVisualBgPhotoMotion`, VI PHẠM nguyên tắc "trách nhiệm
- * apply live thuộc về Motion, không nhân bản theo từng nơi tiêu thụ") — giờ dùng
- * `createMotionBeatReactRunner()` (event/workflow/motion-beat-react-runner.js, DÙNG CHUNG, KHÔNG
- * viết riêng gì nữa) — `_videoShowingRunner` là 1 INSTANCE của runner đó, tạo LƯỜI lúc cần
- * (`_ensureVideoShowingRunner()`). `syncVideoPlayerReactBeat()`/`stopVideoPlayerReactBeat()` giờ
- * CHỈ còn gọi thẳng `.sync()`/`.stop()` của runner — KHÔNG tự quản lý task/state gì nữa.
- * `bgVideoElement` đã nối SẴN vào CHUNG analyser từ trước (core/video-player.js
- * ::connectBgVideoElementToAnalyser()) nên `appState.beatScale` PHẢN ÁNH ĐÚNG audio của chính video
- * đang phát, không cần thiết lập gì thêm. `syncVideoPlayerReactBeat()` do video-player.js gọi lúc
- * vào mode + `changeMotionSlot()` tự gọi lại lúc đổi slot 'showing' trong lúc đang ở mode (LIVE,
- * cùng tinh thần Resolution) — VÀ giờ sửa nội dung preset ĐANG chạy (Motion Edit, không đổi preset
- * nào đang gắn) cũng LIVE theo THẬT SỰ, vì Runner tự tra `getPresetFn()` lại theo id MỖI FRAME,
- * không cache preset cũ (xem docstring event/workflow/motion-beat-react-runner.js).
- * GIAI ĐOẠN 2 — TRANSITION VIDEO (ĐÃ XONG — 2 field `videoTransitionNextPresetId`/
- * `videoTransitionPrevPresetId`, PRESET RIÊNG cho next/prev, Giang chốt từ đầu) — CHẠY GIỮA layer A
- * (`bgVideoElement`, đang đứng hình frame CŨ) và layer B (`visualBgImageElement`, vừa nhận thumb
- * MỚI) — mirror ĐÚNG mô hình layer A/B của VBG (Giang chỉ ra), dùng `createMotionTransitionRunner()`
- * DÙNG CHUNG (event/workflow/motion-transition-runner.js, ĐÃ viết lại đúng nguyên tắc "tua vít" —
- * không tự quyết nội dung layer). `runVideoPlayerTransition(direction)` do event/workflow/
- * video-player.js::swapBgVideoSource() gọi "chen vào giữa" bước decode thumb xong và bước phát
- * video mới (Giang mô tả chi tiết) — advanceMs truyền `0` (Video KHÔNG tính trước "thời lượng hiển
- * thị" như VBG — next/prev/end tự nhiên, không có mốc thời gian định trước để kẹp theo).
- * GIAI ĐOẠN 2 — TRANSITION PHOTO/POINT MOVE (CHƯA làm) — 2 field còn lại vẫn CHỈ ghi/đọc.
+ * Resolution (Video + Photo) — áp LIVE ngay nếu đang Ở ĐÚNG mode vừa đổi (không cần thoát/vào lại).
+ * React Beat + Point Move Video (cùng field `videoShowingPresetId`, gộp 1) — dùng
+ * `createMotionBeatReactRunner()`/`createMotionPointMoveRunner()` DÙNG CHUNG (event/workflow/
+ * motion-beat-react-runner.js/motion-point-move-runner.js), KHÔNG tự viết logic riêng. Cả 2 Runner
+ * áp lên hạ tầng DOM DÙNG CHUNG với VBG (`motionEngineReactLayer`/`videoPlayerMotionPointMoveElement`
+ * — xem docstring core/player-display-apply.js), tự động co giãn theo `playbackSpeed`
+ * (core/config.js) — decay React Beat qua `getSpeedFn` truyền cho Runner, `advanceMs` Point Move
+ * tính lại mỗi lần tốc độ đổi (xem `syncVideoPlayerPointMove()`).
+ * Transition Video (2 field `videoTransitionNextPresetId`/`videoTransitionPrevPresetId`, preset
+ * riêng cho next/prev) — chạy giữa layer A (`bgVideoElement`)/layer B (`visualBgImageElement`),
+ * mirror mô hình layer A/B của VBG, dùng `createMotionTransitionRunner()` DÙNG CHUNG.
+ * Transition/Point Move Photo (2 field còn lại) — CHƯA làm, chỉ ghi/đọc.
  *
  * Router/Listener: CHƯA có router riêng — được gọi TRỰC TIẾP từ `workflowAppSettings`
  * (event/workflow/app-settings.js, cùng cách `handleThemeSelectMode()` gọi qua router 'theme')
@@ -48,6 +27,7 @@
  * (findMotionPresetById()/isReactBeatPresetActive()), event/workflow/visual-bg-photo-motion.js
  * (MOTION_ENGINE_NO_OP_PRESET, đổi tên 17/09/2026 từ event/workflow/motion-engine.js),
  * event/workflow/motion-beat-react-runner.js (createMotionBeatReactRunner()), event/workflow/
+ * motion-point-move-runner.js (createMotionPointMoveRunner()), event/workflow/
  * motion-transition-runner.js (createMotionTransitionRunner()), service/db.js
  * (getMeta/setMeta/getImageRecord).
  * NẠP TRƯỚC: event/workflow/video-player.js, event/workflow/photo-player.js,
@@ -56,6 +36,7 @@
 
 const workflowPlayerDisplaySettings = {
     _videoShowingRunner: null, // instance createMotionBeatReactRunner(), tạo LƯỜI — xem _ensureVideoShowingRunner()
+    _videoPointMoveRunner: null, // instance createMotionPointMoveRunner(), tạo LƯỜI — xem _ensureVideoPointMoveRunner()
     _videoTransitionRunner: null, // instance createMotionTransitionRunner(), tạo LƯỜI — xem _ensureVideoTransitionRunner()
 
     /** Resolve preset Transition cho `direction` ('next'|'prev') của Video — đọc field TƯƠNG ỨNG
@@ -164,11 +145,10 @@ const workflowPlayerDisplaySettings = {
      * 3 vai trò x Photo: transitionNext/transitionPrev/pointMove — xem core/player-display-settings.js
      * ::PLAYER_MOTION_SLOTS). `value` rỗng ('') -> gỡ (null).
      *
-     * MỚI — slot 'showing' của Video giờ ÁP LIVE ngay nếu đang ở Video Player mode (cùng tinh
-     * thần Resolution) — `syncVideoPlayerReactBeat()` tự đọc lại preset MỚI vừa gắn (hoặc gỡ hẳn)
-     * NGAY sau khi ghi. Transition Next/Prev + Point Move (Photo) CHƯA có gì để áp (giai đoạn sau);
-     * phần Point Move CỦA CHÍNH preset gắn ở 'showing' cũng CHƯA có cơ chế hoạt động (Giang chốt rõ
-     * "chưa backend point move cho video"), chỉ phần React Beat của nó là THẬT SỰ chạy.
+     * Slot 'showing' của Video ÁP LIVE ngay nếu đang ở Video Player mode (cùng tinh thần
+     * Resolution) — cả React Beat lẫn Point Move (preset gộp 1 field, Giang chốt) tự đọc lại preset
+     * MỚI vừa gắn (hoặc gỡ hẳn) NGAY sau khi ghi. Transition Next/Prev + Point Move (Photo) CHƯA có
+     * gì để áp (giai đoạn sau).
      * @param {'video'|'photo'} kind @param {string} slot - 1 trong PLAYER_MOTION_SLOTS[].slot @param {string} value */
     async changeMotionSlot(kind, slot, value) {
         const field = resolvePlayerMotionPresetField(kind, slot); // core/player-display-settings.js
@@ -179,6 +159,7 @@ const workflowPlayerDisplaySettings = {
 
         if (kind === 'video' && slot === 'showing' && appState.get('isVideoPlayerMode')) {
             this.syncVideoPlayerReactBeat();
+            this.resyncVideoPlayerPointMovePreset();
         }
     },
 
@@ -230,11 +211,11 @@ const workflowPlayerDisplaySettings = {
         clearPhotoPlayerResolutionFromDOM(); // core/player-display-apply.js
     },
 
-    /** Core thuần phụ — preset ĐANG gắn cho `videoShowingPresetId` (SỬA — Giang chốt GỘP Point
-     * Move + React Beat của Video thành 1 field DUY NHẤT, KHÔNG còn field reactBeat riêng) — CHỈ
-     * trả về nếu preset đó còn tồn tại (chưa bị xoá) VÀ THẬT SỰ có React Beat để chạy. KHÔNG xét
-     * `pointMoveEnabled` ở đây — Point Move của preset này CHƯA có cơ chế hoạt động (Giang chốt
-     * rõ), hàm này chỉ phục vụ React Beat. Đọc TƯƠI mỗi lần gọi (KHÔNG cache) — Runner (event/
+    /** Core thuần phụ — preset ĐANG gắn cho `videoShowingPresetId` (gộp 1 field cho CẢ Point Move
+     * lẫn React Beat, Giang chốt) — CHỈ trả về nếu preset đó còn tồn tại (chưa bị xoá) VÀ THẬT SỰ
+     * có React Beat để chạy. KHÔNG xét `pointMoveEnabled` ở đây — hàm này CHỈ phục vụ React Beat
+     * (Point Move tự resolve riêng, xem `syncVideoPlayerPointMove()`, không qua bộ lọc
+     * `isReactBeatPresetActive()`). Đọc TƯƠI mỗi lần gọi (KHÔNG cache) — Runner (event/
      * workflow/motion-beat-react-runner.js) tự gọi lại hàm này MỖI FRAME, nên tự động bắt kịp NGAY
      * nếu người dùng đổi preset khác giữa chừng HOẶC sửa nội dung preset đang gắn (Motion Edit thay
      * preset bằng object MỚI mỗi lần lưu, xem event/workflow/motion-presets.js::_mutateEditing() —
@@ -269,6 +250,7 @@ const workflowPlayerDisplaySettings = {
                 'playerVideoBeatReactTick',
                 () => motionEngineReactLayer, // core/dom-refs.js
                 () => this._getAssignedVideoShowingPreset(),
+                () => appConfigViz.getAll().playbackSpeed, // core/config.js — decay co giãn theo tốc độ phát
             );
         }
         return this._videoShowingRunner;
@@ -288,5 +270,63 @@ const workflowPlayerDisplaySettings = {
      * `bgVideoElement`, vẫn phải dọn vì lớp cha đó luôn hiện diện bất kể mode). */
     stopVideoPlayerReactBeat() {
         this._ensureVideoShowingRunner().stop();
+    },
+
+    /** Tạo (LƯỜI, ĐÚNG 1 LẦN) instance `createMotionPointMoveRunner()` cho Point Move của Video —
+     * target `videoPlayerMotionPointMoveElement` (bọc layer A, giờ CŨNG bọc layer B — xem docstring
+     * core/player-display-apply.js). Cùng `videoShowingPresetId` với React Beat (Giang chốt gộp 1
+     * field) — Runner tự no-op nếu preset tắt `pointMoveEnabled`/không có point nào.
+     * @returns {ReturnType<typeof createMotionPointMoveRunner>} */
+    _ensureVideoPointMoveRunner() {
+        if (!this._videoPointMoveRunner) {
+            this._videoPointMoveRunner = createMotionPointMoveRunner(() => videoPlayerMotionPointMoveElement); // event/workflow/motion-point-move-runner.js, core/dom-refs.js
+        }
+        return this._videoPointMoveRunner;
+    },
+
+    /** Kích hoạt lại Point Move Video cho ĐÚNG video đang phát — `advanceMs` = thời lượng video
+     * chia cho tốc độ phát hiện tại (video CHẠY nhanh/chậm bao nhiêu thì Point Move đi hết hành
+     * trình trong đúng ngần đó thời gian thực, luôn khớp hình). Gọi lúc video MỚI `loadedmetadata`
+     * (event/workflow/video-player.js — CHỈ lúc đó `bgVideoElement.duration` mới có giá trị đúng)
+     * HOẶC đổi slot 'showing' lúc đang ở mode (changeMotionSlot()) — 2 trường hợp NỘI DUNG thật sự
+     * mới/đổi hẳn cấu hình, dùng `activateForNewContent()`. Đổi tốc độ giữa lúc VẪN đang phát video
+     * CŨ thì dùng `resyncVideoPlayerPointMovePreset()` ngay dưới (KHÔNG restart hành trình đang chạy
+     * dở). Preset chưa gắn/không có point nào -> Runner tự no-op, không cần check trước ở đây. */
+    syncVideoPlayerPointMove() {
+        this._ensureVideoPointMoveRunner().activateForNewContent(this._resolveVideoShowingPreset(), this._computeVideoPointMoveAdvanceMs());
+    },
+
+    /** Đổi preset/tốc độ phát giữa lúc VẪN đang phát ĐÚNG video cũ (event/workflow/hud.js
+     * ::selectSpeed(), changeMotionSlot() ngay trên) — chỉ tính lại preset + `advanceMs` theo cấu
+     * hình MỚI, dùng `activateForPresetChange()` (KHÔNG ghi lại mốc "bắt đầu hiện" như
+     * `activateForNewContent()` — giữ hành trình Point Move đang chạy dở đúng vị trí, chỉ đổi cấu
+     * hình đi tiếp). No-op nếu chưa có Runner nào được tạo (chưa từng vào Video Player mode). */
+    resyncVideoPlayerPointMovePreset() {
+        if (!this._videoPointMoveRunner) return;
+        this._videoPointMoveRunner.activateForPresetChange(this._resolveVideoShowingPreset(), this._computeVideoPointMoveAdvanceMs());
+    },
+
+    /** Core thuần phụ — preset ĐANG gắn cho `videoShowingPresetId`, KHÔNG qua bộ lọc
+     * `isReactBeatPresetActive()` (đó CHỈ dành cho React Beat, xem `_getAssignedVideoShowingPreset()`)
+     * — Point Move Runner tự no-op nếu preset tắt `pointMoveEnabled`/không có point nào.
+     * @returns {object} */
+    _resolveVideoShowingPreset() {
+        const presetId = appConfigPlayerDisplay.getAll().videoShowingPresetId; // core/config.js
+        return (presetId && findMotionPresetById(appState.get('motionPresets'), presetId)) || MOTION_ENGINE_NO_OP_PRESET; // core/motion-presets.js, event/workflow/visual-bg-photo-motion.js
+    },
+
+    /** Core thuần phụ — thời lượng hành trình Point Move Video: thời lượng video chia tốc độ phát
+     * hiện tại. `bgVideoElement.duration` chưa sẵn sàng (NaN/Infinity) hoặc 0 -> trả 0 (Runner tự
+     * hiểu là bỏ qua Point Move hoàn toàn). @returns {number} */
+    _computeVideoPointMoveAdvanceMs() {
+        const durationSec = bgVideoElement.duration;
+        const speed = appConfigViz.getAll().playbackSpeed || 1; // core/config.js
+        return isFinite(durationSec) && durationSec > 0 ? (durationSec * 1000) / speed : 0;
+    },
+
+    /** Dừng hẳn Point Move Video — gọi lúc THOÁT Video Player mode, cùng lý do
+     * `stopVideoPlayerReactBeat()`. */
+    stopVideoPlayerPointMove() {
+        if (this._videoPointMoveRunner) this._videoPointMoveRunner.stop();
     },
 };

@@ -60,6 +60,8 @@
  * @param {string} taskName - tên task taskManager, PHẢI duy nhất (không trùng nơi tiêu thụ khác).
  * @param {() => HTMLElement|null} getTargetElementFn
  * @param {() => object|null} getPresetFn - trả preset {reactBeatAudio:{...}} hoặc null.
+ * @param {(() => number)=} getSpeedFn - tuỳ chọn, trả hệ số tốc độ phát hiện tại (Video Player
+ *        truyền `playbackSpeed` để decay envelope co giãn theo — VBG không truyền, mặc định 1).
  * @returns {{sync: () => void, stop: () => void, pause: () => void, resume: () => void}}
  */
 
@@ -78,7 +80,7 @@ function notifyMotionBeatReactPresetsChanged() {
     _motionBeatReactRunnerRegistry.forEach((r) => r.sync());
 }
 
-function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn) {
+function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn, getSpeedFn) {
     // State RIÊNG của runner NÀY — mỗi lần gọi createMotionBeatReactRunner() tạo 1 closure state
     // ĐỘC LẬP, nên N nơi tiêu thụ gọi N lần là có N runner tách biệt hoàn toàn, không đụng nhau.
     let envelope = 0;
@@ -148,7 +150,8 @@ function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn) 
             }
         }
 
-        envelope = computeMotionEngineBeatReactEnvelope(envelope, beatScale, deltaMs, MOTION_ENGINE_BEATREACT_DECAY_MS); // core/motion-engine.js + event/workflow/visual-bg-photo-motion.js
+        const speed = (typeof getSpeedFn === 'function' ? getSpeedFn() : 1) || 1; // tuỳ chọn — VBG không truyền -> luôn 1
+        envelope = computeMotionEngineBeatReactEnvelope(envelope, beatScale, deltaMs, MOTION_ENGINE_BEATREACT_DECAY_MS / speed); // core/motion-engine.js + event/workflow/visual-bg-photo-motion.js
         const energy = envelope;
 
         const zoomScale = rb.zoom.enabled ? computeMotionEngineBeatReactZoomScale(zoomEffectiveMax, energy) : 1; // core/motion-engine.js

@@ -844,6 +844,11 @@ const workflowVisualBg = {
         const videoAudioRow = q('#setting-visual-bg-open-video-audio');
         if (videoAudioRow) videoAudioRow.classList.toggle('hidden', !(cfg.type === 'video' && count >= 1));
 
+        const syncSpeedRow = q('#visual-bg-sync-speed-row');
+        if (syncSpeedRow) syncSpeedRow.classList.toggle('hidden', cfg.type !== 'video');
+        const syncSpeedCheckbox = q('#setting-visual-bg-sync-speed');
+        if (syncSpeedCheckbox) syncSpeedCheckbox.checked = cfg.videoSyncPlaybackSpeed;
+
         const motionRow = q('#visual-bg-motion-row');
         if (motionRow) motionRow.classList.toggle('hidden', cfg.type !== 'photo');
         const motionSelect = q('#setting-visual-bg-motion-preset');
@@ -890,6 +895,19 @@ const workflowVisualBg = {
         await this._persist();
         if (typeof workflowVisualBgPhotoMotion !== 'undefined') {
             workflowVisualBgPhotoMotion.updatePreset(this._currentMotionPreset(), this._photoRecord ? this._computePhotoAdvanceMs(this._photoRecord) : 0);
+        }
+    },
+
+    /** Toggle "Đồng bộ tốc độ phát" — CHỈ có ý nghĩa khi type='video' (VBG mặc định KHÔNG theo
+     * `playbackSpeed` chung, VBG chạy độc lập thời gian). Lưu + áp NGAY lên `bgVideoElement` nếu VBG-
+     * video đang thật sự sở hữu nó (KHÔNG đụng gì lúc đang ở Video Player mode thật — nhánh đó tự áp
+     * riêng qua `applyPlaybackSpeedToActiveMedia()`, core/player-controls.js).
+     * @param {boolean} checked */
+    async changeSyncPlaybackSpeed(checked) {
+        appConfigVisualBg.mutateAll((cfg) => { cfg.videoSyncPlaybackSpeed = checked; });
+        await this._persist();
+        if (appConfigVisualBg.getAll().type === 'video' && !appState.get('isVideoPlayerMode') && typeof this._applyVideoPlaybackSpeedSetting === 'function') {
+            this._applyVideoPlaybackSpeedSetting(); // event/workflow/visual-bg-video.js
         }
     },
 

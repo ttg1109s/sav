@@ -29,6 +29,7 @@ const workflowVideoPlayer = {
     _thumbObjectUrl: null, // object URL của thumbBlob HIỆN TẠI (poster + cover ở player bar, #record-container) — revoke trước khi tạo url mới
     _forcedBgObjectUrl: null, // object URL của thumbFullBlob đang chèn cưỡng chế vào #visual-bg-image (xem swapBgVideoSource()) — revoke trước khi tạo url mới
     _swapReadyPromise: null, // Promise đợi 'playing' (hoặc timeout) của lần swapBgVideoSource() gần nhất — xem waitBgVideoReady()
+    _wasPlayingBeforeSeek: false, // trạng thái play/pause NGAY TRƯỚC lúc bắt đầu kéo tay thanh seek — xem handleVideoSeeking()/handleVideoSeekCommit()
 
     /**
      * Nạp `videoKey` vào `bgVideoElement` — CƠ CHẾ SWAP DUY NHẤT, DÙNG CHUNG giữa Video Player mode
@@ -366,6 +367,7 @@ const workflowVideoPlayer = {
         // gỡ transform — BẮT BUỘC, cùng lý do Resolution ngay trên (tránh kẹt transform ảnh hưởng
         // VBG dùng chung `bgVideoElement`).
         if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.stopVideoPlayerReactBeat(); // event/workflow/player-display-settings.js
+        if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.stopVideoPlayerPointMove(); // event/workflow/player-display-settings.js
         // MỚI (Giang yêu cầu Transition Video Player mode) — huỷ timer dọn dẹp Transition còn treo
         // (nếu vừa Next/Prev xong thoát mode NGAY, chưa kịp settle) — cùng lý do React Beat ngay trên.
         if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.stopVideoPlayerTransition(); // event/workflow/player-display-settings.js
@@ -593,6 +595,8 @@ const workflowVideoPlayer = {
     handleVideoLoadedMetadata() {
         progressBar.max = bgVideoElement.duration;
         durationTimeDisplay.textContent = formatTime(bgVideoElement.duration); // core/playlist/state.js
+        applyPlaybackSpeedToActiveMedia(true, false, appConfigViz.getAll().playbackSpeed); // core/player-controls.js
+        if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.syncVideoPlayerPointMove(); // event/workflow/player-display-settings.js — advanceMs cần bgVideoElement.duration, chỉ có ĐÚNG tại đây
     },
 
     /** Ứng với 'playerControls.video.timeupdate' (bắn rất dày lúc đang phát) — cập nhật thanh tiến
@@ -605,22 +609,35 @@ const workflowVideoPlayer = {
     },
 
     /** Ứng với 'playerControls.progressBar.seeking' khi `isVideoPlayerMode=true` — người dùng đang
-     * kéo tay, CÙNG Ý NGHĨA `handleProgressBarSeeking()` nhưng không xử lý phụ đề.
+     * kéo tay THANH SEEK (KHÔNG phải cử chỉ giữ tay — cử chỉ đó có cơ chế pause/resume RIÊNG, xem
+     * `_activateSeekHold()`/`_stopSeekHold()`, event/workflow/visualizer-gesture.js). KHÁC
+     * `handleProgressBarSeeking()` (Song, chỉ đổi text) — Video có HÌNH để xem trước nên PAUSE +
+     * scrub `currentTime` NGAY theo từng nhịp kéo (trình duyệt tự decode/vẽ đúng khung dù đang
+     * pause — kỹ thuật scrub chuẩn, không cần xử lý riêng "không bật âm": đang pause thì tiếng tự
+     * im). Chỉ pause + ghi nhớ trạng thái CŨ ở TICK ĐẦU TIÊN của phiên kéo (isSeeking false->true) —
+     * các tick sau CHỈ còn scrub `currentTime`, không pause lại/không ghi đè `_wasPlayingBeforeSeek`.
      * @param {number} value
      */
     handleVideoSeeking(value) {
-        appState.set('isSeeking', true);
+        if (!appState.get('isSeeking')) {
+            this._wasPlayingBeforeSeek = !bgVideoElement.paused;
+            bgVideoElement.pause();
+            appState.set('isSeeking', true);
+        }
+        bgVideoElement.currentTime = value; // scrub hình theo từng nhịp kéo
         currentTimeDisplay.textContent = formatTime(value);
         updateProgressBarCSS(); // core/visualizer/visualizer-display.js
     },
 
-    /** Ứng với 'playerControls.progressBar.seekCommit' khi `isVideoPlayerMode=true` — commit vị
-     * trí mới THẲNG vào `bgVideoElement.currentTime` (KHÁC bản đầu ghi vào `audioPlayer`).
+    /** Ứng với 'playerControls.progressBar.seekCommit' khi `isVideoPlayerMode=true` — thả tay,
+     * commit vị trí cuối cùng + resume phát lại NẾU trước lúc kéo đang phát (không tự ý phát nếu
+     * người dùng đã chủ động pause từ trước — xem `handleVideoSeeking()`).
      * @param {number} value
      */
     handleVideoSeekCommit(value) {
         bgVideoElement.currentTime = value;
         appState.set('isSeeking', false);
+        if (this._wasPlayingBeforeSeek) bgVideoElement.play().catch((err) => console.error('[workflowVideoPlayer] bgVideoElement.play() lỗi sau seek:', err));
     },
 
     // [SỬA — Game Mode + Video Player mode, xử lý triệt để] `handleVideoPlayerEnded()` ĐÃ XOÁ

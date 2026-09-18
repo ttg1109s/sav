@@ -71,7 +71,10 @@ Object.assign(workflowVisualBg, {
         bgVideoElement.play().catch(() => {});
         if (typeof workflowVideoPlayer === 'undefined') return;
         workflowVideoPlayer.waitForNextPlaying().then(() => {
-            if (this._currentVideoKey === videoKey) this._applyVideoAudioSettingToElement(videoKey);
+            if (this._currentVideoKey === videoKey) {
+                this._applyVideoAudioSettingToElement(videoKey);
+                this._applyVideoPlaybackSpeedSetting();
+            }
         });
     },
 
@@ -184,6 +187,7 @@ Object.assign(workflowVisualBg, {
             if (this._currentVideoKey !== videoKey) return;
             syncVisualBgVideoPlayback(audioPlayer.paused);
             this._applyVideoAudioSettingToElement(videoKey);
+            this._applyVideoPlaybackSpeedSetting();
             this._maybeScheduleVideoFixTime(cfg, isCyclingSlideshow);
         });
     },
@@ -195,6 +199,14 @@ Object.assign(workflowVisualBg, {
      * Audio graph với `audioPlayer` — mặc định câm không đụng Web Audio. Đã nối graph thì
      * `.muted`/`.volume` không đáng tin (Firefox bugzilla #966247), dùng `setVideoBgGain()`
      * (GainNode riêng, core/video-player.js) làm nguồn tin cậy chính. */
+    /** VBG-video mặc định KHÔNG theo `playbackSpeed` chung (VBG chạy độc lập thời gian) — CHỈ áp
+     * khi `videoSyncPlaybackSpeed=true` (bật riêng ở panel VBG, chỉ hiện khi type='video'). Gọi mỗi
+     * lần video mới sẵn sàng/tự lặp lại — reset về 1x tường minh nếu cờ tắt, không giả định giá trị
+     * cũ còn đúng. */
+    _applyVideoPlaybackSpeedSetting() {
+        bgVideoElement.playbackRate = appConfigVisualBg.getAll().videoSyncPlaybackSpeed ? appConfigViz.getAll().playbackSpeed : 1;
+    },
+
     _applyVideoAudioSettingToElement(videoKey) {
         const { enabled, volumePercent } = getVisualBgVideoAudioSetting(appConfigVisualBg.getAll().source.videoAudio, videoKey);
         const gain = resolveVisualBgVideoAudioGain(volumePercent);
@@ -235,7 +247,10 @@ Object.assign(workflowVisualBg, {
         bgVideoElement.play().catch(() => {});
         if (typeof workflowVideoPlayer === 'undefined') return;
         workflowVideoPlayer.waitForNextPlaying().then(() => {
-            if (this._currentVideoKey === videoKey) this._applyVideoAudioSettingToElement(videoKey);
+            if (this._currentVideoKey === videoKey) {
+                this._applyVideoAudioSettingToElement(videoKey);
+                this._applyVideoPlaybackSpeedSetting();
+            }
         });
     },
 
