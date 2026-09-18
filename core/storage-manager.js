@@ -375,32 +375,55 @@
          * gọi lại hàm scan của Song) — nạp blob vào <video> ẩn tạm, dựa 'error' vs 'loadedmetadata'
          * (ĐÚNG như plan mục 6b chỉ định), CÙNG khuôn `readAudioDuration()` (core/playlist/
          * loader.js, bản Song — timeout an toàn 8s cho Safari iOS).
+         * SỬA (18/09/2026, Giang yêu cầu "thiếu thumb cover, thumb full res -> cũng là lỗi thật —
+         * nhưng xử lý tuỳ theo trường hợp chứ không nhất định phải xoá") — thêm field `fixable`
+         * vào kết quả: `false` (mặc định, giữ NGUYÊN 3 lý do cũ — blob rỗng/không tạo được object
+         * URL/không decode được) nghĩa là blob CHÍNH hỏng, phải xoá cả record (KHÔNG có gì "sửa"
+         * được từ chính video đó); `true` (case MỚI, chỉ xét SAU khi blob chính đã xác nhận đọc
+         * được — `loadedmetadata` bắn) nghĩa là chỉ THIẾU `thumbBlob`/`thumbFullBlob`, video vẫn
+         * phát bình thường — Workflow (`executeRepairBroken()`, event/workflow/
+         * file-manager-storage.js) tạo lại thumb thay vì xoá. 2 lý do MỚI gộp chung 1 chuỗi (có thể
+         * thiếu CẢ HAI cùng lúc) thay vì tách 2 kết quả riêng cho 1 video — người dùng chỉ cần biết
+         * "video này cần sửa thumb", không cần phân biệt thiếu loại nào khi xem danh sách quét.
          * @param {Object} record
-         * @returns {Promise<{corrupted: boolean, reason?: string}>}
+         * @returns {Promise<{corrupted: boolean, fixable?: boolean, reason?: string}>}
          */
         function isVideoRecordCorrupted(record) {
-            if (!record || !record.blob) return Promise.resolve({ corrupted: true, reason: t('common.storage.scanReasonBrokenBlob') });
+            if (!record || !record.blob) return Promise.resolve({ corrupted: true, fixable: false, reason: t('common.storage.scanReasonBrokenBlob') });
             return new Promise((resolve) => {
                 let settled = false;
                 const safeResolve = (val) => { if (!settled) { settled = true; resolve(val); } };
                 let tempUrl;
                 try { tempUrl = URL.createObjectURL(record.blob); }
-                catch (err) { return safeResolve({ corrupted: true, reason: t('common.storage.scanReasonBrokenBlob') }); }
+                catch (err) { return safeResolve({ corrupted: true, fixable: false, reason: t('common.storage.scanReasonBrokenBlob') }); }
                 const tempVideo = document.createElement('video');
                 const cleanup = () => { try { URL.revokeObjectURL(tempUrl); } catch (e) {} };
-                const safetyTimeout = taskManager.once(() => { cleanup(); safeResolve({ corrupted: true, reason: t('common.storage.scanReasonNoDecode') }); }, 8000);
-                tempVideo.addEventListener('loadedmetadata', () => { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: false }); }, { once: true });
-                tempVideo.addEventListener('error', () => { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: true, reason: t('common.storage.scanReasonNoDecode') }); }, { once: true });
+                const safetyTimeout = taskManager.once(() => { cleanup(); safeResolve({ corrupted: true, fixable: false, reason: t('common.storage.scanReasonNoDecode') }); }, 8000);
+                tempVideo.addEventListener('loadedmetadata', () => {
+                    safetyTimeout.kill(); cleanup();
+                    // MỚI — blob chính đọc được: kiểm thêm 2 field thumb, KHÔNG chặn phát nhưng vẫn
+                    // tính "lỗi cần sửa" (đúng yêu cầu Giang, khác hẳn coi là bình thường như trước).
+                    const missingReasons = [];
+                    if (!record.thumbBlob) missingReasons.push(t('common.storage.scanReasonMissingThumbCover'));
+                    if (!record.thumbFullBlob) missingReasons.push(t('common.storage.scanReasonMissingThumbFull'));
+                    if (missingReasons.length > 0) { safeResolve({ corrupted: true, fixable: true, reason: missingReasons.join(', ') }); return; }
+                    safeResolve({ corrupted: false });
+                }, { once: true });
+                tempVideo.addEventListener('error', () => { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: true, fixable: false, reason: t('common.storage.scanReasonNoDecode') }); }, { once: true });
                 try { tempVideo.src = tempUrl; }
-                catch (err) { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: true, reason: t('common.storage.scanReasonBrokenBlob') }); }
+                catch (err) { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: true, fixable: false, reason: t('common.storage.scanReasonBrokenBlob') }); }
             });
         }
 
         /**
          * Bản Video của scanAllSongsForCorruption() ngay trên — NGHIỆP VỤ THUẦN, không tự render
-         * UI/gán biến toàn cục.
+         * UI/gán biến toàn cục. SỬA (18/09/2026) — truyền tiếp `fixable` từ isVideoRecordCorrupted()
+         * ra kết quả (Router/`executeFixBroken` cần field này để rẽ nhánh xoá/sửa). Item "kept from
+         * error" (đã confirmedBrokenKeys, người dùng từng chọn "Giữ lại" lúc phát lỗi) luôn
+         * `fixable: false` — đó là quyết định thủ công cũ, không liên quan gì thumb, KHÔNG tự ý
+         * gộp vào nhánh "sửa".
          * @param {(current:number, total:number) => void} [onScanProgress]
-         * @returns {Promise<Array<{key:string, filename:string, reason:string}>>}
+         * @returns {Promise<Array<{key:string, filename:string, reason:string, fixable:boolean}>>}
          */
         async function scanAllVideosForCorruption(onScanProgress) {
             const keys = await getAllVideoKeys();
@@ -410,12 +433,12 @@
                 if (onScanProgress) onScanProgress(i + 1, keys.length);
                 const record = await getVideoRecord(key);
                 if (appState.get('confirmedBrokenKeys').has(key)) {
-                    results.push({ key, filename: record ? record.filename : key, reason: t('common.storage.scanReasonKeptFromError') });
+                    results.push({ key, filename: record ? record.filename : key, reason: t('common.storage.scanReasonKeptFromError'), fixable: false });
                     continue;
                 }
                 const check = await isVideoRecordCorrupted(record);
                 if (check.corrupted) {
-                    results.push({ key, filename: record ? record.filename : key, reason: check.reason });
+                    results.push({ key, filename: record ? record.filename : key, reason: check.reason, fixable: !!check.fixable });
                 }
             }
             return results;
