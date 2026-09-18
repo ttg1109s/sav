@@ -17,40 +17,27 @@ body { min-height: 100dvh; background: #000; }
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
-/* SỬA (Giang chỉ ra: "React beat, point move khi ở player áp dụng motion beat, point thì phải gán
-   lên 1 lớp cha của nó giống như cấu trúc của hệ thống visual background" — rồi "tôi tưởng motion
-   đã tách khỏi nơi tiêu thụ?" khi thấy bản đầu tự tạo 1 lớp cha MỚI thay vì DÙNG LẠI lớp CÓ SẴN của
-   Motion Engine) — KHÔNG còn `#video-player-motion-react` riêng nữa (đã XOÁ hẳn rule CSS đó).
-   `#video-player-motion-pointmove` (bọc `#bg-video`) giờ CHỈ có 1 vai trò tĩnh: chuẩn bị SẴN cho
-   Point Move của Video sau này (GIAI ĐOẠN SAU — CHƯA có cơ chế hoạt động, Giang chốt rõ "chưa
-   backend point move cho video") — `inset:0` đơn giản, không cần overscan riêng (Video không có
-   crossfade 2 layer A/B như Photo nên không cần -2px như `.me-pointmove-players`).
+/* `#video-player-motion-pointmove` (bọc `#bg-video` — layer A) — nhận transform Point Move của
+   Video Player mode, CÙNG cấu trúc Point Move wrapper của VBG-Photo (`.me-pointmove-players`,
+   assets/css/motion-engine.css): `inset:-2px` (tràn nhẹ tránh hở viền lúc pan/zoom) +
+   `perspective` (hiệu ứng 3D của Transition bên trong). Lúc VÀO Video Player mode,
+   `core/player-display-apply.js::attachVideoPlayerMotionToSharedReactLayer()` di chuyển CẢ
+   element này LẪN `#visual-bg-image` (layer B) vào làm con của nó — Point Move áp 1 LẦN DUY NHẤT
+   lên phần tử NÀY thì CẢ 2 layer di chuyển CÙNG NHAU như 1 khối cứng (tránh "move A lộ B", cùng lý
+   do VBG-Photo đã sửa trước đó). Ngoài cùng, element này lại được đưa vào `#visual-motion-react`
+   (motionEngineReactLayer, CÓ SẴN, DÙNG CHUNG với VBG) để nhận thêm transform React Beat Audio —
+   xem event/workflow/player-display-settings.js. Trả về đúng vị trí "nhà" gốc lúc THOÁT mode
+   (`detachVideoPlayerMotionFromSharedReactLayer()`). Motion Engine VBG-Photo hoàn toàn không biết
+   việc di chuyển này — Runner của nó chỉ hỏi `() => motionEngineReactLayer`, luôn đúng 1 element cố
+   định bất kể ai đang nằm bên trong.
 
-   VỊ TRÍ trong DOM tree — mặc định (index.html) đứng "nhà" 1 mình, KHÔNG lồng trong bất kỳ ai. Lúc
-   VÀO Video Player mode, event/workflow/video-player.js tự `appendChild` NGUYÊN element này (+
-   `#bg-video` bên trong) VÀO THẲNG `#visual-motion-react` (motionEngineReactLayer, CÓ SẴN, DÙNG
-   CHUNG với VBG — xem assets/css/motion-engine.css) để NHẬN LUÔN transform React Beat Audio của
-   Video (event/workflow/player-display-settings.js, qua Runner DÙNG CHUNG event/workflow/motion-
-   beat-react-runner.js) — rồi CHUYỂN VỀ ĐÚNG vị trí "nhà" lúc THOÁT mode (xem core/player-display-
-   apply.js::attachVideoPlayerMotionToSharedReactLayer()/detachVideoPlayerMotionFromSharedReactLayer()).
-   Motion Engine VBG-Photo (`workflowVisualBgPhotoMotion`) HOÀN TOÀN không biết/không cần biết việc di chuyển này —
-   Runner của nó chỉ hỏi `() => motionEngineReactLayer`, LUÔN đúng 1 element cố định bất kể ai đang
-   nằm bên trong (đúng nguyên tắc "Motion không quan tâm lớp cha ở đâu, nơi tiêu thụ tự quyết").
-
-   `pointer-events:none` — `#bg-video` tự set `pointer-events:auto` RIÊNG lúc Video Player mode
-   (core/video-player.js::setBgVideoElementForPlayerMode()) — override được bình thường (con luôn
-   thắng cha), không bị chặn dù element cha đổi (motionEngineReactLayer cũng `pointer-events:none`,
-   assets/css/motion-engine.css). */
-/* SỬA (Giang chỉ ra: "đưa position của N cái vào CÙNG 1 vị trí, CÙNG 1 kích thước, chỉ khác z-index
-   cái nào đè cái nào" — dùng `inset:0` ở đây trước đó "trùng" với `#bg-video`/`#visual-bg-image`
-   CHỈ NHỜ giả định phần tử cha (`#video-player-motion-pointmove`) đúng bằng kích thước viewport —
-   giả định ĐÚNG hiện tại nhưng KHÔNG tường minh/không được đảm bảo chắc chắn) — ĐỔI sang y HỆT công
-   thức `top/left/width/height` mà `#bg-video`/`#visual-bg-image` đang dùng (assets/css/base.css) —
-   giờ CẢ 3 phần tử (layer A, layer B, lớp bọc của A) chung ĐÚNG 1 vị trí/kích thước tường minh, chỉ
-   z-index tự nhiên khác nhau quyết định thứ tự đè. */
+   `pointer-events:none` — `#bg-video` tự set `pointer-events:auto` riêng lúc Video Player mode
+   (core/video-player.js::setBgVideoElementForPlayerMode()), override bình thường (con luôn thắng
+   cha) dù element cha đổi. */
 #video-player-motion-pointmove {
-    position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh;
+    position: absolute; inset: -2px;
     overflow: hidden;
+    perspective: 1600px;
 }
 
 #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; object-fit: cover; z-index: 0; pointer-events: none; background-size: cover; background-position: center; }
