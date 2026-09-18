@@ -3,7 +3,7 @@
  * Motion" (preset transition/Point Move đặt tên được, độc lập khỏi nơi tiêu thụ — xem
  * core/motion-presets.js, event/workflow/motion-presets.js) + `motionApply` (đăng ký preset nào
  * dùng được cho nơi tiêu thụ nào) + `motionRunning` (id preset ĐANG THẬT SỰ render lúc này, do
- * chính engine render — hiện DUY NHẤT Motion Engine, event/workflow/motion-engine.js — ghi mỗi
+ * chính engine render — hiện DUY NHẤT Motion Engine, event/workflow/visual-bg-photo-motion.js — ghi mỗi
  * lần kích hoạt, KHÔNG phải "cấu hình chọn" (`motionPresetId` phía nơi tiêu thụ) — 2 khái niệm
  * khác nhau: null/khác nơi tiêu thụ đang chọn, engine không chạy gì cả thì vẫn null). Dùng để màn
  * Edit Motion biết mình có đang là preset ĐANG CHẠY hay không mà áp SỐNG toggle Point Move/React
