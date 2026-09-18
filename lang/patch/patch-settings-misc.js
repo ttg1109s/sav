@@ -99,14 +99,18 @@ const LANG_PATCH_SETTINGS_MISC = {
     // hình độc lập (phạm vi/tải xuống/xoá) + 1 nút "Thực hiện".
     'storageDrawer.brokenSectionTitle': 'Corrupted data',
     'storageDrawer.scanBroken.label': 'Scan & clean broken files',
-    'storageDrawer.scanBroken.hint': "Finds songs whose data isn't a valid mp3 or can't be played, asks before deleting",
+    // SỬA (18/09/2026) — hint giờ nói chung "hỏng hoặc thiếu dữ liệu" thay vì chỉ "song không phải
+    // mp3 hợp lệ" — Video giờ có thêm case "thiếu thumbnail" (vẫn phát được, không phải mp3/decode).
+    'storageDrawer.scanBroken.hint': "Finds files that can't be played, or videos missing thumbnail data, and asks before acting",
     // MỚI (29/07/2026, yêu cầu Giang — "mở modal choice có dropdown chọn loại scan") — nội dung
     // modal + option "Tất cả" của dropdown, xem event/workflow/file-manager-storage.js::
     // askScanBrokenScope(). XOÁ (cùng ngày) — key "blockedNoSource" (Block gate cũ chặn "chưa
     // chọn nguồn nào") không còn cần thiết — dropdown LUÔN có 1 giá trị, không có khái niệm rỗng.
     'storageDrawer.scanBroken.modalBody': 'Choose what to scan for broken/corrupted files:',
     'storageDrawer.scanBroken.scopeAll': 'Everything (Music, Video, Photos)',
-    'storageDrawer.btnDeleteBroken': 'Delete these broken files',
+    // ĐỔI TÊN (18/09/2026, gộp tính năng "Sửa file lỗi") từ 'storageDrawer.btnDeleteBroken' — nút
+    // giờ xoá file hỏng thật + tạo lại thumb cho video chỉ thiếu thumb, tuỳ từng phần tử quét được.
+    'storageDrawer.btnFixBroken': 'Fix these files',
     'storageDrawer.btnDismissScan': 'Dismiss',
 
     'settingsLanguage.sectionTitle': 'Language',

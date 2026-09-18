@@ -78,11 +78,25 @@ const LANG_PATCH_COMMON = {
     // hỏng riêng của Document, dùng bởi core/storage-manager.js::isDocumentRecordCorrupted() đã
     // xoá) bỏ hẳn cùng tính năng, không còn nơi nào đọc key này.
     'common.storage.scanReasonKeptFromError': 'Playback error — chose to "Keep" for later',
+    // MỚI (18/09/2026, video thiếu thumb — vẫn phát được, chỉ THIẾU ảnh xem trước) — xem
+    // isVideoRecordCorrupted() core/storage-manager.js.
+    'common.storage.scanReasonMissingThumbCover': 'Missing cover thumbnail',
+    'common.storage.scanReasonMissingThumbFull': 'Missing full-res thumbnail',
     'common.storage.deleteBrokenTitle': 'Delete broken files',
     'common.storage.deleteBrokenConfirm': 'Delete the {n} broken file(s) found? This cannot be undone.',
     'common.storage.deleteBrokenConfirmBtn': 'Delete',
     'common.storage.deletingBroken': 'Deleting broken files...',
     'common.storage.deleteBrokenDone': 'Broken files deleted.',
+    // MỚI (18/09/2026, nút "Sửa file lỗi" — gộp xoá file hỏng thật + tạo lại thumb cho video chỉ
+    // thiếu thumb, xem askFixBroken()/executeRepairBroken() event/workflow/file-manager-storage.js)
+    'common.storage.fixBrokenTitle': 'Fix broken files',
+    'common.storage.fixBrokenConfirmBtn': 'Continue',
+    'common.storage.fixBrokenConfirmBoth': '{broken} broken file(s) will be deleted, and {fixable} file(s) with missing thumbnails will be repaired. Continue?',
+    'common.storage.fixBrokenConfirmOnlyFixable': 'Repair {n} file(s) with missing thumbnail data (regenerate thumbnails)?',
+    'common.storage.repairing': 'Repairing...',
+    'common.storage.repairingProgress': 'Repairing {n} / {total}...',
+    'common.storage.repairDone': 'Repaired {n} file(s).',
+    'common.storage.repairSomeFailed': 'Repaired {fixed} file(s). {failed} file(s) still could not be read — recommend re-uploading them.',
     'common.playlist.cleaningUpPrevious': 'Cleaning up unfinished data from last session...',
 
     'common.loading.deleting': 'Deleting...',

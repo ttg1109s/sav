@@ -129,6 +129,11 @@ const LANG_PATCH_FILE_MANAGER = {
     // deleteSuccess (đã có sẵn ở patch-playlist.js).
     'fileManager.video.empty': 'No videos yet. Tap the + button above to add some.',
     'fileManager.video.uploadSuccess': 'Added {count} video(s).',
+    // MỚI (18/09/2026, "thiếu full-res lúc upload cũng là lỗi thật") — báo riêng danh sách file bị
+    // skip (thumbnail capture thất bại, KHÔNG lưu record nào) khuyến nghị upload lại, xem
+    // uploadVideos() event/workflow/playlist.js.
+    'fileManager.video.uploadSkippedTitle': 'Some videos were skipped',
+    'fileManager.video.uploadSkipped': "{count} file(s) failed to process and were skipped: {names}. Please try uploading them again.",
     'fileManager.video.pickerTitle': 'Choose a video',
     // XOÁ (30/07/2026, cùng ngày) — 'fileManager.video.thumbFullRegenProgress' (tiến trình regen
     // lúc boot) + 'fileManager.video.noFullResThumbForBgImage' (test picker chọn nền Visual từ
