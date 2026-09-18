@@ -122,8 +122,9 @@ function renderFileManagerStorageManagementPanelBody() {
                                 <!-- SỬA (phản hồi Giang mục 2) — text-rose-300 đổi sang text-rose-600:
                                      .app-settings-scope KHÔNG có rule cho text-rose-*, để nguyên -300
                                      (vốn hợp nền tối) sẽ quá nhạt/khó đọc trên nền trắng — đổi sang
-                                     rose-600, KHỚP màu bg-rose-600 của #btn-storage-delete-broken
-                                     (cùng khối "cảnh báo xoá"). -->
+                                     rose-600, KHỚP màu bg-rose-600 của #btn-storage-fix-broken (ĐỔI
+                                     TÊN 18/09/2026 từ #btn-storage-delete-broken, cùng khối "cảnh báo
+                                     xoá"). -->
                                 <div class="text-sm font-medium text-rose-600" data-i18n="fileManager.song.storageAction.deleteToggle.label">${t('fileManager.song.storageAction.deleteToggle.label')}</div>
                                 <div class="text-xs text-slate-500 mt-0.5" data-i18n="fileManager.song.storageAction.deleteToggle.hint">${t('fileManager.song.storageAction.deleteToggle.hint')}</div>
                             </div>
@@ -155,7 +156,13 @@ function renderFileManagerStorageManagementPanelBody() {
                             <p id="storage-scan-summary" class="text-sm text-slate-900"></p>
                             <div id="storage-scan-list" class="flex flex-col gap-1.5 max-h-48 overflow-y-auto text-xs text-slate-500"></div>
                             <div class="flex gap-3 mt-1">
-                                <button id="btn-storage-delete-broken" class="flex-1 py-2.5 rounded-xl text-sm font-semibold" data-uitk="btnDestructiveBg btnDestructiveHoverBg textOnAccent" data-i18n="storageDrawer.btnDeleteBroken">${t('storageDrawer.btnDeleteBroken')}</button>
+                                <!-- ĐỔI TÊN (18/09/2026, gộp tính năng "Sửa file lỗi") — id/key từ
+                                     #btn-storage-delete-broken/storageDrawer.btnDeleteBroken. Màu nút
+                                     TĨNH giữ nguyên destructive (đa số lô quét vẫn có phần xoá thật) —
+                                     riêng modal xác nhận (askFixBroken(), event/workflow/
+                                     file-manager-storage.js) mới tự đổi màu/nội dung ĐÚNG theo từng
+                                     lô (thuần sửa thumb thì không còn destructive). -->
+                                <button id="btn-storage-fix-broken" class="flex-1 py-2.5 rounded-xl text-sm font-semibold" data-uitk="btnDestructiveBg btnDestructiveHoverBg textOnAccent" data-i18n="storageDrawer.btnFixBroken">${t('storageDrawer.btnFixBroken')}</button>
                                 <button id="btn-storage-dismiss-scan" class="flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors" data-i18n="storageDrawer.btnDismissScan">${t('storageDrawer.btnDismissScan')}</button>
                             </div>
                         </div>
