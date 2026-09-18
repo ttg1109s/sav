@@ -7,14 +7,15 @@
  *   - Rule 1 (đơn tuyến): mỗi hàm ĐÚNG 1 kịch bản — vd chọn index kế tiếp sequential/random tách 2
  *     hàm riêng (pickNextMotionEngineIndexSequential/pickPointMoveOneIndexSequential/Random).
  *   - Rule 2 (không tự đọc appState): mọi hàm nhận objectUrl/transitionType/durationMs/index/
- *     preset field qua THAM SỐ — nơi gọi (event/workflow/motion-engine.js) tự appState.get() trước.
+ *     preset field qua THAM SỐ — nơi gọi (event/workflow/visual-bg-photo-motion.js, đổi tên
+ *     17/09/2026 từ event/workflow/motion-engine.js) tự appState.get() trước.
  *   - Rule 3 (cấm core gọi core + cấm taskManager trong core): KHÔNG hàm nào trong file này gọi hàm
  *     khác trong CHÍNH file này hay dùng `taskManager` — Workflow tự `taskManager.once()`/`.animate()`
  *     cleanup + tự gọi TỪNG hàm core theo đúng thứ tự.
  *   - Rule 4: file này không tự appState.set()/mutate() (chỉ thao tác DOM thuần) -> N/A.
  *
  * ORCHESTRATION THẬT (đọc appState.motionEngineConfig, đọc DB ảnh, quản lý task lặp qua taskManager,
- * pause/resume theo vizConfig.videoBgEnabled) sống ở event/workflow/motion-engine.js — KHÔNG đặt ở đây
+ * pause/resume theo vizConfig.videoBgEnabled) sống ở event/workflow/visual-bg-photo-motion.js — KHÔNG đặt ở đây
  * (workflow được phép đọc appState/dùng taskManager, core thì không — xem comment đầu file đó).
  *
  * DOM: 2 lớp ảnh xen kẽ #visual-motionEngine-layer-1/2 (index.html) trong #visual-motionEngine-container
@@ -95,7 +96,7 @@ function transitionSupportsCurtainDirection(transitionType) {
  * pha "out" độc lập: layer CŨ đứng yên bất động (`animation: none; opacity: 1;`, xem assets/css/
  * motion-engine.css), hiệu ứng CHỈ đến từ layer MỚI phủ dần lên bằng clip-path. Khái niệm "tỉ lệ
  * In/Out" KHÔNG áp dụng được cho các kiểu này — Settings Drawer tự ẨN mục đó khi 1 trong số đang
- * được chọn (xem `transitionSupportsInOutRatio()` ngay dưới + event/workflow/motion-engine.js). */
+ * được chọn (xem `transitionSupportsInOutRatio()` ngay dưới + event/workflow/visual-bg-photo-motion.js). */
 const MOTION_ENGINE_TRANSITION_TYPES_NO_OUT = ['wipe', 'curtain', 'circleReveal'];
 
 /** Biên thời gian transition [300ms, 60s] — SỬA (phản hồi Giang — hạ min 1s xuống 300ms) — max 60s
@@ -140,8 +141,8 @@ function computeMotionEngineTransitionInOutMs(totalMs, ratioPercent) {
  * giật/lỗi hình. `Math.max(MOTION_ENGINE_TRANSITION_MIN_TIME_MS, ...)` — sàn an toàn phòng
  * `intervalMs` cực nhỏ.
  * GENERIC — chỉ nhận 2 SỐ THUẦN, không tự đọc/biết bất kỳ consumer/domain nào — nơi gọi tự tính
- * `intervalMs` theo đúng ngữ cảnh của mình rồi truyền vào (xem event/workflow/motion-engine.js::
- * _tick(), event/workflow/motion-presets.js::openTransitionDurationPicker()).
+ * `intervalMs` theo đúng ngữ cảnh của mình rồi truyền vào (xem event/workflow/motion-beat-react-
+ * runner.js::_tick(), event/workflow/motion-presets.js::openTransitionDurationPicker()).
  * @param {number} configuredMs
  * @param {number} intervalMs
  * @returns {number}
@@ -209,7 +210,7 @@ function setMotionEngineTransitionType(containerEl, transitionType) {
  * "chỉ giữ lại flip page ở các edge... đóng/mở chuyển thành dropdown"). LUÔN set (kể cả type ĐANG
  * chọn không phải edge flip — 2 attribute này vô hại/không ai đọc tới khi selector `[data-transition
  * ="flipXEdge"]` không khớp, đỡ phải thêm guard `transitionIsEdgeFlip()` ở ĐÂY — nơi gọi
- * (event/workflow/motion-engine.js) tự lo validate range/kiểu dữ liệu của 2 field trước khi gọi).
+ * (event/workflow/visual-bg-photo-motion.js) tự lo validate range/kiểu dữ liệu của 2 field trước khi gọi).
  */
 function setMotionEngineEdgeFlipOptions(containerEl, variant, staticOld) {
     if (!containerEl) return;
@@ -314,7 +315,7 @@ function pickPointMoveOneIndexRandom(checkedIndices, lastIndex) {
  * tuỳ chọn random cho mỗi transition có direction/in out"). `value !== 'random'` -> trả thẳng
  * (chế độ CỤ THỂ, người dùng chọn cố định 1 hướng, KHÔNG random/loại trừ gì). `value === 'random'`
  * -> chọn NGẪU NHIÊN 1 phần tử trong `candidates`, LOẠI TRỪ `excludeValue` (giá trị dùng ở lượt
- * transition kích hoạt LIỀN TRƯỚC — nơi gọi tự nhớ, xem event/workflow/motion-engine.js) — CÙNG
+ * transition kích hoạt LIỀN TRƯỚC — nơi gọi tự nhớ, xem event/workflow/motion-transition-runner.js) — CÙNG
  * convention loại-trừ-lượt-liền-trước dùng ở Point Move (đảm bảo 'random' KHÔNG BAO GIỜ lặp lại
  * y hệt lượt liền trước, kể cả khi random tự nhiên "trúng" lại). DÙNG CHUNG cho cả 5 field hướng
  * transition (khác nhau chỉ ở `candidates` truyền vào).
@@ -334,16 +335,18 @@ function resolveMotionEngineTransitionOption(value, candidates, excludeValue) {
 
 /**
  * Core thuần: BẮT ĐẦU Point Move bằng Web Animations API trên phần tử NHẬN transform Point Move
- * (`motionEnginePointMoveWrapper`, bọc CHUNG cả 2 layer A/B — SỬA, phản hồi Giang: "point move phải
+ * (`visualBgPhotoMotionPointMoveWrapper`, bọc CHUNG cả 2 layer A/B — SỬA, phản hồi Giang: "point move phải
  * là 1 div cha bao quanh layer A, B", xem docstring đầu assets/css/motion-engine.css). Nơi gọi
- * (event/workflow/motion-engine.js) tự giữ tham chiếu phần tử đó + tự giữ luôn `Animation` object
+ * (event/workflow/motion-point-move-runner.js, Runner DÙNG CHUNG — VBG-Photo qua event/workflow/
+ * visual-bg-photo-motion.js, đổi tên 17/09/2026 từ motion-engine.js) tự giữ tham chiếu phần tử đó +
+ * tự giữ luôn `Animation` object
  * trả về (để `.cancel()` lúc cần) — Rule 2, hàm này KHÔNG tự quản lý vòng đời Animation, cũng KHÔNG
  * tự biết/quan tâm phần tử truyền vào là gì (generic, nhận bất kỳ `panEl` nào).
  * `easing`/`durationMs` do nơi gọi quyết định — 'one' mode tween thẳng baseline->target 2 keyframe
  * (dùng `ease-in-out`); 'all' mode PHẢI dùng `'linear'` (nhiều keyframe ĐÃ sample sẵn theo đường
  * cong Timing — easing khác 'linear' ở tầng WAAPI sẽ làm méo lại đường cong đã tính, xem
- * event/workflow/motion-engine.js::_buildPointMoveAllKeyframes()).
- * @param {HTMLElement} panEl - phần tử NHẬN transform (thực tế: `motionEnginePointMoveWrapper`).
+ * event/workflow/motion-point-move-runner.js::_buildPointMoveAllKeyframes()).
+ * @param {HTMLElement} panEl - phần tử NHẬN transform (thực tế: `visualBgPhotoMotionPointMoveWrapper`).
  * @param {object[]} keyframes - mảng {transform} cho `panEl.animate()`.
  * @param {number} durationMs
  * @param {string} easing - 1 trong MOTION_ENGINE_TRANSITION_EASINGS, hoặc 'linear' cho 'all' mode.
@@ -358,10 +361,10 @@ function startPointMoveAnimation(panEl, keyframes, durationMs, easing) {
  * Core thuần: DỪNG + RESET HẲN Point Move về trạng thái gốc (transform trung lập) — dùng khi đổi
  * ảnh mới (SỬA, phản hồi Giang — Point Move giờ CHUNG 1 phần tử cho cả 2 layer A/B, nơi gọi tự dừng
  * animation LƯỢT TRƯỚC trên chính phần tử đó trước khi bắt animation MỚI, xem event/workflow/
- * motion-engine.js::_activatePointMove()). `.cancel()` Animation đang giữ (nếu có) TRƯỚC khi reset
+ * motion-point-move-runner.js). `.cancel()` Animation đang giữ (nếu có) TRƯỚC khi reset
  * inline style — `cancel()` tự gỡ hiệu lực `fill:'forwards'` đang áp, không làm vậy trước thì set
  * lại style ngay sau có thể bị animation "forwards" ghi đè lại.
- * @param {HTMLElement} panEl - phần tử NHẬN transform (thực tế: `motionEnginePointMoveWrapper`).
+ * @param {HTMLElement} panEl - phần tử NHẬN transform (thực tế: `visualBgPhotoMotionPointMoveWrapper`).
  * @param {Animation|null} animation - Animation Workflow đang giữ (null nếu chưa từng kích hoạt
  *   hoặc đã dừng trước đó).
  */
@@ -431,13 +434,13 @@ function finishMotionEngineTransitionVisuals(outgoingLayerEl, incomingLayerEl) {
 // kiểu "notify center" =============================================================================
 // `setMotionEngineAlbumPickerVisible()` (bản trước ở đây) XOÁ HẲN — panel chọn nguồn giờ dùng
 // `openGenericDrawer()`/`closeGenericDrawer()` (core/generic-drawer.js) như mọi Generic Drawer khác,
-// xem event/workflow/motion-engine.js.
+// xem event/workflow/visual-bg-photo-motion.js.
 
 /**
  * Core thuần: dọn class DOM của 1 layer về trạng thái nghỉ (KHÔNG đụng ảnh — Workflow tự gọi riêng
  * `setMotionEngineLayerImage()` cho TỪNG layer + `stopPointMoveAnimation()` MỘT LẦN cho
- * `motionEnginePointMoveWrapper` (bọc chung cả 2 layer, không phải theo từng layer nữa — xem
- * event/workflow/motion-engine.js::stop() — Rule 3 CẤM hàm này tự gọi 2 hàm đó nội bộ).
+ * `visualBgPhotoMotionPointMoveWrapper` (bọc chung cả 2 layer, không phải theo từng layer nữa — xem
+ * event/workflow/visual-bg-photo-motion.js::stop() — Rule 3 CẤM hàm này tự gọi 2 hàm đó nội bộ).
  * @param {HTMLElement} layerEl
  */
 function resetMotionEngineLayerClasses(layerEl) {
@@ -466,7 +469,7 @@ function computeMotionEngineBeatReactZoomScale(maxPct, energy) {
  * Core thuần: offset pan/rotate react-beat LIÊN TỤC theo `direction` + `energy` — DÙNG CHUNG pan
  * (đơn vị %, `maxVal` = `maxPct-100` ĐÃ trừ baseline, nơi gọi tự trừ trước khi truyền) LẪN rotate
  * (đơn vị độ, `maxVal` = `maxDeg` thẳng, baseline vốn đã là 0 — xem
- * event/workflow/motion-engine.js::_tickBeatReact()). Biên độ nội suy tuyến tính từ 0 (baseline CỐ
+ * event/workflow/motion-beat-react-runner.js::_tick()). Biên độ nội suy tuyến tính từ 0 (baseline CỐ
  * ĐỊNH CỨNG, Giang chốt — "min không phải tuỳ chọn", KHÔNG phải field trong preset) lên `maxVal`
  * theo `energy`.
  * "left"/"right" — biên độ (luôn không âm) nội suy tuyến tính [0,maxVal] theo `energy`, DẤU CỐ ĐỊNH
@@ -474,7 +477,7 @@ function computeMotionEngineBeatReactZoomScale(maxPct, energy) {
  * "rightToLeft" KHÔNG còn quét liên tục theo `energy` nữa (bản cũ `magnitude*(2*energy-1)` đã bỏ) —
  * giờ CÙNG công thức biên độ với "left"/"right" (`maxVal * energy`), CHỈ khác ở dấu: dấu (`polarity`,
  * 1 hoặc -1) do NƠI GỌI tự tính + ĐẢO mỗi lần có "beat mới" (xem
- * `computeMotionEngineBeatReactNextPolarity()` + event/workflow/motion-engine.js::_tickBeatReact())
+ * `computeMotionEngineBeatReactNextPolarity()` + event/workflow/motion-beat-react-runner.js::_tick())
  * — lượt beat NÀY lệch 1 bên, lượt KẾ TIẾP tự đảo sang bên kia, cứ thế xen kẽ.
  * @param {'left'|'right'|'leftToRight'|'rightToLeft'} direction
  * @param {number} maxVal - biên độ tại energy=1 (ĐÃ trừ baseline, luôn >=0).

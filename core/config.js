@@ -304,7 +304,7 @@
             // MỚI (29/08/2026, phản hồi Giang — dời "Seconds per photo" từ slideshow sang panel VBG,
             // dùng CHUNG cho cả video lẫn ảnh) — 2 field này thay hẳn `slideshow.intervalSeconds` cũ
             // (đã xoá khỏi object `slideshow` bên dưới). Ý nghĩa của `durationMode` LỆCH nhau theo
-            // `type`, xem docstring `_computeAdvanceMs()` (event/workflow/motion-engine.js) +
+            // `type`, xem docstring `_computeAdvanceMs()` (event/workflow/visual-bg-photo-motion.js) +
             // `_maybeScheduleVideoFixTime()` (event/workflow/visual-bg.js):
             //   'duration' (mặc định) — dùng ĐỘ DÀI TỰ NHIÊN của CHÍNH item đang hiện: video = phát
             //             hết thật (sự kiện `ended`, KHÔNG hẹn giờ nào); ảnh = field `duration` RIÊNG

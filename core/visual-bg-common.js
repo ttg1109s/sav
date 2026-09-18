@@ -3,7 +3,7 @@
  * Video: type/origin kind, quản lý `source.list` (advance/shuffle/sort/mark-missing), và toàn bộ
  * hệ màu nền (solid/gradient + Movement). Phần riêng từng loại: core/visual-bg-video.js,
  * core/visual-bg-photo.js. Điều phối ở event/workflow/visual-bg-common.js
- * (+ event/workflow/motion-engine.js cho riêng render ảnh).
+ * (+ event/workflow/visual-bg-photo-motion.js cho riêng render ảnh).
  * NẠP SAU: service/state.js, core/dom-refs.js. NẠP TRƯỚC: event/workflow/visual-bg-common.js.
  */
 

@@ -285,25 +285,32 @@
         // kịp di chuyển) để biết đường trả VỀ — CÙNG khuôn `videoPlayerMotionPointMoveElement` ở trên.
         const visualBgImageHomeParent = visualBgImageElement ? visualBgImageElement.parentNode : null;
         const visualBgImageHomeNextSibling = visualBgImageElement ? visualBgImageElement.nextSibling : null;
-        // Motion Engine nền Visual (nguồn nền thứ 3, Batch 8, ver 12 "Multi Media") — xem
-        // core/motion-engine.js / event/workflow/motion-engine.js.
+        // Motion Engine nền Visual Photo (nguồn nền thứ 3, Batch 8, ver 12 "Multi Media") — xem
+        // core/motion-engine.js (hàm thuần, dùng chung) / event/workflow/visual-bg-photo-motion.js
+        // (workflow, CHỈ riêng VBG-Photo — ĐỔI TÊN 17/09/2026 từ event/workflow/motion-engine.js,
+        // xem docstring đầu file đó: workflowVisualBgPhotoMotion KHÔNG chạy cho VBG-Video, guard
+        // `cfg.type !== 'video'` ở event/workflow/visual-bg-common.js).
         // MỚI ("React Beat Audio", 29/08/2026, VIẾT LẠI 30/08/2026 phản hồi Giang mục 3) — layer
         // NGOÀI CÙNG `motionEngineReactLayer` bao TRỌN container (CẢ 2 player A/B), mang transform
         // zoom/pan/rotate LIÊN TỤC theo nhạc (đọc `beatScale` mỗi frame, KHÔNG còn pulse theo beat
         // rời rạc) — CHỈ 1 phần tử DUY NHẤT, KHÔNG còn 2 layer riêng cho từng player như bản trước.
+        // GIỮ NGUYÊN tên `motionEngineReactLayer`/`#visual-motion-react` (KHÔNG đổi theo prefix
+        // `visualBgPhotoMotion*` bên dưới) — element NÀY dùng CHUNG thật với Video Player mode
+        // ("Showing" React Beat, xem core/player-display-apply.js), KHÁC 5 biến dưới (CHỈ VBG-Photo
+        // dùng, ĐÃ xác nhận qua rà soát toàn bộ codebase 17/09/2026).
         const motionEngineReactLayer = document.getElementById('visual-motion-react');
-        const motionEngineContainer = document.getElementById('visual-motion-container');
+        const visualBgPhotoMotionContainer = document.getElementById('visual-bg-photo-motion-container');
         // SỬA (phản hồi Giang — "point move phải là 1 div cha bao quanh layer A, B") — Point Move
-        // transform giờ áp DUY NHẤT lên `motionEnginePointMoveWrapper` (`#visual-motion-players`,
-        // bọc CHUNG cả 2 layer A/B), KHÔNG còn ở từng `motionEngineLayer1Pan`/`...2Pan` riêng nữa —
-        // xem event/workflow/motion-engine.js.
-        const motionEnginePointMoveWrapper = document.getElementById('visual-motion-players');
-        const motionEngineLayer1 = document.getElementById('visual-motion-layer-1');
-        const motionEngineLayer2 = document.getElementById('visual-motion-layer-2');
+        // transform giờ áp DUY NHẤT lên `visualBgPhotoMotionPointMoveWrapper` (`#visual-bg-photo-
+        // motion-players`, bọc CHUNG cả 2 layer A/B), KHÔNG còn ở từng `visualBgPhotoMotionLayer1Pan`/
+        // `...2Pan` riêng nữa — xem event/workflow/visual-bg-photo-motion.js.
+        const visualBgPhotoMotionPointMoveWrapper = document.getElementById('visual-bg-photo-motion-players');
+        const visualBgPhotoMotionLayer1 = document.getElementById('visual-bg-photo-motion-layer-1');
+        const visualBgPhotoMotionLayer2 = document.getElementById('visual-bg-photo-motion-layer-2');
         // Layer CON bên trong mỗi motion-layer — CHỈ còn mang `background-image` (KHÔNG còn nhận
-        // transform Point Move — đã dời lên `motionEnginePointMoveWrapper`, xem trên).
-        const motionEngineLayer1Pan = document.getElementById('visual-motion-layer-1-pan');
-        const motionEngineLayer2Pan = document.getElementById('visual-motion-layer-2-pan');
+        // transform Point Move — đã dời lên `visualBgPhotoMotionPointMoveWrapper`, xem trên).
+        const visualBgPhotoMotionLayer1Pan = document.getElementById('visual-bg-photo-motion-layer-1-pan');
+        const visualBgPhotoMotionLayer2Pan = document.getElementById('visual-bg-photo-motion-layer-2-pan');
         // MỚI (v13 Batch A) — nút điều hướng DUY NHẤT mở panel "Visual Background", THAY 3 entry
         // cũ (#setting-video-enable, #setting-visual-bg-image-enable, #setting-open-slideshow-settings).
         const btnOpenVisualBgSettings = document.getElementById('setting-open-visual-bg-settings');

@@ -8,7 +8,7 @@
  * SỬA (Giang chỉ ra: "khi ở player video thì video và bg image được coi là layer A, layer B, mô
  * hình giống hệt VBG" — bản trước gọi `visualBgImageElement` là "thumb dự phòng", NGỤ Ý nó là 1 thứ
  * PHỤ, khác hẳn `bgVideoElement` — SAI khung hình dung) — Video Player mode dùng ĐÚNG mô hình 2 layer
- * NGANG HÀNG như VBG (`motionEngineLayer1`/`motionEngineLayer2`), CHỈ khác: VBG có 2 layer THẬT SỰ
+ * NGANG HÀNG như VBG (`visualBgPhotoMotionLayer1`/`visualBgPhotoMotionLayer2`), CHỈ khác: VBG có 2 layer THẬT SỰ
  * độc lập (mỗi layer giữ 1 ảnh khác nhau, luân phiên vai trò để crossfade — xem event/workflow/
  * motion-transition-runner.js), còn ở đây "layer A" (`bgVideoElement`, nội dung THẬT, luôn hiện) và
  * "layer B" (`visualBgImageElement`, TÁI DÙNG với VBG) chỉ có nội dung KHÁC NHAU lúc swap video
@@ -141,7 +141,7 @@ function clearPhotoPlayerResolutionFromDOM() {
  * ĐÚNG, không cần `.me-current`).
  *
  * AN TOÀN với VBG: `clearMediaLayers()` (event/workflow/visual-bg-common.js, LUÔN chạy TRƯỚC bước
- * này trong `startFromPlaylist()`) đã gọi `workflowMotionEngine.stop()` — dọn SẠCH transform + dừng
+ * này trong `startFromPlaylist()`) đã gọi `workflowVisualBgPhotoMotion.stop()` — dọn SẠCH transform + dừng
  * hẳn Runner của VBG, VÀ ẩn `visualBgImageElement` (`applyVisualBgImageToDOM(false, ...)`, core/
  * visual-bg.js) TRƯỚC KHI hàm này chạy — VBG không đang dùng CẢ `motionEngineReactLayer` LẪN
  * `visualBgImageElement` lúc này (2 mode loại trừ nhau TUYỆT ĐỐI), nên mượn cả 2 là an toàn. */

@@ -2,7 +2,7 @@
  * core/visual-bg-photo.js — Core thuần domain "Visual Background", phần RIÊNG cho Photo: áp DOM
  * nền ảnh tĩnh (#visual-bg-image). Phần chung (type/list/màu nền): xem core/visual-bg-common.js.
  * Điều phối ở event/workflow/visual-bg-photo.js; render/transition/Point Move của ảnh nền sống ở
- * event/workflow/motion-engine.js (Motion Engine).
+ * event/workflow/visual-bg-photo-motion.js (Motion Engine VBG-Photo).
  * NẠP SAU: core/visual-bg-common.js.
  */
 

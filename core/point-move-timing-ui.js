@@ -42,7 +42,7 @@ const POINT_MOVE_TIMING_TAP_THRESHOLD_PX = 6;
  *   theo `timingX` tăng dần (nơi gọi tự sort — Rule 2, hàm này chỉ vẽ theo thứ tự nhận được). `n` =
  *   số thứ tự "Point move N" hiển thị lúc ấn vào node.
  * @param {number} [minX] - biên kéo trái, mặc định 0. (SỬA LẦN 2, phản hồi Giang — hiện LUÔN 0, mốc
- *   x=0 không còn bị field nào khoá nữa, xem event/workflow/motion-engine.js::_activatePointMoveAll();
+ *   x=0 không còn bị field nào khoá nữa, xem event/workflow/visual-bg-photo-motion.js::_activatePointMoveAll();
  *   tham số vẫn giữ lại cho tổng quát/phòng cần lại sau này).
  * @param {number} [maxX] - biên kéo phải, mặc định 100. Nơi gọi truyền <100 (99.9) khi 1 trong 2
  *   field `pointMoveStartForceBaseline`/`pointMoveEndForceBaseline` (core/motion-presets.js) đang

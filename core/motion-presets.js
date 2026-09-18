@@ -29,7 +29,7 @@
  *      (`pointMove.timingX`, % trên trục 0-100 của `advanceMs` — CHỈ 1 TRỤC DUY NHẤT, phản hồi
  *      Giang — "loại bỏ toàn bộ timing Y" — ĐÃ XOÁ HẲN khái niệm cường độ/đường cong Timing Y trước
  *      đó, animation giờ CHỈ còn nội suy tuyến tính theo THỜI GIAN giữa 2 point move liền kề, xem
- *      event/workflow/motion-engine.js::_buildPointMoveAllKeyframes()).
+ *      event/workflow/motion-point-move-runner.js::_buildPointMoveAllKeyframes()).
  *   `pointMoveRunMode: 'one'` — mỗi lượt kích hoạt Motion, CHỈ 1 point move (trong số đã tick)
  *      được chọn để tween từ baseline -> target trong suốt `advanceMs`, chọn theo
  *      `pointMoveOneOrder` ('sequential' — tăng dần theo vị trí trong mảng; 'random' — loại trừ
@@ -225,7 +225,7 @@ function findMotionPresetById(presets, id) {
  * Core thuần — 1 preset (ĐÃ có sẵn qua tham số — nơi gọi tự `findMotionPresetById()` + tự fallback
  * nếu cần TRƯỚC khi gọi hàm này, Rule 2) có THẬT SỰ "sống" để chạy React Beat Audio hay không —
  * DÙNG CHUNG cho MỌI nơi tiêu thụ (VBG, Player Settings Video/Photo, v.v. — GỘP lại từ 2 bản kiểm
- * tra trùng lặp đã lệch nhau: VBG `_getBeatReactPreset()` [event/workflow/motion-engine.js] có đủ
+ * tra trùng lặp đã lệch nhau: VBG `_getBeatReactPreset()` [event/workflow/visual-bg-photo-motion.js] có đủ
  * 3 điều kiện dưới, bản Player `_getAssignedVideoShowingPreset()` [event/workflow/player-display-
  * settings.js] TRƯỚC ĐÂY thiếu hẳn điều kiện thứ 3 — ĐÃ SỬA khi gộp về đây).
  * `true` CHỈ KHI: `preset` tồn tại + `reactBeatAudio.enabled===true` + ÍT NHẤT 1 hiệu ứng con
