@@ -816,15 +816,15 @@
             // `#speed-badge-label` — 1 badge hiện SẴN giá trị NGAY TRÊN nút, LUÔN HIỂN THỊ (nằm
             // ngoài `#visualizer-speed-hud`, popup ẩn mặc định) — mặc định cứng "1x" trong
             // TPL_VISUALIZER_OVERLAY (components/visualizer-overlay.js), CHỈ được
-            // `syncSpeedHudOptions()` (core/hud.js) cập nhật đúng lúc mở popup
+            // `syncSpeedHudUI()` (core/hud.js, ĐỔI TÊN 18/09/2026 từ syncSpeedHudOptions()) cập nhật đúng lúc mở popup
             // (`workflowHud.openSpeed()`) hoặc đổi tốc độ (`workflowHud.selectSpeed()`) — 2 nơi đó
             // CHƯA BAO GIỜ chạy lúc mới boot. `playbackSpeed` đã nạp đúng từ config ở trên, tốc độ
             // THẬT vẫn áp đúng qua `applyPlaybackSpeedToActiveMedia()` lúc bài hát load
             // (`handleAudioLoadedMetadata()`, core/player-controls.js) — chỉ riêng CÁI BADGE bị bỏ
             // quên, đứng yên ở giá trị tĩnh trong HTML cho tới khi người dùng tự mở/đổi popup Speed
             // 1 lần trong phiên. Đồng bộ NGAY ở đây, cùng lúc UI khác hydrate từ config lúc boot.
-            if (typeof syncSpeedHudOptions === 'function' && typeof speedHudOptions !== 'undefined') {
-                syncSpeedHudOptions(speedHudOptions, speedBadgeLabel, appConfigViz.getAll().playbackSpeed); // core/hud.js
+            if (typeof syncSpeedHudUI === 'function' && typeof speedHudOptions !== 'undefined') {
+                syncSpeedHudUI(speedHudSlider, speedHudValueLabel, speedHudOptions, speedBadgeLabel, appConfigViz.getAll().playbackSpeed); // core/hud.js
             }
 
             {

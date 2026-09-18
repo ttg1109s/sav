@@ -133,10 +133,13 @@
         const btnCycleEq = document.getElementById('btn-cycle-eq'), eqBadgeLabel = document.getElementById('eq-badge-label');
         const volumeHudSlider = document.getElementById('volume-hud-slider');
         const volumeHudWave1 = document.getElementById('volume-hud-wave-1'), volumeHudWave2 = document.getElementById('volume-hud-wave-2'), volumeHudWave3 = document.getElementById('volume-hud-wave-3'), volumeHudMute = document.getElementById('volume-hud-mute');
-        // Speed HUD — 5 nút mốc rời rạc, cùng khuôn Volume HUD — xem core/hud.js.
+        // Speed HUD — SỬA (18/09/2026) — slider liên tục 0.5-2 + nhãn giá trị, VẪN giữ 6 nút mốc
+        // nhảy nhanh bên dưới (trước đây CHỈ có 6 nút, không có slider) — xem core/hud.js.
         const btnOpenSpeed = document.getElementById('btn-open-speed');
         const speedBadgeLabel = document.getElementById('speed-badge-label');
         const visualizerSpeedHud = document.getElementById('visualizer-speed-hud');
+        const speedHudSlider = document.getElementById('speed-hud-slider');
+        const speedHudValueLabel = document.getElementById('speed-hud-value');
         const speedHudOptions = document.querySelectorAll('.speed-hud-option');
         
         const btnSettingsPlaylist = document.getElementById('btn-settings-playlist');
