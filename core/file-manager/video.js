@@ -110,6 +110,29 @@ async function setVideoCustomName(videoKey, customName) {
 }
 
 /**
+ * MỚI (18/09/2026, tính năng "Sửa file lỗi" — Storage → Scan broken) — ghi đè `thumbBlob`/
+ * `thumbFullBlob` của 1 video ĐÃ TỒN TẠI, dùng khi "sửa" 1 record chỉ THIẾU THUMB (blob chính vẫn
+ * đọc/phát được, xem `isVideoRecordCorrupted()` core/storage-manager.js) — KHÔNG đụng
+ * `blob`/`width`/`height`/`duration`/`filename`/`customName`/`addedAt`. Cùng khuôn
+ * `setVideoCustomName()` ngay trên (đọc record, patch ĐÚNG field, ghi lại). Nơi gọi
+ * (`workflowFileManagerStorage.executeRepairBroken()`, event/workflow/file-manager-storage.js) tự
+ * chụp thumb mới qua `workflowPlaylist.extractVideoThumbAndMeta(record.blob)` (Workflow, cần DOM)
+ * RỒI mới gọi hàm THUẦN CRUD này ghi kết quả xuống — hàm này không tự chụp gì.
+ * @param {string} videoKey
+ * @param {Blob} thumbBlob
+ * @param {Blob} thumbFullBlob
+ * @returns {Promise<{status: 'notFound'|'ok'}>}
+ */
+async function setVideoThumbnails(videoKey, thumbBlob, thumbFullBlob) {
+    const record = await getVideoRecord(videoKey);
+    if (!record) return { status: 'notFound' };
+    record.thumbBlob = thumbBlob;
+    record.thumbFullBlob = thumbFullBlob || null;
+    await setVideoRecord(videoKey, record);
+    return { status: 'ok' };
+}
+
+/**
  * SỬA (07/09/2026, Giang chỉ ra "đằng nào cũng sửa, đổi tên luôn đỡ nhầm") — hàm `deleteVideo()`
  * (tự dọn cascade folder rồi mới xoá record) ĐÃ XOÁ — không còn nơi nào gọi (kiểm tra lại toàn
  * project). Lý do xoá: Workflow (`event/workflow/playlist.js::MEDIA_DELETE_ACCESSOR`, dùng bởi
