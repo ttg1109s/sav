@@ -31,7 +31,8 @@
  * vào từng lệnh gọi (mirror ĐÚNG cách `_activatePointMove(preset)` gốc nhận preset qua tham số).
  *
  * NẠP SAU: core/motion-engine.js (các hàm pure kể trên).
- * NẠP TRƯỚC: event/workflow/motion-engine.js (dùng làm Runner cho VBG).
+ * NẠP TRƯỚC: event/workflow/visual-bg-photo-motion.js (dùng làm Runner cho VBG-Photo, đổi tên
+ * 17/09/2026 từ event/workflow/motion-engine.js).
  *
  * @param {() => HTMLElement|null} getTargetElementFn
  * @returns {{activateForNewContent: (preset: object, advanceMs: number) => void,

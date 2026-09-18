@@ -11,7 +11,7 @@
  * (event/workflow/video-player.js). KHÁC Video — KHÔNG có router/listener riêng: ảnh không có sự
  * kiện DOM thật (play/pause/timeupdate) để 1 listener lắng nghe, "đồng hồ" tự viết ngay trong
  * chính Workflow này (taskManager, mode 'timeout' tự lặp — CÙNG mẫu LISTEN_CLOCK/Motion Engine, xem
- * core/player-controls.js/event/workflow/motion-engine.js) gọi thẳng handler nội bộ, không cần round-
+ * core/player-controls.js/event/workflow/visual-bg-photo-motion.js) gọi thẳng handler nội bộ, không cần round-
  * trip qua eventBus. `playMedia()` cũng gọi THẲNG `startFromPlaylist()`/`playPhotoByKey()` (Workflow
  * gọi Workflow miền khác, TỰ DO theo event-bus-flow.md mục 4B) — không cần Block Gate (event/
  * block.js) vì Photo KHÔNG cần khoá chéo với tính năng nào khác.

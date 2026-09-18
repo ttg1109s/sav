@@ -95,7 +95,7 @@ const workflowVideoPlayer = {
         // MỚI (Giang yêu cầu Transition Video Player mode — "video và bg image là layer A/B, mô
         // hình giống VBG") — CHỈ áp dụng lúc THẬT SỰ đang ở Video Player mode (hàm này DÙNG CHUNG
         // với Visual Background, workflowVisualBg._playVideoKey() — KHÔNG liên quan gì tới Transition
-        // của Player, VBG có hệ Transition riêng của chính nó, xem event/workflow/motion-engine.js).
+        // của Player, VBG có hệ Transition riêng của chính nó, xem event/workflow/visual-bg-photo-motion.js).
         const isVideoPlayerModeSwap = isTransition && appState.get('isVideoPlayerMode');
 
         if (isTransition && record.thumbFullBlob) {
@@ -334,7 +334,7 @@ const workflowVideoPlayer = {
         // MỚI (v14, Giang chốt mục 2) — nhường bgVideoElement cho Video Player mode NGAY tại đây
         // (dọn task/object URL/DOM của Visual Background, KHÔNG đụng visualBgConfig đã lưu) — thay
         // cho Block gate cũ từng chặn HẲN việc vào mode này khi Visual Background đang hiện media.
-        if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.clearMediaLayers(); // event/workflow/visual-bg.js — liên tuyến domain, ĐỒNG THỜI dừng hẳn Runner React Beat của VBG (workflowMotionEngine.stop()) — đảm bảo motionEngineReactLayer "sạch" (transform rỗng, không task nào chạy) TRƯỚC khi Video Player mode dùng chung nó ngay dưới
+        if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.clearMediaLayers(); // event/workflow/visual-bg.js — liên tuyến domain, ĐỒNG THỜI dừng hẳn Runner React Beat của VBG (workflowVisualBgPhotoMotion.stop()) — đảm bảo motionEngineReactLayer "sạch" (transform rỗng, không task nào chạy) TRƯỚC khi Video Player mode dùng chung nó ngay dưới
         // SỬA (Giang chỉ ra: "React beat, point move khi ở player... phải gán lên 1 lớp cha của nó
         // giống như cấu trúc của hệ thống visual background" — rồi "tôi tưởng motion đã tách khỏi
         // nơi tiêu thụ?") — di chuyển `#bg-video` (qua `videoPlayerMotionPointMoveElement`) VÀO

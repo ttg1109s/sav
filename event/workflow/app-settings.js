@@ -45,7 +45,7 @@
  * visualizer-display-panel.js, components/settings/visualizer-auto-switch-drawer.js, components/
  * visual-bg-settings-drawer.js, components/visual-bg-gradient-drawer.js, components/visual-bg-
  * video-audio-drawer.js, event/workflow/generic-drawer-helpers.js, event/workflow/app-panel-nav.js,
- * event/workflow/gesture-settings.js, event/workflow/motion-engine.js, event/workflow/playlist.js,
+ * event/workflow/gesture-settings.js, event/workflow/visual-bg-photo-motion.js, event/workflow/playlist.js,
  * event/workflow/settings-misc.js, event/workflow/visualizer-display.js, event/workflow/
  * visual-bg.js, lang/language-settings.js (renderLanguageOptions/updateLanguageDeleteButtonVisibility),
  * core/player-display-settings.js, components/settings/player-display-settings.js, event/workflow/

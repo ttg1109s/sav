@@ -35,7 +35,7 @@
  * TÁI DÙNG NGUYÊN 4 hàm THUẦN tính toán + hằng số decay đã có sẵn — CÙNG công thức/cảm giác cho MỌI
  * nơi tiêu thụ, không viết lại: computeMotionEngineBeatReactEnvelope()/...ZoomScale()/...Offset()/
  * ...NextPolarity() (core/motion-engine.js), MOTION_ENGINE_BEATREACT_DECAY_MS (event/workflow/
- * motion-engine.js).
+ * visual-bg-photo-motion.js).
  *
  * `sync()` — gọi mỗi khi context CÓ THỂ vừa đổi (vào/thoát mode tiêu thụ, đổi preset gắn) — tra lại
  * `getPresetFn()`, cập nhật cache, tự bật/tắt task theo kết quả. Đang chạy + preset đổi (khác
@@ -45,14 +45,15 @@
  * `pause()`/`resume()` — đóng băng/tiếp tục TẠI ĐÚNG VỊ TRÍ đang chạy (KHÁC `stop()` — không dọn
  * transform, không reset envelope) — dùng lúc Song/Video dừng tạm (không phải thoát hẳn mode).
  *
- * workflowMotionEngine (VBG) ĐÃ CHUYỂN sang dùng Runner này (xem event/workflow/motion-engine.js)
- * — KHÔNG còn `_tickBeatReact()`/`_beatReact*` state riêng nữa, VBG giờ là 1 "nơi tiêu thụ" như
- * Player, đúng nghĩa "Motion tách khỏi nơi tiêu thụ".
+ * workflowVisualBgPhotoMotion (VBG) ĐÃ CHUYỂN sang dùng Runner này (xem event/workflow/visual-bg-
+ * photo-motion.js) — KHÔNG còn `_tickBeatReact()`/`_beatReact*` state riêng nữa, VBG giờ là 1 "nơi
+ * tiêu thụ" như Player, đúng nghĩa "Motion tách khỏi nơi tiêu thụ".
  *
  * NẠP SAU: core/motion-engine.js (4 hàm computeMotionEngineBeatReact*), event/workflow/
- * motion-engine.js (MOTION_ENGINE_BEATREACT_DECAY_MS), service/task-manager.js (taskManager),
+ * visual-bg-photo-motion.js (MOTION_ENGINE_BEATREACT_DECAY_MS), service/task-manager.js (taskManager),
  * service/state.js (appState).
- * NẠP TRƯỚC: event/workflow/motion-engine.js (dùng createMotionBeatReactRunner()),
+ * NẠP TRƯỚC: event/workflow/visual-bg-photo-motion.js (dùng createMotionBeatReactRunner(), đổi tên
+ * 17/09/2026 từ event/workflow/motion-engine.js),
  * event/workflow/motion-presets.js (dùng notifyMotionBeatReactPresetsChanged()),
  * event/workflow/player-display-settings.js.
  *
@@ -147,7 +148,7 @@ function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn) 
             }
         }
 
-        envelope = computeMotionEngineBeatReactEnvelope(envelope, beatScale, deltaMs, MOTION_ENGINE_BEATREACT_DECAY_MS); // core/motion-engine.js + event/workflow/motion-engine.js
+        envelope = computeMotionEngineBeatReactEnvelope(envelope, beatScale, deltaMs, MOTION_ENGINE_BEATREACT_DECAY_MS); // core/motion-engine.js + event/workflow/visual-bg-photo-motion.js
         const energy = envelope;
 
         const zoomScale = rb.zoom.enabled ? computeMotionEngineBeatReactZoomScale(zoomEffectiveMax, energy) : 1; // core/motion-engine.js

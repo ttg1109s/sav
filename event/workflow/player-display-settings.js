@@ -8,12 +8,12 @@
  * GIAI ĐOẠN 2 — RESOLUTION (ĐÃ XONG) — `changeResolutionMode()` ÁP LIVE ngay (qua core/player-
  * display-apply.js) NẾU đang Ở ĐÚNG Video/Photo Player mode lúc đổi — mirror ĐÚNG tinh thần
  * `workflowVisualBg.changeMotionPresetId()` (event/workflow/visual-bg-common.js) áp LIVE qua
- * `workflowMotionEngine.updatePreset()`. 4 hàm `apply*OnEnter()`/`clear*()` do event/workflow/
+ * `workflowVisualBgPhotoMotion.updatePreset()`. 4 hàm `apply*OnEnter()`/`clear*()` do event/workflow/
  * video-player.js/photo-player.js gọi lúc VÀO/THOÁT mode (bắt buộc gọi cặp — xem docstring core/
  * player-display-apply.js, KHÔNG gọi clear() lúc thoát sẽ làm SAI VBG dù 2 thứ không liên quan
  * nhau về Ý NGHĨA).
  * GIAI ĐOẠN 2 — REACT BEAT AUDIO, CHỈ VIDEO (ĐÃ XONG) — SỬA (Giang chỉ ra: bản đầu tự viết RIÊNG 1
- * task RAF + tick function trùng lặp với `workflowMotionEngine`, VI PHẠM nguyên tắc "trách nhiệm
+ * task RAF + tick function trùng lặp với `workflowVisualBgPhotoMotion`, VI PHẠM nguyên tắc "trách nhiệm
  * apply live thuộc về Motion, không nhân bản theo từng nơi tiêu thụ") — giờ dùng
  * `createMotionBeatReactRunner()` (event/workflow/motion-beat-react-runner.js, DÙNG CHUNG, KHÔNG
  * viết riêng gì nữa) — `_videoShowingRunner` là 1 INSTANCE của runner đó, tạo LƯỜI lúc cần
@@ -45,7 +45,8 @@
  * (PLAYER_MOTION_SLOTS/resolvePlayerMotionPresetField/resolvePlayerResolutionField),
  * core/player-display-apply.js (apply*ToDOM()/clear*FromDOM()), core/dom-refs.js
  * (motionEngineReactLayer/bgVideoElement/visualBgImageElement), core/motion-presets.js
- * (findMotionPresetById()/isReactBeatPresetActive()), event/workflow/motion-engine.js (MOTION_ENGINE_NO_OP_PRESET),
+ * (findMotionPresetById()/isReactBeatPresetActive()), event/workflow/visual-bg-photo-motion.js
+ * (MOTION_ENGINE_NO_OP_PRESET, đổi tên 17/09/2026 từ event/workflow/motion-engine.js),
  * event/workflow/motion-beat-react-runner.js (createMotionBeatReactRunner()), event/workflow/
  * motion-transition-runner.js (createMotionTransitionRunner()), service/db.js
  * (getMeta/setMeta/getImageRecord).
@@ -61,13 +62,13 @@ const workflowPlayerDisplaySettings = {
      * (`videoTransitionNextPresetId`/`videoTransitionPrevPresetId`, core/config.js — 2 field TÁCH
      * RIÊNG, Giang chốt từ đầu "transition tách ra chọn riêng motion transition cho next, prev"),
      * tra `appState.motionPresets`. Preset chưa gắn/preset đã bị xoá -> `MOTION_ENGINE_NO_OP_PRESET`
-     * (event/workflow/motion-engine.js — `transitionEnabled:false`) — Runner tự cắt cứng, không
+     * (event/workflow/visual-bg-photo-motion.js — `transitionEnabled:false`) — Runner tự cắt cứng, không
      * animation gì, ĐÚNG hành vi "chưa gắn Motion" cho vai trò này.
      * @param {'next'|'prev'} direction @returns {object} */
     _resolveVideoTransitionPreset(direction) {
         const field = direction === 'prev' ? 'videoTransitionPrevPresetId' : 'videoTransitionNextPresetId';
         const presetId = appConfigPlayerDisplay.getAll()[field]; // core/config.js
-        if (!presetId) return MOTION_ENGINE_NO_OP_PRESET; // event/workflow/motion-engine.js
+        if (!presetId) return MOTION_ENGINE_NO_OP_PRESET; // event/workflow/visual-bg-photo-motion.js
         return findMotionPresetById(appState.get('motionPresets'), presetId) || MOTION_ENGINE_NO_OP_PRESET; // core/motion-presets.js
     },
 
@@ -238,8 +239,8 @@ const workflowPlayerDisplaySettings = {
      * nếu người dùng đổi preset khác giữa chừng HOẶC sửa nội dung preset đang gắn (Motion Edit thay
      * preset bằng object MỚI mỗi lần lưu, xem event/workflow/motion-presets.js::_mutateEditing() —
      * tra lại theo id ở ĐÂY mỗi lần là điều BẮT BUỘC để không stale, không cần logic "restart" riêng).
-     * SỬA (gộp trùng lặp với `workflowMotionEngine._getBeatReactPreset()`, event/workflow/motion-
-     * engine.js — 2 bản check `reactBeatAudio` từng lệch nhau: bản NÀY trước đây chỉ check
+     * SỬA (gộp trùng lặp với `workflowVisualBgPhotoMotion._getBeatReactPreset()`, event/workflow/
+     * visual-bg-photo-motion.js — 2 bản check `reactBeatAudio` từng lệch nhau: bản NÀY trước đây chỉ check
      * `reactBeatAudio.enabled`, THIẾU điều kiện "phải có ít nhất 1 hiệu ứng con [zoom/panX/panY/
      * rotate] đang bật" — VÁ lỗ hổng đó khi gộp về `isReactBeatPresetActive()` [core/motion-
      * presets.js]; đồng thời đổi `.find()` tự chế sang `findMotionPresetById()` [core/motion-

@@ -10,17 +10,18 @@
  * (`appConfigVisualBg.motionPresetId`) — xem core/motion-presets.js.
  *
  * Toggle Point Move/React Beat Audio (công tắc tổng, `changePointMoveEnabled()`/
- * `changeBeatReactField()`) gọi THẲNG `workflowMotionEngine` (KHÔNG qua nơi tiêu thụ nào) để áp
+ * `changeBeatReactField()`) gọi THẲNG `workflowVisualBgPhotoMotion` (KHÔNG qua nơi tiêu thụ nào) để áp
  * SỐNG ngay lúc đang hiển thị — Motion Engine + Motion Preset cùng 1 domain "Motion", nơi tiêu thụ
  * CÓ THỂ là bất kỳ ai (hiện tại/tương lai), Motion không cần/không nên biết. Guard qua
  * `appState.motionRunning` (preset ĐANG THẬT SỰ render — Motion Engine tự ghi mỗi lần kích hoạt,
- * xem `workflowMotionEngine._setActivePreset()`) — KHÁC `motionPresetId` phía nơi tiêu thụ (đó là
+ * xem `workflowVisualBgPhotoMotion._setActivePreset()`) — KHÁC `motionPresetId` phía nơi tiêu thụ (đó là
  * "đang CHỌN gì", không phải "đang chạy gì").
  *
  * NẠP SAU: core/motion-presets.js, core/motion-engine.js, core/point-move-timing-ui.js,
  * components/motion-settings-drawer.js, service/db.js (getMeta/setMeta), event/workflow/
- * app-settings.js (workflowAppSettings — liên tuyến domain), event/workflow/motion-engine.js
- * (workflowMotionEngine — liên tuyến domain, áp sống toggle), event/workflow/visual-bg-common.js
+ * app-settings.js (workflowAppSettings — liên tuyến domain), event/workflow/visual-bg-photo-motion.js
+ * (workflowVisualBgPhotoMotion — liên tuyến domain, áp sống toggle, đổi tên 17/09/2026 từ event/
+ * workflow/motion-engine.js/workflowMotionEngine), event/workflow/visual-bg-common.js
  * (workflowVisualBg — liên tuyến domain, đọc/ghi `motionPresetId`), core/time-picker-modal.js.
  */
 
@@ -150,7 +151,7 @@ const workflowMotionPresets = {
      * NGAY SAU mỗi lần lưu, bất kể field nào — broadcast tới MỌI runner React Beat đang tồn tại (VBG
      * lẫn Player, và bất kỳ ai sau này), mỗi runner tự biết có liên quan tới mình hay không. THAY
      * THẾ HẲN cơ chế `liveBeatReactToggle()` cũ (chỉ phủ 1 field, chỉ phủ VBG) — xem
-     * event/workflow/motion-engine.js.
+     * event/workflow/visual-bg-photo-motion.js.
      * @param {(preset: object) => void} mutatorFn */
     async _mutateEditing(mutatorFn) {
         const presets = appState.get('motionPresets').map((p) => {
@@ -218,7 +219,7 @@ const workflowMotionPresets = {
     /** Ứng nút mở modal chọn "Thời gian chuyển cảnh" — picker CHỈ còn trần cứng
      * `MOTION_ENGINE_TRANSITION_MAX_TIME_MS` (60s)/`MOTION_ENGINE_TRANSITION_MIN_TIME_MS` (300ms).
      * Kẹp THẬT (< thời lượng hiển thị thật) chỉ xảy ra ở RUNTIME qua
-     * `capMotionEngineTransitionDurationMs()` (core, đã có sẵn trong workflowMotionEngine). */
+     * `capMotionEngineTransitionDurationMs()` (core, đã có sẵn trong workflowVisualBgPhotoMotion). */
     openTransitionDurationPicker() {
         if (genericDrawerPanel.classList.contains('hidden')) return;
         const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
@@ -263,16 +264,16 @@ const workflowMotionPresets = {
 
     /** Công tắc TỔNG (CÙNG khuôn `transitionEnabled`/`reactBeatAudio.enabled`) — Point Move có được
      * ÁP DỤNG lúc phát hay không, ĐỘC LẬP với việc list/run mode/timing đã cấu hình gì (LUÔN hiển
-     * thị/chỉnh được bất kể bật/tắt — xem event/workflow/motion-engine.js::_activatePointMove()).
+     * thị/chỉnh được bất kể bật/tắt — xem event/workflow/visual-bg-photo-motion.js::_activatePointMove()).
      * SỬA (phản hồi Giang — off/on giữa lúc ảnh đang hiện phải áp NGAY, không đợi ảnh đổi) — check
      * THẲNG `appState.motionRunning` (preset ĐANG THẬT SỰ render — Motion Engine tự ghi, xem
      * `_setActivePreset()`) rồi gọi THẲNG Motion Engine áp sống — KHÔNG qua nơi tiêu thụ nào (Motion
      * Engine + Motion Preset cùng 1 domain "Motion", nơi tiêu thụ CÓ THỂ là bất kỳ ai, Motion không
-     * cần/không nên biết — xem `workflowMotionEngine.livePointMoveToggle()`). */
+     * cần/không nên biết — xem `workflowVisualBgPhotoMotion.livePointMoveToggle()`). */
     async changePointMoveEnabled(checked) {
         await this._mutateEditing((p) => { p.pointMoveEnabled = checked; });
-        if (appState.get('motionRunning') === this._editingId && typeof workflowMotionEngine !== 'undefined') {
-            workflowMotionEngine.livePointMoveToggle(this._editingId, checked); // liên tuyến domain — Motion Engine, KHÔNG qua nơi tiêu thụ
+        if (appState.get('motionRunning') === this._editingId && typeof workflowVisualBgPhotoMotion !== 'undefined') {
+            workflowVisualBgPhotoMotion.livePointMoveToggle(this._editingId, checked); // liên tuyến domain — Motion Engine, KHÔNG qua nơi tiêu thụ
         }
     },
 
@@ -669,7 +670,7 @@ const workflowMotionPresets = {
      * `replaceMovement` ĐÃ XOÁ (hết ý nghĩa từ khi Ken Burns không còn để "thay thế" — xem
      * core/motion-presets.js) — KHÔNG còn trong danh sách `fieldKey` hợp lệ.
      * SỬA (Giang chỉ ra — sửa nội dung preset đang chạy trước đây không live) — KHÔNG còn tự gọi
-     * `workflowMotionEngine.liveBeatReactToggle()` riêng ở ĐÂY nữa (chỉ phủ đúng 1 field, chỉ phủ
+     * `workflowVisualBgPhotoMotion.liveBeatReactToggle()` riêng ở ĐÂY nữa (chỉ phủ đúng 1 field, chỉ phủ
      * VBG) — `_mutateEditing()` giờ tự broadcast `notifyMotionBeatReactPresetsChanged()` SAU MỌI
      * field, phủ CẢ VBG lẫn Player (và ai sau này), xem event/workflow/motion-beat-react-runner.js.
      * MỚI `randomMax` (phản hồi Giang — "bổ sung tick Random Max") — boolean, CÙNG khuôn `enabled`/

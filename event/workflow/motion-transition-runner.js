@@ -19,14 +19,14 @@
  * (hoặc cắt cứng nếu `preset.transitionEnabled===false`), hẹn giờ, rồi gọi `onSettle()` khi
  * `outgoingEl` "xong việc" (animation/cắt cứng đã kết thúc, layer đó có thể bị TÁI SỬ DỤNG) — KHÔNG
  * đụng NỘI DUNG BÊN TRONG `outgoingEl`/`incomingEl` ở BẤT KỲ bước nào, KHÔNG giữ tham chiếu layer
- * nào giữa các lần gọi, KHÔNG biết "ảnh"/"video" là gì. Nơi gọi (workflowMotionEngine cho VBG, sau
+ * nào giữa các lần gọi, KHÔNG biết "ảnh"/"video" là gì. Nơi gọi (workflowVisualBgPhotoMotion cho VBG, sau
  * này Video Player mode) tự:
  *   - Gán nội dung vào `incomingEl` TRƯỚC khi gọi `runTransition()` (VBG: `setMotionEngineLayerImage()`
  *     — Video: memory KHÔNG CẦN vì layer A/video đã có sẵn frame đóng băng).
  *   - Dọn nội dung `outgoingEl` BÊN TRONG `onSettle()` (VBG: gỡ background-image + revoke URL cũ —
  *     Video: opacity 0 + snap transform về gốc + gán src mới + đợi playing + opacity 1).
  *   - Tự giữ state "layer nào đang current"/"có resource nào đang hiện chưa" — Runner KHÔNG còn
- *     `hasResource()` nữa (VBG tự giữ field riêng của nó, xem event/workflow/motion-engine.js).
+ *     `hasResource()` nữa (VBG tự giữ field riêng của nó, xem event/workflow/visual-bg-photo-motion.js).
  *
  * TÁI DÙNG NGUYÊN các hàm THUẦN đã có sẵn (core/motion-engine.js) — KHÔNG viết lại:
  * setMotionEngineTransitionType()/setMotionEngineEdgeFlipOptions()/setMotionEngineTransitionDirections()/
@@ -42,7 +42,8 @@
  * nào), mỗi instance Runner tự giữ bộ nhớ RIÊNG của mình.
  *
  * NẠP SAU: core/motion-engine.js, core/motion-presets.js (5 hằng số hướng), service/task-manager.js.
- * NẠP TRƯỚC: event/workflow/motion-engine.js (dùng làm Runner cho VBG).
+ * NẠP TRƯỚC: event/workflow/visual-bg-photo-motion.js (dùng làm Runner cho VBG-Photo, đổi tên
+ * 17/09/2026 từ event/workflow/motion-engine.js).
  *
  * @param {string} taskName - tên task taskManager.once() dọn dẹp SAU transition — PHẢI duy nhất,
  *        không trùng nơi tiêu thụ khác (giống 2 Runner kia).

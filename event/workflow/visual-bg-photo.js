@@ -3,10 +3,11 @@
  * áp/chuyển ảnh trong `source.list`, hẹn giờ tự chuyển ảnh kế, Motion preset đang gắn, picker
  * Ảnh. `Object.assign()` thêm vào `workflowVisualBg` (định nghĩa ở event/workflow/
  * visual-bg-common.js, PHẢI nạp trước file này) — cùng 1 object, chỉ tách file tổ chức.
- * Render/transition/Point Move của ảnh nền sống ở event/workflow/motion-engine.js (Motion Engine)
- * — file này chỉ quyết định KHI NÀO/CÓ chuyển ảnh hay không, gọi Motion Engine render.
+ * Render/transition/Point Move của ảnh nền sống ở event/workflow/visual-bg-photo-motion.js (Motion
+ * Engine VBG-Photo, đổi tên 17/09/2026 từ event/workflow/motion-engine.js) — file này chỉ quyết
+ * định KHI NÀO/CÓ chuyển ảnh hay không, gọi Motion Engine render.
  *
- * NẠP SAU: event/workflow/visual-bg-common.js, core/visual-bg-photo.js, event/workflow/motion-engine.js.
+ * NẠP SAU: event/workflow/visual-bg-common.js, core/visual-bg-photo.js, event/workflow/visual-bg-photo-motion.js.
  */
 
 /** Hẹn giờ tự chuyển ảnh kế — VBG tự sở hữu quyết định "khi nào chuyển item kế" cho cả 2 type,
@@ -18,7 +19,7 @@ Object.assign(workflowVisualBg, {
     _photoPickerRowHeightPx: 120, // cùng giá trị PHOTO_ROW_HEIGHT_PX (event/workflow/file-manager-photo.js), tách riêng để không phụ thuộc thứ tự nạp file
 
     /** Đọc preset Motion đang gắn cho Photo VBG — nơi duy nhất tra `appState.motionPresets`
-     * (`workflowMotionEngine` nhận preset đã resolve qua tham số, không tự đọc). Chưa gắn/preset
+     * (`workflowVisualBgPhotoMotion` nhận preset đã resolve qua tham số, không tự đọc). Chưa gắn/preset
      * không còn tồn tại -> `MOTION_ENGINE_NO_OP_PRESET` (core/motion-engine.js).
      * @returns {object}
      */
@@ -30,12 +31,12 @@ Object.assign(workflowVisualBg, {
 
     /** Thời lượng hiển thị 1 ảnh (ms) — CHỈ có ý nghĩa ở mode 'slideshow' (nơi VBG THẬT SỰ hẹn giờ
      * chuyển ảnh theo 1 khoảng cụ thể) — dùng cho hẹn giờ tự chuyển ảnh (`_syncPhotoTicking()`) và
-     * tham số `advanceMs` truyền cho `workflowMotionEngine` (Point Move dựng đường cong dựa trên
+     * tham số `advanceMs` truyền cho `workflowVisualBgPhotoMotion` (Point Move dựng đường cong dựa trên
      * đây). Mode 'perSong' KHÔNG có khái niệm "hiển thị bao lâu" (ảnh đổi theo lúc bài hát đổi —
      * thời lượng đó VBG không biết trước, `durationMode`/`durationSeconds` là tuỳ chọn RIÊNG của
      * slideshow, không được đem vào ca này) -> trả THẲNG 0, KHÔNG fallback `record.duration`/5s
-     * (Motion Engine tự hiểu `advanceMs<=0` = bỏ qua Point Move hoàn toàn, xem `_activatePointMove()`,
-     * event/workflow/motion-engine.js).
+     * (Motion Engine tự hiểu `advanceMs<=0` = bỏ qua Point Move hoàn toàn, xem
+     * event/workflow/motion-point-move-runner.js).
      * @param {object|null} record - record ảnh đang/sắp hiện (mode 'duration' cần `record.duration`).
      * @returns {number}
      */
@@ -54,7 +55,7 @@ Object.assign(workflowVisualBg, {
      * SỬA (Giang chỉ ra tách trách nhiệm VBG/Motion Engine) — trước đây rẽ nhánh `list.length<=1`
      * gọi thẳng `applyVisualBgImageToDOM()` (bypass hẳn Motion Engine, #visual-bg-image), khiến
      * Point Move/React Beat không chạy được cho nguồn 1 ảnh. Giờ MỌI trường hợp đều qua
-     * `workflowMotionEngine.showImage()` — Engine tự quyết hiện tĩnh hay transition dựa trên
+     * `workflowVisualBgPhotoMotion.showImage()` — Engine tự quyết hiện tĩnh hay transition dựa trên
      * `_hasCurrentResource` CỦA NÓ, VBG không cần biết/không còn phân biệt 1 ảnh hay nhiều ảnh. */
     async _applyPhoto(cfg) {
         const { list: startList, index } = this.firstIndex(cfg.source.list, cfg.nextOrder === 'random');
@@ -70,12 +71,12 @@ Object.assign(workflowVisualBg, {
      * báo Engine gỡ hẳn resource (`showImage(null, ...)`, tương đương `stop()`). Record mất -> tự
      * đánh dấu null trong list, KHÔNG tự thử ảnh khác (nơi gọi rearm hẹn giờ/advance lượt sau tự lo).
      * SỬA (đối chiếu đánh giá — không được khẳng định "không có đường fail sau createBlobUrl()")
-     * — bọc try/catch quanh bước giao ownership: `workflowMotionEngine` không tồn tại (load-order
+     * — bọc try/catch quanh bước giao ownership: `workflowVisualBgPhotoMotion` không tồn tại (load-order
      * hỏng) hoặc `showImage()` throw giữa chừng -> Engine CHƯA NHẬN ownership, VBG tự revoke ngay,
      * không để URL treo lại không ai dọn. Lỗi thật (nếu có) vẫn ném tiếp ra ngoài, không nuốt.
      * @param {string|null} key */
     async _showCurrentPhoto(key) {
-        if (!key) { if (typeof workflowMotionEngine !== 'undefined') await workflowMotionEngine.showImage(null); return; }
+        if (!key) { if (typeof workflowVisualBgPhotoMotion !== 'undefined') await workflowVisualBgPhotoMotion.showImage(null); return; }
         const record = await getImageRecord(key);
         if (!record || !record.blob) {
             const newList = markVisualBgListItemMissing(appConfigVisualBg.getAll().source.list, this._listIndex);
@@ -85,9 +86,9 @@ Object.assign(workflowVisualBg, {
         this._photoRecord = record;
         const objectUrl = createBlobUrl(record.blob); // service/blob-url.js
         const advanceMs = this._computePhotoAdvanceMs(record);
-        if (typeof workflowMotionEngine === 'undefined') { revokeBlobUrl(objectUrl); return; } // Engine chưa nạp -> chưa ai nhận ownership, tự dọn
+        if (typeof workflowVisualBgPhotoMotion === 'undefined') { revokeBlobUrl(objectUrl); return; } // Engine chưa nạp -> chưa ai nhận ownership, tự dọn
         try {
-            await workflowMotionEngine.showImage(objectUrl, this._currentMotionPreset(), advanceMs); // thành công -> Engine nhận ownership NGAY, VBG không revoke lại
+            await workflowVisualBgPhotoMotion.showImage(objectUrl, this._currentMotionPreset(), advanceMs); // thành công -> Engine nhận ownership NGAY, VBG không revoke lại
         } catch (e) {
             revokeBlobUrl(objectUrl); // giao thất bại giữa chừng -> Engine chưa kịp giữ URL, VBG tự thu hồi
             throw e;

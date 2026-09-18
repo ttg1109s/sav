@@ -191,7 +191,7 @@ const workflowVisualBg = {
      * lúc thoát qua `applyCurrentVisualBg()`). */
     clearMediaLayers() {
         const { visualBgImageObjectUrl } = appState.get(['visualBgImageObjectUrl']);
-        if (typeof workflowMotionEngine !== 'undefined') workflowMotionEngine.stop();
+        if (typeof workflowVisualBgPhotoMotion !== 'undefined') workflowVisualBgPhotoMotion.stop();
         taskManager.kill(VISUAL_BG_PHOTO_ADVANCE_TASK);
         this._listIndex = -1;
         this._photoRecord = null;
@@ -217,14 +217,14 @@ const workflowVisualBg = {
     },
 
     /** `source.list` rỗng sau sweep -> tự gỡ hẳn nguồn (cùng hành vi nút "Gỡ nguồn" thủ công). PUBLIC
-     * (không dấu `_`) — `workflowMotionEngine` cũng gọi được (liên tuyến domain, nguồn sự thật vẫn ở
+     * (không dấu `_`) — `workflowVisualBgPhotoMotion` cũng gọi được (liên tuyến domain, nguồn sự thật vẫn ở
      * domain này). */
     async selfHealEmptySource() {
         console.log(`writer: "workflowVisualBg.selfHealEmptySource", page: "visualBgConfig", content: "source rỗng sau sweep -> tự gỡ"`);
         await this.clearSource();
     },
 
-    /** `workflowMotionEngine` gọi khi tự sweep/mark-null mảng ảnh lúc cycle — nguồn sự thật `source.list`
+    /** `workflowVisualBgPhotoMotion` gọi khi tự sweep/mark-null mảng ảnh lúc cycle — nguồn sự thật `source.list`
      * vẫn thuộc domain này (Rule ownership), nơi kia chỉ BÁO thay đổi lại. */
     async persistSourceListMutation(list) {
         appConfigVisualBg.mutateAll((cfg) => { cfg.source.list = list; });
@@ -244,7 +244,7 @@ const workflowVisualBg = {
         const cfg = appConfigVisualBg.getAll();
         if (cfg.type !== 'video') {
             syncVisualBgVideoPlayback(audioPlayer.paused);
-            if (typeof workflowMotionEngine !== 'undefined') { if (audioPlayer.paused) workflowMotionEngine.pause(); else workflowMotionEngine.resume(); }
+            if (typeof workflowVisualBgPhotoMotion !== 'undefined') { if (audioPlayer.paused) workflowVisualBgPhotoMotion.pause(); else workflowVisualBgPhotoMotion.resume(); }
             this._syncPhotoTicking();
             return;
         }
@@ -878,7 +878,7 @@ const workflowVisualBg = {
     },
 
     /** Ứng select Motion đổi — ghi thẳng `motionPresetId` ('' -> null = gỡ) rồi ÁP LIVE NGAY lên
-     * ảnh đang hiện qua `workflowMotionEngine.updatePreset()` (SỬA, Giang chỉ ra bug: trước đây chỉ
+     * ảnh đang hiện qua `workflowVisualBgPhotoMotion.updatePreset()` (SỬA, Giang chỉ ra bug: trước đây chỉ
      * ghi config, đợi tới lần transition/song-change kế tiếp preset mới mới thật sự chạy — chọn
      * "Không"/đổi preset không có tác dụng gì lên ảnh đang hiện). `updatePreset()` tự no-op nếu
      * chưa có ảnh nào đang hiện (`_hasCurrentResource=false`) — KHÔNG cần check trước ở đây, đúng
@@ -888,8 +888,8 @@ const workflowVisualBg = {
         appConfigVisualBg.mutateAll((cfg) => { cfg.motionPresetId = value || null; });
         console.log(`writer: "workflowVisualBg.changeMotionPresetId", page: "visualBgConfig", content: "motionPresetId=${value || null}"`);
         await this._persist();
-        if (typeof workflowMotionEngine !== 'undefined') {
-            workflowMotionEngine.updatePreset(this._currentMotionPreset(), this._photoRecord ? this._computePhotoAdvanceMs(this._photoRecord) : 0);
+        if (typeof workflowVisualBgPhotoMotion !== 'undefined') {
+            workflowVisualBgPhotoMotion.updatePreset(this._currentMotionPreset(), this._photoRecord ? this._computePhotoAdvanceMs(this._photoRecord) : 0);
         }
     },
 
