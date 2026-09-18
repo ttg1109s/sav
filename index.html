@@ -252,10 +252,12 @@
          cơ chế hoạt động) đứng Ở ĐÂY làm vị trí "nhà" mặc định — event/workflow/video-player.js tự
          `appendChild` nó VÀO `#visual-motion-react` lúc vào Video Player mode, rồi chuyển VỀ ĐÚNG
          vị trí này lúc thoát (xem core/player-display-apply.js::attachVideoPlayerMotionToSharedReactLayer()/
-         detachVideoPlayerMotionFromSharedReactLayer()) — Motion Engine (`workflowMotionEngine`)
-         HOÀN TOÀN không biết/không cần biết việc di chuyển này, chỉ quan tâm target trả về từ
-         Runner của MÌNH (`() => motionEngineReactLayer`, luôn đúng vị trí cố định, xem event/
-         workflow/motion-engine.js). LƯU Ý phân biệt với bài học "thumb overlay" ngay dưới đây: đó
+         detachVideoPlayerMotionFromSharedReactLayer()) — Motion Engine VBG-Photo
+         (`workflowVisualBgPhotoMotion`, đổi tên 17/09/2026 từ `workflowMotionEngine`) HOÀN TOÀN
+         không biết/không cần biết việc di chuyển này, chỉ quan tâm target trả về từ
+         Runner của MÌNH (`() => motionEngineReactLayer`, luôn đúng vị trí cố định — tên biến này
+         GIỮ NGUYÊN vì dùng chung thật, xem event/workflow/visual-bg-photo-motion.js). LƯU Ý phân
+         biệt với bài học "thumb overlay" ngay dưới đây: đó
          là chuyện ĐÈ 1 LỚP KHÁC LÊN TRÊN `<video>` (z-index/stacking, KHÔNG dùng được vì WKWebView/
          iOS compositing riêng) — còn đây là DI CHUYỂN `#bg-video` VÀO LÀM CON của 1 lớp cha nhận
          transform (scale/pan/rotate), 2 cơ chế CSS khác nhau hoàn toàn. -->
@@ -280,37 +282,41 @@
     <!-- Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual). Xem
          assets/css/base.css (#visual-bg-image) + core/visual-bg-photo.js (applyVisualBgImageToDOM). -->
     <div id="visual-bg-image" class="hidden"></div>
-    <!-- Motion Engine nền Visual (nguồn nền thứ 3) — 2 lớp ảnh xen kẽ ("player" A/B), JS ở
-         core/motion-engine.js + event/workflow/motion-engine.js. CSS: assets/css/motion-engine.css
+    <!-- Motion Engine nền Visual Photo (nguồn nền thứ 3, CHỈ VBG-Photo — VBG-Video KHÔNG dùng cơ
+         chế này, xem guard `cfg.type !== 'video'` ở event/workflow/visual-bg-common.js) — 2 lớp
+         ảnh xen kẽ ("player" A/B), JS ở core/motion-engine.js (hàm thuần, dùng chung) +
+         event/workflow/visual-bg-photo-motion.js (workflow, riêng VBG-Photo — ĐỔI TÊN 17/09/2026
+         từ event/workflow/motion-engine.js). CSS: assets/css/motion-engine.css
          (z-index -1, giữa #visual-bg-image và #bg-video). 3 tầng, 3 vai trò (SỬA, phản hồi Giang —
          "point move phải là 1 div cha bao quanh layer A, B chứ không phải chỉ A hoặc B, tránh việc
          move A rồi lộ B"):
-           `#visual-motion-players` (.me-pointmove-players, NGOÀI CÙNG, bọc CHUNG cả 2 player A/B)
+           `#visual-bg-photo-motion-players` (.me-pointmove-players, NGOÀI CÙNG, bọc CHUNG cả 2 player A/B)
            — nhận transform Point Move DUY NHẤT (pan/zoom/rotate/flip, xem core/motion-presets.js)
            cho TOÀN BỘ khung hình — 2 layer A/B bên trong LUÔN di chuyển CÙNG NHAU như 1 khối cứng,
            không còn khái niệm "mỗi layer tự Point Move riêng" (nguồn gốc bug "move A lộ B" cũ).
            `.motion-layer` (A/B, GIỮA) — CHỈ animation chuyển cảnh (Transition).
            `.me-pointmove-pan` (CON, TRONG CÙNG) — CHỈ còn mang background-image, hết animation
            riêng.
-         `.me-beat-react` bọc TRỌN `#visual-motion-container` (CẢ 2 player A/B), mang transform
-         React Beat Audio (event/workflow/motion-engine.js::_tickBeatReact()) — transform CỘNG DỒN
+         `.me-beat-react` bọc TRỌN `#visual-bg-photo-motion-container` (CẢ 2 player A/B), mang transform
+         React Beat Audio (event/workflow/visual-bg-photo-motion.js::_tickBeatReact()) — transform CỘNG DỒN
          theo cây DOM với `.me-pointmove-players` bên trong, LUÔN chạy song song (không còn khái
          niệm "thay thế" Point Move). -->
     <!-- MỚI (Giang chỉ ra: "Motion cung cấp cơ chế THUẦN, nơi tiêu thụ tự quyết gắn ở đâu") — class
          `.me-transition-scope` (assets/css/motion-engine.css) — điều kiện ĐỂ hiệu ứng CSS transition
          (fade/slide/wipe/...) chạy được là 1 phần tử mang class NÀY set `data-transition`/hướng
          (setMotionEngineTransitionType()/setMotionEngineTransitionDirections(), core/motion-engine.js)
-         — KHÔNG có tác dụng gì nếu KHÔNG kèm `data-transition`, nên gắn SẴN, TĨNH ở đây vô hại. VBG
-         dùng `#visual-motion-container` (bên dưới); Video Player mode dùng THẲNG `#visual-motion-react`
-         (element NÀY, cha chung của layer A/B của nó — xem event/workflow/video-player.js). -->
+         — KHÔNG có tác dụng gì nếu KHÔNG kèm `data-transition`, nên gắn SẴN, TĨNH ở đây vô hại. VBG-
+         Photo dùng `#visual-bg-photo-motion-container` (bên dưới); Video Player mode dùng THẲNG
+         `#visual-motion-react` (element NÀY, cha chung DÙNG THẬT SỰ CHUNG với VBG — GIỮ NGUYÊN tên
+         cũ, KHÔNG đổi theo prefix `visual-bg-photo-motion-*` — xem event/workflow/video-player.js). -->
     <div id="visual-motion-react" class="me-beat-react me-transition-scope">
-        <div id="visual-motion-container" class="hidden me-transition-scope">
-            <div id="visual-motion-players" class="me-pointmove-players">
-                <div id="visual-motion-layer-1" class="motion-layer">
-                    <div id="visual-motion-layer-1-pan" class="me-pointmove-pan"></div>
+        <div id="visual-bg-photo-motion-container" class="hidden me-transition-scope">
+            <div id="visual-bg-photo-motion-players" class="me-pointmove-players">
+                <div id="visual-bg-photo-motion-layer-1" class="motion-layer">
+                    <div id="visual-bg-photo-motion-layer-1-pan" class="me-pointmove-pan"></div>
                 </div>
-                <div id="visual-motion-layer-2" class="motion-layer">
-                    <div id="visual-motion-layer-2-pan" class="me-pointmove-pan"></div>
+                <div id="visual-bg-photo-motion-layer-2" class="motion-layer">
+                    <div id="visual-bg-photo-motion-layer-2-pan" class="me-pointmove-pan"></div>
                 </div>
             </div>
         </div>
@@ -1014,7 +1020,7 @@
     <!-- Batch 8, ver 12 "Multi Media" — engine cycle ảnh Slideshow nền Visual (transition/Ken
          Burns), CHỈ còn đúng 1 vai trò: `_tick()` (taskManager) — cụm router "slideshowSettings"
          (từng ở đây) ĐÃ BỎ HẲN (29/08/2026), xem event/workflow/motion-presets.js ngay dưới. -->
-    <script src="event/workflow/motion-engine.js?v=20260915v3"></script>
+    <script src="event/workflow/visual-bg-photo-motion.js?v=20260917v1"></script>
     <!-- MỚI (29/08/2026) — hệ "Cấu hình Motion" độc lập (Settings > System > Motion), thay
          hẳn router/listener "slideshowSettings" cũ (2 file event/router,listener/slideshow.js ĐÃ
          XOÁ) — xem event/workflow/motion-presets.js, event/router/motion-presets.js. Không
@@ -1031,7 +1037,8 @@
          MỚI — ĐÃ dùng cho VBG, CHƯA có nơi tiêu thụ thứ 2 — Player chưa quyết cách "chuyển bài" nên
          trông thế nào, xem docstring đầu file đó) — NẠP SAU core/motion-engine.js +
          core/motion-presets.js (5 hằng số hướng transition) + service/task-manager.js. NẠP TRƯỚC
-         event/workflow/motion-engine.js (dùng làm Runner cho VBG — dù bản thân tag <script> KHÔNG
+         event/workflow/visual-bg-photo-motion.js (đổi tên 17/09/2026 từ event/workflow/motion-
+         engine.js — dùng làm Runner cho VBG-Photo — dù bản thân tag <script> KHÔNG
          bắt buộc thứ tự ngặt nghèo vì chỉ gọi bên trong method body, chạy sau khi mọi script đã nạp
          xong) VÀ event/workflow/player-display-settings.js (nơi tiêu thụ ĐẦU TIÊN của React Beat
          Runner, không dùng Point Move/Transition Runner). -->
