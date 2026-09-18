@@ -178,7 +178,28 @@ Object.assign(workflowVisualBg, {
         bgVideoElement.loop = !isCyclingSlideshow && !hasAudioB;
         bgVideoElement.classList.remove('hidden');
         this._isSwappingVideo = true;
-        const record = await workflowVideoPlayer.swapBgVideoSource(videoKey, true, null, true);
+        let record;
+        try {
+            record = await workflowVideoPlayer.swapBgVideoSource(videoKey, true, null, true);
+        } catch (e) {
+            // SỬA (Giang báo bug "chọn Video nền lúc Song đang phát -> không hiện, đổi qua Photo rồi
+            // quay lại Video vẫn không hiện") — TRƯỚC ĐÂY dòng `this._isSwappingVideo = false` nằm NGAY
+            // DƯỚI `await` mà KHÔNG có try/catch bọc quanh: `swapBgVideoSource()` ném lỗi bất kỳ (đọc
+            // record hỏng, decode thumb lỗi...) là dòng đó KHÔNG BAO GIỜ chạy tới -> cờ kẹt `true` vĩnh
+            // viễn hết phiên -> guard đầu hàm (`|| this._isSwappingVideo`) chặn ĐỨNG MỌI lần gọi
+            // `_playVideoKey()` sau đó, dù gọi từ `_applyVideo()` (chọn lại Video), `_advanceVideo()`,
+            // hay `syncPlaybackToAudio()` — không lỗi nào lộ ra ngoài (silent fail), chỉ thấy "không
+            // hiện" mà không rõ vì sao. console.error để LẦN SAU biết ngay lỗi thật nằm ở đâu. KHÔNG gọi
+            // `_markCurrentMissing()` ở đây — lỗi có thể chỉ TẠM THỜI (không phải video/record thật sự
+            // mất), tự đánh dấu mất sẽ xoá oan khỏi `source.list` đã lưu; chỉ ẩn video
+            // (`_hideVideoOnly()`, KHÔNG đụng list/task) — lần gọi kế tiếp cho ĐÚNG `videoKey` này vẫn tự
+            // thử lại bình thường (2 điều kiện guard trên — `_currentVideoKey` khớp VÀ src khớp — đều
+            // chưa từng đạt được ở nhánh lỗi này).
+            console.error('[workflowVisualBg] _playVideoKey() lỗi lúc swapBgVideoSource():', e);
+            this._isSwappingVideo = false;
+            this._hideVideoOnly();
+            return;
+        }
         this._isSwappingVideo = false;
         if (!record) { await this._markCurrentMissing(); return; }
         this._currentVideoKey = videoKey;
