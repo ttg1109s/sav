@@ -51,8 +51,10 @@ function handleFileManagerStorageDelegatedClick(e) {
         eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.scanBroken.click', payload: {} });
         return;
     }
-    if (e.target.closest('#btn-storage-delete-broken')) {
-        eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.deleteBroken.click', payload: {} });
+    // ĐỔI TÊN (18/09/2026, cùng lúc gộp tính năng "Sửa file lỗi") — id/msg.type đổi theo
+    // components/file-manager-storage.js + event/router/file-manager-storage.js.
+    if (e.target.closest('#btn-storage-fix-broken')) {
+        eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.fixBroken.click', payload: {} });
         return;
     }
     if (e.target.closest('#btn-storage-dismiss-scan')) {
