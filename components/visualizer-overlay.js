@@ -138,15 +138,24 @@ ${TPL_GAMEPLAY_OVERLAY}
                 <input type="range" id="volume-hud-slider" min="0" max="100" step="1" class="setting-slider flex-1">
             </div>
 
-            <!-- Speed HUD — cùng khuôn Volume HUD (vị trí/tự ẩn/glass) nhưng 5 nấc rời rạc thay vì
-                 slider liên tục. Cấu trúc: core/hud.js (auto-hide dùng chung) + event/workflow/hud.js. -->
-            <div id="visualizer-speed-hud" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-[47] glass-control-center rounded-full shadow-2xl pointer-events-auto flex items-center gap-1 px-2 py-2">
-                <button type="button" data-speed-option="0.5" class="speed-hud-option px-3 py-1.5 rounded-full text-sm font-medium text-white/70 transition-colors">0.5x</button>
-                <button type="button" data-speed-option="0.7" class="speed-hud-option px-3 py-1.5 rounded-full text-sm font-medium text-white/70 transition-colors">0.7x</button>
-                <button type="button" data-speed-option="1" class="speed-hud-option px-3 py-1.5 rounded-full text-sm font-medium text-white/70 transition-colors">1x</button>
-                <button type="button" data-speed-option="1.2" class="speed-hud-option px-3 py-1.5 rounded-full text-sm font-medium text-white/70 transition-colors">1.2x</button>
-                <button type="button" data-speed-option="1.5" class="speed-hud-option px-3 py-1.5 rounded-full text-sm font-medium text-white/70 transition-colors">1.5x</button>
-                <button type="button" data-speed-option="2" class="speed-hud-option px-3 py-1.5 rounded-full text-sm font-medium text-white/70 transition-colors">2x</button>
+            <!-- Speed HUD — SỬA (18/09/2026, Giang cho phép dải liên tục 0.5-2, làm tròn 2 chữ số
+                 thập phân, vẫn giữ mốc nhảy nhanh) — ĐỔI HẲN cấu trúc: từ 1 hàng rounded-full 6 nút
+                 rời rạc (không kéo được) sang 1 khối rounded-3xl gồm nhãn giá trị hiện tại + 1
+                 slider liên tục (step 0.01, TÁI DÙNG class .setting-slider của Volume HUD ngay
+                 trên — assets/css/sliders.css) + hàng 6 nút mốc THU NHỎ bên dưới để nhảy nhanh —
+                 slider và nút mốc CÙNG điều khiển 1 giá trị playbackSpeed (core/hud.js::
+                 syncSpeedHudUI()), không phải 2 cơ chế tách biệt. 0.7/1.2 cũ đổi thành 0.75/1.25. -->
+            <div id="visualizer-speed-hud" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-[47] glass-control-center rounded-3xl shadow-2xl pointer-events-auto flex flex-col gap-2 px-5 py-4 w-64 max-w-[80vw]">
+                <div id="speed-hud-value" class="text-center text-sm font-semibold text-white">1x</div>
+                <input type="range" id="speed-hud-slider" min="0.5" max="2" step="0.01" class="setting-slider w-full">
+                <div class="flex items-center justify-between gap-1">
+                    <button type="button" data-speed-option="0.5" class="speed-hud-option px-2 py-1 rounded-full text-xs font-medium text-white/70 transition-colors">0.5x</button>
+                    <button type="button" data-speed-option="0.75" class="speed-hud-option px-2 py-1 rounded-full text-xs font-medium text-white/70 transition-colors">0.75x</button>
+                    <button type="button" data-speed-option="1" class="speed-hud-option px-2 py-1 rounded-full text-xs font-medium text-white/70 transition-colors">1x</button>
+                    <button type="button" data-speed-option="1.25" class="speed-hud-option px-2 py-1 rounded-full text-xs font-medium text-white/70 transition-colors">1.25x</button>
+                    <button type="button" data-speed-option="1.5" class="speed-hud-option px-2 py-1 rounded-full text-xs font-medium text-white/70 transition-colors">1.5x</button>
+                    <button type="button" data-speed-option="2" class="speed-hud-option px-2 py-1 rounded-full text-xs font-medium text-white/70 transition-colors">2x</button>
+                </div>
             </div>
         </div>
     </div>

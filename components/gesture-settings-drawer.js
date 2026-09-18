@@ -35,8 +35,8 @@
  *      ở section Tap. KHÔNG có Action (Giang chốt rõ: "trừ seak và vuốt xuống từ rìa trên").
  *
  * 7 dropdown action picker (section 1+2, TẤT CẢ — kể cả tap 3 lần từ 12/08/2026) CÙNG 1 pool DÙNG
- * CHUNG (event/workflow/visualizer-gesture.js): 5 hành động cố định trong GESTURE_ACTIONS (Tiếp
- * theo/Trước đó/Play-Pause/Mở Playlist/Không dùng) + 3 Action slot (actionSlot1/2/3, tra
+ * CHUNG (event/workflow/visualizer-gesture.js): 7 hành động cố định trong GESTURE_ACTIONS (Tiếp
+ * theo/Trước đó/Play-Pause/Mở Playlist/Tăng tốc độ/Giảm tốc độ [2 cái MỚI 18/09/2026]/Không dùng) + 3 Action slot (actionSlot1/2/3, tra
  * GESTURE_ACTION_SLOT_CONFIG_FIELD). Dropdown gán nút Control Center trực tiếp (CHỈ còn 3 Slot ở
  * section Action) DÙNG 1 pool 7 nút KHÁC (controlCenterTargetOptions, KHÔNG lẫn với pool 5+3 ở
  * trên — 2 tầng lựa chọn khác nhau: "chọn 1 trong 7 nút" vs "chọn 1 trong 5+3 hành động").
@@ -57,6 +57,8 @@ function renderGestureSettingsPanelBody() {
         <option value="prev" data-i18n="gestureSettings.action.prev">${t('gestureSettings.action.prev')}</option>
         <option value="playPause" data-i18n="gestureSettings.action.playPause">${t('gestureSettings.action.playPause')}</option>
         <option value="openPlaylist" data-i18n="gestureSettings.action.openPlaylist">${t('gestureSettings.action.openPlaylist')}</option>
+        <option value="speedUp" data-i18n="gestureSettings.action.speedUp">${t('gestureSettings.action.speedUp')}</option>
+        <option value="speedDown" data-i18n="gestureSettings.action.speedDown">${t('gestureSettings.action.speedDown')}</option>
         <option value="actionSlot1" data-i18n="gestureSettings.action.actionSlot1">${t('gestureSettings.action.actionSlot1')}</option>
         <option value="actionSlot2" data-i18n="gestureSettings.action.actionSlot2">${t('gestureSettings.action.actionSlot2')}</option>
         <option value="actionSlot3" data-i18n="gestureSettings.action.actionSlot3">${t('gestureSettings.action.actionSlot3')}</option>
