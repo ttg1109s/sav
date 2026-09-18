@@ -4,8 +4,9 @@
  *
  * NẠP SAU: core/hud.js (syncVolumeHudIcon/syncVolumeHudSliderFill/PLAYBACK_SPEED_PRESETS/
  * syncSpeedHudUI/clampAndRoundPlaybackSpeed), core/dom-refs.js, core/player-controls.js
- * (applyPlaybackSpeedToActiveMedia), service/task-manager.js, service/state/... (appConfigViz,
- * appState), event/bus.js.
+ * (applyPlaybackSpeedToActiveMedia), core/config.js (saveConfig — MỚI 18/09/2026, xem SỬA TIẾP ở
+ * docstring selectSpeed()), service/task-manager.js, service/state/... (appConfigViz, appState),
+ * event/bus.js.
  * NẠP TRƯỚC: event/router/hud.js.
  */
 const HUD_AUTO_HIDE_DELAY = 2500;
@@ -48,10 +49,23 @@ const workflowHud = {
      * — kể cả hợp lệ trong dải — bị `return` bỏ qua thẳng). Giờ dùng
      * `clampAndRoundPlaybackSpeed()` (core/hud.js): kẹp về [0.5, 2] + làm tròn 2 chữ số, KHÔNG còn
      * khái niệm "từ chối" — mọi số đưa vào đều tự sửa về 1 giá trị hợp lệ.
+     *
+     * SỬA TIẾP (cùng ngày, Giang báo bug "mở lại app -> toàn bị set luôn lại giá trị 1.5x") — THIẾU
+     * HẲN `saveConfig()` từ TRƯỚC (bug CÓ SẴN, không phải mới phát sinh do đợt sửa này —
+     * `appConfigViz.mutateAll()` CHỈ đổi object trong RAM, không tự ghi IndexedDB gì cả, xem
+     * service/state.js::mutateAll()). So khớp `setVolume()` (core/visualizer/visualizer-display.js)
+     * — HUD Volume ĐÃ gọi `saveConfig()` ngay sau mutate, Speed thì KHÔNG — nên mọi lần đổi tốc độ
+     * (kéo slider/ấn mốc/cử chỉ) chỉ tồn tại trong phiên hiện tại, KHÔNG BAO GIỜ persist. Giá trị
+     * "1.5x" cố định người dùng thấy KHÔNG PHẢI bị code chủ động set lại — đó là giá trị CÒN SÓT
+     * trong IndexedDB từ LẦN GẦN NHẤT `saveConfig()` chạy vì lý do KHÁC (vd đổi 1 setting khác cũng
+     * gọi saveConfig(), lúc đó `playbackSpeed` trong RAM tình cờ đang là 1.5) — mọi lần đổi tốc độ
+     * sau đó chỉ sống trong RAM, mất sạch lúc reload, quay về ĐÚNG bản IndexedDB cũ đó mỗi lần mở
+     * lại app. Thêm `saveConfig()` NGAY sau mutate (CÙNG vị trí tương đối với setVolume()) là đủ.
      * @param {string|number} value */
     selectSpeed(value) {
         const speed = clampAndRoundPlaybackSpeed(parseFloat(value)); // core/hud.js
         appConfigViz.mutateAll((cfg) => { cfg.playbackSpeed = speed; });
+        saveConfig(); // core/config.js — MỚI 18/09/2026, xem SỬA TIẾP ở docstring trên
         const isVideoPlayerMode = appState.get('isVideoPlayerMode');
         applyPlaybackSpeedToActiveMedia(isVideoPlayerMode, appState.get('isPhotoPlayerMode'), speed); // core/player-controls.js
         if (isVideoPlayerMode && typeof workflowPlayerDisplaySettings !== 'undefined') {
