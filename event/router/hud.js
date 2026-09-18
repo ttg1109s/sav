@@ -18,6 +18,12 @@ const routerHud = (() => {
             case 'hud.speed.option.click':
                 workflowHud.selectSpeed(msg.payload.value);
                 break;
+            // MỚI (18/09/2026, slider liên tục 0.5-2) — DÙNG CHUNG selectSpeed() với option.click ở
+            // trên (2 message type riêng để giữ đúng ý nghĩa "nguồn gốc thao tác" trong log/audit,
+            // dù cùng gọi 1 hàm xử lý).
+            case 'hud.speed.slider.input':
+                workflowHud.selectSpeed(msg.payload.value);
+                break;
             default:
                 console.warn(`[routerHud] msg.type không xác định: "${msg.type}"`, msg);
         }
