@@ -28,3 +28,10 @@ if (speedHudOptions) {
         });
     });
 }
+
+// MỚI (18/09/2026, slider liên tục 0.5-2) — CÙNG khuôn volumeHudSlider ngay trên.
+if (speedHudSlider) {
+    speedHudSlider.addEventListener('input', (e) => {
+        eventBus.send({ router: 'hud', type: 'hud.speed.slider.input', payload: { value: e.target.value } });
+    });
+}
