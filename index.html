@@ -742,8 +742,8 @@
          "tích hợp 1+2+3") — CHỈ dựng chuỗi HTML (không phụ thuộc DOM/appState tại thời điểm nạp),
          đặt cạnh game-panel-ui.js cho cùng nhóm "Core-ui panel App Panel". -->
     <script src="core/statis-panel-ui.js?v=20260911v1"></script>
-    <!-- Icon loa Volume HUD, 5 mốc 0-100% (event/workflow/volume-hud.js). -->
-    <script src="core/volume-hud.js?v=20260811v1"></script>
+    <!-- HUD Volume + Speed (icon loa 5 mốc, badge tốc độ 5 nấc) — event/workflow/hud.js. -->
+    <script src="core/hud.js?v=20260918v1"></script>
     <!-- Core THUẦN domain "Visual Background" — tách 3 file: common (type/list/màu nền), video,
          photo (chỉ tách file tổ chức, vẫn 1 hệ thống). Nạp SAU service/state.js + core/dom-refs.js,
          common PHẢI nạp trước video/photo. -->
@@ -1262,13 +1262,14 @@
          center.js) — không còn tầng Workflow nào để giữ. -->
     <script src="event/router/visualizer-control-center.js?v=20260703v2"></script>
     <script src="event/listener/visualizer-control-center.js?v=20260703v2"></script>
-    <!-- Cụm "volumeHud" — popup volume nổi (icon loa 5 mốc + slider), tự ẩn sau vài giây. Tái dùng
-         message 'visualizerDisplay.volume.input' có sẵn (router đã nạp ở trên) — không viết lại
-         logic áp âm lượng. CẦN core/volume-hud.js, core/dom-refs.js (btnOpenVolume,
-         visualizerVolumeHud, volumeHudSlider). -->
-    <script src="event/workflow/volume-hud.js?v=20260811v1"></script>
-    <script src="event/router/volume-hud.js?v=20260811v1"></script>
-    <script src="event/listener/volume-hud.js?v=20260811v1"></script>
+    <!-- Cụm "hud" — Volume (icon loa 5 mốc + slider) + Speed (5 nấc 0.5-2x), tự ẩn sau vài giây.
+         Volume tái dùng message 'visualizerDisplay.volume.input' có sẵn (router đã nạp ở trên).
+         Speed áp qua core/player-controls.js::applyPlaybackSpeedToActiveMedia(). CẦN core/hud.js,
+         core/dom-refs.js (btnOpenVolume/visualizerVolumeHud/volumeHudSlider/btnOpenSpeed/
+         visualizerSpeedHud/speedHudOptions/speedBadgeLabel). -->
+    <script src="event/workflow/hud.js?v=20260918v1"></script>
+    <script src="event/router/hud.js?v=20260918v1"></script>
+    <script src="event/listener/hud.js?v=20260918v1"></script>
     <!-- Cụm "visualizerGesture" — thay hẳn cử chỉ vuốt cũ gắn trên bgVideoElement. Dispatch tới
          router "playerControls"/"visualizerControlCenter" (đã nạp ở trên) + đọc appConfigViz
          (core/config.js) + taskManager (debounce tap/double-tap, seek-hold LẶP LẠI theo bước cấu
