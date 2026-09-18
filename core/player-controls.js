@@ -205,6 +205,16 @@
             return isVideoPlayerMode ? bgVideoElement : audioPlayer;
         }
 
+        /** Áp tốc độ phát lên media element đang active — Song/Video Player có `playbackRate` thật,
+         * Photo bỏ qua (không có khái niệm này, nút mở HUD Speed cũng ẩn ở mode đó). Gọi lúc chọn
+         * tốc độ mới (event/workflow/hud.js) VÀ mỗi lần bài/video mới sẵn sàng phát (loadedmetadata)
+         * để tốc độ đã lưu áp lại đúng cho nội dung mới. Core thuần (Rule 2).
+         * @param {boolean} isVideoPlayerMode @param {boolean} isPhotoPlayerMode @param {number} speed */
+        function applyPlaybackSpeedToActiveMedia(isVideoPlayerMode, isPhotoPlayerMode, speed) {
+            if (isPhotoPlayerMode) return;
+            getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode).playbackRate = speed;
+        }
+
         /**
          * Toggle play/pause của track ĐÃ TẢI. Ứng với nhánh "đã có currentKey" của msg.type
          * 'playerControls.playPause.click' — nhánh "chưa có gì đang tải -> phát bài đầu tiên" dời
@@ -444,6 +454,7 @@
          */
         function handleAudioLoadedMetadata() {
             progressBar.max = audioPlayer.duration; durationTimeDisplay.textContent = formatTime(audioPlayer.duration); updateMediaPositionState();
+            applyPlaybackSpeedToActiveMedia(appState.get('isVideoPlayerMode'), appState.get('isPhotoPlayerMode'), appConfigViz.getAll().playbackSpeed);
             // ver 10: bài MỚI bắt đầu (duration vừa có giá trị chính xác) -> build lại marks cho
             // auto-switch-visual — xem onAutoSwitchVisualSongChanged() ở auto-switch-visual.js.
             if (typeof onAutoSwitchVisualSongChanged === 'function') onAutoSwitchVisualSongChanged();

@@ -32,11 +32,20 @@
  * ::startFromPlaylist()/exitPhotoPlayerMode()). `currentKey` (package `playlist`, DÙNG CHUNG với
  * Song/Video) do Workflow tự lo riêng, KHÔNG thuộc phạm vi 2 hàm này — mirror enterVideoPlayerModeState()/
  * exitVideoPlayerModeState() (core/video-player.js). */
+/** Vào Photo Player mode — ảnh không có duration thật để seek/chỉnh tốc độ, nên ẩn seek bar + nhãn
+ * giờ (không còn tick định kỳ để cập nhật, xem event/workflow/photo-player.js) + icon Speed
+ * (Control Center) đi cùng. @see exitPhotoPlayerModeState() */
 function enterPhotoPlayerModeState() {
     appState.set('isPhotoPlayerMode', true);
+    if (progressBarRow) progressBarRow.classList.add('hidden');
+    if (progressTimeRow) progressTimeRow.classList.add('hidden');
+    if (btnOpenSpeed) btnOpenSpeed.classList.add('hidden');
 }
 function exitPhotoPlayerModeState() {
     appState.set('isPhotoPlayerMode', false);
+    if (progressBarRow) progressBarRow.classList.remove('hidden');
+    if (progressTimeRow) progressTimeRow.classList.remove('hidden');
+    if (btnOpenSpeed) btnOpenSpeed.classList.remove('hidden');
 }
 
 /** Tính elapsed (giây) HIỆN TẠI từ 3 field đồng hồ giả — THUẦN, không side-effect, gọi lại nhiều
@@ -48,27 +57,11 @@ function exitPhotoPlayerModeState() {
  * @param {boolean} paused
  * @param {number} nowMs - performance.now() tại thời điểm gọi (Rule 2 — nhận qua tham số)
  * @returns {number} giây, số thực, KHÔNG kẹp trần theo durationSec (nơi gọi tự so sánh để biết
- *          "đã hết" — xem event/workflow/photo-player.js::_photoPlayerTick()).
+ *          "đã hết" — xem event/workflow/photo-player.js::rescheduleEndedTimer()).
  */
 function computePhotoPlayerElapsedSec(elapsedBeforePauseSec, startedAtMs, paused, nowMs) {
     if (paused) return elapsedBeforePauseSec;
     return elapsedBeforePauseSec + Math.max(0, (nowMs - startedAtMs) / 1000);
-}
-
-/** Cập nhật progress bar + hiển thị thời gian — mirror `handleAudioTimeUpdate()`/
- * `workflowVideoPlayer.handleVideoTimeUpdate()` (core/player-controls.js) nhưng nhận `elapsedSec`/
- * `durationSec` tính SẴN qua tham số (Rule 2) thay vì đọc `audioPlayer.currentTime`/`.duration`.
- * KHÔNG gọi lúc `appState.isSeeking===true` — nơi gọi tự guard (xem event/workflow/photo-player.js).
- * @param {number} elapsedSec
- * @param {number} durationSec
- */
-function updatePhotoPlayerProgressUI(elapsedSec, durationSec) {
-    const clampedElapsed = Math.min(elapsedSec, durationSec);
-    progressBar.max = durationSec;
-    progressBar.value = clampedElapsed;
-    currentTimeDisplay.textContent = formatTime(clampedElapsed); // core/playlist/state.js
-    durationTimeDisplay.textContent = formatTime(durationSec);
-    updateProgressBarCSS(); // core/player-controls.js
 }
 
 /** Đổi icon Play/Pause + trạng thái quay của record-art — mirror `handleAudioPlay()`/
@@ -97,12 +90,11 @@ function updatePhotoPlayerPlayPauseIcon(isPlaying) {
  * nào để "nơi gọi tự đọc appState rồi truyền vào" như quy tắc chuẩn đòi hỏi — getter/setter dưới
  * đây bắt buộc tự đọc/ghi appState ngay bên trong để giữ ĐÚNG hình dạng interface đó.
  *
- * `play()`/`pause()` ở đây CHỈ đổi cờ `photoPlayerPaused` — KHÔNG tự khởi động/dừng vòng lặp
- * taskManager (Rule 3 — core cấm dùng taskManager). Vòng lặp đó (event/workflow/photo-player.js::
- * _photoPlayerTick()) chạy LIÊN TỤC suốt lúc `isPhotoPlayerMode=true` (KHÔNG kill lúc pause, CHỈ
- * kill lúc đổi ảnh/thoát mode) — mỗi tick tự đọc lại `photoPlayerPaused`, nên gọi `play()`/`pause()`
- * qua đường NÀY (vd từ `goToNextTrack()`'s "restart" branch) vẫn được tick nhận lại đúng ở chu kỳ
- * kế tiếp mà không cần chính object này đụng gì tới taskManager.
+ * `play()`/`pause()` ở đây CHỈ đổi cờ `photoPlayerPaused` — KHÔNG tự đụng gì tới task "hết ảnh"
+ * (Rule 3 — core cấm dùng taskManager). Nơi gọi từ BÊN NGOÀI file này (`goToNextTrack()`'s
+ * "restart" branch, event/workflow/player-controls.js) PHẢI tự gọi `workflowPhotoPlayer.
+ * rescheduleEndedTimer()`/`stopEndedTimer()` (event/workflow/photo-player.js) NGAY SAU khi đụng
+ * tới `currentTime`/`pause()` qua object này — xem 2 lời gọi cụ thể ở đó.
  */
 const photoPlayerFakeMediaElement = {
     get currentTime() {
@@ -113,8 +105,9 @@ const photoPlayerFakeMediaElement = {
     },
     set currentTime(value) {
         // Nơi gọi hiện có CHỈ gán đúng giá trị 0 (repeat-single "tua về đầu", Prev "quá 3s thì về
-        // đầu") — seek tuỳ ý THẬT đi qua handlePhotoSeekCommit() (event/workflow/photo-player.js),
-        // KHÔNG qua đường này.
+        // đầu", event/workflow/player-controls.js) — seek tuỳ ý thật KHÔNG còn tồn tại (seek bar đã
+        // ẩn hẳn lúc Photo Player mode, cử chỉ seek cũng tắt — xem core/photo-player.js
+        // ::enterPhotoPlayerModeState()).
         appState.set('photoPlayerElapsedBeforePauseSec', value, { skipCheck: true });
         appState.set('photoPlayerStartedAtMs', performance.now(), { skipCheck: true });
     },

@@ -114,6 +114,8 @@
         // core/player-controls.js::syncRepeatUI().
         const btnShuffle = document.getElementById('btn-shuffle'), btnRepeat = document.getElementById('btn-repeat'), repeatOneDigit = document.getElementById('repeat-one-digit');
         const progressBar = document.getElementById('progress-bar');
+        const progressBarRow = document.getElementById('progress-bar-row'); // ẩn hẳn lúc Photo Player mode (không có gì để seek) — core/photo-player.js
+        const progressTimeRow = document.getElementById('progress-time-row'); // ẩn CÙNG progressBarRow — không tick nữa nên không có gì cập nhật nhãn giờ
         const currentTimeDisplay = document.getElementById('current-time'), durationTimeDisplay = document.getElementById('duration-time');
         const playerTitle = document.getElementById('player-title'), playerArtist = document.getElementById('player-artist');
         const recordArt = document.getElementById('record-art'), recordContainer = document.getElementById('record-container');
@@ -123,7 +125,7 @@
         const statsPanel = document.getElementById('stats-panel');
         // Chụp khung hình bgVideoElement đang phát -> Photo (chỉ hiện lúc Video Player mode).
         const btnCaptureVideoFrame = document.getElementById('btn-capture-video-frame');
-        // Volume HUD (MỚI) — icon loa 5 mốc + slider, panel nổi riêng — xem core/volume-hud.js.
+        // Volume HUD — icon loa 5 mốc + slider, panel nổi riêng — xem core/hud.js.
         const btnOpenVolume = document.getElementById('btn-open-volume');
         const visualizerVolumeHud = document.getElementById('visualizer-volume-hud');
         // EQ preset (MỚI) — cycle + mở Generic Drawer quản lý — xem core/eq-presets.js.
@@ -132,6 +134,11 @@
         const btnCycleEq = document.getElementById('btn-cycle-eq'), eqBadgeLabel = document.getElementById('eq-badge-label');
         const volumeHudSlider = document.getElementById('volume-hud-slider');
         const volumeHudWave1 = document.getElementById('volume-hud-wave-1'), volumeHudWave2 = document.getElementById('volume-hud-wave-2'), volumeHudWave3 = document.getElementById('volume-hud-wave-3'), volumeHudMute = document.getElementById('volume-hud-mute');
+        // Speed HUD — 5 nút mốc rời rạc, cùng khuôn Volume HUD — xem core/hud.js.
+        const btnOpenSpeed = document.getElementById('btn-open-speed');
+        const speedBadgeLabel = document.getElementById('speed-badge-label');
+        const visualizerSpeedHud = document.getElementById('visualizer-speed-hud');
+        const speedHudOptions = document.querySelectorAll('.speed-hud-option');
         
         const btnSettingsPlaylist = document.getElementById('btn-settings-playlist');
         // (btnSettings ĐÃ XOÁ — HOTFIX 11, 08/07/2026: nút "Cài đặt" trong Control Center của
@@ -239,7 +246,7 @@
         // visualizer-display.js dùng delegation trên settingsStackBody thay vì đọc const ở đây.)
 
         // volumeSlider/valVolumeDisplay/eqSelect/eqSlidersWrapper (Settings Volume/EQ tĩnh cũ) ĐÃ
-        // XOÁ HẲN — Volume giờ ở #visualizer-volume-hud (core/volume-hud.js), EQ giờ ở Control
+        // XOÁ HẲN — Volume giờ ở #visualizer-volume-hud (core/hud.js), EQ giờ ở Control
         // Center + Generic Drawer (core/eq-presets.js).
 
         // SỬA (21/07/2026, dọn dẹp sau Batch 2 module Video) — `videoUploadInput` XOÁ HẲN (biến +

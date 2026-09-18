@@ -138,6 +138,9 @@
             // preset nào (kể cả "sửa thủ công") giờ ĐI QUA Edit EQ (Generic Drawer) áp dụng cho
             // ĐÚNG preset đó, không còn khái niệm "chế độ manual" riêng.
             volume: 100, eqPresetId: 'flat',
+            // Tốc độ phát chung (Song/Video Player) — 0.5/1/1.2/1.5/2. Global, không reset theo bài.
+            // VBG không đọc field này trừ khi videoSyncPlaybackSpeed=true (DEFAULT_VISUAL_BG_CONFIG).
+            playbackSpeed: 1,
             // XOÁ (v13 Batch A — "Visual Background unification"): videoBgEnabled/videoBgUrl/
             // visualBgImageEnabled/visualBgImage ĐÃ DỜI HẲN sang domain config RIÊNG `visualBg`
             // (DEFAULT_VISUAL_BG_CONFIG bên dưới) — 3 tính năng nền màn Visualizer (video nền/ảnh
@@ -362,6 +365,9 @@
             // cùng đợt đổi tên toàn bộ hệ preset này thành "Motion" (KHÔNG đụng
             // `listPlaybackMode`/giá trị 'slideshow' của nó — 2 khái niệm khác nhau).
             motionPresetId: null,
+            // Chỉ có ý nghĩa khi type==='video' — bgVideoElement có theo tốc độ phát chung
+            // (playbackSpeed, DEFAULT_VIZ_CONFIG) hay giữ cố định 1x. Mặc định false.
+            videoSyncPlaybackSpeed: false,
         };
 
         const DEFAULT_READER_CONFIG = {
@@ -473,7 +479,7 @@
                 type: 'string', customEffect: 'object',
                 bgImage: 'string', bgBlur: 'number', bgImageEnabled: 'boolean',
                 themeMode: 'string', gradientFrom: 'string', gradientTo: 'string',
-                volume: 'number', eqPresetId: 'string',
+                volume: 'number', eqPresetId: 'string', playbackSpeed: 'number',
                 visualEnabled: 'boolean',
                 gameplayDifficultyByGame: 'object',
                 keepScreenOn: 'boolean',
@@ -513,6 +519,7 @@
                 // này có chỗ chuyển sang dùng `access('visualBg').get()/.set()` — 2 hàm CÓ check).
                 durationMode: 'string', durationSeconds: 'number',
                 motionPresetId: 'nullable-string',
+                videoSyncPlaybackSpeed: 'boolean',
             },
             defaults: DEFAULT_VISUAL_BG_CONFIG,
         });
@@ -798,8 +805,8 @@
             workflowTheme.refreshThemeCardUI();
 
             if(appState.get('masterGainNode')) appState.get('masterGainNode').gain.value = appConfigViz.getAll().volume / 100;
-            // Volume HUD (core/volume-hud.js) tự đồng bộ icon+slider MỖI LẦN MỞ (workflowVolumeHud.
-            // open(), đọc appConfigViz tươi) — không cần đồng bộ UI tĩnh nào ở đây (khác bản cũ có
+            // Volume HUD (core/hud.js) tự đồng bộ icon+slider MỖI LẦN MỞ (workflowHud.
+            // openVolume(), đọc appConfigViz tươi) — không cần đồng bộ UI tĩnh nào ở đây (khác bản cũ có
             // #setting-volume tĩnh từ lúc boot, đã xoá cùng UI Settings EQ/Volume cũ).
 
             {
