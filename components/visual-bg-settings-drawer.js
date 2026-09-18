@@ -2,8 +2,8 @@
  * Component: panel body "Visual Background" — 3 nút chọn nguồn trực tiếp: Video/Ảnh/Thư mục —
  * `type` là HỆ QUẢ của nút vừa bấm. Cả 3 picker hỗ trợ CHỌN NHIỀU (multi-select, đánh số theo thứ
  * tự chọn) — 1 item vẫn hoạt động y hệt "chọn 1" (mảng độ dài 1).
- * Logic: event/workflow/visual-bg-common.js (workflowVisualBg) + event/workflow/motion-engine.js
- * (workflowMotionEngine — engine cycle ảnh thật, đọc preset Motion đang gắn qua
+ * Logic: event/workflow/visual-bg-common.js (workflowVisualBg) + event/workflow/visual-bg-photo-motion.js
+ * (workflowVisualBgPhotoMotion — engine cycle ảnh thật, đọc preset Motion đang gắn qua
  * `appConfigVisualBg.motionPresetId`, xem event/workflow/motion-presets.js). Listener/router: cụm
  * "visualBg".
  *
