@@ -268,6 +268,10 @@ const LANG_PATCH_VISUALIZER = {
     'gestureSettings.action.prev': 'Previous',
     'gestureSettings.action.playPause': 'Play/Pause',
     'gestureSettings.action.openPlaylist': 'Open Playlist',
+    // MỚI (18/09/2026, Giang yêu cầu "tăng/giảm theo các mốc tốc độ") — nhảy tới mốc liền kề trong
+    // PLAYBACK_SPEED_PRESETS (core/hud.js), xem GESTURE_ACTIONS event/workflow/visualizer-gesture.js.
+    'gestureSettings.action.speedUp': 'Speed up (next preset)',
+    'gestureSettings.action.speedDown': 'Slow down (previous preset)',
     'gestureSettings.action.none': 'None',
     'gestureSettings.sectionSeek': 'Seek',
     'gestureSettings.seekHoldEnable.label': 'Hold to seek',
