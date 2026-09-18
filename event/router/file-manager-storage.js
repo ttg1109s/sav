@@ -143,21 +143,38 @@ const routerFileManagerStorage = (() => {
                 break;
             }
 
-            case 'fileManagerStorage.deleteBroken.click': {
+            // SỬA (18/09/2026, ĐỔI TÊN + gộp tính năng — yêu cầu Giang "toàn bộ là nút sửa ->
+            // listener -> router dùng VMState check payload hoặc state") — `deleteBroken.click`/
+            // `.confirm` ĐỔI TÊN thành `fixBroken.click`/`.confirm`: nút giờ mang 2 Ý NGHĨA tuỳ
+            // ĐÚNG state của từng phần tử trong `lastScanResults` (`fixable` — gắn sẵn ở
+            // `executeScanBroken()`/`isVideoRecordCorrupted()`, core/storage-manager.js) — phần
+            // `fixable:false` (blob chính hỏng) vẫn xoá như cũ, phần `fixable:true` (chỉ thiếu
+            // thumb) giờ SỬA (tạo lại thumb) thay vì xoá. 2 đích Core/Workflow THẬT SỰ khác nhau
+            // (executeDeleteBroken() vs executeRepairBroken() MỚI) tuỳ theo state đọc được — ĐÚNG
+            // tiêu chí (C) VirtualMachineState theo event-bus-flow.md mục 4/6 ("cần đọc state KHÁC
+            // để chọn giữa các Core/Workflow khác nhau"), KHÁC hẳn lý do 'storageExecute.confirm'
+            // KHÔNG dùng VMState (docstring đầu file) — ở đó 3 nguồn gọi CÙNG 1 method tự lặp, còn
+            // ở đây 2 nhánh gọi 2 METHOD KHÁC HẲN NHAU. "Đa đích" — 1 lô quét có thể vừa có phần
+            // hỏng thật vừa có phần thiếu thumb, CẢ HAI callback cùng chạy không loại trừ nhau.
+            case 'fileManagerStorage.fixBroken.click': {
                 if (lastScanResults.length === 0) return;
-                workflowFileManagerStorage.askDeleteBroken({
+                workflowFileManagerStorage.askFixBroken({
                     scanResults: lastScanResults,
-                    onConfirmSend: () => eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.deleteBroken.confirm', payload: {} })
+                    onConfirmSend: () => eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.fixBroken.confirm', payload: {} })
                 });
                 break;
             }
 
-            case 'fileManagerStorage.deleteBroken.confirm': {
+            case 'fileManagerStorage.fixBroken.confirm': {
                 if (lastScanResults.length === 0) return;
-                workflowFileManagerStorage.executeDeleteBroken({
-                    scanResults: lastScanResults,
-                    currentKey: appState.get('currentKey')
-                });
+                const brokenResults = lastScanResults.filter((r) => !r.fixable);
+                const fixableResults = lastScanResults.filter((r) => r.fixable);
+                VirtualMachineState.run([
+                    { state: brokenResults.length > 0, operation: '===', value: true, callback: () =>
+                        workflowFileManagerStorage.executeDeleteBroken({ scanResults: brokenResults, currentKey: appState.get('currentKey') }) },
+                    { state: fixableResults.length > 0, operation: '===', value: true, callback: () =>
+                        workflowFileManagerStorage.executeRepairBroken(fixableResults) },
+                ]);
                 lastScanResults = [];
                 break;
             }
