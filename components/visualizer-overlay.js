@@ -144,17 +144,33 @@ ${TPL_GAMEPLAY_OVERLAY}
                  slider liên tục (step 0.01, TÁI DÙNG class .setting-slider của Volume HUD ngay
                  trên — assets/css/sliders.css) + hàng 6 nút mốc THU NHỎ bên dưới để nhảy nhanh —
                  slider và nút mốc CÙNG điều khiển 1 giá trị playbackSpeed (core/hud.js::
-                 syncSpeedHudUI()), không phải 2 cơ chế tách biệt. 0.7/1.2 cũ đổi thành 0.75/1.25. -->
-            <div id="visualizer-speed-hud" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-[47] glass-control-center rounded-3xl shadow-2xl pointer-events-auto flex flex-col gap-2 px-5 py-4 w-64 max-w-[80vw]">
+                 syncSpeedHudUI()), không phải 2 cơ chế tách biệt. 0.7/1.2 cũ đổi thành 0.75/1.25.
+                 SỬA TIẾP (cùng ngày, Giang báo bug "2x đang bị bug ngoài rìa") — hàng 6 nút TRƯỚC
+                 ĐÂY dùng justify-between + px-2 mỗi nút (padding NGANG cố định theo nội dung
+                 chữ, không co giãn) — 6 nút cộng dồn RỘNG HƠN cả bề ngang khả dụng của khối (w-64 =
+                 256px, trừ px-5 2 bên còn 216px, trong khi 6 nút "0.5x/0.75x/1x/1.25x/1.5x/2x" cộng
+                 padding+gap cần ~300px+) — flex item mặc định KHÔNG co dưới min-content (text 1 từ
+                 không khoảng trắng, không tự xuống dòng), nên justify-between chỉ CÒN CÁCH đẩy nút
+                 cuối (2x) tràn hẳn ra ngoài biên khối rounded-3xl thay vì co lại. Đổi HẲN sang
+                 flex-1 (mỗi nút CHIA ĐỀU đúng 1/6 bề ngang khả dụng, LUÔN vừa khít bất kể khối rộng
+                 bao nhiêu — không còn dựa vào đoán 1 bề rộng "vừa đủ" cho riêng 1 cỡ màn hình) +
+                 min-w-0 (bắt buộc đi kèm flex-1 — nếu thiếu, flex item vẫn giữ nguyên
+                 min-width:auto mặc định, tức vẫn KHÔNG co được dưới nội dung, y hệt lỗi cũ) +
+                 overflow-hidden/whitespace-nowrap (an toàn thêm — nếu màn quá hẹp tới mức chữ
+                 vẫn không vừa, chữ tự cắt gọn trong chính nút đó thay vì tràn ra ngoài khối). Bỏ
+                 hẳn px-2/justify-between cũ (flex-1 tự chia đều, 2 thứ đó không còn tác dụng).
+                 Panel rộng thêm w-64 -> w-72 (thoáng hơn, KHÔNG bắt buộc để hết overflow — flex-1 tự
+                 đúng ở MỌI bề rộng, kể cả bị max-w-[80vw] kẹp nhỏ lại trên màn rất hẹp). -->
+            <div id="visualizer-speed-hud" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-[47] glass-control-center rounded-3xl shadow-2xl pointer-events-auto flex flex-col gap-2 px-5 py-4 w-72 max-w-[80vw]">
                 <div id="speed-hud-value" class="text-center text-sm font-semibold text-white">1x</div>
                 <input type="range" id="speed-hud-slider" min="0.5" max="2" step="0.01" class="setting-slider w-full">
-                <div class="flex items-center justify-between gap-1">
-                    <button type="button" data-speed-option="0.5" class="speed-hud-option px-2 py-1 rounded-full text-xs font-medium text-white/70 transition-colors">0.5x</button>
-                    <button type="button" data-speed-option="0.75" class="speed-hud-option px-2 py-1 rounded-full text-xs font-medium text-white/70 transition-colors">0.75x</button>
-                    <button type="button" data-speed-option="1" class="speed-hud-option px-2 py-1 rounded-full text-xs font-medium text-white/70 transition-colors">1x</button>
-                    <button type="button" data-speed-option="1.25" class="speed-hud-option px-2 py-1 rounded-full text-xs font-medium text-white/70 transition-colors">1.25x</button>
-                    <button type="button" data-speed-option="1.5" class="speed-hud-option px-2 py-1 rounded-full text-xs font-medium text-white/70 transition-colors">1.5x</button>
-                    <button type="button" data-speed-option="2" class="speed-hud-option px-2 py-1 rounded-full text-xs font-medium text-white/70 transition-colors">2x</button>
+                <div class="flex items-center gap-1">
+                    <button type="button" data-speed-option="0.5" class="speed-hud-option flex-1 min-w-0 overflow-hidden whitespace-nowrap text-center py-1 rounded-full text-[11px] font-medium text-white/70 transition-colors">0.5x</button>
+                    <button type="button" data-speed-option="0.75" class="speed-hud-option flex-1 min-w-0 overflow-hidden whitespace-nowrap text-center py-1 rounded-full text-[11px] font-medium text-white/70 transition-colors">0.75x</button>
+                    <button type="button" data-speed-option="1" class="speed-hud-option flex-1 min-w-0 overflow-hidden whitespace-nowrap text-center py-1 rounded-full text-[11px] font-medium text-white/70 transition-colors">1x</button>
+                    <button type="button" data-speed-option="1.25" class="speed-hud-option flex-1 min-w-0 overflow-hidden whitespace-nowrap text-center py-1 rounded-full text-[11px] font-medium text-white/70 transition-colors">1.25x</button>
+                    <button type="button" data-speed-option="1.5" class="speed-hud-option flex-1 min-w-0 overflow-hidden whitespace-nowrap text-center py-1 rounded-full text-[11px] font-medium text-white/70 transition-colors">1.5x</button>
+                    <button type="button" data-speed-option="2" class="speed-hud-option flex-1 min-w-0 overflow-hidden whitespace-nowrap text-center py-1 rounded-full text-[11px] font-medium text-white/70 transition-colors">2x</button>
                 </div>
             </div>
         </div>
