@@ -44,6 +44,7 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'visualBgSettingsDrawer.groupMedia.title': 'Media',
     'visualBgSettingsDrawer.groupPlayback.title': 'Playback',
     'visualBgSettingsDrawer.motion.label': 'Motion',
+    'visualBgSettingsDrawer.syncSpeed.label': 'Sync playback speed',
     'visualBgSettingsDrawer.motion.none': 'None',
     'visualBgSettingsDrawer.groupColor.title': 'Background colour',
     'visualBgSettingsDrawer.colorMode.label': 'Colour style',
