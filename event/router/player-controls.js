@@ -208,7 +208,7 @@ const routerPlayerControls = (() => {
                 // `workflowVideoPlayer.handleVideoPlayerEnded()` cũ, 2 hàm TRÙNG THÂN đã gộp làm 1).
                 // SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — thêm
                 // 'playerControls.photo.ended' (bắn từ event/workflow/photo-player.js::
-                // _handlePhotoEnded() lúc đồng hồ giả chạm duration, KHÔNG phải sự kiện DOM thật vì
+                // _photoPlayerTick() lúc đồng hồ giả chạm duration, KHÔNG phải sự kiện DOM thật vì
                 // ảnh không có — xem docstring đầu file đó) vào CÙNG fallthrough — hết ảnh xử lý Y
                 // HỆT hết bài/video (auto next lúc idle, hiện màn kết quả lúc đang Game Mode),
                 // KHÔNG có lý do tách case riêng.
