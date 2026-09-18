@@ -114,8 +114,7 @@
         // core/player-controls.js::syncRepeatUI().
         const btnShuffle = document.getElementById('btn-shuffle'), btnRepeat = document.getElementById('btn-repeat'), repeatOneDigit = document.getElementById('repeat-one-digit');
         const progressBar = document.getElementById('progress-bar');
-        const progressBarRow = document.getElementById('progress-bar-row'); // ẩn hẳn lúc Photo Player mode (không có gì để seek) — core/photo-player.js
-        const progressTimeRow = document.getElementById('progress-time-row'); // ẩn CÙNG progressBarRow — không tick nữa nên không có gì cập nhật nhãn giờ
+        const progressBarRow = document.getElementById('progress-bar-row'); // ẩn hẳn lúc Photo Player mode (ảnh không hỗ trợ kéo tay tuỳ ý) — core/photo-player.js
         const currentTimeDisplay = document.getElementById('current-time'), durationTimeDisplay = document.getElementById('duration-time');
         const playerTitle = document.getElementById('player-title'), playerArtist = document.getElementById('player-artist');
         const recordArt = document.getElementById('record-art'), recordContainer = document.getElementById('record-container');

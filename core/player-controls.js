@@ -209,10 +209,18 @@
          * Photo bỏ qua (không có khái niệm này, nút mở HUD Speed cũng ẩn ở mode đó). Gọi lúc chọn
          * tốc độ mới (event/workflow/hud.js) VÀ mỗi lần bài/video mới sẵn sàng phát (loadedmetadata)
          * để tốc độ đã lưu áp lại đúng cho nội dung mới. Core thuần (Rule 2).
+         *
+         * Set tường minh `preservesPitch=true` (giữ nguyên cao độ, mặc định trình duyệt hiện đại —
+         * Baseline 2023 — nhưng vẫn set tay để chắc chắn trên WebView cũ/thiết bị không rõ) mỗi lần
+         * set `playbackRate`, kèm 2 fallback tiền tố cũ (`mozPreservesPitch`/`webkitPreservesPitch`)
+         * cho engine chưa hỗ trợ tên chuẩn — không có tên nào tồn tại thì gán vào cũng vô hại
+         * (thuộc tính lạ, trình duyệt bỏ qua).
          * @param {boolean} isVideoPlayerMode @param {boolean} isPhotoPlayerMode @param {number} speed */
         function applyPlaybackSpeedToActiveMedia(isVideoPlayerMode, isPhotoPlayerMode, speed) {
             if (isPhotoPlayerMode) return;
-            getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode).playbackRate = speed;
+            const el = getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode);
+            el.playbackRate = speed;
+            el.preservesPitch = true; el.mozPreservesPitch = true; el.webkitPreservesPitch = true;
         }
 
         /**

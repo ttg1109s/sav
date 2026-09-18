@@ -33,7 +33,7 @@ function syncVolumeHudSliderFill(sliderEl, volume) {
 // ===================== Speed HUD =====================
 
 /** 5 nấc hợp lệ — nguồn sự thật DUY NHẤT, khớp 5 nút tĩnh trong index.html/visualizer-overlay.js. */
-const PLAYBACK_SPEED_STEPS = Object.freeze([0.5, 1, 1.2, 1.5, 2]);
+const PLAYBACK_SPEED_STEPS = Object.freeze([0.5, 0.7, 1, 1.2, 1.5, 2]);
 
 /** Nhãn hiển thị 1 mốc tốc độ ("1x"/"0.5x"...). @param {number} speed @returns {string} */
 function formatPlaybackSpeedLabel(speed) {
