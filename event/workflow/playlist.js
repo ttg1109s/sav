@@ -17,7 +17,7 @@
  * router tự gọi thẳng 1 hàm core, KHÔNG đi qua workflow (xem router/playlist.js).
  */
 /** DỜI từ event/workflow/file-manager-video.js (file đó đã xoá) — cạnh thumbnail vuông cố định
- * cho video upload, dùng bởi `uploadVideos()`/`_extractVideoThumbAndMeta()` bên dưới. */
+ * cho video upload, dùng bởi `uploadVideos()`/`extractVideoThumbAndMeta()` bên dưới. */
 const VIDEO_THUMBNAIL_SIZE = 320;
 
 /** MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video) — trần của time-picker mở ở
@@ -396,10 +396,29 @@ const workflowPlaylist = {
      * bằng cách gán `currentTime = 0.0001` RỒI `= 0` ngay sau + vẽ NGAY nếu khung hình đã sẵn có
      * (`readyState >= 2`) + "nhá" `play()`/`pause()` 1 lần nếu chưa đủ dữ liệu để ép trình duyệt
      * decode thật (một số engine không bắn `seeked` đáng tin cậy ngay tại time=0).
-     * @param {File} file
-     * @returns {Promise<{thumbBlob: Blob, thumbFullBlob: (Blob|null), width: number, height: number, duration: number}>}
+     *
+     * SỬA (18/09/2026, Giang chỉ ra "thiếu full res trong quá trình upload cũng là lỗi thật") —
+     * TRƯỚC ĐÂY `canvas.toBlob()` của full-res trả về `null` (hiếm gặp) chỉ âm thầm gán
+     * `thumbFullBlob = null` rồi ĐI TIẾP chụp thumb vuông như không có gì — file vẫn upload thành
+     * công, thiếu hẳn full-res mà không ai biết. Giờ coi NGANG HÀNG với thumb vuông (dòng `if
+     * (!thumbBlob) reject(...)` ngay dưới, ĐÃ CÓ SẴN từ trước) — `null` ở bước full-res cũng
+     * `cleanupAndReject()` NGAY, không chụp thumb vuông nữa — cả file coi như upload thất bại, nơi
+     * gọi (`uploadVideos()` ngay dưới) tự skip đúng file đó, KHÔNG lưu record nào cả (đã có cơ chế
+     * try/catch-per-file sẵn, không phải viết mới).
+     *
+     * ĐỔI TÊN (cùng ngày) — bỏ tiền tố `_` (trước đây coi là hàm riêng, chỉ `uploadVideos()` cùng
+     * file gọi) vì giờ TÁI DÙNG chéo miền: `workflowFileManagerStorage.executeRepairBroken()`
+     * (event/workflow/file-manager-storage.js) gọi lại ĐÚNG hàm này để tạo lại thumb cho video ĐÃ
+     * lưu (thiếu thumb, blob chính vẫn đọc được) — Workflow gọi Workflow miền khác, TỰ DO theo
+     * event-bus-flow.md mục 4B, KHÔNG viết lại thuật toán capture — cùng tiền lệ đặt tên PUBLIC (bỏ
+     * `_`) như `workflowFileManagerPhoto.resizeImageForThumbnail()`.
+     * @param {File|Blob} file - File lúc upload MỚI, hoặc `record.blob` (Blob) của 1 video ĐÃ LƯU
+     *        lúc gọi lại để tạo thumb — cả 2 đều hợp lệ với `URL.createObjectURL()`.
+     * @returns {Promise<{thumbBlob: Blob, thumbFullBlob: Blob, width: number, height: number, duration: number}>}
+     *   Promise reject thẳng (KHÔNG resolve `thumbFullBlob: null` nữa) nếu full-res capture lỗi —
+     *   xem SỬA 18/09/2026 ở trên.
      */
-    _extractVideoThumbAndMeta(file) {
+    extractVideoThumbAndMeta(file) {
         return new Promise((resolve, reject) => {
             const objectUrl = URL.createObjectURL(file);
             const videoEl = document.createElement('video');
@@ -410,7 +429,7 @@ const workflowPlaylist = {
             let fullFrameCaptured = false; // chặn chụp full-res quá 1 lần (3 sự kiện CÙNG nghe, xem docstring)
             const cleanup = () => { try { URL.revokeObjectURL(objectUrl); } catch (e) {} };
             const cleanupAndReject = (err) => { if (settled) return; settled = true; cleanup(); reject(err); };
-            const safetyTimeout = taskManager.once(() => cleanupAndReject(new Error('[_extractVideoThumbAndMeta] timeout đọc video')), 8000);
+            const safetyTimeout = taskManager.once(() => cleanupAndReject(new Error('[extractVideoThumbAndMeta] timeout đọc video')), 8000);
 
             let nudgedFullRes = false; // chặn play()/pause() ép decode quá 1 lần
 
@@ -434,7 +453,11 @@ const workflowPlaylist = {
                 fullCanvas.getContext('2d').drawImage(videoEl, 0, 0, width, height);
                 fullCanvas.toBlob((blob) => {
                     if (settled) return;
-                    thumbFullBlob = blob; // Blob|null — field PHỤ, không chặn nếu null
+                    // SỬA (18/09/2026) — trước đây `blob` null vẫn cho qua (`thumbFullBlob = blob`
+                    // rồi đi tiếp), giờ coi NGANG HÀNG lỗi thumb vuông (`onSquareThumbSeeked()` dưới)
+                    // — reject NGAY, không seek tiếp chụp thumb vuông nữa. Xem docstring hàm.
+                    if (!blob) { cleanupAndReject(new Error('[extractVideoThumbAndMeta] chụp full-res thất bại (canvas.toBlob trả về null)')); return; }
+                    thumbFullBlob = blob;
                     videoEl.addEventListener('seeked', onSquareThumbSeeked, { once: true }); // Bước 2/2 — đăng ký NGAY TRƯỚC lúc seek tiếp, không sớm hơn
                     videoEl.currentTime = Math.min(1, videoEl.duration / 2 || 0); // seek bước 2/2 — mốc cũ, cho thumb vuông
                 }, 'image/jpeg', 0.92);
@@ -442,7 +465,7 @@ const workflowPlaylist = {
 
             videoEl.addEventListener('loadedmetadata', () => {
                 const width = videoEl.videoWidth, height = videoEl.videoHeight;
-                if (!width || !height) { cleanupAndReject(new Error('[_extractVideoThumbAndMeta] video không có kích thước hợp lệ')); return; }
+                if (!width || !height) { cleanupAndReject(new Error('[extractVideoThumbAndMeta] video không có kích thước hợp lệ')); return; }
                 videoEl.addEventListener('loadeddata', captureFullResFrame, { once: true });
                 videoEl.addEventListener('canplay', captureFullResFrame, { once: true });
                 videoEl.addEventListener('seeked', captureFullResFrame, { once: true });
@@ -464,12 +487,12 @@ const workflowPlaylist = {
                 ctx.drawImage(videoEl, sx, sy, side, side, 0, 0, VIDEO_THUMBNAIL_SIZE, VIDEO_THUMBNAIL_SIZE);
                 canvas.toBlob((thumbBlob) => {
                     settled = true; cleanup();
-                    if (!thumbBlob) { reject(new Error('[_extractVideoThumbAndMeta] canvas.toBlob trả về null')); return; }
+                    if (!thumbBlob) { reject(new Error('[extractVideoThumbAndMeta] canvas.toBlob trả về null')); return; }
                     resolve({ thumbBlob, thumbFullBlob, width, height, duration: videoEl.duration || 0 });
                 }, 'image/jpeg', 0.85);
             }
 
-            videoEl.addEventListener('error', () => cleanupAndReject(new Error('[_extractVideoThumbAndMeta] không đọc được video')), { once: true });
+            videoEl.addEventListener('error', () => cleanupAndReject(new Error('[extractVideoThumbAndMeta] không đọc được video')), { once: true });
             videoEl.src = objectUrl;
         });
     },
@@ -484,6 +507,14 @@ const workflowPlaylist = {
      * "upload cả lô"). Hiện tiến trình "X/Y" qua `loadingText.textContent`, ĐÚNG pattern
      * `handleAudioFiles()` (Song, core/playlist/loader.js) — tái dùng NGUYÊN lang key
      * `common.upload.loadingProgress`.
+     *
+     * SỬA (18/09/2026, Giang yêu cầu "thiếu full-res lúc upload cũng là lỗi thật... cần thông báo
+     * với người dùng, khuyến nghị upload lại") — `extractVideoThumbAndMeta()` giờ reject luôn nếu
+     * thiếu full-res (xem SỬA cùng ngày ở hàm đó), rơi vào ĐÚNG nhánh catch có sẵn bên dưới — file
+     * đó tự động bị skip (KHÔNG lưu record), không cần đổi gì ở vòng lặp. Cái THIẾU trước đây: catch
+     * chỉ đếm số (`failedCount`), không nhớ TÊN file nào bị skip để báo — thêm `skippedFilenames`,
+     * cuối hàm nếu có ít nhất 1 file bị skip thì hiện THÊM 1 modal riêng liệt kê tên + khuyến nghị
+     * upload lại (TÁCH khỏi modal "Đã thêm N video" thành công cho rõ, không gộp chung 1 câu).
      * @param {FileList|File[]} files
      */
     async uploadVideos(files) {
@@ -491,18 +522,20 @@ const workflowPlaylist = {
         if (fileArray.length === 0) return;
 
         let failedCount = 0;
+        const skippedFilenames = []; // MỚI (18/09/2026) — tên từng file bị skip, để báo cuối lô
         const uploadedVideoKeys = []; // MỚI (06/09/2026, Batch 6) — gắn folder hàng loạt SAU vòng lặp, xem cuối hàm
         await withLoadingShield(tFormat('common.upload.loadingProgress', { done: 1, total: fileArray.length }), async () => {
             for (let i = 0; i < fileArray.length; i++) {
                 const file = fileArray[i];
                 loadingText.textContent = tFormat('common.upload.loadingProgress', { done: i + 1, total: fileArray.length });
                 try {
-                    const { thumbBlob, thumbFullBlob, width, height, duration } = await this._extractVideoThumbAndMeta(file);
+                    const { thumbBlob, thumbFullBlob, width, height, duration } = await this.extractVideoThumbAndMeta(file);
                     const videoKey = await saveVideo(file, file.name, thumbBlob, width, height, duration, thumbFullBlob); // core/file-manager/video.js — CÓ return (videoKey), trước đây bị bỏ qua
                     uploadedVideoKeys.push(videoKey);
                 } catch (err) {
                     console.error(`[uploadVideos] chụp thumbnail/lưu thất bại cho file "${file.name}":`, err);
                     failedCount++;
+                    skippedFilenames.push(file.name);
                 }
             }
             // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 6) — nếu đang Scope 1 folder
@@ -519,7 +552,16 @@ const workflowPlaylist = {
         // vừa upload — KHÔNG cần đổi Nguồn tắt/bật lại.
         await workflowVideoPlayer.refreshVideoPlaylistIfActive(); // event/workflow/video-player.js — tự guard activeMediaSource, no-op nếu Playlist không ở nguồn Video
         const successCount = fileArray.length - failedCount;
-        await alertModal(tFormat('fileManager.video.uploadSuccess', { count: successCount }));
+        // MỚI (18/09/2026) — báo riêng danh sách file bị skip TRƯỚC, rồi mới báo thành công (nếu
+        // có) — `r.filename`-style dữ liệu NGƯỜI DÙNG (tên file), PHẢI escapeHtml() trước khi nhúng,
+        // cùng nguyên tắc đã áp dụng ở renderScanResultUI() (core/storage-manager.js).
+        if (skippedFilenames.length > 0) {
+            const namesHtml = skippedFilenames.map((n) => escapeHtml(n)).join(', ');
+            await alertModal(tFormat('fileManager.video.uploadSkipped', { count: skippedFilenames.length, names: namesHtml }), { title: t('fileManager.video.uploadSkippedTitle') });
+        }
+        if (successCount > 0) {
+            await alertModal(tFormat('fileManager.video.uploadSuccess', { count: successCount }));
+        }
     },
 
     /** Ứng với 'playlist.upload.fileChange'/'playlist.upload.folderChange' khi activeMediaSource=

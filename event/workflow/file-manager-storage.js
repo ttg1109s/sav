@@ -432,28 +432,60 @@ const workflowFileManagerStorage = {
         return { song: scope === 'song', video: scope === 'video', photo: scope === 'photo' };
     },
 
-    /** Ứng với msg.type = 'fileManagerStorage.deleteBroken.click'.
+    /** Ứng với msg.type = 'fileManagerStorage.fixBroken.click' — ĐỔI TÊN (18/09/2026, cùng lúc
+     * gộp tính năng mới) từ `askDeleteBroken()`: trước đây MỌI kết quả quét đều là "lỗi thật, chỉ
+     * xoá được" nên chỉ có 1 nội dung modal cố định. Giờ `scanResults` (Video) có thể mang thêm
+     * `fixable: true` (thiếu thumb, blob chính vẫn đọc được — xem `isVideoRecordCorrupted()`,
+     * core/storage-manager.js) — modal xác nhận đọc trước xem lô có gì, chọn ĐÚNG nội dung/màu nút:
+     *   - Chỉ có phần tử `fixable:false` (ca CŨ, Song/Photo LUÔN rơi vào đây — 2 domain đó chưa có
+     *     khái niệm "fixable") -> GIỮ NGUYÊN 100% modal xoá cũ (tái dùng đúng 3 lang key cũ).
+     *   - Có ÍT NHẤT 1 phần tử `fixable:true` -> đổi hẳn sang modal MỚI (tiêu đề/nút "Sửa file
+     *     lỗi"), nội dung tuỳ còn phần `fixable:false` hay không (kết hợp cả xoá+sửa hay chỉ sửa).
      * @param {{scanResults: Array, onConfirmSend: function}} payload
      */
-    askDeleteBroken(payload) {
+    askFixBroken(payload) {
         const { scanResults, onConfirmSend } = payload;
+        const brokenResults = scanResults.filter((r) => !r.fixable);
+        const fixableResults = scanResults.filter((r) => r.fixable);
+        let bodyText, title, btnLabel, destructive;
+        if (fixableResults.length === 0) {
+            // Không có gì "sửa" được — Y HỆT hành vi cũ (askDeleteBroken()), không đổi copy nào.
+            bodyText = tFormat('common.storage.deleteBrokenConfirm', { n: brokenResults.length });
+            title = t('common.storage.deleteBrokenTitle');
+            btnLabel = t('common.storage.deleteBrokenConfirmBtn');
+            destructive = true;
+        } else if (brokenResults.length === 0) {
+            bodyText = tFormat('common.storage.fixBrokenConfirmOnlyFixable', { n: fixableResults.length });
+            title = t('common.storage.fixBrokenTitle');
+            btnLabel = t('common.storage.fixBrokenConfirmBtn');
+            destructive = false; // thuần tạo lại thumb, không xoá gì -> KHÔNG cần màu nút "destructive"
+        } else {
+            bodyText = tFormat('common.storage.fixBrokenConfirmBoth', { broken: brokenResults.length, fixable: fixableResults.length });
+            title = t('common.storage.fixBrokenTitle');
+            btnLabel = t('common.storage.fixBrokenConfirmBtn');
+            destructive = true; // có phần xoá thật trong lô -> vẫn cảnh báo màu destructive
+        }
         modalChoice(
-            tFormat('common.storage.deleteBrokenConfirm', { n: scanResults.length }),
+            bodyText,
             [
-                { label: t('common.storage.deleteBrokenConfirmBtn'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnDestructiveBg btnDestructiveHoverBg textOnAccent', onClick: onConfirmSend }
+                { label: btnLabel, className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: destructive ? 'btnDestructiveBg btnDestructiveHoverBg textOnAccent' : 'btnCautionBg btnCautionHoverBg textOnAccent', onClick: onConfirmSend }
             ],
-            { title: t('common.storage.deleteBrokenTitle') }
+            { title }
         );
     },
 
-    /** Ứng với msg.type = 'fileManagerStorage.deleteBroken.confirm' — `scanResults` giờ có thể
-     * chứa CẢ 3 mediaType (song/video/photo, gắn sẵn ở executeScanBroken()) — tách theo
-     * mediaType, xoá ĐÚNG store cho từng phần. Song/Video GIỮ NGUYÊN `deleteCorruptedSongs()`/
-     * `deleteCorruptedVideos()` cũ; Photo dùng 1 hàm MỚI (core/storage-manager.js).
+    /** Ứng với msg.type = 'fileManagerStorage.fixBroken.confirm', NHÁNH XOÁ — Router
+     * (`VirtualMachineState.run()`) đã tự lọc `scanResults` chỉ còn phần tử `fixable:false` TRƯỚC
+     * khi gọi hàm này (xem event/router/file-manager-storage.js) — thân hàm GIỮ NGUYÊN 100% so với
+     * `executeDeleteBroken()` cũ (chỉ đổi Ở ĐÂU lọc dữ liệu, không đổi hành vi xoá). `scanResults`
+     * vẫn có thể chứa CẢ 3 mediaType (song/video/photo, gắn sẵn ở executeScanBroken()) — tách theo
+     * mediaType, xoá ĐÚNG store cho từng phần. Song/Photo LUÔN rơi hết vào đây (chưa có khái niệm
+     * `fixable`); Video chỉ còn phần thật sự hỏng blob chính.
      * @param {{scanResults: Array, currentKey: string|null}} payload
      */
     async executeDeleteBroken(payload) {
         const { scanResults, currentKey } = payload;
+        if (scanResults.length === 0) return;
         const songResults = scanResults.filter((r) => r.mediaType === 'song');
         const videoResults = scanResults.filter((r) => r.mediaType === 'video');
         const photoResults = scanResults.filter((r) => r.mediaType === 'photo');
@@ -479,6 +511,54 @@ const workflowFileManagerStorage = {
         });
 
         await alertModal(t('common.storage.deleteBrokenDone'));
+    },
+
+    /** Ứng với msg.type = 'fileManagerStorage.fixBroken.confirm', NHÁNH SỬA — MỚI (18/09/2026).
+     * Router đã lọc `scanResults` chỉ còn phần tử `fixable:true` (LUÔN là Video — Song/Photo chưa
+     * có khái niệm `fixable`, xem `isVideoRecordCorrupted()` core/storage-manager.js) TRƯỚC khi gọi
+     * hàm này. KHÔNG xoá record nào — đọc lại `record.blob` (vẫn đọc/phát được, đã xác nhận lúc
+     * quét), chụp lại thumb qua `workflowPlaylist.extractVideoThumbAndMeta()` (Workflow gọi
+     * Workflow miền khác, TỰ DO theo event-bus-flow.md mục 4B — TÁI DÙNG NGUYÊN pipeline capture
+     * lúc upload, không viết lại thuật toán), rồi ghi xuống qua `setVideoThumbnails()` (core/
+     * file-manager/video.js, CRUD thuần). Nếu NGAY LÚC chụp lại mà `record.blob` hoá ra KHÔNG đọc
+     * được nữa (hiếm — dữ liệu đổi khác giữa lúc quét và lúc sửa) -> coi là sửa thất bại cho video
+     * đó (KHÔNG tự ý xoá — xoá là hành động cần xác nhận riêng, không phải side-effect ngầm của 1
+     * lượt sửa lỗi), gộp vào số đếm `failed` báo cuối, khuyến nghị người dùng tự quét lại.
+     * @param {Array<{key:string}>} scanResults
+     */
+    async executeRepairBroken(scanResults) {
+        if (scanResults.length === 0) return;
+        let fixedCount = 0;
+        let failedCount = 0;
+        await withLoadingShield(t('common.storage.repairing'), async () => {
+            for (let i = 0; i < scanResults.length; i++) {
+                const { key } = scanResults[i];
+                loadingText.textContent = tFormat('common.storage.repairingProgress', { n: i + 1, total: scanResults.length });
+                const record = await getVideoRecord(key); // service/db.js
+                if (!record || !record.blob) { failedCount++; continue; }
+                try {
+                    const { thumbBlob, thumbFullBlob } = await workflowPlaylist.extractVideoThumbAndMeta(record.blob); // event/workflow/playlist.js
+                    await setVideoThumbnails(key, thumbBlob, thumbFullBlob); // core/file-manager/video.js
+                    fixedCount++;
+                } catch (err) {
+                    console.error(`[executeRepairBroken] tạo lại thumbnail thất bại cho video "${key}":`, err);
+                    failedCount++;
+                }
+            }
+            if (!genericDrawerPanel.classList.contains('hidden')) {
+                resetScanResultUI(
+                    genericDrawerBody.querySelector('#storage-scan-result'),
+                    genericDrawerBody.querySelector('#storage-scan-list')
+                );
+                await this.refreshTab();
+            }
+        });
+
+        if (failedCount > 0) {
+            await alertModal(tFormat('common.storage.repairSomeFailed', { fixed: fixedCount, failed: failedCount }));
+        } else {
+            await alertModal(tFormat('common.storage.repairDone', { n: fixedCount }));
+        }
     },
 
     /** Ứng với msg.type = 'fileManagerStorage.scanBroken.click' — đọc `payload.sources` (DÙNG
@@ -509,7 +589,7 @@ const workflowFileManagerStorage = {
                     genericDrawerBody.querySelector('#storage-scan-result'),
                     genericDrawerBody.querySelector('#storage-scan-summary'),
                     genericDrawerBody.querySelector('#storage-scan-list'),
-                    genericDrawerBody.querySelector('#btn-storage-delete-broken')
+                    genericDrawerBody.querySelector('#btn-storage-fix-broken') // ĐỔI TÊN 18/09/2026 từ #btn-storage-delete-broken
                 );
             }
         });
