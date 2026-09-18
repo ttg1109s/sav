@@ -13,12 +13,13 @@
  * 4 hướng vuốt + 2 tap (đơn/đúp) + TAP 3 LẦN — CẢ 7 đều là "hành động do người dùng chọn", CÙNG 1
  * pool lựa chọn (SỬA 12/08/2026, Giang yêu cầu "tap 3 dùng chung select giống tap/cử chỉ khác" —
  * TRƯỚC ĐÂY tap 3 lần tách riêng, chọn THẲNG 1 nút Control Center, KHÁC hẳn 6 cái kia) — mỗi cái 1
- * field string riêng trong vizConfig, giá trị 1 trong 5 hành động cố định
- * ('next'/'prev'/'playPause'/'openPlaylist'/'none', GESTURE_ACTIONS) HOẶC 1 trong 3 Action slot
- * ('actionSlot1/2/3', GESTURE_ACTION_SLOT_CONFIG_FIELD — MỖI slot gán 1 nút Control Center riêng,
- * xem components/gesture-settings-drawer.js section "Actions"). Hoạt động bất kể đang phát Song
- * hay Video (playerControls.next/prev.click TỰ đúng cho cả 2 loại — Workflow này không cần biết
- * đang phát gì).
+ * field string riêng trong vizConfig, giá trị 1 trong 7 hành động cố định
+ * ('next'/'prev'/'playPause'/'openPlaylist'/'speedUp'/'speedDown'/'none', GESTURE_ACTIONS —
+ * speedUp/speedDown MỚI 18/09/2026) HOẶC 1 trong 3 Action slot ('actionSlot1/2/3',
+ * GESTURE_ACTION_SLOT_CONFIG_FIELD — MỖI slot gán 1 nút Control Center riêng, xem components/
+ * gesture-settings-drawer.js section "Actions"). Hoạt động bất kể đang phát Song hay Video
+ * (playerControls.next/prev.click TỰ đúng cho cả 2 loại — Workflow này không cần biết đang phát
+ * gì).
  *
  * TAP 3 LẦN (MỚI, THAY THẾ vuốt cạnh dưới đã bỏ hẳn) — đúng chức năng vuốt cạnh dưới cũ, đổi cơ
  * chế kích hoạt sang chạm 3 lần liên tiếp cho dễ thao tác hơn (phản hồi Giang) — muốn bấm THẲNG 1
@@ -56,7 +57,10 @@
  * video-player.js) tự lo icon/wake lock/Media Session, không cần dispatch gì thêm ở đây.
  *
  * NẠP SAU: core/visualizer-gesture.js, core/dom-refs.js, service/task-manager.js,
- * event/router/player-controls.js, event/router/visualizer-control-center.js.
+ * event/router/player-controls.js, event/router/visualizer-control-center.js, core/hud.js
+ * (findAdjacentPlaybackSpeedPreset — MỚI 18/09/2026, speedUp/speedDown), event/workflow/hud.js
+ * (workflowHud.selectSpeed — MỚI 18/09/2026, gọi runtime NÊN thứ tự nạp so với 2 file này không
+ * thật sự bắt buộc, ghi lại cho rõ phụ thuộc).
  */
 const EDGE_ZONE_PX = 28;
 const EDGE_SWIPE_MIN_DISTANCE_PX = 40;
@@ -72,12 +76,20 @@ const SEEK_HOLD_TICK_TASK = 'visualizerGestureSeekHoldTick';
 
 /** Pool hành động dùng CHUNG cho cả 4 hướng vuốt + tap đơn/đúp — key khớp <option> ở
  * components/gesture-settings-drawer.js + giá trị field vizConfig. Tái dùng THẲNG message có sẵn,
- * không viết lại logic next/prev/play-pause/mở-playlist. */
+ * không viết lại logic next/prev/play-pause/mở-playlist.
+ * MỚI (18/09/2026, Giang yêu cầu "bổ sung tăng/giảm theo các mốc tốc độ trong cử chỉ") —
+ * speedUp/speedDown: tìm mốc liền kề hiện tại trong PLAYBACK_SPEED_PRESETS (core/hud.js,
+ * findAdjacentPlaybackSpeedPreset() — hoạt động đúng cả khi tốc độ hiện tại đang là 1 giá trị liên
+ * tục KHÔNG khớp mốc nào, do slider mới cho phép) rồi gọi THẲNG workflowHud.selectSpeed() (event/
+ * workflow/hud.js) — Workflow gọi Workflow miền khác, TỰ DO theo event-bus-flow.md mục 4B, KHÔNG
+ * viết lại logic áp speed/đồng bộ HUD (apply + persist + sync UI CÙNG 1 chỗ với slider/nút mốc). */
 const GESTURE_ACTIONS = {
     next: () => eventBus.send({ router: 'playerControls', type: 'playerControls.next.click', payload: {} }),
     prev: () => eventBus.send({ router: 'playerControls', type: 'playerControls.prev.click', payload: {} }),
     playPause: () => eventBus.send({ router: 'playerControls', type: 'playerControls.playPause.click', payload: {} }),
     openPlaylist: () => eventBus.send({ router: 'playerControls', type: 'playerControls.backToPlaylist.click', payload: {} }),
+    speedUp: () => workflowHud.selectSpeed(findAdjacentPlaybackSpeedPreset(appConfigViz.getAll().playbackSpeed, 1)), // core/hud.js
+    speedDown: () => workflowHud.selectSpeed(findAdjacentPlaybackSpeedPreset(appConfigViz.getAll().playbackSpeed, -1)), // core/hud.js
     none: () => {},
 };
 
