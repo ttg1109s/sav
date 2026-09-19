@@ -12,8 +12,9 @@
  * 'streetRain'/'streetLamps'/'ripples', ...)` GIỮ NGUYÊN bên trong — Rule 2 chỉ cấm ĐỌC, không
  * cấm GHI.
  *
- * `computeRainFlashAlpha()` (chớp sáng, dùng chung với style 'glass') nằm ở
- * `core/visualizer/groups/rain/common.js`; phần vẽ dùng `drawScreenFlash()` (draw/screen-flash.js).
+ * `computeRainFlashEnergy()` (nguồn năng lượng chớp, dùng chung với style 'glass') nằm ở
+ * `core/visualizer/groups/rain/common.js`; alpha + vẽ dùng chung `computeScreenFlashAlpha()`/`drawScreenFlash()`
+ * (core/visualizer/draw/).
  *
  * NẠP SAU: core/visualizer/groups/rain/common.js.
  */
