@@ -21,7 +21,8 @@
  * vùng LOẠI TRỪ theme, nền LUÔN TRẮNG — xem docstring components/generic-drawer.js): card
  * `bg-slate-50 border border-slate-200`, text `text-slate-900/500/400`, icon nhấn `text-sky-500`.
  *
- * 5 mục Main: Playlist/System/Visualizer Screen/Troubleshooting/Reset app — mỗi card
+ * 4 mục Main: Playlist/System/Visualizer Screen/Troubleshooting (SỬA 20/09/2026 — bỏ card "Reset app":
+ * Restore defaults/Clear cache gộp vào Troubleshooting, Restart app lên icon header Playlist) — mỗi card
  * `data-carousel-key="<key>"` (KEY đích, cùng bộ key với NAV_TARGETS ở event/router/app-settings.js),
  * click do core/app-settings-ui.js::wireAppSettingsMainCarousel() gắn (Rule 5d — hàm ở đây chỉ trả
  * chuỗi HTML thuần, KHÔNG addEventListener).
@@ -32,14 +33,13 @@ function renderAppSettingsMainBody() {
         { key: 'system', icon: 'M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z', labelKey: 'appSettings.row.system', hintKey: 'appSettings.row.system.hint' },
         { key: 'visualizerScreen', icon: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v10a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM8 21h8m-4-4v4', labelKey: 'appSettings.row.visualizerScreen', hintKey: 'appSettings.row.visualizerScreen.hint' },
         { key: 'troubleshooting', icon: 'M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z', labelKey: 'appSettings.row.troubleshooting', hintKey: 'appSettings.row.troubleshooting.hint' },
-        { key: 'resetApp', icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15', labelKey: 'appSettings.row.resetApp', hintKey: 'appSettings.row.resetApp.hint' },
     ];
     return renderAppSettingsCarousel(rows);
 }
 
 /** Số lần LẶP danh sách card để cuộn "vô hạn" — LẺ để có 1 bản chính giữa (bản `floor(SETS/2)`),
  * 5 bản (không phải 3) để 1 cú vuốt mạnh dài vẫn không chạm mép trước khi cuộn dừng và được kéo lại
- * (xem core/settings-carousel-ui.js::settleSettingsCarouselLoop()). 5 mục x 5 bản = 25 node, nhẹ. */
+ * (xem core/settings-carousel-ui.js::settleSettingsCarouselLoop()). 4 mục x 5 bản = 20 node, nhẹ. */
 const SETTINGS_CAROUSEL_SETS = 5;
 
 /** Carousel ngang: [prev | CURRENT | next], card chiều rộng 50% khung -> 2 card kề lộ ra ~1/3 mỗi bên.
