@@ -68,6 +68,12 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.row.visualizerScreen': 'Visualizer Screen',
     'appSettings.row.troubleshooting': 'Troubleshooting',
     'appSettings.row.resetApp': 'Reset app',
+    // MỚI (20/09/2026, Giang yêu cầu thiết kế lại Main Setting dạng carousel, card cần thêm miêu tả).
+    'appSettings.row.playlist.hint': 'Media source, view mode, sorting and filters',
+    'appSettings.row.system.hint': 'Theme, motion presets and language',
+    'appSettings.row.visualizerScreen.hint': 'Display, auto-switch, background, gestures and player',
+    'appSettings.row.troubleshooting.hint': 'Debug console to inspect app logs',
+    'appSettings.row.resetApp.hint': 'Restart the app, restore defaults or clear the cache',
 
     // MỚI (Giang yêu cầu "Player" — Resolution + Motion của Video/Photo lúc phát chính, Settings >
     // Visualizer Screen > Player > Video/Photo, xem core/player-display-settings.js).
