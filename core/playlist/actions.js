@@ -136,6 +136,9 @@
             // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video, "thêm dropdown edit
             // image -> mở openImagePreview()") — mirror songMenuBtnEditVideo ngay trên.
             if (songMenuBtnEditImage) songMenuBtnEditImage.classList.toggle('hidden', !isPhoto);
+            // MỚI (19/09/2026, Giang yêu cầu — "thêm nút xem thumb full res cho video playlist") — CHỈ
+            // Video có `thumbFullBlob`, mirror songMenuBtnEditImage ngay trên.
+            if (songMenuBtnViewVideoThumb) songMenuBtnViewVideoThumb.classList.toggle('hidden', !isVideo);
             // MỚI (06/09/2026, hợp nhất Folder vào Playlist) — chỉ hiện khi đang Scope 1 folder của
             // ĐÚNG Nguồn hiện tại VÀ folder đó không phải Read-only (mục 4b), CÙNG điều kiện
             // `canRemoveFromFolder` đã tính cho bản Selection mode (event/router/playlist.js, case
