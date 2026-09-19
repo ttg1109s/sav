@@ -125,13 +125,10 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // khối này) — Photo giờ có Folder thật (chung hạ tầng Song/Video), không còn Album.
     // MỚI (29/08/2026) — nút "Thư mục" giờ multi-select + dropdown đổi loại (Video/Ảnh) ngay trong
     // header picker (xem event/workflow/playlist.js::_buildFolderPickerHeaderHtml()).
-    'visualBgSettingsDrawer.folderPicker.title': 'Choose a folder',
     'visualBgSettingsDrawer.folderPicker.typeVideo': 'Video',
     'visualBgSettingsDrawer.folderPicker.typePhoto': 'Photo',
     'visualBgSettingsDrawer.folderPicker.emptyNoFolder.video': 'You have no video folders yet. Create one in File Manager > Folders and add videos to it first.',
     'visualBgSettingsDrawer.folderPicker.emptyNoFolder.photo': 'You have no photo folders yet. Create one in File Manager > Folders and add photos to it first.',
-    'visualBgSettingsDrawer.folderPicker.emptyTooFew.video': 'You have video folders, but none holds at least {count} videos yet. A list needs more than one video to rotate through — add more, or pick a video directly instead.',
-    'visualBgSettingsDrawer.folderPicker.emptyTooFew.photo': 'You have photo folders, but none holds at least {count} photos yet. A list needs more than one photo to rotate through — add more, or pick a photo directly instead.',
     // XOÁ (29/08/2026) — 'openSlideshow.label'/'openSlideshow.hint' bỏ hẳn cùng hàng UI "Slideshow
     // options..." đã gỡ khỏi panel VBG (Slideshow tách hệ Motion độc lập, System > Slideshow).
     // MỚI (08/08/2026) — sub-panel "Âm thanh Video" (bật/tắt + volume% audio riêng từng video).
@@ -366,9 +363,6 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsPlaylistBg.mediaSource.video': 'Video',
     // MỚI (hợp nhất Photo vào Playlist).
     'settingsPlaylistBg.mediaSource.photo': 'Photo',
-    // MỚI (phản hồi Giang, mục 2 — "có folder active thì phải ẩn/block đổi Nguồn") — tooltip giải
-    // thích lý do <select> bị khoá khi đang Apply 1 folder làm Scope cho Playlist.
-    'settingsPlaylistBg.mediaSource.lockedByFolderScope': 'Turn off the active folder scope before changing Source.',
     'settingsPlaylistBg.sortMode.label': 'Sort',
     'settingsPlaylistBg.sortMode.az': 'Name A → Z',
     'settingsPlaylistBg.sortMode.za': 'Name Z → A',
@@ -379,11 +373,8 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsPlaylistBg.sortMode.oldest': 'Oldest first',
     // MỚI (mục 1d, Filter subpanel) — nút mở panel "Lọc" (Settings → Playlist).
     'settingsPlaylistBg.filter.label': 'Filter',
-    // XOÁ (mục 1a, phản hồi Giang — "bỏ row active folder -> thêm vào dropdown của source") —
-    // 'settingsPlaylistBg.activeFolder.label' (label của dòng đọc-thôi cũ) ĐÃ XOÁ — dòng đó không
-    // còn tồn tại. '.none' GIỮ NGUYÊN — vẫn dùng làm text hiển thị khi record folder không đọc
-    // được (core/playlist/main.js::updateActiveFolderUI()).
-    'settingsPlaylistBg.activeFolder.none': 'None',
+    // XOÁ (mục 1a, phản hồi Giang — "bỏ row active folder -> thêm vào dropdown của source") — 'settingsPlaylistBg.activeFolder.label'
+    // và (20/09/2026) '.none' bỏ hẳn: không còn UI/hàm nào dùng (updateActiveFolderUI() đã xoá khỏi core/playlist/main.js).
     // SỬA (phản hồi Giang, mục 4 — "Use video background chưa block nếu source là video") — dùng
     // CHUNG cho CẢ 2 lý do chặn (event/block.js không hỗ trợ notify riêng theo từng điều kiện) —
     // bỏ luôn tham chiếu "(File Manager -> Video)" đã lỗi thời (panel đó xoá hẳn từ Batch 6).

@@ -12,9 +12,6 @@
  */
 const LANG_PATCH_FILE_MANAGER = {
     'fileManager.folderPicker.title': 'Add to folder',
-    'fileManager.folderPicker.empty': 'No folders yet. Create one below.',
-    'fileManager.folderPicker.newNamePlaceholder': 'New folder name',
-    'fileManager.folderPicker.btnCreate': 'Create',
     'fileManager.folderPicker.addSuccess': 'Added {count} song(s) to the folder.',
     // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — "Thêm vào thư mục" (menu 3
     // chấm Playlist) LUÔN hiển thị bất kể đang browse nguồn nào (không gate theo mediaType) nên
@@ -148,7 +145,6 @@ const LANG_PATCH_FILE_MANAGER = {
     // 'folderTypeSong'/'folderTypeVideo'/'folderTypeUndetermined' ĐÃ XOÁ — thuộc
     // core/file-manager/folder-list-ui.js (ĐÃ XOÁ HẲN, thay bằng grid Generic Drawer tái dùng
     // itemTemplateFolderTile() có sẵn — không hiện số bài/type badge nữa, đúng "không mở rộng gì").
-    'fileManager.folderBrowser.entryButton': 'Browse folders',
     'fileManager.folderBrowser.listTitle': 'Folders',
     'fileManager.folderBrowser.defaultNewFolderName': 'Folder {n}',
     // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 4) — menu hành động giữ tay 1s trên 1
@@ -229,9 +225,8 @@ const LANG_PATCH_FILE_MANAGER = {
     // reload nào cho các hành động đó nữa. 'reloadTitle'/'reloadBtnNow' GIỮ NGUYÊN — vẫn phục vụ
     // askReloadToApplyNow() cho Playlist Filter (tính năng KHÁC, event/workflow/playlist.js::
     // applyFilterChanges()).
-    // SỬA (06/09/2026, Giang chốt mục 3.2 — "chặn hẳn, không tự unapply-rồi-xoá") —
-    // 'deleteActiveFolderConfirm' (cho phép xoá + tự unapply) thay bằng
-    // 'deleteActiveFolderBlocked' (chặn hẳn, không mở modal xác nhận xoá nữa).
-    'fileManager.song.deleteActiveFolderBlocked': '"{name}" is currently applied to the Playlist. Exit this folder first before deleting it.',
+    // SỬA (06/09/2026, Giang chốt mục 3.2 — "chặn hẳn, không tự unapply-rồi-xoá") — 'deleteActiveFolderConfirm'
+    // (cho phép xoá + tự unapply) bỏ; XOÁ (20/09/2026) thêm 'deleteActiveFolderBlocked' — mục Xoá ẨN HẲN khỏi menu
+    // khi folder đang active (openTileActionsMenu()), không còn thông báo chặn nào để hiển thị.
 };
 
