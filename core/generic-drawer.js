@@ -59,7 +59,12 @@ function _resolveGenericDrawerHeightPx(config) {
 let _genericDrawerIsAutoMode = false;
 let _genericDrawerAutoMaxHeight = '';
 let _genericDrawerResizeRaf = null;
-const _genericDrawerBodyObserver = new MutationObserver(() => {
+const _genericDrawerBodyObserver = new MutationObserver((mutations) => {
+    // MỚI (20/09/2026, carousel Main Setting — card đổi `style` transform/opacity ~60 lần/giây lúc cuộn):
+    // mutation nằm TRONG vùng đánh dấu `data-gd-ignore-mutation` KHÔNG ảnh hưởng chiều cao nội dung
+    // -> bỏ qua, không đo lại (mỗi lần đo = ép reflow + đặt lại min-height của panel). CHỈ bỏ khi
+    // TẤT CẢ mutation trong lượt đều thuộc vùng đó — lẫn 1 mutation ngoài vùng vẫn đo như cũ.
+    if (mutations.every((m) => m.target instanceof Element && m.target.closest('[data-gd-ignore-mutation]'))) return;
     if (!_genericDrawerIsAutoMode || genericDrawerPanel.classList.contains('hidden')) return; // không đo khi đang đóng (đo lúc display:none luôn ra 0)
     if (_genericDrawerResizeRaf) cancelAnimationFrame(_genericDrawerResizeRaf);
     _genericDrawerResizeRaf = requestAnimationFrame(() => {

@@ -4,6 +4,9 @@
  * `eventBus.send()`, KHÔNG gọi thẳng workflow/core khác. Router "appSettings" (event/router/
  * app-settings.js) nhận message rồi mới gọi `workflowAppSettings` thật.
  *
+ * SỬA (20/09/2026) — thêm wireAppSettingsMainCarousel() cho màn Main dạng carousel ngang (phần tính
+ * scale/loop nằm ở core/settings-carousel-ui.js, file này CHỈ wire sự kiện -> eventBus).
+ *
  * NẠP SAU: event/bus.js, core/player-display-settings.js (getPlayerMotionSlotsForKind(), dùng bởi
  * wireAppSettingsPlayerDetail()).
  * NẠP TRƯỚC: event/workflow/app-settings.js.
@@ -17,10 +20,53 @@ function wireAppSettingsHeader(headerEl) {
     if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: 'appSettings', type: 'appSettings.close.click', payload: {} }));
 }
 
-/** Màn Main — 5 row, mỗi row `data-app-settings-nav` tự mang key đích. */
+/** Danh sách row có `data-app-settings-nav` (dùng bởi System/Visualizer Screen/Player — màn Main giờ dùng
+ * wireAppSettingsMainCarousel() bên dưới) — mỗi row tự mang key đích. */
 function wireAppSettingsMain(bodyEl) {
     bodyEl.querySelectorAll('[data-app-settings-nav]').forEach((btn) => {
         btn.addEventListener('click', () => eventBus.send({ router: 'appSettings', type: 'appSettings.nav.click', payload: { key: btn.dataset.appSettingsNav } }));
+    });
+}
+
+/** Độ trễ (ms) sau sự kiện `scroll` CUỐI CÙNG để coi carousel Main là "đã dừng hẳn" -> gửi
+ * 'appSettings.carousel.settle' (kéo lại về bản lặp giữa, xem core/settings-carousel-ui.js). */
+const APP_SETTINGS_CAROUSEL_SETTLE_DELAY_MS = 140;
+
+/** Màn Main — carousel ngang (components/settings/app-settings-main.js::renderAppSettingsCarousel()).
+ * 3 loại tương tác, callback nào cũng CHỈ `eventBus.send()` (Rule 5a):
+ *   - `scroll` -> 'appSettings.carousel.scroll' (mỗi lần — Router gọi thẳng core cập nhật scale/opacity).
+ *   - dừng cuộn -> 'appSettings.carousel.settle' — debounce bằng setTimeout THUẦN (cùng khuôn
+ *     core/time-picker-modal.js, KHÔNG taskManager), và KHÔNG gửi khi ngón tay còn đang chạm
+ *     (`isTouching`) — nhảy scrollLeft giữa lúc đang kéo tay sẽ làm iOS giật; `touchend` tự hẹn lại.
+ *   - click card -> 'appSettings.carousel.card.click' (Workflow quyết định: card ở giữa = mở màn đích,
+ *     card bên cạnh = cuộn vào giữa).
+ * addEventListener gom hết ở CUỐI hàm (Rule 5a).
+ * @param {HTMLElement} bodyEl */
+function wireAppSettingsMainCarousel(bodyEl) {
+    const scrollerEl = bodyEl.querySelector('#app-settings-carousel');
+    if (!scrollerEl) return;
+    let settleTimeoutId = null;
+    let isTouching = false;
+
+    const scheduleSettle = () => {
+        if (settleTimeoutId) clearTimeout(settleTimeoutId);
+        settleTimeoutId = setTimeout(() => {
+            settleTimeoutId = null;
+            if (isTouching) return; // touchend sẽ hẹn lại
+            eventBus.send({ router: 'appSettings', type: 'appSettings.carousel.settle', payload: { scrollerEl } });
+        }, APP_SETTINGS_CAROUSEL_SETTLE_DELAY_MS);
+    };
+
+    // --- addEventListener: gom cuối hàm (Rule 5a) ---
+    scrollerEl.addEventListener('scroll', () => {
+        eventBus.send({ router: 'appSettings', type: 'appSettings.carousel.scroll', payload: { scrollerEl } });
+        scheduleSettle();
+    }, { passive: true });
+    scrollerEl.addEventListener('touchstart', () => { isTouching = true; }, { passive: true });
+    scrollerEl.addEventListener('touchend', () => { isTouching = false; scheduleSettle(); }, { passive: true });
+    scrollerEl.addEventListener('touchcancel', () => { isTouching = false; scheduleSettle(); }, { passive: true });
+    scrollerEl.querySelectorAll('[data-carousel-card]').forEach((cardEl) => {
+        cardEl.addEventListener('click', () => eventBus.send({ router: 'appSettings', type: 'appSettings.carousel.card.click', payload: { scrollerEl, cardEl, key: cardEl.dataset.carouselKey } }));
     });
 }
 
