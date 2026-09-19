@@ -4,8 +4,10 @@
  * `core/visualizer/types/rain.js` gộp 2 style 'glass'/'street' — giờ mỗi style 1 file riêng
  * (`glass.js`/`street.js`, cùng thư mục).
  *
- * `computeRainFlashAlpha()`/`paintRainFlash()` là cơ chế CHUNG (Rule 3 — thuần/chỉ Canvas API)
- * dùng bởi CẢ 2 style — đặt ở đây để 2 file đó không phải định nghĩa trùng lặp.
+ * `computeRainFlashAlpha()` là cơ chế CHUNG (Rule 3 — thuần) dùng bởi CẢ 2 style — đặt ở đây để 2
+ * file đó không phải định nghĩa trùng lặp. [SỬA 19/09/2026, yêu cầu Giang] `paintRainFlash()` ĐÃ
+ * XOÁ (cap 0.4 cứng cũ cũng bỏ) — chớp vẽ bằng `drawScreenFlash()` (core/visualizer/draw/
+ * screen-flash.js, cap opacity chung), Workflow gọi trực tiếp.
  *
  * NẠP: TRƯỚC `glass.js`/`street.js`.
  */
@@ -21,15 +23,4 @@ function computeRainFlashAlpha(glassFlashEnabled, isPlaying, smoothedEnergy, viz
     if (!glassFlashEnabled || !isPlaying) return 0;
     const energySpike = smoothedEnergy * ((vizDataArray[3] || 0) / 255);
     return energySpike > 0.4 ? (energySpike - 0.4) * 1.2 : 0;
-}
-
-/** Vẽ chớp sáng nếu `flashAlpha > 0` — `flashTint` là closure THUẦN (chỉ định dạng chuỗi màu, do
- * Workflow truyền vào tại chỗ gọi, không gọi hàm core nào) — cùng tinh thần tham số MỜ như
- * `modalChoice()` cho phần KHÔNG liên quan Rule 3 (đây không phải addEventListener, chỉ là style
- * formatter thuần, không cần audit riêng). Chỉ gọi Canvas API. */
-function paintRainFlash(ctx, canvasWidth, canvasHeight, flashAlpha, flashTint) {
-    if (flashAlpha <= 0) return;
-    ctx.fillStyle = flashTint(Math.min(flashAlpha, 0.4));
-    ctx.globalAlpha = 1.0;
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 }
