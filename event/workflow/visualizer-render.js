@@ -617,7 +617,7 @@ const workflowVisualizerRender = {
         paintRainMoon(ctx, moon); // core
 
         const flashAlpha = computeRainFlashAlpha(cfg.glassFlash, isPlaying, smoothedEnergy, vizDataArray); // core
-        paintRainFlash(ctx, canvas.width, canvas.height, flashAlpha, (a) => `rgba(200, 220, 255, ${a})`); // core
+        drawScreenFlash(ctx, canvas.width, canvas.height, flashAlpha, '200, 220, 255', cfg.flashMaxOpacity); // core/visualizer/draw (cap opacity ở trong hàm)
 
         if (cfg.glassCityVisible !== false) {
             const cityOpacity = (typeof cfg.glassCityOpacity === 'number' ? cfg.glassCityOpacity : 40) / 100;
@@ -660,7 +660,7 @@ const workflowVisualizerRender = {
         }
 
         const flashAlpha = computeRainFlashAlpha(cfg.glassFlash, isPlaying, smoothedEnergy, vizDataArray); // core
-        paintRainFlash(ctx, canvas.width, canvas.height, flashAlpha, (a) => `rgba(220, 225, 255, ${a * 0.8})`); // core
+        drawScreenFlash(ctx, canvas.width, canvas.height, flashAlpha * 0.8, '220, 225, 255', cfg.flashMaxOpacity); // core/visualizer/draw (cap opacity ở trong hàm)
 
         const rainIntensity = computeRainIntensity(isPlaying, smoothedEnergy); // core
         const streetRain = appState.get('streetRain');
@@ -776,7 +776,7 @@ const workflowVisualizerRender = {
 
         const energySpike = computeLightningEnergySpike(smoothedEnergy, vizDataArray); // core
         const flashAlpha = computeLightningFlashAlpha(isPlaying, energySpike, cfg.flashThreshold); // core
-        drawLightingFlash(ctx, canvas.width, canvas.height, flashAlpha); // core
+        drawScreenFlash(ctx, canvas.width, canvas.height, flashAlpha, '200, 220, 255', cfg.flashMaxOpacity); // core/visualizer/draw (cap opacity ở trong hàm)
 
         if (shouldSpawnLightningBolt(isPlaying, energySpike, cfg.boltThreshold, cfg.boltSpawnChance, activeLightnings.length, cfg.maxBoltCount)) { // core
             const color = getComputedColor(Math.floor(Math.random() * 10), 10, 255); // core/audio-analysis.js
@@ -822,7 +822,7 @@ const workflowVisualizerRender = {
                 const burst = this._fwMaterializeSpecs(burstSpecs); // Workflow tự resolve màu + tạo particle thật
                 const scaled = applyFireworksSizeScale(applyFireworksDepth(burst, rocket.depthScale), sizeScale); // core
                 burstParticles = burstParticles.concat(scaled);
-                flashTarget = Math.max(flashTarget, computeFireworksFlashAlpha(beatScale, cfg.flashThreshold) * rocket.depthScale); // core — flashThreshold DÙNG CHUNG với style thunder
+                flashTarget = Math.max(flashTarget, computeFireworksFlashAlpha(beatScale, cfg.flashThreshold, cfg.flashMaxOpacity) * rocket.depthScale); // core — flashThreshold/flashMaxOpacity DÙNG CHUNG với style thunder
             } else {
                 remainingRockets.push(rocket);
             }
@@ -830,7 +830,7 @@ const workflowVisualizerRender = {
 
         // Nhóm "lighting" — chớp nền trước, rocket/particle vẽ đè lên sau.
         this._fwFlashAlpha = Math.max(flashTarget, this._fwFlashAlpha * 0.85);
-        drawLightingFlash(ctx, canvas.width, canvas.height, this._fwFlashAlpha); // core
+        drawScreenFlash(ctx, canvas.width, canvas.height, this._fwFlashAlpha, '200, 220, 255', cfg.flashMaxOpacity); // core/visualizer/draw (cap opacity ở trong hàm)
 
         remainingRockets.forEach((rocket) => drawFireworksRocket(ctx, rocket, dpr)); // core
         appState.set('fwRockets', remainingRockets, { skipCheck: true });
