@@ -7,8 +7,8 @@
  * THUẦN, không side-effect, không đọc appState/getActiveEffectConfig (rà soát Rule 3) — Workflow
  * (`_tickLightingThunder()`, event/workflow/visualizer-render.js) tự gom state rồi gọi RIÊNG LẺ
  * từng hàm dưới đây, tự resolve màu qua `getComputedColor()` TRƯỚC khi gọi `createLightningBolt()`.
- * `drawLightingFlash()` (chớp màn hình, dùng chung với style 'fireworks') nằm ở
- * `core/visualizer/groups/lighting/common.js`.
+ * Chớp màn hình (dùng chung với style 'fireworks') vẽ bằng `drawScreenFlash()`
+ * (core/visualizer/draw/screen-flash.js — cap opacity nằm ở đó, không cap lẻ ở đây).
  *
  * NẠP SAU: core/visualizer/groups/lighting/common.js.
  */
