@@ -351,7 +351,7 @@
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
     <script src="lang/patch/patch-common.js?v=20260919v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260919v1"></script>
-    <script src="lang/patch/patch-visualizer.js?v=20260917v1"></script>
+    <script src="lang/patch/patch-visualizer.js?v=20260919v1"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260916v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260816v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
@@ -548,11 +548,11 @@
          restoreDefaultVizConfig/saveConfig/loadConfig) — KHÔNG còn giữ Z_INDEX/global
          error-handler (dời ở trên) hay CONST dùng chéo domain khác (nay sống trong đúng package
          service/state/*.js). PHẢI nạp SAU service/state.js (cần class AppConfig). -->
-    <script src="core/config.js?v=20260917v1"></script>
+    <script src="core/config.js?v=20260919v1"></script>
     <!-- core/custom-effect.js — Core thuần hệ Custom Effect (getEffectConfig/setCustomEffectField),
          NẠP NGAY SAU core/config.js (cần DEFAULT_CUSTOM_EFFECT/appConfigViz) — mọi hàm vẽ/scene-setup
          phía dưới đều cần file này. -->
-    <script src="core/custom-effect.js?v=20260917v1"></script>
+    <script src="core/custom-effect.js?v=20260919v1"></script>
     <!-- MỚI — Core thuần công cụ CHUNG "Element Style Editor" (setElementStyleField/
          buildElementStyleCssString/applyElementStyleToDom/loadGoogleFont), xem core/
          element-style-editor.js. CẦN service/state/element-style-editor.js đã nạp (dòng trên). -->
@@ -885,6 +885,9 @@
     <script src="core/visualizer/draw/water-drop.js?v=20260719v1"></script>
     <script src="core/visualizer/draw/window-frame.js?v=20260719v1"></script>
     <script src="core/visualizer/draw/flying-note.js?v=20260719v1"></script>
+    <!-- [MỚI 19/09/2026, yêu cầu Giang] screen-flash.js — chớp sáng toàn màn hình DÙNG CHUNG (Lighting +
+         Rain), cap opacity 0.8. Cần SCREEN_FLASH_MAX_ALPHA (core/custom-effect.js, nạp phía trên). -->
+    <script src="core/visualizer/draw/screen-flash.js?v=20260919v1"></script>
     <!-- [CHUYỂN NHÓM + LÀM PHẲNG, 05/09/2026, yêu cầu Giang] core/visualizer/types/*.js (mỗi file
          gộp nhiều style con) ĐÃ THAY bằng core/visualizer/groups/<group>/<style>.js — mỗi style 1
          file riêng, mỗi group có thêm common.js (registry style con + biến/cơ chế dùng chung nếu
@@ -903,9 +906,9 @@
     <script src="core/visualizer/groups/vortex/wave.js?v=20260905v1"></script>
     <!-- core/visualizer/groups/rain/{common,glass,street}.js — trước đây core/visualizer/types/
          rain.js (gộp 2 style). -->
-    <script src="core/visualizer/groups/rain/common.js?v=20260905v1"></script>
-    <script src="core/visualizer/groups/rain/glass.js?v=20260905v1"></script>
-    <script src="core/visualizer/groups/rain/street.js?v=20260905v1"></script>
+    <script src="core/visualizer/groups/rain/common.js?v=20260919v1"></script>
+    <script src="core/visualizer/groups/rain/glass.js?v=20260919v1"></script>
+    <script src="core/visualizer/groups/rain/street.js?v=20260919v1"></script>
     <!-- core/visualizer/groups/lighting/{common,thunder,fireworks}.js — THAY cho lightning.js cũ
          (đã XOÁ) + core/visualizer/types/lighting.js cũ (gộp 2 style, đã XOÁ) — MODES key
          'lighting', 2 style con qua customEffect.lighting.lightingStyle: 'thunder' (tia sét, port
@@ -915,9 +918,9 @@
          cùng khuôn galaxy-explore.js. Cần FIREWORKS_STYLE_KEYS (core/config.js),
          getActiveEffectConfig (core/custom-effect.js), getComputedColor (core/audio-analysis.js)
          — cả 3 đã nạp ở khu CORE phía trên. -->
-    <script src="core/visualizer/groups/lighting/common.js?v=20260905v1"></script>
-    <script src="core/visualizer/groups/lighting/thunder.js?v=20260905v1"></script>
-    <script src="core/visualizer/groups/lighting/fireworks.js?v=20260905v1"></script>
+    <script src="core/visualizer/groups/lighting/common.js?v=20260919v1"></script>
+    <script src="core/visualizer/groups/lighting/thunder.js?v=20260919v1"></script>
+    <script src="core/visualizer/groups/lighting/fireworks.js?v=20260919v1"></script>
     <script src="core/visualizer/groups/connector/common.js?v=20260916v2"></script>
     <script src="core/visualizer/groups/connector/synapse.js?v=20260917v3"></script>
     <script src="core/visualizer/groups/connector/circuit.js?v=20260917v1"></script>
@@ -930,7 +933,7 @@
          mode 'raf'). Khởi động thật từ core/audio-engine.js::setupAudioContext() gọi
          workflowVisualizerRender.start() lúc phát bài đầu tiên. Đặt ở đây (không phải /event/ phía
          dưới) vì thuộc nhóm "vòng lặp render 60fps tự taskManager", không qua eventBus/Router. -->
-    <script src="event/workflow/visualizer-render.js?v=20260917v3"></script>
+    <script src="event/workflow/visualizer-render.js?v=20260919v1"></script>
 
 
     <!-- Kiến trúc /event/ — nạp CUỐI CÙNG, sau toàn bộ js/* (router/workflow chỉ gọi lại hàm core
