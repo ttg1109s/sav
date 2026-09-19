@@ -228,6 +228,14 @@ const routerPlaylist = (() => {
                 break;
             }
 
+            // MỚI (19/09/2026, Giang yêu cầu — "thêm nút xem thumb full res cho video playlist, tận dụng
+            // luôn open modal view image") — CÙNG PRECEDENT với 'editImage' ngay trên: cần ≥2 lời gọi
+            // nối tiếp (đọc key + đóng menu + đọc record + mở modal) -> Workflow.
+            case 'playlist.actionMenu.viewVideoThumb': {
+                workflowPlaylist.openActiveMenuVideoThumb();
+                break;
+            }
+
             // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video) — nút duration trong
             // tab "Sửa" của nhóm field Photo, CHỈ CẦN ĐÚNG 1 HÀM WORKFLOW (mở time-picker — core/
             // time-picker-modal.js, không phải core thuần vì cần import UI, xem event/workflow/
