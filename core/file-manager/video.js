@@ -75,8 +75,7 @@ async function resolveVideoKey(filename) {
  * "Chi tiết" không còn hiển thị các field này nữa (core/playlist/actions.js), phân tích mediainfo.js
  * lúc upload cũng bỏ theo (không còn ai tiêu thụ kết quả).
  * `customName` khởi tạo `null` (chưa đặt tên hiển thị riêng — tab "Chi tiết" rơi về `filename` gốc
- * khi hiện, xem core/file-manager/folder.js::getFolderItemsForDisplay()/event/workflow/video-
- * player.js).
+ * khi hiện, xem event/workflow/video-player.js).
  * @param {File|Blob} file - blob video GỐC (không resize).
  * @param {string} filename
  * @param {Blob} thumbBlob - khung hình đã chụp + center-crop vuông + resize sẵn, dùng cho lưới/cover.

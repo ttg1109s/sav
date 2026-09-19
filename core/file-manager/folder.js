@@ -105,12 +105,14 @@
 async function resolveFolderId(name, type) {
     const baseSlug = `${slugify(name) || 'folder'}-${type}`; // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
     console.log(`[resolveFolderId] callTo: "slugify", request: "chuẩn hoá tên '${name}' + type '${type}' thành slug làm base cho id"`);
-    const deletedIds = (await getMeta('deletedFolderIds')) || []; // data layer (service/db.js)
+    // SỬA (20/09/2026, tối ưu độ phức tạp) — `Set` dựng 1 lần (O(D)) để mỗi lần thử candidate chỉ tốn `.has()` O(1)
+    // — TRƯỚC ĐÂY `Array.includes()` O(D) MỖI vòng `while` => O(r·D) khi có r lần trùng id.
+    const deletedIds = new Set((await getMeta('deletedFolderIds')) || []); // data layer (service/db.js)
     let candidate = baseSlug;
     let suffix = 2;
     while (true) {
         const existing = await getFolderRecord(candidate);
-        if (!existing && !deletedIds.includes(candidate)) return candidate;
+        if (!existing && !deletedIds.has(candidate)) return candidate;
         candidate = `${baseSlug}-${suffix}`; suffix++;
     }
 }
@@ -431,37 +433,6 @@ async function removeSongsFromFolder(songKeys, folderId, mediaType) {
 }
 
 /**
- * Gỡ TẤT CẢ bài khỏi 1 folder (rỗng hoá nội dung) — KHÁC hẳn deleteFolder(): folder (metadata/tên)
- * VẪN GIỮ NGUYÊN, chỉ dọn sạch danh sách bài BÊN TRONG. MỚI (14/07/2026, Giang yêu cầu — nút "Xoá
- * hết bài" trong Folder Detail). Cùng thứ tự AN TOÀN với deleteFolder(): dọn field
- * `record.folder[folderId]` khỏi TỪNG bài đang có TRƯỚC, rồi mới ghi `folder_song` rỗng.
- * SỬA (phản hồi Giang 28/07/2026) — thêm tham số `mediaType`, cùng lý do deleteFolder()/
- * removeSongFromFolder() ngay trên. MỞ RỘNG (hợp nhất Photo vào Playlist) — thêm nhánh 'photo'.
- * @param {string} folderId
- * @param {'song'|'video'|'photo'} [mediaType] - mặc định 'song'.
- * @returns {Promise<{status: 'notFound'|'ok'}>}
- */
-async function removeAllSongsFromFolder(folderId, mediaType) {
-    const folderMap = await getFolderSongMap(folderId);
-    if (!folderMap) return { status: 'notFound' };
-
-    const getRecordFn = mediaType === 'video' ? getVideoRecord : mediaType === 'photo' ? getImageRecord : getSongRecord; // service/db.js
-    const setRecordFn = mediaType === 'video' ? setVideoRecord : mediaType === 'photo' ? setImageRecord : setSongRecord; // service/db.js
-
-    // Inline (không gọi getFolderSongKeys() — xem giải thích đầy đủ ở deleteFolder() phía trên).
-    const songKeys = folderMap.list.filter((k) => k != null);
-    for (const songKey of songKeys) {
-        const record = await getRecordFn(songKey);
-        if (!record || !record.folder) continue; // guard: record đã bị xoá/hỏng dữ liệu ở nơi khác — bỏ qua
-        delete record.folder[folderId];
-        await setRecordFn(songKey, record);
-    }
-
-    await setFolderSongMap(folderId, { list: [], empty: 0 });
-    return { status: 'ok' };
-}
-
-/**
  * Bật/tắt cờ "loại khỏi view Tất cả" của 1 folder (Scope vs Exclude, MỚI Batch 4, xem
  * plan-v12-song-video-unification.md mục 5). Guard clause thuần (Rule 1) — folder không tồn tại
  * thì dừng sớm, KHÔNG phải rẽ nhánh tiến trình khác.
@@ -550,57 +521,27 @@ async function setFolderFilterConfig(folderId, config) {
  * NHẦM: Exclude áp cho Song lại loại luôn Video cùng tên dù Video đó KHÔNG nằm trong folder Exclude
  * nào. SỬA: nhận `mediaType` qua tham số (Rule 2), CHỈ gom key từ folder ĐÚNG loại đó — nơi gọi tự
  * `appState.get('activeMediaSource')` rồi truyền vào (nguồn đang browse quyết định loại cần lọc).
+ * SỬA (20/09/2026, tối ưu độ phức tạp) — TRƯỚC ĐÂY `getAllFolderKeys()` + fetch metadata CỦA MỌI folder
+ * (O(F), F = tổng folder cả 3 loại) rồi mới lọc `type`; giờ đọc THẲNG `meta.folderIndex[mediaType]` —
+ * cùng khuôn `listFolders(type)` — chỉ fetch folder ĐÚNG loại (O(Fₜ)). Hàm này chạy MỖI lần
+ * `applyAllSongsScope()`, nên khác biệt lớn khi 1 loại chiếm đa số folder. Đọc `folder_song` của các
+ * folder Exclude giờ chạy song song (`Promise.all`, chỉ đọc) thay vì tuần tự.
  * @param {'song'|'video'|'photo'} mediaType
  * @returns {Promise<Set<string>>}
  */
 async function getExcludedSongKeysFromFolders(mediaType) {
-    const ids = await getAllFolderKeys(); // service/db.js
+    const folderIndex = (await getMeta('folderIndex')) || { song: [], video: [], photo: [] }; // data layer — cùng khuôn listFolders()
+    const ids = folderIndex[mediaType] || [];
     const records = await Promise.all(ids.map((id) => getFolderRecord(id))); // service/db.js
     const excludedFolderIds = records.filter((r) => r && r.excludeFromMainPlaylist && r.type === mediaType).map((r) => r.id);
 
+    const folderMaps = await Promise.all(excludedFolderIds.map((folderId) => getFolderSongMap(folderId))); // service/db.js — chỉ đọc, song song
     const excludedKeys = new Set();
-    for (const folderId of excludedFolderIds) {
-        const folderMap = await getFolderSongMap(folderId); // service/db.js
+    for (const folderMap of folderMaps) {
         if (!folderMap) continue; // guard: folder vừa bị xoá giữa lúc đang gom — bỏ qua, không coi là lỗi
         for (const key of folderMap.list) { if (key != null) excludedKeys.add(key); }
     }
     return excludedKeys;
-}
-
-/**
- * MỚI (ver12 "Song/Video Unification", Batch 5, mục 6e) — THAY getFolderSongsForDisplay() cũ
- * (core/file-manager/folder-detail-ui.js, đọc tên/nghệ sĩ qua `playlistCache` — CHỈ đúng khi
- * Playlist đang browse ĐÚNG loại của folder đó, vì `playlistCache` chỉ chứa 1 nguồn tại 1 thời
- * điểm). Đọc TRỰC TIẾP `service/db.js` theo `mediaType` của folder — ĐÚNG bất kể Playlist đang
- * browse nguồn nào. 1 folder KHÔNG BAO GIỜ trộn loại (type cố định từ lúc tạo, xem createFolder())
- * nên chỉ cần đọc ĐÚNG 1 store cho toàn bộ danh sách, không phải phán đoán từng item riêng lẻ.
- * MỞ RỘNG (hợp nhất Photo vào Playlist) — thêm nhánh 'photo' (đọc `images`, title = filename bỏ
- * đuôi, không có artist — cùng công thức Adapter buildAdaptedPlaylistCache(), core/playlist/loader.js).
- * Bài/video/ảnh không còn tồn tại (đã xoá, còn sót key trong folder_song) vẫn hiển thị bằng chính
- * key làm tên tạm — KHÔNG loại khỏi danh sách, để người dùng vẫn gỡ được tham chiếu rác đó.
- * @param {Object} folderMap - { list, empty } của 1 folder
- * @param {'song'|'video'|'photo'|null} mediaType - `folder.type` (hiệu lực) — `null`/rỗng thì folder
- *        chưa có nội dung, `folderMap.list` lúc đó cũng luôn rỗng nên nhánh nào cũng cho kết quả `[]`.
- * @returns {Promise<Array<{key: string, title: string, artist: string}>>}
- */
-async function getFolderItemsForDisplay(folderMap, mediaType) {
-    const keys = folderMap.list.filter((k) => k != null);
-    if (mediaType === 'video') {
-        return Promise.all(keys.map(async (key) => {
-            const record = await getVideoRecord(key); // service/db.js
-            return { key, title: record ? (record.customName || stripFileExtension(record.filename)) : key, artist: '' }; // SỬA (phản hồi Giang 28/07) — bỏ đuôi mở rộng khi rơi về filename gốc
-        }));
-    }
-    if (mediaType === 'photo') {
-        return Promise.all(keys.map(async (key) => {
-            const record = await getImageRecord(key); // service/db.js
-            return { key, title: record ? stripFileExtension(record.filename) : key, artist: '' };
-        }));
-    }
-    return Promise.all(keys.map(async (key) => {
-        const record = await getSongRecord(key); // service/db.js
-        return { key, title: record ? record.tag.title : key, artist: record ? record.tag.artist : '' };
-    }));
 }
 
 /**
@@ -640,11 +581,12 @@ async function migrateFolderIndexIfNeeded() {
     const ids = await getAllFolderKeys(); // data layer — ngoại lệ DUY NHẤT còn quét toàn bộ, chỉ chạy 1 lần
     const records = await Promise.all(ids.map((id) => getFolderRecord(id)));
     const folderIndex = { song: [], video: [], photo: [] };
+    const seenIds = { song: new Set(), video: new Set(), photo: new Set() }; // SỬA (20/09/2026) — Set khử trùng O(1) thay `Array.includes()` O(Fₜ) => migrate O(F) đúng nghĩa
     for (const record of records) {
         if (!record) continue;
         const t = record.type || 'song'; // legacy folder (type null/undefined, tạo TRƯỚC Batch 4) coi như 'song'
-        if (!folderIndex[t]) folderIndex[t] = [];
-        if (!folderIndex[t].includes(record.id)) folderIndex[t].push(record.id);
+        if (!folderIndex[t]) { folderIndex[t] = []; seenIds[t] = new Set(); }
+        if (!seenIds[t].has(record.id)) { seenIds[t].add(record.id); folderIndex[t].push(record.id); }
     }
     await setMeta('folderIndex', folderIndex);
     await setMeta('folderIndexMigrated', true);
