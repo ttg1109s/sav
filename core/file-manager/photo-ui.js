@@ -56,8 +56,18 @@ function syncEditCanvasDisplaySize(handle) {
     });
 }
 
-function openImagePreviewModal(image) {
-
+/**
+ * MỚI (19/09/2026) — tham số `viewOnly` (mặc định falsy = hành vi CŨ, không đổi gì): chỉ XEM/zoom/pan
+ * 1 ảnh không thuộc bảng ảnh (vd thumb full-res của Video, xem workflowPlaylist.
+ * openActiveMenuVideoThumb()) — KHÔNG có gì để Edit/Lưu nên KHÔNG gắn cụm canvas Edit vào
+ * `mediaWrap` (canvas `interactCanvas` `pointer-events-auto` phủ kín sẽ nuốt cử chỉ pan/zoom của
+ * Panzoom) VÀ KHÔNG gắn nhóm nút Lưu/Edit vào header (chỉ còn nút X). Các phần tử đó VẪN được tạo
+ * (chỉ không append vào DOM) để object trả về giữ NGUYÊN shape — workflowFileManagerPhoto._initZoom()
+ * (`exclude: [interactCanvas]`) không phải rẽ nhánh.
+ * @param {{key: string, blob: Blob, filename: string}} image
+ * @param {boolean} [viewOnly]
+ */
+function openImagePreviewModal(image, viewOnly) {
 
     const stale = document.getElementById('image-preview-overlay');
     if (stale) stale.remove();
@@ -139,7 +149,7 @@ function openImagePreviewModal(image) {
     // (giữ nguyên `pointer-events: none` kế thừa, không cần nhận thao tác).
     interactCanvas.className = 'absolute w-full h-full touch-none pointer-events-auto';
     canvasWrap.append(baseCanvas, renderCanvas, layerCanvas, interactCanvas);
-    mediaWrap.appendChild(canvasWrap);
+    if (!viewOnly) mediaWrap.appendChild(canvasWrap); // viewOnly: không gắn cụm canvas Edit (xem docstring hàm)
 
     // ---- Popup chọn loại Shape (MỚI, tool Shape) — hiện lúc bấm tile "Shape" trong lưới, TRƯỚC
     // khi shape thật được tạo (chọn xong mới push layer + hiện contextBar để kéo/resize).
@@ -285,7 +295,7 @@ function openImagePreviewModal(image) {
     toolsBtn.title = t('fileManager.photo.image.editGridTitle');
     toolsBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>';
     rightGroup.appendChild(toolsBtn);
-    header.appendChild(rightGroup);
+    if (!viewOnly) header.appendChild(rightGroup); // viewOnly: không có gì để Lưu/Edit — chỉ còn nút X
     overlay.appendChild(header);
 
     document.body.appendChild(overlay);
