@@ -343,7 +343,7 @@
          console.log/warn/error để bắt được CÀNG NHIỀU log càng tốt từ suốt quá trình boot, kể cả
          log của MỌI file nạp SAU nó. Không phụ thuộc gì (không đụng DOM/appState/t()) — an toàn
          đứng vị trí đầu tiên tuyệt đối. Xem docstring đầu file để biết lý do side-effect top-level. -->
-    <script src="core/debug-console.js?v=20260718v1"></script>
+    <script src="core/debug-console.js?v=20260920v1"></script>
 
     <!-- I18N — default-language keys chia thành 5 file patch trong /lang/patch/ (.js, không phải
          .json vì chạy qua file://). /lang/lang.js gộp cả 5 (Object.assign) rồi định nghĩa t()/
@@ -353,7 +353,7 @@
     <script src="lang/patch/patch-playlist.js?v=20260919v1"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260919v2"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260920v1"></script>
-    <script src="lang/patch/patch-settings-misc.js?v=20260816v1"></script>
+    <script src="lang/patch/patch-settings-misc.js?v=20260920v2"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 2 drawer con Song/Photo & Album, xem plan-v12-multimedia-decisions.md). -->
     <script src="lang/patch/patch-file-manager.js?v=20260920v1"></script>
@@ -365,7 +365,7 @@
     <script src="lang/patch/patch-video-preview.js?v=20260803v1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — bottom nav + panel Photo/Game/Statis/Setting
          mới, xem lang/patch/patch-app-panel-nav.js. -->
-    <script src="lang/patch/patch-app-panel-nav.js?v=20260920v1"></script>
+    <script src="lang/patch/patch-app-panel-nav.js?v=20260920v3"></script>
     <script src="lang/lang.js?v=20260731v1"></script>
 
     <!-- =====================================================================
@@ -376,7 +376,7 @@
     <!-- MỚI (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings chung 1 container cuộn
          ngang) — chỉ định nghĩa 2 biến chuỗi mở/đóng khung bọc, xem components/app-view-stack.js. -->
     <script src="components/app-view-stack.js?v=20260813v1"></script>
-    <script src="components/playlist-view.js?v=20260919v1"></script>
+    <script src="components/playlist-view.js?v=20260920v1"></script>
     <!-- Game Mode overlay (Circle mode v1, MỚI 16/08/2026) — PHẢI nạp TRƯỚC components/visualizer-
          overlay.js (file đó nội suy ${TPL_GAMEPLAY_OVERLAY}, xem components/gameplay-overlay.js). -->
     <script src="components/gameplay-overlay.js?v=20260819v1"></script>
@@ -406,12 +406,16 @@
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — nội dung Main MỚI của Setting (5 row
          placeholder Playlist/System/Visualizer Screen/Troubleshooting/Reset app), hàm render (KHÔNG
          phải TPL_* tĩnh — gọi lại mỗi lần mở Generic Drawer, xem event/workflow/app-settings.js). -->
-    <script src="components/settings/app-settings-main.js?v=20260920v1"></script>
+    <script src="components/settings/app-settings-main.js?v=20260920v2"></script>
+    <!-- MỚI (20/09/2026, Giang yêu cầu gộp Debug console + Reset app + Quét file lỗi vào Troubleshooting) —
+         template màn Troubleshooting + khối "Quét & dọn file lỗi" (dời từ components/file-manager-storage.js),
+         xem event/workflow/app-settings.js::_renderTroubleshooting()/_renderBrokenScan(). -->
+    <script src="components/settings/troubleshooting.js?v=20260920v2"></script>
     <script src="components/game-panel.js?v=20260819v1"></script>
     <script src="components/statis-panel.js?v=20260911v1"></script>
     <script src="components/about-drawer.js?v=20260707v1"></script>
     <!-- MỚI (18/07/2026, Giang yêu cầu) — panel xem console log (Settings > Misc). -->
-    <script src="components/debug-console-drawer.js?v=20260718v1"></script>
+    <script src="components/debug-console-drawer.js?v=20260920v1"></script>
     <!-- MỚI (29/07/2026, yêu cầu Giang mục 2) — panel "Quản lý lưu trữ" (renderFileManagerStorage
          ManagementPanelBody()), gộp ĐỦ 3 domain Song/Video/Photo. -->
     <script src="components/file-manager-storage.js?v=20260823v1"></script>
@@ -678,12 +682,12 @@
          (đã nạp) + core/generic-drawer.js (đã nạp ngay trên). -->
     <script src="core/app-panel-nav.js?v=20260902v4"></script>
     <script src="core/placeholder-panel.js?v=20260819v1"></script>
-    <script src="core/app-settings-ui.js?v=20260920v1"></script>
+    <script src="core/app-settings-ui.js?v=20260920v3"></script>
     <!-- MỚI (20/09/2026, Giang yêu cầu thiết kế lại Main Setting dạng carousel ngang) — core UI thuần: scale
          card theo khoảng cách tới tâm + cuộn vô hạn + hiệu ứng mở. CHỈ gọi lúc chạy từ event/workflow/
          app-settings.js + event/router/app-settings.js (nạp ở dưới) — thứ tự với 2 file đó không bắt
          buộc chặt, đặt cạnh core/app-settings-ui.js cho dễ tìm. -->
-    <script src="core/settings-carousel-ui.js?v=20260920v1"></script>
+    <script src="core/settings-carousel-ui.js?v=20260920v2"></script>
     <!-- ĐỔI TÊN (04/08/2026) từ event/workflow/crop-ratio-helpers.js, khớp core/media-transform.js
          (dải tỉ lệ Crop dùng CHUNG — hiện Video Preview dùng, Photo Edit sẵn sàng dùng sau nếu thêm
          dải tỉ lệ) — CẦN core/media-transform.js (đã nạp ở nhóm CORE, dòng ~578, TRƯỚC dòng này).
@@ -968,9 +972,9 @@
          nhỏ để xứng đáng 1 router/listener riêng. Ver 12 "Multi Media": nhánh storageDrawer đã DỜI
          sang cụm "fileManagerSong" ngay dưới (plan-v12-multimedia.md mục 3). Batch D1: aboutDrawer
          giờ CẦN workflow (push panel + tính thống kê), xem event/workflow/settings-misc.js. -->
-    <script src="core/settings-misc-ui.js?v=20260731v1"></script>
-    <script src="event/workflow/settings-misc.js?v=20260910v1"></script>
-    <script src="event/router/settings-misc.js?v=20260910v1"></script>
+    <script src="core/settings-misc-ui.js?v=20260920v1"></script>
+    <script src="event/workflow/settings-misc.js?v=20260920v1"></script>
+    <script src="event/router/settings-misc.js?v=20260920v1"></script>
     <script src="event/listener/settings-misc.js?v=20260910v1"></script>
     <!-- Ver 12 "Multi Media" — CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7): cụm
          "fileManager" (khung điều hướng cấp cao cũ) ĐÃ BỎ HẲN — thay bằng 3 cụm ĐỘC LẬP, mỗi cụm
@@ -1016,8 +1020,8 @@
     <!-- Panel "Song & Video" cũ (file-manager-song.js) đã xoá, thay bằng "Quản lý lưu trữ" (gộp 3
          domain: song/video/photo) — CẦN core/file-manager/{image,album}.js,
          components/file-manager-storage.js (đã nạp ở nhóm CORE/COMPONENTS). -->
-    <script src="event/workflow/file-manager-storage.js?v=20260919v1"></script>
-    <script src="event/router/file-manager-storage.js?v=20260729v2"></script>
+    <script src="event/workflow/file-manager-storage.js?v=20260920v1"></script>
+    <script src="event/router/file-manager-storage.js?v=20260920v1"></script>
     <!-- Folder Browser — Generic Drawer List↔Read thay Folder List/Detail kiểu panel-stack cũ. CẦN
          core/generic-drawer.js, components/items.js, core/file-manager/{folder,folder-detail-ui,
          folder-picker-ui}.js, core/pagination.js — đều đã nạp ở nhóm CORE. PHẢI nạp TRƯỚC
@@ -1142,8 +1146,8 @@
          workflowFileManagerFolderBrowser/workflowFileManagerStorage đã nạp ở trên — KHÔNG bắt
          buộc thứ tự nạp CHẶT với các file đó, vì mọi tham chiếu đều nằm TRONG thân hàm, chỉ chạy
          SAU khi cả trang đã nạp xong, không chạy ngay lúc parse). -->
-    <script src="event/workflow/app-settings.js?v=20260920v1"></script>
-    <script src="event/router/app-settings.js?v=20260920v1"></script>
+    <script src="event/workflow/app-settings.js?v=20260920v3"></script>
+    <script src="event/router/app-settings.js?v=20260920v3"></script>
     <!-- Cụm "placeholderPanels" (đóng Game/Statis). Photo đã hợp nhất vào Playlist, không còn cụm
          "photoPanel" riêng. -->
     <script src="event/workflow/placeholder-panels.js?v=20260819v1"></script>
