@@ -125,6 +125,21 @@ function _evaluateFilterRule(fieldValue, rule, isText) {
 }
 
 /**
+ * Đưa 1 mốc thời gian (epoch ms) về ĐẦU NGÀY (00:00 giờ LOCAL) — cùng đơn vị với giá trị rule kind 'date'
+ * mà `_parseFilterNumberInput()` lưu. `addedAt` là `Date.now()` lúc upload (CÓ giờ:phút:giây) còn rule chỉ là
+ * 00:00 của ngày đã chọn -> so `===`/`>`/`<=`... trực tiếp sẽ KHÔNG BAO GIỜ khớp đúng "cùng ngày" (vd video up 14:30
+ * ngày 20 không `===` 00:00 ngày 20; khoảng "đến 20" cũng loại luôn các video up trong ngày 20). Quy về đầu ngày
+ * TRƯỚC khi so thì mọi toán tử đều hiểu theo NGÀY. 0/rỗng giữ nguyên 0 (bản ghi thiếu addedAt).
+ * @param {number} ms @returns {number}
+ */
+function _startOfLocalDayMs(ms) {
+    if (!ms) return 0;
+    const d = new Date(ms);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+}
+
+/**
  * Rule 1: đơn tuyến — lọc `keys` theo TOÀN BỘ rule đang bật trong `rulesBucket` (AND hết, xem
  * docstring đầu file). `rulesBucket` rỗng (mọi field `null`) -> trả nguyên `keys` (fast path,
  * KHÔNG tốn 1 vòng lặp nào khi Giang chưa bật filter nào).
@@ -151,7 +166,7 @@ function applyPlaylistFilter(keys, playlistCache, mediaStatsMap, rulesBucket) {
             if (field === 'name') fieldValue = cached.tag.title || '';
             else if (field === 'album') fieldValue = cached.tag.album || '';
             else if (field === 'artist') fieldValue = cached.tag.artist || '';
-            else if (field === 'addedAt') fieldValue = cached.addedAt || 0;
+            else if (field === 'addedAt') fieldValue = _startOfLocalDayMs(cached.addedAt); // so theo NGÀY (xem _startOfLocalDayMs)
             else if (field === 'count') fieldValue = stats.count || 0;
             else if (field === 'totalTime') fieldValue = stats.totalTime || 0;
             else if (field === 'size') fieldValue = cached.size || 0;
