@@ -7,8 +7,9 @@
  * THUẦN, không side-effect, không đọc appState/getActiveEffectConfig (rà soát Rule 3) — Workflow
  * (`_tickLightingThunder()`, event/workflow/visualizer-render.js) tự gom state rồi gọi RIÊNG LẺ
  * từng hàm dưới đây, tự resolve màu qua `getComputedColor()` TRƯỚC khi gọi `createLightningBolt()`.
- * Chớp màn hình (dùng chung với style 'fireworks') vẽ bằng `drawScreenFlash()`
- * (core/visualizer/draw/screen-flash.js — cap opacity nằm ở đó, không cap lẻ ở đây).
+ * Chớp màn hình (dùng chung với style 'fireworks' + Rain) = `computeScreenFlashAlpha()` + `drawScreenFlash()`
+ * (core/visualizer/draw/screen-flash-alpha.js / screen-flash.js) — KHÔNG còn công thức chớp riêng ở đây;
+ * `computeLightningEnergySpike()` vẫn là NGUỒN năng lượng của Thunder (dùng cho cả chớp lẫn bolt).
  *
  * NẠP SAU: core/visualizer/groups/lighting/common.js.
  */
@@ -18,10 +19,6 @@
 /** Năng lượng tức thời dùng cho ngưỡng chớp/bolt — dải tần thứ 5, nhân smoothedEnergy để mượt. */
 function computeLightningEnergySpike(smoothedEnergy, vizDataArray) {
     return smoothedEnergy * ((vizDataArray[5] || 0) / 255);
-}
-
-function computeLightningFlashAlpha(isPlaying, energySpike, flashThreshold) {
-    return isPlaying && energySpike > flashThreshold ? (energySpike - flashThreshold) * 2.5 : 0;
 }
 
 function shouldSpawnLightningBolt(isPlaying, energySpike, boltThreshold, boltSpawnChance, activeBoltCount, maxBoltCount) {

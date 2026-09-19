@@ -16,8 +16,8 @@
  * `createFireworksParticle()` cho TỪNG spec — đúng nguyên lý Rule 3c điều kiện 2 ("logic đã có ở 1
  * core khác — PHẢI tái dùng core đó qua Workflow, không gọi thẳng từ core khác").
  *
- * Chớp màn hình khi burst lớn (dùng chung với style 'thunder') vẽ bằng `drawScreenFlash()`
- * (core/visualizer/draw/screen-flash.js — trần cứng 0.8 nằm ở đó).
+ * Chớp màn hình khi burst lớn (dùng chung với style 'thunder' + Rain) = `computeScreenFlashAlpha()` +
+ * `drawScreenFlash()` (core/visualizer/draw/) — nguồn năng lượng = beatScale tại lúc rocket nổ.
  *
  * NẠP SAU: core/visualizer/groups/lighting/common.js; core/config.js (FIREWORKS_STYLE_KEYS);
  * core/custom-effect.js (getActiveEffectConfig); core/audio-analysis.js (getComputedColor).
@@ -482,14 +482,6 @@ function computeFireworksSizeScale(binValue01, launchBeatScale) {
     const binFactor = 0.6 + binValue01 * 1.2;       // bin im ắng lúc nổ -> 0.6x, bin cực đại -> 1.8x
     const beatFactor = 0.8 + launchBeatScale * 0.6; // beat yếu lúc bắn -> 0.8x, beat mạnh -> 1.4x
     return Math.min(2.2, binFactor * beatFactor);
-}
-
-/** Alpha chớp khi có burst lớn — vẽ bằng drawScreenFlash() (core/visualizer/draw/screen-flash.js).
- * [SỬA 19/09/2026] Bỏ cap 0.5 cứng cũ; `maxAlpha` = customEffect.lighting.flashMaxOpacity. Vẫn kẹp ở
- * ĐÂY (ngoài cap trong drawScreenFlash) vì alpha này đi vào bộ đệm decay `_fwFlashAlpha` (Workflow) —
- * để trạng thái không vượt trần, tránh chớp "dừng lâu ở trần" vài frame trước khi tắt dần. */
-function computeFireworksFlashAlpha(beatScale, threshold, maxAlpha) {
-    return beatScale > threshold ? Math.min(maxAlpha, (beatScale - threshold) * 2.5) : 0;
 }
 
 // ----- Chữ bắn pháo hoa -----

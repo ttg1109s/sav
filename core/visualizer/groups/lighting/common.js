@@ -7,7 +7,8 @@
  * [SỬA — 19/09/2026, yêu cầu Giang] `drawLightingFlash()` ĐÃ XOÁ — chớp toàn màn hình giờ vẽ bằng
  * `drawScreenFlash()` (core/visualizer/draw/screen-flash.js, dùng chung Lighting + Rain, có cap
  * opacity), Workflow gọi trực tiếp. `flashThreshold` (ngưỡng kích hoạt chớp) + `flashMaxOpacity`
- * (trần opacity) vẫn dùng CHUNG cho cả 2 style qua customEffect.lighting.*.
+ * (trần opacity) + `flashEnabled` vẫn dùng CHUNG cho cả 2 style qua customEffect.lighting.* — CÙNG 3 field với
+ * Rain (CUSTOM_EFFECT_FLASH_FIELDS, core/custom-effect.js), công thức `computeScreenFlashAlpha()`.
  *
  * NẠP: TRƯỚC `thunder.js`/`fireworks.js`.
  */
