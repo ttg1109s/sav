@@ -17,6 +17,9 @@
  * trong 1 bản, `data-carousel-count` trên scroller = N); dải chấm `[data-carousel-dot]` là anh em
  * của scroller (cùng cha).
  *
+ * Core KHÔNG hẹn giờ (không setTimeout/taskManager — task-manager-conventions.md): mọi thứ cần chờ
+ * (hiệu ứng mở, debounce "cuộn đã dừng") do event/workflow/app-settings.js điều phối bằng taskManager.
+ *
  * KHÔNG dùng `scroll-snap-stop: always` — cho phép 1 cú vuốt mạnh lướt qua nhiều card rồi mới snap.
  *
  * Style card đổi liên tục lúc cuộn (`transform`/`opacity`) — vùng bọc ngoài carousel có
@@ -34,10 +37,6 @@
  * trước khi `initSettingsCarousel()` chạy hiệu ứng mở). */
 const SETTINGS_CAROUSEL_MIN_SCALE = 0.8;
 const SETTINGS_CAROUSEL_MIN_OPACITY = 0.5;
-
-/** Độ trễ chờ drawer trượt lên gần xong rồi mới cho card đầu tiên phóng to (hiệu ứng mở). */
-const SETTINGS_CAROUSEL_ENTRANCE_DELAY_MS = 180;
-const SETTINGS_CAROUSEL_ENTRANCE_MS = 420;
 
 
 /** Đổi `scrollLeft` NGAY (không animate, không bị scroll-snap kéo lại/giật) — tắt snap tạm rồi bật lại. */
@@ -89,12 +88,12 @@ function _applySettingsCarouselFocusStyles(scrollerEl) {
 
 
 /**
- * Lúc MỞ màn Main: đặt card `startIndex` (0 = đầu tiên) của bản chính giữa vào TÂM (instant), giữ
- * MỌI card ở trạng thái nhỏ/mờ, rồi sau `SETTINGS_CAROUSEL_ENTRANCE_DELAY_MS` cho card đó PHÓNG TO
- * lên current (transition ~420ms) — các card kề bên giữ nhỏ. Trong lúc chờ, `updateSettingsCarouselFocus()`
- * bị chặn bởi cờ `data-carousel-entering` (nếu không, sự kiện `scroll` do chính lệnh đặt scrollLeft
- * sẽ làm card phóng to NGAY, mất hiệu ứng). Hết transition -> gỡ `transition` để lúc cuộn card đi
- * theo tay tức thì (không bị trễ).
+ * Lúc MỞ màn Main (bước 1/3 của hiệu ứng mở): đặt card `startIndex` (0 = đầu tiên) của bản chính
+ * giữa vào TÂM (instant), giữ MỌI card ở trạng thái nhỏ/mờ (khớp HTML gốc) và bật cờ
+ * `data-carousel-entering` — trong lúc cờ này bật `updateSettingsCarouselFocus()` KHÔNG làm gì (nếu
+ * không, sự kiện `scroll` do chính lệnh đặt scrollLeft sẽ làm card phóng to NGAY, mất hiệu ứng).
+ * Bước 2 (`startSettingsCarouselEntrance()`) và 3 (`endSettingsCarouselEntrance()`) do WORKFLOW gọi
+ * sau khi hẹn giờ bằng taskManager — core KHÔNG tự hẹn giờ (task-manager-conventions.md mục 1-2).
  * @param {HTMLElement} scrollerEl @param {number} startIndex
  */
 function initSettingsCarousel(scrollerEl, startIndex) {
@@ -106,15 +105,25 @@ function initSettingsCarousel(scrollerEl, startIndex) {
     const startCardEl = cards[midSet * count + Math.max(0, Math.min(count - 1, startIndex || 0))];
     scrollerEl.dataset.carouselEntering = '1';
     _setSettingsCarouselScrollLeftInstant(scrollerEl, _getSettingsCarouselCenterScrollLeft(scrollerEl, startCardEl));
+}
 
-    setTimeout(() => {
-        if (!scrollerEl.isConnected) return; // drawer đã chuyển màn/đóng trong lúc chờ
-        delete scrollerEl.dataset.carouselEntering;
-        const cardsNow = scrollerEl.querySelectorAll('[data-carousel-card]');
-        cardsNow.forEach((cardEl) => { cardEl.style.transition = `transform ${SETTINGS_CAROUSEL_ENTRANCE_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity ${SETTINGS_CAROUSEL_ENTRANCE_MS}ms ease-out`; });
-        _applySettingsCarouselFocusStyles(scrollerEl);
-        setTimeout(() => { cardsNow.forEach((cardEl) => { cardEl.style.transition = ''; }); }, SETTINGS_CAROUSEL_ENTRANCE_MS + 40);
-    }, SETTINGS_CAROUSEL_ENTRANCE_DELAY_MS);
+/** Bước 2/3 — gỡ cờ entering, bật `transition` cho MỌI card rồi ghi scale/opacity đúng theo vị trí
+ * hiện tại -> card đang ở tâm PHÓNG TO lên current (có animation), 2 card kề bên giữ nhỏ.
+ * @param {HTMLElement} scrollerEl @param {number} durationMs */
+function startSettingsCarouselEntrance(scrollerEl, durationMs) {
+    if (!scrollerEl || !scrollerEl.isConnected) return; // drawer đã chuyển màn/đóng trong lúc chờ
+    delete scrollerEl.dataset.carouselEntering;
+    scrollerEl.querySelectorAll('[data-carousel-card]').forEach((cardEl) => {
+        cardEl.style.transition = `transform ${durationMs}ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity ${durationMs}ms ease-out`;
+    });
+    _applySettingsCarouselFocusStyles(scrollerEl);
+}
+
+/** Bước 3/3 — gỡ `transition` (sau khi hiệu ứng mở xong) để lúc cuộn card đi theo tay TỨC THÌ, không bị trễ.
+ * @param {HTMLElement} scrollerEl */
+function endSettingsCarouselEntrance(scrollerEl) {
+    if (!scrollerEl || !scrollerEl.isConnected) return;
+    scrollerEl.querySelectorAll('[data-carousel-card]').forEach((cardEl) => { cardEl.style.transition = ''; });
 }
 
 /** Gọi MỖI sự kiện `scroll` (qua Router) — card càng gần tâm càng to/rõ, card rời tâm nhỏ/mờ dần.

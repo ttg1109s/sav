@@ -23,6 +23,7 @@
  */
 const DEBUG_CONSOLE_MAX_ENTRIES = 500;
 const _debugConsoleBuffer = [];
+let _debugConsoleNextId = 1; // MỚI (20/09/2026) — id tăng dần cho từng dòng log, để nút Copy/Xoá TỪNG DÒNG ở Debug console nhận diện đúng dòng (time có thể trùng nhau)
 
 const _originalConsoleLog = console.log.bind(console);
 const _originalConsoleWarn = console.warn.bind(console);
@@ -51,6 +52,7 @@ function _formatDebugConsoleArg(arg) {
  */
 function _pushDebugConsoleEntry(level, args) {
     _debugConsoleBuffer.push({
+        id: _debugConsoleNextId++,
         time: Date.now(),
         level,
         text: Array.from(args).map(_formatDebugConsoleArg).join(' '),
@@ -66,7 +68,7 @@ console.error = function (...args) { _pushDebugConsoleEntry('error', args); _ori
  * Core thuần: lấy TOÀN BỘ log đã bắt được cho tới giờ, THEO THỨ TỰ THỜI GIAN (cũ -> mới) — TRẢ VỀ
  * BẢN SAO (`.slice()`, không trả trực tiếp mảng gốc) để nơi gọi lỡ tay sửa/xoá phần tử không làm
  * sai lệch buffer thật.
- * @returns {Array<{time: number, level: 'log'|'warn'|'error', text: string}>}
+ * @returns {Array<{id: number, time: number, level: 'log'|'warn'|'error', text: string}>}
  */
 function getDebugConsoleLogs() {
     return _debugConsoleBuffer.slice();
@@ -75,4 +77,12 @@ function getDebugConsoleLogs() {
 /** Core thuần: xoá sạch buffer (nút "Xoá" trong panel Debug Console). */
 function clearDebugConsoleLogs() {
     _debugConsoleBuffer.length = 0;
+}
+
+/** Core thuần: xoá ĐÚNG 1 dòng log theo `id` (nút xoá của TỪNG dòng trong danh sách Debug console).
+ * Không tìm thấy id (vd dòng đã bị đẩy ra khỏi ring buffer) -> không làm gì.
+ * @param {number} id */
+function removeDebugConsoleLog(id) {
+    const index = _debugConsoleBuffer.findIndex((entry) => entry.id === id);
+    if (index !== -1) _debugConsoleBuffer.splice(index, 1);
 }

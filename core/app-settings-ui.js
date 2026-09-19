@@ -28,46 +28,67 @@ function wireAppSettingsMain(bodyEl) {
     });
 }
 
-/** Độ trễ (ms) sau sự kiện `scroll` CUỐI CÙNG để coi carousel Main là "đã dừng hẳn" -> gửi
- * 'appSettings.carousel.settle' (kéo lại về bản lặp giữa, xem core/settings-carousel-ui.js). */
-const APP_SETTINGS_CAROUSEL_SETTLE_DELAY_MS = 140;
-
 /** Màn Main — carousel ngang (components/settings/app-settings-main.js::renderAppSettingsCarousel()).
- * 3 loại tương tác, callback nào cũng CHỈ `eventBus.send()` (Rule 5a):
- *   - `scroll` -> 'appSettings.carousel.scroll' (mỗi lần — Router gọi thẳng core cập nhật scale/opacity).
- *   - dừng cuộn -> 'appSettings.carousel.settle' — debounce bằng setTimeout THUẦN (cùng khuôn
- *     core/time-picker-modal.js, KHÔNG taskManager), và KHÔNG gửi khi ngón tay còn đang chạm
- *     (`isTouching`) — nhảy scrollLeft giữa lúc đang kéo tay sẽ làm iOS giật; `touchend` tự hẹn lại.
- *   - click card -> 'appSettings.carousel.card.click' (Workflow quyết định: card ở giữa = mở màn đích,
- *     card bên cạnh = cuộn vào giữa).
+ * 4 loại sự kiện, callback nào cũng CHỈ `eventBus.send()` (Rule 5a) — KHÔNG timer/debounce ở đây
+ * (task-manager-conventions.md: timer chỉ Workflow được dùng, xem workflowAppSettings.
+ * handleCarouselScroll()):
+ *   - `scroll` -> 'appSettings.carousel.scroll' (mỗi lần) — cập nhật scale/opacity + hẹn "đã dừng".
+ *   - `touchstart`/`touchend`/`touchcancel` -> 'appSettings.carousel.touch.start|end' — Workflow cần biết
+ *     ngón tay còn chạm không (nhảy scrollLeft giữa lúc đang kéo tay sẽ làm iOS giật).
+ *   - click card -> 'appSettings.carousel.card.click' (card ở giữa = mở màn đích, card bên cạnh = cuộn vào giữa).
  * addEventListener gom hết ở CUỐI hàm (Rule 5a).
  * @param {HTMLElement} bodyEl */
 function wireAppSettingsMainCarousel(bodyEl) {
     const scrollerEl = bodyEl.querySelector('#app-settings-carousel');
     if (!scrollerEl) return;
-    let settleTimeoutId = null;
-    let isTouching = false;
-
-    const scheduleSettle = () => {
-        if (settleTimeoutId) clearTimeout(settleTimeoutId);
-        settleTimeoutId = setTimeout(() => {
-            settleTimeoutId = null;
-            if (isTouching) return; // touchend sẽ hẹn lại
-            eventBus.send({ router: 'appSettings', type: 'appSettings.carousel.settle', payload: { scrollerEl } });
-        }, APP_SETTINGS_CAROUSEL_SETTLE_DELAY_MS);
-    };
 
     // --- addEventListener: gom cuối hàm (Rule 5a) ---
-    scrollerEl.addEventListener('scroll', () => {
-        eventBus.send({ router: 'appSettings', type: 'appSettings.carousel.scroll', payload: { scrollerEl } });
-        scheduleSettle();
-    }, { passive: true });
-    scrollerEl.addEventListener('touchstart', () => { isTouching = true; }, { passive: true });
-    scrollerEl.addEventListener('touchend', () => { isTouching = false; scheduleSettle(); }, { passive: true });
-    scrollerEl.addEventListener('touchcancel', () => { isTouching = false; scheduleSettle(); }, { passive: true });
+    scrollerEl.addEventListener('scroll', () => eventBus.send({ router: 'appSettings', type: 'appSettings.carousel.scroll', payload: { scrollerEl } }), { passive: true });
+    scrollerEl.addEventListener('touchstart', () => eventBus.send({ router: 'appSettings', type: 'appSettings.carousel.touch.start', payload: { scrollerEl } }), { passive: true });
+    scrollerEl.addEventListener('touchend', () => eventBus.send({ router: 'appSettings', type: 'appSettings.carousel.touch.end', payload: { scrollerEl } }), { passive: true });
+    scrollerEl.addEventListener('touchcancel', () => eventBus.send({ router: 'appSettings', type: 'appSettings.carousel.touch.end', payload: { scrollerEl } }), { passive: true });
     scrollerEl.querySelectorAll('[data-carousel-card]').forEach((cardEl) => {
         cardEl.addEventListener('click', () => eventBus.send({ router: 'appSettings', type: 'appSettings.carousel.card.click', payload: { scrollerEl, cardEl, key: cardEl.dataset.carouselKey } }));
     });
+}
+
+/** msg.type đích của từng hàng HÀNH ĐỘNG ở màn Troubleshooting — TÁI DÙNG NGUYÊN 2 msg.type đã có của
+ * router 'settingsMisc' (askRestoreDefaults()/askClearCache() -> modal xác nhận -> ...confirm), KHÔNG
+ * tạo msg.type mới. */
+const APP_SETTINGS_TROUBLESHOOTING_ACTION_MSG = {
+    restoreDefaults: 'settingsMisc.restoreDefaults.click',
+    clearCache: 'settingsMisc.clearCache.click',
+};
+
+/** Màn Troubleshooting (components/settings/troubleshooting.js::renderTroubleshootingBody()) — 2 loại
+ * hàng: ĐIỀU HƯỚNG (`data-app-settings-nav`, mở màn con Debug console/Scan & fix video thumbnails — CÙNG msg.type với
+ * Main/System) và HÀNH ĐỘNG (`data-troubleshooting-action`, Restore default settings/Clear app cache).
+ * @param {HTMLElement} bodyEl */
+function wireAppSettingsTroubleshooting(bodyEl) {
+    const navBtns = bodyEl.querySelectorAll('[data-app-settings-nav]');
+    const actionBtns = bodyEl.querySelectorAll('[data-troubleshooting-action]');
+
+    // --- addEventListener: gom cuối hàm (Rule 5a) ---
+    navBtns.forEach((btn) => {
+        btn.addEventListener('click', () => eventBus.send({ router: 'appSettings', type: 'appSettings.nav.click', payload: { key: btn.dataset.appSettingsNav } }));
+    });
+    actionBtns.forEach((btn) => {
+        btn.addEventListener('click', () => eventBus.send({ router: 'settingsMisc', type: APP_SETTINGS_TROUBLESHOOTING_ACTION_MSG[btn.dataset.troubleshootingAction], payload: {} }));
+    });
+}
+
+/** Màn "Scan & fix video thumbnails" (components/settings/troubleshooting.js::renderVideoThumbRepairBody()) —
+ * 3 nút, callback CHỈ `eventBus.send()` tới router 'fileManagerStorage' (Rule 5a, gom cuối hàm).
+ * @param {HTMLElement} bodyEl */
+function wireAppSettingsVideoThumb(bodyEl) {
+    const scanBtn = bodyEl.querySelector('#btn-video-thumb-scan');
+    const fixBtn = bodyEl.querySelector('#btn-video-thumb-fix');
+    const dismissBtn = bodyEl.querySelector('#btn-video-thumb-dismiss');
+
+    // --- addEventListener: gom cuối hàm (Rule 5a) ---
+    if (scanBtn) scanBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.videoThumb.scan.click', payload: {} }));
+    if (fixBtn) fixBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.videoThumb.fix.click', payload: {} }));
+    if (dismissBtn) dismissBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.videoThumb.dismiss.click', payload: {} }));
 }
 
 /** Màn System — 4 row (Theme/Gesture/Slideshow/Language), CÙNG msg.type với Main (payload.key tự
