@@ -126,6 +126,10 @@ const LANG_PATCH_PLAYLIST = {
     // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video, "thêm dropdown edit image ->
     // mở openImagePreview()") — hành động RIÊNG của Photo, mirror editVideoFile ngay trên.
     'playlistView.songMenu.editImage': 'Edit image',
+    // MỚI (19/09/2026, Giang yêu cầu — "thêm nút xem thumb full res cho video playlist") — hành động
+    // RIÊNG của Video, mirror editImage ngay trên.
+    'playlistView.songMenu.viewVideoThumb': 'View full thumbnail',
+    'playlistView.songMenu.viewVideoThumbMissing': 'This video has no full-resolution thumbnail yet. Go to Storage → "Scan & clean broken files" to repair it.',
     'playlistView.songMenu.delete': 'Delete song',
     // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — dropdown Video dùng chung
     // template với Song (#song-action-menu) nhưng nhãn tĩnh vẫn luôn nói "song" — đổi chữ qua JS
