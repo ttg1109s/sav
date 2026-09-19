@@ -143,8 +143,16 @@
                 // Quay lại Playlist (forceBackToPlaylistUI()) luôn ADD opacity-0 vô điều kiện, nên
                 // ở Vortex, canvas kẹt vô hình dù JS vẫn tính/vẽ bình thường phía sau — chỉ "tự
                 // khỏi" khi có hành động khác gọi updateTypeUI() (không phân biệt type) như đổi bài.
+                // SỬA (bug Giang báo — "connector synapse: ban đầu ở video mode -> phát video ->
+                // không hiện -> phải Next/Prev mới hiện lại") — 'connector' CŨNG dùng chung
+                // #webgl-canvas nhưng bị thiếu ở check này (chỉ có 'vortex'). Video Player mode gọi
+                // updateTypeUI() (trong beforePlay của swapBgVideoSource()) TRƯỚC switchToVisualizer()
+                // (sau waitBgVideoReady()) — lúc đó #app-stack CHƯA có 'playlist-hidden' nên nhánh
+                // connector của updateTypeUI() không gỡ opacity-0; canvas kẹt vô hình tới khi Next/
+                // Prev (đã ở Visualizer sẵn -> updateTypeUI() thấy 'playlist-hidden' -> gỡ). Nhánh Song
+                // không dính vì player.js gọi switchToVisualizer() TRƯỚC updateTypeUI().
                 const t = appConfigViz.getAll().type;
-                if (t === 'vortex') document.getElementById('webgl-canvas').classList.remove('opacity-0');
+                if (t === 'vortex' || t === 'connector') document.getElementById('webgl-canvas').classList.remove('opacity-0');
             }, 50, 'showVisualizerFadeIn');
         }
 
