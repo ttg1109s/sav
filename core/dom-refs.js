@@ -540,6 +540,10 @@
         // định, JS chỉ hiện khi item đang mở menu là Photo — xem openSongActionMenu(), core/
         // playlist/actions.js).
         const songMenuBtnEditImage = document.getElementById('song-menu-btn-edit-image');
+        // MỚI (19/09/2026, Giang yêu cầu — "thêm nút xem thumb full res cho video playlist") — nút RIÊNG
+        // cho Video, mirror `songMenuBtnEditImage` (ẩn mặc định, JS chỉ hiện khi item đang mở menu là
+        // Video — xem openSongActionMenu(), core/playlist/actions.js).
+        const songMenuBtnViewVideoThumb = document.getElementById('song-menu-btn-view-video-thumb');
         // MỚI (06/09/2026, hợp nhất Folder vào Playlist) — nút "Gỡ khỏi thư mục" ở menu 3-chấm.
         const songMenuBtnRemoveFromFolder = document.getElementById('song-menu-btn-remove-from-folder');
         const playbackErrorModal = document.getElementById('playback-error-modal');
