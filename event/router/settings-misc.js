@@ -62,6 +62,15 @@ const routerSettingsMisc = (() => {
                 break;
             }
 
+            // MỚI (20/09/2026) — Copy/Xoá TỪNG DÒNG log (delegate trên #debug-console-list, xem
+            // core/settings-misc-ui.js). Rẽ nhánh theo payload.action của CHÍNH message này.
+            case 'settingsMisc.debugConsole.item.click': {
+                const { action, id, btnEl } = msg.payload;
+                if (action === 'copy') workflowSettingsMisc.copyDebugConsoleItem(id, btnEl);
+                else if (action === 'remove') workflowSettingsMisc.removeDebugConsoleItem(id);
+                break;
+            }
+
             // (aboutDrawer.close ĐÃ XOÁ — đóng About giờ dùng CHUNG 'settingsStackNav.back.click'
             // cho MỌI panel, xem event/router,workflow/settings-stack-nav.js)
 

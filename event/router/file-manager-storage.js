@@ -37,6 +37,7 @@
  */
 const routerFileManagerStorage = (() => {
     let lastScanResults = []; // context state CỦA RIÊNG nhánh quét lỗi
+    let lastVideoThumbResults = []; // MỚI (20/09/2026) — context state CỦA RIÊNG nhánh "Scan & fix video thumbnails" (Setting > Troubleshooting), tách hẳn `lastScanResults` của Storage
 
     // Mặc định CẢ 3 nguồn TẮT + CẢ 2 toggle hành động TẮT (an toàn — hành động phá huỷ dữ liệu
     // không nên có sẵn "đã chọn xong", buộc người dùng chủ động bật trước khi nút Thực hiện khả dụng).
@@ -176,6 +177,39 @@ const routerFileManagerStorage = (() => {
                         workflowFileManagerStorage.executeRepairBroken(fixableResults) },
                 ]);
                 lastScanResults = [];
+                break;
+            }
+
+            // ===================== Scan & fix video thumbnails — MỚI (20/09/2026, Giang yêu cầu chuyển từ Storage
+            // sang Setting > Troubleshooting; UI ở components/settings/troubleshooting.js, wire ở
+            // core/app-settings-ui.js::wireAppSettingsVideoThumb()) =====================
+
+            case 'fileManagerStorage.videoThumb.scan.click': {
+                workflowFileManagerStorage.executeScanVideoThumbs({
+                    onScanComplete: (results) => { lastVideoThumbResults = results; }
+                });
+                break;
+            }
+
+            case 'fileManagerStorage.videoThumb.fix.click': {
+                if (lastVideoThumbResults.length === 0) return;
+                workflowFileManagerStorage.askFixBroken({ // toàn bộ `fixable:true` -> modal "Repair n file(s)..." (không destructive)
+                    scanResults: lastVideoThumbResults,
+                    onConfirmSend: () => eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.videoThumb.fix.confirm', payload: {} })
+                });
+                break;
+            }
+
+            case 'fileManagerStorage.videoThumb.fix.confirm': {
+                if (lastVideoThumbResults.length === 0) return;
+                workflowFileManagerStorage.executeRepairBroken(lastVideoThumbResults);
+                lastVideoThumbResults = [];
+                break;
+            }
+
+            case 'fileManagerStorage.videoThumb.dismiss.click': {
+                workflowFileManagerStorage.dismissVideoThumbScan();
+                lastVideoThumbResults = [];
                 break;
             }
 

@@ -8,7 +8,10 @@
  * Router đọc THẲNG payload của CHÍNH message đang xử lý (không đọc appState khác để quyết định
  * chạy gì) — đúng (A) event-bus-flow.md mục 4B, KHÔNG cần VirtualMachineState.
  *
- * SỬA (20/09/2026) — 3 case 'appSettings.carousel.*' cho màn Main dạng carousel ngang.
+ * SỬA (20/09/2026) — 4 case 'appSettings.carousel.*' cho màn Main dạng carousel ngang; Troubleshooting
+ * gộp Debug console/Scan & fix video thumbnails làm màn con (NAV_TARGETS.debugConsole/videoThumb), key 'resetApp'
+ * BỎ (Reset app tách: Restore/Clear cache thành 2 hàng riêng ngang hàng ở Troubleshooting, Restart app lên
+ * icon header — xem event/workflow/app-settings.js::_renderTroubleshooting()).
  *
  * NẠP SAU: event/bus.js, event/workflow/app-settings.js.
  * NẠP TRƯỚC: core/app-settings-ui.js (KHÔNG bắt buộc thứ tự với core-ui vì core-ui chỉ gọi
@@ -20,6 +23,8 @@ const routerAppSettings = (() => {
         system: () => workflowAppSettings._renderSystem(),
         visualizerScreen: () => workflowAppSettings._renderVisualizerScreen(),
         troubleshooting: () => workflowAppSettings._renderTroubleshooting(),
+        debugConsole: () => workflowAppSettings._renderDebugConsole(), // MỚI (20/09/2026) — con của Troubleshooting
+        videoThumb: () => workflowAppSettings._renderVideoThumbRepair(), // MỚI (20/09/2026) — con của Troubleshooting (scan & fix thumb video)
         theme: () => workflowAppSettings._renderTheme(),
         gesture: () => workflowAppSettings._renderGesture(),
         motion: () => workflowAppSettings._renderMotionList(),
@@ -36,7 +41,6 @@ const routerAppSettings = (() => {
     /** Mở màn đích theo key — DÙNG CHUNG cho row danh sách ('appSettings.nav.click') lẫn card carousel
      * Main ('appSettings.carousel.card.click', khi card đã ở giữa). */
     function openNavTarget(key) {
-        if (key === 'resetApp') { workflowAppSettings._openResetAppMenu(); return; } // KHÔNG điều hướng màn — modalChoice() độc lập
         const target = NAV_TARGETS[key];
         if (target) workflowAppSettings.navigateTo(target);
     }
@@ -50,14 +54,19 @@ const routerAppSettings = (() => {
             }
 
             // MỚI (20/09/2026) — carousel ngang màn Main (core/app-settings-ui.js::wireAppSettingsMainCarousel()).
-            // scroll/settle: 1 lời gọi core duy nhất, không cần chuẩn bị state -> Router gọi thẳng core.
+            // scroll/touch: cần hẹn giờ debounce (taskManager) + nhớ cờ chạm -> giao Workflow.
             case 'appSettings.carousel.scroll': {
-                updateSettingsCarouselFocus(msg.payload.scrollerEl); // core/settings-carousel-ui.js
+                workflowAppSettings.handleCarouselScroll(msg.payload.scrollerEl);
                 break;
             }
 
-            case 'appSettings.carousel.settle': {
-                settleSettingsCarouselLoop(msg.payload.scrollerEl); // core/settings-carousel-ui.js
+            case 'appSettings.carousel.touch.start': {
+                workflowAppSettings.handleCarouselTouch(msg.payload.scrollerEl, true);
+                break;
+            }
+
+            case 'appSettings.carousel.touch.end': {
+                workflowAppSettings.handleCarouselTouch(msg.payload.scrollerEl, false);
                 break;
             }
 
