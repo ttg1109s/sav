@@ -418,7 +418,7 @@ function buildSynapseNetwork(cfg, networkGroup, glowTexture) {
         const color = getComputedColor(i, neuronCount, 128); // core/audio-analysis.js
         const neuron = createAnatomicalNeuron(
             i, cell.position, inDegree[i],
-            new THREE.Color(color.fill).getHex(), new THREE.Color(color.glow).getHex(), glowTexture, meshScale
+            new THREE.Color(color.fillNoAlpha).getHex(), new THREE.Color(color.glow).getHex(), glowTexture, meshScale
         );
         networkGroup.add(neuron.container);
         return neuron;
@@ -576,7 +576,7 @@ function buildCircuitNodes(cfg, nodeGroup) {
         if (chips.some((c) => c.pos.x === gx && c.pos.y === gy && c.pos.z === gz)) continue;
 
         const color = getComputedColor(i, cfg.nodeCount, 128); // core/audio-analysis.js
-        const colorHex = new THREE.Color(color.fill).getHex();
+        const colorHex = new THREE.Color(color.fillNoAlpha).getHex(); // fillNoAlpha: tránh cảnh báo alpha của THREE.Color, xem getComputedColor()
         const { group, bodyMesh, pins, pinMat, pLight } = createChipMesh(colorHex);
         group.position.set(gx, gy, gz);
         nodeGroup.add(group);
@@ -711,6 +711,21 @@ function triggerCinematicCameraShift(camera, controls, chips, activeSignals) {
 
 // ===================== bootstrap dùng chung =====================
 
+// MỚI (phản hồi Giang — "circuit nền đen, không lộ lớp phía sau như vortex/synapse"): circuit là
+// style DUY NHẤT render qua EffectComposer + UnrealBloomPass (three r128). Pass bloom cộng
+// (AdditiveBlending, SRC_ALPHA/ONE) 1 texture blur có alpha = 1.0 MỌI pixel lên kết quả → kênh
+// alpha của canvas bị đẩy lên 1 khắp màn hình (nền trong suốt của scene bị "đổ" thành đen đặc),
+// dù scene.background=null/setClearAlpha(0). Synapse/vortex render thẳng tRenderer nên không dính.
+// Pass cuối này TÍNH LẠI alpha từ độ sáng (alpha = max(r,g,b)): pixel đen -> trong suốt (lộ
+// Visual Background/video phía sau), pixel sáng (chip, tia, halo bloom) -> đặc dần. Canvas WebGL
+// mặc định premultipliedAlpha=true và rgb <= max(rgb) = alpha luôn đúng điều kiện premultiplied
+// hợp lệ -> phần glow cộng sáng lên lớp phía sau đúng kiểu additive, không viền đen quanh halo.
+const CN_ALPHA_FROM_LUMA_SHADER = {
+    uniforms: { tDiffuse: { value: null } },
+    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'uniform sampler2D tDiffuse; varying vec2 vUv; void main() { vec4 c = texture2D(tDiffuse, vUv); float a = clamp(max(c.r, max(c.g, c.b)), 0.0, 1.0); gl_FragColor = vec4(c.rgb, a); }'
+};
+
 function initThreeJSConnector() {
     const canvas = document.getElementById('webgl-canvas');
     const cnScene = new THREE.Scene();
@@ -769,6 +784,9 @@ function initThreeJSConnector() {
     const cnComposer = new THREE.EffectComposer(tRenderer);
     cnComposer.addPass(renderPass);
     cnComposer.addPass(bloomPass);
+    // PHẢI đứng SAU bloomPass (bloom không còn là pass cuối -> ghi vào buffer thay vì ra màn hình,
+    // pass này mới ra màn hình) — xem docblock CN_ALPHA_FROM_LUMA_SHADER phía trên.
+    cnComposer.addPass(new THREE.ShaderPass(CN_ALPHA_FROM_LUMA_SHADER));
 
     appState.set('cnScene', cnScene, { skipCheck: true });
     appState.set('cnCamera', cnCamera, { skipCheck: true });
