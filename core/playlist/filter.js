@@ -94,7 +94,14 @@ function _parseFilterNumberInput(kind, rawValue) {
  */
 function _formatFilterNumberForInput(kind, value) {
     if (value == null) return '';
-    if (kind === 'date') return value ? new Date(value).toISOString().slice(0, 10) : '';
+    if (kind === 'date') {
+        if (!value) return '';
+        // SỬA lỗi lệch ngày (chọn 20 -> hiện 19, mở lại lại lùi tiếp 19 -> 18...): `_parseFilterNumberInput()` lưu epoch ms
+        // của 00:00 GIỜ LOCAL, nhưng `toISOString()` in theo UTC -> ở múi giờ dương (VN = UTC+7) 00:00 local rơi vào 17:00
+        // NGÀY HÔM TRƯỚC (UTC) -> lùi 1 ngày. Đọc năm/tháng/ngày theo LOCAL để đúng chiều ngược lại với parse.
+        const d = new Date(value);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
     if (kind === 'sizeMb') return value ? +(value / (1024 * 1024)).toFixed(2) : 0;
     return value;
 }
