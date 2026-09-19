@@ -461,6 +461,16 @@ const TPL_PLAYLIST_VIEW = `
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
             <span data-i18n="playlistView.songMenu.editImage">${t('playlistView.songMenu.editImage')}</span>
         </button>
+        <!-- MỚI (19/09/2026, Giang yêu cầu — "thêm nút xem thumb full res cho video playlist, tận dụng
+             luôn open modal view image") — RIÊNG của Video, mirror ĐÚNG khuôn song-menu-btn-edit-image
+             ngay trên (ẩn mặc định, JS chỉ hiện khi item đang mở menu là Video — xem
+             openSongActionMenu(), core/playlist/actions.js). Mở lại modal xem ảnh (photo-ui.js) ở chế
+             độ CHỈ XEM (viewOnly) với record.thumbFullBlob — xem workflowPlaylist.
+             openActiveMenuVideoThumb(). -->
+        <button id="song-menu-btn-view-video-thumb" data-menu-action="viewVideoThumb" class="hidden flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors border-t" data-uitk="cardHoverBg textPrimary dividerBorder">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+            <span data-i18n="playlistView.songMenu.viewVideoThumb">${t('playlistView.songMenu.viewVideoThumb')}</span>
+        </button>
         <!-- MỚI (mục 1d, CHỐT 03/07/2026) — dùng data-menu-action="addToFolder" RIÊNG, KHÔNG đi
              qua handleSongActionMenuSelect() (đã có sẵn 4 nhánh if/else — thêm nhánh thứ 5 vào đó
              sẽ buộc phải đưa NGUYÊN hàm cũ về đủ 4 rule, tốn công hơn hẳn tính năng này). Xử lý ở
