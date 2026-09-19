@@ -44,7 +44,12 @@
          * cho toàn app, xem core/custom-effect.js::getActiveEffectConfig(). */
         function getComputedColor(i, totalLength, dataValue) {
             const ec = getActiveEffectConfig(); // core/custom-effect.js
-            if (ec.mode === 'dynamic') return { fill: interpolateColor(ec.dynA, ec.dynB, i / totalLength), glow: interpolateColor(ec.dynA, ec.dynB, i / totalLength) };
+            // MỚI (Giang báo "THREE.Color: Alpha component of hsla(...) will be ignored" khi ở connector):
+            // `fillNoAlpha` = CÙNG màu với `fill` nhưng KHÔNG có alpha — dành riêng cho nơi đưa màu vào
+            // THREE.Color (connector). Parser hsla() của THREE r128 luôn cảnh báo (mỗi lần gọi, kể cả mỗi
+            // frame) khi alpha < 1 dù bỏ qua alpha; canvas 2D vẫn dùng `fill` (alpha 0.9) như cũ. 2 mode
+            // còn lại vốn không có alpha nên `fillNoAlpha` === `fill`.
+            if (ec.mode === 'dynamic') { const c = interpolateColor(ec.dynA, ec.dynB, i / totalLength); return { fill: c, fillNoAlpha: c, glow: c }; }
             else if (ec.mode === 'gradient') {
                 let baseHue = (appState.get('globalHueOffset') + (i / totalLength) * 240) % 360;
                 let finalHue = (baseHue + (dataValue / 255) * 80) % 360;
@@ -57,8 +62,8 @@
                 // (fillStyle vẫn nhận hsla() bình thường, sai khác <1% không nhận ra được bằng mắt).
                 let lightness = Math.round(40 + (dataValue / 255) * 30);
                 let saturation = Math.round(70 + (dataValue / 255) * 30);
-                return { fill: `hsla(${finalHue}, ${saturation}%, ${lightness}%, 0.9)`, glow: `hsl(${finalHue}, 100%, ${lightness + 15}%)` };
-            } else return { fill: ec.solidColor, glow: ec.solidColor };
+                return { fill: `hsla(${finalHue}, ${saturation}%, ${lightness}%, 0.9)`, fillNoAlpha: `hsl(${finalHue}, ${saturation}%, ${lightness}%)`, glow: `hsl(${finalHue}, 100%, ${lightness + 15}%)` };
+            } else return { fill: ec.solidColor, fillNoAlpha: ec.solidColor, glow: ec.solidColor };
         }
 
         /** Cường độ blur/glow effect ĐANG CHẠY, quy đổi 0-1 cho `perf.blurMult` cũ — 0 nếu tắt. */
