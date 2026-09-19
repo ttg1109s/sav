@@ -37,7 +37,12 @@
  * ảnh hưởng nơi khác. 3 picker còn lại (ảnh đơn/video đơn/album) đã tự quay lại đúng (xem
  * `_closePickerDrawer()`/`openPickPhoto()`, event/workflow/visual-bg.js).
  *
+ * SỬA (20/09/2026, Giang yêu cầu thiết kế lại Main Setting) — màn Main giờ là carousel ngang (xem
+ * `_renderMain()`/`handleCarouselCardTap()`; UI ở components/settings/app-settings-main.js, wire ở
+ * core/app-settings-ui.js::wireAppSettingsMainCarousel(), scale/loop ở core/settings-carousel-ui.js).
+ *
  * NẠP SAU: core/generic-drawer.js, core/app-panel-nav.js, components/settings/app-settings-main.js,
+ * core/settings-carousel-ui.js,
  * components/settings/playlist-view.js, components/settings/language.js, components/gesture-
  * settings-drawer.js, components/motion-settings-drawer.js, components/debug-console-drawer.js,
  * components/playlist-sort-drawer.js, components/playlist-filter-drawer.js, core/playlist/
@@ -56,9 +61,11 @@
 const workflowAppSettings = {
 
     _screenStack: [], // mảng hàm render (KHÔNG gồm màn hiện tại) — back() pop ra màn NGAY TRƯỚC
+    _mainCarouselIndex: 0, // MỚI (20/09/2026) — mục (0..4) đang ở giữa carousel Main lần cuối người dùng bấm mở 1 màn con — Back về Main giữ đúng mục đó ở giữa; `open()` luôn reset về 0 (mục đầu tiên)
 
     open() {
         this._screenStack = [];
+        this._mainCarouselIndex = 0;
         this._renderMain();
         workflowAppPanelNav.setActiveTab('setting');
     },
@@ -127,7 +134,23 @@ const workflowAppSettings = {
 
     _renderMain() {
         this._currentRenderFn = () => this._renderMain();
-        this._render(t('appSettings.title'), renderAppSettingsMainBody(), wireAppSettingsMain); // core/app-settings-ui.js
+        this._render(t('appSettings.title'), renderAppSettingsMainBody(), (body) => { // components/settings/app-settings-main.js — carousel ngang (SỬA 20/09/2026)
+            wireAppSettingsMainCarousel(body); // core/app-settings-ui.js — chỉ wire sự kiện -> eventBus
+            initSettingsCarousel(body.querySelector('#app-settings-carousel'), this._mainCarouselIndex); // core/settings-carousel-ui.js — đặt mục hiện tại vào tâm + hiệu ứng phóng to
+        });
+    },
+
+    /** Tap 1 card ở carousel Main (Router 'appSettings.carousel.card.click').
+     * @returns {boolean} true = card VỪA được cuộn vào giữa (chưa mở gì); false = card ĐÃ ở giữa
+     *          -> nhớ vị trí (để Back về Main giữ nguyên mục này ở giữa) và để Router mở màn đích. */
+    handleCarouselCardTap(scrollerEl, cardEl) {
+        const focusedCardEl = getSettingsCarouselFocusCard(scrollerEl); // core/settings-carousel-ui.js — dùng RETURN VALUE để rẽ nhánh
+        if (focusedCardEl !== cardEl) {
+            scrollSettingsCarouselTo(scrollerEl, cardEl); // core/settings-carousel-ui.js
+            return true;
+        }
+        this._mainCarouselIndex = Number(cardEl.dataset.carouselIndex) || 0;
+        return false;
     },
 
     // ===================== Playlist (TÁI DÙNG TPL_SETTINGS_PLAYLIST_VIEW + workflowPlaylist) =====
