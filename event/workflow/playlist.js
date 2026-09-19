@@ -963,6 +963,26 @@ const workflowPlaylist = {
         workflowFileManagerPhoto.openImagePreview(key); // event/workflow/file-manager-photo.js
     },
 
+    /** MỚI (19/09/2026, Giang yêu cầu — "thêm nút xem thumb full res cho video playlist, tận dụng
+     * luôn open modal view image") — mirror khuôn navigateToActiveMenuPhotoEdit() ngay trên, khác ở
+     * chỗ ảnh KHÔNG đến từ bảng ảnh mà từ `record.thumbFullBlob` (khung hình đầu video ở đúng kích
+     * thước gốc, xem extractVideoThumbAndMeta()) — nên tái dùng modal ở chế độ CHỈ XEM (tham số 2 của
+     * `openImagePreview()` — không Edit/Lưu, không tăng lượt xem Photo). Video cũ chưa có
+     * `thumbFullBlob` (null) -> báo, KHÔNG mở modal trống (sửa được qua Storage -> Scan broken, xem
+     * `isVideoRecordCorrupted()` tầng `fixable`). */
+    async openActiveMenuVideoThumb() {
+        const key = playlistStore.get('songActionMenuKey');
+        if (!key) return;
+        closeSongActionMenu();
+        const record = await getVideoRecord(key); // service/db.js
+        if (!record) return; // guard: video vừa bị xoá ở tab/thao tác khác
+        if (!record.thumbFullBlob) {
+            alertModal(t('playlistView.songMenu.viewVideoThumbMissing'));
+            return;
+        }
+        workflowFileManagerPhoto.openImagePreview(key, { blob: record.thumbFullBlob, filename: record.filename }); // event/workflow/file-manager-photo.js — viewOnly
+    },
+
     /** Lọc danh sách folder cho picker "Thêm vào thư mục" — MỚI (06/09/2026, hợp nhất Folder vào
      * Playlist, mục 2 + 4b). Loại 2 loại folder KHÔNG hợp lệ làm đích "thêm vào":
      *   - Folder ĐANG là Scope hiện tại của ĐÚNG Nguồn này — thêm vào chính folder đang xem không

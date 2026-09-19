@@ -251,19 +251,33 @@ const workflowFileManagerPhoto = {
      * `_initZoom()`, chạy LIÊN TỤC suốt vòng đời modal.
      * Tăng `count` trong `mediaStatsMap` (dùng CHUNG với Song/Video, Sort trục thống kê đọc field
      * này — ý nghĩa đổi thành "lượt click xem" cho Photo) mỗi lần mở xem.
+     * MỚI (19/09/2026) — tham số 2 `viewOnlyImage` (tuỳ chọn): TÁI DÙNG modal này chỉ để XEM/zoom/pan
+     * 1 ảnh KHÔNG nằm trong bảng ảnh (vd thumb full-res của Video — workflowPlaylist.
+     * openActiveMenuVideoThumb()). Có truyền -> dùng thẳng `{blob, filename}` đó thay vì đọc
+     * `getImageRecord()`, KHÔNG tăng `count` (không phải "lượt click xem" của 1 Photo), KHÔNG
+     * decode canvas Edit (`_activeImageKey = null`, không có ảnh nào để Edit/Lưu — modal cũng tự ẩn
+     * nút Lưu/Edit, xem core/file-manager/photo-ui.js::openImagePreviewModal()). Đóng modal vẫn qua
+     * đúng `closeImagePreview()` (X -> Router fileManagerPhoto) — `workflowImageEdit.exitEditMode()`
+     * tự bỏ qua vì chưa có phiên Edit nào. Không truyền = hành vi CŨ, không đổi.
      * @param {string} imageKey
+     * @param {{blob: Blob, filename: string}} [viewOnlyImage]
      */
-    async openImagePreview(imageKey) {
-        const record = await getImageRecord(imageKey); // data layer (service/db.js)
-        if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
-        const image = { key: imageKey, ...record };
+    async openImagePreview(imageKey, viewOnlyImage) {
+        let image;
+        if (viewOnlyImage) {
+            image = { key: imageKey, ...viewOnlyImage };
+        } else {
+            const record = await getImageRecord(imageKey); // data layer (service/db.js)
+            if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
+            image = { key: imageKey, ...record };
+        }
 
-        this._activeImageKey = imageKey; // workflowImageEdit cần lại lúc decode canvas
-        bumpSongPlayCount(imageKey); // core/listen-stats.js — tên hàm giữ nguyên (dùng CHUNG cho mọi mediaType), Photo dùng làm "lượt click xem"
+        this._activeImageKey = viewOnlyImage ? null : imageKey; // workflowImageEdit cần lại lúc decode canvas (viewOnly: không có phiên Edit)
+        if (!viewOnlyImage) bumpSongPlayCount(imageKey); // core/listen-stats.js — tên hàm giữ nguyên (dùng CHUNG cho mọi mediaType), Photo dùng làm "lượt click xem"
 
-        this._activeImageModalHandle = openImagePreviewModal(image); // core/file-manager/photo-ui.js — KHÔNG còn callbacks (Rule 5a, Core tự bắn eventBus cố định), Router gọi lại các hàm dưới đây, đọc _activeImageKey thay vì closure
+        this._activeImageModalHandle = openImagePreviewModal(image, !!viewOnlyImage); // core/file-manager/photo-ui.js — KHÔNG còn callbacks (Rule 5a, Core tự bắn eventBus cố định), Router gọi lại các hàm dưới đây, đọc _activeImageKey thay vì closure
         this._initZoom();
-        workflowImageEdit.ensureEditSessionReady(); // event/workflow/image-edit.js — decode canvas NGAY, không đợi bấm Edit (không await — modal đã hiện `<img>` tức thời, canvas tự vẽ đè lên khi decode xong)
+        if (!viewOnlyImage) workflowImageEdit.ensureEditSessionReady(); // event/workflow/image-edit.js — decode canvas NGAY, không đợi bấm Edit (không await — modal đã hiện `<img>` tức thời, canvas tự vẽ đè lên khi decode xong)
     },
 
     /** Bật Panzoom trên `mediaWrap` (bọc CHUNG `<img>` + canvasWrap, core/file-manager/photo-ui.js)
