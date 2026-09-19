@@ -1,36 +1,31 @@
 /**
- * core/visualizer/draw/screen-flash.js — Vẽ 1 lớp CHỚP SÁNG TOÀN MÀN HÌNH (canvas 2D) — hàm DUY NHẤT
+ * core/visualizer/draw/screen-flash.js — Vẽ 1 lớp CHỚP SÁNG TOÀN MÀN HÌNH (canvas 2D) — hàm VẼ DUY NHẤT
  * cho mọi effect có chớp: Lighting/Thunder, Lighting/Fireworks, Rain/Glass, Rain/Street (Workflow
  * event/workflow/visualizer-render.js gọi TRỰC TIẾP, không qua wrapper core nào — Rule 3 cấm core
- * gọi core).
+ * gọi core). Alpha đưa vào do `computeScreenFlashAlpha()` (screen-flash-alpha.js, cùng thư mục) tính.
  *
- * [MỚI — 19/09/2026, yêu cầu Giang] Gom `drawLightingFlash()` (lighting/common.js) + `paintRainFlash()`
- * (rain/common.js) về đây, kèm CAP opacity cứng SCREEN_FLASH_MAX_ALPHA (0.8) áp dụng cho MỌI effect ở
- * đúng 1 chỗ này — nơi gọi không tự cap lẻ nữa. `maxAlpha` là mức trần do người dùng chỉnh
- * (customEffect.<group>.flashMaxOpacity, Custom Effect Drawer), luôn bị kẹp lại <= trần cứng.
- * Cách tính alpha thô (ngưỡng/công thức/decay) vẫn ở từng group (computeLightningFlashAlpha/
- * computeFireworksFlashAlpha/computeRainFlashAlpha) vì khác nhau thật — chỉ phần VẼ + CAP được gom.
+ * [MỚI — 19/09/2026, yêu cầu Giang] Gom `drawLightingFlash()` + `paintRainFlash()` về đây. Trần CỨNG
+ * SCREEN_FLASH_MAX_ALPHA (0.8) kẹp ở ĐÚNG 1 chỗ này cho MỌI effect (lưới an toàn cuối cùng — dù nơi
+ * gọi truyền alpha lớn cỡ nào). Màu chớp cũng chung 1 tint duy nhất (bản cũ Street từng lệch nhẹ).
  *
  * Thuần — không appState, chỉ Canvas API (Rule 2/3).
  *
  * NẠP SAU: core/custom-effect.js (hằng SCREEN_FLASH_MAX_ALPHA).
  */
 
+const SCREEN_FLASH_TINT = '200, 220, 255';
+
 /**
  * @param {CanvasRenderingContext2D} ctx
  * @param {number} width @param {number} height  Kích thước canvas (px thật).
- * @param {number} alpha  Alpha THÔ (chưa cap) — hàm tự kẹp vào [0, min(maxAlpha, SCREEN_FLASH_MAX_ALPHA)].
- * @param {string} [tint] Chuỗi "r, g, b".
- * @param {number} [maxAlpha] Trần do người dùng chỉnh; không hợp lệ/thiếu -> dùng trần cứng.
+ * @param {number} alpha  Alpha (thường đã qua computeScreenFlashAlpha) — hàm vẫn tự kẹp <= trần cứng.
  */
-function drawScreenFlash(ctx, width, height, alpha, tint = '200, 220, 255', maxAlpha = SCREEN_FLASH_MAX_ALPHA) {
-    const userCap = Number.isFinite(maxAlpha) ? maxAlpha : SCREEN_FLASH_MAX_ALPHA;
-    const cap = Math.max(0, Math.min(userCap, SCREEN_FLASH_MAX_ALPHA));
-    const finalAlpha = Math.min(alpha, cap);
+function drawScreenFlash(ctx, width, height, alpha) {
+    const finalAlpha = Math.min(alpha, SCREEN_FLASH_MAX_ALPHA);
     if (!(finalAlpha > 0)) return;
-    // Reset globalAlpha — fillStyle rgba đã mang alpha riêng, globalAlpha còn sót từ lớp vẽ trước
-    // (nếu != 1) sẽ nhân thêm vào làm sai độ chớp. Giữ đúng hành vi paintRainFlash() cũ.
+    // Reset globalAlpha — fillStyle rgba đã mang alpha riêng, globalAlpha sót từ lớp vẽ trước (nếu != 1)
+    // sẽ nhân thêm làm sai độ chớp. Giữ đúng hành vi paintRainFlash() cũ.
     ctx.globalAlpha = 1.0;
-    ctx.fillStyle = `rgba(${tint}, ${finalAlpha})`;
+    ctx.fillStyle = `rgba(${SCREEN_FLASH_TINT}, ${finalAlpha})`;
     ctx.fillRect(0, 0, width, height);
 }
