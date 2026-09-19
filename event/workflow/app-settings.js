@@ -58,8 +58,20 @@
  * NẠP TRƯỚC: event/router/player-controls.js, event/router/app-settings.js,
  * event/router/app-panel-nav.js, event/router/visual-bg.js.
  */
+/** Carousel Main (xem `_renderMain()`): chờ drawer trượt lên gần xong rồi mới cho card đầu tiên phóng
+ * to, thời lượng phóng to, và độ trễ debounce sau sự kiện `scroll` CUỐI CÙNG để coi là "đã dừng hẳn"
+ * (kéo lại về bản lặp giữa — xem core/settings-carousel-ui.js::settleSettingsCarouselLoop()). Timer
+ * chạy qua taskManager (task-manager-conventions.md — CHỈ Workflow được hẹn giờ). */
+const APP_SETTINGS_CAROUSEL_ENTRANCE_DELAY_MS = 180;
+const APP_SETTINGS_CAROUSEL_ENTRANCE_MS = 420;
+const APP_SETTINGS_CAROUSEL_SETTLE_DELAY_MS = 140;
+const APP_SETTINGS_CAROUSEL_ENTRANCE_TASK = 'appSettingsCarouselEntrance';
+const APP_SETTINGS_CAROUSEL_ENTRANCE_END_TASK = 'appSettingsCarouselEntranceEnd';
+const APP_SETTINGS_CAROUSEL_SETTLE_TASK = 'appSettingsCarouselSettle';
+
 const workflowAppSettings = {
 
+    _carouselTouching: false, // ngón tay còn đang chạm carousel Main — không nhảy scrollLeft lúc đang kéo tay
     _screenStack: [], // mảng hàm render (KHÔNG gồm màn hiện tại) — back() pop ra màn NGAY TRƯỚC
     _mainCarouselIndex: 0, // MỚI (20/09/2026) — mục (0..4) đang ở giữa carousel Main lần cuối người dùng bấm mở 1 màn con — Back về Main giữ đúng mục đó ở giữa; `open()` luôn reset về 0 (mục đầu tiên)
 
@@ -136,8 +148,36 @@ const workflowAppSettings = {
         this._currentRenderFn = () => this._renderMain();
         this._render(t('appSettings.title'), renderAppSettingsMainBody(), (body) => { // components/settings/app-settings-main.js — carousel ngang (SỬA 20/09/2026)
             wireAppSettingsMainCarousel(body); // core/app-settings-ui.js — chỉ wire sự kiện -> eventBus
-            initSettingsCarousel(body.querySelector('#app-settings-carousel'), this._mainCarouselIndex); // core/settings-carousel-ui.js — đặt mục hiện tại vào tâm + hiệu ứng phóng to
+            const scrollerEl = body.querySelector('#app-settings-carousel');
+            this._carouselTouching = false;
+            initSettingsCarousel(scrollerEl, this._mainCarouselIndex); // core/settings-carousel-ui.js — đặt mục hiện tại vào tâm, card vẫn nhỏ/mờ
+            // Hiệu ứng mở: đợi drawer trượt lên gần xong -> card ở tâm phóng to -> hết animation thì gỡ transition (cuộn theo tay tức thì).
+            taskManager.once(() => {
+                startSettingsCarouselEntrance(scrollerEl, APP_SETTINGS_CAROUSEL_ENTRANCE_MS); // core/settings-carousel-ui.js
+                taskManager.once(() => endSettingsCarouselEntrance(scrollerEl), APP_SETTINGS_CAROUSEL_ENTRANCE_MS + 40, APP_SETTINGS_CAROUSEL_ENTRANCE_END_TASK);
+            }, APP_SETTINGS_CAROUSEL_ENTRANCE_DELAY_MS, APP_SETTINGS_CAROUSEL_ENTRANCE_TASK);
         });
+    },
+
+    /** Mỗi sự kiện `scroll` của carousel Main (Router 'appSettings.carousel.scroll') — cập nhật
+     * scale/opacity theo vị trí + đặt lại (debounce, cùng tên task) bộ đếm "đã dừng cuộn". */
+    handleCarouselScroll(scrollerEl) {
+        updateSettingsCarouselFocus(scrollerEl); // core/settings-carousel-ui.js
+        this._scheduleCarouselSettle(scrollerEl);
+    },
+
+    /** Ngón tay chạm/nhấc khỏi carousel Main (Router 'appSettings.carousel.touch.start|end'). Nhấc tay
+     * -> hẹn lại "đã dừng" (có thể lúc chạm cuộn đã đứng yên sẵn, không còn sự kiện scroll nào tới nữa). */
+    handleCarouselTouch(scrollerEl, isTouching) {
+        this._carouselTouching = isTouching;
+        if (!isTouching) this._scheduleCarouselSettle(scrollerEl);
+    },
+
+    _scheduleCarouselSettle(scrollerEl) {
+        taskManager.once(() => {
+            if (this._carouselTouching) return; // còn đang kéo tay — touchend sẽ hẹn lại
+            settleSettingsCarouselLoop(scrollerEl); // core/settings-carousel-ui.js
+        }, APP_SETTINGS_CAROUSEL_SETTLE_DELAY_MS, APP_SETTINGS_CAROUSEL_SETTLE_TASK);
     },
 
     /** Tap 1 card ở carousel Main (Router 'appSettings.carousel.card.click').
@@ -897,29 +937,30 @@ const workflowAppSettings = {
         });
     },
 
-    // ===================== Troubleshooting = Debug console (TÁI DÙNG NGUYÊN
-    // renderDebugConsolePanelBody() + workflowSettingsMisc — ĐÃ migrate) =====================
+    // ===================== Troubleshooting (SỬA 20/09/2026, Giang yêu cầu gộp vào 1 nhóm) — màn danh sách
+    // PHẲNG 4 hàng ngang hàng: [Debug console >] · [Restore default settings] · [Clear app cache] (2 hàng
+    // riêng, thay modalChoice 3 nút "Reset app" cũ) · [Scan & fix video thumbnails >].
+    // "Restart app" KHÔNG còn ở Settings — chuyển lên icon header Playlist (components/playlist-view.js,
+    // id `setting-restart-app`, đã có sẵn listener ở event/listener/settings-misc.js). =====================
 
     _renderTroubleshooting() {
         this._currentRenderFn = () => this._renderTroubleshooting();
+        this._render(t('appSettings.row.troubleshooting'), renderTroubleshootingBody(), wireAppSettingsTroubleshooting); // components/settings/troubleshooting.js, core/app-settings-ui.js
+    },
+
+    /** Debug console — TÁI DÙNG NGUYÊN workflowSettingsMisc.openDebugConsole() (vẽ danh sách log + wire nút). */
+    _renderDebugConsole() {
+        this._currentRenderFn = () => this._renderDebugConsole();
         this._render(t('settingsMisc.debugConsole.title'), renderDebugConsolePanelBody(), () => {
             workflowSettingsMisc.openDebugConsole(); // event/workflow/settings-misc.js
         });
     },
 
-    // ===================== Reset app — modalChoice, TÁI DÙNG NGUYÊN 3 hàm ask*() có sẵn
-    // (event/workflow/settings-misc.js, KHÔNG đổi gì — không cần Generic Drawer, modalChoice() là
-    // overlay riêng, đứng độc lập) =====================
-
-    _openResetAppMenu() {
-        modalChoice(
-            '',
-            [
-                { label: t('appSettings.resetApp.restartApp.label'), onClick: () => workflowSettingsMisc.askRestartApp({ onConfirmSend: () => eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.restartApp.confirm', payload: {} }) }) },
-                { label: t('appSettings.resetApp.restoreDefaults.label'), onClick: () => workflowSettingsMisc.askRestoreDefaults({ onConfirmSend: () => eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.restoreDefaults.confirm', payload: {} }) }) },
-                { label: t('appSettings.resetApp.clearCache.label'), onClick: () => workflowSettingsMisc.askClearCache({ onConfirmSend: () => eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.clearCache.confirm', payload: {} }) }) },
-            ],
-            { title: t('appSettings.resetApp.title') }
-        );
+    /** Scan & fix video thumbnails — CHỈ phần kiểm tra/sửa thumb của Video (Giang yêu cầu, 20/09/2026).
+     * KHÔNG phải "Scan & clean broken files" của panel Storage (khối đó GIỮ NGUYÊN ở Storage). Wire 3 nút ở
+     * core/app-settings-ui.js::wireAppSettingsVideoThumb() -> router 'fileManagerStorage'. */
+    _renderVideoThumbRepair() {
+        this._currentRenderFn = () => this._renderVideoThumbRepair();
+        this._render(t('appSettings.troubleshooting.videoThumb.label'), renderVideoThumbRepairBody(), wireAppSettingsVideoThumb); // components/settings/troubleshooting.js, core/app-settings-ui.js
     },
 };

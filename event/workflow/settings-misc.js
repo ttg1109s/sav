@@ -94,11 +94,16 @@ const workflowSettingsMisc = {
         this.openDebugConsole(); // vẽ danh sách log + wire nút Copy/Xoá — TÁI DÙNG nguyên logic có sẵn ngay trên
     },
 
-    /** Ứng với `settingsMisc.debugConsole.copy.click` (nút Copy, wire 1 lần ở core/settings-misc-
+    /** Chuỗi 1 dòng log khi Copy (cả "Copy all" lẫn Copy từng dòng — CÙNG 1 định dạng, dán ra đọc y hệt). */
+    _formatDebugConsoleEntry(entry) {
+        return `[${new Date(entry.time).toLocaleTimeString()}] ${entry.level.toUpperCase()}: ${entry.text}`;
+    },
+
+    /** Ứng với `settingsMisc.debugConsole.copy.click` (nút Copy all, wire 1 lần ở core/settings-misc-
      * ui.js). Public — Router gọi trực tiếp. */
     async copyDebugConsoleLog() {
         const logs = getDebugConsoleLogs(); // core/debug-console.js
-        const text = logs.map((l) => `[${new Date(l.time).toLocaleTimeString()}] ${l.level.toUpperCase()}: ${l.text}`).join('\n');
+        const text = logs.map((l) => this._formatDebugConsoleEntry(l)).join('\n');
         try {
             await navigator.clipboard.writeText(text);
             alertModal(t('settingsMisc.debugConsole.copiedMsg'));
@@ -107,32 +112,52 @@ const workflowSettingsMisc = {
         }
     },
 
-    /** Ứng với `settingsMisc.debugConsole.clear.click` (nút Xoá). Public — Router gọi trực tiếp. */
+    /** Ứng với `settingsMisc.debugConsole.clear.click` (nút Clear all). Public — Router gọi trực tiếp. */
     clearDebugConsoleLog() {
         clearDebugConsoleLogs(); // core/debug-console.js
         if (this._debugConsolePanelEl) this._renderDebugConsoleList(this._debugConsolePanelEl);
     },
 
-    /** Vẽ lại TOÀN BỘ danh sách log vào `#debug-console-list` bên trong `panelEl` — gọi lúc mở
-     * panel LẪN sau khi bấm "Xoá" (danh sách rỗng lại). Tự cuộn xuống dòng MỚI NHẤT sau khi vẽ.
-     * `escapeHtml()` (core/modal-choice-ui.js) BẮT BUỘC — nội dung log có thể chứa bất kỳ ký tự nào
-     * (object dump, tên file người dùng...), gán qua `innerHTML` không escape sẽ vỡ layout/lộ XSS.
-     * @param {HTMLElement} panelEl
-     */
-    _renderDebugConsoleList(panelEl) {
-        const listEl = panelEl.querySelector('#debug-console-list');
-        if (!listEl) return;
-        const logs = getDebugConsoleLogs(); // core
-        if (logs.length === 0) {
-            listEl.textContent = t('settingsMisc.debugConsole.emptyMsg');
+    /** MỚI (20/09/2026) — ứng với `settingsMisc.debugConsole.item.click` payload.action === 'copy':
+     * Copy ĐÚNG 1 dòng. KHÔNG dùng alertModal (mỗi lần copy 1 dòng mà bật 1 modal thì quá nặng) — đổi
+     * icon nút sang dấu tick ~1s rồi trả lại icon gốc (báo nhẹ, không chặn thao tác).
+     * @param {number} id @param {HTMLElement} btnEl - nút Copy vừa bấm */
+    async copyDebugConsoleItem(id, btnEl) {
+        const entry = getDebugConsoleLogs().find((l) => l.id === id); // core/debug-console.js
+        if (!entry) return;
+        try {
+            await navigator.clipboard.writeText(this._formatDebugConsoleEntry(entry));
+        } catch (e) {
+            alertModal(t('settingsMisc.debugConsole.copyFailedMsg'));
             return;
         }
-        listEl.innerHTML = logs.map((l) => {
-            const color = l.level === 'error' ? 'text-rose-400' : l.level === 'warn' ? 'text-amber-400' : 'text-slate-300';
-            const time = new Date(l.time).toLocaleTimeString();
-            return `<div class="${color} mb-1 break-all whitespace-pre-wrap">[${time}] ${escapeHtml(l.text)}</div>`;
-        }).join('');
-        listEl.scrollTop = listEl.scrollHeight;
+        setDebugConsoleCopyIcon(btnEl, renderDebugConsoleCopyIconHtml(true)); // core/settings-misc-ui.js + components/debug-console-drawer.js
+        taskManager.once(() => setDebugConsoleCopyIcon(btnEl, renderDebugConsoleCopyIconHtml(false)), 1000, `debugConsoleCopyFlash_${id}`);
+    },
+
+    /** MỚI (20/09/2026) — ứng với `settingsMisc.debugConsole.item.click` payload.action === 'remove':
+     * Xoá ĐÚNG 1 dòng rồi vẽ lại danh sách, GIỮ NGUYÊN vị trí cuộn (không nhảy xuống cuối như lúc mở).
+     * @param {number} id */
+    removeDebugConsoleItem(id) {
+        removeDebugConsoleLog(id); // core/debug-console.js
+        if (this._debugConsolePanelEl) this._renderDebugConsoleList(this._debugConsolePanelEl, true);
+    },
+
+    /** Vẽ lại TOÀN BỘ danh sách log vào `#debug-console-list` bên trong `panelEl` — gọi lúc mở
+     * panel, sau "Clear all" (danh sách rỗng lại), và sau khi xoá 1 dòng. Mặc định tự cuộn xuống dòng
+     * MỚI NHẤT sau khi vẽ; `keepScroll` = true thì giữ nguyên vị trí cuộn cũ (xoá 1 dòng giữa danh sách).
+     * HTML item do components/debug-console-drawer.js::renderDebugConsoleListHtml() dựng (đã escapeHtml
+     * nội dung log); item vẽ SAU khi Generic Drawer đã áp theme nên phải áp lại `data-uitk` cho
+     * chính vùng danh sách (core/ui-theme/apply-ui.js).
+     * @param {HTMLElement} panelEl @param {boolean} [keepScroll]
+     */
+    _renderDebugConsoleList(panelEl, keepScroll) {
+        const listEl = panelEl.querySelector('#debug-console-list');
+        if (!listEl) return;
+        const prevScrollTop = listEl.scrollTop;
+        listEl.innerHTML = renderDebugConsoleListHtml(getDebugConsoleLogs()); // components/debug-console-drawer.js, core
+        applyUiThemeToDom(listEl, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
+        listEl.scrollTop = keepScroll ? prevScrollTop : listEl.scrollHeight;
     },
 
     // ===================== appRecovery =====================

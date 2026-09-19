@@ -546,11 +546,10 @@ const workflowFileManagerStorage = {
                 }
             }
             if (!genericDrawerPanel.classList.contains('hidden')) {
-                resetScanResultUI(
-                    genericDrawerBody.querySelector('#storage-scan-result'),
-                    genericDrawerBody.querySelector('#storage-scan-list')
+                resetScanResultUI( // SỬA (20/09/2026) — giờ CHỈ còn dùng bởi màn Troubleshooting > Scan & fix video thumbnails (id `video-thumb-*`)
+                    genericDrawerBody.querySelector('#video-thumb-scan-result'),
+                    genericDrawerBody.querySelector('#video-thumb-scan-list')
                 );
-                await this.refreshTab();
             }
         });
 
@@ -581,11 +580,12 @@ const workflowFileManagerStorage = {
             };
             if (sources.song) results = results.concat((await scanAllSongsForCorruption(onScanProgress)).map((r) => ({ ...r, mediaType: 'song' })));
             if (sources.video) {
-                const videoScanResults = await scanAllVideosForCorruption(onScanProgress); // core/storage-manager.js
-                // MỚI (19/09/2026) — thumb full-res ĐEN/không decode được: cần decode ảnh + đo pixel (DOM) nên KHÔNG nằm
-                // trong `isVideoRecordCorrupted()` (core) mà là 1 bước Workflow riêng ngay sau lượt quét core.
-                const blackThumbResults = await this._scanBlackVideoThumbs(videoScanResults, onScanProgress);
-                results = results.concat(videoScanResults.concat(blackThumbResults).map((r) => ({ ...r, mediaType: 'video' })));
+                // SỬA (20/09/2026, Giang yêu cầu — "chỉ lấy phần scan và fix thumb full res của video sang Troubleshooting,
+                // KHÔNG lấy scan & broken của Storage") — Storage CHỈ còn báo video hỏng THẬT (blob chính không đọc/decode
+                // được -> `fixable:false`, xoá được); phần thiếu/đen/không decode thumb (`fixable:true`) DỜI SANG
+                // Setting > Troubleshooting > "Scan & fix video thumbnails" (`executeScanVideoThumbs()` ngay dưới).
+                const videoScanResults = (await scanAllVideosForCorruption(onScanProgress)).filter((r) => !r.fixable); // core/storage-manager.js
+                results = results.concat(videoScanResults.map((r) => ({ ...r, mediaType: 'video' })));
             }
             if (sources.photo) results = results.concat((await scanAllPhotosForCorruption(onScanProgress)).map((r) => ({ ...r, mediaType: 'photo' })));
 
@@ -655,6 +655,48 @@ const workflowFileManagerStorage = {
             img.removeAttribute('src');
             try { URL.revokeObjectURL(url); } catch (e) {}
         }
+    },
+
+    /** MỚI (20/09/2026, Giang yêu cầu — chuyển "scan check thumb full res video + fix" từ Storage sang
+     * Setting > Troubleshooting) — ứng với msg.type = 'fileManagerStorage.videoThumb.scan.click'. CHỈ quét
+     * Video, CHỈ báo phần thumb (`fixable:true`): thiếu thumb cover/full-res (lượt quét core
+     * `scanAllVideosForCorruption()`, lọc lại `fixable`) + thumb full-res ĐEN/không decode được
+     * (`_scanBlackVideoThumbs()` ngay dưới, dùng lại NGUYÊN). Video hỏng THẬT (blob chính) KHÔNG báo ở đây —
+     * đó là việc của "Scan & clean broken files" ở Storage. Sửa = `executeRepairBroken()` (giữ nguyên, chụp
+     * lại thumb, không xoá gì). Hiển thị vào khối `#video-thumb-scan-*` của màn Troubleshooting
+     * (components/settings/troubleshooting.js::renderVideoThumbRepairBody()).
+     * @param {{onScanComplete: (results: Array) => void}} payload */
+    async executeScanVideoThumbs(payload) {
+        const { onScanComplete } = payload;
+        let results = [];
+        await withLoadingShield(t('common.storage.scanning'), async () => {
+            const onScanProgress = (current, total) => {
+                loadingText.textContent = tFormat('common.storage.scanningProgress', { n: current, total });
+            };
+            const coreResults = await scanAllVideosForCorruption(onScanProgress); // core/storage-manager.js
+            const missingThumbResults = coreResults.filter((r) => r.fixable);
+            const blackThumbResults = await this._scanBlackVideoThumbs(coreResults, onScanProgress); // bỏ qua mọi video đã bị core gắn cờ (kể cả hỏng thật)
+            results = missingThumbResults.concat(blackThumbResults).map((r) => ({ ...r, mediaType: 'video' }));
+            if (!genericDrawerPanel.classList.contains('hidden')) {
+                renderScanResultUI( // core/storage-manager.js
+                    results,
+                    genericDrawerBody.querySelector('#video-thumb-scan-result'),
+                    genericDrawerBody.querySelector('#video-thumb-scan-summary'),
+                    genericDrawerBody.querySelector('#video-thumb-scan-list'),
+                    genericDrawerBody.querySelector('#btn-video-thumb-fix')
+                );
+            }
+        });
+        if (onScanComplete) onScanComplete(results);
+    },
+
+    /** Ứng với msg.type = 'fileManagerStorage.videoThumb.dismiss.click'. */
+    dismissVideoThumbScan() {
+        if (genericDrawerPanel.classList.contains('hidden')) return;
+        resetScanResultUI(
+            genericDrawerBody.querySelector('#video-thumb-scan-result'),
+            genericDrawerBody.querySelector('#video-thumb-scan-list')
+        );
     },
 
     /** Ứng với msg.type = 'fileManagerStorage.dismissScan.click'. */
