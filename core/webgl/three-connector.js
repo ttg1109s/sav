@@ -564,25 +564,83 @@ function pickNearestFreePin(chip, towardWorldPos) {
     return best;
 }
 
-// GIỮ NGUYÊN thuật toán snap-lưới + chống trùng vị trí của generateRandomNodes() gốc — chỉ đổi
-// mesh (createChipMesh thay icosahedron+ring+pointlight) + màu (getComputedColor thay NODE_COLORS).
-function buildCircuitNodes(cfg, nodeGroup) {
-    const chips = [];
-    const gridSize = 12;
-    for (let i = 0; i < cfg.nodeCount; i++) {
-        const gx = Math.floor((Math.random() - 0.5) * 14) * gridSize;
-        const gy = Math.floor((Math.random() - 0.5) * 8) * gridSize;
-        const gz = Math.floor((Math.random() - 0.5) * 14) * gridSize;
-        if (chips.some((c) => c.pos.x === gx && c.pos.y === gy && c.pos.z === gz)) continue;
+// ===== Circuit — bố trí node theo LƯỚI LẬP PHƯƠNG k×k×k, lấp từ lớp ngoài vào trong =====
+// MỚI (yêu cầu Giang — "circuit chỉnh 16-64 node, phân bổ node theo dạng lập phương từ ngoài vào
+// trong", "map giống synapse"): THAY layout random-snap-lưới cũ (trùng ô thì bỏ -> số chip thật
+// hụt so với slider, mỗi lần init 1 khác). Mirror ĐÚNG khuôn buildSynapseGridCells() (2D) sang 3D:
+// "vòng" (ring) = khoảng cách Chebyshev tới MẶT cube gần nhất (0 = lớp vỏ ngoài cùng), sắp ô theo
+// ring -> z -> y -> x rồi lấy nodeCount ô ĐẦU — nên node index i ứng với dải tần i (tonotopic, bass
+// ở vỏ ngoài, treble vào lõi) đúng như neuron synapse. KHÁC synapse 1 điểm: lớp CUỐI chưa lấp đủ
+// được rải ĐỀU (stride) trong lớp đó thay vì lấy nguyên 1 nửa theo thứ tự z/y/x — nếu không cube
+// bị lệch hẳn về 1 phía khi nodeCount nhỏ. Hệ quả: lõi 2×2×2 (k=4) chỉ có node khi nodeCount >= 57.
+const CIRCUIT_NODE_MIN = 16;
+const CIRCUIT_NODE_MAX = 64;
+const CIRCUIT_NODE_FALLBACK = 32;
+// Nửa cạnh cube (world units) — cố định để cube luôn vừa khung camera circuit (vị trí khởi tạo
+// (0,30,210), fov 45) kể cả màn dọc; khoảng cách giữa 2 ô tự co theo k.
+const CIRCUIT_CUBE_HALF_EXTENT = 32;
 
-        const color = getComputedColor(i, cfg.nodeCount, 128); // core/audio-analysis.js
+function buildCircuitCubeCells(nodeCountRaw) {
+    const requested = Math.round(Number(nodeCountRaw));
+    const nodeCount = Math.max(CIRCUIT_NODE_MIN, Math.min(CIRCUIT_NODE_MAX, Number.isFinite(requested) ? requested : CIRCUIT_NODE_FALLBACK));
+    let k = 2;
+    while (k * k * k < nodeCount) k++;
+
+    const ringsMap = new Map();
+    for (let z = 0; z < k; z++) {
+        for (let y = 0; y < k; y++) {
+            for (let x = 0; x < k; x++) {
+                const ring = Math.min(x, k - 1 - x, y, k - 1 - y, z, k - 1 - z);
+                if (!ringsMap.has(ring)) ringsMap.set(ring, []);
+                ringsMap.get(ring).push({ x, y, z, ring });
+            }
+        }
+    }
+
+    const chosen = [];
+    let remaining = nodeCount;
+    for (let r = 0; remaining > 0 && ringsMap.has(r); r++) {
+        const cellsInRing = ringsMap.get(r);
+        if (cellsInRing.length <= remaining) {
+            chosen.push(...cellsInRing);
+            remaining -= cellsInRing.length;
+        } else {
+            for (let j = 0; j < remaining; j++) chosen.push(cellsInRing[Math.floor((j + 0.5) * cellsInRing.length / remaining)]);
+            remaining = 0;
+        }
+    }
+
+    const spacing = (CIRCUIT_CUBE_HALF_EXTENT * 2) / (k - 1);
+    const half = (k - 1) / 2;
+    chosen.forEach((cell) => { cell.position = new THREE.Vector3((cell.x - half) * spacing, (cell.y - half) * spacing, (cell.z - half) * spacing); });
+    return { cells: chosen, spacing, k };
+}
+
+// ĐỔI (xem buildCircuitCubeCells() phía trên): vị trí từ lưới lập phương thay random-snap. MỚI:
+// mỗi chip mang thêm trạng thái audio RIÊNG (prevBinEnergy/smoothedBinEnergy/adaptation/
+// lateralInhibition/energy — cùng tên field neuron synapse để TÁI DÙNG nguyên các hàm trong
+// core/visualizer/groups/connector/synapse.js) + `neighbors` (chỉ số chip lân cận trong lưới,
+// Chebyshev <= 1 theo toạ độ ô — dùng cho lateral inhibition).
+function buildCircuitNodes(cfg, nodeGroup) {
+    const { cells } = buildCircuitCubeCells(cfg.nodeCount);
+    const chips = cells.map((cell, i) => {
+        const color = getComputedColor(i, cells.length, 128); // core/audio-analysis.js
         const colorHex = new THREE.Color(color.fillNoAlpha).getHex(); // fillNoAlpha: tránh cảnh báo alpha của THREE.Color, xem getComputedColor()
         const { group, bodyMesh, pins, pinMat, pLight } = createChipMesh(colorHex);
-        group.position.set(gx, gy, gz);
+        group.position.copy(cell.position);
         nodeGroup.add(group);
-
-        chips.push({ id: `NODE_${i}`, pos: new THREE.Vector3(gx, gy, gz), group, bodyMesh, pins, pinMat, pLight, color: colorHex });
-    }
+        return {
+            id: `NODE_${i}`, pos: cell.position.clone(), cell: { x: cell.x, y: cell.y, z: cell.z, ring: cell.ring },
+            group, bodyMesh, pins, pinMat, pLight, color: colorHex,
+            neighbors: [], energy: 0, prevBinEnergy: 0, smoothedBinEnergy: 0, adaptation: 0, lateralInhibition: 0,
+        };
+    });
+    chips.forEach((a, i) => {
+        chips.forEach((b, j) => {
+            if (i === j) return;
+            if (Math.max(Math.abs(a.cell.x - b.cell.x), Math.abs(a.cell.y - b.cell.y), Math.abs(a.cell.z - b.cell.z)) <= 1) a.neighbors.push(j);
+        });
+    });
     return chips;
 }
 
@@ -660,7 +718,11 @@ function onCircuitSignalArrival(signal) {
     signal.headSpark.visible = false;
     signal.sourcePin.busy = false;
     signal.targetPin.busy = false;
-    gsap.to(signal.target.bodyMesh.scale, { x: 1.8, y: 1.8, z: 1.8, duration: 0.15, yoyo: true, repeat: 1, ease: 'power2.out' });
+    // SỬA: gsap.to(yoyo) -> gsap.fromTo(1 -> 1.8 -> 1, overwrite) — giờ NHIỀU xung cùng đổ về 1 node
+    // đích (map theo pitch) nên 2 lần nháy chồng nhau rất hay xảy ra: gsap.to() thứ 2 bắt đầu từ
+    // scale đang phình dở rồi yoyo về ĐÚNG giá trị dở dang đó -> chip kẹt to vĩnh viễn, cộng dồn.
+    // fromTo luôn neo về 1 và overwrite huỷ tween cũ trên cùng scale nên luôn trả đúng 1.
+    gsap.fromTo(signal.target.bodyMesh.scale, { x: 1, y: 1, z: 1 }, { x: 1.8, y: 1.8, z: 1.8, duration: 0.15, yoyo: true, repeat: 1, ease: 'power2.out', overwrite: true });
     signal.isFading = true;
 }
 
@@ -672,20 +734,23 @@ function destroyCircuitSignal(signal, cnGroupCircuit) {
     signal.lineMaterial.dispose();
 }
 
-// GIỮ NGUYÊN logic any-to-any + chống trùng cặp + trần 90 của spawnSignalFromNode(sourceNode)
-// gốc — source CỐ ĐỊNH (tham số), chỉ target random, đúng chữ ký gốc (chain reaction cần gọi lại
-// với source = chip vừa nhận tín hiệu). KHÔNG có graph cố định nào (đọc lại kỹ bản gốc: target
-// luôn chọn ngẫu nhiên trong TOÀN BỘ node).
-function spawnCircuitSignal(sourceChip, chips, activeSignals, onBitCount, cnGroupCircuit) {
-    if (activeSignals.length > 90) return null;
-    const candidates = chips.filter((c) => c !== sourceChip);
-    if (candidates.length === 0) return null;
-    const targetChip = candidates[Math.floor(Math.random() * candidates.length)];
+// ĐỔI (yêu cầu Giang — audio kích hoạt từng node): nguồn VÀ ĐÍCH đều do Workflow chọn sẵn
+// (nguồn = node có dải tần vừa onset, đích = node theo pitch — xem _tickConnectorCircuit(),
+// visualizer-render.js), hàm này chỉ dựng tín hiệu. Bỏ random target + trần 90 cứng gốc (trần
+// giờ là cfg.maxConcurrentSignals, Workflow tự kiểm tra) — GIỮ chống trùng cặp đang bay.
+function spawnCircuitSignal(sourceChip, targetChip, activeSignals, onBitCount, cnGroupCircuit) {
+    if (!targetChip || targetChip === sourceChip) return null;
     if (activeSignals.some((s) => s.source === sourceChip && s.target === targetChip)) return null;
 
     const sourcePin = pickNearestFreePin(sourceChip, targetChip.pos);
     const targetPin = pickNearestFreePin(targetChip, sourceChip.pos);
     return createCircuitSignal(sourceChip, targetChip, sourcePin, targetPin, onBitCount, cnGroupCircuit);
+}
+
+// MỚI: chip nguồn nháy nhẹ lúc bắn (arrival đã có nháy ở đích) — cùng khuôn fromTo/overwrite của
+// onCircuitSignalArrival() (xem lý do ở đó) để 2 lần nháy chồng nhau vẫn luôn về scale 1.
+function pulseChipOnFire(chip) {
+    gsap.fromTo(chip.bodyMesh.scale, { x: 1, y: 1, z: 1 }, { x: 1.45, y: 1.45, z: 1.45, duration: 0.1, yoyo: true, repeat: 1, ease: 'power2.out', overwrite: true });
 }
 
 // GIỮ NGUYÊN 100% — 3 chế độ + hằng số hình học + tween GSAP của triggerCinematicCameraShift() gốc.
@@ -830,6 +895,8 @@ function resetConnectorPerTrackState() {
     appState.get('cnActiveSignalsCircuit').forEach((s) => destroyCircuitSignal(s, cnGroupCircuit));
     appState.set('cnActiveSignalsCircuit', [], { skipCheck: true });
     appState.get('cnChips').forEach((c) => c.pins.forEach((p) => { p.busy = false; }));
+    // MỚI: chip giờ có trạng thái audio riêng (buildCircuitNodes()) — reset cùng nhịp neuron synapse.
+    appState.get('cnChips').forEach((c) => { c.prevBinEnergy = 0; c.energy = 0; c.adaptation = 0; c.lateralInhibition = 0; c.smoothedBinEnergy = 0; });
 }
 
 function updateConnectorVisibility() {
