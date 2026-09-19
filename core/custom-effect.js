@@ -25,6 +25,11 @@ const CUSTOM_EFFECT_DEFAULT_LAMP = { xPercent: 50, heightPx: 150, flareScale: 1 
 // custom-effect-drawer.js::_renderCeFireworksTextsSection() + event/workflow/custom-effect.js.
 const CUSTOM_EFFECT_MAX_TEXTS = 10;
 
+// Trần CỨNG opacity của lớp chớp sáng toàn màn hình — [MỚI 19/09/2026, yêu cầu Giang] áp dụng cho MỌI
+// effect có chớp (Thunder/Fireworks/Rain), kẹp ở đúng 1 nơi: drawScreenFlash() (core/visualizer/draw/
+// screen-flash.js). Cũng là `max` của slider field `flashMaxOpacity` (CUSTOM_EFFECT_FIELDS bên dưới).
+const SCREEN_FLASH_MAX_ALPHA = 0.8;
+
 // Effect KHÔNG dùng blur/glow tuỳ chỉnh (Drawer ẩn khối blur) — glow của các effect này (nếu có)
 // là phối cảnh cố định, không đọc blurEnabled/blurIntensity: Vortex không shadowBlur/bloom nào
 // cả; Rain (quầng Trăng) và Shape/Rubik (viền khối sáng) glow LUÔN bật, giá trị cố định trong
@@ -105,6 +110,9 @@ const CUSTOM_EFFECT_FIELDS = {
     ],
     rain: [
         { id: 'glassFlash', labelKey: 'visualizerSettingsDrawer.glassFlash.label', type: 'toggle', showIf: (cfg) => cfg.rainStyle === 'glass' },
+        // MỚI (19/09/2026) — trần opacity của chớp sáng, dùng cho CẢ 2 style (Glass + Street cùng gọi
+        // drawScreenFlash()). Chỉ hiện khi chớp đang bật (Street đọc chung cờ glassFlash). Kéo về 0 = tắt hẳn chớp.
+        { id: 'flashMaxOpacity', labelKey: 'customEffectDrawer.field.flashMaxOpacity', type: 'sliderFloat', min: 0, max: SCREEN_FLASH_MAX_ALPHA, step: 0.05, decimals: 2, showIf: (cfg) => !!cfg.glassFlash },
         { id: 'glassCityOpacity', labelKey: 'visualizerSettingsDrawer.rainCityOpacity.label', type: 'slider', min: 0, max: 100, step: 5, showIf: (cfg) => cfg.rainStyle === 'glass' },
         { id: 'glassCityVisible', labelKey: 'visualizerSettingsDrawer.rainCityVisible.label', type: 'toggle', showIf: (cfg) => cfg.rainStyle === 'glass' },
         { id: 'glassMoonVisible', labelKey: 'visualizerSettingsDrawer.rainMoonVisible.label', type: 'toggle', showIf: (cfg) => cfg.rainStyle === 'glass' },
@@ -137,6 +145,8 @@ const CUSTOM_EFFECT_FIELDS = {
     lighting: [
         // Chung cho cả 2 style — chớp sáng toàn màn hình khi năng lượng vượt ngưỡng.
         { id: 'flashThreshold', labelKey: 'customEffectDrawer.field.flashThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2 },
+        // MỚI (19/09/2026) — trần opacity của chớp, dùng chung 2 style (max = trần cứng SCREEN_FLASH_MAX_ALPHA).
+        { id: 'flashMaxOpacity', labelKey: 'customEffectDrawer.field.flashMaxOpacity', type: 'sliderFloat', min: 0, max: SCREEN_FLASH_MAX_ALPHA, step: 0.05, decimals: 2 },
         // Style "thunder" (tia sét)
         { id: 'boltThreshold', labelKey: 'customEffectDrawer.field.boltThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.lightingStyle === 'thunder' },
         { id: 'boltSpawnChance', labelKey: 'customEffectDrawer.field.boltSpawnChance', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.lightingStyle === 'thunder' },

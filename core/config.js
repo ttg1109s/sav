@@ -54,6 +54,7 @@
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
                 lightingStyle: 'thunder',
                 flashThreshold: 0.35, // chớp toàn màn hình — DÙNG CHUNG cho cả 2 style bên dưới
+                flashMaxOpacity: 0.8, // MỚI 19/09/2026 — trần opacity chớp (<= SCREEN_FLASH_MAX_ALPHA), dùng chung 2 style
                 // Style "thunder" (tia sét)
                 boltThreshold: 0.4, boltSpawnChance: 0.2, maxBoltCount: 5,
                 boltFadeSpeed: 0.04, boltHorizontalDeviation: 120, boltSegmentLength: 60,
@@ -76,6 +77,7 @@
             rain: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
                 rainStyle: 'glass', glassFlash: true,
+                flashMaxOpacity: 0.4, // MỚI 19/09/2026 — trần opacity chớp (= mức cap cũ của Rain, giữ nguyên hình dạng)
                 glassCityOpacity: 100, glassCityVisible: true, glassMoonVisible: true,
                 glassDropDensity: 250, glassStreakFrequency: 20,
                 streetDensity: 220, streetBuildingScale: 1.0,
