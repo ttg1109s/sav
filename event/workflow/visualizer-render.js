@@ -447,7 +447,7 @@ const workflowVisualizerRender = {
             neuron.prevBinEnergy = energyByte;
             decayNeuronState(neuron, deltaTime); // core/visualizer/groups/connector/synapse.js — THAY stepNeuronSpring() (đã xoá) + decayNeuronExcitement() (đổi tên) — fade glow + adaptation + lateralInhibition
             const color = getComputedColor(i, neurons.length, energyByte); // core/audio-analysis.js
-            applyNeuronExcitement(neuron, color.fill, color.glow); // core/visualizer/groups/connector/synapse.js — SỬA: đồng bộ SỐNG mọi vật liệu (không chỉ soma), xem docblock hàm
+            applyNeuronExcitement(neuron, color.fillNoAlpha, color.glow); // core/visualizer/groups/connector/synapse.js — SỬA: đồng bộ SỐNG mọi vật liệu (không chỉ soma), xem docblock hàm
             applyConnectorGlowSettings(neuron.glowSprite, cfg.glowEnabled, glowIntensity); // core/visualizer/groups/connector/common.js
         });
 
@@ -485,7 +485,7 @@ const workflowVisualizerRender = {
 
         chips.forEach((chip, i) => {
             const chipColor = getComputedColor(i, chips.length, 128); // core/audio-analysis.js — dataValue=128 GIỮ NGUYÊN như lúc build (chip không có "giá trị audio riêng" như bar)
-            applyChipLiveColor(chip, chipColor.fill); // core/visualizer/groups/connector/circuit.js — MỚI, xem docblock hàm (đồng bộ màu sống, tránh phải rebuild)
+            applyChipLiveColor(chip, chipColor.fillNoAlpha); // core/visualizer/groups/connector/circuit.js — MỚI, xem docblock hàm (đồng bộ màu sống, tránh phải rebuild)
             applyChipGlowSettings(chip.bodyMesh, cfg.glowEnabled, glowIntensity); // core/visualizer/groups/connector/common.js
             decayChipSpin(chip, deltaTime); // core/visualizer/groups/connector/circuit.js
         });
