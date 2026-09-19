@@ -3,8 +3,32 @@
  * Workflow (_tickConnectorCircuit(), event/workflow/visualizer-render.js) tự gom rồi gọi.
  */
 
-function pickOnBitCount(beatScaleAtBeat) {
-    return Math.round(Math.max(0, Math.min(1, beatScaleAtBeat)) * 7);
+// ĐỔI (yêu cầu Giang — payload bit theo cường độ CỦA CHÍNH node): trước đây pickOnBitCount(beatScale
+// toàn cục lúc beat) — mọi xung trong cùng 1 beat dùng chung 1 giá trị, không liên quan node nào bắn.
+// Giờ đo phần năng lượng của node VƯỢT ngưỡng bắn cơ sở (slider fireThreshold*255) trên phần còn
+// lại tới 255, quy ra 1..7 bit sáng (tối thiểu 1 — xung đã bắn thì luôn mang ít nhất 1 bit). Vị
+// trí các bit sáng vẫn ngẫu nhiên (buildBitPattern()).
+function pickOnBitCountFromEnergy(energyByte, baseThresholdByte) {
+    const span = Math.max(1, 255 - baseThresholdByte);
+    const t = Math.max(0, Math.min(1, (energyByte - baseThresholdByte) / span));
+    return 1 + Math.round(t * 6);
+}
+
+// MỚI — chọn ĐÍCH cho xung của node `sourceIndex`: node theo pitch (`pitchNodeIndex`, Workflow tra
+// bằng tonotopicNodeIndexForFrequency(), synapse.js) nếu có VÀ khác chính nguồn; không thì rơi về
+// node GẦN NHẤT theo khoảng cách thật (hoà thì ngẫu nhiên trong các node cùng khoảng cách). null
+// khi chỉ có 1 chip.
+function pickCircuitTargetIndex(chips, sourceIndex, pitchNodeIndex) {
+    if (pitchNodeIndex !== null && pitchNodeIndex !== undefined && pitchNodeIndex !== sourceIndex && chips[pitchNodeIndex]) return pitchNodeIndex;
+    const sourcePos = chips[sourceIndex].pos;
+    let bestDist = Infinity, candidates = [];
+    chips.forEach((chip, j) => {
+        if (j === sourceIndex) return;
+        const d = chip.pos.distanceToSquared(sourcePos);
+        if (d < bestDist - 1e-6) { bestDist = d; candidates = [j]; }
+        else if (Math.abs(d - bestDist) <= 1e-6) candidates.push(j);
+    });
+    return candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : null;
 }
 
 function buildBitPattern(onBitCount) {

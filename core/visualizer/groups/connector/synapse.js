@@ -26,6 +26,24 @@ function tonotopicBinRange(neuronIndex, neuronCount, bufferLength) {
     return { start, end };
 }
 
+// MỚI (yêu cầu Giang — circuit "map đích theo pitch, đúng dải tần"): tra NGƯỢC tonotopicBinRange()
+// — node nào có dải bin chứa tần số `frequencyHz`. Dùng ĐÚNG tonotopicBinRange() (không tự tính
+// lại công thức log) vì dải thật ở đầu trầm bị ép tối thiểu 1 bin/node (start+1) nên KHÔNG còn
+// log thuần — công thức lý tưởng sẽ lệch node. Tần số nằm ngoài dải/rơi vào kẽ hở giữa 2 dải
+// thì lấy node gần nhất. Bin width analyser = sampleRate / fftSize = sampleRate / (2*bufferLength).
+function tonotopicNodeIndexForFrequency(frequencyHz, nodeCount, bufferLength, sampleRate) {
+    const binWidthHz = sampleRate / (bufferLength * 2);
+    const bin = Math.round(frequencyHz / binWidthHz);
+    let best = 0, bestDist = Infinity;
+    for (let j = 0; j < nodeCount; j++) {
+        const { start, end } = tonotopicBinRange(j, nodeCount, bufferLength);
+        if (bin >= start && bin < end) return j;
+        const dist = bin < start ? start - bin : bin - (end - 1);
+        if (dist < bestDist) { bestDist = dist; best = j; }
+    }
+    return best;
+}
+
 // SỬA (phản hồi Giang — bắn quá thưa, không rõ theo nhạc): LẤY ĐỈNH (max) của dải thay vì trung
 // bình — nhạy đúng với 1 nốt/nhạc cụ nổi lên trong dải đó. GIỮ NGUYÊN tinh thần đó — chỉ đổi cách
 // tính range (start/end) sang tonotopicBinRange() ở trên (log) thay vì chia đều tuyến tính cũ.
