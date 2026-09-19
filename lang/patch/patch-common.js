@@ -82,6 +82,10 @@ const LANG_PATCH_COMMON = {
     // isVideoRecordCorrupted() core/storage-manager.js.
     'common.storage.scanReasonMissingThumbCover': 'Missing cover thumbnail',
     'common.storage.scanReasonMissingThumbFull': 'Missing full-res thumbnail',
+    // MỚI (19/09/2026) — thumb full-res CÓ trong record nhưng ĐEN / không decode được (chụp lỗi lúc upload
+    // bản cũ) — xem workflowFileManagerStorage._scanBlackVideoThumbs() (event/workflow/file-manager-storage.js).
+    'common.storage.scanReasonBlackThumbFull': 'Full-res thumbnail is black (capture error)',
+    'common.storage.scanReasonUndecodableThumbFull': 'Full-res thumbnail cannot be decoded',
     'common.storage.deleteBrokenTitle': 'Delete broken files',
     'common.storage.deleteBrokenConfirm': 'Delete the {n} broken file(s) found? This cannot be undone.',
     'common.storage.deleteBrokenConfirmBtn': 'Delete',
