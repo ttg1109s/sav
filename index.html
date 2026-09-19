@@ -349,7 +349,7 @@
          .json vì chạy qua file://). /lang/lang.js gộp cả 5 (Object.assign) rồi định nghĩa t()/
          tFormat() — PHẢI nạp trước mọi components/*.js (template TPL_* gọi t() ngay lúc parse).
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
-    <script src="lang/patch/patch-common.js?v=20260911v1"></script>
+    <script src="lang/patch/patch-common.js?v=20260919v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260919v1"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260917v1"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260916v1"></script>
@@ -649,7 +649,7 @@
          dùng chung hàm nào ngoài slugify()/service/db.js) — chỉ cần SAU service/db.js.
          core/file-manager/video-ui.js ĐÃ XOÁ HẲN (Batch 6, mục 6d, phản hồi Giang — modal "Chi
          tiết" riêng nó từng chứa đã bỏ, dùng chung modal Playlist đã video-aware). -->
-    <script src="core/file-manager/video.js?v=20260823v1"></script>
+    <script src="core/file-manager/video.js?v=20260919v1"></script>
     <script src="core/file-manager/video-ui.js?v=20260803v1"></script>
     <!-- Tool migration thumbnail 320x320 (tools/migrate-video-thumbs-320.js, Batch 3) — Giang xác
          nhận đã chạy xong tốt, ĐÃ XOÁ (batch 4, 27/07/2026): dòng <script> này + file
@@ -1007,7 +1007,7 @@
     <!-- Panel "Song & Video" cũ (file-manager-song.js) đã xoá, thay bằng "Quản lý lưu trữ" (gộp 3
          domain: song/video/photo) — CẦN core/file-manager/{image,album}.js,
          components/file-manager-storage.js (đã nạp ở nhóm CORE/COMPONENTS). -->
-    <script src="event/workflow/file-manager-storage.js?v=20260910v1"></script>
+    <script src="event/workflow/file-manager-storage.js?v=20260919v1"></script>
     <script src="event/router/file-manager-storage.js?v=20260729v2"></script>
     <!-- Folder Browser — Generic Drawer List↔Read thay Folder List/Detail kiểu panel-stack cũ. CẦN
          core/generic-drawer.js, components/items.js, core/file-manager/{folder,folder-detail-ui,
@@ -1124,7 +1124,7 @@
          core/listen-stats.js (bumpSongPlayCount), event/workflow/video-player.js (workflowVideoPlayer
          — chỉ dùng trong callback runtime, không bắt buộc thứ tự nạp so với dòng NGAY DƯỚI). -->
     <script src="event/workflow/player.js?v=20260916v1"></script>
-    <script src="event/workflow/playlist.js?v=20260919v2"></script>
+    <script src="event/workflow/playlist.js?v=20260919v3"></script>
     <script src="event/router/playlist.js?v=20260919v1"></script>
     <script src="event/listener/playlist.js?v=20260919v1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel + phân phối lại section Settings, phản hồi
