@@ -11,7 +11,7 @@
  * delete/removeItem/removeAll/pagination/2 toggle Scope-Exclude) bỏ hẳn cùng màn hình đó. Thêm 2
  * case MỚI cho tile: `.tile.click` (áp dụng Scope ngay) và `.tile.longpress` (mở dropdown hành
  * động, xem event/workflow/file-manager-folder-browser.js) + 4 case đích của dropdown đó
- * (`.tileMenu.rename/delete/toggleExclude/properties.click`).
+ * (`.tileMenu.rename/delete/filter/properties.click` — Exclude/Hidden nay là checkbox trong Properties, không còn case riêng).
  *
  * NẠP SAU: event/bus.js, event/workflow/file-manager-folder-browser.js.
  * NẠP TRƯỚC: event/listener/file-manager-song.js (nút "Duyệt thư mục" delegate ở đó).
@@ -62,10 +62,6 @@ const routerFileManagerFolderBrowser = (() => {
             }
             case 'fileManagerFolderBrowser.tileMenu.delete.click': {
                 workflowFileManagerFolderBrowser.deleteFromTileMenu(msg.payload.folderId);
-                break;
-            }
-            case 'fileManagerFolderBrowser.tileMenu.toggleExclude.click': {
-                workflowFileManagerFolderBrowser.toggleExcludeFromTileMenu(msg.payload.folderId);
                 break;
             }
             case 'fileManagerFolderBrowser.tileMenu.properties.click': {
