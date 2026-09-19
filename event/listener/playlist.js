@@ -56,6 +56,12 @@ if (songActionMenu) {
             eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.editImage', payload: {} });
             return;
         }
+        // MỚI (19/09/2026, Giang yêu cầu — "thêm nút xem thumb full res cho video playlist") — CÙNG
+        // PRECEDENT với 'editImage' ngay trên.
+        if (btn.dataset.menuAction === 'viewVideoThumb') {
+            eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.viewVideoThumb', payload: {} });
+            return;
+        }
         // MỚI (Batch "Export dọn nợ kiến trúc", phản hồi Giang) — "Xuất file": CÙNG PRECEDENT với
         // addToFolder/editSubtitles ở trên (message riêng, không qua handleSongActionMenuSelect()
         // cũ — hàm đó đã có sẵn nhánh if/else vi phạm Rule 1, không mở rộng thêm).
