@@ -34,7 +34,7 @@
  * nghiệp vụ trực tiếp trong callback) + Router (event/router/file-manager-folder-browser.js).
  * `wireFolderBrowserReadEvents()` (wiring riêng cho Read cũ) đã xoá cùng file đó.
  *
- * VIDEO/PHOTO — `addSongsToFolder()`/`removeSongFromFolder()`/`removeAllSongsFromFolder()`/
+ * VIDEO/PHOTO — `addSongsToFolder()`/`removeSongFromFolder()`/
  * `deleteFolder()` (core/file-manager/folder.js) đã hỗ trợ đủ 3 `mediaType` từ trước, không đổi gì
  * ở đây.
  *
