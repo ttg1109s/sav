@@ -365,7 +365,7 @@
     <script src="lang/patch/patch-video-preview.js?v=20260803v1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — bottom nav + panel Photo/Game/Statis/Setting
          mới, xem lang/patch/patch-app-panel-nav.js. -->
-    <script src="lang/patch/patch-app-panel-nav.js?v=20260912v1"></script>
+    <script src="lang/patch/patch-app-panel-nav.js?v=20260920v1"></script>
     <script src="lang/lang.js?v=20260731v1"></script>
 
     <!-- =====================================================================
@@ -406,7 +406,7 @@
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — nội dung Main MỚI của Setting (5 row
          placeholder Playlist/System/Visualizer Screen/Troubleshooting/Reset app), hàm render (KHÔNG
          phải TPL_* tĩnh — gọi lại mỗi lần mở Generic Drawer, xem event/workflow/app-settings.js). -->
-    <script src="components/settings/app-settings-main.js?v=20260819v1"></script>
+    <script src="components/settings/app-settings-main.js?v=20260920v1"></script>
     <script src="components/game-panel.js?v=20260819v1"></script>
     <script src="components/statis-panel.js?v=20260911v1"></script>
     <script src="components/about-drawer.js?v=20260707v1"></script>
@@ -666,7 +666,7 @@
     <script src="core/ui-theme/morphin.js?v=20260909v1"></script>
     <script src="core/ui-theme/registry.js?v=20260909v1"></script>
     <script src="core/ui-theme/apply-ui.js?v=20260909v1"></script>
-    <script src="core/generic-drawer.js?v=20260909v1"></script>
+    <script src="core/generic-drawer.js?v=20260920v1"></script>
     <!-- GỘP LẠI (31/07/2026, Giang chỉ ra "xây Generic Drawer mà vẫn phải nhân bản là vô lý") — 2
          helper Workflow (closeFully()/buildSimpleHeaderHtml()) từng chép tay ở nhiều file khác
          nhau (file-manager-photo/file-manager-video/file-manager-folder-browser/playlist/
@@ -678,7 +678,12 @@
          (đã nạp) + core/generic-drawer.js (đã nạp ngay trên). -->
     <script src="core/app-panel-nav.js?v=20260902v4"></script>
     <script src="core/placeholder-panel.js?v=20260819v1"></script>
-    <script src="core/app-settings-ui.js?v=20260912v2"></script>
+    <script src="core/app-settings-ui.js?v=20260920v1"></script>
+    <!-- MỚI (20/09/2026, Giang yêu cầu thiết kế lại Main Setting dạng carousel ngang) — core UI thuần: scale
+         card theo khoảng cách tới tâm + cuộn vô hạn + hiệu ứng mở. CHỈ gọi lúc chạy từ event/workflow/
+         app-settings.js + event/router/app-settings.js (nạp ở dưới) — thứ tự với 2 file đó không bắt
+         buộc chặt, đặt cạnh core/app-settings-ui.js cho dễ tìm. -->
+    <script src="core/settings-carousel-ui.js?v=20260920v1"></script>
     <!-- ĐỔI TÊN (04/08/2026) từ event/workflow/crop-ratio-helpers.js, khớp core/media-transform.js
          (dải tỉ lệ Crop dùng CHUNG — hiện Video Preview dùng, Photo Edit sẵn sàng dùng sau nếu thêm
          dải tỉ lệ) — CẦN core/media-transform.js (đã nạp ở nhóm CORE, dòng ~578, TRƯỚC dòng này).
@@ -1137,8 +1142,8 @@
          workflowFileManagerFolderBrowser/workflowFileManagerStorage đã nạp ở trên — KHÔNG bắt
          buộc thứ tự nạp CHẶT với các file đó, vì mọi tham chiếu đều nằm TRONG thân hàm, chỉ chạy
          SAU khi cả trang đã nạp xong, không chạy ngay lúc parse). -->
-    <script src="event/workflow/app-settings.js?v=20260915v4"></script>
-    <script src="event/router/app-settings.js?v=20260912v1"></script>
+    <script src="event/workflow/app-settings.js?v=20260920v1"></script>
+    <script src="event/router/app-settings.js?v=20260920v1"></script>
     <!-- Cụm "placeholderPanels" (đóng Game/Statis). Photo đã hợp nhất vào Playlist, không còn cụm
          "photoPanel" riêng. -->
     <script src="event/workflow/placeholder-panels.js?v=20260819v1"></script>
