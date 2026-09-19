@@ -53,8 +53,9 @@
             lighting: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
                 lightingStyle: 'thunder',
-                flashThreshold: 0.35, // chớp toàn màn hình — DÙNG CHUNG cho cả 2 style bên dưới
-                flashMaxOpacity: 0.8, // MỚI 19/09/2026 — trần opacity chớp (<= SCREEN_FLASH_MAX_ALPHA), dùng chung 2 style
+                // Chớp toàn màn hình — DÙNG CHUNG cho cả 2 style bên dưới, CÙNG 3 field với group rain
+                // (CUSTOM_EFFECT_FLASH_FIELDS, core/custom-effect.js) — MỚI 19/09/2026.
+                flashEnabled: true, flashThreshold: 0.35, flashMaxOpacity: 0.8,
                 // Style "thunder" (tia sét)
                 boltThreshold: 0.4, boltSpawnChance: 0.2, maxBoltCount: 5,
                 boltFadeSpeed: 0.04, boltHorizontalDeviation: 120, boltSegmentLength: 60,
@@ -76,8 +77,10 @@
             },
             rain: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
-                rainStyle: 'glass', glassFlash: true,
-                flashMaxOpacity: 0.4, // MỚI 19/09/2026 — trần opacity chớp (= mức cap cũ của Rain, giữ nguyên hình dạng)
+                rainStyle: 'glass',
+                // Chớp toàn màn hình — DÙNG CHUNG Glass + Street, CÙNG 3 field với group lighting. MỚI 19/09/2026
+                // (flashEnabled thay `glassFlash` cũ; threshold 0.4 + trần 0.4 = giá trị cứng cũ của Rain).
+                flashEnabled: true, flashThreshold: 0.4, flashMaxOpacity: 0.4,
                 glassCityOpacity: 100, glassCityVisible: true, glassMoonVisible: true,
                 glassDropDensity: 250, glassStreakFrequency: 20,
                 streetDensity: 220, streetBuildingScale: 1.0,
@@ -731,6 +734,13 @@
                     if (cfg.mirrorBarCount != null) t.mirrorBarCount = cfg.mirrorBarCount;
                     if (cfg.rainGlassCityVisible != null) t.glassCityVisible = cfg.rainGlassCityVisible;
                     if (cfg.rainGlassMoonVisible != null) t.glassMoonVisible = cfg.rainGlassMoonVisible;
+                }
+                // MIGRATE (19/09/2026, đồng bộ field chớp) — rain.glassFlash (bool) ĐỔI TÊN thành flashEnabled
+                // (dùng chung 4 effect chớp). Chỉ chuyển nếu save cũ CHƯA có flashEnabled; luôn xoá glassFlash.
+                const savedRain = cfg.customEffect && cfg.customEffect.rain;
+                if (next.rain && next.rain.glassFlash != null) {
+                    if (!savedRain || savedRain.flashEnabled == null) next.rain.flashEnabled = !!next.rain.glassFlash;
+                    delete next.rain.glassFlash;
                 }
                 cfg.customEffect = next;
                 delete cfg.mode; delete cfg.solidColor; delete cfg.dynA; delete cfg.dynB; delete cfg.blurEnabled;

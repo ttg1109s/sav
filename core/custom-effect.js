@@ -30,6 +30,17 @@ const CUSTOM_EFFECT_MAX_TEXTS = 10;
 // screen-flash.js). Cũng là `max` của slider field `flashMaxOpacity` (CUSTOM_EFFECT_FIELDS bên dưới).
 const SCREEN_FLASH_MAX_ALPHA = 0.8;
 
+/** Bộ field CHỚP SÁNG toàn màn hình — DÙNG CHUNG (spread) cho group 'lighting' (Thunder + Fireworks) và
+ * 'rain' (Glass + Street) trong CUSTOM_EFFECT_FIELDS bên dưới -> 4 effect luôn CÙNG 3 field, CÙNG nhãn,
+ * CÙNG thứ tự, CÙNG khoảng giá trị (chỉ khác default, xem DEFAULT_CUSTOM_EFFECT, core/config.js). Không
+ * gắn showIf — toggle trong Drawer không dựng lại UI nên không dùng nó ẩn/hiện field khác. Công thức:
+ * computeScreenFlashAlpha() (core/visualizer/draw/screen-flash-alpha.js). [MỚI 19/09/2026] */
+const CUSTOM_EFFECT_FLASH_FIELDS = [
+    { id: 'flashEnabled', labelKey: 'customEffectDrawer.field.flashEnabled', type: 'toggle' },
+    { id: 'flashThreshold', labelKey: 'customEffectDrawer.field.flashThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2 },
+    { id: 'flashMaxOpacity', labelKey: 'customEffectDrawer.field.flashMaxOpacity', type: 'sliderFloat', min: 0, max: SCREEN_FLASH_MAX_ALPHA, step: 0.05, decimals: 2 },
+];
+
 // Effect KHÔNG dùng blur/glow tuỳ chỉnh (Drawer ẩn khối blur) — glow của các effect này (nếu có)
 // là phối cảnh cố định, không đọc blurEnabled/blurIntensity: Vortex không shadowBlur/bloom nào
 // cả; Rain (quầng Trăng) và Shape/Rubik (viền khối sáng) glow LUÔN bật, giá trị cố định trong
@@ -109,10 +120,7 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'flashFadeSpeed', labelKey: 'customEffectDrawer.field.flashFadeSpeed', type: 'sliderFloat', min: 0.02, max: 0.2, step: 0.01, decimals: 2, showIf: (cfg) => cfg.barStyle === 'black hole' },
     ],
     rain: [
-        { id: 'glassFlash', labelKey: 'visualizerSettingsDrawer.glassFlash.label', type: 'toggle', showIf: (cfg) => cfg.rainStyle === 'glass' },
-        // MỚI (19/09/2026) — trần opacity của chớp sáng, dùng cho CẢ 2 style (Glass + Street cùng gọi
-        // drawScreenFlash()). Chỉ hiện khi chớp đang bật (Street đọc chung cờ glassFlash). Kéo về 0 = tắt hẳn chớp.
-        { id: 'flashMaxOpacity', labelKey: 'customEffectDrawer.field.flashMaxOpacity', type: 'sliderFloat', min: 0, max: SCREEN_FLASH_MAX_ALPHA, step: 0.05, decimals: 2, showIf: (cfg) => !!cfg.glassFlash },
+        ...CUSTOM_EFFECT_FLASH_FIELDS, // chung Glass + Street (Street trước đây KHÔNG có toggle riêng)
         { id: 'glassCityOpacity', labelKey: 'visualizerSettingsDrawer.rainCityOpacity.label', type: 'slider', min: 0, max: 100, step: 5, showIf: (cfg) => cfg.rainStyle === 'glass' },
         { id: 'glassCityVisible', labelKey: 'visualizerSettingsDrawer.rainCityVisible.label', type: 'toggle', showIf: (cfg) => cfg.rainStyle === 'glass' },
         { id: 'glassMoonVisible', labelKey: 'visualizerSettingsDrawer.rainMoonVisible.label', type: 'toggle', showIf: (cfg) => cfg.rainStyle === 'glass' },
@@ -143,10 +151,7 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'waveScaleEnergyMult', labelKey: 'customEffectDrawer.field.waveScaleEnergyMult', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.vortexStyle === 'wave' },
     ],
     lighting: [
-        // Chung cho cả 2 style — chớp sáng toàn màn hình khi năng lượng vượt ngưỡng.
-        { id: 'flashThreshold', labelKey: 'customEffectDrawer.field.flashThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2 },
-        // MỚI (19/09/2026) — trần opacity của chớp, dùng chung 2 style (max = trần cứng SCREEN_FLASH_MAX_ALPHA).
-        { id: 'flashMaxOpacity', labelKey: 'customEffectDrawer.field.flashMaxOpacity', type: 'sliderFloat', min: 0, max: SCREEN_FLASH_MAX_ALPHA, step: 0.05, decimals: 2 },
+        ...CUSTOM_EFFECT_FLASH_FIELDS, // chung Thunder + Fireworks
         // Style "thunder" (tia sét)
         { id: 'boltThreshold', labelKey: 'customEffectDrawer.field.boltThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.lightingStyle === 'thunder' },
         { id: 'boltSpawnChance', labelKey: 'customEffectDrawer.field.boltSpawnChance', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.lightingStyle === 'thunder' },
