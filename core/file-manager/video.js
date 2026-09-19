@@ -1,7 +1,13 @@
 /**
  * core/file-manager/video.js — File Manager -> Video, MỚI (21/07/2026). Schema store 'videos' xem
  * comment DB_VERSION ở service/db.js: key = videoKey, value = { blob, thumbBlob, thumbFullBlob,
- * width, height, duration, filename, addedAt, customName }.
+ * width, height, duration, filename, addedAt, customName, thumbFullBlack }.
+ *
+ * MỚI (19/09/2026) — `thumbFullBlack` (boolean, mặc định false/undefined): `true` = khung hình ĐẦU của
+ * video này ĐÃ được chụp ĐÚNG (nhiều lần, vẽ được thật) nhưng vẫn ĐEN — đen THẬT của nội dung (fade-in
+ * ...), không phải lỗi chụp. Scan broken (`workflowFileManagerStorage._scanBlackVideoThumbs()`) BỎ QUA
+ * record có cờ này để không báo lỗi lặp vô tận sau khi đã sửa. Record cũ chưa có field = chưa biết,
+ * scan sẽ đo lại thumb.
  *
  * XOÁ (29/07/2026, yêu cầu Giang mục 1/2 — "chỉ giữ filename/RESOLUTION/playcount/listened ở tab
  * Chi tiết") — 6 field mediainfo.js cũ (`format` đã bỏ trước đó 28/07, giờ bỏ NỐT `codec`/`fps`/
@@ -80,14 +86,16 @@ async function resolveVideoKey(filename) {
  * @param {Blob} [thumbFullBlob] - MỚI (29/07/2026) khung hình ĐẦU TIÊN (time=0), FULL RESOLUTION
  *        (không crop/resize) — TÁCH RIÊNG với `thumbBlob`, KHÔNG thay thế. `undefined`/`null` nếu
  *        nơi gọi không tính (vd video-editor.js ghi đè lại video đã chỉnh sửa) — rơi về `null`.
+ * @param {boolean} [thumbFullIsBlack] - MỚI (19/09/2026) khung đầu đen THẬT, xem docstring đầu file.
  * @returns {Promise<string>} videoKey vừa lưu
  */
-async function saveVideo(file, filename, thumbBlob, width, height, duration, thumbFullBlob) {
+async function saveVideo(file, filename, thumbBlob, width, height, duration, thumbFullBlob, thumbFullIsBlack) {
     const videoKey = await resolveVideoKey(filename); // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
     console.log(`[saveVideo] callTo: "resolveVideoKey", request: "sinh/tái dùng key duy nhất từ tên file '${filename}'"`);
     await setVideoRecord(videoKey, {
         blob: file, thumbBlob, thumbFullBlob: thumbFullBlob || null, width, height, duration, filename, addedAt: Date.now(),
         customName: null,
+        thumbFullBlack: !!thumbFullIsBlack, // MỚI (19/09/2026) — xem docstring đầu file
     });
     return videoKey;
 }
@@ -121,13 +129,15 @@ async function setVideoCustomName(videoKey, customName) {
  * @param {string} videoKey
  * @param {Blob} thumbBlob
  * @param {Blob} thumbFullBlob
+ * @param {boolean} [thumbFullIsBlack] - MỚI (19/09/2026) khung đầu đen THẬT (đã chụp lại đúng cách vẫn đen), xem docstring đầu file.
  * @returns {Promise<{status: 'notFound'|'ok'}>}
  */
-async function setVideoThumbnails(videoKey, thumbBlob, thumbFullBlob) {
+async function setVideoThumbnails(videoKey, thumbBlob, thumbFullBlob, thumbFullIsBlack) {
     const record = await getVideoRecord(videoKey);
     if (!record) return { status: 'notFound' };
     record.thumbBlob = thumbBlob;
     record.thumbFullBlob = thumbFullBlob || null;
+    record.thumbFullBlack = !!thumbFullIsBlack;
     await setVideoRecord(videoKey, record);
     return { status: 'ok' };
 }
