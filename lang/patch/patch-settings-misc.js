@@ -24,7 +24,9 @@ const LANG_PATCH_SETTINGS_MISC = {
     'settingsMisc.openDebugConsole.label': 'Debug console',
     'settingsMisc.debugConsole.title': 'Debug console',
     'settingsMisc.debugConsole.btnCopy': 'Copy all',
-    'settingsMisc.debugConsole.btnClear': 'Clear',
+    'settingsMisc.debugConsole.btnClear': 'Clear all', // SỬA 20/09/2026 — trước là 'Clear' (giờ có thêm nút xoá TỪNG dòng nên cần phân biệt)
+    'settingsMisc.debugConsole.item.copy.title': 'Copy this line', // MỚI 20/09/2026
+    'settingsMisc.debugConsole.item.remove.title': 'Remove this line', // MỚI 20/09/2026
     'settingsMisc.debugConsole.copiedMsg': 'Log copied to clipboard.',
     'settingsMisc.debugConsole.copyFailedMsg': "Couldn't copy — try selecting the text manually.",
     'settingsMisc.debugConsole.emptyMsg': 'No log entries yet.',
@@ -99,18 +101,18 @@ const LANG_PATCH_SETTINGS_MISC = {
     // hình độc lập (phạm vi/tải xuống/xoá) + 1 nút "Thực hiện".
     'storageDrawer.brokenSectionTitle': 'Corrupted data',
     'storageDrawer.scanBroken.label': 'Scan & clean broken files',
-    // SỬA (18/09/2026) — hint giờ nói chung "hỏng hoặc thiếu dữ liệu" thay vì chỉ "song không phải
-    // mp3 hợp lệ" — Video giờ có thêm case "thiếu thumbnail" (vẫn phát được, không phải mp3/decode).
-    'storageDrawer.scanBroken.hint': "Finds files that can't be played, or videos missing thumbnail data, and asks before acting",
+    // SỬA (20/09/2026) — phần kiểm tra thumbnail video DỜI sang Setting > Troubleshooting > "Scan & fix video
+    // thumbnails" (Giang yêu cầu) — quét ở Storage chỉ còn file hỏng THẬT (không phát/decode được), nên hint bỏ ý "thiếu thumbnail".
+    'storageDrawer.scanBroken.hint': "Finds files that can't be played or decoded, and asks before deleting",
     // MỚI (29/07/2026, yêu cầu Giang — "mở modal choice có dropdown chọn loại scan") — nội dung
     // modal + option "Tất cả" của dropdown, xem event/workflow/file-manager-storage.js::
     // askScanBrokenScope(). XOÁ (cùng ngày) — key "blockedNoSource" (Block gate cũ chặn "chưa
     // chọn nguồn nào") không còn cần thiết — dropdown LUÔN có 1 giá trị, không có khái niệm rỗng.
     'storageDrawer.scanBroken.modalBody': 'Choose what to scan for broken/corrupted files:',
     'storageDrawer.scanBroken.scopeAll': 'Everything (Music, Video, Photos)',
-    // ĐỔI TÊN (18/09/2026, gộp tính năng "Sửa file lỗi") từ 'storageDrawer.btnDeleteBroken' — nút
-    // giờ xoá file hỏng thật + tạo lại thumb cho video chỉ thiếu thumb, tuỳ từng phần tử quét được.
-    'storageDrawer.btnFixBroken': 'Fix these files',
+    // SỬA (20/09/2026) — nút này ở Storage giờ CHỈ xoá file hỏng thật (phần sửa thumb đã dời sang Troubleshooting),
+    // nên nhãn đổi lại "Delete these files" (key giữ nguyên tên `btnFixBroken` để không đổi id/wire).
+    'storageDrawer.btnFixBroken': 'Delete these files',
     'storageDrawer.btnDismissScan': 'Dismiss',
 
     'settingsLanguage.sectionTitle': 'Language',

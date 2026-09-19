@@ -69,11 +69,18 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.row.troubleshooting': 'Troubleshooting',
     'appSettings.row.resetApp': 'Reset app',
     // MỚI (20/09/2026, Giang yêu cầu thiết kế lại Main Setting dạng carousel, card cần thêm miêu tả).
+    // 'appSettings.row.resetApp' (label) GIỮ lại dù card "Reset app" đã bỏ khỏi Main (Rule 0.5 — vô hại).
     'appSettings.row.playlist.hint': 'Media source, view mode, sorting and filters',
     'appSettings.row.system.hint': 'Theme, motion presets and language',
     'appSettings.row.visualizerScreen.hint': 'Display, auto-switch, background, gestures and player',
-    'appSettings.row.troubleshooting.hint': 'Debug console to inspect app logs',
-    'appSettings.row.resetApp.hint': 'Restart the app, restore defaults or clear the cache',
+    'appSettings.row.troubleshooting.hint': 'Debug console, reset options and video thumbnail repair',
+
+    // MỚI (20/09/2026) — màn Troubleshooting: 4 hàng ngang hàng, không chia nhóm
+    // (components/settings/troubleshooting.js).
+    'appSettings.troubleshooting.debugConsole.hint': 'View, copy or clear the app log lines',
+    'appSettings.troubleshooting.videoThumb.label': 'Scan & fix video thumbnails',
+    'appSettings.troubleshooting.videoThumb.hint': 'Finds videos with missing, black or unreadable full-res thumbnails and regenerates them',
+    'appSettings.troubleshooting.videoThumb.btnFix': 'Fix thumbnails',
 
     // MỚI (Giang yêu cầu "Player" — Resolution + Motion của Video/Photo lúc phát chính, Settings >
     // Visualizer Screen > Player > Video/Photo, xem core/player-display-settings.js).
@@ -113,4 +120,7 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.resetApp.restartApp.label': 'Restart app',
     'appSettings.resetApp.restoreDefaults.label': 'Restore default settings',
     'appSettings.resetApp.clearCache.label': 'Clear app cache',
+    // MỚI (20/09/2026) — hint cho 2 hàng ngang hàng ở Troubleshooting (thay modalChoice cũ).
+    'appSettings.resetApp.restoreDefaults.hint': 'Colors, effects and EQ go back to defaults — your library is kept',
+    'appSettings.resetApp.clearCache.hint': 'Clear cached JS/CSS if the app looks outdated after an update',
 };
