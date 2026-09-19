@@ -121,7 +121,7 @@
                 // 16/09/2026) — cả 6 default đều mồ côi, bỏ theo field/UI đã gỡ ở core/custom-effect.js.
                 lateralInhibitStrength: 70, // MỚI — mức đè ngưỡng lân cận khi 1 nơ-ron bắn, xem core/custom-effect.js
                 synapseSpeedBase: 85, synapseSpeedEnergyMult: 60,
-                nodeCount: 55, signalsPerBeat: 2, maxConcurrentSignals: 60, trailLength: 20,
+                nodeCount: 32, maxConcurrentSignals: 60, trailLength: 20, // ĐỔI (circuit lưới lập phương): nodeCount 55->32 (slider 16-64); XOÁ signalsPerBeat (quota theo beat đã bỏ, xem visualizer-render.js::_tickConnectorCircuit())
                 circuitSpeedBase: 80, circuitSpeedEnergyMult: 60,
                 bloomStrengthBase: 2.2, bloomStrengthEnergyMult: 0.8,
                 cameraShiftEnabled: true, sectionWindowBeats: 12, fluxThreshold: 0.5,

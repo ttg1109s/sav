@@ -178,17 +178,18 @@ const CUSTOM_EFFECT_FIELDS = {
         // SỬA (yêu cầu Giang 16/09/2026, layout lưới phẳng) — max 48->64, min/step đổi 12/3->16/4
         // để 32 (mặc định mới) và 64 (max mới) đều rơi đúng mốc slider.
         { id: 'neuronCount', labelKey: 'customEffectDrawer.field.neuronCount', type: 'slider', min: 16, max: 64, step: 4, showIf: (cfg) => cfg.connectorStyle === 'synapse', refresh: 'initThreeJSConnector' },
-        { id: 'fireThreshold', labelKey: 'customEffectDrawer.field.fireThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
+        // ĐỔI (yêu cầu Giang — circuit bắn xung theo audio từng node, dùng CHUNG logic bắn với synapse): fireThreshold/lateralInhibitStrength hiện cho CẢ 2 style (bỏ showIf 'synapse').
+        { id: 'fireThreshold', labelKey: 'customEffectDrawer.field.fireThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2 },
         // MỚI (yêu cầu Giang 17/09/2026 — "lateral inhibition", xem applyLateralInhibition(),
         // core/visualizer/groups/connector/synapse.js): mức ngưỡng bắn bị ĐÈ LÊN (đơn vị byte,
         // 0-255) ở các nơ-ron LÂN CẬN mỗi khi 1 nơ-ron vừa bắn — 0 = tắt hẳn (mọi nơ-ron độc lập
         // hoàn toàn), càng cao càng "tương phản"/thưa (tránh cả cụm cùng sáng loạt khi có 1 tiếng
         // động broadband).
-        { id: 'lateralInhibitStrength', labelKey: 'customEffectDrawer.field.lateralInhibitStrength', type: 'slider', min: 0, max: 150, step: 10, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
+        { id: 'lateralInhibitStrength', labelKey: 'customEffectDrawer.field.lateralInhibitStrength', type: 'slider', min: 0, max: 150, step: 10 },
         { id: 'synapseSpeedBase', labelKey: 'customEffectDrawer.field.synapseSpeedBase', type: 'slider', min: 20, max: 200, step: 5, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
         { id: 'synapseSpeedEnergyMult', labelKey: 'customEffectDrawer.field.synapseSpeedEnergyMult', type: 'slider', min: 0, max: 150, step: 5, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
-        { id: 'nodeCount', labelKey: 'customEffectDrawer.field.nodeCount', type: 'slider', min: 20, max: 80, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit', refresh: 'initThreeJSConnector' },
-        { id: 'signalsPerBeat', labelKey: 'customEffectDrawer.field.signalsPerBeat', type: 'slider', min: 1, max: 6, step: 1, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
+        // ĐỔI (yêu cầu Giang — circuit lưới lập phương từ ngoài vào trong, buildCircuitCubeCells()): 20-80/5 -> 16-64/4, khớp neuronCount synapse.
+        { id: 'nodeCount', labelKey: 'customEffectDrawer.field.nodeCount', type: 'slider', min: 16, max: 64, step: 4, showIf: (cfg) => cfg.connectorStyle === 'circuit', refresh: 'initThreeJSConnector' },
         { id: 'maxConcurrentSignals', labelKey: 'customEffectDrawer.field.maxConcurrentSignals', type: 'slider', min: 20, max: 90, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
         { id: 'trailLength', labelKey: 'customEffectDrawer.field.trailLength', type: 'slider', min: 5, max: 60, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
         { id: 'circuitSpeedBase', labelKey: 'customEffectDrawer.field.circuitSpeedBase', type: 'slider', min: 20, max: 200, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
