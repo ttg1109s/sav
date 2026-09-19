@@ -167,6 +167,7 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.flareThreshold': 'Flare trigger threshold',
     'customEffectDrawer.field.flashFadeSpeed': 'Flash fade speed',
     'customEffectDrawer.field.flashThreshold': 'Background flash threshold',
+    'customEffectDrawer.field.flashMaxOpacity': 'Flash max opacity',
     'customEffectDrawer.field.boltThreshold': 'Bolt trigger threshold',
     'customEffectDrawer.field.boltSpawnChance': 'Bolt spawn chance',
     'customEffectDrawer.field.maxBoltCount': 'Max simultaneous bolts',
