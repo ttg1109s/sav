@@ -537,8 +537,8 @@ const workflowFileManagerStorage = {
                 const record = await getVideoRecord(key); // service/db.js
                 if (!record || !record.blob) { failedCount++; continue; }
                 try {
-                    const { thumbBlob, thumbFullBlob } = await workflowPlaylist.extractVideoThumbAndMeta(record.blob); // event/workflow/playlist.js
-                    await setVideoThumbnails(key, thumbBlob, thumbFullBlob); // core/file-manager/video.js
+                    const { thumbBlob, thumbFullBlob, thumbFullIsBlack } = await workflowPlaylist.extractVideoThumbAndMeta(record.blob); // event/workflow/playlist.js
+                    await setVideoThumbnails(key, thumbBlob, thumbFullBlob, thumbFullIsBlack); // core/file-manager/video.js — thumbFullIsBlack: đen THẬT -> scan lần sau bỏ qua (MỚI 19/09/2026)
                     fixedCount++;
                 } catch (err) {
                     console.error(`[executeRepairBroken] tạo lại thumbnail thất bại cho video "${key}":`, err);
@@ -580,7 +580,13 @@ const workflowFileManagerStorage = {
                 loadingText.textContent = tFormat('common.storage.scanningProgress', { n: current, total });
             };
             if (sources.song) results = results.concat((await scanAllSongsForCorruption(onScanProgress)).map((r) => ({ ...r, mediaType: 'song' })));
-            if (sources.video) results = results.concat((await scanAllVideosForCorruption(onScanProgress)).map((r) => ({ ...r, mediaType: 'video' })));
+            if (sources.video) {
+                const videoScanResults = await scanAllVideosForCorruption(onScanProgress); // core/storage-manager.js
+                // MỚI (19/09/2026) — thumb full-res ĐEN/không decode được: cần decode ảnh + đo pixel (DOM) nên KHÔNG nằm
+                // trong `isVideoRecordCorrupted()` (core) mà là 1 bước Workflow riêng ngay sau lượt quét core.
+                const blackThumbResults = await this._scanBlackVideoThumbs(videoScanResults, onScanProgress);
+                results = results.concat(videoScanResults.concat(blackThumbResults).map((r) => ({ ...r, mediaType: 'video' })));
+            }
             if (sources.photo) results = results.concat((await scanAllPhotosForCorruption(onScanProgress)).map((r) => ({ ...r, mediaType: 'photo' })));
 
             if (!genericDrawerPanel.classList.contains('hidden')) {
@@ -594,6 +600,61 @@ const workflowFileManagerStorage = {
             }
         });
         if (onScanComplete) onScanComplete(results);
+    },
+
+    /** MỚI (19/09/2026) — lượt quét thứ 2 của Video: thumb full-res ĐÃ CÓ trong record nhưng ĐEN (hoặc
+     * không decode được). `isVideoRecordCorrupted()` (core/storage-manager.js) chỉ kiểm tra thumb CÓ
+     * TỒN TẠI, không nhìn pixel — chụp lỗi ở bản cũ (khung chưa sẵn sàng -> JPEG đen) vì vậy lọt qua quét.
+     * Bỏ qua: video đã có kết quả từ lượt quét core (không chồng 2 lý do cho cùng 1 video), record thiếu
+     * blob/thumb (lượt core lo), và record có `thumbFullBlack === true` (đã chụp lại đúng cách vẫn đen =
+     * đen THẬT của nội dung — không báo lỗi lặp vô tận sau khi sửa). Kết quả LUÔN `fixable:true` — "sửa"
+     * = chụp lại thumb qua `executeRepairBroken()` (cùng pipeline mới lúc upload).
+     * @param {Array<{key:string}>} alreadyFlagged - kết quả `scanAllVideosForCorruption()`.
+     * @param {(current:number, total:number) => void} [onScanProgress]
+     * @returns {Promise<Array<{key:string, filename:string, reason:string, fixable:boolean}>>}
+     */
+    async _scanBlackVideoThumbs(alreadyFlagged, onScanProgress) {
+        const flaggedKeys = new Set(alreadyFlagged.map((r) => r.key));
+        const keys = await getAllVideoKeys(); // service/db.js
+        const found = [];
+        for (let i = 0; i < keys.length; i++) {
+            const key = keys[i];
+            if (onScanProgress) onScanProgress(i + 1, keys.length);
+            if (flaggedKeys.has(key)) continue;
+            const record = await getVideoRecord(key); // service/db.js
+            if (!record || !record.blob || !record.thumbFullBlob || record.thumbFullBlack === true) continue;
+            const verdict = await this._classifyThumbBlob(record.thumbFullBlob);
+            if (verdict === 'black') found.push({ key, filename: record.filename || key, reason: t('common.storage.scanReasonBlackThumbFull'), fixable: true });
+            else if (verdict === 'undecodable') found.push({ key, filename: record.filename || key, reason: t('common.storage.scanReasonUndecodableThumbFull'), fixable: true });
+        }
+        return found;
+    },
+
+    /** Decode 1 blob ảnh thumb rồi đo bằng ĐÚNG hàm đo lúc upload (`workflowPlaylist._probeVideoFrame()`,
+     * cùng ngưỡng đen — Workflow gọi Workflow miền khác, TỰ DO). Ảnh được giải phóng ngay (không giữ
+     * decode full-res trong bộ nhớ qua cả lượt quét).
+     * @param {Blob} blob
+     * @returns {Promise<'ok'|'black'|'undecodable'>} */
+    async _classifyThumbBlob(blob) {
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        try {
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = () => reject(new Error('thumb không decode được'));
+                img.src = url;
+            });
+            if (img.decode) await img.decode();
+            const probe = workflowPlaylist._probeVideoFrame(img); // event/workflow/playlist.js
+            if (!probe.drawn) return 'undecodable';
+            return probe.isBlack ? 'black' : 'ok';
+        } catch (err) {
+            return 'undecodable';
+        } finally {
+            img.onload = null; img.onerror = null;
+            img.removeAttribute('src');
+            try { URL.revokeObjectURL(url); } catch (e) {}
+        }
     },
 
     /** Ứng với msg.type = 'fileManagerStorage.dismissScan.click'. */

@@ -436,11 +436,12 @@ const workflowPlaylist = {
         await this._sleep(60);
     },
 
-    /** Vẽ khung hình HIỆN TẠI của `videoEl` xuống canvas nhỏ rồi đo. `drawn=false` khi không vẽ được gì
+    /** Vẽ khung hình HIỆN TẠI của `source` (`<video>`, hoặc `<img>` đã decode — dùng cho scan thumb cũ,
+     * xem workflowFileManagerStorage._classifyThumbBlob()) xuống canvas nhỏ rồi đo. `drawn=false` khi không vẽ được gì
      * (drawImage ném lỗi, hoặc mọi pixel alpha=0 — theo spec `drawImage()` không vẽ gì nếu video chưa có
      * khung); `isBlack=true` khi ≥ VIDEO_BLACK_FRAME_RATIO số pixel có luma ≤ VIDEO_BLACK_PIXEL_LUMA.
      * Không đọc được pixel (getImageData lỗi) -> coi như vẽ được + không đen (không đủ dữ kiện để từ chối). */
-    _probeVideoFrame(videoEl) {
+    _probeVideoFrame(source) {
         const size = VIDEO_PROBE_SIZE;
         const probeCanvas = document.createElement('canvas');
         probeCanvas.width = size; probeCanvas.height = size;
@@ -448,7 +449,7 @@ const workflowPlaylist = {
         let data = null;
         try {
             const ctx = probeCanvas.getContext('2d', { willReadFrequently: true });
-            ctx.drawImage(videoEl, 0, 0, size, size);
+            ctx.drawImage(source, 0, 0, size, size);
             try { data = ctx.getImageData(0, 0, size, size).data; }
             catch (readErr) { drawn = true; } // vẽ được nhưng không đo được
         } catch (drawErr) { drawn = false; } // Firefox/Safari có thể ném lỗi khi video chưa có khung
@@ -596,7 +597,9 @@ const workflowPlaylist = {
      * Tên PUBLIC (bỏ `_`) vì TÁI DÙNG chéo miền: `workflowFileManagerStorage.executeRepairBroken()` gọi lại
      * đúng hàm này để tạo lại thumb cho video ĐÃ lưu (event-bus-flow.md mục 4B).
      * @param {File|Blob} file - File lúc upload MỚI, hoặc `record.blob` của 1 video ĐÃ LƯU.
-     * @returns {Promise<{thumbBlob: Blob, thumbFullBlob: Blob, width: number, height: number, duration: number}>}
+     * @returns {Promise<{thumbBlob: Blob, thumbFullBlob: Blob, thumbFullIsBlack: boolean, width: number, height: number, duration: number}>}
+     *   `thumbFullIsBlack` (MỚI 19/09/2026): khung đầu VẼ ĐƯỢC nhưng đen sau nhiều lần chụp = đen THẬT — nơi gọi
+     *   ghi xuống record (`saveVideo()`/`setVideoThumbnails()`) để scan không báo lỗi lặp.
      */
     extractVideoThumbAndMeta(file) {
         return new Promise((resolve, reject) => {
@@ -631,7 +634,7 @@ const workflowPlaylist = {
                     const thumbBlob = await this._captureSquareThumb(videoEl);
                     if (!thumbBlob) throw new Error('[extractVideoThumbAndMeta] không chụp được thumb vuông');
 
-                    succeed({ thumbBlob, thumbFullBlob, width, height, duration: videoEl.duration || 0 });
+                    succeed({ thumbBlob, thumbFullBlob, thumbFullIsBlack: !!first.isBlack, width, height, duration: videoEl.duration || 0 });
                 } catch (err) {
                     fail(err);
                 }
@@ -671,8 +674,8 @@ const workflowPlaylist = {
                 const file = fileArray[i];
                 loadingText.textContent = tFormat('common.upload.loadingProgress', { done: i + 1, total: fileArray.length });
                 try {
-                    const { thumbBlob, thumbFullBlob, width, height, duration } = await this.extractVideoThumbAndMeta(file);
-                    const videoKey = await saveVideo(file, file.name, thumbBlob, width, height, duration, thumbFullBlob); // core/file-manager/video.js — CÓ return (videoKey), trước đây bị bỏ qua
+                    const { thumbBlob, thumbFullBlob, thumbFullIsBlack, width, height, duration } = await this.extractVideoThumbAndMeta(file);
+                    const videoKey = await saveVideo(file, file.name, thumbBlob, width, height, duration, thumbFullBlob, thumbFullIsBlack); // core/file-manager/video.js — CÓ return (videoKey), trước đây bị bỏ qua
                     uploadedVideoKeys.push(videoKey);
                 } catch (err) {
                     console.error(`[uploadVideos] chụp thumbnail/lưu thất bại cho file "${file.name}":`, err);
