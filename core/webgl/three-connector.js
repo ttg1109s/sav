@@ -495,25 +495,10 @@ function litNeuronFromSignalArrival(neuronIdx, energyOverride) {
 
 // ===================== CIRCUIT — port từ "Mô Phỏng Tín Hiệu Điện Tử Lượng Tử 3D" =====================
 
-// GIỮ NGUYÊN 100% — particle field môi trường lượng tử nền.
-function createQuantumEnvironment() {
-    const count = 600;
-    const positions = new Float32Array(count * 3);
-    const colors = new Float32Array(count * 3);
-    const palette = [new THREE.Color(0x00f3ff), new THREE.Color(0xff007f), new THREE.Color(0x9d00ff)];
-    for (let i = 0; i < count; i++) {
-        positions[i * 3] = (Math.random() - 0.5) * 160;
-        positions[i * 3 + 1] = (Math.random() - 0.5) * 100;
-        positions[i * 3 + 2] = (Math.random() - 0.5) * 160;
-        const c = palette[Math.floor(Math.random() * palette.length)];
-        colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
-    }
-    const particleGeo = new THREE.BufferGeometry();
-    particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    const particleMat = new THREE.PointsMaterial({ size: 0.6, vertexColors: true, transparent: true, opacity: 0.6 });
-    return new THREE.Points(particleGeo, particleMat);
-}
+// XOÁ (yêu cầu Giang — "bỏ những hình vuông bên ngoài dùng để trang trí"): createQuantumEnvironment()
+// (600 điểm PointsMaterial không texture -> mỗi điểm vẽ ra HÌNH VUÔNG, rải trong hộp 160×100×160 quanh
+// cube node — thuần trang trí nền, không tham gia graph/audio). Bỏ luôn lời gọi trong
+// initThreeJSConnector().
 
 // ĐỔI: hình node — thân chip + N chân cố định (trang trí/cấu trúc, KHÔNG khớp graph vì bản gốc
 // không có graph cố định nào — xem spawnCircuitSignal(), any-to-any y hệt gốc). Giữ PointLight
@@ -699,14 +684,23 @@ function createCircuitSignal(sourceChip, targetChip, sourcePin, targetPin, onBit
     return signal;
 }
 
-// GIỮ NGUYÊN 100% cơ chế bit=1 "hộp neon"/bit=0 "chấm ma" của gốc.
+// ĐỔI (yêu cầu Giang — "các hạt bit phải là hình tròn"): bit=1 trước là "hộp neon" BoxGeometry
+// 0.35×0.35×0.7 -> nay là HÌNH CẦU (cùng vật liệu neon emissive); bit=0 "chấm ma" vốn đã là cầu nhỏ,
+// GIỮ NGUYÊN. Geometry dùng CHUNG (tạo lười 1 lần, không dispose theo từng signal) — trước đây mỗi bit
+// `new` 1 geometry riêng mà destroyCircuitSignal() không dispose -> rò bộ nhớ GPU theo số xung; cầu
+// nhiều đỉnh hơn hộp nên nếu giữ cách cũ sẽ rò nhanh hơn, và xung giờ bắn theo audio từng node nên nhiều hơn.
+let _cnBitSphereGeometry = null;
+let _cnBitGhostGeometry = null;
+
 function initCircuitSignalBits(signal) {
+    if (!_cnBitSphereGeometry) _cnBitSphereGeometry = new THREE.SphereGeometry(0.28, 12, 12);
+    if (!_cnBitGhostGeometry) _cnBitGhostGeometry = new THREE.SphereGeometry(0.08, 6, 6);
     signal.binaryPattern.forEach((bit, idx) => {
         const mesh = bit
-            ? new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.7), new THREE.MeshStandardMaterial({
+            ? new THREE.Mesh(_cnBitSphereGeometry, new THREE.MeshStandardMaterial({
                 color: signal.color, emissive: signal.color, emissiveIntensity: 1.5, roughness: 0.1
             }))
-            : new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2 }));
+            : new THREE.Mesh(_cnBitGhostGeometry, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2 }));
         mesh.visible = false;
         signal.bitContainer.add(mesh);
         signal.bitMeshes.push({ mesh, bitVal: bit ? 1 : 0, offsetIndex: idx });
@@ -732,6 +726,7 @@ function destroyCircuitSignal(signal, cnGroupCircuit) {
     cnGroupCircuit.remove(signal.bitContainer);
     signal.lineGeometry.dispose();
     signal.lineMaterial.dispose();
+    signal.bitMeshes.forEach((b) => b.mesh.material.dispose()); // MỚI: chỉ vật liệu riêng từng bit — geometry cầu DÙNG CHUNG, KHÔNG dispose (xem initCircuitSignalBits())
 }
 
 // ĐỔI (yêu cầu Giang — audio kích hoạt từng node): nguồn VÀ ĐÍCH đều do Workflow chọn sẵn
@@ -840,7 +835,6 @@ function initThreeJSConnector() {
     cnScene.add(cnGroupSynapse);
 
     const cnGroupCircuit = new THREE.Group();
-    cnGroupCircuit.add(createQuantumEnvironment());
     const chips = buildCircuitNodes(cfg, cnGroupCircuit);
     cnScene.add(cnGroupCircuit);
 
