@@ -29,6 +29,13 @@
 // ĐƯỜNG SEEK thay vì do video THẬT SỰ phát hết, tuỳ engine; và `play()` từ đúng EOF có thể restart về 0).
 const VIDEO_SEEK_END_GUARD_SEC = 0.05;
 
+// [MỚI 21/09/2026 — sửa "seek lùi video lệch nhiều + hình không load liên tục"] Video ngắn (10–30s) chỉ có vài
+// keyframe -> `fastSeek()` đáp xuống keyframe cách mốc kéo hàng giây. Giờ scrub = seek CHÍNH XÁC nhưng XẾP HÀNG
+// (mỗi lần chỉ 1 lệnh seek đang bay, lệnh mới nhất thắng) và lúc thả tay kiểm chứng `currentTime` thật.
+const VIDEO_SEEK_VERIFY_TOLERANCE_SEC = 0.15; // sau 'seeked', lệch > mức này so với mốc thả tay -> gán lại (tối đa 3 lần, xem runGatedSeek())
+const VIDEO_SCRUB_SEEKED_TIMEOUT_MS = 1500;   // đợi 'seeked' của 1 lệnh scrub tối đa — phòng seek không bao giờ xong để hàng đợi không kẹt
+const VIDEO_SCRUB_TIMEOUT_TASK = 'videoScrubSeekedTimeout';
+
 const workflowVideoPlayer = {
     _objectUrl: null, // object URL HIỆN TẠI đang gán cho bgVideoElement (revoke trước khi tạo url mới)
     _thumbObjectUrl: null, // object URL của thumbBlob HIỆN TẠI (poster + cover ở player bar, #record-container) — revoke trước khi tạo url mới
@@ -37,6 +44,9 @@ const workflowVideoPlayer = {
     _wasPlayingBeforeSeek: false, // trạng thái play/pause NGAY TRƯỚC lúc bắt đầu kéo tay thanh seek — xem handleVideoSeeking()/handleVideoSeekCommit()
     _mediaGeneration: 0, // tăng 1 mỗi lần `swapBgVideoSource()` BẮT ĐẦU (chốt chặn DUY NHẤT mọi lần đổi src của bgVideoElement) — mốc để biết 1 phiên seek đã thuộc về media CŨ hay chưa. KHÔNG dùng `currentKey`: nó chỉ đổi SAU `waitBgVideoReady()`, còn 1 khoảng hở suốt lúc swap.
     _seekGeneration: null, // giá trị `_mediaGeneration` LÚC phiên kéo tay hiện tại bắt đầu (null = không có phiên) — lệch `_mediaGeneration` = phiên cũ, media đã đổi giữa lúc kéo, xem handleVideoSeeking()/handleVideoSeekCommit()
+    _scrubPendingTarget: null, // mốc scrub MỚI NHẤT đang chờ (null = không có) — lệnh seek đang bay xong mới gửi, xem `_requestScrubSeek()`
+    _scrubInFlight: false,     // đang có 1 lệnh seek scrub chưa 'seeked'
+    _scrubSeq: 0,              // tăng mỗi lệnh scrub/lần huỷ — listener 'seeked'/timeout của lệnh cũ tự bỏ qua nếu lệch số
 
     /**
      * Nạp `videoKey` vào `bgVideoElement` — CƠ CHẾ SWAP DUY NHẤT, DÙNG CHUNG giữa Video Player mode
@@ -649,7 +659,9 @@ const workflowVideoPlayer = {
      * `handleAudioTimeUpdate()` nhưng đọc `bgVideoElement.currentTime` (KHÔNG xử lý phụ đề — video
      * không có phụ đề). */
     handleVideoTimeUpdate() {
-        if (!appState.get('isSeeking')) { progressBar.value = bgVideoElement.currentTime; updateProgressBarCSS(); } // core/visualizer/visualizer-display.js
+        // SỬA 21/09/2026 — đang kéo tay thì KHÔNG đụng cả nhãn giờ (scrub xếp hàng làm currentTime chạy sau ngón tay -> nhãn nhấp nháy giữa 2 giá trị)
+        if (appState.get('isSeeking')) return;
+        progressBar.value = bgVideoElement.currentTime; updateProgressBarCSS(); // core/visualizer/visualizer-display.js
         currentTimeDisplay.textContent = formatTime(bgVideoElement.currentTime);
     },
 
@@ -675,12 +687,10 @@ const workflowVideoPlayer = {
         // BỎ QUA tick còn lại, không scrub nhầm lên video mới. `isSeeking` vẫn true tới khi thả tay
         // (handleVideoSeekCommit() dọn), thanh tiến trình video mới chỉ tạm đứng tới lúc đó.
         if (this._seekGeneration !== this._mediaGeneration) return;
-        // Scrub hình theo từng nhịp kéo — `fastSeek()` (Safari) chỉ tới keyframe gần nhất, rẻ hơn nhiều so với
-        // seek chính xác, tránh dồn hàng chục lệnh seek đầy đủ vào pipeline; vị trí CHÍNH XÁC do lúc thả tay
-        // (`runGatedSeek()`) gán. Trình duyệt không có `fastSeek` (Chrome/Firefox) dùng `currentTime` như cũ.
-        const scrubTarget = this._clampSeekTarget(Number(value));
-        if (typeof bgVideoElement.fastSeek === 'function') bgVideoElement.fastSeek(scrubTarget);
-        else bgVideoElement.currentTime = scrubTarget;
+        // [SỬA 21/09/2026] Scrub = seek CHÍNH XÁC (`currentTime`) nhưng XẾP HÀNG — bản cũ dùng `fastSeek()` (chỉ tới keyframe,
+        // video 10–30s vài keyframe nên lệch hàng giây) và bắn 1 lệnh mỗi nhịp kéo: seek LÙI phải giải mã lại từ keyframe trước
+        // nên chưa xong đã bị lệnh kế tiếp huỷ -> hình không kịp vẽ (seek tiến rẻ hơn nên vẫn ra hình liên tục).
+        this._requestScrubSeek(this._clampSeekTarget(Number(value)));
         currentTimeDisplay.textContent = formatTime(value);
         updateProgressBarCSS(); // core/visualizer/visualizer-display.js
     },
@@ -700,12 +710,48 @@ const workflowVideoPlayer = {
     handleVideoSeekCommit(value) {
         const isStaleSession = this._seekGeneration !== this._mediaGeneration;
         this._seekGeneration = null;
+        this._resetScrubSeek(); // huỷ lệnh scrub đang bay/chờ — mốc CUỐI do runGatedSeek() bên dưới lo
         appState.set('isSeeking', false);
         console.log(`writer: "workflowVideoPlayer.handleVideoSeekCommit", page: "isSeeking", content: "false${isStaleSession ? ' (phiên cũ — bỏ qua commit)' : ''}"`);
         if (isStaleSession) return;
         // [SỬA 21/09/2026] Cổng seek: mute -> gán currentTime -> ĐỢI 'seeked' -> play() (nếu trước đó đang phát) ->
         // mở tiếng — không còn `play()` ngay khi seek chưa xong (video/audio lọt vị trí cũ/trung gian).
-        workflowPlayerControls.runGatedSeek(bgVideoElement, this._clampSeekTarget(Number(value)), this._wasPlayingBeforeSeek); // event/workflow/player-controls.js
+        workflowPlayerControls.runGatedSeek(bgVideoElement, this._clampSeekTarget(Number(value)), this._wasPlayingBeforeSeek, VIDEO_SEEK_VERIFY_TOLERANCE_SEC); // event/workflow/player-controls.js
+    },
+
+    /** Huỷ toàn bộ hàng đợi scrub (đầu phiên kéo mới / lúc thả tay). Tăng `_scrubSeq` để listener/timeout của lệnh đang bay tự bỏ qua. */
+    _resetScrubSeek() {
+        this._scrubSeq++;
+        this._scrubPendingTarget = null;
+        this._scrubInFlight = false;
+        taskManager.kill(VIDEO_SCRUB_TIMEOUT_TASK);
+    },
+
+    /** Xin scrub tới `target` — ghi đè mốc đang chờ (chỉ mốc MỚI NHẤT có nghĩa); không có lệnh nào đang bay thì gửi ngay. */
+    _requestScrubSeek(target) {
+        this._scrubPendingTarget = target;
+        if (!this._scrubInFlight) this._flushScrubSeek();
+    },
+
+    /** Gửi 1 lệnh seek chính xác tới mốc đang chờ, đợi 'seeked' (kèm timeout) rồi gửi tiếp mốc mới nhất nếu người dùng đã kéo đi chỗ khác —
+     * mỗi lúc chỉ 1 lệnh bay nên seek lùi (nặng) vẫn hoàn tất + vẽ hình, hình cập nhật liên tục theo tốc độ giải mã của máy. */
+    _flushScrubSeek() {
+        const target = this._scrubPendingTarget;
+        if (target === null) return;
+        this._scrubPendingTarget = null;
+        this._scrubInFlight = true;
+        const seq = ++this._scrubSeq;
+        const onDone = () => {
+            if (seq !== this._scrubSeq) return; // lệnh này đã bị huỷ (thả tay/phiên mới) — bỏ qua
+            bgVideoElement.removeEventListener('seeked', onDone);
+            taskManager.kill(VIDEO_SCRUB_TIMEOUT_TASK);
+            this._scrubInFlight = false;
+            if (this._seekGeneration !== this._mediaGeneration) { this._scrubPendingTarget = null; return; } // media đã đổi giữa lúc kéo
+            this._flushScrubSeek(); // còn mốc mới hơn -> gửi tiếp
+        };
+        bgVideoElement.addEventListener('seeked', onDone, { once: true });
+        taskManager.once(onDone, VIDEO_SCRUB_SEEKED_TIMEOUT_MS, VIDEO_SCRUB_TIMEOUT_TASK);
+        bgVideoElement.currentTime = target;
     },
 
     /** Kẹp mốc seek tới sát/đúng cuối video về `duration - VIDEO_SEEK_END_GUARD_SEC` — seek KHÔNG

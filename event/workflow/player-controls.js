@@ -57,19 +57,27 @@ const workflowPlayerControls = {
      * @param {number} targetSec
      * @param {boolean} resumeAfter - true = `play()` sau 'seeked' (Video đã bị pause lúc kéo); false = phần tử vẫn đang
      *        phát/hoặc do người dùng pause -> giữ nguyên (Song)
+     * @param {number|null} [verifyToleranceSec] - Video: sau 'seeked' đọc lại currentTime, lệch > mức này thì gán lại; null = không kiểm (Song)
      */
-    async runGatedSeek(mediaEl, targetSec, resumeAfter) {
+    async runGatedSeek(mediaEl, targetSec, resumeAfter, verifyToleranceSec = null) {
         const token = ++this._seekGateToken;
         this._setMasterGainForSeekGate(true);
 
-        // Đã đứng đúng mốc (vd Video: scrub lúc kéo đã gán currentTime) và không còn seek đang dở -> không có
-        // 'seeked' nào để đợi, gán lại còn tạo thêm 1 lệnh seek thừa. `fastSeek` (Safari, lúc scrub) chỉ tới
-        // keyframe gần nhất nên currentTime có thể lệch target -> vẫn gán lại đúng mốc ở đây.
-        const needsAssign = Math.abs(mediaEl.currentTime - targetSec) > 0.001;
-        if (needsAssign || mediaEl.seeking) {
-            const seekedPromise = this._waitMediaSeeked(mediaEl); // đăng ký listener TRƯỚC khi gán currentTime
-            if (needsAssign) mediaEl.currentTime = targetSec;
-            await seekedPromise;
+        // [SỬA 21/09/2026 — video seek lùi lệch hàng giây] Bản cũ: đang có seek dở (`seeking`) mà `currentTime` == mốc thì KHÔNG gán lại,
+        // chỉ đợi 'seeked' của seek dở đó. Nhưng lúc seek đang bay `currentTime` trả về mốc ĐÃ YÊU CẦU, không phải nơi nó sẽ đáp
+        // (`fastSeek` đáp keyframe) -> điều kiện `needsAssign` sai, media đáp lệch mà không ai sửa. Giờ: còn seek dở HOẶC lệch mốc -> luôn gán
+        // lại (seek mới huỷ seek dở). Có `verifyToleranceSec` (Video) thì sau 'seeked' còn ĐỌC LẠI `currentTime`, lệch quá mức -> gán lại (tối đa 3 lần)
+        // — chống cả trường hợp 'seeked' của seek cũ bị huỷ bắn nhầm làm cổng mở sớm.
+        const needsAssign = mediaEl.seeking || Math.abs(mediaEl.currentTime - targetSec) > 0.001;
+        if (needsAssign) {
+            const maxAttempts = verifyToleranceSec === null ? 1 : 3;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                const seekedPromise = this._waitMediaSeeked(mediaEl); // đăng ký listener TRƯỚC khi gán currentTime
+                mediaEl.currentTime = targetSec;
+                await seekedPromise;
+                if (token !== this._seekGateToken) return; // lệnh seek mới hơn đã tiếp quản — nó tự lo play()/mở tiếng
+                if (verifyToleranceSec === null || Math.abs(mediaEl.currentTime - targetSec) <= verifyToleranceSec) break;
+            }
         }
         if (token !== this._seekGateToken) return; // lệnh seek mới hơn đã tiếp quản — nó tự lo play()/mở tiếng
 
