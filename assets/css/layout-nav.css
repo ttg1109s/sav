@@ -16,6 +16,7 @@
    updatePlaylistBg() gán cùng ảnh cho cả 2 khi bgBlur > 0). */
 #app-bg { overflow: hidden; }
 #app-bg-image, #app-bg-blur-layer { position: absolute; inset: 0; }
+#app-bg-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; } /* MỚI 21/09/2026 — video nền App (nằm dưới #app-bg-image, xem components/app-view-stack.js) */
 #visualizer-ui, #player-container { transform: translateX(calc(-100% - 4px)); }
 #visualizer-ui.visualizer-active, #player-container.visualizer-active { transform: translateX(0); }
 
