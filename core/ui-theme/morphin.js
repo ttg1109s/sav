@@ -87,6 +87,7 @@ const UI_THEME_MORPHIN = {
     // ===================== Thanh tiến độ =====================
     // MỚI 21/09/2026 — nền (track) của thanh tiến độ mảnh (card "Library played" ở panel Statistics, xem core/statis-panel-ui.js). Phần tô (fill) dùng sky đặc trực tiếp, cùng cách tô "đang chọn" của chip lọc trong panel.
     progressTrackBg: 'bg-slate-200',
+    progressFillBg: 'bg-sky-500', // phần tô (fill) của thanh tiến độ — MỚI 21/09/2026, đi cùng progressTrackBg (Dark đổi sang tím)
 
     // ===================== Tab pill (segmented) =====================
     // MỚI 21/09/2026 — trạng thái ĐANG CHỌN của tab pill trong modal Chi tiết/Sửa (components/playlist-view.js,
