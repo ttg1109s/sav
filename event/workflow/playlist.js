@@ -1293,7 +1293,7 @@ const workflowPlaylist = {
         // Grid `auto-fill`/`minmax` — xem docstring ở đó cho lý do đầy đủ).
         const addTileHtml = this._folderPickerShowAddTile ? buildAddFolderTileHtml() : ''; // components/items.js
         const bodyHtml = (this._folderPickerFolders.length === 0 && !this._folderPickerShowAddTile && this._folderPickerEmptyMsg)
-            ? `<p class="text-sm text-slate-500 text-center py-10 px-6">${this._folderPickerEmptyMsg}</p>`
+            ? `<p class="text-sm text-center py-10 px-6" data-uitk="textSecondary">${this._folderPickerEmptyMsg}</p>`
             : buildFolderGridWrapperHtml(`${itemsHtml}${addTileHtml}`); // components/items.js
         const config = {
             // SỬA (14/07/2026, Giang báo — "layout grid thừa khoảng trống") — TRƯỚC ĐÂY height cố
@@ -1321,13 +1321,13 @@ const workflowPlaylist = {
      * (2 luồng "Thêm vào thư mục" của Playlist không đụng gì). */
     _buildFolderPickerHeaderHtml() {
         const typeDropdownHtml = this._folderPickerTypeOptions ? `
-            <select id="playlist-folder-picker-type" class="bg-slate-100 border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800 outline-none">
+            <select id="playlist-folder-picker-type" class="rounded-lg px-2 py-1 text-xs outline-none" data-uitk="inputBg inputBorder inputText">
                 <option value="video" ${this._folderPickerTypeOptions.current === 'video' ? 'selected' : ''}>${t('visualBgSettingsDrawer.folderPicker.typeVideo')}</option>
                 <option value="photo" ${this._folderPickerTypeOptions.current === 'photo' ? 'selected' : ''}>${t('visualBgSettingsDrawer.folderPicker.typePhoto')}</option>
             </select>` : '';
         const confirmCount = this._folderPickerSelectedIds.length;
         const confirmBtnHtml = this._folderPickerMultiSelect ? `
-            <button type="button" id="playlist-folder-picker-confirm" class="text-xs font-semibold text-sky-600 px-1 disabled:opacity-40 disabled:cursor-not-allowed" ${confirmCount === 0 ? 'disabled' : ''}>${confirmCount === 0 ? t('visualBgSettingsDrawer.picker.confirmEmpty') : tFormat('visualBgSettingsDrawer.picker.confirm', { count: confirmCount })}</button>` : '';
+            <button type="button" id="playlist-folder-picker-confirm" class="text-xs font-semibold px-1 disabled:opacity-40 disabled:cursor-not-allowed" data-uitk="accentText" ${confirmCount === 0 ? 'disabled' : ''}>${confirmCount === 0 ? t('visualBgSettingsDrawer.picker.confirmEmpty') : tFormat('visualBgSettingsDrawer.picker.confirm', { count: confirmCount })}</button>` : '';
         return `
             <div class="flex justify-between items-center px-5 pb-3 gap-2" data-uitk="headerBorder">
                 <h3 class="text-base font-bold shrink-0" data-uitk="headerTitle">${t('fileManager.folderPicker.title')}</h3>

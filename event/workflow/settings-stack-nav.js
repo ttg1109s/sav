@@ -1,11 +1,10 @@
 /**
  * event/workflow/settings-stack-nav.js — "THẰNG THỰC THI CUỐI" của router "settingsStackNav".
  *
- * Cụm ĐIỀU HƯỚNG DÙNG CHUNG cho TOÀN BỘ panel con của Settings (About/Visualizer/Slideshow/
+ * Cụm ĐIỀU HƯỚNG DÙNG CHUNG cho TOÀN BỘ panel con của Settings (Visualizer/Slideshow/
  * Subtitle/.../File Manager — bất kể panel nào đang mở) — nút Back (mỗi panel tự mang 1 nút riêng,
  * xem core/settings-panel-stack.js) LUÔN gọi về ĐÚNG hàm ở đây, không phân biệt panel nào đang
- * hiện. Panel cụ thể (About, Visualizer...) chỉ cần lo phần MỞ (push + việc riêng của nó, vd About
- * cần tính thống kê) — xem event/workflow/settings-misc.js::openAbout() làm ví dụ.
+ * hiện. Panel cụ thể (Visualizer...) chỉ cần lo phần MỞ (push + việc riêng của nó).
  *
  * Nút Close (X, id="close-drawer") KHÔNG có message riêng ở cụm này — nó đã có sẵn dây nối
  * 'playerControls.settingsDrawer.close' từ trước (event/listener,router/player-controls.js), giữ

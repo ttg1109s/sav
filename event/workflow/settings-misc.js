@@ -1,12 +1,9 @@
 /**
  * event/workflow/settings-misc.js — "THẰNG THỰC THI CUỐI" của router "settingsMisc".
  *
- * Batch D1 (Settings restructure, 06/07/2026): `aboutDrawer` GIỜ CẦN workflow (TRƯỚC ĐÂY chỉ 1
- * hàm core/msg.type, router gọi thẳng — nay `openAbout()` là push panel (core UI thuần) + tính
- * thống kê bất đồng bộ + tự querySelector để điền giá trị, nhiều bước > 1 hàm core -> đúng hình
- * dạng Workflow). Nhánh đóng About KHÔNG còn ở đây nữa — dùng CHUNG
- * `settingsStackNav.back.click` cho MỌI panel (xem event/workflow/settings-stack-nav.js), không
- * riêng About — xem router/settings-misc.js đã bỏ case `aboutDrawer.close`.
+ * [21/09/2026] Nhánh `aboutDrawer` (`openAbout()`) ĐÃ XOÁ — nút mở `#setting-open-about` không còn tồn tại trong UI Settings
+ * (carousel mới chỉ có Playlist/System/Visualizer Screen/Troubleshooting) nên `openAbout()`/`renderAboutPanelBody()`
+ * không còn ai gọi tới (đã kiểm tra toàn project) — xoá cả cụm.
  *
  * Ver 12 "Multi Media": nhánh `storageDrawer` đã DỜI sang workflowFileManagerSong
  * (event/workflow/file-manager-song.js, plan-v12-multimedia.md mục 3).
@@ -21,26 +18,6 @@
 const workflowSettingsMisc = {
 
     _debugConsolePanelEl: null, // panel Debug Console đang mở (pushSettingsPanel() dựng mới mỗi lần) — clearDebugConsoleLog() cần vẽ lại danh sách
-
-    // ===================== aboutDrawer =====================
-
-    /**
-     * Ứng với msg.type = 'settingsMisc.aboutDrawer.open' — push panel About (nền tĩnh, hiện
-     * '...' ngay) rồi tính thống kê thật bất đồng bộ, điền vào ĐÚNG panel vừa push (tự
-     * `querySelector` bên trong `panelEl` trả về từ `pushSettingsPanel()` — KHÔNG dùng dom-refs.js
-     * tĩnh, vì panel này bị `.remove()` mỗi lần đóng, xem core/settings-panel-stack.js).
-     */
-    async openAbout() {
-        const panelEl = pushSettingsPanel({ title: t('aboutDrawer.title'), bodyHtml: renderAboutPanelBody() });
-        const statTotalSongsEl = panelEl.querySelector('#stat-about-total-songs');
-        const statTotalDurationEl = panelEl.querySelector('#stat-about-total-duration');
-        const statListenSecondsEl = panelEl.querySelector('#stat-about-listen-seconds');
-
-        const stats = await computeStats(); // core thuần, giữ nguyên (core/about-stats.js)
-        statTotalSongsEl.textContent = `${stats.totalSongs}`;
-        statTotalDurationEl.textContent = formatDurationLong(stats.totalDuration);
-        statListenSecondsEl.textContent = formatDurationLong(stats.totalListenSeconds);
-    },
 
     /**
      * MỚI (18/07/2026, Giang yêu cầu — "mục mới Settings > Misc, vào hiện console log"). SỬA
@@ -86,7 +63,7 @@ const workflowSettingsMisc = {
                     </button>
                 </div>
             `,
-            bodyHtml: `<div class="text-slate-900 p-4">${renderDebugConsolePanelBody()}</div>`, // components/debug-console-drawer.js
+            bodyHtml: `<div class="p-4" data-uitk="textPrimary">${renderDebugConsolePanelBody()}</div>`, // components/debug-console-drawer.js
             bodyClass: 'overflow-y-auto',
         });
         const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');

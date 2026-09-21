@@ -59,7 +59,7 @@ const workflowPlaylistRender = {
 
         const isPlaying = (key === appState.get('currentKey'));
         const isActuallyPlaying = isPlaying && !((cached && cached.mediaType === 'video') ? bgVideoElement.paused : audioPlayer.paused);
-        const eqIconHtml = isActuallyPlaying ? `<div class="flex items-end gap-[2px] h-3 w-3"><div class="w-[3px] bg-sky-400 eq-1"></div><div class="w-[3px] bg-sky-400 eq-2"></div><div class="w-[3px] bg-sky-400 eq-3"></div></div>` : (isPlaying ? `<div class="w-2 h-2 rounded-full bg-sky-500 shadow-[0_0_5px_rgba(14,165,233,0.8)]"></div>` : '');
+        const eqIconHtml = isActuallyPlaying ? `<div class="flex items-end gap-[2px] h-3 w-3"><div class="w-[3px] eq-1" data-uitk="eqBarBg"></div><div class="w-[3px] eq-2" data-uitk="eqBarBg"></div><div class="w-[3px] eq-3" data-uitk="eqBarBg"></div></div>` : (isPlaying ? `<div class="w-2 h-2 rounded-full shadow-[0_0_5px_rgba(14,165,233,0.8)]" data-uitk="btnPrimaryPillBg"></div>` : '');
         const selectionMode = appState.get('selectionMode');
         const isSelected = selectionMode && appState.get('selectedMediaKeys').has(key);
         const isGridViewNow = appState.get('isGridView'); // đọc 1 lần, dùng lại cho cả menuBtnHtml lẫn nhánh render bên dưới
@@ -82,14 +82,14 @@ const workflowPlaylistRender = {
                 <h3 class="text-[15px] font-semibold leading-tight line-clamp-1 px-1" data-uitk="textPrimary">${title}</h3>
                 <p class="text-[13px] font-medium line-clamp-1 px-1 mt-0.5" data-uitk="textSecondary">${secondLineHtml}</p>`;
         } else {
-            wrapper.className = `flex items-center gap-4 px-5 py-3 active:bg-slate-100 transition-colors cursor-pointer w-full group ${isSelected ? 'bg-sky-50' : ''}`;
-            wrapper.dataset.uitk = isSelected ? '' : 'cardHoverBg';
+            wrapper.className = `flex items-center gap-4 px-5 py-3 transition-colors cursor-pointer w-full group`;
+            wrapper.dataset.uitk = isSelected ? 'rowActiveBg rowPressBg' : 'cardHoverBg rowPressBg'; // SỬA 21/09/2026 — trước đây `active:bg-slate-100`/`bg-sky-50` class cứng; hàng đang CHỌN = rowActiveBg, nhấn giữ = rowPressBg, rê chuột = cardHoverBg
             wrapper.dataset.role = 'play-item';
             wrapper.innerHTML = `
                 ${selectionMode ? selectionIndicatorHtml(isSelected) : ''}
                 <img src="${coverUrl}" class="w-12 h-12 rounded-lg flex-shrink-0 object-cover shadow-md">
                 <div class="flex-grow flex flex-col justify-center overflow-hidden gap-0.5">
-                    <div class="flex items-center gap-2"><h3 class="text-[16px] leading-tight font-semibold truncate ${isPlaying ? 'text-sky-600' : ''}" ${isPlaying ? '' : 'data-uitk="textPrimary"'}>${title}</h3>${isPlaying ? eqIconHtml : ''}</div>
+                    <div class="flex items-center gap-2"><h3 class="text-[16px] leading-tight font-semibold truncate" data-uitk="${isPlaying ? 'accentText' : 'textPrimary'}">${title}</h3>${isPlaying ? eqIconHtml : ''}</div>
                     <p class="text-[13px] truncate font-medium" data-uitk="textSecondary">${secondLineHtml}</p>
                 </div>
                 <div class="flex">${menuBtnHtml}</div>`;

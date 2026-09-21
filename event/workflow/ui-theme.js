@@ -19,8 +19,8 @@
  */
 /** MỚI (21/09/2026) — `color-scheme` CSS theo theme đang active: báo trình duyệt vẽ đúng thanh cuộn, popup của
  * `<select>`, ô nhập màu, caret... theo sáng/tối (mặc định luôn 'light' -> Dark còn popup select trắng chói).
- * Bảng theo TÊN theme (không đoán từ màu). Morphin chưa thiết kế -> 'light'. */
-const UI_THEME_COLOR_SCHEME = { light: 'light', dark: 'dark', morphin: 'light' };
+ * Bảng theo TÊN theme (không đoán từ màu). Morphin (kính, chữ trắng) -> 'dark'. */
+const UI_THEME_COLOR_SCHEME = { light: 'light', dark: 'dark', morphin: 'dark' }; // Morphin: chữ trắng trên kính tối -> popup/ô nhập kiểu tối
 
 const workflowUiTheme = {
 

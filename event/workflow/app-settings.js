@@ -69,6 +69,14 @@ const APP_SETTINGS_CAROUSEL_ENTRANCE_TASK = 'appSettingsCarouselEntrance';
 const APP_SETTINGS_CAROUSEL_ENTRANCE_END_TASK = 'appSettingsCarouselEntranceEnd';
 const APP_SETTINGS_CAROUSEL_SETTLE_TASK = 'appSettingsCarouselSettle';
 
+/** MỚI (21/09/2026) — tô sáng hàng Point Move đang là ĐÍCH THẢ lúc kéo-sắp-xếp (Motion drawer). Trước đây bật/tắt class cứng
+ * `bg-sky-100` (pastel chói trên Dark/Morphin, lại còn đè lên nền card do theme áp) — giờ đổi bộ KEY của chính hàng đó rồi áp lại
+ * theme cho riêng nó: đích thả = `rowActiveBg` (nền "đang chọn"), bình thường = `cardBg`; `cardBorder` giữ cả 2 trạng thái. */
+function setMotionRowDropHighlight(rowEl, isHighlighted) {
+    rowEl.dataset.uitk = isHighlighted ? 'rowActiveBg cardBorder' : 'cardBg cardBorder';
+    if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(rowEl, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
+}
+
 const workflowAppSettings = {
 
     _carouselTouching: false, // ngón tay còn đang chạm carousel Main — không nhảy scrollLeft lúc đang kéo tay
@@ -312,39 +320,25 @@ const workflowAppSettings = {
         this._render(t('appSettings.row.system'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js
     },
 
-    // ===================== Theme (VIẾT LẠI UI theo yêu cầu — dropdown, TÁI DÙNG NGUYÊN core/
-    // workflow: 'theme.selectMode.click' + 'theme.gradientFrom/To.input', event/router/theme.js
-    // KHÔNG đổi gì) =====================
+    // ===================== Theme — CHỈ 1 lựa chọn "Color" (Light/Dark/Morphin) =====================
+    // SỬA 21/09/2026 (Giang yêu cầu "bỏ phần Background, thay Interface = Color; chỉ hiện chọn ảnh nền/gradient khi chọn
+    // Morphin"): select "Background" cũ (viz.themeMode light/dark/glass) ĐÃ XOÁ — light/dark của nó thực chất không vẽ gì
+    // (chỉ 'gradient'/'background' mới có nền, xem core/color-utils.js::updatePlaylistBg). Giờ 1 select "Color" = UI Theme
+    // (core/ui-theme/*), và phần chọn NỀN (Solid/Gradient/Image) CHỈ dựng khi Color = Morphin — nền chỉ có nghĩa với kính mờ.
+    // Các luồng nền GIỮ NGUYÊN: TÁI DÙNG router 'theme' gốc (event/router/theme.js — KHÔNG đổi gì) qua eventBus.
 
-    /** "Glass trong suốt" gộp 3 mode cũ (background/gradient + "solid" MỚI) — "solid" TÁI DÙNG
-     * mode 'gradient' có sẵn (core KHÔNG đổi gì), chỉ gán 2 màu Từ/Đến CÙNG 1 giá trị — 1 màu duy
-     * nhất nhìn như nền phẳng, không cần thêm field/schema mới. */
+    /** "Solid" tái dùng mode 'gradient' có sẵn (core KHÔNG đổi gì), chỉ gán 2 màu Từ/Đến CÙNG 1 giá trị — 1 màu duy nhất nhìn
+     * như nền phẳng, không cần thêm field/schema mới. */
     _renderTheme() {
         this._currentRenderFn = () => this._renderTheme();
         const cfg = appConfigViz.getAll();
-        const isGlass = cfg.themeMode === 'background' || cfg.themeMode === 'gradient';
+        const activeUiTheme = getSelectableUiThemeNames().includes(appConfigUiTheme.getAll().activeUiTheme) ? appConfigUiTheme.getAll().activeUiTheme : UI_THEME_DEFAULT_NAME; // core/config.js + core/ui-theme/registry.js — tên lạ/không cho chọn -> Light (khớp theme THẬT đang áp)
+        const isMorphin = activeUiTheme === 'morphin';
         const isSolidGuess = cfg.themeMode === 'gradient' && cfg.gradientFrom === cfg.gradientTo;
         const glassType = cfg.themeMode === 'background' ? 'image' : (isSolidGuess ? 'solid' : 'gradient');
-        const bodyHtml = `
-            <div class="flex flex-col gap-2">
-                <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
-                    <!-- MỚI 21/09/2026 — màu GIAO DIỆN (UI Theme Light/Dark, core/ui-theme/*) — KHÁC hàng "Background" ngay dưới (viz.themeMode: nền phía sau app). Danh sách lấy từ registry (getSelectableUiThemeNames), không tự liệt kê tay. -->
-                    <div class="flex justify-between items-center px-4 py-3.5 border-b" data-uitk="dividerBorder">
-                        <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${t('appSettings.theme.uiTheme.label')}</span>
-                        <select id="app-settings-ui-theme-select" class="rounded-lg px-2 py-1.5 text-xs outline-none w-40 text-right" data-uitk="inputBg inputBorder inputText">
-                            ${getSelectableUiThemeNames().map((name) => `<option value="${name}">${t('appSettings.theme.uiTheme.option.' + name)}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div class="flex justify-between items-center px-4 py-3.5 ${isGlass ? '' : ''} border-b" data-uitk="dividerBorder">
-                        <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${t('appSettings.theme.select.label')}</span>
-                        <select id="app-settings-theme-select" class="rounded-lg px-2 py-1.5 text-xs outline-none w-40 text-right" data-uitk="inputBg inputBorder inputText">
-                            <option value="light">${t('appSettings.theme.select.light')}</option>
-                            <option value="dark">${t('appSettings.theme.select.dark')}</option>
-                            <option value="glass">${t('appSettings.theme.select.glass')}</option>
-                        </select>
-                    </div>
-                    <div id="app-settings-theme-glass-row" class="${isGlass ? '' : 'hidden'} flex-col">
-                        <div class="flex justify-between items-center px-4 py-3.5 border-b" data-uitk="dividerBorder">
+        const backgroundSectionHtml = !isMorphin ? '' : `
+                    <div class="flex flex-col">
+                        <div class="flex justify-between items-center px-4 py-3.5 border-t" data-uitk="dividerBorder">
                             <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${t('appSettings.theme.glassType.label')}</span>
                             <select id="app-settings-theme-glass-type" class="rounded-lg px-2 py-1.5 text-xs outline-none w-40 text-right" data-uitk="inputBg inputBorder inputText">
                                 <option value="solid">${t('appSettings.theme.glassType.solid')}</option>
@@ -367,40 +361,47 @@ const workflowAppSettings = {
                         <div id="app-settings-theme-image-row" class="${glassType === 'image' ? '' : 'hidden'} px-4 py-3.5 text-xs" data-uitk="textSecondary">
                             ${t('settingsTheme.background')} — <button type="button" id="app-settings-theme-image-pick" class="font-semibold underline" data-uitk="accentText">${t('common.btn.upload')}</button>
                         </div>
+                    </div>`;
+        const bodyHtml = `
+            <div class="flex flex-col gap-2">
+                <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
+                    <div class="flex justify-between items-center px-4 py-3.5">
+                        <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${t('appSettings.theme.uiTheme.label')}</span>
+                        <select id="app-settings-ui-theme-select" class="rounded-lg px-2 py-1.5 text-xs outline-none w-40 text-right" data-uitk="inputBg inputBorder inputText">
+                            ${getSelectableUiThemeNames().map((name) => `<option value="${name}">${t('appSettings.theme.uiTheme.option.' + name)}</option>`).join('')}
+                        </select>
                     </div>
+                    ${backgroundSectionHtml}
                 </div>
             </div>
         `;
         this._render(t('appSettings.system.theme.label'), bodyHtml, (body) => {
-            const uiThemeSelect = body.querySelector('#app-settings-ui-theme-select');
-            const activeUiTheme = appConfigUiTheme.getAll().activeUiTheme; // core/config.js
-            uiThemeSelect.value = getSelectableUiThemeNames().includes(activeUiTheme) ? activeUiTheme : UI_THEME_DEFAULT_NAME; // core/ui-theme/registry.js — tên lạ/không cho chọn -> Light (khớp theme THẬT đang áp)
-            const modeSelect = body.querySelector('#app-settings-theme-select');
-            modeSelect.value = isGlass ? 'glass' : cfg.themeMode;
+            body.querySelector('#app-settings-ui-theme-select').value = activeUiTheme;
+            const glassTypeSelect = body.querySelector('#app-settings-theme-glass-type');
+            if (glassTypeSelect) glassTypeSelect.value = glassType;
             const solidColorInput = body.querySelector('#app-settings-theme-solid-color');
             const gradientFromInput = body.querySelector('#app-settings-theme-gradient-from');
             const gradientToInput = body.querySelector('#app-settings-theme-gradient-to');
-            if (solidColorInput) solidColorInput.value = cfg.gradientFrom || '#38bdf8';
-            if (gradientFromInput) gradientFromInput.value = cfg.gradientFrom || '#38bdf8';
-            if (gradientToInput) gradientToInput.value = cfg.gradientTo || '#a855f7';
+            if (solidColorInput) solidColorInput.value = cfg.gradientFrom || '#6366f1';
+            if (gradientFromInput) gradientFromInput.value = cfg.gradientFrom || '#6366f1';
+            if (gradientToInput) gradientToInput.value = cfg.gradientTo || '#ec4899';
             wireAppSettingsTheme(body); // core/app-settings-ui.js
         });
     },
 
-    /** Ứng với 'appSettings.theme.selectMode.change' (Router gọi). mode !== 'glass' -> TÁI DÙNG
-     * THẲNG luồng 'theme' gốc (eventBus.send, KHÔNG phải gọi thẳng workflowTheme — vẫn cần qua
-     * Router "theme" vì đó là nơi tính VirtualMachineState, xem event/router/theme.js) rồi render
-     * lại Theme để phản ánh cfg mới. mode === 'glass' CHỈ hiện khối "loại nền" — CHƯA commit gì
-     * (người dùng chưa chọn solid/gradient/image), patch DOM trực tiếp (đang ở trong Workflow, gọi
-     * bởi Router — KHÁC listener DOM thô, không vi phạm Rule 5a). */
-    handleThemeSelectMode(mode) {
-        if (mode !== 'glass') {
-            eventBus.send({ router: 'theme', type: 'theme.selectMode.click', payload: { mode } });
-            this._renderTheme();
-            return;
-        }
-        const glassRow = genericDrawerBody.querySelector('#app-settings-theme-glass-row');
-        if (glassRow) glassRow.classList.remove('hidden');
+    /** Ứng với 'appSettings.uiTheme.change' (Router gọi) — đổi màu GIAO DIỆN (Light/Dark/Morphin) RỒI đồng bộ NỀN phía sau
+     * app cho khớp: Morphin CẦN có nền (ảnh/gradient) để lớp kính có gì để làm mờ -> chưa có nền nào thì đặt mặc định
+     * 'gradient' (indigo→pink, core/config.js); Light/Dark dùng panel ĐẶC nên nền phía sau vô nghĩa -> tắt (mode 'light'/'dark' của
+     * router 'theme' gốc tự `applyBgImageEnabled(false)`, ảnh đã chọn bị bỏ, 2 màu gradient vẫn nhớ). Cuối cùng dựng lại màn
+     * Theme để phần chọn nền hiện/ẩn đúng theo Color mới. `eventBus.send` router 'theme' là đường DUY NHẤT vào luồng đổi nền
+     * (Router tự tính VirtualMachineState, xem event/router/theme.js). */
+    async handleUiThemeChange(themeName) {
+        await workflowUiTheme.switchUiTheme(themeName); // event/workflow/ui-theme.js
+        const currentThemeMode = appConfigViz.getAll().themeMode;
+        const morphinAlreadyHasBackground = currentThemeMode === 'gradient' || currentThemeMode === 'background';
+        if (themeName === 'morphin' && !morphinAlreadyHasBackground) eventBus.send({ router: 'theme', type: 'theme.selectMode.click', payload: { mode: 'gradient' } });
+        else if (themeName !== 'morphin') eventBus.send({ router: 'theme', type: 'theme.selectMode.click', payload: { mode: themeName } }); // 'light' | 'dark' — tắt nền
+        this._renderTheme();
     },
 
     /** Ứng với 'appSettings.theme.selectGlassType.change'. */
@@ -631,13 +632,13 @@ const workflowAppSettings = {
                 document.addEventListener('pointermove', (e) => {
                     if (!draggingId || !draggingRowEl) return;
                     draggingRowEl.style.transform = `translateY(${e.clientY - dragStartClientY}px) scale(1.02)`;
-                    if (hoverRowEl) hoverRowEl.classList.remove('bg-sky-100');
+                    if (hoverRowEl) setMotionRowDropHighlight(hoverRowEl, false);
                     hoverRowEl = rows.find((row) => {
                         if (row === draggingRowEl || row.dataset.ptmoveRow === point0Id) return false; // Point 0 KHÔNG nhận thả (start point cố định)
                         const rect = row.getBoundingClientRect();
                         return e.clientY >= rect.top && e.clientY <= rect.bottom;
                     }) || null;
-                    if (hoverRowEl) hoverRowEl.classList.add('bg-sky-100');
+                    if (hoverRowEl) setMotionRowDropHighlight(hoverRowEl, true);
                 });
                 document.addEventListener('pointerup', () => {
                     if (!draggingId) return;
@@ -649,7 +650,7 @@ const workflowAppSettings = {
                         draggingRowEl.style.userSelect = '';
                     }
                     document.body.style.userSelect = '';
-                    if (hoverRowEl) hoverRowEl.classList.remove('bg-sky-100');
+                    if (hoverRowEl) setMotionRowDropHighlight(hoverRowEl, false);
                     const targetId = hoverRowEl ? hoverRowEl.dataset.ptmoveRow : null;
                     if (targetId && targetId !== draggingId) {
                         eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.swapOrder.change', payload: { idA: draggingId, idB: targetId } });
