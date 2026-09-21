@@ -67,7 +67,7 @@ const CUSTOM_EFFECT_STYLE = {
     vortex: { field: 'vortexStyle', options: ['rings', 'bars', 'wave'] },
     lighting: { field: 'lightingStyle', options: ['thunder', 'fireworks'] },
     shape: { field: 'shapeStyle', options: ['rubik'] },
-    connector: { field: 'connectorStyle', options: ['synapse', 'circuit'] },
+    connector: { field: 'connectorStyle', options: ['synapse', 'circuit', 'brain'] },
 };
 
 /** Tiêu đề card "Music Transition" (components/custom-effect-drawer.js::_renderCeMusicSection())
@@ -92,7 +92,7 @@ const CUSTOM_EFFECT_STYLE_LABEL_KEYS = {
     vortex: { rings: 'visualizerSettingsDrawer.vortexStyle.rings', bars: 'visualizerSettingsDrawer.vortexStyle.bars', wave: 'visualizerSettingsDrawer.vortexStyle.wave' },
     lighting: { thunder: 'visualizerSettingsDrawer.lightingStyle.thunder', fireworks: 'visualizerSettingsDrawer.lightingStyle.fireworks' },
     shape: { rubik: 'visualizerSettingsDrawer.shapeStyle.rubik' },
-    connector: { synapse: 'visualizerSettingsDrawer.connectorStyle.synapse', circuit: 'visualizerSettingsDrawer.connectorStyle.circuit' },
+    connector: { synapse: 'visualizerSettingsDrawer.connectorStyle.synapse', circuit: 'visualizerSettingsDrawer.connectorStyle.circuit', brain: 'visualizerSettingsDrawer.connectorStyle.brain' },
 };
 
 /** Field riêng của TỪNG effect, hiện SAU khối chung (style/color/blur) trong Drawer — dựng UI
@@ -190,7 +190,7 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'synapseSpeedEnergyMult', labelKey: 'customEffectDrawer.field.synapseSpeedEnergyMult', type: 'slider', min: 0, max: 150, step: 5, showIf: (cfg) => cfg.connectorStyle === 'synapse' },
         // ĐỔI (yêu cầu Giang — circuit lưới lập phương từ ngoài vào trong, buildCircuitCubeCells()): 20-80/5 -> 16-64/4, khớp neuronCount synapse.
         { id: 'nodeCount', labelKey: 'customEffectDrawer.field.nodeCount', type: 'slider', min: 16, max: 64, step: 4, showIf: (cfg) => cfg.connectorStyle === 'circuit', refresh: 'initThreeJSConnector' },
-        { id: 'maxConcurrentSignals', labelKey: 'customEffectDrawer.field.maxConcurrentSignals', type: 'slider', min: 20, max: 90, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
+        { id: 'maxConcurrentSignals', labelKey: 'customEffectDrawer.field.maxConcurrentSignals', type: 'slider', min: 20, max: 90, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit' || cfg.connectorStyle === 'brain' },
         { id: 'trailLength', labelKey: 'customEffectDrawer.field.trailLength', type: 'slider', min: 5, max: 60, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
         { id: 'circuitSpeedBase', labelKey: 'customEffectDrawer.field.circuitSpeedBase', type: 'slider', min: 20, max: 200, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
         { id: 'circuitSpeedEnergyMult', labelKey: 'customEffectDrawer.field.circuitSpeedEnergyMult', type: 'slider', min: 0, max: 150, step: 5, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
@@ -199,6 +199,12 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'cameraShiftEnabled', labelKey: 'customEffectDrawer.field.connectorCameraShiftEnabled', type: 'toggle', showIf: (cfg) => cfg.connectorStyle === 'circuit' },
         { id: 'sectionWindowBeats', labelKey: 'customEffectDrawer.field.musicSectionWindowBeats', type: 'slider', min: 6, max: 32, step: 1, showIf: (cfg) => cfg.connectorStyle === 'circuit' && cfg.cameraShiftEnabled, group: 'music' },
         { id: 'fluxThreshold', labelKey: 'customEffectDrawer.field.musicFluxThreshold', type: 'sliderFloat', min: 0.1, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'circuit' && cfg.cameraShiftEnabled, group: 'music' },
+        // MỚI (22/09/2026 — style "brain", canvas 2D thuần, xem core/visualizer/groups/connector/brain.js): số đường vào = số dải tần
+        // tonotopic (đọc khi sinh layout — Workflow so `signature` để tự dựng lại, KHÔNG cần `refresh`); tốc độ dòng chảy theo phần đường
+        // đi được mỗi giây (/100). "Filter Strictness" của nguồn = `fireThreshold` DÙNG CHUNG ở trên, không có field riêng.
+        { id: 'brainInputCount', labelKey: 'customEffectDrawer.field.brainInputCount', type: 'slider', min: 16, max: 120, step: 4, showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        { id: 'brainSpeedBase', labelKey: 'customEffectDrawer.field.brainSpeedBase', type: 'slider', min: 10, max: 150, step: 5, showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        { id: 'brainSpeedEnergyMult', labelKey: 'customEffectDrawer.field.brainSpeedEnergyMult', type: 'slider', min: 0, max: 100, step: 5, showIf: (cfg) => cfg.connectorStyle === 'brain' },
     ],
 };
 /** Config đầy đủ (default merge field thiếu) của 1 effect theo type. */

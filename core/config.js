@@ -125,6 +125,7 @@
                 circuitSpeedBase: 80, circuitSpeedEnergyMult: 60,
                 bloomStrengthBase: 2.2, bloomStrengthEnergyMult: 0.8,
                 cameraShiftEnabled: true, sectionWindowBeats: 12, fluxThreshold: 0.5,
+                brainInputCount: 64, brainSpeedBase: 45, brainSpeedEnergyMult: 40, // MỚI 22/09/2026 — style 'brain' (canvas 2D), xem core/custom-effect.js
             },
         };
 
