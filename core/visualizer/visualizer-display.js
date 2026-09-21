@@ -44,6 +44,7 @@
             rubik: 'visualizerSettingsDrawer.shapeStyle.rubik',
             synapse: 'visualizerSettingsDrawer.connectorStyle.synapse',
             circuit: 'visualizerSettingsDrawer.connectorStyle.circuit',
+            brain: 'visualizerSettingsDrawer.connectorStyle.brain',
         };
 
         // Key i18n tên hiển thị CHO TỪNG GROUP — dùng ở dropdown 1 (chọn group) của modal chọn
