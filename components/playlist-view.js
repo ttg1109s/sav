@@ -26,7 +26,7 @@
  */
 const TPL_PLAYLIST_VIEW = `
     <div id="playlist-view" class="flex flex-col overflow-hidden">
-        <div class="px-5 pt-4 pb-3 z-20 relative shrink-0" data-uitk="panelBg">
+        <div class="px-5 pt-4 pb-3 z-20 relative shrink-0" data-uitk="panelFlushBg">
             <!-- Hàng 1: logo header bên trái (tĩnh, full text) + cụm icon góc phải (Thêm nhạc +
                  Cài đặt + Đổi giao diện). -->
             <div class="flex justify-between items-center gap-5 mb-3" data-uitk="textPrimary">
@@ -159,7 +159,7 @@ const TPL_PLAYLIST_VIEW = `
             </div>
         </div>
 
-        <div class="flex-grow overflow-y-auto z-10 w-full relative" data-uitk="panelBg">
+        <div class="flex-grow overflow-y-auto z-10 w-full relative" data-uitk="panelFlushBg">
             <div id="playlist-empty" class="hidden h-[60%] flex flex-col items-center justify-center gap-4" data-uitk="textSecondary">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                 <p class="text-sm" data-i18n="playlistView.empty.noSongs">${t('playlistView.empty.noSongs')}</p>
@@ -172,7 +172,7 @@ const TPL_PLAYLIST_VIEW = `
                  out khi DOM list dựng xong. Mục đích: tránh nháy "Chưa có bài hát nào" trong lúc đang
                  đọc dữ liệu. Logic ở event/workflow/app-boot.js (nhánh Song): keys<=0 -> hiện
                  #playlist-empty; else -> hiện lớp này (cập nhật "x / y bài") rồi fade out sau khi render. -->
-            <div id="playlist-loading-list" class="hidden absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 transition-opacity duration-300" style="opacity:0;" data-uitk="panelBg textSecondary">
+            <div id="playlist-loading-list" class="hidden absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 transition-opacity duration-300" style="opacity:0;" data-uitk="panelFlushBg textSecondary">
                 <svg class="animate-spin h-10 w-10" data-uitk="accentTextSoft" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 <p id="playlist-loading-text" class="text-sm font-medium tracking-wide">${t('playlistView.loading.generic')}</p>
             </div>
