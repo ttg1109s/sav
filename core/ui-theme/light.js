@@ -102,6 +102,7 @@ const UI_THEME_LIGHT = {
     rowActiveBorder: 'border border-sky-300',
     accentRingSelected: 'ring-2 ring-sky-500', // viền tile đang chọn (multi-select)
     destructiveText: 'text-rose-500',          // nhãn/label CHỮ mang ý xoá (không phải nút nền đặc)
+    menuDestructiveItem: 'text-rose-500 hover:bg-rose-50 transition-colors', // MỚI 21/09/2026 — hàng "Xoá" trong menu nổi (chữ + nền hover đi liền, 1 key; = destructiveText + hoverDestructiveBg cũ, Light không đổi)
 
     // ===================== Toggle switch (peer/after markup dùng chung) =====================
     toggleTrackOff: 'bg-slate-300',

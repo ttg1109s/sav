@@ -95,6 +95,7 @@ const UI_THEME_DARK = {
     rowActiveBorder: 'border border-violet-500/40',
     accentRingSelected: 'ring-2 ring-violet-400', // viền tile đang chọn (multi-select)
     destructiveText: 'text-rose-400',      // nhãn/label CHỮ mang ý xoá (không phải nút nền đặc)
+    menuDestructiveItem: 'text-rose-400 hover:bg-rose-500/15 transition-colors', // MỚI 21/09/2026 — hàng "Xoá" trong menu nổi (= destructiveText + hoverDestructiveBg cũ, Dark không đổi)
 
     // ===================== Toggle switch (peer/after markup dùng chung) =====================
     toggleTrackOff: 'bg-zinc-600',

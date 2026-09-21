@@ -84,6 +84,7 @@ const UI_THEME_MORPHIN = {
     rowActiveBorder: 'border border-white/40',
     accentRingSelected: 'ring-2 ring-white/70',
     destructiveText: 'text-rose-300',
+    menuDestructiveItem: 'bg-rose-500/80 hover:bg-rose-500 text-white transition-colors', // MỚI 21/09/2026 — hàng "Xoá" trong menu nổi: text-rose-300 cũ gần như biến mất trên kính trắng 16% phủ nền cam (nhìn như nút disabled); giờ là hàng nền rose ĐÚNG khuôn nút huỷ diệt của modal (btnDestructiveBg) + chữ trắng
 
     // ===================== Toggle switch (peer/after markup dùng chung) =====================
     toggleTrackOff: 'bg-white/25',
