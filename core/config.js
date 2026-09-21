@@ -132,7 +132,7 @@
         const DEFAULT_VIZ_CONFIG = {
             type: 'bar',
             customEffect: DEFAULT_CUSTOM_EFFECT,
-            bgImage: '', bgBlur: 0, bgImageEnabled: false,
+            bgImage: '', bgBlur: 0,
             // 'light' | 'dark' | 'solid' (1 màu `bgSolidColor`) | 'gradient' (2 màu gradientFrom/gradientTo ngay dưới) |
             // 'background' (ảnh HOẶC video nền từ THƯ VIỆN — xem `bgMediaKind`/`bgMediaKey` dưới) — chọn qua event/router/theme.js,
             // chốt tại event/workflow/theme.js::_commitThemeMode(). Mặc định 'dark'.
@@ -495,7 +495,7 @@
         AppConfig.defineDomain('viz', {
             schema: {
                 type: 'string', customEffect: 'object',
-                bgImage: 'string', bgBlur: 'number', bgImageEnabled: 'boolean',
+                bgImage: 'string', bgBlur: 'number',
                 themeMode: 'string', gradientFrom: 'string', gradientTo: 'string',
                 bgSolidColor: 'string', bgMediaKind: 'string', bgMediaKey: 'string', bgFallbackMode: 'string', bgVideo: 'string', bgMediaThumb: 'string',
                 volume: 'number', eqPresetId: 'string', playbackSpeed: 'number',
@@ -686,6 +686,7 @@
          * chạy TRƯỚC `loadPersistedUiThemeOnBoot()` nên `syncStatusBarColor()`/mirror preloader (event/workflow/ui-theme.js) thấy ngay mode đã fallback.
          */
         async function loadPlaylistBgMediaAsset() {
+            delMeta('bgImage').catch(() => {}); // DỌN 21/09/2026 — bản copy ảnh nền của cơ chế CŨ (meta.bgImage) không còn ai đọc, xoá để trả dung lượng (an toàn gọi lại mỗi boot; bỏ dòng này sau vài bản)
             const before = appConfigViz.getAll();
             const media = before.bgMediaKey ? await resolveAppBgMedia(before.bgMediaKind, before.bgMediaKey) : null;
             appConfigViz.mutateAll(cfg => {
@@ -812,10 +813,8 @@
                 delete cfg.rainGlassCityOpacity; delete cfg.rainGlassCityVisible; delete cfg.rainGlassMoonVisible; delete cfg.rainGlassWindowVisible;
                 delete cfg.quality;
 
-                if (cfg.bgImageEnabled == null) cfg.bgImageEnabled = false;
-                // Người dùng CŨ đã bật sẵn ảnh nền trước khi có khái niệm Theme -> suy luận
-                // themeMode='background' luôn.
-                if (cfg.themeMode == null) cfg.themeMode = cfg.bgImageEnabled ? 'background' : 'dark';
+                delete cfg.bgImageEnabled; // XOÁ field 21/09/2026 (dọn deadcode) — cờ "bật ảnh nền" của cơ chế copy blob cũ, nay mode 'background' + bgMediaKey thay thế
+                if (cfg.themeMode == null) cfg.themeMode = 'dark';
                 if (!cfg.gradientFrom) cfg.gradientFrom = DEFAULT_VIZ_CONFIG.gradientFrom;
                 if (!cfg.gradientTo) cfg.gradientTo = DEFAULT_VIZ_CONFIG.gradientTo;
                 if (cfg.keepScreenOn == null) cfg.keepScreenOn = true;

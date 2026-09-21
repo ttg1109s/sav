@@ -225,22 +225,8 @@
         const bgBlurSlider = document.getElementById('setting-bg-blur'), valBgBlurDisplay = document.getElementById('val-bg-blur');
         // (settingVisualBgImageEnableToggle ĐÃ XOÁ — v13 Batch A: toggle "#setting-visual-bg-image-enable"
         // không còn tồn tại, gộp vào panel "Visual Background" — xem btnOpenVisualBgSettings bên dưới.)
-        // (bgImageEnableToggle ĐÃ XOÁ — 07/07/2026: checkbox "App background image" cũ không còn,
-        // thay bằng 3 card Theme loại trừ nhau — xem components/settings/theme.js.)
-        const themeModeCardLight = document.getElementById('theme-mode-card-light');
-        const themeModeCardDark = document.getElementById('theme-mode-card-dark');
-        const themeModeCardBackground = document.getElementById('theme-mode-card-background');
-        const themeBgBlurRow = document.getElementById('theme-bg-blur-row');
-        // MỚI (09/07/2026, mode "Gradient" riêng, phản hồi Giang mục 1) — card thứ 4, ĐỘC LẬP với
-        // Background (ảnh) — xem components/settings/theme.js.
-        const themeModeCardGradient = document.getElementById('theme-mode-card-gradient');
-        const themeGradientRow = document.getElementById('theme-gradient-row');
-        const themeGradientFromPicker = document.getElementById('setting-theme-gradient-from'), themeGradientToPicker = document.getElementById('setting-theme-gradient-to');
-        // MỚI (09/07/2026, mục 2 — "card phản ánh ảnh/gradient được chọn") — 3 ref để
-        // event/workflow/theme.js::refreshThemeCardUI() ghi trực tiếp background-image/gradient
-        // THẬT vào mockup, thay vì mockup tĩnh cố định.
-        const themeMockupBackground = document.getElementById('theme-mockup-background'), themeMockupBackgroundIcon = document.getElementById('theme-mockup-background-icon');
-        const themeMockupGradient = document.getElementById('theme-mockup-gradient');
+        // DỌN DEADCODE 21/09/2026: 9 ref `themeModeCard*`/`themeBgBlurRow`/`themeGradientRow`/`themeGradientFromPicker`/`themeGradientToPicker`/`themeMockup*` ĐÃ XOÁ — chúng
+        // trỏ tới DOM của UI Theme cũ (không còn trong index.html từ khi Theme dời vào Settings), luôn null. UI nền hiện tại: core/theme-background-ui.js.
         // (qualitySelect/bgColorPicker/colorModeSelect/solidColor*/dynColor*/maxHeightSlider/
         // barWidthSlider/valMax.../blockMaxHeight/blockBarWidth/blockVortex/vortexStyleSelect/
         // blockRain/rainStyleSelect/glassFlashToggle/blockBarStyle/barStyleSelect/barMirrorOptions/
