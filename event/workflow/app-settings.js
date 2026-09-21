@@ -327,41 +327,15 @@ const workflowAppSettings = {
     // (core/ui-theme/*), và phần chọn NỀN (Solid/Gradient/Image) CHỈ dựng khi Color = Morphin — nền chỉ có nghĩa với kính mờ.
     // Các luồng nền GIỮ NGUYÊN: TÁI DÙNG router 'theme' gốc (event/router/theme.js — KHÔNG đổi gì) qua eventBus.
 
-    /** "Solid" tái dùng mode 'gradient' có sẵn (core KHÔNG đổi gì), chỉ gán 2 màu Từ/Đến CÙNG 1 giá trị — 1 màu duy nhất nhìn
-     * như nền phẳng, không cần thêm field/schema mới. */
+    /** SỬA 21/09/2026 — "Solid" KHÔNG còn là gradient 2 màu giống nhau (cách cũ khiến UI phải "đoán" loại nền và dropdown nhảy ngược): giờ là mode 'solid'
+     * riêng với màu riêng `bgSolidColor` (xem DEFAULT_VIZ_CONFIG, core/config.js). */
     _renderTheme() {
         this._currentRenderFn = () => this._renderTheme();
-        const cfg = appConfigViz.getAll();
         const activeUiTheme = getSelectableUiThemeNames().includes(appConfigUiTheme.getAll().activeUiTheme) ? appConfigUiTheme.getAll().activeUiTheme : UI_THEME_DEFAULT_NAME; // core/config.js + core/ui-theme/registry.js — tên lạ/không cho chọn -> Light (khớp theme THẬT đang áp)
         const isMorphin = activeUiTheme === 'morphin';
-        const isSolidGuess = cfg.themeMode === 'gradient' && cfg.gradientFrom === cfg.gradientTo;
-        const glassType = cfg.themeMode === 'background' ? 'image' : (isSolidGuess ? 'solid' : 'gradient');
-        const backgroundSectionHtml = !isMorphin ? '' : `
-                    <div class="flex flex-col">
-                        <div class="flex justify-between items-center px-4 py-3.5 border-t" data-uitk="dividerBorder">
-                            <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${t('appSettings.theme.glassType.label')}</span>
-                            <select id="app-settings-theme-glass-type" class="rounded-lg px-2 py-1.5 text-xs outline-none w-40 text-right" data-uitk="inputBg inputBorder inputText">
-                                <option value="solid">${t('appSettings.theme.glassType.solid')}</option>
-                                <option value="gradient">${t('appSettings.theme.glassType.gradient')}</option>
-                                <option value="image">${t('appSettings.theme.glassType.image')}</option>
-                            </select>
-                        </div>
-                        <div id="app-settings-theme-solid-row" class="${glassType === 'solid' ? '' : 'hidden'} flex justify-between items-center px-4 py-3.5">
-                            <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${t('appSettings.theme.solidColor.label')}</span>
-                            <div class="w-8 h-8 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" id="app-settings-theme-solid-color" class="w-10 h-10 -m-1 cursor-pointer"></div>
-                        </div>
-                        <div id="app-settings-theme-gradient-row" class="${glassType === 'gradient' ? '' : 'hidden'} flex justify-between items-center px-4 py-3.5">
-                            <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${t('settingsTheme.gradient.label')}</span>
-                            <div class="flex items-center gap-2">
-                                <div class="w-8 h-8 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" id="app-settings-theme-gradient-from" class="w-10 h-10 -m-1 cursor-pointer"></div>
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                                <div class="w-8 h-8 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" id="app-settings-theme-gradient-to" class="w-10 h-10 -m-1 cursor-pointer"></div>
-                            </div>
-                        </div>
-                        <div id="app-settings-theme-image-row" class="${glassType === 'image' ? '' : 'hidden'} px-4 py-3.5 text-xs" data-uitk="textSecondary">
-                            ${t('settingsTheme.background')} — <button type="button" id="app-settings-theme-image-pick" class="font-semibold underline" data-uitk="accentText">${t('common.btn.upload')}</button>
-                        </div>
-                    </div>`;
+        // SỬA 21/09/2026 (Giang yêu cầu 3 card + sửa lỗi dropdown nền nhảy ngược): phần nền CHỈ dựng khi Morphin — 3 card Solid/Gradient/Background media
+        // (core/theme-background-ui.js), trạng thái do workflowTheme.buildBackgroundCardState() đọc từ config (mode `solid` giờ có thật, không "đoán" nữa).
+        const backgroundSectionHtml = isMorphin ? buildThemeBackgroundCardsHtml(workflowTheme.buildBackgroundCardState(), t) : ''; // core/theme-background-ui.js
         const bodyHtml = `
             <div class="flex flex-col gap-2">
                 <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
@@ -377,15 +351,8 @@ const workflowAppSettings = {
         `;
         this._render(t('appSettings.system.theme.label'), bodyHtml, (body) => {
             body.querySelector('#app-settings-ui-theme-select').value = activeUiTheme;
-            const glassTypeSelect = body.querySelector('#app-settings-theme-glass-type');
-            if (glassTypeSelect) glassTypeSelect.value = glassType;
-            const solidColorInput = body.querySelector('#app-settings-theme-solid-color');
-            const gradientFromInput = body.querySelector('#app-settings-theme-gradient-from');
-            const gradientToInput = body.querySelector('#app-settings-theme-gradient-to');
-            if (solidColorInput) solidColorInput.value = cfg.gradientFrom || '#6366f1';
-            if (gradientFromInput) gradientFromInput.value = cfg.gradientFrom || '#6366f1';
-            if (gradientToInput) gradientToInput.value = cfg.gradientTo || '#ec4899';
             wireAppSettingsTheme(body); // core/app-settings-ui.js
+            wireThemeBackgroundCards(body); // core/theme-background-ui.js — no-op khi không có cụm 3 card (Color khác Morphin)
         });
     },
 
@@ -397,23 +364,12 @@ const workflowAppSettings = {
      * (Router tự tính VirtualMachineState, xem event/router/theme.js). */
     async handleUiThemeChange(themeName) {
         await workflowUiTheme.switchUiTheme(themeName); // event/workflow/ui-theme.js
-        const currentThemeMode = appConfigViz.getAll().themeMode;
-        const morphinAlreadyHasBackground = currentThemeMode === 'gradient' || currentThemeMode === 'background';
-        if (themeName === 'morphin' && !morphinAlreadyHasBackground) eventBus.send({ router: 'theme', type: 'theme.selectMode.click', payload: { mode: 'gradient' } });
+        const vizCfg = appConfigViz.getAll();
+        const morphinAlreadyHasBackground = ['solid', 'gradient', 'background'].includes(vizCfg.themeMode); // SỬA 21/09/2026 — thêm 'solid' (mode riêng)
+        // Vào Morphin lúc CHƯA có nền (đang Light/Dark): dùng lại media nền đã chọn nếu còn nhớ, không thì Solid/Gradient chọn gần nhất (`bgFallbackMode`).
+        const morphinStartMode = (vizCfg.bgMediaKey && (vizCfg.bgImage || vizCfg.bgVideo)) ? 'background' : (vizCfg.bgFallbackMode || 'gradient');
+        if (themeName === 'morphin' && !morphinAlreadyHasBackground) eventBus.send({ router: 'theme', type: 'theme.selectMode.click', payload: { mode: morphinStartMode } });
         else if (themeName !== 'morphin') eventBus.send({ router: 'theme', type: 'theme.selectMode.click', payload: { mode: themeName } }); // 'light' | 'dark' — tắt nền
-        this._renderTheme();
-    },
-
-    /** Ứng với 'appSettings.theme.selectGlassType.change'. */
-    handleThemeSelectGlassType(glassType, solidColor) {
-        if (glassType === 'image') eventBus.send({ router: 'theme', type: 'theme.selectMode.click', payload: { mode: 'background' } });
-        else if (glassType === 'gradient') eventBus.send({ router: 'theme', type: 'theme.selectMode.click', payload: { mode: 'gradient' } });
-        else if (glassType === 'solid') {
-            // "solid" = TÁI DÙNG mode 'gradient' có sẵn, 2 màu CÙNG 1 giá trị (xem docstring _renderTheme()).
-            eventBus.send({ router: 'theme', type: 'theme.selectMode.click', payload: { mode: 'gradient' } });
-            eventBus.send({ router: 'theme', type: 'theme.gradientFrom.input', payload: { value: solidColor } });
-            eventBus.send({ router: 'theme', type: 'theme.gradientTo.input', payload: { value: solidColor } });
-        }
         this._renderTheme();
     },
 

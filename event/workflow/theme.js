@@ -1,201 +1,214 @@
 /**
- * event/workflow/theme.js — "THẰNG THỰC THI CUỐI" của router "theme" (3 card Sáng/Tối/Background
- * loại trừ nhau, cộng card Gradient độc lập).
+ * event/workflow/theme.js — "THẰNG THỰC THI CUỐI" của router "theme": chốt NỀN của app (Light/Dark không nền · Solid · Gradient · Background media).
  *
- * Card "Background" TÁI DÙNG NGUYÊN hệ thống bgImage/bgBlur/bgImageEnabled đã có sẵn (core/
- * visualizer/visualizer-display.js::applyBgImage()/applyBgImageEnabled()). Card "Sáng"/"Tối" CHỈ
- * lưu lựa chọn + tắt ảnh nền — CHƯA áp dụng lại màu app thật (xem docstring
- * DEFAULT_VIZ_CONFIG.themeMode, core/config.js). Picker chọn ảnh nền là Generic Drawer, TÁI DÙNG
- * NGUYÊN `workflowFileManagerPhoto.openCoverImagePicker()` — cùng picker dùng cho "Ảnh bìa" bài
- * hát (event/workflow/file-manager-photo.js).
+ * VIẾT LẠI 21/09/2026 (Giang yêu cầu "sửa lại UI: 3 card Solid/Gradient/Background media phản ánh đúng nền của nó + nút chọn bên dưới; Background
+ * media cho thêm VIDEO; sửa lỗi dropdown nền chọn mục khác đều bị fallback về cái hiện tại; media bị xoá/mất -> boot fallback về lựa chọn trước đó").
+ * Điểm chốt (Giang đã chọn khi được hỏi):
+ *   - Nền media THAM CHIẾU item thư viện (`bgMediaKind` 'photo'|'video' + `bgMediaKey`) thay vì copy blob vào meta như bản cũ -> video không nhân đôi
+ *     dung lượng; item bị xoá/mất thì lúc boot `loadPlaylistBgMediaAsset()` (core/config.js) tự về `bgFallbackMode` (nền Solid/Gradient chọn gần nhất).
+ *   - Video nền CHỈ chạy khi đang ở màn App Panel và tab đang hiện; vào Visualizer / ẩn app -> pause (`syncBackgroundVideoPlayback()`).
+ *   - Solid là mode RIÊNG có màu riêng (`bgSolidColor`) — hết cách "đoán solid từ gradient 2 màu giống nhau" vốn là nguyên nhân dropdown cũ nhảy ngược.
  *
- * 3 method riêng theo mode (`applyNonBackgroundMode`/`pickNewBackgroundImage`/
- * `reuseExistingBackgroundImage`) — Router (event/router/theme.js) tự đọc `vizConfig` +
- * `VirtualMachineState` chọn ĐÚNG 1 method (event-bus-flow.md mục 4C: "cần đọc appState KHÁC để
- * quyết định CHẠY GÌ — LUÔN dùng VirtualMachineState" ở Router, không tự if/else trong Workflow);
- * cả 3 dùng chung `_commitThemeMode()` làm phần đuôi.
+ * Các method chốt mode: `applyNonBackgroundMode(mode)` (light/dark/solid/gradient), `reuseExistingBackgroundMedia()` (bấm lại card media khi đã có
+ * item), `pickBackgroundMedia(kind)` + `handleMediaPickerTileClick()` (chọn item mới) — Router (event/router/theme.js) chọn ĐÚNG 1 method; đều kết thúc
+ * bằng `_commitThemeMode()`. Sửa màu (`setSolidColor`/`setGradientFrom`/`setGradientTo`) cũng CHỌN luôn card tương ứng (`_commitColorEdit()`).
  *
- * Card "Gradient" (09/07/2026) ĐỘC LẬP hoàn toàn với "Background" (ảnh) — 2 field cấu hình riêng
- * (`gradientFrom`/`gradientTo`), core setter riêng (core/visualizer/visualizer-display.js::
- * setThemeGradientFrom/To), không đụng gì tới bgImage/bgBlur/bgImageEnabled.
+ * Picker chọn item thư viện = Generic Drawer TÁI DÙNG `openMediaPickerDrawerUi()` (core/media-picker-drawer-helper.js) + lưới ảnh/video có sẵn
+ * (`workflowFileManagerPhoto.setupPhotoGridWindow()`, `workflowVideoGalleryWindow`), mở `updateInPlace` vì đang đứng TRONG Settings (cùng khuôn picker của
+ * Visual Background); chọn xong/đóng thì dựng lại màn Theme (`workflowAppSettings._renderTheme()`).
  *
- * `_commitThemeMode()` mutate `cfg.themeMode` TRƯỚC, gọi `updatePlaylistBg()` + `forceGlassRepaint()`
- * (fix bug WebKit/iOS Safari backdrop-filter không tự resample) ĐÚNG 1 lần SAU CÙNG — thứ tự này
- * bắt buộc vì `updatePlaylistBg()` (core/color-utils.js) đọc `cfg.themeMode` để quyết định vẽ
- * gradient khi KHÔNG có ảnh.
+ * `_commitThemeMode()` mutate `cfg.themeMode` TRƯỚC, rồi `updatePlaylistBg()` (core/color-utils.js — đọc themeMode để biết vẽ gì) + `forceGlassRepaint()`
+ * (fix WebKit/iOS backdrop-filter không tự resample) + đồng bộ status bar/preloader + trạng thái phát video nền + UI card.
  *
- * NẠP SAU: core/visualizer/visualizer-display.js (applyBgImageEnabled, applyBgImage),
- * core/color-utils.js (updatePlaylistBg, forceGlassRepaint), core/config.js (saveConfig),
- * core/loading-shield-util.js (withLoadingShield), service/db.js (getImageRecord), core/dom-refs.js
- * (themeModeCardLight/Dark/Background/Gradient, themeBgBlurRow, themeGradientRow,
- * themeGradientFromPicker/ToPicker, themeMockupBackground/Icon, themeMockupGradient,
- * bgBlurSlider, valBgBlurDisplay), event/workflow/file-manager-photo.js
- * (workflowFileManagerPhoto.openCoverImagePicker).
+ * NẠP SAU: core/config.js (saveConfig, resolveAppBgMedia), core/color-utils.js (updatePlaylistBg, forceGlassRepaint, setAppBgVideoPlayback),
+ * core/visualizer/visualizer-display.js (setThemeSolidColor/GradientFrom/To), core/loading-shield-util.js (withLoadingShield), core/theme-background-ui.js
+ * (patchThemeBackgroundCards), core/media-picker-drawer-helper.js (openMediaPickerDrawerUi), core/file-manager/image.js (listImages), core/file-manager/video.js
+ * (listVideos), event/workflow/file-manager-photo.js, event/workflow/photo-gallery-window.js, event/workflow/video-gallery-window.js,
+ * event/workflow/app-settings.js (workflowAppSettings._renderTheme — runtime), event/workflow/ui-theme.js (workflowUiTheme — runtime), core/dom-refs.js
+ * (appStack, genericDrawerBody).
  */
 const workflowTheme = {
+    _mediaPickerKind: null, // 'photo' | 'video' | null — đang có picker media nền mở hay không
+    _mediaPickerCleanup: null, // hàm gỡ listener delegated của picker (openMediaPickerDrawerUi trả về)
 
     /**
-     * Ứng với 'theme.selectMode.click' khi `mode !== 'background'` (light/dark/gradient) — Router
-     * đã đọc appState + VirtualMachineState chọn ĐÚNG method này (xem event/router/theme.js).
-     * Cả 3 mode đều KHÔNG dùng ảnh -> tắt hẳn bgImage rồi chốt mode.
-     * @param {'light'|'dark'|'gradient'} mode
+     * Ứng với 'theme.selectMode.click' khi `mode !== 'background'` (light/dark/solid/gradient) — Router đã chọn ĐÚNG method này. Solid/Gradient
+     * ghi nhớ làm `bgFallbackMode` (nền quay về khi media nền bị xoá/mất). Runtime URL media (nếu có) GIỮ nguyên — card Background media vẫn còn preview
+     * và bấm lại là dùng ngay; `updatePlaylistBg()` chỉ vẽ media khi themeMode = 'background'.
+     * @param {'light'|'dark'|'solid'|'gradient'} mode
      */
     applyNonBackgroundMode(mode) {
-        applyBgImageEnabled(false);
+        if (mode === 'solid' || mode === 'gradient') appConfigViz.mutateAll(cfg => { cfg.bgFallbackMode = mode; });
         this._commitThemeMode(mode);
     },
 
-    /**
-     * Ứng với 'theme.selectMode.click' khi cần ảnh MỚI — Router đã tính sẵn điều kiện này
-     * (`needsNewBackgroundPhoto`, xem event/router/theme.js): chưa từng chọn ảnh nào, HOẶC đang
-     * bấm lại ĐÚNG card "Background" trong lúc nó ĐANG active (muốn đổi ảnh khác).
-     *
-     * FIX BUG (17/07/2026, phản hồi Giang) "đã chọn Background nhưng muốn đổi ảnh khác thì không
-     * được, phải đổi sang mode khác rồi chọn lại mới ra picker" — nằm ở CHÍNH điều kiện
-     * `needsNewBackgroundPhoto` bên Router: bản trước CHỈ mở picker khi `cfg.bgImage` rỗng, bấm
-     * lại ĐÚNG card đang active (bgImage vẫn còn) luôn bị coi là "đã có ảnh -> chỉ bật lại"
-     * (`reuseExistingBackgroundImage()`), không có đường nào quay lại picker nếu không rời mode
-     * trước đó (rời mode khác VÔ TÌNH xoá `cfg.bgImage` qua `applyBgImageEnabled(false)`, khiến
-     * bước sau lại thấy rỗng — đó là lý do "đổi mode khác rồi chọn lại" TÌNH CỜ có tác dụng, không
-     * phải hành vi được thiết kế).
-     *
-     * Dùng Generic Drawer — TÁI DÙNG NGUYÊN `workflowFileManagerPhoto.openCoverImagePicker()`
-     * (event/workflow/file-manager-photo.js), ĐÚNG picker đang dùng cho "Ảnh bìa" bài hát (Workflow
-     * gọi Workflow miền khác, tự do — event-bus-flow.md mục 4B).
-     *
-     * LƯU Ý — picker Generic Drawer KHÔNG blocking: `await
-     * workflowFileManagerPhoto.openCoverImagePicker(...)` chỉ đợi tới lúc DRAWER MỞ XONG + ảnh tải
-     * xong, KHÔNG đợi tới khi người dùng thật sự CHỌN/HUỶ. Vì vậy toàn bộ phần "chốt mode" PHẢI dời
-     * vào TRONG callback `onSelect` (chạy MUỘN, đúng lúc người dùng thật sự bấm 1 ảnh) — gọi
-     * `_commitThemeMode('background')` ở đó, KHÔNG gọi ngay sau `await` như 1 hàm đồng bộ bình
-     * thường.
-     */
-    async pickNewBackgroundImage() {
-        await workflowFileManagerPhoto.openCoverImagePicker(async (imageKey) => { // event/workflow/file-manager-photo.js
-            const record = await getImageRecord(imageKey); // service/db.js
-            if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
-            await withLoadingShield(t('common.loading.savingImageBg'), async () => { // core/loading-shield-util.js
-                await applyBgImage(record.blob); // core/visualizer/visualizer-display.js
-            });
-            this._commitThemeMode('background');
-        }); // KHÔNG cần onCancel — huỷ picker thì giữ nguyên mode/ảnh hiện tại, không cần làm gì thêm.
-    },
-
-    /** Ứng với 'theme.selectMode.click' khi ĐÃ có ảnh từ trước VÀ KHÔNG phải đang reselect (Router
-     * đã loại 2 case kia qua VMState) — chỉ cần BẬT LẠI, KHÔNG mở picker. */
-    reuseExistingBackgroundImage() {
-        applyBgImageEnabled(true);
+    /** Ứng với 'theme.selectMode.click' khi mode = 'background' — bấm card Background media. Đã có item (URL runtime còn) -> dùng lại NGAY, không mở
+     * picker; CHƯA có item nào -> không làm gì (card hiện khung "Not set", người dùng chọn qua nút Photo/Video bên dưới). */
+    reuseExistingBackgroundMedia() {
+        const cfg = appConfigViz.getAll();
+        if (!cfg.bgImage && !cfg.bgVideo) return;
         this._commitThemeMode('background');
     },
 
-    /** Gộp phần "chốt mode" DÙNG CHUNG (mutate themeMode + saveConfig + updatePlaylistBg +
-     * forceGlassRepaint + refreshThemeCardUI) cho cả 3 method ngay trên — 3 method đó KHÁC nhau ở
-     * PHẦN ĐẦU (tắt/bật/mở picker ảnh), NHƯNG luôn kết thúc bằng ĐÚNG đoạn này.
-     * @param {'light'|'dark'|'background'|'gradient'} mode
+    /**
+     * Ứng với 'theme.pickBackgroundMedia.click' — mở picker thư viện ảnh/video (single-select: bấm item nào chọn NGAY item đó, không nút xác nhận).
+     * Picker Generic Drawer KHÔNG blocking: `await` chỉ đợi tới lúc lưới dựng xong, việc chốt nền nằm ở `handleMediaPickerTileClick()`.
+     * @param {'photo'|'video'} kind
      */
+    async pickBackgroundMedia(kind) {
+        this._mediaPickerKind = kind;
+        const isPhoto = kind === 'photo';
+        const scrollId = 'theme-bg-picker-scroll', emptyId = 'theme-bg-picker-empty';
+        this._mediaPickerCleanup = openMediaPickerDrawerUi( // core/media-picker-drawer-helper.js
+            'theme', 'theme.mediaPicker',
+            isPhoto ? t('playlistView.songEdit.coverPickLibrary') : t('fileManager.video.pickerTitle'),
+            this._buildMediaPickerBodyHtml(scrollId, emptyId, isPhoto ? t('fileManager.photo.image.empty') : t('fileManager.video.empty')),
+            isPhoto ? '[data-image-key]' : '.video-tile', isPhoto ? 'imageKey' : 'videoKey', false, true,
+        );
+        const items = isPhoto ? await listImages() : await listVideos(); // core/file-manager/image.js | video.js
+        if (!this._mediaPickerCleanup) return; // guard — đóng picker RẤT NHANH lúc đang đọc DB
+        const scrollEl = genericDrawerBody.querySelector(`#${scrollId}`);
+        const emptyEl = genericDrawerBody.querySelector(`#${emptyId}`);
+        if (emptyEl) emptyEl.classList.toggle('hidden', items.length > 0);
+        if (isPhoto) workflowFileManagerPhoto.setupPhotoGridWindow(scrollEl, items); // event/workflow/file-manager-photo.js
+        else workflowVideoGalleryWindow.mount('genericDrawer', { scrollEl, videos: items, badgeMode: null }); // event/workflow/video-gallery-window.js
+    },
+
+    /** Khung picker: scroll container (lưới windowing chèn vào TRONG). Chuỗi thuần. */
+    _buildMediaPickerBodyHtml(scrollId, emptyId, emptyText) {
+        return `
+            <div class="flex-1 min-h-0 overflow-y-auto relative" id="${scrollId}">
+                <p id="${emptyId}" class="hidden text-sm text-center py-10 px-6" data-uitk="textSecondary">${emptyText}</p>
+            </div>
+        `;
+    },
+
+    /** Dọn picker (gỡ lưới windowing + listener delegated) — KHÔNG đóng drawer/dựng lại màn (nơi gọi quyết định). */
+    _teardownMediaPicker() {
+        if (this._mediaPickerKind === 'photo') workflowPhotoGalleryWindow.unmount('genericDrawer'); // event/workflow/photo-gallery-window.js
+        else if (this._mediaPickerKind === 'video') workflowVideoGalleryWindow.unmount('genericDrawer');
+        if (this._mediaPickerCleanup) this._mediaPickerCleanup();
+        this._mediaPickerCleanup = null;
+        this._mediaPickerKind = null;
+    },
+
+    /** Ứng với 'theme.mediaPicker.tile.click' — bấm 1 item: chốt làm nền media. Xong dựng lại màn Theme. @param {{imageKey?:string, videoKey?:string}} payload */
+    async handleMediaPickerTileClick(payload) {
+        const kind = this._mediaPickerKind;
+        if (!kind) return; // picker đã đóng (race hiếm)
+        const key = kind === 'photo' ? payload.imageKey : payload.videoKey;
+        this._teardownMediaPicker();
+        await withLoadingShield(t('common.loading.savingImageBg'), async () => { // core/loading-shield-util.js
+            await this._applyPickedMedia(kind, key);
+        });
+        workflowAppSettings._renderTheme(); // event/workflow/app-settings.js — quay về màn Theme, card media phản ánh item mới
+    },
+
+    /** Ứng với 'theme.mediaPicker.close.click' — huỷ picker (chưa chọn gì): giữ nguyên nền, quay về màn Theme. */
+    handleMediaPickerCloseClick() {
+        if (!this._mediaPickerKind) return;
+        this._teardownMediaPicker();
+        workflowAppSettings._renderTheme();
+    },
+
+    /** Resolve item thư viện -> URL runtime -> ghi tham chiếu + chốt mode 'background'. Item vừa bị xoá ở nơi khác (`resolveAppBgMedia` null) -> bỏ qua. */
+    async _applyPickedMedia(kind, key) {
+        const media = await resolveAppBgMedia(kind, key); // core/config.js
+        if (!media) return;
+        this._releaseRuntimeMedia();
+        appConfigViz.mutateAll(cfg => {
+            cfg.bgMediaKind = kind; cfg.bgMediaKey = key;
+            cfg.bgImage = media.imageUrl; cfg.bgVideo = media.videoUrl; cfg.bgMediaThumb = media.thumbUrl;
+        });
+        this._commitThemeMode('background');
+    },
+
+    /** Thu hồi 3 blob: URL runtime của nền media hiện tại (trước khi thay bằng item khác). */
+    _releaseRuntimeMedia() {
+        const cfg = appConfigViz.getAll();
+        [cfg.bgImage, cfg.bgVideo, cfg.bgMediaThumb].forEach((url) => { if (url && url.startsWith('blob:')) URL.revokeObjectURL(url); });
+    },
+
+    /** Gộp phần "chốt mode" DÙNG CHUNG: mutate themeMode + saveConfig + updatePlaylistBg + forceGlassRepaint + đồng bộ status bar/preloader + phát video + UI card.
+     * @param {'light'|'dark'|'solid'|'gradient'|'background'} mode */
     _commitThemeMode(mode) {
         appConfigViz.mutateAll(cfg => { cfg.themeMode = mode; });
         saveConfig();
-        updatePlaylistBg(); // ĐẶT SAU khi themeMode đã cập nhật — xem docstring đầu file.
+        updatePlaylistBg(); // ĐẶT SAU khi themeMode đã cập nhật — updatePlaylistBg() đọc themeMode để quyết định vẽ gì.
         forceGlassRepaint(); // fix bug mục 3 (09/07/2026) — ép WebKit vẽ lại lớp kính NGAY, không đợi thao tác khác.
-        workflowUiTheme.syncStatusBarColor(); // MỚI 21/09/2026 — status bar iOS theo nền Morphin (event/workflow/ui-theme.js)
+        workflowUiTheme.syncStatusBarColor(); // status bar iOS + mirror preloader theo nền (event/workflow/ui-theme.js)
+        this.syncBackgroundVideoPlayback();
         this.refreshThemeCardUI();
     },
 
-    /** Ứng với msg.type = 'theme.appStackScreen.change' — MỚI 21/09/2026: đổi màn App Panel <-> Visualizer (listener theo dõi class
-     * `playlist-hidden` của #app-stack). Việc duy nhất: cho status bar theo theme bật/tắt đúng màn — xem
-     * `workflowUiTheme.applyStatusBarForCurrentScreen()` (event/workflow/ui-theme.js). */
-    onAppStackScreenChange() {
-        workflowUiTheme.applyStatusBarForCurrentScreen();
+    /** Ứng với 'theme.solidColor.input'. Chạm ô màu Solid = CHỌN Solid luôn. @param {string} value */
+    setSolidColor(value) {
+        setThemeSolidColor(value); // core/visualizer/visualizer-display.js
+        this._commitColorEdit('solid');
     },
 
-    /** Ứng với msg.type = 'theme.gradientFrom.input'. @param {string} value */
+    /** Ứng với 'theme.gradientFrom.input'. Chạm ô màu Gradient = CHỌN Gradient luôn. @param {string} value */
     setGradientFrom(value) {
         setThemeGradientFrom(value); // core cùng tên, gọi trần phân giải theo scope từ vựng (core/visualizer/visualizer-display.js)
-        saveConfig();
-        updatePlaylistBg();
-        forceGlassRepaint();
-        workflowUiTheme.syncStatusBarColor(); // MỚI 21/09/2026 — xem _commitThemeMode()
-        this.refreshThemeCardUI(); // cập nhật mockup preview #theme-mockup-gradient theo màu mới
+        this._commitColorEdit('gradient');
     },
 
-    /** Ứng với msg.type = 'theme.gradientTo.input'. @param {string} value */
+    /** Ứng với 'theme.gradientTo.input'. @param {string} value */
     setGradientTo(value) {
         setThemeGradientTo(value);
+        this._commitColorEdit('gradient');
+    },
+
+    /** Đuôi chung của 3 hàm sửa màu: chọn mode tương ứng (+ ghi nhớ làm fallback) rồi vẽ lại — gọi liên tục lúc kéo ô màu nên KHÔNG gọi `_commitThemeMode()`
+     * (thêm việc vô ích mỗi lần `input`). @param {'solid'|'gradient'} mode */
+    _commitColorEdit(mode) {
+        appConfigViz.mutateAll(cfg => { cfg.themeMode = mode; cfg.bgFallbackMode = mode; });
         saveConfig();
         updatePlaylistBg();
         forceGlassRepaint();
-        workflowUiTheme.syncStatusBarColor(); // MỚI 21/09/2026 — xem _commitThemeMode()
+        workflowUiTheme.syncStatusBarColor();
+        this.syncBackgroundVideoPlayback(); // rời nền video (nếu đang ở đó) -> updatePlaylistBg() đã gỡ src, hàm này chỉ đảm bảo trạng thái nhất quán
         this.refreshThemeCardUI();
     },
 
-    /** Đồng bộ UI 4 card (nền gradient "đang chọn"/radio) + mockup Background/Gradient (phản ánh
-     * ảnh/màu THẬT đang cấu hình) + hiện/ẩn 2 hàng "Độ mờ nền"/"2 màu Gradient" — gọi lúc boot VÀ
-     * sau mỗi lần đổi mode/màu. */
-    refreshThemeCardUI() {
+    /** Ứng với 'theme.appStackScreen.change' — đổi màn App Panel <-> Visualizer (listener theo dõi class `playlist-hidden` của #app-stack): (1) status bar
+     * theo theme chỉ áp ở App Panel (`workflowUiTheme.applyStatusBarForCurrentScreen()`); (2) video nền chỉ phát ở App Panel. */
+    onAppStackScreenChange() {
+        workflowUiTheme.applyStatusBarForCurrentScreen();
+        this.syncBackgroundVideoPlayback();
+    },
+
+    /** Ứng với 'theme.documentVisibility.change' — app bị ẩn/hiện lại (khoá máy, chuyển app, chuyển tab): dừng/tiếp tục video nền. */
+    onDocumentVisibilityChange() {
+        this.syncBackgroundVideoPlayback();
+    },
+
+    /** Quyết định video nền PHÁT hay DỪNG: chỉ phát khi đang ở mode 'background' + có video + màn App Panel (không phải Visualizer) + tab đang hiện.
+     * Gọi từ MỌI nơi 1 trong 4 điều kiện đó có thể đổi (chốt mode, đổi màn, ẩn/hiện app, boot — `workflowUiTheme.loadPersistedUiThemeOnBoot()`). */
+    syncBackgroundVideoPlayback() {
         const cfg = appConfigViz.getAll();
-        const mode = cfg.themeMode;
+        const shouldPlay = cfg.themeMode === 'background' && !!cfg.bgVideo && !appStack.classList.contains('playlist-hidden') && document.visibilityState !== 'hidden';
+        setAppBgVideoPlayback(shouldPlay); // core/color-utils.js
+    },
 
-        const cards = {
-            light: themeModeCardLight,
-            dark: themeModeCardDark,
-            background: themeModeCardBackground,
-            gradient: themeModeCardGradient,
+    /** Trạng thái 3 card nền (preview + card đang chọn) từ config — Workflow đọc, Core-ui (core/theme-background-ui.js) chỉ vẽ. Dùng cho
+     * `workflowAppSettings._renderTheme()` (dựng lần đầu) VÀ `refreshThemeCardUI()` (vá tại chỗ). Preview media: photo = chính ảnh; video = thumb full-res.
+     * @returns {ThemeBackgroundState} */
+    buildBackgroundCardState() {
+        const cfg = appConfigViz.getAll();
+        return {
+            themeMode: cfg.themeMode,
+            solidColor: cfg.bgSolidColor,
+            gradientFrom: cfg.gradientFrom,
+            gradientTo: cfg.gradientTo,
+            mediaKind: cfg.bgMediaKind,
+            hasMedia: !!cfg.bgMediaKey && (!!cfg.bgImage || !!cfg.bgVideo),
+            mediaPreviewUrl: cfg.bgMediaKind === 'video' ? cfg.bgMediaThumb : (cfg.bgMediaKind === 'photo' ? cfg.bgImage : ''),
         };
-        Object.keys(cards).forEach((m) => {
-            const card = cards[m];
-            if (!card) return; // guard: DOM chưa sẵn sàng (hiếm, race lúc boot)
-            const radio = card.querySelector('.theme-mode-radio');
-            const isSelected = m === mode;
-            // 09/07/2026 (phản hồi Giang — "xoá border select theme"): bỏ viền ring-2 ring-sky-400
-            // cũ, đổi sang nền gradient phủ lên card đang chọn (rounded-2xl/p-2 tĩnh đã có sẵn
-            // trong template — xem components/settings/theme.js). LƯU Ý: gradient UI-indicator này
-            // KHÔNG liên quan gradient của mode "Gradient" (mục d) — chỉ là màu đánh dấu chọn.
-            card.classList.toggle('bg-gradient-to-b', isSelected);
-            card.classList.toggle('from-sky-500/25', isSelected);
-            card.classList.toggle('to-sky-500/5', isSelected);
-            if (radio) {
-                radio.classList.toggle('bg-sky-500', isSelected);
-                radio.classList.toggle('border-sky-400', isSelected);
-                radio.innerHTML = isSelected
-                    ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>'
-                    : '';
-            }
-        });
+    },
 
-        // MỚI (09/07/2026, mục 2 — mockup "phản ánh ảnh/gradient được chọn"):
-        if (themeMockupBackground) {
-            if (cfg.bgImage) {
-                themeMockupBackground.style.backgroundImage = `url(${cfg.bgImage})`;
-                themeMockupBackground.classList.remove('border-dashed');
-                if (themeMockupBackgroundIcon) themeMockupBackgroundIcon.classList.add('hidden');
-            } else {
-                themeMockupBackground.style.backgroundImage = 'none';
-                themeMockupBackground.classList.add('border-dashed');
-                if (themeMockupBackgroundIcon) themeMockupBackgroundIcon.classList.remove('hidden');
-            }
-        }
-        if (themeMockupGradient) {
-            themeMockupGradient.style.background = `linear-gradient(135deg, ${cfg.gradientFrom}, ${cfg.gradientTo})`;
-        }
-
-        if (themeBgBlurRow) {
-            const showBlur = mode === 'background';
-            themeBgBlurRow.classList.toggle('hidden', !showBlur);
-            themeBgBlurRow.classList.toggle('flex', showBlur);
-            if (showBlur && bgBlurSlider) {
-                bgBlurSlider.value = cfg.bgBlur;
-                if (valBgBlurDisplay) valBgBlurDisplay.textContent = cfg.bgBlur + 'px';
-            }
-        }
-        if (themeGradientRow) {
-            const showGradient = mode === 'gradient';
-            themeGradientRow.classList.toggle('hidden', !showGradient);
-            themeGradientRow.classList.toggle('flex', showGradient);
-            if (showGradient) {
-                if (themeGradientFromPicker) themeGradientFromPicker.value = cfg.gradientFrom;
-                if (themeGradientToPicker) themeGradientToPicker.value = cfg.gradientTo;
-            }
-        }
+    /** Vá tại chỗ 3 card ở màn Theme (nếu đang mở) theo config hiện tại — gọi sau mỗi lần đổi mode/màu/media, và lúc boot (không có DOM thì bỏ qua). */
+    refreshThemeCardUI() {
+        patchThemeBackgroundCards(genericDrawerBody, this.buildBackgroundCardState()); // core/theme-background-ui.js
     },
 };

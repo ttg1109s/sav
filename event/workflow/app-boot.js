@@ -12,7 +12,7 @@
  *
  * File này (kế thừa quy chế miễn audit của draw-visualizer.js/event/router/app-boot.js cũ, xem
  * readme/core-legacy-audit.md) — thêm dòng mới vào đây KHÔNG phát sinh nghĩa vụ refactor cho
- * loadConfig()/loadPlaylistBgImageAsset().
+ * loadConfig()/loadPlaylistBgMediaAsset() (đổi tên 21/09/2026 từ loadPlaylistBgImageAsset — nay resolve ảnh/video nền từ thư viện).
  */
 const workflowAppBoot = {
     async boot() {
