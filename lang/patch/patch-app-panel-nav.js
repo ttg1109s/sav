@@ -62,7 +62,6 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'statisPanel.compare.shareOfTime': 'of time',
     'statisPanel.share.byPlays': 'Share by plays',
     'statisPanel.share.byTime': 'Share by time',
-    'statisPanel.compare.itemCount': '{n} files',
     'statisPanel.compare.playCount': '{n} plays',
     // Nhóm 3 — toggle sort + Top list xếp hạng.
     'statisPanel.sort.byCount': 'Most played',
@@ -120,20 +119,11 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.system.language.hint': 'App display language',
 
     // SỬA 21/09/2026 — nhãn cũ 'Theme' đổi 'Background' (select này điều khiển NỀN phía sau app: sáng/tối/glass, KHÔNG phải màu giao diện) — tránh nhầm với hàng 'Interface' mới ngay trên nó.
-    'appSettings.theme.select.label': 'Background',
     'appSettings.theme.uiTheme.label': 'Color',
     'appSettings.theme.uiTheme.option.light': 'Light',
     'appSettings.theme.uiTheme.option.dark': 'Dark',
     'appSettings.theme.uiTheme.option.morphin': 'Morphin',
-    'appSettings.theme.select.light': 'Light',
-    'appSettings.theme.select.dark': 'Dark',
-    'appSettings.theme.select.glass': 'Transparent glass',
-    'appSettings.theme.glassType.label': 'Background type',
-    'appSettings.theme.glassType.solid': 'Solid colour',
-    'appSettings.theme.glassType.gradient': 'Gradient',
-    'appSettings.theme.glassType.image': 'Image',
-    'appSettings.theme.solidColor.label': 'Colour',
-    // MỚI 21/09/2026 — UI nền Morphin 3 card (core/theme-background-ui.js). 'appSettings.theme.glassType.*' ở trên (dropdown cũ) không còn nơi nào dùng.
+    // MỚI 21/09/2026 — UI nền Morphin 3 card (core/theme-background-ui.js). (Dọn deadcode 21/09/2026: bỏ 'appSettings.theme.select.*', 'appSettings.theme.glassType.*', 'appSettings.theme.solidColor.label' — dropdown cũ.)
     'appSettings.theme.bg.section': 'Background',
     'appSettings.theme.bg.solid': 'Solid',
     'appSettings.theme.bg.gradient': 'Gradient',

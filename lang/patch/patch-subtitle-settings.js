@@ -348,12 +348,6 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // ĐỔI HẲN thành "Theme" (components/settings/theme.js), 'settingsBackground.sectionTitle' XOÁ
     // (thay bằng 4 key `settingsTheme.*` dưới đây).
     'settingsPlaylistBg.sectionTitle': 'Playlist',
-    'settingsTheme.sectionTitle': 'Theme',
-    'settingsTheme.light': 'Light',
-    'settingsTheme.dark': 'Dark',
-    'settingsTheme.background': 'Background',
-    'settingsTheme.gradient': 'Gradient',
-    'settingsTheme.gradient.label': 'Colors',
     'settingsPlaylistBg.viewMode.label': 'View',
     'settingsPlaylistBg.viewMode.list': 'List',
     'settingsPlaylistBg.viewMode.grid': 'Grid',
