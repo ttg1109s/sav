@@ -1,0 +1,189 @@
+/**
+ * components/file-manager-storage.js — MỚI (29/07/2026, yêu cầu Giang).
+ *
+ * Panel "Quản lý lưu trữ" (storageDrawer.title) — THAY HẲN nội dung "thống kê + giải phóng bộ nhớ
+ * + dọn file lỗi" từng nằm TRONG panel "Song & Video" cũ (renderFileManagerSongPanelBody(),
+ * components/file-manager.js — ĐÃ XOÁ HẲN function đó). Panel Song & Video giờ KHÔNG còn tồn tại —
+ * hàng "Song & Video" ở section chính (components/settings/file-manager-section.js) giờ mở THẲNG
+ * Generic Drawer duyệt thư mục (event/workflow/file-manager-folder-browser.js::openList()), bỏ qua
+ * mọi panel trung gian.
+ *
+ * MỞ RỘNG (mục 2a/2c, phản hồi Giang):
+ *   - Thống kê dung lượng giờ gồm ĐỦ 3 domain (Song/Video/Photo) — thanh chia đoạn 3 màu THAY 2
+ *     màu cũ, "vòng tròn số lượng" THAY bằng 1 LIST 3 hàng (nhãn trái - số lượng phải).
+ *   - "Giải phóng bộ nhớ" đổi tên "Chọn mục xoá" — <select> phạm vi (song/video/both) cũ THAY bằng
+ *     3 checkbox toggle ĐỘC LẬP (Song/Video/Photo, không loại trừ nhau) — kết hợp CÙNG 2
+ *     toggle sẵn có (Tải xuống trước/Xoá khỏi thư viện). "Dọn file lỗi" DÙNG CHUNG đúng 3 checkbox
+ *     này để biết quét kho nào (xem event/workflow/file-manager-storage.js).
+ *   - Nút "Dọn dẹp dữ liệu" (trước ở cuối section chính, components/settings/file-manager-
+ *     section.js) DỜI VÀO ĐÂY (mục 2d) — ID giữ NGUYÊN (`btn-file-manager-cleanup-run`), router/
+ *     workflow/core (fileManagerCleanup) KHÔNG đổi gì, chỉ đổi NƠI listener wiring (delegate qua
+ *     `settingsStackBody`, xem event/listener/file-manager-storage.js — THAY static binding cũ ở
+ *     event/listener/file-manager-cleanup.js đã xoá).
+ *
+ * Push ĐỘNG vào Settings Stack (core/settings-panel-stack.js), CÙNG khuôn panel Photo —
+ * xem event/workflow/file-manager-storage.js::openPanel().
+ */
+function renderFileManagerStorageManagementPanelBody() {
+    // SỬA (khôi phục — Giang báo "section title dính liền card bên trên") — 4 khối
+    // <div><h3>tiêu đề</h3><div class="glass-modal">card</div></div> ở dưới TRƯỚC ĐÂY nối liền
+    // nhau không có margin/gap nào — thiếu đúng lớp bọc `space-y-5` mà mọi màn dạng "list tiêu đề +
+    // card" khác trong app đã dùng (xem components/settings-drawer.js::renderMainPanel(), cùng
+    // khuôn `max-w-2xl mx-auto space-y-5` bọc quanh các TPL_SETTINGS_* nối chuỗi y hệt cấu trúc ở
+    // đây) — bọc lại ĐÚNG class đó, không cần đổi gì bên trong từng khối.
+    return `
+                <div class="space-y-5">
+                <!-- SECTION: THỐNG KÊ DUNG LƯỢNG (3 domain: Song/Video/Photo) -->
+                <div>
+                    <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2" data-uitk="accentText" data-i18n="storageDrawer.statsSectionTitle">${t('storageDrawer.statsSectionTitle')}</h3>
+                    <div class="rounded-2xl p-4 flex flex-col gap-3" data-uitk="cardBg cardBorder">
+                        <div class="flex items-baseline justify-between">
+                            <span class="text-sm font-medium" data-uitk="textPrimary" data-i18n="storageDrawer.statTotalBytes">${t('storageDrawer.statTotalBytes')}</span>
+                            <span id="stat-storage-total-bytes" class="text-lg font-bold font-mono tabular-nums" data-uitk="textPrimary">—</span>
+                        </div>
+                        <!-- MỚI (29/07/2026, yêu cầu Giang mục 2) — mỗi đoạn giờ ấn được (cursor-
+                             pointer + data-legend-key, đọc bởi event/listener/file-manager-
+                             storage.js) — hiện số byte THẬT của đúng đoạn đó qua alertModal (xem
+                             event/workflow/file-manager-storage.js::showSegmentBytes()). -->
+                        <div class="h-2.5 w-full rounded-full overflow-hidden flex" data-uitk="progressTrackBg">
+                            <div id="stat-storage-bar-songs" class="h-full bg-sky-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendSongs" style="width:0%"></div>
+                            <div id="stat-storage-bar-videos" class="h-full bg-violet-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendVideos" style="width:0%"></div>
+                            <div id="stat-storage-bar-photos" class="h-full bg-emerald-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendPhotos" style="width:0%"></div>
+                        </div>
+                        <!-- MỚI (mục 2b, phản hồi Giang "list ngay dưới song/video/photo
+                             (bên trái) - count items (bên phải)") — THAY hẳn 2 "vòng tròn số lượng"
+                             cũ (song/video), giờ 1 list 3 hàng, chấm màu khớp ĐÚNG màu thanh chia
+                             đoạn ở trên cho từng domain. -->
+                        <!-- SỬA (phản hồi Giang mục 2) — divide-white/5 đổi thẳng sang divide-slate-100:
+                             .app-settings-scope (assets/css/layout-nav.css) chỉ đè "border-white/*"
+                             qua selector [class*="border-white/"], KHÔNG khớp "divide-white/5"
+                             (utility Tailwind khác, sinh ra border qua selector con "> * + *", không
+                             phải class "border-*" trực tiếp) — để nguyên sẽ lọt lưới, đường kẻ vẫn
+                             gần như vô hình trên nền trắng dù đã bọc scope. -->
+                        <div class="flex flex-col divide-y mt-1" data-uitk="divideBorder">
+                            <div class="flex items-center justify-between py-2">
+                                <span class="flex items-center gap-2 text-sm" data-uitk="textPrimary"><span class="w-2 h-2 rounded-full bg-sky-400 shrink-0"></span><span data-i18n="storageDrawer.legendSongs">${t('storageDrawer.legendSongs')}</span></span>
+                                <span id="stat-storage-count-song" class="text-sm font-semibold font-mono tabular-nums" data-uitk="textPrimary">—</span>
+                            </div>
+                            <div class="flex items-center justify-between py-2">
+                                <span class="flex items-center gap-2 text-sm" data-uitk="textPrimary"><span class="w-2 h-2 rounded-full bg-violet-400 shrink-0"></span><span data-i18n="storageDrawer.legendVideos">${t('storageDrawer.legendVideos')}</span></span>
+                                <span id="stat-storage-count-video" class="text-sm font-semibold font-mono tabular-nums" data-uitk="textPrimary">—</span>
+                            </div>
+                            <div class="flex items-center justify-between py-2">
+                                <span class="flex items-center gap-2 text-sm" data-uitk="textPrimary"><span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span><span data-i18n="storageDrawer.legendPhotos">${t('storageDrawer.legendPhotos')}</span></span>
+                                <span id="stat-storage-count-photo" class="text-sm font-semibold font-mono tabular-nums" data-uitk="textPrimary">—</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION: CHỌN MỤC XOÁ — VIẾT LẠI (mục 2c, phản hồi Giang "dropdown source ->
+                     checkbox toggle cho song/video/photo, kết hợp option trước") — 1
+                     <select> phạm vi cũ (song/video/both) THAY bằng 3 toggle ĐỘC LẬP (không loại
+                     trừ nhau, có thể bật nhiều cái cùng lúc) — GIỮ NGUYÊN 2 toggle sẵn có (Tải
+                     xuống trước/Xoá khỏi thư viện) + nút Thực hiện. "Dọn file lỗi" (section ngay
+                     dưới) DÙNG CHUNG đúng 3 toggle nguồn này để biết quét kho nào. -->
+                <div>
+                    <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2" data-uitk="categoryAccent:rose" data-i18n="storageDrawer.selectSourceSectionTitle">${t('storageDrawer.selectSourceSectionTitle')}</h3>
+                    <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
+                        <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder">
+                            <span class="text-sm font-medium truncate" data-i18n="storageDrawer.legendSongs">${t('storageDrawer.legendSongs')}</span>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="toggle-storage-source-song" class="sr-only peer">
+                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                            </label>
+                        </div>
+                        <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder">
+                            <span class="text-sm font-medium truncate" data-i18n="storageDrawer.legendVideos">${t('storageDrawer.legendVideos')}</span>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="toggle-storage-source-video" class="sr-only peer">
+                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                            </label>
+                        </div>
+                        <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder">
+                            <span class="text-sm font-medium truncate" data-i18n="storageDrawer.legendPhotos">${t('storageDrawer.legendPhotos')}</span>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="toggle-storage-source-photo" class="sr-only peer">
+                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                            </label>
+                        </div>
+                        <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder">
+                            <div class="pr-3">
+                                <div class="text-sm font-medium" data-i18n="fileManager.song.storageAction.downloadToggle.label">${t('fileManager.song.storageAction.downloadToggle.label')}</div>
+                                <div class="text-xs mt-0.5" data-uitk="textSecondary" data-i18n="fileManager.song.storageAction.downloadToggle.hint">${t('fileManager.song.storageAction.downloadToggle.hint')}</div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="toggle-storage-download" class="sr-only peer">
+                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                            </label>
+                        </div>
+                        <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder">
+                            <div class="pr-3">
+                                <!-- SỬA (phản hồi Giang mục 2) — text-rose-300 đổi sang text-rose-600:
+                                     .app-settings-scope KHÔNG có rule cho text-rose-*, để nguyên -300
+                                     (vốn hợp nền tối) sẽ quá nhạt/khó đọc trên nền trắng — đổi sang
+                                     rose-600, KHỚP màu bg-rose-600 của #btn-storage-fix-broken (ĐỔI
+                                     TÊN 18/09/2026 từ #btn-storage-delete-broken, cùng khối "cảnh báo
+                                     xoá"). -->
+                                <div class="text-sm font-medium" data-uitk="categoryAccent:rose" data-i18n="fileManager.song.storageAction.deleteToggle.label">${t('fileManager.song.storageAction.deleteToggle.label')}</div>
+                                <div class="text-xs mt-0.5" data-uitk="textSecondary" data-i18n="fileManager.song.storageAction.deleteToggle.hint">${t('fileManager.song.storageAction.deleteToggle.hint')}</div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="toggle-storage-delete" class="sr-only peer">
+                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                            </label>
+                        </div>
+                        <button id="btn-storage-execute" disabled class="p-4 text-sm font-bold disabled:opacity-40 disabled:pointer-events-none" data-uitk="cardHoverBg textPrimary" data-i18n="fileManager.song.storageAction.btnExecute">${t('fileManager.song.storageAction.btnExecute')}</button>
+                    </div>
+                </div>
+
+                <!-- SECTION: DỌN FILE LỖI — SỬA (29/07/2026, yêu cầu Giang) — KHÔNG còn dùng chung
+                     3 toggle nguồn của "Delete & Backup" ở trên nữa (dễ nhầm/quên đang bật gì) —
+                     bấm nút này giờ tự mở modalChoice() RIÊNG với 1 dropdown chọn loại quét
+                     (Tất cả/Song/Video/Photo) ngay trong modal, có nút Huỷ/Thực hiện —
+                     xem event/workflow/file-manager-storage.js::askScanBrokenScope(). -->
+                <div>
+                    <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2" data-uitk="categoryAccent:amber" data-i18n="storageDrawer.brokenSectionTitle">${t('storageDrawer.brokenSectionTitle')}</h3>
+                    <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
+                        <button id="btn-storage-scan-broken" class="flex justify-between items-center p-4 w-full text-left" data-uitk="cardHoverBg">
+                            <div>
+                                <div class="text-sm font-medium" data-i18n="storageDrawer.scanBroken.label">${t('storageDrawer.scanBroken.label')}</div>
+                                <div class="text-xs mt-0.5" data-uitk="textSecondary" data-i18n="storageDrawer.scanBroken.hint">${t('storageDrawer.scanBroken.hint')}</div>
+                            </div>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="categoryAccent:amber" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" /></svg>
+                        </button>
+                        <div id="storage-scan-result" class="hidden p-4 flex flex-col gap-3 border-t" data-uitk="dividerBorder">
+                            <p id="storage-scan-summary" class="text-sm" data-uitk="textPrimary"></p>
+                            <div id="storage-scan-list" class="flex flex-col gap-1.5 max-h-48 overflow-y-auto text-xs" data-uitk="textSecondary"></div>
+                            <div class="flex gap-3 mt-1">
+                                <!-- ĐỔI TÊN (18/09/2026, gộp tính năng "Sửa file lỗi") — id/key từ
+                                     #btn-storage-delete-broken/storageDrawer.btnDeleteBroken. Màu nút
+                                     TĨNH giữ nguyên destructive (đa số lô quét vẫn có phần xoá thật) —
+                                     riêng modal xác nhận (askFixBroken(), event/workflow/
+                                     file-manager-storage.js) mới tự đổi màu/nội dung ĐÚNG theo từng
+                                     lô (thuần sửa thumb thì không còn destructive). -->
+                                <button id="btn-storage-fix-broken" class="flex-1 py-2.5 rounded-xl text-sm font-semibold" data-uitk="btnDestructiveBg btnDestructiveHoverBg textOnAccent" data-i18n="storageDrawer.btnFixBroken">${t('storageDrawer.btnFixBroken')}</button>
+                                <button id="btn-storage-dismiss-scan" class="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors" data-uitk="btnNeutralBg btnNeutralHoverBg btnNeutralText" data-i18n="storageDrawer.btnDismissScan">${t('storageDrawer.btnDismissScan')}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION: DỌN DẸP DỮ LIỆU — DỜI TỪ section chính File Manager (mục 2d, phản hồi
+                     Giang), ID GIỮ NGUYÊN — xem core/file-manager/cleanup.js (registry) +
+                     event/workflow/file-manager-cleanup.js (KHÔNG đổi gì, chỉ đổi nơi wiring click,
+                     xem event/listener/file-manager-storage.js). -->
+                <div>
+                    <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
+                        <button id="btn-file-manager-cleanup-run" class="flex justify-between items-center p-4 w-full text-left" data-uitk="cardHoverBg">
+                            <div>
+                                <div class="text-sm font-medium truncate" data-i18n="fileManager.cleanup.label">${t('fileManager.cleanup.label')}</div>
+                                <div class="text-xs mt-0.5" data-uitk="textSecondary" data-i18n="fileManager.cleanup.hint">${t('fileManager.cleanup.hint')}</div>
+                            </div>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                    </div>
+                </div>
+                </div>
+`;
+}
