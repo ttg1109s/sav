@@ -413,16 +413,6 @@
         // đều là STATE, xem service/state.js.
         // ==========================================
 
-        // ===================== About (nay là 1 panel trong Settings Stack) =====================
-        // Batch D1 (Settings restructure, phản hồi Giang 06/07/2026) — `drawer-about`/`btn-back-
-        // about`/3 `stat-about-*` KHÔNG còn là DOM tĩnh nữa (About giờ là panel PUSH/POP động qua
-        // core/settings-panel-stack.js, xem components/settings-drawer.js + about-drawer.js MỚI) —
-        // BỎ HẲN 5 const cũ ở đây, vì lấy 1 lần lúc boot rồi sẽ tham chiếu tới DOM node đã bị
-        // `.remove()` sau lần đóng About đầu tiên. 3 `stat-about-*` giờ được `querySelector` bên
-        // TRONG panel vừa push, ngay tại nơi gọi (event/workflow/settings-misc.js::openAbout()) —
-        // đúng quy ước Generic Drawer: "component tĩnh + dom-refs, nội dung động thì Workflow tự
-        // querySelector sau khi gán". `btnOpenAbout` VẪN TĨNH (nút nằm trong Main, không bị xoá).
-        const btnOpenAbout = document.getElementById('setting-open-about');
         // MỚI (18/07/2026, Giang yêu cầu — xem debug-console.js) — nút mở panel xem console log.
         const btnOpenDebugConsole = document.getElementById('setting-open-debug-console');
 

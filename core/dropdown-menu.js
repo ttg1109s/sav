@@ -48,7 +48,7 @@ function openDropdownMenu(anchorEl, items, options) {
     // opacity/transform, KHÔNG đụng các thuộc tính khác (layout/màu nền...) để tránh animate
     // nhầm thứ không cố ý.
     menu.className = 'fixed w-48 py-1.5 rounded-xl shadow-2xl overflow-hidden transition-[opacity,transform] duration-150 ease-out';
-    menu.dataset.uitk = 'cardBg cardBorder'; // SỬA (09/09/2026, hệ UI Theme mở rộng) — trước đây `.glass-modal` (kính mờ TỐI, assets/css/glass.css), giờ ăn theo UI Theme như mọi card khác
+    menu.dataset.uitk = 'modalCardBg modalCardBorder'; // SỬA 21/09/2026 — menu nổi cần bề mặt ĐẶC/kính như mọi menu nổi khác (#song-action-menu...); cardBg ở Dark/Morphin là lớp trắng MỜ -> menu trong suốt, chữ đè lên hàng phía sau. // SỬA (09/09/2026, hệ UI Theme mở rộng) — trước đây `.glass-modal` (kính mờ TỐI, assets/css/glass.css), giờ ăn theo UI Theme như mọi card khác
     menu.style.zIndex = String(options.zIndex || 127);
 
     items.forEach((item) => {

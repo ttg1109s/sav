@@ -155,7 +155,7 @@
          * theo đúng thứ tự (updatePlaylistBg() trước, forceGlassRepaint() ngay sau).
          */
         function forceGlassRepaint() {
-            const glassEls = document.querySelectorAll('.glass-panel, .glass-modal, .drawer-glass, .glass-control-center');
+            const glassEls = document.querySelectorAll('.glass-panel, .glass-modal, .drawer-glass, .glass-control-center, .uitk-glass-surface, .uitk-glass-elevated');
             glassEls.forEach((el) => {
                 el.style.webkitBackdropFilter = 'blur(0px)';
                 el.style.backdropFilter = 'blur(0px)';

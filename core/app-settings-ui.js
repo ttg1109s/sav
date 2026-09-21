@@ -130,7 +130,7 @@ function wireAppSettingsPlaylist(bodyEl) {
     if (filterBtn) filterBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.openManage.click', payload: {} }));
 }
 
-/** Màn Theme — dropdown Theme (light/dark/glass) + dropdown loại nền glass (solid/gradient/image) +
+/** Màn Theme — dropdown "Color" (light/dark/morphin) + [CHỈ khi Morphin] dropdown loại nền (solid/gradient/image) +
  * 3 input màu — dropdown Theme/loại nền TÁI DÙNG THẲNG msg.type cụm "theme" gốc (event/router/
  * theme.js KHÔNG đổi gì); riêng "hiện đúng hàng con theo lựa chọn glassType" là thao tác DOM THUẦN
  * (không đổi appState, chỉ đổi cái NGƯỜI DÙNG ĐANG NHÌN trước khi họ chọn xong) — gửi kèm 1
@@ -139,9 +139,6 @@ function wireAppSettingsPlaylist(bodyEl) {
 function wireAppSettingsTheme(bodyEl) {
     const uiThemeSelect = bodyEl.querySelector('#app-settings-ui-theme-select'); // MỚI 21/09/2026 — màu giao diện Light/Dark
     if (uiThemeSelect) uiThemeSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.uiTheme.change', payload: { themeName: e.target.value } }));
-
-    const modeSelect = bodyEl.querySelector('#app-settings-theme-select');
-    if (modeSelect) modeSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.theme.selectMode.change', payload: { mode: e.target.value } }));
 
     const glassTypeSelect = bodyEl.querySelector('#app-settings-theme-glass-type');
     if (glassTypeSelect) glassTypeSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.theme.selectGlassType.change', payload: { glassType: e.target.value, solidColor: bodyEl.querySelector('#app-settings-theme-solid-color').value } }));
