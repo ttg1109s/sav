@@ -62,10 +62,10 @@
  * @param {{id:string,name:string}[]} presets @param {string|null} activeId */
 function renderPlaylistFilterListBody(presets, activeId) {
     const addRowHtml = `
-        <button type="button" id="btn-playlist-filter-list-add" class="w-full text-center px-4 py-3.5 rounded-2xl mb-2 bg-sky-50 border border-sky-200 hover:bg-sky-100 transition-colors text-sm font-semibold text-sky-600" data-i18n="playlistFilterPresetsDrawer.list.add.label">${t('playlistFilterPresetsDrawer.list.add.label')}</button>
+        <button type="button" id="btn-playlist-filter-list-add" class="w-full text-center px-4 py-3.5 rounded-2xl mb-2 text-sm font-semibold" data-uitk="btnAccentSoft accentSoftBorder" data-i18n="playlistFilterPresetsDrawer.list.add.label">${t('playlistFilterPresetsDrawer.list.add.label')}</button>
     `;
     if (presets.length === 0) {
-        return addRowHtml + `<p class="text-sm text-slate-500 text-center py-10 px-6" data-i18n="playlistFilterPresetsDrawer.list.empty">${t('playlistFilterPresetsDrawer.list.empty')}</p>`;
+        return addRowHtml + `<p class="text-sm text-center py-10 px-6" data-uitk="textSecondary" data-i18n="playlistFilterPresetsDrawer.list.empty">${t('playlistFilterPresetsDrawer.list.empty')}</p>`;
     }
     const itemsHtml = presets.map((p) => {
         const isActive = p.id === activeId;
@@ -76,19 +76,19 @@ function renderPlaylistFilterListBody(presets, activeId) {
         // cho trường hợp cần chụp lại ảnh chốt). Dòng KHÔNG active vẫn 2 nút (chọn áp dụng + xoá)
         // như cũ.
         const actionsHtml = isActive
-            ? `<button type="button" data-playlist-filter-quickunselect="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-500 hover:text-amber-500 hover:bg-amber-50 transition-colors" title="${t('playlistFilterPresetsDrawer.list.unselect.title')}">
+            ? `<button type="button" data-playlist-filter-quickunselect="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full" data-uitk="iconBtnCaution" title="${t('playlistFilterPresetsDrawer.list.unselect.title')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" /></svg>
                 </button>`
-            : `<button type="button" data-playlist-filter-quickselect="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-500 hover:text-sky-500 hover:bg-sky-50 transition-colors" title="${t('playlistFilterPresetsDrawer.list.select.title')}">
+            : `<button type="button" data-playlist-filter-quickselect="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full" data-uitk="iconBtnAccent" title="${t('playlistFilterPresetsDrawer.list.select.title')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
                 </button>
-                <button type="button" data-playlist-filter-quickdelete="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-500 hover:text-rose-500 hover:bg-rose-50 transition-colors" title="${t('playlistFilterPresetsDrawer.list.delete.title')}">
+                <button type="button" data-playlist-filter-quickdelete="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full" data-uitk="iconBtnDestructive" title="${t('playlistFilterPresetsDrawer.list.delete.title')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>`;
         return `
         <div data-playlist-filter-tile="${escapeHtml(p.id)}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-2 transition-colors cursor-pointer" data-uitk="${rowThemeKeys}">
             <span class="flex items-center gap-2 min-w-0">
-                <span class="text-sm font-semibold text-slate-700 truncate">${escapeHtml(p.name)}</span>
+                <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${escapeHtml(p.name)}</span>
             </span>
             <span class="flex items-center gap-1 shrink-0">
                 ${actionsHtml}
@@ -107,7 +107,7 @@ function _renderFilterTextFieldRow(field, labelKey) {
                                 <span class="text-sm font-medium truncate" data-i18n="${labelKey}">${t(labelKey)}</span>
                                 <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                     <input type="checkbox" data-filter-field="${field}" data-filter-prop="enabled" class="sr-only peer">
-                                    <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                                    <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" data-uitk="toggleTrackOff toggleTrackOn"></div>
                                 </label>
                             </div>
                             <!-- FIX (bug — checkbox bị khoá theo cả row) — data-filter-body BỌC
@@ -147,7 +147,7 @@ function _renderFilterNumericFieldRow(field, labelKey, inputType, step) {
                                 <span class="text-sm font-medium truncate" data-i18n="${labelKey}">${t(labelKey)}</span>
                                 <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                     <input type="checkbox" data-filter-field="${field}" data-filter-prop="enabled" class="sr-only peer">
-                                    <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                                    <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" data-uitk="toggleTrackOff toggleTrackOn"></div>
                                 </label>
                             </div>
                             <!-- FIX (bug — checkbox bị khoá theo cả row), CÙNG LÝ DO _renderFilterTextFieldRow() ở trên. -->
@@ -170,7 +170,7 @@ function _renderFilterNumericFieldRow(field, labelKey, inputType, step) {
                                 </div>
                                 <div data-filter-range-block class="hidden flex gap-2 items-center">
                                     ${valueControl('value', isTimePicker ? null : 'playlistFilterPanel.rangeFrom')}
-                                    <span class="text-slate-500 text-xs">–</span>
+                                    <span class="text-xs" data-uitk="textSecondary">–</span>
                                     ${valueControl('valueTo', isTimePicker ? null : 'playlistFilterPanel.rangeTo')}
                                 </div>
                             </div>
@@ -234,8 +234,8 @@ function renderPlaylistFilterEditBody(preset, source, isActive) {
     return `
                 <div>
                     <div class="rounded-2xl px-4 flex items-center justify-between gap-3 mb-4" data-uitk="cardBg cardBorder">
-                        <label for="playlist-filter-drawer-name" class="text-sm text-slate-500 shrink-0" data-i18n="playlistFilterPresetsDrawer.name.label">${t('playlistFilterPresetsDrawer.name.label')}</label>
-                        <input type="text" id="playlist-filter-drawer-name" maxlength="24" value="${escapeHtml(preset.name)}" class="flex-1 min-w-0 bg-transparent border-0 text-right py-3 text-sm text-slate-900 outline-none focus:ring-0">
+                        <label for="playlist-filter-drawer-name" class="text-sm shrink-0" data-uitk="textSecondary" data-i18n="playlistFilterPresetsDrawer.name.label">${t('playlistFilterPresetsDrawer.name.label')}</label>
+                        <input type="text" id="playlist-filter-drawer-name" maxlength="24" value="${escapeHtml(preset.name)}" class="flex-1 min-w-0 bg-transparent border-0 text-right py-3 text-sm outline-none focus:ring-0" data-uitk="textPrimary">
                     </div>
                     <!-- MỚI (09/09/2026, phản hồi Giang — "checkbox tick vuông riêng ở dưới Name: có
                          áp dụng cho thư mục hay không, mặc định bật") — checkbox VUÔNG (accent-sky-500,
@@ -244,8 +244,8 @@ function renderPlaylistFilterEditBody(preset, source, isActive) {
                          preset này CHỈ áp dụng lúc xem "Tất cả" (applyAllSongsScope()), KHÔNG áp dụng
                          lúc đang xem 1 thư mục cụ thể (applyFolderScope() bỏ qua Filter cho Nguồn này)
                          — xem event/workflow/playlist-scope.js::applyFolderScope(). -->
-                    <label class="flex items-center gap-2.5 text-sm text-slate-600 cursor-pointer mb-4 px-1">
-                        <input type="checkbox" id="playlist-filter-drawer-appliestofolder" class="w-4 h-4 rounded accent-sky-500 shrink-0"${preset.appliesToFolder ? ' checked' : ''}>
+                    <label class="flex items-center gap-2.5 text-sm cursor-pointer mb-4 px-1" data-uitk="textSecondaryStrong">
+                        <input type="checkbox" id="playlist-filter-drawer-appliestofolder" class="w-4 h-4 rounded shrink-0" data-uitk="accentControl"${preset.appliesToFolder ? ' checked' : ''}>
                         <span data-i18n="playlistFilterPresetsDrawer.appliesToFolder.label">${t('playlistFilterPresetsDrawer.appliesToFolder.label')}</span>
                     </label>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
@@ -260,10 +260,10 @@ function renderPlaylistFilterEditBody(preset, source, isActive) {
                         ${_renderFilterNumericFieldRow('size', 'playlistFilterPanel.field.size', 'number', '0.1')}
                     </div>
                     <div class="flex gap-2 mt-4">
-                        <button id="btn-playlist-filter-select" type="button" class="flex-1 py-3 rounded-2xl bg-sky-50 hover:bg-sky-100 transition-colors text-sky-600 text-sm font-medium" data-i18n="${isActive ? 'playlistFilterPresetsDrawer.update' : 'playlistFilterPresetsDrawer.select'}">${isActive ? t('playlistFilterPresetsDrawer.update') : t('playlistFilterPresetsDrawer.select')}</button>
-                        <button id="${isActive ? 'btn-playlist-filter-unselect' : 'btn-playlist-filter-delete'}" type="button" class="flex-1 py-3 rounded-2xl ${isActive ? 'bg-amber-50 hover:bg-amber-100 text-amber-600' : 'bg-rose-50 hover:bg-rose-100 text-rose-600'} transition-colors text-sm font-medium" data-i18n="${isActive ? 'playlistFilterPresetsDrawer.unselect' : 'playlistFilterPresetsDrawer.delete'}">${isActive ? t('playlistFilterPresetsDrawer.unselect') : t('playlistFilterPresetsDrawer.delete')}</button>
+                        <button id="btn-playlist-filter-select" type="button" class="flex-1 py-3 rounded-2xl text-sm font-medium" data-uitk="btnAccentSoft" data-i18n="${isActive ? 'playlistFilterPresetsDrawer.update' : 'playlistFilterPresetsDrawer.select'}">${isActive ? t('playlistFilterPresetsDrawer.update') : t('playlistFilterPresetsDrawer.select')}</button>
+                        <button id="${isActive ? 'btn-playlist-filter-unselect' : 'btn-playlist-filter-delete'}" type="button" class="flex-1 py-3 rounded-2xl text-sm font-medium" data-uitk="${isActive ? 'btnCautionSoft' : 'btnDestructiveSoft'}" data-i18n="${isActive ? 'playlistFilterPresetsDrawer.unselect' : 'playlistFilterPresetsDrawer.delete'}">${isActive ? t('playlistFilterPresetsDrawer.unselect') : t('playlistFilterPresetsDrawer.delete')}</button>
                     </div>
-                    <div class="text-xs text-slate-500 mt-2 text-center" data-i18n="playlistFilterPanel.hint">${t('playlistFilterPanel.hint')}</div>
+                    <div class="text-xs mt-2 text-center" data-uitk="textSecondary" data-i18n="playlistFilterPanel.hint">${t('playlistFilterPanel.hint')}</div>
                 </div>
 `;
 }

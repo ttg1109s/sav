@@ -73,7 +73,7 @@ const TPL_PLAYLIST_VIEW = `
                 <!-- #btn-open-file-manager ĐÃ XOÁ (CHỐT 03/07/2026, plan-v12-multimedia-decisions.md
                      mục 1a) — File Manager giờ mở từ Settings (section mới), không còn icon riêng
                      ở header Playlist nữa. -->
-                <button id="btn-toggle-selection" class="hover:text-sky-600 transition-colors" data-i18n-title="playlistView.selection.toggleTitle" title="${t('playlistView.selection.toggleTitle')}">
+                <button id="btn-toggle-selection" class="transition-colors" data-uitk="hoverAccentText" data-i18n-title="playlistView.selection.toggleTitle" title="${t('playlistView.selection.toggleTitle')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </button>
                 <!-- SỬA (phản hồi Giang — "1 khung, không nhân bản, VMState theo activeMediaSource")
@@ -84,10 +84,10 @@ const TPL_PLAYLIST_VIEW = `
                      dưới) mở ra là 1 khung DUY NHẤT cho cả 3 Nguồn; "accept" của 2 input BÊN TRONG
                      đổi động theo Nguồn (switchSource(), event/workflow/playlist.js::_applyUploadInputAccept()) —
                      KHÔNG còn 2 input riêng theo từng Nguồn. -->
-                <button id="btn-upload-audio" class="hover:text-sky-600 transition-colors" data-i18n-title="playlistView.btnUploadAudio.title" title="${t('playlistView.btnUploadAudio.title')}">
+                <button id="btn-upload-audio" class="transition-colors" data-uitk="hoverAccentText" data-i18n-title="playlistView.btnUploadAudio.title" title="${t('playlistView.btnUploadAudio.title')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                 </button>
-                <button id="btn-settings-playlist" class="hover:text-sky-600 transition-colors" data-i18n-title="playlistView.btnSettings.title" title="${t('playlistView.btnSettings.title')}">
+                <button id="btn-settings-playlist" class="transition-colors" data-uitk="hoverAccentText" data-i18n-title="playlistView.btnSettings.title" title="${t('playlistView.btnSettings.title')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                 </button>
                 <!-- MỚI (20/09/2026, Giang yêu cầu — "Reset app chuyển lên nav icon header cạnh các nút
@@ -97,7 +97,7 @@ const TPL_PLAYLIST_VIEW = `
                      + event/listener/settings-misc.js đã có sẵn từ trước -> tự nối vào router 'settingsMisc'
                      .restartApp.click (modal xác nhận "askRestartApp()" -> executeRestartApp()), KHÔNG cần
                      listener/router mới. Tooltip dùng lại key 'appSettings.resetApp.restartApp.label'. -->
-                <button id="setting-restart-app" class="hover:text-sky-600 transition-colors" data-i18n-title="appSettings.resetApp.restartApp.label" title="${t('appSettings.resetApp.restartApp.label')}">
+                <button id="setting-restart-app" class="transition-colors" data-uitk="hoverAccentText" data-i18n-title="appSettings.resetApp.restartApp.label" title="${t('appSettings.resetApp.restartApp.label')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                 </button>
                 <!-- "Đổi giao diện" (Grid/List) đã dồn vào Settings (section "Danh sách phát &
@@ -121,7 +121,7 @@ const TPL_PLAYLIST_VIEW = `
                      đang Scope) NẰM THẬT SỰ bên trong khung viền đó, không phải 1 hàng tách biệt
                      nữa. Mọi id/JS wiring (playlistSearchInput/playlistSearchClear/
                      playlistActiveFolderBadge/...) GIỮ NGUYÊN — chỉ đổi vị trí/lớp CSS bọc ngoài. -->
-                <div class="relative flex items-center gap-2 w-full focus-within:border-sky-500 rounded-2xl pl-3.5 pr-3 py-2.5 transition-colors border" data-uitk="inputBg inputBorder">
+                <div class="relative flex items-center gap-2 w-full rounded-2xl pl-3.5 pr-3 py-2.5 transition-colors border" data-uitk="inputBg inputBorder inputFocusWithinBorder">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 pointer-events-none shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     <!-- MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 3 — SỬA VỊ TRÍ cùng đợt
                          này) — badge tên folder đang Scope, THAY HẲN UI khoá select "Nguồn" ở
@@ -130,15 +130,15 @@ const TPL_PLAYLIST_VIEW = `
                          nơi scope thật sự đổi (xem event/workflow/playlist-scope.js
                          applyFolderScope()/applyAllSongsScope()). -->
                     <div id="playlist-active-folder-badge" class="hidden shrink-0 min-w-0">
-                        <div class="inline-flex items-center gap-1 max-w-[110px] bg-sky-100 text-sky-700 text-xs font-medium pl-2 pr-1 py-0.5 rounded-full">
+                        <div class="inline-flex items-center gap-1 max-w-[110px] text-xs font-medium pl-2 pr-1 py-0.5 rounded-full" data-uitk="accentBadge">
                             <span id="playlist-active-folder-badge-name" class="truncate"></span>
-                            <button id="playlist-active-folder-badge-close" class="w-3.5 h-3.5 flex items-center justify-center rounded-full hover:bg-sky-200 transition-colors shrink-0" data-i18n-title="playlistView.activeFolderBadge.exit.title" title="${t('playlistView.activeFolderBadge.exit.title')}">
+                            <button id="playlist-active-folder-badge-close" class="w-3.5 h-3.5 flex items-center justify-center rounded-full transition-colors shrink-0" data-uitk="accentBadgeHover" data-i18n-title="playlistView.activeFolderBadge.exit.title" title="${t('playlistView.activeFolderBadge.exit.title')}">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                         </div>
                     </div>
                     <input id="playlist-search-input" type="text" inputmode="search" autocomplete="off" data-i18n-placeholder="playlistView.search.placeholder" placeholder="${t('playlistView.search.placeholder')}" class="flex-1 min-w-0 bg-transparent border-none outline-none text-[15px] placeholder-slate-400 py-0" data-uitk="inputText">
-                    <button id="playlist-search-clear" class="hidden shrink-0 hover:text-slate-900 transition-colors p-1" data-uitk="textMutedIcon" data-i18n-title="playlistView.search.clear.title" title="${t('playlistView.search.clear.title')}">
+                    <button id="playlist-search-clear" class="hidden shrink-0 transition-colors p-1" data-uitk="textMutedIcon hoverPrimaryText" data-i18n-title="playlistView.search.clear.title" title="${t('playlistView.search.clear.title')}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
@@ -173,7 +173,7 @@ const TPL_PLAYLIST_VIEW = `
                  đọc dữ liệu. Logic ở event/workflow/app-boot.js (nhánh Song): keys<=0 -> hiện
                  #playlist-empty; else -> hiện lớp này (cập nhật "x / y bài") rồi fade out sau khi render. -->
             <div id="playlist-loading-list" class="hidden absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 transition-opacity duration-300" style="opacity:0;" data-uitk="panelBg textSecondary">
-                <svg class="animate-spin h-10 w-10 text-sky-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <svg class="animate-spin h-10 w-10" data-uitk="accentTextSoft" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 <p id="playlist-loading-text" class="text-sm font-medium tracking-wide">${t('playlistView.loading.generic')}</p>
             </div>
             <div id="playlist-container" class="flex flex-col pb-32"></div>
@@ -211,7 +211,7 @@ const TPL_PLAYLIST_VIEW = `
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
             <span data-i18n="playlistView.selection.btnAddToFolder">${t('playlistView.selection.btnAddToFolder')}</span>
         </button>
-        <button data-menu-action="delete" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors border-t hover:bg-rose-50" data-uitk="destructiveText dividerBorder">
+        <button data-menu-action="delete" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors border-t" data-uitk="destructiveText dividerBorder hoverDestructiveBg">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
             <span data-i18n="playlistView.selection.btnDelete">${t('playlistView.selection.btnDelete')}</span>
         </button>
@@ -368,7 +368,7 @@ const TPL_PLAYLIST_VIEW = `
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                             <span data-i18n="playlistView.songEdit.coverPickLibrary">${t('playlistView.songEdit.coverPickLibrary')}</span>
                         </button>
-                        <button id="song-edit-cover-remove" class="flex items-center justify-center gap-1.5 px-3 py-2.5 hover:bg-rose-50 rounded-xl text-xs font-bold transition-colors" data-uitk="cardBg cardBorder destructiveText">
+                        <button id="song-edit-cover-remove" class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-colors" data-uitk="cardBg cardBorder destructiveText hoverDestructiveBg">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             <span data-i18n="playlistView.songEdit.coverRemove">${t('playlistView.songEdit.coverRemove')}</span>
                         </button>
@@ -506,7 +506,7 @@ const TPL_PLAYLIST_VIEW = `
         <!-- SỬA (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — id "song-menu-delete-
              label" để JS ("openSongActionMenu()") đổi chữ "Xoá bài hát"/"Xoá video" đúng ngữ cảnh
              item đang mở menu — nhãn tĩnh cũ luôn nói "song" kể cả khi đang xoá Video. -->
-        <button data-menu-action="delete" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors border-t hover:bg-rose-50" data-uitk="destructiveText dividerBorder">
+        <button data-menu-action="delete" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors border-t" data-uitk="destructiveText dividerBorder hoverDestructiveBg">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
             <span id="song-menu-delete-label" data-i18n="playlistView.songMenu.delete">${t('playlistView.songMenu.delete')}</span>
         </button>

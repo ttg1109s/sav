@@ -31,15 +31,15 @@
 /** @param {{id:string, name:string}[]} presets */
 function renderMotionListBody(presets) {
     const addRowHtml = `
-        <button type="button" id="btn-motion-list-add" class="w-full text-center px-4 py-3.5 rounded-2xl mb-2 bg-sky-50 border border-sky-200 hover:bg-sky-100 transition-colors text-sm font-semibold text-sky-600">${t('motionPresetsDrawer.list.add.label')}</button>
+        <button type="button" id="btn-motion-list-add" class="w-full text-center px-4 py-3.5 rounded-2xl mb-2 text-sm font-semibold" data-uitk="btnAccentSoft accentSoftBorder">${t('motionPresetsDrawer.list.add.label')}</button>
     `;
     if (presets.length === 0) {
-        return addRowHtml + `<p class="text-sm text-slate-500 text-center py-10 px-6">${t('motionPresetsDrawer.list.empty')}</p>`;
+        return addRowHtml + `<p class="text-sm text-center py-10 px-6" data-uitk="textSecondary">${t('motionPresetsDrawer.list.empty')}</p>`;
     }
     const itemsHtml = presets.map((p) => `
         <div data-motion-preset-tile="${escapeHtml(p.id)}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-3 cursor-pointer" data-uitk="cardBg cardBorder cardHoverBg">
-            <span class="text-sm font-semibold text-slate-700 truncate">${escapeHtml(p.name)}</span>
-            <button type="button" data-motion-preset-quickdelete="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-500 hover:text-rose-500 hover:bg-rose-50 transition-colors shrink-0" title="${t('motionPresetsDrawer.list.delete.title')}">
+            <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${escapeHtml(p.name)}</span>
+            <button type="button" data-motion-preset-quickdelete="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full shrink-0" data-uitk="iconBtnDestructive" title="${t('motionPresetsDrawer.list.delete.title')}">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
             </button>
         </div>
@@ -75,43 +75,43 @@ const MOTION_SETTINGS_BEATREACT_DIRECTIONS_Y = [
 function renderMotionBeatReactEffectRows(key, effect, cfg) {
     const isDeg = key === 'rotate';
     const maxVal = isDeg ? effect.maxDeg : effect.maxPct;
-    const borderClass = cfg.isLast ? '' : ' border-b border-slate-200';
+    const borderClass = cfg.isLast ? '' : ' border-b'; // màu đường kẻ = key dividerBorder gắn ở thẻ dùng borderClass (data-uitk bên dưới)
     const directionOptionsHtml = cfg.hasDirection ? cfg.directions.map((d) => `<option value="${d.value}" ${effect.direction === d.value ? 'selected' : ''} data-i18n="${d.labelKey}">${t(d.labelKey)}</option>`).join('') : '';
     const directionHtml = cfg.hasDirection ? `
                         <div class="flex justify-between items-center px-4 pb-3">
-                            <span class="text-xs text-slate-500" data-i18n="motionPresetsDrawer.beatReact.direction.label">${t('motionPresetsDrawer.beatReact.direction.label')}</span>
+                            <span class="text-xs" data-uitk="textSecondary" data-i18n="motionPresetsDrawer.beatReact.direction.label">${t('motionPresetsDrawer.beatReact.direction.label')}</span>
                             <select id="setting-motion-beatreact-${key}-direction" class="rounded-lg px-2 py-1 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
                                 ${directionOptionsHtml}
                             </select>
                         </div>
                         <label class="flex items-center gap-2.5 px-4 pb-3 cursor-pointer">
-                            <input type="checkbox" id="setting-motion-beatreact-${key}-reverse" class="w-4 h-4 rounded accent-sky-500 shrink-0" ${effect.reverse ? 'checked' : ''}>
-                            <span class="text-xs text-slate-500" data-i18n="motionPresetsDrawer.beatReact.reverse.label">${t('motionPresetsDrawer.beatReact.reverse.label')}</span>
+                            <input type="checkbox" id="setting-motion-beatreact-${key}-reverse" class="w-4 h-4 rounded shrink-0" data-uitk="accentControl" ${effect.reverse ? 'checked' : ''}>
+                            <span class="text-xs" data-uitk="textSecondary" data-i18n="motionPresetsDrawer.beatReact.reverse.label">${t('motionPresetsDrawer.beatReact.reverse.label')}</span>
                         </label>` : '';
     // MỚI (phản hồi Giang — "bổ sung tick random Max ở dưới Reverse") — hiệu ứng CÓ hướng (Reverse
     // đứng trên) thì Random Max nối NGAY sau; hiệu ứng KHÔNG có hướng (zoom, không có Reverse) thì
     // Random Max đặt ngay dưới ô nhập số/slider max (xem cuối template).
     const randomMaxHtml = `
                         <label class="flex items-center gap-2.5 px-4 ${cfg.hasDirection ? 'pb-3' : 'pt-3'} cursor-pointer">
-                            <input type="checkbox" id="setting-motion-beatreact-${key}-randommax" class="w-4 h-4 rounded accent-sky-500 shrink-0" ${effect.randomMax ? 'checked' : ''}>
-                            <span class="text-xs text-slate-500" data-i18n="motionPresetsDrawer.beatReact.randomMax.label">${t('motionPresetsDrawer.beatReact.randomMax.label')}</span>
+                            <input type="checkbox" id="setting-motion-beatreact-${key}-randommax" class="w-4 h-4 rounded shrink-0" data-uitk="accentControl" ${effect.randomMax ? 'checked' : ''}>
+                            <span class="text-xs" data-uitk="textSecondary" data-i18n="motionPresetsDrawer.beatReact.randomMax.label">${t('motionPresetsDrawer.beatReact.randomMax.label')}</span>
                         </label>`;
     return `
-                        <div class="p-4${borderClass}">
+                        <div class="p-4${borderClass}"${cfg.isLast ? '' : ' data-uitk="dividerBorder"'}>
                             <label class="flex items-center gap-2.5 mb-3 cursor-pointer">
-                                <input type="checkbox" id="setting-motion-beatreact-${key}-enabled" class="w-4 h-4 rounded accent-sky-500 shrink-0" ${effect.enabled ? 'checked' : ''}>
+                                <input type="checkbox" id="setting-motion-beatreact-${key}-enabled" class="w-4 h-4 rounded shrink-0" data-uitk="accentControl" ${effect.enabled ? 'checked' : ''}>
                                 <span class="text-sm font-medium" data-i18n="${cfg.titleKey}">${t(cfg.titleKey)}</span>
                             </label>
                             ${directionHtml}
                             ${cfg.hasDirection ? randomMaxHtml : ''}
                             <div class="flex justify-between items-center mb-1.5 gap-2">
-                                <span class="text-xs text-slate-500 shrink-0" data-i18n="${cfg.maxLabelKey}">${t(cfg.maxLabelKey)}</span>
+                                <span class="text-xs shrink-0" data-uitk="textSecondary" data-i18n="${cfg.maxLabelKey}">${t(cfg.maxLabelKey)}</span>
                                 <div class="flex items-center gap-1">
                                     <input type="number" inputmode="decimal" id="motion-beatreact-${key}-max-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${maxVal}" class="w-20 rounded-lg px-2 py-1 text-xs text-right outline-none" data-uitk="inputBg inputBorder inputText">
-                                    <span class="text-xs text-slate-500">${cfg.suffix}</span>
+                                    <span class="text-xs" data-uitk="textSecondary">${cfg.suffix}</span>
                                 </div>
                             </div>
-                            <input type="range" id="setting-motion-beatreact-${key}-max" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${maxVal}" class="w-full accent-sky-500">
+                            <input type="range" id="setting-motion-beatreact-${key}-max" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${maxVal}" class="w-full" data-uitk="accentControl">
                             ${cfg.hasDirection ? '' : randomMaxHtml}
                         </div>
     `;
@@ -123,11 +123,11 @@ function renderMotionEditBody(preset, motionApply, consumerKey) {
     return `
                 <!-- ===================== NHÓM 1: CHUYỂN CẢNH ===================== -->
                 <div>
-                    <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2 flex items-center justify-between">
+                    <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2 flex items-center justify-between" data-uitk="accentText">
                         <span data-i18n="motionSettingsDrawer.groupTransition.title">${t('motionSettingsDrawer.groupTransition.title')}</span>
                         <label class="relative inline-flex items-center cursor-pointer shrink-0 normal-case tracking-normal">
                             <input type="checkbox" id="setting-motion-transition-enabled" class="sr-only peer" ${preset.transitionEnabled ? 'checked' : ''}>
-                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" data-uitk="toggleTrackOff toggleTrackOn"></div>
                         </label>
                     </h3>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
@@ -214,21 +214,21 @@ function renderMotionEditBody(preset, motionApply, consumerKey) {
                             <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.edgeFlipStaticOld.label">${t('motionSettingsDrawer.edgeFlipStaticOld.label')}</span>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                 <input type="checkbox" id="setting-motion-edge-flip-static-old" class="sr-only peer" ${preset.edgeFlipStaticOld ? 'checked' : ''}>
-                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" data-uitk="toggleTrackOff toggleTrackOn"></div>
                             </label>
                         </div>
                         <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder cardHoverBg">
                             <div class="pr-3">
                                 <div class="text-sm font-medium" data-i18n="motionSettingsDrawer.transitionDuration.label">${t('motionSettingsDrawer.transitionDuration.label')}</div>
                             </div>
-                            <button type="button" id="setting-motion-transition-duration" class="rounded-lg px-3 py-1.5 text-xs outline-none w-20 text-right shrink-0" data-uitk="cardHoverBg" data-uitk="inputBg inputBorder inputText">${(preset.transitionDurationMs / 1000).toFixed(1)}s</button>
+                            <button type="button" id="setting-motion-transition-duration" class="rounded-lg px-3 py-1.5 text-xs outline-none w-20 text-right shrink-0" data-uitk="inputBg inputBorder inputText cardHoverBg">${(preset.transitionDurationMs / 1000).toFixed(1)}s</button>
                         </div>
                         <div id="motion-transition-ratio-row" class="p-4 ${transitionSupportsInOutRatio(preset.transitionType) ? '' : ' hidden'} border-b" data-uitk="dividerBorder cardHoverBg">
                             <div class="flex justify-between items-center mb-2">
                                 <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.transitionRatio.label">${t('motionSettingsDrawer.transitionRatio.label')}</span>
-                                <span id="motion-transition-ratio-label" class="text-xs text-slate-500 font-mono"></span>
+                                <span id="motion-transition-ratio-label" class="text-xs font-mono" data-uitk="textSecondary"></span>
                             </div>
-                            <input type="range" id="setting-motion-transition-ratio" min="0" max="100" step="5" value="${preset.transitionInOutRatio}" class="w-full accent-sky-500">
+                            <input type="range" id="setting-motion-transition-ratio" min="0" max="100" step="5" value="${preset.transitionInOutRatio}" class="w-full" data-uitk="accentControl">
                         </div>
                         <div class="flex justify-between items-center p-4" data-uitk="cardHoverBg">
                             <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.transitionEasing.label">${t('motionSettingsDrawer.transitionEasing.label')}</span>
@@ -245,17 +245,17 @@ function renderMotionEditBody(preset, motionApply, consumerKey) {
 
                 <!-- ===================== NHÓM 2: POINT MOVE (thay Ken Burns) ===================== -->
                 <div>
-                    <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2 mt-4 flex items-center justify-between">
+                    <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2 mt-4 flex items-center justify-between" data-uitk="accentText">
                         <span data-i18n="motionSettingsDrawer.groupPointMove.title">${t('motionSettingsDrawer.groupPointMove.title')}</span>
                         <label class="relative inline-flex items-center cursor-pointer shrink-0 normal-case tracking-normal">
                             <input type="checkbox" id="setting-motion-pointmove-enabled" class="sr-only peer" ${preset.pointMoveEnabled ? 'checked' : ''}>
-                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" data-uitk="toggleTrackOff toggleTrackOn"></div>
                         </label>
                     </h3>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                         <button type="button" id="btn-motion-pointmove-list" class="flex justify-between items-center p-4 w-full text-left border-b" data-uitk="dividerBorder cardHoverBg">
                             <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.list.label">${t('motionSettingsDrawer.pointMove.list.label')}</span>
-                            <span class="flex items-center gap-1.5 text-xs text-slate-500 shrink-0">
+                            <span class="flex items-center gap-1.5 text-xs shrink-0" data-uitk="textSecondary">
                                 ${tFormat('motionSettingsDrawer.pointMove.list.count', { n: preset.pointMoves.length })}
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                             </span>
@@ -279,11 +279,11 @@ function renderMotionEditBody(preset, motionApply, consumerKey) {
 
                 <!-- ===================== NHÓM 3: REACT BEAT AUDIO ===================== -->
                 <div>
-                    <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2 mt-4 flex items-center justify-between">
+                    <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2 mt-4 flex items-center justify-between" data-uitk="accentText">
                         <span data-i18n="motionPresetsDrawer.beatReact.groupTitle">${t('motionPresetsDrawer.beatReact.groupTitle')}</span>
                         <label class="relative inline-flex items-center cursor-pointer shrink-0 normal-case tracking-normal">
                             <input type="checkbox" id="setting-motion-beatreact-enabled" class="sr-only peer" ${preset.reactBeatAudio.enabled ? 'checked' : ''}>
-                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" data-uitk="toggleTrackOff toggleTrackOn"></div>
                         </label>
                     </h3>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
@@ -317,24 +317,24 @@ function renderMotionEditBody(preset, motionApply, consumerKey) {
 
                 <!-- ===================== NHÓM 4: QUẢN LÝ ===================== -->
                 <div>
-                    <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2 mt-4" data-i18n="motionPresetsDrawer.edit.groupManage.title">${t('motionPresetsDrawer.edit.groupManage.title')}</h3>
+                    <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2 mt-4" data-uitk="accentText" data-i18n="motionPresetsDrawer.edit.groupManage.title">${t('motionPresetsDrawer.edit.groupManage.title')}</h3>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                         <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder cardHoverBg">
                             <span class="text-sm font-medium shrink-0 pr-3" data-i18n="motionPresetsDrawer.edit.nameLabel">${t('motionPresetsDrawer.edit.nameLabel')}</span>
-                            <input type="text" id="setting-motion-name" value="${escapeHtml(preset.name)}" class="rounded-lg px-2 py-1.5 text-xs outline-none w-40 text-right focus:border-sky-500" data-uitk="inputBg inputBorder inputText" placeholder="${t('motionPresetsDrawer.edit.namePlaceholder')}">
+                            <input type="text" id="setting-motion-name" value="${escapeHtml(preset.name)}" class="rounded-lg px-2 py-1.5 text-xs outline-none w-40 text-right" data-uitk="inputBg inputBorder inputText inputFocusBorder" placeholder="${t('motionPresetsDrawer.edit.namePlaceholder')}">
                         </div>
                         <button type="button" id="btn-motion-edit-reset" class="flex justify-between items-center p-4 w-full text-left border-b" data-uitk="dividerBorder cardHoverBg">
-                            <span class="text-sm font-medium text-slate-900" data-i18n="motionPresetsDrawer.edit.reset.label">${t('motionPresetsDrawer.edit.reset.label')}</span>
+                            <span class="text-sm font-medium" data-uitk="textPrimary" data-i18n="motionPresetsDrawer.edit.reset.label">${t('motionPresetsDrawer.edit.reset.label')}</span>
                         </button>
                         <button type="button" id="btn-motion-edit-delete" class="flex justify-between items-center p-4 w-full text-left" data-uitk="cardHoverBg">
-                            <span class="text-sm font-medium text-rose-500" data-i18n="motionPresetsDrawer.edit.delete.label">${t('motionPresetsDrawer.edit.delete.label')}</span>
+                            <span class="text-sm font-medium" data-uitk="destructiveText" data-i18n="motionPresetsDrawer.edit.delete.label">${t('motionPresetsDrawer.edit.delete.label')}</span>
                         </button>
                     </div>
                 </div>
 
                 <!-- ===================== NHÓM 5: ÁP DỤNG CHO — đăng ký nơi tiêu thụ ===================== -->
                 <div>
-                    <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2 mt-4" data-i18n="motionPresetsDrawer.apply.groupTitle">${t('motionPresetsDrawer.apply.groupTitle')}</h3>
+                    <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2 mt-4" data-uitk="accentText" data-i18n="motionPresetsDrawer.apply.groupTitle">${t('motionPresetsDrawer.apply.groupTitle')}</h3>
                     <div class="rounded-2xl flex items-center gap-2 p-4" data-uitk="cardBg cardBorder">
                         <select id="setting-motion-apply-consumer" class="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-xs outline-none" data-uitk="inputBg inputBorder inputText">
                             ${MOTION_APPLY_CONSUMERS.map((c) => `<option value="${c.key}" ${c.key === consumerKey ? 'selected' : ''}>${t(c.labelKey)}</option>`).join('')}
@@ -364,36 +364,36 @@ function renderPointMoveListBody(preset) {
                 <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.endForceBaseline.label">${t('motionSettingsDrawer.pointMove.endForceBaseline.label')}</span>
                 <label class="relative inline-flex items-center cursor-pointer shrink-0">
                     <input type="checkbox" id="setting-motion-pointmove-end-force-baseline" class="sr-only peer" ${preset.pointMoveEndForceBaseline ? 'checked' : ''}>
-                    <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                    <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" data-uitk="toggleTrackOff toggleTrackOn"></div>
                 </label>
             </div>
             <button type="button" id="btn-motion-pointmove-timing" class="flex justify-between items-center p-4 w-full text-left" data-uitk="cardHoverBg">
                 <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.timing.label">${t('motionSettingsDrawer.pointMove.timing.label')}</span>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
             </button>
         </div>
     ` : '';
     const itemsHtml = pointMoves.map((p, i) => `
-        <div class="w-full px-2 py-2.5 rounded-2xl mb-2 flex items-center gap-1.5 bg-slate-50 border border-slate-200" data-ptmove-row="${escapeHtml(p.id)}">
+        <div class="w-full px-2 py-2.5 rounded-2xl mb-2 flex items-center gap-1.5" data-uitk="cardBg cardBorder" data-ptmove-row="${escapeHtml(p.id)}">
             ${i === 0 ? `<span class="w-5 h-8 shrink-0"></span>` : `
-            <span class="w-5 h-8 flex items-center justify-center text-slate-400 shrink-0 cursor-grab touch-none" data-ptmove-drag-handle="${escapeHtml(p.id)}" title="${t('motionSettingsDrawer.pointMove.dragHandle.title')}">
+            <span class="w-5 h-8 flex items-center justify-center shrink-0 cursor-grab touch-none" data-uitk="textMutedIcon" data-ptmove-drag-handle="${escapeHtml(p.id)}" title="${t('motionSettingsDrawer.pointMove.dragHandle.title')}">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><circle cx="6" cy="5" r="1.4"/><circle cx="14" cy="5" r="1.4"/><circle cx="6" cy="10" r="1.4"/><circle cx="14" cy="10" r="1.4"/><circle cx="6" cy="15" r="1.4"/><circle cx="14" cy="15" r="1.4"/></svg>
             </span>`}
-            <input type="checkbox" data-ptmove-checkbox="${escapeHtml(p.id)}" class="w-4 h-4 rounded accent-sky-500 shrink-0" ${p.checked ? 'checked' : ''} ${i === 0 ? 'disabled' : ''}>
-            <span class="flex-1 text-sm font-semibold text-slate-700 truncate">${tFormat('motionSettingsDrawer.pointMove.itemName', { n: i })}</span>
-            <button type="button" data-ptmove-duplicate="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-500 hover:text-sky-500 hover:bg-sky-50 transition-colors shrink-0" title="${t('motionSettingsDrawer.pointMove.duplicate.title')}">
+            <input type="checkbox" data-ptmove-checkbox="${escapeHtml(p.id)}" class="w-4 h-4 rounded shrink-0" data-uitk="accentControl" ${p.checked ? 'checked' : ''} ${i === 0 ? 'disabled' : ''}>
+            <span class="flex-1 text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${tFormat('motionSettingsDrawer.pointMove.itemName', { n: i })}</span>
+            <button type="button" data-ptmove-duplicate="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full shrink-0" data-uitk="iconBtnAccent" title="${t('motionSettingsDrawer.pointMove.duplicate.title')}">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
             </button>
-            <button type="button" data-ptmove-delete="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-500 hover:text-rose-500 hover:bg-rose-50 transition-colors shrink-0 disabled:opacity-30 disabled:pointer-events-none" ${(canDelete && i !== 0) ? '' : 'disabled'} title="${t('motionPresetsDrawer.list.delete.title')}">
+            <button type="button" data-ptmove-delete="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full shrink-0 disabled:opacity-30 disabled:pointer-events-none" data-uitk="iconBtnDestructive" ${(canDelete && i !== 0) ? '' : 'disabled'} title="${t('motionPresetsDrawer.list.delete.title')}">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
             </button>
-            <button type="button" data-ptmove-edit="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-500 hover:text-sky-500 hover:bg-sky-50 transition-colors shrink-0">
+            <button type="button" data-ptmove-edit="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full shrink-0" data-uitk="iconBtnAccent">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
             </button>
         </div>
     `).join('');
-    return topCardHtml + `<p class="text-xs text-slate-500 mb-3 px-1">${t('motionSettingsDrawer.pointMove.dragHint')}</p>` + itemsHtml + `
-        <button type="button" id="btn-ptmove-add" class="w-full text-center px-4 py-3.5 rounded-2xl bg-sky-50 border border-sky-200 hover:bg-sky-100 transition-colors text-sm font-semibold text-sky-600">${t('motionSettingsDrawer.pointMove.add.label')}</button>
+    return topCardHtml + `<p class="text-xs mb-3 px-1" data-uitk="textSecondary">${t('motionSettingsDrawer.pointMove.dragHint')}</p>` + itemsHtml + `
+        <button type="button" id="btn-ptmove-add" class="w-full text-center px-4 py-3.5 rounded-2xl text-sm font-semibold" data-uitk="btnAccentSoft accentSoftBorder">${t('motionSettingsDrawer.pointMove.add.label')}</button>
     `;
 }
 
@@ -403,16 +403,16 @@ function renderPointMoveListBody(preset) {
  * @param {{titleKey:string, hasUnit:boolean, boundMin:number, boundMax:number, step:number, suffix:string, isLast?:boolean}} cfg
  */
 function renderPointMoveFieldRows(key, field, cfg) {
-    const borderClass = cfg.isLast ? '' : ' border-b border-slate-200';
+    const borderClass = cfg.isLast ? '' : ' border-b'; // màu đường kẻ = key dividerBorder gắn ở thẻ dùng borderClass (data-uitk bên dưới)
     const isSingle = field.mode === 'single';
     const unitHtml = cfg.hasUnit ? `
                     <div class="flex gap-1.5">
-                        <button type="button" data-ptmove-unit="${key}" data-value="%" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${field.unit === '%' ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-600'}">%</button>
-                        <button type="button" data-ptmove-unit="${key}" data-value="px" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${field.unit === 'px' ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-600'}">px</button>
+                        <button type="button" data-ptmove-unit="${key}" data-value="%" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors" data-uitk="${field.unit === '%' ? 'btnPrimaryPillBg textOnAccent' : 'btnNeutralBg btnNeutralText'}">%</button>
+                        <button type="button" data-ptmove-unit="${key}" data-value="px" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors" data-uitk="${field.unit === 'px' ? 'btnPrimaryPillBg textOnAccent' : 'btnNeutralBg btnNeutralText'}">px</button>
                     </div>` : '';
     const singleHtml = `
                     <div class="ptmove-single-slider-wrap" id="ptmove-${key}-single-wrap" style="--ptmove-zero-pct: ${((0 - cfg.boundMin) / (cfg.boundMax - cfg.boundMin) * 100).toFixed(2)}%;${isSingle ? '' : ' display:none;'}">
-                        <input type="range" id="setting-ptmove-${key}-single" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.single}" class="w-full accent-sky-500">
+                        <input type="range" id="setting-ptmove-${key}-single" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.single}" class="w-full" data-uitk="accentControl">
                     </div>`;
     const rangeHtml = `
                     <div class="ptmove-range-wrap" id="ptmove-${key}-range-wrap"${isSingle ? ' style="display:none"' : ''}>
@@ -438,12 +438,12 @@ function renderPointMoveFieldRows(key, field, cfg) {
     const rangeInputHtml = `<div class="flex items-center gap-1${isSingle ? ' hidden' : ''}" id="ptmove-${key}-range-input-wrap">
                                     ${signToggleBtnHtml(`ptmove-${key}-rangemin-input`)}
                                     <input type="number" inputmode="decimal" id="ptmove-${key}-rangemin-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.rangeMin}" class="w-16 rounded-lg px-2 py-1 text-xs text-right outline-none" data-uitk="inputBg inputBorder inputText">
-                                    <span class="text-xs text-slate-400">~</span>
+                                    <span class="text-xs" data-uitk="textMutedIcon">~</span>
                                     <input type="number" inputmode="decimal" id="ptmove-${key}-rangemax-input" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.rangeMax}" class="w-16 rounded-lg px-2 py-1 text-xs text-right outline-none" data-uitk="inputBg inputBorder inputText">
                                     ${signToggleBtnHtml(`ptmove-${key}-rangemax-input`)}
                                 </div>`;
     return `
-                        <div class="p-4${borderClass}">
+                        <div class="p-4${borderClass}"${cfg.isLast ? '' : ' data-uitk="dividerBorder"'}>
                             <div class="flex justify-between items-center mb-3">
                                 <span class="text-sm font-medium" data-i18n="${cfg.titleKey}">${t(cfg.titleKey)}</span>
                                 <div class="flex items-center gap-2.5">
@@ -496,15 +496,15 @@ function renderPointMoveEditBody(pointMove) {
  *   — giữ tham số để chữ ký hàm ổn định, phòng cần lại sau này. */
 function renderPointMoveTimingBody(pointMoves) {
     return `
-        <p class="text-xs text-slate-500 mb-2 px-1">${t('motionSettingsDrawer.pointMove.timing.hint')}</p>
+        <p class="text-xs mb-2 px-1" data-uitk="textSecondary">${t('motionSettingsDrawer.pointMove.timing.hint')}</p>
         <div class="rounded-2xl p-2" data-uitk="cardBg cardBorder">
             <div id="ptmove-timing-scroll" class="ptmove-timing-scroll">
                 <div id="ptmove-timing-container" class="ptmove-timing-zoomable"></div>
             </div>
             <div class="flex items-center justify-end gap-2 mt-1.5">
-                <button type="button" id="btn-ptmove-timing-zoom-out" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-base font-bold transition-colors">−</button>
-                <span id="ptmove-timing-zoom-label" class="text-[11px] text-slate-500 w-10 text-center">0%</span>
-                <button type="button" id="btn-ptmove-timing-zoom-in" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-base font-bold transition-colors">+</button>
+                <button type="button" id="btn-ptmove-timing-zoom-out" class="w-7 h-7 rounded-lg text-base font-bold transition-colors" data-uitk="btnNeutralBg btnNeutralHoverBg btnNeutralText">−</button>
+                <span id="ptmove-timing-zoom-label" class="text-[11px] w-10 text-center" data-uitk="textSecondary">0%</span>
+                <button type="button" id="btn-ptmove-timing-zoom-in" class="w-7 h-7 rounded-lg text-base font-bold transition-colors" data-uitk="btnNeutralBg btnNeutralHoverBg btnNeutralText">+</button>
             </div>
         </div>
     `;
