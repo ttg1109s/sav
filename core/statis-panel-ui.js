@@ -43,6 +43,10 @@
  * lấy màu từ theme key `statTypeSong/Video/Photo` (fill/stroke = currentColor). Ghi chú cũ "không thêm chart/donut" ở trên là quyết định
  * trước đó của Giang — NAY ĐƯỢC CHÍNH Giang đổi.
  *
+ * [SỬA 21/09/2026, Giang yêu cầu "icon switch ở phải tiêu đề Media types"] Tham số `shareMode` ('count' | 'totalTime'): biểu đồ tròn + % lớn của 3 card chia theo
+ * LƯỢT PHÁT hay THỜI GIAN nghe (đọc `playShare*` hoặc `timeShare*` — Workflow tính sẵn cả 2 cặp); nút chuyển là 2 icon (play / đồng hồ) trong 1 pill nhỏ
+ * `.statis-share-btn[data-share-mode]` ở phải tiêu đề, bắt bằng delegation ở event/listener/statis-panel.js.
+ *
  * Cỡ chữ nhỏ (11px) khai bằng `style` inline, KHÔNG dùng class ngoặc vuông `text-[11px]` — Tailwind
  * Play CDN tiêm CSS cho class ngoặc vuông BẤT ĐỒNG BỘ, lần đầu dùng trong phiên có thể chưa kịp lên
  * style (bug lặp lại đã ghi ở Folder Browser/time-picker). Thanh tiến độ cũng vậy: chiều rộng % là
@@ -73,14 +77,15 @@ const STATIS_SMALL_TEXT_STYLE = 'font-size:11px; line-height:1.3;'; // cỡ ch�
  * chiều kim đồng hồ theo thứ tự Song -> Video -> Photo (KHỚP thứ tự 3 card bên dưới). Có >1 lát thì chừa khe hở nhỏ giữa các lát.
  * Dùng `playShareRaw` (% CHƯA làm tròn, Workflow tính sẵn) chứ không dùng `playSharePercent` (đã làm tròn, tổng có thể 99/101 -> hở/chồng
  * lát); chữ % hiện trên lát (làm tròn để hiển thị) CHỈ khi lát >= 7% (lát mỏng hơn không đủ chỗ chứa chữ).
- * Tổng lượt phát = 0 -> trả '' (không có gì để chia; 3 card bên dưới vẫn hiện 0%).
- * @param {{song:StatisTypeTotal, video:StatisTypeTotal, photo:StatisTypeTotal}} byType - cần `playShareRaw` (0..100, chưa làm tròn) mỗi loại
+ * Tổng của chế độ đang chia = 0 -> trả '' (không có gì để chia; 3 card bên dưới vẫn hiện 0%).
+ * @param {{song:StatisTypeTotal, video:StatisTypeTotal, photo:StatisTypeTotal}} byType - cần trường % CHƯA làm tròn (0..100) mỗi loại
+ * @param {'playShareRaw'|'timeShareRaw'} shareRawKey - trường % dùng để chia (theo lượt phát / theo thời gian — SỬA 21/09/2026)
  * @param {string} ariaLabel - nhãn đọc màn hình (đã dịch)
  * @returns {string}
  */
-function buildStatisPlayShareChartHtml(byType, ariaLabel) {
+function buildStatisPlayShareChartHtml(byType, shareRawKey, ariaLabel) {
     const TYPES = ['song', 'video', 'photo'];
-    const slices = TYPES.map((mediaType) => ({ mediaType, share: Number(byType[mediaType].playShareRaw) || 0 })).filter((s) => s.share > 0);
+    const slices = TYPES.map((mediaType) => ({ mediaType, share: Number(byType[mediaType][shareRawKey]) || 0 })).filter((s) => s.share > 0);
     if (slices.length === 0) return '';
     const GAP = slices.length > 1 ? 0.6 : 0; // đơn vị % chu vi — khe hở giữa 2 lát kề nhau
     let cursor = 0;
@@ -109,10 +114,11 @@ function buildStatisPlayShareChartHtml(byType, ariaLabel) {
  * @param {StatisTopItem[]} topList - Workflow tự sort/filter/cắt TOP N SẴN theo `sortMode`/`filterType` (và CHỈ gồm item có dữ liệu theo tiêu chí đang sort) — hàm này CHỈ vẽ, không tự sort/lọc lại (Rule 3a: Core cấm gọi Core khác, và sort/filter dữ liệu domain-agnostic đã có core/playlist/order.js — không viết trùng ở đây).
  * @param {'count'|'totalTime'} sortMode
  * @param {'all'|'song'|'video'|'photo'} filterType
+ * @param {'count'|'totalTime'} shareMode - MỚI 21/09/2026: chia % Media types theo lượt phát ('count') hay thời gian ('totalTime')
  * @param {function} t
  * @returns {string}
  */
-function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterType, t) {
+function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterType, shareMode, t) {
     if (grandTotal.itemCount === 0) {
         return `<p class="text-sm text-center py-14" data-uitk="textSecondary" data-i18n="statisPanel.comingSoon">${t('statisPanel.comingSoon')}</p>`;
     }
@@ -160,6 +166,10 @@ function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterT
         </section>`;
 
     // ===== Tầng 2 — Media types =====
+    const byTime = shareMode === 'totalTime';
+    const sharePercentKey = byTime ? 'timeSharePercent' : 'playSharePercent';
+    const shareRawKey = byTime ? 'timeShareRaw' : 'playShareRaw';
+    const shareLabelKey = byTime ? 'statisPanel.compare.shareOfTime' : 'statisPanel.compare.shareOfPlays';
     const compareCards = ['song', 'video', 'photo'].map((mediaType) => {
         const totals = byType[mediaType];
         return `
@@ -169,17 +179,26 @@ function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterT
                     <span class="w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${STATIS_TYPE_ACCENT[mediaType]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="${STATIS_TYPE_ICON_PATH[mediaType]}"/></svg></span>
                     <span class="text-xs font-semibold truncate" data-uitk="textPrimary" data-i18n="statisPanel.type.${mediaType}">${t('statisPanel.type.' + mediaType)}</span>
                 </div>
-                <p class="text-2xl font-bold leading-none" data-uitk="textPrimary">${num(totals.playSharePercent, 'int', totals.playSharePercent)}<span class="text-sm font-semibold">%</span></p>
-                <p class="mb-2" style="${STATIS_SMALL_TEXT_STYLE}" data-uitk="textSecondary" data-i18n="statisPanel.compare.shareOfPlays">${t('statisPanel.compare.shareOfPlays')}</p>
+                <p class="text-2xl font-bold leading-none" data-uitk="textPrimary">${num(totals[sharePercentKey], 'int', totals[sharePercentKey])}<span class="text-sm font-semibold">%</span></p>
+                <p class="mb-2" style="${STATIS_SMALL_TEXT_STYLE}" data-uitk="textSecondary" data-i18n="${shareLabelKey}">${t(shareLabelKey)}</p>
                 <p class="text-xs font-semibold" data-uitk="textSecondaryStrong">${num(totals.totalTime, 'time', formatListenTime(totals.totalTime))}</p>
                 <p style="${STATIS_SMALL_TEXT_STYLE}" data-uitk="textSecondary">${tFormat('statisPanel.compare.playCount', { n: num(totals.playCount, 'int', fmtNum(totals.playCount)) })}</p>
             </div>`;
     }).join('');
 
+    // Nút chuyển cách chia % — pill 2 icon (play = theo lượt phát, đồng hồ = theo thời gian), icon đang chọn tô accent (CÙNG cách tô "đang chọn" của segmented sort/chip lọc).
+    const shareSwitchIcon = { count: 'M5 3l14 9-14 9V3z', totalTime: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' }; // play (đặc) / đồng hồ (nét)
+    const shareSwitchBtn = (mode, titleKey) => {
+        const active = mode === shareMode;
+        const fillAttrs = mode === 'count' ? 'fill="currentColor" stroke="none"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+        return `<button type="button" class="statis-share-btn w-7 h-6 rounded-md flex items-center justify-center transition-colors" data-uitk="${active ? 'btnPrimaryPillBg textOnAccent' : 'textSecondary'}" data-share-mode="${mode}" aria-pressed="${active}" title="${t(titleKey)}" aria-label="${t(titleKey)}"><svg viewBox="0 0 24 24" class="w-3.5 h-3.5" ${fillAttrs}><path d="${shareSwitchIcon[mode]}"/></svg></button>`;
+    };
+    const shareSwitch = `<div class="flex p-0.5 gap-0.5 rounded-lg" data-uitk="btnNeutralBg">${shareSwitchBtn('count', 'statisPanel.share.byPlays')}${shareSwitchBtn('totalTime', 'statisPanel.share.byTime')}</div>`;
+
     const mediaTypes = `
         <section class="mb-6">
-            ${sectionHeading('statisPanel.section.mediaTypes')}
-            ${buildStatisPlayShareChartHtml(byType, t('statisPanel.section.mediaTypes'))}
+            ${sectionHeading('statisPanel.section.mediaTypes', shareSwitch)}
+            ${buildStatisPlayShareChartHtml(byType, shareRawKey, t('statisPanel.section.mediaTypes'))}
             <div class="flex gap-2">${compareCards}</div>
         </section>`;
 
