@@ -130,6 +130,14 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.theme.glassType.gradient': 'Gradient',
     'appSettings.theme.glassType.image': 'Image',
     'appSettings.theme.solidColor.label': 'Colour',
+    // MỚI 21/09/2026 — UI nền Morphin 3 card (core/theme-background-ui.js). 'appSettings.theme.glassType.*' ở trên (dropdown cũ) không còn nơi nào dùng.
+    'appSettings.theme.bg.section': 'Background',
+    'appSettings.theme.bg.solid': 'Solid',
+    'appSettings.theme.bg.gradient': 'Gradient',
+    'appSettings.theme.bg.media': 'Background media',
+    'appSettings.theme.bg.media.empty': 'Not set',
+    'appSettings.theme.bg.media.pickPhoto': 'Photo',
+    'appSettings.theme.bg.media.pickVideo': 'Video',
 
     'appSettings.visualizerScreen.title': 'Visualizer Screen',
     'appSettings.visualizerScreen.pendingNote': 'This section is being reorganized — coming soon in the next update.',
