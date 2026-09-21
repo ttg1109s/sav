@@ -376,7 +376,7 @@
     <!-- MỚI (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings chung 1 container cuộn
          ngang) — chỉ định nghĩa 2 biến chuỗi mở/đóng khung bọc, xem components/app-view-stack.js. -->
     <script src="components/app-view-stack.js?v=20260813v1"></script>
-    <script src="components/playlist-view.js?v=20260920v1"></script>
+    <script src="components/playlist-view.js?v=20260921v4"></script>
     <!-- Game Mode overlay (Circle mode v1, MỚI 16/08/2026) — PHẢI nạp TRƯỚC components/visualizer-
          overlay.js (file đó nội suy ${TPL_GAMEPLAY_OVERLAY}, xem components/gameplay-overlay.js). -->
     <script src="components/gameplay-overlay.js?v=20260819v1"></script>
@@ -665,9 +665,9 @@
          THUẦN, apply-ui.js là hàm DUY NHẤT thao tác DOM (đọc `data-uitk`, gán class theo theme
          active) — PHẢI nạp TRƯỚC core/generic-drawer.js ngay dưới (file đó cache 1 theme mặc định
          + gọi applyUiThemeToDom() mỗi lần mở/vẽ lại Drawer). Xem core/ui-theme/light.js. -->
-    <script src="core/ui-theme/light.js?v=20260921v1"></script>
-    <script src="core/ui-theme/dark.js?v=20260921v1"></script>
-    <script src="core/ui-theme/morphin.js?v=20260921v1"></script>
+    <script src="core/ui-theme/light.js?v=20260921v4"></script>
+    <script src="core/ui-theme/dark.js?v=20260921v4"></script>
+    <script src="core/ui-theme/morphin.js?v=20260921v4"></script>
     <script src="core/ui-theme/registry.js?v=20260909v1"></script>
     <script src="core/ui-theme/apply-ui.js?v=20260909v1"></script>
     <script src="core/generic-drawer.js?v=20260920v1"></script>
@@ -791,7 +791,7 @@
     <script src="core/playlist/order.js?v=20260818v1"></script>
     <script src="core/playlist/render.js?v=20260712v2"></script>
     <script src="core/playlist/loader.js?v=20260911v1"></script>
-    <script src="core/playlist/actions.js?v=20260919v1"></script>
+    <script src="core/playlist/actions.js?v=20260921v4"></script>
     <script src="core/playlist/main.js?v=20260625v10"></script>
     <!-- MỚI (mục 1d, Playlist Filter, phản hồi Giang) — applyPlaylistFilter() (SQL
          WHERE...AND style), dùng bởi switchToSongSource()/switchToVideoSource() (event/
@@ -1010,7 +1010,7 @@
          CẦN core/playlist/render.js (revokeNodeCoverUrl/songActionMenuButtonHtml/
          attachCoverFallback/selectionIndicatorHtml/updateEmptyState), core/playlist/state.js
          (formatTime) — đã nạp ở nhóm CORE phía trên. -->
-    <script src="event/workflow/playlist-render.js?v=20260906v1"></script>
+    <script src="event/workflow/playlist-render.js?v=20260921v4"></script>
     <script src="event/workflow/playlist-scope.js?v=20260911v2"></script>
     <!-- MỚI (08/09/2026, hệ "Playlist Filter Presets") — CRUD danh sách preset + công tắc tổng,
          mirror event/workflow/motion-presets.js. CẦN core/playlist/filter-presets.js,
@@ -1138,9 +1138,9 @@
          core/playlist/render.js, core/player-controls.js (requestWakeLock/switchToVisualizer),
          core/listen-stats.js (bumpSongPlayCount), event/workflow/video-player.js (workflowVideoPlayer
          — chỉ dùng trong callback runtime, không bắt buộc thứ tự nạp so với dòng NGAY DƯỚI). -->
-    <script src="event/workflow/player.js?v=20260916v1"></script>
-    <script src="event/workflow/playlist.js?v=20260919v3"></script>
-    <script src="event/router/playlist.js?v=20260919v1"></script>
+    <script src="event/workflow/player.js?v=20260921v4"></script>
+    <script src="event/workflow/playlist.js?v=20260921v4"></script>
+    <script src="event/router/playlist.js?v=20260921v4"></script>
     <script src="event/listener/playlist.js?v=20260919v1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel + phân phối lại section Settings, phản hồi
          Giang) — cụm "appSettings" (điều hướng swap Setting, TÁI DÙNG workflowGestureSettings/
@@ -1178,7 +1178,7 @@
          mediaType khi click video trong Playlist (đi qua eventBus để Block gate chặn khoá chéo với
          Video nền). PHẢI nạp SAU event/workflow/video-player.js (cần workflowVideoPlayer.
          startFromPlaylist() đã tồn tại). -->
-    <script src="event/workflow/video-player.js?v=20260916v1"></script>
+    <script src="event/workflow/video-player.js?v=20260921v4"></script>
     <script src="event/router/video-player.js?v=20260915v1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
     <!-- MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — event/workflow/photo-
@@ -1192,7 +1192,7 @@
          workflow/visual-bg-common.js/visual-bg-video.js ("vbg chỉ hợp lệ với song" nên tái dùng
          clearMediaLayers()/applyCurrentVisualBg() Video Player mode đã dùng thay vì tự vẽ DOM
          riêng, cần workflowVisualBg tồn tại trước). -->
-    <script src="event/workflow/photo-player.js?v=20260912v1"></script>
+    <script src="event/workflow/photo-player.js?v=20260921v4"></script>
     <!-- event/workflow/number-countup.js — MỚI (21/09/2026): vòng lặp timer count-up dùng chung (cần taskManager + core/number-countup.js). PHẢI nạp TRƯỚC gameplay-engine.js VÀ statis-panel.js. -->
     <script src="event/workflow/number-countup.js?v=20260921v1"></script>
     <!-- Cụm "gameplay" — Game Mode. gameplay-engine.js (Workflow DÙNG CHUNG mọi mode: cooldown/
