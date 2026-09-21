@@ -99,6 +99,7 @@ const workflowStatisPanel = {
         // Tỷ trọng % lượt phát từng loại trên TỔNG lượt phát (card "Media types") — tính ở Workflow, Core-ui chỉ vẽ. Math.round nên tổng 3 loại có thể lệch 99/101, chấp nhận được với số hiển thị.
         for (const mediaType of ['song', 'video', 'photo']) {
             byType[mediaType].playSharePercent = grandTotal.playCount > 0 ? Math.round((byType[mediaType].playCount / grandTotal.playCount) * 100) : 0;
+            byType[mediaType].playShareRaw = grandTotal.playCount > 0 ? (byType[mediaType].playCount / grandTotal.playCount) * 100 : 0; // MỚI 21/09/2026 — % CHƯA làm tròn cho biểu đồ tròn (tổng đúng 100, không hở/chồng lát) — buildStatisPlayShareChartHtml(), core/statis-panel-ui.js
         }
         return { items, byType, grandTotal };
     },
@@ -122,7 +123,7 @@ const workflowStatisPanel = {
         if (animate) this._startCountup();
     },
 
-    /** Đếm-lên MỌI con số trong panel (Overview / Media types / giá trị Top list + thanh "Library played")
+    /** Đếm-lên các con số trong panel (Overview / Media types + thanh "Library played"; Top media KHÔNG còn — SỬA 21/09/2026 theo Giang)
      * — MỚI 21/09/2026 (Giang yêu cầu animation number cho Overview và Statistics). Quét các phần tử
      * `[data-countup]` core-ui đã gắn sẵn (core/statis-panel-ui.js: `data-countup` = số đích,
      * `data-countup-fmt` = 'int' | 'time' | 'bar'), ép về khung 0 NGAY (đồng bộ ngay sau khi gán
