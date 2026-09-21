@@ -80,6 +80,9 @@ const workflowVideoPlayer = {
      *   SẴN — không thêm cơ chế chờ nào khác). Video Player mode KHÔNG truyền (mặc định `false`,
      *   giữ NGUYÊN hành vi đang ổn định — Giang chốt lấy nhánh đó làm chuẩn, không đụng) — CHỈ
      *   `workflowVisualBg._playVideoKey()` truyền `true`.
+     *   [MỞ RỘNG 21/09/2026] Video Player mode giờ CŨNG truyền `hideUntilReady=true` nhưng CHỈ ở lần VÀO mode
+     *   (`isTransition=false`) và chỉ khi record có `thumbFullBlob` — xem `isVideoPlayerModeEntry` ở đầu hàm:
+     *   decode thumb full-res vào layer B, ẩn video tới 'playing', KHÔNG Transition. Next/Prev vẫn `false`.
      * @param {boolean} [skipAutoplay=false] - MỚI (08/09/2026, Game Mode gate, phản hồi Giang
      *   "toàn bộ case không được phát trước khi cooldown xong") — gán poster/src NHƯ CŨ nhưng
      *   KHÔNG gọi .play() ở bước (3) — playVideoByKey() truyền true khi phát hiện đang armed Game
@@ -97,9 +100,21 @@ const workflowVideoPlayer = {
      */
     async swapBgVideoSource(videoKey, isTransition = false, beforePlay = null, hideUntilReady = false, skipAutoplay = false, direction = 'next') {
         this._mediaGeneration++; // MỚI (21/09/2026) — vô hiệu hoá mọi phiên seek đang treo của media CŨ, xem handleVideoSeekCommit()
+        const swapGeneration = this._mediaGeneration; // chốt để `finish()` (bên dưới) biết lượt swap này đã bị lượt mới hơn/thoát mode thay thế chưa
         bgVideoElement.pause(); // (1) đứng hình NGAY — CHƯA đụng src, khung hình cũ giữ nguyên
         const record = await getVideoRecord(videoKey); // (2) service/db.js — trong lúc đợi, màn hình vẫn đứng yên ở khung hình cũ
         if (!record) return null;
+
+        // MỚI (21/09/2026, yêu cầu Giang) — LẦN VÀO Video Player mode (`isTransition=false`, gọi từ
+        // `startFromPlaylist()`) cũng dùng lớp thumb full-res như Next/Prev: decode `thumbFullBlob` vào layer B
+        // (`#visual-bg-image`), ẨN `bgVideoElement` cho tới khi 'playing' (lộ đúng layer B nằm dưới) — KHÔNG có
+        // animation Transition (không có gì đang hiện để chuyển từ). Bản cũ chỉ dùng `poster = thumbBlob` (ảnh
+        // nhỏ) phủ TRÊN layer B nên full-res không bao giờ được thấy. Record cũ thiếu `thumbFullBlob` -> không có
+        // gì để lộ, KHÔNG ẩn video (giữ poster như trước). Visual Background (không ở Video Player mode) KHÔNG
+        // đổi — `hideUntilReady`/`isTransition` vẫn theo đúng tham số truyền vào.
+        const isInVideoPlayerMode = appState.get('isVideoPlayerMode');
+        const isVideoPlayerModeEntry = !isTransition && hideUntilReady && isInVideoPlayerMode && !!record.thumbFullBlob;
+        const hideVideoUntilReady = hideUntilReady && (!isInVideoPlayerMode || isVideoPlayerModeEntry);
 
         // MỚI (Giang yêu cầu Transition Video Player mode — "video và bg image là layer A/B, mô
         // hình giống VBG") — CHỈ áp dụng lúc THẬT SỰ đang ở Video Player mode (hàm này DÙNG CHUNG
@@ -107,7 +122,7 @@ const workflowVideoPlayer = {
         // của Player, VBG có hệ Transition riêng của chính nó, xem event/workflow/visual-bg-photo-motion.js).
         const isVideoPlayerModeSwap = isTransition && appState.get('isVideoPlayerMode');
 
-        if (isTransition && record.thumbFullBlob) {
+        if ((isTransition || isVideoPlayerModeEntry) && record.thumbFullBlob) {
             const forcedUrl = await decodeForcedBgThumb(record.thumbFullBlob); // core/video-player.js — TỰ đợi double-rAF, đảm bảo đã PAINT xong tới đây
             if (this._forcedBgObjectUrl) { try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {} }
             this._forcedBgObjectUrl = forcedUrl;
@@ -122,6 +137,11 @@ const workflowVideoPlayer = {
             if (appState.get('isVideoPlayerMode') && typeof workflowPlayerDisplaySettings !== 'undefined') {
                 workflowPlayerDisplaySettings.syncVideoPlayerResolutionLayerB(); // event/workflow/player-display-settings.js
             }
+
+            // Lần VÀO mode (không Transition): layer B mang `.motion-layer` (attachVideoPlayerMotionToSharedReactLayer())
+            // nên MẶC ĐỊNH opacity:0 — phải gán `.me-current` (opacity 1, z-index 2) thì mới thấy được lúc video bị ẩn.
+            // `finish()` bên dưới gỡ lại đúng cặp này khi video thật đã 'playing'.
+            if (isVideoPlayerModeEntry && visualBgImageElement) visualBgImageElement.classList.add('me-current');
 
             // MỚI (Giang yêu cầu Transition) — layer B ĐÃ có nội dung MỚI (dòng applyVisualBgImageToDOM()
             // ngay trên) — layer A (bgVideoElement) vẫn ĐANG đứng hình frame CŨ (chỉ pause(), CHƯA
@@ -151,7 +171,7 @@ const workflowVideoPlayer = {
         // là an toàn, lộ đúng thumb đó (KHÔNG có khoảng đen giữa 2 lớp). Đặt SAU bước chèn thumb,
         // TRƯỚC khi đụng src — đúng thứ tự Giang yêu cầu (pause khung cũ -> gán thumb full res -> ẩn
         // video -> gán src mới -> gỡ ẩn khi sẵn sàng).
-        if (hideUntilReady) bgVideoElement.classList.add('hidden');
+        if (hideVideoUntilReady) bgVideoElement.classList.add('hidden');
 
         if (this._objectUrl) { try { URL.revokeObjectURL(this._objectUrl); } catch (e) {} }
         this._objectUrl = URL.createObjectURL(record.blob);
@@ -185,7 +205,15 @@ const workflowVideoPlayer = {
             const finish = () => {
                 if (done) return;
                 done = true;
-                if (hideUntilReady) bgVideoElement.classList.remove('hidden'); // video thật đã có khung hình (hoặc hết 2s chờ) -> gỡ ẩn, dùng CHUNG đúng 1 mốc sẵn có, không thêm cơ chế chờ riêng
+                // Lần vào Video Player mode: nếu lượt swap này đã bị lượt mới hơn thay thế (Next/Prev/chọn video khác)
+                // hoặc đã thoát mode (clearBgVideoSource() đã ẩn + dọn) thì KHÔNG gỡ ẩn/đụng class layer nữa — sẽ hiện
+                // video đã bị dọn, hoặc phá state lượt mới (nó tự có `finish()` riêng).
+                if (isVideoPlayerModeEntry && (swapGeneration !== this._mediaGeneration || !appState.get('isVideoPlayerMode'))) { resolve(); return; }
+                if (hideVideoUntilReady) bgVideoElement.classList.remove('hidden'); // video thật đã có khung hình (hoặc hết 2s chờ) -> gỡ ẩn, dùng CHUNG đúng 1 mốc sẵn có, không thêm cơ chế chờ riêng
+                if (isVideoPlayerModeEntry) { // lần VÀO mode: trả `.me-current` về video, layer B về lớp dự phòng nằm dưới (cùng cặp `finish()` của nhánh Transition ngay dưới)
+                    bgVideoElement.classList.add('me-current');
+                    if (visualBgImageElement) visualBgImageElement.classList.remove('me-current');
+                }
                 // MỚI (Giang yêu cầu Transition) — video MỚI đã có khung hình thật (hoặc hết 2s chờ,
                 // best-effort — CÙNG mốc `hideUntilReady` dùng, không thêm cơ chế chờ riêng) -> LỘ
                 // layer A (opacity 1), đúng bước CUỐI Giang mô tả ("playing check -> ok -> opacity
@@ -468,7 +496,7 @@ const workflowVideoPlayer = {
                 // ĐÚNG vị trí tương ứng bên Song (sau khi audio graph đã nối xong).
                 updateTypeUI(); // core/visualizer/visualizer-display.js
                 resetConnectorPerTrackState(); // core/webgl/three-connector.js — cùng lý do bên Song
-            }, false, appState.get('gameplayArmedGameId') != null, direction); // hideUntilReady=false (Video Player mode không dùng) — SỬA (08/09/2026) thêm skipAutoplay: armed Game Mode thì chỉ nạp khung hình tĩnh, KHÔNG .play() ở swapBgVideoSource(), xem docstring hàm đó. `direction` MỚI (Giang yêu cầu Transition Video Player mode) — truyền THẲNG xuống, xem docstring swapBgVideoSource().
+            }, !isTransition, appState.get('gameplayArmedGameId') != null, direction); // hideUntilReady=!isTransition — CHỈ lần VÀO mode (SỬA 21/09/2026: ẩn video tới khi 'playing', lộ thumb full-res layer B; Next/Prev đã có Transition lo) — SỬA (08/09/2026) thêm skipAutoplay: armed Game Mode thì chỉ nạp khung hình tĩnh, KHÔNG .play() ở swapBgVideoSource(), xem docstring hàm đó. `direction` MỚI (Giang yêu cầu Transition Video Player mode) — truyền THẲNG xuống, xem docstring swapBgVideoSource().
             if (!record) {
                 // guard: video vừa bị xoá ở nơi khác giữa lúc đang phát. KHÔNG gọi
                 // workflowPlayerControls.goToNextTrack(true) NGAY TẠI ĐÂY — vẫn đang ở TRONG
