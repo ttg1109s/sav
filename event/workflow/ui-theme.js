@@ -71,6 +71,7 @@ const workflowUiTheme = {
      * `setGradientFrom()`/`setGradientTo()` (event/workflow/theme.js). `_statusBarSyncToken` bỏ kết quả của lần lấy mẫu ảnh CŨ nếu đã có
      * lần gọi mới hơn (đổi nền liên tiếp — lần lấy mẫu ảnh chậm về sau không được đè lên màu đúng). */
     _statusBarSyncToken: 0,
+    _themeStatusBarColor: '', // màu status bar THEO THEME (Morphin: mép trên nền thật; còn lại ''), tính ở syncStatusBarColor() — KHÔNG phụ thuộc màn đang xem
     async syncStatusBarColor() {
         const token = ++this._statusBarSyncToken;
         const vizCfg = appConfigViz.getAll();
@@ -81,9 +82,21 @@ const workflowUiTheme = {
             else if (vizCfg.themeMode === 'gradient') color = computeGradientTopEdgeColor(vizCfg.gradientFrom, vizCfg.gradientTo, viewportW, viewportH); // core/ui-theme/status-bar-color.js
         }
         if (token !== this._statusBarSyncToken) return; // đã có lần gọi mới hơn — bỏ kết quả cũ
+        this._themeStatusBarColor = color;
+        this.applyStatusBarForCurrentScreen();
+        this._mirrorBootBackdrop(color); // preloader luôn hiện TRƯỚC màn App Panel -> mirror theo màu theme, không theo màn đang xem
+    },
+
+    /** MỚI (21/09/2026, Giang chỉ ra "bg của theme không được động chạm phần Visualizer — bg color của DOM visualizer là phần đặc thù có setting
+     * riêng") — màu status bar theo theme CHỈ áp lúc đang ở màn App Panel (Playlist). Đang ở màn Visualizer (`#app-stack.playlist-hidden`) -> gỡ
+     * override ('' -> body trả về màu class nền gốc, y như trước khi có tính năng này), để vùng đó KHÔNG mang nền Morphin sang màn Visualizer.
+     * Gọi từ `syncStatusBarColor()` (nền/theme đổi) VÀ từ `workflowTheme.onAppStackScreenChange()` (đổi màn, qua listener MutationObserver
+     * ở event/listener/theme.js -> router 'theme'). Chỉ ĐỌC class màn — không đụng gì tới `#visualizer-solid-bg`/`#visual-bg-*`. */
+    applyStatusBarForCurrentScreen() {
+        const visualizerScreenActive = appStack.classList.contains('playlist-hidden'); // core/dom-refs.js
+        const color = visualizerScreenActive ? '' : this._themeStatusBarColor;
         applyStatusBarColor(color); // core/ui-theme/status-bar-color.js
-        console.log(`writer: "syncStatusBarColor", page: "statusBar", content: "${color || 'theo nền theme'}"`);
-        this._mirrorBootBackdrop(color);
+        console.log(`writer: "applyStatusBarForCurrentScreen", page: "statusBar", content: "${color || (visualizerScreenActive ? 'màn Visualizer — không override' : 'theo nền theme')}"`);
     },
 
     /** MỚI (21/09/2026, Giang yêu cầu "nền preload trang của Morphin") — mirror 2 chuỗi CSS vào `localStorage['uiThemeBoot']` cho script preloader

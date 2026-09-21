@@ -102,6 +102,13 @@ const workflowTheme = {
         this.refreshThemeCardUI();
     },
 
+    /** Ứng với msg.type = 'theme.appStackScreen.change' — MỚI 21/09/2026: đổi màn App Panel <-> Visualizer (listener theo dõi class
+     * `playlist-hidden` của #app-stack). Việc duy nhất: cho status bar theo theme bật/tắt đúng màn — xem
+     * `workflowUiTheme.applyStatusBarForCurrentScreen()` (event/workflow/ui-theme.js). */
+    onAppStackScreenChange() {
+        workflowUiTheme.applyStatusBarForCurrentScreen();
+    },
+
     /** Ứng với msg.type = 'theme.gradientFrom.input'. @param {string} value */
     setGradientFrom(value) {
         setThemeGradientFrom(value); // core cùng tên, gọi trần phân giải theo scope từ vựng (core/visualizer/visualizer-display.js)
