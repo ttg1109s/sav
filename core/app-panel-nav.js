@@ -13,7 +13,7 @@
  */
 
 /** Tô sáng đúng nút bottom nav khớp `tab` — mọi nút khác bỏ `.active`.
- * @param {string} tab - 'media'|'folder'|'storage'|'game'|'statis' */
+ * @param {string} tab - 'media'|'folder'|'storage'|'game'|'statis' ('media' = Home, không còn nút nav tương ứng từ 21/09/2026 -> mọi nút cùng "không active") */
 /** SỬA (09/09/2026, hệ UI Theme mở rộng "đổi hết trừ Visualizer") — nút active TRƯỚC ĐÂY đổi màu
  * qua class CSS tĩnh `.app-bottom-nav-btn.active` (`color: #2dd4bf` hardcode) — giờ tra màu accent
  * THẬT của theme đang chạy (`accentText`, core/ui-theme/light.js) qua `resolveUiThemeClass()`, gán
@@ -27,13 +27,20 @@ function setAppPanelNavActiveTab(tab) {
         ? resolveUiThemeClass(_activeUiThemeKeyList, 'accentText')
         : 'text-sky-600';
     const inactiveCls = (typeof resolveUiThemeClass === 'function' && typeof _activeUiThemeKeyList !== 'undefined')
-        ? resolveUiThemeClass(_activeUiThemeKeyList, 'textMutedIcon')
+        ? resolveUiThemeClass(_activeUiThemeKeyList, 'navInactiveText') // SỬA 21/09/2026 — trước là 'textMutedIcon' (white/50 ở Morphin, quá nhạt cho nhãn nav); Light/Dark giữ nguyên giá trị cũ
         : 'text-slate-400';
     appBottomNav.querySelectorAll('.app-bottom-nav-btn').forEach((btn) => {
         const isActive = btn.dataset.tab === tab;
         btn.classList.toggle('active', isActive);
-        btn.classList.remove(activeCls, inactiveCls); // gỡ CẢ 2 khả năng trước, tránh tồn dư lần trước nếu theme vừa đổi
-        btn.classList.add(isActive ? activeCls : inactiveCls);
+        // SỬA (21/09/2026, Giang báo "nav màu không đồng bộ" — Morphin vẫn dính xanh sky-600/xám slate-400 của Light) — bản cũ gỡ
+        // `activeCls`/`inactiveCls` của theme HIỆN TẠI, nên class của theme TRƯỚC (vd `text-slate-400` của Light) KHÔNG BAO GIỜ bị
+        // gỡ khi theme đổi -> 2 class màu cùng lúc, thắng thua theo thứ tự CSS Tailwind tiêm. Giờ nhớ ĐÚNG chuỗi class lần tô trước
+        // trong `data-nav-tint-applied` (cùng khuôn `data-uitk-applied`, core/ui-theme/apply-ui.js) và chỉ gỡ đúng chuỗi đó.
+        const prevTint = (btn.dataset.navTintApplied || '').split(/\s+/).filter(Boolean);
+        if (prevTint.length) btn.classList.remove(...prevTint);
+        const nextTint = (isActive ? activeCls : inactiveCls).split(/\s+/).filter(Boolean);
+        if (nextTint.length) btn.classList.add(...nextTint);
+        btn.dataset.navTintApplied = nextTint.join(' ');
     });
 }
 
