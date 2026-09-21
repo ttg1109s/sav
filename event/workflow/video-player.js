@@ -480,21 +480,15 @@ const workflowVideoPlayer = {
                 return;
             }
 
-            // Đợi ĐÚNG lúc video MỚI thật sự có khung hình (sự kiện 'playing') rồi mới đổi bất kỳ
-            // gì lên UI — kèm timeout an toàn (2s) phòng 'playing' không bao giờ bắn (autoplay bị
-            // chặn/lỗi định dạng lạ) để không kẹt vĩnh viễn.
-            await this.waitBgVideoReady();
-
-            // ===== TỪ ĐÂY: video MỚI đã thật sự hiện ra (hoặc hết 2s chờ) — mới đổi UI =====
+            // [SỬA — 21/09/2026, yêu cầu Giang] UI player bottom (currentKey, tên, cover, MediaSession,
+            // dòng Playlist, chuyển màn/scroll) đổi NGAY khi `swapBgVideoSource()` trả về — tức ảnh
+            // video MỚI đã decode xong VÀ Transition (nếu preset có) đã chạy xong, video thật vừa được
+            // gán src + .play() nhưng CHƯA cần có khung hình. TRƯỚC ĐÂY đợi 'playing' (tối đa 2s) mới đổi UI
+            // nên thanh player lệch nhịp so với hình đã đổi. Không có khoảng trống để trình duyệt paint
+            // giữa `swapBgVideoSource()` return và đây (chỉ microtask), nên UI đổi cùng nhịp với hình.
+            // Riêng `bumpSongPlayCount()` + 'gameplay.mediaChanged' vẫn đợi video THẬT sự chạy — xem dưới.
             appState.set('currentKey', videoKey);
             console.log(`writer: "playVideoByKey", page: "currentKey", content: "${videoKey}"`);
-
-            // MỚI (phản hồi Giang 28/07/2026) — `bumpSongPlayCount()` (core/listen-stats.js) TRƯỚC
-            // ĐÂY CHỈ được gọi trong `workflowPlayer.playMedia()` (event/workflow/player.js) —
-            // nhánh Video dispatch ra KHỎI hàm đó TRƯỚC khi tới dòng gọi, nên Play Count chưa
-            // từng tăng cho Video. `mediaStatsMap` (core/listen-stats.js) vốn đã key-agnostic nên
-            // gọi thẳng ở đây là đủ, không cần sửa gì thêm ở listen-stats.js.
-            bumpSongPlayCount(videoKey); // core/listen-stats.js
 
             playerTitle.textContent = record.customName || stripFileExtension(record.filename) || t('videoPlayer.untitled'); // MỚI (Batch 5, mục 6c) — ưu tiên tên hiển thị người dùng tự đặt; SỬA (phản hồi Giang 28/07) — bỏ đuôi mở rộng khi rơi về filename gốc
             // MỚI (ver12 "Song/Video Unification", Batch 2, mục 3) — artist RỖNG thay vì nhãn
@@ -519,14 +513,29 @@ const workflowVideoPlayer = {
             requestWakeLock(); // core/player-controls.js — cùng khuôn goToNextTrack()/goToPrevTrack()/togglePlayPause() của Song
 
             if (previousKey && previousKey !== videoKey) workflowPlaylistRender.refreshSongNode(previousKey); // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — dòng video/song TRƯỚC đó, CHỈ khi khác videoKey
-            workflowPlaylistRender.refreshSongNode(videoKey); // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — dòng video NÀY, cập nhật isPlaying/eq indicator, ĐỌC ĐÚNG bgVideoElement.paused=false (đã 'playing' ở trên, hoặc hết timeout)
+            workflowPlaylistRender.refreshSongNode(videoKey); // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — dòng video NÀY, cập nhật isPlaying/eq indicator, đọc bgVideoElement.paused — `.play()` vừa gọi trong swapBgVideoSource() đã đặt paused=false ngay (dù 'playing' chưa bắn; armed Game Mode thì skipAutoplay nên vẫn paused như trước), và handleVideoPlayState() sẽ refresh lại lúc sự kiện 'play' bắn
             updatePlayButtonPlayingState(appState.get('currentKey'), appState.get('displayOrder')); // core/playlist/render.js — FIX (10/09/2026) Rule 2: Core nhận tham số, không tự appState.get()
 
             // MỚI (phản hồi Giang 29/07/2026, mục 2 — scroll animated Next/Prev) — dời logic
             // switchToVisualizer()/scrollToCurrentKeyAnimated() vào ĐÂY (TRƯỚC ĐÂY router/
-            // startFromPlaylist() tự gọi ngay sau khi gọi hàm này, KHÔNG đợi gì) — giờ chạy ĐÚNG
-            // lúc video mới đã thật sự sẵn sàng, khớp yêu cầu "UI chỉ đổi khi hình đã đổi".
+            // startFromPlaylist() tự gọi ngay sau khi gọi hàm này, KHÔNG đợi gì) — [SỬA 21/09/2026] giờ
+            // chạy ngay khi ảnh video MỚI đã decode + Transition xong (không đợi 'playing'), khớp yêu
+            // cầu "UI chỉ đổi khi hình đã đổi".
             if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated(); // core/player-controls.js / core/playlist/render.js
+
+            // Đợi ĐÚNG lúc video MỚI thật sự có khung hình (sự kiện 'playing') — kèm timeout an toàn
+            // (2s) phòng 'playing' không bao giờ bắn (autoplay bị chặn/lỗi định dạng lạ) để không kẹt
+            // vĩnh viễn. Vẫn nằm TRONG withLoadingShield() (display=false, chỉ là khoá isShieldBusy) nên
+            // Next/Prev bấm dồn trong lúc video đang nạp vẫn bị chặn như cũ.
+            await this.waitBgVideoReady();
+
+            // ===== TỪ ĐÂY: video MỚI đã thật sự chạy (hoặc hết 2s chờ) — mới tính lượt phát + báo Game Mode =====
+            // MỚI (phản hồi Giang 28/07/2026) — `bumpSongPlayCount()` (core/listen-stats.js) TRƯỚC
+            // ĐÂY CHỈ được gọi trong `workflowPlayer.playMedia()` (event/workflow/player.js) —
+            // nhánh Video dispatch ra KHỎI hàm đó TRƯỚC khi tới dòng gọi, nên Play Count chưa
+            // từng tăng cho Video. `mediaStatsMap` (core/listen-stats.js) vốn đã key-agnostic nên
+            // gọi thẳng ở đây là đủ, không cần sửa gì thêm ở listen-stats.js.
+            bumpSongPlayCount(videoKey); // core/listen-stats.js
 
             // MỚI (phản hồi Giang "visualBg.songChanged liên quan gì tới video play mode?") — tín
             // hiệu "media đổi thật" cho Game Mode, CÙNG msg.type `workflowPlayer.playMedia()`
