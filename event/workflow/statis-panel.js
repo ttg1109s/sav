@@ -35,6 +35,7 @@ const STATIS_TOP_LIST_LIMIT = 20; // Top N hiện trong list — thư viện l�
 const workflowStatisPanel = {
     _sortMode: 'count', // 'count' | 'totalTime' — mặc định "Lượt phát nhiều nhất"
     _filterType: 'all', // 'all' | 'song' | 'video' | 'photo'
+    _shareMode: 'count', // 'count' | 'totalTime' — MỚI 21/09/2026: biểu đồ tròn + % của 3 card Media types chia theo LƯỢT PHÁT hay THỜI GIAN (nút chuyển ở phải tiêu đề Media types). Cùng loại state UI cục bộ với _sortMode/_filterType
     _cache: null, // {items, byType, grandTotal} — chụp 1 lần lúc MỞ panel (openPanel()), đổi sort/filter chỉ lọc/sort lại trên đây
     _loadToken: 0, // tăng mỗi lần openPanel() — loại kết quả đọc DB của lần mở CŨ nếu đã có lần mở mới hơn
 
@@ -100,6 +101,9 @@ const workflowStatisPanel = {
         for (const mediaType of ['song', 'video', 'photo']) {
             byType[mediaType].playSharePercent = grandTotal.playCount > 0 ? Math.round((byType[mediaType].playCount / grandTotal.playCount) * 100) : 0;
             byType[mediaType].playShareRaw = grandTotal.playCount > 0 ? (byType[mediaType].playCount / grandTotal.playCount) * 100 : 0; // MỚI 21/09/2026 — % CHƯA làm tròn cho biểu đồ tròn (tổng đúng 100, không hở/chồng lát) — buildStatisPlayShareChartHtml(), core/statis-panel-ui.js
+            // MỚI 21/09/2026 — cùng 2 con số nhưng theo THỜI GIAN nghe (khi `_shareMode` = 'totalTime'); UI chọn cặp trường theo chế độ, xem buildStatisPanelBodyHtml().
+            byType[mediaType].timeSharePercent = grandTotal.totalTime > 0 ? Math.round((byType[mediaType].totalTime / grandTotal.totalTime) * 100) : 0;
+            byType[mediaType].timeShareRaw = grandTotal.totalTime > 0 ? (byType[mediaType].totalTime / grandTotal.totalTime) * 100 : 0;
         }
         return { items, byType, grandTotal };
     },
@@ -118,7 +122,7 @@ const workflowStatisPanel = {
         const filteredByType = this._filterType === 'all' ? items : items.filter((i) => i.mediaType === this._filterType);
         const topList = filteredByType.filter((i) => i[this._sortMode] > 0).sort((a, b) => b[this._sortMode] - a[this._sortMode]).slice(0, STATIS_TOP_LIST_LIMIT); // `.filter()` đã trả mảng MỚI nên `.sort()` thẳng không đụng `items` trong cache
 
-        statisPanelBody.innerHTML = buildStatisPanelBodyHtml(grandTotal, byType, topList, this._sortMode, this._filterType, t); // core/statis-panel-ui.js
+        statisPanelBody.innerHTML = buildStatisPanelBodyHtml(grandTotal, byType, topList, this._sortMode, this._filterType, this._shareMode, t); // core/statis-panel-ui.js
         if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(statisPanelBody, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — nội dung dựng ĐỘNG, phải tự áp lại mỗi lần renderContent() chạy, CÙNG lý do renderList() của gameCatalog
         if (animate) this._startCountup();
     },
@@ -156,6 +160,13 @@ const workflowStatisPanel = {
     setSortMode(mode) {
         if (this._sortMode === mode) return;
         this._sortMode = mode;
+        this.renderContent();
+    },
+
+    /** Ứng với 'statisPanel.shareMode.click' — MỚI 21/09/2026: đổi cách chia % của Media types (lượt phát / thời gian). Vẽ lại từ `_cache`, không animate. */
+    setShareMode(mode) {
+        if (this._shareMode === mode) return;
+        this._shareMode = mode;
         this.renderContent();
     },
 
