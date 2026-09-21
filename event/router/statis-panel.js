@@ -17,6 +17,10 @@ const routerStatisPanel = (() => {
                 workflowStatisPanel.setSortMode(msg.payload.mode);
                 break;
 
+            case 'statisPanel.shareMode.click':
+                workflowStatisPanel.setShareMode(msg.payload.mode);
+                break;
+
             case 'statisPanel.filter.click':
                 workflowStatisPanel.setFilterType(msg.payload.type);
                 break;
