@@ -118,6 +118,14 @@ const UI_THEME_LIGHT = {
     // MỚI 21/09/2026 — nền (track) của thanh tiến độ mảnh (card "Library played" ở panel Statistics, xem core/statis-panel-ui.js). Phần tô (fill) dùng sky đặc trực tiếp, cùng cách tô "đang chọn" của chip lọc trong panel.
     progressTrackBg: 'bg-slate-200',
 
+    // ===================== Tab pill (segmented) =====================
+    // MỚI 21/09/2026 — trạng thái ĐANG CHỌN của tab pill trong modal Chi tiết/Sửa (components/playlist-view.js,
+    // `.song-edit-tab-btn`): dựa vào thuộc tính `aria-selected="true"` (variant `aria-selected:` chuẩn của Tailwind
+    // 3.2+, độ ưu tiên CSS cao hơn class thường) thay vì bật/tắt class màu bằng JS — nên KHÔNG còn xung đột với
+    // class màu do `data-uitk` áp (nguyên nhân chữ trắng trên nền trắng cũ, xem setSongEditTab() core/playlist/actions.js).
+    // Đi CÙNG `textSecondary` (màu chữ lúc KHÔNG chọn) trên cùng phần tử.
+    segmentTabActive: 'aria-selected:bg-white aria-selected:text-slate-900 aria-selected:shadow',
+
     // ===================== Bảng accent theo NHÓM (section title) =====================
     // KHÔNG phải 1 key đơn — mỗi tính năng tự chọn ĐÚNG 1 hue trong bảng này cho tiêu đề section
     // của mình (cố ý phân biệt nhanh nhiều nhóm khác nhau, vd 5 section của Cử chỉ — xem docstring
