@@ -1,0 +1,311 @@
+/**
+ * Component: hệ "Playlist Filter Presets" (VIẾT LẠI 08/09/2026, phản hồi Giang — thay panel Lọc
+ * 1-bộ-rule-sống bằng danh sách preset đặt tên, mirror components/motion-settings-drawer.js: danh
+ * sách List <-> Edit 1 preset, dùng qua `workflowAppSettings.navigateTo()`, KHÔNG phải Generic
+ * Drawer riêng như EQ). 2 hàm render chính:
+ *   1. `renderPlaylistFilterListBody(presets, activeId)` — danh sách preset: tap dòng = sửa, MỖI
+ *      dòng có thêm 2 nút riêng (chọn áp dụng + xoá nhanh) — KHÁC Motion (chỉ có xoá nhanh, "chọn
+ *      áp dụng" nằm trong màn Edit) vì Giang yêu cầu rõ "chọn áp dụng" phải bấm được NGAY từ danh
+ *      sách, không bắt buộc vào Edit trước.
+ *   2. `renderPlaylistFilterEditBody(preset, source, isActive)` — sửa 1 preset: hàng "Name" (đầu,
+ *      CÙNG khuôn EQ) + field rule theo ĐÚNG Nguồn hiện tại (`_renderFilterTextFieldRow()`/
+ *      `_renderFilterNumericFieldRow()`, KHÔNG đổi — 1 hàng PER FIELD, mỗi field ĐÚNG 1 điều kiện,
+ *      bật/tắt qua checkbox riêng) + 2 nút cuối "Chọn áp dụng"/"Cập nhật"/"Xoá" (CÙNG khuôn EQ
+ *      `eq-drawer-apply`/`eq-drawer-delete` — chữ nút đầu đổi "Cập nhật" khi `isActive`, xem
+ *      docstring hàm dưới). MỌI thay đổi field GHI THẲNG vào preset đang sửa NGAY (live-commit,
+ *      KHÔNG còn nút "Lưu" riêng — xem workflowPlaylistFilterPresets.setFilterField()) — preset đó
+ *      CHỈ thật sự ảnh hưởng Playlist khi bấm "Chọn áp dụng"/"Cập nhật" (ghi
+ *      playlistFilterActivePresetId + hỏi reload).
+ *
+ * Field theo ĐÚNG Nguồn (`source`, 'song'|'video'|'photo') — song có 3 field text (tên/album/nghệ
+ * sĩ), video/photo chỉ có "tên"+"album"; cả 3 CÙNG field số/ngày (ngày tải/số lần phát/dung lượng/
+ * thời lượng, riêng "tổng thời gian nghe" CHỈ song/video) — xem docstring
+ * renderPlaylistFilterEditBody() dưới + clonePlaylistFilterConfigDefaults() (service/state/
+ * playlist.js, nguồn sự thật DUY NHẤT cho danh sách field hợp lệ theo Nguồn).
+ *
+ * Mọi điều kiện ĐANG BẬT trong 1 preset kết hợp AND với nhau (mô phỏng SQL WHERE field1=x AND
+ * field2=y...) — xem docstring đầu core/playlist/filter.js.
+ *
+ * QUY ƯỚC data-attribute field rule (đọc bởi event/listener/playlist.js, KHÔNG đổi so với bản cũ):
+ * MỌI control mang `data-filter-field="<field>"` + `data-filter-prop="enabled|op|mode|value|
+ * valueTo"` — field/prop đọc TRỰC TIẾP qua dataset, KHÔNG suy ra từ `id` (khối "đơn"/"range" của
+ * field số CÙNG dùng `data-filter-prop="value"` nhưng khác `id` — id chỉ để CSS/debug, KHÔNG dùng
+ * để định danh nghiệp vụ, tránh trùng id giữa 2 khối).
+ *
+ * NẠP SAU: core/playlist/filter.js (danh sách field hợp lệ theo Nguồn, tham chiếu qua
+ * clonePlaylistFilterConfigDefaults()).
+ *
+ * SỬA (09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — 2 hàm dựng hàng field
+ * (`_renderFilterTextFieldRow()`/`_renderFilterNumericFieldRow()`) và wrapper field-rule trong
+ * `renderPlaylistFilterEditBody()` viết LẠI TRỰC TIẾP bằng bảng màu sáng (trước đây `glass-modal`/
+ * `border-white/5`/toggle track `bg-slate-600`/input `bg-black/50`, phụ thuộc `.app-settings-scope`
+ * đè màu — assets/css/layout-nav.css) — phần còn lại của file (List/Edit khung ngoài) đã sáng sẵn
+ * từ đợt viết lại 08-09/09/2026, không đổi gì thêm.
+ */
+
+/** Danh sách preset — CÙNG khuôn renderMotionListBody() (components/motion-settings-drawer.js) +
+ * thêm nút "chọn áp dụng" riêng mỗi dòng KHÔNG active (Motion không có, "Áp dụng cho" của Motion
+ * nằm trong màn Edit — Playlist Filter cần bấm được NGAY từ danh sách, phản hồi Giang). Dòng đang
+ * active (`p.id === activeId`) tô viền sky (KHÔNG còn thêm chấm tròn — XOÁ 09/09/2026, phản hồi
+ * Giang "ở list filter đang active sẽ không có icon active" — viền/nền sky + chỉ còn đúng 1 nút
+ * "Bỏ chọn" đã đủ phân biệt, chấm tròn dư thừa). `activeId` = `playlistFilterActivePresetId` hiện
+ * tại (KHÔNG còn gate qua công tắc tổng — field đó đã bỏ, SỬA 09/09/2026, xem event/workflow/
+ * app-settings.js::_renderPlaylistFilterList()), component không tự đọc appState (Rule 2).
+ * SỬA (09/09/2026, phản hồi Giang — "với filter đang active, thay vì nút delete -> unselect", sau
+ * đó "bỏ nút apply cho filter active ở list") — dòng ĐANG ACTIVE giờ CHỈ CÒN ĐÚNG 1 nút "Bỏ chọn"
+ * (`data-playlist-filter-quickunselect`, icon dấu trừ trong vòng tròn) — nút "chọn áp dụng"
+ * (checkmark) đã BỎ HẲN khỏi dòng active (chọn lại preset đang active từ danh sách không có ý
+ * nghĩa — "Cập nhật" ở màn Edit đã lo trường hợp cần chụp lại ảnh chốt). Bỏ chọn CHỈ gỡ preset khỏi
+ * vai trò active (KHÔNG xoá hẳn preset, vẫn còn trong danh sách để chọn lại sau) — xem
+ * workflowPlaylistFilterPresets.unselectPreset(). Dòng KHÔNG active vẫn 2 nút "chọn áp dụng" +
+ * "xoá" như cũ.
+ * @param {{id:string,name:string}[]} presets @param {string|null} activeId */
+function renderPlaylistFilterListBody(presets, activeId) {
+    const addRowHtml = `
+        <button type="button" id="btn-playlist-filter-list-add" class="w-full text-center px-4 py-3.5 rounded-2xl mb-2 text-sm font-semibold" data-uitk="btnAccentSoft accentSoftBorder" data-i18n="playlistFilterPresetsDrawer.list.add.label">${t('playlistFilterPresetsDrawer.list.add.label')}</button>
+    `;
+    if (presets.length === 0) {
+        return addRowHtml + `<p class="text-sm text-center py-10 px-6" data-uitk="textSecondary" data-i18n="playlistFilterPresetsDrawer.list.empty">${t('playlistFilterPresetsDrawer.list.empty')}</p>`;
+    }
+    const itemsHtml = presets.map((p) => {
+        const isActive = p.id === activeId;
+        const rowThemeKeys = isActive ? 'rowActiveBg rowActiveBorder' : 'cardBg cardBorder cardHoverBg';
+        // SỬA (09/09/2026, phản hồi Giang — "bỏ nút apply cho filter đang active ở list") — dòng
+        // ĐANG ACTIVE giờ CHỈ còn 1 nút "Bỏ chọn" (KHÔNG còn nút chọn áp dụng/checkmark nữa — chọn
+        // lại preset đang active không có ý nghĩa từ danh sách, "Cập nhật" đã có sẵn trong màn Edit
+        // cho trường hợp cần chụp lại ảnh chốt). Dòng KHÔNG active vẫn 2 nút (chọn áp dụng + xoá)
+        // như cũ.
+        const actionsHtml = isActive
+            ? `<button type="button" data-playlist-filter-quickunselect="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full" data-uitk="iconBtnCaution" title="${t('playlistFilterPresetsDrawer.list.unselect.title')}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" /></svg>
+                </button>`
+            : `<button type="button" data-playlist-filter-quickselect="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full" data-uitk="iconBtnAccent" title="${t('playlistFilterPresetsDrawer.list.select.title')}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                </button>
+                <button type="button" data-playlist-filter-quickdelete="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full" data-uitk="iconBtnDestructive" title="${t('playlistFilterPresetsDrawer.list.delete.title')}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>`;
+        return `
+        <div data-playlist-filter-tile="${escapeHtml(p.id)}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-2 transition-colors cursor-pointer" data-uitk="${rowThemeKeys}">
+            <span class="flex items-center gap-2 min-w-0">
+                <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${escapeHtml(p.name)}</span>
+            </span>
+            <span class="flex items-center gap-1 shrink-0">
+                ${actionsHtml}
+            </span>
+        </div>
+    `;
+    }).join('');
+    return addRowHtml + itemsHtml;
+}
+
+/** 1 hàng field TEXT (tên/album/nghệ sĩ) — checkbox bật + select toán tử (=, !=, Contains) + ô nhập. */
+function _renderFilterTextFieldRow(field, labelKey) {
+    return `
+                        <div data-filter-row="${field}" class="flex flex-col p-4 gap-2 transition-opacity border-b" data-uitk="dividerBorder">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium truncate" data-i18n="${labelKey}">${t(labelKey)}</span>
+                                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                    <input type="checkbox" data-filter-field="${field}" data-filter-prop="enabled" class="sr-only peer">
+                                    <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" data-uitk="toggleTrackOff toggleTrackOn"></div>
+                                </label>
+                            </div>
+                            <!-- FIX (bug — checkbox bị khoá theo cả row) — data-filter-body BỌC
+                                 RIÊNG phần control bên dưới checkbox — CHỈ khối này bị mờ/khoá lúc
+                                 field tắt (workflowPlaylistFilterPresets._syncEditUI()/setFilterField()),
+                                 checkbox ở NGOÀI khối này nên luôn bấm lại được. -->
+                            <div data-filter-body class="flex gap-2">
+                                <select data-filter-field="${field}" data-filter-prop="op" class="rounded-lg px-2 py-1.5 text-xs outline-none w-28" data-uitk="inputBg inputBorder inputText">
+                                    <option value="===" data-i18n="playlistFilterPanel.op.eq">${t('playlistFilterPanel.op.eq')}</option>
+                                    <option value="!==" data-i18n="playlistFilterPanel.op.neq">${t('playlistFilterPanel.op.neq')}</option>
+                                    <option value="contains" data-i18n="playlistFilterPanel.op.contains">${t('playlistFilterPanel.op.contains')}</option>
+                                    <option value="notContains" data-i18n="playlistFilterPanel.op.notContains">${t('playlistFilterPanel.op.notContains')}</option>
+                                </select>
+                                <input type="text" data-filter-field="${field}" data-filter-prop="value" class="flex-1 min-w-0 rounded-lg px-3 py-1.5 text-xs outline-none" data-uitk="inputBg inputBorder inputText">
+                            </div>
+                        </div>
+`;
+}
+
+/** 1 hàng field SỐ/NGÀY/GIÂY (ngày tải/số lần phát/tổng thời gian/thời lượng/dung lượng) —
+ * checkbox bật + select đơn-giá-trị↔range + (khối đơn: toán tử + 1 ô) hoặc (khối range: 2 ô
+ * "từ"/"đến"). `inputType`: 'date' cho addedAt, 'number' (bước thập phân) cho size (MB)/count,
+ * 'time-picker' cho totalTime/duration — Ô GIÁ TRỊ là NÚT mở `openTimePickerModal()` (format
+ * h:m:s, core/time-picker-modal.js) thay vì `<input>` thô, SỬA (phản hồi Giang — "totalTime/
+ * duration phải dùng time picker, định dạng h:m:s như item") — nút mang `data-filter-time-trigger`
+ * để event/listener/playlist.js phân biệt (click -> mở modal, KHÔNG dispatch value trực tiếp như
+ * input thường). */
+function _renderFilterNumericFieldRow(field, labelKey, inputType, step) {
+    const isTimePicker = inputType === 'time-picker';
+    const stepAttr = step ? `step="${step}"` : '';
+    const valueControl = (prop, placeholderKey) => isTimePicker
+        ? `<button type="button" data-filter-field="${field}" data-filter-prop="${prop}" data-filter-time-trigger class="flex-1 min-w-0 rounded-lg px-3 py-1.5 text-xs text-left outline-none" data-uitk="inputBg inputBorder inputText">0:00:00</button>`
+        : `<input type="${inputType}" ${stepAttr} data-filter-field="${field}" data-filter-prop="${prop}" class="flex-1 min-w-0 rounded-lg px-3 py-1.5 text-xs outline-none" data-uitk="inputBg inputBorder inputText"${placeholderKey ? ` data-i18n-placeholder="${placeholderKey}" placeholder="${t(placeholderKey)}"` : ''}>`;
+    return `
+                        <div data-filter-row="${field}" class="flex flex-col p-4 gap-2 transition-opacity border-b" data-uitk="dividerBorder">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium truncate" data-i18n="${labelKey}">${t(labelKey)}</span>
+                                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                    <input type="checkbox" data-filter-field="${field}" data-filter-prop="enabled" class="sr-only peer">
+                                    <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" data-uitk="toggleTrackOff toggleTrackOn"></div>
+                                </label>
+                            </div>
+                            <!-- FIX (bug — checkbox bị khoá theo cả row), CÙNG LÝ DO _renderFilterTextFieldRow() ở trên. -->
+                            <div data-filter-body class="flex flex-col gap-2">
+                                <select data-filter-field="${field}" data-filter-prop="mode" class="rounded-lg px-2 py-1.5 text-xs outline-none w-full" data-uitk="inputBg inputBorder inputText">
+                                    <option value="single" data-i18n="playlistFilterPanel.mode.single">${t('playlistFilterPanel.mode.single')}</option>
+                                    <option value="range" data-i18n="playlistFilterPanel.mode.range">${t('playlistFilterPanel.mode.range')}</option>
+                                    <option value="outRange" data-i18n="playlistFilterPanel.mode.outRange">${t('playlistFilterPanel.mode.outRange')}</option>
+                                </select>
+                                <div data-filter-single-block class="flex gap-2">
+                                    <select data-filter-field="${field}" data-filter-prop="op" class="rounded-lg px-2 py-1.5 text-xs outline-none w-24" data-uitk="inputBg inputBorder inputText">
+                                        <option value="===">=</option>
+                                        <option value="!==">≠</option>
+                                        <option value=">">&gt;</option>
+                                        <option value="<">&lt;</option>
+                                        <option value=">=">&ge;</option>
+                                        <option value="<=">&le;</option>
+                                    </select>
+                                    ${valueControl('value')}
+                                </div>
+                                <div data-filter-range-block class="hidden flex gap-2 items-center">
+                                    ${valueControl('value', isTimePicker ? null : 'playlistFilterPanel.rangeFrom')}
+                                    <span class="text-xs" data-uitk="textSecondary">–</span>
+                                    ${valueControl('valueTo', isTimePicker ? null : 'playlistFilterPanel.rangeTo')}
+                                </div>
+                            </div>
+                        </div>
+`;
+}
+
+/**
+ * Sửa 1 preset — hàng "Name" (CÙNG khuôn EQ, `eq-drawer-name`) + field rule theo Nguồn + 2 nút cuối
+ * (CÙNG khuôn `eq-drawer-apply`/`eq-drawer-delete`, KHÔNG còn nút "Áp dụng" đơn lẻ như bản cũ 1-bộ-
+ * rule-sống — mọi field GHI THẲNG (live-commit) vào preset đang sửa, xem
+ * workflowPlaylistFilterPresets.setFilterField(), "Chọn áp dụng" mới thật sự đẩy preset này lên
+ * Playlist). SỬA (09/09/2026, phản hồi Giang — "với filter đang active, thay vì nút delete ->
+ * unselect") — nút thứ 2 đổi thành "Bỏ chọn" (`#btn-playlist-filter-unselect`) khi `isActive` —
+ * CHỈ gỡ preset khỏi vai trò active (không xoá hẳn preset), thay vì "Xoá" (`#btn-playlist-filter-
+ * delete`) như preset không active.
+ * SỬA (09/09/2026, phản hồi Giang) — 2 việc:
+ *   1. Input Name thêm `border-0 focus:ring-0` — TRƯỚC ĐÂY thiếu, để lộ viền mặc định của trình
+ *      duyệt (UA style) tạo cảm giác 1 khung riêng cách viền row 1 khoảng, lộ nền `bg-slate-50` của
+ *      row ở khe hở đó — giờ input hoà HẲN vào row, không còn khung/viền riêng.
+ *   2. Thêm checkbox VUÔNG "Có áp dụng cho thư mục hay không" ngay dưới hàng Name (mặc định BẬT,
+ *      `preset.appliesToFolder`) — tắt = preset CHỈ áp dụng lúc xem "Tất cả", KHÔNG áp dụng khi
+ *      đang xem 1 thư mục cụ thể — xem event/workflow/playlist-scope.js::applyFolderScope().
+ * @param {{id:string,name:string,config:object,appliesToFolder:boolean}} preset
+ * @param {string} source - 'song' | 'video' | 'photo' — quyết định field TEXT nào hiện (album/
+ *   artist — SỬA (Giang yêu cầu, "filter/search hỗ trợ field Album của video/photo") — `artist`
+ *   VẪN CHỈ Song có (Video/Photo không có field này), `album` giờ CẢ 3 mediaType đều có (record.album,
+ *   core/playlist/actions.js::applyVideoEditAndSave()/applyPhotoEditAndSave())) VÀ field SỐ/NGÀY
+ *   nào hiện (`duration` áp dụng CẢ Photo — Photo đã có duration thật, xem event/workflow/
+ *   file-manager-photo.js::computePhotoDuration(); SỬA, Giang yêu cầu "thêm thời gian listen cho
+ *   photo" — `totalTime` giờ CŨNG áp dụng CẢ Photo, hết còn khác biệt với Video — nhãn hiển thị
+ *   đổi thành "Watch time" riêng cho video/photo, Song vẫn "Listen time", CHỈ khác chữ). Danh
+ *   sách field PHẢI khớp ĐÚNG với
+ *   `clonePlaylistFilterConfigDefaults()` (service/state/playlist.js) cho từng Nguồn — 2 nơi
+ *   này KHÔNG import chéo (why-no-es6-module.md), phải tự đối chiếu tay khi sửa 1 trong 2.
+ * @param {boolean} isActive - MỚI (09/09/2026, phản hồi Giang mục 1) — preset đang sửa CHÍNH LÀ
+ *   preset đang active (`playlistFilterActivePresetId`) hay không — Workflow tự tính rồi truyền
+ *   vào (Rule 2, component KHÔNG tự đọc appState). `true` -> nút đầu đổi chữ thành "Cập nhật"
+ *   (`playlistFilterPresetsDrawer.update`) thay vì "Chọn áp dụng" (`.select`) — CÙNG 1 hành động
+ *   `selectPreset()` phía sau (chụp ảnh chốt MỚI), chỉ đổi CHỮ cho đúng ngữ cảnh "đang active rồi,
+ *   bấm lại = cập nhật" thay vì "chưa active, bấm để chọn".
+ */
+function renderPlaylistFilterEditBody(preset, source, isActive) {
+    // SỬA (hợp nhất Photo vào Playlist) — THAY ternary nhị phân cũ (chỉ đúng khi source CHẮC CHẮN
+    // là 'song' hoặc 'video') bằng bảng tra theo TỪNG source — ternary cũ sẽ ÂM THẦM gán field của
+    // Song (album/artist) cho bất kỳ source thứ 3 nào lọt vào nhánh else, đúng bug đã phát hiện lúc
+    // rà soát trước khi thêm Photo.
+    // SỬA (Giang yêu cầu — field Album cho Video/Photo) — thêm 'album' vào 2 mảng video/photo
+    // (TRƯỚC ĐÂY chỉ có 'name') — 'artist' VẪN không thêm (Video/Photo không có field này).
+    const textFieldsBySource = {
+        song: [['name', 'playlistFilterPanel.field.name'], ['album', 'playlistFilterPanel.field.album'], ['artist', 'playlistFilterPanel.field.artist']],
+        video: [['name', 'playlistFilterPanel.field.name'], ['album', 'playlistFilterPanel.field.album']],
+        photo: [['name', 'playlistFilterPanel.field.name'], ['album', 'playlistFilterPanel.field.album']],
+    };
+    const textFields = textFieldsBySource[source] || textFieldsBySource.song; // guard — source lạ rơi về Song (an toàn hơn rỗng)
+    // SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — totalTime giờ áp dụng CẢ Photo (CÙNG
+    // Video), KHÔNG còn ẩn theo `isPhoto` nữa — chỉ còn khác NHÃN hiển thị: Song "Listen time",
+    // Video/Photo "Watch time" (field/logic giữ NGUYÊN, xem core/playlist/filter.js).
+    const totalTimeLabelKey = source === 'song' ? 'playlistFilterPanel.field.totalTime' : 'playlistFilterPanel.field.viewDuration';
+
+    return `
+                <div>
+                    <div class="rounded-2xl px-4 flex items-center justify-between gap-3 mb-4" data-uitk="cardBg cardBorder">
+                        <label for="playlist-filter-drawer-name" class="text-sm shrink-0" data-uitk="textSecondary" data-i18n="playlistFilterPresetsDrawer.name.label">${t('playlistFilterPresetsDrawer.name.label')}</label>
+                        <input type="text" id="playlist-filter-drawer-name" maxlength="24" value="${escapeHtml(preset.name)}" class="flex-1 min-w-0 bg-transparent border-0 text-right py-3 text-sm outline-none focus:ring-0" data-uitk="textPrimary">
+                    </div>
+                    <!-- MỚI (09/09/2026, phản hồi Giang — "checkbox tick vuông riêng ở dưới Name: có
+                         áp dụng cho thư mục hay không, mặc định bật") — checkbox VUÔNG (accent-sky-500,
+                         KHÁC toggle tròn của field rule bên dưới, CÙNG khuôn folder-properties-
+                         readonly-checkbox — event/workflow/file-manager-folder-browser.js) — tắt =
+                         preset này CHỈ áp dụng lúc xem "Tất cả" (applyAllSongsScope()), KHÔNG áp dụng
+                         lúc đang xem 1 thư mục cụ thể (applyFolderScope() bỏ qua Filter cho Nguồn này)
+                         — xem event/workflow/playlist-scope.js::applyFolderScope(). -->
+                    <label class="flex items-center gap-2.5 text-sm cursor-pointer mb-4 px-1" data-uitk="textSecondaryStrong">
+                        <input type="checkbox" id="playlist-filter-drawer-appliestofolder" class="w-4 h-4 rounded shrink-0" data-uitk="accentControl"${preset.appliesToFolder ? ' checked' : ''}>
+                        <span data-i18n="playlistFilterPresetsDrawer.appliesToFolder.label">${t('playlistFilterPresetsDrawer.appliesToFolder.label')}</span>
+                    </label>
+                    <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
+                        ${textFields.map(([field, labelKey]) => _renderFilterTextFieldRow(field, labelKey)).join('')}
+                        ${_renderFilterNumericFieldRow('addedAt', 'playlistFilterPanel.field.addedAt', 'date')}
+                        ${_renderFilterNumericFieldRow('count', 'playlistFilterPanel.field.count', 'number', '1')}
+                        ${_renderFilterNumericFieldRow('totalTime', totalTimeLabelKey, 'time-picker')}
+                        <!-- SỬA (Giang yêu cầu — Photo tích hợp duration như Song/Video) — TRƯỚC ĐÂY
+                             ẩn hẳn cho Photo (lúc đó duration hard-code 0) — giờ LUÔN hiện, khớp
+                             cách Sort panel đã un-hide trước đó (components/playlist-sort-drawer.js). -->
+                        ${_renderFilterNumericFieldRow('duration', 'playlistFilterPanel.field.duration', 'time-picker')}
+                        ${_renderFilterNumericFieldRow('size', 'playlistFilterPanel.field.size', 'number', '0.1')}
+                    </div>
+                    <div class="flex gap-2 mt-4">
+                        <button id="btn-playlist-filter-select" type="button" class="flex-1 py-3 rounded-2xl text-sm font-medium" data-uitk="btnAccentSoft" data-i18n="${isActive ? 'playlistFilterPresetsDrawer.update' : 'playlistFilterPresetsDrawer.select'}">${isActive ? t('playlistFilterPresetsDrawer.update') : t('playlistFilterPresetsDrawer.select')}</button>
+                        <button id="${isActive ? 'btn-playlist-filter-unselect' : 'btn-playlist-filter-delete'}" type="button" class="flex-1 py-3 rounded-2xl text-sm font-medium" data-uitk="${isActive ? 'btnCautionSoft' : 'btnDestructiveSoft'}" data-i18n="${isActive ? 'playlistFilterPresetsDrawer.unselect' : 'playlistFilterPresetsDrawer.delete'}">${isActive ? t('playlistFilterPresetsDrawer.unselect') : t('playlistFilterPresetsDrawer.delete')}</button>
+                    </div>
+                    <div class="text-xs mt-2 text-center" data-uitk="textSecondary" data-i18n="playlistFilterPanel.hint">${t('playlistFilterPanel.hint')}</div>
+                </div>
+`;
+}
+
+/**
+ * MỚI (Giang yêu cầu tính năng "folder tự quyết áp dụng Filter", màn "Cài đặt filter" RIÊNG cho 1
+ * folder, mở qua dropdown long-press — event/workflow/file-manager-folder-browser.js). TÁI DÙNG
+ * THẲNG `_renderFilterTextFieldRow()`/`_renderFilterNumericFieldRow()` ngay trên (CÙNG field rule y
+ * hệt màn Edit preset) — KHÁC màn đó ở việc KHÔNG có hàng "Name"/checkbox "Có áp dụng cho thư mục"
+ * (2 khái niệm đó thuộc hệ Preset, không liên quan filter RIÊNG của 1 folder) và KHÔNG có 2 nút
+ * Select/Update/Delete cuối trang (modalChoice() tự có nút Đóng mặc định — xem
+ * event/workflow/file-manager-folder-browser.js::showFolderFilterEditor()). Bọc trong
+ * `max-h-[55vh] overflow-y-auto` RIÊNG — CHỈ ở đây cần, vì đây là nội dung TỰ DO trong `modalChoice()`
+ * (core/modal-choice-ui.js — card KHÔNG có sẵn giới hạn chiều cao/scroll, chỉ hợp cho nội dung ngắn
+ * như showFolderProperties() 2 checkbox; ĐẾN 8 field row ở đây chắc chắn tràn màn hình mobile nếu
+ * không tự bọc scroll).
+ * @param {object} config - `playlistFilterConfig[mediaType]` shape — CÙNG `folderRecord.filterConfig`
+ *   (core/file-manager/folder.js), KHÔNG cần chuyển đổi.
+ * @param {'song'|'video'|'photo'} mediaType
+ * @param {function} t
+ * @returns {string}
+ */
+function buildFolderFilterEditBodyHtml(config, mediaType, t) {
+    const textFieldsBySource = {
+        song: [['name', 'playlistFilterPanel.field.name'], ['album', 'playlistFilterPanel.field.album'], ['artist', 'playlistFilterPanel.field.artist']],
+        video: [['name', 'playlistFilterPanel.field.name'], ['album', 'playlistFilterPanel.field.album']],
+        photo: [['name', 'playlistFilterPanel.field.name'], ['album', 'playlistFilterPanel.field.album']],
+    };
+    const textFields = textFieldsBySource[mediaType] || textFieldsBySource.song; // guard — CÙNG lý do renderPlaylistFilterEditBody()
+    const totalTimeLabelKey = mediaType === 'song' ? 'playlistFilterPanel.field.totalTime' : 'playlistFilterPanel.field.viewDuration'; // CÙNG quy ước "Watch time" cho Video/Photo đã chốt trước đó
+
+    return `
+        <div class="max-h-[55vh] overflow-y-auto">
+            <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
+                ${textFields.map(([field, labelKey]) => _renderFilterTextFieldRow(field, labelKey)).join('')}
+                ${_renderFilterNumericFieldRow('addedAt', 'playlistFilterPanel.field.addedAt', 'date')}
+                ${_renderFilterNumericFieldRow('count', 'playlistFilterPanel.field.count', 'number', '1')}
+                ${_renderFilterNumericFieldRow('totalTime', totalTimeLabelKey, 'time-picker')}
+                ${_renderFilterNumericFieldRow('duration', 'playlistFilterPanel.field.duration', 'time-picker')}
+                ${_renderFilterNumericFieldRow('size', 'playlistFilterPanel.field.size', 'number', '0.1')}
+            </div>
+        </div>
+`;
+}
+
