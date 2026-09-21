@@ -39,7 +39,7 @@ const UI_THEME_MORPHIN = {
     modalTitleText: 'text-white font-bold',
     modalBodyText: 'text-white/90',
     overlayBg: 'bg-black/50', // GIỮ NGUYÊN — không đổi theo theme, xem docstring light.js
-    stickyHeaderBg: 'bg-slate-900/85', // header dính đè lên nội dung cuộn (vd Statistics) — phải ĐỦ ĐẶC để nội dung cuộn dưới không xuyên qua
+    stickyHeaderBg: 'uitk-glass-header', // SỬA 21/09/2026 — header dính (vd Statistics): TRƯỚC là slate-900/85 (mảng nâu tím sẫm lạc tông trên nền cam); giờ kính mờ blur 40px (glass.css) — nội dung cuộn phía dưới bị làm mờ nên không đọc xuyên qua được
 
     // ===================== Card / hàng nội dung =====================
     cardBg: 'bg-white/10',
@@ -94,6 +94,9 @@ const UI_THEME_MORPHIN = {
     inputBorder: 'border border-white/25',
     inputText: 'text-white',
     inputBorderFocus: 'border-white/60',
+    searchBoxSurface: 'bg-white/10 border border-white/20', // MỚI 21/09/2026 — khung tìm kiếm Playlist: CÙNG lớp kính trắng mờ với nút Phát/Trộn bài (cardBg+cardBorder), KHÔNG dùng inputBg (black/25 — ám tối thành mảng đỏ sẫm trên nền cam)
+    inputPlaceholder: 'placeholder-white/60', // MỚI 21/09/2026 — placeholder trắng mờ (trước là slate-400 cứng -> xanh xám lạc tông trên nền cam)
+    navInactiveText: 'text-white/75', // MỚI 21/09/2026 — chữ+icon nút bottom nav KHÔNG active: trắng 75% (textMutedIcon white/50 quá nhạt cho NHÃN 12px trên nền cam — và khi bỏ nút Media, ở Home cả 4 nút đều ở trạng thái này)
 
     // ===================== Trạng thái rỗng =====================
     emptyStateText: 'text-white/60',

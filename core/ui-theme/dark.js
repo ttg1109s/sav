@@ -105,6 +105,9 @@ const UI_THEME_DARK = {
     inputBorder: 'border border-white/15',
     inputText: 'text-zinc-100',
     inputBorderFocus: 'border-violet-400', // viền input đang active/đang sửa (khác border tĩnh inputBorder)
+    searchBoxSurface: 'bg-black/30 border border-white/15', // MỚI 21/09/2026 — nền+viền khung tìm kiếm Playlist (= inputBg + inputBorder, Dark không đổi so với trước)
+    inputPlaceholder: 'placeholder-zinc-400', // MỚI 21/09/2026 — placeholder ô nhập (trước là slate-400 cứng, lệch tông zinc của Dark)
+    navInactiveText: 'text-zinc-500', // MỚI 21/09/2026 — chữ+icon nút bottom nav KHÔNG active (= textMutedIcon cũ, Dark không đổi)
 
     // ===================== Trạng thái rỗng =====================
     emptyStateText: 'text-zinc-400', // là VĂN BẢN đọc được (khác textMutedIcon) -> zinc-400 (~6.9:1), không hạ xuống -500 (~3.7:1)

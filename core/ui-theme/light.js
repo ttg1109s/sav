@@ -112,6 +112,9 @@ const UI_THEME_LIGHT = {
     inputBorder: 'border border-slate-300',
     inputText: 'text-slate-900',
     inputBorderFocus: 'border-sky-400', // viền input đang active/đang sửa (khác border tĩnh inputBorder)
+    searchBoxSurface: 'bg-white border border-slate-300', // MỚI 21/09/2026 — nền+viền khung tìm kiếm Playlist (= inputBg + inputBorder, Light không đổi); Morphin đổi sang kính khớp nút Phát/Trộn bài
+    inputPlaceholder: 'placeholder-slate-400', // MỚI 21/09/2026 — màu placeholder của ô nhập (trước là class cứng placeholder-slate-400 trong playlist-view.js)
+    navInactiveText: 'text-slate-400', // MỚI 21/09/2026 — chữ+icon nút bottom nav KHÔNG active (= textMutedIcon cũ, Light không đổi); tách key vì nhãn nav là VĂN BẢN đọc được, Morphin cần rõ hơn textMutedIcon (white/50)
 
     // ===================== Trạng thái rỗng =====================
     emptyStateText: 'text-slate-500',
