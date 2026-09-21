@@ -7,6 +7,23 @@
  * (đây là 1 trường hợp Workflow tự "tick" bằng `taskManager`, KHÔNG phải luồng Listener→Router
  * thông thường — xem ghi chú bổ sung ở `readme/event-bus-flow.md`).
  *
+ * [TÁCH 2 TASK — 21/09/2026, yêu cầu Giang, "Show Visual = tắt thì tắt cả phần vẽ lẫn render nhưng
+ * vẫn cập nhật status bar"] Trước đây MỘT task `raf` duy nhất `visualizerRender` làm cả 2 việc: (1)
+ * PHÂN TÍCH audio mỗi frame (FFT, beatScale, smoothedEnergy, globalHueOffset, updateStatsDashboard
+ * -> beat/BPM/pitch/status bar, Game tick, nốt nhạc bay), (2) VẼ canvas 2D/WebGL. Tắt Show Visual chỉ
+ * `return` sớm giữa chừng nên vòng RAF vẫn sống. Nay tách:
+ *   - `ANALYSIS_TASK` ('audioAnalysis', `_tick()`) — LUÔN chạy suốt đời app: mọi thứ (1) ở
+ *     trên. KHÔNG được dừng theo Show Visual vì Game (workflowGameplay.tick), React Beat của Motion
+ *     (`beatScale`, motion-beat-react-runner.js), visual-bg-common.js (`smoothedEnergy`) và status
+ *     bar đều sống nhờ dữ liệu do task này ghi vào appState.
+ *   - `RENDER_TASK` ('visualizerRender', `_tickDraw()`) — CHỈ phần (2). Tự đăng ký/kill theo
+ *     `cfg.visualEnabled` qua `_syncRenderTask()` (gọi mỗi frame từ `_tick()` — 1 so sánh cờ,
+ *     nên mọi đường đổi config: toggle, Restore default, nạp config lúc boot... đều tự đồng bộ,
+ *     không cần Router/Listener riêng). Tắt = `taskManager.kill()` (KHÔNG dùng pause(): `pauseAll()`/
+ *     `resumeAll()` lúc ẩn/hiện tab sẽ vô tình resume task đang bị "pause vì tắt Visual").
+ *   `_tickDraw()` đọc beatScale/smoothedEnergy/globalHueOffset từ appState (do `_tick()` ghi) — 2
+ *     task cùng nhịp RAF nên lệch tối đa 1 frame (~16ms), không cảm nhận được.
+ *
  * Điểm khởi động DUY NHẤT: `core/audio-engine.js::setupAudioContext()` gọi
  * `workflowVisualizerRender.start()` (Core gọi Workflow — vi phạm kỹ thuật đã ĐÁNH DẤU RÕ là
  * ngoại lệ đã biết, xem comment tại đó) — `taskManager.operator(name,'enabled')` tự guard chống
@@ -54,7 +71,8 @@
  * `draw-visualizer.js`, cuối khối 4-VISUALIZERS, SAU khối gameplay).
  */
 
-const RENDER_TASK = 'visualizerRender';
+const RENDER_TASK = 'visualizerRender';     // CHỈ vẽ — bật/tắt theo cfg.visualEnabled (xem _syncRenderTask())
+const ANALYSIS_TASK = 'audioAnalysis'; // phân tích audio + stats + Game tick — LUÔN chạy
 
 // Tra cứu hàm vẽ 2D theo `vizConfig.type` — dời nguyên từ `draw-visualizer.js` cũ (đã RỖNG).
 // `bar`/`rain`/`shape`/`vortex` KHÔNG nằm trong bảng này: `bar` có 3 style con (mirror/
@@ -106,30 +124,56 @@ let _cnBeatsSinceLastShift = 999; // lớn sẵn, cho phép cinematic shift ngay
 // synapse.js) — ngưỡng bắn giờ TĂNG DẦN rồi TỰ HẠ theo thời gian thay vì khoá/mở cứng theo frame.
 
 const workflowVisualizerRender = {
-    /** Đăng ký + bật task `raf` — xem docstring đầu file về điểm gọi DUY NHẤT + guard chống
-     * double-start. */
+    /** Cờ nội bộ (KHÔNG thuộc STATE — chỉ để `_syncRenderTask()` biết `RENDER_TASK` hiện có đang
+     * được đăng ký + chạy hay không, tránh hỏi taskManager mỗi frame). */
+    _renderActive: false,
+
+    /** Đăng ký + bật task phân tích `raf` — xem docstring đầu file về điểm gọi DUY NHẤT + guard
+     * chống double-start. Task vẽ (`RENDER_TASK`) KHÔNG đăng ký ở đây: `_tick()` tự bật nó ở frame
+     * đầu tiên nếu Show Visual đang bật (`_syncRenderTask()`). Gọi lại `start()` = dọn sạch cả 2
+     * task rồi dựng lại từ đầu. */
     start() {
-        taskManager.addNew(RENDER_TASK, { time: 0, exe: () => this._tick(), mode: 'raf', count: 0 });
-        taskManager.operator(RENDER_TASK, 'enabled');
+        taskManager.kill(RENDER_TASK);
+        this._renderActive = false;
+        taskManager.addNew(ANALYSIS_TASK, { time: 0, exe: () => this._tick(), mode: 'raf', count: 0 });
+        taskManager.operator(ANALYSIS_TASK, 'enabled');
     },
 
-    /** Không có nơi nào gọi hiện tại (vòng lặp render sống suốt đời app, giống hành vi
+    /** Không có nơi nào gọi hiện tại (vòng lặp phân tích sống suốt đời app, giống hành vi
      * `requestAnimationFrame(drawVisualizer)` cũ) — cung cấp để đối xứng API + phòng cần tới sau này. */
     stop() {
         taskManager.kill(RENDER_TASK);
+        taskManager.kill(ANALYSIS_TASK);
+        this._renderActive = false;
     },
 
-    /** Tick chính — 1 lần mỗi khung hình. Thay thế `drawVisualizer()` cũ. */
+    /** Đồng bộ `RENDER_TASK` với Show Visual: tắt Visual -> `kill` (dừng hẳn RAF vẽ, không còn
+     * callback/`clearRect`/WebGL render nào), bật lại -> đăng ký + chạy lại. Gọi mỗi frame từ
+     * `_tick()`, chỉ thật sự làm gì khi trạng thái ĐỔI (so cờ `_renderActive`). */
+    _syncRenderTask(isVisualOff) {
+        if (this._renderActive === !isVisualOff) return;
+        this._renderActive = !isVisualOff;
+        if (isVisualOff) {
+            taskManager.kill(RENDER_TASK);
+        } else {
+            taskManager.addNew(RENDER_TASK, { time: 0, exe: () => this._tickDraw(), mode: 'raf', count: 0 });
+            taskManager.operator(RENDER_TASK, 'enabled');
+        }
+        console.log(`[workflowVisualizerRender] task "${RENDER_TASK}" ${isVisualOff ? 'đã kill (Show Visual tắt)' : 'đã start (Show Visual bật)'}`); // log vòng đời task — KHÔNG phải ghi appState nên không dùng format "writer:" của Rule 4
+    },
+
+    /** Tick PHÂN TÍCH — 1 lần mỗi khung hình, LUÔN chạy (xem docstring đầu file). Thay phần đầu của
+     * `drawVisualizer()` cũ. Phần VẼ nằm ở `_tickDraw()` bên dưới. */
     _tick() {
         const cfg = appConfigViz.getAll();
-        const { vizDataArray, analyser, frameCounter, beatScale, smoothedEnergy, globalHueOffset } = appState.get([
-            'vizDataArray', 'analyser', 'frameCounter', 'beatScale', 'smoothedEnergy', 'globalHueOffset'
+        const { vizDataArray, analyser, frameCounter, smoothedEnergy, globalHueOffset } = appState.get([
+            'vizDataArray', 'analyser', 'frameCounter', 'smoothedEnergy', 'globalHueOffset'
         ]);
 
         const isVisualOff = cfg.visualEnabled === false;
         updateCanvasVisibility(canvas, document.getElementById('webgl-canvas'), isVisualOff); // core
+        this._syncRenderTask(isVisualOff); // bật/tắt task VẼ theo Show Visual
 
-        const perf = { blurMult: getActiveBlurMult() }; // core/audio-analysis.js
         if (!vizDataArray) return; // guard — audio context chưa init (giống hệt hành vi cũ)
 
         // SỬA (bug Giang phát hiện 17/09/2026 — connector synapse bắn vài giây đầu mỗi bài rồi im
@@ -161,18 +205,35 @@ const workflowVisualizerRender = {
 
         updateStatsDashboard(bufferLength); // core hiện có (di sản — Rule 0.5, KHÔNG đụng logic bên trong)
 
-        // Game Mode Circle — dùng CHUNG vòng lặp render này (KHÔNG mở RAF loop riêng cho gameplay).
-        // Workflow-gọi-Workflow (KHÔNG phải Core-gọi-Core — Rule 3 không áp dụng ở đây). Đặt TRƯỚC
-        // "if (isVisualOff) return;" bên dưới CÓ CHỦ Ý — layer game là DOM riêng (#gameplay-layer),
-        // không phụ thuộc canvas #visualizer, phải tiếp tục chạy dù người dùng tắt Visual.
+        // Game Mode Circle — dùng CHUNG vòng lặp phân tích này (KHÔNG mở RAF loop riêng cho gameplay).
+        // Workflow-gọi-Workflow (KHÔNG phải Core-gọi-Core — Rule 3 không áp dụng ở đây). Nằm ở task
+        // PHÂN TÍCH (luôn chạy), KHÔNG ở `_tickDraw()` CÓ CHỦ Ý — layer game là DOM riêng
+        // (#gameplay-layer), không phụ thuộc canvas #visualizer, phải tiếp tục chạy dù người dùng
+        // tắt Visual (lúc đó task vẽ đã bị kill hẳn).
         workflowGameplay.tick(performance.now());
 
-        // "Nốt nhạc bay lên" — luôn bật, tách khỏi isVisualOff bên dưới: phần tử DOM phụ trên
-        // #record-container, không phụ thuộc canvas.
+        // "Nốt nhạc bay lên" — luôn bật, cùng lý do: phần tử DOM phụ trên #record-container,
+        // không phụ thuộc canvas.
         if (isPlaying && newSmoothedEnergy > 0.3 && Math.random() > 0.6) spawnFlyingNote(); // core hiện có
+    },
 
-        // Mọi phần dưới đây CHỈ liên quan tới việc VẼ ra canvas — bỏ qua khi visual đang tắt.
-        if (isVisualOff) return;
+    /** Tick VẼ — task riêng `RENDER_TASK`, CHỈ tồn tại khi Show Visual bật (xem `_syncRenderTask()`).
+     * Đọc dữ liệu audio đã được `_tick()` ghi vào appState (lệch tối đa 1 frame), KHÔNG tự đọc
+     * analyser/tự tính lại beat/energy. Toàn bộ dispatch vẽ bên dưới GIỮ NGUYÊN như trước khi tách. */
+    _tickDraw() {
+        const cfg = appConfigViz.getAll();
+        if (cfg.visualEnabled === false) return; // phòng thủ — config vừa đổi nhưng `_tick()` chưa kịp kill task này (tối đa 1 frame)
+        const { vizDataArray, analyser, beatScale, smoothedEnergy, globalHueOffset } = appState.get([
+            'vizDataArray', 'analyser', 'beatScale', 'smoothedEnergy', 'globalHueOffset'
+        ]);
+        if (!vizDataArray || !analyser) return; // guard — audio context chưa init
+
+        const perf = { blurMult: getActiveBlurMult() }; // core/audio-analysis.js
+        const bufferLength = analyser.frequencyBinCount;
+        const isPlaying = appState.get('isVideoPlayerMode') ? !bgVideoElement.paused : !audioPlayer.paused;
+        const newBeatScale = beatScale;
+        const newSmoothedEnergy = smoothedEnergy;
+        const newGlobalHueOffset = globalHueOffset;
 
         // ================== VISUAL CŨ — gọi THẲNG, y nguyên tham số ==================
         if (cfg.type === 'vortex') {
