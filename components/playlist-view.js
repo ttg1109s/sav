@@ -211,7 +211,7 @@ const TPL_PLAYLIST_VIEW = `
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
             <span data-i18n="playlistView.selection.btnAddToFolder">${t('playlistView.selection.btnAddToFolder')}</span>
         </button>
-        <button data-menu-action="delete" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors border-t" data-uitk="destructiveText dividerBorder hoverDestructiveBg">
+        <button data-menu-action="delete" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors border-t" data-uitk="menuDestructiveItem dividerBorder">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
             <span data-i18n="playlistView.selection.btnDelete">${t('playlistView.selection.btnDelete')}</span>
         </button>
@@ -506,7 +506,7 @@ const TPL_PLAYLIST_VIEW = `
         <!-- SỬA (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — id "song-menu-delete-
              label" để JS ("openSongActionMenu()") đổi chữ "Xoá bài hát"/"Xoá video" đúng ngữ cảnh
              item đang mở menu — nhãn tĩnh cũ luôn nói "song" kể cả khi đang xoá Video. -->
-        <button data-menu-action="delete" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors border-t" data-uitk="destructiveText dividerBorder hoverDestructiveBg">
+        <button data-menu-action="delete" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors border-t" data-uitk="menuDestructiveItem dividerBorder">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
             <span id="song-menu-delete-label" data-i18n="playlistView.songMenu.delete">${t('playlistView.songMenu.delete')}</span>
         </button>
