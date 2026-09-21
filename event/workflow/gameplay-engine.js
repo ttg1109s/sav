@@ -14,7 +14,8 @@
  * KHÔNG có tiêu đề ở modal End (phản hồi Giang — nội dung tự thân đã rõ ngữ nghĩa).
  *
  * NẠP SAU: core/gameplay/engine.js, core/gameplay/engine-ui.js, core/modal-choice-ui.js,
- * service/task-manager.js, service/db.js, lang/lang.js.
+ * core/number-countup.js, event/workflow/number-countup.js, service/task-manager.js, service/db.js,
+ * lang/lang.js.
  */
 const GAMEPLAY_COUNTDOWN_TASK = 'gameplayCountdown';
 const GAMEPLAY_SCORE_COUNTUP_TASK = 'gameplayScoreCountUp';
@@ -88,25 +89,22 @@ const workflowGameplayEngine = {
         this._startScoreCountUpAnimation(finalScore, totalScore, maxScore, deltaPercent);
     },
 
-    /** Count-up 2 dòng điểm (float chính + thực/tổng) đồng thời, cùng nhịp taskManager 'interval'
-     * (CẤM setTimeout thô). % lệch KHÔNG hiện text riêng nữa — thể hiện qua ring (buildScoreRingSvg,
-     * đã dựng SẴN lúc mở modal, tự animate qua CSS, không cần JS đợi count-up xong mới chạy). */
+    /** Count-up 2 dòng điểm (float chính + thực/tổng) đồng thời. SỬA 21/09/2026 (Giang yêu cầu tách
+     * animation number thành core chung): vòng lặp timer dời sang `workflowNumberCountup.run()`
+     * (event/workflow/number-countup.js), phần TÍNH giá trị mỗi bước dời sang `computeCountupValue()`
+     * (core/number-countup.js) — hành vi GIỮ NGUYÊN (tuyến tính `easePower` 1, 24 bước x 35ms, chốt đúng
+     * số cuối). % lệch KHÔNG hiện text riêng nữa — thể hiện qua ring (buildScoreRingSvg, đã dựng SẴN lúc
+     * mở modal, tự animate qua CSS, không cần JS đợi count-up xong mới chạy). */
     _startScoreCountUpAnimation(finalScore, totalScore, maxScore, deltaPercent) {
-        let step = 0;
-        taskManager.kill(GAMEPLAY_SCORE_COUNTUP_TASK);
-        taskManager.addNew(GAMEPLAY_SCORE_COUNTUP_TASK, {
-            time: 35, mode: 'interval', count: GAMEPLAY_SCORE_COUNTUP_STEPS,
-            exe: () => {
-                step++;
-                const ratio = step / GAMEPLAY_SCORE_COUNTUP_STEPS;
-                renderScoreCountupFrame(finalScore * ratio, Math.round(totalScore * ratio), maxScore); // core-ui
-                if (step >= GAMEPLAY_SCORE_COUNTUP_STEPS) {
-                    renderScoreCountupFrame(finalScore, totalScore, maxScore); // core-ui — chốt đúng số cuối, tránh sai số làm tròn dồn qua từng bước
-                    taskManager.operator(GAMEPLAY_SCORE_COUNTUP_TASK, 'disabled');
-                }
-            },
+        workflowNumberCountup.run(GAMEPLAY_SCORE_COUNTUP_TASK, {
+            steps: GAMEPLAY_SCORE_COUNTUP_STEPS,
+            intervalMs: 35,
+            onFrame: (step, steps) => renderScoreCountupFrame(
+                computeCountupValue(finalScore, step, steps, 1, 3), // core (number-countup.js) — điểm chính hiện 3 số lẻ (xem renderScoreCountupFrame)
+                computeCountupValue(totalScore, step, steps, 1, 0), // số nguyên
+                maxScore
+            ), // core-ui
         });
-        taskManager.operator(GAMEPLAY_SCORE_COUNTUP_TASK, 'enabled');
     },
 
     /** Đọc + ghi record 'songs' — CHỈ hợp lệ ở Workflow (Core cấm đọc DB). Field
