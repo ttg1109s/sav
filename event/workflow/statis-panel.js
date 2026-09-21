@@ -69,15 +69,25 @@ const workflowStatisPanel = {
                 totalTime: ofType.reduce((sum, i) => sum + i.totalTime, 0),
             };
         }
+        const neverPlayedCount = items.filter((i) => i.count === 0).length;
+        const playedItemCount = items.length - neverPlayedCount;
         const grandTotal = {
             itemCount: items.length,
             playCount: items.reduce((sum, i) => sum + i.count, 0),
             totalTime: items.reduce((sum, i) => sum + i.totalTime, 0),
-            neverPlayedCount: items.filter((i) => i.count === 0).length,
+            neverPlayedCount,
+            // SỬA 21/09/2026 — thêm 2 field UI (core/statis-panel-ui.js) cần: `playedItemCount` (TRƯỚC ĐÂY UI đọc field này nhưng Workflow không tạo -> `itemCount - undefined` = NaN ở ô "Never played") + `playedPercent` cho card "Library played". Math.floor (KHÔNG round) để không bao giờ hiện 100% khi vẫn còn file chưa phát (vd 1023/1024).
+            playedItemCount,
+            playedPercent: items.length > 0 ? Math.floor((playedItemCount / items.length) * 100) : 0,
         };
+        // Tỷ trọng % lượt phát từng loại trên TỔNG lượt phát (card "Media types") — tính ở Workflow, Core-ui chỉ vẽ. Math.round nên tổng 3 loại có thể lệch 99/101, chấp nhận được với số hiển thị.
+        for (const mediaType of ['song', 'video', 'photo']) {
+            byType[mediaType].playSharePercent = grandTotal.playCount > 0 ? Math.round((byType[mediaType].playCount / grandTotal.playCount) * 100) : 0;
+        }
 
-        const filtered = this._filterType === 'all' ? items : items.filter((i) => i.mediaType === this._filterType);
-        const topList = filtered.slice().sort((a, b) => b[this._sortMode] - a[this._sortMode]).slice(0, STATIS_TOP_LIST_LIMIT);
+        // Top list CHỈ xếp hạng item CÓ dữ liệu theo tiêu chí đang sort (count > 0 khi "Most played", totalTime > 0 khi "Most time") — SỬA 21/09/2026: trước đây item 0 lượt vẫn chen vào đáy bảng với "0 times" (thứ tự tuỳ ý) và empty state "No plays yet" gần như không bao giờ hiện đúng nghĩa.
+        const filteredByType = this._filterType === 'all' ? items : items.filter((i) => i.mediaType === this._filterType);
+        const topList = filteredByType.filter((i) => i[this._sortMode] > 0).sort((a, b) => b[this._sortMode] - a[this._sortMode]).slice(0, STATIS_TOP_LIST_LIMIT); // `.filter()` đã trả mảng MỚI nên `.sort()` thẳng không đụng `items` gốc
 
         statisPanelBody.innerHTML = buildStatisPanelBodyHtml(grandTotal, byType, topList, this._sortMode, this._filterType, t); // core/statis-panel-ui.js
         if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(statisPanelBody, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — nội dung dựng ĐỘNG, phải tự áp lại mỗi lần renderContent() chạy, CÙNG lý do renderList() của gameCatalog
