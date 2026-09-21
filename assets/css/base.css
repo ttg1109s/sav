@@ -42,6 +42,16 @@ body { min-height: 100dvh; background: #000; }
 
 #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; object-fit: cover; z-index: 0; pointer-events: none; background-size: cover; background-position: center; }
 
+/* FIX (22/09/2026, Giang chụp màn hình: vệt cam ở rìa PHẢI màn Video Player — màu nền `#visualizer-solid-bg` lộ ra) — NGUYÊN NHÂN: `#bg-video` (và `#visual-bg-image` khi
+   vào Video Player mode, xem core/player-display-apply.js::attachVideoPlayerMotionToSharedReactLayer()) nằm TRONG `#video-player-motion-pointmove` có `inset: -2px`
+   (overscan cho Point Move/React Beat), nhưng cả 2 lại tự khai `top:0; left:0; width:100vw; height:100dvh` — TOẠ ĐỘ TÍNH TỪ GÓC (-2px,-2px) của wrapper, nên phủ
+   x∈[-2, W-2], y∈[-2, H-2] => hở đúng 2px ở mép PHẢI + mép DƯỚI (viewport 3x: ~6 pixel vật lý), lộ lớp `#visualizer-solid-bg` (z -3) phía sau. Không liên quan Resolution
+   (cover/fit/stretch/trueMax chỉ đổi object-fit/background-size BÊN TRONG khung, không đổi khung). SỬA: con của wrapper lấp ĐẦY wrapper (`100%` thay `100vw/100dvh`) —
+   wrapper (viewport +2px mỗi phía, bị `.me-beat-react` cắt `overflow:hidden`) nên phủ kín viewport kể cả lúc pan/zoom. Selector 2 ID (đặc hiệu cao hơn `#bg-video` 1 ID);
+   `#visual-bg-image` ở vị trí gốc (anh em, KHÔNG nằm trong wrapper) không bị đụng. */
+#video-player-motion-pointmove > #bg-video,
+#video-player-motion-pointmove > #visual-bg-image { width: 100%; height: 100%; }
+
 /* ===================== Generic Drawer — animation chiều cao + trượt lên/xuống =====================
    [SỬA 20/08/2026, Giang xác nhận] — trượt lên/xuống bằng `transform: translateY()` (JS set
    `style.transform`, xem core/generic-drawer.js — panel có `bottom-0` TĨNH cố định trong class,
