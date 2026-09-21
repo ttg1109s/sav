@@ -42,18 +42,6 @@ const workflowAppPanelNav = {
         this.setActiveTab('media');
     },
 
-    /** Ứng với 'appPanelNav.media.click' — đóng HẲN mọi overlay đang mở rồi về Media. Khác
-     * `activateMedia()` (chỉ tô sáng lại tab, gọi SAU KHI overlay tự đóng xong) — đây là ĐIỂM VÀO
-     * khi Giang chủ động bấm tab Media trong lúc còn đang xem Folder/Storage/Game/Statis/Setting,
-     * nên phải tự đóng overlay đang mở TRƯỚC — ≥2 bước phối hợp (đọc trạng thái từng overlay +
-     * đóng đúng cái đang mở) -> Workflow, không phải core gọi thẳng. */
-    openMedia() {
-        if (!genericDrawerPanel.classList.contains('hidden')) workflowGenericDrawerHelpers.closeFully(); // Folder/Storage/Setting dùng chung Generic Drawer
-        if (!gamePanel.classList.contains('hidden')) hidePlaceholderPanel(gamePanel);
-        if (!statisPanel.classList.contains('hidden')) hidePlaceholderPanel(statisPanel);
-        this.activateMedia();
-    },
-
     /** Ứng với 'appPanelNav.folder.click' — liên tuyến domain (TH2), tái dùng THẲNG hàm ĐÃ CÓ,
      * KHÔNG viết lại (Folder browser vốn đã hoạt động đúng, chỉ đổi NƠI GỌI, xem event/workflow/
      * file-manager-storage.js đợt trước làm mẫu cùng kiểu). */
@@ -91,10 +79,4 @@ const workflowAppPanelNav = {
         workflowStatisPanel.openPanel(); // event/workflow/statis-panel.js
     },
 
-    /** Ứng với 'appPanelNav.setting.click' — liên tuyến domain, tái dùng THẲNG workflowAppSettings
-     * (event/workflow/app-settings.js) — hàm đó tự setActiveTab('setting') bên trong, KHÔNG gọi
-     * lại ở đây (tránh set 2 lần cùng giá trị). */
-    openSetting() {
-        workflowAppSettings.open(); // event/workflow/app-settings.js
-    },
 };

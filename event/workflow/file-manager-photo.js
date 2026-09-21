@@ -311,7 +311,7 @@ const workflowFileManagerPhoto = {
     },
 
     // XOÁ (Giang yêu cầu bỏ "Đặt làm nền Playlist") — setAsPlaylistBackground() (nút header modal
-    // xem ảnh) bỏ hẳn cùng tính năng, không còn entry point nào gọi tới applyBgImage() từ Photo.
+    // xem ảnh) bỏ hẳn cùng tính năng, không còn entry point nào gọi tới applyBgImage() từ Photo (hàm này cũng đã xoá 21/09/2026).
     // XOÁ (loại bỏ Album khỏi Photo Panel) — setAsSlideshowBackground() (nút "Dùng làm nền
     // Slideshow" ở thanh quản lý album) bỏ hẳn — Visual Background mất tuỳ chọn "Nhóm ảnh" tạm
     // thời, sẽ thay bằng Folder Photo (File Browser overhaul, đợt riêng, pending).
