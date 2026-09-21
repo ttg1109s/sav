@@ -252,17 +252,21 @@ const TPL_PLAYLIST_VIEW = `
             <!-- SỬA (10/07/2026, gộp #song-info-modal cũ vào làm tab ĐẦU — phản hồi Giang): 3 tab
                  "Chi tiết" (đọc-thôi, MẶC ĐỊNH/đầu tiên) / "Sửa" (title/artist/album, SỬA được) /
                  "Ảnh bìa" — pill switcher như cũ, chỉ thêm 1 nút. -->
+            <!-- SỬA 21/09/2026 — HTML tĩnh KHÔNG còn nút nào mang sẵn kiểu "đang chọn" (trước đây nút Chi tiết cứng
+                 modalCardBg + textPrimary + shadow -> đụng class bật/tắt bằng JS, chữ trắng trên nền trắng). Cả 3 nút giống hệt
+                 nhau, aria-selected do setSongEditTab() (core/playlist/actions.js) đặt mỗi lần mở/đổi tab; kiểu chọn nằm ở
+                 key theme segmentTabActive. -->
             <div class="flex gap-1 px-5 pt-4">
-                <div class="flex w-full p-1 rounded-xl gap-1" data-uitk="cardBg cardBorder">
-                    <button data-edit-tab="details" class="song-edit-tab-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow" data-uitk="modalCardBg textPrimary">
+                <div class="flex w-full p-1 rounded-xl gap-1" role="tablist" data-uitk="cardBg cardBorder">
+                    <button data-edit-tab="details" role="tab" aria-selected="false" class="song-edit-tab-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all" data-uitk="textSecondary segmentTabActive">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         <span data-i18n="playlistView.songEdit.tabDetails">${t('playlistView.songEdit.tabDetails')}</span>
                     </button>
-                    <button data-edit-tab="fields" class="song-edit-tab-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all" data-uitk="textSecondary">
+                    <button data-edit-tab="fields" role="tab" aria-selected="false" class="song-edit-tab-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all" data-uitk="textSecondary segmentTabActive">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                         <span data-i18n="playlistView.songEdit.tabFields">${t('playlistView.songEdit.tabFields')}</span>
                     </button>
-                    <button id="song-edit-tab-btn-cover" data-edit-tab="cover" class="song-edit-tab-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all" data-uitk="textSecondary">
+                    <button id="song-edit-tab-btn-cover" data-edit-tab="cover" role="tab" aria-selected="false" class="song-edit-tab-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all" data-uitk="textSecondary segmentTabActive">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M4 8h.01M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z" /></svg>
                         <span data-i18n="playlistView.songEdit.tabCover">${t('playlistView.songEdit.tabCover')}</span>
                     </button>
