@@ -83,6 +83,31 @@ const workflowUiTheme = {
         if (token !== this._statusBarSyncToken) return; // đã có lần gọi mới hơn — bỏ kết quả cũ
         applyStatusBarColor(color); // core/ui-theme/status-bar-color.js
         console.log(`writer: "syncStatusBarColor", page: "statusBar", content: "${color || 'theo nền theme'}"`);
+        this._mirrorBootBackdrop(color);
+    },
+
+    /** MỚI (21/09/2026, Giang yêu cầu "nền preload trang của Morphin") — mirror 2 chuỗi CSS vào `localStorage['uiThemeBoot']` cho script preloader
+     * đầu <body> (index.html) đọc ĐỒNG BỘ lần mở app SAU: `preloaderBg` (nền preloader — cùng cách `updatePlaylistBg()` vẽ: gradient/solid ->
+     * `linear-gradient(135deg, from, to)` (solid = from==to nên ra 1 màu), ảnh -> màu mép trên đã lấy mẫu (KHÔNG mirror được chính ảnh: blob nằm
+     * trong IndexedDB, bất đồng bộ), không có nền -> slate-900 = `appBaseBg` Morphin) và `statusBar` (màu status bar, cùng giá trị vừa tô).
+     * Theme khác Morphin -> XOÁ key (preloader Light/Dark dùng nhánh class như cũ). Hex gradient lọc qua regex trước khi ghép vào chuỗi CSS
+     * (giá trị này sẽ được gán thẳng vào `style.background` ở lần mở sau).
+     * @param {string} statusBarColor màu vừa `applyStatusBarColor()` ('' nếu theme không phải Morphin / không có nền) */
+    _mirrorBootBackdrop(statusBarColor) {
+        try {
+            if (appConfigUiTheme.getAll().activeUiTheme !== 'morphin') {
+                localStorage.removeItem('uiThemeBoot');
+                return;
+            }
+            const vizCfg = appConfigViz.getAll();
+            const isHex = (v) => typeof v === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(v);
+            let preloaderBg = '#0f172a'; // slate-900 = appBaseBg (core/ui-theme/morphin.js)
+            if (vizCfg.bgImage) preloaderBg = statusBarColor || preloaderBg;
+            else if (vizCfg.themeMode === 'gradient' && isHex(vizCfg.gradientFrom) && isHex(vizCfg.gradientTo)) preloaderBg = `linear-gradient(135deg, ${vizCfg.gradientFrom}, ${vizCfg.gradientTo})`;
+            localStorage.setItem('uiThemeBoot', JSON.stringify({ preloaderBg, statusBar: statusBarColor || '' }));
+        } catch (e) {
+            console.warn('[ui-theme] Không ghi được localStorage[\'uiThemeBoot\'] (preloader Morphin sẽ dùng nền slate-900) — có thể do Private Mode:', e);
+        }
     },
 
     /** MỚI (21/09/2026) — 2 việc CẤP TRANG (ngoài `data-uitk`) đi kèm MỖI lần theme đổi/khôi phục: (1) `color-scheme`
