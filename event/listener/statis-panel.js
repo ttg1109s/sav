@@ -14,6 +14,12 @@ function handleStatisPanelBodyDelegatedClick(e) {
         return;
     }
 
+    const shareBtn = e.target.closest('.statis-share-btn'); // MỚI 21/09/2026 — nút chuyển cách chia % Media types (lượt phát / thời gian)
+    if (shareBtn) {
+        eventBus.send({ router: 'statisPanel', type: 'statisPanel.shareMode.click', payload: { mode: shareBtn.dataset.shareMode } });
+        return;
+    }
+
     const filterBtn = e.target.closest('.statis-filter-btn');
     if (filterBtn) {
         eventBus.send({ router: 'statisPanel', type: 'statisPanel.filter.click', payload: { type: filterBtn.dataset.filterType } });
