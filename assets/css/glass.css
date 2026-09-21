@@ -31,3 +31,5 @@
    (header dính không "nổi" khỏi panel như modal, bóng 50px sẽ đổ đen xuống nội dung ngay dưới), CHỈ viền dưới (khớp `border-b` tĩnh trên phần tử) chứ không viền 4 phía.
    Blur 40px giữ đủ mạnh để chữ nội dung cuộn phía dưới không đọc xuyên qua được. Có trong danh sách `forceGlassRepaint()` (core/color-utils.js). */
 .uitk-glass-header { background: rgba(255, 255, 255, 0.14); backdrop-filter: blur(40px) saturate(1.7); -webkit-backdrop-filter: blur(40px) saturate(1.7); border-bottom: 1px solid rgba(255, 255, 255, 0.22); text-shadow: 0 1px 3px rgba(0,0,0,0.45); }
+/* MỚI 21/09/2026 (Giang báo "lộ viền ở main playlist") — `.uitk-glass-flush`: đi KÈM `.uitk-glass-surface` (key theme `panelFlushBg` của Morphin) cho panel TOÀN MÀN sát mép màn hình — gỡ viền 1px + bóng trong của surface (viền đó ở panel lơ lửng là đường bo đẹp, nhưng ở panel sát mép nó thành đường sáng dọc mép màn hình và đường kẻ giữa 2 khối liền nhau). KHAI SAU `.uitk-glass-surface` (cùng độ đặc hiệu -> khai sau thắng). Lớp kính (nền trắng 10% + blur) giữ nguyên. */
+.uitk-glass-flush { border: none; box-shadow: none; }
