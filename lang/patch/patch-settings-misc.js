@@ -18,7 +18,6 @@ const LANG_PATCH_SETTINGS_MISC = {
     // này giờ chỉ là lối tắt legacy cho ĐÚNG game 'circle' — danh sách đầy đủ + nhiều game sau này
     // xem Game Panel (App Panel tab "Game", core/gameplay/game-panel-ui.js).
     'settingsMisc.gameMode.label': 'Game Mode',
-    'settingsMisc.openAbout.label': 'About the player',
     'settingsMisc.troubleshootTitle': 'Troubleshooting',
     // MỚI (18/07/2026, Giang yêu cầu — "mục mới Settings > Misc, vào hiện console log").
     'settingsMisc.openDebugConsole.label': 'Debug console',
@@ -46,21 +45,7 @@ const LANG_PATCH_SETTINGS_MISC = {
     // vì core/settings-panel-stack.js (core UI thuần) không được biết gì về `lang/` — xem
     // _buildPanelInnerHtml().
 
-    'aboutDrawer.title': 'About the player',
-    'aboutDrawer.statsSectionTitle': 'Statistics',
-    'aboutDrawer.statTotalSongs': 'Total songs',
-    'aboutDrawer.statTotalDuration': 'Total song length',
-    'aboutDrawer.statListenSeconds': 'Total listening time',
-    'aboutDrawer.storageSectionTitle': 'Storage',
-    'aboutDrawer.openStorage.label': 'Storage Management',
-    'aboutDrawer.openStorage.hint': 'Storage used, free up space, clean up broken files',
-    'aboutDrawer.introSectionTitle': 'About',
-    'aboutDrawer.introBody': 'This player runs entirely in your browser — no server, nothing uploaded. Your music, covers, subtitles, and backgrounds are all stored locally on this device.',
-    'aboutDrawer.warningSectionTitle': 'About stored data',
-    'aboutDrawer.warning.deviceBound': 'Data is tied to <strong class="text-amber-300">this specific browser + device</strong> — it does not sync across other devices or browsers.',
-    'aboutDrawer.warning.osCleanup': 'The OS may auto-clear this data when storage is low, especially on mobile.',
-    'aboutDrawer.warning.offline': '<strong class="text-amber-300">Offline use:</strong> your data is safe, but without internet you can\'t reload the page to open the app and reach it.',
-    'aboutDrawer.warning.recommendation': '<strong class="text-amber-300">Recommendation:</strong> keep your original mp3 files elsewhere too (Google Drive, your computer...). Treat this as a convenient cache, not your primary storage.',
+    // [21/09/2026] Các key `aboutDrawer.*` + `settingsMisc.openAbout.label` ĐÃ XOÁ cùng About drawer (không còn nơi nào dùng).
 
     'storageDrawer.backToAbout.title': 'Back to About',
     'storageDrawer.title': 'Storage Management',

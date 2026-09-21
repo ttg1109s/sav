@@ -106,7 +106,7 @@ const LANG_PATCH_APP_PANEL_NAV = {
 
     'appSettings.system.title': 'System',
     'appSettings.system.theme.label': 'Theme',
-    'appSettings.system.theme.hint': 'Interface colors, background and glass',
+    'appSettings.system.theme.hint': 'Light, dark, or Morphin glass',
     'appSettings.system.gesture.label': 'Gestures',
     'appSettings.system.gesture.hint': 'Swipe, tap, and Control Center shortcuts',
     // SỬA (29/08/2026, phản hồi Giang — "tránh nhầm giữa tên mục Settings với chế độ Playback
@@ -118,7 +118,7 @@ const LANG_PATCH_APP_PANEL_NAV = {
 
     // SỬA 21/09/2026 — nhãn cũ 'Theme' đổi 'Background' (select này điều khiển NỀN phía sau app: sáng/tối/glass, KHÔNG phải màu giao diện) — tránh nhầm với hàng 'Interface' mới ngay trên nó.
     'appSettings.theme.select.label': 'Background',
-    'appSettings.theme.uiTheme.label': 'Interface',
+    'appSettings.theme.uiTheme.label': 'Color',
     'appSettings.theme.uiTheme.option.light': 'Light',
     'appSettings.theme.uiTheme.option.dark': 'Dark',
     'appSettings.theme.uiTheme.option.morphin': 'Morphin',

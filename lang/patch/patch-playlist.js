@@ -18,11 +18,13 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.btnSettings.title': 'Settings',
     'playlistView.search.placeholder': 'Search songs, artists, albums...',
     // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — placeholder RIÊNG cho Video
-    // (không có artist/album để tìm) — đổi qua JS khi Nguồn đổi, xem switchSource()
-    // (event/workflow/playlist.js).
-    'playlistView.search.placeholderVideo': 'Search videos...',
-    // MỚI (hợp nhất Photo vào Playlist) — cùng cơ chế, Photo cũng không có artist/album để tìm.
-    'playlistView.search.placeholderPhoto': 'Search photos...',
+    // — đổi qua JS khi Nguồn đổi, xem switchSource() (event/workflow/playlist.js).
+    // SỬA 21/09/2026 (Giang yêu cầu) — Video/Photo giờ CÓ field Album (adapter `tag.album`, core/playlist/loader.js) và ô tìm kiếm
+    // đã lọc theo album cho cả 2 (event/workflow/playlist-order.js -> songMatchesQuery) — placeholder phải nói rõ "albums" (Video/Photo
+    // vẫn KHÔNG có artist để tìm nên không ghi artists như Song).
+    'playlistView.search.placeholderVideo': 'Search videos, albums...',
+    // MỚI (hợp nhất Photo vào Playlist) — cùng cơ chế, Photo cũng tìm được theo album.
+    'playlistView.search.placeholderPhoto': 'Search photos, albums...',
     'playlistView.search.clear.title': 'Clear search',
     // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 3) — badge tên folder đang Scope, xem
     // components/playlist-view.js.
