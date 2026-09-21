@@ -43,7 +43,7 @@
  */
 function buildGamePanelListHtml(games, armedGameId, gameplayPhase, difficultyByGameId, t) {
     if (games.length === 0) {
-        return `<p class="text-sm text-slate-400 text-center py-14" data-i18n="gamePanel.comingSoon">${t('gamePanel.comingSoon')}</p>`;
+        return `<p class="text-sm text-center py-14" data-uitk="emptyStateText" data-i18n="gamePanel.comingSoon">${t('gamePanel.comingSoon')}</p>`;
     }
 
     const difficultyLocked = armedGameId != null;
@@ -64,7 +64,7 @@ function buildGamePanelListHtml(games, armedGameId, gameplayPhase, difficultyByG
             ? `<button type="button" class="game-card-exit-btn shrink-0 w-11 h-11 rounded-full flex items-center justify-center bg-rose-500/90 hover:bg-rose-500 text-white shadow-lg shadow-rose-500/20 transition-colors" data-game-id="${game.id}" aria-label="${t('gamePanel.card.exit')}">` +
                 `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>` +
                 `</button>`
-            : `<button type="button" class="game-card-play-btn shrink-0 w-11 h-11 rounded-full flex items-center justify-center transition-colors ${isLocked ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-sky-500 hover:bg-sky-400 text-white shadow-lg shadow-sky-500/20'}" data-game-id="${game.id}" ${isLocked ? 'disabled' : ''} aria-label="${t('gamePanel.card.play')}" ${isLocked ? `title="${t('gamePanel.card.lockedHint')}" data-i18n-title="gamePanel.card.lockedHint"` : ''}>` +
+            : `<button type="button" class="game-card-play-btn shrink-0 w-11 h-11 rounded-full flex items-center justify-center transition-colors ${isLocked ? 'cursor-not-allowed' : 'shadow-lg shadow-sky-500/20'}" data-uitk="${isLocked ? 'btnNeutralBg textMutedIcon' : 'btnPrimaryPillBg btnPrimaryPillHoverBg textOnAccent'}" data-game-id="${game.id}" ${isLocked ? 'disabled' : ''} aria-label="${t('gamePanel.card.play')}" ${isLocked ? `title="${t('gamePanel.card.lockedHint')}" data-i18n-title="gamePanel.card.lockedHint"` : ''}>` +
                 `<svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 ml-0.5"><path d="M8 5v14l11-7z"/></svg>` +
                 `</button>`;
 
