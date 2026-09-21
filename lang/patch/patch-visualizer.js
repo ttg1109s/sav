@@ -361,6 +361,10 @@ const LANG_PATCH_VISUALIZER = {
 
     'visualizerSettingsDrawer.connectorStyle.synapse': 'Synapse',
     'visualizerSettingsDrawer.connectorStyle.circuit': 'Circuit',
+    'visualizerSettingsDrawer.connectorStyle.brain': 'Brain filter',
+    'customEffectDrawer.field.brainInputCount': 'Input signals',
+    'customEffectDrawer.field.brainSpeedBase': 'Flow speed',
+    'customEffectDrawer.field.brainSpeedEnergyMult': 'Flow speed (energy boost)',
     'customEffectDrawer.field.connectorGlowEnabled': 'Glow',
     'customEffectDrawer.field.connectorGlowIntensity': 'Glow intensity',
     'customEffectDrawer.field.bloomStrengthBase': 'Bloom strength',
