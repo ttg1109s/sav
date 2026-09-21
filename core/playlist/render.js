@@ -37,8 +37,9 @@
             // (tham số MỚI — nơi gọi tự truyền `appState.get('isGridView')`): List view (false) nút
             // nằm trực tiếp trên nền sáng -> icon tối; Grid view (true) nút nằm trong vòng tròn tối
             // ở trên -> icon vẫn phải sáng.
-            const colorCls = onDarkBg ? 'text-white/70 hover:text-white' : 'text-slate-400 hover:text-slate-700';
-            return `<button data-action="menu" data-key="${key}" class="p-2 rounded-full transition-colors z-10 ${colorCls}" title="${t('playlistView.songMenu.title')}">
+            const colorCls = onDarkBg ? 'text-white/70 hover:text-white' : ''; // trên nền tối cố định (vòng tròn đen đè ảnh bìa) — không theo theme
+            const themeKeyAttr = onDarkBg ? '' : ' data-uitk="iconBtnMuted"'; // SỬA 21/09/2026 — nền theo theme: màu icon/hover là key theme, không còn text-slate-400/700 cứng
+            return `<button data-action="menu" data-key="${key}" class="p-2 rounded-full transition-colors z-10 ${colorCls}"${themeKeyAttr} title="${t('playlistView.songMenu.title')}">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 6a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg>
             </button>`;
         }
@@ -90,7 +91,7 @@
          * cho đợt dọn nợ kỹ thuật riêng (xem core-legacy-audit.md).
          */
         function selectionIndicatorHtml(isSelected) {
-            return `<div class="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-sky-500 border-sky-500' : 'bg-black/30 border-white/30'}">${isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : ''}</div>`;
+            return `<div class="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'border-transparent' : 'bg-black/30 border-white/30'}"${isSelected ? ' data-uitk="btnPrimaryPillBg"' : ''}>${isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : ''}</div>`;
         }
 
         /** MỚI (09/09/2026, Giang yêu cầu "gộp nút icon visualizer riêng vào nút Phát to") — đồng bộ
