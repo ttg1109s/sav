@@ -24,12 +24,19 @@
  * handleVideoPlayerEnded() bên dưới), event/workflow/playlist-scope.js
  * (`applyFolderScope()`/`applyAllSongsScope()` — dùng ở refreshVideoPlaylistIfActive() bên dưới).
  */
+// Khoảng cách tối thiểu (giây) giữ lại trước cuối video khi người dùng kéo/nhả thanh seek tới sát/đúng
+// duration — xem `_clampSeekTarget()`. Seek KHÔNG được đặt currentTime chạm EOF (làm `ended` bắn theo
+// ĐƯỜNG SEEK thay vì do video THẬT SỰ phát hết, tuỳ engine; và `play()` từ đúng EOF có thể restart về 0).
+const VIDEO_SEEK_END_GUARD_SEC = 0.05;
+
 const workflowVideoPlayer = {
     _objectUrl: null, // object URL HIỆN TẠI đang gán cho bgVideoElement (revoke trước khi tạo url mới)
     _thumbObjectUrl: null, // object URL của thumbBlob HIỆN TẠI (poster + cover ở player bar, #record-container) — revoke trước khi tạo url mới
     _forcedBgObjectUrl: null, // object URL của thumbFullBlob đang chèn cưỡng chế vào #visual-bg-image (xem swapBgVideoSource()) — revoke trước khi tạo url mới
     _swapReadyPromise: null, // Promise đợi 'playing' (hoặc timeout) của lần swapBgVideoSource() gần nhất — xem waitBgVideoReady()
     _wasPlayingBeforeSeek: false, // trạng thái play/pause NGAY TRƯỚC lúc bắt đầu kéo tay thanh seek — xem handleVideoSeeking()/handleVideoSeekCommit()
+    _mediaGeneration: 0, // tăng 1 mỗi lần `swapBgVideoSource()` BẮT ĐẦU (chốt chặn DUY NHẤT mọi lần đổi src của bgVideoElement) — mốc để biết 1 phiên seek đã thuộc về media CŨ hay chưa. KHÔNG dùng `currentKey`: nó chỉ đổi SAU `waitBgVideoReady()`, còn 1 khoảng hở suốt lúc swap.
+    _seekGeneration: null, // giá trị `_mediaGeneration` LÚC phiên kéo tay hiện tại bắt đầu (null = không có phiên) — lệch `_mediaGeneration` = phiên cũ, media đã đổi giữa lúc kéo, xem handleVideoSeeking()/handleVideoSeekCommit()
 
     /**
      * Nạp `videoKey` vào `bgVideoElement` — CƠ CHẾ SWAP DUY NHẤT, DÙNG CHUNG giữa Video Player mode
@@ -89,6 +96,7 @@ const workflowVideoPlayer = {
      * @returns {Promise<object|null>} record đã đọc (null nếu không tồn tại — caller tự lo, KHÔNG throw).
      */
     async swapBgVideoSource(videoKey, isTransition = false, beforePlay = null, hideUntilReady = false, skipAutoplay = false, direction = 'next') {
+        this._mediaGeneration++; // MỚI (21/09/2026) — vô hiệu hoá mọi phiên seek đang treo của media CŨ, xem handleVideoSeekCommit()
         bgVideoElement.pause(); // (1) đứng hình NGAY — CHƯA đụng src, khung hình cũ giữ nguyên
         const record = await getVideoRecord(videoKey); // (2) service/db.js — trong lúc đợi, màn hình vẫn đứng yên ở khung hình cũ
         if (!record) return null;
@@ -621,10 +629,16 @@ const workflowVideoPlayer = {
     handleVideoSeeking(value) {
         if (!appState.get('isSeeking')) {
             this._wasPlayingBeforeSeek = !bgVideoElement.paused;
+            this._seekGeneration = this._mediaGeneration;
             bgVideoElement.pause();
             appState.set('isSeeking', true);
+            console.log(`writer: "workflowVideoPlayer.handleVideoSeeking", page: "isSeeking", content: "true"`);
         }
-        bgVideoElement.currentTime = value; // scrub hình theo từng nhịp kéo
+        // Phiên kéo này bắt đầu ở media CŨ, giữa chừng media đã đổi (ended -> auto-next, bấm Next...) —
+        // BỎ QUA tick còn lại, không scrub nhầm lên video mới. `isSeeking` vẫn true tới khi thả tay
+        // (handleVideoSeekCommit() dọn), thanh tiến trình video mới chỉ tạm đứng tới lúc đó.
+        if (this._seekGeneration !== this._mediaGeneration) return;
+        bgVideoElement.currentTime = this._clampSeekTarget(value); // scrub hình theo từng nhịp kéo
         currentTimeDisplay.textContent = formatTime(value);
         updateProgressBarCSS(); // core/visualizer/visualizer-display.js
     },
@@ -632,12 +646,34 @@ const workflowVideoPlayer = {
     /** Ứng với 'playerControls.progressBar.seekCommit' khi `isVideoPlayerMode=true` — thả tay,
      * commit vị trí cuối cùng + resume phát lại NẾU trước lúc kéo đang phát (không tự ý phát nếu
      * người dùng đã chủ động pause từ trước — xem `handleVideoSeeking()`).
+     *
+     * [SỬA 21/09/2026 — race "kéo seek video A tới cuối -> B nhảy tới cùng mốc"] Sự kiện `change`
+     * của thanh seek tới TRỄ hơn `ended` -> auto-next -> `swapBgVideoSource(B)`, mà `bgVideoElement`
+     * là MỘT phần tử dùng chung cho A và B nên lệnh ghi `currentTime` của phiên A rơi nhầm lên B.
+     * Giờ mỗi phiên kéo gắn với `_mediaGeneration` lúc bắt đầu — media đã đổi giữa chừng thì chỉ dọn
+     * `isSeeking`, KHÔNG đụng currentTime/play của video mới. `null` (không có phiên — commit tới mà
+     * chưa từng có 'seeking' ở nhánh Video) cũng coi như phiên cũ: không có gì hợp lệ để commit.
      * @param {number} value
      */
     handleVideoSeekCommit(value) {
-        bgVideoElement.currentTime = value;
+        const isStaleSession = this._seekGeneration !== this._mediaGeneration;
+        this._seekGeneration = null;
         appState.set('isSeeking', false);
+        console.log(`writer: "workflowVideoPlayer.handleVideoSeekCommit", page: "isSeeking", content: "false${isStaleSession ? ' (phiên cũ — bỏ qua commit)' : ''}"`);
+        if (isStaleSession) return;
+        bgVideoElement.currentTime = this._clampSeekTarget(value);
         if (this._wasPlayingBeforeSeek) bgVideoElement.play().catch((err) => console.error('[workflowVideoPlayer] bgVideoElement.play() lỗi sau seek:', err));
+    },
+
+    /** Kẹp mốc seek tới sát/đúng cuối video về `duration - VIDEO_SEEK_END_GUARD_SEC` — seek KHÔNG
+     * được đặt currentTime chạm EOF: `ended` phải là tín hiệu video THẬT SỰ chạy hết (playback),
+     * không phải hệ quả của lệnh seek. Nhả tay ở cuối lúc đang phát -> video chạy nốt phần còn lại,
+     * tự bắn `ended` -> `handleMediaEnded()` -> next như thường. duration chưa biết -> giữ nguyên.
+     * @param {number} value @returns {number} */
+    _clampSeekTarget(value) {
+        const duration = bgVideoElement.duration;
+        if (!Number.isFinite(duration) || duration <= 0) return value;
+        return Math.min(value, Math.max(0, duration - VIDEO_SEEK_END_GUARD_SEC));
     },
 
     // [SỬA — Game Mode + Video Player mode, xử lý triệt để] `handleVideoPlayerEnded()` ĐÃ XOÁ
