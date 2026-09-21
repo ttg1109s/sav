@@ -385,7 +385,7 @@
     <script src="lang/patch/patch-video-preview.js?v=20260803v1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — bottom nav + panel Photo/Game/Statis/Setting
          mới, xem lang/patch/patch-app-panel-nav.js. -->
-    <script src="lang/patch/patch-app-panel-nav.js?v=20260921v7"></script>
+    <script src="lang/patch/patch-app-panel-nav.js?v=20260921v8"></script>
     <script src="lang/lang.js?v=20260731v1"></script>
 
     <!-- =====================================================================
@@ -775,7 +775,7 @@
     <!-- Statis Panel (App Panel tab "Statis", stat-grid + so sánh + Top list — MỚI, Giang yêu cầu
          "tích hợp 1+2+3") — CHỈ dựng chuỗi HTML (không phụ thuộc DOM/appState tại thời điểm nạp),
          đặt cạnh game-panel-ui.js cho cùng nhóm "Core-ui panel App Panel". -->
-    <script src="core/statis-panel-ui.js?v=20260921v6"></script>
+    <script src="core/statis-panel-ui.js?v=20260921v7"></script>
     <!-- HUD Volume + Speed (icon loa 5 mốc, badge tốc độ 5 nấc) — event/workflow/hud.js. -->
     <script src="core/hud.js?v=20260918v1"></script>
     <!-- Core THUẦN domain "Visual Background" — tách 3 file: common (type/list/màu nền), video,
@@ -1246,9 +1246,9 @@
          cạnh nhau vì cùng nhóm "panel App Panel có nghiệp vụ thật"). event/workflow/app-panel-nav.js
          ::openStatis() gọi workflowStatisPanel.openPanel() dù file đó KHAI BÁO SỚM HƠN — an toàn vì
          là lời gọi lúc RUNTIME, CÙNG lý do openGame() đã ghi chú ngay trên. -->
-    <script src="event/workflow/statis-panel.js?v=20260921v3"></script>
-    <script src="event/router/statis-panel.js?v=20260911v1"></script>
-    <script src="event/listener/statis-panel.js?v=20260911v1"></script>
+    <script src="event/workflow/statis-panel.js?v=20260921v4"></script>
+    <script src="event/router/statis-panel.js?v=20260921v1"></script>
+    <script src="event/listener/statis-panel.js?v=20260921v1"></script>
     <script src="event/workflow/player-controls.js?v=20260915v1"></script>
     <script src="event/router/player-controls.js?v=20260819v1"></script>
     <script src="event/listener/player-controls.js?v=20260708v1"></script>
