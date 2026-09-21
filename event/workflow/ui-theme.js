@@ -17,6 +17,11 @@
  * core/ui-theme/apply-ui.js (applyUiThemeToDom), core/config.js (appConfigUiTheme, DEFAULT_UI_THEME_CONFIG),
  * service/db.js (getMeta/setMeta).
  */
+/** MỚI (21/09/2026) — `color-scheme` CSS theo theme đang active: báo trình duyệt vẽ đúng thanh cuộn, popup của
+ * `<select>`, ô nhập màu, caret... theo sáng/tối (mặc định luôn 'light' -> Dark còn popup select trắng chói).
+ * Bảng theo TÊN theme (không đoán từ màu). Morphin chưa thiết kế -> 'light'. */
+const UI_THEME_COLOR_SCHEME = { light: 'light', dark: 'dark', morphin: 'light' };
+
 const workflowUiTheme = {
 
     /**
@@ -40,6 +45,21 @@ const workflowUiTheme = {
         const keyList = resolveUiThemeKeyList(safeThemeName); // core/ui-theme/registry.js
         setActiveUiThemeKeyList(keyList); // core/ui-theme/apply-ui.js — DÙNG CHUNG (không chỉ Generic Drawer nữa) — để lần mở/vẽ lại Drawer TIẾP THEO dùng ĐÚNG theme mới, không cần đợi user tự đóng/mở lại
         applyUiThemeToDom(document, keyList); // core/ui-theme/apply-ui.js
+        this._applyPageLevelTheme(safeThemeName);
+    },
+
+    /** MỚI (21/09/2026) — 2 việc CẤP TRANG (ngoài `data-uitk`) đi kèm MỖI lần theme đổi/khôi phục: (1) `color-scheme`
+     * của <html> (xem UI_THEME_COLOR_SCHEME); (2) mirror tên theme vào `localStorage['uiThemeName']` cho script
+     * preloader đầu <body> index.html đọc ĐỒNG BỘ (preloader chạy TRƯỚC mọi file JS, không đợi được IndexedDB) — trước
+     * đây phần mirror này chỉ nằm ở bản sao lạc chỗ `event/ui-theme.js` (KHÔNG được nạp) nên preloader chưa bao giờ
+     * nhận 'dark'. try/catch — Safari Private Mode chặn localStorage vẫn không được làm vỡ luồng đổi theme chính. */
+    _applyPageLevelTheme(themeName) {
+        document.documentElement.style.colorScheme = UI_THEME_COLOR_SCHEME[themeName] || 'light';
+        try {
+            localStorage.setItem('uiThemeName', themeName);
+        } catch (e) {
+            console.warn('[ui-theme] Không ghi được localStorage[\'uiThemeName\'] (preloader sẽ dùng mặc định Light) — có thể do Private Mode:', e);
+        }
     },
 
     /** Khôi phục theme đã lưu bền LÚC BOOT + áp vào DOM — gọi từ event/workflow/app-boot.js, CÙNG
@@ -51,8 +71,10 @@ const workflowUiTheme = {
             appConfigUiTheme.mutateAll((cfg) => Object.assign(cfg, saved)); // core/config.js
             console.log(`writer: "loadPersistedUiThemeOnBoot", page: "uiTheme.activeUiTheme", content: "khôi phục từ meta.uiThemeConfig"`);
         }
-        const keyList = resolveUiThemeKeyList(appConfigUiTheme.getAll().activeUiTheme); // core/ui-theme/registry.js
+        const activeThemeName = UI_THEME_SELECTABLE_NAMES.includes(appConfigUiTheme.getAll().activeUiTheme) ? appConfigUiTheme.getAll().activeUiTheme : UI_THEME_DEFAULT_NAME; // core/ui-theme/registry.js — tên lạ/không cho chọn -> Light, khớp resolveUiThemeKeyList()
+        const keyList = resolveUiThemeKeyList(activeThemeName); // core/ui-theme/registry.js
         setActiveUiThemeKeyList(keyList); // core/ui-theme/apply-ui.js — DÙNG CHUNG (không chỉ Generic Drawer nữa)
         applyUiThemeToDom(document, keyList); // core/ui-theme/apply-ui.js
+        this._applyPageLevelTheme(activeThemeName);
     },
 };

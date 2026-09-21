@@ -121,19 +121,19 @@ const workflowAppSettings = {
             headerHtml: `
                 <div class="relative flex items-center justify-center px-14 py-3 border-b" data-uitk="dividerBorder">
                     ${hasBack ? `
-                    <button id="btn-app-settings-back" class="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full text-slate-600" data-uitk="cardHoverBg">
+                    <button id="btn-app-settings-back" class="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full" data-uitk="cardHoverBg headerCloseIcon">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
                     </button>` : ''}
-                    <h3 class="text-base font-bold text-slate-900 truncate text-center">${title}</h3>
+                    <h3 class="text-base truncate text-center" data-uitk="headerTitle">${title}</h3>
                     <div class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
                         ${extraHeaderHtml || ''}
-                        <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-600" data-uitk="cardHoverBg">
+                        <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full" data-uitk="cardHoverBg headerCloseIcon">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                     </div>
                 </div>
             `,
-            bodyHtml: `<div class="text-slate-900 p-4">${bodyHtml}</div>`,
+            bodyHtml: `<div class="p-4" data-uitk="textPrimary">${bodyHtml}</div>`,
             bodyClass: 'overflow-y-auto',
         };
         if (genericDrawerPanel.classList.contains('hidden')) openGenericDrawer(config); else updateGenericDrawer(config); // core/generic-drawer.js
@@ -328,8 +328,15 @@ const workflowAppSettings = {
         const bodyHtml = `
             <div class="flex flex-col gap-2">
                 <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
+                    <!-- MỚI 21/09/2026 — màu GIAO DIỆN (UI Theme Light/Dark, core/ui-theme/*) — KHÁC hàng "Background" ngay dưới (viz.themeMode: nền phía sau app). Danh sách lấy từ registry (getSelectableUiThemeNames), không tự liệt kê tay. -->
+                    <div class="flex justify-between items-center px-4 py-3.5 border-b" data-uitk="dividerBorder">
+                        <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${t('appSettings.theme.uiTheme.label')}</span>
+                        <select id="app-settings-ui-theme-select" class="rounded-lg px-2 py-1.5 text-xs outline-none w-40 text-right" data-uitk="inputBg inputBorder inputText">
+                            ${getSelectableUiThemeNames().map((name) => `<option value="${name}">${t('appSettings.theme.uiTheme.option.' + name)}</option>`).join('')}
+                        </select>
+                    </div>
                     <div class="flex justify-between items-center px-4 py-3.5 ${isGlass ? '' : ''} border-b" data-uitk="dividerBorder">
-                        <span class="text-sm font-semibold text-slate-700 truncate">${t('appSettings.theme.select.label')}</span>
+                        <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${t('appSettings.theme.select.label')}</span>
                         <select id="app-settings-theme-select" class="rounded-lg px-2 py-1.5 text-xs outline-none w-40 text-right" data-uitk="inputBg inputBorder inputText">
                             <option value="light">${t('appSettings.theme.select.light')}</option>
                             <option value="dark">${t('appSettings.theme.select.dark')}</option>
@@ -338,7 +345,7 @@ const workflowAppSettings = {
                     </div>
                     <div id="app-settings-theme-glass-row" class="${isGlass ? '' : 'hidden'} flex-col">
                         <div class="flex justify-between items-center px-4 py-3.5 border-b" data-uitk="dividerBorder">
-                            <span class="text-sm font-semibold text-slate-700 truncate">${t('appSettings.theme.glassType.label')}</span>
+                            <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${t('appSettings.theme.glassType.label')}</span>
                             <select id="app-settings-theme-glass-type" class="rounded-lg px-2 py-1.5 text-xs outline-none w-40 text-right" data-uitk="inputBg inputBorder inputText">
                                 <option value="solid">${t('appSettings.theme.glassType.solid')}</option>
                                 <option value="gradient">${t('appSettings.theme.glassType.gradient')}</option>
@@ -346,25 +353,28 @@ const workflowAppSettings = {
                             </select>
                         </div>
                         <div id="app-settings-theme-solid-row" class="${glassType === 'solid' ? '' : 'hidden'} flex justify-between items-center px-4 py-3.5">
-                            <span class="text-sm font-semibold text-slate-700 truncate">${t('appSettings.theme.solidColor.label')}</span>
-                            <div class="w-8 h-8 rounded-full border border-slate-300 overflow-hidden shrink-0"><input type="color" id="app-settings-theme-solid-color" class="w-10 h-10 -m-1 cursor-pointer"></div>
+                            <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${t('appSettings.theme.solidColor.label')}</span>
+                            <div class="w-8 h-8 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" id="app-settings-theme-solid-color" class="w-10 h-10 -m-1 cursor-pointer"></div>
                         </div>
                         <div id="app-settings-theme-gradient-row" class="${glassType === 'gradient' ? '' : 'hidden'} flex justify-between items-center px-4 py-3.5">
-                            <span class="text-sm font-semibold text-slate-700 truncate">${t('settingsTheme.gradient.label')}</span>
+                            <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${t('settingsTheme.gradient.label')}</span>
                             <div class="flex items-center gap-2">
-                                <div class="w-8 h-8 rounded-full border border-slate-300 overflow-hidden shrink-0"><input type="color" id="app-settings-theme-gradient-from" class="w-10 h-10 -m-1 cursor-pointer"></div>
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                                <div class="w-8 h-8 rounded-full border border-slate-300 overflow-hidden shrink-0"><input type="color" id="app-settings-theme-gradient-to" class="w-10 h-10 -m-1 cursor-pointer"></div>
+                                <div class="w-8 h-8 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" id="app-settings-theme-gradient-from" class="w-10 h-10 -m-1 cursor-pointer"></div>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                                <div class="w-8 h-8 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" id="app-settings-theme-gradient-to" class="w-10 h-10 -m-1 cursor-pointer"></div>
                             </div>
                         </div>
-                        <div id="app-settings-theme-image-row" class="${glassType === 'image' ? '' : 'hidden'} px-4 py-3.5 text-xs text-slate-500">
-                            ${t('settingsTheme.background')} — <button type="button" id="app-settings-theme-image-pick" class="text-sky-600 font-semibold underline">${t('common.btn.upload')}</button>
+                        <div id="app-settings-theme-image-row" class="${glassType === 'image' ? '' : 'hidden'} px-4 py-3.5 text-xs" data-uitk="textSecondary">
+                            ${t('settingsTheme.background')} — <button type="button" id="app-settings-theme-image-pick" class="font-semibold underline" data-uitk="accentText">${t('common.btn.upload')}</button>
                         </div>
                     </div>
                 </div>
             </div>
         `;
         this._render(t('appSettings.system.theme.label'), bodyHtml, (body) => {
+            const uiThemeSelect = body.querySelector('#app-settings-ui-theme-select');
+            const activeUiTheme = appConfigUiTheme.getAll().activeUiTheme; // core/config.js
+            uiThemeSelect.value = getSelectableUiThemeNames().includes(activeUiTheme) ? activeUiTheme : UI_THEME_DEFAULT_NAME; // core/ui-theme/registry.js — tên lạ/không cho chọn -> Light (khớp theme THẬT đang áp)
             const modeSelect = body.querySelector('#app-settings-theme-select');
             modeSelect.value = isGlass ? 'glass' : cfg.themeMode;
             const solidColorInput = body.querySelector('#app-settings-theme-solid-color');
