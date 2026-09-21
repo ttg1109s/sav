@@ -706,8 +706,17 @@ const workflowVideoPlayer = {
      * `isSeeking`, KHÔNG đụng currentTime/play của video mới. `null` (không có phiên — commit tới mà
      * chưa từng có 'seeking' ở nhánh Video) cũng coi như phiên cũ: không có gì hợp lệ để commit.
      * @param {number} value
+     * @param {boolean} [isGesture] - true = từ seek-hold (không có phiên kéo), xem đầu hàm
      */
-    handleVideoSeekCommit(value) {
+    handleVideoSeekCommit(value, isGesture = false) {
+        // [MỚI 21/09/2026] Seek-hold (cử chỉ giữ tay) đi CÙNG message nhưng KHÔNG có phiên kéo: không có 'seeking' trước -> `_seekGeneration`
+        // luôn null -> nhánh dưới coi là "phiên cũ" và bỏ qua hẳn (lỗi "cử chỉ seek không có tác dụng ở Video"). Cử chỉ đã tự pause media
+        // (`_activateSeekHold()`) và tự resume ở `_stopSeekHold()` -> ở đây CHỈ seek chính xác, `resumeAfter=false` (KHÔNG dùng
+        // `_wasPlayingBeforeSeek` — đó là của lần kéo thanh trước, sẽ tự play() giữa lúc đang giữ tay).
+        if (isGesture) {
+            workflowPlayerControls.runGatedSeek(bgVideoElement, this._clampSeekTarget(Number(value)), false, VIDEO_SEEK_VERIFY_TOLERANCE_SEC); // event/workflow/player-controls.js
+            return;
+        }
         const isStaleSession = this._seekGeneration !== this._mediaGeneration;
         this._seekGeneration = null;
         this._resetScrubSeek(); // huỷ lệnh scrub đang bay/chờ — mốc CUỐI do runGatedSeek() bên dưới lo

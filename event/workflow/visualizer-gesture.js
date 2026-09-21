@@ -306,7 +306,10 @@ const workflowVisualizerGesture = {
         const stepSec = (appConfigViz.getAll().gestureSeekStepMs || 2000) / 1000; // Time 1 — đơn vị nhảy
         const targetSec = currentSec + this._seekHoldDirection * stepSec;
         const { clampedSec, hitBoundary } = clampSeekPosition(targetSec, durationSec); // core/visualizer-gesture.js
-        eventBus.send({ router: 'playerControls', type: 'playerControls.progressBar.seekCommit', payload: { value: clampedSec } });
+        // SỬA 21/09/2026 — `fromGesture: true`: nhánh Video của router KHÔNG có "phiên kéo" nào cho cử chỉ (không có 'seeking' trước), bản cũ bị
+        // `handleVideoSeekCommit()` coi là phiên cũ (`_seekGeneration` null) nên bỏ qua hẳn -> seek-hold ở Video không làm gì. Cờ này cho nó
+        // đi nhánh riêng (media đã bị `_activateSeekHold()` pause, seek chính xác + KHÔNG tự play() — `_stopSeekHold()` lo resume).
+        eventBus.send({ router: 'playerControls', type: 'playerControls.progressBar.seekCommit', payload: { value: clampedSec, fromGesture: true } });
 
         this._seekHoldTotalSec += stepSec;
         const sign = this._seekHoldDirection > 0 ? '+' : '-';
