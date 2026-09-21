@@ -4,10 +4,10 @@
  * phía dưới là nền cam của Morphin).
  *
  * NGUYÊN NHÂN — viewport-fit=cover ĐÃ BỎ HẲN (xem <meta viewport> index.html), nên app KHÔNG vẽ được xuống dưới status
- * bar; vùng đó iOS tự tô bằng nền của trang (`<html>`/`<body>`). Với Morphin, nền đó là `appBaseBg` = slate-900 ĐẶC
+ * bar; vùng đó iOS tự tô bằng nền của trang (nền `<body>` được đẩy lên canvas). Với Morphin, nền đó là `appBaseBg` = slate-900 ĐẶC
  * (core/ui-theme/morphin.js) — trong khi nền THẬT người dùng thấy là ảnh/gradient vẽ trong `#app-bg-image`
  * (core/color-utils.js::updatePlaylistBg()). CSS thuần không nối được 2 thứ này (nền ảnh/gradient do người dùng chọn
- * lúc chạy) nên cần tính 1 MÀU ĐẶC đại diện cho "mép trên" của nền thật rồi tô lên `<html>`/`<body>`/`theme-color`.
+ * lúc chạy) nên cần tính 1 MÀU ĐẶC đại diện cho "mép trên" của nền thật rồi tô lên `<body>`/`theme-color` (CHỈ body, không `<html>` — xem applyStatusBarColor()).
  *
  * 3 hàm, MỖI hàm ĐÚNG 1 việc (Rule 1) — việc CHỌN hàm nào theo theme/mode (gradient hay ảnh hay không có nền) là của
  * Workflow (event/workflow/ui-theme.js::syncStatusBarColor()), không nằm ở đây. Rule 2: không đọc appState/appConfig,
@@ -84,13 +84,17 @@ function sampleImageTopEdgeColor(imageUrl, viewportW, viewportH, overlayAlpha) {
     });
 }
 
-/** DOM — tô màu status bar: gán `background-color` inline lên `<html>` VÀ `<body>` (iOS suy màu vùng đó từ nền trang;
- * gán cả 2 cho chắc — `<body>` bị `#app-stack` (fixed, inset-0) phủ kín nên không lộ ở đâu khác) + cập nhật cả 3 thẻ
+/** DOM — tô màu status bar: gán `background-color` inline lên `<body>` (KHÔNG gán lên `<html>`) + cập nhật cả 3 thẻ
  * `<meta name="theme-color">` (index.html khai 3 thẻ, 1 số bản Safari chỉ áp thẻ có scope color-scheme). `color` rỗng ->
  * gỡ inline (trả về màu nền theo class `appBaseBg` của theme đang chạy) + theme-color về #000000 như index.html khai gốc.
+ *
+ * SỬA (21/09/2026, Giang báo "mất video/photo player") — bản trước gán CẢ `<html>` lẫn `<body>`, và đó là LỖI: khi `<html>` KHÔNG có
+ * nền, nền của `<body>` được đẩy lên canvas (propagation) và KHÔNG vẽ thành hộp riêng của body; nhưng ngay khi `<html>` có nền inline,
+ * body phải TỰ vẽ nền của nó — mà body nằm TRÊN mọi phần tử z-index ÂM trong root stacking context, nên che mất `#visualizer-solid-bg`
+ * (z -3), `#visual-bg-image` (z -2), lớp motion (z -1) = nền video/ảnh của Visualizer (assets/css/base.css). Chỉ gán `<body>` giữ đúng cơ chế
+ * cũ (body class `appBaseBg` vốn cũng đi qua propagation): canvas nhận màu -> status bar iOS đổi màu, các lớp z âm vẫn hiện.
  * @param {string} color  'rgb(...)'/'#rrggbb' hoặc '' để gỡ */
 function applyStatusBarColor(color) {
-    document.documentElement.style.backgroundColor = color;
     document.body.style.backgroundColor = color;
     const themeColorValue = color || '#000000';
     document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => meta.setAttribute('content', themeColorValue));
