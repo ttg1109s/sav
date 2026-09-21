@@ -262,12 +262,12 @@
                 panels[name].classList.toggle('hidden', !isActive);
                 panels[name].classList.toggle('flex', isActive && name === 'cover'); // CHỈ tab cover cần flex (ảnh + nút cạnh nhau), 2 tab còn lại flex-col mặc định trong class tĩnh
             });
+            // SỬA 21/09/2026 — CHỈ đặt `aria-selected`; kiểu "đang chọn" do key theme `segmentTabActive` (variant
+            // `aria-selected:`) lo. TRƯỚC ĐÂY bật/tắt `bg-white/10`/`text-white`/`shadow`/`text-slate-400` bằng JS —
+            // các class màu này ĐỤNG class `data-uitk` (nền trắng + chữ slate), trong CSS `text-white` và `bg-white/10`
+            // sinh SAU nên thắng -> tab đang chọn chữ TRẮNG trên nền gần như trắng (tương phản thấp).
             songEditTabButtons.forEach(btn => {
-                const active = btn.dataset.editTab === tab;
-                btn.classList.toggle('bg-white/10', active);
-                btn.classList.toggle('text-white', active);
-                btn.classList.toggle('shadow', active);
-                btn.classList.toggle('text-slate-400', !active);
+                btn.setAttribute('aria-selected', String(btn.dataset.editTab === tab));
             });
             // MỚI (11/07/2026, yêu cầu Giang) — nút "Lưu" CHỈ có ý nghĩa ở 2 tab thật sự SỬA được
             // (Sửa/fields + Ảnh bìa/cover) — tab "Chi tiết" (details) đọc-thôi, hiện nút Lưu ở đó
