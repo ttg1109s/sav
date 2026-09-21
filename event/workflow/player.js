@@ -78,13 +78,15 @@ const workflowPlayer = {
         // khôi phục #visual-bg-image về ĐÚNG cấu hình VBG thật, trả canvas về bình thường) rồi mới
         // để 2 guard clause Video/Song bên dưới chạy TIẾP như chưa từng có gì thay đổi — CHỈ 1 chỗ
         // xử lý mọi hướng thoát (Photo -> Song, Photo -> Video), không rải rác guard riêng ở từng
-        // nhánh. KHÔNG `await` (playMedia() không async, giữ nguyên) — `exitPhotoPlayerMode()` giờ
-        // async (gọi `applyCurrentVisualBg()`, event/workflow/visual-bg.js) nhưng an toàn để
-        // fire-and-forget: thuần cập nhật lớp nền TRANG TRÍ, không chặn/ảnh hưởng gì tới việc phát
-        // Song/Video mới ngay sau đây — nếu nhánh Video chạy tiếp, `startFromPlaylist()` TỰ gọi lại
-        // `clearMediaLayers()` của chính nó nên không có race thật nào đáng lo.
+        // nhánh. KHÔNG `await` (playMedia() không async, giữ nguyên) — [SỬA 21/09/2026] an toàn để
+        // fire-and-forget CHỈ vì `exitPhotoPlayerMode()` giờ dọn MỌI state ĐỒNG BỘ (task, Resolution,
+        // URL, isPhotoPlayerMode, wake lock, đồng hồ nghe) trước khi return promise — phần async còn lại
+        // duy nhất là khôi phục lớp nền VBG. Đích là Video thì KHÔNG khôi phục VBG (`false`): Video
+        // Player mode tự chiếm `bgVideoElement`/`#visual-bg-image` ngay sau đây, VBG được trả lại lúc
+        // thoát Video Player (`exitVideoPlayerMode()`).
         if (appState.get('isPhotoPlayerMode') && (!cachedForDispatch || cachedForDispatch.mediaType !== 'photo')) {
-            workflowPhotoPlayer.exitPhotoPlayerMode(); // event/workflow/photo-player.js
+            const isDestinationVideo = !!cachedForDispatch && cachedForDispatch.mediaType === 'video';
+            workflowPhotoPlayer.exitPhotoPlayerMode(!isDestinationVideo); // event/workflow/photo-player.js
         }
 
         if (cachedForDispatch && cachedForDispatch.mediaType === 'video') {

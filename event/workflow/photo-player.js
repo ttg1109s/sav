@@ -129,17 +129,40 @@ const workflowPhotoPlayer = {
      * SỬA (Giang chỉ ra đúng, dọn code thừa) — thay `setPhotoPlayerElementForMode(false)` (element
      * riêng ĐÃ XOÁ) bằng `workflowVisualBg.applyCurrentVisualBg()` — hàm đó TỰ gọi `clearMediaLayers()`
      * trước khi áp lại nên KHÔNG cần tự tay ẩn gì thêm ở đây. Đổi hẳn sang `async` (hàm đó `async`).
+     * @param {boolean} [restoreVisualBg=true] - `false` khi đích là Video Player mode (Video tự chiếm
+     *        các lớp nền, VBG được khôi phục lúc thoát Video) — xem thân hàm.
      */
-    async exitPhotoPlayerMode() {
+    async exitPhotoPlayerMode(restoreVisualBg = true) {
         taskManager.kill(PHOTO_PLAYER_TICK_TASK);
-        if (typeof workflowVisualBg !== 'undefined') await workflowVisualBg.applyCurrentVisualBg(); // event/workflow/visual-bg.js — liên tuyến domain, tự clearMediaLayers() rồi áp lại ĐÚNG cấu hình
+
+        // [SỬA — 21/09/2026, race Photo -> Video/Song] TRƯỚC ĐÂY toàn bộ dọn dẹp (gỡ Resolution, revoke
+        // URL, `exitPhotoPlayerModeState()`, `releaseWakeLock()/stopListenClock()`) nằm SAU
+        // `await applyCurrentVisualBg()` — mà `playMedia()` (event/workflow/player.js) KHÔNG await hàm
+        // này, nên phần đuôi đó có thể chạy SAU khi Video/Song mới đã bắt đầu phát: tắt nhầm wake lock +
+        // đồng hồ nghe của media mới, và `isPhotoPlayerMode` còn `true` song song với
+        // `isVideoPlayerMode`. Giờ CHỈ lớp nền VBG (thứ duy nhất thật sự async) đứng cuối; mọi state
+        // khác dọn ĐỒNG BỘ ngay tại đây, không còn gì chạy sau `await`.
+        //
+        // `restoreVisualBg=false` (đích là Video — xem `workflowPlayer.playMedia()`): Video Player mode
+        // sắp TỰ chiếm `bgVideoElement` + `#visual-bg-image` (`startFromPlaylist()`) và VBG tự được
+        // khôi phục ĐÚNG lúc thoát Video Player (`exitVideoPlayerMode()` -> `applyCurrentVisualBg()`),
+        // nên khôi phục ở đây chỉ tạo phần async thừa (`showStaticBgThumb()`/`_applyPhoto()` ghi thumb/
+        // ảnh VBG lên đúng lớp `#visual-bg-image` Video Player đang dùng). Chỉ dọn lớp media của Photo
+        // (ĐỒNG BỘ, cùng hàm `startFromPlaylist()` của Video gọi) rồi thôi.
+        let restorePromise = null;
+        if (typeof workflowVisualBg !== 'undefined') {
+            if (restoreVisualBg) restorePromise = workflowVisualBg.applyCurrentVisualBg(); // event/workflow/visual-bg.js — liên tuyến domain; phần ĐỒNG BỘ đầu hàm (clearMediaLayers()) chạy NGAY ở dòng này, giữ ĐÚNG thứ tự cũ (dọn lớp trước, revoke URL sau)
+            else workflowVisualBg.clearMediaLayers(); // event/workflow/visual-bg.js
+        }
         // MỚI (Giang yêu cầu "Resolution cho player video&photo, không liên quan VBG") — gỡ override
         // NGAY lúc thoát mode — BẮT BUỘC, để #visual-bg-image trả về CSS mặc định (background-size:
         // cover) phục vụ ĐÚNG Visual Background, xem docstring core/player-display-apply.js.
         if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.clearPhotoPlayerResolution(); // event/workflow/player-display-settings.js
         this._revokeObjectUrls();
         exitPhotoPlayerModeState(); // core/photo-player.js
-        releaseWakeLock(); stopListenClock(); // core/player-controls.js — SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — dừng đồng hồ totalTime lúc thoát mode, CÙNG khuôn workflowVideoPlayer.exitVideoPlayerMode()
+        releaseWakeLock(); stopListenClock(); // core/player-controls.js — SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — dừng đồng hồ totalTime lúc thoát mode, CÙNG khuôn workflowVideoPlayer.exitVideoPlayerMode
+
+        if (restorePromise) await restorePromise; // lớp nền VBG nạp xong (chỉ để nơi gọi nào cần đợi thì đợi; playMedia() không đợi)
     },
 
     /** Đổi ảnh ĐANG hiển thị (vào mode lần đầu HOẶC Next/Prev vật lý trong lúc đã ở mode) — mirror
