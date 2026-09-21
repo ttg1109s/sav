@@ -133,11 +133,24 @@
             type: 'bar',
             customEffect: DEFAULT_CUSTOM_EFFECT,
             bgImage: '', bgBlur: 0, bgImageEnabled: false,
-            // 'light' | 'dark' | 'background' (ảnh nền tuỳ chỉnh, TỰ kéo theo bgImageEnabled=true) |
-            // 'gradient' (2 màu gradientFrom/gradientTo ngay dưới) — chọn qua event/router/theme.js,
+            // 'light' | 'dark' | 'solid' (1 màu `bgSolidColor`) | 'gradient' (2 màu gradientFrom/gradientTo ngay dưới) |
+            // 'background' (ảnh HOẶC video nền từ THƯ VIỆN — xem `bgMediaKind`/`bgMediaKey` dưới) — chọn qua event/router/theme.js,
             // chốt tại event/workflow/theme.js::_commitThemeMode(). Mặc định 'dark'.
+            // SỬA 21/09/2026 (Giang yêu cầu UI 3 card Solid/Gradient/Background media + sửa lỗi dropdown nền "chọn mục khác đều bị fallback về
+            // cái hiện tại"): 'solid' TRƯỚC ĐÂY là mode 'gradient' với 2 màu Từ/Đến giống nhau, rồi UI "đoán" lại loại nền từ đó — gradient
+            // có 2 màu tình cờ bằng nhau bị đoán thành solid nên dropdown luôn nhảy về Solid, không chọn được Gradient. NAY solid là mode
+            // riêng có màu riêng `bgSolidColor` (không dùng chung 2 màu gradient — đổi qua lại 2 card không ghi đè màu của nhau).
             themeMode: 'dark',
             gradientFrom: '#6366f1', gradientTo: '#ec4899',
+            bgSolidColor: '#6366f1',
+            // Nền media (mode 'background'): THAM CHIẾU item thư viện chứ KHÔNG copy blob (bản cũ copy ảnh vào meta.bgImage) —
+            // `bgMediaKind` 'photo' (store ảnh, getImageRecord) | 'video' (store video, getVideoRecord) | '' (chưa chọn), `bgMediaKey` = key item.
+            // Item bị xoá/mất -> lúc boot tự về `bgFallbackMode` (xem loadPlaylistBgMediaAsset()).
+            // `bgFallbackMode` = nền Solid/Gradient chọn GẦN NHẤT trước khi vào media ('solid' | 'gradient') — workflowTheme cập nhật mỗi lần chốt 1 trong 2 mode đó.
+            bgMediaKind: '', bgMediaKey: '', bgFallbackMode: 'gradient',
+            // RUNTIME (blob: URL sống 1 session, KHÔNG persist, boot reset về ''): `bgImage` = URL ảnh nền (photo) — giữ tên cũ vì nhiều nơi đọc;
+            // `bgVideo` = URL file video nền; `bgMediaThumb` = URL thumb full-res của video (poster + preview card + lấy mẫu màu status bar/preloader).
+            bgVideo: '', bgMediaThumb: '',
             // eqMode/manualEq (chế độ 'manual' + mảng gains riêng) ĐÃ BỎ HẲN — THAY bằng hệ thống
             // preset EQ lưu DB (core/eq-presets.js), preset ĐANG CHỌN chỉ còn 1 id đơn giản. Sửa
             // preset nào (kể cả "sửa thủ công") giờ ĐI QUA Edit EQ (Generic Drawer) áp dụng cho
@@ -484,6 +497,7 @@
                 type: 'string', customEffect: 'object',
                 bgImage: 'string', bgBlur: 'number', bgImageEnabled: 'boolean',
                 themeMode: 'string', gradientFrom: 'string', gradientTo: 'string',
+                bgSolidColor: 'string', bgMediaKind: 'string', bgMediaKey: 'string', bgFallbackMode: 'string', bgVideo: 'string', bgMediaThumb: 'string',
                 volume: 'number', eqPresetId: 'string', playbackSpeed: 'number',
                 visualEnabled: 'boolean',
                 gameplayDifficultyByGame: 'object',
@@ -635,26 +649,55 @@
         }
         function flushConfigBackup() {
             taskManager.kill('configBackupFlush');
-            const { bgImage, ...persistable } = appConfigViz.getAll(); // loại trừ blob: URL runtime
+            const { bgImage, bgVideo, bgMediaThumb, ...persistable } = appConfigViz.getAll(); // loại trừ blob: URL runtime
             setMeta('configBackup', persistable).catch(e => console.warn('[config] Lưu configBackup (IndexedDB) lỗi:', e));
         }
 
         /**
-         * Đọc lại ẢNH NỀN PLAYLIST/APP từ IndexedDB (meta.bgImage), tự sửa trạng thái "on ảo" nếu
-         * config nói đang bật nhưng IndexedDB không còn Blob tương ứng.
-         * ĐỔI TÊN + THU HẸP (v13 Batch A) — trước đây tên `loadBackgroundAssets()` (số nhiều) vì
-         * lo CẢ `meta.videoBg` (video nền màn Visualizer) — nhánh đó ĐÃ DỜI sang domain `visualBg`
-         * (workflowVisualBg.loadPersistedSettingsOnBoot(), resolve từ `singleVideoKey` chứ không
-         * còn đọc 1 bản sao Blob ở `meta.videoBg`). Tên mới phản ánh ĐÚNG việc còn lại: chỉ 1 asset,
-         * chỉ ảnh nền Playlist.
+         * MỚI (21/09/2026, Giang yêu cầu nền media = ảnh HOẶC video, THAM CHIẾU item thư viện) — đọc 1 item thư viện làm nền App và tạo
+         * blob: URL runtime. Dùng CHUNG bởi boot (`loadPlaylistBgMediaAsset()` ngay dưới) và `workflowTheme` (lúc người dùng chọn item mới).
+         * `photo` -> `imageUrl` = ảnh gốc; `video` -> `videoUrl` = file video + `thumbUrl` = khung hình đầu FULL-RES (`thumbFullBlob`,
+         * record cũ thiếu thì `thumbBlob` vuông). Item không tồn tại / thiếu blob (bị xoá, hỏng) -> null.
+         * @param {'photo'|'video'} kind
+         * @param {string} key
+         * @returns {Promise<null|{imageUrl:string, videoUrl:string, thumbUrl:string}>}
          */
-        async function loadPlaylistBgImageAsset() {
-            const imgBlob = await getMeta('bgImage');
+        async function resolveAppBgMedia(kind, key) {
+            if (!key) return null;
+            if (kind === 'photo') {
+                const record = await getImageRecord(key); // service/db.js
+                if (!record || !record.blob) return null;
+                return { imageUrl: URL.createObjectURL(record.blob), videoUrl: '', thumbUrl: '' };
+            }
+            if (kind === 'video') {
+                const record = await getVideoRecord(key); // service/db.js
+                if (!record || !record.blob) return null;
+                const thumbBlob = record.thumbFullBlob || record.thumbBlob;
+                return { imageUrl: '', videoUrl: URL.createObjectURL(record.blob), thumbUrl: thumbBlob ? URL.createObjectURL(thumbBlob) : '' };
+            }
+            return null;
+        }
+
+        /**
+         * Đọc lại NỀN MEDIA PLAYLIST/APP lúc boot: resolve item thư viện theo `bgMediaKey` -> gán 3 URL runtime. Item ĐÃ XOÁ/MẤT (hoặc config cũ
+         * ở mode 'background' mà chưa có `bgMediaKey` — bản cũ copy blob vào `meta.bgImage`, không còn tham chiếu được) -> KHÔNG để app kẹt nền
+         * trống: quay về `bgFallbackMode` (nền Solid/Gradient chọn trước khi vào media) + xoá tham chiếu hỏng.
+         * ĐỔI TÊN 21/09/2026 (trước là `loadPlaylistBgImageAsset()` — chỉ ảnh, đọc bản copy `meta.bgImage`). Caller: loadConfig() ngay dưới —
+         * chạy TRƯỚC `loadPersistedUiThemeOnBoot()` nên `syncStatusBarColor()`/mirror preloader (event/workflow/ui-theme.js) thấy ngay mode đã fallback.
+         */
+        async function loadPlaylistBgMediaAsset() {
+            const before = appConfigViz.getAll();
+            const media = before.bgMediaKey ? await resolveAppBgMedia(before.bgMediaKind, before.bgMediaKey) : null;
             appConfigViz.mutateAll(cfg => {
-                if (cfg.bgImageEnabled && !imgBlob) {
-                    cfg.bgImageEnabled = false;
-                } else if (imgBlob && cfg.bgImageEnabled) {
-                    cfg.bgImage = URL.createObjectURL(imgBlob);
+                if (media) {
+                    cfg.bgImage = media.imageUrl; cfg.bgVideo = media.videoUrl; cfg.bgMediaThumb = media.thumbUrl;
+                    return;
+                }
+                cfg.bgImage = ''; cfg.bgVideo = ''; cfg.bgMediaThumb = '';
+                if (cfg.bgMediaKey) { cfg.bgMediaKey = ''; cfg.bgMediaKind = ''; } // item bị xoá/mất
+                if (cfg.themeMode === 'background') {
+                    cfg.themeMode = cfg.bgFallbackMode === 'solid' ? 'solid' : 'gradient';
+                    console.log(`writer: "loadPlaylistBgMediaAsset", page: "config", content: "nền media mất/chưa có -> fallback '${cfg.themeMode}'"`);
                 }
             });
         }
@@ -677,7 +720,27 @@
                     }
                 } catch (e) { console.warn('[config] Không đọc được configBackup (IndexedDB):', e); }
             }
-            if (saved) { try { appConfigViz.setAll({ ...appConfigViz.getAll(), ...JSON.parse(saved) }); } catch(e) {} }
+            if (saved) {
+                try {
+                    const savedObj = JSON.parse(saved);
+                    // MIGRATE (21/09/2026) — config LƯU TRƯỚC khi có mode 'solid' riêng (chưa có field `bgSolidColor`): "solid" cũ = gradient 2 màu giống
+                    // nhau -> chuyển thành solid THẬT (giữ màu đó), trả 2 màu gradient về mặc định để card Gradient không thành 1 màu phẳng. Config ở
+                    // mode 'background' mà chưa có `bgMediaKey` (bản cũ copy blob) tự về fallback ở loadPlaylistBgMediaAsset(). Chỉ chạy 1 lần: sau lần
+                    // lưu đầu tiên `bgSolidColor` đã có mặt.
+                    if (savedObj.bgSolidColor === undefined) {
+                        if (savedObj.themeMode === 'gradient' && savedObj.gradientFrom && savedObj.gradientFrom === savedObj.gradientTo) {
+                            savedObj.themeMode = 'solid';
+                            savedObj.bgSolidColor = savedObj.gradientFrom;
+                            savedObj.bgFallbackMode = 'solid';
+                            savedObj.gradientFrom = DEFAULT_VIZ_CONFIG.gradientFrom;
+                            savedObj.gradientTo = DEFAULT_VIZ_CONFIG.gradientTo;
+                        } else if (savedObj.gradientFrom) {
+                            savedObj.bgSolidColor = savedObj.gradientFrom; // màu solid khởi đầu = màu "Từ" cũ, người dùng vẫn đổi được sau
+                        }
+                    }
+                    appConfigViz.setAll({ ...appConfigViz.getAll(), ...savedObj });
+                } catch(e) {}
+            }
             appConfigViz.mutateAll(cfg => {
                 // Di trú eqMode/manualEq cũ (ĐÃ BỎ HẲN, xem core/eq-presets.js) sang eqPresetId
                 // MỚI — 5 preset gốc giữ NGUYÊN id (flat/bass_boost/pop/rock/acoustic/electronic)
@@ -807,11 +870,11 @@
             if (valBgBlurDisplay) valBgBlurDisplay.textContent = appConfigViz.getAll().bgBlur + 'px';
 
             // bgImage là blob: URL runtime, tạo lại mỗi session từ IndexedDB — luôn reset về rỗng
-            // TRƯỚC khi loadPlaylistBgImageAsset() đọc lại Blob thật.
+            // TRƯỚC khi loadPlaylistBgMediaAsset() resolve lại item thư viện (SỬA 21/09/2026: thêm bgVideo/bgMediaThumb).
             // (v13 Batch A — `videoBgUrl` KHÔNG còn ở đây; video nền màn Visualizer do domain
             // `visualBg` tự resolve/áp dụng, xem event/workflow/visual-bg.js.)
-            appConfigViz.mutateAll(cfg => { cfg.bgImage = ''; });
-            await loadPlaylistBgImageAsset();
+            appConfigViz.mutateAll(cfg => { cfg.bgImage = ''; cfg.bgVideo = ''; cfg.bgMediaThumb = ''; });
+            await loadPlaylistBgMediaAsset();
             saveConfig();
             updatePlaylistBg();
             workflowTheme.refreshThemeCardUI();

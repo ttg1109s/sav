@@ -107,8 +107,38 @@
          */
         function updatePlaylistBg() {
             const cfg = appConfigViz.getAll();
-            if (cfg.bgImage) {
-                const layerImage = `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url(${cfg.bgImage})`;
+            const OVERLAY = 'linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4))'; // lớp phủ đen 40% — luôn phủ LÊN ảnh/video nền (chữ trắng đọc được)
+            // SỬA 21/09/2026 (Giang: UI nền 3 card Solid/Gradient/Background media + nền video) — quyết định theo `cfg.themeMode`, KHÔNG còn theo
+            // "bgImage có giá trị hay không": item media nền (ảnh/video từ thư viện) giờ được GIỮ URL runtime cả khi đang ở Solid/Gradient (để card
+            // Background media hiện được preview và bấm lại là dùng ngay), nên chỉ ở mode 'background' mới vẽ ra. Thêm mode 'solid' riêng (xem
+            // DEFAULT_VIZ_CONFIG, core/config.js) và nhánh VIDEO (lớp `#app-bg-video` nằm DƯỚI `appBgImage`; ở nhánh video `appBgImage` chỉ mang overlay).
+            const isMediaMode = cfg.themeMode === 'background';
+
+            if (isMediaMode && cfg.bgVideo) {
+                if (appBgVideo.dataset.src !== cfg.bgVideo) { // đổi/khôi phục video -> nạp lại; cùng URL thì giữ nguyên, không giật
+                    appBgVideo.dataset.src = cfg.bgVideo;
+                    appBgVideo.muted = true; // iOS chỉ cho phát nền khi muted — gán cả property (attribute `muted` ở template chỉ là defaultMuted)
+                    appBgVideo.poster = cfg.bgMediaThumb || '';
+                    appBgVideo.src = cfg.bgVideo;
+                }
+                appBgVideo.style.display = 'block';
+                appBgImage.style.backgroundImage = OVERLAY;
+                appBgBlurLayer.style.backgroundImage = 'none'; // `bgBlur` chỉ áp cho ảnh — blur video liên tục quá tốn GPU trên mobile
+                appBgBlurLayer.style.filter = 'none';
+                appBgBlurLayer.style.transform = 'scale(1)';
+                return;
+            }
+            if (appBgVideo.dataset.src) { // rời nền video -> GIẢI PHÓNG decoder (chỉ pause vẫn giữ tài nguyên giải mã)
+                appBgVideo.pause();
+                appBgVideo.removeAttribute('src');
+                appBgVideo.removeAttribute('poster');
+                appBgVideo.load();
+                delete appBgVideo.dataset.src;
+            }
+            appBgVideo.style.display = 'none';
+
+            if (isMediaMode && cfg.bgImage) {
+                const layerImage = `${OVERLAY}, url(${cfg.bgImage})`;
                 appBgImage.style.backgroundImage = layerImage; // ảnh GỐC — LUÔN nét, không đụng transform/filter
                 if (cfg.bgBlur > 0) {
                     appBgBlurLayer.style.backgroundImage = layerImage; // bản sao ĐÈ lên trên — CHỈ phần tử này nhận scale/blur
@@ -121,6 +151,10 @@
                     appBgBlurLayer.style.transform = 'scale(1)';
                 }
             }
+            else if (cfg.themeMode === 'solid') {
+                appBgBlurLayer.style.backgroundImage = 'none';
+                appBgImage.style.backgroundImage = `linear-gradient(135deg, ${cfg.bgSolidColor}, ${cfg.bgSolidColor})`; // 1 màu = gradient 2 đầu cùng màu (không cần nhánh vẽ riêng)
+            }
             else if (cfg.themeMode === 'gradient') {
                 appBgBlurLayer.style.backgroundImage = 'none';
                 appBgImage.style.backgroundImage = `linear-gradient(135deg, ${cfg.gradientFrom}, ${cfg.gradientTo})`;
@@ -128,6 +162,22 @@
             else {
                 appBgBlurLayer.style.backgroundImage = 'none';
                 appBgImage.style.backgroundImage = 'none';
+            }
+        }
+
+        /**
+         * MỚI 21/09/2026 (Giang chọn "chỉ chạy khi ở App Panel, dừng khi vào Visualizer/ẩn app") — bật/tắt PHÁT của video nền App. CHỈ play/pause,
+         * không đụng src/hiển thị (việc của updatePlaylistBg()). Không có video nền đang nạp -> bỏ qua. `play()` bị trình duyệt từ chối (vd iOS Low
+         * Power Mode chặn tự phát) -> nuốt lỗi, poster (thumb full-res) vẫn hiện như ảnh tĩnh.
+         * @param {boolean} shouldPlay
+         */
+        function setAppBgVideoPlayback(shouldPlay) {
+            if (!appBgVideo || !appBgVideo.dataset.src) return;
+            if (shouldPlay) {
+                const playResult = appBgVideo.play();
+                if (playResult && typeof playResult.catch === 'function') playResult.catch(() => {});
+            } else {
+                appBgVideo.pause();
             }
         }
 

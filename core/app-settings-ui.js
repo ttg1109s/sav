@@ -130,28 +130,11 @@ function wireAppSettingsPlaylist(bodyEl) {
     if (filterBtn) filterBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.openManage.click', payload: {} }));
 }
 
-/** Màn Theme — dropdown "Color" (light/dark/morphin) + [CHỈ khi Morphin] dropdown loại nền (solid/gradient/image) +
- * 3 input màu — dropdown Theme/loại nền TÁI DÙNG THẲNG msg.type cụm "theme" gốc (event/router/
- * theme.js KHÔNG đổi gì); riêng "hiện đúng hàng con theo lựa chọn glassType" là thao tác DOM THUẦN
- * (không đổi appState, chỉ đổi cái NGƯỜI DÙNG ĐANG NHÌN trước khi họ chọn xong) — gửi kèm 1
- * msg.type riêng ('appSettings.theme.previewGlassType.click') để Router/Workflow xử lý, ĐÚNG Rule
- * 5a (callback ở đây không tự toggle class). */
+/** Màn Theme — CHỈ còn gắn select "Color" (Light/Dark/Morphin). SỬA 21/09/2026: phần chọn NỀN (dropdown loại nền + 3 ô màu + nút chọn ảnh) ĐÃ THAY bằng
+ * 3 card Solid/Gradient/Background media (core/theme-background-ui.js — dựng bởi buildThemeBackgroundCardsHtml, gắn bởi wireThemeBackgroundCards; Workflow
+ * gọi cả 2 hàm khi mount màn Theme, xem event/workflow/app-settings.js::_renderTheme()). Dropdown cũ dùng `<select>` + "đoán" loại nền từ config nên chọn mục khác
+ * bị nhảy ngược về mục hiện tại. */
 function wireAppSettingsTheme(bodyEl) {
     const uiThemeSelect = bodyEl.querySelector('#app-settings-ui-theme-select'); // MỚI 21/09/2026 — màu giao diện Light/Dark
     if (uiThemeSelect) uiThemeSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.uiTheme.change', payload: { themeName: e.target.value } }));
-
-    const glassTypeSelect = bodyEl.querySelector('#app-settings-theme-glass-type');
-    if (glassTypeSelect) glassTypeSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.theme.selectGlassType.change', payload: { glassType: e.target.value, solidColor: bodyEl.querySelector('#app-settings-theme-solid-color').value } }));
-
-    const solidColorInput = bodyEl.querySelector('#app-settings-theme-solid-color');
-    if (solidColorInput) solidColorInput.addEventListener('input', (e) => {
-        eventBus.send({ router: 'theme', type: 'theme.gradientFrom.input', payload: { value: e.target.value } });
-        eventBus.send({ router: 'theme', type: 'theme.gradientTo.input', payload: { value: e.target.value } });
-    });
-    const gradientFromInput = bodyEl.querySelector('#app-settings-theme-gradient-from');
-    if (gradientFromInput) gradientFromInput.addEventListener('input', (e) => eventBus.send({ router: 'theme', type: 'theme.gradientFrom.input', payload: { value: e.target.value } }));
-    const gradientToInput = bodyEl.querySelector('#app-settings-theme-gradient-to');
-    if (gradientToInput) gradientToInput.addEventListener('input', (e) => eventBus.send({ router: 'theme', type: 'theme.gradientTo.input', payload: { value: e.target.value } }));
-    const imagePickBtn = bodyEl.querySelector('#app-settings-theme-image-pick');
-    if (imagePickBtn) imagePickBtn.addEventListener('click', () => eventBus.send({ router: 'theme', type: 'theme.selectMode.click', payload: { mode: 'background' } }));
 }

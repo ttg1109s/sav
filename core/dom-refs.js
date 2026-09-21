@@ -55,6 +55,7 @@
         // `appBgBlurLayer` (lớp phủ ĐÈ LÊN TRÊN, chỉ lớp NÀY nhận scale/blur) — bản 12/08 lỡ gộp cả
         // 2 vai trò vào 1 phần tử.
         const appBgImage = document.getElementById('app-bg-image');
+        const appBgVideo = document.getElementById('app-bg-video'); // MỚI 21/09/2026 — video nền App (components/app-view-stack.js)
         const appBgBlurLayer = document.getElementById('app-bg-blur-layer');
         const sideLeftContainer = document.getElementById('side-left-container');
         const playlistView = document.getElementById('playlist-view'), visualizerUI = document.getElementById('visualizer-ui'), playerContainer = document.getElementById('player-container');
