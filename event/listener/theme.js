@@ -23,3 +23,17 @@ if (typeof themeGradientToPicker !== 'undefined' && themeGradientToPicker) {
         eventBus.send({ router: 'theme', type: 'theme.gradientTo.input', payload: { value: e.target.value } });
     });
 }
+
+// MỚI (21/09/2026, Giang chỉ ra "bg của theme không được động chạm phần Visualizer") — theo dõi ĐỔI MÀN App Panel <-> Visualizer (class
+// `playlist-hidden` trên #app-stack, gán/gỡ bởi core/player-controls.js ở nhiều đường khác nhau — quan sát class ở ĐÂY thay vì rải lời gọi vào
+// từng nơi đổi màn). CHỈ gom dữ liệu + gửi message (listener không biết nghiệp vụ). Có chốt `lastVisualizerScreenActive` để chỉ báo khi màn THẬT
+// SỰ đổi (attribute `class` còn đổi vì lý do khác, vd `.hidden`/animation).
+if (typeof appStack !== 'undefined' && appStack && typeof MutationObserver !== 'undefined') {
+    let lastVisualizerScreenActive = appStack.classList.contains('playlist-hidden');
+    new MutationObserver(() => {
+        const visualizerScreenActive = appStack.classList.contains('playlist-hidden');
+        if (visualizerScreenActive === lastVisualizerScreenActive) return;
+        lastVisualizerScreenActive = visualizerScreenActive;
+        eventBus.send({ router: 'theme', type: 'theme.appStackScreen.change', payload: { visualizerScreenActive } });
+    }).observe(appStack, { attributes: true, attributeFilter: ['class'] });
+}
