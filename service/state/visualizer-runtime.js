@@ -63,7 +63,7 @@
             rain: ['glass', 'street'],
             vortex: ['rings', 'bars', 'wave'],
             shape: ['rubik'],
-            connector: ['synapse', 'circuit'],
+            connector: ['synapse', 'circuit', 'brain'],
         };
         const GROUP_STYLE_FIELD = {
             bar: 'barStyle', lighting: 'lightingStyle', rain: 'rainStyle',

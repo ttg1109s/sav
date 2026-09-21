@@ -18,6 +18,7 @@
                 cnActiveSignalsSynapse: 'array',
                 cnChips: 'array',
                 cnActiveSignalsCircuit: 'array',
+                cnBrainState: 'any',    // style brain (canvas 2D thuần, core/visualizer/groups/connector/brain.js) — layout + hạt + burst | undefined
                 cnGlowTexture: 'any',
                 cnSparkTexture: 'any',
                 cnActiveCamMode: 'string', // circuit: 'ORBIT_SWEEP'|'TRACK_SIGNAL'|'CLOSE_NODE'
@@ -37,6 +38,7 @@
                     cnActiveSignalsSynapse: [],
                     cnChips: [],
                     cnActiveSignalsCircuit: [],
+                    cnBrainState: undefined,
                     cnGlowTexture: undefined,
                     cnSparkTexture: undefined,
                     cnActiveCamMode: 'ORBIT_SWEEP',
