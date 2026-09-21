@@ -59,6 +59,9 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'statisPanel.overview.filesPlayed': '{played} / {total} files',
     'statisPanel.overview.neverPlayedCount': '{n} never played',
     'statisPanel.compare.shareOfPlays': 'of plays',
+    'statisPanel.compare.shareOfTime': 'of time',
+    'statisPanel.share.byPlays': 'Share by plays',
+    'statisPanel.share.byTime': 'Share by time',
     'statisPanel.compare.itemCount': '{n} files',
     'statisPanel.compare.playCount': '{n} plays',
     // Nhóm 3 — toggle sort + Top list xếp hạng.
