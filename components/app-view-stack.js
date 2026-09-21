@@ -71,6 +71,10 @@
 const TPL_APP_VIEW_STACK_OPEN = `
     <div id="app-stack" class="fixed inset-0 z-[60]">
         <div id="app-bg" class="pointer-events-none overflow-hidden" data-uitk="appBaseBg">
+            <!-- MỚI 21/09/2026 (Giang yêu cầu nền App cho phép VIDEO) — #app-bg-video: lớp video nền, NẰM DƯỚI #app-bg-image (lớp đó ở chế độ video chỉ mang
+                 overlay đen 40%, phủ LÊN video — xem core/color-utils.js::updatePlaylistBg()). Ẩn mặc định; src/poster do updatePlaylistBg() gán, bật/tắt phát do
+                 setAppBgVideoPlayback() (chỉ chạy ở màn App Panel, dừng khi vào Visualizer/ẩn app — event/workflow/theme.js::syncBackgroundVideoPlayback()). muted+playsinline bắt buộc để iOS cho phát nền. -->
+            <video id="app-bg-video" muted loop playsinline preload="auto" disablepictureinpicture disableremoteplayback style="display:none;"></video>
             <div id="app-bg-image" class="bg-cover bg-center bg-no-repeat"></div>
             <div id="app-bg-blur-layer" class="bg-cover bg-center bg-no-repeat"></div>
         </div>
