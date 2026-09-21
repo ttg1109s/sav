@@ -1268,9 +1268,9 @@
     <!-- MỞ ĐẦU THEME THẬT (07/07/2026, phản hồi Giang mục 3) — cụm "theme" (3 card Sáng/Tối/
          Background, Main list TĨNH). CẦN workflowVisualizerDisplay.toggleBgImage() (đã nạp ngay
          trên) + applyBgImageEnabled()/updatePlaylistBg() (đã nạp ở nhóm CORE). -->
-    <script src="event/workflow/theme.js?v=20260921v2"></script>
-    <script src="event/router/theme.js?v=20260717v1"></script>
-    <script src="event/listener/theme.js?v=20260709v1"></script>
+    <script src="event/workflow/theme.js?v=20260921v3"></script>
+    <script src="event/router/theme.js?v=20260921v2"></script>
+    <script src="event/listener/theme.js?v=20260921v2"></script>
     <!-- Cụm "statsPanel" ĐÃ XOÁ (checkbox toggle stats panel dời vào Settings, dùng chung
          cụm "visualizerDisplay" — xem event/workflow/visualizer-display.js::setStatsPanelEnabled()). -->
     <!-- Cụm "savLogo" ĐÃ NGỪNG NẠP (SỬA — Giang yêu cầu "logo header full text, không animation")
@@ -1347,7 +1347,7 @@
          nhóm trên) — CHƯA có Router/Listener riêng (chưa có UI bấm đổi theme), chỉ gọi thẳng
          `workflowUiTheme.loadPersistedUiThemeOnBoot()` từ app-boot.js ngay dưới. NẠP TRƯỚC
          app-boot.js vì boot() gọi hàm đó. -->
-    <script src="event/workflow/ui-theme.js?v=20260921v8"></script>
+    <script src="event/workflow/ui-theme.js?v=20260921v9"></script>
     <!-- event/workflow/app-boot.js + event/router/app-boot.js (SỬA 25/07/2026, đợt tái cấu trúc
          state) — router giờ CHỈ eventBus.register('appBoot', ...) (KHÔNG còn tự đăng ký
          DOMContentLoaded — việc đó dời sang event/listener/app-boot.js, nạp SỚM ở đầu tài liệu,
