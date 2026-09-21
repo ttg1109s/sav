@@ -98,6 +98,7 @@ const workflowTheme = {
         saveConfig();
         updatePlaylistBg(); // ĐẶT SAU khi themeMode đã cập nhật — xem docstring đầu file.
         forceGlassRepaint(); // fix bug mục 3 (09/07/2026) — ép WebKit vẽ lại lớp kính NGAY, không đợi thao tác khác.
+        workflowUiTheme.syncStatusBarColor(); // MỚI 21/09/2026 — status bar iOS theo nền Morphin (event/workflow/ui-theme.js)
         this.refreshThemeCardUI();
     },
 
@@ -107,6 +108,7 @@ const workflowTheme = {
         saveConfig();
         updatePlaylistBg();
         forceGlassRepaint();
+        workflowUiTheme.syncStatusBarColor(); // MỚI 21/09/2026 — xem _commitThemeMode()
         this.refreshThemeCardUI(); // cập nhật mockup preview #theme-mockup-gradient theo màu mới
     },
 
@@ -116,6 +118,7 @@ const workflowTheme = {
         saveConfig();
         updatePlaylistBg();
         forceGlassRepaint();
+        workflowUiTheme.syncStatusBarColor(); // MỚI 21/09/2026 — xem _commitThemeMode()
         this.refreshThemeCardUI();
     },
 

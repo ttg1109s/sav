@@ -46,6 +46,43 @@ const workflowUiTheme = {
         setActiveUiThemeKeyList(keyList); // core/ui-theme/apply-ui.js — DÙNG CHUNG (không chỉ Generic Drawer nữa) — để lần mở/vẽ lại Drawer TIẾP THEO dùng ĐÚNG theme mới, không cần đợi user tự đóng/mở lại
         applyUiThemeToDom(document, keyList); // core/ui-theme/apply-ui.js
         this._applyPageLevelTheme(safeThemeName);
+        this._retintAppBottomNav();
+        this.syncStatusBarColor();
+    },
+
+    /** MỚI (21/09/2026, Giang báo "nav màu không đồng bộ" — nút bottom nav vẫn xanh sky-600 / xám slate-400 của Light dù đang
+     * ở Morphin) — NGUYÊN NHÂN: `setAppPanelNavActiveTab()` (core/app-panel-nav.js) tô màu nút nav bằng CLASS TAILWIND gán
+     * TRỰC TIẾP (không phải `data-uitk`) nên `applyUiThemeToDom()` không quét tới, và hàm đó CHỈ chạy khi bấm chuyển tab/đóng
+     * overlay — KHÔNG chạy lại khi theme đổi; riêng lúc boot còn tệ hơn: `app-boot.js` gọi nó NGAY SAU
+     * `loadPersistedUiThemeOnBoot()` (async, không await) nên lúc đó theme cache còn là Light. Tô lại nav MỖI lần theme
+     * đổi/khôi phục, đọc tab đang active từ appState (Workflow được đọc appState, Rule 2 chỉ cấm ở core). */
+    _retintAppBottomNav() {
+        if (typeof setAppPanelNavActiveTab !== 'function') return; // core/app-panel-nav.js
+        setAppPanelNavActiveTab(appState.get('appPanelActiveTab'));
+    },
+
+    /** MỚI (21/09/2026, Giang báo "status bar màu không đồng bộ") — tô màu status bar iOS cho khớp NỀN THẬT của Morphin (xem
+     * docstring core/ui-theme/status-bar-color.js: viewport-fit=cover đã bỏ nên vùng đó lấy nền trang, mà nền trang Morphin là
+     * slate-900 đặc chứ không phải ảnh/gradient người dùng chọn). CHỌN nguồn màu theo ĐÚNG thứ tự ưu tiên của
+     * `updatePlaylistBg()` (core/color-utils.js — ảnh trước, gradient sau, không có -> nền đặc mặc định): ảnh -> lấy mẫu dải mép trên
+     * ảnh (bất đồng bộ); gradient -> nội suy 2 màu tại giữa mép trên; còn lại / theme khác Morphin -> '' (gỡ inline, trả về màu
+     * `appBaseBg` của theme, Light/Dark KHÔNG đổi gì so với trước).
+     * Gọi lại ở MỌI nơi nền/theme đổi: `switchUiTheme()`/`loadPersistedUiThemeOnBoot()` (file này) + `workflowTheme._commitThemeMode()`/
+     * `setGradientFrom()`/`setGradientTo()` (event/workflow/theme.js). `_statusBarSyncToken` bỏ kết quả của lần lấy mẫu ảnh CŨ nếu đã có
+     * lần gọi mới hơn (đổi nền liên tiếp — lần lấy mẫu ảnh chậm về sau không được đè lên màu đúng). */
+    _statusBarSyncToken: 0,
+    async syncStatusBarColor() {
+        const token = ++this._statusBarSyncToken;
+        const vizCfg = appConfigViz.getAll();
+        let color = '';
+        if (appConfigUiTheme.getAll().activeUiTheme === 'morphin') {
+            const viewportW = window.innerWidth, viewportH = window.innerHeight;
+            if (vizCfg.bgImage) color = await sampleImageTopEdgeColor(vizCfg.bgImage, viewportW, viewportH, 0.4); // core/ui-theme/status-bar-color.js — 0.4 = lớp phủ đen của updatePlaylistBg()
+            else if (vizCfg.themeMode === 'gradient') color = computeGradientTopEdgeColor(vizCfg.gradientFrom, vizCfg.gradientTo, viewportW, viewportH); // core/ui-theme/status-bar-color.js
+        }
+        if (token !== this._statusBarSyncToken) return; // đã có lần gọi mới hơn — bỏ kết quả cũ
+        applyStatusBarColor(color); // core/ui-theme/status-bar-color.js
+        console.log(`writer: "syncStatusBarColor", page: "statusBar", content: "${color || 'theo nền theme'}"`);
     },
 
     /** MỚI (21/09/2026) — 2 việc CẤP TRANG (ngoài `data-uitk`) đi kèm MỖI lần theme đổi/khôi phục: (1) `color-scheme`
@@ -76,5 +113,7 @@ const workflowUiTheme = {
         setActiveUiThemeKeyList(keyList); // core/ui-theme/apply-ui.js — DÙNG CHUNG (không chỉ Generic Drawer nữa)
         applyUiThemeToDom(document, keyList); // core/ui-theme/apply-ui.js
         this._applyPageLevelTheme(activeThemeName);
+        this._retintAppBottomNav(); // app-boot.js đã tô nav 1 lần TRƯỚC khi hàm async này xong (theme cache lúc đó còn Light) — tô lại cho khớp theme khôi phục
+        this.syncStatusBarColor(); // loadConfig() đã chạy xong trước (dòng đầu boot()) nên bgImage/themeMode/gradient* đã sẵn
     },
 };
