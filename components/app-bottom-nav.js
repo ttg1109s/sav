@@ -7,45 +7,7 @@
  * 4/5 mục). Media vẫn là Home Screen mặc định (xem đoạn dưới) nên KHÔNG cần nút riêng: mọi overlay
  * (Folder/Storage/Game/Statis) đóng lại đều tự về Media. Khi đứng ở Home, `appPanelActiveTab` vẫn là
  * 'media' nhưng KHÔNG nút nào khớp -> cả 4 nút cùng màu "không active" (đúng ý: Home không thuộc mục nào).
- * Case 'appPanelNav.media.click' + workflowAppPanelNav.openMedia() GIỮ NGUYÊN không xoá (Rule 0.5 —
- * vô hại, không còn nút nào gửi tới, cùng cách đã làm với 'photo'/'setting' bên dưới).
- *
- * SỬA (Giang yêu cầu "loại bỏ photo, setting ở nav bottom") — 2 nút Photo/Setting BỎ HẲN khỏi
- * thanh nav (còn 5/7 mục cũ). Photo: đã hợp nhất vào Playlist làm 1 Nguồn (activeMediaSource=
- * 'photo', xem event/workflow/playlist.js::switchSource()) — không còn cần entry riêng.
- * Setting: KHÔNG còn điểm vào nào khác trong UI sau khi bỏ nút này (trước đây CHỈ mở qua đây, xem
- * event/workflow/app-panel-nav.js::openSetting()) — router/workflow/listener của cả 2 (`photo`/
- * `setting` case trong event/router/app-panel-nav.js, workflowAppPanelNav.openPhoto()/
- * openSetting()) GIỮ NGUYÊN không xoá (Rule 0.5 — vô hại, không còn gì gọi tới, phòng khi cần nối
- * lại điểm vào khác sau này).
- *
- * Media = Home Screen mặc định của App Panel (nội dung #playlist-view LUÔN đứng dưới, các mục còn
- * lại đều là overlay full-screen/Generic Drawer đè lên trên, đóng lại thì về Media) — xem
- * event/workflow/app-panel-nav.js.
- *
- * `data-tab` trên mỗi nút — DUY NHẤT nguồn để Listener (event/listener/app-panel-nav.js) biết gửi
- * đúng msg.type nào, KHÔNG hardcode id riêng biệt.
- *
- * `#app-bottom-nav-game-dot` — MỚI (02/09/2026, Giang yêu cầu "icon game ở nav phải biểu thị đang ở
- * game mode"). Chấm TĨNH (mount sẵn, `hidden` mặc định) đè góc icon nút Game — hiện/ẩn + đổi màu
- * đỏ/xanh qua `classList.toggle(...)` (core/app-panel-nav.js::setAppBottomNavGameIndicator(), gọi từ
- * event/workflow/game-catalog.js::renderList() MỖI lần armed/disarm/đổi `gameplayPhase`) — KHÔNG
- * phải template render lại, chỉ class toggle trên phần tử có sẵn, đúng khuôn `.hidden` dùng xuyên
- * suốt project.
- *
- * `#app-bottom-nav-game-icon-idle`/`#app-bottom-nav-game-icon-playing` — [SỬA cùng ngày, Giang yêu
- * cầu "khi playgame cần chuyển sang icon máy chơi game cầm tay + nút chấm xanh"] 2 icon XẾP CHỒNG
- * (`absolute inset-0` trên icon thứ 2, span cha `relative`), CHỈ 1 hiện tại 1 thời điểm (class
- * `hidden` toggle qua ĐÚNG hàm trên) — icon thường (mask/game tổng quát, giữ nguyên icon gốc) và
- * icon máy chơi game cầm tay (D-pad + 2 nút bấm) RIÊNG cho lúc `gameplayPhase` khác 'idle' (đang
- * chơi thật, xem docstring setAppBottomNavGameIndicator()).
- *
- * Icon SVG bọc trong `<span class="relative inline-flex">` để chấm định vị `absolute` đúng góc icon
- * (CSS `.app-bottom-nav-btn svg` vẫn khớp bình thường — selector là descendant, không quan tâm độ
- * sâu).
- *
- * NẠP TRƯỚC: main.js (mount vào #app-root, NGAY SAU #side-left-container, xem components/
- * app-view-stack.js).
+ * DỌN DEADCODE 21/09/2026: case 'appPanelNav.media.click' + workflowAppPanelNav.openMedia() (và case 'setting'/openSetting) ĐÃ XOÁ khỏi router/workflow — không còn nút nào gửi tới.
  */
 const TPL_APP_BOTTOM_NAV = `
     <div id="app-bottom-nav" class="border-t" data-uitk="dividerBorder">
