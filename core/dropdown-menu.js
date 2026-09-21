@@ -55,7 +55,7 @@ function openDropdownMenu(anchorEl, items, options) {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-left transition-colors';
-        btn.dataset.uitk = item.destructive ? 'destructiveText cardHoverBg' : 'textPrimary cardHoverBg';
+        btn.dataset.uitk = item.destructive ? 'menuDestructiveItem' : 'textPrimary cardHoverBg'; // SỬA 21/09/2026 — 'menuDestructiveItem' gộp chữ + hover (Morphin: hàng nền rose, xem core/ui-theme/morphin.js)
         btn.innerHTML = `<span class="w-4 h-4 shrink-0 flex items-center justify-center [&>svg]:w-full [&>svg]:h-full">${item.icon}</span><span class="truncate">${item.name}</span>`;
         btn.addEventListener('click', () => {
             closeDropdownMenu();
