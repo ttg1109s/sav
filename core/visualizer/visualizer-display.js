@@ -243,44 +243,8 @@
 
         // applyEQPreset(mode) ĐÃ XOÁ HẲN — THAY bằng applyEqGains() (core/eq-presets.js).
 
-        /**
-         * `applyBgImage()`/`applyBgImageEnabled()` KHÔNG tự gọi `updatePlaylistBg()`/`saveConfig()`
-         * nội bộ (Rule 0.5, batch "nền chung") — nơi gọi (Workflow) tự lo, xem event/workflow/
-         * theme.js::pickNewBackgroundImage()/_commitThemeMode(). `bgImageEnableToggle.checked =
-         * true` GIỮ NGUYÊN — ghi DOM tĩnh đơn giản, không phải core-gọi-core, không thuộc phạm vi
-         * Rule 3.
-         *
-         * @param {Blob} file - Blob ảnh (từ store `images` qua picker Generic Drawer — KHÔNG
-         *        validate định dạng ở đây, ảnh trong store `images` đã hợp lệ từ lúc upload vào đó)
-         */
-        async function applyBgImage(file) {
-            await setMeta('bgImage', file);
-            appConfigViz.mutateAll(cfg => {
-                if (cfg.bgImage && cfg.bgImage.startsWith('blob:')) URL.revokeObjectURL(cfg.bgImage);
-                cfg.bgImage = URL.createObjectURL(file);
-                cfg.bgImageEnabled = true;
-            });
-            // (07/07/2026: dòng `bgImageEnableToggle.checked = true` ĐÃ XOÁ — checkbox không còn
-            // tồn tại, thay bằng 3 card Theme — event/workflow/theme.js tự vẽ lại UI card sau khi
-            // gọi hàm này, xem selectThemeMode().)
-        }
-
-        /**
-         * HOTFIX 3 — khôi phục (xem docstring applyBgImage() ngay trên) + refactor Rule 0.5.
-         * FIX (04/07/2026, mục 1 phản hồi Giang) — TẮT KHÔNG xoá `meta.bgImage` trong IndexedDB,
-         * chỉ dọn object URL runtime, GIỮ Blob thật để lần "gạt On" kế tiếp kích hoạt lại NGAY qua
-         * `applyBgImage()` mà KHÔNG cần mở lại picker.
-         * @param {boolean} enabled
-         */
-        function applyBgImageEnabled(enabled) {
-            appConfigViz.mutateAll(cfg => {
-                cfg.bgImageEnabled = enabled;
-                if (!enabled) {
-                    if (cfg.bgImage && cfg.bgImage.startsWith('blob:')) URL.revokeObjectURL(cfg.bgImage);
-                    cfg.bgImage = '';
-                }
-            });
-        }
+        // XOÁ 21/09/2026 (dọn deadcode sau khi nền App đổi sang tham chiếu item thư viện): `applyBgImage()` (copy blob vào meta.bgImage) và
+        // `applyBgImageEnabled()` không còn ai gọi — thay bằng workflowTheme._applyPickedMedia()/resolveAppBgMedia() (event/workflow/theme.js, core/config.js).
 
         /** Độ mờ ảnh nền. msg.type 'visualizerDisplay.bgBlur.input'. Batch "nền chung" — BỎ
          * `updatePlaylistBg()`/`saveConfig()` nội bộ, dời ra Workflow. @param {string} value */
