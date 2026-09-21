@@ -296,7 +296,7 @@ const routerPlayerControls = (() => {
                         workflowVideoPlayer.handleVideoSeekCommit(value);
                     } },
                     { state: mode, operation: '===', value: 'song', callback: () => {
-                        handleProgressBarSeekCommit(value);
+                        workflowPlayerControls.handleSongSeekCommit(value); // event/workflow/player-controls.js — cổng seek (SỬA 21/09/2026, thay handleProgressBarSeekCommit() core)
                     } },
                 ]);
                 break;
