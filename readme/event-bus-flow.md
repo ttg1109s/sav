@@ -59,6 +59,9 @@ DOM (`click`/`change`/`input`...), `tab`/`window` lifecycle (`visibilitychange`/
 > `eventBus.send()`, KHÔNG có Router nào `switch(msg.type)`. Đây vẫn ĐÚNG định nghĩa vai trò
 > Workflow (tự đọc `appState`, tự quyết định gọi Core nào, xem mục 4B dưới) — chỉ khác nguồn
 > "kích hoạt" là 1 vòng lặp tự nuôi sống (`taskManager` mode `raf`) thay vì 1 sự kiện DOM rời rạc.
+> Từ 21/09/2026 file này quản lý 2 task `raf`: `audioAnalysis` (phân tích audio + status bar + Game tick,
+> luôn chạy) và `visualizerRender` (chỉ vẽ, tự đăng ký/kill theo `cfg.visualEnabled` — Show Visual — qua
+> `_syncRenderTask()` gọi mỗi frame từ task `audioAnalysis`, KHÔNG qua eventBus/Router).
 > Điểm khởi động DUY NHẤT của vòng lặp này là `core/audio-engine.js::setupAudioContext()` gọi
 > `workflowVisualizerRender.start()` — 1 ngoại lệ Core-gọi-Workflow ĐÃ ĐÁNH DẤU RÕ (xem comment
 > tại đó), KHÔNG phải tiền lệ cho phép Core gọi Workflow ở nơi khác.

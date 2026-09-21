@@ -103,14 +103,23 @@ chế tự-tái-sinh của mode `timeout` (`#runRaf()`, cấu trúc giống hệ
 chế hẹn giờ). **KHÔNG liên quan gì tới `eventBus`** — đừng nhầm "vòng lặp tự nuôi sống qua
 `taskManager`" với "bắn sự kiện qua `eventBus`", đây là 2 khái niệm độc lập.
 
-Dùng cho ĐÚNG 1 trường hợp trong app hiện tại: `event/workflow/visualizer-render.js` (vòng lặp
-render chính, thay `requestAnimationFrame(drawVisualizer)` thô trước đây nằm trong
-`core/visualizer/draw-visualizer.js`, nay file đó đã RỖNG).
+Dùng cho `event/workflow/visualizer-render.js` — TỪ 21/09/2026 gồm 2 task `raf`, cả 2 đều do file
+này đăng ký (thay `requestAnimationFrame(drawVisualizer)` thô trước đây trong
+`core/visualizer/draw-visualizer.js`, nay file đó đã RỖNG):
+
+- `audioAnalysis` — phân tích audio (FFT, beat/energy/hue, `updateStatsDashboard()` = status
+  bar, Game tick, nốt nhạc bay). LUÔN chạy, KHÔNG dừng theo Show Visual (Game/React Beat/VBG đều
+  đọc dữ liệu task này ghi vào appState).
+- `visualizerRender` — CHỈ vẽ canvas 2D/WebGL. Đăng ký/`kill()` tự động theo `cfg.visualEnabled`
+  (`_syncRenderTask()` gọi mỗi frame từ task phân tích). Tắt phải dùng `kill()`, KHÔNG dùng
+  `pause()` — `resumeAll()` lúc hiện lại tab sẽ resume nhầm task đang "tắt".
 
 ```js
 // event/workflow/visualizer-render.js
-taskManager.addNew('visualizerRender', { time: 0, exe: () => this._tick(), mode: 'raf', count: 0 });
-taskManager.operator('visualizerRender', 'enabled');
+taskManager.addNew('audioAnalysis', { time: 0, exe: () => this._tick(), mode: 'raf', count: 0 });
+taskManager.operator('audioAnalysis', 'enabled');
+// ...và trong _syncRenderTask(): addNew + operator('visualizerRender','enabled') khi Show Visual bật,
+// taskManager.kill('visualizerRender') khi tắt.
 ```
 
 `pause()`/`resume()`/`kill()` hoạt động y hệt 2 mode kia (dùng chung `pauseAll()`/`resumeAll()`
