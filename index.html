@@ -412,7 +412,7 @@
          xem event/workflow/app-settings.js::_renderTroubleshooting()/_renderBrokenScan(). -->
     <script src="components/settings/troubleshooting.js?v=20260920v2"></script>
     <script src="components/game-panel.js?v=20260819v1"></script>
-    <script src="components/statis-panel.js?v=20260911v1"></script>
+    <script src="components/statis-panel.js?v=20260921v3"></script>
     <script src="components/about-drawer.js?v=20260707v1"></script>
     <!-- MỚI (18/07/2026, Giang yêu cầu) — panel xem console log (Settings > Misc). -->
     <script src="components/debug-console-drawer.js?v=20260920v1"></script>
@@ -738,6 +738,8 @@
          "Circle" (spawn lưới pitch/vật lý wave/canvas). KHÔNG phụ thuộc file nào khác trong khối
          core/ (mọi tham số do event/workflow/gameplay*.js truyền vào), đặt cạnh visualizer-
          gesture.js cho cùng nhóm "tính năng overlay màn Visualizer". -->
+    <!-- core/number-countup.js — MỚI (21/09/2026): tính giá trị count-up dùng chung (Game điểm End + panel Statistics). Thuần, không phụ thuộc gì. -->
+    <script src="core/number-countup.js?v=20260921v1"></script>
     <script src="core/gameplay/engine.js?v=20260902v7"></script>
     <script src="core/gameplay/engine-ui.js?v=20260902v6"></script>
     <script src="core/gameplay/circle-mode.js?v=20260902v9"></script>
@@ -750,7 +752,7 @@
     <!-- Statis Panel (App Panel tab "Statis", stat-grid + so sánh + Top list — MỚI, Giang yêu cầu
          "tích hợp 1+2+3") — CHỈ dựng chuỗi HTML (không phụ thuộc DOM/appState tại thời điểm nạp),
          đặt cạnh game-panel-ui.js cho cùng nhóm "Core-ui panel App Panel". -->
-    <script src="core/statis-panel-ui.js?v=20260921v1"></script>
+    <script src="core/statis-panel-ui.js?v=20260921v3"></script>
     <!-- HUD Volume + Speed (icon loa 5 mốc, badge tốc độ 5 nấc) — event/workflow/hud.js. -->
     <script src="core/hud.js?v=20260918v1"></script>
     <!-- Core THUẦN domain "Visual Background" — tách 3 file: common (type/list/màu nền), video,
@@ -1191,12 +1193,14 @@
          clearMediaLayers()/applyCurrentVisualBg() Video Player mode đã dùng thay vì tự vẽ DOM
          riêng, cần workflowVisualBg tồn tại trước). -->
     <script src="event/workflow/photo-player.js?v=20260912v1"></script>
+    <!-- event/workflow/number-countup.js — MỚI (21/09/2026): vòng lặp timer count-up dùng chung (cần taskManager + core/number-countup.js). PHẢI nạp TRƯỚC gameplay-engine.js VÀ statis-panel.js. -->
+    <script src="event/workflow/number-countup.js?v=20260921v1"></script>
     <!-- Cụm "gameplay" — Game Mode. gameplay-engine.js (Workflow DÙNG CHUNG mọi mode: cooldown/
          modal Start-End/lưu điểm) PHẢI nạp TRƯỚC gameplay.js (mode "Circle", gọi vào engine cho
          mọi phần không đặc thù). Cả cụm PHẢI nạp TRƯỚC event/router/player-controls.js NGAY DƯỚI
          ĐÂY — case 'playerControls.audio/video.ended' gọi workflowGameplay.onSongEnded() khi đang
          ở Game Mode. -->
-    <script src="event/workflow/gameplay-engine.js?v=20260902v7"></script>
+    <script src="event/workflow/gameplay-engine.js?v=20260921v3"></script>
     <script src="event/workflow/gameplay.js?v=20260902v18"></script>
     <script src="event/router/gameplay.js?v=20260902v3"></script>
     <script src="event/listener/gameplay.js?v=20260818v1"></script>
@@ -1219,7 +1223,7 @@
          cạnh nhau vì cùng nhóm "panel App Panel có nghiệp vụ thật"). event/workflow/app-panel-nav.js
          ::openStatis() gọi workflowStatisPanel.openPanel() dù file đó KHAI BÁO SỚM HƠN — an toàn vì
          là lời gọi lúc RUNTIME, CÙNG lý do openGame() đã ghi chú ngay trên. -->
-    <script src="event/workflow/statis-panel.js?v=20260921v1"></script>
+    <script src="event/workflow/statis-panel.js?v=20260921v3"></script>
     <script src="event/router/statis-panel.js?v=20260911v1"></script>
     <script src="event/listener/statis-panel.js?v=20260911v1"></script>
     <script src="event/workflow/player-controls.js?v=20260915v1"></script>
