@@ -1,25 +1,22 @@
 /**
  * event/router/settings-misc.js — Router tên "settingsMisc", tự đăng ký với eventBus lúc nạp.
  *
- * Gộp 2 nhánh ĐIỀU HƯỚNG/CHỨC NĂNG nhỏ của Settings vào 1 router (không phải vì cùng nghiệp vụ, mà
- * vì mỗi nhánh quá nhỏ để xứng đáng 1 router/listener riêng — quyết định gom nhóm đã thống nhất,
- * xem plan.md):
- *   - `aboutDrawer`   — MỞ panel About (push + render thống kê). Đóng KHÔNG còn ở đây (Batch D1,
- *     06/07/2026) — dùng CHUNG `settingsStackNav.back.click` cho MỌI panel con Settings, xem
- *     event/router,workflow/settings-stack-nav.js.
+ * Gộp các nhánh nhỏ của Settings vào 1 router (không phải vì cùng nghiệp vụ, mà vì mỗi nhánh quá nhỏ để
+ * xứng đáng 1 router/listener riêng — quyết định gom nhóm đã thống nhất, xem plan.md):
+ *   - `debugConsole`  — xem/copy/xoá log console trong app.
  *   - `appRecovery`   — Khởi động lại app / Khôi phục cài đặt mặc định.
+ * [21/09/2026] Nhánh `aboutDrawer` ĐÃ XOÁ (nút mở không còn tồn tại trong UI Settings).
  *
- * Ver 12 "Multi Media": nhánh `storageDrawer` (CON của aboutDrawer, "Quản lý dung lượng") đã DỜI
- * sang cụm "fileManagerSong" (event/router/file-manager-song.js, plan-v12-multimedia.md mục 3) —
- * File Manager giờ là điều hướng CẤP CAO riêng, không còn lồng trong About nữa.
+ * Ver 12 "Multi Media": nhánh `storageDrawer` ("Quản lý dung lượng") đã DỜI sang cụm "fileManagerSong"
+ * (event/router/file-manager-song.js, plan-v12-multimedia.md mục 3).
  *
  * QUY TẮC RẼ NHÁNH:
  *   - Nghiệp vụ CHỈ CẦN ĐÚNG 1 HÀM CORE -> router tự gọi thẳng, BỎ QUA workflow.
  *   - Cần >1 hàm core (hoặc modal/shield) -> router giao cho workflowSettingsMisc.
  *
- * NẠP SAU: event/bus.js, core/about-stats.js, core/app-recovery.js, core/debug-console.js (MỚI
+ * NẠP SAU: event/bus.js, core/app-recovery.js, core/debug-console.js (MỚI
  * 18/07/2026 — getDebugConsoleLogs/clearDebugConsoleLogs), core/settings-panel-stack-ui.js (cần
- * pushSettingsPanel), components/about-drawer.js (cần renderAboutPanelBody),
+ * pushSettingsPanel),
  * components/debug-console-drawer.js (MỚI — cần renderDebugConsolePanelBody), lang/lang.js
  * (cần t()), event/workflow/settings-misc.js (cần workflowSettingsMisc tồn tại).
  * NẠP TRƯỚC: event/listener/settings-misc.js.
@@ -28,14 +25,6 @@ const routerSettingsMisc = (() => {
     /** @param {import('../bus.js').EventMessage} msg */
     function handle(msg) {
         switch (msg.type) {
-
-            // ===================== aboutDrawer =====================
-
-            case 'settingsMisc.aboutDrawer.open': {
-                // Batch D1 — nay >1 hàm core (push panel + tính thống kê bất đồng bộ) -> workflow.
-                workflowSettingsMisc.openAbout();
-                break;
-            }
 
             // MỚI (18/07/2026, Giang yêu cầu — xem log console ngay trong app).
             case 'settingsMisc.debugConsole.open': {

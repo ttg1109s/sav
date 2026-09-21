@@ -87,15 +87,10 @@ const routerAppSettings = (() => {
                 break;
             }
 
-            // MỚI 21/09/2026 — đổi màu GIAO DIỆN (UI Theme Light/Dark). CHỈ 1 lời gọi Workflow -> gọi THẲNG workflowUiTheme
-            // (Workflow miền khác, liên tuyến domain cho phép), KHÔNG qua workflowAppSettings (sẽ chỉ relay 1 dòng — hàm vô nghĩa).
+            // MỚI 21/09/2026 — đổi màu GIAO DIỆN (Color: Light/Dark/Morphin). Cần ≥2 việc nối tiếp (đổi UI Theme + đồng bộ nền + dựng lại
+            // màn) -> Workflow. (Case 'appSettings.theme.selectMode.change' cũ — select "Background" — ĐÃ XOÁ cùng select đó.)
             case 'appSettings.uiTheme.change': {
-                workflowUiTheme.switchUiTheme(msg.payload.themeName);
-                break;
-            }
-
-            case 'appSettings.theme.selectMode.change': {
-                workflowAppSettings.handleThemeSelectMode(msg.payload.mode);
+                workflowAppSettings.handleUiThemeChange(msg.payload.themeName);
                 break;
             }
 
