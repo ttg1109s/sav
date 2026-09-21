@@ -36,6 +36,13 @@
  * độ mang `data-countup-fmt="bar"` — Workflow (event/workflow/statis-panel.js) quét các thuộc tính này
  * để chạy animation đếm-lên lúc MỞ panel; hàm này KHÔNG animate gì, text luôn là số cuối.
  *
+ * [SỬA 21/09/2026, Giang yêu cầu 2 việc] (1) Top media KHÔNG còn animation đếm-lên: giá trị mỗi hàng là text thường (không bọc
+ * `data-countup`) — Overview/Media types vẫn đếm-lên như cũ. (2) Media types: THÊM biểu đồ tròn TO chia theo % lượt phát
+ * (`buildStatisPlayShareChartHtml()`, nằm TRÊN 3 card) và BỎ dòng "số file" khỏi 3 card (đếm file là việc của Storage). Biểu đồ vẽ bằng
+ * SVG thuần, mỗi lát là 1 `<circle>` stroke dày (`pathLength="100"` -> dasharray tính THẲNG theo %, không cần lượng giác cung tròn) và
+ * lấy màu từ theme key `statTypeSong/Video/Photo` (fill/stroke = currentColor). Ghi chú cũ "không thêm chart/donut" ở trên là quyết định
+ * trước đó của Giang — NAY ĐƯỢC CHÍNH Giang đổi.
+ *
  * Cỡ chữ nhỏ (11px) khai bằng `style` inline, KHÔNG dùng class ngoặc vuông `text-[11px]` — Tailwind
  * Play CDN tiêm CSS cho class ngoặc vuông BẤT ĐỒNG BỘ, lần đầu dùng trong phiên có thể chưa kịp lên
  * style (bug lặp lại đã ghi ở Folder Browser/time-picker). Thanh tiến độ cũng vậy: chiều rộng % là
@@ -55,7 +62,46 @@ const STATIS_TYPE_ACCENT = {
     video: 'bg-rose-500/15 text-rose-500',
     photo: 'bg-amber-500/15 text-amber-500',
 };
+const STATIS_TYPE_CHART_KEY = { song: 'statTypeSong', video: 'statTypeVideo', photo: 'statTypePhoto' }; // key theme màu lát cắt/chấm chú giải (core/ui-theme/*.js)
 const STATIS_SMALL_TEXT_STYLE = 'font-size:11px; line-height:1.3;'; // cỡ chữ phụ — inline (xem docstring đầu file, lý do tránh `text-[11px]`)
+
+/**
+ * MỚI 21/09/2026 (Giang yêu cầu "biểu đồ hình tròn to chia theo % count/play ở Media type") — biểu đồ TRÒN ĐẶC (pie) tỷ trọng lượt phát
+ * Song/Video/Photo, chỉ CHUỖI HTML/SVG (Rule 5, không listener, không appState). Kỹ thuật: mỗi lát = 1 `<circle r=24 stroke-width=48>`
+ * (nét dày đúng bằng bán kính -> lấp kín thành hình đặc bán kính 48) với `pathLength="100"` nên `stroke-dasharray="<độ dài> <phần còn lại>"`
+ * và `stroke-dashoffset="-<điểm bắt đầu>"` tính THẲNG theo % (không cần sin/cos cho cung). Xoay -90° để lát đầu bắt đầu từ 12 giờ, đi thuận
+ * chiều kim đồng hồ theo thứ tự Song -> Video -> Photo (KHỚP thứ tự 3 card bên dưới). Có >1 lát thì chừa khe hở nhỏ giữa các lát.
+ * Dùng `playShareRaw` (% CHƯA làm tròn, Workflow tính sẵn) chứ không dùng `playSharePercent` (đã làm tròn, tổng có thể 99/101 -> hở/chồng
+ * lát); chữ % hiện trên lát (làm tròn để hiển thị) CHỈ khi lát >= 7% (lát mỏng hơn không đủ chỗ chứa chữ).
+ * Tổng lượt phát = 0 -> trả '' (không có gì để chia; 3 card bên dưới vẫn hiện 0%).
+ * @param {{song:StatisTypeTotal, video:StatisTypeTotal, photo:StatisTypeTotal}} byType - cần `playShareRaw` (0..100, chưa làm tròn) mỗi loại
+ * @param {string} ariaLabel - nhãn đọc màn hình (đã dịch)
+ * @returns {string}
+ */
+function buildStatisPlayShareChartHtml(byType, ariaLabel) {
+    const TYPES = ['song', 'video', 'photo'];
+    const slices = TYPES.map((mediaType) => ({ mediaType, share: Number(byType[mediaType].playShareRaw) || 0 })).filter((s) => s.share > 0);
+    if (slices.length === 0) return '';
+    const GAP = slices.length > 1 ? 0.6 : 0; // đơn vị % chu vi — khe hở giữa 2 lát kề nhau
+    let cursor = 0;
+    let circlesHtml = '';
+    let labelsHtml = '';
+    for (const { mediaType, share } of slices) {
+        const dash = Math.max(share - GAP, 0.01);
+        const offset = cursor + GAP / 2;
+        circlesHtml += `<circle cx="50" cy="50" r="24" fill="none" stroke="currentColor" stroke-width="48" pathLength="100" stroke-dasharray="${dash.toFixed(3)} ${(100 - dash).toFixed(3)}" stroke-dashoffset="${(-offset).toFixed(3)}" transform="rotate(-90 50 50)" data-uitk="${STATIS_TYPE_CHART_KEY[mediaType]}"/>`;
+        if (share >= 7) {
+            const angle = ((cursor + share / 2) / 100) * 2 * Math.PI - Math.PI / 2;
+            const x = (50 + 30 * Math.cos(angle)).toFixed(2), y = (50 + 30 * Math.sin(angle)).toFixed(2);
+            labelsHtml += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="8" font-weight="700" fill="currentColor" data-uitk="statPieLabelText">${Math.round(share)}%</text>`;
+        }
+        cursor += share;
+    }
+    return `
+        <div class="rounded-2xl p-4 mb-2 flex justify-center" data-uitk="cardBg">
+            <svg viewBox="0 0 100 100" role="img" aria-label="${ariaLabel}" style="width:100%; max-width:260px; height:auto; display:block;">${circlesHtml}${labelsHtml}</svg>
+        </div>`;
+}
 
 /**
  * @param {StatisGrandTotal} grandTotal - gộp CẢ 3 loại (itemCount = tổng số file toàn thư viện; neverPlayedCount/playedItemCount/playedPercent Workflow tự đếm/tính SẴN — KHÔNG suy ra lại ở đây, cùng lý do "Core không tự sort/lọc" ở tham số `topList` dưới).
@@ -119,6 +165,7 @@ function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterT
         return `
             <div class="rounded-2xl p-3 flex-1 min-w-0 text-center" data-uitk="cardBg">
                 <div class="flex items-center justify-center gap-1.5 mb-2">
+                    <span class="w-2 h-2 rounded-full shrink-0 bg-current" data-uitk="${STATIS_TYPE_CHART_KEY[mediaType]}"></span>
                     <span class="w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${STATIS_TYPE_ACCENT[mediaType]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="${STATIS_TYPE_ICON_PATH[mediaType]}"/></svg></span>
                     <span class="text-xs font-semibold truncate" data-uitk="textPrimary" data-i18n="statisPanel.type.${mediaType}">${t('statisPanel.type.' + mediaType)}</span>
                 </div>
@@ -126,13 +173,13 @@ function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterT
                 <p class="mb-2" style="${STATIS_SMALL_TEXT_STYLE}" data-uitk="textSecondary" data-i18n="statisPanel.compare.shareOfPlays">${t('statisPanel.compare.shareOfPlays')}</p>
                 <p class="text-xs font-semibold" data-uitk="textSecondaryStrong">${num(totals.totalTime, 'time', formatListenTime(totals.totalTime))}</p>
                 <p style="${STATIS_SMALL_TEXT_STYLE}" data-uitk="textSecondary">${tFormat('statisPanel.compare.playCount', { n: num(totals.playCount, 'int', fmtNum(totals.playCount)) })}</p>
-                <p style="${STATIS_SMALL_TEXT_STYLE}" data-uitk="textSecondary">${tFormat('statisPanel.compare.itemCount', { n: num(totals.itemCount, 'int', fmtNum(totals.itemCount)) })}</p>
             </div>`;
     }).join('');
 
     const mediaTypes = `
         <section class="mb-6">
             ${sectionHeading('statisPanel.section.mediaTypes')}
+            ${buildStatisPlayShareChartHtml(byType, t('statisPanel.section.mediaTypes'))}
             <div class="flex gap-2">${compareCards}</div>
         </section>`;
 
@@ -154,8 +201,8 @@ function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterT
     const listRows = topList.length === 0
         ? `<p class="text-sm text-center py-10" data-uitk="emptyStateText" data-i18n="${emptyKey}">${t(emptyKey)}</p>`
         : topList.map((item, index) => {
-            const playsText = tFormat('statisPanel.compare.playCount', { n: num(item.count, 'int', fmtNum(item.count)) });
-            const timeText = num(item.totalTime, 'time', formatListenTime(item.totalTime));
+            const playsText = tFormat('statisPanel.compare.playCount', { n: fmtNum(item.count) }); // SỬA 21/09/2026 — text thường, KHÔNG `num()`/data-countup: Top media không còn animation đếm-lên
+            const timeText = formatListenTime(item.totalTime);
             const primary = sortMode === 'count' ? playsText : timeText; // chỉ số CHÍNH — đúng tiêu chí đang sort
             const secondary = sortMode === 'count' ? timeText : playsText; // chỉ số PHỤ — ngữ cảnh còn thiếu của chỉ số chính
             return `
@@ -206,7 +253,8 @@ function buildStatisPanelSkeletonHtml(t) {
             </section>
             <section class="mb-6">
                 ${heading('statisPanel.section.mediaTypes')}
-                <div class="flex gap-2">${block(132, 'flex-1')}${block(132, 'flex-1')}${block(132, 'flex-1')}</div>
+                <div class="rounded-2xl mb-2 flex justify-center p-4" data-uitk="cardBg"><div class="rounded-full" style="width:100%; max-width:228px; aspect-ratio:1 / 1;" data-uitk="cardBg"></div></div>
+                <div class="flex gap-2">${block(112, 'flex-1')}${block(112, 'flex-1')}${block(112, 'flex-1')}</div>
             </section>
             <section>
                 ${heading('statisPanel.section.topMedia')}
