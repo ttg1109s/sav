@@ -15,7 +15,7 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appPanelNav.tab.folder': 'Folder',
     'appPanelNav.tab.storage': 'Storage',
     'appPanelNav.tab.game': 'Game',
-    'appPanelNav.tab.statis': 'Statis',
+    'appPanelNav.tab.statis': 'Statistics', // SỬA 21/09/2026 — 'Statis' không phải tên tiếng Anh tự nhiên (bottom nav cuộn ngang, min-width 88px/tab nên nhãn dài hơn vẫn vừa)
     'appPanelNav.tab.setting': 'Setting',
 
     'gamePanel.title': 'Game',
@@ -33,7 +33,7 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'gamePanel.card.live': 'Live',
     'gamePanel.card.armed': 'Armed',
     'gamePanel.card.lockedHint': 'Exit the current game first',
-    'statisPanel.title': 'Statis',
+    'statisPanel.title': 'Statistics', // SỬA 21/09/2026 — cùng lý do 'appPanelNav.tab.statis'
     // SỬA (Giang yêu cầu "tích hợp 1+2+3" — stat-grid + so sánh + Top list) — 'statisPanel.
     // comingSoon' đổi Ý NGHĨA, CÙNG khuôn 'gamePanel.comingSoon' — KHÔNG còn hiện tĩnh (panel giờ
     // có nghiệp vụ thật), CHỈ còn là empty-state khi thư viện HOÀN TOÀN rỗng (không có Song/Video/
@@ -50,13 +50,26 @@ const LANG_PATCH_APP_PANEL_NAV = {
     // Nhóm 1+2 — stat-grid tổng quan + card so sánh Song/Video/Photo.
     'statisPanel.overview.totalTime': 'Total time',
     'statisPanel.overview.totalPlays': 'Total plays',
-    'statisPanel.overview.neverPlayed': 'Never played',
+    'statisPanel.overview.neverPlayed': 'Never played', // GIỮ lại dù ô cũ đã bỏ (Rule 0.5 — vô hại)
+    // MỚI 21/09/2026 — bố cục lại panel theo 3 tầng có heading + card "Library played" thay ô "Never played" đơn độc.
+    'statisPanel.section.overview': 'Overview',
+    'statisPanel.section.mediaTypes': 'Media types',
+    'statisPanel.section.topMedia': 'Top media',
+    'statisPanel.overview.libraryPlayed': 'Library played',
+    'statisPanel.overview.filesPlayed': '{played} / {total} files',
+    'statisPanel.overview.neverPlayedCount': '{n} never played',
+    'statisPanel.compare.shareOfPlays': 'of plays',
     'statisPanel.compare.itemCount': '{n} files',
     'statisPanel.compare.playCount': '{n} plays',
     // Nhóm 3 — toggle sort + Top list xếp hạng.
     'statisPanel.sort.byCount': 'Most played',
     'statisPanel.sort.byTime': 'Most time',
-    'statisPanel.topList.empty': 'No plays yet for this filter.',
+    // SỬA 21/09/2026 — empty state THEO LOẠI đang lọc (key cũ 'statisPanel.topList.empty' thay bằng 4 key dưới; file ngôn ngữ .json tự nhập nếu chưa có key mới sẽ rơi về tiếng Anh này).
+    'statisPanel.topList.empty.all': 'Nothing has been played yet.',
+    'statisPanel.topList.empty.song': 'No songs played yet.',
+    'statisPanel.topList.empty.video': 'No videos played yet.',
+    'statisPanel.topList.empty.photo': 'No photos viewed yet.',
+    'statisPanel.topList.hint': 'Top {n}',
     // MỚI — placeholder tức thời lúc `openPanel()` đang await đọc DB (3 store Song/Video/Photo qua
     // `workflowPlaylistScope.listMediaRecords()`, xem event/workflow/statis-panel.js) — hiện NGAY
     // lúc bấm tab (tránh cảm giác đứng hình chờ Promise.all xong mới thấy panel mở).
