@@ -133,7 +133,7 @@
                     preloaderEl.classList.add('app-preloader-dark');
                 }
                 // MỚI (21/09/2026, Giang yêu cầu \"nền preload trang của Morphin\") — Morphin: nền preloader = nền THẬT (gradient/màu/ảnh) thay vì
-                // zinc-900 của nhánh Dark, VÀ tô luôn status bar iOS (nền <html>/<body> + theme-color) từ ĐẦU — không thì lúc preload status bar
+                // zinc-900 của nhánh Dark, VÀ tô luôn status bar iOS (nền <body> + theme-color — CHỈ body, KHÔNG <html>: html có nền thì body tự vẽ nền và che các lớp z-index âm của nền video/ảnh Visualizer, xem core/ui-theme/status-bar-color.js) từ ĐẦU — không thì lúc preload status bar
                 // còn trắng/đen rồi mới nhảy sang màu Morphin khi app boot xong. Chuỗi CSS do event/workflow/ui-theme.js::_mirrorBootBackdrop()
                 // ghi vào `localStorage['uiThemeBoot']` (JSON {preloaderBg, statusBar}) mỗi lần nền/theme đổi — đọc ĐỒNG BỘ ở đây (cùng lý do
                 // `uiThemeName`: preloader chạy trước mọi file JS, không đợi được IndexedDB). Chưa có mirror (lần đầu chọn Morphin) -> slate-900.
@@ -143,7 +143,6 @@
                     try { bootBackdrop = JSON.parse(localStorage.getItem('uiThemeBoot') || 'null'); } catch (e2) { bootBackdrop = null; }
                     preloaderEl.style.background = (bootBackdrop && typeof bootBackdrop.preloaderBg === 'string' && bootBackdrop.preloaderBg) || '#0f172a'; // slate-900 = appBaseBg của Morphin (core/ui-theme/morphin.js)
                     if (bootBackdrop && typeof bootBackdrop.statusBar === 'string' && bootBackdrop.statusBar) {
-                        document.documentElement.style.backgroundColor = bootBackdrop.statusBar;
                         document.body.style.backgroundColor = bootBackdrop.statusBar;
                         var themeColorMetas = document.querySelectorAll('meta[name="theme-color"]');
                         for (var mi = 0; mi < themeColorMetas.length; mi++) themeColorMetas[mi].setAttribute('content', bootBackdrop.statusBar);
@@ -695,7 +694,7 @@
     <script src="core/ui-theme/registry.js?v=20260921v6"></script>
     <script src="core/ui-theme/apply-ui.js?v=20260909v1"></script>
     <!-- MỚI (21/09/2026, Giang báo "status bar Morphin không đồng bộ màu") — 3 hàm tính/tô màu status bar theo nền thật (gradient/ảnh) của Morphin; thuần hàm, không phụ thuộc file nào, được gọi lúc RUNTIME bởi event/workflow/ui-theme.js::syncStatusBarColor(). -->
-    <script src="core/ui-theme/status-bar-color.js?v=20260921v1"></script>
+    <script src="core/ui-theme/status-bar-color.js?v=20260921v2"></script>
     <script src="core/generic-drawer.js?v=20260920v1"></script>
     <!-- GỘP LẠI (31/07/2026, Giang chỉ ra "xây Generic Drawer mà vẫn phải nhân bản là vô lý") — 2
          helper Workflow (closeFully()/buildSimpleHeaderHtml()) từng chép tay ở nhiều file khác
