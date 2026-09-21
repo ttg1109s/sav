@@ -185,4 +185,30 @@ const workflowPlaylistRender = {
         oldNode.replaceWith(newNode);
         appState.mutate('domNodesByKey', m => m.set(key, newNode));
     },
+
+    /** MỚI (21/09/2026, Giang yêu cầu) — THAY cho gọi thẳng `scrollToCurrentKeyAnimated()` (core/playlist/
+     * render.js) ở mọi nơi đổi bài lúc Playlist đang hiện (Next/Prev/auto-next: player.js, video-player.js,
+     * photo-player.js). Menu 3 chấm của 1 item đang MỞ (`songActionMenuKey` khác null — menu neo `fixed` theo
+     * toạ độ nút lúc mở) mà cuộn danh sách thì hàng bị kéo trượt đi còn menu đứng yên -> menu lìa khỏi item của
+     * nó. Nên lúc đó BỎ QUA cuộn, chỉ ghi cờ chờ `scrollToCurrentPending`; đóng menu xong thì
+     * `flushPendingScrollToCurrent()` (gọi từ `workflowPlaylist.closeActionMenu()`) mới cuộn — tới `currentKey`
+     * MỚI NHẤT lúc đó (đổi bài nhiều lần trong lúc menu mở vẫn chỉ 1 lần cuộn, không nhảy qua từng bài). */
+    scrollToCurrentOrDefer() {
+        if (playlistStore.get('songActionMenuKey') != null) {
+            playlistStore.set({ scrollToCurrentPending: true });
+            console.log(`writer: "workflowPlaylistRender.scrollToCurrentOrDefer", page: "playlistStore.scrollToCurrentPending", content: "true (menu 3 chấm đang mở — hoãn cuộn)"`);
+            return;
+        }
+        scrollToCurrentKeyAnimated(); // core/playlist/render.js
+    },
+
+    /** MỚI (21/09/2026) — chạy lượt cuộn đang hoãn bởi `scrollToCurrentOrDefer()` (nếu có). Không có cờ chờ ->
+     * no-op. Gọi SAU khi menu 3 chấm đã đóng (`workflowPlaylist.closeActionMenu()`). Nếu Playlist đã bị ẩn (đang
+     * ở Visualizer) thì `scrollToCurrentKeyAnimated()` tự bỏ qua, còn `scrollToCurrentKeyInstant()` lo lúc quay lại. */
+    flushPendingScrollToCurrent() {
+        if (!playlistStore.get('scrollToCurrentPending')) return;
+        playlistStore.set({ scrollToCurrentPending: false });
+        console.log(`writer: "workflowPlaylistRender.flushPendingScrollToCurrent", page: "playlistStore.scrollToCurrentPending", content: "false (menu đã đóng — cuộn bù)"`);
+        scrollToCurrentKeyAnimated(); // core/playlist/render.js
+    },
 };

@@ -222,7 +222,7 @@ const workflowPhotoPlayer = {
         workflowPlaylistRender.refreshSongNode(photoKey);
         updatePlayButtonPlayingState(appState.get('currentKey'), appState.get('displayOrder')); // core/playlist/render.js — FIX (10/09/2026) Rule 2: Core nhận tham số, không tự appState.get()
 
-        if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated(); // core/player-controls.js / core/playlist/render.js
+        if (switchScreen) switchToVisualizer(); else workflowPlaylistRender.scrollToCurrentOrDefer(); // core/player-controls.js / event/workflow/playlist-render.js (hoãn cuộn nếu menu 3 chấm đang mở)
 
         // Vòng lặp đồng hồ — kill task CŨ (nếu lỡ còn sót từ ảnh trước) rồi addNew() lại MỖI LẦN đổi
         // ảnh (KHÔNG dùng taskManager.resume() — mỗi ảnh là 1 "phiên" đếm MỚI, cùng lý do

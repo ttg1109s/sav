@@ -156,7 +156,7 @@ const workflowPlayer = {
         // cùng lý do đã giải thích ở dòng gửi phía dưới (playMedia() CHỈ gọi từ hành động "muốn
         // phát" thật, an toàn gửi vô điều kiện).
         if (key === appState.get('currentKey')) {
-            if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated();
+            if (switchScreen) switchToVisualizer(); else workflowPlaylistRender.scrollToCurrentOrDefer();
             // SỬA (08/09/2026, Giang yêu cầu "toàn bộ case không được phát trước khi cooldown
             // xong") — bấm lại ĐÚNG bài đang armed Game Mode KHÔNG được .play() ngay tại đây nữa,
             // kể cả đang pause (đang phát dở cũng phải reset qua cooldown, không riêng gì lúc đang
@@ -276,7 +276,7 @@ const workflowPlayer = {
             if (previousKey) workflowPlaylistRender.refreshSongNode(previousKey);
             workflowPlaylistRender.refreshSongNode(key);
             if (!appState.get('domNodesByKey').has(key)) workflowPlaylistRender.renderPlaylistDiff();
-            if (!switchScreen) scrollToCurrentKeyAnimated();
+            if (!switchScreen) workflowPlaylistRender.scrollToCurrentOrDefer();
             updatePlayButtonPlayingState(appState.get('currentKey'), appState.get('displayOrder')); // core/playlist/render.js — FIX (10/09/2026) Rule 2: Core nhận tham số, không tự appState.get()
             appState.set('beatTimes', []); appState.set('fluxHistory', []); appState.set('currentCalculatedBpm', "---"); statBpm.textContent = "---"; statNote.textContent = "---";
             // Reset trạng thái pitch worker — tránh hiện sót nốt nhạc của bài VỪA đổi trong vài

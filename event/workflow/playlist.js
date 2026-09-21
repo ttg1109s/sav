@@ -86,6 +86,15 @@ const MEDIA_DELETE_ACCESSOR = {
 
 const workflowPlaylist = {
 
+    /** MỚI (21/09/2026, Giang yêu cầu — cuộn hoãn khi menu 3 chấm đang mở) — ĐƯỜNG ĐÓNG DUY NHẤT của menu 3 chấm
+     * từ tầng Workflow/Router: đóng menu (core `closeSongActionMenu()`) RỒI chạy lượt cuộn tới bài đang phát nếu
+     * bị hoãn lúc menu còn mở (`workflowPlaylistRender.scrollToCurrentOrDefer()`, event/workflow/playlist-render.js).
+     * Mọi nơi trước đây gọi thẳng `closeSongActionMenu()` giờ gọi hàm này. */
+    closeActionMenu() {
+        closeSongActionMenu(); // core/playlist/actions.js
+        workflowPlaylistRender.flushPendingScrollToCurrent(); // no-op nếu không có cuộn nào đang chờ
+    },
+
     /** MỚI (phản hồi Giang — "1 khung, không nhân bản, VMState theo activeMediaSource") — đổi
      * `accept` của 2 input upload DÙNG CHUNG theo Nguồn hiện tại. Gọi từ CẢ 3 hàm switchTo*Source()
      * LẪN loadPersistedPlaylistConfigOnBoot() (khôi phục Nguồn lúc boot) — 4 nơi DUY NHẤT
@@ -115,7 +124,7 @@ const workflowPlaylist = {
      */
     deleteMediaFromActionMenu(mediaKey) {
         if (!mediaKey) return; // guard: menu không mở/không xác định được bài nào
-        closeSongActionMenu(); // core/playlist/actions.js
+        workflowPlaylist.closeActionMenu(); // core/playlist/actions.js
 
         const cached = appState.get('playlistCache').get(mediaKey);
         const title = cached && cached.tag && cached.tag.title ? cached.tag.title : (cached ? cached.filename : mediaKey);
@@ -180,7 +189,7 @@ const workflowPlaylist = {
     openSongEditFromActionMenu() {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return; // guard: menu không mở
-        closeSongActionMenu(); // core/playlist/actions.js
+        workflowPlaylist.closeActionMenu(); // core/playlist/actions.js
         openSongEditModal(key); // core/playlist/actions.js
     },
 
@@ -1048,7 +1057,7 @@ const workflowPlaylist = {
     async exportActiveMenuItem() {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return;
-        closeSongActionMenu();
+        workflowPlaylist.closeActionMenu();
         const mediaType = appState.get('activeMediaSource');
         if (mediaType === 'video') await this.exportVideoFile(key);
         else if (mediaType === 'photo') await this.exportImageFile(key);
@@ -1075,7 +1084,7 @@ const workflowPlaylist = {
     openSubtitleEditorForSongMenu() {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return;
-        closeSongActionMenu();
+        workflowPlaylist.closeActionMenu();
         workflowSubtitleModal.navigateToEditor(key);
     },
 
@@ -1094,7 +1103,7 @@ const workflowPlaylist = {
     navigateToActiveMenuVideoEdit() {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return;
-        closeSongActionMenu();
+        workflowPlaylist.closeActionMenu();
         workflowVideoPreview.open(key); // event/workflow/video-preview.js
     },
 
@@ -1104,7 +1113,7 @@ const workflowPlaylist = {
     navigateToActiveMenuPhotoEdit() {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return;
-        closeSongActionMenu();
+        workflowPlaylist.closeActionMenu();
         workflowFileManagerPhoto.openImagePreview(key); // event/workflow/file-manager-photo.js
     },
 
@@ -1118,7 +1127,7 @@ const workflowPlaylist = {
     async openActiveMenuVideoThumb() {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return;
-        closeSongActionMenu();
+        workflowPlaylist.closeActionMenu();
         const record = await getVideoRecord(key); // service/db.js
         if (!record) return; // guard: video vừa bị xoá ở tab/thao tác khác
         if (!record.thumbFullBlob) {
@@ -1146,7 +1155,7 @@ const workflowPlaylist = {
     async openAddToFolderPickerForSongMenu() {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return;
-        closeSongActionMenu();
+        workflowPlaylist.closeActionMenu();
 
         // SỬA (hợp nhất Photo vào Playlist) — `activeMediaSource` giờ LÀ ĐÚNG mediaType cần dùng
         // (3 giá trị hợp lệ duy nhất: song/video/photo — xem loadPersistedPlaylistConfigOnBoot()),
@@ -1576,7 +1585,7 @@ const workflowPlaylist = {
      * @param {string} songKey
      */
     async removeSongFromFolderMenu(songKey) {
-        closeSongActionMenu(); // core/playlist/actions.js — SỬA (09/09/2026, cùng đợt nối dây lại action này) — mọi hành động khác từ menu 3-chấm đều tự đóng menu trước khi chạy (xem deleteMediaFromActionMenu() ngay trên), hàm này thiếu luôn từ đầu
+        workflowPlaylist.closeActionMenu(); // core/playlist/actions.js — SỬA (09/09/2026, cùng đợt nối dây lại action này) — mọi hành động khác từ menu 3-chấm đều tự đóng menu trước khi chạy (xem deleteMediaFromActionMenu() ngay trên), hàm này thiếu luôn từ đầu
         const mediaType = appState.get('activeMediaSource');
         const folderId = appState.get('activePlayListFolder')[mediaType];
         if (!folderId) return; // guard hiếm — cùng lý do removeSelectedSongsFromFolder()

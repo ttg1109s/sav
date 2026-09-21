@@ -460,7 +460,7 @@ const workflowVideoPlayer = {
         // xoá theo dù `bgVideoElement` đã mất src thật — phải xác nhận `this._objectUrl` còn khớp
         // đúng src hiện tại mới coi là "đang thật sự phát", tránh bỏ qua nhầm để lại màn đen.
         if (videoKey === appState.get('currentKey') && this._objectUrl && bgVideoElement.getAttribute('src') === this._objectUrl) {
-            if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated();
+            if (switchScreen) switchToVisualizer(); else workflowPlaylistRender.scrollToCurrentOrDefer();
             // SỬA (08/09/2026, Game Mode gate, cùng lý do event/workflow/player.js) — armed thì
             // KHÔNG .play() ở đây kể cả đang pause — _beginPlaying() tự phát sau cooldown qua
             // 'gameplay.mediaChanged' gửi ngay dưới.
@@ -559,7 +559,7 @@ const workflowVideoPlayer = {
             // startFromPlaylist() tự gọi ngay sau khi gọi hàm này, KHÔNG đợi gì) — [SỬA 21/09/2026] giờ
             // chạy ngay khi ảnh video MỚI đã decode + Transition xong (không đợi 'playing'), khớp yêu
             // cầu "UI chỉ đổi khi hình đã đổi".
-            if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated(); // core/player-controls.js / core/playlist/render.js
+            if (switchScreen) switchToVisualizer(); else workflowPlaylistRender.scrollToCurrentOrDefer(); // core/player-controls.js / event/workflow/playlist-render.js (hoãn cuộn nếu menu 3 chấm đang mở)
 
             // Đợi ĐÚNG lúc video MỚI thật sự có khung hình (sự kiện 'playing') — kèm timeout an toàn
             // (2s) phòng 'playing' không bao giờ bắn (autoplay bị chặn/lỗi định dạng lạ) để không kẹt
