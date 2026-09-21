@@ -1,7 +1,14 @@
 /**
  * components/app-bottom-nav.js — Bottom nav CỐ ĐỊNH của App Panel (đợt tái cấu trúc bottom nav —
- * 5 mục Media/Folder/Storage/Game/Statis). Icon phía trên, tên phía dưới, cuộn ngang nếu tràn (xem
- * #app-bottom-nav ở assets/css/layout-nav.css).
+ * 4 mục Folder/Storage/Game/Statis). Icon phía trên, tên phía dưới, chia đều chiều ngang, cuộn ngang
+ * nếu màn quá hẹp (xem #app-bottom-nav ở assets/css/layout-nav.css).
+ *
+ * SỬA (21/09/2026, Giang yêu cầu "loại bỏ media ở nav bottom") — nút Media BỎ HẲN khỏi thanh nav (còn
+ * 4/5 mục). Media vẫn là Home Screen mặc định (xem đoạn dưới) nên KHÔNG cần nút riêng: mọi overlay
+ * (Folder/Storage/Game/Statis) đóng lại đều tự về Media. Khi đứng ở Home, `appPanelActiveTab` vẫn là
+ * 'media' nhưng KHÔNG nút nào khớp -> cả 4 nút cùng màu "không active" (đúng ý: Home không thuộc mục nào).
+ * Case 'appPanelNav.media.click' + workflowAppPanelNav.openMedia() GIỮ NGUYÊN không xoá (Rule 0.5 —
+ * vô hại, không còn nút nào gửi tới, cùng cách đã làm với 'photo'/'setting' bên dưới).
  *
  * SỬA (Giang yêu cầu "loại bỏ photo, setting ở nav bottom") — 2 nút Photo/Setting BỎ HẲN khỏi
  * thanh nav (còn 5/7 mục cũ). Photo: đã hợp nhất vào Playlist làm 1 Nguồn (activeMediaSource=
@@ -42,10 +49,6 @@
  */
 const TPL_APP_BOTTOM_NAV = `
     <div id="app-bottom-nav" class="border-t" data-uitk="dividerBorder">
-        <button class="app-bottom-nav-btn active" data-tab="media">
-            <svg xmlns="http://www.w3.org/2000/svg" class="" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-2v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
-            <span class="app-bottom-nav-label" data-i18n="appPanelNav.tab.media">${t('appPanelNav.tab.media')}</span>
-        </button>
         <button class="app-bottom-nav-btn" data-tab="folder">
             <svg xmlns="http://www.w3.org/2000/svg" class="" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h5l2 2h7a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>
             <span class="app-bottom-nav-label" data-i18n="appPanelNav.tab.folder">${t('appPanelNav.tab.folder')}</span>

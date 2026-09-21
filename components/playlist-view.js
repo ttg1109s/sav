@@ -121,7 +121,7 @@ const TPL_PLAYLIST_VIEW = `
                      đang Scope) NẰM THẬT SỰ bên trong khung viền đó, không phải 1 hàng tách biệt
                      nữa. Mọi id/JS wiring (playlistSearchInput/playlistSearchClear/
                      playlistActiveFolderBadge/...) GIỮ NGUYÊN — chỉ đổi vị trí/lớp CSS bọc ngoài. -->
-                <div class="relative flex items-center gap-2 w-full rounded-2xl pl-3.5 pr-3 py-2.5 transition-colors border" data-uitk="inputBg inputBorder inputFocusWithinBorder">
+                <div class="relative flex items-center gap-2 w-full rounded-2xl pl-3.5 pr-3 py-2.5 transition-colors border" data-uitk="searchBoxSurface inputFocusWithinBorder">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 pointer-events-none shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     <!-- MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 3 — SỬA VỊ TRÍ cùng đợt
                          này) — badge tên folder đang Scope, THAY HẲN UI khoá select "Nguồn" ở
@@ -137,7 +137,7 @@ const TPL_PLAYLIST_VIEW = `
                             </button>
                         </div>
                     </div>
-                    <input id="playlist-search-input" type="text" inputmode="search" autocomplete="off" data-i18n-placeholder="playlistView.search.placeholder" placeholder="${t('playlistView.search.placeholder')}" class="flex-1 min-w-0 bg-transparent border-none outline-none text-[15px] placeholder-slate-400 py-0" data-uitk="inputText">
+                    <input id="playlist-search-input" type="text" inputmode="search" autocomplete="off" data-i18n-placeholder="playlistView.search.placeholder" placeholder="${t('playlistView.search.placeholder')}" class="flex-1 min-w-0 bg-transparent border-none outline-none text-[15px] py-0" data-uitk="inputText inputPlaceholder">
                     <button id="playlist-search-clear" class="hidden shrink-0 transition-colors p-1" data-uitk="textMutedIcon hoverPrimaryText" data-i18n-title="playlistView.search.clear.title" title="${t('playlistView.search.clear.title')}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
