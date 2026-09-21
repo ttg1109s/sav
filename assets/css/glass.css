@@ -16,3 +16,13 @@
 
 /* Chặn bôi đen/chọn chữ + menu giữ-tay trên màn Visualizer trong lúc thao tác cử chỉ. */
 #visualizer-ui { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+/* ===================== Morphin (UI Theme) — 2 bề mặt kính dùng cho key theme `panelBg` / `modalCardBg` =====================
+   MỚI 21/09/2026 (Giang yêu cầu theme Morphin dựa trên css icon Control Center). Khai ở ĐÂY (không phải class Tailwind) vì cần
+   `blur(36px) saturate(1.6)` + viền + bóng trong — xem core/ui-theme/morphin.js. Cả 2 đều nằm trong danh sách ép vẽ lại backdrop-filter
+   của `forceGlassRepaint()` (core/color-utils.js) — sửa nền ảnh/gradient xong lớp kính không bị "kẹt" ảnh cũ trên WebKit/iOS.
+   - .uitk-glass-surface: panel/drawer (phủ diện rộng) — dựa trực tiếp `.glass-control-center`, nhạt hơn 1 chút (nền trắng 10%).
+   - .uitk-glass-elevated: modal/menu nổi (đứng CAO hơn) — nền trắng 16%, blur mạnh hơn, viền sáng hơn, bóng lớn như Control Center.
+   text-shadow nhẹ giữ tương phản chữ trắng trên nền ảnh/gradient sáng (chữ con thừa kế). */
+.uitk-glass-surface { background: rgba(255, 255, 255, 0.10); backdrop-filter: blur(36px) saturate(1.6); -webkit-backdrop-filter: blur(36px) saturate(1.6); border: 1px solid rgba(255, 255, 255, 0.22); box-shadow: 0 0 0 1px rgba(255,255,255,0.06) inset; text-shadow: 0 1px 3px rgba(0,0,0,0.45); }
+.uitk-glass-elevated { background: rgba(255, 255, 255, 0.16); backdrop-filter: blur(40px) saturate(1.7); -webkit-backdrop-filter: blur(40px) saturate(1.7); border: 1px solid rgba(255, 255, 255, 0.28); box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset, 0 25px 50px rgba(0,0,0,0.35); text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
