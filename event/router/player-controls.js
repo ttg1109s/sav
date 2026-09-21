@@ -289,11 +289,11 @@ const routerPlayerControls = (() => {
             }
 
             case 'playerControls.progressBar.seekCommit': {
-                const { value } = msg.payload;
+                const { value, fromGesture = false } = msg.payload; // fromGesture: seek-hold (event/workflow/visualizer-gesture.js) — không có phiên kéo tay, xem handleVideoSeekCommit()
                 const mode = appState.get('isVideoPlayerMode') ? 'video' : 'song';
                 VirtualMachineState.run([
                     { state: mode, operation: '===', value: 'video', callback: () => {
-                        workflowVideoPlayer.handleVideoSeekCommit(value);
+                        workflowVideoPlayer.handleVideoSeekCommit(value, fromGesture);
                     } },
                     { state: mode, operation: '===', value: 'song', callback: () => {
                         workflowPlayerControls.handleSongSeekCommit(value); // event/workflow/player-controls.js — cổng seek (SỬA 21/09/2026, thay handleProgressBarSeekCommit() core)
