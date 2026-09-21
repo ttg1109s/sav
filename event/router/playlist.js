@@ -49,8 +49,9 @@ const routerPlaylist = (() => {
 
             // ===================== Menu 3 chấm =====================
             case 'playlist.actionOverlay.click': {
-                // CHỈ CẦN ĐÚNG 1 HÀM CORE -> gọi THẲNG, BỎ QUA workflow hoàn toàn.
-                closeSongActionMenu();
+                // SỬA 21/09/2026 — trước đây CHỈ 1 hàm core -> gọi thẳng; giờ đóng menu còn phải chạy lượt cuộn đang
+                // hoãn (nếu có) = 2 việc nối tiếp -> (B) Workflow (workflowPlaylist.closeActionMenu()).
+                workflowPlaylist.closeActionMenu();
                 break;
             }
 
