@@ -53,18 +53,18 @@ function renderAppSettingsCarousel(rows) {
     const cardHtml = (row, index, copy) => `
         <button type="button" data-carousel-card data-carousel-key="${row.key}" data-carousel-index="${index}" data-carousel-copy="${copy}" class="rounded-3xl flex flex-col items-center text-center px-4 py-5" data-uitk="cardBg cardBorder" style="flex:0 0 50%; height:232px; scroll-snap-align:center; transform:scale(0.8); opacity:0.5;">
             <span class="rounded-2xl flex items-center justify-center shrink-0" data-uitk="rowActiveBg" style="width:64px; height:64px;">
-                <svg xmlns="http://www.w3.org/2000/svg" class="text-sky-500" style="width:36px; height:36px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="${row.icon}" /></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" data-uitk="accentTextSoft" style="width:36px; height:36px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="${row.icon}" /></svg>
             </span>
-            <span class="block text-base font-bold text-slate-800 leading-tight mt-3" style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${t(row.labelKey)}</span>
-            <span class="block text-xs text-slate-500 leading-snug mt-1.5" style="display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">${t(row.hintKey)}</span>
-            <svg xmlns="http://www.w3.org/2000/svg" class="text-slate-400 shrink-0" style="width:16px; height:16px; margin-top:auto;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+            <span class="block text-base font-bold leading-tight mt-3" data-uitk="textPrimary" style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${t(row.labelKey)}</span>
+            <span class="block text-xs leading-snug mt-1.5" data-uitk="textSecondary" style="display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">${t(row.hintKey)}</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="shrink-0" data-uitk="textMutedIcon" style="width:16px; height:16px; margin-top:auto;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
         </button>
     `;
     let cardsHtml = '';
     for (let copy = 0; copy < SETTINGS_CAROUSEL_SETS; copy++) {
         cardsHtml += rows.map((row, index) => cardHtml(row, index, copy)).join('');
     }
-    const dotsHtml = rows.map((row, index) => `<span data-carousel-dot="${index}" class="rounded-full bg-sky-500" style="display:block; height:6px; width:6px; opacity:0.35; transition:width 200ms, opacity 200ms;"></span>`).join('');
+    const dotsHtml = rows.map((row, index) => `<span data-carousel-dot="${index}" class="rounded-full" data-uitk="btnPrimaryPillBg" style="display:block; height:6px; width:6px; opacity:0.35; transition:width 200ms, opacity 200ms;"></span>`).join('');
     return `
         <div data-gd-ignore-mutation style="margin-left:-16px; margin-right:-16px;">
             <div id="app-settings-carousel" data-carousel-count="${rows.length}" style="position:relative; display:flex; gap:10px; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; padding:8px 0; scrollbar-width:none; -ms-overflow-style:none; overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch;">${cardsHtml}</div>
@@ -82,13 +82,13 @@ function renderAppSettingsRowList(rows) {
     return rows.map((row) => `
         <button type="button" data-app-settings-nav="${row.key}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-3" data-uitk="cardBg cardBorder cardHoverBg">
             <div class="flex items-center gap-3 min-w-0">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-sky-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${row.icon}" /></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="accentTextSoft" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${row.icon}" /></svg>
                 <div class="min-w-0">
-                    <div class="text-sm font-semibold text-slate-700 truncate">${t(row.labelKey)}</div>
-                    ${row.hintKey ? `<div class="text-xs text-slate-400 mt-0.5 truncate">${t(row.hintKey)}</div>` : ''}
+                    <div class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${t(row.labelKey)}</div>
+                    ${row.hintKey ? `<div class="text-xs mt-0.5 truncate" data-uitk="textSecondary">${t(row.hintKey)}</div>` : ''}
                 </div>
             </div>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
         </button>
     `).join('');
 }

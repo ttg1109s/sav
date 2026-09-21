@@ -28,13 +28,13 @@ function _renderTroubleshootingNavRow(key, iconPath, labelHtml, hintHtml) {
     return `
         <button type="button" data-app-settings-nav="${key}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-3" data-uitk="cardBg cardBorder cardHoverBg">
             <div class="flex items-center gap-3 min-w-0">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-sky-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${iconPath}" /></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="accentTextSoft" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${iconPath}" /></svg>
                 <div class="min-w-0">
-                    <div class="text-sm font-semibold text-slate-700 truncate">${labelHtml}</div>
-                    <div class="text-xs text-slate-400 mt-0.5">${hintHtml}</div>
+                    <div class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${labelHtml}</div>
+                    <div class="text-xs mt-0.5" data-uitk="textSecondary">${hintHtml}</div>
                 </div>
             </div>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
         </button>
     `;
 }
@@ -45,8 +45,8 @@ function _renderTroubleshootingActionRow(action, iconPath, labelHtml, hintHtml) 
         <button type="button" data-troubleshooting-action="${action}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center gap-3" data-uitk="cardBg cardBorder cardHoverBg">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-rose-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${iconPath}" /></svg>
             <div class="min-w-0">
-                <div class="text-sm font-semibold text-slate-700 truncate">${labelHtml}</div>
-                <div class="text-xs text-slate-400 mt-0.5">${hintHtml}</div>
+                <div class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${labelHtml}</div>
+                <div class="text-xs mt-0.5" data-uitk="textSecondary">${hintHtml}</div>
             </div>
         </button>
     `;
@@ -67,13 +67,13 @@ function renderVideoThumbRepairBody() {
             <button id="btn-video-thumb-scan" class="flex justify-between items-center p-4 w-full text-left" data-uitk="cardHoverBg">
                 <div>
                     <div class="text-sm font-medium">${t('appSettings.troubleshooting.videoThumb.label')}</div>
-                    <div class="text-xs text-slate-500 mt-0.5">${t('appSettings.troubleshooting.videoThumb.hint')}</div>
+                    <div class="text-xs mt-0.5" data-uitk="textSecondary">${t('appSettings.troubleshooting.videoThumb.hint')}</div>
                 </div>
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" /></svg>
             </button>
             <div id="video-thumb-scan-result" class="hidden p-4 flex flex-col gap-3 border-t" data-uitk="dividerBorder">
-                <p id="video-thumb-scan-summary" class="text-sm text-slate-900"></p>
-                <div id="video-thumb-scan-list" class="flex flex-col gap-1.5 max-h-48 overflow-y-auto text-xs text-slate-500"></div>
+                <p id="video-thumb-scan-summary" class="text-sm" data-uitk="textPrimary"></p>
+                <div id="video-thumb-scan-list" class="flex flex-col gap-1.5 max-h-48 overflow-y-auto text-xs" data-uitk="textSecondary"></div>
                 <div class="flex gap-3 mt-1">
                     <button id="btn-video-thumb-fix" class="flex-1 py-2.5 rounded-xl text-sm font-semibold" data-uitk="btnPrimaryBg btnPrimaryHoverBg textOnAccent">${t('appSettings.troubleshooting.videoThumb.btnFix')}</button>
                     <button id="btn-video-thumb-dismiss" class="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors" data-uitk="btnNeutralBg btnNeutralHoverBg btnNeutralText">${t('storageDrawer.btnDismissScan')}</button>
