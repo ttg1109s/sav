@@ -31,6 +31,11 @@
  * `escapeHtml()` (core/modal-choice-ui.js) cho MỌI `name` — dữ liệu người dùng thật (tên file/tên
  * đã đổi qua "Sửa"), khác `game.id` (data TĨNH dev tự khai) ở game-panel-ui.js không cần escape.
  *
+ * [SỬA 21/09/2026] Media types căn GIỮA toàn bộ nội dung card. Mọi con số (Overview, Media types, giá
+ * trị Top list) bọc trong `<span data-countup="<số đích>" data-countup-fmt="int|time">` và thanh tiến
+ * độ mang `data-countup-fmt="bar"` — Workflow (event/workflow/statis-panel.js) quét các thuộc tính này
+ * để chạy animation đếm-lên lúc MỞ panel; hàm này KHÔNG animate gì, text luôn là số cuối.
+ *
  * Cỡ chữ nhỏ (11px) khai bằng `style` inline, KHÔNG dùng class ngoặc vuông `text-[11px]` — Tailwind
  * Play CDN tiêm CSS cho class ngoặc vuông BẤT ĐỒNG BỘ, lần đầu dùng trong phiên có thể chưa kịp lên
  * style (bug lặp lại đã ghi ở Folder Browser/time-picker). Thanh tiến độ cũng vậy: chiều rộng % là
@@ -67,6 +72,9 @@ function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterT
     }
 
     const fmtNum = (n) => Number(n || 0).toLocaleString(); // 1284 -> "1,284" (theo locale máy)
+    // Bọc 1 con số vào <span data-countup> để Workflow đếm-lên lúc MỞ panel (event/workflow/statis-panel.js, dùng
+    // core/number-countup.js). Text bên trong LUÔN là số cuối (không animation vẫn đúng); `fmt`: 'int' | 'time' (giây).
+    const num = (value, fmt, text) => `<span data-countup="${value}" data-countup-fmt="${fmt}">${text}</span>`;
     // Heading của 1 khu — CHỈ typography (text-sm font-semibold), KHÔNG viền/card bao quanh; `rightHtml` (tuỳ chọn) là chú thích nhỏ căn phải.
     const sectionHeading = (i18nKey, rightHtml) => `
         <div class="flex items-baseline justify-between mb-2">
@@ -81,26 +89,26 @@ function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterT
             <div class="grid grid-cols-2 gap-2 mb-2">
                 <div class="rounded-2xl p-3" data-uitk="cardBg">
                     <p style="${STATIS_SMALL_TEXT_STYLE}" data-uitk="textSecondary" data-i18n="statisPanel.overview.totalTime">${t('statisPanel.overview.totalTime')}</p>
-                    <p class="text-2xl font-bold leading-tight mt-1" data-uitk="textPrimary">${formatListenTime(grandTotal.totalTime)}</p>
+                    <p class="text-2xl font-bold leading-tight mt-1" data-uitk="textPrimary">${num(grandTotal.totalTime, 'time', formatListenTime(grandTotal.totalTime))}</p>
                 </div>
                 <div class="rounded-2xl p-3" data-uitk="cardBg">
                     <p style="${STATIS_SMALL_TEXT_STYLE}" data-uitk="textSecondary" data-i18n="statisPanel.overview.totalPlays">${t('statisPanel.overview.totalPlays')}</p>
-                    <p class="text-2xl font-bold leading-tight mt-1" data-uitk="textPrimary">${fmtNum(grandTotal.playCount)}</p>
+                    <p class="text-2xl font-bold leading-tight mt-1" data-uitk="textPrimary">${num(grandTotal.playCount, 'int', fmtNum(grandTotal.playCount))}</p>
                 </div>
             </div>
             <div class="rounded-2xl p-3" data-uitk="cardBg">
                 <div class="flex items-end justify-between gap-3">
                     <div class="min-w-0">
                         <p style="${STATIS_SMALL_TEXT_STYLE}" data-uitk="textSecondary" data-i18n="statisPanel.overview.libraryPlayed">${t('statisPanel.overview.libraryPlayed')}</p>
-                        <p class="text-2xl font-bold leading-tight mt-1" data-uitk="textPrimary">${grandTotal.playedPercent}<span class="text-base font-semibold">%</span></p>
+                        <p class="text-2xl font-bold leading-tight mt-1" data-uitk="textPrimary">${num(grandTotal.playedPercent, 'int', grandTotal.playedPercent)}<span class="text-base font-semibold">%</span></p>
                     </div>
                     <div class="text-right shrink-0" style="${STATIS_SMALL_TEXT_STYLE}" data-uitk="textSecondary">
-                        <p>${tFormat('statisPanel.overview.filesPlayed', { played: fmtNum(grandTotal.playedItemCount), total: fmtNum(grandTotal.itemCount) })}</p>
-                        <p>${tFormat('statisPanel.overview.neverPlayedCount', { n: fmtNum(grandTotal.neverPlayedCount) })}</p>
+                        <p>${tFormat('statisPanel.overview.filesPlayed', { played: num(grandTotal.playedItemCount, 'int', fmtNum(grandTotal.playedItemCount)), total: num(grandTotal.itemCount, 'int', fmtNum(grandTotal.itemCount)) })}</p>
+                        <p>${tFormat('statisPanel.overview.neverPlayedCount', { n: num(grandTotal.neverPlayedCount, 'int', fmtNum(grandTotal.neverPlayedCount)) })}</p>
                     </div>
                 </div>
                 <div class="mt-3 rounded-full overflow-hidden" style="height:6px;" data-uitk="progressTrackBg">
-                    <div class="h-full rounded-full bg-sky-500" style="width:${grandTotal.playedPercent}%;"></div>
+                    <div class="h-full rounded-full bg-sky-500" style="width:${grandTotal.playedPercent}%;" data-countup="${grandTotal.playedPercent}" data-countup-fmt="bar"></div>
                 </div>
             </div>
         </section>`;
@@ -109,16 +117,16 @@ function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterT
     const compareCards = ['song', 'video', 'photo'].map((mediaType) => {
         const totals = byType[mediaType];
         return `
-            <div class="rounded-2xl p-3 flex-1 min-w-0" data-uitk="cardBg">
-                <div class="flex items-center gap-1.5 mb-2">
+            <div class="rounded-2xl p-3 flex-1 min-w-0 text-center" data-uitk="cardBg">
+                <div class="flex items-center justify-center gap-1.5 mb-2">
                     <span class="w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${STATIS_TYPE_ACCENT[mediaType]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="${STATIS_TYPE_ICON_PATH[mediaType]}"/></svg></span>
                     <span class="text-xs font-semibold truncate" data-uitk="textPrimary" data-i18n="statisPanel.type.${mediaType}">${t('statisPanel.type.' + mediaType)}</span>
                 </div>
-                <p class="text-2xl font-bold leading-none" data-uitk="textPrimary">${totals.playSharePercent}<span class="text-sm font-semibold">%</span></p>
+                <p class="text-2xl font-bold leading-none" data-uitk="textPrimary">${num(totals.playSharePercent, 'int', totals.playSharePercent)}<span class="text-sm font-semibold">%</span></p>
                 <p class="mb-2" style="${STATIS_SMALL_TEXT_STYLE}" data-uitk="textSecondary" data-i18n="statisPanel.compare.shareOfPlays">${t('statisPanel.compare.shareOfPlays')}</p>
-                <p class="text-xs font-semibold" data-uitk="textSecondaryStrong">${formatListenTime(totals.totalTime)}</p>
-                <p style="${STATIS_SMALL_TEXT_STYLE}" data-uitk="textSecondary">${tFormat('statisPanel.compare.playCount', { n: fmtNum(totals.playCount) })}</p>
-                <p style="${STATIS_SMALL_TEXT_STYLE}" data-uitk="textSecondary">${tFormat('statisPanel.compare.itemCount', { n: fmtNum(totals.itemCount) })}</p>
+                <p class="text-xs font-semibold" data-uitk="textSecondaryStrong">${num(totals.totalTime, 'time', formatListenTime(totals.totalTime))}</p>
+                <p style="${STATIS_SMALL_TEXT_STYLE}" data-uitk="textSecondary">${tFormat('statisPanel.compare.playCount', { n: num(totals.playCount, 'int', fmtNum(totals.playCount)) })}</p>
+                <p style="${STATIS_SMALL_TEXT_STYLE}" data-uitk="textSecondary">${tFormat('statisPanel.compare.itemCount', { n: num(totals.itemCount, 'int', fmtNum(totals.itemCount)) })}</p>
             </div>`;
     }).join('');
 
@@ -146,8 +154,8 @@ function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterT
     const listRows = topList.length === 0
         ? `<p class="text-sm text-center py-10" data-uitk="emptyStateText" data-i18n="${emptyKey}">${t(emptyKey)}</p>`
         : topList.map((item, index) => {
-            const playsText = tFormat('statisPanel.compare.playCount', { n: fmtNum(item.count) });
-            const timeText = formatListenTime(item.totalTime);
+            const playsText = tFormat('statisPanel.compare.playCount', { n: num(item.count, 'int', fmtNum(item.count)) });
+            const timeText = num(item.totalTime, 'time', formatListenTime(item.totalTime));
             const primary = sortMode === 'count' ? playsText : timeText; // chỉ số CHÍNH — đúng tiêu chí đang sort
             const secondary = sortMode === 'count' ? timeText : playsText; // chỉ số PHỤ — ngữ cảnh còn thiếu của chỉ số chính
             return `
@@ -172,4 +180,39 @@ function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterT
         </section>`;
 
     return overview + mediaTypes + topMedia;
+}
+
+/**
+ * Skeleton "đang tải" — MỚI 21/09/2026 (Giang yêu cầu "làm nốt"), THAY placeholder chữ "Loading stats…"
+ * ở `workflowStatisPanel.openPanel()`. Cùng heading + cùng kích cỡ khối với bố cục thật của
+ * `buildStatisPanelBodyHtml()` (Overview 2+1 khối · Media types 3 khối · Top media: segmented + chip +
+ * 5 hàng) nên lúc dữ liệu về không bị nhảy layout. Cũng CHỈ dựng chuỗi HTML (Rule 5), không listener,
+ * không `appState.get()`. Chiều cao khối khai `style` inline (tránh class ngoặc vuông, xem docstring
+ * đầu file); nhấp nháy bằng class chuẩn `animate-pulse`.
+ * @param {function} t
+ * @returns {string}
+ */
+function buildStatisPanelSkeletonHtml(t) {
+    const block = (heightPx, extraClass) => `<div class="rounded-2xl ${extraClass || ''}" style="height:${heightPx}px;" data-uitk="cardBg"></div>`;
+    const heading = (i18nKey) => `<h3 class="text-sm font-semibold mb-2" data-uitk="textPrimary" data-i18n="${i18nKey}">${t(i18nKey)}</h3>`;
+    const rows = [1, 2, 3, 4, 5].map(() => `<div class="flex items-center gap-2.5 py-2"><div class="w-7 h-7 rounded-full shrink-0" data-uitk="cardBg"></div><div class="flex-1 rounded-lg" style="height:14px;" data-uitk="cardBg"></div><div class="rounded-lg shrink-0" style="height:14px; width:56px;" data-uitk="cardBg"></div></div>`).join('');
+
+    return `
+        <div class="animate-pulse" aria-busy="true">
+            <section class="mb-6">
+                ${heading('statisPanel.section.overview')}
+                <div class="grid grid-cols-2 gap-2 mb-2">${block(64)}${block(64)}</div>
+                ${block(84)}
+            </section>
+            <section class="mb-6">
+                ${heading('statisPanel.section.mediaTypes')}
+                <div class="flex gap-2">${block(132, 'flex-1')}${block(132, 'flex-1')}${block(132, 'flex-1')}</div>
+            </section>
+            <section>
+                ${heading('statisPanel.section.topMedia')}
+                ${block(40, 'mb-2')}
+                <div class="flex gap-1.5 mb-2">${['w-12', 'w-14', 'w-14', 'w-14'].map((w) => `<div class="h-8 rounded-full ${w}" data-uitk="cardBg"></div>`).join('')}</div>
+                ${rows}
+            </section>
+        </div>`;
 }
