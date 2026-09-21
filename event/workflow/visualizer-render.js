@@ -74,6 +74,19 @@
 const RENDER_TASK = 'visualizerRender';     // CHỈ vẽ — bật/tắt theo cfg.visualEnabled (xem _syncRenderTask())
 const ANALYSIS_TASK = 'audioAnalysis'; // phân tích audio + stats + Game tick — LUÔN chạy
 
+// ===== Connector (synapse/circuit) — "ổn định lại" sau SEEK (MỚI 21/09/2026) =====
+// Mỗi neuron/chip giữ state thời gian (smoothedBinEnergy/prevBinEnergy/adaptation/lateralInhibition +
+// tia đang bay) — seek cùng 1 media KHÔNG qua resetConnectorPerTrackState() (chỉ chạy khi đổi bài) nên
+// state cũ sống xuyên qua seek, frame đầu sau seek bị hiểu nhầm thành onset (hoặc ngược lại) và tia cũ
+// vẫn bay tiếp. currentTime nhảy quá ngưỡng này giữa 2 frame (dù `seeking` kịp bắn hay không — seek
+// blob cục bộ có thể xong trong <1 frame) = 1 lần seek. Playback 2x chỉ tiến ~0.03s/frame.
+const SEEK_JUMP_THRESHOLD_SEC = 0.5;
+// Số frame giữ connector ở trạng thái "ổn định lại" (không bắn, mỗi frame lấy FFT hiện tại làm baseline)
+// sau lần seek CUỐI — `analyser` tự làm mượt FFT (smoothingTimeConstant mặc định 0.8, mỗi lần
+// getByteFrequencyData) nên còn kéo đuôi audio CŨ ~0.2s sau khi media đã seek xong; ~15 frame @60fps
+// là đủ để phần đuôi đó tắt hẳn trước khi coi FFT là "vị trí mới".
+const CONNECTOR_SEEK_SETTLE_FRAMES = 15;
+
 // Tra cứu hàm vẽ 2D theo `vizConfig.type` — dời nguyên từ `draw-visualizer.js` cũ (đã RỖNG).
 // `bar`/`rain`/`shape`/`vortex` KHÔNG nằm trong bảng này: `bar` có 3 style con (mirror/
 // cascade/'black hole', CHUYỂN NHÓM 05/09/2026 — trước đây 'black hole' là type riêng) nên
@@ -128,6 +141,11 @@ const workflowVisualizerRender = {
      * được đăng ký + chạy hay không, tránh hỏi taskManager mỗi frame). */
     _renderActive: false,
 
+    // Phát hiện seek (KHÔNG thuộc STATE) — xem `_detectMediaSeek()`/SEEK_JUMP_THRESHOLD_SEC.
+    _seekLastMedia: null,
+    _seekLastTime: 0,
+    _connectorSettleFrames: 0, // >0 = connector đang "ổn định lại" sau seek, `_tickConnectorRender()` trừ dần mỗi frame
+
     /** Đăng ký + bật task phân tích `raf` — xem docstring đầu file về điểm gọi DUY NHẤT + guard
      * chống double-start. Task vẽ (`RENDER_TASK`) KHÔNG đăng ký ở đây: `_tick()` tự bật nó ở frame
      * đầu tiên nếu Show Visual đang bật (`_syncRenderTask()`). Gọi lại `start()` = dọn sạch cả 2
@@ -162,6 +180,20 @@ const workflowVisualizerRender = {
         console.log(`[workflowVisualizerRender] task "${RENDER_TASK}" ${isVisualOff ? 'đã kill (Show Visual tắt)' : 'đã start (Show Visual bật)'}`); // log vòng đời task — KHÔNG phải ghi appState nên không dùng format "writer:" của Rule 4
     },
 
+    /** Phát hiện media vừa SEEK (mọi nguồn: kéo thanh seek, cử chỉ giữ tay, Media Session, đổi bài, tab ẩn
+     * rồi hiện lại) — CHỈ báo hiệu (`_connectorSettleFrames`), việc dọn nằm ở `_tickConnectorRender()`
+     * (task vẽ) vì chỉ nơi đó mới đụng state connector. Photo Player mode bỏ qua (không có audio/seek thật).
+     * @param {boolean} isVideoPlayerMode @param {boolean} isPhotoPlayerMode */
+    _detectMediaSeek(isVideoPlayerMode, isPhotoPlayerMode) {
+        if (isPhotoPlayerMode) return;
+        const media = isVideoPlayerMode ? bgVideoElement : audioPlayer;
+        const t = media.currentTime;
+        const isSeek = media.seeking || media !== this._seekLastMedia || Math.abs(t - this._seekLastTime) > SEEK_JUMP_THRESHOLD_SEC;
+        this._seekLastMedia = media;
+        this._seekLastTime = t;
+        if (isSeek) this._connectorSettleFrames = CONNECTOR_SEEK_SETTLE_FRAMES;
+    },
+
     /** Tick PHÂN TÍCH — 1 lần mỗi khung hình, LUÔN chạy (xem docstring đầu file). Thay phần đầu của
      * `drawVisualizer()` cũ. Phần VẼ nằm ở `_tickDraw()` bên dưới. */
     _tick() {
@@ -188,6 +220,8 @@ const workflowVisualizerRender = {
         // THẬT SỰ có xử lý audio data, khớp tinh thần mọi field khác cùng package
         // visualizer-runtime.js).
         appState.set('frameCounter', frameCounter + 1, { skipCheck: true });
+
+        this._detectMediaSeek(appState.get('isVideoPlayerMode'), appState.get('isPhotoPlayerMode'));
 
         analyser.getByteFrequencyData(vizDataArray);
         const bufferLength = analyser.frequencyBinCount;
@@ -446,16 +480,46 @@ const workflowVisualizerRender = {
         const glowIntensity = getConnectorGlowMult() * 100; // core/custom-effect.js
         const deltaTime = Math.min(cnClock.getDelta(), 0.1); // core/webgl/three-connector.js
 
+        // "Ổn định lại" sau seek: đang trong cửa sổ này thì KHÔNG bắn, xoá tia cũ, mỗi frame lấy FFT
+        // hiện tại làm baseline — xem CONNECTOR_SEEK_SETTLE_FRAMES.
+        const isSettling = this._connectorSettleFrames > 0;
+        if (isSettling) this._connectorSettleFrames--;
+
         if (cfg.connectorStyle === 'synapse') {
-            this._tickConnectorSynapse(isPlaying, smoothedEnergy, vizDataArray, bufferLength, cfg, glowIntensity, deltaTime);
+            this._tickConnectorSynapse(isPlaying, smoothedEnergy, vizDataArray, bufferLength, cfg, glowIntensity, deltaTime, isSettling);
         } else {
-            this._tickConnectorCircuit(isPlaying, smoothedEnergy, vizDataArray, bufferLength, cfg, glowIntensity, deltaTime);
+            this._tickConnectorCircuit(isPlaying, smoothedEnergy, vizDataArray, bufferLength, cfg, glowIntensity, deltaTime, isSettling);
         }
 
         appState.get('cnControls').update();
 
         if (cfg.connectorStyle === 'synapse') appState.get('tRenderer').render(appState.get('cnScene'), appState.get('cnCamera'));
         else appState.get('cnComposer').render();
+    },
+
+    /** Xoá mọi tia synapse đang bay (dispose mesh — cùng cách xử lý lúc tia tới đích, xem
+     * `_tickConnectorSynapse()`) — dùng lúc "ổn định lại" sau seek. */
+    _clearSynapseSignals() {
+        const activeSignals = appState.get('cnActiveSignalsSynapse');
+        if (activeSignals.length === 0) return;
+        activeSignals.forEach((signal) => {
+            signal.synapse.fromNeuron.container.remove(signal.mesh); // spark là con của neuron nguồn, xem fireNeuronActionPotential()
+            signal.mesh.geometry.dispose(); signal.mesh.material.dispose();
+        });
+        appState.set('cnActiveSignalsSynapse', [], { skipCheck: true });
+        console.log(`writer: "workflowVisualizerRender._clearSynapseSignals", page: "cnActiveSignalsSynapse", content: "xoá ${activeSignals.length} tia sau seek"`);
+    },
+
+    /** Xoá mọi xung circuit đang bay + trả pin về rảnh (đúng như `resetConnectorPerTrackState()`,
+     * core/webgl/three-connector.js, làm lúc đổi bài) — dùng lúc "ổn định lại" sau seek. @param {object[]} chips */
+    _clearCircuitSignals(chips) {
+        const activeSignals = appState.get('cnActiveSignalsCircuit');
+        if (activeSignals.length === 0) return;
+        const cnGroupCircuit = appState.get('cnGroupCircuit');
+        activeSignals.forEach((signal) => destroyCircuitSignal(signal, cnGroupCircuit)); // core/webgl/three-connector.js
+        appState.set('cnActiveSignalsCircuit', [], { skipCheck: true });
+        console.log(`writer: "workflowVisualizerRender._clearCircuitSignals", page: "cnActiveSignalsCircuit", content: "xoá ${activeSignals.length} xung sau seek"`);
+        chips.forEach((chip) => chip.pins.forEach((pin) => { pin.busy = false; }));
     },
 
     /** Mỗi nơ-ron: quét năng lượng theo dải tần TONOTOPIC riêng (log, không đều tuyến tính —
@@ -466,8 +530,9 @@ const workflowVisualizerRender = {
      * decayNeuronState()) mới bắn. Độ bừng sáng + tốc độ spark (computeSignalSpeedMult()) đều tỉ lệ
      * theo `diff`. KHÔNG còn vật lý lò xo (yêu cầu Giang 17/09/2026 — "loại bỏ tính đàn hồi") — chỉ
      * còn màu/glow cập nhật mỗi frame bất kể có bắn hay không. */
-    _tickConnectorSynapse(isPlaying, smoothedEnergy, vizDataArray, bufferLength, cfg, glowIntensity, deltaTime) {
+    _tickConnectorSynapse(isPlaying, smoothedEnergy, vizDataArray, bufferLength, cfg, glowIntensity, deltaTime, isSettling) {
         const neurons = appState.get('cnNeurons');
+        if (isSettling) this._clearSynapseSignals(); // tia sinh trước seek — xoá NGAY (dispose mesh), không để bay tiếp
         const speed = computeConnectorSpeed(cfg.synapseSpeedBase, cfg.synapseSpeedEnergyMult, smoothedEnergy); // core/webgl
         // BỎ (phản hồi Giang 16/09/2026 — "bỏ camera xoay và zoom", map phải trải đều đúng diện
         // tích màn hình): trước đây KHỐI tự xoay quanh chính nó (rotation.x/y) để bù cho việc
@@ -484,9 +549,10 @@ const workflowVisualizerRender = {
 
         neurons.forEach((neuron, i) => {
             const rawPeak = computeNeuronBinEnergy(vizDataArray, bufferLength, i, neurons.length); // core/visualizer/groups/connector/synapse.js — dải tần tonotopic (log), không còn chia đều
+            if (isSettling) { neuron.smoothedBinEnergy = rawPeak; neuron.prevBinEnergy = rawPeak; neuron.energy = 0; neuron.adaptation = 0; neuron.lateralInhibition = 0; } // rebaseline — frame này KHÔNG phải onset (diff = 0, không bắn)
             const energyByte = applyTonotopicSmoothing(neuron, rawPeak, i, neurons.length); // core/visualizer/groups/connector/synapse.js — MỚI: mượt-hoá tăng dần theo tần số (rate/volley coding)
             const diff = energyByte - neuron.prevBinEnergy;
-            if (isPlaying) {
+            if (isPlaying && !isSettling) {
                 const effectiveThresholdByte = computeEffectiveFireThresholdByte(neuron, cfg); // core/visualizer/groups/connector/synapse.js — MỚI: thay cooldown nhị phân bằng adaptation + lateralInhibition
                 if (diff > 0 && energyByte > effectiveThresholdByte) {
                     triggerNeuronAdaptation(neuron); // core/visualizer/groups/connector/synapse.js — MỚI: tự đè ngưỡng lên (refractory), thay lastFiredFrame cũ
@@ -541,8 +607,9 @@ const workflowVisualizerRender = {
      * theo beat + chain-reaction 1-3 xung con ngẫu nhiên (tới đích chỉ nháy chip đó, giống synapse
      * 17/09/2026); trần đồng thời = cfg.maxConcurrentSignals. Line lan + đuôi wipe qua
      * updateCircuitSignal() (GIỮ NGUYÊN mechanic gốc + setDrawRange thêm). */
-    _tickConnectorCircuit(isPlaying, smoothedEnergy, vizDataArray, bufferLength, cfg, glowIntensity, deltaTime) {
+    _tickConnectorCircuit(isPlaying, smoothedEnergy, vizDataArray, bufferLength, cfg, glowIntensity, deltaTime, isSettling) {
         const chips = appState.get('cnChips');
+        if (isSettling) this._clearCircuitSignals(chips); // xung sinh trước seek — xoá NGAY, trả pin về rảnh
         const activeSignals = appState.get('cnActiveSignalsCircuit');
         const cnGroupCircuit = appState.get('cnGroupCircuit');
         const speed = computeConnectorSpeed(cfg.circuitSpeedBase, cfg.circuitSpeedEnergyMult, smoothedEnergy); // core/webgl
@@ -565,9 +632,10 @@ const workflowVisualizerRender = {
             decayChipSpin(chip, deltaTime); // core/visualizer/groups/connector/circuit.js
 
             const rawPeak = computeNeuronBinEnergy(vizDataArray, bufferLength, i, chips.length); // core/visualizer/groups/connector/synapse.js
+            if (isSettling) { chip.smoothedBinEnergy = rawPeak; chip.prevBinEnergy = rawPeak; chip.energy = 0; chip.adaptation = 0; chip.lateralInhibition = 0; } // rebaseline sau seek — không phải onset
             const energyByte = applyTonotopicSmoothing(chip, rawPeak, i, chips.length); // core/visualizer/groups/connector/synapse.js
             const diff = energyByte - chip.prevBinEnergy;
-            if (isPlaying && diff > 0 && energyByte > computeEffectiveFireThresholdByte(chip, cfg)) { // core/visualizer/groups/connector/synapse.js
+            if (isPlaying && !isSettling && diff > 0 && energyByte > computeEffectiveFireThresholdByte(chip, cfg)) { // core/visualizer/groups/connector/synapse.js
                 triggerNeuronAdaptation(chip); // core/visualizer/groups/connector/synapse.js
                 chip.neighbors.forEach((n) => applyLateralInhibition(chips[n], cfg.lateralInhibitStrength)); // core/visualizer/groups/connector/synapse.js
                 if (activeSignals.length < cfg.maxConcurrentSignals) {
