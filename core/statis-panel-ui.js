@@ -51,9 +51,9 @@ const STATIS_TYPE_ICON_PATH = {
     photo: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', // ảnh
 };
 const STATIS_TYPE_ACCENT = {
-    song: 'bg-indigo-100 text-indigo-600',
-    video: 'bg-rose-100 text-rose-600',
-    photo: 'bg-amber-100 text-amber-600',
+    song: 'bg-indigo-500/15 text-indigo-500', // SỬA 21/09/2026 — nền pastel đặc (-100) -> lớp màu độ trong suốt 15%: gần như y hệt trên nền sáng, và không thành mảng pastel chói trên nền Dark
+    video: 'bg-rose-500/15 text-rose-500',
+    photo: 'bg-amber-500/15 text-amber-500',
 };
 const STATIS_SMALL_TEXT_STYLE = 'font-size:11px; line-height:1.3;'; // cỡ chữ phụ — inline (xem docstring đầu file, lý do tránh `text-[11px]`)
 
@@ -108,7 +108,7 @@ function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterT
                     </div>
                 </div>
                 <div class="mt-3 rounded-full overflow-hidden" style="height:6px;" data-uitk="progressTrackBg">
-                    <div class="h-full rounded-full bg-sky-500" style="width:${grandTotal.playedPercent}%;" data-countup="${grandTotal.playedPercent}" data-countup-fmt="bar"></div>
+                    <div class="h-full rounded-full" data-uitk="progressFillBg" style="width:${grandTotal.playedPercent}%;" data-countup="${grandTotal.playedPercent}" data-countup-fmt="bar"></div>
                 </div>
             </div>
         </section>`;
@@ -141,12 +141,12 @@ function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterT
     const sortToggle = ['count', 'totalTime'].map((mode) => {
         const active = mode === sortMode;
         const labelKey = mode === 'count' ? 'statisPanel.sort.byCount' : 'statisPanel.sort.byTime';
-        return `<button type="button" class="statis-sort-btn flex-1 h-8 rounded-lg text-xs font-semibold transition-colors ${active ? 'bg-sky-500 text-white shadow-sm' : ''}" ${active ? '' : 'data-uitk="textSecondary"'} data-sort-mode="${mode}" data-i18n="${labelKey}">${t(labelKey)}</button>`;
+        return `<button type="button" class="statis-sort-btn flex-1 h-8 rounded-lg text-xs font-semibold transition-colors ${active ? 'shadow-sm' : ''}" data-uitk="${active ? 'btnPrimaryPillBg textOnAccent' : 'textSecondary'}" data-sort-mode="${mode}" data-i18n="${labelKey}">${t(labelKey)}</button>`;
     }).join('');
 
     const filterChips = ['all', 'song', 'video', 'photo'].map((type) => {
         const active = type === filterType;
-        return `<button type="button" class="statis-filter-btn shrink-0 h-8 px-3 rounded-full text-xs font-semibold transition-colors ${active ? 'bg-sky-500 text-white' : ''}" ${active ? '' : 'data-uitk="btnNeutralBg btnNeutralText"'} data-filter-type="${type}" data-i18n="statisPanel.type.${type}">${t('statisPanel.type.' + type)}</button>`;
+        return `<button type="button" class="statis-filter-btn shrink-0 h-8 px-3 rounded-full text-xs font-semibold transition-colors " data-uitk="${active ? 'btnPrimaryPillBg textOnAccent' : 'btnNeutralBg btnNeutralText'}" data-filter-type="${type}" data-i18n="statisPanel.type.${type}">${t('statisPanel.type.' + type)}</button>`;
     }).join('');
 
     // Empty state THEO LOẠI (Workflow đã lọc bỏ item chưa có dữ liệu ở tiêu chí đang sort -> list rỗng nghĩa là "chưa có gì được phát ở loại này").

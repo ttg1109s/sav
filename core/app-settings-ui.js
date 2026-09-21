@@ -137,6 +137,9 @@ function wireAppSettingsPlaylist(bodyEl) {
  * msg.type riêng ('appSettings.theme.previewGlassType.click') để Router/Workflow xử lý, ĐÚNG Rule
  * 5a (callback ở đây không tự toggle class). */
 function wireAppSettingsTheme(bodyEl) {
+    const uiThemeSelect = bodyEl.querySelector('#app-settings-ui-theme-select'); // MỚI 21/09/2026 — màu giao diện Light/Dark
+    if (uiThemeSelect) uiThemeSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.uiTheme.change', payload: { themeName: e.target.value } }));
+
     const modeSelect = bodyEl.querySelector('#app-settings-theme-select');
     if (modeSelect) modeSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.theme.selectMode.change', payload: { mode: e.target.value } }));
 
