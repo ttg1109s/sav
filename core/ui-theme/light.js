@@ -49,7 +49,6 @@ const UI_THEME_LIGHT = {
     modalCardBorder: 'border border-slate-200',
     modalTitleText: 'text-slate-900 font-bold',
     modalBodyText: 'text-slate-900',
-    stickyHeaderBg: 'bg-white', // MỚI 21/09/2026 — header dính đè lên nội dung cuộn (vd Statistics), phải ĐẶC
     overlayBg: 'bg-black/50',
 
     // ===================== Card / hàng nội dung =====================

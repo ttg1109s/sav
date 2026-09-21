@@ -44,7 +44,6 @@ const UI_THEME_DARK = {
     modalCardBorder: 'border border-white/10',
     modalTitleText: 'text-zinc-50 font-bold',
     modalBodyText: 'text-zinc-200',
-    stickyHeaderBg: 'bg-zinc-900', // header dính đè lên nội dung cuộn — phải ĐẶC
     overlayBg: 'bg-black/50', // GIỮ NGUYÊN — không đổi theo theme, xem docstring light.js
 
     // ===================== Card / hàng nội dung =====================

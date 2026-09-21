@@ -40,7 +40,6 @@ const UI_THEME_MORPHIN = {
     modalTitleText: 'text-white font-bold',
     modalBodyText: 'text-white/90',
     overlayBg: 'bg-black/50', // GIỮ NGUYÊN — không đổi theo theme, xem docstring light.js
-    stickyHeaderBg: 'uitk-glass-header', // SỬA 21/09/2026 — header dính (vd Statistics): TRƯỚC là slate-900/85 (mảng nâu tím sẫm lạc tông trên nền cam); giờ kính mờ blur 40px (glass.css) — nội dung cuộn phía dưới bị làm mờ nên không đọc xuyên qua được
 
     // ===================== Card / hàng nội dung =====================
     cardBg: 'bg-white/10',
