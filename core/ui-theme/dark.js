@@ -35,6 +35,7 @@
 const UI_THEME_DARK = {
 
     // ===================== Bề mặt (panel/card/overlay) =====================
+    appBaseBg: 'bg-zinc-900', // nền đặc của body/#app-bg (xem chú thích cùng key ở light.js)
     panelBg: 'bg-zinc-900',
     panelShadow: 'shadow-2xl shadow-black/60', // bóng gần như vô hình trên nền tối — giữ để tách khỏi nền gốc đen khi panel không phủ kín
     dragHandleBg: 'bg-zinc-600', // thanh nhỏ đầu panel gợi ý kéo — KHÔNG phải toggle, tách riêng key dù trùng giá trị toggleTrackOff
@@ -42,6 +43,7 @@ const UI_THEME_DARK = {
     modalCardBorder: 'border border-white/10',
     modalTitleText: 'text-zinc-50 font-bold',
     modalBodyText: 'text-zinc-200',
+    stickyHeaderBg: 'bg-zinc-900', // header dính đè lên nội dung cuộn — phải ĐẶC
     overlayBg: 'bg-black/50', // GIỮ NGUYÊN — không đổi theo theme, xem docstring light.js
 
     // ===================== Card / hàng nội dung =====================
@@ -96,7 +98,7 @@ const UI_THEME_DARK = {
 
     // ===================== Toggle switch (peer/after markup dùng chung) =====================
     toggleTrackOff: 'bg-zinc-600',
-    toggleTrackOn: 'bg-violet-500', // gắn qua peer-checked:, xem apply-ui.js cách xử lý riêng
+    toggleTrackOn: 'peer-checked:bg-violet-500', // SỬA 21/09/2026 — dạng `peer-checked:` (đi cùng toggleTrackOff trên CÙNG phần tử track): bật -> đổi nền; trước đây 'bg-...' không ai dùng
 
     // ===================== Input / select =====================
     inputBg: 'bg-black/30',           // ô nhập "lõm" xuống dưới bề mặt (tối hơn nền quanh nó)
@@ -115,6 +117,29 @@ const UI_THEME_DARK = {
     // Trạng thái ĐANG CHỌN của tab pill (modal Chi tiết/Sửa, `.song-edit-tab-btn`) — dựa `aria-selected="true"`
     // (xem chú thích cùng key ở light.js). Tím đặc + chữ trắng.
     segmentTabActive: 'aria-selected:bg-violet-600 aria-selected:text-white aria-selected:shadow',
+
+    // ===================== Tương tác/accent mở rộng (MỚI 21/09/2026 — chuẩn hoá drawer Motion/Filter/Storage + hàng Playlist) =====================
+    // Mỗi key gộp ĐÚNG chuỗi class Light đang chạy thật ở các drawer/hàng (Light KHÔNG đổi), Dark/Morphin đổi tím/kính. Key dạng nút
+    // có hover/nền/chữ đi liền nhau (btnAccentSoft, iconBtn*) gắn MỘT lần `data-uitk="..."`, không rải class màu cứng.
+    btnAccentSoft: 'bg-violet-500/10 hover:bg-violet-500/20 transition-colors text-violet-300',
+    accentSoftBorder: 'border border-violet-500/30',
+    btnCautionSoft: 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 transition-colors',
+    btnDestructiveSoft: 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 transition-colors',
+    iconBtnAccent: 'text-zinc-400 hover:text-violet-300 hover:bg-violet-500/15 transition-colors',
+    iconBtnDestructive: 'text-zinc-400 hover:text-rose-300 hover:bg-rose-500/15 transition-colors',
+    iconBtnCaution: 'text-zinc-400 hover:text-amber-300 hover:bg-amber-500/15 transition-colors',
+    iconBtnMuted: 'text-zinc-500 hover:text-zinc-200',
+    accentControl: 'accent-violet-500',
+    inputFocusBorder: 'focus:border-violet-400',
+    inputFocusWithinBorder: 'focus-within:border-violet-400',
+    rowPressBg: 'active:bg-white/10',
+    eqBarBg: 'bg-violet-400',
+    divideBorder: 'divide-white/10',
+    hoverAccentText: 'hover:text-violet-400',
+    hoverPrimaryText: 'hover:text-zinc-100',
+    hoverDestructiveBg: 'hover:bg-rose-500/15',
+    accentBadge: 'bg-violet-500/20 text-violet-200',
+    accentBadgeHover: 'hover:bg-violet-500/30 transition-colors',
 
     // ===================== Bảng accent theo NHÓM (section title) =====================
     // Bậc -400 (Light dùng -600 cho nền trắng) — đủ nổi trên nền tối.

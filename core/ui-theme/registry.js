@@ -25,7 +25,7 @@ const UI_THEME_DEFAULT_NAME = 'light';
  * copy nguyên Light, xem docstring dark.js/morphin.js) nên CHƯA cho chọn — thêm lại 'dark'/'morphin'
  * vào đây (không cần đổi gì khác) NGAY KHI thiết kế thật xong. 1 nguồn DUY NHẤT cho việc này — UI
  * chọn theme sau này (dropdown Settings) PHẢI tự lấy danh sách qua đây, KHÔNG tự liệt kê tay. */
-const UI_THEME_SELECTABLE_NAMES = ['light', 'dark']; // SỬA 21/09/2026 — Dark ĐÃ có bảng màu thật (core/ui-theme/dark.js), thêm lại theo đúng gợi ý ở docstring trên. Morphin vẫn placeholder -> chưa cho chọn.
+const UI_THEME_SELECTABLE_NAMES = ['light', 'dark', 'morphin']; // SỬA 21/09/2026 — Dark + Morphin ĐÃ có bảng màu thật (core/ui-theme/dark.js, morphin.js), thêm lại theo đúng gợi ý ở docstring trên.
 
 /**
  * THUẦN (Rule 1-4 core-function-conventions.md) — trả về ĐÚNG 1 object key list khớp tên theme,

@@ -40,6 +40,7 @@ const UI_THEME_LIGHT = {
     // Generic Drawer là "làm tối phần còn lại của app", ý nghĩa đó không đổi dù panel đang theme
     // nào) — vẫn khai ở đây để có 1 nguồn duy nhất, nhưng Dark/Morphin PHẢI copy y hệt giá trị này,
     // không được đổi khác.
+    appBaseBg: 'bg-white', // MỚI 21/09/2026 — nền đặc của body/#app-bg (TÁCH khỏi panelBg: Morphin dùng kính có backdrop-filter cho panelBg, không đặt lên body được)
     panelBg: 'bg-white',
     panelShadow: 'shadow-2xl',
     dragHandleBg: 'bg-slate-300', // thanh nhỏ đầu panel gợi ý kéo — KHÔNG phải toggle, tách riêng key dù trùng giá trị toggleTrackOff
@@ -47,6 +48,7 @@ const UI_THEME_LIGHT = {
     modalCardBorder: 'border border-slate-200',
     modalTitleText: 'text-slate-900 font-bold',
     modalBodyText: 'text-slate-900',
+    stickyHeaderBg: 'bg-white', // MỚI 21/09/2026 — header dính đè lên nội dung cuộn (vd Statistics), phải ĐẶC
     overlayBg: 'bg-black/50',
 
     // ===================== Card / hàng nội dung =====================
@@ -103,7 +105,7 @@ const UI_THEME_LIGHT = {
 
     // ===================== Toggle switch (peer/after markup dùng chung) =====================
     toggleTrackOff: 'bg-slate-300',
-    toggleTrackOn: 'bg-sky-500', // gắn qua peer-checked:, xem apply-ui.js cách xử lý riêng
+    toggleTrackOn: 'peer-checked:bg-sky-500', // SỬA 21/09/2026 — dạng `peer-checked:` (đi cùng toggleTrackOff trên CÙNG phần tử track): bật -> đổi nền; trước đây 'bg-...' không ai dùng
 
     // ===================== Input / select =====================
     inputBg: 'bg-white',
@@ -126,6 +128,29 @@ const UI_THEME_LIGHT = {
     // class màu do `data-uitk` áp (nguyên nhân chữ trắng trên nền trắng cũ, xem setSongEditTab() core/playlist/actions.js).
     // Đi CÙNG `textSecondary` (màu chữ lúc KHÔNG chọn) trên cùng phần tử.
     segmentTabActive: 'aria-selected:bg-white aria-selected:text-slate-900 aria-selected:shadow',
+
+    // ===================== Tương tác/accent mở rộng (MỚI 21/09/2026 — chuẩn hoá drawer Motion/Filter/Storage + hàng Playlist) =====================
+    // Mỗi key gộp ĐÚNG chuỗi class Light đang chạy thật ở các drawer/hàng (Light KHÔNG đổi), Dark/Morphin đổi tím/kính. Key dạng nút
+    // có hover/nền/chữ đi liền nhau (btnAccentSoft, iconBtn*) gắn MỘT lần `data-uitk="..."`, không rải class màu cứng.
+    btnAccentSoft: 'bg-sky-50 hover:bg-sky-100 transition-colors text-sky-600',
+    accentSoftBorder: 'border border-sky-200',
+    btnCautionSoft: 'bg-amber-50 hover:bg-amber-100 text-amber-600 transition-colors',
+    btnDestructiveSoft: 'bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors',
+    iconBtnAccent: 'text-slate-500 hover:text-sky-500 hover:bg-sky-50 transition-colors',
+    iconBtnDestructive: 'text-slate-500 hover:text-rose-500 hover:bg-rose-50 transition-colors',
+    iconBtnCaution: 'text-slate-500 hover:text-amber-500 hover:bg-amber-50 transition-colors',
+    iconBtnMuted: 'text-slate-400 hover:text-slate-700',
+    accentControl: 'accent-sky-500',
+    inputFocusBorder: 'focus:border-sky-500',
+    inputFocusWithinBorder: 'focus-within:border-sky-500',
+    rowPressBg: 'active:bg-slate-100',
+    eqBarBg: 'bg-sky-400',
+    divideBorder: 'divide-slate-100',
+    hoverAccentText: 'hover:text-sky-600',
+    hoverPrimaryText: 'hover:text-slate-900',
+    hoverDestructiveBg: 'hover:bg-rose-50',
+    accentBadge: 'bg-sky-100 text-sky-700',
+    accentBadgeHover: 'hover:bg-sky-200 transition-colors',
 
     // ===================== Bảng accent theo NHÓM (section title) =====================
     // KHÔNG phải 1 key đơn — mỗi tính năng tự chọn ĐÚNG 1 hue trong bảng này cho tiêu đề section
