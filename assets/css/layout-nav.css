@@ -65,7 +65,7 @@
     align-items: center;
     justify-content: center;
     gap: 4px;
-    flex: 0 0 auto;
+    flex: 1 0 auto; /* SỬA 21/09/2026 — bỏ nút Media (còn 4 mục): chia đều chiều ngang thay vì dồn về trái; màn quá hẹp (<4×88px) vẫn cuộn ngang như cũ nhờ min-width */
     min-width: 88px;
     padding: 12px 18px 10px;
     transition: color 0.2s;
