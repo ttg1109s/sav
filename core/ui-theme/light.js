@@ -42,6 +42,7 @@ const UI_THEME_LIGHT = {
     // không được đổi khác.
     appBaseBg: 'bg-white', // MỚI 21/09/2026 — nền đặc của body/#app-bg (TÁCH khỏi panelBg: Morphin dùng kính có backdrop-filter cho panelBg, không đặt lên body được)
     panelBg: 'bg-white',
+    panelFlushBg: 'bg-white', // MỚI 21/09/2026 — panel TOÀN MÀN (sát mép màn hình, vd Playlist chính) — Light/Dark KHÔNG có viền nên = panelBg; Morphin bỏ viền kính (xem morphin.js)
     panelShadow: 'shadow-2xl',
     dragHandleBg: 'bg-slate-300', // thanh nhỏ đầu panel gợi ý kéo — KHÔNG phải toggle, tách riêng key dù trùng giá trị toggleTrackOff
     modalCardBg: 'bg-white',       // card modalChoice/alertModal + mọi modal tĩnh (song-edit/playback-error/rename-folder...) — MỞ RỘNG 09/09/2026, trước đây các modal này đứng ngoài hệ theme
@@ -103,6 +104,10 @@ const UI_THEME_LIGHT = {
     accentRingSelected: 'ring-2 ring-sky-500', // viền tile đang chọn (multi-select)
     destructiveText: 'text-rose-500',          // nhãn/label CHỮ mang ý xoá (không phải nút nền đặc)
     menuDestructiveItem: 'text-rose-500 hover:bg-rose-50 transition-colors', // MỚI 21/09/2026 — hàng "Xoá" trong menu nổi (chữ + nền hover đi liền, 1 key; = destructiveText + hoverDestructiveBg cũ, Light không đổi)
+    statTypeSong: 'text-indigo-500', // MỚI 21/09/2026 — màu Song/Video/Photo cho BIỂU ĐỒ TRÒN + chấm chú giải ở Statistics (fill/bg-current theo color; badge icon của Top list vẫn hardcode — xem STATIS_TYPE_ACCENT)
+    statTypeVideo: 'text-rose-500',
+    statTypePhoto: 'text-amber-500',
+    statPieLabelText: 'text-white', // chữ % đè lên lát cắt biểu đồ tròn
 
     // ===================== Toggle switch (peer/after markup dùng chung) =====================
     toggleTrackOff: 'bg-slate-300',

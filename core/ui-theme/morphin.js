@@ -32,6 +32,7 @@ const UI_THEME_MORPHIN = {
     // ===================== Bề mặt (panel/card/overlay) =====================
     appBaseBg: 'bg-slate-900',  // nền đặc dự phòng của body/#app-bg (KHÔNG có backdrop-filter, xem docstring)
     panelBg: 'uitk-glass-surface', // kính panel/drawer — glass.css
+    panelFlushBg: 'uitk-glass-surface uitk-glass-flush', // MỚI 21/09/2026 (Giang báo "lộ viền ở main playlist") — panel TOÀN MÀN sát mép: `.uitk-glass-surface` có viền 1px trắng 22% + bóng trong, ở panel sát mép màn hình viền đó hiện thành đường sáng dọc mép trái/phải/trên và đường kẻ giữa header/list — `.uitk-glass-flush` (glass.css) gỡ viền + bóng, giữ nguyên lớp kính. Panel LƠ LỬNG (drawer/modal/card) vẫn dùng panelBg/modalCardBg có viền
     panelShadow: 'shadow-2xl shadow-black/30',
     dragHandleBg: 'bg-white/40', // thanh nhỏ đầu panel gợi ý kéo
     modalCardBg: 'uitk-glass-elevated', // kính modal/menu nổi — glass.css (đã có viền + bóng, nên modalCardBorder để trống)
@@ -85,6 +86,10 @@ const UI_THEME_MORPHIN = {
     accentRingSelected: 'ring-2 ring-white/70',
     destructiveText: 'text-rose-300',
     menuDestructiveItem: 'bg-rose-500/80 hover:bg-rose-500 text-white transition-colors', // MỚI 21/09/2026 — hàng "Xoá" trong menu nổi: text-rose-300 cũ gần như biến mất trên kính trắng 16% phủ nền cam (nhìn như nút disabled); giờ là hàng nền rose ĐÚNG khuôn nút huỷ diệt của modal (btnDestructiveBg) + chữ trắng
+    statTypeSong: 'text-violet-300', // MỚI 21/09/2026 — xem light.js; tông pastel-300 nổi trên kính trắng phủ nền cam/xanh (cùng họ accentText/destructiveText của Morphin)
+    statTypeVideo: 'text-rose-300',
+    statTypePhoto: 'text-amber-300',
+    statPieLabelText: 'text-slate-900',
 
     // ===================== Toggle switch (peer/after markup dùng chung) =====================
     toggleTrackOff: 'bg-white/25',

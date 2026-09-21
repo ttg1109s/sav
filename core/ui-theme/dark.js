@@ -37,6 +37,7 @@ const UI_THEME_DARK = {
     // ===================== Bề mặt (panel/card/overlay) =====================
     appBaseBg: 'bg-zinc-900', // nền đặc của body/#app-bg (xem chú thích cùng key ở light.js)
     panelBg: 'bg-zinc-900',
+    panelFlushBg: 'bg-zinc-900', // MỚI 21/09/2026 — xem light.js (= panelBg)
     panelShadow: 'shadow-2xl shadow-black/60', // bóng gần như vô hình trên nền tối — giữ để tách khỏi nền gốc đen khi panel không phủ kín
     dragHandleBg: 'bg-zinc-600', // thanh nhỏ đầu panel gợi ý kéo — KHÔNG phải toggle, tách riêng key dù trùng giá trị toggleTrackOff
     modalCardBg: 'bg-zinc-800',  // modal đứng CAO hơn panel/drawer -> sáng hơn 1 bậc (elevation = bề mặt sáng hơn)
@@ -96,6 +97,10 @@ const UI_THEME_DARK = {
     accentRingSelected: 'ring-2 ring-violet-400', // viền tile đang chọn (multi-select)
     destructiveText: 'text-rose-400',      // nhãn/label CHỮ mang ý xoá (không phải nút nền đặc)
     menuDestructiveItem: 'text-rose-400 hover:bg-rose-500/15 transition-colors', // MỚI 21/09/2026 — hàng "Xoá" trong menu nổi (= destructiveText + hoverDestructiveBg cũ, Dark không đổi)
+    statTypeSong: 'text-indigo-400', // MỚI 21/09/2026 — xem light.js (bậc -400 cho nền tối)
+    statTypeVideo: 'text-rose-400',
+    statTypePhoto: 'text-amber-400',
+    statPieLabelText: 'text-zinc-900',
 
     // ===================== Toggle switch (peer/after markup dùng chung) =====================
     toggleTrackOff: 'bg-zinc-600',
