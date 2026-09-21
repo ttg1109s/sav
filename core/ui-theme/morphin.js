@@ -84,6 +84,10 @@ const UI_THEME_MORPHIN = {
     // ===================== Trạng thái rỗng =====================
     emptyStateText: 'text-slate-500',
 
+    // ===================== Thanh tiến độ =====================
+    // MỚI 21/09/2026 — nền (track) của thanh tiến độ mảnh (card "Library played" ở panel Statistics, xem core/statis-panel-ui.js). Phần tô (fill) dùng sky đặc trực tiếp, cùng cách tô "đang chọn" của chip lọc trong panel.
+    progressTrackBg: 'bg-slate-200',
+
     // ===================== Bảng accent theo NHÓM (section title) =====================
     categoryAccent: {
         sky: 'text-sky-600',

@@ -114,6 +114,10 @@ const UI_THEME_LIGHT = {
     // ===================== Trạng thái rỗng =====================
     emptyStateText: 'text-slate-500',
 
+    // ===================== Thanh tiến độ =====================
+    // MỚI 21/09/2026 — nền (track) của thanh tiến độ mảnh (card "Library played" ở panel Statistics, xem core/statis-panel-ui.js). Phần tô (fill) dùng sky đặc trực tiếp, cùng cách tô "đang chọn" của chip lọc trong panel.
+    progressTrackBg: 'bg-slate-200',
+
     // ===================== Bảng accent theo NHÓM (section title) =====================
     // KHÔNG phải 1 key đơn — mỗi tính năng tự chọn ĐÚNG 1 hue trong bảng này cho tiêu đề section
     // của mình (cố ý phân biệt nhanh nhiều nhóm khác nhau, vd 5 section của Cử chỉ — xem docstring
