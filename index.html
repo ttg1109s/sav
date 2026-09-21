@@ -703,10 +703,8 @@
     <script src="core/dropdown-menu.js?v=20260921v6"></script>
     <!-- XOÁ (loại bỏ Document Reader khỏi app) — document.js (CRUD + lọc HTML whitelist)/
          document-ui.js (dựng UI + surface Sửa) bỏ hẳn cùng tính năng.
-         document-pagination.js GIỮ LẠI TẠM (thuật toán phân trang thuần, KHÔNG phụ thuộc gì từ
-         document.js/document-ui.js — xem docstring đầu file) — sẽ đóng gói lại thành class riêng
-         ở 1 việc TÁCH BIỆT, không gộp chung đợt xoá Document Reader này. -->
-    <script src="core/file-manager/document-pagination.js?v=20260710v2"></script>
+         document-pagination.js cũng đã xoá hẳn khỏi thư mục (không còn hàm nào gọi tới) — dòng
+         <script> mồ côi trỏ tới nó (trả 404 mỗi lần nạp) đã bỏ. -->
     <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — công cụ dọn rác chung File Manager (registry) —
          CỐ Ý đặt cuối cùng trong nhóm core/file-manager/ (mọi tính năng khác đã có mặt trước đó,
          registry chỉ cần service/db.js). -->
@@ -1087,10 +1085,11 @@
     <script src="event/listener/gesture-settings.js?v=20260811v6"></script>
     <!-- workflowFileManagerPhoto — panel Photo push/pop động, fullBleed:true (lưới ảnh tràn viền).
          setupPhotoGridWindow() gọi workflowPhotoGalleryWindow.mount() (nạp sau, an toàn vì chỉ gọi
-         lúc user tương tác) + core/file-manager/image.js (sortImagesByAddedDateDesc/groupImagesByDay). -->
+         lúc user tương tác) + core/file-manager/image.js (sortImagesByAddedDateDesc/groupImagesByDay).
+         KHÔNG có listener riêng: cả 3 message của router 'fileManagerPhoto' đều do chính workflow
+         (openMediaPickerDrawerUi) và core/file-manager/photo-ui.js tự gửi từ DOM tự dựng. -->
     <script src="event/workflow/file-manager-photo.js?v=20260921v8"></script>
     <script src="event/router/file-manager-photo.js?v=20260731v8"></script>
-    <script src="event/listener/file-manager-photo.js?v=20260718v1"></script>
     <!-- TÁCH RA (31/07/2026, yêu cầu Giang) — cụm "imageEdit", Edit mode của modal xem ảnh Photo
          (trước đây sống chung trong file-manager-photo.js). CẦN workflowFileManagerPhoto (3 khe đọc
          handle/imageKey/albumId) + core/photo-editor-engine.js/core/media-transform.js/core/generic-
