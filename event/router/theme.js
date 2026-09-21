@@ -33,6 +33,9 @@ const routerTheme = (() => {
                 ]);
                 break;
             }
+            case 'theme.appStackScreen.change':
+                workflowTheme.onAppStackScreenChange();
+                break;
             case 'theme.gradientFrom.input':
                 workflowTheme.setGradientFrom(msg.payload.value);
                 break;
