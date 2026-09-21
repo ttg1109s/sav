@@ -33,7 +33,89 @@
  * handlePlayPauseClick).
  * NẠP TRƯỚC: event/router/player-controls.js.
  */
+// ===== Cổng seek (MỚI 21/09/2026) — xem `workflowPlayerControls.runGatedSeek()` =====
+const SEEK_GATE_SEEKED_TIMEOUT_MS = 3000; // đợi 'seeked' tối đa — phòng seek không bao giờ xong (file lỗi/mạng) để không câm vĩnh viễn
+const SEEK_GATE_UNMUTE_DELAY_MS = 60;     // sau 'seeked' còn đợi chút để phần audio CŨ còn nằm trong bộ đệm MediaElementSource tiêu thụ hết (đang mute nên không nghe thấy) rồi mới mở tiếng
+const SEEK_GATE_UNMUTE_RAMP_SEC = 0.03;   // mở tiếng dần 30ms — tránh tiếng "tách"
+
 const workflowPlayerControls = {
+
+    // ===== Cổng seek — state nội bộ (KHÔNG thuộc STATE) =====
+    _seekGateToken: 0, // tăng mỗi lần `runGatedSeek()` — lệnh seek mới HƠN thay thế lệnh cũ (lệnh cũ tự bỏ dở, KHÔNG mở tiếng/không play() nữa)
+
+    /**
+     * [MỚI — 21/09/2026, yêu cầu Giang] Seek KHÔNG để lọt âm thanh/hình ảnh dư của vị trí CŨ — kéo thanh HAY
+     * chạm chọn 1 điểm đều qua đây. Trình duyệt seek BẤT ĐỒNG BỘ: gán `currentTime` xong, phần media ở vị
+     * trí cũ vẫn còn phát/hiện một lúc (audio còn trong bộ đệm + pipeline decode, effect thì đọc analyser
+     * nên vẫn vẽ theo âm thanh cũ) tới khi 'seeked' — CPU/GPU nặng (effect nặng) làm khoảng trễ này lộ rõ
+     * hơn. Cổng: MUTE `masterGainNode` NGAY (output + cả 2 analyser đều nằm SAU node này, xem
+     * core/audio-engine.js -> Song lẫn Video đều qua đó) -> gán `currentTime` -> ĐỢI 'seeked' -> (Video:
+     * `play()` lại) -> đợi thêm `SEEK_GATE_UNMUTE_DELAY_MS` -> mở tiếng dần. Không `pause()` với Song vì
+     * 'pause' bắn ra `handleAudioPause()` (đổi icon, nhả wake lock, dừng đồng hồ nghe) mỗi lần seek.
+     *
+     * @param {HTMLMediaElement} mediaEl - audioPlayer (Song) hoặc bgVideoElement (Video)
+     * @param {number} targetSec
+     * @param {boolean} resumeAfter - true = `play()` sau 'seeked' (Video đã bị pause lúc kéo); false = phần tử vẫn đang
+     *        phát/hoặc do người dùng pause -> giữ nguyên (Song)
+     */
+    async runGatedSeek(mediaEl, targetSec, resumeAfter) {
+        const token = ++this._seekGateToken;
+        this._setMasterGainForSeekGate(true);
+
+        // Đã đứng đúng mốc (vd Video: scrub lúc kéo đã gán currentTime) và không còn seek đang dở -> không có
+        // 'seeked' nào để đợi, gán lại còn tạo thêm 1 lệnh seek thừa. `fastSeek` (Safari, lúc scrub) chỉ tới
+        // keyframe gần nhất nên currentTime có thể lệch target -> vẫn gán lại đúng mốc ở đây.
+        const needsAssign = Math.abs(mediaEl.currentTime - targetSec) > 0.001;
+        if (needsAssign || mediaEl.seeking) {
+            const seekedPromise = this._waitMediaSeeked(mediaEl); // đăng ký listener TRƯỚC khi gán currentTime
+            if (needsAssign) mediaEl.currentTime = targetSec;
+            await seekedPromise;
+        }
+        if (token !== this._seekGateToken) return; // lệnh seek mới hơn đã tiếp quản — nó tự lo play()/mở tiếng
+
+        if (resumeAfter) mediaEl.play().catch((err) => console.error('[workflowPlayerControls] runGatedSeek: play() lỗi sau seek:', err));
+        taskManager.once(() => {
+            if (token === this._seekGateToken) this._setMasterGainForSeekGate(false);
+        }, SEEK_GATE_UNMUTE_DELAY_MS, 'seekGateUnmute'); // service/task-manager.js — cùng tên gọi lại = tự huỷ bản cũ (debounce)
+    },
+
+    /** Đợi 'seeked' của `mediaEl` (kèm timeout an toàn). @param {HTMLMediaElement} mediaEl @returns {Promise<void>} */
+    _waitMediaSeeked(mediaEl) {
+        return new Promise((resolve) => {
+            let done = false;
+            const finish = () => {
+                if (done) return;
+                done = true;
+                mediaEl.removeEventListener('seeked', finish);
+                resolve();
+            };
+            mediaEl.addEventListener('seeked', finish, { once: true });
+            taskManager.once(finish, SEEK_GATE_SEEKED_TIMEOUT_MS, 'seekGateSeekedTimeout');
+        });
+    },
+
+    /** Mute/mở tiếng `masterGainNode` cho cổng seek. Mở tiếng khôi phục ĐÚNG âm lượng đang cấu hình
+     * (`appConfigViz.volume`), không nhớ giá trị cũ — người dùng đổi âm lượng giữa lúc seek vẫn đúng. Chưa có
+     * audio graph (chưa phát gì) -> no-op. @param {boolean} muted */
+    _setMasterGainForSeekGate(muted) {
+        const { masterGainNode, audioContext } = appState.get(['masterGainNode', 'audioContext']);
+        if (!masterGainNode || !audioContext) return;
+        const now = audioContext.currentTime;
+        masterGainNode.gain.cancelScheduledValues(now);
+        masterGainNode.gain.setValueAtTime(0, now);
+        if (!muted) masterGainNode.gain.linearRampToValueAtTime(appConfigViz.getAll().volume / 100, now + SEEK_GATE_UNMUTE_RAMP_SEC);
+    },
+
+    /** Ứng với 'playerControls.progressBar.seekCommit' khi `isVideoPlayerMode=false` (Song) — thả tay/chạm chọn
+     * điểm, commit vị trí + cổng seek (xem `runGatedSeek()`). THAY `handleProgressBarSeekCommit()` (core,
+     * core/player-controls.js) — hàm đó chỉ gán `currentTime` trần, không kiểm soát được phần lọt âm thanh cũ,
+     * và không dùng được `taskManager` (Rule 3, chỉ Workflow). @param {string|number} value */
+    handleSongSeekCommit(value) {
+        appState.set('isSeeking', false);
+        console.log(`writer: "workflowPlayerControls.handleSongSeekCommit", page: "isSeeking", content: "false"`);
+        this.runGatedSeek(audioPlayer, Number(value), false); // KHÔNG await — 'seeked' cập nhật Media Session qua listener sẵn có
+        updateMediaPositionState(); // core/player-controls.js — vị trí mới ngay như bản cũ; 'seeked' cập nhật lại khi seek xong
+    },
 
     /**
      * Ứng với 'playerControls.playPause.click' khi `isVideoPlayerMode=false` (xem

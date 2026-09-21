@@ -647,7 +647,12 @@ const workflowVideoPlayer = {
         // BỎ QUA tick còn lại, không scrub nhầm lên video mới. `isSeeking` vẫn true tới khi thả tay
         // (handleVideoSeekCommit() dọn), thanh tiến trình video mới chỉ tạm đứng tới lúc đó.
         if (this._seekGeneration !== this._mediaGeneration) return;
-        bgVideoElement.currentTime = this._clampSeekTarget(value); // scrub hình theo từng nhịp kéo
+        // Scrub hình theo từng nhịp kéo — `fastSeek()` (Safari) chỉ tới keyframe gần nhất, rẻ hơn nhiều so với
+        // seek chính xác, tránh dồn hàng chục lệnh seek đầy đủ vào pipeline; vị trí CHÍNH XÁC do lúc thả tay
+        // (`runGatedSeek()`) gán. Trình duyệt không có `fastSeek` (Chrome/Firefox) dùng `currentTime` như cũ.
+        const scrubTarget = this._clampSeekTarget(Number(value));
+        if (typeof bgVideoElement.fastSeek === 'function') bgVideoElement.fastSeek(scrubTarget);
+        else bgVideoElement.currentTime = scrubTarget;
         currentTimeDisplay.textContent = formatTime(value);
         updateProgressBarCSS(); // core/visualizer/visualizer-display.js
     },
@@ -670,8 +675,9 @@ const workflowVideoPlayer = {
         appState.set('isSeeking', false);
         console.log(`writer: "workflowVideoPlayer.handleVideoSeekCommit", page: "isSeeking", content: "false${isStaleSession ? ' (phiên cũ — bỏ qua commit)' : ''}"`);
         if (isStaleSession) return;
-        bgVideoElement.currentTime = this._clampSeekTarget(value);
-        if (this._wasPlayingBeforeSeek) bgVideoElement.play().catch((err) => console.error('[workflowVideoPlayer] bgVideoElement.play() lỗi sau seek:', err));
+        // [SỬA 21/09/2026] Cổng seek: mute -> gán currentTime -> ĐỢI 'seeked' -> play() (nếu trước đó đang phát) ->
+        // mở tiếng — không còn `play()` ngay khi seek chưa xong (video/audio lọt vị trí cũ/trung gian).
+        workflowPlayerControls.runGatedSeek(bgVideoElement, this._clampSeekTarget(Number(value)), this._wasPlayingBeforeSeek); // event/workflow/player-controls.js
     },
 
     /** Kẹp mốc seek tới sát/đúng cuối video về `duration - VIDEO_SEEK_END_GUARD_SEC` — seek KHÔNG
