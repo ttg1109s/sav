@@ -1,5 +1,5 @@
 /**
- * event/listener/settings-misc.js — TẤT CẢ listener của cụm "settingsMisc" (aboutDrawer +
+ * event/listener/settings-misc.js — TẤT CẢ listener của cụm "settingsMisc" (debugConsole +
  * appRecovery) nằm CHUNG file này — gộp vì mỗi nhánh quá nhỏ để xứng đáng 1 listener riêng (xem
  * ghi chú đầu router/settings-misc.js).
  *
@@ -13,14 +13,6 @@
  *
  * NẠP SAU CÙNG (sau bus, core, workflow, router, VÀ SAU dom-refs.js).
  */
-
-// ===================== aboutDrawer =====================
-
-if (btnOpenAbout) {
-    btnOpenAbout.addEventListener('click', () => {
-        eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.aboutDrawer.open', payload: {} });
-    });
-}
 
 // MỚI (18/07/2026, Giang yêu cầu — xem core/debug-console.js).
 if (btnOpenDebugConsole) {
