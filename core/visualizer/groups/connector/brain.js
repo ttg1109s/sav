@@ -3,7 +3,8 @@
  *
  * BÊ NGUYÊN phần canvas của Brain_Filter_Perception_Visualization.html — thân các hàm/hằng số dưới đây là
  * bản sao NGUYÊN VĂN từ file gốc (initNodesAndPaths, createParticle, getBezierPoint,
- * drawLabelsAndTimeline, drawBrainFilter, drawCurvesAndParticles, triggerBurst): vẫn chạy tự do bằng
+ * drawTimeline [đổi tên từ drawLabelsAndTimeline — xem SỬA 22/09/2026 bên dưới], drawBrainFilter,
+ * drawCurvesAndParticles, triggerBurst): vẫn chạy tự do bằng
  * Math.random() (không nối audio), shadowBlur như gốc. BỎ vì không thuộc phần canvas: header/toolbar/
  * settings/banner/footer, listener nút bấm/slider/pointer.
  * Chỉ thêm phần KEO tối thiểu để chạy được trong SAV: đóng gói trong 1 object (tránh đè các global
@@ -11,7 +12,7 @@
  * (SAV đã tự clear canvas + tự gọi mỗi frame, canvas do SAV set kích thước).
  *
  * SỬA (22/09/2026, yêu cầu Giang "màu theo 3 chế độ color của app") — bảng `themes` gốc (3 theme cố
- * định cyan/violet/gold, chọn qua `config.theme`) đã BỎ HẲN, đây là điểm DUY NHẤT lệch khỏi "verbatim,
+ * định cyan/violet/gold, chọn qua `config.theme`) đã BỎ HẲN — điểm lệch THỨ NHẤT khỏi "verbatim,
  * không tự đổi" ban đầu. Toàn bộ màu (kể cả các chỗ trắng cố định '#ffffff' ở filter node/hạt input/
  * hạt output — gốc dùng trắng cố định bất kể theme) nay lấy từ hệ mode màu CHUNG của app (Custom
  * Effect group 'connector': solid/dynamic/gradient, `getComputedColor()`, core/audio-analysis.js) —
@@ -20,8 +21,19 @@
  * này vẫn free-running Math.random) nên dataValue truyền cố định — chỉ ảnh hưởng mode 'gradient'.
  * Giữ NGUYÊN, không đụng: nền gradient tối bên trong ellipse (chủ yếu slate trung tính, chỉ 1 stop
  * cuối tint cyan rất nhẹ 5% alpha — không convert an toàn được vì `.fill` có thể là hex/rgb()/hsla()
- * tuỳ mode, không tách alpha bằng string được) và màu chữ nhãn/trục thời gian (trắng/xám cố định,
- * gốc y hệt ở cả 3 theme cũ — không thuộc bộ nhận diện màu của connector).
+ * tuỳ mode, không tách alpha bằng string được).
+ *
+ * SỬA (22/09/2026, Giang báo "chiều ngang nhưng bị kéo giãn ra") — điểm lệch THỨ HAI: layout gốc
+ * (ellipse, toả tia input/output, trục thời gian) tính theo `height` THẬT của canvas, đúng ý trang
+ * landscape rộng của bản gốc — nhưng canvas SAV luôn full màn hình thật của máy (core/canvas-scene-
+ * setup.js), trên điện thoại là portrait (height > width nhiều) nên bị kéo cao bất thường. Thêm
+ * `stageH`/`stageOffsetY` (phần KEO, gần đầu file) giới hạn chiều cao DÙNG ĐỂ TÍNH layout theo tỉ lệ
+ * cố định với width (16:9-ish), căn giữa dải đó theo chiều dọc màn hình thật.
+ *
+ * SỬA (22/09/2026, yêu cầu Giang "loại bỏ mấy text của connector brain") — điểm lệch THỨ BA: bỏ hẳn
+ * 3 khối fillText() nhãn chữ ("1000000 INFORMATION SIGNALS"/"BRAIN FILTER"/"ONLY A FEW EVENTS REACH
+ * YOUR AWARENESS") — hàm gốc `drawLabelsAndTimeline` đổi tên thành `drawTimeline` cho khớp (chỉ còn
+ * vẽ trục thời gian dưới: đường đứt + node tròn + mũi tên, không phải text nên giữ nguyên).
  */
 const brainFilterOriginal = (function () {
         let canvas = null;
@@ -45,6 +57,65 @@ const brainFilterOriginal = (function () {
         const BRAIN_COLOR_DATA_VALUE = 128;
         function getBrainRoleColor(roleIndex) {
             return getComputedColor(roleIndex, 3, BRAIN_COLOR_DATA_VALUE); // { fill, fillNoAlpha, glow }
+        }
+
+        // KEO (22/09/2026, yêu cầu Giang "lan truyền bắt đầu pos start giống như sóng đánh") — trục
+        // thời gian: mỗi lần phát hiện 1 beat MỚI, sinh 1 "sóng" bắt đầu ở pos start (leftPersonPos.x)
+        // rồi lan sang phải theo `t` (0→1, TIMELINE_WAVE_TRAVEL_MS) — biên độ tự giảm dần theo
+        // `(1 - t)` (mất sức khi lan xa, đúng ý sóng đánh). Nhiều sóng chồng nhau được (mảng, giống
+        // cách file quản lý `bursts`/`particles`). Phát hiện "beat mới" bằng 1 envelope NỘI BỘ RIÊNG
+        // (không dùng chung `getBrainRoleColor` ở trên — khác mục đích): beatScale phải nhảy vọt đủ
+        // xa (TIMELINE_WAVE_MIN_JUMP) so với envelope đang tự decay (tái dùng
+        // computeMotionEngineBeatReactEnvelope(), core/motion-engine.js — đúng dáng "bắt tức thời,
+        // nhả êm theo thời gian thật" đã có sẵn, không viết detector riêng) VÀ đã đủ lâu kể từ lần
+        // sinh sóng trước (TIMELINE_WAVE_COOLDOWN_MS) mới tính là 1 beat mới — chặn sinh sóng dồn dập
+        // mỗi frame khi nhạc to liên tục.
+        const TIMELINE_WAVE_TRAVEL_MS = 600;
+        const TIMELINE_WAVE_DECAY_MS = 260;
+        const TIMELINE_WAVE_MIN_JUMP = 0.12;
+        const TIMELINE_WAVE_COOLDOWN_MS = 150;
+        const TIMELINE_DOT_BASE_RADIUS = 3; // khớp bán kính cố định gốc — baseline lúc không có sóng
+        const TIMELINE_DOT_MAX_RADIUS = 7;
+        let _timelineOnsetEnvelope = 0;
+        let _timelineLastWaveTime = -Infinity;
+        let _timelineLastUpdateTime = 0;
+        let timelineWaves = [];
+
+        /** Cập nhật mỗi frame: phát hiện beat mới (sinh sóng) + dọn sóng đã lan hết (t >= 1). */
+        function _updateTimelineWaves(time, beatScale) {
+            const deltaMs = _timelineLastUpdateTime ? Math.min(time - _timelineLastUpdateTime, 100) : 16; // cap phòng tab ẩn/giật frame
+            _timelineLastUpdateTime = time;
+
+            const isOnset = (beatScale - _timelineOnsetEnvelope) > TIMELINE_WAVE_MIN_JUMP
+                && (time - _timelineLastWaveTime) >= TIMELINE_WAVE_COOLDOWN_MS;
+            _timelineOnsetEnvelope = computeMotionEngineBeatReactEnvelope(_timelineOnsetEnvelope, beatScale, deltaMs, TIMELINE_WAVE_DECAY_MS); // core/motion-engine.js
+
+            if (isOnset) {
+                _timelineLastWaveTime = time;
+                timelineWaves.push({ startTime: time, amplitude: beatScale });
+            }
+
+            for (let i = timelineWaves.length - 1; i >= 0; i--) {
+                if ((time - timelineWaves[i].startTime) / TIMELINE_WAVE_TRAVEL_MS >= 1) timelineWaves.splice(i, 1);
+            }
+        }
+
+        /** Độ "phồng" (0-1+) tại 1 điểm x trên trục do các sóng đang lan gây ra — falloff Gaussian
+         * quanh vị trí sóng hiện tại, lấy MAX qua mọi sóng đang hoạt động (không cộng dồn, tránh
+         * phồng quá đà khi nhiều sóng chồng nhau gần nhau). */
+        function _timelineBumpAt(x, time, falloffPx) {
+            let bump = 0;
+            for (let i = 0; i < timelineWaves.length; i++) {
+                const w = timelineWaves[i];
+                const t = (time - w.startTime) / TIMELINE_WAVE_TRAVEL_MS;
+                if (t < 0 || t > 1) continue;
+                const waveX = leftPersonPos.x + t * (rightPersonPos.x - leftPersonPos.x);
+                const strength = w.amplitude * (1 - t); // yếu dần theo quãng đường đã lan
+                const dist = x - waveX;
+                const falloff = Math.exp(-(dist * dist) / (2 * falloffPx * falloffPx));
+                bump = Math.max(bump, strength * falloff);
+            }
+            return bump;
         }
 
         let width, height;
@@ -173,37 +244,21 @@ const brainFilterOriginal = (function () {
             return { x: xt, y: yt };
         }
 
-        function drawLabelsAndTimeline() {
+        // SỬA (22/09/2026, yêu cầu Giang "loại bỏ mấy text của connector brain") — bỏ hẳn 3 khối
+        // fillText() gốc (nhãn "1000000 INFORMATION SIGNALS" trái, "BRAIN FILTER" giữa, "ONLY A FEW
+        // EVENTS REACH YOUR AWARENESS" phải) — điểm lệch THỨ HAI khỏi "verbatim, không tự đổi" ban
+        // đầu (điểm đầu là màu, xem đầu file). Giữ nguyên trục thời gian dưới (đường đứt + node tròn
+        // + mũi tên) — không phải text. Đổi tên hàm cho khớp (không còn vẽ label nữa).
+        //
+        // SỬA TIẾP (22/09/2026, "sóng đánh" lan dọc trục — xem khối TIMELINE_WAVE_* đầu file) — nhận
+        // thêm `time`/`beatScale` để cập nhật + vẽ sóng: 3 node tròn phồng lên khi sóng đi ngang qua
+        // (_timelineBumpAt), CỘNG 1 điểm sáng di chuyển đúng theo vị trí sóng hiện tại.
+        function drawTimeline(time, beatScale) {
             ctx.save();
-            
-            // Scaled Font setup
-            let fontBase = Math.max(10, Math.round(width * 0.012));
-            ctx.textAlign = 'center';
 
-            // 1. Left Label: 1000000 INFORMATION SIGNALS
-            ctx.font = `700 ${fontBase * 1.1}px 'Space Grotesk', sans-serif`;
-            ctx.fillStyle = '#f8fafc';
-            ctx.shadowColor = 'rgba(0,0,0,0.8)';
-            ctx.shadowBlur = 4;
-            ctx.fillText("1000000", leftPersonPos.x + width * 0.08, stageOffsetY + stageH * 0.18);
-            ctx.font = `600 ${fontBase * 0.85}px 'Space Grotesk', sans-serif`;
-            ctx.fillStyle = '#94a3b8';
-            ctx.fillText("INFORMATION SIGNALS", leftPersonPos.x + width * 0.08, stageOffsetY + stageH * 0.18 + fontBase * 1.2);
+            _updateTimelineWaves(time, beatScale);
 
-            // 2. Middle Label: BRAIN FILTER
-            ctx.font = `700 ${fontBase * 1.05}px 'Space Grotesk', sans-serif`;
-            ctx.fillStyle = '#f8fafc';
-            ctx.fillText("BRAIN FILTER", filterPos.x, filterPos.y - filterPos.ry - fontBase * 1.2);
-
-            // 3. Right Label: ONLY A FEW EVENTS REACH YOUR AWARENESS
-            ctx.font = `700 ${fontBase * 1.05}px 'Space Grotesk', sans-serif`;
-            ctx.fillStyle = '#f8fafc';
-            ctx.fillText("ONLY A FEW EVENTS", rightPersonPos.x - width * 0.06, stageOffsetY + stageH * 0.18);
-            ctx.font = `600 ${fontBase * 0.85}px 'Space Grotesk', sans-serif`;
-            ctx.fillStyle = '#94a3b8';
-            ctx.fillText("REACH YOUR AWARENESS", rightPersonPos.x - width * 0.06, stageOffsetY + stageH * 0.18 + fontBase * 1.2);
-
-            // 4. Bottom Axis Timeline Line
+            // Bottom Axis Timeline Line
             let axisY = stageOffsetY + stageH * 0.88;
             ctx.strokeStyle = '#334155';
             ctx.lineWidth = 1.5;
@@ -214,11 +269,14 @@ const brainFilterOriginal = (function () {
             ctx.stroke();
             ctx.setLineDash([]); // reset line dash
 
-            // Timeline Node Points & Arrows
+            const falloffPx = (rightPersonPos.x - leftPersonPos.x) * 0.06;
+
+            // Timeline Node Points & Arrows — phồng lên khi sóng đi ngang qua
             let axisNodes = [leftPersonPos.x, filterPos.x, rightPersonPos.x];
             axisNodes.forEach(nx => {
+                const bump = _timelineBumpAt(nx, time, falloffPx);
                 ctx.beginPath();
-                ctx.arc(nx, axisY, 3, 0, Math.PI * 2);
+                ctx.arc(nx, axisY, TIMELINE_DOT_BASE_RADIUS + bump * (TIMELINE_DOT_MAX_RADIUS - TIMELINE_DOT_BASE_RADIUS), 0, Math.PI * 2);
                 ctx.fillStyle = '#94a3b8';
                 ctx.fill();
             });
@@ -231,6 +289,24 @@ const brainFilterOriginal = (function () {
             ctx.strokeStyle = '#94a3b8';
             ctx.lineWidth = 2;
             ctx.stroke();
+
+            // Điểm sáng di chuyển theo sóng — màu theo app (connector), vẽ SAU cùng để nổi lên trên
+            if (timelineWaves.length > 0) {
+                const primary = getBrainRoleColor(0);
+                timelineWaves.forEach((w) => {
+                    const t = (time - w.startTime) / TIMELINE_WAVE_TRAVEL_MS;
+                    if (t < 0 || t > 1) return;
+                    const waveX = leftPersonPos.x + t * (rightPersonPos.x - leftPersonPos.x);
+                    const strength = w.amplitude * (1 - t); // yếu dần theo quãng đường đã lan
+                    ctx.beginPath();
+                    ctx.arc(waveX, axisY, TIMELINE_DOT_BASE_RADIUS + strength * (TIMELINE_DOT_MAX_RADIUS - TIMELINE_DOT_BASE_RADIUS), 0, Math.PI * 2);
+                    ctx.fillStyle = primary.glow;
+                    ctx.shadowColor = primary.glow;
+                    ctx.shadowBlur = 8;
+                    ctx.globalAlpha = Math.min(1, strength * 1.5);
+                    ctx.fill();
+                });
+            }
 
             ctx.restore();
         }
@@ -479,14 +555,17 @@ const brainFilterOriginal = (function () {
         }
 
         // Thay animate(time) gốc: bỏ clearRect (SAV đã clear) và requestAnimationFrame (SAV tự gọi mỗi frame).
-        function draw(ctxArg, canvasEl, time) {
+        // Nhận thêm `beatScale` (22/09/2026, sóng trục thời gian) — Workflow tự đọc appState rồi
+        // truyền vào (Rule 2, core không tự appState.get()), xem _tickConnectorBrain() ở
+        // event/workflow/visualizer-render.js.
+        function draw(ctxArg, canvasEl, time, beatScale) {
             ctx = ctxArg;
             canvas = canvasEl;
             if (canvas.width !== _lastW || canvas.height !== _lastH) {
                 _lastW = canvas.width; _lastH = canvas.height;
                 _layoutFromCanvas();
             }
-            drawLabelsAndTimeline();
+            drawTimeline(time, beatScale);
             drawCurvesAndParticles(time);
             drawBrainFilter(time);
         }
