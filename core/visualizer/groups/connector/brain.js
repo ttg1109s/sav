@@ -52,6 +52,16 @@
  * trùng lặp: âm ngân dài (pad/dây kéo) chỉ làm trục phồng, còn node chỉ loé đúng lúc có âm MỚI
  * đánh vào (trống/gảy/phụ âm) rồi tắt nhanh. Node xếp dải theo toạ độ y (đáy = bass, đỉnh =
  * treble). Chi tiết: khối `FILTER_FLUX_*` + `_updateFilterNodeFlux()`.
+ *
+ * SỬA (23/09/2026, yêu cầu Giang) — điểm lệch THỨ SÁU + BẢY:
+ * (6) Tia input CO BÓP theo bass: `beatScale` (năng lượng dải bass thô mỗi frame) TRỪ 1 baseline
+ *     chậm của chính nó (chỉ phần VỌT LÊN mới bóp — bass đều liên tục không làm bụng thắt cứng mãi),
+ *     qua envelope attack nhanh/release chậm -> thắt bụng (hệ số cp1 dọc) tới PUMP_SQUEEZE_MAX.
+ *     Khối `PUMP_*` + `_updateInputPump()`.
+ * (7) Dot chạy quanh vòng phụ ellipse — CỐ Ý không dùng lastBeatTime/nốt nhạc/smoothedEnergy (trục
+ *     thời gian đã dùng cả 3): tốc độ theo TEMPO (`currentCalculatedBpm` — BPM app tự tính sẵn,
+ *     ORBIT_BEATS_PER_LAP beat / 1 vòng), độ sáng + cỡ dot theo SPECTRAL CENTROID (độ "sáng" âm sắc,
+ *     tính từ vizDataArray). Khối `ORBIT_*` + `_updateOrbitDots()`/`drawOrbitDots()`.
  */
 const brainFilterOriginal = (function () {
         let canvas = null;
@@ -193,6 +203,92 @@ const brainFilterOriginal = (function () {
             if (hasData) _filterFluxPrimed = true;
         }
 
+        // KEO (23/09/2026) — hệ số hình dạng tia input (fit từ ảnh mẫu, xem initNodesAndPaths()) — đưa
+        // ra scope ngoài vì _updateInputPump() cần IN_CP1_Y để tính lại cp1 mỗi frame.
+        const IN_CP1_X = 0.2, IN_CP1_Y = 1.95, IN_CP2_X = 0.82, IN_END_Y = 0.65;
+
+        // KEO (23/09/2026, Giang — tia input "co bóp") — xem điểm lệch (6) đầu file.
+        const PUMP_BASELINE_TAU_MS = 800;  // baseline chậm của beatScale — mức bass "nền" hiện tại
+        const PUMP_GAIN = 4;               // (beatScale - baseline) × gain -> lực bóp mục tiêu, kẹp 0-1
+        const PUMP_ATTACK_TAU_MS = 40;     // bóp vào nhanh
+        const PUMP_RELEASE_TAU_MS = 260;   // nhả ra chậm
+        const PUMP_SQUEEZE_MAX = 0.22;     // bóp hết cỡ = bụng thắt 22%
+        let pumpBaseline = 0, pumpEnvelope = 0, _pumpLastTime = 0;
+
+        /** Mỗi frame: cập nhật envelope bóp rồi tính lại cp1.y của mọi tia input (hạt đang chạy
+         * trên path nên tự đi theo hình mới). Không phát nhạc -> nhả dần về 0. */
+        function _updateInputPump(time, beatScale, isPlaying) {
+            const dt = _pumpLastTime ? Math.min(100, Math.max(0, time - _pumpLastTime)) : 16;
+            _pumpLastTime = time;
+            const level = isPlaying && isFinite(beatScale) ? beatScale : 0;
+            pumpBaseline += (level - pumpBaseline) * (1 - Math.exp(-dt / PUMP_BASELINE_TAU_MS));
+            const drive = Math.min(1, Math.max(0, (level - pumpBaseline) * PUMP_GAIN));
+            const tau = drive > pumpEnvelope ? PUMP_ATTACK_TAU_MS : PUMP_RELEASE_TAU_MS;
+            pumpEnvelope += (drive - pumpEnvelope) * (1 - Math.exp(-dt / tau));
+
+            const bulbY = IN_CP1_Y * filterPos.ry * (1 - PUMP_SQUEEZE_MAX * pumpEnvelope);
+            for (let i = 0; i < inputPaths.length; i++) {
+                inputPaths[i].p1.y = leftPersonPos.y + inputPaths[i].lane * bulbY;
+            }
+        }
+
+        // KEO (23/09/2026, Giang — dot chạy quanh ellipse) — xem điểm lệch (7) đầu file. Dot chạy trên
+        // đúng vòng phụ (rx×1.08, ry×1.05) đã vẽ sẵn ở drawBrainFilter(), đều nhau, mỗi dot kéo đuôi
+        // ORBIT_TRAIL_COUNT điểm mờ dần. Chưa có BPM ("---") -> ORBIT_FALLBACK_BPM. Tốc độ + centroid
+        // đều làm mượt theo thời gian thật (không giật khi BPM nhảy số).
+        const ORBIT_DOT_COUNT = 8;
+        const ORBIT_BEATS_PER_LAP = 8;
+        const ORBIT_FALLBACK_BPM = 90;
+        const ORBIT_SPEED_TAU_MS = 500;
+        const ORBIT_TRAIL_COUNT = 6;
+        const ORBIT_TRAIL_STEP_RAD = 0.035;
+        const ORBIT_CENTROID_LO = 0.5, ORBIT_CENTROID_HI = 0.85; // log-centroid thô -> 0-1 (âm trầm -> 0, âm sáng -> 1)
+        const ORBIT_CENTROID_TAU_MS = 200;
+        let orbitPhase = 0, orbitSpeed = 0, orbitCentroid = 0, _orbitLastTime = 0;
+
+        /** Spectral centroid của khung FFT, quy về 0-1 theo thang log (bin trọng tâm / số bin). */
+        function _computeCentroidNorm(vizDataArray, bufferLength) {
+            if (!vizDataArray || !bufferLength) return 0;
+            let sumV = 0, sumIV = 0;
+            for (let i = 1; i < bufferLength; i++) { const v = vizDataArray[i]; sumV += v; sumIV += i * v; }
+            if (sumV < bufferLength * 2) return 0; // gần như im lặng
+            const logPos = Math.log2(1 + sumIV / sumV) / Math.log2(bufferLength);
+            return Math.min(1, Math.max(0, (logPos - ORBIT_CENTROID_LO) / (ORBIT_CENTROID_HI - ORBIT_CENTROID_LO)));
+        }
+
+        function _updateOrbitDots(time, bpm, isPlaying, vizDataArray, bufferLength) {
+            const dt = _orbitLastTime ? Math.min(100, Math.max(0, time - _orbitLastTime)) : 16;
+            _orbitLastTime = time;
+            const effBpm = isFinite(bpm) && bpm > 0 ? bpm : ORBIT_FALLBACK_BPM;
+            const targetSpeed = isPlaying ? (Math.PI * 2) * (effBpm / 60000) / ORBIT_BEATS_PER_LAP : 0; // rad/ms
+            orbitSpeed += (targetSpeed - orbitSpeed) * (1 - Math.exp(-dt / ORBIT_SPEED_TAU_MS));
+            orbitPhase = (orbitPhase + orbitSpeed * dt) % (Math.PI * 2);
+            const c = isPlaying ? _computeCentroidNorm(vizDataArray, bufferLength) : 0;
+            orbitCentroid += (c - orbitCentroid) * (1 - Math.exp(-dt / ORBIT_CENTROID_TAU_MS));
+        }
+
+        function drawOrbitDots() {
+            const primary = getBrainRoleColor(0);
+            const orx = filterPos.rx * 1.08, ory = filterPos.ry * 1.05;
+            const baseR = Math.max(1.5, filterPos.rx * 0.05) * (1 + orbitCentroid * 0.8);
+            ctx.save();
+            ctx.fillStyle = primary.glow;
+            ctx.shadowColor = primary.glow;
+            for (let d = 0; d < ORBIT_DOT_COUNT; d++) {
+                const a0 = orbitPhase + d * (Math.PI * 2 / ORBIT_DOT_COUNT);
+                for (let k = ORBIT_TRAIL_COUNT; k >= 0; k--) { // đuôi trước, đầu dot vẽ sau cùng (đè lên)
+                    const a = a0 - k * ORBIT_TRAIL_STEP_RAD;
+                    const fade = 1 - k / (ORBIT_TRAIL_COUNT + 1);
+                    ctx.globalAlpha = (0.35 + 0.65 * orbitCentroid) * fade;
+                    ctx.shadowBlur = k === 0 ? 6 + orbitCentroid * 12 : 0;
+                    ctx.beginPath();
+                    ctx.arc(filterPos.x + Math.cos(a) * orx, filterPos.y + Math.sin(a) * ory, baseR * (0.4 + 0.6 * fade), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.restore();
+        }
+
         let width, height;
         // KEO (22/09/2026, Giang báo "chiều ngang nhưng bị kéo giãn ra") — bản gốc là trang
         // landscape rộng (height nhỏ hơn width nhiều) nên mọi công thức `height * tỉ lệ` ra hình
@@ -261,7 +357,7 @@ const brainFilterOriginal = (function () {
             // thắt dần và vào mép trái ellipse NẰM NGANG ở độ cao 0.65R (cp2 = 82% D, cùng độ cao
             // điểm cuối). Tia bên trong co tuyến tính theo `lane` (-1..1) -> mật độ đều trong bụng.
             // Điểm cuối nằm ĐÚNG trên viền ellipse (gốc: lọt vào trong 0.5 rx).
-            const IN_CP1_X = 0.2, IN_CP1_Y = 1.95, IN_CP2_X = 0.82, IN_END_Y = 0.65;
+            // (4 hệ số IN_* khai ở scope ngoài — _updateInputPump() dùng lại IN_CP1_Y mỗi frame.)
             for (let i = 0; i < config.signalCount; i++) {
                 let lane = (i / (config.signalCount - 1)) * 2 - 1; // -1 (trên) .. 1 (dưới)
                 let endYRel = lane * IN_END_Y; // tỉ lệ theo ry
@@ -279,7 +375,8 @@ const brainFilterOriginal = (function () {
                     p1: { x: cp1x, y: cp1y },
                     p2: { x: cp2x, y: cp2y },
                     p3: { x: targetX, y: targetY },
-                    alpha: Math.random() * 0.15 + 0.1
+                    alpha: Math.random() * 0.15 + 0.1,
+                    lane: lane // _updateInputPump() tính lại p1.y theo lane mỗi frame
                 });
 
                 // Spawn initial floating particles on path
@@ -704,7 +801,9 @@ const brainFilterOriginal = (function () {
         // truyền vào (Rule 2, core không tự appState.get()), xem _tickConnectorBrain() ở
         // event/workflow/visualizer-render.js. `lastBeatTime` (thay `beatScale`, xem SỬA phía trên) —
         // mốc beat THẬT, đổi khác lần trước = vừa có 1 beat mới.
-        function draw(ctxArg, canvasEl, time, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote) {
+        // Nhận thêm (23/09/2026) `beatScale` (co bóp tia input), `isPlaying`, `bpm` (số, NaN nếu app
+        // chưa tính được — dot chạy quanh ellipse) — Workflow đọc appState rồi truyền vào (Rule 2).
+        function draw(ctxArg, canvasEl, time, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote, beatScale, isPlaying, bpm) {
             ctx = ctxArg;
             canvas = canvasEl;
             if (canvas.width !== _lastW || canvas.height !== _lastH) {
@@ -712,9 +811,12 @@ const brainFilterOriginal = (function () {
                 _layoutFromCanvas();
             }
             drawTimeline(time, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote);
+            _updateInputPump(time, beatScale, isPlaying);
             drawCurvesAndParticles(time);
             _updateFilterNodeFlux(time, vizDataArray, bufferLength);
             drawBrainFilter(time);
+            _updateOrbitDots(time, bpm, isPlaying, vizDataArray, bufferLength);
+            drawOrbitDots();
         }
 
         return { draw, triggerBurst };
