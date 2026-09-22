@@ -80,6 +80,12 @@ const CUSTOM_EFFECT_MUSIC_SECTION_TITLE_KEYS = {
     lighting: 'customEffectDrawer.musicSection.finaleTitle',
     vortex: 'customEffectDrawer.musicSection.redirectTitle',
 };
+/** MỚI (23/09/2026) — tiêu đề card Music Transition theo STYLE con (ưu tiên hơn bảng theo group ở
+ * trên) — group connector có 2 style dùng Music Transition cho 2 việc khác nhau (circuit = camera
+ * shift, brain = burst), không đặt chung 1 tên theo group được. */
+const CUSTOM_EFFECT_MUSIC_SECTION_TITLE_KEYS_BY_STYLE = {
+    brain: 'customEffectDrawer.musicSection.burstTitle',
+};
 
 /** Key i18n cho từng option style — TÁI DÙNG bộ text sẵn có (visualizerSettingsDrawer.*), không
  * dịch trùng 1 khái niệm ở 2 nơi. */
@@ -175,6 +181,23 @@ const CUSTOM_EFFECT_FIELDS = {
     connector: [
         { id: 'glowEnabled', labelKey: 'customEffectDrawer.field.connectorGlowEnabled', type: 'toggle' },
         { id: 'glowIntensity', labelKey: 'customEffectDrawer.field.connectorGlowIntensity', type: 'slider', min: 0, max: 100, step: 5 },
+        // MỚI (23/09/2026, Giang) — style 'brain'. type 'select' (MỚI, components/custom-effect-drawer.js
+        // ::_renderCeFieldRow()): `options` = [{ value, labelKey }]. brain.js tự dựng lại layout khi giá
+        // trị đổi (so với lần vẽ trước) nên không cần `refresh`.
+        { id: 'brainDirection', labelKey: 'customEffectDrawer.field.brainDirection', type: 'select', showIf: (cfg) => cfg.connectorStyle === 'brain', options: [
+            { value: 'ltr', labelKey: 'customEffectDrawer.brainDirection.ltr' },
+            { value: 'rtl', labelKey: 'customEffectDrawer.brainDirection.rtl' },
+            { value: 'ttb', labelKey: 'customEffectDrawer.brainDirection.ttb' },
+            { value: 'btt', labelKey: 'customEffectDrawer.brainDirection.btt' },
+        ] },
+        { id: 'timelineShape', labelKey: 'customEffectDrawer.field.timelineShape', type: 'select', showIf: (cfg) => cfg.connectorStyle === 'brain', options: [
+            { value: 'line', labelKey: 'customEffectDrawer.timelineShape.line' },
+            { value: 'sinDown', labelKey: 'customEffectDrawer.timelineShape.sinDown' },
+            { value: 'sinUp', labelKey: 'customEffectDrawer.timelineShape.sinUp' },
+            { value: 'circle', labelKey: 'customEffectDrawer.timelineShape.circle' },
+            { value: 'square', labelKey: 'customEffectDrawer.timelineShape.square' },
+            { value: 'triangle', labelKey: 'customEffectDrawer.timelineShape.triangle' },
+        ] },
         // SỬA (yêu cầu Giang 16/09/2026, layout lưới phẳng) — max 48->64, min/step đổi 12/3->16/4
         // để 32 (mặc định mới) và 64 (max mới) đều rơi đúng mốc slider.
         { id: 'neuronCount', labelKey: 'customEffectDrawer.field.neuronCount', type: 'slider', min: 16, max: 64, step: 4, showIf: (cfg) => cfg.connectorStyle === 'synapse', refresh: 'initThreeJSConnector' },
@@ -197,8 +220,12 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'bloomStrengthBase', labelKey: 'customEffectDrawer.field.bloomStrengthBase', type: 'sliderFloat', min: 0, max: 4, step: 0.1, decimals: 1, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
         { id: 'bloomStrengthEnergyMult', labelKey: 'customEffectDrawer.field.bloomStrengthEnergyMult', type: 'sliderFloat', min: 0, max: 4, step: 0.1, decimals: 1, showIf: (cfg) => cfg.connectorStyle === 'circuit' },
         { id: 'cameraShiftEnabled', labelKey: 'customEffectDrawer.field.connectorCameraShiftEnabled', type: 'toggle', showIf: (cfg) => cfg.connectorStyle === 'circuit' },
-        { id: 'sectionWindowBeats', labelKey: 'customEffectDrawer.field.musicSectionWindowBeats', type: 'slider', min: 6, max: 32, step: 1, showIf: (cfg) => cfg.connectorStyle === 'circuit' && cfg.cameraShiftEnabled, group: 'music' },
-        { id: 'fluxThreshold', labelKey: 'customEffectDrawer.field.musicFluxThreshold', type: 'sliderFloat', min: 0.1, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'circuit' && cfg.cameraShiftEnabled, group: 'music' },
+        // MỚI (23/09/2026) — style 'brain': burst theo Music Transition. `rerender: true` (MỚI) —
+        // Workflow vẽ lại body khi toggle đổi, để 2 slider bên dưới (showIf phụ thuộc toggle) hiện/ẩn ngay.
+        { id: 'burstEnabled', labelKey: 'customEffectDrawer.field.brainBurstEnabled', type: 'toggle', showIf: (cfg) => cfg.connectorStyle === 'brain', group: 'music', rerender: true },
+        // ĐỔI (23/09/2026) — 2 field dùng CHUNG cho circuit (camera shift) và brain (burst).
+        { id: 'sectionWindowBeats', labelKey: 'customEffectDrawer.field.musicSectionWindowBeats', type: 'slider', min: 6, max: 32, step: 1, showIf: (cfg) => (cfg.connectorStyle === 'circuit' && cfg.cameraShiftEnabled) || (cfg.connectorStyle === 'brain' && cfg.burstEnabled), group: 'music' },
+        { id: 'fluxThreshold', labelKey: 'customEffectDrawer.field.musicFluxThreshold', type: 'sliderFloat', min: 0.1, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => (cfg.connectorStyle === 'circuit' && cfg.cameraShiftEnabled) || (cfg.connectorStyle === 'brain' && cfg.burstEnabled), group: 'music' },
     ],
 };
 /** Config đầy đủ (default merge field thiếu) của 1 effect theo type. */

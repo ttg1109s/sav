@@ -125,6 +125,10 @@
                 circuitSpeedBase: 80, circuitSpeedEnergyMult: 60,
                 bloomStrengthBase: 2.2, bloomStrengthEnergyMult: 0.8,
                 cameraShiftEnabled: true, sectionWindowBeats: 12, fluxThreshold: 0.5,
+                // MỚI (23/09/2026, Giang) — style 'brain': chiều toàn bộ brain filter (ltr/rtl/ttb/btt),
+                // hình trục thời gian (line/sinDown/sinUp/circle/square/triangle), burst theo Music
+                // Transition. sectionWindowBeats/fluxThreshold ở trên dùng CHUNG với circuit (cùng bucket).
+                brainDirection: 'ltr', timelineShape: 'line', burstEnabled: true,
             },
         };
 
