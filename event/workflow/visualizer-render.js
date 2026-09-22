@@ -145,10 +145,7 @@ const workflowVisualizerRender = {
     _seekLastMedia: null,
     _seekLastTime: 0,
     _connectorSettleFrames: 0, // >0 = connector đang "ổn định lại" sau seek, `_tickConnectorRender()` trừ dần mỗi frame
-    // Style 'brain' (canvas 2D, MỚI 22/09/2026) — biến NỘI BỘ (KHÔNG thuộc STATE):
-    _brainIsSettling: false, // `_tickConnectorRender()` (chạy TRƯỚC clearRect) chốt cờ "đang ổn định sau seek" cho `_tickConnectorBrain()` (chạy SAU clearRect)
-    _brainLastTime: 0,       // performance.now() của frame brain trước — tính dt thật (cap 0.1s) như cnClock của synapse/circuit
-    _connectorWebglBlank: false, // canvas WebGL đã được xoá trắng cho style brain chưa (tránh kẹt khung hình cuối của synapse/circuit)
+    _connectorWebglBlank: false, // style 'brain' (canvas 2D): canvas WebGL đã xoá trắng chưa (tránh kẹt khung hình cuối của synapse/circuit)
 
     /** Đăng ký + bật task phân tích `raf` — xem docstring đầu file về điểm gọi DUY NHẤT + guard
      * chống double-start. Task vẽ (`RENDER_TASK`) KHÔNG đăng ký ở đây: `_tick()` tự bật nó ở frame
@@ -309,9 +306,8 @@ const workflowVisualizerRender = {
             // ================== VISUAL Lighting — Workflow điều phối style thunder/fireworks ==================
             this._tickLighting(ctx, perf, isPlaying, newBeatScale, newSmoothedEnergy, vizDataArray);
         } else if (cfg.type === 'connector') {
-            // ================== VISUAL Connector — style 'brain' vẽ canvas 2D (synapse/circuit đã render WebGL ở trên) ==================
-            // PHẢI đứng SAU ctx.clearRect() phía trên — nếu vẽ chung chỗ với `_tickConnectorRender()` thì bị xoá ngay.
-            if (getActiveEffectConfig().connectorStyle === 'brain') this._tickConnectorBrain(ctx, isPlaying, newSmoothedEnergy, vizDataArray, bufferLength);
+            // Style 'brain' vẽ canvas 2D — PHẢI đứng SAU ctx.clearRect() phía trên (synapse/circuit đã render WebGL ở trên).
+            if (getActiveEffectConfig().connectorStyle === 'brain') this._tickConnectorBrain(ctx);
         }
     },
 
@@ -493,14 +489,9 @@ const workflowVisualizerRender = {
         const isSettling = this._connectorSettleFrames > 0;
         if (isSettling) this._connectorSettleFrames--;
 
-        // Style 'brain' KHÔNG dùng WebGL — vẽ lên canvas 2D ở `_tickConnectorBrain()` (SAU clearRect, xem `_tickDraw()`). Ở đây chỉ
-        // chốt cờ settle + xoá trắng canvas WebGL MỘT LẦN (WebGL không tự xoá khung hình cuối của synapse/circuit khi thôi render).
+        // Style 'brain' KHÔNG dùng WebGL — vẽ canvas 2D ở `_tickConnectorBrain()` (SAU clearRect, xem `_tickDraw()`). Ở đây chỉ xoá trắng canvas WebGL 1 lần.
         if (cfg.connectorStyle === 'brain') {
-            this._brainIsSettling = isSettling;
-            if (!this._connectorWebglBlank) {
-                appState.get('tRenderer').clear();
-                this._connectorWebglBlank = true;
-            }
+            if (!this._connectorWebglBlank) { appState.get('tRenderer').clear(); this._connectorWebglBlank = true; }
             return;
         }
         this._connectorWebglBlank = false;
@@ -693,81 +684,10 @@ const workflowVisualizerRender = {
         }
     },
 
-    /** VISUAL Connector — style 'brain' (Brain Filter, canvas 2D thuần; xem core/visualizer/groups/connector/brain.js). Mỗi frame:
-     * (1) dựng lại layout nếu đổi kích thước canvas/số đường vào (`signature`), (2) mỗi dải tần tonotopic (tái dùng synapse.js) — onset
-     * vượt "ngưỡng nhận biết" (fireThreshold*255*BRAIN_PERCEPTION_FLOOR_RATIO) thì sinh 1 hạt trên đường vào của dải đó; hạt QUA lọc khi
-     * năng lượng vượt ngưỡng HIỆU DỤNG (fireThreshold + adaptation + lateralInhibition — cùng cơ chế synapse/circuit), không thì tan rã ở
-     * thành filter; hạt qua lọc đi đường ra theo pitch class (không có nốt mới -> theo vị trí dải), (3) bước mô phỏng + vẽ. */
-    _tickConnectorBrain(ctx, isPlaying, smoothedEnergy, vizDataArray, bufferLength) {
-        const cfg = getActiveEffectConfig(); // core/custom-effect.js
-        const dpr = appState.get('dpr');
-        const inputCount = cfg.brainInputCount;
-        const signature = `${canvas.width}x${canvas.height}|${inputCount}`;
-
-        let brain = appState.get('cnBrainState');
-        if (!brain || brain.signature !== signature) {
-            // Chừa thanh player dưới (cùng mốc Street rain) + 1 dải mỏng phía trên cho nút overlay.
-            const rect = { x0: 0, y0: canvas.height * 0.05, x1: canvas.width, y1: canvas.height - getPlayerBarSafeHeight() }; // core/canvas-scene-setup.js
-            brain = createBrainState(rect, dpr, inputCount, signature); // core/visualizer/groups/connector/brain.js
-            appState.set('cnBrainState', brain, { skipCheck: true });
-            console.log(`writer: "workflowVisualizerRender._tickConnectorBrain", page: "cnBrainState", content: "dựng lại layout brain ${signature}"`);
-        }
-
-        const now = performance.now();
-        const dt = this._brainLastTime > 0 ? Math.min(0.1, (now - this._brainLastTime) / 1000) : 1 / 60;
-        this._brainLastTime = now;
-
-        const isSettling = this._brainIsSettling;
-        if (isSettling) { // sau seek/đổi bài: xoá hạt đang bay, rebaseline từng dải (không coi là onset)
-            brain.inflow.length = 0; brain.outflow.length = 0; brain.bursts.length = 0; brain.flash = 0;
-        }
-
-        // Nốt đang phát -> đường ra theo pitch class (cùng CIRCUIT_PITCH_FRESH_MS như circuit chọn node đích theo pitch).
-        let pitchClass = null;
-        if (isPlaying) {
-            const { lastValidMidiNote, lastValidNoteTime } = appState.get(['lastValidMidiNote', 'lastValidNoteTime']);
-            if (lastValidMidiNote != null && Date.now() - lastValidNoteTime < CIRCUIT_PITCH_FRESH_MS) pitchClass = ((lastValidMidiNote % 12) + 12) % 12;
-        }
-
-        const bands = brain.bands;
-        const bandCount = bands.length;
-        const floorByte = cfg.fireThreshold * 255 * BRAIN_PERCEPTION_FLOOR_RATIO; // core/visualizer/groups/connector/brain.js
-        for (let i = 0; i < bandCount; i++) {
-            const band = bands[i];
-            const rawPeak = computeNeuronBinEnergy(vizDataArray, bufferLength, i, bandCount); // core/visualizer/groups/connector/synapse.js — dải tonotopic (log)
-            if (isSettling) { band.smoothedBinEnergy = rawPeak; band.prevBinEnergy = rawPeak; band.energy = 0; band.adaptation = 0; band.lateralInhibition = 0; band.cooldown = 0; }
-            const energyByte = applyTonotopicSmoothing(band, rawPeak, i, bandCount); // core/visualizer/groups/connector/synapse.js
-            const diff = energyByte - band.prevBinEnergy;
-            band.cooldown = Math.max(0, band.cooldown - dt);
-            if (isPlaying && !isSettling && band.cooldown <= 0 && diff > 0 && energyByte > floorByte && brain.inflow.length < cfg.maxConcurrentSignals) {
-                const passes = energyByte > computeEffectiveFireThresholdByte(band, cfg); // core/visualizer/groups/connector/synapse.js
-                const outIndex = pitchClass !== null ? pitchClass : Math.min(BRAIN_OUTPUT_COUNT - 1, Math.floor(i / bandCount * BRAIN_OUTPUT_COUNT));
-                spawnBrainInflowParticle(brain, i, computeSignalSpeedMult(diff), passes, outIndex, (1 + energyByte / 255 * 2.2) * dpr); // core/visualizer/groups/connector/{synapse,brain}.js
-                band.cooldown = BRAIN_SPAWN_INTERVAL_SEC;
-                if (passes) {
-                    triggerNeuronAdaptation(band); // core/visualizer/groups/connector/synapse.js
-                    band.energy = 1; // đường vào của dải này nháy sáng (paintBrainCurves)
-                    if (i > 0) applyLateralInhibition(bands[i - 1], cfg.lateralInhibitStrength); // core/visualizer/groups/connector/synapse.js
-                    if (i < bandCount - 1) applyLateralInhibition(bands[i + 1], cfg.lateralInhibitStrength);
-                }
-            }
-            band.prevBinEnergy = energyByte;
-            decayNeuronState(band, dt); // core/visualizer/groups/connector/synapse.js
-        }
-
-        const speedFrac = (cfg.brainSpeedBase + cfg.brainSpeedEnergyMult * smoothedEnergy) / 100;
-        stepBrainState(brain, dt, speedFrac, dpr); // core/visualizer/groups/connector/brain.js
-
-        const glowMult = getConnectorGlowMult(); // core/custom-effect.js — 0 khi tắt Glow
-        const colors = {
-            primary: getComputedColor(0, 3, 128).fill, // core/audio-analysis.js — 3 điểm trên dải màu: 0 = lưới/đường vào, 1 = vòng phụ, 2 = đường ra
-            secondary: getComputedColor(1, 3, 128).fill,
-            output: getComputedColor(2, 3, 128).fill,
-            particle: '#ffffff',
-        };
-        paintBrainCurves(ctx, brain, colors, glowMult, dpr); // core/visualizer/groups/connector/brain.js
-        paintBrainParticles(ctx, brain, colors, glowMult, dpr);
-        paintBrainFilter(ctx, brain, colors, glowMult, dpr);
+    /** VISUAL Connector — style 'brain': BÊ NGUYÊN phần canvas của Brain_Filter_Perception_Visualization.html
+     * (core/visualizer/groups/connector/brain.js), CHƯA nối audio/config nào. */
+    _tickConnectorBrain(ctx) {
+        brainFilterOriginal.draw(ctx, canvas, performance.now()); // core/visualizer/groups/connector/brain.js
     },
 
     /** [MỚI — rà soát Rule 3] VISUAL Bar — Workflow tự đọc `cfg.barStyle` rồi gọi ĐÚNG 1 trong 3
