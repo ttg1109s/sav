@@ -258,8 +258,8 @@ const workflowVisualizerRender = {
     _tickDraw() {
         const cfg = appConfigViz.getAll();
         if (cfg.visualEnabled === false) return; // phòng thủ — config vừa đổi nhưng `_tick()` chưa kịp kill task này (tối đa 1 frame)
-        const { vizDataArray, analyser, beatScale, smoothedEnergy, globalHueOffset, lastValidMidiNote } = appState.get([
-            'vizDataArray', 'analyser', 'beatScale', 'smoothedEnergy', 'globalHueOffset', 'lastValidMidiNote'
+        const { vizDataArray, analyser, beatScale, smoothedEnergy, globalHueOffset, lastValidMidiNote, lastBeatTime } = appState.get([
+            'vizDataArray', 'analyser', 'beatScale', 'smoothedEnergy', 'globalHueOffset', 'lastValidMidiNote', 'lastBeatTime'
         ]);
         if (!vizDataArray || !analyser) return; // guard — audio context chưa init
 
@@ -307,7 +307,7 @@ const workflowVisualizerRender = {
             this._tickLighting(ctx, perf, isPlaying, newBeatScale, newSmoothedEnergy, vizDataArray);
         } else if (cfg.type === 'connector') {
             // Style 'brain' vẽ canvas 2D — PHẢI đứng SAU ctx.clearRect() phía trên (synapse/circuit đã render WebGL ở trên).
-            if (getActiveEffectConfig().connectorStyle === 'brain') this._tickConnectorBrain(ctx, newBeatScale, newSmoothedEnergy, vizDataArray, bufferLength, lastValidMidiNote);
+            if (getActiveEffectConfig().connectorStyle === 'brain') this._tickConnectorBrain(ctx, lastBeatTime, newSmoothedEnergy, vizDataArray, bufferLength, lastValidMidiNote);
         }
     },
 
@@ -685,12 +685,14 @@ const workflowVisualizerRender = {
     },
 
     /** VISUAL Connector — style 'brain': BÊ NGUYÊN phần canvas của Brain_Filter_Perception_Visualization.html
-     * (core/visualizer/groups/connector/brain.js). SỬA (22/09/2026, dot trục thời gian theo beat +
-     * nốt nhạc + năng lượng dải tần) — nhận thêm `beatScale`/`smoothedEnergy`/`vizDataArray`/
-     * `bufferLength` (đã đọc sẵn ở `_tickDraw()`) và `lastValidMidiNote` (đọc thêm từ appState, xem
-     * `_tickDraw()`), truyền THẲNG vào draw() — điểm audio ĐẦU TIÊN nối vào style này. */
-    _tickConnectorBrain(ctx, beatScale, smoothedEnergy, vizDataArray, bufferLength, midiNote) {
-        brainFilterOriginal.draw(ctx, canvas, performance.now(), beatScale, smoothedEnergy, vizDataArray, bufferLength, midiNote); // core/visualizer/groups/connector/brain.js
+     * (core/visualizer/groups/connector/brain.js). SỬA (22/09/2026, Giang báo "sóng không theo beat")
+     * — bỏ hẳn bộ phát hiện beat TỰ CHẾ trong brain.js (so beatScale/smoothedEnergy, không đáng tin —
+     * xem lịch sử ở đầu core/visualizer/groups/connector/brain.js), thay bằng đọc THẲNG `lastBeatTime`
+     * — mốc beat THẬT (spectral flux, đã dùng để tính BPM) mà audio-analysis.js đã ghi sẵn ra appState
+     * (xem service/state/visualizer-runtime.js). Nhận thêm `smoothedEnergy`/`vizDataArray`/
+     * `bufferLength` (đã đọc sẵn ở `_tickDraw()`) và `midiNote` (đọc thêm từ appState). */
+    _tickConnectorBrain(ctx, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote) {
+        brainFilterOriginal.draw(ctx, canvas, performance.now(), lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote); // core/visualizer/groups/connector/brain.js
     },
 
     /** [MỚI — rà soát Rule 3] VISUAL Bar — Workflow tự đọc `cfg.barStyle` rồi gọi ĐÚNG 1 trong 3
