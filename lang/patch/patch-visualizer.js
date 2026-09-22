@@ -379,5 +379,20 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.trailLength': 'Trail length',
     'customEffectDrawer.field.circuitSpeedBase': 'Signal speed',
     'customEffectDrawer.field.circuitSpeedEnergyMult': 'Signal speed (energy boost)',
+    // MỚI (23/09/2026) — style 'brain' (core/custom-effect.js, core/visualizer/groups/connector/brain.js)
+    'customEffectDrawer.musicSection.burstTitle': 'Burst',
+    'customEffectDrawer.field.brainBurstEnabled': 'Signal burst on music transition',
+    'customEffectDrawer.field.brainDirection': 'Direction',
+    'customEffectDrawer.brainDirection.ltr': 'Left → Right',
+    'customEffectDrawer.brainDirection.rtl': 'Right → Left',
+    'customEffectDrawer.brainDirection.ttb': 'Top → Bottom',
+    'customEffectDrawer.brainDirection.btt': 'Bottom → Top',
+    'customEffectDrawer.field.timelineShape': 'Timeline shape',
+    'customEffectDrawer.timelineShape.line': 'Line',
+    'customEffectDrawer.timelineShape.sinDown': 'Sine (down first)',
+    'customEffectDrawer.timelineShape.sinUp': 'Sine (up first)',
+    'customEffectDrawer.timelineShape.circle': 'Circle',
+    'customEffectDrawer.timelineShape.square': 'Square',
+    'customEffectDrawer.timelineShape.triangle': 'Triangle',
 
 };
