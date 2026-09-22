@@ -307,7 +307,7 @@ const workflowVisualizerRender = {
             this._tickLighting(ctx, perf, isPlaying, newBeatScale, newSmoothedEnergy, vizDataArray);
         } else if (cfg.type === 'connector') {
             // Style 'brain' vẽ canvas 2D — PHẢI đứng SAU ctx.clearRect() phía trên (synapse/circuit đã render WebGL ở trên).
-            if (getActiveEffectConfig().connectorStyle === 'brain') this._tickConnectorBrain(ctx);
+            if (getActiveEffectConfig().connectorStyle === 'brain') this._tickConnectorBrain(ctx, newBeatScale);
         }
     },
 
@@ -685,9 +685,11 @@ const workflowVisualizerRender = {
     },
 
     /** VISUAL Connector — style 'brain': BÊ NGUYÊN phần canvas của Brain_Filter_Perception_Visualization.html
-     * (core/visualizer/groups/connector/brain.js), CHƯA nối audio/config nào. */
-    _tickConnectorBrain(ctx) {
-        brainFilterOriginal.draw(ctx, canvas, performance.now()); // core/visualizer/groups/connector/brain.js
+     * (core/visualizer/groups/connector/brain.js). SỬA (22/09/2026, sóng trục thời gian theo beat) —
+     * nhận thêm `beatScale` (đã đọc sẵn ở `_tickDraw()`, `newBeatScale`) truyền THẲNG vào draw() —
+     * điểm audio ĐẦU TIÊN nối vào style này (trước đó "CHƯA nối audio/config nào"). */
+    _tickConnectorBrain(ctx, beatScale) {
+        brainFilterOriginal.draw(ctx, canvas, performance.now(), beatScale); // core/visualizer/groups/connector/brain.js
     },
 
     /** [MỚI — rà soát Rule 3] VISUAL Bar — Workflow tự đọc `cfg.barStyle` rồi gọi ĐÚNG 1 trong 3
