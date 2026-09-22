@@ -325,7 +325,12 @@ const brainFilterOriginal = (function () {
             // dải tần riêng của chính nó trong cụm đó (nội suy mượt giữa 2 dải liền kề); dot khác giữ
             // nguyên baseline xám cố định. Độ phồng cuối cùng qua EMA (timelineDotSmoothed) trước khi
             // vẽ — không vẽ thẳng giá trị thô của frame này.
-            const primary = activeClusters.length > 0 ? getBrainRoleColor(0) : null;
+            // SỬA (22/09/2026, crash "null is not an object (evaluating 'primary.glow')") — TRƯỚC chỉ
+            // lấy màu khi `activeClusters.length > 0`, nhưng `boost` là giá trị ĐÃ LÀM MƯỢT (EMA,
+            // timelineDotSmoothed) nên vẫn > 0 vài frame SAU KHI cụm đã bị dọn khỏi mảng (đang decay
+            // dần về 0) — `primary` lúc đó là null nhưng vòng dưới vẫn cố đọc `primary.glow`. Sửa:
+            // luôn lấy màu (getBrainRoleColor() rẻ, không cần tối ưu bỏ qua).
+            const primary = getBrainRoleColor(0);
             for (let i = 0; i < TIMELINE_DOT_COUNT; i++) {
                 const dx = leftPersonPos.x + (i / (TIMELINE_DOT_COUNT - 1)) * (rightPersonPos.x - leftPersonPos.x);
                 let targetBoost = 0; // MAX qua mọi cụm — không cộng dồn, tránh phồng quá đà khi nhiều cụm chồng nhau
