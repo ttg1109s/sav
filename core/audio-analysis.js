@@ -136,6 +136,10 @@
                 if (currentFlux > fluxThreshold && currentFlux > 150 && (now - lastBeatTime > APP_CONFIG.bpmMinWaitTime)) {
                     if (lastBeatTime > 0) { appState.mutate('beatTimes', arr => { arr.push(now - lastBeatTime); if (arr.length > 5) arr.shift(); }, { skipCheck: true }); }
                     lastBeatTime = now;
+                    // MỚI (22/09/2026, connector brain.js — dot trục thời gian theo beat THẬT thay vì
+                    // 1 bộ phát hiện riêng, xem service/state/visualizer-runtime.js) — ghi mốc beat
+                    // này ra appState để nơi khác biết "vừa có 1 beat mới" bằng cách so lệch giá trị.
+                    appState.set('lastBeatTime', lastBeatTime, { skipCheck: true });
                     const beatTimes = appState.get('beatTimes');
                     if (beatTimes.length >= 2) {
                         let avgInterval = beatTimes.reduce((a, b) => a + b) / beatTimes.length;
