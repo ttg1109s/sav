@@ -35,24 +35,16 @@
  * YOUR AWARENESS") — hàm gốc `drawLabelsAndTimeline` đổi tên thành `drawTimeline` cho khớp (chỉ còn
  * vẽ trục thời gian dưới: đường đứt + dãy dot + mũi tên, không phải text nên giữ nguyên).
  *
- * SỬA (22/09/2026, Giang mô tả "lan truyền bắt đầu pos start giống như sóng đánh") — điểm lệch THỨ
- * TƯ: trục thời gian giờ là 1 DÃY dot đều nhau (`TIMELINE_DOT_COUNT`) từ start pos đến end pos —
- * không còn 3 dot đặc biệt trái/giữa/phải, mọi dot "phẳng" như nhau. Mỗi beat mới sinh 1 CỤM
- * `clusterSize` dot liên tiếp bắt đầu từ start pos — `clusterSize` (1-7) quy đổi từ nốt nhạc đang
- * detect (`lastValidMidiNote`, có sẵn ở core/audio-analysis.js, chia đều 12 semitone thành 7 mức).
- * Cụm dịch MƯỢT (nội suy liên tục, không nhảy nguyên) sang dot+1, quãng đường dịch được (bao nhiêu %
- * trục) scale min-max theo `smoothedEnergy` lúc sinh cụm. Từng dot TRONG cụm phồng/sáng khác nhau
- * theo năng lượng dải tần riêng của chính nó (tái dùng `computeNeuronBinEnergy()`, core/visualizer/
- * groups/connector/synapse.js — cùng kỹ thuật tonotopic style synapse đang dùng). Phát hiện "beat
- * mới" bằng so `beatScale` với `smoothedEnergy` theo tỉ lệ (`TIMELINE_ONSET_RELATIVE_MULT`, khớp
- * cách `core/audio-analysis.js` phát hiện beat thật cho BPM). Đây là điểm audio ĐẦU TIÊN nối vào
- * style brain — mọi phần khác (ellipse/curves/particles) vẫn free-running Math.random(), CHƯA nối
- * audio.
- *
- * SỬA (22/09/2026, Giang báo "beat chỉ bắn một lần rồi dừng") — bản đầu của điểm THỨ TƯ dùng envelope
- * kiểu peak-hold-decay (`computeMotionEngineBeatReactEnvelope()`) làm mốc so sánh, kẹp sàn ở đúng
- * beatScale hiện tại — kẹt vĩnh viễn sau phát đầu khi nhạc có nền bass liên tục (đã gỡ, xem
- * `_updateTimelineClusters()` bên dưới).
+ * SỬA (22/09/2026, yêu cầu Giang — trục thời gian phản ứng theo beat/nốt nhạc/năng lượng dải tần) —
+ * điểm lệch THỨ TƯ, hiện trạng CUỐI CÙNG sau vài lần sửa lại (chi tiết từng lần + lý do xem comment
+ * NGAY TẠI code, đầu khối `TIMELINE_*` và trong `drawTimeline()`): trục là 1 DÃY `TIMELINE_DOT_COUNT`
+ * dot đều nhau; mỗi beat THẬT (đọc `lastBeatTime` — mốc do audio-analysis.js tự ghi ra appState, xem
+ * service/state/visualizer-runtime.js, KHÔNG tự dựng detector riêng) sinh 1 cụm `clusterSize` dot
+ * (1-7, theo nốt nhạc `lastValidMidiNote`) từ start pos, dịch mượt sang dot+1, quãng đường theo
+ * `smoothedEnergy`; độ phồng từng dot theo năng lượng dải tần riêng (`computeNeuronBinEnergy()`, core/
+ * visualizer/groups/connector/synapse.js), nội suy mượt giữa 2 dải liền kề + làm mượt theo thời gian
+ * (EMA) trước khi vẽ. Đây là điểm audio ĐẦU TIÊN nối vào style brain — mọi phần khác (ellipse/curves/
+ * particles) vẫn free-running Math.random(), CHƯA nối audio.
  */
 const brainFilterOriginal = (function () {
         let canvas = null;
@@ -85,35 +77,32 @@ const brainFilterOriginal = (function () {
         // chồng nhau được): `clusterSize` dot liên tiếp bắt đầu từ dot 0 (start pos) được scale lên,
         // rồi dịch MƯỢT (nội suy dot theo t liên tục, không nhảy cứng số nguyên) sang dot+1, +2...
         //
-        // SỬA (22/09/2026, Giang báo "beat chỉ bắn một lần rồi dừng") — bản trước dùng envelope kiểu
-        // computeMotionEngineBeatReactEnvelope() (peak-hold rồi decay, KẸP SÀN ở đúng beatScale hiện
-        // tại) làm mốc so sánh — đúng cho Motion's React Beat (muốn TRÁNH tụt xuống dưới mức nhạc
-        // đang có), nhưng SAI mục đích ở đây: nhạc có nền bass liên tục (không về gần 0 giữa 2 beat)
-        // khiến envelope bám sát ngay beatScale mọi lúc -> sau phát đầu, "nhảy thêm 0.12" gần như
-        // không bao giờ đạt được nữa -> kẹt vĩnh viễn (đúng bug Giang báo). Đổi sang đúng kỹ thuật hệ
-        // phát hiện beat THẬT đã có sẵn trong app dùng để tính BPM (core/audio-analysis.js —
-        // `fluxThreshold = runningFluxMean * 1.3`): so `beatScale` với `smoothedEnergy` (EMA đã có
-        // sẵn, đang truyền vào draw() rồi) theo TỈ LỆ thay vì hiệu số cố định — trung bình động luôn
-        // "chạy theo" nền nhạc chứ không neo cứng ở đỉnh gần nhất nên không bao giờ kẹt.
+        // SỬA (22/09/2026, Giang báo liên tiếp "beat chỉ bắn 1 lần rồi dừng" RỒI "sóng không theo
+        // beat dù audio rõ nhiều beat") — đã thử 2 bộ phát hiện TỰ CHẾ (envelope peak-hold-decay, rồi
+        // so beatScale/smoothedEnergy theo tỉ lệ) — cả 2 đều là XẤP XỈ kém tin cậy hơn bộ phát hiện
+        // beat THẬT app đã có sẵn (spectral flux + ngưỡng thích ứng, dùng để tính BPM, core/audio-
+        // analysis.js). Sửa ĐÚNG gốc: bỏ hẳn detector riêng, đọc THẲNG `lastBeatTime` — mốc beat thật
+        // audio-analysis.js đã ghi ra appState (service/state/visualizer-runtime.js) mỗi lần nó tự bắn
+        // — chỉ cần so lệch với giá trị đã thấy lần trước là biết "vừa có 1 beat mới", không tự đoán.
         const TIMELINE_DOT_COUNT = 40;
-        // SỬA (22/09/2026, Giang báo "dot bé quá chẳng thấy gì") — bán kính dot TRƯỚC là số pixel cố
-        // định (khớp gốc "3"), không co giãn theo `width` như mọi thứ khác trong file này; canvas SAV
-        // luôn nhân theo dpr thiết bị (core/canvas-scene-setup.js: `canvas.width = innerWidth * dpr`)
-        // nên 1 số cố định nhỏ kiểu vậy gần như biến mất trên máy dpr cao — đúng nguyên nhân gốc của
-        // bug "kéo giãn" đã sửa trước đó (xem SỬA THỨ HAI, đầu file), chỉ khác chỗ này là bán kính
-        // thay vì layout dọc. Đổi sang TỈ LỆ theo `width` (tính lại mỗi lần `_layoutFromCanvas()`,
-        // giống filterPos.rx/rx) — tự lớn theo cả kích thước màn hình LẪN dpr, không còn tí hin nữa.
-        const TIMELINE_DOT_BASE_RADIUS_FRAC = 0.012; // baseline lúc không có cụm
-        const TIMELINE_DOT_MAX_RADIUS_FRAC = 0.028;  // lúc phồng hết cỡ (boost = 1)
-        let timelineDotBaseRadius = 3, timelineDotMaxRadius = 7; // giá trị mặc định trước lần layout đầu — ghi đè ngay ở _layoutFromCanvas()
         const TIMELINE_CLUSTER_TRAVEL_MS = 700; // thời gian cụm dịch hết quãng đường của nó
         const TIMELINE_CLUSTER_MIN_TRAVEL_FRAC = 0.15; // smoothedEnergy thấp -> cụm dịch tối thiểu 15% trục
         const TIMELINE_CLUSTER_MAX_TRAVEL_FRAC = 0.7;  // smoothedEnergy cao -> tối đa 70% trục
-        const TIMELINE_ONSET_RELATIVE_MULT = 1.3; // beatScale phải vượt smoothedEnergy * mức này — khớp fluxThreshold=runningFluxMean*1.3 (core/audio-analysis.js)
-        const TIMELINE_ONSET_MIN_ABSOLUTE = 0.15; // sàn tuyệt đối — chặn trigger vặt lúc nhạc gần như im lặng (smoothedEnergy ~0)
-        const TIMELINE_ONSET_COOLDOWN_MS = 150;
-        let _timelineLastClusterTime = -Infinity;
+        const TIMELINE_DOT_SMOOTH_ALPHA = 0.35; // EMA mỗi frame cho độ phồng từng dot — chặn giật do dữ liệu FFT thô, xem drawTimeline()
+        let _lastSeenBeatTime = 0;
         let timelineClusters = []; // { startTime, clusterSize, travelDots }
+        let timelineDotSmoothed = new Float32Array(TIMELINE_DOT_COUNT); // độ phồng ĐÃ LÀM MƯỢT từng dot, giữ nguyên qua các frame
+
+        // SỬA (22/09/2026, Giang báo "dot bé quá chẳng thấy gì" rồi "to chả bà") — lần đầu đổi bán
+        // kính sang tỉ lệ CỐ ĐỊNH theo `width` nhưng không đối chiếu với khoảng cách giữa 40 dot ->
+        // dot baseline đã to hơn khoảng cách giữa 2 dot liền kề, chồng lên nhau thành 1 vệt đặc thay
+        // vì dãy chấm rời — đúng nguyên nhân "to chả bà". Sửa ĐÚNG: tính bán kính theo TỈ LỆ của
+        // chính khoảng cách giữa 2 dot (`dotSpacing`, tính ở _layoutFromCanvas()) — luôn nhỏ hơn nửa
+        // khoảng cách nên không bao giờ chồng lấn nhau dù đổi TIMELINE_DOT_COUNT hay kích thước màn
+        // hình.
+        const TIMELINE_DOT_BASE_RADIUS_FRAC = 0.22; // × dotSpacing — baseline lúc không có cụm
+        const TIMELINE_DOT_MAX_RADIUS_FRAC = 0.48;   // × dotSpacing — lúc phồng hết cỡ (boost = 1)
+        let timelineDotBaseRadius = 3, timelineDotMaxRadius = 7; // giá trị mặc định trước lần layout đầu — ghi đè ngay ở _layoutFromCanvas()
 
         /** Nốt MIDI (0-127, appState.lastValidMidiNote — Workflow tự đọc rồi truyền vào, Rule 2) ->
          * số dot trong cụm (1-7): chia đều 12 semitone trong 1 quãng 8 thành 7 mức (yêu cầu Giang).
@@ -124,16 +113,14 @@ const brainFilterOriginal = (function () {
             return Math.min(7, Math.max(1, level + 1));
         }
 
-        /** Cập nhật mỗi frame: phát hiện beat mới (sinh cụm — quãng đường theo smoothedEnergy HIỆN
-         * TẠI lúc sinh, kích cỡ theo nốt nhạc HIỆN TẠI lúc sinh) + dọn cụm đã dịch hết quãng đường
-         * (t >= 1). */
-        function _updateTimelineClusters(time, beatScale, smoothedEnergy, midiNote) {
-            const isOnset = beatScale > smoothedEnergy * TIMELINE_ONSET_RELATIVE_MULT
-                && beatScale > TIMELINE_ONSET_MIN_ABSOLUTE
-                && (time - _timelineLastClusterTime) >= TIMELINE_ONSET_COOLDOWN_MS;
+        /** Cập nhật mỗi frame: phát hiện beat MỚI bằng `lastBeatTime` đổi khác lần thấy trước (sinh
+         * cụm — quãng đường theo smoothedEnergy HIỆN TẠI lúc sinh, kích cỡ theo nốt nhạc HIỆN TẠI lúc
+         * sinh) + dọn cụm đã dịch hết quãng đường (t >= 1). */
+        function _updateTimelineClusters(time, lastBeatTime, smoothedEnergy, midiNote) {
+            const isOnset = lastBeatTime && lastBeatTime !== _lastSeenBeatTime;
 
             if (isOnset) {
-                _timelineLastClusterTime = time;
+                _lastSeenBeatTime = lastBeatTime;
                 const travelFrac = TIMELINE_CLUSTER_MIN_TRAVEL_FRAC + smoothedEnergy * (TIMELINE_CLUSTER_MAX_TRAVEL_FRAC - TIMELINE_CLUSTER_MIN_TRAVEL_FRAC);
                 timelineClusters.push({
                     startTime: time,
@@ -289,15 +276,25 @@ const brainFilterOriginal = (function () {
         // đầu (điểm đầu là màu, xem đầu file). Giữ nguyên trục thời gian dưới (đường đứt + mũi tên).
         // Đổi tên hàm cho khớp (không còn vẽ label nữa).
         //
-        // SỬA TIẾP (22/09/2026, thiết kế lại theo Giang — xem khối TIMELINE_* đầu file) — nhận thêm
-        // `time`/`beatScale`/`smoothedEnergy`/`vizDataArray`/`bufferLength`/`midiNote`: vẽ dãy
+        // SỬA TIẾP (22/09/2026, thiết kế lại theo Giang — xem khối TIMELINE_* đầu file) — vẽ dãy
         // `TIMELINE_DOT_COUNT` dot đều nhau dọc trục, cụm dot (nếu có) phồng + sáng theo năng lượng
         // dải tần riêng từng dot trong cụm (tái dùng computeNeuronBinEnergy(), core/visualizer/
-        // groups/connector/synapse.js — nạp trước file này).
-        function drawTimeline(time, beatScale, smoothedEnergy, vizDataArray, bufferLength, midiNote) {
+        // groups/connector/synapse.js).
+        //
+        // SỬA (22/09/2026, Giang báo "dot scale dạng sóng cũng chẳng mượt") — 2 nguồn giật:
+        // (1) `withinCluster` TRƯỚC làm tròn số nguyên -> dot lân cận BẬT/TẮT dải tần đột ngột mỗi khi
+        //     cụm dịch qua ranh giới .5 (dù vị trí cụm tự nó đã nội suy mượt); SỬA: nội suy TUYẾN TÍNH
+        //     giữa 2 dải tần liền kề theo đúng vị trí thực (số thực) thay vì chọn cứng 1 dải.
+        // (2) `computeNeuronBinEnergy()` trả giá trị FFT THÔ của ĐÚNG frame đó, không có làm mượt theo
+        //     thời gian (khác các effect khác vốn dựa vào `analyser.smoothingTimeConstant` sẵn có ở
+        //     tầng Web Audio) -> nhảy giữa các frame liên tiếp. SỬA: thêm `timelineDotSmoothed` (EMA,
+        //     alpha `TIMELINE_DOT_SMOOTH_ALPHA`) cho ĐỘ PHỒNG cuối cùng của từng dot, giữ nguyên qua
+        //     các frame — đúng kỹ thuật smoothing tiêu chuẩn cho audio-reactive visual (tránh giật do
+        //     nhiễu FFT thô, xem energyOnsets/spectral-flux + EMA display value ở các lib phổ biến).
+        function drawTimeline(time, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote) {
             ctx.save();
 
-            _updateTimelineClusters(time, beatScale, smoothedEnergy, midiNote);
+            _updateTimelineClusters(time, lastBeatTime, smoothedEnergy, midiNote);
 
             // Bottom Axis Timeline Line
             let axisY = stageOffsetY + stageH * 0.88;
@@ -325,21 +322,30 @@ const brainFilterOriginal = (function () {
             }
 
             // Dãy dot dọc trục — dot nằm trong 1 cụm đang hoạt động thì phồng + sáng theo năng lượng
-            // dải tần riêng của chính nó trong cụm đó; dot khác giữ nguyên baseline xám cố định.
+            // dải tần riêng của chính nó trong cụm đó (nội suy mượt giữa 2 dải liền kề); dot khác giữ
+            // nguyên baseline xám cố định. Độ phồng cuối cùng qua EMA (timelineDotSmoothed) trước khi
+            // vẽ — không vẽ thẳng giá trị thô của frame này.
             const primary = activeClusters.length > 0 ? getBrainRoleColor(0) : null;
             for (let i = 0; i < TIMELINE_DOT_COUNT; i++) {
                 const dx = leftPersonPos.x + (i / (TIMELINE_DOT_COUNT - 1)) * (rightPersonPos.x - leftPersonPos.x);
-                let boost = 0; // MAX qua mọi cụm — không cộng dồn, tránh phồng quá đà khi nhiều cụm chồng nhau
+                let targetBoost = 0; // MAX qua mọi cụm — không cộng dồn, tránh phồng quá đà khi nhiều cụm chồng nhau
                 for (let c = 0; c < activeClusters.length; c++) {
                     const ac = activeClusters[c];
                     const coverage = _clusterCoverage(i, ac.startDotIndex, ac.clusterSize);
                     if (coverage <= 0) continue;
-                    const withinCluster = Math.min(ac.clusterSize - 1, Math.max(0, Math.round(i - ac.startDotIndex)));
-                    boost = Math.max(boost, coverage * ac.binEnergies[withinCluster]);
+                    const rel = i - ac.startDotIndex; // vị trí dot trong cụm — số thực, không làm tròn
+                    const idxLow = Math.min(ac.clusterSize - 1, Math.max(0, Math.floor(rel)));
+                    const idxHigh = Math.min(ac.clusterSize - 1, idxLow + 1);
+                    const frac = rel - Math.floor(rel);
+                    const energyHere = ac.binEnergies[idxLow] + (ac.binEnergies[idxHigh] - ac.binEnergies[idxLow]) * frac; // nội suy tuyến tính giữa 2 dải tần liền kề
+                    targetBoost = Math.max(targetBoost, coverage * energyHere);
                 }
+                timelineDotSmoothed[i] += (targetBoost - timelineDotSmoothed[i]) * TIMELINE_DOT_SMOOTH_ALPHA; // EMA — chặn giật frame-to-frame
+                const boost = timelineDotSmoothed[i];
+
                 ctx.beginPath();
                 ctx.arc(dx, axisY, timelineDotBaseRadius + boost * (timelineDotMaxRadius - timelineDotBaseRadius), 0, Math.PI * 2);
-                if (boost > 0) {
+                if (boost > 0.02) {
                     ctx.fillStyle = primary.glow;
                     ctx.shadowColor = primary.glow;
                     ctx.shadowBlur = 6 * boost;
@@ -591,13 +597,15 @@ const brainFilterOriginal = (function () {
             height = canvas.height;
             stageH = Math.min(height, width * BRAIN_STAGE_ASPECT);
             stageOffsetY = (height - stageH) / 2;
-            timelineDotBaseRadius = width * TIMELINE_DOT_BASE_RADIUS_FRAC;
-            timelineDotMaxRadius = width * TIMELINE_DOT_MAX_RADIUS_FRAC;
 
             // Compute positions based on dimensions
             leftPersonPos = { x: width * 0.07, y: stageOffsetY + stageH * 0.5 };
             rightPersonPos = { x: width * 0.93, y: stageOffsetY + stageH * 0.5 };
-            
+
+            const dotSpacing = (rightPersonPos.x - leftPersonPos.x) / (TIMELINE_DOT_COUNT - 1);
+            timelineDotBaseRadius = dotSpacing * TIMELINE_DOT_BASE_RADIUS_FRAC;
+            timelineDotMaxRadius = dotSpacing * TIMELINE_DOT_MAX_RADIUS_FRAC;
+
             filterPos = {
                 x: width * 0.54,
                 y: stageOffsetY + stageH * 0.5,
@@ -611,15 +619,16 @@ const brainFilterOriginal = (function () {
         // Thay animate(time) gốc: bỏ clearRect (SAV đã clear) và requestAnimationFrame (SAV tự gọi mỗi frame).
         // Nhận thêm audio params (22/09/2026, dot trục thời gian) — Workflow tự đọc appState rồi
         // truyền vào (Rule 2, core không tự appState.get()), xem _tickConnectorBrain() ở
-        // event/workflow/visualizer-render.js.
-        function draw(ctxArg, canvasEl, time, beatScale, smoothedEnergy, vizDataArray, bufferLength, midiNote) {
+        // event/workflow/visualizer-render.js. `lastBeatTime` (thay `beatScale`, xem SỬA phía trên) —
+        // mốc beat THẬT, đổi khác lần trước = vừa có 1 beat mới.
+        function draw(ctxArg, canvasEl, time, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote) {
             ctx = ctxArg;
             canvas = canvasEl;
             if (canvas.width !== _lastW || canvas.height !== _lastH) {
                 _lastW = canvas.width; _lastH = canvas.height;
                 _layoutFromCanvas();
             }
-            drawTimeline(time, beatScale, smoothedEnergy, vizDataArray, bufferLength, midiNote);
+            drawTimeline(time, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote);
             drawCurvesAndParticles(time);
             drawBrainFilter(time);
         }
