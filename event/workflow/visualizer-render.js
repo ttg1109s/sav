@@ -130,6 +130,14 @@ let _cnPendingBeatFluxSum = 0;
 let _cnPendingBeatFluxCount = 0;
 let _cnBeatFluxHistory = [];
 let _cnBeatsSinceLastShift = 999; // lớn sẵn, cho phép cinematic shift ngay lần đầu
+// ===== Connector (brain) — MỚI (23/09/2026, Giang): triggerBurst() theo Music Transition — tích luỹ
+// flux/beat RIÊNG (không dùng chung mảng với circuit/vortex/fireworks), mirror _tickConnectorBeat().
+const BRAIN_PITCH_FRESH_MS = 300; // nốt chỉ coi là "đang phát" nếu cập nhật trong khoảng này (cùng ngưỡng circuit)
+let _brLastConsumedBeatTime = 0;
+let _brPendingBeatFluxSum = 0;
+let _brPendingBeatFluxCount = 0;
+let _brBeatFluxHistory = [];
+let _brBeatsSinceLastBurst = 999;
 // XOÁ (yêu cầu Giang 17/09/2026 — thay bằng "spike-frequency adaptation" mô phỏng đúng sinh lý
 // hơn): CONNECTOR_FIRE_COOLDOWN_FRAMES + so sánh frameCounter/lastFiredFrame — cổng cooldown NHỊ
 // PHÂN cứng, đã gắn liền với bug frameCounter đứng yên (17/09/2026). Xem
@@ -694,8 +702,49 @@ const workflowVisualizerRender = {
      * THÊM (23/09/2026) `beatScale` + `isPlaying` (tia input co bóp) và `bpm` — đọc `currentCalculatedBpm`
      * (chuỗi, "---" khi chưa tính được -> NaN, brain.js tự fallback) cho dot chạy quanh ellipse. */
     _tickConnectorBrain(ctx, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote, beatScale, isPlaying) {
-        const bpm = parseFloat(appState.get('currentCalculatedBpm'));
-        brainFilterOriginal.draw(ctx, canvas, performance.now(), lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote, beatScale, isPlaying, bpm); // core/visualizer/groups/connector/brain.js
+        const cfg = getActiveEffectConfig(); // core/custom-effect.js
+        if (this._tickBrainBurstTrigger(isPlaying, lastBeatTime, cfg)) brainFilterOriginal.triggerBurst(); // core/visualizer/groups/connector/brain.js
+
+        // ĐỔI (23/09/2026) — gom tham số vào 1 object `frame` (xem docblock draw(), brain.js). Thêm:
+        // noteFresh (7 dây output — nốt còn "tươi"), sampleRate (năng lượng FFT đúng tần số nốt),
+        // direction/timelineShape (Custom Effect).
+        const audioContext = appState.get('audioContext');
+        brainFilterOriginal.draw(ctx, canvas, {
+            time: performance.now(),
+            lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote, beatScale, isPlaying,
+            noteFresh: midiNote !== null && midiNote !== undefined && (Date.now() - (appState.get('lastValidNoteTime') || 0)) < BRAIN_PITCH_FRESH_MS,
+            bpm: parseFloat(appState.get('currentCalculatedBpm')),
+            sampleRate: audioContext ? audioContext.sampleRate : 44100,
+            direction: cfg.brainDirection,
+            timelineShape: cfg.timelineShape,
+        }); // core/visualizer/groups/connector/brain.js
+    },
+
+    /** MỚI (23/09/2026, Giang — "triggerBurst -> dùng music transition") — mirror
+     * _tickConnectorBeat() (circuit camera shift): tích luỹ flux MỖI FRAME, mỗi beat mới đẩy trung
+     * bình flux đoạn giữa 2 beat vào `_brBeatFluxHistory`, debounce tối thiểu 2 beat, rồi hỏi
+     * detectMusicTransition() (core/audio-analysis.js). Trả true = vừa chuyển đoạn -> bắn burst.
+     * `cfg.burstEnabled` tắt -> không bao giờ bắn. */
+    _tickBrainBurstTrigger(isPlaying, lastBeatTime, cfg) {
+        if (!cfg.burstEnabled) return false;
+        const fluxHistory = appState.get('fluxHistory');
+        if (fluxHistory.length > 0) { _brPendingBeatFluxSum += fluxHistory[fluxHistory.length - 1]; _brPendingBeatFluxCount++; }
+
+        const isNewBeat = lastBeatTime > 0 && lastBeatTime !== _brLastConsumedBeatTime;
+        if (!isNewBeat) return false;
+        _brLastConsumedBeatTime = lastBeatTime;
+        if (!isPlaying) return false;
+
+        if (_brPendingBeatFluxCount > 0) {
+            _brBeatFluxHistory.push(_brPendingBeatFluxSum / _brPendingBeatFluxCount);
+            if (_brBeatFluxHistory.length > 24) _brBeatFluxHistory.shift();
+        }
+        _brPendingBeatFluxSum = 0; _brPendingBeatFluxCount = 0;
+        _brBeatsSinceLastBurst++;
+        if (_brBeatsSinceLastBurst < 2) return false;
+        if (!detectMusicTransition(_brBeatFluxHistory, 2, cfg.sectionWindowBeats, cfg.fluxThreshold)) return false; // core/audio-analysis.js
+        _brBeatsSinceLastBurst = 0;
+        return true;
     },
 
     /** [MỚI — rà soát Rule 3] VISUAL Bar — Workflow tự đọc `cfg.barStyle` rồi gọi ĐÚNG 1 trong 3

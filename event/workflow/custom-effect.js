@@ -180,6 +180,21 @@ const workflowCustomEffect = {
                 saveConfig();
                 const meta = (CUSTOM_EFFECT_FIELDS[type] || []).find((f) => f.id === field); // core
                 if (meta && meta.refresh) this._runRefresh(meta.refresh);
+                // MỚI (23/09/2026) — field có `rerender` (vd burstEnabled của brain): field khác có showIf
+                // phụ thuộc nó -> vẽ lại body để hiện/ẩn ngay.
+                if (meta && meta.rerender) this._rerenderBody(type);
+            });
+        });
+
+        // MỚI (23/09/2026) — field type 'select' (vd brainDirection/timelineShape của brain).
+        genericDrawerBody.querySelectorAll('.ce-field-select').forEach((el) => {
+            el.addEventListener('change', (e) => {
+                const field = e.target.dataset.field;
+                setCustomEffectField(type, field, e.target.value); // core
+                saveConfig();
+                const meta = (CUSTOM_EFFECT_FIELDS[type] || []).find((f) => f.id === field); // core
+                if (meta && meta.refresh) this._runRefresh(meta.refresh);
+                if (meta && meta.rerender) this._rerenderBody(type);
             });
         });
 
