@@ -62,6 +62,24 @@
  *     thời gian đã dùng cả 3): tốc độ theo TEMPO (`currentCalculatedBpm` — BPM app tự tính sẵn,
  *     ORBIT_BEATS_PER_LAP beat / 1 vòng), độ sáng + cỡ dot theo SPECTRAL CENTROID (độ "sáng" âm sắc,
  *     tính từ vizDataArray). Khối `ORBIT_*` + `_updateOrbitDots()`/`drawOrbitDots()`.
+ *
+ * SỬA (23/09/2026, yêu cầu Giang) — điểm lệch THỨ TÁM → MƯỜI MỘT:
+ * (8)  7 tia output = 7 DÂY ĐÀN ứng 7 nốt tự nhiên C D E F G A B (nốt thăng lấy nốt tự nhiên ngay
+ *      dưới; C = dây dưới cùng, B = dây trên cùng). Nốt đang phát (`lastValidMidiNote`, còn "tươi")
+ *      làm ĐÚNG dây của nó rung (sóng đứng, 2 đầu cố định, tắt dần đàn hồi) — biên độ theo năng lượng
+ *      FFT ĐÚNG tần số nốt đó. Mỗi lần nốt MỚI xuất hiện (đổi nốt / nốt quay lại sau khoảng lặng) bắn
+ *      1 đoàn dot chạy dọc dây: số dot theo QUÃNG (octave) của nốt, tốc độ theo BPM lúc bắn. Hạt
+ *      output ngẫu nhiên gốc (hạt input lọt filter -> 1 hạt output) ĐÃ BỎ — hạt lọt filter giờ chỉ
+ *      biến mất vào ellipse. Khối `STRING_*` + `_updateStrings()`/`drawOutputStrings()`.
+ * (9)  `timelineShape` (Custom Effect): trục thời gian vẽ theo line / sinDown / sinUp / circle /
+ *      square / triangle — toạ độ MÀN HÌNH, độc lập hoàn toàn với chiều brain filter.
+ * (10) `brainDirection` (Custom Effect): ltr / rtl / ttb / btt — toàn bộ brain filter (tia input,
+ *      ellipse, dây output, dot quanh ellipse) vẽ trong 1 KHUNG CỤC BỘ (dòng chảy luôn theo +x cục
+ *      bộ, dài L, dày T = L × BRAIN_STAGE_ASPECT) rồi ctx.transform() xoay/lật ra màn hình — tỉ lệ
+ *      1:1, KHÔNG co giãn. Chiều dọc được L lớn hơn (tận dụng màn hình portrait). Thay hẳn cơ chế
+ *      stageH/stageOffsetY theo màn hình cũ (giờ stageH = T, stageOffsetY = 0 trong khung cục bộ).
+ * (11) Gap giữa brain filter và trục thời gian tăng lên BRAIN_TIMELINE_GAP_FRAC × min(W,H), tính
+ *      theo mép NỘI DUNG thật (không phải mép khung) nên giữ đều ở mọi chiều. Xem `_layout()`.
  */
 const brainFilterOriginal = (function () {
         let canvas = null;
@@ -114,12 +132,12 @@ const brainFilterOriginal = (function () {
         // kính sang tỉ lệ CỐ ĐỊNH theo `width` nhưng không đối chiếu với khoảng cách giữa 40 dot ->
         // dot baseline đã to hơn khoảng cách giữa 2 dot liền kề, chồng lên nhau thành 1 vệt đặc thay
         // vì dãy chấm rời — đúng nguyên nhân "to chả bà". Sửa ĐÚNG: tính bán kính theo TỈ LỆ của
-        // chính khoảng cách giữa 2 dot (`dotSpacing`, tính ở _layoutFromCanvas()) — luôn nhỏ hơn nửa
+        // chính khoảng cách giữa 2 dot (`dotSpacing`, tính ở _buildTimelineGeometry() — theo độ dài THẬT của hình trục) — luôn nhỏ hơn nửa
         // khoảng cách nên không bao giờ chồng lấn nhau dù đổi TIMELINE_DOT_COUNT hay kích thước màn
         // hình.
         const TIMELINE_DOT_BASE_RADIUS_FRAC = 0.22; // × dotSpacing — baseline lúc không có cụm
         const TIMELINE_DOT_MAX_RADIUS_FRAC = 0.48;   // × dotSpacing — lúc phồng hết cỡ (boost = 1)
-        let timelineDotBaseRadius = 3, timelineDotMaxRadius = 7; // giá trị mặc định trước lần layout đầu — ghi đè ngay ở _layoutFromCanvas()
+        let timelineDotBaseRadius = 3, timelineDotMaxRadius = 7; // giá trị mặc định trước lần layout đầu — ghi đè ngay ở _buildTimelineGeometry()
 
         /** Nốt MIDI (0-127, appState.lastValidMidiNote — Workflow tự đọc rồi truyền vào, Rule 2) ->
          * số dot trong cụm (1-7): chia đều 12 semitone trong 1 quãng 8 thành 7 mức (yêu cầu Giang).
@@ -289,20 +307,210 @@ const brainFilterOriginal = (function () {
             ctx.restore();
         }
 
+        // KEO (23/09/2026, Giang — "7 dây = 7 nốt cơ bản") — xem điểm lệch (8) đầu file.
+        const STRING_NATURAL_OF_PC = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6]; // pitch class -> C D E F G A B (thăng -> nốt tự nhiên ngay dưới)
+        const STRING_AMP_MAX_FRAC = 0.045;     // biên độ rung tối đa × stageH (T)
+        const STRING_DECAY_TAU_MS = 380;       // tắt dần đàn hồi sau khi nốt ngưng/đổi dây
+        const STRING_ENERGY_GAIN = 1.3;        // năng lượng FFT tại tần số nốt (0-1) × gain -> biên độ mục tiêu, kẹp 0-1
+        const STRING_VIB_HZ_BASE = 5;          // tần số rung (nhìn thấy) của dây C
+        const STRING_VIB_HZ_STEP = 0.6;        // mỗi dây cao hơn rung nhanh hơn chút
+        const STRING_SAMPLES = 48;             // số đoạn polyline khi vẽ 1 dây đang rung
+        const STRING_DOT_BEATS_PER_RUN = 2;    // 1 dot chạy hết dây trong N beat (theo BPM lúc bắn)
+        const STRING_DOT_SPACING = 0.05;       // khoảng cách giữa các dot trong 1 đoàn (theo t 0-1)
+        const STRING_DOT_MAX = 10;             // quãng -1..9 -> 1..10 dot
+        const STRING_FALLBACK_BPM = 90;
+        let stringAmp = new Float32Array(7);   // biên độ hiện tại (0-1) từng dây, index = outputPaths
+        let stringTrains = [];                 // { stringIdx, startTime, count, runMs }
+        let _stringPrevNote = null, _stringPrevFresh = false, _stringLastTime = 0;
+
+        /** Năng lượng FFT (0-1) tại đúng tần số nốt MIDI — đỉnh của bin gần nhất ±1. */
+        function _noteBinEnergy(midiNote, vizDataArray, bufferLength, sampleRate) {
+            if (!vizDataArray || !bufferLength) return 0;
+            const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
+            const binWidth = (sampleRate || 44100) / (bufferLength * 2);
+            const bin = Math.round(freq / binWidth);
+            let peak = 0;
+            for (let i = Math.max(0, bin - 1); i <= Math.min(bufferLength - 1, bin + 1); i++) peak = Math.max(peak, vizDataArray[i] || 0);
+            return peak / 255;
+        }
+
+        /** Mỗi frame: dây của nốt đang phát giữ biên độ = năng lượng nốt (lấy max với phần đang tắt
+         * dần), mọi dây khác tắt dần đàn hồi. Nốt MỚI (đổi nốt / quay lại sau khi hết "tươi") -> bắn
+         * 1 đoàn dot: số dot theo quãng, thời gian chạy hết dây theo BPM lúc bắn. */
+        function _updateStrings(time, frame) {
+            const dt = _stringLastTime ? Math.min(100, Math.max(0, time - _stringLastTime)) : 16;
+            _stringLastTime = time;
+            const decay = Math.exp(-dt / STRING_DECAY_TAU_MS);
+            const midi = frame.midiNote;
+            const fresh = !!frame.noteFresh && !!frame.isPlaying && midi !== null && midi !== undefined;
+            let activeIdx = -1, targetAmp = 0;
+            if (fresh && outputPaths.length === 7) {
+                activeIdx = 6 - STRING_NATURAL_OF_PC[((midi % 12) + 12) % 12]; // C = dây dưới cùng (index 6)
+                targetAmp = Math.min(1, _noteBinEnergy(midi, frame.vizDataArray, frame.bufferLength, frame.sampleRate) * STRING_ENERGY_GAIN);
+                if (!_stringPrevFresh || midi !== _stringPrevNote) {
+                    const octave = Math.floor(midi / 12) - 1; // -1..9
+                    const bpm = isFinite(frame.bpm) && frame.bpm > 0 ? frame.bpm : STRING_FALLBACK_BPM;
+                    stringTrains.push({
+                        stringIdx: activeIdx,
+                        startTime: time,
+                        count: Math.min(STRING_DOT_MAX, Math.max(1, octave + 1)),
+                        runMs: STRING_DOT_BEATS_PER_RUN * 60000 / bpm
+                    });
+                }
+            }
+            _stringPrevFresh = fresh;
+            _stringPrevNote = midi;
+            for (let s = 0; s < stringAmp.length; s++) {
+                stringAmp[s] = s === activeIdx ? Math.max(stringAmp[s] * decay, targetAmp) : stringAmp[s] * decay;
+            }
+            for (let k = stringTrains.length - 1; k >= 0; k--) {
+                const tr = stringTrains[k];
+                if ((time - tr.startTime) / tr.runMs - (tr.count - 1) * STRING_DOT_SPACING > 1) stringTrains.splice(k, 1);
+            }
+        }
+
+        /** Điểm trên dây `s` tại t (0-1) kể cả độ rung: sóng đứng mode 1 (2 đầu cố định), lệch theo
+         * y cục bộ (dây gần như nằm ngang trong khung cục bộ). */
+        function _stringPointAt(s, t, time) {
+            const pt = getBezierPoint(outputPaths[s], t);
+            const hz = STRING_VIB_HZ_BASE + (6 - s) * STRING_VIB_HZ_STEP;
+            pt.y += stringAmp[s] * stageH * STRING_AMP_MAX_FRAC * Math.sin(Math.PI * t) * Math.sin(time * 0.001 * Math.PI * 2 * hz);
+            return pt;
+        }
+
+        function drawOutputStrings(time) {
+            const outputLine = getBrainRoleColor(2);
+            ctx.save();
+            ctx.strokeStyle = outputLine.fill;
+            ctx.shadowColor = outputLine.glow;
+            for (let s = 0; s < outputPaths.length; s++) {
+                const amp = stringAmp[s];
+                ctx.beginPath();
+                if (amp < 0.01) {
+                    const path = outputPaths[s];
+                    ctx.moveTo(path.p0.x, path.p0.y);
+                    ctx.bezierCurveTo(path.p1.x, path.p1.y, path.p2.x, path.p2.y, path.p3.x, path.p3.y);
+                } else {
+                    for (let k = 0; k <= STRING_SAMPLES; k++) {
+                        const pt = _stringPointAt(s, k / STRING_SAMPLES, time);
+                        if (k === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
+                    }
+                }
+                ctx.globalAlpha = 0.65 + 0.35 * amp;
+                ctx.lineWidth = 2 + amp * 1.5;
+                ctx.shadowBlur = 8 + amp * 10;
+                ctx.stroke();
+            }
+
+            // Đoàn dot chạy dọc dây (như hạt output gốc: size 2.8, glow 12, mờ dần 2 đầu)
+            ctx.fillStyle = outputLine.glow;
+            ctx.shadowBlur = 12;
+            for (let k = 0; k < stringTrains.length; k++) {
+                const tr = stringTrains[k];
+                const head = (time - tr.startTime) / tr.runMs;
+                for (let j = 0; j < tr.count; j++) {
+                    const t = head - j * STRING_DOT_SPACING;
+                    if (t < 0 || t > 1) continue;
+                    const pt = _stringPointAt(tr.stringIdx, t, time);
+                    ctx.globalAlpha = Math.min(1, Math.sin(t * Math.PI) * 1.5);
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, 2.8, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.restore();
+        }
+
+        // KEO (23/09/2026, Giang — "chiều cho toàn bộ brain filter") — THAY cơ chế stageH/stageOffsetY
+        // theo màn hình (22/09/2026) bằng KHUNG CỤC BỘ: mọi hình của brain filter tính trong khung dài
+        // `width` (= L, chiều dòng chảy, luôn +x) × dày `stageH` (= T = L × BRAIN_STAGE_ASPECT, tỉ lệ
+        // 16:9 của trang gốc), `stageOffsetY` = 0 — nên mọi công thức cũ `width * X`/`stageOffsetY +
+        // stageH * X` GIỮ NGUYÊN nghĩa. Lúc vẽ: ctx.transform(brainMatrix) xoay/lật khung ra màn hình
+        // (ma trận thuần xoay 90°/lật, tỉ lệ 1:1 -> không méo, lineWidth giữ đúng px). `height` = T.
         let width, height;
-        // KEO (22/09/2026, Giang báo "chiều ngang nhưng bị kéo giãn ra") — bản gốc là trang
-        // landscape rộng (height nhỏ hơn width nhiều) nên mọi công thức `height * tỉ lệ` ra hình
-        // cân đối; canvas SAV luôn full màn hình THẬT của máy (core/canvas-scene-setup.js), trên
-        // điện thoại là PORTRAIT (height > width nhiều) -> dùng thẳng height thật làm ellipse/toả
-        // tia bị kéo cao bất thường. Sửa: `stageH` = chiều cao DÙNG ĐỂ TÍNH layout, giới hạn theo
-        // tỉ lệ cố định với width (không bao giờ vượt quá height thật — landscape/tablet không đổi
-        // gì), `stageOffsetY` căn dải đó vào giữa theo chiều dọc màn hình thật. Mọi `height * X` cũ
-        // (vị trí/kích thước dọc) đổi thành `stageOffsetY + stageH * X`.
-        const BRAIN_STAGE_ASPECT = 0.5625; // 16:9 — landscape phổ biến, gần đúng tỉ lệ trang gốc
+        const BRAIN_STAGE_ASPECT = 0.5625;
         let stageH = 0, stageOffsetY = 0;
         let leftPersonPos = { x: 0, y: 0 };
         let rightPersonPos = { x: 0, y: 0 };
         let filterPos = { x: 0, y: 0, rx: 0, ry: 0 };
+
+        // [a, b, c, d] của ctx.transform(): x' = a·x + c·y + e, y' = b·x + d·y + f (e/f tính ở _layout()).
+        const BRAIN_DIRECTION_MATRIX = {
+            ltr: [1, 0, 0, 1],   // trái -> phải (gốc)
+            rtl: [-1, 0, 0, 1],  // phải -> trái (lật ngang)
+            ttb: [0, 1, -1, 0],  // trên -> dưới (+x cục bộ -> +y màn hình)
+            btt: [0, -1, 1, 0],  // dưới -> trên (+x cục bộ -> -y màn hình)
+        };
+        // Vùng NỘI DUNG thật trong khung cục bộ (không phải cả khung): dọc dòng chảy 7%..93% L (2 điểm
+        // nguồn/đích), ngang ±0.36 T quanh tâm (bụng tia input tối đa ~0.34 T, vòng phụ ellipse ~0.34 T).
+        const BRAIN_CONTENT_X0 = 0.07, BRAIN_CONTENT_X1 = 0.93, BRAIN_CONTENT_HALF_T = 0.36;
+        const BRAIN_LAYOUT_MARGIN_FRAC = 0.06;   // lề trên/dưới × H — chừa chỗ status bar/bottom player
+        const BRAIN_TIMELINE_GAP_FRAC = 0.1;     // gap nội dung brain <-> trục thời gian × min(W,H) (Giang: "tăng gap")
+        const BRAIN_MAX_WIDTH_FRAC = 0.86;       // bề ngang nội dung brain ≤ 86% W (ở mọi chiều)
+        const BRAIN_MAX_LENGTH_FRAC = 0.8;       // L ≤ 80% cạnh dài màn hình — chiều dọc không phình quá cỡ
+        let brainMatrix = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+
+        // KEO (23/09/2026, Giang — "shape cho trục thời gian") — hình trục, toạ độ MÀN HÌNH, đặt dưới
+        // nội dung brain + gap. Open (line/sin): dot i ở u = i/(N-1), có mũi tên cuối. Closed (tròn/
+        // vuông/tam giác): dot i ở u = i/N (không trùng điểm đầu-cuối), bắt đầu từ đỉnh, chạy theo
+        // chiều kim đồng hồ, mũi tên tại điểm đầu chỉ chiều chạy.
+        const TIMELINE_SHAPES = ['line', 'sinDown', 'sinUp', 'circle', 'square', 'triangle'];
+        const TIMELINE_SIN_AMP_FRAC = 0.05;        // biên độ sin × min(W,H)
+        const TIMELINE_CLOSED_W_FRAC = 0.42;       // cỡ hình kín ≤ 42% W
+        const TIMELINE_CLOSED_H_FRAC = 0.28;       //            ≤ 28% H
+        const TIMELINE_PATH_SAMPLES = 240;
+        let tlGeom = null;       // { shape, closed, left, right, top, amp, size, cx }
+        let tlDots = [];         // [{x, y}] × TIMELINE_DOT_COUNT
+        let tlPath = [];         // polyline để vẽ đường đứt
+        let tlArrow = { x: 0, y: 0, angle: 0 };
+
+        /** Điểm tại u (0-1) trên trục thời gian theo tlGeom. */
+        function _timelinePointAt(u) {
+            const g = tlGeom;
+            const len = g.right - g.left;
+            if (g.shape === 'sinDown') return { x: g.left + u * len, y: g.top + g.amp + g.amp * Math.sin(u * Math.PI * 2) };
+            if (g.shape === 'sinUp') return { x: g.left + u * len, y: g.top + g.amp - g.amp * Math.sin(u * Math.PI * 2) };
+            if (g.shape === 'circle') {
+                const r = g.size / 2, a = -Math.PI / 2 + u * Math.PI * 2;
+                return { x: g.cx + Math.cos(a) * r, y: g.top + r + Math.sin(a) * r };
+            }
+            if (g.shape === 'square') {
+                const side = g.size, x0 = g.cx - side / 2, y0 = g.top;
+                const s4 = Math.min(u, 0.99999) * 4, seg = Math.floor(s4), f = s4 - seg;
+                if (seg === 0) return { x: x0 + f * side, y: y0 };
+                if (seg === 1) return { x: x0 + side, y: y0 + f * side };
+                if (seg === 2) return { x: x0 + side - f * side, y: y0 + side };
+                return { x: x0, y: y0 + side - f * side };
+            }
+            if (g.shape === 'triangle') {
+                const h = g.size, side = h * 2 / Math.sqrt(3);
+                const v = [{ x: g.cx, y: g.top }, { x: g.cx + side / 2, y: g.top + h }, { x: g.cx - side / 2, y: g.top + h }];
+                const s3 = Math.min(u, 0.99999) * 3, seg = Math.floor(s3), f = s3 - seg;
+                const A = v[seg], B = v[(seg + 1) % 3];
+                return { x: A.x + (B.x - A.x) * f, y: A.y + (B.y - A.y) * f };
+            }
+            return { x: g.left + u * len, y: g.top }; // line
+        }
+
+        /** Dựng hình trục (polyline + vị trí dot + mũi tên + bán kính dot theo khoảng cách dot). */
+        function _buildTimelineGeometry() {
+            tlPath = [];
+            let pathLen = 0;
+            for (let k = 0; k <= TIMELINE_PATH_SAMPLES; k++) {
+                const pt = _timelinePointAt(k / TIMELINE_PATH_SAMPLES);
+                if (k > 0) pathLen += Math.hypot(pt.x - tlPath[k - 1].x, pt.y - tlPath[k - 1].y);
+                tlPath.push(pt);
+            }
+            const denom = tlGeom.closed ? TIMELINE_DOT_COUNT : TIMELINE_DOT_COUNT - 1;
+            tlDots = [];
+            for (let i = 0; i < TIMELINE_DOT_COUNT; i++) tlDots.push(_timelinePointAt(i / denom));
+            const dotSpacing = pathLen / denom;
+            timelineDotBaseRadius = dotSpacing * TIMELINE_DOT_BASE_RADIUS_FRAC;
+            timelineDotMaxRadius = dotSpacing * TIMELINE_DOT_MAX_RADIUS_FRAC;
+            const endPt = tlGeom.closed ? _timelinePointAt(0) : _timelinePointAt(1);
+            const prevPt = _timelinePointAt(tlGeom.closed ? 0.995 : 0.985);
+            tlArrow = { x: endPt.x, y: endPt.y, angle: Math.atan2(endPt.y - prevPt.y, endPt.x - prevPt.x) };
+        }
 
         let inputPaths = [];
         let outputPaths = [];
@@ -384,6 +592,8 @@ const brainFilterOriginal = (function () {
             }
 
             // Generate Output Curves (Only a few sparse events reach awareness!)
+            // (23/09/2026) 7 đường này giờ là 7 DÂY ĐÀN C..B (dây 0 trên cùng = B, dây 6 dưới cùng = C) —
+            // xem khối STRING_*. Hình dạng tĩnh giữ nguyên như dưới, rung được cộng thêm lúc vẽ.
             // SỬA (23/09/2026, theo ảnh mẫu của Giang) — gốc: 7 đường cùng HỘI TỤ về 1 điểm
             // rightPersonPos, sóng ±0.08 stageH xen kẽ chiều -> các đường cắt chéo nhau. Ảnh mẫu: các
             // đường TOẢ NHẸ ra, song song, không cắt nhau, gợn S nhỏ, kết thúc ở các độ cao khác nhau
@@ -465,14 +675,15 @@ const brainFilterOriginal = (function () {
 
             _updateTimelineClusters(time, lastBeatTime, smoothedEnergy, midiNote);
 
-            // Bottom Axis Timeline Line
-            let axisY = stageOffsetY + stageH * 0.88;
+            // Bottom Axis Timeline Line — SỬA (23/09/2026): vẽ theo polyline của hình trục đã chọn
+            // (tlPath, _buildTimelineGeometry()), hình kín thì khép đường.
             ctx.strokeStyle = '#334155';
             ctx.lineWidth = 1.5;
             ctx.setLineDash([4, 4]);
             ctx.beginPath();
-            ctx.moveTo(leftPersonPos.x, axisY);
-            ctx.lineTo(rightPersonPos.x, axisY);
+            ctx.moveTo(tlPath[0].x, tlPath[0].y);
+            for (let k = 1; k < tlPath.length; k++) ctx.lineTo(tlPath[k].x, tlPath[k].y);
+            if (tlGeom.closed) ctx.closePath();
             ctx.stroke();
             ctx.setLineDash([]); // reset line dash
 
@@ -501,7 +712,7 @@ const brainFilterOriginal = (function () {
             // luôn lấy màu (getBrainRoleColor() rẻ, không cần tối ưu bỏ qua).
             const primary = getBrainRoleColor(0);
             for (let i = 0; i < TIMELINE_DOT_COUNT; i++) {
-                const dx = leftPersonPos.x + (i / (TIMELINE_DOT_COUNT - 1)) * (rightPersonPos.x - leftPersonPos.x);
+                const dotPt = tlDots[i]; // vị trí dot trên hình trục (23/09/2026)
                 let targetBoost = 0; // MAX qua mọi cụm — không cộng dồn, tránh phồng quá đà khi nhiều cụm chồng nhau
                 for (let c = 0; c < activeClusters.length; c++) {
                     const ac = activeClusters[c];
@@ -518,7 +729,7 @@ const brainFilterOriginal = (function () {
                 const boost = timelineDotSmoothed[i];
 
                 ctx.beginPath();
-                ctx.arc(dx, axisY, timelineDotBaseRadius + boost * (timelineDotMaxRadius - timelineDotBaseRadius), 0, Math.PI * 2);
+                ctx.arc(dotPt.x, dotPt.y, timelineDotBaseRadius + boost * (timelineDotMaxRadius - timelineDotBaseRadius), 0, Math.PI * 2);
                 if (boost > 0.02) {
                     ctx.fillStyle = primary.glow;
                     ctx.shadowColor = primary.glow;
@@ -531,11 +742,14 @@ const brainFilterOriginal = (function () {
             }
             ctx.shadowBlur = 0;
 
-            // Right Arrow head on Timeline
+            // Right Arrow head on Timeline — SỬA (23/09/2026): đặt ở điểm cuối (hình kín: điểm đầu),
+            // xoay theo tiếp tuyến của hình trục (tlArrow).
+            ctx.translate(tlArrow.x, tlArrow.y);
+            ctx.rotate(tlArrow.angle);
             ctx.beginPath();
-            ctx.moveTo(rightPersonPos.x - 6, axisY - 4);
-            ctx.lineTo(rightPersonPos.x, axisY);
-            ctx.lineTo(rightPersonPos.x - 6, axisY + 4);
+            ctx.moveTo(-6, -4);
+            ctx.lineTo(0, 0);
+            ctx.lineTo(-6, 4);
             ctx.strokeStyle = '#94a3b8';
             ctx.lineWidth = 2;
             ctx.stroke();
@@ -621,7 +835,6 @@ const brainFilterOriginal = (function () {
 
         function drawCurvesAndParticles(time) {
             const primary = getBrainRoleColor(0);
-            const outputLine = getBrainRoleColor(2);
 
             // 1. Draw Dense Input Bezier Curves (Left -> Filter)
             ctx.save();
@@ -636,20 +849,7 @@ const brainFilterOriginal = (function () {
             });
             ctx.restore();
 
-            // 2. Draw Sparse Output Bezier Curves (Filter -> Right)
-            ctx.save();
-            outputPaths.forEach(path => {
-                ctx.beginPath();
-                ctx.moveTo(path.p0.x, path.p0.y);
-                ctx.bezierCurveTo(path.p1.x, path.p1.y, path.p2.x, path.p2.y, path.p3.x, path.p3.y);
-                ctx.strokeStyle = outputLine.fill;
-                ctx.globalAlpha = 0.65;
-                ctx.lineWidth = 2;
-                ctx.shadowColor = outputLine.glow;
-                ctx.shadowBlur = 8;
-                ctx.stroke();
-            });
-            ctx.restore();
+            // 2. (23/09/2026) Tia output giờ là 7 dây đàn — vẽ ở drawOutputStrings() (rung + dot theo nốt).
 
             // 3. Update & Render Flowing Particles
             ctx.save();
@@ -679,18 +879,10 @@ const brainFilterOriginal = (function () {
                         // Filter logic: strictness determines how many get blocked
                         let passFilter = Math.random() > config.filterStrictness;
 
-                        if (passFilter) {
-                            // Passed through brain filter! Spawn output particle
-                            let randomOutIdx = Math.floor(Math.random() * outputPaths.length);
-                            particles.push({
-                                pathIndex: randomOutIdx,
-                                isInput: false,
-                                t: 0,
-                                speed: Math.random() * 0.004 + 0.003,
-                                size: 2.8,
-                                glow: 12
-                            });
-                        } else {
+                        // SỬA (23/09/2026) — hạt LỌT filter không còn sinh hạt output ngẫu nhiên nữa (dot
+                        // trên 7 dây output giờ do nốt nhạc bắn, xem _updateStrings()) — chỉ biến mất vào
+                        // ellipse. Hạt BỊ CHẶN vẫn loé tia lửa như gốc.
+                        if (!passFilter) {
                             // Dissolved/Filtered out! Spawn micro burst spark
                             bursts.push({
                                 x: pt.x,
@@ -701,28 +893,16 @@ const brainFilterOriginal = (function () {
                             });
                         }
 
+                        // SỬA (23/09/2026) — hạt do triggerBurst() sinh (oneShot) chạy 1 lần rồi BỎ, không
+                        // reset như hạt nền — gốc reset cả hạt burst nên mỗi lần bấm là tăng vĩnh viễn số
+                        // hạt; nay burst tự bắn theo Music Transition nên phải dọn, không thì phình mãi.
+                        if (p.oneShot) {
+                            particles.splice(i, 1);
+                            continue;
+                        }
                         // Reset input particle to start again
                         p.t = 0;
                         p.speed = Math.random() * 0.003 + 0.002;
-                    }
-                } else {
-                    // Output Particle moving towards right awareness
-                    let path = outputPaths[p.pathIndex];
-                    if (!path) continue;
-
-                    let pt = getBezierPoint(path, p.t);
-
-                    ctx.beginPath();
-                    ctx.arc(pt.x, pt.y, p.size, 0, Math.PI * 2);
-                    ctx.fillStyle = outputLine.glow; // trước trắng cố định — nay theo màu app
-                    ctx.shadowColor = outputLine.glow;
-                    ctx.shadowBlur = p.glow;
-                    ctx.globalAlpha = Math.sin(p.t * Math.PI);
-                    ctx.fill();
-
-                    if (p.t >= 1) {
-                        // Reached awareness figure!
-                        particles.splice(i, 1);
                     }
                 }
             }
@@ -752,6 +932,8 @@ const brainFilterOriginal = (function () {
             ctx.restore();
         }
         // Interactive Signal Burst on Click or Touch
+        // (23/09/2026) Giờ gọi tự động khi nhạc chuyển đoạn (detectMusicTransition()) — Workflow
+        // _tickConnectorBrain(), event/workflow/visualizer-render.js, toggle `burstEnabled`.
         function triggerBurst(clickX, clickY) {
             // Spawn temporary burst of signals from left person
             for (let i = 0; i < 25; i++) {
@@ -762,61 +944,111 @@ const brainFilterOriginal = (function () {
                     t: 0,
                     speed: Math.random() * 0.008 + 0.005,
                     size: Math.random() * 2.5 + 1.5,
-                    glow: 8
+                    glow: 8,
+                    oneShot: true // (23/09/2026) chạy 1 lần rồi bỏ — xem vòng hạt ở drawCurvesAndParticles()
                 });
             }
         }
 
         // ===== Phần KEO (không có trong gốc) =====
-        let _lastW = 0, _lastH = 0;
+        let _lastW = 0, _lastH = 0, _lastDirection = '', _lastShape = '';
 
-        // Thân = phần tính vị trí của resizeCanvas() gốc (nguyên văn), chỉ bỏ dòng set canvas.width/height
-        // vì SAV đã set kích thước canvas.
-        function _layoutFromCanvas() {
-            width = canvas.width;
-            height = canvas.height;
-            stageH = Math.min(height, width * BRAIN_STAGE_ASPECT);
-            stageOffsetY = (height - stageH) / 2;
+        /** Layout (23/09/2026 — thay _layoutFromCanvas() cũ): tính L theo chiều + chỗ trống thật, đặt
+         * nội dung brain + gap + trục thời gian thành 1 khối căn giữa dọc màn hình, dựng ma trận
+         * khung cục bộ -> màn hình. Phần tính vị trí trong khung cục bộ (leftPersonPos/filterPos...)
+         * GIỮ NGUYÊN công thức resizeCanvas() gốc. */
+        function _layout(direction, shape) {
+            const W = canvas.width, H = canvas.height, minWH = Math.min(W, H);
+            const dir = BRAIN_DIRECTION_MATRIX[direction] ? direction : 'ltr';
+            const shp = TIMELINE_SHAPES.includes(shape) ? shape : 'line';
+            const isVertical = dir === 'ttb' || dir === 'btt';
+            const closed = shp === 'circle' || shp === 'square' || shp === 'triangle';
 
-            // Compute positions based on dimensions
+            // Vùng trục thời gian (màn hình)
+            let tlH = 0, amp = 0, size = 0;
+            if (shp === 'sinDown' || shp === 'sinUp') { amp = minWH * TIMELINE_SIN_AMP_FRAC; tlH = amp * 2; }
+            else if (closed) {
+                size = Math.min(W * TIMELINE_CLOSED_W_FRAC, H * TIMELINE_CLOSED_H_FRAC);
+                if (shp === 'triangle') size = Math.min(size, W * TIMELINE_CLOSED_W_FRAC * Math.sqrt(3) / 2); // cạnh đáy ≤ giới hạn bề ngang
+                tlH = size;
+            }
+            const gap = minWH * BRAIN_TIMELINE_GAP_FRAC;
+            const availH = Math.max(1, H - 2 * H * BRAIN_LAYOUT_MARGIN_FRAC - gap - tlH);
+
+            // Kích thước nội dung brain trên màn hình tính theo L
+            const alongK = BRAIN_CONTENT_X1 - BRAIN_CONTENT_X0;
+            const crossK = 2 * BRAIN_CONTENT_HALF_T * BRAIN_STAGE_ASPECT;
+            const kW = isVertical ? crossK : alongK, kH = isVertical ? alongK : crossK;
+            const L = Math.max(1, Math.min(W * BRAIN_MAX_WIDTH_FRAC / kW, availH / kH, Math.max(W, H) * BRAIN_MAX_LENGTH_FRAC));
+            const contentW = kW * L, contentH = kH * L;
+            const top = (H - (contentH + gap + tlH)) / 2;
+
+            // Khung cục bộ
+            width = L;
+            height = stageH = L * BRAIN_STAGE_ASPECT;
+            stageOffsetY = 0;
+
+            // Ma trận: map 4 góc vùng nội dung (e=f=0) -> lấy góc min rồi tịnh tiến về đúng chỗ
+            const [a, b, c, d] = BRAIN_DIRECTION_MATRIX[dir];
+            const xs = [BRAIN_CONTENT_X0 * L, BRAIN_CONTENT_X1 * L];
+            const ys = [stageH * (0.5 - BRAIN_CONTENT_HALF_T), stageH * (0.5 + BRAIN_CONTENT_HALF_T)];
+            let minX = Infinity, minY = Infinity;
+            xs.forEach((x) => ys.forEach((y) => {
+                minX = Math.min(minX, a * x + c * y);
+                minY = Math.min(minY, b * x + d * y);
+            }));
+            brainMatrix = { a, b, c, d, e: (W - contentW) / 2 - minX, f: top - minY };
+
+            // Compute positions based on dimensions (khung cục bộ — công thức gốc)
             leftPersonPos = { x: width * 0.07, y: stageOffsetY + stageH * 0.5 };
             rightPersonPos = { x: width * 0.93, y: stageOffsetY + stageH * 0.5 };
-
-            const dotSpacing = (rightPersonPos.x - leftPersonPos.x) / (TIMELINE_DOT_COUNT - 1);
-            timelineDotBaseRadius = dotSpacing * TIMELINE_DOT_BASE_RADIUS_FRAC;
-            timelineDotMaxRadius = dotSpacing * TIMELINE_DOT_MAX_RADIUS_FRAC;
-
             filterPos = {
                 x: width * 0.54,
                 y: stageOffsetY + stageH * 0.5,
                 rx: width * 0.045,
                 ry: stageH * 0.32
             };
-
             initNodesAndPaths();
+
+            // Trục thời gian (màn hình)
+            tlGeom = { shape: shp, closed, left: W * 0.07, right: W * 0.93, top: top + contentH + gap, amp, size, cx: W / 2 };
+            _buildTimelineGeometry();
         }
 
         // Thay animate(time) gốc: bỏ clearRect (SAV đã clear) và requestAnimationFrame (SAV tự gọi mỗi frame).
-        // Nhận thêm audio params (22/09/2026, dot trục thời gian) — Workflow tự đọc appState rồi
-        // truyền vào (Rule 2, core không tự appState.get()), xem _tickConnectorBrain() ở
-        // event/workflow/visualizer-render.js. `lastBeatTime` (thay `beatScale`, xem SỬA phía trên) —
-        // mốc beat THẬT, đổi khác lần trước = vừa có 1 beat mới.
-        // Nhận thêm (23/09/2026) `beatScale` (co bóp tia input), `isPlaying`, `bpm` (số, NaN nếu app
-        // chưa tính được — dot chạy quanh ellipse) — Workflow đọc appState rồi truyền vào (Rule 2).
-        function draw(ctxArg, canvasEl, time, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote, beatScale, isPlaying, bpm) {
+        // ĐỔI (23/09/2026) — tham số audio/config gom vào 1 object `frame` (danh sách tham số rời đã quá
+        // dài). Workflow (_tickConnectorBrain(), event/workflow/visualizer-render.js) tự đọc appState/
+        // config rồi dựng object này (Rule 2 — core không appState.get()). Các field:
+        //   time, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote, noteFresh,
+        //   beatScale, isPlaying, bpm (số, NaN nếu chưa có), sampleRate, direction, timelineShape
+        function draw(ctxArg, canvasEl, frame) {
             ctx = ctxArg;
             canvas = canvasEl;
-            if (canvas.width !== _lastW || canvas.height !== _lastH) {
-                _lastW = canvas.width; _lastH = canvas.height;
-                _layoutFromCanvas();
+            const direction = frame.direction || 'ltr';
+            const shape = frame.timelineShape || 'line';
+            if (canvas.width !== _lastW || canvas.height !== _lastH || direction !== _lastDirection || shape !== _lastShape) {
+                _lastW = canvas.width; _lastH = canvas.height; _lastDirection = direction; _lastShape = shape;
+                _layout(direction, shape);
             }
-            drawTimeline(time, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote);
-            _updateInputPump(time, beatScale, isPlaying);
+            const time = frame.time;
+
+            // Trục thời gian — toạ độ màn hình, KHÔNG qua ma trận chiều
+            drawTimeline(time, frame.lastBeatTime, frame.smoothedEnergy, frame.vizDataArray, frame.bufferLength, frame.midiNote);
+
+            // Cập nhật trạng thái audio (không vẽ)
+            _updateInputPump(time, frame.beatScale, frame.isPlaying);
+            _updateFilterNodeFlux(time, frame.vizDataArray, frame.bufferLength);
+            _updateOrbitDots(time, frame.bpm, frame.isPlaying, frame.vizDataArray, frame.bufferLength);
+            _updateStrings(time, frame);
+
+            // Brain filter — vẽ trong khung cục bộ, xoay/lật theo chiều đã chọn
+            ctx.save();
+            ctx.transform(brainMatrix.a, brainMatrix.b, brainMatrix.c, brainMatrix.d, brainMatrix.e, brainMatrix.f);
             drawCurvesAndParticles(time);
-            _updateFilterNodeFlux(time, vizDataArray, bufferLength);
+            drawOutputStrings(time);
             drawBrainFilter(time);
-            _updateOrbitDots(time, bpm, isPlaying, vizDataArray, bufferLength);
             drawOrbitDots();
+            ctx.restore();
         }
 
         return { draw, triggerBurst };
