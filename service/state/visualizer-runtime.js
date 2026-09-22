@@ -17,6 +17,7 @@
                 fluxHistory: 'array',
                 frameCounter: 'number',
                 dpr: 'number',
+                lastBeatTime: 'number', // MỚI (22/09/2026) — mốc thời gian (performance.now()) của lần beat THẬT gần nhất (spectral flux, core/audio-analysis.js) — cho consumer khác (vd connector brain.js) biết "vừa có 1 beat mới" bằng cách so lệch với giá trị đã thấy lần trước, KHÔNG cần tự dựng lại 1 bộ phát hiện beat riêng.
             },
             buildDefaults() {
                 return {
@@ -31,6 +32,7 @@
                     fluxHistory: [],
                     frameCounter: 0,
                     dpr: 1,
+                    lastBeatTime: 0,
                 };
             },
         });
