@@ -196,17 +196,25 @@ const brainFilterOriginal = (function () {
             }
 
             // Generate Input Signal Bezier Curves (Fan Out from human source -> converge onto filter ellipse)
+            // SỬA (23/09/2026, Giang gửi ảnh mẫu "uốn đúng như ảnh") — gốc đặt cp1 ở 35% quãng ngang
+            // với độ toả ±0.35 stageH, cp2 = targetY -> các tia toả thành hình QUẠT/nêm, không có
+            // "bụng" tròn rồi thắt cổ trước filter như ảnh. Thay bằng 4 hệ số (fit số từ ảnh mẫu, tính
+            // theo filterPos.ry = R, D = khoảng ngang từ nguồn tới mép trái ellipse): tia NGOÀI CÙNG
+            // xuất phát gần như dựng đứng (cp1 = 20% D, cao 1.95R), phình tối đa ~1.07R ở ~42% D, rồi
+            // thắt dần và vào mép trái ellipse NẰM NGANG ở độ cao 0.65R (cp2 = 82% D, cùng độ cao
+            // điểm cuối). Tia bên trong co tuyến tính theo `lane` (-1..1) -> mật độ đều trong bụng.
+            // Điểm cuối nằm ĐÚNG trên viền ellipse (gốc: lọt vào trong 0.5 rx).
+            const IN_CP1_X = 0.2, IN_CP1_Y = 1.95, IN_CP2_X = 0.82, IN_END_Y = 0.65;
             for (let i = 0; i < config.signalCount; i++) {
-                // Target angle on filter boundary
-                let angle = (Math.PI * 0.85) * (i / (config.signalCount - 1) - 0.5); // spread vertical angle
-                let targetY = filterPos.y + Math.sin(angle) * filterPos.ry * 0.95;
-                let targetX = filterPos.x - Math.cos(angle) * (filterPos.rx * 0.5);
+                let lane = (i / (config.signalCount - 1)) * 2 - 1; // -1 (trên) .. 1 (dưới)
+                let endYRel = lane * IN_END_Y; // tỉ lệ theo ry
+                let targetY = filterPos.y + endYRel * filterPos.ry;
+                let targetX = filterPos.x - filterPos.rx * Math.sqrt(Math.max(0, 1 - endYRel * endYRel));
+                let D = targetX - leftPersonPos.x;
 
-                // Control points for organic flowing curves
-                let spread = (i / (config.signalCount - 1) - 0.5) * (stageH * 0.7);
-                let cp1x = leftPersonPos.x + (filterPos.x - leftPersonPos.x) * 0.35;
-                let cp1y = leftPersonPos.y + spread;
-                let cp2x = leftPersonPos.x + (filterPos.x - leftPersonPos.x) * 0.75;
+                let cp1x = leftPersonPos.x + D * IN_CP1_X;
+                let cp1y = leftPersonPos.y + lane * IN_CP1_Y * filterPos.ry;
+                let cp2x = leftPersonPos.x + D * IN_CP2_X;
                 let cp2y = targetY;
 
                 inputPaths.push({
@@ -222,23 +230,30 @@ const brainFilterOriginal = (function () {
             }
 
             // Generate Output Curves (Only a few sparse events reach awareness!)
+            // SỬA (23/09/2026, theo ảnh mẫu của Giang) — gốc: 7 đường cùng HỘI TỤ về 1 điểm
+            // rightPersonPos, sóng ±0.08 stageH xen kẽ chiều -> các đường cắt chéo nhau. Ảnh mẫu: các
+            // đường TOẢ NHẸ ra, song song, không cắt nhau, gợn S nhỏ, kết thúc ở các độ cao khác nhau
+            // (±0.75 ry) và độ dài hơi lệch nhau. Sửa: đầu ±0.45 ry -> cuối ±0.75 ry theo `lane`,
+            // cp1/cp2 ở 40%/60% quãng, sóng nhỏ ±0.025 stageH, điểm cuối lùi ngẫu nhiên tới 10% width.
             const outputCount = 7;
             for (let i = 0; i < outputCount; i++) {
-                let startAngle = (Math.PI * 0.6) * (i / (outputCount - 1) - 0.5);
-                let startY = filterPos.y + Math.sin(startAngle) * (filterPos.ry * 0.6);
+                let lane = (i / (outputCount - 1)) * 2 - 1;
+                let startY = filterPos.y + lane * 0.45 * filterPos.ry;
                 let startX = filterPos.x + filterPos.rx * 0.4;
+                let endX = rightPersonPos.x - Math.random() * width * 0.1;
+                let endY = filterPos.y + lane * 0.75 * filterPos.ry;
 
-                let waveFactor = (i % 2 === 0 ? 1 : -1) * (stageH * 0.08);
-                let cp1x = startX + (rightPersonPos.x - startX) * 0.35;
+                let waveFactor = (i % 2 === 0 ? 1 : -1) * (stageH * 0.025);
+                let cp1x = startX + (endX - startX) * 0.4;
                 let cp1y = startY + waveFactor;
-                let cp2x = startX + (rightPersonPos.x - startX) * 0.7;
-                let cp2y = rightPersonPos.y - waveFactor * 0.5;
+                let cp2x = startX + (endX - startX) * 0.6;
+                let cp2y = endY - waveFactor;
 
                 outputPaths.push({
                     p0: { x: startX, y: startY },
                     p1: { x: cp1x, y: cp1y },
                     p2: { x: cp2x, y: cp2y },
-                    p3: { x: rightPersonPos.x, y: rightPersonPos.y }
+                    p3: { x: endX, y: endY }
                 });
             }
         }
