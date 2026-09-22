@@ -1,382 +1,489 @@
 /**
- * core/visualizer/groups/connector/brain.js — style "brain" (Brain Filter) của group connector. THUẦN
- * canvas 2D (vẽ lên #visualizer, KHÔNG dùng WebGL/cnScene — khác synapse/circuit), Workflow
- * (_tickConnectorBrain(), event/workflow/visualizer-render.js) tự gom appState rồi gọi tuần tự.
+ * core/visualizer/groups/connector/brain.js — style "brain" (Brain Filter) của group connector.
  *
- * NGUỒN: Brain_Filter_Perception_Visualization.html (infographic "Brain Filter & Reality Perception") —
- * BÊ NGUYÊN khối pipeline "nguồn -> bộ lọc (ellipse + lưới nơ-ron) -> vài đường ra": công thức
- * Bézier, cách sinh đường vào/đường ra/65 node trong ellipse, burst tan rã ở thành filter. BỎ hẳn
- * vỏ trang (header/toolbar/banner/footer), drawLabelsAndTimeline() (nhãn chữ + trục thời gian),
- * pointer/pause/theme — SAV đã có tương đương.
- *
- * KHÁC nguồn (có chủ ý):
- *  1. AUDIO-DRIVEN thay Math.random()/tự chạy: mỗi đường vào = 1 dải tần tonotopic (tái dùng
- *     synapse.js); xung chỉ sinh khi dải đó onset; "Filter Strictness" = fireThreshold cộng
- *     adaptation/lateralInhibition (cùng cơ chế synapse/circuit) — vượt ngưỡng thì QUA lọc, không thì
- *     tan rã ở thành filter. Đường ra chọn theo pitch class (12 đường) như circuit chọn đích theo pitch.
- *  2. Bố cục nguồn là ngang 2:1 — điện thoại dọc thì ellipse chỉ còn ~35px. Layout dựng trong hệ
- *     LOGIC (u = dọc dòng chảy, v = ngang dòng chảy) rồi ánh xạ ra màn hình: khung dọc -> dòng chảy
- *     từ trên xuống dưới.
- *  3. BỎ shadowBlur (nguồn quên reset shadowBlur=20 trước vòng vẽ mesh -> mọi nét mesh đều có blur, rất
- *     nặng trên điện thoại): glow = vài nét/vòng tròn chồng nhau alpha thấp, nhân `glowMult`
- *     (getConnectorGlowMult(), core/custom-effect.js). Mesh gom 1 path/1 lần stroke; cạnh mesh tính
- *     SẴN 1 lần lúc dựng layout (nguồn tính lại O(n^2) khoảng cách mỗi frame).
- *  4. Mọi thời gian theo dt (giây) thay vì "mỗi frame" — không lệch tốc độ theo Hz màn hình.
- *
- * Mỗi hàm core dưới đây TỰ CHỨA (Rule 3 — core không gọi core): công thức Bézier được viết thẳng
- * trong stepBrainState() (đúng đa thức của getBezierPoint() nguồn) và cache toạ độ vào từng hạt,
- * các hàm paint chỉ đọc toạ độ đã cache.
+ * BÊ NGUYÊN phần canvas của Brain_Filter_Perception_Visualization.html — thân các hàm/hằng số dưới đây là
+ * bản sao NGUYÊN VĂN từ file gốc (themes, initNodesAndPaths, createParticle, getBezierPoint,
+ * drawLabelsAndTimeline, drawBrainFilter, drawCurvesAndParticles, triggerBurst), KHÔNG chỉnh gì:
+ * vẫn chạy tự do bằng Math.random() (không nối audio), theme cố định 'cyan', shadowBlur như gốc.
+ * Chỉ thêm phần KEO tối thiểu để chạy được trong SAV: đóng gói trong 1 object (tránh đè các global
+ * cùng tên của SAV như canvas/ctx/resizeCanvas/config), và draw() thay cho resizeCanvas()+animate()
+ * (SAV đã tự clear canvas + tự gọi mỗi frame, canvas do SAV set kích thước).
+ * BỎ vì không thuộc phần canvas: header/toolbar/settings/banner/footer, listener nút bấm/slider/pointer.
  */
+const brainFilterOriginal = (function () {
+        let canvas = null;
+        let ctx = null;
 
-const BRAIN_OUTPUT_COUNT = 12;          // 12 pitch class (nguồn: 7 đường ra)
-const BRAIN_NODE_COUNT = 65;            // GIỮ NGUYÊN nguồn
-const BRAIN_MESH_LINK_RATIO = 0.75;     // GIỮ NGUYÊN nguồn: nối 2 node nếu cách nhau < rx * 0.75
-const BRAIN_PERCEPTION_FLOOR_RATIO = 0.4; // xung "đi tới filter" khi năng lượng vượt fireThreshold*255*0.4 (thấp hơn ngưỡng QUA lọc)
-const BRAIN_SPAWN_INTERVAL_SEC = 0.12;  // mỗi dải tối đa ~8 xung/giây — tránh onset liên tục làm đầy trần xung ngay lập tức
-
-/**
- * Dựng toàn bộ layout + trạng thái chạy của style brain. Một lần cho mỗi (kích thước canvas,
- * inputCount) — Workflow so `signature` để biết khi nào phải dựng lại.
- * @param {{x0:number,y0:number,x1:number,y1:number}} rect vùng dùng được (px thiết bị) — Workflow chừa thanh player dưới
- * @param {number} dpr
- * @param {number} inputCount số đường vào = số dải tần (>= 2)
- * @param {string} signature
- * @returns {object} state: {signature, filter, inputPaths, outputPaths, nodes, edges, bands, inflow, outflow, bursts, flash, clock}
- */
-function createBrainState(rect, dpr, inputCount, signature) {
-    const rectW = rect.x1 - rect.x0, rectH = rect.y1 - rect.y0;
-    const flowIsY = rectH > rectW; // khung dọc: dòng chảy đi theo trục Y
-    // Hệ số ánh xạ (u dọc dòng chảy, v ngang dòng chảy) -> (x, y) màn hình — không rẽ nhánh sau khi đã chọn hệ số.
-    const ux = flowIsY ? 0 : 1, uy = flowIsY ? 1 : 0;
-    const vx = flowIsY ? 1 : 0, vy = flowIsY ? 0 : 1;
-    const lw = flowIsY ? rectH : rectW; // "width" logic của nguồn (dọc dòng chảy)
-    const lh = flowIsY ? rectW : rectH; // "height" logic của nguồn (ngang dòng chảy)
-
-    // Mọi điểm dựng trong hệ logic (x=u, y=v) được gom vào đây rồi ánh xạ ra màn hình 1 lượt ở cuối.
-    // MỖI điểm là 1 object RIÊNG (không chia sẻ tham chiếu) — ánh xạ tại chỗ, chia sẻ sẽ bị ánh xạ 2 lần.
-    const allPoints = [];
-    const leftU = lw * 0.07, rightU = lw * 0.93, centerV = lh * 0.5;
-    const filterLogic = { x: lw * 0.54, y: centerV };
-    allPoints.push(filterLogic);
-    const frx = lw * 0.045, fry = lh * 0.32; // bán trục logic: frx dọc dòng chảy, fry ngang dòng chảy
-
-    // ---- 65 node trong ellipse (GIỮ NGUYÊN công thức nguồn) ----
-    const nodes = [];
-    for (let i = 0; i < BRAIN_NODE_COUNT; i++) {
-        const r = Math.sqrt(Math.random());
-        const theta = Math.random() * 2 * Math.PI;
-        const pt = {
-            x: filterLogic.x + r * Math.cos(theta) * (frx * 0.88),
-            y: filterLogic.y + r * Math.sin(theta) * (fry * 0.88),
+        // App State (gốc: đọc từ slider — giữ đúng giá trị mặc định của gốc)
+        let isPaused = false;
+        let config = {
+            signalCount: 120,
+            filterStrictness: 98 / 100,
+            speedMultiplier: 1.5,
+            theme: 'cyan'
         };
-        allPoints.push(pt);
-        nodes.push({ pt, size: (Math.random() * 2 + 1) * dpr, pulse: Math.random() * Math.PI * 2 });
-    }
 
-    // ---- Đường vào: nguồn (trái) -> fan Bézier hội tụ lên ellipse (GIỮ NGUYÊN công thức nguồn) ----
-    const inputPaths = [];
-    for (let i = 0; i < inputCount; i++) {
-        const k = i / (inputCount - 1) - 0.5;
-        const angle = Math.PI * 0.85 * k;
-        const targetV = filterLogic.y + Math.sin(angle) * fry * 0.95;
-        const targetU = filterLogic.x - Math.cos(angle) * (frx * 0.5);
-        const spread = k * (lh * 0.7);
-        const path = {
-            p0: { x: leftU, y: centerV },
-            p1: { x: leftU + (filterLogic.x - leftU) * 0.35, y: centerV + spread },
-            p2: { x: leftU + (filterLogic.x - leftU) * 0.75, y: targetV },
-            p3: { x: targetU, y: targetV },
-            alpha: Math.random() * 0.15 + 0.1,
-        };
-        allPoints.push(path.p0, path.p1, path.p2, path.p3);
-        inputPaths.push(path);
-    }
-
-    // ---- Đường ra: từ ellipse -> người nhận (phải) — thưa (GIỮ NGUYÊN công thức nguồn, 7 -> 12 đường) ----
-    const outputPaths = [];
-    for (let i = 0; i < BRAIN_OUTPUT_COUNT; i++) {
-        const startAngle = Math.PI * 0.6 * (i / (BRAIN_OUTPUT_COUNT - 1) - 0.5);
-        const startV = filterLogic.y + Math.sin(startAngle) * (fry * 0.6);
-        const startU = filterLogic.x + frx * 0.4;
-        const waveFactor = (i % 2 === 0 ? 1 : -1) * (lh * 0.08);
-        const path = {
-            p0: { x: startU, y: startV },
-            p1: { x: startU + (rightU - startU) * 0.35, y: startV + waveFactor },
-            p2: { x: startU + (rightU - startU) * 0.7, y: centerV - waveFactor * 0.5 },
-            p3: { x: rightU, y: centerV },
-        };
-        allPoints.push(path.p0, path.p1, path.p2, path.p3);
-        outputPaths.push(path);
-    }
-
-    // ---- Ánh xạ hệ logic -> màn hình ----
-    for (let i = 0; i < allPoints.length; i++) {
-        const pt = allPoints[i];
-        const u = pt.x, v = pt.y;
-        pt.x = rect.x0 + u * ux + v * vx;
-        pt.y = rect.y0 + u * uy + v * vy;
-    }
-
-    const screenNodes = nodes.map((n) => ({
-        x: n.pt.x, y: n.pt.y, baseX: n.pt.x, baseY: n.pt.y, size: n.size, pulse: n.pulse,
-    }));
-
-    // ---- Cạnh mesh: tính SẴN 1 lần (nguồn tính lại mỗi frame) — khoảng cách bất biến qua ánh xạ nên dùng bán trục logic frx ----
-    const edges = [];
-    const linkDist = frx * BRAIN_MESH_LINK_RATIO;
-    for (let i = 0; i < screenNodes.length; i++) {
-        for (let j = i + 1; j < screenNodes.length; j++) {
-            const dx = screenNodes[i].baseX - screenNodes[j].baseX;
-            const dy = screenNodes[i].baseY - screenNodes[j].baseY;
-            if (Math.sqrt(dx * dx + dy * dy) < linkDist) edges.push([i, j]);
-        }
-    }
-
-    // ---- Trạng thái từng dải tần — đúng các field mà synapse.js (applyTonotopicSmoothing/
-    // computeEffectiveFireThresholdByte/triggerNeuronAdaptation/applyLateralInhibition/decayNeuronState) đọc/ghi ----
-    const bands = [];
-    for (let i = 0; i < inputCount; i++) {
-        bands.push({ smoothedBinEnergy: 0, prevBinEnergy: 0, energy: 0, adaptation: 0, lateralInhibition: 0, cooldown: 0 });
-    }
-
-    return {
-        signature,
-        filter: {
-            x: filterLogic.x, y: filterLogic.y,
-            rx: flowIsY ? fry : frx, // bán trục theo trục X màn hình
-            ry: flowIsY ? frx : fry, // bán trục theo trục Y màn hình
-        },
-        inputPaths, outputPaths, nodes: screenNodes, edges, bands,
-        inflow: [],   // hạt đang bay tới filter
-        outflow: [],  // hạt đã QUA lọc, đang bay tới "nhận thức"
-        bursts: [],   // tia tan rã ở thành filter
-        flash: 0,     // 0..1 — quầng filter sáng lên mỗi khi 1 xung tới đích
-        clock: 0,     // giây tích luỹ — nhịp thở vòng ngoài
-    };
-}
-
-/**
- * Sinh 1 hạt vào trên đường `pathIndex` (kết quả QUA/KHÔNG QUA lọc đã quyết ngay lúc sinh theo
- * ngưỡng hiệu dụng của dải — nguồn quyết bằng Math.random() lúc hạt tới thành filter).
- * @param {object} state @param {number} pathIndex @param {number} speedMult 0.6–1.6 (theo độ mạnh onset)
- * @param {boolean} passes @param {number} outIndex đường ra sẽ đi nếu qua lọc @param {number} size px thiết bị
- */
-function spawnBrainInflowParticle(state, pathIndex, speedMult, passes, outIndex, size) {
-    state.inflow.push({ pathIndex, t: 0, speed: speedMult, size, glow: 3, passes, outIndex, x: 0, y: 0 });
-}
-
-/**
- * 1 bước mô phỏng theo dt: nhịp thở/flash, node lơ lửng, hạt vào/ra bay dọc Bézier (cache toạ độ),
- * tới đích thì QUA lọc -> sinh hạt ra / TAN RÃ -> sinh burst, burst nở ra rồi mờ dần.
- * @param {object} state @param {number} dt giây @param {number} speedFrac phần đường đi được mỗi giây (x speed riêng hạt) @param {number} dpr
- */
-function stepBrainState(state, dt, speedFrac, dpr) {
-    state.clock += dt;
-    state.flash = Math.max(0, state.flash - dt * 2.2);
-
-    // Node lơ lửng (nguồn: pulse += 0.04/frame, biên độ 2px)
-    const nodes = state.nodes;
-    for (let i = 0; i < nodes.length; i++) {
-        const n = nodes[i];
-        n.pulse += 2.4 * dt;
-        n.x = n.baseX + Math.sin(n.pulse) * 2 * dpr;
-        n.y = n.baseY + Math.cos(n.pulse) * 2 * dpr;
-    }
-
-    // Hạt VÀO
-    for (let i = state.inflow.length - 1; i >= 0; i--) {
-        const p = state.inflow[i];
-        const path = state.inputPaths[p.pathIndex];
-        p.t += p.speed * speedFrac * dt;
-        const tc = Math.min(1, p.t);
-        // Đa thức Bézier bậc 3 — đúng getBezierPoint() của nguồn
-        const cx = 3 * (path.p1.x - path.p0.x), bx = 3 * (path.p2.x - path.p1.x) - cx, ax = path.p3.x - path.p0.x - cx - bx;
-        const cy = 3 * (path.p1.y - path.p0.y), by = 3 * (path.p2.y - path.p1.y) - cy, ay = path.p3.y - path.p0.y - cy - by;
-        p.x = ax * tc * tc * tc + bx * tc * tc + cx * tc + path.p0.x;
-        p.y = ay * tc * tc * tc + by * tc * tc + cy * tc + path.p0.y;
-
-        if (p.t >= 1) {
-            if (p.passes) {
-                state.outflow.push({ pathIndex: p.outIndex, t: 0, speed: 1.4, size: 2.8 * dpr, glow: 12 * dpr, x: 0, y: 0 });
-            } else {
-                state.bursts.push({ x: path.p3.x, y: path.p3.y, radius: (Math.random() * 4 + 2) * dpr, alpha: 0.8 });
+        // Theme colors configurations
+        const themes = {
+            cyan: {
+                primary: '#38bdf8',
+                secondary: '#818cf8',
+                accent: '#c084fc',
+                filterGlow: 'rgba(56, 189, 248, 0.4)',
+                lineAlpha: 0.18,
+                particle: '#ffffff',
+                outputLine: '#60a5fa'
+            },
+            violet: {
+                primary: '#c084fc',
+                secondary: '#f472b6',
+                accent: '#38bdf8',
+                filterGlow: 'rgba(192, 132, 252, 0.4)',
+                lineAlpha: 0.18,
+                particle: '#ffffff',
+                outputLine: '#e879f9'
+            },
+            gold: {
+                primary: '#fbbf24',
+                secondary: '#f97316',
+                accent: '#38bdf8',
+                filterGlow: 'rgba(251, 191, 36, 0.4)',
+                lineAlpha: 0.18,
+                particle: '#ffffff',
+                outputLine: '#fde047'
             }
-            state.inflow.splice(i, 1);
+        };
+
+        let width, height;
+        let leftPersonPos = { x: 0, y: 0 };
+        let rightPersonPos = { x: 0, y: 0 };
+        let filterPos = { x: 0, y: 0, rx: 0, ry: 0 };
+
+        let inputPaths = [];
+        let outputPaths = [];
+        let particles = [];
+        let filterNodes = [];
+        let bursts = [];
+
+
+        function initNodesAndPaths() {
+            inputPaths = [];
+            outputPaths = [];
+            particles = [];
+            filterNodes = [];
+
+            // Generate Filter Internal Neural Network Nodes inside ellipse
+            const nodeCount = 65;
+            for (let i = 0; i < nodeCount; i++) {
+                // Random point inside ellipse
+                let u = Math.random();
+                let v = Math.random();
+                let r = Math.sqrt(u);
+                let theta = v * 2 * Math.PI;
+                let nx = filterPos.x + r * Math.cos(theta) * (filterPos.rx * 0.88);
+                let ny = filterPos.y + r * Math.sin(theta) * (filterPos.ry * 0.88);
+
+                filterNodes.push({
+                    x: nx,
+                    y: ny,
+                    baseX: nx,
+                    baseY: ny,
+                    vx: (Math.random() - 0.5) * 0.3,
+                    vy: (Math.random() - 0.5) * 0.3,
+                    size: Math.random() * 2 + 1,
+                    pulse: Math.random() * Math.PI * 2
+                });
+            }
+
+            // Generate Input Signal Bezier Curves (Fan Out from human source -> converge onto filter ellipse)
+            for (let i = 0; i < config.signalCount; i++) {
+                // Target angle on filter boundary
+                let angle = (Math.PI * 0.85) * (i / (config.signalCount - 1) - 0.5); // spread vertical angle
+                let targetY = filterPos.y + Math.sin(angle) * filterPos.ry * 0.95;
+                let targetX = filterPos.x - Math.cos(angle) * (filterPos.rx * 0.5);
+
+                // Control points for organic flowing curves
+                let spread = (i / (config.signalCount - 1) - 0.5) * (height * 0.7);
+                let cp1x = leftPersonPos.x + (filterPos.x - leftPersonPos.x) * 0.35;
+                let cp1y = leftPersonPos.y + spread;
+                let cp2x = leftPersonPos.x + (filterPos.x - leftPersonPos.x) * 0.75;
+                let cp2y = targetY;
+
+                inputPaths.push({
+                    p0: { x: leftPersonPos.x, y: leftPersonPos.y },
+                    p1: { x: cp1x, y: cp1y },
+                    p2: { x: cp2x, y: cp2y },
+                    p3: { x: targetX, y: targetY },
+                    alpha: Math.random() * 0.15 + 0.1
+                });
+
+                // Spawn initial floating particles on path
+                particles.push(createParticle(i, true));
+            }
+
+            // Generate Output Curves (Only a few sparse events reach awareness!)
+            const outputCount = 7;
+            for (let i = 0; i < outputCount; i++) {
+                let startAngle = (Math.PI * 0.6) * (i / (outputCount - 1) - 0.5);
+                let startY = filterPos.y + Math.sin(startAngle) * (filterPos.ry * 0.6);
+                let startX = filterPos.x + filterPos.rx * 0.4;
+
+                let waveFactor = (i % 2 === 0 ? 1 : -1) * (height * 0.08);
+                let cp1x = startX + (rightPersonPos.x - startX) * 0.35;
+                let cp1y = startY + waveFactor;
+                let cp2x = startX + (rightPersonPos.x - startX) * 0.7;
+                let cp2y = rightPersonPos.y - waveFactor * 0.5;
+
+                outputPaths.push({
+                    p0: { x: startX, y: startY },
+                    p1: { x: cp1x, y: cp1y },
+                    p2: { x: cp2x, y: cp2y },
+                    p3: { x: rightPersonPos.x, y: rightPersonPos.y }
+                });
+            }
         }
-    }
 
-    // Hạt RA
-    for (let i = state.outflow.length - 1; i >= 0; i--) {
-        const p = state.outflow[i];
-        const path = state.outputPaths[p.pathIndex];
-        p.t += p.speed * speedFrac * dt;
-        const tc = Math.min(1, p.t);
-        const cx = 3 * (path.p1.x - path.p0.x), bx = 3 * (path.p2.x - path.p1.x) - cx, ax = path.p3.x - path.p0.x - cx - bx;
-        const cy = 3 * (path.p1.y - path.p0.y), by = 3 * (path.p2.y - path.p1.y) - cy, ay = path.p3.y - path.p0.y - cy - by;
-        p.x = ax * tc * tc * tc + bx * tc * tc + cx * tc + path.p0.x;
-        p.y = ay * tc * tc * tc + by * tc * tc + cy * tc + path.p0.y;
-
-        if (p.t >= 1) { // tới "nhận thức" — quầng filter sáng lên 1 nhịp
-            state.flash = Math.min(1, state.flash + 0.35);
-            state.outflow.splice(i, 1);
+        function createParticle(pathIndex, isInput = true) {
+            return {
+                pathIndex: pathIndex,
+                isInput: isInput,
+                t: Math.random(), // position along curve [0..1]
+                speed: (Math.random() * 0.003 + 0.002),
+                size: isInput ? Math.random() * 1.8 + 1 : Math.random() * 2.5 + 2,
+                glow: isInput ? 3 : 8
+            };
         }
-    }
 
-    // Burst tan rã (nguồn: radius += 0.3/frame, alpha -= 0.06/frame)
-    for (let i = state.bursts.length - 1; i >= 0; i--) {
-        const b = state.bursts[i];
-        b.radius += 18 * dpr * dt;
-        b.alpha -= 3.6 * dt;
-        if (b.alpha <= 0) state.bursts.splice(i, 1);
-    }
-}
+        // Compute 2D Cubic Bezier point
+        function getBezierPoint(p, t) {
+            let cx = 3 * (p.p1.x - p.p0.x);
+            let bx = 3 * (p.p2.x - p.p1.x) - cx;
+            let ax = p.p3.x - p.p0.x - cx - bx;
 
-/**
- * Vẽ đường cong: fan đường vào (mờ, sáng lên theo năng lượng dải + nháy khi dải vừa QUA lọc) và
- * các đường ra thưa (đậm hơn, có quầng).
- * @param {CanvasRenderingContext2D} ctx @param {object} state
- * @param {{primary:string,secondary:string,output:string,particle:string}} colors
- * @param {number} glowMult 0..1 @param {number} dpr
- */
-function paintBrainCurves(ctx, state, colors, glowMult, dpr) {
-    ctx.save();
-    ctx.strokeStyle = colors.primary;
-    ctx.lineWidth = Math.max(1, dpr * 0.8);
-    for (let i = 0; i < state.inputPaths.length; i++) {
-        const path = state.inputPaths[i];
-        const band = state.bands[i];
-        ctx.globalAlpha = Math.min(0.9, path.alpha + band.energy * 0.35 + (band.smoothedBinEnergy / 255) * 0.3);
-        ctx.beginPath();
-        ctx.moveTo(path.p0.x, path.p0.y);
-        ctx.bezierCurveTo(path.p1.x, path.p1.y, path.p2.x, path.p2.y, path.p3.x, path.p3.y);
-        ctx.stroke();
-    }
+            let cy = 3 * (p.p1.y - p.p0.y);
+            let by = 3 * (p.p2.y - p.p1.y) - cy;
+            let ay = p.p3.y - p.p0.y - cy - by;
 
-    ctx.strokeStyle = colors.output;
-    for (let i = 0; i < state.outputPaths.length; i++) {
-        const path = state.outputPaths[i];
-        ctx.beginPath();
-        ctx.moveTo(path.p0.x, path.p0.y);
-        ctx.bezierCurveTo(path.p1.x, path.p1.y, path.p2.x, path.p2.y, path.p3.x, path.p3.y);
-        ctx.globalAlpha = 0.12 * glowMult; // quầng thay shadowBlur=8 của nguồn
-        ctx.lineWidth = 7 * dpr;
-        ctx.stroke();
-        ctx.globalAlpha = 0.65;
-        ctx.lineWidth = 2 * dpr;
-        ctx.stroke();
-    }
-    ctx.restore();
-}
+            let xt = ax * Math.pow(t, 3) + bx * Math.pow(t, 2) + cx * t + p.p0.x;
+            let yt = ay * Math.pow(t, 3) + by * Math.pow(t, 2) + cy * t + p.p0.y;
 
-/**
- * Vẽ hạt vào (mờ dần ở 2 đầu như nguồn), hạt ra (to, sáng) và burst tan rã. Quầng = 1 vòng tròn
- * lớn alpha thấp dưới lõi trắng, thay shadowBlur.
- */
-function paintBrainParticles(ctx, state, colors, glowMult, dpr) {
-    ctx.save();
-    for (let i = 0; i < state.inflow.length; i++) {
-        const p = state.inflow[i];
-        const alpha = Math.sin(Math.min(1, p.t) * Math.PI);
-        ctx.fillStyle = colors.primary;
-        ctx.globalAlpha = alpha * 0.28 * glowMult;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.size * 3.2, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = colors.particle;
-        ctx.globalAlpha = alpha;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
-    }
-    for (let i = 0; i < state.outflow.length; i++) {
-        const p = state.outflow[i];
-        const alpha = Math.sin(Math.min(1, p.t) * Math.PI);
-        ctx.fillStyle = colors.output;
-        ctx.globalAlpha = alpha * 0.35 * glowMult;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.size + p.glow, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = colors.particle;
-        ctx.globalAlpha = alpha;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
-    }
-    for (let i = 0; i < state.bursts.length; i++) {
-        const b = state.bursts[i];
-        ctx.fillStyle = colors.primary;
-        ctx.globalAlpha = Math.max(0, b.alpha) * 0.3 * glowMult;
-        ctx.beginPath(); ctx.arc(b.x, b.y, b.radius * 2, 0, Math.PI * 2); ctx.fill();
-        ctx.globalAlpha = Math.max(0, b.alpha);
-        ctx.beginPath(); ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.restore();
-}
+            return { x: xt, y: yt };
+        }
 
-/**
- * Vẽ "Brain Filter": vòng ngoài + quầng, vòng phụ nhấp nháy, nền gradient, lưới mesh (1 path, 1
- * lần stroke, cạnh tính sẵn) và các node trắng có quầng (gom 1 path mỗi loại).
- */
-function paintBrainFilter(ctx, state, colors, glowMult, dpr) {
-    const f = state.filter;
-    ctx.save();
+        function drawLabelsAndTimeline() {
+            const currentTheme = themes[config.theme];
+            ctx.save();
+            
+            // Scaled Font setup
+            let fontBase = Math.max(10, Math.round(width * 0.012));
+            ctx.textAlign = 'center';
 
-    // 1. Vòng ngoài + quầng (thay shadowBlur=20 bằng 2 nét rộng alpha thấp) — sáng thêm khi có xung tới đích
-    ctx.strokeStyle = colors.primary;
-    ctx.beginPath();
-    ctx.ellipse(f.x, f.y, f.rx, f.ry, 0, 0, Math.PI * 2);
-    ctx.globalAlpha = (0.07 + state.flash * 0.12) * glowMult;
-    ctx.lineWidth = 14 * dpr;
-    ctx.stroke();
-    ctx.globalAlpha = (0.16 + state.flash * 0.2) * glowMult;
-    ctx.lineWidth = 7 * dpr;
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-    ctx.lineWidth = (3 + state.flash * 1.5) * dpr;
-    ctx.stroke();
+            // 1. Left Label: 1000000 INFORMATION SIGNALS
+            ctx.font = `700 ${fontBase * 1.1}px 'Space Grotesk', sans-serif`;
+            ctx.fillStyle = '#f8fafc';
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 4;
+            ctx.fillText("1000000", leftPersonPos.x + width * 0.08, height * 0.18);
+            ctx.font = `600 ${fontBase * 0.85}px 'Space Grotesk', sans-serif`;
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText("INFORMATION SIGNALS", leftPersonPos.x + width * 0.08, height * 0.18 + fontBase * 1.2);
 
-    // Vòng phụ nhấp nháy (nguồn: 0.4 + sin(time*0.003)*0.2, time = ms)
-    ctx.beginPath();
-    ctx.ellipse(f.x, f.y, f.rx * 1.08, f.ry * 1.05, 0, 0, Math.PI * 2);
-    ctx.strokeStyle = colors.secondary;
-    ctx.lineWidth = Math.max(1, dpr);
-    ctx.globalAlpha = Math.min(1, 0.4 + Math.sin(state.clock * 3) * 0.2 + state.flash * 0.3);
-    ctx.stroke();
+            // 2. Middle Label: BRAIN FILTER
+            ctx.font = `700 ${fontBase * 1.05}px 'Space Grotesk', sans-serif`;
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillText("BRAIN FILTER", filterPos.x, filterPos.y - filterPos.ry - fontBase * 1.2);
 
-    // Nền gradient (GIỮ NGUYÊN màu nguồn; bán kính = bán trục lớn để khung dọc/ngang đều phủ hết)
-    const fillGrad = ctx.createRadialGradient(f.x, f.y, 5 * dpr, f.x, f.y, Math.max(f.rx, f.ry));
-    fillGrad.addColorStop(0, 'rgba(15, 23, 42, 0.7)');
-    fillGrad.addColorStop(0.8, 'rgba(30, 41, 59, 0.4)');
-    fillGrad.addColorStop(1, 'rgba(56, 189, 248, 0.05)');
-    ctx.beginPath();
-    ctx.ellipse(f.x, f.y, f.rx, f.ry, 0, 0, Math.PI * 2);
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = fillGrad;
-    ctx.fill();
+            // 3. Right Label: ONLY A FEW EVENTS REACH YOUR AWARENESS
+            ctx.font = `700 ${fontBase * 1.05}px 'Space Grotesk', sans-serif`;
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillText("ONLY A FEW EVENTS", rightPersonPos.x - width * 0.06, height * 0.18);
+            ctx.font = `600 ${fontBase * 0.85}px 'Space Grotesk', sans-serif`;
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText("REACH YOUR AWARENESS", rightPersonPos.x - width * 0.06, height * 0.18 + fontBase * 1.2);
 
-    // 2. Lưới mesh — 1 path cho toàn bộ cạnh
-    ctx.beginPath();
-    for (let i = 0; i < state.edges.length; i++) {
-        const a = state.nodes[state.edges[i][0]], b = state.nodes[state.edges[i][1]];
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-    }
-    ctx.globalAlpha = 0.35;
-    ctx.strokeStyle = colors.primary;
-    ctx.lineWidth = Math.max(0.6, dpr * 0.8);
-    ctx.stroke();
+            // 4. Bottom Axis Timeline Line
+            let axisY = height * 0.88;
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(leftPersonPos.x, axisY);
+            ctx.lineTo(rightPersonPos.x, axisY);
+            ctx.stroke();
+            ctx.setLineDash([]); // reset line dash
 
-    // 3. Node: quầng (1 path) rồi lõi trắng (1 path)
-    ctx.fillStyle = colors.primary;
-    ctx.globalAlpha = 0.22 * glowMult;
-    ctx.beginPath();
-    for (let i = 0; i < state.nodes.length; i++) {
-        const n = state.nodes[i];
-        ctx.moveTo(n.x + n.size * 3, n.y);
-        ctx.arc(n.x, n.y, n.size * 3, 0, Math.PI * 2);
-    }
-    ctx.fill();
-    ctx.fillStyle = colors.particle;
-    ctx.globalAlpha = 0.9;
-    ctx.beginPath();
-    for (let i = 0; i < state.nodes.length; i++) {
-        const n = state.nodes[i];
-        ctx.moveTo(n.x + n.size, n.y);
-        ctx.arc(n.x, n.y, n.size, 0, Math.PI * 2);
-    }
-    ctx.fill();
+            // Timeline Node Points & Arrows
+            let axisNodes = [leftPersonPos.x, filterPos.x, rightPersonPos.x];
+            axisNodes.forEach(nx => {
+                ctx.beginPath();
+                ctx.arc(nx, axisY, 3, 0, Math.PI * 2);
+                ctx.fillStyle = '#94a3b8';
+                ctx.fill();
+            });
 
-    ctx.restore();
-}
+            // Right Arrow head on Timeline
+            ctx.beginPath();
+            ctx.moveTo(rightPersonPos.x - 6, axisY - 4);
+            ctx.lineTo(rightPersonPos.x, axisY);
+            ctx.lineTo(rightPersonPos.x - 6, axisY + 4);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawBrainFilter(time) {
+            const currentTheme = themes[config.theme];
+            ctx.save();
+
+            // 1. Outer Glowing Ellipse Aura
+            ctx.beginPath();
+            ctx.ellipse(filterPos.x, filterPos.y, filterPos.rx, filterPos.ry, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = currentTheme.primary;
+            ctx.lineWidth = 3;
+            ctx.shadowColor = currentTheme.primary;
+            ctx.shadowBlur = 20;
+            ctx.stroke();
+
+            // Secondary subtle outer ring
+            ctx.beginPath();
+            ctx.ellipse(filterPos.x, filterPos.y, filterPos.rx * 1.08, filterPos.ry * 1.05, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = currentTheme.secondary;
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.4 + Math.sin(time * 0.003) * 0.2;
+            ctx.stroke();
+
+            // Fill Ellipse background gradient
+            let fillGrad = ctx.createRadialGradient(
+                filterPos.x, filterPos.y, 5,
+                filterPos.x, filterPos.y, filterPos.ry
+            );
+            fillGrad.addColorStop(0, 'rgba(15, 23, 42, 0.7)');
+            fillGrad.addColorStop(0.8, 'rgba(30, 41, 59, 0.4)');
+            fillGrad.addColorStop(1, 'rgba(56, 189, 248, 0.05)');
+            ctx.fillStyle = fillGrad;
+            ctx.fill();
+
+            // 2. Draw Connections between internal filter nodes (Neural Mesh)
+            ctx.globalAlpha = 0.35;
+            ctx.strokeStyle = currentTheme.primary;
+            ctx.lineWidth = 0.8;
+            for (let i = 0; i < filterNodes.length; i++) {
+                for (let j = i + 1; j < filterNodes.length; j++) {
+                    let dx = filterNodes[i].x - filterNodes[j].x;
+                    let dy = filterNodes[i].y - filterNodes[j].y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < filterPos.rx * 0.75) {
+                        ctx.beginPath();
+                        ctx.moveTo(filterNodes[i].x, filterNodes[i].y);
+                        ctx.lineTo(filterNodes[j].x, filterNodes[j].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // 3. Update & Draw Neural Filter Nodes
+            ctx.globalAlpha = 0.9;
+            filterNodes.forEach(node => {
+                // Slight floating motion
+                node.pulse += 0.04;
+                node.x = node.baseX + Math.sin(node.pulse) * 2;
+                node.y = node.baseY + Math.cos(node.pulse) * 2;
+
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, node.size, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowColor = currentTheme.primary;
+                ctx.shadowBlur = 6;
+                ctx.fill();
+            });
+
+            ctx.restore();
+        }
+
+        function drawCurvesAndParticles(time) {
+            const currentTheme = themes[config.theme];
+
+            // 1. Draw Dense Input Bezier Curves (Left -> Filter)
+            ctx.save();
+            inputPaths.forEach((path, idx) => {
+                ctx.beginPath();
+                ctx.moveTo(path.p0.x, path.p0.y);
+                ctx.bezierCurveTo(path.p1.x, path.p1.y, path.p2.x, path.p2.y, path.p3.x, path.p3.y);
+                ctx.strokeStyle = currentTheme.primary;
+                ctx.globalAlpha = path.alpha;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            });
+            ctx.restore();
+
+            // 2. Draw Sparse Output Bezier Curves (Filter -> Right)
+            ctx.save();
+            outputPaths.forEach(path => {
+                ctx.beginPath();
+                ctx.moveTo(path.p0.x, path.p0.y);
+                ctx.bezierCurveTo(path.p1.x, path.p1.y, path.p2.x, path.p2.y, path.p3.x, path.p3.y);
+                ctx.strokeStyle = currentTheme.outputLine;
+                ctx.globalAlpha = 0.65;
+                ctx.lineWidth = 2;
+                ctx.shadowColor = currentTheme.outputLine;
+                ctx.shadowBlur = 8;
+                ctx.stroke();
+            });
+            ctx.restore();
+
+            // 3. Update & Render Flowing Particles
+            ctx.save();
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                if (!isPaused) {
+                    p.t += p.speed * config.speedMultiplier;
+                }
+
+                if (p.isInput) {
+                    let path = inputPaths[p.pathIndex];
+                    if (!path) continue;
+
+                    let pt = getBezierPoint(path, p.t);
+
+                    // Render input particle
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, p.size, 0, Math.PI * 2);
+                    ctx.fillStyle = currentTheme.particle;
+                    ctx.shadowColor = currentTheme.primary;
+                    ctx.shadowBlur = p.glow;
+                    ctx.globalAlpha = Math.sin(p.t * Math.PI); // Smooth fade-in/fade-out
+                    ctx.fill();
+
+                    // When particle hits the Brain Filter boundary (t >= 1)
+                    if (p.t >= 1) {
+                        // Filter logic: strictness determines how many get blocked
+                        let passFilter = Math.random() > config.filterStrictness;
+
+                        if (passFilter) {
+                            // Passed through brain filter! Spawn output particle
+                            let randomOutIdx = Math.floor(Math.random() * outputPaths.length);
+                            particles.push({
+                                pathIndex: randomOutIdx,
+                                isInput: false,
+                                t: 0,
+                                speed: Math.random() * 0.004 + 0.003,
+                                size: 2.8,
+                                glow: 12
+                            });
+                        } else {
+                            // Dissolved/Filtered out! Spawn micro burst spark
+                            bursts.push({
+                                x: pt.x,
+                                y: pt.y,
+                                radius: Math.random() * 4 + 2,
+                                alpha: 0.8,
+                                color: currentTheme.primary
+                            });
+                        }
+
+                        // Reset input particle to start again
+                        p.t = 0;
+                        p.speed = Math.random() * 0.003 + 0.002;
+                    }
+                } else {
+                    // Output Particle moving towards right awareness
+                    let path = outputPaths[p.pathIndex];
+                    if (!path) continue;
+
+                    let pt = getBezierPoint(path, p.t);
+
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, p.size, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.shadowColor = currentTheme.outputLine;
+                    ctx.shadowBlur = p.glow;
+                    ctx.globalAlpha = Math.sin(p.t * Math.PI);
+                    ctx.fill();
+
+                    if (p.t >= 1) {
+                        // Reached awareness figure!
+                        particles.splice(i, 1);
+                    }
+                }
+            }
+            ctx.restore();
+
+            // 4. Render Dissolve Spark Bursts at Filter Wall
+            ctx.save();
+            for (let b = bursts.length - 1; b >= 0; b--) {
+                let burst = bursts[b];
+                ctx.beginPath();
+                ctx.arc(burst.x, burst.y, burst.radius, 0, Math.PI * 2);
+                ctx.fillStyle = burst.color;
+                ctx.globalAlpha = burst.alpha;
+                ctx.shadowColor = burst.color;
+                ctx.shadowBlur = 6;
+                ctx.fill();
+
+                if (!isPaused) {
+                    burst.radius += 0.3;
+                    burst.alpha -= 0.06;
+                }
+
+                if (burst.alpha <= 0) {
+                    bursts.splice(b, 1);
+                }
+            }
+            ctx.restore();
+        }
+        // Interactive Signal Burst on Click or Touch
+        function triggerBurst(clickX, clickY) {
+            // Spawn temporary burst of signals from left person
+            for (let i = 0; i < 25; i++) {
+                let randomInputIdx = Math.floor(Math.random() * inputPaths.length);
+                particles.push({
+                    pathIndex: randomInputIdx,
+                    isInput: true,
+                    t: 0,
+                    speed: Math.random() * 0.008 + 0.005,
+                    size: Math.random() * 2.5 + 1.5,
+                    glow: 8
+                });
+            }
+        }
+
+        // ===== Phần KEO (không có trong gốc) =====
+        let _lastW = 0, _lastH = 0;
+
+        // Thân = phần tính vị trí của resizeCanvas() gốc (nguyên văn), chỉ bỏ dòng set canvas.width/height
+        // vì SAV đã set kích thước canvas.
+        function _layoutFromCanvas() {
+            width = canvas.width;
+            height = canvas.height;
+
+            // Compute positions based on dimensions
+            leftPersonPos = { x: width * 0.07, y: height * 0.5 };
+            rightPersonPos = { x: width * 0.93, y: height * 0.5 };
+            
+            filterPos = {
+                x: width * 0.54,
+                y: height * 0.5,
+                rx: width * 0.045,
+                ry: height * 0.32
+            };
+
+            initNodesAndPaths();
+        }
+
+        // Thay animate(time) gốc: bỏ clearRect (SAV đã clear) và requestAnimationFrame (SAV tự gọi mỗi frame).
+        function draw(ctxArg, canvasEl, time) {
+            ctx = ctxArg;
+            canvas = canvasEl;
+            if (canvas.width !== _lastW || canvas.height !== _lastH) {
+                _lastW = canvas.width; _lastH = canvas.height;
+                _layoutFromCanvas();
+            }
+            drawLabelsAndTimeline();
+            drawCurvesAndParticles(time);
+            drawBrainFilter(time);
+        }
+
+        return { draw, triggerBurst };
+})();
