@@ -33,7 +33,20 @@
  * SỬA (22/09/2026, yêu cầu Giang "loại bỏ mấy text của connector brain") — điểm lệch THỨ BA: bỏ hẳn
  * 3 khối fillText() nhãn chữ ("1000000 INFORMATION SIGNALS"/"BRAIN FILTER"/"ONLY A FEW EVENTS REACH
  * YOUR AWARENESS") — hàm gốc `drawLabelsAndTimeline` đổi tên thành `drawTimeline` cho khớp (chỉ còn
- * vẽ trục thời gian dưới: đường đứt + node tròn + mũi tên, không phải text nên giữ nguyên).
+ * vẽ trục thời gian dưới: đường đứt + dãy dot + mũi tên, không phải text nên giữ nguyên).
+ *
+ * SỬA (22/09/2026, Giang mô tả "lan truyền bắt đầu pos start giống như sóng đánh") — điểm lệch THỨ
+ * TƯ: trục thời gian giờ là 1 DÃY dot đều nhau (`TIMELINE_DOT_COUNT`) từ start pos đến end pos —
+ * không còn 3 dot đặc biệt trái/giữa/phải, mọi dot "phẳng" như nhau. Mỗi beat mới sinh 1 CỤM
+ * `clusterSize` dot liên tiếp bắt đầu từ start pos — `clusterSize` (1-7) quy đổi từ nốt nhạc đang
+ * detect (`lastValidMidiNote`, có sẵn ở core/audio-analysis.js, chia đều 12 semitone thành 7 mức).
+ * Cụm dịch MƯỢT (nội suy liên tục, không nhảy nguyên) sang dot+1, quãng đường dịch được (bao nhiêu %
+ * trục) scale min-max theo `smoothedEnergy` lúc sinh cụm. Từng dot TRONG cụm phồng/sáng khác nhau
+ * theo năng lượng dải tần riêng của chính nó (tái dùng `computeNeuronBinEnergy()`, core/visualizer/
+ * groups/connector/synapse.js — cùng kỹ thuật tonotopic style synapse đang dùng). Phát hiện "beat
+ * mới" bằng envelope nội bộ riêng (tái dùng `computeMotionEngineBeatReactEnvelope()`, core/motion-
+ * engine.js). Đây là điểm audio ĐẦU TIÊN nối vào style brain — mọi phần khác (ellipse/curves/
+ * particles) vẫn free-running Math.random(), CHƯA nối audio.
  */
 const brainFilterOriginal = (function () {
         let canvas = null;
@@ -59,63 +72,74 @@ const brainFilterOriginal = (function () {
             return getComputedColor(roleIndex, 3, BRAIN_COLOR_DATA_VALUE); // { fill, fillNoAlpha, glow }
         }
 
-        // KEO (22/09/2026, yêu cầu Giang "lan truyền bắt đầu pos start giống như sóng đánh") — trục
-        // thời gian: mỗi lần phát hiện 1 beat MỚI, sinh 1 "sóng" bắt đầu ở pos start (leftPersonPos.x)
-        // rồi lan sang phải theo `t` (0→1, TIMELINE_WAVE_TRAVEL_MS) — biên độ tự giảm dần theo
-        // `(1 - t)` (mất sức khi lan xa, đúng ý sóng đánh). Nhiều sóng chồng nhau được (mảng, giống
-        // cách file quản lý `bursts`/`particles`). Phát hiện "beat mới" bằng 1 envelope NỘI BỘ RIÊNG
-        // (không dùng chung `getBrainRoleColor` ở trên — khác mục đích): beatScale phải nhảy vọt đủ
-        // xa (TIMELINE_WAVE_MIN_JUMP) so với envelope đang tự decay (tái dùng
-        // computeMotionEngineBeatReactEnvelope(), core/motion-engine.js — đúng dáng "bắt tức thời,
-        // nhả êm theo thời gian thật" đã có sẵn, không viết detector riêng) VÀ đã đủ lâu kể từ lần
-        // sinh sóng trước (TIMELINE_WAVE_COOLDOWN_MS) mới tính là 1 beat mới — chặn sinh sóng dồn dập
-        // mỗi frame khi nhạc to liên tục.
-        const TIMELINE_WAVE_TRAVEL_MS = 600;
-        const TIMELINE_WAVE_DECAY_MS = 260;
-        const TIMELINE_WAVE_MIN_JUMP = 0.12;
-        const TIMELINE_WAVE_COOLDOWN_MS = 150;
-        const TIMELINE_DOT_BASE_RADIUS = 3; // khớp bán kính cố định gốc — baseline lúc không có sóng
+        // KEO (22/09/2026, thiết kế lại theo Giang) — THAY HẲN cơ chế "sóng lan liên tục + 3 dot bump"
+        // ở bản trước (đã gỡ): trục thời gian giờ là 1 DÃY dot đều nhau (TIMELINE_DOT_COUNT) từ start
+        // pos (leftPersonPos.x) đến end pos (rightPersonPos.x) — không còn 3 dot đặc biệt trái/giữa/
+        // phải, mọi dot "phẳng" như nhau. Mỗi beat MỚI sinh 1 CỤM (`timelineClusters`, mảng, nhiều cụm
+        // chồng nhau được): `clusterSize` dot liên tiếp bắt đầu từ dot 0 (start pos) được scale lên,
+        // rồi dịch MƯỢT (nội suy dot theo t liên tục, không nhảy cứng số nguyên) sang dot+1, +2...
+        // Phát hiện "beat mới": envelope nội bộ RIÊNG (khác `getBrainRoleColor` ở trên — khác mục
+        // đích) tái dùng computeMotionEngineBeatReactEnvelope() (core/motion-engine.js, có sẵn, đúng
+        // dáng "bắt tức thời, nhả êm theo thời gian thật") — beatScale nhảy đủ xa envelope đang decay
+        // + đủ lâu kể từ lần sinh cụm trước mới tính beat mới, chặn sinh cụm dồn dập khi nhạc to liên
+        // tục.
+        const TIMELINE_DOT_COUNT = 40;
+        const TIMELINE_DOT_BASE_RADIUS = 3; // khớp bán kính cố định gốc — baseline lúc không có cụm
         const TIMELINE_DOT_MAX_RADIUS = 7;
+        const TIMELINE_CLUSTER_TRAVEL_MS = 700; // thời gian cụm dịch hết quãng đường của nó
+        const TIMELINE_CLUSTER_MIN_TRAVEL_FRAC = 0.15; // smoothedEnergy thấp -> cụm dịch tối thiểu 15% trục
+        const TIMELINE_CLUSTER_MAX_TRAVEL_FRAC = 0.7;  // smoothedEnergy cao -> tối đa 70% trục
+        const TIMELINE_ONSET_DECAY_MS = 260;
+        const TIMELINE_ONSET_MIN_JUMP = 0.12;
+        const TIMELINE_ONSET_COOLDOWN_MS = 150;
         let _timelineOnsetEnvelope = 0;
-        let _timelineLastWaveTime = -Infinity;
+        let _timelineLastClusterTime = -Infinity;
         let _timelineLastUpdateTime = 0;
-        let timelineWaves = [];
+        let timelineClusters = []; // { startTime, clusterSize, travelDots }
 
-        /** Cập nhật mỗi frame: phát hiện beat mới (sinh sóng) + dọn sóng đã lan hết (t >= 1). */
-        function _updateTimelineWaves(time, beatScale) {
+        /** Nốt MIDI (0-127, appState.lastValidMidiNote — Workflow tự đọc rồi truyền vào, Rule 2) ->
+         * số dot trong cụm (1-7): chia đều 12 semitone trong 1 quãng 8 thành 7 mức (yêu cầu Giang).
+         * Không có nốt hợp lệ gần đây (null/undefined) -> mặc định 1 dot. */
+        function _pitchToClusterSize(midiNote) {
+            if (midiNote === null || midiNote === undefined) return 1;
+            const level = Math.floor(((midiNote % 12 + 12) % 12) / 12 * 7); // 0-6
+            return Math.min(7, Math.max(1, level + 1));
+        }
+
+        /** Cập nhật mỗi frame: phát hiện beat mới (sinh cụm — quãng đường theo smoothedEnergy HIỆN
+         * TẠI lúc sinh, kích cỡ theo nốt nhạc HIỆN TẠI lúc sinh) + dọn cụm đã dịch hết quãng đường
+         * (t >= 1). */
+        function _updateTimelineClusters(time, beatScale, smoothedEnergy, midiNote) {
             const deltaMs = _timelineLastUpdateTime ? Math.min(time - _timelineLastUpdateTime, 100) : 16; // cap phòng tab ẩn/giật frame
             _timelineLastUpdateTime = time;
 
-            const isOnset = (beatScale - _timelineOnsetEnvelope) > TIMELINE_WAVE_MIN_JUMP
-                && (time - _timelineLastWaveTime) >= TIMELINE_WAVE_COOLDOWN_MS;
-            _timelineOnsetEnvelope = computeMotionEngineBeatReactEnvelope(_timelineOnsetEnvelope, beatScale, deltaMs, TIMELINE_WAVE_DECAY_MS); // core/motion-engine.js
+            const isOnset = (beatScale - _timelineOnsetEnvelope) > TIMELINE_ONSET_MIN_JUMP
+                && (time - _timelineLastClusterTime) >= TIMELINE_ONSET_COOLDOWN_MS;
+            _timelineOnsetEnvelope = computeMotionEngineBeatReactEnvelope(_timelineOnsetEnvelope, beatScale, deltaMs, TIMELINE_ONSET_DECAY_MS); // core/motion-engine.js
 
             if (isOnset) {
-                _timelineLastWaveTime = time;
-                timelineWaves.push({ startTime: time, amplitude: beatScale });
+                _timelineLastClusterTime = time;
+                const travelFrac = TIMELINE_CLUSTER_MIN_TRAVEL_FRAC + smoothedEnergy * (TIMELINE_CLUSTER_MAX_TRAVEL_FRAC - TIMELINE_CLUSTER_MIN_TRAVEL_FRAC);
+                timelineClusters.push({
+                    startTime: time,
+                    clusterSize: _pitchToClusterSize(midiNote),
+                    travelDots: travelFrac * TIMELINE_DOT_COUNT
+                });
             }
 
-            for (let i = timelineWaves.length - 1; i >= 0; i--) {
-                if ((time - timelineWaves[i].startTime) / TIMELINE_WAVE_TRAVEL_MS >= 1) timelineWaves.splice(i, 1);
+            for (let i = timelineClusters.length - 1; i >= 0; i--) {
+                if ((time - timelineClusters[i].startTime) / TIMELINE_CLUSTER_TRAVEL_MS >= 1) timelineClusters.splice(i, 1);
             }
         }
 
-        /** Độ "phồng" (0-1+) tại 1 điểm x trên trục do các sóng đang lan gây ra — falloff Gaussian
-         * quanh vị trí sóng hiện tại, lấy MAX qua mọi sóng đang hoạt động (không cộng dồn, tránh
-         * phồng quá đà khi nhiều sóng chồng nhau gần nhau). */
-        function _timelineBumpAt(x, time, falloffPx) {
-            let bump = 0;
-            for (let i = 0; i < timelineWaves.length; i++) {
-                const w = timelineWaves[i];
-                const t = (time - w.startTime) / TIMELINE_WAVE_TRAVEL_MS;
-                if (t < 0 || t > 1) continue;
-                const waveX = leftPersonPos.x + t * (rightPersonPos.x - leftPersonPos.x);
-                const strength = w.amplitude * (1 - t); // yếu dần theo quãng đường đã lan
-                const dist = x - waveX;
-                const falloff = Math.exp(-(dist * dist) / (2 * falloffPx * falloffPx));
-                bump = Math.max(bump, strength * falloff);
-            }
-            return bump;
+        /** Độ phủ (0-1) của dot `dotIndex` bởi 1 cụm có dot ĐẦU đang ở `startDotIndex` (số thực —
+         * nội suy mượt, không phải số nguyên), rộng `clusterSize` dot — lõi cụm phủ đầy (1), mép mỗi
+         * bên chuyển mượt qua đúng 1 dot (0→1) thay vì bật/tắt cứng, khớp ý "dịch mượt dần". */
+        function _clusterCoverage(dotIndex, startDotIndex, clusterSize) {
+            const rel = dotIndex - startDotIndex;
+            if (rel <= -1 || rel >= clusterSize) return 0;
+            if (rel >= 0 && rel <= clusterSize - 1) return 1;
+            return rel < 0 ? (1 + rel) : (1 - (rel - (clusterSize - 1)));
         }
 
         let width, height;
@@ -247,16 +271,18 @@ const brainFilterOriginal = (function () {
         // SỬA (22/09/2026, yêu cầu Giang "loại bỏ mấy text của connector brain") — bỏ hẳn 3 khối
         // fillText() gốc (nhãn "1000000 INFORMATION SIGNALS" trái, "BRAIN FILTER" giữa, "ONLY A FEW
         // EVENTS REACH YOUR AWARENESS" phải) — điểm lệch THỨ HAI khỏi "verbatim, không tự đổi" ban
-        // đầu (điểm đầu là màu, xem đầu file). Giữ nguyên trục thời gian dưới (đường đứt + node tròn
-        // + mũi tên) — không phải text. Đổi tên hàm cho khớp (không còn vẽ label nữa).
+        // đầu (điểm đầu là màu, xem đầu file). Giữ nguyên trục thời gian dưới (đường đứt + mũi tên).
+        // Đổi tên hàm cho khớp (không còn vẽ label nữa).
         //
-        // SỬA TIẾP (22/09/2026, "sóng đánh" lan dọc trục — xem khối TIMELINE_WAVE_* đầu file) — nhận
-        // thêm `time`/`beatScale` để cập nhật + vẽ sóng: 3 node tròn phồng lên khi sóng đi ngang qua
-        // (_timelineBumpAt), CỘNG 1 điểm sáng di chuyển đúng theo vị trí sóng hiện tại.
-        function drawTimeline(time, beatScale) {
+        // SỬA TIẾP (22/09/2026, thiết kế lại theo Giang — xem khối TIMELINE_* đầu file) — nhận thêm
+        // `time`/`beatScale`/`smoothedEnergy`/`vizDataArray`/`bufferLength`/`midiNote`: vẽ dãy
+        // `TIMELINE_DOT_COUNT` dot đều nhau dọc trục, cụm dot (nếu có) phồng + sáng theo năng lượng
+        // dải tần riêng từng dot trong cụm (tái dùng computeNeuronBinEnergy(), core/visualizer/
+        // groups/connector/synapse.js — nạp trước file này).
+        function drawTimeline(time, beatScale, smoothedEnergy, vizDataArray, bufferLength, midiNote) {
             ctx.save();
 
-            _updateTimelineWaves(time, beatScale);
+            _updateTimelineClusters(time, beatScale, smoothedEnergy, midiNote);
 
             // Bottom Axis Timeline Line
             let axisY = stageOffsetY + stageH * 0.88;
@@ -269,17 +295,46 @@ const brainFilterOriginal = (function () {
             ctx.stroke();
             ctx.setLineDash([]); // reset line dash
 
-            const falloffPx = (rightPersonPos.x - leftPersonPos.x) * 0.06;
+            // Mỗi cụm đang hoạt động: tính TRƯỚC vị trí + năng lượng dải tần riêng từng dot trong cụm
+            // (1 lần/cụm/frame — tránh gọi computeNeuronBinEnergy() lặp lại cho từng dot ở vòng dưới).
+            const activeClusters = [];
+            for (let c = 0; c < timelineClusters.length; c++) {
+                const cluster = timelineClusters[c];
+                const t = (time - cluster.startTime) / TIMELINE_CLUSTER_TRAVEL_MS;
+                if (t < 0 || t > 1) continue;
+                const binEnergies = [];
+                for (let k = 0; k < cluster.clusterSize; k++) {
+                    binEnergies.push(computeNeuronBinEnergy(vizDataArray, bufferLength, k, cluster.clusterSize) / 255); // core/visualizer/groups/connector/synapse.js
+                }
+                activeClusters.push({ startDotIndex: t * cluster.travelDots, clusterSize: cluster.clusterSize, binEnergies });
+            }
 
-            // Timeline Node Points & Arrows — phồng lên khi sóng đi ngang qua
-            let axisNodes = [leftPersonPos.x, filterPos.x, rightPersonPos.x];
-            axisNodes.forEach(nx => {
-                const bump = _timelineBumpAt(nx, time, falloffPx);
+            // Dãy dot dọc trục — dot nằm trong 1 cụm đang hoạt động thì phồng + sáng theo năng lượng
+            // dải tần riêng của chính nó trong cụm đó; dot khác giữ nguyên baseline xám cố định.
+            const primary = activeClusters.length > 0 ? getBrainRoleColor(0) : null;
+            for (let i = 0; i < TIMELINE_DOT_COUNT; i++) {
+                const dx = leftPersonPos.x + (i / (TIMELINE_DOT_COUNT - 1)) * (rightPersonPos.x - leftPersonPos.x);
+                let boost = 0; // MAX qua mọi cụm — không cộng dồn, tránh phồng quá đà khi nhiều cụm chồng nhau
+                for (let c = 0; c < activeClusters.length; c++) {
+                    const ac = activeClusters[c];
+                    const coverage = _clusterCoverage(i, ac.startDotIndex, ac.clusterSize);
+                    if (coverage <= 0) continue;
+                    const withinCluster = Math.min(ac.clusterSize - 1, Math.max(0, Math.round(i - ac.startDotIndex)));
+                    boost = Math.max(boost, coverage * ac.binEnergies[withinCluster]);
+                }
                 ctx.beginPath();
-                ctx.arc(nx, axisY, TIMELINE_DOT_BASE_RADIUS + bump * (TIMELINE_DOT_MAX_RADIUS - TIMELINE_DOT_BASE_RADIUS), 0, Math.PI * 2);
-                ctx.fillStyle = '#94a3b8';
+                ctx.arc(dx, axisY, TIMELINE_DOT_BASE_RADIUS + boost * (TIMELINE_DOT_MAX_RADIUS - TIMELINE_DOT_BASE_RADIUS), 0, Math.PI * 2);
+                if (boost > 0) {
+                    ctx.fillStyle = primary.glow;
+                    ctx.shadowColor = primary.glow;
+                    ctx.shadowBlur = 6 * boost;
+                } else {
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.shadowBlur = 0;
+                }
                 ctx.fill();
-            });
+            }
+            ctx.shadowBlur = 0;
 
             // Right Arrow head on Timeline
             ctx.beginPath();
@@ -289,24 +344,6 @@ const brainFilterOriginal = (function () {
             ctx.strokeStyle = '#94a3b8';
             ctx.lineWidth = 2;
             ctx.stroke();
-
-            // Điểm sáng di chuyển theo sóng — màu theo app (connector), vẽ SAU cùng để nổi lên trên
-            if (timelineWaves.length > 0) {
-                const primary = getBrainRoleColor(0);
-                timelineWaves.forEach((w) => {
-                    const t = (time - w.startTime) / TIMELINE_WAVE_TRAVEL_MS;
-                    if (t < 0 || t > 1) return;
-                    const waveX = leftPersonPos.x + t * (rightPersonPos.x - leftPersonPos.x);
-                    const strength = w.amplitude * (1 - t); // yếu dần theo quãng đường đã lan
-                    ctx.beginPath();
-                    ctx.arc(waveX, axisY, TIMELINE_DOT_BASE_RADIUS + strength * (TIMELINE_DOT_MAX_RADIUS - TIMELINE_DOT_BASE_RADIUS), 0, Math.PI * 2);
-                    ctx.fillStyle = primary.glow;
-                    ctx.shadowColor = primary.glow;
-                    ctx.shadowBlur = 8;
-                    ctx.globalAlpha = Math.min(1, strength * 1.5);
-                    ctx.fill();
-                });
-            }
 
             ctx.restore();
         }
@@ -555,17 +592,17 @@ const brainFilterOriginal = (function () {
         }
 
         // Thay animate(time) gốc: bỏ clearRect (SAV đã clear) và requestAnimationFrame (SAV tự gọi mỗi frame).
-        // Nhận thêm `beatScale` (22/09/2026, sóng trục thời gian) — Workflow tự đọc appState rồi
+        // Nhận thêm audio params (22/09/2026, dot trục thời gian) — Workflow tự đọc appState rồi
         // truyền vào (Rule 2, core không tự appState.get()), xem _tickConnectorBrain() ở
         // event/workflow/visualizer-render.js.
-        function draw(ctxArg, canvasEl, time, beatScale) {
+        function draw(ctxArg, canvasEl, time, beatScale, smoothedEnergy, vizDataArray, bufferLength, midiNote) {
             ctx = ctxArg;
             canvas = canvasEl;
             if (canvas.width !== _lastW || canvas.height !== _lastH) {
                 _lastW = canvas.width; _lastH = canvas.height;
                 _layoutFromCanvas();
             }
-            drawTimeline(time, beatScale);
+            drawTimeline(time, beatScale, smoothedEnergy, vizDataArray, bufferLength, midiNote);
             drawCurvesAndParticles(time);
             drawBrainFilter(time);
         }
