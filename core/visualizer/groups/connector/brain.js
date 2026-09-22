@@ -45,6 +45,13 @@
  * visualizer/groups/connector/synapse.js), nội suy mượt giữa 2 dải liền kề + làm mượt theo thời gian
  * (EMA) trước khi vẽ. Đây là điểm audio ĐẦU TIÊN nối vào style brain — mọi phần khác (ellipse/curves/
  * particles) vẫn free-running Math.random(), CHƯA nối audio.
+ *
+ * SỬA (23/09/2026, yêu cầu Giang — node trong ellipse nhấp nháy theo audio) — điểm lệch THỨ NĂM:
+ * node lưới thần kinh loé theo SPECTRAL FLUX TỪNG DẢI (phần TĂNG dương của năng lượng dải so với
+ * frame trước), CỐ Ý khác đại lượng trục thời gian đang dùng (MỨC năng lượng dải) để 2 phần không
+ * trùng lặp: âm ngân dài (pad/dây kéo) chỉ làm trục phồng, còn node chỉ loé đúng lúc có âm MỚI
+ * đánh vào (trống/gảy/phụ âm) rồi tắt nhanh. Node xếp dải theo toạ độ y (đáy = bass, đỉnh =
+ * treble). Chi tiết: khối `FILTER_FLUX_*` + `_updateFilterNodeFlux()`.
  */
 const brainFilterOriginal = (function () {
         let canvas = null;
@@ -144,6 +151,48 @@ const brainFilterOriginal = (function () {
             return rel < 0 ? (1 + rel) : (1 - (rel - (clusterSize - 1)));
         }
 
+        // KEO (23/09/2026, Giang chốt "spectral flux theo dải" cho node trong ellipse) — node loé theo
+        // độ TĂNG ĐỘT NGỘT năng lượng dải của chính nó (onset/transient), không theo mức năng lượng
+        // (trục thời gian đã dùng mức — xem drawTimeline()). `FILTER_FLUX_BAND_COUNT` dải tonotopic
+        // (log, tonotopicBinRange() qua computeNeuronBinEnergy(), core/visualizer/groups/connector/
+        // synapse.js); node gán dải theo THỨ HẠNG baseY (chia đều số node mỗi dải — ellipse hẹp ở 2
+        // đầu nên chia theo toạ độ thẳng sẽ lệch số node), đáy = dải 0 (bass), đỉnh = dải cao nhất.
+        // KHÔNG dùng `previousSpectrumArray` của app: nó bị updateStatsDashboard() ghi đè bằng frame
+        // hiện tại TRƯỚC khi brain vẽ (lệch = 0) -> tự giữ bản sao frame trước theo từng dải
+        // (`filterBandPrev`). Loé: attack tức thì (lấy max), decay theo thời gian thật (hàm mũ,
+        // FILTER_FLUX_DECAY_TAU_MS) — không phụ thuộc fps.
+        const FILTER_FLUX_BAND_COUNT = 16;
+        const FILTER_FLUX_NOISE_FLOOR = 0.02;  // flux (0-1) dưới mức này coi là nhiễu FFT, bỏ qua
+        const FILTER_FLUX_GAIN = 5;            // (flux - noise floor) × gain -> độ loé mục tiêu, kẹp 0-1
+        const FILTER_FLUX_DECAY_TAU_MS = 90;   // hằng số thời gian tắt — ~200ms thì gần như tắt hẳn
+        let filterBandPrev = new Float32Array(FILTER_FLUX_BAND_COUNT);
+        let filterBandFlash = new Float32Array(FILTER_FLUX_BAND_COUNT);
+        let _filterFluxPrimed = false; // frame đầu chỉ lấy baseline — tránh loé toàn bộ do lệch từ 0 lên
+        let _filterFluxLastTime = 0;
+
+        /** Mỗi frame: tính flux dương từng dải -> cập nhật độ loé từng dải (attack tức thì, decay
+         * mũ theo dt thật). Chưa có dữ liệu FFT (audio context chưa init) thì chỉ decay dần. */
+        function _updateFilterNodeFlux(time, vizDataArray, bufferLength) {
+            const dt = _filterFluxLastTime ? Math.min(100, Math.max(0, time - _filterFluxLastTime)) : 16;
+            _filterFluxLastTime = time;
+            const decay = Math.exp(-dt / FILTER_FLUX_DECAY_TAU_MS);
+            const hasData = !!(vizDataArray && bufferLength);
+
+            for (let b = 0; b < FILTER_FLUX_BAND_COUNT; b++) {
+                let target = 0;
+                if (hasData) {
+                    const cur = computeNeuronBinEnergy(vizDataArray, bufferLength, b, FILTER_FLUX_BAND_COUNT) / 255; // core/visualizer/groups/connector/synapse.js
+                    if (_filterFluxPrimed) {
+                        const flux = cur - filterBandPrev[b];
+                        if (flux > FILTER_FLUX_NOISE_FLOOR) target = Math.min(1, (flux - FILTER_FLUX_NOISE_FLOOR) * FILTER_FLUX_GAIN);
+                    }
+                    filterBandPrev[b] = cur;
+                }
+                filterBandFlash[b] = Math.max(filterBandFlash[b] * decay, target);
+            }
+            if (hasData) _filterFluxPrimed = true;
+        }
+
         let width, height;
         // KEO (22/09/2026, Giang báo "chiều ngang nhưng bị kéo giãn ra") — bản gốc là trang
         // landscape rộng (height nhỏ hơn width nhiều) nên mọi công thức `height * tỉ lệ` ra hình
@@ -191,8 +240,16 @@ const brainFilterOriginal = (function () {
                     vx: (Math.random() - 0.5) * 0.3,
                     vy: (Math.random() - 0.5) * 0.3,
                     size: Math.random() * 2 + 1,
-                    pulse: Math.random() * Math.PI * 2
+                    pulse: Math.random() * Math.PI * 2,
+                    band: 0 // gán ngay dưới theo thứ hạng baseY
                 });
+            }
+
+            // KEO (23/09/2026) — gán dải tần theo thứ hạng baseY: node thấp nhất (y lớn nhất trên
+            // canvas) = dải 0 (bass), cao nhất = dải cuối (treble), số node mỗi dải chia đều.
+            const byY = filterNodes.slice().sort((a, b) => b.baseY - a.baseY);
+            for (let k = 0; k < byY.length; k++) {
+                byY[k].band = Math.min(FILTER_FLUX_BAND_COUNT - 1, Math.floor(k / byY.length * FILTER_FLUX_BAND_COUNT));
             }
 
             // Generate Input Signal Bezier Curves (Fan Out from human source -> converge onto filter ellipse)
@@ -423,7 +480,8 @@ const brainFilterOriginal = (function () {
             ctx.fill();
 
             // 2. Draw Connections between internal filter nodes (Neural Mesh)
-            ctx.globalAlpha = 0.35;
+            // SỬA (23/09/2026) — alpha từng đường: nền 0.35 như gốc, sáng thêm theo độ loé của node
+            // YẾU hơn trong 2 đầu (chỉ sáng hẳn khi CẢ 2 node cùng loé — tránh cả lưới bừng lên vì 1 node).
             ctx.strokeStyle = primary.fill;
             ctx.lineWidth = 0.8;
             for (let i = 0; i < filterNodes.length; i++) {
@@ -432,6 +490,7 @@ const brainFilterOriginal = (function () {
                     let dy = filterNodes[i].y - filterNodes[j].y;
                     let dist = Math.sqrt(dx * dx + dy * dy);
                     if (dist < filterPos.rx * 0.75) {
+                        ctx.globalAlpha = 0.35 + 0.55 * Math.min(filterBandFlash[filterNodes[i].band], filterBandFlash[filterNodes[j].band]);
                         ctx.beginPath();
                         ctx.moveTo(filterNodes[i].x, filterNodes[i].y);
                         ctx.lineTo(filterNodes[j].x, filterNodes[j].y);
@@ -441,18 +500,22 @@ const brainFilterOriginal = (function () {
             }
 
             // 3. Update & Draw Neural Filter Nodes
-            ctx.globalAlpha = 0.9;
+            // SỬA (23/09/2026) — loé theo spectral flux dải của node (filterBandFlash): nghỉ mờ hơn gốc
+            // (alpha 0.55 thay 0.9 cố định — cần độ tương phản để thấy nhấp nháy), loé thì alpha 1,
+            // bán kính to tới 2.2×, glow 6 -> 20.
             filterNodes.forEach(node => {
                 // Slight floating motion
                 node.pulse += 0.04;
                 node.x = node.baseX + Math.sin(node.pulse) * 2;
                 node.y = node.baseY + Math.cos(node.pulse) * 2;
 
+                const flash = filterBandFlash[node.band];
+                ctx.globalAlpha = 0.55 + 0.45 * flash;
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, node.size, 0, Math.PI * 2);
+                ctx.arc(node.x, node.y, node.size * (1 + flash * 1.2), 0, Math.PI * 2);
                 ctx.fillStyle = primary.glow; // trước trắng cố định — nay theo màu app (Giang: "chuyển hết")
                 ctx.shadowColor = primary.glow;
-                ctx.shadowBlur = 6;
+                ctx.shadowBlur = 6 + flash * 14;
                 ctx.fill();
             });
 
@@ -650,6 +713,7 @@ const brainFilterOriginal = (function () {
             }
             drawTimeline(time, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote);
             drawCurvesAndParticles(time);
+            _updateFilterNodeFlux(time, vizDataArray, bufferLength);
             drawBrainFilter(time);
         }
 
