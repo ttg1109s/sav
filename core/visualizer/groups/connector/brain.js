@@ -2,13 +2,26 @@
  * core/visualizer/groups/connector/brain.js — style "brain" (Brain Filter) của group connector.
  *
  * BÊ NGUYÊN phần canvas của Brain_Filter_Perception_Visualization.html — thân các hàm/hằng số dưới đây là
- * bản sao NGUYÊN VĂN từ file gốc (themes, initNodesAndPaths, createParticle, getBezierPoint,
- * drawLabelsAndTimeline, drawBrainFilter, drawCurvesAndParticles, triggerBurst), KHÔNG chỉnh gì:
- * vẫn chạy tự do bằng Math.random() (không nối audio), theme cố định 'cyan', shadowBlur như gốc.
+ * bản sao NGUYÊN VĂN từ file gốc (initNodesAndPaths, createParticle, getBezierPoint,
+ * drawLabelsAndTimeline, drawBrainFilter, drawCurvesAndParticles, triggerBurst): vẫn chạy tự do bằng
+ * Math.random() (không nối audio), shadowBlur như gốc. BỎ vì không thuộc phần canvas: header/toolbar/
+ * settings/banner/footer, listener nút bấm/slider/pointer.
  * Chỉ thêm phần KEO tối thiểu để chạy được trong SAV: đóng gói trong 1 object (tránh đè các global
  * cùng tên của SAV như canvas/ctx/resizeCanvas/config), và draw() thay cho resizeCanvas()+animate()
  * (SAV đã tự clear canvas + tự gọi mỗi frame, canvas do SAV set kích thước).
- * BỎ vì không thuộc phần canvas: header/toolbar/settings/banner/footer, listener nút bấm/slider/pointer.
+ *
+ * SỬA (22/09/2026, yêu cầu Giang "màu theo 3 chế độ color của app") — bảng `themes` gốc (3 theme cố
+ * định cyan/violet/gold, chọn qua `config.theme`) đã BỎ HẲN, đây là điểm DUY NHẤT lệch khỏi "verbatim,
+ * không tự đổi" ban đầu. Toàn bộ màu (kể cả các chỗ trắng cố định '#ffffff' ở filter node/hạt input/
+ * hạt output — gốc dùng trắng cố định bất kể theme) nay lấy từ hệ mode màu CHUNG của app (Custom
+ * Effect group 'connector': solid/dynamic/gradient, `getComputedColor()`, core/audio-analysis.js) —
+ * cùng hệ mà synapse.js/circuit.js đang dùng, đổi mode ở Element Style là thấy ngay (gọi lại mỗi
+ * frame, không bake). Xem `getBrainRoleColor()` ở phần KEO cuối file. Không có audio thật (hiệu ứng
+ * này vẫn free-running Math.random) nên dataValue truyền cố định — chỉ ảnh hưởng mode 'gradient'.
+ * Giữ NGUYÊN, không đụng: nền gradient tối bên trong ellipse (chủ yếu slate trung tính, chỉ 1 stop
+ * cuối tint cyan rất nhẹ 5% alpha — không convert an toàn được vì `.fill` có thể là hex/rgb()/hsla()
+ * tuỳ mode, không tách alpha bằng string được) và màu chữ nhãn/trục thời gian (trắng/xám cố định,
+ * gốc y hệt ở cả 3 theme cũ — không thuộc bộ nhận diện màu của connector).
  */
 const brainFilterOriginal = (function () {
         let canvas = null;
@@ -19,42 +32,32 @@ const brainFilterOriginal = (function () {
         let config = {
             signalCount: 120,
             filterStrictness: 98 / 100,
-            speedMultiplier: 1.5,
-            theme: 'cyan'
+            speedMultiplier: 1.5
         };
 
-        // Theme colors configurations
-        const themes = {
-            cyan: {
-                primary: '#38bdf8',
-                secondary: '#818cf8',
-                accent: '#c084fc',
-                filterGlow: 'rgba(56, 189, 248, 0.4)',
-                lineAlpha: 0.18,
-                particle: '#ffffff',
-                outputLine: '#60a5fa'
-            },
-            violet: {
-                primary: '#c084fc',
-                secondary: '#f472b6',
-                accent: '#38bdf8',
-                filterGlow: 'rgba(192, 132, 252, 0.4)',
-                lineAlpha: 0.18,
-                particle: '#ffffff',
-                outputLine: '#e879f9'
-            },
-            gold: {
-                primary: '#fbbf24',
-                secondary: '#f97316',
-                accent: '#38bdf8',
-                filterGlow: 'rgba(251, 191, 36, 0.4)',
-                lineAlpha: 0.18,
-                particle: '#ffffff',
-                outputLine: '#fde047'
-            }
-        };
+        // KEO (22/09/2026) — 3 vai trò màu trong hình vẽ (trước là field của bảng themes cyan/
+        // violet/gold): primary (viền/mesh/tia lửa/hạt input), secondary (viền phụ mờ), outputLine
+        // (đường + hạt output). Lấy từ hệ mode màu chung của app qua getComputedColor() (core/
+        // audio-analysis.js, global — nạp trước file này) thay vì bảng cố định. roleIndex/3 chỉ để
+        // 3 vai trò tách hue nhau ở mode 'gradient' (mode 'solid'/'dynamic' vốn không đổi theo
+        // index nên cả 3 vai trò cùng 1 màu — đúng ý "1 màu đồng bộ" của 2 mode đó). dataValue
+        // truyền cố định (không có audio thật) — chỉ mode 'gradient' đọc field này để lệch hue nhẹ.
+        const BRAIN_COLOR_DATA_VALUE = 128;
+        function getBrainRoleColor(roleIndex) {
+            return getComputedColor(roleIndex, 3, BRAIN_COLOR_DATA_VALUE); // { fill, fillNoAlpha, glow }
+        }
 
         let width, height;
+        // KEO (22/09/2026, Giang báo "chiều ngang nhưng bị kéo giãn ra") — bản gốc là trang
+        // landscape rộng (height nhỏ hơn width nhiều) nên mọi công thức `height * tỉ lệ` ra hình
+        // cân đối; canvas SAV luôn full màn hình THẬT của máy (core/canvas-scene-setup.js), trên
+        // điện thoại là PORTRAIT (height > width nhiều) -> dùng thẳng height thật làm ellipse/toả
+        // tia bị kéo cao bất thường. Sửa: `stageH` = chiều cao DÙNG ĐỂ TÍNH layout, giới hạn theo
+        // tỉ lệ cố định với width (không bao giờ vượt quá height thật — landscape/tablet không đổi
+        // gì), `stageOffsetY` căn dải đó vào giữa theo chiều dọc màn hình thật. Mọi `height * X` cũ
+        // (vị trí/kích thước dọc) đổi thành `stageOffsetY + stageH * X`.
+        const BRAIN_STAGE_ASPECT = 0.5625; // 16:9 — landscape phổ biến, gần đúng tỉ lệ trang gốc
+        let stageH = 0, stageOffsetY = 0;
         let leftPersonPos = { x: 0, y: 0 };
         let rightPersonPos = { x: 0, y: 0 };
         let filterPos = { x: 0, y: 0, rx: 0, ry: 0 };
@@ -103,7 +106,7 @@ const brainFilterOriginal = (function () {
                 let targetX = filterPos.x - Math.cos(angle) * (filterPos.rx * 0.5);
 
                 // Control points for organic flowing curves
-                let spread = (i / (config.signalCount - 1) - 0.5) * (height * 0.7);
+                let spread = (i / (config.signalCount - 1) - 0.5) * (stageH * 0.7);
                 let cp1x = leftPersonPos.x + (filterPos.x - leftPersonPos.x) * 0.35;
                 let cp1y = leftPersonPos.y + spread;
                 let cp2x = leftPersonPos.x + (filterPos.x - leftPersonPos.x) * 0.75;
@@ -128,7 +131,7 @@ const brainFilterOriginal = (function () {
                 let startY = filterPos.y + Math.sin(startAngle) * (filterPos.ry * 0.6);
                 let startX = filterPos.x + filterPos.rx * 0.4;
 
-                let waveFactor = (i % 2 === 0 ? 1 : -1) * (height * 0.08);
+                let waveFactor = (i % 2 === 0 ? 1 : -1) * (stageH * 0.08);
                 let cp1x = startX + (rightPersonPos.x - startX) * 0.35;
                 let cp1y = startY + waveFactor;
                 let cp2x = startX + (rightPersonPos.x - startX) * 0.7;
@@ -171,7 +174,6 @@ const brainFilterOriginal = (function () {
         }
 
         function drawLabelsAndTimeline() {
-            const currentTheme = themes[config.theme];
             ctx.save();
             
             // Scaled Font setup
@@ -183,10 +185,10 @@ const brainFilterOriginal = (function () {
             ctx.fillStyle = '#f8fafc';
             ctx.shadowColor = 'rgba(0,0,0,0.8)';
             ctx.shadowBlur = 4;
-            ctx.fillText("1000000", leftPersonPos.x + width * 0.08, height * 0.18);
+            ctx.fillText("1000000", leftPersonPos.x + width * 0.08, stageOffsetY + stageH * 0.18);
             ctx.font = `600 ${fontBase * 0.85}px 'Space Grotesk', sans-serif`;
             ctx.fillStyle = '#94a3b8';
-            ctx.fillText("INFORMATION SIGNALS", leftPersonPos.x + width * 0.08, height * 0.18 + fontBase * 1.2);
+            ctx.fillText("INFORMATION SIGNALS", leftPersonPos.x + width * 0.08, stageOffsetY + stageH * 0.18 + fontBase * 1.2);
 
             // 2. Middle Label: BRAIN FILTER
             ctx.font = `700 ${fontBase * 1.05}px 'Space Grotesk', sans-serif`;
@@ -196,13 +198,13 @@ const brainFilterOriginal = (function () {
             // 3. Right Label: ONLY A FEW EVENTS REACH YOUR AWARENESS
             ctx.font = `700 ${fontBase * 1.05}px 'Space Grotesk', sans-serif`;
             ctx.fillStyle = '#f8fafc';
-            ctx.fillText("ONLY A FEW EVENTS", rightPersonPos.x - width * 0.06, height * 0.18);
+            ctx.fillText("ONLY A FEW EVENTS", rightPersonPos.x - width * 0.06, stageOffsetY + stageH * 0.18);
             ctx.font = `600 ${fontBase * 0.85}px 'Space Grotesk', sans-serif`;
             ctx.fillStyle = '#94a3b8';
-            ctx.fillText("REACH YOUR AWARENESS", rightPersonPos.x - width * 0.06, height * 0.18 + fontBase * 1.2);
+            ctx.fillText("REACH YOUR AWARENESS", rightPersonPos.x - width * 0.06, stageOffsetY + stageH * 0.18 + fontBase * 1.2);
 
             // 4. Bottom Axis Timeline Line
-            let axisY = height * 0.88;
+            let axisY = stageOffsetY + stageH * 0.88;
             ctx.strokeStyle = '#334155';
             ctx.lineWidth = 1.5;
             ctx.setLineDash([4, 4]);
@@ -234,22 +236,23 @@ const brainFilterOriginal = (function () {
         }
 
         function drawBrainFilter(time) {
-            const currentTheme = themes[config.theme];
+            const primary = getBrainRoleColor(0);
+            const secondary = getBrainRoleColor(1);
             ctx.save();
 
             // 1. Outer Glowing Ellipse Aura
             ctx.beginPath();
             ctx.ellipse(filterPos.x, filterPos.y, filterPos.rx, filterPos.ry, 0, 0, Math.PI * 2);
-            ctx.strokeStyle = currentTheme.primary;
+            ctx.strokeStyle = primary.fill;
             ctx.lineWidth = 3;
-            ctx.shadowColor = currentTheme.primary;
+            ctx.shadowColor = primary.glow;
             ctx.shadowBlur = 20;
             ctx.stroke();
 
             // Secondary subtle outer ring
             ctx.beginPath();
             ctx.ellipse(filterPos.x, filterPos.y, filterPos.rx * 1.08, filterPos.ry * 1.05, 0, 0, Math.PI * 2);
-            ctx.strokeStyle = currentTheme.secondary;
+            ctx.strokeStyle = secondary.fill;
             ctx.lineWidth = 1;
             ctx.globalAlpha = 0.4 + Math.sin(time * 0.003) * 0.2;
             ctx.stroke();
@@ -267,7 +270,7 @@ const brainFilterOriginal = (function () {
 
             // 2. Draw Connections between internal filter nodes (Neural Mesh)
             ctx.globalAlpha = 0.35;
-            ctx.strokeStyle = currentTheme.primary;
+            ctx.strokeStyle = primary.fill;
             ctx.lineWidth = 0.8;
             for (let i = 0; i < filterNodes.length; i++) {
                 for (let j = i + 1; j < filterNodes.length; j++) {
@@ -293,8 +296,8 @@ const brainFilterOriginal = (function () {
 
                 ctx.beginPath();
                 ctx.arc(node.x, node.y, node.size, 0, Math.PI * 2);
-                ctx.fillStyle = '#ffffff';
-                ctx.shadowColor = currentTheme.primary;
+                ctx.fillStyle = primary.glow; // trước trắng cố định — nay theo màu app (Giang: "chuyển hết")
+                ctx.shadowColor = primary.glow;
                 ctx.shadowBlur = 6;
                 ctx.fill();
             });
@@ -303,7 +306,8 @@ const brainFilterOriginal = (function () {
         }
 
         function drawCurvesAndParticles(time) {
-            const currentTheme = themes[config.theme];
+            const primary = getBrainRoleColor(0);
+            const outputLine = getBrainRoleColor(2);
 
             // 1. Draw Dense Input Bezier Curves (Left -> Filter)
             ctx.save();
@@ -311,7 +315,7 @@ const brainFilterOriginal = (function () {
                 ctx.beginPath();
                 ctx.moveTo(path.p0.x, path.p0.y);
                 ctx.bezierCurveTo(path.p1.x, path.p1.y, path.p2.x, path.p2.y, path.p3.x, path.p3.y);
-                ctx.strokeStyle = currentTheme.primary;
+                ctx.strokeStyle = primary.fill;
                 ctx.globalAlpha = path.alpha;
                 ctx.lineWidth = 1;
                 ctx.stroke();
@@ -324,10 +328,10 @@ const brainFilterOriginal = (function () {
                 ctx.beginPath();
                 ctx.moveTo(path.p0.x, path.p0.y);
                 ctx.bezierCurveTo(path.p1.x, path.p1.y, path.p2.x, path.p2.y, path.p3.x, path.p3.y);
-                ctx.strokeStyle = currentTheme.outputLine;
+                ctx.strokeStyle = outputLine.fill;
                 ctx.globalAlpha = 0.65;
                 ctx.lineWidth = 2;
-                ctx.shadowColor = currentTheme.outputLine;
+                ctx.shadowColor = outputLine.glow;
                 ctx.shadowBlur = 8;
                 ctx.stroke();
             });
@@ -350,8 +354,8 @@ const brainFilterOriginal = (function () {
                     // Render input particle
                     ctx.beginPath();
                     ctx.arc(pt.x, pt.y, p.size, 0, Math.PI * 2);
-                    ctx.fillStyle = currentTheme.particle;
-                    ctx.shadowColor = currentTheme.primary;
+                    ctx.fillStyle = primary.glow; // trước currentTheme.particle (trắng cố định ở cả 3 theme gốc)
+                    ctx.shadowColor = primary.glow;
                     ctx.shadowBlur = p.glow;
                     ctx.globalAlpha = Math.sin(p.t * Math.PI); // Smooth fade-in/fade-out
                     ctx.fill();
@@ -379,7 +383,7 @@ const brainFilterOriginal = (function () {
                                 y: pt.y,
                                 radius: Math.random() * 4 + 2,
                                 alpha: 0.8,
-                                color: currentTheme.primary
+                                color: primary.glow
                             });
                         }
 
@@ -396,8 +400,8 @@ const brainFilterOriginal = (function () {
 
                     ctx.beginPath();
                     ctx.arc(pt.x, pt.y, p.size, 0, Math.PI * 2);
-                    ctx.fillStyle = '#ffffff';
-                    ctx.shadowColor = currentTheme.outputLine;
+                    ctx.fillStyle = outputLine.glow; // trước trắng cố định — nay theo màu app
+                    ctx.shadowColor = outputLine.glow;
                     ctx.shadowBlur = p.glow;
                     ctx.globalAlpha = Math.sin(p.t * Math.PI);
                     ctx.fill();
@@ -457,16 +461,18 @@ const brainFilterOriginal = (function () {
         function _layoutFromCanvas() {
             width = canvas.width;
             height = canvas.height;
+            stageH = Math.min(height, width * BRAIN_STAGE_ASPECT);
+            stageOffsetY = (height - stageH) / 2;
 
             // Compute positions based on dimensions
-            leftPersonPos = { x: width * 0.07, y: height * 0.5 };
-            rightPersonPos = { x: width * 0.93, y: height * 0.5 };
+            leftPersonPos = { x: width * 0.07, y: stageOffsetY + stageH * 0.5 };
+            rightPersonPos = { x: width * 0.93, y: stageOffsetY + stageH * 0.5 };
             
             filterPos = {
                 x: width * 0.54,
-                y: height * 0.5,
+                y: stageOffsetY + stageH * 0.5,
                 rx: width * 0.045,
-                ry: height * 0.32
+                ry: stageH * 0.32
             };
 
             initNodesAndPaths();
