@@ -307,7 +307,7 @@ const workflowVisualizerRender = {
             this._tickLighting(ctx, perf, isPlaying, newBeatScale, newSmoothedEnergy, vizDataArray);
         } else if (cfg.type === 'connector') {
             // Style 'brain' vẽ canvas 2D — PHẢI đứng SAU ctx.clearRect() phía trên (synapse/circuit đã render WebGL ở trên).
-            if (getActiveEffectConfig().connectorStyle === 'brain') this._tickConnectorBrain(ctx, lastBeatTime, newSmoothedEnergy, vizDataArray, bufferLength, lastValidMidiNote);
+            if (getActiveEffectConfig().connectorStyle === 'brain') this._tickConnectorBrain(ctx, lastBeatTime, newSmoothedEnergy, vizDataArray, bufferLength, lastValidMidiNote, newBeatScale, isPlaying);
         }
     },
 
@@ -690,9 +690,12 @@ const workflowVisualizerRender = {
      * xem lịch sử ở đầu core/visualizer/groups/connector/brain.js), thay bằng đọc THẲNG `lastBeatTime`
      * — mốc beat THẬT (spectral flux, đã dùng để tính BPM) mà audio-analysis.js đã ghi sẵn ra appState
      * (xem service/state/visualizer-runtime.js). Nhận thêm `smoothedEnergy`/`vizDataArray`/
-     * `bufferLength` (đã đọc sẵn ở `_tickDraw()`) và `midiNote` (đọc thêm từ appState). */
-    _tickConnectorBrain(ctx, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote) {
-        brainFilterOriginal.draw(ctx, canvas, performance.now(), lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote); // core/visualizer/groups/connector/brain.js
+     * `bufferLength` (đã đọc sẵn ở `_tickDraw()`) và `midiNote` (đọc thêm từ appState).
+     * THÊM (23/09/2026) `beatScale` + `isPlaying` (tia input co bóp) và `bpm` — đọc `currentCalculatedBpm`
+     * (chuỗi, "---" khi chưa tính được -> NaN, brain.js tự fallback) cho dot chạy quanh ellipse. */
+    _tickConnectorBrain(ctx, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote, beatScale, isPlaying) {
+        const bpm = parseFloat(appState.get('currentCalculatedBpm'));
+        brainFilterOriginal.draw(ctx, canvas, performance.now(), lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote, beatScale, isPlaying, bpm); // core/visualizer/groups/connector/brain.js
     },
 
     /** [MỚI — rà soát Rule 3] VISUAL Bar — Workflow tự đọc `cfg.barStyle` rồi gọi ĐÚNG 1 trong 3
