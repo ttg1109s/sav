@@ -44,9 +44,15 @@
  * trục) scale min-max theo `smoothedEnergy` lúc sinh cụm. Từng dot TRONG cụm phồng/sáng khác nhau
  * theo năng lượng dải tần riêng của chính nó (tái dùng `computeNeuronBinEnergy()`, core/visualizer/
  * groups/connector/synapse.js — cùng kỹ thuật tonotopic style synapse đang dùng). Phát hiện "beat
- * mới" bằng envelope nội bộ riêng (tái dùng `computeMotionEngineBeatReactEnvelope()`, core/motion-
- * engine.js). Đây là điểm audio ĐẦU TIÊN nối vào style brain — mọi phần khác (ellipse/curves/
- * particles) vẫn free-running Math.random(), CHƯA nối audio.
+ * mới" bằng so `beatScale` với `smoothedEnergy` theo tỉ lệ (`TIMELINE_ONSET_RELATIVE_MULT`, khớp
+ * cách `core/audio-analysis.js` phát hiện beat thật cho BPM). Đây là điểm audio ĐẦU TIÊN nối vào
+ * style brain — mọi phần khác (ellipse/curves/particles) vẫn free-running Math.random(), CHƯA nối
+ * audio.
+ *
+ * SỬA (22/09/2026, Giang báo "beat chỉ bắn một lần rồi dừng") — bản đầu của điểm THỨ TƯ dùng envelope
+ * kiểu peak-hold-decay (`computeMotionEngineBeatReactEnvelope()`) làm mốc so sánh, kẹp sàn ở đúng
+ * beatScale hiện tại — kẹt vĩnh viễn sau phát đầu khi nhạc có nền bass liên tục (đã gỡ, xem
+ * `_updateTimelineClusters()` bên dưới).
  */
 const brainFilterOriginal = (function () {
         let canvas = null;
@@ -78,11 +84,17 @@ const brainFilterOriginal = (function () {
         // phải, mọi dot "phẳng" như nhau. Mỗi beat MỚI sinh 1 CỤM (`timelineClusters`, mảng, nhiều cụm
         // chồng nhau được): `clusterSize` dot liên tiếp bắt đầu từ dot 0 (start pos) được scale lên,
         // rồi dịch MƯỢT (nội suy dot theo t liên tục, không nhảy cứng số nguyên) sang dot+1, +2...
-        // Phát hiện "beat mới": envelope nội bộ RIÊNG (khác `getBrainRoleColor` ở trên — khác mục
-        // đích) tái dùng computeMotionEngineBeatReactEnvelope() (core/motion-engine.js, có sẵn, đúng
-        // dáng "bắt tức thời, nhả êm theo thời gian thật") — beatScale nhảy đủ xa envelope đang decay
-        // + đủ lâu kể từ lần sinh cụm trước mới tính beat mới, chặn sinh cụm dồn dập khi nhạc to liên
-        // tục.
+        //
+        // SỬA (22/09/2026, Giang báo "beat chỉ bắn một lần rồi dừng") — bản trước dùng envelope kiểu
+        // computeMotionEngineBeatReactEnvelope() (peak-hold rồi decay, KẸP SÀN ở đúng beatScale hiện
+        // tại) làm mốc so sánh — đúng cho Motion's React Beat (muốn TRÁNH tụt xuống dưới mức nhạc
+        // đang có), nhưng SAI mục đích ở đây: nhạc có nền bass liên tục (không về gần 0 giữa 2 beat)
+        // khiến envelope bám sát ngay beatScale mọi lúc -> sau phát đầu, "nhảy thêm 0.12" gần như
+        // không bao giờ đạt được nữa -> kẹt vĩnh viễn (đúng bug Giang báo). Đổi sang đúng kỹ thuật hệ
+        // phát hiện beat THẬT đã có sẵn trong app dùng để tính BPM (core/audio-analysis.js —
+        // `fluxThreshold = runningFluxMean * 1.3`): so `beatScale` với `smoothedEnergy` (EMA đã có
+        // sẵn, đang truyền vào draw() rồi) theo TỈ LỆ thay vì hiệu số cố định — trung bình động luôn
+        // "chạy theo" nền nhạc chứ không neo cứng ở đỉnh gần nhất nên không bao giờ kẹt.
         const TIMELINE_DOT_COUNT = 40;
         // SỬA (22/09/2026, Giang báo "dot bé quá chẳng thấy gì") — bán kính dot TRƯỚC là số pixel cố
         // định (khớp gốc "3"), không co giãn theo `width` như mọi thứ khác trong file này; canvas SAV
@@ -97,12 +109,10 @@ const brainFilterOriginal = (function () {
         const TIMELINE_CLUSTER_TRAVEL_MS = 700; // thời gian cụm dịch hết quãng đường của nó
         const TIMELINE_CLUSTER_MIN_TRAVEL_FRAC = 0.15; // smoothedEnergy thấp -> cụm dịch tối thiểu 15% trục
         const TIMELINE_CLUSTER_MAX_TRAVEL_FRAC = 0.7;  // smoothedEnergy cao -> tối đa 70% trục
-        const TIMELINE_ONSET_DECAY_MS = 260;
-        const TIMELINE_ONSET_MIN_JUMP = 0.12;
+        const TIMELINE_ONSET_RELATIVE_MULT = 1.3; // beatScale phải vượt smoothedEnergy * mức này — khớp fluxThreshold=runningFluxMean*1.3 (core/audio-analysis.js)
+        const TIMELINE_ONSET_MIN_ABSOLUTE = 0.15; // sàn tuyệt đối — chặn trigger vặt lúc nhạc gần như im lặng (smoothedEnergy ~0)
         const TIMELINE_ONSET_COOLDOWN_MS = 150;
-        let _timelineOnsetEnvelope = 0;
         let _timelineLastClusterTime = -Infinity;
-        let _timelineLastUpdateTime = 0;
         let timelineClusters = []; // { startTime, clusterSize, travelDots }
 
         /** Nốt MIDI (0-127, appState.lastValidMidiNote — Workflow tự đọc rồi truyền vào, Rule 2) ->
@@ -118,12 +128,9 @@ const brainFilterOriginal = (function () {
          * TẠI lúc sinh, kích cỡ theo nốt nhạc HIỆN TẠI lúc sinh) + dọn cụm đã dịch hết quãng đường
          * (t >= 1). */
         function _updateTimelineClusters(time, beatScale, smoothedEnergy, midiNote) {
-            const deltaMs = _timelineLastUpdateTime ? Math.min(time - _timelineLastUpdateTime, 100) : 16; // cap phòng tab ẩn/giật frame
-            _timelineLastUpdateTime = time;
-
-            const isOnset = (beatScale - _timelineOnsetEnvelope) > TIMELINE_ONSET_MIN_JUMP
+            const isOnset = beatScale > smoothedEnergy * TIMELINE_ONSET_RELATIVE_MULT
+                && beatScale > TIMELINE_ONSET_MIN_ABSOLUTE
                 && (time - _timelineLastClusterTime) >= TIMELINE_ONSET_COOLDOWN_MS;
-            _timelineOnsetEnvelope = computeMotionEngineBeatReactEnvelope(_timelineOnsetEnvelope, beatScale, deltaMs, TIMELINE_ONSET_DECAY_MS); // core/motion-engine.js
 
             if (isOnset) {
                 _timelineLastClusterTime = time;
