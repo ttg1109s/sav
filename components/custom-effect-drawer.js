@@ -69,7 +69,8 @@ function _renderCeColorSection(cfg) {
 function _renderCeMusicSection(type, musicFields, cfg) {
     const rows = musicFields.map((f) => _renderCeFieldRow(f, cfg)).join('');
     if (!rows.trim()) return '';
-    const titleKey = CUSTOM_EFFECT_MUSIC_SECTION_TITLE_KEYS[type] || 'customEffectDrawer.musicSection.title'; // core/custom-effect.js
+    const style = cfg[GROUP_STYLE_FIELD[type]]; // service/state/visualizer-runtime.js
+    const titleKey = CUSTOM_EFFECT_MUSIC_SECTION_TITLE_KEYS_BY_STYLE[style] || CUSTOM_EFFECT_MUSIC_SECTION_TITLE_KEYS[type] || 'customEffectDrawer.musicSection.title'; // core/custom-effect.js
     return `
         <div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">
             <div class="px-4 py-3 border-b" data-uitk="dividerBorder">
@@ -108,6 +109,17 @@ function _renderCeFieldRow(field, cfg) {
                     <input type="checkbox" class="sr-only peer ce-field-toggle" data-field="${field.id}" ${cfg[field.id] !== false ? 'checked' : ''}>
                     ${CE_TOGGLE_MARKUP()}
                 </label>
+            </div>
+        `;
+    }
+    // MỚI (23/09/2026) — field type 'select' (options [{ value, labelKey }]), cùng kiểu select màu ở
+    // _renderCeColorSection(). Workflow bắt `.ce-field-select` (event/workflow/custom-effect.js::_wire()).
+    if (field.type === 'select') {
+        const opts = (field.options || []).map((o) => `<option value="${o.value}" ${cfg[field.id] === o.value ? 'selected' : ''} data-i18n="${o.labelKey}">${t(o.labelKey)}</option>`).join('');
+        return `
+            <div class="flex justify-between items-center px-4 py-3 border-b last:border-b-0" data-uitk="dividerBorder">
+                <span class="text-sm text-slate-700" data-i18n="${field.labelKey}">${t(field.labelKey)}</span>
+                <select class="ce-field-select rounded-lg px-2 py-1.5 text-xs outline-none" data-field="${field.id}" data-uitk="inputBg inputBorder inputText">${opts}</select>
             </div>
         `;
     }
