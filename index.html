@@ -959,7 +959,7 @@
     <script src="core/visualizer/groups/connector/common.js?v=20260916v2"></script>
     <script src="core/visualizer/groups/connector/synapse.js?v=20260920v1"></script>
     <script src="core/visualizer/groups/connector/circuit.js?v=20260920v1"></script>
-    <script src="core/visualizer/groups/connector/brain.js?v=20260922v3"></script>
+    <script src="core/visualizer/groups/connector/brain.js?v=20260922v4"></script>
     <!-- draw-visualizer.js GIẢI THỂ HOÀN TOÀN (0 byte, 20/07/2026, plan-space-galaxy.md Phần A) —
          vai trò dispatch dời hết sang event/workflow/visualizer-render.js (script ngay dưới, NẠP
          SAU CÙNG trong khu VISUALIZERS vì tham chiếu tới mọi hàm draw*/type*/webgl* ở trên). Tag
@@ -969,7 +969,7 @@
          mode 'raf'). Khởi động thật từ core/audio-engine.js::setupAudioContext() gọi
          workflowVisualizerRender.start() lúc phát bài đầu tiên. Đặt ở đây (không phải /event/ phía
          dưới) vì thuộc nhóm "vòng lặp render 60fps tự taskManager", không qua eventBus/Router. -->
-    <script src="event/workflow/visualizer-render.js?v=20260922v3"></script>
+    <script src="event/workflow/visualizer-render.js?v=20260922v4"></script>
 
 
     <!-- Kiến trúc /event/ — nạp CUỐI CÙNG, sau toàn bộ js/* (router/workflow chỉ gọi lại hàm core
