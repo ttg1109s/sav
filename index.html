@@ -528,7 +528,7 @@
          nạp TRƯỚC service/state/record/index.js (dòng registry() cần mọi package đã đăng ký). -->
     <script src="service/state/playlist.js?v=20260911v1"></script>
     <script src="service/state/player.js?v=20260725v1"></script>
-    <script src="service/state/visualizer-runtime.js?v=20260922v1"></script>
+    <script src="service/state/visualizer-runtime.js?v=20260922v2"></script>
     <script src="service/state/visualizer-scenes.js?v=20260725v1"></script>
     <script src="service/state/three-vortex.js?v=20260725v1"></script>
     <script src="service/state/three-connector.js?v=20260922v2"></script>
@@ -871,7 +871,7 @@
          "full mode" gộp chung) vào 1 file — PHẢI nạp TRƯỚC audio-analysis.js (đọc biến
          isStatsPanelVisible qua appState, không đụng file này trực tiếp, nhưng giữ thứ tự cũ). -->
     <script src="core/visualizer-ui-visibility.js?v=20260810v2"></script>
-    <script src="core/audio-analysis.js?v=20260920v1"></script>
+    <script src="core/audio-analysis.js?v=20260922v2"></script>
     <script src="core/rubik-math.js?v=20260625v8e"></script>
     <script src="core/about-stats.js?v=20260706v1"></script>
     <!-- Khắc phục sự cố (ver 10 refine, bổ sung) — "Khởi động lại app"/"Khôi phục cài đặt mặc
@@ -959,7 +959,7 @@
     <script src="core/visualizer/groups/connector/common.js?v=20260916v2"></script>
     <script src="core/visualizer/groups/connector/synapse.js?v=20260920v1"></script>
     <script src="core/visualizer/groups/connector/circuit.js?v=20260920v1"></script>
-    <script src="core/visualizer/groups/connector/brain.js?v=20260922v6"></script>
+    <script src="core/visualizer/groups/connector/brain.js?v=20260922v7"></script>
     <!-- draw-visualizer.js GIẢI THỂ HOÀN TOÀN (0 byte, 20/07/2026, plan-space-galaxy.md Phần A) —
          vai trò dispatch dời hết sang event/workflow/visualizer-render.js (script ngay dưới, NẠP
          SAU CÙNG trong khu VISUALIZERS vì tham chiếu tới mọi hàm draw*/type*/webgl* ở trên). Tag
@@ -969,7 +969,7 @@
          mode 'raf'). Khởi động thật từ core/audio-engine.js::setupAudioContext() gọi
          workflowVisualizerRender.start() lúc phát bài đầu tiên. Đặt ở đây (không phải /event/ phía
          dưới) vì thuộc nhóm "vòng lặp render 60fps tự taskManager", không qua eventBus/Router. -->
-    <script src="event/workflow/visualizer-render.js?v=20260922v4"></script>
+    <script src="event/workflow/visualizer-render.js?v=20260922v5"></script>
 
 
     <!-- Kiến trúc /event/ — nạp CUỐI CÙNG, sau toàn bộ js/* (router/workflow chỉ gọi lại hàm core
