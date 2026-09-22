@@ -84,8 +84,16 @@ const brainFilterOriginal = (function () {
         // + đủ lâu kể từ lần sinh cụm trước mới tính beat mới, chặn sinh cụm dồn dập khi nhạc to liên
         // tục.
         const TIMELINE_DOT_COUNT = 40;
-        const TIMELINE_DOT_BASE_RADIUS = 3; // khớp bán kính cố định gốc — baseline lúc không có cụm
-        const TIMELINE_DOT_MAX_RADIUS = 7;
+        // SỬA (22/09/2026, Giang báo "dot bé quá chẳng thấy gì") — bán kính dot TRƯỚC là số pixel cố
+        // định (khớp gốc "3"), không co giãn theo `width` như mọi thứ khác trong file này; canvas SAV
+        // luôn nhân theo dpr thiết bị (core/canvas-scene-setup.js: `canvas.width = innerWidth * dpr`)
+        // nên 1 số cố định nhỏ kiểu vậy gần như biến mất trên máy dpr cao — đúng nguyên nhân gốc của
+        // bug "kéo giãn" đã sửa trước đó (xem SỬA THỨ HAI, đầu file), chỉ khác chỗ này là bán kính
+        // thay vì layout dọc. Đổi sang TỈ LỆ theo `width` (tính lại mỗi lần `_layoutFromCanvas()`,
+        // giống filterPos.rx/rx) — tự lớn theo cả kích thước màn hình LẪN dpr, không còn tí hin nữa.
+        const TIMELINE_DOT_BASE_RADIUS_FRAC = 0.012; // baseline lúc không có cụm
+        const TIMELINE_DOT_MAX_RADIUS_FRAC = 0.028;  // lúc phồng hết cỡ (boost = 1)
+        let timelineDotBaseRadius = 3, timelineDotMaxRadius = 7; // giá trị mặc định trước lần layout đầu — ghi đè ngay ở _layoutFromCanvas()
         const TIMELINE_CLUSTER_TRAVEL_MS = 700; // thời gian cụm dịch hết quãng đường của nó
         const TIMELINE_CLUSTER_MIN_TRAVEL_FRAC = 0.15; // smoothedEnergy thấp -> cụm dịch tối thiểu 15% trục
         const TIMELINE_CLUSTER_MAX_TRAVEL_FRAC = 0.7;  // smoothedEnergy cao -> tối đa 70% trục
@@ -323,7 +331,7 @@ const brainFilterOriginal = (function () {
                     boost = Math.max(boost, coverage * ac.binEnergies[withinCluster]);
                 }
                 ctx.beginPath();
-                ctx.arc(dx, axisY, TIMELINE_DOT_BASE_RADIUS + boost * (TIMELINE_DOT_MAX_RADIUS - TIMELINE_DOT_BASE_RADIUS), 0, Math.PI * 2);
+                ctx.arc(dx, axisY, timelineDotBaseRadius + boost * (timelineDotMaxRadius - timelineDotBaseRadius), 0, Math.PI * 2);
                 if (boost > 0) {
                     ctx.fillStyle = primary.glow;
                     ctx.shadowColor = primary.glow;
@@ -576,6 +584,8 @@ const brainFilterOriginal = (function () {
             height = canvas.height;
             stageH = Math.min(height, width * BRAIN_STAGE_ASPECT);
             stageOffsetY = (height - stageH) / 2;
+            timelineDotBaseRadius = width * TIMELINE_DOT_BASE_RADIUS_FRAC;
+            timelineDotMaxRadius = width * TIMELINE_DOT_MAX_RADIUS_FRAC;
 
             // Compute positions based on dimensions
             leftPersonPos = { x: width * 0.07, y: stageOffsetY + stageH * 0.5 };
