@@ -247,7 +247,7 @@
         // XOÁ 21/09/2026 (dọn deadcode sau khi nền App đổi sang tham chiếu item thư viện): `applyBgImage()` (copy blob vào meta.bgImage) và
         // `applyBgImageEnabled()` không còn ai gọi — thay bằng workflowTheme._applyPickedMedia()/resolveAppBgMedia() (event/workflow/theme.js, core/config.js).
 
-        /** Core thuần: độ NHOÈ kính các màn App Panel chính (Playlist/Game catalog/Statistics) khi nền Morphin là Background media — MỚI 23/09/2026
+        /** Core thuần: độ NHOÈ kính các màn App Panel chính (Playlist chính) khi nền Morphin là Background media — MỚI 23/09/2026
          * (THAY `setThemeBgBlur()` blur ảnh nền, Giang bỏ). Ép số nguyên, kẹp 10-40px (SỬA 23/09/2026 — Giang: min 10px). Gọi bởi workflowTheme.setAppGlassBlur(). @param {string|number} value */
         function setAppGlassBlur(value) {
             const px = Math.max(10, Math.min(40, parseInt(value, 10) || 10));
