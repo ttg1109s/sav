@@ -247,11 +247,13 @@
         // XOÁ 21/09/2026 (dọn deadcode sau khi nền App đổi sang tham chiếu item thư viện): `applyBgImage()` (copy blob vào meta.bgImage) và
         // `applyBgImageEnabled()` không còn ai gọi — thay bằng workflowTheme._applyPickedMedia()/resolveAppBgMedia() (event/workflow/theme.js, core/config.js).
 
-        /** Độ mờ ảnh nền. msg.type 'visualizerDisplay.bgBlur.input'. Batch "nền chung" — BỎ
-         * `updatePlaylistBg()`/`saveConfig()` nội bộ, dời ra Workflow. @param {string} value */
-        function setBgBlur(value) {
-            appConfigViz.mutateAll(cfg => { cfg.bgBlur = value; });
-            valBgBlurDisplay.textContent = value + 'px';
+        /** Core thuần: độ mờ ẢNH nền App (Morphin, 0-20px). SỬA 23/09/2026 — THAY `setBgBlur()` cũ (msg 'visualizerDisplay.bgBlur.input', ghi vào
+         * `valBgBlurDisplay` — dom-ref đã luôn null từ khi màn Theme cũ mất slider, gọi là TypeError). Giờ chỉ ghi config (ép số nguyên, kẹp 0-20);
+         * hiển thị số px do core/theme-background-ui.js lo. Gọi bởi workflowTheme.setBgBlur() (event/workflow/theme.js). @param {string|number} value */
+        function setThemeBgBlur(value) {
+            const px = Math.max(0, Math.min(20, parseInt(value, 10) || 0));
+            appConfigViz.mutateAll(cfg => { cfg.bgBlur = px; });
+            console.log(`writer: "setThemeBgBlur", page: "viz.bgBlur", content: "${px}"`);
         }
 
         /** Core thuần: màu bắt đầu (from) của Theme mode "Gradient" — màu NỀN app, khác màu vẽ
