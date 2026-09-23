@@ -198,10 +198,41 @@ const CUSTOM_EFFECT_FIELDS = {
             { value: 'square', labelKey: 'customEffectDrawer.timelineShape.square' },
             { value: 'triangle', labelKey: 'customEffectDrawer.timelineShape.triangle' },
         ] },
+        // MỚI (23/09/2026, Giang "thêm hết custom effect") — style 'brain', brain.js::_applySettings().
+        // Bật/tắt từng thành phần
+        { id: 'brainShowTimeline', labelKey: 'customEffectDrawer.field.brainShowTimeline', type: 'toggle', showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        { id: 'brainShowNodes', labelKey: 'customEffectDrawer.field.brainShowNodes', type: 'toggle', showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        { id: 'brainShowOrbit', labelKey: 'customEffectDrawer.field.brainShowOrbit', type: 'toggle', showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        { id: 'brainShowStrings', labelKey: 'customEffectDrawer.field.brainShowStrings', type: 'toggle', showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        // Tia input + filter
+        { id: 'brainSignalCount', labelKey: 'customEffectDrawer.field.brainSignalCount', type: 'slider', min: 40, max: 200, step: 10, showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        { id: 'brainFilterStrictness', labelKey: 'customEffectDrawer.field.brainFilterStrictness', type: 'sliderFloat', min: 0.8, max: 1, step: 0.01, decimals: 2, showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        { id: 'brainInputSpeed', labelKey: 'customEffectDrawer.field.brainInputSpeed', type: 'sliderFloat', min: 0.5, max: 3, step: 0.1, decimals: 1, showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        { id: 'brainPumpSqueeze', labelKey: 'customEffectDrawer.field.brainPumpSqueeze', type: 'slider', min: 0, max: 50, step: 2, showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        { id: 'brainPumpSensitivity', labelKey: 'customEffectDrawer.field.brainPumpSensitivity', type: 'sliderFloat', min: 1, max: 10, step: 0.5, decimals: 1, showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        // Node trong ellipse (ngoài ra dùng chung Fire threshold / Lateral inhibition phía trên)
+        { id: 'brainNodeFlashSensitivity', labelKey: 'customEffectDrawer.field.brainNodeFlashSensitivity', type: 'sliderFloat', min: 1, max: 10, step: 0.5, decimals: 1, showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        // Dot quanh ellipse
+        { id: 'brainOrbitDotCount', labelKey: 'customEffectDrawer.field.brainOrbitDotCount', type: 'slider', min: 1, max: 16, step: 1, showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        { id: 'brainOrbitBeatsPerLap', labelKey: 'customEffectDrawer.field.brainOrbitBeatsPerLap', type: 'slider', min: 2, max: 32, step: 1, showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        { id: 'brainOrbitTrail', labelKey: 'customEffectDrawer.field.brainOrbitTrail', type: 'slider', min: 0, max: 12, step: 1, showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        // 7 dây output
+        { id: 'brainStringAmplitude', labelKey: 'customEffectDrawer.field.brainStringAmplitude', type: 'slider', min: 0, max: 200, step: 10, showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        { id: 'brainStringDecayMs', labelKey: 'customEffectDrawer.field.brainStringDecayMs', type: 'slider', min: 100, max: 1000, step: 20, showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        { id: 'brainStringDotBeats', labelKey: 'customEffectDrawer.field.brainStringDotBeats', type: 'slider', min: 1, max: 8, step: 1, showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        // (23/09/2026) khoảng cách dot trong đoàn theo hoạ âm của nốt — min (hoạ âm yếu) / max (hoạ âm mạnh), % độ dài dây
+        { id: 'brainStringDotGapMin', labelKey: 'customEffectDrawer.field.brainStringDotGapMin', type: 'sliderFloat', min: 0.5, max: 10, step: 0.5, decimals: 1, showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        { id: 'brainStringDotGapMax', labelKey: 'customEffectDrawer.field.brainStringDotGapMax', type: 'sliderFloat', min: 2, max: 20, step: 0.5, decimals: 1, showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        { id: 'brainStringDotGapLive', labelKey: 'customEffectDrawer.field.brainStringDotGapLive', type: 'toggle', showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        // Trục thời gian
+        { id: 'brainTimelineDotCount', labelKey: 'customEffectDrawer.field.brainTimelineDotCount', type: 'slider', min: 20, max: 80, step: 2, showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        { id: 'brainTimelineMaxTravel', labelKey: 'customEffectDrawer.field.brainTimelineMaxTravel', type: 'slider', min: 30, max: 100, step: 5, showIf: (cfg) => cfg.connectorStyle === 'brain' },
         // SỬA (yêu cầu Giang 16/09/2026, layout lưới phẳng) — max 48->64, min/step đổi 12/3->16/4
         // để 32 (mặc định mới) và 64 (max mới) đều rơi đúng mốc slider.
         { id: 'neuronCount', labelKey: 'customEffectDrawer.field.neuronCount', type: 'slider', min: 16, max: 64, step: 4, showIf: (cfg) => cfg.connectorStyle === 'synapse', refresh: 'initThreeJSConnector' },
         // ĐỔI (yêu cầu Giang — circuit bắn xung theo audio từng node, dùng CHUNG logic bắn với synapse): fireThreshold/lateralInhibitStrength hiện cho CẢ 2 style (bỏ showIf 'synapse').
+        // (23/09/2026) Nay nối cả style 'brain': fireThreshold = ngưỡng nhiễu flux của node trong ellipse,
+        // lateralInhibitStrength = dải loé đè 2 dải kề; glowEnabled/glowIntensity nhân vào mọi shadowBlur của brain.
         { id: 'fireThreshold', labelKey: 'customEffectDrawer.field.fireThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2 },
         // MỚI (yêu cầu Giang 17/09/2026 — "lateral inhibition", xem applyLateralInhibition(),
         // core/visualizer/groups/connector/synapse.js): mức ngưỡng bắn bị ĐÈ LÊN (đơn vị byte,

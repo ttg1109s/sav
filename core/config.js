@@ -129,6 +129,17 @@
                 // hình trục thời gian (line/sinDown/sinUp/circle/square/triangle), burst theo Music
                 // Transition. sectionWindowBeats/fluxThreshold ở trên dùng CHUNG với circuit (cùng bucket).
                 brainDirection: 'ltr', timelineShape: 'line', burstEnabled: true,
+                // MỚI (23/09/2026, Giang "thêm hết custom effect") — style 'brain', xem
+                // core/visualizer/groups/connector/brain.js::_applySettings(). Ngoài ra brain nay dùng
+                // chung glowEnabled/glowIntensity/fireThreshold/lateralInhibitStrength ở trên.
+                brainShowTimeline: true, brainShowOrbit: true, brainShowNodes: true, brainShowStrings: true,
+                brainSignalCount: 120, brainFilterStrictness: 0.98, brainInputSpeed: 1.5,
+                brainPumpSqueeze: 22, brainPumpSensitivity: 4, brainNodeFlashSensitivity: 5,
+                brainStringAmplitude: 100, brainStringDecayMs: 380, brainStringDotBeats: 2,
+                brainStringDotGapMin: 2.5, brainStringDotGapMax: 10, // (23/09/2026) % độ dài dây — khoảng cách dot theo hoạ âm
+                brainStringDotGapLive: true, // (23/09/2026) khoảng cách co giãn liên tục theo hoạ âm hiện tại (tắt = chốt lúc bắn)
+                brainOrbitDotCount: 8, brainOrbitBeatsPerLap: 8, brainOrbitTrail: 6,
+                brainTimelineDotCount: 40, brainTimelineMaxTravel: 90,
             },
         };
 
