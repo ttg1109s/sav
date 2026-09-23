@@ -247,13 +247,20 @@
         // XOÁ 21/09/2026 (dọn deadcode sau khi nền App đổi sang tham chiếu item thư viện): `applyBgImage()` (copy blob vào meta.bgImage) và
         // `applyBgImageEnabled()` không còn ai gọi — thay bằng workflowTheme._applyPickedMedia()/resolveAppBgMedia() (event/workflow/theme.js, core/config.js).
 
-        /** Core thuần: độ mờ ẢNH nền App (Morphin, 0-20px). SỬA 23/09/2026 — THAY `setBgBlur()` cũ (msg 'visualizerDisplay.bgBlur.input', ghi vào
-         * `valBgBlurDisplay` — dom-ref đã luôn null từ khi màn Theme cũ mất slider, gọi là TypeError). Giờ chỉ ghi config (ép số nguyên, kẹp 0-20);
-         * hiển thị số px do core/theme-background-ui.js lo. Gọi bởi workflowTheme.setBgBlur() (event/workflow/theme.js). @param {string|number} value */
-        function setThemeBgBlur(value) {
-            const px = Math.max(0, Math.min(20, parseInt(value, 10) || 0));
-            appConfigViz.mutateAll(cfg => { cfg.bgBlur = px; });
-            console.log(`writer: "setThemeBgBlur", page: "viz.bgBlur", content: "${px}"`);
+        /** Core thuần: độ NHOÈ kính các màn App Panel chính (Playlist/Game catalog/Statistics) khi nền Morphin là Background media — MỚI 23/09/2026
+         * (THAY `setThemeBgBlur()` blur ảnh nền, Giang bỏ). Ép số nguyên, kẹp 0-40px. Gọi bởi workflowTheme.setAppGlassBlur(). @param {string|number} value */
+        function setAppGlassBlur(value) {
+            const px = Math.max(0, Math.min(40, parseInt(value, 10) || 0));
+            appConfigViz.mutateAll(cfg => { cfg.appGlassBlur = px; });
+            console.log(`writer: "setAppGlassBlur", page: "viz.appGlassBlur", content: "${px}"`);
+        }
+
+        /** Core thuần: độ ĐỤC nền trắng của kính các màn App Panel chính — MỚI 23/09/2026. Ép số nguyên, kẹp 0-40%. Gọi bởi
+         * workflowTheme.setAppGlassTint(). @param {string|number} value */
+        function setAppGlassTint(value) {
+            const pct = Math.max(0, Math.min(40, parseInt(value, 10) || 0));
+            appConfigViz.mutateAll(cfg => { cfg.appGlassTint = pct; });
+            console.log(`writer: "setAppGlassTint", page: "viz.appGlassTint", content: "${pct}"`);
         }
 
         /** Core thuần: màu bắt đầu (from) của Theme mode "Gradient" — màu NỀN app, khác màu vẽ
