@@ -385,7 +385,7 @@
     <script src="lang/patch/patch-video-preview.js?v=20260803v1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — bottom nav + panel Photo/Game/Statis/Setting
          mới, xem lang/patch/patch-app-panel-nav.js. -->
-    <script src="lang/patch/patch-app-panel-nav.js?v=20260921v9"></script>
+    <script src="lang/patch/patch-app-panel-nav.js?v=20260923v2"></script>
     <script src="lang/lang.js?v=20260731v1"></script>
 
     <!-- =====================================================================
@@ -571,7 +571,7 @@
          restoreDefaultVizConfig/saveConfig/loadConfig) — KHÔNG còn giữ Z_INDEX/global
          error-handler (dời ở trên) hay CONST dùng chéo domain khác (nay sống trong đúng package
          service/state/*.js). PHẢI nạp SAU service/state.js (cần class AppConfig). -->
-    <script src="core/config.js?v=20260922v2"></script>
+    <script src="core/config.js?v=20260923v2"></script>
     <!-- core/custom-effect.js — Core thuần hệ Custom Effect (getEffectConfig/setCustomEffectField),
          NẠP NGAY SAU core/config.js (cần DEFAULT_CUSTOM_EFFECT/appConfigViz) — mọi hàm vẽ/scene-setup
          phía dưới đều cần file này. -->
@@ -584,7 +584,7 @@
          actions.js (core, dòng dưới) cần `new EventStore(...)` ngay lúc nạp. Tự đứng độc lập
          (không phụ thuộc eventBus), nên tách riêng lên đây an toàn. -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260921v11"></script>
+    <script src="core/dom-refs.js?v=20260923v2"></script>
     <!-- core/slider-panel-scroll.js — 2 hàm dùng chung (getPositionStart/scrollSliderTo) cho mọi
          khung cuộn ngang kiểu "slider panel" (settings-panel-stack-ui.js, player-controls.js). -->
     <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
@@ -908,7 +908,7 @@
          ứng #btn-cycle-mode, volume, EQ preset). PHẢI nạp sau core/dom-refs.js, core/config.js,
          core/custom-effect.js, core/webgl/three-vortex.js, core/canvas-scene-setup.js,
          core/color-utils.js — đều đã nạp ở khu CORE. -->
-    <script src="core/visualizer/visualizer-display.js?v=20260922v1"></script>
+    <script src="core/visualizer/visualizer-display.js?v=20260923v2"></script>
     <!-- Tự động đổi hiệu ứng Visualizer theo thời gian (ver 10, ĐỔI vị trí ver 11: trước đây nạp
          ngay sau player-controls.js ở khu CORE — giờ PHẢI nạp SAU visualizer-display.js vì file
          đó định nghĩa updateTypeUI/saveConfig mà auto-switch-visual.js cần, xem comment đầu file
@@ -1265,16 +1265,16 @@
          generic-drawer-helpers.js, core/element-style-editor.js, components/
          element-style-editor-drawer.js, service/state/element-style-editor.js (đều đã nạp ở trên). -->
     <script src="event/workflow/element-style-editor.js?v=20260923v1"></script>
-    <script src="event/workflow/visualizer-display.js?v=20260811v2"></script>
-    <script src="event/router/visualizer-display.js?v=20260811v2"></script>
-    <script src="event/listener/visualizer-display.js?v=20260811v2"></script>
+    <script src="event/workflow/visualizer-display.js?v=20260923v2"></script>
+    <script src="event/router/visualizer-display.js?v=20260923v2"></script>
+    <script src="event/listener/visualizer-display.js?v=20260923v2"></script>
     <!-- MỞ ĐẦU THEME THẬT (07/07/2026, phản hồi Giang mục 3) — cụm "theme" (3 card Sáng/Tối/
          Background, Main list TĨNH). CẦN workflowVisualizerDisplay.toggleBgImage() (đã nạp ngay
          trên) + updatePlaylistBg() (đã nạp ở nhóm CORE). (applyBgImageEnabled() đã xoá 21/09/2026.) -->
     <!-- MỚI (21/09/2026, Giang yêu cầu UI nền 3 card Solid/Gradient/Background media) — dựng/gắn/vá cụm 3 card ở Settings > System > Theme (Morphin). Được gọi lúc RUNTIME bởi event/workflow/app-settings.js + event/workflow/theme.js. -->
-    <script src="core/theme-background-ui.js?v=20260921v1"></script>
-    <script src="event/workflow/theme.js?v=20260921v4"></script>
-    <script src="event/router/theme.js?v=20260923v1"></script>
+    <script src="core/theme-background-ui.js?v=20260923v2"></script>
+    <script src="event/workflow/theme.js?v=20260923v2"></script>
+    <script src="event/router/theme.js?v=20260923v2"></script>
     <script src="event/listener/theme.js?v=20260921v4"></script>
     <!-- Cụm "statsPanel" ĐÃ XOÁ (checkbox toggle stats panel dời vào Settings, dùng chung
          cụm "visualizerDisplay" — xem event/workflow/visualizer-display.js::setStatsPanelEnabled()). -->
