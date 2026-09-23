@@ -51,7 +51,7 @@ const routerTheme = (() => {
             case 'theme.solidColor.input': // MỚI 23/09/2026 — trước đây thiếu case -> ô màu Solid không có tác dụng
                 workflowTheme.setSolidColor(msg.payload.value);
                 break;
-            case 'theme.glassBlur.input': // MỚI 23/09/2026 — slider độ nhoè kính Playlist/Game catalog/Statistics (hàng "Panel glass", core/theme-background-ui.js)
+            case 'theme.glassBlur.input': // MỚI 23/09/2026 — slider độ nhoè kính Playlist chính (hàng "Panel glass", core/theme-background-ui.js)
                 workflowTheme.setAppGlassBlur(msg.payload.value);
                 break;
             case 'theme.glassTint.input': // MỚI 23/09/2026 — slider độ đục kính cùng hàng
