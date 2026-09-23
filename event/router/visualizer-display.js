@@ -46,7 +46,7 @@ const routerVisualizerDisplay = (() => {
                 workflowCustomEffect.onCycleModeClick();
                 break;
 
-            // DỌN 23/09/2026: case 'visualizerDisplay.bgBlur.input' ĐÃ XOÁ — chuyển sang 'theme.bgBlur.input' (event/router/theme.js).
+            // DỌN 23/09/2026: case 'visualizerDisplay.bgBlur.input' ĐÃ XOÁ — blur ảnh nền đã bỏ hẳn (Giang: Morphin vốn đã mờ).
 
             // ===================== Volume (Control Center HUD) =====================
             case 'visualizerDisplay.volume.input': {
