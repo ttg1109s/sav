@@ -125,7 +125,7 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.theme.uiTheme.option.morphin': 'Morphin',
     // MỚI 21/09/2026 — UI nền Morphin 3 card (core/theme-background-ui.js). (Dọn deadcode 21/09/2026: bỏ 'appSettings.theme.select.*', 'appSettings.theme.glassType.*', 'appSettings.theme.solidColor.label' — dropdown cũ.)
     'appSettings.theme.bg.section': 'Background',
-    'appSettings.theme.bg.solid': 'Solid',
+    'appSettings.theme.bg.none': 'None', // SỬA 23/09/2026 — thay card Solid (đã bỏ): Morphin không dùng nền
     'appSettings.theme.bg.gradient': 'Gradient',
     'appSettings.theme.bg.media': 'Background media',
     'appSettings.theme.bg.media.empty': 'Not set',
