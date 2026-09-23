@@ -717,6 +717,7 @@ const workflowVisualizerRender = {
             sampleRate: audioContext ? audioContext.sampleRate : 44100,
             direction: cfg.brainDirection,
             timelineShape: cfg.timelineShape,
+            settings: cfg, // (23/09/2026) toàn bộ Custom Effect connector — brain.js::_applySettings() tự lấy field cần
         }); // core/visualizer/groups/connector/brain.js
     },
 
