@@ -131,6 +131,7 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.theme.bg.media.empty': 'Not set',
     'appSettings.theme.bg.media.pickPhoto': 'Photo',
     'appSettings.theme.bg.media.pickVideo': 'Video',
+    'appSettings.theme.bg.blur': 'Background blur', // MỚI 23/09/2026 — hàng độ mờ ảnh nền (Morphin, chỉ hiện khi Background media là ảnh)
 
     'appSettings.visualizerScreen.title': 'Visualizer Screen',
     'appSettings.visualizerScreen.pendingNote': 'This section is being reorganized — coming soon in the next update.',
