@@ -131,7 +131,7 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.theme.bg.media.empty': 'Not set',
     'appSettings.theme.bg.media.pickPhoto': 'Photo',
     'appSettings.theme.bg.media.pickVideo': 'Video',
-    // MỚI 23/09/2026 — cụm tinh chỉnh kính Playlist/Game catalog/Statistics (Morphin, chỉ hiện khi nền là Background media)
+    // MỚI 23/09/2026 — cụm tinh chỉnh kính Playlist chính (Morphin, chỉ hiện khi nền là Background media)
     'appSettings.theme.glass.section': 'Panel glass',
     'appSettings.theme.glass.blur': 'Blur',
     'appSettings.theme.glass.tint': 'Opacity',
