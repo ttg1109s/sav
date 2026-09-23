@@ -138,3 +138,23 @@ function wireAppSettingsTheme(bodyEl) {
     const uiThemeSelect = bodyEl.querySelector('#app-settings-ui-theme-select'); // MỚI 21/09/2026 — màu giao diện Light/Dark
     if (uiThemeSelect) uiThemeSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.uiTheme.change', payload: { themeName: e.target.value } }));
 }
+
+/** MỚI 23/09/2026 — Màn System > Pagination (components/settings/pagination.js). Mọi control mang
+ * `data-pagination-place` + `data-pagination-field` -> 1 msg.type chung 'appSettings.pagination.place.change'
+ * (Rule 5a — callback CHỈ eventBus.send, gom cuối hàm). Checkbox + select bắn ở `change`; ô số bắn ở
+ * `change` (rời ô / bấm Done trên bàn phím điện thoại) — KHÔNG bắn theo từng phím gõ (mỗi lần bắn là 1
+ * lần dựng lại màn, gõ "150" sẽ mất focus sau chữ "1"). Enter -> blur -> tự phát `change`.
+ * Khung Preview là `inert`, không có gì để wire.
+ * @param {HTMLElement} bodyEl */
+function wireAppSettingsPagination(bodyEl) {
+    const controls = bodyEl.querySelectorAll('[data-pagination-place][data-pagination-field]');
+    const numberInputs = bodyEl.querySelectorAll('input[type="number"][data-pagination-place]');
+
+    // --- addEventListener: gom cuối hàm (Rule 5a) ---
+    controls.forEach((el) => {
+        el.addEventListener('change', () => eventBus.send({ router: 'appSettings', type: 'appSettings.pagination.place.change', payload: { place: el.dataset.paginationPlace, field: el.dataset.paginationField, value: el.type === 'checkbox' ? el.checked : el.value } }));
+    });
+    numberInputs.forEach((el) => {
+        el.addEventListener('keydown', (e) => { if (e.key === 'Enter') el.blur(); });
+    });
+}

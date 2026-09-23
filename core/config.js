@@ -516,6 +516,31 @@
             photoPointMovePresetId: null,
         };
 
+        /**
+         * MỚI (23/09/2026, Giang yêu cầu) — domain 'pagination' (Settings > System > Pagination), persist
+         * qua `meta.paginationConfig` (event/workflow/pagination.js). SỬA cùng ngày (Giang: "những nơi áp
+         * dụng được liệt kê checkbox vuông tại setting, khi true thì nơi đó áp dụng, mỗi checkbox có ô nhập
+         * item/page + style riêng") — KHÔNG còn cài đặt chung, MỖI NƠI 1 bộ riêng trong `places`:
+         *   - `enabled` — false (mặc định) = nơi đó giữ nguyên hành vi cũ, không phân trang.
+         *   - `pageSize` — số item/trang, ô NHẬP SỐ 1..200 (PAGINATION_PAGE_SIZE_MIN/MAX, core/pagination.js),
+         *     mặc định 20 (Giang chốt).
+         *   - `style` — 'arrow' | 'list' | 'full' | 'loadMore' (PAGINATION_STYLES), mặc định 'full'.
+         * Key của `places` PHẢI khớp PAGINATION_PLACES (core/pagination.js) — thêm nơi mới = thêm ở CẢ 2.
+         * Danh sách Playlist CHÍNH (main UI) CỐ Ý KHÔNG có ở đây (Giang chốt loại bỏ) — preset Filter thì CÓ.
+         * Nơi mới thêm sau khi người dùng đã lưu -> tự nhận mặc định (loadPersistedPaginationOnBoot() gộp theo từng nơi).
+         */
+        const DEFAULT_PAGINATION_PLACE = { enabled: false, pageSize: 20, style: 'full' };
+        const DEFAULT_PAGINATION_CONFIG = {
+            places: {
+                statisTopList: { ...DEFAULT_PAGINATION_PLACE },
+                debugConsole: { ...DEFAULT_PAGINATION_PLACE },
+                folderBrowser: { ...DEFAULT_PAGINATION_PLACE },
+                motionPresets: { ...DEFAULT_PAGINATION_PLACE },
+                filterPresets: { ...DEFAULT_PAGINATION_PLACE },
+                eqPresets: { ...DEFAULT_PAGINATION_PLACE },
+            },
+        };
+
         AppConfig.defineDomain('viz', {
             schema: {
                 type: 'string', customEffect: 'object',
@@ -613,6 +638,13 @@
             defaults: DEFAULT_PLAYER_DISPLAY_CONFIG,
         });
 
+        AppConfig.defineDomain('pagination', {
+            schema: {
+                places: 'object',
+            },
+            defaults: DEFAULT_PAGINATION_CONFIG,
+        });
+
         /** Seed CẢ 3 domain config NGAY TẠI ĐÂY — lúc nạp core/config.js (SỬA 27/07/2026, trước
          * đây gọi trễ hơn từ event/workflow/app-boot.js lúc DOMContentLoaded, để hở 1 khoảng giữa
          * lúc tạo accessor bên dưới và lúc seed thật sự -> access() console.warn "chưa seed()" 3
@@ -629,6 +661,7 @@
             appConfig.seed('player');
             appConfig.seed('uiTheme');
             appConfig.seed('playerDisplay');
+            appConfig.seed('pagination'); // MỚI 23/09/2026
         }
         seedConfig();
 
@@ -640,6 +673,7 @@
         const appConfigPlayer = appConfig.access('player');
         const appConfigUiTheme = appConfig.access('uiTheme');
         const appConfigPlayerDisplay = appConfig.access('playerDisplay');
+        const appConfigPagination = appConfig.access('pagination'); // MỚI 23/09/2026 — Settings > System > Pagination
 
         /** Reset vizConfig về default (gộp từ core/app-recovery.js::executeRestoreDefaults() cũ —
          * CHỈ phần reset, KHÔNG gồm saveConfig()/reload(), 2 việc đó vẫn ở app-recovery.js). */

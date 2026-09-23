@@ -116,9 +116,16 @@ function buildStatisPlayShareChartHtml(byType, shareRawKey, ariaLabel) {
  * @param {'all'|'song'|'video'|'photo'} filterType
  * @param {'count'|'totalTime'} shareMode - MỚI 21/09/2026: chia % Media types theo lượt phát ('count') hay thời gian ('totalTime')
  * @param {function} t
+ * @param {number} [rankOffset] - MỚI 23/09/2026 (nơi 'statisTopList' của Settings > System > Pagination):
+ *        thứ hạng của phần tử ĐẦU `topList` trừ 1 (= view.startIndex) — trang 2 bắt đầu từ #21. Mặc định 0.
+ * @param {number} [rankedTotal] - MỚI 23/09/2026: tổng số mục đã xếp hạng (cho chữ "Top N" ở tiêu đề) —
+ *        khi phân trang `topList` chỉ là 1 trang nên không đếm được từ nó. Mặc định `topList.length`.
+ * @param {string} [paginationHtml] - MỚI 23/09/2026: thanh phân trang Workflow dựng sẵn, đặt dưới danh
+ *        sách (listener delegate trên `statisPanelBody` bắt nút). '' khi tắt/1 trang.
  * @returns {string}
  */
-function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterType, shareMode, t) {
+function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterType, shareMode, t, rankOffset, rankedTotal, paginationHtml) {
+    const rankBase = rankOffset || 0;
     if (grandTotal.itemCount === 0) {
         return `<p class="text-sm text-center py-14" data-uitk="textSecondary" data-i18n="statisPanel.comingSoon">${t('statisPanel.comingSoon')}</p>`;
     }
@@ -226,7 +233,7 @@ function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterT
             const secondary = sortMode === 'count' ? timeText : playsText; // chỉ số PHỤ — ngữ cảnh còn thiếu của chỉ số chính
             return `
                 <div class="flex items-center gap-2.5 py-2 border-b last:border-b-0" data-uitk="dividerBorder">
-                    <span class="w-5 text-xs font-bold text-center shrink-0" data-uitk="${index < 3 ? 'accentText' : 'textSecondary'}">${index + 1}</span>
+                    <span class="text-xs font-bold text-center shrink-0" style="min-width:20px;" data-uitk="${rankBase + index < 3 ? 'accentText' : 'textSecondary'}">${rankBase + index + 1}</span>
                     <span class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${STATIS_TYPE_ACCENT[item.mediaType]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="${STATIS_TYPE_ICON_PATH[item.mediaType]}"/></svg></span>
                     <span class="flex-1 min-w-0 text-sm truncate" data-uitk="textPrimary">${escapeHtml(item.name)}</span>
                     <span class="shrink-0 text-right">
@@ -236,13 +243,14 @@ function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterT
                 </div>`;
         }).join('');
 
-    const topHint = topList.length === 0 ? '' : `<span style="${STATIS_SMALL_TEXT_STYLE}" data-uitk="textSecondary">${tFormat('statisPanel.topList.hint', { n: topList.length })}</span>`;
+    const topHint = topList.length === 0 ? '' : `<span style="${STATIS_SMALL_TEXT_STYLE}" data-uitk="textSecondary">${tFormat('statisPanel.topList.hint', { n: rankedTotal == null ? topList.length : rankedTotal })}</span>`;
     const topMedia = `
         <section>
             ${sectionHeading('statisPanel.section.topMedia', topHint)}
             <div class="flex p-1 gap-1 rounded-xl mb-2" data-uitk="btnNeutralBg">${sortToggle}</div>
             <div class="flex gap-1.5 mb-2 overflow-x-auto pb-0.5">${filterChips}</div>
             <div>${listRows}</div>
+            ${paginationHtml || ''}
         </section>`;
 
     return overview + mediaTypes + topMedia;
