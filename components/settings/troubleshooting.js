@@ -43,7 +43,7 @@ function _renderTroubleshootingNavRow(key, iconPath, labelHtml, hintHtml) {
 function _renderTroubleshootingActionRow(action, iconPath, labelHtml, hintHtml) {
     return `
         <button type="button" data-troubleshooting-action="${action}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center gap-3" data-uitk="cardBg cardBorder cardHoverBg">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-rose-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${iconPath}" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="destructiveText" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${iconPath}" /></svg>
             <div class="min-w-0">
                 <div class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${labelHtml}</div>
                 <div class="text-xs mt-0.5" data-uitk="textSecondary">${hintHtml}</div>
@@ -69,7 +69,7 @@ function renderVideoThumbRepairBody() {
                     <div class="text-sm font-medium">${t('appSettings.troubleshooting.videoThumb.label')}</div>
                     <div class="text-xs mt-0.5" data-uitk="textSecondary">${t('appSettings.troubleshooting.videoThumb.hint')}</div>
                 </div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" /></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="cautionText" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" /></svg>
             </button>
             <div id="video-thumb-scan-result" class="hidden p-4 flex flex-col gap-3 border-t" data-uitk="dividerBorder">
                 <p id="video-thumb-scan-summary" class="text-sm" data-uitk="textPrimary"></p>

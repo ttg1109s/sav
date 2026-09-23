@@ -63,7 +63,7 @@ function renderPlayerDisplayBody(kind, cfg, motionPresetOptions) {
 
     return `
         <div>
-            <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2">${t('playerDisplaySettings.resolution.groupTitle')}</h3>
+            <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2" data-uitk="accentText">${t('playerDisplaySettings.resolution.groupTitle')}</h3>
             <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                 <div class="flex justify-between items-center p-4" data-uitk="cardHoverBg">
                     <span class="text-sm font-medium">${t('playerDisplaySettings.resolution.label')}</span>
@@ -75,7 +75,7 @@ function renderPlayerDisplayBody(kind, cfg, motionPresetOptions) {
         </div>
 
         <div class="mt-6">
-            <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2">${t('playerDisplaySettings.motion.groupTitle')}</h3>
+            <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2" data-uitk="accentText">${t('playerDisplaySettings.motion.groupTitle')}</h3>
             <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                 ${motionRowsHtml}
             </div>

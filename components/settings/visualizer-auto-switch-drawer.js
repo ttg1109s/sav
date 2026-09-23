@@ -19,11 +19,11 @@ function renderVisualizerAutoSwitchPanelBody() {
                     <div class="flex justify-between items-center p-4">
                         <div class="pr-3">
                             <div class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.autoSwitchEnable.label">${t('visualizerSettingsDrawer.autoSwitchEnable.label')}</div>
-                            <div class="text-xs text-slate-500 mt-0.5" data-i18n="visualizerSettingsDrawer.autoSwitchEnable.hint">${t('visualizerSettingsDrawer.autoSwitchEnable.hint')}</div>
+                            <div class="text-xs mt-0.5" data-uitk="textSecondary" data-i18n="visualizerSettingsDrawer.autoSwitchEnable.hint">${t('visualizerSettingsDrawer.autoSwitchEnable.hint')}</div>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer shrink-0">
                             <input type="checkbox" id="setting-auto-switch-enable" class="sr-only peer">
-                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" data-uitk="toggleTrackOff toggleTrackOn"></div>
                         </label>
                     </div>
 
@@ -47,24 +47,24 @@ function renderVisualizerAutoSwitchPanelBody() {
 
                         <div id="auto-switch-time-fixed-block" class="hidden flex-col p-4 gap-2 border-b" data-uitk="dividerBorder">
                             <div class="flex justify-between items-center">
-                                <span class="text-xs text-slate-500" data-i18n="visualizerSettingsDrawer.autoSwitchFixed.label">${t('visualizerSettingsDrawer.autoSwitchFixed.label')}</span>
+                                <span class="text-xs" data-uitk="textSecondary" data-i18n="visualizerSettingsDrawer.autoSwitchFixed.label">${t('visualizerSettingsDrawer.autoSwitchFixed.label')}</span>
                                 <input type="number" id="setting-auto-switch-seconds-fixed" min="10" step="1" class="rounded-lg px-2 py-1.5 text-xs outline-none w-20 text-right" data-uitk="inputBg inputBorder inputText">
                             </div>
                         </div>
 
                         <div id="auto-switch-time-random-block" class="hidden flex-col p-4 gap-2 border-b" data-uitk="dividerBorder">
                             <div class="flex justify-between items-center">
-                                <span class="text-xs text-slate-500" data-i18n="visualizerSettingsDrawer.autoSwitchRandom.label">${t('visualizerSettingsDrawer.autoSwitchRandom.label')}</span>
+                                <span class="text-xs" data-uitk="textSecondary" data-i18n="visualizerSettingsDrawer.autoSwitchRandom.label">${t('visualizerSettingsDrawer.autoSwitchRandom.label')}</span>
                                 <input type="number" id="setting-auto-switch-seconds-random" min="10" step="1" class="rounded-lg px-2 py-1.5 text-xs outline-none w-20 text-right" data-uitk="inputBg inputBorder inputText">
                             </div>
                         </div>
 
                         <div id="auto-switch-time-duration-block" class="hidden flex-col p-4 gap-2">
                             <div class="flex justify-between items-center">
-                                <span class="text-xs text-slate-500" data-i18n="visualizerSettingsDrawer.autoSwitchDuration.label">${t('visualizerSettingsDrawer.autoSwitchDuration.label')}</span>
+                                <span class="text-xs" data-uitk="textSecondary" data-i18n="visualizerSettingsDrawer.autoSwitchDuration.label">${t('visualizerSettingsDrawer.autoSwitchDuration.label')}</span>
                                 <input type="number" id="setting-auto-switch-seconds-duration" min="10" step="1" class="rounded-lg px-2 py-1.5 text-xs outline-none w-20 text-right" data-uitk="inputBg inputBorder inputText">
                             </div>
-                            <p class="text-xs text-slate-500 leading-relaxed" data-i18n="visualizerSettingsDrawer.autoSwitchDuration.hint">${t('visualizerSettingsDrawer.autoSwitchDuration.hint')}</p>
+                            <p class="text-xs leading-relaxed" data-uitk="textSecondary" data-i18n="visualizerSettingsDrawer.autoSwitchDuration.hint">${t('visualizerSettingsDrawer.autoSwitchDuration.hint')}</p>
                         </div>
                     </div>
                 </div>
