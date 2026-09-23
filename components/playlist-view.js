@@ -26,7 +26,7 @@
  */
 const TPL_PLAYLIST_VIEW = `
     <div id="playlist-view" class="flex flex-col overflow-hidden">
-        <div class="px-5 pt-4 pb-3 z-20 relative shrink-0" data-uitk="panelFlushBg">
+        <div class="px-5 pt-4 pb-3 z-20 relative shrink-0" data-uitk="panelFlushBg glassTunable">
             <!-- Hàng 1: logo header bên trái (tĩnh, full text) + cụm icon góc phải (Thêm nhạc +
                  Cài đặt + Đổi giao diện). -->
             <div class="flex justify-between items-center gap-5 mb-3" data-uitk="textPrimary">
@@ -159,7 +159,7 @@ const TPL_PLAYLIST_VIEW = `
             </div>
         </div>
 
-        <div class="flex-grow overflow-y-auto z-10 w-full relative" data-uitk="panelFlushBg">
+        <div class="flex-grow overflow-y-auto z-10 w-full relative" data-uitk="panelFlushBg glassTunable">
             <div id="playlist-empty" class="hidden h-[60%] flex flex-col items-center justify-center gap-4" data-uitk="textSecondary">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                 <p class="text-sm" data-i18n="playlistView.empty.noSongs">${t('playlistView.empty.noSongs')}</p>
