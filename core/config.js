@@ -152,20 +152,25 @@
             // khi nền Morphin là Background media: `appGlassBlur` = độ nhoè backdrop (px, 10-40), `appGlassTint` =
             // độ đục nền trắng của kính (%, 5-40). Min SỬA 23/09/2026 theo Giang. Mặc định = đúng thông số `.uitk-glass-surface` (36px / 10%) -> chưa chỉnh thì y như cũ.
             appGlassBlur: 36, appGlassTint: 10,
-            // 'light' | 'dark' | 'solid' (1 màu `bgSolidColor`) | 'gradient' (2 màu gradientFrom/gradientTo ngay dưới) |
+            // 'light' | 'dark' | 'none' (Morphin KHÔNG nền — chỉ appBaseBg) | 'gradient' (2 màu gradientFrom/gradientTo ngay dưới) |
             // 'background' (ảnh HOẶC video nền từ THƯ VIỆN — xem `bgMediaKind`/`bgMediaKey` dưới) — chọn qua event/router/theme.js,
             // chốt tại event/workflow/theme.js::_commitThemeMode(). Mặc định 'dark'.
             // SỬA 21/09/2026 (Giang yêu cầu UI 3 card Solid/Gradient/Background media + sửa lỗi dropdown nền "chọn mục khác đều bị fallback về
             // cái hiện tại"): 'solid' TRƯỚC ĐÂY là mode 'gradient' với 2 màu Từ/Đến giống nhau, rồi UI "đoán" lại loại nền từ đó — gradient
             // có 2 màu tình cờ bằng nhau bị đoán thành solid nên dropdown luôn nhảy về Solid, không chọn được Gradient. NAY solid là mode
             // riêng có màu riêng `bgSolidColor` (không dùng chung 2 màu gradient — đổi qua lại 2 card không ghi đè màu của nhau).
+            // SỬA 23/09/2026 (Giang: "bỏ toàn bộ background solid -> thay bằng none (tức không dùng background)") — mode 'solid' + field `bgSolidColor` ĐÃ XOÁ;
+            // card đầu giờ là 'none'. Data cũ: 'solid' -> 'none' (migrate trong loadConfig(), cùng chỗ dọn field cũ).
             themeMode: 'dark',
             gradientFrom: '#6366f1', gradientTo: '#ec4899',
-            bgSolidColor: '#6366f1',
+            // MỚI 23/09/2026 (Giang báo "Morphin -> Background -> chọn media -> chọn kiểu khác -> đổi theme khác -> chọn lại Morphin -> bị fallback về
+            // Background media") — kiểu nền CHỌN GẦN NHẤT khi đang ở Morphin ('none' | 'gradient' | 'background'; '' = chưa từng chọn). Đổi sang Light/Dark
+            // ghi đè themeMode thành 'light'/'dark' nên phải nhớ riêng field này; vào lại Morphin dùng đúng nó (trước đây cứ còn media là ép 'background').
+            morphinLastMode: '',
             // Nền media (mode 'background'): THAM CHIẾU item thư viện chứ KHÔNG copy blob (bản cũ copy ảnh vào meta.bgImage) —
             // `bgMediaKind` 'photo' (store ảnh, getImageRecord) | 'video' (store video, getVideoRecord) | '' (chưa chọn), `bgMediaKey` = key item.
             // Item bị xoá/mất -> lúc boot tự về `bgFallbackMode` (xem loadPlaylistBgMediaAsset()).
-            // `bgFallbackMode` = nền Solid/Gradient chọn GẦN NHẤT trước khi vào media ('solid' | 'gradient') — workflowTheme cập nhật mỗi lần chốt 1 trong 2 mode đó.
+            // `bgFallbackMode` = nền None/Gradient chọn GẦN NHẤT trước khi vào media ('none' | 'gradient') — workflowTheme cập nhật mỗi lần chốt 1 trong 2 mode đó.
             bgMediaKind: '', bgMediaKey: '', bgFallbackMode: 'gradient',
             // RUNTIME (blob: URL sống 1 session, KHÔNG persist, boot reset về ''): `bgImage` = URL ảnh nền (photo) — giữ tên cũ vì nhiều nơi đọc;
             // `bgVideo` = URL file video nền; `bgMediaThumb` = URL thumb full-res của video (poster + preview card + lấy mẫu màu status bar/preloader).
@@ -516,7 +521,7 @@
                 type: 'string', customEffect: 'object',
                 bgImage: 'string', bgBlur: 'number', appGlassBlur: 'number', appGlassTint: 'number',
                 themeMode: 'string', gradientFrom: 'string', gradientTo: 'string',
-                bgSolidColor: 'string', bgMediaKind: 'string', bgMediaKey: 'string', bgFallbackMode: 'string', bgVideo: 'string', bgMediaThumb: 'string',
+                morphinLastMode: 'string', bgMediaKind: 'string', bgMediaKey: 'string', bgFallbackMode: 'string', bgVideo: 'string', bgMediaThumb: 'string',
                 volume: 'number', eqPresetId: 'string', playbackSpeed: 'number',
                 visualEnabled: 'boolean',
                 gameplayDifficultyByGame: 'object',
@@ -716,7 +721,7 @@
                 cfg.bgImage = ''; cfg.bgVideo = ''; cfg.bgMediaThumb = '';
                 if (cfg.bgMediaKey) { cfg.bgMediaKey = ''; cfg.bgMediaKind = ''; } // item bị xoá/mất
                 if (cfg.themeMode === 'background') {
-                    cfg.themeMode = cfg.bgFallbackMode === 'solid' ? 'solid' : 'gradient';
+                    cfg.themeMode = cfg.bgFallbackMode === 'none' ? 'none' : 'gradient'; // SỬA 23/09/2026 — 'solid' đã bỏ, thay bằng 'none'
                     console.log(`writer: "loadPlaylistBgMediaAsset", page: "config", content: "nền media mất/chưa có -> fallback '${cfg.themeMode}'"`);
                 }
             });
@@ -743,21 +748,7 @@
             if (saved) {
                 try {
                     const savedObj = JSON.parse(saved);
-                    // MIGRATE (21/09/2026) — config LƯU TRƯỚC khi có mode 'solid' riêng (chưa có field `bgSolidColor`): "solid" cũ = gradient 2 màu giống
-                    // nhau -> chuyển thành solid THẬT (giữ màu đó), trả 2 màu gradient về mặc định để card Gradient không thành 1 màu phẳng. Config ở
-                    // mode 'background' mà chưa có `bgMediaKey` (bản cũ copy blob) tự về fallback ở loadPlaylistBgMediaAsset(). Chỉ chạy 1 lần: sau lần
-                    // lưu đầu tiên `bgSolidColor` đã có mặt.
-                    if (savedObj.bgSolidColor === undefined) {
-                        if (savedObj.themeMode === 'gradient' && savedObj.gradientFrom && savedObj.gradientFrom === savedObj.gradientTo) {
-                            savedObj.themeMode = 'solid';
-                            savedObj.bgSolidColor = savedObj.gradientFrom;
-                            savedObj.bgFallbackMode = 'solid';
-                            savedObj.gradientFrom = DEFAULT_VIZ_CONFIG.gradientFrom;
-                            savedObj.gradientTo = DEFAULT_VIZ_CONFIG.gradientTo;
-                        } else if (savedObj.gradientFrom) {
-                            savedObj.bgSolidColor = savedObj.gradientFrom; // màu solid khởi đầu = màu "Từ" cũ, người dùng vẫn đổi được sau
-                        }
-                    }
+                    // (MIGRATE 21/09/2026 gradient-2-màu-giống -> 'solid' ĐÃ XOÁ 23/09/2026 — mode 'solid' đã bỏ; data 'solid' còn sót -> 'none', xem dưới.)
                     appConfigViz.setAll({ ...appConfigViz.getAll(), ...savedObj });
                 } catch(e) {}
             }
@@ -832,6 +823,14 @@
                 delete cfg.rainGlassCityOpacity; delete cfg.rainGlassCityVisible; delete cfg.rainGlassMoonVisible; delete cfg.rainGlassWindowVisible;
                 delete cfg.quality;
 
+                // MIGRATE 23/09/2026 (Giang bỏ nền Solid, thay bằng None) — 'solid' ở themeMode/bgFallbackMode/morphinLastMode -> 'none'; bỏ field màu solid.
+                // Chạy mỗi boot, vô hại khi data đã sạch.
+                if (cfg.themeMode === 'solid') cfg.themeMode = 'none';
+                if (cfg.bgFallbackMode === 'solid') cfg.bgFallbackMode = 'none';
+                if (cfg.morphinLastMode === 'solid') cfg.morphinLastMode = 'none';
+                delete cfg.bgSolidColor;
+                // MỚI 23/09/2026 — data cũ chưa có `morphinLastMode` mà đang ở Morphin (themeMode là 1 kiểu nền) -> nhớ luôn kiểu đó.
+                if (!cfg.morphinLastMode && ['none', 'gradient', 'background'].includes(cfg.themeMode)) cfg.morphinLastMode = cfg.themeMode;
                 delete cfg.bgImageEnabled; // XOÁ field 21/09/2026 (dọn deadcode) — cờ "bật ảnh nền" của cơ chế copy blob cũ, nay mode 'background' + bgMediaKey thay thế
                 if (cfg.themeMode == null) cfg.themeMode = 'dark';
                 if (!cfg.gradientFrom) cfg.gradientFrom = DEFAULT_VIZ_CONFIG.gradientFrom;

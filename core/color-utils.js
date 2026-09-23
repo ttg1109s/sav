@@ -156,10 +156,7 @@
                 appBgBlurLayer.style.filter = 'none';
                 appBgBlurLayer.style.transform = 'scale(1)';
             }
-            else if (cfg.themeMode === 'solid') {
-                appBgBlurLayer.style.backgroundImage = 'none';
-                appBgImage.style.backgroundImage = `linear-gradient(135deg, ${cfg.bgSolidColor}, ${cfg.bgSolidColor})`; // 1 màu = gradient 2 đầu cùng màu (không cần nhánh vẽ riêng)
-            }
+            // XOÁ 23/09/2026: nhánh themeMode 'solid' — Giang bỏ nền Solid; 'none' (Morphin không nền) rơi vào nhánh cuối như Light/Dark.
             else if (cfg.themeMode === 'gradient') {
                 appBgBlurLayer.style.backgroundImage = 'none';
                 appBgImage.style.backgroundImage = `linear-gradient(135deg, ${cfg.gradientFrom}, ${cfg.gradientTo})`;

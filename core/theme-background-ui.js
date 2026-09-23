@@ -22,10 +22,13 @@
  * (header + danh sách Playlist chính — class `.uitk-glass-tunable`, assets/css/glass.css). CHỈ hiện khi đang chọn Background media VÀ đã có item (ảnh
  * hoặc video) — `state.showGlassRow`, Workflow tính. Hàng luôn có trong DOM, chỉ bật/tắt `hidden` -> `patchThemeBackgroundCards()` vá được.
  *
- * @typedef {{themeMode:string, solidColor:string, gradientFrom:string, gradientTo:string, mediaKind:''|'photo'|'video', hasMedia:boolean, mediaPreviewUrl:string, glassBlur:number, glassTint:number, showGlassRow:boolean}} ThemeBackgroundState
+ * SỬA 23/09/2026 (Giang: "bỏ toàn bộ background solid -> thay bằng none") — card đầu là 'none' (Morphin KHÔNG nền: preview = nền gốc appBaseBg
+ * + icon cấm, không có ô màu bên dưới); ô màu Solid + message 'theme.solidColor.input' ĐÃ XOÁ.
+ *
+ * @typedef {{themeMode:string, gradientFrom:string, gradientTo:string, mediaKind:''|'photo'|'video', hasMedia:boolean, mediaPreviewUrl:string, glassBlur:number, glassTint:number, showGlassRow:boolean}} ThemeBackgroundState
  */
 
-const THEME_BG_CARD_MODES = ['solid', 'gradient', 'background']; // thứ tự hiển thị; 'background' = "Background media"
+const THEME_BG_CARD_MODES = ['none', 'gradient', 'background']; // thứ tự hiển thị; 'background' = "Background media"
 // Khớp mức kẹp của setAppGlassBlur()/setAppGlassTint() (core/visualizer/visualizer-display.js) và updatePlaylistBg() (core/color-utils.js).
 const THEME_GLASS_BLUR_MIN_PX = 10;
 const THEME_GLASS_BLUR_MAX_PX = 40;
@@ -33,9 +36,11 @@ const THEME_GLASS_TINT_MIN_PCT = 5;
 const THEME_GLASS_TINT_MAX_PCT = 40;
 const THEME_BG_PREVIEW_HEIGHT_PX = 88; // inline style — tránh class ngoặc vuông (Tailwind CDN tiêm CSS bất đồng bộ, xem ghi chú cùng lý do ở core/statis-panel-ui.js)
 
-/** Kiểu nền của khối preview cho 1 card, từ `state`. @param {'solid'|'gradient'|'background'} mode @param {ThemeBackgroundState} state @returns {string} chuỗi `style` */
+const THEME_BG_NONE_PREVIEW_COLOR = '#0f172a'; // = appBaseBg của Morphin (slate-900, core/ui-theme/morphin.js) — đúng nền app thấy khi chọn None
+
+/** Kiểu nền của khối preview cho 1 card, từ `state`. @param {'none'|'gradient'|'background'} mode @param {ThemeBackgroundState} state @returns {string} chuỗi `style` */
 function _themeBgPreviewStyle(mode, state) {
-    if (mode === 'solid') return `height:${THEME_BG_PREVIEW_HEIGHT_PX}px; background:${state.solidColor};`;
+    if (mode === 'none') return `height:${THEME_BG_PREVIEW_HEIGHT_PX}px; background:${THEME_BG_NONE_PREVIEW_COLOR};`;
     if (mode === 'gradient') return `height:${THEME_BG_PREVIEW_HEIGHT_PX}px; background:linear-gradient(135deg, ${state.gradientFrom}, ${state.gradientTo});`;
     return state.mediaPreviewUrl
         ? `height:${THEME_BG_PREVIEW_HEIGHT_PX}px; background:url(${state.mediaPreviewUrl}) center / cover no-repeat;`
@@ -65,25 +70,28 @@ function _themeGlassSliderHtml(part, labelKey, value, min, max, unit, t) {
  * @returns {string}
  */
 function buildThemeBackgroundCardsHtml(state, t) {
-    const labelKey = { solid: 'appSettings.theme.bg.solid', gradient: 'appSettings.theme.bg.gradient', background: 'appSettings.theme.bg.media' };
+    const labelKey = { none: 'appSettings.theme.bg.none', gradient: 'appSettings.theme.bg.gradient', background: 'appSettings.theme.bg.media' };
     const colorInput = (id, value) => `<div class="w-8 h-8 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" id="${id}" class="w-10 h-10 -m-1 cursor-pointer" value="${value}"></div>`;
     const arrowIcon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>';
     const pickBtn = (kind, labelI18nKey) => `<button type="button" data-theme-bg-pick="${kind}" class="h-8 px-2.5 rounded-full text-xs font-semibold transition-colors" data-uitk="btnNeutralBg btnNeutralText" data-i18n="${labelI18nKey}">${t(labelI18nKey)}</button>`;
 
     const controls = {
-        solid: colorInput('theme-bg-solid-color', state.solidColor),
+        none: '', // None không có gì để chỉnh — hàng controls vẫn giữ min-height cho 3 card thẳng hàng
         gradient: `${colorInput('theme-bg-gradient-from', state.gradientFrom)}${arrowIcon}${colorInput('theme-bg-gradient-to', state.gradientTo)}`,
         background: `${pickBtn('photo', 'appSettings.theme.bg.media.pickPhoto')}${pickBtn('video', 'appSettings.theme.bg.media.pickVideo')}`,
     };
 
     const plusIcon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>';
     const playBadge = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path d="M6.3 2.84A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.27l9.34-5.89a1.5 1.5 0 000-2.54L6.3 2.84z"/></svg>';
+    const noneIcon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M5.64 5.64l12.72 12.72"/></svg>';
     const checkIcon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>';
 
     const cards = THEME_BG_CARD_MODES.map((mode) => {
         const selected = state.themeMode === mode;
         const isMedia = mode === 'background';
         const hasMedia = isMedia && state.hasMedia;
+        // Card None: icon "cấm" giữa khối preview (chữ trắng mờ — nền preview luôn tối, không theo theme).
+        const noneOverlay = mode === 'none' ? `<div class="absolute inset-0 flex items-center justify-center text-white/60">${noneIcon}</div>` : '';
         const mediaOverlay = isMedia ? `
                     <div data-theme-bg-empty class="${hasMedia ? 'hidden' : 'flex'} absolute inset-0 flex-col items-center justify-center gap-1 rounded-xl border border-dashed" data-uitk="inputBorder textMutedIcon">
                         ${plusIcon}
@@ -93,7 +101,7 @@ function buildThemeBackgroundCardsHtml(state, t) {
         return `
             <div class="flex flex-col items-center gap-2 min-w-0">
                 <button type="button" data-theme-bg-card="${mode}" class="relative w-full rounded-2xl p-1 transition-colors" data-uitk="${_themeBgCardUitk(selected)}">
-                    <div data-theme-bg-preview class="relative w-full rounded-xl overflow-hidden" style="${_themeBgPreviewStyle(mode, state)}">${mediaOverlay}</div>
+                    <div data-theme-bg-preview class="relative w-full rounded-xl overflow-hidden" style="${_themeBgPreviewStyle(mode, state)}">${noneOverlay}${mediaOverlay}</div>
                     <span class="flex items-center justify-center text-xs font-semibold text-center leading-tight mt-1.5 mb-0.5" style="min-height:30px;" data-uitk="textPrimary" data-i18n="${labelKey[mode]}">${t(labelKey[mode])}</span>
                     <span data-theme-bg-check class="${selected ? 'flex' : 'hidden'} absolute top-2 right-2 w-5 h-5 rounded-full items-center justify-center" data-uitk="btnPrimaryPillBg textOnAccent">${checkIcon}</span>
                 </button>
@@ -121,8 +129,6 @@ function buildThemeBackgroundCardsHtml(state, t) {
 function wireThemeBackgroundCards(rootEl) {
     rootEl.querySelectorAll('[data-theme-bg-card]').forEach((card) => card.addEventListener('click', () => eventBus.send({ router: 'theme', type: 'theme.selectMode.click', payload: { mode: card.dataset.themeBgCard } })));
     rootEl.querySelectorAll('[data-theme-bg-pick]').forEach((btn) => btn.addEventListener('click', () => eventBus.send({ router: 'theme', type: 'theme.pickBackgroundMedia.click', payload: { kind: btn.dataset.themeBgPick } })));
-    const solidInput = rootEl.querySelector('#theme-bg-solid-color');
-    if (solidInput) solidInput.addEventListener('input', (e) => eventBus.send({ router: 'theme', type: 'theme.solidColor.input', payload: { value: e.target.value } }));
     const fromInput = rootEl.querySelector('#theme-bg-gradient-from');
     if (fromInput) fromInput.addEventListener('input', (e) => eventBus.send({ router: 'theme', type: 'theme.gradientFrom.input', payload: { value: e.target.value } }));
     const toInput = rootEl.querySelector('#theme-bg-gradient-to');
@@ -159,7 +165,7 @@ function patchThemeBackgroundCards(rootEl, state) {
             if (videoBadge) { const showBadge = hasMedia && state.mediaKind === 'video'; videoBadge.classList.toggle('hidden', !showBadge); videoBadge.classList.toggle('flex', showBadge); }
         }
     });
-    [['#theme-bg-solid-color', state.solidColor], ['#theme-bg-gradient-from', state.gradientFrom], ['#theme-bg-gradient-to', state.gradientTo]].forEach(([selector, value]) => {
+    [['#theme-bg-gradient-from', state.gradientFrom], ['#theme-bg-gradient-to', state.gradientTo]].forEach(([selector, value]) => {
         const input = cluster.querySelector(selector);
         if (input && document.activeElement !== input && input.value !== value) input.value = value;
     });
