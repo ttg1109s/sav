@@ -248,17 +248,17 @@
         // `applyBgImageEnabled()` không còn ai gọi — thay bằng workflowTheme._applyPickedMedia()/resolveAppBgMedia() (event/workflow/theme.js, core/config.js).
 
         /** Core thuần: độ NHOÈ kính các màn App Panel chính (Playlist/Game catalog/Statistics) khi nền Morphin là Background media — MỚI 23/09/2026
-         * (THAY `setThemeBgBlur()` blur ảnh nền, Giang bỏ). Ép số nguyên, kẹp 0-40px. Gọi bởi workflowTheme.setAppGlassBlur(). @param {string|number} value */
+         * (THAY `setThemeBgBlur()` blur ảnh nền, Giang bỏ). Ép số nguyên, kẹp 10-40px (SỬA 23/09/2026 — Giang: min 10px). Gọi bởi workflowTheme.setAppGlassBlur(). @param {string|number} value */
         function setAppGlassBlur(value) {
-            const px = Math.max(0, Math.min(40, parseInt(value, 10) || 0));
+            const px = Math.max(10, Math.min(40, parseInt(value, 10) || 10));
             appConfigViz.mutateAll(cfg => { cfg.appGlassBlur = px; });
             console.log(`writer: "setAppGlassBlur", page: "viz.appGlassBlur", content: "${px}"`);
         }
 
-        /** Core thuần: độ ĐỤC nền trắng của kính các màn App Panel chính — MỚI 23/09/2026. Ép số nguyên, kẹp 0-40%. Gọi bởi
+        /** Core thuần: độ ĐỤC nền trắng của kính các màn App Panel chính — MỚI 23/09/2026. Ép số nguyên, kẹp 5-40% (SỬA 23/09/2026 — Giang: min 5%). Gọi bởi
          * workflowTheme.setAppGlassTint(). @param {string|number} value */
         function setAppGlassTint(value) {
-            const pct = Math.max(0, Math.min(40, parseInt(value, 10) || 0));
+            const pct = Math.max(5, Math.min(40, parseInt(value, 10) || 5));
             appConfigViz.mutateAll(cfg => { cfg.appGlassTint = pct; });
             console.log(`writer: "setAppGlassTint", page: "viz.appGlassTint", content: "${pct}"`);
         }
