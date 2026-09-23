@@ -116,12 +116,12 @@
 
             // MỚI 23/09/2026 (Giang: tinh chỉnh độ mờ kính Playlist/Game catalog/Statistics) — gán 2 biến CSS lên <html>, được `.uitk-glass-tunable`
             // (assets/css/glass.css, key theme `glassTunable` — chỉ Morphin có class) đọc. CHỈ lấy giá trị người dùng chỉnh khi nền đang là media
-            // (ảnh/video) — slider cũng chỉ hiện lúc đó; nền khác -> về đúng thông số kính mặc định (36px / 10%). Blur 0 -> tắt hẳn backdrop-filter
-            // (đỡ GPU khi cuộn danh sách dài), không để `blur(0px)` vẫn tạo lớp compositing.
+            // (ảnh/video) — slider cũng chỉ hiện lúc đó; nền khác -> về đúng thông số kính mặc định (36px / 10%).
             const isTunedGlass = isMediaMode && !!(cfg.bgVideo || cfg.bgImage);
-            const glassBlur = isTunedGlass && Number.isFinite(cfg.appGlassBlur) ? cfg.appGlassBlur : 36; // guard data cũ chưa có field
-            const glassTint = isTunedGlass && Number.isFinite(cfg.appGlassTint) ? cfg.appGlassTint : 10;
-            document.documentElement.style.setProperty('--uitk-app-glass-filter', glassBlur > 0 ? `blur(${glassBlur}px) saturate(1.6)` : 'none');
+            // SỬA 23/09/2026 (Giang: min 10px / 5%) — kẹp lại cả lúc áp: data đã lưu dưới mức min (từ bản 0-40 trước) cũng tự lên đúng min.
+            const glassBlur = isTunedGlass && Number.isFinite(cfg.appGlassBlur) ? Math.max(10, Math.min(40, cfg.appGlassBlur)) : 36; // guard data cũ chưa có field
+            const glassTint = isTunedGlass && Number.isFinite(cfg.appGlassTint) ? Math.max(5, Math.min(40, cfg.appGlassTint)) : 10;
+            document.documentElement.style.setProperty('--uitk-app-glass-filter', `blur(${glassBlur}px) saturate(1.6)`);
             document.documentElement.style.setProperty('--uitk-app-glass-tint', `rgba(255, 255, 255, ${glassTint / 100})`);
 
             if (isMediaMode && cfg.bgVideo) {

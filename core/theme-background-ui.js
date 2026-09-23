@@ -18,7 +18,7 @@
  * NẠP SAU: core/ui-theme/apply-ui.js (applyUiThemeToDom), lang/lang.js (t). NẠP TRƯỚC: event/workflow/app-settings.js, event/workflow/theme.js.
  *
  * MỚI 23/09/2026 (Giang: "tinh chỉnh độ mờ cho playlist main app" — THAY hàng blur ảnh nền vừa làm, đã bỏ) — 1 HÀNG RIÊNG "Panel glass" dưới cụm 3
- * card (`#theme-glass-row`) gồm 2 slider: Blur 0-40px (`#theme-glass-blur`) + Opacity 0-40% (`#theme-glass-tint`), chỉnh kính các màn App Panel chính
+ * card (`#theme-glass-row`) gồm 2 slider: Blur 10-40px (`#theme-glass-blur`) + Opacity 5-40% (`#theme-glass-tint`) — min SỬA 23/09/2026 theo Giang, chỉnh kính các màn App Panel chính
  * (Playlist, Game catalog, Statistics — class `.uitk-glass-tunable`, assets/css/glass.css). CHỈ hiện khi đang chọn Background media VÀ đã có item (ảnh
  * hoặc video) — `state.showGlassRow`, Workflow tính. Hàng luôn có trong DOM, chỉ bật/tắt `hidden` -> `patchThemeBackgroundCards()` vá được.
  *
@@ -26,8 +26,11 @@
  */
 
 const THEME_BG_CARD_MODES = ['solid', 'gradient', 'background']; // thứ tự hiển thị; 'background' = "Background media"
-const THEME_GLASS_BLUR_MAX_PX = 40; // khớp mức kẹp của setAppGlassBlur() (core/visualizer/visualizer-display.js)
-const THEME_GLASS_TINT_MAX_PCT = 40; // khớp mức kẹp của setAppGlassTint()
+// Khớp mức kẹp của setAppGlassBlur()/setAppGlassTint() (core/visualizer/visualizer-display.js) và updatePlaylistBg() (core/color-utils.js).
+const THEME_GLASS_BLUR_MIN_PX = 10;
+const THEME_GLASS_BLUR_MAX_PX = 40;
+const THEME_GLASS_TINT_MIN_PCT = 5;
+const THEME_GLASS_TINT_MAX_PCT = 40;
 const THEME_BG_PREVIEW_HEIGHT_PX = 88; // inline style — tránh class ngoặc vuông (Tailwind CDN tiêm CSS bất đồng bộ, xem ghi chú cùng lý do ở core/statis-panel-ui.js)
 
 /** Kiểu nền của khối preview cho 1 card, từ `state`. @param {'solid'|'gradient'|'background'} mode @param {ThemeBackgroundState} state @returns {string} chuỗi `style` */
@@ -45,14 +48,14 @@ function _themeBgCardUitk(selected) {
 }
 
 /** 1 slider trong hàng "Panel glass" (nhãn + số + range). Hàm lá, chỉ dựng chuỗi. MỚI 23/09/2026.
- * @param {'blur'|'tint'} part @param {string} labelKey @param {number} value @param {number} max @param {string} unit @param {function} t */
-function _themeGlassSliderHtml(part, labelKey, value, max, unit, t) {
+ * @param {'blur'|'tint'} part @param {string} labelKey @param {number} value @param {number} min @param {number} max @param {string} unit @param {function} t */
+function _themeGlassSliderHtml(part, labelKey, value, min, max, unit, t) {
     return `<div>
                     <div class="flex justify-between items-center mb-2">
                         <span class="text-xs" data-uitk="textSecondary" data-i18n="${labelKey}">${t(labelKey)}</span>
                         <span id="theme-glass-${part}-value" class="text-xs font-mono tabular-nums" data-uitk="accentText">${value}${unit}</span>
                     </div>
-                    <input type="range" id="theme-glass-${part}" min="0" max="${max}" step="1" value="${value}" class="w-full ce-slider">
+                    <input type="range" id="theme-glass-${part}" min="${min}" max="${max}" step="1" value="${value}" class="w-full ce-slider">
                 </div>`;
 }
 
@@ -104,8 +107,8 @@ function buildThemeBackgroundCardsHtml(state, t) {
             <div class="grid grid-cols-3 gap-2">${cards}</div>
             <div id="theme-glass-row" class="${state.showGlassRow ? '' : 'hidden'} mt-4 pt-3 border-t space-y-3" data-uitk="dividerBorder">
                 <div class="text-sm font-semibold" data-uitk="textSecondaryStrong" data-i18n="appSettings.theme.glass.section">${t('appSettings.theme.glass.section')}</div>
-                ${_themeGlassSliderHtml('blur', 'appSettings.theme.glass.blur', state.glassBlur, THEME_GLASS_BLUR_MAX_PX, 'px', t)}
-                ${_themeGlassSliderHtml('tint', 'appSettings.theme.glass.tint', state.glassTint, THEME_GLASS_TINT_MAX_PCT, '%', t)}
+                ${_themeGlassSliderHtml('blur', 'appSettings.theme.glass.blur', state.glassBlur, THEME_GLASS_BLUR_MIN_PX, THEME_GLASS_BLUR_MAX_PX, 'px', t)}
+                ${_themeGlassSliderHtml('tint', 'appSettings.theme.glass.tint', state.glassTint, THEME_GLASS_TINT_MIN_PCT, THEME_GLASS_TINT_MAX_PCT, '%', t)}
             </div>
         </div>`;
 }
