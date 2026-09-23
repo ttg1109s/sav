@@ -59,8 +59,11 @@
  * vai trò active (KHÔNG xoá hẳn preset, vẫn còn trong danh sách để chọn lại sau) — xem
  * workflowPlaylistFilterPresets.unselectPreset(). Dòng KHÔNG active vẫn 2 nút "chọn áp dụng" +
  * "xoá" như cũ.
- * @param {{id:string,name:string}[]} presets @param {string|null} activeId */
-function renderPlaylistFilterListBody(presets, activeId) {
+ * SỬA 23/09/2026 — thêm `paginationHtml` (nơi 'filterPresets' của Settings > System > Pagination —
+ * Workflow cắt sẵn `presets` = đúng trang cần vẽ; '' khi tắt/1 trang), đặt trong
+ * `#playlist-filter-list-pagination` cuối danh sách để Workflow wire (core/pagination-ui.js).
+ * @param {{id:string,name:string}[]} presets @param {string|null} activeId @param {string} [paginationHtml] */
+function renderPlaylistFilterListBody(presets, activeId, paginationHtml) {
     const addRowHtml = `
         <button type="button" id="btn-playlist-filter-list-add" class="w-full text-center px-4 py-3.5 rounded-2xl mb-2 text-sm font-semibold" data-uitk="btnAccentSoft accentSoftBorder" data-i18n="playlistFilterPresetsDrawer.list.add.label">${t('playlistFilterPresetsDrawer.list.add.label')}</button>
     `;
@@ -96,7 +99,7 @@ function renderPlaylistFilterListBody(presets, activeId) {
         </div>
     `;
     }).join('');
-    return addRowHtml + itemsHtml;
+    return addRowHtml + itemsHtml + `<div id="playlist-filter-list-pagination">${paginationHtml || ''}</div>`;
 }
 
 /** 1 hàng field TEXT (tên/album/nghệ sĩ) — checkbox bật + select toán tử (=, !=, Contains) + ô nhập. */

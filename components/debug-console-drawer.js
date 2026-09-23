@@ -42,6 +42,7 @@ function renderDebugConsolePanelBody() {
                 <button id="btn-debug-console-clear" type="button" class="flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5" data-uitk="btnDestructiveBg btnDestructiveHoverBg textOnAccent">${_renderDebugConsoleIconSvg(DEBUG_CONSOLE_ICON_TRASH, 'h-4 w-4')}<span data-i18n="settingsMisc.debugConsole.btnClear">${t('settingsMisc.debugConsole.btnClear')}</span></button>
             </div>
             <div id="debug-console-list" class="flex flex-col gap-1.5 overflow-y-auto" style="flex: 1 1 0; min-height: 0;"></div>
+            <div id="debug-console-pagination" class="shrink-0"></div>
         </div>
     `;
 }

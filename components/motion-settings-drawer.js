@@ -29,7 +29,11 @@
  */
 
 /** @param {{id:string, name:string}[]} presets */
-function renderMotionListBody(presets) {
+/** SỬA 23/09/2026 — thêm `paginationHtml` (thanh phân trang, nơi 'motionPresets' của Settings > System >
+ * Pagination — Workflow cắt sẵn `presets` = đúng trang cần vẽ rồi truyền thanh vào; '' khi tắt/1 trang),
+ * đặt trong `#motion-list-pagination` cuối danh sách để Workflow wire (core/pagination-ui.js).
+ * @param {Array} presets @param {string} [paginationHtml] */
+function renderMotionListBody(presets, paginationHtml) {
     const addRowHtml = `
         <button type="button" id="btn-motion-list-add" class="w-full text-center px-4 py-3.5 rounded-2xl mb-2 text-sm font-semibold" data-uitk="btnAccentSoft accentSoftBorder">${t('motionPresetsDrawer.list.add.label')}</button>
     `;
@@ -44,7 +48,7 @@ function renderMotionListBody(presets) {
             </button>
         </div>
     `).join('');
-    return addRowHtml + itemsHtml;
+    return addRowHtml + itemsHtml + `<div id="motion-list-pagination">${paginationHtml || ''}</div>`;
 }
 
 /** Option {value,labelKey} cho select hướng — trục ngang (Pan X/Rotate) vs trục dọc (Pan Y, MỚI —

@@ -59,7 +59,11 @@ function renderEqListHeader() {
 }
 
 /** @param {object[]} presets @param {string} activeId */
-function renderEqListBody(presets, activeId) {
+/** SỬA 23/09/2026 — thêm `paginationHtml` (nơi 'eqPresets' của Settings > System > Pagination — Workflow
+ * cắt sẵn `presets` = đúng trang cần vẽ; '' khi tắt/1 trang), đặt trong `#eq-list-pagination` cuối danh
+ * sách để Workflow wire (core/pagination-ui.js).
+ * @param {Array} presets @param {string} activeId @param {string} [paginationHtml] */
+function renderEqListBody(presets, activeId, paginationHtml) {
     return presets.map((p) => {
         const isActive = p.id === activeId;
         const rowUitk = isActive ? 'rowActiveBg rowActiveBorder' : 'btnGhostHoverBg'; // SỬA 23/09/2026 (rà soát theme) — trước đây class cứng bg-sky-50/border-sky-300/hover:bg-slate-100
@@ -73,7 +77,7 @@ function renderEqListBody(presets, activeId) {
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
         </button>
     `;
-    }).join('');
+    }).join('') + `<div id="eq-list-pagination">${paginationHtml || ''}</div>`;
 }
 
 /** @param {{id: string, name: string, locked: boolean}} preset @param {boolean} isBuiltIn - preset
