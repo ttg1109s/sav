@@ -70,13 +70,13 @@ function renderGestureSettingsPanelBody() {
             <select id="${id}" class="rounded-lg px-2 py-1.5 text-xs outline-none w-32 text-right" data-uitk="inputBg inputBorder inputText">${actionOptions}</select>
         </div>
     `;
-    const sectionTitle = (labelKey, colorClass) => `<h3 class="text-xs font-bold ${colorClass} uppercase tracking-widest mb-2 ml-2" data-i18n="${labelKey}">${t(labelKey)}</h3>`;
+    const sectionTitle = (labelKey, hue) => `<h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2" data-uitk="categoryAccent:${hue}" data-i18n="${labelKey}">${t(labelKey)}</h3>`; // SỬA 23/09/2026 (rà soát theme) — tham số là TÊN HUE trong bảng categoryAccent (core/ui-theme/*.js), không còn class màu cứng text-*-600
     // MỚI (12/08/2026, Giang yêu cầu "tránh nhãn Action X mà vẫn hiểu ý định") — dòng hint NGAY
     // DƯỚI 1 tiêu đề section, CÙNG style .text-xs.text-slate-400 với hint trong row (Seek/Vuốt
     // cạnh) — giải thích chức năng 3 Slot ở ĐÚNG 1 chỗ, khỏi phải nhồi vào tên từng hàng.
-    const sectionTitleWithHint = (labelKey, colorClass, hintKey) => `
-        ${sectionTitle(labelKey, colorClass)}
-        <p class="text-xs text-slate-500 -mt-1.5 mb-2 ml-2" data-i18n="${hintKey}">${t(hintKey)}</p>
+    const sectionTitleWithHint = (labelKey, hue, hintKey) => `
+        ${sectionTitle(labelKey, hue)}
+        <p class="text-xs -mt-1.5 mb-2 ml-2" data-uitk="textSecondary" data-i18n="${hintKey}">${t(hintKey)}</p>
     `;
     // FIX (12/08/2026) — bổ sung 3 <option> CÒN THIẾU so với TOÀN BỘ nút Control Center thật sự có
     // (openVolume/cycleEq/editEq — xem GESTURE_TRIPLE_TAP_TARGET_ELS, event/workflow/
@@ -112,7 +112,7 @@ function renderGestureSettingsPanelBody() {
     return `
         <div class="flex flex-col gap-5">
             <div>
-                ${sectionTitleWithHint('gestureSettings.sectionActions', 'text-violet-600', 'gestureSettings.sectionActions.hint')}
+                ${sectionTitleWithHint('gestureSettings.sectionActions', 'violet', 'gestureSettings.sectionActions.hint')}
                 <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                     ${actionSlotRow('setting-gesture-action-slot-1', 'gestureSettings.action.actionSlot1')}
                     ${actionSlotRow('setting-gesture-action-slot-2', 'gestureSettings.action.actionSlot2')}
@@ -121,7 +121,7 @@ function renderGestureSettingsPanelBody() {
             </div>
 
             <div>
-                ${sectionTitle('gestureSettings.sectionNav', 'text-sky-600')}
+                ${sectionTitle('gestureSettings.sectionNav', 'sky')}
                 <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                     ${actionRow('setting-gesture-action-swipe-up', 'gestureSettings.swipeUp.label')}
                     ${actionRow('setting-gesture-action-swipe-down', 'gestureSettings.swipeDown.label')}
@@ -131,7 +131,7 @@ function renderGestureSettingsPanelBody() {
             </div>
 
             <div>
-                ${sectionTitle('gestureSettings.sectionTap', 'text-emerald-600')}
+                ${sectionTitle('gestureSettings.sectionTap', 'emerald')}
                 <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                     ${actionRow('setting-gesture-action-tap-single', 'gestureSettings.tapSingle.label')}
                     ${actionRow('setting-gesture-action-tap-double', 'gestureSettings.tapDouble.label')}
@@ -140,40 +140,40 @@ function renderGestureSettingsPanelBody() {
             </div>
 
             <div>
-                ${sectionTitle('gestureSettings.sectionSeek', 'text-amber-600')}
+                ${sectionTitle('gestureSettings.sectionSeek', 'amber')}
                 <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                     <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder">
                         <div class="pr-3">
                             <div class="text-sm font-medium" data-i18n="gestureSettings.seekHoldEnable.label">${t('gestureSettings.seekHoldEnable.label')}</div>
-                            <div class="text-xs text-slate-500 mt-0.5" data-i18n="gestureSettings.seekHoldEnable.hint">${t('gestureSettings.seekHoldEnable.hint')}</div>
+                            <div class="text-xs mt-0.5" data-uitk="textSecondary" data-i18n="gestureSettings.seekHoldEnable.hint">${t('gestureSettings.seekHoldEnable.hint')}</div>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer shrink-0">
                             <input type="checkbox" id="setting-gesture-seek-hold-enable" class="sr-only peer">
-                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" data-uitk="toggleTrackOff toggleTrackOn"></div>
                         </label>
                     </div>
                     <button id="setting-gesture-open-seek-step-picker" type="button" class="flex justify-between items-center p-4 w-full text-left border-b" data-uitk="dividerBorder cardHoverBg">
                         <span class="text-sm font-medium" data-i18n="gestureSettings.seekStep.label">${t('gestureSettings.seekStep.label')}</span>
-                        <span id="gesture-seek-step-value" class="text-xs text-slate-900 font-mono"></span>
+                        <span id="gesture-seek-step-value" class="text-xs font-mono" data-uitk="textPrimary"></span>
                     </button>
                     <button id="setting-gesture-open-seek-hold-interval-picker" type="button" class="flex justify-between items-center p-4 w-full text-left" data-uitk="cardHoverBg">
                         <span class="text-sm font-medium" data-i18n="gestureSettings.seekHoldInterval.label">${t('gestureSettings.seekHoldInterval.label')}</span>
-                        <span id="gesture-seek-hold-interval-value" class="text-xs text-slate-900 font-mono"></span>
+                        <span id="gesture-seek-hold-interval-value" class="text-xs font-mono" data-uitk="textPrimary"></span>
                     </button>
                 </div>
             </div>
 
             <div>
-                ${sectionTitle('gestureSettings.sectionEdge', 'text-fuchsia-600')}
+                ${sectionTitle('gestureSettings.sectionEdge', 'fuchsia')}
                 <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                     <div class="flex justify-between items-center p-4">
                         <div class="pr-3">
                             <div class="text-sm font-medium" data-i18n="gestureSettings.edgeTop.label">${t('gestureSettings.edgeTop.label')}</div>
-                            <div class="text-xs text-slate-500 mt-0.5" data-i18n="gestureSettings.edgeTop.hint">${t('gestureSettings.edgeTop.hint')}</div>
+                            <div class="text-xs mt-0.5" data-uitk="textSecondary" data-i18n="gestureSettings.edgeTop.hint">${t('gestureSettings.edgeTop.hint')}</div>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer shrink-0">
                             <input type="checkbox" id="setting-gesture-edge-top" class="sr-only peer">
-                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" data-uitk="toggleTrackOff toggleTrackOn"></div>
                         </label>
                     </div>
                 </div>

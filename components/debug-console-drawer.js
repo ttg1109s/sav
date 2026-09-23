@@ -57,17 +57,16 @@ function renderDebugConsoleEmptyHtml() {
 function renderDebugConsoleItemHtml(entry) {
     const isError = entry.level === 'error';
     const isWarn = entry.level === 'warn';
-    const boxClass = isError ? 'bg-rose-50 border border-rose-200' : isWarn ? 'bg-amber-50 border border-amber-200' : '';
-    const boxTheme = (isError || isWarn) ? '' : ' data-uitk="cardBg cardBorder"';
-    const textClass = isError ? 'text-rose-700' : isWarn ? 'text-amber-700' : '';
-    const textTheme = (isError || isWarn) ? '' : ' data-uitk="textPrimary"';
+    // SỬA 23/09/2026 (rà soát theme) — khung/chữ dòng error/warn trước đây class cứng (bg-rose-50/text-rose-700...), giờ theo key theme.
+    const boxTheme = ` data-uitk="${isError ? 'dangerSoftSurface' : isWarn ? 'cautionSoftSurface' : 'cardBg cardBorder'}"`;
+    const textTheme = ` data-uitk="${isError ? 'destructiveText' : isWarn ? 'cautionText' : 'textPrimary'}"`;
     const levelLabel = (isError || isWarn) ? ` · ${entry.level.toUpperCase()}` : '';
     const time = new Date(entry.time).toLocaleTimeString();
     return `
-        <div class="flex items-start gap-1 rounded-xl pl-3 pr-1.5 py-2 ${boxClass}"${boxTheme}>
+        <div class="flex items-start gap-1 rounded-xl pl-3 pr-1.5 py-2"${boxTheme}>
             <div class="flex-1 min-w-0">
                 <div class="text-[10px] font-mono leading-none mb-1" data-uitk="textSecondary">${time}${levelLabel}</div>
-                <div class="text-xs font-mono leading-snug break-all whitespace-pre-wrap ${textClass}"${textTheme}>${escapeHtml(entry.text)}</div>
+                <div class="text-xs font-mono leading-snug break-all whitespace-pre-wrap"${textTheme}>${escapeHtml(entry.text)}</div>
             </div>
             <div class="flex items-center shrink-0">
                 <button type="button" data-debug-log-action="copy" data-debug-log-id="${entry.id}" class="w-8 h-8 flex items-center justify-center rounded-full" data-uitk="btnGhostHoverBg textMutedIcon" title="${t('settingsMisc.debugConsole.item.copy.title')}">${renderDebugConsoleCopyIconHtml(false)}</button>

@@ -15,7 +15,7 @@ function renderVisualBgPanelBody() {
     return `
                 <!-- ===================== MEDIA — chọn nguồn ===================== -->
                 <div>
-                    <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2" data-i18n="visualBgSettingsDrawer.groupMedia.title">${t('visualBgSettingsDrawer.groupMedia.title')}</h3>
+                    <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2" data-uitk="accentText" data-i18n="visualBgSettingsDrawer.groupMedia.title">${t('visualBgSettingsDrawer.groupMedia.title')}</h3>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                         <div class="p-4">
                             <!-- Nhãn nguồn + 2 nút Làm tươi/Gỡ — Workflow ghi #visual-bg-source-name qua DOM API sau khi đọc DB (Rule 5d). -->
@@ -24,18 +24,18 @@ function renderVisualBgPanelBody() {
                                     <div id="visual-bg-source-name" class="text-sm font-medium truncate"></div>
                                 </div>
                                 <div class="flex items-center gap-1 shrink-0">
-                                    <button type="button" id="setting-visual-bg-refresh-source" title="${t('visualBgSettingsDrawer.refreshSource.title')}" class="hidden w-8 h-8 flex items-center justify-center rounded-full text-slate-500 hover:text-sky-600 hover:bg-sky-50 transition-colors">
+                                    <button type="button" id="setting-visual-bg-refresh-source" title="${t('visualBgSettingsDrawer.refreshSource.title')}" class="hidden w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="textSecondary hoverAccentText hoverAccentSoftBg">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                                     </button>
-                                    <button type="button" id="setting-visual-bg-clear-source" title="${t('visualBgSettingsDrawer.clearSource.title')}" class="hidden w-8 h-8 flex items-center justify-center rounded-full text-slate-500 hover:text-rose-500 hover:bg-rose-50 transition-colors">
+                                    <button type="button" id="setting-visual-bg-clear-source" title="${t('visualBgSettingsDrawer.clearSource.title')}" class="hidden w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="iconBtnDestructive">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 010 5.656l-3 3a4 4 0 01-5.656-5.656l1.5-1.5M10.172 13.828a4 4 0 010-5.656l3-3a4 4 0 015.656 5.656l-1.5 1.5M3 3l18 18" /></svg>
                                     </button>
                                 </div>
                             </div>
                             <div class="flex gap-2">
-                                <button type="button" id="setting-visual-bg-pick-video" class="flex-1 text-xs font-medium text-center py-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors" data-i18n="visualBgSettingsDrawer.pickVideo.label">${t('visualBgSettingsDrawer.pickVideo.label')}</button>
-                                <button type="button" id="setting-visual-bg-pick-photo" class="flex-1 text-xs font-medium text-center py-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors" data-i18n="visualBgSettingsDrawer.pickPhoto.label">${t('visualBgSettingsDrawer.pickPhoto.label')}</button>
-                                <button type="button" id="setting-visual-bg-pick-folder" class="flex-1 text-xs font-medium text-center py-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors" data-i18n="visualBgSettingsDrawer.pickFolder.label">${t('visualBgSettingsDrawer.pickFolder.label')}</button>
+                                <button type="button" id="setting-visual-bg-pick-video" class="flex-1 text-xs font-medium text-center py-2.5 rounded-lg transition-colors" data-uitk="btnNeutralBg btnNeutralText btnNeutralHoverBg" data-i18n="visualBgSettingsDrawer.pickVideo.label">${t('visualBgSettingsDrawer.pickVideo.label')}</button>
+                                <button type="button" id="setting-visual-bg-pick-photo" class="flex-1 text-xs font-medium text-center py-2.5 rounded-lg transition-colors" data-uitk="btnNeutralBg btnNeutralText btnNeutralHoverBg" data-i18n="visualBgSettingsDrawer.pickPhoto.label">${t('visualBgSettingsDrawer.pickPhoto.label')}</button>
+                                <button type="button" id="setting-visual-bg-pick-folder" class="flex-1 text-xs font-medium text-center py-2.5 rounded-lg transition-colors" data-uitk="btnNeutralBg btnNeutralText btnNeutralHoverBg" data-i18n="visualBgSettingsDrawer.pickFolder.label">${t('visualBgSettingsDrawer.pickFolder.label')}</button>
                             </div>
                         </div>
                     </div>
@@ -43,7 +43,7 @@ function renderVisualBgPanelBody() {
 
                 <!-- ===================== PLAYBACK — cách phát + Motion, tách khỏi Media ===================== -->
                 <div class="mt-6">
-                    <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2" data-i18n="visualBgSettingsDrawer.groupPlayback.title">${t('visualBgSettingsDrawer.groupPlayback.title')}</h3>
+                    <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2" data-uitk="accentText" data-i18n="visualBgSettingsDrawer.groupPlayback.title">${t('visualBgSettingsDrawer.groupPlayback.title')}</h3>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
 
                         <!-- 2 hàng dưới CHỈ hiện khi source.list còn >1 item sống (Workflow toggle class). -->
@@ -76,7 +76,7 @@ function renderVisualBgPanelBody() {
 
                         <div id="visual-bg-duration-seconds-row" class="flex justify-between items-center p-4 hidden border-b" data-uitk="dividerBorder cardHoverBg">
                             <span id="visual-bg-duration-seconds-label" class="text-sm font-medium"></span>
-                            <button type="button" id="setting-visual-bg-duration-seconds" class="rounded-lg px-3 py-1.5 text-xs outline-none w-20 text-right shrink-0" data-uitk="cardHoverBg" data-uitk="inputBg inputBorder inputText">5s</button>
+                            <button type="button" id="setting-visual-bg-duration-seconds" class="rounded-lg px-3 py-1.5 text-xs outline-none w-20 text-right shrink-0" data-uitk="cardHoverBg inputBg inputBorder inputText">5s</button>
                         </div>
 
                         <!-- Motion — CHỈ hiện khi type='photo' (nơi tiêu thụ Motion duy nhất hiện tại,
@@ -94,27 +94,27 @@ function renderVisualBgPanelBody() {
                             <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.syncSpeed.label">${t('visualBgSettingsDrawer.syncSpeed.label')}</span>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" id="setting-visual-bg-sync-speed" class="sr-only peer">
-                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500" data-uitk="toggleTrackOff"></div>
+                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all" data-uitk="toggleTrackOff toggleTrackOn"></div>
                             </label>
                         </div>
 
                         <!-- Hiện khi type='video' VÀ ≥1 item sống — Workflow tự toggle qua refreshPanelUI(). -->
                         <button id="setting-visual-bg-open-video-audio" class="flex justify-between items-center p-4 w-full text-left hidden" data-uitk="cardHoverBg">
                             <div class="flex items-center gap-3 min-w-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-sky-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M12 6v12M6 9v6a2 2 0 002 2h2l4 4V3l-4 4H8a2 2 0 00-2 2z" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="accentText" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M12 6v12M6 9v6a2 2 0 002 2h2l4 4V3l-4 4H8a2 2 0 00-2 2z" /></svg>
                                 <div class="min-w-0">
                                     <div class="text-sm font-medium truncate" data-i18n="visualBgSettingsDrawer.openVideoAudio.label">${t('visualBgSettingsDrawer.openVideoAudio.label')}</div>
-                                    <div class="text-xs text-slate-500 mt-0.5 truncate" data-i18n="visualBgSettingsDrawer.openVideoAudio.hint">${t('visualBgSettingsDrawer.openVideoAudio.hint')}</div>
+                                    <div class="text-xs mt-0.5 truncate" data-uitk="textSecondary" data-i18n="visualBgSettingsDrawer.openVideoAudio.hint">${t('visualBgSettingsDrawer.openVideoAudio.hint')}</div>
                                 </div>
                             </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                         </button>
                     </div>
                 </div>
 
                 <!-- ===================== MÀU NỀN — độc lập, luôn hiện ===================== -->
                 <div class="mt-6">
-                    <h3 class="text-xs font-bold text-sky-600 uppercase tracking-widest mb-2 ml-2" data-i18n="visualBgSettingsDrawer.groupColor.title">${t('visualBgSettingsDrawer.groupColor.title')}</h3>
+                    <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2" data-uitk="accentText" data-i18n="visualBgSettingsDrawer.groupColor.title">${t('visualBgSettingsDrawer.groupColor.title')}</h3>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                         <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder cardHoverBg">
                             <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.colorMode.label">${t('visualBgSettingsDrawer.colorMode.label')}</span>
@@ -126,15 +126,15 @@ function renderVisualBgPanelBody() {
 
                         <div id="visual-bg-solid-color-row" class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder cardHoverBg">
                             <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.solidColor.label">${t('visualBgSettingsDrawer.solidColor.label')}</span>
-                            <div class="w-8 h-8 rounded-full border border-slate-300 overflow-hidden shrink-0"><input type="color" id="setting-visual-bg-solid-color" class="w-12 h-12 -m-2 cursor-pointer bg-transparent border-0"></div>
+                            <div class="w-8 h-8 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" id="setting-visual-bg-solid-color" class="w-12 h-12 -m-2 cursor-pointer bg-transparent border-0"></div>
                         </div>
 
                         <button id="setting-visual-bg-open-gradient" class="flex justify-between items-center p-4 w-full text-left hidden" data-uitk="cardHoverBg">
                             <div class="flex items-center gap-3 min-w-0">
-                                <div id="visual-bg-gradient-swatch" class="w-8 h-8 rounded-lg border border-slate-300 shrink-0"></div>
+                                <div id="visual-bg-gradient-swatch" class="w-8 h-8 rounded-lg shrink-0" data-uitk="inputBorder"></div>
                                 <div class="text-sm font-medium truncate" data-i18n="visualBgSettingsDrawer.openGradient.label">${t('visualBgSettingsDrawer.openGradient.label')}</div>
                             </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                         </button>
                     </div>
                 </div>

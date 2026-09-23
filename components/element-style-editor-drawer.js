@@ -31,13 +31,13 @@
  */
 
 const ESE_TOGGLE_MARKUP = `
-    <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500" data-uitk="toggleTrackOff"></div>`;
+    <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all" data-uitk="toggleTrackOff toggleTrackOn"></div>`;
 
 const ESE_LENGTH_UNITS = ['px', '%', 'em', 'rem', 'vw', 'vh', 'pt', 'cm', 'mm', 'in', 'ch'];
 
 function renderElementStyleEditorHeader(activeTab) {
     const tabBtn = (key, label) => `
-        <button data-ese-tab="${key}" class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${activeTab === key ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-600'}">${label}</button>`;
+        <button data-ese-tab="${key}" class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors" data-uitk="${activeTab === key ? 'btnPrimaryPillBg textOnAccent' : 'btnNeutralBg btnNeutralText'}">${label}</button>`;
     return `
         <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
             <div class="flex items-center gap-2">${tabBtn('box', t('elementStyleEditor.tab.box'))}${tabBtn('text', t('elementStyleEditor.tab.text'))}</div>
@@ -75,9 +75,9 @@ function renderElementStyleEditorHeader(activeTab) {
  * thật, đảm bảo preview KHÔNG BAO GIỜ lệch so với kết quả thật sẽ áp lên targetEl. */
 function _renderEsePreviewBox() {
     return `
-        <div class="sticky top-0 z-10 -mx-4 px-4 pt-3 pb-3 mb-1 bg-white border-b" data-uitk="dividerBorder">
-            <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">${t('elementStyleEditor.preview.label')}</div>
-            <div class="h-20 rounded-xl bg-slate-100 flex items-center justify-center overflow-auto px-2">
+        <div class="sticky top-0 z-10 -mx-4 px-4 pt-3 pb-3 mb-1 border-b" data-uitk="panelFlushBg dividerBorder">
+            <div class="text-[10px] font-semibold uppercase tracking-wide mb-2" data-uitk="textMutedIcon">${t('elementStyleEditor.preview.label')}</div>
+            <div class="h-20 rounded-xl flex items-center justify-center overflow-auto px-2" data-uitk="insetBg">
                 <div id="ese-preview-box" class="max-w-full">${t('elementStyleEditor.preview.sampleText')}</div>
             </div>
         </div>`;
@@ -89,7 +89,7 @@ function renderElementStyleEditorBody(draft, activeTab, loadedGoogleFonts) {
         <div class="flex flex-col gap-3">
             ${_renderEsePreviewBox()}
             ${content}
-            <button id="ese-apply-btn" class="mt-1 w-full py-2.5 rounded-xl bg-sky-500 text-white text-sm font-semibold hover:bg-sky-600 transition-colors">${t('elementStyleEditor.apply')}</button>
+            <button id="ese-apply-btn" class="mt-1 w-full py-2.5 rounded-xl text-sm font-semibold transition-colors" data-uitk="btnPrimaryPillBg textOnAccent btnPrimaryHoverBg">${t('elementStyleEditor.apply')}</button>
         </div>`;
 }
 
@@ -99,7 +99,7 @@ function _eseCard(section, field, label, enabled, innerHtml) {
     return `
         <div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">
             <div class="flex justify-between items-center px-4 py-3 ${enabled ? 'border-b' : ''}" data-uitk="dividerBorder">
-                <span class="text-sm text-slate-700">${label}</span>
+                <span class="text-sm" data-uitk="textSecondaryStrong">${label}</span>
                 <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" class="sr-only peer ese-enable" data-section="${section}" data-field="${field}" ${enabled ? 'checked' : ''}>
                     ${ESE_TOGGLE_MARKUP}
@@ -129,7 +129,7 @@ function _renderEseSimpleRow(label, section, field, current, values) {
     const options = [{ value: 'none', label: t('elementStyleEditor.mode.none') }, ...values.map((v) => ({ value: v, label: v }))];
     return `
         <div class="rounded-2xl px-4 py-3 flex justify-between items-center gap-2" data-uitk="cardBg cardBorder">
-            <span class="text-sm text-slate-700">${label}</span>
+            <span class="text-sm" data-uitk="textSecondaryStrong">${label}</span>
             ${_eseSimpleSelect(section, field, options, current)}
         </div>`;
 }
@@ -146,8 +146,8 @@ function _eseNumber(section, field, subkey, value, step) {
 function _eseColorPair(idPrefix, section, field, subkey, value) {
     return `
         <div class="flex items-center gap-2">
-            <input type="text" id="ese-${idPrefix}-color-text" data-cross-target="ese-${idPrefix}-color-picker" value="${value}" class="ese-field w-20 bg-transparent border-b border-slate-300 px-1 py-0.5 text-xs text-slate-900 outline-none font-mono text-right uppercase" data-section="${section}" data-field="${field}" data-subkey="${subkey}">
-            <div class="w-8 h-8 rounded-full border border-slate-300 overflow-hidden shrink-0"><input type="color" id="ese-${idPrefix}-color-picker" data-cross-target="ese-${idPrefix}-color-text" value="${value}" class="ese-field w-10 h-10 -m-1 cursor-pointer" data-section="${section}" data-field="${field}" data-subkey="${subkey}"></div>
+            <input type="text" id="ese-${idPrefix}-color-text" data-cross-target="ese-${idPrefix}-color-picker" value="${value}" class="ese-field w-20 bg-transparent border-b px-1 py-0.5 text-xs outline-none font-mono text-right uppercase" data-uitk="inputBorderColor textPrimary" data-section="${section}" data-field="${field}" data-subkey="${subkey}">
+            <div class="w-8 h-8 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" id="ese-${idPrefix}-color-picker" data-cross-target="ese-${idPrefix}-color-text" value="${value}" class="ese-field w-10 h-10 -m-1 cursor-pointer" data-section="${section}" data-field="${field}" data-subkey="${subkey}"></div>
         </div>`;
 }
 
@@ -159,7 +159,7 @@ function _eseUnitOptions(units) {
 function _eseValueUnitRow(label, section, field, value, unit, units) {
     return `
         <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-500">${label}</span>
+            <span class="text-xs" data-uitk="textSecondary">${label}</span>
             <div class="flex items-center gap-1.5">
                 ${_eseNumber(section, field, 'value', value, field === 'letterSpacing' ? 0.1 : 1)}
                 ${_eseSelect(section, field, 'unit', _eseUnitOptions(units), unit, false)}
@@ -196,7 +196,7 @@ function _renderEseSizeRow(label, section, field, f) {
     ];
     const valueRow = f.mode === 'custom' ? `
         <div class="flex justify-between items-center px-4 py-3 border-t" data-uitk="dividerBorder">
-            <span class="text-xs text-slate-500">${t('elementStyleEditor.field.value')}</span>
+            <span class="text-xs" data-uitk="textSecondary">${t('elementStyleEditor.field.value')}</span>
             <div class="flex items-center gap-1.5">
                 ${_eseNumber(section, field, 'value', f.value, 1)}
                 ${_eseSelect(section, field, 'unit', _eseUnitOptions(ESE_LENGTH_UNITS), f.unit, false)}
@@ -205,7 +205,7 @@ function _renderEseSizeRow(label, section, field, f) {
     return `
         <div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">
             <div class="flex justify-between items-center px-4 py-3">
-                <span class="text-sm text-slate-700">${label}</span>
+                <span class="text-sm" data-uitk="textSecondaryStrong">${label}</span>
                 ${_eseSelect(section, field, 'mode', modeOptions, f.mode, true)}
             </div>
             ${valueRow}
@@ -224,12 +224,12 @@ function _renderEseSizeRow(label, section, field, f) {
 function _renderEseSidesField(section, field, f) {
     const sideInput = (side, labelKey) => `
         <div class="flex flex-col items-center gap-1 min-w-0">
-            <span class="text-[10px] text-slate-400">${t(labelKey)}</span>
+            <span class="text-[10px]" data-uitk="textMutedIcon">${t(labelKey)}</span>
             <input type="number" value="${f[side]}" step="1" class="ese-field w-full min-w-0 text-center rounded-lg px-1 py-1.5 text-xs outline-none" data-uitk="inputBg inputBorder inputText" data-section="${section}" data-field="${field}" data-subkey="${side}" data-numeric="1">
         </div>`;
     return `
         <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-500">${t('elementStyleEditor.field.unit')}</span>
+            <span class="text-xs" data-uitk="textSecondary">${t('elementStyleEditor.field.unit')}</span>
             ${_eseSelect(section, field, 'unit', _eseUnitOptions(ESE_LENGTH_UNITS), f.unit, false)}
         </div>
         <div class="grid grid-cols-4 gap-1.5">
@@ -241,7 +241,7 @@ function _renderEseSidesField(section, field, f) {
 function _renderEseBackgroundField(bg) {
     return `
         <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-500">${t('elementStyleEditor.field.value')}</span>
+            <span class="text-xs" data-uitk="textSecondary">${t('elementStyleEditor.field.value')}</span>
             ${_eseColorPair('background', 'box', 'background', 'value', bg.value)}
         </div>`;
 }
@@ -250,18 +250,18 @@ function _renderEseBorderField(b) {
     const styleOptions = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset', 'none'].map((v) => ({ value: v, label: v }));
     return `
         <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-500">${t('elementStyleEditor.border.width')}</span>
+            <span class="text-xs" data-uitk="textSecondary">${t('elementStyleEditor.border.width')}</span>
             <div class="flex items-center gap-1.5">
                 ${_eseNumber('box', 'border', 'width', b.width, 1)}
                 ${_eseSelect('box', 'border', 'widthUnit', _eseUnitOptions(['px', 'em', 'rem']), b.widthUnit, false)}
             </div>
         </div>
         <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-500">${t('elementStyleEditor.border.style')}</span>
+            <span class="text-xs" data-uitk="textSecondary">${t('elementStyleEditor.border.style')}</span>
             ${_eseSelect('box', 'border', 'style', styleOptions, b.style, false)}
         </div>
         <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-500">${t('elementStyleEditor.border.color')}</span>
+            <span class="text-xs" data-uitk="textSecondary">${t('elementStyleEditor.border.color')}</span>
             ${_eseColorPair('border', 'box', 'border', 'color', b.color)}
         </div>`;
 }
@@ -273,7 +273,7 @@ function _renderEseBorderField(b) {
 function _renderEseOpacityField(o) {
     return `
         <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-500">${t('elementStyleEditor.field.value')} (%)</span>
+            <span class="text-xs" data-uitk="textSecondary">${t('elementStyleEditor.field.value')} (%)</span>
             ${_eseNumber('box', 'opacity', 'value', o.value, 1)}
         </div>`;
 }
@@ -313,19 +313,19 @@ function _renderEseColorField(c) {
 function _renderEseTextShadowField(ts) {
     return `
         <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-500">${t('elementStyleEditor.textShadow.offsetX')}</span>
+            <span class="text-xs" data-uitk="textSecondary">${t('elementStyleEditor.textShadow.offsetX')}</span>
             ${_eseNumber('text', 'textShadow', 'offsetX', ts.offsetX, 1)}
         </div>
         <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-500">${t('elementStyleEditor.textShadow.offsetY')}</span>
+            <span class="text-xs" data-uitk="textSecondary">${t('elementStyleEditor.textShadow.offsetY')}</span>
             ${_eseNumber('text', 'textShadow', 'offsetY', ts.offsetY, 1)}
         </div>
         <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-500">${t('elementStyleEditor.textShadow.blur')}</span>
+            <span class="text-xs" data-uitk="textSecondary">${t('elementStyleEditor.textShadow.blur')}</span>
             ${_eseNumber('text', 'textShadow', 'blur', ts.blur, 1)}
         </div>
         <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-500">${t('elementStyleEditor.textShadow.color')}</span>
+            <span class="text-xs" data-uitk="textSecondary">${t('elementStyleEditor.textShadow.color')}</span>
             ${_eseColorPair('textshadow', 'text', 'textShadow', 'color', ts.color)}
         </div>`;
 }
@@ -353,18 +353,18 @@ function _renderEseTextShadowField(ts) {
 function _renderEseFontFamilyField(f, loadedGoogleFonts) {
     return `
         <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-500">${t('elementStyleEditor.font.name')}</span>
-            <button type="button" id="ese-fontfamily-open-picker" class="w-32 flex items-center justify-between gap-1 rounded-lg px-2 py-1.5 text-xs outline-none hover:bg-slate-50 transition-colors" data-uitk="inputBg inputBorder inputText">
+            <span class="text-xs" data-uitk="textSecondary">${t('elementStyleEditor.font.name')}</span>
+            <button type="button" id="ese-fontfamily-open-picker" class="w-32 flex items-center justify-between gap-1 rounded-lg px-2 py-1.5 text-xs outline-none transition-colors" data-uitk="inputBg inputBorder inputText cardHoverBg">
                 <span class="truncate">${f.value || t('elementStyleEditor.font.namePlaceholder')}</span>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
             </button>
         </div>
         <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-500">${t('elementStyleEditor.font.weightToLoad')}</span>
+            <span class="text-xs" data-uitk="textSecondary">${t('elementStyleEditor.font.weightToLoad')}</span>
             ${_eseSelect('text', 'fontFamily', 'googleWeight', ['100', '300', '400', '500', '700', '900'].map((v) => ({ value: v, label: v })), f.googleWeight, false)}
         </div>
-        <button id="ese-fontfamily-load-btn" class="w-full py-1.5 rounded-lg bg-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-300 transition-colors">${t('elementStyleEditor.font.loadButton')}</button>
-        ${loadedGoogleFonts.includes(f.value) ? `<span class="text-[10px] text-emerald-600">${t('elementStyleEditor.font.loadedNote')}</span>` : ''}
+        <button id="ese-fontfamily-load-btn" class="w-full py-1.5 rounded-lg text-xs font-medium transition-colors" data-uitk="btnNeutralBg btnNeutralText btnNeutralHoverBg">${t('elementStyleEditor.font.loadButton')}</button>
+        ${loadedGoogleFonts.includes(f.value) ? `<span class="text-[10px]" data-uitk="successText">${t('elementStyleEditor.font.loadedNote')}</span>` : ''}
     `;
 }
 
@@ -375,7 +375,7 @@ function _renderEseFontFamilyField(f, loadedGoogleFonts) {
 function renderEseFontPickerHeader() {
     return `
         <div class="relative flex items-center justify-center px-14 py-3 border-b" data-uitk="dividerBorder">
-            <button id="btn-ese-fontpicker-back" class="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full text-slate-600" data-uitk="cardHoverBg">
+            <button id="btn-ese-fontpicker-back" class="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full" data-uitk="cardHoverBg textSecondaryStrong">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
             </button>
             <h3 class="text-base font-bold truncate text-center" data-uitk="headerTitle">${t('elementStyleEditor.font.name')}</h3>
@@ -389,7 +389,7 @@ function renderEseFontPickerBody(currentValue) {
     return `
         <div class="flex flex-col gap-3">
             <input type="text" id="ese-fontpicker-search" autocomplete="off" placeholder="${t('elementStyleEditor.font.searchPlaceholder')}" class="w-full rounded-xl px-3 py-2 text-sm outline-none" data-uitk="inputBg inputBorder inputText">
-            <div id="ese-fontpicker-list" class="flex flex-col divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden">${_renderEseFontListItems('', currentValue)}</div>
+            <div id="ese-fontpicker-list" class="flex flex-col divide-y rounded-2xl overflow-hidden" data-uitk="cardBorder divideBorder">${_renderEseFontListItems('', currentValue)}</div>
         </div>`;
 }
 
@@ -402,15 +402,15 @@ function _renderEseFontListItems(query, currentValue) {
     const q = (query || '').trim().toLowerCase();
     const source = typeof listGoogleFont !== 'undefined' ? listGoogleFont : []; // core/google-fonts-list.js
     const matches = q ? source.filter((f) => f.name.toLowerCase().includes(q)) : source;
-    if (!matches.length) return `<div class="px-3 py-6 text-center text-xs text-slate-400">${t('elementStyleEditor.font.noMatch')}</div>`;
+    if (!matches.length) return `<div class="px-3 py-6 text-center text-xs" data-uitk="textMutedIcon">${t('elementStyleEditor.font.noMatch')}</div>`;
     return matches.map((f) => {
         const isSelected = f.name === currentValue;
         return `
-        <button type="button" data-font-name="${f.name.replace(/"/g, '&quot;')}" class="ese-font-option w-full text-left px-3 py-3 text-sm ${isSelected ? 'text-sky-600 font-semibold bg-sky-50' : 'text-slate-700'} hover:bg-sky-50 transition-colors flex items-center justify-between gap-2">
+        <button type="button" data-font-name="${f.name.replace(/"/g, '&quot;')}" class="ese-font-option w-full text-left px-3 py-3 text-sm ${isSelected ? 'font-semibold' : ''} transition-colors flex items-center justify-between gap-2" data-uitk="${isSelected ? 'accentText rowActiveBg' : 'textSecondaryStrong'} hoverAccentSoftBg">
             <span class="truncate">${f.name}</span>
             <span class="flex items-center gap-2 shrink-0">
-                <span class="text-[10px] text-slate-400 uppercase tracking-wide">${f.scripts.join(' ')}</span>
-                ${isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>' : ''}
+                <span class="text-[10px] uppercase tracking-wide" data-uitk="textMutedIcon">${f.scripts.join(' ')}</span>
+                ${isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" data-uitk="accentText" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>' : ''}
             </span>
         </button>`;
     }).join('');

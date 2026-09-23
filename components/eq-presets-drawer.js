@@ -51,7 +51,7 @@ function renderEqListHeader() {
         <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
             <h3 class="text-base font-bold" data-uitk="headerTitle" data-i18n="eqPresets.title">${t('eqPresets.title')}</h3>
             <div class="flex items-center gap-1 shrink-0">
-                <button id="btn-eq-drawer-add" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-600" data-uitk="cardHoverBg" title="${t('eqPresets.addButton.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg></button>
+                <button id="btn-eq-drawer-add" class="w-8 h-8 flex items-center justify-center rounded-full" data-uitk="cardHoverBg textSecondaryStrong" title="${t('eqPresets.addButton.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg></button>
                 <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.close')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
             </div>
         </div>
@@ -62,15 +62,15 @@ function renderEqListHeader() {
 function renderEqListBody(presets, activeId) {
     return presets.map((p) => {
         const isActive = p.id === activeId;
-        const rowClass = isActive ? 'bg-sky-50 border border-sky-300' : 'hover:bg-slate-100 border border-transparent';
+        const rowUitk = isActive ? 'rowActiveBg rowActiveBorder' : 'btnGhostHoverBg'; // SỬA 23/09/2026 (rà soát theme) — trước đây class cứng bg-sky-50/border-sky-300/hover:bg-slate-100
         return `
-        <button type="button" data-eq-id="${p.id}" class="w-full text-left px-4 py-3.5 rounded-xl mb-1.5 flex items-center justify-between gap-3 transition-colors ${rowClass}">
+        <button type="button" data-eq-id="${p.id}" class="w-full text-left px-4 py-3.5 rounded-xl mb-1.5 flex items-center justify-between gap-3 transition-colors ${isActive ? '' : 'border border-transparent'}" data-uitk="${rowUitk}">
             <span class="flex items-center gap-2 min-w-0">
-                <span class="text-sm font-semibold text-slate-800 truncate">${escapeHtml(p.name)}</span>
-                ${isActive ? `<span class="shrink-0 w-1.5 h-1.5 rounded-full bg-sky-500"></span>` : ''}
-                ${p.locked ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>` : ''}
+                <span class="text-sm font-semibold truncate" data-uitk="textPrimary">${escapeHtml(p.name)}</span>
+                ${isActive ? `<span class="shrink-0 w-1.5 h-1.5 rounded-full" data-uitk="btnPrimaryPillBg"></span>` : ''}
+                ${p.locked ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>` : ''}
             </span>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
         </button>
     `;
     }).join('');
@@ -92,8 +92,8 @@ function renderEqEditHeader(preset, isBuiltIn) {
     const saveBtn = preset.locked ? '' : `<button id="btn-generic-drawer-save" class="px-3 py-1.5 rounded-full transition-colors text-sm font-medium shrink-0" data-uitk="btnPrimaryPillBg btnPrimaryPillHoverBg textOnAccent" data-i18n="eqPresets.save">${t('eqPresets.save')}</button>`;
     return `
         <div class="relative flex items-center justify-center px-14 py-3 border-b" data-uitk="dividerBorder">
-            <button id="btn-generic-drawer-back" class="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full text-slate-600 shrink-0" data-uitk="cardHoverBg" title="${t('eqPresets.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg></button>
-            <h3 class="text-sm font-bold text-slate-900 truncate px-10" data-i18n="eqPresets.editTitle">${t('eqPresets.editTitle')}</h3>
+            <button id="btn-generic-drawer-back" class="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full shrink-0" data-uitk="cardHoverBg textSecondaryStrong" title="${t('eqPresets.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg></button>
+            <h3 class="text-sm font-bold truncate px-10" data-uitk="textPrimary" data-i18n="eqPresets.editTitle">${t('eqPresets.editTitle')}</h3>
             <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 shrink-0">${resetBtn}${saveBtn}</div>
         </div>
     `;
@@ -116,12 +116,12 @@ function renderEqEditBody(preset) {
         const fill = computeEqFillRect(g); // dùng lại ở event/workflow/eq-presets.js::_wireEditView() mỗi lần kéo
         return `
         <div class="flex flex-col items-center gap-1.5 w-8 shrink-0">
-            <span class="text-[10px] text-violet-600 font-semibold tabular-nums" id="eq-edit-val-${i}">${g > 0 ? `+${g}` : g}</span>
+            <span class="text-[10px] font-semibold tabular-nums" data-uitk="categoryAccent:violet" id="eq-edit-val-${i}">${g > 0 ? `+${g}` : g}</span>
             <div class="eq-preset-slider-box">
                 <div class="eq-preset-slider-track"><div class="eq-preset-slider-fill" id="eq-edit-fill-${i}" style="bottom:${fill.bottom}%;height:${fill.height}%;"></div></div>
                 <input type="range" class="eq-preset-slider" min="-12" max="12" step="1" value="${g}" data-index="${i}" ${preset.locked ? 'disabled' : ''}>
             </div>
-            <span class="text-[9px] text-slate-400 tabular-nums">${EQ_LABELS[i]}</span>
+            <span class="text-[9px] tabular-nums" data-uitk="textMutedIcon">${EQ_LABELS[i]}</span>
         </div>
     `;
     }).join('');
@@ -129,17 +129,17 @@ function renderEqEditBody(preset) {
     return `
         <div class="flex flex-col gap-4">
             <div class="rounded-2xl px-4 flex items-center justify-between gap-3" data-uitk="cardBg cardBorder">
-                <label for="eq-drawer-name" class="text-sm text-slate-500 shrink-0" data-i18n="eqPresets.name.label">${t('eqPresets.name.label')}</label>
-                <input type="text" id="eq-drawer-name" maxlength="24" value="${escapeHtml(preset.name)}" ${preset.locked ? 'disabled' : ''} class="flex-1 min-w-0 bg-transparent text-right py-3 text-sm text-slate-900 outline-none disabled:opacity-60">
+                <label for="eq-drawer-name" class="text-sm shrink-0" data-uitk="textSecondary" data-i18n="eqPresets.name.label">${t('eqPresets.name.label')}</label>
+                <input type="text" id="eq-drawer-name" maxlength="24" value="${escapeHtml(preset.name)}" ${preset.locked ? 'disabled' : ''} class="flex-1 min-w-0 bg-transparent text-right py-3 text-sm outline-none disabled:opacity-60" data-uitk="textPrimary">
             </div>
-            ${preset.locked ? `<p class="text-xs text-slate-400 -mt-2 px-1" data-i18n="eqPresets.lockedHint">${t('eqPresets.lockedHint')}</p>` : ''}
+            ${preset.locked ? `<p class="text-xs -mt-2 px-1" data-uitk="textMutedIcon" data-i18n="eqPresets.lockedHint">${t('eqPresets.lockedHint')}</p>` : ''}
             <div class="rounded-2xl p-3" data-uitk="cardBg cardBorder">
                 <div class="flex items-end gap-2 overflow-x-auto px-1 pb-0.5">${sliders}</div>
             </div>
             ${preset.locked ? '' : `
             <div class="flex gap-2">
-                <button id="eq-drawer-apply" type="button" class="flex-1 py-3 rounded-2xl bg-sky-50 hover:bg-sky-100 transition-colors text-sky-600 text-sm font-medium" data-i18n="eqPresets.apply">${t('eqPresets.apply')}</button>
-                <button id="eq-drawer-delete" type="button" class="flex-1 py-3 rounded-2xl bg-rose-50 hover:bg-rose-100 transition-colors text-rose-600 text-sm font-medium" data-i18n="eqPresets.delete">${t('eqPresets.delete')}</button>
+                <button id="eq-drawer-apply" type="button" class="flex-1 py-3 rounded-2xl transition-colors text-sm font-medium" data-uitk="btnAccentSoft" data-i18n="eqPresets.apply">${t('eqPresets.apply')}</button>
+                <button id="eq-drawer-delete" type="button" class="flex-1 py-3 rounded-2xl transition-colors text-sm font-medium" data-uitk="btnDestructiveSoft" data-i18n="eqPresets.delete">${t('eqPresets.delete')}</button>
             </div>`}
         </div>
     `;

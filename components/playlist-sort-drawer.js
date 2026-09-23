@@ -64,7 +64,7 @@ function renderPlaylistSortPanelBody(source) {
                                     <option value="asc" data-i18n="playlistSortPanel.statDirection.asc">${t('playlistSortPanel.statDirection.asc')}</option>
                                 </select>
                             </div>
-                            <div class="text-xs text-slate-500" data-i18n="playlistSortPanel.statField.hint">${t('playlistSortPanel.statField.hint')}</div>
+                            <div class="text-xs" data-uitk="textSecondary" data-i18n="playlistSortPanel.statField.hint">${t('playlistSortPanel.statField.hint')}</div>
                         </div>
                     </div>
                 </div>

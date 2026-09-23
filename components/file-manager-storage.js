@@ -90,7 +90,7 @@ function renderFileManagerStorageManagementPanelBody() {
                             <span class="text-sm font-medium truncate" data-i18n="storageDrawer.legendSongs">${t('storageDrawer.legendSongs')}</span>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                 <input type="checkbox" id="toggle-storage-source-song" class="sr-only peer">
-                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner" data-uitk="toggleTrackOff"></div>
+                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" data-uitk="toggleTrackOff toggleTrackOn"></div>
                             </label>
                         </div>
                         <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder">

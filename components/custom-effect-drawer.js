@@ -7,7 +7,7 @@
  */
 
 const CE_TOGGLE_MARKUP = (checked) => `
-    <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500" data-uitk="toggleTrackOff"></div>`;
+    <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all" data-uitk="toggleTrackOff toggleTrackOn"></div>`;
 
 function renderCustomEffectHeader(type, cfg) {
     // [SỬA — 05/09/2026, yêu cầu Giang] Header hiện tên STYLE con đang chạy (không phải tên
@@ -30,7 +30,7 @@ function _renderCeColorSection(cfg) {
     return `
         <div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">
             <div class="flex justify-between items-center px-4 py-3 border-b" data-uitk="dividerBorder">
-                <span class="text-sm text-slate-700" data-i18n="visualizerSettingsDrawer.colorMode.label">${t('visualizerSettingsDrawer.colorMode.label')}</span>
+                <span class="text-sm" data-uitk="textSecondaryStrong" data-i18n="visualizerSettingsDrawer.colorMode.label">${t('visualizerSettingsDrawer.colorMode.label')}</span>
                 <select id="ce-color-mode" class="rounded-lg px-2 py-1.5 text-xs outline-none" data-uitk="inputBg inputBorder inputText">
                     <option value="solid" ${cfg.mode === 'solid' ? 'selected' : ''} data-i18n="visualizerSettingsDrawer.colorMode.solid">${t('visualizerSettingsDrawer.colorMode.solid')}</option>
                     <option value="dynamic" ${cfg.mode === 'dynamic' ? 'selected' : ''} data-i18n="visualizerSettingsDrawer.colorMode.dynamic">${t('visualizerSettingsDrawer.colorMode.dynamic')}</option>
@@ -38,18 +38,18 @@ function _renderCeColorSection(cfg) {
                 </select>
             </div>
             <div id="ce-solid-color-row" class="${cfg.mode === 'solid' ? 'flex' : 'hidden'} justify-between items-center px-4 py-3">
-                <span class="text-sm text-slate-500" data-i18n="visualizerSettingsDrawer.solidColor.label">${t('visualizerSettingsDrawer.solidColor.label')}</span>
+                <span class="text-sm" data-uitk="textSecondary" data-i18n="visualizerSettingsDrawer.solidColor.label">${t('visualizerSettingsDrawer.solidColor.label')}</span>
                 <div class="flex items-center gap-2">
-                    <input type="text" id="ce-solid-color-text" data-cross-target="ce-solid-color-picker" value="${cfg.solidColor}" class="w-20 bg-transparent border-b border-slate-300 px-1 py-0.5 text-xs text-slate-900 outline-none font-mono text-right uppercase">
-                    <div class="w-8 h-8 rounded-full border border-slate-300 overflow-hidden shrink-0"><input type="color" id="ce-solid-color-picker" data-cross-target="ce-solid-color-text" value="${cfg.solidColor}" class="w-10 h-10 -m-1 cursor-pointer"></div>
+                    <input type="text" id="ce-solid-color-text" data-cross-target="ce-solid-color-picker" value="${cfg.solidColor}" class="w-20 bg-transparent border-b px-1 py-0.5 text-xs outline-none font-mono text-right uppercase" data-uitk="inputBorderColor textPrimary">
+                    <div class="w-8 h-8 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" id="ce-solid-color-picker" data-cross-target="ce-solid-color-text" value="${cfg.solidColor}" class="w-10 h-10 -m-1 cursor-pointer"></div>
                 </div>
             </div>
             <div id="ce-dynamic-color-row" class="${cfg.mode === 'dynamic' ? 'flex' : 'hidden'} justify-between items-center px-4 py-3">
-                <span class="text-sm text-slate-500" data-i18n="visualizerSettingsDrawer.dynamicColor.label">${t('visualizerSettingsDrawer.dynamicColor.label')}</span>
+                <span class="text-sm" data-uitk="textSecondary" data-i18n="visualizerSettingsDrawer.dynamicColor.label">${t('visualizerSettingsDrawer.dynamicColor.label')}</span>
                 <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-full border border-slate-300 overflow-hidden shrink-0"><input type="color" id="ce-dyn-color-a" value="${cfg.dynA}" class="w-10 h-10 -m-1 cursor-pointer"></div>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                    <div class="w-8 h-8 rounded-full border border-slate-300 overflow-hidden shrink-0"><input type="color" id="ce-dyn-color-b" value="${cfg.dynB}" class="w-10 h-10 -m-1 cursor-pointer"></div>
+                    <div class="w-8 h-8 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" id="ce-dyn-color-a" value="${cfg.dynA}" class="w-10 h-10 -m-1 cursor-pointer"></div>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                    <div class="w-8 h-8 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" id="ce-dyn-color-b" value="${cfg.dynB}" class="w-10 h-10 -m-1 cursor-pointer"></div>
                 </div>
             </div>
         </div>
@@ -74,7 +74,7 @@ function _renderCeMusicSection(type, musicFields, cfg) {
     return `
         <div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">
             <div class="px-4 py-3 border-b" data-uitk="dividerBorder">
-                <span class="text-sm text-slate-700" data-i18n="${titleKey}">${t(titleKey)}</span>
+                <span class="text-sm" data-uitk="textSecondaryStrong" data-i18n="${titleKey}">${t(titleKey)}</span>
             </div>
             ${rows}
         </div>
@@ -85,14 +85,14 @@ function _renderCeBlurSection(cfg) {
     return `
         <div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">
             <div class="flex justify-between items-center px-4 py-3 ${cfg.blurEnabled ? 'border-b' : ''}" data-uitk="dividerBorder">
-                <span class="text-sm text-slate-700" data-i18n="customEffectDrawer.blurEnable">${t('customEffectDrawer.blurEnable')}</span>
+                <span class="text-sm" data-uitk="textSecondaryStrong" data-i18n="customEffectDrawer.blurEnable">${t('customEffectDrawer.blurEnable')}</span>
                 <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id="ce-blur-enable" class="sr-only peer" ${cfg.blurEnabled ? 'checked' : ''}>
                     ${CE_TOGGLE_MARKUP()}
                 </label>
             </div>
             <div id="ce-blur-intensity-row" class="${cfg.blurEnabled ? 'flex' : 'hidden'} flex-col px-4 py-3">
-                <div class="flex justify-between items-center mb-2"><span class="text-sm text-slate-500" data-i18n="customEffectDrawer.blurIntensity">${t('customEffectDrawer.blurIntensity')}</span><span id="ce-val-blur-intensity" class="text-xs text-sky-600 font-mono">${cfg.blurIntensity}%</span></div>
+                <div class="flex justify-between items-center mb-2"><span class="text-sm" data-uitk="textSecondary" data-i18n="customEffectDrawer.blurIntensity">${t('customEffectDrawer.blurIntensity')}</span><span id="ce-val-blur-intensity" class="text-xs font-mono" data-uitk="accentText">${cfg.blurIntensity}%</span></div>
                 <input type="range" id="ce-blur-intensity" min="0" max="100" step="5" value="${cfg.blurIntensity}" class="ce-slider">
             </div>
         </div>
@@ -104,7 +104,7 @@ function _renderCeFieldRow(field, cfg) {
     if (field.type === 'toggle') {
         return `
             <div class="flex justify-between items-center px-4 py-3 border-b last:border-b-0" data-uitk="dividerBorder">
-                <span class="text-sm text-slate-700" data-i18n="${field.labelKey}">${t(field.labelKey)}</span>
+                <span class="text-sm" data-uitk="textSecondaryStrong" data-i18n="${field.labelKey}">${t(field.labelKey)}</span>
                 <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" class="sr-only peer ce-field-toggle" data-field="${field.id}" ${cfg[field.id] !== false ? 'checked' : ''}>
                     ${CE_TOGGLE_MARKUP()}
@@ -118,7 +118,7 @@ function _renderCeFieldRow(field, cfg) {
         const opts = (field.options || []).map((o) => `<option value="${o.value}" ${cfg[field.id] === o.value ? 'selected' : ''} data-i18n="${o.labelKey}">${t(o.labelKey)}</option>`).join('');
         return `
             <div class="flex justify-between items-center px-4 py-3 border-b last:border-b-0" data-uitk="dividerBorder">
-                <span class="text-sm text-slate-700" data-i18n="${field.labelKey}">${t(field.labelKey)}</span>
+                <span class="text-sm" data-uitk="textSecondaryStrong" data-i18n="${field.labelKey}">${t(field.labelKey)}</span>
                 <select class="ce-field-select rounded-lg px-2 py-1.5 text-xs outline-none" data-field="${field.id}" data-uitk="inputBg inputBorder inputText">${opts}</select>
             </div>
         `;
@@ -127,7 +127,7 @@ function _renderCeFieldRow(field, cfg) {
     const displayValue = field.type === 'sliderFloat' ? value.toFixed(field.decimals || 1) : value;
     return `
         <div class="flex flex-col px-4 py-3 border-b last:border-b-0" data-uitk="dividerBorder">
-            <div class="flex justify-between items-center mb-2"><span class="text-sm text-slate-700" data-i18n="${field.labelKey}">${t(field.labelKey)}</span><span class="text-xs text-sky-600 font-mono ce-field-val" data-field-val="${field.id}">${displayValue}</span></div>
+            <div class="flex justify-between items-center mb-2"><span class="text-sm" data-uitk="textSecondaryStrong" data-i18n="${field.labelKey}">${t(field.labelKey)}</span><span class="text-xs font-mono ce-field-val" data-uitk="accentText" data-field-val="${field.id}">${displayValue}</span></div>
             <input type="range" class="ce-slider ce-field-slider" data-field="${field.id}" data-float="${field.type === 'sliderFloat' ? '1' : ''}" min="${field.min}" max="${field.max}" step="${field.step}" value="${value}">
         </div>
     `;
@@ -148,19 +148,19 @@ function _renderCeLampsSection(cfg) {
     const rows = lamps.map((lamp, i) => `
         <div class="ce-lamp-row flex flex-col gap-2 px-4 py-3 border-b" data-uitk="dividerBorder" data-lamp-index="${i}">
             <div class="flex justify-between items-center">
-                <span class="text-xs font-semibold text-slate-500">${t('customEffectDrawer.lamps.itemLabel')} ${i + 1}</span>
-                <button class="ce-lamp-remove text-rose-500 text-xs font-medium" data-lamp-index="${i}">${t('customEffectDrawer.lamps.remove')}</button>
+                <span class="text-xs font-semibold" data-uitk="textSecondary">${t('customEffectDrawer.lamps.itemLabel')} ${i + 1}</span>
+                <button class="ce-lamp-remove text-xs font-medium" data-uitk="destructiveText" data-lamp-index="${i}">${t('customEffectDrawer.lamps.remove')}</button>
             </div>
             <div class="flex flex-col gap-1">
-                <div class="flex justify-between items-center"><span class="text-xs text-slate-500">${t('customEffectDrawer.lamps.x')}</span><span class="text-xs text-sky-600 font-mono ce-lamp-val" data-lamp-val="x">${lamp.xPercent}%</span></div>
+                <div class="flex justify-between items-center"><span class="text-xs" data-uitk="textSecondary">${t('customEffectDrawer.lamps.x')}</span><span class="text-xs font-mono ce-lamp-val" data-uitk="accentText" data-lamp-val="x">${lamp.xPercent}%</span></div>
                 <input type="range" class="ce-slider ce-lamp-x" data-lamp-index="${i}" min="0" max="100" step="1" value="${lamp.xPercent}">
             </div>
             <div class="flex flex-col gap-1">
-                <div class="flex justify-between items-center"><span class="text-xs text-slate-500">${t('customEffectDrawer.lamps.height')}</span><span class="text-xs text-sky-600 font-mono ce-lamp-val" data-lamp-val="height">${lamp.heightPx}px</span></div>
+                <div class="flex justify-between items-center"><span class="text-xs" data-uitk="textSecondary">${t('customEffectDrawer.lamps.height')}</span><span class="text-xs font-mono ce-lamp-val" data-uitk="accentText" data-lamp-val="height">${lamp.heightPx}px</span></div>
                 <input type="range" class="ce-slider ce-lamp-height" data-lamp-index="${i}" min="40" max="500" step="10" value="${lamp.heightPx}">
             </div>
             <div class="flex flex-col gap-1">
-                <div class="flex justify-between items-center"><span class="text-xs text-slate-500">${t('customEffectDrawer.lamps.flare')}</span><span class="text-xs text-sky-600 font-mono ce-lamp-val" data-lamp-val="flare">${lamp.flareScale.toFixed(1)}</span></div>
+                <div class="flex justify-between items-center"><span class="text-xs" data-uitk="textSecondary">${t('customEffectDrawer.lamps.flare')}</span><span class="text-xs font-mono ce-lamp-val" data-uitk="accentText" data-lamp-val="flare">${lamp.flareScale.toFixed(1)}</span></div>
                 <input type="range" class="ce-slider ce-lamp-flare" data-lamp-index="${i}" min="0.3" max="3" step="0.1" value="${lamp.flareScale}">
             </div>
         </div>
@@ -169,11 +169,11 @@ function _renderCeLampsSection(cfg) {
     return `
         <div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">
             <div class="flex justify-between items-center px-4 py-3 border-b" data-uitk="dividerBorder">
-                <span class="text-sm text-slate-700" data-i18n="customEffectDrawer.lamps.title">${t('customEffectDrawer.lamps.title')}</span>
-                <span class="text-xs text-slate-400">${lamps.length}/${CUSTOM_EFFECT_MAX_LAMPS}</span>
+                <span class="text-sm" data-uitk="textSecondaryStrong" data-i18n="customEffectDrawer.lamps.title">${t('customEffectDrawer.lamps.title')}</span>
+                <span class="text-xs" data-uitk="textMutedIcon">${lamps.length}/${CUSTOM_EFFECT_MAX_LAMPS}</span>
             </div>
             ${rows}
-            <button id="ce-lamp-add" class="w-full py-3 text-sm font-medium text-sky-600 ${atMax ? 'opacity-40 pointer-events-none' : ''}" data-i18n="customEffectDrawer.lamps.add">${t('customEffectDrawer.lamps.add')}</button>
+            <button id="ce-lamp-add" class="w-full py-3 text-sm font-medium ${atMax ? 'opacity-40 pointer-events-none' : ''}" data-uitk="accentText" data-i18n="customEffectDrawer.lamps.add">${t('customEffectDrawer.lamps.add')}</button>
         </div>
     `;
 }
@@ -185,7 +185,7 @@ function _renderCeLampsSection(cfg) {
 function _renderCeFireworksStylesSection(cfg) {
     const enabled = cfg.enabledStyles || [];
     const items = FIREWORKS_STYLE_KEYS.map((key) => `
-        <label class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700">
+        <label class="flex items-center gap-2 px-3 py-2 text-xs" data-uitk="textSecondaryStrong">
             <input type="checkbox" class="ce-fw-style-check" data-style="${key}" ${enabled.includes(key) ? 'checked' : ''}>
             <span data-i18n="customEffectDrawer.fireworks.style.${key}">${t(`customEffectDrawer.fireworks.style.${key}`)}</span>
         </label>
@@ -193,7 +193,7 @@ function _renderCeFireworksStylesSection(cfg) {
     return `
         <div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">
             <div class="px-4 py-3 border-b" data-uitk="dividerBorder">
-                <span class="text-sm text-slate-700" data-i18n="customEffectDrawer.fireworks.stylesTitle">${t('customEffectDrawer.fireworks.stylesTitle')}</span>
+                <span class="text-sm" data-uitk="textSecondaryStrong" data-i18n="customEffectDrawer.fireworks.stylesTitle">${t('customEffectDrawer.fireworks.stylesTitle')}</span>
             </div>
             <div class="grid grid-cols-2">${items}</div>
         </div>
@@ -206,21 +206,21 @@ function _renderCeFireworksTextsSection(cfg) {
     const texts = cfg.customTexts || [];
     const rows = texts.map((text, i) => `
         <div class="flex items-center justify-between gap-2 px-4 py-2 border-b" data-uitk="dividerBorder">
-            <span class="text-sm text-slate-800 font-mono truncate">${text}</span>
-            <button class="ce-fw-text-remove text-rose-500 text-xs font-medium shrink-0" data-text-index="${i}">${t('customEffectDrawer.lamps.remove')}</button>
+            <span class="text-sm font-mono truncate" data-uitk="textPrimary">${text}</span>
+            <button class="ce-fw-text-remove text-xs font-medium shrink-0" data-uitk="destructiveText" data-text-index="${i}">${t('customEffectDrawer.lamps.remove')}</button>
         </div>
     `).join('');
     const atMax = texts.length >= CUSTOM_EFFECT_MAX_TEXTS; // core/custom-effect.js
     return `
         <div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">
             <div class="flex justify-between items-center px-4 py-3 border-b" data-uitk="dividerBorder">
-                <span class="text-sm text-slate-700" data-i18n="customEffectDrawer.fireworks.textsTitle">${t('customEffectDrawer.fireworks.textsTitle')}</span>
-                <span class="text-xs text-slate-400">${texts.length}/${CUSTOM_EFFECT_MAX_TEXTS}</span>
+                <span class="text-sm" data-uitk="textSecondaryStrong" data-i18n="customEffectDrawer.fireworks.textsTitle">${t('customEffectDrawer.fireworks.textsTitle')}</span>
+                <span class="text-xs" data-uitk="textMutedIcon">${texts.length}/${CUSTOM_EFFECT_MAX_TEXTS}</span>
             </div>
             ${rows}
             <div class="flex items-center gap-2 px-4 py-3 ${atMax ? 'opacity-40 pointer-events-none' : ''}">
                 <input type="text" id="ce-fw-text-input" maxlength="10" placeholder="${t('customEffectDrawer.fireworks.textPlaceholder')}" class="flex-1 rounded-lg px-2 py-1.5 text-xs outline-none uppercase font-mono" data-uitk="inputBg inputBorder inputText">
-                <button id="ce-fw-text-add" class="text-sm font-medium text-sky-600 shrink-0" data-i18n="customEffectDrawer.lamps.add">${t('customEffectDrawer.lamps.add')}</button>
+                <button id="ce-fw-text-add" class="text-sm font-medium shrink-0" data-uitk="accentText" data-i18n="customEffectDrawer.lamps.add">${t('customEffectDrawer.lamps.add')}</button>
             </div>
         </div>
     `;
