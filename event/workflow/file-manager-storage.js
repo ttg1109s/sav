@@ -429,7 +429,7 @@ const workflowFileManagerStorage = {
     askScanBrokenScope(payload) {
         const { onConfirmSend } = payload;
         const bodyHtml = `${t('storageDrawer.scanBroken.modalBody')}
-<select id="modal-scan-scope" class="mt-3 w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white outline-none">
+<select id="modal-scan-scope" class="mt-3 w-full rounded-lg px-3 py-2.5 text-sm outline-none" data-uitk="inputBg inputBorder inputText">
     <option value="all">${t('storageDrawer.scanBroken.scopeAll')}</option>
     <option value="song">${t('storageDrawer.legendSongs')}</option>
     <option value="video">${t('storageDrawer.legendVideos')}</option>

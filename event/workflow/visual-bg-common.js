@@ -590,14 +590,15 @@ const workflowVisualBg = {
         const canRemove = stops.length > VISUAL_BG_GRADIENT_MIN_STOPS;
         listEl.innerHTML = stops.map((stop, i) => `
             <div class="flex items-center gap-2">
-                <div class="w-7 h-7 rounded-full border border-slate-300 overflow-hidden shrink-0"><input type="color" data-visual-bg-stop-color="${i}" value="${stop.color}" class="w-11 h-11 -m-2 cursor-pointer bg-transparent border-0"></div>
-                <input type="range" data-visual-bg-stop-position="${i}" min="0" max="100" step="1" value="${stop.position}" class="flex-1 accent-sky-500">
-                <span data-visual-bg-stop-label="${i}" class="text-xs text-slate-500 w-10 text-right tabular-nums">${stop.position}%</span>
-                <button type="button" data-visual-bg-stop-remove="${i}" class="w-7 h-7 flex items-center justify-center rounded-full text-slate-500 hover:text-rose-500 hover:bg-rose-50 transition-colors shrink-0 ${canRemove ? '' : 'opacity-30 pointer-events-none'}">
+                <div class="w-7 h-7 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" data-visual-bg-stop-color="${i}" value="${stop.color}" class="w-11 h-11 -m-2 cursor-pointer bg-transparent border-0"></div>
+                <input type="range" data-visual-bg-stop-position="${i}" min="0" max="100" step="1" value="${stop.position}" class="flex-1" data-uitk="accentControl">
+                <span data-visual-bg-stop-label="${i}" class="text-xs w-10 text-right tabular-nums" data-uitk="textSecondary">${stop.position}%</span>
+                <button type="button" data-visual-bg-stop-remove="${i}" class="w-7 h-7 flex items-center justify-center rounded-full transition-colors shrink-0 ${canRemove ? '' : 'opacity-30 pointer-events-none'}" data-uitk="iconBtnDestructive">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
         `).join('');
+        applyUiThemeToDom(listEl, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — SỬA 23/09/2026: hàng vẽ lại bằng innerHTML SAU lúc mở drawer -> phải áp theme lại (trước đây Dark/Morphin hàng mới mất màu)
         visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-add').classList.toggle('opacity-30', stops.length >= VISUAL_BG_GRADIENT_MAX_STOPS);
     },
 
@@ -985,7 +986,7 @@ const workflowVisualBg = {
     _buildMultiPickerBodyHtml(scrollId, emptyId, emptyText) {
         return `
             <div class="flex-1 min-h-0 overflow-y-auto relative" id="${scrollId}">
-                <p id="${emptyId}" class="hidden text-sm text-slate-500 text-center py-10 px-6">${emptyText}</p>
+                <p id="${emptyId}" class="hidden text-sm text-center py-10 px-6" data-uitk="textSecondary">${emptyText}</p>
             </div>
             <div class="px-5 py-3 shrink-0 border-t" data-uitk="dividerBorder">
                 <button type="button" id="btn-file-manager-image-picker-confirm" class="w-full py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed" data-uitk="btnPrimaryPillBg btnPrimaryPillHoverBg textOnAccent" disabled>${t('visualBgSettingsDrawer.picker.confirmEmpty')}</button>

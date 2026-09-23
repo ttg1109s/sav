@@ -121,7 +121,7 @@ const workflowFileManagerPhoto = {
     _buildImagePickerBodyHtml() {
         return `
             <div class="flex-1 min-h-0 overflow-y-auto relative" id="file-manager-image-picker-scroll">
-                <p id="file-manager-image-picker-empty" class="hidden text-sm text-slate-400 text-center py-10 px-6">${t('fileManager.photo.image.empty')}</p>
+                <p id="file-manager-image-picker-empty" class="hidden text-sm text-center py-10 px-6" data-uitk="textMutedIcon">${t('fileManager.photo.image.empty')}</p>
             </div>
         `;
     },

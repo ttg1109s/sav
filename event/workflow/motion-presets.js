@@ -633,8 +633,8 @@ const workflowMotionPresets = {
             }],
             {
                 bodyHtml: `
-                    <label class="block text-xs text-slate-400 mb-1">${escapeHtml(t('motionSettingsDrawer.pointMove.timing.xLabel'))}</label>
-                    <input type="number" id="ptmove-modal-x-input" min="${minX}" max="${maxX}" step="0.01" value="${pm.timingX}" class="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none">
+                    <label class="block text-xs mb-1" data-uitk="textMutedIcon">${escapeHtml(t('motionSettingsDrawer.pointMove.timing.xLabel'))}</label>
+                    <input type="number" id="ptmove-modal-x-input" min="${minX}" max="${maxX}" step="0.01" value="${pm.timingX}" class="w-full rounded-lg px-3 py-2 text-sm outline-none" data-uitk="inputBg inputBorder inputText">
                 `,
             },
         );

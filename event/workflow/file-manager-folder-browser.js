@@ -357,11 +357,11 @@ const workflowFileManagerFolderBrowser = {
                 </div>
                 <div class="border-t pt-3 space-y-2.5" data-uitk="dividerBorder">
                     <label class="flex items-center gap-2.5 text-sm cursor-pointer" data-uitk="textPrimary">
-                        <input type="checkbox" id="folder-properties-readonly-checkbox" class="w-4 h-4 rounded accent-sky-500"${folderRecord.isReadOnly ? ' checked' : ''}>
+                        <input type="checkbox" id="folder-properties-readonly-checkbox" class="w-4 h-4 rounded" data-uitk="accentControl"${folderRecord.isReadOnly ? ' checked' : ''}>
                         ${t('fileManager.folderBrowser.tileMenu.readOnlyLabel')}
                     </label>
                     <label class="flex items-center gap-2.5 text-sm cursor-pointer" data-uitk="textPrimary">
-                        <input type="checkbox" id="folder-properties-hidden-checkbox" class="w-4 h-4 rounded accent-sky-500"${folderRecord.excludeFromMainPlaylist ? ' checked' : ''}>
+                        <input type="checkbox" id="folder-properties-hidden-checkbox" class="w-4 h-4 rounded" data-uitk="accentControl"${folderRecord.excludeFromMainPlaylist ? ' checked' : ''}>
                         ${t('fileManager.folderBrowser.tileMenu.hiddenLabel')}
                     </label>
                     <!-- MỚI (Giang yêu cầu tính năng "folder tự quyết áp dụng Filter") — checkbox
@@ -369,7 +369,7 @@ const workflowFileManagerFolderBrowser = {
                          năng này) = coi như true (mặc định VÂNG LỆNH filter tổng), xem
                          record.applyFilter !== false — KHÁC 2 checkbox trên (vắng mặt = false). -->
                     <label class="flex items-center gap-2.5 text-sm cursor-pointer" data-uitk="textPrimary">
-                        <input type="checkbox" id="folder-properties-applyfilter-checkbox" class="w-4 h-4 rounded accent-sky-500"${folderRecord.applyFilter !== false ? ' checked' : ''}>
+                        <input type="checkbox" id="folder-properties-applyfilter-checkbox" class="w-4 h-4 rounded" data-uitk="accentControl"${folderRecord.applyFilter !== false ? ' checked' : ''}>
                         ${t('fileManager.folderBrowser.tileMenu.applyFilterLabel')}
                     </label>
                 </div>

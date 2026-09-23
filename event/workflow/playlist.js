@@ -360,11 +360,12 @@ const workflowPlaylist = {
         ]);
         const selectedMediaKeys = appState.get('selectedMediaKeys'); // đọc LẠI sau khi core ghi xong (disableSelectionMode có thể vừa clear nó)
         const domNodesByKey = appState.get('domNodesByKey');
+        const themeClasses = this._selectionThemeClasses();
         // Vòng lặp + chọn showSelectionIndicator/hideSelectionIndicator theo `enabled` ĐẶT Ở ĐÂY
         // (workflow), KHÔNG phải core — đây là ≥2 lời gọi core void nối tiếp nhau (đúng hình dạng
         // Workflow theo Rule 3/event-bus-flow.md mục 4B), workflow được phép làm việc này tự do.
         VirtualMachineState.run([
-            { state: enabled, operation: '===', value: true, callback: () => domNodesByKey.forEach((node, key) => showSelectionIndicator(node, key, selectedMediaKeys)) },
+            { state: enabled, operation: '===', value: true, callback: () => domNodesByKey.forEach((node, key) => showSelectionIndicator(node, key, selectedMediaKeys, themeClasses)) },
             { state: enabled, operation: '===', value: false, callback: () => domNodesByKey.forEach((node) => hideSelectionIndicator(node)) },
         ]);
         updateSelectionActionBar(enabled, selectedMediaKeys.size);
@@ -385,8 +386,18 @@ const workflowPlaylist = {
         // selectionMode=true, xem router/playlist.js), nên LUÔN showSelectionIndicator — việc
         // chọn/bỏ-chọn CHỈ đổi màu/tick bên trong nó (ternary trình bày thuần theo isSelected,
         // không phải rẽ nhánh tiến trình, khác hẳn quyết định BẬT/TẮT cả chế độ chọn ở trên).
-        showSelectionIndicator(node, key, selectedMediaKeys);
+        showSelectionIndicator(node, key, selectedMediaKeys, this._selectionThemeClasses());
         updateSelectionActionBar(appState.get('selectionMode'), selectedMediaKeys.size);
+    },
+
+    /** MỚI 23/09/2026 (rà soát theme) — class theo theme đang active cho chỉ báo chọn nhiều, tra 1 lần ở Workflow rồi truyền xuống
+     * `showSelectionIndicator()` (core lá, không tự tra theme). `selectionTintBg`/`btnPrimaryPillBg`/`textOnAccent`: core/ui-theme/*.js.
+     * @returns {{tint:string, indicatorSelected:string}} */
+    _selectionThemeClasses() {
+        return {
+            tint: resolveUiThemeClass(_activeUiThemeKeyList, 'selectionTintBg'), // core/ui-theme/registry.js + apply-ui.js
+            indicatorSelected: `${resolveUiThemeClass(_activeUiThemeKeyList, 'btnPrimaryPillBg')} ${resolveUiThemeClass(_activeUiThemeKeyList, 'textOnAccent')}`,
+        };
     },
 
     /** Ứng với 'playlist.uploadMenu.open' khi selectionMode=true (xem router) — CHỈ hiện modal,

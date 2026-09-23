@@ -251,6 +251,7 @@ const workflowElementStyleEditor = {
             searchInput.addEventListener('input', () => {
                 const currentValue = appState.get('eseDraft').text.fontFamily.value;
                 list.innerHTML = _renderEseFontListItems(searchInput.value, currentValue); // components/element-style-editor-drawer.js
+                applyUiThemeToDom(list, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — SỬA 23/09/2026: dòng font giờ tô màu qua `data-uitk`, gán lại innerHTML phải áp theme lại
                 this._wireFontPickerListClicks(list);
             });
         }

@@ -306,7 +306,8 @@ Object.assign(workflowVisualBg, {
     _renderVideoAudioRows(rows, videoAudioMap) {
         const listEl = visualBgVideoAudioPanelEl.querySelector('#visual-bg-video-audio-list');
         if (rows.length === 0) {
-            listEl.innerHTML = `<div class="p-4 text-sm text-slate-500 text-center">${t('visualBgSettingsDrawer.videoAudio.empty')}</div>`;
+            listEl.innerHTML = `<div class="p-4 text-sm text-center" data-uitk="textSecondary">${t('visualBgSettingsDrawer.videoAudio.empty')}</div>`;
+            applyUiThemeToDom(listEl, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — SỬA 23/09/2026: innerHTML vẽ SAU lúc mở drawer -> áp theme lại
             return;
         }
         listEl.innerHTML = rows.map(({ key, name }) => {
@@ -315,9 +316,10 @@ Object.assign(workflowVisualBg, {
             <div class="p-4 last:border-b-0 flex items-center gap-2 border-b" data-uitk="dividerBorder">
                 <span class="text-sm font-medium truncate min-w-0 flex-1">${escapeHtml(name)}</span>
                 <button type="button" data-visual-bg-video-audio-toggle="${escapeHtml(key)}" class="shrink-0 p-2 transition-colors">${this._videoAudioIconInnerHtml(enabled)}</button>
-                <button type="button" data-visual-bg-video-audio-open-volume="${escapeHtml(key)}" class="shrink-0 px-1 py-2 transition-colors"><span data-visual-bg-video-audio-volume-display="${escapeHtml(key)}" class="text-xs font-mono tabular-nums ${enabled ? 'text-sky-600' : 'text-slate-500'}">${volumePercent}%</span></button>
+                <button type="button" data-visual-bg-video-audio-open-volume="${escapeHtml(key)}" class="shrink-0 px-1 py-2 transition-colors"><span data-visual-bg-video-audio-volume-display="${escapeHtml(key)}" class="text-xs font-mono tabular-nums" data-uitk="${this._videoAudioStateUitk(enabled)}">${volumePercent}%</span></button>
             </div>`;
         }).join('');
+        applyUiThemeToDom(listEl, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — SỬA 23/09/2026: innerHTML vẽ SAU lúc mở drawer -> áp theme lại
     },
 
     /** Icon loa thường (bật) / loa gạch chéo (tắt) — DÙNG CHUNG lúc vẽ hàng lần đầu
@@ -327,7 +329,12 @@ Object.assign(workflowVisualBg, {
         const iconPath = enabled
             ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M12 6v12M6 9v6a2 2 0 002 2h2l4 4V3l-4 4H8a2 2 0 00-2 2z" />'
             : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12M6 9v6a2 2 0 002 2h2l4 4V3l-4 4H8a2 2 0 00-2 2z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9l4 6m0-6l-4 6" />';
-        return `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ${enabled ? 'text-sky-600' : 'text-slate-500'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">${iconPath}</svg>`;
+        return `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" data-uitk="${this._videoAudioStateUitk(enabled)}" fill="none" viewBox="0 0 24 24" stroke="currentColor">${iconPath}</svg>`;
+    },
+
+    /** SỬA 23/09/2026 (rà soát theme) — key theme cho icon loa + chữ % theo trạng thái bật/tắt (trước đây class cứng text-sky-600/text-slate-500). */
+    _videoAudioStateUitk(enabled) {
+        return enabled ? 'accentText' : 'textSecondary';
     },
 
     /** Bấm icon (1): toggle bật/tắt ngay, không qua modal — đọc trạng thái hiện tại rồi đảo ngược. */
@@ -375,12 +382,15 @@ Object.assign(workflowVisualBg, {
     _refreshVideoAudioRowButtons(videoKey, setting) {
         if (genericDrawerPanel.classList.contains('hidden')) return;
         const iconBtn = visualBgVideoAudioPanelEl.querySelector(`[data-visual-bg-video-audio-toggle="${CSS.escape(videoKey)}"]`);
-        if (iconBtn) iconBtn.innerHTML = this._videoAudioIconInnerHtml(setting.enabled);
+        if (iconBtn) {
+            iconBtn.innerHTML = this._videoAudioIconInnerHtml(setting.enabled);
+            applyUiThemeToDom(iconBtn, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
+        }
         const display = visualBgVideoAudioPanelEl.querySelector(`[data-visual-bg-video-audio-volume-display="${CSS.escape(videoKey)}"]`);
         if (display) {
             display.textContent = `${setting.volumePercent}%`;
-            display.classList.toggle('text-sky-600', setting.enabled);
-            display.classList.toggle('text-slate-500', !setting.enabled);
+            display.dataset.uitk = this._videoAudioStateUitk(setting.enabled); // SỬA 23/09/2026 — màu theo theme thay vì toggle class cứng
+            applyUiThemeToDom(display, _activeUiThemeKeyList);
         }
     },
 
