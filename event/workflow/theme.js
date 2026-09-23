@@ -148,7 +148,7 @@ const workflowTheme = {
     },
 
     /** MỚI 23/09/2026 (Giang: "tinh chỉnh độ mờ cho playlist main app" — thay blur ảnh nền) — ứng với 'theme.glassBlur.input'. Độ nhoè kính
-     * Playlist/Game catalog/Statistics; `updatePlaylistBg()` gán lại biến CSS (core/color-utils.js). Gọi liên tục lúc kéo -> không qua
+     * Playlist chính; `updatePlaylistBg()` gán lại biến CSS (core/color-utils.js). Gọi liên tục lúc kéo -> không qua
      * `_commitThemeMode()` (không đổi mode). @param {string} value */
     setAppGlassBlur(value) {
         setAppGlassBlur(value); // core/visualizer/visualizer-display.js
@@ -158,7 +158,7 @@ const workflowTheme = {
         this.refreshThemeCardUI();
     },
 
-    /** MỚI 23/09/2026 — ứng với 'theme.glassTint.input'. Độ đục nền trắng của kính Playlist/Game catalog/Statistics. @param {string} value */
+    /** MỚI 23/09/2026 — ứng với 'theme.glassTint.input'. Độ đục nền trắng của kính Playlist chính. @param {string} value */
     setAppGlassTint(value) {
         setAppGlassTint(value); // core/visualizer/visualizer-display.js
         saveConfig();
@@ -223,7 +223,7 @@ const workflowTheme = {
             mediaKind: cfg.bgMediaKind,
             hasMedia: !!cfg.bgMediaKey && (!!cfg.bgImage || !!cfg.bgVideo),
             mediaPreviewUrl: cfg.bgMediaKind === 'video' ? cfg.bgMediaThumb : (cfg.bgMediaKind === 'photo' ? cfg.bgImage : ''),
-            glassBlur: Number.isFinite(cfg.appGlassBlur) ? Math.max(10, Math.min(40, cfg.appGlassBlur)) : 36, // MỚI 23/09/2026 — kính Playlist/Game catalog/Statistics (guard data cũ)
+            glassBlur: Number.isFinite(cfg.appGlassBlur) ? Math.max(10, Math.min(40, cfg.appGlassBlur)) : 36, // MỚI 23/09/2026 — kính Playlist chính (guard data cũ)
             glassTint: Number.isFinite(cfg.appGlassTint) ? Math.max(5, Math.min(40, cfg.appGlassTint)) : 10, // SỬA 23/09/2026 — kẹp min 10px/5% như updatePlaylistBg()
             // Hàng "Panel glass" chỉ hiện khi ĐANG dùng nền media (ảnh hoặc video) — Giang chọn; cùng điều kiện áp giá trị trong updatePlaylistBg().
             showGlassRow: cfg.themeMode === 'background' && !!(cfg.bgVideo || cfg.bgImage),
