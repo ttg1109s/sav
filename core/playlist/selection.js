@@ -64,14 +64,24 @@ function deselectMedia(key) {
  * chỉ dùng DOM API của trình duyệt — KHÔNG tính là "core khác" theo Rule 3).
  */
 
-/** Hiện chỉ báo đã/chưa chọn + ẩn menu 3 chấm cho 1 node. */
-function showSelectionIndicator(node, key, selectedMediaKeys) {
+/** Hiện chỉ báo đã/chưa chọn + ẩn menu 3 chấm cho 1 node.
+ * SỬA 23/09/2026 (rà soát theme — mục "còn nợ" multi-select tint sky cứng) — thêm `themeClasses` ({tint, indicatorSelected}: chuỗi class
+ * Tailwind ĐÃ TRA SẴN theo theme đang active, Workflow truyền vào — event/workflow/playlist.js::_selectionThemeClasses()). Hàm vẫn là LÁ:
+ * không gọi core nào khác, không tự tra theme, chỉ thao tác classList. Class tint đã thêm được nhớ ở `data-selection-tint` để gỡ đúng
+ * (kể cả khi theme đổi giữa lúc đang ở chế độ chọn). Vòng CHƯA chọn (đen mờ + viền trắng, đè ảnh bìa) cố định, không theo theme.
+ * @param {{tint:string, indicatorSelected:string}} themeClasses */
+function showSelectionIndicator(node, key, selectedMediaKeys, themeClasses) {
     if (!node) return; // guard: node không tồn tại (hiếm, race với render) — bỏ qua
     const menuBtn = node.querySelector('button[data-action="menu"]');
     if (menuBtn) menuBtn.classList.add('hidden'); // tránh 2 mục tiêu bấm cạnh tranh nhau
 
     const isSelected = selectedMediaKeys.has(key);
-    node.classList.toggle('bg-sky-500/10', isSelected);
+    _clearSelectionTint(node);
+    if (isSelected) {
+        const tint = themeClasses.tint.split(/\s+/).filter(Boolean);
+        if (tint.length) node.classList.add(...tint);
+        node.dataset.selectionTint = tint.join(' ');
+    }
     node.classList.add('relative'); // positioning context cho overlay — vô hại nếu đã có sẵn (grid view)
 
     let indicator = node.querySelector('[data-role="selection-indicator"]');
@@ -80,8 +90,15 @@ function showSelectionIndicator(node, key, selectedMediaKeys) {
         indicator.dataset.role = 'selection-indicator';
         node.appendChild(indicator);
     }
-    indicator.className = `absolute top-2 left-2 z-10 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-sky-500 border-sky-500' : 'bg-black/30 border-white/30'}`;
-    indicator.innerHTML = isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : '';
+    indicator.className = `absolute top-2 left-2 z-10 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? `border-transparent ${themeClasses.indicatorSelected}` : 'bg-black/30 border-white/30'}`;
+    indicator.innerHTML = isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : '';
+}
+
+/** Gỡ tint chọn (nếu có) mà `showSelectionIndicator()` đã thêm — đọc lại từ `data-selection-tint`. Hàm lá, chỉ DOM API. */
+function _clearSelectionTint(node) {
+    const prev = node.dataset.selectionTint;
+    if (prev) node.classList.remove(...prev.split(/\s+/).filter(Boolean));
+    delete node.dataset.selectionTint;
 }
 
 /** Gỡ chỉ báo + hiện lại menu 3 chấm cho 1 node — dùng khi thoát chế độ chọn. */
@@ -89,7 +106,7 @@ function hideSelectionIndicator(node) {
     if (!node) return; // guard
     const menuBtn = node.querySelector('button[data-action="menu"]');
     if (menuBtn) menuBtn.classList.remove('hidden');
-    node.classList.remove('bg-sky-500/10');
+    _clearSelectionTint(node);
     const indicator = node.querySelector('[data-role="selection-indicator"]');
     if (indicator) indicator.remove();
 }
