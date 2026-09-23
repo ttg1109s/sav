@@ -42,11 +42,7 @@ if (btnCycleMode) {
     });
 }
 
-if (bgBlurSlider) {
-    bgBlurSlider.addEventListener('input', (e) => {
-        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.bgBlur.input', payload: { value: e.target.value } });
-    });
-}
+// DỌN 23/09/2026: listener `#setting-bg-blur` ĐÃ XOÁ — slider đó không còn trong DOM; độ mờ ảnh nền giờ ở Settings > System > Theme (router 'theme').
 
 // ===================== Volume (HUD Control Center, event/listener/hud.js) =====================
 // EQ ở cụm "eqPresets" riêng (event/listener/eq-presets.js).
