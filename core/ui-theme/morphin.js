@@ -156,7 +156,7 @@ const UI_THEME_MORPHIN = {
     insetBg: 'bg-black/20', // khối "lõm" xem trước/nền phụ bên trong card (preview Element Style...)
     dangerSoftSurface: 'bg-rose-500/20 border border-rose-300/40', // khung nền+viền nhạt cho dòng lỗi (Debug console)
     cautionSoftSurface: 'bg-amber-500/20 border border-amber-300/40', // khung nền+viền nhạt cho dòng cảnh báo (Debug console)
-    glassTunable: 'uitk-glass-tunable', // MỚI 23/09/2026 — kính chỉnh được độ nhoè/đục (Playlist, Game catalog, Statistics; glass.css). Chỉ Morphin có class
+    glassTunable: 'uitk-glass-tunable', // MỚI 23/09/2026 — kính chỉnh được độ nhoè/đục (header + danh sách Playlist chính; glass.css). Chỉ Morphin có class
     selectionTintBg: 'bg-white/20', // nền hàng/tile đang được CHỌN trong chế độ chọn nhiều Playlist (core/playlist/selection.js)
     themeVars: 'uitk-vars-morphin', // class khai biến CSS theo theme (assets/css/glass.css) — cho phần CHỈ vẽ được bằng CSS thuần (thumb/track slider, header ngày lưới ảnh/video); gắn 1 lần trên <body>
 

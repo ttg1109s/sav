@@ -184,7 +184,7 @@ const UI_THEME_LIGHT = {
     insetBg: 'bg-slate-100', // khối "lõm" xem trước/nền phụ bên trong card (preview Element Style...)
     dangerSoftSurface: 'bg-rose-50 border border-rose-200', // khung nền+viền nhạt cho dòng lỗi (Debug console)
     cautionSoftSurface: 'bg-amber-50 border border-amber-200', // khung nền+viền nhạt cho dòng cảnh báo (Debug console)
-    glassTunable: '', // MỚI 23/09/2026 — kính chỉnh được độ nhoè/đục (Playlist, Game catalog, Statistics; glass.css). Rỗng: theme này không có kính
+    glassTunable: '', // MỚI 23/09/2026 — kính chỉnh được độ nhoè/đục (header + danh sách Playlist chính; glass.css). Rỗng: theme này không có kính
     selectionTintBg: 'bg-sky-500/10', // nền hàng/tile đang được CHỌN trong chế độ chọn nhiều Playlist (core/playlist/selection.js)
     themeVars: 'uitk-vars-light', // class khai biến CSS theo theme (assets/css/glass.css) — cho phần CHỈ vẽ được bằng CSS thuần (thumb/track slider, header ngày lưới ảnh/video); gắn 1 lần trên <body>
 
