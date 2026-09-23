@@ -28,6 +28,15 @@
 .uitk-glass-elevated { background: rgba(255, 255, 255, 0.16); backdrop-filter: blur(40px) saturate(1.7); -webkit-backdrop-filter: blur(40px) saturate(1.7); border: 1px solid rgba(255, 255, 255, 0.28); box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset, 0 25px 50px rgba(0,0,0,0.35); text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
 /* MỚI 21/09/2026 (Giang báo "lộ viền ở main playlist") — `.uitk-glass-flush`: đi KÈM `.uitk-glass-surface` (key theme `panelFlushBg` của Morphin) cho panel TOÀN MÀN sát mép màn hình — gỡ viền 1px + bóng trong của surface (viền đó ở panel lơ lửng là đường bo đẹp, nhưng ở panel sát mép nó thành đường sáng dọc mép màn hình và đường kẻ giữa 2 khối liền nhau). KHAI SAU `.uitk-glass-surface` (cùng độ đặc hiệu -> khai sau thắng). Lớp kính (nền trắng 10% + blur) giữ nguyên. */
 .uitk-glass-flush { border: none; box-shadow: none; }
+/* MỚI 23/09/2026 (Giang: "tinh chỉnh độ mờ cho playlist main app") — `.uitk-glass-tunable`: đi KÈM `.uitk-glass-surface` (key theme `glassTunable`, CHỈ
+   Morphin có class) trên kính các màn App Panel CHÍNH: Playlist (header + danh sách), Game catalog, Statistics. Drawer/modal/menu KHÔNG gắn -> giữ nguyên
+   36/40px cho chữ dễ đọc. 2 biến do updatePlaylistBg() (core/color-utils.js) gán lên <html> theo Settings > System > Theme (chỉ khi nền là Background
+   media); fallback = đúng thông số `.uitk-glass-surface`. Ghép 2 class để thắng `.uitk-glass-surface` mà không cần !important. */
+.uitk-glass-surface.uitk-glass-tunable {
+    background: var(--uitk-app-glass-tint, rgba(255, 255, 255, 0.10));
+    backdrop-filter: var(--uitk-app-glass-filter, blur(36px) saturate(1.6));
+    -webkit-backdrop-filter: var(--uitk-app-glass-filter, blur(36px) saturate(1.6));
+}
 
 /* ===================== Biến CSS theo UI Theme (key theme `themeVars`) =====================
    MỚI 23/09/2026 (rà soát theme toàn app) — phần CHỈ vẽ được bằng CSS thuần (pseudo-element thumb/track của input[type=range],
