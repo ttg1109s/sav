@@ -571,7 +571,7 @@
          restoreDefaultVizConfig/saveConfig/loadConfig) — KHÔNG còn giữ Z_INDEX/global
          error-handler (dời ở trên) hay CONST dùng chéo domain khác (nay sống trong đúng package
          service/state/*.js). PHẢI nạp SAU service/state.js (cần class AppConfig). -->
-    <script src="core/config.js?v=20260923v3"></script>
+    <script src="core/config.js?v=20260923v4"></script>
     <!-- core/custom-effect.js — Core thuần hệ Custom Effect (getEffectConfig/setCustomEffectField),
          NẠP NGAY SAU core/config.js (cần DEFAULT_CUSTOM_EFFECT/appConfigViz) — mọi hàm vẽ/scene-setup
          phía dưới đều cần file này. -->
@@ -802,7 +802,7 @@
     <script src="core/visualizer/visualizer-misc-settings.js?v=20260902v2"></script>
     <script src="core/subtitle/subtitle-display.js?v=20260816v1"></script>
     <script src="core/wakelock.js?v=20260630v1"></script>
-    <script src="core/color-utils.js?v=20260923v3"></script>
+    <script src="core/color-utils.js?v=20260923v4"></script>
     <script src="core/canvas-scene-setup.js?v=20260905v2"></script>
     <!-- MỚI (23/07/2026, refactor phản hồi Giang) — normalizeSongName()/songMatchesQuery() dùng
          CHUNG Playlist + Video Editor, tách khỏi core/playlist/state.js để không kéo appState theo
@@ -908,7 +908,7 @@
          ứng #btn-cycle-mode, volume, EQ preset). PHẢI nạp sau core/dom-refs.js, core/config.js,
          core/custom-effect.js, core/webgl/three-vortex.js, core/canvas-scene-setup.js,
          core/color-utils.js — đều đã nạp ở khu CORE. -->
-    <script src="core/visualizer/visualizer-display.js?v=20260923v3"></script>
+    <script src="core/visualizer/visualizer-display.js?v=20260923v4"></script>
     <!-- Tự động đổi hiệu ứng Visualizer theo thời gian (ver 10, ĐỔI vị trí ver 11: trước đây nạp
          ngay sau player-controls.js ở khu CORE — giờ PHẢI nạp SAU visualizer-display.js vì file
          đó định nghĩa updateTypeUI/saveConfig mà auto-switch-visual.js cần, xem comment đầu file
@@ -1272,8 +1272,8 @@
          Background, Main list TĨNH). CẦN workflowVisualizerDisplay.toggleBgImage() (đã nạp ngay
          trên) + updatePlaylistBg() (đã nạp ở nhóm CORE). (applyBgImageEnabled() đã xoá 21/09/2026.) -->
     <!-- MỚI (21/09/2026, Giang yêu cầu UI nền 3 card Solid/Gradient/Background media) — dựng/gắn/vá cụm 3 card ở Settings > System > Theme (Morphin). Được gọi lúc RUNTIME bởi event/workflow/app-settings.js + event/workflow/theme.js. -->
-    <script src="core/theme-background-ui.js?v=20260923v3"></script>
-    <script src="event/workflow/theme.js?v=20260923v3"></script>
+    <script src="core/theme-background-ui.js?v=20260923v4"></script>
+    <script src="event/workflow/theme.js?v=20260923v4"></script>
     <script src="event/router/theme.js?v=20260923v3"></script>
     <script src="event/listener/theme.js?v=20260921v4"></script>
     <!-- Cụm "statsPanel" ĐÃ XOÁ (checkbox toggle stats panel dời vào Settings, dùng chung
