@@ -507,6 +507,24 @@ async function setFolderFilterConfig(folderId, config) {
 }
 
 /**
+ * MỚI (23/09/2026, Giang: "Restore default setting -> mọi thứ phải reset hết về gốc, không có ngoại lệ
+ * và vùng cấm") — đưa 4 cờ CÀI ĐẶT của 1 folder về đúng giá trị lúc `createFolder()` vừa tạo:
+ * `excludeFromMainPlaylist` false, `isReadOnly` false, `applyFilter` true, `filterConfig` null. GIỮ
+ * NGUYÊN id/tên/type và nội dung folder (`folder_song`) — đó là DỮ LIỆU thư viện, không phải cài đặt.
+ * Nhận `record` qua tham số (Workflow đã đọc sẵn qua `listFolders()` — Rule 3, không tự đọc lại), sửa
+ * tại chỗ rồi ghi (data layer). Cùng cấu trúc 4 hàm set*Flag/FilterConfig ngay trên, gộp 1 lượt ghi.
+ * @param {{id: string}} record
+ * @returns {Promise<void>}
+ */
+async function resetFolderRecordSettings(record) {
+    record.excludeFromMainPlaylist = false;
+    record.isReadOnly = false;
+    record.applyFilter = true;
+    record.filterConfig = null;
+    await setFolderRecord(record.id, record); // service/db.js
+}
+
+/**
  * Gom OR (hợp) toàn bộ songKey đang bị loại khỏi view "Tất cả" — hợp của `folder_song.list` của
  * MỌI folder CÙNG LOẠI `mediaType` có `excludeFromMainPlaylist === true` (mục 5, "Exclude là OR
  * trên mọi folder chứa bài đó"). Rule 1: đơn tuyến — CHỈ tính 1 tập hợp duy nhất, không rẽ nhánh
