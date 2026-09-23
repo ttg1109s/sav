@@ -174,6 +174,49 @@ const UI_THEME_LIGHT = {
         yellow: 'text-yellow-600',
         fuchsia: 'text-fuchsia-600',
     },
+
+    // ===================== Bổ sung đợt rà soát toàn app (MỚI 23/09/2026) =====================
+    // Key thêm khi quét các file feature còn class màu cứng — Light giữ ĐÚNG class đang chạy thật (không đổi gì), Dark/Morphin theo tông riêng.
+    inputBorderColor: 'border-slate-300', // CHỈ màu viền ô nhập (phần tử tự khai `border-b`/`border` riêng — khác inputBorder đã kèm `border`)
+    successText: 'text-emerald-600', // chữ/nhãn mang ý "thành công/đã xong" (vd "đã tải font")
+    cautionText: 'text-amber-600', // chữ/tiêu đề mang ý cảnh báo (vd tiêu đề modal lỗi phát, log warn)
+    hoverAccentSoftBg: 'hover:bg-sky-50 transition-colors', // nền hover nhạt màu accent cho hàng danh sách chọn (font picker...)
+    insetBg: 'bg-slate-100', // khối "lõm" xem trước/nền phụ bên trong card (preview Element Style...)
+    dangerSoftSurface: 'bg-rose-50 border border-rose-200', // khung nền+viền nhạt cho dòng lỗi (Debug console)
+    cautionSoftSurface: 'bg-amber-50 border border-amber-200', // khung nền+viền nhạt cho dòng cảnh báo (Debug console)
+    selectionTintBg: 'bg-sky-500/10', // nền hàng/tile đang được CHỌN trong chế độ chọn nhiều Playlist (core/playlist/selection.js)
+    themeVars: 'uitk-vars-light', // class khai biến CSS theo theme (assets/css/glass.css) — cho phần CHỈ vẽ được bằng CSS thuần (thumb/track slider, header ngày lưới ảnh/video); gắn 1 lần trên <body>
+
+    // Icon trang trí theo HUE (icon hành động trong menu nổi...) — cùng tinh thần categoryAccent nhưng cho icon nhỏ (Light bậc -500).
+    iconHue: {
+        sky: 'text-sky-500',
+        amber: 'text-amber-500',
+        emerald: 'text-emerald-500',
+        violet: 'text-violet-500',
+        yellow: 'text-yellow-500',
+        rose: 'text-rose-500',
+        fuchsia: 'text-fuchsia-500',
+        indigo: 'text-indigo-500',
+        teal: 'text-teal-500',
+    },
+    // Chip trạng thái có viền (nút độ khó ở Game panel) — chữ + nền + màu viền cùng hue (phần tử tự khai `border`).
+    chipTone: {
+        emerald: 'text-emerald-600 bg-emerald-100 border-emerald-300',
+        amber: 'text-amber-600 bg-amber-100 border-amber-300',
+        rose: 'text-rose-600 bg-rose-100 border-rose-300',
+    },
+    // Ô icon tròn có nền (hàng thông tin tab Chi tiết...) — nền nhạt + icon cùng hue.
+    iconTone: {
+        sky: 'bg-sky-100 text-sky-600',
+        amber: 'bg-amber-100 text-amber-600',
+        emerald: 'bg-emerald-100 text-emerald-600',
+        violet: 'bg-violet-100 text-violet-600',
+        yellow: 'bg-yellow-100 text-yellow-600',
+        rose: 'bg-rose-100 text-rose-600',
+        fuchsia: 'bg-fuchsia-100 text-fuchsia-600',
+        indigo: 'bg-indigo-100 text-indigo-600',
+        teal: 'bg-teal-100 text-teal-600',
+    },
 };
 
 // CÒN NỢ (09/09/2026) — migrate ~20 file nội dung feature (Folder Browser, Add-to-Folder picker,
@@ -181,3 +224,10 @@ const UI_THEME_LIGHT = {
 // hardcode class Tailwind sang `data-uitk` + key list này, xem docstring đầu file mục "PHẠM VI HIỆN
 // TẠI". Làm dần từng file, KHÔNG đổi 1 lần — mỗi file migrate xong vẫn PHẢI trông y hệt bây giờ
 // (đang là Light), chỉ khác ở chỗ giờ đổi được sang Dark/Morphin.
+//
+// CẬP NHẬT (23/09/2026, rà soát theme toàn app) — phần App Panel (Settings, drawer feature, modal, Playlist, Game, Storage...) đã
+// chuyển hết màu sang `data-uitk`; thêm key inputBorderColor/successText/cautionText/hoverAccentSoftBg/insetBg/dangerSoftSurface/
+// cautionSoftSurface/selectionTintBg/themeVars + nhóm iconHue/iconTone/chipTone. CỐ Ý GIỮ class cứng: UI phía Visualizer (bottom player,
+// Control Center, overlay, photo editor, effect picker, phụ đề), subtitle-editor.html, và màu NHẬN DIỆN dữ liệu (thanh/legend Storage,
+// loại media Statistics, cover game, nút Áp dụng/Gỡ xanh-đỏ của Motion, chấm cảnh báo kết quả quét Storage).
+

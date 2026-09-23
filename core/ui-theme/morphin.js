@@ -146,4 +146,47 @@ const UI_THEME_MORPHIN = {
         yellow: 'text-yellow-300',
         fuchsia: 'text-fuchsia-300',
     },
+
+    // ===================== Bổ sung đợt rà soát toàn app (MỚI 23/09/2026) =====================
+    // Key thêm khi quét các file feature còn class màu cứng — Light giữ ĐÚNG class đang chạy thật (không đổi gì), Dark/Morphin theo tông riêng.
+    inputBorderColor: 'border-white/25', // CHỈ màu viền ô nhập (phần tử tự khai `border-b`/`border` riêng — khác inputBorder đã kèm `border`)
+    successText: 'text-emerald-300', // chữ/nhãn mang ý "thành công/đã xong" (vd "đã tải font")
+    cautionText: 'text-amber-200', // chữ/tiêu đề mang ý cảnh báo (vd tiêu đề modal lỗi phát, log warn)
+    hoverAccentSoftBg: 'hover:bg-white/15 transition-colors', // nền hover nhạt màu accent cho hàng danh sách chọn (font picker...)
+    insetBg: 'bg-black/20', // khối "lõm" xem trước/nền phụ bên trong card (preview Element Style...)
+    dangerSoftSurface: 'bg-rose-500/20 border border-rose-300/40', // khung nền+viền nhạt cho dòng lỗi (Debug console)
+    cautionSoftSurface: 'bg-amber-500/20 border border-amber-300/40', // khung nền+viền nhạt cho dòng cảnh báo (Debug console)
+    selectionTintBg: 'bg-white/20', // nền hàng/tile đang được CHỌN trong chế độ chọn nhiều Playlist (core/playlist/selection.js)
+    themeVars: 'uitk-vars-morphin', // class khai biến CSS theo theme (assets/css/glass.css) — cho phần CHỈ vẽ được bằng CSS thuần (thumb/track slider, header ngày lưới ảnh/video); gắn 1 lần trên <body>
+
+    // Icon trang trí theo HUE (icon hành động trong menu nổi...) — cùng tinh thần categoryAccent nhưng cho icon nhỏ (Light bậc -500).
+    iconHue: {
+        sky: 'text-sky-300',
+        amber: 'text-amber-300',
+        emerald: 'text-emerald-300',
+        violet: 'text-violet-300',
+        yellow: 'text-yellow-300',
+        rose: 'text-rose-300',
+        fuchsia: 'text-fuchsia-300',
+        indigo: 'text-indigo-300',
+        teal: 'text-teal-300',
+    },
+    // Chip trạng thái có viền (nút độ khó ở Game panel) — chữ + nền + màu viền cùng hue (phần tử tự khai `border`).
+    chipTone: {
+        emerald: 'text-emerald-100 bg-white/15 border-white/30',
+        amber: 'text-amber-100 bg-white/15 border-white/30',
+        rose: 'text-rose-100 bg-white/15 border-white/30',
+    },
+    // Ô icon tròn có nền (hàng thông tin tab Chi tiết...) — nền nhạt + icon cùng hue.
+    iconTone: {
+        sky: 'bg-white/15 text-sky-200',
+        amber: 'bg-white/15 text-amber-200',
+        emerald: 'bg-white/15 text-emerald-200',
+        violet: 'bg-white/15 text-violet-200',
+        yellow: 'bg-white/15 text-yellow-200',
+        rose: 'bg-white/15 text-rose-200',
+        fuchsia: 'bg-white/15 text-fuchsia-200',
+        indigo: 'bg-white/15 text-indigo-200',
+        teal: 'bg-white/15 text-teal-200',
+    },
 };
