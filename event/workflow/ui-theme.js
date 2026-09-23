@@ -79,12 +79,12 @@ const workflowUiTheme = {
         if (appConfigUiTheme.getAll().activeUiTheme === 'morphin') {
             const viewportW = window.innerWidth, viewportH = window.innerHeight;
             // SỬA 21/09/2026 — theo `themeMode` (nền media giờ giữ URL runtime cả khi đang ở Solid/Gradient nên không còn dựa vào "bgImage có giá trị"): 'background' ->
-            // lấy mẫu ảnh nền, hoặc thumb full-res nếu là VIDEO (video không lấy mẫu trực tiếp được); 'solid' -> đúng màu đó; 'gradient' -> nội suy 2 màu.
+            // lấy mẫu ảnh nền, hoặc thumb full-res nếu là VIDEO (video không lấy mẫu trực tiếp được); 'none' -> không đổi màu (như Light/Dark); 'gradient' -> nội suy 2 màu.
             if (vizCfg.themeMode === 'background') {
                 const sampleUrl = vizCfg.bgVideo ? vizCfg.bgMediaThumb : vizCfg.bgImage;
                 if (sampleUrl) color = await sampleImageTopEdgeColor(sampleUrl, viewportW, viewportH, 0.4); // core/ui-theme/status-bar-color.js — 0.4 = lớp phủ đen của updatePlaylistBg()
             }
-            else if (vizCfg.themeMode === 'solid') color = computeGradientTopEdgeColor(vizCfg.bgSolidColor, vizCfg.bgSolidColor, viewportW, viewportH); // core/ui-theme/status-bar-color.js — 1 màu = gradient 2 đầu cùng màu
+            // XOÁ 23/09/2026: nhánh 'solid' — nền Solid đã bỏ; 'none' (không nền) giữ giá trị mặc định như Light/Dark.
             else if (vizCfg.themeMode === 'gradient') color = computeGradientTopEdgeColor(vizCfg.gradientFrom, vizCfg.gradientTo, viewportW, viewportH); // core/ui-theme/status-bar-color.js
         }
         if (token !== this._statusBarSyncToken) return; // đã có lần gọi mới hơn — bỏ kết quả cũ
@@ -122,7 +122,7 @@ const workflowUiTheme = {
             const isHex = (v) => typeof v === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(v);
             let preloaderBg = '#0f172a'; // slate-900 = appBaseBg (core/ui-theme/morphin.js)
             if (vizCfg.themeMode === 'background') preloaderBg = statusBarColor || preloaderBg; // ảnh/video -> màu mép trên đã lấy mẫu (không mirror được chính media: blob nằm trong IndexedDB, bất đồng bộ)
-            else if (vizCfg.themeMode === 'solid' && isHex(vizCfg.bgSolidColor)) preloaderBg = vizCfg.bgSolidColor;
+            // XOÁ 23/09/2026: nhánh 'solid' — nền Solid đã bỏ; 'none' (không nền) giữ giá trị mặc định như Light/Dark.
             else if (vizCfg.themeMode === 'gradient' && isHex(vizCfg.gradientFrom) && isHex(vizCfg.gradientTo)) preloaderBg = `linear-gradient(135deg, ${vizCfg.gradientFrom}, ${vizCfg.gradientTo})`;
             localStorage.setItem('uiThemeBoot', JSON.stringify({ preloaderBg, statusBar: statusBarColor || '' }));
             // MỚI 21/09/2026 (Giang: "media bị xoá/mất -> fallback, kể cả ngay khi app boot hiển thị preloader") — preloader lúc mở app dựng từ mirror của LẦN TRƯỚC (đồng bộ,
@@ -164,7 +164,7 @@ const workflowUiTheme = {
         applyUiThemeToDom(document, keyList); // core/ui-theme/apply-ui.js
         this._applyPageLevelTheme(activeThemeName);
         this._retintAppBottomNav(); // app-boot.js đã tô nav 1 lần TRƯỚC khi hàm async này xong (theme cache lúc đó còn Light) — tô lại cho khớp theme khôi phục
-        this.syncStatusBarColor(); // loadConfig() đã chạy xong trước (dòng đầu boot()) nên themeMode/bgSolidColor/gradient*/media (đã fallback nếu mất) đã sẵn
+        this.syncStatusBarColor(); // loadConfig() đã chạy xong trước (dòng đầu boot()) nên themeMode/gradient*/media (đã fallback nếu mất) đã sẵn
         workflowTheme.syncBackgroundVideoPlayback(); // MỚI 21/09/2026 — updatePlaylistBg() (trong loadConfig) đã nạp video nền; đây quyết định có PHÁT không (App Panel + tab hiện)
     },
 };

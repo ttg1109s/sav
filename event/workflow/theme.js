@@ -8,10 +8,13 @@
  *     dung lượng; item bị xoá/mất thì lúc boot `loadPlaylistBgMediaAsset()` (core/config.js) tự về `bgFallbackMode` (nền Solid/Gradient chọn gần nhất).
  *   - Video nền CHỈ chạy khi đang ở màn App Panel và tab đang hiện; vào Visualizer / ẩn app -> pause (`syncBackgroundVideoPlayback()`).
  *   - Solid là mode RIÊNG có màu riêng (`bgSolidColor`) — hết cách "đoán solid từ gradient 2 màu giống nhau" vốn là nguyên nhân dropdown cũ nhảy ngược.
+ *     SỬA 23/09/2026 (Giang: "bỏ toàn bộ background solid -> thay bằng none") — mode 'solid' ĐÃ XOÁ, card đầu là 'none' (Morphin không nền, không có ô màu).
+ *   - MỚI 23/09/2026 (Giang báo lỗi vào lại Morphin bị ép về Background media) — mỗi lần chốt 1 kiểu nền Morphin ('none'|'gradient'|'background') đều ghi
+ *     `morphinLastMode`; workflowAppSettings.handleUiThemeChange() dùng nó khi vào lại Morphin từ Light/Dark.
  *
  * Các method chốt mode: `applyNonBackgroundMode(mode)` (light/dark/solid/gradient), `reuseExistingBackgroundMedia()` (bấm lại card media khi đã có
  * item), `pickBackgroundMedia(kind)` + `handleMediaPickerTileClick()` (chọn item mới) — Router (event/router/theme.js) chọn ĐÚNG 1 method; đều kết thúc
- * bằng `_commitThemeMode()`. Sửa màu (`setSolidColor`/`setGradientFrom`/`setGradientTo`) cũng CHỌN luôn card tương ứng (`_commitColorEdit()`).
+ * bằng `_commitThemeMode()`. Sửa màu (`setGradientFrom`/`setGradientTo`) cũng CHỌN luôn card Gradient (`_commitColorEdit()`).
  *
  * Picker chọn item thư viện = Generic Drawer TÁI DÙNG `openMediaPickerDrawerUi()` (core/media-picker-drawer-helper.js) + lưới ảnh/video có sẵn
  * (`workflowFileManagerPhoto.setupPhotoGridWindow()`, `workflowVideoGalleryWindow`), mở `updateInPlace` vì đang đứng TRONG Settings (cùng khuôn picker của
@@ -21,24 +24,26 @@
  * (fix WebKit/iOS backdrop-filter không tự resample) + đồng bộ status bar/preloader + trạng thái phát video nền + UI card.
  *
  * NẠP SAU: core/config.js (saveConfig, resolveAppBgMedia), core/color-utils.js (updatePlaylistBg, forceGlassRepaint, setAppBgVideoPlayback),
- * core/visualizer/visualizer-display.js (setThemeSolidColor/GradientFrom/To), core/loading-shield-util.js (withLoadingShield), core/theme-background-ui.js
+ * core/visualizer/visualizer-display.js (setThemeGradientFrom/To, setAppGlassBlur/Tint), core/loading-shield-util.js (withLoadingShield), core/theme-background-ui.js
  * (patchThemeBackgroundCards), core/media-picker-drawer-helper.js (openMediaPickerDrawerUi), core/file-manager/image.js (listImages), core/file-manager/video.js
  * (listVideos), event/workflow/file-manager-photo.js, event/workflow/photo-gallery-window.js, event/workflow/video-gallery-window.js,
  * event/workflow/app-settings.js (workflowAppSettings._renderTheme — runtime), event/workflow/ui-theme.js (workflowUiTheme — runtime), core/dom-refs.js
  * (appStack, genericDrawerBody).
  */
+const THEME_MORPHIN_BG_MODES = ['none', 'gradient', 'background']; // MỚI 23/09/2026 — 3 kiểu nền của Morphin (khớp THEME_BG_CARD_MODES, core/theme-background-ui.js)
+
 const workflowTheme = {
     _mediaPickerKind: null, // 'photo' | 'video' | null — đang có picker media nền mở hay không
     _mediaPickerCleanup: null, // hàm gỡ listener delegated của picker (openMediaPickerDrawerUi trả về)
 
     /**
-     * Ứng với 'theme.selectMode.click' khi `mode !== 'background'` (light/dark/solid/gradient) — Router đã chọn ĐÚNG method này. Solid/Gradient
+     * Ứng với 'theme.selectMode.click' khi `mode !== 'background'` (light/dark/none/gradient) — Router đã chọn ĐÚNG method này. None/Gradient
      * ghi nhớ làm `bgFallbackMode` (nền quay về khi media nền bị xoá/mất). Runtime URL media (nếu có) GIỮ nguyên — card Background media vẫn còn preview
      * và bấm lại là dùng ngay; `updatePlaylistBg()` chỉ vẽ media khi themeMode = 'background'.
-     * @param {'light'|'dark'|'solid'|'gradient'} mode
+     * @param {'light'|'dark'|'none'|'gradient'} mode
      */
     applyNonBackgroundMode(mode) {
-        if (mode === 'solid' || mode === 'gradient') appConfigViz.mutateAll(cfg => { cfg.bgFallbackMode = mode; });
+        if (mode === 'none' || mode === 'gradient') appConfigViz.mutateAll(cfg => { cfg.bgFallbackMode = mode; });
         this._commitThemeMode(mode);
     },
 
@@ -130,9 +135,14 @@ const workflowTheme = {
     },
 
     /** Gộp phần "chốt mode" DÙNG CHUNG: mutate themeMode + saveConfig + updatePlaylistBg + forceGlassRepaint + đồng bộ status bar/preloader + phát video + UI card.
-     * @param {'light'|'dark'|'solid'|'gradient'|'background'} mode */
+     * SỬA 23/09/2026 — kiểu nền Morphin ('none'|'gradient'|'background') còn được nhớ vào `morphinLastMode` (xem DEFAULT_VIZ_CONFIG, core/config.js);
+     * 'light'/'dark' (rời Morphin) KHÔNG ghi đè -> vào lại Morphin quay đúng kiểu đã chọn trước đó.
+     * @param {'light'|'dark'|'none'|'gradient'|'background'} mode */
     _commitThemeMode(mode) {
-        appConfigViz.mutateAll(cfg => { cfg.themeMode = mode; });
+        appConfigViz.mutateAll(cfg => {
+            cfg.themeMode = mode;
+            if (THEME_MORPHIN_BG_MODES.includes(mode)) cfg.morphinLastMode = mode;
+        });
         saveConfig();
         updatePlaylistBg(); // ĐẶT SAU khi themeMode đã cập nhật — updatePlaylistBg() đọc themeMode để quyết định vẽ gì.
         forceGlassRepaint(); // fix bug mục 3 (09/07/2026) — ép WebKit vẽ lại lớp kính NGAY, không đợi thao tác khác.
@@ -141,11 +151,7 @@ const workflowTheme = {
         this.refreshThemeCardUI();
     },
 
-    /** Ứng với 'theme.solidColor.input'. Chạm ô màu Solid = CHỌN Solid luôn. @param {string} value */
-    setSolidColor(value) {
-        setThemeSolidColor(value); // core/visualizer/visualizer-display.js
-        this._commitColorEdit('solid');
-    },
+    // XOÁ 23/09/2026: setSolidColor() ('theme.solidColor.input') — nền Solid đã bỏ.
 
     /** MỚI 23/09/2026 (Giang: "tinh chỉnh độ mờ cho playlist main app" — thay blur ảnh nền) — ứng với 'theme.glassBlur.input'. Độ nhoè kính
      * Playlist chính; `updatePlaylistBg()` gán lại biến CSS (core/color-utils.js). Gọi liên tục lúc kéo -> không qua
@@ -178,10 +184,10 @@ const workflowTheme = {
         this._commitColorEdit('gradient');
     },
 
-    /** Đuôi chung của 3 hàm sửa màu: chọn mode tương ứng (+ ghi nhớ làm fallback) rồi vẽ lại — gọi liên tục lúc kéo ô màu nên KHÔNG gọi `_commitThemeMode()`
-     * (thêm việc vô ích mỗi lần `input`). @param {'solid'|'gradient'} mode */
+    /** Đuôi chung của 2 hàm sửa màu Gradient: chọn mode Gradient (+ ghi nhớ làm fallback + kiểu Morphin gần nhất) rồi vẽ lại — gọi liên tục lúc kéo ô màu
+     * nên KHÔNG gọi `_commitThemeMode()` (thêm việc vô ích mỗi lần `input`). @param {'gradient'} mode */
     _commitColorEdit(mode) {
-        appConfigViz.mutateAll(cfg => { cfg.themeMode = mode; cfg.bgFallbackMode = mode; });
+        appConfigViz.mutateAll(cfg => { cfg.themeMode = mode; cfg.bgFallbackMode = mode; cfg.morphinLastMode = mode; });
         saveConfig();
         updatePlaylistBg();
         forceGlassRepaint();
@@ -217,7 +223,6 @@ const workflowTheme = {
         const cfg = appConfigViz.getAll();
         return {
             themeMode: cfg.themeMode,
-            solidColor: cfg.bgSolidColor,
             gradientFrom: cfg.gradientFrom,
             gradientTo: cfg.gradientTo,
             mediaKind: cfg.bgMediaKind,
@@ -228,6 +233,18 @@ const workflowTheme = {
             // Hàng "Panel glass" chỉ hiện khi ĐANG dùng nền media (ảnh hoặc video) — Giang chọn; cùng điều kiện áp giá trị trong updatePlaylistBg().
             showGlassRow: cfg.themeMode === 'background' && !!(cfg.bgVideo || cfg.bgImage),
         };
+    },
+
+    /** MỚI 23/09/2026 (Giang báo "vào lại Morphin bị fallback về Background media") — kiểu nền khi VÀO Morphin từ Light/Dark: đúng kiểu chọn gần nhất
+     * (`morphinLastMode`); kiểu đó là 'background' mà media đã mất -> `bgFallbackMode` (None/Gradient gần nhất); chưa từng chọn -> giữ cách cũ (có media thì
+     * media, không thì fallback). Chỉ ĐỌC config, trả chuỗi — workflowAppSettings.handleUiThemeChange() gửi message chốt.
+     * @returns {'none'|'gradient'|'background'} */
+    resolveMorphinEntryMode() {
+        const cfg = appConfigViz.getAll();
+        const hasMedia = !!cfg.bgMediaKey && !!(cfg.bgImage || cfg.bgVideo);
+        const fallback = cfg.bgFallbackMode === 'none' ? 'none' : 'gradient';
+        const last = THEME_MORPHIN_BG_MODES.includes(cfg.morphinLastMode) ? cfg.morphinLastMode : (hasMedia ? 'background' : fallback);
+        return last === 'background' && !hasMedia ? fallback : last;
     },
 
     /** Vá tại chỗ 3 card ở màn Theme (nếu đang mở) theo config hiện tại — gọi sau mỗi lần đổi mode/màu/media, và lúc boot (không có DOM thì bỏ qua). */

@@ -324,11 +324,11 @@ const workflowAppSettings = {
     // SỬA 21/09/2026 (Giang yêu cầu "bỏ phần Background, thay Interface = Color; chỉ hiện chọn ảnh nền/gradient khi chọn
     // Morphin"): select "Background" cũ (viz.themeMode light/dark/glass) ĐÃ XOÁ — light/dark của nó thực chất không vẽ gì
     // (chỉ 'gradient'/'background' mới có nền, xem core/color-utils.js::updatePlaylistBg). Giờ 1 select "Color" = UI Theme
-    // (core/ui-theme/*), và phần chọn NỀN (Solid/Gradient/Image) CHỈ dựng khi Color = Morphin — nền chỉ có nghĩa với kính mờ.
+    // (core/ui-theme/*), và phần chọn NỀN (None/Gradient/Background media) CHỈ dựng khi Color = Morphin — nền chỉ có nghĩa với kính mờ.
     // Các luồng nền GIỮ NGUYÊN: TÁI DÙNG router 'theme' gốc (event/router/theme.js — KHÔNG đổi gì) qua eventBus.
 
-    /** SỬA 21/09/2026 — "Solid" KHÔNG còn là gradient 2 màu giống nhau (cách cũ khiến UI phải "đoán" loại nền và dropdown nhảy ngược): giờ là mode 'solid'
-     * riêng với màu riêng `bgSolidColor` (xem DEFAULT_VIZ_CONFIG, core/config.js). */
+    /** SỬA 23/09/2026 — 3 card nền Morphin giờ là None/Gradient/Background media (Giang bỏ Solid — mode 'solid' + `bgSolidColor` đã xoá, xem
+     * DEFAULT_VIZ_CONFIG, core/config.js). */
     _renderTheme() {
         this._currentRenderFn = () => this._renderTheme();
         const activeUiTheme = getSelectableUiThemeNames().includes(appConfigUiTheme.getAll().activeUiTheme) ? appConfigUiTheme.getAll().activeUiTheme : UI_THEME_DEFAULT_NAME; // core/config.js + core/ui-theme/registry.js — tên lạ/không cho chọn -> Light (khớp theme THẬT đang áp)
@@ -365,9 +365,11 @@ const workflowAppSettings = {
     async handleUiThemeChange(themeName) {
         await workflowUiTheme.switchUiTheme(themeName); // event/workflow/ui-theme.js
         const vizCfg = appConfigViz.getAll();
-        const morphinAlreadyHasBackground = ['solid', 'gradient', 'background'].includes(vizCfg.themeMode); // SỬA 21/09/2026 — thêm 'solid' (mode riêng)
-        // Vào Morphin lúc CHƯA có nền (đang Light/Dark): dùng lại media nền đã chọn nếu còn nhớ, không thì Solid/Gradient chọn gần nhất (`bgFallbackMode`).
-        const morphinStartMode = (vizCfg.bgMediaKey && (vizCfg.bgImage || vizCfg.bgVideo)) ? 'background' : (vizCfg.bgFallbackMode || 'gradient');
+        const morphinAlreadyHasBackground = ['none', 'gradient', 'background'].includes(vizCfg.themeMode); // SỬA 23/09/2026 — 'solid' đã bỏ, thêm 'none'
+        // Vào Morphin lúc đang Light/Dark: SỬA 23/09/2026 (Giang báo "Morphin -> chọn media -> chọn kiểu khác -> đổi theme -> vào lại Morphin bị fallback về
+        // Background media") — trước đây cứ còn media là ép 'background', bỏ qua kiểu vừa chọn. Giờ dùng đúng kiểu Morphin chọn gần nhất
+        // (event/workflow/theme.js::resolveMorphinEntryMode()).
+        const morphinStartMode = workflowTheme.resolveMorphinEntryMode();
         if (themeName === 'morphin' && !morphinAlreadyHasBackground) eventBus.send({ router: 'theme', type: 'theme.selectMode.click', payload: { mode: morphinStartMode } });
         else if (themeName !== 'morphin') eventBus.send({ router: 'theme', type: 'theme.selectMode.click', payload: { mode: themeName } }); // 'light' | 'dark' — tắt nền
         this._renderTheme();
