@@ -131,7 +131,10 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.theme.bg.media.empty': 'Not set',
     'appSettings.theme.bg.media.pickPhoto': 'Photo',
     'appSettings.theme.bg.media.pickVideo': 'Video',
-    'appSettings.theme.bg.blur': 'Background blur', // MỚI 23/09/2026 — hàng độ mờ ảnh nền (Morphin, chỉ hiện khi Background media là ảnh)
+    // MỚI 23/09/2026 — cụm tinh chỉnh kính Playlist/Game catalog/Statistics (Morphin, chỉ hiện khi nền là Background media)
+    'appSettings.theme.glass.section': 'Panel glass',
+    'appSettings.theme.glass.blur': 'Blur',
+    'appSettings.theme.glass.tint': 'Opacity',
 
     'appSettings.visualizerScreen.title': 'Visualizer Screen',
     'appSettings.visualizerScreen.pendingNote': 'This section is being reorganized — coming soon in the next update.',
