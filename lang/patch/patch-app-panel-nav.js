@@ -117,6 +117,25 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.system.motion.hint': 'Transition, Ken Burns, and beat-reactive movement',
     'appSettings.system.language.label': 'Language',
     'appSettings.system.language.hint': 'App display language',
+    // MỚI 23/09/2026 — Settings > System > Pagination (components/settings/pagination.js) — mỗi nơi 1 card riêng
+    'appSettings.system.pagination.label': 'Pagination',
+    'appSettings.system.pagination.hint': 'Choose which lists are split into pages',
+    'appSettings.pagination.places.label': 'Apply to',
+    'appSettings.pagination.places.hint': 'Each list has its own items per page (1–{max}) and style. Unchecked lists show everything as before.',
+    'appSettings.pagination.pageSize.label': 'Items per page',
+    'appSettings.pagination.style.label': 'Style',
+    'appSettings.pagination.place.statisTopList': 'Statistics — Top media',
+    'appSettings.pagination.place.statisTopList.hint': 'Page through the whole ranking instead of only the top 20',
+    'appSettings.pagination.place.debugConsole': 'Debug console',
+    'appSettings.pagination.place.debugConsole.hint': 'Newest logs come first when paged',
+    'appSettings.pagination.place.folderBrowser': 'Folder browser',
+    'appSettings.pagination.place.folderBrowser.hint': 'Folder grid',
+    'appSettings.pagination.place.motionPresets': 'Motion presets',
+    'appSettings.pagination.place.motionPresets.hint': 'Settings > System > Motion list',
+    'appSettings.pagination.place.filterPresets': 'Filter presets',
+    'appSettings.pagination.place.filterPresets.hint': 'Settings > Playlist > Filter list',
+    'appSettings.pagination.place.eqPresets': 'EQ presets',
+    'appSettings.pagination.place.eqPresets.hint': 'EQ preset list (hold the EQ button)',
 
     // SỬA 21/09/2026 — nhãn cũ 'Theme' đổi 'Background' (select này điều khiển NỀN phía sau app: sáng/tối/glass, KHÔNG phải màu giao diện) — tránh nhầm với hàng 'Interface' mới ngay trên nó.
     'appSettings.theme.uiTheme.label': 'Color',
@@ -144,6 +163,6 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.resetApp.restoreDefaults.label': 'Restore default settings',
     'appSettings.resetApp.clearCache.label': 'Clear app cache',
     // MỚI (20/09/2026) — hint cho 2 hàng ngang hàng ở Troubleshooting (thay modalChoice cũ).
-    'appSettings.resetApp.restoreDefaults.hint': 'Colors, effects and EQ go back to defaults — your library is kept',
+    'appSettings.resetApp.restoreDefaults.hint': 'Every setting and preset goes back to factory — your library is kept',
     'appSettings.resetApp.clearCache.hint': 'Clear cached JS/CSS if the app looks outdated after an update',
 };
