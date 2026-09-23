@@ -12,7 +12,7 @@
     color: #e2e8f0;
 }
 .video-day-header--on-light {
-    color: #334155;
+    color: var(--uitk-day-header-on-panel, #334155); /* SỬA 23/09/2026 — theo theme, xem assets/css/glass.css */;
 }
 .video-day-group-placeholder {
     background: rgba(255, 255, 255, 0.02);

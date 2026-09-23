@@ -28,3 +28,22 @@
 .uitk-glass-elevated { background: rgba(255, 255, 255, 0.16); backdrop-filter: blur(40px) saturate(1.7); -webkit-backdrop-filter: blur(40px) saturate(1.7); border: 1px solid rgba(255, 255, 255, 0.28); box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset, 0 25px 50px rgba(0,0,0,0.35); text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
 /* MỚI 21/09/2026 (Giang báo "lộ viền ở main playlist") — `.uitk-glass-flush`: đi KÈM `.uitk-glass-surface` (key theme `panelFlushBg` của Morphin) cho panel TOÀN MÀN sát mép màn hình — gỡ viền 1px + bóng trong của surface (viền đó ở panel lơ lửng là đường bo đẹp, nhưng ở panel sát mép nó thành đường sáng dọc mép màn hình và đường kẻ giữa 2 khối liền nhau). KHAI SAU `.uitk-glass-surface` (cùng độ đặc hiệu -> khai sau thắng). Lớp kính (nền trắng 10% + blur) giữ nguyên. */
 .uitk-glass-flush { border: none; box-shadow: none; }
+
+/* ===================== Biến CSS theo UI Theme (key theme `themeVars`) =====================
+   MỚI 23/09/2026 (rà soát theme toàn app) — phần CHỈ vẽ được bằng CSS thuần (pseudo-element thumb/track của input[type=range],
+   stroke/fill SVG Timing Point Move, chữ header ngày của lưới ảnh/video trong Generic Drawer) KHÔNG gắn được class Tailwind qua
+   `data-uitk`. Mỗi theme có 1 class khai bộ biến riêng; key `themeVars` (core/ui-theme/{light,dark,morphin}.js) trỏ tới class đó và gắn 1 lần
+   trên <body> (index.html) — đổi theme = `applyUiThemeToDom()` đổi class như mọi key khác, KHÔNG cần cơ chế mới.
+   Mọi chỗ dùng đều có fallback = giá trị Light cũ (sliders.css/photo-gallery.css/video-gallery.css) -> Light KHÔNG đổi gì. */
+.uitk-vars-light {
+    --uitk-slider-track: #e2e8f0; --uitk-slider-mark: #94a3b8; --uitk-slider-accent: #0ea5e9; --uitk-slider-disabled: #cbd5e1; --uitk-eq-fill: #8b5cf6;
+    --uitk-timing-line: #475569; --uitk-timing-label: #94a3b8; --uitk-timing-accent: #38bdf8; --uitk-day-header-on-panel: #334155;
+}
+.uitk-vars-dark {
+    --uitk-slider-track: rgba(255, 255, 255, 0.12); --uitk-slider-mark: #71717a; --uitk-slider-accent: #8b5cf6; --uitk-slider-disabled: #52525b; --uitk-eq-fill: #a78bfa;
+    --uitk-timing-line: #71717a; --uitk-timing-label: #a1a1aa; --uitk-timing-accent: #a78bfa; --uitk-day-header-on-panel: #d4d4d8;
+}
+.uitk-vars-morphin {
+    --uitk-slider-track: rgba(255, 255, 255, 0.25); --uitk-slider-mark: rgba(255, 255, 255, 0.5); --uitk-slider-accent: #a78bfa; --uitk-slider-disabled: rgba(255, 255, 255, 0.35); --uitk-eq-fill: rgba(255, 255, 255, 0.9);
+    --uitk-timing-line: rgba(255, 255, 255, 0.6); --uitk-timing-label: rgba(255, 255, 255, 0.75); --uitk-timing-accent: #ddd6fe; --uitk-day-header-on-panel: rgba(255, 255, 255, 0.85);
+}

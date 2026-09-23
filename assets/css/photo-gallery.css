@@ -14,7 +14,7 @@
 }
 /* Áp dụng khi lưới render trong Generic Drawer (nền LUÔN TRẮNG) — màu chữ sáng gốc gần vô hình. */
 .photo-day-header--on-light {
-    color: #334155;
+    color: var(--uitk-day-header-on-panel, #334155); /* SỬA 23/09/2026 — theo theme, xem assets/css/glass.css */;
 }
 .photo-day-group-placeholder {
     /* height do JS gán trực tiếp (offsetHeight đo lúc nhóm còn hiển thị đầy đủ). */
