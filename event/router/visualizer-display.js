@@ -46,11 +46,7 @@ const routerVisualizerDisplay = (() => {
                 workflowCustomEffect.onCycleModeClick();
                 break;
 
-            case 'visualizerDisplay.bgBlur.input': {
-                const { value } = msg.payload;
-                workflowVisualizerDisplay.setBgBlur(value);
-                break;
-            }
+            // DỌN 23/09/2026: case 'visualizerDisplay.bgBlur.input' ĐÃ XOÁ — chuyển sang 'theme.bgBlur.input' (event/router/theme.js).
 
             // ===================== Volume (Control Center HUD) =====================
             case 'visualizerDisplay.volume.input': {

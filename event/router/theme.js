@@ -51,6 +51,9 @@ const routerTheme = (() => {
             case 'theme.solidColor.input': // MỚI 23/09/2026 — trước đây thiếu case -> ô màu Solid không có tác dụng
                 workflowTheme.setSolidColor(msg.payload.value);
                 break;
+            case 'theme.bgBlur.input': // MỚI 23/09/2026 — slider độ mờ ảnh nền (hàng riêng dưới 3 card, core/theme-background-ui.js)
+                workflowTheme.setBgBlur(msg.payload.value);
+                break;
             case 'theme.gradientFrom.input':
                 workflowTheme.setGradientFrom(msg.payload.value);
                 break;
