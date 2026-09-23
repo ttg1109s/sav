@@ -274,10 +274,7 @@
             appConfigViz.mutateAll(cfg => { cfg.gradientTo = value; });
         }
 
-        /** Core thuần: màu của Theme mode "Solid" — MỚI 21/09/2026 (Solid có màu RIÊNG `bgSolidColor`, không dùng chung 2 màu gradient). @param {string} value */
-        function setThemeSolidColor(value) {
-            appConfigViz.mutateAll(cfg => { cfg.bgSolidColor = value; });
-        }
+        // XOÁ 23/09/2026: setThemeSolidColor() — nền Solid đã bỏ (Giang: thay bằng None, không dùng nền).
 
         /** Âm lượng tổng (masterGainNode). msg.type 'visualizerDisplay.volume.input'. @param {string} value */
         function setVolume(value) {
