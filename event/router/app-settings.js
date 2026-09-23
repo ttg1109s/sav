@@ -94,10 +94,8 @@ const routerAppSettings = (() => {
                 break;
             }
 
-            case 'appSettings.theme.selectGlassType.change': {
-                workflowAppSettings.handleThemeSelectGlassType(msg.payload.glassType, msg.payload.solidColor);
-                break;
-            }
+            // DỌN 23/09/2026: case 'appSettings.theme.selectGlassType.change' ĐÃ XOÁ — không nơi nào gửi message này và gọi method
+            // workflowAppSettings.handleThemeSelectGlassType() không tồn tại (tàn dư UI chọn kiểu kính cũ).
 
             case 'appSettings.player.resolution.change': {
                 workflowAppSettings.handlePlayerResolutionChange(msg.payload.kind, msg.payload.value);

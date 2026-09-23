@@ -48,9 +48,7 @@ const routerTheme = (() => {
             case 'theme.documentVisibility.change': // MỚI 23/09/2026 — trước đây thiếu case -> video nền không dừng khi ẩn app
                 workflowTheme.onDocumentVisibilityChange();
                 break;
-            case 'theme.solidColor.input': // MỚI 23/09/2026 — trước đây thiếu case -> ô màu Solid không có tác dụng
-                workflowTheme.setSolidColor(msg.payload.value);
-                break;
+            // XOÁ 23/09/2026: case 'theme.solidColor.input' — nền Solid đã bỏ (Giang: thay bằng None).
             case 'theme.glassBlur.input': // MỚI 23/09/2026 — slider độ nhoè kính Playlist chính (hàng "Panel glass", core/theme-background-ui.js)
                 workflowTheme.setAppGlassBlur(msg.payload.value);
                 break;
