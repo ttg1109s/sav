@@ -48,11 +48,9 @@ function buildGamePanelListHtml(games, armedGameId, gameplayPhase, difficultyByG
 
     const difficultyLocked = armedGameId != null;
     const difficultyGlyph = { easy: '●', medium: '●●', hard: '∞' };
-    const difficultyAccent = {
-        easy: 'text-emerald-600 bg-emerald-100 border-emerald-300',
-        medium: 'text-amber-600 bg-amber-100 border-amber-300',
-        hard: 'text-rose-600 bg-rose-100 border-rose-300',
-    };
+    // SỬA 23/09/2026 (rà soát theme) — hue theo độ khó, màu thật tra qua key theme `chipTone:<hue>` (core/ui-theme/*.js) thay vì class
+    // pastel cứng (-100/-300 chói trên nền Dark/Morphin). Light giữ đúng màu cũ. game-catalog.js áp theme cho list sau khi gán innerHTML.
+    const difficultyHue = { easy: 'emerald', medium: 'amber', hard: 'rose' };
 
     const cards = games.map((game, index) => {
         const isArmed = armedGameId === game.id;
@@ -68,7 +66,7 @@ function buildGamePanelListHtml(games, armedGameId, gameplayPhase, difficultyByG
                 `<svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 ml-0.5"><path d="M8 5v14l11-7z"/></svg>` +
                 `</button>`;
 
-        const difficultyBtn = `<button type="button" class="game-card-difficulty-btn shrink-0 h-11 flex items-center gap-1.5 px-3.5 rounded-full border text-xs font-bold tracking-wide transition-colors ${difficultyAccent[difficulty]} ${difficultyLocked ? 'opacity-40 cursor-not-allowed' : 'hover:brightness-95'}" data-game-id="${game.id}" ${difficultyLocked ? 'disabled' : ''}>` +
+        const difficultyBtn = `<button type="button" class="game-card-difficulty-btn shrink-0 h-11 flex items-center gap-1.5 px-3.5 rounded-full border text-xs font-bold tracking-wide transition-colors ${difficultyLocked ? 'opacity-40 cursor-not-allowed' : 'hover:brightness-95'}" data-uitk="chipTone:${difficultyHue[difficulty]}" data-game-id="${game.id}" ${difficultyLocked ? 'disabled' : ''}>` +
             `<span class="font-mono leading-none text-sm">${difficultyGlyph[difficulty]}</span>` +
             `<span data-i18n="gameplayCircle.difficulty.${difficulty}">${t('gameplayCircle.difficulty.' + difficulty)}</span>` +
             `</button>`;
