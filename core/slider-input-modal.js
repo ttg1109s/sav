@@ -77,7 +77,8 @@ function openSliderInputModal(config) {
     sliderEl.max = String(max);
     sliderEl.step = String(step);
     sliderEl.value = String(currentValue);
-    sliderEl.className = 'flex-1 accent-sky-500';
+    sliderEl.className = 'flex-1';
+    sliderEl.dataset.uitk = 'accentControl'; // SỬA 23/09/2026 (rà soát theme) — trước đây accent-sky-500 cứng; applyUiThemeToDom(overlay) cuối hàm áp cả phần tử này
     row.appendChild(sliderEl);
 
     const numberWrap = document.createElement('div');

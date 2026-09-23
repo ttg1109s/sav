@@ -66,11 +66,11 @@ function buildPaginationArrowsHtml(pageIndex, totalPages) {
     if (totalPages <= 1) return '';
     return `
         <div class="flex items-center justify-center gap-4 py-2">
-            <button type="button" data-pagination-action="prev" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300 disabled:opacity-30 disabled:pointer-events-none shrink-0" ${pageIndex <= 0 ? 'disabled' : ''}>
+            <button type="button" data-pagination-action="prev" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-30 disabled:pointer-events-none shrink-0" data-uitk="textSecondary btnGhostHoverBg" ${pageIndex <= 0 ? 'disabled' : ''}>
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
             </button>
-            <span class="text-xs font-mono text-slate-400 tabular-nums">${pageIndex + 1} / ${totalPages}</span>
-            <button type="button" data-pagination-action="next" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300 disabled:opacity-30 disabled:pointer-events-none shrink-0" ${pageIndex >= totalPages - 1 ? 'disabled' : ''}>
+            <span class="text-xs font-mono tabular-nums" data-uitk="textSecondary">${pageIndex + 1} / ${totalPages}</span>
+            <button type="button" data-pagination-action="next" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-30 disabled:pointer-events-none shrink-0" data-uitk="textSecondary btnGhostHoverBg" ${pageIndex >= totalPages - 1 ? 'disabled' : ''}>
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
             </button>
         </div>
@@ -86,7 +86,7 @@ function buildPaginationListHtml(pageIndex, totalPages) {
     for (let i = 0; i < totalPages; i++) {
         const isActive = i === pageIndex;
         pages.push(`
-            <button type="button" data-pagination-action="goto" data-page-index="${i}" class="w-8 h-8 rounded-full text-xs font-semibold transition-colors ${isActive ? 'bg-sky-500 text-white' : 'hover:bg-white/10 text-slate-300'}">${i + 1}</button>
+            <button type="button" data-pagination-action="goto" data-page-index="${i}" class="w-8 h-8 rounded-full text-xs font-semibold transition-colors" data-uitk="${isActive ? 'btnPrimaryPillBg textOnAccent' : 'textSecondary btnGhostHoverBg'}">${i + 1}</button>
         `);
     }
     return `<div class="flex items-center justify-center gap-1.5 flex-wrap py-2">${pages.join('')}</div>`;
@@ -101,16 +101,16 @@ function buildPaginationFullHtml(pageIndex, totalPages) {
     for (let i = 0; i < totalPages; i++) {
         const isActive = i === pageIndex;
         pages.push(`
-            <button type="button" data-pagination-action="goto" data-page-index="${i}" class="w-8 h-8 rounded-full text-xs font-semibold transition-colors ${isActive ? 'bg-sky-500 text-white' : 'hover:bg-white/10 text-slate-300'}">${i + 1}</button>
+            <button type="button" data-pagination-action="goto" data-page-index="${i}" class="w-8 h-8 rounded-full text-xs font-semibold transition-colors" data-uitk="${isActive ? 'btnPrimaryPillBg textOnAccent' : 'textSecondary btnGhostHoverBg'}">${i + 1}</button>
         `);
     }
     return `
         <div class="flex items-center justify-center gap-1.5 flex-wrap py-2">
-            <button type="button" data-pagination-action="prev" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300 disabled:opacity-30 disabled:pointer-events-none shrink-0" ${pageIndex <= 0 ? 'disabled' : ''}>
+            <button type="button" data-pagination-action="prev" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-30 disabled:pointer-events-none shrink-0" data-uitk="textSecondary btnGhostHoverBg" ${pageIndex <= 0 ? 'disabled' : ''}>
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
             </button>
             ${pages.join('')}
-            <button type="button" data-pagination-action="next" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300 disabled:opacity-30 disabled:pointer-events-none shrink-0" ${pageIndex >= totalPages - 1 ? 'disabled' : ''}>
+            <button type="button" data-pagination-action="next" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-30 disabled:pointer-events-none shrink-0" data-uitk="textSecondary btnGhostHoverBg" ${pageIndex >= totalPages - 1 ? 'disabled' : ''}>
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
             </button>
         </div>
