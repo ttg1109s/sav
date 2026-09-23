@@ -1,6 +1,6 @@
 /**
  * event/router/app-settings.js — Router tên "appSettings", tự đăng ký với eventBus lúc nạp.
- * Điều phối toàn bộ điều hướng Setting (Main/System/Playlist/Theme/Gesture/Motion/Language/
+ * Điều phối toàn bộ điều hướng Setting (Main/System/Playlist/Theme/Gesture/Motion/Language/Pagination/
  * Visualizer Screen/Player/Troubleshooting) — mọi nút động (Rule 5a) chỉ gửi message tới đây, KHÔNG gọi
  * thẳng workflowAppSettings (xem core/app-settings-ui.js).
  *
@@ -36,6 +36,7 @@ const routerAppSettings = (() => {
         player: () => workflowAppSettings._renderPlayer(),
         playerVideo: () => workflowAppSettings._renderPlayerVideo(),
         playerPhoto: () => workflowAppSettings._renderPlayerPhoto(),
+        pagination: () => workflowAppSettings._renderPagination(), // MỚI 23/09/2026 — con của System
     };
 
     /** Mở màn đích theo key — DÙNG CHUNG cho row danh sách ('appSettings.nav.click') lẫn card carousel
@@ -104,6 +105,25 @@ const routerAppSettings = (() => {
 
             case 'appSettings.player.motionSlot.change': {
                 workflowAppSettings.handlePlayerMotionSlotChange(msg.payload.kind, msg.payload.slot, msg.payload.value);
+                break;
+            }
+
+            // MỚI 23/09/2026 — Settings > System > Pagination: 1 control (checkbox / ô số / select) của 1 NƠI đổi.
+            // Ghi bền + dựng lại màn = 2 việc nối tiếp -> Workflow.
+            case 'appSettings.pagination.place.change': {
+                workflowAppSettings.handlePaginationPlaceChange(msg.payload);
+                break;
+            }
+
+            // MỚI 23/09/2026 — đổi trang danh sách preset Filter (nơi 'filterPresets' của pagination).
+            case 'appSettings.playlistFilterList.page.change': {
+                workflowAppSettings.setPlaylistFilterListPage(msg.payload.pageIndex);
+                break;
+            }
+
+            // MỚI 23/09/2026 — đổi trang danh sách preset Motion (nơi 'motionPresets' của pagination).
+            case 'appSettings.motionList.page.change': {
+                workflowAppSettings.setMotionListPage(msg.payload.pageIndex);
                 break;
             }
 

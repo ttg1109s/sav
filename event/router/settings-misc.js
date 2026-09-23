@@ -53,6 +53,11 @@ const routerSettingsMisc = (() => {
 
             // MỚI (20/09/2026) — Copy/Xoá TỪNG DÒNG log (delegate trên #debug-console-list, xem
             // core/settings-misc-ui.js). Rẽ nhánh theo payload.action của CHÍNH message này.
+            case 'settingsMisc.debugConsole.page.change': { // MỚI 23/09/2026 — thanh phân trang Debug console
+                workflowSettingsMisc.setDebugConsolePage(msg.payload.pageIndex);
+                break;
+            }
+
             case 'settingsMisc.debugConsole.item.click': {
                 const { action, id, btnEl } = msg.payload;
                 if (action === 'copy') workflowSettingsMisc.copyDebugConsoleItem(id, btnEl);

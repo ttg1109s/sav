@@ -26,6 +26,9 @@ const routerEqPresets = (() => {
             case 'eqPresets.cycle.click':
                 workflowEqPresets.onCycleClick();
                 break;
+            case 'eqPresets.list.page.change': // MỚI 23/09/2026 — thanh phân trang của List (core/pagination-ui.js)
+                workflowEqPresets.setListPage(msg.payload.pageIndex);
+                break;
             default:
                 console.warn(`[routerEqPresets] msg.type không xác định: "${msg.type}"`, msg);
         }

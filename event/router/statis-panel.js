@@ -25,6 +25,10 @@ const routerStatisPanel = (() => {
                 workflowStatisPanel.setFilterType(msg.payload.type);
                 break;
 
+            case 'statisPanel.topList.page.change': // MỚI 23/09/2026 — thanh phân trang Top list (Settings > System > Pagination)
+                workflowStatisPanel.setTopListPage(msg.payload.pageIndex);
+                break;
+
             default:
                 console.warn(`[router:statisPanel] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`, msg);
         }

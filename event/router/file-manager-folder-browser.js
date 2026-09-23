@@ -46,6 +46,11 @@ const routerFileManagerFolderBrowser = (() => {
                 workflowFileManagerFolderBrowser.openTileActionsMenu(msg.payload.folderId, msg.payload.anchorEl);
                 break;
             }
+            case 'fileManagerFolderBrowser.list.page.change': { // MỚI 23/09/2026 — thanh phân trang List (Settings > System > Pagination)
+                workflowFileManagerFolderBrowser.setListPage(msg.payload.pageIndex);
+                break;
+            }
+
             case 'fileManagerFolderBrowser.list.addTile.click': {
                 workflowFileManagerFolderBrowser.createFolderInBrowser();
                 break;
