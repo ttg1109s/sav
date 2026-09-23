@@ -880,8 +880,7 @@
             // phục config phía sau (Playlist/Player/EQ/Visual BG...) KHÔNG BAO GIỜ CHẠY TỚI. Thêm
             // guard — giá trị `bgBlur` vẫn nguyên trong data, chỉ tạm KHÔNG có UI nào điều chỉnh nó
             // nữa (chưa có chỗ trong Theme mới, để đợt sau).
-            if (bgBlurSlider) bgBlurSlider.value = appConfigViz.getAll().bgBlur;
-            if (valBgBlurDisplay) valBgBlurDisplay.textContent = appConfigViz.getAll().bgBlur + 'px';
+            // DỌN 23/09/2026: 2 dòng đồng bộ slider cũ ĐÃ XOÁ cùng dom-ref — slider mới dựng từ config mỗi lần mở màn Theme (workflowTheme.buildBackgroundCardState()).
 
             // bgImage là blob: URL runtime, tạo lại mỗi session từ IndexedDB — luôn reset về rỗng
             // TRƯỚC khi loadPlaylistBgMediaAsset() resolve lại item thư viện (SỬA 21/09/2026: thêm bgVideo/bgMediaThumb).

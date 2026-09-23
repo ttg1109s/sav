@@ -17,10 +17,15 @@
  *
  * NẠP SAU: core/ui-theme/apply-ui.js (applyUiThemeToDom), lang/lang.js (t). NẠP TRƯỚC: event/workflow/app-settings.js, event/workflow/theme.js.
  *
- * @typedef {{themeMode:string, solidColor:string, gradientFrom:string, gradientTo:string, mediaKind:''|'photo'|'video', hasMedia:boolean, mediaPreviewUrl:string}} ThemeBackgroundState
+ * MỚI 23/09/2026 (Giang: "chỉnh độ blur bgImage/bgVideo của Morphin") — 1 HÀNG RIÊNG "Độ mờ nền" dưới cụm 3 card (slider 0-20px, `#theme-bg-blur-row`), CHỈ
+ * hiện khi đang chọn Background media VÀ item là ẢNH (`state.showBlurRow`, Workflow tính). Video nền KHÔNG blur (Giang chọn — blur video liên tục tốn GPU
+ * mobile) nên hàng ẩn khi đang dùng video. Hàng luôn có trong DOM, chỉ bật/tắt `hidden` — `patchThemeBackgroundCards()` vá được khi đổi mode/item.
+ *
+ * @typedef {{themeMode:string, solidColor:string, gradientFrom:string, gradientTo:string, mediaKind:''|'photo'|'video', hasMedia:boolean, mediaPreviewUrl:string, bgBlur:number, showBlurRow:boolean}} ThemeBackgroundState
  */
 
 const THEME_BG_CARD_MODES = ['solid', 'gradient', 'background']; // thứ tự hiển thị; 'background' = "Background media"
+const THEME_BG_BLUR_MAX_PX = 20; // khớp mức trần scale nội suy trong updatePlaylistBg() (core/color-utils.js — 20px -> scale 1.1)
 const THEME_BG_PREVIEW_HEIGHT_PX = 88; // inline style — tránh class ngoặc vuông (Tailwind CDN tiêm CSS bất đồng bộ, xem ghi chú cùng lý do ở core/statis-panel-ui.js)
 
 /** Kiểu nền của khối preview cho 1 card, từ `state`. @param {'solid'|'gradient'|'background'} mode @param {ThemeBackgroundState} state @returns {string} chuỗi `style` */
@@ -83,6 +88,13 @@ function buildThemeBackgroundCardsHtml(state, t) {
         <div id="theme-bg-cards" class="px-4 pb-4 pt-3 border-t" data-uitk="dividerBorder">
             <p class="text-sm font-semibold mb-3" data-uitk="textSecondaryStrong" data-i18n="appSettings.theme.bg.section">${t('appSettings.theme.bg.section')}</p>
             <div class="grid grid-cols-3 gap-2">${cards}</div>
+            <div id="theme-bg-blur-row" class="${state.showBlurRow ? '' : 'hidden'} mt-4 pt-3 border-t" data-uitk="dividerBorder">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm font-semibold" data-uitk="textSecondaryStrong" data-i18n="appSettings.theme.bg.blur">${t('appSettings.theme.bg.blur')}</span>
+                    <span id="theme-bg-blur-value" class="text-xs font-mono tabular-nums" data-uitk="accentText">${state.bgBlur}px</span>
+                </div>
+                <input type="range" id="theme-bg-blur" min="0" max="${THEME_BG_BLUR_MAX_PX}" step="1" value="${state.bgBlur}" class="w-full ce-slider">
+            </div>
         </div>`;
 }
 
@@ -100,6 +112,8 @@ function wireThemeBackgroundCards(rootEl) {
     if (fromInput) fromInput.addEventListener('input', (e) => eventBus.send({ router: 'theme', type: 'theme.gradientFrom.input', payload: { value: e.target.value } }));
     const toInput = rootEl.querySelector('#theme-bg-gradient-to');
     if (toInput) toInput.addEventListener('input', (e) => eventBus.send({ router: 'theme', type: 'theme.gradientTo.input', payload: { value: e.target.value } }));
+    const blurInput = rootEl.querySelector('#theme-bg-blur'); // MỚI 23/09/2026
+    if (blurInput) blurInput.addEventListener('input', (e) => eventBus.send({ router: 'theme', type: 'theme.bgBlur.input', payload: { value: e.target.value } }));
 }
 
 /**
@@ -132,5 +146,12 @@ function patchThemeBackgroundCards(rootEl, state) {
         const input = cluster.querySelector(selector);
         if (input && document.activeElement !== input && input.value !== value) input.value = value;
     });
+    // MỚI 23/09/2026 — hàng độ mờ: ẩn/hiện theo state, số px luôn cập nhật; slider đang kéo thì giữ nguyên giá trị (không giật tay kéo).
+    const blurRow = cluster.querySelector('#theme-bg-blur-row');
+    if (blurRow) blurRow.classList.toggle('hidden', !state.showBlurRow);
+    const blurValue = cluster.querySelector('#theme-bg-blur-value');
+    if (blurValue) blurValue.textContent = `${state.bgBlur}px`;
+    const blurInput = cluster.querySelector('#theme-bg-blur');
+    if (blurInput && document.activeElement !== blurInput && Number(blurInput.value) !== state.bgBlur) blurInput.value = String(state.bgBlur);
     if (typeof applyUiThemeToDom === 'function' && typeof _activeUiThemeKeyList !== 'undefined') applyUiThemeToDom(cluster, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — `dataset.uitk` của card vừa đổi theo trạng thái chọn
 }
