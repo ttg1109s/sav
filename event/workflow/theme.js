@@ -223,8 +223,8 @@ const workflowTheme = {
             mediaKind: cfg.bgMediaKind,
             hasMedia: !!cfg.bgMediaKey && (!!cfg.bgImage || !!cfg.bgVideo),
             mediaPreviewUrl: cfg.bgMediaKind === 'video' ? cfg.bgMediaThumb : (cfg.bgMediaKind === 'photo' ? cfg.bgImage : ''),
-            glassBlur: Number.isFinite(cfg.appGlassBlur) ? cfg.appGlassBlur : 36, // MỚI 23/09/2026 — kính Playlist/Game catalog/Statistics (guard data cũ)
-            glassTint: Number.isFinite(cfg.appGlassTint) ? cfg.appGlassTint : 10,
+            glassBlur: Number.isFinite(cfg.appGlassBlur) ? Math.max(10, Math.min(40, cfg.appGlassBlur)) : 36, // MỚI 23/09/2026 — kính Playlist/Game catalog/Statistics (guard data cũ)
+            glassTint: Number.isFinite(cfg.appGlassTint) ? Math.max(5, Math.min(40, cfg.appGlassTint)) : 10, // SỬA 23/09/2026 — kẹp min 10px/5% như updatePlaylistBg()
             // Hàng "Panel glass" chỉ hiện khi ĐANG dùng nền media (ảnh hoặc video) — Giang chọn; cùng điều kiện áp giá trị trong updatePlaylistBg().
             showGlassRow: cfg.themeMode === 'background' && !!(cfg.bgVideo || cfg.bgImage),
         };
