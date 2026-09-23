@@ -20,6 +20,13 @@ function handleStatisPanelBodyDelegatedClick(e) {
         return;
     }
 
+    // MỚI 23/09/2026 — thanh phân trang Top list (core/pagination.js ghi sẵn trang ĐÍCH lên data-page-index mọi nút).
+    const pageBtn = e.target.closest('[data-pagination-action][data-page-index]');
+    if (pageBtn) {
+        if (!pageBtn.disabled) eventBus.send({ router: 'statisPanel', type: 'statisPanel.topList.page.change', payload: { pageIndex: Number(pageBtn.dataset.pageIndex) } });
+        return;
+    }
+
     const filterBtn = e.target.closest('.statis-filter-btn');
     if (filterBtn) {
         eventBus.send({ router: 'statisPanel', type: 'statisPanel.filter.click', payload: { type: filterBtn.dataset.filterType } });
