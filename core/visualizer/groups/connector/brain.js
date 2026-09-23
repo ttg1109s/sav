@@ -78,6 +78,18 @@
  *      bộ, dài L, dày T = L × BRAIN_STAGE_ASPECT) rồi ctx.transform() xoay/lật ra màn hình — tỉ lệ
  *      1:1, KHÔNG co giãn. Chiều dọc được L lớn hơn (tận dụng màn hình portrait). Thay hẳn cơ chế
  *      stageH/stageOffsetY theo màn hình cũ (giờ stageH = T, stageOffsetY = 0 trong khung cục bộ).
+ * (12) (23/09/2026, Giang "thêm hết custom effect + nối cái đã có") — mọi hằng số tinh chỉnh dạng
+ *      `let` VIẾT HOA dưới đây chỉ là GIÁ TRỊ MẶC ĐỊNH, bị ghi đè MỖI FRAME từ Custom Effect qua
+ *      `_applySettings(frame.settings)` (xem cuối file). Field connector sẵn có nay cũng nối vào
+ *      brain: glowEnabled/glowIntensity -> hệ số `glowMult` nhân vào MỌI shadowBlur; fireThreshold ->
+ *      ngưỡng nhiễu flux của node; lateralInhibitStrength -> dải loé đè bớt độ loé 2 dải kề nó.
+ * (13) (23/09/2026, Giang báo "sóng dot chưa bao giờ vượt quá 50% trục") — nguyên nhân: quãng
+ *      đường cụm = MIN + smoothedEnergy × (MAX − MIN) với MAX 0.7, mà smoothedEnergy là EMA của
+ *      beatScale = TRUNG BÌNH 10% bin thấp nhất / 255 — trung bình nhiều bin nên thực tế chỉ quanh
+ *      0.3–0.6, gần như không bao giờ chạm 1 -> quãng đường ~0.3–0.45 trục (+ vài dot bề rộng cụm).
+ *      Sửa: chuẩn hoá smoothedEnergy theo ĐỈNH GẦN ĐÂY của chính nó (peak-hold tắt dần
+ *      TIMELINE_ENERGY_PEAK_TAU_MS) trước khi tính quãng đường, và MAX thành Custom Effect (mặc
+ *      định 90%) — đoạn nhạc to nhất so với vài giây gần đây sẽ chạy gần hết trục.
  * (11) Gap giữa brain filter và trục thời gian tăng lên BRAIN_TIMELINE_GAP_FRAC × min(W,H), tính
  *      theo mép NỘI DUNG thật (không phải mép khung) nên giữ đều ở mọi chiều. Xem `_layout()`.
  */
@@ -119,10 +131,12 @@ const brainFilterOriginal = (function () {
         // analysis.js). Sửa ĐÚNG gốc: bỏ hẳn detector riêng, đọc THẲNG `lastBeatTime` — mốc beat thật
         // audio-analysis.js đã ghi ra appState (service/state/visualizer-runtime.js) mỗi lần nó tự bắn
         // — chỉ cần so lệch với giá trị đã thấy lần trước là biết "vừa có 1 beat mới", không tự đoán.
-        const TIMELINE_DOT_COUNT = 40;
+        let TIMELINE_DOT_COUNT = 40;
         const TIMELINE_CLUSTER_TRAVEL_MS = 700; // thời gian cụm dịch hết quãng đường của nó
         const TIMELINE_CLUSTER_MIN_TRAVEL_FRAC = 0.15; // smoothedEnergy thấp -> cụm dịch tối thiểu 15% trục
-        const TIMELINE_CLUSTER_MAX_TRAVEL_FRAC = 0.7;  // smoothedEnergy cao -> tối đa 70% trục
+        let TIMELINE_CLUSTER_MAX_TRAVEL_FRAC = 0.9;  // năng lượng (đã chuẩn hoá theo đỉnh gần đây) cao nhất -> tối đa 90% trục (Custom Effect)
+        const TIMELINE_ENERGY_PEAK_TAU_MS = 4000;    // đỉnh smoothedEnergy tắt dần ~4s — mốc chuẩn hoá, xem điểm lệch (13) đầu file
+        let _tlEnergyPeak = 0, _tlLastTime = 0;
         const TIMELINE_DOT_SMOOTH_ALPHA = 0.35; // EMA mỗi frame cho độ phồng từng dot — chặn giật do dữ liệu FFT thô, xem drawTimeline()
         let _lastSeenBeatTime = 0;
         let timelineClusters = []; // { startTime, clusterSize, travelDots }
@@ -154,13 +168,22 @@ const brainFilterOriginal = (function () {
         function _updateTimelineClusters(time, lastBeatTime, smoothedEnergy, midiNote) {
             const isOnset = lastBeatTime && lastBeatTime !== _lastSeenBeatTime;
 
+            // SỬA (23/09/2026, điểm lệch 13) — đỉnh gần đây của smoothedEnergy (peak-hold tắt dần theo
+            // dt thật) làm mốc chuẩn hoá: năng lượng tương đối 0-1 so với đoạn nhạc vừa qua.
+            const dt = _tlLastTime ? Math.min(100, Math.max(0, time - _tlLastTime)) : 16;
+            _tlLastTime = time;
+            const e = isFinite(smoothedEnergy) ? smoothedEnergy : 0;
+            _tlEnergyPeak = Math.max(e, _tlEnergyPeak * Math.exp(-dt / TIMELINE_ENERGY_PEAK_TAU_MS));
+
             if (isOnset) {
                 _lastSeenBeatTime = lastBeatTime;
-                const travelFrac = TIMELINE_CLUSTER_MIN_TRAVEL_FRAC + smoothedEnergy * (TIMELINE_CLUSTER_MAX_TRAVEL_FRAC - TIMELINE_CLUSTER_MIN_TRAVEL_FRAC);
+                const normEnergy = Math.min(1, e / Math.max(_tlEnergyPeak, 0.05));
+                const maxFrac = Math.max(TIMELINE_CLUSTER_MIN_TRAVEL_FRAC, TIMELINE_CLUSTER_MAX_TRAVEL_FRAC);
+                const travelFrac = TIMELINE_CLUSTER_MIN_TRAVEL_FRAC + normEnergy * (maxFrac - TIMELINE_CLUSTER_MIN_TRAVEL_FRAC);
                 timelineClusters.push({
                     startTime: time,
                     clusterSize: _pitchToClusterSize(midiNote),
-                    travelDots: travelFrac * TIMELINE_DOT_COUNT
+                    travelDots: travelFrac * (TIMELINE_DOT_COUNT - 1) // theo số KHOẢNG giữa các dot — 100% = dot đầu cụm tới đúng dot cuối
                 });
             }
 
@@ -190,11 +213,13 @@ const brainFilterOriginal = (function () {
         // (`filterBandPrev`). Loé: attack tức thì (lấy max), decay theo thời gian thật (hàm mũ,
         // FILTER_FLUX_DECAY_TAU_MS) — không phụ thuộc fps.
         const FILTER_FLUX_BAND_COUNT = 16;
-        const FILTER_FLUX_NOISE_FLOOR = 0.02;  // flux (0-1) dưới mức này coi là nhiễu FFT, bỏ qua
-        const FILTER_FLUX_GAIN = 5;            // (flux - noise floor) × gain -> độ loé mục tiêu, kẹp 0-1
+        let FILTER_FLUX_NOISE_FLOOR = 0.02;  // flux (0-1) dưới mức này coi là nhiễu FFT, bỏ qua
+        let FILTER_FLUX_GAIN = 5;            // (flux - noise floor) × gain -> độ loé mục tiêu, kẹp 0-1
         const FILTER_FLUX_DECAY_TAU_MS = 90;   // hằng số thời gian tắt — ~200ms thì gần như tắt hẳn
         let filterBandPrev = new Float32Array(FILTER_FLUX_BAND_COUNT);
         let filterBandFlash = new Float32Array(FILTER_FLUX_BAND_COUNT);
+        let _filterBandTarget = new Float32Array(FILTER_FLUX_BAND_COUNT);
+        let FILTER_LATERAL_K = 0.23; // 0-0.5 — lateralInhibitStrength (0-150) quy đổi, xem _applySettings()
         let _filterFluxPrimed = false; // frame đầu chỉ lấy baseline — tránh loé toàn bộ do lệch từ 0 lên
         let _filterFluxLastTime = 0;
 
@@ -216,7 +241,16 @@ const brainFilterOriginal = (function () {
                     }
                     filterBandPrev[b] = cur;
                 }
-                filterBandFlash[b] = Math.max(filterBandFlash[b] * decay, target);
+                _filterBandTarget[b] = target;
+            }
+            // Lateral inhibition (23/09/2026 — nối field sẵn có lateralInhibitStrength): dải loé đè bớt
+            // độ loé mục tiêu của 2 dải KỀ nó (tính trên mảng target GỐC, không dây chuyền) — tránh cả
+            // cụm dải cùng loé vì 1 tiếng động phổ rộng, cùng tinh thần applyLateralInhibition() của synapse.
+            for (let b = 0; b < FILTER_FLUX_BAND_COUNT; b++) {
+                const left = b > 0 ? _filterBandTarget[b - 1] : 0;
+                const right = b < FILTER_FLUX_BAND_COUNT - 1 ? _filterBandTarget[b + 1] : 0;
+                const inhibited = Math.max(0, _filterBandTarget[b] - FILTER_LATERAL_K * Math.max(left, right));
+                filterBandFlash[b] = Math.max(filterBandFlash[b] * decay, inhibited);
             }
             if (hasData) _filterFluxPrimed = true;
         }
@@ -227,10 +261,10 @@ const brainFilterOriginal = (function () {
 
         // KEO (23/09/2026, Giang — tia input "co bóp") — xem điểm lệch (6) đầu file.
         const PUMP_BASELINE_TAU_MS = 800;  // baseline chậm của beatScale — mức bass "nền" hiện tại
-        const PUMP_GAIN = 4;               // (beatScale - baseline) × gain -> lực bóp mục tiêu, kẹp 0-1
+        let PUMP_GAIN = 4;               // (beatScale - baseline) × gain -> lực bóp mục tiêu, kẹp 0-1
         const PUMP_ATTACK_TAU_MS = 40;     // bóp vào nhanh
         const PUMP_RELEASE_TAU_MS = 260;   // nhả ra chậm
-        const PUMP_SQUEEZE_MAX = 0.22;     // bóp hết cỡ = bụng thắt 22%
+        let PUMP_SQUEEZE_MAX = 0.22;     // bóp hết cỡ = bụng thắt 22%
         let pumpBaseline = 0, pumpEnvelope = 0, _pumpLastTime = 0;
 
         /** Mỗi frame: cập nhật envelope bóp rồi tính lại cp1.y của mọi tia input (hạt đang chạy
@@ -254,11 +288,11 @@ const brainFilterOriginal = (function () {
         // đúng vòng phụ (rx×1.08, ry×1.05) đã vẽ sẵn ở drawBrainFilter(), đều nhau, mỗi dot kéo đuôi
         // ORBIT_TRAIL_COUNT điểm mờ dần. Chưa có BPM ("---") -> ORBIT_FALLBACK_BPM. Tốc độ + centroid
         // đều làm mượt theo thời gian thật (không giật khi BPM nhảy số).
-        const ORBIT_DOT_COUNT = 8;
-        const ORBIT_BEATS_PER_LAP = 8;
+        let ORBIT_DOT_COUNT = 8;
+        let ORBIT_BEATS_PER_LAP = 8;
         const ORBIT_FALLBACK_BPM = 90;
         const ORBIT_SPEED_TAU_MS = 500;
-        const ORBIT_TRAIL_COUNT = 6;
+        let ORBIT_TRAIL_COUNT = 6;
         const ORBIT_TRAIL_STEP_RAD = 0.035;
         const ORBIT_CENTROID_LO = 0.5, ORBIT_CENTROID_HI = 0.85; // log-centroid thô -> 0-1 (âm trầm -> 0, âm sáng -> 1)
         const ORBIT_CENTROID_TAU_MS = 200;
@@ -298,7 +332,7 @@ const brainFilterOriginal = (function () {
                     const a = a0 - k * ORBIT_TRAIL_STEP_RAD;
                     const fade = 1 - k / (ORBIT_TRAIL_COUNT + 1);
                     ctx.globalAlpha = (0.35 + 0.65 * orbitCentroid) * fade;
-                    ctx.shadowBlur = k === 0 ? 6 + orbitCentroid * 12 : 0;
+                    ctx.shadowBlur = (k === 0 ? 6 + orbitCentroid * 12 : 0) * glowMult;
                     ctx.beginPath();
                     ctx.arc(filterPos.x + Math.cos(a) * orx, filterPos.y + Math.sin(a) * ory, baseR * (0.4 + 0.6 * fade), 0, Math.PI * 2);
                     ctx.fill();
@@ -309,29 +343,76 @@ const brainFilterOriginal = (function () {
 
         // KEO (23/09/2026, Giang — "7 dây = 7 nốt cơ bản") — xem điểm lệch (8) đầu file.
         const STRING_NATURAL_OF_PC = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6]; // pitch class -> C D E F G A B (thăng -> nốt tự nhiên ngay dưới)
-        const STRING_AMP_MAX_FRAC = 0.045;     // biên độ rung tối đa × stageH (T)
-        const STRING_DECAY_TAU_MS = 380;       // tắt dần đàn hồi sau khi nốt ngưng/đổi dây
+        let STRING_AMP_MAX_FRAC = 0.045;     // biên độ rung tối đa × stageH (T)
+        let STRING_DECAY_TAU_MS = 380;       // tắt dần đàn hồi sau khi nốt ngưng/đổi dây
         const STRING_ENERGY_GAIN = 1.3;        // năng lượng FFT tại tần số nốt (0-1) × gain -> biên độ mục tiêu, kẹp 0-1
         const STRING_VIB_HZ_BASE = 5;          // tần số rung (nhìn thấy) của dây C
         const STRING_VIB_HZ_STEP = 0.6;        // mỗi dây cao hơn rung nhanh hơn chút
         const STRING_SAMPLES = 48;             // số đoạn polyline khi vẽ 1 dây đang rung
-        const STRING_DOT_BEATS_PER_RUN = 2;    // 1 dot chạy hết dây trong N beat (theo BPM lúc bắn)
-        const STRING_DOT_SPACING = 0.05;       // khoảng cách giữa các dot trong 1 đoàn (theo t 0-1)
+        let STRING_DOT_BEATS_PER_RUN = 2;    // 1 dot chạy hết dây trong N beat (theo BPM lúc bắn)
+        // SỬA (23/09/2026, Giang — "khoảng cách giữa các dot phải dựa trên tham số audio, không đều") —
+        // bỏ khoảng cách cố định STRING_DOT_SPACING. Khoảng cách giữa dot j và j+1 theo PHỔ HOÀ ÂM của
+        // nốt lúc bắn: năng lượng hoạ âm thứ (j+2) (tần số (j+2)·f0 — hoạ âm 2, 3, 4...), chuẩn hoá theo
+        // hoạ âm mạnh nhất trong đoàn -> hoạ âm mạnh = cách xa, yếu = sát nhau. Mỗi nhạc cụ/giọng có
+        // âm sắc khác nhau nên cùng 1 nốt ra "nhịp dot" khác nhau. Tham số này chưa phần nào dùng
+        // (dây đã dùng: năng lượng nốt = biên độ rung, quãng = số dot, BPM = tốc độ). Khoảng cách tính
+        // theo phân số ĐỘ DÀI dây (u 0-1). Min/max là Custom Effect.
+        let STRING_DOT_GAP_MIN = 0.025;       // hoạ âm yếu nhất (hoặc không có) -> 2.5% độ dài dây
+        let STRING_DOT_GAP_MAX = 0.1;         // hoạ âm mạnh nhất -> 10%
+        const STRING_HARMONIC_SILENT = 0.02;  // cả đoàn đều dưới mức này -> coi như không có hoạ âm, dùng khoảng giữa
+        // MỚI (23/09/2026, Giang — "co giãn liên tục trong lúc chạy") — bật `STRING_DOT_GAP_LIVE` thì mỗi
+        // frame tính lại khoảng cách theo hoạ âm HIỆN TẠI của nốt của đoàn, rồi trượt dần tới đó:
+        //  - EMA theo dt thật (STRING_GAP_SMOOTH_TAU_MS) — chặn giật do FFT thô;
+        //  - mỗi frame 1 dot chỉ được lùi tối đa STRING_GAP_MAX_BACK × quãng đầu đoàn vừa tiến -> dot
+        //    luôn còn đi TỚI (chậm lại/nhanh lên), không bao giờ chạy lùi;
+        //  - dot đã chạm dot cuối thì khoá vị trí (không "hiện lại" trên dây), dot sau luôn cách dot
+        //    trước ≥ nửa khoảng min (không chồng/vượt nhau).
+        let STRING_DOT_GAP_LIVE = true;
+        const STRING_GAP_SMOOTH_TAU_MS = 150;
+        const STRING_GAP_MAX_BACK = 0.8;
         const STRING_DOT_MAX = 10;             // quãng -1..9 -> 1..10 dot
         const STRING_FALLBACK_BPM = 90;
         let stringAmp = new Float32Array(7);   // biên độ hiện tại (0-1) từng dây, index = outputPaths
-        let stringTrains = [];                 // { stringIdx, startTime, count, runMs }
+        let stringTrains = [];                 // { stringIdx, startTime, count, runMs, arrived }
+        let stringEndFlash = new Float32Array(7); // độ loé (0-1) dot cuối từng dây
+        const STRING_END_FLASH_TAU_MS = 280;   // dot cuối tắt dần sau mỗi lần 1 dot chạm tới
+        const STRING_END_DOT_RADIUS = 3.2;     // bán kính dot cuối lúc nghỉ (to lên tới 2× khi loé)
         let _stringPrevNote = null, _stringPrevFresh = false, _stringLastTime = 0;
 
-        /** Năng lượng FFT (0-1) tại đúng tần số nốt MIDI — đỉnh của bin gần nhất ±1. */
-        function _noteBinEnergy(midiNote, vizDataArray, bufferLength, sampleRate) {
+        /** Năng lượng FFT (0-1) tại tần số `freq` — đỉnh của bin gần nhất ±1. Vượt dải FFT -> 0. */
+        function _freqBinEnergy(freq, vizDataArray, bufferLength, sampleRate) {
             if (!vizDataArray || !bufferLength) return 0;
-            const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
             const binWidth = (sampleRate || 44100) / (bufferLength * 2);
             const bin = Math.round(freq / binWidth);
+            if (bin >= bufferLength) return 0;
             let peak = 0;
             for (let i = Math.max(0, bin - 1); i <= Math.min(bufferLength - 1, bin + 1); i++) peak = Math.max(peak, vizDataArray[i] || 0);
             return peak / 255;
+        }
+
+        /** Năng lượng FFT (0-1) tại đúng tần số nốt MIDI. */
+        function _noteBinEnergy(midiNote, vizDataArray, bufferLength, sampleRate) {
+            return _freqBinEnergy(440 * Math.pow(2, (midiNote - 69) / 12), vizDataArray, bufferLength, sampleRate);
+        }
+
+        /** Vị trí (phân số độ dài, lùi sau đầu đoàn) của từng dot trong đoàn: offsets[0] = 0, khoảng
+         * cách j -> j+1 theo năng lượng hoạ âm (j+2) của nốt, chuẩn hoá theo hoạ âm mạnh nhất. */
+        function _computeTrainOffsets(midiNote, count, frame) {
+            const f0 = 440 * Math.pow(2, (midiNote - 69) / 12);
+            const energies = [];
+            let maxE = 0;
+            for (let j = 0; j < count - 1; j++) {
+                const e = _freqBinEnergy(f0 * (j + 2), frame.vizDataArray, frame.bufferLength, frame.sampleRate);
+                energies.push(e);
+                maxE = Math.max(maxE, e);
+            }
+            const gapMin = Math.min(STRING_DOT_GAP_MIN, STRING_DOT_GAP_MAX), gapMax = Math.max(STRING_DOT_GAP_MIN, STRING_DOT_GAP_MAX);
+            const offsets = [0];
+            for (let j = 0; j < energies.length; j++) {
+                const rel = maxE < STRING_HARMONIC_SILENT ? 0.5 : energies[j] / maxE;
+                offsets.push(offsets[j] + gapMin + rel * (gapMax - gapMin));
+            }
+            return offsets;
         }
 
         /** Mỗi frame: dây của nốt đang phát giữ biên độ = năng lượng nốt (lấy max với phần đang tắt
@@ -350,11 +431,15 @@ const brainFilterOriginal = (function () {
                 if (!_stringPrevFresh || midi !== _stringPrevNote) {
                     const octave = Math.floor(midi / 12) - 1; // -1..9
                     const bpm = isFinite(frame.bpm) && frame.bpm > 0 ? frame.bpm : STRING_FALLBACK_BPM;
+                    const count = Math.min(STRING_DOT_MAX, Math.max(1, octave + 1));
                     stringTrains.push({
                         stringIdx: activeIdx,
                         startTime: time,
-                        count: Math.min(STRING_DOT_MAX, Math.max(1, octave + 1)),
-                        runMs: STRING_DOT_BEATS_PER_RUN * 60000 / bpm
+                        count,
+                        midi, // nốt của đoàn — tính lại hoạ âm mỗi frame khi STRING_DOT_GAP_LIVE bật
+                        offsets: _computeTrainOffsets(midi, count, frame), // khoảng cách theo hoạ âm, xem STRING_DOT_GAP_*
+                        runMs: STRING_DOT_BEATS_PER_RUN * 60000 / bpm,
+                        arrived: 0 // số dot đã chạm dot cuối dây
                     });
                 }
             }
@@ -363,10 +448,58 @@ const brainFilterOriginal = (function () {
             for (let s = 0; s < stringAmp.length; s++) {
                 stringAmp[s] = s === activeIdx ? Math.max(stringAmp[s] * decay, targetAmp) : stringAmp[s] * decay;
             }
+            // Dot cuối dây (23/09/2026): mỗi dot của đoàn chạm cuối dây -> dot cuối loé lại (attack tức
+            // thì), rồi tắt dần mũ theo dt thật. Đếm số dot ĐÃ tới đích để loé đúng 1 lần/dot.
+            const endDecay = Math.exp(-dt / STRING_END_FLASH_TAU_MS);
+            for (let s = 0; s < stringEndFlash.length; s++) stringEndFlash[s] *= endDecay;
+            const gapAlpha = 1 - Math.exp(-dt / STRING_GAP_SMOOTH_TAU_MS);
+            const halfMinGap = Math.min(STRING_DOT_GAP_MIN, STRING_DOT_GAP_MAX) * 0.5;
             for (let k = stringTrains.length - 1; k >= 0; k--) {
                 const tr = stringTrains[k];
-                if ((time - tr.startTime) / tr.runMs - (tr.count - 1) * STRING_DOT_SPACING > 1) stringTrains.splice(k, 1);
+                const head = (time - tr.startTime) / tr.runMs;
+                if (STRING_DOT_GAP_LIVE && tr.count > 1) {
+                    const target = _computeTrainOffsets(tr.midi, tr.count, frame);
+                    const maxBack = (dt / tr.runMs) * STRING_GAP_MAX_BACK; // offset tăng = dot lùi lại so với đầu đoàn
+                    for (let j = Math.max(1, tr.arrived); j < tr.count; j++) {
+                        let next = tr.offsets[j] + (target[j] - tr.offsets[j]) * gapAlpha;
+                        next = Math.min(next, tr.offsets[j] + maxBack);
+                        next = Math.max(next, tr.offsets[j - 1] + halfMinGap);
+                        tr.offsets[j] = next;
+                    }
+                }
+                let arrived = 0;
+                while (arrived < tr.count && head - tr.offsets[arrived] >= 1) arrived++; // offsets tăng dần
+                if (arrived > tr.arrived) { stringEndFlash[tr.stringIdx] = 1; tr.arrived = arrived; }
+                if (head - tr.offsets[tr.count - 1] > 1) stringTrains.splice(k, 1);
             }
+        }
+
+        // SỬA (23/09/2026, Giang báo "các dot truyền vào có khoảng cách không giống nhau") — nguyên nhân:
+        // dot chạy theo THAM SỐ t của bezier, mà t KHÔNG tỉ lệ với độ dài (dây có cp1/cp2 ở 40%/60%
+        // quãng -> tốc độ theo t ở giữa dây chỉ ~0.75× ở 2 đầu) -> dot dồn lại ở giữa, giãn ra ở 2 đầu,
+        // cả khoảng cách lẫn tốc độ đều lệch. Sửa: bảng tra độ dài cung (ARC_LUT_SAMPLES đoạn) cho mỗi
+        // dây, dot tính theo phân số ĐỘ DÀI u (0-1) rồi đổi sang t — khoảng cách + tốc độ đều thật.
+        const ARC_LUT_SAMPLES = 64;
+        function _buildArcLengthLut(path) {
+            const lut = new Float32Array(ARC_LUT_SAMPLES + 1);
+            let prev = getBezierPoint(path, 0), total = 0;
+            for (let k = 1; k <= ARC_LUT_SAMPLES; k++) {
+                const pt = getBezierPoint(path, k / ARC_LUT_SAMPLES);
+                total += Math.hypot(pt.x - prev.x, pt.y - prev.y);
+                lut[k] = total;
+                prev = pt;
+            }
+            for (let k = 1; k <= ARC_LUT_SAMPLES; k++) lut[k] /= total || 1;
+            return lut;
+        }
+        /** Phân số độ dài u (0-1) -> tham số t của bezier (nội suy tuyến tính trong bảng). */
+        function _arcToT(lut, u) {
+            if (u <= 0) return 0;
+            if (u >= 1) return 1;
+            let lo = 0, hi = ARC_LUT_SAMPLES;
+            while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (lut[mid] < u) lo = mid; else hi = mid; }
+            const span = lut[hi] - lut[lo] || 1;
+            return (lo + (u - lut[lo]) / span) / ARC_LUT_SAMPLES;
         }
 
         /** Điểm trên dây `s` tại t (0-1) kể cả độ rung: sóng đứng mode 1 (2 đầu cố định), lệch theo
@@ -398,25 +531,39 @@ const brainFilterOriginal = (function () {
                 }
                 ctx.globalAlpha = 0.65 + 0.35 * amp;
                 ctx.lineWidth = 2 + amp * 1.5;
-                ctx.shadowBlur = 8 + amp * 10;
+                ctx.shadowBlur = (8 + amp * 10) * glowMult;
                 ctx.stroke();
             }
 
-            // Đoàn dot chạy dọc dây (như hạt output gốc: size 2.8, glow 12, mờ dần 2 đầu)
+            // Đoàn dot chạy dọc dây (như hạt output gốc: size 2.8, glow 12). SỬA (23/09/2026): vị trí theo
+            // phân số ĐỘ DÀI (u -> t qua bảng cung, khoảng cách đều); chỉ mờ dần ở ĐẦU dây, giữ sáng
+            // tới khi chạm dot cuối (trước mờ dần cả 2 đầu — trông như tắt trước khi tới đích).
             ctx.fillStyle = outputLine.glow;
-            ctx.shadowBlur = 12;
+            ctx.shadowBlur = (12) * glowMult;
             for (let k = 0; k < stringTrains.length; k++) {
                 const tr = stringTrains[k];
                 const head = (time - tr.startTime) / tr.runMs;
+                const lut = outputPaths[tr.stringIdx].arcLut;
                 for (let j = 0; j < tr.count; j++) {
-                    const t = head - j * STRING_DOT_SPACING;
-                    if (t < 0 || t > 1) continue;
-                    const pt = _stringPointAt(tr.stringIdx, t, time);
-                    ctx.globalAlpha = Math.min(1, Math.sin(t * Math.PI) * 1.5);
+                    const u = head - tr.offsets[j];
+                    if (u < 0 || u > 1) continue;
+                    const pt = _stringPointAt(tr.stringIdx, _arcToT(lut, u), time);
+                    ctx.globalAlpha = Math.min(1, u / 0.12);
                     ctx.beginPath();
                     ctx.arc(pt.x, pt.y, 2.8, 0, Math.PI * 2);
                     ctx.fill();
                 }
+            }
+
+            // Dot cuối mỗi dây (23/09/2026, theo ảnh mẫu) — nghỉ: mờ, nhỏ; mỗi dot tới nơi: loé to + glow.
+            for (let s = 0; s < outputPaths.length; s++) {
+                const end = outputPaths[s].p3; // điểm cuối cố định (sóng đứng = 0 ở 2 đầu)
+                const flash = stringEndFlash[s];
+                ctx.globalAlpha = 0.5 + 0.5 * flash;
+                ctx.shadowBlur = (6 + flash * 20) * glowMult;
+                ctx.beginPath();
+                ctx.arc(end.x, end.y, STRING_END_DOT_RADIUS * (1 + flash), 0, Math.PI * 2);
+                ctx.fill();
             }
             ctx.restore();
         }
@@ -455,7 +602,7 @@ const brainFilterOriginal = (function () {
         // vuông/tam giác): dot i ở u = i/N (không trùng điểm đầu-cuối), bắt đầu từ đỉnh, chạy theo
         // chiều kim đồng hồ, mũi tên tại điểm đầu chỉ chiều chạy.
         const TIMELINE_SHAPES = ['line', 'sinDown', 'sinUp', 'circle', 'square', 'triangle'];
-        const TIMELINE_SIN_AMP_FRAC = 0.05;        // biên độ sin × min(W,H)
+        const TIMELINE_SIN_AMP_FRAC = 0.12;        // độ võng của cung sin × min(W,H)
         const TIMELINE_CLOSED_W_FRAC = 0.42;       // cỡ hình kín ≤ 42% W
         const TIMELINE_CLOSED_H_FRAC = 0.28;       //            ≤ 28% H
         const TIMELINE_PATH_SAMPLES = 240;
@@ -468,8 +615,10 @@ const brainFilterOriginal = (function () {
         function _timelinePointAt(u) {
             const g = tlGeom;
             const len = g.right - g.left;
-            if (g.shape === 'sinDown') return { x: g.left + u * len, y: g.top + g.amp + g.amp * Math.sin(u * Math.PI * 2) };
-            if (g.shape === 'sinUp') return { x: g.left + u * len, y: g.top + g.amp - g.amp * Math.sin(u * Math.PI * 2) };
+            // SỬA (23/09/2026, Giang: "võng xuống/võng lên") — nửa chu kỳ sin (1 cung), không phải 1 sóng
+            // trọn chu kỳ: sinDown võng xuống (2 đầu ở mép trên vùng trục), sinUp vồng lên (2 đầu ở mép dưới).
+            if (g.shape === 'sinDown') return { x: g.left + u * len, y: g.top + g.amp * Math.sin(u * Math.PI) };
+            if (g.shape === 'sinUp') return { x: g.left + u * len, y: g.top + g.amp - g.amp * Math.sin(u * Math.PI) };
             if (g.shape === 'circle') {
                 const r = g.size / 2, a = -Math.PI / 2 + u * Math.PI * 2;
                 return { x: g.cx + Math.cos(a) * r, y: g.top + r + Math.sin(a) * r };
@@ -613,12 +762,14 @@ const brainFilterOriginal = (function () {
                 let cp2x = startX + (endX - startX) * 0.6;
                 let cp2y = endY - waveFactor;
 
-                outputPaths.push({
+                const outPath = {
                     p0: { x: startX, y: startY },
                     p1: { x: cp1x, y: cp1y },
                     p2: { x: cp2x, y: cp2y },
                     p3: { x: endX, y: endY }
-                });
+                };
+                outPath.arcLut = _buildArcLengthLut(outPath); // (23/09/2026) dot chạy đều theo độ dài thật, xem _arcToT()
+                outputPaths.push(outPath);
             }
         }
 
@@ -733,7 +884,7 @@ const brainFilterOriginal = (function () {
                 if (boost > 0.02) {
                     ctx.fillStyle = primary.glow;
                     ctx.shadowColor = primary.glow;
-                    ctx.shadowBlur = 6 * boost;
+                    ctx.shadowBlur = (6 * boost) * glowMult;
                 } else {
                     ctx.fillStyle = '#94a3b8';
                     ctx.shadowBlur = 0;
@@ -768,7 +919,7 @@ const brainFilterOriginal = (function () {
             ctx.strokeStyle = primary.fill;
             ctx.lineWidth = 3;
             ctx.shadowColor = primary.glow;
-            ctx.shadowBlur = 20;
+            ctx.shadowBlur = (20) * glowMult;
             ctx.stroke();
 
             // Secondary subtle outer ring
@@ -790,6 +941,8 @@ const brainFilterOriginal = (function () {
             ctx.fillStyle = fillGrad;
             ctx.fill();
 
+            // (23/09/2026) Custom Effect "lưới node" tắt -> bỏ vẽ cả đường nối lẫn node (vẫn giữ ellipse).
+            if (SHOW_NODES) {
             // 2. Draw Connections between internal filter nodes (Neural Mesh)
             // SỬA (23/09/2026) — alpha từng đường: nền 0.35 như gốc, sáng thêm theo độ loé của node
             // YẾU hơn trong 2 đầu (chỉ sáng hẳn khi CẢ 2 node cùng loé — tránh cả lưới bừng lên vì 1 node).
@@ -826,9 +979,10 @@ const brainFilterOriginal = (function () {
                 ctx.arc(node.x, node.y, node.size * (1 + flash * 1.2), 0, Math.PI * 2);
                 ctx.fillStyle = primary.glow; // trước trắng cố định — nay theo màu app (Giang: "chuyển hết")
                 ctx.shadowColor = primary.glow;
-                ctx.shadowBlur = 6 + flash * 14;
+                ctx.shadowBlur = (6 + flash * 14) * glowMult;
                 ctx.fill();
             });
+            } // SHOW_NODES
 
             ctx.restore();
         }
@@ -870,7 +1024,7 @@ const brainFilterOriginal = (function () {
                     ctx.arc(pt.x, pt.y, p.size, 0, Math.PI * 2);
                     ctx.fillStyle = primary.glow; // trước currentTheme.particle (trắng cố định ở cả 3 theme gốc)
                     ctx.shadowColor = primary.glow;
-                    ctx.shadowBlur = p.glow;
+                    ctx.shadowBlur = (p.glow) * glowMult;
                     ctx.globalAlpha = Math.sin(p.t * Math.PI); // Smooth fade-in/fade-out
                     ctx.fill();
 
@@ -917,7 +1071,7 @@ const brainFilterOriginal = (function () {
                 ctx.fillStyle = burst.color;
                 ctx.globalAlpha = burst.alpha;
                 ctx.shadowColor = burst.color;
-                ctx.shadowBlur = 6;
+                ctx.shadowBlur = (6) * glowMult;
                 ctx.fill();
 
                 if (!isPaused) {
@@ -951,7 +1105,6 @@ const brainFilterOriginal = (function () {
         }
 
         // ===== Phần KEO (không có trong gốc) =====
-        let _lastW = 0, _lastH = 0, _lastDirection = '', _lastShape = '';
 
         /** Layout (23/09/2026 — thay _layoutFromCanvas() cũ): tính L theo chiều + chỗ trống thật, đặt
          * nội dung brain + gap + trục thời gian thành 1 khối căn giữa dọc màn hình, dựng ma trận
@@ -966,13 +1119,14 @@ const brainFilterOriginal = (function () {
 
             // Vùng trục thời gian (màn hình)
             let tlH = 0, amp = 0, size = 0;
-            if (shp === 'sinDown' || shp === 'sinUp') { amp = minWH * TIMELINE_SIN_AMP_FRAC; tlH = amp * 2; }
+            if (shp === 'sinDown' || shp === 'sinUp') { amp = minWH * TIMELINE_SIN_AMP_FRAC; tlH = amp; }
             else if (closed) {
                 size = Math.min(W * TIMELINE_CLOSED_W_FRAC, H * TIMELINE_CLOSED_H_FRAC);
                 if (shp === 'triangle') size = Math.min(size, W * TIMELINE_CLOSED_W_FRAC * Math.sqrt(3) / 2); // cạnh đáy ≤ giới hạn bề ngang
                 tlH = size;
             }
-            const gap = minWH * BRAIN_TIMELINE_GAP_FRAC;
+            if (!SHOW_TIMELINE) tlH = 0; // (23/09/2026) trục tắt -> brain căn giữa một mình, không chừa gap
+            const gap = SHOW_TIMELINE ? minWH * BRAIN_TIMELINE_GAP_FRAC : 0;
             const availH = Math.max(1, H - 2 * H * BRAIN_LAYOUT_MARGIN_FRAC - gap - tlH);
 
             // Kích thước nội dung brain trên màn hình tính theo L
@@ -1021,19 +1175,68 @@ const brainFilterOriginal = (function () {
         // config rồi dựng object này (Rule 2 — core không appState.get()). Các field:
         //   time, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote, noteFresh,
         //   beatScale, isPlaying, bpm (số, NaN nếu chưa có), sampleRate, direction, timelineShape
+        // KEO (23/09/2026, điểm lệch 12) — Custom Effect -> tham số. Mặc định trùng core/config.js
+        // (DEFAULT_CUSTOM_EFFECT.connector), fallback lại chính giá trị hiện tại nếu field thiếu.
+        let glowMult = 1;
+        let SHOW_TIMELINE = true, SHOW_ORBIT = true, SHOW_NODES = true, SHOW_STRINGS = true;
+        const _num = (v, fallback) => (typeof v === 'number' && isFinite(v) ? v : fallback);
+        function _applySettings(st) {
+            if (!st) return;
+            glowMult = st.glowEnabled === false ? 0 : _num(st.glowIntensity, 100) / 100;
+            FILTER_FLUX_NOISE_FLOOR = _num(st.fireThreshold, 0.55) * 0.04;          // 0-1 -> 0-0.04 flux
+            FILTER_LATERAL_K = _num(st.lateralInhibitStrength, 70) / 150 * 0.5;     // 0-150 -> 0-0.5
+            config.filterStrictness = _num(st.brainFilterStrictness, 0.98);
+            config.speedMultiplier = _num(st.brainInputSpeed, 1.5);
+            PUMP_SQUEEZE_MAX = _num(st.brainPumpSqueeze, 22) / 100;
+            PUMP_GAIN = _num(st.brainPumpSensitivity, 4);
+            FILTER_FLUX_GAIN = _num(st.brainNodeFlashSensitivity, 5);
+            STRING_AMP_MAX_FRAC = 0.045 * _num(st.brainStringAmplitude, 100) / 100;
+            STRING_DECAY_TAU_MS = _num(st.brainStringDecayMs, 380);
+            STRING_DOT_BEATS_PER_RUN = _num(st.brainStringDotBeats, 2);
+            STRING_DOT_GAP_MIN = _num(st.brainStringDotGapMin, 2.5) / 100;
+            STRING_DOT_GAP_MAX = _num(st.brainStringDotGapMax, 10) / 100;
+            STRING_DOT_GAP_LIVE = st.brainStringDotGapLive !== false;
+            ORBIT_DOT_COUNT = Math.round(_num(st.brainOrbitDotCount, 8));
+            ORBIT_BEATS_PER_LAP = _num(st.brainOrbitBeatsPerLap, 8);
+            ORBIT_TRAIL_COUNT = Math.round(_num(st.brainOrbitTrail, 6));
+            TIMELINE_CLUSTER_MAX_TRAVEL_FRAC = _num(st.brainTimelineMaxTravel, 90) / 100;
+            SHOW_ORBIT = st.brainShowOrbit !== false;
+            SHOW_NODES = st.brainShowNodes !== false;
+            SHOW_STRINGS = st.brainShowStrings !== false;
+            // 3 field dưới đổi HÌNH (số tia/số dot/bố cục) -> draw() so khoá layout, khác thì dựng lại
+            config.signalCount = Math.round(_num(st.brainSignalCount, 120));
+            const dotCount = Math.round(_num(st.brainTimelineDotCount, 40));
+            if (dotCount !== TIMELINE_DOT_COUNT) {
+                TIMELINE_DOT_COUNT = dotCount;
+                timelineDotSmoothed = new Float32Array(TIMELINE_DOT_COUNT);
+                timelineClusters = [];
+            }
+            SHOW_TIMELINE = st.brainShowTimeline !== false;
+        }
+        let _lastLayoutKey = '';
+
+        // Thay animate(time) gốc: bỏ clearRect (SAV đã clear) và requestAnimationFrame (SAV tự gọi mỗi frame).
+        // ĐỔI (23/09/2026) — tham số audio/config gom vào 1 object `frame` (danh sách tham số rời đã quá
+        // dài). Workflow (_tickConnectorBrain(), event/workflow/visualizer-render.js) tự đọc appState/
+        // config rồi dựng object này (Rule 2 — core không appState.get()). Các field:
+        //   time, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote, noteFresh,
+        //   beatScale, isPlaying, bpm (số, NaN nếu chưa có), sampleRate, direction, timelineShape,
+        //   settings (object Custom Effect connector — xem _applySettings())
         function draw(ctxArg, canvasEl, frame) {
             ctx = ctxArg;
             canvas = canvasEl;
+            _applySettings(frame.settings);
             const direction = frame.direction || 'ltr';
             const shape = frame.timelineShape || 'line';
-            if (canvas.width !== _lastW || canvas.height !== _lastH || direction !== _lastDirection || shape !== _lastShape) {
-                _lastW = canvas.width; _lastH = canvas.height; _lastDirection = direction; _lastShape = shape;
+            const layoutKey = [canvas.width, canvas.height, direction, shape, config.signalCount, TIMELINE_DOT_COUNT, SHOW_TIMELINE].join('|');
+            if (layoutKey !== _lastLayoutKey) {
+                _lastLayoutKey = layoutKey;
                 _layout(direction, shape);
             }
             const time = frame.time;
 
             // Trục thời gian — toạ độ màn hình, KHÔNG qua ma trận chiều
-            drawTimeline(time, frame.lastBeatTime, frame.smoothedEnergy, frame.vizDataArray, frame.bufferLength, frame.midiNote);
+            if (SHOW_TIMELINE) drawTimeline(time, frame.lastBeatTime, frame.smoothedEnergy, frame.vizDataArray, frame.bufferLength, frame.midiNote);
 
             // Cập nhật trạng thái audio (không vẽ)
             _updateInputPump(time, frame.beatScale, frame.isPlaying);
@@ -1045,9 +1248,9 @@ const brainFilterOriginal = (function () {
             ctx.save();
             ctx.transform(brainMatrix.a, brainMatrix.b, brainMatrix.c, brainMatrix.d, brainMatrix.e, brainMatrix.f);
             drawCurvesAndParticles(time);
-            drawOutputStrings(time);
+            if (SHOW_STRINGS) drawOutputStrings(time);
             drawBrainFilter(time);
-            drawOrbitDots();
+            if (SHOW_ORBIT) drawOrbitDots();
             ctx.restore();
         }
 
