@@ -42,7 +42,7 @@ if (btnCycleMode) {
     });
 }
 
-// DỌN 23/09/2026: listener `#setting-bg-blur` ĐÃ XOÁ — slider đó không còn trong DOM; độ mờ ảnh nền giờ ở Settings > System > Theme (router 'theme').
+// DỌN 23/09/2026: listener `#setting-bg-blur` ĐÃ XOÁ — slider đó không còn trong DOM; blur ảnh nền đã bỏ hẳn (Giang: Morphin vốn đã mờ).
 
 // ===================== Volume (HUD Control Center, event/listener/hud.js) =====================
 // EQ ở cụm "eqPresets" riêng (event/listener/eq-presets.js).
