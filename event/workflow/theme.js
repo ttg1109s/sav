@@ -147,14 +147,22 @@ const workflowTheme = {
         this._commitColorEdit('solid');
     },
 
-    /** MỚI 23/09/2026 (Giang: slider độ mờ riêng dưới 3 card, chỉ áp ẢNH nền) — ứng với 'theme.bgBlur.input'. Chỉ đổi độ mờ, KHÔNG đổi mode (hàng
-     * chỉ hiện khi đã ở Background media + ảnh). Gọi liên tục lúc kéo -> không qua `_commitThemeMode()`; `updatePlaylistBg()` áp blur lên
-     * `#app-bg-blur-layer` (core/color-utils.js). THAY đường cũ 'visualizerDisplay.bgBlur.input' (slider #setting-bg-blur của màn Theme cũ đã mất). @param {string} value */
-    setBgBlur(value) {
-        setThemeBgBlur(value); // core/visualizer/visualizer-display.js
+    /** MỚI 23/09/2026 (Giang: "tinh chỉnh độ mờ cho playlist main app" — thay blur ảnh nền) — ứng với 'theme.glassBlur.input'. Độ nhoè kính
+     * Playlist/Game catalog/Statistics; `updatePlaylistBg()` gán lại biến CSS (core/color-utils.js). Gọi liên tục lúc kéo -> không qua
+     * `_commitThemeMode()` (không đổi mode). @param {string} value */
+    setAppGlassBlur(value) {
+        setAppGlassBlur(value); // core/visualizer/visualizer-display.js
         saveConfig();
         updatePlaylistBg();
         forceGlassRepaint();
+        this.refreshThemeCardUI();
+    },
+
+    /** MỚI 23/09/2026 — ứng với 'theme.glassTint.input'. Độ đục nền trắng của kính Playlist/Game catalog/Statistics. @param {string} value */
+    setAppGlassTint(value) {
+        setAppGlassTint(value); // core/visualizer/visualizer-display.js
+        saveConfig();
+        updatePlaylistBg();
         this.refreshThemeCardUI();
     },
 
@@ -215,9 +223,10 @@ const workflowTheme = {
             mediaKind: cfg.bgMediaKind,
             hasMedia: !!cfg.bgMediaKey && (!!cfg.bgImage || !!cfg.bgVideo),
             mediaPreviewUrl: cfg.bgMediaKind === 'video' ? cfg.bgMediaThumb : (cfg.bgMediaKind === 'photo' ? cfg.bgImage : ''),
-            bgBlur: Number(cfg.bgBlur) || 0, // MỚI 23/09/2026
-            // Hàng độ mờ chỉ hiện khi ĐANG dùng nền media là ẢNH (video không blur — Giang chọn).
-            showBlurRow: cfg.themeMode === 'background' && cfg.bgMediaKind === 'photo' && !!cfg.bgImage,
+            glassBlur: Number.isFinite(cfg.appGlassBlur) ? cfg.appGlassBlur : 36, // MỚI 23/09/2026 — kính Playlist/Game catalog/Statistics (guard data cũ)
+            glassTint: Number.isFinite(cfg.appGlassTint) ? cfg.appGlassTint : 10,
+            // Hàng "Panel glass" chỉ hiện khi ĐANG dùng nền media (ảnh hoặc video) — Giang chọn; cùng điều kiện áp giá trị trong updatePlaylistBg().
+            showGlassRow: cfg.themeMode === 'background' && !!(cfg.bgVideo || cfg.bgImage),
         };
     },
 

@@ -67,7 +67,7 @@ const workflowVisualizerDisplay = {
     // gửi từ 07/07/2026, và đường vào còn lại qua theme.js đã đổi sang Generic Drawer picker từ
     // 17/07/2026, xem event/workflow/theme.js::pickNewBackgroundImage()) bỏ hẳn.
 
-    // DỌN 23/09/2026: setBgBlur() ĐÃ XOÁ — độ mờ ảnh nền chuyển sang workflowTheme.setBgBlur() (event/workflow/theme.js).
+    // DỌN 23/09/2026: setBgBlur() ĐÃ XOÁ — blur ảnh nền đã bỏ hẳn (Giang: Morphin vốn đã mờ).
 
     /** Ứng với 'visualizerDisplay.statsPanelEnable.change' — checkbox dời từ nút Control Center.
      * Lưu bền qua domain 'player' (CÙNG Shuffle/Repeat, KHÔNG đổi domain — tái dùng
