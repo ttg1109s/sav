@@ -19,7 +19,7 @@
  *
  * MỚI 23/09/2026 (Giang: "tinh chỉnh độ mờ cho playlist main app" — THAY hàng blur ảnh nền vừa làm, đã bỏ) — 1 HÀNG RIÊNG "Panel glass" dưới cụm 3
  * card (`#theme-glass-row`) gồm 2 slider: Blur 10-40px (`#theme-glass-blur`) + Opacity 5-40% (`#theme-glass-tint`) — min SỬA 23/09/2026 theo Giang, chỉnh kính các màn App Panel chính
- * (Playlist, Game catalog, Statistics — class `.uitk-glass-tunable`, assets/css/glass.css). CHỈ hiện khi đang chọn Background media VÀ đã có item (ảnh
+ * (header + danh sách Playlist chính — class `.uitk-glass-tunable`, assets/css/glass.css). CHỈ hiện khi đang chọn Background media VÀ đã có item (ảnh
  * hoặc video) — `state.showGlassRow`, Workflow tính. Hàng luôn có trong DOM, chỉ bật/tắt `hidden` -> `patchThemeBackgroundCards()` vá được.
  *
  * @typedef {{themeMode:string, solidColor:string, gradientFrom:string, gradientTo:string, mediaKind:''|'photo'|'video', hasMedia:boolean, mediaPreviewUrl:string, glassBlur:number, glassTint:number, showGlassRow:boolean}} ThemeBackgroundState
@@ -127,7 +127,7 @@ function wireThemeBackgroundCards(rootEl) {
     if (fromInput) fromInput.addEventListener('input', (e) => eventBus.send({ router: 'theme', type: 'theme.gradientFrom.input', payload: { value: e.target.value } }));
     const toInput = rootEl.querySelector('#theme-bg-gradient-to');
     if (toInput) toInput.addEventListener('input', (e) => eventBus.send({ router: 'theme', type: 'theme.gradientTo.input', payload: { value: e.target.value } }));
-    const glassBlurInput = rootEl.querySelector('#theme-glass-blur'); // MỚI 23/09/2026 — kính Playlist/Game catalog/Statistics
+    const glassBlurInput = rootEl.querySelector('#theme-glass-blur'); // MỚI 23/09/2026 — kính Playlist chính
     if (glassBlurInput) glassBlurInput.addEventListener('input', (e) => eventBus.send({ router: 'theme', type: 'theme.glassBlur.input', payload: { value: e.target.value } }));
     const glassTintInput = rootEl.querySelector('#theme-glass-tint');
     if (glassTintInput) glassTintInput.addEventListener('input', (e) => eventBus.send({ router: 'theme', type: 'theme.glassTint.input', payload: { value: e.target.value } }));

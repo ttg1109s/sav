@@ -114,7 +114,7 @@
             // DEFAULT_VIZ_CONFIG, core/config.js) và nhánh VIDEO (lớp `#app-bg-video` nằm DƯỚI `appBgImage`; ở nhánh video `appBgImage` chỉ mang overlay).
             const isMediaMode = cfg.themeMode === 'background';
 
-            // MỚI 23/09/2026 (Giang: tinh chỉnh độ mờ kính Playlist/Game catalog/Statistics) — gán 2 biến CSS lên <html>, được `.uitk-glass-tunable`
+            // MỚI 23/09/2026 (Giang: tinh chỉnh độ mờ kính Playlist chính) — gán 2 biến CSS lên <html>, được `.uitk-glass-tunable`
             // (assets/css/glass.css, key theme `glassTunable` — chỉ Morphin có class) đọc. CHỈ lấy giá trị người dùng chỉnh khi nền đang là media
             // (ảnh/video) — slider cũng chỉ hiện lúc đó; nền khác -> về đúng thông số kính mặc định (36px / 10%).
             const isTunedGlass = isMediaMode && !!(cfg.bgVideo || cfg.bgImage);

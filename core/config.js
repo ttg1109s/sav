@@ -148,7 +148,7 @@
             type: 'bar',
             customEffect: DEFAULT_CUSTOM_EFFECT,
             bgImage: '', bgBlur: 0, // `bgBlur`: SỬA 23/09/2026 — KHÔNG còn được đọc (Giang: Morphin vốn đã mờ, bỏ blur ảnh nền) — giữ field để data cũ vẫn hợp lệ
-            // MỚI 23/09/2026 (Giang: "tinh chỉnh độ mờ cho playlist main app") — kính các màn App Panel CHÍNH (Playlist, Game catalog, Statistics)
+            // MỚI 23/09/2026 (Giang: "tinh chỉnh độ mờ cho playlist main app") — kính màn Playlist chính (header + danh sách)
             // khi nền Morphin là Background media: `appGlassBlur` = độ nhoè backdrop (px, 10-40), `appGlassTint` =
             // độ đục nền trắng của kính (%, 5-40). Min SỬA 23/09/2026 theo Giang. Mặc định = đúng thông số `.uitk-glass-surface` (36px / 10%) -> chưa chỉnh thì y như cũ.
             appGlassBlur: 36, appGlassTint: 10,
