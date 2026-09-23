@@ -147,6 +147,17 @@ const workflowTheme = {
         this._commitColorEdit('solid');
     },
 
+    /** MỚI 23/09/2026 (Giang: slider độ mờ riêng dưới 3 card, chỉ áp ẢNH nền) — ứng với 'theme.bgBlur.input'. Chỉ đổi độ mờ, KHÔNG đổi mode (hàng
+     * chỉ hiện khi đã ở Background media + ảnh). Gọi liên tục lúc kéo -> không qua `_commitThemeMode()`; `updatePlaylistBg()` áp blur lên
+     * `#app-bg-blur-layer` (core/color-utils.js). THAY đường cũ 'visualizerDisplay.bgBlur.input' (slider #setting-bg-blur của màn Theme cũ đã mất). @param {string} value */
+    setBgBlur(value) {
+        setThemeBgBlur(value); // core/visualizer/visualizer-display.js
+        saveConfig();
+        updatePlaylistBg();
+        forceGlassRepaint();
+        this.refreshThemeCardUI();
+    },
+
     /** Ứng với 'theme.gradientFrom.input'. Chạm ô màu Gradient = CHỌN Gradient luôn. @param {string} value */
     setGradientFrom(value) {
         setThemeGradientFrom(value); // core cùng tên, gọi trần phân giải theo scope từ vựng (core/visualizer/visualizer-display.js)
@@ -204,6 +215,9 @@ const workflowTheme = {
             mediaKind: cfg.bgMediaKind,
             hasMedia: !!cfg.bgMediaKey && (!!cfg.bgImage || !!cfg.bgVideo),
             mediaPreviewUrl: cfg.bgMediaKind === 'video' ? cfg.bgMediaThumb : (cfg.bgMediaKind === 'photo' ? cfg.bgImage : ''),
+            bgBlur: Number(cfg.bgBlur) || 0, // MỚI 23/09/2026
+            // Hàng độ mờ chỉ hiện khi ĐANG dùng nền media là ẢNH (video không blur — Giang chọn).
+            showBlurRow: cfg.themeMode === 'background' && cfg.bgMediaKind === 'photo' && !!cfg.bgImage,
         };
     },
 

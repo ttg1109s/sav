@@ -67,15 +67,7 @@ const workflowVisualizerDisplay = {
     // gửi từ 07/07/2026, và đường vào còn lại qua theme.js đã đổi sang Generic Drawer picker từ
     // 17/07/2026, xem event/workflow/theme.js::pickNewBackgroundImage()) bỏ hẳn.
 
-    /** Ứng với 'visualizerDisplay.bgBlur.input' — batch "nền chung" (07/07/2026): trước đây router
-     * gọi thẳng `setBgBlur()` (1 hàm core). Core giờ Rule 1-4 đầy đủ (bỏ updatePlaylistBg/
-     * saveConfig nội bộ) nên chuyển qua đây. @param {string} value */
-    setBgBlur(value) {
-        setBgBlur(value); // core cùng tên, gọi trần phân giải theo scope từ vựng (xem lưu ý đặt tên đầu file)
-        updatePlaylistBg();
-        forceGlassRepaint(); // fix bug 09/07/2026 (mục 3)
-        saveConfig();
-    },
+    // DỌN 23/09/2026: setBgBlur() ĐÃ XOÁ — độ mờ ảnh nền chuyển sang workflowTheme.setBgBlur() (event/workflow/theme.js).
 
     /** Ứng với 'visualizerDisplay.statsPanelEnable.change' — checkbox dời từ nút Control Center.
      * Lưu bền qua domain 'player' (CÙNG Shuffle/Repeat, KHÔNG đổi domain — tái dùng
@@ -88,7 +80,7 @@ const workflowVisualizerDisplay = {
     /** 3 toggle RIÊNG (bỏ hẳn "full mode" gộp chung) — CÙNG khuôn setStatsPanelEnabled() ngay
      * trên: đặt tên KHẲNG ĐỊNH, checked=true nghĩa là HIỆN (không đảo `!checked` như bản cũ đặt
      * tên phủ định "hideX" — phản hồi Giang, nhất quán toàn section). Tên method TRÙNG core cùng
-     * chức năng (gọi trần phân giải theo scope từ vựng — xem setBgBlur() trên, cùng khuôn). Ứng
+     * chức năng (gọi trần phân giải theo scope từ vựng — cùng khuôn các hàm core cùng tên, cùng khuôn). Ứng
      * với 'visualizerDisplay.bottomPlayerVisible/playlistButtonVisible/
      * controlCenterButtonVisible.change'. */
     setBottomPlayerVisible(checked) {
