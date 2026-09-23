@@ -51,6 +51,9 @@ const workflowAppBoot = {
         // gần đây cho dễ theo dõi nhóm "nạp cấu hình Motion-liên-quan"), xem event/workflow/player-
         // display-settings.js. CHƯA áp dụng gì lên DOM (chưa có cơ chế hoạt động, giai đoạn 1).
         if (typeof workflowPlayerDisplaySettings !== 'undefined') await workflowPlayerDisplaySettings.loadPersistedPlayerDisplayOnBoot();
+        // MỚI (23/09/2026) — domain 'pagination' (Settings > System > Pagination), độc lập hoàn toàn — nạp TRƯỚC khi bất kỳ danh
+        // sách phân trang nào kịp dựng (mọi danh sách chỉ dựng sau boot, lúc người dùng mở), xem event/workflow/pagination.js.
+        if (typeof workflowPagination !== 'undefined') await workflowPagination.loadPersistedPaginationOnBoot();
         // SỬA (fix bug "bật vbg nguồn video -> playlist mãi mới render") — KHÔNG await ở đây nữa.
         // `loadPersistedSettingsOnBoot()` tự áp nền ngầm (video không còn chặn chờ 'playing' lúc
         // boot — xem event/workflow/visual-bg.js::_playVideoKey()); boot() chạy thẳng xuống playlist

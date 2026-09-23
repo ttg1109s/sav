@@ -60,6 +60,7 @@ const workflowFileManagerFolderBrowser = {
     // MỚI (Giang yêu cầu tính năng "folder tự quyết áp dụng Filter", màn "Cài đặt filter") — 3 field
     // RAM của màn Filter Edit (draft CHƯA persist, xem showFolderFilterEditor()) — null/undefined =
     // không đang ở màn đó.
+    _listPageIndex: 0, // MỚI 23/09/2026 — trang đang xem của List (nơi 'folderBrowser' của Pagination), core tự kẹp
     _filterEditFolderId: null,
     _filterEditMediaType: null,
     _filterEditDraft: null,
@@ -94,13 +95,18 @@ const workflowFileManagerFolderBrowser = {
     async openList() {
         this._folders = await listFolders(appState.get('activeMediaSource')); // core/file-manager/folder.js
         this._editingFolderId = null;
+        this._listPageIndex = 0; // MỚI 23/09/2026 — mở lại luôn về trang 1
         this._renderList(true);
     },
 
     /** @param {boolean} isFirstOpen - true: openGenericDrawer(); false: updateGenericDrawer() (đang mở sẵn). */
     _renderList(isFirstOpen) {
-        const itemsHtml = renderItemList(null, this._folders, itemTemplateFolderTile, { editingFolderId: this._editingFolderId }); // components/items.js
-        const bodyHtml = buildFolderGridWrapperHtml(`${itemsHtml}${buildAddFolderTileHtml()}`); // components/items.js
+        // MỚI 23/09/2026 — nơi 'folderBrowser' của Settings > System > Pagination (tắt = vẽ hết như cũ). Ô "Tạo
+        // mới" KHÔNG tính vào số item/trang, luôn nằm cuối lưới của trang đang xem; thanh phân trang dưới lưới.
+        const view = workflowPagination.computePlaceView('folderBrowser', this._folders, this._listPageIndex); // event/workflow/pagination.js
+        this._listPageIndex = view.pageIndex; // giá trị đã kẹp (vd vừa xoá folder cuối của trang cuối)
+        const itemsHtml = renderItemList(null, view.pageItems, itemTemplateFolderTile, { editingFolderId: this._editingFolderId }); // components/items.js
+        const bodyHtml = buildFolderGridWrapperHtml(`${itemsHtml}${buildAddFolderTileHtml()}`) + `<div id="folder-browser-pagination" class="px-3 pb-3">${workflowPagination.buildControlsHtml(view)}</div>`; // components/items.js
         const config = {
             height: 'auto',
             maxHeight: '60vh',
@@ -110,6 +116,15 @@ const workflowFileManagerFolderBrowser = {
         };
         if (isFirstOpen) openGenericDrawer(config); else updateGenericDrawer(config); // core/generic-drawer.js
         wireFolderPickerDrawerEvents('fileManagerFolderBrowser', 'fileManagerFolderBrowser.list'); // core/file-manager/folder-picker-ui.js
+        wirePaginationControls(genericDrawerBody.querySelector('#folder-browser-pagination'), 'fileManagerFolderBrowser', 'fileManagerFolderBrowser.list.page.change'); // core/pagination-ui.js — MỚI 23/09/2026
+    },
+
+    /** MỚI 23/09/2026 — ứng với 'fileManagerFolderBrowser.list.page.change' (thanh phân trang của List).
+     * @param {number} pageIndex */
+    setListPage(pageIndex) {
+        this._listPageIndex = pageIndex;
+        this._renderList(false);
+        genericDrawerBody.scrollTop = 0;
     },
 
     _buildListHeaderHtml() {
@@ -136,6 +151,7 @@ const workflowFileManagerFolderBrowser = {
         if (result.status !== 'ok') return; // guard hiếm: trùng tên đúng lúc race — bỏ qua, người dùng bấm lại
         this._folders.push({ id: folderId, name: defaultName, type: mediaType });
         this._editingFolderId = folderId;
+        this._listPageIndex = workflowPagination.pageIndexOfItem('folderBrowser', this._folders.length - 1); // MỚI 23/09/2026 — nhảy tới trang chứa folder vừa tạo (đang ở chế độ sửa tên)
         this._renderList(false);
     },
 

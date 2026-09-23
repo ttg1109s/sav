@@ -15,8 +15,26 @@
  *   - alertModal() KHÔNG bao giờ gọi BÊN TRONG callback của withLoadingShield() — luôn gọi SAU
  *     KHI shield đã đóng hẳn.
  */
+/** MỚI 23/09/2026 — MỌI key meta (IndexedDB) chứa CÀI ĐẶT, bị xoá hẳn ở Restore default settings
+ * (confirmRestoreDefaults()). Thêm 1 domain cài đặt mới có persist qua meta -> PHẢI thêm key vào đây.
+ * CỐ Ý KHÔNG có: folderIndex/deletedFolderIds (thư viện), songStats/totalListenSeconds (thống kê),
+ * *Migrated (cờ migrate 1 lần), clearingInProgress (cờ tác vụ). */
+const RESTORE_DEFAULTS_META_KEYS = [
+    'configBackup', // bản backup vizConfig — PHẢI xoá, không loadConfig() sẽ phục hồi lại cấu hình cũ từ đây
+    'visualBgConfig',
+    'eqPresets',
+    'motionPresets', 'motionApply',
+    'playlistFilterPresets', 'playlistFilterActivePresetId', 'playlistFilterAppliedConfig', 'playlistFilterAppliesToFolder',
+    'playlistConfig', 'playerConfig', 'playerDisplayConfig', 'uiThemeConfig', 'paginationConfig',
+    'activePlayListFolder', // thư mục đang áp cho từng Nguồn -> về "Tất cả"
+];
+
+/** MỚI 23/09/2026 — MỌI key localStorage chứa CÀI ĐẶT (cùng lý do trên). V20 = key cũ loadConfig() còn đọc fallback. */
+const RESTORE_DEFAULTS_LOCAL_STORAGE_KEYS = ['visualMasterConfigV21', 'visualMasterConfigV20', 'uiThemeName', 'uiThemeBoot'];
+
 const workflowSettingsMisc = {
 
+    _debugConsolePageIndex: 0, // MỚI 23/09/2026 — trang đang xem của Debug console (nơi 'debugConsole' của Pagination), core tự kẹp
     _debugConsolePanelEl: null, // panel Debug Console đang mở (pushSettingsPanel() dựng mới mỗi lần) — clearDebugConsoleLog() cần vẽ lại danh sách
 
     /**
@@ -29,6 +47,7 @@ const workflowSettingsMisc = {
     async openDebugConsole() {
         const panelEl = genericDrawerBody;
         this._debugConsolePanelEl = panelEl;
+        this._debugConsolePageIndex = 0; // MỚI 23/09/2026 — mở lại luôn về trang 1 (= log mới nhất khi đang phân trang)
         this._renderDebugConsoleList(panelEl);
         wireDebugConsolePanelActions(panelEl); // core/settings-misc-ui.js
     },
@@ -92,6 +111,7 @@ const workflowSettingsMisc = {
     /** Ứng với `settingsMisc.debugConsole.clear.click` (nút Clear all). Public — Router gọi trực tiếp. */
     clearDebugConsoleLog() {
         clearDebugConsoleLogs(); // core/debug-console.js
+        this._debugConsolePageIndex = 0;
         if (this._debugConsolePanelEl) this._renderDebugConsoleList(this._debugConsolePanelEl);
     },
 
@@ -120,21 +140,43 @@ const workflowSettingsMisc = {
         if (this._debugConsolePanelEl) this._renderDebugConsoleList(this._debugConsolePanelEl, true);
     },
 
-    /** Vẽ lại TOÀN BỘ danh sách log vào `#debug-console-list` bên trong `panelEl` — gọi lúc mở
-     * panel, sau "Clear all" (danh sách rỗng lại), và sau khi xoá 1 dòng. Mặc định tự cuộn xuống dòng
-     * MỚI NHẤT sau khi vẽ; `keepScroll` = true thì giữ nguyên vị trí cuộn cũ (xoá 1 dòng giữa danh sách).
-     * HTML item do components/debug-console-drawer.js::renderDebugConsoleListHtml() dựng (đã escapeHtml
-     * nội dung log); item vẽ SAU khi Generic Drawer đã áp theme nên phải áp lại `data-uitk` cho
-     * chính vùng danh sách (core/ui-theme/apply-ui.js).
+    /** Vẽ lại danh sách log vào `#debug-console-list` bên trong `panelEl` — gọi lúc mở panel, sau
+     * "Clear all" (danh sách rỗng lại), sau khi xoá 1 dòng, và lúc đổi trang. HTML item do
+     * components/debug-console-drawer.js::renderDebugConsoleListHtml() dựng (đã escapeHtml nội dung log);
+     * item vẽ SAU khi Generic Drawer đã áp theme nên phải áp lại `data-uitk` (core/ui-theme/apply-ui.js).
+     *
+     * SỬA 23/09/2026 — nơi 'debugConsole' của Settings > System > Pagination:
+     *   - TẮT (mặc định): y hệt cũ — toàn bộ log cũ -> mới, tự cuộn xuống dòng MỚI NHẤT (`keepScroll`
+     *     = true thì giữ vị trí cuộn, dùng khi xoá 1 dòng giữa danh sách).
+     *   - BẬT: log MỚI NHẤT lên ĐẦU (trang 1 = mới nhất — cách duy nhất để mọi kiểu phân trang, kể cả
+     *     'loadMore' cộng dồn từ đầu, đều mở ra thấy log mới trước), cuộn về đầu danh sách; xoá 1 dòng vẫn
+     *     giữ vị trí cuộn. Thanh phân trang vẽ vào `#debug-console-pagination` (delegate đã wire 1 lần ở
+     *     core/settings-misc-ui.js::wireDebugConsolePanelActions()).
      * @param {HTMLElement} panelEl @param {boolean} [keepScroll]
      */
     _renderDebugConsoleList(panelEl, keepScroll) {
         const listEl = panelEl.querySelector('#debug-console-list');
         if (!listEl) return;
+        const paginationEl = panelEl.querySelector('#debug-console-pagination');
         const prevScrollTop = listEl.scrollTop;
-        listEl.innerHTML = renderDebugConsoleListHtml(getDebugConsoleLogs()); // components/debug-console-drawer.js, core
+        const isPaginated = workflowPagination.getPlaceSettings('debugConsole').enabled; // event/workflow/pagination.js
+        const logs = getDebugConsoleLogs(); // core/debug-console.js — bản sao, đảo được thoải mái
+        const view = workflowPagination.computePlaceView('debugConsole', isPaginated ? logs.reverse() : logs, this._debugConsolePageIndex);
+        this._debugConsolePageIndex = view.pageIndex; // giá trị đã kẹp (vd vừa xoá hết dòng của trang cuối)
+        listEl.innerHTML = renderDebugConsoleListHtml(view.pageItems); // components/debug-console-drawer.js
         applyUiThemeToDom(listEl, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
-        listEl.scrollTop = keepScroll ? prevScrollTop : listEl.scrollHeight;
+        if (paginationEl) {
+            paginationEl.innerHTML = workflowPagination.buildControlsHtml(view);
+            applyUiThemeToDom(paginationEl, _activeUiThemeKeyList);
+        }
+        listEl.scrollTop = keepScroll ? prevScrollTop : (isPaginated ? 0 : listEl.scrollHeight);
+    },
+
+    /** MỚI 23/09/2026 — ứng với 'settingsMisc.debugConsole.page.change' (thanh phân trang Debug console).
+     * @param {number} pageIndex */
+    setDebugConsolePage(pageIndex) {
+        this._debugConsolePageIndex = pageIndex;
+        if (this._debugConsolePanelEl) this._renderDebugConsoleList(this._debugConsolePanelEl);
     },
 
     // ===================== appRecovery =====================
@@ -164,36 +206,37 @@ const workflowSettingsMisc = {
         );
     },
 
-    /** Ứng với msg.type = 'settingsMisc.restoreDefaults.confirm'. THAY executeRestoreDefaults() cũ
-     * (core/app-recovery.js, đã XOÁ) — SỬA (12/08/2026, Giang chỉ ra 2a/2b "Reset app default"
-     * THỰC RA là yêu cầu RESET, bản trước mình hiểu ngược thành loại trừ) — giờ reset ĐỦ CẢ 3:
-     *   1. vizConfig (màu/hiệu ứng/EQ đang chọn/cử chỉ/...) — restoreDefaultVizConfig() (core), như cũ.
-     *   2. visualBgConfig (Visual Background: video/ảnh/slideshow nền màn Visualizer) — MỚI, mục 2a
-     *      — restoreDefaultVisualBgConfig() (core/config.js) + workflowVisualBg._persist() (Workflow
-     *      gọi Workflow tự do, DÙNG LẠI hàm persist có sẵn thay vì chép lại setMeta() ở đây).
-     *   3. 5 preset EQ GỐC (KHÔNG khoá) trong meta.eqPresets — khôi phục ĐẦY ĐỦ tên+gains về bản
-     *      factory (buildDefaultEqPresets(), core/eq-presets.js) — MỚI, mục 2b. KHÁC nút Reset
-     *      RIÊNG từng preset ở Edit EQ header (mục 2c, CHỈ đổi gains, giữ tên đang sửa dở — xem
-     *      event/workflow/eq-presets.js::_resetEditToDefault()): reset TOÀN APP restore ĐẦY ĐỦ vì
-     *      đây là "về lại y hệt lúc mới cài", không phải sửa dở tay. Preset NGƯỜI DÙNG TỰ TẠO (id
-     *      không khớp 6 id cố định, generateEqPresetId() không bao giờ trùng) GIỮ NGUYÊN — reset
-     *      app KHÔNG có nghĩa xoá sạch preset người dùng tự tạo, chỉ đưa phần GỐC về lại nguyên bản.
-     * Đợi (await Promise.all) CẢ 2 lượt persist bất đồng bộ (visualBgConfig + eqPresets) xong rồi
-     * mới reload — reload sớm hơn sẽ mất trắng phần vừa ghi (race, IndexedDB ghi bất đồng bộ). */
+    /** Ứng với msg.type = 'settingsMisc.restoreDefaults.confirm'.
+     * SỬA (23/09/2026, Giang: "Đã là Restore default setting -> thì mọi thứ phải reset hết về gốc, không có
+     * ngoại lệ và vùng cấm") — TRƯỚC ĐÂY chỉ reset 3 thứ (vizConfig, visualBgConfig, 5 preset EQ gốc — preset
+     * người dùng tự tạo được GIỮ), bỏ sót Theme, Player, Pagination, Motion, Filter, cấu hình Playlist/Player,
+     * thư mục đang áp... Giờ = "y hệt lúc mới cài" về mặt CÀI ĐẶT:
+     *   1. XOÁ HẲN mọi bản lưu cài đặt — RESTORE_DEFAULTS_META_KEYS (IndexedDB meta) +
+     *      RESTORE_DEFAULTS_LOCAL_STORAGE_KEYS — rồi reload: boot tự seed mặc định cho từng domain đúng như
+     *      lần chạy đầu (mọi loader đã xử lý sẵn trường hợp "chưa từng lưu": EQ seed 6 preset gốc, Motion/
+     *      Filter về rỗng, Theme về Light...). Xoá thay vì ghi đè từng domain — không phải biết/chép lại
+     *      giá trị mặc định của từng nơi ở đây, thêm domain mới chỉ cần thêm key vào danh sách.
+     *      => Preset EQ/Motion/Filter NGƯỜI DÙNG TỰ TẠO cũng bị xoá (không còn ngoại lệ).
+     *   2. 4 cờ cài đặt của MỌI folder (Exclude / Read-only / Áp dụng filter / Filter riêng) về mặc định —
+     *      resetFolderRecordSettings() (core/file-manager/folder.js).
+     * KHÔNG đụng (DỮ LIỆU, không phải cài đặt): media đã upload (Song/Video/Photo), thư mục + tên + nội
+     * dung, thống kê nghe (songStats/totalListenSeconds), gói ngôn ngữ đã tải lên, cờ migrate 1 lần, trạng
+     * thái tạm (resume/subtitle đang sửa).
+     * Thứ tự: reset RAM viz/visualBg TRƯỚC (lỡ có saveConfig() nào chạy chen giữa lúc await thì nó ghi
+     * lại MẶC ĐỊNH chứ không phải cấu hình cũ) + huỷ lượt backup vizConfig đang hẹn giờ, rồi mới xoá. Đợi
+     * MỌI lượt ghi/xoá IndexedDB xong mới reload (reload sớm = mất phần chưa ghi xong). */
     async confirmRestoreDefaults() {
         restoreDefaultVizConfig(); // core/config.js
         restoreDefaultVisualBgConfig(); // core/config.js
+        taskManager.kill('configBackupFlush'); // core/config.js hẹn ghi meta.configBackup sau 2s — không để nó ghi lại sau khi đã xoá
 
-        const factoryById = {};
-        buildDefaultEqPresets().forEach((p) => { factoryById[p.id] = { ...p }; }); // core/eq-presets.js
-        const restoredPresets = appState.get('eqPresets').map((p) => factoryById[p.id] || p);
-        appState.set('eqPresets', restoredPresets);
-
-        saveConfig(); // core/config.js — vizConfig, đồng bộ (localStorage)
-        await Promise.all([
-            workflowVisualBg._persist(), // event/workflow/visual-bg.js
-            setMeta('eqPresets', restoredPresets), // service/db.js
-        ]);
+        const folders = await listFolders(); // core/file-manager/folder.js — CẢ 3 loại
+        await Promise.all(folders.map((record) => resetFolderRecordSettings(record))); // core/file-manager/folder.js
+        await Promise.all(RESTORE_DEFAULTS_META_KEYS.map((key) => delMeta(key))); // service/db.js
+        for (const key of RESTORE_DEFAULTS_LOCAL_STORAGE_KEYS) {
+            try { localStorage.removeItem(key); } catch (e) { console.warn(`[restoreDefaults] Không xoá được localStorage['${key}']:`, e); }
+        }
+        console.log(`writer: "confirmRestoreDefaults", page: "meta+localStorage", content: "xoá ${RESTORE_DEFAULTS_META_KEYS.length} meta + ${RESTORE_DEFAULTS_LOCAL_STORAGE_KEYS.length} localStorage, reset ${folders.length} folder"`);
         location.reload();
     },
 

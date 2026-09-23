@@ -36,6 +36,7 @@ const workflowStatisPanel = {
     _sortMode: 'count', // 'count' | 'totalTime' — mặc định "Lượt phát nhiều nhất"
     _filterType: 'all', // 'all' | 'song' | 'video' | 'photo'
     _shareMode: 'count', // 'count' | 'totalTime' — MỚI 21/09/2026: biểu đồ tròn + % của 3 card Media types chia theo LƯỢT PHÁT hay THỜI GIAN (nút chuyển ở phải tiêu đề Media types). Cùng loại state UI cục bộ với _sortMode/_filterType
+    _topListPageIndex: 0, // MỚI 23/09/2026 — trang đang xem của Top list (nơi 'statisTopList' của Pagination), core tự kẹp; về 0 khi mở panel/đổi sort/đổi filter
     _cache: null, // {items, byType, grandTotal} — chụp 1 lần lúc MỞ panel (openPanel()), đổi sort/filter chỉ lọc/sort lại trên đây
     _loadToken: 0, // tăng mỗi lần openPanel() — loại kết quả đọc DB của lần mở CŨ nếu đã có lần mở mới hơn
 
@@ -52,6 +53,7 @@ const workflowStatisPanel = {
         statisPanelBody.innerHTML = buildStatisPanelSkeletonHtml(t); // core/statis-panel-ui.js
         if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(statisPanelBody, _activeUiThemeKeyList); // skeleton cũng dựng ĐỘNG (data-uitk) — phải áp theme như renderContent()
         showPlaceholderPanel(statisPanel); // core/placeholder-panel.js
+        this._topListPageIndex = 0; // MỚI 23/09/2026 — mở panel luôn về trang 1 của Top list
         const data = await this._loadData();
         if (loadToken !== this._loadToken) return; // người dùng đã đóng/mở lại panel trong lúc đọc DB — lần mở MỚI hơn sẽ tự vẽ, bỏ kết quả cũ này
         this._cache = data;
@@ -120,9 +122,15 @@ const workflowStatisPanel = {
 
         // Top list CHỈ xếp hạng item CÓ dữ liệu theo tiêu chí đang sort (count > 0 khi "Most played", totalTime > 0 khi "Most time") — item 0 lượt không chen vào đáy bảng và empty state theo loại mới đúng nghĩa.
         const filteredByType = this._filterType === 'all' ? items : items.filter((i) => i.mediaType === this._filterType);
-        const topList = filteredByType.filter((i) => i[this._sortMode] > 0).sort((a, b) => b[this._sortMode] - a[this._sortMode]).slice(0, STATIS_TOP_LIST_LIMIT); // `.filter()` đã trả mảng MỚI nên `.sort()` thẳng không đụng `items` trong cache
+        const ranked = filteredByType.filter((i) => i[this._sortMode] > 0).sort((a, b) => b[this._sortMode] - a[this._sortMode]); // `.filter()` đã trả mảng MỚI nên `.sort()` thẳng không đụng `items` trong cache
+        // SỬA 23/09/2026 — nơi 'statisTopList' của Settings > System > Pagination: BẬT -> phân trang TOÀN BỘ bảng
+        // xếp hạng (bỏ trần STATIS_TOP_LIST_LIMIT); TẮT -> y hệt cũ (chỉ Top STATIS_TOP_LIST_LIMIT, view đi thẳng).
+        const isPaginated = workflowPagination.getPlaceSettings('statisTopList').enabled; // event/workflow/pagination.js
+        const rankSource = isPaginated ? ranked : ranked.slice(0, STATIS_TOP_LIST_LIMIT);
+        const view = workflowPagination.computePlaceView('statisTopList', rankSource, this._topListPageIndex);
+        this._topListPageIndex = view.pageIndex; // giá trị đã kẹp
 
-        statisPanelBody.innerHTML = buildStatisPanelBodyHtml(grandTotal, byType, topList, this._sortMode, this._filterType, this._shareMode, t); // core/statis-panel-ui.js
+        statisPanelBody.innerHTML = buildStatisPanelBodyHtml(grandTotal, byType, view.pageItems, this._sortMode, this._filterType, this._shareMode, t, view.startIndex, rankSource.length, workflowPagination.buildControlsHtml(view)); // core/statis-panel-ui.js
         if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(statisPanelBody, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — nội dung dựng ĐỘNG, phải tự áp lại mỗi lần renderContent() chạy, CÙNG lý do renderList() của gameCatalog
         if (animate) this._startCountup();
     },
@@ -156,10 +164,18 @@ const workflowStatisPanel = {
         return { key: record.key, mediaType, name, count: stats.count, totalTime: stats.totalTime };
     },
 
-    /** Ứng với 'statisPanel.sort.click'. */
+    /** MỚI 23/09/2026 — ứng với 'statisPanel.topList.page.change' (thanh phân trang Top list). Vẽ lại từ
+     * `_cache`, không animate. @param {number} pageIndex */
+    setTopListPage(pageIndex) {
+        this._topListPageIndex = pageIndex;
+        this.renderContent();
+    },
+
+    /** Ứng với 'statisPanel.sort.click'. Đổi tiêu chí -> bảng xếp hạng khác hẳn, về trang 1. */
     setSortMode(mode) {
         if (this._sortMode === mode) return;
         this._sortMode = mode;
+        this._topListPageIndex = 0;
         this.renderContent();
     },
 
@@ -174,6 +190,7 @@ const workflowStatisPanel = {
     setFilterType(type) {
         if (this._filterType === type) return;
         this._filterType = type;
+        this._topListPageIndex = 0; // MỚI 23/09/2026 — danh sách nguồn đổi, về trang 1
         this.renderContent();
     },
 };

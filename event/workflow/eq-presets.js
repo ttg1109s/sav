@@ -38,6 +38,7 @@ const workflowEqPresets = {
     _editingId: null, // id preset đang sửa trong mode 'edit' (null nếu đang ở 'list'/đóng hẳn)
     _draftGains: null,
     _draftName: '',
+    _listPageIndex: 0, // MỚI 23/09/2026 — trang đang xem của List (nơi 'eqPresets' của Pagination), core tự kẹp
     _cycleHoldFired: false, // true nếu đã giữ đủ EQ_CYCLE_HOLD_MS (Drawer đã mở) — chặn cycle chạy thêm lúc thả tay ra
 
     /** Gọi từ event/workflow/app-boot.js — đọc `meta.eqPresets`, seed 6 preset gốc nếu chưa có. */
@@ -93,6 +94,9 @@ const workflowEqPresets = {
     _fireCycleHold() {
         this._cycleHoldFired = true;
         if (typeof closeControlCenter === 'function') closeControlCenter(); // core/visualizer-control-center.js
+        // MỚI 23/09/2026 — mở List ĐÚNG trang chứa preset đang dùng (nơi 'eqPresets' của Pagination; tắt -> 0).
+        const presets = appState.get('eqPresets');
+        this._listPageIndex = workflowPagination.pageIndexOfItem('eqPresets', presets.findIndex((p) => p.id === appConfigViz.getAll().eqPresetId)); // event/workflow/pagination.js
         this.openListView();
     },
 
@@ -135,11 +139,14 @@ const workflowEqPresets = {
         // panel LUÔN đúng 70vh bất kể danh sách preset dài/ngắn. Thêm `height:'auto'` + GIỮ NGUYÊN
         // `70vh` làm `maxHeight` (đúng trần CŨ, hành vi KHÔNG đổi khi danh sách dài/vượt trần — chỉ
         // MỚI thêm khả năng co nhỏ lại khi danh sách ngắn, vốn trước đây không có).
+        // MỚI 23/09/2026 — nơi 'eqPresets' của Settings > System > Pagination (tắt = vẽ hết như cũ).
+        const view = workflowPagination.computePlaceView('eqPresets', appState.get('eqPresets'), this._listPageIndex); // event/workflow/pagination.js
+        this._listPageIndex = view.pageIndex; // giá trị đã kẹp (vd vừa xoá preset cuối của trang cuối)
         const config = {
             height: 'auto',
             maxHeight: '70vh',
             headerHtml: renderEqListHeader(), // components/eq-presets-drawer.js
-            bodyHtml: renderEqListBody(appState.get('eqPresets'), appConfigViz.getAll().eqPresetId),
+            bodyHtml: renderEqListBody(view.pageItems, appConfigViz.getAll().eqPresetId, workflowPagination.buildControlsHtml(view)),
             bodyClass: 'overflow-y-auto px-4 py-3',
         };
         if (genericDrawerPanel.classList.contains('hidden')) {
@@ -161,6 +168,15 @@ const workflowEqPresets = {
         genericDrawerBody.querySelectorAll('[data-eq-id]').forEach((row) => {
             row.addEventListener('click', () => this._openEditView(row.dataset.eqId));
         });
+        wirePaginationControls(genericDrawerBody.querySelector('#eq-list-pagination'), 'eqPresets', 'eqPresets.list.page.change'); // core/pagination-ui.js — MỚI 23/09/2026
+    },
+
+    /** MỚI 23/09/2026 — ứng với 'eqPresets.list.page.change' (thanh phân trang của List). Vẽ lại List,
+     * cuộn về đầu. @param {number} pageIndex */
+    setListPage(pageIndex) {
+        this._listPageIndex = pageIndex;
+        this.openListView();
+        genericDrawerBody.scrollTop = 0;
     },
 
     /** Ứng với nút "+" trong header List — CÙNG khuôn createFolderInPicker()/

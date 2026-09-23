@@ -54,7 +54,8 @@
  * event/workflow/settings-misc.js, event/workflow/visualizer-display.js, event/workflow/
  * visual-bg.js, lang/language-settings.js (renderLanguageOptions/updateLanguageDeleteButtonVisibility),
  * core/player-display-settings.js, components/settings/player-display-settings.js, event/workflow/
- * player-display-settings.js (MỚI — "Player", xem docstring nhóm hàm _renderPlayer() ngay dưới).
+ * player-display-settings.js (MỚI — "Player", xem docstring nhóm hàm _renderPlayer() ngay dưới),
+ * components/settings/pagination.js + event/workflow/pagination.js (MỚI 23/09/2026 — System > Pagination).
  * NẠP TRƯỚC: event/router/player-controls.js, event/router/app-settings.js,
  * event/router/app-panel-nav.js, event/router/visual-bg.js.
  */
@@ -81,6 +82,9 @@ const workflowAppSettings = {
 
     _carouselTouching: false, // ngón tay còn đang chạm carousel Main — không nhảy scrollLeft lúc đang kéo tay
     _screenStack: [], // mảng hàm render (KHÔNG gồm màn hiện tại) — back() pop ra màn NGAY TRƯỚC
+    _playlistFilterListPageIndex: 0, // MỚI 23/09/2026 — trang đang xem của danh sách preset Filter (nơi 'filterPresets' của Pagination), core tự kẹp
+    _playlistFilterListSource: null, // MỚI 23/09/2026 — Nguồn của lần vẽ danh sách Filter trước — đổi Nguồn thì về trang 1
+    _motionListPageIndex: 0, // MỚI 23/09/2026 — trang đang xem của danh sách preset Motion (nơi 'motionPresets' của Pagination), sống theo phiên, core tự kẹp
     _mainCarouselIndex: 0, // MỚI (20/09/2026) — mục (0..4) đang ở giữa carousel Main lần cuối người dùng bấm mở 1 màn con — Back về Main giữ đúng mục đó ở giữa; `open()` luôn reset về 0 (mục đầu tiên)
 
     open() {
@@ -242,10 +246,16 @@ const workflowAppSettings = {
         const source = appState.get('activeMediaSource');
         const presets = appState.get('playlistFilterPresets')[source];
         const activeId = appState.get('playlistFilterActivePresetId')[source];
+        // MỚI 23/09/2026 — nơi 'filterPresets' của Settings > System > Pagination (tắt = vẽ hết như cũ). Mỗi Nguồn
+        // 1 danh sách khác hẳn -> Nguồn đổi so với lần vẽ trước thì về trang 1.
+        if (this._playlistFilterListSource !== source) { this._playlistFilterListSource = source; this._playlistFilterListPageIndex = 0; }
+        const view = workflowPagination.computePlaceView('filterPresets', presets, this._playlistFilterListPageIndex); // event/workflow/pagination.js
+        this._playlistFilterListPageIndex = view.pageIndex; // giá trị đã kẹp (vd vừa xoá preset cuối của trang cuối)
         this._render(
             tFormat('playlistFilterPresetsDrawer.list.titleForSource', { source: t('settingsPlaylistBg.mediaSource.' + source) }),
-            renderPlaylistFilterListBody(presets, activeId), // components/playlist-filter-drawer.js
+            renderPlaylistFilterListBody(view.pageItems, activeId, workflowPagination.buildControlsHtml(view)), // components/playlist-filter-drawer.js
             (body) => {
+                wirePaginationControls(body.querySelector('#playlist-filter-list-pagination'), 'appSettings', 'appSettings.playlistFilterList.page.change'); // core/pagination-ui.js
                 body.querySelectorAll('[data-playlist-filter-tile]').forEach((el) => {
                     el.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.tile.click', payload: { id: el.dataset.playlistFilterTile } }));
                 });
@@ -308,7 +318,7 @@ const workflowAppSettings = {
         );
     },
 
-    // ===================== System (Theme/Gesture/Motion/Language) =====================
+    // ===================== System (Theme/Motion/Language/Pagination) =====================
 
     _renderSystem() {
         this._currentRenderFn = () => this._renderSystem();
@@ -316,8 +326,41 @@ const workflowAppSettings = {
             { key: 'theme', icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h9a2 2 0 012 2v12a4 4 0 01-4 4H7zm0 0h10a2 2 0 002-2v-9', labelKey: 'appSettings.system.theme.label', hintKey: 'appSettings.system.theme.hint' },
             { key: 'motion', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', labelKey: 'appSettings.system.motion.label', hintKey: 'appSettings.system.motion.hint' },
             { key: 'language', icon: 'M3.6 9h16.8M3.6 15h16.8M11.5 3a17 17 0 000 18M12.5 3a17 17 0 010 18M21 12a9 9 0 11-18 0 9 9 0 0118 0z', labelKey: 'appSettings.system.language.label', hintKey: 'appSettings.system.language.hint' },
+            // MỚI 23/09/2026 (Giang yêu cầu) — cài đặt CHUNG cho mọi danh sách có phân trang, xem _renderPagination() bên dưới.
+            { key: 'pagination', icon: 'M4 6h16M4 11h16M8 16l-2 2.5L8 21M16 16l2 2.5-2 2.5', labelKey: 'appSettings.system.pagination.label', hintKey: 'appSettings.system.pagination.hint' },
         ];
         this._render(t('appSettings.row.system'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js
+    },
+
+    // ===================== Pagination (MỚI 23/09/2026) — mỗi NƠI 1 checkbox + số item/trang + kiểu riêng =====================
+    // Domain 'pagination' (core/config.js::DEFAULT_PAGINATION_CONFIG.places), đọc/ghi qua workflowPagination
+    // (event/workflow/pagination.js — gọi trực tiếp, cùng cách Player gọi workflowPlayerDisplaySettings).
+
+    _renderPagination() {
+        this._currentRenderFn = () => this._renderPagination();
+        const settingsByPlace = {};
+        const previewHtmlByPlace = {};
+        for (const place of PAGINATION_PLACES) { // core/pagination.js
+            settingsByPlace[place.key] = workflowPagination.getPlaceSettings(place.key); // event/workflow/pagination.js — đã chuẩn hoá
+            if (settingsByPlace[place.key].enabled) previewHtmlByPlace[place.key] = workflowPagination.buildPreviewHtml(place.key);
+        }
+        this._render(t('appSettings.system.pagination.label'), renderPaginationSettingsBody(settingsByPlace, previewHtmlByPlace), (body) => { // components/settings/pagination.js
+            wireAppSettingsPagination(body); // core/app-settings-ui.js
+        });
+    },
+
+    /** Ứng với 'appSettings.pagination.place.change' — 1 control của 1 nơi đổi (checkbox / ô số / select).
+     * Ghi bền rồi DỰNG LẠI màn: checkbox mở/ẩn phần chi tiết, ô số hiện lại giá trị đã kẹp (vd nhập 500 ->
+     * 200, nhập rỗng -> số cũ), Preview đổi theo. Giữ vị trí cuộn (danh sách nơi có thể dài hơn màn hình).
+     * @param {{place:string, field:'enabled'|'pageSize'|'style', value:*}} payload */
+    async handlePaginationPlaceChange(payload) {
+        const { place, field, value } = payload;
+        if (field === 'enabled') await workflowPagination.changePlaceEnabled(place, value); // event/workflow/pagination.js
+        else if (field === 'pageSize') await workflowPagination.changePlacePageSize(place, value);
+        else if (field === 'style') await workflowPagination.changePlaceStyle(place, value);
+        const prevScrollTop = genericDrawerBody.scrollTop;
+        this._renderPagination();
+        genericDrawerBody.scrollTop = prevScrollTop;
     },
 
     // ===================== Theme — CHỈ 1 lựa chọn "Color" (Light/Dark/Morphin) =====================
@@ -394,10 +437,14 @@ const workflowAppSettings = {
     _renderMotionList() {
         this._currentRenderFn = () => this._renderMotionList();
         const presets = appState.get('motionPresets');
+        // MỚI 23/09/2026 — nơi 'motionPresets' của Settings > System > Pagination (tắt = vẽ hết như cũ).
+        const view = workflowPagination.computePlaceView('motionPresets', presets, this._motionListPageIndex); // event/workflow/pagination.js
+        this._motionListPageIndex = view.pageIndex; // giá trị đã kẹp (vd vừa xoá hết preset trang cuối)
         this._render(
             t('motionPresetsDrawer.list.title'),
-            renderMotionListBody(presets), // components/motion-settings-drawer.js
+            renderMotionListBody(view.pageItems, workflowPagination.buildControlsHtml(view)), // components/motion-settings-drawer.js
             (body) => {
+                wirePaginationControls(body.querySelector('#motion-list-pagination'), 'appSettings', 'appSettings.motionList.page.change'); // core/pagination-ui.js
                 body.querySelectorAll('[data-motion-preset-tile]').forEach((el) => {
                     el.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.tile.click', payload: { id: el.dataset.motionPresetTile } }));
                 });
@@ -408,6 +455,23 @@ const workflowAppSettings = {
                 if (addBtn) addBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.add.click', payload: {} }));
             },
         );
+    },
+
+    /** MỚI 23/09/2026 — ứng với 'appSettings.playlistFilterList.page.change' (thanh phân trang danh sách
+     * preset Filter). Vẽ lại tại chỗ, cuộn về đầu. @param {number} pageIndex */
+    setPlaylistFilterListPage(pageIndex) {
+        this._playlistFilterListPageIndex = pageIndex;
+        this._renderPlaylistFilterList();
+        genericDrawerBody.scrollTop = 0;
+    },
+
+    /** MỚI 23/09/2026 — ứng với 'appSettings.motionList.page.change' (thanh phân trang danh sách Motion).
+     * Vẽ lại tại chỗ (không push ngăn xếp), cuộn về đầu để thấy trang mới từ trên xuống.
+     * @param {number} pageIndex */
+    setMotionListPage(pageIndex) {
+        this._motionListPageIndex = pageIndex;
+        this._renderMotionList();
+        genericDrawerBody.scrollTop = 0;
     },
 
     /** Sửa 1 preset (`workflowMotionPresets._editingId`). */
