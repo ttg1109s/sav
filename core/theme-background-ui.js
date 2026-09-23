@@ -17,15 +17,17 @@
  *
  * NẠP SAU: core/ui-theme/apply-ui.js (applyUiThemeToDom), lang/lang.js (t). NẠP TRƯỚC: event/workflow/app-settings.js, event/workflow/theme.js.
  *
- * MỚI 23/09/2026 (Giang: "chỉnh độ blur bgImage/bgVideo của Morphin") — 1 HÀNG RIÊNG "Độ mờ nền" dưới cụm 3 card (slider 0-20px, `#theme-bg-blur-row`), CHỈ
- * hiện khi đang chọn Background media VÀ item là ẢNH (`state.showBlurRow`, Workflow tính). Video nền KHÔNG blur (Giang chọn — blur video liên tục tốn GPU
- * mobile) nên hàng ẩn khi đang dùng video. Hàng luôn có trong DOM, chỉ bật/tắt `hidden` — `patchThemeBackgroundCards()` vá được khi đổi mode/item.
+ * MỚI 23/09/2026 (Giang: "tinh chỉnh độ mờ cho playlist main app" — THAY hàng blur ảnh nền vừa làm, đã bỏ) — 1 HÀNG RIÊNG "Panel glass" dưới cụm 3
+ * card (`#theme-glass-row`) gồm 2 slider: Blur 0-40px (`#theme-glass-blur`) + Opacity 0-40% (`#theme-glass-tint`), chỉnh kính các màn App Panel chính
+ * (Playlist, Game catalog, Statistics — class `.uitk-glass-tunable`, assets/css/glass.css). CHỈ hiện khi đang chọn Background media VÀ đã có item (ảnh
+ * hoặc video) — `state.showGlassRow`, Workflow tính. Hàng luôn có trong DOM, chỉ bật/tắt `hidden` -> `patchThemeBackgroundCards()` vá được.
  *
- * @typedef {{themeMode:string, solidColor:string, gradientFrom:string, gradientTo:string, mediaKind:''|'photo'|'video', hasMedia:boolean, mediaPreviewUrl:string, bgBlur:number, showBlurRow:boolean}} ThemeBackgroundState
+ * @typedef {{themeMode:string, solidColor:string, gradientFrom:string, gradientTo:string, mediaKind:''|'photo'|'video', hasMedia:boolean, mediaPreviewUrl:string, glassBlur:number, glassTint:number, showGlassRow:boolean}} ThemeBackgroundState
  */
 
 const THEME_BG_CARD_MODES = ['solid', 'gradient', 'background']; // thứ tự hiển thị; 'background' = "Background media"
-const THEME_BG_BLUR_MAX_PX = 20; // khớp mức trần scale nội suy trong updatePlaylistBg() (core/color-utils.js — 20px -> scale 1.1)
+const THEME_GLASS_BLUR_MAX_PX = 40; // khớp mức kẹp của setAppGlassBlur() (core/visualizer/visualizer-display.js)
+const THEME_GLASS_TINT_MAX_PCT = 40; // khớp mức kẹp của setAppGlassTint()
 const THEME_BG_PREVIEW_HEIGHT_PX = 88; // inline style — tránh class ngoặc vuông (Tailwind CDN tiêm CSS bất đồng bộ, xem ghi chú cùng lý do ở core/statis-panel-ui.js)
 
 /** Kiểu nền của khối preview cho 1 card, từ `state`. @param {'solid'|'gradient'|'background'} mode @param {ThemeBackgroundState} state @returns {string} chuỗi `style` */
@@ -40,6 +42,18 @@ function _themeBgPreviewStyle(mode, state) {
 /** Key theme cho 1 card theo trạng thái chọn. @param {boolean} selected @returns {string} */
 function _themeBgCardUitk(selected) {
     return selected ? 'rowActiveBg rowActiveBorder' : 'cardBg cardBorder';
+}
+
+/** 1 slider trong hàng "Panel glass" (nhãn + số + range). Hàm lá, chỉ dựng chuỗi. MỚI 23/09/2026.
+ * @param {'blur'|'tint'} part @param {string} labelKey @param {number} value @param {number} max @param {string} unit @param {function} t */
+function _themeGlassSliderHtml(part, labelKey, value, max, unit, t) {
+    return `<div>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs" data-uitk="textSecondary" data-i18n="${labelKey}">${t(labelKey)}</span>
+                        <span id="theme-glass-${part}-value" class="text-xs font-mono tabular-nums" data-uitk="accentText">${value}${unit}</span>
+                    </div>
+                    <input type="range" id="theme-glass-${part}" min="0" max="${max}" step="1" value="${value}" class="w-full ce-slider">
+                </div>`;
 }
 
 /**
@@ -88,12 +102,10 @@ function buildThemeBackgroundCardsHtml(state, t) {
         <div id="theme-bg-cards" class="px-4 pb-4 pt-3 border-t" data-uitk="dividerBorder">
             <p class="text-sm font-semibold mb-3" data-uitk="textSecondaryStrong" data-i18n="appSettings.theme.bg.section">${t('appSettings.theme.bg.section')}</p>
             <div class="grid grid-cols-3 gap-2">${cards}</div>
-            <div id="theme-bg-blur-row" class="${state.showBlurRow ? '' : 'hidden'} mt-4 pt-3 border-t" data-uitk="dividerBorder">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-sm font-semibold" data-uitk="textSecondaryStrong" data-i18n="appSettings.theme.bg.blur">${t('appSettings.theme.bg.blur')}</span>
-                    <span id="theme-bg-blur-value" class="text-xs font-mono tabular-nums" data-uitk="accentText">${state.bgBlur}px</span>
-                </div>
-                <input type="range" id="theme-bg-blur" min="0" max="${THEME_BG_BLUR_MAX_PX}" step="1" value="${state.bgBlur}" class="w-full ce-slider">
+            <div id="theme-glass-row" class="${state.showGlassRow ? '' : 'hidden'} mt-4 pt-3 border-t space-y-3" data-uitk="dividerBorder">
+                <div class="text-sm font-semibold" data-uitk="textSecondaryStrong" data-i18n="appSettings.theme.glass.section">${t('appSettings.theme.glass.section')}</div>
+                ${_themeGlassSliderHtml('blur', 'appSettings.theme.glass.blur', state.glassBlur, THEME_GLASS_BLUR_MAX_PX, 'px', t)}
+                ${_themeGlassSliderHtml('tint', 'appSettings.theme.glass.tint', state.glassTint, THEME_GLASS_TINT_MAX_PCT, '%', t)}
             </div>
         </div>`;
 }
@@ -112,8 +124,10 @@ function wireThemeBackgroundCards(rootEl) {
     if (fromInput) fromInput.addEventListener('input', (e) => eventBus.send({ router: 'theme', type: 'theme.gradientFrom.input', payload: { value: e.target.value } }));
     const toInput = rootEl.querySelector('#theme-bg-gradient-to');
     if (toInput) toInput.addEventListener('input', (e) => eventBus.send({ router: 'theme', type: 'theme.gradientTo.input', payload: { value: e.target.value } }));
-    const blurInput = rootEl.querySelector('#theme-bg-blur'); // MỚI 23/09/2026
-    if (blurInput) blurInput.addEventListener('input', (e) => eventBus.send({ router: 'theme', type: 'theme.bgBlur.input', payload: { value: e.target.value } }));
+    const glassBlurInput = rootEl.querySelector('#theme-glass-blur'); // MỚI 23/09/2026 — kính Playlist/Game catalog/Statistics
+    if (glassBlurInput) glassBlurInput.addEventListener('input', (e) => eventBus.send({ router: 'theme', type: 'theme.glassBlur.input', payload: { value: e.target.value } }));
+    const glassTintInput = rootEl.querySelector('#theme-glass-tint');
+    if (glassTintInput) glassTintInput.addEventListener('input', (e) => eventBus.send({ router: 'theme', type: 'theme.glassTint.input', payload: { value: e.target.value } }));
 }
 
 /**
@@ -146,12 +160,14 @@ function patchThemeBackgroundCards(rootEl, state) {
         const input = cluster.querySelector(selector);
         if (input && document.activeElement !== input && input.value !== value) input.value = value;
     });
-    // MỚI 23/09/2026 — hàng độ mờ: ẩn/hiện theo state, số px luôn cập nhật; slider đang kéo thì giữ nguyên giá trị (không giật tay kéo).
-    const blurRow = cluster.querySelector('#theme-bg-blur-row');
-    if (blurRow) blurRow.classList.toggle('hidden', !state.showBlurRow);
-    const blurValue = cluster.querySelector('#theme-bg-blur-value');
-    if (blurValue) blurValue.textContent = `${state.bgBlur}px`;
-    const blurInput = cluster.querySelector('#theme-bg-blur');
-    if (blurInput && document.activeElement !== blurInput && Number(blurInput.value) !== state.bgBlur) blurInput.value = String(state.bgBlur);
+    // MỚI 23/09/2026 — hàng "Panel glass": ẩn/hiện theo state, số luôn cập nhật; slider đang kéo thì giữ nguyên giá trị (không giật tay kéo).
+    const glassRow = cluster.querySelector('#theme-glass-row');
+    if (glassRow) glassRow.classList.toggle('hidden', !state.showGlassRow);
+    [['blur', state.glassBlur, 'px'], ['tint', state.glassTint, '%']].forEach(([part, value, unit]) => {
+        const valueEl = cluster.querySelector(`#theme-glass-${part}-value`);
+        if (valueEl) valueEl.textContent = `${value}${unit}`;
+        const input = cluster.querySelector(`#theme-glass-${part}`);
+        if (input && document.activeElement !== input && Number(input.value) !== value) input.value = String(value);
+    });
     if (typeof applyUiThemeToDom === 'function' && typeof _activeUiThemeKeyList !== 'undefined') applyUiThemeToDom(cluster, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — `dataset.uitk` của card vừa đổi theo trạng thái chọn
 }

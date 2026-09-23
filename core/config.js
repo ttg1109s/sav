@@ -147,7 +147,11 @@
         const DEFAULT_VIZ_CONFIG = {
             type: 'bar',
             customEffect: DEFAULT_CUSTOM_EFFECT,
-            bgImage: '', bgBlur: 0,
+            bgImage: '', bgBlur: 0, // `bgBlur`: SỬA 23/09/2026 — KHÔNG còn được đọc (Giang: Morphin vốn đã mờ, bỏ blur ảnh nền) — giữ field để data cũ vẫn hợp lệ
+            // MỚI 23/09/2026 (Giang: "tinh chỉnh độ mờ cho playlist main app") — kính các màn App Panel CHÍNH (Playlist, Game catalog, Statistics)
+            // khi nền Morphin là Background media: `appGlassBlur` = độ nhoè backdrop (px, 0-40; 0 = tắt hẳn backdrop-filter), `appGlassTint` =
+            // độ đục nền trắng của kính (%, 0-40). Mặc định = đúng thông số `.uitk-glass-surface` (36px / 10%) -> chưa chỉnh thì y như cũ.
+            appGlassBlur: 36, appGlassTint: 10,
             // 'light' | 'dark' | 'solid' (1 màu `bgSolidColor`) | 'gradient' (2 màu gradientFrom/gradientTo ngay dưới) |
             // 'background' (ảnh HOẶC video nền từ THƯ VIỆN — xem `bgMediaKind`/`bgMediaKey` dưới) — chọn qua event/router/theme.js,
             // chốt tại event/workflow/theme.js::_commitThemeMode(). Mặc định 'dark'.
@@ -510,7 +514,7 @@
         AppConfig.defineDomain('viz', {
             schema: {
                 type: 'string', customEffect: 'object',
-                bgImage: 'string', bgBlur: 'number',
+                bgImage: 'string', bgBlur: 'number', appGlassBlur: 'number', appGlassTint: 'number',
                 themeMode: 'string', gradientFrom: 'string', gradientTo: 'string',
                 bgSolidColor: 'string', bgMediaKind: 'string', bgMediaKey: 'string', bgFallbackMode: 'string', bgVideo: 'string', bgMediaThumb: 'string',
                 volume: 'number', eqPresetId: 'string', playbackSpeed: 'number',
@@ -880,7 +884,7 @@
             // phục config phía sau (Playlist/Player/EQ/Visual BG...) KHÔNG BAO GIỜ CHẠY TỚI. Thêm
             // guard — giá trị `bgBlur` vẫn nguyên trong data, chỉ tạm KHÔNG có UI nào điều chỉnh nó
             // nữa (chưa có chỗ trong Theme mới, để đợt sau).
-            // DỌN 23/09/2026: 2 dòng đồng bộ slider cũ ĐÃ XOÁ cùng dom-ref — slider mới dựng từ config mỗi lần mở màn Theme (workflowTheme.buildBackgroundCardState()).
+            // DỌN 23/09/2026: 2 dòng đồng bộ slider cũ ĐÃ XOÁ cùng dom-ref — blur ảnh nền đã bỏ hẳn, `bgBlur` không còn được đọc (xem DEFAULT_VIZ_CONFIG).
 
             // bgImage là blob: URL runtime, tạo lại mỗi session từ IndexedDB — luôn reset về rỗng
             // TRƯỚC khi loadPlaylistBgMediaAsset() resolve lại item thư viện (SỬA 21/09/2026: thêm bgVideo/bgMediaThumb).

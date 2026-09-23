@@ -222,7 +222,7 @@
         // (10 const elAutoSwitch* ĐÃ XOÁ — Batch D3: section "Tự động đổi hiệu ứng" giờ sống động
         // BÊN TRONG panel Visualizer Settings, không còn DOM tĩnh — event/listener/auto-switch-
         // visual.js dùng delegation trên settingsStackBody thay vì đọc const ở đây.)
-        // DỌN 23/09/2026: `bgBlurSlider`/`valBgBlurDisplay` ĐÃ XOÁ — #setting-bg-blur/#val-bg-blur không còn trong DOM (luôn null); độ mờ ảnh nền giờ dựng động ở core/theme-background-ui.js.
+        // DỌN 23/09/2026: `bgBlurSlider`/`valBgBlurDisplay` ĐÃ XOÁ — #setting-bg-blur/#val-bg-blur không còn trong DOM (luôn null); blur ảnh nền đã bỏ hẳn.
         // (settingVisualBgImageEnableToggle ĐÃ XOÁ — v13 Batch A: toggle "#setting-visual-bg-image-enable"
         // không còn tồn tại, gộp vào panel "Visual Background" — xem btnOpenVisualBgSettings bên dưới.)
         // DỌN DEADCODE 21/09/2026: 9 ref `themeModeCard*`/`themeBgBlurRow`/`themeGradientRow`/`themeGradientFromPicker`/`themeGradientToPicker`/`themeMockup*` ĐÃ XOÁ — chúng

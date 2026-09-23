@@ -114,6 +114,16 @@
             // DEFAULT_VIZ_CONFIG, core/config.js) và nhánh VIDEO (lớp `#app-bg-video` nằm DƯỚI `appBgImage`; ở nhánh video `appBgImage` chỉ mang overlay).
             const isMediaMode = cfg.themeMode === 'background';
 
+            // MỚI 23/09/2026 (Giang: tinh chỉnh độ mờ kính Playlist/Game catalog/Statistics) — gán 2 biến CSS lên <html>, được `.uitk-glass-tunable`
+            // (assets/css/glass.css, key theme `glassTunable` — chỉ Morphin có class) đọc. CHỈ lấy giá trị người dùng chỉnh khi nền đang là media
+            // (ảnh/video) — slider cũng chỉ hiện lúc đó; nền khác -> về đúng thông số kính mặc định (36px / 10%). Blur 0 -> tắt hẳn backdrop-filter
+            // (đỡ GPU khi cuộn danh sách dài), không để `blur(0px)` vẫn tạo lớp compositing.
+            const isTunedGlass = isMediaMode && !!(cfg.bgVideo || cfg.bgImage);
+            const glassBlur = isTunedGlass && Number.isFinite(cfg.appGlassBlur) ? cfg.appGlassBlur : 36; // guard data cũ chưa có field
+            const glassTint = isTunedGlass && Number.isFinite(cfg.appGlassTint) ? cfg.appGlassTint : 10;
+            document.documentElement.style.setProperty('--uitk-app-glass-filter', glassBlur > 0 ? `blur(${glassBlur}px) saturate(1.6)` : 'none');
+            document.documentElement.style.setProperty('--uitk-app-glass-tint', `rgba(255, 255, 255, ${glassTint / 100})`);
+
             if (isMediaMode && cfg.bgVideo) {
                 if (appBgVideo.dataset.src !== cfg.bgVideo) { // đổi/khôi phục video -> nạp lại; cùng URL thì giữ nguyên, không giật
                     appBgVideo.dataset.src = cfg.bgVideo;
@@ -123,7 +133,7 @@
                 }
                 appBgVideo.style.display = 'block';
                 appBgImage.style.backgroundImage = OVERLAY;
-                appBgBlurLayer.style.backgroundImage = 'none'; // `bgBlur` chỉ áp cho ảnh — blur video liên tục quá tốn GPU trên mobile
+                appBgBlurLayer.style.backgroundImage = 'none';
                 appBgBlurLayer.style.filter = 'none';
                 appBgBlurLayer.style.transform = 'scale(1)';
                 return;
@@ -140,16 +150,11 @@
             if (isMediaMode && cfg.bgImage) {
                 const layerImage = `${OVERLAY}, url(${cfg.bgImage})`;
                 appBgImage.style.backgroundImage = layerImage; // ảnh GỐC — LUÔN nét, không đụng transform/filter
-                if (cfg.bgBlur > 0) {
-                    appBgBlurLayer.style.backgroundImage = layerImage; // bản sao ĐÈ lên trên — CHỈ phần tử này nhận scale/blur
-                    appBgBlurLayer.style.filter = `blur(${cfg.bgBlur}px)`;
-                    const blurScale = 1 + Math.min(cfg.bgBlur, 20) / 20 * 0.1; // 0px->1, 20px->1.1 — xem SỬA 14/08/2026 trên
-                    appBgBlurLayer.style.transform = `scale(${blurScale})`;
-                } else {
-                    appBgBlurLayer.style.backgroundImage = 'none'; // trong suốt — lộ nguyên ảnh gốc ở appBgImage bên dưới
-                    appBgBlurLayer.style.filter = 'none';
-                    appBgBlurLayer.style.transform = 'scale(1)';
-                }
+                // SỬA 23/09/2026 (Giang: "Morphin bình thường đã mờ rồi, không cần tuỳ chỉnh blur cho photo") — BỎ nhánh blur ảnh theo `cfg.bgBlur`
+                // (field còn trong data cũ nhưng không đọc nữa -> ai đã từng chỉnh cũng không bị kẹt 1 độ mờ không còn chỗ chỉnh). Lớp blur luôn trong suốt.
+                appBgBlurLayer.style.backgroundImage = 'none';
+                appBgBlurLayer.style.filter = 'none';
+                appBgBlurLayer.style.transform = 'scale(1)';
             }
             else if (cfg.themeMode === 'solid') {
                 appBgBlurLayer.style.backgroundImage = 'none';
