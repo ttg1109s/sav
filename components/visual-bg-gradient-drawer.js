@@ -19,7 +19,7 @@
  * Movement trực tiếp trong preview — hiệu ứng THẬT chỉ thấy trên nền màn Visualizer khi Movement
  * đang bật (event/workflow/visual-bg.js::_tickGradientMovement()), giữ preview đơn giản/nhẹ.
  *
- * Danh sách chặng vẽ ĐỘNG bởi `workflowVisualBg._refreshGradientStopRows()`; template này chỉ dựng
+ * Danh sách chặng vẽ ĐỘNG bởi `workflowVisualBg._renderGradientStopRows()`; template này chỉ dựng
  * KHUNG rỗng — cùng cách `#theme-mockup-gradient` để Workflow tự cập nhật.
  *
  * MÀU: dùng `sky` (accent CHUNG của Settings, xem `peer-checked:bg-sky-500` ở các panel khác) —
