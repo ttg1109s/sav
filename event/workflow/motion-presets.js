@@ -82,6 +82,20 @@ const workflowMotionPresets = {
         workflowAppSettings.navigateTo(() => workflowAppSettings._renderMotionEdit()); // liên tuyến domain
     },
 
+    /** MỚI (25/09/2026, Giang chọn) — "random thông minh": sinh 1 preset NGẪU NHIÊN HỢP LÝ (Transition êm/mạnh có trọng
+     * số, Point Move kiểu Ken Burns mạch lạc không lộ mép, React Beat nhẹ — xem core/motion-presets.js::
+     * buildRandomMotionPreset()), thêm vào danh sách rồi mở NGAY màn Edit để xem/chỉnh tiếp (CÙNG luồng addPreset()).
+     * Tên "Random N" (N = vị trí mới trong danh sách, cùng cách đánh số tên mặc định). */
+    async addRandomPreset() {
+        const presets = appState.get('motionPresets');
+        const preset = buildRandomMotionPreset(tFormat('motionPresetsDrawer.randomName', { n: presets.length + 1 })); // core/motion-presets.js
+        appState.set('motionPresets', [...presets, preset]);
+        console.log(`writer: "workflowMotionPresets.addRandomPreset", page: "motionPresets", content: "random preset ${preset.id} (${preset.transitionType}, ${preset.pointMoveRunMode}, ${preset.pointMoves.length} point)"`);
+        await this._persist();
+        this._editingId = preset.id;
+        workflowAppSettings.navigateTo(() => workflowAppSettings._renderMotionEdit()); // liên tuyến domain
+    },
+
     /** Ứng tap 1 dòng preset trong danh sách — mở màn Edit.
      * @param {string} id */
     async tileClick(id) {

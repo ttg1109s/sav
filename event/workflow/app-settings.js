@@ -467,7 +467,9 @@ const workflowAppSettings = {
                     el.addEventListener('click', (e) => { e.stopPropagation(); eventBus.send({ router: 'motionPresets', type: 'motionPresets.quickDelete.click', payload: { id: el.dataset.motionPresetQuickdelete } }); });
                 });
                 const addBtn = body.querySelector('#btn-motion-list-add');
+                const addRandomBtn = body.querySelector('#btn-motion-list-add-random'); // MỚI 25/09/2026 — random thông minh
                 if (addBtn) addBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.add.click', payload: {} }));
+                if (addRandomBtn) addRandomBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.addRandom.click', payload: {} }));
             },
         );
     },
