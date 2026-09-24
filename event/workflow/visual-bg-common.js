@@ -16,6 +16,9 @@
 // MỚI (25/09/2026) — chuỗi owner MỜ của VBG khi dùng Image surface (event/workflow/visual-bg-photo-motion.js)
 // — surface giờ DÙNG CHUNG với Player Photo, chỉ so bằng chuỗi này để chặn chéo (xem docstring surface).
 const VISUAL_BG_IMAGE_SURFACE_OWNER = 'visualBg';
+// MỚI (25/09/2026, đợt 5) — chuỗi owner MỜ của VBG khi dùng Video surface (event/workflow/video-motion-surface.js)
+// — surface DÙNG CHUNG với Player Video.
+const VISUAL_BG_VIDEO_SURFACE_OWNER = 'visualBg';
 let visualBgSettingsPanelEl = null;
 let visualBgGradientPanelEl = null;
 
@@ -219,8 +222,12 @@ const workflowVisualBg = {
         this._listIndex = -1;
         this._photoRecord = null;
         this._currentVideoKey = null;
+        this._videoLoopLastTimeSec = 0;
         this._killStuckRecoveryTimer();
         this._killVideoFixTimeTimer();
+        // MỚI (25/09/2026, đợt 5) — trả Video surface nếu VBG Video đang giữ (dừng Motion, đưa DOM A/B về "nhà", gỡ
+        // `.motion-layer`) TRƯỚC khi dọn nguồn video — no-op nếu owner khác (Player) đang giữ.
+        if (typeof workflowVideoMotionSurface !== 'undefined') workflowVideoMotionSurface.release(VISUAL_BG_VIDEO_SURFACE_OWNER); // event/workflow/video-motion-surface.js
         if (typeof workflowVideoPlayer !== 'undefined') workflowVideoPlayer.clearBgVideoSource();
         applyVisualBgImageToDOM(false, '');
         if (visualBgImageObjectUrl) revokeBlobUrl(visualBgImageObjectUrl);
@@ -282,6 +289,7 @@ const workflowVisualBg = {
         }
         if (appState.get('playbackStoppedAtPlaylistEnd')) { this._revertToPlaceholder(); return; }
         syncVisualBgVideoPlayback(true);
+        workflowVideoMotionSurface.pause(VISUAL_BG_VIDEO_SURFACE_OWNER); // MỚI (25/09/2026, đợt 5) — Motion VBG Video đứng yên theo Song, event/workflow/video-motion-surface.js
     },
 
     /** Đọc key THẬT của 1 origin tại thời điểm gọi — 1 key (single) hay N key (group/multi/
@@ -892,7 +900,7 @@ const workflowVisualBg = {
         // SỬA (24/09/2026) — hàng Motion giờ là nút mở màn Chọn (không còn select) — chỉ ẩn/hiện + điền tên
         // preset đang gắn ("None" nếu chưa gắn / preset đã bị xoá).
         const motionBtn = q('#setting-visual-bg-open-motion-picker');
-        if (motionBtn) motionBtn.classList.toggle('hidden', cfg.type !== 'photo');
+        if (motionBtn) motionBtn.classList.toggle('hidden', cfg.type !== 'photo' && cfg.type !== 'video'); // SỬA 25/09/2026 (đợt 5) — VBG Video cũng có Motion
         const motionNameEl = q('[data-visual-bg-motion-name]');
         const motionPreset = findMotionPresetById(appState.get('motionPresets'), cfg.motionPresetId); // core/motion-presets.js
         if (motionNameEl) motionNameEl.textContent = motionPreset ? motionPreset.name : t('visualBgSettingsDrawer.motion.none');
@@ -940,6 +948,8 @@ const workflowVisualBg = {
         if (typeof workflowVisualBgPhotoMotion !== 'undefined') {
             workflowVisualBgPhotoMotion.updatePreset(VISUAL_BG_IMAGE_SURFACE_OWNER, this._currentMotionPreset(), this._photoRecord ? this._computePhotoAdvanceMs(this._photoRecord) : 0); // SỬA 25/09/2026 — kèm owner (no-op nếu Player Photo đang giữ surface)
         }
+        // MỚI (25/09/2026, đợt 5) — VBG Video: áp SỐNG preset mới lên video đang hiện (Point Move + React Beat).
+        if (typeof this._refreshVideoMotion === 'function') this._refreshVideoMotion(); // event/workflow/visual-bg-video.js — tự no-op nếu chưa có video VBG nào đang hiện
     },
 
     /** Toggle "Đồng bộ tốc độ phát" — CHỈ có ý nghĩa khi type='video' (VBG mặc định KHÔNG theo
@@ -952,6 +962,7 @@ const workflowVisualBg = {
         await this._persist();
         if (appConfigVisualBg.getAll().type === 'video' && !appState.get('isVideoPlayerMode') && typeof this._applyVideoPlaybackSpeedSetting === 'function') {
             this._applyVideoPlaybackSpeedSetting(); // event/workflow/visual-bg-video.js
+            this._refreshVideoMotion(); // MỚI (25/09/2026, đợt 5) — Point Move tính lại theo playbackRate mới, KHÔNG chạy lại hành trình
         }
     },
 

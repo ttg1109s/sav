@@ -1,6 +1,6 @@
 /**
  * event/workflow/video-motion-surface.js — "VIDEO SURFACE": tầng 2 "bề mặt media" cho nội dung VIDEO A/B,
- * DÙNG CHUNG cho mọi nơi tiêu thụ nội dung video nền (hiện: Player Video; kế tiếp — đợt 5: VBG Video).
+ * DÙNG CHUNG cho mọi nơi tiêu thụ nội dung video nền (Player Video — đợt 4; VBG Video — đợt 5).
  * MỚI (25/09/2026, đợt 4 — Giang duyệt mô hình 3 tầng: Motion (cơ chế) -> Bề mặt media -> Nơi tiêu thụ).
  *
  * NGUYÊN TẮC TUA VÍT: file này NẰM NGOÀI domain Motion — biết nội dung là video A/B (layer A = `bgVideoElement`
@@ -37,6 +37,22 @@ const workflowVideoMotionSurface = {
      * @param {string} owner @returns {boolean} */
     hasLease(owner) {
         return !!owner && this._owner === owner && workflowMotionStage.isCurrent(this._stageToken); // event/workflow/motion-stage.js
+    },
+
+    /** MỚI (đợt 5) — DOM A/B đang gắn trên surface (bất kể owner nào) hay không — cơ chế đổi nguồn
+     * (`workflowVideoPlayer.swapBgVideoSource()`) dùng để biết layer đang ở chế độ `.motion-layer` (layer B mặc
+     * định `opacity:0`, cần `.me-current` mới thấy). @returns {boolean} */
+    isAttached() {
+        return !!this._owner;
+    },
+
+    /** MỚI (đợt 5) — đưa layer B (cầu nối thumb) lên làm "current" NGAY — dùng khi nơi tiêu thụ vừa mượn surface
+     * trong lúc layer B ĐANG hiện sẵn 1 thumb tĩnh (vd VBG Video: thumb placeholder lúc Song còn dừng) — gắn vào
+     * `.motion-layer` sẽ ẩn nó (opacity 0) cho tới khi lượt đổi nguồn kịp decode lại, gây chớp đen. Không đụng
+     * nội dung layer. No-op nếu sai owner. @param {string} owner */
+    showBridgeLayer(owner) {
+        if (!this.hasLease(owner) || !visualBgImageElement) return;
+        visualBgImageElement.classList.add('me-current'); // core/dom-refs.js
     },
 
     /** Mượn surface: gắn DOM A/B vào lớp React Beat + mượn Stage. Cùng owner gọi lại -> chỉ cập nhật getter.

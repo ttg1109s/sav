@@ -7,6 +7,20 @@
  * event/workflow/video-player.js (workflowVideoPlayer), dùng chung cho cả Video Player mode thật
  * lẫn Visual Background trang trí.
  *
+ * ==== MỚI (25/09/2026, đợt 5 Motion — Giang duyệt mô hình 3 tầng) ====
+ * VBG Video giờ có Motion (Transition + Point Move + React Beat) qua Video surface DÙNG CHUNG với Player Video
+ * (event/workflow/video-motion-surface.js, owner `VISUAL_BG_VIDEO_SURFACE_OWNER`). File này CHỈ giữ QUYẾT ĐỊNH
+ * của VBG (nguyên tắc tua vít):
+ *   - 1 preset (`motionPresetId`) lái cả 3 mảng — CÙNG VBG Photo; React Beat theo Song (getter
+ *     `_getMotionBeatPreset()`, event/workflow/visual-bg-photo.js), decay tốc độ 1 (cùng VBG Photo).
+ *   - Video ĐẦU (chưa có video VBG nào đang hiện) -> hiện TĨNH qua cầu thumb, KHÔNG Transition; các lượt đổi
+ *     video sau (slideshow/perSong) -> Transition, kẹp theo `fixtime` (Giang chốt) nếu đang cycle + fixtime.
+ *   - Point Move: trải theo thời lượng THẬT của video (chia `playbackRate` thật, kẹp `fixtime`), kích hoạt lúc
+ *     video sẵn sàng, CHẠY LẠI mỗi vòng lặp (Giang chốt) — phát hiện qua 'timeupdate' lùi về đầu (bắt được CẢ
+ *     loop native lẫn tự lặp thủ công `_restartCurrentVideoInPlace()`), xem `_onVideoTimeUpdate()`.
+ *   - Đứng/chạy theo Song (syncPlaybackToAudio()). Thumb placeholder tĩnh (Song dừng) KHÔNG mượn surface.
+ * =====================================================================
+ *
  * NẠP SAU: event/workflow/visual-bg-common.js, core/visual-bg-video.js.
  */
 let visualBgVideoAudioPanelEl = null;
@@ -19,6 +33,7 @@ Object.assign(workflowVisualBg, {
     _currentVideoKey: null,  // key video ĐANG THẬT SỰ nạp trong bgVideoElement (khác appState.currentKey — của bài hát/video đang phát thật)
     _videoAudioRows: null,   // cache {key,name}[] đọc lúc mở panel "Âm thanh Video"
     _stuckRecoveryTimer: null, // fallback taskManager.once() khi key hiện tại mất giữa lúc cycle mode 'slideshow'
+    _videoLoopLastTimeSec: 0, // MỚI (đợt 5) — currentTime ở 'timeupdate' gần nhất, phát hiện vòng lặp mới (lùi về đầu)
 
     /** Video thật (nạp `bgVideoElement`/`play()`) chỉ nạp khi Song đang thật sự phát
      * (`!audioPlayer.paused`); nếu chưa, hiện thumb full-res tĩnh của item sẽ phát
@@ -178,9 +193,20 @@ Object.assign(workflowVisualBg, {
         bgVideoElement.loop = !isCyclingSlideshow && !hasAudioB;
         bgVideoElement.classList.remove('hidden');
         this._isSwappingVideo = true;
+        // MỚI (25/09/2026, đợt 5 Motion) — mượn Video surface (cùng owner gọi lại -> chỉ cập nhật getter). Video ĐẦU
+        // (chưa có video VBG nào đang hiện) -> hiện TĨNH qua cầu thumb (`isTransition=false`, không hook); đã có ->
+        // Transition qua hook, kẹp theo fixtime nếu đang cycle + fixtime (Giang chốt).
+        const isFirstVideo = this._currentVideoKey === null;
+        const motionPreset = this._currentMotionPreset(); // event/workflow/visual-bg-photo.js
+        workflowVideoMotionSurface.acquire(VISUAL_BG_VIDEO_SURFACE_OWNER, { getBeatPresetFn: () => this._getMotionBeatPreset() }); // event/workflow/video-motion-surface.js
+        if (isFirstVideo) workflowVideoMotionSurface.showBridgeLayer(VISUAL_BG_VIDEO_SURFACE_OWNER); // giữ thumb placeholder (nếu đang hiện) không bị .motion-layer ẩn mất
+        this._videoLoopLastTimeSec = 0;
+        const swapHooks = isFirstVideo ? null : {
+            runTransition: () => workflowVideoMotionSurface.runTransition(VISUAL_BG_VIDEO_SURFACE_OWNER, motionPreset, this._computeVideoTransitionCapMs(cfg, isCyclingSlideshow)),
+        };
         let record;
         try {
-            record = await workflowVideoPlayer.swapBgVideoSource(videoKey, true, null, true);
+            record = await workflowVideoPlayer.swapBgVideoSource(videoKey, !isFirstVideo, null, true, false, swapHooks); // SỬA 25/09/2026 — video đầu: isTransition=false (lần hiện tĩnh qua cầu thumb của Video surface)
         } catch (e) {
             // SỬA (Giang báo bug "chọn Video nền lúc Song đang phát -> không hiện, đổi qua Photo rồi
             // quay lại Video vẫn không hiện") — TRƯỚC ĐÂY dòng `this._isSwappingVideo = false` nằm NGAY
@@ -210,7 +236,63 @@ Object.assign(workflowVisualBg, {
             this._applyVideoAudioSettingToElement(videoKey);
             this._applyVideoPlaybackSpeedSetting();
             this._maybeScheduleVideoFixTime(cfg, isCyclingSlideshow);
+            // MỚI (đợt 5) — Point Move cho video MỚI (duration + playbackRate thật đã có) + React Beat theo preset VBG.
+            this._videoLoopLastTimeSec = 0;
+            this._activateVideoPointMove(true);
+            workflowVideoMotionSurface.syncBeat(VISUAL_BG_VIDEO_SURFACE_OWNER); // event/workflow/video-motion-surface.js
         });
+    },
+
+    // ===================== Motion VBG Video (MỚI 25/09/2026, đợt 5) — chỉ QUYẾT ĐỊNH của VBG =====================
+
+    /** Thời lượng hành trình Point Move (ms thực): thời lượng video chia `playbackRate` THẬT đang áp (VBG chỉ theo
+     * tốc độ chung khi bật `videoSyncPlaybackSpeed`, xem `_applyVideoPlaybackSpeedSetting()`), kẹp `durationSeconds`
+     * nếu fixtime + đang cycle (video bị cắt sớm theo giờ thực). Chưa có duration -> 0 (Runner bỏ qua Point Move).
+     * @param {object} cfg @param {boolean} isCyclingSlideshow @returns {number} */
+    _computeVideoPointMoveAdvanceMs(cfg, isCyclingSlideshow) {
+        const durationSec = bgVideoElement.duration;
+        if (!isFinite(durationSec) || durationSec <= 0) return 0;
+        const realMs = (durationSec * 1000) / (bgVideoElement.playbackRate || 1);
+        if (cfg.durationMode === 'fixtime' && isCyclingSlideshow) return Math.min(realMs, cfg.durationSeconds * 1000);
+        return realMs;
+    },
+
+    /** Kẹp Transition (Giang chốt: theo fixtime) — fixtime + đang cycle -> `durationSeconds`, còn lại 0 (không kẹp).
+     * @param {object} cfg @param {boolean} isCyclingSlideshow @returns {number} */
+    _computeVideoTransitionCapMs(cfg, isCyclingSlideshow) {
+        return cfg.durationMode === 'fixtime' && isCyclingSlideshow ? cfg.durationSeconds * 1000 : 0;
+    },
+
+    /** Kích hoạt Point Move cho video VBG đang hiện — `isNewContent` true: video mới / vòng lặp mới (chạy lại từ
+     * đầu); false: đổi preset/tốc độ giữa chừng (giữ mốc). Song đang dừng -> đứng yên luôn. No-op nếu chưa có video.
+     * @param {boolean} isNewContent */
+    _activateVideoPointMove(isNewContent) {
+        if (this._currentVideoKey === null) return;
+        const cfg = appConfigVisualBg.getAll();
+        const isCyclingSlideshow = cfg.listPlaybackMode === 'slideshow' && this._effectiveCount(cfg.source.list) > 1;
+        const preset = this._currentMotionPreset(); // event/workflow/visual-bg-photo.js
+        const advanceMs = this._computeVideoPointMoveAdvanceMs(cfg, isCyclingSlideshow);
+        if (isNewContent) workflowVideoMotionSurface.activatePointMoveForNewContent(VISUAL_BG_VIDEO_SURFACE_OWNER, preset, advanceMs); // event/workflow/video-motion-surface.js
+        else workflowVideoMotionSurface.activatePointMoveForPresetChange(VISUAL_BG_VIDEO_SURFACE_OWNER, preset, advanceMs);
+        if (audioPlayer.paused) workflowVideoMotionSurface.pause(VISUAL_BG_VIDEO_SURFACE_OWNER);
+    },
+
+    /** Preset/tốc độ VBG vừa đổi giữa lúc video đang hiện — gọi từ `changeMotionPresetId()`/`changeSyncPlaybackSpeed()`
+     * (event/workflow/visual-bg-common.js). */
+    _refreshVideoMotion() {
+        this._activateVideoPointMove(false);
+        workflowVideoMotionSurface.syncBeat(VISUAL_BG_VIDEO_SURFACE_OWNER); // event/workflow/video-motion-surface.js
+    },
+
+    /** Ứng 'visualBg.video.timeupdate' (event/listener/visual-bg.js, chỉ khi KHÔNG ở Video Player mode) — phát hiện
+     * video LÙI về đầu (loop native `loop=true` KHÔNG bắn 'ended'; tự lặp thủ công `_restartCurrentVideoInPlace()`
+     * gán currentTime=0) -> chạy LẠI Point Move từ đầu (Giang chốt "Point move lặp lại"). Ngưỡng 0.5s tránh nhiễu.
+     * @param {number} currentTimeSec */
+    _onVideoTimeUpdate(currentTimeSec) {
+        if (appConfigVisualBg.getAll().type !== 'video' || this._currentVideoKey === null || this._isSwappingVideo) return;
+        const wrapped = currentTimeSec + 0.5 < this._videoLoopLastTimeSec;
+        this._videoLoopLastTimeSec = currentTimeSec;
+        if (wrapped) this._activateVideoPointMove(true);
     },
 
     /** Đọc cấu hình audio riêng của `videoKey` rồi gán thẳng `bgVideoElement.muted`/`.volume`. Gọi
@@ -264,6 +346,7 @@ Object.assign(workflowVisualBg, {
      * @param {string} videoKey
      */
     _resumeVideoWithDelayedAudio(videoKey) {
+        workflowVideoMotionSurface.resume(VISUAL_BG_VIDEO_SURFACE_OWNER); // MỚI (đợt 5) — Motion chạy tiếp theo Song, event/workflow/video-motion-surface.js
         bgVideoElement.muted = true;
         setVideoBgGain(0);
         bgVideoElement.play().catch(() => {});
@@ -284,6 +367,9 @@ Object.assign(workflowVisualBg, {
         const key = this._currentVideoKey;
         if (!key) return;
         this._currentVideoKey = null;
+        // MỚI (đợt 5) — placeholder tĩnh KHÔNG mượn surface: trả trước (dừng Motion, đưa DOM A/B về "nhà" — layer B
+        // hết `.motion-layer` nên thumb tĩnh hiện được bình thường). Song phát lại -> `_playVideoKey()` mượn lại.
+        workflowVideoMotionSurface.release(VISUAL_BG_VIDEO_SURFACE_OWNER); // event/workflow/video-motion-surface.js
         if (typeof workflowVideoPlayer !== 'undefined') await workflowVideoPlayer.showStaticBgThumb(key);
     },
 

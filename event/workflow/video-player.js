@@ -91,7 +91,7 @@ const workflowVideoPlayer = {
      *   giữ NGUYÊN hành vi đang ổn định — Giang chốt lấy nhánh đó làm chuẩn, không đụng) — CHỈ
      *   `workflowVisualBg._playVideoKey()` truyền `true`.
      *   [MỞ RỘNG 21/09/2026] Video Player mode giờ CŨNG truyền `hideUntilReady=true` nhưng CHỈ ở lần VÀO mode
-     *   (`isTransition=false`) và chỉ khi record có `thumbFullBlob` — xem `isVideoPlayerModeEntry` ở đầu hàm:
+     *   (`isTransition=false`) và chỉ khi record có `thumbFullBlob` — xem `isSurfaceEntry` ở đầu hàm (đổi tên 25/09/2026 — giờ theo "đang trên Video surface", áp cho CẢ VBG Video):
      *   decode thumb full-res vào layer B, ẩn video tới 'playing', KHÔNG Transition. Next/Prev vẫn `false`.
      * @param {boolean} [skipAutoplay=false] - MỚI (08/09/2026, Game Mode gate, phản hồi Giang
      *   "toàn bộ case không được phát trước khi cooldown xong") — gán poster/src NHƯ CŨ nhưng
@@ -127,9 +127,14 @@ const workflowVideoPlayer = {
         // nhỏ) phủ TRÊN layer B nên full-res không bao giờ được thấy. Record cũ thiếu `thumbFullBlob` -> không có
         // gì để lộ, KHÔNG ẩn video (giữ poster như trước). Visual Background (không ở Video Player mode) KHÔNG
         // đổi — `hideUntilReady`/`isTransition` vẫn theo đúng tham số truyền vào.
-        const isInVideoPlayerMode = appState.get('isVideoPlayerMode');
-        const isVideoPlayerModeEntry = !isTransition && hideUntilReady && isInVideoPlayerMode && !!record.thumbFullBlob;
-        const hideVideoUntilReady = hideUntilReady && (!isInVideoPlayerMode || isVideoPlayerModeEntry);
+        // SỬA (25/09/2026, đợt 5 Motion) — điều kiện "layer A/B đang nằm trên Video surface" (DOM đã gắn vào
+        // `motionEngineReactLayer`, mang `.motion-layer`) THAY cho `isVideoPlayerMode`: giờ CẢ Player Video LẪN VBG
+        // Video đều mượn Video surface (event/workflow/video-motion-surface.js). Với Player: surface được mượn ở
+        // startFromPlaylist() TRƯỚC khi hàm này chạy -> tương đương điều kiện cũ. Tên biến giữ nghĩa cũ ("lần hiện
+        // TĨNH đầu tiên qua cầu thumb, không Transition"), bỏ chữ "VideoPlayerMode".
+        const isOnMotionSurface = workflowVideoMotionSurface.isAttached(); // event/workflow/video-motion-surface.js
+        const isSurfaceEntry = !isTransition && hideUntilReady && isOnMotionSurface && !!record.thumbFullBlob;
+        const hideVideoUntilReady = hideUntilReady && (!isOnMotionSurface || isSurfaceEntry);
 
         // MỚI (Giang yêu cầu Transition Video Player mode — "video và bg image là layer A/B, mô
         // hình giống VBG") — CHỈ áp dụng lúc THẬT SỰ đang ở Video Player mode (hàm này DÙNG CHUNG
@@ -140,7 +145,7 @@ const workflowVideoPlayer = {
         // Transition layer A/B", đổi tên cho khớp.
         const hasTransitionHook = isTransition && !!(hooks && typeof hooks.runTransition === 'function');
 
-        if ((isTransition || isVideoPlayerModeEntry) && record.thumbFullBlob) {
+        if ((isTransition || isSurfaceEntry) && record.thumbFullBlob) {
             const forcedUrl = await decodeForcedBgThumb(record.thumbFullBlob); // core/video-player.js — TỰ đợi double-rAF, đảm bảo đã PAINT xong tới đây
             if (this._forcedBgObjectUrl) { try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {} }
             this._forcedBgObjectUrl = forcedUrl;
@@ -159,7 +164,7 @@ const workflowVideoPlayer = {
             // Lần VÀO mode (không Transition): layer B mang `.motion-layer` (attachVideoPlayerMotionToSharedReactLayer())
             // nên MẶC ĐỊNH opacity:0 — phải gán `.me-current` (opacity 1, z-index 2) thì mới thấy được lúc video bị ẩn.
             // `finish()` bên dưới gỡ lại đúng cặp này khi video thật đã 'playing'.
-            if (isVideoPlayerModeEntry && visualBgImageElement) visualBgImageElement.classList.add('me-current');
+            if (isSurfaceEntry && visualBgImageElement) visualBgImageElement.classList.add('me-current');
 
             // MỚI (Giang yêu cầu Transition) — layer B ĐÃ có nội dung MỚI (dòng applyVisualBgImageToDOM()
             // ngay trên) — layer A (bgVideoElement) vẫn ĐANG đứng hình frame CŨ (chỉ pause(), CHƯA
@@ -224,9 +229,9 @@ const workflowVideoPlayer = {
                 // Lần vào Video Player mode: nếu lượt swap này đã bị lượt mới hơn thay thế (Next/Prev/chọn video khác)
                 // hoặc đã thoát mode (clearBgVideoSource() đã ẩn + dọn) thì KHÔNG gỡ ẩn/đụng class layer nữa — sẽ hiện
                 // video đã bị dọn, hoặc phá state lượt mới (nó tự có `finish()` riêng).
-                if (isVideoPlayerModeEntry && (swapGeneration !== this._mediaGeneration || !appState.get('isVideoPlayerMode'))) { resolve(); return; }
+                if (isSurfaceEntry && (swapGeneration !== this._mediaGeneration || !workflowVideoMotionSurface.isAttached())) { resolve(); return; } // SỬA 25/09/2026 — "đã trả surface" thay "đã thoát Video Player mode" (VBG Video cũng dùng)
                 if (hideVideoUntilReady) bgVideoElement.classList.remove('hidden'); // video thật đã có khung hình (hoặc hết 2s chờ) -> gỡ ẩn, dùng CHUNG đúng 1 mốc sẵn có, không thêm cơ chế chờ riêng
-                if (isVideoPlayerModeEntry) { // lần VÀO mode: trả `.me-current` về video, layer B về lớp dự phòng nằm dưới (cùng cặp `finish()` của nhánh Transition ngay dưới)
+                if (isSurfaceEntry) { // lần hiện TĨNH đầu (vào Player mode / VBG Video hiện video đầu): trả `.me-current` về video, layer B về lớp dự phòng nằm dưới (cùng cặp `finish()` của nhánh Transition ngay dưới)
                     bgVideoElement.classList.add('me-current');
                     if (visualBgImageElement) visualBgImageElement.classList.remove('me-current');
                 }
