@@ -368,7 +368,7 @@
     <script src="lang/patch/patch-common.js?v=20260924v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260921v7"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260922v2"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260924m1"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260925r2"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260921v9"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 2 drawer con Song/Photo & Album, xem plan-v12-multimedia-decisions.md). -->
@@ -464,7 +464,7 @@
     <script src="components/subtitle-settings-drawer.js?v=20260923v1"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Motion Settings Drawer (Cấu hình Transition/Ken Burns/
          React Beat Audio, hệ preset độc lập — xem components/motion-settings-drawer.js). -->
-    <script src="components/motion-settings-drawer.js?v=20260924m1"></script>
+    <script src="components/motion-settings-drawer.js?v=20260925r2"></script>
     <script src="components/visual-bg-settings-drawer.js?v=20260925v5"></script>
     <script src="components/visual-bg-gradient-drawer.js?v=20260924r1"></script>
     <script src="components/visual-bg-video-audio-drawer.js?v=20260923v1"></script>
@@ -739,7 +739,7 @@
     <script src="core/motion-engine.js?v=20260903v4"></script>
     <!-- Core THUẦN cho hệ "Cấu hình Motion" (preset đặt tên được, độc lập khỏi Visual Background)
          — xem core/motion-presets.js. -->
-    <script src="core/motion-presets.js?v=20260925s1"></script>
+    <script src="core/motion-presets.js?v=20260925r1"></script>
     <!-- MỚI (Giang yêu cầu "Player") — hằng số thuần PLAYER_RESOLUTION_MODES/PLAYER_MOTION_SLOTS +
          2 hàm resolve tên field, xem core/player-display-settings.js. Không phụ thuộc file nào. -->
     <script src="core/player-display-settings.js?v=20260924m1"></script>
@@ -1066,8 +1066,8 @@
          XOÁ) — xem event/workflow/motion-presets.js, event/router/motion-presets.js. Không
          cần listener riêng — mọi wiring DOM động nằm trong event/workflow/app-settings.js
          (_render*() onMount, liên tuyến domain, xem docstring file đó). -->
-    <script src="event/workflow/motion-presets.js?v=20260925f1"></script>
-    <script src="event/router/motion-presets.js?v=20260924m1"></script>
+    <script src="event/workflow/motion-presets.js?v=20260925r1"></script>
+    <script src="event/router/motion-presets.js?v=20260925r1"></script>
 
     <!-- MỚI (Giang chỉ ra: "đã tách bạch rõ trách nhiệm motion phải quản lý việc apply live bất kể
          nơi tiêu thụ... sau này có N nơi tiêu thụ thì cũng ko thể nhân bản để áp dụng") — 3 module
@@ -1187,7 +1187,7 @@
          workflowFileManagerFolderBrowser/workflowFileManagerStorage đã nạp ở trên — KHÔNG bắt
          buộc thứ tự nạp CHẶT với các file đó, vì mọi tham chiếu đều nằm TRONG thân hàm, chỉ chạy
          SAU khi cả trang đã nạp xong, không chạy ngay lúc parse). -->
-    <script src="event/workflow/app-settings.js?v=20260924m1"></script>
+    <script src="event/workflow/app-settings.js?v=20260925r1"></script>
     <script src="event/router/app-settings.js?v=20260924m1"></script>
     <!-- Cụm "placeholderPanels" (đóng Game/Statis). Photo đã hợp nhất vào Playlist, không còn cụm
          "photoPanel" riêng. -->
