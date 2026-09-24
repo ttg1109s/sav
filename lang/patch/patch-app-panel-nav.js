@@ -131,7 +131,7 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.pagination.place.folderBrowser': 'Folder browser',
     'appSettings.pagination.place.folderBrowser.hint': 'Folder grid',
     'appSettings.pagination.place.motionPresets': 'Motion presets',
-    'appSettings.pagination.place.motionPresets.hint': 'Settings > System > Motion list',
+    'appSettings.pagination.place.motionPresets.hint': 'Settings > System > Motion list + Motion pickers', // SỬA 24/09/2026 — màn Chọn Motion (VBG/Player) dùng CHUNG nơi này
     'appSettings.pagination.place.filterPresets': 'Filter presets',
     'appSettings.pagination.place.filterPresets.hint': 'Settings > Playlist > Filter list',
     'appSettings.pagination.place.eqPresets': 'EQ presets',

@@ -258,7 +258,7 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
 
     // Namespace 'motionPresetsDrawer' — hệ "Cấu hình Motion" độc lập (event/workflow/
     // motion-presets.js/components/motion-settings-drawer.js). Lối vào DUY NHẤT: System > Motion
-    // -> thẳng danh sách preset. Đăng ký nơi tiêu thụ ("Áp dụng cho") nằm trong màn Edit.
+    // -> thẳng danh sách preset (Quản lý); nơi tiêu thụ mở CÙNG danh sách ở chế độ Chọn (picker, 24/09/2026).
     'motionPresetsDrawer.list.title': 'Motion',
     'motionPresetsDrawer.defaultName': 'Motion {n}',
     'motionPresetsDrawer.migratedName': 'Default',
@@ -271,11 +271,12 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'motionPresetsDrawer.edit.namePlaceholder': 'Configuration name',
     'motionPresetsDrawer.edit.reset.label': 'Reset to defaults',
     'motionPresetsDrawer.edit.delete.label': 'Delete this configuration',
-    'motionPresetsDrawer.apply.groupTitle': 'Apply to',
-    'motionPresetsDrawer.apply.photoVisualBg.label': 'Photo visual background',
-    'motionPresetsDrawer.apply.player.label': 'Player',
-    'motionPresetsDrawer.apply.subscribe.label': 'Subscribe',
-    'motionPresetsDrawer.apply.unsubscribe.label': 'Unsubscribe',
+    // XOÁ (24/09/2026, Giang yêu cầu — xoá cơ chế đăng ký Motion vào nơi tiêu thụ) — 5 key
+    // 'motionPresetsDrawer.apply.*' (nhóm "Apply to" ở màn Edit). THAY bằng màn CHỌN (picker) — nơi tiêu
+    // thụ mở thẳng danh sách Motion, xem components/motion-settings-drawer.js::renderMotionPickerBody().
+    'motionPresetsDrawer.picker.none': 'None',
+    'motionPresetsDrawer.picker.empty': 'No configurations yet — create one in Settings > System > Motion.',
+    'motionPresetsDrawer.picker.apply.label': 'Apply',
 
     // MỚI (Giang yêu cầu "Player") — màn Settings > Visualizer Screen > Player > Video/Photo, xem
     // components/settings/player-display-settings.js. CÙNG khuôn 'visualBgSettingsDrawer.motion.none'
