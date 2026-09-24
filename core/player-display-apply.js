@@ -31,7 +31,12 @@
  * (chuỗi rỗng) trả CSS tĩnh mặc định (`object-fit: cover`/`background-size: cover`,
  * assets/css/base.css) lại quyền cho VBG.
  *
- * NẠP SAU: core/dom-refs.js (bgVideoElement/visualBgImageElement/videoPlayerMotionPointMoveElement/
+ * SỬA (25/09/2026, đợt 3 Motion) — PHOTO không còn áp/gỡ gì lên `visualBgImageElement` (Player Photo giờ hiện
+ * qua Image surface dùng chung, event/workflow/visual-bg-photo-motion.js): 2 hàm Photo apply/clear ĐÃ XOÁ, thay
+ * bằng `computePhotoPlayerBackgroundSizeCss()` CHỈ TÍNH chuỗi `background-size` — phần "apply/clear" ở trên từ
+ * nay CHỈ còn đúng cho VIDEO.
+ *
+ * NẠP SAU: core/dom-refs.js (bgVideoElement/visualBgImageElement/videoPlayerMotionPointMoveElement/visualBgPhotoMotionContainer/
  * visualBgImageHomeParent,NextSibling/videoPlayerMotionPointMoveHomeParent,NextSibling/
  * motionEngineReactLayer), core/player-display-settings.js
  * (resolvePlayerObjectFitCss()/resolvePlayerBackgroundSizeCss()), core/motion-engine.js
@@ -85,25 +90,21 @@ function applyVideoPlayerResolutionToLayerBDOM(resolutionMode) {
     visualBgImageElement.style.backgroundSize = resolvePlayerBackgroundSizeCss(resolutionMode, naturalWidth, naturalHeight, containerWidth, containerHeight); // core/player-display-settings.js
 }
 
-/** Áp Resolution lên `visualBgImageElement` — gọi lúc mỗi lần ảnh MỚI hiện ra trong Photo Player
- * mode (vào mode lần đầu HOẶC Next/Prev — `trueMax` cần biết kích thước GỐC của ĐÚNG ảnh đang hiện,
- * KHÁC Video) + mỗi lần Settings đổi sống (dùng lại kích thước ảnh đang hiện hiện tại). Photo Player
- * mode CHỈ có 1 layer (chính ảnh đang hiện) — KHÔNG có layer A/B như Video Player mode.
+/** SỬA (25/09/2026, đợt 3 Motion — Player Photo chuyển sang Image surface dùng chung, event/workflow/visual-bg-
+ * photo-motion.js) — THAY `applyPhotoPlayerResolutionToDOM()`/`clearPhotoPlayerResolutionFromDOM()` (từng áp/gỡ
+ * thẳng `background-size` trên `visualBgImageElement` — Player Photo KHÔNG còn dùng element đó nữa). Giờ CHỈ
+ * TÍNH chuỗi `background-size` cho 1 ảnh, việc áp lên ĐÚNG layer (2 layer A/B luân phiên, mỗi layer 1 ảnh với
+ * kích thước gốc RIÊNG — `trueMax`) do surface làm (option `backgroundSize` của `showImage()`). Không còn gì
+ * cần "gỡ" lúc thoát mode — surface tự xoá `background-size` khi dừng.
+ * Đo khung theo `visualBgPhotoMotionContainer` (khung CHỨA 2 layer ảnh); đang ẩn (0) -> fallback viewport.
  * @param {string} resolutionMode - appConfigPlayerDisplay.getAll().photoResolutionMode
- * @param {number|null|undefined} naturalWidth - record.width (ảnh đang hiện, có thể thiếu ở record cũ)
- * @param {number|null|undefined} naturalHeight - record.height */
-function applyPhotoPlayerResolutionToDOM(resolutionMode, naturalWidth, naturalHeight) {
-    if (!visualBgImageElement) return; // core/dom-refs.js
-    const containerWidth = visualBgImageElement.clientWidth || window.innerWidth; // element .hidden lúc đo (chưa kịp bỏ class) -> 0, fallback viewport
-    const containerHeight = visualBgImageElement.clientHeight || window.innerHeight;
-    visualBgImageElement.style.backgroundSize = resolvePlayerBackgroundSizeCss(resolutionMode, naturalWidth, naturalHeight, containerWidth, containerHeight); // core/player-display-settings.js
-}
-
-/** Gỡ override Resolution khỏi `visualBgImageElement` — gọi lúc THOÁT Photo Player mode (BẮT BUỘC,
- * xem docstring đầu file) — để CSS tĩnh mặc định (`background-size: cover`) quay lại phục vụ VBG. */
-function clearPhotoPlayerResolutionFromDOM() {
-    if (!visualBgImageElement) return;
-    visualBgImageElement.style.backgroundSize = '';
+ * @param {number|null|undefined} naturalWidth - record.width (có thể thiếu ở record cũ)
+ * @param {number|null|undefined} naturalHeight - record.height
+ * @returns {string} */
+function computePhotoPlayerBackgroundSizeCss(resolutionMode, naturalWidth, naturalHeight) {
+    const containerWidth = (visualBgPhotoMotionContainer && visualBgPhotoMotionContainer.clientWidth) || window.innerWidth; // core/dom-refs.js
+    const containerHeight = (visualBgPhotoMotionContainer && visualBgPhotoMotionContainer.clientHeight) || window.innerHeight;
+    return resolvePlayerBackgroundSizeCss(resolutionMode, naturalWidth, naturalHeight, containerWidth, containerHeight); // core/player-display-settings.js
 }
 
 /** Di chuyển `videoPlayerMotionPointMoveElement` (wrapper Point Move, bọc layer A `bgVideoElement`)

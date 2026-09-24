@@ -110,10 +110,12 @@ function updatePhotoPlayerPlayPauseIcon(isPlaying) {
  */
 const photoPlayerFakeMediaElement = {
     get currentTime() {
-        const { photoPlayerElapsedBeforePauseSec, photoPlayerStartedAtMs, photoPlayerPaused } = appState.get([
-            'photoPlayerElapsedBeforePauseSec', 'photoPlayerStartedAtMs', 'photoPlayerPaused',
+        const { photoPlayerElapsedBeforePauseSec, photoPlayerStartedAtMs, photoPlayerPaused, photoPlayerClockHeld } = appState.get([
+            'photoPlayerElapsedBeforePauseSec', 'photoPlayerStartedAtMs', 'photoPlayerPaused', 'photoPlayerClockHeld',
         ]);
-        return computePhotoPlayerElapsedSec(photoPlayerElapsedBeforePauseSec, photoPlayerStartedAtMs, photoPlayerPaused, performance.now());
+        // SỬA (25/09/2026) — đồng hồ đang GIỮ (chờ Transition xong, Giang chốt "transition xong mới đếm") tính
+        // như đang dừng: elapsed đứng yên (vd Prev "quá 3s" không bị Transition dài đánh lừa).
+        return computePhotoPlayerElapsedSec(photoPlayerElapsedBeforePauseSec, photoPlayerStartedAtMs, photoPlayerPaused || photoPlayerClockHeld, performance.now());
     },
     set currentTime(value) {
         // Nơi gọi hiện có CHỈ gán đúng giá trị 0 (repeat-single "tua về đầu", Prev "quá 3s thì về
