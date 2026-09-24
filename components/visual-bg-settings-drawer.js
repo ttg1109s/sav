@@ -79,7 +79,7 @@ function renderVisualBgPanelBody() {
                             <button type="button" id="setting-visual-bg-duration-seconds" class="rounded-lg px-3 py-1.5 text-xs outline-none w-20 text-right shrink-0" data-uitk="cardHoverBg inputBg inputBorder inputText">5s</button>
                         </div>
 
-                        <!-- Motion — CHỈ hiện khi type='photo'. SỬA (24/09/2026, Giang yêu cầu — xoá cơ chế
+                        <!-- Motion — hiện khi type='photo' HOẶC 'video' (SỬA 25/09/2026, đợt 5 — VBG Video có Motion qua Video surface). SỬA (24/09/2026, Giang yêu cầu — xoá cơ chế
                              đăng ký Motion vào nơi tiêu thụ) — KHÔNG còn select lọc preset đã đăng ký cho
                              'photoVisualBg': cả hàng là 1 nút, hiện TÊN preset đang gắn (hoặc "None"), tap ->
                              mở THẲNG danh sách Motion ở chế độ CHỌN (workflowVisualBg.openMotionPicker()).
