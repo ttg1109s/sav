@@ -37,8 +37,14 @@
  * đặt trong `#motion-list-pagination` cuối danh sách để Workflow wire (core/pagination-ui.js).
  * @param {Array} presets @param {string} [paginationHtml] */
 function renderMotionListBody(presets, paginationHtml) {
+    // MỚI (25/09/2026, Giang chọn "nút tự sinh cả preset ngẫu nhiên hợp lý") — nút Random CÙNG HÀNG với "Thêm" (Giang
+    // chốt): sinh preset random thông minh (core/motion-presets.js::buildRandomMotionPreset()) rồi mở Edit. "Thêm" chiếm
+    // phần rộng (flex-1), Random gọn bên phải, KHÁC tông màu (card trung tính) để phân biệt với hành động chính.
     const addRowHtml = `
-        <button type="button" id="btn-motion-list-add" class="w-full text-center px-4 py-3.5 rounded-2xl mb-2 text-sm font-semibold" data-uitk="btnAccentSoft accentSoftBorder">${t('motionPresetsDrawer.list.add.label')}</button>
+        <div class="flex gap-2 mb-2">
+            <button type="button" id="btn-motion-list-add" class="flex-1 min-w-0 truncate text-center px-4 py-3.5 rounded-2xl text-sm font-semibold" data-uitk="btnAccentSoft accentSoftBorder">${t('motionPresetsDrawer.list.add.label')}</button>
+            <button type="button" id="btn-motion-list-add-random" class="shrink-0 text-center px-4 py-3.5 rounded-2xl text-sm font-semibold" data-uitk="cardBg cardBorder cardHoverBg textSecondaryStrong" data-i18n="motionPresetsDrawer.list.addRandom.label">${t('motionPresetsDrawer.list.addRandom.label')}</button>
+        </div>
     `;
     if (presets.length === 0) {
         return addRowHtml + `<p class="text-sm text-center py-10 px-6" data-uitk="textSecondary">${t('motionPresetsDrawer.list.empty')}</p>`;
