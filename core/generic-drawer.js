@@ -22,7 +22,13 @@
  * Mọi hàm dưới đây = đúng 1 việc, nhận tham số, không tự đọc appState, không gọi core khác, không listener/timer.
  */
 const GENERIC_DRAWER_DEFAULT_Z_INDEX = Z_INDEX.GENERIC_DRAWER; // service/z-index.js
-const GENERIC_DRAWER_ANIM_MS = 300; // khớp transition transform/overlay 300ms (assets/css/base.css, components/generic-drawer.js)
+const GENERIC_DRAWER_ANIM_MS = 300; // trượt mở/đóng — khớp transition transform/overlay 300ms (assets/css/base.css, components/generic-drawer.js)
+// SỬA (24/09/2026, Giang báo "fade quá nhanh, gây giật") — tách thời lượng riêng cho co/giãn và fade chéo (trước dùng
+// chung 300ms với cú trượt), chậm hơn + đường cong mềm hơn. Easing chiều cao: kiểu "decelerate" nhấn mạnh (vào nhanh,
+// hạ cánh rất êm) — không có điểm dừng gắt như `ease-out` mặc định.
+const GENERIC_DRAWER_HEIGHT_ANIM_MS = 380;
+const GENERIC_DRAWER_CROSSFADE_MS = 460;
+const GENERIC_DRAWER_HEIGHT_EASING = 'cubic-bezier(0.2, 0, 0, 1)';
 const GENERIC_DRAWER_HEIGHT_ANIM_ID = 'generic-drawer-height';
 
 /** Gắn header/body/khung cho nội dung — phần CHUNG của open/update (hàm con nội bộ theo Rule 3c: chỉ phục vụ 2 hàm
@@ -87,12 +93,15 @@ function settleGenericDrawerHeightPx() {
 }
 
 /** Animate chiều cao hiển thị từ `fromPx` tới `toPx` — xong tự về chiều cao thật (WAAPI không `fill`).
- * @param {number} fromPx @param {number} toPx @param {number} durationMs */
-function animateGenericDrawerHeight(fromPx, toPx, durationMs) {
-    genericDrawerPanel.animate(
+ * SỬA (24/09/2026) — thêm `elapsedMs`: dựng lại ĐÚNG animation cũ rồi tua tới đúng thời điểm đang chạy -> tiếp tục
+ * liền mạch, không khựng (dùng khi Workflow phải huỷ tạm animation để đo mà đích không đổi).
+ * @param {number} fromPx @param {number} toPx @param {number} durationMs @param {number} [elapsedMs] */
+function animateGenericDrawerHeight(fromPx, toPx, durationMs, elapsedMs) {
+    const anim = genericDrawerPanel.animate(
         [{ height: `${fromPx}px` }, { height: `${toPx}px` }],
-        { duration: durationMs, easing: 'ease-out', id: GENERIC_DRAWER_HEIGHT_ANIM_ID },
+        { duration: durationMs, easing: GENERIC_DRAWER_HEIGHT_EASING, id: GENERIC_DRAWER_HEIGHT_ANIM_ID },
     );
+    anim.currentTime = elapsedMs || 0;
 }
 
 /** Fade chéo bước 1 — CHUYỂN (không clone) toàn bộ node header/body hiện tại sang lớp phủ tĩnh, giữ nguyên vị trí
@@ -110,12 +119,16 @@ function beginGenericDrawerCrossfade() {
 
 /** Fade chéo bước 2 — lớp phủ (nội dung cũ) mờ dần, header/body thật (nội dung mới) hiện dần. Gọi SAU khi gắn nội
  * dung mới. Lớp phủ giữ opacity 0 (`fill`) tới lúc `clearGenericDrawerCrossfade()`.
- * @param {number} durationMs */
+ * SỬA (24/09/2026, Giang báo "fade quá nhanh, gây giật") — bản cũ cho 2 lớp mờ/hiện ĐỒNG THỜI cùng đường cong: ở
+ * giữa hiệu ứng cả 2 cùng ~50% nên chữ cũ/mới chồng nhoè lên nhau, cả khối như chớp tối. Nay LỆCH NHỊP: nội dung cũ
+ * lui nhanh trong ~55% đầu (tăng tốc dần), nội dung mới vào TRỄ ~20% rồi hiện dần (giảm tốc dần) — phần chồng nhau
+ * ngắn, mỗi thời điểm luôn có 1 lớp chiếm ưu thế rõ.
+ * @param {number} durationMs - tổng thời lượng */
 function playGenericDrawerCrossfade(durationMs) {
-    const opts = { duration: durationMs, easing: 'ease-out' };
-    genericDrawerFadeLayer.animate([{ opacity: 1 }, { opacity: 0 }], { ...opts, fill: 'forwards' });
-    genericDrawerHeader.animate([{ opacity: 0 }, { opacity: 1 }], opts);
-    genericDrawerBody.animate([{ opacity: 0 }, { opacity: 1 }], opts);
+    genericDrawerFadeLayer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: durationMs * 0.55, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' });
+    const enter = { delay: durationMs * 0.2, duration: durationMs * 0.8, easing: 'cubic-bezier(0, 0, 0.2, 1)', fill: 'backwards' };
+    genericDrawerHeader.animate([{ opacity: 0 }, { opacity: 1 }], enter);
+    genericDrawerBody.animate([{ opacity: 0 }, { opacity: 1 }], enter);
 }
 
 /** Dọn lớp phủ fade chéo — dừng mọi animation opacity liên quan, bỏ nội dung cũ, ẩn lớp phủ. An toàn gọi nhiều lần. */
