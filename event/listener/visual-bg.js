@@ -111,4 +111,12 @@ if (bgVideoElement) {
         if (appState.get('isVideoPlayerMode')) return;
         eventBus.send({ router: 'visualBg', type: 'visualBg.video.ended', payload: {} });
     });
+    // MỚI (25/09/2026, đợt 5 Motion) — 'timeupdate' nguyên bản, CÙNG guard `isVideoPlayerMode` như 'ended' ngay
+    // trên (Video Player mode có listener riêng, event/listener/video-player.js) — VBG Video dùng để phát hiện video
+    // lùi về đầu (vòng lặp mới: loop native KHÔNG bắn 'ended') và chạy lại Point Move, xem
+    // workflowVisualBg._onVideoTimeUpdate() (event/workflow/visual-bg-video.js).
+    bgVideoElement.addEventListener('timeupdate', () => {
+        if (appState.get('isVideoPlayerMode')) return;
+        eventBus.send({ router: 'visualBg', type: 'visualBg.video.timeupdate', payload: { currentTime: bgVideoElement.currentTime } });
+    });
 }
