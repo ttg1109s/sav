@@ -151,8 +151,28 @@ const workflowVisualBg = {
     },
 
     /** Điểm đồng bộ DUY NHẤT giữa config và DOM — gọi lúc boot + sau mọi thay đổi. Màu LUÔN sơn
-     * (kể cả media rỗng); media chỉ áp khi `source.list` còn ít nhất 1 item sống. */
+     * (kể cả media rỗng); media chỉ áp khi `source.list` còn ít nhất 1 item sống.
+     * VÁ (25/09/2026, Giang duyệt) — CHẶN khi đang ở Video/Photo Player mode: VBG chỉ có nghĩa lúc Song phát,
+     * trước đây đổi cài đặt VBG (Settings) giữa lúc Player đang phát sẽ `clearMediaLayers()` + áp VBG ĐÈ lên
+     * nội dung Player (và `updateDOMBackground()` phá nền đen cưỡng chế của Video Player). Cấu hình vẫn được
+     * lưu bình thường ở nơi gọi — thoát Player mode sẽ áp ĐÚNG cấu hình mới qua `restoreAfterPlayerMode()`. */
     async applyCurrentVisualBg() {
+        if (appState.get('isVideoPlayerMode') || appState.get('isPhotoPlayerMode')) {
+            console.log('[workflowVisualBg] applyCurrentVisualBg() bỏ qua — đang ở Player mode, áp lại lúc thoát mode');
+            return;
+        }
+        return this._applyCurrentVisualBgNow();
+    },
+
+    /** MỚI (25/09/2026) — khôi phục VBG lúc THOÁT Video/Photo Player mode (event/workflow/video-player.js
+     * ::exitVideoPlayerMode(), event/workflow/photo-player.js::exitPhotoPlayerMode()) — 2 nơi đó gọi TRƯỚC khi hạ
+     * cờ mode (thứ tự dọn dẹp cố ý, xem docstring từng hàm) nên PHẢI bỏ qua chặn của `applyCurrentVisualBg()`. */
+    async restoreAfterPlayerMode() {
+        return this._applyCurrentVisualBgNow();
+    },
+
+    /** Thân gốc của `applyCurrentVisualBg()` (KHÔNG chặn) — chỉ gọi qua 2 hàm công khai ngay trên. */
+    async _applyCurrentVisualBgNow() {
         this.clearMediaLayers();
         updateDOMBackground();
         const cfg = appConfigVisualBg.getAll();
@@ -244,6 +264,10 @@ const workflowVisualBg = {
      * thật) -> quay về placeholder tĩnh của đúng video đang phát, xem `_revertToPlaceholder()`. */
     syncPlaybackToAudio() {
         if (this._isSwappingVideo) return;
+        // VÁ (25/09/2026, cùng đợt với chặn ở applyCurrentVisualBg()) — sự kiện 'play'/'pause' của Song vẫn tới
+        // đây lúc đang ở Player mode (vd `audioPlayer.pause()` khi VÀO mode bắn 'pause' TRỄ) — VBG không được đụng
+        // `bgVideoElement`/surface đang thuộc Player. Thoát mode -> restoreAfterPlayerMode() tự đồng bộ lại.
+        if (appState.get('isVideoPlayerMode') || appState.get('isPhotoPlayerMode')) return;
         const cfg = appConfigVisualBg.getAll();
         if (cfg.type !== 'video') {
             syncVisualBgVideoPlayback(audioPlayer.paused);

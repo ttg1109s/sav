@@ -14,7 +14,16 @@
  * Transition Video (2 field `videoTransitionNextPresetId`/`videoTransitionPrevPresetId`, preset
  * riêng cho next/prev) — chạy giữa layer A (`bgVideoElement`)/layer B (`visualBgImageElement`),
  * mirror mô hình layer A/B của VBG, dùng `createMotionTransitionRunner()` DÙNG CHUNG.
- * Transition/Point Move Photo (2 field còn lại) — CHƯA làm, chỉ ghi/đọc.
+ * Transition/Point Move Photo — ĐÃ làm (đợt 3, 25/09/2026), xem nhóm "Player Photo" + event/workflow/photo-player.js.
+ *
+ * ==== SỬA (25/09/2026, đợt 4 Motion — Giang duyệt mô hình 3 tầng) ====
+ * BỎ 3 Runner RIÊNG của Player Video (`_videoShowingRunner`/`_videoPointMoveRunner`/`_videoTransitionRunner` +
+ * 3 hàm `_ensure*`, 3 hàm `stop*`) — Player Video giờ MƯỢN Video surface dùng chung (event/workflow/video-
+ * motion-surface.js, owner `PLAYER_VIDEO_MOTION_SURFACE_OWNER`), surface mượn tiếp `workflowMotionStage`. File
+ * này CHỈ còn QUYẾT ĐỊNH của Player Video (nguyên tắc tua vít): preset theo vai trò (Next/Prev/Showing), advanceMs
+ * = thời lượng video / tốc độ phát, React Beat lấy preset nào + tốc độ decay. Vào/thoát mode:
+ * `acquireVideoMotion()`/`releaseVideoMotion()` (gọi từ event/workflow/video-player.js).
+ * ===================================================================
  *
  * Router/Listener: CHƯA có router riêng — được gọi TRỰC TIẾP từ `workflowAppSettings`
  * (event/workflow/app-settings.js, cùng cách `handleThemeSelectMode()` gọi qua router 'theme')
@@ -38,10 +47,10 @@
  * event/workflow/app-settings.js, event/workflow/app-boot.js.
  */
 
+// MỚI (25/09/2026, đợt 4) — chuỗi owner MỜ của Player Video khi mượn Video surface (surface chỉ so bằng).
+const PLAYER_VIDEO_MOTION_SURFACE_OWNER = 'playerVideo';
+
 const workflowPlayerDisplaySettings = {
-    _videoShowingRunner: null, // instance createMotionBeatReactRunner(), tạo LƯỜI — xem _ensureVideoShowingRunner()
-    _videoPointMoveRunner: null, // instance createMotionPointMoveRunner(), tạo LƯỜI — xem _ensureVideoPointMoveRunner()
-    _videoTransitionRunner: null, // instance createMotionTransitionRunner(), tạo LƯỜI — xem _ensureVideoTransitionRunner()
 
     /** Resolve preset Transition cho `direction` ('next'|'prev') của Video — đọc field TƯƠNG ỨNG
      * (`videoTransitionNextPresetId`/`videoTransitionPrevPresetId`, core/config.js — 2 field TÁCH
@@ -57,57 +66,38 @@ const workflowPlayerDisplaySettings = {
         return findMotionPresetById(appState.get('motionPresets'), presetId) || MOTION_ENGINE_NO_OP_PRESET; // core/motion-presets.js
     },
 
-    /** Tạo (LƯỜI, ĐÚNG 1 LẦN) instance `createMotionTransitionRunner()` RIÊNG của Video Player mode
-     * (taskName riêng, KHÔNG trùng VBG — mỗi Runner tự giữ bộ nhớ hướng random + timer dọn dẹp CỦA
-     * RIÊNG mình, xem event/workflow/motion-transition-runner.js).
-     * @returns {ReturnType<typeof createMotionTransitionRunner>} */
-    _ensureVideoTransitionRunner() {
-        if (!this._videoTransitionRunner) {
-            this._videoTransitionRunner = createMotionTransitionRunner('playerVideoTransitionCleanup'); // event/workflow/motion-transition-runner.js
-        }
-        return this._videoTransitionRunner;
-    },
-
-    /** Chạy Transition (hoặc cắt cứng, tuỳ preset) giữa layer A (`bgVideoElement`, ĐANG đứng hình
-     * frame CŨ — gọi hàm này SAU khi đã `pause()`, TRƯỚC khi đụng `src` mới) và layer B
-     * (`visualBgImageElement`, VỪA nhận thumb MỚI — gọi SAU khi đã chèn xong thumb đó) — mirror
-     * ĐÚNG mô hình layer A/B của VBG (Giang chỉ ra) — CHỈ khác: container DÙNG CHUNG là
-     * `motionEngineReactLayer` (element Video Player mode đã mượn làm cha chung của layer A/B,
-     * xem core/player-display-apply.js::attachVideoPlayerMotionToSharedReactLayer()), KHÔNG phải
-     * `#visual-motion-container` riêng của VBG.
-     *
-     * KHÔNG gán/gỡ NỘI DUNG layer nào ở đây (Runner không biết/không đụng, xem docstring event/
-     * workflow/motion-transition-runner.js — "tua vít") — nơi gọi (event/workflow/video-player.js
-     * ::swapBgVideoSource()) đã tự gán nội dung layer B TRƯỚC khi gọi hàm này, và tự lo layer A
-     * (opacity/src mới) SAU KHI Promise trả về đây resolve.
-     *
-     * `advanceMs` truyền `0` — Video KHÔNG tính trước "thời lượng hiển thị" như VBG (Giang chỉ ra:
-     * next/prev/end tự nhiên, KHÔNG có mốc thời gian định trước để kẹp theo) — Runner tự hiểu `0`
-     * là "không kẹp, dùng thẳng `preset.transitionDurationMs`" (xem docstring `runTransition()`,
-     * event/workflow/motion-transition-runner.js — nhánh vốn đã có sẵn cho mode 'perSong' của VBG).
+    /** Chạy Transition (hoặc cắt cứng, tuỳ preset Next/Prev) giữa layer A (frame CŨ đóng băng) và layer B (thumb
+     * MỚI) — truyền làm hook `runTransition` cho `workflowVideoPlayer.swapBgVideoSource()` (event/workflow/video-
+     * player.js::playVideoByKey()). SỬA (25/09/2026, đợt 4) — không còn Runner riêng: giao cho Video surface
+     * (event/workflow/video-motion-surface.js). `capMs = 0` — Video KHÔNG có mốc thời gian định trước để kẹp
+     * (Giang chỉ ra: next/prev/end tự nhiên), Runner dùng thẳng `preset.transitionDurationMs`.
      * @param {'next'|'prev'} direction @returns {Promise<void>} resolve khi layer A "xong việc". */
     runVideoPlayerTransition(direction) {
-        const preset = this._resolveVideoTransitionPreset(direction);
-        return new Promise((resolve) => {
-            this._ensureVideoTransitionRunner().runTransition( // event/workflow/motion-transition-runner.js
-                motionEngineReactLayer, // container — core/dom-refs.js
-                bgVideoElement, // outgoing (layer A) — core/dom-refs.js
-                visualBgImageElement, // incoming (layer B) — core/dom-refs.js
-                preset,
-                0, // advanceMs — xem docstring trên
-                resolve,
-            );
-        });
+        return workflowVideoMotionSurface.runTransition(PLAYER_VIDEO_MOTION_SURFACE_OWNER, this._resolveVideoTransitionPreset(direction), 0); // event/workflow/video-motion-surface.js
     },
 
-    /** Huỷ timer dọn dẹp Transition CÒN TREO (nếu có lượt nào chưa kịp settle — vd vừa Next xong
-     * thoát mode ngay) — gọi lúc THOÁT Video Player mode (event/workflow/video-player.js
-     * ::exitVideoPlayerMode()) — BẮT BUỘC, cùng lý do `stopVideoPlayerReactBeat()`: Runner gọi
-     * `onSettle` (Promise `resolve` của lượt `runVideoPlayerTransition()` dở dang, nếu có) NGAY khi
-     * `stop()` chạy, tránh treo mãi 1 Promise không bao giờ resolve. No-op nếu chưa từng tạo Runner. */
-    stopVideoPlayerTransition() {
-        if (this._videoTransitionRunner) this._videoTransitionRunner.stop(); // event/workflow/motion-transition-runner.js
+    /** MỚI (25/09/2026, đợt 4) — VÀO Video Player mode: mượn Video surface (gắn DOM A/B vào lớp React Beat +
+     * mượn Stage) rồi bật React Beat theo slot 'showing'. THAY `attachVideoPlayerMotionToSharedReactLayer()` +
+     * `syncVideoPlayerReactBeat()` từng gọi rời ở event/workflow/video-player.js::startFromPlaylist(). */
+    acquireVideoMotion() {
+        workflowVideoMotionSurface.acquire(PLAYER_VIDEO_MOTION_SURFACE_OWNER, { // event/workflow/video-motion-surface.js
+            getBeatPresetFn: () => this._getAssignedVideoShowingPreset(),
+            getBeatSpeedFn: () => appConfigViz.getAll().playbackSpeed, // core/config.js — decay co giãn theo tốc độ phát
+        });
+        this.syncVideoPlayerReactBeat();
     },
+
+    /** MỚI (25/09/2026, đợt 4) — THOÁT Video Player mode: trả Video surface (dừng sạch Point Move/React Beat/
+     * Transition dở dang + trả DOM A/B về "nhà"). THAY 3 hàm `stopVideoPlayerReactBeat()`/`stopVideoPlayerPointMove()`/
+     * `stopVideoPlayerTransition()` + `detachVideoPlayerMotionFromSharedReactLayer()` từng gọi rời. */
+    releaseVideoMotion() {
+        workflowVideoMotionSurface.release(PLAYER_VIDEO_MOTION_SURFACE_OWNER); // event/workflow/video-motion-surface.js
+    },
+
+    /** MỚI (25/09/2026, đợt 4) — Point Move/React Beat đứng/chạy theo video Player (sự kiện 'pause'/'play' thật
+     * của `bgVideoElement`, event/workflow/video-player.js). No-op nếu Player không giữ surface. */
+    pauseVideoMotion() { workflowVideoMotionSurface.pause(PLAYER_VIDEO_MOTION_SURFACE_OWNER); }, // event/workflow/video-motion-surface.js
+    resumeVideoMotion() { workflowVideoMotionSurface.resume(PLAYER_VIDEO_MOTION_SURFACE_OWNER); },
 
     /** Khôi phục lựa chọn đã lưu bền LÚC BOOT — gọi từ event/workflow/app-boot.js. Chưa từng lưu
      * (boot lần đầu) -> `saved` rỗng, giữ nguyên default đã seed sẵn trong appConfigPlayerDisplay
@@ -265,53 +255,11 @@ const workflowPlayerDisplaySettings = {
         return isReactBeatPresetActive(preset) ? preset : null; // core/motion-presets.js
     },
 
-    /** Tạo (LƯỜI, ĐÚNG 1 LẦN) instance `createMotionBeatReactRunner()` cho React Beat của Video —
-     * target là `motionEngineReactLayer` (SỬA — Giang chỉ ra "tôi tưởng motion đã tách khỏi nơi
-     * tiêu thụ?": KHÔNG tạo lớp cha riêng cho Video nữa, TÁI DÙNG THẲNG lớp CÓ SẴN của Motion
-     * Engine, core/dom-refs.js — `videoPlayerMotionPointMoveElement` [bọc `#bg-video`] tự
-     * `appendChild`/gỡ vào/ra khỏi lớp đó lúc vào/thoát mode, xem core/player-display-apply.js
-     * ::attachVideoPlayerMotionToSharedReactLayer()/detachVideoPlayerMotionFromSharedReactLayer(),
-     * gọi từ event/workflow/video-player.js). Motion Engine hoàn toàn không biết việc di chuyển
-     * này — Runner chỉ hỏi target qua hàm, KHÔNG quan tâm ai đang thật sự nằm trong đó.
-     * @returns {{sync: () => void, stop: () => void, pause: () => void, resume: () => void}} */
-    _ensureVideoShowingRunner() {
-        if (!this._videoShowingRunner) {
-            this._videoShowingRunner = createMotionBeatReactRunner( // event/workflow/motion-beat-react-runner.js
-                'playerVideoBeatReactTick',
-                () => motionEngineReactLayer, // core/dom-refs.js
-                () => this._getAssignedVideoShowingPreset(),
-                () => appConfigViz.getAll().playbackSpeed, // core/config.js — decay co giãn theo tốc độ phát
-            );
-        }
-        return this._videoShowingRunner;
-    },
-
-    /** Bật/tắt React Beat Video CHO ĐÚNG hiện trạng — gọi lúc VÀO mode (event/workflow/
-     * video-player.js::startFromPlaylist()) VÀ mỗi lần đổi slot 'showing' trong Settings lúc đang
-     * ở mode (changeMotionSlot() ở trên). CHỈ còn 1 dòng gọi thẳng Runner — KHÔNG tự quản lý
-     * task/state gì nữa (xem event/workflow/motion-beat-react-runner.js). */
+    /** Bật/tắt React Beat Video CHO ĐÚNG hiện trạng — gọi lúc VÀO mode (`acquireVideoMotion()`) VÀ mỗi lần đổi
+     * slot 'showing' trong Settings lúc đang ở mode (changeMotionSlot()). SỬA (25/09/2026, đợt 4) — qua Video
+     * surface, getter preset đã giao lúc acquire. */
     syncVideoPlayerReactBeat() {
-        this._ensureVideoShowingRunner().sync();
-    },
-
-    /** Dừng hẳn React Beat Video — gọi lúc THOÁT Video Player mode (event/workflow/video-player.js
-     * ::exitVideoPlayerMode()) — BẮT BUỘC, cùng lý do Resolution (tránh kẹt transform ảnh hưởng VBG
-     * dùng chung `bgVideoElement` — dù transform áp lên lớp cha bọc riêng, không phải chính
-     * `bgVideoElement`, vẫn phải dọn vì lớp cha đó luôn hiện diện bất kể mode). */
-    stopVideoPlayerReactBeat() {
-        this._ensureVideoShowingRunner().stop();
-    },
-
-    /** Tạo (LƯỜI, ĐÚNG 1 LẦN) instance `createMotionPointMoveRunner()` cho Point Move của Video —
-     * target `videoPlayerMotionPointMoveElement` (bọc layer A, giờ CŨNG bọc layer B — xem docstring
-     * core/player-display-apply.js). Cùng `videoShowingPresetId` với React Beat (Giang chốt gộp 1
-     * field) — Runner tự no-op nếu preset tắt `pointMoveEnabled`/không có point nào.
-     * @returns {ReturnType<typeof createMotionPointMoveRunner>} */
-    _ensureVideoPointMoveRunner() {
-        if (!this._videoPointMoveRunner) {
-            this._videoPointMoveRunner = createMotionPointMoveRunner(() => videoPlayerMotionPointMoveElement); // event/workflow/motion-point-move-runner.js, core/dom-refs.js
-        }
-        return this._videoPointMoveRunner;
+        workflowVideoMotionSurface.syncBeat(PLAYER_VIDEO_MOTION_SURFACE_OWNER); // event/workflow/video-motion-surface.js
     },
 
     /** Kích hoạt lại Point Move Video cho ĐÚNG video đang phát — `advanceMs` = thời lượng video
@@ -323,17 +271,16 @@ const workflowPlayerDisplaySettings = {
      * CŨ thì dùng `resyncVideoPlayerPointMovePreset()` ngay dưới (KHÔNG restart hành trình đang chạy
      * dở). Preset chưa gắn/không có point nào -> Runner tự no-op, không cần check trước ở đây. */
     syncVideoPlayerPointMove() {
-        this._ensureVideoPointMoveRunner().activateForNewContent(this._resolveVideoShowingPreset(), this._computeVideoPointMoveAdvanceMs());
+        workflowVideoMotionSurface.activatePointMoveForNewContent(PLAYER_VIDEO_MOTION_SURFACE_OWNER, this._resolveVideoShowingPreset(), this._computeVideoPointMoveAdvanceMs()); // event/workflow/video-motion-surface.js — SỬA 25/09/2026: no-op nếu Player không giữ surface
     },
 
     /** Đổi preset/tốc độ phát giữa lúc VẪN đang phát ĐÚNG video cũ (event/workflow/hud.js
      * ::selectSpeed(), changeMotionSlot() ngay trên) — chỉ tính lại preset + `advanceMs` theo cấu
      * hình MỚI, dùng `activateForPresetChange()` (KHÔNG ghi lại mốc "bắt đầu hiện" như
      * `activateForNewContent()` — giữ hành trình Point Move đang chạy dở đúng vị trí, chỉ đổi cấu
-     * hình đi tiếp). No-op nếu chưa có Runner nào được tạo (chưa từng vào Video Player mode). */
+     * hình đi tiếp). No-op nếu Player không giữ Video surface (SỬA 25/09/2026 — thay guard "chưa có Runner"). */
     resyncVideoPlayerPointMovePreset() {
-        if (!this._videoPointMoveRunner) return;
-        this._videoPointMoveRunner.activateForPresetChange(this._resolveVideoShowingPreset(), this._computeVideoPointMoveAdvanceMs());
+        workflowVideoMotionSurface.activatePointMoveForPresetChange(PLAYER_VIDEO_MOTION_SURFACE_OWNER, this._resolveVideoShowingPreset(), this._computeVideoPointMoveAdvanceMs()); // event/workflow/video-motion-surface.js
     },
 
     /** Core thuần phụ — preset ĐANG gắn cho `videoShowingPresetId`, KHÔNG qua bộ lọc
@@ -352,11 +299,5 @@ const workflowPlayerDisplaySettings = {
         const durationSec = bgVideoElement.duration;
         const speed = appConfigViz.getAll().playbackSpeed || 1; // core/config.js
         return isFinite(durationSec) && durationSec > 0 ? (durationSec * 1000) / speed : 0;
-    },
-
-    /** Dừng hẳn Point Move Video — gọi lúc THOÁT Video Player mode, cùng lý do
-     * `stopVideoPlayerReactBeat()`. */
-    stopVideoPlayerPointMove() {
-        if (this._videoPointMoveRunner) this._videoPointMoveRunner.stop();
     },
 };

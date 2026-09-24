@@ -102,13 +102,18 @@ const workflowVideoPlayer = {
      *   giờ bắn tới lúc .play() thật sự chạy) để waitBgVideoReady() không treo oan 2s.
      *   Visual Background KHÔNG truyền (luôn false mặc định — VBG là lớp trang trí, KHÔNG thuộc
      *   phạm vi gate Game Mode, chỉ áp dụng cho media THẬT đang chọn qua Playlist).
-     * @param {'next'|'prev'} [direction='next'] - MỚI (Giang yêu cầu Transition Video Player mode)
-     *   — CHỈ có ý nghĩa khi `isVideoPlayerMode` (resolve preset Transition Next/Prev RIÊNG, xem
-     *   workflowPlayerDisplaySettings::_resolveVideoTransitionPreset()) — Visual Background KHÔNG
-     *   truyền (bỏ qua, VBG có hệ Transition riêng của chính nó, không liên quan).
+     * @param {{runTransition?: () => Promise<void>, onLayerBFilled?: () => void}|null} [hooks=null] - SỬA
+     *   (25/09/2026, đợt 4 Motion — THAY tham số `direction` cũ): HOOK do NƠI GỌI truyền, hàm này KHÔNG còn tự
+     *   rẽ nhánh `isVideoPlayerMode` + gọi thẳng workflowPlayerDisplaySettings cho phần Motion/Resolution layer B
+     *   (nguyên tắc tua vít — cơ chế đổi nguồn không biết ai đang dùng nó):
+     *   `onLayerBFilled()` — gọi NGAY sau khi thumb full-res vừa vào layer B (Player: khớp Resolution layer B).
+     *   `runTransition()` — CHỈ gọi khi `isTransition` + record có `thumbFullBlob`: chạy Transition A->B rồi
+     *   resolve (Player: preset Next/Prev qua Video surface). CÓ hook này thì hàm tự lo trọn bộ cơ chế layer
+     *   A/B quanh nó (ẩn A bằng opacity trước khi đụng src, trả `.me-current` về A khi 'playing').
+     *   Không truyền -> cắt cứng như cũ (Visual Background hiện tại).
      * @returns {Promise<object|null>} record đã đọc (null nếu không tồn tại — caller tự lo, KHÔNG throw).
      */
-    async swapBgVideoSource(videoKey, isTransition = false, beforePlay = null, hideUntilReady = false, skipAutoplay = false, direction = 'next') {
+    async swapBgVideoSource(videoKey, isTransition = false, beforePlay = null, hideUntilReady = false, skipAutoplay = false, hooks = null) {
         this._mediaGeneration++; // MỚI (21/09/2026) — vô hiệu hoá mọi phiên seek đang treo của media CŨ, xem handleVideoSeekCommit()
         const swapGeneration = this._mediaGeneration; // chốt để `finish()` (bên dưới) biết lượt swap này đã bị lượt mới hơn/thoát mode thay thế chưa
         bgVideoElement.pause(); // (1) đứng hình NGAY — CHƯA đụng src, khung hình cũ giữ nguyên
@@ -130,7 +135,10 @@ const workflowVideoPlayer = {
         // hình giống VBG") — CHỈ áp dụng lúc THẬT SỰ đang ở Video Player mode (hàm này DÙNG CHUNG
         // với Visual Background, workflowVisualBg._playVideoKey() — KHÔNG liên quan gì tới Transition
         // của Player, VBG có hệ Transition riêng của chính nó, xem event/workflow/visual-bg-photo-motion.js).
-        const isVideoPlayerModeSwap = isTransition && appState.get('isVideoPlayerMode');
+        // SỬA (25/09/2026, đợt 4) — TRƯỚC: `isTransition && isVideoPlayerMode`. Giờ: nơi gọi CÓ truyền hook Transition
+        // hay không (Player truyền; VBG đợt 5 sẽ truyền hook của riêng nó) — tên biến giữ nguyên nghĩa "lượt swap có
+        // Transition layer A/B", đổi tên cho khớp.
+        const hasTransitionHook = isTransition && !!(hooks && typeof hooks.runTransition === 'function');
 
         if ((isTransition || isVideoPlayerModeEntry) && record.thumbFullBlob) {
             const forcedUrl = await decodeForcedBgThumb(record.thumbFullBlob); // core/video-player.js — TỰ đợi double-rAF, đảm bảo đã PAINT xong tới đây
@@ -144,9 +152,9 @@ const workflowVideoPlayer = {
             // đang ở Video Player mode — hàm swapBgVideoSource() này DÙNG CHUNG với Visual
             // Background (workflowVisualBg._playVideoKey()), không liên quan gì tới Resolution của
             // Player.
-            if (appState.get('isVideoPlayerMode') && typeof workflowPlayerDisplaySettings !== 'undefined') {
-                workflowPlayerDisplaySettings.syncVideoPlayerResolutionLayerB(); // event/workflow/player-display-settings.js
-            }
+            // SỬA (25/09/2026, đợt 4) — qua hook `onLayerBFilled` của nơi gọi (Player truyền; VBG không cần) thay vì
+            // tự check `isVideoPlayerMode` + gọi thẳng workflowPlayerDisplaySettings.
+            if (hooks && typeof hooks.onLayerBFilled === 'function') hooks.onLayerBFilled();
 
             // Lần VÀO mode (không Transition): layer B mang `.motion-layer` (attachVideoPlayerMotionToSharedReactLayer())
             // nên MẶC ĐỊNH opacity:0 — phải gán `.me-current` (opacity 1, z-index 2) thì mới thấy được lúc video bị ẩn.
@@ -159,9 +167,7 @@ const workflowVideoPlayer = {
             // preset Next/Prev đang gắn) — "chen vào giữa" bước decode thumb xong và bước phát video
             // mới, đúng như Giang mô tả. Layer A hoàn toàn AN TOÀN để animate/transform ở đây — nó
             // đang là 1 FRAME ĐÓNG BĂNG (video đã pause), KHÔNG phải nội dung đang sống/phát.
-            if (isVideoPlayerModeSwap && typeof workflowPlayerDisplaySettings !== 'undefined') {
-                await workflowPlayerDisplaySettings.runVideoPlayerTransition(direction); // event/workflow/player-display-settings.js
-            }
+            if (hasTransitionHook) await hooks.runTransition(); // SỬA 25/09/2026 — hook của nơi gọi (Player: workflowPlayerDisplaySettings.runVideoPlayerTransition())
         }
 
         // MỚI (Giang yêu cầu Transition) — Transition (nếu có) VỪA kết thúc — layer A giờ "xong
@@ -172,7 +178,7 @@ const workflowVideoPlayer = {
         // vị trí gốc, không animation" (Giang chỉ ra) — PHÒNG HỜ (finishMotionEngineTransitionVisuals()
         // đã gỡ class animation nên transform lẽ ra đã tự về `none` theo CSS, xem docstring
         // event/workflow/motion-transition-runner.js — dòng này chỉ để chắc chắn tuyệt đối).
-        if (isVideoPlayerModeSwap) {
+        if (hasTransitionHook) {
             bgVideoElement.style.opacity = '0';
             bgVideoElement.style.transform = '';
         }
@@ -228,7 +234,7 @@ const workflowVideoPlayer = {
                 // best-effort — CÙNG mốc `hideUntilReady` dùng, không thêm cơ chế chờ riêng) -> LỘ
                 // layer A (opacity 1), đúng bước CUỐI Giang mô tả ("playing check -> ok -> opacity
                 // 1 và phát").
-                if (isVideoPlayerModeSwap) {
+                if (hasTransitionHook) {
                     bgVideoElement.style.opacity = '1';
                     bgVideoElement.classList.add('me-current'); // FIX — xem comment trên _swapReadyPromise
                     if (visualBgImageElement) visualBgImageElement.classList.remove('me-current');
@@ -382,18 +388,15 @@ const workflowVideoPlayer = {
         // (dọn task/object URL/DOM của Visual Background, KHÔNG đụng visualBgConfig đã lưu) — thay
         // cho Block gate cũ từng chặn HẲN việc vào mode này khi Visual Background đang hiện media.
         if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.clearMediaLayers(); // event/workflow/visual-bg.js — liên tuyến domain, ĐỒNG THỜI dừng hẳn Runner React Beat của VBG (workflowVisualBgPhotoMotion.stop()) — đảm bảo motionEngineReactLayer "sạch" (transform rỗng, không task nào chạy) TRƯỚC khi Video Player mode dùng chung nó ngay dưới
-        // SỬA (Giang chỉ ra: "React beat, point move khi ở player... phải gán lên 1 lớp cha của nó
-        // giống như cấu trúc của hệ thống visual background" — rồi "tôi tưởng motion đã tách khỏi
-        // nơi tiêu thụ?") — di chuyển `#bg-video` (qua `videoPlayerMotionPointMoveElement`) VÀO
-        // THẲNG `motionEngineReactLayer` — lớp CÓ SẴN, DÙNG CHUNG với VBG (KHÔNG tạo element mới).
-        attachVideoPlayerMotionToSharedReactLayer(); // core/player-display-apply.js
+        // SỬA (25/09/2026, đợt 4 Motion) — mượn Video surface dùng chung (event/workflow/video-motion-surface.js):
+        // surface TỰ gắn DOM A/B vào `motionEngineReactLayer` (THAY lời gọi `attachVideoPlayerMotionToSharedReactLayer()`
+        // trực tiếp ở đây) + mượn Stage, rồi Player bật React Beat theo slot 'showing' (THAY `syncVideoPlayerReactBeat()`
+        // từng gọi rời bên dưới).
+        workflowPlayerDisplaySettings.acquireVideoMotion(); // event/workflow/player-display-settings.js
         setBgVideoElementForPlayerMode(true); // core/video-player.js — bỏ muted + tắt loop + hiện + pointer-events
         // MỚI (Giang yêu cầu "Resolution cho player video&photo, không liên quan VBG") — áp NGAY
         // lúc vào mode, đọc từ config đã lưu (Settings > Visualizer Screen > Player > Video).
         if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.applyVideoPlayerResolutionOnEnter(); // event/workflow/player-display-settings.js
-        // MỚI (Giang yêu cầu "bổ sung backend react — chỉ Video vì Photo không có audio") — bật vòng
-        // lặp React Beat NẾU đang có preset gắn cho videoShowingPresetId + preset đó enabled.
-        if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.syncVideoPlayerReactBeat(); // event/workflow/player-display-settings.js
 
         await this.playVideoByKey(startKey, switchScreen); // FIX (10/09/2026) — truyền ĐÚNG switchScreen của người gọi thay vì luôn mặc định true, xem docstring startFromPlaylist() ở trên
     },
@@ -409,19 +412,12 @@ const workflowVideoPlayer = {
         // NGAY lúc thoát mode — BẮT BUỘC, để #bg-video trả về CSS mặc định (object-fit: cover) phục
         // vụ ĐÚNG Visual Background, xem docstring core/player-display-apply.js.
         if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.clearVideoPlayerResolution(); // event/workflow/player-display-settings.js
-        // MỚI (Giang yêu cầu "bổ sung backend react — chỉ Video") — dừng HẲN vòng lặp React Beat +
-        // gỡ transform — BẮT BUỘC, cùng lý do Resolution ngay trên (tránh kẹt transform ảnh hưởng
-        // VBG dùng chung `bgVideoElement`).
-        if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.stopVideoPlayerReactBeat(); // event/workflow/player-display-settings.js
-        if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.stopVideoPlayerPointMove(); // event/workflow/player-display-settings.js
-        // MỚI (Giang yêu cầu Transition Video Player mode) — huỷ timer dọn dẹp Transition còn treo
-        // (nếu vừa Next/Prev xong thoát mode NGAY, chưa kịp settle) — cùng lý do React Beat ngay trên.
-        if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.stopVideoPlayerTransition(); // event/workflow/player-display-settings.js
-        // SỬA (cùng lý do attach lúc vào mode, xem startFromPlaylist()) — trả `#bg-video` VỀ ĐÚNG
-        // vị trí "nhà" gốc — BẮT BUỘC, TRƯỚC khi VBG tái dùng `motionEngineReactLayer` cho chính nó
-        // (applyCurrentVisualBg() ngay dưới) — nếu không, #bg-video (đã ẩn, vô hại hiển thị) vẫn
-        // kẹt làm con của layer đó, rò rỉ cấu trúc DOM không cần thiết.
-        detachVideoPlayerMotionFromSharedReactLayer(); // core/player-display-apply.js
+        // SỬA (25/09/2026, đợt 4 Motion) — trả Video surface: dừng HẲN React Beat/Point Move + gỡ transform, settle
+        // Transition còn treo (Promise dở dang resolve), trả `#bg-video` + `#visual-bg-image` về vị trí "nhà" — THAY
+        // 3 lời gọi stopVideoPlayerReactBeat()/stopVideoPlayerPointMove()/stopVideoPlayerTransition() +
+        // detachVideoPlayerMotionFromSharedReactLayer(). BẮT BUỘC TRƯỚC khi VBG tái dùng `motionEngineReactLayer`
+        // (restoreAfterPlayerMode() ngay dưới).
+        workflowPlayerDisplaySettings.releaseVideoMotion(); // event/workflow/player-display-settings.js
         this.clearBgVideoSource(); // dừng + dọn HẲN (pause, ẩn, gỡ src/poster, revoke cả 3 URL) — CƠ CHẾ DÙNG CHUNG
         bgVideoElement.load(); // buộc <video> bỏ hẳn tham chiếu blob URL vừa revoke (tránh giữ RAM)
         updateDOMBackground(); // core/color-utils.js, hàm CÓ SẴN — trả visualizerSolidBg về cfg.bgColor
@@ -430,7 +426,9 @@ const workflowVideoPlayer = {
         // của domain, event/workflow/visual-bg.js) — khôi phục ĐÚNG bất kể đang cấu hình gì (video/
         // ảnh đơn/ảnh danh sách), đúng cặp với `clearMediaLayers()` đã gọi lúc VÀO mode ở
         // `startFromPlaylist()`.
-        if (typeof workflowVisualBg !== 'undefined') await workflowVisualBg.applyCurrentVisualBg(); // liên tuyến domain
+        // SỬA (25/09/2026) — `restoreAfterPlayerMode()` thay `applyCurrentVisualBg()`: bản thường giờ tự CHẶN khi đang
+        // ở Player mode (isVideoPlayerMode còn `true` tới exitVideoPlayerModeState() ngay dưới), bản này bỏ qua chặn.
+        if (typeof workflowVisualBg !== 'undefined') await workflowVisualBg.restoreAfterPlayerMode(); // liên tuyến domain
 
         exitVideoPlayerModeState(); // core/video-player.js
         releaseWakeLock(); stopListenClock(); // core/player-controls.js — dọn nốt 2 cơ chế đã bật lúc phát
@@ -506,7 +504,10 @@ const workflowVideoPlayer = {
                 // ĐÚNG vị trí tương ứng bên Song (sau khi audio graph đã nối xong).
                 updateTypeUI(); // core/visualizer/visualizer-display.js
                 resetConnectorPerTrackState(); // core/webgl/three-connector.js — cùng lý do bên Song
-            }, !isTransition, appState.get('gameplayArmedGameId') != null, direction); // hideUntilReady=!isTransition — CHỈ lần VÀO mode (SỬA 21/09/2026: ẩn video tới khi 'playing', lộ thumb full-res layer B; Next/Prev đã có Transition lo) — SỬA (08/09/2026) thêm skipAutoplay: armed Game Mode thì chỉ nạp khung hình tĩnh, KHÔNG .play() ở swapBgVideoSource(), xem docstring hàm đó. `direction` MỚI (Giang yêu cầu Transition Video Player mode) — truyền THẲNG xuống, xem docstring swapBgVideoSource().
+            }, !isTransition, appState.get('gameplayArmedGameId') != null, { // SỬA (25/09/2026, đợt 4) — hook thay `direction`: Player tự quyết Transition (preset Next/Prev) + khớp Resolution layer B, xem docstring swapBgVideoSource()
+                onLayerBFilled: () => workflowPlayerDisplaySettings.syncVideoPlayerResolutionLayerB(), // event/workflow/player-display-settings.js
+                runTransition: () => workflowPlayerDisplaySettings.runVideoPlayerTransition(direction), // event/workflow/player-display-settings.js
+            }); // hideUntilReady=!isTransition — CHỈ lần VÀO mode (SỬA 21/09/2026: ẩn video tới khi 'playing', lộ thumb full-res layer B; Next/Prev đã có Transition lo) — SỬA (08/09/2026) thêm skipAutoplay: armed Game Mode thì chỉ nạp khung hình tĩnh, KHÔNG .play() ở swapBgVideoSource(), xem docstring hàm đó. `direction` MỚI (Giang yêu cầu Transition Video Player mode) — truyền THẲNG xuống, xem docstring swapBgVideoSource().
             if (!record) {
                 // guard: video vừa bị xoá ở nơi khác giữa lúc đang phát. KHÔNG gọi
                 // workflowPlayerControls.goToNextTrack(true) NGAY TẠI ĐÂY — vẫn đang ở TRONG
@@ -634,6 +635,7 @@ const workflowVideoPlayer = {
         // thái lúc `playVideoByKey()` gọi lần cuối (lúc 'playing'), không cập nhật theo Play/Pause.
         if (appState.get('currentKey')) workflowPlaylistRender.refreshSongNode(appState.get('currentKey'));
         requestWakeLock(); startListenClock(); // core/player-controls.js
+        workflowPlayerDisplaySettings.resumeVideoMotion(); // MỚI (25/09/2026, đợt 4) — Point Move/React Beat chạy tiếp theo video (no-op nếu Player không giữ Video surface), event/workflow/player-display-settings.js
     },
 
     /** Ứng với 'playerControls.video.pause' — ngược lại `handleVideoPlayState()`. */
@@ -643,6 +645,7 @@ const workflowVideoPlayer = {
         if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
         if (appState.get('currentKey')) workflowPlaylistRender.refreshSongNode(appState.get('currentKey')); // FIX (31/07/2026) — xem giải thích ở handleVideoPlayState()
         releaseWakeLock(); stopListenClock(); // core/player-controls.js
+        workflowPlayerDisplaySettings.pauseVideoMotion(); // MỚI (25/09/2026, đợt 4) — Point Move/React Beat đứng yên cùng video (no-op nếu Player không giữ Video surface), event/workflow/player-display-settings.js
     },
 
     /** Ứng với 'playerControls.video.loadedmetadata' — đặt lại max thanh tiến trình + tổng thời

@@ -177,7 +177,7 @@ const workflowPhotoPlayer = {
         // (ĐỒNG BỘ, cùng hàm `startFromPlaylist()` của Video gọi) rồi thôi.
         let restorePromise = null;
         if (typeof workflowVisualBg !== 'undefined') {
-            if (restoreVisualBg) restorePromise = workflowVisualBg.applyCurrentVisualBg(); // event/workflow/visual-bg.js — liên tuyến domain; phần ĐỒNG BỘ đầu hàm (clearMediaLayers()) chạy NGAY ở dòng này, giữ ĐÚNG thứ tự cũ (dọn lớp trước, revoke URL sau)
+            if (restoreVisualBg) restorePromise = workflowVisualBg.restoreAfterPlayerMode(); // event/workflow/visual-bg.js — SỬA 25/09/2026: bản KHÔNG chặn Player mode (isPhotoPlayerMode còn true tới exitPhotoPlayerModeState() bên dưới) — liên tuyến domain; phần ĐỒNG BỘ đầu hàm (clearMediaLayers()) chạy NGAY ở dòng này, giữ ĐÚNG thứ tự cũ (dọn lớp trước, revoke URL sau)
             else workflowVisualBg.clearMediaLayers(); // event/workflow/visual-bg.js
         }
         // XOÁ (25/09/2026) — gỡ Resolution khỏi #visual-bg-image: Photo không còn dùng element đó; Image surface
