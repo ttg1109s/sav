@@ -21,3 +21,10 @@ if (genericDrawerBody) {
         eventBus.send({ router: 'genericDrawer', type: 'genericDrawer.body.mutate', payload: { mutations } });
     }).observe(genericDrawerBody, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
 }
+
+// MỚI (24/09/2026) — <head> đổi style (Tailwind Play CDN sinh thêm CSS cho class lần đầu xuất hiện, ghi vào thẻ <style>
+// của nó) -> chiều cao thật của nội dung Drawer có thể đổi mà body KHÔNG có mutation nào. Chỉ chuyển thư, xem
+// workflowGenericDrawerHelpers.onStylesChanged() (event/workflow/generic-drawer-helpers.js).
+new MutationObserver(() => {
+    eventBus.send({ router: 'genericDrawer', type: 'genericDrawer.styles.change', payload: {} });
+}).observe(document.head, { childList: true, subtree: true, characterData: true });
