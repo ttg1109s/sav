@@ -242,7 +242,7 @@
 
     <!-- CSS tách riêng theo domain, ?v= ép tải lại khi deploy (không đụng CDN — đã tự version). -->
     <link rel="stylesheet" href="assets/css/base.css?v=20260924r3">
-    <link rel="stylesheet" href="assets/css/sliders.css?v=20260923v1">
+    <link rel="stylesheet" href="assets/css/sliders.css?v=20260925f1">
     <link rel="stylesheet" href="assets/css/glass.css?v=20260923v5">
     <link rel="stylesheet" href="assets/css/animations.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/layout-nav.css?v=20260921v5">
@@ -1066,7 +1066,7 @@
          XOÁ) — xem event/workflow/motion-presets.js, event/router/motion-presets.js. Không
          cần listener riêng — mọi wiring DOM động nằm trong event/workflow/app-settings.js
          (_render*() onMount, liên tuyến domain, xem docstring file đó). -->
-    <script src="event/workflow/motion-presets.js?v=20260925s1"></script>
+    <script src="event/workflow/motion-presets.js?v=20260925f1"></script>
     <script src="event/router/motion-presets.js?v=20260924m1"></script>
 
     <!-- MỚI (Giang chỉ ra: "đã tách bạch rõ trách nhiệm motion phải quản lý việc apply live bất kể
@@ -1108,7 +1108,7 @@
     <!-- Cụm "visualBg" — Workflow tách 3 file: common (định nghĩa `workflowVisualBg`), video/photo
          (`Object.assign()` thêm vào) — common PHẢI nạp trước video/photo. -->
     <script src="event/workflow/visual-bg-common.js?v=20260925v5"></script>
-    <script src="event/workflow/visual-bg-video.js?v=20260925v5"></script>
+    <script src="event/workflow/visual-bg-video.js?v=20260925f1"></script>
     <script src="event/workflow/visual-bg-photo.js?v=20260925p3"></script>
     <script src="event/router/visual-bg.js?v=20260925v5"></script>
     <script src="event/listener/visual-bg.js?v=20260925v5"></script>
@@ -1325,7 +1325,7 @@
          Speed áp qua core/player-controls.js::applyPlaybackSpeedToActiveMedia(). CẦN core/hud.js,
          core/dom-refs.js (btnOpenVolume/visualizerVolumeHud/volumeHudSlider/btnOpenSpeed/
          visualizerSpeedHud/speedHudOptions/speedBadgeLabel). -->
-    <script src="event/workflow/hud.js?v=20260918v1"></script>
+    <script src="event/workflow/hud.js?v=20260925f1"></script>
     <script src="event/router/hud.js?v=20260918v1"></script>
     <script src="event/listener/hud.js?v=20260918v1"></script>
     <!-- Cụm "visualizerGesture" — thay hẳn cử chỉ vuốt cũ gắn trên bgVideoElement. Dispatch tới
