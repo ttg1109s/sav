@@ -21,6 +21,11 @@ const routerGenericDrawer = (() => {
                 break;
             }
 
+            case 'genericDrawer.styles.change': { // MỚI (24/09/2026) — Tailwind CDN vừa sinh thêm CSS -> nhắm lại chiều cao
+                workflowGenericDrawerHelpers.onStylesChanged();
+                break;
+            }
+
             default:
                 console.warn(`[router:genericDrawer] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`);
         }
