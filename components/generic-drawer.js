@@ -55,5 +55,12 @@ const TPL_GENERIC_DRAWER = `
         </div>
         <div id="generic-drawer-header" class="shrink-0"></div>
         <div id="generic-drawer-body" class="flex-1 min-h-0"></div>
+        <!-- MỚI (24/09/2026) — lớp phủ fade chéo: nội dung CŨ được CHUYỂN vào đây rồi mờ dần lúc đổi nội dung
+             (core/generic-drawer.js::beginGenericDrawerCrossfade()). Đặt SAU body (id trùng giữa nội dung cũ/mới
+             thì getElementById luôn gặp nội dung mới trước); inert + pointer-events-none: không nhận thao tác. -->
+        <div id="generic-drawer-fade-layer" class="hidden absolute inset-x-0 bottom-0 flex flex-col pointer-events-none" inert aria-hidden="true">
+            <div id="generic-drawer-fade-header" class="shrink-0"></div>
+            <div id="generic-drawer-fade-body" class="flex-1 min-h-0"></div>
+        </div>
     </div>
 `;
