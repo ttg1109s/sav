@@ -70,6 +70,10 @@ const workflowHud = {
         applyPlaybackSpeedToActiveMedia(isVideoPlayerMode, appState.get('isPhotoPlayerMode'), speed); // core/player-controls.js
         if (isVideoPlayerMode && typeof workflowPlayerDisplaySettings !== 'undefined') {
             workflowPlayerDisplaySettings.resyncVideoPlayerPointMovePreset(); // advanceMs phụ thuộc speed, tính lại NGAY, KHÔNG restart hành trình
+        } else if (!appState.get('isPhotoPlayerMode') && typeof workflowVisualBg !== 'undefined') {
+            // VÁ (25/09/2026) — Song đang là nguồn chính: VBG Video (nếu bật "Đồng bộ tốc độ phát") áp tốc độ mới NGAY lên
+            // video nền + tính lại Point Move — trước đây chỉ có hiệu lực từ video/vòng lặp kế tiếp.
+            workflowVisualBg.onGlobalPlaybackSpeedChanged(); // event/workflow/visual-bg-video.js
         }
         syncSpeedHudUI(speedHudSlider, speedHudValueLabel, speedHudOptions, speedBadgeLabel, speed); // core/hud.js
         this._scheduleAutoHide(visualizerSpeedHud, SPEED_HUD_AUTO_HIDE_TASK);

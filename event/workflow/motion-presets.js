@@ -330,14 +330,27 @@ const workflowMotionPresets = {
         workflowAppSettings._renderPointMoveList(); // liên tuyến domain — vẽ lại TẠI CHỖ
     },
 
+    /** VÁ (25/09/2026, Giang báo "point move++ không tự tăng timing so với point move trước") — `timingX` cho point
+     * move MỚI nối vào cuối: +0.2% (bước Giang chốt từ trước) so với mốc thời gian MUỘN NHẤT đang có — TRƯỚC ĐÂY
+     * lấy theo point move CUỐI MẢNG, mà thứ tự mảng KHÔNG đảm bảo khớp thứ tự thời gian (kéo node trên thanh
+     * Timing / nhập số / kéo đổi chỗ trong danh sách) -> point move mới có thể rơi vào GIỮA/TRƯỚC point move đứng
+     * trước nó. Kẹp biên động + tránh trùng mốc (`resolvePointMoveTimingX()`, core/motion-presets.js). Mốc muộn nhất
+     * đã chạm biên phải thì không thể "sau" nữa — lùi sát dưới biên (giới hạn tự nhiên của trục 0-100%).
+     * @param {object} preset @returns {number} */
+    _nextAppendedTimingX(preset) {
+        const { minX, maxX } = this._pointMoveTimingBounds(preset);
+        const timingXs = preset.pointMoves.map((pm) => pm.timingX);
+        const latest = timingXs.length > 0 ? Math.max(...timingXs) : 0;
+        return resolvePointMoveTimingX(latest + 0.2, timingXs, minX, maxX); // core/motion-presets.js
+    },
+
     /** Thêm 1 point move trắng vào CUỐI danh sách — `timingX` tự tịnh tiến +0.2% so với point move
      * CUỐI hiện có (kẹp tối đa 100%, phản hồi Giang — tránh chồng khít lên nhau tại 0% mỗi lần thêm,
      * dễ thấy/dễ kéo tách ra hơn ngay khi vừa tạo), vẽ lại TẠI CHỖ. */
     async addPointMove() {
         await this._mutateEditing((p) => {
             const blank = buildBlankPointMove(); // core/motion-presets.js
-            const lastTimingX = p.pointMoves.length > 0 ? p.pointMoves[p.pointMoves.length - 1].timingX : 0;
-            blank.timingX = Math.min(this._pointMoveTimingBounds(p).maxX, lastTimingX + 0.2); // SỬA (phản hồi Giang) — kẹp theo biên ĐỘNG, không còn cố định 100
+            blank.timingX = this._nextAppendedTimingX(p); // VÁ (25/09/2026) — xem docstring hàm này
             p.pointMoves = [...p.pointMoves, blank];
         });
         workflowAppSettings._renderPointMoveList(); // liên tuyến domain
@@ -352,12 +365,11 @@ const workflowMotionPresets = {
         await this._mutateEditing((p) => {
             const original = p.pointMoves.find((pm) => pm.id === id);
             if (!original) return;
-            const lastTimingX = p.pointMoves[p.pointMoves.length - 1].timingX;
             const clone = {
                 ...original,
                 id: generatePointMoveId(), // core/motion-presets.js
                 checked: true,
-                timingX: Math.min(this._pointMoveTimingBounds(p).maxX, lastTimingX + 0.2), // SỬA (phản hồi Giang) — kẹp theo biên ĐỘNG, không còn cố định 100
+                timingX: this._nextAppendedTimingX(p), // VÁ (25/09/2026) — CÙNG quy tắc addPointMove()
                 linearX: { ...original.linearX }, linearY: { ...original.linearY },
                 rotate: { ...original.rotate }, zoom: { ...original.zoom },
                 flipX: { ...original.flipX }, flipY: { ...original.flipY },

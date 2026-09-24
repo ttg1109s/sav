@@ -277,6 +277,16 @@ Object.assign(workflowVisualBg, {
         if (audioPlayer.paused) workflowVideoMotionSurface.pause(VISUAL_BG_VIDEO_SURFACE_OWNER);
     },
 
+    /** VÁ (25/09/2026) — tốc độ phát CHUNG vừa đổi (HUD, event/workflow/hud.js::selectSpeed()) lúc Song là nguồn
+     * chính — CHỈ có tác dụng khi VBG đang phát video VÀ bật `videoSyncPlaybackSpeed` (tắt thì VBG vẫn 1x, không
+     * đổi gì). Áp `playbackRate` mới ngay + Point Move tính lại theo rate mới (không chạy lại hành trình). */
+    onGlobalPlaybackSpeedChanged() {
+        const cfg = appConfigVisualBg.getAll();
+        if (cfg.type !== 'video' || !cfg.videoSyncPlaybackSpeed || this._currentVideoKey === null || this._isSwappingVideo) return;
+        this._applyVideoPlaybackSpeedSetting();
+        this._refreshVideoMotion();
+    },
+
     /** Preset/tốc độ VBG vừa đổi giữa lúc video đang hiện — gọi từ `changeMotionPresetId()`/`changeSyncPlaybackSpeed()`
      * (event/workflow/visual-bg-common.js). */
     _refreshVideoMotion() {
