@@ -536,7 +536,7 @@
     <script src="service/state/shuffle-repeat.js?v=20260725v1"></script>
     <script src="service/state/visual-bg.js?v=20260806v1"></script>
     <script src="service/state/video-player-mode.js?v=20260818v1"></script>
-    <script src="service/state/photo-player-mode.js?v=20260824v1"></script>
+    <script src="service/state/photo-player-mode.js?v=20260925p3"></script>
     <script src="service/state/wakelock-tab.js?v=20260725v1"></script>
     <script src="service/state/auto-switch.js?v=20260725v1"></script>
     <script src="service/state/listen-stats.js?v=20260725v1"></script>
@@ -746,7 +746,7 @@
     <!-- MỚI (Giang yêu cầu "Resolution cho player video&photo, không liên quan VBG") — Core-DOM áp/gỡ
          object-fit/background-size THẬT lên bgVideoElement/visualBgImageElement, xem core/player-
          display-apply.js. NẠP SAU core/dom-refs.js (đã nạp từ trước, dòng 517) + file phía trên. -->
-    <script src="core/player-display-apply.js?v=20260914v2"></script>
+    <script src="core/player-display-apply.js?v=20260925p3"></script>
     <!-- MỚI — Core-UI (Rule 5c, hậu tố -ui.js) dựng đường cong Timing cho Point Move 'all' mode,
          xem core/point-move-timing-ui.js. NẠP SAU core/motion-presets.js/motion-engine.js. -->
     <script src="core/point-move-timing-ui.js?v=20260903v5"></script>
@@ -858,7 +858,7 @@
          `applyVisualBgImageToDOM()` (core/visual-bg-photo.js) tái dùng `#visual-bg-image`, gọi thẳng từ
          event/workflow/photo-player.js. Đặt CẠNH core/video-player.js cho dễ đọc, cùng lý do
          comment ngay trên. NẠP SAU service/state.js. -->
-    <script src="core/photo-player.js?v=20260825v1"></script>
+    <script src="core/photo-player.js?v=20260925p3"></script>
     <!-- Chụp khung hình bgVideoElement đang phát -> lưu Photo (nút Control Center, Video Player
          mode) — di dời từ core/video-editor/frame-extract.js (nút "Trích xuất ảnh" trong modal
          Video Preview đã bỏ hẳn), dùng chung bởi workflowVideoPreview._buildThumbForBlob(). -->
@@ -1060,7 +1060,7 @@
     <!-- Batch 8, ver 12 "Multi Media" — engine cycle ảnh Slideshow nền Visual (transition/Ken
          Burns), CHỈ còn đúng 1 vai trò: `_tick()` (taskManager) — cụm router "slideshowSettings"
          (từng ở đây) ĐÃ BỎ HẲN (29/08/2026), xem event/workflow/motion-presets.js ngay dưới. -->
-    <script src="event/workflow/visual-bg-photo-motion.js?v=20260925s1"></script>
+    <script src="event/workflow/visual-bg-photo-motion.js?v=20260925p3"></script>
     <!-- MỚI (29/08/2026) — hệ "Cấu hình Motion" độc lập (Settings > System > Motion), thay
          hẳn router/listener "slideshowSettings" cũ (2 file event/router,listener/slideshow.js ĐÃ
          XOÁ) — xem event/workflow/motion-presets.js, event/router/motion-presets.js. Không
@@ -1095,7 +1095,7 @@
          'playerDisplay', GIAI ĐOẠN 1 — CHƯA có cơ chế áp dụng lên runtime), xem event/workflow/
          player-display-settings.js. NẠP TRƯỚC event/workflow/app-settings.js (gọi trực tiếp, không
          qua router riêng) và event/workflow/app-boot.js (gọi loadPersistedPlayerDisplayOnBoot()). -->
-    <script src="event/workflow/player-display-settings.js?v=20260925s1"></script>
+    <script src="event/workflow/player-display-settings.js?v=20260925p3"></script>
     <!-- MỚI (23/09/2026) — workflowPagination: domain 'pagination' (load/ghi bền) + CỬA DUY NHẤT để 1 danh
          sách dùng pagination theo cài đặt chung. NẠP TRƯỚC event/workflow/app-settings.js (gọi trực tiếp)
          và event/workflow/app-boot.js (loadPersistedPaginationOnBoot()). -->
@@ -1103,9 +1103,9 @@
 
     <!-- Cụm "visualBg" — Workflow tách 3 file: common (định nghĩa `workflowVisualBg`), video/photo
          (`Object.assign()` thêm vào) — common PHẢI nạp trước video/photo. -->
-    <script src="event/workflow/visual-bg-common.js?v=20260924m1"></script>
+    <script src="event/workflow/visual-bg-common.js?v=20260925p3"></script>
     <script src="event/workflow/visual-bg-video.js?v=20260924r3"></script>
-    <script src="event/workflow/visual-bg-photo.js?v=20260925s1"></script>
+    <script src="event/workflow/visual-bg-photo.js?v=20260925p3"></script>
     <script src="event/router/visual-bg.js?v=20260924m1"></script>
     <script src="event/listener/visual-bg.js?v=20260924m1"></script>
 
@@ -1173,7 +1173,7 @@
          core/playlist/render.js, core/player-controls.js (requestWakeLock/switchToVisualizer),
          core/listen-stats.js (bumpSongPlayCount), event/workflow/video-player.js (workflowVideoPlayer
          — chỉ dùng trong callback runtime, không bắt buộc thứ tự nạp so với dòng NGAY DƯỚI). -->
-    <script src="event/workflow/player.js?v=20260924r2"></script>
+    <script src="event/workflow/player.js?v=20260925p3"></script>
     <script src="event/workflow/playlist.js?v=20260924r2"></script>
     <script src="event/router/playlist.js?v=20260924r2"></script>
     <script src="event/listener/playlist.js?v=20260919v1"></script>
@@ -1227,7 +1227,7 @@
          workflow/visual-bg-common.js/visual-bg-video.js ("vbg chỉ hợp lệ với song" nên tái dùng
          clearMediaLayers()/applyCurrentVisualBg() Video Player mode đã dùng thay vì tự vẽ DOM
          riêng, cần workflowVisualBg tồn tại trước). -->
-    <script src="event/workflow/photo-player.js?v=20260921v4"></script>
+    <script src="event/workflow/photo-player.js?v=20260925p3"></script>
     <!-- event/workflow/number-countup.js — MỚI (21/09/2026): vòng lặp timer count-up dùng chung (cần taskManager + core/number-countup.js). PHẢI nạp TRƯỚC gameplay-engine.js VÀ statis-panel.js. -->
     <script src="event/workflow/number-countup.js?v=20260921v1"></script>
     <!-- Cụm "gameplay" — Game Mode. gameplay-engine.js (Workflow DÙNG CHUNG mọi mode: cooldown/
@@ -1261,7 +1261,7 @@
     <script src="event/workflow/statis-panel.js?v=20260924v1"></script>
     <script src="event/router/statis-panel.js?v=20260924v1"></script>
     <script src="event/listener/statis-panel.js?v=20260924v1"></script>
-    <script src="event/workflow/player-controls.js?v=20260924r2"></script>
+    <script src="event/workflow/player-controls.js?v=20260925p3"></script>
     <script src="event/router/player-controls.js?v=20260924r2"></script>
     <script src="event/listener/player-controls.js?v=20260708v1"></script>
     <!-- Cụm "visualizerDisplay": ảnh nền, độ mờ nền, cycle effect, panel "Display". Cấu hình riêng
