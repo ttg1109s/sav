@@ -33,7 +33,6 @@ const workflowImageEdit = {
     _activeEditParams: null,       // {brightness,contrast,saturation,temperature,tint,sharpen} — null TRƯỚC KHI decode xong (khoảng rất ngắn ngay lúc mở modal)
     _activeAdjustParam: null,      // key param đang mở slider — null khi popup adjust đang ẩn
     _activeSubTool: 'none',        // 'none'|'crop'|'draw'|'text'|'shapePlacement' — KHÁC 'adjust' (live-preview trực tiếp, không có sub-tool mode riêng)
-    _editToolGridClickHandler: null, // hàm GỠ trả về từ wirePhotoEditToolGridDelegation() (core/file-manager/photo-ui.js), wire 1 lần/phiên modal
     _cropSession: null,            // session core/crop-selector.js — dùng CHUNG cho 'crop' VÀ 'shapePlacement' (kéo khung/handle giống hệt nhau về mặt hình học, xem selectShapeType()) — chỉ có nghĩa khi _activeSubTool là 1 trong 2 tool đó
     _drawType: 'brush',            // 'brush'|'eraser'
     _drawSessionActive: false,     // SỬA (31/07/2026, Nhóm B) — THAY biến `isDrawing` closure cũ (đã xoá cùng _wireSubToolPointerEvents()) — true trong lúc đang kéo vẽ 1 nét
@@ -85,21 +84,12 @@ const workflowImageEdit = {
         syncEditCanvasDisplaySize(handle); // core/file-manager/photo-ui.js — canvas vẽ ĐÈ lên `<img>` tự nhiên, cùng kích thước/vị trí
         this._activeEditParams = { brightness: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, sharpen: 0 };
         this._layers = [];
-        this._wireEditToolGridDelegation(); // ĐÚNG 1 lần/modal — xem docstring hàm đó
         return true;
     },
 
-    /** Gắn delegated click trên `genericDrawerBody` — CHỈ 1 lần/phiên xem ảnh, KHÔNG gắn lại mỗi
-     * lần `openEditToolGrid()` mở lại lưới (listener cũ không tự mất theo `innerHTML`, gắn lại sẽ
-     * chồng chất). Gỡ lại ở `exitEditMode()` (tự gọi hàm gỡ trả về từ Core).
-     * SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow") — lệnh
-     * `addEventListener` thật ĐÃ DỜI sang core/file-manager/photo-ui.js::
-     * wirePhotoEditToolGridDelegation() (Rule 5a — quyền của Core), hàm này giờ CHỈ gọi Core rồi
-     * giữ lại hàm gỡ trả về.
-     */
-    _wireEditToolGridDelegation() {
-        this._editToolGridClickHandler = wirePhotoEditToolGridDelegation(); // core/file-manager/photo-ui.js
-    },
+    // XOÁ (24/09/2026) — `_wireEditToolGridDelegation()`: delegated click trên `genericDrawerBody` TĨNH 1 lần/phiên modal
+    // (phải giữ hàm gỡ). Nay wire trên nội dung động mỗi lần mở lưới — core/file-manager/photo-ui.js::
+    // wirePhotoEditToolGridDrawerUi(), gọi trong `openEditToolGrid()`.
 
     /** Mở Generic Drawer hiện lưới tool (phẳng, không nhóm header) — TRỰC TIẾP đích của icon Edit
      * trên header (Router gọi thẳng, KHÔNG còn nhánh nào khác — không có khái niệm "vào Edit mode
@@ -114,7 +104,9 @@ const workflowImageEdit = {
     async openEditToolGrid() {
         const ready = await this.ensureEditSessionReady(); // phòng hờ bấm quá nhanh trước khi modal kịp tự decode xong
         if (!ready || !this._activeImageModalHandle) return; // guard: modal đóng/ảnh bị xoá giữa chừng
-        openPhotoEditToolGridDrawerUi(t('fileManager.photo.image.editGridTitle'), this._buildEditToolGridHtml()); // core/file-manager/photo-ui.js
+        // SỬA (24/09/2026) — mở qua Workflow helper (core không tự mở Drawer nữa, Rule 3) rồi wire nội dung vừa gắn.
+        workflowGenericDrawerHelpers.open(buildPhotoEditToolGridDrawerConfig(t('fileManager.photo.image.editGridTitle'), this._buildEditToolGridHtml())); // core/file-manager/photo-ui.js
+        wirePhotoEditToolGridDrawerUi(); // core/file-manager/photo-ui.js
     },
 
     /** @returns {string} bodyHtml lưới tool — DANH SÁCH PHẲNG (Giang yêu cầu bỏ hết group header
@@ -1074,7 +1066,6 @@ const workflowImageEdit = {
         this._drawSessionActive = false;
         this._textDragging = false;
         if (this._layerLongPressTimer) { clearTimeout(this._layerLongPressTimer); this._layerLongPressTimer = null; }
-        if (this._editToolGridClickHandler) { this._editToolGridClickHandler(); this._editToolGridClickHandler = null; }
         if (appState.get('isGenericDrawerOpen')) workflowGenericDrawerHelpers.closeFully();
         this._activeEditParams = null;
         this._activeAdjustParam = null;

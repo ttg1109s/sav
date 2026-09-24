@@ -38,7 +38,7 @@ const workflowVisualBg = {
     _gradientMovementPhaseToSpread: null,
 
     /** Picker Generic Drawer multi-select dùng chung cho Video/Ảnh (không bao giờ mở đồng thời). */
-    _pickerCleanup: null,
+    _pickerOpen: false, // SỬA (24/09/2026) — THAY `_pickerCleanup` (hàm gỡ listener cũ của openMediaPickerDrawerUi(), không còn cần)
     _pickerSelectedKeys: [], // ordered — thứ tự chọn
 
     /** Đọc lại `meta.visualBgConfig` + áp nền — gọi 1 lần lúc boot, SAU loadConfig(). */
@@ -988,13 +988,13 @@ const workflowVisualBg = {
     /** Visual BG sống trong chính Generic Drawer picker vừa mượn — `closeFully()` sẽ đóng luôn
      * Visual BG, không có gì để quay lại, nên tự mở lại màn Visual Background thay vì đóng hẳn. */
     _closePickerDrawer() {
-        if (this._pickerCleanup) { this._pickerCleanup(); this._pickerCleanup = null; }
+        this._pickerOpen = false;
         workflowAppSettings._renderVisualBg();
     },
 
     /** HTML khung picker Video/Ảnh: scroll container (grid windowing chèn vào TRONG) + nút "Chọn"
      * xác nhận cố định phía dưới (id khớp `openMediaPickerDrawerUi()`'s `showConfirmButton`, core/
-     * media-picker-drawer-helper.js — tự wire click -> `${msgPrefix}.confirm.click`). */
+     * media-picker-drawer-ui.js — tự wire click -> `${msgPrefix}.confirm.click`). */
     _buildMultiPickerBodyHtml(scrollId, emptyId, emptyText) {
         return `
             <div class="flex-1 min-h-0 overflow-y-auto relative" id="${scrollId}">

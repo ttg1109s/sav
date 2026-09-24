@@ -16,7 +16,7 @@
  * item), `pickBackgroundMedia(kind)` + `handleMediaPickerTileClick()` (chọn item mới) — Router (event/router/theme.js) chọn ĐÚNG 1 method; đều kết thúc
  * bằng `_commitThemeMode()`. Sửa màu (`setGradientFrom`/`setGradientTo`) cũng CHỌN luôn card Gradient (`_commitColorEdit()`).
  *
- * Picker chọn item thư viện = Generic Drawer TÁI DÙNG `openMediaPickerDrawerUi()` (core/media-picker-drawer-helper.js) + lưới ảnh/video có sẵn
+ * Picker chọn item thư viện = Generic Drawer TÁI DÙNG `openMediaPickerDrawerUi()` (core/media-picker-drawer-ui.js) + lưới ảnh/video có sẵn
  * (`workflowFileManagerPhoto.setupPhotoGridWindow()`, `workflowVideoGalleryWindow`), mở `updateInPlace` vì đang đứng TRONG Settings (cùng khuôn picker của
  * Visual Background); chọn xong/đóng thì dựng lại màn Theme (`workflowAppSettings._renderTheme()`).
  *
@@ -25,7 +25,7 @@
  *
  * NẠP SAU: core/config.js (saveConfig, resolveAppBgMedia), core/color-utils.js (updatePlaylistBg, forceGlassRepaint, setAppBgVideoPlayback),
  * core/visualizer/visualizer-display.js (setThemeGradientFrom/To, setAppGlassBlur/Tint), core/loading-shield-util.js (withLoadingShield), core/theme-background-ui.js
- * (patchThemeBackgroundCards), core/media-picker-drawer-helper.js (openMediaPickerDrawerUi), core/file-manager/image.js (listImages), core/file-manager/video.js
+ * (patchThemeBackgroundCards), core/media-picker-drawer-ui.js (openMediaPickerDrawerUi), core/file-manager/image.js (listImages), core/file-manager/video.js
  * (listVideos), event/workflow/file-manager-photo.js, event/workflow/photo-gallery-window.js, event/workflow/video-gallery-window.js,
  * event/workflow/app-settings.js (workflowAppSettings._renderTheme — runtime), event/workflow/ui-theme.js (workflowUiTheme — runtime), core/dom-refs.js
  * (appStack, genericDrawerBody).
@@ -34,7 +34,7 @@ const THEME_MORPHIN_BG_MODES = ['none', 'gradient', 'background']; // MỚI 23/0
 
 const workflowTheme = {
     _mediaPickerKind: null, // 'photo' | 'video' | null — đang có picker media nền mở hay không
-    _mediaPickerCleanup: null, // hàm gỡ listener delegated của picker (openMediaPickerDrawerUi trả về)
+    _mediaPickerOpen: false, // SỬA (24/09/2026) — THAY `_mediaPickerCleanup` (hàm gỡ listener cũ, không còn cần — listener gắn trên nội dung động)
 
     /**
      * Ứng với 'theme.selectMode.click' khi `mode !== 'background'` (light/dark/none/gradient) — Router đã chọn ĐÚNG method này. None/Gradient
@@ -64,14 +64,15 @@ const workflowTheme = {
         this._mediaPickerKind = kind;
         const isPhoto = kind === 'photo';
         const scrollId = 'theme-bg-picker-scroll', emptyId = 'theme-bg-picker-empty';
-        this._mediaPickerCleanup = openMediaPickerDrawerUi( // core/media-picker-drawer-helper.js
-            'theme', 'theme.mediaPicker',
-            isPhoto ? t('playlistView.songEdit.coverPickLibrary') : t('fileManager.video.pickerTitle'),
-            this._buildMediaPickerBodyHtml(scrollId, emptyId, isPhoto ? t('fileManager.photo.image.empty') : t('fileManager.video.empty')),
-            isPhoto ? '[data-image-key]' : '.video-tile', isPhoto ? 'imageKey' : 'videoKey', false, true,
-        );
+        workflowGenericDrawerHelpers.mountMediaPicker({ // event/workflow/generic-drawer-helpers.js — SỬA 24/09/2026
+            routerName: 'theme', msgPrefix: 'theme.mediaPicker',
+            title: isPhoto ? t('playlistView.songEdit.coverPickLibrary') : t('fileManager.video.pickerTitle'),
+            bodyHtml: this._buildMediaPickerBodyHtml(scrollId, emptyId, isPhoto ? t('fileManager.photo.image.empty') : t('fileManager.video.empty')),
+            tileSelector: isPhoto ? '[data-image-key]' : '.video-tile', tileDataKey: isPhoto ? 'imageKey' : 'videoKey', showConfirmButton: false, updateInPlace: true,
+        });
+        this._mediaPickerOpen = true;
         const items = isPhoto ? await listImages() : await listVideos(); // core/file-manager/image.js | video.js
-        if (!this._mediaPickerCleanup) return; // guard — đóng picker RẤT NHANH lúc đang đọc DB
+        if (!this._mediaPickerOpen) return; // guard — đóng picker RẤT NHANH lúc đang đọc DB
         const scrollEl = genericDrawerBody.querySelector(`#${scrollId}`);
         const emptyEl = genericDrawerBody.querySelector(`#${emptyId}`);
         if (emptyEl) emptyEl.classList.toggle('hidden', items.length > 0);
@@ -92,8 +93,7 @@ const workflowTheme = {
     _teardownMediaPicker() {
         if (this._mediaPickerKind === 'photo') workflowPhotoGalleryWindow.unmount('genericDrawer'); // event/workflow/photo-gallery-window.js
         else if (this._mediaPickerKind === 'video') workflowVideoGalleryWindow.unmount('genericDrawer');
-        if (this._mediaPickerCleanup) this._mediaPickerCleanup();
-        this._mediaPickerCleanup = null;
+        this._mediaPickerOpen = false;
         this._mediaPickerKind = null;
     },
 

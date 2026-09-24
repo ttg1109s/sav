@@ -635,9 +635,9 @@ const workflowSubtitleEditor = {
             bodyClass: 'overflow-y-auto',
         };
         if (genericDrawerPanel.classList.contains('hidden')) {
-            openGenericDrawer(config); // core/generic-drawer.js
+            workflowGenericDrawerHelpers.open(config); // event/workflow/generic-drawer-helpers.js — SỬA 24/09/2026: lối mở/thay DUY NHẤT
         } else {
-            updateGenericDrawer(config); // core/generic-drawer.js
+            workflowGenericDrawerHelpers.update(config); // co/giãn chiều cao + fade chéo
         }
         this._wireKaraokeDrawer();
         this._initKaraokeMiniWaveform();

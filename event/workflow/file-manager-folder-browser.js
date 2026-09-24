@@ -506,10 +506,16 @@ const workflowFileManagerFolderBrowser = {
         if (applyBtn) applyBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.filterEdit.apply.click', payload: {} }));
 
         this._syncFolderFilterEditUI(genericDrawerBody, this._filterEditDraft);
-        const handler = (e) => this._handleFolderFilterFieldEvent(e);
-        genericDrawerBody.addEventListener('change', handler);
-        genericDrawerBody.addEventListener('input', handler);
-        genericDrawerBody.addEventListener('click', handler); // nút mở time-picker (data-filter-time-trigger) là 'click' thật — CÙNG lý do gộp 3 listener của handlePlaylistFilterPanelEvent() (event/listener/playlist.js)
+        // SỬA (24/09/2026, dọn vi phạm event bus + lỗi chồng listener) — bản cũ gắn 3 listener lên `genericDrawerBody`
+        // TĨNH mỗi lần mở màn Filter Edit, callback gọi THẲNG method: mở màn lần 2 là xử lý 2 lần; và listener vẫn
+        // sống khi Drawer đã sang màn/tính năng khác. Nay gắn lên các con TRỰC TIẾP của body (DOM động của chính màn
+        // này, tự mất khi nội dung bị thay), callback CHỈ bắn eventBus -> Router -> `_handleFolderFilterFieldEvent()`.
+        const send = (e) => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.filterEdit.field', payload: { event: e } });
+        Array.from(genericDrawerBody.children).forEach((root) => {
+            root.addEventListener('change', send);
+            root.addEventListener('input', send);
+            root.addEventListener('click', send); // nút mở time-picker (data-filter-time-trigger) là 'click' thật — CÙNG lý do gộp 3 listener của handlePlaylistFilterPanelEvent() (event/listener/playlist.js)
+        });
     },
 
     /** Ứng với 'fileManagerFolderBrowser.filterEdit.back.click' — THOÁT màn Filter Edit, KHÔNG

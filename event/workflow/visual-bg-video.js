@@ -405,14 +405,17 @@ Object.assign(workflowVisualBg, {
     /** Video — mở picker multi-select (thay `openSingleVideoPicker()` cũ). */
     async openPickVideo() {
         this._pickerSelectedKeys = [];
-        this._pickerCleanup = openMediaPickerDrawerUi(
-            'visualBg', 'visualBg.videoPicker', t('fileManager.video.pickerTitle'),
-            this._buildMultiPickerBodyHtml('file-manager-video-picker-scroll', 'file-manager-video-picker-empty', t('fileManager.video.empty')),
-            '.video-tile', 'videoKey', true, true,
-        );
+        // SỬA (24/09/2026) — mở qua Workflow helper (core/media-picker-drawer-ui.js không còn tự mở Drawer). `_pickerOpen`
+        // THAY `_pickerCleanup` (không còn hàm gỡ listener: listener gắn trên nội dung động, tự mất khi đóng).
+        workflowGenericDrawerHelpers.mountMediaPicker({
+            routerName: 'visualBg', msgPrefix: 'visualBg.videoPicker', title: t('fileManager.video.pickerTitle'),
+            bodyHtml: this._buildMultiPickerBodyHtml('file-manager-video-picker-scroll', 'file-manager-video-picker-empty', t('fileManager.video.empty')),
+            tileSelector: '.video-tile', tileDataKey: 'videoKey', showConfirmButton: true, updateInPlace: true,
+        });
+        this._pickerOpen = true;
 
         const videos = await listVideos();
-        if (!this._pickerCleanup) return;
+        if (!this._pickerOpen) return;
 
         const scrollEl = genericDrawerBody.querySelector('#file-manager-video-picker-scroll');
         const emptyEl = genericDrawerBody.querySelector('#file-manager-video-picker-empty');

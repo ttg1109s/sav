@@ -70,7 +70,7 @@ const workflowSettingsMisc = {
      * Drawer, KHÔNG đụng gì tới shield/tác vụ đang chạy dở bên dưới (2 lớp hoàn toàn độc lập).
      */
     forceOpenDebugConsole() {
-        openGenericDrawer({ // core/generic-drawer.js
+        workflowGenericDrawerHelpers.open({ // event/workflow/generic-drawer-helpers.js — SỬA 24/09/2026: lối mở DUY NHẤT (áp theme + dọn hẹn giờ)
             height: 'auto',
             maxHeight: '85vh',
             zIndex: Z_INDEX.LOADING_SHIELD + 10, // service/z-index.js

@@ -105,7 +105,7 @@ const workflowFileManagerStorage = {
     /** Ứng với 'fileManagerStorage.openPanel.click'. Mở Generic Drawer "Quản lý lưu trữ" — cùng
      * khuôn `workflowFileManagerFolderBrowser._renderList()` (header title + nút X). */
     async openPanel() {
-        openGenericDrawer({ // core/generic-drawer.js
+        workflowGenericDrawerHelpers.open({ // event/workflow/generic-drawer-helpers.js — SỬA 24/09/2026: lối mở DUY NHẤT
             height: 'auto', // MỚI (phản hồi Giang mục 2) — tự co theo nội dung, xem core/generic-drawer.js
             maxHeight: '85vh',
             headerHtml: `

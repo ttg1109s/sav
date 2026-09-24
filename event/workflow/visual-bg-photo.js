@@ -131,14 +131,16 @@ Object.assign(workflowVisualBg, {
     /** Mở picker Ảnh multi-select — cùng khuôn `openPickVideo()`. */
     async openPickPhoto() {
         this._pickerSelectedKeys = [];
-        this._pickerCleanup = openMediaPickerDrawerUi(
-            'visualBg', 'visualBg.photoPicker', t('visualBgSettingsDrawer.pickPhoto.label'),
-            this._buildMultiPickerBodyHtml('visual-bg-photo-picker-scroll', 'visual-bg-photo-picker-empty', t('fileManager.photo.image.empty')),
-            '[data-image-key]', 'imageKey', true, true,
-        );
+        // SỬA (24/09/2026) — cùng khuôn `openPickVideo()` (event/workflow/visual-bg-video.js).
+        workflowGenericDrawerHelpers.mountMediaPicker({
+            routerName: 'visualBg', msgPrefix: 'visualBg.photoPicker', title: t('visualBgSettingsDrawer.pickPhoto.label'),
+            bodyHtml: this._buildMultiPickerBodyHtml('visual-bg-photo-picker-scroll', 'visual-bg-photo-picker-empty', t('fileManager.photo.image.empty')),
+            tileSelector: '[data-image-key]', tileDataKey: 'imageKey', showConfirmButton: true, updateInPlace: true,
+        });
+        this._pickerOpen = true;
 
         const images = await listImages();
-        if (!this._pickerCleanup) return;
+        if (!this._pickerOpen) return;
 
         const scrollEl = genericDrawerBody.querySelector('#visual-bg-photo-picker-scroll');
         const emptyEl = genericDrawerBody.querySelector('#visual-bg-photo-picker-empty');

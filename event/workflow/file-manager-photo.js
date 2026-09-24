@@ -15,7 +15,7 @@
  * (upload ảnh giờ qua nút upload chung của Playlist) và image-edit.js::saveEditOverwrite().
  *
  * NẠP SAU: core/file-manager/image.js, core/file-manager/photo-ui.js, core/media-transform.js
- * (initPanzoomSession/destroyPanzoomSession), core/media-picker-drawer-helper.js,
+ * (initPanzoomSession/destroyPanzoomSession), core/media-picker-drawer-ui.js,
  * core/generic-drawer.js.
  */
 let _imagePickerSession = null; // session picker ảnh Generic Drawer đang mở (null = đang đóng) — handle UI, KHÔNG phải state nghiệp vụ ảnh hưởng rẽ nhánh Router.
@@ -92,16 +92,13 @@ const workflowFileManagerPhoto = {
      */
     async _openImagePickerDrawer(title) {
         // Rule 5a — dựng Generic Drawer + wire closeBtn/delegated click lưới ảnh nằm ở CORE
-        // (core/media-picker-drawer-helper.js::openMediaPickerDrawerUi(), dùng chung picker ảnh/
+        // (core/media-picker-drawer-ui.js (nay: workflowGenericDrawerHelpers.mountMediaPicker()), dùng chung picker ảnh/
         // video), Workflow chỉ gọi Core với data đã chuẩn bị sẵn (title/bodyHtml).
-        openMediaPickerDrawerUi('fileManagerPhoto', 'fileManagerPhoto.imagePicker', title, this._buildImagePickerBodyHtml(), '[data-image-key]', 'imageKey', false); // core/media-picker-drawer-helper.js
+        // SỬA (24/09/2026) — mở qua Workflow helper (core picker không còn tự mở Drawer); chờ trượt xong bằng taskManager
+        // THAY `transitionend` gắn thẳng lên panel TĨNH (listener ngoài tầng Listener; lại còn nổi bọt từ phần tử con).
+        workflowGenericDrawerHelpers.mountMediaPicker({ routerName: 'fileManagerPhoto', msgPrefix: 'fileManagerPhoto.imagePicker', title, bodyHtml: this._buildImagePickerBodyHtml(), tileSelector: '[data-image-key]', tileDataKey: 'imageKey' });
 
-        await new Promise((resolve) => {
-            genericDrawerPanel.addEventListener('transitionend', function onOpenTransitionEnd() {
-                genericDrawerPanel.removeEventListener('transitionend', onOpenTransitionEnd);
-                resolve();
-            }, { once: true });
-        });
+        await new Promise((resolve) => { taskManager.once(resolve, GENERIC_DRAWER_ANIM_MS, 'fileManagerPhotoPickerOpenSettle'); }); // core/generic-drawer.js
 
         const images = await listImages(); // core/file-manager/image.js
         if (!_imagePickerSession) return; // guard — user đóng picker RẤT NHANH trong lúc đang đọc DB (hiếm, nhưng an toàn — tránh vẽ vào drawer đã đóng)
