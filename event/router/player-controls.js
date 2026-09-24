@@ -84,7 +84,7 @@ const routerPlayerControls = (() => {
                 // được từ checkbox SÂU trong Settings → File Manager → Video (đã xoá hẳn từ Batch
                 // 6). Giờ Video LUÔN được chọn TỪ Playlist (y hệt Song, dropdown/menu 3 chấm thống
                 // nhất) nên "Back" luôn đúng là về Playlist — KHÔNG còn 2 nhánh, gọi THẲNG.
-                handleBackToPlaylistClick();
+                workflowPlayerControls.handleBackToPlaylistClick(); // SỬA 24/09/2026 — dời từ core (core gọi 2 core)
                 break;
             }
 

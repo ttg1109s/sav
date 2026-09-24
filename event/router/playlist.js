@@ -159,8 +159,8 @@ const routerPlaylist = (() => {
 
             // ===================== Modal: Bài hát lỗi lúc phát =====================
             case 'playlist.playbackError.keep': {
-                // CHỈ CẦN ĐÚNG 1 HÀM CORE (không shield/modal) -> gọi THẲNG.
-                confirmKeepBrokenSong();
+                // SỬA (24/09/2026) — core `confirmKeepBrokenSong()` cũ gọi removeKeyFromDisplay (đã dời sang Workflow) -> giao Workflow.
+                workflowPlaylist.keepBrokenSong();
                 break;
             }
 
@@ -266,7 +266,7 @@ const routerPlaylist = (() => {
                 const { fileList } = msg.payload;
                 const source = appState.get('activeMediaSource');
                 VirtualMachineState.run([
-                    { state: source, operation: '===', value: 'song', callback: () => handleFilePickerChange(fileList) }, // core "lớn" có sẵn shield/modal bên trong (giống window.playSong) -> gọi thẳng
+                    { state: source, operation: '===', value: 'song', callback: () => workflowPlaylist.handleSongFilePickerChange(fileList) }, // SỬA 24/09/2026 — dời từ core/playlist/loader.js (shield/modal + gọi Workflow -> đúng vai Workflow)
                     { state: source, operation: '===', value: 'video', callback: () => workflowPlaylist.uploadVideos(fileList) },
                     { state: source, operation: '===', value: 'photo', callback: () => workflowPlaylist.uploadPhotos(fileList) },
                 ]);
@@ -277,7 +277,7 @@ const routerPlaylist = (() => {
                 const { fileList } = msg.payload;
                 const source = appState.get('activeMediaSource');
                 VirtualMachineState.run([
-                    { state: source, operation: '===', value: 'song', callback: () => handleFolderPickerChange(fileList) }, // tương tự — đã có sẵn try/catch + alertModal riêng cho trường hợp thư mục rỗng
+                    { state: source, operation: '===', value: 'song', callback: () => workflowPlaylist.handleSongFolderPickerChange(fileList) }, // SỬA 24/09/2026 — tương tự dòng trên
                     { state: source, operation: '===', value: 'video', callback: () => workflowPlaylist.uploadVideos(fileList) },
                     { state: source, operation: '===', value: 'photo', callback: () => workflowPlaylist.uploadPhotos(fileList) },
                 ]);
