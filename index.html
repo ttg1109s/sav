@@ -1090,12 +1090,16 @@
          dung, không biết nơi tiêu thụ). NẠP SAU 3 Runner. Nơi dùng (event/workflow/visual-bg-photo-motion.js
          — Image surface, nạp phía trên) chỉ gọi lúc chạy. -->
     <script src="event/workflow/motion-stage.js?v=20260925s1"></script>
+    <!-- MỚI (25/09/2026, đợt 4 Motion) — Video surface: tầng "bề mặt media" cho video A/B (#bg-video + #visual-bg-image
+         làm cầu nối), DÙNG CHUNG cho mọi nơi tiêu thụ video nền (Player Video; đợt 5: VBG Video) — mượn Motion Stage
+         ngay trên, gắn/gỡ DOM qua core/player-display-apply.js. Nơi dùng chỉ gọi lúc chạy. -->
+    <script src="event/workflow/video-motion-surface.js?v=20260925v4"></script>
 
     <!-- MỚI (Giang yêu cầu "Player") — workflowPlayerDisplaySettings (load/ghi bền domain
          'playerDisplay', GIAI ĐOẠN 1 — CHƯA có cơ chế áp dụng lên runtime), xem event/workflow/
          player-display-settings.js. NẠP TRƯỚC event/workflow/app-settings.js (gọi trực tiếp, không
          qua router riêng) và event/workflow/app-boot.js (gọi loadPersistedPlayerDisplayOnBoot()). -->
-    <script src="event/workflow/player-display-settings.js?v=20260925p3"></script>
+    <script src="event/workflow/player-display-settings.js?v=20260925v4"></script>
     <!-- MỚI (23/09/2026) — workflowPagination: domain 'pagination' (load/ghi bền) + CỬA DUY NHẤT để 1 danh
          sách dùng pagination theo cài đặt chung. NẠP TRƯỚC event/workflow/app-settings.js (gọi trực tiếp)
          và event/workflow/app-boot.js (loadPersistedPaginationOnBoot()). -->
@@ -1103,7 +1107,7 @@
 
     <!-- Cụm "visualBg" — Workflow tách 3 file: common (định nghĩa `workflowVisualBg`), video/photo
          (`Object.assign()` thêm vào) — common PHẢI nạp trước video/photo. -->
-    <script src="event/workflow/visual-bg-common.js?v=20260925p3"></script>
+    <script src="event/workflow/visual-bg-common.js?v=20260925v4"></script>
     <script src="event/workflow/visual-bg-video.js?v=20260924r3"></script>
     <script src="event/workflow/visual-bg-photo.js?v=20260925p3"></script>
     <script src="event/router/visual-bg.js?v=20260924m1"></script>
@@ -1213,7 +1217,7 @@
          mediaType khi click video trong Playlist (đi qua eventBus để Block gate chặn khoá chéo với
          Video nền). PHẢI nạp SAU event/workflow/video-player.js (cần workflowVideoPlayer.
          startFromPlaylist() đã tồn tại). -->
-    <script src="event/workflow/video-player.js?v=20260921v4"></script>
+    <script src="event/workflow/video-player.js?v=20260925v4"></script>
     <script src="event/router/video-player.js?v=20260915v1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
     <!-- MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — event/workflow/photo-
@@ -1227,7 +1231,7 @@
          workflow/visual-bg-common.js/visual-bg-video.js ("vbg chỉ hợp lệ với song" nên tái dùng
          clearMediaLayers()/applyCurrentVisualBg() Video Player mode đã dùng thay vì tự vẽ DOM
          riêng, cần workflowVisualBg tồn tại trước). -->
-    <script src="event/workflow/photo-player.js?v=20260925p3"></script>
+    <script src="event/workflow/photo-player.js?v=20260925v4"></script>
     <!-- event/workflow/number-countup.js — MỚI (21/09/2026): vòng lặp timer count-up dùng chung (cần taskManager + core/number-countup.js). PHẢI nạp TRƯỚC gameplay-engine.js VÀ statis-panel.js. -->
     <script src="event/workflow/number-countup.js?v=20260921v1"></script>
     <!-- Cụm "gameplay" — Game Mode. gameplay-engine.js (Workflow DÙNG CHUNG mọi mode: cooldown/
