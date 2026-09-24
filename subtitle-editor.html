@@ -329,7 +329,7 @@
     <script src="lang/patch/patch-common.js?v=20260714v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260710v1"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260708v1"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260709v1"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260924m1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260714v1"></script>
     <script src="lang/patch/patch-file-manager.js?v=20260710v1"></script>
     <script src="lang/patch/patch-subtitle-editor.js?v=20260917v2"></script>
@@ -344,7 +344,7 @@
          `let activeLangKeys = LANG_EN_KEYS;` -> activeLangKeys mãi ở TDZ -> mọi lệnh gọi t()/tFormat()
          sau đó (kể cả từ hàm t() đã hoisted) throw TDZ error y hệt lỗi trên. Cần nạp Ở ĐÂY dù trang
          này không dùng key nào trong đó, cùng lý do với patch-video-preview.js ở trên. -->
-    <script src="lang/patch/patch-app-panel-nav.js?v=20260912v1"></script>
+    <script src="lang/patch/patch-app-panel-nav.js?v=20260924m1"></script>
     <!-- lang.js hardcode Object.assign() cả 9 biến LANG_PATCH_* trên — THIẾU BẤT KỲ FILE NÀO Ở
          TRÊN đều làm lang.js ReferenceError ngay khi parse (chạy TRÊN CẢ index.html LẪN trang này,
          xem lang/lang.js) — KHÔNG được bớt file nào dù trang này chỉ thật sự DÙNG patch-common/
