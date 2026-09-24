@@ -79,13 +79,20 @@ function renderVisualBgPanelBody() {
                             <button type="button" id="setting-visual-bg-duration-seconds" class="rounded-lg px-3 py-1.5 text-xs outline-none w-20 text-right shrink-0" data-uitk="cardHoverBg inputBg inputBorder inputText">5s</button>
                         </div>
 
-                        <!-- Motion — CHỈ hiện khi type='photo' (nơi tiêu thụ Motion duy nhất hiện tại,
-                             xem core/motion-presets.js::MOTION_APPLY_CONSUMERS). Option dựng động từ
-                             preset ĐÃ đăng ký cho 'photoVisualBg' — Workflow tự đổ qua refreshPanelUI(). -->
-                        <div id="visual-bg-motion-row" class="flex justify-between items-center p-4 hidden border-b" data-uitk="dividerBorder cardHoverBg">
-                            <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.motion.label">${t('visualBgSettingsDrawer.motion.label')}</span>
-                            <select id="setting-visual-bg-motion-preset" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText"></select>
-                        </div>
+                        <!-- Motion — CHỈ hiện khi type='photo'. SỬA (24/09/2026, Giang yêu cầu — xoá cơ chế
+                             đăng ký Motion vào nơi tiêu thụ) — KHÔNG còn select lọc preset đã đăng ký cho
+                             'photoVisualBg': cả hàng là 1 nút, hiện TÊN preset đang gắn (hoặc "None"), tap ->
+                             mở THẲNG danh sách Motion ở chế độ CHỌN (workflowVisualBg.openMotionPicker()).
+                             Tên preset gắn qua data-visual-bg-motion-name (KHÔNG dùng id cho phần tử con —
+                             listener delegate dò closest('[id]'), id con sẽ "nuốt" click của nút), Workflow
+                             tự điền qua refreshPanelUI(). -->
+                        <button type="button" id="setting-visual-bg-open-motion-picker" class="flex justify-between items-center gap-3 p-4 w-full text-left hidden border-b" data-uitk="dividerBorder cardHoverBg">
+                            <span class="text-sm font-medium shrink-0" data-i18n="visualBgSettingsDrawer.motion.label">${t('visualBgSettingsDrawer.motion.label')}</span>
+                            <span class="flex items-center gap-1 min-w-0">
+                                <span data-visual-bg-motion-name class="text-xs truncate" data-uitk="textSecondary"></span>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                            </span>
+                        </button>
 
                         <!-- Hiện khi type='video' — VBG mặc định KHÔNG theo tốc độ phát chung (chạy
                              độc lập thời gian), bật cờ này mới theo. Workflow tự toggle qua

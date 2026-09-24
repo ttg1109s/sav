@@ -1,19 +1,22 @@
 /**
  * Component: màn hình "Cấu hình Motion" — hệ PRESET độc lập, đặt tên/thêm/xoá được (CÙNG KHUÔN
- * hệ preset EQ — core/eq-presets.js/components/eq-presets-drawer.js). Preset TỰ đăng ký cho nơi
- * tiêu thụ (VBG Photo) ngay trong màn Edit, chứ KHÔNG sở hữu/quản lý nơi tiêu thụ. Lối vào DUY
- * NHẤT: Settings > System > Motion -> thẳng danh sách preset.
+ * hệ preset EQ — core/eq-presets.js/components/eq-presets-drawer.js). Motion KHÔNG sở hữu/quản lý/
+ * biết nơi tiêu thụ nào. 2 lối vào: Settings > System > Motion -> danh sách preset (Quản lý), và
+ * từ CHÍNH nơi tiêu thụ (VBG Photo, Player Video/Photo) -> danh sách preset ở chế độ CHỌN (màn 6).
+ * SỬA (24/09/2026, Giang yêu cầu) — nhóm "Áp dụng cho" (đăng ký nơi tiêu thụ) ở màn Edit ĐÃ XOÁ.
  *
- * 5 màn (mỗi màn 1 hàm render, tất cả điều hướng qua workflowAppSettings.navigateTo(), xem
+ * 6 màn (mỗi màn 1 hàm render, tất cả điều hướng qua workflowAppSettings.navigateTo(), xem
  * event/workflow/app-settings.js + event/workflow/motion-presets.js):
  *   1. `renderMotionListBody(presets)` — danh sách preset, tap = sửa, nút xoá nhanh mỗi dòng.
- *   2. `renderMotionEditBody(preset, motionApply, consumerKey)` — sửa 1 preset: Transition +
- *      Point Move (thay Ken Burns, xem core/motion-presets.js) + React Beat Audio + "Áp dụng cho"
- *      (đăng ký nơi tiêu thụ) + "Quản lý" (đổi tên/Reset/Xoá).
+ *   2. `renderMotionEditBody(preset)` — sửa 1 preset: Transition + Point Move (thay Ken Burns, xem
+ *      core/motion-presets.js) + React Beat Audio + "Quản lý" (đổi tên/Reset/Xoá).
  *   3. `renderPointMoveListBody(pointMoves)` — danh sách point move: checkbox | tên | xoá | sửa.
  *   4. `renderPointMoveEditBody(pointMove)` — sửa 6 thông số (Linear X/Y, Rotate, Zoom, Flip X/Y).
  *   5. `renderPointMoveTimingBody()` — khung chứa đường cong Timing (SVG dựng bởi
  *      core/point-move-timing-ui.js, workflow tự append vào #ptmove-timing-container).
+ *   6. `renderMotionPickerBody(presets, selectedId, paginationHtml)` + `renderMotionPickerApplyButtonHtml()`
+ *      — MỚI (24/09/2026) — danh sách preset ở chế độ CHỌN (nơi tiêu thụ mở qua workflowMotionPresets.
+ *      openPicker()): tap dòng = chọn, nút "Apply" ở header = xác nhận.
  *
  * Logic: event/workflow/motion-presets.js (workflowMotionPresets). Router/Listener: cụm
  * "motionPresets" (event/router/motion-presets.js).
@@ -49,6 +52,37 @@ function renderMotionListBody(presets, paginationHtml) {
         </div>
     `).join('');
     return addRowHtml + itemsHtml + `<div id="motion-list-pagination">${paginationHtml || ''}</div>`;
+}
+
+/** MỚI (24/09/2026, Giang yêu cầu — thay cơ chế đăng ký "Áp dụng cho") — danh sách preset ở chế độ CHỌN.
+ * CÙNG khung dòng với `renderMotionListBody()` nhưng KHÔNG có nút thêm/xoá nhanh (màn này chỉ để chọn —
+ * Quản lý vẫn ở Settings > System > Motion). Dòng "None" (`data-motion-picker-option=""`) LUÔN đứng đầu,
+ * NGOÀI phân trang (gỡ Motion khỏi nơi tiêu thụ — thay option "None" của select cũ). Dòng đang chọn (nháp)
+ * tô nền/viền `rowActiveBg rowActiveBorder` (CÙNG key danh sách Filter) + dấu tick bên phải.
+ * Thanh phân trang (nơi 'motionPresets' — DÙNG CHUNG cài đặt với màn Quản lý) đặt trong
+ * `#motion-picker-pagination` để Workflow wire (core/pagination-ui.js).
+ * @param {{id:string,name:string}[]} presets - đúng trang cần vẽ (Workflow đã cắt sẵn)
+ * @param {string|null} selectedId - nháp đang chọn, null = "None" @param {string} [paginationHtml] */
+function renderMotionPickerBody(presets, selectedId, paginationHtml) {
+    const checkHtml = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="accentText" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>`;
+    const rowHtml = (id, name, isSelected) => `
+        <div data-motion-picker-option="${escapeHtml(id)}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-3 cursor-pointer transition-colors" data-uitk="${isSelected ? 'rowActiveBg rowActiveBorder' : 'cardBg cardBorder cardHoverBg'}">
+            <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${escapeHtml(name)}</span>
+            ${isSelected ? checkHtml : ''}
+        </div>
+    `;
+    const noneRowHtml = rowHtml('', t('motionPresetsDrawer.picker.none'), !selectedId);
+    if (presets.length === 0) {
+        return noneRowHtml + `<p class="text-sm text-center py-10 px-6" data-uitk="textSecondary" data-i18n="motionPresetsDrawer.picker.empty">${t('motionPresetsDrawer.picker.empty')}</p>`;
+    }
+    const itemsHtml = presets.map((p) => rowHtml(p.id, p.name, p.id === selectedId)).join('');
+    return noneRowHtml + itemsHtml + `<div id="motion-picker-pagination">${paginationHtml || ''}</div>`;
+}
+
+/** MỚI (24/09/2026) — nút "Apply" chèn vào header màn Chọn (tham số `extraHeaderHtml` của
+ * workflowAppSettings._render()) — Workflow tự wire ở onMount. @returns {string} */
+function renderMotionPickerApplyButtonHtml() {
+    return `<button type="button" id="btn-motion-picker-apply" class="h-8 px-3 rounded-full text-xs font-semibold" data-uitk="btnPrimaryBg btnPrimaryHoverBg textOnAccent" data-i18n="motionPresetsDrawer.picker.apply.label">${t('motionPresetsDrawer.picker.apply.label')}</button>`;
 }
 
 /** Option {value,labelKey} cho select hướng — trục ngang (Pan X/Rotate) vs trục dọc (Pan Y, MỚI —
@@ -121,9 +155,9 @@ function renderMotionBeatReactEffectRows(key, effect, cfg) {
     `;
 }
 
-/** @param {object} preset - 1 phần tử `appState.motionPresets` (core/motion-presets.js). */
-/** @param {object} preset @param {Object<string,string[]>} motionApply @param {string} consumerKey - đang chọn ở dropdown "Áp dụng cho". */
-function renderMotionEditBody(preset, motionApply, consumerKey) {
+/** SỬA (24/09/2026) — bỏ 2 tham số `motionApply`/`consumerKey` (nhóm "Áp dụng cho" đã xoá).
+ * @param {object} preset - 1 phần tử `appState.motionPresets` (core/motion-presets.js). */
+function renderMotionEditBody(preset) {
     return `
                 <!-- ===================== NHÓM 1: CHUYỂN CẢNH ===================== -->
                 <div>
@@ -333,17 +367,6 @@ function renderMotionEditBody(preset, motionApply, consumerKey) {
                         <button type="button" id="btn-motion-edit-delete" class="flex justify-between items-center p-4 w-full text-left" data-uitk="cardHoverBg">
                             <span class="text-sm font-medium" data-uitk="destructiveText" data-i18n="motionPresetsDrawer.edit.delete.label">${t('motionPresetsDrawer.edit.delete.label')}</span>
                         </button>
-                    </div>
-                </div>
-
-                <!-- ===================== NHÓM 5: ÁP DỤNG CHO — đăng ký nơi tiêu thụ ===================== -->
-                <div>
-                    <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2 mt-4" data-uitk="accentText" data-i18n="motionPresetsDrawer.apply.groupTitle">${t('motionPresetsDrawer.apply.groupTitle')}</h3>
-                    <div class="rounded-2xl flex items-center gap-2 p-4" data-uitk="cardBg cardBorder">
-                        <select id="setting-motion-apply-consumer" class="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-xs outline-none" data-uitk="inputBg inputBorder inputText">
-                            ${MOTION_APPLY_CONSUMERS.map((c) => `<option value="${c.key}" ${c.key === consumerKey ? 'selected' : ''}>${t(c.labelKey)}</option>`).join('')}
-                        </select>
-                        <button type="button" id="btn-motion-apply-toggle" class="shrink-0 px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors ${isMotionApplySubscribed(motionApply, consumerKey, preset.id) ? 'bg-rose-500 hover:bg-rose-400' : 'bg-emerald-500 hover:bg-emerald-400'}">${t(isMotionApplySubscribed(motionApply, consumerKey, preset.id) ? 'motionPresetsDrawer.apply.unsubscribe.label' : 'motionPresetsDrawer.apply.subscribe.label')}</button>
                     </div>
                 </div>
     `;
