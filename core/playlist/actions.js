@@ -658,25 +658,9 @@
             return { status: 'ok' };
         }
 
-        /**
-         * Phần "dọn dẹp sau khi lưu" (vẽ lại danh sách, sắp xếp lại nếu cần) — core thuần, không
-         * shield/modal, gọi SAU KHI applySongEditAndSave() đã resolve (workflow gọi nối tiếp).
-         * SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — `recomputeDisplayOrder()`/
-         * `recomputeRenderOrder()` ĐÃ DỜI hẳn sang `event/workflow/playlist-order.js`
-         * (`workflowPlaylistOrder`) — CÙNG GHI CHÚ nợ kỹ thuật "Core gọi Workflow" như
-         * `removeKeyFromDisplay()` ngay trên. Cần đọc `displaySortMode` TRƯỚC để chọn nhánh
-         * `recomputeDisplayOrder()` (CHỈ chạy khi 'az'/'za') — đọc riêng 1 field đó ở đây, phần còn
-         * lại 2 method kia tự đọc.
-         * @param {string} key
-         */
-        function refreshAfterSongEditSave(key) {
-            workflowPlaylistRender.refreshSongNode(key); // vẽ lại ảnh/tên mới ngay trong danh sách (ảnh cũ trong DOM không tự đổi)
-            // Đổi tên -> ảnh hưởng sort: cập nhật cả hàng đợi phát (nếu az/za) lẫn danh sách hiển thị.
-            const nameMode = appState.get('displaySortMode');
-            if (nameMode === 'az' || nameMode === 'za') workflowPlaylistOrder.recomputeDisplayOrder();
-            workflowPlaylistOrder.recomputeRenderOrder();
-            workflowPlaylistRender.renderPlaylistDiff();
-        }
+        // DỜI (24/09/2026, rà soát refresh DOM) — `refreshAfterSongEditSave()` (tự `appState.get()` + gọi 3 hàm
+        // Workflow — thực chất là Workflow đặt nhầm trong core) sang event/workflow/playlist.js::
+        // `workflowPlaylist._refreshAfterMediaEditSave()`, thân giữ nguyên.
 
         // ===================== Chi tiết bài hát (gộp vào tab đầu của song-edit-modal, 10/07/2026) =====================
         // SỬA (phản hồi Giang): #song-info-modal cũ ĐÃ XOÁ — nội dung giờ populate thẳng vào

@@ -75,24 +75,10 @@
             if (node && node._coverObjectUrl) { try { URL.revokeObjectURL(node._coverObjectUrl); } catch (e) {} node._coverObjectUrl = null; }
         }
 
-        /**
-         * Ver 12 "Multi Media" (plan-v12-multimedia.md mục 4.b1, "Chọn nhiều") — chỉ báo trực quan
-         * đã chọn/chưa chọn. KHÔNG phải hit-target riêng (click cả dòng đã đủ để toggle, xem router
-         * 'playlist.item.playClick' — VirtualMachineState rẽ theo selectionMode) — chỉ vẽ.
-         *
-         * GHI CHÚ (ngoại lệ có chủ đích, không phải sơ suất): buildSongNode() là hàm core DI SẢN
-         * (trước ver 12), đã tự appState.get() nhiều field khác (currentKey, isGridView...) theo
-         * đúng quy ước CŨ ở service/state.js — mở rộng thêm 2 field mới (selectionMode/
-         * selectedMediaKeys) theo ĐÚNG pattern đã có sẵn của chính hàm này, KHÔNG tính là "viết mới
-         * theo Rule 2" (core-function-conventions.md — rule đó nhắm hàm MỚI hoặc bị viết lại hẳn,
-         * không nhắm việc bổ sung tối thiểu vào 1 hàm di sản theo đúng quy ước cũ nó đang dùng).
-         * Rewrite hẳn buildSongNode()/renderPlaylistFull()/renderPlaylistDiff() sang nhận tham số
-         * theo Rule 2 là 1 refactor lớn hơn nhiều so với phạm vi tính năng "chọn nhiều" — để dành
-         * cho đợt dọn nợ kỹ thuật riêng (xem core-legacy-audit.md).
-         */
-        function selectionIndicatorHtml(isSelected) {
-            return `<div class="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'border-transparent' : 'bg-black/30 border-white/30'}"${isSelected ? ' data-uitk="btnPrimaryPillBg"' : ''}>${isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : ''}</div>`;
-        }
+        // XOÁ (24/09/2026, rà soát refresh DOM) — `selectionIndicatorHtml()` (vòng tròn chọn vẽ INLINE lúc dựng
+        // node, không có `data-role`) bỏ hẳn: chỉ báo chọn giờ ĐÚNG 1 đường duy nhất `showSelectionIndicator()`/
+        // `hideSelectionIndicator()` (core/playlist/selection.js), Workflow áp lên node vừa dựng — xem
+        // event/workflow/playlist-render.js::_applySelectionLayer().
 
         /** MỚI (09/09/2026, Giang yêu cầu "gộp nút icon visualizer riêng vào nút Phát to") — đồng bộ
          * trạng thái "Đang phát" của #btn-playlist-empty-play: có `currentKey` VÀ vẫn còn nằm trong

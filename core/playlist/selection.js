@@ -17,8 +17,9 @@
  * Nơi ĐỌC appState rồi ĐIỀU PHỐI (set/mutate state -> patch DOM -> cập nhật action bar) là WORKFLOW
  * (event/workflow/playlist.js) — đúng vai trò được appState.get() tự do + gọi nhiều hàm nối tiếp.
  *
- * GIỚI HẠN ĐÃ BIẾT: nếu buildSongNode() tạo NODE MỚI trong lúc selectionMode đang bật, node mới đó
- * CHƯA có chỉ báo cho tới lần refreshAllSelectionVisuals() kế tiếp — trade-off chấp nhận được.
+ * SỬA (24/09/2026) — "giới hạn đã biết" cũ (node dựng MỚI lúc đang chọn thiếu/lệch chỉ báo) đã xử lý:
+ * `workflowPlaylistRender.buildSongNode()` tự gọi `showSelectionIndicator()` qua `_applySelectionLayer()` cho mọi
+ * node vừa dựng khi selectionMode bật (event/workflow/playlist-render.js).
  *
  * NẠP SAU: core/dom-refs.js (selectionActionBar...). KHÔNG cần VirtualMachineState nữa — dispatch
  * theo selectionMode đã dời hẳn sang workflow (xem SỬA LẦN 3 bên dưới).
