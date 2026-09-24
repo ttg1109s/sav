@@ -473,10 +473,6 @@
         const genericDrawerPanel = document.getElementById('generic-drawer-panel');
         const genericDrawerHeader = document.getElementById('generic-drawer-header');
         const genericDrawerBody = document.getElementById('generic-drawer-body');
-        // MỚI (24/09/2026) — lớp phủ fade chéo khi đổi nội dung (components/generic-drawer.js).
-        const genericDrawerFadeLayer = document.getElementById('generic-drawer-fade-layer');
-        const genericDrawerFadeHeader = document.getElementById('generic-drawer-fade-header');
-        const genericDrawerFadeBody = document.getElementById('generic-drawer-fade-body');
         // (fileManagerNewFolderInput ĐÃ XOÁ — Batch D5: panel Song giờ động.)
         //
         // (drawerFileManagerFolderDetail/btnBackFileManagerFolderDetail/fileManagerFolderDetailTitle/

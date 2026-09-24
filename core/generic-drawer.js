@@ -16,18 +16,16 @@
  * `max-height`); hiệu ứng chuyển chiều cao dùng Web Animations API (`element.animate()`): animation CHỈ phủ lên giá
  * trị hiển thị trong lúc chạy, xong là trình duyệt tự trả về chiều cao thật — KHÔNG cần bước \"nhả khoá\"
  * (transitionend/timer), không kẹt px khi nội dung đổi về sau (ảnh load, xoay màn hình...).
- * Fade chéo: nội dung CŨ (node thật, không clone — tránh trùng id/nhóm radio) được CHUYỂN sang lớp phủ tĩnh
- * `#generic-drawer-fade-layer` rồi mờ dần, nội dung MỚI hiện dần ở chỗ thật. Workflow dọn lớp phủ khi hết thời gian.
+ * (Fade chéo nội dung cũ/mới từng có trong bản này — BỎ theo yêu cầu Giang cùng ngày.)
  *
  * Mọi hàm dưới đây = đúng 1 việc, nhận tham số, không tự đọc appState, không gọi core khác, không listener/timer.
  */
 const GENERIC_DRAWER_DEFAULT_Z_INDEX = Z_INDEX.GENERIC_DRAWER; // service/z-index.js
 const GENERIC_DRAWER_ANIM_MS = 300; // trượt mở/đóng — khớp transition transform/overlay 300ms (assets/css/base.css, components/generic-drawer.js)
-// SỬA (24/09/2026, Giang báo "fade quá nhanh, gây giật") — tách thời lượng riêng cho co/giãn và fade chéo (trước dùng
-// chung 300ms với cú trượt), chậm hơn + đường cong mềm hơn. Easing chiều cao: kiểu "decelerate" nhấn mạnh (vào nhanh,
+// SỬA (24/09/2026, Giang báo "quá nhanh, gây giật") — thời lượng co/giãn tách riêng khỏi cú trượt (trước dùng chung
+// 300ms), chậm hơn + đường cong mềm hơn. Easing chiều cao: kiểu "decelerate" nhấn mạnh (vào nhanh,
 // hạ cánh rất êm) — không có điểm dừng gắt như `ease-out` mặc định.
 const GENERIC_DRAWER_HEIGHT_ANIM_MS = 380;
-const GENERIC_DRAWER_CROSSFADE_MS = 460;
 const GENERIC_DRAWER_HEIGHT_EASING = 'cubic-bezier(0.2, 0, 0, 1)';
 const GENERIC_DRAWER_HEIGHT_ANIM_ID = 'generic-drawer-height';
 
@@ -104,42 +102,8 @@ function animateGenericDrawerHeight(fromPx, toPx, durationMs, elapsedMs) {
     anim.currentTime = elapsedMs || 0;
 }
 
-/** Fade chéo bước 1 — CHUYỂN (không clone) toàn bộ node header/body hiện tại sang lớp phủ tĩnh, giữ nguyên vị trí
- * cuộn, để ngay sau đó nội dung mới được gắn vào header/body thật. Gọi NGAY TRƯỚC `updateGenericDrawer()`. */
-function beginGenericDrawerCrossfade() {
-    genericDrawerFadeLayer.style.top = `${genericDrawerHeader.offsetTop}px`;
-    genericDrawerFadeLayer.style.opacity = '1';
-    genericDrawerFadeLayer.classList.remove('hidden');
-    genericDrawerFadeHeader.replaceChildren(...genericDrawerHeader.childNodes);
-    genericDrawerFadeBody.className = genericDrawerBody.className;
-    const oldScrollTop = genericDrawerBody.scrollTop;
-    genericDrawerFadeBody.replaceChildren(...genericDrawerBody.childNodes);
-    genericDrawerFadeBody.scrollTop = oldScrollTop;
-}
-
-/** Fade chéo bước 2 — lớp phủ (nội dung cũ) mờ dần, header/body thật (nội dung mới) hiện dần. Gọi SAU khi gắn nội
- * dung mới. Lớp phủ giữ opacity 0 (`fill`) tới lúc `clearGenericDrawerCrossfade()`.
- * SỬA (24/09/2026, Giang báo "fade quá nhanh, gây giật") — bản cũ cho 2 lớp mờ/hiện ĐỒNG THỜI cùng đường cong: ở
- * giữa hiệu ứng cả 2 cùng ~50% nên chữ cũ/mới chồng nhoè lên nhau, cả khối như chớp tối. Nay LỆCH NHỊP: nội dung cũ
- * lui nhanh trong ~55% đầu (tăng tốc dần), nội dung mới vào TRỄ ~20% rồi hiện dần (giảm tốc dần) — phần chồng nhau
- * ngắn, mỗi thời điểm luôn có 1 lớp chiếm ưu thế rõ.
- * @param {number} durationMs - tổng thời lượng */
-function playGenericDrawerCrossfade(durationMs) {
-    genericDrawerFadeLayer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: durationMs * 0.55, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' });
-    const enter = { delay: durationMs * 0.2, duration: durationMs * 0.8, easing: 'cubic-bezier(0, 0, 0.2, 1)', fill: 'backwards' };
-    genericDrawerHeader.animate([{ opacity: 0 }, { opacity: 1 }], enter);
-    genericDrawerBody.animate([{ opacity: 0 }, { opacity: 1 }], enter);
-}
-
-/** Dọn lớp phủ fade chéo — dừng mọi animation opacity liên quan, bỏ nội dung cũ, ẩn lớp phủ. An toàn gọi nhiều lần. */
-function clearGenericDrawerCrossfade() {
-    genericDrawerFadeLayer.getAnimations().forEach((a) => a.cancel());
-    genericDrawerHeader.getAnimations().forEach((a) => a.cancel());
-    genericDrawerBody.getAnimations().forEach((a) => a.cancel());
-    genericDrawerFadeHeader.replaceChildren();
-    genericDrawerFadeBody.replaceChildren();
-    genericDrawerFadeLayer.classList.add('hidden');
-}
+// XOÁ (24/09/2026, Giang yêu cầu "bỏ crossfade") — 3 hàm fade chéo (begin/play/clear) + hằng thời lượng fade + lớp phủ
+// `#generic-drawer-fade-layer` (components/generic-drawer.js) bỏ hẳn.
 
 /** Trượt panel xuống + mờ overlay. Ẩn hẳn do Workflow hẹn giờ gọi `hideGenericDrawerImmediately()`. */
 function closeGenericDrawer() {
