@@ -818,8 +818,8 @@
     <script src="core/playlist/state.js?v=20260625v8e"></script>
     <script src="core/playlist/order.js?v=20260818v1"></script>
     <script src="core/playlist/render.js?v=20260924r1"></script>
-    <script src="core/playlist/loader.js?v=20260911v1"></script>
-    <script src="core/playlist/actions.js?v=20260924r1"></script>
+    <script src="core/playlist/loader.js?v=20260924r2"></script>
+    <script src="core/playlist/actions.js?v=20260924r2"></script>
     <script src="core/playlist/main.js?v=20260625v10"></script>
     <!-- MỚI (mục 1d, Playlist Filter, phản hồi Giang) — applyPlaylistFilter() (SQL
          WHERE...AND style), dùng bởi switchToSongSource()/switchToVideoSource() (event/
@@ -849,7 +849,7 @@
          EQ/volume" — giờ ở visualizers/visualizer-display.js (khu VISUALIZERS dưới), vì đúng
          ranh giới nghiệp vụ là cấu hình Visualizer, không phải điều khiển phát nhạc. Xem comment
          đầu core/player-controls.js để biết đầy đủ lý do tách + đảm bảo thứ tự nạp an toàn. -->
-    <script src="core/player-controls.js?v=20260924r1"></script>
+    <script src="core/player-controls.js?v=20260924r2"></script>
     <!-- MỚI (21/07/2026, mục 4 — Video Player mode) — core/video-player.js: tính next/prev key,
          mutate state, toggle UI nút. Đặt CẠNH core/player-controls.js cho dễ đọc (2 tính năng liên
          quan chặt, dù KHÔNG đụng chung file nào). NẠP SAU service/state.js (đã nạp từ đầu). -->
@@ -902,7 +902,7 @@
     <!-- MỚI (10/09/2026) — core/streaming-zip.js: nén .zip STREAM thẳng vào OPFS thay JSZip, xem
          docstring đầu file đó. NẠP TRƯỚC storage-manager.js (hàm buildAllXZipBlob() ở đó gọi tới). -->
     <script src="core/streaming-zip.js?v=20260910v10"></script>
-    <script src="core/storage-manager.js?v=20260911v1"></script>
+    <script src="core/storage-manager.js?v=20260924r2"></script>
 
     <!-- 4) VISUALIZERS: hàm vẽ canvas dùng chung (core/visualizer/draw/), từng visual riêng
          (types/), rồi vòng lặp render chính (draw-visualizer.js) nạp sau cùng vì tham chiếu các
@@ -1027,7 +1027,7 @@
          nạp sau trong cùng nhóm EVENT này). CẦN core/playlist/order.js (liveKeys/sortKeysByMode),
          core/song-search.js (songMatchesQuery), core/playlist/render.js (renderPlaylistDiff) — cả 3
          đã nạp ở nhóm CORE phía trên. -->
-    <script src="event/workflow/playlist-order.js?v=20260906v1"></script>
+    <script src="event/workflow/playlist-order.js?v=20260924r2"></script>
     <!-- MỚI (CÙNG đợt trên, Giang chỉ ra "search rồi tắt từ khoá lại rebuild thay vì chỉ ẩn/hiện
          tạm") — event/workflow/playlist-render.js: workflowPlaylistRender, dời NGUYÊN VẸN 4 hàm từ
          core/playlist/render.js (buildSongNode/renderPlaylistFull/renderPlaylistDiff/
@@ -1050,7 +1050,7 @@
     <!-- Panel "Song & Video" cũ (file-manager-song.js) đã xoá, thay bằng "Quản lý lưu trữ" (gộp 3
          domain: song/video/photo) — CẦN core/file-manager/{image,album}.js,
          components/file-manager-storage.js (đã nạp ở nhóm CORE/COMPONENTS). -->
-    <script src="event/workflow/file-manager-storage.js?v=20260923v1"></script>
+    <script src="event/workflow/file-manager-storage.js?v=20260924r2"></script>
     <script src="event/router/file-manager-storage.js?v=20260920v1"></script>
     <!-- Folder Browser — Generic Drawer List↔Read thay Folder List/Detail kiểu panel-stack cũ. CẦN
          core/generic-drawer.js, components/items.js, core/file-manager/{folder,folder-detail-ui,
@@ -1171,9 +1171,9 @@
          core/playlist/render.js, core/player-controls.js (requestWakeLock/switchToVisualizer),
          core/listen-stats.js (bumpSongPlayCount), event/workflow/video-player.js (workflowVideoPlayer
          — chỉ dùng trong callback runtime, không bắt buộc thứ tự nạp so với dòng NGAY DƯỚI). -->
-    <script src="event/workflow/player.js?v=20260921v4"></script>
-    <script src="event/workflow/playlist.js?v=20260924r1"></script>
-    <script src="event/router/playlist.js?v=20260921v4"></script>
+    <script src="event/workflow/player.js?v=20260924r2"></script>
+    <script src="event/workflow/playlist.js?v=20260924r2"></script>
+    <script src="event/router/playlist.js?v=20260924r2"></script>
     <script src="event/listener/playlist.js?v=20260919v1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel + phân phối lại section Settings, phản hồi
          Giang) — cụm "appSettings" (điều hướng swap Setting, TÁI DÙNG workflowGestureSettings/
@@ -1259,8 +1259,8 @@
     <script src="event/workflow/statis-panel.js?v=20260924v1"></script>
     <script src="event/router/statis-panel.js?v=20260924v1"></script>
     <script src="event/listener/statis-panel.js?v=20260924v1"></script>
-    <script src="event/workflow/player-controls.js?v=20260924r1"></script>
-    <script src="event/router/player-controls.js?v=20260924r1"></script>
+    <script src="event/workflow/player-controls.js?v=20260924r2"></script>
+    <script src="event/router/player-controls.js?v=20260924r2"></script>
     <script src="event/listener/player-controls.js?v=20260708v1"></script>
     <!-- Cụm "visualizerDisplay": ảnh nền, độ mờ nền, cycle effect, panel "Display". Cấu hình riêng
          effect ĐÃ DỜI sang cụm "customEffect" (Custom Effect Drawer, xem file ngay dưới) — router
@@ -1364,7 +1364,7 @@
          xem comment ở đó). Chuỗi boot thật (~15 bước) nay ở workflow. Đặt SAU CÙNG TUYỆT ĐỐI (kể
          cả sau event/tab.js) để mọi workflowXxx/VirtualMachineState/hàm core mà
          workflowAppBoot.boot() cần tới đều CHẮC CHẮN đã được định nghĩa ở phía TRÊN nó. -->
-    <script src="event/workflow/app-boot.js?v=20260923v1"></script>
+    <script src="event/workflow/app-boot.js?v=20260924r2"></script>
     <script src="event/router/app-boot.js?v=20260725v1"></script>
 
 </body>
