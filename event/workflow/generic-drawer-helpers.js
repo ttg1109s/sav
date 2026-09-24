@@ -44,10 +44,10 @@ const workflowGenericDrawerHelpers = {
     _scrollTarget: 0, // vị trí đích của lần gắn gần nhất — `restoreScroll()` áp lại
     _scrollClamped: false, // MỚI (24/09/2026) — lần áp vị trí gần nhất bị trình duyệt kẹp (panel đang animate cao hơn đích) -> áp lại lúc animation xong
 
-    // ===================== Animation chiều cao + fade chéo — MỚI (24/09/2026) =====================
-    // Giang yêu cầu: đổi nội dung (`update()`) phải co/giãn chiều cao mượt CẢ 2 chiều + fade chéo nội dung cũ/mới;
-    // "hiệu quả, đơn giản, không bug". Core (core/generic-drawer.js) chỉ còn các hàm 1 việc: đo, animate, chuyển nội
-    // dung cũ sang lớp phủ, dọn lớp phủ. Điều phối + hẹn giờ (taskManager, cấm trong core) nằm Ở ĐÂY.
+    // ===================== Animation chiều cao — MỚI (24/09/2026) =====================
+    // Giang yêu cầu: đổi nội dung (`update()`) phải co/giãn chiều cao mượt CẢ 2 chiều (fade chéo từng thêm rồi BỎ theo
+    // yêu cầu Giang cùng ngày);
+    // "hiệu quả, đơn giản, không bug". Core (core/generic-drawer.js) chỉ còn các hàm 1 việc: đo, animate. Điều phối + hẹn giờ (taskManager, cấm trong core) nằm Ở ĐÂY.
     //   - Chiều cao animate bằng Web Animations API: xong tự trả về chiều cao thật theo nội dung -> không cần bước
     //     "nhả khoá", không kẹt px khi nội dung đổi về sau.
     //   - Nội dung đổi TẠI CHỖ sau khi gắn (onMount bỏ `hidden` các hàng, toggle nội bộ...) do Listener quan sát
@@ -81,13 +81,12 @@ const workflowGenericDrawerHelpers = {
 
     /** Gắn nội dung MỚI (mở Drawer, hoặc mở ĐÈ lên Drawer đang hiện). SỬA (24/09/2026) — giờ là lối DUY NHẤT để mở
      * Generic Drawer (mọi Workflow gọi hàm này, không gọi thẳng core): áp UI Theme sau khi gắn (core không được tự gọi
-     * `applyUiThemeToDom()` — Rule 3), huỷ hẹn giờ ẩn còn treo của lần đóng trước, dọn fade chéo dở dang.
+     * `applyUiThemeToDom()` — Rule 3), huỷ hẹn giờ ẩn còn treo của lần đóng trước.
      * @param {object} config - config của core + `scrollKey` (tuỳ chọn). */
     open(config) {
         const { scrollKey, scrollReset, ...drawerConfig } = config;
         taskManager.kill('genericDrawerHideAfterClose'); // đóng rồi mở lại trong < 300ms: không để hẹn giờ cũ ẩn mất Drawer mới
-        taskManager.kill('genericDrawerCrossfadeEnd');
-        clearGenericDrawerCrossfade(); // core/generic-drawer.js
+        taskManager.kill('genericDrawerHeightAnimEnd');
         if (genericDrawerPanel.classList.contains('hidden')) this._scrollMemo.clear(); // phiên mới
         openGenericDrawer({ ...drawerConfig, scrollTop: 0 }); // core/generic-drawer.js
         applyUiThemeToDom(genericDrawerPanel, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
@@ -96,40 +95,29 @@ const workflowGenericDrawerHelpers = {
         this._setScrollState(scrollKey, 0);
     },
 
-    /** Thay nội dung Drawer ĐANG mở — co/giãn chiều cao mượt + fade chéo. Cùng `scrollKey` (vẽ lại tại chỗ / quay
-     * lại) -> về vị trí đã nhớ; `scrollReset` hoặc chưa từng nhớ -> 0. SỬA (24/09/2026) — lối DUY NHẤT để thay nội dung.
+    /** Thay nội dung Drawer ĐANG mở — co/giãn chiều cao mượt. Cùng `scrollKey` (vẽ lại tại chỗ / quay lại) -> về vị
+     * trí đã nhớ; `scrollReset` hoặc chưa từng nhớ -> 0. SỬA (24/09/2026) — lối DUY NHẤT để thay nội dung.
+     * XOÁ (24/09/2026, Giang yêu cầu "bỏ crossfade") — fade chéo nội dung cũ/mới (lớp phủ + 3 hàm core begin/play/clear) bỏ hẳn; nội dung mới
+     * thay NGAY, chỉ chiều cao animate.
      * @param {object} config - config của core + `scrollKey`/`scrollReset` (tuỳ chọn). */
     update(config) {
         const { scrollKey, scrollReset, ...drawerConfig } = config;
         const target = (scrollKey && !scrollReset && this._scrollMemo.has(scrollKey)) ? this._scrollMemo.get(scrollKey) : 0;
-        const reduce = this._reduceMotion();
-        const heightMs = reduce ? 0 : GENERIC_DRAWER_HEIGHT_ANIM_MS; // core/generic-drawer.js
-        const fadeMs = reduce ? 0 : GENERIC_DRAWER_CROSSFADE_MS; // core/generic-drawer.js
+        const heightMs = this._reduceMotion() ? 0 : GENERIC_DRAWER_HEIGHT_ANIM_MS; // core/generic-drawer.js
         const nowMs = performance.now();
-        // Vẽ lại TẠI CHỖ cùng 1 màn (cùng scrollKey, nội dung của key đó vẫn đang gắn) -> KHÔNG fade chéo: 2 lớp nội
-        // dung gần như y hệt chồng lên nhau mờ/hiện đan chéo sẽ làm cả màn hơi nháy tối ở giữa hiệu ứng. Chỉ đổi
-        // SANG màn khác (key khác, hoặc không key) mới fade chéo. Chiều cao vẫn animate ở cả 2 trường hợp.
-        const isSameScreen = !!scrollKey && scrollKey === this._scrollKey && !!this._scrollAnchor && this._scrollAnchor.parentNode === genericDrawerBody;
-        const crossfade = fadeMs > 0 && !isSameScreen;
         const fromPx = readGenericDrawerHeightPx(); // core — chiều cao ĐANG hiển thị (kể cả giữa 1 animation trước)
-        taskManager.kill('genericDrawerCrossfadeEnd');
-        clearGenericDrawerCrossfade(); // core — fade chéo trước còn dở thì kết thúc ngay
-        if (crossfade) beginGenericDrawerCrossfade(); // core — chuyển nội dung cũ sang lớp phủ
+        taskManager.kill('genericDrawerHeightAnimEnd');
         updateGenericDrawer({ ...drawerConfig, scrollTop: target }); // core
         applyUiThemeToDom(genericDrawerPanel, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
         const toPx = settleGenericDrawerHeightPx(); // core
         this._startHeightAnim(fromPx, toPx, heightMs, nowMs);
         this._setScrollState(scrollKey, target);
-        if (crossfade) playGenericDrawerCrossfade(fadeMs); // core
-        // Hẹn giờ kết thúc (dọn lớp phủ + áp lại vị trí cuộn nếu bị kẹp) chạy cả khi không fade chéo — chiều cao vẫn animate.
-        const endMs = Math.max(crossfade ? fadeMs : 0, heightMs);
-        if (endMs > 0) taskManager.once(() => this._endCrossfade(), endMs, 'genericDrawerCrossfadeEnd');
+        if (heightMs > 0) taskManager.once(() => this._endHeightAnim(), heightMs, 'genericDrawerHeightAnimEnd');
     },
 
-    /** Hết thời gian fade chéo: dọn lớp phủ + áp lại vị trí cuộn nếu lúc gắn bị kẹp (panel đang cao hơn đích nên
-     * cuộn tối đa nhỏ hơn) và người dùng chưa tự cuộn từ đó. */
-    _endCrossfade() {
-        clearGenericDrawerCrossfade(); // core/generic-drawer.js
+    /** Hết thời gian co/giãn: áp lại vị trí cuộn nếu lúc gắn bị kẹp (panel đang cao hơn đích nên cuộn tối đa nhỏ hơn) và
+     * người dùng chưa tự cuộn từ đó. (Đổi tên từ `_endCrossfade()` khi bỏ fade chéo.) */
+    _endHeightAnim() {
         if (!this._scrollClamped) return;
         this._scrollClamped = false;
         const untouched = !this._scrollKey || this._scrollMemo.get(this._scrollKey) === undefined || this._scrollMemo.get(this._scrollKey) === genericDrawerBody.scrollTop;
@@ -193,11 +181,8 @@ const workflowGenericDrawerHelpers = {
      * `transitionend` NỔI BỌT từ phần tử con (nút có `transition-colors`...) có thể ẩn Drawer sớm hơn cú trượt. */
     closeFully() {
         closeGenericDrawer(); // core/generic-drawer.js
-        taskManager.kill('genericDrawerCrossfadeEnd');
-        taskManager.once(() => {
-            clearGenericDrawerCrossfade(); // core/generic-drawer.js
-            hideGenericDrawerImmediately(); // core/generic-drawer.js
-        }, GENERIC_DRAWER_ANIM_MS, 'genericDrawerHideAfterClose');
+        taskManager.kill('genericDrawerHeightAnimEnd');
+        taskManager.once(() => hideGenericDrawerImmediately(), GENERIC_DRAWER_ANIM_MS, 'genericDrawerHideAfterClose'); // core/generic-drawer.js
         // Đóng hẳn = hết phiên nhớ cuộn/chiều cao.
         this._scrollMemo.clear();
         this._scrollKey = null;
