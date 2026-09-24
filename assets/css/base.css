@@ -69,7 +69,10 @@ body { min-height: 100dvh; background: #000; }
    xuyên, transition trên 1 property không đổi không có tác dụng phụ nào. CẢ 3 property
    (`height`/`min-height`/`transform`) transition CÙNG timing, browser tự chạy song song khi nhiều
    cái đổi cùng lúc (lúc mở lần đầu). */
-#generic-drawer-panel { transition: height 300ms ease-out, min-height 300ms ease-out, transform 300ms ease-out; }
+/* SỬA (24/09/2026) — bỏ `height`/`min-height` khỏi transition: chiều cao giờ animate bằng Web Animations API
+   (core/generic-drawer.js::animateGenericDrawerHeight()). CSS transition có độ ưu tiên CAO HƠN animation trong
+   cascade — để lại sẽ đè mất hiệu ứng WAAPI khi `style.height` đổi giữa 2 giá trị cố định (vd 70vh -> 90vh). */
+#generic-drawer-panel { transition: transform 300ms ease-out; }
 
 #visualizer-solid-bg { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; z-index: -3; pointer-events: none; background-color: #000000; }
 /* SỬA BUG (Giang chụp màn hình chỉ ra: nội dung bị LẶP LẠI/tile cả trên lẫn dưới) — THIẾU
