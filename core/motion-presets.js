@@ -414,3 +414,10 @@ function sanitizeMotionBeatReact(raw, blank) {
         },
     };
 }
+
+/** Preset "tắt hết" — dùng khi nơi tiêu thụ chưa gắn Motion (id null / preset đã bị xoá) — KHÔNG fallback
+ * về hiệu ứng mặc định nào. DỜI (25/09/2026, Giang duyệt) từ event/workflow/visual-bg-photo-motion.js về
+ * ĐÂY: đây là "hình dạng preset hợp lệ tối thiểu" của domain Motion, dùng CHUNG bởi mọi nơi tiêu thụ
+ * (VBG, Player) — không được nằm trong file của 1 nơi tiêu thụ cụ thể (nguyên tắc tua vít). GIỮ NGUYÊN tên
+ * + giá trị. Không có `id` (nên Point Move Runner coi như "không thuộc preset nào" — broadcast bỏ qua). */
+const MOTION_ENGINE_NO_OP_PRESET = { transitionEnabled: false, transitionType: 'fade', transitionDurationMs: 1000, transitionInOutRatio: 50, transitionEasing: 'linear', pointMoves: [], pointMoveEnabled: false, pointMoveRunMode: 'all', pointMoveOneOrder: 'sequential', pointMoveEndForceBaseline: false, reactBeatAudio: { enabled: false, zoom: { enabled: false }, panX: { enabled: false }, panY: { enabled: false }, rotate: { enabled: false } } };
