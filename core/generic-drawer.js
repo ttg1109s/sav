@@ -29,9 +29,15 @@ const GENERIC_DRAWER_HEIGHT_ANIM_MS = 380;
 const GENERIC_DRAWER_HEIGHT_EASING = 'cubic-bezier(0.2, 0, 0, 1)';
 const GENERIC_DRAWER_HEIGHT_ANIM_ID = 'generic-drawer-height';
 
-/** Gắn header/body/khung cho nội dung — phần CHUNG của open/update (hàm con nội bộ theo Rule 3c: chỉ phục vụ 2 hàm
- * ngay dưới trong CÙNG file, không nơi nào khác gọi). */
-function _mountGenericDrawerContent(config) {
+/** Gắn header/body/khung cho nội dung MỚI — CHỈ gán DOM/style, TUYỆT ĐỐI không đọc layout (không scrollTop, không
+ * offsetHeight...). SỬA (24/09/2026, Giang báo "viền các list item trong Generic Drawer nháy sáng lên") — bản trước gán
+ * `scrollTop` NGAY sau innerHTML (và `openGenericDrawer()` còn ép reflow) TRƯỚC khi Workflow kịp áp UI Theme: trình duyệt
+ * đã tính style cho nội dung mới với class CHƯA theme (viền mặc định sáng), rồi áp theme đổi sang màu viền tối — phần tử
+ * nào có `transition`/`transition-colors` sẽ CHẠY hiệu ứng từ sáng về tối = nháy viền. Nay Workflow gọi hàm này ->
+ * `applyUiThemeToDom()` -> rồi mới tới mọi bước đọc layout (trượt vào, đo chiều cao, đặt vị trí cuộn).
+ * Hàm này thay cho `updateGenericDrawer(config)` + phần gắn nội dung bên trong `openGenericDrawer(config)` cũ.
+ * @param {{headerHtml?:string, bodyHtml?:string, bodyClass?:string, height?:string, maxHeight?:string, zIndex?:number}} config */
+function mountGenericDrawerContent(config) {
     const zIndex = config.zIndex || GENERIC_DRAWER_DEFAULT_Z_INDEX;
     genericDrawerPanel.style.zIndex = String(zIndex);
     genericDrawerOverlay.style.zIndex = String(zIndex - 1);
@@ -41,13 +47,12 @@ function _mountGenericDrawerContent(config) {
     genericDrawerPanel.style.minHeight = ''; // dọn di sản cơ chế min-height cũ (nếu còn sót)
     genericDrawerPanel.style.maxHeight = config.maxHeight || '';
     genericDrawerPanel.style.height = (config.height && config.height !== 'auto') ? config.height : ''; // rỗng = theo nội dung
-    genericDrawerBody.scrollTop = config.scrollTop || 0;
 }
 
-/** Mở Drawer (đang ẩn, hoặc mở ĐÈ nội dung mới lên Drawer đang hiện) — gắn nội dung rồi trượt từ đáy lên.
- * @param {{headerHtml?:string, bodyHtml?:string, bodyClass?:string, height?:string, maxHeight?:string, zIndex?:number, scrollTop?:number}} config */
-function openGenericDrawer(config) {
-    _mountGenericDrawerContent(config);
+/** Trượt Drawer từ đáy lên (đang ẩn, hoặc mở ĐÈ lên Drawer đang hiện) — nội dung đã được gắn + áp theme TRƯỚC đó
+ * (`mountGenericDrawerContent()` + Workflow áp theme). SỬA (24/09/2026) — không còn nhận config/tự gắn nội dung, xem
+ * lý do ở `mountGenericDrawerContent()`. */
+function openGenericDrawer() {
     // Trượt vào: đặt mốc off-screen khi TẮT transition, ép reflow, BẬT lại rồi mới đổi transform (không ép reflow
     // giữa các bước thì trình duyệt gộp làm 1 và mất animation — bài học các bản trước).
     genericDrawerPanel.style.opacity = '0';
@@ -55,7 +60,6 @@ function openGenericDrawer(config) {
     genericDrawerPanel.style.transition = 'none';
     genericDrawerPanel.style.transform = 'translateY(100%)';
     void genericDrawerPanel.offsetHeight;
-    genericDrawerBody.scrollTop = config.scrollTop || 0; // lúc còn `hidden` gán không có tác dụng -> gán lại sau khi hiện
 
     genericDrawerOverlay.classList.remove('hidden');
     void genericDrawerOverlay.offsetHeight; // ép reflow — đảm bảo transition opacity CHẠY
@@ -70,12 +74,6 @@ function openGenericDrawer(config) {
 
     appState.set('isGenericDrawerOpen', true);
     console.log(`writer: "openGenericDrawer", page: "isGenericDrawerOpen", content: "true"`);
-}
-
-/** Thay nội dung Drawer ĐANG mở tại chỗ (không trượt). Chiều cao/fade do Workflow điều phối qua các hàm bên dưới.
- * @param {object} config - cùng shape `openGenericDrawer()`. */
-function updateGenericDrawer(config) {
-    _mountGenericDrawerContent(config);
 }
 
 /** @returns {number} chiều cao panel ĐANG HIỂN THỊ (px) — kể cả khi animation chiều cao đang chạy. */
