@@ -195,6 +195,11 @@ const routerVisualBg = (() => {
                 workflowVisualBg._onVideoEnded();
                 break;
 
+            // MỚI (25/09/2026, đợt 5 Motion) — phát hiện vòng lặp mới của VBG Video để chạy lại Point Move.
+            case 'visualBg.video.timeupdate':
+                workflowVisualBg._onVideoTimeUpdate(msg.payload.currentTime);
+                break;
+
             // XOÁ (29/08/2026) — 'visualBg.openSlideshowPanel.click' bỏ hẳn cùng hàng UI, Slideshow
             // giờ chỉ mở được từ System > Slideshow (event/router/app-settings.js), không còn liên
             // kết từ Visual Background.
