@@ -60,13 +60,19 @@
          * HẲN, xem components/visualizer-overlay.js — không còn liên quan tới hàm này nữa, nhưng
          * việc tách state ra khỏi hàm ở HOTFIX 10 vẫn giữ nguyên vì tự nó đã đúng Rule 1.)
          */
-        function forceBackToPlaylistUI() {
+        // SỬA (24/09/2026, dọn nợ "taskManager trong core" + core gọi core/Workflow) — hàm cũ `forceBackToPlaylistUI()`
+        // TÁCH: core giờ CHỈ còn phần trượt/đổi class (`slideBackToPlaylistUi()` ngay dưới) + phần ẩn sau khi trượt xong
+        // (`hideVisualizerUiAfterFade()`). Điều phối (cuộn Playlist trước, đóng Control Center, hẹn 500ms bằng
+        // taskManager rồi ẩn + renderPlaylistDiff) nằm ở event/workflow/player-controls.js::`returnToPlaylistUI()` —
+        // MỌI nơi muốn "về Playlist" gọi hàm Workflow đó. Docstring bên trên giữ nguyên làm lịch sử.
+        function slideBackToPlaylistUi() {
             // MỚI (phản hồi Giang 29/07/2026, "scroll tức thì trước khi ra vào playlist") — gọi
             // NGAY ĐẦU hàm, lúc `#app-stack` VẪN còn class 'playlist-hidden' (dịch ra ngoài khung
             // nhìn qua transform, KHÔNG phải display:none — scrollIntoView() vẫn hoạt động bình
             // thường) — cuộn xong TRƯỚC dòng gỡ class ngay dưới, nên lúc Playlist TRƯỢT VÀO thấy
             // ĐÃ ở đúng vị trí dòng đang phát từ đầu, không có pha nhảy/cuộn nào lộ ra mắt.
-            scrollToCurrentKeyInstant(); // core/playlist/render.js
+            // DỜI (24/09/2026) — `scrollToCurrentKeyInstant()` (core gọi core) ra Workflow `returnToPlaylistUI()`, vẫn
+            // chạy TRƯỚC hàm này (đúng lý do cũ: cuộn xong lúc Playlist còn nằm ngoài khung nhìn).
             visualizerUI.classList.remove('fade-enter-active');
             canvas.classList.add('opacity-0');
             const webglCanvasEl = document.getElementById('webgl-canvas');
@@ -81,10 +87,15 @@
             appStack.classList.remove('playlist-hidden');
             visualizerUI.classList.remove('visualizer-active');
             playerContainer.classList.remove('visualizer-active');
-            if (typeof closeControlCenter === 'function') closeControlCenter(); // phòng panel còn mở sót
-            // 300 -> 500ms, khớp ĐÚNG duration của transition transform (0.5s, assets/css/style.css)
-            // — dọn hidden/renderPlaylistDiff() SAU KHI slide ngang chạy xong hẳn.
-            taskManager.once(() => { visualizerUI.classList.add('hidden'); playerContainer.classList.add('hidden'); workflowPlaylistRender.renderPlaylistDiff(); }, 500, 'hideVisualizerUiAfterFade');
+            // DỜI (24/09/2026) — closeControlCenter() (core gọi core) + `taskManager.once(..., 500)` (taskManager cấm trong
+            // core) + renderPlaylistDiff() (core gọi Workflow) ra event/workflow/player-controls.js::returnToPlaylistUI().
+        }
+
+        /** MỚI (24/09/2026) — tách từ callback taskManager cũ của `forceBackToPlaylistUI()`: ẩn hẳn UI Visualizer SAU khi
+         * slide ngang chạy xong (Workflow `returnToPlaylistUI()` tự hẹn giờ rồi gọi). Core lá, chỉ đổi class. */
+        function hideVisualizerUiAfterFade() {
+            visualizerUI.classList.add('hidden');
+            playerContainer.classList.add('hidden');
         }
 
         /**
@@ -179,16 +190,8 @@
             playerContainer.classList.toggle('gameplay-controls-blocked', blocked);
         }
 
-        /**
-         * Quay về màn Playlist (nút Back ở Visualizer). Dùng chung với resetPlayerToIdle()/
-         * clearAllStoredData() — xem định nghĩa forceBackToPlaylistUI() ở trên.
-         * Ứng với msg.type 'playerControls.backToPlaylist.click'.
-         */
-        function handleBackToPlaylistClick() {
-            // KHÔNG dừng/ẩn video ở đây nữa: Playlist (z-[60]) tự che video, video vẫn chạy theo nhạc.
-            forceBackToPlaylistUI();
-            setVisualizerActiveFalse(); // MỚI (08/07/2026, HOTFIX 10) — forceBackToPlaylistUI() không còn tự set nữa
-        }
+        // DỜI (24/09/2026) — `handleBackToPlaylistClick()` (core gọi 2 core) sang event/workflow/player-controls.js::
+        // `workflowPlayerControls.handleBackToPlaylistClick()`.
 
         /**
          * Element ĐANG THỰC SỰ PHÁT — `bgVideoElement` (Video Player mode) hay `audioPlayer` (Song).

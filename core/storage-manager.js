@@ -219,56 +219,9 @@
          * clearAllStoredData() đang chạy. STATE — xem service/state.js.
          */
 
-        /** Xóa TOÀN BỘ dữ liệu app khỏi IndexedDB: cả 2 store songs + meta — dùng chung cho cả 2 nút giải phóng bộ nhớ.
-         *
-         * AN TOÀN KHI BỊ GIÁN ĐOẠN (đóng tab/crash giữa chừng):
-         *   - meta.clearingInProgress = true được ghi NGAY ĐẦU hàm, TRƯỚC khi xoá bất kỳ key nào —
-         *     nếu tab bị đóng/crash giữa lúc đang xoá, lần mở app kế tiếp sẽ thấy cờ này còn `true`
-         *     (xem event/workflow/app-boot.js, kiểm tra TRƯỚC khi load playlist) và tự GỌI
-         *     LẠI ĐÚNG hàm clearAllStoredData() này để dọn tiếp phần còn sót, dưới lớp loading
-         *     shield — hàm này AN TOÀN để gọi lại nhiều lần (idempotent): xoá 1 key không tồn tại
-         *     qua idbKeyval.del() không lỗi, vòng for chỉ còn lại đúng những key thật sự còn sót.
-         *   - meta.clearingInProgress chỉ bị xoá (delMeta) SAU KHI mọi bước xoá đã xong hoàn toàn —
-         *     nếu hàm này throw giữa chừng (lỗi IndexedDB...), cờ vẫn còn `true`, lần mở app sau
-         *     vẫn tự retry đúng như kịch bản đóng tab.
-         */
-        async function clearAllStoredData() {
-            appState.set('isDestructiveTaskInProgress', true);
-            try {
-                await setMeta('clearingInProgress', true);
-
-                // [QUYẾT ĐỊNH 1.8] "Xóa hết dữ liệu" CHỈ xóa bài hát (và thống kê nghe riêng từng bài,
-                // vì bài hát đã mất). KHÔNG đụng tới ảnh/video nền (bgImage/videoBg) — đó là tài nguyên
-                // người dùng thiết lập riêng, không nằm trong "thư viện nhạc".
-                const songKeys = await getAllSongKeys();
-                for (const key of songKeys) await deleteSongRecord(key);
-                await delMeta('totalListenSeconds');
-                if (typeof clearAllSongStats === 'function') await clearAllSongStats();
-
-                // Đồng bộ lại toàn bộ state RAM — không reload trang, để người dùng thấy ngay kết quả.
-                appState.set('playlistOrder', []); appState.set('displayOrder', []); appState.mutate('playlistCache', m => m.clear()); appState.mutate('songNameIndex', m => m.clear()); appState.mutate('confirmedBrokenKeys', s => s.clear());
-                appState.mutate('pendingResortKeys', s => s.clear());
-                // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — recomputeRenderOrder()
-                // ĐÃ DỜI hẳn sang event/workflow/playlist-order.js (workflowPlaylistOrder) — CÙNG
-                // ghi chú nợ "Core gọi Workflow" như các chỗ khác đã sửa trong đợt này. Giữ NGUYÊN
-                // guard phòng thủ (kiểm tra tồn tại trước khi gọi) — CHỈ đổi đối tượng kiểm tra.
-                if (typeof workflowPlaylistOrder !== 'undefined') workflowPlaylistOrder.recomputeRenderOrder();
-                if (appState.get('currentKey')) { audioPlayer.pause(); audioPlayer.src = ''; appState.set('currentKey', null); }
-                if (typeof killAllAutoSwitchVisualTasks === 'function') killAllAutoSwitchVisualTasks();
-                if (appState.get('currentObjectURL')) { URL.revokeObjectURL(appState.get('currentObjectURL')); appState.set('currentObjectURL', null); }
-                if (appState.get('currentCoverObjectURL')) { URL.revokeObjectURL(appState.get('currentCoverObjectURL')); appState.set('currentCoverObjectURL', null); }
-                playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
-                if (typeof workflowPlaylistOrder !== 'undefined') workflowPlaylistOrder.updateShuffleArray(); // event/workflow/playlist-order.js (dời từ core/playlist/order.js)
-                workflowPlaylistRender.renderPlaylistFull();
-                saveConfig();
-                if (typeof forceBackToPlaylistUI === 'function') forceBackToPlaylistUI();
-                if (typeof setVisualizerActiveFalse === 'function') setVisualizerActiveFalse(); // MỚI (08/07/2026, HOTFIX 10) — forceBackToPlaylistUI() không còn tự set nữa
-
-                await delMeta('clearingInProgress'); // chỉ xoá cờ SAU KHI mọi bước trên đã xong hoàn toàn
-            } finally {
-                appState.set('isDestructiveTaskInProgress', false);
-            }
-        }
+        // DỜI (24/09/2026, dọn nợ "Core gọi Workflow") — `clearAllStoredData()` (tự appState + gọi workflowPlaylistOrder/
+        // workflowPlaylistRender + core khác) sang event/workflow/file-manager-storage.js::
+        // `workflowFileManagerStorage.clearAllStoredData()`, thân giữ nguyên (chỉ đổi phần "về Playlist").
 
         /**
          * MỚI (ver12 "Song/Video Unification", Batch 5, mục 6b) — mirror buildAllSongsZipBlob()
@@ -355,18 +308,22 @@
         /**
          * NGHIỆP VỤ THUẦN: xoá đúng các record trong scanResults (trừ currentKeyNow đang phát).
          * KHÔNG tự gọi resetScanResultUI()/renderStorageStats() — quyết định thứ tự đó là của workflow.
+         * SỬA (24/09/2026, dọn nợ) — KHÔNG còn tự gọi removeKeyFromDisplay() (đã dời sang Workflow): TRẢ VỀ danh sách
+         * key đã xoá, Workflow tự loại khỏi Playlist — CÙNG khuôn deleteCorruptedVideos()/deleteCorruptedPhotos().
          *
          * @param {Array<{key:string}>} scanResults
          * @param {string|null} currentKeyNow
-         * @returns {Promise<void>}
+         * @returns {Promise<string[]>} key đã xoá thật.
          */
         async function deleteCorruptedSongs(scanResults, currentKeyNow) {
+            const deletedKeys = [];
             for (const { key } of scanResults) {
                 if (key === currentKeyNow) continue;
                 await deleteSongRecord(key);
                 appState.mutate('confirmedBrokenKeys', s => s.delete(key));
-                removeKeyFromDisplay(key);
+                deletedKeys.push(key);
             }
+            return deletedKeys;
         }
 
         /**
