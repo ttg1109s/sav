@@ -9,9 +9,11 @@
  * `appState.motionPresets` (nạp lúc boot từ `meta.motionPresets`), xem event/workflow/
  * motion-presets.js::loadPresetsOnBoot(). Nơi tiêu thụ tự chọn 1 preset/vai trò qua field riêng
  * của mình (VBG Photo: `appConfigVisualBg.motionPresetId`; Player — Video/Photo, 3 vai trò mỗi
- * loại: `appConfigPlayerDisplay.*PresetId`, xem core/player-display-settings.js) — null = chưa gắn
- * — trong số preset ĐÃ ĐĂNG KÝ cho consumer đó qua `appState.motionApply` (xem nhóm "Motion Apply"
- * cuối file).
+ * loại: `appConfigPlayerDisplay.*PresetId`, xem core/player-display-settings.js) — null = chưa gắn.
+ * SỬA (24/09/2026, Giang yêu cầu "xoá cơ chế đăng ký motion vào nơi tiêu thụ") — nhóm "Motion Apply"
+ * (`appState.motionApply`, MOTION_APPLY_CONSUMERS, subscribe/unsubscribe...) ĐÃ XOÁ HẲN: nơi tiêu thụ
+ * mở THẲNG danh sách Motion ở chế độ CHỌN (bất kỳ preset nào), xem event/workflow/motion-presets.js
+ * ::openPicker() — Motion KHÔNG còn biết nơi tiêu thụ nào tồn tại.
  *
  * Danh sách rỗng vẫn hợp lệ (Photo VBG không gắn gì thì đơn giản không animate).
  *
@@ -411,87 +413,4 @@ function sanitizeMotionBeatReact(raw, blank) {
             randomMax: typeof rotate.randomMax === 'boolean' ? rotate.randomMax : blank.rotate.randomMax,
         },
     };
-}
-
-// ===================== Motion Apply — đăng ký preset cho "nơi tiêu thụ" =====================
-// Thay cơ chế cũ (VBG tự mở danh sách preset, gắn 1 cái vào `motionPresetId`) — giờ preset TỰ ĐĂNG
-// KÝ cho từng nơi tiêu thụ (màn Edit preset), nơi tiêu thụ chỉ chọn 1 trong số đã đăng ký cho mình.
-// `motionApply` = {[consumerKey]: presetId[]}, sống ở `appState.motionApply` (nạp lúc boot từ
-// `meta.motionApply`, xem event/workflow/motion-presets.js::loadPresetsOnBoot()). Việc CHỌN 1
-// preset cụ thể (trong số đã đăng ký) vẫn qua field riêng của từng nơi tiêu thụ (VBG:
-// `appConfigVisualBg.motionPresetId`) — `motionApply` chỉ quyết định preset nào ĐỦ ĐIỀU KIỆN xuất
-// hiện trong dropdown chọn của nơi đó.
-
-/** Nơi tiêu thụ hợp lệ. MỚI (Giang yêu cầu "Player" — Settings > Visualizer Screen > Player) —
- * thêm ĐÚNG 1 consumer `player`, DÙNG CHUNG cho CẢ Video lẫn Photo Player, CẢ 3 "vai trò" Motion
- * mỗi kind (Video: Transition Next/Prev/Showing; Photo: Transition Next/Prev/Point Move) — Giang
- * chốt "nơi tiêu thụ chỉ thêm player trong 1 danh sách", KHÔNG tách theo Video/Photo/vai trò. 1
- * preset đăng ký cho `player` MỘT LẦN là đủ điều kiện xuất hiện ở CẢ 6 dropdown chọn (xem core/
- * player-display-settings.js::PLAYER_MOTION_SLOTS + getPresetsSubscribedToConsumer() ngay dưới) —
- * field riêng của TỪNG dropdown (appConfigPlayerDisplay, core/config.js) mới là nơi quyết định
- * preset NÀO đang thật sự gắn cho vai trò nào. */
-const MOTION_APPLY_CONSUMERS = [
-    { key: 'photoVisualBg', labelKey: 'motionPresetsDrawer.apply.photoVisualBg.label' },
-    { key: 'player', labelKey: 'motionPresetsDrawer.apply.player.label' },
-];
-const MOTION_APPLY_CONSUMER_KEYS = MOTION_APPLY_CONSUMERS.map((c) => c.key);
-
-/** Core thuần — validate `meta.motionApply` đọc lên: object thuần, mỗi key PHẢI nằm trong
- * `MOTION_APPLY_CONSUMER_KEYS`, giá trị PHẢI là mảng string. Dữ liệu hỏng -> `{}`.
- * @param {*} raw @returns {Object<string,string[]>} */
-function sanitizeMotionApply(raw) {
-    if (!raw || typeof raw !== 'object') return {};
-    const result = {};
-    MOTION_APPLY_CONSUMER_KEYS.forEach((key) => {
-        if (Array.isArray(raw[key])) result[key] = raw[key].filter((id) => typeof id === 'string');
-    });
-    return result;
-}
-
-/** Core thuần — preset `presetId` đã đăng ký cho `consumerKey` hay chưa.
- * @param {Object<string,string[]>} motionApply @param {string} consumerKey @param {string} presetId
- * @returns {boolean} */
-function isMotionApplySubscribed(motionApply, consumerKey, presetId) {
-    return (motionApply[consumerKey] || []).includes(presetId);
-}
-
-/** Core thuần — đăng ký `presetId` vào `consumerKey`, thêm cuối mảng nếu chưa có. Trả object MỚI.
- * @param {Object<string,string[]>} motionApply @param {string} consumerKey @param {string} presetId
- * @returns {Object<string,string[]>} */
-function subscribeMotionApply(motionApply, consumerKey, presetId) {
-    const list = motionApply[consumerKey] || [];
-    if (list.includes(presetId)) return motionApply;
-    return { ...motionApply, [consumerKey]: [...list, presetId] };
-}
-
-/** Core thuần — huỷ đăng ký `presetId` khỏi `consumerKey`. Dùng Set cho `.has()`/xoá O(1) thay vì
- * `Array.indexOf`/`splice` O(n), map lại thành array rồi ghi đè lại đúng key. Trả object MỚI.
- * @param {Object<string,string[]>} motionApply @param {string} consumerKey @param {string} presetId
- * @returns {Object<string,string[]>} */
-function unsubscribeMotionApply(motionApply, consumerKey, presetId) {
-    const set = new Set(motionApply[consumerKey] || []);
-    if (!set.has(presetId)) return motionApply;
-    set.delete(presetId);
-    return { ...motionApply, [consumerKey]: Array.from(set) };
-}
-
-/** Core thuần — gỡ `presetId` khỏi TẤT CẢ nơi tiêu thụ (dùng khi xoá hẳn preset). Trả object MỚI.
- * @param {Object<string,string[]>} motionApply @param {string} presetId
- * @returns {Object<string,string[]>} */
-function removeMotionApplyEverywhere(motionApply, presetId) {
-    const result = {};
-    Object.keys(motionApply).forEach((key) => { result[key] = (motionApply[key] || []).filter((id) => id !== presetId); });
-    return result;
-}
-
-/** Core thuần — preset ĐÃ đăng ký cho `consumerKey` (lọc `motionPresets` theo `motionApply[consumerKey]`,
- * giữ nguyên thứ tự trong `motionPresets`) — dùng để đổ `<option>` cho MỌI dropdown chọn preset của
- * nơi tiêu thụ đó. TỔNG QUÁT HOÁ từ cách VBG tự lọc trực tiếp (event/workflow/visual-bg-common.js
- * ::_renderMotionPresetOptions() — CHƯA đổi file đó sang dùng hàm này, tránh rủi ro ngoài phạm vi);
- * Player (core/player-display-settings.js) dùng hàm này làm chuẩn cho cả 6 dropdown của mình.
- * @param {object[]} motionPresets @param {Object<string,string[]>} motionApply @param {string} consumerKey
- * @returns {{id:string,name:string}[]} */
-function getPresetsSubscribedToConsumer(motionPresets, motionApply, consumerKey) {
-    const subscribedIds = motionApply[consumerKey] || [];
-    return motionPresets.filter((p) => subscribedIds.includes(p.id));
 }

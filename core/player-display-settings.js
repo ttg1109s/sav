@@ -3,7 +3,7 @@
  * Screen > Player) — Resolution + Motion của Video/Photo lúc PHÁT CHÍNH (KHÁC Visual Background,
  * là nền trang trí đứng sau Visualizer lúc Song phát).
  *
- * GIAI ĐOẠN 1 (ĐÃ XONG — đăng ký + hiển thị/lưu list, xem core/config.js/core/motion-presets.js).
+ * GIAI ĐOẠN 1 (ĐÃ XONG — hiển thị/lưu lựa chọn, xem core/config.js/core/motion-presets.js).
  * GIAI ĐOẠN 2 — RESOLUTION (ĐÃ XONG, Giang yêu cầu — "kích thước video&player, không liên quan
  * VBG") — file này giờ có thêm 2 hàm THUẦN tính chuỗi CSS thật (resolvePlayerObjectFitCss()/
  * resolvePlayerBackgroundSizeCss() ngay dưới), ÁP DỤNG lên #bg-video/#visual-bg-image THẬT SỰ do
@@ -19,8 +19,9 @@
  * lưu lựa chọn, CHƯA có hàm nào đọc lại rồi chạy Motion Engine thật.
  *
  * Dữ liệu SỐNG ở domain 'playerDisplay' (core/config.js::DEFAULT_PLAYER_DISPLAY_CONFIG) — xem
- * docstring tại đó cho ý nghĩa từng field. Danh sách preset khả dụng cho dropdown Motion dùng CHUNG
- * 1 consumer 'player' (core/motion-presets.js::MOTION_APPLY_CONSUMERS + getPresetsSubscribedToConsumer()).
+ * docstring tại đó cho ý nghĩa từng field. SỬA (24/09/2026, Giang yêu cầu) — consumer 'player' + cơ chế
+ * đăng ký (MOTION_APPLY_CONSUMERS/getPresetsSubscribedToConsumer()) ĐÃ XOÁ: mỗi vai trò chọn trong TOÀN BỘ
+ * preset qua màn Chọn của Motion (event/workflow/player-display-settings.js::openMotionSlotPicker()).
  *
  * NẠP SAU: (không phụ thuộc file nào khác — hằng số + hàm thuần).
  * NẠP TRƯỚC: core/app-settings-ui.js, core/player-display-apply.js, components/settings/player-
@@ -41,9 +42,9 @@ const PLAYER_RESOLUTION_MODES = [
     { value: 'trueMax', labelKey: 'playerDisplaySettings.resolution.trueMax' },
 ];
 
-/** 3 "vai trò" Motion ĐỘC LẬP của Player — mỗi vai trò 1 dropdown RIÊNG cho Video/Photo (tuỳ
- * `kinds`), cùng chọn trong 1 danh sách preset đã đăng ký cho consumer 'player' (core/motion-
- * presets.js).
+/** 3 "vai trò" Motion ĐỘC LẬP của Player — mỗi vai trò 1 hàng chọn RIÊNG cho Video/Photo (tuỳ
+ * `kinds`), cùng chọn trong TOÀN BỘ danh sách preset Motion (màn Chọn — SỬA 24/09/2026, bỏ cơ chế
+ * đăng ký consumer 'player').
  *
  * SỬA (Giang chốt gộp lại) — Video KHÔNG còn 2 ô Point Move/React Beat tách rời như trước — GỘP
  * thành 1 ô DUY NHẤT `showing` (đúng thuật ngữ "Motion Showing" gốc Giang dùng lúc đầu) — 1 preset
@@ -59,8 +60,9 @@ const PLAYER_RESOLUTION_MODES = [
  * (vd kind='photo' + fieldSuffix='PointMovePresetId' -> 'photoPointMovePresetId'; kind='video' +
  * fieldSuffix='ShowingPresetId' -> 'videoShowingPresetId' — KHÔNG còn `videoPointMovePresetId`/
  * `videoReactBeatPresetId` trong schema, core/config.js).
- * `slot` dùng làm phần id DOM (`#setting-player-{kind}-motion-{slot}`, xem components/settings/
- * player-display-settings.js + core/app-settings-ui.js::wireAppSettingsPlayerDetail()).
+ * `slot` dùng làm giá trị `data-player-motion-slot` của hàng chọn (SỬA 24/09/2026 — thay id select cũ
+ * `#setting-player-{kind}-motion-{slot}`, xem components/settings/player-display-settings.js +
+ * core/app-settings-ui.js::wireAppSettingsPlayerDetail()).
  *
  * Ý nghĩa từng vai trò lúc CÓ cơ chế hoạt động thật — chỉ đọc ĐÚNG nhóm field tương ứng của preset
  * được gắn, bỏ qua phần còn lại:
@@ -83,8 +85,8 @@ const PLAYER_MOTION_SLOTS = [
 
 /** Core thuần — danh sách slot Motion hợp lệ của 1 kind (Photo: transitionNext/transitionPrev/
  * pointMove; Video: transitionNext/transitionPrev/showing — xem docstring PLAYER_MOTION_SLOTS ngay
- * trên). Dùng bởi component render + wireAppSettingsPlayerDetail() thay vì lặp trực tiếp
- * `PLAYER_MOTION_SLOTS` (tránh render/wire nhầm 1 select không có field cho kind đó).
+ * trên). Dùng bởi component render + event/workflow/player-display-settings.js::openMotionSlotPicker()
+ * thay vì lặp trực tiếp `PLAYER_MOTION_SLOTS` (tránh render/mở nhầm 1 slot không có field cho kind đó).
  * @param {'video'|'photo'} kind @returns {typeof PLAYER_MOTION_SLOTS} */
 function getPlayerMotionSlotsForKind(kind) {
     return PLAYER_MOTION_SLOTS.filter((s) => s.kinds.includes(kind));

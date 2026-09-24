@@ -7,8 +7,7 @@
  * SỬA (20/09/2026) — thêm wireAppSettingsMainCarousel() cho màn Main dạng carousel ngang (phần tính
  * scale/loop nằm ở core/settings-carousel-ui.js, file này CHỈ wire sự kiện -> eventBus).
  *
- * NẠP SAU: event/bus.js, core/player-display-settings.js (getPlayerMotionSlotsForKind(), dùng bởi
- * wireAppSettingsPlayerDetail()).
+ * NẠP SAU: event/bus.js.
  * NẠP TRƯỚC: event/workflow/app-settings.js.
  */
 
@@ -98,18 +97,22 @@ function wireAppSettingsSystem(bodyEl) {
     wireAppSettingsMain(bodyEl); // cùng cơ chế data-app-settings-nav — tái dùng thẳng
 }
 
-/** Màn Player > Video/Photo (Settings > Visualizer Screen > Player) — 1 select Resolution + 3
- * select Motion (PLAYER_MOTION_SLOTS lọc theo kind, core/player-display-settings.js), MỖI select
- * đổi gửi 1 msg.type riêng kèm `kind` ('video'|'photo') để Router/Workflow biết đang sửa domain
- * field nào — xem workflowAppSettings.handlePlayerResolutionChange()/handlePlayerMotionSlotChange().
+/** Màn Player > Video/Photo (Settings > Visualizer Screen > Player) — 1 select Resolution + các HÀNG
+ * Motion (PLAYER_MOTION_SLOTS lọc theo kind, core/player-display-settings.js), MỖI control gửi 1
+ * msg.type riêng kèm `kind` ('video'|'photo') để Router/Workflow biết đang sửa domain field nào.
+ * SỬA (24/09/2026, Giang yêu cầu — xoá cơ chế đăng ký Motion vào nơi tiêu thụ) — hàng Motion KHÔNG còn
+ * là select nữa: tap hàng -> 'appSettings.player.motionSlot.openPicker.click' (mở THẲNG màn Chọn của
+ * Motion, xem workflowPlayerDisplaySettings.openMotionSlotPicker()). Nhân tiện gom addEventListener về
+ * CUỐI hàm (Rule 5a — bản cũ xen kẽ giữa các lần querySelector).
  * @param {HTMLElement} bodyEl @param {'video'|'photo'} kind */
 function wireAppSettingsPlayerDetail(bodyEl, kind) {
     const resolutionSelect = bodyEl.querySelector(`#setting-player-${kind}-resolution`);
-    if (resolutionSelect) resolutionSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.player.resolution.change', payload: { kind, value: e.target.value } }));
+    const motionSlotRows = bodyEl.querySelectorAll('[data-player-motion-slot]'); // components/settings/player-display-settings.js — chỉ dựng đúng slot của kind này
 
-    getPlayerMotionSlotsForKind(kind).forEach((s) => { // core/player-display-settings.js — mỗi kind chỉ lấy đúng slot của mình (Video: showing; Photo: pointMove)
-        const slotSelect = bodyEl.querySelector(`#setting-player-${kind}-motion-${s.slot}`);
-        if (slotSelect) slotSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.player.motionSlot.change', payload: { kind, slot: s.slot, value: e.target.value } }));
+    // --- addEventListener: gom cuối hàm (Rule 5a) ---
+    if (resolutionSelect) resolutionSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.player.resolution.change', payload: { kind, value: e.target.value } }));
+    motionSlotRows.forEach((rowEl) => {
+        rowEl.addEventListener('click', () => eventBus.send({ router: 'appSettings', type: 'appSettings.player.motionSlot.openPicker.click', payload: { kind, slot: rowEl.dataset.playerMotionSlot } }));
     });
 }
 

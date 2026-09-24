@@ -478,10 +478,10 @@
          *
          * MỚI (giai đoạn 1, Giang yêu cầu "code backend đăng ký + hiển thị list, CHƯA code cơ chế
          * hoạt động") — domain này lưu LỰA CHỌN của người dùng (mode Resolution + preset nào gắn cho
-         * từng vai trò Motion). Nơi tiêu thụ preset ('player', core/motion-presets.js
-         * ::MOTION_APPLY_CONSUMERS) DÙNG CHUNG 1 danh sách đăng ký cho CẢ 6 field *PresetId dưới đây
-         * (Giang chốt: "nơi tiêu thụ chỉ thêm player trong 1 danh sách" — KHÔNG tách riêng theo
-         * Video/Photo hay theo vai trò).
+         * từng vai trò Motion). SỬA (24/09/2026, Giang yêu cầu — xoá cơ chế đăng ký Motion vào nơi
+         * tiêu thụ) — consumer 'player'/MOTION_APPLY_CONSUMERS ĐÃ XOÁ: CẢ 6 field *PresetId dưới đây
+         * chọn trong TOÀN BỘ preset Motion qua màn Chọn (event/workflow/player-display-settings.js
+         * ::openMotionSlotPicker()).
          *
          * `videoResolutionMode`/`photoResolutionMode` — 'cover' (kéo giãn lấp đầy khung, giữ tỉ lệ,
          * CẮT bớt phần dư — mặc định, ĐÚNG hành vi gốc trước khi có Resolution) | 'fit' (giữ tỉ lệ,
