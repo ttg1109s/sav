@@ -52,12 +52,6 @@
             __sedPush('error', [`Unhandled promise rejection: ${e.reason && e.reason.message ? e.reason.message : e.reason}`]);
         });
     </script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        // CÙNG FIX hover-kẹt-trên-cảm-ứng đã áp dụng ở index.html (10/07/2026) — xem comment đầy
-        // đủ ở đó, không lặp lại.
-        tailwind.config = { future: { hoverOnlyWhenSupported: true } };
-    </script>
     <link rel="stylesheet" href="assets/css/style.css?v=20260715v1">
     <!-- WaveSurfer.js v7 (UMD, global `WaveSurfer`) + Regions plugin (global `WaveSurfer.Regions`) —
          xem plan-subtitle-editor-page.md mục 1.3 (đã xác nhận API qua tài liệu chính thức trước
@@ -72,6 +66,9 @@
          hoá trực tiếp buffer PCM đã giải mã sẵn của WaveSurfer (getDecodedData()) thành file .mp3
          THẬT — xem event/workflow/subtitle-editor.js::_encodeMp3FromRegion(). -->
     <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
+    <!-- SỬA (24/09/2026) — THAY Play CDN bằng file Tailwind build sẵn (xem comment cùng chỗ ở index.html). Đặt CUỐI
+         <head>: bản CDN chèn <style> của nó vào cuối <head> -> Tailwind đứng SAU assets/css/style.css — giữ nguyên thứ tự. -->
+    <link rel="stylesheet" href="assets/css/tailwind.css?v=20260924r1">
 </head>
 <body class="bg-[#0b0f1a] text-white h-screen flex flex-col overflow-hidden">
     <!-- FIX (13/07/2026) — `min-h-screen` chỉ đặt chiều cao TỐI THIỂU, `<body>` có thể giãn vượt

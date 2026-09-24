@@ -187,18 +187,14 @@
     <!-- Thư viện bên thứ 3 (CDN) — DỜI TỪ <head> XUỐNG ĐÂY (xem giải thích đầy đủ ở comment đầu
          khối Preloader phía trên) — giữ NGUYÊN THỨ TỰ TƯƠNG ĐỐI với nhau như bản gốc, chỉ đổi vị
          trí vật lý trong tài liệu. -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- hoverOnlyWhenSupported (Tailwind, mặc định bật khi build qua config — CDN Play cần khai
-         báo tay): đổi hover: sang chạy trong @media (hover:hover) and (pointer:fine), tránh trạng
-         thái hover "kẹt" khi chạm trên mobile (touch không tự gỡ :hover cho tới lần chạm kế tiếp).
-         Sửa 1 lần ở đây áp dụng mọi class hover:* trong toàn project. -->
-    <script>
-        tailwind.config = {
-            future: {
-                hoverOnlyWhenSupported: true,
-            },
-        };
-    </script>
+    <!-- SỬA (24/09/2026, Giang chọn "dùng file Tailwind build sẵn") — THAY Play CDN (cdn.tailwindcss.com, ~400 KB JS,
+         tự biên dịch CSS ngay trên máy mỗi khi DOM có class mới -> CSS của class lần đầu xuất hiện về TRỄ, gây thụt
+         chiều cao Generic Drawer lần đầu mở màn con; kèm cần mạng). File build sẵn chỉ chứa class project dùng (~57 KB
+         minify, ~10 KB khi server nén gzip). Cấu hình (gồm hoverOnlyWhenSupported cũ khai báo tay ở đây) chuyển sang
+         tailwind.config.js; cách build lại: readme/tailwind-build.md — PHẢI build lại khi dùng class Tailwind MỚI.
+         VỊ TRÍ: đặt đúng chỗ thẻ CDN cũ — thứ tự cascade GIỮ NGUYÊN: Tailwind đứng TRƯỚC mọi CSS của project bên dưới
+         (bản CDN chèn <style> vào cuối <head>, tức cũng đứng trước chúng), không chặn Preloader phía trên. -->
+    <link rel="stylesheet" href="assets/css/tailwind.css?v=20260924r1">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nosleep/0.12.0/NoSleep.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
