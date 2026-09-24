@@ -249,9 +249,22 @@ const workflowPlaylist = {
      * ĐẦU (đọc `cached.mediaType` — quyết định "gọi cặp core nào", đúng tinh thần VMState ở Router
      * cho cấp Song/Video, nhưng đặt Ở ĐÂY vì cần đọc playlistStore.songEditCurrentKey TRƯỚC —
      * Router không có context đó). 2 nhánh gọi 2 CẶP core HOÀN TOÀN riêng (không core nào gọi core
-     * khác) — song vẫn dùng chung `closeSongEditModal()`/`refreshAfterSongEditSave()` (2 hàm đó
+     * khác) — song vẫn dùng chung `closeSongEditModal()`/`this._refreshAfterMediaEditSave()` (2 hàm đó
      * hoàn toàn trung lập, không có gì "của riêng Song").
      */
+    /** DỜI (24/09/2026, rà soát refresh DOM) từ core/playlist/actions.js::refreshAfterSongEditSave() — thân GIỮ
+     * NGUYÊN. "Dọn dẹp sau khi lưu" 1 media (Song/Video/Photo): vẽ lại đúng hàng đó (ảnh/tên mới), đổi tên có thể
+     * ảnh hưởng sort -> cập nhật hàng đợi phát (chỉ khi 'az'/'za') + thứ tự hiển thị rồi diff lại danh sách. Bản cũ
+     * nằm ở core nhưng tự `appState.get()` + gọi 3 hàm Workflow — đúng vai Workflow nên dời hẳn về đây.
+     * @param {string} key */
+    _refreshAfterMediaEditSave(key) {
+        workflowPlaylistRender.refreshSongNode(key); // event/workflow/playlist-render.js — ảnh cũ trong DOM không tự đổi
+        const nameMode = appState.get('displaySortMode');
+        if (nameMode === 'az' || nameMode === 'za') workflowPlaylistOrder.recomputeDisplayOrder(); // event/workflow/playlist-order.js
+        workflowPlaylistOrder.recomputeRenderOrder();
+        workflowPlaylistRender.renderPlaylistDiff();
+    },
+
     async executeSaveEdit() {
         const key = playlistStore.get('songEditCurrentKey');
         if (!key) return; // không có modal nào đang mở -> no-op, giống hành vi gốc
@@ -267,7 +280,7 @@ const workflowPlaylist = {
             });
             if (result.status === 'notFound') await alertModal(t('common.songEdit.notFound'));
             closeSongEditModal();
-            refreshAfterSongEditSave(key); // core thuần, DÙNG CHUNG — không có gì "của riêng Song"
+            this._refreshAfterMediaEditSave(key); // DÙNG CHUNG — không có gì "của riêng Song"
             return;
         }
 
@@ -281,7 +294,7 @@ const workflowPlaylist = {
             });
             if (result.status === 'notFound') await alertModal(t('common.songEdit.notFound'));
             closeSongEditModal();
-            refreshAfterSongEditSave(key);
+            this._refreshAfterMediaEditSave(key);
             return;
         }
 
@@ -302,7 +315,7 @@ const workflowPlaylist = {
         }
 
         closeSongEditModal(); // core thuần, thuần UI — đóng modal trong MỌI trường hợp (giống bản gốc)
-        refreshAfterSongEditSave(key); // core thuần — vẽ lại danh sách/sắp xếp lại nếu cần
+        this._refreshAfterMediaEditSave(key); // vẽ lại danh sách/sắp xếp lại nếu cần
     },
 
     /** Ứng với click nút duration ở tab "Sửa" của nhóm field Photo — mở time-picker (core/time-
@@ -337,7 +350,7 @@ const workflowPlaylist = {
     // SỬA (sau trao đổi Rule 1/2/VMState): render.js (buildSongNode/renderPlaylistFull/
     // renderPlaylistDiff) KHÔNG được sửa để tự đọc selectionMode/selectedMediaKeys — những field đó
     // CHỈ ảnh hưởng 1 lớp DOM-patch riêng, tách hẳn theo tiến trình đơn tuyến (showSelectionIndicator/
-    // hideSelectionIndicator/refreshAllSelectionVisuals/updateSelectionActionBar/applySelectionChrome,
+    // hideSelectionIndicator/updateSelectionActionBar/applySelectionChrome,
     // core/playlist/selection.js — hàm THUẦN, nhận state qua tham số, tự chọn hàm nào chạy qua
     // VirtualMachineState thay vì if/else). Nơi ĐỌC appState rồi gọi các hàm thuần đó nối tiếp nhau
     // LÀ ĐÂY (workflow) — đúng vai trò được appState.get() tự do.
@@ -1284,13 +1297,16 @@ const workflowPlaylist = {
         this._folderPickerSelectedIds = opts.multiSelect ? (opts.selectedIds || []) : [];
         this._folderPickerTypeOptions = opts.typeOptions || null;
         this._folderPickerOnTypeChange = opts.onTypeChange || null;
-        this._renderFolderPickerGrid(!isUpdate);
+        this._renderFolderPickerGrid(!isUpdate, true); // SỬA (24/09/2026) — mở/đổi loại = danh sách mới -> từ đầu
     },
 
     /** Vẽ lại grid (mở lần đầu HOẶC sau khi thêm/sửa tên 1 folder, toggle chọn, đổi loại) —
      * `isFirstOpen` quyết định open vs update Generic Drawer (core/generic-drawer.js — 2 hàm khác
-     * nhau tuỳ Drawer đang đóng hay đã mở sẵn, xem docstring ở đó). */
-    _renderFolderPickerGrid(isFirstOpen) {
+     * nhau tuỳ Drawer đang đóng hay đã mở sẵn, xem docstring ở đó).
+     * @param {boolean} isFirstOpen
+     * @param {boolean} [scrollReset] - MỚI (24/09/2026) — true = danh sách mới (mở/đổi loại) -> cuộn từ đầu; mặc định
+     *        false = vẽ lại tại chỗ -> giữ vị trí cuộn. */
+    _renderFolderPickerGrid(isFirstOpen, scrollReset = false) {
         // MỚI (29/08/2026) — `selectedOrder`: Map<folderId, order> cho multiSelect, đọc bởi
         // `itemTemplateFolderTile()` (components/items.js) để vẽ badge số thứ tự — null khi không
         // multiSelect (hành vi CŨ, không badge nào).
@@ -1307,6 +1323,10 @@ const workflowPlaylist = {
             ? `<p class="text-sm text-center py-10 px-6" data-uitk="textSecondary">${this._folderPickerEmptyMsg}</p>`
             : buildFolderGridWrapperHtml(`${itemsHtml}${addTileHtml}`); // components/items.js
         const config = {
+            // MỚI (24/09/2026, Giang báo "vẽ lại panel mất scroll cũ") — vẽ lại TẠI CHỖ (toggle chọn/thêm/sửa tên
+            // folder) giữ vị trí cuộn; mở mới/đổi loại (`scrollReset`) từ đầu — core/generic-drawer.js.
+            scrollKey: 'playlist:folderPicker',
+            scrollReset,
             // SỬA (14/07/2026, Giang báo — "layout grid thừa khoảng trống") — TRƯỚC ĐÂY height cố
             // định '60vh' bất kể có bao nhiêu folder, để lại khoảng trống lớn phía dưới khi chỉ có
             // vài tile. Giờ height:'auto' (panel tự co theo ĐÚNG nội dung thật) + maxHeight:'60vh'
@@ -1322,8 +1342,8 @@ const workflowPlaylist = {
             bodyHtml,
             bodyClass: 'overflow-y-auto',
         };
-        if (isFirstOpen) openGenericDrawer(config); // core/generic-drawer.js
-        else updateGenericDrawer(config); // core/generic-drawer.js
+        if (isFirstOpen) workflowGenericDrawerHelpers.open(config); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
+        else workflowGenericDrawerHelpers.update(config); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
         wireFolderPickerDrawerEvents('playlist', 'playlist.folderPicker'); // core/file-manager/folder-picker-ui.js — hàm GỘP (v13 Batch B), msg.type KHÔNG đổi
     },
 

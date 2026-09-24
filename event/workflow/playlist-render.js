@@ -13,7 +13,7 @@
  * object `workflowPlaylistRender`, gọi lẫn nhau qua `this.xxx()` (Workflow gọi Workflow CÙNG object
  * — không phải Core gọi Core, hợp lệ, CÙNG khuôn `workflowPlaylistOrder` đã làm). `core/playlist/
  * render.js` giờ CHỈ còn hàm THUẦN/tiện ích nhỏ (songActionMenuButtonHtml/attachCoverFallback/
- * revokeNodeCoverUrl/selectionIndicatorHtml/showPlaylistLoading/updatePlaylistLoading/
+ * revokeNodeCoverUrl/showPlaylistLoading/updatePlaylistLoading/
  * hidePlaylistLoading/resetPlaylistScrollTop — thuần hẳn) + nhóm tự đọc `appState` nhưng KHÔNG gọi
  * chéo hàm nào trong cụm này (`updateEmptyState`/`scrollToSongIfPending`/`scrollToCurrentKeyInstant`/
  * `scrollToCurrentKeyAnimated`/`applySearchQuery` — nợ kỹ thuật RIÊNG, chưa relocate đợt này, xem
@@ -33,7 +33,7 @@
  * hơn nhiều so với build lại + tải lại ảnh mỗi lần gõ rồi xoá tìm kiếm.
  *
  * NẠP SAU: core/playlist/render.js (revokeNodeCoverUrl/songActionMenuButtonHtml/
- * attachCoverFallback/selectionIndicatorHtml/updateEmptyState), core/playlist/state.js
+ * attachCoverFallback/updateEmptyState), core/playlist/state.js
  * (formatTime), core/dom-refs.js (playlistContainer/btnPlaylistEmptyPlay/DEFAULT_VINYL/bgVideoElement/
  * audioPlayer). NẠP TRƯỚC: mọi file gọi `workflowPlaylistRender.*` — event/workflow/playlist.js,
  * video-player.js, photo-player.js, player.js, playlist-scope.js, playlist-empty-state.js,
@@ -60,10 +60,14 @@ const workflowPlaylistRender = {
         const isPlaying = (key === appState.get('currentKey'));
         const isActuallyPlaying = isPlaying && !((cached && cached.mediaType === 'video') ? bgVideoElement.paused : audioPlayer.paused);
         const eqIconHtml = isActuallyPlaying ? `<div class="flex items-end gap-[2px] h-3 w-3"><div class="w-[3px] eq-1" data-uitk="eqBarBg"></div><div class="w-[3px] eq-2" data-uitk="eqBarBg"></div><div class="w-[3px] eq-3" data-uitk="eqBarBg"></div></div>` : (isPlaying ? `<div class="w-2 h-2 rounded-full shadow-[0_0_5px_rgba(14,165,233,0.8)]" data-uitk="btnPrimaryPillBg"></div>` : '');
-        const selectionMode = appState.get('selectionMode');
-        const isSelected = selectionMode && appState.get('selectedMediaKeys').has(key);
+        // SỬA (24/09/2026, rà soát refresh DOM) — node dựng ra LUÔN ở dạng "thường" (có nút 3 chấm, không vòng
+        // tròn chọn, nền thường). Lớp "Chọn nhiều" áp SAU qua `_applySelectionLayer()` bằng ĐÚNG cơ chế
+        // show/hideSelectionIndicator() mà bật/tắt/toggle chọn dùng — trước đây hàm này tự vẽ vòng tròn INLINE
+        // (không `data-role`) + bỏ nút 3 chấm, lệch với cơ chế kia: hàng bị dựng lại lúc đang chọn (play/pause,
+        // Next/Prev, ảnh/video tự chuyển, đổi grid/list) bị 2 vòng tròn khi bấm chọn, kẹt nền đã-chọn khi bỏ
+        // chọn, thoát chọn thì còn vòng tròn + mất nút 3 chấm.
         const isGridViewNow = appState.get('isGridView'); // đọc 1 lần, dùng lại cho cả menuBtnHtml lẫn nhánh render bên dưới
-        const menuBtnHtml = selectionMode ? '' : songActionMenuButtonHtml(key, isGridViewNow); // core/playlist/render.js — tham số 2 MỚI (09/09/2026), xem docstring hàm đó
+        const menuBtnHtml = songActionMenuButtonHtml(key, isGridViewNow); // core/playlist/render.js — tham số 2 MỚI (09/09/2026), xem docstring hàm đó
 
         const wrapper = document.createElement('div');
         wrapper.dataset.key = key;
@@ -76,17 +80,15 @@ const workflowPlaylistRender = {
                 <div class="w-full aspect-square relative mb-2.5">
                     <img src="${coverUrl}" class="w-full h-full rounded-2xl object-cover shadow-lg">
                     ${isPlaying ? `<div class="absolute inset-0 bg-black/30 rounded-2xl flex items-center justify-center backdrop-blur-[2px]">${eqIconHtml}</div>` : ''}
-                    ${selectionMode ? `<div class="absolute top-2 left-2">${selectionIndicatorHtml(isSelected)}</div>` : ''}
                     <div class="absolute top-2 right-2 flex bg-black/40 rounded-full">${menuBtnHtml}</div>
                 </div>
                 <h3 class="text-[15px] font-semibold leading-tight line-clamp-1 px-1" data-uitk="textPrimary">${title}</h3>
                 <p class="text-[13px] font-medium line-clamp-1 px-1 mt-0.5" data-uitk="textSecondary">${secondLineHtml}</p>`;
         } else {
             wrapper.className = `flex items-center gap-4 px-5 py-3 transition-colors cursor-pointer w-full group`;
-            wrapper.dataset.uitk = isSelected ? 'rowActiveBg rowPressBg' : 'cardHoverBg rowPressBg'; // SỬA 21/09/2026 — trước đây `active:bg-slate-100`/`bg-sky-50` class cứng; hàng đang CHỌN = rowActiveBg, nhấn giữ = rowPressBg, rê chuột = cardHoverBg
+            wrapper.dataset.uitk = 'cardHoverBg rowPressBg'; // SỬA 21/09/2026 — trước đây `active:bg-slate-100`/`bg-sky-50` class cứng; nhấn giữ = rowPressBg, rê chuột = cardHoverBg. SỬA 24/09/2026 — nền hàng ĐANG CHỌN không còn đặt ở đây (tint `selectionTintBg` do showSelectionIndicator() thêm/gỡ, xem _applySelectionLayer())
             wrapper.dataset.role = 'play-item';
             wrapper.innerHTML = `
-                ${selectionMode ? selectionIndicatorHtml(isSelected) : ''}
                 <img src="${coverUrl}" class="w-12 h-12 rounded-lg flex-shrink-0 object-cover shadow-md">
                 <div class="flex-grow flex flex-col justify-center overflow-hidden gap-0.5">
                     <div class="flex items-center gap-2"><h3 class="text-[16px] leading-tight font-semibold truncate" data-uitk="${isPlaying ? 'accentText' : 'textPrimary'}">${title}</h3>${isPlaying ? eqIconHtml : ''}</div>
@@ -96,7 +98,20 @@ const workflowPlaylistRender = {
         }
         attachCoverFallback(wrapper.querySelector('img')); // core/playlist/render.js
         if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(wrapper, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — MỚI (09/09/2026, hệ UI Theme mở rộng "đổi hết trừ Visualizer") — node dựng ĐỘNG (createElement+innerHTML), KHÔNG tự động qua applyUiThemeToDom(document,...) lúc boot như nội dung tĩnh — phải tự áp NGAY ở đây mỗi khi dựng 1 node mới
+        this._applySelectionLayer(wrapper, key); // MỚI (24/09/2026) — xem docstring hàm đó
         return wrapper;
+    },
+
+    /** MỚI (24/09/2026, rà soát refresh DOM) — áp lớp "Chọn nhiều" lên 1 node VỪA dựng nếu đang ở chế độ chọn,
+     * bằng ĐÚNG `showSelectionIndicator()` (core/playlist/selection.js) mà `workflowPlaylist.toggleSelectionMode()`/
+     * `toggleSongSelectionAndRefresh()` dùng — nên `hideSelectionIndicator()` lúc thoát chọn gỡ sạch được, bấm
+     * chọn/bỏ chọn cập nhật đúng 1 vòng tròn. Mọi đường dựng node (renderPlaylistFull/renderPlaylistDiff/
+     * refreshSongNode) đều qua `buildSongNode()` nên chỉ cần gọi ở cuối hàm đó.
+     * @param {HTMLElement} node @param {string} key */
+    _applySelectionLayer(node, key) {
+        VirtualMachineState.run([
+            { state: appState.get('selectionMode'), operation: '===', value: true, callback: () => showSelectionIndicator(node, key, appState.get('selectedMediaKeys'), workflowPlaylist._selectionThemeClasses()) }, // core/playlist/selection.js + event/workflow/playlist.js
+        ]);
     },
 
     /** Dựng lại TOÀN BỘ DOM (đổi layout grid/list, hoặc lệch số lượng node). Dời NGUYÊN VẸN từ

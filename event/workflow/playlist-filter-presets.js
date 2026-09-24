@@ -392,7 +392,11 @@ const workflowPlaylistFilterPresets = {
      * @param {string} id */
     async deletePreset(id) {
         await this._deletePresetById(id, this._editingSource);
-        workflowAppSettings._renderPlaylistFilterList(); // liên tuyến domain — thay Back thường (preset đã xoá, không còn gì để "sửa tiếp")
+        // SỬA (24/09/2026) — `back()` thay vì vẽ thẳng `_renderPlaylistFilterList()`: bản cũ vẽ Danh sách ĐÈ lên
+        // màn Edit mà KHÔNG pop ngăn xếp (bấm Back lần nữa lại ra Danh sách lần 2) và mất vị trí cuộn của Danh sách.
+        // `back()` pop đúng màn Danh sách vừa đến từ đó (dữ liệu vẽ lại tươi) + khôi phục vị trí cuộn — CÙNG khuôn
+        // `workflowMotionPresets.deleteEditing()`.
+        workflowAppSettings.back(); // liên tuyến domain
     },
 
     /** Dùng CHUNG cho quickDelete() (danh sách) VÀ deletePreset() (màn Edit) — xoá khỏi

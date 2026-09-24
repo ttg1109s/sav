@@ -108,13 +108,14 @@ const workflowFileManagerFolderBrowser = {
         const itemsHtml = renderItemList(null, view.pageItems, itemTemplateFolderTile, { editingFolderId: this._editingFolderId }); // components/items.js
         const bodyHtml = buildFolderGridWrapperHtml(`${itemsHtml}${buildAddFolderTileHtml()}`) + `<div id="folder-browser-pagination" class="px-3 pb-3">${workflowPagination.buildControlsHtml(view)}</div>`; // components/items.js
         const config = {
+            scrollKey: 'folderBrowser:list', // MỚI (24/09/2026) — vẽ lại tại chỗ/quay về từ Filter Edit -> giữ đúng vị trí cuộn (event/workflow/generic-drawer-helpers.js)
             height: 'auto',
             maxHeight: '60vh',
             headerHtml: this._buildListHeaderHtml(),
             bodyHtml,
             bodyClass: 'overflow-y-auto',
         };
-        if (isFirstOpen) openGenericDrawer(config); else updateGenericDrawer(config); // core/generic-drawer.js
+        if (isFirstOpen) workflowGenericDrawerHelpers.open(config); else workflowGenericDrawerHelpers.update(config); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
         wireFolderPickerDrawerEvents('fileManagerFolderBrowser', 'fileManagerFolderBrowser.list'); // core/file-manager/folder-picker-ui.js
         wirePaginationControls(genericDrawerBody.querySelector('#folder-browser-pagination'), 'fileManagerFolderBrowser', 'fileManagerFolderBrowser.list.page.change'); // core/pagination-ui.js — MỚI 23/09/2026
     },
@@ -466,7 +467,9 @@ const workflowFileManagerFolderBrowser = {
      * `_handleFolderFilterFieldEvent()`, KHÔNG gọi lại hàm này (tránh mất focus input đang gõ dở). */
     _renderFilterEdit() {
         const bodyHtml = buildFolderFilterEditBodyHtml(this._filterEditDraft, this._filterEditMediaType, t); // components/playlist-filter-drawer.js
-        updateGenericDrawer({ // core/generic-drawer.js
+        workflowGenericDrawerHelpers.update({ // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
+            scrollKey: 'folderBrowser:filterEdit', // MỚI (24/09/2026) — màn đi TỚI: từ đầu; vị trí List được Workflow nhớ cho lúc Back
+            scrollReset: true,
             height: 'auto',
             maxHeight: '80vh',
             headerHtml: this._buildFilterEditHeaderHtml(),

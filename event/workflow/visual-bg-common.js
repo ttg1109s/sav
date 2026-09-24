@@ -810,11 +810,23 @@ const workflowVisualBg = {
         await this.refreshPanelUI();
     },
 
+    /** MỚI (24/09/2026, rà soát refresh DOM) — màn Visual Background CHÍNH có đang thật sự gắn trong Generic
+     * Drawer không. Guard cũ chỉ hỏi "Drawer có đang mở" — không đủ: Drawer dùng CHUNG 1 body cho mọi màn, lúc
+     * đang mở Storage/Statistics/Settings khác thì guard cũ vẫn cho qua; nếu phiên này CHƯA TỪNG mở panel VBG
+     * thì `visualBgSettingsPanelEl` còn null -> TypeError giữa `_checkAndApplyPendingSource()` (boot/đổi bài/hết
+     * video/nhịp ảnh), bỏ lỡ `applyCurrentVisualBg()` và nhịp rearm của slideshow ảnh. Nhận diện bằng phần tử
+     * CHỈ màn chính có (`#visual-bg-source-name`, components/visual-bg-settings-drawer.js).
+     * @returns {boolean} */
+    _isMainPanelMounted() {
+        if (!visualBgSettingsPanelEl || genericDrawerPanel.classList.contains('hidden')) return false;
+        return !!visualBgSettingsPanelEl.querySelector('#visual-bg-source-name');
+    },
+
     /** Đồng bộ UI panel theo config hiện tại — gọi lúc mở panel + sau mọi thay đổi field. Guard
-     * đơn thuần: chỉ đồng bộ NẾU đang mở sẵn, không tự ý mở màn nào (kể cả khi gọi từ
-     * `_checkAndApplyPendingSource()` lúc boot). */
+     * đơn thuần: chỉ đồng bộ NẾU màn VBG chính đang gắn, không tự ý mở màn nào (kể cả khi gọi từ
+     * `_checkAndApplyPendingSource()` lúc boot). SỬA (24/09/2026) — guard đổi sang `_isMainPanelMounted()`. */
     async refreshPanelUI() {
-        if (genericDrawerPanel.classList.contains('hidden')) return;
+        if (!this._isMainPanelMounted()) return;
         const cfg = appConfigVisualBg.getAll();
         const q = (sel) => visualBgSettingsPanelEl.querySelector(sel);
 

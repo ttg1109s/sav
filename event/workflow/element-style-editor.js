@@ -59,6 +59,11 @@ const workflowElementStyleEditor = {
      * `workflowAppSettings._screenStack`, tool đó thuộc domain Settings khác, xem `_render()`/
      * `_renderFontPicker()` bên dưới). Reset mỗi lần `open()` — phiên mới luôn bắt đầu ở màn chính. */
     _fontPickerOpen: false,
+    /** MỚI (24/09/2026) — số phiên mở editor, ghép vào `scrollKey` (event/workflow/generic-drawer-helpers.js) để mỗi lần `open()`
+     * là 1 bộ nhớ cuộn MỚI (không kế thừa vị trí của lần mở trước trong CÙNG phiên Drawer, vd mở từ Settings >
+     * Subtitle 2 lần liên tiếp); TRONG 1 phiên: vẽ lại cùng tab -> giữ vị trí, đổi tab/quay về từ màn Font -> về
+     * đúng vị trí tab đó. */
+    _scrollSessionId: 0,
 
     /** Mở Drawer cho 1 DOM cụ thể — mặc định bắt đầu từ draft TRẮNG (mọi property tắt).
      * MỚI (16/08/2026, mục 2 — Giang yêu cầu "cung cấp cấu hình mặc định giống hiện tại") — tham số
@@ -86,6 +91,7 @@ const workflowElementStyleEditor = {
         resetElementStyleDraft(); // core
         if (initialCssString) applyElementStyleCssStringToDraft(initialCssString); // core — MỚI, nạp khớp style đã lưu
         setElementStyleActiveTab(options.startTab || 'box'); // core
+        this._scrollSessionId += 1; // MỚI (24/09/2026) — phiên nhớ cuộn mới, xem docstring field
         this._render();
     },
 
@@ -106,6 +112,7 @@ const workflowElementStyleEditor = {
         // lẫn Photo layer Text/Shape (dùng CHUNG component này). `maxHeight: '80vh'` — cùng trần đã
         // dùng cho Photo layer style editor bản tự chế CŨ (`openPhotoLayerStyleDrawerUi()`, đã xoá).
         const config = {
+            scrollKey: `elementStyleEditor#${this._scrollSessionId}:${activeTab}`, // MỚI (24/09/2026) — mỗi tab 1 vị trí cuộn riêng, xem `_scrollSessionId`
             height: 'auto',
             maxHeight: '80vh',
             headerHtml: renderElementStyleEditorHeader(activeTab), // components/element-style-editor-drawer.js
@@ -116,9 +123,10 @@ const workflowElementStyleEditor = {
             bodyClass: 'overflow-y-auto px-4 pb-3',
         };
         if (this._zIndex) config.zIndex = this._zIndex; // xem docstring field `_zIndex` — mặc định (không set) giữ NGUYÊN hành vi cũ
-        if (genericDrawerPanel.classList.contains('hidden')) openGenericDrawer(config); // core/generic-drawer.js
-        else updateGenericDrawer(config);
+        if (genericDrawerPanel.classList.contains('hidden')) workflowGenericDrawerHelpers.open(config); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
+        else workflowGenericDrawerHelpers.update(config);
         this._wire();
+        workflowGenericDrawerHelpers.restoreScroll(); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js — MỚI (24/09/2026) áp lại sau wire (khối input con có thể vừa hiện ra)
     },
 
     _wire() {
@@ -224,6 +232,8 @@ const workflowElementStyleEditor = {
         const draft = appState.get('eseDraft');
         const currentValue = draft.text.fontFamily.value;
         const config = {
+            scrollKey: `elementStyleEditor#${this._scrollSessionId}:fontPicker`, // MỚI (24/09/2026) — màn con đi TỚI: luôn từ đầu; vị trí màn chính được Workflow nhớ cho lúc Back
+            scrollReset: true,
             height: 'auto',
             maxHeight: '80vh',
             headerHtml: renderEseFontPickerHeader(), // components/element-style-editor-drawer.js
@@ -231,8 +241,8 @@ const workflowElementStyleEditor = {
             bodyClass: 'overflow-y-auto px-4 py-3',
         };
         if (this._zIndex) config.zIndex = this._zIndex;
-        if (genericDrawerPanel.classList.contains('hidden')) openGenericDrawer(config); // core/generic-drawer.js
-        else updateGenericDrawer(config);
+        if (genericDrawerPanel.classList.contains('hidden')) workflowGenericDrawerHelpers.open(config); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
+        else workflowGenericDrawerHelpers.update(config);
         this._wireFontPicker();
     },
 

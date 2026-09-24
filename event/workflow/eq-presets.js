@@ -97,7 +97,7 @@ const workflowEqPresets = {
         // MỚI 23/09/2026 — mở List ĐÚNG trang chứa preset đang dùng (nơi 'eqPresets' của Pagination; tắt -> 0).
         const presets = appState.get('eqPresets');
         this._listPageIndex = workflowPagination.pageIndexOfItem('eqPresets', presets.findIndex((p) => p.id === appConfigViz.getAll().eqPresetId)); // event/workflow/pagination.js
-        this.openListView();
+        this.openListView(true); // SỬA (24/09/2026) — mở mới từ nút EQ -> List từ đầu
     },
 
     /** Ứng với 'eqPresets.cycle.click' (sự kiện `click` DOM thật trên #btn-cycle-eq — bấm tay
@@ -127,7 +127,9 @@ const workflowEqPresets = {
     /** Mở view List của Generic Drawer EQ — gọi từ _fireCycleHold() (giữ 1.5s #btn-cycle-eq, THAY
      * 'eqPresets.openDrawer.click'/#btn-edit-eq đã bỏ) hoặc từ _saveEdit()/_deletePreset() (quay
      * lại List sau khi Lưu/Xoá xong). */
-    openListView() {
+    /** @param {boolean} [scrollReset] - SỬA (24/09/2026) — true = mở mới (bắt đầu từ đầu); mặc định false = quay
+     *        lại từ Edit/vẽ lại sau Lưu/Xoá -> về đúng vị trí cuộn cũ của List (event/workflow/generic-drawer-helpers.js, `scrollKey`). */
+    openListView(scrollReset = false) {
         this._editingId = null;
         // SỬA (12/08/2026, Giang chỉ ra "khớp với generic drawer") — mở/chuyển view LUÔN dùng
         // updateGenericDrawer() nếu drawer đang mở (List <-> Edit trong CÙNG drawer), CHỈ
@@ -143,6 +145,8 @@ const workflowEqPresets = {
         const view = workflowPagination.computePlaceView('eqPresets', appState.get('eqPresets'), this._listPageIndex); // event/workflow/pagination.js
         this._listPageIndex = view.pageIndex; // giá trị đã kẹp (vd vừa xoá preset cuối của trang cuối)
         const config = {
+            scrollKey: 'eqPresets:list', // MỚI (24/09/2026) — nhớ vị trí cuộn List (xem event/workflow/generic-drawer-helpers.js)
+            scrollReset,
             height: 'auto',
             maxHeight: '70vh',
             headerHtml: renderEqListHeader(), // components/eq-presets-drawer.js
@@ -150,9 +154,9 @@ const workflowEqPresets = {
             bodyClass: 'overflow-y-auto px-4 py-3',
         };
         if (genericDrawerPanel.classList.contains('hidden')) {
-            openGenericDrawer(config); // core/generic-drawer.js
+            workflowGenericDrawerHelpers.open(config); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
         } else {
-            updateGenericDrawer(config); // core/generic-drawer.js
+            workflowGenericDrawerHelpers.update(config); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
         }
         this._wireListView();
     },
@@ -220,7 +224,9 @@ const workflowEqPresets = {
         // SỬA (phản hồi Giang mục 1 — CÙNG lý do openListView() ngay trên, đây chính xác là nguyên
         // nhân khoảng trống trắng bên dưới nút Apply/Delete preset trong ảnh Giang gửi: nội dung
         // Edit view (Name + 8 slider + 2 nút) NGẮN hơn hẳn 70vh, nhưng trước đây bị fix cứng 70vh).
-        updateGenericDrawer({ // core/generic-drawer.js — chuyển mượt, không đóng/mở lại
+        workflowGenericDrawerHelpers.update({ // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js — chuyển mượt, không đóng/mở lại
+            scrollKey: 'eqPresets:edit', // MỚI (24/09/2026) — màn đi TỚI: từ đầu; vị trí List được Workflow nhớ cho lúc quay về
+            scrollReset: true,
             height: 'auto',
             maxHeight: '70vh',
             headerHtml: renderEqEditHeader(preset, isBuiltIn), // components/eq-presets-drawer.js
@@ -321,7 +327,8 @@ const workflowEqPresets = {
         if (!preset) return;
         // SỬA (phản hồi Giang mục 1) — CÙNG lý do _openEditView() ngay trên (chính vẽ lại view Edit,
         // config phải khớp NHAU — thiếu ở đây thì bấm "Khôi phục mặc định" lại quay về fix cứng 70vh).
-        updateGenericDrawer({ // core/generic-drawer.js
+        workflowGenericDrawerHelpers.update({ // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
+            scrollKey: 'eqPresets:edit', // MỚI (24/09/2026) — vẽ lại TẠI CHỖ màn Edit -> giữ vị trí cuộn
             height: 'auto',
             maxHeight: '70vh',
             headerHtml: renderEqEditHeader(preset, true), // components/eq-presets-drawer.js — chắc chắn isBuiltIn (nút chỉ hiện khi true)

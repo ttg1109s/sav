@@ -74,14 +74,16 @@ const workflowCustomEffect = {
         // hành vi KHÔNG đổi với effect có nhiều field (vượt trần vẫn y hệt trước), chỉ MỚI co nhỏ lại
         // được với effect ít field.
         const config = {
+            scrollKey: `customEffect:${type}`, // MỚI (24/09/2026) — mở mới: từ đầu; `_rerenderBody()` cùng key -> giữ vị trí (event/workflow/generic-drawer-helpers.js)
+            scrollReset: true,
             height: 'auto',
             maxHeight: '70vh',
             headerHtml: renderCustomEffectHeader(type, cfg), // components/custom-effect-drawer.js — SỬA: nhận thêm cfg (hiện tên STYLE, không phải group)
             bodyHtml: renderCustomEffectBody(type, cfg),
             bodyClass: 'overflow-y-auto px-4 py-3',
         };
-        if (genericDrawerPanel.classList.contains('hidden')) openGenericDrawer(config); // core/generic-drawer.js
-        else updateGenericDrawer(config);
+        if (genericDrawerPanel.classList.contains('hidden')) workflowGenericDrawerHelpers.open(config); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
+        else workflowGenericDrawerHelpers.update(config);
         this._wire(type);
     },
 
@@ -90,7 +92,10 @@ const workflowCustomEffect = {
         const cfg = getEffectConfig(type);
         // SỬA (phản hồi Giang mục 1) — CÙNG lý do open() ngay trên (vẽ lại đúng nội dung TƯƠNG TỰ,
         // config phải khớp nhau).
-        updateGenericDrawer({
+        // SỬA (24/09/2026, Giang báo "vẽ lại panel mất scroll cũ") — cùng `scrollKey` với `open()`, KHÔNG
+        // scrollReset -> core giữ nguyên vị trí cuộn qua lần vẽ lại (trước đây luôn bật về đầu).
+        workflowGenericDrawerHelpers.update({
+            scrollKey: `customEffect:${type}`,
             height: 'auto',
             maxHeight: '70vh',
             headerHtml: renderCustomEffectHeader(type, cfg),
@@ -98,6 +103,7 @@ const workflowCustomEffect = {
             bodyClass: 'overflow-y-auto px-4 py-3',
         });
         this._wire(type);
+        workflowGenericDrawerHelpers.restoreScroll(); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js — áp lại sau wire (nội dung có thể vừa cao thêm)
     },
 
     /** Gọi 1 hàm core refresh theo tên (field.refresh, core/custom-effect.js::CUSTOM_EFFECT_FIELDS)

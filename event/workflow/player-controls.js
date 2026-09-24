@@ -275,6 +275,26 @@ const workflowPlayerControls = {
         this.goToNextTrack(false); // Workflow gọi method khác trong CÙNG object — tự do
     },
 
+    /** MỚI (24/09/2026, rà soát refresh DOM — dọn nợ "Core gọi Workflow") — ứng với 'playerControls.audio.play'.
+     * `handleAudioPlay()` (core/player-controls.js) trước đây TỰ gọi `workflowPlaylistRender.refreshSongNode()` +
+     * `workflowVisualBg.syncPlaybackToAudio()` bên trong (core gọi Workflow, kèm tự `appState.get('currentKey')`).
+     * 2 lời gọi đó dời RA đây, đứng cạnh lời gọi core — thứ tự giữ nguyên như bản cũ (core trước, vẽ lại hàng
+     * đang phát, rồi đồng bộ Visual BG). */
+    handleAudioPlayEvent() {
+        handleAudioPlay(); // core/player-controls.js
+        const currentKey = appState.get('currentKey');
+        if (currentKey) workflowPlaylistRender.refreshSongNode(currentKey); // event/workflow/playlist-render.js — EQ bars "đang phát"
+        workflowVisualBg.syncPlaybackToAudio(); // event/workflow/visual-bg-common.js
+    },
+
+    /** MỚI (24/09/2026) — ứng với 'playerControls.audio.pause', đối xứng `handleAudioPlayEvent()` ngay trên. */
+    handleAudioPauseEvent() {
+        handleAudioPause(); // core/player-controls.js
+        const currentKey = appState.get('currentKey');
+        if (currentKey) workflowPlaylistRender.refreshSongNode(currentKey); // event/workflow/playlist-render.js — chấm "đang pause"
+        workflowVisualBg.syncPlaybackToAudio(); // event/workflow/visual-bg-common.js
+    },
+
     /**
      * Ứng với 'playerControls.shuffle.click' — đảo Shuffle rồi random lại shuffleIndices dựa trên
      * "hiện hành" (displayOrder tại thời điểm bấm — có thể đang là 1 section vừa chọn-phát qua

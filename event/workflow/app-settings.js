@@ -85,10 +85,12 @@ const workflowAppSettings = {
     _playlistFilterListPageIndex: 0, // MỚI 23/09/2026 — trang đang xem của danh sách preset Filter (nơi 'filterPresets' của Pagination), core tự kẹp
     _playlistFilterListSource: null, // MỚI 23/09/2026 — Nguồn của lần vẽ danh sách Filter trước — đổi Nguồn thì về trang 1
     _motionListPageIndex: 0, // MỚI 23/09/2026 — trang đang xem của danh sách preset Motion (nơi 'motionPresets' của Pagination), sống theo phiên, core tự kẹp
+    _scrollResetPending: false, // MỚI (24/09/2026) — true = lần `_render()` kế tiếp là màn ĐI TỚI (open/navigateTo) -> bắt đầu từ đầu; false = vẽ lại tại chỗ hoặc quay lại -> giữ/khôi phục vị trí cuộn (event/workflow/generic-drawer-helpers.js, `scrollKey`)
     _mainCarouselIndex: 0, // MỚI (20/09/2026) — mục (0..4) đang ở giữa carousel Main lần cuối người dùng bấm mở 1 màn con — Back về Main giữ đúng mục đó ở giữa; `open()` luôn reset về 0 (mục đầu tiên)
 
     open() {
         this._screenStack = [];
+        this._scrollResetPending = true; // MỚI (24/09/2026) — mở Settings luôn từ đầu
         this._mainCarouselIndex = 0;
         this._renderMain();
         workflowAppPanelNav.setActiveTab('setting');
@@ -104,6 +106,7 @@ const workflowAppSettings = {
      * @param {() => void} renderFn */
     navigateTo(renderFn) {
         this._screenStack.push(this._currentRenderFn);
+        this._scrollResetPending = true; // MỚI (24/09/2026) — màn đi TỚI bắt đầu từ đầu; vị trí màn vừa rời đã được nhớ theo key độ sâu (event/workflow/generic-drawer-helpers.js)
         renderFn();
     },
 
@@ -111,7 +114,7 @@ const workflowAppSettings = {
     back() {
         const prev = this._screenStack.pop();
         if (!prev) { this.close(); return; } // không còn gì để lùi (không nên xảy ra — Main không có nút Back) -> đóng hẳn cho an toàn
-        prev();
+        prev(); // SỬA (24/09/2026) — `_scrollResetPending` vẫn false -> `_render()` khôi phục đúng vị trí cuộn lúc rời màn này (event/workflow/generic-drawer-helpers.js)
     },
 
     // ===================== Khung dùng chung =====================
@@ -127,7 +130,16 @@ const workflowAppSettings = {
      */
     _render(title, bodyHtml, onMount, extraHeaderHtml) {
         const hasBack = this._screenStack.length > 0;
+        // MỚI (24/09/2026, Giang báo "vẽ lại panel mất scroll cũ" + "quay về panel cũ luôn về 0") — mỗi độ
+        // sâu ngăn xếp là 1 `scrollKey` riêng (màn ở độ sâu N luôn là màn đang hiện/sẽ quay lại ở độ sâu đó).
+        // Vẽ lại tại chỗ (cùng độ sâu, kể cả từ Workflow miền khác) -> giữ vị trí; `back()` -> về đúng vị trí
+        // lúc rời đi (kể cả khi giữa chừng Drawer bị picker/Element Style Editor chiếm tạm rồi gọi lại
+        // `_renderXxx()`); `open()`/`navigateTo()` -> từ đầu.
+        const scrollReset = this._scrollResetPending;
+        this._scrollResetPending = false;
         const config = {
+            scrollKey: `appSettings@${this._screenStack.length}`,
+            scrollReset,
             height: 'auto', // MỚI (phản hồi Giang mục 2) — tự co theo nội dung, xem core/generic-drawer.js
             maxHeight: '85vh',
             headerHtml: `
@@ -148,10 +160,13 @@ const workflowAppSettings = {
             bodyHtml: `<div class="p-4" data-uitk="textPrimary">${bodyHtml}</div>`,
             bodyClass: 'overflow-y-auto',
         };
-        if (genericDrawerPanel.classList.contains('hidden')) openGenericDrawer(config); else updateGenericDrawer(config); // core/generic-drawer.js
+        if (genericDrawerPanel.classList.contains('hidden')) workflowGenericDrawerHelpers.open(config); else workflowGenericDrawerHelpers.update(config); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
         wireAppSettingsHeader(genericDrawerHeader); // core/app-settings-ui.js — Rule 5a
 
         if (onMount) onMount(genericDrawerBody);
+        // MỚI (24/09/2026) — onMount có thể làm nội dung CAO thêm (bỏ `hidden` các hàng theo config, vd Visual
+        // BG `refreshPanelUI()`) — lúc gắn nội dung còn thấp nên vị trí cuộn bị kẹp; áp lại đích sau onMount.
+        workflowGenericDrawerHelpers.restoreScroll(); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
     },
 
     // ===================== Main =====================
@@ -358,9 +373,7 @@ const workflowAppSettings = {
         if (field === 'enabled') await workflowPagination.changePlaceEnabled(place, value); // event/workflow/pagination.js
         else if (field === 'pageSize') await workflowPagination.changePlacePageSize(place, value);
         else if (field === 'style') await workflowPagination.changePlaceStyle(place, value);
-        const prevScrollTop = genericDrawerBody.scrollTop;
-        this._renderPagination();
-        genericDrawerBody.scrollTop = prevScrollTop;
+        this._renderPagination(); // vẽ lại tại chỗ — `_render()` tự giữ vị trí cuộn (SỬA 24/09/2026, bỏ lưu/khôi phục tay cũ)
     },
 
     // ===================== Theme — CHỈ 1 lựa chọn "Color" (Light/Dark/Morphin) =====================
