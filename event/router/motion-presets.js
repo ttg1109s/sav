@@ -9,6 +9,10 @@ const routerMotionPresets = (() => {
     function handle(msg) {
         switch (msg.type) {
 
+            case 'motionPresets.addRandom.click': // MỚI 25/09/2026 — random thông minh
+                workflowMotionPresets.addRandomPreset();
+                break;
+
             case 'motionPresets.add.click':
                 workflowMotionPresets.addPreset();
                 break;
