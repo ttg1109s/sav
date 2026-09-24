@@ -245,7 +245,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.6.2/dist/panzoom.min.js"></script>
 
     <!-- CSS tách riêng theo domain, ?v= ép tải lại khi deploy (không đụng CDN — đã tự version). -->
-    <link rel="stylesheet" href="assets/css/base.css?v=20260922v1">
+    <link rel="stylesheet" href="assets/css/base.css?v=20260924r3">
     <link rel="stylesheet" href="assets/css/sliders.css?v=20260923v1">
     <link rel="stylesheet" href="assets/css/glass.css?v=20260923v5">
     <link rel="stylesheet" href="assets/css/animations.css?v=20260813v1">
@@ -441,7 +441,7 @@
     <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer, khung TRẮNG dùng CHUNG
          cho nhiều tính năng (Folder Browser/Add to Folder picker...). items.js (mục 3) ĐỘC LẬP với
          Generic Drawer (xem docstring đầu file) nhưng đặt cạnh nhau cho dễ đọc. -->
-    <script src="components/generic-drawer.js?v=20260714v2"></script>
+    <script src="components/generic-drawer.js?v=20260924r3"></script>
     <!-- Nội dung Generic Drawer cho "Edit EQ" (list preset + view sửa) — components/
          eq-presets-drawer.js, dùng bởi event/workflow/eq-presets.js. -->
     <script src="components/eq-presets-drawer.js?v=20260924v1"></script>
@@ -587,7 +587,7 @@
          actions.js (core, dòng dưới) cần `new EventStore(...)` ngay lúc nạp. Tự đứng độc lập
          (không phụ thuộc eventBus), nên tách riêng lên đây an toàn. -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260924r1"></script>
+    <script src="core/dom-refs.js?v=20260924r3"></script>
     <!-- core/slider-panel-scroll.js — 2 hàm dùng chung (getPositionStart/scrollSliderTo) cho mọi
          khung cuộn ngang kiểu "slider panel" (settings-panel-stack-ui.js, player-controls.js). -->
     <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
@@ -648,9 +648,10 @@
          store — xem comment DB_VERSION ở service/db.js) bỏ hẳn cùng tính năng, không còn nơi nào
          gọi tới. -->
     <script src="core/file-manager/image.js?v=20260823v1"></script>
-    <script src="core/file-manager/photo-ui.js?v=20260919v1"></script>
-    <!-- MỚI (v13) — picker Generic Drawer DÙNG CHUNG cho lưới ảnh lẫn lưới video. -->
-    <script src="core/media-picker-drawer-helper.js?v=20260807v1"></script>
+    <script src="core/file-manager/photo-ui.js?v=20260924r3"></script>
+    <!-- MỚI (v13) — picker Generic Drawer DÙNG CHUNG cho lưới ảnh lẫn lưới video. ĐỔI TÊN (24/09/2026) từ
+         core/media-picker-drawer-helper.js (Rule 5c — file core wire UI phải hậu tố `-ui`). -->
+    <script src="core/media-picker-drawer-ui.js?v=20260924r3"></script>
     <!-- MỚI (04/08/2026) — Zoom mode modal xem ảnh dùng core/media-transform.js (gộp crop-selector.js
          + image-zoom.js, xem comment đầy đủ ở vị trí nạp bên dưới, cùng cụm Video Preview). -->
     <!-- MỚI (31/07/2026) — Edit mode modal xem ảnh. Core thuần xử lý pixel (decode/adjust/sharpen),
@@ -676,7 +677,7 @@
          core/file-manager/video-ui.js ĐÃ XOÁ HẲN (Batch 6, mục 6d, phản hồi Giang — modal "Chi
          tiết" riêng nó từng chứa đã bỏ, dùng chung modal Playlist đã video-aware). -->
     <script src="core/file-manager/video.js?v=20260919v1"></script>
-    <script src="core/file-manager/video-ui.js?v=20260803v1"></script>
+    <script src="core/file-manager/video-ui.js?v=20260924r3"></script>
     <!-- Tool migration thumbnail 320x320 (tools/migrate-video-thumbs-320.js, Batch 3) — Giang xác
          nhận đã chạy xong tốt, ĐÃ XOÁ (batch 4, 27/07/2026): dòng <script> này + file
          tools/migrate-video-thumbs-320.js (xoá tay thủ công, xem thông báo bàn giao). -->
@@ -700,13 +701,13 @@
     <script src="core/ui-theme/apply-ui.js?v=20260909v1"></script>
     <!-- MỚI (21/09/2026, Giang báo "status bar Morphin không đồng bộ màu") — 3 hàm tính/tô màu status bar theo nền thật (gradient/ảnh) của Morphin; thuần hàm, không phụ thuộc file nào, được gọi lúc RUNTIME bởi event/workflow/ui-theme.js::syncStatusBarColor(). -->
     <script src="core/ui-theme/status-bar-color.js?v=20260921v2"></script>
-    <script src="core/generic-drawer.js?v=20260924r1"></script>
+    <script src="core/generic-drawer.js?v=20260924r3"></script>
     <!-- GỘP LẠI (31/07/2026, Giang chỉ ra "xây Generic Drawer mà vẫn phải nhân bản là vô lý") — 2
          helper Workflow (closeFully()/buildSimpleHeaderHtml()) từng chép tay ở nhiều file khác
          nhau (file-manager-photo/file-manager-video/file-manager-folder-browser/playlist/
          image-edit/slideshow), gộp về 1 chỗ. NẠP NGAY SAU core/generic-drawer.js, TRƯỚC
          mọi Workflow ở dưới có dùng tới. -->
-    <script src="event/workflow/generic-drawer-helpers.js?v=20260924r1"></script>
+    <script src="event/workflow/generic-drawer-helpers.js?v=20260924r3"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — core UI thuần cho bottom nav + Game/Statis
          panel + wire nút động Setting (core/app-settings-ui.js, Rule 5a) — CẦN core/dom-refs.js
          (đã nạp) + core/generic-drawer.js (đã nạp ngay trên). -->
@@ -996,14 +997,14 @@
          MỚI (24/09/2026) — cụm "genericDrawer": Listener `scroll` trên body Generic Drawer -> Router -> Workflow
          `workflowGenericDrawerHelpers.trackScroll()` (nhớ vị trí cuộn theo màn, xem event/workflow/generic-drawer-helpers.js).
          CẦN event/workflow/generic-drawer-helpers.js (đã nạp ở nhóm trên) + core/dom-refs.js (genericDrawerBody). -->
-    <script src="event/router/generic-drawer.js?v=20260924r1"></script>
-    <script src="event/listener/generic-drawer.js?v=20260924r1"></script>
+    <script src="event/router/generic-drawer.js?v=20260924r3"></script>
+    <script src="event/listener/generic-drawer.js?v=20260924r3"></script>
     <!-- Cụm "settingsMisc" (ver 11, patch 5): gộp aboutDrawer + appRecovery — gộp vì mỗi nhánh quá
          nhỏ để xứng đáng 1 router/listener riêng. Ver 12 "Multi Media": nhánh storageDrawer đã DỜI
          sang cụm "fileManagerSong" ngay dưới (plan-v12-multimedia.md mục 3). Batch D1: aboutDrawer
          giờ CẦN workflow (push panel + tính thống kê), xem event/workflow/settings-misc.js. -->
     <script src="core/settings-misc-ui.js?v=20260924v1"></script>
-    <script src="event/workflow/settings-misc.js?v=20260924v1"></script>
+    <script src="event/workflow/settings-misc.js?v=20260924r3"></script>
     <script src="event/router/settings-misc.js?v=20260924v1"></script>
     <script src="event/listener/settings-misc.js?v=20260924r1"></script>
     <!-- Ver 12 "Multi Media" — CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7): cụm
@@ -1050,15 +1051,15 @@
     <!-- Panel "Song & Video" cũ (file-manager-song.js) đã xoá, thay bằng "Quản lý lưu trữ" (gộp 3
          domain: song/video/photo) — CẦN core/file-manager/{image,album}.js,
          components/file-manager-storage.js (đã nạp ở nhóm CORE/COMPONENTS). -->
-    <script src="event/workflow/file-manager-storage.js?v=20260924r2"></script>
+    <script src="event/workflow/file-manager-storage.js?v=20260924r3"></script>
     <script src="event/router/file-manager-storage.js?v=20260920v1"></script>
     <!-- Folder Browser — Generic Drawer List↔Read thay Folder List/Detail kiểu panel-stack cũ. CẦN
          core/generic-drawer.js, components/items.js, core/file-manager/{folder,folder-detail-ui,
          folder-picker-ui}.js, core/pagination.js — đều đã nạp ở nhóm CORE. PHẢI nạp TRƯỚC
          event/listener/file-manager-storage.js (hàng "Song & Video" gửi eventBus thẳng tới router
          này). -->
-    <script src="event/workflow/file-manager-folder-browser.js?v=20260924r1"></script>
-    <script src="event/router/file-manager-folder-browser.js?v=20260924v1"></script>
+    <script src="event/workflow/file-manager-folder-browser.js?v=20260924r3"></script>
+    <script src="event/router/file-manager-folder-browser.js?v=20260924r3"></script>
     <script src="event/listener/file-manager-storage.js?v=20260729v2"></script>
     <!-- Batch 8, ver 12 "Multi Media" — engine cycle ảnh Slideshow nền Visual (transition/Ken
          Burns), CHỈ còn đúng 1 vai trò: `_tick()` (taskManager) — cụm router "slideshowSettings"
@@ -1101,9 +1102,9 @@
 
     <!-- Cụm "visualBg" — Workflow tách 3 file: common (định nghĩa `workflowVisualBg`), video/photo
          (`Object.assign()` thêm vào) — common PHẢI nạp trước video/photo. -->
-    <script src="event/workflow/visual-bg-common.js?v=20260924r1"></script>
-    <script src="event/workflow/visual-bg-video.js?v=20260923v1"></script>
-    <script src="event/workflow/visual-bg-photo.js?v=20260904v1"></script>
+    <script src="event/workflow/visual-bg-common.js?v=20260924r3"></script>
+    <script src="event/workflow/visual-bg-video.js?v=20260924r3"></script>
+    <script src="event/workflow/visual-bg-photo.js?v=20260924r3"></script>
     <script src="event/router/visual-bg.js?v=20260819v1"></script>
     <script src="event/listener/visual-bg.js?v=20260924r1"></script>
 
@@ -1118,14 +1119,14 @@
          setupPhotoGridWindow() gọi workflowPhotoGalleryWindow.mount() (nạp sau, an toàn vì chỉ gọi
          lúc user tương tác) + core/file-manager/image.js (sortImagesByAddedDateDesc/groupImagesByDay).
          KHÔNG có listener riêng: cả 3 message của router 'fileManagerPhoto' đều do chính workflow
-         (openMediaPickerDrawerUi) và core/file-manager/photo-ui.js tự gửi từ DOM tự dựng. -->
-    <script src="event/workflow/file-manager-photo.js?v=20260923v1"></script>
+         (core/media-picker-drawer-ui.js::wireMediaPickerDrawerUi) và core/file-manager/photo-ui.js tự gửi từ DOM tự dựng. -->
+    <script src="event/workflow/file-manager-photo.js?v=20260924r3"></script>
     <script src="event/router/file-manager-photo.js?v=20260731v8"></script>
     <!-- TÁCH RA (31/07/2026, yêu cầu Giang) — cụm "imageEdit", Edit mode của modal xem ảnh Photo
          (trước đây sống chung trong file-manager-photo.js). CẦN workflowFileManagerPhoto (3 khe đọc
          handle/imageKey/albumId) + core/photo-editor-engine.js/core/media-transform.js/core/generic-
          drawer.js/service/z-index.js (đã nạp ở nhóm CORE). -->
-    <script src="event/workflow/image-edit.js?v=20260921v8"></script>
+    <script src="event/workflow/image-edit.js?v=20260924r3"></script>
     <script src="event/router/image-edit.js?v=20260731v5"></script>
     <script src="event/listener/image-edit.js?v=20260731v2"></script>
     <!-- Cụm "fileManagerVideo" đã xoá hẳn (mọi lời gọi thật đến từ Playlist/Settings, không phải
@@ -1280,7 +1281,7 @@
          trên) + updatePlaylistBg() (đã nạp ở nhóm CORE). (applyBgImageEnabled() đã xoá 21/09/2026.) -->
     <!-- MỚI (21/09/2026, Giang yêu cầu UI nền 3 card Solid/Gradient/Background media) — dựng/gắn/vá cụm 3 card ở Settings > System > Theme (Morphin). Được gọi lúc RUNTIME bởi event/workflow/app-settings.js + event/workflow/theme.js. -->
     <script src="core/theme-background-ui.js?v=20260923v6"></script>
-    <script src="event/workflow/theme.js?v=20260923v6"></script>
+    <script src="event/workflow/theme.js?v=20260924r3"></script>
     <script src="event/router/theme.js?v=20260923v6"></script>
     <script src="event/listener/theme.js?v=20260921v4"></script>
     <!-- Cụm "statsPanel" ĐÃ XOÁ (checkbox toggle stats panel dời vào Settings, dùng chung

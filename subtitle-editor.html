@@ -377,15 +377,18 @@
          core/generic-drawer.js). CẦN Z_INDEX (service/z-index.js, đã nạp trên)+_activeUiThemeKeyList/
          applyUiThemeToDom (core/ui-theme/apply-ui.js, đã nạp ngay trên) — KHÔNG cần gì khác của
          index.html (không dom-refs.js/block.js đầy đủ). -->
-    <script src="components/generic-drawer.js?v=20260917v1"></script>
+    <script src="components/generic-drawer.js?v=20260924r3"></script>
     <script>
         document.body.insertAdjacentHTML('beforeend', TPL_GENERIC_DRAWER);
         const genericDrawerOverlay = document.getElementById('generic-drawer-overlay');
         const genericDrawerPanel = document.getElementById('generic-drawer-panel');
         const genericDrawerHeader = document.getElementById('generic-drawer-header');
         const genericDrawerBody = document.getElementById('generic-drawer-body');
+        const genericDrawerFadeLayer = document.getElementById('generic-drawer-fade-layer'); // MỚI 24/09/2026 — fade chéo
+        const genericDrawerFadeHeader = document.getElementById('generic-drawer-fade-header');
+        const genericDrawerFadeBody = document.getElementById('generic-drawer-fade-body');
     </script>
-    <script src="core/generic-drawer.js?v=20260924r1"></script>
+    <script src="core/generic-drawer.js?v=20260924r3"></script>
     <script src="core/modal-choice-ui.js?v=20260818v1"></script>
     <!-- service/state.js — TÁI CẤU TRÚC 25/07/2026, lượt 2: trang này TRƯỚC ĐÂY chưa từng nạp
          appState (lượt 1 nhét 20 field state của trang vào EventStore — SAI ranh giới, xem
@@ -430,8 +433,8 @@
     <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
     <!-- MỚI (17/09/2026) — closeFully() dùng chung cho MỌI tính năng Generic Drawer (ở đây: drawer
          karaoke) — file THUẦN, chỉ cần core/generic-drawer.js + genericDrawerPanel (đã nạp trên). -->
-    <script src="event/workflow/generic-drawer-helpers.js?v=20260924r1"></script>
-    <script src="event/workflow/subtitle-editor.js?v=20260917v2"></script>
+    <script src="event/workflow/generic-drawer-helpers.js?v=20260924r3"></script>
+    <script src="event/workflow/subtitle-editor.js?v=20260924r3"></script>
     <script src="event/router/subtitle-editor.js?v=20260712v7"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowSubtitleEditor.init() ngay khi chạy. -->
     <script src="event/listener/subtitle-editor.js?v=20260712v7"></script>
