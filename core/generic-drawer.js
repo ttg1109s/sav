@@ -106,6 +106,10 @@ function openGenericDrawer(config) {
 
     // Bước 2-3-4-5.
     _applyGenericDrawerAutoHeight(config);
+    // MỚI (24/09/2026, Giang báo "vẽ lại panel mất scroll cũ"/"quay về panel cũ luôn về 0") — vị trí cuộn do NƠI
+    // GỌI quyết định qua tham số `config.scrollTop` (mặc định 0). Core KHÔNG tự nhớ gì — bộ nhớ theo màn nằm ở
+    // Workflow (event/workflow/generic-drawer-helpers.js::open()/update()).
+    genericDrawerBody.scrollTop = config.scrollTop || 0;
     void genericDrawerPanel.offsetHeight; // ép reflow — chốt bước 5 TRƯỚC khi sang bước 6/7
 
     _genericDrawerBodyObserver.observe(genericDrawerBody, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }); // nối lại — từ đây chỉ bắt toggle NỘI BỘ về sau
@@ -142,7 +146,7 @@ function updateGenericDrawer(config) {
     genericDrawerBody.className = `flex-1 min-h-0 ${config.bodyClass || ''}`.trim();
     applyUiThemeToDom(genericDrawerPanel, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — cùng lý do openGenericDrawer()
     genericDrawerOverlay.style.zIndex = String(zIndex - 1);
-    genericDrawerBody.scrollTop = 0; // nội dung MỚI luôn bắt đầu từ đầu, không giữ vị trí cuộn của nội dung TRƯỚC đó
+    genericDrawerBody.scrollTop = 0; // tạm về đầu trong lúc đo — vị trí THẬT (`config.scrollTop`) áp ở cuối hàm, SỬA 24/09/2026
 
     // Tắt transition NGAY TRƯỚC bước đo — tránh chuỗi ghi style.minHeight liên tiếp (bỏ tạm -> khôi
     // phục về CŨ) chạy trong lúc transition đang bật.
@@ -158,6 +162,8 @@ function updateGenericDrawer(config) {
     void genericDrawerPanel.offsetHeight; // ép reflow — chốt "transition ĐÃ BẬT LẠI" TRƯỚC khi đổi min-height ĐÍCH ngay dưới
 
     _applyGenericDrawerAutoHeight(config); // giá trị ĐÍCH — animate NGAY (transition đã bật lại). `height` KHÔNG hề bị đụng tới — browser TỰ co giãn theo nội dung THẬT bất kể min-height này có đúng kịp hay không.
+    // MỚI (24/09/2026) — vị trí cuộn do nơi gọi truyền (mặc định 0 = hành vi CŨ "nội dung mới từ đầu"), xem openGenericDrawer().
+    genericDrawerBody.scrollTop = config.scrollTop || 0;
 
     _genericDrawerBodyObserver.observe(genericDrawerBody, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }); // nối lại — từ đây chỉ bắt toggle NỘI BỘ về sau
 }

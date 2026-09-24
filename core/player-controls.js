@@ -427,17 +427,12 @@
             iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden'); 
             let recordArtDynamic = document.getElementById('record-art'); if(recordArtDynamic) recordArtDynamic.classList.remove('paused');
             if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
-            if (appState.get('currentKey')) workflowPlaylistRender.refreshSongNode(appState.get('currentKey'));
+            // DỜI (24/09/2026) — `workflowPlaylistRender.refreshSongNode(currentKey)` ra
+            // event/workflow/player-controls.js::handleAudioPlayEvent() (core gọi Workflow + tự đọc appState).
             startListenClock();
             if (typeof syncAutoSwitchVisualPlayState === 'function') syncAutoSwitchVisualPlayState(); // ver 10: xem auto-switch-visual.js
-            // Chỉ ĐỒNG BỘ phát video nền theo nhạc — nguồn đã thiết lập 1 lần lúc bật/chọn nguồn/
-            // nạp trang (workflowVisualBg.applyCurrentVisualBg()), nên Next/Prev không nạp lại src.
-            // SỬA (v13 Batch A) — `syncVideoBgToAudio()` (core cũ, tự đọc `vizConfig.videoBgEnabled`
-            // — vi phạm Rule 2) ĐÃ XOÁ; thay bằng Workflow domain `visualBg` (nó tự đọc
-            // `audioPlayer.paused` rồi gọi core thuần `syncVisualBgVideoPlayback(isPaused)`).
-            // CÙNG hình dạng lời gọi core->workflow đã có sẵn ở dòng ngay dưới (nợ kỹ thuật di sản
-            // của chính hàm này, KHÔNG phát sinh mới — file này không thuộc phạm vi viết lại đợt v13).
-            if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.syncPlaybackToAudio();
+            // DỜI (24/09/2026) — đồng bộ video nền theo nhạc (`workflowVisualBg.syncPlaybackToAudio()`, core gọi
+            // Workflow) ra event/workflow/player-controls.js::handleAudioPlayEvent().
         }
 
         /**
@@ -451,10 +446,10 @@
             iconPlay.classList.remove('hidden'); iconPause.classList.add('hidden'); 
             let recordArtDynamic = document.getElementById('record-art'); if(recordArtDynamic) recordArtDynamic.classList.add('paused');
             releaseWakeLock(); if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "paused";
-            if (appState.get('currentKey')) workflowPlaylistRender.refreshSongNode(appState.get('currentKey'));
+            // DỜI (24/09/2026) — refreshSongNode + workflowVisualBg.syncPlaybackToAudio() ra
+            // event/workflow/player-controls.js::handleAudioPauseEvent() (cùng lý do handleAudioPlay() ngay trên).
             stopListenClock();
             if (typeof syncAutoSwitchVisualPlayState === 'function') syncAutoSwitchVisualPlayState(); // ver 10: xem auto-switch-visual.js
-            if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.syncPlaybackToAudio(); // v13 Batch A — xem handleAudioPlay() ngay trên
         }
 
         // [SỬA — plan-playmedia-reorg.md, xử lý triệt để] `handleAudioEnded()` ĐÃ XOÁ khỏi đây —

@@ -96,12 +96,12 @@
         // start/#gameplay-score-screen/#gameplay-final-score/#btn-gameplay-replay/#btn-gameplay-next
         // (2 màn tĩnh đó đã xoá, dùng modalChoice() thay — xem components/gameplay-overlay.js +
         // event/workflow/gameplay.js).
-        const gameModeSettingToggle = document.getElementById('setting-gameplay-mode-enabled');
+        // XOÁ (24/09/2026, rà soát refresh DOM) — gameModeSettingToggle (#setting-gameplay-mode-enabled): id không còn trong DOM, const luôn null.
         const gameplayLayer = document.getElementById('gameplay-layer');
         const gameplayTapSurface = document.getElementById('gameplay-tap-surface');
         const gameplayCanvas = document.getElementById('gameplay-canvas');
         const gameplayTierPopupLayer = document.getElementById('gameplay-tier-popup-layer');
-        const gameplayHudCombo = document.getElementById('gameplay-hud-combo');
+        // XOÁ (24/09/2026, rà soát refresh DOM) — gameplayHudCombo (#gameplay-hud-combo): id không còn trong DOM, const luôn null.
         const btnGameplayExit = document.getElementById('btn-gameplay-exit');
         const gameplayCountdownScreen = document.getElementById('gameplay-countdown-screen');
         const gameplayCountdownNumber = document.getElementById('gameplay-countdown-number');
@@ -178,15 +178,15 @@
         // "Customize Visualizer"/Custom Effect cũ), Auto-Switch Effect, Visual Background. "Cử
         // chỉ" dùng delegate trên settingsStackBody (KHÔNG cần ref tĩnh — xem event/listener/
         // gesture-settings.js, không đổi dù nút vừa dời vào card này).
-        const btnOpenVisualizerDisplay = document.getElementById('setting-open-visualizer-display');
-        const btnOpenVisualizerAutoSwitch = document.getElementById('setting-open-visualizer-auto-switch');
+        // XOÁ (24/09/2026, rà soát refresh DOM) — btnOpenVisualizerDisplay (#setting-open-visualizer-display): id không còn trong DOM, const luôn null.
+        // XOÁ (24/09/2026, rà soát refresh DOM) — btnOpenVisualizerAutoSwitch (#setting-open-visualizer-auto-switch): id không còn trong DOM, const luôn null.
         // XOÁ (12/08/2026, mục 4a) — select "Kiểu hiệu ứng" (#setting-visualizer-type) ĐÃ BỎ HẲN
         // khỏi HTML (components/settings/visualizer-geometry-color.js) — ref này giờ LUÔN `null`.
         // GIỮ LẠI biến (không xoá khai báo) vì 3 nơi tham chiếu (event/listener/visualizer-misc-
         // settings.js, core/visualizer/visualizer-display.js, core/visualizer/visualizer-misc-
         // settings.js) đều ĐÃ có guard `typeof...!=='undefined' && x` sẵn — null an toàn, tự bỏ qua,
         // không cần dọn thêm (xoá 3 nơi đó rủi ro hơn lợi ích, để nguyên).
-        const visualizerTypeSelect = document.getElementById('setting-visualizer-type');
+        // XOÁ (24/09/2026, rà soát refresh DOM) — visualizerTypeSelect (#setting-visualizer-type): id không còn trong DOM, const luôn null.
         // (drawerSubtitleSettings/btnBackSubtitleSettings ĐÃ XOÁ — Batch D2: panel Subtitle giờ
         // động (core/settings-panel-stack.js), không còn drawer tĩnh riêng; Back dùng CHUNG
         // btnSettingsStackBack.) btnOpenSubtitleSettings ĐÃ XOÁ (mục 2, "vẫn cấp subpanel trong
@@ -309,7 +309,7 @@
         const visualBgPhotoMotionLayer2Pan = document.getElementById('visual-bg-photo-motion-layer-2-pan');
         // MỚI (v13 Batch A) — nút điều hướng DUY NHẤT mở panel "Visual Background", THAY 3 entry
         // cũ (#setting-video-enable, #setting-visual-bg-image-enable, #setting-open-slideshow-settings).
-        const btnOpenVisualBgSettings = document.getElementById('setting-open-visual-bg-settings');
+        // XOÁ (24/09/2026, rà soát refresh DOM) — btnOpenVisualBgSettings (#setting-open-visual-bg-settings): id không còn trong DOM, const luôn null.
         // XOÁ (12/08/2026, mục 4h) — #setting-open-gesture-settings DỜI vào panel "Customize
         // Visualizer" (push/pop ĐỘNG, không tồn tại lúc boot) — ref TĨNH này giờ LUÔN `null`, hết
         // dùng (event/listener/gesture-settings.js đã đổi sang delegate settingsStackBody, xem
@@ -328,9 +328,10 @@
         // settingsStackBody thay vì đọc const ở đây.)
         // "setting-visual-enable" giờ sống ĐỘNG bên trong panel "Display" (push/pop) — KHÔNG còn
         // ref tĩnh (event/listener/visualizer-display.js dùng delegate trên settingsStackBody).
-        const keepScreenOnToggle = document.getElementById('setting-keep-screen-on');
+        // XOÁ (24/09/2026, rà soát refresh DOM) — keepScreenOnToggle (#setting-keep-screen-on): id không còn trong DOM, const luôn null.
         // Khắc phục sự cố (ver 10 refine, bổ sung) — xem js/core/app-recovery.js.
-        const btnRestartApp = document.getElementById('setting-restart-app'), btnRestoreDefaults = document.getElementById('setting-restore-defaults'), btnClearCache = document.getElementById('setting-clear-cache');
+        const btnRestartApp = document.getElementById('setting-restart-app'); // #setting-restart-app: icon ở header Playlist (components/playlist-view.js)
+        // XOÁ (24/09/2026) — btnRestoreDefaults/btnClearCache (#setting-restore-defaults/#setting-clear-cache): id không còn trong DOM (Troubleshooting dựng động, wire qua core/app-settings-ui.js).
 
         // Ngôn ngữ (Settings) — xem lang/language-settings.js.
         // FIX (kiến trúc /event/, cụm "languageSettings"): 3 biến này TRƯỚC ĐÂY tự getElementById
@@ -340,8 +341,8 @@
         const settingLanguageUpload = document.getElementById('setting-language-upload');
         const settingLanguageDelete = document.getElementById('setting-language-delete');
 
-        const subtitleModal = document.getElementById('subtitle-modal'), btnCloseSubModal = document.getElementById('btn-close-sub-modal');
-        const srtUpload = document.getElementById('srt-upload'), btnApplySub = document.getElementById('btn-apply-sub');
+        // XOÁ (24/09/2026, rà soát refresh DOM) — subtitleModal/btnCloseSubModal (#subtitle-modal/#btn-close-sub-modal): id không còn trong DOM, const luôn null.
+        // XOÁ (24/09/2026, rà soát refresh DOM) — srtUpload/btnApplySub (#srt-upload chỉ có ở subtitle-editor.html — trang đó không nạp file này): id không còn trong DOM, const luôn null.
         const btnAddSub = document.getElementById('btn-add-sub'), btnExportSrt = document.getElementById('btn-export-srt');
         const subtitleDisplay = document.getElementById('subtitle-display'), subtitleFrame = document.getElementById('subtitle-frame'), subActiveLines = document.getElementById('sub-active-lines');
         const subListContainer = document.getElementById('sub-list-container'), subEmptyState = document.getElementById('sub-empty-state');
@@ -401,7 +402,7 @@
         // ==========================================
 
         // MỚI (18/07/2026, Giang yêu cầu — xem debug-console.js) — nút mở panel xem console log.
-        const btnOpenDebugConsole = document.getElementById('setting-open-debug-console');
+        // XOÁ (24/09/2026, rà soát refresh DOM) — btnOpenDebugConsole (#setting-open-debug-console): id không còn trong DOM, const luôn null.
 
         // ===================== Settings Stack (khung dùng CHUNG mọi panel con) =====================
         // Batch D1 — SỬA GỐC thiết kế cũ (9 drawer con là sibling `fixed inset-0` riêng, phân biệt
@@ -416,10 +417,10 @@
         // panel con (tạo/xoá theo từng lần push/pop) — nhận diện qua DELEGATION trên
         // `settingsStackBody`, xem event/listener/settings-stack-nav.js — KHÔNG còn 1 id tĩnh duy
         // nhất để gọi document.getElementById() ở đây được nữa.
-        const settingsStackBody = document.getElementById('settings-stack-body');
+        // XOÁ (24/09/2026, rà soát refresh DOM) — settingsStackBody (#settings-stack-body — cùng cụm settingsStackNav đã xoá): id không còn trong DOM, const luôn null.
         // `settingsStackPanelMain` — panel ĐÁY ngăn xếp (Main), TĨNH, KHÔNG BAO GIỜ bị xoá — core/
         // settings-panel-stack.js dùng làm phần tử KHỞI TẠO đầu tiên của `settingsPanelStackEntries`.
-        const settingsStackPanelMain = document.getElementById('settings-stack-panel-main');
+        // XOÁ (24/09/2026, rà soát refresh DOM) — settingsStackPanelMain (#settings-stack-panel-main): id không còn trong DOM, const luôn null.
         // (settingsBg ĐÃ XOÁ — 07/07/2026: dùng CHUNG playlistBg với Playlist, xem components/
         // app-view-stack.js — không còn 2 phần tử nền riêng biệt cho 2 màn.)
 
@@ -433,7 +434,7 @@
         // quét lỗi (stat-storage-*, btn-storage-*, storage-scan-*) GIỮ NGUYÊN bên dưới — không đổi.
         // Section "File Manager" trong Settings (3 hàng bấm vào) — CHỐT 03/07/2026, xem
         // plan-v12-multimedia-decisions.md mục 1a/7. Không còn overlay/tab-bar cấp cao nữa.
-        const btnOpenFileManagerSong = document.getElementById('setting-open-file-manager-song');
+        // XOÁ (24/09/2026, rà soát refresh DOM) — btnOpenFileManagerSong (#setting-open-file-manager-song): id không còn trong DOM, const luôn null.
         // XOÁ (Photo hợp nhất vào Playlist làm 1 Source) — btnOpenFileManagerPhoto (hàng Settings
         // mở Photo Panel riêng) — panel đó đã xoá hẳn, xem event/workflow/playlist.js::switchSource().
         // XOÁ (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) —
@@ -446,7 +447,7 @@
         // nút "Dọn dẹp dữ liệu" giờ nằm TRONG panel push động này (không còn ở section tĩnh), tra
         // qua delegate `settingsStackBody` thay vì querySelector tĩnh lúc boot (xem event/
         // listener/file-manager-storage.js).
-        const btnOpenFileManagerStorage = document.getElementById('setting-open-file-manager-storage');
+        // XOÁ (24/09/2026, rà soát refresh DOM) — btnOpenFileManagerStorage (#setting-open-file-manager-storage): id không còn trong DOM, const luôn null.
         // (drawerFileManagerSong/btnBackFileManagerSong ĐÃ XOÁ — Batch D5: panel Song giờ động,
         // Back dùng CHUNG btnSettingsStackBack.)
         // (drawerFileManagerPhoto/btnBackFileManagerPhoto ĐÃ XOÁ — Batch D6: panel Photo giờ
@@ -477,8 +478,8 @@
         // (drawerFileManagerFolderDetail/btnBackFileManagerFolderDetail/fileManagerFolderDetailTitle/
         // btnFileManagerFolderApplyToPlaylist/fileManagerFolderDetailSongList/
         // fileManagerFolderDetailEmpty ĐÃ XOÁ — Batch D5: panel Folder Detail giờ động, Back dùng
-        // CHUNG. `#file-manager-folder-detail-title` giờ nằm TRONG body panel — xem
-        // event/workflow/file-manager-song.js::refreshFolderDetail().)
+        // CHUNG. (Panel Folder Detail/`refreshFolderDetail()` cũ đã bỏ hẳn cùng file-manager-song.js — Folder
+        // giờ là Folder Browser trong Generic Drawer, event/workflow/file-manager-folder-browser.js.))
         //
         // (btnFileManagerCreateFolder/fileManagerFolderList/fileManagerFolderEmpty/
         // statStorageTotalSongs/statStorageTotalBytes/btnDownloadThenClear/btnClearNoDownload/

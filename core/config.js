@@ -927,7 +927,8 @@
             await loadPlaylistBgMediaAsset();
             saveConfig();
             updatePlaylistBg();
-            workflowTheme.refreshThemeCardUI();
+            // XOÁ (24/09/2026, rà soát refresh DOM) — `workflowTheme.refreshThemeCardUI()` (core gọi Workflow): loadConfig()
+            // chỉ chạy lúc boot, Generic Drawer luôn đang đóng -> lời gọi đó luôn no-op (không có #theme-bg-cards nào để vá).
 
             if(appState.get('masterGainNode')) appState.get('masterGainNode').gain.value = appConfigViz.getAll().volume / 100;
             // Volume HUD (core/hud.js) tự đồng bộ icon+slider MỖI LẦN MỞ (workflowHud.
@@ -968,7 +969,9 @@
             }
             updateDOMBackground(); updatePlaylistBg(); updateProgressBarCSS(); updateTypeUI();
 
-            if (typeof initVisualizerMiscSettingsUIFromConfig === 'function') initVisualizerMiscSettingsUIFromConfig();
+            // XOÁ (24/09/2026, rà soát refresh DOM) — `initVisualizerMiscSettingsUIFromConfig()` (core/visualizer/
+            // visualizer-misc-settings.js, đã xoá): chỉ đồng bộ 3 control keepScreenOn/visualizerType/gameMode mà id
+            // không còn trong DOM (const luôn null) — cả cụm "visualizerMiscSettings" đã chết, xoá cùng lúc.
             if (typeof initSubtitleStateFromConfig === 'function') initSubtitleStateFromConfig();
             if (typeof initAutoSwitchCycleButtonFromConfig === 'function') initAutoSwitchCycleButtonFromConfig();
             // 3 toggle ẩn/hiện UI chrome màn Visualizer, tự áp lại lúc boot (khác setStatsPanelVisible()
