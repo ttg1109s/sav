@@ -465,7 +465,7 @@
     <!-- Batch 8, ver 12 "Multi Media" — Motion Settings Drawer (Cấu hình Transition/Ken Burns/
          React Beat Audio, hệ preset độc lập — xem components/motion-settings-drawer.js). -->
     <script src="components/motion-settings-drawer.js?v=20260924m1"></script>
-    <script src="components/visual-bg-settings-drawer.js?v=20260924m1"></script>
+    <script src="components/visual-bg-settings-drawer.js?v=20260925v5"></script>
     <script src="components/visual-bg-gradient-drawer.js?v=20260924r1"></script>
     <script src="components/visual-bg-video-audio-drawer.js?v=20260923v1"></script>
     <!-- MỚI (Giang yêu cầu "Player" — Resolution + Motion của Video/Photo lúc phát chính) — CẦN
@@ -1093,7 +1093,7 @@
     <!-- MỚI (25/09/2026, đợt 4 Motion) — Video surface: tầng "bề mặt media" cho video A/B (#bg-video + #visual-bg-image
          làm cầu nối), DÙNG CHUNG cho mọi nơi tiêu thụ video nền (Player Video; đợt 5: VBG Video) — mượn Motion Stage
          ngay trên, gắn/gỡ DOM qua core/player-display-apply.js. Nơi dùng chỉ gọi lúc chạy. -->
-    <script src="event/workflow/video-motion-surface.js?v=20260925v4"></script>
+    <script src="event/workflow/video-motion-surface.js?v=20260925v5"></script>
 
     <!-- MỚI (Giang yêu cầu "Player") — workflowPlayerDisplaySettings (load/ghi bền domain
          'playerDisplay', GIAI ĐOẠN 1 — CHƯA có cơ chế áp dụng lên runtime), xem event/workflow/
@@ -1107,11 +1107,11 @@
 
     <!-- Cụm "visualBg" — Workflow tách 3 file: common (định nghĩa `workflowVisualBg`), video/photo
          (`Object.assign()` thêm vào) — common PHẢI nạp trước video/photo. -->
-    <script src="event/workflow/visual-bg-common.js?v=20260925v4"></script>
-    <script src="event/workflow/visual-bg-video.js?v=20260924r3"></script>
+    <script src="event/workflow/visual-bg-common.js?v=20260925v5"></script>
+    <script src="event/workflow/visual-bg-video.js?v=20260925v5"></script>
     <script src="event/workflow/visual-bg-photo.js?v=20260925p3"></script>
-    <script src="event/router/visual-bg.js?v=20260924m1"></script>
-    <script src="event/listener/visual-bg.js?v=20260924m1"></script>
+    <script src="event/router/visual-bg.js?v=20260925v5"></script>
+    <script src="event/listener/visual-bg.js?v=20260925v5"></script>
 
     <!-- Cụm "gestureSettings" — panel Settings "Cử chỉ", cùng khuôn push/pop Settings Stack. Chia
          4 section (Điều hướng/Tap/Seek/Vuốt cạnh — components/gesture-settings-drawer.js).
@@ -1217,7 +1217,7 @@
          mediaType khi click video trong Playlist (đi qua eventBus để Block gate chặn khoá chéo với
          Video nền). PHẢI nạp SAU event/workflow/video-player.js (cần workflowVideoPlayer.
          startFromPlaylist() đã tồn tại). -->
-    <script src="event/workflow/video-player.js?v=20260925v4"></script>
+    <script src="event/workflow/video-player.js?v=20260925v5"></script>
     <script src="event/router/video-player.js?v=20260915v1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
     <!-- MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — event/workflow/photo-
