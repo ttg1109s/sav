@@ -12,3 +12,12 @@ if (genericDrawerBody) {
         eventBus.send({ router: 'genericDrawer', type: 'genericDrawer.body.scroll', payload: {} });
     }, { passive: true });
 }
+
+// MỚI (24/09/2026) — THAY MutationObserver + requestAnimationFrame cũ sống NGAY trong core/generic-drawer.js (core tự
+// nghe DOM tĩnh + tự quyết định đo lại — vi phạm Rule 5a/event bus). Chỉ chuyển thư: nội dung body đổi (thêm/bớt node,
+// đổi class/style) -> Router 'genericDrawer' -> workflowGenericDrawerHelpers.onBodyMutated() lo co/giãn chiều cao.
+if (genericDrawerBody) {
+    new MutationObserver((mutations) => {
+        eventBus.send({ router: 'genericDrawer', type: 'genericDrawer.body.mutate', payload: { mutations } });
+    }).observe(genericDrawerBody, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
+}
