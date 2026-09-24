@@ -18,7 +18,10 @@
  *
  * Router/Listener: CHƯA có router riêng — được gọi TRỰC TIẾP từ `workflowAppSettings`
  * (event/workflow/app-settings.js, cùng cách `handleThemeSelectMode()` gọi qua router 'theme')
- * vì Player chưa cần luồng eventBus riêng nào khác ngoài Settings.
+ * vì Player chưa cần luồng eventBus riêng nào khác ngoài Settings. RIÊNG hàng Motion (SỬA
+ * 24/09/2026, Giang yêu cầu — xoá cơ chế đăng ký Motion vào nơi tiêu thụ): router 'appSettings' gọi
+ * thẳng `openMotionSlotPicker()` -> mở màn Chọn của Motion (workflowMotionPresets.openPicker(),
+ * liên tuyến domain), nút Apply ở đó gọi lại `changeMotionSlot()` qua `onApply`.
  *
  * NẠP SAU: core/config.js (appConfigPlayerDisplay), core/player-display-settings.js
  * (PLAYER_MOTION_SLOTS/resolvePlayerMotionPresetField/resolvePlayerResolutionField),
@@ -26,6 +29,7 @@
  * (motionEngineReactLayer/bgVideoElement/visualBgImageElement), core/motion-presets.js
  * (findMotionPresetById()/isReactBeatPresetActive()), event/workflow/visual-bg-photo-motion.js
  * (MOTION_ENGINE_NO_OP_PRESET, đổi tên 17/09/2026 từ event/workflow/motion-engine.js),
+ * event/workflow/motion-presets.js (workflowMotionPresets.openPicker() — chỉ gọi lúc chạy),
  * event/workflow/motion-beat-react-runner.js (createMotionBeatReactRunner()), event/workflow/
  * motion-point-move-runner.js (createMotionPointMoveRunner()), event/workflow/
  * motion-transition-runner.js (createMotionTransitionRunner()), service/db.js
@@ -141,18 +145,35 @@ const workflowPlayerDisplaySettings = {
         }
     },
 
-    /** Ứng 1 trong 6 select Motion đổi (3 vai trò x Video: transitionNext/transitionPrev/showing;
+    /** MỚI (24/09/2026, Giang yêu cầu — THAY select Motion + cơ chế đăng ký consumer 'player' cũ) — ứng
+     * tap 1 hàng Motion (Player > Video/Photo): mở THẲNG danh sách Motion ở chế độ CHỌN, tiêu đề = nhãn
+     * của vai trò, nháp ban đầu = preset đang gắn. Apply ở màn Chọn -> `changeMotionSlot()` ghi field
+     * riêng của vai trò này, rồi màn Chọn tự back() về màn Player (tự vẽ lại tên preset mới).
+     * @param {'video'|'photo'} kind @param {string} slot - 1 trong PLAYER_MOTION_SLOTS[].slot */
+    openMotionSlotPicker(kind, slot) {
+        const field = resolvePlayerMotionPresetField(kind, slot); // core/player-display-settings.js
+        if (!field) return; // guard: slot lạ / không thuộc kind này -> không mở
+        const slotDef = getPlayerMotionSlotsForKind(kind).find((s) => s.slot === slot); // core/player-display-settings.js
+        workflowMotionPresets.openPicker({ // event/workflow/motion-presets.js — liên tuyến domain
+            title: t(slotDef.labelKey),
+            currentId: appConfigPlayerDisplay.getAll()[field], // core/config.js
+            onApply: (id) => this.changeMotionSlot(kind, slot, id),
+        });
+    },
+
+    /** Ghi preset cho 1 trong 6 vai trò Motion (3 vai trò x Video: transitionNext/transitionPrev/showing;
      * 3 vai trò x Photo: transitionNext/transitionPrev/pointMove — xem core/player-display-settings.js
-     * ::PLAYER_MOTION_SLOTS). `value` rỗng ('') -> gỡ (null).
+     * ::PLAYER_MOTION_SLOTS). `value` rỗng ('')/null -> gỡ (null). SỬA (24/09/2026) — gọi từ `onApply`
+     * của màn Chọn Motion (xem `openMotionSlotPicker()` ngay trên), không còn từ select.
      *
      * Slot 'showing' của Video ÁP LIVE ngay nếu đang ở Video Player mode (cùng tinh thần
      * Resolution) — cả React Beat lẫn Point Move (preset gộp 1 field, Giang chốt) tự đọc lại preset
      * MỚI vừa gắn (hoặc gỡ hẳn) NGAY sau khi ghi. Transition Next/Prev + Point Move (Photo) CHƯA có
      * gì để áp (giai đoạn sau).
-     * @param {'video'|'photo'} kind @param {string} slot - 1 trong PLAYER_MOTION_SLOTS[].slot @param {string} value */
+     * @param {'video'|'photo'} kind @param {string} slot - 1 trong PLAYER_MOTION_SLOTS[].slot @param {string|null} value */
     async changeMotionSlot(kind, slot, value) {
         const field = resolvePlayerMotionPresetField(kind, slot); // core/player-display-settings.js
-        if (!field) return; // slot lạ (không nên xảy ra — select chỉ dựng từ PLAYER_MOTION_SLOTS) -> bỏ qua an toàn
+        if (!field) return; // slot lạ (không nên xảy ra — hàng chỉ dựng từ PLAYER_MOTION_SLOTS) -> bỏ qua an toàn
         appConfigPlayerDisplay.mutateAll((cfg) => { cfg[field] = value || null; }); // core/config.js
         console.log(`writer: "workflowPlayerDisplaySettings.changeMotionSlot", page: "playerDisplayConfig", content: "${field}=${value || null}"`);
         await setMeta('playerDisplayConfig', appConfigPlayerDisplay.getAll()); // service/db.js

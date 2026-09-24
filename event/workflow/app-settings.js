@@ -28,8 +28,9 @@
  * Visualizer Screen (Display/Auto-Switch/Visual Background, kể cả 2 sub-panel Gradient/Video Audio
  * + picker con video/ảnh/thư mục của Visual Background) ĐÃ migrate xong (đợt "làm nốt visualizer") —
  * cùng khuôn Gesture/Motion/Language/Troubleshooting. Motion (Cấu hình Transition/Ken Burns/React
- * Beat Audio, hệ preset độc lập) giờ CHỈ mở được từ System — Visual Background không còn liên kết
- * trực tiếp nào tới Motion nữa (xem event/workflow/motion-presets.js, mục "Áp dụng cấu hình").
+ * Beat Audio, hệ preset độc lập) — Quản lý mở từ System; nơi tiêu thụ (Visual Background, Player)
+ * mở THẲNG danh sách Motion ở chế độ CHỌN (`_renderMotionPicker()`, SỬA 24/09/2026 — thay cơ chế
+ * đăng ký "Áp dụng cho" cũ, xem event/workflow/motion-presets.js::openPicker()).
  *
  * CÒN NỢ (đã biết, chưa sửa — dời lại theo yêu cầu Giang "logic bổ sung tính sau"): nút Cancel của
  * picker chọn THƯ MỤC video (1 trong 4 nguồn Visual Background) chưa tự quay lại Visual Background
@@ -249,8 +250,8 @@ const workflowAppSettings = {
 
     /** Danh sách preset Filter CỦA Nguồn đang chọn (`activeMediaSource`) — tap dòng = sửa, mỗi dòng
      * có thêm nút chọn áp dụng nhanh + xoá nhanh (CÙNG khuôn _renderMotionList() — KHÁC Motion 1
-     * chỗ: Motion "Áp dụng cho" chỉ có ở màn Edit, Playlist Filter cần bấm "chọn áp dụng" được NGAY
-     * từ danh sách, phản hồi Giang). SỬA (09/09/2026, phản hồi Giang mục cuối — "mỗi source media 1
+     * chỗ: Motion được CHỌN từ phía nơi tiêu thụ (màn Chọn `_renderMotionPicker()`), Playlist Filter
+     * cần bấm "chọn áp dụng" được NGAY từ danh sách, phản hồi Giang). SỬA (09/09/2026, phản hồi Giang mục cuối — "mỗi source media 1
      * list filter khác nhau") — `playlistFilterPresets`/`playlistFilterActivePresetId` giờ keyed
      * theo Nguồn, danh sách này CHỈ đọc/hiện đúng phần của Nguồn đang chọn — đổi Nguồn ở Settings →
      * Playlist rồi mở lại "Lọc" sẽ thấy danh sách KHÁC hẳn (độc lập, không lẫn giữa Song/Video/
@@ -442,9 +443,10 @@ const workflowAppSettings = {
     },
 
     // ===================== Motion — hệ Cấu hình độc lập =====================
-    // Lối vào DUY NHẤT: System > Motion -> thẳng danh sách preset (CRUD). Đăng ký nơi tiêu thụ
-    // ("Áp dụng cho") giờ nằm NGAY trong màn Edit từng preset — xem components/motion-settings-
-    // drawer.js + event/workflow/motion-presets.js (workflowMotionPresets).
+    // 2 lối vào: System > Motion -> danh sách preset (Quản lý — CRUD); nơi tiêu thụ (VBG Photo, Player)
+    // -> CÙNG danh sách đó ở chế độ CHỌN (`_renderMotionPicker()`). SỬA (24/09/2026, Giang yêu cầu) —
+    // cơ chế đăng ký nơi tiêu thụ ("Áp dụng cho" trong màn Edit) ĐÃ XOÁ — xem components/motion-
+    // settings-drawer.js + event/workflow/motion-presets.js (workflowMotionPresets).
 
     /** Danh sách preset — tap = sửa, nút xoá nhanh mỗi dòng. */
     _renderMotionList() {
@@ -487,6 +489,30 @@ const workflowAppSettings = {
         genericDrawerBody.scrollTop = 0;
     },
 
+    /** MỚI (24/09/2026, Giang yêu cầu) — danh sách preset ở chế độ CHỌN, mở từ nơi tiêu thụ qua
+     * `workflowMotionPresets.openPicker()` (event/workflow/motion-presets.js — giữ toàn bộ state phiên
+     * Chọn: tiêu đề, nháp, trang, `onApply`). Tap dòng = chọn nháp (vẽ lại tại chỗ); nút "Apply" ở
+     * header = xác nhận + tự back(). Pagination DÙNG CHUNG nơi 'motionPresets' với `_renderMotionList()`. */
+    _renderMotionPicker() {
+        this._currentRenderFn = () => this._renderMotionPicker();
+        const data = workflowMotionPresets.getPickerRenderData(); // event/workflow/motion-presets.js
+        if (!data) { this.back(); return; } // guard: không còn phiên Chọn nào (đã Apply) — quay lại an toàn
+        this._render(
+            data.title,
+            renderMotionPickerBody(data.view.pageItems, data.draftId, workflowPagination.buildControlsHtml(data.view)), // components/motion-settings-drawer.js, event/workflow/pagination.js
+            (body) => {
+                const optionEls = body.querySelectorAll('[data-motion-picker-option]');
+                const applyBtn = genericDrawerHeader.querySelector('#btn-motion-picker-apply'); // core/dom-refs.js — nút nằm ở HEADER (extraHeaderHtml), không phải body
+                wirePaginationControls(body.querySelector('#motion-picker-pagination'), 'motionPresets', 'motionPresets.picker.page.change'); // core/pagination-ui.js
+                optionEls.forEach((el) => {
+                    el.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.picker.select.click', payload: { id: el.dataset.motionPickerOption } }));
+                });
+                if (applyBtn) applyBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.picker.apply.click', payload: {} }));
+            },
+            renderMotionPickerApplyButtonHtml(), // components/motion-settings-drawer.js
+        );
+    },
+
     /** Sửa 1 preset (`workflowMotionPresets._editingId`). */
     _renderMotionEdit() {
         this._currentRenderFn = () => this._renderMotionEdit();
@@ -494,7 +520,7 @@ const workflowAppSettings = {
         if (!preset) { this.back(); return; } // guard: preset vừa bị xoá ở nơi khác giữa lúc đang sửa — quay lại danh sách an toàn
         this._render(
             t('motionPresetsDrawer.edit.title'),
-            renderMotionEditBody(preset, appState.get('motionApply'), workflowMotionPresets._editingApplyConsumerKey), // components/motion-settings-drawer.js
+            renderMotionEditBody(preset), // components/motion-settings-drawer.js
             (body) => {
                 const nameInput = body.querySelector('#setting-motion-name');
                 if (nameInput) nameInput.addEventListener('blur', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.name.change', payload: { value: e.target.value } }));
@@ -585,12 +611,7 @@ const workflowAppSettings = {
                 if (resetBtn) resetBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.reset.click', payload: {} }));
                 const deleteBtn = body.querySelector('#btn-motion-edit-delete');
                 if (deleteBtn) deleteBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.delete.click', payload: {} }));
-
-                // "Áp dụng cho" — select nơi tiêu thụ + nút Đăng ký/Huỷ đăng ký.
-                const applyConsumer = body.querySelector('#setting-motion-apply-consumer');
-                if (applyConsumer) applyConsumer.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.applyConsumer.change', payload: { value: e.target.value } }));
-                const applyToggleBtn = body.querySelector('#btn-motion-apply-toggle');
-                if (applyToggleBtn) applyToggleBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.applyToggle.click', payload: {} }));
+                // XOÁ (24/09/2026) — wiring nhóm "Áp dụng cho" (select nơi tiêu thụ + nút Đăng ký/Huỷ) — cơ chế đã bỏ.
             },
         );
     },
@@ -919,11 +940,10 @@ const workflowAppSettings = {
 
     // ===================== Player (MỚI, Giang yêu cầu — Resolution + Motion của Video/Photo lúc
     // PHÁT CHÍNH, xem core/player-display-settings.js/core/config.js::DEFAULT_PLAYER_DISPLAY_CONFIG.
-    // GIAI ĐOẠN 1 ĐÃ CHỐT: chỉ code đăng ký (core/motion-presets.js::MOTION_APPLY_CONSUMERS thêm
-    // 'player') + hiển thị/ghi lựa chọn (domain 'playerDisplay') — CHƯA có "cơ chế hoạt động" nào
-    // đọc lại các field này để thực sự áp lên Video/Photo đang phát, xem event/workflow/player-
-    // display-settings.js. 2 kind 'video'/'photo' hoàn toàn ĐỐI XỨNG -> dùng chung _renderPlayerDetail()
-    // thay vì viết 2 hàm gần như giống hệt nhau) =====================
+    // Lựa chọn Motion mỗi vai trò lưu ở domain 'playerDisplay' — chọn qua màn Chọn của Motion (SỬA
+    // 24/09/2026 — thay select + cơ chế đăng ký consumer 'player' cũ), xem event/workflow/player-
+    // display-settings.js::openMotionSlotPicker(). 2 kind 'video'/'photo' hoàn toàn ĐỐI XỨNG -> dùng
+    // chung _renderPlayerDetail() thay vì viết 2 hàm gần như giống hệt nhau) =====================
 
     /** Danh sách con — 2 row Video/Photo, CÙNG khuôn renderAppSettingsRowList() (data-app-settings-nav). */
     _renderPlayer() {
@@ -948,15 +968,15 @@ const workflowAppSettings = {
     /** Dựng CHUNG 1 màn Resolution + Motion cho Video/Photo (2 kind gần như đối xứng, chỉ khác
      * field config đọc/ghi — Photo lọc bỏ vai trò `reactBeat`, xem core/player-display-settings.js
      * ::getPlayerMotionSlotsForKind()) — xem components/settings/player-display-settings.js
-     * ::renderPlayerDisplayBody(). Option của các select Motion lấy từ preset ĐÃ đăng ký cho
-     * consumer 'player' (getPresetsSubscribedToConsumer(), core/motion-presets.js) — CÙNG 1 danh
-     * sách cho cả Video lẫn Photo, mọi vai trò (Giang chốt).
+     * ::renderPlayerDisplayBody(). SỬA (24/09/2026) — mỗi vai trò Motion là 1 HÀNG (tên preset đang
+     * gắn / "None") mở màn Chọn của Motion, KHÔNG còn select lọc theo consumer 'player' đã đăng ký —
+     * truyền TOÀN BỘ `motionPresets` chỉ để tra tên preset đang gắn.
      * @param {'video'|'photo'} kind */
     _renderPlayerDetail(kind) {
         const cfg = appConfigPlayerDisplay.getAll(); // core/config.js
-        const motionPresetOptions = getPresetsSubscribedToConsumer(appState.get('motionPresets'), appState.get('motionApply'), 'player'); // core/motion-presets.js
+        const motionPresets = appState.get('motionPresets');
         const titleKey = kind === 'video' ? 'appSettings.player.video.label' : 'appSettings.player.photo.label';
-        this._render(t(titleKey), renderPlayerDisplayBody(kind, cfg, motionPresetOptions), (body) => {
+        this._render(t(titleKey), renderPlayerDisplayBody(kind, cfg, motionPresets), (body) => {
             wireAppSettingsPlayerDetail(body, kind); // core/app-settings-ui.js
         });
     },
@@ -967,10 +987,8 @@ const workflowAppSettings = {
         await workflowPlayerDisplaySettings.changeResolutionMode(kind, value); // event/workflow/player-display-settings.js
     },
 
-    /** Ứng 1 trong các select Motion đổi (Player > Video hoặc Photo). */
-    async handlePlayerMotionSlotChange(kind, slot, value) {
-        await workflowPlayerDisplaySettings.changeMotionSlot(kind, slot, value); // event/workflow/player-display-settings.js
-    },
+    // XOÁ (24/09/2026) — handlePlayerMotionSlotChange() (ứng select Motion cũ): hàng Motion giờ mở màn Chọn,
+    // router gọi thẳng workflowPlayerDisplaySettings.openMotionSlotPicker() (event/router/app-settings.js).
 
     /** Subtitle — MỚI phát hiện lúc migrate: nằm LỒNG bên trong Display (nút "Phụ đề", components/
      * settings/visualizer-display-panel.js), không phải row riêng ở Visualizer Screen — đúng vị trí

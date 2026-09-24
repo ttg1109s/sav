@@ -23,7 +23,7 @@ const RESTORE_DEFAULTS_META_KEYS = [
     'configBackup', // bản backup vizConfig — PHẢI xoá, không loadConfig() sẽ phục hồi lại cấu hình cũ từ đây
     'visualBgConfig',
     'eqPresets',
-    'motionPresets', 'motionApply',
+    'motionPresets', // SỬA 24/09/2026 — 'motionApply' BỎ (cơ chế đăng ký Motion vào nơi tiêu thụ đã xoá, boot tự delMeta key cũ)
     'playlistFilterPresets', 'playlistFilterActivePresetId', 'playlistFilterAppliedConfig', 'playlistFilterAppliesToFolder',
     'playlistConfig', 'playerConfig', 'playerDisplayConfig', 'uiThemeConfig', 'paginationConfig',
     'activePlayListFolder', // thư mục đang áp cho từng Nguồn -> về "Tất cả"

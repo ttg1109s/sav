@@ -862,10 +862,13 @@ const workflowVisualBg = {
         const syncSpeedCheckbox = q('#setting-visual-bg-sync-speed');
         if (syncSpeedCheckbox) syncSpeedCheckbox.checked = cfg.videoSyncPlaybackSpeed;
 
-        const motionRow = q('#visual-bg-motion-row');
-        if (motionRow) motionRow.classList.toggle('hidden', cfg.type !== 'photo');
-        const motionSelect = q('#setting-visual-bg-motion-preset');
-        if (motionSelect && cfg.type === 'photo') this._renderMotionPresetOptions(motionSelect, cfg.motionPresetId);
+        // SỬA (24/09/2026) — hàng Motion giờ là nút mở màn Chọn (không còn select) — chỉ ẩn/hiện + điền tên
+        // preset đang gắn ("None" nếu chưa gắn / preset đã bị xoá).
+        const motionBtn = q('#setting-visual-bg-open-motion-picker');
+        if (motionBtn) motionBtn.classList.toggle('hidden', cfg.type !== 'photo');
+        const motionNameEl = q('[data-visual-bg-motion-name]');
+        const motionPreset = findMotionPresetById(appState.get('motionPresets'), cfg.motionPresetId); // core/motion-presets.js
+        if (motionNameEl) motionNameEl.textContent = motionPreset ? motionPreset.name : t('visualBgSettingsDrawer.motion.none');
 
         const colorModeSelect = q('#setting-visual-bg-color-mode');
         const openGradientBtn = q('#setting-visual-bg-open-gradient');
@@ -882,26 +885,27 @@ const workflowVisualBg = {
         await this._refreshSourceNameLabel(cfg);
     },
 
-    /** Đổ `<option>` cho dropdown Motion — CHỈ preset ĐÃ đăng ký cho 'photoVisualBg' trong
-     * `appState.motionApply` (xem core/motion-presets.js), luôn kèm 1 option "Không" (value='').
-     * `currentId` không nằm trong danh sách đã đăng ký (vừa bị huỷ đăng ký) -> chọn "Không" tự
-     * nhiên (không ép xoá `motionPresetId`, chỉ đơn giản không còn hiện trong lựa chọn).
-     * @param {HTMLSelectElement} selectEl @param {string|null} currentId */
-    _renderMotionPresetOptions(selectEl, currentId) {
-        const subscribedIds = appState.get('motionApply').photoVisualBg || []; // core/motion-presets.js — MOTION_APPLY_CONSUMERS
-        const presets = appState.get('motionPresets').filter((p) => subscribedIds.includes(p.id));
-        const noneOption = `<option value="">${t('visualBgSettingsDrawer.motion.none')}</option>`;
-        selectEl.innerHTML = noneOption + presets.map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('');
-        selectEl.value = presets.some((p) => p.id === currentId) ? currentId : '';
+    /** MỚI (24/09/2026, Giang yêu cầu — THAY dropdown Motion + `_renderMotionPresetOptions()` lọc theo
+     * `appState.motionApply.photoVisualBg` cũ, cơ chế đăng ký đã xoá) — ứng tap hàng Motion: mở THẲNG
+     * danh sách Motion ở chế độ CHỌN (event/workflow/motion-presets.js::openPicker(), liên tuyến domain).
+     * Apply ở màn Chọn -> `changeMotionPresetId()` (ghi + áp live), rồi màn Chọn tự back() về đây —
+     * `_renderVisualBg()` dựng lại màn, `refreshPanelUI()` điền tên preset mới. */
+    openMotionPicker() {
+        workflowMotionPresets.openPicker({ // event/workflow/motion-presets.js
+            title: t('visualBgSettingsDrawer.motion.label'),
+            currentId: appConfigVisualBg.getAll().motionPresetId, // core/config.js
+            onApply: (id) => this.changeMotionPresetId(id),
+        });
     },
 
-    /** Ứng select Motion đổi — ghi thẳng `motionPresetId` ('' -> null = gỡ) rồi ÁP LIVE NGAY lên
+    /** Ghi `motionPresetId` (''/null -> null = gỡ) rồi ÁP LIVE NGAY lên — SỬA (24/09/2026) gọi từ `onApply`
+     * của màn Chọn Motion (`openMotionPicker()` ngay trên), không còn từ select —
      * ảnh đang hiện qua `workflowVisualBgPhotoMotion.updatePreset()` (SỬA, Giang chỉ ra bug: trước đây chỉ
      * ghi config, đợi tới lần transition/song-change kế tiếp preset mới mới thật sự chạy — chọn
      * "Không"/đổi preset không có tác dụng gì lên ảnh đang hiện). `updatePreset()` tự no-op nếu
      * chưa có ảnh nào đang hiện (`_hasCurrentResource=false`) — KHÔNG cần check trước ở đây, đúng
      * ranh giới: VBG chỉ nói "đổi preset", Motion tự quyết có áp được hay không.
-     * @param {string} value */
+     * @param {string|null} value */
     async changeMotionPresetId(value) {
         appConfigVisualBg.mutateAll((cfg) => { cfg.motionPresetId = value || null; });
         console.log(`writer: "workflowVisualBg.changeMotionPresetId", page: "visualBgConfig", content: "motionPresetId=${value || null}"`);
