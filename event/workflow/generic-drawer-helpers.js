@@ -55,11 +55,17 @@ const workflowGenericDrawerHelpers = {
     //     đang animate thì NHẮM LẠI đích mới trong thời gian còn lại, không thì animate từ chiều cao cũ.
     _heightPx: 0, // chiều cao THẬT gần nhất đã biết (đích của lần animate/đo gần nhất)
     _heightAnimEndAt: 0, // performance.now() lúc animation chiều cao hiện tại kết thúc (0 = không chạy)
+    // SỬA (24/09/2026, Giang báo "giật") — nhớ đủ tham số animation đang chạy để khi phải huỷ tạm (đo lại lúc nội dung
+    // đổi) mà đích KHÔNG đổi thì dựng lại y hệt + tua đúng chỗ, thay vì bắt đầu 1 animation mới từ giữa chừng (bản cũ:
+    // đường cong chạy lại từ đầu -> vận tốc đổi đột ngột = khựng; xảy ra ngay sau MỖI lần đổi màn vì chính cú thay nội
+    // dung cũng bắn 1 lượt 'genericDrawer.body.mutate').
+    _heightAnimFromPx: 0,
+    _heightAnimStartAt: 0,
+    _heightAnimDurationMs: 0,
 
-    /** @returns {number} thời lượng animation (0 nếu người dùng bật giảm chuyển động của hệ điều hành). */
-    _animDurationMs() {
-        const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        return reduce ? 0 : GENERIC_DRAWER_ANIM_MS; // core/generic-drawer.js
+    /** @returns {boolean} hệ điều hành đang bật Giảm chuyển động -> tắt co/giãn + fade chéo. */
+    _reduceMotion() {
+        return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     },
 
     /** Bắt đầu animate chiều cao (hoặc chỉ ghi nhận nếu không cần). @param {number} nowMs - performance.now() */
@@ -67,6 +73,9 @@ const workflowGenericDrawerHelpers = {
         this._heightPx = toPx;
         if (durationMs <= 0 || Math.abs(fromPx - toPx) < 1) { this._heightAnimEndAt = 0; return; }
         animateGenericDrawerHeight(fromPx, toPx, durationMs); // core/generic-drawer.js
+        this._heightAnimFromPx = fromPx;
+        this._heightAnimStartAt = nowMs;
+        this._heightAnimDurationMs = durationMs;
         this._heightAnimEndAt = nowMs + durationMs;
     },
 
@@ -93,13 +102,15 @@ const workflowGenericDrawerHelpers = {
     update(config) {
         const { scrollKey, scrollReset, ...drawerConfig } = config;
         const target = (scrollKey && !scrollReset && this._scrollMemo.has(scrollKey)) ? this._scrollMemo.get(scrollKey) : 0;
-        const durationMs = this._animDurationMs();
+        const reduce = this._reduceMotion();
+        const heightMs = reduce ? 0 : GENERIC_DRAWER_HEIGHT_ANIM_MS; // core/generic-drawer.js
+        const fadeMs = reduce ? 0 : GENERIC_DRAWER_CROSSFADE_MS; // core/generic-drawer.js
         const nowMs = performance.now();
         // Vẽ lại TẠI CHỖ cùng 1 màn (cùng scrollKey, nội dung của key đó vẫn đang gắn) -> KHÔNG fade chéo: 2 lớp nội
         // dung gần như y hệt chồng lên nhau mờ/hiện đan chéo sẽ làm cả màn hơi nháy tối ở giữa hiệu ứng. Chỉ đổi
         // SANG màn khác (key khác, hoặc không key) mới fade chéo. Chiều cao vẫn animate ở cả 2 trường hợp.
         const isSameScreen = !!scrollKey && scrollKey === this._scrollKey && !!this._scrollAnchor && this._scrollAnchor.parentNode === genericDrawerBody;
-        const crossfade = durationMs > 0 && !isSameScreen;
+        const crossfade = fadeMs > 0 && !isSameScreen;
         const fromPx = readGenericDrawerHeightPx(); // core — chiều cao ĐANG hiển thị (kể cả giữa 1 animation trước)
         taskManager.kill('genericDrawerCrossfadeEnd');
         clearGenericDrawerCrossfade(); // core — fade chéo trước còn dở thì kết thúc ngay
@@ -107,11 +118,12 @@ const workflowGenericDrawerHelpers = {
         updateGenericDrawer({ ...drawerConfig, scrollTop: target }); // core
         applyUiThemeToDom(genericDrawerPanel, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
         const toPx = settleGenericDrawerHeightPx(); // core
-        this._startHeightAnim(fromPx, toPx, durationMs, nowMs);
+        this._startHeightAnim(fromPx, toPx, heightMs, nowMs);
         this._setScrollState(scrollKey, target);
-        if (crossfade) playGenericDrawerCrossfade(durationMs); // core
+        if (crossfade) playGenericDrawerCrossfade(fadeMs); // core
         // Hẹn giờ kết thúc (dọn lớp phủ + áp lại vị trí cuộn nếu bị kẹp) chạy cả khi không fade chéo — chiều cao vẫn animate.
-        if (durationMs > 0) taskManager.once(() => this._endCrossfade(), durationMs, 'genericDrawerCrossfadeEnd');
+        const endMs = Math.max(crossfade ? fadeMs : 0, heightMs);
+        if (endMs > 0) taskManager.once(() => this._endCrossfade(), endMs, 'genericDrawerCrossfadeEnd');
     },
 
     /** Hết thời gian fade chéo: dọn lớp phủ + áp lại vị trí cuộn nếu lúc gắn bị kẹp (panel đang cao hơn đích nên
@@ -156,13 +168,24 @@ const workflowGenericDrawerHelpers = {
         // Vùng tự đánh dấu bỏ qua (vd carousel Settings Main đổi class liên tục lúc cuộn ngang, components/settings/app-settings-main.js).
         if (mutations.every((m) => m.target instanceof Element && m.target.closest('[data-gd-ignore-mutation]'))) return;
         const nowMs = performance.now();
-        const animating = nowMs < this._heightAnimEndAt;
-        // Đang animate: xuất phát từ chiều cao ĐANG hiển thị, kết thúc đúng hạn cũ (không kéo dài). Không animate: DOM
-        // đã đổi xong lúc callback chạy nên đo lúc này ra chiều cao MỚI — xuất phát từ chiều cao thật đã biết trước đó.
-        const fromPx = animating ? readGenericDrawerHeightPx() : this._heightPx; // core/generic-drawer.js
+        if (nowMs < this._heightAnimEndAt) {
+            // Đang animate: huỷ tạm để đo chiều cao thật mới (animation phủ lên giá trị đo).
+            const visualPx = readGenericDrawerHeightPx(); // core/generic-drawer.js
+            const toPx = settleGenericDrawerHeightPx(); // core/generic-drawer.js
+            if (Math.abs(toPx - this._heightPx) < 1) {
+                // Đích KHÔNG đổi (thường gặp nhất — chính cú thay nội dung/áp theme bắn mutation) -> dựng lại y hệt, tua đúng chỗ.
+                animateGenericDrawerHeight(this._heightAnimFromPx, this._heightPx, this._heightAnimDurationMs, nowMs - this._heightAnimStartAt); // core
+                return;
+            }
+            // Đích đổi thật (onMount/toggle làm nội dung cao/thấp thêm) -> nhắm đích mới từ chiều cao đang hiển thị, kết thúc
+            // đúng hạn cũ nhưng không ngắn hơn ~40% thời lượng (tránh "giật" tới đích khi đổi sát cuối).
+            const remainingMs = Math.max(this._heightAnimEndAt - nowMs, GENERIC_DRAWER_HEIGHT_ANIM_MS * 0.4);
+            this._startHeightAnim(visualPx, toPx, remainingMs, nowMs);
+            return;
+        }
+        // Không animate: DOM đã đổi xong lúc callback chạy nên đo lúc này ra chiều cao MỚI — xuất phát từ chiều cao thật đã biết.
         const toPx = settleGenericDrawerHeightPx(); // core/generic-drawer.js
-        const durationMs = animating ? this._heightAnimEndAt - nowMs : this._animDurationMs();
-        this._startHeightAnim(fromPx, toPx, durationMs, nowMs);
+        this._startHeightAnim(this._heightPx, toPx, this._reduceMotion() ? 0 : GENERIC_DRAWER_HEIGHT_ANIM_MS, nowMs);
     },
 
     /** Trượt Generic Drawer xuống rồi ẩn hẳn khi trượt xong. SỬA (24/09/2026) — hẹn giờ bằng taskManager thay cho
