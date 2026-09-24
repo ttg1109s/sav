@@ -22,6 +22,9 @@
  * resume/seek gần nhất) — cộng với `photoPlayerElapsedBeforePauseSec` ra elapsed hiện tại lúc CHƯA
  * pause (xem `computePhotoPlayerElapsedSec()`, core/photo-player.js).
  * `photoPlayerPaused` — đang tạm dừng hay không (đồng hồ giả không tự trôi lúc `true`).
+ * `photoPlayerClockHeld` — MỚI (25/09/2026, Giang chốt "Transition xong mới đếm") — ảnh mới đang chạy
+ * Transition vào, đồng hồ giả CHƯA bắt đầu đếm (tính như `photoPlayerPaused` khi tính elapsed, nhưng KHÁC
+ * nghĩa: không phải người dùng dừng — icon vẫn "đang phát"). Chỉ event/workflow/photo-player.js ghi.
  */
 AppState.definePackage('photo-player-mode', {
     schema: {
@@ -30,6 +33,7 @@ AppState.definePackage('photo-player-mode', {
         photoPlayerElapsedBeforePauseSec: 'number',
         photoPlayerStartedAtMs: 'number',
         photoPlayerPaused: 'boolean',
+        photoPlayerClockHeld: 'boolean',
     },
     buildDefaults() {
         return {
@@ -38,6 +42,7 @@ AppState.definePackage('photo-player-mode', {
             photoPlayerElapsedBeforePauseSec: 0,
             photoPlayerStartedAtMs: 0,
             photoPlayerPaused: true,
+            photoPlayerClockHeld: false,
         };
     },
 });
