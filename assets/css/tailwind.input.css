@@ -1,0 +1,4 @@
+/* Nguồn build Tailwind — KHÔNG nạp file này trong trang. Build ra assets/css/tailwind.css (readme/tailwind-build.md). */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
