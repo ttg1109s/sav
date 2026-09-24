@@ -32,26 +32,9 @@
  */
         const playlistStore = new EventStore('playlist');
 
-        /**
-         * Loại 1 key khỏi playlist (xoá tay / "Xóa luôn" / "Giữ lại" lúc phát lỗi). Cập nhật CẢ
-         * nguồn chân lý, hàng đợi phát LẪN danh sách hiển thị rồi vẽ lại.
-         * SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — `updateShuffleArray()`/
-         * `recomputeRenderOrder()` ĐÃ DỜI hẳn sang `event/workflow/playlist-order.js`
-         * (`workflowPlaylistOrder`, xem docstring đầu file đó) — gọi từ ĐÂY về hình thức là Core
-         * gọi Workflow (hàm NÀY vẫn ở `core/playlist/actions.js`, tự `appState.get()`/`.set()` sẵn
-         * từ trước — nợ kỹ thuật riêng, CHƯA relocate cả hàm trong đợt này, xem lý giải tương tự ở
-         * `core/playlist/render.js::applySearchQuery()`).
-         */
-        function removeKeyFromDisplay(key) {
-            appState.set('playlistOrder', appState.get('playlistOrder').filter(k => k !== key));
-            appState.set('displayOrder', appState.get('displayOrder').filter(k => k !== key));
-            appState.mutate('pendingResortKeys', s => s.delete(key));
-            appState.mutate('playlistCache', m => m.delete(key)); appState.mutate('songNameIndex', m => m.delete(key));
-            workflowPlaylistOrder.updateShuffleArray();
-            workflowPlaylistOrder.recomputeRenderOrder();
-            workflowPlaylistRender.renderPlaylistDiff();
-            updateEmptyState();
-        }
+        // DỜI (24/09/2026, dọn nợ "Core gọi Workflow") — `removeKeyFromDisplay()` (tự appState.get/set + gọi
+        // workflowPlaylistOrder/workflowPlaylistRender) sang event/workflow/playlist-order.js::
+        // `workflowPlaylistOrder.removeKeyFromDisplay()`, thân giữ nguyên.
 
         /**
          * FIX: trước đây chặn xoá TUYỆT ĐỐI hễ key === currentKey, bất kể đang phát hay đang pause
@@ -189,20 +172,9 @@
             playbackErrorModal.classList.remove('hidden');
         }
 
-        /**
-         * Ứng với nút "Giữ lại" — CHỈ 1 hàm core đủ xử lý toàn bộ (không cần shield/modal) ->
-         * router sẽ gọi thẳng hàm này, không cần workflow riêng.
-         * @returns {{status: string}}
-         */
-        function confirmKeepBrokenSong() {
-            const key = playlistStore.get('playbackErrorKey');
-            if (!key) return { status: 'noop' };
-            appState.mutate('confirmedBrokenKeys', s => s.add(key));
-            removeKeyFromDisplay(key);
-            playbackErrorModal.classList.add('hidden');
-            playlistStore.set({ playbackErrorKey: null });
-            return { status: 'ok' };
-        }
+        // DỜI (24/09/2026) — `confirmKeepBrokenSong()` (tự đọc playlistStore + gọi removeKeyFromDisplay — core gọi
+        // hàm đã dời sang Workflow) thay bằng event/workflow/playlist.js::`workflowPlaylist.keepBrokenSong()`
+        // (tái dùng core `getAndClearPlaybackErrorKey()` ngay dưới).
 
         /**
          * Đọc + xoá state "đang hỏi xoá bài lỗi nào" và ẨN MODAL NGAY (thuần UI, không cần
@@ -219,16 +191,9 @@
             return key;
         }
 
-        /**
-         * Hàm core THUẦN, nhận key qua tham số (KHÔNG tự đọc playlistStore) — để workflow có thể
-         * bọc withLoadingShield() quanh đúng lệnh gọi này, đúng quy tắc "core không biết shield".
-         * @param {string} key
-         */
-        async function deleteBrokenSongByKey(key) {
-            await deleteSongRecord(key);
-            removeSongStats(key);
-            removeKeyFromDisplay(key);
-        }
+        // DỜI (24/09/2026) — `deleteBrokenSongByKey()` (deleteSongRecord + removeSongStats + removeKeyFromDisplay —
+        // core gọi core/Workflow) bỏ hẳn: 3 bước đứng cạnh nhau ở event/workflow/playlist.js::
+        // `executePlaybackErrorDelete()` (cùng khuôn `deleteMediaFromActionMenu()`).
 
         // ===================== Modal: Sửa thông tin (Thông tin + Ảnh bìa) =====================
         // songEditModal và mọi input/nút bên trong: dùng lại biến từ core/dom-refs.js.
