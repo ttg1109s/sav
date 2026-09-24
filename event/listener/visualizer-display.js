@@ -12,17 +12,8 @@
  * NẠP SAU CÙNG (sau bus, router/visualizer-display.js, core/settings-panel-stack.js, dom-refs.js).
  */
 
-if (btnOpenVisualizerDisplay) {
-    btnOpenVisualizerDisplay.addEventListener('click', () => {
-        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.openDisplayPanel.click', payload: {} });
-    });
-}
-
-if (btnOpenVisualizerAutoSwitch) {
-    btnOpenVisualizerAutoSwitch.addEventListener('click', () => {
-        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.openAutoSwitchPanel.click', payload: {} });
-    });
-}
+// XOÁ (24/09/2026, rà soát refresh DOM) — listener `btnOpenVisualizerDisplay`/`btnOpenVisualizerAutoSwitch` (2 id
+// không còn trong DOM; 2 màn mở qua Settings > Visualizer Screen, event/workflow/app-settings.js).
 
 if (btnCycleMode) {
     btnCycleMode.addEventListener('pointerdown', () => {

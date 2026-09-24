@@ -6,11 +6,8 @@
  * NẠP SAU CÙNG (sau bus, core, workflow, router, và core/dom-refs.js).
  */
 
-if (btnOpenVisualBgSettings) {
-    btnOpenVisualBgSettings.addEventListener('click', () => {
-        eventBus.send({ router: 'visualBg', type: 'visualBg.openPanel.click', payload: {} });
-    });
-}
+// XOÁ (24/09/2026, rà soát refresh DOM) — listener `btnOpenVisualBgSettings` (#setting-open-visual-bg-settings không
+// còn trong DOM; màn Visual Background mở qua Settings > Visualizer Screen, event/workflow/app-settings.js).
 
 const VISUAL_BG_SETTINGS_INPUT_MAP = {
     'setting-visual-bg-list-playback-mode:change': { type: 'visualBg.listPlaybackMode.change' },

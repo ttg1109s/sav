@@ -14,12 +14,8 @@
  * NẠP SAU CÙNG (sau bus, core, workflow, router, VÀ SAU dom-refs.js).
  */
 
-// MỚI (18/07/2026, Giang yêu cầu — xem core/debug-console.js).
-if (btnOpenDebugConsole) {
-    btnOpenDebugConsole.addEventListener('click', () => {
-        eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.debugConsole.open', payload: {} });
-    });
-}
+// XOÁ (24/09/2026, rà soát refresh DOM) — listener `btnOpenDebugConsole` (#setting-open-debug-console không còn
+// trong DOM, Debug console mở qua Settings > Troubleshooting — event/workflow/app-settings.js::_renderDebugConsole()).
 
 // MỚI (10/09/2026, Giang yêu cầu — "lối tắt cưỡng chế mở Debug Console ngay trên layer loading
 // shield", phục vụ debug lúc app bị kẹt/treo dưới #loading-shield, xem docstring TPL_LOADING_SHIELD
@@ -47,15 +43,5 @@ if (typeof btnRestartApp !== 'undefined' && btnRestartApp) {
     });
 }
 
-if (typeof btnRestoreDefaults !== 'undefined' && btnRestoreDefaults) {
-    btnRestoreDefaults.addEventListener('click', () => {
-        eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.restoreDefaults.click', payload: {} });
-    });
-}
-
-// MỚI (14/07/2026, Giang yêu cầu — "nút xoá cache js/css cho page")
-if (typeof btnClearCache !== 'undefined' && btnClearCache) {
-    btnClearCache.addEventListener('click', () => {
-        eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.clearCache.click', payload: {} });
-    });
-}
+// XOÁ (24/09/2026, rà soát refresh DOM) — listener `btnRestoreDefaults`/`btnClearCache` (id không còn trong DOM).
+// 2 hành động này giờ bấm từ màn Troubleshooting dựng động, gửi CÙNG msg.type qua core/app-settings-ui.js.

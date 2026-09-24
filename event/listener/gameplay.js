@@ -16,11 +16,8 @@
  * Workflow, không cần vòng lại Router).
  */
 
-if (gameModeSettingToggle) {
-    gameModeSettingToggle.addEventListener('change', (e) => {
-        eventBus.send({ router: 'gameplay', type: 'gameplay.modeEnabled.change', payload: { checked: e.target.checked } });
-    });
-}
+// XOÁ (24/09/2026, rà soát refresh DOM) — listener `gameModeSettingToggle` (#setting-gameplay-mode-enabled không
+// còn trong DOM; Game giờ arm qua Game Panel).
 
 if (gameplayTapSurface) {
     gameplayTapSurface.addEventListener('touchstart', (e) => {
