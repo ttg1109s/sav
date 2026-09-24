@@ -30,6 +30,15 @@
  * như React Beat Runner — Point Move không tự trị theo frame, preset LUÔN được nơi gọi truyền THẲNG
  * vào từng lệnh gọi (mirror ĐÚNG cách `_activatePointMove(preset)` gốc nhận preset qua tham số).
  *
+ * MỚI (25/09/2026, Giang duyệt) — BROADCAST áp sống công tắc Point Move: `notifyMotionPointMoveEnabledChanged
+ * (preset, enabled)` (Motion Edit gọi, DUY NHẤT 1 chỗ — event/workflow/motion-presets.js::
+ * changePointMoveEnabled()). CÙNG khuôn `notifyMotionBeatReactPresetsChanged()` của React Beat: Motion
+ * chỉ "hét lên", MỖI Runner tự biết mình có liên quan không (đang chạy nội dung với ĐÚNG preset id đó).
+ * THAY cơ chế cũ: Motion Edit đọc `appState.motionRunning` rồi gọi THẲNG `workflowVisualBgPhotoMotion.
+ * livePointMoveToggle()` — tức Motion BIẾT 1 nơi tiêu thụ cụ thể (vi phạm nguyên tắc tua vít), và chỉ
+ * VBG-Photo áp sống được. Giờ MỌI nơi tiêu thụ đang dùng Runner đều tự áp sống. Phạm vi GIỮ NHƯ CŨ
+ * (Giang chốt): CHỈ công tắc bật/tắt, các field khác đợi lượt kích hoạt kế tiếp.
+ *
  * NẠP SAU: core/motion-engine.js (các hàm pure kể trên).
  * NẠP TRƯỚC: event/workflow/visual-bg-photo-motion.js (dùng làm Runner cho VBG-Photo, đổi tên
  * 17/09/2026 từ event/workflow/motion-engine.js).
@@ -50,6 +59,17 @@ const POINT_MOVE_RUNNER_BASELINE_TARGET = { linearX: 0, linearXUnit: '%', linear
  * (50 mẫu, ~2%/mẫu — đủ mượt, không quá nặng cho `.animate()`). */
 const POINT_MOVE_RUNNER_ALL_STEPS = 50;
 
+/** Registry MỌI Runner đã tạo — mỗi phần tử là hàm xử lý broadcast RIÊNG của 1 Runner (closure). */
+const _motionPointMoveRunnerRegistry = [];
+
+/** Broadcast "công tắc Point Move của preset này vừa đổi" tới MỌI Runner — Runner nào đang chạy nội dung
+ * với ĐÚNG `preset.id` thì tự `liveToggle()`, còn lại bỏ qua. Motion KHÔNG cần biết ai đang tồn tại.
+ * @param {object} preset - bản MỚI NHẤT sau khi lưu (có `id`) @param {boolean} enabled */
+function notifyMotionPointMoveEnabledChanged(preset, enabled) {
+    if (!preset || !preset.id) return;
+    _motionPointMoveRunnerRegistry.forEach((handleFn) => handleFn(preset, enabled));
+}
+
 function createMotionPointMoveRunner(getTargetElementFn) {
     // State RIÊNG của runner NÀY — mirror ĐÚNG 6 field gốc của workflowMotionEngine (_pointMoveAnim/
     // _activationStartAtRealTime/_lastAdvanceMs/_lastAllModePoints/_lastAllModeDurationMs/
@@ -60,6 +80,10 @@ function createMotionPointMoveRunner(getTargetElementFn) {
     let lastAllModePoints = null;
     let lastAllModeDurationMs = 0;
     let lastPointMoveOneIndex = -1;
+    // MỚI (25/09/2026) — cho broadcast `notifyMotionPointMoveEnabledChanged()`: Runner tự biết mình đang
+    // chạy nội dung với preset nào (thay guard `appState.motionRunning` cũ phía nơi tiêu thụ).
+    let activePresetId = null;
+    let hasActiveContent = false;
 
     /** Resolve 6 field/point move thành giá trị SỐ THẬT (random range resolve 1 LẦN, giữ nguyên
      * suốt lượt hiển thị đó — không resolve lại mỗi frame). MIRROR NGUYÊN VẸN logic gốc. */
@@ -204,6 +228,8 @@ function createMotionPointMoveRunner(getTargetElementFn) {
      * gốc) — ghi lại mốc "bắt đầu hiện" (dùng bởi `liveToggle()`).
      * @param {object} preset @param {number} advanceMs */
     function activateForNewContent(preset, advanceMs) {
+        activePresetId = preset.id || null;
+        hasActiveContent = true;
         lastAdvanceMs = advanceMs;
         activationStartAtRealTime = Date.now();
         _runActivate(preset);
@@ -214,6 +240,8 @@ function createMotionPointMoveRunner(getTargetElementFn) {
      * `liveToggle()` sau này tính sai thời điểm cần nhảy tới).
      * @param {object} preset @param {number} advanceMs */
     function activateForPresetChange(preset, advanceMs) {
+        activePresetId = preset.id || null;
+        hasActiveContent = true;
         lastAdvanceMs = advanceMs;
         _runActivate(preset);
     }
@@ -226,6 +254,8 @@ function createMotionPointMoveRunner(getTargetElementFn) {
         lastAllModePoints = null;
         lastAllModeDurationMs = 0;
         lastPointMoveOneIndex = -1;
+        activePresetId = null;
+        hasActiveContent = false;
     }
 
     function pause() { pausePointMoveAnimation(pointMoveAnim); } // core
@@ -233,9 +263,8 @@ function createMotionPointMoveRunner(getTargetElementFn) {
 
     /** Bật/tắt Point Move SỐNG — CALLER tự đảm bảo ĐÚNG preset/context TRƯỚC khi gọi (Runner không
      * tự biết "preset này có phải đang thật sự active hay không" trên toàn hệ thống — đó là việc
-     * nơi tiêu thụ tự quản, vd VBG dùng `appState.motionRunning`, mirror ĐÚNG guard gốc
-     * `livePointMoveToggle()` nhưng đẩy việc guard ra NGOÀI Runner — đúng nguyên tắc "nơi tiêu thụ
-     * quyết hành vi của mình"). Tắt: dừng về baseline NGAY. Bật: activateForPresetChange() lại rồi
+     * SỬA 25/09/2026 — guard giờ nằm ở `_handlePresetEnabledChanged()` ngay dưới, qua broadcast
+     * `notifyMotionPointMoveEnabledChanged()`, thay `appState.motionRunning` cũ). Tắt: dừng về baseline NGAY. Bật: activateForPresetChange() lại rồi
      * NHẢY THẲNG animation tới đúng mốc thời gian ĐÁNG LẼ đã tới (tính từ `activationStartAtRealTime`
      * — mốc nội dung này bắt đầu hiện, KHÔNG đổi bởi việc tắt/bật giữa chừng).
      * @param {object} preset @param {boolean} enabled */
@@ -253,6 +282,13 @@ function createMotionPointMoveRunner(getTargetElementFn) {
             try { pointMoveAnim.currentTime = elapsedMs; } catch (e) {}
         }
     }
+
+    /** Xử lý broadcast — CHỈ áp nếu Runner đang chạy nội dung với ĐÚNG preset vừa đổi. */
+    function _handlePresetEnabledChanged(preset, enabled) {
+        if (!hasActiveContent || preset.id !== activePresetId) return;
+        liveToggle(preset, enabled);
+    }
+    _motionPointMoveRunnerRegistry.push(_handlePresetEnabledChanged); // đăng ký NGAY lúc tạo (CÙNG khuôn React Beat Runner)
 
     return { activateForNewContent, activateForPresetChange, stop, pause, resume, liveToggle };
 }

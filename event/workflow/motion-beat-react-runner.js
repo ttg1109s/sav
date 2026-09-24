@@ -69,6 +69,12 @@
  * NGẮN (vài instance, mỗi nơi tiêu thụ tạo ĐÚNG 1 lần rồi dùng lại — xem
  * event/workflow/player-display-settings.js::_ensureVideoShowingRunner() làm ví dụ), KHÔNG bao giờ
  * lớn, nên broadcast tới TẤT CẢ là rẻ, không cần cơ chế lọc theo presetId phức tạp hơn. */
+// Tốc độ decay envelope (đọc appState.beatScale mỗi frame, core/motion-engine.js::
+// computeMotionEngineBeatReactEnvelope()) — 250ms đủ nhanh để cảm được nhịp, đủ chậm để không giật.
+// DỜI (25/09/2026) từ event/workflow/visual-bg-photo-motion.js về ĐÂY — hằng số CƠ CHẾ của Runner, không
+// thuộc riêng nơi tiêu thụ nào (nguyên tắc tua vít). GIỮ NGUYÊN tên + giá trị.
+const MOTION_ENGINE_BEATREACT_DECAY_MS = 250;
+
 const _motionBeatReactRunnerRegistry = [];
 
 /** Gọi từ NƠI LƯU EDIT preset (event/workflow/motion-presets.js::_mutateEditing(), DUY NHẤT 1 chỗ,
@@ -151,7 +157,7 @@ function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn, 
         }
 
         const speed = (typeof getSpeedFn === 'function' ? getSpeedFn() : 1) || 1; // tuỳ chọn — VBG không truyền -> luôn 1
-        envelope = computeMotionEngineBeatReactEnvelope(envelope, beatScale, deltaMs, MOTION_ENGINE_BEATREACT_DECAY_MS / speed); // core/motion-engine.js + event/workflow/visual-bg-photo-motion.js
+        envelope = computeMotionEngineBeatReactEnvelope(envelope, beatScale, deltaMs, MOTION_ENGINE_BEATREACT_DECAY_MS / speed); // core/motion-engine.js + hằng số đầu file này
         const energy = envelope;
 
         const zoomScale = rb.zoom.enabled ? computeMotionEngineBeatReactZoomScale(zoomEffectiveMax, energy) : 1; // core/motion-engine.js

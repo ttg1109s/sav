@@ -20,13 +20,24 @@ Object.assign(workflowVisualBg, {
 
     /** Đọc preset Motion đang gắn cho Photo VBG — nơi duy nhất tra `appState.motionPresets`
      * (`workflowVisualBgPhotoMotion` nhận preset đã resolve qua tham số, không tự đọc). Chưa gắn/preset
-     * không còn tồn tại -> `MOTION_ENGINE_NO_OP_PRESET` (core/motion-engine.js).
+     * không còn tồn tại -> `MOTION_ENGINE_NO_OP_PRESET` (core/motion-presets.js — dời 25/09/2026).
      * @returns {object}
      */
     _currentMotionPreset() {
         const presetId = appConfigVisualBg.getAll().motionPresetId;
         const preset = presetId ? findMotionPresetById(appState.get('motionPresets'), presetId) : null;
         return preset || (typeof MOTION_ENGINE_NO_OP_PRESET !== 'undefined' ? MOTION_ENGINE_NO_OP_PRESET : null);
+    },
+
+    /** MỚI (25/09/2026) — preset React Beat của VBG (getter truyền cho Image surface -> workflowMotionStage,
+     * Runner chỉ gọi lúc sync(), không mỗi frame). THAY `workflowVisualBgPhotoMotion._getBeatReactPreset()`
+     * cũ — quyết định "dùng preset nào cho React Beat" là của NƠI TIÊU THỤ, không phải của surface/Motion
+     * (nguyên tắc tua vít). Tra TƯƠI theo `motionPresetId` mỗi lần gọi -> luôn đúng bản mới nhất sau khi
+     * Motion Edit lưu (broadcast notifyMotionBeatReactPresetsChanged()).
+     * @returns {object|null} */
+    _getMotionBeatPreset() {
+        const preset = this._currentMotionPreset();
+        return preset && isReactBeatPresetActive(preset) ? preset : null; // core/motion-presets.js
     },
 
     /** Thời lượng hiển thị 1 ảnh (ms) — CHỈ có ý nghĩa ở mode 'slideshow' (nơi VBG THẬT SỰ hẹn giờ
@@ -88,7 +99,16 @@ Object.assign(workflowVisualBg, {
         const advanceMs = this._computePhotoAdvanceMs(record);
         if (typeof workflowVisualBgPhotoMotion === 'undefined') { revokeBlobUrl(objectUrl); return; } // Engine chưa nạp -> chưa ai nhận ownership, tự dọn
         try {
-            await workflowVisualBgPhotoMotion.showImage(objectUrl, this._currentMotionPreset(), advanceMs); // thành công -> Engine nhận ownership NGAY, VBG không revoke lại
+            // SỬA (25/09/2026) — Image surface nhận 2 preset TÁCH RIÊNG (VBG: 1 preset lái cả Transition lẫn
+            // Point Move -> truyền cùng 1 preset 2 lần) + getter React Beat do VBG tự quyết. Kẹp Transition =
+            // advanceMs (mặc định của surface — giữ NGUYÊN hành vi cũ).
+            const motionPreset = this._currentMotionPreset();
+            await workflowVisualBgPhotoMotion.showImage(objectUrl, { // event/workflow/visual-bg-photo-motion.js — thành công -> surface nhận ownership NGAY, VBG không revoke lại
+                transitionPreset: motionPreset,
+                pointMovePreset: motionPreset,
+                advanceMs,
+                getBeatPresetFn: () => this._getMotionBeatPreset(),
+            });
         } catch (e) {
             revokeBlobUrl(objectUrl); // giao thất bại giữa chừng -> Engine chưa kịp giữ URL, VBG tự thu hồi
             throw e;

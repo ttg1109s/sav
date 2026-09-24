@@ -28,7 +28,7 @@
  * core/player-display-apply.js (apply*ToDOM()/clear*FromDOM()), core/dom-refs.js
  * (motionEngineReactLayer/bgVideoElement/visualBgImageElement), core/motion-presets.js
  * (findMotionPresetById()/isReactBeatPresetActive()), event/workflow/visual-bg-photo-motion.js
- * (MOTION_ENGINE_NO_OP_PRESET, đổi tên 17/09/2026 từ event/workflow/motion-engine.js),
+ * (MOTION_ENGINE_NO_OP_PRESET đã dời về core/motion-presets.js 25/09/2026),
  * event/workflow/motion-presets.js (workflowMotionPresets.openPicker() — chỉ gọi lúc chạy),
  * event/workflow/motion-beat-react-runner.js (createMotionBeatReactRunner()), event/workflow/
  * motion-point-move-runner.js (createMotionPointMoveRunner()), event/workflow/
@@ -53,7 +53,7 @@ const workflowPlayerDisplaySettings = {
     _resolveVideoTransitionPreset(direction) {
         const field = direction === 'prev' ? 'videoTransitionPrevPresetId' : 'videoTransitionNextPresetId';
         const presetId = appConfigPlayerDisplay.getAll()[field]; // core/config.js
-        if (!presetId) return MOTION_ENGINE_NO_OP_PRESET; // event/workflow/visual-bg-photo-motion.js
+        if (!presetId) return MOTION_ENGINE_NO_OP_PRESET; // core/motion-presets.js
         return findMotionPresetById(appState.get('motionPresets'), presetId) || MOTION_ENGINE_NO_OP_PRESET; // core/motion-presets.js
     },
 
@@ -333,7 +333,7 @@ const workflowPlayerDisplaySettings = {
      * @returns {object} */
     _resolveVideoShowingPreset() {
         const presetId = appConfigPlayerDisplay.getAll().videoShowingPresetId; // core/config.js
-        return (presetId && findMotionPresetById(appState.get('motionPresets'), presetId)) || MOTION_ENGINE_NO_OP_PRESET; // core/motion-presets.js, event/workflow/visual-bg-photo-motion.js
+        return (presetId && findMotionPresetById(appState.get('motionPresets'), presetId)) || MOTION_ENGINE_NO_OP_PRESET; // core/motion-presets.js
     },
 
     /** Core thuần phụ — thời lượng hành trình Point Move Video: thời lượng video chia tốc độ phát
