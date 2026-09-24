@@ -175,12 +175,12 @@ const routerPlayerControls = (() => {
 
             // ===================== Sự kiện audioPlayer =====================
             case 'playerControls.audio.play': {
-                handleAudioPlay();
+                workflowPlayerControls.handleAudioPlayEvent(); // SỬA (24/09/2026) — core + vẽ lại hàng + đồng bộ VBG, xem docstring
                 break;
             }
 
             case 'playerControls.audio.pause': {
-                handleAudioPause();
+                workflowPlayerControls.handleAudioPauseEvent(); // SỬA (24/09/2026) — đối xứng case trên
                 break;
             }
 
