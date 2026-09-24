@@ -64,7 +64,7 @@ input[type=range].ptmove-range-input::-moz-range-thumb { pointer-events: auto; w
 /* Đường cong Timing (Point Move 'all' mode) — SVG kéo-thả, xem core/point-move-timing-ui.js. */
 .ptmove-timing-wrapper { width: 100%; }
 .ptmove-timing-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; border-radius: 0.75rem; }
-.ptmove-timing-zoomable { transform-origin: 0 0; transition: transform 0.15s ease; }
+.ptmove-timing-zoomable { transform-origin: 0 0; transition: transform 0.15s ease; aspect-ratio: 700 / 110; } /* VÁ (25/09/2026, Giang báo "vào/chọn point move trên Timing -> Drawer thụt xuống rồi mới lên") — GIỮ CHỖ đúng chiều cao SVG NGAY từ lúc gắn nội dung: SVG chỉ được append trong onMount (SAU khi Drawer đã đo chiều cao đích) -> trước đây Drawer co về chiều cao KHÔNG có SVG rồi mới giãn lại. 700/110 PHẢI khớp .ptmove-timing-svg ngay dưới + POINT_MOVE_TIMING_SVG_W/H (core/point-move-timing-ui.js). */
 .ptmove-timing-svg { width: 100%; height: auto; aspect-ratio: 700 / 110; display: block; touch-action: none; } /* SỬA (phản hồi Giang — "chỉ có trục X") — 700/110 PHẢI khớp POINT_MOVE_TIMING_SVG_W/H (core/point-move-timing-ui.js) — đổi 1 chỗ phải đổi luôn chỗ kia. */
 .ptmove-timing-track { stroke: var(--uitk-timing-line, #475569); stroke-width: 2; }
 .ptmove-timing-tick { stroke: var(--uitk-timing-line, #475569); stroke-width: 1; }
