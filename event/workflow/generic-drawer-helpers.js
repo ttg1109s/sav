@@ -160,6 +160,25 @@ const workflowGenericDrawerHelpers = {
         if (genericDrawerPanel.classList.contains('hidden')) return; // đo lúc display:none luôn ra 0
         // Vùng tự đánh dấu bỏ qua (vd carousel Settings Main đổi class liên tục lúc cuộn ngang, components/settings/app-settings-main.js).
         if (mutations.every((m) => m.target instanceof Element && m.target.closest('[data-gd-ignore-mutation]'))) return;
+        this._retargetHeight();
+    },
+
+    /** MỚI (24/09/2026, Giang báo "LẦN ĐẦU mở Settings rồi vào màn con bất kỳ: chiều cao thụt xuống 1 chút rồi mới giật
+     * lên đúng; đóng mở lại thì hết") — ứng với 'genericDrawer.styles.change'. NGUYÊN NHÂN: Tailwind chạy bằng Play CDN
+     * (index.html, cdn.tailwindcss.com) — CSS cho class nào CHƯA từng xuất hiện chỉ được sinh ra SAU khi class đó vào
+     * DOM (Tailwind tự nghe DOM rồi mới ghi CSS vào <style> trong <head>, bất đồng bộ). Lượt đầu mở 1 màn con, lúc
+     * `update()` đo chiều cao đích thì các class mới (padding, gap, cỡ chữ...) CHƯA có CSS -> nội dung đo ra THẤP hơn
+     * thật -> animate về đích sai (thụt xuống), tới khi CSS về thì chiều cao thật nhảy lên (không có mutation nào
+     * trong body để nhắm lại). Lượt sau CSS đã có sẵn nên đo đúng ngay. Listener (event/listener/generic-drawer.js)
+     * báo mỗi lần <head> đổi style -> nhắm lại chiều cao theo CSS mới, mượt từ chiều cao đang hiển thị. */
+    onStylesChanged() {
+        if (genericDrawerPanel.classList.contains('hidden')) return; // đo lúc display:none luôn ra 0
+        this._retargetHeight();
+    },
+
+    /** Nội dung/CSS vừa đổi -> chiều cao thật có thể đổi -> animate mượt từ chiều cao đang hiển thị tới chiều cao thật
+     * mới (dùng chung cho `onBodyMutated()` và `onStylesChanged()`). */
+    _retargetHeight() {
         const nowMs = performance.now();
         if (nowMs < this._heightAnimEndAt) {
             // Đang animate: huỷ tạm để đo chiều cao thật mới (animation phủ lên giá trị đo).
