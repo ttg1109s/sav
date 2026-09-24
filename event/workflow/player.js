@@ -135,7 +135,11 @@ const workflowPlayer = {
         if (cachedForDispatch && cachedForDispatch.mediaType === 'photo') {
             const switchScreen = !options || options.switchScreen !== false;
             if (appState.get('isPhotoPlayerMode')) {
-                workflowPhotoPlayer.playPhotoByKey(key, switchScreen); // event/workflow/photo-player.js — đã ở mode, chỉ đổi ảnh
+                // SỬA (25/09/2026, đợt 3 Motion) — truyền `direction` (CÙNG công thức nhánh Video ngay trên) để
+                // Player Photo chọn đúng slot Transition Next/Prev. Vào mode lần đầu (nhánh dưới) KHÔNG cần —
+                // ảnh đầu luôn hiện tĩnh, không có gì để transition từ.
+                const direction = (options && options.direction) || 'next';
+                workflowPhotoPlayer.playPhotoByKey(key, switchScreen, direction); // event/workflow/photo-player.js — đã ở mode, chỉ đổi ảnh
             } else {
                 // FIX (10/09/2026, Giang báo bug "hết bài lúc đang duyệt Playlist Video/Photo bị ép
                 // mở Visualizer") — TRƯỚC ĐÂY gọi `startFromPlaylist(key)` KHÔNG kèm `switchScreen`

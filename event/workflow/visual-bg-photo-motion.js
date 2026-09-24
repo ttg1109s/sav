@@ -16,6 +16,13 @@
  *     `notifyMotionPointMoveEnabledChanged()` (event/workflow/motion-point-move-runner.js).
  *   - `MOTION_ENGINE_NO_OP_PRESET` dời sang core/motion-presets.js; `MOTION_ENGINE_BEATREACT_DECAY_MS` dời
  *     sang event/workflow/motion-beat-react-runner.js; 2 tên task dời sang event/workflow/motion-stage.js.
+ *   - ĐỢT 3 (25/09/2026, Player Photo dùng chung): thêm `owner` (chuỗi MỜ do nơi tiêu thụ tự đặt — surface
+ *     KHÔNG hiểu nghĩa, chỉ so bằng) — mọi lệnh "sửa nội dung đang hiện" (updatePreset/restartPointMove/
+ *     pause/resume/updateBackgroundSize) CHỈ có tác dụng nếu đúng owner đang hiện, chặn chéo (vd VBG nhận
+ *     sự kiện 'pause' của Song lúc Player Photo đang giữ surface). showImage() với owner KHÁC owner đang
+ *     hiện -> hiện TĨNH (không transition giữa 2 nơi tiêu thụ). `stop()` GIỮ vô điều kiện (dọn lớp lúc đổi
+ *     mode — xem workflowVisualBg.clearMediaLayers()). Thêm option `onShown` (ảnh mới hiện TRỌN: tĩnh ->
+ *     ngay; transition -> lúc Transition xong) + `hasContent(owner)`.
  * =====================================================================================================
  *
  * transition/Point Move/React Beat Audio của Visual Background (`type='photo'`). File này KHÔNG
@@ -85,6 +92,7 @@ const workflowVisualBgPhotoMotion = {
     _hasCurrentResource: false, // đang giữ/hiện 1 ảnh hay chưa — QUYẾT ĐỊNH hiện tĩnh hay transition
     _currentObjectUrl: null, // object URL ẢNH ĐANG HIỆN — SỞ HỮU của surface (tự revoke)
     _getBeatPresetFn: null, // getter preset React Beat của nơi tiêu thụ ĐANG dùng (lượt showImage() gần nhất)
+    _owner: null, // chuỗi MỜ của nơi tiêu thụ đang giữ ảnh hiện tại (ĐỢT 3) — chỉ so bằng, không hiểu nghĩa
 
     _currentLayer() { return this._layerToggle ? visualBgPhotoMotionLayer2 : visualBgPhotoMotionLayer1; },
     _idleLayer() { return this._layerToggle ? visualBgPhotoMotionLayer1 : visualBgPhotoMotionLayer2; },
@@ -102,42 +110,60 @@ const workflowVisualBgPhotoMotion = {
             transitionCapMs: typeof o.transitionCapMs === 'number' ? o.transitionCapMs : advanceMs,
             backgroundSize: o.backgroundSize || '',
             getBeatPresetFn: typeof o.getBeatPresetFn === 'function' ? o.getBeatPresetFn : null,
+            onShown: typeof o.onShown === 'function' ? o.onShown : null,
         };
     },
 
+    /** Public — `owner` đang giữ 1 ảnh hiện trên surface (và Stage chưa bị bên khác thay ca) hay không.
+     * Nơi tiêu thụ dùng để TỰ biết lượt showImage() kế tiếp sẽ là transition hay hiện tĩnh.
+     * @param {string} owner @returns {boolean} */
+    hasContent(owner) {
+        return this._hasCurrentResource && this._owner === owner && workflowMotionStage.isCurrent(this._stageToken); // event/workflow/motion-stage.js
+    },
+
     /** Public — ĐIỂM VÀO DUY NHẤT để hiện 1 ảnh. `objectUrl` rỗng/null -> `stop()`. Surface TỰ QUYẾT hiện
-     * tĩnh (chưa có ảnh / Stage đã bị bên khác thay ca) hay transition.
+     * tĩnh (chưa có ảnh / owner khác / Stage đã bị bên khác thay ca) hay transition.
      * @param {string|null} objectUrl - surface nhận ownership NGAY (giữ/revoke), nơi gọi không revoke lại.
-     * @param {{transitionPreset?:object, pointMovePreset?:object, advanceMs?:number, transitionCapMs?:number,
-     *          backgroundSize?:string, getBeatPresetFn?:() => (object|null)}} [options] */
+     * @param {{owner?:string, transitionPreset?:object, pointMovePreset?:object, advanceMs?:number,
+     *          transitionCapMs?:number, backgroundSize?:string, getBeatPresetFn?:() => (object|null),
+     *          onShown?:() => void}} [options] */
     async showImage(objectUrl, options) {
         if (!objectUrl) { this.stop(); return; }
         const opts = this._normalizeOptions(options);
-        this._getBeatPresetFn = opts.getBeatPresetFn;
-        if (this._hasCurrentResource && workflowMotionStage.isCurrent(this._stageToken)) { this._showNext(objectUrl, opts); return; } // event/workflow/motion-stage.js
-        this._staticReveal(objectUrl, opts);
+        const owner = (options && options.owner) || null;
+        if (this.hasContent(owner)) { this._getBeatPresetFn = opts.getBeatPresetFn; this._showNext(objectUrl, opts); return; }
+        this._staticReveal(objectUrl, opts, owner);
     },
 
     /** Public — đổi preset Point Move cho ẢNH ĐANG HIỆN tại chỗ (không đổi ảnh, không transition) + đồng bộ
-     * lại React Beat (getter của nơi tiêu thụ tự tra preset mới). No-op nếu chưa có ảnh.
-     * @param {object} pointMovePreset @param {number} advanceMs */
-    updatePreset(pointMovePreset, advanceMs) {
-        if (!this._hasCurrentResource) return;
+     * lại React Beat (getter của nơi tiêu thụ tự tra preset mới). No-op nếu `owner` không đang giữ ảnh.
+     * @param {string} owner @param {object} pointMovePreset @param {number} advanceMs */
+    updatePreset(owner, pointMovePreset, advanceMs) {
+        if (!this.hasContent(owner)) return;
         workflowMotionStage.activatePointMoveForPresetChange(this._stageToken, pointMovePreset || MOTION_ENGINE_NO_OP_PRESET, advanceMs); // event/workflow/motion-stage.js
         workflowMotionStage.syncBeat(this._stageToken);
     },
 
-    /** Public — chạy LẠI hành trình Point Move từ đầu cho ảnh ĐANG hiện (vd Player tua về 0). No-op nếu chưa có ảnh.
-     * @param {object} pointMovePreset @param {number} advanceMs */
-    restartPointMove(pointMovePreset, advanceMs) {
-        if (!this._hasCurrentResource) return;
+    /** Public — chạy LẠI hành trình Point Move từ đầu cho ảnh ĐANG hiện (vd Player tua về 0).
+     * @param {string} owner @param {object} pointMovePreset @param {number} advanceMs */
+    restartPointMove(owner, pointMovePreset, advanceMs) {
+        if (!this.hasContent(owner)) return;
         workflowMotionStage.activatePointMoveForNewContent(this._stageToken, pointMovePreset || MOTION_ENGINE_NO_OP_PRESET, advanceMs); // event/workflow/motion-stage.js
     },
 
+    /** Public — đổi `background-size` của ảnh ĐANG hiện (vd Player đổi Resolution sống).
+     * @param {string} owner @param {string} backgroundSize - '' = mặc định CSS */
+    updateBackgroundSize(owner, backgroundSize) {
+        if (!this.hasContent(owner)) return;
+        const panEl = this._currentPanLayer();
+        if (panEl) panEl.style.backgroundSize = backgroundSize || '';
+    },
+
     /** Internal — hiện ảnh ĐẦU tĩnh + MƯỢN Stage (không có gì để transition TỪ). */
-    _staticReveal(objectUrl, opts) {
+    _staticReveal(objectUrl, opts, owner) {
         this.stop();
         this._getBeatPresetFn = opts.getBeatPresetFn; // stop() vừa xoá — gán lại
+        this._owner = owner;
         setMotionEngineContainerVisible(visualBgPhotoMotionContainer, true); // core
         this._currentObjectUrl = objectUrl;
         const panEl = this._currentPanLayer();
@@ -152,6 +178,7 @@ const workflowVisualBgPhotoMotion = {
         this._hasCurrentResource = true;
         workflowMotionStage.activatePointMoveForNewContent(this._stageToken, opts.pointMovePreset, opts.advanceMs);
         workflowMotionStage.syncBeat(this._stageToken);
+        if (opts.onShown) opts.onShown(); // hiện tĩnh = hiện TRỌN ngay
     },
 
     /** Internal — CHUYỂN sang ảnh mới: gán nội dung layer đích TRƯỚC, rồi Stage chạy Transition; surface tự
@@ -173,6 +200,7 @@ const workflowVisualBgPhotoMotion = {
                 setMotionEngineLayerImage(outgoingPan, ''); // core
                 if (outgoingPan) outgoingPan.style.backgroundSize = '';
                 if (staleUrl) { try { URL.revokeObjectURL(staleUrl); } catch (e) {} }
+                if (opts.onShown) opts.onShown(); // Transition xong (hoặc bị lượt sau/stop() cắt ngang — nơi tiêu thụ tự guard thế hệ)
             },
         );
 
@@ -181,9 +209,11 @@ const workflowVisualBgPhotoMotion = {
         workflowMotionStage.syncBeat(this._stageToken);
     },
 
-    /** Đóng băng Point Move + React Beat tại chỗ — nơi tiêu thụ tự quyết lúc nào. */
-    pause() { workflowMotionStage.pause(this._stageToken); }, // event/workflow/motion-stage.js
-    resume() { workflowMotionStage.resume(this._stageToken); },
+    /** Đóng băng Point Move + React Beat tại chỗ — nơi tiêu thụ tự quyết lúc nào. No-op nếu sai owner.
+     * @param {string} owner */
+    pause(owner) { if (this.hasContent(owner)) workflowMotionStage.pause(this._stageToken); }, // event/workflow/motion-stage.js
+    /** @param {string} owner */
+    resume(owner) { if (this.hasContent(owner)) workflowMotionStage.resume(this._stageToken); },
 
     /** Dừng hẳn — trả Stage (Transition dở dang tự gọi onSettle), dọn layer/URL/state của surface. */
     stop() {
@@ -198,5 +228,6 @@ const workflowVisualBgPhotoMotion = {
         if (this._currentObjectUrl) { try { URL.revokeObjectURL(this._currentObjectUrl); } catch (e) {} this._currentObjectUrl = null; }
         this._hasCurrentResource = false;
         this._getBeatPresetFn = null;
+        this._owner = null;
     },
 };

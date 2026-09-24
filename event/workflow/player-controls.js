@@ -219,7 +219,7 @@ const workflowPlayerControls = {
             // CHỈ đổi cờ `photoPlayerPaused`, KHÔNG tự bắn gì thêm — xem core/photo-player.js) nên
             // PHẢI gọi `startListenClock()` THẲNG ở đây, nếu không ảnh lặp lại (repeat-single) sẽ
             // câm lặng ngừng tính totalTime sau đúng 1 vòng đầu tiên.
-            else if (isPhotoPlayerMode) { activeEl.play(); startListenClock(); } // photoPlayerFakeMediaElement.play() KHÔNG async, KHÔNG cần .catch()
+            else if (isPhotoPlayerMode) { activeEl.play(); startListenClock(); workflowPhotoPlayer.onClockRestarted(); } // photoPlayerFakeMediaElement.play() KHÔNG async, KHÔNG cần .catch() — SỬA 25/09/2026: + chạy lại Point Move từ đầu (event/workflow/photo-player.js)
             else activeEl.play();
             return;
         }
@@ -263,7 +263,11 @@ const workflowPlayerControls = {
         const activeEl = getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode); // core/player-controls.js — SỬA (Giang yêu cầu, Photo tích hợp duration) thêm isPhotoPlayerMode
 
         // "Quá 3s vào bài/video hiện tại -> chỉ tua về đầu" — ĐÚNG hành vi gốc `playPrev()`.
-        if (activeEl.currentTime > 3) { activeEl.currentTime = 0; return; }
+        if (activeEl.currentTime > 3) {
+            activeEl.currentTime = 0;
+            if (isPhotoPlayerMode) workflowPhotoPlayer.onClockRestarted(); // SỬA 25/09/2026 — đồng hồ giả tua về 0 không bắn sự kiện gì, báo Player Photo chạy lại Point Move (event/workflow/photo-player.js)
+            return;
+        }
 
         const list = isShuffle ? shuffleIndices : displayOrder;
         const step = computeListStep(list, currentKey, -1); // core mới (order.js)

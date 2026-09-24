@@ -13,6 +13,9 @@
  * service/state.js. NẠP TRƯỚC: event/workflow/visual-bg-video.js, event/workflow/visual-bg-photo.js,
  * event/router/visual-bg.js.
  */
+// MỚI (25/09/2026) — chuỗi owner MỜ của VBG khi dùng Image surface (event/workflow/visual-bg-photo-motion.js)
+// — surface giờ DÙNG CHUNG với Player Photo, chỉ so bằng chuỗi này để chặn chéo (xem docstring surface).
+const VISUAL_BG_IMAGE_SURFACE_OWNER = 'visualBg';
 let visualBgSettingsPanelEl = null;
 let visualBgGradientPanelEl = null;
 
@@ -244,7 +247,7 @@ const workflowVisualBg = {
         const cfg = appConfigVisualBg.getAll();
         if (cfg.type !== 'video') {
             syncVisualBgVideoPlayback(audioPlayer.paused);
-            if (typeof workflowVisualBgPhotoMotion !== 'undefined') { if (audioPlayer.paused) workflowVisualBgPhotoMotion.pause(); else workflowVisualBgPhotoMotion.resume(); }
+            if (typeof workflowVisualBgPhotoMotion !== 'undefined') { if (audioPlayer.paused) workflowVisualBgPhotoMotion.pause(VISUAL_BG_IMAGE_SURFACE_OWNER); else workflowVisualBgPhotoMotion.resume(VISUAL_BG_IMAGE_SURFACE_OWNER); } // SỬA 25/09/2026 — kèm owner: surface giờ DÙNG CHUNG với Player Photo, sự kiện Song pause/play lúc Player Photo đang giữ surface không được đụng tới nó
             this._syncPhotoTicking();
             return;
         }
@@ -911,7 +914,7 @@ const workflowVisualBg = {
         console.log(`writer: "workflowVisualBg.changeMotionPresetId", page: "visualBgConfig", content: "motionPresetId=${value || null}"`);
         await this._persist();
         if (typeof workflowVisualBgPhotoMotion !== 'undefined') {
-            workflowVisualBgPhotoMotion.updatePreset(this._currentMotionPreset(), this._photoRecord ? this._computePhotoAdvanceMs(this._photoRecord) : 0);
+            workflowVisualBgPhotoMotion.updatePreset(VISUAL_BG_IMAGE_SURFACE_OWNER, this._currentMotionPreset(), this._photoRecord ? this._computePhotoAdvanceMs(this._photoRecord) : 0); // SỬA 25/09/2026 — kèm owner (no-op nếu Player Photo đang giữ surface)
         }
     },
 

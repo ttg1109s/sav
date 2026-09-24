@@ -104,6 +104,7 @@ Object.assign(workflowVisualBg, {
             // advanceMs (mặc định của surface — giữ NGUYÊN hành vi cũ).
             const motionPreset = this._currentMotionPreset();
             await workflowVisualBgPhotoMotion.showImage(objectUrl, { // event/workflow/visual-bg-photo-motion.js — thành công -> surface nhận ownership NGAY, VBG không revoke lại
+                owner: VISUAL_BG_IMAGE_SURFACE_OWNER, // event/workflow/visual-bg-common.js
                 transitionPreset: motionPreset,
                 pointMovePreset: motionPreset,
                 advanceMs,
