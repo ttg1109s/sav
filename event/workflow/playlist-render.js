@@ -109,8 +109,13 @@ const workflowPlaylistRender = {
      * refreshSongNode) đều qua `buildSongNode()` nên chỉ cần gọi ở cuối hàm đó.
      * @param {HTMLElement} node @param {string} key */
     _applySelectionLayer(node, key) {
+        const selectionMode = appState.get('selectionMode');
         VirtualMachineState.run([
-            { state: appState.get('selectionMode'), operation: '===', value: true, callback: () => showSelectionIndicator(node, key, appState.get('selectedMediaKeys'), workflowPlaylist._selectionThemeClasses()) }, // core/playlist/selection.js + event/workflow/playlist.js
+            { state: selectionMode, operation: '===', value: true, callback: () => showSelectionIndicator(node, key, appState.get('selectedMediaKeys'), workflowPlaylist._selectionThemeClasses()) }, // core/playlist/selection.js + event/workflow/playlist.js
+            // SỬA (24/09/2026, Giang gửi log boot: 51 dòng "[VirtualMachineState] run() — không rule nào khớp" — mỗi node dựng
+            // 1 dòng khi KHÔNG ở chế độ chọn) — khai báo rõ nhánh "không chọn" là no-op có chủ đích, CÙNG khuôn
+            // event/router/gameplay.js (nhánh armedGameId === null).
+            { state: selectionMode, operation: '===', value: false, callback: () => {} },
         ]);
     },
 
