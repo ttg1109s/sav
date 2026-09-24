@@ -701,13 +701,13 @@
     <script src="core/ui-theme/apply-ui.js?v=20260909v1"></script>
     <!-- MỚI (21/09/2026, Giang báo "status bar Morphin không đồng bộ màu") — 3 hàm tính/tô màu status bar theo nền thật (gradient/ảnh) của Morphin; thuần hàm, không phụ thuộc file nào, được gọi lúc RUNTIME bởi event/workflow/ui-theme.js::syncStatusBarColor(). -->
     <script src="core/ui-theme/status-bar-color.js?v=20260921v2"></script>
-    <script src="core/generic-drawer.js?v=20260924r7"></script>
+    <script src="core/generic-drawer.js?v=20260924r8"></script>
     <!-- GỘP LẠI (31/07/2026, Giang chỉ ra "xây Generic Drawer mà vẫn phải nhân bản là vô lý") — 2
          helper Workflow (closeFully()/buildSimpleHeaderHtml()) từng chép tay ở nhiều file khác
          nhau (file-manager-photo/file-manager-video/file-manager-folder-browser/playlist/
          image-edit/slideshow), gộp về 1 chỗ. NẠP NGAY SAU core/generic-drawer.js, TRƯỚC
          mọi Workflow ở dưới có dùng tới. -->
-    <script src="event/workflow/generic-drawer-helpers.js?v=20260924r7"></script>
+    <script src="event/workflow/generic-drawer-helpers.js?v=20260924r8"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — core UI thuần cho bottom nav + Game/Statis
          panel + wire nút động Setting (core/app-settings-ui.js, Rule 5a) — CẦN core/dom-refs.js
          (đã nạp) + core/generic-drawer.js (đã nạp ngay trên). -->
