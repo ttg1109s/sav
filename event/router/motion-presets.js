@@ -1,6 +1,6 @@
 /**
  * event/router/motion-presets.js — Router tên "motionPresets", tự đăng ký với eventBus lúc nạp.
- * Mọi msg.type của hệ "Cấu hình Motion" (danh sách/sửa/Point Move/Timing/Áp dụng), xem
+ * Mọi msg.type của hệ "Cấu hình Motion" (danh sách/sửa/Point Move/Timing/Chọn — picker), xem
  * event/workflow/motion-presets.js (workflowMotionPresets).
  *
  * NẠP SAU: event/bus.js, event/workflow/motion-presets.js.
@@ -173,14 +173,21 @@ const routerMotionPresets = (() => {
                 workflowMotionPresets.deleteEditing();
                 break;
 
-            // ===================== Áp dụng cho nơi tiêu thụ =====================
+            // ===================== Chế độ Chọn (picker) =====================
+            // MỚI (24/09/2026) — THAY 2 case 'motionPresets.applyConsumer.change'/'motionPresets.applyToggle.click'
+            // của cơ chế đăng ký "Áp dụng cho" cũ (ĐÃ XOÁ). Nơi tiêu thụ mở màn này qua
+            // workflowMotionPresets.openPicker() (Workflow gọi Workflow, không qua message riêng ở đây).
 
-            case 'motionPresets.applyConsumer.change':
-                workflowMotionPresets.changeApplyConsumer(msg.payload.value);
+            case 'motionPresets.picker.select.click':
+                workflowMotionPresets.selectPickerDraft(msg.payload.id);
                 break;
 
-            case 'motionPresets.applyToggle.click':
-                workflowMotionPresets.toggleApplySubscription();
+            case 'motionPresets.picker.page.change':
+                workflowMotionPresets.setPickerPage(msg.payload.pageIndex);
+                break;
+
+            case 'motionPresets.picker.apply.click':
+                workflowMotionPresets.applyPicker();
                 break;
 
             default:

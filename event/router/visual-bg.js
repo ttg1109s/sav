@@ -31,8 +31,10 @@ const routerVisualBg = (() => {
                 workflowVisualBg.openDurationSecondsPicker();
                 break;
 
-            case 'visualBg.motionPresetId.change':
-                workflowVisualBg.changeMotionPresetId(msg.payload.value);
+            // SỬA (24/09/2026, Giang yêu cầu — xoá cơ chế đăng ký Motion vào nơi tiêu thụ) — THAY case
+            // 'visualBg.motionPresetId.change' (select cũ): hàng Motion mở THẲNG màn Chọn của Motion.
+            case 'visualBg.motionPicker.open.click':
+                workflowVisualBg.openMotionPicker();
                 break;
 
             case 'visualBg.syncPlaybackSpeed.change':

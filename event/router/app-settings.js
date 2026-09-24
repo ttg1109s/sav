@@ -103,8 +103,11 @@ const routerAppSettings = (() => {
                 break;
             }
 
-            case 'appSettings.player.motionSlot.change': {
-                workflowAppSettings.handlePlayerMotionSlotChange(msg.payload.kind, msg.payload.slot, msg.payload.value);
+            // SỬA (24/09/2026, Giang yêu cầu — xoá cơ chế đăng ký Motion vào nơi tiêu thụ) — THAY case
+            // 'appSettings.player.motionSlot.change' (select cũ): hàng Motion giờ mở THẲNG màn Chọn của Motion.
+            // Chuẩn bị state (đọc id đang gắn) + điều hướng -> Workflow của domain 'playerDisplay' (liên tuyến).
+            case 'appSettings.player.motionSlot.openPicker.click': {
+                workflowPlayerDisplaySettings.openMotionSlotPicker(msg.payload.kind, msg.payload.slot);
                 break;
             }
 
