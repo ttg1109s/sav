@@ -88,8 +88,12 @@ const workflowGenericDrawerHelpers = {
         taskManager.kill('genericDrawerHideAfterClose'); // đóng rồi mở lại trong < 300ms: không để hẹn giờ cũ ẩn mất Drawer mới
         taskManager.kill('genericDrawerHeightAnimEnd');
         if (genericDrawerPanel.classList.contains('hidden')) this._scrollMemo.clear(); // phiên mới
-        openGenericDrawer({ ...drawerConfig, scrollTop: 0 }); // core/generic-drawer.js
+        // SỬA (24/09/2026, Giang báo "viền list item nháy sáng") — THỨ TỰ BẮT BUỘC: gắn nội dung -> áp theme -> MỚI tới
+        // bước đọc layout (trượt vào ép reflow, đo, đặt scroll). Áp theme sau reflow = viền có transition chạy từ màu
+        // mặc định sáng sang màu theme = nháy. Xem core/generic-drawer.js::mountGenericDrawerContent().
+        mountGenericDrawerContent(drawerConfig); // core/generic-drawer.js
         applyUiThemeToDom(genericDrawerPanel, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
+        openGenericDrawer(); // core/generic-drawer.js
         this._heightPx = settleGenericDrawerHeightPx(); // core/generic-drawer.js
         this._heightAnimEndAt = 0;
         this._setScrollState(scrollKey, 0);
@@ -107,7 +111,8 @@ const workflowGenericDrawerHelpers = {
         const nowMs = performance.now();
         const fromPx = readGenericDrawerHeightPx(); // core — chiều cao ĐANG hiển thị (kể cả giữa 1 animation trước)
         taskManager.kill('genericDrawerHeightAnimEnd');
-        updateGenericDrawer({ ...drawerConfig, scrollTop: target }); // core
+        // SỬA (24/09/2026) — gắn -> áp theme NGAY, trước mọi bước đọc layout (lý do: xem `open()` ngay trên).
+        mountGenericDrawerContent(drawerConfig); // core
         applyUiThemeToDom(genericDrawerPanel, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
         const toPx = settleGenericDrawerHeightPx(); // core
         this._startHeightAnim(fromPx, toPx, heightMs, nowMs);
