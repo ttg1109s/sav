@@ -19,6 +19,13 @@
 const routerFileManagerFolderBrowser = (() => {
     function handle(msg) {
         switch (msg.type) {
+            // MỚI (24/09/2026) — field rule trong màn Filter Edit (change/input/click, gửi từ
+            // workflowFileManagerFolderBrowser._wireFilterEditEvents()) — THAY listener gọi thẳng method.
+            case 'fileManagerFolderBrowser.filterEdit.field': {
+                workflowFileManagerFolderBrowser._handleFolderFilterFieldEvent(msg.payload.event);
+                break;
+            }
+
             case 'fileManagerFolderBrowser.open.click':
                 workflowFileManagerFolderBrowser.openList(); // >1 hàm core (đọc DB + vẽ) -> workflow
                 break;

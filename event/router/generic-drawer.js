@@ -1,6 +1,6 @@
 /**
  * event/router/generic-drawer.js — Router tên "genericDrawer" (MỚI 24/09/2026), tự đăng ký với eventBus lúc nạp.
- * CHỈ 1 nhánh: body Generic Drawer cuộn -> Workflow ghi nhớ vị trí cuộn theo màn đang gắn (xem
+ * Nhánh: body Generic Drawer cuộn -> Workflow ghi nhớ vị trí cuộn theo màn đang gắn (xem
  * event/workflow/generic-drawer-helpers.js, khối "Nhớ vị trí cuộn theo màn").
  *
  * NẠP SAU: event/bus.js, event/workflow/generic-drawer-helpers.js.
@@ -13,6 +13,11 @@ const routerGenericDrawer = (() => {
 
             case 'genericDrawer.body.scroll': {
                 workflowGenericDrawerHelpers.trackScroll();
+                break;
+            }
+
+            case 'genericDrawer.body.mutate': { // MỚI (24/09/2026) — co/giãn chiều cao theo nội dung đổi tại chỗ
+                workflowGenericDrawerHelpers.onBodyMutated(msg.payload.mutations);
                 break;
             }
 
