@@ -118,5 +118,5 @@ function openVideoPreviewModal(data) {
 
 // (v13) — KHÔNG có hàm mở picker video ở file này. Picker "chọn 1 video" dùng CHUNG khung Generic
 // Drawer của picker ảnh: `openMediaPickerDrawerUi(routerName, msgPrefix, title, bodyHtml,
-// tileSelector, tileDataKey, showConfirmButton)` (core/media-picker-drawer-helper.js) — cùng
+// tileSelector, tileDataKey, showConfirmButton)` (core/media-picker-drawer-ui.js) — cùng
 // header, cùng closeBtn, cùng delegated click, chỉ khác selector tile.

@@ -3,7 +3,7 @@
  * dùng chung cho xem/zoom/pan/edit, KHÔNG có khái niệm "mode" nào tách biệt (bỏ dropdown "...") —
  * xem docstring `openImagePreviewModal()` dưới. UI công cụ Edit (grid tool phẳng trong Generic
  * Drawer, không còn nhóm header) vẽ/chỉnh TRỰC TIẾP lên chính canvas đang xem. Picker chọn 1 ảnh
- * dùng chung (cover bài hát/nền Theme) đã DỜI sang core/media-picker-drawer-helper.js::
+ * dùng chung (cover bài hát/nền Theme) đã DỜI sang core/media-picker-drawer-ui.js::
  * openMediaPickerDrawerUi() — không còn ở file này. Grid ảnh chính (Photo Source trong Playlist)
  * dùng event/workflow/photo-gallery-window.js (fjGallery + IntersectionObserver) — không đụng tới
  * file này.
@@ -429,15 +429,16 @@ function openImagePreviewModal(image, viewOnly) {
 // không phải nội dung callback. 2 hàm dưới đây dời TOÀN BỘ phần wire sang đây — Workflow giờ CHỈ
 // còn gọi các hàm này NGAY SAU `openGenericDrawer()` (Workflow gọi Core, không tự cầm DOM API).
 // Hàm mở Generic Drawer picker ảnh/video (khác Edit tool grid dưới đây) đã DỜI sang
-// core/media-picker-drawer-helper.js::openMediaPickerDrawerUi() — dùng chung nhiều domain, không
+// core/media-picker-drawer-ui.js (ĐỔI TÊN 24/09/2026 từ media-picker-drawer-ui.js) — dùng chung nhiều domain, không
 // thuộc riêng miền Photo nữa.
 
-/** Mở Generic Drawer lưới tool Edit mode — dựng headerHtml + gọi `openGenericDrawer()` + wire NGAY
- * closeBtn, TẤT CẢ Ở ĐÂY (Rule 5a).
- * @param {string} title @param {string} bodyHtml
- */
-function openPhotoEditToolGridDrawerUi(title, bodyHtml) {
-    openGenericDrawer({ // core/generic-drawer.js
+/** SỬA (24/09/2026, dọn vi phạm core rule/event bus) — hàm cũ `openPhotoEditToolGridDrawerUi()` (tự gọi core khác
+ * `openGenericDrawer()`, Rule 3) + `wirePhotoEditToolGridDelegation()` (delegated click trên `genericDrawerBody` TĨNH,
+ * phải trả hàm gỡ, Workflow giữ suốt phiên modal) THAY bằng 2 hàm: config thuần + wire trên nội dung động. Workflow
+ * (event/workflow/image-edit.js::openEditToolGrid()) mở qua `workflowGenericDrawerHelpers.open()` rồi gọi wire.
+ * @param {string} title @param {string} bodyHtml @returns {object} config Generic Drawer lưới tool Edit mode */
+function buildPhotoEditToolGridDrawerConfig(title, bodyHtml) {
+    return {
         height: 'auto', maxHeight: '70vh',
         zIndex: Z_INDEX.IMAGE_ACTION_MENU_DRAWER, // service/z-index.js (131) — TRÊN modal xem ảnh (130)
         headerHtml: `
@@ -450,28 +451,24 @@ function openPhotoEditToolGridDrawerUi(title, bodyHtml) {
         `,
         bodyHtml,
         bodyClass: 'overflow-y-auto',
-    });
-    const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-    if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.toolGrid.close.click', payload: {} }));
+    };
 }
 
-/** Wire delegated click trên `genericDrawerBody` cho tile lưới tool (`[data-edit-tool]`) — gọi
- * ĐÚNG 1 lần/phiên xem ảnh (`ensureEditSessionReady()`), KHÔNG gọi lại mỗi lần
- * `openPhotoEditToolGridDrawerUi()` mở lại lưới (listener cũ không tự mất theo `innerHTML`, gắn lại
- * sẽ chồng chất — xem cách dùng ở `event/workflow/image-edit.js::_wireEditToolGridDelegation()`).
- * Cùng lý do "PHẢI tự wire/gỡ theo vòng đời" như `openMediaPickerDrawerUi()` (core/media-picker-
- * drawer-helper.js).
- * @returns {() => void} hàm gỡ — Workflow tự lưu, gọi lúc đóng hẳn modal.
- */
-function wirePhotoEditToolGridDelegation() {
-    const handler = (e) => {
+/** Wire nút X + click tile lưới tool (`[data-edit-tool]`, delegated trên các con TRỰC TIẾP của body — DOM động, tự mất
+ * khi nội dung bị thay, không cần hàm gỡ). Callback CHỈ bắn eventBus (Rule 5a). Gọi NGAY SAU khi gắn nội dung. */
+function wirePhotoEditToolGridDrawerUi() {
+    const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
+    const contentRoots = Array.from(genericDrawerBody.children);
+
+    // --- addEventListener: gom cuối hàm (Rule 5a) ---
+    if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.toolGrid.close.click', payload: {} }));
+    contentRoots.forEach((root) => root.addEventListener('click', (e) => {
         const tile = e.target.closest('[data-edit-tool]');
         if (!tile) return;
         eventBus.send({ router: 'imageEdit', type: 'imageEdit.toolGrid.tile.click', payload: { tool: tile.dataset.editTool } });
-    };
-    genericDrawerBody.addEventListener('click', handler);
-    return () => genericDrawerBody.removeEventListener('click', handler);
+    }));
 }
+
 
 // XOÁ (Giang chỉ ra `workflowElementStyleEditor` — event/workflow/element-style-editor.js — vốn đã
 // là công cụ CHUNG dùng bởi Subtitle Styling, không cần tự chế Generic Drawer riêng cho Photo layer
