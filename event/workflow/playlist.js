@@ -156,7 +156,7 @@ const workflowPlaylist = {
             if (record) await removeSongFromAllFolders(record); // core/file-manager/folder.js
             await deleteRecord(mediaKey);
             removeSongStats(mediaKey); // dọn luôn thống kê nghe của bài đã xoá — key-agnostic, dùng chung được cho Video/Photo
-            removeKeyFromDisplay(mediaKey); // core/playlist/actions.js
+            workflowPlaylistOrder.removeKeyFromDisplay(mediaKey); // event/workflow/playlist-order.js (dời từ core 24/09/2026)
 
             if (isCurrent && isVideo) {
                 // Video đang là currentKey (đã pause, hoặc chưa từng phát) — dọn bgVideoElement/
@@ -172,7 +172,7 @@ const workflowPlaylist = {
                 audioPlayer.pause(); audioPlayer.src = ''; appState.set('currentKey', null);
                 playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
                 if (typeof killAllAutoSwitchVisualTasks === 'function') killAllAutoSwitchVisualTasks();
-                if (typeof forceBackToPlaylistUI === 'function') forceBackToPlaylistUI();
+                workflowPlayerControls.returnToPlaylistUI(); // event/workflow/player-controls.js — SỬA 24/09/2026 (thay core forceBackToPlaylistUI())
                 if (typeof setVisualizerActiveFalse === 'function') setVisualizerActiveFalse();
             }
         }).then(() => {
@@ -193,6 +193,19 @@ const workflowPlaylist = {
         openSongEditModal(key); // core/playlist/actions.js
     },
 
+    /** MỚI (24/09/2026, dọn nợ "Core gọi Workflow") — ứng với 'playlist.playbackError.keep' (nút "Giữ lại"). THAY
+     * core `confirmKeepBrokenSong()` (tự đọc playlistStore + gọi removeKeyFromDisplay). Tái dùng core
+     * `getAndClearPlaybackErrorKey()` (đọc key + ẩn modal + xoá state context — y hệt nhánh "Xoá").
+     * @returns {{status: string}} */
+    keepBrokenSong() {
+        const key = getAndClearPlaybackErrorKey(); // core/playlist/actions.js
+        if (!key) return { status: 'noop' };
+        appState.mutate('confirmedBrokenKeys', s => s.add(key));
+        console.log(`writer: "workflowPlaylist.keepBrokenSong", page: "confirmedBrokenKeys", content: "+${key}"`);
+        workflowPlaylistOrder.removeKeyFromDisplay(key); // event/workflow/playlist-order.js
+        return { status: 'ok' };
+    },
+
     /**
      * Ứng với msg.type = 'playlist.playbackError.delete' — cần ĐỌC state (key đang chờ xoá) rồi
      * PHỐI HỢP shield + hàm core xoá -> rõ ràng là workflow (>1 hàm).
@@ -204,7 +217,11 @@ const workflowPlaylist = {
         if (!key) return; // không có gì đang mở -> no-op, giống hành vi gốc (if (!playbackErrorKey) return;)
 
         await withLoadingShield(t('common.loading.deleting'), async () => {
-            await deleteBrokenSongByKey(key); // "tay" cần key -> đưa key
+            // SỬA (24/09/2026) — 3 bước của core `deleteBrokenSongByKey()` cũ đứng cạnh nhau ở đây (bản cũ: core gọi
+            // core removeSongStats + removeKeyFromDisplay). Thứ tự giữ nguyên.
+            await deleteSongRecord(key); // service/db.js
+            removeSongStats(key); // core/listen-stats.js
+            workflowPlaylistOrder.removeKeyFromDisplay(key); // event/workflow/playlist-order.js
         });
         // Bản gốc KHÔNG hiện alertModal nào sau khi xoá xong ở luồng này — giữ đúng hành vi cũ,
         // không tự thêm thông báo mới.
@@ -673,6 +690,238 @@ const workflowPlaylist = {
                 }
             })();
         });
+    },
+
+    // ===================== Upload Song — DỜI (24/09/2026) từ core/playlist/loader.js =====================
+
+    /** DỜI (24/09/2026, dọn nợ "Core gọi Workflow") từ core/playlist/loader.js::handleAudioFiles() — thân GIỮ NGUYÊN.
+     *
+     * Xử lý 1 FileList bất kỳ (từ input chọn file rời HOẶC input "Chọn cả thư mục") — TÁCH
+     * RA thành hàm riêng (ver 8 refine) để 2 input dùng chung 100% logic, không lặp code.
+     * webkitdirectory trả về FileList chứa MỌI file trong thư mục + thư mục con (ảnh, txt,
+     * .DS_Store, v.v., không chỉ nhạc) — validateAudioFile() ở vòng lọc bên dưới tự loại các
+     * file không phải nhạc, y hệt cách input file rời lọc file sai định dạng cố tình chọn.
+     */
+    async uploadSongs(fileList) {
+      try {
+        const allFiles = Array.from(fileList); if (allFiles.length === 0) return;
+        playlistEmpty.classList.add('hidden');
+
+        const failedFiles = [];
+        const newlyAddedKeys = [];
+        // MỚI (06/09/2026, Batch 6) — mọi key THẬT SỰ setSongRecord() thành công trong lượt
+        // này (mới HOẶC ghi đè) — xem chỗ push ở vòng lặp bên dưới + gắn folder cuối hàm.
+        const allProcessedKeys = [];
+
+        // (3a) Lọc định dạng nhạc NGAY khi nhận file — accept="" của <input> chỉ là gợi ý UI,
+        // không chặn thật (xem upload-validation.js). File không hợp lệ bị loại khỏi danh sách
+        // xử lý và liệt kê chung với failedFiles, KHÔNG được đưa vào IndexedDB/playlist.
+        const files = [];
+        for (const file of allFiles) {
+            const check = validateAudioFile(file);
+            if (check.valid) files.push(file);
+            else failedFiles.push(`${escapeHtml(file.name)} — ${check.reason}`);
+        }
+        if (files.length === 0) {
+            if (failedFiles.length > 0) await alertModal(tFormat('common.upload.failedList', { n: failedFiles.length, list: failedFiles.join('\n\n') }));
+            return;
+        }
+        // TỐI ƯU (v7): trước đây dùng `playlistOrder.includes(key)` NGAY TRONG vòng `for` qua
+        // từng file -> O(files.length × playlistOrder.length), O(n²) khi nạp nhiều file vào
+        // playlist đã lớn. Dựng 1 Set tra cứu O(1) trước vòng lặp, đồng bộ thêm phần tử mỗi khi
+        // push key mới (kể cả khi 2 file trùng tên trong CÙNG 1 lượt chọn — resolveSongKey() có
+        // thể trả cùng 1 key cho 2 file liên tiếp, Set phải thấy được key đó NGAY để không bị
+        // hiểu sai thành "bài mới" ở vòng lặp kế). Kết quả/logic giữ nguyên 100% so với bản cũ.
+        const playlistOrderSet = new Set(appState.get('playlistOrder'));
+
+        // FIX (ver 8 refine #2): withLoadingShield() im lặng return (không làm gì, không throw)
+        // nếu đã có 1 tác vụ khác đang dùng shield (isShieldBusy = true) — ví dụ người dùng bấm
+        // "Thêm nhạc" 2 lần liên tiếp quá nhanh, hoặc 1 tác vụ nền (xóa bài, lưu ảnh nền...) còn
+        // đang chạy. Trước đây trường hợp này HOÀN TOÀN im lặng: người dùng chọn file/thư mục
+        // xong, không thấy gì xảy ra, không có lỗi nào để biết nguyên nhân. Theo dõi qua biến cờ
+        // riêng để log + alert rõ ràng thay vì im lặng bỏ qua.
+        let shieldRan = false;
+        await withLoadingShield(tFormat('common.upload.loadingProgress', { done: 1, total: files.length }), async () => {
+            shieldRan = true;
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                loadingText.textContent = tFormat('common.upload.loadingProgress', { done: i + 1, total: files.length });
+
+                try {
+                    let tag = { title: file.name.replace(/\.[^/.]+$/, ""), artist: t('common.song.unknownArtist'), album: "" };
+                    let cover = null;
+
+                    await new Promise(resolve => {
+                        let settled = false;
+                        const safeResolve = () => { if (!settled) { settled = true; resolve(); } };
+                        const safetyTimeout = taskManager.once(safeResolve, 5000);
+
+                        if (window.jsmediatags) {
+                            try {
+                                jsmediatags.read(file, {
+                                    onSuccess: function(tagResult) {
+                                        try {
+                                            if (tagResult.tags.title) tag.title = tagResult.tags.title;
+                                            if (tagResult.tags.artist) tag.artist = tagResult.tags.artist;
+                                            if (tagResult.tags.album) tag.album = tagResult.tags.album;
+                                            if (tagResult.tags.picture && tagResult.tags.picture.data) {
+                                                const data = tagResult.tags.picture.data;
+                                                const format = tagResult.tags.picture.format;
+                                                // Ver 8 refine (mục 4 — lỗi ảnh cover không hiển thị): jsmediatags đôi khi trả
+                                                // `format` RỖNG hoặc KHÔNG PHẢI MIME ảnh hợp lệ (file MP3 ghi tag ID3 không
+                                                // chuẩn, hoặc bị cắt cụt) — Blob constructor KHÔNG throw lỗi dù `type` rác,
+                                                // nhưng <img> sau đó không decode được (hiện ảnh vỡ) vì browser không biết
+                                                // coi nội dung đó là ảnh gì. Validate MIME bằng VALID_IMAGE_MIME_TYPES (đã
+                                                // có sẵn ở upload-validation.js) NGAY tại nguồn — nếu sai, bỏ cover (null)
+                                                // thay vì lưu 1 Blob chắc chắn không hiển thị được; bài hát vẫn nạp bình
+                                                // thường, chỉ là không có ảnh bìa (fallback DEFAULT_VINYL, không phải lỗi).
+                                                const normalizedFormat = (format || '').toLowerCase().trim();
+                                                if (normalizedFormat && VALID_IMAGE_MIME_TYPES.has(normalizedFormat) && data && data.length > 0) {
+                                                    cover = new Blob([new Uint8Array(data)], { type: normalizedFormat });
+                                                } else {
+                                                    console.warn(`[playlist] Cover ID3 của "${file.name}" có định dạng không hợp lệ ("${format}") hoặc rỗng — bỏ qua cover, vẫn nạp bài.`);
+                                                    cover = null;
+                                                }
+                                            }
+                                        } catch (tagErr) {
+                                            console.error(`[playlist] Lỗi đọc cover/tag của "${file.name}", bỏ qua cover, vẫn nạp bài:`, tagErr);
+                                            cover = null;
+                                        }
+                                        safetyTimeout.kill(); safeResolve();
+                                    },
+                                    onError: function(err) {
+                                        console.warn(`[playlist] jsmediatags không đọc được tag của "${file.name}":`, err);
+                                        safetyTimeout.kill(); safeResolve();
+                                    }
+                                });
+                            } catch (readErr) {
+                                console.error(`[playlist] jsmediatags.read lỗi đồng bộ với "${file.name}":`, readErr);
+                                safetyTimeout.kill(); safeResolve();
+                            }
+                        } else { safetyTimeout.kill(); safeResolve(); }
+                    });
+
+                    const duration = await readAudioDuration(file);
+                    const key = await resolveSongKey(file.name);
+                    const isOverwrite = playlistOrderSet.has(key);
+
+                    const record = { filename: file.name, blob: file, tag, cover, subtitles: [], duration, addedAt: Date.now() };
+                    if (isOverwrite) {
+                        const old = await getSongRecord(key);
+                        if (old && old.subtitles) record.subtitles = old.subtitles;
+                    }
+                    await setSongRecord(key, record);
+                    // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 6 — "upload tự gắn
+                    // vào folder đang active") — gom key vào ĐÂY (CẢ 2 nhánh mới/ghi đè, xem
+                    // docstring cuối vòng lặp for) — gắn folder hàng loạt SAU vòng lặp, không
+                    // gọi addSongsToFolder() N lần riêng lẻ trong lúc lặp (tốn kém, xem docstring
+                    // addSongsToFolder()/removeSongsFromFolder(), core/file-manager/folder.js).
+                    allProcessedKeys.push(key);
+
+                    if (!isOverwrite) { appState.mutate('playlistOrder', arr => arr.push(key)); playlistOrderSet.add(key); newlyAddedKeys.push(key); }
+                    // FIX (Giang báo — "song mới upload thiếu addedAt/size trong playlistCache") —
+                    // TRƯỚC ĐÂY object ghi vào cache CHỈ có filename/tag/cover/duration, thiếu
+                    // addedAt/size mà `buildSongPlaylistCache()` (core/playlist/loader.js, gọi
+                    // qua `workflowPlaylistScope.loadPlaylistCacheForSource('song', ...)`) LUÔN
+                    // có đủ — khiến Sort newest/oldest/size VÀ Filter theo ngày/dung lượng coi bài
+                    // vừa upload như addedAt=0/size=0 CHO TỚI KHI reload trang (F5 chạy lại nạp
+                    // cache, tự vá đủ field). `record.addedAt` đã có sẵn (gán Date.now() lúc tạo
+                    // record ở trên); `record.blob` CHÍNH LÀ `file` (File extends Blob, có `.size`
+                    // sẵn) — dùng ĐÚNG `record.blob.size` cho khớp 100% với cách
+                    // `buildSongPlaylistCache()` đọc (`record.blob.size`), không suy ra từ biến
+                    // `file` riêng để tránh lệch nếu sau này `record.blob` đổi nguồn khác `file`.
+                    appState.mutate('playlistCache', m => m.set(key, { filename: record.filename, tag: record.tag, cover: record.cover, duration: record.duration, addedAt: record.addedAt, size: record.blob.size || 0 }));
+                    appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(record.tag.title)));
+                    appState.mutate('confirmedBrokenKeys', s => s.delete(key));
+                } catch (err) {
+                    console.error(`[playlist] Không nạp được "${file.name}":`, err);
+                    const errMsg = (err && err.name && err.message) ? `${err.name}: ${err.message}` : String(err && err.message || err || t('common.unknownError'));
+                    failedFiles.push(`${escapeHtml(file.name)} — ${escapeHtml(errMsg)}`);
+                }
+            }
+            // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — updateShuffleArray()/
+            // applyNewSongsToDisplayOrder()/recomputeRenderOrder() ĐÃ DỜI hẳn sang
+            // event/workflow/playlist-order.js (workflowPlaylistOrder) — gọi từ ĐÂY về hình
+            // thức là Core gọi Workflow (hàm bao NGOÀI đã tự appState.mutate() sẵn từ trước —
+            // nợ kỹ thuật riêng của loader.js, CHƯA relocate cả hàm trong đợt này, CÙNG loại nợ
+            // DB-read đã biết của file này, xem core-function-conventions.md mục 3b).
+            workflowPlaylistOrder.updateShuffleArray();
+            workflowPlaylistOrder.applyNewSongsToDisplayOrder(newlyAddedKeys); // (B) hàng đợi phát: nối cuối / pending
+            workflowPlaylistOrder.recomputeRenderOrder(); // (A) UI: sắp xếp lại NGAY
+            workflowPlaylistRender.renderPlaylistDiff();
+            // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 6) — nếu đang Scope 1 folder
+            // Song, gắn LUÔN mọi file vừa upload (mới HOẶC ghi đè) vào ĐÚNG folder đó — 1 lượt
+            // bulk duy nhất (Rule 3b: core-gọi-core không áp cho vòng lặp workflow-orchestration
+            // này, đã có tiền lệ removeSongFromAllFolders() ngay trên cùng file).
+            const activeFolderIdForSong = appState.get('activePlayListFolder').song;
+            if (activeFolderIdForSong && allProcessedKeys.length > 0) {
+                await addSongsToFolder(allProcessedKeys, activeFolderIdForSong, 'song'); // core/file-manager/folder.js
+            }
+        });
+
+        if (!shieldRan) {
+            // withLoadingShield() đã bỏ qua lệnh gọi này vì đang bận tác vụ khác — KHÔNG có file
+            // nào được xử lý dù người dùng đã chọn xong. Báo rõ thay vì im lặng.
+            console.warn('[upload] handleAudioFiles bị bỏ qua: đang có 1 tác vụ khác dùng loading shield (isShieldBusy=true). Hãy thử lại sau khi tác vụ hiện tại xong.');
+            await alertModal(t('common.upload.shieldBusy'));
+            return;
+        }
+
+        if (failedFiles.length > 0) {
+            await alertModal(tFormat('common.upload.failedList', { n: failedFiles.length, list: failedFiles.join('\n\n') }));
+        }
+      } catch (err) {
+          console.error('[upload] Lỗi không xác định trong handleAudioFiles:', err);
+          await alertModal(tFormat('common.upload.genericError', { message: escapeHtml(err && err.message ? err.message : err) }));
+      }
+    },
+
+    /** DỜI (24/09/2026) từ core/playlist/loader.js::handleFilePickerChange() — thân GIỮ NGUYÊN (chỉ đổi lời gọi handleAudioFiles -> this.uploadSongs).
+     *
+     * Xử lý FileList đã chốt (Array thật) từ input chọn FILE RỜI (#media-upload — DÙNG CHUNG
+     * Song/Video/Photo từ phản hồi Giang "1 khung, không nhân bản"; hàm NÀY chỉ được router
+     * gọi khi activeMediaSource='song', xem event/router/playlist.js). Core THUẦN nhận Array
+     * qua tham số — KHÔNG tự đọc input/FileList (đã chốt ở listener, xem comment phía trên).
+     * Giữ NGUYÊN try/catch + alertModal() bên trong (giống handleAudioFiles() — đây vẫn là 1
+     * hàm core "lớn" có sẵn shield/modal nội bộ, KHÔNG tách ra workflow, theo đúng quyết định
+     * đã chốt khi tách cụm này vào /event/).
+     * @param {File[]} fileList
+     */
+    async handleSongFilePickerChange(fileList) {
+        try {
+            console.log(`[upload] #media-upload change (Song): ${fileList.length} file được chọn.`);
+            if (fileList.length === 0) {
+                console.warn('[upload] #media-upload (Song): FileList rỗng sau khi chọn — trình duyệt không trả về file nào.');
+                return;
+            }
+            await this.uploadSongs(fileList);
+        } catch (err) {
+            console.error('[upload] Lỗi không xác định khi xử lý file đã chọn (#media-upload, Song):', err);
+            await alertModal(tFormat('common.upload.fileError', { message: escapeHtml(err && err.message ? err.message : err) }));
+        }
+    },
+
+    /** DỜI (24/09/2026) từ core/playlist/loader.js::handleFolderPickerChange() — thân GIỮ NGUYÊN (chỉ đổi lời gọi handleAudioFiles -> this.uploadSongs).
+     *
+     * Xử lý FileList đã chốt từ input chọn CẢ THƯ MỤC (#media-upload-folder — DÙNG CHUNG Song/
+     * Video/Photo, cùng lý do handleFilePickerChange() ngay trên; hàm NÀY chỉ được router gọi
+     * khi activeMediaSource='song'). Core THUẦN, cùng nguyên tắc như handleFilePickerChange()
+     * ở trên.
+     * @param {File[]} fileList
+     */
+    async handleSongFolderPickerChange(fileList) {
+        try {
+            console.log(`[upload] #media-upload-folder change (Song): ${fileList.length} file được chọn (toàn bộ thư mục + thư mục con).`);
+            if (fileList.length === 0) {
+                console.warn('[upload] #media-upload-folder (Song): FileList rỗng sau khi chọn thư mục — trình duyệt không trả về file nào (thư mục trống, hoặc bị chặn quyền đọc thư mục).');
+                await alertModal(t('common.upload.folderEmpty'));
+                return;
+            }
+            await this.uploadSongs(fileList);
+        } catch (err) {
+            console.error('[upload] Lỗi không xác định khi xử lý thư mục đã chọn (#media-upload-folder, Song):', err);
+            await alertModal(tFormat('common.upload.folderError', { message: escapeHtml(err && err.message ? err.message : err) }));
+        }
     },
 
     /** Ứng với 'playlist.upload.fileChange'/'playlist.upload.folderChange' khi activeMediaSource=
@@ -1505,7 +1754,7 @@ const workflowPlaylist = {
                 if (appState.get('isVideoPlayerMode')) await workflowVideoPlayer.exitVideoPlayerMode();
                 appState.set('currentKey', null);
                 playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
-                forceBackToPlaylistUI();
+                workflowPlayerControls.returnToPlaylistUI(); // event/workflow/player-controls.js — SỬA 24/09/2026
             } else {
                 // Dừng player + dọn RAM — GIỐNG HỆT khối tương ứng trong deleteMediaFromActionMenu() (đơn lẻ)/
                 // clearAllStoredData() (storage-manager.js) khi currentKey biến mất, để không còn
@@ -1516,7 +1765,7 @@ const workflowPlaylist = {
                 audioPlayer.pause(); audioPlayer.src = ''; appState.set('currentKey', null);
                 playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
                 if (typeof killAllAutoSwitchVisualTasks === 'function') killAllAutoSwitchVisualTasks();
-                forceBackToPlaylistUI(); // "về playui" — ép UI về màn Playlist ngay, TRƯỚC khi hiện shield
+                workflowPlayerControls.returnToPlaylistUI(); // "về playui" — ép UI về màn Playlist ngay, TRƯỚC khi hiện shield (SỬA 24/09/2026 — thay core forceBackToPlaylistUI())
                 setVisualizerActiveFalse(); // MỚI (08/07/2026, HOTFIX 10) — forceBackToPlaylistUI() không còn tự set nữa
             }
         }

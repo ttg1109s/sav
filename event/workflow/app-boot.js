@@ -122,7 +122,7 @@ const workflowAppBoot = {
             const wasClearing = await getMeta('clearingInProgress');
             if (wasClearing) {
                 await withLoadingShield(t('common.playlist.cleaningUpPrevious'), async () => {
-                    await clearAllStoredData();
+                    await workflowFileManagerStorage.clearAllStoredData(); // event/workflow/file-manager-storage.js (dời từ core 24/09/2026)
                 });
             }
         }

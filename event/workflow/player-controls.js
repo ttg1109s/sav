@@ -40,6 +40,28 @@ const SEEK_GATE_UNMUTE_RAMP_SEC = 0.03;   // mở tiếng dần 30ms — tránh 
 
 const workflowPlayerControls = {
 
+    /** MỚI (24/09/2026, dọn nợ "taskManager trong core") — THAY core `forceBackToPlaylistUI()` cũ ở MỌI nơi "về
+     * Playlist" (nút Back, xoá bài/video đang là currentKey, xoá hàng loạt, Clear All). Thứ tự giữ đúng bản cũ:
+     * cuộn Playlist tới bài đang phát (lúc còn nằm ngoài khung nhìn) -> trượt/đổi class -> đóng Control Center ->
+     * 500ms sau (khớp transition transform 0.5s, assets/css/style.css) ẩn hẳn UI Visualizer + diff lại danh sách.
+     * KHÔNG đụng `isVisualizerActive` — nơi gọi tự `setVisualizerActiveFalse()` nếu cần (y như bản cũ). */
+    returnToPlaylistUI() {
+        scrollToCurrentKeyInstant(); // core/playlist/render.js
+        slideBackToPlaylistUi(); // core/player-controls.js
+        if (typeof closeControlCenter === 'function') closeControlCenter(); // core/visualizer-control-center.js — phòng panel còn mở sót
+        taskManager.once(() => {
+            hideVisualizerUiAfterFade(); // core/player-controls.js
+            workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js
+        }, 500, 'hideVisualizerUiAfterFade');
+    },
+
+    /** DỜI (24/09/2026) từ core/player-controls.js::handleBackToPlaylistClick() — ứng với
+     * 'playerControls.backToPlaylist.click'. KHÔNG dừng/ẩn video: Playlist (z-[60]) tự che video, video vẫn chạy theo nhạc. */
+    handleBackToPlaylistClick() {
+        this.returnToPlaylistUI();
+        setVisualizerActiveFalse(); // core/player-controls.js
+    },
+
     // ===== Cổng seek — state nội bộ (KHÔNG thuộc STATE) =====
     _seekGateToken: 0, // tăng mỗi lần `runGatedSeek()` — lệnh seek mới HƠN thay thế lệnh cũ (lệnh cũ tự bỏ dở, KHÔNG mở tiếng/không play() nữa)
 

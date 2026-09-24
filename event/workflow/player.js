@@ -205,7 +205,7 @@ const workflowPlayer = {
 
             const record = await getSongRecord(key);
             if (!record) {
-                removeKeyFromDisplay(key);
+                workflowPlaylistOrder.removeKeyFromDisplay(key); // event/workflow/playlist-order.js (dời từ core 24/09/2026)
                 // FIX (xung đột shield/modal): KHÔNG await alertModal() ở đây — fn() này còn đang
                 // chạy TRONG withLoadingShield(), và isShieldBusy chỉ được giải phóng ở finally
                 // SAU KHI fn() resolve (xem loading-shield-util.js). alertModal() trả Promise chỉ

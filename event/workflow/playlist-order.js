@@ -38,6 +38,23 @@
  * core/storage-manager.js).
  */
 const workflowPlaylistOrder = {
+
+    /** DỜI (24/09/2026, dọn nợ "Core gọi Workflow") từ core/playlist/actions.js::removeKeyFromDisplay() — thân GIỮ
+     * NGUYÊN. Loại 1 key khỏi playlist (xoá tay / "Xóa luôn" / "Giữ lại" lúc phát lỗi / xoá file lỗi): cập nhật CẢ
+     * nguồn chân lý, hàng đợi phát LẪN danh sách hiển thị rồi vẽ lại. Bản cũ nằm ở core nhưng tự appState.get()/set()
+     * + gọi 2 Workflow (order/render) — đúng vai Workflow nên dời hẳn về đây.
+     * @param {string} key */
+    removeKeyFromDisplay(key) {
+        appState.set('playlistOrder', appState.get('playlistOrder').filter(k => k !== key));
+        appState.set('displayOrder', appState.get('displayOrder').filter(k => k !== key));
+        appState.mutate('pendingResortKeys', s => s.delete(key));
+        appState.mutate('playlistCache', m => m.delete(key)); appState.mutate('songNameIndex', m => m.delete(key));
+        console.log(`writer: "workflowPlaylistOrder.removeKeyFromDisplay", page: "playlistOrder/displayOrder/playlistCache", content: "-${key}"`);
+        this.updateShuffleArray();
+        this.recomputeRenderOrder();
+        workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js
+        updateEmptyState(); // core/playlist/render.js
+    },
     /** Tính lại renderOrder = các bài hợp lệ, lọc theo ô tìm kiếm, sắp theo mode hiện tại. KHÔNG
      * bao giờ phụ thuộc currentKey/pending/hàng đợi phát — UI luôn "đúng như mắt thấy". Dời NGUYÊN
      * VẸN logic từ core/playlist/order.js::recomputeRenderOrder() (đã xoá khỏi đó) — chỉ khác chỗ
