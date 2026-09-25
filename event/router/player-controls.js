@@ -221,7 +221,7 @@ const routerPlayerControls = (() => {
             }
 
             case 'playerControls.audio.loadedmetadata': {
-                handleAudioLoadedMetadata();
+                workflowPlayerControls.handleAudioLoadedMetadataEvent(); // SỬA (25/09/2026) — core + auto-switch-visual (Workflow), xem docstring
                 break;
             }
 
