@@ -34,6 +34,7 @@
             mirror: 'visualizerSettingsDrawer.barStyle.mirror',
             cascade: 'visualizerSettingsDrawer.barStyle.cascade',
             'black hole': 'visualizerSettingsDrawer.barStyle.blackHole',
+            dot: 'visualizerSettingsDrawer.barStyle.dot', // MỚI 25/09/2026
             thunder: 'visualizerSettingsDrawer.lightingStyle.thunder',
             fireworks: 'visualizerSettingsDrawer.lightingStyle.fireworks',
             glass: 'visualizerSettingsDrawer.rainStyle.glass',
