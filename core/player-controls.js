@@ -433,7 +433,8 @@
             // DỜI (24/09/2026) — `workflowPlaylistRender.refreshSongNode(currentKey)` ra
             // event/workflow/player-controls.js::handleAudioPlayEvent() (core gọi Workflow + tự đọc appState).
             startListenClock();
-            if (typeof syncAutoSwitchVisualPlayState === 'function') syncAutoSwitchVisualPlayState(); // ver 10: xem auto-switch-visual.js
+            // DỜI (25/09/2026) — đồng bộ auto-switch-visual (`syncAutoSwitchVisualPlayState()`, nay là
+            // `workflowAutoSwitchVisual.syncPlayState()`) ra event/workflow/player-controls.js::handleAudioPlayEvent().
             // DỜI (24/09/2026) — đồng bộ video nền theo nhạc (`workflowVisualBg.syncPlaybackToAudio()`, core gọi
             // Workflow) ra event/workflow/player-controls.js::handleAudioPlayEvent().
         }
@@ -452,7 +453,7 @@
             // DỜI (24/09/2026) — refreshSongNode + workflowVisualBg.syncPlaybackToAudio() ra
             // event/workflow/player-controls.js::handleAudioPauseEvent() (cùng lý do handleAudioPlay() ngay trên).
             stopListenClock();
-            if (typeof syncAutoSwitchVisualPlayState === 'function') syncAutoSwitchVisualPlayState(); // ver 10: xem auto-switch-visual.js
+            // DỜI (25/09/2026) — auto-switch-visual ra event/workflow/player-controls.js::handleAudioPauseEvent().
         }
 
         // [SỬA — plan-playmedia-reorg.md, xử lý triệt để] `handleAudioEnded()` ĐÃ XOÁ khỏi đây —
@@ -469,9 +470,8 @@
         function handleAudioLoadedMetadata() {
             progressBar.max = audioPlayer.duration; durationTimeDisplay.textContent = formatTime(audioPlayer.duration); updateMediaPositionState();
             applyPlaybackSpeedToActiveMedia(appState.get('isVideoPlayerMode'), appState.get('isPhotoPlayerMode'), appConfigViz.getAll().playbackSpeed);
-            // ver 10: bài MỚI bắt đầu (duration vừa có giá trị chính xác) -> build lại marks cho
-            // auto-switch-visual — xem onAutoSwitchVisualSongChanged() ở auto-switch-visual.js.
-            if (typeof onAutoSwitchVisualSongChanged === 'function') onAutoSwitchVisualSongChanged();
+            // DỜI (25/09/2026) — build lại marks auto-switch-visual khi bài MỚI có duration (`onAutoSwitchVisualSongChanged()`,
+            // nay là `workflowAutoSwitchVisual.onSongChanged()`) ra event/workflow/player-controls.js::handleAudioLoadedMetadataEvent().
         }
 
         /**

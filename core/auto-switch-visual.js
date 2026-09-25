@@ -53,13 +53,21 @@
  * `workflowVisualizerDisplay.openPanel()` (core/visualizer/visualizer-display.js đảm nhiệm push
  * panel, sync CẢ 2 section trong CÙNG 1 panel — xem file đó).
  */
-        const AUTO_SWITCH_VISUAL_TASK_TIMER = 'autoSwitchVisualTimer';   // nhánh 1 (fixed/random) — đồng hồ độc lập
-        const AUTO_SWITCH_VISUAL_TASK_MARKS = 'autoSwitchVisualMarks';  // nhánh 2 (duration) — tick theo mốc bài hát
+        // [SỬA — 25/09/2026, dọn nợ task-manager-conventions.md mục 6, làm cùng đợt "ẩn tab/PWA dừng render"] Toàn bộ
+        // phần ĐIỀU PHỐI (taskManager, đọc appState, start/stop/pause/resume nhánh, áp visual + lưu config) ĐÃ DỜI sang
+        // event/workflow/auto-switch-visual.js (workflowAutoSwitchVisual) theo đúng mẫu mục 5 của tài liệu đó. File này
+        // giờ CHỈ còn hàm THUẦN (nhận tham số, trả kết quả — Rule 1-3). Hằng tên task AUTO_SWITCH_VISUAL_TASK_TIMER/
+        // _MARKS dời theo. Đã XOÁ khỏi đây: applyAutoSwitchVisualType, scheduleNextAutoSwitchVisualTimer,
+        // autoSwitchVisualMarksTick, killAllAutoSwitchVisualTasks, startAutoSwitchVisualBranch,
+        // onAutoSwitchVisualSongChanged, syncAutoSwitchVisualPlayState (bản Workflow tương ứng: _applyType, _scheduleNextTimer,
+        // _marksTick, killAllTasks, startBranch, onSongChanged, syncPlayState). Giải thích cơ chế 2 nhánh ở đầu file VẪN ĐÚNG.
 
-        /** Chọn 1 giá trị MODES MỚI theo đúng autoSwitchVisualMode hiện tại (KHÔNG tự áp dụng/lưu gì cả). */
-        function pickNextAutoSwitchVisualType() {
-            const currentModeIndex = appState.get('currentModeIndex');
-            if (appConfigViz.getAll().autoSwitchVisualMode === 'random' && MODES.length > 1) {
+        /** Chọn 1 giá trị MODES MỚI theo cách chọn (KHÔNG tự áp dụng/lưu gì cả).
+         * @param {number} currentModeIndex - appState.currentModeIndex hiện tại.
+         * @param {'sequential'|'random'} selectMode - vizConfig.autoSwitchVisualMode.
+         * @returns {string} 1 phần tử của MODES. */
+        function pickNextAutoSwitchVisualType(currentModeIndex, selectMode) {
+            if (selectMode === 'random' && MODES.length > 1) {
                 let idx = currentModeIndex;
                 while (idx === currentModeIndex) idx = Math.floor(Math.random() * MODES.length);
                 return MODES[idx];
@@ -67,227 +75,47 @@
             return MODES[(currentModeIndex + 1) % MODES.length]; // 'sequential' — đúng cơ chế #btn-cycle-mode
         }
 
-        /** Áp dụng 1 kiểu hiệu ứng cụ thể (đã biết trước, KHÔNG tự chọn) — dùng khi mark đã có visual sẵn. */
-        function applyAutoSwitchVisualType(type) {
-            const idx = MODES.indexOf(type);
-            if (idx === -1 || idx === appState.get('currentModeIndex')) return; // type lạ hoặc đã đúng kiểu hiện tại -> không làm gì
-            appState.set('currentModeIndex', idx);
-            updateTypeUI();
-            saveConfig();
-        }
-
-        // ============================================================================
-        // NHÁNH 1 — 'fixed' (c1) / 'random' (c2): đồng hồ đếm lùi ĐỘC LẬP, không liên
-        // quan currentTime/duration/bài nào đang phát. Y hệt kiểu _listenTickHandle.
-        // ============================================================================
-
-        /** Tính số giây (ms) cho LẦN ĐẾM KẾ TIẾP — chỉ gọi lúc bắt đầu 1 vòng đếm mới. */
-        function computeAutoSwitchVisualTimerDelayMs() {
-            const cfg = appConfigViz.getAll();
+        /** NHÁNH 1 — số ms cho LẦN ĐẾM KẾ TIẾP ('fixed' = khoảng cố định; 'random' = random LẠI mỗi vòng trong
+         * [AUTO_SWITCH_VISUAL_MIN_SECONDS, X người điền]).
+         * @param {object} cfg - appConfigViz.getAll(). @returns {number} */
+        function computeAutoSwitchVisualTimerDelayMs(cfg) {
             if (cfg.autoSwitchVisualTimeMode === 'random') {
-                // (c2) Random LẠI mỗi vòng trong [10, X người điền] — không phải 1 số cố định.
                 const maxSeconds = Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, cfg.autoSwitchVisualSecondsRandom);
                 return (AUTO_SWITCH_VISUAL_MIN_SECONDS + Math.random() * (maxSeconds - AUTO_SWITCH_VISUAL_MIN_SECONDS)) * 1000;
             }
-            return Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, cfg.autoSwitchVisualSecondsFixed) * 1000; // (c1) 'fixed' — khoảng cố định
+            return Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, cfg.autoSwitchVisualSecondsFixed) * 1000;
         }
 
         /**
-         * Đặt lịch CHO VÒNG ĐẾM KẾ TIẾP — task count:1, callback tự đổi visual rồi tự gọi lại hàm
-         * này để "tái tạo" vòng đếm mới (cần thiết cho 'random' vì mỗi vòng delay khác nhau — Loop
-         * không hỗ trợ đổi time giữa chừng của 1 task count vô hạn, xem giải thích ở task-manager.js).
+         * NHÁNH 2 ('duration') — dựng mảng mốc TUYỆT ĐỐI cho bài đang phát. X (secondsDuration) là SỐ CHIA trong
+         * (duration / X), tự kẹp không vượt round(duration/2) để LUÔN có tối thiểu 1 lần đổi giữa bài. Mốc ĐẦU (t=0) giữ
+         * NGUYÊN kiểu đang chọn (không coi là 1 lần đổi).
+         * `complete` = false khi duration chưa hợp lệ (chỉ có mốc t=0) — nơi gọi KHÔNG được đánh dấu "đã build cho bài
+         * này" (FIX 13/07/2026: 'play' bắn TRƯỚC 'loadedmetadata' lúc pipeline còn nguội, duration vẫn NaN — đánh dấu
+         * nhầm khiến 'loadedmetadata' bỏ qua rebuild, visual đứng yên hết bài).
+         * @param {number} duration - audioPlayer.duration (NaN/0 nếu chưa có).
+         * @param {string} currentType - MODES[currentModeIndex].
+         * @param {number} secondsDuration - vizConfig.autoSwitchVisualSecondsDuration.
+         * @returns {{marks: {time:number, visual:(string|null)}[], complete: boolean}}
          */
-        function scheduleNextAutoSwitchVisualTimer() {
-            taskManager.kill(AUTO_SWITCH_VISUAL_TASK_TIMER);
-            taskManager.addNew(AUTO_SWITCH_VISUAL_TASK_TIMER, {
-                time: computeAutoSwitchVisualTimerDelayMs(),
-                exe: () => {
-                    applyAutoSwitchVisualType(pickNextAutoSwitchVisualType());
-                    // Chỉ tự tái tạo vòng đếm nếu tính năng VẪN đang ở đúng nhánh 1 VÀ nhạc VẪN
-                    // đang phát — tránh tái tạo vô nghĩa nếu người dùng vừa tắt/đổi mode/dừng nhạc
-                    // đúng lúc callback này chạy.
-                    if (appConfigViz.getAll().autoSwitchVisualEnabled && appConfigViz.getAll().autoSwitchVisualTimeMode !== 'duration'
-                        && typeof audioPlayer !== 'undefined' && !audioPlayer.paused) {
-                        scheduleNextAutoSwitchVisualTimer();
-                    }
-                },
-                mode: 'timeout',
-                count: 1
-            });
-            taskManager.operator(AUTO_SWITCH_VISUAL_TASK_TIMER, 'enabled');
-        }
-
-        // ============================================================================
-        // NHÁNH 2 — 'duration' (c3): mốc TUYỆT ĐỐI theo audioPlayer.currentTime, mỗi mốc
-        // tự nhớ visual của riêng nó (xử lý đúng khi người dùng tua tới/lùi).
-        // ============================================================================
-
-        /** Mảng mốc của BÀI ĐANG PHÁT hiện tại — [{ time: giây tuyệt đối, visual: 'bar'|null }, ...].
-         *  STATE — xem service/state.js. */
-
-        /**
-         * Build mảng mốc MỚI cho bài đang phát (nhánh 2 — 'duration' — DUY NHẤT mode dùng tới
-         * mảng này). X (vizConfig.autoSwitchVisualSecondsDuration) là SỐ CHIA trong (duration / X), tự kẹp
-         * không vượt round(duration/2) để đảm bảo tối thiểu 1 lần đổi thật sự xảy ra giữa bài —
-         * nếu không kẹp, X quá lớn (gần/vượt duration) sẽ cho (duration/X) ra một khoảng còn lớn
-         * hơn cả bài, tức 0 lần đổi nào xảy ra — vô nghĩa với 1 tính năng "tự động đổi".
-         */
-        function buildAutoSwitchVisualMarks() {
-            const duration = (typeof audioPlayer !== 'undefined' && isFinite(audioPlayer.duration) && audioPlayer.duration > 0)
-                ? audioPlayer.duration : 0;
-            // Mark ĐẦU TIÊN (t=0) GIỮ NGUYÊN kiểu đang chọn hiện tại — KHÔNG coi là "1 lần đổi".
-            // Người dùng vừa mới bắt đầu nghe, chưa có lý do gì để auto-switch nhảy hiệu ứng NGAY
-            // GIÂY ĐẦU TIÊN trước khi mốc thời gian thật nào trôi qua.
-            const marks = [{ time: 0, visual: MODES[appState.get('currentModeIndex')] }];
-            // FIX (13/07/2026, bug "đóng/mở lại app -> visual đứng yên hết bài hiện tại") — trả về
-            // false khi chưa có duration hợp lệ (chỉ 1 mốc, không đổi gì) để nơi gọi
-            // (startAutoSwitchVisualBranch()) BIẾT lần build này KHÔNG đầy đủ — xem giải thích đầy
-            // đủ ở startAutoSwitchVisualBranch().
-            if (duration <= 0) { appState.set('autoSwitchVisualMarks', marks); return false; }
-
+        function buildAutoSwitchVisualMarks(duration, currentType, secondsDuration) {
+            const marks = [{ time: 0, visual: currentType }];
+            if (!(isFinite(duration) && duration > 0)) return { marks, complete: false };
             const maxAllowed = Math.round(duration / 2);
-            const step = Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, Math.min(appConfigViz.getAll().autoSwitchVisualSecondsDuration, maxAllowed));
+            const step = Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, Math.min(secondsDuration, maxAllowed));
             let t = step;
             while (t < duration) { marks.push({ time: t, visual: null }); t += step; }
-            appState.set('autoSwitchVisualMarks', marks);
-            return true;
+            return { marks, complete: true };
         }
 
-        /**
-         * Tick định kỳ (mỗi 1s, qua taskManager) — đọc THẲNG audioPlayer.currentTime hiện tại
-         * (đúng dù nhạc tự trôi tự nhiên hay người dùng vừa seek tay), tìm mark mà currentTime
-         * đang thuộc vào, áp dụng ĐÚNG quy tắc "nhớ visual theo mốc" (xem giải thích đầu file).
-         */
-        function autoSwitchVisualMarksTick() {
-            const marks = appState.get('autoSwitchVisualMarks');
-            if (typeof audioPlayer === 'undefined' || marks.length === 0) return;
-            const t = audioPlayer.currentTime;
-
-            // Tìm mark CUỐI CÙNG có time <= t (mark mà currentTime đang thuộc đoạn của nó). Nếu t
-            // đã vượt qua mark cuối cùng trong mảng, idx tự nhiên DỪNG LẠI ở chính mark cuối đó —
-            // KHÔNG cần code riêng để "stop đổi visual sau mark cuối": không có mark nào sau nó
-            // trong mảng, applyAutoSwitchVisualType() sẽ chỉ áp dụng LẠI đúng visual đã gán cho
-            // mark cuối, không bao giờ "nhảy tiếp" sang visual khác nữa.
+        /** NHÁNH 2 — index mốc CUỐI CÙNG có time <= t (đoạn currentTime đang thuộc). t vượt mốc cuối -> dừng ở mốc
+         * cuối (tự nhiên không "nhảy tiếp" nữa). @param {{time:number}[]} marks @param {number} t @returns {number} */
+        function findAutoSwitchVisualMarkIndex(marks, t) {
             let idx = 0;
             for (let i = 0; i < marks.length; i++) {
                 if (marks[i].time <= t) idx = i; else break;
             }
-
-            const mark = marks[idx];
-            if (mark.visual === null) {
-                // Lần ĐẦU TIÊN đi qua đoạn này -> chọn visual MỚI, GHI NHỚ vào chính mark đó.
-                const type = pickNextAutoSwitchVisualType();
-                appState.mutate('autoSwitchVisualMarks', arr => { arr[idx].visual = type; });
-                applyAutoSwitchVisualType(type);
-            } else {
-                // Đã từng đi qua đoạn này rồi (kể cả do tua/seek lùi về) -> áp dụng LẠI đúng giá
-                // trị đã nhớ, KHÔNG chọn mới — đúng yêu cầu nhất quán khi tua qua tua lại.
-                applyAutoSwitchVisualType(mark.visual);
-            }
-        }
-
-        // ============================================================================
-        // ĐIỀU PHỐI CHUNG — chọn đúng 1 trong 2 nhánh, start/stop/pause/resume.
-        // ============================================================================
-
-        /** Dừng/dọn CẢ HAI task của 2 nhánh — dùng khi tắt tính năng/hết bài/clear all. */
-        function killAllAutoSwitchVisualTasks() {
-            taskManager.kill(AUTO_SWITCH_VISUAL_TASK_TIMER);
-            taskManager.kill(AUTO_SWITCH_VISUAL_TASK_MARKS);
-        }
-
-        /** Key của bài đã build/gán marks LẦN GẦN NHẤT — dùng để onAutoSwitchVisualSongChanged()
-         * (gọi từ 'loadedmetadata') biết liệu startAutoSwitchVisualBranch() đã chạy đúng cho bài
-         * hiện tại rồi chưa (qua event 'play' bắn TRƯỚC 'loadedmetadata' trong playSong() — xem
-         * giải thích đầy đủ ở comment startAutoSwitchVisualBranch()) — tránh build/gán LẠI LẦN 2
-         * không cần thiết. STATE — xem service/state.js. */
-
-        /**
-         * Bắt đầu ĐÚNG 1 nhánh theo vizConfig.autoSwitchVisualTimeMode hiện tại — luôn kill cả 2
-         * task trước (đảm bảo không bao giờ có 2 nhánh chạy song song), rồi khởi động lại nhánh
-         * tương ứng từ đầu. Gọi khi: bật tính năng, đổi autoSwitchVisualTimeMode, đổi field giây
-         * riêng của nhánh đang chạy (autoSwitchVisualSecondsFixed/Random/Duration), đổi bài (chỉ
-         * nhánh 2 cần build lại marks — nhánh 1 KHÔNG được reset khi đổi bài, xem
-         * onAutoSwitchVisualSongChanged() gọi có điều kiện).
-         */
-        function startAutoSwitchVisualBranch() {
-            killAllAutoSwitchVisualTasks();
-            const cfg = appConfigViz.getAll();
-            const currentKey = appState.get('currentKey');
-            if (!cfg.autoSwitchVisualEnabled || !currentKey) return;
-
-            if (cfg.autoSwitchVisualTimeMode === 'duration') {
-                // FIX (13/07/2026, bug Giang báo — "đóng và vào lại app, visual cuối trong lượt
-                // auto chạy tới hết bài hiện tại, bài sau mới auto-switch lại bình thường") —
-                // NGUYÊN NHÂN GỐC: 'play' bắn TRƯỚC 'loadedmetadata' trong playSong() (xem giải
-                // thích ở onAutoSwitchVisualSongChanged() dưới) — trên 1 phiên VỪA khởi động lại
-                // (app mới mở/đóng-mở lại), AudioContext/pipeline decode CHƯA "khởi động nóng"
-                // (setupAudioContext() ở audio-engine.js chạy nặng hơn hẳn so với các lần đổi bài
-                // SAU đó trong cùng phiên) — 'play' bắn ra khi audioPlayer.duration CHƯA kịp có giá
-                // trị hợp lệ (vẫn NaN). buildAutoSwitchVisualMarks() lúc đó rơi vào nhánh
-                // "duration <= 0" — CHỈ tạo ĐÚNG 1 mốc (t=0) rồi return false — nhưng bản TRƯỚC ĐÂY
-                // vẫn cứ appState.set('_lastMarksBuiltForKey', currentKey) VÔ ĐIỀU KIỆN ngay sau
-                // đó — khiến 'loadedmetadata' bắn SAU (lúc này duration đã có thật) bị
-                // onAutoSwitchVisualSongChanged() TƯỞNG NHẦM là "bài này đã build marks xong rồi",
-                // bỏ qua không rebuild — mảng marks CHỈ 1 MỐC đó tồn tại SUỐT hết bài (không mốc
-                // nào khác để tick nhảy tới) -> visual đứng yên tới hết bài, đúng triệu chứng Giang
-                // mô tả. Bài SAU đó hoạt động lại bình thường vì lúc này pipeline đã "ấm", duration
-                // có sẵn ngay lúc 'play' bắn, build đủ mốc ngay từ đầu.
-                // SỬA: chỉ đánh dấu `_lastMarksBuiltForKey` khi ĐÃ THẬT SỰ build đủ mốc
-                // (buildAutoSwitchVisualMarks() chỉ coi là đủ khi trả về `true`) — nếu KHÔNG đủ
-                // (duration chưa sẵn sàng), để nguyên `_lastMarksBuiltForKey` (không khớp
-                // currentKey), 'loadedmetadata' bắn sau đó sẽ tự phát hiện chưa khớp và rebuild lại
-                // ĐÚNG với duration thật, không còn bị chặn nhầm nữa.
-                const marksReady = buildAutoSwitchVisualMarks();
-                if (marksReady) appState.set('_lastMarksBuiltForKey', currentKey); // đánh dấu ĐÃ build/gán marks đúng cho bài này — xem onAutoSwitchVisualSongChanged()
-                taskManager.addNew(AUTO_SWITCH_VISUAL_TASK_MARKS, { time: 1000, exe: autoSwitchVisualMarksTick, mode: 'timeout', count: 0 });
-                taskManager.operator(AUTO_SWITCH_VISUAL_TASK_MARKS, 'enabled');
-                if (typeof audioPlayer !== 'undefined' && audioPlayer.paused) taskManager.pause(AUTO_SWITCH_VISUAL_TASK_MARKS);
-            } else {
-                scheduleNextAutoSwitchVisualTimer();
-                if (typeof audioPlayer !== 'undefined' && audioPlayer.paused) taskManager.pause(AUTO_SWITCH_VISUAL_TASK_TIMER);
-            }
-        }
-
-        /**
-         * Gọi khi BÀI ĐANG PHÁT THAY ĐỔI (loadedmetadata) — CHỈ nhánh 2 ('duration') cần build lại
-         * marks (duration mới khác hẳn bài cũ). Nhánh 1 ('fixed'/'random') KHÔNG được đụng tới ở
-         * đây — đặc điểm cốt lõi của nhánh 1 là "không quan tâm bài nào đang phát", đổi bài giữa 1
-         * vòng đếm không reset gì cả, đồng hồ cứ tiếp tục đếm xuyên qua bài mới.
-         *
-         * FIX (bổ sung — race condition 'play' bắn TRƯỚC 'loadedmetadata' trong playSong()):
-         * listener 'play' (player-controls.js) gọi syncAutoSwitchVisualPlayState() → thấy task
-         * CHƯA tồn tại (bài mới) → tự gọi startAutoSwitchVisualBranch() lần 1. Event
-         * 'loadedmetadata' bắn SAU 'play' — nếu hàm này (gọi bởi event đó) CỨ gọi lại
-         * startAutoSwitchVisualBranch() VÔ ĐIỀU KIỆN như bản trước, marks vừa build đúng ở lần 1
-         * sẽ bị build LẠI MỚI HOÀN TOÀN ở lần 2 này, không cần thiết.
-         *
-         * SỬA: chỉ gọi startAutoSwitchVisualBranch() ở đây nếu marks CHƯA từng build cho ĐÚNG bài
-         * hiện tại (_lastMarksBuiltForKey !== currentKey) — startAutoSwitchVisualBranch() tự cập
-         * nhật _lastMarksBuiltForKey mỗi khi nó thực sự build/gán marks (cho dù gọi từ 'play' hay
-         * từ đây), nên lần gọi thứ 2 (nếu có, cho CÙNG 1 bài) sẽ tự nhận ra không cần làm lại.
-         */
-        function onAutoSwitchVisualSongChanged() {
-            if (appConfigViz.getAll().autoSwitchVisualTimeMode === 'duration' && appState.get('_lastMarksBuiltForKey') !== appState.get('currentKey')) {
-                startAutoSwitchVisualBranch();
-            }
-            // Nhánh 1: không làm gì — task vẫn đang đếm tiếp, không liên quan việc đổi bài.
-            // Nhánh 2 nhưng marks đã build đúng cho bài hiện tại (từ event 'play' bắn trước) -> bỏ
-            // qua, không làm gì thêm.
-        }
-
-        /**
-         * Gọi lúc nhạc play/pause (player-controls.js, trong listener đã có sẵn) — pause/resume
-         * ĐÚNG task của nhánh đang chạy (không biết/không cần biết nhánh nào — chỉ task nào thật
-         * sự có trong taskManager.plan mới được pause/resume, task không tồn tại thì no-op).
-         */
-        function syncAutoSwitchVisualPlayState() {
-            const cfg = appConfigViz.getAll();
-            if (!cfg.autoSwitchVisualEnabled || !appState.get('currentKey')) { killAllAutoSwitchVisualTasks(); return; }
-            const taskName = (cfg.autoSwitchVisualTimeMode === 'duration') ? AUTO_SWITCH_VISUAL_TASK_MARKS : AUTO_SWITCH_VISUAL_TASK_TIMER;
-            if (!taskManager.plan[taskName]) { startAutoSwitchVisualBranch(); return; } // chưa từng bắt đầu -> bắt đầu mới
-            if (typeof audioPlayer !== 'undefined' && audioPlayer.paused) taskManager.pause(taskName);
-            else taskManager.resume(taskName);
+            return idx;
         }
 
         // ===================== UI binding (Settings, section "Tự động đổi hiệu ứng") =====================
@@ -406,7 +234,6 @@
         }
 
         // ===================== Liên kết với trạng thái phát nhạc =====================
-        // KHÔNG thêm listener 'play'/'pause'/'loadedmetadata' MỚI ở đây (tránh rải listener cho
-        // cùng 1 <audio> element ở nhiều file, khó theo dõi thứ tự chạy) — player-controls.js (nơi
-        // đã có sẵn các listener đó) sẽ gọi syncAutoSwitchVisualPlayState()/onAutoSwitchVisualSongChanged()
-        // trực tiếp trong chính các listener đó. Xem player-controls.js.
+        // SỬA 25/09/2026 — play/pause/loadedmetadata của audioPlayer giờ đi Router -> event/workflow/player-controls.js
+        // (handleAudioPlayEvent/handleAudioPauseEvent/handleAudioLoadedMetadataEvent) -> workflowAutoSwitchVisual.
+        // syncPlayState()/onSongChanged(); core/player-controls.js KHÔNG còn gọi vào đây nữa.
