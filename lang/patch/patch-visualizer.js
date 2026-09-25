@@ -387,11 +387,9 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.brainDirection.rtl': 'Right → Left',
     'customEffectDrawer.brainDirection.ttb': 'Top → Bottom',
     'customEffectDrawer.brainDirection.btt': 'Bottom → Top',
-    'customEffectDrawer.field.timelineShape': 'Timeline shape',
     'customEffectDrawer.timelineShape.line': 'Line',
     'customEffectDrawer.timelineShape.sinDown': 'Sag down',
     'customEffectDrawer.timelineShape.sinUp': 'Arch up',
-    'customEffectDrawer.field.brainShowTimeline': 'Show timeline',
     'customEffectDrawer.field.brainShowNodes': 'Show filter nodes',
     'customEffectDrawer.field.brainShowOrbit': 'Show orbit dots',
     'customEffectDrawer.field.brainShowStrings': 'Show output strings',
@@ -410,10 +408,19 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.brainStringDotGapMin': 'Dot gap – weak harmonic (%)',
     'customEffectDrawer.field.brainStringDotGapMax': 'Dot gap – strong harmonic (%)',
     'customEffectDrawer.field.brainStringDotGapLive': 'Live dot gap (follow harmonics while moving)',
-    'customEffectDrawer.field.brainTimelineDotCount': 'Timeline dot count',
-    'customEffectDrawer.field.brainTimelineMaxTravel': 'Timeline max travel (%)',
     'customEffectDrawer.timelineShape.circle': 'Circle',
     'customEffectDrawer.timelineShape.square': 'Square',
     'customEffectDrawer.timelineShape.triangle': 'Triangle',
+    // MỚI (25/09/2026) — style bar 'dot' (trục thời gian chuyển từ connector brain, core/visualizer/groups/bar/dot.js).
+    // Tên hình tái dùng customEffectDrawer.timelineShape.* ở trên.
+    'visualizerSettingsDrawer.barStyle.dot': 'Dot',
+    'customEffectDrawer.field.dotShape': 'Shape',
+    'customEffectDrawer.timelineShape.sinWave': 'Sine wave',
+    'customEffectDrawer.timelineShape.squareWave': 'Square pulse',
+    'customEffectDrawer.field.dotLineVibrate': 'Elastic vibration (by pitch)',
+    'customEffectDrawer.field.dotImpactMode': 'Impacted dot',
+    'customEffectDrawer.dotImpactMode.radius': 'Swell radius',
+    'customEffectDrawer.dotImpactMode.height': 'Stretch both sides',
+    'customEffectDrawer.field.dotCount': 'Dot count',
 
 };
