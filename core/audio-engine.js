@@ -117,3 +117,50 @@
             } else if (appState.get('audioContext').state === 'suspended' || appState.get('audioContext').state === 'interrupted') appState.get('audioContext').resume();
         }
 
+
+        // ===================== Phát nền khi ẩn tab/PWA (MỚI 25/09/2026, Giang yêu cầu) =====================
+        // 2 hàm THUẦN dưới đây do event/workflow/app-visibility.js (workflowAppVisibility) gọi — KHÔNG tự đọc appState,
+        // KHÔNG gọi hàm core nào khác, KHÔNG dùng taskManager (Rule 1-3).
+
+        /**
+         * Đăng ký Audio Session loại 'playback' (Audio Session API — Safari/iOS 16.4+, `navigator.audioSession`).
+         * NGUYÊN NHÂN GỐC lỗi "ẩn app thì mất tiếng nhưng currentTime vẫn chạy, hết bài -> Next mới có tiếng lại":
+         * `audioPlayer` đi QUA Web Audio (createMediaElementSource ở setupAudioContext()) nên tiếng thật phát ra từ
+         * AudioContext; iOS mặc định xếp trang dùng Web Audio vào loại session KHÔNG được phát nền -> vừa ẩn app là
+         * AudioContext bị hệ điều hành chuyển sang 'interrupted' (câm), còn <audio> vẫn chạy tiếp (currentTime vẫn
+         * tăng). Next/Prev "chữa" được chỉ vì playSong() -> setupAudioContext() gọi resume(). Khai báo 'playback' =
+         * báo iOS đây là app phát nhạc (giống app Music): được phát nền + hiện trên màn hình khoá. Hệ quả phụ (đúng
+         * chuẩn app nhạc): tiếng phát cả khi gạt công tắc im lặng.
+         * Idempotent — chỉ gán khi khác. Trình duyệt không hỗ trợ -> no-op.
+         * @returns {boolean} true nếu trình duyệt hỗ trợ Audio Session API.
+         */
+        function applyPlaybackAudioSession() {
+            if (typeof navigator === 'undefined' || !navigator.audioSession) return false;
+            try {
+                if (navigator.audioSession.type !== 'playback') {
+                    navigator.audioSession.type = 'playback';
+                    console.log('[audio-engine] Đã đăng ký navigator.audioSession.type = "playback"');
+                }
+            } catch (e) {
+                console.warn('[audio-engine] Không đăng ký được audioSession (bỏ qua):', e);
+            }
+            return true;
+        }
+
+        /**
+         * Lưới an toàn cho phát nền: AudioContext bị hệ điều hành ngắt ('interrupted' — riêng Safari) hoặc treo
+         * ('suspended') trong lúc media VẪN đang phát -> resume() ngay (cùng điều kiện resume đã có ở
+         * setupAudioContext()/togglePlayPause()). `shouldBeRunning` = false (không có gì đang phát) thì KHÔNG đụng —
+         * không tự đánh thức context lúc người dùng đã pause.
+         * @param {AudioContext|null|undefined} audioContext - appState.get('audioContext') do Workflow đọc sẵn.
+         * @param {boolean} shouldBeRunning - media đang thật sự phát (Workflow tự tính).
+         * @returns {string} trạng thái context lúc kiểm tra ('none' nếu chưa có context) — Workflow dùng để log.
+         */
+        function resumeAudioContextIfInterrupted(audioContext, shouldBeRunning) {
+            if (!audioContext) return 'none';
+            const state = audioContext.state;
+            if (shouldBeRunning && (state === 'suspended' || state === 'interrupted')) {
+                audioContext.resume().catch((err) => console.warn('[audio-engine] resume() AudioContext lỗi (bỏ qua):', err));
+            }
+            return state;
+        }
