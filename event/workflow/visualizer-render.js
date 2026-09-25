@@ -132,6 +132,13 @@ let _cnBeatFluxHistory = [];
 let _cnBeatsSinceLastShift = 999; // lớn sẵn, cho phép cinematic shift ngay lần đầu
 // ===== Connector (brain) — MỚI (23/09/2026, Giang): triggerBurst() theo Music Transition — tích luỹ
 // flux/beat RIÊNG (không dùng chung mảng với circuit/vortex/fireworks), mirror _tickConnectorBeat().
+// MỚI (25/09/2026) — style bar 'dot' (trục thời gian chuyển từ connector brain, core/visualizer/groups/
+// bar/dot.js). Trạng thái giữ ở Workflow (core thuần), xem _tickBarDot().
+let _dotGeom = null, _dotGeomKey = '';
+let _dotClusters = [];
+let _dotSmoothed = new Float32Array(0);
+let _dotEnergyPeak = 0, _dotLastTime = 0, _dotLastSeenBeatTime = 0;
+let _dotVibAmps = new Float32Array(DOT_VIB_SLOTS); // core/visualizer/groups/bar/dot.js (nạp trước file này)
 const BRAIN_PITCH_FRESH_MS = 300; // nốt chỉ coi là "đang phát" nếu cập nhật trong khoảng này (cùng ngưỡng circuit)
 let _brLastConsumedBeatTime = 0;
 let _brPendingBeatFluxSum = 0;
@@ -724,7 +731,7 @@ const workflowVisualizerRender = {
 
         // ĐỔI (23/09/2026) — gom tham số vào 1 object `frame` (xem docblock draw(), brain.js). Thêm:
         // noteFresh (7 dây output — nốt còn "tươi"), sampleRate (năng lượng FFT đúng tần số nốt),
-        // direction/timelineShape (Custom Effect).
+        // direction (Custom Effect). [SỬA 25/09/2026] timelineShape bỏ — trục thời gian đã chuyển sang style bar 'dot'.
         const audioContext = appState.get('audioContext');
         brainFilterOriginal.draw(ctx, canvas, {
             time: performance.now(),
@@ -733,7 +740,6 @@ const workflowVisualizerRender = {
             bpm: parseFloat(appState.get('currentCalculatedBpm')),
             sampleRate: audioContext ? audioContext.sampleRate : 44100,
             direction: cfg.brainDirection,
-            timelineShape: cfg.timelineShape,
             settings: cfg, // (23/09/2026) toàn bộ Custom Effect connector — brain.js::_applySettings() tự lấy field cần
         }); // core/visualizer/groups/connector/brain.js
     },
@@ -776,7 +782,9 @@ const workflowVisualizerRender = {
     _tickBar(ctx, perf, isPlaying, beatScale, smoothedEnergy, globalHueOffset, vizDataArray, analyser) {
         const cfg = getActiveEffectConfig(); // core/custom-effect.js
         const dpr = appState.get('dpr');
-        if (cfg.barStyle === 'cascade') {
+        if (cfg.barStyle === 'dot') {
+            this._tickBarDot(ctx, perf, isPlaying, cfg, dpr, smoothedEnergy, vizDataArray, analyser); // MỚI 25/09/2026
+        } else if (cfg.barStyle === 'cascade') {
             const keys = computeBarCascadeFrame(cfg, canvas.width, canvas.height, dpr, vizDataArray); // core
             keys.forEach((k) => {
                 const color = getComputedColor(...k.colorArgs); // core/audio-analysis.js
@@ -823,6 +831,83 @@ const workflowVisualizerRender = {
             });
             ctx.shadowBlur = 0;
         }
+    },
+
+    /** MỚI (25/09/2026, yêu cầu Giang) — style bar 'dot': trục thời gian chuyển từ connector brain thành
+     * effect độc lập (core/visualizer/groups/bar/dot.js). Workflow giữ trạng thái (`_dot*`), tự đọc
+     * appState (beat/nốt/audioContext), tự gọi RIÊNG LẺ từng hàm core: dựng hình (cache theo kích thước/
+     * hình/số dot) -> đỉnh năng lượng -> cụm theo beat -> năng lượng dải từng cụm -> độ phồng + EMA ->
+     * rung đàn hồi (chỉ hình line + toggle) -> vẽ trục/dot/mũi tên. */
+    _tickBarDot(ctx, perf, isPlaying, cfg, dpr, smoothedEnergy, vizDataArray, analyser) {
+        const bufferLength = analyser.frequencyBinCount;
+        const { lastBeatTime, lastValidMidiNote, lastValidNoteTime, audioContext } = appState.get(['lastBeatTime', 'lastValidMidiNote', 'lastValidNoteTime', 'audioContext']);
+        const time = performance.now();
+        const dt = _dotLastTime ? Math.min(100, Math.max(0, time - _dotLastTime)) : 16;
+        _dotLastTime = time;
+
+        const dotCount = Math.max(2, Math.round(cfg.dotCount || 40));
+        const geomKey = [canvas.width, canvas.height, cfg.dotShape, dotCount].join('|');
+        if (geomKey !== _dotGeomKey) {
+            _dotGeomKey = geomKey;
+            _dotGeom = buildDotAxisGeometry(cfg.dotShape, canvas.width, canvas.height, dotCount); // core
+            if (_dotSmoothed.length !== dotCount) { _dotSmoothed = new Float32Array(dotCount); _dotClusters = []; }
+        }
+        const geom = _dotGeom;
+
+        // Cụm sóng — beat THẬT mới (lastBeatTime đổi) sinh 1 cụm, quãng đường theo năng lượng chuẩn hoá.
+        _dotEnergyPeak = computeDotEnergyPeak(_dotEnergyPeak, smoothedEnergy, dt); // core
+        const isOnset = isPlaying && lastBeatTime && lastBeatTime !== _dotLastSeenBeatTime;
+        if (lastBeatTime) _dotLastSeenBeatTime = lastBeatTime;
+        const spawn = isOnset ? {
+            normEnergy: (isFinite(smoothedEnergy) ? smoothedEnergy : 0) / Math.max(_dotEnergyPeak, 0.05),
+            clusterSize: pitchToDotClusterSize(lastValidMidiNote), // core
+        } : null;
+        _dotClusters = stepDotClusters(_dotClusters, time, spawn, dotCount); // core
+        const clusterEnergies = _dotClusters.map((cl) => {
+            const arr = [];
+            for (let k = 0; k < cl.clusterSize; k++) arr.push(computeNeuronBinEnergy(vizDataArray, bufferLength, k, cl.clusterSize) / 255); // core/visualizer/groups/connector/synapse.js
+            return arr;
+        });
+        const targets = computeDotTargetBoosts(_dotClusters, clusterEnergies, time, dotCount); // core
+        smoothDotBoosts(_dotSmoothed, targets); // core
+
+        // Rung đàn hồi — chỉ hình line + toggle bật; tắt thì biên độ về 0 ngay (không rung dở dang khi bật lại).
+        const vibrate = geom.shape === 'line' && cfg.dotLineVibrate !== false;
+        let vibAmpPx = 0;
+        if (vibrate) {
+            const noteFresh = isPlaying && lastValidMidiNote !== null && lastValidMidiNote !== undefined && (Date.now() - (lastValidNoteTime || 0)) < DOT_NOTE_FRESH_MS;
+            const midi = noteFresh ? lastValidMidiNote : null;
+            const noteEnergy = computeDotNoteEnergy(midi, vizDataArray, bufferLength, audioContext ? audioContext.sampleRate : 44100); // core
+            stepDotLineVibration(_dotVibAmps, dt, midi, noteEnergy); // core
+            vibAmpPx = Math.min(canvas.width, canvas.height) * DOT_VIB_AMP_FRAC;
+        } else {
+            _dotVibAmps.fill(0);
+        }
+
+        // Vẽ trục (line đang rung: lệch theo pháp tuyến — line nằm ngang nên pháp tuyến = trục y)
+        const pathPts = vibrate
+            ? geom.path.map((p) => ({ x: p.x, y: p.y + computeDotLineDisplacement(p.u, _dotVibAmps, time, vibAmpPx) })) // core
+            : geom.path;
+        paintDotAxisPath(ctx, pathPts, geom.closed, dpr); // core
+
+        const mode = cfg.dotImpactMode === 'height' ? 'height' : 'radius';
+        const maxHalf = (cfg.maxH || 400) * dpr * 0.5; // cùng quy ước bar mirror (maxH × dpr × 0.5 mỗi bên)
+        for (let i = 0; i < dotCount; i++) {
+            const d = geom.dots[i];
+            const boost = _dotSmoothed[i];
+            const y = vibrate ? d.y + computeDotLineDisplacement(d.u, _dotVibAmps, time, vibAmpPx) : d.y; // core
+            if (boost > DOT_IMPACT_MIN) {
+                const color = getComputedColor(i, dotCount, boost * 255); // core/audio-analysis.js
+                const r = mode === 'radius' ? geom.baseRadius + boost * (geom.maxRadius - geom.baseRadius) : geom.baseRadius;
+                const halfLen = mode === 'height' ? boost * maxHalf : 0;
+                paintDotAxisDot(ctx, d.x, y, d.nx, d.ny, mode, r, halfLen, color.fill, color.glow, DOT_GLOW_BLUR_PX * boost * dpr * perf.blurMult); // core
+            } else {
+                paintDotAxisDot(ctx, d.x, y, d.nx, d.ny, 'radius', geom.baseRadius, 0, DOT_REST_COLOR, DOT_REST_COLOR, 0); // core
+            }
+        }
+        ctx.shadowBlur = 0;
+        ctx.lineCap = 'butt'; // paintDotAxisDot() mode 'height' đặt 'round' — trả về mặc định canvas
+        paintDotAxisArrow(ctx, geom.arrow, dpr); // core
     },
 
     /** [MỚI — rà soát Rule 3] VISUAL Rain — Workflow tự đọc `cfg.rainStyle` rồi gọi ĐÚNG 1 trong
