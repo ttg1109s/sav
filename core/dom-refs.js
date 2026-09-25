@@ -114,6 +114,7 @@
         // components/visualizer-overlay.js) — ẩn/hiện qua class y hệt bản cũ, xem
         // core/player-controls.js::syncRepeatUI().
         const btnShuffle = document.getElementById('btn-shuffle'), btnRepeat = document.getElementById('btn-repeat'), repeatOneDigit = document.getElementById('repeat-one-digit');
+        const btnRestartTrack = document.getElementById('btn-restart-track'); // MỚI 25/09/2026 — Control Center "Phát lại từ đầu" (components/visualizer-overlay.js)
         const progressBar = document.getElementById('progress-bar');
         const progressBarRow = document.getElementById('progress-bar-row'); // ẩn hẳn lúc Photo Player mode (ảnh không hỗ trợ kéo tay tuỳ ý) — core/photo-player.js
         const currentTimeDisplay = document.getElementById('current-time'), durationTimeDisplay = document.getElementById('duration-time');
