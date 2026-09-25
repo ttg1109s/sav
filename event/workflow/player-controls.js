@@ -35,7 +35,6 @@
  */
 // ===== Cổng seek (MỚI 21/09/2026, VIẾT LẠI v2 25/09/2026) — xem `workflowPlayerControls.runGatedSeek()` =====
 const SEEK_GATE_SEEKED_TIMEOUT_MS = 3000; // đợi 'seeked' tối đa — phòng seek không bao giờ xong (file lỗi/mạng) để không câm vĩnh viễn
-const SEEK_GATE_UNMUTE_DELAY_MS = 60;     // sau play() còn đợi chút rồi mới nối lại loa (hàng đợi lúc này chỉ có tiếng MỚI)
 const SEEK_GATE_UNMUTE_RAMP_SEC = 0.03;   // mở tiếng dần 30ms — tránh tiếng "tách"
 const SEEK_GATE_DRAIN_POLL_MS = 30;       // nhịp đo analyser lúc chờ đuôi tiếng cũ chảy hết
 const SEEK_GATE_DRAIN_SILENT_POLLS = 3;   // số nhịp im lặng LIÊN TIẾP mới coi là hết đuôi (~90ms, > cửa sổ 46ms của analyserPitch)
@@ -86,8 +85,8 @@ const workflowPlayerControls = {
      *      `isHeldBySeekGate()` — không nháy icon/nhả wake lock/dừng đồng hồ nghe/VBG/auto-switch).
      *   3. Chờ analyser im lặng liên tiếp (`_waitStaleAudioDrained()`) = đuôi tiếng cũ đã chảy hết, hàng đợi rỗng.
      *   4. Gán currentTime -> đợi 'seeked' (Video: kiểm lại vị trí, tối đa 3 lần — giữ nguyên v1).
-     *   5. play() lại nếu cổng đã pause HOẶC `resumeAfter` (Video vừa kéo thanh) -> nối lại loa (mở dần). Hàng đợi lúc này
-     *      chỉ chứa tiếng MỚI -> không còn lọt tiếng cũ, tiếng mới bắt đầu đúng mốc.
+     *   5. Nối lại loa (mở dần) RỒI play() lại nếu cổng đã pause HOẶC `resumeAfter` (Video vừa kéo thanh). Hàng đợi lúc này
+     *      rỗng -> không còn lọt tiếng cũ, tiếng mới bắt đầu đúng mốc. (Nối SAU play() làm iOS bỏ Next/Prev ở màn hình khoá.)
      * Video Player mode dùng CHUNG (bước 4 Giang chọn) — video vốn đã pause lúc kéo thanh nên bước 3 thường xong ngay.
      * Không thêm node nào vào audio graph (Giang không chọn bước 1 — node gain riêng).
      *
@@ -129,7 +128,11 @@ const workflowPlayerControls = {
         if (token !== this._seekGateToken) return;
         if (mediaEl.currentSrc !== srcAtStart) { this._abortSeekGate(); return; }
 
-        // (5) Phát lại + nối loa.
+        // (5) Nối loa TRƯỚC rồi mới phát lại. SỬA (25/09/2026, Giang báo "cập nhật bản mới mất prev/next ở thông báo/màn hình
+        // khoá") — bản đầu v2 play() lúc loa CÒN NGẮT (nối lại sau 60ms): iOS chọn lại phiên "Now Playing" ngay lúc media phát,
+        // thấy trang không ra tiếng nên bỏ điều khiển Media Session. Nối trước là an toàn: media đang dừng + hàng đợi đã rỗng
+        // (bước 3) -> loa chỉ nhận im lặng tới khi play() đưa tiếng MỚI vào; masterGain mở dần 30ms trong `_setSeekGateOutputMuted()`.
+        this._setSeekGateOutputMuted(false);
         const heldByGate = this.isHeldBySeekGate(mediaEl);
         if (heldByGate || resumeAfter) {
             try {
@@ -142,9 +145,6 @@ const workflowPlayerControls = {
         }
         if (heldByGate) this._releaseSeekGateHold(mediaEl, false);
         console.log(`[seekGate] ${mediaEl === audioPlayer ? 'song' : 'video'} -> ${targetSec.toFixed(2)}s | chờ đuôi ${drainMs}ms | tổng ${Math.round(performance.now() - startMs)}ms`);
-        taskManager.once(() => {
-            if (token === this._seekGateToken) this._setSeekGateOutputMuted(false);
-        }, SEEK_GATE_UNMUTE_DELAY_MS, 'seekGateUnmute'); // service/task-manager.js — cùng tên gọi lại = tự huỷ bản cũ (debounce)
     },
 
     /** Sự kiện 'pause'/'play' của `mediaEl` lúc này là do CỔNG tự pause/play tạm (Router->Workflow bỏ qua, xem
