@@ -117,9 +117,6 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.styleLabel': 'Style',
     'customEffectDrawer.blurEnable': 'Glow / blur',
     'customEffectDrawer.blurIntensity': 'Glow intensity',
-    'customEffectDrawer.musicSection.title': 'Music Transition',
-    'customEffectDrawer.musicSection.finaleTitle': 'Finale',
-    'customEffectDrawer.musicSection.redirectTitle': 'Redirect',
     'customEffectDrawer.field.starCount': 'Number of stars',
     'customEffectDrawer.field.glassDropDensity': 'Droplet density',
     'customEffectDrawer.field.glassStreakFrequency': 'Streak frequency',
@@ -190,8 +187,8 @@ const LANG_PATCH_VISUALIZER = {
     // (Finale, style "fireworks") / Vortex (Redirect, mọi style) — tắt thì KHÔNG bao giờ tự
     // trigger nữa dù nhạc có chuyển đoạn, xem finaleEnabled/redirectEnabled (core/config.js,
     // core/custom-effect.js) + _fwUpdateFinaleTrigger()/_tickVortexCurve() (event/workflow/
-    // visualizer-render.js). Cùng chữ với tiêu đề card (musicSection.finaleTitle/redirectTitle
-    // ở trên) — toggle nằm NGAY ĐẦU card đó.
+    // visualizer-render.js). Toggle nằm NGAY ĐẦU card 'music' (không tiêu đề — tiêu đề card
+    // musicSection.* ĐÃ BỎ 25/09/2026, Giang).
     'customEffectDrawer.field.finaleEnabled': 'Finale',
     'customEffectDrawer.field.redirectEnabled': 'Redirect',
     'customEffectDrawer.field.barsRingCount': 'Number of bar rings',
@@ -382,7 +379,6 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.circuitSpeedBase': 'Signal speed',
     'customEffectDrawer.field.circuitSpeedEnergyMult': 'Signal speed (energy boost)',
     // MỚI (23/09/2026) — style 'brain' (core/custom-effect.js, core/visualizer/groups/connector/brain.js)
-    'customEffectDrawer.musicSection.burstTitle': 'Burst',
     'customEffectDrawer.field.brainBurstEnabled': 'Signal burst on music transition',
     'customEffectDrawer.field.brainDirection': 'Direction',
     'customEffectDrawer.brainDirection.ltr': 'Left → Right',
