@@ -328,8 +328,8 @@ const workflowVisualizerRender = {
      * động kéo dài. `cfg.redirectEnabled` (MỚI, toggle "Redirect") tắt thì KHÔNG BAO GIỜ rẽ nữa,
      * bất kể nhạc có biến động hay không — ống đi thẳng mãi. Đủ điều kiện "nhạc vừa biến động"
      * (detectMusicTransition(), core/audio-analysis.js) -> chọn hướng rẽ theo nốt MIDI TỨC
-     * THỜI (lastValidMidiNote, null thì Core tự fallback random) + z hiện tại của camera, ghi
-     * thẳng target mới vào tPathTarget — phần cập nhật vị trí/màu/camera mỗi frame nằm ở
+     * THỜI (lastValidMidiNote, null thì Core tự fallback random), ghi thẳng target mới vào
+     * tPathTarget (SỬA 25/09/2026: không còn phụ thuộc z camera; chỉ rẽ khi lượt trước đã hội tụ) — phần cập nhật vị trí/màu/camera mỗi frame nằm ở
      * `_tickVortexRender()` (bên dưới, rà soát Rule 3). */
     _tickVortexCurve(isPlaying) {
         const fluxHistory = appState.get('fluxHistory');
@@ -360,13 +360,19 @@ const workflowVisualizerRender = {
         // 0.045) lệch hẳn ra khỏi hình học ống thật.
         if (_vxBeatsSinceLastTurn < 2) return;
 
+        // MỚI (25/09/2026, Giang báo "liên tục đổi hướng gây loạn màn hình") — lượt rẽ trước CHƯA hội tụ
+        // (lệch pha còn >= VORTEX_TURN_SETTLE_RAD) thì bỏ qua biến động nhạc lần này: 2 beat (~1s) ngắn
+        // hơn nhiều thời gian ống cần để rẽ xong, trước đây target bị ghi đè liên tục nên ống không bao
+        // giờ đi hết 1 hướng, cứ giằng co giữa các hướng mới.
+        const { tPathParams, tPathTarget, lastValidMidiNote } = appState.get(['tPathParams', 'tPathTarget', 'lastValidMidiNote']);
+        if (!isVortexTurnSettled(tPathParams, tPathTarget, VORTEX_TURN_SETTLE_RAD)) return; // core (three-vortex.js)
+
         const musicTransition = detectMusicTransition(_vxBeatFluxHistory, 2, cfg.sectionWindowBeats, cfg.fluxThreshold); // core (audio-analysis.js)
         if (!musicTransition) return;
         _vxBeatsSinceLastTurn = 0;
 
-        const { tPathTarget, tCurrentWarpZ, lastValidMidiNote } = appState.get(['tPathTarget', 'tCurrentWarpZ', 'lastValidMidiNote']);
         const direction = pickVortexDirectionFromNote(lastValidMidiNote); // core (three-vortex.js)
-        const nextTarget = computeVortexCurveTarget(tPathTarget, direction, tCurrentWarpZ); // core
+        const nextTarget = computeVortexCurveTarget(tPathTarget, direction); // core — SỬA 25/09/2026: không còn nhận z hiện tại
         appState.set('tPathTarget', nextTarget, { skipCheck: true });
     },
 
@@ -382,17 +388,29 @@ const workflowVisualizerRender = {
         const bufferLength = appState.get('analyser').frequencyBinCount;
         const cfg = getActiveEffectConfig(); // core/custom-effect.js
 
-        updateVortexCurveLerp(); // core/webgl/three-vortex.js
-
         const tWarpSpeed = computeVortexWarpSpeed(cfg.warpSpeedBase, cfg.warpSpeedEnergyMult, smoothedEnergy); // core
-        const tCurrentWarpZ = appState.get('tCurrentWarpZ') - tWarpSpeed;
+        let tCurrentWarpZ = appState.get('tCurrentWarpZ') - tWarpSpeed;
+        // MỚI (25/09/2026) — dời gốc z khi bay quá xa (chặn z tịnh tiến vô hạn). Tâm ống chỉ phụ thuộc
+        // camZ - z nên dời CẢ camera lẫn mọi object cùng 1 lượng là không đổi hình gì.
+        if (tCurrentWarpZ < -VORTEX_REBASE_Z) { // core/webgl/three-vortex.js
+            const shift = -tCurrentWarpZ;
+            const nextBarRingZs = shiftVortexSceneZ(shift, appState.get('tRings'), appState.get('tWaveMeshes'), appState.get('tBarRingZs')); // core
+            appState.set('tBarRingZs', nextBarRingZs, { skipCheck: true });
+            tCurrentWarpZ = 0;
+        }
         appState.set('tCurrentWarpZ', tCurrentWarpZ, { skipCheck: true });
+
+        // THAY `updateVortexCurveLerp()` cũ (25/09/2026) — hàm thuần, pha tiến theo quãng vừa bay.
+        const path = computeNextVortexPath(appState.get('tPathParams'), appState.get('tPathTarget'), tWarpSpeed); // core/webgl/three-vortex.js
+        appState.set('tPathParams', path.params, { skipCheck: true });
+        appState.set('tPathTarget', path.target, { skipCheck: true });
+        const pathParams = path.params;
 
         if (cfg.vortexStyle === 'rings') {
             const tRings = appState.get('tRings');
             tRings.forEach((ring, idx) => {
                 stepVortexRingZ(ring, tWarpSpeed, tCurrentWarpZ, TUNNEL_DEPTH); // core
-                const center = getVortexCenterAt(ring.position.z); // core/webgl/three-vortex.js
+                const center = getVortexCenterAt(ring.position.z, pathParams, tCurrentWarpZ); // core/webgl/three-vortex.js
                 const val = vizDataArray[idx % bufferLength] || 0;
                 const color = getComputedColor(idx, tRings.length, val); // core/audio-analysis.js
                 let colorToApply;
@@ -411,7 +429,7 @@ const workflowVisualizerRender = {
             for (let r = 0; r < barsRingCount; r++) {
                 stepVortexBarRingZ(r, tWarpSpeed, tCurrentWarpZ, TUNNEL_DEPTH); // core
                 const z = tBarRingZs[r];
-                const center = getVortexCenterAt(z); // core/webgl/three-vortex.js
+                const center = getVortexCenterAt(z, pathParams, tCurrentWarpZ); // core/webgl/three-vortex.js
                 const val = vizDataArray[r % 40] || 0;
                 const color = getComputedColor(r, barsRingCount, val); // core/audio-analysis.js
                 let ringColor;
@@ -427,7 +445,7 @@ const workflowVisualizerRender = {
             const tWaveMeshes = appState.get('tWaveMeshes');
             tWaveMeshes.forEach((wave, idx) => {
                 stepVortexWaveZ(wave, tWarpSpeed, tCurrentWarpZ, TUNNEL_DEPTH); // core
-                const center = getVortexCenterAt(wave.position.z); // core/webgl/three-vortex.js
+                const center = getVortexCenterAt(wave.position.z, pathParams, tCurrentWarpZ); // core/webgl/three-vortex.js
                 const val = vizDataArray[idx % bufferLength] || 0;
                 const color = getComputedColor(idx, tWaveMeshes.length, val); // core/audio-analysis.js
                 let colorToApply;
@@ -438,14 +456,13 @@ const workflowVisualizerRender = {
             });
         }
 
-        const camTargetPos = getVortexCenterAt(tCurrentWarpZ); // core/webgl/three-vortex.js
+        // SỬA (25/09/2026, Giang báo "va đập") — camera đặt ĐÚNG tâm ống, bỏ damping + lưới kẹp cứng.
+        const camPos = getVortexCenterAt(tCurrentWarpZ, pathParams, tCurrentWarpZ); // core/webgl/three-vortex.js
         const tCamera = appState.get('tCamera');
-        dampVortexCameraPosition(tCamera, camTargetPos, tCurrentWarpZ); // core
-        const clampedPos = clampVortexCameraOffset(tCamera.position.x, tCamera.position.y, camTargetPos.x, camTargetPos.y, VORTEX_CAMERA_SAFE_RADIUS); // core/webgl/three-vortex.js
-        applyVortexCameraClamp(tCamera, clampedPos); // core
+        placeVortexCamera(tCamera, camPos, tCurrentWarpZ); // core
 
-        const lookAheadZ = tCurrentWarpZ - 800;
-        const lookPos = getVortexCenterAt(lookAheadZ); // core/webgl/three-vortex.js
+        const lookAheadZ = tCurrentWarpZ - VORTEX_LOOK_AHEAD;
+        const lookPos = getVortexCenterAt(lookAheadZ, pathParams, tCurrentWarpZ); // core/webgl/three-vortex.js
         tCamera.lookAt(lookPos.x, lookPos.y, lookAheadZ);
 
         appState.get('tRenderer').render(appState.get('tScene'), tCamera);
