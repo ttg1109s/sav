@@ -34,6 +34,14 @@
  *       -> đuôi. Khối DOT_SNAKE_* + initDotSnake()/stepDotSnake()/sampleDotSnakeBody().
  *   (9) Kiểu 'height' + `dotBend`: 2 nhánh bẻ góc `dotBendAngle` độ quanh dot — 'gt' (>, đỉnh chỉ
  *       theo chiều chạy), 'lt' (<), 'slash' (/), 'backslash' (\), 'none' (thẳng như cũ).
+ *   (10) [MỚI 25/09/2026 lượt 4, Giang] Moving có 2 kiểu `dotMoveType`: 'snake' (rắn bò, mục 8) | 'dna'.
+ *       DNA: trên hình trục tĩnh, dãy dot tự NHÂN ĐÔI (chuỗi thứ 2 hiện dần tại chỗ, không cắt cứng)
+ *       rồi 2 chuỗi tách ra xoắn kép quanh trục (2 sin lệch pha π theo pháp tuyến, xoay theo thời gian,
+ *       ~DOT_DNA_PAIRS_PER_TURN cặp/vòng như DNA thật), có thanh nối từng cặp, chuỗi phía sau nhỏ + mờ
+ *       hơn (chiều sâu). Tắt Moving / đổi sang Snake -> phá liên kết LẦN LƯỢT từng cặp từ cặp đầu
+ *       (thanh nối rút về 2 dot), cặp nào đứt thì 2 dot khép lại nhập 1. Trạng thái từng cặp = `level`
+ *       (0 = 1 chuỗi, 1 = xoắn hết cỡ) + `bond` (độ dài thanh nối 0-1) — stepDotDnaPairs().
+ *       Đổi giữa vị trí rắn <-> hình tĩnh: blendDotPositions() trượt mượt từ vị trí cũ (không nhảy).
  *
  * Rule 2/3 — hàm THUẦN / chỉ Canvas API, không appState, không gọi hàm tự viết khác (helper cục bộ
  * khai BÊN TRONG hàm). Trạng thái (cụm, EMA, đỉnh năng lượng, biên độ rung, hình cache) do Workflow
@@ -361,8 +369,10 @@ function sampleDotSnakeBody(snake, dotCount) {
 /** Vẽ 1 dot. mode 'radius': tròn bán kính `r`. mode 'height': 2 nhánh dài `halfLen` từ tâm dot, dày 2×`r`,
  * đầu tròn — `bend` 'none' thẳng theo pháp tuyến (n); 'gt' (>) 2 nhánh ngả NGƯỢC chiều chạy t (đỉnh chỉ
  * theo t); 'lt' (<) ngả THEO t; 'slash'/'backslash' cả dải xoay ±góc (/ hoặc \). `bendDeg` = góc lệch
- * khỏi pháp tuyến. `blurPx` = 0 -> không glow. Chỉ Canvas API. */
-function paintDotAxisDot(ctx, dot, x, y, mode, r, halfLen, bend, bendDeg, color, glowColor, blurPx) {
+ * khỏi pháp tuyến. `blurPx` = 0 -> không glow. `alpha` (mặc định 1) — trả globalAlpha về 1 sau khi vẽ.
+ * Chỉ Canvas API. */
+function paintDotAxisDot(ctx, dot, x, y, mode, r, halfLen, bend, bendDeg, color, glowColor, blurPx, alpha) {
+    ctx.globalAlpha = alpha === undefined ? 1 : alpha; // (25/09/2026 lượt 4) chiều sâu / hiện dần của DNA
     ctx.shadowBlur = blurPx;
     ctx.shadowColor = blurPx > 0 ? glowColor : 'transparent';
     if (mode === 'height' && halfLen > 0.01) {
@@ -384,10 +394,94 @@ function paintDotAxisDot(ctx, dot, x, y, mode, r, halfLen, bend, bendDeg, color,
         ctx.lineTo(x, y);
         ctx.lineTo(x + ux * halfLen, y + uy * halfLen);
         ctx.stroke();
+        ctx.globalAlpha = 1;
         return;
     }
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
+    ctx.globalAlpha = 1;
+}
+
+// ================================== Chuyển vị trí mượt ==================================
+const DOT_BASE_BLEND_MS = 650; // trượt từ vị trí cũ sang vị trí mới khi đổi rắn <-> hình tĩnh
+
+/** Vị trí dot trộn từ `from` ({x,y}[]) sang `to` (dot đầy đủ) theo t (0-1, ease in-out). Giữ tiếp/pháp
+ * tuyến của `to`. Độ dài lệch nhau -> trả nguyên `to`. THUẦN. */
+function blendDotPositions(from, to, t) {
+    if (!from || from.length !== to.length || t >= 1) return to;
+    const k = t <= 0 ? 0 : (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+    return to.map((d, i) => ({ ...d, x: from[i].x + (d.x - from[i].x) * k, y: from[i].y + (d.y - from[i].y) * k }));
+}
+
+// ========================================= DNA =========================================
+const DOT_DNA_PAIRS_PER_TURN = 10;       // cặp dot / 1 vòng xoắn (DNA thật ~10.5 cặp base/vòng)
+const DOT_DNA_RADIUS_FRAC = 0.08;        // bán kính xoắn × min(W,H)
+const DOT_DNA_ROT_SPEED = 1.1;           // tốc độ xoay nền (rad/giây)
+const DOT_DNA_ROT_ENERGY = 2.2;          // + smoothedEnergy × hệ số này (rad/giây)
+const DOT_DNA_SPAWN_MS = 1500;           // nhân đôi + xoắn hết cỡ (mọi cặp cùng lúc)
+const DOT_DNA_APPEAR_FRAC = 0.3;         // level 0 -> 0.3: chuỗi 2 HIỆN DẦN tại chỗ; 0.3 -> 1: tách + xoắn
+const DOT_DNA_BREAK_STAGGER_MS = 45;     // cặp i bắt đầu đứt sau i × khoảng này (lần lượt từ cặp đầu)
+const DOT_DNA_BOND_BREAK_MS = 180;       // thanh nối rút hết về 2 dot
+const DOT_DNA_MERGE_MS = 450;            // 2 dot của cặp đã đứt khép lại nhập 1
+const DOT_DNA_BACK_ALPHA = 0.5;          // chuỗi phía sau: độ đậm tối thiểu
+const DOT_DNA_DEPTH_SCALE = 0.25;        // ± cỡ dot theo chiều sâu
+const DOT_DNA_BOND_WIDTH = 1.5;          // × dpr
+const DOT_DNA_BOND_ALPHA = 0.45;
+
+/** Bước trạng thái từng cặp — mutate `levels`/`bonds` (Float32Array, Workflow giữ). `dnaOn`: nhân đôi +
+ * xoắn (mọi cặp cùng tiến, thanh nối dài theo độ tách); tắt: cặp i bắt đầu khi `breakClockMs` ≥ i ×
+ * stagger — thanh nối rút trước, rút hết thì cặp khép lại. @returns {number} level lớn nhất (0 = hết DNA). */
+function stepDotDnaPairs(levels, bonds, dt, dnaOn, breakClockMs) {
+    let maxLevel = 0;
+    for (let i = 0; i < levels.length; i++) {
+        if (dnaOn) {
+            levels[i] = Math.min(1, levels[i] + dt / DOT_DNA_SPAWN_MS);
+            const sep = Math.max(0, (levels[i] - DOT_DNA_APPEAR_FRAC) / (1 - DOT_DNA_APPEAR_FRAC));
+            bonds[i] = sep * sep * (3 - 2 * sep);
+        } else if (levels[i] > 0 && breakClockMs >= i * DOT_DNA_BREAK_STAGGER_MS) {
+            if (bonds[i] > 0) bonds[i] = Math.max(0, bonds[i] - dt / DOT_DNA_BOND_BREAK_MS);
+            else levels[i] = Math.max(0, levels[i] - dt / DOT_DNA_MERGE_MS);
+        }
+        if (levels[i] > maxLevel) maxLevel = levels[i];
+    }
+    return maxLevel;
+}
+
+/** Vị trí + chiều sâu 2 dot của cặp i quanh dot gốc `dot` (lệch theo pháp tuyến). `level` 0-1 (xem
+ * DOT_DNA_APPEAR_FRAC), `rot` góc xoay hiện tại, `radius` px. THUẦN.
+ * @returns {{ax, ay, az, bx, by, bz, sep, appear}} — az/bz ∈ [-1,1] (1 = phía trước), sep = độ tách 0-1,
+ * appear = độ hiện của chuỗi 2 (0-1). */
+function computeDotDnaPair(dot, i, level, rot, radius) {
+    const appear = Math.min(1, level / DOT_DNA_APPEAR_FRAC);
+    const t = Math.max(0, (level - DOT_DNA_APPEAR_FRAC) / (1 - DOT_DNA_APPEAR_FRAC));
+    const sep = t * t * (3 - 2 * t);
+    const th = (i / DOT_DNA_PAIRS_PER_TURN) * Math.PI * 2 + rot;
+    const off = Math.sin(th) * radius * sep, z = Math.cos(th);
+    return { ax: dot.x + dot.nx * off, ay: dot.y + dot.ny * off, az: z, bx: dot.x - dot.nx * off, by: dot.y - dot.ny * off, bz: -z, sep, appear };
+}
+
+/** Hệ số cỡ + độ đậm theo chiều sâu z (-1 sau .. 1 trước), ăn theo độ tách `sep` (chưa tách = 1/1). THUẦN. */
+function computeDotDnaDepth(z, sep) {
+    const f = (z + 1) / 2;
+    return { scale: 1 + (f * 2 - 1) * DOT_DNA_DEPTH_SCALE * sep, alpha: 1 - (1 - (DOT_DNA_BACK_ALPHA + (1 - DOT_DNA_BACK_ALPHA) * f)) * sep };
+}
+
+/** Thanh nối 1 cặp: 2 nửa từ mỗi dot về điểm giữa, dài theo `bond` (0-1) — mọc ra khi xoắn, rút về 2
+ * dot khi đứt. Chỉ Canvas API. */
+function paintDotDnaBond(ctx, ax, ay, bx, by, bond, color, dpr) {
+    if (bond <= 0.001) return;
+    const mx = (ax + bx) / 2, my = (ay + by) / 2;
+    ctx.save();
+    ctx.globalAlpha = DOT_DNA_BOND_ALPHA;
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = DOT_DNA_BOND_WIDTH * dpr;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(ax, ay); ctx.lineTo(ax + (mx - ax) * bond, ay + (my - ay) * bond);
+    ctx.moveTo(bx, by); ctx.lineTo(bx + (mx - bx) * bond, by + (my - by) * bond);
+    ctx.stroke();
+    ctx.restore();
 }
