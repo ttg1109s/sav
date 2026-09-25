@@ -8,4 +8,4 @@
 
 /** Danh sách style con thuộc group "shape" — tên file khớp CHÍNH XÁC tên trong mảng này
  * (`<tên>.js`). */
-const SHAPE_GROUP_STYLE_KEYS = ['rubik'];
+const SHAPE_GROUP_STYLE_KEYS = ['rubik', 'clock']; // 'clock' MỚI 26/09/2026 (clock.js)
