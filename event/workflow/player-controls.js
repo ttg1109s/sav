@@ -110,11 +110,13 @@ const workflowPlayerControls = {
         {
             const { masterGainNode, audioContext } = appState.get(['masterGainNode', 'audioContext']);
             const latency = audioContext ? `base=${Math.round((audioContext.baseLatency || 0) * 1000)}ms out=${Math.round((audioContext.outputLatency || 0) * 1000)}ms` : 'no ctx';
-            console.log(`[seekDiag] ${mediaEl === audioPlayer ? 'song' : 'video'} ${diagFromSec.toFixed(2)}s -> ${targetSec.toFixed(2)}s | seeked sau ${Math.round(performance.now() - diagStartMs)}ms | đáp ${mediaEl.currentTime.toFixed(2)}s | gain=${masterGainNode ? masterGainNode.gain.value.toFixed(2) : '-'} | ${latency}`);
+            console.log(`[seekDiag] ${mediaEl === audioPlayer ? 'song' : 'video'} ${diagFromSec.toFixed(2)}s -> ${targetSec.toFixed(2)}s | ${this._diagSeekedByTimeout ? 'HẾT GIỜ CHỜ (không có seeked)' : 'seeked'} sau ${Math.round(performance.now() - diagStartMs)}ms | đáp ${mediaEl.currentTime.toFixed(2)}s | gain=${masterGainNode ? masterGainNode.gain.value.toFixed(2) : '-'} | ctx=${audioContext ? audioContext.state : '-'} ${latency}`);
         }
         if (resumeAfter) mediaEl.play().catch((err) => console.error('[workflowPlayerControls] runGatedSeek: play() lỗi sau seek:', err));
         taskManager.once(() => {
-            if (token === this._seekGateToken) this._setMasterGainForSeekGate(false);
+            if (token !== this._seekGateToken) return;
+            this._setMasterGainForSeekGate(false);
+            console.log(`[seekDiag] mở tiếng sau ${Math.round(performance.now() - diagStartMs)}ms, vị trí lúc mở ${mediaEl.currentTime.toFixed(2)}s, ${mediaEl.paused ? 'đang dừng' : 'đang phát'}`); // CHẨN ĐOÁN tạm
         }, SEEK_GATE_UNMUTE_DELAY_MS, 'seekGateUnmute'); // service/task-manager.js — cùng tên gọi lại = tự huỷ bản cũ (debounce)
     },
 
@@ -122,14 +124,15 @@ const workflowPlayerControls = {
     _waitMediaSeeked(mediaEl) {
         return new Promise((resolve) => {
             let done = false;
-            const finish = () => {
+            const finish = (byTimeout) => {
                 if (done) return;
                 done = true;
+                this._diagSeekedByTimeout = byTimeout === true; // CHẨN ĐOÁN tạm — runGatedSeek() log ra
                 mediaEl.removeEventListener('seeked', finish);
                 resolve();
             };
             mediaEl.addEventListener('seeked', finish, { once: true });
-            taskManager.once(finish, SEEK_GATE_SEEKED_TIMEOUT_MS, 'seekGateSeekedTimeout');
+            taskManager.once(() => finish(true), SEEK_GATE_SEEKED_TIMEOUT_MS, 'seekGateSeekedTimeout');
         });
     },
 
