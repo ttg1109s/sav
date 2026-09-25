@@ -91,6 +91,12 @@ const TPL_VISUALIZER_OVERLAY = `
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /><path id="repeat-one-digit" class="hidden" stroke-linecap="round" stroke-linejoin="round" d="M10.5 9.5L12.5 8V15.5" /></svg>
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.repeat.label">${t('visualizerOverlay.repeat.label')}</span>
                     </button>
+                    <!-- MỚI (25/09/2026, Giang yêu cầu) — #btn-restart-track: phát lại bài/video/ảnh hiện tại từ đầu. Thay hành vi cũ
+                         "Prev quá 3s thì tua về đầu" (Prev giờ LUÔN sang bài trước) — xem workflowPlayerControls.restartCurrentTrack(). -->
+                    <button id="btn-restart-track" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.restart.title" title="${t('visualizerOverlay.restart.title')}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12a8 8 0 108-8H9" /><path stroke-linecap="round" stroke-linejoin="round" d="M11.5 1.5L9 4l2.5 2.5" /><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 9.5v5l4-2.5-4-2.5z" /></svg>
+                        <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.restart.label">${t('visualizerOverlay.restart.label')}</span>
+                    </button>
                     <!-- Chỉ hiện lúc Video Player mode — xem setBgVideoElementForPlayerMode(),
                          core/video-player.js. -->
                     <button id="btn-capture-video-frame" data-cc-action class="hidden flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.captureFrame.title" title="${t('visualizerOverlay.captureFrame.title')}">
