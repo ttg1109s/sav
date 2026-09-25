@@ -142,7 +142,10 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'layerTurnSpeed', labelKey: 'customEffectDrawer.field.layerTurnSpeed', type: 'sliderFloat', min: 0.02, max: 0.3, step: 0.01, decimals: 2 },
     ],
     vortex: [
-        { id: 'tunnelRingCount', labelKey: 'customEffectDrawer.field.tunnelRingCount', type: 'slider', min: 10, max: 100, step: 5, refresh: 'initThreeJS' },
+        // SỬA (25/09/2026, rà soát field dùng chung giữa style) — tunnelRingCount CHỈ style 'rings' đọc
+        // (tGroupRings, core/webgl/three-vortex.js::initThreeJS()); trước đây không có showIf nên hiện cả ở
+        // 'bars'/'wave' mà kéo không có tác dụng gì.
+        { id: 'tunnelRingCount', labelKey: 'customEffectDrawer.field.tunnelRingCount', type: 'slider', min: 10, max: 100, step: 5, showIf: (cfg) => cfg.vortexStyle === 'rings', refresh: 'initThreeJS' },
         { id: 'warpSpeedBase', labelKey: 'customEffectDrawer.field.warpSpeedBase', type: 'slider', min: 0, max: 50, step: 1 },
         { id: 'warpSpeedEnergyMult', labelKey: 'customEffectDrawer.field.warpSpeedEnergyMult', type: 'slider', min: 0, max: 100, step: 5 },
         { id: 'redirectEnabled', labelKey: 'customEffectDrawer.field.redirectEnabled', type: 'toggle', group: 'music' },
@@ -259,10 +262,47 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'fluxThreshold', labelKey: 'customEffectDrawer.field.musicFluxThreshold', type: 'sliderFloat', min: 0.1, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => (cfg.connectorStyle === 'circuit' && cfg.cameraShiftEnabled) || (cfg.connectorStyle === 'brain' && cfg.burstEnabled), group: 'music' },
     ],
 };
-/** Config đầy đủ (default merge field thiếu) của 1 effect theo type. */
+/** MỚI (25/09/2026, Giang báo "maxH chỉnh ở mirror, sang cascade vẫn dùng chung giá trị -> sai") — field
+ * mà NHIỀU style con cùng hiện/cùng đọc trong 1 group -> lưu RIÊNG theo từng style, không dùng chung 1 giá
+ * trị cho cả group nữa. Chỗ lưu: `customEffect[group].byStyle[style][field]` (chỉ tạo khi người dùng chỉnh).
+ * Đọc: getEffectConfig() đè giá trị của style ĐANG CHỌN (field style = CUSTOM_EFFECT_STYLE[group].field) lên
+ * bucket group; style CHƯA từng chỉnh field đó -> rơi về giá trị group cũ (= giá trị dùng chung trước bản
+ * này) rồi default -> save cũ không cần migrate, mọi style giữ nguyên giá trị đang thấy, chỉ tách ra từ lần
+ * chỉnh đầu tiên. Field CHỈ 1 style dùng (có showIf riêng 1 style) vẫn lưu phẳng ở bucket group như cũ —
+ * không đưa vào đây (các hàm dựng scene đọc thẳng getEffectConfig(group) lúc resize/init, không phụ thuộc
+ * style đang chọn). Group chỉ 1 style (shape) không cần entry.
+ * Rà soát 25/09/2026 — field dùng chung đã tách:
+ *   - Khối chung màu (mode/solidColor/dynA/dynB) mọi group nhiều style; blur (blurEnabled/blurIntensity)
+ *     ở bar + lighting (group còn lại nằm trong CUSTOM_EFFECT_NO_BLUR).
+ *   - bar: maxH (mirror/cascade/black hole).
+ *   - lighting (thunder/fireworks) + rain (glass/street): 3 field chớp CUSTOM_EFFECT_FLASH_FIELDS.
+ *   - vortex (rings/bars/wave): warpSpeedBase/warpSpeedEnergyMult + Redirect (redirectEnabled/
+ *     sectionWindowBeats/fluxThreshold).
+ *   - connector (synapse/circuit/brain): glowEnabled/glowIntensity/fireThreshold/lateralInhibitStrength;
+ *     sectionWindowBeats/fluxThreshold (circuit camera shift / brain burst). */
+const CUSTOM_EFFECT_COLOR_FIELDS = ['mode', 'solidColor', 'dynA', 'dynB'];
+const CUSTOM_EFFECT_BLUR_FIELDS = ['blurEnabled', 'blurIntensity'];
+const CUSTOM_EFFECT_PER_STYLE_FIELDS = {
+    bar: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_BLUR_FIELDS, 'maxH'],
+    lighting: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_BLUR_FIELDS, ...CUSTOM_EFFECT_FLASH_FIELDS.map((f) => f.id)],
+    rain: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_FLASH_FIELDS.map((f) => f.id)],
+    vortex: [...CUSTOM_EFFECT_COLOR_FIELDS, 'warpSpeedBase', 'warpSpeedEnergyMult', 'redirectEnabled', 'sectionWindowBeats', 'fluxThreshold'],
+    connector: [...CUSTOM_EFFECT_COLOR_FIELDS, 'glowEnabled', 'glowIntensity', 'fireThreshold', 'lateralInhibitStrength', 'sectionWindowBeats', 'fluxThreshold'],
+};
+
+/** Config đầy đủ (default merge field thiếu) của 1 effect theo type. SỬA (25/09/2026) — đè thêm giá trị
+ * RIÊNG của style đang chọn cho các field trong CUSTOM_EFFECT_PER_STYLE_FIELDS (xem docblock bảng đó).
+ * `byStyle` là chỗ lưu nội bộ, không trả ra ngoài -> nơi đọc (Drawer, hàm vẽ, brain `settings`) vẫn thấy
+ * object phẳng y như trước. */
 function getEffectConfig(type) {
     const cfg = appConfigViz.getAll();
-    return { ...DEFAULT_CUSTOM_EFFECT[type], ...(cfg.customEffect && cfg.customEffect[type]) };
+    const merged = { ...DEFAULT_CUSTOM_EFFECT[type], ...(cfg.customEffect && cfg.customEffect[type]) };
+    const perStyleFields = CUSTOM_EFFECT_PER_STYLE_FIELDS[type] || [];
+    const styleDef = CUSTOM_EFFECT_STYLE[type];
+    const own = (styleDef && merged.byStyle && merged.byStyle[merged[styleDef.field]]) || {};
+    perStyleFields.forEach((field) => { if (own[field] !== undefined) merged[field] = own[field]; });
+    delete merged.byStyle;
+    return merged;
 }
 
 /** Config effect ĐANG CHẠY (cfg.type) — dùng bởi getComputedColor()/getActiveBlurMult()
@@ -272,11 +312,22 @@ function getActiveEffectConfig() {
 }
 
 /** Ghi 1 field vào customEffect[type] — DUY NHẤT nơi mutate (Rule 2), Workflow tự gọi saveConfig()
- * sau. Rule 1: luôn tạo bucket effect nếu thiếu rồi ghi field, đúng 1 tiến trình. */
+ * sau. Rule 1: luôn tạo bucket effect nếu thiếu rồi ghi field, đúng 1 tiến trình.
+ * SỬA (25/09/2026) — field nằm trong CUSTOM_EFFECT_PER_STYLE_FIELDS[type] ghi vào ô RIÊNG của style đang
+ * chọn (`byStyle[style]`) thay vì bucket group — vẫn đúng 1 tiến trình "ghi 1 field", chỉ tra bảng để
+ * chọn ô đích. `byStyle`/ô style luôn tạo object MỚI (không sửa tại chỗ object có thể đang tham chiếu
+ * chung với DEFAULT_CUSTOM_EFFECT qua spread nông). */
 function setCustomEffectField(type, field, value) {
     appConfigViz.mutateAll(cfg => {
         if (!cfg.customEffect[type]) cfg.customEffect[type] = { ...DEFAULT_CUSTOM_EFFECT[type] };
-        cfg.customEffect[type][field] = value;
+        const bucket = cfg.customEffect[type];
+        const styleDef = CUSTOM_EFFECT_STYLE[type];
+        const isPerStyle = !!styleDef && (CUSTOM_EFFECT_PER_STYLE_FIELDS[type] || []).includes(field);
+        if (!isPerStyle) { bucket[field] = value; return; }
+        const style = bucket[styleDef.field] || DEFAULT_CUSTOM_EFFECT[type][styleDef.field];
+        const byStyle = { ...(bucket.byStyle || {}) };
+        byStyle[style] = { ...(byStyle[style] || {}), [field]: value };
+        bucket.byStyle = byStyle;
     });
 }
 

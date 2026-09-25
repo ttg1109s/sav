@@ -35,10 +35,11 @@
             // cfg.type MỚI: bar/lighting/rain/vortex/shape — 5 khoá, không phải 12 style con
             // phẳng như MODES, xem service/state/visualizer-runtime.js). Style con hiện tại của
             // MỖI group lưu ở field riêng (barStyle/lightingStyle/rainStyle/vortexStyle/
-            // shapeStyle, khớp GROUP_STYLE_FIELD) — CÙNG 1 bucket màu/blur cho MỌI style
-            // con trong CÙNG group (đổi màu lúc đang ở 'mirror' cũng đổi luôn cho 'cascade'/'black
-            // hole' — cố ý, cùng tinh thần "1 group = 1 cấu hình" của việc gộp file/thư mục
-            // core/visualizer/groups/).
+            // shapeStyle, khớp GROUP_STYLE_FIELD). [SỬA — 25/09/2026, Giang báo maxH mirror/cascade
+            // dùng chung -> sai] Field mà NHIỀU style con cùng dùng (màu/blur, maxH, chớp, glow...)
+            // KHÔNG còn dùng chung 1 giá trị cho cả group — giá trị dưới đây chỉ là mặc định/giá trị cũ,
+            // chỉnh ở style nào lưu riêng style đó (`byStyle[style]`), xem CUSTOM_EFFECT_PER_STYLE_FIELDS
+            // + getEffectConfig()/setCustomEffectField() (core/custom-effect.js).
             bar: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
                 barStyle: 'mirror', minH: 4, maxH: 400, mirrorBarCount: 32,
@@ -53,7 +54,7 @@
             lighting: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
                 lightingStyle: 'thunder',
-                // Chớp toàn màn hình — DÙNG CHUNG cho cả 2 style bên dưới, CÙNG 3 field với group rain
+                // Chớp toàn màn hình — CÙNG 3 field cho cả 2 style bên dưới (giá trị lưu RIÊNG từng style từ 25/09/2026), CÙNG 3 field với group rain
                 // (CUSTOM_EFFECT_FLASH_FIELDS, core/custom-effect.js) — MỚI 19/09/2026.
                 flashEnabled: true, flashThreshold: 0.35, flashMaxOpacity: 0.8,
                 // Style "thunder" (tia sét)
@@ -78,7 +79,7 @@
             rain: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
                 rainStyle: 'glass',
-                // Chớp toàn màn hình — DÙNG CHUNG Glass + Street, CÙNG 3 field với group lighting. MỚI 19/09/2026
+                // Chớp toàn màn hình — CÙNG 3 field cho Glass + Street (giá trị lưu RIÊNG từng style từ 25/09/2026), CÙNG 3 field với group lighting. MỚI 19/09/2026
                 // (flashEnabled thay `glassFlash` cũ; threshold 0.4 + trần 0.4 = giá trị cứng cũ của Rain).
                 flashEnabled: true, flashThreshold: 0.4, flashMaxOpacity: 0.4,
                 glassCityOpacity: 100, glassCityVisible: true, glassMoonVisible: true,
@@ -127,11 +128,11 @@
                 cameraShiftEnabled: true, sectionWindowBeats: 12, fluxThreshold: 0.5,
                 // MỚI (23/09/2026, Giang) — style 'brain': chiều toàn bộ brain filter (ltr/rtl/ttb/btt),
                 // hình trục thời gian (line/sinDown/sinUp/circle/square/triangle), burst theo Music
-                // Transition. sectionWindowBeats/fluxThreshold ở trên dùng CHUNG với circuit (cùng bucket).
+                // Transition. sectionWindowBeats/fluxThreshold ở trên cùng field với circuit (giá trị lưu RIÊNG từng style từ 25/09/2026).
                 brainDirection: 'ltr', timelineShape: 'line', burstEnabled: true,
                 // MỚI (23/09/2026, Giang "thêm hết custom effect") — style 'brain', xem
                 // core/visualizer/groups/connector/brain.js::_applySettings(). Ngoài ra brain nay dùng
-                // chung glowEnabled/glowIntensity/fireThreshold/lateralInhibitStrength ở trên.
+                // chung field glowEnabled/glowIntensity/fireThreshold/lateralInhibitStrength ở trên (giá trị lưu RIÊNG từng style từ 25/09/2026).
                 brainShowTimeline: true, brainShowOrbit: true, brainShowNodes: true, brainShowStrings: true,
                 brainSignalCount: 120, brainFilterStrictness: 0.98, brainInputSpeed: 1.5,
                 brainPumpSqueeze: 22, brainPumpSensitivity: 4, brainNodeFlashSensitivity: 5,
