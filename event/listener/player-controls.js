@@ -38,6 +38,29 @@ if (btnPrev) {
     });
 }
 
+// ===================== Media Session — Next/Prev ở thông báo, màn hình khoá, nút tai nghe =====================
+// MỚI (25/09/2026, Giang yêu cầu "thiếu control next, prev ở thông báo, màn hình khoá") — BỎ một phần quyết định Ver 8
+// (mục 2, "không còn setActionHandler nào", xem core/player-controls.js): CHỈ mở lại nexttrack/previoustrack. Gửi ĐÚNG
+// message của nút Next/Prev trên màn hình (cùng cách cử chỉ vuốt đang làm, event/workflow/visualizer-gesture.js) -> đi
+// chung Router/Workflow, tự đúng cho Song/Video/Photo + mọi gate sẵn có, không có đường xử lý riêng nào.
+// seekbackward/seekforward gán null: iOS ưu tiên hiện nút tua ±10s nếu có handler tua -> bỏ để hiện nút chuyển bài.
+// play/pause KHÔNG đăng ký: trình duyệt tự bật/tắt đúng phần tử media đang phát, sự kiện 'play'/'pause' nguyên bản vẫn
+// đi qua listener audioPlayer/bgVideoElement như cũ.
+// `navigator.mediaSession` là đối tượng tĩnh, đăng ký 1 lần lúc nạp. Hành động nào trình duyệt không hỗ trợ -> ném lỗi,
+// bỏ qua từng cái riêng.
+if ('mediaSession' in navigator) {
+    const mediaSessionHandlers = [
+        ['nexttrack', () => eventBus.send({ router: 'playerControls', type: 'playerControls.next.click', payload: {} })],
+        ['previoustrack', () => eventBus.send({ router: 'playerControls', type: 'playerControls.prev.click', payload: {} })],
+        ['seekbackward', null],
+        ['seekforward', null],
+    ];
+    mediaSessionHandlers.forEach(([action, handler]) => {
+        try { navigator.mediaSession.setActionHandler(action, handler); }
+        catch (e) { console.warn(`[listener/player-controls] Media Session không hỗ trợ "${action}" (bỏ qua):`, e); }
+    });
+}
+
 if (btnShuffle) {
     btnShuffle.addEventListener('click', () => {
         eventBus.send({ router: 'playerControls', type: 'playerControls.shuffle.click', payload: {} });
