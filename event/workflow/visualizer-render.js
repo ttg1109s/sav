@@ -134,6 +134,9 @@ let _cnBeatsSinceLastShift = 999; // lớn sẵn, cho phép cinematic shift ngay
 // flux/beat RIÊNG (không dùng chung mảng với circuit/vortex/fireworks), mirror _tickConnectorBeat().
 // MỚI (25/09/2026) — style bar 'dot' (trục thời gian chuyển từ connector brain, core/visualizer/groups/
 // bar/dot.js). Trạng thái giữ ở Workflow (core thuần), xem _tickBarDot().
+// MỚI (25/09/2026) — style bar 'mirror': vạch đỉnh (hold + rơi) giữ ở Workflow, core/visualizer/groups/bar/
+// mirror.js::stepBarMirrorPeaks() thuần trả state mới mỗi frame.
+let _mirrorPeaks = null, _mirrorLastTime = 0;
 let _dotGeom = null, _dotGeomKey = '';
 let _dotSnake = null, _dotSnakeKey = ''; // (25/09/2026, lượt 2) toggle dotMoving — rắn bò (lượt 3: bỏ mồi, lang thang)
 let _dotClusters = [];
@@ -844,10 +847,24 @@ const workflowVisualizerRender = {
 
             paintBlackHoleCore(ctx, centerX, centerY, currentRadius); // core
         } else {
-            const maxBin = analyser.frequencyBinCount * 0.5;
-            // [SỬA — 15/09/2026, yêu cầu Giang] Bỏ hẳn bar trung tâm — computeBarMirrorFrame() (core)
-            // không còn trả `center` nữa, chỉ còn `bars`.
-            const frame = computeBarMirrorFrame(cfg, canvas.width, canvas.height, dpr, vizDataArray, maxBin); // core
+            // VIẾT LẠI (25/09/2026, Giang — cải tiến mirror, giữ bản chất mirror + butterfly, xem docblock
+            // core/visualizer/groups/bar/mirror.js): dải log + dB -85/-25 + nâng treble -> làm mượt kề ->
+            // vạch đỉnh (state giữ ở Workflow `_mirrorPeaks`) -> dựng rect. Style này chạy FFT 2048
+            // (needsHighResFft(group, style), service/state/visualizer-runtime.js).
+            const time = performance.now();
+            const dt = _mirrorLastTime ? Math.min(100, Math.max(0, time - _mirrorLastTime)) : 16;
+            _mirrorLastTime = time;
+            const barCount = resolveBarMirrorCount(cfg); // core
+            const rawLevels = computeBarMirrorLevels(vizDataArray, analyser.frequencyBinCount, analyser.context.sampleRate, analyser.minDecibels, analyser.maxDecibels, barCount, cfg.mirrorTilt); // core
+            const levels = spreadBarMirrorLevels(rawLevels, cfg.mirrorSmoothSpread); // core
+            let peaks = null;
+            if (cfg.mirrorPeaks !== false) {
+                _mirrorPeaks = stepBarMirrorPeaks(levels, _mirrorPeaks, dt); // core
+                peaks = _mirrorPeaks.vals;
+            } else {
+                _mirrorPeaks = null; // bật lại -> khởi tạo từ mức hiện tại, không bắn vạch cũ
+            }
+            const frame = computeBarMirrorFrame(cfg, canvas.width, canvas.height, dpr, levels, peaks); // core
             frame.bars.forEach((b) => {
                 const color = getComputedColor(...b.colorArgs); // core/audio-analysis.js
                 paintBarRects(ctx, b.rects, color.fill, color.glow, dpr, perf.blurMult, 15); // core
