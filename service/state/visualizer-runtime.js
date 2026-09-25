@@ -60,7 +60,7 @@
         // openEffectPickerModal()) — nguồn CHÂN LÝ DUY NHẤT cho việc "style nào thuộc group nào",
         // STYLE_TO_GROUP suy ra TỰ ĐỘNG từ bảng này (KHÔNG khai riêng, tránh lệch 2 bảng).
         const EFFECT_GROUPS = {
-            bar: ['mirror', 'cascade', 'black hole'],
+            bar: ['mirror', 'cascade', 'black hole', 'dot'], // 'dot' MỚI 25/09/2026 — trục thời gian chuyển từ connector brain
             lighting: ['thunder', 'fireworks'],
             rain: ['glass', 'street'],
             vortex: ['rings', 'bars', 'wave'],
