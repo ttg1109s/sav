@@ -238,7 +238,7 @@
                 document.getElementById('webgl-canvas').classList.add('opacity-0');
             }
 
-            if(appState.get('analyser')) { appState.get('analyser').fftSize = needsHighResFft(cfg.type) ? APP_CONFIG.fftSizeHighRes : APP_CONFIG.fftSizeStandard; allocateBuffers(); } // service/state/visualizer-runtime.js
+            if(appState.get('analyser')) { appState.get('analyser').fftSize = needsHighResFft(cfg.type, style) ? APP_CONFIG.fftSizeHighRes : APP_CONFIG.fftSizeStandard; allocateBuffers(); } // service/state/visualizer-runtime.js — SỬA (25/09/2026): truyền thêm style (bar 'mirror' cần FFT cao)
         }
 
         // (Phần B, Galaxy — updateSpaceStyleUI() ĐÃ BỎ 21/07/2026, cùng panel tinh chỉnh reroll/jump)
