@@ -951,6 +951,17 @@ const workflowVisualizerRender = {
         // SỬA (25/09/2026, lượt 2) — ĐỒNG MÀU: 1 màu duy nhất cho mọi dot trong frame (không theo index,
         // dot nghỉ không còn xám). Dot tác động chỉ khác kích thước + glow. Bỏ vẽ đường nối + mũi tên.
         const color = getComputedColor(0, 1, 128); // core/audio-analysis.js
+        // SỬA (25/09/2026, Giang báo "không áp màu B ở chế độ 2 color") — chế độ 'dynamic' (2-color blend) trước đây luôn
+        // ra màu A (getComputedColor(0,...) = hệ số 0). Giờ: dot nghỉ = A, dot trong cụm đang phình ngả dần sang B theo độ
+        // phình (căn bậc 2 — lên B nhanh ở mức phình vừa), phình hết cỡ = B thuần. solid/gradient giữ nguyên 1 màu.
+        const isTwoColor = cfg.mode === 'dynamic';
+        const impactColor = (boost) => {
+            if (!isTwoColor) return color;
+            const c = interpolateColor(cfg.dynA, cfg.dynB, Math.sqrt(Math.min(1, Math.max(0, boost)))); // core/color-utils.js
+            return { fill: c, glow: c };
+        };
+        // MỚI (25/09/2026, Giang) — "Độ phình" (%): nhân phần phình thêm của kiểu 'radius' (100% = như cũ).
+        const swell = (isFinite(cfg.dotSwell) ? cfg.dotSwell : 100) / 100;
         const mode = cfg.dotImpactMode === 'height' ? 'height' : 'radius';
         const maxHalf = (cfg.maxH || 400) * dpr * 0.5; // cùng quy ước bar mirror (maxH × dpr × 0.5 mỗi bên)
         const bend = mode === 'height' ? (cfg.dotBend || 'none') : 'none';
@@ -979,9 +990,10 @@ const workflowVisualizerRender = {
                 const d = dots[it.i];
                 const boost = _dotSmoothed[it.i];
                 if (boost > DOT_IMPACT_MIN) {
-                    const r = (mode === 'radius' ? baseRadius + boost * (maxRadius - baseRadius) : baseRadius) * it.scale;
+                    const r = (mode === 'radius' ? baseRadius + boost * (maxRadius - baseRadius) * swell : baseRadius) * it.scale;
                     const halfLen = mode === 'height' ? boost * maxHalf * it.scale : 0;
-                    paintDotAxisDot(ctx, d, it.x, it.y, mode, r, halfLen, bend, bendDeg, color.fill, color.glow, DOT_GLOW_BLUR_PX * boost * dpr * perf.blurMult, it.alpha); // core
+                    const c = impactColor(boost);
+                    paintDotAxisDot(ctx, d, it.x, it.y, mode, r, halfLen, bend, bendDeg, c.fill, c.glow, DOT_GLOW_BLUR_PX * boost * dpr * perf.blurMult, it.alpha); // core
                 } else {
                     paintDotAxisDot(ctx, d, it.x, it.y, 'radius', baseRadius * it.scale, 0, 'none', 0, color.fill, color.glow, 0, it.alpha); // core
                 }

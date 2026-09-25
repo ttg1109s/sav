@@ -239,7 +239,14 @@ const workflowEqPresets = {
     _wireEditView(preset, isBuiltIn) {
         const backBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-back');
         if (backBtn) backBtn.addEventListener('click', () => this.openListView());
-        if (preset.locked) return; // Default — chỉ xem, không có nút Lưu/Xoá/Khôi phục/input nào để wire thêm
+
+        // MỚI (12/08/2026, Giang yêu cầu "thêm nút apply cạnh nút delete") — xem docstring components/eq-presets-drawer.js
+        // (SỬA 3) + _applyPreset() ngay dưới. SỬA (25/09/2026, Giang yêu cầu "thêm nút apply cho default EQ") — wire TRƯỚC guard
+        // locked: preset Default (locked) giờ cũng có nút Áp dụng (1 mình, full-width — vẫn không Lưu/Xoá/sửa được).
+        const applyBtn = genericDrawerBody.querySelector('#eq-drawer-apply');
+        if (applyBtn) applyBtn.addEventListener('click', () => this._applyPreset(preset.id));
+
+        if (preset.locked) return; // Default — chỉ xem + Áp dụng, không có nút Lưu/Xoá/Khôi phục/input nào để wire thêm
 
         const saveBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-save');
         if (saveBtn) saveBtn.addEventListener('click', () => this._saveEdit());
@@ -275,17 +282,12 @@ const workflowEqPresets = {
             });
         });
 
-        // MỚI (12/08/2026, Giang yêu cầu "thêm nút apply cạnh nút delete") — xem
-        // docstring components/eq-presets-drawer.js (SỬA 3) + _applyPreset() ngay dưới.
-        const applyBtn = genericDrawerBody.querySelector('#eq-drawer-apply');
-        if (applyBtn) applyBtn.addEventListener('click', () => this._applyPreset(preset.id));
-
         const deleteBtn = genericDrawerBody.querySelector('#eq-drawer-delete');
         if (deleteBtn) deleteBtn.addEventListener('click', () => this._deletePreset(preset.id));
     },
 
-    /** Ứng với nút "Áp dụng" cạnh Xoá trong body Edit (MỚI, 12/08/2026 — chỉ hiện với preset
-     * KHÔNG locked, cùng điều kiện với nút Xoá, xem components/eq-presets-drawer.js) — CHỌN preset
+    /** Ứng với nút "Áp dụng" cạnh Xoá trong body Edit (MỚI, 12/08/2026; SỬA 25/09/2026 — preset Default/locked cũng có,
+     * đứng 1 mình vì không Xoá được, xem components/eq-presets-drawer.js; slider khoá nên `_draftGains` = đúng gains gốc) — CHỌN preset
      * đang sửa làm preset ĐANG DÙNG (`eqPresetId`) NGAY LẬP TỨC, đồng thời áp `_draftGains` (giá
      * trị đang chỉnh trên slider LÚC NÀY, kể cả CHƯA bấm Lưu) lên audio graph thật — cho nghe thử
      * trực tiếp trong lúc chỉnh. KHÁC HẲN Lưu (_saveEdit(), chỉ GHI DB — chỉ áp gains lên audio
