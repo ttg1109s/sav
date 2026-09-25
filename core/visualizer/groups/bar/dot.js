@@ -21,6 +21,20 @@
  *       (k + 0.5) / 7), dạng dây gảy (2 đầu cố định, đỉnh tại điểm gảy), biên độ theo năng lượng FFT
  *       đúng tần số nốt, tắt dần. 7 vị trí rung độc lập, cộng dồn.
  *
+ * SỬA (25/09/2026, Giang — lượt 2):
+ *   (6) BỎ mũi tên + đường nối (nét đứt) giữa các dot — chỉ còn dãy dot. Hình trục vẫn quyết định
+ *       VỊ TRÍ dot, không vẽ ra nữa.
+ *   (7) ĐỒNG MÀU: mọi dot (nghỉ lẫn đang tác động) cùng 1 màu effect/frame — Workflow lấy 1 màu duy
+ *       nhất, dot nghỉ không còn xám cố định. Dot tác động chỉ khác ở kích thước + glow.
+ *   (8) Toggle `dotMoving` — chuỗi dot thành RẮN BÒ: đầu rắn (dot 0) bò lang thang, độ cong đường bò
+ *       đổi ngẫu nhiên mượt sau mỗi quãng (không gắt hơn bán kính quay tối thiểu) + uốn lượn sin, sát
+ *       mép (nhìn trước theo hướng bò) thì quay về giữa màn hình. [SỬA 25/09/2026 lượt 3 — Giang "bỏ mồi"] Bỏ hẳn con mồi (điểm
+ *       đích) của bản trước. Thân (dot 1..N-1) bám đúng vết đầu đã bò, cách đều nhau. Tốc độ
+ *       bò tăng theo năng lượng nhạc. Bật thì hình trục/rung đàn hồi không dùng. Sóng dot chạy từ đầu
+ *       -> đuôi. Khối DOT_SNAKE_* + initDotSnake()/stepDotSnake()/sampleDotSnakeBody().
+ *   (9) Kiểu 'height' + `dotBend`: 2 nhánh bẻ góc `dotBendAngle` độ quanh dot — 'gt' (>, đỉnh chỉ
+ *       theo chiều chạy), 'lt' (<), 'slash' (/), 'backslash' (\), 'none' (thẳng như cũ).
+ *
  * Rule 2/3 — hàm THUẦN / chỉ Canvas API, không appState, không gọi hàm tự viết khác (helper cục bộ
  * khai BÊN TRONG hàm). Trạng thái (cụm, EMA, đỉnh năng lượng, biên độ rung, hình cache) do Workflow
  * (`_tickBarDot()`, event/workflow/visualizer-render.js) giữ và truyền vào.
@@ -36,15 +50,12 @@ const DOT_WAVE_PERIODS = 2;              // số chu kỳ sinWave
 const DOT_SQUARE_PULSES = 4;             // số xung squareWave
 const DOT_CLOSED_W_FRAC = 0.7;           // hình kín ≤ 70% W
 const DOT_CLOSED_H_FRAC = 0.5;           //         ≤ 50% H
-const DOT_PATH_SAMPLES = 480;            // số đoạn polyline vẽ trục (rải đều theo độ dài cung)
 const DOT_BASE_RADIUS_FRAC = 0.22;       // × khoảng cách 2 dot — baseline
 const DOT_MAX_RADIUS_FRAC = 0.48;        // × khoảng cách 2 dot — phồng hết cỡ (mode 'radius')
 const DOT_CLUSTER_TRAVEL_MS = 700;       // thời gian 1 cụm dịch hết quãng đường của nó
 const DOT_ENERGY_PEAK_TAU_MS = 4000;     // đỉnh năng lượng tắt dần ~4s — mốc chuẩn hoá quãng đường
 const DOT_SMOOTH_ALPHA = 0.35;           // EMA mỗi frame độ phồng từng dot
 const DOT_IMPACT_MIN = 0.02;             // boost dưới mức này coi như dot nghỉ (xám, không glow)
-const DOT_REST_COLOR = '#94a3b8';
-const DOT_AXIS_COLOR = '#334155';
 const DOT_GLOW_BLUR_PX = 15;             // shadowBlur tối đa (× boost × dpr × blurMult) — cùng mức bar mirror
 const DOT_NOTE_FRESH_MS = 300;           // nốt chỉ coi là "đang phát" trong khoảng này (cùng ngưỡng brain/circuit)
 // Rung đàn hồi (hình line) — cùng thông số 7 dây output của brain
@@ -56,9 +67,10 @@ const DOT_VIB_ENERGY_GAIN = 1.3;
 const DOT_VIB_HZ_BASE = 5;
 const DOT_VIB_HZ_STEP = 0.6;
 
-/** Dựng hình trục: polyline vẽ (rải đều theo độ dài cung) + vị trí/pháp tuyến từng dot + mũi tên + bán
- * kính theo khoảng cách dot. Hình mở: dot i ở s = i/(N-1); hình kín: s = i/N (không trùng điểm đầu).
- * @returns {{shape, closed, path:{x,y,u}[], dots:{x,y,nx,ny,u}[], arrow:{x,y,angle}, baseRadius, maxRadius}} */
+/** Dựng hình trục: vị trí/tiếp tuyến/pháp tuyến từng dot (rải đều theo độ dài cung) + bán kính theo
+ * khoảng cách dot. Hình mở: dot i ở s = i/(N-1); hình kín: s = i/N (không trùng điểm đầu). SỬA (25/09/2026,
+ * lượt 2): bỏ polyline vẽ + mũi tên (không còn vẽ đường nối/mũi tên).
+ * @returns {{shape, closed, dots:{x,y,tx,ty,nx,ny,u}[], baseRadius, maxRadius}} */
 function buildDotAxisGeometry(shape, W, H, dotCount) {
     const shp = DOT_AXIS_SHAPES.includes(shape) ? shape : 'line';
     const minWH = Math.min(W, H);
@@ -119,16 +131,9 @@ function buildDotAxisGeometry(shape, W, H, dotCount) {
         return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
     };
 
-    const path = [];
-    for (let k = 0; k <= DOT_PATH_SAMPLES; k++) {
-        const u = k / DOT_PATH_SAMPLES;
-        const pt = pointAt(u * total);
-        path.push({ x: pt.x, y: pt.y, u });
-    }
-
     const n = Math.max(2, Math.round(dotCount));
     const denom = closed ? n : n - 1;
-    const eps = total / (DOT_PATH_SAMPLES * 2);
+    const eps = total / 960;
     const dots = [];
     for (let i = 0; i < n; i++) {
         const u = i / denom, s = u * total;
@@ -141,21 +146,11 @@ function buildDotAxisGeometry(shape, W, H, dotCount) {
         let tx = pb.x - pa.x, ty = pb.y - pa.y;
         const tl = Math.hypot(tx, ty) || 1;
         tx /= tl; ty /= tl;
-        dots.push({ x: p.x, y: p.y, nx: -ty, ny: tx, u });
+        dots.push({ x: p.x, y: p.y, tx, ty, nx: -ty, ny: tx, u });
     }
 
     const spacing = total / denom;
-    const endPt = closed ? raw[0] : raw[raw.length - 1];
-    const prevPt = pointAt(closed ? total * 0.995 : total * 0.985);
-    return {
-        shape: shp,
-        closed,
-        path,
-        dots,
-        arrow: { x: endPt.x, y: endPt.y, angle: Math.atan2(endPt.y - prevPt.y, endPt.x - prevPt.x) },
-        baseRadius: spacing * DOT_BASE_RADIUS_FRAC,
-        maxRadius: spacing * DOT_MAX_RADIUS_FRAC,
-    };
+    return { shape: shp, closed, dots, baseRadius: spacing * DOT_BASE_RADIUS_FRAC, maxRadius: spacing * DOT_MAX_RADIUS_FRAC };
 }
 
 /** Đỉnh năng lượng gần đây (peak-hold tắt dần theo dt thật) — mốc chuẩn hoá quãng đường sóng. THUẦN. */
@@ -252,32 +247,142 @@ function computeDotLineDisplacement(u, amps, time, ampPx) {
     return d * ampPx;
 }
 
-/** Vẽ đường trục (nét đứt) qua `points` ({x,y}) — chỉ Canvas API. */
-function paintDotAxisPath(ctx, points, closed, dpr) {
-    ctx.save();
-    ctx.strokeStyle = DOT_AXIS_COLOR;
-    ctx.lineWidth = 1.5 * dpr;
-    ctx.setLineDash([4 * dpr, 4 * dpr]);
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    for (let k = 1; k < points.length; k++) ctx.lineTo(points[k].x, points[k].y);
-    if (closed) ctx.closePath();
-    ctx.stroke();
-    ctx.restore();
+// ======================================== Rắn bò ========================================
+const DOT_SNAKE_SPEED_FRAC = 0.22;          // tốc độ bò nền × min(W,H) / giây
+const DOT_SNAKE_SPEED_ENERGY_FRAC = 0.45;   // + smoothedEnergy × hệ số này × min(W,H) / giây
+const DOT_SNAKE_TURN_RADIUS_FRAC = 0.1;     // bán kính vòng quay nhỏ nhất × min(W,H) — quay theo QUÃNG bò (nhanh hay chậm đều vòng như nhau), không bẻ gắt
+const DOT_SNAKE_EDGE_FRAC = 0.1;            // điểm NHÌN TRƯỚC của đầu rắn lọt ra ngoài lề này (× W/H) -> quay về giữa màn hình
+const DOT_SNAKE_LOOKAHEAD_FRAC = 0.3;       // nhìn trước theo hướng bò × min(W,H) — né mép từ sớm, không đâm ra rồi mới quay
+const DOT_SNAKE_SLITHER_AMP = 0.55;         // biên độ uốn lượn (rad) quanh hướng bò
+const DOT_SNAKE_SLITHER_WAVELEN_FRAC = 0.28; // bước sóng uốn lượn × min(W,H) (theo quãng đã bò)
+// Lang thang (THAY con mồi, 25/09/2026 lượt 3): sau mỗi quãng ngẫu nhiên chọn độ cong mới (−1..1 × độ
+// cong tối đa × hệ số dưới), độ cong hiện tại tiến mượt về đó theo quãng bò.
+const DOT_SNAKE_WANDER_CURV_FRAC = 0.6;     // độ cong mục tiêu tối đa × độ cong tối đa (1 / bán kính quay)
+const DOT_SNAKE_WANDER_MIN_FRAC = 0.3;      // quãng giữ 1 độ cong: từ × min(W,H)
+const DOT_SNAKE_WANDER_RANGE_FRAC = 0.5;    //                    + ngẫu nhiên tới × min(W,H)
+const DOT_SNAKE_CURV_EASE_FRAC = 0.2;       // độ cong hiện tại tiến hết về mục tiêu sau ~ × min(W,H) quãng bò
+
+/** Rắn mới: nằm ngang giữa màn hình (đầu bên phải, thân kéo sang trái, hướng bò sang phải), khoảng cách
+ * dot bằng đúng khoảng cách hình 'line' nên cỡ dot khớp style tĩnh. THUẦN.
+ * @returns {{head, heading, phase, curv, curvTarget, wanderLeft, trail:{x,y}[], spacing, baseRadius, maxRadius, W, H}} */
+function initDotSnake(W, H, dotCount) {
+    const n = Math.max(2, Math.round(dotCount));
+    const len = W * (1 - 2 * DOT_AXIS_MARGIN_X_FRAC);
+    const spacing = len / (n - 1);
+    const head = { x: W / 2 + len / 2, y: H / 2 };
+    const trail = [];
+    for (let k = 0; k <= 64; k++) trail.push({ x: head.x - (k / 64) * len, y: head.y });
+    return {
+        head, heading: 0, phase: 0, curv: 0, curvTarget: 0, wanderLeft: 0, trail,
+        spacing, baseRadius: spacing * DOT_BASE_RADIUS_FRAC, maxRadius: spacing * DOT_MAX_RADIUS_FRAC, W, H,
+    };
 }
 
-/** Vẽ 1 dot. mode 'radius': tròn bán kính `r`; mode 'height': viên thuốc dày 2×`r`, kéo dài `halfLen`
- * mỗi bên theo pháp tuyến (nx, ny). `blurPx` = 0 -> không glow. Chỉ Canvas API. */
-function paintDotAxisDot(ctx, x, y, nx, ny, mode, r, halfLen, color, glowColor, blurPx) {
+/** 1 bước rắn — trả state MỚI: lang thang theo độ cong ngẫu nhiên mượt (sát mép thì quay về tâm màn
+ * hình với độ cong tối đa), bò theo hướng đó + uốn lượn sin theo quãng đã bò, ghi vết đầu (cắt bớt
+ * phần dài hơn thân). `dtSec` giây, `energy` 0-1. THUẦN (Math.random cho độ cong mục tiêu). */
+function stepDotSnake(snake, dtSec, energy, dotCount) {
+    const W = snake.W, H = snake.H, minWH = Math.min(W, H);
+    const speed = minWH * (DOT_SNAKE_SPEED_FRAC + (isFinite(energy) ? Math.max(0, energy) : 0) * DOT_SNAKE_SPEED_ENERGY_FRAC);
+    const dist = speed * dtSec;
+    const maxCurv = 1 / (minWH * DOT_SNAKE_TURN_RADIUS_FRAC);
+
+    // Chọn độ cong mục tiêu mới sau mỗi quãng lang thang
+    let curvTarget = snake.curvTarget, wanderLeft = snake.wanderLeft - dist;
+    if (wanderLeft <= 0) {
+        curvTarget = (Math.random() * 2 - 1) * maxCurv * DOT_SNAKE_WANDER_CURV_FRAC;
+        wanderLeft = minWH * (DOT_SNAKE_WANDER_MIN_FRAC + Math.random() * DOT_SNAKE_WANDER_RANGE_FRAC);
+    }
+    let curv = snake.curv + (curvTarget - snake.curv) * Math.min(1, dist / (minWH * DOT_SNAKE_CURV_EASE_FRAC));
+
+    // Điểm nhìn trước sắp ra mép -> quay về tâm màn hình (lệch ngắn nhất theo 2π), độ cong tối đa
+    const ex = W * DOT_SNAKE_EDGE_FRAC, ey = H * DOT_SNAKE_EDGE_FRAC, look = minWH * DOT_SNAKE_LOOKAHEAD_FRAC;
+    const lx = snake.head.x + Math.cos(snake.heading) * look, ly = snake.head.y + Math.sin(snake.heading) * look;
+    const nearEdge = lx < ex || lx > W - ex || ly < ey || ly > H - ey;
+    let turn = curv * dist;
+    if (nearEdge) {
+        let d = (Math.atan2(H / 2 - snake.head.y, W / 2 - snake.head.x) - snake.heading) % (Math.PI * 2);
+        if (d > Math.PI) d -= Math.PI * 2;
+        if (d < -Math.PI) d += Math.PI * 2;
+        turn = Math.max(-maxCurv * dist, Math.min(maxCurv * dist, d));
+        curv = turn / Math.max(dist, 1e-6); // ra khỏi mép tiếp tục cong mượt từ độ cong đang quay
+    }
+    const heading = (snake.heading + turn) % (Math.PI * 2);
+
+    // Uốn lượn — pha tiến theo quãng đã bò (không theo thời gian) -> đứng yên thì không lắc
+    const phase = (snake.phase + (dist / (minWH * DOT_SNAKE_SLITHER_WAVELEN_FRAC)) * Math.PI * 2) % (Math.PI * 2);
+    const moveAngle = heading + DOT_SNAKE_SLITHER_AMP * Math.sin(phase);
+    const head = { x: snake.head.x + Math.cos(moveAngle) * dist, y: snake.head.y + Math.sin(moveAngle) * dist };
+
+    // Vết: đầu mới ở [0]; bỏ điểm quá gần (đứng yên) và cắt phần dài hơn thân + 1 khoảng dot
+    const bodyLen = snake.spacing * (Math.max(2, Math.round(dotCount)) - 1) + snake.spacing;
+    const trail = [head];
+    let acc = 0;
+    for (let k = 0; k < snake.trail.length; k++) {
+        const prev = trail[trail.length - 1], p = snake.trail[k];
+        const seg = Math.hypot(p.x - prev.x, p.y - prev.y);
+        if (k === 0 && seg < 0.5) continue;
+        trail.push(p);
+        acc += seg;
+        if (acc > bodyLen) break;
+    }
+
+    return { ...snake, head, heading, phase, curv, curvTarget, wanderLeft, trail };
+}
+
+/** Vị trí dot dọc vết rắn: dot i cách đầu i × spacing (theo độ dài cung), tiếp tuyến chỉ từ đầu -> đuôi
+ * (cùng quy ước chiều chạy sóng dot 0 -> N-1). Vết ngắn hơn thân (vừa tăng số dot) -> dot dồn ở cuối
+ * vết. THUẦN. @returns {{x,y,tx,ty,nx,ny,u}[]} */
+function sampleDotSnakeBody(snake, dotCount) {
+    const n = Math.max(2, Math.round(dotCount));
+    const tr = snake.trail;
+    const dots = [];
+    let seg = 1, segStart = 0;
+    for (let i = 0; i < n; i++) {
+        const s = i * snake.spacing;
+        while (seg < tr.length - 1 && segStart + Math.hypot(tr[seg].x - tr[seg - 1].x, tr[seg].y - tr[seg - 1].y) < s) {
+            segStart += Math.hypot(tr[seg].x - tr[seg - 1].x, tr[seg].y - tr[seg - 1].y);
+            seg++;
+        }
+        const a = tr[Math.min(seg - 1, tr.length - 1)], b = tr[Math.min(seg, tr.length - 1)];
+        const segLen = Math.hypot(b.x - a.x, b.y - a.y);
+        const f = segLen > 0 ? Math.min(1, Math.max(0, (s - segStart) / segLen)) : 0;
+        let tx = b.x - a.x, ty = b.y - a.y;
+        const tl = Math.hypot(tx, ty) || 1;
+        tx /= tl; ty /= tl;
+        if (segLen === 0) { tx = -Math.cos(snake.heading); ty = -Math.sin(snake.heading); }
+        dots.push({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, tx, ty, nx: -ty, ny: tx, u: i / (n - 1) });
+    }
+    return dots;
+}
+
+// ======================================= Vẽ =======================================
+
+/** Vẽ 1 dot. mode 'radius': tròn bán kính `r`. mode 'height': 2 nhánh dài `halfLen` từ tâm dot, dày 2×`r`,
+ * đầu tròn — `bend` 'none' thẳng theo pháp tuyến (n); 'gt' (>) 2 nhánh ngả NGƯỢC chiều chạy t (đỉnh chỉ
+ * theo t); 'lt' (<) ngả THEO t; 'slash'/'backslash' cả dải xoay ±góc (/ hoặc \). `bendDeg` = góc lệch
+ * khỏi pháp tuyến. `blurPx` = 0 -> không glow. Chỉ Canvas API. */
+function paintDotAxisDot(ctx, dot, x, y, mode, r, halfLen, bend, bendDeg, color, glowColor, blurPx) {
     ctx.shadowBlur = blurPx;
     ctx.shadowColor = blurPx > 0 ? glowColor : 'transparent';
     if (mode === 'height' && halfLen > 0.01) {
+        const a = (bend && bend !== 'none' ? bendDeg : 0) * Math.PI / 180;
+        const c = Math.cos(a), sn = Math.sin(a);
+        // Hướng nhánh trên (u) và nhánh dưới (l): tổ hợp pháp tuyến n và tiếp tuyến t
+        let ux = dot.nx * c, uy = dot.ny * c, lx = -dot.nx * c, ly = -dot.ny * c;
+        // (n = (-ty, tx): trục trái->phải thì n chỉ XUỐNG màn hình — '/' = nhánh n ngả về -t, nhánh -n về +t)
+        const tShiftU = bend === 'gt' ? -sn : bend === 'lt' ? sn : bend === 'slash' ? -sn : bend === 'backslash' ? sn : 0;
+        const tShiftL = bend === 'gt' ? -sn : bend === 'lt' ? sn : bend === 'slash' ? sn : bend === 'backslash' ? -sn : 0;
+        ux += dot.tx * tShiftU; uy += dot.ty * tShiftU;
+        lx += dot.tx * tShiftL; ly += dot.ty * tShiftL;
         ctx.strokeStyle = color;
         ctx.lineWidth = r * 2;
         ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         ctx.beginPath();
-        ctx.moveTo(x - nx * halfLen, y - ny * halfLen);
-        ctx.lineTo(x + nx * halfLen, y + ny * halfLen);
+        ctx.moveTo(x + lx * halfLen, y + ly * halfLen);
+        ctx.lineTo(x, y);
+        ctx.lineTo(x + ux * halfLen, y + uy * halfLen);
         ctx.stroke();
         return;
     }
@@ -285,21 +390,4 @@ function paintDotAxisDot(ctx, x, y, nx, ny, mode, r, halfLen, color, glowColor, 
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
-}
-
-/** Mũi tên cuối trục (hình kín: tại điểm đầu, chỉ chiều chạy). Chỉ Canvas API. */
-function paintDotAxisArrow(ctx, arrow, dpr) {
-    ctx.save();
-    ctx.shadowBlur = 0;
-    ctx.translate(arrow.x, arrow.y);
-    ctx.rotate(arrow.angle);
-    ctx.beginPath();
-    ctx.moveTo(-6 * dpr, -4 * dpr);
-    ctx.lineTo(0, 0);
-    ctx.lineTo(-6 * dpr, 4 * dpr);
-    ctx.strokeStyle = DOT_REST_COLOR;
-    ctx.lineWidth = 2 * dpr;
-    ctx.lineCap = 'butt';
-    ctx.stroke();
-    ctx.restore();
 }
