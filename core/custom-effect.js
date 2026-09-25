@@ -62,7 +62,7 @@ const CUSTOM_EFFECT_NO_BLUR = ['vortex', 'rain', 'shape', 'connector'];
  * visualizer-display.js::openEffectPickerModal()). MỌI group đều có entry, kể cả group chỉ 1
  * style (shape) — nhất quán, không cần rẽ nhánh riêng. */
 const CUSTOM_EFFECT_STYLE = {
-    bar: { field: 'barStyle', options: ['mirror', 'cascade', 'black hole'] },
+    bar: { field: 'barStyle', options: ['mirror', 'cascade', 'black hole', 'dot'] },
     rain: { field: 'rainStyle', options: ['glass', 'street'] },
     vortex: { field: 'vortexStyle', options: ['rings', 'bars', 'wave'] },
     lighting: { field: 'lightingStyle', options: ['thunder', 'fireworks'] },
@@ -92,7 +92,7 @@ const CUSTOM_EFFECT_MUSIC_SECTION_TITLE_KEYS_BY_STYLE = {
 const CUSTOM_EFFECT_STYLE_LABEL_KEYS = {
     bar: {
         mirror: 'visualizerSettingsDrawer.barStyle.mirror', cascade: 'visualizerSettingsDrawer.barStyle.cascade',
-        'black hole': 'visualizerSettingsDrawer.barStyle.blackHole',
+        'black hole': 'visualizerSettingsDrawer.barStyle.blackHole', dot: 'visualizerSettingsDrawer.barStyle.dot',
     },
     rain: { glass: 'visualizerSettingsDrawer.rainStyle.glass', street: 'visualizerSettingsDrawer.rainStyle.street' },
     vortex: { rings: 'visualizerSettingsDrawer.vortexStyle.rings', bars: 'visualizerSettingsDrawer.vortexStyle.bars', wave: 'visualizerSettingsDrawer.vortexStyle.wave' },
@@ -108,7 +108,8 @@ const CUSTOM_EFFECT_STYLE_LABEL_KEYS = {
  * tức thì (field chỉ đọc lúc khởi tạo scene, không đọc mỗi frame). */
 const CUSTOM_EFFECT_FIELDS = {
     bar: [
-        { id: 'maxH', labelKey: 'visualizerSettingsDrawer.maxHeight.label', type: 'slider', min: 50, max: 1000, step: 10 },
+        // SỬA (25/09/2026) — style 'dot' chỉ dùng maxH khi kiểu tác động = 'height'.
+        { id: 'maxH', labelKey: 'visualizerSettingsDrawer.maxHeight.label', type: 'slider', min: 50, max: 1000, step: 10, showIf: (cfg) => cfg.barStyle !== 'dot' || cfg.dotImpactMode === 'height' },
         { id: 'mirrorBarCount', labelKey: 'visualizerSettingsDrawer.mirrorCount.label', type: 'slider', min: 10, max: 32, step: 1, showIf: (cfg) => cfg.barStyle === 'mirror' },
         { id: 'barFillRatio', labelKey: 'customEffectDrawer.field.barFillRatio', type: 'sliderFloat', min: 0.3, max: 0.9, step: 0.05, decimals: 2, showIf: (cfg) => cfg.barStyle === 'mirror' },
         { id: 'barCornerRadius', labelKey: 'customEffectDrawer.field.barCornerRadius', type: 'slider', min: 0, max: 15, step: 1, showIf: (cfg) => cfg.barStyle === 'mirror' },
@@ -124,6 +125,25 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'suctionEnergyMult', labelKey: 'customEffectDrawer.field.suctionEnergyMult', type: 'sliderFloat', min: 0, max: 5, step: 0.1, decimals: 1, showIf: (cfg) => cfg.barStyle === 'black hole' },
         { id: 'flareThreshold', labelKey: 'customEffectDrawer.field.flareThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.barStyle === 'black hole' },
         { id: 'flashFadeSpeed', labelKey: 'customEffectDrawer.field.flashFadeSpeed', type: 'sliderFloat', min: 0.02, max: 0.2, step: 0.01, decimals: 2, showIf: (cfg) => cfg.barStyle === 'black hole' },
+        // MỚI (25/09/2026, Giang) — style 'dot' (trục thời gian chuyển từ connector brain, core/visualizer/
+        // groups/bar/dot.js). Quãng đường sóng KHÔNG còn field (theo audio, trục chỉ là mốc tối đa).
+        // dotShape/dotImpactMode `rerender` — field khác có showIf phụ thuộc (dotLineVibrate / maxH).
+        { id: 'dotShape', labelKey: 'customEffectDrawer.field.dotShape', type: 'select', showIf: (cfg) => cfg.barStyle === 'dot', rerender: true, options: [
+            { value: 'line', labelKey: 'customEffectDrawer.timelineShape.line' },
+            { value: 'sinDown', labelKey: 'customEffectDrawer.timelineShape.sinDown' },
+            { value: 'sinUp', labelKey: 'customEffectDrawer.timelineShape.sinUp' },
+            { value: 'sinWave', labelKey: 'customEffectDrawer.timelineShape.sinWave' },
+            { value: 'squareWave', labelKey: 'customEffectDrawer.timelineShape.squareWave' },
+            { value: 'circle', labelKey: 'customEffectDrawer.timelineShape.circle' },
+            { value: 'square', labelKey: 'customEffectDrawer.timelineShape.square' },
+            { value: 'triangle', labelKey: 'customEffectDrawer.timelineShape.triangle' },
+        ] },
+        { id: 'dotLineVibrate', labelKey: 'customEffectDrawer.field.dotLineVibrate', type: 'toggle', showIf: (cfg) => cfg.barStyle === 'dot' && cfg.dotShape === 'line' },
+        { id: 'dotImpactMode', labelKey: 'customEffectDrawer.field.dotImpactMode', type: 'select', showIf: (cfg) => cfg.barStyle === 'dot', rerender: true, options: [
+            { value: 'radius', labelKey: 'customEffectDrawer.dotImpactMode.radius' },
+            { value: 'height', labelKey: 'customEffectDrawer.dotImpactMode.height' },
+        ] },
+        { id: 'dotCount', labelKey: 'customEffectDrawer.field.dotCount', type: 'slider', min: 20, max: 80, step: 2, showIf: (cfg) => cfg.barStyle === 'dot' },
     ],
     rain: [
         ...CUSTOM_EFFECT_FLASH_FIELDS, // chung Glass + Street (Street trước đây KHÔNG có toggle riêng)
@@ -193,17 +213,8 @@ const CUSTOM_EFFECT_FIELDS = {
             { value: 'ttb', labelKey: 'customEffectDrawer.brainDirection.ttb' },
             { value: 'btt', labelKey: 'customEffectDrawer.brainDirection.btt' },
         ] },
-        { id: 'timelineShape', labelKey: 'customEffectDrawer.field.timelineShape', type: 'select', showIf: (cfg) => cfg.connectorStyle === 'brain', options: [
-            { value: 'line', labelKey: 'customEffectDrawer.timelineShape.line' },
-            { value: 'sinDown', labelKey: 'customEffectDrawer.timelineShape.sinDown' },
-            { value: 'sinUp', labelKey: 'customEffectDrawer.timelineShape.sinUp' },
-            { value: 'circle', labelKey: 'customEffectDrawer.timelineShape.circle' },
-            { value: 'square', labelKey: 'customEffectDrawer.timelineShape.square' },
-            { value: 'triangle', labelKey: 'customEffectDrawer.timelineShape.triangle' },
-        ] },
         // MỚI (23/09/2026, Giang "thêm hết custom effect") — style 'brain', brain.js::_applySettings().
         // Bật/tắt từng thành phần
-        { id: 'brainShowTimeline', labelKey: 'customEffectDrawer.field.brainShowTimeline', type: 'toggle', showIf: (cfg) => cfg.connectorStyle === 'brain' },
         { id: 'brainShowNodes', labelKey: 'customEffectDrawer.field.brainShowNodes', type: 'toggle', showIf: (cfg) => cfg.connectorStyle === 'brain' },
         { id: 'brainShowOrbit', labelKey: 'customEffectDrawer.field.brainShowOrbit', type: 'toggle', showIf: (cfg) => cfg.connectorStyle === 'brain' },
         { id: 'brainShowStrings', labelKey: 'customEffectDrawer.field.brainShowStrings', type: 'toggle', showIf: (cfg) => cfg.connectorStyle === 'brain' },
@@ -227,9 +238,8 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'brainStringDotGapMin', labelKey: 'customEffectDrawer.field.brainStringDotGapMin', type: 'sliderFloat', min: 0.5, max: 10, step: 0.5, decimals: 1, showIf: (cfg) => cfg.connectorStyle === 'brain' },
         { id: 'brainStringDotGapMax', labelKey: 'customEffectDrawer.field.brainStringDotGapMax', type: 'sliderFloat', min: 2, max: 20, step: 0.5, decimals: 1, showIf: (cfg) => cfg.connectorStyle === 'brain' },
         { id: 'brainStringDotGapLive', labelKey: 'customEffectDrawer.field.brainStringDotGapLive', type: 'toggle', showIf: (cfg) => cfg.connectorStyle === 'brain' },
-        // Trục thời gian
-        { id: 'brainTimelineDotCount', labelKey: 'customEffectDrawer.field.brainTimelineDotCount', type: 'slider', min: 20, max: 80, step: 2, showIf: (cfg) => cfg.connectorStyle === 'brain' },
-        { id: 'brainTimelineMaxTravel', labelKey: 'customEffectDrawer.field.brainTimelineMaxTravel', type: 'slider', min: 30, max: 100, step: 5, showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        // (25/09/2026) Trục thời gian của brain ĐÃ CHUYỂN sang style bar 'dot' (timelineShape/brainShowTimeline/
+        // brainTimelineDotCount/brainTimelineMaxTravel xoá).
         // SỬA (yêu cầu Giang 16/09/2026, layout lưới phẳng) — max 48->64, min/step đổi 12/3->16/4
         // để 32 (mặc định mới) và 64 (max mới) đều rơi đúng mốc slider.
         { id: 'neuronCount', labelKey: 'customEffectDrawer.field.neuronCount', type: 'slider', min: 16, max: 64, step: 4, showIf: (cfg) => cfg.connectorStyle === 'synapse', refresh: 'initThreeJSConnector' },

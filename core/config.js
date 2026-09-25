@@ -50,6 +50,9 @@
                 barWidth: 4, starCount: 200,
                 radiusRatio: 0.13, radiusEnergyMult: 0.05, suctionBase: 0.2, suctionEnergyMult: 2.5,
                 flareThreshold: 0.65, flashFadeSpeed: 0.08,
+                // MỚI (25/09/2026, Giang) — style "dot": trục thời gian chuyển từ connector brain (core/
+                // visualizer/groups/bar/dot.js). maxH ở trên dùng cho kiểu tác động 'height'.
+                dotCount: 40, dotShape: 'line', dotImpactMode: 'radius', dotLineVibrate: true,
             },
             lighting: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
@@ -129,18 +132,17 @@
                 // MỚI (23/09/2026, Giang) — style 'brain': chiều toàn bộ brain filter (ltr/rtl/ttb/btt),
                 // hình trục thời gian (line/sinDown/sinUp/circle/square/triangle), burst theo Music
                 // Transition. sectionWindowBeats/fluxThreshold ở trên cùng field với circuit (giá trị lưu RIÊNG từng style từ 25/09/2026).
-                brainDirection: 'ltr', timelineShape: 'line', burstEnabled: true,
+                brainDirection: 'ltr', burstEnabled: true, // (25/09/2026) timelineShape bỏ — trục thời gian chuyển sang bar 'dot'
                 // MỚI (23/09/2026, Giang "thêm hết custom effect") — style 'brain', xem
                 // core/visualizer/groups/connector/brain.js::_applySettings(). Ngoài ra brain nay dùng
                 // chung field glowEnabled/glowIntensity/fireThreshold/lateralInhibitStrength ở trên (giá trị lưu RIÊNG từng style từ 25/09/2026).
-                brainShowTimeline: true, brainShowOrbit: true, brainShowNodes: true, brainShowStrings: true,
+                brainShowOrbit: true, brainShowNodes: true, brainShowStrings: true,
                 brainSignalCount: 120, brainFilterStrictness: 0.98, brainInputSpeed: 1.5,
                 brainPumpSqueeze: 22, brainPumpSensitivity: 4, brainNodeFlashSensitivity: 5,
                 brainStringAmplitude: 100, brainStringDecayMs: 380, brainStringDotBeats: 2,
                 brainStringDotGapMin: 2.5, brainStringDotGapMax: 10, // (23/09/2026) % độ dài dây — khoảng cách dot theo hoạ âm
                 brainStringDotGapLive: true, // (23/09/2026) khoảng cách co giãn liên tục theo hoạ âm hiện tại (tắt = chốt lúc bắn)
                 brainOrbitDotCount: 8, brainOrbitBeatsPerLap: 8, brainOrbitTrail: 6,
-                brainTimelineDotCount: 40, brainTimelineMaxTravel: 90,
             },
         };
 
