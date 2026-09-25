@@ -367,7 +367,7 @@
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
     <script src="lang/patch/patch-common.js?v=20260924v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260921v7"></script>
-    <script src="lang/patch/patch-visualizer.js?v=20260925s4"></script>
+    <script src="lang/patch/patch-visualizer.js?v=20260925rs1"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260925r2"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260921v9"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
@@ -396,7 +396,7 @@
     <!-- Game Mode overlay (Circle mode v1, MỚI 16/08/2026) — PHẢI nạp TRƯỚC components/visualizer-
          overlay.js (file đó nội suy ${TPL_GAMEPLAY_OVERLAY}, xem components/gameplay-overlay.js). -->
     <script src="components/gameplay-overlay.js?v=20260819v1"></script>
-    <script src="components/visualizer-overlay.js?v=20260905v2"></script>
+    <script src="components/visualizer-overlay.js?v=20260925rs1"></script>
     <!-- components/subtitle-modal.js ĐÃ XOÁ (10/07/2026) — Subtitle Editor chuyển sang trang riêng
          (subtitle-editor.html), KHÔNG còn modal ở trang chính. -->
     <script src="components/bottom-player.js?v=20260704v1"></script>
@@ -583,7 +583,7 @@
          actions.js (core, dòng dưới) cần `new EventStore(...)` ngay lúc nạp. Tự đứng độc lập
          (không phụ thuộc eventBus), nên tách riêng lên đây an toàn. -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260924r7"></script>
+    <script src="core/dom-refs.js?v=20260925rs1"></script>
     <!-- core/slider-panel-scroll.js — 2 hàm dùng chung (getPositionStart/scrollSliderTo) cho mọi
          khung cuộn ngang kiểu "slider panel" (settings-panel-stack-ui.js, player-controls.js). -->
     <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
@@ -1232,7 +1232,7 @@
          workflow/visual-bg-common.js/visual-bg-video.js ("vbg chỉ hợp lệ với song" nên tái dùng
          clearMediaLayers()/applyCurrentVisualBg() Video Player mode đã dùng thay vì tự vẽ DOM
          riêng, cần workflowVisualBg tồn tại trước). -->
-    <script src="event/workflow/photo-player.js?v=20260925v4"></script>
+    <script src="event/workflow/photo-player.js?v=20260925rs1"></script>
     <!-- event/workflow/number-countup.js — MỚI (21/09/2026): vòng lặp timer count-up dùng chung (cần taskManager + core/number-countup.js). PHẢI nạp TRƯỚC gameplay-engine.js VÀ statis-panel.js. -->
     <script src="event/workflow/number-countup.js?v=20260921v1"></script>
     <!-- Cụm "gameplay" — Game Mode. gameplay-engine.js (Workflow DÙNG CHUNG mọi mode: cooldown/
@@ -1266,9 +1266,9 @@
     <script src="event/workflow/statis-panel.js?v=20260924v1"></script>
     <script src="event/router/statis-panel.js?v=20260924v1"></script>
     <script src="event/listener/statis-panel.js?v=20260924v1"></script>
-    <script src="event/workflow/player-controls.js?v=20260925bg2"></script>
-    <script src="event/router/player-controls.js?v=20260925bg2"></script>
-    <script src="event/listener/player-controls.js?v=20260925ms1"></script>
+    <script src="event/workflow/player-controls.js?v=20260925rs1"></script>
+    <script src="event/router/player-controls.js?v=20260925rs1"></script>
+    <script src="event/listener/player-controls.js?v=20260925rs1"></script>
     <!-- Cụm "visualizerDisplay": ảnh nền, độ mờ nền, cycle effect, panel "Display". Cấu hình riêng
          effect ĐÃ DỜI sang cụm "customEffect" (Custom Effect Drawer, xem file ngay dưới) — router
          visualizerDisplay dispatch case cyclePress/cycle.click sang workflowCustomEffect, nên
