@@ -1052,7 +1052,18 @@ const workflowVisualizerRender = {
 
         if (cfg.glassCityVisible !== false) {
             const cityOpacity = (typeof cfg.glassCityOpacity === 'number' ? cfg.glassCityOpacity : 40) / 100;
-            paintRainCity(ctx, canvas.height, appState.get('cityBuildings'), dpr, vizDataArray, isPlaying, cityOpacity); // core
+            // SỬA (25/09/2026, Giang) — cửa sổ Big City theo color mode: sáng = đúng màu mode, tắt = màu tương
+            // phản (core/visualizer/groups/rain/glass.js). Palette hexToRgb() 1 lần/frame, màu resolve TỪNG cửa.
+            const cityFrame = computeRainCityFrame(canvas.width, canvas.height, appState.get('cityBuildings'), dpr, vizDataArray, isPlaying); // core
+            const palette = {
+                mode: cfg.mode, solid: hexToRgb(cfg.solidColor), dynA: hexToRgb(cfg.dynA), dynB: hexToRgb(cfg.dynB), // core/color-utils.js
+                hueOffset: appState.get('globalHueOffset'),
+            };
+            const windowColors = cityFrame.windows.map((w) => {
+                const litColor = resolveRainCityLitColor(palette, w.t, w.value); // core
+                return w.lit ? litColor.css : resolveRainCityOffColor(litColor.h, litColor.s, litColor.l); // core
+            });
+            paintRainCity(ctx, cityFrame, windowColors, cityOpacity); // core
         }
 
         ctx.globalAlpha = 1.0;
