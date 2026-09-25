@@ -140,6 +140,10 @@ let _dotClusters = [];
 let _dotSmoothed = new Float32Array(0);
 let _dotEnergyPeak = 0, _dotLastTime = 0, _dotLastSeenBeatTime = 0;
 let _dotVibAmps = new Float32Array(DOT_VIB_SLOTS); // core/visualizer/groups/bar/dot.js (nạp trước file này)
+// (25/09/2026, lượt 4) Moving kiểu DNA + chuyển vị trí mượt rắn <-> hình tĩnh
+let _dotDnaLevels = new Float32Array(0), _dotDnaBonds = new Float32Array(0);
+let _dotDnaBreakClock = 0, _dotDnaRot = 0;
+let _dotBaseKind = '', _dotLastBase = null, _dotBlendFrom = null, _dotBlendStart = 0;
 const BRAIN_PITCH_FRESH_MS = 300; // nốt chỉ coi là "đang phát" nếu cập nhật trong khoảng này (cùng ngưỡng circuit)
 let _brLastConsumedBeatTime = 0;
 let _brPendingBeatFluxSum = 0;
@@ -839,7 +843,8 @@ const workflowVisualizerRender = {
      * appState (beat/nốt/audioContext), tự gọi RIÊNG LẺ từng hàm core: dựng hình (cache theo kích thước/
      * hình/số dot) -> đỉnh năng lượng -> cụm theo beat -> năng lượng dải từng cụm -> độ phồng + EMA ->
      * rung đàn hồi (chỉ hình line + toggle) -> vẽ dot. SỬA (25/09/2026, lượt 2): bỏ đường nối + mũi tên,
-     * đồng màu, thêm rắn bò (dotMoving) + bẻ góc nhánh (dotBend/dotBendAngle). */
+     * đồng màu, thêm rắn bò (dotMoving) + bẻ góc nhánh (dotBend/dotBendAngle). (Lượt 4) Moving có 2 kiểu
+     * `dotMoveType` snake | dna — DNA nhân đôi + xoắn kép, tắt thì đứt từng cặp rồi nhập lại. */
     _tickBarDot(ctx, perf, isPlaying, cfg, dpr, smoothedEnergy, vizDataArray, analyser) {
         const bufferLength = analyser.frequencyBinCount;
         const { lastBeatTime, lastValidMidiNote, lastValidNoteTime, audioContext } = appState.get(['lastBeatTime', 'lastValidMidiNote', 'lastValidNoteTime', 'audioContext']);
@@ -848,13 +853,19 @@ const workflowVisualizerRender = {
         _dotLastTime = time;
 
         const dotCount = Math.max(2, Math.round(cfg.dotCount || 40));
-        if (_dotSmoothed.length !== dotCount) { _dotSmoothed = new Float32Array(dotCount); _dotClusters = []; }
+        if (_dotSmoothed.length !== dotCount) {
+            _dotSmoothed = new Float32Array(dotCount); _dotClusters = [];
+            _dotDnaLevels = new Float32Array(dotCount); _dotDnaBonds = new Float32Array(dotCount);
+            _dotLastBase = null; _dotBlendFrom = null;
+        }
 
-        // Vị trí dot: rắn bò (dotMoving) HOẶC hình trục tĩnh (cache theo kích thước/hình/số dot).
-        // SỬA (25/09/2026, lượt 2) — rắn chỉ bò khi đang phát nhạc; dừng nhạc thì nằm yên tại chỗ.
+        // Vị trí dot GỐC: rắn bò (Moving + kiểu snake) HOẶC hình trục tĩnh (tắt Moving / kiểu DNA — DNA
+        // xoắn quanh hình tĩnh). SỬA (25/09/2026, lượt 2) — rắn chỉ bò khi đang phát nhạc.
         const moving = cfg.dotMoving === true;
+        const dnaOn = moving && cfg.dotMoveType === 'dna';
+        const snakeOn = moving && !dnaOn;
         let dots, baseRadius, maxRadius, shape;
-        if (moving) {
+        if (snakeOn) {
             const snakeKey = [canvas.width, canvas.height].join('|');
             if (!_dotSnake || snakeKey !== _dotSnakeKey) { _dotSnakeKey = snakeKey; _dotSnake = initDotSnake(canvas.width, canvas.height, dotCount); } // core
             // Số dot đổi -> khoảng cách/bán kính theo số dot mới (vết giữ nguyên, thân tự dài/ngắn theo)
@@ -872,6 +883,22 @@ const workflowVisualizerRender = {
             if (geomKey !== _dotGeomKey) { _dotGeomKey = geomKey; _dotGeom = buildDotAxisGeometry(cfg.dotShape, canvas.width, canvas.height, dotCount); } // core
             dots = _dotGeom.dots; baseRadius = _dotGeom.baseRadius; maxRadius = _dotGeom.maxRadius; shape = _dotGeom.shape;
         }
+
+        // (lượt 4) Đổi rắn <-> hình tĩnh: trượt mượt từ vị trí vừa vẽ sang vị trí mới, không nhảy.
+        const baseKind = snakeOn ? 'snake' : 'static';
+        if (_dotBaseKind && baseKind !== _dotBaseKind && _dotLastBase) { _dotBlendFrom = _dotLastBase; _dotBlendStart = time; }
+        _dotBaseKind = baseKind;
+        if (_dotBlendFrom) {
+            const blendT = (time - _dotBlendStart) / DOT_BASE_BLEND_MS;
+            dots = blendDotPositions(_dotBlendFrom, dots, blendT); // core
+            if (blendT >= 1) _dotBlendFrom = null;
+        }
+        _dotLastBase = dots;
+
+        // (lượt 4) DNA — nhân đôi + xoắn khi bật; tắt/đổi sang snake thì đứt lần lượt từng cặp rồi nhập lại.
+        _dotDnaBreakClock = dnaOn ? 0 : _dotDnaBreakClock + dt;
+        const dnaMax = stepDotDnaPairs(_dotDnaLevels, _dotDnaBonds, dt, dnaOn, _dotDnaBreakClock); // core
+        if (isPlaying && dnaMax > 0) _dotDnaRot = (_dotDnaRot + (dt / 1000) * (DOT_DNA_ROT_SPEED + (isFinite(smoothedEnergy) ? smoothedEnergy : 0) * DOT_DNA_ROT_ENERGY)) % (Math.PI * 2);
 
         // Cụm sóng — beat THẬT mới (lastBeatTime đổi) sinh 1 cụm, quãng đường theo năng lượng chuẩn hoá.
         _dotEnergyPeak = computeDotEnergyPeak(_dotEnergyPeak, smoothedEnergy, dt); // core
@@ -891,7 +918,7 @@ const workflowVisualizerRender = {
         smoothDotBoosts(_dotSmoothed, targets); // core
 
         // Rung đàn hồi — chỉ hình line tĩnh + toggle bật; tắt thì biên độ về 0 ngay.
-        const vibrate = !moving && shape === 'line' && cfg.dotLineVibrate !== false;
+        const vibrate = !moving && dnaMax <= 0 && shape === 'line' && cfg.dotLineVibrate !== false; // DNA còn dở (đang nhập lại) thì chưa rung
         let vibAmpPx = 0;
         if (vibrate) {
             const noteFresh = isPlaying && lastValidMidiNote !== null && lastValidMidiNote !== undefined && (Date.now() - (lastValidNoteTime || 0)) < DOT_NOTE_FRESH_MS;
@@ -910,16 +937,36 @@ const workflowVisualizerRender = {
         const maxHalf = (cfg.maxH || 400) * dpr * 0.5; // cùng quy ước bar mirror (maxH × dpr × 0.5 mỗi bên)
         const bend = mode === 'height' ? (cfg.dotBend || 'none') : 'none';
         const bendDeg = isFinite(cfg.dotBendAngle) ? cfg.dotBendAngle : 35;
+        // Danh sách dot cần vẽ: chuỗi gốc (A) + chuỗi DNA (B, chỉ khi còn DNA), kèm chiều sâu. Vẽ thanh nối
+        // trước, rồi dot phía sau, rồi dot phía trước (đè đúng thứ tự trong/ngoài của vòng xoắn).
+        const dnaRadius = Math.min(canvas.width, canvas.height) * DOT_DNA_RADIUS_FRAC;
+        const items = [];
         for (let i = 0; i < dotCount; i++) {
             const d = dots[i];
-            const boost = _dotSmoothed[i];
             const y = vibrate ? d.y + computeDotLineDisplacement(d.u, _dotVibAmps, time, vibAmpPx) : d.y; // core
-            if (boost > DOT_IMPACT_MIN) {
-                const r = mode === 'radius' ? baseRadius + boost * (maxRadius - baseRadius) : baseRadius;
-                const halfLen = mode === 'height' ? boost * maxHalf : 0;
-                paintDotAxisDot(ctx, d, d.x, y, mode, r, halfLen, bend, bendDeg, color.fill, color.glow, DOT_GLOW_BLUR_PX * boost * dpr * perf.blurMult); // core
+            if (dnaMax > 0 && _dotDnaLevels[i] > 0) {
+                const pair = computeDotDnaPair(d, i, _dotDnaLevels[i], _dotDnaRot, dnaRadius); // core
+                paintDotDnaBond(ctx, pair.ax, pair.ay, pair.bx, pair.by, _dotDnaBonds[i], color.fill, dpr); // core
+                const da = computeDotDnaDepth(pair.az, pair.sep), db = computeDotDnaDepth(pair.bz, pair.sep); // core
+                items.push({ i, x: pair.ax, y: pair.ay, z: pair.az * pair.sep, scale: da.scale, alpha: da.alpha });
+                items.push({ i, x: pair.bx, y: pair.by, z: pair.bz * pair.sep, scale: db.scale, alpha: db.alpha * pair.appear });
             } else {
-                paintDotAxisDot(ctx, d, d.x, y, 'radius', baseRadius, 0, 'none', 0, color.fill, color.glow, 0); // core
+                items.push({ i, x: d.x, y, z: 0, scale: 1, alpha: 1 });
+            }
+        }
+        for (let pass = 0; pass < 2; pass++) {
+            for (let k = 0; k < items.length; k++) {
+                const it = items[k];
+                if ((pass === 0) !== (it.z < 0)) continue;
+                const d = dots[it.i];
+                const boost = _dotSmoothed[it.i];
+                if (boost > DOT_IMPACT_MIN) {
+                    const r = (mode === 'radius' ? baseRadius + boost * (maxRadius - baseRadius) : baseRadius) * it.scale;
+                    const halfLen = mode === 'height' ? boost * maxHalf * it.scale : 0;
+                    paintDotAxisDot(ctx, d, it.x, it.y, mode, r, halfLen, bend, bendDeg, color.fill, color.glow, DOT_GLOW_BLUR_PX * boost * dpr * perf.blurMult, it.alpha); // core
+                } else {
+                    paintDotAxisDot(ctx, d, it.x, it.y, 'radius', baseRadius * it.scale, 0, 'none', 0, color.fill, color.glow, 0, it.alpha); // core
+                }
             }
         }
         ctx.shadowBlur = 0;
