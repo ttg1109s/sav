@@ -45,7 +45,7 @@
                 let w = (Math.random() * 60 + 30) * dpr * bldScale; let h = (Math.random() * 250 + 80) * dpr;
                 let winStepX = 14 * dpr * (bldScale > 1 ? 1.5 : 1); let winStepY = 18 * dpr * (bldScale > 1 ? 1.5 : 1);
                 let cols = Math.floor(w / winStepX); let rows = Math.floor(h / winStepY); let windows = [];
-                for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (Math.random() > 0.3) windows.push({ r: r, c: c, isAlwaysOn: Math.random() > 0.85, fftBin: Math.floor(Math.random() * 40), colorType: Math.random() > 0.6 ? '#fff5e6' : '#ffdd44' });
+                for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (Math.random() > 0.3) windows.push({ r: r, c: c, isAlwaysOn: Math.random() > 0.85, fftBin: Math.floor(Math.random() * 40) }); // SỬA 25/09/2026 — bỏ colorType (màu cố định), màu cửa giờ theo color mode, xem core/visualizer/groups/rain/glass.js
                 buildings.push({x: currentX, w: w, h: h, cols: cols, rows: rows, windows: windows}); currentX += w + (Math.random() * 15 * dpr); 
             }
             appState.set('cityBuildings', buildings);
