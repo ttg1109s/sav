@@ -159,7 +159,9 @@ Rule 3 vừa SIẾT CHẶT hơn hẳn bản trước (từng cho phép Core dùn
 04/07/2026 — KHÔNG bắt buộc sửa ngay (Rule 0.5: chỉ bắt buộc khi hàm đó bị ĐỤNG TỚI thật), nhưng
 PHẢI đưa về tuân thủ ĐẦY ĐỦ (tách hẳn phần `taskManager` ra Workflow tương ứng, đúng mẫu mục 5) ngay
 khi có nhu cầu sửa/mở rộng chúng:
-- `core/auto-switch-visual.js` (`scheduleNextAutoSwitchVisualTimer`/`exe`).
+- ~~`core/auto-switch-visual.js` (`scheduleNextAutoSwitchVisualTimer`/`exe`)~~ — **ĐÃ SỬA 25/09/2026**: toàn bộ điều phối
+  (2 task `autoSwitchVisualTimer`/`autoSwitchVisualMarks`) dời về `event/workflow/auto-switch-visual.js`
+  (`workflowAutoSwitchVisual`), core chỉ còn hàm thuần — làm cùng đợt cụm `appVisibility` (ẩn tab/PWA dừng render).
 - `core/state-and-video-bg.js` (`taskManager.once('hideVideoBgAfterFade')` trong `handleVideoBackground()`).
 - Khả năng còn sót — CHƯA quét lại toàn bộ codebase sau khi Rule 3 đổi (việc quét lại quy mô lớn,
   cập nhật số liệu ở `readme/core-legacy-audit.md`, dời sang batch riêng nếu Giang muốn làm ngay).
