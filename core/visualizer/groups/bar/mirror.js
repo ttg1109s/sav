@@ -28,8 +28,9 @@
  *   6. Khoảng giữa (thân bướm) = mirrorCenterGap × gap thường (1 = đều như gap giữa 2 thanh) — dải co lại
  *      cho VỪA nửa màn hình. Sửa lỗi cũ: centerOffset đẩy dải ra ngoài mà không co lại -> thanh ngoài
  *      cùng (bass) tràn khỏi mép nửa bề rộng.
- *   7. 1 rect/bar/bên (trên + dưới liền) thay 2 rect bo góc chạm nhau ở trục — hết khía lõm ở centerY,
- *      glow không chồng 2 lần, nửa số lệnh vẽ.
+ *   (Mục 7 cũ "gộp trên + dưới thành 1 rect" ĐÃ HUỶ cùng ngày — Giang báo mất dải ngược bên dưới, 2 dải
+ *    dính liền. Mỗi bar/bên lại là 2 rect RIÊNG như bản gốc: dải trên mọc lên từ centerY + dải ngược
+ *    mọc xuống từ centerY, mỗi rect tự bo góc -> khấc ở trục tách 2 dải là CHỦ ĐÍCH, không phải lỗi.)
  *
  * THUẦN, không side-effect, không đọc appState/getActiveEffectConfig (Rule 2/3) — Workflow
  * (`_tickBar()`, event/workflow/visualizer-render.js) tự gom state (vạch đỉnh giữ ở Workflow), tự gọi
@@ -174,9 +175,11 @@ function computeBarMirrorFrame(cfg, canvasWidth, canvasHeight, dpr, levels, peak
         const lx = centerX - bodyHalf - i * slot - barW;
         const rects = [];
         if (len > 0) {
-            // 1 rect trên+dưới liền (đối xứng quanh centerY).
-            rects.push({ x: rx, y: centerY - len, w: barW, h: len * 2, cornerR });
-            rects.push({ x: lx, y: centerY - len, w: barW, h: len * 2, cornerR });
+            // Dải trên (mọc lên từ trục) + dải NGƯỢC bên dưới (mọc xuống từ trục) — 2 rect RIÊNG như bản gốc.
+            rects.push({ x: rx, y: centerY - len, w: barW, h: len, cornerR });
+            rects.push({ x: rx, y: centerY, w: barW, h: len, cornerR });
+            rects.push({ x: lx, y: centerY - len, w: barW, h: len, cornerR });
+            rects.push({ x: lx, y: centerY, w: barW, h: len, cornerR });
         }
         if (peaks && peaks[band] > 0.01) {
             const pLen = peaks[band] * maxBarLen;
