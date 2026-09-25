@@ -424,6 +424,7 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.dotImpactMode.radius': 'Swell radius',
     'customEffectDrawer.dotImpactMode.height': 'Stretch both sides',
     'customEffectDrawer.field.dotCount': 'Dot count',
+    'customEffectDrawer.field.dotSwell': 'Swell size (%)', // MỚI 25/09/2026
     // (25/09/2026, lượt 2)
     'customEffectDrawer.field.dotMoving': 'Moving',
     'customEffectDrawer.field.dotMoveType': 'Movement type',
