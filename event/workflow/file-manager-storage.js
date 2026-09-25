@@ -85,7 +85,7 @@ const workflowFileManagerStorage = {
             // guard phòng thủ (kiểm tra tồn tại trước khi gọi) — CHỈ đổi đối tượng kiểm tra.
             if (typeof workflowPlaylistOrder !== 'undefined') workflowPlaylistOrder.recomputeRenderOrder();
             if (appState.get('currentKey')) { audioPlayer.pause(); audioPlayer.src = ''; appState.set('currentKey', null); }
-            if (typeof killAllAutoSwitchVisualTasks === 'function') killAllAutoSwitchVisualTasks();
+            workflowAutoSwitchVisual.killAllTasks(); // event/workflow/auto-switch-visual.js (dời từ core 25/09/2026)
             if (appState.get('currentObjectURL')) { URL.revokeObjectURL(appState.get('currentObjectURL')); appState.set('currentObjectURL', null); }
             if (appState.get('currentCoverObjectURL')) { URL.revokeObjectURL(appState.get('currentCoverObjectURL')); appState.set('currentCoverObjectURL', null); }
             playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';

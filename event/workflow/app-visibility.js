@@ -15,6 +15,7 @@
  * CHẾ ĐỘ NỀN TỐI GIẢN (chỉ khi ẩn lúc gameplayPhase === 'idle' — Router tự rẽ nhánh, xem event/router/app-visibility.js):
  *   - Ghi `isBackgroundSuspended = true` (service/state/wakelock-tab.js).
  *   - Tạm dừng 2 task render `audioAnalysis` + `visualizerRender` (workflowVisualizerRender.suspendForBackground()).
+ *   - Tự động đổi hiệu ứng (auto-switch-visual) đứng yên — workflowAutoSwitchVisual tự đọc cờ trên qua `_isRunAllowed()`.
  *   - Visual Background đứng yên như lúc Song pause: video nền + âm thanh video nền, Motion, hẹn giờ đổi ảnh, Movement
  *     gradient (workflowVisualBg.onBackgroundSuspendChange() — VBG tự đọc cờ trên qua `_isSongActiveForVbg()`, nên
  *     đổi bài giữa lúc ẩn cũng không phát lại video nền).
@@ -56,6 +57,7 @@ const workflowAppVisibility = {
         console.log(`writer: "workflowAppVisibility.enterBackgroundSuspend", page: "isBackgroundSuspended", content: "true"`);
         workflowVisualizerRender.suspendForBackground(); // event/workflow/visualizer-render.js
         workflowVisualBg.onBackgroundSuspendChange(); // event/workflow/visual-bg-common.js
+        workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — đồng hồ/mốc tự đổi hiệu ứng đứng yên
         this._enforcePlayerMediaPaused();
     },
 
@@ -72,6 +74,7 @@ const workflowAppVisibility = {
         console.log(`writer: "workflowAppVisibility.exitBackground", page: "isBackgroundSuspended", content: "false"`);
         workflowVisualizerRender.resumeFromBackground(); // event/workflow/visualizer-render.js
         workflowVisualBg.onBackgroundSuspendChange(); // event/workflow/visual-bg-common.js — tự bỏ qua nếu đang Player mode
+        workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — chạy tiếp nếu Song đang phát
         this._restorePlayerMedia();
     },
 

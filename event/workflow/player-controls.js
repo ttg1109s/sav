@@ -308,6 +308,7 @@ const workflowPlayerControls = {
      * đang phát, rồi đồng bộ Visual BG). */
     handleAudioPlayEvent() {
         handleAudioPlay(); // core/player-controls.js
+        workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — DỜI 25/09/2026 từ trong core handleAudioPlay() (cùng vị trí thứ tự)
         const currentKey = appState.get('currentKey');
         if (currentKey) workflowPlaylistRender.refreshSongNode(currentKey); // event/workflow/playlist-render.js — EQ bars "đang phát"
         workflowVisualBg.syncPlaybackToAudio(); // event/workflow/visual-bg-common.js
@@ -316,9 +317,18 @@ const workflowPlayerControls = {
     /** MỚI (24/09/2026) — ứng với 'playerControls.audio.pause', đối xứng `handleAudioPlayEvent()` ngay trên. */
     handleAudioPauseEvent() {
         handleAudioPause(); // core/player-controls.js
+        workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — DỜI 25/09/2026 từ trong core handleAudioPause()
         const currentKey = appState.get('currentKey');
         if (currentKey) workflowPlaylistRender.refreshSongNode(currentKey); // event/workflow/playlist-render.js — chấm "đang pause"
         workflowVisualBg.syncPlaybackToAudio(); // event/workflow/visual-bg-common.js
+    },
+
+    /** MỚI (25/09/2026) — ứng với 'playerControls.audio.loadedmetadata': core cập nhật thanh tiến trình/Media Session/tốc độ,
+     * rồi auto-switch-visual build lại mốc cho bài mới (trước đây core `handleAudioLoadedMetadata()` tự gọi
+     * `onAutoSwitchVisualSongChanged()` — core gọi core; phần điều phối đó giờ là Workflow). */
+    handleAudioLoadedMetadataEvent() {
+        handleAudioLoadedMetadata(); // core/player-controls.js
+        workflowAutoSwitchVisual.onSongChanged(); // event/workflow/auto-switch-visual.js
     },
 
     /**

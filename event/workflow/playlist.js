@@ -171,7 +171,7 @@ const workflowPlaylist = {
                 if (appState.get('currentCoverObjectURL')) { URL.revokeObjectURL(appState.get('currentCoverObjectURL')); appState.set('currentCoverObjectURL', null); }
                 audioPlayer.pause(); audioPlayer.src = ''; appState.set('currentKey', null);
                 playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
-                if (typeof killAllAutoSwitchVisualTasks === 'function') killAllAutoSwitchVisualTasks();
+                workflowAutoSwitchVisual.killAllTasks(); // event/workflow/auto-switch-visual.js (dời từ core 25/09/2026)
                 workflowPlayerControls.returnToPlaylistUI(); // event/workflow/player-controls.js — SỬA 24/09/2026 (thay core forceBackToPlaylistUI())
                 if (typeof setVisualizerActiveFalse === 'function') setVisualizerActiveFalse();
             }
@@ -1764,7 +1764,7 @@ const workflowPlaylist = {
                 if (appState.get('currentCoverObjectURL')) { URL.revokeObjectURL(appState.get('currentCoverObjectURL')); appState.set('currentCoverObjectURL', null); }
                 audioPlayer.pause(); audioPlayer.src = ''; appState.set('currentKey', null);
                 playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
-                if (typeof killAllAutoSwitchVisualTasks === 'function') killAllAutoSwitchVisualTasks();
+                workflowAutoSwitchVisual.killAllTasks(); // event/workflow/auto-switch-visual.js (dời từ core 25/09/2026)
                 workflowPlayerControls.returnToPlaylistUI(); // "về playui" — ép UI về màn Playlist ngay, TRƯỚC khi hiện shield (SỬA 24/09/2026 — thay core forceBackToPlaylistUI())
                 setVisualizerActiveFalse(); // MỚI (08/07/2026, HOTFIX 10) — forceBackToPlaylistUI() không còn tự set nữa
             }
