@@ -46,8 +46,8 @@ const CUSTOM_EFFECT_FLASH_FIELDS = [
 /** MỚI (25/09/2026, Giang "sắp xếp lại custom effect theo nhóm card") — MỌI field trong CUSTOM_EFFECT_FIELDS
  * mang `card` (chuỗi, hoặc hàm `(cfg) => chuỗi` khi 1 field đổi ý nghĩa theo style — vd maxH). Drawer
  * (components/custom-effect-drawer.js::renderCustomEffectBody()) dựng MỖI loại 1 card KHÔNG tiêu đề (Giang
- * bỏ hết tiêu đề kiểu "Redirect"/"Finale"/"Burst"), theo đúng thứ tự mảng này; trong 1 card giữ thứ tự khai
- * báo field. Card không có field nào đang hiện (showIf) thì không vẽ. Khối Color luôn đứng đầu, khối Blur
+ * bỏ hết tiêu đề kiểu "Redirect"/"Finale"/"Burst"), theo đúng thứ tự mảng này; trong 1 card xếp theo
+ * loại field (CUSTOM_EFFECT_FIELD_TYPE_ORDER ngay dưới), cùng loại thì giữ thứ tự khai báo. Card không có field nào đang hiện (showIf) thì không vẽ. Khối Color luôn đứng đầu, khối Blur
  * chung (group ngoài CUSTOM_EFFECT_NO_BLUR) vẽ tại vị trí 'glow'.
  *   - music    : cơ chế tự trigger theo chuyển đoạn nhạc — toggle bật/tắt + tham số THẬT của
  *                detectMusicTransition() (sectionWindowBeats/fluxThreshold). Giữ NGAY DƯỚI Color (phản hồi
@@ -59,6 +59,11 @@ const CUSTOM_EFFECT_FLASH_FIELDS = [
  *   - motion   : chuyển động — tốc độ/xoay (cặp "base + theo năng lượng" đi CÙNG nhau), nhịp chạy.
  *   - reaction : phản ứng âm thanh — ngưỡng kích hoạt, độ nhạy, biên độ/tác động theo audio. */
 const CUSTOM_EFFECT_CARD_ORDER = ['music', 'flash', 'glow', 'element', 'layout', 'motion', 'reaction'];
+
+/** MỚI (25/09/2026, Giang) — thứ tự loại field TRONG 1 card: toggle > dropdown (select) > input > slider
+ * (slider + sliderFloat chung hạng). Sắp ổn định (stable) — cùng hạng giữ thứ tự khai báo. Loại lạ (chưa có
+ * trong bảng) xếp cuối. 'input' chưa field nào dùng, giữ chỗ cho đúng thứ tự Giang chốt. */
+const CUSTOM_EFFECT_FIELD_TYPE_ORDER = { toggle: 0, select: 1, input: 2, slider: 3, sliderFloat: 3 };
 
 // Effect KHÔNG dùng blur/glow tuỳ chỉnh (Drawer ẩn khối blur) — glow của các effect này (nếu có)
 // là phối cảnh cố định, không đọc blurEnabled/blurIntensity: Vortex không shadowBlur/bloom nào
@@ -115,8 +120,8 @@ const CUSTOM_EFFECT_FIELDS = {
     bar: [
         // ── element ──
         { id: 'cascadeBaseAlpha', labelKey: 'customEffectDrawer.field.cascadeBaseAlpha', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, card: 'element', showIf: (cfg) => cfg.barStyle === 'cascade' },
-        // dotImpactMode (card 'reaction', chỉ style 'dot') khai báo TRƯỚC maxH — maxH của 'dot' cũng vào card
-        // 'reaction' và phải đứng NGAY SAU "Kiểu tác động" (thứ tự trong card = thứ tự khai báo).
+        // dotImpactMode (card 'reaction', chỉ style 'dot') — select nên luôn đứng trước maxH (slider) trong card,
+        // theo CUSTOM_EFFECT_FIELD_TYPE_ORDER.
         { id: 'dotImpactMode', labelKey: 'customEffectDrawer.field.dotImpactMode', type: 'select', card: 'reaction', showIf: (cfg) => cfg.barStyle === 'dot', rerender: true, options: [
             { value: 'radius', labelKey: 'customEffectDrawer.dotImpactMode.radius' },
             { value: 'height', labelKey: 'customEffectDrawer.dotImpactMode.height' },
