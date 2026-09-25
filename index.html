@@ -537,7 +537,7 @@
     <script src="service/state/visual-bg.js?v=20260806v1"></script>
     <script src="service/state/video-player-mode.js?v=20260818v1"></script>
     <script src="service/state/photo-player-mode.js?v=20260925p3"></script>
-    <script src="service/state/wakelock-tab.js?v=20260725v1"></script>
+    <script src="service/state/wakelock-tab.js?v=20260925bg1"></script>
     <script src="service/state/auto-switch.js?v=20260725v1"></script>
     <script src="service/state/listen-stats.js?v=20260725v1"></script>
     <script src="service/state/app-misc.js?v=20260725v1"></script>
@@ -866,7 +866,7 @@
     <!-- Preset EQ lưu DB (meta.eqPresets) — THAY EQ_PRESETS tĩnh cũ. PHẢI nạp TRƯỚC
          core/audio-engine.js (setupAudioContext() gọi findEqPresetById()/applyEqGains()). -->
     <script src="core/eq-presets.js?v=20260811v1"></script>
-    <script src="core/audio-engine.js?v=20260720v1"></script>
+    <script src="core/audio-engine.js?v=20260925bg1"></script>
     <script src="core/app-cleanup.js?v=20260630v1"></script>
     <!-- GỘP (10/08/2026) toggle ẩn/hiện Stats panel + 3 nút chrome (bottom player/playlist/mở
          Control Center, mỗi cái 1 toggle RIÊNG trong Settings -> Hiển thị Visualizer — bỏ hẳn
@@ -972,7 +972,7 @@
          mode 'raf'). Khởi động thật từ core/audio-engine.js::setupAudioContext() gọi
          workflowVisualizerRender.start() lúc phát bài đầu tiên. Đặt ở đây (không phải /event/ phía
          dưới) vì thuộc nhóm "vòng lặp render 60fps tự taskManager", không qua eventBus/Router. -->
-    <script src="event/workflow/visualizer-render.js?v=20260925s5"></script>
+    <script src="event/workflow/visualizer-render.js?v=20260925bg1"></script>
 
 
     <!-- Kiến trúc /event/ — nạp CUỐI CÙNG, sau toàn bộ js/* (router/workflow chỉ gọi lại hàm core
@@ -1108,9 +1108,9 @@
 
     <!-- Cụm "visualBg" — Workflow tách 3 file: common (định nghĩa `workflowVisualBg`), video/photo
          (`Object.assign()` thêm vào) — common PHẢI nạp trước video/photo. -->
-    <script src="event/workflow/visual-bg-common.js?v=20260925v5"></script>
-    <script src="event/workflow/visual-bg-video.js?v=20260925f1"></script>
-    <script src="event/workflow/visual-bg-photo.js?v=20260925p3"></script>
+    <script src="event/workflow/visual-bg-common.js?v=20260925bg1"></script>
+    <script src="event/workflow/visual-bg-video.js?v=20260925bg1"></script>
+    <script src="event/workflow/visual-bg-photo.js?v=20260925bg1"></script>
     <script src="event/router/visual-bg.js?v=20260925v5"></script>
     <script src="event/listener/visual-bg.js?v=20260925v5"></script>
 
@@ -1290,6 +1290,14 @@
     <script src="event/workflow/theme.js?v=20260924r3"></script>
     <script src="event/router/theme.js?v=20260923v6"></script>
     <script src="event/listener/theme.js?v=20260921v4"></script>
+    <!-- MỚI (25/09/2026, Giang yêu cầu) — cụm "appVisibility": ẩn tab/PWA chỉ để audio Song phát nền (Audio Session
+         'playback' + keep-alive AudioContext), tạm dừng render Visualizer/Visual Background/Video-Photo Player khi không
+         chơi Game. CẦN core/audio-engine.js (applyPlaybackAudioSession/resumeAudioContextIfInterrupted),
+         event/workflow/visualizer-render.js, event/workflow/visual-bg-common.js, event/workflow/photo-player.js (đều đã
+         nạp ở trên). NẠP TRƯỚC event/workflow/app-boot.js (boot gọi registerAudioSessionOnBoot()). -->
+    <script src="event/workflow/app-visibility.js?v=20260925bg1"></script>
+    <script src="event/router/app-visibility.js?v=20260925bg1"></script>
+    <script src="event/listener/app-visibility.js?v=20260925bg1"></script>
     <!-- Cụm "statsPanel" ĐÃ XOÁ (checkbox toggle stats panel dời vào Settings, dùng chung
          cụm "visualizerDisplay" — xem event/workflow/visualizer-display.js::setStatsPanelEnabled()). -->
     <!-- Cụm "savLogo" ĐÃ NGỪNG NẠP (SỬA — Giang yêu cầu "logo header full text, không animation")
@@ -1371,7 +1379,7 @@
          xem comment ở đó). Chuỗi boot thật (~15 bước) nay ở workflow. Đặt SAU CÙNG TUYỆT ĐỐI (kể
          cả sau event/tab.js) để mọi workflowXxx/VirtualMachineState/hàm core mà
          workflowAppBoot.boot() cần tới đều CHẮC CHẮN đã được định nghĩa ở phía TRÊN nó. -->
-    <script src="event/workflow/app-boot.js?v=20260924r2"></script>
+    <script src="event/workflow/app-boot.js?v=20260925bg1"></script>
     <script src="event/router/app-boot.js?v=20260725v1"></script>
 
 </body>
