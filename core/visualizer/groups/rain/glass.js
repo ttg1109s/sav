@@ -50,34 +50,100 @@ function paintRainMoon(ctx, moon) {
     ctx.shadowBlur = 0;
 }
 
-/** Big City (toà nhà + cửa sổ sáng) — không cần `getComputedColor()` (màu cửa sổ lấy thẳng
- * `win.colorType` đã lưu sẵn trên từng cửa sổ) nên compute+paint gộp 1 hàm, chỉ nhận tham số.
- * Chỉ Canvas API. */
-function paintRainCity(ctx, canvasHeight, cityBuildings, dpr, vizDataArray, isPlaying, cityOpacity) {
-    ctx.globalAlpha = cityOpacity;
+/** Big City — [VIẾT LẠI 25/09/2026, Giang: "áp chế độ màu custom effect cho đèn big city"] TRƯỚC ĐÂY cửa
+ * sáng lấy màu cố định `win.colorType` (#ffdd44/#fff5e6, gán lúc dựng scene) — style glass KHÔNG dùng
+ * color mode dù card Color vẫn hiện; cửa TẮT không vẽ -> trông y hệt tường, không phân biệt được "cửa
+ * đang tắt" với "không có cửa". Giờ tách 3 bước (Rule 3 — Workflow `_tickRainGlass()` gọi RIÊNG LẺ):
+ *   1. computeRainCityFrame()     — hình học + trạng thái sáng/tắt + alpha (giữ NGUYÊN luật sáng cũ:
+ *      15% cửa luôn sáng mờ, còn lại sáng khi bin FFT của nó > 140).
+ *   2. resolveRainCityLitColor()  — màu cửa SÁNG = ĐÚNG màu mode (Giang chốt: không pha):
+ *      solid = solidColor, dynamic = dynA->dynB theo vị trí ngang, gradient = THEO TỪNG CỬA, cùng công
+ *      thức getComputedColor() (core/audio-analysis.js).
+ *   3. resolveRainCityOffColor()  — màu cửa TẮT TƯƠNG PHẢN với màu sáng (Giang chốt): hue đối (+180°),
+ *      độ sáng lật phía (sáng >= 50% -> tắt tối 25%, sáng tối -> tắt 70%); màu gần xám (S < 15%) giữ
+ *      xám, chỉ lật độ sáng. Vẽ ở alpha thấp RAIN_CITY_OFF_ALPHA.
+ * paintRainCity() chỉ Canvas API. SỬA kèm: alpha cửa trước đây GHI ĐÈ globalAlpha (bỏ qua cityOpacity —
+ * kéo độ mờ Thành phố về 0 cửa vẫn hiện); giờ nhân với cityOpacity. */
+const RAIN_CITY_WALL_COLOR = '#03060a';
+const RAIN_CITY_OFF_ALPHA = 0.2;
+
+/** Khung hình Big City — THUẦN. @returns {{walls:object[], windows:{x,y,w,h,lit,alpha,t,value}[]}}
+ * `t` = vị trí ngang 0-1 (tâm cửa / canvasWidth), `value` = byte FFT của cửa (0 khi không phát). */
+function computeRainCityFrame(canvasWidth, canvasHeight, cityBuildings, dpr, vizDataArray, isPlaying) {
+    const walls = [], windows = [];
+    const winW = 3 * dpr, winH = 5 * dpr;
     cityBuildings.forEach((b) => {
-        ctx.fillStyle = '#03060a';
-        ctx.fillRect(b.x, canvasHeight - b.h, b.w, b.h);
-        const winW = 3 * dpr, winH = 5 * dpr;
+        walls.push({ x: b.x, y: canvasHeight - b.h, w: b.w, h: b.h });
         const paddingX = (b.w - (b.cols * winW)) / (b.cols + 1);
         const paddingY = (b.h - (b.rows * winH)) / (b.rows + 1);
         b.windows.forEach((win) => {
             const wx = b.x + paddingX + win.c * (winW + paddingX);
             const wy = canvasHeight - b.h + paddingY + win.r * (winH + paddingY);
-            let isLit = win.isAlwaysOn;
-            let alpha = isLit ? 0.3 : 0;
-            if (isPlaying) {
-                const audioVal = vizDataArray[win.fftBin] || 0;
-                if (audioVal > 140) { isLit = true; alpha = Math.max(alpha, (audioVal / 255) * 0.9); }
-            }
-            if (isLit) {
-                ctx.fillStyle = win.colorType;
-                ctx.globalAlpha = alpha * 0.6;
-                ctx.fillRect(wx, wy, winW, winH);
-            }
+            const audioVal = isPlaying ? (vizDataArray[win.fftBin] || 0) : 0;
+            let lit = win.isAlwaysOn;
+            let alpha = lit ? 0.3 : 0;
+            if (audioVal > 140) { lit = true; alpha = Math.max(alpha, (audioVal / 255) * 0.9); }
+            const t = Math.max(0, Math.min(1, (wx + winW / 2) / canvasWidth));
+            windows.push({ x: wx, y: wy, w: winW, h: winH, lit, alpha: lit ? alpha * 0.6 : RAIN_CITY_OFF_ALPHA, t, value: audioVal });
         });
-        ctx.globalAlpha = cityOpacity;
     });
+    return { walls, windows };
+}
+
+/** Màu cửa SÁNG theo color mode — trả css + HSL (h 0-360, s/l 0-100) để resolveRainCityOffColor() lật.
+ * @param {{mode:string, solid:{r,g,b}, dynA:{r,g,b}, dynB:{r,g,b}, hueOffset:number}} palette - Workflow
+ * tự hexToRgb() 1 lần/frame. @param {number} t - vị trí ngang 0-1 @param {number} value - byte FFT 0-255 */
+function resolveRainCityLitColor(palette, t, value) {
+    if (palette.mode === 'gradient') {
+        // Cùng công thức nhánh gradient của getComputedColor() (core/audio-analysis.js), i/total = t.
+        const h = (palette.hueOffset + t * 240 + (value / 255) * 80) % 360;
+        const s = Math.round(70 + (value / 255) * 30);
+        const l = Math.round(40 + (value / 255) * 30);
+        return { css: `hsl(${h}, ${s}%, ${l}%)`, h, s, l };
+    }
+    let r, g, b;
+    if (palette.mode === 'dynamic') {
+        r = palette.dynA.r + (palette.dynB.r - palette.dynA.r) * t;
+        g = palette.dynA.g + (palette.dynB.g - palette.dynA.g) * t;
+        b = palette.dynA.b + (palette.dynB.b - palette.dynA.b) * t;
+    } else {
+        r = palette.solid.r; g = palette.solid.g; b = palette.solid.b;
+    }
+    // RGB -> HSL (chuẩn), để bước "tắt" lật được hue/độ sáng.
+    const rn = r / 255, gn = g / 255, bn = b / 255;
+    const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+    const l = (max + min) / 2;
+    let h = 0, s = 0;
+    if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        if (max === rn) h = ((gn - bn) / d + (gn < bn ? 6 : 0)) * 60;
+        else if (max === gn) h = ((bn - rn) / d + 2) * 60;
+        else h = ((rn - gn) / d + 4) * 60;
+    }
+    return { css: `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`, h, s: s * 100, l: l * 100 };
+}
+
+/** Màu cửa TẮT tương phản với màu sáng (h/s/l từ resolveRainCityLitColor()): hue đối +180°, độ sáng lật
+ * phía; màu gần xám giữ xám. @returns {string} css */
+function resolveRainCityOffColor(h, s, l) {
+    const offH = (h + 180) % 360;
+    const offS = s < 15 ? s : Math.min(s, 60);
+    const offL = l >= 50 ? 25 : 70;
+    return `hsl(${offH}, ${Math.round(offS)}%, ${offL}%)`;
+}
+
+/** Vẽ Big City — tường rồi cửa (màu đã resolve, `colors[i]` ứng `frame.windows[i]`). Chỉ Canvas API. */
+function paintRainCity(ctx, frame, colors, cityOpacity) {
+    ctx.globalAlpha = cityOpacity;
+    ctx.fillStyle = RAIN_CITY_WALL_COLOR;
+    frame.walls.forEach((w) => ctx.fillRect(w.x, w.y, w.w, w.h));
+    frame.windows.forEach((win, i) => {
+        ctx.globalAlpha = win.alpha * cityOpacity;
+        ctx.fillStyle = colors[i];
+        ctx.fillRect(win.x, win.y, win.w, win.h);
+    });
+    ctx.globalAlpha = cityOpacity;
 }
 
 /** Có thể sinh 1 giọt trôi (streak) mới trên kính — chỉ GHI qua `appState.mutate()` (được phép),
