@@ -54,7 +54,7 @@ Object.assign(workflowVisualBg, {
         this._listIndex = index;
         const key = startList[index];
         if (!key) return;
-        if (audioPlayer.paused) { if (typeof workflowVideoPlayer !== 'undefined') await workflowVideoPlayer.showStaticBgThumb(key); return; }
+        if (!this._isSongActiveForVbg()) { if (typeof workflowVideoPlayer !== 'undefined') await workflowVideoPlayer.showStaticBgThumb(key); return; } // SỬA 25/09/2026 — app ẩn (chế độ nền) cũng coi như Song dừng, event/workflow/visual-bg-common.js
         await this._playVideoKey(key);
     },
 
@@ -232,7 +232,7 @@ Object.assign(workflowVisualBg, {
         updateDOMBackground();
         workflowVideoPlayer.waitBgVideoReady().then(() => {
             if (this._currentVideoKey !== videoKey) return;
-            syncVisualBgVideoPlayback(audioPlayer.paused);
+            syncVisualBgVideoPlayback(!this._isSongActiveForVbg()); // SỬA 25/09/2026 — đổi video giữa lúc app ẩn (Next tự động) -> nạp xong vẫn đứng yên
             this._applyVideoAudioSettingToElement(videoKey);
             this._applyVideoPlaybackSpeedSetting();
             this._maybeScheduleVideoFixTime(cfg, isCyclingSlideshow);
@@ -274,7 +274,7 @@ Object.assign(workflowVisualBg, {
         const advanceMs = this._computeVideoPointMoveAdvanceMs(cfg, isCyclingSlideshow);
         if (isNewContent) workflowVideoMotionSurface.activatePointMoveForNewContent(VISUAL_BG_VIDEO_SURFACE_OWNER, preset, advanceMs); // event/workflow/video-motion-surface.js
         else workflowVideoMotionSurface.activatePointMoveForPresetChange(VISUAL_BG_VIDEO_SURFACE_OWNER, preset, advanceMs);
-        if (audioPlayer.paused) workflowVideoMotionSurface.pause(VISUAL_BG_VIDEO_SURFACE_OWNER);
+        if (!this._isSongActiveForVbg()) workflowVideoMotionSurface.pause(VISUAL_BG_VIDEO_SURFACE_OWNER); // SỬA 25/09/2026 — cùng lý do
     },
 
     /** VÁ (25/09/2026) — tốc độ phát CHUNG vừa đổi (HUD, event/workflow/hud.js::selectSpeed()) lúc Song là nguồn

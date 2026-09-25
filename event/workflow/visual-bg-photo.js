@@ -122,7 +122,7 @@ Object.assign(workflowVisualBg, {
      * `perSong` (mode đó chuyển ảnh do ĐỔI BÀI quyết định, không phải hẹn giờ) + còn >1 item sống. */
     _syncPhotoTicking() {
         const cfg = appConfigVisualBg.getAll();
-        const shouldRun = cfg.type === 'photo' && !audioPlayer.paused && cfg.listPlaybackMode !== 'perSong' && this._effectiveCount(cfg.source.list) > 1;
+        const shouldRun = cfg.type === 'photo' && this._isSongActiveForVbg() && cfg.listPlaybackMode !== 'perSong' && this._effectiveCount(cfg.source.list) > 1; // SỬA 25/09/2026 — app ẩn (chế độ nền) không hẹn giờ đổi ảnh, event/workflow/visual-bg-common.js
         if (shouldRun) {
             taskManager.once(() => this._photoTick(), this._computePhotoAdvanceMs(this._photoRecord), VISUAL_BG_PHOTO_ADVANCE_TASK);
         } else {

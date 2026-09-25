@@ -186,6 +186,24 @@ const workflowVisualizerRender = {
         this._renderActive = false;
     },
 
+    /** MỚI (25/09/2026, Giang — ẩn tab/PWA ở chế độ không Game) — TẠM DỪNG cả 2 task (phân tích + vẽ): không FFT,
+     * không status bar, không pitch worker, không nốt nhạc bay, không vẽ canvas/WebGL. Dùng pause() (giữ đăng ký),
+     * KHÔNG kill: `_renderActive` vẫn đúng với Show Visual nên hiện lại chỉ cần resume, không phải dựng lại.
+     * Task đã bị kill vì Show Visual tắt -> pause() no-op (taskManager tự guard). Gọi từ
+     * event/workflow/app-visibility.js (Workflow gọi Workflow). */
+    suspendForBackground() {
+        taskManager.pause(ANALYSIS_TASK);
+        taskManager.pause(RENDER_TASK);
+        console.log('[workflowVisualizerRender] tạm dừng task "audioAnalysis" + "visualizerRender" (app ẩn)'); // log vòng đời task — không phải ghi appState
+    },
+
+    /** Ngược lại `suspendForBackground()` — resume() tự guard (task không paused/không tồn tại -> no-op). */
+    resumeFromBackground() {
+        taskManager.resume(ANALYSIS_TASK);
+        taskManager.resume(RENDER_TASK);
+        console.log('[workflowVisualizerRender] chạy lại task "audioAnalysis" + "visualizerRender" (app hiện lại)');
+    },
+
     /** Đồng bộ `RENDER_TASK` với Show Visual: tắt Visual -> `kill` (dừng hẳn RAF vẽ, không còn
      * callback/`clearRect`/WebGL render nào), bật lại -> đăng ký + chạy lại. Gọi mỗi frame từ
      * `_tick()`, chỉ thật sự làm gì khi trạng thái ĐỔI (so cờ `_renderActive`). */

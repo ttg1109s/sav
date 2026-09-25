@@ -276,13 +276,14 @@ const workflowVisualBg = {
         // `bgVideoElement`/surface đang thuộc Player. Thoát mode -> restoreAfterPlayerMode() tự đồng bộ lại.
         if (appState.get('isVideoPlayerMode') || appState.get('isPhotoPlayerMode')) return;
         const cfg = appConfigVisualBg.getAll();
+        const songActive = this._isSongActiveForVbg(); // SỬA 25/09/2026 — thay `!audioPlayer.paused`: app ẩn (chế độ nền) = coi như Song dừng
         if (cfg.type !== 'video') {
-            syncVisualBgVideoPlayback(audioPlayer.paused);
-            if (typeof workflowVisualBgPhotoMotion !== 'undefined') { if (audioPlayer.paused) workflowVisualBgPhotoMotion.pause(VISUAL_BG_IMAGE_SURFACE_OWNER); else workflowVisualBgPhotoMotion.resume(VISUAL_BG_IMAGE_SURFACE_OWNER); } // SỬA 25/09/2026 — kèm owner: surface giờ DÙNG CHUNG với Player Photo, sự kiện Song pause/play lúc Player Photo đang giữ surface không được đụng tới nó
+            syncVisualBgVideoPlayback(!songActive);
+            if (typeof workflowVisualBgPhotoMotion !== 'undefined') { if (!songActive) workflowVisualBgPhotoMotion.pause(VISUAL_BG_IMAGE_SURFACE_OWNER); else workflowVisualBgPhotoMotion.resume(VISUAL_BG_IMAGE_SURFACE_OWNER); } // SỬA 25/09/2026 — kèm owner: surface giờ DÙNG CHUNG với Player Photo, sự kiện Song pause/play lúc Player Photo đang giữ surface không được đụng tới nó
             this._syncPhotoTicking();
             return;
         }
-        if (!audioPlayer.paused) {
+        if (songActive) {
             if (this._currentVideoKey === null) { this._playVideoKey(cfg.source.list[this._listIndex]); return; }
             this._resumeVideoWithDelayedAudio(this._currentVideoKey);
             return;
@@ -290,6 +291,25 @@ const workflowVisualBg = {
         if (appState.get('playbackStoppedAtPlaylistEnd')) { this._revertToPlaceholder(); return; }
         syncVisualBgVideoPlayback(true);
         workflowVideoMotionSurface.pause(VISUAL_BG_VIDEO_SURFACE_OWNER); // MỚI (25/09/2026, đợt 5) — Motion VBG Video đứng yên theo Song, event/workflow/video-motion-surface.js
+    },
+
+    /** MỚI (25/09/2026, Giang — ẩn tab/PWA chỉ để audio Song phát nền) — "Song đang chạy" THEO GÓC NHÌN VBG: Song
+     * phát thật VÀ app KHÔNG ở chế độ nền (`isBackgroundSuspended`, chỉ event/workflow/app-visibility.js ghi). Mọi
+     * chỗ VBG trước đây đọc `audioPlayer.paused` để quyết định phát video nền/chạy Motion/hẹn giờ đổi ảnh giờ đọc
+     * hàm này -> lúc app ẩn VBG đứng yên y như Song pause, KỂ CẢ khi đổi bài giữa lúc ẩn (Next tự động). App hiện
+     * lại -> `onBackgroundSuspendChange()` gọi `syncPlaybackToAudio()` khôi phục như lúc Song phát tiếp.
+     * @returns {boolean} */
+    _isSongActiveForVbg() {
+        return !audioPlayer.paused && !appState.get('isBackgroundSuspended');
+    },
+
+    /** MỚI (25/09/2026) — app vừa vào/ra chế độ nền (event/workflow/app-visibility.js gọi SAU khi đã ghi
+     * `isBackgroundSuspended`): tạm dừng/chạy lại animation Movement của gradient (task riêng, không theo Song) rồi
+     * đồng bộ video nền/Motion/hẹn giờ ảnh qua đúng 1 đường `syncPlaybackToAudio()` (Player mode tự thoát sớm ở đó). */
+    onBackgroundSuspendChange() {
+        if (appState.get('isBackgroundSuspended')) taskManager.pause(VISUAL_BG_GRADIENT_MOVEMENT_TASK);
+        else taskManager.resume(VISUAL_BG_GRADIENT_MOVEMENT_TASK);
+        this.syncPlaybackToAudio();
     },
 
     /** Đọc key THẬT của 1 origin tại thời điểm gọi — 1 key (single) hay N key (group/multi/

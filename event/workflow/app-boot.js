@@ -107,6 +107,10 @@ const workflowAppBoot = {
         // race hiếm gặp trên máy rất chậm).
         if (typeof workflowEqPresets !== 'undefined') await workflowEqPresets.loadPresetsOnBoot();
 
+        // MỚI (25/09/2026, Giang yêu cầu "ẩn tab/PWA vẫn phát nền, đăng ký audio session") — khai báo Audio Session
+        // 'playback' TRƯỚC lần phát nhạc đầu tiên (iOS quyết định loại session lúc bắt đầu phát). Đồng bộ, không await.
+        if (typeof workflowAppVisibility !== 'undefined') workflowAppVisibility.registerAudioSessionOnBoot(); // event/workflow/app-visibility.js
+
         // SỬA (fix bug "folder Video Apply -> Playlist trống", phản hồi Giang mục 7) — nạp ĐÚNG
         // playlistCache theo `activeMediaSource` vừa khôi phục ở trên, KHÔNG cố định Song.
         // SỬA (07/09/2026, "workflow chuẩn dùng chung app boot + chuyển Nguồn", rồi "folder scope
