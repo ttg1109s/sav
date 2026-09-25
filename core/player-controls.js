@@ -341,6 +341,9 @@
         // event/router/player-controls.js, case 'playerControls.settingsDrawer.open'/'.close').
 
 
+        // SỬA (25/09/2026, Giang yêu cầu) — nexttrack/previoustrack ĐÃ MỞ LẠI (thông báo/màn hình khoá/tai nghe), đăng ký
+        // ở event/listener/player-controls.js, gửi đúng message nút Next/Prev. Phần ghi chú Ver 8 dưới đây chỉ còn đúng cho
+        // các hành động KHÁC (seek...).
         // Ver 8 refine (mục 2 — loại bỏ can thiệp điều khiển từ ngoài app): KHÔNG còn
         // navigator.mediaSession.setActionHandler(...) nào nữa — play/pause/next/prev/seek từ màn
         // hình khoá, tai nghe, hoặc nút điều khiển trên thông báo hệ thống SẼ KHÔNG còn tác dụng.
