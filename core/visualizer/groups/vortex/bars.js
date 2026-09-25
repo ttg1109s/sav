@@ -18,8 +18,7 @@
  * cấm ĐỌC). Không cần đọc lại mảng — mutate() tự cấp `arr` cho callback (kênh GHI). */
 function stepVortexBarRingZ(r, tWarpSpeed, tCurrentWarpZ, tunnelDepth) {
     appState.mutate('tBarRingZs', (arr) => {
-        arr[r] += tWarpSpeed * 0.8;
-        if (arr[r] > tCurrentWarpZ + 200) arr[r] -= tunnelDepth;
+        arr[r] = wrapVortexObjectZ(arr[r], tWarpSpeed * 0.8, tCurrentWarpZ, tunnelDepth); // common.js (25/09/2026)
     }, { skipCheck: true });
 }
 

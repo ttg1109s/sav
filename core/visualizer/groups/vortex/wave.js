@@ -16,8 +16,7 @@
 
 /** Tiến vị trí Z của 1 wave mesh — mutate trực tiếp `wave` (Three.js mesh nhận qua tham số). */
 function stepVortexWaveZ(wave, tWarpSpeed, tCurrentWarpZ, tunnelDepth) {
-    wave.position.z += tWarpSpeed * 1.2;
-    if (wave.position.z > tCurrentWarpZ + 200) wave.position.z -= tunnelDepth;
+    wave.position.z = wrapVortexObjectZ(wave.position.z, tWarpSpeed * 1.2, tCurrentWarpZ, tunnelDepth); // common.js (25/09/2026)
 }
 
 /** Hoàn tất khung hình 1 wave mesh — nhận `center`/`colorToApply` đã resolve sẵn (GỌI SAU
@@ -25,7 +24,7 @@ function stepVortexWaveZ(wave, tWarpSpeed, tCurrentWarpZ, tunnelDepth) {
 function finishVortexWaveFrame(wave, center, waveRotationBase, waveRotationEnergyMult, waveScaleBase, waveScaleEnergyMult, smoothedEnergy, colorToApply) {
     wave.position.x = center.x;
     wave.position.y = center.y;
-    wave.rotation.z += waveRotationBase + smoothedEnergy * waveRotationEnergyMult;
+    wave.rotation.z = (wave.rotation.z + waveRotationBase + smoothedEnergy * waveRotationEnergyMult) % (Math.PI * 2); // gói 2π (25/09/2026) — không cộng dồn vô hạn
     wave.scale.setScalar(waveScaleBase + smoothedEnergy * waveScaleEnergyMult);
     wave.material.color.setStyle(colorToApply);
 }

@@ -17,8 +17,7 @@
 /** Tiến vị trí Z của 1 ring (sliding window, giống hệt bản gốc) — mutate trực tiếp `ring` (Three.js
  * mesh nhận qua tham số). */
 function stepVortexRingZ(ring, tWarpSpeed, tCurrentWarpZ, tunnelDepth) {
-    ring.position.z += tWarpSpeed * 0.8;
-    if (ring.position.z > tCurrentWarpZ + 200) ring.position.z -= tunnelDepth;
+    ring.position.z = wrapVortexObjectZ(ring.position.z, tWarpSpeed * 0.8, tCurrentWarpZ, tunnelDepth); // common.js (25/09/2026)
 }
 
 /** Hoàn tất khung hình 1 ring — nhận `center` (đã `getVortexCenterAt(ring.position.z)` sẵn, GỌI SAU

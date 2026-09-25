@@ -4,8 +4,8 @@
  * đây `core/visualizer/types/vortex.js` gộp 3 style 'rings'/'bars'/'wave' — giờ mỗi style 1 file
  * riêng (`rings.js`/`bars.js`/`wave.js`, cùng thư mục).
  *
- * `computeVortexWarpSpeed()` + 2 hàm camera (`dampVortexCameraPosition()`/
- * `applyVortexCameraClamp()`) là cơ chế CHUNG (Rule 2/3 — biến module-level ngoài STATE / chỉ nhận
+ * `computeVortexWarpSpeed()` + camera (`placeVortexCamera()`) + dời gốc/cuộn z
+ * (`shiftVortexSceneZ()`/`wrapVortexObjectZ()`, 25/09/2026) là cơ chế CHUNG (Rule 2/3 — biến module-level ngoài STATE / chỉ nhận
  * tham số đã resolve sẵn) dùng bởi CẢ 3 style — đặt ở đây để 3 file đó không phải định nghĩa
  * trùng lặp. Workflow (`_tickVortexRender()`, event/workflow/visualizer-render.js) tự đọc TOÀN BỘ
  * appState/cfg TRƯỚC, tự chọn ĐÚNG style (Rule 1), rồi tự vòng lặp gọi RIÊNG LẺ từng hàm "1 bước/1
@@ -32,17 +32,32 @@ function computeVortexWarpSpeed(warpSpeedBase, warpSpeedEnergyMult, smoothedEner
 }
 // =================================== Camera (dùng chung) ===================================
 
-/** Camera bám theo tâm ống (damping nhẹ) — nhận `camTargetPos` (đã `getVortexCenterAt(tCurrentWarpZ)`
- * sẵn) làm tham số. Mutate trực tiếp `tCamera` (Three.js camera nhận qua tham số). */
-function dampVortexCameraPosition(tCamera, camTargetPos, tCurrentWarpZ) {
-    tCamera.position.x += (camTargetPos.x - tCamera.position.x) * 0.045;
-    tCamera.position.y += (camTargetPos.y - tCamera.position.y) * 0.045;
-    tCamera.position.z = tCurrentWarpZ;
+/** Đặt camera ĐÚNG tâm ống tại z camera — THAY `dampVortexCameraPosition()` + `applyVortexCameraClamp()`
+ * cũ (25/09/2026, Giang báo "va đập"): damping 0.045 không đuổi kịp tâm khi ống rẽ -> camera bị lưới
+ * kẹp cứng VORTEX_CAMERA_SAFE_RADIUS chặn lại đột ngột -> khựng/giật. Hình ống giờ đã mượt sẵn
+ * (computeNextVortexPath(), core/webgl/three-vortex.js) nên bám thẳng tâm, cảm giác rẽ đến từ lookAt
+ * phía trước. `camPos` = getVortexCenterAt(camZ, ...) đã resolve sẵn. Mutate trực tiếp `tCamera`. */
+function placeVortexCamera(tCamera, camPos, camZ) {
+    tCamera.position.set(camPos.x, camPos.y, camZ);
 }
 
-/** Áp kết quả kẹp cứng (đã `clampVortexCameraOffset()` sẵn, GỌI SAU `dampVortexCameraPosition()`)
- * lên `tCamera`. */
-function applyVortexCameraClamp(tCamera, clampedPos) {
-    tCamera.position.x = clampedPos.x;
-    tCamera.position.y = clampedPos.y;
+// ================================ Dời gốc toạ độ (dùng chung) ================================
+
+/** Dời TOÀN BỘ object ống theo +shift trên trục z (MỚI 25/09/2026 — chặn z tịnh tiến vô hạn). Dời cả
+ * object của style đang ẩn để lúc đổi style chúng vẫn nằm đúng quanh camera. Tâm ống chỉ phụ thuộc
+ * camZ - z (getVortexCenterAt()) nên dời gốc không đổi hình. Mutate trực tiếp mesh Three.js nhận qua
+ * tham số; mảng z của bars trả về BẢN MỚI, Workflow tự ghi appState. @returns {number[]} tBarRingZs mới. */
+function shiftVortexSceneZ(shift, rings, waves, barRingZs) {
+    rings.forEach((ring) => { ring.position.z += shift; });
+    waves.forEach((wave) => { wave.position.z += shift; });
+    return barRingZs.map((z) => z + shift);
+}
+
+/** z mới của 1 object sau khi tiến `step`, cuộn về phía trước đủ SỐ LẦN tunnelDepth nếu đã lọt ra
+ * sau camera (SỬA 25/09/2026 — bản cũ chỉ trừ 1 lần/frame: object của style đang ẩn không được tiến
+ * nên bị bỏ lại rất xa, đổi style xong phải chờ hàng trăm frame mới cuộn về -> ống trống). THUẦN. */
+function wrapVortexObjectZ(z, step, tCurrentWarpZ, tunnelDepth) {
+    const next = z + step;
+    const over = next - (tCurrentWarpZ + 200);
+    return over > 0 ? next - Math.ceil(over / tunnelDepth) * tunnelDepth : next;
 }
