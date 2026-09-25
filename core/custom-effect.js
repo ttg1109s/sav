@@ -90,7 +90,7 @@ const CUSTOM_EFFECT_STYLE = {
     rain: { field: 'rainStyle', options: ['glass', 'street'] },
     vortex: { field: 'vortexStyle', options: ['rings', 'bars', 'wave'] },
     lighting: { field: 'lightingStyle', options: ['thunder', 'fireworks'] },
-    shape: { field: 'shapeStyle', options: ['rubik'] },
+    shape: { field: 'shapeStyle', options: ['rubik', 'clock'] },
     connector: { field: 'connectorStyle', options: ['synapse', 'circuit', 'brain'] },
 };
 
@@ -104,7 +104,7 @@ const CUSTOM_EFFECT_STYLE_LABEL_KEYS = {
     rain: { glass: 'visualizerSettingsDrawer.rainStyle.glass', street: 'visualizerSettingsDrawer.rainStyle.street' },
     vortex: { rings: 'visualizerSettingsDrawer.vortexStyle.rings', bars: 'visualizerSettingsDrawer.vortexStyle.bars', wave: 'visualizerSettingsDrawer.vortexStyle.wave' },
     lighting: { thunder: 'visualizerSettingsDrawer.lightingStyle.thunder', fireworks: 'visualizerSettingsDrawer.lightingStyle.fireworks' },
-    shape: { rubik: 'visualizerSettingsDrawer.shapeStyle.rubik' },
+    shape: { rubik: 'visualizerSettingsDrawer.shapeStyle.rubik', clock: 'visualizerSettingsDrawer.shapeStyle.clock' },
     connector: { synapse: 'visualizerSettingsDrawer.connectorStyle.synapse', circuit: 'visualizerSettingsDrawer.connectorStyle.circuit', brain: 'visualizerSettingsDrawer.connectorStyle.brain' },
 };
 
@@ -198,10 +198,21 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'glassStreakFrequency', labelKey: 'customEffectDrawer.field.glassStreakFrequency', type: 'slider', min: 0, max: 100, step: 5, card: 'motion', showIf: (cfg) => cfg.rainStyle === 'glass' },
     ],
     shape: [ // ĐỔI TÊN (05/09/2026) — trước đây khoá 'rubik', field không đổi.
-        { id: 'cubeSizeRatio', labelKey: 'customEffectDrawer.field.cubeSizeRatio', type: 'sliderFloat', min: 0.03, max: 0.15, step: 0.01, decimals: 2, card: 'layout' },
-        { id: 'layerTurnSpeed', labelKey: 'customEffectDrawer.field.layerTurnSpeed', type: 'sliderFloat', min: 0.02, max: 0.3, step: 0.01, decimals: 2, card: 'motion' },
-        { id: 'pitchSensitivity', labelKey: 'customEffectDrawer.field.pitchSensitivity', type: 'sliderFloat', min: 0, max: 2, step: 0.1, decimals: 1, card: 'reaction' },
-        { id: 'rotationEnergyThreshold', labelKey: 'customEffectDrawer.field.rotationEnergyThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, card: 'reaction' },
+        // SỬA (26/09/2026) — group có thêm style 'clock' -> field rubik gắn showIf theo style.
+        { id: 'cubeSizeRatio', labelKey: 'customEffectDrawer.field.cubeSizeRatio', type: 'sliderFloat', min: 0.03, max: 0.15, step: 0.01, decimals: 2, card: 'layout', showIf: (cfg) => cfg.shapeStyle !== 'clock' },
+        { id: 'layerTurnSpeed', labelKey: 'customEffectDrawer.field.layerTurnSpeed', type: 'sliderFloat', min: 0.02, max: 0.3, step: 0.01, decimals: 2, card: 'motion', showIf: (cfg) => cfg.shapeStyle !== 'clock' },
+        { id: 'pitchSensitivity', labelKey: 'customEffectDrawer.field.pitchSensitivity', type: 'sliderFloat', min: 0, max: 2, step: 0.1, decimals: 1, card: 'reaction', showIf: (cfg) => cfg.shapeStyle !== 'clock' },
+        { id: 'rotationEnergyThreshold', labelKey: 'customEffectDrawer.field.rotationEnergyThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, card: 'reaction', showIf: (cfg) => cfg.shapeStyle !== 'clock' },
+        // MỚI (26/09/2026, Giang) — style 'clock' (core/visualizer/groups/shape/clock.js).
+        { id: 'clockHandsSource', labelKey: 'customEffectDrawer.field.clockHandsSource', type: 'select', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock', options: [
+            { value: 'realtime', labelKey: 'customEffectDrawer.clockHandsSource.realtime' },
+            { value: 'track', labelKey: 'customEffectDrawer.clockHandsSource.track' },
+        ] },
+        { id: 'clockSizeRatio', labelKey: 'customEffectDrawer.field.clockSizeRatio', type: 'sliderFloat', min: 0.5, max: 0.95, step: 0.05, decimals: 2, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' },
+        { id: 'clockSecondTick', labelKey: 'customEffectDrawer.field.clockSecondTick', type: 'toggle', card: 'motion', showIf: (cfg) => cfg.shapeStyle === 'clock' },
+        { id: 'clockGearSpeedBase', labelKey: 'customEffectDrawer.field.clockGearSpeedBase', type: 'sliderFloat', min: 0, max: 2, step: 0.1, decimals: 1, card: 'motion', showIf: (cfg) => cfg.shapeStyle === 'clock' },
+        { id: 'clockGearSpeedEnergyMult', labelKey: 'customEffectDrawer.field.clockGearSpeedEnergyMult', type: 'sliderFloat', min: 0, max: 6, step: 0.1, decimals: 1, card: 'motion', showIf: (cfg) => cfg.shapeStyle === 'clock' },
+        { id: 'clockTickGain', labelKey: 'customEffectDrawer.field.clockTickGain', type: 'sliderFloat', min: 0.5, max: 2.5, step: 0.1, decimals: 1, card: 'reaction', showIf: (cfg) => cfg.shapeStyle === 'clock' },
     ],
     vortex: [
         // ── music ── SỬA (25/09/2026, rà soát) — toggle `rerender`, 2 tham số ẩn khi tắt Redirect.
@@ -335,6 +346,7 @@ const CUSTOM_EFFECT_PER_STYLE_FIELDS = {
     lighting: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_BLUR_FIELDS, ...CUSTOM_EFFECT_FLASH_FIELDS.map((f) => f.id)],
     rain: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_FLASH_FIELDS.map((f) => f.id)],
     vortex: [...CUSTOM_EFFECT_COLOR_FIELDS, 'warpSpeedBase', 'warpSpeedEnergyMult', 'redirectEnabled', 'sectionWindowBeats', 'fluxThreshold'],
+    shape: [...CUSTOM_EFFECT_COLOR_FIELDS], // MỚI 26/09/2026 — rubik/clock mỗi style giữ màu riêng
     connector: [...CUSTOM_EFFECT_COLOR_FIELDS, 'glowEnabled', 'glowIntensity', 'fireThreshold', 'lateralInhibitStrength', 'sectionWindowBeats', 'fluxThreshold'],
 };
 

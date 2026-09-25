@@ -104,6 +104,11 @@
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
                 shapeStyle: 'rubik',
                 cubeSizeRatio: 0.08, pitchSensitivity: 0.9, rotationEnergyThreshold: 0.35, layerTurnSpeed: 0.08,
+                // MỚI (26/09/2026, Giang) — style 'clock' (core/visualizer/groups/shape/clock.js): kích thước (tỉ lệ
+                // cạnh ngắn), tốc độ bánh răng (rad/s: nền + theo năng lượng), độ nhạy vòng vạch phổ, nguồn giờ
+                // của kim ('realtime' | 'track'), kim giây nhảy nấc.
+                clockSizeRatio: 0.8, clockGearSpeedBase: 0.4, clockGearSpeedEnergyMult: 2.5, clockTickGain: 1.2,
+                clockHandsSource: 'realtime', clockSecondTick: true,
             },
             vortex: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
