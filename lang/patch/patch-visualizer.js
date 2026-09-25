@@ -422,5 +422,14 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.dotImpactMode.radius': 'Swell radius',
     'customEffectDrawer.dotImpactMode.height': 'Stretch both sides',
     'customEffectDrawer.field.dotCount': 'Dot count',
+    // (25/09/2026, lượt 2)
+    'customEffectDrawer.field.dotMoving': 'Moving (snake)',
+    'customEffectDrawer.field.dotBend': 'Bend both sides',
+    'customEffectDrawer.dotBend.none': 'Straight  |',
+    'customEffectDrawer.dotBend.gt': 'Chevron  >',
+    'customEffectDrawer.dotBend.lt': 'Chevron  <',
+    'customEffectDrawer.dotBend.slash': 'Slant  /',
+    'customEffectDrawer.dotBend.backslash': 'Slant  \\',
+    'customEffectDrawer.field.dotBendAngle': 'Bend angle (°)',
 
 };
