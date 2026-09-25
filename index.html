@@ -367,7 +367,7 @@
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
     <script src="lang/patch/patch-common.js?v=20260924v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260921v7"></script>
-    <script src="lang/patch/patch-visualizer.js?v=20260925s3"></script>
+    <script src="lang/patch/patch-visualizer.js?v=20260925s4"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260925r2"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260921v9"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
@@ -570,11 +570,11 @@
          restoreDefaultVizConfig/saveConfig/loadConfig) — KHÔNG còn giữ Z_INDEX/global
          error-handler (dời ở trên) hay CONST dùng chéo domain khác (nay sống trong đúng package
          service/state/*.js). PHẢI nạp SAU service/state.js (cần class AppConfig). -->
-    <script src="core/config.js?v=20260925s4"></script>
+    <script src="core/config.js?v=20260925s5"></script>
     <!-- core/custom-effect.js — Core thuần hệ Custom Effect (getEffectConfig/setCustomEffectField),
          NẠP NGAY SAU core/config.js (cần DEFAULT_CUSTOM_EFFECT/appConfigViz) — mọi hàm vẽ/scene-setup
          phía dưới đều cần file này. -->
-    <script src="core/custom-effect.js?v=20260925s3"></script>
+    <script src="core/custom-effect.js?v=20260925s4"></script>
     <!-- MỚI — Core thuần công cụ CHUNG "Element Style Editor" (setElementStyleField/
          buildElementStyleCssString/applyElementStyleToDom/loadGoogleFont), xem core/
          element-style-editor.js. CẦN service/state/element-style-editor.js đã nạp (dòng trên). -->
@@ -934,7 +934,7 @@
     <script src="core/visualizer/groups/bar/common.js?v=20260925s1"></script>
     <script src="core/visualizer/groups/bar/mirror.js?v=20260905v1"></script>
     <script src="core/visualizer/groups/bar/cascade.js?v=20260905v1"></script>
-    <script src="core/visualizer/groups/bar/dot.js?v=20260925s3"></script>
+    <script src="core/visualizer/groups/bar/dot.js?v=20260925s4"></script>
     <script src="core/visualizer/groups/bar/black-hole.js?v=20260905v1"></script>
     <script src="core/visualizer/groups/shape/common.js?v=20260905v1"></script>
     <script src="core/visualizer/groups/shape/rubik.js?v=20260905v1"></script>
@@ -972,7 +972,7 @@
          mode 'raf'). Khởi động thật từ core/audio-engine.js::setupAudioContext() gọi
          workflowVisualizerRender.start() lúc phát bài đầu tiên. Đặt ở đây (không phải /event/ phía
          dưới) vì thuộc nhóm "vòng lặp render 60fps tự taskManager", không qua eventBus/Router. -->
-    <script src="event/workflow/visualizer-render.js?v=20260925s4"></script>
+    <script src="event/workflow/visualizer-render.js?v=20260925s5"></script>
 
 
     <!-- Kiến trúc /event/ — nạp CUỐI CÙNG, sau toàn bộ js/* (router/workflow chỉ gọi lại hàm core
