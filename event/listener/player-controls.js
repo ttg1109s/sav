@@ -73,6 +73,13 @@ if (btnRepeat) {
     });
 }
 
+// MỚI (25/09/2026, Giang yêu cầu) — icon "Phát lại" ở Control Center (thay "Prev quá 3s thì tua về đầu").
+if (btnRestartTrack) {
+    btnRestartTrack.addEventListener('click', () => {
+        eventBus.send({ router: 'playerControls', type: 'playerControls.restart.click', payload: {} });
+    });
+}
+
 // (btnSettings listener ĐÃ BỎ — HOTFIX 11, 08/07/2026: nút "Cài đặt" trong Control Center của
 // Visualizer đã xoá hẳn khỏi DOM, xem components/visualizer-overlay.js. Settings giờ CHỈ mở được
 // từ Playlist qua btnSettingsPlaylist ngay dưới.)
