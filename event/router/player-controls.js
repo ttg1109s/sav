@@ -236,7 +236,7 @@ const routerPlayerControls = (() => {
             }
 
             case 'playerControls.audio.timeupdate': {
-                handleAudioTimeUpdate();
+                workflowPlayerControls.handleAudioTimeUpdateEvent(); // SỬA (25/09/2026) — bỏ qua lúc cổng seek v3 đang nạp lại nguồn, xem docstring
                 break;
             }
 
