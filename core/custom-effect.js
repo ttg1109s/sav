@@ -130,7 +130,12 @@ const CUSTOM_EFFECT_FIELDS = {
         // dotShape/dotImpactMode `rerender` — field khác có showIf phụ thuộc (dotLineVibrate / maxH).
         // (25/09/2026, lượt 2) dotMoving bật -> hình trục + rung đàn hồi không dùng (ẩn).
         { id: 'dotMoving', labelKey: 'customEffectDrawer.field.dotMoving', type: 'toggle', showIf: (cfg) => cfg.barStyle === 'dot', rerender: true },
-        { id: 'dotShape', labelKey: 'customEffectDrawer.field.dotShape', type: 'select', showIf: (cfg) => cfg.barStyle === 'dot' && !cfg.dotMoving, rerender: true, options: [
+        // (25/09/2026, lượt 4) kiểu di chuyển — 'dna' xoắn quanh hình tĩnh nên vẫn hiện Shape.
+        { id: 'dotMoveType', labelKey: 'customEffectDrawer.field.dotMoveType', type: 'select', showIf: (cfg) => cfg.barStyle === 'dot' && cfg.dotMoving, rerender: true, options: [
+            { value: 'snake', labelKey: 'customEffectDrawer.dotMoveType.snake' },
+            { value: 'dna', labelKey: 'customEffectDrawer.dotMoveType.dna' },
+        ] },
+        { id: 'dotShape', labelKey: 'customEffectDrawer.field.dotShape', type: 'select', showIf: (cfg) => cfg.barStyle === 'dot' && (!cfg.dotMoving || cfg.dotMoveType === 'dna'), rerender: true, options: [
             { value: 'line', labelKey: 'customEffectDrawer.timelineShape.line' },
             { value: 'sinDown', labelKey: 'customEffectDrawer.timelineShape.sinDown' },
             { value: 'sinUp', labelKey: 'customEffectDrawer.timelineShape.sinUp' },
