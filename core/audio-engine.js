@@ -164,3 +164,32 @@
             }
             return state;
         }
+
+        // ===================== Cổng seek v2 (MỚI 25/09/2026, Giang chọn "pause chờ hết đuôi cũ") =====================
+        // 2 hàm THUẦN cho event/workflow/player-controls.js::runGatedSeek() — nhận node qua tham số (Rule 2), không
+        // taskManager, không gọi hàm core khác.
+
+        /**
+         * Nối/ngắt NHÁNH RA LOA (`analyser` -> `destination`, cạnh DUY NHẤT tới loa trong graph — xem setupAudioContext()).
+         * Ngắt = loa câm nhưng 2 analyser (đứng TRƯỚC điểm ngắt) VẪN nhận tín hiệu -> Workflow đo được lúc phần tiếng cũ
+         * còn trong hàng đợi MediaElementSource của iOS chảy hết. KHÔNG thêm node nào vào graph. Ngắt khi chưa nối /
+         * nối khi đã nối -> vô hại (Web Audio bỏ qua cạnh trùng, disconnect lỗi thì nuốt).
+         * @param {AnalyserNode} analyser @param {AudioDestinationNode} destination @param {boolean} connected
+         */
+        function setAudioOutputConnected(analyser, destination, connected) {
+            if (!analyser || !destination) return;
+            if (connected) { analyser.connect(destination); return; }
+            try { analyser.disconnect(destination); } catch (e) { /* chưa nối — bỏ qua */ }
+        }
+
+        /**
+         * RMS tín hiệu thời gian hiện tại của 1 AnalyserNode (cửa sổ fftSize mẫu gần nhất).
+         * @param {AnalyserNode} analyserNode @param {Float32Array} scratch - mảng tái dùng, dài >= fftSize
+         * @returns {number}
+         */
+        function readAnalyserRms(analyserNode, scratch) {
+            analyserNode.getFloatTimeDomainData(scratch);
+            let sum = 0;
+            for (let i = 0; i < analyserNode.fftSize; i++) sum += scratch[i] * scratch[i];
+            return Math.sqrt(sum / analyserNode.fftSize);
+        }
