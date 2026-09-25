@@ -16,7 +16,7 @@
 /** Danh sách style con thuộc group "bar" — tên file khớp CHÍNH XÁC tên trong mảng này
  * (`<tên>.js`). 'black hole' giữ nguyên tên có khoảng trắng, khớp `cfg.type === 'black hole'`
  * hiện hành (dispatch chưa đổi trong lượt này — xem ghi chú cuối tin nhắn). */
-const BAR_GROUP_STYLE_KEYS = ['mirror', 'cascade', 'black hole'];
+const BAR_GROUP_STYLE_KEYS = ['mirror', 'cascade', 'black hole', 'dot']; // 'dot' MỚI 25/09/2026 (dot.js)
 
 /** Vẽ 1 lô rect CÙNG màu/glow đã resolve sẵn — dùng chung cho bar mirror (bar 2 bên + bar trung
  * tâm, không đụng `globalAlpha`) và cascade (thân mờ dùng `fillRect` phẳng + đỉnh đặc dùng
