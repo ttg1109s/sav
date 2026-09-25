@@ -630,6 +630,7 @@ const workflowVideoPlayer = {
      * đó (hàm đó đụng `refreshSongNode()`/`syncVideoBgToAudio()` — khái niệm của Song, không áp
      * dụng cho Video — viết bản RIÊNG, gọn hơn). */
     handleVideoPlayState() {
+        if (workflowPlayerControls.isHeldBySeekGate(bgVideoElement)) return; // MỚI 25/09/2026 — play() tạm của cổng seek v2 (event/workflow/player-controls.js)
         iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden');
         const recordArtDynamic = document.getElementById('record-art'); if (recordArtDynamic) recordArtDynamic.classList.remove('paused'); // cùng khuôn handleAudioPlay() core/player-controls.js
         if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
@@ -645,6 +646,7 @@ const workflowVideoPlayer = {
 
     /** Ứng với 'playerControls.video.pause' — ngược lại `handleVideoPlayState()`. */
     handleVideoPauseState() {
+        if (workflowPlayerControls.isHeldBySeekGate(bgVideoElement)) return; // MỚI 25/09/2026 — pause() tạm của cổng seek v2 (chờ đuôi tiếng cũ)
         iconPlay.classList.remove('hidden'); iconPause.classList.add('hidden');
         const recordArtDynamic = document.getElementById('record-art'); if (recordArtDynamic) recordArtDynamic.classList.add('paused'); // cùng khuôn handleAudioPause() core/player-controls.js
         if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
