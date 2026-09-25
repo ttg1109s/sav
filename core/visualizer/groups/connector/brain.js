@@ -92,6 +92,13 @@
  *      định 90%) — đoạn nhạc to nhất so với vài giây gần đây sẽ chạy gần hết trục.
  * (11) Gap giữa brain filter và trục thời gian tăng lên BRAIN_TIMELINE_GAP_FRAC × min(W,H), tính
  *      theo mép NỘI DUNG thật (không phải mép khung) nên giữ đều ở mọi chiều. Xem `_layout()`.
+ *
+ * [CHUYỂN — 25/09/2026, yêu cầu Giang] TOÀN BỘ trục thời gian (dãy dot + cụm sóng theo beat/nốt/năng
+ * lượng dải, hình trục, mũi tên — các mục (4)/(9)/(11)/(13) ở trên) ĐÃ GỠ khỏi file này, chuyển thành
+ * style độc lập 'dot' của group bar (core/visualizer/groups/bar/dot.js + event/workflow/visualizer-
+ * render.js::_tickBarDot()). Brain giờ luôn căn giữa một mình. Field Custom Effect liên quan
+ * (timelineShape/brainShowTimeline/brainTimelineDotCount/brainTimelineMaxTravel) đã xoá. Comment
+ * lịch sử phía trên giữ lại để tra cứu, không còn khớp code.
  */
 const brainFilterOriginal = (function () {
         let canvas = null;
@@ -115,91 +122,6 @@ const brainFilterOriginal = (function () {
         const BRAIN_COLOR_DATA_VALUE = 128;
         function getBrainRoleColor(roleIndex) {
             return getComputedColor(roleIndex, 3, BRAIN_COLOR_DATA_VALUE); // { fill, fillNoAlpha, glow }
-        }
-
-        // KEO (22/09/2026, thiết kế lại theo Giang) — THAY HẲN cơ chế "sóng lan liên tục + 3 dot bump"
-        // ở bản trước (đã gỡ): trục thời gian giờ là 1 DÃY dot đều nhau (TIMELINE_DOT_COUNT) từ start
-        // pos (leftPersonPos.x) đến end pos (rightPersonPos.x) — không còn 3 dot đặc biệt trái/giữa/
-        // phải, mọi dot "phẳng" như nhau. Mỗi beat MỚI sinh 1 CỤM (`timelineClusters`, mảng, nhiều cụm
-        // chồng nhau được): `clusterSize` dot liên tiếp bắt đầu từ dot 0 (start pos) được scale lên,
-        // rồi dịch MƯỢT (nội suy dot theo t liên tục, không nhảy cứng số nguyên) sang dot+1, +2...
-        //
-        // SỬA (22/09/2026, Giang báo liên tiếp "beat chỉ bắn 1 lần rồi dừng" RỒI "sóng không theo
-        // beat dù audio rõ nhiều beat") — đã thử 2 bộ phát hiện TỰ CHẾ (envelope peak-hold-decay, rồi
-        // so beatScale/smoothedEnergy theo tỉ lệ) — cả 2 đều là XẤP XỈ kém tin cậy hơn bộ phát hiện
-        // beat THẬT app đã có sẵn (spectral flux + ngưỡng thích ứng, dùng để tính BPM, core/audio-
-        // analysis.js). Sửa ĐÚNG gốc: bỏ hẳn detector riêng, đọc THẲNG `lastBeatTime` — mốc beat thật
-        // audio-analysis.js đã ghi ra appState (service/state/visualizer-runtime.js) mỗi lần nó tự bắn
-        // — chỉ cần so lệch với giá trị đã thấy lần trước là biết "vừa có 1 beat mới", không tự đoán.
-        let TIMELINE_DOT_COUNT = 40;
-        const TIMELINE_CLUSTER_TRAVEL_MS = 700; // thời gian cụm dịch hết quãng đường của nó
-        const TIMELINE_CLUSTER_MIN_TRAVEL_FRAC = 0.15; // smoothedEnergy thấp -> cụm dịch tối thiểu 15% trục
-        let TIMELINE_CLUSTER_MAX_TRAVEL_FRAC = 0.9;  // năng lượng (đã chuẩn hoá theo đỉnh gần đây) cao nhất -> tối đa 90% trục (Custom Effect)
-        const TIMELINE_ENERGY_PEAK_TAU_MS = 4000;    // đỉnh smoothedEnergy tắt dần ~4s — mốc chuẩn hoá, xem điểm lệch (13) đầu file
-        let _tlEnergyPeak = 0, _tlLastTime = 0;
-        const TIMELINE_DOT_SMOOTH_ALPHA = 0.35; // EMA mỗi frame cho độ phồng từng dot — chặn giật do dữ liệu FFT thô, xem drawTimeline()
-        let _lastSeenBeatTime = 0;
-        let timelineClusters = []; // { startTime, clusterSize, travelDots }
-        let timelineDotSmoothed = new Float32Array(TIMELINE_DOT_COUNT); // độ phồng ĐÃ LÀM MƯỢT từng dot, giữ nguyên qua các frame
-
-        // SỬA (22/09/2026, Giang báo "dot bé quá chẳng thấy gì" rồi "to chả bà") — lần đầu đổi bán
-        // kính sang tỉ lệ CỐ ĐỊNH theo `width` nhưng không đối chiếu với khoảng cách giữa 40 dot ->
-        // dot baseline đã to hơn khoảng cách giữa 2 dot liền kề, chồng lên nhau thành 1 vệt đặc thay
-        // vì dãy chấm rời — đúng nguyên nhân "to chả bà". Sửa ĐÚNG: tính bán kính theo TỈ LỆ của
-        // chính khoảng cách giữa 2 dot (`dotSpacing`, tính ở _buildTimelineGeometry() — theo độ dài THẬT của hình trục) — luôn nhỏ hơn nửa
-        // khoảng cách nên không bao giờ chồng lấn nhau dù đổi TIMELINE_DOT_COUNT hay kích thước màn
-        // hình.
-        const TIMELINE_DOT_BASE_RADIUS_FRAC = 0.22; // × dotSpacing — baseline lúc không có cụm
-        const TIMELINE_DOT_MAX_RADIUS_FRAC = 0.48;   // × dotSpacing — lúc phồng hết cỡ (boost = 1)
-        let timelineDotBaseRadius = 3, timelineDotMaxRadius = 7; // giá trị mặc định trước lần layout đầu — ghi đè ngay ở _buildTimelineGeometry()
-
-        /** Nốt MIDI (0-127, appState.lastValidMidiNote — Workflow tự đọc rồi truyền vào, Rule 2) ->
-         * số dot trong cụm (1-7): chia đều 12 semitone trong 1 quãng 8 thành 7 mức (yêu cầu Giang).
-         * Không có nốt hợp lệ gần đây (null/undefined) -> mặc định 1 dot. */
-        function _pitchToClusterSize(midiNote) {
-            if (midiNote === null || midiNote === undefined) return 1;
-            const level = Math.floor(((midiNote % 12 + 12) % 12) / 12 * 7); // 0-6
-            return Math.min(7, Math.max(1, level + 1));
-        }
-
-        /** Cập nhật mỗi frame: phát hiện beat MỚI bằng `lastBeatTime` đổi khác lần thấy trước (sinh
-         * cụm — quãng đường theo smoothedEnergy HIỆN TẠI lúc sinh, kích cỡ theo nốt nhạc HIỆN TẠI lúc
-         * sinh) + dọn cụm đã dịch hết quãng đường (t >= 1). */
-        function _updateTimelineClusters(time, lastBeatTime, smoothedEnergy, midiNote) {
-            const isOnset = lastBeatTime && lastBeatTime !== _lastSeenBeatTime;
-
-            // SỬA (23/09/2026, điểm lệch 13) — đỉnh gần đây của smoothedEnergy (peak-hold tắt dần theo
-            // dt thật) làm mốc chuẩn hoá: năng lượng tương đối 0-1 so với đoạn nhạc vừa qua.
-            const dt = _tlLastTime ? Math.min(100, Math.max(0, time - _tlLastTime)) : 16;
-            _tlLastTime = time;
-            const e = isFinite(smoothedEnergy) ? smoothedEnergy : 0;
-            _tlEnergyPeak = Math.max(e, _tlEnergyPeak * Math.exp(-dt / TIMELINE_ENERGY_PEAK_TAU_MS));
-
-            if (isOnset) {
-                _lastSeenBeatTime = lastBeatTime;
-                const normEnergy = Math.min(1, e / Math.max(_tlEnergyPeak, 0.05));
-                const maxFrac = Math.max(TIMELINE_CLUSTER_MIN_TRAVEL_FRAC, TIMELINE_CLUSTER_MAX_TRAVEL_FRAC);
-                const travelFrac = TIMELINE_CLUSTER_MIN_TRAVEL_FRAC + normEnergy * (maxFrac - TIMELINE_CLUSTER_MIN_TRAVEL_FRAC);
-                timelineClusters.push({
-                    startTime: time,
-                    clusterSize: _pitchToClusterSize(midiNote),
-                    travelDots: travelFrac * (TIMELINE_DOT_COUNT - 1) // theo số KHOẢNG giữa các dot — 100% = dot đầu cụm tới đúng dot cuối
-                });
-            }
-
-            for (let i = timelineClusters.length - 1; i >= 0; i--) {
-                if ((time - timelineClusters[i].startTime) / TIMELINE_CLUSTER_TRAVEL_MS >= 1) timelineClusters.splice(i, 1);
-            }
-        }
-
-        /** Độ phủ (0-1) của dot `dotIndex` bởi 1 cụm có dot ĐẦU đang ở `startDotIndex` (số thực —
-         * nội suy mượt, không phải số nguyên), rộng `clusterSize` dot — lõi cụm phủ đầy (1), mép mỗi
-         * bên chuyển mượt qua đúng 1 dot (0→1) thay vì bật/tắt cứng, khớp ý "dịch mượt dần". */
-        function _clusterCoverage(dotIndex, startDotIndex, clusterSize) {
-            const rel = dotIndex - startDotIndex;
-            if (rel <= -1 || rel >= clusterSize) return 0;
-            if (rel >= 0 && rel <= clusterSize - 1) return 1;
-            return rel < 0 ? (1 + rel) : (1 - (rel - (clusterSize - 1)));
         }
 
         // KEO (23/09/2026, Giang chốt "spectral flux theo dải" cho node trong ellipse) — node loé theo
@@ -592,74 +514,9 @@ const brainFilterOriginal = (function () {
         // nguồn/đích), ngang ±0.36 T quanh tâm (bụng tia input tối đa ~0.34 T, vòng phụ ellipse ~0.34 T).
         const BRAIN_CONTENT_X0 = 0.07, BRAIN_CONTENT_X1 = 0.93, BRAIN_CONTENT_HALF_T = 0.36;
         const BRAIN_LAYOUT_MARGIN_FRAC = 0.06;   // lề trên/dưới × H — chừa chỗ status bar/bottom player
-        const BRAIN_TIMELINE_GAP_FRAC = 0.1;     // gap nội dung brain <-> trục thời gian × min(W,H) (Giang: "tăng gap")
         const BRAIN_MAX_WIDTH_FRAC = 0.86;       // bề ngang nội dung brain ≤ 86% W (ở mọi chiều)
         const BRAIN_MAX_LENGTH_FRAC = 0.8;       // L ≤ 80% cạnh dài màn hình — chiều dọc không phình quá cỡ
         let brainMatrix = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
-
-        // KEO (23/09/2026, Giang — "shape cho trục thời gian") — hình trục, toạ độ MÀN HÌNH, đặt dưới
-        // nội dung brain + gap. Open (line/sin): dot i ở u = i/(N-1), có mũi tên cuối. Closed (tròn/
-        // vuông/tam giác): dot i ở u = i/N (không trùng điểm đầu-cuối), bắt đầu từ đỉnh, chạy theo
-        // chiều kim đồng hồ, mũi tên tại điểm đầu chỉ chiều chạy.
-        const TIMELINE_SHAPES = ['line', 'sinDown', 'sinUp', 'circle', 'square', 'triangle'];
-        const TIMELINE_SIN_AMP_FRAC = 0.12;        // độ võng của cung sin × min(W,H)
-        const TIMELINE_CLOSED_W_FRAC = 0.42;       // cỡ hình kín ≤ 42% W
-        const TIMELINE_CLOSED_H_FRAC = 0.28;       //            ≤ 28% H
-        const TIMELINE_PATH_SAMPLES = 240;
-        let tlGeom = null;       // { shape, closed, left, right, top, amp, size, cx }
-        let tlDots = [];         // [{x, y}] × TIMELINE_DOT_COUNT
-        let tlPath = [];         // polyline để vẽ đường đứt
-        let tlArrow = { x: 0, y: 0, angle: 0 };
-
-        /** Điểm tại u (0-1) trên trục thời gian theo tlGeom. */
-        function _timelinePointAt(u) {
-            const g = tlGeom;
-            const len = g.right - g.left;
-            // SỬA (23/09/2026, Giang: "võng xuống/võng lên") — nửa chu kỳ sin (1 cung), không phải 1 sóng
-            // trọn chu kỳ: sinDown võng xuống (2 đầu ở mép trên vùng trục), sinUp vồng lên (2 đầu ở mép dưới).
-            if (g.shape === 'sinDown') return { x: g.left + u * len, y: g.top + g.amp * Math.sin(u * Math.PI) };
-            if (g.shape === 'sinUp') return { x: g.left + u * len, y: g.top + g.amp - g.amp * Math.sin(u * Math.PI) };
-            if (g.shape === 'circle') {
-                const r = g.size / 2, a = -Math.PI / 2 + u * Math.PI * 2;
-                return { x: g.cx + Math.cos(a) * r, y: g.top + r + Math.sin(a) * r };
-            }
-            if (g.shape === 'square') {
-                const side = g.size, x0 = g.cx - side / 2, y0 = g.top;
-                const s4 = Math.min(u, 0.99999) * 4, seg = Math.floor(s4), f = s4 - seg;
-                if (seg === 0) return { x: x0 + f * side, y: y0 };
-                if (seg === 1) return { x: x0 + side, y: y0 + f * side };
-                if (seg === 2) return { x: x0 + side - f * side, y: y0 + side };
-                return { x: x0, y: y0 + side - f * side };
-            }
-            if (g.shape === 'triangle') {
-                const h = g.size, side = h * 2 / Math.sqrt(3);
-                const v = [{ x: g.cx, y: g.top }, { x: g.cx + side / 2, y: g.top + h }, { x: g.cx - side / 2, y: g.top + h }];
-                const s3 = Math.min(u, 0.99999) * 3, seg = Math.floor(s3), f = s3 - seg;
-                const A = v[seg], B = v[(seg + 1) % 3];
-                return { x: A.x + (B.x - A.x) * f, y: A.y + (B.y - A.y) * f };
-            }
-            return { x: g.left + u * len, y: g.top }; // line
-        }
-
-        /** Dựng hình trục (polyline + vị trí dot + mũi tên + bán kính dot theo khoảng cách dot). */
-        function _buildTimelineGeometry() {
-            tlPath = [];
-            let pathLen = 0;
-            for (let k = 0; k <= TIMELINE_PATH_SAMPLES; k++) {
-                const pt = _timelinePointAt(k / TIMELINE_PATH_SAMPLES);
-                if (k > 0) pathLen += Math.hypot(pt.x - tlPath[k - 1].x, pt.y - tlPath[k - 1].y);
-                tlPath.push(pt);
-            }
-            const denom = tlGeom.closed ? TIMELINE_DOT_COUNT : TIMELINE_DOT_COUNT - 1;
-            tlDots = [];
-            for (let i = 0; i < TIMELINE_DOT_COUNT; i++) tlDots.push(_timelinePointAt(i / denom));
-            const dotSpacing = pathLen / denom;
-            timelineDotBaseRadius = dotSpacing * TIMELINE_DOT_BASE_RADIUS_FRAC;
-            timelineDotMaxRadius = dotSpacing * TIMELINE_DOT_MAX_RADIUS_FRAC;
-            const endPt = tlGeom.closed ? _timelinePointAt(0) : _timelinePointAt(1);
-            const prevPt = _timelinePointAt(tlGeom.closed ? 0.995 : 0.985);
-            tlArrow = { x: endPt.x, y: endPt.y, angle: Math.atan2(endPt.y - prevPt.y, endPt.x - prevPt.x) };
-        }
 
         let inputPaths = [];
         let outputPaths = [];
@@ -798,114 +655,6 @@ const brainFilterOriginal = (function () {
             let yt = ay * Math.pow(t, 3) + by * Math.pow(t, 2) + cy * t + p.p0.y;
 
             return { x: xt, y: yt };
-        }
-
-        // SỬA (22/09/2026, yêu cầu Giang "loại bỏ mấy text của connector brain") — bỏ hẳn 3 khối
-        // fillText() gốc (nhãn "1000000 INFORMATION SIGNALS" trái, "BRAIN FILTER" giữa, "ONLY A FEW
-        // EVENTS REACH YOUR AWARENESS" phải) — điểm lệch THỨ HAI khỏi "verbatim, không tự đổi" ban
-        // đầu (điểm đầu là màu, xem đầu file). Giữ nguyên trục thời gian dưới (đường đứt + mũi tên).
-        // Đổi tên hàm cho khớp (không còn vẽ label nữa).
-        //
-        // SỬA TIẾP (22/09/2026, thiết kế lại theo Giang — xem khối TIMELINE_* đầu file) — vẽ dãy
-        // `TIMELINE_DOT_COUNT` dot đều nhau dọc trục, cụm dot (nếu có) phồng + sáng theo năng lượng
-        // dải tần riêng từng dot trong cụm (tái dùng computeNeuronBinEnergy(), core/visualizer/
-        // groups/connector/synapse.js).
-        //
-        // SỬA (22/09/2026, Giang báo "dot scale dạng sóng cũng chẳng mượt") — 2 nguồn giật:
-        // (1) `withinCluster` TRƯỚC làm tròn số nguyên -> dot lân cận BẬT/TẮT dải tần đột ngột mỗi khi
-        //     cụm dịch qua ranh giới .5 (dù vị trí cụm tự nó đã nội suy mượt); SỬA: nội suy TUYẾN TÍNH
-        //     giữa 2 dải tần liền kề theo đúng vị trí thực (số thực) thay vì chọn cứng 1 dải.
-        // (2) `computeNeuronBinEnergy()` trả giá trị FFT THÔ của ĐÚNG frame đó, không có làm mượt theo
-        //     thời gian (khác các effect khác vốn dựa vào `analyser.smoothingTimeConstant` sẵn có ở
-        //     tầng Web Audio) -> nhảy giữa các frame liên tiếp. SỬA: thêm `timelineDotSmoothed` (EMA,
-        //     alpha `TIMELINE_DOT_SMOOTH_ALPHA`) cho ĐỘ PHỒNG cuối cùng của từng dot, giữ nguyên qua
-        //     các frame — đúng kỹ thuật smoothing tiêu chuẩn cho audio-reactive visual (tránh giật do
-        //     nhiễu FFT thô, xem energyOnsets/spectral-flux + EMA display value ở các lib phổ biến).
-        function drawTimeline(time, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote) {
-            ctx.save();
-
-            _updateTimelineClusters(time, lastBeatTime, smoothedEnergy, midiNote);
-
-            // Bottom Axis Timeline Line — SỬA (23/09/2026): vẽ theo polyline của hình trục đã chọn
-            // (tlPath, _buildTimelineGeometry()), hình kín thì khép đường.
-            ctx.strokeStyle = '#334155';
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([4, 4]);
-            ctx.beginPath();
-            ctx.moveTo(tlPath[0].x, tlPath[0].y);
-            for (let k = 1; k < tlPath.length; k++) ctx.lineTo(tlPath[k].x, tlPath[k].y);
-            if (tlGeom.closed) ctx.closePath();
-            ctx.stroke();
-            ctx.setLineDash([]); // reset line dash
-
-            // Mỗi cụm đang hoạt động: tính TRƯỚC vị trí + năng lượng dải tần riêng từng dot trong cụm
-            // (1 lần/cụm/frame — tránh gọi computeNeuronBinEnergy() lặp lại cho từng dot ở vòng dưới).
-            const activeClusters = [];
-            for (let c = 0; c < timelineClusters.length; c++) {
-                const cluster = timelineClusters[c];
-                const t = (time - cluster.startTime) / TIMELINE_CLUSTER_TRAVEL_MS;
-                if (t < 0 || t > 1) continue;
-                const binEnergies = [];
-                for (let k = 0; k < cluster.clusterSize; k++) {
-                    binEnergies.push(computeNeuronBinEnergy(vizDataArray, bufferLength, k, cluster.clusterSize) / 255); // core/visualizer/groups/connector/synapse.js
-                }
-                activeClusters.push({ startDotIndex: t * cluster.travelDots, clusterSize: cluster.clusterSize, binEnergies });
-            }
-
-            // Dãy dot dọc trục — dot nằm trong 1 cụm đang hoạt động thì phồng + sáng theo năng lượng
-            // dải tần riêng của chính nó trong cụm đó (nội suy mượt giữa 2 dải liền kề); dot khác giữ
-            // nguyên baseline xám cố định. Độ phồng cuối cùng qua EMA (timelineDotSmoothed) trước khi
-            // vẽ — không vẽ thẳng giá trị thô của frame này.
-            // SỬA (22/09/2026, crash "null is not an object (evaluating 'primary.glow')") — TRƯỚC chỉ
-            // lấy màu khi `activeClusters.length > 0`, nhưng `boost` là giá trị ĐÃ LÀM MƯỢT (EMA,
-            // timelineDotSmoothed) nên vẫn > 0 vài frame SAU KHI cụm đã bị dọn khỏi mảng (đang decay
-            // dần về 0) — `primary` lúc đó là null nhưng vòng dưới vẫn cố đọc `primary.glow`. Sửa:
-            // luôn lấy màu (getBrainRoleColor() rẻ, không cần tối ưu bỏ qua).
-            const primary = getBrainRoleColor(0);
-            for (let i = 0; i < TIMELINE_DOT_COUNT; i++) {
-                const dotPt = tlDots[i]; // vị trí dot trên hình trục (23/09/2026)
-                let targetBoost = 0; // MAX qua mọi cụm — không cộng dồn, tránh phồng quá đà khi nhiều cụm chồng nhau
-                for (let c = 0; c < activeClusters.length; c++) {
-                    const ac = activeClusters[c];
-                    const coverage = _clusterCoverage(i, ac.startDotIndex, ac.clusterSize);
-                    if (coverage <= 0) continue;
-                    const rel = i - ac.startDotIndex; // vị trí dot trong cụm — số thực, không làm tròn
-                    const idxLow = Math.min(ac.clusterSize - 1, Math.max(0, Math.floor(rel)));
-                    const idxHigh = Math.min(ac.clusterSize - 1, idxLow + 1);
-                    const frac = rel - Math.floor(rel);
-                    const energyHere = ac.binEnergies[idxLow] + (ac.binEnergies[idxHigh] - ac.binEnergies[idxLow]) * frac; // nội suy tuyến tính giữa 2 dải tần liền kề
-                    targetBoost = Math.max(targetBoost, coverage * energyHere);
-                }
-                timelineDotSmoothed[i] += (targetBoost - timelineDotSmoothed[i]) * TIMELINE_DOT_SMOOTH_ALPHA; // EMA — chặn giật frame-to-frame
-                const boost = timelineDotSmoothed[i];
-
-                ctx.beginPath();
-                ctx.arc(dotPt.x, dotPt.y, timelineDotBaseRadius + boost * (timelineDotMaxRadius - timelineDotBaseRadius), 0, Math.PI * 2);
-                if (boost > 0.02) {
-                    ctx.fillStyle = primary.glow;
-                    ctx.shadowColor = primary.glow;
-                    ctx.shadowBlur = (6 * boost) * glowMult;
-                } else {
-                    ctx.fillStyle = '#94a3b8';
-                    ctx.shadowBlur = 0;
-                }
-                ctx.fill();
-            }
-            ctx.shadowBlur = 0;
-
-            // Right Arrow head on Timeline — SỬA (23/09/2026): đặt ở điểm cuối (hình kín: điểm đầu),
-            // xoay theo tiếp tuyến của hình trục (tlArrow).
-            ctx.translate(tlArrow.x, tlArrow.y);
-            ctx.rotate(tlArrow.angle);
-            ctx.beginPath();
-            ctx.moveTo(-6, -4);
-            ctx.lineTo(0, 0);
-            ctx.lineTo(-6, 4);
-            ctx.strokeStyle = '#94a3b8';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            ctx.restore();
         }
 
         function drawBrainFilter(time) {
@@ -1107,27 +856,15 @@ const brainFilterOriginal = (function () {
         // ===== Phần KEO (không có trong gốc) =====
 
         /** Layout (23/09/2026 — thay _layoutFromCanvas() cũ): tính L theo chiều + chỗ trống thật, đặt
-         * nội dung brain + gap + trục thời gian thành 1 khối căn giữa dọc màn hình, dựng ma trận
-         * khung cục bộ -> màn hình. Phần tính vị trí trong khung cục bộ (leftPersonPos/filterPos...)
-         * GIỮ NGUYÊN công thức resizeCanvas() gốc. */
-        function _layout(direction, shape) {
-            const W = canvas.width, H = canvas.height, minWH = Math.min(W, H);
+         * nội dung brain căn giữa dọc màn hình, dựng ma trận khung cục bộ -> màn hình. Phần tính vị trí
+         * trong khung cục bộ (leftPersonPos/filterPos...) GIỮ NGUYÊN công thức resizeCanvas() gốc.
+         * SỬA (25/09/2026) — trục thời gian đã chuyển sang style bar 'dot' -> bỏ tham số shape + vùng
+         * trục/gap, brain luôn căn giữa một mình. */
+        function _layout(direction) {
+            const W = canvas.width, H = canvas.height;
             const dir = BRAIN_DIRECTION_MATRIX[direction] ? direction : 'ltr';
-            const shp = TIMELINE_SHAPES.includes(shape) ? shape : 'line';
             const isVertical = dir === 'ttb' || dir === 'btt';
-            const closed = shp === 'circle' || shp === 'square' || shp === 'triangle';
-
-            // Vùng trục thời gian (màn hình)
-            let tlH = 0, amp = 0, size = 0;
-            if (shp === 'sinDown' || shp === 'sinUp') { amp = minWH * TIMELINE_SIN_AMP_FRAC; tlH = amp; }
-            else if (closed) {
-                size = Math.min(W * TIMELINE_CLOSED_W_FRAC, H * TIMELINE_CLOSED_H_FRAC);
-                if (shp === 'triangle') size = Math.min(size, W * TIMELINE_CLOSED_W_FRAC * Math.sqrt(3) / 2); // cạnh đáy ≤ giới hạn bề ngang
-                tlH = size;
-            }
-            if (!SHOW_TIMELINE) tlH = 0; // (23/09/2026) trục tắt -> brain căn giữa một mình, không chừa gap
-            const gap = SHOW_TIMELINE ? minWH * BRAIN_TIMELINE_GAP_FRAC : 0;
-            const availH = Math.max(1, H - 2 * H * BRAIN_LAYOUT_MARGIN_FRAC - gap - tlH);
+            const availH = Math.max(1, H - 2 * H * BRAIN_LAYOUT_MARGIN_FRAC);
 
             // Kích thước nội dung brain trên màn hình tính theo L
             const alongK = BRAIN_CONTENT_X1 - BRAIN_CONTENT_X0;
@@ -1135,7 +872,7 @@ const brainFilterOriginal = (function () {
             const kW = isVertical ? crossK : alongK, kH = isVertical ? alongK : crossK;
             const L = Math.max(1, Math.min(W * BRAIN_MAX_WIDTH_FRAC / kW, availH / kH, Math.max(W, H) * BRAIN_MAX_LENGTH_FRAC));
             const contentW = kW * L, contentH = kH * L;
-            const top = (H - (contentH + gap + tlH)) / 2;
+            const top = (H - contentH) / 2;
 
             // Khung cục bộ
             width = L;
@@ -1163,10 +900,6 @@ const brainFilterOriginal = (function () {
                 ry: stageH * 0.32
             };
             initNodesAndPaths();
-
-            // Trục thời gian (màn hình)
-            tlGeom = { shape: shp, closed, left: W * 0.07, right: W * 0.93, top: top + contentH + gap, amp, size, cx: W / 2 };
-            _buildTimelineGeometry();
         }
 
         // Thay animate(time) gốc: bỏ clearRect (SAV đã clear) và requestAnimationFrame (SAV tự gọi mỗi frame).
@@ -1174,11 +907,11 @@ const brainFilterOriginal = (function () {
         // dài). Workflow (_tickConnectorBrain(), event/workflow/visualizer-render.js) tự đọc appState/
         // config rồi dựng object này (Rule 2 — core không appState.get()). Các field:
         //   time, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote, noteFresh,
-        //   beatScale, isPlaying, bpm (số, NaN nếu chưa có), sampleRate, direction, timelineShape
+        //   beatScale, isPlaying, bpm (số, NaN nếu chưa có), sampleRate, direction
         // KEO (23/09/2026, điểm lệch 12) — Custom Effect -> tham số. Mặc định trùng core/config.js
         // (DEFAULT_CUSTOM_EFFECT.connector), fallback lại chính giá trị hiện tại nếu field thiếu.
         let glowMult = 1;
-        let SHOW_TIMELINE = true, SHOW_ORBIT = true, SHOW_NODES = true, SHOW_STRINGS = true;
+        let SHOW_ORBIT = true, SHOW_NODES = true, SHOW_STRINGS = true;
         const _num = (v, fallback) => (typeof v === 'number' && isFinite(v) ? v : fallback);
         function _applySettings(st) {
             if (!st) return;
@@ -1199,19 +932,11 @@ const brainFilterOriginal = (function () {
             ORBIT_DOT_COUNT = Math.round(_num(st.brainOrbitDotCount, 8));
             ORBIT_BEATS_PER_LAP = _num(st.brainOrbitBeatsPerLap, 8);
             ORBIT_TRAIL_COUNT = Math.round(_num(st.brainOrbitTrail, 6));
-            TIMELINE_CLUSTER_MAX_TRAVEL_FRAC = _num(st.brainTimelineMaxTravel, 90) / 100;
             SHOW_ORBIT = st.brainShowOrbit !== false;
             SHOW_NODES = st.brainShowNodes !== false;
             SHOW_STRINGS = st.brainShowStrings !== false;
-            // 3 field dưới đổi HÌNH (số tia/số dot/bố cục) -> draw() so khoá layout, khác thì dựng lại
+            // field dưới đổi HÌNH (số tia) -> draw() so khoá layout, khác thì dựng lại
             config.signalCount = Math.round(_num(st.brainSignalCount, 120));
-            const dotCount = Math.round(_num(st.brainTimelineDotCount, 40));
-            if (dotCount !== TIMELINE_DOT_COUNT) {
-                TIMELINE_DOT_COUNT = dotCount;
-                timelineDotSmoothed = new Float32Array(TIMELINE_DOT_COUNT);
-                timelineClusters = [];
-            }
-            SHOW_TIMELINE = st.brainShowTimeline !== false;
         }
         let _lastLayoutKey = '';
 
@@ -1220,23 +945,19 @@ const brainFilterOriginal = (function () {
         // dài). Workflow (_tickConnectorBrain(), event/workflow/visualizer-render.js) tự đọc appState/
         // config rồi dựng object này (Rule 2 — core không appState.get()). Các field:
         //   time, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote, noteFresh,
-        //   beatScale, isPlaying, bpm (số, NaN nếu chưa có), sampleRate, direction, timelineShape,
+        //   beatScale, isPlaying, bpm (số, NaN nếu chưa có), sampleRate, direction,
         //   settings (object Custom Effect connector — xem _applySettings())
         function draw(ctxArg, canvasEl, frame) {
             ctx = ctxArg;
             canvas = canvasEl;
             _applySettings(frame.settings);
             const direction = frame.direction || 'ltr';
-            const shape = frame.timelineShape || 'line';
-            const layoutKey = [canvas.width, canvas.height, direction, shape, config.signalCount, TIMELINE_DOT_COUNT, SHOW_TIMELINE].join('|');
+            const layoutKey = [canvas.width, canvas.height, direction, config.signalCount].join('|');
             if (layoutKey !== _lastLayoutKey) {
                 _lastLayoutKey = layoutKey;
-                _layout(direction, shape);
+                _layout(direction);
             }
             const time = frame.time;
-
-            // Trục thời gian — toạ độ màn hình, KHÔNG qua ma trận chiều
-            if (SHOW_TIMELINE) drawTimeline(time, frame.lastBeatTime, frame.smoothedEnergy, frame.vizDataArray, frame.bufferLength, frame.midiNote);
 
             // Cập nhật trạng thái audio (không vẽ)
             _updateInputPump(time, frame.beatScale, frame.isPlaying);
