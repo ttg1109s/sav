@@ -135,6 +135,7 @@ let _cnBeatsSinceLastShift = 999; // lớn sẵn, cho phép cinematic shift ngay
 // MỚI (25/09/2026) — style bar 'dot' (trục thời gian chuyển từ connector brain, core/visualizer/groups/
 // bar/dot.js). Trạng thái giữ ở Workflow (core thuần), xem _tickBarDot().
 let _dotGeom = null, _dotGeomKey = '';
+let _dotSnake = null, _dotSnakeKey = ''; // (25/09/2026, lượt 2) toggle dotMoving — rắn bò (lượt 3: bỏ mồi, lang thang)
 let _dotClusters = [];
 let _dotSmoothed = new Float32Array(0);
 let _dotEnergyPeak = 0, _dotLastTime = 0, _dotLastSeenBeatTime = 0;
@@ -837,7 +838,8 @@ const workflowVisualizerRender = {
      * effect độc lập (core/visualizer/groups/bar/dot.js). Workflow giữ trạng thái (`_dot*`), tự đọc
      * appState (beat/nốt/audioContext), tự gọi RIÊNG LẺ từng hàm core: dựng hình (cache theo kích thước/
      * hình/số dot) -> đỉnh năng lượng -> cụm theo beat -> năng lượng dải từng cụm -> độ phồng + EMA ->
-     * rung đàn hồi (chỉ hình line + toggle) -> vẽ trục/dot/mũi tên. */
+     * rung đàn hồi (chỉ hình line + toggle) -> vẽ dot. SỬA (25/09/2026, lượt 2): bỏ đường nối + mũi tên,
+     * đồng màu, thêm rắn bò (dotMoving) + bẻ góc nhánh (dotBend/dotBendAngle). */
     _tickBarDot(ctx, perf, isPlaying, cfg, dpr, smoothedEnergy, vizDataArray, analyser) {
         const bufferLength = analyser.frequencyBinCount;
         const { lastBeatTime, lastValidMidiNote, lastValidNoteTime, audioContext } = appState.get(['lastBeatTime', 'lastValidMidiNote', 'lastValidNoteTime', 'audioContext']);
@@ -846,13 +848,30 @@ const workflowVisualizerRender = {
         _dotLastTime = time;
 
         const dotCount = Math.max(2, Math.round(cfg.dotCount || 40));
-        const geomKey = [canvas.width, canvas.height, cfg.dotShape, dotCount].join('|');
-        if (geomKey !== _dotGeomKey) {
-            _dotGeomKey = geomKey;
-            _dotGeom = buildDotAxisGeometry(cfg.dotShape, canvas.width, canvas.height, dotCount); // core
-            if (_dotSmoothed.length !== dotCount) { _dotSmoothed = new Float32Array(dotCount); _dotClusters = []; }
+        if (_dotSmoothed.length !== dotCount) { _dotSmoothed = new Float32Array(dotCount); _dotClusters = []; }
+
+        // Vị trí dot: rắn bò (dotMoving) HOẶC hình trục tĩnh (cache theo kích thước/hình/số dot).
+        // SỬA (25/09/2026, lượt 2) — rắn chỉ bò khi đang phát nhạc; dừng nhạc thì nằm yên tại chỗ.
+        const moving = cfg.dotMoving === true;
+        let dots, baseRadius, maxRadius, shape;
+        if (moving) {
+            const snakeKey = [canvas.width, canvas.height].join('|');
+            if (!_dotSnake || snakeKey !== _dotSnakeKey) { _dotSnakeKey = snakeKey; _dotSnake = initDotSnake(canvas.width, canvas.height, dotCount); } // core
+            // Số dot đổi -> khoảng cách/bán kính theo số dot mới (vết giữ nguyên, thân tự dài/ngắn theo)
+            const expectSpacing = canvas.width * (1 - 2 * DOT_AXIS_MARGIN_X_FRAC) / (dotCount - 1);
+            if (Math.abs(expectSpacing - _dotSnake.spacing) > 1e-6) {
+                _dotSnake = { ..._dotSnake, spacing: expectSpacing, baseRadius: expectSpacing * DOT_BASE_RADIUS_FRAC, maxRadius: expectSpacing * DOT_MAX_RADIUS_FRAC };
+            }
+            if (isPlaying) _dotSnake = stepDotSnake(_dotSnake, dt / 1000, smoothedEnergy, dotCount); // core
+            dots = sampleDotSnakeBody(_dotSnake, dotCount); // core
+            baseRadius = _dotSnake.baseRadius;
+            maxRadius = _dotSnake.maxRadius;
+            shape = 'snake';
+        } else {
+            const geomKey = [canvas.width, canvas.height, cfg.dotShape, dotCount].join('|');
+            if (geomKey !== _dotGeomKey) { _dotGeomKey = geomKey; _dotGeom = buildDotAxisGeometry(cfg.dotShape, canvas.width, canvas.height, dotCount); } // core
+            dots = _dotGeom.dots; baseRadius = _dotGeom.baseRadius; maxRadius = _dotGeom.maxRadius; shape = _dotGeom.shape;
         }
-        const geom = _dotGeom;
 
         // Cụm sóng — beat THẬT mới (lastBeatTime đổi) sinh 1 cụm, quãng đường theo năng lượng chuẩn hoá.
         _dotEnergyPeak = computeDotEnergyPeak(_dotEnergyPeak, smoothedEnergy, dt); // core
@@ -871,8 +890,8 @@ const workflowVisualizerRender = {
         const targets = computeDotTargetBoosts(_dotClusters, clusterEnergies, time, dotCount); // core
         smoothDotBoosts(_dotSmoothed, targets); // core
 
-        // Rung đàn hồi — chỉ hình line + toggle bật; tắt thì biên độ về 0 ngay (không rung dở dang khi bật lại).
-        const vibrate = geom.shape === 'line' && cfg.dotLineVibrate !== false;
+        // Rung đàn hồi — chỉ hình line tĩnh + toggle bật; tắt thì biên độ về 0 ngay.
+        const vibrate = !moving && shape === 'line' && cfg.dotLineVibrate !== false;
         let vibAmpPx = 0;
         if (vibrate) {
             const noteFresh = isPlaying && lastValidMidiNote !== null && lastValidMidiNote !== undefined && (Date.now() - (lastValidNoteTime || 0)) < DOT_NOTE_FRESH_MS;
@@ -884,30 +903,27 @@ const workflowVisualizerRender = {
             _dotVibAmps.fill(0);
         }
 
-        // Vẽ trục (line đang rung: lệch theo pháp tuyến — line nằm ngang nên pháp tuyến = trục y)
-        const pathPts = vibrate
-            ? geom.path.map((p) => ({ x: p.x, y: p.y + computeDotLineDisplacement(p.u, _dotVibAmps, time, vibAmpPx) })) // core
-            : geom.path;
-        paintDotAxisPath(ctx, pathPts, geom.closed, dpr); // core
-
+        // SỬA (25/09/2026, lượt 2) — ĐỒNG MÀU: 1 màu duy nhất cho mọi dot trong frame (không theo index,
+        // dot nghỉ không còn xám). Dot tác động chỉ khác kích thước + glow. Bỏ vẽ đường nối + mũi tên.
+        const color = getComputedColor(0, 1, 128); // core/audio-analysis.js
         const mode = cfg.dotImpactMode === 'height' ? 'height' : 'radius';
         const maxHalf = (cfg.maxH || 400) * dpr * 0.5; // cùng quy ước bar mirror (maxH × dpr × 0.5 mỗi bên)
+        const bend = mode === 'height' ? (cfg.dotBend || 'none') : 'none';
+        const bendDeg = isFinite(cfg.dotBendAngle) ? cfg.dotBendAngle : 35;
         for (let i = 0; i < dotCount; i++) {
-            const d = geom.dots[i];
+            const d = dots[i];
             const boost = _dotSmoothed[i];
             const y = vibrate ? d.y + computeDotLineDisplacement(d.u, _dotVibAmps, time, vibAmpPx) : d.y; // core
             if (boost > DOT_IMPACT_MIN) {
-                const color = getComputedColor(i, dotCount, boost * 255); // core/audio-analysis.js
-                const r = mode === 'radius' ? geom.baseRadius + boost * (geom.maxRadius - geom.baseRadius) : geom.baseRadius;
+                const r = mode === 'radius' ? baseRadius + boost * (maxRadius - baseRadius) : baseRadius;
                 const halfLen = mode === 'height' ? boost * maxHalf : 0;
-                paintDotAxisDot(ctx, d.x, y, d.nx, d.ny, mode, r, halfLen, color.fill, color.glow, DOT_GLOW_BLUR_PX * boost * dpr * perf.blurMult); // core
+                paintDotAxisDot(ctx, d, d.x, y, mode, r, halfLen, bend, bendDeg, color.fill, color.glow, DOT_GLOW_BLUR_PX * boost * dpr * perf.blurMult); // core
             } else {
-                paintDotAxisDot(ctx, d.x, y, d.nx, d.ny, 'radius', geom.baseRadius, 0, DOT_REST_COLOR, DOT_REST_COLOR, 0); // core
+                paintDotAxisDot(ctx, d, d.x, y, 'radius', baseRadius, 0, 'none', 0, color.fill, color.glow, 0); // core
             }
         }
         ctx.shadowBlur = 0;
-        ctx.lineCap = 'butt'; // paintDotAxisDot() mode 'height' đặt 'round' — trả về mặc định canvas
-        paintDotAxisArrow(ctx, geom.arrow, dpr); // core
+        ctx.lineCap = 'butt'; ctx.lineJoin = 'miter'; // paintDotAxisDot() mode 'height' đặt round — trả về mặc định canvas
     },
 
     /** [MỚI — rà soát Rule 3] VISUAL Rain — Workflow tự đọc `cfg.rainStyle` rồi gọi ĐÚNG 1 trong
