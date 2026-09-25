@@ -538,7 +538,7 @@
     <script src="service/state/video-player-mode.js?v=20260818v1"></script>
     <script src="service/state/photo-player-mode.js?v=20260925p3"></script>
     <script src="service/state/wakelock-tab.js?v=20260925bg1"></script>
-    <script src="service/state/auto-switch.js?v=20260725v1"></script>
+    <script src="service/state/auto-switch.js?v=20260925bg2"></script>
     <script src="service/state/listen-stats.js?v=20260725v1"></script>
     <script src="service/state/app-misc.js?v=20260725v1"></script>
     <script src="service/state/file-manager.js?v=20260731v1"></script>
@@ -846,7 +846,7 @@
          EQ/volume" — giờ ở visualizers/visualizer-display.js (khu VISUALIZERS dưới), vì đúng
          ranh giới nghiệp vụ là cấu hình Visualizer, không phải điều khiển phát nhạc. Xem comment
          đầu core/player-controls.js để biết đầy đủ lý do tách + đảm bảo thứ tự nạp an toàn. -->
-    <script src="core/player-controls.js?v=20260924r2"></script>
+    <script src="core/player-controls.js?v=20260925bg2"></script>
     <!-- MỚI (21/07/2026, mục 4 — Video Player mode) — core/video-player.js: tính next/prev key,
          mutate state, toggle UI nút. Đặt CẠNH core/player-controls.js cho dễ đọc (2 tính năng liên
          quan chặt, dù KHÔNG đụng chung file nào). NẠP SAU service/state.js (đã nạp từ đầu). -->
@@ -913,7 +913,7 @@
          ngay sau player-controls.js ở khu CORE — giờ PHẢI nạp SAU visualizer-display.js vì file
          đó định nghĩa updateTypeUI/saveConfig mà auto-switch-visual.js cần, xem comment đầu file
          auto-switch-visual.js) và sau task-manager.js (cần taskManager, đã nạp từ khu CORE). -->
-    <script src="core/auto-switch-visual.js?v=20260706v1"></script>
+    <script src="core/auto-switch-visual.js?v=20260925bg2"></script>
     <!-- MỚI (19/07/2026, yêu cầu Giang) — core/visualizer/draw-helpers.js (file gộp) TÁCH thành 4
          file riêng, mỗi hàm 1 file, trong core/visualizer/draw/ — thứ tự nạp giữa các file này
          KHÔNG quan trọng (không phụ thuộc lẫn nhau, giống các file trong groups/*/*.js). XOÁ TAY file cũ
@@ -1048,7 +1048,7 @@
     <!-- Panel "Song & Video" cũ (file-manager-song.js) đã xoá, thay bằng "Quản lý lưu trữ" (gộp 3
          domain: song/video/photo) — CẦN core/file-manager/{image,album}.js,
          components/file-manager-storage.js (đã nạp ở nhóm CORE/COMPONENTS). -->
-    <script src="event/workflow/file-manager-storage.js?v=20260924r3"></script>
+    <script src="event/workflow/file-manager-storage.js?v=20260925bg2"></script>
     <script src="event/router/file-manager-storage.js?v=20260920v1"></script>
     <!-- Folder Browser — Generic Drawer List↔Read thay Folder List/Detail kiểu panel-stack cũ. CẦN
          core/generic-drawer.js, components/items.js, core/file-manager/{folder,folder-detail-ui,
@@ -1179,7 +1179,7 @@
          core/listen-stats.js (bumpSongPlayCount), event/workflow/video-player.js (workflowVideoPlayer
          — chỉ dùng trong callback runtime, không bắt buộc thứ tự nạp so với dòng NGAY DƯỚI). -->
     <script src="event/workflow/player.js?v=20260925p3"></script>
-    <script src="event/workflow/playlist.js?v=20260924r2"></script>
+    <script src="event/workflow/playlist.js?v=20260925bg2"></script>
     <script src="event/router/playlist.js?v=20260924r2"></script>
     <script src="event/listener/playlist.js?v=20260919v1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel + phân phối lại section Settings, phản hồi
@@ -1266,8 +1266,8 @@
     <script src="event/workflow/statis-panel.js?v=20260924v1"></script>
     <script src="event/router/statis-panel.js?v=20260924v1"></script>
     <script src="event/listener/statis-panel.js?v=20260924v1"></script>
-    <script src="event/workflow/player-controls.js?v=20260925p3"></script>
-    <script src="event/router/player-controls.js?v=20260924r2"></script>
+    <script src="event/workflow/player-controls.js?v=20260925bg2"></script>
+    <script src="event/router/player-controls.js?v=20260925bg2"></script>
     <script src="event/listener/player-controls.js?v=20260708v1"></script>
     <!-- Cụm "visualizerDisplay": ảnh nền, độ mờ nền, cycle effect, panel "Display". Cấu hình riêng
          effect ĐÃ DỜI sang cụm "customEffect" (Custom Effect Drawer, xem file ngay dưới) — router
@@ -1295,7 +1295,7 @@
          chơi Game. CẦN core/audio-engine.js (applyPlaybackAudioSession/resumeAudioContextIfInterrupted),
          event/workflow/visualizer-render.js, event/workflow/visual-bg-common.js, event/workflow/photo-player.js (đều đã
          nạp ở trên). NẠP TRƯỚC event/workflow/app-boot.js (boot gọi registerAudioSessionOnBoot()). -->
-    <script src="event/workflow/app-visibility.js?v=20260925bg1"></script>
+    <script src="event/workflow/app-visibility.js?v=20260925bg2"></script>
     <script src="event/router/app-visibility.js?v=20260925bg1"></script>
     <script src="event/listener/app-visibility.js?v=20260925bg1"></script>
     <!-- Cụm "statsPanel" ĐÃ XOÁ (checkbox toggle stats panel dời vào Settings, dùng chung
@@ -1319,7 +1319,7 @@
     <script src="event/workflow/subtitle-modal.js?v=20260810v1"></script>
     <!-- Cụm "autoSwitchVisual" — Batch D3 (06/07/2026): core đã refactor Rule 1-4 đầy đủ, GIỜ CẦN
          workflow (event/workflow/auto-switch-visual.js) — không còn gọi thẳng core như trước. -->
-    <script src="event/workflow/auto-switch-visual.js?v=20260706v1"></script>
+    <script src="event/workflow/auto-switch-visual.js?v=20260925bg2"></script>
     <script src="event/router/auto-switch-visual.js?v=20260706v1"></script>
     <script src="event/listener/auto-switch-visual.js?v=20260706v1"></script>
     <!-- Cụm "visualizerControlCenter" (ver 11, patch 11). -->
