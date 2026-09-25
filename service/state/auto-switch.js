@@ -20,5 +20,5 @@
         // core/config.js::DEFAULT_VIZ_CONFIG cho ý nghĩa chi tiết 3 mode fixed/random/duration.
         const AUTO_SWITCH_VISUAL_MIN_SECONDS = 10;
         // AUTO_SWITCH_VISUAL_TASK_TIMER/AUTO_SWITCH_VISUAL_TASK_MARKS — KHÔNG khai lại ở đây. Bản
-        // THẬT đã tồn tại sẵn trong core/auto-switch-visual.js — ĐÃ XOÁ bản trùng gây SyntaxError
-        // lúc parse (xem giải thích đầy đủ ở service/state/player.js, cùng lỗi).
+        // THẬT (SỬA 25/09/2026: dời từ core) nằm ở event/workflow/auto-switch-visual.js — nơi DUY NHẤT dùng
+        // taskManager cho tính năng này. KHÔNG khai trùng (SyntaxError lúc parse, xem service/state/player.js).
