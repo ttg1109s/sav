@@ -44,6 +44,9 @@
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
                 barStyle: 'mirror', minH: 4, maxH: 400, mirrorBarCount: 32,
                 barFillRatio: 0.6, barCornerRadius: 3,
+                // MỚI (25/09/2026, Giang — cải tiến mirror, core/visualizer/groups/bar/mirror.js): thân bướm = bội
+                // số gap thường (1-6), nâng treble trên 1kHz (dB/quãng tám), vạch đỉnh, làm mượt kề (0 = tắt).
+                mirrorCenterGap: 2, mirrorTilt: 3, mirrorPeaks: true, mirrorSmoothSpread: 0,
                 cascadeBaseAlpha: 0.2, cascadeKeyCount: 64,
                 // Style "black hole" (CHUYỂN NHÓM 05/09/2026 — trước đây bucket 'black hole' riêng)
                 // — dùng CHUNG minH/maxH ở trên (cùng field, cùng ý nghĩa "chiều cao cột tần số").

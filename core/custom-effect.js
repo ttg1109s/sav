@@ -119,6 +119,7 @@ const CUSTOM_EFFECT_STYLE_LABEL_KEYS = {
 const CUSTOM_EFFECT_FIELDS = {
     bar: [
         // ── element ──
+        { id: 'mirrorPeaks', labelKey: 'customEffectDrawer.field.mirrorPeaks', type: 'toggle', card: 'element', showIf: (cfg) => cfg.barStyle === 'mirror' }, // MỚI 25/09/2026
         { id: 'cascadeBaseAlpha', labelKey: 'customEffectDrawer.field.cascadeBaseAlpha', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, card: 'element', showIf: (cfg) => cfg.barStyle === 'cascade' },
         // dotImpactMode (card 'reaction', chỉ style 'dot') — select nên luôn đứng trước maxH (slider) trong card,
         // theo CUSTOM_EFFECT_FIELD_TYPE_ORDER.
@@ -133,6 +134,7 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'mirrorBarCount', labelKey: 'visualizerSettingsDrawer.mirrorCount.label', type: 'slider', min: 10, max: 32, step: 1, card: 'layout', showIf: (cfg) => cfg.barStyle === 'mirror' },
         { id: 'barFillRatio', labelKey: 'customEffectDrawer.field.barFillRatio', type: 'sliderFloat', min: 0.3, max: 0.9, step: 0.05, decimals: 2, card: 'layout', showIf: (cfg) => cfg.barStyle === 'mirror' },
         { id: 'barCornerRadius', labelKey: 'customEffectDrawer.field.barCornerRadius', type: 'slider', min: 0, max: 15, step: 1, card: 'layout', showIf: (cfg) => cfg.barStyle === 'mirror' },
+        { id: 'mirrorCenterGap', labelKey: 'customEffectDrawer.field.mirrorCenterGap', type: 'sliderFloat', min: 1, max: 6, step: 0.5, decimals: 1, card: 'layout', showIf: (cfg) => cfg.barStyle === 'mirror' }, // MỚI 25/09/2026 — thân bướm
         { id: 'cascadeKeyCount', labelKey: 'customEffectDrawer.field.cascadeKeyCount', type: 'slider', min: 16, max: 128, step: 4, card: 'layout', showIf: (cfg) => cfg.barStyle === 'cascade' },
         // Style "black hole" (CHUYỂN NHÓM 05/09/2026 — trước đây bucket 'black hole' riêng, dùng CHUNG
         // field 'maxH' ở trên, không khai riêng). radiusRatio + radiusEnergyMult là 1 cặp kích thước.
@@ -164,6 +166,9 @@ const CUSTOM_EFFECT_FIELDS = {
             { value: 'dna', labelKey: 'customEffectDrawer.dotMoveType.dna' },
         ] },
         // ── reaction ──
+        // MỚI (25/09/2026) — mirror: nâng treble trên 1kHz + làm mượt kề (Monstercat), core/visualizer/groups/bar/mirror.js
+        { id: 'mirrorTilt', labelKey: 'customEffectDrawer.field.mirrorTilt', type: 'sliderFloat', min: 0, max: 6, step: 0.5, decimals: 1, card: 'reaction', showIf: (cfg) => cfg.barStyle === 'mirror' },
+        { id: 'mirrorSmoothSpread', labelKey: 'customEffectDrawer.field.mirrorSmoothSpread', type: 'sliderFloat', min: 0, max: 0.9, step: 0.05, decimals: 2, card: 'reaction', showIf: (cfg) => cfg.barStyle === 'mirror' },
         { id: 'flareThreshold', labelKey: 'customEffectDrawer.field.flareThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, card: 'reaction', showIf: (cfg) => cfg.barStyle === 'black hole' },
         { id: 'flashFadeSpeed', labelKey: 'customEffectDrawer.field.flashFadeSpeed', type: 'sliderFloat', min: 0.02, max: 0.2, step: 0.01, decimals: 2, card: 'reaction', showIf: (cfg) => cfg.barStyle === 'black hole' },
         // MỚI (25/09/2026, Giang) — độ phình (%) của dot tác động, chỉ kiểu 'radius' (kiểu 'height' đã có maxH).
