@@ -345,7 +345,7 @@ const workflowPhotoPlayer = {
         appState.set('photoPlayerStartedAtMs', performance.now(), { skipCheck: true });
     },
 
-    /** Đồng hồ vừa tua về 0 (repeat-single / Prev "quá 3s") — gọi từ event/workflow/player-controls.js. Chạy
+    /** Đồng hồ vừa tua về 0 (repeat-single / icon "Phát lại" Control Center — SỬA 25/09/2026, Prev không còn "quá 3s") — gọi từ event/workflow/player-controls.js. Chạy
      * lại Point Move từ đầu (KHÔNG Transition — cùng 1 ảnh); đang pause thì đứng yên luôn. */
     onClockRestarted() {
         if (!appState.get('isPhotoPlayerMode')) return;

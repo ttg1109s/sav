@@ -84,6 +84,8 @@ const workflowPlayerControls = {
     async runGatedSeek(mediaEl, targetSec, resumeAfter, verifyToleranceSec = null) {
         const token = ++this._seekGateToken;
         this._setMasterGainForSeekGate(true);
+        const diagStartMs = performance.now(); // CHẨN ĐOÁN (25/09/2026, Giang báo "seek bị delay, còn nghe vị trí cũ") — xem log ở cuối hàm
+        const diagFromSec = mediaEl.currentTime;
 
         // [SỬA 21/09/2026 — video seek lùi lệch hàng giây] Bản cũ: đang có seek dở (`seeking`) mà `currentTime` == mốc thì KHÔNG gán lại,
         // chỉ đợi 'seeked' của seek dở đó. Nhưng lúc seek đang bay `currentTime` trả về mốc ĐÃ YÊU CẦU, không phải nơi nó sẽ đáp
@@ -103,6 +105,13 @@ const workflowPlayerControls = {
         }
         if (token !== this._seekGateToken) return; // lệnh seek mới hơn đã tiếp quản — nó tự lo play()/mở tiếng
 
+        // CHẨN ĐOÁN (tạm, xem trong Debug console): thời gian từ lúc thả tay tới 'seeked', vị trí thật đáp xuống, gain lúc đó
+        // (phải = 0 nếu cổng mute có hiệu lực), độ trễ output của AudioContext. Gỡ sau khi đã rõ nguyên nhân.
+        {
+            const { masterGainNode, audioContext } = appState.get(['masterGainNode', 'audioContext']);
+            const latency = audioContext ? `base=${Math.round((audioContext.baseLatency || 0) * 1000)}ms out=${Math.round((audioContext.outputLatency || 0) * 1000)}ms` : 'no ctx';
+            console.log(`[seekDiag] ${mediaEl === audioPlayer ? 'song' : 'video'} ${diagFromSec.toFixed(2)}s -> ${targetSec.toFixed(2)}s | seeked sau ${Math.round(performance.now() - diagStartMs)}ms | đáp ${mediaEl.currentTime.toFixed(2)}s | gain=${masterGainNode ? masterGainNode.gain.value.toFixed(2) : '-'} | ${latency}`);
+        }
         if (resumeAfter) mediaEl.play().catch((err) => console.error('[workflowPlayerControls] runGatedSeek: play() lỗi sau seek:', err));
         taskManager.once(() => {
             if (token === this._seekGateToken) this._setMasterGainForSeekGate(false);
@@ -260,15 +269,10 @@ const workflowPlayerControls = {
             'isVideoPlayerMode', 'isPhotoPlayerMode', 'isShuffle', 'currentKey', 'shuffleIndices', 'displayOrder', 'playlistOrder', 'pendingResortKeys',
         ]);
         if (playlistOrder.length === 0) return;
-        const activeEl = getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode); // core/player-controls.js — SỬA (Giang yêu cầu, Photo tích hợp duration) thêm isPhotoPlayerMode
-
-        // "Quá 3s vào bài/video hiện tại -> chỉ tua về đầu" — ĐÚNG hành vi gốc `playPrev()`.
-        if (activeEl.currentTime > 3) {
-            activeEl.currentTime = 0;
-            if (isPhotoPlayerMode) workflowPhotoPlayer.onClockRestarted(); // SỬA 25/09/2026 — đồng hồ giả tua về 0 không bắn sự kiện gì, báo Player Photo chạy lại Point Move (event/workflow/photo-player.js)
-            return;
-        }
-
+        // XOÁ (25/09/2026, Giang yêu cầu "Prev đúng chuẩn prev bài trước") — nhánh cũ "quá 3s vào bài/video hiện tại -> chỉ
+        // tua về đầu" (hành vi gốc `playPrev()`). Prev giờ LUÔN sang bài trước; phát lại từ đầu dời sang icon riêng ở Control
+        // Center -> `restartCurrentTrack()` ngay dưới. Áp dụng cho MỌI đường gửi 'playerControls.prev.click' (nút, cử chỉ,
+        // Media Session màn hình khoá).
         const list = isShuffle ? shuffleIndices : displayOrder;
         const step = computeListStep(list, currentKey, -1); // core mới (order.js)
         let prevKey;
@@ -280,6 +284,23 @@ const workflowPlayerControls = {
             prevKey = list[step.index];
         }
         workflowPlayer.playMedia(prevKey, { switchScreen: false, direction: 'prev' }); // event/workflow/player.js — MỚI `direction`, cùng lý do goToNextTrack() ở trên
+    },
+
+    /** MỚI (25/09/2026, Giang yêu cầu) — ứng với 'playerControls.restart.click' (icon "Phát lại" ở Control Center): phát lại
+     * nội dung ĐANG phát từ đầu, GIỮ nguyên trạng thái phát/dừng (thay nhánh "Prev quá 3s" đã xoá ở `goToPrevTrack()`).
+     * Song/Video đi qua cổng seek `runGatedSeek()` (không lọt tiếng/hình vị trí cũ); Photo tua đồng hồ giả về 0 + chạy lại
+     * Point Move (cùng cách nhánh cũ). Chưa có gì đang phát -> bỏ qua. */
+    restartCurrentTrack() {
+        const { isVideoPlayerMode, isPhotoPlayerMode, currentKey } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode', 'currentKey']);
+        if (!currentKey) return;
+        const activeEl = getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode); // core/player-controls.js
+        if (isPhotoPlayerMode) {
+            activeEl.currentTime = 0;
+            workflowPhotoPlayer.onClockRestarted(); // event/workflow/photo-player.js
+            return;
+        }
+        this.runGatedSeek(activeEl, 0, false, isVideoPlayerMode ? VIDEO_SEEK_VERIFY_TOLERANCE_SEC : null); // VIDEO_SEEK_VERIFY_TOLERANCE_SEC — event/workflow/video-player.js
+        if (!isVideoPlayerMode) updateMediaPositionState(); // core/player-controls.js — Media Session về 0 ngay như seek thường
     },
 
     /**
