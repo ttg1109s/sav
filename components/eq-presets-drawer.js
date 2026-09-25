@@ -140,7 +140,8 @@ function renderEqEditBody(preset) {
             <div class="rounded-2xl p-3" data-uitk="cardBg cardBorder">
                 <div class="flex items-end gap-2 overflow-x-auto px-1 pb-0.5">${sliders}</div>
             </div>
-            ${preset.locked ? '' : `
+            ${preset.locked ? `
+            <button id="eq-drawer-apply" type="button" class="w-full py-3 rounded-2xl transition-colors text-sm font-medium" data-uitk="btnAccentSoft" data-i18n="eqPresets.apply">${t('eqPresets.apply')}</button>` : `
             <div class="flex gap-2">
                 <button id="eq-drawer-apply" type="button" class="flex-1 py-3 rounded-2xl transition-colors text-sm font-medium" data-uitk="btnAccentSoft" data-i18n="eqPresets.apply">${t('eqPresets.apply')}</button>
                 <button id="eq-drawer-delete" type="button" class="flex-1 py-3 rounded-2xl transition-colors text-sm font-medium" data-uitk="btnDestructiveSoft" data-i18n="eqPresets.delete">${t('eqPresets.delete')}</button>
