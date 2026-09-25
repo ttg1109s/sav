@@ -86,6 +86,15 @@ const LANG_PATCH_VISUALIZER = {
     // 'Black Hole'/'Rubik' đã dịch sẵn ở 2 key .type.blackHole/.type.rubik.
     'visualizerSettingsDrawer.barStyle.blackHole': 'Black Hole',
     'visualizerSettingsDrawer.shapeStyle.rubik': 'Rubik',
+    'visualizerSettingsDrawer.shapeStyle.clock': 'Clock', // MỚI 26/09/2026
+    'customEffectDrawer.field.clockHandsSource': 'Hands show',
+    'customEffectDrawer.clockHandsSource.realtime': 'Current time',
+    'customEffectDrawer.clockHandsSource.track': 'Track elapsed',
+    'customEffectDrawer.field.clockSizeRatio': 'Clock size',
+    'customEffectDrawer.field.clockSecondTick': 'Ticking second hand',
+    'customEffectDrawer.field.clockGearSpeedBase': 'Gear speed',
+    'customEffectDrawer.field.clockGearSpeedEnergyMult': 'Gear speed by energy',
+    'customEffectDrawer.field.clockTickGain': 'Minute ring sensitivity',
     // MỚI (05/09/2026, yêu cầu Giang) — Modal chọn effect (2 dropdown group -> style + nút Chọn),
     // mở qua GIỮ 1.5s #btn-cycle-mode — xem core/visualizer/visualizer-display.js::
     // openEffectPickerModal(). Nút "Chọn"/"Huỷ" TÁI DÙNG common.select/common.cancel có sẵn
