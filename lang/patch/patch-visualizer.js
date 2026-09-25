@@ -423,7 +423,10 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.dotImpactMode.height': 'Stretch both sides',
     'customEffectDrawer.field.dotCount': 'Dot count',
     // (25/09/2026, lượt 2)
-    'customEffectDrawer.field.dotMoving': 'Moving (snake)',
+    'customEffectDrawer.field.dotMoving': 'Moving',
+    'customEffectDrawer.field.dotMoveType': 'Movement type',
+    'customEffectDrawer.dotMoveType.snake': 'Snake',
+    'customEffectDrawer.dotMoveType.dna': 'DNA',
     'customEffectDrawer.field.dotBend': 'Bend both sides',
     'customEffectDrawer.dotBend.none': 'Straight  |',
     'customEffectDrawer.dotBend.gt': 'Chevron  >',
