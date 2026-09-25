@@ -55,6 +55,7 @@
                 dotCount: 40, dotShape: 'line', dotImpactMode: 'radius', dotLineVibrate: true,
                 // (25/09/2026, lượt 2) rắn bò + bẻ góc 2 nhánh kiểu 'height' ('none'|'gt'|'lt'|'slash'|'backslash', góc độ)
                 dotMoving: false, dotBend: 'none', dotBendAngle: 35, dotMoveType: 'snake', // (lượt 4) 'snake' | 'dna'
+                dotSwell: 100, // MỚI (25/09/2026) — độ phình dot kiểu 'radius', % (50-300)
             },
             lighting: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,

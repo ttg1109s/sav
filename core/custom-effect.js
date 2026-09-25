@@ -160,6 +160,8 @@ const CUSTOM_EFFECT_FIELDS = {
         ] },
         { id: 'dotBendAngle', labelKey: 'customEffectDrawer.field.dotBendAngle', type: 'slider', min: 10, max: 80, step: 5, showIf: (cfg) => cfg.barStyle === 'dot' && cfg.dotImpactMode === 'height' && cfg.dotBend && cfg.dotBend !== 'none' },
         { id: 'dotCount', labelKey: 'customEffectDrawer.field.dotCount', type: 'slider', min: 20, max: 80, step: 2, showIf: (cfg) => cfg.barStyle === 'dot' },
+        // MỚI (25/09/2026, Giang) — độ phình (%) của dot tác động, chỉ kiểu 'radius' (kiểu 'height' đã có maxH).
+        { id: 'dotSwell', labelKey: 'customEffectDrawer.field.dotSwell', type: 'slider', min: 50, max: 300, step: 10, showIf: (cfg) => cfg.barStyle === 'dot' && cfg.dotImpactMode !== 'height' },
     ],
     rain: [
         ...CUSTOM_EFFECT_FLASH_FIELDS, // chung Glass + Street (Street trước đây KHÔNG có toggle riêng)
