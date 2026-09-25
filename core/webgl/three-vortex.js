@@ -11,29 +11,50 @@
         let tWarpSpeed = 0; // biến NỘI BỘ (không thuộc STATE) — chỉ dùng trong drawVortex()
         const TUNNEL_DEPTH = 3000;
 
-        // Bán kính an toàn CỨNG cho camera — nhỏ hơn mép trong của style hẹp nhất (wave: 300−40=260,
-        // rings/bars: 350) — đảm bảo camera KHÔNG BAO GIỜ văng ra ngoài thành ống dù damping có lag
-        // tới đâu (mục "loại bỏ hoàn toàn va đập thành ống", phản hồi Giang).
-        const VORTEX_CAMERA_SAFE_RADIUS = 200;
+        // ============================================================================================
+        // [VIẾT LẠI — 25/09/2026, Giang báo "tham số bị ghi tịnh tiến, va đập, liên tục đổi hướng gây
+        // loạn màn hình"] Đường ống giờ tính theo TOẠ ĐỘ TƯƠNG ĐỐI camera, không còn theo z tuyệt đối.
+        //
+        // Nguyên nhân cũ: tâm ống = sin(z·freq + phase)·amp với z = tCurrentWarpZ giảm MÃI (camera bay
+        // tới trước, không bao giờ reset) — vài phút là |z| lên hàng trăm nghìn/triệu. Mỗi lần rẽ, freq
+        // bị jitter rồi lerp dần: lệch freq chỉ 0.0001 nhân |z| = 1.000.000 đã ra 100 rad -> suốt lúc
+        // lerp, pha tại camera quay hàng chục vòng -> ống quất qua lại loạn màn hình, và CÀNG CHẠY LÂU
+        // CÀNG NẶNG. phaseX/phaseY target cũng giải theo -z·freq (số tuyệt đối khổng lồ). Camera damping
+        // 0.045 không đuổi kịp -> đâm vào lưới kẹp cứng VORTEX_CAMERA_SAFE_RADIUS -> khựng/giật ("va
+        // đập"). Pha nền +0.005/frame còn bị lerp kéo ngược lại, cân bằng ở độ lệch cố định ~0.83 rad
+        // so với hướng đã chọn (hướng rẽ theo nốt chưa bao giờ đúng).
+        //
+        // Mô hình mới: d = camZ - z (khoảng cách phía trước camera, luôn trong ~[-200, TUNNEL_DEPTH]),
+        // tâm = (sin(phaseX + d·freqX)·ampX, cos(phaseY + d·freqY)·ampY). Mỗi frame camera đi được s thì
+        // phase += s·freq (CÙNG lượng cho params và target) -> hình ống vẫn đứng yên trong không gian
+        // như cũ, nhưng đổi freq chỉ ảnh hưởng tối đa d·Δfreq (≤ 3000·0.0006 ≈ 1.8 rad ở cuối ống, 0 tại
+        // camera) — không còn phụ thuộc thời gian đã bay. phase luôn gói về [0, 2π). Camera đặt ĐÚNG tâm
+        // ống (không damping, không cần kẹp) -> hết va đập. Toàn bộ z (camera/ring/bar/wave) được dời về
+        // gốc định kỳ (VORTEX_REBASE_Z) — tâm chỉ phụ thuộc camZ - z nên dời gốc không đổi hình gì cả.
+        // ============================================================================================
 
-        /** Kẹp cứng offset camera khỏi tâm ống về trong `safeRadius` — khác `updateVortexCurveLerp()`
-         * (làm camera đuổi theo tâm MƯỢT nhưng không có gì chặn khi tâm di chuyển nhanh hơn tốc độ
-         * đuổi), hàm này là LƯỚI AN TOÀN CUỐI — luôn đảm bảo camera nằm trong ống bất kể mọi lag. */
-        function clampVortexCameraOffset(cameraX, cameraY, centerX, centerY, safeRadius) {
-            const dx = cameraX - centerX;
-            const dy = cameraY - centerY;
-            const dist = Math.hypot(dx, dy);
-            if (dist <= safeRadius) return { x: cameraX, y: cameraY };
-            const scale = safeRadius / dist;
-            return { x: centerX + dx * scale, y: centerY + dy * scale };
+        /** Khoảng nhìn trước của camera (lookAt) — cũng là khoảng dùng để giải pha "bẻ đúng hướng". */
+        const VORTEX_LOOK_AHEAD = 800;
+        /** Camera bay quá mốc này (theo -z) thì dời gốc toàn bộ scene về 0 — chặn z tịnh tiến vô hạn. */
+        const VORTEX_REBASE_Z = 30000;
+        /** Tốc độ nội suy hình ống về target mỗi frame (cũ 0.006). Bước pha tối đa π·k ≈ 0.031 rad/frame. */
+        const VORTEX_PATH_LERP = 0.01;
+        /** Lượt rẽ trước phải hội tụ (lệch pha còn < ngưỡng này, rad) mới nhận lượt rẽ mới — chặn target
+         * bị ghi đè liên tục khi nhạc biến động kéo dài (nguyên nhân "liên tục đổi hướng"). */
+        const VORTEX_TURN_SETTLE_RAD = 0.25;
+
+        const VORTEX_TWO_PI = Math.PI * 2;
+        /** Gói góc về [0, 2π). */
+        function wrapVortexAngle(a) {
+            return ((a % VORTEX_TWO_PI) + VORTEX_TWO_PI) % VORTEX_TWO_PI;
         }
 
-        // Tính toán tọa độ tâm của ống hầm tại một điểm Z bất kỳ
-        function getVortexCenterAt(z) {
-            const params = appState.get('tPathParams');
+        /** Tâm ống tại z — THUẦN (SỬA 25/09/2026: nhận params/camZ qua tham số, không tự appState.get()). */
+        function getVortexCenterAt(z, params, camZ) {
+            const d = camZ - z;
             return {
-                x: Math.sin(z * params.freqX + params.phaseX) * params.ampX,
-                y: Math.cos(z * params.freqY + params.phaseY) * params.ampY
+                x: Math.sin(params.phaseX + d * params.freqX) * params.ampX,
+                y: Math.cos(params.phaseY + d * params.freqY) * params.ampY,
             };
         }
 
@@ -66,53 +87,60 @@
             return VORTEX_NOTE_TO_DIRECTION[noteIdx];
         }
 
-        /** Target MỚI cho đường ống khi rẽ — freqX/freqY/ampX/ampY vẫn rung nhẹ ngẫu nhiên (giữ
-         * cảm giác hữu cơ), riêng phaseX/phaseY GIẢI THEO HƯỚNG (không random) để ống bẻ rõ về
-         * đúng hướng compass ứng với nốt nhạc, TẠI z hiện tại của camera (`currentZ`, truyền vào =
-         * tCurrentWarpZ lúc gọi). Thuần — không appState, Workflow tự đọc tPathTarget/
-         * tCurrentWarpZ rồi ghi kết quả trả về. */
-        function computeVortexCurveTarget(currentTarget, direction, currentZ) {
+        /** Target MỚI cho đường ống khi rẽ — freqX/freqY/ampX/ampY vẫn rung nhẹ ngẫu nhiên (giữ cảm giác
+         * hữu cơ). SỬA (25/09/2026): phaseX/phaseY giải sao cho đoạn ống từ camera tới điểm nhìn
+         * (VORTEX_LOOK_AHEAD) BẺ ĐÚNG hướng trên màn hình — bẻ phải = x(look) - x(0) lớn nhất:
+         * sin(φ+a) - sin φ = 2cos(φ+a/2)sin(a/2) -> φ = -a/2 (trái: π - a/2); bẻ lên = y(look) - y(0)
+         * lớn nhất: cos(φ+b) - cos φ = -2sin(φ+b/2)sin(b/2) -> φ = -π/2 - b/2 (xuống: π/2 - b/2), với
+         * a = freqX·look, b = freqY·look. Không còn phụ thuộc z hiện tại (bản cũ giải theo -z·freq nên
+         * pha là số tuyệt đối khổng lồ và "hướng" lại là vị trí tâm tại camera — camera bám tâm nên thực
+         * tế không nhìn ra hướng đó). Thuần — Workflow tự đọc tPathTarget rồi ghi kết quả. */
+        function computeVortexCurveTarget(currentTarget, direction) {
             const jitter = (base, range) => base + (Math.random() - 0.5) * range;
             const vec = VORTEX_DIRECTION_VECTORS[direction] || VORTEX_DIRECTION_VECTORS.right;
             const freqX = Math.max(0.0004, Math.min(0.0022, jitter(currentTarget.freqX, 0.0006)));
             const freqY = Math.max(0.0004, Math.min(0.0022, jitter(currentTarget.freqY, 0.0006)));
             const ampX = Math.max(180, Math.min(620, jitter(currentTarget.ampX, 160)));
             const ampY = Math.max(130, Math.min(470, jitter(currentTarget.ampY, 120)));
-            const phaseX = vec.x === 0 ? currentTarget.phaseX : (vec.x > 0 ? Math.PI / 2 : -Math.PI / 2) - currentZ * freqX;
-            const phaseY = vec.y === 0 ? currentTarget.phaseY : (vec.y > 0 ? 0 : Math.PI) - currentZ * freqY;
+            const a = freqX * VORTEX_LOOK_AHEAD, b = freqY * VORTEX_LOOK_AHEAD;
+            const phaseX = vec.x === 0 ? currentTarget.phaseX : wrapVortexAngle(vec.x > 0 ? -a / 2 : Math.PI - a / 2);
+            const phaseY = vec.y === 0 ? currentTarget.phaseY : wrapVortexAngle(vec.y > 0 ? -Math.PI / 2 - b / 2 : Math.PI / 2 - b / 2);
             return { freqX, freqY, ampX, ampY, phaseX, phaseY };
         }
 
-        // Nội suy mượt mà hình dáng ống
-        /** Lệch NGẮN NHẤT theo chu kỳ 2π giữa 2 góc — vd 0.1 và 6.2 (≈2π-0.08) lệch nhau chỉ
-         * ~0.18, KHÔNG phải ~6.1 nếu trừ thẳng. Chặn phaseX/phaseY nhảy số tuyệt đối (mục 2, phản
-         * hồi Giang — target.phaseX giải theo z hiện tại nên là số tuyệt đối lớn dần theo thời
-         * gian, trừ thẳng sẽ ra hiệu số khổng lồ). */
+        /** Lệch NGẮN NHẤT theo chu kỳ 2π giữa 2 góc — vd 0.1 và 6.2 lệch nhau ~0.18, không phải ~6.1. */
         function shortestAngleDelta(from, to) {
-            const twoPi = Math.PI * 2;
-            let d = (to - from) % twoPi;
-            if (d > Math.PI) d -= twoPi;
-            if (d < -Math.PI) d += twoPi;
+            let d = (to - from) % VORTEX_TWO_PI;
+            if (d > Math.PI) d -= VORTEX_TWO_PI;
+            if (d < -Math.PI) d += VORTEX_TWO_PI;
             return d;
         }
 
-        function updateVortexCurveLerp() {
-            const k = 0.006;
-            const target = appState.get('tPathTarget');
-            appState.mutate('tPathParams', params => {
-                params.freqX += (target.freqX - params.freqX) * k;
-                params.freqY += (target.freqY - params.freqY) * k;
-                params.ampX += (target.ampX - params.ampX) * k;
-                params.ampY += (target.ampY - params.ampY) * k;
-                // Rẽ theo hướng (phaseX/phaseY, computeVortexCurveTarget()) — nội suy theo lệch
-                // NGẮN NHẤT (không trừ thẳng số tuyệt đối), bước tối đa mỗi frame bị chặn ở ±π·k
-                // (~0.019 rad/frame) dù target lệch bao xa — không còn giật/nhảy khi rẽ.
-                params.phaseX += shortestAngleDelta(params.phaseX, target.phaseX) * k;
-                params.phaseY += shortestAngleDelta(params.phaseY, target.phaseY) * k;
-                // Tiến pha nền để ống luôn "sống" NGAY CẢ giữa 2 lần rẽ (không có target mới).
-                params.phaseX += 0.005;
-                params.phaseY += 0.005;
-            }, { skipCheck: true });
+        /** 1 bước hình ống — THUẦN (THAY `updateVortexCurveLerp()` cũ, vốn tự appState.get/mutate).
+         * `travel` = quãng camera vừa bay frame này (tWarpSpeed). Pha của CẢ params lẫn target cùng tiến
+         * travel·freq(params) -> hình ống đứng yên trong không gian, khoảng cách tới target chỉ còn đúng
+         * phần "đang rẽ" và được lerp dần. Bỏ pha nền +0.005/frame cũ (bị lerp kéo ngược nên không tạo
+         * chuyển động thật, chỉ làm lệch hướng rẽ). @returns {{params:object, target:object}} */
+        function computeNextVortexPath(params, target, travel) {
+            const k = VORTEX_PATH_LERP;
+            const advX = travel * params.freqX;
+            const advY = travel * params.freqY;
+            return {
+                params: {
+                    freqX: params.freqX + (target.freqX - params.freqX) * k,
+                    freqY: params.freqY + (target.freqY - params.freqY) * k,
+                    ampX: params.ampX + (target.ampX - params.ampX) * k,
+                    ampY: params.ampY + (target.ampY - params.ampY) * k,
+                    phaseX: wrapVortexAngle(params.phaseX + advX + shortestAngleDelta(params.phaseX, target.phaseX) * k),
+                    phaseY: wrapVortexAngle(params.phaseY + advY + shortestAngleDelta(params.phaseY, target.phaseY) * k),
+                },
+                target: { ...target, phaseX: wrapVortexAngle(target.phaseX + advX), phaseY: wrapVortexAngle(target.phaseY + advY) },
+            };
+        }
+
+        /** Lượt rẽ hiện tại đã hội tụ chưa (lệch pha lớn nhất < `tolRad`) — THUẦN. */
+        function isVortexTurnSettled(params, target, tolRad) {
+            return Math.max(Math.abs(shortestAngleDelta(params.phaseX, target.phaseX)), Math.abs(shortestAngleDelta(params.phaseY, target.phaseY))) < tolRad;
         }
 
         function initThreeJS() {
