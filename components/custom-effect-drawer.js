@@ -67,7 +67,14 @@ function _resolveCeCard(field, cfg) {
  * Transition"/"Finale"/"Redirect"/"Burst" có tiêu đề + card field chung trước đây (Giang: bỏ hết các card
  * tiêu đề kiểu Redirect/Finale). Không field nào hiện -> không vẽ card. */
 function _renderCeFieldCard(cardKey, fields, cfg) {
-    const rows = fields.filter((f) => _resolveCeCard(f, cfg) === cardKey).map((f) => _renderCeFieldRow(f, cfg)).join('');
+    // SỬA (25/09/2026, Giang) — trong card xếp theo loại field: toggle > dropdown > input > slider
+    // (CUSTOM_EFFECT_FIELD_TYPE_ORDER, core/custom-effect.js). Array.sort ổn định -> cùng loại giữ thứ tự khai báo.
+    const rank = (f) => { const r = CUSTOM_EFFECT_FIELD_TYPE_ORDER[f.type]; return r === undefined ? 99 : r; };
+    const rows = fields
+        .filter((f) => _resolveCeCard(f, cfg) === cardKey)
+        .sort((a, b) => rank(a) - rank(b))
+        .map((f) => _renderCeFieldRow(f, cfg))
+        .join('');
     if (!rows.trim()) return '';
     return `<div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">${rows}</div>`;
 }
