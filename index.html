@@ -803,7 +803,7 @@
     <script src="core/subtitle/subtitle-display.js?v=20260816v1"></script>
     <script src="core/wakelock.js?v=20260630v1"></script>
     <script src="core/color-utils.js?v=20260923v6"></script>
-    <script src="core/canvas-scene-setup.js?v=20260905v2"></script>
+    <script src="core/canvas-scene-setup.js?v=20260925rc1"></script>
     <!-- MỚI (23/07/2026, refactor phản hồi Giang) — normalizeSongName()/songMatchesQuery() dùng
          CHUNG Playlist + Video Editor, tách khỏi core/playlist/state.js để không kéo appState theo
          khi module Video Editor cần tái dùng. PHẢI nạp TRƯỚC core/playlist/order.js. -->
@@ -945,7 +945,7 @@
     <!-- core/visualizer/groups/rain/{common,glass,street}.js — trước đây core/visualizer/types/
          rain.js (gộp 2 style). -->
     <script src="core/visualizer/groups/rain/common.js?v=20260919v2"></script>
-    <script src="core/visualizer/groups/rain/glass.js?v=20260919v2"></script>
+    <script src="core/visualizer/groups/rain/glass.js?v=20260925rc1"></script>
     <script src="core/visualizer/groups/rain/street.js?v=20260919v2"></script>
     <!-- core/visualizer/groups/lighting/{common,thunder,fireworks}.js — THAY cho lightning.js cũ
          (đã XOÁ) + core/visualizer/types/lighting.js cũ (gộp 2 style, đã XOÁ) — MODES key
@@ -972,7 +972,7 @@
          mode 'raf'). Khởi động thật từ core/audio-engine.js::setupAudioContext() gọi
          workflowVisualizerRender.start() lúc phát bài đầu tiên. Đặt ở đây (không phải /event/ phía
          dưới) vì thuộc nhóm "vòng lặp render 60fps tự taskManager", không qua eventBus/Router. -->
-    <script src="event/workflow/visualizer-render.js?v=20260925mr1"></script>
+    <script src="event/workflow/visualizer-render.js?v=20260925rc1"></script>
 
 
     <!-- Kiến trúc /event/ — nạp CUỐI CÙNG, sau toàn bộ js/* (router/workflow chỉ gọi lại hàm core
