@@ -56,29 +56,20 @@ function _renderCeColorSection(cfg) {
     `;
 }
 
-/** Card "Music Transition" (hoặc tên riêng theo group — xem CUSTOM_EFFECT_MUSIC_SECTION_TITLE_KEYS,
- * core/custom-effect.js: "Finale" cho Fireworks, "Redirect" cho Vortex, fallback tên chung "Music
- * Transition" cho group nào khác lỡ có field group:'music' sau này) — CHỈ field nào là tham số
- * THẬT của detectMusicTransition() (core/audio-analysis.js: sectionWindowBeats/fluxThreshold) hoặc
- * toggle bật/tắt CẢ cơ chế (finaleEnabled/redirectEnabled) mới đánh `group: 'music'` — KHÔNG gồm
- * mọi field "đọc audio" nói chung (vd flashThreshold/boltThreshold chỉ so 1 giá trị TỨC THỜI với
- * ngưỡng). Xếp NGAY DƯỚI Color (phản hồi Giang). Vẫn tôn trọng showIf riêng từng field — Lighting
- * chỉ hiện ở style "fireworks" (thunder không dùng detectMusicTransition()); card CHỈ hiện khi có
- * ít nhất 1 field đang hiển thị.
- * @param {string} type - group (bar/lighting/rain/vortex/shape), quyết định tiêu đề card. */
-function _renderCeMusicSection(type, musicFields, cfg) {
-    const rows = musicFields.map((f) => _renderCeFieldRow(f, cfg)).join('');
+/** MỚI (25/09/2026, Giang “sắp xếp lại custom effect theo nhóm card”) — loại card của 1 field
+ * (`field.card`: chuỗi, hoặc hàm `(cfg) => chuỗi` khi field đổi ý nghĩa theo style — xem
+ * CUSTOM_EFFECT_CARD_ORDER, core/custom-effect.js). */
+function _resolveCeCard(field, cfg) {
+    return typeof field.card === 'function' ? field.card(cfg) : field.card;
+}
+
+/** 1 card KHÔNG tiêu đề chứa mọi field thuộc loại `cardKey` đang hiện (showIf) — THAY card "Music
+ * Transition"/"Finale"/"Redirect"/"Burst" có tiêu đề + card field chung trước đây (Giang: bỏ hết các card
+ * tiêu đề kiểu Redirect/Finale). Không field nào hiện -> không vẽ card. */
+function _renderCeFieldCard(cardKey, fields, cfg) {
+    const rows = fields.filter((f) => _resolveCeCard(f, cfg) === cardKey).map((f) => _renderCeFieldRow(f, cfg)).join('');
     if (!rows.trim()) return '';
-    const style = cfg[GROUP_STYLE_FIELD[type]]; // service/state/visualizer-runtime.js
-    const titleKey = CUSTOM_EFFECT_MUSIC_SECTION_TITLE_KEYS_BY_STYLE[style] || CUSTOM_EFFECT_MUSIC_SECTION_TITLE_KEYS[type] || 'customEffectDrawer.musicSection.title'; // core/custom-effect.js
-    return `
-        <div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">
-            <div class="px-4 py-3 border-b" data-uitk="dividerBorder">
-                <span class="text-sm" data-uitk="textSecondaryStrong" data-i18n="${titleKey}">${t(titleKey)}</span>
-            </div>
-            ${rows}
-        </div>
-    `;
+    return `<div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">${rows}</div>`;
 }
 
 function _renderCeBlurSection(cfg) {
@@ -226,25 +217,30 @@ function _renderCeFireworksTextsSection(cfg) {
     `;
 }
 
-/** @param {string} type @param {object} cfg - getEffectConfig(type), core/custom-effect.js */
+/** SẮP XẾP LẠI (25/09/2026, Giang) — thứ tự: Color -> các card theo CUSTOM_EFFECT_CARD_ORDER (core/custom-
+ * effect.js). Card danh sách riêng chèn NGAY SAU card cùng loại: "Chữ bắn pháo hoa" sau card 'music' (chữ
+ * chỉ bắn trong finale — ẩn khi tắt Finale), "Kiểu nổ" (fireworks) + "Đèn tuỳ chỉnh" (rain street) sau
+ * card 'layout'. Khối Blur chung vẽ tại vị trí 'glow' (group ngoài CUSTOM_EFFECT_NO_BLUR).
+ * SỬA (25/09/2026, Giang báo "gap rộng" so với EQ) — wrapper TRƯỚC ĐÂY có thêm `px-4 py-3` chồng lên
+ * `bodyClass: 'overflow-y-auto px-4 py-3'` (event/workflow/custom-effect.js) -> lề 2 lần. Giờ chỉ
+ * `flex flex-col gap-4`, đúng khuôn renderEqEditBody() (components/eq-presets-drawer.js).
+ * @param {string} type @param {object} cfg - getEffectConfig(type), core/custom-effect.js */
 function renderCustomEffectBody(type, cfg) {
-    const allFields = CUSTOM_EFFECT_FIELDS[type] || [];
-    const musicFields = allFields.filter((f) => f.group === 'music');
-    const otherFields = allFields.filter((f) => f.group !== 'music');
-    const fields = otherFields.map((f) => _renderCeFieldRow(f, cfg)).join('');
-    const lampsSection = (type === 'rain' && cfg.rainStyle === 'street') ? _renderCeLampsSection(cfg) : '';
-    const fireworksStylesSection = (type === 'lighting' && cfg.lightingStyle === 'fireworks') ? _renderCeFireworksStylesSection(cfg) : '';
-    const fireworksTextsSection = (type === 'lighting' && cfg.lightingStyle === 'fireworks') ? _renderCeFireworksTextsSection(cfg) : '';
+    const fields = CUSTOM_EFFECT_FIELDS[type] || []; // core/custom-effect.js
+    const isFireworks = type === 'lighting' && cfg.lightingStyle === 'fireworks';
+    const isStreet = type === 'rain' && cfg.rainStyle === 'street';
     const showBlur = !CUSTOM_EFFECT_NO_BLUR.includes(type); // core/custom-effect.js
+    const sections = [_renderCeColorSection(cfg)];
+    CUSTOM_EFFECT_CARD_ORDER.forEach((cardKey) => { // core/custom-effect.js
+        if (cardKey === 'glow' && showBlur) sections.push(_renderCeBlurSection(cfg));
+        sections.push(_renderCeFieldCard(cardKey, fields, cfg));
+        if (cardKey === 'music' && isFireworks && cfg.finaleEnabled !== false) sections.push(_renderCeFireworksTextsSection(cfg));
+        if (cardKey === 'layout' && isFireworks) sections.push(_renderCeFireworksStylesSection(cfg));
+        if (cardKey === 'layout' && isStreet) sections.push(_renderCeLampsSection(cfg));
+    });
     return `
-        <div class="flex flex-col gap-4 px-4 py-3">
-            ${_renderCeColorSection(cfg)}
-            ${_renderCeMusicSection(type, musicFields, cfg)}
-            ${showBlur ? _renderCeBlurSection(cfg) : ''}
-            ${fields ? `<div class="rounded-2xl overflow-hidden" data-uitk="cardBg cardBorder">${fields}</div>` : ''}
-            ${lampsSection}
-            ${fireworksStylesSection}
-            ${fireworksTextsSection}
+        <div class="flex flex-col gap-4">
+            ${sections.join('')}
         </div>
     `;
 }
