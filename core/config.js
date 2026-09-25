@@ -53,6 +53,8 @@
                 // MỚI (25/09/2026, Giang) — style "dot": trục thời gian chuyển từ connector brain (core/
                 // visualizer/groups/bar/dot.js). maxH ở trên dùng cho kiểu tác động 'height'.
                 dotCount: 40, dotShape: 'line', dotImpactMode: 'radius', dotLineVibrate: true,
+                // (25/09/2026, lượt 2) rắn bò + bẻ góc 2 nhánh kiểu 'height' ('none'|'gt'|'lt'|'slash'|'backslash', góc độ)
+                dotMoving: false, dotBend: 'none', dotBendAngle: 35,
             },
             lighting: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,

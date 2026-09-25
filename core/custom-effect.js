@@ -128,7 +128,9 @@ const CUSTOM_EFFECT_FIELDS = {
         // MỚI (25/09/2026, Giang) — style 'dot' (trục thời gian chuyển từ connector brain, core/visualizer/
         // groups/bar/dot.js). Quãng đường sóng KHÔNG còn field (theo audio, trục chỉ là mốc tối đa).
         // dotShape/dotImpactMode `rerender` — field khác có showIf phụ thuộc (dotLineVibrate / maxH).
-        { id: 'dotShape', labelKey: 'customEffectDrawer.field.dotShape', type: 'select', showIf: (cfg) => cfg.barStyle === 'dot', rerender: true, options: [
+        // (25/09/2026, lượt 2) dotMoving bật -> hình trục + rung đàn hồi không dùng (ẩn).
+        { id: 'dotMoving', labelKey: 'customEffectDrawer.field.dotMoving', type: 'toggle', showIf: (cfg) => cfg.barStyle === 'dot', rerender: true },
+        { id: 'dotShape', labelKey: 'customEffectDrawer.field.dotShape', type: 'select', showIf: (cfg) => cfg.barStyle === 'dot' && !cfg.dotMoving, rerender: true, options: [
             { value: 'line', labelKey: 'customEffectDrawer.timelineShape.line' },
             { value: 'sinDown', labelKey: 'customEffectDrawer.timelineShape.sinDown' },
             { value: 'sinUp', labelKey: 'customEffectDrawer.timelineShape.sinUp' },
@@ -138,11 +140,20 @@ const CUSTOM_EFFECT_FIELDS = {
             { value: 'square', labelKey: 'customEffectDrawer.timelineShape.square' },
             { value: 'triangle', labelKey: 'customEffectDrawer.timelineShape.triangle' },
         ] },
-        { id: 'dotLineVibrate', labelKey: 'customEffectDrawer.field.dotLineVibrate', type: 'toggle', showIf: (cfg) => cfg.barStyle === 'dot' && cfg.dotShape === 'line' },
+        { id: 'dotLineVibrate', labelKey: 'customEffectDrawer.field.dotLineVibrate', type: 'toggle', showIf: (cfg) => cfg.barStyle === 'dot' && !cfg.dotMoving && cfg.dotShape === 'line' },
         { id: 'dotImpactMode', labelKey: 'customEffectDrawer.field.dotImpactMode', type: 'select', showIf: (cfg) => cfg.barStyle === 'dot', rerender: true, options: [
             { value: 'radius', labelKey: 'customEffectDrawer.dotImpactMode.radius' },
             { value: 'height', labelKey: 'customEffectDrawer.dotImpactMode.height' },
         ] },
+        // (25/09/2026, lượt 2) bẻ góc 2 nhánh — chỉ kiểu 'height'
+        { id: 'dotBend', labelKey: 'customEffectDrawer.field.dotBend', type: 'select', showIf: (cfg) => cfg.barStyle === 'dot' && cfg.dotImpactMode === 'height', rerender: true, options: [
+            { value: 'none', labelKey: 'customEffectDrawer.dotBend.none' },
+            { value: 'gt', labelKey: 'customEffectDrawer.dotBend.gt' },
+            { value: 'lt', labelKey: 'customEffectDrawer.dotBend.lt' },
+            { value: 'slash', labelKey: 'customEffectDrawer.dotBend.slash' },
+            { value: 'backslash', labelKey: 'customEffectDrawer.dotBend.backslash' },
+        ] },
+        { id: 'dotBendAngle', labelKey: 'customEffectDrawer.field.dotBendAngle', type: 'slider', min: 10, max: 80, step: 5, showIf: (cfg) => cfg.barStyle === 'dot' && cfg.dotImpactMode === 'height' && cfg.dotBend && cfg.dotBend !== 'none' },
         { id: 'dotCount', labelKey: 'customEffectDrawer.field.dotCount', type: 'slider', min: 20, max: 80, step: 2, showIf: (cfg) => cfg.barStyle === 'dot' },
     ],
     rain: [
