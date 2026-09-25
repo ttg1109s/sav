@@ -64,7 +64,7 @@
             lighting: ['thunder', 'fireworks'],
             rain: ['glass', 'street'],
             vortex: ['rings', 'bars', 'wave'],
-            shape: ['rubik'],
+            shape: ['rubik', 'clock'], // 'clock' MỚI 26/09/2026 — đồng hồ lộ máy (groups/shape/clock.js)
             connector: ['synapse', 'circuit', 'brain'],
         };
         const GROUP_STYLE_FIELD = {
