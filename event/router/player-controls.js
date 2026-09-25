@@ -140,6 +140,11 @@ const routerPlayerControls = (() => {
                 break;
             }
 
+            case 'playerControls.restart.click': { // MỚI 25/09/2026 — icon "Phát lại" Control Center, Song/Video/Photo dùng chung (workflow tự phân loại)
+                workflowPlayerControls.restartCurrentTrack();
+                break;
+            }
+
             case 'playerControls.shuffle.click': {
                 workflowPlayerControls.toggleShuffleAndReshuffle(); // 2 hàm core nối tiếp, phụ thuộc thứ tự -> workflow (fix mục 3b)
                 break;
