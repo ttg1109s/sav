@@ -40,6 +40,8 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerOverlay.shuffle.label': 'Shuffle',
     'visualizerOverlay.repeat.title': 'Repeat',
     'visualizerOverlay.repeat.label': 'Repeat',
+    'visualizerOverlay.restart.title': 'Play from the beginning', // MỚI 25/09/2026 — #btn-restart-track
+    'visualizerOverlay.restart.label': 'Restart',
     // MỚI (10/08/2026) — chụp khung hình bgVideoElement đang phát, lưu vào Photo. Chỉ hiện lúc
     // Video Player mode. (statsToggle.* ĐÃ XOÁ — toggle dời vào Settings, xem statsPanelEnable.*.)
     'visualizerOverlay.captureFrame.title': 'Capture frame as photo',
