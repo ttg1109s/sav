@@ -1,13 +1,13 @@
 /**
- * event/workflow/video-preview.js — Router "videoPreview". Modal xem/sửa Video: Cut (dải phim + 2
- * tay cầm + playhead) LUÔN hiện, mặc định; Crop là TOGGLE độc lập chạy song song (không loại trừ
- * Cut); Zoom-pan (Panzoom trên chính videoEl) luôn sống, không thuộc mode nào.
+ * event/workflow/video-preview.js — Workflow "videoPreview". Modal xem/sửa Video kiểu Story: trạng
+ * thái xem (video tràn màn hình + rail dọc) và 2 công cụ Cắt / Cắt khung (mỗi lúc 1 công cụ, xem mục
+ * SỬA 26/09/2026 dưới); Zoom-pan (Panzoom trên chính videoEl) luôn sống, không thuộc công cụ nào.
  *
  * `open()` bọc TOÀN BỘ trong `withLoadingShield()` (core/loading-shield-util.js) — chỉ tắt shield
  * SAU KHI modal đã dựng xong VÀ đã có metadata thật (crop/trim/zoom-pan sẵn sàng tương tác), không
  * chỉ sau khi DOM append xong.
  *
- * `this._modalHandle`/`this._beforeCropSnapshot`/`this._resolveMetadataReady` giữ TRỰC TIẾP trên
+ * `this._modalHandle`/`this._beforeToolSnapshot`/`this._resolveMetadataReady` giữ TRỰC TIẾP trên
  * object Workflow (KHÔNG qua appState — không phải dữ liệu nghiệp vụ tuần tự hoá được).
  *
  * SỬA (05/08/2026, đợt 5, phản hồi Giang):
@@ -15,7 +15,7 @@
  *   `videoPreviewHistorySession`/`core/edit-history.js` (KHÔNG còn Workflow nào dùng file đó nữa —
  *   RÁC, đề nghị Giang tự xoá `core/edit-history.js` + dòng `<script>` tương ứng trong index.html đã
  *   gỡ sẵn ở patch này). `_buildSnapshot()`/`_applySnapshot()` VẪN GIỮ — phục vụ RIÊNG cơ chế khôi
- *   phục lúc Huỷ Crop (`_beforeCropSnapshot`, KHÔNG phải Undo/Redo, xem comment tại đó). Reset giờ
+ *   phục lúc Huỷ công cụ (`_beforeToolSnapshot`, KHÔNG phải Undo/Redo, xem comment tại đó). Reset giờ
  *   bắt buộc qua `modalChoice()` xác nhận trước khi chạy — trước đó KHÔNG hề có bước xác nhận nào.
  * - MỤC 2 — "zoom-pan kéo ra bị 'phóng to/thu nhỏ kích thước' chứ không 'zoom' như ảnh": so với
  *   Photo Edit (nơi Panzoom chạy ĐÚNG, xem `core/file-manager/photo-ui.js::openImagePreviewModal()`
@@ -29,6 +29,20 @@
  *       absolute`) — khác `.photo-preview-image` (`position:absolute; inset:0`, pin cứng theo khung
  *       chứa). Đã thêm `absolute inset-0` cho cả 2 (xem components/video-preview.js) — khớp tuyệt
  *       đối cách Photo Edit đang chạy đúng.
+ *
+ * SỬA (26/09/2026, Giang — "cải tổ editor video theo hướng Story Facebook", chốt: GIỮ tỉ lệ gốc,
+ * chỉ đổi UI/UX, làm KHUNG UI trước; layer chữ/sticker sau này hiện SUỐT video):
+ * - Bỏ mô hình "Cut luôn hiện + Crop toggle song song". Giờ ĐÚNG 1 công cụ tại 1 thời điểm
+ *   (`videoPreviewActiveTool` 'none'|'trim'|'crop'), mở từ rail dọc, thoát qua Huỷ/Xong ở topbar
+ *   (`handleToolOpen/Cancel/Done`) — thay `modalChoice` Áp dụng/Huỷ lúc tắt Crop cũ. Snapshot
+ *   trước khi mở công cụ (`_beforeToolSnapshot`) dùng CHUNG cho cả Cắt lẫn Cắt khung, Huỷ khôi phục
+ *   cả cờ `videoPreviewHasUnsavedChanges` về đúng giá trị trước đó (trước đây Huỷ Crop vẫn bật cờ).
+ * - Mỗi lần đổi công cụ, `#video-preview-media-wrap` đổi kích thước (topbar/panel dưới hiện/ẩn) →
+ *   `_renderTransformPreview()` tính lại hệ số scale xoay 90°/270° theo khung MỚI.
+ * - Thêm Tắt tiếng (`handleMuteClick`, preview `videoEl.muted` + `muteAudio` khi xuất), rail mở
+ *   rộng nhãn (`handleRailExpandClick`), biểu tượng Play giữa màn hình (`handleVideoPlayState`).
+ * - Lật khi đang Cắt khung giờ đồng bộ lại canvas Crop (trước đây nút Lật trong dải tỉ lệ chỉ lật
+ *   `<video>`, canvas Crop KHÔNG lật theo → khung crop lệch khỏi hình).
  *
  * NẠP SAU: core/file-manager/video-ui.js, core/media-transform.js (gộp crop-selector.js +
  * image-zoom.js + cycleRotation(), 04/08/2026), core/video-editor/compat-guard.js/filmstrip.js/
@@ -79,7 +93,7 @@ function _svgIcon(d) {
 
 const workflowVideoPreview = {
     _modalHandle: null,
-    _beforeCropSnapshot: null, // snapshot lúc bật Crop — khôi phục nếu bấm Huỷ (RIÊNG, không phải Undo/Redo — mục đó đã bỏ hẳn 05/08/2026)
+    _beforeToolSnapshot: null, // { snapshot, hadUnsaved } lúc mở Cắt/Cắt khung — Huỷ khôi phục (RIÊNG, không phải Undo/Redo — mục đó đã bỏ hẳn 05/08/2026)
     _resolveMetadataReady: null,
     _dragResumePlay: false, // SỬA (05/08/2026, mục 6) — nhớ lại video đang play hay pause TRƯỚC khi kéo tay cầm/tua, để nhả tay cầm KHÔNG tự auto-play nếu trước đó đang pause
 
@@ -107,7 +121,9 @@ const workflowVideoPreview = {
             appState.set('videoPreviewFilmstripFrames', []);
             appState.set('videoPreviewCropSession', null);
             appState.set('videoPreviewActiveDrag', null);
-            appState.set('videoPreviewCropVisible', false);
+            appState.set('videoPreviewActiveTool', 'none');
+            appState.set('videoPreviewMuted', false);
+            appState.set('videoPreviewRailExpanded', false);
             appState.set('videoPreviewZoomPanSession', null);
             appState.set('videoPreviewIsPlaying', false);
 
@@ -187,6 +203,7 @@ const workflowVideoPreview = {
         this._modalHandle.rangeBorderEl.style.right = `${rightPx}px`;
         this._modalHandle.startHandleEl.style.left = `${leftPx}px`;
         this._modalHandle.endHandleEl.style.left = `${trackWidth - rightPx}px`;
+        this._modalHandle.trimLengthLabelEl.textContent = _formatVideoPreviewTime(cutEnd - cutStart); // độ dài đoạn đang chọn (panel Cắt)
     },
 
     // ===================== Cut: tay cầm Start/End =====================
@@ -278,6 +295,14 @@ const workflowVideoPreview = {
         this._modalHandle.currentTimeLabelEl.textContent = _formatVideoPreviewTime(currentTime);
     },
 
+    /** Ứng với 'play'/'pause' của `<video>` — CHỈ vẽ biểu tượng Play giữa màn hình (class
+     * `is-playing` trên overlay), không đụng `videoPreviewIsPlaying` (cờ đó vẫn do các thao tác
+     * tự ghi như trước). @param {boolean} playing */
+    handleVideoPlayState(playing) {
+        if (!this._modalHandle) return;
+        this._modalHandle.overlayEl.classList.toggle('is-playing', playing);
+    },
+
     /** Tap màn hình — đảo phát/dừng (mục 1, phản hồi Giang). */
     handleMediaTapClick() {
         const videoEl = this._modalHandle.videoEl;
@@ -285,34 +310,70 @@ const workflowVideoPreview = {
         else { videoEl.pause(); appState.set('videoPreviewIsPlaying', false); }
     },
 
-    // ===================== Crop: toggle độc lập =====================
+    // ===================== Rail + công cụ (Cắt / Cắt khung) =====================
 
-    handleCropToggleClick() {
-        const visible = appState.get('videoPreviewCropVisible');
-        if (!visible) { this._enterCropVisible(); return; }
-        this._promptExitCropVisible();
+    /** Nút mũi tên cuối rail — hiện/ẩn nhãn chữ bên trái mỗi icon (kiểu Facebook). */
+    handleRailExpandClick() {
+        const expanded = !appState.get('videoPreviewRailExpanded');
+        appState.set('videoPreviewRailExpanded', expanded);
+        this._modalHandle.railEl.classList.toggle('is-expanded', expanded);
     },
 
-    _enterCropVisible() {
-        this._beforeCropSnapshot = this._buildSnapshot();
-        appState.set('videoPreviewCropVisible', true);
+    /** Mở 1 công cụ từ rail. Chỉ mở được khi đang ở trạng thái xem ('none') — rail bị ẩn khi đang
+     * dùng công cụ nên bình thường không bấm được, guard phòng hờ.
+     * @param {string} tool - 'trim' | 'crop' */
+    handleToolOpen(tool) {
+        if (appState.get('videoPreviewActiveTool') !== 'none') return;
+        this._beforeToolSnapshot = { snapshot: this._buildSnapshot(), hadUnsaved: appState.get('videoPreviewHasUnsavedChanges') };
         this._modalHandle.videoEl.pause();
         appState.set('videoPreviewIsPlaying', false);
-        this._modalHandle.cropLayerEl.classList.add('is-visible');
-        this._modalHandle.cropToggleBtn.classList.add('is-active');
-        this._modalHandle.toolsGroupEl.classList.add('is-hidden'); // hoán đổi trong CÙNG hàng toolbar (mục 4, phản hồi Giang)
-        this._modalHandle.ratioGroupEl.classList.add('is-visible');
-        this._syncCropCanvasBox();
-        this._drawCropOverlay();
-        this._renderRatioButtonsActiveState();
+        this._setActiveTool(tool);
+
+        if (tool === 'crop') {
+            this._syncCropCanvasBox();
+            this._drawCropOverlay();
+            this._renderRatioButtonsActiveState();
+        } else {
+            this._renderTrimPositions(); // dải phim vừa hiện — lúc trước ẩn nên bề rộng đo được = 0
+            this._renderPlayheadPosition(this._modalHandle.videoEl.currentTime);
+        }
+    },
+
+    /** Huỷ — khôi phục đúng trạng thái lúc mở công cụ, KỂ CẢ cờ chưa lưu. */
+    handleToolCancel() {
+        const before = this._beforeToolSnapshot;
+        if (before) {
+            this._applySnapshot(before.snapshot);
+            appState.set('videoPreviewHasUnsavedChanges', before.hadUnsaved);
+        }
+        this._beforeToolSnapshot = null;
+        this._setActiveTool('none');
+    },
+
+    /** Xong — giữ thay đổi. Cắt khung bật cờ chưa lưu như nút "Áp dụng" cũ (đổi tỉ lệ không qua
+     * pointerUp nên không tự bật cờ); Cắt đã tự bật cờ lúc nhả tay cầm (`handleTrimDragEnd()`). */
+    handleToolDone() {
+        if (appState.get('videoPreviewActiveTool') === 'crop') appState.set('videoPreviewHasUnsavedChanges', true);
+        this._beforeToolSnapshot = null;
+        this._setActiveTool('none');
+    },
+
+    /** Đổi trạng thái bố cục (CSS đọc `data-tool`) + tên công cụ trên topbar. Khung video đổi kích
+     * thước theo → tính lại transform xoay (hệ số scale 90°/270° phụ thuộc khung chứa).
+     * @param {string} tool - 'none' | 'trim' | 'crop' */
+    _setActiveTool(tool) {
+        appState.set('videoPreviewActiveTool', tool);
+        this._modalHandle.overlayEl.dataset.tool = tool;
+        if (tool !== 'none') this._modalHandle.toolTitleEl.textContent = t(`videoPreview.tool.${tool}.title`);
+        this._renderTransformPreview();
     },
 
     /** Chuỗi CSS transform xoay + lật ngang hiện tại + hệ số scale bù (90°/270°) — DÙNG CHUNG cho
      * `<video>` (`_renderTransformPreview()`) VÀ `cropCanvasEl` (`_syncCropCanvasBox()`) khi Crop
      * đang mở, để 2 phần tử biến đổi Y HỆT nhau quanh CÙNG 1 tâm (mục "xoay + crop", phản hồi Giang
-     * 05/08/2026, đợt 5). Rotate/Flip/Reset đều nằm trong `toolsGroupEl` — bị ẨN suốt lúc Crop đang
-     * mở (đổi chỗ cho `ratioGroupEl`, xem `_enterCropVisible()`), nên `videoPreviewRotateDeg`/
-     * `videoPreviewFlipH` LUÔN cố định suốt 1 phiên Crop, không cần tính lại giữa chừng khi đang kéo.
+     * 05/08/2026, đợt 5). Xoay/Đặt lại nằm trên rail — bị ẨN suốt lúc Cắt khung (26/09/2026), nên
+     * `videoPreviewRotateDeg` cố định suốt 1 phiên Crop. Lật THÌ CÓ trong panel Cắt khung —
+     * `handleFlipClick()` tự đồng bộ lại canvas khi đang Cắt khung.
      *
      * THỨ TỰ ghép chuỗi CỐ Ý: `rotate(deg) scale(fit) scaleX(-1)` — CSS áp phần tử BÊN PHẢI trước
      * (flip áp lên nội dung GỐC trước), rồi mới xoay cả kết quả đó — tức Flip định nghĩa theo hướng
@@ -371,28 +432,6 @@ const workflowVideoPreview = {
         canvas.style.transform = this._getRotateTransform().transform; // đồng bộ y hệt video đang xoay (nếu có)
     },
 
-    _promptExitCropVisible() {
-        modalChoice( // core/modal-choice-ui.js
-            t('videoPreview.cropExit.desc'),
-            [
-                { label: t('videoPreview.cropExit.discard'), onClick: () => this._exitCropVisible(false) },
-                { label: t('videoPreview.cropExit.apply'), onClick: () => this._exitCropVisible(true) },
-            ],
-            { title: t('videoPreview.cropExit.title') }
-        );
-    },
-
-    /** @param {boolean} apply */
-    _exitCropVisible(apply) {
-        if (apply) { appState.set('videoPreviewHasUnsavedChanges', true); } else { this._applySnapshot(this._beforeCropSnapshot); }
-        this._beforeCropSnapshot = null;
-        appState.set('videoPreviewCropVisible', false);
-        this._modalHandle.cropLayerEl.classList.remove('is-visible');
-        this._modalHandle.cropToggleBtn.classList.remove('is-active');
-        this._modalHandle.toolsGroupEl.classList.remove('is-hidden');
-        this._modalHandle.ratioGroupEl.classList.remove('is-visible');
-    },
-
     // ===================== Crop: tỉ lệ + kéo khung =====================
 
     /** @param {number} ratio */
@@ -412,8 +451,8 @@ const workflowVideoPreview = {
         this._renderFlipButtonState();
     },
 
-    /** Đồng bộ trạng thái "đang bật" (viền/nền sáng) cho CẢ 2 nút Flip — `toolsGroupEl.flipBtn` (hiện
-     * lúc thường) VÀ `ratioGroupEl.ratioFlipBtn` (hiện lúc đang Crop) — cùng phản ánh 1 state DUY
+    /** Đồng bộ trạng thái "đang bật" cho CẢ 2 nút Lật — `flipBtn` trên rail (trạng thái xem) VÀ
+     * `ratioFlipBtn` trong panel Cắt khung (26/09/2026; trước là toolsGroupEl/ratioGroupEl) — cùng phản ánh 1 state DUY
      * NHẤT `videoPreviewFlipH` (mục "flip lật cả ảnh/video", phản hồi Giang 05/08/2026, đợt 6 —
      * TRƯỚC ĐÓ `ratioFlipBtn` làm việc KHÁC hẳn — đảo tỉ lệ khung Crop (`applyFlip()`,
      * event/workflow/media-transform-helpers.js — giờ KHÔNG còn nơi nào gọi, RÁC, đề nghị Giang tự
@@ -513,21 +552,37 @@ const workflowVideoPreview = {
         appState.set('videoPreviewHasUnsavedChanges', true);
     },
 
-    /** Lật ngang (mục 4, phản hồi Giang — "không có nút lật trái phải trên toolbar", KHÁC nút Flip
-     * trong `ratioGroupEl` chỉ đảo CHIỀU khung Crop chứ không lật NỘI DUNG video). */
+    /** Lật ngang CẢ nội dung video (mục 4 + đợt 6, phản hồi Giang 05/08/2026) — bắn từ nút Lật trên
+     * rail HOẶC trong panel Cắt khung. */
     handleFlipClick() {
         appState.set('videoPreviewFlipH', !appState.get('videoPreviewFlipH'));
         this._renderTransformPreview();
+        if (appState.get('videoPreviewActiveTool') === 'crop') { this._syncCropCanvasBox(); this._drawCropOverlay(); } // canvas Crop lật theo video (26/09/2026)
         this._renderFlipButtonState();
         appState.set('videoPreviewHasUnsavedChanges', true);
     },
 
     /** Áp CSS xoay + lật LIVE lên `<video>` ngay trong modal (mục 3 cũ — trước đây bấm Xoay không
      * thấy gì đổi cho tới khi Lưu/mở lại). Dùng chung `_getRotateTransform()` với
-     * `_syncCropCanvasBox()` — CHỈ gọi được khi Crop đang ĐÓNG trên thực tế (nút Rotate/Flip nằm
-     * trong `toolsGroupEl`, bị ẩn suốt lúc Crop mở), nên không cần tự đồng bộ lại canvas ở đây. */
+     * `_syncCropCanvasBox()`. Canvas Crop (nếu đang Cắt khung) do nơi gọi tự đồng bộ — xem
+     * `handleFlipClick()`. */
     _renderTransformPreview() {
         this._modalHandle.videoEl.style.transform = this._getRotateTransform().transform;
+    },
+
+    /** Tắt/bật tiếng — áp NGAY lên preview (`videoEl.muted`) và bỏ track audio khi xuất
+     * (`muteAudio`, core/video-editor/webcodecs-engine.js). */
+    handleMuteClick() {
+        appState.set('videoPreviewMuted', !appState.get('videoPreviewMuted'));
+        this._renderMuteState();
+        appState.set('videoPreviewHasUnsavedChanges', true);
+    },
+
+    _renderMuteState() {
+        const muted = appState.get('videoPreviewMuted');
+        this._modalHandle.videoEl.muted = muted;
+        this._modalHandle.muteBtn.classList.toggle('is-muted', muted);
+        this._modalHandle.muteLabelEl.textContent = t(muted ? 'videoPreview.rail.unmute' : 'videoPreview.rail.mute');
     },
 
     /** Bấm Reset — PHẢI xác nhận trước khi chạy (mục 1, phản hồi Giang: "loại bỏ toàn bộ Undo/Redo,
@@ -550,10 +605,12 @@ const workflowVideoPreview = {
         cropSession.aspectRatio = NaN;
         appState.set('videoPreviewRotateDeg', 0);
         appState.set('videoPreviewFlipH', false);
+        appState.set('videoPreviewMuted', false);
         appState.set('videoPreviewCutStart', 0);
         appState.set('videoPreviewCutEnd', appState.get('videoPreviewSourceDuration'));
         const zoomPanSession = appState.get('videoPreviewZoomPanSession');
         resetPanzoomSession(zoomPanSession); // core/media-transform.js
+        this._renderMuteState();
         this._renderTransformPreview();
         this._drawCropOverlay();
         this._renderTrimPositions();
@@ -562,8 +619,8 @@ const workflowVideoPreview = {
     },
 
     /** @returns {object} snapshot — crop rect/tỉ lệ + rotate + flip + cut + zoom-pan hiện tại. DÙNG
-     * RIÊNG cho khôi phục lúc Huỷ Crop (`_beforeCropSnapshot`, xem `_enterCropVisible()`/
-     * `_exitCropVisible()`) — KHÔNG còn liên quan Undo/Redo (đã bỏ hẳn, mục 1 phản hồi Giang). */
+     * RIÊNG cho khôi phục lúc Huỷ công cụ (`_beforeToolSnapshot`, xem `handleToolOpen()`/
+     * `handleToolCancel()`) — KHÔNG còn liên quan Undo/Redo (đã bỏ hẳn, mục 1 phản hồi Giang). */
     _buildSnapshot() {
         const cropSession = appState.get('videoPreviewCropSession');
         const zoomPanSession = appState.get('videoPreviewZoomPanSession');
@@ -632,6 +689,7 @@ const workflowVideoPreview = {
             cropFraction: this._computeCropFraction(),
             rotateDeg: appState.get('videoPreviewRotateDeg'),
             flipH: appState.get('videoPreviewFlipH'), // mục 4, phản hồi Giang — core/video-editor/webcodecs-engine.js áp lúc XUẤT file
+            muteAudio: appState.get('videoPreviewMuted'), // 26/09/2026 — tắt tiếng: bỏ hẳn track audio ở file xuất
         };
     },
 
@@ -708,7 +766,10 @@ const workflowVideoPreview = {
         appState.set('videoPreviewCropSession', null);
         appState.set('videoPreviewActiveDrag', null);
         appState.set('videoPreviewFilmstripFrames', []);
-        appState.set('videoPreviewCropVisible', false);
+        appState.set('videoPreviewActiveTool', 'none');
+        appState.set('videoPreviewMuted', false);
+        appState.set('videoPreviewRailExpanded', false);
+        this._beforeToolSnapshot = null;
         appState.set('videoPreviewZoomPanSession', null);
         appState.set('videoPreviewIsPlaying', false);
     },
