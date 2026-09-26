@@ -180,14 +180,23 @@ const CLOCK_PITCH_RATE_OTHER = [0, 5, 20, 60];
 const CLOCK_PITCH_CHASE_MS = 180;   // hằng thời gian bám theo nốt mới
 const CLOCK_PITCH_RELEASE_MS = 600; // mất nốt -> chậm dần về đứng
 const CLOCK_JAM_IN_MS = 90, CLOCK_JAM_OUT_MS = 250;
+/** MỚI (26/09/2026, lượt 3, Giang "tích hợp bpm speed cho past và future") — tốc độ kim nhân thêm BPM / 120
+ * (bảng tốc độ ở trên là mốc 120 BPM), kẹp [0.4, 1.8]; chưa đo được BPM -> ×1. Hệ số làm mượt riêng để BPM
+ * nhảy giá trị không làm kim giật. */
+const CLOCK_BPM_REF = 120;
+const CLOCK_BPM_MUL_MIN = 0.4, CLOCK_BPM_MUL_MAX = 1.8;
+const CLOCK_BPM_SMOOTH_MS = 800;
 
 /** MỚI (26/09/2026, Giang) — kim chế độ 'past'/'future' chạy theo nốt: bậc < 4 chạy NGƯỢC, > 4 chạy THUẬN
  * (càng xa bậc 4 càng nhanh), bậc 4 = KẸT (kim đứng tại chỗ rung lắc, bánh răng khựng). Mức `level`
  * (= bậc - 4, -3..3) và độ kẹt `jam` (0-1) đều làm mượt (EMA theo dt thật) nên đổi chiều/tốc độ không giật.
  * Không có nốt / không phát -> chậm dần rồi đứng. `favorSign` -1 (past) | +1 (future). `startSec` = giờ ảo
- * khởi đầu khi `prev` null. Trả state MỚI {virtualSec, level, jam}. */
-function advanceClockPitchHands(prev, dtMs, isPlaying, midiNote, noteFresh, favorSign, startSec) {
-    const state = prev || { virtualSec: startSec, level: 0, jam: 0 };
+ * khởi đầu khi `prev` null. `bpm` (số, <= 0/NaN = chưa đo được) nhân tốc độ — xem CLOCK_BPM_REF. Trả state MỚI
+ * {virtualSec, level, jam, bpmMul}. */
+function advanceClockPitchHands(prev, dtMs, isPlaying, midiNote, noteFresh, favorSign, startSec, bpm) {
+    const state = prev || { virtualSec: startSec, level: 0, jam: 0, bpmMul: 1 };
+    const targetBpmMul = bpm > 0 ? Math.max(CLOCK_BPM_MUL_MIN, Math.min(CLOCK_BPM_MUL_MAX, bpm / CLOCK_BPM_REF)) : 1;
+    const bpmMul = state.bpmMul + (targetBpmMul - state.bpmMul) * (1 - Math.exp(-dtMs / CLOCK_BPM_SMOOTH_MS));
     const hasNote = isPlaying && noteFresh && midiNote !== null && midiNote !== undefined;
     const degree = hasNote ? CLOCK_DEGREE_OF_PC[((Math.round(midiNote) % 12) + 12) % 12] : 0;
     const targetLevel = hasNote ? degree - 4 : 0;
@@ -199,8 +208,8 @@ function advanceClockPitchHands(prev, dtMs, isPlaying, midiNote, noteFresh, favo
     const mag = Math.min(3, Math.abs(level));
     const table = Math.sign(level) === favorSign ? CLOCK_PITCH_RATE_FAVORED : CLOCK_PITCH_RATE_OTHER;
     const i0 = Math.floor(mag), i1 = Math.min(3, i0 + 1);
-    const rate = (table[i0] + (table[i1] - table[i0]) * (mag - i0)) * Math.sign(level);
-    return { virtualSec: state.virtualSec + rate * (dtMs / 1000), level, jam };
+    const rate = (table[i0] + (table[i1] - table[i0]) * (mag - i0)) * Math.sign(level) * bpmMul;
+    return { virtualSec: state.virtualSec + rate * (dtMs / 1000), level, jam, bpmMul };
 }
 
 /** Độ rung lắc lúc kẹt (rad) cho 3 kim + bánh răng — tổng 2 sin tần số lệch nhau (trông như giật cục), biên
