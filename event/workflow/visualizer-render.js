@@ -141,8 +141,11 @@ const CLOCK_SECOND_HAND_COLOR = '#e0283f';
 // SỬA (26/09/2026, lượt 2) — nguồn kim đang chạy (đổi nguồn -> reset state của nguồn), kim Past/Future theo
 // nốt (`_clockPitch`), thời gian bài làm mượt (`_clockMedia`), con lắc (`_clockPendulum`, giữ cả khi tắt để
 // chạy hiệu ứng thu dây). Glow = khối Blur Custom Effect (perf.blurMult) × CLOCK_GLOW_PX.
-let _clockHandsSource = '', _clockPitch = null, _clockMedia = null, _clockPendulum = null;
+let _clockPitch = null, _clockPendulum = null; // lượt 5 — bỏ _clockHandsSource/_clockMedia (chỉ còn Past & Future)
+// Lượt 4 — lật quanh trục (`_clockFlip`) + vòng quanh đồng hồ (`_clockRings`, lượt 5 = 6 vòng quỹ đạo), giữ cả khi tắt để chạy hiệu ứng ra/vào.
+let _clockFlip = null, _clockRings = null;
 const CLOCK_GLOW_PX = 14;
+const CLOCK_PENDULUM_GHOST_LAG = 0.09; // rad pha giữa 2 dây ma liên tiếp (bóng mờ dây con lắc, lượt 6)
 const CLOCK_PITCH_FRESH_MS = 300; // cùng ngưỡng "nốt đang phát" với circuit/brain/dot
 // MỚI (25/09/2026) — style bar 'mirror': vạch đỉnh (hold + rơi) giữ ở Workflow, core/visualizer/groups/bar/
 // mirror.js::stepBarMirrorPeaks() thuần trả state mới mỗi frame.
@@ -1162,8 +1165,14 @@ const workflowVisualizerRender = {
      * getComputedColor(), gọi RIÊNG LẺ từng hàm core/visualizer/groups/shape/clock.js.
      * SỬA (26/09/2026, lượt 2, Giang) — màu dùng đúng .fill/.glow (color mode trước đây không ăn), glow theo
      * khối Blur, kính phủ mặt số, toggle ẩn vỏ (`clockCaseVisible`), con lắc (`clockPendulum`), kim thêm nguồn
-     * 'past'/'future' chạy theo nốt. Mọi hàm vẽ core giờ vẽ quanh gốc = tâm mặt số: Workflow translate tới tâm
-     * (tâm dời lên khi có con lắc) + scale (thu nhỏ cả cụm khi màn không đủ cao). */
+     * 'pastFuture' chạy theo nốt. Mọi hàm vẽ core giờ vẽ quanh gốc = tâm mặt số: Workflow translate tới tâm
+     * (tâm dời lên khi có con lắc) + scale (thu nhỏ cả cụm khi màn không đủ cao).
+     * SỬA (lượt 4, Giang) — bánh răng rời nhau phủ kín mặt số, toggle ẩn kính (`clockGlassVisible`), lật quanh
+     * trục (`clockFlip`), vòng quét cỗ máy thời gian (`clockRingsVisible`) quay theo chiều kim của Hands show.
+     * SỬA (lượt 5, Giang) — bỏ nguồn kim realtime/track (chỉ còn Past & Future, không dropdown); vòng quét thay
+     * bằng 6 vòng quỹ đạo 3D: quay theo chiều kim, lật hướng kiểu Rubik theo bậc nốt (1-3 -> vòng 1-3, 5-7 -> 4-6).
+     * SỬA (lượt 6, Giang) — con lắc / vòng quỹ đạo thành 1 dropdown `clockAccessory` (không đồng thời); con lắc thêm
+     * bóng mờ dây (`clockPendulumTrail`) + chiều dài (`clockPendulumLength`, % tối đa vừa màn hình). */
     _tickClock(ctx, perf, isPlaying, dpr, smoothedEnergy, beatScale, vizDataArray, analyser) {
         const cfg = getActiveEffectConfig(); // core/custom-effect.js
         const W = canvas.width, H = canvas.height;
@@ -1181,35 +1190,36 @@ const workflowVisualizerRender = {
         const glowPx = CLOCK_GLOW_PX * dpr * perf.blurMult;
         const realtimeSec = () => { const d = new Date(); return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds() + d.getMilliseconds() / 1000; };
 
-        // ---- Nguồn giờ cho 3 kim: realtime (mặc định) | track (thời gian đã phát) | past/future (theo nốt) ----
-        const source = cfg.clockHandsSource || 'realtime';
-        if (source !== _clockHandsSource) { _clockHandsSource = source; _clockPitch = null; _clockMedia = null; }
-        let totalSec, gearDir = 1, jam = 0;
-        if (source === 'past' || source === 'future') {
-            const { lastValidMidiNote, lastValidNoteTime, currentCalculatedBpm } = appState.get(['lastValidMidiNote', 'lastValidNoteTime', 'currentCalculatedBpm']);
-            const bpm = parseFloat(currentCalculatedBpm) || 0; // '---' (chưa đo) -> 0 -> core dùng ×1
-            const noteFresh = lastValidMidiNote !== null && lastValidMidiNote !== undefined && (Date.now() - (lastValidNoteTime || 0)) < CLOCK_PITCH_FRESH_MS;
-            // Giờ ảo khởi đầu = giờ thật lúc vừa vào chế độ (chỉ dùng khi state null).
-            _clockPitch = advanceClockPitchHands(_clockPitch, dt, isPlaying, lastValidMidiNote, noteFresh, source === 'past' ? -1 : 1, _clockPitch ? 0 : realtimeSec(), bpm); // core — lượt 3: tốc độ × BPM
-            totalSec = _clockPitch.virtualSec;
-            gearDir = _clockPitch.level / 2; // bánh răng quay cùng chiều kim, bậc 1/7 = 1.5× tốc độ thường
-            jam = _clockPitch.jam;
-        } else if (source === 'track') {
-            const media = appState.get('isVideoPlayerMode') ? bgVideoElement : audioPlayer;
-            _clockMedia = smoothClockMediaTime(_clockMedia, Math.max(0, media.currentTime || 0), now, isPlaying, media.playbackRate); // core
-            totalSec = _clockMedia.t;
-        } else {
-            totalSec = realtimeSec();
-        }
+        // ---- Kim: CHỈ còn cơ chế Past & Future (lượt 5, Giang — bỏ realtime/track + dropdown). Kim chạy theo bậc
+        // nốt 1-7 (< 4 ngược, 4 kẹt, > 4 thuận) × BPM; giờ ảo khởi đầu = giờ thật lúc clock chạy frame đầu. ----
+        const { lastValidMidiNote, lastValidNoteTime, currentCalculatedBpm } = appState.get(['lastValidMidiNote', 'lastValidNoteTime', 'currentCalculatedBpm']);
+        const bpm = parseFloat(currentCalculatedBpm) || 0; // '---' (chưa đo) -> 0 -> core dùng ×1
+        const noteFresh = lastValidMidiNote !== null && lastValidMidiNote !== undefined && (Date.now() - (lastValidNoteTime || 0)) < CLOCK_PITCH_FRESH_MS;
+        _clockPitch = advanceClockPitchHands(_clockPitch, dt, isPlaying, lastValidMidiNote, noteFresh, _clockPitch ? 0 : realtimeSec(), bpm); // core
+        const totalSec = _clockPitch.virtualSec;
+        const handsDir = _clockPitch.level / 2; // bánh răng + vòng quỹ đạo cùng chiều kim, bậc 1/7 = 1.5×
+        const jam = _clockPitch.jam;
 
-        _clockDrive = advanceClockDrive(_clockDrive, dt, isPlaying, beatScale, smoothedEnergy, cfg.clockGearSpeedBase, cfg.clockGearSpeedEnergyMult, gearDir, jam); // core
+        _clockDrive = advanceClockDrive(_clockDrive, dt, isPlaying, beatScale, smoothedEnergy, cfg.clockGearSpeedBase, cfg.clockGearSpeedEnergyMult, handsDir, jam); // core
         const jitter = computeClockJamJitter(jam, now); // core
         const gearAngles = computeClockGearAngles(_clockLayout.gears, _clockDrive.masterAngle + jitter.gear); // core
         const levels = computeClockGearLevels(vizDataArray, _clockLayout, isPlaying); // core
         const gearCount = _clockLayout.gears.length;
 
-        _clockPendulum = advanceClockPendulum(_clockPendulum, dt, cfg.clockPendulum === true, isPlaying, smoothedEnergy, jam); // core
-        const pl = computeClockPendulumLayout(H, dialR, _clockPendulum.progress, caseVisible); // core
+        // ---- Vòng quét + lật + con lắc (state giữ cả khi tắt để chạy hiệu ứng ra/vào) ----
+        // Lượt 6 (Giang) — con lắc / vòng quỹ đạo chọn 1 bằng dropdown `clockAccessory`. Khi đổi, cái cũ thu hẳn
+        // về 0 rồi cái mới mới bắt đầu hiện -> không bao giờ cùng tồn tại, kể cả lúc chuyển.
+        const accessory = cfg.clockAccessory || 'rings';
+        const ringsOn = accessory === 'rings' && (!_clockPendulum || _clockPendulum.progress === 0);
+        const pendulumOn = accessory === 'pendulum' && (!_clockRings || _clockRings.reveal === 0);
+        _clockRings = advanceClockOrbitRings(_clockRings, dt, ringsOn, handsDir, isPlaying, smoothedEnergy, lastValidMidiNote, noteFresh); // core
+        _clockFlip = advanceClockFlip(_clockFlip, dt, cfg.clockFlip === true, isPlaying, smoothedEnergy); // core
+        _clockPendulum = advanceClockPendulum(_clockPendulum, dt, pendulumOn, isPlaying, smoothedEnergy, jam); // core
+        const ringE = _clockRings.reveal;
+        const caseR = dialR * (caseVisible ? 1.08 : 1.0);
+        const topExtR = caseR + (dialR * 1.42 - caseR) * ringE;
+        const baseScale = 1.18 / (1.18 + 0.24 * ringE); // co cụm lại chừa chỗ vòng quỹ đạo (mép ngoài ~1.42R)
+        const pl = computeClockPendulumLayout(H, dialR, _clockPendulum.progress, caseVisible, topExtR, baseScale, cfg.clockPendulumLength); // core
         const caseColor = getComputedColor(0, 1, 200); // core/audio-analysis.js
 
         ctx.save();
@@ -1217,9 +1227,19 @@ const workflowVisualizerRender = {
         ctx.scale(pl.scale, pl.scale);
 
         if (_clockPendulum.progress > 0) {
-            const pSwing = Math.sin(_clockPendulum.phase) * _clockPendulum.amp * pl.reveal;
-            paintClockPendulum(ctx, pl.pivotY, pl.length, pl.bobR, pSwing, pl.reveal, caseColor.fill, caseColor.glow, glowPx, dpr); // core
+            const swingAt = (ph) => Math.sin(ph) * _clockPendulum.amp * pl.reveal;
+            // Bóng mờ dây (lượt 6): 6 dây ma lùi pha dần, tắt toggle -> mảng rỗng.
+            const ghostSwings = cfg.clockPendulumTrail !== false ? [1, 2, 3, 4, 5, 6].map((g) => swingAt(_clockPendulum.phase - g * CLOCK_PENDULUM_GHOST_LAG)) : [];
+            paintClockPendulum(ctx, pl.pivotY, pl.length, pl.bobR, swingAt(_clockPendulum.phase), pl.reveal, caseColor.fill, caseColor.glow, glowPx, dpr, ghostSwings); // core
         }
+        // Vòng quỹ đạo — nửa SAU vẽ trước thân đồng hồ, nửa TRƯỚC vẽ sau cùng (xem cuối hàm).
+        const ringColors = ringE > 0 ? [0, 1, 2, 3, 4, 5].map((k) => getComputedColor(k, 6, 170 + 85 * (isPlaying ? smoothedEnergy : 0))) : null; // core/audio-analysis.js
+        if (ringE > 0) paintClockOrbitRings(ctx, dialR, _clockRings, false, ringColors, glowPx, jitter.gear * 3, dpr); // core
+
+        // Lật quanh trục của chính đồng hồ (chỉ thân đồng hồ — không lật con lắc/vòng quét): nén theo cos góc.
+        ctx.save();
+        const flipCos = Math.cos(_clockFlip.angle);
+        if (_clockFlip.axis === 0) ctx.scale(flipCos, 1); else ctx.scale(1, flipCos);
 
         _clockLayout.gears.forEach((g, i) => {
             const color = getComputedColor(i, gearCount + 1, levels[i]); // core/audio-analysis.js
@@ -1231,7 +1251,8 @@ const workflowVisualizerRender = {
         const balColor = getComputedColor(gearCount, gearCount + 1, levels[gearCount]); // core/audio-analysis.js
         paintClockBalance(ctx, _clockLayout.balance, escapeGear, swing, balColor.fill, balColor.glow, glowPx, balLevel, dpr); // core
 
-        paintClockGlass(ctx, dialR, caseColor.glow); // core — kính phủ kín bánh răng
+        const glassVisible = cfg.clockGlassVisible !== false; // lượt 4 — toggle ẩn kính
+        if (glassVisible) paintClockGlass(ctx, dialR, caseColor.glow); // core — kính phủ kín bánh răng
 
         // Lượt 3 (Giang) — toggle `clockTicksVisible` ẩn cả vòng 60 vạch đo giờ (bỏ luôn phần tính phổ).
         if (cfg.clockTicksVisible !== false) {
@@ -1245,7 +1266,9 @@ const workflowVisualizerRender = {
         const handAngles = computeClockHandAngles(totalSec); // core
         handAngles.hour += jitter.hour; handAngles.minute += jitter.minute; handAngles.second += jitter.second;
         paintClockHands(ctx, dialR, handAngles, caseColor.fill, caseColor.glow, CLOCK_SECOND_HAND_COLOR, glowPx, dpr); // core
-        paintClockGlassGlare(ctx, dialR, dpr); // core — vệt loá kính đè lên kim
+        if (glassVisible) paintClockGlassGlare(ctx, dialR, dpr); // core — vệt loá kính đè lên kim
+        ctx.restore();
+        if (ringE > 0) paintClockOrbitRings(ctx, dialR, _clockRings, true, ringColors, glowPx, jitter.gear * 3, dpr); // core — nửa trước
 
         ctx.restore();
         ctx.globalAlpha = 1;
