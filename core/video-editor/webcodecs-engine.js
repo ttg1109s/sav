@@ -80,19 +80,22 @@ async function _buildTrimmedAudioTrack(sourceBlob, cutStart, cutEnd, output) {
  * @param {{x,y,w,h}|null} params.cropFraction - tỉ lệ 0-1, null = không crop.
  * @param {number} params.rotateDeg - 0/90/180/270.
  * @param {boolean} params.flipH - lật ngang (mục 4, phản hồi Giang 05/08/2026).
+ * @param {boolean} [params.muteAudio] - MỚI (26/09/2026, nút Tắt tiếng trên rail) — true = file xuất
+ *   KHÔNG có track audio (bỏ hẳn, không decode audio gốc).
  * @returns {Promise<Blob>} video mp4 đã xử lý.
  */
-async function processVideo({ sourceBlob, cutStart, cutEnd, cropFraction, rotateDeg, flipH }) {
+async function processVideo({ sourceBlob, cutStart, cutEnd, cropFraction, rotateDeg, flipH, muteAudio }) {
     const noCrop = !cropFraction;
     const noRotate = !rotateDeg || rotateDeg % 360 === 0;
     const noFlip = !flipH;
+    const noMute = !muteAudio;
 
     const input = new Mediabunny.Input({ source: new Mediabunny.BlobSource(sourceBlob), formats: Mediabunny.ALL_FORMATS });
     const videoTrack = await input.getPrimaryVideoTrack();
     if (!videoTrack) throw new Error('[processVideo] file không có track video.');
     const fullSourceDuration = await videoTrack.computeDuration();
     const isFullRange = cutStart <= 0.001 && Math.abs(cutEnd - fullSourceDuration) <= 0.001;
-    if (noCrop && noRotate && noFlip && isFullRange) return sourceBlob; // guard clause — không có gì để xử lý
+    if (noCrop && noRotate && noFlip && noMute && isFullRange) return sourceBlob; // guard clause — không có gì để xử lý
 
     const nativeW = await videoTrack.getDisplayWidth();
     const nativeH = await videoTrack.getDisplayHeight();
@@ -113,7 +116,7 @@ async function processVideo({ sourceBlob, cutStart, cutEnd, cropFraction, rotate
     const videoSource = new Mediabunny.CanvasSource(canvas, { codec: 'avc', bitrate: Mediabunny.QUALITY_HIGH });
     output.addVideoTrack(videoSource);
     const audioTrack = await input.getPrimaryAudioTrack();
-    if (audioTrack) await _buildTrimmedAudioTrack(sourceBlob, cutStart, cutEnd, output); // addAudioTrack() PHẢI xong TRƯỚC output.start()
+    if (audioTrack && noMute) await _buildTrimmedAudioTrack(sourceBlob, cutStart, cutEnd, output); // addAudioTrack() PHẢI xong TRƯỚC output.start(); Tắt tiếng -> bỏ hẳn track audio
 
     await output.start();
     const sink = new Mediabunny.VideoSampleSink(videoTrack);
