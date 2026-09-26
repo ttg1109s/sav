@@ -111,7 +111,14 @@
                 // (toggle ẩn vỏ), clockPendulum (toggle con lắc). Blur: CHỈ style clock đọc (rubik glow cố định) —
                 // xem CUSTOM_EFFECT_BLUR_STYLES (core/custom-effect.js); lưu riêng theo style như khối màu.
                 clockSizeRatio: 0.8, clockGearSpeedBase: 0.4, clockGearSpeedEnergyMult: 2.5, clockTickGain: 1.2,
-                clockHandsSource: 'realtime', clockCaseVisible: true, clockTicksVisible: true, clockPendulum: false, // clockTicksVisible: lượt 3
+                // Lượt 5 (Giang): BỎ clockHandsSource — kim chỉ còn cơ chế Past & Future (không dropdown).
+                clockCaseVisible: true, clockTicksVisible: true, // clockTicksVisible: lượt 3
+                // Lượt 4 (Giang): thêm toggle kính, lật, vòng quanh đồng hồ (lượt 5: 6 vòng quỹ đạo).
+                clockGlassVisible: true, clockFlip: false,
+                // Lượt 6 (Giang): con lắc + vòng quỹ đạo KHÔNG tồn tại đồng thời -> 1 dropdown clockAccessory
+                // ('none' | 'pendulum' | 'rings', thay 2 toggle clockPendulum/clockRingsVisible). Con lắc thêm
+                // clockPendulumTrail (bóng mờ của dây) + clockPendulumLength (% chiều dài tối đa vừa màn hình, 20-100).
+                clockAccessory: 'rings', clockPendulumTrail: true, clockPendulumLength: 70,
                 blurEnabled: true, blurIntensity: 60,
             },
             vortex: {
@@ -882,6 +889,15 @@
                     if (!savedRain || savedRain.flashEnabled == null) next.rain.flashEnabled = !!next.rain.glassFlash;
                     delete next.rain.glassFlash;
                 }
+                // MIGRATE 26/09/2026 (clock lượt 6) — 2 toggle clockPendulum/clockRingsVisible -> dropdown
+                // clockAccessory (chỉ khi save cũ chưa có clockAccessory; con lắc bật thì ưu tiên con lắc).
+                const savedShape = cfg.customEffect && cfg.customEffect.shape;
+                if (next.shape && savedShape && savedShape.clockAccessory == null && (savedShape.clockPendulum != null || savedShape.clockRingsVisible != null)) {
+                    next.shape.clockAccessory = savedShape.clockPendulum === true ? 'pendulum' : savedShape.clockRingsVisible === false ? 'none' : 'rings';
+                }
+                if (next.shape) { delete next.shape.clockPendulum; delete next.shape.clockRingsVisible; }
+                // MIGRATE 26/09/2026 (clock lượt 5) — bỏ hẳn lựa chọn nguồn kim (chỉ còn Past & Future) -> xoá khoá thừa.
+                if (next.shape) delete next.shape.clockHandsSource;
                 cfg.customEffect = next;
                 delete cfg.mode; delete cfg.solidColor; delete cfg.dynA; delete cfg.dynB; delete cfg.blurEnabled;
                 delete cfg.barStyle; delete cfg.vortexStyle; delete cfg.rainStyle; delete cfg.glassFlash;

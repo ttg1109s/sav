@@ -208,18 +208,22 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'pitchSensitivity', labelKey: 'customEffectDrawer.field.pitchSensitivity', type: 'sliderFloat', min: 0, max: 2, step: 0.1, decimals: 1, card: 'reaction', showIf: (cfg) => cfg.shapeStyle !== 'clock' },
         { id: 'rotationEnergyThreshold', labelKey: 'customEffectDrawer.field.rotationEnergyThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, card: 'reaction', showIf: (cfg) => cfg.shapeStyle !== 'clock' },
         // MỚI (26/09/2026, Giang) — style 'clock' (core/visualizer/groups/shape/clock.js).
-        { id: 'clockHandsSource', labelKey: 'customEffectDrawer.field.clockHandsSource', type: 'select', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock', options: [
-            { value: 'realtime', labelKey: 'customEffectDrawer.clockHandsSource.realtime' },
-            { value: 'track', labelKey: 'customEffectDrawer.clockHandsSource.track' },
-            // MỚI (26/09/2026, lượt 2) — kim chạy theo nốt: bậc < 4 ngược, > 4 thuận, 4 = kẹt. Past ưu tiên lùi
-            // nhanh, Future ưu tiên tiến nhanh (advanceClockPitchHands(), core/visualizer/groups/shape/clock.js).
-            { value: 'past', labelKey: 'customEffectDrawer.clockHandsSource.past' },
-            { value: 'future', labelKey: 'customEffectDrawer.clockHandsSource.future' },
-        ] },
+        // Lượt 5 (Giang) — BỎ dropdown 'clockHandsSource': kim chỉ còn cơ chế Past & Future (theo bậc nốt × BPM).
         // SỬA (26/09/2026, lượt 2, Giang) — bỏ toggle clockSecondTick (kim giây luôn chạy trơn); thêm toggle vỏ + con lắc.
         { id: 'clockCaseVisible', labelKey: 'customEffectDrawer.field.clockCaseVisible', type: 'toggle', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' },
         { id: 'clockTicksVisible', labelKey: 'customEffectDrawer.field.clockTicksVisible', type: 'toggle', card: 'element', rerender: true, showIf: (cfg) => cfg.shapeStyle === 'clock' }, // lượt 3 — ẩn vạch đo giờ
-        { id: 'clockPendulum', labelKey: 'customEffectDrawer.field.clockPendulum', type: 'toggle', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' },
+        // Lượt 4 (Giang) — ẩn kính, lật quanh trục, vòng quanh đồng hồ (lượt 5: 6 vòng quỹ đạo lật hướng theo nốt).
+        { id: 'clockGlassVisible', labelKey: 'customEffectDrawer.field.clockGlassVisible', type: 'toggle', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' },
+        { id: 'clockFlip', labelKey: 'customEffectDrawer.field.clockFlip', type: 'toggle', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' },
+        // Lượt 6 (Giang) — con lắc / vòng quỹ đạo chọn 1 trong 2 bằng dropdown (thay 2 toggle); con lắc thêm toggle
+        // bóng mờ dây + slider chiều dài (% của chiều dài tối đa vừa màn hình — core computeClockPendulumLayout()).
+        { id: 'clockPendulumTrail', labelKey: 'customEffectDrawer.field.clockPendulumTrail', type: 'toggle', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'pendulum' },
+        { id: 'clockAccessory', labelKey: 'customEffectDrawer.field.clockAccessory', type: 'select', card: 'element', rerender: true, showIf: (cfg) => cfg.shapeStyle === 'clock', options: [
+            { value: 'none', labelKey: 'customEffectDrawer.clockAccessory.none' },
+            { value: 'pendulum', labelKey: 'customEffectDrawer.clockAccessory.pendulum' },
+            { value: 'rings', labelKey: 'customEffectDrawer.clockAccessory.rings' },
+        ] },
+        { id: 'clockPendulumLength', labelKey: 'customEffectDrawer.field.clockPendulumLength', type: 'slider', min: 20, max: 100, step: 5, card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'pendulum' },
         { id: 'clockSizeRatio', labelKey: 'customEffectDrawer.field.clockSizeRatio', type: 'sliderFloat', min: 0.5, max: 0.95, step: 0.05, decimals: 2, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' },
         { id: 'clockGearSpeedBase', labelKey: 'customEffectDrawer.field.clockGearSpeedBase', type: 'sliderFloat', min: 0, max: 2, step: 0.1, decimals: 1, card: 'motion', showIf: (cfg) => cfg.shapeStyle === 'clock' },
         { id: 'clockGearSpeedEnergyMult', labelKey: 'customEffectDrawer.field.clockGearSpeedEnergyMult', type: 'sliderFloat', min: 0, max: 6, step: 0.1, decimals: 1, card: 'motion', showIf: (cfg) => cfg.shapeStyle === 'clock' },
