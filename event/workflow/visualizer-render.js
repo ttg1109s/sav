@@ -1186,10 +1186,11 @@ const workflowVisualizerRender = {
         if (source !== _clockHandsSource) { _clockHandsSource = source; _clockPitch = null; _clockMedia = null; }
         let totalSec, gearDir = 1, jam = 0;
         if (source === 'past' || source === 'future') {
-            const { lastValidMidiNote, lastValidNoteTime } = appState.get(['lastValidMidiNote', 'lastValidNoteTime']);
+            const { lastValidMidiNote, lastValidNoteTime, currentCalculatedBpm } = appState.get(['lastValidMidiNote', 'lastValidNoteTime', 'currentCalculatedBpm']);
+            const bpm = parseFloat(currentCalculatedBpm) || 0; // '---' (chưa đo) -> 0 -> core dùng ×1
             const noteFresh = lastValidMidiNote !== null && lastValidMidiNote !== undefined && (Date.now() - (lastValidNoteTime || 0)) < CLOCK_PITCH_FRESH_MS;
             // Giờ ảo khởi đầu = giờ thật lúc vừa vào chế độ (chỉ dùng khi state null).
-            _clockPitch = advanceClockPitchHands(_clockPitch, dt, isPlaying, lastValidMidiNote, noteFresh, source === 'past' ? -1 : 1, _clockPitch ? 0 : realtimeSec()); // core
+            _clockPitch = advanceClockPitchHands(_clockPitch, dt, isPlaying, lastValidMidiNote, noteFresh, source === 'past' ? -1 : 1, _clockPitch ? 0 : realtimeSec(), bpm); // core — lượt 3: tốc độ × BPM
             totalSec = _clockPitch.virtualSec;
             gearDir = _clockPitch.level / 2; // bánh răng quay cùng chiều kim, bậc 1/7 = 1.5× tốc độ thường
             jam = _clockPitch.jam;
@@ -1232,9 +1233,12 @@ const workflowVisualizerRender = {
 
         paintClockGlass(ctx, dialR, caseColor.glow); // core — kính phủ kín bánh răng
 
-        const tickLevels = computeClockSpectrumTicks(vizDataArray, analyser.frequencyBinCount, isPlaying, cfg.clockTickGain); // core
-        const tickColors = Array.from(tickLevels, (v, i) => getComputedColor(i, 60, v * 255)); // core/audio-analysis.js
-        paintClockTicks(ctx, dialR, tickLevels, tickColors, glowPx * 0.6, dpr); // core
+        // Lượt 3 (Giang) — toggle `clockTicksVisible` ẩn cả vòng 60 vạch đo giờ (bỏ luôn phần tính phổ).
+        if (cfg.clockTicksVisible !== false) {
+            const tickLevels = computeClockSpectrumTicks(vizDataArray, analyser.frequencyBinCount, isPlaying, cfg.clockTickGain); // core
+            const tickColors = Array.from(tickLevels, (v, i) => getComputedColor(i, 60, v * 255)); // core/audio-analysis.js
+            paintClockTicks(ctx, dialR, tickLevels, tickColors, glowPx * 0.6, dpr); // core
+        }
 
         if (caseVisible) paintClockCase(ctx, dialR, caseColor.fill, caseColor.glow, glowPx, isPlaying ? beatScale : 0, dpr); // core
 
