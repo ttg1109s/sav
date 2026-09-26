@@ -236,7 +236,11 @@ function renderCustomEffectBody(type, cfg) {
     const fields = CUSTOM_EFFECT_FIELDS[type] || []; // core/custom-effect.js
     const isFireworks = type === 'lighting' && cfg.lightingStyle === 'fireworks';
     const isStreet = type === 'rain' && cfg.rainStyle === 'street';
-    const showBlur = !CUSTOM_EFFECT_NO_BLUR.includes(type); // core/custom-effect.js
+    // SỬA (26/09/2026) — group trong CUSTOM_EFFECT_NO_BLUR vẫn hiện khối Blur nếu style đang chọn nằm trong
+    // CUSTOM_EFFECT_BLUR_STYLES (vd shape/clock). Chỉ tra bảng, không gọi hàm core khác.
+    const styleDef = CUSTOM_EFFECT_STYLE[type]; // core/custom-effect.js
+    const blurStyles = CUSTOM_EFFECT_BLUR_STYLES[type] || []; // core/custom-effect.js
+    const showBlur = !CUSTOM_EFFECT_NO_BLUR.includes(type) || (!!styleDef && blurStyles.includes(cfg[styleDef.field])); // core/custom-effect.js
     const sections = [_renderCeColorSection(cfg)];
     CUSTOM_EFFECT_CARD_ORDER.forEach((cardKey) => { // core/custom-effect.js
         if (cardKey === 'glow' && showBlur) sections.push(_renderCeBlurSection(cfg));
