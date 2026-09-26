@@ -13,6 +13,9 @@ const routerAutoSwitchVisual = (() => {
             case 'autoSwitchVisual.enable.change':
                 workflowAutoSwitchVisual.setEnabled(msg.payload.checked);
                 break;
+            case 'autoSwitchVisual.openList.click': // MỚI 26/09/2026 — sub panel "Effect list"
+                workflowAutoSwitchVisual.openListPanel();
+                break;
             case 'autoSwitchVisual.listBy.change':
                 workflowAutoSwitchVisual.setListBy(msg.payload.value);
                 break;
