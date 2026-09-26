@@ -129,10 +129,17 @@ const workflowAutoSwitchVisual = {
         });
     },
 
-    /** Vẽ lại panel Auto-Switch nếu đang mở (giữ vị trí cuộn — cùng scrollKey độ sâu, event/workflow/app-settings.js). */
+    /** Mở sub panel "Effect list" (danh sách group/style) — đẩy panel chính vào ngăn xếp để Back quay lại. */
+    openListPanel() {
+        workflowAppSettings.navigateTo(() => workflowAppSettings._renderAutoSwitchList()); // event/workflow/app-settings.js
+    },
+
+    /** Vẽ lại ĐÚNG màn Auto-Switch đang mở — sub panel danh sách hoặc panel chính (giữ vị trí cuộn — cùng scrollKey
+     * độ sâu, event/workflow/app-settings.js). Quay lại panel chính từ sub panel tự vẽ lại (số mục tick mới). */
     _rerenderPanel() {
-        if (!genericDrawerBody || !genericDrawerBody.querySelector('#setting-auto-switch-enable')) return;
-        workflowAppSettings._renderAutoSwitch(); // event/workflow/app-settings.js
+        if (!genericDrawerBody) return;
+        if (genericDrawerBody.querySelector('#auto-switch-item-list')) workflowAppSettings._renderAutoSwitchList();
+        else if (genericDrawerBody.querySelector('#setting-auto-switch-enable')) workflowAppSettings._renderAutoSwitch();
     },
 
     // ===================== Điều phối =====================

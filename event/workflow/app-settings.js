@@ -908,6 +908,14 @@ const workflowAppSettings = {
         });
     },
 
+    /** Sub panel "Effect list" của Auto-Switch (MỚI 26/09/2026 — tách danh sách group/style khỏi panel chính cho gọn). */
+    _renderAutoSwitchList() {
+        this._currentRenderFn = () => this._renderAutoSwitchList();
+        this._render(t('visualizerSettingsDrawer.autoSwitchList.label'), renderVisualizerAutoSwitchListBody(workflowAutoSwitchVisual.buildPanelModel()), () => { // components/settings/visualizer-auto-switch-drawer.js
+            workflowVisualizerDisplay.openAutoSwitchPanel(); // event/workflow/visualizer-display.js — gắn kéo thả
+        });
+    },
+
     _renderAutoSwitch() {
         this._currentRenderFn = () => this._renderAutoSwitch();
         this._render(t('visualizerAutoSwitchDrawer.title'), renderVisualizerAutoSwitchPanelBody(workflowAutoSwitchVisual.buildPanelModel()), () => { // SỬA 26/09/2026 — body vẽ từ model (event/workflow/auto-switch-visual.js)
