@@ -106,9 +106,13 @@
                 cubeSizeRatio: 0.08, pitchSensitivity: 0.9, rotationEnergyThreshold: 0.35, layerTurnSpeed: 0.08,
                 // MỚI (26/09/2026, Giang) — style 'clock' (core/visualizer/groups/shape/clock.js): kích thước (tỉ lệ
                 // cạnh ngắn), tốc độ bánh răng (rad/s: nền + theo năng lượng), độ nhạy vòng vạch phổ, nguồn giờ
-                // của kim ('realtime' | 'track'), kim giây nhảy nấc.
+                // của kim ('realtime' | 'track' | 'past' | 'future' — 2 cái sau chạy theo nốt, thêm 26/09/2026 lượt 2).
+                // SỬA (26/09/2026, lượt 2, Giang) — bỏ clockSecondTick (kim giây luôn chạy trơn); thêm clockCaseVisible
+                // (toggle ẩn vỏ), clockPendulum (toggle con lắc). Blur: CHỈ style clock đọc (rubik glow cố định) —
+                // xem CUSTOM_EFFECT_BLUR_STYLES (core/custom-effect.js); lưu riêng theo style như khối màu.
                 clockSizeRatio: 0.8, clockGearSpeedBase: 0.4, clockGearSpeedEnergyMult: 2.5, clockTickGain: 1.2,
-                clockHandsSource: 'realtime', clockSecondTick: true,
+                clockHandsSource: 'realtime', clockCaseVisible: true, clockPendulum: false,
+                blurEnabled: true, blurIntensity: 60,
             },
             vortex: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',

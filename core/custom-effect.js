@@ -79,6 +79,10 @@ const CUSTOM_EFFECT_FIELD_TYPE_ORDER = { toggle: 0, select: 1, input: 2, slider:
 // dưới), không phải shadowBlur canvas 2D — không dùng khối blur chung nên cũng nằm trong danh
 // sách này (getConnectorGlowMult() là hàm đọc RIÊNG, xem cuối file).
 const CUSTOM_EFFECT_NO_BLUR = ['vortex', 'rain', 'shape', 'connector'];
+/** MỚI (26/09/2026, Giang báo clock "chưa áp dụng blur/glow") — ngoại lệ THEO STYLE của CUSTOM_EFFECT_NO_BLUR:
+ * group nằm trong danh sách trên nhưng style con dưới đây CÓ đọc khối Blur chung (shadowBlur canvas 2D) ->
+ * Drawer vẫn hiện khối Blur khi đang ở style đó. Shape: 'clock' dùng, 'rubik' vẫn glow cố định. */
+const CUSTOM_EFFECT_BLUR_STYLES = { shape: ['clock'] };
 
 /** Style con của effect (nếu có) — field trong customEffect[group] + danh sách option. TRƯỚC ĐÂY
  * dùng để dựng dropdown ĐẦU TIÊN trong Custom Effect Drawer — dropdown đó ĐÃ BỎ (xem docstring đầu
@@ -207,9 +211,15 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'clockHandsSource', labelKey: 'customEffectDrawer.field.clockHandsSource', type: 'select', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock', options: [
             { value: 'realtime', labelKey: 'customEffectDrawer.clockHandsSource.realtime' },
             { value: 'track', labelKey: 'customEffectDrawer.clockHandsSource.track' },
+            // MỚI (26/09/2026, lượt 2) — kim chạy theo nốt: bậc < 4 ngược, > 4 thuận, 4 = kẹt. Past ưu tiên lùi
+            // nhanh, Future ưu tiên tiến nhanh (advanceClockPitchHands(), core/visualizer/groups/shape/clock.js).
+            { value: 'past', labelKey: 'customEffectDrawer.clockHandsSource.past' },
+            { value: 'future', labelKey: 'customEffectDrawer.clockHandsSource.future' },
         ] },
+        // SỬA (26/09/2026, lượt 2, Giang) — bỏ toggle clockSecondTick (kim giây luôn chạy trơn); thêm toggle vỏ + con lắc.
+        { id: 'clockCaseVisible', labelKey: 'customEffectDrawer.field.clockCaseVisible', type: 'toggle', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' },
+        { id: 'clockPendulum', labelKey: 'customEffectDrawer.field.clockPendulum', type: 'toggle', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' },
         { id: 'clockSizeRatio', labelKey: 'customEffectDrawer.field.clockSizeRatio', type: 'sliderFloat', min: 0.5, max: 0.95, step: 0.05, decimals: 2, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' },
-        { id: 'clockSecondTick', labelKey: 'customEffectDrawer.field.clockSecondTick', type: 'toggle', card: 'motion', showIf: (cfg) => cfg.shapeStyle === 'clock' },
         { id: 'clockGearSpeedBase', labelKey: 'customEffectDrawer.field.clockGearSpeedBase', type: 'sliderFloat', min: 0, max: 2, step: 0.1, decimals: 1, card: 'motion', showIf: (cfg) => cfg.shapeStyle === 'clock' },
         { id: 'clockGearSpeedEnergyMult', labelKey: 'customEffectDrawer.field.clockGearSpeedEnergyMult', type: 'sliderFloat', min: 0, max: 6, step: 0.1, decimals: 1, card: 'motion', showIf: (cfg) => cfg.shapeStyle === 'clock' },
         { id: 'clockTickGain', labelKey: 'customEffectDrawer.field.clockTickGain', type: 'sliderFloat', min: 0.5, max: 2.5, step: 0.1, decimals: 1, card: 'reaction', showIf: (cfg) => cfg.shapeStyle === 'clock' },
@@ -346,7 +356,7 @@ const CUSTOM_EFFECT_PER_STYLE_FIELDS = {
     lighting: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_BLUR_FIELDS, ...CUSTOM_EFFECT_FLASH_FIELDS.map((f) => f.id)],
     rain: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_FLASH_FIELDS.map((f) => f.id)],
     vortex: [...CUSTOM_EFFECT_COLOR_FIELDS, 'warpSpeedBase', 'warpSpeedEnergyMult', 'redirectEnabled', 'sectionWindowBeats', 'fluxThreshold'],
-    shape: [...CUSTOM_EFFECT_COLOR_FIELDS], // MỚI 26/09/2026 — rubik/clock mỗi style giữ màu riêng
+    shape: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_BLUR_FIELDS], // MỚI 26/09/2026 — rubik/clock mỗi style giữ màu riêng; blur (lượt 2) chỉ clock đọc
     connector: [...CUSTOM_EFFECT_COLOR_FIELDS, 'glowEnabled', 'glowIntensity', 'fireThreshold', 'lateralInhibitStrength', 'sectionWindowBeats', 'fluxThreshold'],
 };
 
