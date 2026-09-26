@@ -9,6 +9,7 @@ const routerVideoPreview = (() => {
             case 'videoPreview.close.click': { workflowVideoPreview.handleClose(); break; }
 
             case 'videoPreview.video.timeUpdate': { workflowVideoPreview.handleVideoTimeUpdate(msg.payload.currentTime); break; }
+            case 'videoPreview.video.playState': { workflowVideoPreview.handleVideoPlayState(msg.payload.playing); break; }
             case 'videoPreview.mediaTap.click': { workflowVideoPreview.handleMediaTapClick(); break; }
 
             case 'videoPreview.trimDrag.start': { workflowVideoPreview.handleTrimDragStart(msg.payload.handle); break; }
@@ -16,7 +17,13 @@ const routerVideoPreview = (() => {
             case 'videoPreview.trimDrag.end': { workflowVideoPreview.handleTrimDragEnd(); break; }
             case 'videoPreview.trimTrack.pointerDown': { workflowVideoPreview.handleTrimTrackPointerDown(msg.payload.clientX); break; }
 
-            case 'videoPreview.cropToggle.click': { workflowVideoPreview.handleCropToggleClick(); break; }
+            // MỚI (26/09/2026, khung UI kiểu Story) — rail dọc + công cụ Cắt/Cắt khung (thay 'cropToggle.click')
+            case 'videoPreview.railExpand.click': { workflowVideoPreview.handleRailExpandClick(); break; }
+            case 'videoPreview.tool.open': { workflowVideoPreview.handleToolOpen(msg.payload.tool); break; }
+            case 'videoPreview.tool.cancel': { workflowVideoPreview.handleToolCancel(); break; }
+            case 'videoPreview.tool.done': { workflowVideoPreview.handleToolDone(); break; }
+            case 'videoPreview.mute.click': { workflowVideoPreview.handleMuteClick(); break; }
+
             case 'videoPreview.cropRatio.select': { workflowVideoPreview.handleCropRatioSelect(msg.payload.ratio); break; }
             case 'videoPreview.cropCanvas.pointerDown': { workflowVideoPreview.handleCropCanvasPointerDown(msg.payload.clientX, msg.payload.clientY); break; }
             case 'videoPreview.cropCanvas.pointerMove': { workflowVideoPreview.handleCropCanvasPointerMove(msg.payload.clientX, msg.payload.clientY); break; }
