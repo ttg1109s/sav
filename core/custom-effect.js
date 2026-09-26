@@ -218,11 +218,12 @@ const CUSTOM_EFFECT_FIELDS = {
         ] },
         // SỬA (26/09/2026, lượt 2, Giang) — bỏ toggle clockSecondTick (kim giây luôn chạy trơn); thêm toggle vỏ + con lắc.
         { id: 'clockCaseVisible', labelKey: 'customEffectDrawer.field.clockCaseVisible', type: 'toggle', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' },
+        { id: 'clockTicksVisible', labelKey: 'customEffectDrawer.field.clockTicksVisible', type: 'toggle', card: 'element', rerender: true, showIf: (cfg) => cfg.shapeStyle === 'clock' }, // lượt 3 — ẩn vạch đo giờ
         { id: 'clockPendulum', labelKey: 'customEffectDrawer.field.clockPendulum', type: 'toggle', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' },
         { id: 'clockSizeRatio', labelKey: 'customEffectDrawer.field.clockSizeRatio', type: 'sliderFloat', min: 0.5, max: 0.95, step: 0.05, decimals: 2, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' },
         { id: 'clockGearSpeedBase', labelKey: 'customEffectDrawer.field.clockGearSpeedBase', type: 'sliderFloat', min: 0, max: 2, step: 0.1, decimals: 1, card: 'motion', showIf: (cfg) => cfg.shapeStyle === 'clock' },
         { id: 'clockGearSpeedEnergyMult', labelKey: 'customEffectDrawer.field.clockGearSpeedEnergyMult', type: 'sliderFloat', min: 0, max: 6, step: 0.1, decimals: 1, card: 'motion', showIf: (cfg) => cfg.shapeStyle === 'clock' },
-        { id: 'clockTickGain', labelKey: 'customEffectDrawer.field.clockTickGain', type: 'sliderFloat', min: 0.5, max: 2.5, step: 0.1, decimals: 1, card: 'reaction', showIf: (cfg) => cfg.shapeStyle === 'clock' },
+        { id: 'clockTickGain', labelKey: 'customEffectDrawer.field.clockTickGain', type: 'sliderFloat', min: 0.5, max: 2.5, step: 0.1, decimals: 1, card: 'reaction', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockTicksVisible !== false },
     ],
     vortex: [
         // ── music ── SỬA (25/09/2026, rà soát) — toggle `rerender`, 2 tham số ẩn khi tắt Redirect.

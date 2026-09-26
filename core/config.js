@@ -111,7 +111,7 @@
                 // (toggle ẩn vỏ), clockPendulum (toggle con lắc). Blur: CHỈ style clock đọc (rubik glow cố định) —
                 // xem CUSTOM_EFFECT_BLUR_STYLES (core/custom-effect.js); lưu riêng theo style như khối màu.
                 clockSizeRatio: 0.8, clockGearSpeedBase: 0.4, clockGearSpeedEnergyMult: 2.5, clockTickGain: 1.2,
-                clockHandsSource: 'realtime', clockCaseVisible: true, clockPendulum: false,
+                clockHandsSource: 'realtime', clockCaseVisible: true, clockTicksVisible: true, clockPendulum: false, // clockTicksVisible: lượt 3
                 blurEnabled: true, blurIntensity: 60,
             },
             vortex: {
