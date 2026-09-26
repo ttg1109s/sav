@@ -1,71 +1,241 @@
 /* video-preview.css — modal xem/sửa Video (core/file-manager/video-ui.js, components/
-   video-preview.js). Header/filmstrip là hàng flex thật trong overlay (class Tailwind trong
-   template), video co lại đúng phần còn lại (#video-preview-media-wrap: flex-1 min-h-0 relative) —
-   3 vùng không đè lên nhau. */
+   video-preview.js).
+   VIẾT LẠI (26/09/2026, "khung UI kiểu Story Facebook") — 2 trạng thái theo `data-tool` trên
+   .video-preview-overlay:
+   - "none": video tràn màn hình, nút nổi (.video-preview-float-ui), không có topbar/panel dưới.
+   - "trim"/"crop": 3 vùng flex-col KHÔNG ĐÈ (topbar | video | panel dưới), ẩn nút nổi.
+   Màu tối cố định (UI phía Visualizer, cố ý không đi qua data-uitk). */
 
-/* Lớp Crop (canvas) — con thật của #video-preview-media-wrap, ẩn mặc định. */
+/* ===================== Hiển thị theo trạng thái ===================== */
+.video-preview-tool-topbar,
+.video-preview-tool-bottom,
+.video-preview-trim-panel,
+.video-preview-crop-panel,
+.video-preview-crop-layer {
+    display: none;
+}
+.video-preview-overlay[data-tool="trim"] .video-preview-tool-topbar,
+.video-preview-overlay[data-tool="crop"] .video-preview-tool-topbar {
+    display: flex;
+}
+.video-preview-overlay[data-tool="trim"] .video-preview-tool-bottom,
+.video-preview-overlay[data-tool="crop"] .video-preview-tool-bottom {
+    display: block;
+}
+.video-preview-overlay[data-tool="trim"] .video-preview-trim-panel { display: block; }
+.video-preview-overlay[data-tool="crop"] .video-preview-crop-panel { display: flex; }
+.video-preview-overlay[data-tool="crop"] .video-preview-crop-layer { display: block; }
+.video-preview-overlay:not([data-tool="none"]) .video-preview-float-ui { display: none; }
+
+/* Lớp Crop (canvas) — con thật của #video-preview-media-wrap. */
 .video-preview-crop-layer {
     position: absolute;
     inset: 0;
-    display: none;
-}
-.video-preview-crop-layer.is-visible {
-    display: block;
 }
 
-/* Nút toolbar (Crop/Chụp/Undo/Redo/Reset/Rotate/tỉ lệ) — tròn nhỏ, dùng chung 1 kiểu cho icon lẫn
-   nhãn tỉ lệ. */
-.video-preview-tool-btn {
-    min-width: 2.25rem;
-    height: 2.25rem;
-    flex-shrink: 0;
-    padding: 0 10px;
+/* ===================== Trạng thái xem: nút nổi ===================== */
+.video-preview-float-ui {
+    position: absolute;
+    inset: 0;
+    pointer-events: none; /* tap vào vùng trống vẫn tới <video> (play/pause) */
+}
+/* 2 dải tối mờ trên/dưới — chỉ để icon trắng đọc được trên video sáng. */
+.video-preview-float-ui::before,
+.video-preview-float-ui::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    height: 140px;
+    pointer-events: none;
+}
+.video-preview-float-ui::before { top: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0)); }
+.video-preview-float-ui::after { bottom: 0; background: linear-gradient(to top, rgba(0,0,0,0.45), rgba(0,0,0,0)); }
+
+.video-preview-float-close,
+.video-preview-rail,
+.video-preview-float-save {
+    position: absolute;
+    z-index: 1; /* trên 2 dải mờ */
+    pointer-events: auto;
+}
+.video-preview-float-close {
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    left: 12px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6));
+}
+.video-preview-float-close svg { width: 26px; height: 26px; }
+
+/* Rail dọc góc trên phải — icon trắng không nền (kiểu Story), nhãn hiện bên TRÁI khi mở rộng. */
+.video-preview-rail {
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    right: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    pointer-events: none; /* chỉ từng nút bắt chạm, khoảng trống giữa nút không chặn video */
+}
+.video-preview-rail-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    color: #fff;
+    pointer-events: auto;
+    background: none;
+    transition: transform 0.15s, opacity 0.15s;
+}
+.video-preview-rail-item:active { transform: scale(0.9); }
+.video-preview-rail-icon {
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 9999px;
-    background: rgba(255,255,255,0.1);
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6));
+    transition: background-color 0.15s;
+}
+.video-preview-rail-icon svg { width: 26px; height: 26px; }
+.video-preview-rail-label {
+    display: none;
+    font-size: 14px;
+    font-weight: 600;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+    white-space: nowrap;
+}
+.video-preview-rail.is-expanded .video-preview-rail-label { display: inline; }
+.video-preview-rail-expand svg { transition: transform 0.2s; }
+.video-preview-rail.is-expanded .video-preview-rail-expand svg { transform: rotate(180deg); }
+/* Trạng thái "đang bật" (Lật ngang) — nền tròn trắng mờ sau icon. */
+.video-preview-rail-item.is-active .video-preview-rail-icon { background: rgba(255,255,255,0.28); }
+/* Icon Âm thanh — đổi theo trạng thái tắt/bật tiếng. */
+.video-preview-icon-sound-off { display: none; }
+.video-preview-rail-item.is-muted .video-preview-icon-sound-on { display: none; }
+.video-preview-rail-item.is-muted .video-preview-icon-sound-off { display: block; }
+
+.video-preview-float-save {
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    padding: 10px 22px;
+    border-radius: 9999px;
+    background: #fff;
+    color: #000;
+    font-size: 15px;
+    font-weight: 700;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+    transition: transform 0.15s;
+}
+.video-preview-float-save:active { transform: scale(0.95); }
+
+/* Biểu tượng Play giữa màn hình khi đang dừng (chỉ hiển thị). */
+.video-preview-play-indicator {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 68px;
+    height: 68px;
+    margin: -34px 0 0 -34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: rgba(0,0,0,0.4);
     color: #fff;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+}
+.video-preview-play-indicator svg { width: 32px; height: 32px; margin-left: 4px; }
+.video-preview-overlay.is-playing .video-preview-play-indicator,
+.video-preview-overlay[data-tool="crop"] .video-preview-play-indicator {
+    opacity: 0;
+    transform: scale(0.8);
+}
+
+/* ===================== Trạng thái công cụ: topbar + panel dưới ===================== */
+.video-preview-tool-topbar {
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 8px 8px;
+    background: #000;
+    color: #fff;
+}
+.video-preview-topbar-btn {
+    min-width: 72px;
+    min-height: 40px;
+    padding: 0 12px;
+    font-size: 15px;
+    font-weight: 500;
+    color: #fff;
+    background: none;
+    text-align: left;
+}
+.video-preview-topbar-btn.is-primary { font-weight: 700; text-align: right; }
+.video-preview-topbar-btn:active { opacity: 0.6; }
+.video-preview-topbar-title {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.video-preview-tool-bottom {
+    flex-shrink: 0;
+    padding: 12px 24px calc(14px + env(safe-area-inset-bottom, 0px));
+    background: #000;
+}
+.video-preview-trim-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
     font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: rgba(255,255,255,0.75);
+}
+.video-preview-trim-length { color: #fff; font-weight: 600; }
+
+.video-preview-crop-panel {
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 4px 0;
+}
+
+/* Nút tròn nhỏ (tỉ lệ Crop + Lật trong panel Cắt khung). */
+.video-preview-tool-btn {
+    min-width: 2.5rem;
+    height: 2.5rem;
+    flex-shrink: 0;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    font-size: 13px;
     font-weight: 600;
     transition: transform 0.15s;
 }
-.video-preview-tool-btn:active {
-    transform: scale(0.9);
-}
-.video-preview-tool-btn.is-active {
-    background: #fff;
-    color: #000;
-}
-/* Nút Flip khi tỉ lệ Tự do/1:1 — vô nghĩa (không có chiều để đảo), khoá hẳn thay vì bấm được mà
-   không đổi gì. */
-.video-preview-tool-btn.is-disabled {
-    opacity: 0.35;
-    pointer-events: none;
-}
+.video-preview-tool-btn:active { transform: scale(0.9); }
+.video-preview-tool-btn.is-active { background: #fff; color: #000; }
+.video-preview-tool-btn-icon { width: 18px; height: 18px; }
 
-/* 2 nhóm hoán đổi trong cùng hàng toolbar — bật Crop thì ẩn tools-group, hiện ratio-group. */
-.video-preview-tools-group, .video-preview-ratio-group {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-}
-.video-preview-ratio-group {
-    display: none;
-}
-.video-preview-ratio-group.is-visible {
-    display: flex;
-}
-.video-preview-tools-group.is-hidden {
-    display: none;
-}
-
-/* Dải phim + 2 tay cầm Start/End + playhead. .video-preview-filmstrip-frames (overflow:hidden, bo
-   góc) TÁCH khỏi .video-preview-filmstrip-track (không overflow:hidden) — tay cầm ở 0%/100% không
-   bị cắt mất nửa. */
+/* ===================== Dải phim (giữ nguyên hành vi cũ) ===================== */
+/* .video-preview-filmstrip-frames (overflow:hidden, bo góc) TÁCH khỏi .video-preview-filmstrip-track
+   (không overflow:hidden) — tay cầm ở 0%/100% không bị cắt mất nửa. */
 .video-preview-filmstrip-track {
     position: relative;
     height: 56px;
+    touch-action: none;
 }
 .video-preview-filmstrip-frames {
     position: absolute;
@@ -98,7 +268,7 @@
     border-bottom: 2px solid #fff;
     pointer-events: none;
 }
-/* 2 tay cầm Start/End — cao đúng bằng track, không tràn ra ngoài trên/dưới. */
+/* 2 tay cầm Start/End — cao đúng bằng track. */
 .video-preview-trim-handle {
     position: absolute;
     top: 0; bottom: 0;
@@ -128,4 +298,11 @@
     background: #fbbf24;
     pointer-events: none;
     box-shadow: 0 0 4px rgba(251,191,36,0.8);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .video-preview-play-indicator,
+    .video-preview-rail-expand svg,
+    .video-preview-rail-item,
+    .video-preview-rail-icon { transition: none; }
 }
