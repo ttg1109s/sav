@@ -58,6 +58,10 @@ function handleAutoSwitchVisualDelegatedChange(e) {
 }
 
 function handleAutoSwitchVisualDelegatedClick(e) {
+    if (e.target.closest && e.target.closest('#btn-auto-switch-open-list')) { // MỚI 26/09/2026 — sub panel "Effect list"
+        eventBus.send({ router: 'autoSwitchVisual', type: 'autoSwitchVisual.openList.click', payload: {} });
+        return;
+    }
     const btn = e.target.closest ? e.target.closest('[data-as-seconds]') : null;
     if (!btn || !genericDrawerBody.contains(btn)) return;
     eventBus.send({ router: 'autoSwitchVisual', type: 'autoSwitchVisual.seconds.click', payload: { fieldName: btn.dataset.asSeconds } });
