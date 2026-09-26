@@ -6,9 +6,10 @@
  * `_cropSession`/`_zoomPanSession` kiểu 'any' — object nội bộ của core/media-transform.js, KHÔNG
  * phải dữ liệu nghiệp vụ thuần.
  *
- * `videoPreviewCropVisible` — Crop là TOGGLE độc lập, chạy song song Cut (không loại trừ nhau,
- * KHÔNG có khái niệm "toolMode" duy nhất). Bật → hiện dải tỉ lệ + khung crop đè lên video, tạm
- * dừng phát. Tắt (qua Áp dụng/Huỷ ở modalChoice) → về lại Cut thuần.
+ * SỬA (26/09/2026, "khung UI kiểu Story Facebook") — `videoPreviewCropVisible` (Crop là toggle độc
+ * lập chạy song song Cut) THAY bằng `videoPreviewActiveTool` ('none'|'trim'|'crop') — giờ ĐÚNG 1
+ * công cụ tại 1 thời điểm, mở từ rail, thoát qua Huỷ/Xong ở topbar. Thêm `videoPreviewMuted` (tắt
+ * tiếng — áp cả preview lẫn file xuất) và `videoPreviewRailExpanded` (rail hiện nhãn chữ).
  *
  * KHÔNG có field lưu vị trí phát hiện tại — `videoEl.currentTime` là nguồn thật duy nhất, Workflow
  * đọc trực tiếp từ payload 'videoPreview.video.timeUpdate' (tần suất cao, không phù hợp appState).
@@ -32,7 +33,9 @@ AppState.definePackage('video-preview', {
         videoPreviewFilmstripFrames: 'array',       // [{timestamp, blob}] từ buildCutFilmstripFrames()
         videoPreviewCropSession: 'any',             // session core/media-transform.js, null khi đóng
         videoPreviewActiveDrag: 'nullable-string',  // 'start' | 'end' | 'seek' | null — đang kéo/tua gì trên dải phim
-        videoPreviewCropVisible: 'boolean',         // Crop toggle đang bật hay không
+        videoPreviewActiveTool: 'string',           // 'none' | 'trim' | 'crop' — công cụ đang mở
+        videoPreviewMuted: 'boolean',               // tắt tiếng (preview + bỏ track audio khi xuất)
+        videoPreviewRailExpanded: 'boolean',        // rail đang hiện nhãn chữ hay chỉ icon
         videoPreviewZoomPanSession: 'any',          // session core/media-transform.js, null khi đóng
         videoPreviewIsPlaying: 'boolean',           // đang phát hay đang pause (tap màn hình để đảo)
     },
@@ -51,7 +54,9 @@ AppState.definePackage('video-preview', {
             videoPreviewFilmstripFrames: [],
             videoPreviewCropSession: null,
             videoPreviewActiveDrag: null,
-            videoPreviewCropVisible: false,
+            videoPreviewActiveTool: 'none',
+            videoPreviewMuted: false,
+            videoPreviewRailExpanded: false,
             videoPreviewZoomPanSession: null,
             videoPreviewIsPlaying: false,
         };
