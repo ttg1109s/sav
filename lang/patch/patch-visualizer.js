@@ -87,14 +87,16 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.barStyle.blackHole': 'Black Hole',
     'visualizerSettingsDrawer.shapeStyle.rubik': 'Rubik',
     'visualizerSettingsDrawer.shapeStyle.clock': 'Clock', // MỚI 26/09/2026
-    'customEffectDrawer.field.clockHandsSource': 'Hands show',
-    'customEffectDrawer.clockHandsSource.realtime': 'Current time',
-    'customEffectDrawer.clockHandsSource.track': 'Track elapsed',
     'customEffectDrawer.field.clockSizeRatio': 'Clock size',
-    'customEffectDrawer.clockHandsSource.past': 'Past (follows pitch)', // MỚI 26/09/2026 lượt 2
-    'customEffectDrawer.clockHandsSource.future': 'Future (follows pitch)',
+    'customEffectDrawer.field.clockGlassVisible': 'Glass cover',
+    'customEffectDrawer.field.clockAccessory': 'Accessory', // lượt 6 — con lắc / vòng quỹ đạo (chọn 1)
+    'customEffectDrawer.clockAccessory.none': 'None',
+    'customEffectDrawer.clockAccessory.pendulum': 'Pendulum',
+    'customEffectDrawer.clockAccessory.rings': 'Time scan rings',
+    'customEffectDrawer.field.clockPendulumTrail': 'String motion blur',
+    'customEffectDrawer.field.clockPendulumLength': 'Pendulum length (%)',
+    'customEffectDrawer.field.clockFlip': 'Moving flip',
     'customEffectDrawer.field.clockCaseVisible': 'Show case',
-    'customEffectDrawer.field.clockPendulum': 'Pendulum',
     'customEffectDrawer.field.clockTicksVisible': 'Show hour marks', // lượt 3
     'customEffectDrawer.field.clockGearSpeedBase': 'Gear speed',
     'customEffectDrawer.field.clockGearSpeedEnergyMult': 'Gear speed by energy',
