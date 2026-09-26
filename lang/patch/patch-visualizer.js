@@ -235,6 +235,7 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.autoSwitchListBy.label': 'Switch through',
     'visualizerSettingsDrawer.autoSwitchListBy.group': 'Groups',
     'visualizerSettingsDrawer.autoSwitchListBy.style': 'Styles',
+    'visualizerSettingsDrawer.autoSwitchList.label': 'Effect list', // MỚI 26/09/2026 — hàng mở + tiêu đề sub panel danh sách
     'visualizerSettingsDrawer.autoSwitchList.dragHint': 'Drag the handle to reorder. Only checked items take part.',
     'visualizerSettingsDrawer.autoSwitchGroupStyle.random': 'Random style',
     'visualizerSettingsDrawer.autoSwitchMode.label': 'Run order',
