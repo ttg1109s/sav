@@ -138,6 +138,12 @@ let _cnBeatsSinceLastShift = 999; // lớn sẵn, cho phép cinematic shift ngay
 // kích thước canvas (core/visualizer/groups/shape/clock.js). Kim giây màu đỏ cổ điển cố định.
 let _clockDrive = null, _clockLastTime = 0, _clockGeomKey = '', _clockLayout = null, _clockOutlines = null;
 const CLOCK_SECOND_HAND_COLOR = '#e0283f';
+// SỬA (26/09/2026, lượt 2) — nguồn kim đang chạy (đổi nguồn -> reset state của nguồn), kim Past/Future theo
+// nốt (`_clockPitch`), thời gian bài làm mượt (`_clockMedia`), con lắc (`_clockPendulum`, giữ cả khi tắt để
+// chạy hiệu ứng thu dây). Glow = khối Blur Custom Effect (perf.blurMult) × CLOCK_GLOW_PX.
+let _clockHandsSource = '', _clockPitch = null, _clockMedia = null, _clockPendulum = null;
+const CLOCK_GLOW_PX = 14;
+const CLOCK_PITCH_FRESH_MS = 300; // cùng ngưỡng "nốt đang phát" với circuit/brain/dot
 // MỚI (25/09/2026) — style bar 'mirror': vạch đỉnh (hold + rơi) giữ ở Workflow, core/visualizer/groups/bar/
 // mirror.js::stepBarMirrorPeaks() thuần trả state mới mỗi frame.
 let _mirrorPeaks = null, _mirrorLastTime = 0;
@@ -347,7 +353,7 @@ const workflowVisualizerRender = {
             // ĐỔI TÊN (05/09/2026) — trước đây cfg.type === 'rubik' (group giờ tên "shape", vẫn
             // chỉ 1 style con 'rubik' — xem EFFECT_GROUPS, service/state/visualizer-runtime.js).
             // SỬA (26/09/2026) — group có thêm style 'clock' (core/visualizer/groups/shape/clock.js).
-            if (getActiveEffectConfig().shapeStyle === 'clock') this._tickClock(ctx, isPlaying, appState.get('dpr'), newSmoothedEnergy, newBeatScale, vizDataArray, analyser);
+            if (getActiveEffectConfig().shapeStyle === 'clock') this._tickClock(ctx, perf, isPlaying, appState.get('dpr'), newSmoothedEnergy, newBeatScale, vizDataArray, analyser);
             else this._tickRubik(ctx, isPlaying, appState.get('dpr'), newSmoothedEnergy, newBeatScale, vizDataArray);
         } else if (cfg.type === 'lighting') {
             // ================== VISUAL Lighting — Workflow điều phối style thunder/fireworks ==================
@@ -1153,53 +1159,93 @@ const workflowVisualizerRender = {
     /** MỚI (26/09/2026, Giang) — VISUAL Shape style 'clock': đồng hồ lộ máy (vỏ + núm, không dây đeo), chuỗi
      * bánh răng ăn khớp quay theo nhạc, bánh lắc + càng hãm, vòng 60 vạch = phổ tròn, 3 kim. Workflow tự gom
      * state (động cơ `_clockDrive`, cache hình học `_clockLayout`/`_clockOutlines`), resolve màu qua
-     * getComputedColor(), gọi RIÊNG LẺ từng hàm core/visualizer/groups/shape/clock.js. */
-    _tickClock(ctx, isPlaying, dpr, smoothedEnergy, beatScale, vizDataArray, analyser) {
+     * getComputedColor(), gọi RIÊNG LẺ từng hàm core/visualizer/groups/shape/clock.js.
+     * SỬA (26/09/2026, lượt 2, Giang) — màu dùng đúng .fill/.glow (color mode trước đây không ăn), glow theo
+     * khối Blur, kính phủ mặt số, toggle ẩn vỏ (`clockCaseVisible`), con lắc (`clockPendulum`), kim thêm nguồn
+     * 'past'/'future' chạy theo nốt. Mọi hàm vẽ core giờ vẽ quanh gốc = tâm mặt số: Workflow translate tới tâm
+     * (tâm dời lên khi có con lắc) + scale (thu nhỏ cả cụm khi màn không đủ cao). */
+    _tickClock(ctx, perf, isPlaying, dpr, smoothedEnergy, beatScale, vizDataArray, analyser) {
         const cfg = getActiveEffectConfig(); // core/custom-effect.js
-        const cx = canvas.width / 2, cy = canvas.height / 2;
-        const dialR = (Math.min(canvas.width, canvas.height) / 2) * (cfg.clockSizeRatio || 0.8) / 1.18;
-        const geomKey = `${canvas.width}x${canvas.height}:${dialR.toFixed(1)}`;
+        const W = canvas.width, H = canvas.height;
+        const dialR = (Math.min(W, H) / 2) * (cfg.clockSizeRatio || 0.8) / 1.18;
+        const geomKey = dialR.toFixed(1);
         if (geomKey !== _clockGeomKey) {
             _clockGeomKey = geomKey;
-            _clockLayout = computeClockGearLayout(cx, cy, dialR); // core
+            _clockLayout = computeClockGearLayout(dialR); // core
             _clockOutlines = _clockLayout.gears.map((g) => buildClockGearOutline(g.z, g.r, g.m, g.ratchet)); // core
         }
         const now = performance.now();
         const dt = _clockLastTime ? Math.min(100, Math.max(0, now - _clockLastTime)) : 16;
         _clockLastTime = now;
-        _clockDrive = advanceClockDrive(_clockDrive, dt, isPlaying, beatScale, smoothedEnergy, cfg.clockGearSpeedBase, cfg.clockGearSpeedEnergyMult); // core
-        const gearAngles = computeClockGearAngles(_clockLayout.gears, _clockDrive.masterAngle); // core
+        const caseVisible = cfg.clockCaseVisible !== false;
+        const glowPx = CLOCK_GLOW_PX * dpr * perf.blurMult;
+        const realtimeSec = () => { const d = new Date(); return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds() + d.getMilliseconds() / 1000; };
+
+        // ---- Nguồn giờ cho 3 kim: realtime (mặc định) | track (thời gian đã phát) | past/future (theo nốt) ----
+        const source = cfg.clockHandsSource || 'realtime';
+        if (source !== _clockHandsSource) { _clockHandsSource = source; _clockPitch = null; _clockMedia = null; }
+        let totalSec, gearDir = 1, jam = 0;
+        if (source === 'past' || source === 'future') {
+            const { lastValidMidiNote, lastValidNoteTime } = appState.get(['lastValidMidiNote', 'lastValidNoteTime']);
+            const noteFresh = lastValidMidiNote !== null && lastValidMidiNote !== undefined && (Date.now() - (lastValidNoteTime || 0)) < CLOCK_PITCH_FRESH_MS;
+            // Giờ ảo khởi đầu = giờ thật lúc vừa vào chế độ (chỉ dùng khi state null).
+            _clockPitch = advanceClockPitchHands(_clockPitch, dt, isPlaying, lastValidMidiNote, noteFresh, source === 'past' ? -1 : 1, _clockPitch ? 0 : realtimeSec()); // core
+            totalSec = _clockPitch.virtualSec;
+            gearDir = _clockPitch.level / 2; // bánh răng quay cùng chiều kim, bậc 1/7 = 1.5× tốc độ thường
+            jam = _clockPitch.jam;
+        } else if (source === 'track') {
+            const media = appState.get('isVideoPlayerMode') ? bgVideoElement : audioPlayer;
+            _clockMedia = smoothClockMediaTime(_clockMedia, Math.max(0, media.currentTime || 0), now, isPlaying, media.playbackRate); // core
+            totalSec = _clockMedia.t;
+        } else {
+            totalSec = realtimeSec();
+        }
+
+        _clockDrive = advanceClockDrive(_clockDrive, dt, isPlaying, beatScale, smoothedEnergy, cfg.clockGearSpeedBase, cfg.clockGearSpeedEnergyMult, gearDir, jam); // core
+        const jitter = computeClockJamJitter(jam, now); // core
+        const gearAngles = computeClockGearAngles(_clockLayout.gears, _clockDrive.masterAngle + jitter.gear); // core
         const levels = computeClockGearLevels(vizDataArray, _clockLayout, isPlaying); // core
         const gearCount = _clockLayout.gears.length;
 
+        _clockPendulum = advanceClockPendulum(_clockPendulum, dt, cfg.clockPendulum === true, isPlaying, smoothedEnergy, jam); // core
+        const pl = computeClockPendulumLayout(H, dialR, _clockPendulum.progress, caseVisible); // core
+        const caseColor = getComputedColor(0, 1, 200); // core/audio-analysis.js
+
+        ctx.save();
+        ctx.translate(W / 2, pl.cy);
+        ctx.scale(pl.scale, pl.scale);
+
+        if (_clockPendulum.progress > 0) {
+            const pSwing = Math.sin(_clockPendulum.phase) * _clockPendulum.amp * pl.reveal;
+            paintClockPendulum(ctx, pl.pivotY, pl.length, pl.bobR, pSwing, pl.reveal, caseColor.fill, caseColor.glow, glowPx, dpr); // core
+        }
+
         _clockLayout.gears.forEach((g, i) => {
             const color = getComputedColor(i, gearCount + 1, levels[i]); // core/audio-analysis.js
-            paintClockGear(ctx, g, _clockOutlines[i], gearAngles[i], color, levels[i] / 255, dpr); // core
+            paintClockGear(ctx, g, _clockOutlines[i], gearAngles[i], color.fill, color.glow, glowPx, levels[i] / 255, dpr); // core
         });
         const balLevel = levels[gearCount] / 255;
-        const swing = Math.sin(_clockDrive.balancePhase) * (0.5 + (isPlaying ? smoothedEnergy : 0) * 1.6);
+        const swing = Math.sin(_clockDrive.balancePhase) * (0.5 + (isPlaying ? smoothedEnergy : 0) * 1.6) + jitter.gear * 3;
         const escapeGear = _clockLayout.gears.find((g) => g.ratchet);
-        paintClockBalance(ctx, _clockLayout.balance, escapeGear, swing, getComputedColor(gearCount, gearCount + 1, levels[gearCount]), balLevel, dpr); // core
+        const balColor = getComputedColor(gearCount, gearCount + 1, levels[gearCount]); // core/audio-analysis.js
+        paintClockBalance(ctx, _clockLayout.balance, escapeGear, swing, balColor.fill, balColor.glow, glowPx, balLevel, dpr); // core
+
+        paintClockGlass(ctx, dialR, caseColor.glow); // core — kính phủ kín bánh răng
 
         const tickLevels = computeClockSpectrumTicks(vizDataArray, analyser.frequencyBinCount, isPlaying, cfg.clockTickGain); // core
         const tickColors = Array.from(tickLevels, (v, i) => getComputedColor(i, 60, v * 255)); // core/audio-analysis.js
-        paintClockTicks(ctx, cx, cy, dialR, tickLevels, tickColors, dpr); // core
+        paintClockTicks(ctx, dialR, tickLevels, tickColors, glowPx * 0.6, dpr); // core
 
-        const caseColor = getComputedColor(0, 1, 200); // core/audio-analysis.js
-        paintClockCase(ctx, cx, cy, dialR, caseColor, isPlaying ? beatScale : 0, dpr); // core
+        if (caseVisible) paintClockCase(ctx, dialR, caseColor.fill, caseColor.glow, glowPx, isPlaying ? beatScale : 0, dpr); // core
 
-        // Nguồn giờ cho 3 kim: giờ thật của máy (mặc định) hoặc thời gian đã phát của bài.
-        let h, m, sec, ms;
-        if (cfg.clockHandsSource === 'track') {
-            const media = appState.get('isVideoPlayerMode') ? bgVideoElement : audioPlayer;
-            const t = Math.max(0, media.currentTime || 0);
-            h = Math.floor(t / 3600); m = Math.floor((t % 3600) / 60); sec = Math.floor(t % 60); ms = (t % 1) * 1000;
-        } else {
-            const d = new Date();
-            h = d.getHours(); m = d.getMinutes(); sec = d.getSeconds(); ms = d.getMilliseconds();
-        }
-        const handAngles = computeClockHandAngles(h, m, sec, ms, cfg.clockSecondTick !== false); // core
-        paintClockHands(ctx, cx, cy, dialR, handAngles, caseColor, CLOCK_SECOND_HAND_COLOR, dpr); // core
+        const handAngles = computeClockHandAngles(totalSec); // core
+        handAngles.hour += jitter.hour; handAngles.minute += jitter.minute; handAngles.second += jitter.second;
+        paintClockHands(ctx, dialR, handAngles, caseColor.fill, caseColor.glow, CLOCK_SECOND_HAND_COLOR, glowPx, dpr); // core
+        paintClockGlassGlare(ctx, dialR, dpr); // core — vệt loá kính đè lên kim
+
+        ctx.restore();
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
     },
 
     /** [MỚI — rà soát Rule 3] VISUAL Rubik — Workflow tự gom appState/cfg, tự vòng lặp gọi RIÊNG
