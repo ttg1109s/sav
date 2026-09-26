@@ -367,7 +367,7 @@
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
     <script src="lang/patch/patch-common.js?v=20260924v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260921v7"></script>
-    <script src="lang/patch/patch-visualizer.js?v=20260926as1"></script>
+    <script src="lang/patch/patch-visualizer.js?v=20260926as2"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260925r2"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260921v9"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
@@ -460,7 +460,7 @@
     <script src="components/items.js?v=20260728v1"></script>
     <!-- Panel "Display" (Main "Visualizer Screen") — 5 toggle UI chrome. -->
     <script src="components/settings/visualizer-display-panel.js?v=20260923v1"></script>
-    <script src="components/settings/visualizer-auto-switch-drawer.js?v=20260926as1"></script>
+    <script src="components/settings/visualizer-auto-switch-drawer.js?v=20260926as2"></script>
     <script src="components/subtitle-settings-drawer.js?v=20260923v1"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Motion Settings Drawer (Cấu hình Transition/Ken Burns/
          React Beat Audio, hệ preset độc lập — xem components/motion-settings-drawer.js). -->
@@ -1189,7 +1189,7 @@
          workflowFileManagerFolderBrowser/workflowFileManagerStorage đã nạp ở trên — KHÔNG bắt
          buộc thứ tự nạp CHẶT với các file đó, vì mọi tham chiếu đều nằm TRONG thân hàm, chỉ chạy
          SAU khi cả trang đã nạp xong, không chạy ngay lúc parse). -->
-    <script src="event/workflow/app-settings.js?v=20260926as1"></script>
+    <script src="event/workflow/app-settings.js?v=20260926as2"></script>
     <script src="event/router/app-settings.js?v=20260924m1"></script>
     <!-- Cụm "placeholderPanels" (đóng Game/Statis). Photo đã hợp nhất vào Playlist, không còn cụm
          "photoPanel" riêng. -->
@@ -1320,9 +1320,9 @@
     <script src="event/workflow/subtitle-modal.js?v=20260810v1"></script>
     <!-- Cụm "autoSwitchVisual" — Batch D3 (06/07/2026): core đã refactor Rule 1-4 đầy đủ, GIỜ CẦN
          workflow (event/workflow/auto-switch-visual.js) — không còn gọi thẳng core như trước. -->
-    <script src="event/workflow/auto-switch-visual.js?v=20260926as1"></script>
-    <script src="event/router/auto-switch-visual.js?v=20260926as1"></script>
-    <script src="event/listener/auto-switch-visual.js?v=20260926as1"></script>
+    <script src="event/workflow/auto-switch-visual.js?v=20260926as2"></script>
+    <script src="event/router/auto-switch-visual.js?v=20260926as2"></script>
+    <script src="event/listener/auto-switch-visual.js?v=20260926as2"></script>
     <!-- Cụm "visualizerControlCenter" (ver 11, patch 11). -->
     <!-- XOÁ (v13 Batch B) — event/workflow/visualizer-control-center.js: object Workflow của
          cụm này đã RỖNG sau khi 2 toggle nền (Batch A) + cụm picker video (Batch B) dời sang
