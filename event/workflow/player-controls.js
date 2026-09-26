@@ -415,7 +415,8 @@ const workflowPlayerControls = {
      * `onAutoSwitchVisualSongChanged()` — core gọi core; phần điều phối đó giờ là Workflow). */
     handleAudioLoadedMetadataEvent() {
         handleAudioLoadedMetadata(); // core/player-controls.js
-        workflowAutoSwitchVisual.onSongChanged(); // event/workflow/auto-switch-visual.js
+        // SỬA 26/09/2026 — bỏ workflowAutoSwitchVisual.onSongChanged() (mode 'duration' đã bỏ; 'perMedia' báo qua
+        // onMediaChanged() ngay lúc currentKey đổi, event/workflow/player.js).
     },
 
     /**

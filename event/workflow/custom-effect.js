@@ -60,6 +60,13 @@ const workflowCustomEffect = {
      * effect muốn thay vì phải bấm nhiều lần mới tới đúng cái cần trong 12 style. */
     onCycleModeClick() {
         if (this._holdFired) { this._holdFired = false; return; }
+        // MỚI (26/09/2026, Giang "Auto-Switch On -> block chọn effect ở icon center") — nút KHÔNG còn `disabled`
+        // (để GIỮ vẫn mở Custom Effect Drawer), chặn ở đây: auto-switch đang bật thì CLICK chỉ báo lý do.
+        // Tap 3 lần gán cycleMode (event/workflow/visualizer-gesture.js, gọi .click()) cũng đi qua đây.
+        if (appConfigViz.getAll().autoSwitchVisualEnabled === true) {
+            alertModal(t('effectPicker.autoSwitchLocked'), { title: t('effectPicker.title') }); // core/modal-choice-ui.js
+            return;
+        }
         openEffectPickerModal((style) => applyVisualizerStyleChoice(style)); // core/visualizer/visualizer-display.js
     },
 

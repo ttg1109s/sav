@@ -533,6 +533,7 @@ const workflowVideoPlayer = {
             // Riêng `bumpSongPlayCount()` + 'gameplay.mediaChanged' vẫn đợi video THẬT sự chạy — xem dưới.
             appState.set('currentKey', videoKey);
             console.log(`writer: "playVideoByKey", page: "currentKey", content: "${videoKey}"`);
+            workflowAutoSwitchVisual.onMediaChanged(); // event/workflow/auto-switch-visual.js — MỚI 26/09/2026, nhánh 'perMedia'
 
             playerTitle.textContent = record.customName || stripFileExtension(record.filename) || t('videoPlayer.untitled'); // MỚI (Batch 5, mục 6c) — ưu tiên tên hiển thị người dùng tự đặt; SỬA (phản hồi Giang 28/07) — bỏ đuôi mở rộng khi rơi về filename gốc
             // MỚI (ver12 "Song/Video Unification", Batch 2, mục 3) — artist RỖNG thay vì nhãn
@@ -641,6 +642,7 @@ const workflowVideoPlayer = {
         // thái lúc `playVideoByKey()` gọi lần cuối (lúc 'playing'), không cập nhật theo Play/Pause.
         if (appState.get('currentKey')) workflowPlaylistRender.refreshSongNode(appState.get('currentKey'));
         requestWakeLock(); startListenClock(); // core/player-controls.js
+        workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — MỚI 26/09/2026: đồng hồ đổi hiệu ứng chạy theo Video
         workflowPlayerDisplaySettings.resumeVideoMotion(); // MỚI (25/09/2026, đợt 4) — Point Move/React Beat chạy tiếp theo video (no-op nếu Player không giữ Video surface), event/workflow/player-display-settings.js
     },
 
@@ -652,6 +654,7 @@ const workflowVideoPlayer = {
         if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
         if (appState.get('currentKey')) workflowPlaylistRender.refreshSongNode(appState.get('currentKey')); // FIX (31/07/2026) — xem giải thích ở handleVideoPlayState()
         releaseWakeLock(); stopListenClock(); // core/player-controls.js
+        workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — MỚI 26/09/2026
         workflowPlayerDisplaySettings.pauseVideoMotion(); // MỚI (25/09/2026, đợt 4) — Point Move/React Beat đứng yên cùng video (no-op nếu Player không giữ Video surface), event/workflow/player-display-settings.js
     },
 

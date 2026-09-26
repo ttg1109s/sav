@@ -224,6 +224,7 @@ const workflowPlayer = {
             }
 
             appState.set('currentKey', key);
+            workflowAutoSwitchVisual.onMediaChanged(); // event/workflow/auto-switch-visual.js — MỚI 26/09/2026, nhánh 'perMedia'
             appState.set('currentCoverObjectURL', record.cover ? URL.createObjectURL(record.cover) : DEFAULT_VINYL);
             appState.set('currentObjectURL', URL.createObjectURL(record.blob));
             audioPlayer.src = appState.get('currentObjectURL');

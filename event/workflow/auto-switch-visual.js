@@ -17,73 +17,159 @@
  * Điểm gọi (thay các lời gọi core cũ):
  *   - `syncPlayState()` — event/workflow/player-controls.js (handleAudioPlayEvent/handleAudioPauseEvent),
  *     event/workflow/app-visibility.js (vào/ra chế độ nền).
- *   - `onSongChanged()` — event/workflow/player-controls.js::handleAudioLoadedMetadataEvent().
+ *   - (`onSongChanged()` ĐÃ BỎ 26/09/2026 — thay bằng `onMediaChanged()`, xem khối VIẾT LẠI ngay dưới.)
  *   - `killAllTasks()` — event/workflow/playlist.js, event/workflow/file-manager-storage.js (xoá bài đang phát/Clear all).
  *   - `startBranch()` — 3 setter Settings ngay dưới.
  *
  * NẠP SAU: core/auto-switch-visual.js, core/config.js (saveConfig, MODES), core/visualizer/visualizer-display.js
  * (updateTypeUI), service/task-manager.js, core/dom-refs.js (audioPlayer).
  */
-const AUTO_SWITCH_VISUAL_TASK_TIMER = 'autoSwitchVisualTimer';   // nhánh 1 (fixed/random) — đồng hồ độc lập
-const AUTO_SWITCH_VISUAL_TASK_MARKS = 'autoSwitchVisualMarks';   // nhánh 2 (duration) — tick theo mốc bài hát
+// VIẾT LẠI (26/09/2026, Giang "cải tiến lại Auto-Switch Effect") — 2 nhánh thời gian:
+//   - 'fixed' (const | random [min,max]): đồng hồ độc lập qua taskManager (y như nhánh 1 cũ) — chạy khi media đang
+//     phát (song/video/photo — trước đây chỉ Song), đứng khi pause/ẩn app, KHÔNG reset khi đổi media.
+//   - 'perMedia': KHÔNG task — đổi hiệu ứng mỗi khi 1 media MỚI bắt đầu (`onMediaChanged()`, gọi ngay sau khi
+//     currentKey đổi ở event/workflow/player.js / video-player.js / photo-player.js). Media đầu tiên sau khi bật
+//     chỉ được ghi nhận, không đổi.
+// Nhánh 'duration' (mốc theo độ dài bài) + task marks ĐÃ BỎ. Chọn style kế tiếp theo danh sách group/style
+// (core/auto-switch-visual.js). Panel Settings luôn hiện đủ tuỳ chọn; mọi thay đổi cấu trúc vẽ lại panel qua
+// workflowAppSettings._renderAutoSwitch() (giữ vị trí cuộn).
+const AUTO_SWITCH_VISUAL_TASK_TIMER = 'autoSwitchVisualTimer';
 
 const workflowAutoSwitchVisual = {
 
-    setEnabled(checked, optionsEl) {
-        setAutoSwitchVisualEnabled(checked, optionsEl);
+    setEnabled(checked) {
+        setAutoSwitchVisualEnabled(checked); // core/auto-switch-visual.js
         saveConfig();
-        updateCycleModeButtonState(); // khoá/mở #btn-cycle-mode NGAY khi người dùng bật/tắt
-        updateVisualizerTypeSelectState(); // FIX BUG 19/07/2026 (mục 5) — khoá luôn select "Kiểu hiệu ứng"
-        this.startBranch(); // bật -> khởi động đúng nhánh; tắt -> tự kill hết
+        updateCycleModeButtonState(); // làm mờ/bỏ mờ #btn-cycle-mode (click chọn effect bị chặn khi bật)
+        updateVisualizerTypeSelectState();
+        appState.set('_autoSwitchLastMediaKey', appState.get('currentKey')); // perMedia: media đang phát không tính là "mới"
+        this.startBranch();
     },
 
     setMode(value) {
         setAutoSwitchVisualMode(value);
         saveConfig();
-        // KHÔNG cần khởi động lại gì — đổi cách CHỌN MỚI chỉ ảnh hưởng lần CHỌN MỚI kế tiếp.
     },
 
-    setTimeMode(value, blockFixedEl, blockRandomEl, blockDurationEl) {
+    setTimeMode(value) {
         setAutoSwitchVisualTimeMode(value);
-        syncAutoSwitchTimeModeBlocks(value, blockFixedEl, blockRandomEl, blockDurationEl);
         saveConfig();
-        this.startBranch(); // đổi NHÁNH hẳn -> kill nhánh cũ, khởi động nhánh mới từ đầu
+        appState.set('_autoSwitchLastMediaKey', appState.get('currentKey'));
+        this.startBranch();
+        this._rerenderPanel();
     },
 
-    setSecondsField(fieldName, rawValue, inputEl) {
-        setAutoSwitchVisualSecondsField(fieldName, rawValue, inputEl);
+    setFixedKind(value) {
+        setAutoSwitchVisualFixedKind(value);
         saveConfig();
-        this.startBranch(); // đổi X giây -> áp dụng lại từ đầu cho nhánh đang chạy
+        this.startBranch();
+        this._rerenderPanel();
     },
 
-    // ===================== Điều phối 2 nhánh (dời từ core 25/09/2026) =====================
+    setListBy(value) {
+        setAutoSwitchVisualListBy(value);
+        saveConfig();
+        this._rerenderPanel();
+    },
 
-    /** Đồng hồ/mốc được phép chạy: Song đang phát thật + app không ở chế độ nền. */
+    setItemEnabled(listBy, key, checked) {
+        this._ensureLists();
+        setAutoSwitchVisualItemEnabled(listBy, key, checked);
+        saveConfig();
+    },
+
+    setGroupStyle(groupKey, style) {
+        this._ensureLists();
+        setAutoSwitchVisualGroupStyle(groupKey, style);
+        saveConfig();
+    },
+
+    moveItem(listBy, fromKey, toKey) {
+        this._ensureLists();
+        moveAutoSwitchVisualItem(listBy, fromKey, toKey);
+        saveConfig();
+        this._rerenderPanel();
+    },
+
+    /** Mở time picker (core/time-picker-modal.js, format giờ-phút-giây, 10s-1h) cho 1 trong 3 field giây. */
+    openSecondsPicker(fieldName) {
+        const cfg = appConfigViz.getAll();
+        openTimePickerModal({
+            title: t(`visualizerSettingsDrawer.autoSwitchPicker.${fieldName}`),
+            format: 'h-m-s',
+            valueMs: (cfg[fieldName] || AUTO_SWITCH_VISUAL_MIN_SECONDS) * 1000,
+            minMs: AUTO_SWITCH_VISUAL_MIN_SECONDS * 1000,
+            maxMs: AUTO_SWITCH_VISUAL_MAX_SECONDS * 1000,
+            onConfirm: (resultMs) => {
+                setAutoSwitchVisualSeconds(fieldName, resultMs); // core/auto-switch-visual.js
+                console.log(`writer: "workflowAutoSwitchVisual.openSecondsPicker", page: "vizConfig", content: "${fieldName}=${appConfigViz.getAll()[fieldName]}"`);
+                saveConfig();
+                this.startBranch();
+                this._rerenderPanel();
+            },
+        });
+    },
+
+    /** Dữ liệu vẽ panel (components/settings/visualizer-auto-switch-drawer.js) — danh sách đã chuẩn hoá theo
+     * registry hiện tại, ĐÚNG thứ tự người dùng xếp. */
+    buildPanelModel() {
+        const cfg = appConfigViz.getAll();
+        const listBy = cfg.autoSwitchVisualListBy === 'group' ? 'group' : 'style';
+        const items = listBy === 'group'
+            ? normalizeAutoSwitchGroupList(cfg.autoSwitchVisualGroupList, EFFECT_GROUPS) // core/auto-switch-visual.js
+            : normalizeAutoSwitchStyleList(cfg.autoSwitchVisualStyleList, MODES);
+        return { cfg, listBy, items };
+    },
+
+    /** Config cũ/reset có thể chưa có danh sách — chuẩn hoá theo registry hiện tại trước khi sửa từng mục. */
+    _ensureLists() {
+        appConfigViz.mutateAll((cfg) => {
+            cfg.autoSwitchVisualGroupList = normalizeAutoSwitchGroupList(cfg.autoSwitchVisualGroupList, EFFECT_GROUPS); // core/auto-switch-visual.js
+            cfg.autoSwitchVisualStyleList = normalizeAutoSwitchStyleList(cfg.autoSwitchVisualStyleList, MODES);
+        });
+    },
+
+    /** Vẽ lại panel Auto-Switch nếu đang mở (giữ vị trí cuộn — cùng scrollKey độ sâu, event/workflow/app-settings.js). */
+    _rerenderPanel() {
+        if (!genericDrawerBody || !genericDrawerBody.querySelector('#setting-auto-switch-enable')) return;
+        workflowAppSettings._renderAutoSwitch(); // event/workflow/app-settings.js
+    },
+
+    // ===================== Điều phối =====================
+
+    /** Media đang phát thật (song / video / photo theo chế độ player hiện tại). MỚI 26/09/2026 — trước đây chỉ Song. */
+    _isMediaPlaying() {
+        if (appState.get('isPhotoPlayerMode')) return !appState.get('photoPlayerPaused');
+        if (appState.get('isVideoPlayerMode')) return !bgVideoElement.paused;
+        return !audioPlayer.paused;
+    },
+
+    /** Đồng hồ được phép chạy: media đang phát + app không ở chế độ nền. */
     _isRunAllowed() {
-        return !audioPlayer.paused && !appState.get('isBackgroundSuspended');
+        return this._isMediaPlaying() && !appState.get('isBackgroundSuspended');
     },
 
-    /** Tên task của nhánh đang cấu hình. @param {object} cfg */
-    _taskNameFor(cfg) {
-        return cfg.autoSwitchVisualTimeMode === 'duration' ? AUTO_SWITCH_VISUAL_TASK_MARKS : AUTO_SWITCH_VISUAL_TASK_TIMER;
+    /** Style kế tiếp theo danh sách đang chọn (core thuần). null = không mục nào được tick. */
+    _pickNextStyle() {
+        const cfg = appConfigViz.getAll();
+        const currentStyle = MODES[appState.get('currentModeIndex')];
+        if (cfg.autoSwitchVisualListBy === 'group') {
+            const groupList = normalizeAutoSwitchGroupList(cfg.autoSwitchVisualGroupList, EFFECT_GROUPS); // core/auto-switch-visual.js
+            return pickNextAutoSwitchStyleFromGroupList(groupList, cfg.autoSwitchVisualMode, currentStyle, STYLE_TO_GROUP, EFFECT_GROUPS);
+        }
+        const styleList = normalizeAutoSwitchStyleList(cfg.autoSwitchVisualStyleList, MODES);
+        return pickNextAutoSwitchStyleFromStyleList(styleList, cfg.autoSwitchVisualMode, currentStyle);
     },
 
-    /** Chọn kiểu kế tiếp theo cấu hình hiện tại (core thuần). */
-    _pickNextType() {
-        return pickNextAutoSwitchVisualType(appState.get('currentModeIndex'), appConfigViz.getAll().autoSwitchVisualMode); // core/auto-switch-visual.js
+    /** Áp 1 style (null/trùng style đang chạy -> bỏ qua). SỬA (26/09/2026) — đi qua applyVisualizerStyleChoice()
+     * (CÙNG đường chọn tay) để có luôn resizeCanvas() (rain)/updateVortexVisibility() (vortex) — bản cũ thiếu. */
+    _applyStyle(style) {
+        if (!style || MODES.indexOf(style) === appState.get('currentModeIndex')) return;
+        console.log(`writer: "workflowAutoSwitchVisual._applyStyle", page: "currentModeIndex", content: "${style}"`);
+        applyVisualizerStyleChoice(style); // core/visualizer/visualizer-display.js
     },
 
-    /** Áp 1 kiểu hiệu ứng đã biết (type lạ hoặc trùng kiểu hiện tại -> bỏ qua) + vẽ lại UI + lưu config. */
-    _applyType(type) {
-        const idx = MODES.indexOf(type);
-        if (idx === -1 || idx === appState.get('currentModeIndex')) return;
-        appState.set('currentModeIndex', idx);
-        console.log(`writer: "workflowAutoSwitchVisual._applyType", page: "currentModeIndex", content: "${idx} (${type})"`);
-        updateTypeUI(); // core/visualizer/visualizer-display.js
-        saveConfig(); // core/config.js
-    },
-
-    /** NHÁNH 1 — đặt lịch cho VÒNG ĐẾM KẾ TIẾP (task count:1, mỗi vòng 1 delay — 'random' đổi delay mỗi vòng). */
+    /** Nhánh 'fixed' — đặt lịch cho VÒNG ĐẾM KẾ TIẾP (task count:1; kiểu random đổi delay mỗi vòng). */
     _scheduleNextTimer() {
         taskManager.kill(AUTO_SWITCH_VISUAL_TASK_TIMER);
         taskManager.addNew(AUTO_SWITCH_VISUAL_TASK_TIMER, {
@@ -95,82 +181,52 @@ const workflowAutoSwitchVisual = {
         taskManager.operator(AUTO_SWITCH_VISUAL_TASK_TIMER, 'enabled');
     },
 
-    /** NHÁNH 1 — hết 1 vòng: đổi hiệu ứng rồi tái tạo vòng mới nếu vẫn đúng nhánh 1. Không được phép chạy lúc này
-     * (vừa pause/ẩn app đúng lúc) -> vẫn tái tạo nhưng pause ngay, để `syncPlayState()` sau này resume được (bản cũ bỏ
-     * hẳn không tái tạo -> task count:1 đã tự tắt nằm lại trong plan, resume() no-op, đồng hồ chết tới khi đổi Settings). */
+    /** Nhánh 'fixed' — hết 1 vòng: đổi hiệu ứng rồi tái tạo vòng mới (không được phép chạy lúc này -> tái tạo
+     * nhưng pause ngay, chờ `syncPlayState()`). */
     _onTimerFired() {
-        this._applyType(this._pickNextType());
+        this._applyStyle(this._pickNextStyle());
         const cfg = appConfigViz.getAll();
-        if (!cfg.autoSwitchVisualEnabled || cfg.autoSwitchVisualTimeMode === 'duration') return;
+        if (!cfg.autoSwitchVisualEnabled || cfg.autoSwitchVisualTimeMode !== 'fixed') return;
         this._scheduleNextTimer();
         if (!this._isRunAllowed()) taskManager.pause(AUTO_SWITCH_VISUAL_TASK_TIMER);
     },
 
-    /** NHÁNH 2 — tick mỗi giây: tìm mốc currentTime đang thuộc; lần đầu qua mốc thì chọn kiểu MỚI và ghi nhớ vào mốc,
-     * các lần sau (kể cả tua lùi) áp LẠI đúng kiểu đã nhớ. */
-    _marksTick() {
-        const marks = appState.get('autoSwitchVisualMarks');
-        if (marks.length === 0) return;
-        const idx = findAutoSwitchVisualMarkIndex(marks, audioPlayer.currentTime); // core/auto-switch-visual.js
-        const mark = marks[idx];
-        if (mark.visual === null) {
-            const type = this._pickNextType();
-            appState.mutate('autoSwitchVisualMarks', (arr) => { arr[idx].visual = type; });
-            console.log(`writer: "workflowAutoSwitchVisual._marksTick", page: "autoSwitchVisualMarks", content: "mark[${idx}].visual=${type}"`);
-            this._applyType(type);
-        } else {
-            this._applyType(mark.visual);
-        }
-    },
-
-    /** Dừng/dọn CẢ HAI task — tắt tính năng/xoá bài đang phát/Clear all. */
+    /** Dừng/dọn task — tắt tính năng/xoá media đang phát/Clear all. */
     killAllTasks() {
         taskManager.kill(AUTO_SWITCH_VISUAL_TASK_TIMER);
-        taskManager.kill(AUTO_SWITCH_VISUAL_TASK_MARKS);
     },
 
-    /** Bắt đầu ĐÚNG 1 nhánh theo cấu hình (luôn kill cả 2 trước — không bao giờ 2 nhánh song song). Chưa được phép chạy
-     * -> đăng ký xong pause ngay (chờ `syncPlayState()`). */
+    /** Bắt đầu lại theo cấu hình: 'fixed' -> đồng hồ mới (pause ngay nếu chưa được chạy); 'perMedia' -> không task. */
     startBranch() {
         this.killAllTasks();
         const cfg = appConfigViz.getAll();
-        const currentKey = appState.get('currentKey');
-        if (!cfg.autoSwitchVisualEnabled || !currentKey) return;
-
-        if (cfg.autoSwitchVisualTimeMode === 'duration') {
-            const { marks, complete } = buildAutoSwitchVisualMarks(audioPlayer.duration, MODES[appState.get('currentModeIndex')], cfg.autoSwitchVisualSecondsDuration); // core/auto-switch-visual.js
-            appState.set('autoSwitchVisualMarks', marks);
-            console.log(`writer: "workflowAutoSwitchVisual.startBranch", page: "autoSwitchVisualMarks", content: "${marks.length} mốc${complete ? '' : ' (chưa có duration)'}"`);
-            // Chỉ đánh dấu khi build ĐỦ mốc — xem docstring buildAutoSwitchVisualMarks() (FIX 13/07/2026).
-            if (complete) {
-                appState.set('_lastMarksBuiltForKey', currentKey);
-                console.log(`writer: "workflowAutoSwitchVisual.startBranch", page: "_lastMarksBuiltForKey", content: "${currentKey}"`);
-            }
-            taskManager.addNew(AUTO_SWITCH_VISUAL_TASK_MARKS, { time: 1000, exe: () => this._marksTick(), mode: 'timeout', count: 0 });
-            taskManager.operator(AUTO_SWITCH_VISUAL_TASK_MARKS, 'enabled');
-            if (!this._isRunAllowed()) taskManager.pause(AUTO_SWITCH_VISUAL_TASK_MARKS);
-        } else {
-            this._scheduleNextTimer();
-            if (!this._isRunAllowed()) taskManager.pause(AUTO_SWITCH_VISUAL_TASK_TIMER);
-        }
+        if (!cfg.autoSwitchVisualEnabled || !appState.get('currentKey')) return;
+        if (cfg.autoSwitchVisualTimeMode !== 'fixed') return;
+        this._scheduleNextTimer();
+        if (!this._isRunAllowed()) taskManager.pause(AUTO_SWITCH_VISUAL_TASK_TIMER);
     },
 
-    /** Đổi bài (loadedmetadata) — CHỈ nhánh 2 build lại mốc, và chỉ khi CHƯA build đủ cho đúng bài này ('play' bắn
-     * TRƯỚC 'loadedmetadata' có thể đã build rồi). Nhánh 1 không reset khi đổi bài (đặc điểm cốt lõi). */
-    onSongChanged() {
-        if (appConfigViz.getAll().autoSwitchVisualTimeMode === 'duration' && appState.get('_lastMarksBuiltForKey') !== appState.get('currentKey')) {
-            this.startBranch();
-        }
+    /** Nhánh 'perMedia' — gọi NGAY SAU khi currentKey đổi sang 1 media mới (song/video/photo). Chỉ đổi khi key khác
+     * key đã ghi nhận lần trước (1 media = 1 lần đổi, kể cả khi nhiều sự kiện cùng báo). Không phụ thuộc
+     * `isBackgroundSuspended`: media mới bắt đầu thì đổi luôn, lúc quay lại app đã đúng hiệu ứng mới. */
+    onMediaChanged() {
+        const cfg = appConfigViz.getAll();
+        const key = appState.get('currentKey');
+        if (!key) return;
+        const lastKey = appState.get('_autoSwitchLastMediaKey');
+        appState.set('_autoSwitchLastMediaKey', key);
+        if (!cfg.autoSwitchVisualEnabled || cfg.autoSwitchVisualTimeMode !== 'perMedia') return;
+        if (lastKey === null || lastKey === key) return;
+        this._applyStyle(this._pickNextStyle());
     },
 
-    /** Song play/pause hoặc app vào/ra chế độ nền — pause/resume ĐÚNG task của nhánh đang chạy; chưa từng bắt đầu ->
-     * bắt đầu mới; tính năng tắt/không có bài -> kill hết. */
+    /** Media play/pause (song/video/photo) hoặc app vào/ra chế độ nền — pause/resume đồng hồ 'fixed'; chưa từng
+     * bắt đầu -> bắt đầu; tính năng tắt/không có media -> kill. 'perMedia' không có gì để pause. */
     syncPlayState() {
         const cfg = appConfigViz.getAll();
-        if (!cfg.autoSwitchVisualEnabled || !appState.get('currentKey')) { this.killAllTasks(); return; }
-        const taskName = this._taskNameFor(cfg);
-        if (!taskManager.plan[taskName]) { this.startBranch(); return; }
-        if (this._isRunAllowed()) taskManager.resume(taskName);
-        else taskManager.pause(taskName);
+        if (!cfg.autoSwitchVisualEnabled || !appState.get('currentKey') || cfg.autoSwitchVisualTimeMode !== 'fixed') { this.killAllTasks(); return; }
+        if (!taskManager.plan[AUTO_SWITCH_VISUAL_TASK_TIMER]) { this.startBranch(); return; }
+        if (this._isRunAllowed()) taskManager.resume(AUTO_SWITCH_VISUAL_TASK_TIMER);
+        else taskManager.pause(AUTO_SWITCH_VISUAL_TASK_TIMER);
     },
 };

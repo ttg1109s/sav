@@ -910,7 +910,7 @@ const workflowAppSettings = {
 
     _renderAutoSwitch() {
         this._currentRenderFn = () => this._renderAutoSwitch();
-        this._render(t('visualizerAutoSwitchDrawer.title'), renderVisualizerAutoSwitchPanelBody(), () => {
+        this._render(t('visualizerAutoSwitchDrawer.title'), renderVisualizerAutoSwitchPanelBody(workflowAutoSwitchVisual.buildPanelModel()), () => { // SỬA 26/09/2026 — body vẽ từ model (event/workflow/auto-switch-visual.js)
             workflowVisualizerDisplay.openAutoSwitchPanel(); // event/workflow/visualizer-display.js
         });
     },

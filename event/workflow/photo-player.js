@@ -219,6 +219,7 @@ const workflowPhotoPlayer = {
 
         appState.set('currentKey', photoKey);
         console.log(`writer: "playPhotoByKey", page: "currentKey", content: "${photoKey}"`);
+        workflowAutoSwitchVisual.onMediaChanged(); // event/workflow/auto-switch-visual.js — MỚI 26/09/2026, nhánh 'perMedia'
         bumpSongPlayCount(photoKey); // core/listen-stats.js — mediaStatsMap key-agnostic, dùng thẳng được (CÙNG cách Video làm)
 
         const durationSec = record.duration || 5; // CÙNG fallback core/playlist/loader.js::buildAdaptedPlaylistCache() (MEDIA_ADAPTER_SHAPE.photo.durationFallback) cho record cũ thiếu field
@@ -226,6 +227,7 @@ const workflowPhotoPlayer = {
         appState.set('photoPlayerElapsedBeforePauseSec', 0, { skipCheck: true });
         appState.set('photoPlayerStartedAtMs', performance.now(), { skipCheck: true });
         appState.set('photoPlayerPaused', false, { skipCheck: true });
+        workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — MỚI 26/09/2026: Photo đang "phát"
 
         const title = record.customName || stripFileExtension(record.filename) || t('photoPlayer.untitled');
         playerTitle.textContent = title;
@@ -279,6 +281,7 @@ const workflowPhotoPlayer = {
         }
         appState.set('photoPlayerPaused', nowPaused, { skipCheck: true });
         updatePhotoPlayerPlayPauseIcon(!nowPaused); // core/photo-player.js
+        workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — MỚI 26/09/2026
         // MỚI (25/09/2026) — Point Move đứng/chạy theo nút Play/Pause (Transition là CSS 1 lần, tự hoàn tất).
         if (nowPaused) workflowVisualBgPhotoMotion.pause(PHOTO_PLAYER_IMAGE_SURFACE_OWNER); // event/workflow/visual-bg-photo-motion.js
         else workflowVisualBgPhotoMotion.resume(PHOTO_PLAYER_IMAGE_SURFACE_OWNER);
