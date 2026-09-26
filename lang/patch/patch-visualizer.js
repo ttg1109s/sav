@@ -91,7 +91,11 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.clockHandsSource.realtime': 'Current time',
     'customEffectDrawer.clockHandsSource.track': 'Track elapsed',
     'customEffectDrawer.field.clockSizeRatio': 'Clock size',
-    'customEffectDrawer.field.clockSecondTick': 'Ticking second hand',
+    'customEffectDrawer.clockHandsSource.past': 'Past (follows pitch)', // MỚI 26/09/2026 lượt 2
+    'customEffectDrawer.clockHandsSource.future': 'Future (follows pitch)',
+    'customEffectDrawer.field.clockCaseVisible': 'Show case',
+    'customEffectDrawer.field.clockPendulum': 'Pendulum',
+    'customEffectDrawer.field.clockTicksVisible': 'Show hour marks', // lượt 3
     'customEffectDrawer.field.clockGearSpeedBase': 'Gear speed',
     'customEffectDrawer.field.clockGearSpeedEnergyMult': 'Gear speed by energy',
     'customEffectDrawer.field.clockTickGain': 'Minute ring sensitivity',
