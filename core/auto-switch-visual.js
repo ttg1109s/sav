@@ -1,6 +1,10 @@
 /**
  * Tự động đổi hiệu ứng Visualizer theo thời gian (ver 10).
  *
+ * VIẾT LẠI (26/09/2026, Giang) — xem khối "VIẾT LẠI" ngay trên các hàm thuần bên dưới: danh sách group/style
+ * kéo thả + checkbox, thời gian 'fixed' (const/random, 10s-1h) | 'perMedia'. Phần mô tả 2 nhánh 'fixed'/'random'
+ * + 'duration' (mốc bài hát) ngay dưới là LỊCH SỬ — nhánh 'duration' ĐÃ BỎ, 'random' giờ là kiểu con của 'fixed'.
+ *
  * QUAN TRỌNG — 2 KHÁI NIỆM HOÀN TOÀN TÁCH BIỆT, KHÔNG ĐƯỢC GỘP CHUNG:
  *
  *   (A) "Loại hình visual sắp tới là gì" — vizConfig.autoSwitchVisualMode ('sequential' | 'random').
@@ -62,60 +66,96 @@
         // onAutoSwitchVisualSongChanged, syncAutoSwitchVisualPlayState (bản Workflow tương ứng: _applyType, _scheduleNextTimer,
         // _marksTick, killAllTasks, startBranch, onSongChanged, syncPlayState). Giải thích cơ chế 2 nhánh ở đầu file VẪN ĐÚNG.
 
-        /** Chọn 1 giá trị MODES MỚI theo cách chọn (KHÔNG tự áp dụng/lưu gì cả).
-         * @param {number} currentModeIndex - appState.currentModeIndex hiện tại.
-         * @param {'sequential'|'random'} selectMode - vizConfig.autoSwitchVisualMode.
-         * @returns {string} 1 phần tử của MODES. */
-        function pickNextAutoSwitchVisualType(currentModeIndex, selectMode) {
-            if (selectMode === 'random' && MODES.length > 1) {
-                let idx = currentModeIndex;
-                while (idx === currentModeIndex) idx = Math.floor(Math.random() * MODES.length);
-                return MODES[idx];
-            }
-            return MODES[(currentModeIndex + 1) % MODES.length]; // 'sequential' — đúng cơ chế #btn-cycle-mode
+        // ===================== VIẾT LẠI (26/09/2026, Giang "cải tiến lại Auto-Switch Effect") =====================
+        // Danh sách chạy theo GROUP hoặc STYLE (vizConfig.autoSwitchVisualListBy), mỗi danh sách có thứ tự RIÊNG do
+        // người dùng kéo thả + checkbox tham gia; group còn chọn 1 style cụ thể hoặc 'random' trong group. Cách chọn
+        // kế tiếp (autoSwitchVisualMode) = 'sequential' (theo thứ tự danh sách) | 'random' (trong các mục đã tick).
+        // Thời gian: 'fixed' (const | random [min,max], 10s-1h, time picker) | 'perMedia' (mỗi song/video/photo
+        // mới). Mode cũ 'duration' (chia độ dài bài) + mảng mốc ĐÃ BỎ (config cũ migrate sang 'perMedia').
+        // Mọi hàm dưới đây THUẦN (nhận tham số, trả kết quả) hoặc chỉ mutate appConfigViz (setter) — Rule 1-3.
+
+        /** Chuẩn hoá danh sách GROUP đã lưu theo EFFECT_GROUPS hiện tại: giữ thứ tự mục còn hợp lệ, bỏ group
+         * không còn tồn tại, thêm group mới vào CUỐI (tick sẵn, style 'random'); style không thuộc group -> 'random'.
+         * @param {Array<{key:string, enabled:boolean, style:string}>} list @param {Object<string,string[]>} effectGroups
+         * @returns {Array<{key:string, enabled:boolean, style:string}>} mảng MỚI */
+        function normalizeAutoSwitchGroupList(list, effectGroups) {
+            const out = [];
+            const seen = {};
+            (Array.isArray(list) ? list : []).forEach((item) => {
+                if (!item || !effectGroups[item.key] || seen[item.key]) return;
+                seen[item.key] = true;
+                const style = effectGroups[item.key].includes(item.style) ? item.style : 'random';
+                out.push({ key: item.key, enabled: item.enabled !== false, style });
+            });
+            Object.keys(effectGroups).forEach((key) => { if (!seen[key]) out.push({ key, enabled: true, style: 'random' }); });
+            return out;
         }
 
-        /** NHÁNH 1 — số ms cho LẦN ĐẾM KẾ TIẾP ('fixed' = khoảng cố định; 'random' = random LẠI mỗi vòng trong
-         * [AUTO_SWITCH_VISUAL_MIN_SECONDS, X người điền]).
+        /** Chuẩn hoá danh sách STYLE đã lưu theo MODES hiện tại (cùng luật normalizeAutoSwitchGroupList()).
+         * @param {Array<{key:string, enabled:boolean}>} list @param {string[]} allStyles - MODES @returns {Array} mảng MỚI */
+        function normalizeAutoSwitchStyleList(list, allStyles) {
+            const out = [];
+            const seen = {};
+            (Array.isArray(list) ? list : []).forEach((item) => {
+                if (!item || !allStyles.includes(item.key) || seen[item.key]) return;
+                seen[item.key] = true;
+                out.push({ key: item.key, enabled: item.enabled !== false });
+            });
+            allStyles.forEach((key) => { if (!seen[key]) out.push({ key, enabled: true }); });
+            return out;
+        }
+
+        /** Style kế tiếp theo danh sách STYLE. Chỉ xét mục đã tick; 'sequential' = mục ngay sau style đang chạy
+         * (style đang chạy không nằm trong danh sách tick -> mục đầu); 'random' = ngẫu nhiên, khác style đang chạy
+         * nếu có ≥2 mục. Không mục nào tick -> null (không đổi).
+         * @param {Array<{key,enabled}>} styleList @param {'sequential'|'random'} selectMode @param {string} currentStyle
+         * @returns {string|null} */
+        function pickNextAutoSwitchStyleFromStyleList(styleList, selectMode, currentStyle) {
+            const candidates = styleList.filter((item) => item.enabled).map((item) => item.key);
+            if (candidates.length === 0) return null;
+            const pos = candidates.indexOf(currentStyle);
+            if (selectMode === 'random') {
+                const pool = candidates.length > 1 ? candidates.filter((k) => k !== currentStyle) : candidates;
+                return pool[Math.floor(Math.random() * pool.length)];
+            }
+            return candidates[(pos + 1) % candidates.length]; // pos -1 -> mục đầu
+        }
+
+        /** Style kế tiếp theo danh sách GROUP: chọn group kế (cùng luật sequential/random như danh sách style, so
+         * với group của style đang chạy), rồi lấy style cố định của mục đó, hoặc 'random' = ngẫu nhiên trong group
+         * (ưu tiên khác style đang chạy). Không mục nào tick -> null.
+         * @param {Array<{key,enabled,style}>} groupList @param {'sequential'|'random'} selectMode @param {string} currentStyle
+         * @param {Object<string,string>} styleToGroup @param {Object<string,string[]>} effectGroups @returns {string|null} */
+        function pickNextAutoSwitchStyleFromGroupList(groupList, selectMode, currentStyle, styleToGroup, effectGroups) {
+            const candidates = groupList.filter((item) => item.enabled);
+            if (candidates.length === 0) return null;
+            const currentGroup = styleToGroup[currentStyle];
+            const pos = candidates.findIndex((item) => item.key === currentGroup);
+            let next;
+            if (selectMode === 'random') {
+                const pool = candidates.length > 1 ? candidates.filter((item) => item.key !== currentGroup) : candidates;
+                next = pool[Math.floor(Math.random() * pool.length)];
+            } else {
+                next = candidates[(pos + 1) % candidates.length];
+            }
+            if (next.style !== 'random') return next.style;
+            const styles = effectGroups[next.key] || [];
+            const pool = styles.length > 1 ? styles.filter((k) => k !== currentStyle) : styles;
+            return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+        }
+
+        /** Nhánh 'fixed' — số ms cho LẦN ĐẾM KẾ TIẾP: 'const' = autoSwitchVisualSecondsFixed; 'random' = ngẫu
+         * nhiên LẠI mỗi vòng trong [autoSwitchVisualSecondsRandomMin, autoSwitchVisualSecondsRandom]. Luôn kẹp
+         * [AUTO_SWITCH_VISUAL_MIN_SECONDS, AUTO_SWITCH_VISUAL_MAX_SECONDS].
          * @param {object} cfg - appConfigViz.getAll(). @returns {number} */
         function computeAutoSwitchVisualTimerDelayMs(cfg) {
-            if (cfg.autoSwitchVisualTimeMode === 'random') {
-                const maxSeconds = Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, cfg.autoSwitchVisualSecondsRandom);
-                return (AUTO_SWITCH_VISUAL_MIN_SECONDS + Math.random() * (maxSeconds - AUTO_SWITCH_VISUAL_MIN_SECONDS)) * 1000;
+            const clamp = (v) => Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, Math.min(AUTO_SWITCH_VISUAL_MAX_SECONDS, Number(v) || AUTO_SWITCH_VISUAL_MIN_SECONDS));
+            if (cfg.autoSwitchVisualFixedKind === 'random') {
+                const lo = clamp(cfg.autoSwitchVisualSecondsRandomMin);
+                const hi = Math.max(lo, clamp(cfg.autoSwitchVisualSecondsRandom));
+                return (lo + Math.random() * (hi - lo)) * 1000;
             }
-            return Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, cfg.autoSwitchVisualSecondsFixed) * 1000;
-        }
-
-        /**
-         * NHÁNH 2 ('duration') — dựng mảng mốc TUYỆT ĐỐI cho bài đang phát. X (secondsDuration) là SỐ CHIA trong
-         * (duration / X), tự kẹp không vượt round(duration/2) để LUÔN có tối thiểu 1 lần đổi giữa bài. Mốc ĐẦU (t=0) giữ
-         * NGUYÊN kiểu đang chọn (không coi là 1 lần đổi).
-         * `complete` = false khi duration chưa hợp lệ (chỉ có mốc t=0) — nơi gọi KHÔNG được đánh dấu "đã build cho bài
-         * này" (FIX 13/07/2026: 'play' bắn TRƯỚC 'loadedmetadata' lúc pipeline còn nguội, duration vẫn NaN — đánh dấu
-         * nhầm khiến 'loadedmetadata' bỏ qua rebuild, visual đứng yên hết bài).
-         * @param {number} duration - audioPlayer.duration (NaN/0 nếu chưa có).
-         * @param {string} currentType - MODES[currentModeIndex].
-         * @param {number} secondsDuration - vizConfig.autoSwitchVisualSecondsDuration.
-         * @returns {{marks: {time:number, visual:(string|null)}[], complete: boolean}}
-         */
-        function buildAutoSwitchVisualMarks(duration, currentType, secondsDuration) {
-            const marks = [{ time: 0, visual: currentType }];
-            if (!(isFinite(duration) && duration > 0)) return { marks, complete: false };
-            const maxAllowed = Math.round(duration / 2);
-            const step = Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, Math.min(secondsDuration, maxAllowed));
-            let t = step;
-            while (t < duration) { marks.push({ time: t, visual: null }); t += step; }
-            return { marks, complete: true };
-        }
-
-        /** NHÁNH 2 — index mốc CUỐI CÙNG có time <= t (đoạn currentTime đang thuộc). t vượt mốc cuối -> dừng ở mốc
-         * cuối (tự nhiên không "nhảy tiếp" nữa). @param {{time:number}[]} marks @param {number} t @returns {number} */
-        function findAutoSwitchVisualMarkIndex(marks, t) {
-            let idx = 0;
-            for (let i = 0; i < marks.length; i++) {
-                if (marks[i].time <= t) idx = i; else break;
-            }
-            return idx;
+            return clamp(cfg.autoSwitchVisualSecondsFixed) * 1000;
         }
 
         // ===================== UI binding (Settings, section "Tự động đổi hiệu ứng") =====================
@@ -142,14 +182,15 @@
          * 'change' của toggle bật/tắt chạy.
          */
         function updateCycleModeButtonState() {
+            // SỬA (26/09/2026, Giang "Auto-Switch On -> block CHỌN effect ở icon center") — KHÔNG còn `disabled`
+            // cả nút: `disabled` chặn luôn GIỮ 1.5s (mở Custom Effect Drawer), không đúng ý chỉ chặn việc CHỌN
+            // effect. Giờ chỉ làm mờ để báo trạng thái; CLICK bị chặn ở workflowCustomEffect.onCycleModeClick()
+            // (hiện thông báo), GIỮ vẫn mở Custom Effect Drawer như thường.
             if (typeof btnCycleMode === 'undefined' || !btnCycleMode) return;
             const locked = appConfigViz.getAll().autoSwitchVisualEnabled === true;
-            btnCycleMode.disabled = locked;
-            btnCycleMode.classList.toggle('opacity-40', locked);
-            btnCycleMode.classList.toggle('cursor-not-allowed', locked);
-            btnCycleMode.title = locked
-                ? 'Đổi hiệu ứng (đang khoá — tắt "Tự động đổi hiệu ứng" trong Cài đặt để bấm tay)'
-                : 'Đổi hiệu ứng';
+            btnCycleMode.disabled = false;
+            btnCycleMode.classList.toggle('opacity-50', locked);
+            btnCycleMode.classList.remove('opacity-40', 'cursor-not-allowed');
         }
 
         /**
@@ -171,22 +212,6 @@
             selectEl.classList.toggle('cursor-not-allowed', locked);
         }
 
-        /**
-         * Hiện ĐÚNG 1 trong 3 khối input theo `timeModeValue`, ẩn 2 khối còn lại.
-         *
-         * Batch D3 (Settings restructure, 06/07/2026) — panel Visualizer Settings giờ PUSH/POP
-         * động (core/settings-panel-stack.js), 3 khối `elAutoSwitchBlockFixed/Random/Duration` KHÔNG
-         * còn là dom-refs tĩnh hợp lệ (đã xoá khỏi core/dom-refs.js) — hàm giờ nhận CẢ 4 tham số
-         * (giá trị + 3 khối) từ nơi gọi, nơi gọi tự tìm phần tử BÊN TRONG panel đang mở (delegation,
-         * xem event/listener/auto-switch-visual.js) thay vì dựa vào biến toàn cục.
-         * @param {string} timeModeValue @param {HTMLElement} blockFixedEl @param {HTMLElement} blockRandomEl @param {HTMLElement} blockDurationEl
-         */
-        function syncAutoSwitchTimeModeBlocks(timeModeValue, blockFixedEl, blockRandomEl, blockDurationEl) {
-            if (!blockFixedEl) return;
-            blockFixedEl.classList.toggle('hidden', timeModeValue !== 'fixed');
-            blockRandomEl.classList.toggle('hidden', timeModeValue !== 'random');
-            blockDurationEl.classList.toggle('hidden', timeModeValue !== 'duration');
-        }
 
         /**
          * Đồng bộ boot-time PHẦN KHÔNG PHỤ THUỘC PANEL — nút cycle Control Center (#btn-cycle-mode)
@@ -203,34 +228,71 @@
             updateVisualizerTypeSelectState(); // FIX BUG 19/07/2026 (mục 5) — xem docstring hàm này ở trên
         }
 
-        /** Core thuần: ứng với toggle bật/tắt "Tự động đổi hiệu ứng". Batch D3 — nhận `optionsEl`
-         * qua tham số (panel động, xem docstring syncAutoSwitchTimeModeBlocks ở trên); BỎ
-         * `saveConfig()`/`updateCycleModeButtonState()`/`startAutoSwitchVisualBranch()` nội bộ —
-         * dời ra `workflowVisualizerDisplay.setAutoSwitchEnabled()` (Rule 3).
-         * @param {boolean} checked @param {HTMLElement} [optionsEl] */
-        function setAutoSwitchVisualEnabled(checked, optionsEl) {
+        /** Core thuần: toggle bật/tắt. SỬA (26/09/2026) — các tuỳ chọn LUÔN hiện (Giang), không còn ẩn/hiện khối. */
+        function setAutoSwitchVisualEnabled(checked) {
             appConfigViz.mutateAll(cfg => { cfg.autoSwitchVisualEnabled = checked; });
-            if (optionsEl) optionsEl.classList.toggle('hidden', !checked);
         }
 
-        /** Core thuần: ứng với select "Cách chọn kiểu kế tiếp" (sequential/random). Batch D3 — BỎ `saveConfig()`. */
+        /** Core thuần: cách chọn kế tiếp 'sequential' | 'random' (chạy trong danh sách). */
         function setAutoSwitchVisualMode(value) {
-            appConfigViz.mutateAll(cfg => { cfg.autoSwitchVisualMode = value; });
+            appConfigViz.mutateAll(cfg => { cfg.autoSwitchVisualMode = value === 'random' ? 'random' : 'sequential'; });
         }
 
-        /** Core thuần: ứng với select "Cách tính thời gian" (fixed/random/duration). Batch D3 — BỎ
-         * `syncAutoSwitchTimeModeBlocks()`/`saveConfig()`/`startAutoSwitchVisualBranch()` nội bộ. */
+        /** Core thuần: nhánh thời gian 'fixed' | 'perMedia'. */
         function setAutoSwitchVisualTimeMode(value) {
-            appConfigViz.mutateAll(cfg => { cfg.autoSwitchVisualTimeMode = value; });
+            appConfigViz.mutateAll(cfg => { cfg.autoSwitchVisualTimeMode = value === 'perMedia' ? 'perMedia' : 'fixed'; });
         }
 
-        /** Core thuần: ứng với 1 trong 3 input số giây (fieldName tương ứng đúng field vizConfig).
-         * Batch D3 — BỎ `saveConfig()`/`startAutoSwitchVisualBranch()` nội bộ. */
-        function setAutoSwitchVisualSecondsField(fieldName, rawValue, inputEl) {
-            let v = parseInt(rawValue, 10);
-            if (!Number.isFinite(v) || v < AUTO_SWITCH_VISUAL_MIN_SECONDS) v = AUTO_SWITCH_VISUAL_MIN_SECONDS;
-            if (inputEl) inputEl.value = v;
-            appConfigViz.mutateAll(cfg => { cfg[fieldName] = v; });
+        /** Core thuần: kiểu của nhánh 'fixed' — 'const' | 'random'. MỚI 26/09/2026. */
+        function setAutoSwitchVisualFixedKind(value) {
+            appConfigViz.mutateAll(cfg => { cfg.autoSwitchVisualFixedKind = value === 'random' ? 'random' : 'const'; });
+        }
+
+        /** Core thuần: danh sách chạy theo 'group' | 'style'. MỚI 26/09/2026. */
+        function setAutoSwitchVisualListBy(value) {
+            appConfigViz.mutateAll(cfg => { cfg.autoSwitchVisualListBy = value === 'group' ? 'group' : 'style'; });
+        }
+
+        /** Core thuần: tick/bỏ tick 1 mục. @param {'group'|'style'} listBy @param {string} key @param {boolean} checked */
+        function setAutoSwitchVisualItemEnabled(listBy, key, checked) {
+            const field = listBy === 'group' ? 'autoSwitchVisualGroupList' : 'autoSwitchVisualStyleList';
+            appConfigViz.mutateAll(cfg => {
+                cfg[field] = (cfg[field] || []).map((item) => (item.key === key ? { ...item, enabled: !!checked } : item));
+            });
+        }
+
+        /** Core thuần: style chạy cho 1 group ('random' hoặc 1 style của group đó). */
+        function setAutoSwitchVisualGroupStyle(groupKey, style) {
+            appConfigViz.mutateAll(cfg => {
+                cfg.autoSwitchVisualGroupList = (cfg.autoSwitchVisualGroupList || []).map((item) => (item.key === groupKey ? { ...item, style } : item));
+            });
+        }
+
+        /** Core thuần: kéo thả — dời mục `fromKey` tới ĐÚNG vị trí của mục `toKey` (các mục giữa dồn lên/xuống). */
+        function moveAutoSwitchVisualItem(listBy, fromKey, toKey) {
+            const field = listBy === 'group' ? 'autoSwitchVisualGroupList' : 'autoSwitchVisualStyleList';
+            appConfigViz.mutateAll(cfg => {
+                const list = (cfg[field] || []).slice();
+                const from = list.findIndex((item) => item.key === fromKey);
+                const to = list.findIndex((item) => item.key === toKey);
+                if (from === -1 || to === -1 || from === to) return;
+                const [moved] = list.splice(from, 1);
+                list.splice(to, 0, moved);
+                cfg[field] = list;
+            });
+        }
+
+        /** Core thuần: ghi 1 trong 3 field thời gian (giây) từ time picker (ms), kẹp [10s, 1h]. Khoảng random luôn
+         * giữ min <= max: đặt min vượt max -> kéo max lên theo; đặt max dưới min -> kéo min xuống theo.
+         * @param {'autoSwitchVisualSecondsFixed'|'autoSwitchVisualSecondsRandomMin'|'autoSwitchVisualSecondsRandom'} fieldName
+         * @param {number} valueMs */
+        function setAutoSwitchVisualSeconds(fieldName, valueMs) {
+            const v = Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, Math.min(AUTO_SWITCH_VISUAL_MAX_SECONDS, Math.round(valueMs / 1000)));
+            appConfigViz.mutateAll(cfg => {
+                cfg[fieldName] = v;
+                if (fieldName === 'autoSwitchVisualSecondsRandomMin' && cfg.autoSwitchVisualSecondsRandom < v) cfg.autoSwitchVisualSecondsRandom = v;
+                if (fieldName === 'autoSwitchVisualSecondsRandom' && cfg.autoSwitchVisualSecondsRandomMin > v) cfg.autoSwitchVisualSecondsRandomMin = v;
+            });
         }
 
         // ===================== Liên kết với trạng thái phát nhạc =====================

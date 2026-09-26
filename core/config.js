@@ -217,12 +217,24 @@
             //   - autoSwitchVisualTimeMode: 'fixed' (c1) | 'random' (c2) | 'duration' (c3).
             //   - 3 field SỐ GIÂY RIÊNG cho từng mode — KHÔNG dùng chung 1 field (bị ghi đè mất
             //     giá trị của mode khác mỗi khi đổi qua lại).
+            // VIẾT LẠI (26/09/2026, Giang "cải tiến lại Auto-Switch Effect"):
+            //   - autoSwitchVisualListBy: 'group' | 'style' — danh sách đang dùng.
+            //   - autoSwitchVisualGroupList [{key, enabled, style: 'random'|<style>}] / autoSwitchVisualStyleList
+            //     [{key, enabled}] — THỨ TỰ = thứ tự kéo thả; rỗng = chuẩn hoá lúc loadConfig theo EFFECT_GROUPS/MODES.
+            //   - autoSwitchVisualMode: 'sequential' (theo thứ tự danh sách) | 'random' (trong các mục đã tick).
+            //   - autoSwitchVisualTimeMode: 'fixed' | 'perMedia' (mỗi song/video/photo mới). 'duration' cũ ĐÃ BỎ.
+            //   - autoSwitchVisualFixedKind: 'const' (SecondsFixed) | 'random' (SecondsRandomMin..SecondsRandom).
+            //   - Giây kẹp [10, 3600] (AUTO_SWITCH_VISUAL_MIN/MAX_SECONDS, service/state/auto-switch.js).
             autoSwitchVisualEnabled: false,
+            autoSwitchVisualListBy: 'style',
+            autoSwitchVisualGroupList: [],
+            autoSwitchVisualStyleList: [],
             autoSwitchVisualMode: 'sequential',
             autoSwitchVisualTimeMode: 'fixed',
+            autoSwitchVisualFixedKind: 'const',
             autoSwitchVisualSecondsFixed: 30,
-            autoSwitchVisualSecondsRandom: 30,
-            autoSwitchVisualSecondsDuration: 30,
+            autoSwitchVisualSecondsRandomMin: 10,
+            autoSwitchVisualSecondsRandom: 60,
             subtitlesEnabled: true,
             // MỚI (15/08/2026, mục 4a — "box chung cho subtitles line") — chuỗi CSS build từ
             // Element Style Editor (core/element-style-editor.js), áp lên `subtitleFrame` (khung
@@ -566,7 +578,9 @@
                 gameplayDifficultyByGame: 'object',
                 keepScreenOn: 'boolean',
                 autoSwitchVisualEnabled: 'boolean', autoSwitchVisualMode: 'string', autoSwitchVisualTimeMode: 'string',
-                autoSwitchVisualSecondsFixed: 'number', autoSwitchVisualSecondsRandom: 'number', autoSwitchVisualSecondsDuration: 'number',
+                autoSwitchVisualListBy: 'string', autoSwitchVisualGroupList: 'array', autoSwitchVisualStyleList: 'array',
+                autoSwitchVisualFixedKind: 'string',
+                autoSwitchVisualSecondsFixed: 'number', autoSwitchVisualSecondsRandomMin: 'number', autoSwitchVisualSecondsRandom: 'number',
                 subtitlesEnabled: 'boolean',
                 subtitleBoxCss: 'string',
                 subtitleUseCustomStyling: 'boolean',
@@ -898,22 +912,27 @@
                 // lại từ "chưa armed game nào").
                 delete cfg.gameplayModeEnabled;
                 delete cfg.gameplayArmedGameId;
-                // Auto-switch-visual (ver 10) — migrate field mới + validate lại ngưỡng tối thiểu.
+                // Auto-switch-visual — VIẾT LẠI migrate (26/09/2026, Giang "cải tiến lại Auto-Switch Effect").
                 if (cfg.autoSwitchVisualEnabled == null) cfg.autoSwitchVisualEnabled = false;
                 if (cfg.autoSwitchVisualMode !== 'sequential' && cfg.autoSwitchVisualMode !== 'random') cfg.autoSwitchVisualMode = 'sequential';
-                if (!['fixed', 'random', 'duration'].includes(cfg.autoSwitchVisualTimeMode)) cfg.autoSwitchVisualTimeMode = 'fixed';
-                // MIGRATE field cũ `autoSwitchVisualSeconds` (nếu config cũ còn sót lại) sang cả 3 field mới.
-                if (typeof cfg.autoSwitchVisualSeconds === 'number') {
-                    if (cfg.autoSwitchVisualSecondsFixed == null) cfg.autoSwitchVisualSecondsFixed = cfg.autoSwitchVisualSeconds;
-                    if (cfg.autoSwitchVisualSecondsRandom == null) cfg.autoSwitchVisualSecondsRandom = cfg.autoSwitchVisualSeconds;
-                    if (cfg.autoSwitchVisualSecondsDuration == null) cfg.autoSwitchVisualSecondsDuration = cfg.autoSwitchVisualSeconds;
-                    delete cfg.autoSwitchVisualSeconds;
-                }
-                ['autoSwitchVisualSecondsFixed', 'autoSwitchVisualSecondsRandom', 'autoSwitchVisualSecondsDuration'].forEach((field) => {
-                    if (typeof cfg[field] !== 'number' || cfg[field] < AUTO_SWITCH_VISUAL_MIN_SECONDS) {
-                        cfg[field] = Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, DEFAULT_VIZ_CONFIG[field]);
-                    }
+                // Field cũ `autoSwitchVisualSeconds` (rất cũ) -> SecondsFixed.
+                if (typeof cfg.autoSwitchVisualSeconds === 'number' && cfg.autoSwitchVisualSecondsFixed == null) cfg.autoSwitchVisualSecondsFixed = cfg.autoSwitchVisualSeconds;
+                delete cfg.autoSwitchVisualSeconds;
+                // timeMode cũ: 'random' -> 'fixed' + kiểu random (giữ SecondsRandom làm trần); 'duration' -> 'perMedia'.
+                if (cfg.autoSwitchVisualTimeMode === 'random') { cfg.autoSwitchVisualTimeMode = 'fixed'; cfg.autoSwitchVisualFixedKind = 'random'; }
+                else if (cfg.autoSwitchVisualTimeMode === 'duration') cfg.autoSwitchVisualTimeMode = 'perMedia';
+                if (cfg.autoSwitchVisualTimeMode !== 'fixed' && cfg.autoSwitchVisualTimeMode !== 'perMedia') cfg.autoSwitchVisualTimeMode = 'fixed';
+                if (cfg.autoSwitchVisualFixedKind !== 'const' && cfg.autoSwitchVisualFixedKind !== 'random') cfg.autoSwitchVisualFixedKind = 'const';
+                delete cfg.autoSwitchVisualSecondsDuration;
+                ['autoSwitchVisualSecondsFixed', 'autoSwitchVisualSecondsRandomMin', 'autoSwitchVisualSecondsRandom'].forEach((field) => {
+                    if (typeof cfg[field] !== 'number' || !isFinite(cfg[field])) cfg[field] = DEFAULT_VIZ_CONFIG[field];
+                    cfg[field] = Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, Math.min(AUTO_SWITCH_VISUAL_MAX_SECONDS, Math.round(cfg[field])));
                 });
+                if (cfg.autoSwitchVisualSecondsRandomMin > cfg.autoSwitchVisualSecondsRandom) cfg.autoSwitchVisualSecondsRandom = cfg.autoSwitchVisualSecondsRandomMin;
+                // Danh sách group/style — chuẩn hoá theo registry hiện tại (group/style mới thêm vào cuối, đã tick).
+                if (cfg.autoSwitchVisualListBy !== 'group' && cfg.autoSwitchVisualListBy !== 'style') cfg.autoSwitchVisualListBy = 'style';
+                cfg.autoSwitchVisualGroupList = normalizeAutoSwitchGroupList(cfg.autoSwitchVisualGroupList, EFFECT_GROUPS); // core/auto-switch-visual.js
+                cfg.autoSwitchVisualStyleList = normalizeAutoSwitchStyleList(cfg.autoSwitchVisualStyleList, MODES); // core/auto-switch-visual.js
                 // XOÁ (mục 2, phản hồi Giang — "loại bỏ toàn bộ khung box, xoá toàn bộ tuỳ chọn")
                 // — khối migrate `cfg.subtitleStyle` (2 dòng gán default + 1 dòng clamp fontSize)
                 // ĐÃ BỎ HẲN: field không còn tồn tại trong DEFAULT_VIZ_CONFIG/schema nữa. Config cũ
