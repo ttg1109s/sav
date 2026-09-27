@@ -703,24 +703,32 @@ const workflowVideoPreview = {
      *   - Đang Cắt khung, HOẶC chưa cắt khung (khung phủ toàn bộ): như cũ — video full khung
      *     (`object-contain` + transform xoay/lật), canvas Crop khớp đúng video để kéo khung.
      *   - Trạng thái xem / Thu ngắn MÀ đã cắt khung: hiện ĐÚNG vùng đã cắt, phóng vừa khung chứa —
-     *     `_applyCroppedPreview()`. */
+     *     `_applyCroppedPreview()` (cắt bằng khung cha `cropViewEl`, KHÔNG dùng clip-path). */
     _renderTransformPreview() {
         const videoEl = this._modalHandle.videoEl;
+        const cropViewEl = this._modalHandle.cropViewEl;
         const cropRect = appState.get('videoPreviewActiveTool') === 'crop' ? null : this._computeCropRect();
         if (cropRect) { this._applyCroppedPreview(cropRect); return; }
-        ['left', 'top', 'right', 'bottom', 'width', 'height', 'maxWidth', 'maxHeight', 'clipPath', 'transformOrigin', 'objectFit'].forEach((k) => { videoEl.style[k] = ''; }); // về lại layout class (absolute inset-0 w-full h-full object-contain)
+        // về lại layout class: khung cắt = cả khung chứa, video absolute inset-0 w-full h-full object-contain
+        ['left', 'top', 'right', 'bottom', 'width', 'height'].forEach((k) => { cropViewEl.style[k] = ''; });
+        ['left', 'top', 'right', 'bottom', 'width', 'height', 'maxWidth', 'maxHeight', 'transformOrigin', 'objectFit'].forEach((k) => { videoEl.style[k] = ''; });
         videoEl.style.transform = this._getRotateTransform().transform;
     },
 
-    /** Xem trước kết quả cắt khung ngay trên màn chính. Ý tưởng: đặt `<video>` đúng kích thước gốc
-     * nhân hệ số `s` (tỉ lệ khớp tuyệt đối, không letterbox bên trong), dời sao cho TÂM vùng crop
-     * trùng tâm khung chứa, `clip-path: inset()` chỉ chừa lại vùng crop (clip-path tính trong hệ
-     * toạ độ CỦA phần tử, trước transform, nên xoay/lật kéo theo đúng vùng đó), rồi xoay/lật quanh
-     * TÂM VÙNG CROP. `s` chọn để vùng crop SAU XOAY vừa khít khung chứa (kiểu contain). Kết quả khớp
-     * file xuất (core/video-editor/webcodecs-engine.js: lật theo hướng gốc -> xoay -> cắt khung).
+    /** Xem trước kết quả cắt khung ngay trên màn chính.
+     * SỬA (27/09/2026, Giang: "crop chỉ làm resize ảnh chứ không crop thật") — bản trước cắt bằng
+     * `clip-path` trên chính `<video>`; WebKit/iOS vẽ video ở lớp compositing riêng và BỎ QUA
+     * clip-path đó, nên chỉ thấy video phóng to (resize) mà vẫn đủ khung hình. Giờ cắt bằng KHUNG CHA
+     * `cropViewEl` (`overflow:hidden`, cắt chữ nhật — loại cắt WebKit tôn trọng với video):
+     *   - `cropViewEl` = đúng kích thước vùng crop SAU XOAY, phóng vừa khít khung chứa (kiểu contain),
+     *     đặt giữa.
+     *   - `<video>` bên trong: kích thước gốc x `s`, dời sao cho TÂM vùng crop trùng tâm `cropViewEl`,
+     *     xoay/lật quanh tâm vùng crop — phần ngoài vùng crop tràn ra ngoài khung cha và bị cắt.
+     * Khớp file xuất (core/video-editor/webcodecs-engine.js: lật theo hướng gốc -> xoay -> cắt khung).
      * @param {{x:number,y:number,w:number,h:number}} rect - px GỐC. */
     _applyCroppedPreview(rect) {
         const videoEl = this._modalHandle.videoEl;
+        const cropViewEl = this._modalHandle.cropViewEl;
         const W = appState.get('videoPreviewNativeW'), H = appState.get('videoPreviewNativeH');
         const deg = appState.get('videoPreviewRotateDeg');
         const flipH = appState.get('videoPreviewFlipH');
@@ -728,20 +736,27 @@ const workflowVideoPreview = {
         const sideways = deg === 90 || deg === 270;
         const outW = sideways ? rect.h : rect.w, outH = sideways ? rect.w : rect.h;
         const s = Math.min(wrapRect.width / outW, wrapRect.height / outH);
+        const viewW = outW * s, viewH = outH * s;
         const cx = (rect.x + rect.w / 2) * s, cy = (rect.y + rect.h / 2) * s;
 
+        cropViewEl.style.right = 'auto';
+        cropViewEl.style.bottom = 'auto';
+        cropViewEl.style.width = `${viewW}px`;
+        cropViewEl.style.height = `${viewH}px`;
+        cropViewEl.style.left = `${(wrapRect.width - viewW) / 2}px`;
+        cropViewEl.style.top = `${(wrapRect.height - viewH) / 2}px`;
+
         videoEl.style.objectFit = 'fill';
-        // Preflight Tailwind có `video { max-width: 100%; height: auto }` — phải gỡ, không thì phần tử
-        // (to hơn khung chứa khi vùng crop nhỏ) bị ép lại bằng khung, lệch hẳn khỏi clip-path.
+        // Preflight Tailwind có `video { max-width: 100%; height: auto }` — phải gỡ, không thì video
+        // (to hơn khung cắt) bị ép nhỏ lại, lệch khỏi vùng crop.
         videoEl.style.maxWidth = 'none';
         videoEl.style.maxHeight = 'none';
         videoEl.style.right = 'auto';
         videoEl.style.bottom = 'auto';
         videoEl.style.width = `${W * s}px`;
         videoEl.style.height = `${H * s}px`;
-        videoEl.style.left = `${wrapRect.width / 2 - cx}px`;
-        videoEl.style.top = `${wrapRect.height / 2 - cy}px`;
-        videoEl.style.clipPath = `inset(${rect.y * s}px ${(W - rect.x - rect.w) * s}px ${(H - rect.y - rect.h) * s}px ${rect.x * s}px)`;
+        videoEl.style.left = `${viewW / 2 - cx}px`;
+        videoEl.style.top = `${viewH / 2 - cy}px`;
         videoEl.style.transformOrigin = `${cx}px ${cy}px`;
         videoEl.style.transform = `${deg ? `rotate(${deg}deg)` : ''}${flipH ? ' scaleX(-1)' : ''}`;
     },
