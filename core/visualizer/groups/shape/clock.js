@@ -34,6 +34,12 @@
  * smoothClockMediaTime()); vòng quét lượt 4 (3 vòng HUD + tia quét) thay bằng 6 vòng quỹ đạo 3D
  * (advanceClockOrbitRings()/paintClockOrbitRings()) — quay theo chiều kim, lật hướng kiểu Rubik theo bậc nốt.
  *
+ * SỬA (27/09/2026, lượt 7, Giang — vòng "Time scan"): bán kính vòng rộng hơn (1.2-1.7R, cụm vừa 96% cạnh ngắn
+ * màn hình thay vì khung clockSizeRatio — computeClockOrbitFitScale()); vòng dày theo slider `clockRingWidth`
+ * 6-18px; vòng KHÔNG khựng như kim (không đứng khi mất nốt/kẹt, không rung — tốc độ có sàn, chiều giữ nguyên
+ * tới khi kim thật sự đổi chiều); không có audio (không phát): kim chạy thuận 1 giây / giây như đồng hồ thường,
+ * vòng chạy đều theo chiều + hướng hiện tại.
+ *
  * THUẦN, không side-effect, không đọc appState/getActiveEffectConfig, không gọi hàm tự viết khác (Rule
  * 1/2/3) — Workflow `_tickClock()` (event/workflow/visualizer-render.js) gom state, cache hình học, resolve
  * màu qua getComputedColor() rồi gọi RIÊNG LẺ từng hàm dưới đây.
@@ -184,15 +190,21 @@ const CLOCK_JAM_IN_MS = 90, CLOCK_JAM_OUT_MS = 250;
 const CLOCK_BPM_REF = 120;
 const CLOCK_BPM_MUL_MIN = 0.4, CLOCK_BPM_MUL_MAX = 1.8;
 const CLOCK_BPM_SMOOTH_MS = 800;
+/** MỚI (27/09/2026, lượt 7, Giang: "khi không có audio, kim di chuyển tịnh tiến thuận 1s một") — không phát thì
+ * kim chạy như đồng hồ thường: 1 giây ảo / 1 giây thật, chiều thuận, không nhân BPM. Chuyển qua lại giữa 2 chế độ
+ * trộn mượt theo `idle` 0-1 (EMA) để kim không giật lúc bấm Play/Pause. */
+const CLOCK_IDLE_RATE = 1;
+const CLOCK_IDLE_BLEND_MS = 400;
 
 /** MỚI (26/09/2026, Giang) — kim chế độ 'pastFuture' chạy theo nốt: bậc < 4 chạy NGƯỢC, > 4 chạy THUẬN
  * (càng xa bậc 4 càng nhanh), bậc 4 = KẸT (kim đứng tại chỗ rung lắc, bánh răng khựng). Mức `level`
  * (= bậc - 4, -3..3) và độ kẹt `jam` (0-1) đều làm mượt (EMA theo dt thật) nên đổi chiều/tốc độ không giật.
  * Không có nốt / không phát -> chậm dần rồi đứng. `startSec` = giờ ảo
  * khởi đầu khi `prev` null. `bpm` (số, <= 0/NaN = chưa đo được) nhân tốc độ — xem CLOCK_BPM_REF. Trả state MỚI
- * {virtualSec, level, jam, bpmMul}. */
+ * {virtualSec, level, jam, bpmMul, idle}. Lượt 7 — không phát (`isPlaying` false) -> trộn dần sang CLOCK_IDLE_RATE
+ * (kim chạy thuận 1s/giây), xem CLOCK_IDLE_BLEND_MS. */
 function advanceClockPitchHands(prev, dtMs, isPlaying, midiNote, noteFresh, startSec, bpm) {
-    const state = prev || { virtualSec: startSec, level: 0, jam: 0, bpmMul: 1 };
+    const state = prev || { virtualSec: startSec, level: 0, jam: 0, bpmMul: 1, idle: isPlaying ? 0 : 1 };
     const targetBpmMul = bpm > 0 ? Math.max(CLOCK_BPM_MUL_MIN, Math.min(CLOCK_BPM_MUL_MAX, bpm / CLOCK_BPM_REF)) : 1;
     const bpmMul = state.bpmMul + (targetBpmMul - state.bpmMul) * (1 - Math.exp(-dtMs / CLOCK_BPM_SMOOTH_MS));
     const hasNote = isPlaying && noteFresh && midiNote !== null && midiNote !== undefined;
@@ -206,8 +218,11 @@ function advanceClockPitchHands(prev, dtMs, isPlaying, midiNote, noteFresh, star
     const mag = Math.min(3, Math.abs(level));
     const table = CLOCK_PITCH_RATE;
     const i0 = Math.floor(mag), i1 = Math.min(3, i0 + 1);
-    const rate = (table[i0] + (table[i1] - table[i0]) * (mag - i0)) * Math.sign(level) * bpmMul;
-    return { virtualSec: state.virtualSec + rate * (dtMs / 1000), level, jam, bpmMul };
+    const pitchRate = (table[i0] + (table[i1] - table[i0]) * (mag - i0)) * Math.sign(level) * bpmMul;
+    const prevIdle = state.idle || 0;
+    const idle = prevIdle + ((isPlaying ? 0 : 1) - prevIdle) * (1 - Math.exp(-dtMs / CLOCK_IDLE_BLEND_MS));
+    const rate = pitchRate * (1 - idle) + CLOCK_IDLE_RATE * idle;
+    return { virtualSec: state.virtualSec + rate * (dtMs / 1000), level, jam, bpmMul, idle };
 }
 
 /** Độ rung lắc lúc kẹt (rad) cho 3 kim + bánh răng — tổng 2 sin tần số lệch nhau (trông như giật cục), biên
@@ -301,17 +316,38 @@ function advanceClockFlip(prev, dtMs, enabled, isPlaying, smoothedEnergy) {
  *     vòng đang lật dở thì bỏ qua nốt. Chiều lật theo dấu của chiều kim hiện tại. Không đảo chiều quay.
  * Ma trận hướng 3×3 (hàng trước, toạ độ màn hình: x phải, y xuống, z hướng vào người xem) — vòng nằm trong mặt
  * phẳng local XY của ma trận. */
-const CLOCK_ORBIT_RADII = [1.14, 1.19, 1.24, 1.29, 1.34, 1.39];      // × bán kính mặt số
+// Lượt 7 (Giang "bán kính rộng hơn") — 1.14-1.39 -> 1.2-1.7 (giãn cách 0.1R), xem computeClockOrbitFitScale().
+const CLOCK_ORBIT_RADII = [1.2, 1.3, 1.4, 1.5, 1.6, 1.7];            // × bán kính mặt số
 const CLOCK_ORBIT_SPEED = [0.9, 0.78, 0.67, 0.58, 0.5, 0.43];        // rad/s khi |handsDir| = 1
 const CLOCK_ORBIT_TILT_DEG = [72, 58, 80, 64, 76, 52];               // hướng ban đầu: nghiêng quanh trục X...
 const CLOCK_ORBIT_AZIMUTH_DEG = [0, 60, 120, 180, 240, 300];         // ...rồi xoay quanh trục Z
 const CLOCK_ORBIT_RING_OF_DEGREE = [-1, 0, 1, 2, -1, 3, 4, 5];       // index = bậc 0..7 (0 = không có nốt)
 const CLOCK_ORBIT_TURN_MS = 520;
 const CLOCK_ORBIT_ANIM_MS = 700;                                     // hiện/ẩn
+/** Lượt 7 (Giang: "không bị khựng lại như kim đồng hồ") — vòng có tốc độ RIÊNG (`vel`, hệ số có dấu × tốc độ từng
+ * vòng) bám theo kim nhưng: độ lớn không dưới CLOCK_ORBIT_MIN_MUL (mất nốt / bậc 4 kẹt vẫn chạy, không rung); chiều
+ * (`dir`) chỉ đổi khi |handsDir| vượt CLOCK_ORBIT_DIR_MIN, còn lại giữ chiều hiện tại. Không phát -> chạy đều
+ * CLOCK_ORBIT_MIN_MUL theo chiều + hướng (mặt phẳng) hiện tại. `vel` làm mượt EMA -> đổi chiều là quay đầu mượt. */
+const CLOCK_ORBIT_MIN_MUL = 0.6;
+const CLOCK_ORBIT_DIR_MIN = 0.15;
+const CLOCK_ORBIT_VEL_MS = 350;
+/** Cụm vòng quỹ đạo được phép chiếm tới 96% nửa cạnh ngắn màn hình (lượt 7 — trước đây bị gò trong khung
+ * clockSizeRatio nên vòng rộng ra chỉ làm đồng hồ co lại). */
+const CLOCK_ORBIT_FIT = 0.96;
 
-/** 1 bước 6 vòng quỹ đạo. Trả state MỚI (không sửa `prev`): {reveal, lastDegree, rings:[{m, spin, turn, view}]}
- * — `m` = hướng đã chốt, `turn` = lượt lật đang chạy {axis, dir, t} | null, `view` = ma trận hiển thị (m đã
- * cộng lượt lật dở). */
+/** MỚI (27/09/2026, lượt 7) — hệ số co cả cụm (≤ 1) để vòng ngoài cùng (kể cả nửa độ dày `halfWidthPx`, pixel màn
+ * hình) nằm trong CLOCK_ORBIT_FIT × `halfMinSide` (nửa cạnh ngắn canvas). Đồng hồ chỉ co khi vòng không vừa.
+ * @returns {{scale:number, outerR:number}} — outerR = bán kính vòng ngoài cùng (px cục bộ, trước scale). */
+function computeClockOrbitFitScale(dialR, halfMinSide, halfWidthPx) {
+    const outerR = CLOCK_ORBIT_RADII[CLOCK_ORBIT_RADII.length - 1] * dialR;
+    const scale = Math.max(0.3, Math.min(1, (halfMinSide * CLOCK_ORBIT_FIT - halfWidthPx) / outerR));
+    return { scale, outerR };
+}
+
+/** 1 bước 6 vòng quỹ đạo. Trả state MỚI (không sửa `prev`): {reveal, lastDegree, dir, vel, rings:[{m, spin, turn,
+ * view}]} — `m` = hướng đã chốt, `turn` = lượt lật đang chạy {axis, dir, t} | null, `view` = ma trận hiển thị (m đã
+ * cộng lượt lật dở). Lượt 7 — `dir` (±1) / `vel` = chiều + tốc độ riêng của vòng (xem CLOCK_ORBIT_MIN_MUL); lật
+ * kiểu Rubik theo `dir` (chiều hiện tại của vòng). */
 function advanceClockOrbitRings(prev, dtMs, enabled, handsDir, isPlaying, smoothedEnergy, midiNote, noteFresh) {
     const rot = (ax, a) => { // ma trận xoay quanh trục đơn vị ax (Rodrigues)
         const c = Math.cos(a), s = Math.sin(a), t = 1 - c, x = ax[0], y = ax[1], z = ax[2];
@@ -325,7 +361,7 @@ function advanceClockOrbitRings(prev, dtMs, enabled, handsDir, isPlaying, smooth
     const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
     const D2R = Math.PI / 180;
     const state = prev || {
-        reveal: 0, lastDegree: 0,
+        reveal: 0, lastDegree: 0, dir: 1, vel: CLOCK_ORBIT_MIN_MUL,
         rings: CLOCK_ORBIT_RADII.map((r, k) => ({ m: mul(rot([0, 0, 1], CLOCK_ORBIT_AZIMUTH_DEG[k] * D2R), rot([1, 0, 0], CLOCK_ORBIT_TILT_DEG[k] * D2R)), spin: k * 1.1, turn: null })),
     };
     const step = dtMs / CLOCK_ORBIT_ANIM_MS;
@@ -339,7 +375,11 @@ function advanceClockOrbitRings(prev, dtMs, enabled, handsDir, isPlaying, smooth
         lastDegree = degree;
         triggerRing = CLOCK_ORBIT_RING_OF_DEGREE[degree];
     }
-    const turnDir = handsDir < 0 ? -1 : 1;
+    // Lượt 7 — chiều: chỉ đổi khi kim đang chạy rõ theo chiều mới; mất nốt / kẹt / không phát -> giữ chiều cũ.
+    const dir = Math.abs(handsDir) > CLOCK_ORBIT_DIR_MIN ? Math.sign(handsDir) : state.dir;
+    const targetMag = isPlaying ? Math.max(CLOCK_ORBIT_MIN_MUL, Math.abs(handsDir)) : CLOCK_ORBIT_MIN_MUL;
+    const vel = state.vel + (dir * targetMag - state.vel) * (1 - Math.exp(-dtMs / CLOCK_ORBIT_VEL_MS));
+    const turnDir = dir;
     const rings = state.rings.map((ring, k) => {
         let m = ring.m;
         let turn = ring.turn;
@@ -350,10 +390,10 @@ function advanceClockOrbitRings(prev, dtMs, enabled, handsDir, isPlaying, smooth
             else turn = { axis: turn.axis, dir: turn.dir, t };
         }
         const view = turn ? mul(rot(turn.axis, (turn.dir * Math.PI * ease(turn.t)) / 2), m) : m;
-        const spin = (ring.spin + (dtMs / 1000) * CLOCK_ORBIT_SPEED[k] * handsDir * (1 + energy * 0.8)) % (Math.PI * 2000);
+        const spin = (ring.spin + (dtMs / 1000) * CLOCK_ORBIT_SPEED[k] * vel * (1 + energy * 0.8)) % (Math.PI * 2000);
         return { m, spin, turn, view };
     });
-    return { reveal, lastDegree, rings };
+    return { reveal, lastDegree, dir, vel, rings };
 }
 
 /** Mức 60 vạch phút (phổ tròn) 0-1 — chia dải bin theo luỹ thừa (dày ở vùng trầm/trung), `gain` nhân độ nhạy.
@@ -684,14 +724,22 @@ function paintClockHands(ctx, dialR, angles, color, glowColor, accentColor, glow
 
 /** Vẽ 6 vòng quỹ đạo, TÁCH 2 LƯỢT theo chiều sâu: `front` false = nửa phía sau (z < 0, vẽ TRƯỚC thân đồng hồ,
  * mờ hơn), true = nửa phía trước (z >= 0, vẽ SAU thân đồng hồ) -> vòng như bao quanh đồng hồ thật. Mỗi vòng =
- * đường mảnh + 2 vệt sáng đối xứng (đầu vệt ở góc `spin`, đuôi mờ dần) + hạt sáng ở đầu vệt để thấy vòng đang
- * chạy. Chiếu trực giao. `colors[k]` = {fill, glow}. `spinJitter` = rung lúc kẹt (rad). Gốc = tâm mặt số. */
-function paintClockOrbitRings(ctx, dialR, orbit, front, colors, glowPx, spinJitter, dpr) {
+ * thân vòng + 2 vệt sáng đối xứng (đầu vệt ở góc `spin`, đuôi mờ dần nằm PHÍA SAU chiều chạy `orbit.dir`) + hạt sáng
+ * ở đầu vệt. Chiếu trực giao. `colors[k]` = {fill, glow}. Gốc = tâm mặt số.
+ * SỬA (27/09/2026, lượt 7, Giang) — vòng dày theo `lineW` (px CỤC BỘ — Workflow quy đổi từ `clockRingWidth` 6-18px
+ * màn hình ÷ scale cụm): thân vòng + vệt cùng độ dày. Bỏ `spinJitter` (vòng không rung lúc kẹt). Vệt vẽ bằng các
+ * lớp cung chồng dần (đầu vệt được phủ nhiều lớp nhất) thay cho các đoạn rời -> nét dày không lộ hạt/khe nối;
+ * chỉ lớp trên cùng + hạt đầu vệt có glow (đỡ tốn shadowBlur). */
+function paintClockOrbitRings(ctx, dialR, orbit, front, colors, glowPx, lineW, dpr) {
     const reveal = orbit.reveal;
     if (reveal <= 0.001) return;
-    const N = 96, TAU = Math.PI * 2;
+    const TAU = Math.PI * 2;
     const depthAlpha = front ? 1 : 0.45;
-    ctx.lineCap = 'round';
+    const w = Math.max(1, lineW) * (0.6 + 0.4 * reveal);
+    const tailSign = orbit.dir < 0 ? 1 : -1; // đuôi vệt nằm sau hướng chạy
+    const LEN = 1.0, LAYERS = 7, LAYER_ALPHA = 0.28, STEP = 0.04;
+    ctx.lineCap = 'butt';
+    ctx.lineJoin = 'round';
     orbit.rings.forEach((ring, k) => {
         const R = CLOCK_ORBIT_RADII[k] * dialR * (0.85 + 0.15 * reveal);
         const v = ring.view;
@@ -699,38 +747,41 @@ function paintClockOrbitRings(ctx, dialR, orbit, front, colors, glowPx, spinJitt
         const py = (a) => (v[3] * Math.cos(a) + v[4] * Math.sin(a)) * R;
         const pz = (a) => v[6] * Math.cos(a) + v[7] * Math.sin(a);
         const inPass = (a) => (pz(a) >= 0) === front;
-        // Đường vòng mảnh.
-        ctx.globalAlpha = reveal * 0.35 * depthAlpha;
+        // Cung a0 -> a1, chỉ phần thuộc lượt này (mỗi đoạn liền = 1 subpath, cả cung = 1 lần stroke).
+        const strokeArc = (a0, a1) => {
+            const steps = Math.max(2, Math.ceil(Math.abs(a1 - a0) / STEP));
+            ctx.beginPath();
+            let open = false;
+            for (let i = 0; i <= steps; i++) {
+                const a = a0 + ((a1 - a0) * i) / steps;
+                if (inPass(a)) { if (open) ctx.lineTo(px(a), py(a)); else { ctx.moveTo(px(a), py(a)); open = true; } } else open = false;
+            }
+            ctx.stroke();
+        };
         ctx.strokeStyle = colors[k].fill;
-        ctx.lineWidth = Math.max(1, dpr * 0.9);
-        ctx.beginPath();
-        let open = false;
-        for (let i = 0; i <= N; i++) {
-            const a = (i / N) * TAU;
-            if (inPass(a)) { if (open) ctx.lineTo(px(a), py(a)); else { ctx.moveTo(px(a), py(a)); open = true; } } else open = false;
-        }
-        ctx.stroke();
+        ctx.lineWidth = w;
+        // Thân vòng.
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = reveal * 0.22 * depthAlpha;
+        strokeArc(0, TAU);
         // 2 vệt sáng + hạt đầu vệt.
-        const head0 = ring.spin + spinJitter;
         ctx.shadowColor = colors[k].glow;
-        ctx.shadowBlur = glowPx;
-        ctx.lineWidth = Math.max(1.5, dpr * 2.2);
         for (let c = 0; c < 2; c++) {
-            const head = head0 + c * Math.PI;
-            const SEG = 12, LEN = 0.9;
-            for (let j = 0; j < SEG; j++) {
-                const a0 = head - LEN + (LEN * j) / SEG, a1 = head - LEN + (LEN * (j + 1)) / SEG;
-                if (!inPass((a0 + a1) / 2)) continue;
-                ctx.globalAlpha = reveal * depthAlpha * (0.1 + 0.9 * ((j + 1) / SEG));
-                ctx.beginPath(); ctx.moveTo(px(a0), py(a0)); ctx.lineTo(px(a1), py(a1)); ctx.stroke();
+            const head = ring.spin + c * Math.PI;
+            ctx.globalAlpha = reveal * depthAlpha * LAYER_ALPHA;
+            for (let L = 0; L < LAYERS; L++) {
+                ctx.shadowBlur = L === LAYERS - 1 ? glowPx : 0;
+                strokeArc(head + tailSign * LEN * (1 - L / LAYERS), head);
             }
             if (inPass(head)) {
                 ctx.globalAlpha = reveal * depthAlpha;
+                ctx.shadowBlur = glowPx;
                 ctx.fillStyle = colors[k].fill;
-                ctx.beginPath(); ctx.arc(px(head), py(head), Math.max(2, dpr * 2.6), 0, TAU); ctx.fill();
+                ctx.beginPath(); ctx.arc(px(head), py(head), Math.max(2 * dpr, w * 0.75), 0, TAU); ctx.fill();
             }
         }
         ctx.shadowBlur = 0;
     });
     ctx.globalAlpha = 1;
+    ctx.lineJoin = 'miter';
 }
