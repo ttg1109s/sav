@@ -39,7 +39,7 @@
  *   cả cờ `videoPreviewHasUnsavedChanges` về đúng giá trị trước đó (trước đây Huỷ Crop vẫn bật cờ).
  * - Mỗi lần đổi công cụ, `#video-preview-media-wrap` đổi kích thước (topbar/panel dưới hiện/ẩn) →
  *   `_renderTransformPreview()` tính lại hệ số scale xoay 90°/270° theo khung MỚI.
- * - Thêm Tắt tiếng (`handleMuteClick`, preview `videoEl.muted` + `muteAudio` khi xuất), rail mở
+ * - (Từng thêm Tắt tiếng — ĐÃ BỎ 27/09/2026 theo yêu cầu Giang; engine vẫn nhận `muteAudio` tuỳ chọn), rail mở
  *   rộng nhãn (`handleRailExpandClick`), biểu tượng Play giữa màn hình (`handleVideoPlayState`).
  * - Lật khi đang Cắt khung giờ đồng bộ lại canvas Crop (trước đây nút Lật trong dải tỉ lệ chỉ lật
  *   `<video>`, canvas Crop KHÔNG lật theo → khung crop lệch khỏi hình).
@@ -83,43 +83,88 @@ const MIN_TRIM_DURATION = 0.3; // giây — khoảng cách tối thiểu giữa 
 
 const VIDEO_PREVIEW_METADATA_TIMEOUT_MS = 15000; // Phase 1 — quá hạn chờ `<video>` báo metadata thì coi như hỏng, không kẹt shield
 
-/** Nạp 1 file script cục bộ đúng 1 lần (cache promise theo đường dẫn). Không tồn tại/lỗi -> false.
- * @param {string} src @returns {Promise<boolean>} */
+/** Nạp 1 file script cục bộ. Thành công thì nhớ lại (không nạp lần 2); THẤT BẠI thì KHÔNG nhớ —
+ * SỬA (26/09/2026, Giang báo "library is missing"): bản trước cache luôn cả promise thất bại, nên
+ * chép file vào assets/vendor/ SAU lần mở đầu tiên vẫn báo thiếu cho tới khi tải lại trang.
+ * Bắt thêm lỗi CHẠY script (vd tải nhầm bản .mjs/ESM hoặc bản CommonJS cho Node — script vẫn "load"
+ * nhưng ném SyntaxError/ReferenceError, không tạo biến global) để báo đúng nguyên nhân lên màn hình.
+ * @param {string} src @returns {Promise<{loaded: boolean, runError: (string|null)}>} */
 function _loadVideoEditorScriptOnce(src) {
     window._videoEditorScriptPromises = window._videoEditorScriptPromises || {};
     if (window._videoEditorScriptPromises[src]) return window._videoEditorScriptPromises[src];
-    window._videoEditorScriptPromises[src] = new Promise((resolve) => {
+    const promise = new Promise((resolve) => {
         const el = document.createElement('script');
-        el.src = src;
-        el.onload = () => resolve(true);
-        el.onerror = () => { console.error(`[_loadVideoEditorScriptOnce] không nạp được "${src}"`); resolve(false); };
+        let runError = null;
+        // file:// (origin mờ) trình duyệt che tên file trong lỗi -> lỗi không có filename phát ra giữa
+        // lúc gắn thẻ và 'load' cũng tính là của file này.
+        const onRunError = (e) => {
+            if (!e.filename || e.filename.indexOf(src) !== -1) runError = e.message || String(e.error) || 'Script error';
+        };
+        window.addEventListener('error', onRunError);
+        const done = (loaded) => {
+            window.removeEventListener('error', onRunError);
+            if (!loaded || runError || (src === MEDIABUNNY_VENDOR_PATH && !window.Mediabunny)) { // lần sau thử lại từ đầu
+                el.remove();
+                delete window._videoEditorScriptPromises[src];
+                window._videoEditorScriptRetry[src] = true;
+            }
+            resolve({ loaded, runError });
+        };
+        // Lần thử lại sau 1 lần hỏng: thêm tham số chống cache — không thì trình duyệt trả lại đúng bản
+        // file sai đã nhớ, dù Giang đã chép đè bản đúng.
+        window._videoEditorScriptRetry = window._videoEditorScriptRetry || {};
+        el.src = window._videoEditorScriptRetry[src] ? `${src}?retry=${Date.now()}` : src;
+        el.onload = () => done(true);
+        el.onerror = () => { console.error(`[_loadVideoEditorScriptOnce] không tìm thấy/không tải được "${src}"`); done(false); };
         document.head.appendChild(el);
     });
-    return window._videoEditorScriptPromises[src];
+    window._videoEditorScriptPromises[src] = promise;
+    return promise;
 }
 
-/** SỬA (Phase 1, 26/09/2026 — Giang: "Mediabunny offline luôn vào thư mục assets/vendor/") — bỏ
- * danh sách URL CDN, chỉ nạp file cục bộ. Kèm tuỳ chọn gói encoder AAC (WASM) CHỈ khi máy không tự
- * encode được AAC — thiếu file đó thì bỏ qua (xuất vẫn chạy, audio có thể bị bỏ nếu phải encode lại,
- * Workflow báo riêng). @returns {Promise<boolean>} */
+const MEDIABUNNY_VENDOR_PATH = 'assets/vendor/mediabunny.js';
+
+/** SỬA (Phase 1, 26/09/2026 — Giang: "Mediabunny offline luôn vào thư mục assets/vendor/") — chỉ
+ * nạp file cục bộ. SỬA (cùng ngày, Giang báo lỗi thiếu thư viện) — trả LÝ DO cụ thể thay vì true/
+ * false để thông báo chỉ đúng chỗ sai:
+ *   'mediabunnyMissing'    — không tìm thấy file (sai tên/sai thư mục/chưa chép).
+ *   'mediabunnyWrongBuild' — file có nhưng không tạo `window.Mediabunny` (tải nhầm bản .mjs/ESM hoặc
+ *                            bản cho Node; cần bản `dist/bundles/mediabunny.cjs`). Kèm lỗi chạy script.
+ *   'mediabunnyTooOld'     — thiếu tính năng lật (`VideoSample.prototype.setFlip`, có từ 1.57.0).
+ * Kèm tuỳ chọn gói encoder AAC (WASM) CHỈ khi máy không tự encode được AAC — thiếu file đó thì bỏ qua.
+ * @returns {Promise<{ok: boolean, reason?: string, detail?: string}>} */
 async function _ensureMediabunnyLoaded() {
     if (!window.Mediabunny) {
-        const ok = await _loadVideoEditorScriptOnce('assets/vendor/mediabunny.js');
-        if (!ok || !window.Mediabunny) return false;
+        const r = await _loadVideoEditorScriptOnce(MEDIABUNNY_VENDOR_PATH);
+        if (!r.loaded) return { ok: false, reason: 'mediabunnyMissing' };
+        if (!window.Mediabunny) {
+            console.error('[_ensureMediabunnyLoaded] file đã tải nhưng không có window.Mediabunny:', r.runError);
+            return { ok: false, reason: 'mediabunnyWrongBuild', detail: r.runError || '' };
+        }
+    }
+    if (!(Mediabunny.VideoSample && Mediabunny.VideoSample.prototype && typeof Mediabunny.VideoSample.prototype.setFlip === 'function')) {
+        // Quên bản cũ để lần mở sau nạp lại file (Giang chép đè bản mới không cần tải lại trang).
+        window.Mediabunny = undefined;
+        delete window._videoEditorScriptPromises[MEDIABUNNY_VENDOR_PATH];
+        window._videoEditorScriptRetry[MEDIABUNNY_VENDOR_PATH] = true;
+        return { ok: false, reason: 'mediabunnyTooOld' };
     }
     if (!window._videoEditorAacChecked) {
         window._videoEditorAacChecked = true;
         try {
             const aacOk = await Mediabunny.canEncodeAudio('aac');
-            if (!aacOk && await _loadVideoEditorScriptOnce('assets/vendor/mediabunny-aac-encoder.js') && window.MediabunnyAacEncoder) {
-                MediabunnyAacEncoder.registerAacEncoder();
-                console.log('[_ensureMediabunnyLoaded] đã đăng ký encoder AAC (WASM) cho máy không tự encode được AAC');
+            if (!aacOk) {
+                const r = await _loadVideoEditorScriptOnce('assets/vendor/mediabunny-aac-encoder.js');
+                if (r.loaded && window.MediabunnyAacEncoder) {
+                    MediabunnyAacEncoder.registerAacEncoder();
+                    console.log('[_ensureMediabunnyLoaded] đã đăng ký encoder AAC (WASM) cho máy không tự encode được AAC');
+                }
             }
         } catch (err) {
             console.warn('[_ensureMediabunnyLoaded] kiểm tra/đăng ký encoder AAC lỗi (bỏ qua):', err);
         }
     }
-    return true;
+    return { ok: true };
 }
 
 function _formatVideoPreviewTime(seconds) {
@@ -149,14 +194,15 @@ const workflowVideoPreview = {
     /** @param {string} videoKey */
     async open(videoKey) {
         let failKey = null; // key thông báo lỗi — báo SAU khi shield tắt
+        let failDetail = ''; // chi tiết kỹ thuật kèm theo (vd lỗi chạy file thư viện) — hiện luôn lên màn hình
         await withLoadingShield(tFormat('videoPreview.loadingPercent', { percent: 0 }), async () => { // core/loading-shield-util.js
             const pct = (p) => this._setShieldPercent('videoPreview.loadingPercent', p);
             const record = await getVideoRecord(videoKey); // service/db.js — Workflow đọc (Rule 3b)
             if (!record) { failKey = 'videoPreview.videoNotFound'; return; }
             pct(5);
 
-            const mediabunnyOk = await _ensureMediabunnyLoaded();
-            if (!mediabunnyOk) { failKey = 'videoPreview.compat.mediabunnyNotLoaded'; return; }
+            const lib = await _ensureMediabunnyLoaded();
+            if (!lib.ok) { failKey = `videoPreview.compat.${lib.reason}`; failDetail = lib.detail || ''; return; }
             pct(15);
 
             const compat = await checkVideoEditorCompat(record.blob); // core/video-editor/compat-guard.js
@@ -176,7 +222,6 @@ const workflowVideoPreview = {
             appState.set('videoPreviewCropSession', null);
             appState.set('videoPreviewActiveDrag', null);
             appState.set('videoPreviewActiveTool', 'none');
-            appState.set('videoPreviewMuted', false);
             appState.set('videoPreviewSaveMode', 'asNew');
             appState.set('videoPreviewZoomPanSession', null);
             appState.set('videoPreviewIsPlaying', false);
@@ -199,7 +244,7 @@ const workflowVideoPreview = {
             }
             pct(100);
         });
-        if (failKey) await alertModal(t(failKey));
+        if (failKey) await alertModal(failDetail ? `${t(failKey)}\n\n${failDetail}` : t(failKey));
     },
 
     /** Ứng với 'videoPreview.metadata.loaded' — `<video>` vừa biết xong kích thước/thời lượng thật. */
@@ -651,28 +696,54 @@ const workflowVideoPreview = {
     /** Áp CSS xoay + lật LIVE lên `<video>` ngay trong modal (mục 3 cũ — trước đây bấm Xoay không
      * thấy gì đổi cho tới khi Lưu/mở lại). Dùng chung `_getRotateTransform()` với
      * `_syncCropCanvasBox()`. Canvas Crop (nếu đang Cắt khung) do nơi gọi tự đồng bộ — xem
-     * `handleFlipClick()`. */
+     * `handleFlipClick()`.
+     *
+     * SỬA (27/09/2026, Giang: "Crop done -> vẫn chưa cập nhật màn hình main") — trước đây khung crop
+     * CHỈ áp lúc xuất file, màn xem vẫn hiện nguyên khung hình. Giờ 2 nhánh:
+     *   - Đang Cắt khung, HOẶC chưa cắt khung (khung phủ toàn bộ): như cũ — video full khung
+     *     (`object-contain` + transform xoay/lật), canvas Crop khớp đúng video để kéo khung.
+     *   - Trạng thái xem / Thu ngắn MÀ đã cắt khung: hiện ĐÚNG vùng đã cắt, phóng vừa khung chứa —
+     *     `_applyCroppedPreview()`. */
     _renderTransformPreview() {
-        this._modalHandle.videoEl.style.transform = this._getRotateTransform().transform;
-    },
-
-    /** Tắt/bật tiếng — áp NGAY lên preview (`videoEl.muted`) và bỏ track audio khi xuất
-     * (`muteAudio`, core/video-editor/webcodecs-engine.js). */
-    handleMuteClick() {
-        appState.set('videoPreviewMuted', !appState.get('videoPreviewMuted'));
-        this._renderMuteState();
-        appState.set('videoPreviewHasUnsavedChanges', true);
-    },
-
-    _renderMuteState() {
-        const muted = appState.get('videoPreviewMuted');
-        this._modalHandle.videoEl.muted = muted;
-        this._modalHandle.muteBtn.classList.toggle('is-muted', muted); // nhãn "Âm lượng" cố định, chỉ icon đổi (như FB)
-        // FIX (Phase 1, Giang: "bật/tắt tiếng -> mất hình") — nghi vấn WebKit dựng lại lớp hiển thị
-        // video khi đổi `muted` lúc đang DỪNG (có thể do audio session 'playback' của app), khung hình
-        // đang đứng bị xoá đen tới lần decode kế tiếp. Seek tại chỗ ép decode + vẽ lại đúng khung đó.
         const videoEl = this._modalHandle.videoEl;
-        if (videoEl.paused && videoEl.readyState >= 1) videoEl.currentTime = videoEl.currentTime;
+        const cropRect = appState.get('videoPreviewActiveTool') === 'crop' ? null : this._computeCropRect();
+        if (cropRect) { this._applyCroppedPreview(cropRect); return; }
+        ['left', 'top', 'right', 'bottom', 'width', 'height', 'maxWidth', 'maxHeight', 'clipPath', 'transformOrigin', 'objectFit'].forEach((k) => { videoEl.style[k] = ''; }); // về lại layout class (absolute inset-0 w-full h-full object-contain)
+        videoEl.style.transform = this._getRotateTransform().transform;
+    },
+
+    /** Xem trước kết quả cắt khung ngay trên màn chính. Ý tưởng: đặt `<video>` đúng kích thước gốc
+     * nhân hệ số `s` (tỉ lệ khớp tuyệt đối, không letterbox bên trong), dời sao cho TÂM vùng crop
+     * trùng tâm khung chứa, `clip-path: inset()` chỉ chừa lại vùng crop (clip-path tính trong hệ
+     * toạ độ CỦA phần tử, trước transform, nên xoay/lật kéo theo đúng vùng đó), rồi xoay/lật quanh
+     * TÂM VÙNG CROP. `s` chọn để vùng crop SAU XOAY vừa khít khung chứa (kiểu contain). Kết quả khớp
+     * file xuất (core/video-editor/webcodecs-engine.js: lật theo hướng gốc -> xoay -> cắt khung).
+     * @param {{x:number,y:number,w:number,h:number}} rect - px GỐC. */
+    _applyCroppedPreview(rect) {
+        const videoEl = this._modalHandle.videoEl;
+        const W = appState.get('videoPreviewNativeW'), H = appState.get('videoPreviewNativeH');
+        const deg = appState.get('videoPreviewRotateDeg');
+        const flipH = appState.get('videoPreviewFlipH');
+        const wrapRect = this._modalHandle.mediaWrapEl.getBoundingClientRect();
+        const sideways = deg === 90 || deg === 270;
+        const outW = sideways ? rect.h : rect.w, outH = sideways ? rect.w : rect.h;
+        const s = Math.min(wrapRect.width / outW, wrapRect.height / outH);
+        const cx = (rect.x + rect.w / 2) * s, cy = (rect.y + rect.h / 2) * s;
+
+        videoEl.style.objectFit = 'fill';
+        // Preflight Tailwind có `video { max-width: 100%; height: auto }` — phải gỡ, không thì phần tử
+        // (to hơn khung chứa khi vùng crop nhỏ) bị ép lại bằng khung, lệch hẳn khỏi clip-path.
+        videoEl.style.maxWidth = 'none';
+        videoEl.style.maxHeight = 'none';
+        videoEl.style.right = 'auto';
+        videoEl.style.bottom = 'auto';
+        videoEl.style.width = `${W * s}px`;
+        videoEl.style.height = `${H * s}px`;
+        videoEl.style.left = `${wrapRect.width / 2 - cx}px`;
+        videoEl.style.top = `${wrapRect.height / 2 - cy}px`;
+        videoEl.style.clipPath = `inset(${rect.y * s}px ${(W - rect.x - rect.w) * s}px ${(H - rect.y - rect.h) * s}px ${rect.x * s}px)`;
+        videoEl.style.transformOrigin = `${cx}px ${cy}px`;
+        videoEl.style.transform = `${deg ? `rotate(${deg}deg)` : ''}${flipH ? ' scaleX(-1)' : ''}`;
     },
 
     /** Bấm Reset — PHẢI xác nhận trước khi chạy (mục 1, phản hồi Giang: "loại bỏ toàn bộ Undo/Redo,
@@ -695,12 +766,10 @@ const workflowVideoPreview = {
         cropSession.aspectRatio = NaN;
         appState.set('videoPreviewRotateDeg', 0);
         appState.set('videoPreviewFlipH', false);
-        appState.set('videoPreviewMuted', false);
         appState.set('videoPreviewCutStart', 0);
         appState.set('videoPreviewCutEnd', appState.get('videoPreviewSourceDuration'));
         const zoomPanSession = appState.get('videoPreviewZoomPanSession');
         resetPanzoomSession(zoomPanSession); // core/media-transform.js
-        this._renderMuteState();
         this._renderTransformPreview();
         this._drawCropOverlay();
         this._renderTrimPositions();
@@ -770,7 +839,9 @@ const workflowVideoPreview = {
      * sai đơn vị → file xuất cắt lệch). Giờ CHỈ đọc khung crop.
      * @returns {{x:number,y:number,w:number,h:number}|null} px GỐC; null nếu khung phủ toàn bộ (không cắt). */
     _computeCropRect() {
-        const rect = getCropSessionRect(appState.get('videoPreviewCropSession')); // core/media-transform.js
+        const session = appState.get('videoPreviewCropSession');
+        if (!session) return null; // guard — chưa có metadata
+        const rect = getCropSessionRect(session); // core/media-transform.js
         const w = appState.get('videoPreviewNativeW'), h = appState.get('videoPreviewNativeH');
         const isFullFrame = rect.x <= 0.5 && rect.y <= 0.5 && rect.w >= w - 1 && rect.h >= h - 1;
         return isFullFrame ? null : rect;
@@ -787,7 +858,6 @@ const workflowVideoPreview = {
             sourceHeight: appState.get('videoPreviewNativeH'),
             rotateDeg: appState.get('videoPreviewRotateDeg'),
             flipH: appState.get('videoPreviewFlipH'),
-            muteAudio: appState.get('videoPreviewMuted'),
         };
     },
 
@@ -885,7 +955,6 @@ const workflowVideoPreview = {
         appState.set('videoPreviewActiveDrag', null);
         appState.set('videoPreviewFilmstripFrames', []);
         appState.set('videoPreviewActiveTool', 'none');
-        appState.set('videoPreviewMuted', false);
         appState.set('videoPreviewSaveMode', 'asNew');
         this._beforeToolSnapshot = null;
         appState.set('videoPreviewZoomPanSession', null);
