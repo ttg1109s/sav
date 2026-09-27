@@ -1176,7 +1176,9 @@ const workflowVisualizerRender = {
      * SỬA (27/09/2026, lượt 7, Giang — vòng Time scan) — vòng rộng hơn: cụm co theo computeClockOrbitFitScale() (vừa
      * 96% nửa cạnh ngắn màn hình, không còn gò trong khung clockSizeRatio); độ dày `clockRingWidth` 6-18px màn hình
      * (quy về px cục bộ ÷ scale cụm); vòng không rung theo kẹt (bỏ jitter truyền vào); không phát -> kim chạy thuận
-     * 1s/giây, vòng chạy đều theo chiều + hướng hiện tại (đều do core xử lý theo `isPlaying`). */
+     * 1s/giây, vòng chạy đều theo chiều + hướng hiện tại (đều do core xử lý theo `isPlaying`).
+     * SỬA (lượt 7b, Giang) — vòng là vật cứng xoay CẢ VÒNG (+/-) quanh trục qua tâm đồng hồ, nốt đổi trục xoay
+     * (core advanceClockOrbitRings()); không còn vệt/hạt chạy dọc vòng. Workflow không đổi cách gọi. */
     _tickClock(ctx, perf, isPlaying, dpr, smoothedEnergy, beatScale, vizDataArray, analyser) {
         const cfg = getActiveEffectConfig(); // core/custom-effect.js
         const W = canvas.width, H = canvas.height;
