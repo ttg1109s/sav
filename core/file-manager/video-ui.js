@@ -63,6 +63,7 @@ function openVideoPreviewModal(data) {
 
     const mediaWrapEl = fragment.querySelector('#video-preview-media-wrap');
     const stageEl = fragment.querySelector('#video-preview-stage');
+    const cropViewEl = fragment.querySelector('#video-preview-crop-view'); // 27/09/2026 — khung cắt xem trước (overflow:hidden) bọc <video>
     const videoEl = fragment.querySelector('#video-preview-video');
     const posterEl = fragment.querySelector('#video-preview-poster');
     const cropCanvasEl = fragment.querySelector('#video-preview-crop-canvas');
@@ -144,7 +145,7 @@ function openVideoPreviewModal(data) {
 
     return {
         close: closeModal,
-        overlayEl, mediaWrapEl, stageEl, videoEl, posterEl, cropCanvasEl, ratioButtons, ratioFlipBtn,
+        overlayEl, mediaWrapEl, stageEl, cropViewEl, videoEl, posterEl, cropCanvasEl, ratioButtons, ratioFlipBtn,
         filmstripTrackEl, filmstripFramesEl, startHandleEl, endHandleEl, dimLeftEl, dimRightEl, rangeBorderEl, playheadEl,
         currentTimeLabelEl, trimLengthLabelEl, toolTitleEl, flipBtn, saveModeLabelEl,
     };
