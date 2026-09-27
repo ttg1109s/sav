@@ -1174,11 +1174,13 @@ const workflowVisualizerRender = {
      * SỬA (lượt 6, Giang) — con lắc / vòng quỹ đạo thành 1 dropdown `clockAccessory` (không đồng thời); con lắc thêm
      * bóng mờ dây (`clockPendulumTrail`) + chiều dài (`clockPendulumLength`, % tối đa vừa màn hình).
      * SỬA (27/09/2026, lượt 7, Giang — vòng Time scan) — vòng rộng hơn: cụm co theo computeClockOrbitFitScale() (vừa
-     * 96% nửa cạnh ngắn màn hình, không còn gò trong khung clockSizeRatio); độ dày `clockRingWidth` 6-18px màn hình
+     * 96% nửa cạnh ngắn màn hình, không còn gò trong khung clockSizeRatio); độ dày `clockRingWidth` px màn hình
      * (quy về px cục bộ ÷ scale cụm); vòng không rung theo kẹt (bỏ jitter truyền vào); không phát -> kim chạy thuận
      * 1s/giây, vòng chạy đều theo chiều + hướng hiện tại (đều do core xử lý theo `isPlaying`).
      * SỬA (lượt 7b, Giang) — vòng là vật cứng xoay CẢ VÒNG (+/-) quanh trục qua tâm đồng hồ, nốt đổi trục xoay
-     * (core advanceClockOrbitRings()); không còn vệt/hạt chạy dọc vòng. Workflow không đổi cách gọi. */
+     * (core advanceClockOrbitRings()); không còn vệt/hạt chạy dọc vòng.
+     * SỬA (lượt 8, Giang) — 4 vòng trục cố định (thẳng/ngang/chéo 2 bên), tốc độ độc lập theo dải tần riêng
+     * (computeClockOrbitRingLevels()); độ dày `clockRingWidth` 1-6px. */
     _tickClock(ctx, perf, isPlaying, dpr, smoothedEnergy, beatScale, vizDataArray, analyser) {
         const cfg = getActiveEffectConfig(); // core/custom-effect.js
         const W = canvas.width, H = canvas.height;
@@ -1218,13 +1220,14 @@ const workflowVisualizerRender = {
         const accessory = cfg.clockAccessory || 'rings';
         const ringsOn = accessory === 'rings' && (!_clockPendulum || _clockPendulum.progress === 0);
         const pendulumOn = accessory === 'pendulum' && (!_clockRings || _clockRings.reveal === 0);
-        _clockRings = advanceClockOrbitRings(_clockRings, dt, ringsOn, handsDir, isPlaying, smoothedEnergy, lastValidMidiNote, noteFresh); // core
+        const ringBandLevels = computeClockOrbitRingLevels(vizDataArray, analyser.frequencyBinCount, isPlaying); // core — lượt 8
+        _clockRings = advanceClockOrbitRings(_clockRings, dt, ringsOn, handsDir, isPlaying, ringBandLevels); // core
         _clockFlip = advanceClockFlip(_clockFlip, dt, cfg.clockFlip === true, isPlaying, smoothedEnergy); // core
         _clockPendulum = advanceClockPendulum(_clockPendulum, dt, pendulumOn, isPlaying, smoothedEnergy, jam); // core
         const ringE = _clockRings.reveal;
         const caseR = dialR * (caseVisible ? 1.08 : 1.0);
         // Lượt 7 — độ dày vòng theo px màn hình (CSS px × dpr); cụm chỉ co khi vòng ngoài cùng không vừa màn hình.
-        const ringWidthPx = Math.max(6, Math.min(18, cfg.clockRingWidth || 10)) * dpr;
+        const ringWidthPx = Math.max(1, Math.min(6, cfg.clockRingWidth || 3)) * dpr; // lượt 8: 1-6px
         const orbitFit = computeClockOrbitFitScale(dialR, Math.min(W, H) / 2, ringWidthPx / 2); // core
         const topExtR = caseR + (orbitFit.outerR - caseR) * ringE;
         const baseScale = 1 + (orbitFit.scale - 1) * ringE;
@@ -1242,7 +1245,7 @@ const workflowVisualizerRender = {
             paintClockPendulum(ctx, pl.pivotY, pl.length, pl.bobR, swingAt(_clockPendulum.phase), pl.reveal, caseColor.fill, caseColor.glow, glowPx, dpr, ghostSwings); // core
         }
         // Vòng quỹ đạo — nửa SAU vẽ trước thân đồng hồ, nửa TRƯỚC vẽ sau cùng (xem cuối hàm).
-        const ringColors = ringE > 0 ? [0, 1, 2, 3, 4, 5].map((k) => getComputedColor(k, 6, 170 + 85 * (isPlaying ? smoothedEnergy : 0))) : null; // core/audio-analysis.js
+        const ringColors = ringE > 0 ? _clockRings.rings.map((r, k, all) => getComputedColor(k, all.length, 170 + 85 * (isPlaying ? smoothedEnergy : 0))) : null; // core/audio-analysis.js
         const ringLineW = ringWidthPx / pl.scale; // px màn hình -> px cục bộ (ctx đang scale cả cụm)
         if (ringE > 0) paintClockOrbitRings(ctx, dialR, _clockRings, false, ringColors, glowPx, ringLineW, dpr); // core
 
