@@ -119,8 +119,8 @@
                 // ('none' | 'pendulum' | 'rings', thay 2 toggle clockPendulum/clockRingsVisible). Con lắc thêm
                 // clockPendulumTrail (bóng mờ của dây) + clockPendulumLength (% chiều dài tối đa vừa màn hình, 20-100).
                 clockAccessory: 'rings', clockPendulumTrail: true, clockPendulumLength: 70,
-                // Lượt 7 (27/09/2026, Giang): độ dày vòng Time scan, px màn hình 6-18.
-                clockRingWidth: 10,
+                // Lượt 7 (27/09/2026, Giang): độ dày vòng Time scan, px màn hình — lượt 8: 1-6 (trước 6-18).
+                clockRingWidth: 3,
                 blurEnabled: true, blurIntensity: 60,
             },
             vortex: {
@@ -900,6 +900,8 @@
                 if (next.shape) { delete next.shape.clockPendulum; delete next.shape.clockRingsVisible; }
                 // MIGRATE 26/09/2026 (clock lượt 5) — bỏ hẳn lựa chọn nguồn kim (chỉ còn Past & Future) -> xoá khoá thừa.
                 if (next.shape) delete next.shape.clockHandsSource;
+                // MIGRATE 27/09/2026 (clock lượt 8) — clockRingWidth đổi khoảng 6-18 -> 1-6: giá trị cũ ngoài khoảng kẹp về.
+                if (next.shape && next.shape.clockRingWidth != null) next.shape.clockRingWidth = Math.max(1, Math.min(6, Number(next.shape.clockRingWidth) || 3));
                 cfg.customEffect = next;
                 delete cfg.mode; delete cfg.solidColor; delete cfg.dynA; delete cfg.dynB; delete cfg.blurEnabled;
                 delete cfg.barStyle; delete cfg.vortexStyle; delete cfg.rainStyle; delete cfg.glassFlash;

@@ -224,8 +224,8 @@ const CUSTOM_EFFECT_FIELDS = {
             { value: 'rings', labelKey: 'customEffectDrawer.clockAccessory.rings' },
         ] },
         { id: 'clockPendulumLength', labelKey: 'customEffectDrawer.field.clockPendulumLength', type: 'slider', min: 20, max: 100, step: 5, card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'pendulum' },
-        // Lượt 7 (27/09/2026, Giang) — độ dày vòng Time scan (px màn hình), chỉ hiện khi Accessory = rings.
-        { id: 'clockRingWidth', labelKey: 'customEffectDrawer.field.clockRingWidth', type: 'slider', min: 6, max: 18, step: 1, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'rings' },
+        // Lượt 7 (27/09/2026, Giang) — độ dày vòng Time scan (px màn hình), chỉ hiện khi Accessory = rings. Lượt 8: 1-6px.
+        { id: 'clockRingWidth', labelKey: 'customEffectDrawer.field.clockRingWidth', type: 'slider', min: 1, max: 6, step: 1, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'rings' },
         { id: 'clockSizeRatio', labelKey: 'customEffectDrawer.field.clockSizeRatio', type: 'sliderFloat', min: 0.5, max: 0.95, step: 0.05, decimals: 2, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' },
         { id: 'clockGearSpeedBase', labelKey: 'customEffectDrawer.field.clockGearSpeedBase', type: 'sliderFloat', min: 0, max: 2, step: 0.1, decimals: 1, card: 'motion', showIf: (cfg) => cfg.shapeStyle === 'clock' },
         { id: 'clockGearSpeedEnergyMult', labelKey: 'customEffectDrawer.field.clockGearSpeedEnergyMult', type: 'sliderFloat', min: 0, max: 6, step: 0.1, decimals: 1, card: 'motion', showIf: (cfg) => cfg.shapeStyle === 'clock' },
