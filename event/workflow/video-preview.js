@@ -44,6 +44,27 @@
  * - Lật khi đang Cắt khung giờ đồng bộ lại canvas Crop (trước đây nút Lật trong dải tỉ lệ chỉ lật
  *   `<video>`, canvas Crop KHÔNG lật theo → khung crop lệch khỏi hình).
  *
+ * PHASE 1 (26/09/2026, Giang):
+ * - Engine xuất mới (`Mediabunny.Conversion`, core/video-editor/webcodecs-engine.js) ghi thẳng vào
+ *   file tạm OPFS (core/video-editor/opfs-temp.js; máy không hỗ trợ -> RAM). Mediabunny nạp OFFLINE từ
+ *   assets/vendor/mediabunny.js (+ tuỳ chọn assets/vendor/mediabunny-aac-encoder.js nếu máy không tự
+ *   encode được AAC).
+ * - Hiện % lúc tải video vào edit (các bước chuẩn bị + trích dải phim, dải phim giờ trích TRONG
+ *   shield) và lúc xuất (tiến độ Conversion + bước chụp thumb/ghi DB) — `loadingText` (tiền lệ
+ *   workflowPlaylist.uploadVideos()).
+ * - Lưu: bọc trong shield (hết bấm Lưu 2 lần/đóng modal giữa chừng), thumb dùng lại
+ *   `workflowPlaylist.extractVideoThumbAndMeta()` (có timeout + thumb full-res), Lưu đè qua
+ *   `replaceVideoMedia()` (giữ customName...), Lưu mới gắn vào folder Video đang scope, xong thì
+ *   làm mới playlist + ĐÓNG modal (như nút Chia sẻ của Story — nguồn trong modal đã cũ sau khi lưu).
+ * - Zoom-pan = CHẾ ĐỘ XEM + hệ toạ độ gắn chữ/sticker sau này (Giang chốt), KHÔNG vào file xuất —
+ *   `_computeCropFraction()` (trộn pan CSS-px với crop px gốc, sai đơn vị) thay bằng
+ *   `_computeCropRect()` chỉ đọc khung crop. Panzoom chuyển sang `stageEl` (bọc poster + video) để
+ *   không giẫm transform xoay/lật trên `<video>`. Mở Cắt khung thì đưa zoom về 1 (khung crop không
+ *   zoom theo).
+ * - `<video>` lỗi/không có metadata sau 15s -> đóng modal + báo, không kẹt shield.
+ * - Guard crop pointerMove/Up khi chưa có session (listener document bắn MỌI lúc toàn app -> trước
+ *   đây TypeError ở mỗi lần chạm khi modal đóng).
+ *
  * NẠP SAU: core/file-manager/video-ui.js, core/media-transform.js (gộp crop-selector.js +
  * image-zoom.js + cycleRotation(), 04/08/2026), core/video-editor/compat-guard.js/filmstrip.js/
  * webcodecs-engine.js, core/video-player-capture.js, core/file-manager/video.js/image.js, service/state/
@@ -53,30 +74,45 @@
 const FILMSTRIP_FRAME_COUNT = 14;
 const MIN_TRIM_DURATION = 0.3; // giây — khoảng cách tối thiểu giữa Start/End
 
-function _ensureMediabunnyLoaded() {
-    if (window.Mediabunny) return Promise.resolve(true);
-    if (window._mediabunnyLoadPromise) return window._mediabunnyLoadPromise;
-    window._mediabunnyLoadPromise = new Promise((resolve) => {
-        const candidates = [
-            'https://cdn.jsdelivr.net/npm/mediabunny@1.46.0/dist/bundles/mediabunny.cjs',
-            'https://cdn.jsdelivr.net/npm/mediabunny/dist/bundles/mediabunny.cjs',
-            'https://unpkg.com/mediabunny@1.46.0/dist/bundles/mediabunny.cjs',
-            'https://unpkg.com/mediabunny/dist/bundles/mediabunny.cjs',
-            'https://cdn.jsdelivr.net/npm/mediabunny@1.46.0/dist/mediabunny.cjs',
-        ];
-        let i = 0;
-        function tryNext() {
-            if (i >= candidates.length) { console.error('[_ensureMediabunnyLoaded] Đã thử hết URL, không tải được Mediabunny.'); resolve(false); return; }
-            const url = candidates[i++];
-            const el = document.createElement('script');
-            el.src = url;
-            el.onload = () => resolve(true);
-            el.onerror = () => tryNext();
-            document.head.appendChild(el);
-        }
-        tryNext();
+const VIDEO_PREVIEW_METADATA_TIMEOUT_MS = 15000; // Phase 1 — quá hạn chờ `<video>` báo metadata thì coi như hỏng, không kẹt shield
+
+/** Nạp 1 file script cục bộ đúng 1 lần (cache promise theo đường dẫn). Không tồn tại/lỗi -> false.
+ * @param {string} src @returns {Promise<boolean>} */
+function _loadVideoEditorScriptOnce(src) {
+    window._videoEditorScriptPromises = window._videoEditorScriptPromises || {};
+    if (window._videoEditorScriptPromises[src]) return window._videoEditorScriptPromises[src];
+    window._videoEditorScriptPromises[src] = new Promise((resolve) => {
+        const el = document.createElement('script');
+        el.src = src;
+        el.onload = () => resolve(true);
+        el.onerror = () => { console.error(`[_loadVideoEditorScriptOnce] không nạp được "${src}"`); resolve(false); };
+        document.head.appendChild(el);
     });
-    return window._mediabunnyLoadPromise;
+    return window._videoEditorScriptPromises[src];
+}
+
+/** SỬA (Phase 1, 26/09/2026 — Giang: "Mediabunny offline luôn vào thư mục assets/vendor/") — bỏ
+ * danh sách URL CDN, chỉ nạp file cục bộ. Kèm tuỳ chọn gói encoder AAC (WASM) CHỈ khi máy không tự
+ * encode được AAC — thiếu file đó thì bỏ qua (xuất vẫn chạy, audio có thể bị bỏ nếu phải encode lại,
+ * Workflow báo riêng). @returns {Promise<boolean>} */
+async function _ensureMediabunnyLoaded() {
+    if (!window.Mediabunny) {
+        const ok = await _loadVideoEditorScriptOnce('assets/vendor/mediabunny.js');
+        if (!ok || !window.Mediabunny) return false;
+    }
+    if (!window._videoEditorAacChecked) {
+        window._videoEditorAacChecked = true;
+        try {
+            const aacOk = await Mediabunny.canEncodeAudio('aac');
+            if (!aacOk && await _loadVideoEditorScriptOnce('assets/vendor/mediabunny-aac-encoder.js') && window.MediabunnyAacEncoder) {
+                MediabunnyAacEncoder.registerAacEncoder();
+                console.log('[_ensureMediabunnyLoaded] đã đăng ký encoder AAC (WASM) cho máy không tự encode được AAC');
+            }
+        } catch (err) {
+            console.warn('[_ensureMediabunnyLoaded] kiểm tra/đăng ký encoder AAC lỗi (bỏ qua):', err);
+        }
+    }
+    return true;
 }
 
 function _formatVideoPreviewTime(seconds) {
@@ -95,19 +131,30 @@ const workflowVideoPreview = {
     _modalHandle: null,
     _beforeToolSnapshot: null, // { snapshot, hadUnsaved } lúc mở Cắt/Cắt khung — Huỷ khôi phục (RIÊNG, không phải Undo/Redo — mục đó đã bỏ hẳn 05/08/2026)
     _resolveMetadataReady: null,
+    _filmstripUrls: [], // Phase 1 — blob URL ảnh dải phim, revoke khi đóng modal (trước đây rò rỉ 14 URL/lần mở)
     _dragResumePlay: false, // SỬA (05/08/2026, mục 6) — nhớ lại video đang play hay pause TRƯỚC khi kéo tay cầm/tua, để nhả tay cầm KHÔNG tự auto-play nếu trước đó đang pause
+
+    /** Cập nhật dòng chữ shield thành "... N%". @param {string} key @param {number} percent */
+    _setShieldPercent(key, percent) {
+        loadingText.textContent = tFormat(key, { percent: Math.max(0, Math.min(100, Math.round(percent))) }); // dom-refs (tiền lệ workflowPlaylist.uploadVideos())
+    },
 
     /** @param {string} videoKey */
     async open(videoKey) {
-        await withLoadingShield(t('videoPreview.loading'), async () => { // core/loading-shield-util.js
+        let failKey = null; // key thông báo lỗi — báo SAU khi shield tắt
+        await withLoadingShield(tFormat('videoPreview.loadingPercent', { percent: 0 }), async () => { // core/loading-shield-util.js
+            const pct = (p) => this._setShieldPercent('videoPreview.loadingPercent', p);
             const record = await getVideoRecord(videoKey); // service/db.js — Workflow đọc (Rule 3b)
-            if (!record) { await alertModal(t('videoPreview.videoNotFound')); return; }
+            if (!record) { failKey = 'videoPreview.videoNotFound'; return; }
+            pct(5);
 
             const mediabunnyOk = await _ensureMediabunnyLoaded();
-            if (!mediabunnyOk) { await alertModal(t('videoPreview.compat.mediabunnyNotLoaded')); return; }
+            if (!mediabunnyOk) { failKey = 'videoPreview.compat.mediabunnyNotLoaded'; return; }
+            pct(15);
 
             const compat = await checkVideoEditorCompat(record.blob); // core/video-editor/compat-guard.js
-            if (!compat.supported) { await alertModal(t(`videoPreview.compat.${compat.reason}`)); return; }
+            if (!compat.supported) { failKey = `videoPreview.compat.${compat.reason}`; return; }
+            pct(25);
 
             const videoUrl = createBlobUrl(record.blob); // service/blob-url.js — Workflow tạo (Rule 3b)
             const posterUrl = createBlobUrl(record.thumbBlob); // service/blob-url.js
@@ -128,14 +175,29 @@ const workflowVideoPreview = {
             appState.set('videoPreviewIsPlaying', false);
 
             const metadataReadyPromise = new Promise((resolve) => { this._resolveMetadataReady = resolve; });
+            const metadataTimeout = taskManager.once(() => this.handleMetadataFailed(), VIDEO_PREVIEW_METADATA_TIMEOUT_MS); // service/task-manager.js
             this._modalHandle = openVideoPreviewModal({ videoUrl, posterUrl, filename: record.filename, ratioPresets }); // core/file-manager/video-ui.js
 
-            await metadataReadyPromise; // shield chỉ tắt sau khi crop/trim/zoom-pan đã dựng xong
+            const metadataOk = await metadataReadyPromise; // true = crop/trim/zoom-pan đã dựng xong; false = `<video>` lỗi/quá hạn
+            metadataTimeout.kill();
+            if (!metadataOk) { this._reallyClose(); failKey = 'videoPreview.metadataFailed'; return; }
+            pct(35);
+
+            // Dải phim trích TRONG shield (Phase 1 — Giang: hiện % lúc tải video vào edit) — bước tốn
+            // thời gian nhất, % chạy 35 -> 100 theo từng khung trích xong.
+            try {
+                await this._renderFilmstripFrames((done, total) => pct(35 + (done / (total || 1)) * 65));
+            } catch (err) {
+                console.error('[workflowVideoPreview.open] trích dải phim lỗi, vẫn mở modal không có ảnh nền dải phim:', err);
+            }
+            pct(100);
         });
+        if (failKey) await alertModal(t(failKey));
     },
 
     /** Ứng với 'videoPreview.metadata.loaded' — `<video>` vừa biết xong kích thước/thời lượng thật. */
     async handleMetadataLoaded() {
+        if (!this._modalHandle) return; // guard — modal đã đóng (vd quá hạn chờ) trước khi metadata tới muộn
         const videoEl = this._modalHandle.videoEl;
         const w = videoEl.videoWidth, h = videoEl.videoHeight, duration = videoEl.duration || 0;
         appState.set('videoPreviewNativeW', w);
@@ -156,22 +218,30 @@ const workflowVideoPreview = {
         this._modalHandle.posterEl.classList.add('hidden');
         this._modalHandle.videoEl.classList.remove('hidden');
 
-        const zoomPanSession = initPanzoomSession(videoEl, { maxScale: 4, minScale: 1, contain: 'outside', cursor: 'default' }); // core/media-transform.js — luôn sống, không thuộc mode nào
+        // Phase 1 — Panzoom trên `stageEl` (bọc poster+video), KHÔNG còn trên `videoEl`: transform
+        // zoom/pan (stage) và xoay/lật (video) tách 2 phần tử, không giẫm lên nhau.
+        const zoomPanSession = initPanzoomSession(this._modalHandle.stageEl, { maxScale: 4, minScale: 1, contain: 'outside', cursor: 'default' }); // core/media-transform.js — chế độ xem, luôn sống
         appState.set('videoPreviewZoomPanSession', zoomPanSession);
 
         this._renderTrimPositions();
-        this._renderFilmstripFrames(); // async, chạy nền — KHÔNG chặn thao tác/tắt shield
 
-        if (this._resolveMetadataReady) { this._resolveMetadataReady(); this._resolveMetadataReady = null; }
+        if (this._resolveMetadataReady) { this._resolveMetadataReady(true); this._resolveMetadataReady = null; }
     },
 
-    /** Trích N khung hình nền dải phim — chạy NGẦM sau khi shield đã tắt. */
-    async _renderFilmstripFrames() {
+    /** Ứng với 'videoPreview.metadata.failed' (`<video>` báo 'error') HOẶC quá hạn chờ metadata
+     * (taskManager.once trong `open()`) — nhả promise chờ với `false`, `open()` tự đóng modal + báo. */
+    handleMetadataFailed() {
+        if (this._resolveMetadataReady) { this._resolveMetadataReady(false); this._resolveMetadataReady = null; }
+    },
+
+    /** Trích N khung hình nền dải phim — SỬA (Phase 1): chạy TRONG shield của `open()`, báo tiến độ.
+     * @param {(done:number, total:number) => void} [onProgress] */
+    async _renderFilmstripFrames(onProgress) {
         const record = appState.get('videoPreviewRecord');
         const w = appState.get('videoPreviewNativeW'), h = appState.get('videoPreviewNativeH');
         const thumbH = 56;
         const thumbW = Math.max(30, Math.round(thumbH * (w / (h || 1))));
-        const frames = await buildCutFilmstripFrames(record.blob, FILMSTRIP_FRAME_COUNT, thumbW, thumbH); // core/video-editor/filmstrip.js
+        const frames = await buildCutFilmstripFrames(record.blob, FILMSTRIP_FRAME_COUNT, thumbW, thumbH, onProgress); // core/video-editor/filmstrip.js
         if (!this._modalHandle) return; // guard: modal đã đóng trước khi trích xong
         appState.set('videoPreviewFilmstripFrames', frames);
 
@@ -183,7 +253,11 @@ const workflowVideoPreview = {
         frames.forEach(({ blob }) => {
             const cell = document.createElement('div');
             cell.className = 'video-preview-filmstrip-frame';
-            if (blob) cell.style.backgroundImage = `url(${createBlobUrl(blob)})`; // service/blob-url.js — KHÔNG revoke, sống cùng vòng đời modal
+            if (blob) {
+                const url = createBlobUrl(blob); // service/blob-url.js — revoke ở _reallyClose() (Phase 1)
+                this._filmstripUrls.push(url);
+                cell.style.backgroundImage = `url(${url})`;
+            }
             framesEl.appendChild(cell);
         });
     },
@@ -330,6 +404,9 @@ const workflowVideoPreview = {
         this._setActiveTool(tool);
 
         if (tool === 'crop') {
+            // Khung crop KHÔNG nằm trong stage (không zoom theo) — đưa zoom-pan về 1 để 2 bên khớp.
+            const zoomPanSession = appState.get('videoPreviewZoomPanSession');
+            if (zoomPanSession) zoomPanSession.reset({ animate: false });
             this._syncCropCanvasBox();
             this._drawCropOverlay();
             this._renderRatioButtonsActiveState();
@@ -504,13 +581,14 @@ const workflowVideoPreview = {
     /** @param {number} clientX @param {number} clientY */
     handleCropCanvasPointerMove(clientX, clientY) {
         const session = appState.get('videoPreviewCropSession');
-        if (!session.activeHandle) return;
+        if (!session || !session.activeHandle) return; // listener document bắn MỌI lúc toàn app — modal đóng thì session null (Phase 1: trước đây TypeError mỗi lần chạm)
         this._moveOrResizeCropSession(this._toCropCanvasCoords(clientX, clientY));
         this._drawCropOverlay();
     },
 
     handleCropCanvasPointerUp() {
         const session = appState.get('videoPreviewCropSession');
+        if (!session) return; // như pointerMove — modal đóng
         const wasDragging = !!session.activeHandle;
         cropSessionPointerUp(session); // core/media-transform.js
         if (wasDragging) appState.set('videoPreviewHasUnsavedChanges', true);
@@ -583,6 +661,11 @@ const workflowVideoPreview = {
         this._modalHandle.videoEl.muted = muted;
         this._modalHandle.muteBtn.classList.toggle('is-muted', muted);
         this._modalHandle.muteLabelEl.textContent = t(muted ? 'videoPreview.rail.unmute' : 'videoPreview.rail.mute');
+        // FIX (Phase 1, Giang: "bật/tắt tiếng -> mất hình") — nghi vấn WebKit dựng lại lớp hiển thị
+        // video khi đổi `muted` lúc đang DỪNG (có thể do audio session 'playback' của app), khung hình
+        // đang đứng bị xoá đen tới lần decode kế tiếp. Seek tại chỗ ép decode + vẽ lại đúng khung đó.
+        const videoEl = this._modalHandle.videoEl;
+        if (videoEl.paused && videoEl.readyState >= 1) videoEl.currentTime = videoEl.currentTime;
     },
 
     /** Bấm Reset — PHẢI xác nhận trước khi chạy (mục 1, phản hồi Giang: "loại bỏ toàn bộ Undo/Redo,
@@ -662,23 +745,15 @@ const workflowVideoPreview = {
         ], { zIndex: Z_INDEX.VIDEO_PREVIEW_MENU }); // service/z-index.js
     },
 
-    /** Quy đổi crop rect + zoom/pan hiện tại ra 1 rect nguồn DUY NHẤT (fraction 0-1) — GIẢ ĐỊNH cần
-     * kiểm chứng thật trên thiết bị (dấu/hệ quy chiếu `pan()` của Panzoom): rect (toạ độ px nguồn,
-     * TRƯỚC zoom) hợp với nghịch đảo scale/pan để ra vùng nguồn thật đang hiển thị.
-     * @returns {{x:number,y:number,w:number,h:number}|null} null nếu không crop/zoom gì (full-frame). */
-    _computeCropFraction() {
-        const cropSession = appState.get('videoPreviewCropSession');
-        const zoomPanSession = appState.get('videoPreviewZoomPanSession');
-        const rect = getCropSessionRect(cropSession); // core/media-transform.js
-        const { scale, x, y } = getPanzoomState(zoomPanSession); // core/media-transform.js
+    /** SỬA (Phase 1, Giang: "zoom pan không liên quan tới xuất video, đó là chế độ xem") — thay
+     * `_computeCropFraction()` (từng gộp pan/zoom Panzoom — đơn vị CSS-px — vào khung crop px gốc,
+     * sai đơn vị → file xuất cắt lệch). Giờ CHỈ đọc khung crop.
+     * @returns {{x:number,y:number,w:number,h:number}|null} px GỐC; null nếu khung phủ toàn bộ (không cắt). */
+    _computeCropRect() {
+        const rect = getCropSessionRect(appState.get('videoPreviewCropSession')); // core/media-transform.js
         const w = appState.get('videoPreviewNativeW'), h = appState.get('videoPreviewNativeH');
-
-        const isFullFrame = rect.x <= 0 && rect.y <= 0 && rect.w >= w && rect.h >= h;
-        if (isFullFrame && scale === 1 && x === 0 && y === 0) return null;
-
-        const finalW = rect.w / scale, finalH = rect.h / scale;
-        const finalX = rect.x - x / scale, finalY = rect.y - y / scale;
-        return { x: finalX / w, y: finalY / h, w: finalW / w, h: finalH / h };
+        const isFullFrame = rect.x <= 0.5 && rect.y <= 0.5 && rect.w >= w - 1 && rect.h >= h - 1;
+        return isFullFrame ? null : rect;
     },
 
     _buildProcessParams() {
@@ -686,10 +761,13 @@ const workflowVideoPreview = {
             sourceBlob: appState.get('videoPreviewRecord').blob,
             cutStart: appState.get('videoPreviewCutStart'),
             cutEnd: appState.get('videoPreviewCutEnd'),
-            cropFraction: this._computeCropFraction(),
+            sourceDuration: appState.get('videoPreviewSourceDuration'),
+            cropRect: this._computeCropRect(),
+            sourceWidth: appState.get('videoPreviewNativeW'),
+            sourceHeight: appState.get('videoPreviewNativeH'),
             rotateDeg: appState.get('videoPreviewRotateDeg'),
-            flipH: appState.get('videoPreviewFlipH'), // mục 4, phản hồi Giang — core/video-editor/webcodecs-engine.js áp lúc XUẤT file
-            muteAudio: appState.get('videoPreviewMuted'), // 26/09/2026 — tắt tiếng: bỏ hẳn track audio ở file xuất
+            flipH: appState.get('videoPreviewFlipH'),
+            muteAudio: appState.get('videoPreviewMuted'),
         };
     },
 
@@ -701,47 +779,68 @@ const workflowVideoPreview = {
         return `${base}-edit-${pad(stamp.getHours())}${pad(stamp.getMinutes())}${pad(stamp.getSeconds())}.mp4`;
     },
 
-    /** @param {Blob} blob */
-    async _buildThumbForBlob(blob) {
-        const tmp = document.createElement('video');
-        tmp.muted = true;
-        tmp.src = createBlobUrl(blob); // service/blob-url.js
-        await new Promise((resolve) => { tmp.addEventListener('loadeddata', resolve, { once: true }); });
-        const canvas = document.createElement('canvas');
-        canvas.width = tmp.videoWidth; canvas.height = tmp.videoHeight;
-        canvas.getContext('2d').drawImage(tmp, 0, 0, canvas.width, canvas.height);
-        const thumbBlob = await buildExtractedPhotoThumbnail(canvas, 0.2); // core/video-player-capture.js
-        return { thumbBlob, width: tmp.videoWidth, height: tmp.videoHeight, duration: tmp.duration };
-    },
+    handleSaveOverwrite() { return this._runSave('overwrite'); },
+    handleSaveAsNew() { return this._runSave('asNew'); },
 
-    async handleSaveOverwrite() {
+    /** Luồng lưu DUY NHẤT cho cả 2 kiểu (Phase 1). Toàn bộ nằm trong shield: không bấm Lưu 2 lần,
+     * không đóng modal giữa chừng (trước đây đóng giữa chừng -> `videoPreviewRecord` null -> crash sau
+     * khi encode xong, file mất). % = 0-90 tiến độ Conversion, 90-100 chụp thumb + ghi DB.
+     * @param {string} mode - 'overwrite' | 'asNew' */
+    async _runSave(mode) {
         this._modalHandle.videoEl.pause();
-        try {
-            const blob = await processVideo(this._buildProcessParams()); // core/video-editor/webcodecs-engine.js
-            const { thumbBlob, width, height, duration } = await this._buildThumbForBlob(blob);
-            const record = appState.get('videoPreviewRecord');
-            setVideoRecord(appState.get('videoPreviewVideoKey'), { blob, thumbBlob, width, height, duration, filename: record.filename, addedAt: record.addedAt }); // service/db.js
-            appState.set('videoPreviewHasUnsavedChanges', false);
-            await alertModal(t('videoPreview.save.success'));
-        } catch (err) {
-            console.error('[workflowVideoPreview.handleSaveOverwrite] Lỗi xử lý/lưu video:', err);
-            await alertModal(t('videoPreview.save.failed'));
-        }
-    },
+        const videoKey = appState.get('videoPreviewVideoKey');
+        const params = this._buildProcessParams();
+        let resultKey = null; // key thông báo sau khi shield tắt
+        let saved = false;
 
-    async handleSaveAsNew() {
-        this._modalHandle.videoEl.pause();
-        try {
-            const blob = await processVideo(this._buildProcessParams()); // core/video-editor/webcodecs-engine.js
-            const filename = this._buildNewFilename();
-            const { thumbBlob, width, height, duration } = await this._buildThumbForBlob(blob);
-            saveVideo(blob, filename, thumbBlob, width, height, duration); // core/file-manager/video.js
+        await withLoadingShield(tFormat('videoPreview.save.progress', { percent: 0 }), async () => { // core/loading-shield-util.js
+            const pct = (p) => this._setShieldPercent('videoPreview.save.progress', p);
+            let temp = null;
+            try {
+                await clearVideoEditTempDir(); // core/video-editor/opfs-temp.js — dọn rác lần xuất trước (nếu từng crash)
+                temp = await openVideoEditTempTarget(`edit-${Date.now()}.mp4`); // core/video-editor/opfs-temp.js — null = ghi RAM
+                const result = await processVideo({ ...params, writable: temp ? temp.writable : null, onProgress: (f) => pct(f * 90) }); // core/video-editor/webcodecs-engine.js
+                if (result.status === 'invalid') {
+                    console.error('[workflowVideoPreview._runSave] Conversion không hợp lệ:', result.reasons);
+                    resultKey = 'videoPreview.save.unsupported';
+                    return;
+                }
+                if (result.status === 'unchanged' && temp) { // không có gì đổi -> không ghi gì vào file tạm, đóng lại
+                    try { await temp.writable.abort(); } catch (e) { /* đã đóng */ }
+                    temp = null;
+                }
+                const blob = result.blob || await readVideoEditTempFile(temp.fileHandle); // core/video-editor/opfs-temp.js
+                pct(92);
+
+                const meta = await workflowPlaylist.extractVideoThumbAndMeta(blob); // event/workflow/playlist.js — timeout + thumb vuông + full-res
+                pct(96);
+
+                if (mode === 'overwrite') {
+                    const r = await replaceVideoMedia(videoKey, { blob, ...meta }); // core/file-manager/video.js — giữ customName/addedAt...
+                    if (r.status === 'notFound') { resultKey = 'videoPreview.videoNotFound'; return; }
+                } else {
+                    const newKey = await saveVideo(blob, this._buildNewFilename(), meta.thumbBlob, meta.width, meta.height, meta.duration, meta.thumbFullBlob, meta.thumbFullIsBlack); // core/file-manager/video.js
+                    const activeFolderIdForVideo = appState.get('activePlayListFolder').video; // cùng khuôn workflowPlaylist.uploadVideos()
+                    if (activeFolderIdForVideo) await addSongsToFolder([newKey], activeFolderIdForVideo, 'video'); // core/file-manager/folder.js
+                }
+                pct(100);
+                saved = true;
+                resultKey = result.audioDropped ? 'videoPreview.save.successNoAudio' : 'videoPreview.save.success';
+            } catch (err) {
+                console.error(`[workflowVideoPreview._runSave] Lỗi xử lý/lưu video (${mode}):`, err);
+                resultKey = 'videoPreview.save.failed';
+                if (temp && temp.writable && typeof temp.writable.abort === 'function') { try { await temp.writable.abort(); } catch (e) { /* đã đóng */ } }
+            } finally {
+                await clearVideoEditTempDir(); // DB đã giữ bản sao riêng — file tạm không còn cần
+            }
+        });
+
+        if (saved) {
             appState.set('videoPreviewHasUnsavedChanges', false);
-            await alertModal(t('videoPreview.save.success'));
-        } catch (err) {
-            console.error('[workflowVideoPreview.handleSaveAsNew] Lỗi xử lý/lưu video mới:', err);
-            await alertModal(t('videoPreview.save.failed'));
+            await workflowVideoPlayer.refreshVideoPlaylistIfActive(); // event/workflow/video-player.js — tự guard nguồn Video
+            this._reallyClose();
         }
+        if (resultKey) await alertModal(t(resultKey));
     },
 
     // ===================== Đóng modal =====================
@@ -758,6 +857,8 @@ const workflowVideoPreview = {
     },
 
     _reallyClose() {
+        this._filmstripUrls.forEach((url) => revokeBlobUrl(url)); // service/blob-url.js — Phase 1
+        this._filmstripUrls = [];
         const zoomPanSession = appState.get('videoPreviewZoomPanSession');
         if (zoomPanSession) destroyPanzoomSession(zoomPanSession); // core/media-transform.js
         if (this._modalHandle) { this._modalHandle.close(); this._modalHandle = null; }
