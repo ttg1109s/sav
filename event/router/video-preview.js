@@ -18,8 +18,10 @@ const routerVideoPreview = (() => {
             case 'videoPreview.trimDrag.end': { workflowVideoPreview.handleTrimDragEnd(); break; }
             case 'videoPreview.trimTrack.pointerDown': { workflowVideoPreview.handleTrimTrackPointerDown(msg.payload.clientX); break; }
 
-            // MỚI (26/09/2026, khung UI kiểu Story) — rail dọc + công cụ Cắt/Cắt khung (thay 'cropToggle.click')
-            case 'videoPreview.railExpand.click': { workflowVideoPreview.handleRailExpandClick(); break; }
+            // MỚI (26/09/2026, UI kiểu Story) — menu "•••", kiểu lưu, công cụ Cắt/Cắt khung (thay 'cropToggle.click')
+            case 'videoPreview.more.click': { workflowVideoPreview.handleMoreClick(msg.payload.anchorEl); break; }
+            case 'videoPreview.saveMode.click': { workflowVideoPreview.handleSaveModeClick(msg.payload.anchorEl); break; }
+            case 'videoPreview.saveMode.select': { workflowVideoPreview.handleSaveModeSelect(msg.payload.mode); break; }
             case 'videoPreview.tool.open': { workflowVideoPreview.handleToolOpen(msg.payload.tool); break; }
             case 'videoPreview.tool.cancel': { workflowVideoPreview.handleToolCancel(); break; }
             case 'videoPreview.tool.done': { workflowVideoPreview.handleToolDone(); break; }
@@ -34,9 +36,7 @@ const routerVideoPreview = (() => {
             case 'videoPreview.flip.click': { workflowVideoPreview.handleFlipClick(); break; }
             case 'videoPreview.reset.click': { workflowVideoPreview.handleReset(); break; }
 
-            case 'videoPreview.save.click': { workflowVideoPreview.handleSaveClick(msg.payload.anchorEl); break; }
-            case 'videoPreview.saveOverwrite.click': { workflowVideoPreview.handleSaveOverwrite(); break; }
-            case 'videoPreview.saveAsNew.click': { workflowVideoPreview.handleSaveAsNew(); break; }
+            case 'videoPreview.save.click': { workflowVideoPreview.handleSaveClick(); break; }
 
             default:
                 console.warn(`[router:videoPreview] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`);
