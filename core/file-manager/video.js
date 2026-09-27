@@ -142,6 +142,31 @@ async function setVideoThumbnails(videoKey, thumbBlob, thumbFullBlob, thumbFullI
 }
 
 /**
+ * MỚI (Phase 1 editor video, 26/09/2026) — thay NỘI DUNG media của 1 video ĐÃ TỒN TẠI ("Lưu đè" từ
+ * modal sửa Video), GIỮ NGUYÊN mọi field khác của record (`customName`, `addedAt`, `filename`...).
+ * Trước đây Workflow ghi thẳng 1 object MỚI qua `setVideoRecord()` → mất `customName`,
+ * `thumbFullBlob`, `thumbFullBlack` (tên riêng biến mất, "Scan & fix video thumbnails" báo lỗi).
+ * Đọc-sửa-ghi đúng khuôn `setVideoThumbnails()` ngay dưới. Guard clause thuần (Rule 1).
+ * @param {string} videoKey
+ * @param {{blob: Blob, thumbBlob: Blob, thumbFullBlob: (Blob|null), thumbFullIsBlack: boolean, width: number, height: number, duration: number}} media
+ * @returns {Promise<{status: 'notFound'|'ok'}>}
+ */
+async function replaceVideoMedia(videoKey, media) {
+    const record = await getVideoRecord(videoKey);
+    if (!record) return { status: 'notFound' };
+    record.blob = media.blob;
+    record.thumbBlob = media.thumbBlob;
+    record.thumbFullBlob = media.thumbFullBlob || null;
+    record.thumbFullBlack = !!media.thumbFullIsBlack;
+    record.width = media.width;
+    record.height = media.height;
+    record.duration = media.duration;
+    await setVideoRecord(videoKey, record);
+    console.log(`[replaceVideoMedia] ghi đè media video "${videoKey}" (giữ nguyên tên riêng/ngày thêm)`);
+    return { status: 'ok' };
+}
+
+/**
  * SỬA (07/09/2026, Giang chỉ ra "đằng nào cũng sửa, đổi tên luôn đỡ nhầm") — hàm `deleteVideo()`
  * (tự dọn cascade folder rồi mới xoá record) ĐÃ XOÁ — không còn nơi nào gọi (kiểm tra lại toàn
  * project). Lý do xoá: Workflow (`event/workflow/playlist.js::MEDIA_DELETE_ACCESSOR`, dùng bởi

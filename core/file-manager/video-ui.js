@@ -26,7 +26,7 @@
  * dọc (trimToolBtn/cropToolBtn/muteBtn/railExpandBtn + nhãn), topbar công cụ (Huỷ/Xong/tên), và
  * 2 listener 'play'/'pause' của `<video>` (chỉ để Workflow vẽ biểu tượng Play giữa màn hình).
  * @param {{videoUrl: string, posterUrl: string, filename: string, ratioPresets: Array<{labelKey: string, ratio: number}>}} data
- * @returns {object} handle — { close, overlayEl, mediaWrapEl, videoEl, posterEl, cropCanvasEl,
+ * @returns {object} handle — { close, overlayEl, mediaWrapEl, stageEl, videoEl, posterEl, cropCanvasEl,
  *   ratioButtons, ratioFlipBtn, filmstripTrackEl, filmstripFramesEl, startHandleEl, endHandleEl,
  *   dimLeftEl, dimRightEl, rangeBorderEl, playheadEl, currentTimeLabelEl, trimLengthLabelEl,
  *   toolTitleEl, railEl, flipBtn, muteBtn, muteLabelEl, saveBtn }
@@ -59,6 +59,7 @@ function openVideoPreviewModal(data) {
     overlayEl.style.zIndex = String(Z_INDEX.VIDEO_PREVIEW); // service/z-index.js
 
     const mediaWrapEl = fragment.querySelector('#video-preview-media-wrap');
+    const stageEl = fragment.querySelector('#video-preview-stage');
     const videoEl = fragment.querySelector('#video-preview-video');
     const posterEl = fragment.querySelector('#video-preview-poster');
     const cropCanvasEl = fragment.querySelector('#video-preview-crop-canvas');
@@ -100,6 +101,9 @@ function openVideoPreviewModal(data) {
 
     // --- addEventListener: gom cuối hàm, callback CHỈ eventBus.send() (Rule 5a) ---
     videoEl.addEventListener('loadedmetadata', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.metadata.loaded', payload: {} }), { once: true });
+    // MỚI (Phase 1) — `<video>` không đọc được: báo ngay để Workflow đóng modal + tắt shield (trước
+    // đây promise chờ metadata treo vĩnh viễn, shield + isShieldBusy kẹt cả app).
+    videoEl.addEventListener('error', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.metadata.failed', payload: {} }), { once: true });
     videoEl.addEventListener('timeupdate', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.video.timeUpdate', payload: { currentTime: videoEl.currentTime } }));
     videoEl.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.mediaTap.click', payload: {} }));
     videoEl.addEventListener('play', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.video.playState', payload: { playing: true } }));
@@ -140,7 +144,7 @@ function openVideoPreviewModal(data) {
 
     return {
         close: closeModal,
-        overlayEl, mediaWrapEl, videoEl, posterEl, cropCanvasEl, ratioButtons, ratioFlipBtn,
+        overlayEl, mediaWrapEl, stageEl, videoEl, posterEl, cropCanvasEl, ratioButtons, ratioFlipBtn,
         filmstripTrackEl, filmstripFramesEl, startHandleEl, endHandleEl, dimLeftEl, dimRightEl, rangeBorderEl, playheadEl,
         currentTimeLabelEl, trimLengthLabelEl, toolTitleEl, railEl, flipBtn, muteBtn, muteLabelEl, saveBtn,
     };
