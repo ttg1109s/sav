@@ -8,7 +8,7 @@
  *
  * SỬA (26/09/2026, "khung UI kiểu Story Facebook") — `videoPreviewCropVisible` (Crop là toggle độc
  * lập chạy song song Cut) THAY bằng `videoPreviewActiveTool` ('none'|'trim'|'crop') — giờ ĐÚNG 1
- * công cụ tại 1 thời điểm, mở từ rail, thoát qua Huỷ/Xong ở topbar. Thêm `videoPreviewMuted` (tắt
+ * công cụ tại 1 thời điểm, mở từ rail, thoát qua Huỷ/Xong ở topbar. Từng thêm `videoPreviewMuted` (ĐÃ BỎ 27/09/2026 cùng nút bật/tắt tiếng; tắt
  * tiếng — áp cả preview lẫn file xuất). UI lần 2 (cùng ngày, ảnh chụp editor Story FB): bỏ
  * `videoPreviewRailExpanded` (không còn rail dọc), thêm `videoPreviewSaveMode` (viên chọn kiểu lưu).
  *
@@ -35,7 +35,6 @@ AppState.definePackage('video-preview', {
         videoPreviewCropSession: 'any',             // session core/media-transform.js, null khi đóng
         videoPreviewActiveDrag: 'nullable-string',  // 'start' | 'end' | 'seek' | null — đang kéo/tua gì trên dải phim
         videoPreviewActiveTool: 'string',           // 'none' | 'trim' | 'crop' — công cụ đang mở
-        videoPreviewMuted: 'boolean',               // tắt tiếng (preview + bỏ track audio khi xuất)
         videoPreviewSaveMode: 'string',             // 'asNew' | 'overwrite' — kiểu lưu đang chọn ở viên dưới thẻ video (UI lần 2, thay videoPreviewRailExpanded)
         videoPreviewZoomPanSession: 'any',          // session core/media-transform.js, null khi đóng
         videoPreviewIsPlaying: 'boolean',           // đang phát hay đang pause (tap màn hình để đảo)
@@ -56,7 +55,6 @@ AppState.definePackage('video-preview', {
             videoPreviewCropSession: null,
             videoPreviewActiveDrag: null,
             videoPreviewActiveTool: 'none',
-            videoPreviewMuted: false,
             videoPreviewSaveMode: 'asNew',
             videoPreviewZoomPanSession: null,
             videoPreviewIsPlaying: false,
