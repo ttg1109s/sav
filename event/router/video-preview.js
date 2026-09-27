@@ -25,7 +25,6 @@ const routerVideoPreview = (() => {
             case 'videoPreview.tool.open': { workflowVideoPreview.handleToolOpen(msg.payload.tool); break; }
             case 'videoPreview.tool.cancel': { workflowVideoPreview.handleToolCancel(); break; }
             case 'videoPreview.tool.done': { workflowVideoPreview.handleToolDone(); break; }
-            case 'videoPreview.mute.click': { workflowVideoPreview.handleMuteClick(); break; }
 
             case 'videoPreview.cropRatio.select': { workflowVideoPreview.handleCropRatioSelect(msg.payload.ratio); break; }
             case 'videoPreview.cropCanvas.pointerDown': { workflowVideoPreview.handleCropCanvasPointerDown(msg.payload.clientX, msg.payload.clientY); break; }
