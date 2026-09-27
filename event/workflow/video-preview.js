@@ -65,6 +65,13 @@
  * - Guard crop pointerMove/Up khi chưa có session (listener document bắn MỌI lúc toàn app -> trước
  *   đây TypeError ở mỗi lần chạm khi modal đóng).
  *
+ * UI LẦN 2 (26/09/2026, Giang gửi ảnh chụp editor Story Facebook thật): bỏ rail dọc + nút mở rộng
+ * nhãn (`handleRailExpandClick`, state `videoPreviewRailExpanded`). Hàng công cụ ngang ở đáy thẻ
+ * video; Đặt lại dời vào menu "•••" (`handleMoreClick`). Lưu tách 2 bước kiểu FB "Bạn bè" + "Chia
+ * sẻ": viên chọn kiểu lưu (`handleSaveModeClick` -> dropdown Lưu đè / Video mới, state
+ * `videoPreviewSaveMode`, mặc định 'asNew' — an toàn, không đè mất bản gốc) + nút xanh "Lưu"
+ * (`handleSaveClick` -> `_runSave(kiểu đang chọn)`). Nhãn Âm lượng cố định (icon tự đổi theo tắt/bật).
+ *
  * NẠP SAU: core/file-manager/video-ui.js, core/media-transform.js (gộp crop-selector.js +
  * image-zoom.js + cycleRotation(), 04/08/2026), core/video-editor/compat-guard.js/filmstrip.js/
  * webcodecs-engine.js, core/video-player-capture.js, core/file-manager/video.js/image.js, service/state/
@@ -170,13 +177,13 @@ const workflowVideoPreview = {
             appState.set('videoPreviewActiveDrag', null);
             appState.set('videoPreviewActiveTool', 'none');
             appState.set('videoPreviewMuted', false);
-            appState.set('videoPreviewRailExpanded', false);
+            appState.set('videoPreviewSaveMode', 'asNew');
             appState.set('videoPreviewZoomPanSession', null);
             appState.set('videoPreviewIsPlaying', false);
 
             const metadataReadyPromise = new Promise((resolve) => { this._resolveMetadataReady = resolve; });
             const metadataTimeout = taskManager.once(() => this.handleMetadataFailed(), VIDEO_PREVIEW_METADATA_TIMEOUT_MS); // service/task-manager.js
-            this._modalHandle = openVideoPreviewModal({ videoUrl, posterUrl, filename: record.filename, ratioPresets }); // core/file-manager/video-ui.js
+            this._modalHandle = openVideoPreviewModal({ videoUrl, posterUrl, filename: record.filename, saveMode: 'asNew', ratioPresets }); // core/file-manager/video-ui.js
 
             const metadataOk = await metadataReadyPromise; // true = crop/trim/zoom-pan đã dựng xong; false = `<video>` lỗi/quá hạn
             metadataTimeout.kill();
@@ -386,14 +393,15 @@ const workflowVideoPreview = {
 
     // ===================== Rail + công cụ (Cắt / Cắt khung) =====================
 
-    /** Nút mũi tên cuối rail — hiện/ẩn nhãn chữ bên trái mỗi icon (kiểu Facebook). */
-    handleRailExpandClick() {
-        const expanded = !appState.get('videoPreviewRailExpanded');
-        appState.set('videoPreviewRailExpanded', expanded);
-        this._modalHandle.railEl.classList.toggle('is-expanded', expanded);
+    /** Nút "•••" góc trên phải — menu phụ (hiện chỉ có Đặt lại, là thao tác xoá hết nên để khuất
+     * khỏi hàng công cụ chính, đúng chỗ FB đặt các lựa chọn ít dùng). @param {HTMLElement} anchorEl */
+    handleMoreClick(anchorEl) {
+        openDropdownMenu(anchorEl, [ // core/dropdown-menu.js
+            { icon: _svgIcon('M4 4v5h.6M20 20v-5h-.6M19.4 9A8 8 0 006 6.6M4.6 15a8 8 0 0013.4 2.4'), name: t('videoPreview.rail.reset'), destructive: true, callback: () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.reset.click', payload: {} }) },
+        ], { zIndex: Z_INDEX.VIDEO_PREVIEW_MENU }); // service/z-index.js
     },
 
-    /** Mở 1 công cụ từ rail. Chỉ mở được khi đang ở trạng thái xem ('none') — rail bị ẩn khi đang
+    /** Mở 1 công cụ từ hàng công cụ. Chỉ mở được khi đang ở trạng thái xem ('none') — rail bị ẩn khi đang
      * dùng công cụ nên bình thường không bấm được, guard phòng hờ.
      * @param {string} tool - 'trim' | 'crop' */
     handleToolOpen(tool) {
@@ -528,7 +536,7 @@ const workflowVideoPreview = {
         this._renderFlipButtonState();
     },
 
-    /** Đồng bộ trạng thái "đang bật" cho CẢ 2 nút Lật — `flipBtn` trên rail (trạng thái xem) VÀ
+    /** Đồng bộ trạng thái "đang bật" cho CẢ 2 nút Lật — `flipBtn` ở hàng công cụ (trạng thái xem) VÀ
      * `ratioFlipBtn` trong panel Cắt khung (26/09/2026; trước là toolsGroupEl/ratioGroupEl) — cùng phản ánh 1 state DUY
      * NHẤT `videoPreviewFlipH` (mục "flip lật cả ảnh/video", phản hồi Giang 05/08/2026, đợt 6 —
      * TRƯỚC ĐÓ `ratioFlipBtn` làm việc KHÁC hẳn — đảo tỉ lệ khung Crop (`applyFlip()`,
@@ -630,8 +638,8 @@ const workflowVideoPreview = {
         appState.set('videoPreviewHasUnsavedChanges', true);
     },
 
-    /** Lật ngang CẢ nội dung video (mục 4 + đợt 6, phản hồi Giang 05/08/2026) — bắn từ nút Lật trên
-     * rail HOẶC trong panel Cắt khung. */
+    /** Lật ngang CẢ nội dung video (mục 4 + đợt 6, phản hồi Giang 05/08/2026) — bắn từ nút Lật ở hàng
+     * công cụ HOẶC trong panel Cắt khung. */
     handleFlipClick() {
         appState.set('videoPreviewFlipH', !appState.get('videoPreviewFlipH'));
         this._renderTransformPreview();
@@ -659,8 +667,7 @@ const workflowVideoPreview = {
     _renderMuteState() {
         const muted = appState.get('videoPreviewMuted');
         this._modalHandle.videoEl.muted = muted;
-        this._modalHandle.muteBtn.classList.toggle('is-muted', muted);
-        this._modalHandle.muteLabelEl.textContent = t(muted ? 'videoPreview.rail.unmute' : 'videoPreview.rail.mute');
+        this._modalHandle.muteBtn.classList.toggle('is-muted', muted); // nhãn "Âm lượng" cố định, chỉ icon đổi (như FB)
         // FIX (Phase 1, Giang: "bật/tắt tiếng -> mất hình") — nghi vấn WebKit dựng lại lớp hiển thị
         // video khi đổi `muted` lúc đang DỪNG (có thể do audio session 'playback' của app), khung hình
         // đang đứng bị xoá đen tới lần decode kế tiếp. Seek tại chỗ ép decode + vẽ lại đúng khung đó.
@@ -737,12 +744,25 @@ const workflowVideoPreview = {
 
     // ===================== Lưu =====================
 
-    /** @param {HTMLElement} anchorEl */
-    handleSaveClick(anchorEl) {
+    /** Viên chọn kiểu lưu (dưới thẻ video, trái) — dropdown 2 lựa chọn, CHỈ đổi kiểu, chưa lưu.
+     * @param {HTMLElement} anchorEl */
+    handleSaveModeClick(anchorEl) {
+        const pick = (mode) => eventBus.send({ router: 'videoPreview', type: 'videoPreview.saveMode.select', payload: { mode } });
         openDropdownMenu(anchorEl, [ // core/dropdown-menu.js
-            { icon: _svgIcon('M4 7h16M9 7V4h6v3m-7 0v13a1 1 0 001 1h8a1 1 0 001-1V7H7z'), name: t('videoPreview.save.overwrite'), callback: () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.saveOverwrite.click', payload: {} }) },
-            { icon: _svgIcon('M8 16V5a1 1 0 011-1h9a1 1 0 011 1v9a1 1 0 01-1 1H9M8 16H5a1 1 0 01-1-1V6a1 1 0 011-1h3m0 11v3a1 1 0 001 1h9a1 1 0 001-1v-9a1 1 0 00-1-1h-3'), name: t('videoPreview.save.asNew'), callback: () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.saveAsNew.click', payload: {} }) },
+            { icon: _svgIcon('M8 16V5a1 1 0 011-1h9a1 1 0 011 1v9a1 1 0 01-1 1H9M8 16H5a1 1 0 01-1-1V6a1 1 0 011-1h3m0 11v3a1 1 0 001 1h9a1 1 0 001-1v-9a1 1 0 00-1-1h-3'), name: t('videoPreview.save.asNew'), callback: () => pick('asNew') },
+            { icon: _svgIcon('M4 7h16M9 7V4h6v3m-7 0v13a1 1 0 001 1h8a1 1 0 001-1V7H7z'), name: t('videoPreview.save.overwrite'), callback: () => pick('overwrite') },
         ], { zIndex: Z_INDEX.VIDEO_PREVIEW_MENU }); // service/z-index.js
+    },
+
+    /** @param {string} mode - 'asNew' | 'overwrite' */
+    handleSaveModeSelect(mode) {
+        appState.set('videoPreviewSaveMode', mode);
+        this._modalHandle.saveModeLabelEl.textContent = t(`videoPreview.saveMode.${mode}`);
+    },
+
+    /** Nút xanh "Lưu" — lưu theo kiểu đang chọn ở viên bên trái. */
+    handleSaveClick() {
+        return this._runSave(appState.get('videoPreviewSaveMode'));
     },
 
     /** SỬA (Phase 1, Giang: "zoom pan không liên quan tới xuất video, đó là chế độ xem") — thay
@@ -778,9 +798,6 @@ const workflowVideoPreview = {
         const pad = (n) => String(n).padStart(2, '0');
         return `${base}-edit-${pad(stamp.getHours())}${pad(stamp.getMinutes())}${pad(stamp.getSeconds())}.mp4`;
     },
-
-    handleSaveOverwrite() { return this._runSave('overwrite'); },
-    handleSaveAsNew() { return this._runSave('asNew'); },
 
     /** Luồng lưu DUY NHẤT cho cả 2 kiểu (Phase 1). Toàn bộ nằm trong shield: không bấm Lưu 2 lần,
      * không đóng modal giữa chừng (trước đây đóng giữa chừng -> `videoPreviewRecord` null -> crash sau
@@ -869,7 +886,7 @@ const workflowVideoPreview = {
         appState.set('videoPreviewFilmstripFrames', []);
         appState.set('videoPreviewActiveTool', 'none');
         appState.set('videoPreviewMuted', false);
-        appState.set('videoPreviewRailExpanded', false);
+        appState.set('videoPreviewSaveMode', 'asNew');
         this._beforeToolSnapshot = null;
         appState.set('videoPreviewZoomPanSession', null);
         appState.set('videoPreviewIsPlaying', false);
