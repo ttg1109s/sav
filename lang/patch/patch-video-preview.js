@@ -25,13 +25,16 @@ const LANG_PATCH_VIDEO_PREVIEW = {
     'videoPreview.rail.crop': 'Crop',
     'videoPreview.rail.rotate': 'Rotate',
     'videoPreview.rail.flip': 'Flip',
-    'videoPreview.rail.mute': 'Mute',
-    'videoPreview.rail.unmute': 'Unmute',
+    'videoPreview.rail.volume': 'Sound',
     'videoPreview.rail.reset': 'Reset',
     'videoPreview.tool.trim.title': 'Trim',
     'videoPreview.tool.crop.title': 'Crop',
     'videoPreview.tool.cancel': 'Cancel',
     'videoPreview.tool.done': 'Done',
+    // UI lần 2 (26/09/2026, ảnh chụp editor Story FB) — hàng công cụ ngang giữ namespace 'rail.*' (tránh
+    // đổi key đã dịch); nhãn Âm lượng cố định thay cặp 'rail.mute'/'rail.unmute'; viên chọn kiểu lưu.
+    'videoPreview.saveMode.asNew': 'New video',
+    'videoPreview.saveMode.overwrite': 'Overwrite',
 
     // Reset — MỚI (05/08/2026, phản hồi Giang mục 1: "loại bỏ toàn bộ undo/redo, giữ nút reset và
     // cảnh báo modal") — Reset không còn Undo cứu lại nên bắt buộc hỏi trước khi chạy.
