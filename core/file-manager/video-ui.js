@@ -25,11 +25,14 @@
  * `cropToggleBtn` (Crop không còn là toggle trên toolbar, giờ là 1 CÔNG CỤ mở từ rail), thêm rail
  * dọc (trimToolBtn/cropToolBtn/muteBtn/railExpandBtn + nhãn), topbar công cụ (Huỷ/Xong/tên), và
  * 2 listener 'play'/'pause' của `<video>` (chỉ để Workflow vẽ biểu tượng Play giữa màn hình).
- * @param {{videoUrl: string, posterUrl: string, filename: string, ratioPresets: Array<{labelKey: string, ratio: number}>}} data
+ * SỬA LẦN 2 (26/09/2026, ảnh chụp editor Story Facebook) — bỏ rail dọc (`railEl`/`railExpandBtn`/
+ * `resetBtn`/`muteLabelEl`), thêm nút "•••" (`moreBtn`, menu phụ chứa Đặt lại) và thanh lưu dưới thẻ
+ * video (`saveModeBtn` chọn Lưu đè/Video mới + `saveBtn` nút xanh). `data.saveMode` — kiểu lưu ban đầu.
+ * @param {{videoUrl: string, posterUrl: string, filename: string, saveMode: string, ratioPresets: Array<{labelKey: string, ratio: number}>}} data
  * @returns {object} handle — { close, overlayEl, mediaWrapEl, stageEl, videoEl, posterEl, cropCanvasEl,
  *   ratioButtons, ratioFlipBtn, filmstripTrackEl, filmstripFramesEl, startHandleEl, endHandleEl,
  *   dimLeftEl, dimRightEl, rangeBorderEl, playheadEl, currentTimeLabelEl, trimLengthLabelEl,
- *   toolTitleEl, railEl, flipBtn, muteBtn, muteLabelEl, saveBtn }
+ *   toolTitleEl, flipBtn, muteBtn, saveModeLabelEl }
  */
 function openVideoPreviewModal(data) {
     const stale = document.getElementById('video-preview-overlay');
@@ -50,8 +53,8 @@ function openVideoPreviewModal(data) {
         cropLabel: { selector: '#video-preview-crop-tool-label', prop: 'textContent', value: t('videoPreview.rail.crop') },
         rotateLabel: { selector: '#video-preview-rotate-label', prop: 'textContent', value: t('videoPreview.rail.rotate') },
         flipLabel: { selector: '#video-preview-flip-label', prop: 'textContent', value: t('videoPreview.rail.flip') },
-        muteLabel: { selector: '#video-preview-mute-label', prop: 'textContent', value: t('videoPreview.rail.mute') },
-        resetLabel: { selector: '#video-preview-reset-label', prop: 'textContent', value: t('videoPreview.rail.reset') },
+        muteLabel: { selector: '#video-preview-mute-label', prop: 'textContent', value: t('videoPreview.rail.volume') },
+        saveModeLabel: { selector: '#video-preview-save-mode-label', prop: 'textContent', value: t(`videoPreview.saveMode.${data.saveMode}`) },
         ...ratioButtonSlots,
     });
 
@@ -78,15 +81,14 @@ function openVideoPreviewModal(data) {
     const toolTitleEl = fragment.querySelector('#video-preview-tool-title');
     const toolCancelBtn = fragment.querySelector('#video-preview-tool-cancel-btn');
     const toolDoneBtn = fragment.querySelector('#video-preview-tool-done-btn');
-    const railEl = fragment.querySelector('#video-preview-rail');
-    const railExpandBtn = fragment.querySelector('#video-preview-rail-expand-btn');
+    const moreBtn = fragment.querySelector('#video-preview-more-btn');
     const trimToolBtn = fragment.querySelector('#video-preview-trim-tool-btn');
     const cropToolBtn = fragment.querySelector('#video-preview-crop-tool-btn');
     const rotateBtn = fragment.querySelector('#video-preview-rotate-btn');
     const flipBtn = fragment.querySelector('#video-preview-flip-btn');
     const muteBtn = fragment.querySelector('#video-preview-mute-btn');
-    const muteLabelEl = fragment.querySelector('#video-preview-mute-label');
-    const resetBtn = fragment.querySelector('#video-preview-reset-btn');
+    const saveModeBtn = fragment.querySelector('#video-preview-save-mode-btn');
+    const saveModeLabelEl = fragment.querySelector('#video-preview-save-mode-label');
     const closeBtn = fragment.querySelector('#video-preview-close-btn');
     const saveBtn = fragment.querySelector('#video-preview-save-btn');
 
@@ -110,16 +112,16 @@ function openVideoPreviewModal(data) {
     videoEl.addEventListener('pause', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.video.playState', payload: { playing: false } }));
 
     closeBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.close.click', payload: {} }));
-    saveBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.save.click', payload: { anchorEl: saveBtn } }));
+    saveBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.save.click', payload: {} }));
+    saveModeBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.saveMode.click', payload: { anchorEl: saveModeBtn } }));
+    moreBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.more.click', payload: { anchorEl: moreBtn } }));
 
-    // Rail dọc (trạng thái xem)
-    railExpandBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.railExpand.click', payload: {} }));
+    // Hàng công cụ ngang ở đáy thẻ video (trạng thái xem)
     trimToolBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.tool.open', payload: { tool: 'trim' } }));
     cropToolBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.tool.open', payload: { tool: 'crop' } }));
     rotateBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.rotate.click', payload: {} }));
     flipBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.flip.click', payload: {} }));
     muteBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.mute.click', payload: {} }));
-    resetBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.reset.click', payload: {} }));
 
     // Topbar công cụ (trạng thái Cắt/Cắt khung)
     toolCancelBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.tool.cancel', payload: {} }));
@@ -128,8 +130,8 @@ function openVideoPreviewModal(data) {
     ratioButtons.forEach(({ btn, ratio }) => {
         btn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.cropRatio.select', payload: { ratio } }));
     });
-    // Nút Lật trong panel Cắt khung — CÙNG hành động với nút Lật trên rail (lật CẢ nội dung video,
-    // phản hồi Giang 05/08/2026), chỉ khác chỗ hiện ra (rail ẩn khi đang Cắt khung).
+    // Nút Lật trong panel Cắt khung — CÙNG hành động với nút Lật ở hàng công cụ (lật CẢ nội dung
+    // video, phản hồi Giang 05/08/2026), chỉ khác chỗ hiện ra (hàng công cụ ẩn khi đang Cắt khung).
     ratioFlipBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.flip.click', payload: {} }));
 
     startHandleEl.addEventListener('pointerdown', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.trimDrag.start', payload: { handle: 'start' } }));
@@ -146,7 +148,7 @@ function openVideoPreviewModal(data) {
         close: closeModal,
         overlayEl, mediaWrapEl, stageEl, videoEl, posterEl, cropCanvasEl, ratioButtons, ratioFlipBtn,
         filmstripTrackEl, filmstripFramesEl, startHandleEl, endHandleEl, dimLeftEl, dimRightEl, rangeBorderEl, playheadEl,
-        currentTimeLabelEl, trimLengthLabelEl, toolTitleEl, railEl, flipBtn, muteBtn, muteLabelEl, saveBtn,
+        currentTimeLabelEl, trimLengthLabelEl, toolTitleEl, flipBtn, muteBtn, saveModeLabelEl,
     };
 }
 
