@@ -144,10 +144,6 @@
 }
 /* Trạng thái "đang bật" (Lật ngang) — nút tròn chuyển trắng. */
 .video-preview-tool-item.is-active .video-preview-tool-circle { background: #fff; color: #000; }
-/* Icon Âm lượng — đổi theo trạng thái tắt/bật tiếng. */
-.video-preview-icon-sound-off { display: none; }
-.video-preview-tool-item.is-muted .video-preview-icon-sound-on { display: none; }
-.video-preview-tool-item.is-muted .video-preview-icon-sound-off { display: block; }
 
 /* Thanh dưới thẻ: viên chọn kiểu lưu (trái) + nút Lưu xanh (phải). */
 .video-preview-save-bar {
