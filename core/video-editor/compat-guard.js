@@ -34,7 +34,7 @@ async function checkVideoEditorCompat(videoBlob) {
     // đây gộp chung 1 lý do 'unsupportedBrowser' → hiểu lầm là do định dạng/trình duyệt, trong khi
     // rất có thể chỉ là script CDN chưa tải xong/lỗi 404.
     if (typeof Mediabunny === 'undefined') {
-        console.error('[checkVideoEditorCompat] window.Mediabunny không tồn tại — script CDN Mediabunny CHƯA TẢI ĐƯỢC (kiểm tra tab Network / debug console: 404? sai URL? mất mạng?).');
+        console.error('[checkVideoEditorCompat] window.Mediabunny không tồn tại — CHƯA nạp được assets/vendor/mediabunny.js (Phase 1: nạp offline, không còn CDN) — kiểm tra file có đúng chỗ không.');
         return { supported: false, reason: 'mediabunnyNotLoaded' };
     }
     if (typeof VideoDecoder === 'undefined') {

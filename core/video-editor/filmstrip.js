@@ -22,12 +22,14 @@
  * @param {Blob} sourceBlob
  * @param {number} count - số khung hình cần trích.
  * @param {number} thumbWidth @param {number} thumbHeight - kích thước mỗi khung hình xuất ra (px).
+ * @param {(done:number, total:number) => void} [onProgress] - MỚI (Phase 1, 26/09/2026 — Giang: hiện
+ *   % lúc tải video vào edit) — gọi sau MỖI khung trích xong. Không truyền = hành vi cũ.
  * @returns {Promise<Array<{timestamp:number, blob:Blob|null}>>} - `blob` null nếu khung đó lỗi (Workflow tự bỏ qua, không chặn cả dải).
  */
-async function buildCutFilmstripFrames(sourceBlob, count, thumbWidth, thumbHeight) {
+async function buildCutFilmstripFrames(sourceBlob, count, thumbWidth, thumbHeight, onProgress) {
     const input = new Mediabunny.Input({ source: new Mediabunny.BlobSource(sourceBlob), formats: Mediabunny.ALL_FORMATS });
     const videoTrack = await input.getPrimaryVideoTrack();
-    if (!videoTrack) return []; // guard — không có track video (không nên xảy ra, đã qua compat-guard trước đó)
+    if (!videoTrack) { if (typeof input.dispose === 'function') input.dispose(); return []; } // guard — không có track video (không nên xảy ra, đã qua compat-guard trước đó)
 
     const sink = new Mediabunny.CanvasSink(videoTrack, { width: thumbWidth, height: thumbHeight });
     const startTimestamp = await videoTrack.getFirstTimestamp();
@@ -37,6 +39,8 @@ async function buildCutFilmstripFrames(sourceBlob, count, thumbWidth, thumbHeigh
 
     const frames = [];
     for await (const result of sink.canvasesAtTimestamps(timestamps)) {
+        // Phase 1 — bản Mediabunny mới có thể trả `null` cho mốc không có khung hình -> giữ ô trống, không crash cả dải.
+        if (!result) { frames.push({ timestamp: null, blob: null }); if (onProgress) onProgress(frames.length, count); continue; }
         let blob = null;
         try {
             const out = document.createElement('canvas'); // canvas nội bộ, KHÔNG gắn DOM — chỉ làm bộ đệm pixel (Rule 5 không áp dụng)
@@ -48,6 +52,9 @@ async function buildCutFilmstripFrames(sourceBlob, count, thumbWidth, thumbHeigh
             console.error('[buildCutFilmstripFrames] lỗi vẽ 1 khung hình filmstrip, bỏ qua khung đó:', err);
         }
         frames.push({ timestamp: result.timestamp, blob });
+        if (onProgress) onProgress(frames.length, count);
     }
+    // MỚI (Phase 1) — giải phóng tài nguyên đọc file (trước đây Input không bao giờ được dispose).
+    if (typeof input.dispose === 'function') input.dispose();
     return frames;
 }
