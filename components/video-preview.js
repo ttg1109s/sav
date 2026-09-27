@@ -11,8 +11,8 @@
  *      trạng thái, nền trang tối.
  *    - Nổi trên thẻ (`#video-preview-float-ui`, `pointer-events:none`, chỉ nút con bắt chạm — tap
  *      vùng trống vẫn tới `<video>`): nút quay lại "<" góc trên trái, nút "•••" góc trên phải (menu
- *      phụ: Đặt lại), HÀNG CÔNG CỤ NGANG ở đáy thẻ (nút tròn + nhãn bên dưới, cuộn ngang được): Âm
- *      lượng / Thu ngắn / Cắt khung / Xoay / Lật. Chỗ giữa trên cùng (FB là "Thêm âm thanh") và các
+ *      phụ: Đặt lại), HÀNG CÔNG CỤ NGANG ở đáy thẻ (nút tròn + nhãn bên dưới, cuộn ngang được): Thu
+ *      ngắn / Cắt khung / Xoay / Lật (nút Âm lượng bật/tắt tiếng ĐÃ BỎ theo yêu cầu Giang 27/09/2026). Chỗ giữa trên cùng (FB là "Thêm âm thanh") và các
  *      nút Nhãn dán/Văn bản/Nhạc/Bộ lọc để dành cho các phase sau — CHƯA đặt nút chết.
  *    - Dưới thẻ: `#video-preview-save-bar` — viên trái chọn KIỂU LƯU (Lưu đè / Video mới, vị trí của
  *      "Bạn bè" bên FB), nút xanh phải "Lưu" (vị trí "Chia sẻ").
@@ -60,13 +60,6 @@ const TPL_VIDEO_PREVIEW = `
                 </button>
 
                 <div id="video-preview-toolbar" class="video-preview-toolbar">
-                    <button id="video-preview-mute-btn" type="button" class="video-preview-tool-item">
-                        <span class="video-preview-tool-circle">
-                            <svg class="video-preview-icon-sound-on" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5L6 9H3v6h3l5 4V5zM15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13"/></svg>
-                            <svg class="video-preview-icon-sound-off" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5L6 9H3v6h3l5 4V5zM16 9.5l5 5M21 9.5l-5 5"/></svg>
-                        </span>
-                        <span id="video-preview-mute-label" class="video-preview-tool-label"></span>
-                    </button>
                     <button id="video-preview-trim-tool-btn" type="button" class="video-preview-tool-item">
                         <span class="video-preview-tool-circle"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="6" cy="6" r="2.6" stroke-width="2"/><circle cx="6" cy="18" r="2.6" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.2 7.5L20 17M8.2 16.5L20 7M13 12h.01"/></svg></span>
                         <span id="video-preview-trim-tool-label" class="video-preview-tool-label"></span>
