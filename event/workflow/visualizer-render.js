@@ -142,8 +142,9 @@ const CLOCK_SECOND_HAND_COLOR = '#e0283f';
 // nốt (`_clockPitch`), thời gian bài làm mượt (`_clockMedia`), con lắc (`_clockPendulum`, giữ cả khi tắt để
 // chạy hiệu ứng thu dây). Glow = khối Blur Custom Effect (perf.blurMult) × CLOCK_GLOW_PX.
 let _clockPitch = null, _clockPendulum = null; // lượt 5 — bỏ _clockHandsSource/_clockMedia (chỉ còn Past & Future)
-// Lượt 4 — lật quanh trục (`_clockFlip`) + vòng quanh đồng hồ (`_clockRings`, lượt 5 = 6 vòng quỹ đạo), giữ cả khi tắt để chạy hiệu ứng ra/vào.
-let _clockFlip = null, _clockRings = null;
+// Lượt 4 — vòng quanh đồng hồ (`_clockRings`, lượt 8 = 4 vòng quỹ đạo), giữ cả khi tắt để chạy hiệu ứng ra/vào.
+// Lượt 9 (Giang) — bỏ `_clockFlip` (cơ chế lật "Moving flip" của thân đồng hồ đã xoá).
+let _clockRings = null;
 const CLOCK_GLOW_PX = 14;
 const CLOCK_PENDULUM_GHOST_LAG = 0.09; // rad pha giữa 2 dây ma liên tiếp (bóng mờ dây con lắc, lượt 6)
 const CLOCK_PITCH_FRESH_MS = 300; // cùng ngưỡng "nốt đang phát" với circuit/brain/dot
@@ -1180,7 +1181,9 @@ const workflowVisualizerRender = {
      * SỬA (lượt 7b, Giang) — vòng là vật cứng xoay CẢ VÒNG (+/-) quanh trục qua tâm đồng hồ, nốt đổi trục xoay
      * (core advanceClockOrbitRings()); không còn vệt/hạt chạy dọc vòng.
      * SỬA (lượt 8, Giang) — 4 vòng trục cố định (thẳng/ngang/chéo 2 bên), tốc độ độc lập theo dải tần riêng
-     * (computeClockOrbitRingLevels()); độ dày `clockRingWidth` 1-6px. */
+     * (computeClockOrbitRingLevels()); độ dày `clockRingWidth` 1-6px.
+     * SỬA (lượt 9, Giang) — vòng đồng màu; thêm bán kính vòng `clockRingRadius` (% bán kính mặt số của vòng ngoài
+     * cùng) + nền đĩa `clockRingBgOpacity` 0-0.5; BỎ cơ chế lật thân đồng hồ (`clockFlip`). */
     _tickClock(ctx, perf, isPlaying, dpr, smoothedEnergy, beatScale, vizDataArray, analyser) {
         const cfg = getActiveEffectConfig(); // core/custom-effect.js
         const W = canvas.width, H = canvas.height;
@@ -1222,13 +1225,14 @@ const workflowVisualizerRender = {
         const pendulumOn = accessory === 'pendulum' && (!_clockRings || _clockRings.reveal === 0);
         const ringBandLevels = computeClockOrbitRingLevels(vizDataArray, analyser.frequencyBinCount, isPlaying); // core — lượt 8
         _clockRings = advanceClockOrbitRings(_clockRings, dt, ringsOn, handsDir, isPlaying, ringBandLevels); // core
-        _clockFlip = advanceClockFlip(_clockFlip, dt, cfg.clockFlip === true, isPlaying, smoothedEnergy); // core
         _clockPendulum = advanceClockPendulum(_clockPendulum, dt, pendulumOn, isPlaying, smoothedEnergy, jam); // core
         const ringE = _clockRings.reveal;
         const caseR = dialR * (caseVisible ? 1.08 : 1.0);
         // Lượt 7 — độ dày vòng theo px màn hình (CSS px × dpr); cụm chỉ co khi vòng ngoài cùng không vừa màn hình.
         const ringWidthPx = Math.max(1, Math.min(6, cfg.clockRingWidth || 3)) * dpr; // lượt 8: 1-6px
-        const orbitFit = computeClockOrbitFitScale(dialR, Math.min(W, H) / 2, ringWidthPx / 2); // core
+        const ringRadiusMul = Math.max(1.1, Math.min(2.2, (cfg.clockRingRadius || 170) / 100)); // lượt 9
+        const ringBgOpacity = Math.max(0, Math.min(0.5, cfg.clockRingBgOpacity || 0)); // lượt 9
+        const orbitFit = computeClockOrbitFitScale(dialR, Math.min(W, H) / 2, ringWidthPx / 2, ringRadiusMul); // core
         const topExtR = caseR + (orbitFit.outerR - caseR) * ringE;
         const baseScale = 1 + (orbitFit.scale - 1) * ringE;
         const pl = computeClockPendulumLayout(H, dialR, _clockPendulum.progress, caseVisible, topExtR, baseScale, cfg.clockPendulumLength); // core
@@ -1247,12 +1251,10 @@ const workflowVisualizerRender = {
         // Vòng quỹ đạo — nửa SAU vẽ trước thân đồng hồ, nửa TRƯỚC vẽ sau cùng (xem cuối hàm).
         const ringColors = ringE > 0 ? _clockRings.rings.map((r, k, all) => getComputedColor(k, all.length, 170 + 85 * (isPlaying ? smoothedEnergy : 0))) : null; // core/audio-analysis.js
         const ringLineW = ringWidthPx / pl.scale; // px màn hình -> px cục bộ (ctx đang scale cả cụm)
-        if (ringE > 0) paintClockOrbitRings(ctx, dialR, _clockRings, false, ringColors, glowPx, ringLineW, dpr); // core
+        if (ringE > 0) paintClockOrbitRings(ctx, dialR, _clockRings, false, ringColors, glowPx, ringLineW, dpr, ringRadiusMul, ringBgOpacity); // core
 
-        // Lật quanh trục của chính đồng hồ (chỉ thân đồng hồ — không lật con lắc/vòng quét): nén theo cos góc.
+        // Thân đồng hồ (lượt 9 — bỏ lật quanh trục; giữ save/restore riêng cho khối thân).
         ctx.save();
-        const flipCos = Math.cos(_clockFlip.angle);
-        if (_clockFlip.axis === 0) ctx.scale(flipCos, 1); else ctx.scale(1, flipCos);
 
         _clockLayout.gears.forEach((g, i) => {
             const color = getComputedColor(i, gearCount + 1, levels[i]); // core/audio-analysis.js
@@ -1281,7 +1283,7 @@ const workflowVisualizerRender = {
         paintClockHands(ctx, dialR, handAngles, caseColor.fill, caseColor.glow, CLOCK_SECOND_HAND_COLOR, glowPx, dpr); // core
         if (glassVisible) paintClockGlassGlare(ctx, dialR, dpr); // core — vệt loá kính đè lên kim
         ctx.restore();
-        if (ringE > 0) paintClockOrbitRings(ctx, dialR, _clockRings, true, ringColors, glowPx, ringLineW, dpr); // core — nửa trước
+        if (ringE > 0) paintClockOrbitRings(ctx, dialR, _clockRings, true, ringColors, glowPx, ringLineW, dpr, ringRadiusMul, ringBgOpacity); // core — nửa trước
 
         ctx.restore();
         ctx.globalAlpha = 1;
