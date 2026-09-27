@@ -26,6 +26,10 @@
  * khiển. Zoom-pan là CHẾ ĐỘ XEM + HỆ TOẠ ĐỘ để gắn chữ/sticker sau này (Giang chốt), KHÔNG ảnh hưởng
  * file xuất. Tách Panzoom ra phần tử riêng để transform zoom/pan (ghi lên stage) và transform xoay/
  * lật (ghi lên `<video>`) không còn giẫm lên nhau (trước đây cùng ghi `videoEl.style.transform`).
+ * `#video-preview-crop-view` (MỚI 27/09/2026) — khung CẮT xem trước bọc `<video>`: sau khi Cắt khung,
+ * Workflow co khung này đúng bằng vùng crop (`overflow:hidden`) và dời video bên trong. Dùng khung
+ * cha cắt thay cho `clip-path` trên chính `<video>` — WebKit/iOS vẽ video ở lớp compositing riêng,
+ * bỏ qua `clip-path` của phần tử (Giang báo: "crop chỉ resize ảnh chứ không crop thật").
  * `#video-preview-play-indicator` — biểu tượng Play giữa màn hình khi đang dừng (overlay có class
  * `is-playing` thì ẩn), chỉ hiển thị, `pointer-events:none`.
  */
@@ -40,7 +44,9 @@ const TPL_VIDEO_PREVIEW = `
         <div id="video-preview-media-wrap" class="video-preview-card relative flex-1 min-h-0 overflow-hidden bg-black">
             <div id="video-preview-stage" class="absolute inset-0">
                 <img id="video-preview-poster" class="absolute inset-0 w-full h-full object-contain" alt="">
-                <video id="video-preview-video" class="absolute inset-0 w-full h-full object-contain hidden" playsinline preload="auto"></video>
+                <div id="video-preview-crop-view" class="absolute inset-0 overflow-hidden">
+                    <video id="video-preview-video" class="absolute inset-0 w-full h-full object-contain hidden" playsinline preload="auto"></video>
+                </div>
             </div>
 
             <div id="video-preview-play-indicator" class="video-preview-play-indicator">
