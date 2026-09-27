@@ -114,13 +114,15 @@
                 // Lượt 5 (Giang): BỎ clockHandsSource — kim chỉ còn cơ chế Past & Future (không dropdown).
                 clockCaseVisible: true, clockTicksVisible: true, // clockTicksVisible: lượt 3
                 // Lượt 4 (Giang): thêm toggle kính, lật, vòng quanh đồng hồ (lượt 5: 6 vòng quỹ đạo).
-                clockGlassVisible: true, clockFlip: false,
+                clockGlassVisible: true, // lượt 9 — bỏ clockFlip (xem MIGRATE bên dưới)
                 // Lượt 6 (Giang): con lắc + vòng quỹ đạo KHÔNG tồn tại đồng thời -> 1 dropdown clockAccessory
                 // ('none' | 'pendulum' | 'rings', thay 2 toggle clockPendulum/clockRingsVisible). Con lắc thêm
                 // clockPendulumTrail (bóng mờ của dây) + clockPendulumLength (% chiều dài tối đa vừa màn hình, 20-100).
                 clockAccessory: 'rings', clockPendulumTrail: true, clockPendulumLength: 70,
                 // Lượt 7 (27/09/2026, Giang): độ dày vòng Time scan, px màn hình — lượt 8: 1-6 (trước 6-18).
                 clockRingWidth: 3,
+                // Lượt 9 (Giang): bán kính vòng ngoài cùng (% bán kính mặt số, 110-220) + nền đĩa trong vòng (0-0.5).
+                clockRingRadius: 170, clockRingBgOpacity: 0,
                 blurEnabled: true, blurIntensity: 60,
             },
             vortex: {
@@ -900,6 +902,8 @@
                 if (next.shape) { delete next.shape.clockPendulum; delete next.shape.clockRingsVisible; }
                 // MIGRATE 26/09/2026 (clock lượt 5) — bỏ hẳn lựa chọn nguồn kim (chỉ còn Past & Future) -> xoá khoá thừa.
                 if (next.shape) delete next.shape.clockHandsSource;
+                // MIGRATE 27/09/2026 (clock lượt 9) — bỏ cơ chế lật thân đồng hồ -> xoá khoá thừa.
+                if (next.shape) delete next.shape.clockFlip;
                 // MIGRATE 27/09/2026 (clock lượt 8) — clockRingWidth đổi khoảng 6-18 -> 1-6: giá trị cũ ngoài khoảng kẹp về.
                 if (next.shape && next.shape.clockRingWidth != null) next.shape.clockRingWidth = Math.max(1, Math.min(6, Number(next.shape.clockRingWidth) || 3));
                 cfg.customEffect = next;

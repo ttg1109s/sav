@@ -214,7 +214,7 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'clockTicksVisible', labelKey: 'customEffectDrawer.field.clockTicksVisible', type: 'toggle', card: 'element', rerender: true, showIf: (cfg) => cfg.shapeStyle === 'clock' }, // lượt 3 — ẩn vạch đo giờ
         // Lượt 4 (Giang) — ẩn kính, lật quanh trục, vòng quanh đồng hồ (lượt 5: 6 vòng quỹ đạo lật hướng theo nốt).
         { id: 'clockGlassVisible', labelKey: 'customEffectDrawer.field.clockGlassVisible', type: 'toggle', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' },
-        { id: 'clockFlip', labelKey: 'customEffectDrawer.field.clockFlip', type: 'toggle', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' },
+        // Lượt 9 (27/09/2026, Giang) — BỎ toggle 'clockFlip' (cơ chế lật thân đồng hồ đã xoá).
         // Lượt 6 (Giang) — con lắc / vòng quỹ đạo chọn 1 trong 2 bằng dropdown (thay 2 toggle); con lắc thêm toggle
         // bóng mờ dây + slider chiều dài (% của chiều dài tối đa vừa màn hình — core computeClockPendulumLayout()).
         { id: 'clockPendulumTrail', labelKey: 'customEffectDrawer.field.clockPendulumTrail', type: 'toggle', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'pendulum' },
@@ -226,6 +226,9 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'clockPendulumLength', labelKey: 'customEffectDrawer.field.clockPendulumLength', type: 'slider', min: 20, max: 100, step: 5, card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'pendulum' },
         // Lượt 7 (27/09/2026, Giang) — độ dày vòng Time scan (px màn hình), chỉ hiện khi Accessory = rings. Lượt 8: 1-6px.
         { id: 'clockRingWidth', labelKey: 'customEffectDrawer.field.clockRingWidth', type: 'slider', min: 1, max: 6, step: 1, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'rings' },
+        // Lượt 9 (Giang) — bán kính vòng ngoài cùng (% bán kính mặt số, 3 vòng trong giữ tỉ lệ) + độ đậm nền đĩa trong vòng.
+        { id: 'clockRingRadius', labelKey: 'customEffectDrawer.field.clockRingRadius', type: 'slider', min: 110, max: 220, step: 5, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'rings' },
+        { id: 'clockRingBgOpacity', labelKey: 'customEffectDrawer.field.clockRingBgOpacity', type: 'sliderFloat', min: 0, max: 0.5, step: 0.05, decimals: 2, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'rings' },
         { id: 'clockSizeRatio', labelKey: 'customEffectDrawer.field.clockSizeRatio', type: 'sliderFloat', min: 0.5, max: 0.95, step: 0.05, decimals: 2, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' },
         { id: 'clockGearSpeedBase', labelKey: 'customEffectDrawer.field.clockGearSpeedBase', type: 'sliderFloat', min: 0, max: 2, step: 0.1, decimals: 1, card: 'motion', showIf: (cfg) => cfg.shapeStyle === 'clock' },
         { id: 'clockGearSpeedEnergyMult', labelKey: 'customEffectDrawer.field.clockGearSpeedEnergyMult', type: 'sliderFloat', min: 0, max: 6, step: 0.1, decimals: 1, card: 'motion', showIf: (cfg) => cfg.shapeStyle === 'clock' },
