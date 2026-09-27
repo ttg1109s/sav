@@ -7,11 +7,13 @@ const LANG_PATCH_VIDEO_PREVIEW = {
     'videoPreview.videoNotFound': 'Video not found — it may have been deleted.',
     'videoPreview.errorTitle': 'Unable to open',
     'videoPreview.compat.unsupportedBrowser': 'This browser does not support video editing (WebCodecs unavailable).',
-    'videoPreview.compat.mediabunnyNotLoaded': 'Video editing library failed to load — check your connection and try again.',
+    'videoPreview.compat.mediabunnyNotLoaded': 'Video editing library is missing (assets/vendor/mediabunny.js).',
     'videoPreview.compat.noVideoTrack': 'This file has no video track.',
     'videoPreview.compat.codecNotSupported': 'This video format is not supported for editing on this device.',
     'videoPreview.compat.unreadableFile': 'This video file could not be read.',
-    'videoPreview.loading': 'Loading video…',
+    // SỬA (Phase 1, 26/09/2026) — 'videoPreview.loading' thay bằng bản có % (Giang: hiện % lúc tải video vào edit/xuất).
+    'videoPreview.loadingPercent': 'Loading video… {percent}%',
+    'videoPreview.metadataFailed': 'This video could not be loaded for editing.',
 
     'videoPreview.btnSave.title': 'Save',
     'videoPreview.discardConfirm.title': 'Discard changes?',
@@ -39,6 +41,9 @@ const LANG_PATCH_VIDEO_PREVIEW = {
 
     'videoPreview.save.overwrite': 'Overwrite',
     'videoPreview.save.asNew': 'Save as new video',
+    'videoPreview.save.progress': 'Saving video… {percent}%',
     'videoPreview.save.success': 'Video saved.',
+    'videoPreview.save.successNoAudio': 'Video saved without sound — this device cannot encode the audio track.',
+    'videoPreview.save.unsupported': 'This device cannot encode the edited video.',
     'videoPreview.save.failed': 'Could not process/save this video.',
 };
