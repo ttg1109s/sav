@@ -19,6 +19,10 @@
  *
  * `#video-preview-crop-layer` vẫn là con thật của `#video-preview-media-wrap` (như đợt 4), hiện
  * bằng CSS khi `data-tool="crop"` (không còn class `is-visible`).
+ * `#video-preview-stage` (MỚI, Phase 1 26/09/2026) — khung chứa poster + `<video>` mà Panzoom điều
+ * khiển. Zoom-pan là CHẾ ĐỘ XEM + HỆ TOẠ ĐỘ để gắn chữ/sticker sau này (Giang chốt), KHÔNG ảnh hưởng
+ * file xuất. Tách Panzoom ra phần tử riêng để transform zoom/pan (ghi lên stage) và transform xoay/
+ * lật (ghi lên `<video>`) không còn giẫm lên nhau (trước đây cùng ghi `videoEl.style.transform`).
  * `#video-preview-play-indicator` — biểu tượng Play giữa màn hình khi đang dừng (overlay có class
  * `is-playing` thì ẩn), chỉ hiển thị, `pointer-events:none`.
  */
@@ -31,8 +35,10 @@ const TPL_VIDEO_PREVIEW = `
         </div>
 
         <div id="video-preview-media-wrap" class="relative flex-1 min-h-0 overflow-hidden bg-black">
-            <img id="video-preview-poster" class="absolute inset-0 w-full h-full object-contain" alt="">
-            <video id="video-preview-video" class="absolute inset-0 w-full h-full object-contain hidden" playsinline preload="auto"></video>
+            <div id="video-preview-stage" class="absolute inset-0">
+                <img id="video-preview-poster" class="absolute inset-0 w-full h-full object-contain" alt="">
+                <video id="video-preview-video" class="absolute inset-0 w-full h-full object-contain hidden" playsinline preload="auto"></video>
+            </div>
 
             <div id="video-preview-play-indicator" class="video-preview-play-indicator">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 001.5.87l11-6.5a1 1 0 000-1.74l-11-6.5A1 1 0 008 5.5z"/></svg>
