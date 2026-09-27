@@ -119,6 +119,8 @@
                 // ('none' | 'pendulum' | 'rings', thay 2 toggle clockPendulum/clockRingsVisible). Con lắc thêm
                 // clockPendulumTrail (bóng mờ của dây) + clockPendulumLength (% chiều dài tối đa vừa màn hình, 20-100).
                 clockAccessory: 'rings', clockPendulumTrail: true, clockPendulumLength: 70,
+                // Lượt 7 (27/09/2026, Giang): độ dày vòng Time scan, px màn hình 6-18.
+                clockRingWidth: 10,
                 blurEnabled: true, blurIntensity: 60,
             },
             vortex: {
