@@ -45,8 +45,9 @@
  * SỬA (27/09/2026, lượt 8, Giang) — còn 4 vòng, trục xoay CỐ ĐỊNH: thẳng / ngang / chéo trái / chéo phải (bỏ đổi trục
  * theo nốt); tốc độ xoay độc lập từng vòng (tốc độ nền + dải tần riêng); độ dày `clockRingWidth` 1-6px.
  * SỬA (27/09/2026, lượt 9, Giang) — vòng đồng màu (bỏ sáng/tối theo chiều sâu); thêm bán kính vòng (`clockRingRadius`,
- * % bán kính mặt số của vòng ngoài cùng, 3 vòng trong giữ tỉ lệ) + nền đĩa trong vòng (`clockRingBgOpacity` 0-0.5);
+ * % bán kính mặt số — lượt 9b: cả 4 vòng cùng bán kính) + nền đĩa trong vòng (`clockRingBgOpacity` 0-0.5);
  * BỎ hẳn cơ chế lật "Moving flip" của thân đồng hồ (advanceClockFlip() + toggle clockFlip).
+ * SỬA (lượt 9b, Giang) — 4 vòng cùng 1 bán kính, chỉnh chung bằng `clockRingRadius` (CLOCK_ORBIT_RADII).
  *
  * THUẦN, không side-effect, không đọc appState/getActiveEffectConfig, không gọi hàm tự viết khác (Rule
  * 1/2/3) — Workflow `_tickClock()` (event/workflow/visualizer-render.js) gom state, cache hình học, resolve
@@ -308,9 +309,10 @@ function computeClockPendulumLayout(canvasH, dialR, progress, caseVisible, topEx
  *     (computeClockOrbitRingLevels(), làm mượt riêng từng vòng) thay cho năng lượng chung.
  * Ma trận hiển thị 3×3 `view` (hàng trước, toạ độ màn hình: x phải, y xuống, z hướng vào người xem) — vòng nằm trong
  * mặt phẳng local XY; local X = trục xoay (cố định), local Y = đường kính vuông góc, xoay quanh trục theo `phase`. */
-// Tỉ lệ bán kính 4 vòng so với vòng ngoài cùng — lượt 9: bán kính thật = tỉ lệ × `radiusMul` (clockRingRadius / 100,
-// mặc định 1.7 = 1.25/1.4/1.55/1.7 × bán kính mặt số như lượt 8).
-const CLOCK_ORBIT_RADII = [1.25 / 1.7, 1.4 / 1.7, 1.55 / 1.7, 1];
+// Tỉ lệ bán kính 4 vòng — bán kính thật = tỉ lệ × `radiusMul` (clockRingRadius / 100). Lượt 9b (27/09/2026, Giang:
+// "cả 4 ring đều tuỳ chỉnh bằng nhau về bán kính") — 4 vòng CÙNG bán kính (trước: 1.25/1.4/1.55/1.7 lệch nhau),
+// slider Ring radius chỉnh đồng thời cả 4; các vòng giao nhau như quả cầu (khung armillary).
+const CLOCK_ORBIT_RADII = [1, 1, 1, 1];
 const CLOCK_ORBIT_SPEED = [0.95, 0.7, 0.55, 0.82];                   // rad/s nền của từng vòng (khác nhau)
 /** Trục xoay cố định (phương trên màn hình, y hướng xuống): thẳng, ngang, chéo trái (\), chéo phải (/). */
 const CLOCK_ORBIT_AXES = [[0, 1, 0], [1, 0, 0], [Math.SQRT1_2, Math.SQRT1_2, 0], [Math.SQRT1_2, -Math.SQRT1_2, 0]];
