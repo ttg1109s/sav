@@ -96,7 +96,8 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.clockPendulumTrail': 'String motion blur',
     'customEffectDrawer.field.clockPendulumLength': 'Pendulum length (%)',
     'customEffectDrawer.field.clockRingWidth': 'Ring width (px)', // lượt 7 — vòng Time scan
-    'customEffectDrawer.field.clockFlip': 'Moving flip',
+    'customEffectDrawer.field.clockRingRadius': 'Ring radius (%)', // lượt 9
+    'customEffectDrawer.field.clockRingBgOpacity': 'Ring background opacity', // lượt 9
     'customEffectDrawer.field.clockCaseVisible': 'Show case',
     'customEffectDrawer.field.clockTicksVisible': 'Show hour marks', // lượt 3
     'customEffectDrawer.field.clockGearSpeedBase': 'Gear speed',
