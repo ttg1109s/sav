@@ -6,6 +6,7 @@ const routerVideoPreview = (() => {
     function handle(msg) {
         switch (msg.type) {
             case 'videoPreview.metadata.loaded': { workflowVideoPreview.handleMetadataLoaded(); break; }
+            case 'videoPreview.metadata.failed': { workflowVideoPreview.handleMetadataFailed(); break; }
             case 'videoPreview.close.click': { workflowVideoPreview.handleClose(); break; }
 
             case 'videoPreview.video.timeUpdate': { workflowVideoPreview.handleVideoTimeUpdate(msg.payload.currentTime); break; }
