@@ -8,6 +8,10 @@ const LANG_PATCH_VIDEO_PREVIEW = {
     'videoPreview.errorTitle': 'Unable to open',
     'videoPreview.compat.unsupportedBrowser': 'This browser does not support video editing (WebCodecs unavailable).',
     'videoPreview.compat.mediabunnyNotLoaded': 'Video editing library is missing (assets/vendor/mediabunny.js).',
+    // SỬA (26/09/2026) — tách rõ 3 nguyên nhân lúc nạp thư viện offline (event/workflow/video-preview.js::_ensureMediabunnyLoaded()).
+    'videoPreview.compat.mediabunnyMissing': 'File assets/vendor/mediabunny.js was not found. Check the folder and the file name (it must end in .js).',
+    'videoPreview.compat.mediabunnyWrongBuild': 'assets/vendor/mediabunny.js is the wrong build. Use dist/bundles/mediabunny.cjs (not .mjs, not dist/modules) and rename it to mediabunny.js.',
+    'videoPreview.compat.mediabunnyTooOld': 'assets/vendor/mediabunny.js is too old. Version 1.57.0 or newer is required.',
     'videoPreview.compat.noVideoTrack': 'This file has no video track.',
     'videoPreview.compat.codecNotSupported': 'This video format is not supported for editing on this device.',
     'videoPreview.compat.unreadableFile': 'This video file could not be read.',
@@ -25,21 +29,20 @@ const LANG_PATCH_VIDEO_PREVIEW = {
     'videoPreview.rail.crop': 'Crop',
     'videoPreview.rail.rotate': 'Rotate',
     'videoPreview.rail.flip': 'Flip',
-    'videoPreview.rail.volume': 'Sound',
     'videoPreview.rail.reset': 'Reset',
     'videoPreview.tool.trim.title': 'Trim',
     'videoPreview.tool.crop.title': 'Crop',
     'videoPreview.tool.cancel': 'Cancel',
     'videoPreview.tool.done': 'Done',
     // UI lần 2 (26/09/2026, ảnh chụp editor Story FB) — hàng công cụ ngang giữ namespace 'rail.*' (tránh
-    // đổi key đã dịch); nhãn Âm lượng cố định thay cặp 'rail.mute'/'rail.unmute'; viên chọn kiểu lưu.
+    // đổi key đã dịch); viên chọn kiểu lưu. (Nút Âm lượng + key 'rail.volume' đã bỏ 27/09/2026.)
     'videoPreview.saveMode.asNew': 'New video',
     'videoPreview.saveMode.overwrite': 'Overwrite',
 
     // Reset — MỚI (05/08/2026, phản hồi Giang mục 1: "loại bỏ toàn bộ undo/redo, giữ nút reset và
     // cảnh báo modal") — Reset không còn Undo cứu lại nên bắt buộc hỏi trước khi chạy.
     'videoPreview.resetConfirm.title': 'Reset all edits?',
-    'videoPreview.resetConfirm.desc': 'This clears trim, crop, rotate, flip, zoom/pan and mute, back to the original. This cannot be undone.',
+    'videoPreview.resetConfirm.desc': 'This clears trim, crop, rotate, flip and zoom/pan, back to the original. This cannot be undone.',
     'videoPreview.resetConfirm.confirm': 'Reset',
 
     'videoPreview.save.overwrite': 'Overwrite',
