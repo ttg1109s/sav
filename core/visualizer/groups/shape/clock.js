@@ -39,6 +39,9 @@
  * 6-18px; vòng KHÔNG khựng như kim (không đứng khi mất nốt/kẹt, không rung — tốc độ có sàn, chiều giữ nguyên
  * tới khi kim thật sự đổi chiều); không có audio (không phát): kim chạy thuận 1 giây / giây như đồng hồ thường,
  * vòng chạy đều theo chiều + hướng hiện tại.
+ * SỬA (27/09/2026, lượt 7b, Giang) — sửa khái niệm vòng: "xoay thuận/nghịch" = CẢ VÒNG xoay (+/-) trong không gian
+ * 3D quanh trục đi qua tâm đồng hồ (không phải vệt/dot chạy dọc vòng — bỏ hẳn vệt + hạt); "đổi hướng" = nốt đổi
+ * TRỤC XOAY của vòng (kiểu Rubik, bậc 1-3 -> vòng 1-3, 5-7 -> 4-6). Xem advanceClockOrbitRings().
  *
  * THUẦN, không side-effect, không đọc appState/getActiveEffectConfig, không gọi hàm tự viết khác (Rule
  * 1/2/3) — Workflow `_tickClock()` (event/workflow/visualizer-render.js) gom state, cache hình học, resolve
@@ -307,27 +310,40 @@ function advanceClockFlip(prev, dtMs, enabled, isPlaying, smoothedEnergy) {
     return { axis: state.axis, angle, hold: 0 };
 }
 
-/** MỚI (26/09/2026, lượt 5, Giang) — 6 VÒNG QUỸ ĐẠO 3D quanh đồng hồ (thay 3 vòng HUD + tia quét lượt 4).
- *   - QUAY (chạy dọc theo chính vòng): cùng chiều + tốc độ tương đối với kim (`handsDir` = mức nốt / 2, như bánh
- *     răng) -> nốt < 4 quay ngược, > 4 quay thuận, 4 (kẹt) đứng + rung (Workflow cộng jitter).
- *   - XOAY HƯỚNG (kiểu Rubik — mỗi nốt ứng 1 lượt xoay CỐ ĐỊNH): bậc 1-3 -> vòng 1-3, bậc 5-7 -> vòng 4-6, bậc 4
- *     không ứng vòng nào. Nốt mới (khác bậc vừa kích hoạt gần nhất, như rubikLastTurnNote) làm MẶT PHẲNG của
- *     vòng tương ứng lật 90° quanh trục cố định của vòng đó (vòng chẵn: trục dọc, lẻ: trục ngang), easeInOut;
- *     vòng đang lật dở thì bỏ qua nốt. Chiều lật theo dấu của chiều kim hiện tại. Không đảo chiều quay.
- * Ma trận hướng 3×3 (hàng trước, toạ độ màn hình: x phải, y xuống, z hướng vào người xem) — vòng nằm trong mặt
- * phẳng local XY của ma trận. */
+/** 6 VÒNG QUỸ ĐẠO 3D quanh đồng hồ (lượt 5, Giang — thay 3 vòng HUD + tia quét lượt 4).
+ * SỬA (27/09/2026, lượt 7b, Giang: "xoay không phải là dot của ring chạy thuận/ngược mà là CẢ CÁI VÒNG xoay thuận
+ * nghịch theo hướng nào, âm hay dương trong không gian 3D quanh trục trung tâm của đồng hồ"). Bản lượt 5-7 hiểu sai:
+ * vòng đứng yên, chỉ vệt sáng chạy dọc vòng; nốt lật mặt phẳng vòng 90°. Nay 2 khái niệm tách rõ:
+ *   - XOAY THUẬN / NGHỊCH: mỗi vòng là 1 vật cứng, XOAY CẢ VÒNG quanh 1 trục đi qua TÂM đồng hồ (`axis`, vector
+ *     đơn vị trong toạ độ màn hình). Dấu (+ / -) theo chiều kim (`dir`, xem CLOCK_ORBIT_MIN_MUL — không khựng,
+ *     không rung, có sàn tốc độ; không phát -> xoay đều theo chiều + hướng hiện tại).
+ *   - ĐỔI HƯỚNG (kiểu Rubik): bậc 1-3 -> vòng 1-3, bậc 5-7 -> vòng 4-6 (bậc 4 không ứng vòng nào). Nốt mới (khác bậc
+ *     vừa kích hoạt gần nhất) đổi TRỤC XOAY của vòng tương ứng sang trục kế tiếp trong CLOCK_ORBIT_AXES (bỏ qua trục
+ *     gần trùng pháp tuyến vòng — xoay quanh chính pháp tuyến thì nhìn như đứng yên). Trục chuyển mượt trong
+ *     CLOCK_ORBIT_AXIS_MS; hướng (tư thế) vòng lúc đó giữ nguyên, không giật — chỉ trục xoay từ đó về sau đổi.
+ *     Không đổi dấu xoay.
+ * Ma trận hướng 3×3 `m` (hàng trước, toạ độ màn hình: x phải, y xuống, z hướng vào người xem) — vòng nằm trong mặt
+ * phẳng local XY của ma trận; mỗi frame m <- Rot(axis, ω·dt) · m (xoay trong không gian màn hình quanh tâm). */
 // Lượt 7 (Giang "bán kính rộng hơn") — 1.14-1.39 -> 1.2-1.7 (giãn cách 0.1R), xem computeClockOrbitFitScale().
 const CLOCK_ORBIT_RADII = [1.2, 1.3, 1.4, 1.5, 1.6, 1.7];            // × bán kính mặt số
-const CLOCK_ORBIT_SPEED = [0.9, 0.78, 0.67, 0.58, 0.5, 0.43];        // rad/s khi |handsDir| = 1
+const CLOCK_ORBIT_SPEED = [0.9, 0.78, 0.67, 0.58, 0.5, 0.43];        // rad/s (xoay cả vòng) khi hệ số tốc độ = 1
 const CLOCK_ORBIT_TILT_DEG = [72, 58, 80, 64, 76, 52];               // hướng ban đầu: nghiêng quanh trục X...
 const CLOCK_ORBIT_AZIMUTH_DEG = [0, 60, 120, 180, 240, 300];         // ...rồi xoay quanh trục Z
 const CLOCK_ORBIT_RING_OF_DEGREE = [-1, 0, 1, 2, -1, 3, 4, 5];       // index = bậc 0..7 (0 = không có nốt)
-const CLOCK_ORBIT_TURN_MS = 520;
+/** Lượt 7b — bộ trục xoay (qua tâm đồng hồ): X ngang, Y dọc, Z = trục trung tâm mặt số (hướng vào người xem) + 4
+ * đường chéo. Không có cặp đối nhau (dấu xoay đã do `dir` lo). */
+const CLOCK_ORBIT_AXES = (() => {
+    const n = (v) => { const l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; };
+    return [[1, 0, 0], [0, 1, 0], [0, 0, 1], n([1, 1, 0]), n([1, -1, 0]), n([1, 0, 1]), n([0, 1, 1])];
+})();
+const CLOCK_ORBIT_AXIS_START = [0, 1, 2, 3, 4, 5];                   // trục ban đầu của vòng 1-6 (index CLOCK_ORBIT_AXES)
+const CLOCK_ORBIT_AXIS_PARALLEL = 0.85;                              // |cos(trục, pháp tuyến)| vượt ngưỡng -> bỏ qua trục đó
+const CLOCK_ORBIT_AXIS_MS = 450;                                     // thời gian chuyển trục
 const CLOCK_ORBIT_ANIM_MS = 700;                                     // hiện/ẩn
-/** Lượt 7 (Giang: "không bị khựng lại như kim đồng hồ") — vòng có tốc độ RIÊNG (`vel`, hệ số có dấu × tốc độ từng
- * vòng) bám theo kim nhưng: độ lớn không dưới CLOCK_ORBIT_MIN_MUL (mất nốt / bậc 4 kẹt vẫn chạy, không rung); chiều
- * (`dir`) chỉ đổi khi |handsDir| vượt CLOCK_ORBIT_DIR_MIN, còn lại giữ chiều hiện tại. Không phát -> chạy đều
- * CLOCK_ORBIT_MIN_MUL theo chiều + hướng (mặt phẳng) hiện tại. `vel` làm mượt EMA -> đổi chiều là quay đầu mượt. */
+/** Lượt 7 (Giang: "không bị khựng lại như kim đồng hồ") — tốc độ xoay RIÊNG của vòng (`vel`, hệ số có dấu × tốc
+ * độ từng vòng) bám theo kim nhưng: độ lớn không dưới CLOCK_ORBIT_MIN_MUL (mất nốt / bậc 4 kẹt vẫn xoay, không
+ * rung); chiều (`dir`) chỉ đổi khi |handsDir| vượt CLOCK_ORBIT_DIR_MIN, còn lại giữ chiều hiện tại. Không phát ->
+ * xoay đều CLOCK_ORBIT_MIN_MUL theo chiều + trục hiện tại. `vel` làm mượt EMA -> đổi chiều là quay đầu mượt. */
 const CLOCK_ORBIT_MIN_MUL = 0.6;
 const CLOCK_ORBIT_DIR_MIN = 0.15;
 const CLOCK_ORBIT_VEL_MS = 350;
@@ -344,10 +360,9 @@ function computeClockOrbitFitScale(dialR, halfMinSide, halfWidthPx) {
     return { scale, outerR };
 }
 
-/** 1 bước 6 vòng quỹ đạo. Trả state MỚI (không sửa `prev`): {reveal, lastDegree, dir, vel, rings:[{m, spin, turn,
- * view}]} — `m` = hướng đã chốt, `turn` = lượt lật đang chạy {axis, dir, t} | null, `view` = ma trận hiển thị (m đã
- * cộng lượt lật dở). Lượt 7 — `dir` (±1) / `vel` = chiều + tốc độ riêng của vòng (xem CLOCK_ORBIT_MIN_MUL); lật
- * kiểu Rubik theo `dir` (chiều hiện tại của vòng). */
+/** 1 bước 6 vòng quỹ đạo. Trả state MỚI (không sửa `prev`): {reveal, lastDegree, dir, vel, rings:[{m, axisIdx,
+ * axis, view}]} — `m` = tư thế vòng (đã cộng dồn phần xoay), `axisIdx` = trục đích trong CLOCK_ORBIT_AXES, `axis` =
+ * trục xoay đang dùng (chuyển mượt về trục đích), `view` = ma trận hiển thị (= m). */
 function advanceClockOrbitRings(prev, dtMs, enabled, handsDir, isPlaying, smoothedEnergy, midiNote, noteFresh) {
     const rot = (ax, a) => { // ma trận xoay quanh trục đơn vị ax (Rodrigues)
         const c = Math.cos(a), s = Math.sin(a), t = 1 - c, x = ax[0], y = ax[1], z = ax[2];
@@ -358,11 +373,25 @@ function advanceClockOrbitRings(prev, dtMs, enabled, handsDir, isPlaying, smooth
         for (let r = 0; r < 3; r++) for (let k = 0; k < 3; k++) o[r * 3 + k] = a[r * 3] * b[k] + a[r * 3 + 1] * b[3 + k] + a[r * 3 + 2] * b[6 + k];
         return o;
     };
-    const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+    // Trực chuẩn hoá lại (Gram-Schmidt theo cột) — nhân ma trận xoay liên tục sẽ trôi sai số.
+    const ortho = (m) => {
+        let ax = m[0], ay = m[3], az = m[6];
+        let l = Math.hypot(ax, ay, az); ax /= l; ay /= l; az /= l;
+        let bx = m[1], by = m[4], bz = m[7];
+        const d = ax * bx + ay * by + az * bz;
+        bx -= d * ax; by -= d * ay; bz -= d * az;
+        l = Math.hypot(bx, by, bz); bx /= l; by /= l; bz /= l;
+        const cx = ay * bz - az * by, cy = az * bx - ax * bz, cz = ax * by - ay * bx;
+        return [ax, bx, cx, ay, by, cy, az, bz, cz];
+    };
     const D2R = Math.PI / 180;
     const state = prev || {
         reveal: 0, lastDegree: 0, dir: 1, vel: CLOCK_ORBIT_MIN_MUL,
-        rings: CLOCK_ORBIT_RADII.map((r, k) => ({ m: mul(rot([0, 0, 1], CLOCK_ORBIT_AZIMUTH_DEG[k] * D2R), rot([1, 0, 0], CLOCK_ORBIT_TILT_DEG[k] * D2R)), spin: k * 1.1, turn: null })),
+        rings: CLOCK_ORBIT_RADII.map((r, k) => {
+            const m = mul(rot([0, 0, 1], CLOCK_ORBIT_AZIMUTH_DEG[k] * D2R), rot([1, 0, 0], CLOCK_ORBIT_TILT_DEG[k] * D2R));
+            const axisIdx = CLOCK_ORBIT_AXIS_START[k];
+            return { m, axisIdx, axis: CLOCK_ORBIT_AXES[axisIdx], view: m };
+        }),
     };
     const step = dtMs / CLOCK_ORBIT_ANIM_MS;
     const reveal = enabled ? Math.min(1, state.reveal + step) : Math.max(0, state.reveal - step);
@@ -375,23 +404,31 @@ function advanceClockOrbitRings(prev, dtMs, enabled, handsDir, isPlaying, smooth
         lastDegree = degree;
         triggerRing = CLOCK_ORBIT_RING_OF_DEGREE[degree];
     }
-    // Lượt 7 — chiều: chỉ đổi khi kim đang chạy rõ theo chiều mới; mất nốt / kẹt / không phát -> giữ chiều cũ.
+    // Chiều xoay: chỉ đổi khi kim đang chạy rõ theo chiều mới; mất nốt / kẹt / không phát -> giữ chiều cũ.
     const dir = Math.abs(handsDir) > CLOCK_ORBIT_DIR_MIN ? Math.sign(handsDir) : state.dir;
     const targetMag = isPlaying ? Math.max(CLOCK_ORBIT_MIN_MUL, Math.abs(handsDir)) : CLOCK_ORBIT_MIN_MUL;
     const vel = state.vel + (dir * targetMag - state.vel) * (1 - Math.exp(-dtMs / CLOCK_ORBIT_VEL_MS));
-    const turnDir = dir;
+    const kAxis = 1 - Math.exp(-dtMs / (CLOCK_ORBIT_AXIS_MS / 3));
+    const nAxes = CLOCK_ORBIT_AXES.length;
     const rings = state.rings.map((ring, k) => {
-        let m = ring.m;
-        let turn = ring.turn;
-        if (k === triggerRing && !turn) turn = { axis: k % 2 === 0 ? [0, 1, 0] : [1, 0, 0], dir: turnDir, t: 0 };
-        if (turn) {
-            const t = turn.t + (dtMs / CLOCK_ORBIT_TURN_MS) * (1 + energy);
-            if (t >= 1) { m = mul(rot(turn.axis, (turn.dir * Math.PI) / 2), m); turn = null; }
-            else turn = { axis: turn.axis, dir: turn.dir, t };
+        let axisIdx = ring.axisIdx;
+        if (k === triggerRing) {
+            // Đổi hướng: trục kế tiếp trong bộ trục, bỏ qua trục gần trùng pháp tuyến hiện tại của vòng.
+            const nx = ring.m[2], ny = ring.m[5], nz = ring.m[8];
+            for (let j = 1; j < nAxes; j++) {
+                const cand = (axisIdx + j) % nAxes, A = CLOCK_ORBIT_AXES[cand];
+                if (Math.abs(A[0] * nx + A[1] * ny + A[2] * nz) < CLOCK_ORBIT_AXIS_PARALLEL) { axisIdx = cand; break; }
+            }
         }
-        const view = turn ? mul(rot(turn.axis, (turn.dir * Math.PI * ease(turn.t)) / 2), m) : m;
-        const spin = (ring.spin + (dtMs / 1000) * CLOCK_ORBIT_SPEED[k] * vel * (1 + energy * 0.8)) % (Math.PI * 2000);
-        return { m, spin, turn, view };
+        const T = CLOCK_ORBIT_AXES[axisIdx];
+        let ax = ring.axis[0] + (T[0] - ring.axis[0]) * kAxis;
+        let ay = ring.axis[1] + (T[1] - ring.axis[1]) * kAxis;
+        let az = ring.axis[2] + (T[2] - ring.axis[2]) * kAxis;
+        const al = Math.hypot(ax, ay, az) || 1;
+        const axis = [ax / al, ay / al, az / al];
+        const omega = CLOCK_ORBIT_SPEED[k] * vel * (1 + energy * 0.8);
+        const m = ortho(mul(rot(axis, omega * (dtMs / 1000)), ring.m));
+        return { m, axisIdx, axis, view: m };
     });
     return { reveal, lastDegree, dir, vel, rings };
 }
@@ -723,62 +760,53 @@ function paintClockHands(ctx, dialR, angles, color, glowColor, accentColor, glow
 }
 
 /** Vẽ 6 vòng quỹ đạo, TÁCH 2 LƯỢT theo chiều sâu: `front` false = nửa phía sau (z < 0, vẽ TRƯỚC thân đồng hồ,
- * mờ hơn), true = nửa phía trước (z >= 0, vẽ SAU thân đồng hồ) -> vòng như bao quanh đồng hồ thật. Mỗi vòng =
- * thân vòng + 2 vệt sáng đối xứng (đầu vệt ở góc `spin`, đuôi mờ dần nằm PHÍA SAU chiều chạy `orbit.dir`) + hạt sáng
- * ở đầu vệt. Chiếu trực giao. `colors[k]` = {fill, glow}. Gốc = tâm mặt số.
- * SỬA (27/09/2026, lượt 7, Giang) — vòng dày theo `lineW` (px CỤC BỘ — Workflow quy đổi từ `clockRingWidth` 6-18px
- * màn hình ÷ scale cụm): thân vòng + vệt cùng độ dày. Bỏ `spinJitter` (vòng không rung lúc kẹt). Vệt vẽ bằng các
- * lớp cung chồng dần (đầu vệt được phủ nhiều lớp nhất) thay cho các đoạn rời -> nét dày không lộ hạt/khe nối;
- * chỉ lớp trên cùng + hạt đầu vệt có glow (đỡ tốn shadowBlur). */
+ * mờ hơn), true = nửa phía trước (z >= 0, vẽ SAU thân đồng hồ) -> vòng như bao quanh đồng hồ thật. Chiếu trực giao.
+ * `colors[k]` = {fill, glow}. `lineW` = độ dày vòng (px CỤC BỘ — Workflow quy đổi từ `clockRingWidth` 6-18px màn
+ * hình ÷ scale cụm). Gốc = tâm mặt số.
+ * SỬA (27/09/2026, lượt 7b, Giang) — BỎ vệt sáng + hạt chạy dọc vòng: chuyển động giờ là CẢ VÒNG xoay trong không
+ * gian 3D (advanceClockOrbitRings()), vòng vẽ thành 1 dải liền. Độ sáng theo chiều sâu từng đoạn (gần người xem
+ * sáng hơn) để thấy rõ vòng đang lật/xoay; glow chỉ ở lượt nửa trước. */
+const CLOCK_ORBIT_DEPTH_BANDS = 4; // số mức sáng theo chiều sâu mỗi nửa (mỗi mức = 1 lần stroke)
 function paintClockOrbitRings(ctx, dialR, orbit, front, colors, glowPx, lineW, dpr) {
     const reveal = orbit.reveal;
     if (reveal <= 0.001) return;
-    const TAU = Math.PI * 2;
-    const depthAlpha = front ? 1 : 0.45;
+    const TAU = Math.PI * 2, N = 144;
     const w = Math.max(1, lineW) * (0.6 + 0.4 * reveal);
-    const tailSign = orbit.dir < 0 ? 1 : -1; // đuôi vệt nằm sau hướng chạy
-    const LEN = 1.0, LAYERS = 7, LAYER_ALPHA = 0.28, STEP = 0.04;
     ctx.lineCap = 'butt';
     ctx.lineJoin = 'round';
+    ctx.lineWidth = w;
     orbit.rings.forEach((ring, k) => {
         const R = CLOCK_ORBIT_RADII[k] * dialR * (0.85 + 0.15 * reveal);
         const v = ring.view;
-        const px = (a) => (v[0] * Math.cos(a) + v[1] * Math.sin(a)) * R;
-        const py = (a) => (v[3] * Math.cos(a) + v[4] * Math.sin(a)) * R;
-        const pz = (a) => v[6] * Math.cos(a) + v[7] * Math.sin(a);
-        const inPass = (a) => (pz(a) >= 0) === front;
-        // Cung a0 -> a1, chỉ phần thuộc lượt này (mỗi đoạn liền = 1 subpath, cả cung = 1 lần stroke).
-        const strokeArc = (a0, a1) => {
-            const steps = Math.max(2, Math.ceil(Math.abs(a1 - a0) / STEP));
-            ctx.beginPath();
-            let open = false;
-            for (let i = 0; i <= steps; i++) {
-                const a = a0 + ((a1 - a0) * i) / steps;
-                if (inPass(a)) { if (open) ctx.lineTo(px(a), py(a)); else { ctx.moveTo(px(a), py(a)); open = true; } } else open = false;
-            }
-            ctx.stroke();
+        const pts = new Float32Array((N + 1) * 3);
+        for (let i = 0; i <= N; i++) {
+            const a = (i / N) * TAU, c = Math.cos(a), s = Math.sin(a);
+            pts[i * 3] = (v[0] * c + v[1] * s) * R;
+            pts[i * 3 + 1] = (v[3] * c + v[4] * s) * R;
+            pts[i * 3 + 2] = v[6] * c + v[7] * s; // z chuẩn hoá -1..1 (dương = phía người xem)
+        }
+        // Mức chiều sâu của đoạn i (0 = xa nhất trong lượt, BANDS-1 = gần nhất); -1 = không thuộc lượt này.
+        const bandOf = (i) => {
+            const z = (pts[i * 3 + 2] + pts[(i + 1) * 3 + 2]) / 2;
+            if ((z >= 0) !== front) return -1;
+            const t = front ? z : 1 + z; // front: 0..1, back: 0..1 (sát mặt phẳng đồng hồ = 1)
+            return Math.min(CLOCK_ORBIT_DEPTH_BANDS - 1, Math.floor(t * CLOCK_ORBIT_DEPTH_BANDS));
         };
         ctx.strokeStyle = colors[k].fill;
-        ctx.lineWidth = w;
-        // Thân vòng.
-        ctx.shadowBlur = 0;
-        ctx.globalAlpha = reveal * 0.22 * depthAlpha;
-        strokeArc(0, TAU);
-        // 2 vệt sáng + hạt đầu vệt.
         ctx.shadowColor = colors[k].glow;
-        for (let c = 0; c < 2; c++) {
-            const head = ring.spin + c * Math.PI;
-            ctx.globalAlpha = reveal * depthAlpha * LAYER_ALPHA;
-            for (let L = 0; L < LAYERS; L++) {
-                ctx.shadowBlur = L === LAYERS - 1 ? glowPx : 0;
-                strokeArc(head + tailSign * LEN * (1 - L / LAYERS), head);
+        for (let b = 0; b < CLOCK_ORBIT_DEPTH_BANDS; b++) {
+            const depthT = front ? 0.55 + 0.45 * ((b + 1) / CLOCK_ORBIT_DEPTH_BANDS) : 0.15 + 0.25 * ((b + 1) / CLOCK_ORBIT_DEPTH_BANDS);
+            ctx.globalAlpha = reveal * depthT;
+            ctx.shadowBlur = front ? glowPx * ((b + 1) / CLOCK_ORBIT_DEPTH_BANDS) : 0;
+            ctx.beginPath();
+            let open = false;
+            for (let i = 0; i < N; i++) {
+                if (bandOf(i) === b) {
+                    if (!open) { ctx.moveTo(pts[i * 3], pts[i * 3 + 1]); open = true; }
+                    ctx.lineTo(pts[(i + 1) * 3], pts[(i + 1) * 3 + 1]);
+                } else open = false;
             }
-            if (inPass(head)) {
-                ctx.globalAlpha = reveal * depthAlpha;
-                ctx.shadowBlur = glowPx;
-                ctx.fillStyle = colors[k].fill;
-                ctx.beginPath(); ctx.arc(px(head), py(head), Math.max(2 * dpr, w * 0.75), 0, TAU); ctx.fill();
-            }
+            ctx.stroke();
         }
         ctx.shadowBlur = 0;
     });
