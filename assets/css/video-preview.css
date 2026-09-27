@@ -32,6 +32,23 @@
     position: absolute;
     inset: 0;
 }
+/* FIX (26/09/2026, Giang — "crop chưa khắc phục lỗi pointer ở css, tiền lệ đã có ở crop của image
+   edit", xem core/file-manager/photo-ui.js::interactCanvas) — assets/css/base.css có rule chọn theo
+   TAG `canvas { ...; pointer-events: none; }` (viết cho #visualizer/#webgl-canvas) áp lên MỌI
+   <canvas> trong app, kể cả canvas Crop ở đây → mọi chạm xuyên qua canvas, 'pointerdown' của nó
+   KHÔNG BAO GIỜ bắn, khung crop không kéo được. Ghi đè bằng selector class+tag (specificity cao hơn
+   tag trần), kèm `touch-action: none` (không để trình duyệt giành cử chỉ kéo thành pan/scroll). */
+.video-preview-crop-layer canvas {
+    pointer-events: auto;
+    touch-action: none;
+}
+/* Cùng họ bug "trình duyệt giành cử chỉ" (tiền lệ assets/css/photo-gallery.css cho
+   #image-preview-overlay) — chặn bôi đen chữ/callout ảnh của hệ điều hành khi kéo tay cầm/khung. */
+.video-preview-overlay {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
 
 /* ===================== Trạng thái xem: nút nổi ===================== */
 .video-preview-float-ui {
@@ -99,10 +116,11 @@
     align-items: center;
     justify-content: center;
     border-radius: 9999px;
-    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6));
     transition: background-color 0.15s;
 }
-.video-preview-rail-icon svg { width: 26px; height: 26px; }
+/* SỬA (26/09/2026) — drop-shadow đặt TRÊN từng svg thay vì span cha: nút Âm thanh đổi icon bằng
+   ẩn/hiện svg con, filter ở cha trên WebKit có thể không vẽ lại sau khi con đổi display. */
+.video-preview-rail-icon svg { width: 26px; height: 26px; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6)); }
 .video-preview-rail-label {
     display: none;
     font-size: 14px;
