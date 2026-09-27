@@ -226,7 +226,7 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'clockPendulumLength', labelKey: 'customEffectDrawer.field.clockPendulumLength', type: 'slider', min: 20, max: 100, step: 5, card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'pendulum' },
         // Lượt 7 (27/09/2026, Giang) — độ dày vòng Time scan (px màn hình), chỉ hiện khi Accessory = rings. Lượt 8: 1-6px.
         { id: 'clockRingWidth', labelKey: 'customEffectDrawer.field.clockRingWidth', type: 'slider', min: 1, max: 6, step: 1, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'rings' },
-        // Lượt 9 (Giang) — bán kính vòng ngoài cùng (% bán kính mặt số, 3 vòng trong giữ tỉ lệ) + độ đậm nền đĩa trong vòng.
+        // Lượt 9 (Giang) — bán kính vòng (% bán kính mặt số; lượt 9b: cả 4 vòng cùng bán kính) + độ đậm nền đĩa trong vòng.
         { id: 'clockRingRadius', labelKey: 'customEffectDrawer.field.clockRingRadius', type: 'slider', min: 110, max: 220, step: 5, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'rings' },
         { id: 'clockRingBgOpacity', labelKey: 'customEffectDrawer.field.clockRingBgOpacity', type: 'sliderFloat', min: 0, max: 0.5, step: 0.05, decimals: 2, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'rings' },
         { id: 'clockSizeRatio', labelKey: 'customEffectDrawer.field.clockSizeRatio', type: 'sliderFloat', min: 0.5, max: 0.95, step: 0.05, decimals: 2, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' },

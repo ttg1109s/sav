@@ -121,7 +121,7 @@
                 clockAccessory: 'rings', clockPendulumTrail: true, clockPendulumLength: 70,
                 // Lượt 7 (27/09/2026, Giang): độ dày vòng Time scan, px màn hình — lượt 8: 1-6 (trước 6-18).
                 clockRingWidth: 3,
-                // Lượt 9 (Giang): bán kính vòng ngoài cùng (% bán kính mặt số, 110-220) + nền đĩa trong vòng (0-0.5).
+                // Lượt 9 (Giang): bán kính vòng (% bán kính mặt số, 110-220; lượt 9b: cả 4 vòng cùng bán kính) + nền đĩa trong vòng (0-0.5).
                 clockRingRadius: 170, clockRingBgOpacity: 0,
                 blurEnabled: true, blurIntensity: 60,
             },
