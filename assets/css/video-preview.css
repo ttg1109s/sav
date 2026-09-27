@@ -1,5 +1,7 @@
 /* video-preview.css — modal xem/sửa Video (core/file-manager/video-ui.js, components/
    video-preview.js).
+   VIẾT LẠI phần "trạng thái xem" (26/09/2026, lần 2) theo ảnh chụp editor Story Facebook Giang gửi:
+   thẻ video bo góc + nút "<"/"•••" nổi + hàng công cụ tròn ngang ở đáy thẻ + thanh lưu dưới thẻ.
    VIẾT LẠI (26/09/2026, "khung UI kiểu Story Facebook") — 2 trạng thái theo `data-tool` trên
    .video-preview-overlay:
    - "none": video tràn màn hình, nút nổi (.video-preview-float-ui), không có topbar/panel dưới.
@@ -50,107 +52,138 @@
     -webkit-touch-callout: none;
 }
 
-/* ===================== Trạng thái xem: nút nổi ===================== */
+/* ===================== Trạng thái xem (bám ảnh chụp editor Story Facebook) ===================== */
+.video-preview-overlay { background: #111111; }
+/* Thẻ video bo góc, nằm dưới thanh trạng thái. Lúc dùng công cụ thì bỏ bo/khoảng cách (topbar đã lo safe-area). */
+.video-preview-overlay[data-tool="none"] .video-preview-card {
+    margin-top: env(safe-area-inset-top, 0px);
+    border-radius: 22px;
+}
+.video-preview-overlay:not([data-tool="none"]) .video-preview-save-bar { display: none; }
+
 .video-preview-float-ui {
     position: absolute;
     inset: 0;
     pointer-events: none; /* tap vào vùng trống vẫn tới <video> (play/pause) */
 }
-/* 2 dải tối mờ trên/dưới — chỉ để icon trắng đọc được trên video sáng. */
+/* 2 dải tối mờ trên/dưới — chỉ để nút trắng đọc được trên video sáng. */
 .video-preview-float-ui::before,
 .video-preview-float-ui::after {
     content: '';
     position: absolute;
     left: 0; right: 0;
-    height: 140px;
     pointer-events: none;
 }
-.video-preview-float-ui::before { top: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0)); }
-.video-preview-float-ui::after { bottom: 0; background: linear-gradient(to top, rgba(0,0,0,0.45), rgba(0,0,0,0)); }
+.video-preview-float-ui::before { top: 0; height: 110px; background: linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(0,0,0,0)); }
+.video-preview-float-ui::after { bottom: 0; height: 150px; background: linear-gradient(to top, rgba(0,0,0,0.45), rgba(0,0,0,0)); }
 
-.video-preview-float-close,
-.video-preview-rail,
-.video-preview-float-save {
+.video-preview-float-btn,
+.video-preview-toolbar {
     position: absolute;
     z-index: 1; /* trên 2 dải mờ */
     pointer-events: auto;
 }
-.video-preview-float-close {
-    top: calc(12px + env(safe-area-inset-top, 0px));
-    left: 12px;
+.video-preview-float-btn {
+    top: 10px;
     width: 44px;
     height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
-    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6));
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.55));
 }
-.video-preview-float-close svg { width: 26px; height: 26px; }
+.video-preview-float-btn:active { opacity: 0.6; }
+.video-preview-float-back { left: 10px; }
+.video-preview-float-back svg { width: 28px; height: 28px; }
+.video-preview-float-more { right: 10px; }
+.video-preview-float-more svg { width: 26px; height: 26px; }
 
-/* Rail dọc góc trên phải — icon trắng không nền (kiểu Story), nhãn hiện bên TRÁI khi mở rộng. */
-.video-preview-rail {
-    top: calc(12px + env(safe-area-inset-top, 0px));
-    right: 8px;
+/* Hàng công cụ ngang ở đáy thẻ — nút tròn tối mờ + nhãn bên dưới, cuộn ngang khi không đủ chỗ. */
+.video-preview-toolbar {
+    left: 0; right: 0; bottom: 0;
+    display: flex;
+    gap: 6px;
+    padding: 0 10px 12px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+    scrollbar-width: none;
+}
+.video-preview-toolbar::-webkit-scrollbar { display: none; }
+.video-preview-tool-item {
+    flex: 0 0 auto;
+    min-width: 72px;
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
-    pointer-events: none; /* chỉ từng nút bắt chạm, khoảng trống giữa nút không chặn video */
-}
-.video-preview-rail-item {
-    display: flex;
     align-items: center;
-    gap: 10px;
-    min-height: 44px;
+    gap: 6px;
     color: #fff;
-    pointer-events: auto;
     background: none;
-    transition: transform 0.15s, opacity 0.15s;
 }
-.video-preview-rail-item:active { transform: scale(0.9); }
-.video-preview-rail-icon {
-    width: 44px;
-    height: 44px;
+.video-preview-tool-circle {
+    width: 56px;
+    height: 56px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 9999px;
-    transition: background-color 0.15s;
+    background: rgba(58,58,58,0.78);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    transition: transform 0.15s, background-color 0.15s, color 0.15s;
 }
-/* SỬA (26/09/2026) — drop-shadow đặt TRÊN từng svg thay vì span cha: nút Âm thanh đổi icon bằng
-   ẩn/hiện svg con, filter ở cha trên WebKit có thể không vẽ lại sau khi con đổi display. */
-.video-preview-rail-icon svg { width: 26px; height: 26px; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6)); }
-.video-preview-rail-label {
-    display: none;
+.video-preview-tool-item:active .video-preview-tool-circle { transform: scale(0.9); }
+.video-preview-tool-circle svg { width: 28px; height: 28px; }
+.video-preview-tool-label {
     font-size: 14px;
-    font-weight: 600;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+    font-weight: 500;
+    line-height: 1.2;
     white-space: nowrap;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.7);
 }
-.video-preview-rail.is-expanded .video-preview-rail-label { display: inline; }
-.video-preview-rail-expand svg { transition: transform 0.2s; }
-.video-preview-rail.is-expanded .video-preview-rail-expand svg { transform: rotate(180deg); }
-/* Trạng thái "đang bật" (Lật ngang) — nền tròn trắng mờ sau icon. */
-.video-preview-rail-item.is-active .video-preview-rail-icon { background: rgba(255,255,255,0.28); }
-/* Icon Âm thanh — đổi theo trạng thái tắt/bật tiếng. */
+/* Trạng thái "đang bật" (Lật ngang) — nút tròn chuyển trắng. */
+.video-preview-tool-item.is-active .video-preview-tool-circle { background: #fff; color: #000; }
+/* Icon Âm lượng — đổi theo trạng thái tắt/bật tiếng. */
 .video-preview-icon-sound-off { display: none; }
-.video-preview-rail-item.is-muted .video-preview-icon-sound-on { display: none; }
-.video-preview-rail-item.is-muted .video-preview-icon-sound-off { display: block; }
+.video-preview-tool-item.is-muted .video-preview-icon-sound-on { display: none; }
+.video-preview-tool-item.is-muted .video-preview-icon-sound-off { display: block; }
 
-.video-preview-float-save {
-    right: 16px;
-    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-    padding: 10px 22px;
+/* Thanh dưới thẻ: viên chọn kiểu lưu (trái) + nút Lưu xanh (phải). */
+.video-preview-save-bar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+}
+.video-preview-save-mode {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 16px;
     border-radius: 9999px;
-    background: #fff;
-    color: #000;
-    font-size: 15px;
+    background: #2b2b2b;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+}
+.video-preview-save-mode svg { width: 20px; height: 20px; flex-shrink: 0; }
+.video-preview-save-mode .video-preview-save-mode-chevron { width: 16px; height: 16px; opacity: 0.7; }
+.video-preview-save-mode:active { opacity: 0.7; }
+.video-preview-save-btn {
+    min-height: 48px;
+    padding: 0 30px;
+    border-radius: 10px;
+    background: #0866ff;
+    color: #fff;
+    font-size: 18px;
     font-weight: 700;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.35);
     transition: transform 0.15s;
 }
-.video-preview-float-save:active { transform: scale(0.95); }
+.video-preview-save-btn:active { transform: scale(0.96); }
 
 /* Biểu tượng Play giữa màn hình khi đang dừng (chỉ hiển thị). */
 .video-preview-play-indicator {
@@ -320,7 +353,6 @@
 
 @media (prefers-reduced-motion: reduce) {
     .video-preview-play-indicator,
-    .video-preview-rail-expand svg,
-    .video-preview-rail-item,
-    .video-preview-rail-icon { transition: none; }
+    .video-preview-tool-circle,
+    .video-preview-save-btn { transition: none; }
 }
