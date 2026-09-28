@@ -72,22 +72,43 @@ function advanceAndDrawBlackHoleFlashes(ctx, dpr, starFlashes, flashFadeSpeed) {
     }
 }
 
-/** MỚI (28/09/2026, Giang) — bề rộng "ô" mỗi cột (px CSS): số cột tính theo chu vi hố đen sao cho cột rộng tối đa
- * (slider barWidth, kẹp 5-15px) chỉ CHẠM mép nhau ở chân, không chồng lấn. */
+/** MỚI (28/09/2026, Giang) — bề rộng "ô" mỗi cột (px CSS) = độ rộng cột TỐI ĐA: số cột tính theo chu vi hố đen sao cho
+ * cột rộng 15px nằm SÁT nhau ở chân (xoè hình quạt ra ngoài), cột hẹp hơn thì hở tương ứng.
+ * SỬA (28/09/2026, Giang báo "quá thưa") — bản trước tính theo bán kính NỀN (radiusRatio, chưa cộng năng lượng/beat)
+ * trong khi hố đen lúc phát to hơn nền gần gấp đôi -> cột cách nhau ~21px. Nay tính theo bán kính ĐANG VẼ kiểu giữ đỉnh
+ * (BLACK_HOLE_BAR_RADIUS_ATTACK/RELEASE_MS) + trễ đổi số cột (BLACK_HOLE_BAR_COUNT_HYSTERESIS) để cột không nhảy theo từng beat;
+ * làm tròn LÊN -> khoảng cách tâm-tâm ≤ 15px (chồng nhẹ khi hố đen co lại — chấp nhận, Giang chốt). */
 const BLACK_HOLE_BAR_SLOT_PX = 15;
 const BLACK_HOLE_BAR_WIDTH_MIN = 5, BLACK_HOLE_BAR_WIDTH_MAX = 15;
 const BLACK_HOLE_BAR_TOP_RADIUS_MAX = 5;
 /** Tỉ lệ dải bin dùng (vùng trầm/trung — giữ như bản cũ, 35% đầu phổ). */
 const BLACK_HOLE_BAR_SPAN_FRAC = 0.35;
+/** Bán kính dùng để đếm cột = "giữ đỉnh": bám lên NHANH khi hố đen phồng (cột không kịp thưa ra), nhả xuống CHẬM khi co
+ * (số cột không nhảy theo từng beat — lúc co cột chồng nhẹ thành hình quạt). */
+const BLACK_HOLE_BAR_RADIUS_ATTACK_MS = 120;
+const BLACK_HOLE_BAR_RADIUS_RELEASE_MS = 2500;
+/** Chỉ đổi số cột khi số cột "lý tưởng" (số thực) lệch khỏi số đang dùng quá ngưỡng này (tránh bập bênh ở ranh giới). */
+const BLACK_HOLE_BAR_COUNT_HYSTERESIS = 0.6;
 
-/** MỚI (28/09/2026, Giang "số lượng bar đổi theo bán kính hố đen") — số cột trên NỬA vòng (tính cả cột đỉnh/đáy dùng
- * chung, vòng tròn đủ = 2 × (usefulLength − 1) cột) từ bán kính NỀN (không cộng năng lượng/beat — bán kính thật chỉ
- * lớn hơn nên cột chỉ giãn ra, không chồng), cộng số bin phổ được trải lên các cột đó.
+/** Bán kính "giữ đỉnh" (bám lên nhanh, nhả chậm, theo dt) — frame đầu (prev = 0) lấy luôn bán kính hiện tại. */
+function smoothBlackHoleBarRadius(prevRadius, currentRadius, dtMs) {
+    const tau = currentRadius > prevRadius ? BLACK_HOLE_BAR_RADIUS_ATTACK_MS : BLACK_HOLE_BAR_RADIUS_RELEASE_MS;
+    const alpha = prevRadius > 0 ? 1 - Math.exp(-dtMs / tau) : 1;
+    return prevRadius + (currentRadius - prevRadius) * alpha;
+}
+
+/** Số khoảng cột trên NỬA vòng: lý tưởng = π·R / ô (làm tròn lên); giữ số cũ nếu còn trong ngưỡng trễ. */
+function resolveBlackHoleBarHalfCount(prevHalfCount, avgRadius, dpr) {
+    const ideal = (Math.PI * avgRadius) / (BLACK_HOLE_BAR_SLOT_PX * dpr);
+    const keep = prevHalfCount > 0 && Math.abs(ideal - prevHalfCount) <= BLACK_HOLE_BAR_COUNT_HYSTERESIS;
+    return Math.max(2, keep ? prevHalfCount : Math.ceil(ideal));
+}
+
+/** Số cột trên nửa vòng (tính cả cột đỉnh/đáy dùng chung — vòng đủ = 2 × halfCount cột) + số bin phổ trải lên chúng.
  * @returns {{ usefulLength: number, spanBins: number }} */
-function computeBlackHoleBarLayout(baseRadius, dpr, bufferLength) {
-    const fullCount = Math.floor((Math.PI * 2 * baseRadius) / (BLACK_HOLE_BAR_SLOT_PX * dpr));
+function computeBlackHoleBarLayout(halfCount, bufferLength) {
     return {
-        usefulLength: Math.max(3, Math.floor(fullCount / 2) + 1),
+        usefulLength: halfCount + 1,
         spanBins: Math.max(2, Math.floor(bufferLength * BLACK_HOLE_BAR_SPAN_FRAC)),
     };
 }
