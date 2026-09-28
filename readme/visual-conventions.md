@@ -57,6 +57,11 @@ tự khai `let` cục bộ mới trong file visual — xem quy ước STATE ở
 thêm thẻ `<script>` SAU `visualizer-render.js` (index.html), đăng ký group trong `EFFECT_GROUPS`/`MODES`
 (service/state/visualizer-runtime.js). Cảnh phụ thuộc kích thước canvas dựng lại ở `onResize`, KHÔNG gắn listener resize riêng.
 
+Phase 5 (28/09/2026): mọi core trong `core/visualizer/groups/**` + `core/webgl/*` là core thuần (không gọi core khác,
+không `appState.get()`); builder scene (WebGL + cảnh 2D) trả dữ liệu, group workflow ghi appState. Renderer WebGL dùng chung
+tạo qua `workflowVisualizerRender.ensureSharedRenderer(pixelRatio)`. Field Custom Effect kiểu `imagePick` (chọn ảnh thư viện,
+null = nguồn mặc định) có sẵn cho effect khác dùng.
+
 Vòng đời WebGL: resize CHỈ đổi camera/renderer/composer (`core/webgl/three-common.js`); dựng lại scene (Custom Effect
 đổi số vòng/neuron...) PHẢI dispose scene cũ trước (`disposeThreeObjectTree`, composer, OrbitControls, texture).
 

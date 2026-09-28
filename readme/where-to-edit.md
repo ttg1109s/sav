@@ -100,3 +100,8 @@
 | Control trong Custom Effect Drawer (màu, blur, slider, đèn, chữ pháo hoa, nút đóng) | `event/listener/custom-effect.js` (bảng tuyến) -> `event/router/custom-effect.js` -> `event/workflow/custom-effect.js`; sửa DOM tại chỗ: `core/custom-effect-drawer-ui.js` |
 | Field Custom Effect cần dựng lại scene (`refresh`) | `CUSTOM_EFFECT_REFRESH_BY_NAME` (event/workflow/custom-effect.js) |
 | Auto-switch: pha đồng hồ play/pause | `resolveAutoSwitchSyncPhase()` (core/auto-switch-visual.js) + `syncPlayState()` (VMState, event/workflow/auto-switch-visual.js) |
+| Black Hole: số cột theo chu vi (ô 15px/cột), độ rộng 5-15px, bo góc đỉnh 0-5px | `core/visualizer/groups/bar/black-hole.js` (`computeBlackHoleBarLayout`, `paintBlackHoleBarShapes`) |
+| Dot: dải màu theo vị trí ở mode gradient | `BAR_DOT_COLORS_BY_GRADIENT` (event/workflow/visualizer/bar.js) |
+| Clock: vạch phút sáng theo kim giây, ảnh nền mặt số (bìa bài / ảnh thư viện), con lắc | `core/visualizer/groups/shape/clock.js` (`stepClockTickGlow`, `paintClockBackground`) + `event/workflow/visualizer/shape.js` (`_syncClockBackground`); field ảnh `imagePick` — components/custom-effect-drawer.js + `pickImageField()` (event/workflow/custom-effect.js) |
+| Style tắt khối Blur riêng (vd fireworks) | `CUSTOM_EFFECT_NO_BLUR_STYLES` (core/custom-effect.js) |
+| Brain (connector): trạng thái, tham số, từng bước/lớp vẽ | `core/visualizer/groups/connector/brain.js` (core thuần) + `_drawBrain()` (event/workflow/visualizer/connector.js) |

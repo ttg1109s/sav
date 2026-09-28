@@ -86,9 +86,21 @@ Core MỚI viết đủ Rule 1-3 (không cần miễn trừ dù chạy mỗi fra
 `driftOrbitSweepCamera` (groups/connector/circuit.js), `setAnalyserFftSize` (audio-engine.js), `resolveAutoSwitchSyncPhase`
 (auto-switch-visual.js).
 
-Còn lại cho Phase 5: `initThreeJS`/`updateVortexVisibility`/`updateThreeJSColors` (three-vortex.js),
-`initThreeJSConnector`/`updateConnectorVisibility`/`resetConnectorPerTrackState` (three-connector.js) — vẫn đọc appState /
-gọi core khác; Workflow gọi chúng như hàm di sản. `initStars`/`initRubik`/`generateStreetScene`/`allocateBuffers` cũng vậy.
+**Phase 5 XONG (28/09/2026)** — quét lại: KHÔNG còn hàm nào trong `core/visualizer/groups/**`, `core/webgl/*`,
+`core/canvas-scene-setup.js` gọi core khác hay `appState.get()`:
+- Vortex: `initThreeJS`/`updateVortexVisibility`/`updateThreeJSColors` -> `buildVortexScene` + `applyVortexStyleVisibility`;
+  `stepVortex*Z` -> `placeVortex*Z` (Workflow tính z bằng `wrapVortexObjectZ`); `computeNextVortexPath`/`computeVortexCurveTarget`/
+  `isVortexTurnSettled` nhận sẵn độ lệch pha, trả pha chưa quấn (Workflow quấn bằng `wrapVortexAngle`).
+- Connector: `initThreeJSConnector`/`updateConnectorVisibility`/`resetConnectorPerTrackState`/`buildSynapseNetwork`/`buildCircuitNodes`/
+  `spawnCircuitSignal`/`fireNeuronActionPotential`/`litNeuronFromSignalArrival`/`computeNeuronBinEnergy`/`tonotopicNodeIndexForFrequency`
+  -> builder/hàm thuần (`buildConnectorStage`, `buildConnectorComposer`, `apply{Synapse,Circuit}CameraView`, `assembleCircuitChip`,
+  `launchActionPotentialSparks`, `computeBinRangePeak`, `findTonotopicNodeForBin`...) do `event/workflow/visualizer/connector.js` ghép.
+- `groups/connector/brain.js`: bỏ closure `brainFilterOriginal` -> `createBrainState()` + `computeBrainTuning()` + ~30 core 1 việc;
+  Workflow `_drawBrain()` điều phối (đã so khớp từng lời gọi canvas với bản cũ).
+- `canvas-scene-setup.js`: `allocateBuffers`/`initStars`/`initRubik`/`generateStreetScene`/`getPlayerBarSafeHeight` -> builder thuần
+  (`createAnalysisBuffers`, `buildBlackHoleStars`, `buildRubikCubes`, `computeStreetGroundY`, `buildStreetLamps`, `buildStreetRain`).
+Ngoại lệ còn giữ (ghi rõ): hàm vẽ canvas trong `groups/**` vẫn `appState.mutate()` (GHI — Rule 2 cho phép) ở vài chỗ di sản
+(`stepAndDrawBlackHoleStars`, `advanceAndDrawBlackHoleFlashes`, `maybeSpawnRainStreak`...).
 
 ## Thống kê tổng quan (quét lại 12/07/2026 — THAY số liệu cũ)
 
