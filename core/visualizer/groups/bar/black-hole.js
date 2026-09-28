@@ -73,16 +73,17 @@ function advanceAndDrawBlackHoleFlashes(ctx, dpr, starFlashes, flashFadeSpeed) {
 }
 
 /** MỚI (28/09/2026, Giang) — bề rộng "ô" mỗi cột (px CSS) = độ rộng cột TỐI ĐA: số cột tính theo chu vi hố đen sao cho
- * cột rộng 15px nằm SÁT nhau ở chân (xoè hình quạt ra ngoài), cột hẹp hơn thì hở tương ứng.
+ * cột rộng tối đa nằm SÁT nhau ở chân (xoè hình quạt ra ngoài), cột hẹp hơn thì hở tương ứng.
  * SỬA (28/09/2026, Giang báo "quá thưa") — bản trước tính theo bán kính NỀN (radiusRatio, chưa cộng năng lượng/beat)
  * trong khi hố đen lúc phát to hơn nền gần gấp đôi -> cột cách nhau ~21px. Nay tính theo bán kính ĐANG VẼ kiểu giữ đỉnh
  * (BLACK_HOLE_BAR_RADIUS_ATTACK/RELEASE_MS) + trễ đổi số cột (BLACK_HOLE_BAR_COUNT_HYSTERESIS) để cột không nhảy theo từng beat;
- * làm tròn LÊN -> khoảng cách tâm-tâm ≤ 15px (chồng nhẹ khi hố đen co lại — chấp nhận, Giang chốt).
+ * làm tròn LÊN -> khoảng cách tâm-tâm ≤ 1 ô (chồng nhẹ khi hố đen co lại — chấp nhận, Giang chốt).
  * SỬA lần 2 (29/09/2026, Giang báo "max 15 vẫn thưa, bản cũ sát kín") — cột mọc xuyên tâm nên càng ra ngoài càng xa nhau:
  * chạm nhau ở CHÂN thì phần ngoài vẫn hở. Nay đếm theo bán kính ĐẦU CỘT (bán kính hố đen + chiều cao cột trung bình) ->
- * cột 15px chạm nhau ở đầu, chồng lên nhau thành hình quạt phía chân — kín như bản cũ. */
-const BLACK_HOLE_BAR_SLOT_PX = 15;
-const BLACK_HOLE_BAR_WIDTH_MIN = 5, BLACK_HOLE_BAR_WIDTH_MAX = 15;
+ * cột rộng tối đa chạm nhau ở đầu, chồng lên nhau thành hình quạt phía chân — kín như bản cũ. */
+// SỬA (29/09/2026, Giang) — độ rộng tối đa 15 -> 10px (tối thiểu giữ 5px); ô mỗi cột = độ rộng tối đa.
+const BLACK_HOLE_BAR_SLOT_PX = 10;
+const BLACK_HOLE_BAR_WIDTH_MIN = 5, BLACK_HOLE_BAR_WIDTH_MAX = 10;
 const BLACK_HOLE_BAR_TOP_RADIUS_MAX = 5;
 /** Tỉ lệ dải bin dùng (vùng trầm/trung — giữ như bản cũ, 35% đầu phổ). */
 const BLACK_HOLE_BAR_SPAN_FRAC = 0.35;
@@ -130,16 +131,33 @@ function computeBlackHoleBarLayout(halfCount, bufferLength) {
  * paintBlackHoleBarShapes()).
  * @returns {{colorArgs:number[], angles:number[], height:number}[]}
  */
+// SỬA (29/09/2026, Giang "dù số lượng bao nhiêu cũng phải map đủ dải như bar cũ") — bản cũ (số cột cố định = số bin)
+// map 1 cột = 1 bin; bản 28/09 lấy MẪU 1 bin / cột (bỏ sót bin khi ít cột, cột cuối không tới bin cuối). Nay cột i đặt tại
+// vị trí bin liên tục center = i × (spanBins − 1) / (usefulLength − 1) — cột đầu = bin 0, cột cuối = bin cuối, đúng như bản
+// cũ — và lấy ĐỈNH trong cửa sổ ± nửa khoảng bin/cột (nội suy tuyến tính ở 2 mép cửa sổ): ít cột thì gộp đủ các bin
+// (không bin nào bị bỏ), nhiều cột hơn bin thì nội suy mượt giữa các bin. Tăng cường tần cao + làm mượt 3 cột kề giữ nguyên.
 function computeBlackHoleBarsFrame(vizDataArray, usefulLength, spanBins, minH, dpr, dynamicMaxBarHeight) {
     const scaledMinH = minH * dpr;
-    const binAt = (i) => Math.min(spanBins - 1, Math.floor((i * spanBins) / usefulLength));
-    const boosted = (i) => Math.min(255, (vizDataArray[binAt(i)] || 0) * (1 + (i / usefulLength) * 1.2));
+    const binStep = usefulLength > 1 ? (spanBins - 1) / (usefulLength - 1) : 0;
+    const binAt = (b) => vizDataArray[b] || 0;
+    const sampleAt = (x) => {
+        const b0 = Math.floor(x), f = x - b0;
+        return binAt(b0) * (1 - f) + binAt(Math.min(spanBins - 1, b0 + 1)) * f;
+    };
+    const raw = [];
+    for (let i = 0; i < usefulLength; i++) {
+        const center = i * binStep;
+        const lo = Math.max(0, center - binStep / 2), hi = Math.min(spanBins - 1, center + binStep / 2);
+        let peak = Math.max(sampleAt(lo), sampleAt(hi));
+        for (let b = Math.ceil(lo); b <= Math.floor(hi); b++) peak = Math.max(peak, binAt(b));
+        raw.push(peak);
+    }
+    const boosted = raw.map((v, i) => Math.min(255, v * (1 + (i / usefulLength) * 1.2)));
     const bars = [];
     for (let i = 0; i < usefulLength; i++) {
-        const boostedVal = boosted(i);
-        const val = i > 0 && i < usefulLength - 1 ? (boosted(i - 1) + boostedVal * 3 + boosted(i + 1)) / 5 : boostedVal;
+        const val = i > 0 && i < usefulLength - 1 ? (boosted[i - 1] + boosted[i] * 3 + boosted[i + 1]) / 5 : boosted[i];
         const contrastNormalized = Math.pow(val / 255, 2.0);
-        const height = vizDataArray[binAt(i)] ? scaledMinH + (contrastNormalized * dynamicMaxBarHeight * 1.2) : scaledMinH;
+        const height = raw[i] > 0 ? scaledMinH + (contrastNormalized * dynamicMaxBarHeight * 1.2) : scaledMinH;
         const angleOffset = (i / (usefulLength - 1)) * Math.PI;
         // Cột đầu (đáy) và cột cuối (đỉnh) nằm trên trục dọc -> chỉ 1 bản (bản cũ vẽ trùng 2 lần cột đầu).
         const onAxis = i === 0 || i === usefulLength - 1;
@@ -161,31 +179,59 @@ function computeBlackHoleRadius(minDimension, smoothedEnergy, beatScale, radiusR
     return smoothedBeatRadius + (beatScale * minDimension * 0.03);
 }
 
-/** SỬA (28/09/2026, Giang) — THAY paintBlackHoleBarsSetup()/paintBlackHoleBarLines() (nét thẳng đầu tròn): mỗi cột
- * là 1 khối chữ nhật mọc từ viền hố đen ra ngoài theo `angles`, chân phẳng, 2 góc ĐỈNH bo `topRadiusPx` (px CSS,
- * 0-5, tự kẹp theo nửa bề rộng/chiều cao). `widthPx` px CSS (5-15). Màu/glow đã resolve sẵn. Chỉ Canvas API. */
-function paintBlackHoleBarShapes(ctx, angles, height, centerX, centerY, radius, widthPx, topRadiusPx, color, glow, dpr, blurMult) {
+/** MỚI (29/09/2026, Giang — thứ tự chồng cột) — trải cột thành danh sách PHẲNG (1 phần tử / góc) kèm màu đã resolve
+ * (`colors[k]` ứng `bars[k]`) rồi xếp theo CHIỀU KIM ĐỒNG HỒ bắt đầu từ hướng 3 giờ. Vẽ theo thứ tự này thì mỗi cột
+ * bị cột kế tiếp theo chiều kim che: cột đỉnh che cột trái, bị cột phải che; cột đáy che cột phải, bị cột trái che.
+ * (Bản trước vẽ theo cặp trái/phải từ đáy lên -> cột đỉnh che cả 2 bên, cột đáy bị cả 2 bên che.)
+ * @returns {{angle:number, height:number, fill:string, glow:string}[]} */
+function orderBlackHoleBarsClockwise(bars, colors) {
+    const TAU = Math.PI * 2;
+    const entries = [];
+    bars.forEach((b, k) => b.angles.forEach((a) => entries.push({ angle: ((a % TAU) + TAU) % TAU, height: b.height, fill: colors[k].fill, glow: colors[k].glow })));
+    return entries.sort((p, q) => p.angle - q.angle);
+}
+
+/** 1 cột: khối chữ nhật mọc từ viền hố đen ra ngoài, chân phẳng, 2 góc ĐỈNH bo `topRadiusPx` (px CSS 0-5, tự kẹp theo
+ * nửa bề rộng/chiều cao). `widthPx` px CSS (5-10). THAY paintBlackHoleBarShapes() (vẽ theo cặp góc). Chỉ Canvas API. */
+function paintBlackHoleBar(ctx, entry, centerX, centerY, radius, widthPx, topRadiusPx, dpr, blurMult) {
     const w = Math.max(BLACK_HOLE_BAR_WIDTH_MIN, Math.min(BLACK_HOLE_BAR_WIDTH_MAX, widthPx)) * dpr;
-    const r = Math.max(0, Math.min(Math.min(BLACK_HOLE_BAR_TOP_RADIUS_MAX, topRadiusPx) * dpr, w / 2, height));
+    const h = entry.height;
+    const r = Math.max(0, Math.min(Math.min(BLACK_HOLE_BAR_TOP_RADIUS_MAX, topRadiusPx) * dpr, w / 2, h));
     const hw = w / 2;
-    ctx.fillStyle = color;
-    ctx.shadowColor = blurMult > 0 ? glow : 'transparent';
+    ctx.save();
+    ctx.fillStyle = entry.fill;
+    ctx.shadowColor = blurMult > 0 ? entry.glow : 'transparent';
     ctx.shadowBlur = 10 * dpr * blurMult;
-    angles.forEach((a) => {
-        ctx.save();
-        ctx.translate(centerX + Math.cos(a) * radius, centerY + Math.sin(a) * radius);
-        ctx.rotate(a); // trục x hướng ra ngoài tâm
-        ctx.beginPath();
-        ctx.moveTo(0, -hw);
-        ctx.lineTo(height - r, -hw);
-        ctx.arcTo(height, -hw, height, -hw + r, r);
-        ctx.lineTo(height, hw - r);
-        ctx.arcTo(height, hw, height - r, hw, r);
-        ctx.lineTo(0, hw);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-    });
+    ctx.translate(centerX + Math.cos(entry.angle) * radius, centerY + Math.sin(entry.angle) * radius);
+    ctx.rotate(entry.angle); // trục x hướng ra ngoài tâm, +y = phía theo chiều kim đồng hồ
+    ctx.beginPath();
+    ctx.moveTo(0, -hw);
+    ctx.lineTo(h - r, -hw);
+    ctx.arcTo(h, -hw, h, -hw + r, r);
+    ctx.lineTo(h, hw - r);
+    ctx.arcTo(h, hw, h - r, hw, r);
+    ctx.lineTo(0, hw);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+}
+
+/** Đường nối vòng: cột vẽ ĐẦU TIÊN bị cột vẽ CUỐI (ngay trước nó ngược chiều kim) đè lên. Mở vùng cắt = nửa NGƯỢC chiều
+ * kim của cột đầu (rộng dư ra 2 bên để gồm cả glow) để Workflow vẽ lại cột đó đè đúng thứ tự. Để trạng thái canvas mở —
+ * đóng bằng endBlackHoleSeamClip(). */
+function beginBlackHoleSeamClip(ctx, entry, centerX, centerY, radius, maxHeight) {
+    const reach = radius + maxHeight;
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate(entry.angle);
+    ctx.beginPath();
+    ctx.rect(-reach * 0.25, -reach, reach * 1.5, reach); // nửa y < 0 = phía ngược chiều kim
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clip();
+}
+
+function endBlackHoleSeamClip(ctx) {
+    ctx.restore();
 }
 
 /** Vẽ quầng bùng sáng (flare) khi nhạc dồn — thuần, không appState (Workflow tự đọc `globalHueOffset`
