@@ -116,3 +116,10 @@ function applyChipLiveColor(chip, fillColor) {
     chip.pLight.color.set(fillColor);
     chip.color = new THREE.Color(fillColor).getHex();
 }
+
+/** MỚI (28/09/2026, Phase 4) — Camera trôi chậm quanh cụm chip ở chế độ ORBIT_SWEEP ("gentle slow drift" của
+ * animate() gốc), tách từ workflow. */
+function driftOrbitSweepCamera(camera, elapsedSec) {
+    camera.position.x += Math.cos(elapsedSec * 0.15) * 0.04;
+    camera.position.z += Math.sin(elapsedSec * 0.15) * 0.04;
+}

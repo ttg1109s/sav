@@ -195,3 +195,20 @@ function stepActionPotential(signal, synapse, speed, deltaTime) {
     signal.mesh.scale.setScalar(nearNode ? 1.95 : 1.0);
     return false;
 }
+
+/** MỚI (28/09/2026, Phase 4) — "Ổn định lại" 1 neuron/chip sau seek: lấy biên độ hiện tại làm mốc, xoá kích thích/
+ * thích nghi/ức chế bên — frame này không phải onset. Dùng chung synapse + circuit (trước đây chép 2 lần trong
+ * workflow). Sửa tại chỗ object nhận vào. */
+function rebaselineTonotopicNode(node, rawPeak) {
+    node.smoothedBinEnergy = rawPeak;
+    node.prevBinEnergy = rawPeak;
+    node.energy = 0;
+    node.adaptation = 0;
+    node.lateralInhibition = 0;
+}
+
+/** MỚI (28/09/2026, Phase 4) — Neuron/chip có bắn ở frame này không: đang phát, không trong cửa sổ ổn định lại
+ * sau seek, biên độ đang TĂNG và vượt ngưỡng hiệu dụng (đã cộng thích nghi + ức chế bên). */
+function shouldFireTonotopicNode(isPlaying, isSettling, diff, energyByte, thresholdByte) {
+    return isPlaying && !isSettling && diff > 0 && energyByte > thresholdByte;
+}
