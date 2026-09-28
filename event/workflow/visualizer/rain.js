@@ -38,8 +38,11 @@ const workflowVizRain = {
         appState.set('glassStreaks', []);
         appState.set('glassStaticDrops', buildGlassStaticDrops(rainCfg.glassDropDensity, canvas.width, canvas.height, viewport.dpr)); // core/canvas-scene-setup.js
         appState.set('cityBuildings', buildRainCityBuildings(canvas.width, viewport.dpr, rainCfg.streetBuildingScale)); // core
-        console.log('writer: "workflowVizRain.onResize", page: "ripples/glassStreaks/glassStaticDrops/cityBuildings", content: "dựng lại cảnh Rain theo khung nhìn"');
-        generateStreetScene(); // core/canvas-scene-setup.js (di sản)
+        const groundY = computeStreetGroundY(canvas.height, viewport.dpr); // core/canvas-scene-setup.js
+        appState.set('streetGroundY', groundY);
+        appState.set('streetLamps', buildStreetLamps(canvas.width, canvas.height, groundY, viewport.dpr, rainCfg.customLamps)); // core
+        appState.set('streetRain', buildStreetRain(rainCfg.streetDensity, canvas.width, canvas.height, viewport.dpr)); // core
+        console.log('writer: "workflowVizRain.onResize", page: "ripples/glassStreaks/glassStaticDrops/cityBuildings/street*", content: "dựng lại cảnh Rain theo khung nhìn"');
     },
 
     /** Vừa chọn 1 style Rain (tay hoặc auto-switch) — dựng lại cảnh như `resizeCanvas()` cũ từng làm ở đây. */

@@ -45,16 +45,25 @@ const BAR_DOT_IMPACT_COLOR_BY_TWO_COLOR = {
     false: (cfg, boost, color) => color,
 };
 
+/** Dot: màu từng dot — SỬA (28/09/2026, Giang "mode màu thứ 3 hiển cả dải màu như các bar effect"): mode gradient
+ * trải dải màu theo VỊ TRÍ dot (getComputedColor(i, dotCount, mức phồng) — cùng cách bar mirror/cascade tô), các mode
+ * khác dùng 1 màu chung như cũ. */
+const BAR_DOT_COLORS_BY_GRADIENT = {
+    true: (dotCount, smoothed) => Array.from({ length: dotCount }, (_, i) => getComputedColor(i, dotCount, 128 + 127 * Math.min(1, smoothed[i]))), // core/audio-analysis.js
+    false: (dotCount, smoothed, shared) => new Array(dotCount).fill(shared),
+};
+
 /** Dot: vẽ 1 dot — đang phồng (vượt DOT_IMPACT_MIN) hay ở trạng thái nghỉ. */
 const BAR_DOT_PAINT_BY_IMPACT = {
     true: (p) => {
         const r = (p.mode === 'radius' ? p.baseRadius + p.boost * (p.maxRadius - p.baseRadius) * p.swell : p.baseRadius) * p.it.scale;
         const halfLen = p.mode === 'height' ? p.boost * p.maxHalf * p.it.scale : 0;
-        const c = BAR_DOT_IMPACT_COLOR_BY_TWO_COLOR[p.isTwoColor](p.cfg, p.boost, p.color);
+        const c = BAR_DOT_IMPACT_COLOR_BY_TWO_COLOR[p.isTwoColor](p.cfg, p.boost, p.colors[p.it.i]);
         paintDotAxisDot(p.ctx, p.d, p.it.x, p.it.y, p.mode, r, halfLen, p.bend, p.bendDeg, c.fill, c.glow, DOT_GLOW_BLUR_PX * p.boost * p.dpr * p.blurMult, p.it.alpha); // core
     },
     false: (p) => {
-        paintDotAxisDot(p.ctx, p.d, p.it.x, p.it.y, 'radius', p.baseRadius * p.it.scale, 0, 'none', 0, p.color.fill, p.color.glow, 0, p.it.alpha); // core
+        const c = p.colors[p.it.i];
+        paintDotAxisDot(p.ctx, p.d, p.it.x, p.it.y, 'radius', p.baseRadius * p.it.scale, 0, 'none', 0, c.fill, c.glow, 0, p.it.alpha); // core
     },
 };
 
@@ -85,8 +94,8 @@ const workflowVizBar = {
     },
 
     /** Khung nhìn đổi: rải lại sao + xoá chớp sao của Black Hole (thay phần tương ứng của resizeCanvas() cũ). */
-    onResize() {
-        initStars(); // core/canvas-scene-setup.js (di sản)
+    onResize(viewport) {
+        appState.set('stars', buildBlackHoleStars(getEffectConfig('bar').starCount, Math.max(canvas.width, canvas.height), viewport.dpr)); // core/canvas-scene-setup.js + core/custom-effect.js
         appState.set('starFlashes', []);
         console.log('writer: "workflowVizBar.onResize", page: "starFlashes", content: "[]"');
     },
@@ -119,13 +128,13 @@ const workflowVizBar = {
         stepAndDrawBlackHoleStars(ctx, dpr, centerX, centerY, maxDist, currentRadius, currentSuction); // core
         advanceAndDrawBlackHoleFlashes(ctx, dpr, appState.get('starFlashes'), cfg.flashFadeSpeed); // core
 
-        const usefulLength = Math.floor(frame.bufferLength * 0.35);
+        // SỬA (28/09/2026, Giang) — số cột theo bán kính NỀN hố đen (ô 15px/cột — cột rộng nhất chỉ chạm mép), cột bo góc đỉnh.
+        const layout = computeBlackHoleBarLayout(minDimension * cfg.radiusRatio, dpr, frame.bufferLength); // core
         const dynamicMaxBarHeight = (cfg.maxH / 1000) * (minDimension * 0.25);
-        paintBlackHoleBarsSetup(ctx, dpr, cfg.barWidth); // core
-        const bars = computeBlackHoleBarsFrame(frame.vizDataArray, usefulLength, cfg.minH, dpr, dynamicMaxBarHeight, centerX, centerY, currentRadius); // core
+        const bars = computeBlackHoleBarsFrame(frame.vizDataArray, layout.usefulLength, layout.spanBins, cfg.minH, dpr, dynamicMaxBarHeight); // core
         bars.forEach((b) => {
             const color = getComputedColor(...b.colorArgs); // core/audio-analysis.js
-            paintBlackHoleBarLines(ctx, b.lines, color.fill, color.glow, dpr, frame.perf.blurMult); // core
+            paintBlackHoleBarShapes(ctx, b.angles, b.height, centerX, centerY, currentRadius, cfg.barWidth, cfg.barTopRadius, color.fill, color.glow, dpr, frame.perf.blurMult); // core
         });
         ctx.shadowBlur = 0;
 
@@ -190,7 +199,7 @@ const workflowVizBar = {
         dot.clusters = stepDotClusters(dot.clusters, time, this._buildDotSpawn(frame, isOnset), dotCount); // core
         const clusterEnergies = dot.clusters.map((cl) => {
             const arr = [];
-            for (let k = 0; k < cl.clusterSize; k++) arr.push(computeNeuronBinEnergy(frame.vizDataArray, frame.bufferLength, k, cl.clusterSize) / 255); // core/visualizer/groups/connector/synapse.js
+            for (let k = 0; k < cl.clusterSize; k++) arr.push(computeBinRangePeak(frame.vizDataArray, tonotopicBinRange(k, cl.clusterSize, frame.bufferLength)) / 255); // core/visualizer/groups/connector/synapse.js
             return arr;
         });
         const targets = computeDotTargetBoosts(dot.clusters, clusterEnergies, time, dotCount); // core
@@ -200,9 +209,10 @@ const workflowVizBar = {
         const vibAmpPx = BAR_DOT_VIBRATION_BY_ON[vibrate](frame, dt);
 
         const color = getComputedColor(0, 1, 128); // core/audio-analysis.js
+        const colors = BAR_DOT_COLORS_BY_GRADIENT[cfg.mode === 'gradient'](dotCount, dot.smoothed, color);
         const mode = cfg.dotImpactMode === 'height' ? 'height' : 'radius';
         const paint = {
-            ctx, cfg, dpr, color, mode,
+            ctx, cfg, dpr, colors, mode,
             isTwoColor: cfg.mode === 'dynamic',
             baseRadius: base.baseRadius, maxRadius: base.maxRadius,
             swell: (isFinite(cfg.dotSwell) ? cfg.dotSwell : 100) / 100,
@@ -211,7 +221,7 @@ const workflowVizBar = {
             bendDeg: isFinite(cfg.dotBendAngle) ? cfg.dotBendAngle : 35,
             blurMult: frame.perf.blurMult,
         };
-        const dna = { max: dnaMax, radius: Math.min(canvas.width, canvas.height) * DOT_DNA_RADIUS_FRAC, fill: color.fill, dpr };
+        const dna = { max: dnaMax, radius: Math.min(canvas.width, canvas.height) * DOT_DNA_RADIUS_FRAC, colors, dpr };
         const items = [];
         for (let i = 0; i < dotCount; i++) {
             const d = dots[i];
@@ -338,7 +348,7 @@ const workflowVizBar = {
     _pushDnaPairItems(ctx, items, d, i, dna) {
         const dot = this._dot;
         const pair = computeDotDnaPair(d, i, dot.dnaLevels[i], dot.dnaRot, dna.radius); // core
-        paintDotDnaBond(ctx, pair.ax, pair.ay, pair.bx, pair.by, dot.dnaBonds[i], dna.fill, dna.dpr); // core
+        paintDotDnaBond(ctx, pair.ax, pair.ay, pair.bx, pair.by, dot.dnaBonds[i], dna.colors[i].fill, dna.dpr); // core
         const da = computeDotDnaDepth(pair.az, pair.sep), db = computeDotDnaDepth(pair.bz, pair.sep); // core
         items.push({ i, x: pair.ax, y: pair.ay, z: pair.az * pair.sep, scale: da.scale, alpha: da.alpha });
         items.push({ i, x: pair.bx, y: pair.by, z: pair.bz * pair.sep, scale: db.scale, alpha: db.alpha * pair.appear });

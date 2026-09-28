@@ -119,7 +119,9 @@ const workflowVizLighting = {
         fwParticles.concat(step.burstParticles).forEach((particle) => {
             (FIREWORKS_PARTICLE_BY_STATUS[updateFireworksParticle(particle)] || VIZ_NOOP)(particle, survivors); // core
         });
-        survivors.forEach((particle) => drawFireworksParticle(ctx, particle, frame.perf.blurMult, dpr)); // core
+        // SỬA (28/09/2026, Giang "pháo hoa loại bỏ custom blur/glow") — hạt vẽ KHÔNG glow (blurMult = 0); Drawer ẩn khối
+        // Blur ở style này (CUSTOM_EFFECT_NO_BLUR_STYLES, core/custom-effect.js).
+        survivors.forEach((particle) => drawFireworksParticle(ctx, particle, 0, dpr)); // core
         appState.set('fwParticles', survivors, { skipCheck: true });
     },
 

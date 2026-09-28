@@ -5,6 +5,8 @@
  * cũ + các biến `_clock*` (nay là trạng thái riêng của group). Hành vi mỗi frame giữ nguyên; rẽ nhánh -> guard +
  * object map (readme/event-bus-flow.md mục 7). Resize: dựng lại 27 khối Rubik (thay phần tương ứng của
  * resizeCanvas() cũ).
+ * SỬA (28/09/2026, Giang) — clock: bỏ vòng Time scan (chỉ còn toggle con lắc), vạch phút sáng/phóng theo kim giây
+ * thay vì theo phổ, thêm ảnh nền mặt số (bìa bài hoặc ảnh thư viện, độ đục chỉnh được).
  */
 
 const CLOCK_SECOND_HAND_COLOR = '#e0283f';
@@ -37,11 +39,22 @@ const CLOCK_GHOST_SWINGS_BY_TRAIL = {
     false: () => [],
 };
 
+/** Cách tải ảnh nền mặt số theo loại nguồn ('lib' = ảnh thư viện theo key, 'cover' = URL bìa bài đang phát). */
+const CLOCK_BG_LOAD_BY_KIND = {
+    lib: (imageKey, token) => workflowVizShape._loadClockBgFromLibrary(imageKey, token),
+    cover: (url, token) => workflowVizShape._loadClockBgImage(url, token),
+};
+
 const workflowVizShape = {
     defaultStyle: 'rubik',
 
-    /** Trạng thái style clock (KHÔNG thuộc STATE) — trước đây là các biến `_clock*` cấp module. */
-    _clock: { drive: null, lastTime: 0, geomKey: '', layout: null, outlines: null, pitch: null, pendulum: null, rings: null },
+    /** Trạng thái style clock (KHÔNG thuộc STATE) — trước đây là các biến `_clock*` cấp module. `tickGlow` = mức 60
+     * vạch phút vừa được kim giây quét (28/09/2026, thay vạch theo phổ). */
+    _clock: { drive: null, lastTime: 0, geomKey: '', layout: null, outlines: null, pitch: null, pendulum: null, tickGlow: new Float32Array(60) },
+
+    /** Ảnh nền mặt số (28/09/2026): `sourceId` = nguồn đang dùng ('lib:<key>' | 'cover:<url>' | ''), `image` = ảnh đã
+     * tải xong (null khi chưa có/đang tải), `objectUrl` = URL tự tạo từ blob thư viện (phải revoke khi đổi nguồn). */
+    _clockBg: { sourceId: '', image: null, objectUrl: null, loadToken: 0 },
 
     styles: {
         rubik: (frame) => workflowVizShape._drawRubik(frame),
@@ -49,7 +62,8 @@ const workflowVizShape = {
     },
 
     onResize() {
-        initRubik(); // core/canvas-scene-setup.js (di sản)
+        appState.set('rubikCubes', buildRubikCubes()); // core/canvas-scene-setup.js
+        console.log('writer: "workflowVizShape.onResize", page: "rubikCubes", content: "27 khối"');
     },
 
     // ===================== rubik =====================
@@ -130,31 +144,21 @@ const workflowVizShape = {
         const levels = computeClockGearLevels(vizDataArray, clock.layout, isPlaying); // core
         const gearCount = clock.layout.gears.length;
 
-        const accessory = cfg.clockAccessory || 'rings';
-        const ringsOn = accessory === 'rings' && (!clock.pendulum || clock.pendulum.progress === 0);
-        const pendulumOn = accessory === 'pendulum' && (!clock.rings || clock.rings.reveal === 0);
-        const ringBandLevels = computeClockOrbitRingLevels(vizDataArray, analyser.frequencyBinCount, isPlaying); // core
-        clock.rings = advanceClockOrbitRings(clock.rings, dt, ringsOn, handsDir, isPlaying, ringBandLevels); // core
-        clock.pendulum = advanceClockPendulum(clock.pendulum, dt, pendulumOn, isPlaying, smoothedEnergy, jam); // core
-        const ringE = clock.rings.reveal;
+        // SỬA (28/09/2026, Giang) — bỏ vòng Time scan: chỉ còn toggle con lắc (clockPendulumEnabled).
+        clock.pendulum = advanceClockPendulum(clock.pendulum, dt, cfg.clockPendulumEnabled !== false, isPlaying, smoothedEnergy, jam); // core
         const caseR = dialR * (caseVisible ? 1.08 : 1.0);
-        const ringWidthPx = Math.max(1, Math.min(6, cfg.clockRingWidth || 3)) * dpr;
-        const ringRadiusMul = Math.max(1.1, Math.min(2.2, (cfg.clockRingRadius || 170) / 100));
-        const ringBgOpacity = Math.max(0, Math.min(0.5, cfg.clockRingBgOpacity || 0));
-        const orbitFit = computeClockOrbitFitScale(dialR, Math.min(W, H) / 2, ringWidthPx / 2, ringRadiusMul); // core
-        const topExtR = caseR + (orbitFit.outerR - caseR) * ringE;
-        const baseScale = 1 + (orbitFit.scale - 1) * ringE;
-        const pl = computeClockPendulumLayout(H, dialR, clock.pendulum.progress, caseVisible, topExtR, baseScale, cfg.clockPendulumLength); // core
+        const pl = computeClockPendulumLayout(H, dialR, clock.pendulum.progress, caseVisible, caseR, 1, cfg.clockPendulumLength); // core
         const caseColor = getComputedColor(0, 1, 200); // core/audio-analysis.js
         const paint = { ctx, cfg, dpr, dialR, glowPx, caseColor, isPlaying, smoothedEnergy, beatScale };
+
+        this._syncClockBackground(cfg);
 
         ctx.save();
         ctx.translate(W / 2, pl.cy);
         ctx.scale(pl.scale, pl.scale);
 
+        this._paintClockBackdrop(paint);
         this._paintClockPendulum(paint, pl);
-        const rings = { ringE, colors: this._clockRingColors(paint, ringE), lineW: ringWidthPx / pl.scale, radiusMul: ringRadiusMul, bgOpacity: ringBgOpacity }; // px màn hình -> px cục bộ (ctx đang scale cả cụm)
-        this._paintClockRings(paint, rings, false); // nửa sau
 
         ctx.save();
         clock.layout.gears.forEach((g, i) => {
@@ -169,15 +173,15 @@ const workflowVizShape = {
 
         const glassVisible = cfg.clockGlassVisible !== false;
         this._paintClockGlass(paint, glassVisible); // kính phủ kín bánh răng
-        this._paintClockTicks(paint, frame);
         this._paintClockCase(paint, caseVisible);
 
         const handAngles = computeClockHandAngles(totalSec); // core
         handAngles.hour += jitter.hour; handAngles.minute += jitter.minute; handAngles.second += jitter.second;
+        stepClockTickGlow(clock.tickGlow, handAngles.second, dt); // core — vạch kim giây vừa quét sáng/phóng, rồi thu về
+        this._paintClockTicks(paint);
         paintClockHands(ctx, dialR, handAngles, caseColor.fill, caseColor.glow, CLOCK_SECOND_HAND_COLOR, glowPx, dpr); // core
         this._paintClockGlassGlare(paint, glassVisible); // vệt loá kính đè lên kim
         ctx.restore();
-        this._paintClockRings(paint, rings, true); // nửa trước
 
         ctx.restore();
         ctx.globalAlpha = 1;
@@ -210,18 +214,6 @@ const workflowVizShape = {
         paintClockPendulum(paint.ctx, pl.pivotY, pl.length, pl.bobR, swingAt(pendulum.phase), pl.reveal, paint.caseColor.fill, paint.caseColor.glow, paint.glowPx, paint.dpr, ghostSwings); // core
     },
 
-    /** Màu 4 vòng quỹ đạo — chỉ tính khi vòng đang hiện. */
-    _clockRingColors(paint, ringE) {
-        if (ringE <= 0) return null;
-        return this._clock.rings.rings.map((r, k, all) => getComputedColor(k, all.length, 170 + 85 * (paint.isPlaying ? paint.smoothedEnergy : 0))); // core/audio-analysis.js
-    },
-
-    /** 1 nửa (sau/trước) của vòng quỹ đạo — chỉ khi vòng đang hiện. */
-    _paintClockRings(paint, rings, isFrontHalf) {
-        if (rings.ringE <= 0) return;
-        paintClockOrbitRings(paint.ctx, paint.dialR, this._clock.rings, isFrontHalf, rings.colors, paint.glowPx, rings.lineW, paint.dpr, rings.radiusMul, rings.bgOpacity); // core
-    },
-
     _paintClockGlass(paint, glassVisible) {
         if (!glassVisible) return;
         paintClockGlass(paint.ctx, paint.dialR, paint.caseColor.glow); // core
@@ -232,12 +224,68 @@ const workflowVizShape = {
         paintClockGlassGlare(paint.ctx, paint.dialR, paint.dpr); // core
     },
 
-    /** Vạch giờ = phổ (toggle clockTicksVisible). */
-    _paintClockTicks(paint, frame) {
+    /** 60 vạch phút (toggle clockTicksVisible) — SỬA 28/09/2026: sáng/phóng theo kim giây (tickGlow), không theo phổ.
+     * Vẽ SAU kính + vỏ để vạch đang sáng không bị kính che. */
+    _paintClockTicks(paint) {
         if (paint.cfg.clockTicksVisible === false) return;
-        const tickLevels = computeClockSpectrumTicks(frame.vizDataArray, frame.analyser.frequencyBinCount, frame.isPlaying, paint.cfg.clockTickGain); // core
-        const tickColors = Array.from(tickLevels, (v, i) => getComputedColor(i, 60, v * 255)); // core/audio-analysis.js
-        paintClockTicks(paint.ctx, paint.dialR, tickLevels, tickColors, paint.glowPx * 0.6, paint.dpr); // core
+        const glows = this._clock.tickGlow;
+        const tickColors = Array.from(glows, (g, i) => getComputedColor(i, 60, 150 + g * 105)); // core/audio-analysis.js
+        paintClockTicks(paint.ctx, paint.dialR, glows, tickColors, paint.glowPx, paint.dpr); // core
+    },
+
+    // ===================== clock — ảnh nền mặt số (MỚI 28/09/2026) =====================
+
+    /** Lớp DƯỚI CÙNG của đồng hồ — chỉ khi bật và ảnh nguồn đã tải xong. */
+    _paintClockBackdrop(paint) {
+        const image = this._clockBg.image;
+        if (paint.cfg.clockBgEnabled !== true || !image) return;
+        paintClockBackground(paint.ctx, paint.dialR * 0.98, image, paint.cfg.clockBgOpacity); // core
+    },
+
+    /** Nguồn ảnh nền: ảnh thư viện đã chọn (clockBgImageKey) hoặc bìa bài đang phát. Nguồn đổi -> tải lại (bất đồng
+     * bộ, frame chờ tải không vẽ nền). Tắt nền -> giữ nguyên ảnh đã tải (bật lại hiện ngay). */
+    _syncClockBackground(cfg) {
+        if (cfg.clockBgEnabled !== true) return;
+        const sourceId = cfg.clockBgImageKey ? `lib:${cfg.clockBgImageKey}` : `cover:${appState.get('currentCoverObjectURL') || ''}`;
+        if (sourceId === this._clockBg.sourceId) return;
+        this._releaseClockBackground();
+        this._clockBg.sourceId = sourceId;
+        CLOCK_BG_LOAD_BY_KIND[sourceId.slice(0, sourceId.indexOf(':'))](sourceId.slice(sourceId.indexOf(':') + 1), ++this._clockBg.loadToken);
+    },
+
+    /** Bỏ ảnh cũ + revoke URL tự tạo (URL bìa thuộc player, không revoke). */
+    _releaseClockBackground() {
+        const bg = this._clockBg;
+        bg.image = null;
+        this._revokeClockBgUrl(bg.objectUrl);
+        bg.objectUrl = null;
+    },
+
+    _revokeClockBgUrl(url) {
+        if (!url) return;
+        URL.revokeObjectURL(url);
+    },
+
+    /** Ảnh thư viện: đọc blob trong DB rồi tải. Ảnh đã bị xoá -> không có nền (giữ key, người dùng tự bỏ/chọn lại). */
+    async _loadClockBgFromLibrary(imageKey, token) {
+        const record = await getImageRecord(imageKey); // service/db.js
+        if (!record || !record.blob || token !== this._clockBg.loadToken) return;
+        const url = URL.createObjectURL(record.blob);
+        this._clockBg.objectUrl = url;
+        this._loadClockBgImage(url, token);
+    },
+
+    /** Tải 1 URL thành Image; chỉ nhận nếu nguồn chưa đổi trong lúc tải (token). URL rỗng (bài không bìa) -> không nền. */
+    _loadClockBgImage(url, token) {
+        if (!url) return;
+        const img = new Image();
+        img.onload = () => this._acceptClockBgImage(img, token);
+        img.src = url;
+    },
+
+    _acceptClockBgImage(img, token) {
+        if (token !== this._clockBg.loadToken) return;
+        this._clockBg.image = img;
     },
 
     _paintClockCase(paint, caseVisible) {
