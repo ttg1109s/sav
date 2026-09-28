@@ -47,7 +47,7 @@
 | Visual Lightning / Black Hole | `core/visualizer/types/lightning.js`, `black-hole.js` |
 | Visual Vortex (WebGL) | `core/visualizer/types/vortex.js` (vẽ mỗi khung hình), `core/webgl/three-vortex.js` (khởi tạo scene) |
 | Visual Space "Galaxy Journey" (WebGL, MỚI 20/07/2026) | `core/visualizer/types/space.js` (vài hàm nhỏ chạy mỗi frame: camera/chain/dust/render), `core/webgl/three-space.js` (`class GalaxyCluster`, 10 hàm `generate*Positions`, shader, texture, dust — DÙNG CHUNG canvas/renderer với Vortex); điều phối toàn bộ ở `event/workflow/visualizer-render.js::_tickSpace()`/`_manageSpaceChain()`; 4 slider tinh chỉnh + dropdown kiểu con ở `components/visualizer-settings-drawer.js`, listener/router/workflow qua cụm `visualizerDisplay` — xem `plan-space-galaxy.md` |
-| Vòng lặp render chính, thêm visual mới | `event/workflow/visualizer-render.js` (MỚI 20/07/2026 — object `VISUALIZER_DRAWERS`, `taskManager` mode `raf`; THAY `core/visualizer/draw-visualizer.js`, file đó nay RỖNG HẲN) |
+| Vòng lặp render chính, thêm visual mới | TỪ 28/09/2026: host `event/workflow/visualizer-render.js` (vòng đời, frame context, registry) + 1 file / group `event/workflow/visualizer/{bar,rain,lighting,shape,vortex,connector}.js` (bảng `styles` + hook `activate/onResize/onStyleApplied/onSeek/onNewMedia/rebuild`) — xem readme/visual-conventions.md mục "Cấu trúc Workflow vẽ". (Lịch sử: `VISUALIZER_DRAWERS` ĐÃ BỎ.) |
 | Điểm khởi động app (`DOMContentLoaded`) | `event/router/app-boot.js` (MỚI 20/07/2026 — dời từ `core/visualizer/draw-visualizer.js`) |
 | Hàm vẽ dùng chung | `core/visualizer/draw/` (mỗi hàm 1 file: `water-drop.js`, `window-frame.js`, `flying-note-ui.js` (đổi tên 28/09/2026); `spaceship-frame.js`/`space-collision-flash.js` RỖNG — KHÔNG dùng lại cho Galaxy, xem `plan-space-galaxy.md` mục B1) |
 | Điều khiển hiển thị Visualizer (màu/EQ mode/bar style...) | `core/visualizer/visualizer-display.js`; listener/router qua cụm `visualizerDisplay` (có workflow) |
@@ -67,7 +67,7 @@
 | Ảnh nền tĩnh cho màn Visualizer (MỚI 03/07/2026, khác ảnh nền Playlist) | `core/state-and-video-bg.js` (`applyVisualBgImageToDOM`), `assets/css/style.css` (`#visual-bg-image`); đặt qua menu "Đặt làm nền Visual" trên ảnh — `core/file-manager/photo-ui.js` (modal) + `event/workflow/file-manager-photo.js` (`setAsVisualBackground`); resolve lúc boot ở `event/router/app-boot.js` (DỜI từ `core/visualizer/draw-visualizer.js` 20/07/2026, cùng vùng miễn audit) |
 | Slideshow nền Visual — nguồn nền thứ 3, chiếu 1 Album (Batch 8, 03/07/2026) | Engine (hàm thuần): `core/file-manager/slideshow.js`; orchestration (task lặp, đọc DB, persist): `event/workflow/slideshow.js` (`workflowSlideshow`); 13 kiểu transition (CSS animation): `assets/css/slideshow.css`; Settings Drawer: `components/slideshow-settings-drawer.js`, mở qua nút dưới "Hiện Visual" (`components/settings/visualizer-geometry-color.js`); listener/router qua cụm `slideshowSettings`; chọn album NGAY từ Photo & Album qua nút "Dùng làm nền Slideshow" (`event/workflow/file-manager-photo.js::setAsSlideshowBackground`). Ken Burns CHƯA tách riêng khỏi `transitionType` (vẫn độc quyền lẫn nhau) — nợ kỹ thuật mở, xem `changelog/v12.md` |
 | Thống kê "Về trình phát" (About Drawer) | `core/about-stats.js`, `components/about-drawer.js`; listener/router qua cụm `settingsMisc` (nhánh `aboutDrawer`) |
-| Hiện/ẩn khối setting theo kiểu visualizer/bar đang chọn | `core/player-controls.js` (`updateTypeUI`, `updateBarStyleUI`) |
+| Kích hoạt style đang chọn (nhãn icon, vizConfig, ẩn/hiện #webgl-canvas, FFT) / áp style chọn tay-auto-switch | `workflowVisualizerRender.activateCurrentStyle()` / `.applyStyle(style)` (event/workflow/visualizer-render.js) — THAY `updateTypeUI()`/`applyVisualizerStyleChoice()` core cũ (đã bỏ 28/09/2026) |
 | Equalizer | `core/equalizer.js`; UI ở `components/settings/audio-eq.js`; listener/router qua cụm `equalizerSettings` (patch 14, 1 listener delegation) |
 | Phụ đề (.srt) — logic parse/SRT/auto-timing, hiển thị lúc phát nhạc | `core/subtitle/subtitles.js`, `core/subtitle/subtitle-display.js` (render block đang active theo `currentTime`, dùng ở `index.html` lúc nghe nhạc); style khung/chữ — `core/subtitle/subtitle-style-settings.js`, UI ở `components/settings/subtitle-style.js`; listener/router qua cụm `subtitleStyleSettings` (style, patch 12) |
 | Phụ đề — bật/tắt nhanh (nút "Sub" ở Control Center) | `core/subtitle/subtitle-style-settings.js` (`setSubtitlesEnabled`); listener/router qua cụm `subtitleModal` (TÊN CŨ, modal thật đã xoá 10/07 — cụm chỉ còn đúng 1 msg.type `toggleEnabled.click`, xem [folder-structure.md](./folder-structure.md)) |
@@ -89,3 +89,14 @@
 | Settings — Theme (Sáng/Tối/Background/Gradient) | `components/settings/theme.js` (UI 4 card), `event/workflow/theme.js` (`refreshThemeCardUI()`); listener/router qua cụm `theme`; "Sáng" mới LƯU lựa chọn, CHƯA áp màu app thật (nợ kỹ thuật mở lớn nhất Nhóm D, xem `changelog/v12.md`) |
 
 ← [Quay lại README](../README.md)
+
+### Bổ sung 28/09/2026 (Phase 3-4 dọn visualizer)
+
+| Muốn sửa | File |
+|---|---|
+| Resize cửa sổ -> dựng lại cảnh | `event/listener/visualizer-viewport.js` -> `event/router/visualizer-viewport.js` -> `workflowVisualizerRender.onViewportResize()` -> hook `onResize` từng group |
+| Dispose / resize WebGL (camera, renderer, composer, OrbitControls) | `core/webgl/three-common.js`; điều phối ở `event/workflow/visualizer/vortex.js`, `connector.js` |
+| Cửa sổ beat flux (rẽ ống Vortex, cinematic circuit, brain burst, fireworks finale) | `core/visualizer/beat-window.js` + `event/workflow/visualizer/beat-window.js` |
+| Control trong Custom Effect Drawer (màu, blur, slider, đèn, chữ pháo hoa, nút đóng) | `event/listener/custom-effect.js` (bảng tuyến) -> `event/router/custom-effect.js` -> `event/workflow/custom-effect.js`; sửa DOM tại chỗ: `core/custom-effect-drawer-ui.js` |
+| Field Custom Effect cần dựng lại scene (`refresh`) | `CUSTOM_EFFECT_REFRESH_BY_NAME` (event/workflow/custom-effect.js) |
+| Auto-switch: pha đồng hồ play/pause | `resolveAutoSwitchSyncPhase()` (core/auto-switch-visual.js) + `syncPlayState()` (VMState, event/workflow/auto-switch-visual.js) |

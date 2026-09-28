@@ -90,7 +90,7 @@ lang/language-settings.js       ← nạp SAU app-recovery.js (cần ref DOM c�
 core/id3-export.js
 core/storage-manager.js
 core/visualizer/visualizer-display.js
-core/auto-switch-visual.js      ← cần MODES/currentModeIndex/updateTypeUI/saveConfig/audioPlayer
+core/auto-switch-visual.js      ← cần MODES/currentModeIndex/saveConfig/audioPlayer (updateTypeUI đã bỏ 28/09/2026)
                                    đã có ref, và taskManager đã tồn tại
 core/visualizer/draw/*.js       ← 5 file (MỚI 19/07/2026, tách từ draw-helpers.js cũ — mỗi hàm 1
                                    file: water-drop.js/window-frame.js/spaceship-frame.js/
@@ -162,3 +162,24 @@ Trong 1 cụm: **workflow trước** (router gọi vào đó) → **router** (đ
 **listener cuối** (cần `eventBus.send()` tồn tại và router đã đăng ký xong để nhận message).
 
 ← [Quay lại README](../README.md)
+
+## Bổ sung 28/09/2026 (Phase 3-4 dọn visualizer)
+
+```
+core/custom-effect-drawer-ui.js       ← ngay sau core/custom-effect.js (không phụ thuộc gì, chỉ gọi lúc chạy)
+core/webgl/three-common.js            ← ngay sau core/webgl/three-connector.js
+core/visualizer/beat-window.js        ← sau core/visualizer/draw/flying-note-ui.js (TRƯỚC 6 file group workflow:
+core/visualizer/frame-clock.js           các file đó gọi createBeatFluxWindow() lúc nạp)
+event/workflow/audio-analysis.js
+event/workflow/visualizer-render.js   ← host (định nghĩa VIZ_NOOP, registerGroup)
+event/workflow/visualizer/beat-window.js
+event/workflow/visualizer/{bar,rain,lighting,shape,vortex,connector}.js
+                                      ← SAU host (gọi registerGroup() lúc nạp) và SAU core của group (bar.js cấp
+                                        phát Float32Array(DOT_VIB_SLOTS) lúc nạp)
+...
+event/workflow/custom-effect.js → event/workflow/visualizer-display.js → event/router/visualizer-display.js →
+event/listener/visualizer-display.js → event/router/custom-effect.js → event/listener/custom-effect.js →
+event/router/visualizer-viewport.js → event/listener/visualizer-viewport.js
+```
+Thứ tự router trước listener (cùng quy ước các cụm khác). Listener resize chỉ gửi thư lúc chạy.
+

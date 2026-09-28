@@ -27,6 +27,9 @@ migrate sang `CONST` (`service/state.js`) — đọc qua `CONST.PERFORMANCE_PROF
 không còn bản local trong `core/config.js` nữa. Property LỒNG BÊN TRONG (`CONST.PERFORMANCE_PROFILES[quality].stars`/`.streetRain`/`.tunnelRings`...)
 giữ nguyên như cũ, chỉ tên hằng số ngoài cùng đổi.
 
+(LỊCH SỬ — từ 28/09/2026 xem mục "Cấu trúc Workflow vẽ" ngay dưới; trạng thái điều phối riêng của 1 group
+— cửa sổ beat, bộ đệm dot/clock — là thuộc tính của object workflow group đó, như các biến `_fw*`/`_dot*` cấp module
+trước đây; dữ liệu cảnh dùng chung nhiều nơi vẫn ở appState.)
 Khi thêm visual mới: đăng ký hàm vẽ vào `VISUALIZER_DRAWERS` trong
 `core/visualizer/draw-visualizer.js`, thêm tên `type` vào `MODES` (`core/config.js`), và tự kiểm 4
 mục trên trước khi coi là hoàn tất. Nếu visual mới cần đọc/ghi biến runtime riêng (kiểu
@@ -34,7 +37,32 @@ mục trên trước khi coi là hoàn tất. Nếu visual mới cần đọc/gh
 tự khai `let` cục bộ mới trong file visual — xem quy ước STATE ở
 [changelog/v11.md](./changelog/v11.md) mục 3.
 
+## Cấu trúc Workflow vẽ từ 28/09/2026 (Phase 3-4 dọn visualizer) — THAY `VISUALIZER_DRAWERS`
+
+`VISUALIZER_DRAWERS` và chuỗi `if/else` theo type/style trong `_drawFrame()` ĐÃ BỎ. Nay:
+
+- `event/workflow/visualizer-render.js` = HOST: vòng đời task, Show Visual, seek, resize, `applyStyle()` /
+  `activateCurrentStyle()`, dựng **frame context** 1 lần/frame
+  (`{ ctx, canvas, cfg, group, style, perf, isPlaying, beatScale, smoothedEnergy, hue, vizDataArray, analyser,
+  bufferLength, dpr, lastBeatTime, midiNote }`), `clearRect` canvas 2D rồi gọi `styles[style](frame)` của group.
+- `event/workflow/visualizer/<group>.js` = 1 file / group (bar, rain, lighting, shape, vortex, connector): trạng thái
+  RIÊNG của group + `styles` + `defaultStyle` (style lạ -> mặc định) + hook vòng đời tuỳ chọn:
+  `activate(style)`, `onResize(viewport)`, `onStyleApplied(viewport)`, `onSeek()`, `onNewMedia()`, `rebuild()`;
+  `usesWebgl: true` nếu vẽ lên `#webgl-canvas`. Cuối file: `workflowVisualizerRender.registerGroup('<group>', ...)`.
+- `event/workflow/visualizer/beat-window.js` + `core/visualizer/beat-window.js` = cửa sổ beat flux dùng chung (mỗi
+  effect giữ 1 object riêng từ `createBeatFluxWindow()`).
+
+**Khi thêm STYLE mới vào group có sẵn:** thêm hàm vẽ vào `styles` của file group + core vẽ trong
+`core/visualizer/groups/<group>/`. **Khi thêm GROUP mới:** tạo file `event/workflow/visualizer/<group>.js` theo khuôn trên,
+thêm thẻ `<script>` SAU `visualizer-render.js` (index.html), đăng ký group trong `EFFECT_GROUPS`/`MODES`
+(service/state/visualizer-runtime.js). Cảnh phụ thuộc kích thước canvas dựng lại ở `onResize`, KHÔNG gắn listener resize riêng.
+
+Vòng đời WebGL: resize CHỈ đổi camera/renderer/composer (`core/webgl/three-common.js`); dựng lại scene (Custom Effect
+đổi số vòng/neuron...) PHẢI dispose scene cũ trước (`disposeThreeObjectTree`, composer, OrbitControls, texture).
+
 ## Ghi chú cho visual WebGL (Vortex, Space "Galaxy Journey") — bổ sung 21/07/2026
+
+> (Đoạn dưới là ghi chú LỊCH SỬ trước 28/09/2026 — `VISUALIZER_DRAWERS`/`_tick()` nay đã thay bằng cấu trúc ở mục ngay trên; 4 nguyên tắc nền/màu/video vẫn giữ nguyên.)
 
 `VISUALIZER_DRAWERS` (mục "Khi thêm visual mới" ở trên) ĐÃ DỜI sang
 `event/workflow/visualizer-render.js` từ 20/07/2026 (plan-space-galaxy.md Phần A,

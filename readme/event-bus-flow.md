@@ -468,4 +468,39 @@ _commitBpm(bpm) {
 const isBeat = isSpectralFluxBeat(flux, computeArrayMean(fluxHistory), now, lastBeatTime, minWaitMs);
 ```
 
+### 7a. Bổ sung 28/09/2026 — VirtualMachineState cho rẽ nhánh THEO TRẠNG THÁI ngoài hot path (Giang chốt: auto-switch)
+
+Ngoài hot path 60fps, rẽ nhánh **theo trạng thái** (chế độ player, màn đang hiện, pha đồng hồ...) trong Workflow
+**được viết bằng `VirtualMachineState.run()`** — tương đương object map (vẫn là bảng rule, không `if/else`), ưu tiên
+khi nhánh phụ thuộc trạng thái app. Quy ước riêng:
+- Khai báo ĐỦ mọi giá trị trạng thái; trường hợp "không làm gì" có rule no-op có chủ đích (tránh cảnh báo "không
+  rule nào khớp" — cùng khuôn `event/router/gameplay.js`).
+- Cần giá trị trả về: callback gán vào biến cục bộ khai báo ngay trước `run()` (vd `_pickNextStyle()`).
+- Điều kiện nhiều vế gộp thành 1 giá trị trạng thái bằng Core thuần trước (vd `resolveAutoSwitchSyncPhase()` trả
+  `'off' | 'start' | 'resume' | 'pause'`).
+- Hot path (vòng vẽ/phân tích mỗi frame) vẫn CHỈ object map + guard.
+
+Ví dụ thật — `event/workflow/auto-switch-visual.js::syncPlayState()`:
+
+```js
+const phase = resolveAutoSwitchSyncPhase(isFixedActive, hasTimerTask, this._isRunAllowed()); // core thuần
+VirtualMachineState.run([
+    { state: phase, operation: '===', value: 'off',    callback: () => this.killAllTasks() },
+    { state: phase, operation: '===', value: 'start',  callback: () => this.startBranch() },
+    { state: phase, operation: '===', value: 'resume', callback: () => taskManager.resume(AUTO_SWITCH_VISUAL_TASK_TIMER) },
+    { state: phase, operation: '===', value: 'pause',  callback: () => taskManager.pause(AUTO_SWITCH_VISUAL_TASK_TIMER) },
+]);
+```
+
+### 7b. Visualizer sau Phase 3-4 (28/09/2026) — áp mục 7 thế nào
+
+- Style -> hàm vẽ: registry `styles` của từng group (`event/workflow/visualizer/<group>.js`), host tra 1 lần/frame.
+- Toggle Custom Effect (bật/tắt 1 lớp vẽ): method riêng mở đầu bằng guard (`_paintClockGlass()`, `_paintGlassCity()`...).
+  Không cần "pipeline biên dịch sẵn" — guard 1 phép so sánh rẻ hơn mọi cơ chế biên dịch lại khi đổi config.
+- Kết quả trạng thái của Core (`'destroy'/'arrive'`, `'split'/'alive'/'dead'`): object map theo kết quả
+  (`CIRCUIT_SIGNAL_BY_RESULT`, `FIREWORKS_PARTICLE_BY_STATUS`), Core KHÔNG phải đổi.
+- Điều kiện 1 so sánh với ngưỡng trong config (`beatScale <= 0.55`, `val <= 140`) giữ làm guard tại chỗ — cần
+  giữ đúng thứ tự tiêu thụ `Math.random()` (short-circuit) như bản cũ; điều kiện nhiều vế dùng chung nhiều nơi
+  -> Core (`shouldFireTonotopicNode()`, `isPitchNoteFresh()`, `computeFrameDeltaMs()`).
+
 ← [Quay lại README](../README.md)

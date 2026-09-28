@@ -310,6 +310,14 @@ visual-master/
                                    VẼ + vòng đời chung; task phân tích 'audioAnalysis' tách sang
                                    audio-analysis.js (workflowAudioAnalysis, ghi đè file mồ côi
                                    cùng tên trước đây)
+        └── visualizer/           — MỚI 28/09/2026 (Phase 4): workflow RIÊNG từng group Visualizer —
+                                   bar.js, rain.js, lighting.js, shape.js, vortex.js, connector.js
+                                   (bảng `styles` + hook vòng đời, tự registerGroup() vào host
+                                   visualizer-render.js) + beat-window.js (cửa sổ beat flux dùng chung).
+                                   Cùng đợt: router/listener MỚI `custom-effect.js` (nội dung Custom
+                                   Effect Drawer) và `visualizer-viewport.js` (resize cửa sổ); core MỚI
+                                   core/visualizer/beat-window.js, core/visualizer/frame-clock.js,
+                                   core/webgl/three-common.js, core/custom-effect-drawer-ui.js.
 ```
 
 > **Lưu ý đặt tên:** cụm `event/{router,listener,workflow}/subtitle-modal.js` vẫn còn TÊN CŨ dù

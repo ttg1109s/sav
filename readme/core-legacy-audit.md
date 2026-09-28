@@ -72,6 +72,24 @@ MỚI cuối file đó — `computeEnergyPercent`, `computeNormalizedSpectralFlu
 đều tuân đủ Rule 1-3 dù chạy mỗi frame, KHÔNG cần miễn trừ. `core/dom-refs.js` không có function nào —
 chỉ khai `const` tham chiếu DOM.)
 
+**Cập nhật Phase 3-4 (28/09/2026)** — các hàm core sau ĐÃ BỎ (điều phối chuyển về Workflow), các dòng nhắc tới
+chúng trong bảng bên dưới là LỊCH SỬ:
+- `core/canvas-scene-setup.js :: resizeCanvas` (+ listener `resize` cấp file) -> `workflowVisualizerRender.rebuildCanvasScenes()`
+  + hook `onResize` từng group; tách thành core thuần `resizeVisualizerCanvas`, `buildGlassStaticDrops`, `buildRainCityBuildings`.
+- `core/visualizer/visualizer-display.js :: updateTypeUI`, `applyVisualizerStyleChoice` -> `activateCurrentStyle()` /
+  `applyStyle()`; tách thành core thuần `applyStyleToVizConfig`, `setModeCycleLabelText`, `setWebglCanvasHidden`.
+- `core/config.js :: loadConfig` không còn gọi `updateTypeUI()` (event/workflow/app-boot.js gọi `activateCurrentStyle()`).
+
+Core MỚI viết đủ Rule 1-3 (không cần miễn trừ dù chạy mỗi frame): `core/visualizer/beat-window.js`,
+`core/visualizer/frame-clock.js`, `core/webgl/three-common.js`, `core/custom-effect-drawer-ui.js`, và các hàm thêm cuối file
+`isPitchNoteFresh` (audio-analysis.js), `rebaselineTonotopicNode`/`shouldFireTonotopicNode` (groups/connector/synapse.js),
+`driftOrbitSweepCamera` (groups/connector/circuit.js), `setAnalyserFftSize` (audio-engine.js), `resolveAutoSwitchSyncPhase`
+(auto-switch-visual.js).
+
+Còn lại cho Phase 5: `initThreeJS`/`updateVortexVisibility`/`updateThreeJSColors` (three-vortex.js),
+`initThreeJSConnector`/`updateConnectorVisibility`/`resetConnectorPerTrackState` (three-connector.js) — vẫn đọc appState /
+gọi core khác; Workflow gọi chúng như hàm di sản. `initStars`/`initRubik`/`generateStreetScene`/`allocateBuffers` cũng vậy.
+
 ## Thống kê tổng quan (quét lại 12/07/2026 — THAY số liệu cũ)
 
 - Tổng file `core/**/*.js` hiện có: **66** (bản gốc: 48, +18) — sau loại hot-path: **56** file đưa
