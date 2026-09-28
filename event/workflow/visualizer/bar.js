@@ -136,7 +136,13 @@ const workflowVizBar = {
         this._blackHole.meanHeight = computeBlackHoleMeanBarHeight(bars); // core — frame sau đếm cột theo đầu cột
         // SỬA (29/09/2026, Giang) — vẽ theo chiều kim đồng hồ: mỗi cột bị cột kế tiếp (theo chiều kim) che; cột vẽ đầu tiên
         // vẽ lại nửa ngược chiều kim ở cuối để khép vòng đúng thứ tự.
-        const colors = bars.map((b) => getComputedColor(...b.colorArgs)); // core/audio-analysis.js
+        // SỬA (29/09/2026, Giang "cột giữa dưới vẫn bị 2 bên che") — thứ tự vẽ vốn đúng (đã đo pixel ảnh chụp: mép phải cột giữa
+        // thẳng đứng = nó nằm trên cột phải), nhưng màu gradient có alpha 0.9 nên mép NGHIÊNG của cột bên dưới vẫn lộ xuyên
+        // qua cột trên -> nhìn như cột dưới đè lên. Tô cột bằng màu ĐẶC (fillNoAlpha) để cột trên che hẳn.
+        const colors = bars.map((b) => {
+            const c = getComputedColor(...b.colorArgs); // core/audio-analysis.js
+            return { fill: c.fillNoAlpha, glow: c.glow };
+        });
         const entries = orderBlackHoleBarsClockwise(bars, colors); // core
         entries.forEach((e) => paintBlackHoleBar(ctx, e, centerX, centerY, currentRadius, cfg.barWidth, cfg.barTopRadius, dpr, frame.perf.blurMult)); // core
         this._closeBlackHoleSeam(ctx, entries, centerX, centerY, currentRadius, cfg, dpr, frame.perf.blurMult);
