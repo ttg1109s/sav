@@ -59,6 +59,12 @@ const routerCustomEffect = (() => {
             case 'customEffect.lampSlider.commit':
                 workflowCustomEffect.commitLampSlider();
                 break;
+            case 'customEffect.imagePick.click':
+                workflowCustomEffect.pickImageField(p.field);
+                break;
+            case 'customEffect.imageRemove.click':
+                workflowCustomEffect.clearImageField(p.field);
+                break;
             case 'customEffect.close.click':
                 workflowCustomEffect.close();
                 break;
