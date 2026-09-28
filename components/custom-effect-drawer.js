@@ -123,6 +123,23 @@ function _renderCeFieldRow(field, cfg) {
             </div>
         `;
     }
+    // MỚI (28/09/2026, Giang — nền clock) — field type 'imagePick': nút chọn ảnh thư viện (`.ce-image-pick`) + nút bỏ
+    // ảnh (`.ce-image-remove`, chỉ hiện khi đã chọn); chưa chọn = bìa bài đang phát. Listener: event/listener/custom-effect.js.
+    if (field.type === 'imagePick') {
+        const hasImage = !!cfg[field.id];
+        return `
+            <div class="flex justify-between items-center gap-3 px-4 py-3 border-b last:border-b-0" data-uitk="dividerBorder">
+                <div class="flex flex-col min-w-0">
+                    <span class="text-sm" data-uitk="textSecondaryStrong" data-i18n="${field.labelKey}">${t(field.labelKey)}</span>
+                    <span class="text-xs truncate" data-uitk="textSecondary">${hasImage ? t('customEffectDrawer.imagePick.custom') : t('customEffectDrawer.imagePick.cover')}</span>
+                </div>
+                <div class="flex items-center gap-3 shrink-0">
+                    ${hasImage ? `<button class="ce-image-remove text-xs font-medium" data-uitk="destructiveText" data-field="${field.id}">${t('customEffectDrawer.imagePick.remove')}</button>` : ''}
+                    <button class="ce-image-pick text-sm font-medium" data-uitk="accentText" data-field="${field.id}">${t('customEffectDrawer.imagePick.pick')}</button>
+                </div>
+            </div>
+        `;
+    }
     const value = cfg[field.id];
     const displayValue = field.type === 'sliderFloat' ? value.toFixed(field.decimals || 1) : value;
     return `
@@ -242,7 +259,10 @@ function renderCustomEffectBody(type, cfg) {
     // CUSTOM_EFFECT_BLUR_STYLES (vd shape/clock). Chỉ tra bảng, không gọi hàm core khác.
     const styleDef = CUSTOM_EFFECT_STYLE[type]; // core/custom-effect.js
     const blurStyles = CUSTOM_EFFECT_BLUR_STYLES[type] || []; // core/custom-effect.js
-    const showBlur = !CUSTOM_EFFECT_NO_BLUR.includes(type) || (!!styleDef && blurStyles.includes(cfg[styleDef.field])); // core/custom-effect.js
+    // SỬA (28/09/2026, Giang) — ngoại lệ ngược: style trong CUSTOM_EFFECT_NO_BLUR_STYLES (lighting/fireworks) ẩn khối Blur.
+    const noBlurStyles = CUSTOM_EFFECT_NO_BLUR_STYLES[type] || []; // core/custom-effect.js
+    const currentStyle = styleDef ? cfg[styleDef.field] : null;
+    const showBlur = (!CUSTOM_EFFECT_NO_BLUR.includes(type) || blurStyles.includes(currentStyle)) && !noBlurStyles.includes(currentStyle); // core/custom-effect.js
     const sections = [_renderCeColorSection(cfg)];
     CUSTOM_EFFECT_CARD_ORDER.forEach((cardKey) => { // core/custom-effect.js
         if (cardKey === 'glow' && showBlur) sections.push(_renderCeBlurSection(cfg));
