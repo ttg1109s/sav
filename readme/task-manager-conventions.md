@@ -107,17 +107,20 @@ Dùng cho `event/workflow/visualizer-render.js` — TỪ 21/09/2026 gồm 2 task
 này đăng ký (thay `requestAnimationFrame(drawVisualizer)` thô trước đây trong
 `core/visualizer/draw-visualizer.js`, nay file đó đã RỖNG):
 
-- `audioAnalysis` — phân tích audio (FFT, beat/energy/hue, `updateStatsDashboard()` = status
-  bar, Game tick, nốt nhạc bay). LUÔN chạy, KHÔNG dừng theo Show Visual (Game/React Beat/VBG đều
-  đọc dữ liệu task này ghi vào appState).
+- `audioAnalysis` — phân tích audio (FFT, beat/energy/hue, BPM/pitch/status bar, Game tick, nốt
+  nhạc bay). LUÔN chạy, KHÔNG dừng theo Show Visual (Game/React Beat/VBG đều đọc dữ liệu task này
+  ghi vào appState). **Từ 28/09/2026** task này thuộc `event/workflow/audio-analysis.js`
+  (`workflowAudioAnalysis`, hằng `AUDIO_ANALYSIS_TASK`); `workflowVisualizerRender` vẫn là nơi
+  điều phối vòng đời chung (start/stop/suspend/resume) của CẢ 2 task. Việc gỡ nốt nhạc bay sau
+  1.5s cũng hẹn giờ ở đây (`taskManager.once`) — trước đây nằm lậu trong core `spawnFlyingNote()`.
 - `visualizerRender` — CHỈ vẽ canvas 2D/WebGL. Đăng ký/`kill()` tự động theo `cfg.visualEnabled`
   (`_syncRenderTask()` gọi mỗi frame từ task phân tích). Tắt phải dùng `kill()`, KHÔNG dùng
   `pause()` — `resumeAll()` lúc hiện lại tab sẽ resume nhầm task đang "tắt".
 
 ```js
-// event/workflow/visualizer-render.js
-taskManager.addNew('audioAnalysis', { time: 0, exe: () => this._tick(), mode: 'raf', count: 0 });
-taskManager.operator('audioAnalysis', 'enabled');
+// event/workflow/audio-analysis.js (workflowAudioAnalysis.start(), gọi từ workflowVisualizerRender.start())
+taskManager.addNew(AUDIO_ANALYSIS_TASK, { time: 0, exe: () => this._tick(), mode: 'raf', count: 0 });
+taskManager.operator(AUDIO_ANALYSIS_TASK, 'enabled');
 // ...và trong _syncRenderTask(): addNew + operator('visualizerRender','enabled') khi Show Visual bật,
 // taskManager.kill('visualizerRender') khi tắt.
 ```

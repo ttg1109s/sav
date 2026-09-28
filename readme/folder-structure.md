@@ -181,8 +181,11 @@ visual-master/
 │   │                              hướng) — gọi từ event/tab.js 'beforeunload'
 │   ├── stats-panel-toggle.js     — toggle ẩn/hiện dải BPM/Pitch/Energy — VẪN CHƯA lưu vào vizConfig
 │   │                              (nợ kỹ thuật mở, xem changelog/v12.md Nhóm B mục 11)
-│   ├── audio-analysis.js         — updateStatsDashboard() (BPM/Pitch/Energy) — HOT PATH (mỗi
-│   │                              frame trong vòng vẽ, xem core-legacy-audit.md)
+│   ├── audio-analysis.js         — Core thuần phân tích audio mỗi frame (beatScale/energy/flux
+│   │                              chuẩn hoá 128 bin/beat/BPM/pitch/chữ thanh trạng thái) + màu
+│   │                              getComputedColor() — HOT PATH, xem core-legacy-audit.md.
+│   │                              (updateStatsDashboard() cũ ĐÃ XOÁ 28/09/2026 — điều phối dời sang
+│   │                              event/workflow/audio-analysis.js)
 │   ├── rubik-math.js             — HOT PATH (mỗi frame, dùng bởi visualizer/types/rubik.js)
 │   ├── about-stats.js            — computeStats() cho About Drawer
 │   ├── app-recovery.js           — Khởi động lại app / Khôi phục cài đặt mặc định
@@ -233,12 +236,11 @@ visual-master/
 │       │   ├── window-frame.js         (khung cửa sổ NHÀ — Rain kiểu "glass")
 │       │   ├── spaceship-frame.js      — RỖNG (0 byte, đã orphan trước 20/07/2026)
 │       │   ├── space-collision-flash.js — RỖNG (0 byte, 20/07/2026 — xoá visual Space, giữ file)
-│       │   └── flying-note.js          (nốt nhạc bay lên, DOM — mọi kiểu hiệu ứng)
-│       ├── draw-visualizer.js       — GIẢI THỂ HOÀN TOÀN (0 byte, 20/07/2026, plan-space-galaxy.md
-│       │                              Phần A) — object VISUALIZER_DRAWERS + vòng lặp render dời
-│       │                              sang event/workflow/visualizer-render.js (taskManager mode
-│       │                              `raf`, MỚI); đoạn DOMContentLoaded (ĐIỂM KHỞI ĐỘNG THỰC SỰ
-│       │                              của app) dời sang event/router/app-boot.js
+│       │   └── flying-note-ui.js       (nốt nhạc bay lên, DOM — mọi kiểu hiệu ứng; đổi tên 28/09/2026 từ flying-note.js, Rule 5c)
+│       ├── (draw-visualizer.js       — ĐÃ XOÁ khỏi đĩa lẫn index.html (thẻ <script> bỏ 28/09/2026);
+│       │                              vòng lặp dời sang event/workflow/audio-analysis.js +
+│       │                              visualizer-render.js, DOMContentLoaded dời sang
+│       │                              event/router/app-boot.js)
 │       └── types/                   — HOT PATH — mỗi visual 1 file riêng
 │           ├── bar.js                  (Phản chiếu cánh bướm / Thác đổ)
 │           ├── lightning.js
@@ -304,7 +306,10 @@ visual-master/
                                    (gộp cả document-picker cũ — file cũ document-picker.js CÒN TRÊN
                                    ĐĨA, KHÔNG còn nạp, xem "2 file mồ côi" ở changelog/v12.md),
                                    settings-stack-nav, slideshow, subtitle-editor, theme,
-                                   visualizer-render (MỚI, xem trên)
+                                   visualizer-render (MỚI, xem trên) — từ 28/09/2026 chỉ còn phần
+                                   VẼ + vòng đời chung; task phân tích 'audioAnalysis' tách sang
+                                   audio-analysis.js (workflowAudioAnalysis, ghi đè file mồ côi
+                                   cùng tên trước đây)
 ```
 
 > **Lưu ý đặt tên:** cụm `event/{router,listener,workflow}/subtitle-modal.js` vẫn còn TÊN CŨ dù

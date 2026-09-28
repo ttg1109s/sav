@@ -418,4 +418,54 @@ tiêu chí (A)/(B) ở mục 4, chỉ khác là được BỌC trong 1 rule thay
 | Tổng cả 1 lần thực thi Workflow cần lấy ≥2 giá trị `appState` (dù để nuôi 1 Core hay rẽ ra nhiều Core khác nhau)? | `appState.get([key1, key2, ...])` dạng mảng — không gọi rời từng key theo từng Core |
 | Điều kiện chặn dùng ở ≥2 router, hoặc bản chất là chặn hẳn không chạy gì? | Block (`event/block.js`) — chặn TRƯỚC router, không phải trong case |
 
+## 7. Rẽ nhánh BÊN TRONG Workflow — chỉ guard clause + object map (MỚI 28/09/2026, Giang chốt)
+
+Workflow là tầng ĐIỀU PHỐI nghiệp vụ nên **được quyền dùng object map** để chọn hàm (khác Core —
+Rule 1 ở `core-function-conventions.md` vẫn CẤM object map chọn tiến trình bên trong 1 function core).
+Đồng thời **mọi rẽ nhánh KHÔNG phải guard trong Workflow đều PHẢI viết bằng object map function** —
+không còn `if/else`, `else if`, `switch`, hay toán tử 3 ngôi chọn giữa 2 lời gọi hàm.
+
+Phạm vi: mọi method trong `event/workflow/*.js`, cả hot path 60fps lẫn không. Theo Rule 0.5: bắt buộc
+với code MỚI và phần code bị SỬA; code cũ chuyển dần (lộ trình dọn visualizer Phase 3-4, hoặc khi đụng
+tới). Router (`switch (msg.type)` ở mục 3, `VirtualMachineState` ở mục 4C) KHÔNG đổi.
+
+| Dạng | Được viết thế nào |
+|---|---|
+| **Guard clause** — thoát sớm khi chưa đủ điều kiện, xoá `if` đi hàm vẫn còn ĐÚNG 1 kịch bản (phép thử Rule 1): `if (!x) return;`, `continue`/`break` trong vòng lặp, `return false` của hàm vị từ | Giữ `if` như bình thường |
+| **≥2 tiến trình khác nhau** theo 1 giá trị rời rạc (type/style/mode/tên/trạng thái boolean...) | Object map: `const X_BY_Y = { a: (...) => ..., b: (...) => ... }; X_BY_Y[key](...)` |
+| **Bước tuỳ chọn** — `if (flag) doStep();` (bật/tắt 1 bước, không có nhánh thay thế) | Tách bước đó thành method riêng MỞ ĐẦU bằng guard (`if (!flag) return;`), nơi gọi gọi thẳng không điều kiện |
+| **Chọn GIÁ TRỊ dữ liệu** (không gọi hàm khác nhau): `isVideo ? bgVideoElement : audioPlayer`, `MAP[key] \|\| MAP.fallback` | Được phép — không phải rẽ tiến trình |
+| **Điều kiện là PHÉP TÍNH** (ngưỡng năng lượng, xác suất, cửa sổ flux, clamp...) | Chuyển vào Core THUẦN trả về giá trị/boolean; Workflow dùng kết quả qua guard hoặc object map |
+
+Quy ước viết object map:
+- Đặt ở cấp module (`const` UPPER_SNAKE, đuôi `_BY_<KHOÁ>`), giá trị là arrow function gọi method/Core —
+  nạp file không chạy gì, chỉ tra lúc chạy.
+- Khoá boolean dùng thẳng giá trị boolean (JS tự đổi thành `'true'`/`'false'`) — biến khoá PHẢI là boolean
+  thật (so sánh, `!!x`), không phải giá trị truthy bất kỳ.
+- Khoá có thể không có trong bảng: hoặc guard `const fn = MAP[key]; if (!fn) return;`, hoặc
+  `(MAP[key] || MAP.fallback)(...)` khi cần nhánh mặc định.
+- Không dùng `VirtualMachineState.run()` trong hot path 60fps: mỗi lần gọi cấp phát mảng rule + closure mới,
+  và `console.warn` mỗi khi không rule nào khớp (60 lần/giây với 1 toggle đang tắt). Các chỗ Workflow
+  đang dùng `VirtualMachineState` sẵn (không phải if/else) giữ nguyên.
+
+Ví dụ thật — `event/workflow/audio-analysis.js`:
+
+```js
+// Tiến trình số liệu theo trạng thái phát — object map thay if/else
+const AUDIO_STATS_BY_PLAYING = {
+    true: (frame) => workflowAudioAnalysis._analyzePlayingStats(frame),
+    false: () => workflowAudioAnalysis._resetPlayingStats(),
+};
+AUDIO_STATS_BY_PLAYING[isPlayingStats]({ now, flux, energyPercent });
+
+// Bước tuỳ chọn — method riêng mở đầu bằng guard, nơi gọi không còn if
+_commitBpm(bpm) {
+    if (bpm === null) return;
+    appState.set('currentCalculatedBpm', String(bpm), { skipCheck: true });
+},
+
+// Điều kiện là phép tính — nằm trong Core thuần (core/audio-analysis.js)
+const isBeat = isSpectralFluxBeat(flux, computeArrayMean(fluxHistory), now, lastBeatTime, minWaitMs);
+```
+
 ← [Quay lại README](../README.md)

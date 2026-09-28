@@ -25,6 +25,10 @@ còn là việc của 1 function core duy nhất — tách thành nhiều functi
 `VirtualMachineState` nếu rẽ theo state — xem [event-bus-flow.md mục 4C](./event-bus-flow.md); hay
 đơn giản là nơi gọi tự chọn đúng hàm nếu rẽ theo tham số) quyết định gọi hàm nào.
 
+> **Phân biệt với Workflow (28/09/2026, Giang chốt):** lệnh cấm object map chọn hàm ở trên CHỈ áp cho
+> Core. Workflow ĐƯỢC dùng object map — và BẮT BUỘC dùng nó cho mọi rẽ nhánh không phải guard, xem
+> [event-bus-flow.md mục 7](./event-bus-flow.md).
+
 **KHÔNG bị cấm:** guard clause thuần (validate tham số đầu vào, early-return khi giá trị không
 hợp lệ) — đó không phải "tiến trình khác nhau", chỉ là điều kiện tiên quyết để chạy ĐÚNG 1 tiến
 trình duy nhất của hàm.

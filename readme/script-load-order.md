@@ -94,9 +94,12 @@ core/auto-switch-visual.js      ← cần MODES/currentModeIndex/updateTypeUI/sa
                                    đã có ref, và taskManager đã tồn tại
 core/visualizer/draw/*.js       ← 5 file (MỚI 19/07/2026, tách từ draw-helpers.js cũ — mỗi hàm 1
                                    file: water-drop.js/window-frame.js/spaceship-frame.js/
-                                   space-collision-flash.js/flying-note.js), không phụ thuộc thứ
+                                   space-collision-flash.js/flying-note-ui.js — đổi tên 28/09/2026), không phụ thuộc thứ
                                    tự lẫn nhau
 core/visualizer/types/*.js      ← 7 file (MỚI 19/07/2026: +space.js), không phụ thuộc thứ tự lẫn nhau
+(28/09/2026: thẻ core/visualizer/draw-visualizer.js ĐÃ BỎ khỏi index.html — file không còn tồn tại;
+ cuối khối 4 giờ là event/workflow/audio-analysis.js rồi event/workflow/visualizer-render.js. Đoạn
+ dưới đây là mô tả LỊCH SỬ, giữ lại để tra cứu.)
 core/visualizer/draw-visualizer.js  ← nạp SAU CÙNG trong khối core/ — gọi tới các hàm draw* ở
                                    types/, và chứa document.addEventListener('DOMContentLoaded', ...)
                                    — ĐIỂM KHỞI ĐỘNG THỰC SỰ của app (await loadConfig();

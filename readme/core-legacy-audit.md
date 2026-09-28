@@ -34,34 +34,43 @@
 
 ## Loại trừ hot-path (không đưa vào audit)
 
-Toàn bộ hàm trong các file sau (chạy trong/được gọi trực tiếp mỗi khung hình từ vòng lặp
-`requestAnimationFrame` ở `core/visualizer/draw-visualizer.js`) — CẬP NHẬT 19/07/2026 (thêm
-`types/space.js` MỚI + 5 file tách từ `draw-helpers.js` cũ, xem `readme/folder-structure.md`):
+> **[CẬP NHẬT ĐƯỜNG DẪN — 28/09/2026, Phase 1 dọn visualizer, Giang chốt "vẫn miễn trừ hot path"]**
+> Danh sách cũ (19/07/2026) trỏ tới `core/visualizer/draw-visualizer.js`, `core/visualizer/types/*.js`,
+> `core/three-vortex.js`, `draw/spaceship-frame.js`, `draw/space-collision-flash.js` — TẤT CẢ đã không
+> còn tồn tại (group hoá 05/09/2026, xoá Space 15/09/2026). Danh sách dưới đây là hiện trạng thật.
+>
+> **Phạm vi miễn trừ** (Giang chốt 28/09/2026):
+> 1. KHÔNG audit hồi tố — các file này không bị đưa vào bảng nợ bên dưới.
+> 2. KHÔNG áp Rule 4 (`console.log` sau `set()`/`mutate()`) cho lời gọi chạy mỗi frame.
+> 3. NHƯNG phần nào bị SỬA/TÁCH trong kế hoạch dọn visualizer (Phase 1-5) thì phần đó PHẢI theo
+>    Rule 1-3 — Giang chốt: helper toán thuần đang bị core khác gọi được tách thành core nhỏ, Workflow
+>    điều phối (không lách); builder three.js được ở core nếu không vi phạm rule core;
+>    `groups/connector/brain.js` refactor theo rule core. Code MỚI viết luôn theo đủ rule (Rule 0.5).
 
-- `core/visualizer/draw-visualizer.js`
-- `core/visualizer/draw/water-drop.js`
-- `core/visualizer/draw/window-frame.js`
-- `core/visualizer/draw/spaceship-frame.js`
-- `core/visualizer/draw/space-collision-flash.js`
-- `core/visualizer/draw/flying-note.js`
-- `core/visualizer/types/bar.js`
-- `core/visualizer/types/black-hole.js`
-- `core/visualizer/types/lightning.js`
-- `core/visualizer/types/rain.js`
-- `core/visualizer/types/rubik.js`
-- `core/visualizer/types/vortex.js`
-- `core/visualizer/types/space.js`
-- `core/three-vortex.js`
+Toàn bộ hàm trong các file sau (chạy mỗi khung hình từ 2 task `raf` — `audioAnalysis`
+ở `event/workflow/audio-analysis.js` và `visualizerRender` ở `event/workflow/visualizer-render.js`):
+
+- `core/visualizer/draw/*.js` — `water-drop.js`, `window-frame.js`, `flying-note-ui.js` (đổi tên 28/09/2026 từ `flying-note.js`), `screen-flash.js`,
+  `screen-flash-alpha.js`
+- `core/visualizer/groups/**/*.js` — mọi `common.js` + mọi style: `bar/` (mirror, cascade, dot,
+  black-hole), `lighting/` (thunder, fireworks), `rain/` (glass, street), `vortex/` (rings, bars,
+  wave), `shape/` (rubik, clock), `connector/` (synapse, circuit, brain)
+- `core/webgl/three-vortex.js`
+- `core/webgl/three-connector.js`
 - `core/rubik-math.js`
 
-Và 3 hàm cụ thể (nằm trong file KHÔNG hoàn toàn hot-path, nhưng bản thân hàm chạy mỗi frame):
+Và các hàm cụ thể (nằm trong file KHÔNG hoàn toàn hot-path, nhưng bản thân hàm chạy mỗi frame):
 
-- `core/audio-analysis.js :: updateStatsDashboard`
-- `core/audio-analysis.js :: getComputedColor`
+- `core/audio-analysis.js :: getComputedColor`, `getActiveBlurMult` (28/09/2026: đọc
+  `frameEffectConfig` resolve 1 lần/frame, xem docstring hàm)
 - `core/color-utils.js :: interpolateColor`
 
-(`core/audio-analysis.js` sau khi loại 2 hàm trên không còn function top-level nào khác —
-file 100% hot-path. `core/dom-refs.js` không có function nào — chỉ khai `const` tham chiếu DOM.)
+(`core/audio-analysis.js :: updateStatsDashboard` — ĐÃ XOÁ 28/09/2026, thay bằng các Core thuần viết
+MỚI cuối file đó — `computeEnergyPercent`, `computeNormalizedSpectralFlux`, `storeSpectrumBaseline`,
+`computeArrayMean`, `isSpectralFluxBeat`, `pushBoundedHistory`, `computeBpmFromMeanInterval`,
+`computeMidiNoteFromFrequency`, `formatMidiNoteName`, `resolveNoteDisplayText`, `paintAudioStatsBar` —
+đều tuân đủ Rule 1-3 dù chạy mỗi frame, KHÔNG cần miễn trừ. `core/dom-refs.js` không có function nào —
+chỉ khai `const` tham chiếu DOM.)
 
 ## Thống kê tổng quan (quét lại 12/07/2026 — THAY số liệu cũ)
 
