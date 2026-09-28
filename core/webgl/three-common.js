@@ -64,3 +64,14 @@ function resizeThreeRenderer(renderer, cssWidth, cssHeight) {
 function resizeThreeComposer(composer, cssWidth, cssHeight) {
     composer.setSize(cssWidth, cssHeight);
 }
+
+/** MỚI (28/09/2026, Phase 5) — Renderer WebGL DÙNG CHUNG Vortex + Connector trên #webgl-canvas (nền trong suốt để lộ
+ * Visual Background). Trước đây initThreeJS()/initThreeJSConnector() mỗi hàm tự tạo nếu chưa có. `pixelRatio` do
+ * group tạo trước quyết định (giữ nguyên: Vortex = devicePixelRatio, Connector = tối đa 2). */
+function createSharedWebglRenderer(canvasEl, pixelRatio) {
+    const renderer = new THREE.WebGLRenderer({ canvas: canvasEl, alpha: true, antialias: true });
+    renderer.setPixelRatio(pixelRatio);
+    renderer.setClearAlpha(0); // tường minh — clear về trong suốt
+    return renderer;
+}
+

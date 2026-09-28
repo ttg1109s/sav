@@ -103,8 +103,10 @@
             const ampX = Math.max(180, Math.min(620, jitter(currentTarget.ampX, 160)));
             const ampY = Math.max(130, Math.min(470, jitter(currentTarget.ampY, 120)));
             const a = freqX * VORTEX_LOOK_AHEAD, b = freqY * VORTEX_LOOK_AHEAD;
-            const phaseX = vec.x === 0 ? currentTarget.phaseX : wrapVortexAngle(vec.x > 0 ? -a / 2 : Math.PI - a / 2);
-            const phaseY = vec.y === 0 ? currentTarget.phaseY : wrapVortexAngle(vec.y > 0 ? -Math.PI / 2 - b / 2 : Math.PI / 2 - b / 2);
+            // SỬA (28/09/2026, Phase 5 — không core gọi core): trả pha CHƯA quấn về [0, 2π) — Workflow quấn qua
+            // wrapVortexAngle() (event/workflow/visualizer/vortex.js::_wrapPathPhases()).
+            const phaseX = vec.x === 0 ? currentTarget.phaseX : (vec.x > 0 ? -a / 2 : Math.PI - a / 2);
+            const phaseY = vec.y === 0 ? currentTarget.phaseY : (vec.y > 0 ? -Math.PI / 2 - b / 2 : Math.PI / 2 - b / 2);
             return { freqX, freqY, ampX, ampY, phaseX, phaseY };
         }
 
@@ -121,7 +123,10 @@
          * travel·freq(params) -> hình ống đứng yên trong không gian, khoảng cách tới target chỉ còn đúng
          * phần "đang rẽ" và được lerp dần. Bỏ pha nền +0.005/frame cũ (bị lerp kéo ngược nên không tạo
          * chuyển động thật, chỉ làm lệch hướng rẽ). @returns {{params:object, target:object}} */
-        function computeNextVortexPath(params, target, travel) {
+        // SỬA (28/09/2026, Phase 5 — không core gọi core): nhận SẴN độ lệch pha ngắn nhất `deltaX/deltaY`
+        // (shortestAngleDelta(params.phaseX, target.phaseX) — Workflow tính trước) và trả pha CHƯA quấn (Workflow quấn
+        // qua wrapVortexAngle()). Công thức giữ nguyên.
+        function computeNextVortexPath(params, target, travel, deltaX, deltaY) {
             const k = VORTEX_PATH_LERP;
             const advX = travel * params.freqX;
             const advY = travel * params.freqY;
@@ -131,114 +136,88 @@
                     freqY: params.freqY + (target.freqY - params.freqY) * k,
                     ampX: params.ampX + (target.ampX - params.ampX) * k,
                     ampY: params.ampY + (target.ampY - params.ampY) * k,
-                    phaseX: wrapVortexAngle(params.phaseX + advX + shortestAngleDelta(params.phaseX, target.phaseX) * k),
-                    phaseY: wrapVortexAngle(params.phaseY + advY + shortestAngleDelta(params.phaseY, target.phaseY) * k),
+                    phaseX: params.phaseX + advX + deltaX * k,
+                    phaseY: params.phaseY + advY + deltaY * k,
                 },
-                target: { ...target, phaseX: wrapVortexAngle(target.phaseX + advX), phaseY: wrapVortexAngle(target.phaseY + advY) },
+                target: { ...target, phaseX: target.phaseX + advX, phaseY: target.phaseY + advY },
             };
         }
 
         /** Lượt rẽ hiện tại đã hội tụ chưa (lệch pha lớn nhất < `tolRad`) — THUẦN. */
-        function isVortexTurnSettled(params, target, tolRad) {
-            return Math.max(Math.abs(shortestAngleDelta(params.phaseX, target.phaseX)), Math.abs(shortestAngleDelta(params.phaseY, target.phaseY))) < tolRad;
+        // SỬA (28/09/2026, Phase 5 — không core gọi core): nhận SẴN 2 độ lệch pha (shortestAngleDelta(), Workflow tính).
+        function isVortexTurnSettled(deltaX, deltaY, tolRad) {
+            return Math.max(Math.abs(deltaX), Math.abs(deltaY)) < tolRad;
         }
 
-        function initThreeJS() {
-            if (appState.get('tInitialized') && appState.get('tScene')) { const sc = appState.get('tScene'); while(sc.children.length > 0){ sc.remove(sc.children[0]); } }
-            
-            const tCanvas = document.getElementById('webgl-canvas');
-            appState.set('tScene', new THREE.Scene(), { skipCheck: true });
-            appState.get('tScene').fog = new THREE.FogExp2(0x000000, 0.0006); // Sương mù tạo chiều sâu fade
+        // [TÁCH — 28/09/2026, Phase 5 dọn visualizer] initThreeJS()/updateVortexVisibility()/updateThreeJSColors() ĐÃ BỎ:
+        // initThreeJS() đọc/ghi appState, tự tạo renderer dùng chung, gọi getEffectConfig() + 2 core khác; updateVortexVisibility()
+        // đọc appState + config. Nay: 3 core THUẦN dưới đây (builder three.js được ở core — Giang chốt 28/09/2026), điều phối
+        // (đọc config, tạo renderer dùng chung, ghi appState, ẩn/hiện theo style) ở event/workflow/visualizer/vortex.js.
 
-            appState.set('tCamera', new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, TUNNEL_DEPTH), { skipCheck: true });
-            appState.get('tCamera').position.set(0, 0, 0);
+        /** Dựng TOÀN BỘ scene Vortex (3 nhóm mesh rings/bars/wave + camera) — thuần: chỉ nhận số lượng + tỉ lệ khung,
+         * trả object, không đụng appState/renderer. Công thức/thứ tự tạo giữ nguyên initThreeJS() cũ. */
+        function buildVortexScene(tunnelRingCount, barsRingCount, barsPerRing, aspect) {
+            const scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x000000, 0.0006); // Sương mù tạo chiều sâu fade
+            const camera = new THREE.PerspectiveCamera(75, aspect, 1, TUNNEL_DEPTH);
+            camera.position.set(0, 0, 0);
 
-            if(!appState.get('tRenderer')) {
-                appState.set('tRenderer', new THREE.WebGLRenderer({ canvas: tCanvas, alpha: true, antialias: true }), { skipCheck: true });
-                appState.get('tRenderer').setPixelRatio(window.devicePixelRatio);
-            }
-            appState.get('tRenderer').setSize(window.innerWidth, window.innerHeight);
-
-            const tunnelRingCount = getEffectConfig('vortex').tunnelRingCount; // core/custom-effect.js
-            const vortexCfg = getEffectConfig('vortex');
-            const barsRingCount = vortexCfg.barsRingCount, barsPerRing = vortexCfg.barsPerRing;
-            // Nhóm 1: Vòng Ring
-            appState.set('tGroupRings', new THREE.Group(), { skipCheck: true });
-            appState.set('tRings', [], { skipCheck: true });
+            const groupRings = new THREE.Group();
+            const rings = [];
             const ringGeo = new THREE.TorusGeometry(350, 6, 8, 48);
-            for(let i=0; i<tunnelRingCount; i++) {
+            for (let i = 0; i < tunnelRingCount; i++) {
                 const z = -(i / tunnelRingCount) * TUNNEL_DEPTH;
                 const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending });
                 const mesh = new THREE.Mesh(ringGeo, mat);
                 mesh.position.z = z;
                 mesh.userData = { initialZ: z };
-                appState.mutate('tRings', arr => arr.push(mesh), { skipCheck: true });
-                appState.get('tGroupRings').add(mesh);
+                rings.push(mesh);
+                groupRings.add(mesh);
             }
-            appState.get('tScene').add(appState.get('tGroupRings'));
+            scene.add(groupRings);
 
-            // Nhóm 2: Đoạn Bar 3D (InstancedMesh)
-            appState.set('tGroupBars', new THREE.Group(), { skipCheck: true });
+            const groupBars = new THREE.Group();
             const barGeo = new THREE.BoxGeometry(15, 15, 60);
-            // Dời tâm khối hộp lên một chút để scaleY mọc ra ngoài thay vì ra 2 hướng
-            barGeo.translate(0, 7.5, 0); 
+            barGeo.translate(0, 7.5, 0);
             const barMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
-            const totalBars = barsRingCount * barsPerRing;
-            appState.set('tBarsMesh', new THREE.InstancedMesh(barGeo, barMat, totalBars), { skipCheck: true });
-            
-            // Vị trí Z ban đầu của từng vòng bar — dùng sliding window giống tRings, tránh trôi lệch theo thời gian
-            appState.set('tBarRingZs', [], { skipCheck: true });
-            for(let r=0; r<barsRingCount; r++) appState.mutate('tBarRingZs', arr => arr.push(-(r / barsRingCount) * TUNNEL_DEPTH), { skipCheck: true });
-
+            const barsMesh = new THREE.InstancedMesh(barGeo, barMat, barsRingCount * barsPerRing);
+            const barRingZs = [];
+            for (let r = 0; r < barsRingCount; r++) barRingZs.push(-(r / barsRingCount) * TUNNEL_DEPTH);
             const dummy = new THREE.Object3D();
-            const tBarsMesh = appState.get('tBarsMesh');
-            const tBarRingZs = appState.get('tBarRingZs');
-            for(let r=0; r<barsRingCount; r++) {
-                const z = tBarRingZs[r];
-                for(let b=0; b<barsPerRing; b++) {
+            for (let r = 0; r < barsRingCount; r++) {
+                const z = barRingZs[r];
+                for (let b = 0; b < barsPerRing; b++) {
                     const ang = (b / barsPerRing) * Math.PI * 2;
                     dummy.position.set(Math.cos(ang) * 350, Math.sin(ang) * 350, z);
-                    // Xoay hộp hướng tâm
-                    dummy.rotation.set(0, 0, ang - Math.PI/2); 
+                    dummy.rotation.set(0, 0, ang - Math.PI / 2);
                     dummy.updateMatrix();
-                    tBarsMesh.setMatrixAt(r * barsPerRing + b, dummy.matrix);
+                    barsMesh.setMatrixAt(r * barsPerRing + b, dummy.matrix);
                 }
             }
-            appState.get('tGroupBars').add(tBarsMesh);
-            appState.get('tScene').add(appState.get('tGroupBars'));
+            groupBars.add(barsMesh);
+            scene.add(groupBars);
 
-            // Nhóm 3: Nhiễu động sóng (Wave/Fade)
-            appState.set('tGroupWaves', new THREE.Group(), { skipCheck: true });
-            appState.set('tWaveMeshes', [], { skipCheck: true });
+            const groupWaves = new THREE.Group();
+            const waveMeshes = [];
             const waveGeo = new THREE.TorusGeometry(300, 40, 12, 48);
             const waveCount = 20;
-            for(let i=0; i<waveCount; i++) {
+            for (let i = 0; i < waveCount; i++) {
                 const z = -(i / waveCount) * TUNNEL_DEPTH;
-                // Wireframe với Additive Blending tạo hiệu ứng mờ ảo
                 const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.15, wireframe: true, blending: THREE.AdditiveBlending });
                 const mesh = new THREE.Mesh(waveGeo, mat);
                 mesh.position.z = z;
                 mesh.userData = { initialZ: z, rotZOffset: Math.random() * Math.PI };
-                appState.mutate('tWaveMeshes', arr => arr.push(mesh), { skipCheck: true });
-                appState.get('tGroupWaves').add(mesh);
+                waveMeshes.push(mesh);
+                groupWaves.add(mesh);
             }
-            appState.get('tScene').add(appState.get('tGroupWaves'));
+            scene.add(groupWaves);
 
-            appState.set('tCurrentWarpZ', 0, { skipCheck: true });
-            appState.set('tInitialized', true, { skipCheck: true });
-            updateThreeJSColors();
-            updateVortexVisibility();
+            return { scene, camera, groupRings, rings, groupBars, barsMesh, barRingZs, groupWaves, waveMeshes };
         }
 
-        function updateVortexVisibility() {
-            if(!appState.get('tInitialized')) return;
-            const vortexStyle = getEffectConfig('vortex').vortexStyle; // core/custom-effect.js
-            appState.get('tGroupRings').visible = (vortexStyle === 'rings');
-            appState.get('tGroupBars').visible = (vortexStyle === 'bars');
-            appState.get('tGroupWaves').visible = (vortexStyle === 'wave');
-        }
-
-        function updateThreeJSColors() {
-            if(!appState.get('tInitialized')) return;
-            // Sẽ được gọi trong frame render để làm màu động, ở đây chỉ để reset
+        /** Chỉ nhóm mesh của style đang chọn được hiện. */
+        function applyVortexStyleVisibility(groupRings, groupBars, groupWaves, vortexStyle) {
+            groupRings.visible = vortexStyle === 'rings';
+            groupBars.visible = vortexStyle === 'bars';
+            groupWaves.visible = vortexStyle === 'wave';
         }
