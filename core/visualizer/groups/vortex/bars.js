@@ -16,10 +16,11 @@
 
 /** Tiến vị trí Z của 1 vòng bar — vẫn `appState.mutate('tBarRingZs', ...)` như bản gốc (Rule 2 chỉ
  * cấm ĐỌC). Không cần đọc lại mảng — mutate() tự cấp `arr` cho callback (kênh GHI). */
-function stepVortexBarRingZ(r, tWarpSpeed, tCurrentWarpZ, tunnelDepth) {
-    appState.mutate('tBarRingZs', (arr) => {
-        arr[r] = wrapVortexObjectZ(arr[r], tWarpSpeed * 0.8, tCurrentWarpZ, tunnelDepth); // common.js (25/09/2026)
-    }, { skipCheck: true });
+// SỬA (28/09/2026, Phase 5 — không core gọi core) — THAY stepVortexBarRingZ() (tự appState.mutate + gọi wrapVortexObjectZ()):
+// Workflow tính z mới bằng wrapVortexObjectZ() (tốc độ × VORTEX_BARS_Z_SPEED) rồi ghi vào mảng tBarRingZs nhận qua tham số.
+const VORTEX_BARS_Z_SPEED = 0.8;
+function placeVortexBarRingZ(barRingZs, r, z) {
+    barRingZs[r] = z;
 }
 
 /** Cập nhật ma trận + màu TOÀN BỘ bar trong 1 vòng — nhận `center`/`threeColor` đã resolve sẵn.

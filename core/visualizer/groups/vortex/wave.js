@@ -15,8 +15,11 @@
 // ===================================== STYLE: wave =====================================
 
 /** Tiến vị trí Z của 1 wave mesh — mutate trực tiếp `wave` (Three.js mesh nhận qua tham số). */
-function stepVortexWaveZ(wave, tWarpSpeed, tCurrentWarpZ, tunnelDepth) {
-    wave.position.z = wrapVortexObjectZ(wave.position.z, tWarpSpeed * 1.2, tCurrentWarpZ, tunnelDepth); // common.js (25/09/2026)
+// SỬA (28/09/2026, Phase 5 — không core gọi core) — THAY stepVortexWaveZ(): Workflow tính z mới bằng wrapVortexObjectZ()
+// (tốc độ × VORTEX_WAVE_Z_SPEED) rồi gán qua placeVortexWaveZ().
+const VORTEX_WAVE_Z_SPEED = 1.2;
+function placeVortexWaveZ(wave, z) {
+    wave.position.z = z;
 }
 
 /** Hoàn tất khung hình 1 wave mesh — nhận `center`/`colorToApply` đã resolve sẵn (GỌI SAU
