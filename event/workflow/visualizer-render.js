@@ -24,6 +24,14 @@
  *   `_tickDraw()` đọc beatScale/smoothedEnergy/globalHueOffset từ appState (do `_tick()` ghi) — 2
  *     task cùng nhịp RAF nên lệch tối đa 1 frame (~16ms), không cảm nhận được.
  *
+ * [SỬA — 28/09/2026, Phase 2 dọn visualizer] Phần PHÂN TÍCH (`_tick()` cũ, task 'audioAnalysis') ĐÃ
+ * DỜI sang event/workflow/audio-analysis.js (`workflowAudioAnalysis`, hằng AUDIO_ANALYSIS_TASK). Đoạn mô
+ * tả 2 task ở trên vẫn đúng về hành vi — chỉ khác nơi chứa `_tick()`. File này còn giữ: vòng đời CHUNG
+ * của 2 task (start/stop/suspend/resume — điểm gọi cũ không đổi), `syncVisibility()` (task phân tích gọi
+ * mỗi frame), `_detectMediaSeek()` (task phân tích gọi, cờ thuộc connector) và toàn bộ phần VẼ.
+ * `_tickDraw()` giờ resolve config effect đang chạy 1 LẦN mỗi frame vào appState `frameEffectConfig`
+ * (getComputedColor()/getActiveBlurMult() đọc lại, thay vì tự getActiveEffectConfig() mỗi lời gọi).
+ *
  * Điểm khởi động DUY NHẤT: `core/audio-engine.js::setupAudioContext()` gọi
  * `workflowVisualizerRender.start()` (Core gọi Workflow — vi phạm kỹ thuật đã ĐÁNH DẤU RÕ là
  * ngoại lệ đã biết, xem comment tại đó) — `taskManager.operator(name,'enabled')` tự guard chống
@@ -72,7 +80,7 @@
  */
 
 const RENDER_TASK = 'visualizerRender';     // CHỈ vẽ — bật/tắt theo cfg.visualEnabled (xem _syncRenderTask())
-const ANALYSIS_TASK = 'audioAnalysis'; // phân tích audio + stats + Game tick — LUÔN chạy
+// ANALYSIS_TASK cũ -> AUDIO_ANALYSIS_TASK, event/workflow/audio-analysis.js (28/09/2026)
 
 // ===== Connector (synapse/circuit) — "ổn định lại" sau SEEK (MỚI 21/09/2026) =====
 // Mỗi neuron/chip giữ state thời gian (smoothedBinEnergy/prevBinEnergy/adaptation/lateralInhibition +
@@ -185,21 +193,20 @@ const workflowVisualizerRender = {
     _connectorWebglBlank: false, // style 'brain' (canvas 2D): canvas WebGL đã xoá trắng chưa (tránh kẹt khung hình cuối của synapse/circuit)
 
     /** Đăng ký + bật task phân tích `raf` — xem docstring đầu file về điểm gọi DUY NHẤT + guard
-     * chống double-start. Task vẽ (`RENDER_TASK`) KHÔNG đăng ký ở đây: `_tick()` tự bật nó ở frame
+     * chống double-start. Task vẽ (`RENDER_TASK`) KHÔNG đăng ký ở đây: `workflowAudioAnalysis._tick()` tự bật nó ở frame
      * đầu tiên nếu Show Visual đang bật (`_syncRenderTask()`). Gọi lại `start()` = dọn sạch cả 2
      * task rồi dựng lại từ đầu. */
     start() {
         taskManager.kill(RENDER_TASK);
         this._renderActive = false;
-        taskManager.addNew(ANALYSIS_TASK, { time: 0, exe: () => this._tick(), mode: 'raf', count: 0 });
-        taskManager.operator(ANALYSIS_TASK, 'enabled');
+        workflowAudioAnalysis.start(); // event/workflow/audio-analysis.js
     },
 
     /** Không có nơi nào gọi hiện tại (vòng lặp phân tích sống suốt đời app, giống hành vi
      * `requestAnimationFrame(drawVisualizer)` cũ) — cung cấp để đối xứng API + phòng cần tới sau này. */
     stop() {
         taskManager.kill(RENDER_TASK);
-        taskManager.kill(ANALYSIS_TASK);
+        taskManager.kill(AUDIO_ANALYSIS_TASK); // event/workflow/audio-analysis.js
         this._renderActive = false;
     },
 
@@ -209,21 +216,21 @@ const workflowVisualizerRender = {
      * Task đã bị kill vì Show Visual tắt -> pause() no-op (taskManager tự guard). Gọi từ
      * event/workflow/app-visibility.js (Workflow gọi Workflow). */
     suspendForBackground() {
-        taskManager.pause(ANALYSIS_TASK);
+        taskManager.pause(AUDIO_ANALYSIS_TASK); // event/workflow/audio-analysis.js
         taskManager.pause(RENDER_TASK);
         console.log('[workflowVisualizerRender] tạm dừng task "audioAnalysis" + "visualizerRender" (app ẩn)'); // log vòng đời task — không phải ghi appState
     },
 
     /** Ngược lại `suspendForBackground()` — resume() tự guard (task không paused/không tồn tại -> no-op). */
     resumeFromBackground() {
-        taskManager.resume(ANALYSIS_TASK);
+        taskManager.resume(AUDIO_ANALYSIS_TASK); // event/workflow/audio-analysis.js
         taskManager.resume(RENDER_TASK);
         console.log('[workflowVisualizerRender] chạy lại task "audioAnalysis" + "visualizerRender" (app hiện lại)');
     },
 
     /** Đồng bộ `RENDER_TASK` với Show Visual: tắt Visual -> `kill` (dừng hẳn RAF vẽ, không còn
-     * callback/`clearRect`/WebGL render nào), bật lại -> đăng ký + chạy lại. Gọi mỗi frame từ
-     * `_tick()`, chỉ thật sự làm gì khi trạng thái ĐỔI (so cờ `_renderActive`). */
+     * callback/`clearRect`/WebGL render nào), bật lại -> đăng ký + chạy lại. Gọi mỗi frame qua
+     * `syncVisibility()` (task phân tích), chỉ thật sự làm gì khi trạng thái ĐỔI (so cờ `_renderActive`). */
     _syncRenderTask(isVisualOff) {
         if (this._renderActive === !isVisualOff) return;
         this._renderActive = !isVisualOff;
@@ -250,67 +257,31 @@ const workflowVisualizerRender = {
         if (isSeek) this._connectorSettleFrames = CONNECTOR_SEEK_SETTLE_FRAMES;
     },
 
-    /** Tick PHÂN TÍCH — 1 lần mỗi khung hình, LUÔN chạy (xem docstring đầu file). Thay phần đầu của
-     * `drawVisualizer()` cũ. Phần VẼ nằm ở `_tickDraw()` bên dưới. */
-    _tick() {
-        const cfg = appConfigViz.getAll();
-        const { vizDataArray, analyser, frameCounter, smoothedEnergy, globalHueOffset } = appState.get([
-            'vizDataArray', 'analyser', 'frameCounter', 'smoothedEnergy', 'globalHueOffset'
-        ]);
-
-        const isVisualOff = cfg.visualEnabled === false;
+    /** MỚI (28/09/2026, Phase 2) — `workflowAudioAnalysis._tick()` gọi mỗi frame: ẩn/hiện 2 canvas + bật/tắt
+     * task VẼ theo Show Visual. (Trước đây 2 dòng này nằm đầu `_tick()` cũ của file này.)
+     * @param {boolean} isVisualOff */
+    syncVisibility(isVisualOff) {
         updateCanvasVisibility(canvas, document.getElementById('webgl-canvas'), isVisualOff); // core
-        this._syncRenderTask(isVisualOff); // bật/tắt task VẼ theo Show Visual
-
-        if (!vizDataArray) return; // guard — audio context chưa init (giống hệt hành vi cũ)
-
-        // SỬA (bug Giang phát hiện 17/09/2026 — connector synapse bắn vài giây đầu mỗi bài rồi im
-        // hẳn dù audio vẫn còn): `frameCounter` (service/state/visualizer-runtime.js) được ĐỌC ở
-        // nhiều nơi (cooldown bắn synapse ngay dưới, globalTwist vortex, nhịp spawnFlyingNote()
-        // mỗi-8-frame) nhưng rà toàn bộ codebase KHÔNG CÓ CHỖ NÀO TĂNG nó — đứng yên ở giá trị mặc
-        // định (0) suốt đời app. Hệ quả rõ nhất: CONNECTOR_FIRE_COOLDOWN_FRAMES so
-        // `frameCounter - neuron.lastFiredFrame` mãi mãi = 0 ngay sau lần bắn ĐẦU TIÊN của mỗi
-        // nơ-ron (lastFiredFrame gán = frameCounter tĩnh đó) → không bao giờ > 12 nữa → nơ-ron tự
-        // khoá cooldown vĩnh viễn (giai đoạn ngắn bắn được lúc đầu là vì lastFiredFrame khởi tạo
-        // -9999, còn đủ hiệu số vượt cooldown). Tăng NGAY SAU guard audio-context (chỉ đếm frame
-        // THẬT SỰ có xử lý audio data, khớp tinh thần mọi field khác cùng package
-        // visualizer-runtime.js).
-        appState.set('frameCounter', frameCounter + 1, { skipCheck: true });
-
-        this._detectMediaSeek(appState.get('isVideoPlayerMode'), appState.get('isPhotoPlayerMode'));
-
-        analyser.getByteFrequencyData(vizDataArray);
-        const bufferLength = analyser.frequencyBinCount;
-        const isPlaying = appState.get('isVideoPlayerMode') ? !bgVideoElement.paused : !audioPlayer.paused;
-
-        const bassCount = Math.floor(bufferLength * 0.1);
-        const newBeatScale = computeBeatScale(vizDataArray, bassCount); // core
-        appState.set('beatScale', newBeatScale, { skipCheck: true });
-
-        const newSmoothedEnergy = computeSmoothedEnergy(newBeatScale, smoothedEnergy); // core
-        appState.set('smoothedEnergy', newSmoothedEnergy, { skipCheck: true });
-
-        const newGlobalHueOffset = computeNextGlobalHueOffset(globalHueOffset, newBeatScale, isPlaying); // core
-        appState.set('globalHueOffset', newGlobalHueOffset, { skipCheck: true });
-
-        updateStatsDashboard(bufferLength); // core hiện có (di sản — Rule 0.5, KHÔNG đụng logic bên trong)
-
-        // Game Mode Circle — dùng CHUNG vòng lặp phân tích này (KHÔNG mở RAF loop riêng cho gameplay).
-        // Workflow-gọi-Workflow (KHÔNG phải Core-gọi-Core — Rule 3 không áp dụng ở đây). Nằm ở task
-        // PHÂN TÍCH (luôn chạy), KHÔNG ở `_tickDraw()` CÓ CHỦ Ý — layer game là DOM riêng
-        // (#gameplay-layer), không phụ thuộc canvas #visualizer, phải tiếp tục chạy dù người dùng
-        // tắt Visual (lúc đó task vẽ đã bị kill hẳn).
-        workflowGameplay.tick(performance.now());
-
-        // "Nốt nhạc bay lên" — luôn bật, cùng lý do: phần tử DOM phụ trên #record-container,
-        // không phụ thuộc canvas.
-        if (isPlaying && newSmoothedEnergy > 0.3 && Math.random() > 0.6) spawnFlyingNote(); // core hiện có
+        this._syncRenderTask(isVisualOff);
     },
 
     /** Tick VẼ — task riêng `RENDER_TASK`, CHỈ tồn tại khi Show Visual bật (xem `_syncRenderTask()`).
-     * Đọc dữ liệu audio đã được `_tick()` ghi vào appState (lệch tối đa 1 frame), KHÔNG tự đọc
+     * Đọc dữ liệu audio đã được `workflowAudioAnalysis._tick()` ghi vào appState (lệch tối đa 1 frame), KHÔNG tự đọc
      * analyser/tự tính lại beat/energy. Toàn bộ dispatch vẽ bên dưới GIỮ NGUYÊN như trước khi tách. */
     _tickDraw() {
+        // MỚI (28/09/2026, Phase 2) — resolve config effect ĐANG CHẠY 1 lần cho cả frame (xem
+        // getComputedColor(), core/audio-analysis.js). `finally` luôn xoá về null để lời gọi NGOÀI frame vẽ
+        // (init scene sau khi đổi config, UI...) không bao giờ đọc phải bản cũ.
+        appState.set('frameEffectConfig', getActiveEffectConfig(), { skipCheck: true }); // core/custom-effect.js
+        try {
+            this._drawFrame();
+        } finally {
+            appState.set('frameEffectConfig', null, { skipCheck: true });
+        }
+    },
+
+    /** Thân frame vẽ (tên cũ `_tickDraw()`, đổi tên 28/09/2026 khi thêm lớp bọc `frameEffectConfig`). */
+    _drawFrame() {
         const cfg = appConfigViz.getAll();
         if (cfg.visualEnabled === false) return; // phòng thủ — config vừa đổi nhưng `_tick()` chưa kịp kill task này (tối đa 1 frame)
         const { vizDataArray, analyser, beatScale, smoothedEnergy, globalHueOffset, lastValidMidiNote, lastBeatTime } = appState.get([
@@ -381,7 +352,7 @@ const workflowVisualizerRender = {
      * tPathTarget (SỬA 25/09/2026: không còn phụ thuộc z camera; chỉ rẽ khi lượt trước đã hội tụ) — phần cập nhật vị trí/màu/camera mỗi frame nằm ở
      * `_tickVortexRender()` (bên dưới, rà soát Rule 3). */
     _tickVortexCurve(isPlaying) {
-        const fluxHistory = appState.get('fluxHistory');
+        const { fluxHistory, lastBeatTime } = appState.get(['fluxHistory', 'lastBeatTime']); // lastBeatTime: SỬA 28/09/2026 — đọc appState, biến toàn cục cùng tên (core/dom-refs.js) đã bỏ
         if (fluxHistory.length > 0) {
             _vxPendingBeatFluxSum += fluxHistory[fluxHistory.length - 1];
             _vxPendingBeatFluxCount++;
@@ -524,8 +495,8 @@ const workflowVisualizerRender = {
      * riêng, xem _tickConnectorCircuit(). */
     _tickConnectorBeat(isPlaying) {
         const cfg = getActiveEffectConfig(); // core/custom-effect.js
+        const { fluxHistory, lastBeatTime } = appState.get(['fluxHistory', 'lastBeatTime']); // lastBeatTime: SỬA 28/09/2026 — đọc appState, biến toàn cục cùng tên (core/dom-refs.js) đã bỏ
         if (cfg.connectorStyle === 'circuit' && cfg.cameraShiftEnabled) { // GIỮ đúng thứ tự gốc: tích luỹ flux MỖI FRAME, không chỉ lúc beat
-            const fluxHistory = appState.get('fluxHistory');
             if (fluxHistory.length > 0) { _cnPendingBeatFluxSum += fluxHistory[fluxHistory.length - 1]; _cnPendingBeatFluxCount++; }
         }
 
@@ -1499,7 +1470,7 @@ const workflowVisualizerRender = {
      * toggle "Finale") tắt thì KHÔNG BAO GIỜ tự bắn nữa dù nhạc có chuyển đoạn. Cửa sổ ngắn
      * (energyWindowBeats) không còn field, hardcode 2. */
     _fwUpdateFinaleTrigger(isPlaying, beatScale, cfg) {
-        const fluxHistory = appState.get('fluxHistory');
+        const { fluxHistory, lastBeatTime } = appState.get(['fluxHistory', 'lastBeatTime']); // lastBeatTime: SỬA 28/09/2026 — đọc appState, biến toàn cục cùng tên (core/dom-refs.js) đã bỏ
         if (fluxHistory.length > 0) {
             _fwPendingBeatFluxSum += fluxHistory[fluxHistory.length - 1];
             _fwPendingBeatFluxCount++;

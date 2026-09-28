@@ -26,7 +26,8 @@
  * core/gameplay/circle-mode-ui.js (canvas) THEO THỨ TỰ tại đây — Core KHÔNG được gọi lẫn nhau
  * (Rule 3a). Màu vòng (custom-effect.js) và globalHueOffset (audio-analysis.js) cũng đọc/gọi Ở ĐÂY.
  *
- * Spawn khoá theo BEAT THẬT: so global `lastBeatTime` (core/dom-refs.js, KHÔNG thuộc appState) với
+ * Spawn khoá theo BEAT THẬT: so appState `lastBeatTime` (SỬA 28/09/2026 — trước đây là biến toàn cục
+ * cùng tên ở core/dom-refs.js, đã bỏ; event/workflow/audio-analysis.js ghi mốc này) với
  * mốc đã tiêu thụ (`_lastConsumedBeatTime`). Đủ điều kiện CẦN rồi còn qua `isBeatEligibleForSpawn()`
  * (lọc theo độ khó) VÀ roll xác suất theo Energy (`computeSpawnProbability()`) mới THẬT SỰ spawn.
  * Vị trí lấy từ lưới pitch→ô (`gameplayPitchCellMap`), `shrinkDurationMs` theo BPM hiện tại — LƯU
@@ -45,7 +46,7 @@ const GAMEPLAY_MISS_SHATTER_COLOR = '#f87171'; // đỏ-400, khớp màu .gamepl
 const workflowGameplay = {
     _nextWaveId: 1,
     _nextSpawnIndex: 0,                // luân phiên màu A/B (mode dynamic), reset mỗi phiên
-    _lastConsumedBeatTime: 0,          // snapshot lastBeatTime (global) đã dùng để xét spawn
+    _lastConsumedBeatTime: 0,          // snapshot appState lastBeatTime đã dùng để xét spawn
     _beatsSinceEligible: 0,            // đếm beat để lọc "mỗi N beat mới xét spawn" theo độ khó
     _beatsSincePhraseRefresh: 0,       // xấp xỉ ranh giới phrase (đếm beat cố định)
     _beatFluxHistory: [],              // 1 mốc/BEAT (trung bình đoạn), cap 24 — xem docstring đầu file
@@ -126,7 +127,7 @@ const workflowGameplay = {
         console.log(`writer: "workflowGameplay._beginPlaying", page: "gameplayPhase", content: "playing"`);
         // Snapshot lastBeatTime NGAY LÚC NÀY — tránh 1 beat CŨ (detect trước khi countdown bắt đầu)
         // bị hiểu nhầm là "vừa mới có" rồi spawn ngay lập tức.
-        this._lastConsumedBeatTime = lastBeatTime;
+        this._lastConsumedBeatTime = appState.get('lastBeatTime'); // SỬA 28/09/2026 — trước đây đọc biến toàn cục
         this._beatsSinceEligible = 0;
         this._beatsSincePhraseRefresh = 0;
         this._nextSpawnIndex = 0;
@@ -188,11 +189,11 @@ const workflowGameplay = {
         const {
             gameplayWaves, gameplayCircleCount, gameplayDifficulty, gameplayPitchCellMap,
             gameplayRefreshPending, currentCalculatedBpm, smoothedEnergy, lastValidMidiNote,
-            fluxHistory, gameplayTotalScore,
+            fluxHistory, gameplayTotalScore, lastBeatTime,
         } = appState.get([
             'gameplayWaves', 'gameplayCircleCount', 'gameplayDifficulty', 'gameplayPitchCellMap',
             'gameplayRefreshPending', 'currentCalculatedBpm', 'smoothedEnergy', 'lastValidMidiNote',
-            'fluxHistory', 'gameplayTotalScore',
+            'fluxHistory', 'gameplayTotalScore', 'lastBeatTime', // lastBeatTime: SỬA 28/09/2026, trước đây đọc biến toàn cục
         ]);
         const diffCfg = cfg.difficulty[gameplayDifficulty];
 
@@ -572,7 +573,7 @@ const workflowGameplay = {
     },
 
     _resetSessionCounters() {
-        this._lastConsumedBeatTime = lastBeatTime; // tránh beat cũ (bài/phiên trước) bị tính là "mới"
+        this._lastConsumedBeatTime = appState.get('lastBeatTime'); // tránh beat cũ (bài/phiên trước) bị tính là "mới"
         this._beatsSinceEligible = 0;
         this._beatsSincePhraseRefresh = 0;
         this._nextSpawnIndex = 0;

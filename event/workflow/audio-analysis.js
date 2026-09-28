@@ -1,171 +1,176 @@
 /**
- * Tính màu sắc theo dữ liệu tần số (getComputedColor) & cập nhật bảng thống kê BPM / Pitch / Energy.
- * (Trích từ file gốc, dòng 1016-1065 trong khối <script>)
+ * event/workflow/audio-analysis.js — Workflow sở hữu task PHÂN TÍCH AUDIO mỗi khung hình
+ * (`AUDIO_ANALYSIS_TASK` = 'audioAnalysis', taskManager mode `raf`).
  *
- * FIX (ver 10 refine, bổ sung — toggle ẩn/hiện dải BPM/Pitch/Energy, xem core/visualizer-ui-
- * visibility.js): mọi dòng ghi statBpm/statNote/statEnergy.textContent dưới đây đều bọc thêm điều
- * kiện `isStatsPanelVisible &&` ở ĐẦU — khi dải bị ẩn, bỏ qua đúng phần thao tác DOM đó (đỡ work vô
- * nghĩa khi không ai nhìn thấy), nhưng KHÔNG đụng tới phần TÍNH TOÁN logic phía sau (beatTimes/
- * fluxHistory/currentCalculatedBpm/rubikPitchAvg...) — các giá trị này được visual Rubik dùng,
- * phải tiếp tục chạy đúng bất kể dải số liệu có hiện hay không.
+ * [MỚI — 28/09/2026, Phase 2 dọn visualizer, Giang duyệt] TÁCH từ `workflowVisualizerRender._tick()`
+ * (event/workflow/visualizer-render.js). Ghi đè file mồ côi cùng tên trước đây (bản cũ không được
+ * index.html nạp). Task này LUÔN chạy suốt vòng đời AudioContext, không phụ thuộc Show Visual:
+ * Game (workflowGameplay.tick), React Beat của Motion (`beatScale`), visual-bg-common.js
+ * (`smoothedEnergy`) và thanh trạng thái BPM/Pitch/Energy đều sống nhờ dữ liệu task này ghi vào
+ * appState. Phần VẼ vẫn thuộc `workflowVisualizerRender` (task 'visualizerRender').
+ *
+ * Mỗi frame, theo đúng thứ tự cũ:
+ *   1. Đồng bộ canvas + task vẽ với Show Visual (`workflowVisualizerRender.syncVisibility()`).
+ *   2. frameCounter, phát hiện seek (connector), FFT, beatScale, smoothedEnergy, globalHueOffset.
+ *   3. Energy + spectral flux (đã chuẩn hoá 128 bin) + baseline phổ.
+ *   4. Số liệu theo trạng thái phát: đang phát -> lịch sử flux, beat, BPM, pitch; dừng -> BPM "---".
+ *   5. Ghi thanh trạng thái (chỉ khi dải số liệu đang hiện).
+ *   6. Game tick, nốt nhạc bay.
+ *
+ * Rẽ nhánh (readme/event-bus-flow.md mục 7): chỉ guard clause + object map. Tiến trình "đang phát /
+ * không phát" chọn qua `AUDIO_STATS_BY_PLAYING`; các bước tuỳ chọn (beat, BPM, pitch, nốt bay, ghi
+ * DOM) là method riêng mở đầu bằng guard.
+ *
+ * Start/pause/resume/kill task: xem `workflowVisualizerRender.start()/stop()/suspendForBackground()/
+ * resumeFromBackground()` — nơi điều phối vòng đời chung của CẢ 2 task (giữ nguyên điểm gọi cũ:
+ * core/audio-engine.js, event/workflow/app-visibility.js).
+ *
+ * NẠP: trước event/workflow/visualizer-render.js (xem index.html). Mọi tham chiếu tới core/workflow khác
+ * chỉ xảy ra lúc chạy (sau khi toàn bộ script đã nạp), không phải lúc nạp file.
  */
-        /**
-         * MỚI (20/07/2026, plan-space-galaxy.md Phần A, mục A3) — 3 hàm Core THUẦN tách ra từ
-         * đoạn tính `beatScale`/`smoothedEnergy`/`globalHueOffset` TRƯỚC ĐÂY nằm thẳng trong vòng
-         * lặp `drawVisualizer()` (core/visualizer/draw-visualizer.js, nay đã RỖNG — logic dời sang
-         * `event/workflow/visualizer-render.js::_tick()`). Mỗi hàm 1 việc, CHỈ nhận tham số, KHÔNG
-         * tự `appState.get()` (Rule 2) — Workflow tự đọc appState rồi truyền vào, tự
-         * `appState.set(..., { skipCheck: true })` lại kết quả trả về (hot path 60fps, MIỄN Rule 4
-         * console.log — đúng ngoại lệ đã ghi ở `core-function-conventions.md` Rule 4).
-         */
 
-        /** Trung bình biên độ dải bass (bassCount phần tử đầu của vizDataArray), chuẩn hoá 0-1. */
-        function computeBeatScale(vizDataArray, bassCount) {
-            let bassSum = 0;
-            for (let i = 0; i < bassCount; i++) bassSum += vizDataArray[i];
-            return (bassSum / bassCount) / 255;
-        }
+const AUDIO_ANALYSIS_TASK = 'audioAnalysis';
 
-        /** Làm mượt beatScale theo thời gian (EMA hệ số 0.15) — dùng cho mọi hiệu ứng cần phản ứng
-         * "mượt" với nhạc thay vì giật theo từng khung hình thô. */
-        function computeSmoothedEnergy(beatScale, prevSmoothedEnergy) {
-            return prevSmoothedEnergy + (beatScale - prevSmoothedEnergy) * 0.15;
-        }
+/** Tiến trình số liệu theo trạng thái phát — object map thay if/else (key boolean -> 'true'/'false'). */
+const AUDIO_STATS_BY_PLAYING = {
+    true: (frame) => workflowAudioAnalysis._analyzePlayingStats(frame),
+    false: () => workflowAudioAnalysis._resetPlayingStats(),
+};
 
-        /** Tiến hue-cycle 1 bước (chỉ khi đang phát) — guard clause thuần (KHÔNG phải rẽ nhánh 2
-         * tiến trình khác nhau theo Rule 1: xoá nhánh `if` đi, hàm vẫn còn ĐÚNG 1 kịch bản "tiến
-         * hue", chỉ mất phần "dừng sớm nếu không phát nhạc"). */
-        function computeNextGlobalHueOffset(current, beatScale, isPlaying) {
-            if (!isPlaying) return current;
-            return (current + 0.5 + (beatScale * 5)) % 360;
-        }
+const workflowAudioAnalysis = {
+    /** Mảng baseline phổ đã dùng ở frame trước (KHÔNG thuộc STATE — chỉ để so danh tính). Khác với
+     * `previousSpectrumArray` hiện tại = mảng vừa được allocateBuffers() cấp phát lại (đổi fftSize khi
+     * đổi effect, hoặc lần đầu) -> baseline chưa hợp lệ, flux frame đó = 0. */
+    _baselineSpectrum: null,
 
-        /** Màu riêng theo TỪNG effect (cfg.customEffect[cfg.type]) — không còn 1 mode màu chung
-         * cho toàn app, xem core/custom-effect.js::getActiveEffectConfig(). */
-        function getComputedColor(i, totalLength, dataValue) {
-            const ec = getActiveEffectConfig(); // core/custom-effect.js
-            if (ec.mode === 'dynamic') return { fill: interpolateColor(ec.dynA, ec.dynB, i / totalLength), glow: interpolateColor(ec.dynA, ec.dynB, i / totalLength) };
-            else if (ec.mode === 'gradient') {
-                let baseHue = (appState.get('globalHueOffset') + (i / totalLength) * 240) % 360;
-                let finalHue = (baseHue + (dataValue / 255) * 80) % 360;
-                // FIX (16/09/2026, Giang báo "THREE.Color: Unknown color hsla(...)"): saturation/
-                // lightness PHẢI là số nguyên — parser hsl()/hsla() của THREE.Color (r128) chỉ nhận
-                // %-value dạng \d+ (không hỗ trợ thập phân), trong khi hue thì hỗ trợ thập phân bình
-                // thường. Trước đây 2 giá trị này là số thập phân (vd "83.764...%") -> khớp regex
-                // thất bại toàn bộ -> "Unknown color" (không chỉ dừng ở mức cảnh báo "alpha ignored"
-                // như khi chúng tình cờ là số nguyên). Math.round() ở đây không ảnh hưởng canvas 2D
-                // (fillStyle vẫn nhận hsla() bình thường, sai khác <1% không nhận ra được bằng mắt).
-                let lightness = Math.round(40 + (dataValue / 255) * 30);
-                let saturation = Math.round(70 + (dataValue / 255) * 30);
-                return { fill: `hsla(${finalHue}, ${saturation}%, ${lightness}%, 0.9)`, glow: `hsl(${finalHue}, 100%, ${lightness + 15}%)` };
-            } else return { fill: ec.solidColor, glow: ec.solidColor };
-        }
+    /** Đăng ký + bật task phân tích. Chỉ `workflowVisualizerRender.start()` gọi (điều phối cả 2 task).
+     * Gọi lại = đăng ký lại từ đầu, baseline phổ coi như chưa có. */
+    start() {
+        this._baselineSpectrum = null;
+        taskManager.addNew(AUDIO_ANALYSIS_TASK, { time: 0, exe: () => this._tick(), mode: 'raf', count: 0 });
+        taskManager.operator(AUDIO_ANALYSIS_TASK, 'enabled');
+    },
 
-        /** Cường độ blur/glow effect ĐANG CHẠY, quy đổi 0-1 cho `perf.blurMult` cũ — 0 nếu tắt. */
-        function getActiveBlurMult() {
-            const ec = getActiveEffectConfig(); // core/custom-effect.js
-            return ec.blurEnabled ? ec.blurIntensity / 100 : 0;
-        }
+    /** Tick PHÂN TÍCH — 1 lần mỗi khung hình. */
+    _tick() {
+        const isVisualOff = appConfigViz.getAll().visualEnabled === false;
+        workflowVisualizerRender.syncVisibility(isVisualOff); // bật/tắt canvas + task VẼ theo Show Visual
 
-        /** "Nhạc vừa biến động" — so trung bình `windowSize` MỐC/BEAT gần nhất với `windowSize`
-         * mốc trước đó, lệch tương đối (không phải tuyệt đối — bất biến độ to nhỏ bài hát/thiết
-         * bị) >= `relativeThreshold`. Gộp SẴN 2 cửa sổ (ngắn = build-up/drop nhanh, dài = chuyển
-         * đoạn verse/chorus) — nơi gọi chỉ cần đưa energyWindowBeats/sectionWindowBeats/
-         * fluxThreshold, không tự OR 2 lần riêng nữa. Dùng chung cho game mode Circle, Space,
-         * Fireworks — mỗi nơi tự tích luỹ `beatFluxHistory` RIÊNG (không dùng chung mảng giữa các
-         * domain — mỗi domain 1 nhịp tiêu thụ khác nhau).
-         * @param {number[]} beatFluxHistory - mỗi phần tử = flux trung bình đoạn giữa 2 beat liên tiếp.
-         * @param {number} energyWindowBeats - cửa sổ ngắn, số BEAT.
-         * @param {number} sectionWindowBeats - cửa sổ dài, số BEAT.
-         * @param {number} relativeThreshold - tỉ lệ lệch tối thiểu, vd 0.35 = lệch 35%.
-         */
-        function detectMusicTransition(beatFluxHistory, energyWindowBeats, sectionWindowBeats, relativeThreshold) {
-            const avg = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
-            const checkWindow = (windowSize) => {
-                if (beatFluxHistory.length < windowSize * 2) return false;
-                const recentAvg = avg(beatFluxHistory.slice(-windowSize));
-                const priorAvg = avg(beatFluxHistory.slice(-windowSize * 2, -windowSize));
-                if (priorAvg <= 0) return false; // tránh chia 0 lúc đoạn trước hoàn toàn im lặng
-                return Math.abs(recentAvg - priorAvg) / priorAvg >= relativeThreshold;
-            };
-            return checkWindow(energyWindowBeats) || checkWindow(sectionWindowBeats);
-        }
+        const s = appState.get([
+            'vizDataArray', 'previousSpectrumArray', 'analyser', 'frameCounter', 'smoothedEnergy',
+            'globalHueOffset', 'isVideoPlayerMode', 'isPhotoPlayerMode', 'isStatsPanelVisible',
+        ]);
+        if (!s.vizDataArray) return; // guard — audio context chưa init
 
-        /** Xấp xỉ ranh giới phrase bằng đếm beat cố định (không có phrase detection thật). Nơi gọi
-         * tự đếm `beatsSincePhraseRefresh`, reset về 0 khi hàm này trả true. */
-        function isPhraseBoundary(beatsSincePhraseRefresh, refreshBeatsForPhrase) {
-            return beatsSincePhraseRefresh >= refreshBeatsForPhrase;
-        }
+        // frameCounter chỉ đếm frame THẬT SỰ có xử lý audio (sau guard). Lịch sử (bug 17/09/2026): từng KHÔNG
+        // có chỗ nào tăng biến này — đứng yên ở 0 khiến cooldown bắn neuron synapse tự khoá vĩnh viễn sau lần
+        // bắn đầu tiên; nhịp nốt bay mỗi 8 frame, globalTwist vortex cũng đọc nó.
+        const frameCounter = s.frameCounter + 1;
+        appState.set('frameCounter', frameCounter, { skipCheck: true });
 
-        function updateStatsDashboard(bufferLength) {
-            const now = Date.now();
-            let totalAmplitude = 0; let currentFlux = 0;
-            const vizDataArray = appState.get('vizDataArray');
-            const previousSpectrumArray = appState.get('previousSpectrumArray');
-            for(let i=0; i<bufferLength; i++) {
-                totalAmplitude += vizDataArray[i]; let diff = vizDataArray[i] - previousSpectrumArray[i];
-                if (diff > 0) currentFlux += diff; previousSpectrumArray[i] = vizDataArray[i]; 
-            }
-            
-            let energyPercent = Math.min(100, Math.round(((totalAmplitude / bufferLength) / 255) * 100 * 1.5)); 
-            if (appState.get('isStatsPanelVisible')) statEnergy.textContent = energyPercent + '%'; 
-            
-            // SỬA (21/07/2026, Giang chỉ ra "BPM/Pitch không chạy, chỉ Energy chạy") — `isPlaying`
-            // trước đây LUÔN đọc `audioPlayer` — ĐÚNG cho Song, nhưng Video Player mode (event/
-            // workflow/video-player.js) KHÔNG còn đụng `audioPlayer` nữa (bỏ hẳn từ bản viết lại
-            // lần 2), audioPlayer.paused LUÔN true/currentTime LUÔN 0 -> `isPlaying` LUÔN false cho
-            // video -> toàn bộ khối BPM (dòng dưới)/Pitch (dòng dưới nữa) KHÔNG BAO GIỜ chạy, rơi
-            // thẳng vào nhánh else (dòng cuối, reset "---") — ĐÚNG lý do "chỉ Energy chạy" (Energy
-            // tính Ở NGOÀI guard này, dòng phía trên, không phụ thuộc `isPlaying`). Đọc
-            // `bgVideoElement` khi đang ở Video Player mode — CÙNG Ý NGHĨA, chỉ đổi NGUỒN đọc.
-            let isPlaying = appState.get('isVideoPlayerMode')
-                ? (!bgVideoElement.paused && bgVideoElement.currentTime > 0)
-                : (!audioPlayer.paused && audioPlayer.currentTime > 0);
+        workflowVisualizerRender._detectMediaSeek(s.isVideoPlayerMode, s.isPhotoPlayerMode); // connector ổn định lại sau seek
 
-            if(isPlaying) {
-                appState.mutate('fluxHistory', arr => { arr.push(currentFlux); if(arr.length > 45) arr.shift(); }, { skipCheck: true });
-                const fluxHistory = appState.get('fluxHistory');
-                let sumFlux = 0; for (let i=0; i<fluxHistory.length; i++) sumFlux += fluxHistory[i];
-                runningFluxMean = sumFlux / fluxHistory.length; let fluxThreshold = runningFluxMean * 1.3;
+        s.analyser.getByteFrequencyData(s.vizDataArray);
+        const binCount = s.analyser.frequencyBinCount;
+        const media = s.isVideoPlayerMode ? bgVideoElement : audioPlayer;
+        const isPlaying = !media.paused;
 
-                if (currentFlux > fluxThreshold && currentFlux > 150 && (now - lastBeatTime > APP_CONFIG.bpmMinWaitTime)) {
-                    if (lastBeatTime > 0) { appState.mutate('beatTimes', arr => { arr.push(now - lastBeatTime); if (arr.length > 5) arr.shift(); }, { skipCheck: true }); }
-                    lastBeatTime = now;
-                    const beatTimes = appState.get('beatTimes');
-                    if (beatTimes.length >= 2) {
-                        let avgInterval = beatTimes.reduce((a, b) => a + b) / beatTimes.length;
-                        let calcBpm = Math.round(60000 / avgInterval);
-                        if (calcBpm > 40 && calcBpm < 220) appState.set('currentCalculatedBpm', calcBpm.toString(), { skipCheck: true });
-                    }
-                }
-                if (appState.get('isStatsPanelVisible')) statBpm.textContent = appState.get('currentCalculatedBpm');
+        const beatScale = computeBeatScale(s.vizDataArray, Math.floor(binCount * 0.1)); // core
+        appState.set('beatScale', beatScale, { skipCheck: true });
+        const smoothedEnergy = computeSmoothedEnergy(beatScale, s.smoothedEnergy); // core
+        appState.set('smoothedEnergy', smoothedEnergy, { skipCheck: true });
+        const hue = computeNextGlobalHueOffset(s.globalHueOffset, beatScale, isPlaying); // core
+        appState.set('globalHueOffset', hue, { skipCheck: true });
 
-                if (energyPercent > 1) { 
-                    const pitchTimeDomainArray = appState.get('pitchTimeDomainArray');
-                    appState.get('analyserPitch').getFloatTimeDomainData(pitchTimeDomainArray);
-                    // v7: YIN chạy trên Worker riêng (xem audio-engine.js) — gửi buffer đi (không
-                    // chờ), rồi dùng NGAY kết quả mới nhất worker đã trả (latestPitchFrequency, có
-                    // thể trễ vài khung hình so với buffer vừa gửi). Độ trễ này cộng dồn trên nền trễ
-                    // vốn có của YIN (cần buffer ~46ms mới phân tích được) nên không cảm nhận được.
-                    requestPitchDetection(pitchTimeDomainArray, appState.get('audioContext').sampleRate);
-                    let frequency = appState.get('latestPitchFrequency');
-                    if (frequency > 0) {
-                        let midiNote = Math.round(12 * Math.log2(frequency / 440)) + 69;
-                        if (midiNote > 0 && midiNote < 128) {
-                            const noteStr = `${noteNames[midiNote % 12]}${Math.floor(midiNote / 12) - 1}`;
-                            appState.set('lastValidNoteStr', noteStr, { skipCheck: true });
-                            appState.set('lastValidNoteTime', now, { skipCheck: true });
-                            if (appState.get('isStatsPanelVisible')) statNote.textContent = noteStr;
-                            appState.set('lastValidMidiNote', midiNote, { skipCheck: true });
-                            // Cập nhật pha tham chiếu (nốt trung bình động) cho visual Rubik — xoay tự
-                            // thân sẽ so nốt hiện tại với pha này để quyết định nhanh/chậm. KHÔNG bọc
-                            // isStatsPanelVisible — phải luôn tính dù dải số liệu có ẩn hay không.
-                            appState.mutate('rubikPitchHistory', arr => { arr.push(midiNote); if (arr.length > 30) arr.shift(); }, { skipCheck: true });
-                            const rubikPitchHistory = appState.get('rubikPitchHistory');
-                            appState.set('rubikPitchAvg', rubikPitchHistory.reduce((a, b) => a + b, 0) / rubikPitchHistory.length, { skipCheck: true });
-                        }
-                    } else if (appState.get('lastValidNoteStr') && (now - appState.get('lastValidNoteTime') < 250)) { if (appState.get('isStatsPanelVisible')) statNote.textContent = appState.get('lastValidNoteStr');
-                    } else { if (appState.get('isStatsPanelVisible')) statNote.textContent = "---"; }
-                } else { if (appState.get('isStatsPanelVisible')) statNote.textContent = "---"; }
-            } else { appState.set('currentCalculatedBpm', "---", { skipCheck: true }); if (appState.get('isStatsPanelVisible')) { statBpm.textContent = "---"; statNote.textContent = "---"; } }
-        }
+        const energyPercent = computeEnergyPercent(s.vizDataArray, binCount); // core
+        const baselineValid = s.previousSpectrumArray === this._baselineSpectrum;
+        const flux = computeNormalizedSpectralFlux(s.vizDataArray, s.previousSpectrumArray, binCount, baselineValid); // core
+        storeSpectrumBaseline(s.previousSpectrumArray, s.vizDataArray, binCount); // core
+        this._baselineSpectrum = s.previousSpectrumArray;
+
+        // "Đang phát" của số liệu chặt hơn `isPlaying` ở trên (thêm currentTime > 0) — giữ nguyên như cũ.
+        const now = Date.now();
+        const isPlayingStats = isPlaying && media.currentTime > 0;
+        AUDIO_STATS_BY_PLAYING[isPlayingStats]({ now, flux, energyPercent });
+
+        const t = appState.get(['currentCalculatedBpm', 'lastValidNoteStr', 'lastValidNoteTime']);
+        const noteText = resolveNoteDisplayText(isPlayingStats, energyPercent, t.lastValidNoteStr, t.lastValidNoteTime, now); // core
+        this._paintStats(s.isStatsPanelVisible, `${energyPercent}%`, t.currentCalculatedBpm, noteText);
+
+        // Game Mode Circle dùng CHUNG vòng lặp này (layer game là DOM riêng #gameplay-layer, phải chạy
+        // cả khi Show Visual tắt). Workflow gọi Workflow — không thuộc phạm vi Rule 3.
+        workflowGameplay.tick(performance.now());
+
+        this._spawnFlyingNote(isPlaying, smoothedEnergy, frameCounter, hue);
+    },
+
+    /** Tiến trình "đang phát": cập nhật lịch sử flux, phát hiện beat (+ BPM), bắt pitch. */
+    _analyzePlayingStats(frame) {
+        appState.mutate('fluxHistory', (arr) => pushBoundedHistory(arr, frame.flux, AUDIO_FLUX_HISTORY_MAX), { skipCheck: true }); // core
+        const s = appState.get(['fluxHistory', 'lastBeatTime']);
+        const isBeat = isSpectralFluxBeat(frame.flux, computeArrayMean(s.fluxHistory), frame.now, s.lastBeatTime, APP_CONFIG.bpmMinWaitTime); // core
+        this._commitBeat(isBeat, frame.now, s.lastBeatTime);
+        this._detectPitch(frame.energyPercent, frame.now);
+    },
+
+    /** Tiến trình "không phát": BPM về "---" (ô Pitch tự về "---" qua resolveNoteDisplayText()). */
+    _resetPlayingStats() {
+        appState.set('currentCalculatedBpm', '---', { skipCheck: true });
+    },
+
+    /** Ghi nhận 1 beat: khoảng cách tới beat trước, mốc beat mới (consumer khác so lệch giá trị này để
+     * biết "vừa có beat"), BPM mới. */
+    _commitBeat(isBeat, now, lastBeatTime) {
+        if (!isBeat) return;
+        this._recordBeatInterval(now, lastBeatTime);
+        appState.set('lastBeatTime', now, { skipCheck: true });
+        const beatTimes = appState.get('beatTimes');
+        this._commitBpm(computeBpmFromMeanInterval(computeArrayMean(beatTimes), beatTimes.length)); // core
+    },
+
+    /** Beat đầu tiên (chưa có mốc trước) không tạo khoảng cách nào. */
+    _recordBeatInterval(now, lastBeatTime) {
+        if (lastBeatTime <= 0) return;
+        appState.mutate('beatTimes', (arr) => pushBoundedHistory(arr, now - lastBeatTime, AUDIO_BEAT_INTERVALS_MAX), { skipCheck: true }); // core
+    },
+
+    /** BPM null (chưa đủ dữ liệu / ngoài khoảng hợp lệ) -> giữ nguyên BPM đang có. */
+    _commitBpm(bpm) {
+        if (bpm === null) return;
+        appState.set('currentCalculatedBpm', String(bpm), { skipCheck: true });
+    },
+
+    /** Gửi buffer time-domain cho pitch worker (không chờ) rồi dùng kết quả MỚI NHẤT worker đã trả
+     * (`latestPitchFrequency`, có thể trễ vài frame — xem core/audio-engine.js). Quá nhỏ tiếng thì bỏ qua. */
+    _detectPitch(energyPercent, now) {
+        if (energyPercent <= 1) return;
+        const s = appState.get(['analyserPitch', 'pitchTimeDomainArray', 'audioContext', 'latestPitchFrequency']);
+        s.analyserPitch.getFloatTimeDomainData(s.pitchTimeDomainArray);
+        requestPitchDetection(s.pitchTimeDomainArray, s.audioContext.sampleRate); // core/audio-engine.js (di sản)
+        this._commitPitch(computeMidiNoteFromFrequency(s.latestPitchFrequency), now); // core
+    },
+
+    /** Ghi nốt vừa bắt được + cập nhật pha tham chiếu cho Rubik (luôn chạy dù dải số liệu ẩn). */
+    _commitPitch(midi, now) {
+        if (midi === null) return;
+        appState.set('lastValidNoteStr', formatMidiNoteName(midi), { skipCheck: true }); // core
+        appState.set('lastValidNoteTime', now, { skipCheck: true });
+        appState.set('lastValidMidiNote', midi, { skipCheck: true });
+        appState.mutate('rubikPitchHistory', (arr) => pushBoundedHistory(arr, midi, AUDIO_PITCH_HISTORY_MAX), { skipCheck: true }); // core
+        appState.set('rubikPitchAvg', computeArrayMean(appState.get('rubikPitchHistory')), { skipCheck: true }); // core
+    },
+
+    /** Ghi thanh trạng thái — dải số liệu đang ẩn thì bỏ qua phần DOM (phần tính toán đã chạy xong). */
+    _paintStats(isVisible, energyText, bpmText, noteText) {
+        if (!isVisible) return;
+        paintAudioStatsBar(statEnergy, statBpm, statNote, energyText, bpmText, noteText); // core
+    },
+
+    /** Nốt nhạc bay — điều kiện sinh là phép tính trong Core (shouldSpawnFlyingNote), ở đây chỉ làm guard,
+     * dựng nốt rồi hẹn giờ gỡ (taskManager — chỉ Workflow được dùng). */
+    _spawnFlyingNote(isPlaying, smoothedEnergy, frameCounter, hue) {
+        if (!shouldSpawnFlyingNote(isPlaying, smoothedEnergy, frameCounter, Math.random())) return; // core/visualizer/draw/flying-note-ui.js
+        const note = createFlyingNoteEl(recordContainer, hue); // core
+        taskManager.once(() => removeFlyingNoteEl(note), FLYING_NOTE_LIFETIME_MS); // core
+    },
+};
