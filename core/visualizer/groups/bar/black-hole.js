@@ -77,7 +77,10 @@ function advanceAndDrawBlackHoleFlashes(ctx, dpr, starFlashes, flashFadeSpeed) {
  * SỬA (28/09/2026, Giang báo "quá thưa") — bản trước tính theo bán kính NỀN (radiusRatio, chưa cộng năng lượng/beat)
  * trong khi hố đen lúc phát to hơn nền gần gấp đôi -> cột cách nhau ~21px. Nay tính theo bán kính ĐANG VẼ kiểu giữ đỉnh
  * (BLACK_HOLE_BAR_RADIUS_ATTACK/RELEASE_MS) + trễ đổi số cột (BLACK_HOLE_BAR_COUNT_HYSTERESIS) để cột không nhảy theo từng beat;
- * làm tròn LÊN -> khoảng cách tâm-tâm ≤ 15px (chồng nhẹ khi hố đen co lại — chấp nhận, Giang chốt). */
+ * làm tròn LÊN -> khoảng cách tâm-tâm ≤ 15px (chồng nhẹ khi hố đen co lại — chấp nhận, Giang chốt).
+ * SỬA lần 2 (29/09/2026, Giang báo "max 15 vẫn thưa, bản cũ sát kín") — cột mọc xuyên tâm nên càng ra ngoài càng xa nhau:
+ * chạm nhau ở CHÂN thì phần ngoài vẫn hở. Nay đếm theo bán kính ĐẦU CỘT (bán kính hố đen + chiều cao cột trung bình) ->
+ * cột 15px chạm nhau ở đầu, chồng lên nhau thành hình quạt phía chân — kín như bản cũ. */
 const BLACK_HOLE_BAR_SLOT_PX = 15;
 const BLACK_HOLE_BAR_WIDTH_MIN = 5, BLACK_HOLE_BAR_WIDTH_MAX = 15;
 const BLACK_HOLE_BAR_TOP_RADIUS_MAX = 5;
@@ -95,6 +98,12 @@ function smoothBlackHoleBarRadius(prevRadius, currentRadius, dtMs) {
     const tau = currentRadius > prevRadius ? BLACK_HOLE_BAR_RADIUS_ATTACK_MS : BLACK_HOLE_BAR_RADIUS_RELEASE_MS;
     const alpha = prevRadius > 0 ? 1 - Math.exp(-dtMs / tau) : 1;
     return prevRadius + (currentRadius - prevRadius) * alpha;
+}
+
+/** Chiều cao cột trung bình của 1 frame (px thiết bị) — Workflow cộng vào bán kính để đếm cột theo đầu cột. */
+function computeBlackHoleMeanBarHeight(bars) {
+    if (bars.length === 0) return 0;
+    return bars.reduce((sum, b) => sum + b.height, 0) / bars.length;
 }
 
 /** Số khoảng cột trên NỬA vòng: lý tưởng = π·R / ô (làm tròn lên); giữ số cũ nếu còn trong ngưỡng trễ. */
