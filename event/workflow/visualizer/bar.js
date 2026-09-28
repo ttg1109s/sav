@@ -128,16 +128,18 @@ const workflowVizBar = {
         stepAndDrawBlackHoleStars(ctx, dpr, centerX, centerY, maxDist, currentRadius, currentSuction); // core
         advanceAndDrawBlackHoleFlashes(ctx, dpr, appState.get('starFlashes'), cfg.flashFadeSpeed); // core
 
-        // SỬA (28/09/2026, Giang báo "quá thưa") — số cột theo bán kính ĐANG VẼ (làm mượt chậm + trễ đổi số), ô 15px/cột:
-        // cột rộng tối đa nằm sát nhau ở chân; cột bo góc đỉnh.
+        // SỬA (28/09/2026, Giang báo "quá thưa") — số cột theo bán kính ĐANG VẼ (làm mượt chậm + trễ đổi số), ô 10px/cột:
+        // cột rộng tối đa sát nhau; cột bo góc đỉnh.
         const layout = computeBlackHoleBarLayout(this._resolveBlackHoleHalfCount(cfg, currentRadius, dpr), frame.bufferLength); // core
         const dynamicMaxBarHeight = (cfg.maxH / 1000) * (minDimension * 0.25);
         const bars = computeBlackHoleBarsFrame(frame.vizDataArray, layout.usefulLength, layout.spanBins, cfg.minH, dpr, dynamicMaxBarHeight); // core
         this._blackHole.meanHeight = computeBlackHoleMeanBarHeight(bars); // core — frame sau đếm cột theo đầu cột
-        bars.forEach((b) => {
-            const color = getComputedColor(...b.colorArgs); // core/audio-analysis.js
-            paintBlackHoleBarShapes(ctx, b.angles, b.height, centerX, centerY, currentRadius, cfg.barWidth, cfg.barTopRadius, color.fill, color.glow, dpr, frame.perf.blurMult); // core
-        });
+        // SỬA (29/09/2026, Giang) — vẽ theo chiều kim đồng hồ: mỗi cột bị cột kế tiếp (theo chiều kim) che; cột vẽ đầu tiên
+        // vẽ lại nửa ngược chiều kim ở cuối để khép vòng đúng thứ tự.
+        const colors = bars.map((b) => getComputedColor(...b.colorArgs)); // core/audio-analysis.js
+        const entries = orderBlackHoleBarsClockwise(bars, colors); // core
+        entries.forEach((e) => paintBlackHoleBar(ctx, e, centerX, centerY, currentRadius, cfg.barWidth, cfg.barTopRadius, dpr, frame.perf.blurMult)); // core
+        this._closeBlackHoleSeam(ctx, entries, centerX, centerY, currentRadius, cfg, dpr, frame.perf.blurMult);
         ctx.shadowBlur = 0;
 
         paintBlackHoleCore(ctx, centerX, centerY, currentRadius); // core
@@ -168,6 +170,15 @@ const workflowVizBar = {
         if (configKey === bh.configKey) return;
         bh.configKey = configKey;
         bh.snapFrames = 6;
+    },
+
+    /** Khép vòng: vẽ lại cột đầu tiên, chỉ trong nửa phía cột vẽ cuối, để nó đè lên cột đó (đúng luật "bị cột kế tiếp che"). */
+    _closeBlackHoleSeam(ctx, entries, centerX, centerY, radius, cfg, dpr, blurMult) {
+        if (entries.length < 2) return;
+        const first = entries[0];
+        beginBlackHoleSeamClip(ctx, first, centerX, centerY, radius, Math.max(...entries.map((e) => e.height))); // core
+        paintBlackHoleBar(ctx, first, centerX, centerY, radius, cfg.barWidth, cfg.barTopRadius, dpr, blurMult); // core
+        endBlackHoleSeamClip(ctx); // core
     },
 
     /** Quầng sáng quanh lỗ đen — chỉ khi đang phát và năng lượng vượt ngưỡng flare. */
