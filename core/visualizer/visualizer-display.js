@@ -93,27 +93,9 @@
             progressBar.style.background = `linear-gradient(to right, ${color} 0%, ${color} ${percentage}%, rgba(255,255,255,0.2) ${percentage}%, rgba(255,255,255,0.2) 100%)`;
         }
 
-        /**
-         * [MỚI — 05/09/2026, yêu cầu Giang] Áp 1 STYLE cụ thể đã chọn (modal chọn effect, mở qua
-         * CLICK #btn-cycle-mode — xem openEffectPickerModal() bên dưới) — KHÔNG check
-         * autoSwitchVisualEnabled (khác cycleVisualizerType() cũ ĐÃ XOÁ: người dùng CHỦ ĐỘNG mở
-         * modal + chọn, nút cycle tự khoá cứng — disabled — khi auto-switch đang bật nên modal
-         * còn không mở được nếu tính năng đó đang bật, xem updateCycleModeButtonState(),
-         * core/auto-switch-visual.js). Refresh thêm resizeCanvas()/updateVortexVisibility() khi
-         * cần — CÙNG lý do + CÙNG chỗ gọi với `#ce-style` dropdown cũ ĐÃ BỎ (components/
-         * custom-effect-drawer.js).
-         * @param {string} style - 1 trong MODES (service/state/visualizer-runtime.js)
-         */
-        function applyVisualizerStyleChoice(style) {
-            const idx = MODES.indexOf(style);
-            if (idx === -1) return;
-            appState.set('currentModeIndex', idx);
-            updateTypeUI();
-            saveConfig();
-            const group = STYLE_TO_GROUP[style];
-            if (group === 'rain') resizeCanvas();
-            else if (group === 'vortex') updateVortexVisibility();
-        }
+        // [DỜI — 28/09/2026, Phase 3 dọn visualizer] `applyVisualizerStyleChoice(style)` ĐÃ BỎ khỏi core: hàm đó
+        // điều phối cả chuỗi (ghi currentModeIndex -> updateTypeUI -> saveConfig -> resizeCanvas/updateVortexVisibility)
+        // — việc của Workflow. Nay là `workflowVisualizerRender.applyStyle(style)` (event/workflow/visualizer-render.js).
 
         /**
          * [SỬA — 05/09/2026, yêu cầu Giang, "modal choice hỗ trợ html, dùng 2 dropdown đồng thời"]
@@ -189,57 +171,29 @@
         }
 
 
-        /**
-         * HOTFIX 2 (07/07/2026, bug do Giang báo qua screenshot lỗi thật khi phát nhạc — SỬA LẠI
-         * cách guard batch trước, cách đó VẪN SAI): Batch D3 viết `if (blockMaxHeight) {...}` với
-         * suy nghĩ "biến này = null khi panel đóng" — SAI HOÀN TOÀN: `const blockMaxHeight = ...`
-         * đã bị XOÁ KHỎI core/dom-refs.js (không tồn tại nữa, không phải = null) — tham chiếu 1
-         * biến CHƯA TỪNG KHAI BÁO ném `ReferenceError: Can't find variable` NGAY LẬP TỨC (khác hẳn
-         * `if (null)`, vốn chỉ đơn giản là false, không ném gì). SỬA ĐÚNG: dùng
-         * `document.getElementById()` TRUY VẤN TƯƠI mỗi lần gọi (an toàn tuyệt đối, trả `null` nếu
-         * không tìm thấy, KHÔNG BAO GIỜ ném ReferenceError) THAY vì dựa vào biến toàn cục — đúng
-         * bản chất "phần tử này sống động, có thể không tồn tại tại thời điểm gọi".
-         *
-         * [SỬA — 05/09/2026, yêu cầu Giang, "group hoá" effect picker] `MODES[currentModeIndex]`
-         * giờ là 1 STYLE con phẳng (không phải group) — suy ra `group`/`styleField` từ
-         * STYLE_TO_GROUP/GROUP_STYLE_FIELD (service/state/visualizer-runtime.js) rồi ghi CẢ
-         * `cfg.type` (= group) LẪN `cfg.customEffect[group][styleField]` (= style). Nhãn icon
-         * (`modeCycleLabel`) giờ hiện tên STYLE (VISUALIZER_STYLE_LABEL_KEYS), không phải tên
-         * group nữa.
-         */
-        function updateTypeUI() {
-            const currentModeIndex = appState.get('currentModeIndex');
-            const style = MODES[currentModeIndex];
-            const group = STYLE_TO_GROUP[style];
-            const styleField = GROUP_STYLE_FIELD[group];
-            appConfigViz.mutateAll(cfg => {
+        // [TÁCH — 28/09/2026, Phase 3 dọn visualizer] `updateTypeUI()` ĐÃ BỎ khỏi core (đọc appState, gọi 6 core khác,
+        // rẽ nhánh theo DOM `playlist-hidden` với 1 nhánh rỗng). Điều phối nay là
+        // `workflowVisualizerRender.activateCurrentStyle()`; 3 hàm thuần dưới đây là các mảnh DOM/config tách ra.
+
+        /** Ghi group + style đang chạy vào vizConfig (tạo bucket customEffect của group nếu chưa có). */
+        function applyStyleToVizConfig(group, styleField, style) {
+            appConfigViz.mutateAll((cfg) => {
                 cfg.type = group;
                 if (!cfg.customEffect[group]) cfg.customEffect[group] = { ...DEFAULT_CUSTOM_EFFECT[group] };
                 cfg.customEffect[group][styleField] = style;
             });
-            const cfg = appConfigViz.getAll();
-            // BỎ (05/09/2026, yêu cầu Giang) — trước đây có dòng `modeBadge.textContent =
-            // "${currentModeIndex + 1}/${MODES.length}"` ghi số thứ tự "x/tổng" lên badge góc icon
-            // — badge đó (`#mode-badge`, components/visualizer-overlay.js) ĐÃ XOÁ khỏi HTML, không
-            // còn hiện đếm số nữa.
-            // FIX (12/08/2026, Giang yêu cầu — "icon Effect đổi text theo tên effect đang chạy") —
-            // nhãn dưới icon #btn-cycle-mode giờ hiện ĐÚNG tên hiệu ứng đang chạy, CÙNG khuôn
-            // #eq-badge-label (core/eq-presets.js::syncEqBadgeLabel()), thay vì chữ tĩnh "Hiệu ứng"
-            // cố định trước đây. SỬA (05/09/2026) — hiện tên STYLE (không phải group).
-            if (modeCycleLabel) modeCycleLabel.textContent = t(VISUALIZER_STYLE_LABEL_KEYS[style] || style);
+            console.log(`writer: "applyStyleToVizConfig", page: "vizConfig", content: "type=${group}, ${styleField}=${style}"`);
+        }
 
-            if (cfg.type === 'vortex' || cfg.type === 'connector') {
-                // 2 group dùng CHUNG canvas #webgl-canvas + tRenderer, scene RIÊNG mỗi group.
-                if (cfg.type === 'vortex') { if (!appState.get('tInitialized')) initThreeJS(); updateVortexVisibility(); }
-                else { if (!appState.get('cnInitialized')) initThreeJSConnector(); updateConnectorVisibility(); } // core/webgl/three-connector.js
-                // FIX (04/07/2026, mục 4) — 'playlist-hidden' THAY '-translate-y-full', giờ ở
-                // `#app-stack` (components/app-view-stack.js), KHÔNG phải `#side-left-container`.
-                if (!appStack.classList.contains('playlist-hidden')) {} else { document.getElementById('webgl-canvas').classList.remove('opacity-0'); }
-            } else {
-                document.getElementById('webgl-canvas').classList.add('opacity-0');
-            }
+        /** Nhãn dưới icon #btn-cycle-mode = tên style đang chạy (phần tử có thể chưa có trong DOM -> bỏ qua). */
+        function setModeCycleLabelText(labelEl, text) {
+            if (!labelEl) return;
+            labelEl.textContent = text;
+        }
 
-            if(appState.get('analyser')) { appState.get('analyser').fftSize = needsHighResFft(cfg.type, style) ? APP_CONFIG.fftSizeHighRes : APP_CONFIG.fftSizeStandard; allocateBuffers(); } // service/state/visualizer-runtime.js — SỬA (25/09/2026): truyền thêm style (bar 'mirror' cần FFT cao)
+        /** Ẩn/hiện #webgl-canvas (class opacity-0) — Vortex/Connector dùng chung canvas này. */
+        function setWebglCanvasHidden(webglCanvasEl, hidden) {
+            webglCanvasEl.classList.toggle('opacity-0', hidden);
         }
 
         // (Phần B, Galaxy — updateSpaceStyleUI() ĐÃ BỎ 21/07/2026, cùng panel tinh chỉnh reroll/jump)
