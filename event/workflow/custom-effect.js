@@ -260,6 +260,25 @@ const workflowCustomEffect = {
         this._rerenderBody();
     },
 
+    // ===================== Field ảnh (imagePick) — MỚI 28/09/2026 (nền mặt số clock) =====================
+
+    /** Mở picker ảnh thư viện (mượn Generic Drawer); chọn xong hoặc huỷ đều mở lại Custom Effect Drawer. */
+    pickImageField(field) {
+        const type = this._openType;
+        workflowFileManagerPhoto.openCoverImagePicker((imageKey) => { // event/workflow/file-manager-photo.js
+            setCustomEffectField(type, field, imageKey); // core/custom-effect.js
+            saveConfig();
+            this.open();
+        }, () => this.open());
+    },
+
+    /** Bỏ ảnh đã chọn — effect quay về nguồn mặc định (clock: bìa bài đang phát). */
+    clearImageField(field) {
+        setCustomEffectField(this._openType, field, null); // core
+        saveConfig();
+        this._rerenderBody();
+    },
+
     // ===================== Lighting fireworks =====================
 
     /** Checkbox 14 kiểu nổ (customEffect.lighting.enabledStyles) — ghi thẳng, không vẽ lại. */

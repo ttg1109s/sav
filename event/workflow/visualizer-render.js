@@ -85,6 +85,7 @@ const workflowVisualizerRender = {
     start() {
         taskManager.kill(RENDER_TASK);
         this._renderActive = false;
+        this.allocateAnalysisBuffers(); // thay allocateBuffers() (core cũ) setupAudioContext() gọi ngay trước start()
         this.rebuildCanvasScenes(); // thay resizeCanvas() cũ (setupAudioContext() gọi ngay trước start())
         workflowAudioAnalysis.start(); // event/workflow/audio-analysis.js
     },
@@ -219,7 +220,33 @@ const workflowVisualizerRender = {
         const analyser = appState.get('analyser');
         if (!analyser) return;
         setAnalyserFftSize(analyser, needsHighResFft(groupName, style) ? APP_CONFIG.fftSizeHighRes : APP_CONFIG.fftSizeStandard); // core/audio-engine.js
-        allocateBuffers(); // core/canvas-scene-setup.js (di sản)
+        this.allocateAnalysisBuffers();
+    },
+
+    /** MỚI (Phase 5, THAY allocateBuffers() core cũ) — cấp phát lại 3 bộ đệm phân tích theo FFT hiện tại. Chưa có
+     * AudioContext -> bỏ qua. */
+    allocateAnalysisBuffers() {
+        const { analyser, analyserPitch } = appState.get(['analyser', 'analyserPitch']);
+        if (!analyser || !analyserPitch) return;
+        const buffers = createAnalysisBuffers(analyser.frequencyBinCount, analyserPitch.fftSize); // core/canvas-scene-setup.js
+        Object.keys(buffers).forEach((key) => appState.set(key, buffers[key]));
+        console.log(`writer: "workflowVisualizerRender.allocateAnalysisBuffers", page: "vizDataArray/previousSpectrumArray/pitchTimeDomainArray", content: "${analyser.frequencyBinCount} bin"`);
+    },
+
+    /** MỚI (Phase 5) — renderer WebGL dùng chung (Vortex + Connector): có rồi thì dùng lại, chưa có thì tạo với
+     * `pixelRatio` của group gọi trước. Đặt kích thước theo khung nhìn hiện tại. */
+    ensureSharedRenderer(pixelRatio) {
+        const renderer = appState.get('tRenderer') || this._createSharedRenderer(pixelRatio);
+        const viewport = this._currentViewport();
+        resizeThreeRenderer(renderer, viewport.width, viewport.height); // core/webgl/three-common.js
+        return renderer;
+    },
+
+    _createSharedRenderer(pixelRatio) {
+        const renderer = createSharedWebglRenderer(document.getElementById('webgl-canvas'), pixelRatio); // core/webgl/three-common.js
+        appState.set('tRenderer', renderer, { skipCheck: true });
+        console.log('writer: "workflowVisualizerRender._createSharedRenderer", page: "tRenderer", content: "tạo renderer WebGL dùng chung"');
+        return renderer;
     },
 
     /** Hành động refresh của Custom Effect cho group (vd 'rebuild'). */
