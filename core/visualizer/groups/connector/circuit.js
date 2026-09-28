@@ -123,3 +123,9 @@ function driftOrbitSweepCamera(camera, elapsedSec) {
     camera.position.x += Math.cos(elapsedSec * 0.15) * 0.04;
     camera.position.z += Math.sin(elapsedSec * 0.15) * 0.04;
 }
+
+/** MỚI (28/09/2026, Phase 5) — trả mọi pin của mọi chip về rảnh (đổi bài — THAY đoạn tương ứng trong
+ * resetConnectorPerTrackState() cũ). Sửa tại chỗ mảng nhận vào. */
+function releaseCircuitPins(chips) {
+    chips.forEach((chip) => chip.pins.forEach((pin) => { pin.busy = false; }));
+}

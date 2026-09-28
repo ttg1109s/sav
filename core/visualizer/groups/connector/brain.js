@@ -99,881 +99,617 @@
  * render.js::_tickBarDot()). Brain giờ luôn căn giữa một mình. Field Custom Effect liên quan
  * (timelineShape/brainShowTimeline/brainTimelineDotCount/brainTimelineMaxTravel) đã xoá. Comment
  * lịch sử phía trên giữ lại để tra cứu, không còn khớp code.
+  *
+ * [REFACTOR — 28/09/2026, Phase 5 dọn visualizer, Giang chốt "brain.js refactor theo rule core"] Bỏ closure
+ * `brainFilterOriginal` (≈40 biến trạng thái ẩn + 15 hàm gọi lẫn nhau + draw() tự điều phối). Nay:
+ *   - Trạng thái: 1 object `createBrainState()` do Workflow giữ (workflowVizConnector._brain); tham số từ Custom
+ *     Effect: object `computeBrainTuning(settings)` (thay _applySettings() ghi đè biến module).
+ *   - Mỗi hàm core dưới đây 1 việc, chỉ đọc tham số (sửa tại chỗ state nhận vào), không gọi core khác, không appState.
+ *     Toán dùng chung (bezier, năng lượng quanh 1 tần số, tra độ dài cung) là core RIÊNG; Workflow tính trước rồi
+ *     đưa kết quả vào hàm vẽ/bước (event/workflow/visualizer/connector.js::_drawBrain()).
+ *   - Màu 3 vai trò (0 = viền/node/hạt vào, 1 = viền phụ, 2 = dây ra) Workflow resolve 1 lần/frame bằng getComputedColor().
+ *   - Công thức + thứ tự tiêu thụ Math.random giữ NGUYÊN — đã so khớp từng lời gọi canvas với bản cũ.
  */
-const brainFilterOriginal = (function () {
-        let canvas = null;
-        let ctx = null;
 
-        // App State (gốc: đọc từ slider — giữ đúng giá trị mặc định của gốc)
-        let isPaused = false;
-        let config = {
-            signalCount: 120,
-            filterStrictness: 98 / 100,
-            speedMultiplier: 1.5
-        };
+// ===================== Hằng số =====================
 
-        // KEO (22/09/2026) — 3 vai trò màu trong hình vẽ (trước là field của bảng themes cyan/
-        // violet/gold): primary (viền/mesh/tia lửa/hạt input), secondary (viền phụ mờ), outputLine
-        // (đường + hạt output). Lấy từ hệ mode màu chung của app qua getComputedColor() (core/
-        // audio-analysis.js, global — nạp trước file này) thay vì bảng cố định. roleIndex/3 chỉ để
-        // 3 vai trò tách hue nhau ở mode 'gradient' (mode 'solid'/'dynamic' vốn không đổi theo
-        // index nên cả 3 vai trò cùng 1 màu — đúng ý "1 màu đồng bộ" của 2 mode đó). dataValue
-        // truyền cố định (không có audio thật) — chỉ mode 'gradient' đọc field này để lệch hue nhẹ.
-        const BRAIN_COLOR_DATA_VALUE = 128;
-        function getBrainRoleColor(roleIndex) {
-            return getComputedColor(roleIndex, 3, BRAIN_COLOR_DATA_VALUE); // { fill, fillNoAlpha, glow }
+const BRAIN_FILTER_FLUX_BAND_COUNT = 16;
+const BRAIN_FILTER_FLUX_DECAY_TAU_MS = 90;
+const BRAIN_FILTER_NODE_COUNT = 65;
+const BRAIN_IN_CP1_X = 0.2, BRAIN_IN_CP1_Y = 1.95, BRAIN_IN_CP2_X = 0.82, BRAIN_IN_END_Y = 0.65;
+const BRAIN_PUMP_BASELINE_TAU_MS = 800; // baseline chậm của beatScale — mức bass "nền" hiện tại
+const BRAIN_PUMP_ATTACK_TAU_MS = 40;
+const BRAIN_PUMP_RELEASE_TAU_MS = 260;
+const BRAIN_ORBIT_FALLBACK_BPM = 90;
+const BRAIN_ORBIT_SPEED_TAU_MS = 500;
+const BRAIN_ORBIT_TRAIL_STEP_RAD = 0.035;
+const BRAIN_ORBIT_CENTROID_LO = 0.5, BRAIN_ORBIT_CENTROID_HI = 0.85;
+const BRAIN_ORBIT_CENTROID_TAU_MS = 200;
+const BRAIN_STRING_COUNT = 7;
+const BRAIN_STRING_NATURAL_OF_PC = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6];
+const BRAIN_STRING_ENERGY_GAIN = 1.3;
+const BRAIN_STRING_VIB_HZ_BASE = 5;
+const BRAIN_STRING_VIB_HZ_STEP = 0.6;
+const BRAIN_STRING_SAMPLES = 48;
+const BRAIN_STRING_HARMONIC_SILENT = 0.02;
+const BRAIN_STRING_GAP_SMOOTH_TAU_MS = 150;
+const BRAIN_STRING_GAP_MAX_BACK = 0.8;
+const BRAIN_STRING_DOT_MAX = 10;
+const BRAIN_STRING_FALLBACK_BPM = 90;
+const BRAIN_STRING_END_FLASH_TAU_MS = 280;
+const BRAIN_STRING_END_DOT_RADIUS = 3.2;
+const BRAIN_ARC_LUT_SAMPLES = 64;
+const BRAIN_STAGE_ASPECT = 0.5625;
+const BRAIN_DIRECTION_MATRIX = {
+    ltr: [1, 0, 0, 1],
+    rtl: [-1, 0, 0, 1],
+    ttb: [0, 1, -1, 0],
+    btt: [0, -1, 1, 0],
+};
+const BRAIN_CONTENT_X0 = 0.07, BRAIN_CONTENT_X1 = 0.93, BRAIN_CONTENT_HALF_T = 0.36;
+const BRAIN_LAYOUT_MARGIN_FRAC = 0.06;
+const BRAIN_MAX_WIDTH_FRAC = 0.86;
+const BRAIN_MAX_LENGTH_FRAC = 0.8;
+
+// ===================== Trạng thái + tham số =====================
+
+/** Trạng thái brain (Workflow giữ, các core dưới sửa tại chỗ). */
+function createBrainState() {
+    return {
+        layoutKey: '',
+        layout: null, // computeBrainLayout()
+        filterNodes: [], inputPaths: [], outputPaths: [], particles: [], bursts: [],
+        flux: { prev: new Float32Array(BRAIN_FILTER_FLUX_BAND_COUNT), flash: new Float32Array(BRAIN_FILTER_FLUX_BAND_COUNT), target: new Float32Array(BRAIN_FILTER_FLUX_BAND_COUNT), primed: false, lastTime: 0 },
+        pump: { baseline: 0, envelope: 0, lastTime: 0 },
+        orbit: { phase: 0, speed: 0, centroid: 0, lastTime: 0 },
+        strings: { amp: new Float32Array(BRAIN_STRING_COUNT), endFlash: new Float32Array(BRAIN_STRING_COUNT), trains: [], prevNote: null, prevFresh: false, lastTime: 0 },
+    };
+}
+
+/** Tham số brain từ Custom Effect connector (THAY _applySettings() ghi đè biến module cũ). */
+function computeBrainTuning(st) {
+    const num = (v, fb) => (typeof v === 'number' && isFinite(v) ? v : fb);
+    return {
+        glowMult: st.glowEnabled === false ? 0 : num(st.glowIntensity, 100) / 100,
+        fluxNoiseFloor: num(st.fireThreshold, 0.55) * 0.04,
+        lateralK: num(st.lateralInhibitStrength, 70) / 150 * 0.5,
+        filterStrictness: num(st.brainFilterStrictness, 0.98),
+        speedMultiplier: num(st.brainInputSpeed, 1.5),
+        pumpSqueezeMax: num(st.brainPumpSqueeze, 22) / 100,
+        pumpGain: num(st.brainPumpSensitivity, 4),
+        fluxGain: num(st.brainNodeFlashSensitivity, 5),
+        stringAmpMaxFrac: 0.045 * num(st.brainStringAmplitude, 100) / 100,
+        stringDecayTauMs: num(st.brainStringDecayMs, 380),
+        stringDotBeatsPerRun: num(st.brainStringDotBeats, 2),
+        stringDotGapMin: num(st.brainStringDotGapMin, 2.5) / 100,
+        stringDotGapMax: num(st.brainStringDotGapMax, 10) / 100,
+        stringDotGapLive: st.brainStringDotGapLive !== false,
+        orbitDotCount: Math.round(num(st.brainOrbitDotCount, 8)),
+        orbitBeatsPerLap: num(st.brainOrbitBeatsPerLap, 8),
+        orbitTrailCount: Math.round(num(st.brainOrbitTrail, 6)),
+        showOrbit: st.brainShowOrbit !== false,
+        showNodes: st.brainShowNodes !== false,
+        showStrings: st.brainShowStrings !== false,
+        signalCount: Math.round(num(st.brainSignalCount, 120)),
+    };
+}
+
+// ===================== Bố cục (dựng lại khi đổi kích thước/hướng/số tín hiệu) =====================
+
+/** Khoá bố cục — đổi thì Workflow dựng lại toàn bộ đường/hạt/node. */
+function computeBrainLayoutKey(canvasWidth, canvasHeight, direction, signalCount) {
+    return [canvasWidth, canvasHeight, direction, signalCount].join('|');
+}
+
+/** Sân khấu logic (dài L theo hướng chảy) + ma trận đặt lên canvas theo hướng + vị trí 3 khối (nguồn, lọc, đích). */
+function computeBrainLayout(W, H, direction) {
+    const dir = BRAIN_DIRECTION_MATRIX[direction] ? direction : 'ltr';
+    const isVertical = dir === 'ttb' || dir === 'btt';
+    const availH = Math.max(1, H - 2 * H * BRAIN_LAYOUT_MARGIN_FRAC);
+    const alongK = BRAIN_CONTENT_X1 - BRAIN_CONTENT_X0;
+    const crossK = 2 * BRAIN_CONTENT_HALF_T * BRAIN_STAGE_ASPECT;
+    const kW = isVertical ? crossK : alongK, kH = isVertical ? alongK : crossK;
+    const L = Math.max(1, Math.min(W * BRAIN_MAX_WIDTH_FRAC / kW, availH / kH, Math.max(W, H) * BRAIN_MAX_LENGTH_FRAC));
+    const contentW = kW * L, contentH = kH * L;
+    const top = (H - contentH) / 2;
+    const width = L;
+    const stageH = L * BRAIN_STAGE_ASPECT;
+    const stageOffsetY = 0;
+    const [a, b, c, d] = BRAIN_DIRECTION_MATRIX[dir];
+    const xs = [BRAIN_CONTENT_X0 * L, BRAIN_CONTENT_X1 * L];
+    const ys = [stageH * (0.5 - BRAIN_CONTENT_HALF_T), stageH * (0.5 + BRAIN_CONTENT_HALF_T)];
+    let minX = Infinity, minY = Infinity;
+    xs.forEach((x) => ys.forEach((y) => {
+        minX = Math.min(minX, a * x + c * y);
+        minY = Math.min(minY, b * x + d * y);
+    }));
+    return {
+        width, stageH,
+        matrix: { a, b, c, d, e: (W - contentW) / 2 - minX, f: top - minY },
+        leftPersonPos: { x: width * 0.07, y: stageOffsetY + stageH * 0.5 },
+        rightPersonPos: { x: width * 0.93, y: stageOffsetY + stageH * 0.5 },
+        filterPos: { x: width * 0.54, y: stageOffsetY + stageH * 0.5, rx: width * 0.045, ry: stageH * 0.32 },
+    };
+}
+
+/** 65 node rải đều trong elip bộ lọc; gán dải tần (band) theo độ cao — dưới = trầm. */
+function buildBrainFilterNodes(filterPos) {
+    const nodes = [];
+    for (let i = 0; i < BRAIN_FILTER_NODE_COUNT; i++) {
+        const u = Math.random();
+        const v = Math.random();
+        const r = Math.sqrt(u);
+        const theta = v * 2 * Math.PI;
+        const nx = filterPos.x + r * Math.cos(theta) * (filterPos.rx * 0.88);
+        const ny = filterPos.y + r * Math.sin(theta) * (filterPos.ry * 0.88);
+        nodes.push({
+            x: nx, y: ny, baseX: nx, baseY: ny,
+            vx: (Math.random() - 0.5) * 0.3,
+            vy: (Math.random() - 0.5) * 0.3,
+            size: Math.random() * 2 + 1,
+            pulse: Math.random() * Math.PI * 2,
+            band: 0,
+        });
+    }
+    const byY = nodes.slice().sort((p, q) => q.baseY - p.baseY);
+    for (let k = 0; k < byY.length; k++) byY[k].band = Math.min(BRAIN_FILTER_FLUX_BAND_COUNT - 1, Math.floor(k / byY.length * BRAIN_FILTER_FLUX_BAND_COUNT));
+    return nodes;
+}
+
+/** Bó đường vào (nguồn -> mép trái bộ lọc) + 1 hạt trên mỗi đường (tạo xen kẽ đúng thứ tự cũ). */
+function buildBrainInputPathsAndParticles(signalCount, filterPos, leftPersonPos) {
+    const inputPaths = [], particles = [];
+    for (let i = 0; i < signalCount; i++) {
+        const lane = (i / (signalCount - 1)) * 2 - 1;
+        const endYRel = lane * BRAIN_IN_END_Y;
+        const targetY = filterPos.y + endYRel * filterPos.ry;
+        const targetX = filterPos.x - filterPos.rx * Math.sqrt(Math.max(0, 1 - endYRel * endYRel));
+        const D = targetX - leftPersonPos.x;
+        inputPaths.push({
+            p0: { x: leftPersonPos.x, y: leftPersonPos.y },
+            p1: { x: leftPersonPos.x + D * BRAIN_IN_CP1_X, y: leftPersonPos.y + lane * BRAIN_IN_CP1_Y * filterPos.ry },
+            p2: { x: leftPersonPos.x + D * BRAIN_IN_CP2_X, y: targetY },
+            p3: { x: targetX, y: targetY },
+            alpha: Math.random() * 0.15 + 0.1,
+            lane,
+        });
+        particles.push({ pathIndex: i, isInput: true, t: Math.random(), speed: (Math.random() * 0.003 + 0.002), size: Math.random() * 1.8 + 1, glow: 3 });
+    }
+    return { inputPaths, particles };
+}
+
+/** 7 dây ra (bộ lọc -> đích), uốn sóng xen kẽ. `arcLut` gắn sau bằng buildBrainArcLengthLut(). */
+function buildBrainOutputPaths(filterPos, rightPersonPos, width, stageH) {
+    const paths = [];
+    for (let i = 0; i < BRAIN_STRING_COUNT; i++) {
+        const lane = (i / (BRAIN_STRING_COUNT - 1)) * 2 - 1;
+        const startY = filterPos.y + lane * 0.45 * filterPos.ry;
+        const startX = filterPos.x + filterPos.rx * 0.4;
+        const endX = rightPersonPos.x - Math.random() * width * 0.1;
+        const endY = filterPos.y + lane * 0.75 * filterPos.ry;
+        const waveFactor = (i % 2 === 0 ? 1 : -1) * (stageH * 0.025);
+        paths.push({
+            p0: { x: startX, y: startY },
+            p1: { x: startX + (endX - startX) * 0.4, y: startY + waveFactor },
+            p2: { x: startX + (endX - startX) * 0.6, y: endY - waveFactor },
+            p3: { x: endX, y: endY },
+        });
+    }
+    return paths;
+}
+
+// ===================== Toán dùng chung =====================
+
+/** Điểm trên bezier bậc 3 tại t (0-1). */
+function computeBrainBezierPoint(p, t) {
+    const cx = 3 * (p.p1.x - p.p0.x);
+    const bx = 3 * (p.p2.x - p.p1.x) - cx;
+    const ax = p.p3.x - p.p0.x - cx - bx;
+    const cy = 3 * (p.p1.y - p.p0.y);
+    const by = 3 * (p.p2.y - p.p1.y) - cy;
+    const ay = p.p3.y - p.p0.y - cy - by;
+    return { x: ax * Math.pow(t, 3) + bx * Math.pow(t, 2) + cx * t + p.p0.x, y: ay * Math.pow(t, 3) + by * Math.pow(t, 2) + cy * t + p.p0.y };
+}
+
+/** Bảng độ dài cung chuẩn hoá từ BRAIN_ARC_LUT_SAMPLES + 1 điểm mẫu (Workflow lấy bằng computeBrainBezierPoint()). */
+function buildBrainArcLengthLut(samplePoints) {
+    const lut = new Float32Array(BRAIN_ARC_LUT_SAMPLES + 1);
+    let total = 0;
+    for (let k = 1; k <= BRAIN_ARC_LUT_SAMPLES; k++) {
+        total += Math.hypot(samplePoints[k].x - samplePoints[k - 1].x, samplePoints[k].y - samplePoints[k - 1].y);
+        lut[k] = total;
+    }
+    for (let k = 1; k <= BRAIN_ARC_LUT_SAMPLES; k++) lut[k] /= total || 1;
+    return lut;
+}
+
+/** Độ dài cung chuẩn hoá u -> tham số t (tìm nhị phân trên LUT) — dot chạy đều tốc độ dọc dây. */
+function computeBrainArcT(lut, u) {
+    if (u <= 0) return 0;
+    if (u >= 1) return 1;
+    let lo = 0, hi = BRAIN_ARC_LUT_SAMPLES;
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (lut[mid] < u) lo = mid; else hi = mid; }
+    const span = lut[hi] - lut[lo] || 1;
+    return (lo + (u - lut[lo]) / span) / BRAIN_ARC_LUT_SAMPLES;
+}
+
+/** Độ lệch y do rung của dây s tại t (biên độ theo stringAmp, bụng giữa dây, tần số rung riêng từng dây). */
+function computeBrainStringOffsetY(amp, stageH, ampMaxFrac, stringIdx, t, time) {
+    const hz = BRAIN_STRING_VIB_HZ_BASE + (6 - stringIdx) * BRAIN_STRING_VIB_HZ_STEP;
+    return amp * stageH * ampMaxFrac * Math.sin(Math.PI * t) * Math.sin(time * 0.001 * Math.PI * 2 * hz);
+}
+
+/** Tần số của nốt MIDI. */
+function computeBrainNoteFrequency(midiNote) {
+    return 440 * Math.pow(2, (midiNote - 69) / 12);
+}
+
+/** Năng lượng 0-1 quanh 1 tần số (đỉnh 3 bin lân cận). */
+function computeBrainFreqEnergy(freq, vizDataArray, bufferLength, sampleRate) {
+    if (!vizDataArray || !bufferLength) return 0;
+    const bin = Math.round(freq / ((sampleRate || 44100) / (bufferLength * 2)));
+    if (bin >= bufferLength) return 0;
+    let peak = 0;
+    for (let i = Math.max(0, bin - 1); i <= Math.min(bufferLength - 1, bin + 1); i++) peak = Math.max(peak, vizDataArray[i] || 0);
+    return peak / 255;
+}
+
+/** Trọng tâm phổ (thang log) chuẩn hoá 0-1 — phổ "sáng" -> dot quỹ đạo to/sáng hơn. */
+function computeBrainSpectralCentroid(vizDataArray, bufferLength) {
+    if (!vizDataArray || !bufferLength) return 0;
+    let sumV = 0, sumIV = 0;
+    for (let i = 1; i < bufferLength; i++) { const v = vizDataArray[i]; sumV += v; sumIV += i * v; }
+    if (sumV < bufferLength * 2) return 0;
+    const logPos = Math.log2(1 + sumIV / sumV) / Math.log2(bufferLength);
+    return Math.min(1, Math.max(0, (logPos - BRAIN_ORBIT_CENTROID_LO) / (BRAIN_ORBIT_CENTROID_HI - BRAIN_ORBIT_CENTROID_LO)));
+}
+
+/** Khoảng cách các dot của 1 đoàn theo năng lượng hoạ âm (`harmonicEnergies[j]` = hoạ âm bậc j+2) — hoạ âm mạnh dãn xa. */
+function computeBrainTrainOffsets(harmonicEnergies, gapMinRaw, gapMaxRaw) {
+    let maxE = 0;
+    harmonicEnergies.forEach((e) => { maxE = Math.max(maxE, e); });
+    const gapMin = Math.min(gapMinRaw, gapMaxRaw), gapMax = Math.max(gapMinRaw, gapMaxRaw);
+    const offsets = [0];
+    for (let j = 0; j < harmonicEnergies.length; j++) {
+        const rel = maxE < BRAIN_STRING_HARMONIC_SILENT ? 0.5 : harmonicEnergies[j] / maxE;
+        offsets.push(offsets[j] + gapMin + rel * (gapMax - gapMin));
+    }
+    return offsets;
+}
+
+/** Số dot của đoàn = số quãng tám của nốt (1-10). */
+function computeBrainTrainCount(midiNote) {
+    return Math.min(BRAIN_STRING_DOT_MAX, Math.max(1, Math.floor(midiNote / 12) - 1 + 1));
+}
+
+// ===================== Bước mỗi frame =====================
+
+/** Flux theo 16 dải (`bandEnergies[b]` 0-1, Workflow tính) -> chớp node bộ lọc, ức chế bên giữa dải kề, mờ dần. */
+function stepBrainFilterFlux(state, tuning, time, bandEnergies) {
+    const f = state.flux;
+    const dt = f.lastTime ? Math.min(100, Math.max(0, time - f.lastTime)) : 16;
+    f.lastTime = time;
+    const decay = Math.exp(-dt / BRAIN_FILTER_FLUX_DECAY_TAU_MS);
+    for (let b = 0; b < BRAIN_FILTER_FLUX_BAND_COUNT; b++) {
+        const cur = bandEnergies[b];
+        const flux = cur - f.prev[b];
+        f.target[b] = f.primed && flux > tuning.fluxNoiseFloor ? Math.min(1, (flux - tuning.fluxNoiseFloor) * tuning.fluxGain) : 0;
+        f.prev[b] = cur;
+    }
+    for (let b = 0; b < BRAIN_FILTER_FLUX_BAND_COUNT; b++) {
+        const left = b > 0 ? f.target[b - 1] : 0;
+        const right = b < BRAIN_FILTER_FLUX_BAND_COUNT - 1 ? f.target[b + 1] : 0;
+        const inhibited = Math.max(0, f.target[b] - tuning.lateralK * Math.max(left, right));
+        f.flash[b] = Math.max(f.flash[b] * decay, inhibited);
+    }
+    f.primed = true;
+}
+
+/** Bó đường vào "bóp" theo bass (bao đường beatScale vượt baseline). */
+function stepBrainInputPump(state, tuning, time, beatScale, isPlaying) {
+    const pump = state.pump, layout = state.layout;
+    const dt = pump.lastTime ? Math.min(100, Math.max(0, time - pump.lastTime)) : 16;
+    pump.lastTime = time;
+    const level = isPlaying && isFinite(beatScale) ? beatScale : 0;
+    pump.baseline += (level - pump.baseline) * (1 - Math.exp(-dt / BRAIN_PUMP_BASELINE_TAU_MS));
+    const drive = Math.min(1, Math.max(0, (level - pump.baseline) * tuning.pumpGain));
+    const tau = drive > pump.envelope ? BRAIN_PUMP_ATTACK_TAU_MS : BRAIN_PUMP_RELEASE_TAU_MS;
+    pump.envelope += (drive - pump.envelope) * (1 - Math.exp(-dt / tau));
+    const bulbY = BRAIN_IN_CP1_Y * layout.filterPos.ry * (1 - tuning.pumpSqueezeMax * pump.envelope);
+    for (let i = 0; i < state.inputPaths.length; i++) state.inputPaths[i].p1.y = layout.leftPersonPos.y + state.inputPaths[i].lane * bulbY;
+}
+
+/** Dot quỹ đạo quanh bộ lọc: 1 vòng / N beat theo BPM, kích thước/độ sáng theo trọng tâm phổ (`centroid`, Workflow tính). */
+function stepBrainOrbit(state, tuning, time, bpm, isPlaying, centroid) {
+    const o = state.orbit;
+    const dt = o.lastTime ? Math.min(100, Math.max(0, time - o.lastTime)) : 16;
+    o.lastTime = time;
+    const effBpm = isFinite(bpm) && bpm > 0 ? bpm : BRAIN_ORBIT_FALLBACK_BPM;
+    const targetSpeed = isPlaying ? (Math.PI * 2) * (effBpm / 60000) / tuning.orbitBeatsPerLap : 0;
+    o.speed += (targetSpeed - o.speed) * (1 - Math.exp(-dt / BRAIN_ORBIT_SPEED_TAU_MS));
+    o.phase = (o.phase + o.speed * dt) % (Math.PI * 2);
+    o.centroid += (centroid - o.centroid) * (1 - Math.exp(-dt / BRAIN_ORBIT_CENTROID_TAU_MS));
+}
+
+/** Nốt hiện tại trên 7 dây ra: dây ứng bậc nốt rung theo năng lượng nốt (`noteEnergy`), dây khác tắt dần; đầu dây chớp
+ * mờ dần. Trả { dt, newTrain } — `newTrain` = đoàn dot cần bắt đầu (nốt mới vừa vang) hoặc null; Workflow tính khoảng
+ * cách dot rồi gọi startBrainStringTrain(). */
+function stepBrainStringNote(state, tuning, time, midiNote, noteFresh, isPlaying, bpm, noteEnergy) {
+    const st = state.strings;
+    const dt = st.lastTime ? Math.min(100, Math.max(0, time - st.lastTime)) : 16;
+    st.lastTime = time;
+    const decay = Math.exp(-dt / tuning.stringDecayTauMs);
+    const fresh = !!noteFresh && !!isPlaying && midiNote !== null && midiNote !== undefined;
+    const sounding = fresh && state.outputPaths.length === BRAIN_STRING_COUNT;
+    const activeIdx = sounding ? 6 - BRAIN_STRING_NATURAL_OF_PC[((midiNote % 12) + 12) % 12] : -1;
+    const targetAmp = sounding ? Math.min(1, noteEnergy * BRAIN_STRING_ENERGY_GAIN) : 0;
+    const isNewNote = sounding && (!st.prevFresh || midiNote !== st.prevNote);
+    const effBpm = isFinite(bpm) && bpm > 0 ? bpm : BRAIN_STRING_FALLBACK_BPM;
+    const newTrain = isNewNote ? { stringIdx: activeIdx, startTime: time, count: 0, midi: midiNote, runMs: tuning.stringDotBeatsPerRun * 60000 / effBpm, arrived: 0 } : null;
+    st.prevFresh = fresh;
+    st.prevNote = midiNote;
+    for (let s = 0; s < st.amp.length; s++) st.amp[s] = s === activeIdx ? Math.max(st.amp[s] * decay, targetAmp) : st.amp[s] * decay;
+    const endDecay = Math.exp(-dt / BRAIN_STRING_END_FLASH_TAU_MS);
+    for (let s = 0; s < st.endFlash.length; s++) st.endFlash[s] *= endDecay;
+    return { dt, newTrain };
+}
+
+/** Thêm 1 đoàn dot (số dot + khoảng cách do Workflow tính). */
+function startBrainStringTrain(state, train, count, offsets) {
+    train.count = count;
+    train.offsets = offsets;
+    state.strings.trains.push(train);
+}
+
+/** Tiến các đoàn dot dọc dây: bám khoảng cách hoạ âm mới (`liveTargets[k]`, null = không bám), đếm dot tới đích (chớp
+ * đầu dây), bỏ đoàn đã tới hết. */
+function advanceBrainStringTrains(state, tuning, time, dt, liveTargets) {
+    const st = state.strings;
+    const gapAlpha = 1 - Math.exp(-dt / BRAIN_STRING_GAP_SMOOTH_TAU_MS);
+    const halfMinGap = Math.min(tuning.stringDotGapMin, tuning.stringDotGapMax) * 0.5;
+    for (let k = st.trains.length - 1; k >= 0; k--) {
+        const tr = st.trains[k];
+        const head = (time - tr.startTime) / tr.runMs;
+        const target = liveTargets[k];
+        const maxBack = (dt / tr.runMs) * BRAIN_STRING_GAP_MAX_BACK;
+        for (let j = Math.max(1, tr.arrived); target && j < tr.count; j++) {
+            let next = tr.offsets[j] + (target[j] - tr.offsets[j]) * gapAlpha;
+            next = Math.min(next, tr.offsets[j] + maxBack);
+            next = Math.max(next, tr.offsets[j - 1] + halfMinGap);
+            tr.offsets[j] = next;
         }
+        let arrived = 0;
+        while (arrived < tr.count && head - tr.offsets[arrived] >= 1) arrived++;
+        st.endFlash[tr.stringIdx] = arrived > tr.arrived ? 1 : st.endFlash[tr.stringIdx];
+        tr.arrived = Math.max(tr.arrived, arrived);
+        if (head - tr.offsets[tr.count - 1] > 1) st.trains.splice(k, 1);
+    }
+}
 
-        // KEO (23/09/2026, Giang chốt "spectral flux theo dải" cho node trong ellipse) — node loé theo
-        // độ TĂNG ĐỘT NGỘT năng lượng dải của chính nó (onset/transient), không theo mức năng lượng
-        // (trục thời gian đã dùng mức — xem drawTimeline()). `FILTER_FLUX_BAND_COUNT` dải tonotopic
-        // (log, tonotopicBinRange() qua computeNeuronBinEnergy(), core/visualizer/groups/connector/
-        // synapse.js); node gán dải theo THỨ HẠNG baseY (chia đều số node mỗi dải — ellipse hẹp ở 2
-        // đầu nên chia theo toạ độ thẳng sẽ lệch số node), đáy = dải 0 (bass), đỉnh = dải cao nhất.
-        // KHÔNG dùng `previousSpectrumArray` của app: nó bị updateStatsDashboard() ghi đè bằng frame
-        // hiện tại TRƯỚC khi brain vẽ (lệch = 0) -> tự giữ bản sao frame trước theo từng dải
-        // (`filterBandPrev`). Loé: attack tức thì (lấy max), decay theo thời gian thật (hàm mũ,
-        // FILTER_FLUX_DECAY_TAU_MS) — không phụ thuộc fps.
-        const FILTER_FLUX_BAND_COUNT = 16;
-        let FILTER_FLUX_NOISE_FLOOR = 0.02;  // flux (0-1) dưới mức này coi là nhiễu FFT, bỏ qua
-        let FILTER_FLUX_GAIN = 5;            // (flux - noise floor) × gain -> độ loé mục tiêu, kẹp 0-1
-        const FILTER_FLUX_DECAY_TAU_MS = 90;   // hằng số thời gian tắt — ~200ms thì gần như tắt hẳn
-        let filterBandPrev = new Float32Array(FILTER_FLUX_BAND_COUNT);
-        let filterBandFlash = new Float32Array(FILTER_FLUX_BAND_COUNT);
-        let _filterBandTarget = new Float32Array(FILTER_FLUX_BAND_COUNT);
-        let FILTER_LATERAL_K = 0.23; // 0-0.5 — lateralInhibitStrength (0-150) quy đổi, xem _applySettings()
-        let _filterFluxPrimed = false; // frame đầu chỉ lấy baseline — tránh loé toàn bộ do lệch từ 0 lên
-        let _filterFluxLastTime = 0;
+/** Hạt trên đường vào tiến theo tốc độ × hệ số. */
+function advanceBrainParticles(particles, speedMultiplier) {
+    particles.forEach((p) => { p.t += p.speed * speedMultiplier; });
+}
 
-        /** Mỗi frame: tính flux dương từng dải -> cập nhật độ loé từng dải (attack tức thì, decay
-         * mũ theo dt thật). Chưa có dữ liệu FFT (audio context chưa init) thì chỉ decay dần. */
-        function _updateFilterNodeFlux(time, vizDataArray, bufferLength) {
-            const dt = _filterFluxLastTime ? Math.min(100, Math.max(0, time - _filterFluxLastTime)) : 16;
-            _filterFluxLastTime = time;
-            const decay = Math.exp(-dt / FILTER_FLUX_DECAY_TAU_MS);
-            const hasData = !!(vizDataArray && bufferLength);
+/** Hạt tới cuối đường (t >= 1): bị bộ lọc chặn (xác suất theo strictness) -> nổ đốm tại chỗ; hạt 1 lần (burst) bị bỏ,
+ * hạt thường quay về đầu với tốc độ mới. `points[i]` = vị trí hạt i (null = không có đường). Duyệt ngược như bản cũ. */
+function settleBrainParticles(particles, points, bursts, filterStrictness, burstColor) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        const pt = points[i];
+        if (!pt || p.t < 1) continue;
+        const passFilter = Math.random() > filterStrictness;
+        if (!passFilter) bursts.push({ x: pt.x, y: pt.y, radius: Math.random() * 4 + 2, alpha: 0.8, color: burstColor });
+        if (p.oneShot) { particles.splice(i, 1); continue; }
+        p.t = 0;
+        p.speed = Math.random() * 0.003 + 0.002;
+    }
+}
 
-            for (let b = 0; b < FILTER_FLUX_BAND_COUNT; b++) {
-                let target = 0;
-                if (hasData) {
-                    const cur = computeNeuronBinEnergy(vizDataArray, bufferLength, b, FILTER_FLUX_BAND_COUNT) / 255; // core/visualizer/groups/connector/synapse.js
-                    if (_filterFluxPrimed) {
-                        const flux = cur - filterBandPrev[b];
-                        if (flux > FILTER_FLUX_NOISE_FLOOR) target = Math.min(1, (flux - FILTER_FLUX_NOISE_FLOOR) * FILTER_FLUX_GAIN);
-                    }
-                    filterBandPrev[b] = cur;
-                }
-                _filterBandTarget[b] = target;
-            }
-            // Lateral inhibition (23/09/2026 — nối field sẵn có lateralInhibitStrength): dải loé đè bớt
-            // độ loé mục tiêu của 2 dải KỀ nó (tính trên mảng target GỐC, không dây chuyền) — tránh cả
-            // cụm dải cùng loé vì 1 tiếng động phổ rộng, cùng tinh thần applyLateralInhibition() của synapse.
-            for (let b = 0; b < FILTER_FLUX_BAND_COUNT; b++) {
-                const left = b > 0 ? _filterBandTarget[b - 1] : 0;
-                const right = b < FILTER_FLUX_BAND_COUNT - 1 ? _filterBandTarget[b + 1] : 0;
-                const inhibited = Math.max(0, _filterBandTarget[b] - FILTER_LATERAL_K * Math.max(left, right));
-                filterBandFlash[b] = Math.max(filterBandFlash[b] * decay, inhibited);
-            }
-            if (hasData) _filterFluxPrimed = true;
-        }
+/** Đốm nổ lớn dần + mờ dần; tắt hẳn thì bỏ. */
+function advanceBrainBursts(bursts) {
+    for (let b = bursts.length - 1; b >= 0; b--) {
+        bursts[b].radius += 0.3;
+        bursts[b].alpha -= 0.06;
+        if (bursts[b].alpha <= 0) bursts.splice(b, 1);
+    }
+}
 
-        // KEO (23/09/2026) — hệ số hình dạng tia input (fit từ ảnh mẫu, xem initNodesAndPaths()) — đưa
-        // ra scope ngoài vì _updateInputPump() cần IN_CP1_Y để tính lại cp1 mỗi frame.
-        const IN_CP1_X = 0.2, IN_CP1_Y = 1.95, IN_CP2_X = 0.82, IN_END_Y = 0.65;
+/** Node bộ lọc lắc nhẹ quanh vị trí gốc. */
+function advanceBrainFilterNodes(nodes) {
+    nodes.forEach((node) => {
+        node.pulse += 0.04;
+        node.x = node.baseX + Math.sin(node.pulse) * 2;
+        node.y = node.baseY + Math.cos(node.pulse) * 2;
+    });
+}
 
-        // KEO (23/09/2026, Giang — tia input "co bóp") — xem điểm lệch (6) đầu file.
-        const PUMP_BASELINE_TAU_MS = 800;  // baseline chậm của beatScale — mức bass "nền" hiện tại
-        let PUMP_GAIN = 4;               // (beatScale - baseline) × gain -> lực bóp mục tiêu, kẹp 0-1
-        const PUMP_ATTACK_TAU_MS = 40;     // bóp vào nhanh
-        const PUMP_RELEASE_TAU_MS = 260;   // nhả ra chậm
-        let PUMP_SQUEEZE_MAX = 0.22;     // bóp hết cỡ = bụng thắt 22%
-        let pumpBaseline = 0, pumpEnvelope = 0, _pumpLastTime = 0;
+/** Nhạc chuyển đoạn: bắn thêm 25 hạt nhanh (1 lần) vào các đường vào ngẫu nhiên. */
+function triggerBrainBurst(state) {
+    for (let i = 0; i < 25; i++) {
+        state.particles.push({
+            pathIndex: Math.floor(Math.random() * state.inputPaths.length), isInput: true, t: 0,
+            speed: Math.random() * 0.008 + 0.005, size: Math.random() * 2.5 + 1.5, glow: 8, oneShot: true,
+        });
+    }
+}
 
-        /** Mỗi frame: cập nhật envelope bóp rồi tính lại cp1.y của mọi tia input (hạt đang chạy
-         * trên path nên tự đi theo hình mới). Không phát nhạc -> nhả dần về 0. */
-        function _updateInputPump(time, beatScale, isPlaying) {
-            const dt = _pumpLastTime ? Math.min(100, Math.max(0, time - _pumpLastTime)) : 16;
-            _pumpLastTime = time;
-            const level = isPlaying && isFinite(beatScale) ? beatScale : 0;
-            pumpBaseline += (level - pumpBaseline) * (1 - Math.exp(-dt / PUMP_BASELINE_TAU_MS));
-            const drive = Math.min(1, Math.max(0, (level - pumpBaseline) * PUMP_GAIN));
-            const tau = drive > pumpEnvelope ? PUMP_ATTACK_TAU_MS : PUMP_RELEASE_TAU_MS;
-            pumpEnvelope += (drive - pumpEnvelope) * (1 - Math.exp(-dt / tau));
+// ===================== Vẽ (chỉ Canvas API) =====================
 
-            const bulbY = IN_CP1_Y * filterPos.ry * (1 - PUMP_SQUEEZE_MAX * pumpEnvelope);
-            for (let i = 0; i < inputPaths.length; i++) {
-                inputPaths[i].p1.y = leftPersonPos.y + inputPaths[i].lane * bulbY;
-            }
-        }
+/** Mở lớp vẽ brain: lưu trạng thái canvas + đặt ma trận hướng chảy. */
+function beginBrainPaint(ctx, matrix) {
+    ctx.save();
+    ctx.transform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
+}
 
-        // KEO (23/09/2026, Giang — dot chạy quanh ellipse) — xem điểm lệch (7) đầu file. Dot chạy trên
-        // đúng vòng phụ (rx×1.08, ry×1.05) đã vẽ sẵn ở drawBrainFilter(), đều nhau, mỗi dot kéo đuôi
-        // ORBIT_TRAIL_COUNT điểm mờ dần. Chưa có BPM ("---") -> ORBIT_FALLBACK_BPM. Tốc độ + centroid
-        // đều làm mượt theo thời gian thật (không giật khi BPM nhảy số).
-        let ORBIT_DOT_COUNT = 8;
-        let ORBIT_BEATS_PER_LAP = 8;
-        const ORBIT_FALLBACK_BPM = 90;
-        const ORBIT_SPEED_TAU_MS = 500;
-        let ORBIT_TRAIL_COUNT = 6;
-        const ORBIT_TRAIL_STEP_RAD = 0.035;
-        const ORBIT_CENTROID_LO = 0.5, ORBIT_CENTROID_HI = 0.85; // log-centroid thô -> 0-1 (âm trầm -> 0, âm sáng -> 1)
-        const ORBIT_CENTROID_TAU_MS = 200;
-        let orbitPhase = 0, orbitSpeed = 0, orbitCentroid = 0, _orbitLastTime = 0;
+/** Lưu / trả trạng thái canvas quanh 1 lớp con. */
+function saveBrainCanvas(ctx) {
+    ctx.save();
+}
+function restoreBrainCanvas(ctx) {
+    ctx.restore();
+}
 
-        /** Spectral centroid của khung FFT, quy về 0-1 theo thang log (bin trọng tâm / số bin). */
-        function _computeCentroidNorm(vizDataArray, bufferLength) {
-            if (!vizDataArray || !bufferLength) return 0;
-            let sumV = 0, sumIV = 0;
-            for (let i = 1; i < bufferLength; i++) { const v = vizDataArray[i]; sumV += v; sumIV += i * v; }
-            if (sumV < bufferLength * 2) return 0; // gần như im lặng
-            const logPos = Math.log2(1 + sumIV / sumV) / Math.log2(bufferLength);
-            return Math.min(1, Math.max(0, (logPos - ORBIT_CENTROID_LO) / (ORBIT_CENTROID_HI - ORBIT_CENTROID_LO)));
-        }
+/** Bó đường vào (bezier mảnh, alpha riêng từng đường). */
+function drawBrainInputCurves(ctx, inputPaths, color) {
+    ctx.save();
+    inputPaths.forEach((path) => {
+        ctx.beginPath();
+        ctx.moveTo(path.p0.x, path.p0.y);
+        ctx.bezierCurveTo(path.p1.x, path.p1.y, path.p2.x, path.p2.y, path.p3.x, path.p3.y);
+        ctx.strokeStyle = color.fill;
+        ctx.globalAlpha = path.alpha;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    });
+    ctx.restore();
+}
 
-        function _updateOrbitDots(time, bpm, isPlaying, vizDataArray, bufferLength) {
-            const dt = _orbitLastTime ? Math.min(100, Math.max(0, time - _orbitLastTime)) : 16;
-            _orbitLastTime = time;
-            const effBpm = isFinite(bpm) && bpm > 0 ? bpm : ORBIT_FALLBACK_BPM;
-            const targetSpeed = isPlaying ? (Math.PI * 2) * (effBpm / 60000) / ORBIT_BEATS_PER_LAP : 0; // rad/ms
-            orbitSpeed += (targetSpeed - orbitSpeed) * (1 - Math.exp(-dt / ORBIT_SPEED_TAU_MS));
-            orbitPhase = (orbitPhase + orbitSpeed * dt) % (Math.PI * 2);
-            const c = isPlaying ? _computeCentroidNorm(vizDataArray, bufferLength) : 0;
-            orbitCentroid += (c - orbitCentroid) * (1 - Math.exp(-dt / ORBIT_CENTROID_TAU_MS));
-        }
+/** Hạt trên đường vào (duyệt ngược như bản cũ), mờ ở 2 đầu đường. */
+function drawBrainParticles(ctx, particles, points, color, glowMult) {
+    ctx.save();
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i], pt = points[i];
+        if (!pt) continue;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = color.glow;
+        ctx.shadowColor = color.glow;
+        ctx.shadowBlur = (p.glow) * glowMult;
+        ctx.globalAlpha = Math.sin(p.t * Math.PI);
+        ctx.fill();
+    }
+    ctx.restore();
+}
 
-        function drawOrbitDots() {
-            const primary = getBrainRoleColor(0);
-            const orx = filterPos.rx * 1.08, ory = filterPos.ry * 1.05;
-            const baseR = Math.max(1.5, filterPos.rx * 0.05) * (1 + orbitCentroid * 0.8);
-            ctx.save();
-            ctx.fillStyle = primary.glow;
-            ctx.shadowColor = primary.glow;
-            for (let d = 0; d < ORBIT_DOT_COUNT; d++) {
-                const a0 = orbitPhase + d * (Math.PI * 2 / ORBIT_DOT_COUNT);
-                for (let k = ORBIT_TRAIL_COUNT; k >= 0; k--) { // đuôi trước, đầu dot vẽ sau cùng (đè lên)
-                    const a = a0 - k * ORBIT_TRAIL_STEP_RAD;
-                    const fade = 1 - k / (ORBIT_TRAIL_COUNT + 1);
-                    ctx.globalAlpha = (0.35 + 0.65 * orbitCentroid) * fade;
-                    ctx.shadowBlur = (k === 0 ? 6 + orbitCentroid * 12 : 0) * glowMult;
-                    ctx.beginPath();
-                    ctx.arc(filterPos.x + Math.cos(a) * orx, filterPos.y + Math.sin(a) * ory, baseR * (0.4 + 0.6 * fade), 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-            ctx.restore();
-        }
+/** Đốm nổ (hạt bị lọc chặn). */
+function drawBrainBursts(ctx, bursts, glowMult) {
+    ctx.save();
+    for (let b = bursts.length - 1; b >= 0; b--) {
+        const burst = bursts[b];
+        ctx.beginPath();
+        ctx.arc(burst.x, burst.y, burst.radius, 0, Math.PI * 2);
+        ctx.fillStyle = burst.color;
+        ctx.globalAlpha = burst.alpha;
+        ctx.shadowColor = burst.color;
+        ctx.shadowBlur = (6) * glowMult;
+        ctx.fill();
+    }
+    ctx.restore();
+}
 
-        // KEO (23/09/2026, Giang — "7 dây = 7 nốt cơ bản") — xem điểm lệch (8) đầu file.
-        const STRING_NATURAL_OF_PC = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6]; // pitch class -> C D E F G A B (thăng -> nốt tự nhiên ngay dưới)
-        let STRING_AMP_MAX_FRAC = 0.045;     // biên độ rung tối đa × stageH (T)
-        let STRING_DECAY_TAU_MS = 380;       // tắt dần đàn hồi sau khi nốt ngưng/đổi dây
-        const STRING_ENERGY_GAIN = 1.3;        // năng lượng FFT tại tần số nốt (0-1) × gain -> biên độ mục tiêu, kẹp 0-1
-        const STRING_VIB_HZ_BASE = 5;          // tần số rung (nhìn thấy) của dây C
-        const STRING_VIB_HZ_STEP = 0.6;        // mỗi dây cao hơn rung nhanh hơn chút
-        const STRING_SAMPLES = 48;             // số đoạn polyline khi vẽ 1 dây đang rung
-        let STRING_DOT_BEATS_PER_RUN = 2;    // 1 dot chạy hết dây trong N beat (theo BPM lúc bắn)
-        // SỬA (23/09/2026, Giang — "khoảng cách giữa các dot phải dựa trên tham số audio, không đều") —
-        // bỏ khoảng cách cố định STRING_DOT_SPACING. Khoảng cách giữa dot j và j+1 theo PHỔ HOÀ ÂM của
-        // nốt lúc bắn: năng lượng hoạ âm thứ (j+2) (tần số (j+2)·f0 — hoạ âm 2, 3, 4...), chuẩn hoá theo
-        // hoạ âm mạnh nhất trong đoàn -> hoạ âm mạnh = cách xa, yếu = sát nhau. Mỗi nhạc cụ/giọng có
-        // âm sắc khác nhau nên cùng 1 nốt ra "nhịp dot" khác nhau. Tham số này chưa phần nào dùng
-        // (dây đã dùng: năng lượng nốt = biên độ rung, quãng = số dot, BPM = tốc độ). Khoảng cách tính
-        // theo phân số ĐỘ DÀI dây (u 0-1). Min/max là Custom Effect.
-        let STRING_DOT_GAP_MIN = 0.025;       // hoạ âm yếu nhất (hoặc không có) -> 2.5% độ dài dây
-        let STRING_DOT_GAP_MAX = 0.1;         // hoạ âm mạnh nhất -> 10%
-        const STRING_HARMONIC_SILENT = 0.02;  // cả đoàn đều dưới mức này -> coi như không có hoạ âm, dùng khoảng giữa
-        // MỚI (23/09/2026, Giang — "co giãn liên tục trong lúc chạy") — bật `STRING_DOT_GAP_LIVE` thì mỗi
-        // frame tính lại khoảng cách theo hoạ âm HIỆN TẠI của nốt của đoàn, rồi trượt dần tới đó:
-        //  - EMA theo dt thật (STRING_GAP_SMOOTH_TAU_MS) — chặn giật do FFT thô;
-        //  - mỗi frame 1 dot chỉ được lùi tối đa STRING_GAP_MAX_BACK × quãng đầu đoàn vừa tiến -> dot
-        //    luôn còn đi TỚI (chậm lại/nhanh lên), không bao giờ chạy lùi;
-        //  - dot đã chạm dot cuối thì khoá vị trí (không "hiện lại" trên dây), dot sau luôn cách dot
-        //    trước ≥ nửa khoảng min (không chồng/vượt nhau).
-        let STRING_DOT_GAP_LIVE = true;
-        const STRING_GAP_SMOOTH_TAU_MS = 150;
-        const STRING_GAP_MAX_BACK = 0.8;
-        const STRING_DOT_MAX = 10;             // quãng -1..9 -> 1..10 dot
-        const STRING_FALLBACK_BPM = 90;
-        let stringAmp = new Float32Array(7);   // biên độ hiện tại (0-1) từng dây, index = outputPaths
-        let stringTrains = [];                 // { stringIdx, startTime, count, runMs, arrived }
-        let stringEndFlash = new Float32Array(7); // độ loé (0-1) dot cuối từng dây
-        const STRING_END_FLASH_TAU_MS = 280;   // dot cuối tắt dần sau mỗi lần 1 dot chạm tới
-        const STRING_END_DOT_RADIUS = 3.2;     // bán kính dot cuối lúc nghỉ (to lên tới 2× khi loé)
-        let _stringPrevNote = null, _stringPrevFresh = false, _stringLastTime = 0;
+/** 7 dây ra: dây đứng yên vẽ bezier, dây đang rung vẽ theo điểm mẫu (`lines[s]`, null = đứng yên) + đoàn dot
+ * (`trainDots`, đã tính vị trí/alpha) + chấm đầu dây chớp khi dot tới. */
+function drawBrainOutputStrings(ctx, outputPaths, amps, lines, trainDots, endFlash, color, glowMult) {
+    ctx.save();
+    ctx.strokeStyle = color.fill;
+    ctx.shadowColor = color.glow;
+    for (let s = 0; s < outputPaths.length; s++) {
+        const amp = amps[s];
+        const line = lines[s];
+        const path = outputPaths[s];
+        ctx.beginPath();
+        if (line) line.forEach((pt, k) => (k === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)));
+        else { ctx.moveTo(path.p0.x, path.p0.y); ctx.bezierCurveTo(path.p1.x, path.p1.y, path.p2.x, path.p2.y, path.p3.x, path.p3.y); }
+        ctx.globalAlpha = 0.65 + 0.35 * amp;
+        ctx.lineWidth = 2 + amp * 1.5;
+        ctx.shadowBlur = (8 + amp * 10) * glowMult;
+        ctx.stroke();
+    }
+    ctx.fillStyle = color.glow;
+    ctx.shadowBlur = (12) * glowMult;
+    trainDots.forEach((dot) => {
+        ctx.globalAlpha = dot.alpha;
+        ctx.beginPath();
+        ctx.arc(dot.x, dot.y, 2.8, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    for (let s = 0; s < outputPaths.length; s++) {
+        const end = outputPaths[s].p3;
+        const flash = endFlash[s];
+        ctx.globalAlpha = 0.5 + 0.5 * flash;
+        ctx.shadowBlur = (6 + flash * 20) * glowMult;
+        ctx.beginPath();
+        ctx.arc(end.x, end.y, BRAIN_STRING_END_DOT_RADIUS * (1 + flash), 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.restore();
+}
 
-        /** Năng lượng FFT (0-1) tại tần số `freq` — đỉnh của bin gần nhất ±1. Vượt dải FFT -> 0. */
-        function _freqBinEnergy(freq, vizDataArray, bufferLength, sampleRate) {
-            if (!vizDataArray || !bufferLength) return 0;
-            const binWidth = (sampleRate || 44100) / (bufferLength * 2);
-            const bin = Math.round(freq / binWidth);
-            if (bin >= bufferLength) return 0;
-            let peak = 0;
-            for (let i = Math.max(0, bin - 1); i <= Math.min(bufferLength - 1, bin + 1); i++) peak = Math.max(peak, vizDataArray[i] || 0);
-            return peak / 255;
-        }
+/** Vỏ bộ lọc: elip chính (glow) + elip phụ nhịp thở + nền gradient. Để nguyên trạng thái canvas cho lớp node vẽ tiếp
+ * (dùng chung shadow) — Workflow bọc bằng saveBrainCanvas()/restoreBrainCanvas(). */
+function drawBrainFilterShell(ctx, filterPos, time, primary, secondary, glowMult) {
+    ctx.beginPath();
+    ctx.ellipse(filterPos.x, filterPos.y, filterPos.rx, filterPos.ry, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = primary.fill;
+    ctx.lineWidth = 3;
+    ctx.shadowColor = primary.glow;
+    ctx.shadowBlur = (20) * glowMult;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(filterPos.x, filterPos.y, filterPos.rx * 1.08, filterPos.ry * 1.05, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = secondary.fill;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.4 + Math.sin(time * 0.003) * 0.2;
+    ctx.stroke();
+    const fillGrad = ctx.createRadialGradient(filterPos.x, filterPos.y, 5, filterPos.x, filterPos.y, filterPos.ry);
+    fillGrad.addColorStop(0, 'rgba(15, 23, 42, 0.7)');
+    fillGrad.addColorStop(0.8, 'rgba(30, 41, 59, 0.4)');
+    fillGrad.addColorStop(1, 'rgba(56, 189, 248, 0.05)');
+    ctx.fillStyle = fillGrad;
+    ctx.fill();
+}
 
-        /** Năng lượng FFT (0-1) tại đúng tần số nốt MIDI. */
-        function _noteBinEnergy(midiNote, vizDataArray, bufferLength, sampleRate) {
-            return _freqBinEnergy(440 * Math.pow(2, (midiNote - 69) / 12), vizDataArray, bufferLength, sampleRate);
-        }
-
-        /** Vị trí (phân số độ dài, lùi sau đầu đoàn) của từng dot trong đoàn: offsets[0] = 0, khoảng
-         * cách j -> j+1 theo năng lượng hoạ âm (j+2) của nốt, chuẩn hoá theo hoạ âm mạnh nhất. */
-        function _computeTrainOffsets(midiNote, count, frame) {
-            const f0 = 440 * Math.pow(2, (midiNote - 69) / 12);
-            const energies = [];
-            let maxE = 0;
-            for (let j = 0; j < count - 1; j++) {
-                const e = _freqBinEnergy(f0 * (j + 2), frame.vizDataArray, frame.bufferLength, frame.sampleRate);
-                energies.push(e);
-                maxE = Math.max(maxE, e);
-            }
-            const gapMin = Math.min(STRING_DOT_GAP_MIN, STRING_DOT_GAP_MAX), gapMax = Math.max(STRING_DOT_GAP_MIN, STRING_DOT_GAP_MAX);
-            const offsets = [0];
-            for (let j = 0; j < energies.length; j++) {
-                const rel = maxE < STRING_HARMONIC_SILENT ? 0.5 : energies[j] / maxE;
-                offsets.push(offsets[j] + gapMin + rel * (gapMax - gapMin));
-            }
-            return offsets;
-        }
-
-        /** Mỗi frame: dây của nốt đang phát giữ biên độ = năng lượng nốt (lấy max với phần đang tắt
-         * dần), mọi dây khác tắt dần đàn hồi. Nốt MỚI (đổi nốt / quay lại sau khi hết "tươi") -> bắn
-         * 1 đoàn dot: số dot theo quãng, thời gian chạy hết dây theo BPM lúc bắn. */
-        function _updateStrings(time, frame) {
-            const dt = _stringLastTime ? Math.min(100, Math.max(0, time - _stringLastTime)) : 16;
-            _stringLastTime = time;
-            const decay = Math.exp(-dt / STRING_DECAY_TAU_MS);
-            const midi = frame.midiNote;
-            const fresh = !!frame.noteFresh && !!frame.isPlaying && midi !== null && midi !== undefined;
-            let activeIdx = -1, targetAmp = 0;
-            if (fresh && outputPaths.length === 7) {
-                activeIdx = 6 - STRING_NATURAL_OF_PC[((midi % 12) + 12) % 12]; // C = dây dưới cùng (index 6)
-                targetAmp = Math.min(1, _noteBinEnergy(midi, frame.vizDataArray, frame.bufferLength, frame.sampleRate) * STRING_ENERGY_GAIN);
-                if (!_stringPrevFresh || midi !== _stringPrevNote) {
-                    const octave = Math.floor(midi / 12) - 1; // -1..9
-                    const bpm = isFinite(frame.bpm) && frame.bpm > 0 ? frame.bpm : STRING_FALLBACK_BPM;
-                    const count = Math.min(STRING_DOT_MAX, Math.max(1, octave + 1));
-                    stringTrains.push({
-                        stringIdx: activeIdx,
-                        startTime: time,
-                        count,
-                        midi, // nốt của đoàn — tính lại hoạ âm mỗi frame khi STRING_DOT_GAP_LIVE bật
-                        offsets: _computeTrainOffsets(midi, count, frame), // khoảng cách theo hoạ âm, xem STRING_DOT_GAP_*
-                        runMs: STRING_DOT_BEATS_PER_RUN * 60000 / bpm,
-                        arrived: 0 // số dot đã chạm dot cuối dây
-                    });
-                }
-            }
-            _stringPrevFresh = fresh;
-            _stringPrevNote = midi;
-            for (let s = 0; s < stringAmp.length; s++) {
-                stringAmp[s] = s === activeIdx ? Math.max(stringAmp[s] * decay, targetAmp) : stringAmp[s] * decay;
-            }
-            // Dot cuối dây (23/09/2026): mỗi dot của đoàn chạm cuối dây -> dot cuối loé lại (attack tức
-            // thì), rồi tắt dần mũ theo dt thật. Đếm số dot ĐÃ tới đích để loé đúng 1 lần/dot.
-            const endDecay = Math.exp(-dt / STRING_END_FLASH_TAU_MS);
-            for (let s = 0; s < stringEndFlash.length; s++) stringEndFlash[s] *= endDecay;
-            const gapAlpha = 1 - Math.exp(-dt / STRING_GAP_SMOOTH_TAU_MS);
-            const halfMinGap = Math.min(STRING_DOT_GAP_MIN, STRING_DOT_GAP_MAX) * 0.5;
-            for (let k = stringTrains.length - 1; k >= 0; k--) {
-                const tr = stringTrains[k];
-                const head = (time - tr.startTime) / tr.runMs;
-                if (STRING_DOT_GAP_LIVE && tr.count > 1) {
-                    const target = _computeTrainOffsets(tr.midi, tr.count, frame);
-                    const maxBack = (dt / tr.runMs) * STRING_GAP_MAX_BACK; // offset tăng = dot lùi lại so với đầu đoàn
-                    for (let j = Math.max(1, tr.arrived); j < tr.count; j++) {
-                        let next = tr.offsets[j] + (target[j] - tr.offsets[j]) * gapAlpha;
-                        next = Math.min(next, tr.offsets[j] + maxBack);
-                        next = Math.max(next, tr.offsets[j - 1] + halfMinGap);
-                        tr.offsets[j] = next;
-                    }
-                }
-                let arrived = 0;
-                while (arrived < tr.count && head - tr.offsets[arrived] >= 1) arrived++; // offsets tăng dần
-                if (arrived > tr.arrived) { stringEndFlash[tr.stringIdx] = 1; tr.arrived = arrived; }
-                if (head - tr.offsets[tr.count - 1] > 1) stringTrains.splice(k, 1);
-            }
-        }
-
-        // SỬA (23/09/2026, Giang báo "các dot truyền vào có khoảng cách không giống nhau") — nguyên nhân:
-        // dot chạy theo THAM SỐ t của bezier, mà t KHÔNG tỉ lệ với độ dài (dây có cp1/cp2 ở 40%/60%
-        // quãng -> tốc độ theo t ở giữa dây chỉ ~0.75× ở 2 đầu) -> dot dồn lại ở giữa, giãn ra ở 2 đầu,
-        // cả khoảng cách lẫn tốc độ đều lệch. Sửa: bảng tra độ dài cung (ARC_LUT_SAMPLES đoạn) cho mỗi
-        // dây, dot tính theo phân số ĐỘ DÀI u (0-1) rồi đổi sang t — khoảng cách + tốc độ đều thật.
-        const ARC_LUT_SAMPLES = 64;
-        function _buildArcLengthLut(path) {
-            const lut = new Float32Array(ARC_LUT_SAMPLES + 1);
-            let prev = getBezierPoint(path, 0), total = 0;
-            for (let k = 1; k <= ARC_LUT_SAMPLES; k++) {
-                const pt = getBezierPoint(path, k / ARC_LUT_SAMPLES);
-                total += Math.hypot(pt.x - prev.x, pt.y - prev.y);
-                lut[k] = total;
-                prev = pt;
-            }
-            for (let k = 1; k <= ARC_LUT_SAMPLES; k++) lut[k] /= total || 1;
-            return lut;
-        }
-        /** Phân số độ dài u (0-1) -> tham số t của bezier (nội suy tuyến tính trong bảng). */
-        function _arcToT(lut, u) {
-            if (u <= 0) return 0;
-            if (u >= 1) return 1;
-            let lo = 0, hi = ARC_LUT_SAMPLES;
-            while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (lut[mid] < u) lo = mid; else hi = mid; }
-            const span = lut[hi] - lut[lo] || 1;
-            return (lo + (u - lut[lo]) / span) / ARC_LUT_SAMPLES;
-        }
-
-        /** Điểm trên dây `s` tại t (0-1) kể cả độ rung: sóng đứng mode 1 (2 đầu cố định), lệch theo
-         * y cục bộ (dây gần như nằm ngang trong khung cục bộ). */
-        function _stringPointAt(s, t, time) {
-            const pt = getBezierPoint(outputPaths[s], t);
-            const hz = STRING_VIB_HZ_BASE + (6 - s) * STRING_VIB_HZ_STEP;
-            pt.y += stringAmp[s] * stageH * STRING_AMP_MAX_FRAC * Math.sin(Math.PI * t) * Math.sin(time * 0.001 * Math.PI * 2 * hz);
-            return pt;
-        }
-
-        function drawOutputStrings(time) {
-            const outputLine = getBrainRoleColor(2);
-            ctx.save();
-            ctx.strokeStyle = outputLine.fill;
-            ctx.shadowColor = outputLine.glow;
-            for (let s = 0; s < outputPaths.length; s++) {
-                const amp = stringAmp[s];
-                ctx.beginPath();
-                if (amp < 0.01) {
-                    const path = outputPaths[s];
-                    ctx.moveTo(path.p0.x, path.p0.y);
-                    ctx.bezierCurveTo(path.p1.x, path.p1.y, path.p2.x, path.p2.y, path.p3.x, path.p3.y);
-                } else {
-                    for (let k = 0; k <= STRING_SAMPLES; k++) {
-                        const pt = _stringPointAt(s, k / STRING_SAMPLES, time);
-                        if (k === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
-                    }
-                }
-                ctx.globalAlpha = 0.65 + 0.35 * amp;
-                ctx.lineWidth = 2 + amp * 1.5;
-                ctx.shadowBlur = (8 + amp * 10) * glowMult;
-                ctx.stroke();
-            }
-
-            // Đoàn dot chạy dọc dây (như hạt output gốc: size 2.8, glow 12). SỬA (23/09/2026): vị trí theo
-            // phân số ĐỘ DÀI (u -> t qua bảng cung, khoảng cách đều); chỉ mờ dần ở ĐẦU dây, giữ sáng
-            // tới khi chạm dot cuối (trước mờ dần cả 2 đầu — trông như tắt trước khi tới đích).
-            ctx.fillStyle = outputLine.glow;
-            ctx.shadowBlur = (12) * glowMult;
-            for (let k = 0; k < stringTrains.length; k++) {
-                const tr = stringTrains[k];
-                const head = (time - tr.startTime) / tr.runMs;
-                const lut = outputPaths[tr.stringIdx].arcLut;
-                for (let j = 0; j < tr.count; j++) {
-                    const u = head - tr.offsets[j];
-                    if (u < 0 || u > 1) continue;
-                    const pt = _stringPointAt(tr.stringIdx, _arcToT(lut, u), time);
-                    ctx.globalAlpha = Math.min(1, u / 0.12);
-                    ctx.beginPath();
-                    ctx.arc(pt.x, pt.y, 2.8, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-
-            // Dot cuối mỗi dây (23/09/2026, theo ảnh mẫu) — nghỉ: mờ, nhỏ; mỗi dot tới nơi: loé to + glow.
-            for (let s = 0; s < outputPaths.length; s++) {
-                const end = outputPaths[s].p3; // điểm cuối cố định (sóng đứng = 0 ở 2 đầu)
-                const flash = stringEndFlash[s];
-                ctx.globalAlpha = 0.5 + 0.5 * flash;
-                ctx.shadowBlur = (6 + flash * 20) * glowMult;
-                ctx.beginPath();
-                ctx.arc(end.x, end.y, STRING_END_DOT_RADIUS * (1 + flash), 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.restore();
-        }
-
-        // KEO (23/09/2026, Giang — "chiều cho toàn bộ brain filter") — THAY cơ chế stageH/stageOffsetY
-        // theo màn hình (22/09/2026) bằng KHUNG CỤC BỘ: mọi hình của brain filter tính trong khung dài
-        // `width` (= L, chiều dòng chảy, luôn +x) × dày `stageH` (= T = L × BRAIN_STAGE_ASPECT, tỉ lệ
-        // 16:9 của trang gốc), `stageOffsetY` = 0 — nên mọi công thức cũ `width * X`/`stageOffsetY +
-        // stageH * X` GIỮ NGUYÊN nghĩa. Lúc vẽ: ctx.transform(brainMatrix) xoay/lật khung ra màn hình
-        // (ma trận thuần xoay 90°/lật, tỉ lệ 1:1 -> không méo, lineWidth giữ đúng px). `height` = T.
-        let width, height;
-        const BRAIN_STAGE_ASPECT = 0.5625;
-        let stageH = 0, stageOffsetY = 0;
-        let leftPersonPos = { x: 0, y: 0 };
-        let rightPersonPos = { x: 0, y: 0 };
-        let filterPos = { x: 0, y: 0, rx: 0, ry: 0 };
-
-        // [a, b, c, d] của ctx.transform(): x' = a·x + c·y + e, y' = b·x + d·y + f (e/f tính ở _layout()).
-        const BRAIN_DIRECTION_MATRIX = {
-            ltr: [1, 0, 0, 1],   // trái -> phải (gốc)
-            rtl: [-1, 0, 0, 1],  // phải -> trái (lật ngang)
-            ttb: [0, 1, -1, 0],  // trên -> dưới (+x cục bộ -> +y màn hình)
-            btt: [0, -1, 1, 0],  // dưới -> trên (+x cục bộ -> -y màn hình)
-        };
-        // Vùng NỘI DUNG thật trong khung cục bộ (không phải cả khung): dọc dòng chảy 7%..93% L (2 điểm
-        // nguồn/đích), ngang ±0.36 T quanh tâm (bụng tia input tối đa ~0.34 T, vòng phụ ellipse ~0.34 T).
-        const BRAIN_CONTENT_X0 = 0.07, BRAIN_CONTENT_X1 = 0.93, BRAIN_CONTENT_HALF_T = 0.36;
-        const BRAIN_LAYOUT_MARGIN_FRAC = 0.06;   // lề trên/dưới × H — chừa chỗ status bar/bottom player
-        const BRAIN_MAX_WIDTH_FRAC = 0.86;       // bề ngang nội dung brain ≤ 86% W (ở mọi chiều)
-        const BRAIN_MAX_LENGTH_FRAC = 0.8;       // L ≤ 80% cạnh dài màn hình — chiều dọc không phình quá cỡ
-        let brainMatrix = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
-
-        let inputPaths = [];
-        let outputPaths = [];
-        let particles = [];
-        let filterNodes = [];
-        let bursts = [];
-
-
-        function initNodesAndPaths() {
-            inputPaths = [];
-            outputPaths = [];
-            particles = [];
-            filterNodes = [];
-
-            // Generate Filter Internal Neural Network Nodes inside ellipse
-            const nodeCount = 65;
-            for (let i = 0; i < nodeCount; i++) {
-                // Random point inside ellipse
-                let u = Math.random();
-                let v = Math.random();
-                let r = Math.sqrt(u);
-                let theta = v * 2 * Math.PI;
-                let nx = filterPos.x + r * Math.cos(theta) * (filterPos.rx * 0.88);
-                let ny = filterPos.y + r * Math.sin(theta) * (filterPos.ry * 0.88);
-
-                filterNodes.push({
-                    x: nx,
-                    y: ny,
-                    baseX: nx,
-                    baseY: ny,
-                    vx: (Math.random() - 0.5) * 0.3,
-                    vy: (Math.random() - 0.5) * 0.3,
-                    size: Math.random() * 2 + 1,
-                    pulse: Math.random() * Math.PI * 2,
-                    band: 0 // gán ngay dưới theo thứ hạng baseY
-                });
-            }
-
-            // KEO (23/09/2026) — gán dải tần theo thứ hạng baseY: node thấp nhất (y lớn nhất trên
-            // canvas) = dải 0 (bass), cao nhất = dải cuối (treble), số node mỗi dải chia đều.
-            const byY = filterNodes.slice().sort((a, b) => b.baseY - a.baseY);
-            for (let k = 0; k < byY.length; k++) {
-                byY[k].band = Math.min(FILTER_FLUX_BAND_COUNT - 1, Math.floor(k / byY.length * FILTER_FLUX_BAND_COUNT));
-            }
-
-            // Generate Input Signal Bezier Curves (Fan Out from human source -> converge onto filter ellipse)
-            // SỬA (23/09/2026, Giang gửi ảnh mẫu "uốn đúng như ảnh") — gốc đặt cp1 ở 35% quãng ngang
-            // với độ toả ±0.35 stageH, cp2 = targetY -> các tia toả thành hình QUẠT/nêm, không có
-            // "bụng" tròn rồi thắt cổ trước filter như ảnh. Thay bằng 4 hệ số (fit số từ ảnh mẫu, tính
-            // theo filterPos.ry = R, D = khoảng ngang từ nguồn tới mép trái ellipse): tia NGOÀI CÙNG
-            // xuất phát gần như dựng đứng (cp1 = 20% D, cao 1.95R), phình tối đa ~1.07R ở ~42% D, rồi
-            // thắt dần và vào mép trái ellipse NẰM NGANG ở độ cao 0.65R (cp2 = 82% D, cùng độ cao
-            // điểm cuối). Tia bên trong co tuyến tính theo `lane` (-1..1) -> mật độ đều trong bụng.
-            // Điểm cuối nằm ĐÚNG trên viền ellipse (gốc: lọt vào trong 0.5 rx).
-            // (4 hệ số IN_* khai ở scope ngoài — _updateInputPump() dùng lại IN_CP1_Y mỗi frame.)
-            for (let i = 0; i < config.signalCount; i++) {
-                let lane = (i / (config.signalCount - 1)) * 2 - 1; // -1 (trên) .. 1 (dưới)
-                let endYRel = lane * IN_END_Y; // tỉ lệ theo ry
-                let targetY = filterPos.y + endYRel * filterPos.ry;
-                let targetX = filterPos.x - filterPos.rx * Math.sqrt(Math.max(0, 1 - endYRel * endYRel));
-                let D = targetX - leftPersonPos.x;
-
-                let cp1x = leftPersonPos.x + D * IN_CP1_X;
-                let cp1y = leftPersonPos.y + lane * IN_CP1_Y * filterPos.ry;
-                let cp2x = leftPersonPos.x + D * IN_CP2_X;
-                let cp2y = targetY;
-
-                inputPaths.push({
-                    p0: { x: leftPersonPos.x, y: leftPersonPos.y },
-                    p1: { x: cp1x, y: cp1y },
-                    p2: { x: cp2x, y: cp2y },
-                    p3: { x: targetX, y: targetY },
-                    alpha: Math.random() * 0.15 + 0.1,
-                    lane: lane // _updateInputPump() tính lại p1.y theo lane mỗi frame
-                });
-
-                // Spawn initial floating particles on path
-                particles.push(createParticle(i, true));
-            }
-
-            // Generate Output Curves (Only a few sparse events reach awareness!)
-            // (23/09/2026) 7 đường này giờ là 7 DÂY ĐÀN C..B (dây 0 trên cùng = B, dây 6 dưới cùng = C) —
-            // xem khối STRING_*. Hình dạng tĩnh giữ nguyên như dưới, rung được cộng thêm lúc vẽ.
-            // SỬA (23/09/2026, theo ảnh mẫu của Giang) — gốc: 7 đường cùng HỘI TỤ về 1 điểm
-            // rightPersonPos, sóng ±0.08 stageH xen kẽ chiều -> các đường cắt chéo nhau. Ảnh mẫu: các
-            // đường TOẢ NHẸ ra, song song, không cắt nhau, gợn S nhỏ, kết thúc ở các độ cao khác nhau
-            // (±0.75 ry) và độ dài hơi lệch nhau. Sửa: đầu ±0.45 ry -> cuối ±0.75 ry theo `lane`,
-            // cp1/cp2 ở 40%/60% quãng, sóng nhỏ ±0.025 stageH, điểm cuối lùi ngẫu nhiên tới 10% width.
-            const outputCount = 7;
-            for (let i = 0; i < outputCount; i++) {
-                let lane = (i / (outputCount - 1)) * 2 - 1;
-                let startY = filterPos.y + lane * 0.45 * filterPos.ry;
-                let startX = filterPos.x + filterPos.rx * 0.4;
-                let endX = rightPersonPos.x - Math.random() * width * 0.1;
-                let endY = filterPos.y + lane * 0.75 * filterPos.ry;
-
-                let waveFactor = (i % 2 === 0 ? 1 : -1) * (stageH * 0.025);
-                let cp1x = startX + (endX - startX) * 0.4;
-                let cp1y = startY + waveFactor;
-                let cp2x = startX + (endX - startX) * 0.6;
-                let cp2y = endY - waveFactor;
-
-                const outPath = {
-                    p0: { x: startX, y: startY },
-                    p1: { x: cp1x, y: cp1y },
-                    p2: { x: cp2x, y: cp2y },
-                    p3: { x: endX, y: endY }
-                };
-                outPath.arcLut = _buildArcLengthLut(outPath); // (23/09/2026) dot chạy đều theo độ dài thật, xem _arcToT()
-                outputPaths.push(outPath);
-            }
-        }
-
-        function createParticle(pathIndex, isInput = true) {
-            return {
-                pathIndex: pathIndex,
-                isInput: isInput,
-                t: Math.random(), // position along curve [0..1]
-                speed: (Math.random() * 0.003 + 0.002),
-                size: isInput ? Math.random() * 1.8 + 1 : Math.random() * 2.5 + 2,
-                glow: isInput ? 3 : 8
-            };
-        }
-
-        // Compute 2D Cubic Bezier point
-        function getBezierPoint(p, t) {
-            let cx = 3 * (p.p1.x - p.p0.x);
-            let bx = 3 * (p.p2.x - p.p1.x) - cx;
-            let ax = p.p3.x - p.p0.x - cx - bx;
-
-            let cy = 3 * (p.p1.y - p.p0.y);
-            let by = 3 * (p.p2.y - p.p1.y) - cy;
-            let ay = p.p3.y - p.p0.y - cy - by;
-
-            let xt = ax * Math.pow(t, 3) + bx * Math.pow(t, 2) + cx * t + p.p0.x;
-            let yt = ay * Math.pow(t, 3) + by * Math.pow(t, 2) + cy * t + p.p0.y;
-
-            return { x: xt, y: yt };
-        }
-
-        function drawBrainFilter(time) {
-            const primary = getBrainRoleColor(0);
-            const secondary = getBrainRoleColor(1);
-            ctx.save();
-
-            // 1. Outer Glowing Ellipse Aura
+/** Dây nối giữa các node gần nhau (sáng theo dải chớp yếu hơn của 2 đầu). */
+function drawBrainFilterLinks(ctx, nodes, bandFlash, filterPos, primary) {
+    ctx.strokeStyle = primary.fill;
+    ctx.lineWidth = 0.8;
+    for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+            const dx = nodes[i].x - nodes[j].x;
+            const dy = nodes[i].y - nodes[j].y;
+            if (Math.sqrt(dx * dx + dy * dy) >= filterPos.rx * 0.75) continue;
+            ctx.globalAlpha = 0.35 + 0.55 * Math.min(bandFlash[nodes[i].band], bandFlash[nodes[j].band]);
             ctx.beginPath();
-            ctx.ellipse(filterPos.x, filterPos.y, filterPos.rx, filterPos.ry, 0, 0, Math.PI * 2);
-            ctx.strokeStyle = primary.fill;
-            ctx.lineWidth = 3;
-            ctx.shadowColor = primary.glow;
-            ctx.shadowBlur = (20) * glowMult;
+            ctx.moveTo(nodes[i].x, nodes[i].y);
+            ctx.lineTo(nodes[j].x, nodes[j].y);
             ctx.stroke();
+        }
+    }
+}
 
-            // Secondary subtle outer ring
+/** Node bộ lọc (phồng + glow theo chớp dải của node). */
+function drawBrainFilterNodes(ctx, nodes, bandFlash, primary, glowMult) {
+    nodes.forEach((node) => {
+        const flash = bandFlash[node.band];
+        ctx.globalAlpha = 0.55 + 0.45 * flash;
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, node.size * (1 + flash * 1.2), 0, Math.PI * 2);
+        ctx.fillStyle = primary.glow;
+        ctx.shadowColor = primary.glow;
+        ctx.shadowBlur = (6 + flash * 14) * glowMult;
+        ctx.fill();
+    });
+}
+
+/** Dot quỹ đạo quanh bộ lọc (kèm vệt đuôi). */
+function drawBrainOrbitDots(ctx, orbit, tuning, filterPos, primary) {
+    const orx = filterPos.rx * 1.08, ory = filterPos.ry * 1.05;
+    const baseR = Math.max(1.5, filterPos.rx * 0.05) * (1 + orbit.centroid * 0.8);
+    ctx.save();
+    ctx.fillStyle = primary.glow;
+    ctx.shadowColor = primary.glow;
+    for (let d = 0; d < tuning.orbitDotCount; d++) {
+        const a0 = orbit.phase + d * (Math.PI * 2 / tuning.orbitDotCount);
+        for (let k = tuning.orbitTrailCount; k >= 0; k--) {
+            const a = a0 - k * BRAIN_ORBIT_TRAIL_STEP_RAD;
+            const fade = 1 - k / (tuning.orbitTrailCount + 1);
+            ctx.globalAlpha = (0.35 + 0.65 * orbit.centroid) * fade;
+            ctx.shadowBlur = (k === 0 ? 6 + orbit.centroid * 12 : 0) * tuning.glowMult;
             ctx.beginPath();
-            ctx.ellipse(filterPos.x, filterPos.y, filterPos.rx * 1.08, filterPos.ry * 1.05, 0, 0, Math.PI * 2);
-            ctx.strokeStyle = secondary.fill;
-            ctx.lineWidth = 1;
-            ctx.globalAlpha = 0.4 + Math.sin(time * 0.003) * 0.2;
-            ctx.stroke();
-
-            // Fill Ellipse background gradient
-            let fillGrad = ctx.createRadialGradient(
-                filterPos.x, filterPos.y, 5,
-                filterPos.x, filterPos.y, filterPos.ry
-            );
-            fillGrad.addColorStop(0, 'rgba(15, 23, 42, 0.7)');
-            fillGrad.addColorStop(0.8, 'rgba(30, 41, 59, 0.4)');
-            fillGrad.addColorStop(1, 'rgba(56, 189, 248, 0.05)');
-            ctx.fillStyle = fillGrad;
+            ctx.arc(filterPos.x + Math.cos(a) * orx, filterPos.y + Math.sin(a) * ory, baseR * (0.4 + 0.6 * fade), 0, Math.PI * 2);
             ctx.fill();
-
-            // (23/09/2026) Custom Effect "lưới node" tắt -> bỏ vẽ cả đường nối lẫn node (vẫn giữ ellipse).
-            if (SHOW_NODES) {
-            // 2. Draw Connections between internal filter nodes (Neural Mesh)
-            // SỬA (23/09/2026) — alpha từng đường: nền 0.35 như gốc, sáng thêm theo độ loé của node
-            // YẾU hơn trong 2 đầu (chỉ sáng hẳn khi CẢ 2 node cùng loé — tránh cả lưới bừng lên vì 1 node).
-            ctx.strokeStyle = primary.fill;
-            ctx.lineWidth = 0.8;
-            for (let i = 0; i < filterNodes.length; i++) {
-                for (let j = i + 1; j < filterNodes.length; j++) {
-                    let dx = filterNodes[i].x - filterNodes[j].x;
-                    let dy = filterNodes[i].y - filterNodes[j].y;
-                    let dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < filterPos.rx * 0.75) {
-                        ctx.globalAlpha = 0.35 + 0.55 * Math.min(filterBandFlash[filterNodes[i].band], filterBandFlash[filterNodes[j].band]);
-                        ctx.beginPath();
-                        ctx.moveTo(filterNodes[i].x, filterNodes[i].y);
-                        ctx.lineTo(filterNodes[j].x, filterNodes[j].y);
-                        ctx.stroke();
-                    }
-                }
-            }
-
-            // 3. Update & Draw Neural Filter Nodes
-            // SỬA (23/09/2026) — loé theo spectral flux dải của node (filterBandFlash): nghỉ mờ hơn gốc
-            // (alpha 0.55 thay 0.9 cố định — cần độ tương phản để thấy nhấp nháy), loé thì alpha 1,
-            // bán kính to tới 2.2×, glow 6 -> 20.
-            filterNodes.forEach(node => {
-                // Slight floating motion
-                node.pulse += 0.04;
-                node.x = node.baseX + Math.sin(node.pulse) * 2;
-                node.y = node.baseY + Math.cos(node.pulse) * 2;
-
-                const flash = filterBandFlash[node.band];
-                ctx.globalAlpha = 0.55 + 0.45 * flash;
-                ctx.beginPath();
-                ctx.arc(node.x, node.y, node.size * (1 + flash * 1.2), 0, Math.PI * 2);
-                ctx.fillStyle = primary.glow; // trước trắng cố định — nay theo màu app (Giang: "chuyển hết")
-                ctx.shadowColor = primary.glow;
-                ctx.shadowBlur = (6 + flash * 14) * glowMult;
-                ctx.fill();
-            });
-            } // SHOW_NODES
-
-            ctx.restore();
         }
-
-        function drawCurvesAndParticles(time) {
-            const primary = getBrainRoleColor(0);
-
-            // 1. Draw Dense Input Bezier Curves (Left -> Filter)
-            ctx.save();
-            inputPaths.forEach((path, idx) => {
-                ctx.beginPath();
-                ctx.moveTo(path.p0.x, path.p0.y);
-                ctx.bezierCurveTo(path.p1.x, path.p1.y, path.p2.x, path.p2.y, path.p3.x, path.p3.y);
-                ctx.strokeStyle = primary.fill;
-                ctx.globalAlpha = path.alpha;
-                ctx.lineWidth = 1;
-                ctx.stroke();
-            });
-            ctx.restore();
-
-            // 2. (23/09/2026) Tia output giờ là 7 dây đàn — vẽ ở drawOutputStrings() (rung + dot theo nốt).
-
-            // 3. Update & Render Flowing Particles
-            ctx.save();
-            for (let i = particles.length - 1; i >= 0; i--) {
-                let p = particles[i];
-                if (!isPaused) {
-                    p.t += p.speed * config.speedMultiplier;
-                }
-
-                if (p.isInput) {
-                    let path = inputPaths[p.pathIndex];
-                    if (!path) continue;
-
-                    let pt = getBezierPoint(path, p.t);
-
-                    // Render input particle
-                    ctx.beginPath();
-                    ctx.arc(pt.x, pt.y, p.size, 0, Math.PI * 2);
-                    ctx.fillStyle = primary.glow; // trước currentTheme.particle (trắng cố định ở cả 3 theme gốc)
-                    ctx.shadowColor = primary.glow;
-                    ctx.shadowBlur = (p.glow) * glowMult;
-                    ctx.globalAlpha = Math.sin(p.t * Math.PI); // Smooth fade-in/fade-out
-                    ctx.fill();
-
-                    // When particle hits the Brain Filter boundary (t >= 1)
-                    if (p.t >= 1) {
-                        // Filter logic: strictness determines how many get blocked
-                        let passFilter = Math.random() > config.filterStrictness;
-
-                        // SỬA (23/09/2026) — hạt LỌT filter không còn sinh hạt output ngẫu nhiên nữa (dot
-                        // trên 7 dây output giờ do nốt nhạc bắn, xem _updateStrings()) — chỉ biến mất vào
-                        // ellipse. Hạt BỊ CHẶN vẫn loé tia lửa như gốc.
-                        if (!passFilter) {
-                            // Dissolved/Filtered out! Spawn micro burst spark
-                            bursts.push({
-                                x: pt.x,
-                                y: pt.y,
-                                radius: Math.random() * 4 + 2,
-                                alpha: 0.8,
-                                color: primary.glow
-                            });
-                        }
-
-                        // SỬA (23/09/2026) — hạt do triggerBurst() sinh (oneShot) chạy 1 lần rồi BỎ, không
-                        // reset như hạt nền — gốc reset cả hạt burst nên mỗi lần bấm là tăng vĩnh viễn số
-                        // hạt; nay burst tự bắn theo Music Transition nên phải dọn, không thì phình mãi.
-                        if (p.oneShot) {
-                            particles.splice(i, 1);
-                            continue;
-                        }
-                        // Reset input particle to start again
-                        p.t = 0;
-                        p.speed = Math.random() * 0.003 + 0.002;
-                    }
-                }
-            }
-            ctx.restore();
-
-            // 4. Render Dissolve Spark Bursts at Filter Wall
-            ctx.save();
-            for (let b = bursts.length - 1; b >= 0; b--) {
-                let burst = bursts[b];
-                ctx.beginPath();
-                ctx.arc(burst.x, burst.y, burst.radius, 0, Math.PI * 2);
-                ctx.fillStyle = burst.color;
-                ctx.globalAlpha = burst.alpha;
-                ctx.shadowColor = burst.color;
-                ctx.shadowBlur = (6) * glowMult;
-                ctx.fill();
-
-                if (!isPaused) {
-                    burst.radius += 0.3;
-                    burst.alpha -= 0.06;
-                }
-
-                if (burst.alpha <= 0) {
-                    bursts.splice(b, 1);
-                }
-            }
-            ctx.restore();
-        }
-        // Interactive Signal Burst on Click or Touch
-        // (23/09/2026) Giờ gọi tự động khi nhạc chuyển đoạn (detectMusicTransition()) — Workflow
-        // _tickConnectorBrain(), event/workflow/visualizer-render.js, toggle `burstEnabled`.
-        function triggerBurst(clickX, clickY) {
-            // Spawn temporary burst of signals from left person
-            for (let i = 0; i < 25; i++) {
-                let randomInputIdx = Math.floor(Math.random() * inputPaths.length);
-                particles.push({
-                    pathIndex: randomInputIdx,
-                    isInput: true,
-                    t: 0,
-                    speed: Math.random() * 0.008 + 0.005,
-                    size: Math.random() * 2.5 + 1.5,
-                    glow: 8,
-                    oneShot: true // (23/09/2026) chạy 1 lần rồi bỏ — xem vòng hạt ở drawCurvesAndParticles()
-                });
-            }
-        }
-
-        // ===== Phần KEO (không có trong gốc) =====
-
-        /** Layout (23/09/2026 — thay _layoutFromCanvas() cũ): tính L theo chiều + chỗ trống thật, đặt
-         * nội dung brain căn giữa dọc màn hình, dựng ma trận khung cục bộ -> màn hình. Phần tính vị trí
-         * trong khung cục bộ (leftPersonPos/filterPos...) GIỮ NGUYÊN công thức resizeCanvas() gốc.
-         * SỬA (25/09/2026) — trục thời gian đã chuyển sang style bar 'dot' -> bỏ tham số shape + vùng
-         * trục/gap, brain luôn căn giữa một mình. */
-        function _layout(direction) {
-            const W = canvas.width, H = canvas.height;
-            const dir = BRAIN_DIRECTION_MATRIX[direction] ? direction : 'ltr';
-            const isVertical = dir === 'ttb' || dir === 'btt';
-            const availH = Math.max(1, H - 2 * H * BRAIN_LAYOUT_MARGIN_FRAC);
-
-            // Kích thước nội dung brain trên màn hình tính theo L
-            const alongK = BRAIN_CONTENT_X1 - BRAIN_CONTENT_X0;
-            const crossK = 2 * BRAIN_CONTENT_HALF_T * BRAIN_STAGE_ASPECT;
-            const kW = isVertical ? crossK : alongK, kH = isVertical ? alongK : crossK;
-            const L = Math.max(1, Math.min(W * BRAIN_MAX_WIDTH_FRAC / kW, availH / kH, Math.max(W, H) * BRAIN_MAX_LENGTH_FRAC));
-            const contentW = kW * L, contentH = kH * L;
-            const top = (H - contentH) / 2;
-
-            // Khung cục bộ
-            width = L;
-            height = stageH = L * BRAIN_STAGE_ASPECT;
-            stageOffsetY = 0;
-
-            // Ma trận: map 4 góc vùng nội dung (e=f=0) -> lấy góc min rồi tịnh tiến về đúng chỗ
-            const [a, b, c, d] = BRAIN_DIRECTION_MATRIX[dir];
-            const xs = [BRAIN_CONTENT_X0 * L, BRAIN_CONTENT_X1 * L];
-            const ys = [stageH * (0.5 - BRAIN_CONTENT_HALF_T), stageH * (0.5 + BRAIN_CONTENT_HALF_T)];
-            let minX = Infinity, minY = Infinity;
-            xs.forEach((x) => ys.forEach((y) => {
-                minX = Math.min(minX, a * x + c * y);
-                minY = Math.min(minY, b * x + d * y);
-            }));
-            brainMatrix = { a, b, c, d, e: (W - contentW) / 2 - minX, f: top - minY };
-
-            // Compute positions based on dimensions (khung cục bộ — công thức gốc)
-            leftPersonPos = { x: width * 0.07, y: stageOffsetY + stageH * 0.5 };
-            rightPersonPos = { x: width * 0.93, y: stageOffsetY + stageH * 0.5 };
-            filterPos = {
-                x: width * 0.54,
-                y: stageOffsetY + stageH * 0.5,
-                rx: width * 0.045,
-                ry: stageH * 0.32
-            };
-            initNodesAndPaths();
-        }
-
-        // Thay animate(time) gốc: bỏ clearRect (SAV đã clear) và requestAnimationFrame (SAV tự gọi mỗi frame).
-        // ĐỔI (23/09/2026) — tham số audio/config gom vào 1 object `frame` (danh sách tham số rời đã quá
-        // dài). Workflow (_tickConnectorBrain(), event/workflow/visualizer-render.js) tự đọc appState/
-        // config rồi dựng object này (Rule 2 — core không appState.get()). Các field:
-        //   time, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote, noteFresh,
-        //   beatScale, isPlaying, bpm (số, NaN nếu chưa có), sampleRate, direction
-        // KEO (23/09/2026, điểm lệch 12) — Custom Effect -> tham số. Mặc định trùng core/config.js
-        // (DEFAULT_CUSTOM_EFFECT.connector), fallback lại chính giá trị hiện tại nếu field thiếu.
-        let glowMult = 1;
-        let SHOW_ORBIT = true, SHOW_NODES = true, SHOW_STRINGS = true;
-        const _num = (v, fallback) => (typeof v === 'number' && isFinite(v) ? v : fallback);
-        function _applySettings(st) {
-            if (!st) return;
-            glowMult = st.glowEnabled === false ? 0 : _num(st.glowIntensity, 100) / 100;
-            FILTER_FLUX_NOISE_FLOOR = _num(st.fireThreshold, 0.55) * 0.04;          // 0-1 -> 0-0.04 flux
-            FILTER_LATERAL_K = _num(st.lateralInhibitStrength, 70) / 150 * 0.5;     // 0-150 -> 0-0.5
-            config.filterStrictness = _num(st.brainFilterStrictness, 0.98);
-            config.speedMultiplier = _num(st.brainInputSpeed, 1.5);
-            PUMP_SQUEEZE_MAX = _num(st.brainPumpSqueeze, 22) / 100;
-            PUMP_GAIN = _num(st.brainPumpSensitivity, 4);
-            FILTER_FLUX_GAIN = _num(st.brainNodeFlashSensitivity, 5);
-            STRING_AMP_MAX_FRAC = 0.045 * _num(st.brainStringAmplitude, 100) / 100;
-            STRING_DECAY_TAU_MS = _num(st.brainStringDecayMs, 380);
-            STRING_DOT_BEATS_PER_RUN = _num(st.brainStringDotBeats, 2);
-            STRING_DOT_GAP_MIN = _num(st.brainStringDotGapMin, 2.5) / 100;
-            STRING_DOT_GAP_MAX = _num(st.brainStringDotGapMax, 10) / 100;
-            STRING_DOT_GAP_LIVE = st.brainStringDotGapLive !== false;
-            ORBIT_DOT_COUNT = Math.round(_num(st.brainOrbitDotCount, 8));
-            ORBIT_BEATS_PER_LAP = _num(st.brainOrbitBeatsPerLap, 8);
-            ORBIT_TRAIL_COUNT = Math.round(_num(st.brainOrbitTrail, 6));
-            SHOW_ORBIT = st.brainShowOrbit !== false;
-            SHOW_NODES = st.brainShowNodes !== false;
-            SHOW_STRINGS = st.brainShowStrings !== false;
-            // field dưới đổi HÌNH (số tia) -> draw() so khoá layout, khác thì dựng lại
-            config.signalCount = Math.round(_num(st.brainSignalCount, 120));
-        }
-        let _lastLayoutKey = '';
-
-        // Thay animate(time) gốc: bỏ clearRect (SAV đã clear) và requestAnimationFrame (SAV tự gọi mỗi frame).
-        // ĐỔI (23/09/2026) — tham số audio/config gom vào 1 object `frame` (danh sách tham số rời đã quá
-        // dài). Workflow (_tickConnectorBrain(), event/workflow/visualizer-render.js) tự đọc appState/
-        // config rồi dựng object này (Rule 2 — core không appState.get()). Các field:
-        //   time, lastBeatTime, smoothedEnergy, vizDataArray, bufferLength, midiNote, noteFresh,
-        //   beatScale, isPlaying, bpm (số, NaN nếu chưa có), sampleRate, direction,
-        //   settings (object Custom Effect connector — xem _applySettings())
-        function draw(ctxArg, canvasEl, frame) {
-            ctx = ctxArg;
-            canvas = canvasEl;
-            _applySettings(frame.settings);
-            const direction = frame.direction || 'ltr';
-            const layoutKey = [canvas.width, canvas.height, direction, config.signalCount].join('|');
-            if (layoutKey !== _lastLayoutKey) {
-                _lastLayoutKey = layoutKey;
-                _layout(direction);
-            }
-            const time = frame.time;
-
-            // Cập nhật trạng thái audio (không vẽ)
-            _updateInputPump(time, frame.beatScale, frame.isPlaying);
-            _updateFilterNodeFlux(time, frame.vizDataArray, frame.bufferLength);
-            _updateOrbitDots(time, frame.bpm, frame.isPlaying, frame.vizDataArray, frame.bufferLength);
-            _updateStrings(time, frame);
-
-            // Brain filter — vẽ trong khung cục bộ, xoay/lật theo chiều đã chọn
-            ctx.save();
-            ctx.transform(brainMatrix.a, brainMatrix.b, brainMatrix.c, brainMatrix.d, brainMatrix.e, brainMatrix.f);
-            drawCurvesAndParticles(time);
-            if (SHOW_STRINGS) drawOutputStrings(time);
-            drawBrainFilter(time);
-            if (SHOW_ORBIT) drawOrbitDots();
-            ctx.restore();
-        }
-
-        return { draw, triggerBurst };
-})();
+    }
+    ctx.restore();
+}

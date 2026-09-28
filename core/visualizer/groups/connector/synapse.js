@@ -31,12 +31,19 @@ function tonotopicBinRange(neuronIndex, neuronCount, bufferLength) {
 // lại công thức log) vì dải thật ở đầu trầm bị ép tối thiểu 1 bin/node (start+1) nên KHÔNG còn
 // log thuần — công thức lý tưởng sẽ lệch node. Tần số nằm ngoài dải/rơi vào kẽ hở giữa 2 dải
 // thì lấy node gần nhất. Bin width analyser = sampleRate / fftSize = sampleRate / (2*bufferLength).
-function tonotopicNodeIndexForFrequency(frequencyHz, nodeCount, bufferLength, sampleRate) {
-    const binWidthHz = sampleRate / (bufferLength * 2);
-    const bin = Math.round(frequencyHz / binWidthHz);
+// SỬA (28/09/2026, Phase 5 — không core gọi core) — THAY tonotopicNodeIndexForFrequency() (tự gọi tonotopicBinRange() cho
+// từng node): Workflow dựng sẵn mảng dải bin (`ranges[j] = tonotopicBinRange(j, nodeCount, bufferLength)`) rồi tra bằng 2
+// hàm dưới. Thuật toán giữ nguyên (khớp dải chứa bin, không khớp -> dải gần nhất).
+/** Tần số (Hz) -> chỉ số bin FFT gần nhất. */
+function frequencyToFftBin(frequencyHz, bufferLength, sampleRate) {
+    return Math.round(frequencyHz / (sampleRate / (bufferLength * 2)));
+}
+
+/** Node có dải bin chứa `bin`; không node nào chứa (ngoài dải/kẽ hở) -> node có dải gần nhất. */
+function findTonotopicNodeForBin(ranges, bin) {
     let best = 0, bestDist = Infinity;
-    for (let j = 0; j < nodeCount; j++) {
-        const { start, end } = tonotopicBinRange(j, nodeCount, bufferLength);
+    for (let j = 0; j < ranges.length; j++) {
+        const { start, end } = ranges[j];
         if (bin >= start && bin < end) return j;
         const dist = bin < start ? start - bin : bin - (end - 1);
         if (dist < bestDist) { bestDist = dist; best = j; }
@@ -47,10 +54,14 @@ function tonotopicNodeIndexForFrequency(frequencyHz, nodeCount, bufferLength, sa
 // SỬA (phản hồi Giang — bắn quá thưa, không rõ theo nhạc): LẤY ĐỈNH (max) của dải thay vì trung
 // bình — nhạy đúng với 1 nốt/nhạc cụ nổi lên trong dải đó. GIỮ NGUYÊN tinh thần đó — chỉ đổi cách
 // tính range (start/end) sang tonotopicBinRange() ở trên (log) thay vì chia đều tuyến tính cũ.
-function computeNeuronBinEnergy(vizDataArray, bufferLength, neuronIndex, neuronCount) {
-    const { start, end } = tonotopicBinRange(neuronIndex, neuronCount, bufferLength);
+// [BỎ — 28/09/2026, Phase 5] computeNeuronBinEnergy() (gọi tonotopicBinRange()) — Workflow dùng cặp
+// tonotopicBinRange() + computeBinRangePeak() bên dưới.
+
+/** MỚI (28/09/2026, Phase 5) — đỉnh biên độ trong 1 dải bin (dải = tonotopicBinRange(), Workflow tính trước). Workflow dùng
+ * cặp tonotopicBinRange() + computeBinRangePeak() thay computeNeuronBinEnergy() (đã bỏ). */
+function computeBinRangePeak(vizDataArray, range) {
     let peak = 0;
-    for (let i = start; i < end; i++) peak = Math.max(peak, vizDataArray[i] || 0);
+    for (let i = range.start; i < range.end; i++) peak = Math.max(peak, vizDataArray[i] || 0);
     return peak;
 }
 
