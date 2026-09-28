@@ -89,20 +89,21 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.shapeStyle.clock': 'Clock', // MỚI 26/09/2026
     'customEffectDrawer.field.clockSizeRatio': 'Clock size',
     'customEffectDrawer.field.clockGlassVisible': 'Glass cover',
-    'customEffectDrawer.field.clockAccessory': 'Accessory', // lượt 6 — con lắc / vòng quỹ đạo (chọn 1)
-    'customEffectDrawer.clockAccessory.none': 'None',
-    'customEffectDrawer.clockAccessory.pendulum': 'Pendulum',
-    'customEffectDrawer.clockAccessory.rings': 'Time scan rings',
-    'customEffectDrawer.field.clockPendulumTrail': 'String motion blur',
+    'customEffectDrawer.field.clockPendulumEnabled': 'Pendulum', // 28/09/2026 — thay dropdown Accessory
+    'customEffectDrawer.field.clockBgEnabled': 'Dial background', // 28/09/2026
+    'customEffectDrawer.field.clockBgImageKey': 'Background image',
+    'customEffectDrawer.field.clockBgOpacity': 'Background opacity',
+    'customEffectDrawer.imagePick.cover': 'Current song cover',
+    'customEffectDrawer.imagePick.custom': 'Image from library',
+    'customEffectDrawer.imagePick.pick': 'Choose',
+    'customEffectDrawer.imagePick.remove': 'Remove',
+    'customEffectDrawer.field.barTopRadius': 'Bar top corner radius (px)', // 28/09/2026 — Black Hole
+    'customEffectDrawer.field.clockPendulumTrail': 'Pendulum motion blur',
     'customEffectDrawer.field.clockPendulumLength': 'Pendulum length (%)',
-    'customEffectDrawer.field.clockRingWidth': 'Ring width (px)', // lượt 7 — vòng Time scan
-    'customEffectDrawer.field.clockRingRadius': 'Ring radius (%)', // lượt 9
-    'customEffectDrawer.field.clockRingBgOpacity': 'Ring background opacity', // lượt 9
     'customEffectDrawer.field.clockCaseVisible': 'Show case',
     'customEffectDrawer.field.clockTicksVisible': 'Show hour marks', // lượt 3
     'customEffectDrawer.field.clockGearSpeedBase': 'Gear speed',
     'customEffectDrawer.field.clockGearSpeedEnergyMult': 'Gear speed by energy',
-    'customEffectDrawer.field.clockTickGain': 'Minute ring sensitivity',
     // MỚI (05/09/2026, yêu cầu Giang) — Modal chọn effect (2 dropdown group -> style + nút Chọn),
     // mở qua GIỮ 1.5s #btn-cycle-mode — xem core/visualizer/visualizer-display.js::
     // openEffectPickerModal(). Nút "Chọn"/"Huỷ" TÁI DÙNG common.select/common.cancel có sẵn
