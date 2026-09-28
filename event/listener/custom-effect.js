@@ -46,6 +46,9 @@ const CUSTOM_EFFECT_CLICK_ROUTES = [
     { match: (t) => (t.closest ? t.closest('.ce-fw-text-remove') : null), send: (el) => ['customEffect.fireworksText.remove', { index: parseInt(el.dataset.textIndex, 10) }] },
     { match: (t) => (t.closest ? t.closest('#ce-lamp-add') : null), send: () => ['customEffect.lamp.add', {}] },
     { match: (t) => (t.closest ? t.closest('.ce-lamp-remove') : null), send: (el) => ['customEffect.lamp.remove', { index: parseInt(el.dataset.lampIndex, 10) }] },
+    // MỚI (28/09/2026) — field 'imagePick' (nền mặt số clock): chọn ảnh thư viện / bỏ ảnh (quay về bìa bài).
+    { match: (t) => (t.closest ? t.closest('.ce-image-pick') : null), send: (el) => ['customEffect.imagePick.click', { field: el.dataset.field }] },
+    { match: (t) => (t.closest ? t.closest('.ce-image-remove') : null), send: (el) => ['customEffect.imageRemove.click', { field: el.dataset.field }] },
 ];
 
 const CUSTOM_EFFECT_HEADER_CLICK_ROUTES = [
