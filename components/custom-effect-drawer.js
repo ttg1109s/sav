@@ -10,6 +10,8 @@ const CE_TOGGLE_MARKUP = (checked) => `
     <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all" data-uitk="toggleTrackOff toggleTrackOn"></div>`;
 
 function renderCustomEffectHeader(type, cfg) {
+    // SỬA (28/09/2026) — nút đóng mang thêm `data-ce-close`: listener ủy quyền event/listener/custom-effect.js nhận ra
+    // đúng nút đóng của Custom Effect (id #btn-generic-drawer-close dùng chung mọi Drawer — Drawer khác tự gắn riêng).
     // [SỬA — 05/09/2026, yêu cầu Giang] Header hiện tên STYLE con đang chạy (không phải tên
     // GROUP) — cùng tinh thần "icon Effect hiện tên style", core/visualizer/visualizer-display.js.
     // Fallback về nhãn GROUP nếu vì lý do gì đó không tra được style (config hỏng/style lạ).
@@ -20,7 +22,7 @@ function renderCustomEffectHeader(type, cfg) {
     return `
         <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
             <h3 class="text-base font-bold" data-uitk="headerTitle">${title}</h3>
-            <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+            <button id="btn-generic-drawer-close" data-ce-close="1" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
         </div>
     `;
 }
