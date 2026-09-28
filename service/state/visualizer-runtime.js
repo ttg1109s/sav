@@ -18,6 +18,7 @@
                 frameCounter: 'number',
                 dpr: 'number',
                 lastBeatTime: 'number', // MỚI (22/09/2026) — mốc thời gian (performance.now()) của lần beat THẬT gần nhất (spectral flux, core/audio-analysis.js) — cho consumer khác (vd connector brain.js) biết "vừa có 1 beat mới" bằng cách so lệch với giá trị đã thấy lần trước, KHÔNG cần tự dựng lại 1 bộ phát hiện beat riêng.
+                frameEffectConfig: 'any', // MỚI (28/09/2026, Phase 2) — config effect đang chạy, resolve 1 lần ĐẦU mỗi frame VẼ (workflowVisualizerRender._tickDraw()), null ngoài frame vẽ — getComputedColor()/getActiveBlurMult() đọc lại thay vì tự getActiveEffectConfig() mỗi lời gọi.
             },
             buildDefaults() {
                 return {
@@ -33,6 +34,7 @@
                     frameCounter: 0,
                     dpr: 1,
                     lastBeatTime: 0,
+                    frameEffectConfig: null,
                 };
             },
         });
