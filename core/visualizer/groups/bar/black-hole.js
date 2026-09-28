@@ -16,7 +16,7 @@
  * `appState.mutate('starFlashes', ...)` GIỮ NGUYÊN bên trong — Rule 2 chỉ cấm ĐỌC
  * (`appState.get()`), KHÔNG cấm GHI (`set`/`mutate`). Riêng vòng lặp cột tần số (màu đổi theo `i`,
  * cần `getComputedColor()`) tách thành `computeBlackHoleBarsFrame()` (thuần, trả SPEC) +
- * `paintBlackHoleBarLines()` (chỉ Canvas API) — Workflow tự resolve màu rồi gọi paint cho từng
+ * `paintBlackHoleBarShapes()` (chỉ Canvas API, đổi tên 28/09/2026) — Workflow tự resolve màu rồi gọi paint cho từng
  * spec, cùng khuôn `core/visualizer/groups/bar/mirror.js`/`cascade.js`.
  */
 
@@ -72,46 +72,49 @@ function advanceAndDrawBlackHoleFlashes(ctx, dpr, starFlashes, flashFadeSpeed) {
     }
 }
 
+/** MỚI (28/09/2026, Giang) — bề rộng "ô" mỗi cột (px CSS): số cột tính theo chu vi hố đen sao cho cột rộng tối đa
+ * (slider barWidth, kẹp 5-15px) chỉ CHẠM mép nhau ở chân, không chồng lấn. */
+const BLACK_HOLE_BAR_SLOT_PX = 15;
+const BLACK_HOLE_BAR_WIDTH_MIN = 5, BLACK_HOLE_BAR_WIDTH_MAX = 15;
+const BLACK_HOLE_BAR_TOP_RADIUS_MAX = 5;
+/** Tỉ lệ dải bin dùng (vùng trầm/trung — giữ như bản cũ, 35% đầu phổ). */
+const BLACK_HOLE_BAR_SPAN_FRAC = 0.35;
+
+/** MỚI (28/09/2026, Giang "số lượng bar đổi theo bán kính hố đen") — số cột trên NỬA vòng (tính cả cột đỉnh/đáy dùng
+ * chung, vòng tròn đủ = 2 × (usefulLength − 1) cột) từ bán kính NỀN (không cộng năng lượng/beat — bán kính thật chỉ
+ * lớn hơn nên cột chỉ giãn ra, không chồng), cộng số bin phổ được trải lên các cột đó.
+ * @returns {{ usefulLength: number, spanBins: number }} */
+function computeBlackHoleBarLayout(baseRadius, dpr, bufferLength) {
+    const fullCount = Math.floor((Math.PI * 2 * baseRadius) / (BLACK_HOLE_BAR_SLOT_PX * dpr));
+    return {
+        usefulLength: Math.max(3, Math.floor(fullCount / 2) + 1),
+        spanBins: Math.max(2, Math.floor(bufferLength * BLACK_HOLE_BAR_SPAN_FRAC)),
+    };
+}
+
 /**
  * Tính khung hình dải cột tần số quanh viền hố đen — THUẦN, không appState/getActiveEffectConfig/
- * getComputedColor. Mỗi phần tử trả về là 1-2 đoạn thẳng (đối xứng trái/phải quanh centerX, đoạn
- * cuối cùng KHÔNG có bản sao trái — giữ đúng `if (i !== usefulLength - 1)` của bản gốc) + `colorArgs`
- * để Workflow tự `getComputedColor()`.
- * @returns {{colorArgs:number[], lines:object[]}[]}
+ * getComputedColor. Mỗi phần tử = 1 mức tần số, vẽ thành 1-2 cột đối xứng trái/phải quanh trục dọc (cột đầu/cuối nằm
+ * trên trục dọc nên chỉ 1 bản). SỬA (28/09/2026): `usefulLength` cột trải lại lên `spanBins` bin phổ (số cột giờ
+ * theo bán kính, không còn = số bin); trả GÓC + chiều cao thay vì đoạn thẳng (cột vẽ thành khối bo góc đỉnh, xem
+ * paintBlackHoleBarShapes()).
+ * @returns {{colorArgs:number[], angles:number[], height:number}[]}
  */
-function computeBlackHoleBarsFrame(vizDataArray, usefulLength, minH, dpr, dynamicMaxBarHeight, centerX, centerY, currentRadius) {
+function computeBlackHoleBarsFrame(vizDataArray, usefulLength, spanBins, minH, dpr, dynamicMaxBarHeight) {
     const scaledMinH = minH * dpr;
+    const binAt = (i) => Math.min(spanBins - 1, Math.floor((i * spanBins) / usefulLength));
+    const boosted = (i) => Math.min(255, (vizDataArray[binAt(i)] || 0) * (1 + (i / usefulLength) * 1.2));
     const bars = [];
     for (let i = 0; i < usefulLength; i++) {
-        const rawVal = vizDataArray[i] || 0;
-        const freqBoost = 1 + (i / usefulLength) * 1.2;
-        const boostedVal = Math.min(255, rawVal * freqBoost);
-        let val = boostedVal;
-        if (i > 0 && i < usefulLength - 1) {
-            const prev = Math.min(255, (vizDataArray[i - 1] || 0) * (1 + ((i - 1) / usefulLength) * 1.2));
-            const next = Math.min(255, (vizDataArray[i + 1] || 0) * (1 + ((i + 1) / usefulLength) * 1.2));
-            val = (prev + boostedVal * 3 + next) / 5;
-        }
-
-        const normalized = val / 255;
-        const contrastNormalized = Math.pow(normalized, 2.0);
-        let barHeight = scaledMinH + (contrastNormalized * dynamicMaxBarHeight * 1.2);
-        if (!vizDataArray[i] || vizDataArray[i] === 0) barHeight = scaledMinH;
-
+        const boostedVal = boosted(i);
+        const val = i > 0 && i < usefulLength - 1 ? (boosted(i - 1) + boostedVal * 3 + boosted(i + 1)) / 5 : boostedVal;
+        const contrastNormalized = Math.pow(val / 255, 2.0);
+        const height = vizDataArray[binAt(i)] ? scaledMinH + (contrastNormalized * dynamicMaxBarHeight * 1.2) : scaledMinH;
         const angleOffset = (i / (usefulLength - 1)) * Math.PI;
-        const angleR = (Math.PI / 2) - angleOffset, angleL = (Math.PI / 2) + angleOffset;
-
-        const lines = [{
-            x1: centerX + Math.cos(angleR) * currentRadius, y1: centerY + Math.sin(angleR) * currentRadius,
-            x2: centerX + Math.cos(angleR) * (currentRadius + barHeight), y2: centerY + Math.sin(angleR) * (currentRadius + barHeight),
-        }];
-        if (i !== usefulLength - 1) {
-            lines.push({
-                x1: centerX + Math.cos(angleL) * currentRadius, y1: centerY + Math.sin(angleL) * currentRadius,
-                x2: centerX + Math.cos(angleL) * (currentRadius + barHeight), y2: centerY + Math.sin(angleL) * (currentRadius + barHeight),
-            });
-        }
-        bars.push({ colorArgs: [i, usefulLength, val], lines });
+        // Cột đầu (đáy) và cột cuối (đỉnh) nằm trên trục dọc -> chỉ 1 bản (bản cũ vẽ trùng 2 lần cột đầu).
+        const onAxis = i === 0 || i === usefulLength - 1;
+        const angles = onAxis ? [(Math.PI / 2) - angleOffset] : [(Math.PI / 2) - angleOffset, (Math.PI / 2) + angleOffset];
+        bars.push({ colorArgs: [i, usefulLength, val], angles, height });
     }
     return bars;
 }
@@ -128,24 +131,30 @@ function computeBlackHoleRadius(minDimension, smoothedEnergy, beatScale, radiusR
     return smoothedBeatRadius + (beatScale * minDimension * 0.03);
 }
 
-/** Thiết lập nét vẽ dùng chung cho cả dải cột tần số — gọi 1 lần TRƯỚC vòng lặp
- * `paintBlackHoleBarLines()`, khớp đúng vị trí bản gốc. Chỉ Canvas API. */
-function paintBlackHoleBarsSetup(ctx, dpr, barWidth) {
-    ctx.lineWidth = barWidth * dpr;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-}
-
-/** Vẽ 1 lô đoạn thẳng CÙNG màu/glow đã resolve sẵn — chỉ gọi Canvas API (không tính Rule 3). */
-function paintBlackHoleBarLines(ctx, lines, color, glow, dpr, blurMult) {
-    ctx.strokeStyle = color;
+/** SỬA (28/09/2026, Giang) — THAY paintBlackHoleBarsSetup()/paintBlackHoleBarLines() (nét thẳng đầu tròn): mỗi cột
+ * là 1 khối chữ nhật mọc từ viền hố đen ra ngoài theo `angles`, chân phẳng, 2 góc ĐỈNH bo `topRadiusPx` (px CSS,
+ * 0-5, tự kẹp theo nửa bề rộng/chiều cao). `widthPx` px CSS (5-15). Màu/glow đã resolve sẵn. Chỉ Canvas API. */
+function paintBlackHoleBarShapes(ctx, angles, height, centerX, centerY, radius, widthPx, topRadiusPx, color, glow, dpr, blurMult) {
+    const w = Math.max(BLACK_HOLE_BAR_WIDTH_MIN, Math.min(BLACK_HOLE_BAR_WIDTH_MAX, widthPx)) * dpr;
+    const r = Math.max(0, Math.min(Math.min(BLACK_HOLE_BAR_TOP_RADIUS_MAX, topRadiusPx) * dpr, w / 2, height));
+    const hw = w / 2;
+    ctx.fillStyle = color;
     ctx.shadowColor = blurMult > 0 ? glow : 'transparent';
     ctx.shadowBlur = 10 * dpr * blurMult;
-    lines.forEach((l) => {
+    angles.forEach((a) => {
+        ctx.save();
+        ctx.translate(centerX + Math.cos(a) * radius, centerY + Math.sin(a) * radius);
+        ctx.rotate(a); // trục x hướng ra ngoài tâm
         ctx.beginPath();
-        ctx.moveTo(l.x1, l.y1);
-        ctx.lineTo(l.x2, l.y2);
-        ctx.stroke();
+        ctx.moveTo(0, -hw);
+        ctx.lineTo(height - r, -hw);
+        ctx.arcTo(height, -hw, height, -hw + r, r);
+        ctx.lineTo(height, hw - r);
+        ctx.arcTo(height, hw, height - r, hw, r);
+        ctx.lineTo(0, hw);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
     });
 }
 
