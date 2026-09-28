@@ -83,6 +83,10 @@ const CUSTOM_EFFECT_NO_BLUR = ['vortex', 'rain', 'shape', 'connector'];
  * group nằm trong danh sách trên nhưng style con dưới đây CÓ đọc khối Blur chung (shadowBlur canvas 2D) ->
  * Drawer vẫn hiện khối Blur khi đang ở style đó. Shape: 'clock' dùng, 'rubik' vẫn glow cố định. */
 const CUSTOM_EFFECT_BLUR_STYLES = { shape: ['clock'] };
+/** MỚI (28/09/2026, Giang "pháo hoa loại bỏ custom bật blur/glow") — ngoại lệ ngược: group CÓ dùng khối Blur chung
+ * nhưng style con dưới đây KHÔNG (Drawer ẩn khối Blur; hàm vẽ nhận blurMult = 0, xem event/workflow/visualizer/
+ * lighting.js). Lighting: 'thunder' vẫn glow theo khối Blur, 'fireworks' không glow. */
+const CUSTOM_EFFECT_NO_BLUR_STYLES = { lighting: ['fireworks'] };
 
 /** Style con của effect (nếu có) — field trong customEffect[group] + danh sách option. TRƯỚC ĐÂY
  * dùng để dựng dropdown ĐẦU TIÊN trong Custom Effect Drawer — dropdown đó ĐÃ BỎ (xem docstring đầu
@@ -142,7 +146,9 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'cascadeKeyCount', labelKey: 'customEffectDrawer.field.cascadeKeyCount', type: 'slider', min: 16, max: 128, step: 4, card: 'layout', showIf: (cfg) => cfg.barStyle === 'cascade' },
         // Style "black hole" (CHUYỂN NHÓM 05/09/2026 — trước đây bucket 'black hole' riêng, dùng CHUNG
         // field 'maxH' ở trên, không khai riêng). radiusRatio + radiusEnergyMult là 1 cặp kích thước.
-        { id: 'barWidth', labelKey: 'visualizerSettingsDrawer.barWidth.label', type: 'slider', min: 1, max: 15, step: 1, card: 'layout', showIf: (cfg) => cfg.barStyle === 'black hole' },
+        // SỬA (28/09/2026, Giang) — độ rộng cột 5-15px (số cột tính theo chu vi hố đen, 15px = ô mỗi cột) + bo góc đỉnh 0-5px.
+        { id: 'barWidth', labelKey: 'visualizerSettingsDrawer.barWidth.label', type: 'slider', min: 5, max: 15, step: 1, card: 'layout', showIf: (cfg) => cfg.barStyle === 'black hole' },
+        { id: 'barTopRadius', labelKey: 'customEffectDrawer.field.barTopRadius', type: 'slider', min: 0, max: 5, step: 1, card: 'layout', showIf: (cfg) => cfg.barStyle === 'black hole' },
         { id: 'starCount', labelKey: 'customEffectDrawer.field.starCount', type: 'slider', min: 40, max: 400, step: 10, card: 'layout', showIf: (cfg) => cfg.barStyle === 'black hole', refresh: 'resizeCanvas' },
         { id: 'radiusRatio', labelKey: 'customEffectDrawer.field.radiusRatio', type: 'sliderFloat', min: 0.05, max: 0.3, step: 0.01, decimals: 2, card: 'layout', showIf: (cfg) => cfg.barStyle === 'black hole' },
         { id: 'radiusEnergyMult', labelKey: 'customEffectDrawer.field.radiusEnergyMult', type: 'sliderFloat', min: 0, max: 0.2, step: 0.01, decimals: 2, card: 'layout', showIf: (cfg) => cfg.barStyle === 'black hole' },
@@ -215,24 +221,19 @@ const CUSTOM_EFFECT_FIELDS = {
         // Lượt 4 (Giang) — ẩn kính, lật quanh trục, vòng quanh đồng hồ (lượt 5: 6 vòng quỹ đạo lật hướng theo nốt).
         { id: 'clockGlassVisible', labelKey: 'customEffectDrawer.field.clockGlassVisible', type: 'toggle', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' },
         // Lượt 9 (27/09/2026, Giang) — BỎ toggle 'clockFlip' (cơ chế lật thân đồng hồ đã xoá).
-        // Lượt 6 (Giang) — con lắc / vòng quỹ đạo chọn 1 trong 2 bằng dropdown (thay 2 toggle); con lắc thêm toggle
+        // Lượt 6 (Giang) — con lắc có toggle
         // bóng mờ dây + slider chiều dài (% của chiều dài tối đa vừa màn hình — core computeClockPendulumLayout()).
-        { id: 'clockPendulumTrail', labelKey: 'customEffectDrawer.field.clockPendulumTrail', type: 'toggle', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'pendulum' },
-        { id: 'clockAccessory', labelKey: 'customEffectDrawer.field.clockAccessory', type: 'select', card: 'element', rerender: true, showIf: (cfg) => cfg.shapeStyle === 'clock', options: [
-            { value: 'none', labelKey: 'customEffectDrawer.clockAccessory.none' },
-            { value: 'pendulum', labelKey: 'customEffectDrawer.clockAccessory.pendulum' },
-            { value: 'rings', labelKey: 'customEffectDrawer.clockAccessory.rings' },
-        ] },
-        { id: 'clockPendulumLength', labelKey: 'customEffectDrawer.field.clockPendulumLength', type: 'slider', min: 20, max: 100, step: 5, card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'pendulum' },
-        // Lượt 7 (27/09/2026, Giang) — độ dày vòng Time scan (px màn hình), chỉ hiện khi Accessory = rings. Lượt 8: 1-6px.
-        { id: 'clockRingWidth', labelKey: 'customEffectDrawer.field.clockRingWidth', type: 'slider', min: 1, max: 6, step: 1, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'rings' },
-        // Lượt 9 (Giang) — bán kính vòng (% bán kính mặt số; lượt 9b: cả 4 vòng cùng bán kính) + độ đậm nền đĩa trong vòng.
-        { id: 'clockRingRadius', labelKey: 'customEffectDrawer.field.clockRingRadius', type: 'slider', min: 110, max: 220, step: 5, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'rings' },
-        { id: 'clockRingBgOpacity', labelKey: 'customEffectDrawer.field.clockRingBgOpacity', type: 'sliderFloat', min: 0, max: 0.5, step: 0.05, decimals: 2, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockAccessory === 'rings' },
+        { id: 'clockPendulumTrail', labelKey: 'customEffectDrawer.field.clockPendulumTrail', type: 'toggle', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockPendulumEnabled !== false },
+        // SỬA (28/09/2026, Giang) — BỎ dropdown clockAccessory (vòng Time scan đã xoá) -> chỉ còn toggle con lắc.
+        { id: 'clockPendulumEnabled', labelKey: 'customEffectDrawer.field.clockPendulumEnabled', type: 'toggle', card: 'element', rerender: true, showIf: (cfg) => cfg.shapeStyle === 'clock' },
+        // MỚI (28/09/2026, Giang) — nền mặt số: toggle + chọn/bỏ ảnh thư viện (mặc định bìa bài) + độ đục.
+        { id: 'clockBgEnabled', labelKey: 'customEffectDrawer.field.clockBgEnabled', type: 'toggle', card: 'element', rerender: true, showIf: (cfg) => cfg.shapeStyle === 'clock' },
+        { id: 'clockBgImageKey', labelKey: 'customEffectDrawer.field.clockBgImageKey', type: 'imagePick', card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockBgEnabled === true },
+        { id: 'clockBgOpacity', labelKey: 'customEffectDrawer.field.clockBgOpacity', type: 'sliderFloat', min: 0.05, max: 1, step: 0.05, decimals: 2, card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockBgEnabled === true },
+        { id: 'clockPendulumLength', labelKey: 'customEffectDrawer.field.clockPendulumLength', type: 'slider', min: 20, max: 100, step: 5, card: 'element', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockPendulumEnabled !== false },
         { id: 'clockSizeRatio', labelKey: 'customEffectDrawer.field.clockSizeRatio', type: 'sliderFloat', min: 0.5, max: 0.95, step: 0.05, decimals: 2, card: 'layout', showIf: (cfg) => cfg.shapeStyle === 'clock' },
         { id: 'clockGearSpeedBase', labelKey: 'customEffectDrawer.field.clockGearSpeedBase', type: 'sliderFloat', min: 0, max: 2, step: 0.1, decimals: 1, card: 'motion', showIf: (cfg) => cfg.shapeStyle === 'clock' },
         { id: 'clockGearSpeedEnergyMult', labelKey: 'customEffectDrawer.field.clockGearSpeedEnergyMult', type: 'sliderFloat', min: 0, max: 6, step: 0.1, decimals: 1, card: 'motion', showIf: (cfg) => cfg.shapeStyle === 'clock' },
-        { id: 'clockTickGain', labelKey: 'customEffectDrawer.field.clockTickGain', type: 'sliderFloat', min: 0.5, max: 2.5, step: 0.1, decimals: 1, card: 'reaction', showIf: (cfg) => cfg.shapeStyle === 'clock' && cfg.clockTicksVisible !== false },
     ],
     vortex: [
         // ── music ── SỬA (25/09/2026, rà soát) — toggle `rerender`, 2 tham số ẩn khi tắt Redirect.

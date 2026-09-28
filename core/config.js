@@ -50,7 +50,9 @@
                 cascadeBaseAlpha: 0.2, cascadeKeyCount: 64,
                 // Style "black hole" (CHUYỂN NHÓM 05/09/2026 — trước đây bucket 'black hole' riêng)
                 // — dùng CHUNG minH/maxH ở trên (cùng field, cùng ý nghĩa "chiều cao cột tần số").
-                barWidth: 4, starCount: 200,
+                // SỬA (28/09/2026, Giang) — Black Hole: barWidth kẹp 5-15px (15px = ô mỗi cột, số cột tính theo chu vi hố đen
+                // để cột rộng nhất chỉ CHẠM mép nhau, xem core/visualizer/groups/bar/black-hole.js); barTopRadius bo 2 góc đỉnh 0-5px.
+                barWidth: 8, barTopRadius: 2, starCount: 200,
                 radiusRatio: 0.13, radiusEnergyMult: 0.05, suctionBase: 0.2, suctionEnergyMult: 2.5,
                 flareThreshold: 0.65, flashFadeSpeed: 0.08,
                 // MỚI (25/09/2026, Giang) — style "dot": trục thời gian chuyển từ connector brain (core/
@@ -110,7 +112,7 @@
                 // SỬA (26/09/2026, lượt 2, Giang) — bỏ clockSecondTick (kim giây luôn chạy trơn); thêm clockCaseVisible
                 // (toggle ẩn vỏ), clockPendulum (toggle con lắc). Blur: CHỈ style clock đọc (rubik glow cố định) —
                 // xem CUSTOM_EFFECT_BLUR_STYLES (core/custom-effect.js); lưu riêng theo style như khối màu.
-                clockSizeRatio: 0.8, clockGearSpeedBase: 0.4, clockGearSpeedEnergyMult: 2.5, clockTickGain: 1.2,
+                clockSizeRatio: 0.8, clockGearSpeedBase: 0.4, clockGearSpeedEnergyMult: 2.5, // clockTickGain BỎ 28/09/2026 (vạch không còn theo phổ)
                 // Lượt 5 (Giang): BỎ clockHandsSource — kim chỉ còn cơ chế Past & Future (không dropdown).
                 clockCaseVisible: true, clockTicksVisible: true, // clockTicksVisible: lượt 3
                 // Lượt 4 (Giang): thêm toggle kính, lật, vòng quanh đồng hồ (lượt 5: 6 vòng quỹ đạo).
@@ -118,11 +120,12 @@
                 // Lượt 6 (Giang): con lắc + vòng quỹ đạo KHÔNG tồn tại đồng thời -> 1 dropdown clockAccessory
                 // ('none' | 'pendulum' | 'rings', thay 2 toggle clockPendulum/clockRingsVisible). Con lắc thêm
                 // clockPendulumTrail (bóng mờ của dây) + clockPendulumLength (% chiều dài tối đa vừa màn hình, 20-100).
-                clockAccessory: 'rings', clockPendulumTrail: true, clockPendulumLength: 70,
-                // Lượt 7 (27/09/2026, Giang): độ dày vòng Time scan, px màn hình — lượt 8: 1-6 (trước 6-18).
-                clockRingWidth: 3,
-                // Lượt 9 (Giang): bán kính vòng (% bán kính mặt số, 110-220; lượt 9b: cả 4 vòng cùng bán kính) + nền đĩa trong vòng (0-0.5).
-                clockRingRadius: 170, clockRingBgOpacity: 0,
+                // SỬA (28/09/2026, Giang) — BỎ vòng Time scan (+ clockRingWidth/Radius/BgOpacity) và dropdown clockAccessory:
+                // chỉ còn toggle con lắc clockPendulumEnabled (MIGRATE bên dưới).
+                clockPendulumEnabled: true, clockPendulumTrail: true, clockPendulumLength: 70,
+                // MỚI (28/09/2026, Giang) — nền mặt số: bật -> mặc định bìa bài đang phát; chọn ảnh thư viện (clockBgImageKey)
+                // thay bìa, nút bỏ ảnh quay lại bìa; độ đục 0-1.
+                clockBgEnabled: false, clockBgImageKey: null, clockBgOpacity: 0.6,
                 blurEnabled: true, blurIntensity: 60,
             },
             vortex: {
@@ -904,8 +907,14 @@
                 if (next.shape) delete next.shape.clockHandsSource;
                 // MIGRATE 27/09/2026 (clock lượt 9) — bỏ cơ chế lật thân đồng hồ -> xoá khoá thừa.
                 if (next.shape) delete next.shape.clockFlip;
-                // MIGRATE 27/09/2026 (clock lượt 8) — clockRingWidth đổi khoảng 6-18 -> 1-6: giá trị cũ ngoài khoảng kẹp về.
-                if (next.shape && next.shape.clockRingWidth != null) next.shape.clockRingWidth = Math.max(1, Math.min(6, Number(next.shape.clockRingWidth) || 3));
+                // MIGRATE 28/09/2026 (Giang) — bỏ vòng Time scan + dropdown clockAccessory -> toggle clockPendulumEnabled
+                // (save cũ chọn 'pendulum' -> bật, 'rings'/'none' -> tắt); xoá khoá thừa của vòng + độ nhạy vạch phổ.
+                if (next.shape && savedShape && savedShape.clockPendulumEnabled == null && savedShape.clockAccessory != null) {
+                    next.shape.clockPendulumEnabled = savedShape.clockAccessory === 'pendulum';
+                }
+                // MIGRATE 28/09/2026 (Giang) — Black Hole: độ rộng cột đổi khoảng 1-15 -> 5-15px, giá trị cũ ngoài khoảng kẹp về.
+                if (next.bar && next.bar.barWidth != null) next.bar.barWidth = Math.max(5, Math.min(15, Number(next.bar.barWidth) || 8));
+                if (next.shape) ['clockAccessory', 'clockRingWidth', 'clockRingRadius', 'clockRingBgOpacity', 'clockTickGain'].forEach((k) => { delete next.shape[k]; });
                 cfg.customEffect = next;
                 delete cfg.mode; delete cfg.solidColor; delete cfg.dynA; delete cfg.dynB; delete cfg.blurEnabled;
                 delete cfg.barStyle; delete cfg.vortexStyle; delete cfg.rainStyle; delete cfg.glassFlash;

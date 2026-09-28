@@ -2,12 +2,6 @@
  * Cấp phát buffer phân tích âm thanh, tạo blob từ DataURI, resize canvas, khởi tạo các hiệu ứng (sao, rubik, mưa phố...).
  * (Trích từ file gốc, dòng 576-671 trong khối <script>)
  */
-        function allocateBuffers() {
-            if(!appState.get('analyser') || !appState.get('analyserPitch')) return;
-            appState.set('vizDataArray', new Uint8Array(appState.get('analyser').frequencyBinCount));
-            appState.set('previousSpectrumArray', new Uint8Array(appState.get('analyser').frequencyBinCount));
-            appState.set('pitchTimeDomainArray', new Float32Array(appState.get('analyserPitch').fftSize));
-        }
 
         function dataURItoBlobUrl(dataURI) {
             try {
@@ -52,77 +46,66 @@
             return buildings;
         }
 
-        // Chiều cao (px thiết bị, đã *dpr) của vùng thanh điều khiển dưới cùng (progress bar + tên
-        // bài/control/thời gian) — mặt đất của visual Street PHẢI nằm cao hơn mốc này để không bị
-        // thanh điều khiển che mất, bất kể kích thước màn hình.
-        function getPlayerBarSafeHeight() {
-            return 130 * appState.get('dpr');
+        // [TÁCH — 28/09/2026, Phase 5 dọn visualizer] allocateBuffers()/getPlayerBarSafeHeight()/generateStreetScene()/
+        // initStars()/initRubik() ĐÃ BỎ (đọc appState, gọi getEffectConfig()/core khác, tự appState.set()). Nay các builder
+        // THUẦN dưới đây trả dữ liệu; Workflow (host + group visualizer) đọc config/khung nhìn và ghi appState. Công thức và
+        // thứ tự Math.random giữ nguyên.
+
+        /** 3 bộ đệm phân tích audio theo độ phân giải FFT hiện tại (phổ vẽ, phổ frame trước cho flux, sóng cho pitch). */
+        function createAnalysisBuffers(frequencyBinCount, pitchFftSize) {
+            return {
+                vizDataArray: new Uint8Array(frequencyBinCount),
+                previousSpectrumArray: new Uint8Array(frequencyBinCount),
+                pitchTimeDomainArray: new Float32Array(pitchFftSize),
+            };
         }
 
-        function generateStreetScene() {
-            // Công viên về đêm dưới mưa: 1 cột đèn đường chính (lệch trái) + vài cột đèn phụ mờ
-            // phía xa để tạo chiều sâu phố/công viên.
-            // Mặt đất (groundY) luôn được đặt cao hơn vùng thanh điều khiển dưới cùng (tên bài,
-            // nút play/pause, thanh tiến trình) để không bao giờ bị che mất bởi visual.
-            const dpr = appState.get('dpr');
-            const w = canvas.width, h = canvas.height;
-            const safeGroundY = Math.min(h * 0.88, h - getPlayerBarSafeHeight());
-            appState.set('streetGroundY', safeGroundY);
-
-            let lamps = [];
-            const mainLampX = w * 0.28;
-            lamps.push({ x: mainLampX, baseY: safeGroundY, height: h * 0.42, main: true, flicker: 1, depth: 0 });
-            // Đèn phụ phía xa hai bên, nhỏ và mờ hơn — chân cột vẫn chạm cùng mặt đất (safeGroundY)
-            // như đèn chính, chỉ thân đèn thấp hơn để gợi cảm giác xa/nhỏ hơn theo chiều sâu.
-            lamps.push({ x: w * 0.06, baseY: safeGroundY, height: h * 0.26, main: false, flicker: 1, depth: 0.7 });
-            lamps.push({ x: w * 0.85, baseY: safeGroundY, height: h * 0.28, main: false, flicker: 1, depth: 0.6 });
-            // Đèn TUỲ CHỈNH (customEffect.rain.customLamps) — THÊM VÀO 3 đèn gốc, đẩy chung vào
-            // streetLamps nên tự nhấp nháy theo beat giống đèn gốc, không cần code riêng.
-            // FIX (14/08/2026, Giang báo "flare của lamp N bị lệch nếu cho size to") — 3 đèn GỐC
-            // dùng height = PHÂN SỐ canvas.height (h*0.42/0.26/0.28) nên tự co giãn theo viewport,
-            // không bao giờ vượt quá vùng nhìn thấy. Đèn TUỲ CHỈNH lại dùng heightPx TUYỆT ĐỐI (tối
-            // đa 500, xem CUSTOM_EFFECT_DEFAULT_LAMP/slider core/custom-effect.js) — trên viewport
-            // THẤP (landscape/cửa sổ nhỏ), `postTopY = baseY - height` (core/visualizer/types/
-            // rain.js::drawRainStreet()) có thể ÂM, đẩy cả cột đèn LẪN tâm quầng sáng (flare) ra
-            // khỏi vùng canvas nhìn thấy -> chỉ còn phần bị cắt hiện ra, trông như "lệch". Clamp
-            // height để đỉnh cột (`postTopY`) không bao giờ vượt quá 20dpr cách mép trên canvas.
-            const maxCustomLampHeight = Math.max(20 * dpr, safeGroundY - 20 * dpr);
-            (getEffectConfig('rain').customLamps || []).forEach((lamp) => {
-                const height = Math.min(lamp.heightPx * dpr, maxCustomLampHeight);
-                lamps.push({ x: w * (lamp.xPercent / 100), baseY: safeGroundY, height, main: false, flicker: 1, depth: 0.3, flareScale: lamp.flareScale });
-            });
-            appState.set('streetLamps', lamps);
-
-            // Mưa phố: các hạt mưa rơi xiên nhẹ, mật độ/độ dài sẽ được điều biến theo nhạc lúc vẽ.
-            let rain = [];
-            for (let i = 0; i < getEffectConfig('rain').streetDensity; i++) {
-                rain.push({
-                    x: Math.random() * w, y: Math.random() * h,
-                    len: (14 + Math.random() * 18) * dpr,
-                    speed: (10 + Math.random() * 8) * dpr,
-                    drift: (Math.random() - 0.5) * 0.6
-                });
-            }
-            appState.set('streetRain', rain);
-        }
-
-        function initStars() {
-            const dpr = appState.get('dpr');
-            let starList = []; const maxDist = Math.max(canvas.width, canvas.height); const count = getEffectConfig('bar').starCount; // SỬA (05/09/2026) — 'black hole' CHUYỂN thành style con của group 'bar'
-            for(let i=0; i < count; i++) {
-                let clusterAngle = (Math.floor(Math.random() * 5) / 5) * Math.PI * 2; let angle = clusterAngle + (Math.random() * 1.5 - 0.75); 
-                let layer = Math.random(); let baseSpeed, sizeMult;
-                if (layer < 0.2) { baseSpeed = 0.1; sizeMult = 0.5; } else if (layer < 0.7) { baseSpeed = 0.4; sizeMult = 1.0; } else { baseSpeed = 1.0; sizeMult = 2.0; } 
-                let colorTint = '255, 255, 255'; let colorRand = Math.random();
-                if (colorRand > 0.9) colorTint = '200, 220, 255'; else if (colorRand > 0.8) colorTint = '255, 240, 200'; 
+        /** Sao Black Hole: 5 cụm góc, 3 lớp tốc độ/kích thước, vài sao ngả xanh/vàng. */
+        function buildBlackHoleStars(count, maxDist, dpr) {
+            const starList = [];
+            for (let i = 0; i < count; i++) {
+                const clusterAngle = (Math.floor(Math.random() * 5) / 5) * Math.PI * 2; const angle = clusterAngle + (Math.random() * 1.5 - 0.75);
+                const layer = Math.random();
+                const baseSpeed = layer < 0.2 ? 0.1 : (layer < 0.7 ? 0.4 : 1.0);
+                const sizeMult = layer < 0.2 ? 0.5 : (layer < 0.7 ? 1.0 : 2.0);
+                const colorRand = Math.random();
+                const colorTint = colorRand > 0.9 ? '200, 220, 255' : (colorRand > 0.8 ? '255, 240, 200' : '255, 255, 255');
                 starList.push({ angle: angle, distance: Math.random() * maxDist, size: (Math.random() * 1.5 + 0.5) * sizeMult * dpr, baseSpeed: baseSpeed * dpr, colorTint: colorTint });
             }
-            appState.set('stars', starList);
+            return starList;
         }
 
-        function initRubik() {
-            let cubes = [];
-            for (let x = -1; x <= 1; x++) for (let y = -1; y <= 1; y++) for (let z = -1; z <= 1; z++) cubes.push({ cx: x, cy: y, cz: z, binIdx: Math.abs(x*9 + y*3 + z) % 27 });
-            appState.set('rubikCubes', cubes);
+        /** 27 khối Rubik 3×3×3 (toạ độ lưới -1..1 + dải tần gán cho khối). */
+        function buildRubikCubes() {
+            const cubes = [];
+            for (let x = -1; x <= 1; x++) for (let y = -1; y <= 1; y++) for (let z = -1; z <= 1; z++) cubes.push({ cx: x, cy: y, cz: z, binIdx: Math.abs(x * 9 + y * 3 + z) % 27 });
+            return cubes;
+        }
+
+        /** Mặt đất phố (Rain street): 88% chiều cao nhưng luôn cao hơn vùng thanh điều khiển dưới cùng (130px × dpr). */
+        function computeStreetGroundY(canvasHeight, dpr) {
+            return Math.min(canvasHeight * 0.88, canvasHeight - 130 * dpr);
+        }
+
+        /** 3 đèn cố định (1 đèn chính) + đèn tuỳ chỉnh (customLamps, cao tối đa tới sát mép trên). */
+        function buildStreetLamps(w, h, groundY, dpr, customLamps) {
+            const lamps = [];
+            lamps.push({ x: w * 0.28, baseY: groundY, height: h * 0.42, main: true, flicker: 1, depth: 0 });
+            lamps.push({ x: w * 0.06, baseY: groundY, height: h * 0.26, main: false, flicker: 1, depth: 0.7 });
+            lamps.push({ x: w * 0.85, baseY: groundY, height: h * 0.28, main: false, flicker: 1, depth: 0.6 });
+            const maxCustomLampHeight = Math.max(20 * dpr, groundY - 20 * dpr);
+            (customLamps || []).forEach((lamp) => {
+                lamps.push({ x: w * (lamp.xPercent / 100), baseY: groundY, height: Math.min(lamp.heightPx * dpr, maxCustomLampHeight), main: false, flicker: 1, depth: 0.3, flareScale: lamp.flareScale });
+            });
+            return lamps;
+        }
+
+        /** Hạt mưa phố rải ngẫu nhiên. */
+        function buildStreetRain(count, w, h, dpr) {
+            const rain = [];
+            for (let i = 0; i < count; i++) {
+                rain.push({ x: Math.random() * w, y: Math.random() * h, len: (14 + Math.random() * 18) * dpr, speed: (10 + Math.random() * 8) * dpr, drift: (Math.random() - 0.5) * 0.6 });
+            }
+            return rain;
         }
 

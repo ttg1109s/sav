@@ -114,7 +114,8 @@
                 // chống double-start (no-op nếu đã chạy) nên gọi `start()` từ đây an toàn tuyệt
                 // đối, kể cả khi nhánh này không còn là nhánh "lần đầu" duy nhất chạy nó.
                 // SỬA (28/09/2026, Phase 3) — bỏ resizeCanvas() (core cũ, đã xoá): start() tự dựng canvas/scene theo khung nhìn.
-                allocateBuffers(); workflowVisualizerRender.start(); updateDOMBackground();
+                // SỬA (28/09/2026, Phase 5) — bỏ allocateBuffers() (đã tách): start() tự cấp phát bộ đệm phân tích.
+                workflowVisualizerRender.start(); updateDOMBackground();
             } else if (appState.get('audioContext').state === 'suspended' || appState.get('audioContext').state === 'interrupted') appState.get('audioContext').resume();
         }
 
