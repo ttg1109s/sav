@@ -128,8 +128,9 @@ const workflowVizBar = {
         stepAndDrawBlackHoleStars(ctx, dpr, centerX, centerY, maxDist, currentRadius, currentSuction); // core
         advanceAndDrawBlackHoleFlashes(ctx, dpr, appState.get('starFlashes'), cfg.flashFadeSpeed); // core
 
-        // SỬA (28/09/2026, Giang) — số cột theo bán kính NỀN hố đen (ô 15px/cột — cột rộng nhất chỉ chạm mép), cột bo góc đỉnh.
-        const layout = computeBlackHoleBarLayout(minDimension * cfg.radiusRatio, dpr, frame.bufferLength); // core
+        // SỬA (28/09/2026, Giang báo "quá thưa") — số cột theo bán kính ĐANG VẼ (làm mượt chậm + trễ đổi số), ô 15px/cột:
+        // cột rộng tối đa nằm sát nhau ở chân; cột bo góc đỉnh.
+        const layout = computeBlackHoleBarLayout(this._resolveBlackHoleHalfCount(currentRadius, dpr), frame.bufferLength); // core
         const dynamicMaxBarHeight = (cfg.maxH / 1000) * (minDimension * 0.25);
         const bars = computeBlackHoleBarsFrame(frame.vizDataArray, layout.usefulLength, layout.spanBins, cfg.minH, dpr, dynamicMaxBarHeight); // core
         bars.forEach((b) => {
@@ -139,6 +140,18 @@ const workflowVizBar = {
         ctx.shadowBlur = 0;
 
         paintBlackHoleCore(ctx, centerX, centerY, currentRadius); // core
+    },
+
+    /** Trạng thái đếm cột Black Hole (KHÔNG thuộc STATE): bán kính giữ đỉnh + số cột nửa vòng đang dùng. */
+    _blackHole: { avgRadius: 0, halfCount: 0, lastTime: 0 },
+
+    _resolveBlackHoleHalfCount(currentRadius, dpr) {
+        const bh = this._blackHole;
+        const now = performance.now();
+        bh.avgRadius = smoothBlackHoleBarRadius(bh.avgRadius, currentRadius, computeFrameDeltaMs(now, bh.lastTime)); // core
+        bh.lastTime = now;
+        bh.halfCount = resolveBlackHoleBarHalfCount(bh.halfCount, bh.avgRadius, dpr); // core
+        return bh.halfCount;
     },
 
     /** Quầng sáng quanh lỗ đen — chỉ khi đang phát và năng lượng vượt ngưỡng flare. */
