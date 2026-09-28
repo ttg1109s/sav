@@ -50,7 +50,7 @@
                 cascadeBaseAlpha: 0.2, cascadeKeyCount: 64,
                 // Style "black hole" (CHUYỂN NHÓM 05/09/2026 — trước đây bucket 'black hole' riêng)
                 // — dùng CHUNG minH/maxH ở trên (cùng field, cùng ý nghĩa "chiều cao cột tần số").
-                // SỬA (28/09/2026, Giang) — Black Hole: barWidth kẹp 5-15px (15px = ô mỗi cột, số cột tính theo chu vi hố đen
+                // SỬA (28/09/2026, Giang) — Black Hole: barWidth kẹp 5-10px (29/09: tối đa 15 -> 10; 10px = ô mỗi cột, số cột tính theo chu vi hố đen
                 // để cột rộng nhất chỉ CHẠM mép nhau, xem core/visualizer/groups/bar/black-hole.js); barTopRadius bo 2 góc đỉnh 0-5px.
                 barWidth: 8, barTopRadius: 2, starCount: 200,
                 radiusRatio: 0.13, radiusEnergyMult: 0.05, suctionBase: 0.2, suctionEnergyMult: 2.5,
@@ -913,7 +913,7 @@
                     next.shape.clockPendulumEnabled = savedShape.clockAccessory === 'pendulum';
                 }
                 // MIGRATE 28/09/2026 (Giang) — Black Hole: độ rộng cột đổi khoảng 1-15 -> 5-15px, giá trị cũ ngoài khoảng kẹp về.
-                if (next.bar && next.bar.barWidth != null) next.bar.barWidth = Math.max(5, Math.min(15, Number(next.bar.barWidth) || 8));
+                if (next.bar && next.bar.barWidth != null) next.bar.barWidth = Math.max(5, Math.min(10, Number(next.bar.barWidth) || 8)); // 29/09: tối đa 10px
                 if (next.shape) ['clockAccessory', 'clockRingWidth', 'clockRingRadius', 'clockRingBgOpacity', 'clockTickGain'].forEach((k) => { delete next.shape[k]; });
                 cfg.customEffect = next;
                 delete cfg.mode; delete cfg.solidColor; delete cfg.dynA; delete cfg.dynB; delete cfg.blurEnabled;
