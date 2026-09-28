@@ -21,8 +21,14 @@
  *   - `killAllTasks()` — event/workflow/playlist.js, event/workflow/file-manager-storage.js (xoá bài đang phát/Clear all).
  *   - `startBranch()` — 3 setter Settings ngay dưới.
  *
- * NẠP SAU: core/auto-switch-visual.js, core/config.js (saveConfig, MODES), core/visualizer/visualizer-display.js
- * (updateTypeUI), service/task-manager.js, core/dom-refs.js (audioPlayer).
+ * NẠP SAU: core/auto-switch-visual.js, core/config.js (saveConfig, MODES), service/task-manager.js,
+ * core/dom-refs.js (audioPlayer), event/virtual-machine-state.js. Lúc chạy: event/workflow/visualizer-render.js
+ * (`applyStyle()` — thay applyVisualizerStyleChoice() của core cũ).
+ *
+ * [SỬA — 28/09/2026, Giang "chuyển auto-switch sang VMState"] Mọi rẽ nhánh THEO TRẠNG THÁI trong file này viết bằng
+ * `VirtualMachineState.run()` (danh sách rule khai báo đủ mọi trường hợp — trường hợp "không làm gì" có rule no-op
+ * có chủ đích, cùng khuôn event/router/gameplay.js); điều kiện nhiều vế tính ở core (`resolveAutoSwitchSyncPhase()`).
+ * Còn lại chỉ guard clause (readme/event-bus-flow.md mục 7).
  */
 // VIẾT LẠI (26/09/2026, Giang "cải tiến lại Auto-Switch Effect") — 2 nhánh thời gian:
 //   - 'fixed' (const | random [min,max]): đồng hồ độc lập qua taskManager (y như nhánh 1 cũ) — chạy khi media đang
@@ -115,9 +121,11 @@ const workflowAutoSwitchVisual = {
     buildPanelModel() {
         const cfg = appConfigViz.getAll();
         const listBy = cfg.autoSwitchVisualListBy === 'group' ? 'group' : 'style';
-        const items = listBy === 'group'
-            ? normalizeAutoSwitchGroupList(cfg.autoSwitchVisualGroupList, EFFECT_GROUPS) // core/auto-switch-visual.js
-            : normalizeAutoSwitchStyleList(cfg.autoSwitchVisualStyleList, MODES);
+        let items = [];
+        VirtualMachineState.run([
+            { state: listBy, operation: '===', value: 'group', callback: () => { items = normalizeAutoSwitchGroupList(cfg.autoSwitchVisualGroupList, EFFECT_GROUPS); } }, // core/auto-switch-visual.js
+            { state: listBy, operation: '===', value: 'style', callback: () => { items = normalizeAutoSwitchStyleList(cfg.autoSwitchVisualStyleList, MODES); } },
+        ]);
         return { cfg, listBy, items };
     },
 
@@ -138,17 +146,29 @@ const workflowAutoSwitchVisual = {
      * độ sâu, event/workflow/app-settings.js). Quay lại panel chính từ sub panel tự vẽ lại (số mục tick mới). */
     _rerenderPanel() {
         if (!genericDrawerBody) return;
-        if (genericDrawerBody.querySelector('#auto-switch-item-list')) workflowAppSettings._renderAutoSwitchList();
-        else if (genericDrawerBody.querySelector('#setting-auto-switch-enable')) workflowAppSettings._renderAutoSwitch();
+        // Màn đang hiện đọc từ DOM (CỐ Ý): Generic Drawer thay nội dung giữa các màn mà KHÔNG có sự kiện đóng — cờ
+        // trạng thái riêng sẽ lệch (vd còn ghi 'main' trong lúc Drawer đã sang panel khác) và vẽ đè panel khác.
+        const screen = genericDrawerBody.querySelector('#auto-switch-item-list') ? 'list'
+            : (genericDrawerBody.querySelector('#setting-auto-switch-enable') ? 'main' : 'none');
+        VirtualMachineState.run([
+            { state: screen, operation: '===', value: 'list', callback: () => workflowAppSettings._renderAutoSwitchList() }, // event/workflow/app-settings.js
+            { state: screen, operation: '===', value: 'main', callback: () => workflowAppSettings._renderAutoSwitch() },
+            { state: screen, operation: '===', value: 'none', callback: () => {} }, // panel Auto-Switch không mở — no-op có chủ đích
+        ]);
     },
 
     // ===================== Điều phối =====================
 
     /** Media đang phát thật (song / video / photo theo chế độ player hiện tại). MỚI 26/09/2026 — trước đây chỉ Song. */
     _isMediaPlaying() {
-        if (appState.get('isPhotoPlayerMode')) return !appState.get('photoPlayerPaused');
-        if (appState.get('isVideoPlayerMode')) return !bgVideoElement.paused;
-        return !audioPlayer.paused;
+        const playerMode = appState.get('isPhotoPlayerMode') ? 'photo' : (appState.get('isVideoPlayerMode') ? 'video' : 'song');
+        let playing = false;
+        VirtualMachineState.run([
+            { state: playerMode, operation: '===', value: 'photo', callback: () => { playing = !appState.get('photoPlayerPaused'); } },
+            { state: playerMode, operation: '===', value: 'video', callback: () => { playing = !bgVideoElement.paused; } },
+            { state: playerMode, operation: '===', value: 'song', callback: () => { playing = !audioPlayer.paused; } },
+        ]);
+        return playing;
     },
 
     /** Đồng hồ được phép chạy: media đang phát + app không ở chế độ nền. */
@@ -160,20 +180,26 @@ const workflowAutoSwitchVisual = {
     _pickNextStyle() {
         const cfg = appConfigViz.getAll();
         const currentStyle = MODES[appState.get('currentModeIndex')];
-        if (cfg.autoSwitchVisualListBy === 'group') {
-            const groupList = normalizeAutoSwitchGroupList(cfg.autoSwitchVisualGroupList, EFFECT_GROUPS); // core/auto-switch-visual.js
-            return pickNextAutoSwitchStyleFromGroupList(groupList, cfg.autoSwitchVisualMode, currentStyle, STYLE_TO_GROUP, EFFECT_GROUPS);
-        }
-        const styleList = normalizeAutoSwitchStyleList(cfg.autoSwitchVisualStyleList, MODES);
-        return pickNextAutoSwitchStyleFromStyleList(styleList, cfg.autoSwitchVisualMode, currentStyle);
+        const listBy = cfg.autoSwitchVisualListBy === 'group' ? 'group' : 'style';
+        let next = null;
+        VirtualMachineState.run([
+            { state: listBy, operation: '===', value: 'group', callback: () => {
+                const groupList = normalizeAutoSwitchGroupList(cfg.autoSwitchVisualGroupList, EFFECT_GROUPS); // core/auto-switch-visual.js
+                next = pickNextAutoSwitchStyleFromGroupList(groupList, cfg.autoSwitchVisualMode, currentStyle, STYLE_TO_GROUP, EFFECT_GROUPS);
+            } },
+            { state: listBy, operation: '===', value: 'style', callback: () => {
+                const styleList = normalizeAutoSwitchStyleList(cfg.autoSwitchVisualStyleList, MODES); // core/auto-switch-visual.js
+                next = pickNextAutoSwitchStyleFromStyleList(styleList, cfg.autoSwitchVisualMode, currentStyle);
+            } },
+        ]);
+        return next;
     },
 
-    /** Áp 1 style (null/trùng style đang chạy -> bỏ qua). SỬA (26/09/2026) — đi qua applyVisualizerStyleChoice()
-     * (CÙNG đường chọn tay) để có luôn resizeCanvas() (rain)/updateVortexVisibility() (vortex) — bản cũ thiếu. */
+    /** Áp 1 style (null/trùng style đang chạy -> bỏ qua). Đi qua CÙNG đường chọn tay (SỬA 28/09/2026:
+     * `workflowVisualizerRender.applyStyle()` thay applyVisualizerStyleChoice() của core cũ). */
     _applyStyle(style) {
         if (!style || MODES.indexOf(style) === appState.get('currentModeIndex')) return;
-        console.log(`writer: "workflowAutoSwitchVisual._applyStyle", page: "currentModeIndex", content: "${style}"`);
-        applyVisualizerStyleChoice(style); // core/visualizer/visualizer-display.js
+        workflowVisualizerRender.applyStyle(style); // event/workflow/visualizer-render.js (tự log writer currentModeIndex)
     },
 
     /** Nhánh 'fixed' — đặt lịch cho VÒNG ĐẾM KẾ TIẾP (task count:1; kiểu random đổi delay mỗi vòng). */
@@ -195,7 +221,13 @@ const workflowAutoSwitchVisual = {
         const cfg = appConfigViz.getAll();
         if (!cfg.autoSwitchVisualEnabled || cfg.autoSwitchVisualTimeMode !== 'fixed') return;
         this._scheduleNextTimer();
-        if (!this._isRunAllowed()) taskManager.pause(AUTO_SWITCH_VISUAL_TASK_TIMER);
+        this._pauseTimerUnlessRunAllowed();
+    },
+
+    /** Đồng hồ vừa tạo nhưng chưa được chạy (media đang dừng / app ở nền) -> pause ngay, chờ `syncPlayState()`. */
+    _pauseTimerUnlessRunAllowed() {
+        if (this._isRunAllowed()) return;
+        taskManager.pause(AUTO_SWITCH_VISUAL_TASK_TIMER);
     },
 
     /** Dừng/dọn task — tắt tính năng/xoá media đang phát/Clear all. */
@@ -210,7 +242,7 @@ const workflowAutoSwitchVisual = {
         if (!cfg.autoSwitchVisualEnabled || !appState.get('currentKey')) return;
         if (cfg.autoSwitchVisualTimeMode !== 'fixed') return;
         this._scheduleNextTimer();
-        if (!this._isRunAllowed()) taskManager.pause(AUTO_SWITCH_VISUAL_TASK_TIMER);
+        this._pauseTimerUnlessRunAllowed();
     },
 
     /** Nhánh 'perMedia' — gọi NGAY SAU khi currentKey đổi sang 1 media mới (song/video/photo). Chỉ đổi khi key khác
@@ -231,9 +263,13 @@ const workflowAutoSwitchVisual = {
      * bắt đầu -> bắt đầu; tính năng tắt/không có media -> kill. 'perMedia' không có gì để pause. */
     syncPlayState() {
         const cfg = appConfigViz.getAll();
-        if (!cfg.autoSwitchVisualEnabled || !appState.get('currentKey') || cfg.autoSwitchVisualTimeMode !== 'fixed') { this.killAllTasks(); return; }
-        if (!taskManager.plan[AUTO_SWITCH_VISUAL_TASK_TIMER]) { this.startBranch(); return; }
-        if (this._isRunAllowed()) taskManager.resume(AUTO_SWITCH_VISUAL_TASK_TIMER);
-        else taskManager.pause(AUTO_SWITCH_VISUAL_TASK_TIMER);
+        const isFixedActive = !!cfg.autoSwitchVisualEnabled && !!appState.get('currentKey') && cfg.autoSwitchVisualTimeMode === 'fixed';
+        const phase = resolveAutoSwitchSyncPhase(isFixedActive, !!taskManager.plan[AUTO_SWITCH_VISUAL_TASK_TIMER], this._isRunAllowed()); // core/auto-switch-visual.js
+        VirtualMachineState.run([
+            { state: phase, operation: '===', value: 'off', callback: () => this.killAllTasks() },
+            { state: phase, operation: '===', value: 'start', callback: () => this.startBranch() },
+            { state: phase, operation: '===', value: 'resume', callback: () => taskManager.resume(AUTO_SWITCH_VISUAL_TASK_TIMER) },
+            { state: phase, operation: '===', value: 'pause', callback: () => taskManager.pause(AUTO_SWITCH_VISUAL_TASK_TIMER) },
+        ]);
     },
 };

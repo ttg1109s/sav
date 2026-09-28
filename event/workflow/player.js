@@ -289,8 +289,8 @@ const workflowPlayer = {
             appState.set('latestPitchFrequency', -1); appState.set('lastValidNoteStr', null); appState.set('lastValidNoteTime', 0); appState.set('lastValidMidiNote', null);
             appState.set('rubikPitchHistory', []); appState.set('rubikPitchAvg', 0);
             appState.set('raindrops', []); appState.set('ripples', []); appState.set('glassStaticDrops', []); appState.set('glassStreaks', []); appState.set('activeLightnings', []); appState.set('starFlashes', []);
-            resetConnectorPerTrackState(); // core/webgl/three-connector.js — dọn tia/tín hiệu connector còn bay dở của bài cũ
-            setupAudioContext(); updateTypeUI();
+            workflowVisualizerRender.resetForNewMedia(); // event/workflow/visualizer-render.js — SỬA 28/09/2026 (thay resetConnectorPerTrackState() gọi thẳng): mọi group dọn trạng thái theo bài (connector: tia/tín hiệu còn bay dở)
+            setupAudioContext(); workflowVisualizerRender.activateCurrentStyle(); // SỬA 28/09/2026 — thay updateTypeUI() (core cũ)
 
             appState.set('subtitles', record.subtitles ? record.subtitles.slice() : []);
             // SỬA (10/07/2026, Subtitle Editor chuyển sang trang riêng): resetAutoSub()/

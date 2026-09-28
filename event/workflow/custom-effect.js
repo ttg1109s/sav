@@ -10,22 +10,81 @@
  *   - GIỮ đủ 1.5s — KHÔNG đổi gì (Giang chốt "hold ko đụng vào") — vẫn mở thẳng Custom Effect
  *     Drawer, hiện custom của effect ĐANG CHẠY, y hệt bản gốc.
  * Đếm giờ qua taskManager.once(), cờ `_holdFired` chặn action click chạy thêm lúc thả tay sau khi
- * đã mở Drawer bằng hold. Workflow tự querySelector + addEventListener trực tiếp lên
- * genericDrawerBody/Header sau mỗi lần render (KHÔNG qua eventBus cho nội dung động bên trong
- * Drawer).
+ * đã mở Drawer bằng hold.
+ *
+ * [SỬA — 28/09/2026, dọn vi phạm event bus] Nội dung Drawer KHÔNG còn tự `querySelector` + `addEventListener`
+ * sau mỗi lần vẽ (21 listener gắn lại mỗi lần render, callback gọi thẳng core). Nay: listener ủy quyền
+ * event/listener/custom-effect.js -> router 'customEffect' (event/router/custom-effect.js) -> các hàm public bên
+ * dưới; sửa DOM tại chỗ qua core/custom-effect-drawer-ui.js. Effect của Drawer đang mở nhớ ở `_openType` (trước
+ * đây là biến `type` bị closure giữ lúc gắn listener — cùng ngữ nghĩa: auto-switch đổi effect giữa chừng thì
+ * Drawer vẫn sửa đúng effect đang hiện trên Drawer). Rẽ nhánh -> guard + object map (readme/event-bus-flow.md mục 7).
  *
  * NẠP SAU: core/custom-effect.js, core/generic-drawer.js, components/custom-effect-drawer.js,
  * core/dom-refs.js (btnCycleMode, genericDrawer*), service/task-manager.js, event/workflow/
  * generic-drawer-helpers.js, core/visualizer-control-center.js (closeControlCenter() — SỬA
- * 14/08/2026, xem _fireHold()), core/visualizer/visualizer-display.js
- * (applyVisualizerStyleChoice(), openEffectPickerModal() — MỚI 05/09/2026).
+ * 14/08/2026, xem _fireHold()), core/visualizer/visualizer-display.js (openEffectPickerModal()),
+ * core/custom-effect-drawer-ui.js. Lúc chạy: event/workflow/visualizer-render.js (applyStyle, rebuildCanvasScenes,
+ * callGroupAction — thay applyVisualizerStyleChoice()/resizeCanvas()/initThreeJS*() gọi thẳng trước đây).
  */
 
 const CUSTOM_EFFECT_HOLD_MS = 1500;
 const CUSTOM_EFFECT_HOLD_TASK = 'customEffectCycleHoldPending';
 
+/** `field.refresh` (core/custom-effect.js::CUSTOM_EFFECT_FIELDS — tên lịch sử giữ nguyên) -> hành động dựng lại cho
+ * field chỉ được đọc lúc khởi tạo scene. */
+const CUSTOM_EFFECT_REFRESH_BY_NAME = {
+    resizeCanvas: () => workflowVisualizerRender.rebuildCanvasScenes(), // event/workflow/visualizer-render.js
+    initThreeJS: () => workflowVisualizerRender.callGroupAction('vortex', 'rebuild'),
+    initThreeJSConnector: () => workflowVisualizerRender.callGroupAction('connector', 'rebuild'),
+};
+
+/** CLICK #btn-cycle-mode: auto-switch đang bật -> chỉ báo lý do; không -> mở modal chọn effect (group -> style). */
+const CUSTOM_EFFECT_CYCLE_CLICK_BY_LOCKED = {
+    true: () => alertModal(t('effectPicker.autoSwitchLocked'), { title: t('effectPicker.title') }), // core/modal-choice-ui.js
+    false: () => openEffectPickerModal((style) => workflowVisualizerRender.applyStyle(style)), // core/visualizer/visualizer-display.js
+};
+
+/** Drawer đang đóng -> mở mới (cuộn từ đầu); đang mở (nội dung khác) -> thay nội dung. */
+const CUSTOM_EFFECT_DRAWER_BY_CLOSED = {
+    true: (config) => workflowGenericDrawerHelpers.open(config), // event/workflow/generic-drawer-helpers.js
+    false: (config) => workflowGenericDrawerHelpers.update(config),
+};
+
+/** Giá trị thô của slider -> số (sliderFloat / slider nguyên). */
+const CUSTOM_EFFECT_PARSE_BY_FLOAT = {
+    true: (raw) => parseFloat(raw),
+    false: (raw) => parseInt(raw, 10),
+};
+
+/** Số hiển thị cạnh slider field thường. */
+const CUSTOM_EFFECT_FIELD_TEXT_BY_FLOAT = {
+    true: (v, decimals) => v.toFixed(decimals),
+    false: (v) => v,
+};
+
+/** Số hiển thị cạnh slider đèn (1 chữ số thập phân cho flare). */
+const CUSTOM_EFFECT_LAMP_TEXT_BY_FLOAT = {
+    true: (v, suffix) => `${v.toFixed(1)}${suffix}`,
+    false: (v, suffix) => `${v}${suffix}`,
+};
+
+/** 3 slider mỗi đèn (khoá do listener gửi) -> field trong customLamps[i] + đơn vị hiển thị. */
+const CUSTOM_EFFECT_LAMP_SLIDERS = {
+    x: { field: 'xPercent', suffix: '%', isFloat: false },
+    height: { field: 'heightPx', suffix: 'px', isFloat: false },
+    flare: { field: 'flareScale', suffix: '', isFloat: true },
+};
+
+/** Checkbox kiểu nổ pháo hoa: tick -> thêm vào danh sách; bỏ tick -> lọc ra. */
+const CUSTOM_EFFECT_FW_STYLES_BY_CHECKED = {
+    true: (list, key) => [...list, key],
+    false: (list, key) => list.filter((s) => s !== key),
+};
+
 const workflowCustomEffect = {
     _holdFired: false,
+    /** Effect (group) của Drawer đang mở — ghi ở open(). */
+    _openType: null,
 
     startHold() {
         this._holdFired = false;
@@ -38,69 +97,58 @@ const workflowCustomEffect = {
         taskManager.kill(CUSTOM_EFFECT_HOLD_TASK);
         this._holdFired = false;
     },
-    /** SỬA (14/08/2026, Giang báo "giữ hold effect/eq không thu gọn icon center cùng lúc") — CÙNG
-     * bug/fix với `workflowEqPresets._fireCycleHold()` (event/workflow/eq-presets.js): #btn-cycle-mode
-     * nằm trong Control Center (core/visualizer-control-center.js), panel đó trước đây chỉ tự đóng
-     * lúc `click` DOM thật bắn ra (SAU `pointerup`) — giữ đủ 1.5s thì Drawer mở nhưng Control Center
-     * vẫn còn mở, chỉ thu gọn khi thả tay sau đó. Gọi thẳng `closeControlCenter()` (liên tuyến
-     * domain, CÙNG tiền lệ `core/player-controls.js`) NGAY TRƯỚC khi mở Drawer để đồng thời.
-     *
-     * GIỮ (hold) KHÔNG đổi gì (chốt lại 05/09/2026, Giang: "hold ko đụng vào") — vẫn mở thẳng
-     * Custom Effect Drawer như trước giờ, y hệt bản gốc. Phần cải tiến modal chọn effect
-     * (2 dropdown group -> style) chuyển sang CLICK, xem `onCycleModeClick()` ngay dưới. */
+    /** SỬA (14/08/2026, Giang báo "giữ hold effect/eq không thu gọn icon center cùng lúc") — #btn-cycle-mode nằm
+     * trong Control Center (core/visualizer-control-center.js): đóng nó NGAY TRƯỚC khi mở Drawer để đồng thời
+     * (CÙNG bug/fix với `workflowEqPresets._fireCycleHold()`). GIỮ (hold) mở thẳng Custom Effect Drawer như bản gốc
+     * (Giang chốt 05/09/2026 "hold ko đụng vào"). */
     _fireHold() {
         this._holdFired = true;
-        if (typeof closeControlCenter === 'function') closeControlCenter(); // core/visualizer-control-center.js
+        this._closeControlCenterIfLoaded();
         this.open();
     },
 
-    /** Ứng với `click` DOM thật trên #btn-cycle-mode. [SỬA — 05/09/2026, yêu cầu Giang, "cải tiến
-     * -> modal choice, 2 dropdown + select"] Giờ mở modal chọn effect (group -> style,
-     * `openEffectPickerModal()`) thay vì tự xoay 1 bước (`cycleVisualizerType()` cũ) — chọn thẳng
-     * effect muốn thay vì phải bấm nhiều lần mới tới đúng cái cần trong 12 style. */
-    onCycleModeClick() {
-        if (this._holdFired) { this._holdFired = false; return; }
-        // MỚI (26/09/2026, Giang "Auto-Switch On -> block chọn effect ở icon center") — nút KHÔNG còn `disabled`
-        // (để GIỮ vẫn mở Custom Effect Drawer), chặn ở đây: auto-switch đang bật thì CLICK chỉ báo lý do.
-        // Tap 3 lần gán cycleMode (event/workflow/visualizer-gesture.js, gọi .click()) cũng đi qua đây.
-        if (appConfigViz.getAll().autoSwitchVisualEnabled === true) {
-            alertModal(t('effectPicker.autoSwitchLocked'), { title: t('effectPicker.title') }); // core/modal-choice-ui.js
-            return;
-        }
-        openEffectPickerModal((style) => applyVisualizerStyleChoice(style)); // core/visualizer/visualizer-display.js
+    _closeControlCenterIfLoaded() {
+        if (typeof closeControlCenter !== 'function') return;
+        closeControlCenter(); // core/visualizer-control-center.js
     },
 
-    /** Mở Drawer cho effect ĐANG CHẠY. */
+    /** Ứng với `click` DOM thật trên #btn-cycle-mode (tap 3 lần gán cycleMode — event/workflow/visualizer-gesture.js,
+     * gọi .click() — cũng đi qua đây). Click ngay sau khi hold vừa mở Drawer -> bỏ qua. [05/09/2026] mở modal chọn
+     * effect thay vì tự xoay 1 bước; [26/09/2026] auto-switch đang bật thì chỉ báo lý do (nút không `disabled` để
+     * GIỮ vẫn mở được Drawer). */
+    onCycleModeClick() {
+        if (this._consumeHoldFired()) return;
+        CUSTOM_EFFECT_CYCLE_CLICK_BY_LOCKED[appConfigViz.getAll().autoSwitchVisualEnabled === true]();
+    },
+
+    /** true (và xoá cờ) nếu Drawer vừa được mở bằng hold. */
+    _consumeHoldFired() {
+        const fired = this._holdFired;
+        this._holdFired = false;
+        return fired;
+    },
+
+    /** Mở Drawer cho effect ĐANG CHẠY. Chiều cao co theo nội dung, trần 70vh (field khác nhau theo effect). */
     open() {
         const type = appConfigViz.getAll().type;
+        this._openType = type;
         const cfg = getEffectConfig(type); // core/custom-effect.js
-        // SỬA (phản hồi Giang mục 1 — CÙNG lý do event/workflow/eq-presets.js::openListView(), xem
-        // comment đầy đủ ở đó) — config này TRƯỚC ĐÂY không có height/maxHeight, rơi về mặc định fix
-        // cứng 70vh của core/generic-drawer.js — nội dung thay đổi theo TỪNG loại effect (số field
-        // khác nhau) nhưng panel luôn 1 kích thước, không co theo thật. GIỮ NGUYÊN 70vh làm trần —
-        // hành vi KHÔNG đổi với effect có nhiều field (vượt trần vẫn y hệt trước), chỉ MỚI co nhỏ lại
-        // được với effect ít field.
         const config = {
-            scrollKey: `customEffect:${type}`, // MỚI (24/09/2026) — mở mới: từ đầu; `_rerenderBody()` cùng key -> giữ vị trí (event/workflow/generic-drawer-helpers.js)
+            scrollKey: `customEffect:${type}`, // mở mới: từ đầu; `_rerenderBody()` cùng key -> giữ vị trí
             scrollReset: true,
             height: 'auto',
             maxHeight: '70vh',
-            headerHtml: renderCustomEffectHeader(type, cfg), // components/custom-effect-drawer.js — SỬA: nhận thêm cfg (hiện tên STYLE, không phải group)
+            headerHtml: renderCustomEffectHeader(type, cfg), // components/custom-effect-drawer.js
             bodyHtml: renderCustomEffectBody(type, cfg),
             bodyClass: 'overflow-y-auto px-4 py-3',
         };
-        if (genericDrawerPanel.classList.contains('hidden')) workflowGenericDrawerHelpers.open(config); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
-        else workflowGenericDrawerHelpers.update(config);
-        this._wire(type);
+        CUSTOM_EFFECT_DRAWER_BY_CLOSED[genericDrawerPanel.classList.contains('hidden')](config);
     },
 
-    /** Vẽ lại TOÀN BỘ body — dùng khi đổi style con (field showIf phụ thuộc style có thể ẩn/hiện). */
-    _rerenderBody(type) {
+    /** Vẽ lại TOÀN BỘ body (đổi độ dài mảng đèn/chữ, field `rerender` làm field khác ẩn/hiện) — giữ vị trí cuộn. */
+    _rerenderBody() {
+        const type = this._openType;
         const cfg = getEffectConfig(type);
-        // SỬA (phản hồi Giang mục 1) — CÙNG lý do open() ngay trên (vẽ lại đúng nội dung TƯƠNG TỰ,
-        // config phải khớp nhau).
-        // SỬA (24/09/2026, Giang báo "vẽ lại panel mất scroll cũ") — cùng `scrollKey` với `open()`, KHÔNG
-        // scrollReset -> core giữ nguyên vị trí cuộn qua lần vẽ lại (trước đây luôn bật về đầu).
         workflowGenericDrawerHelpers.update({
             scrollKey: `customEffect:${type}`,
             height: 'auto',
@@ -109,218 +157,168 @@ const workflowCustomEffect = {
             bodyHtml: renderCustomEffectBody(type, cfg),
             bodyClass: 'overflow-y-auto px-4 py-3',
         });
-        this._wire(type);
-        workflowGenericDrawerHelpers.restoreScroll(); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js — áp lại sau wire (nội dung có thể vừa cao thêm)
+        workflowGenericDrawerHelpers.restoreScroll(); // event/workflow/generic-drawer-helpers.js
     },
 
-    /** Gọi 1 hàm core refresh theo tên (field.refresh, core/custom-effect.js::CUSTOM_EFFECT_FIELDS)
-     * — field chỉ đọc lúc khởi tạo scene, cần ép chạy lại để thấy hiệu quả ngay. */
+    close() {
+        workflowGenericDrawerHelpers.closeFully();
+    },
+
+    /** Lưu config (thả tay slider blur). */
+    commit() {
+        saveConfig(); // core/config.js
+    },
+
+    // ===================== Màu =====================
+
+    setColorMode(value) {
+        setCustomEffectField(this._openType, 'mode', value); // core/custom-effect.js
+        saveConfig();
+        syncCustomEffectColorModeRows(genericDrawerBody, value); // core/custom-effect-drawer-ui.js
+        updateProgressBarCSS(); // core/visualizer/visualizer-display.js
+    },
+
+    /** Ô màu solid (picker hoặc ô chữ hex) — ô chữ gõ dở (chưa đủ #RRGGBB) thì chưa áp. Đồng bộ ô đối ứng. */
+    setSolidColor(value, crossTargetId) {
+        if (!/^#[0-9A-F]{6}$/i.test(value)) return;
+        setCustomEffectField(this._openType, 'solidColor', value); // core
+        setCustomEffectInputValueById(genericDrawerBody, crossTargetId, value); // core/custom-effect-drawer-ui.js
+        saveConfig();
+        updateProgressBarCSS(); // core
+    },
+
+    setDynColor(field, value) {
+        setCustomEffectField(this._openType, field, value); // core
+        saveConfig();
+        this._syncProgressBarForDynB(field);
+    },
+
+    /** Progress bar mode dynamic chỉ dùng dynB (core/visualizer/visualizer-display.js::updateProgressBarCSS). */
+    _syncProgressBarForDynB(field) {
+        if (field !== 'dynB') return;
+        updateProgressBarCSS(); // core
+    },
+
+    // ===================== Blur =====================
+
+    setBlurEnabled(checked) {
+        setCustomEffectField(this._openType, 'blurEnabled', checked); // core
+        saveConfig();
+        syncCustomEffectBlurRow(genericDrawerBody, checked); // core/custom-effect-drawer-ui.js
+    },
+
+    /** Kéo slider blur: áp ngay (vẽ frame kế tiếp thấy luôn), CHƯA lưu — lưu lúc thả tay (`commit()`). */
+    previewBlurIntensity(raw) {
+        const v = parseInt(raw, 10);
+        setCustomEffectField(this._openType, 'blurIntensity', v); // core
+        setCustomEffectTextById(genericDrawerBody, 'ce-val-blur-intensity', `${v}%`); // core/custom-effect-drawer-ui.js
+    },
+
+    // ===================== Field chung (toggle / select / slider) =====================
+
+    /** Toggle hoặc select: ghi + lưu, rồi dựng lại scene (field.refresh) / vẽ lại Drawer (field.rerender) nếu cần. */
+    setFieldValue(field, value) {
+        setCustomEffectField(this._openType, field, value); // core
+        saveConfig();
+        const meta = this._fieldMeta(field);
+        this._refreshForField(meta);
+        this._rerenderForField(meta);
+    },
+
+    /** Kéo slider: áp ngay + cập nhật số hiển thị, CHƯA lưu. */
+    previewFieldSlider(field, raw, isFloat) {
+        const v = CUSTOM_EFFECT_PARSE_BY_FLOAT[isFloat](raw);
+        setCustomEffectField(this._openType, field, v); // core
+        const meta = this._fieldMeta(field);
+        const text = CUSTOM_EFFECT_FIELD_TEXT_BY_FLOAT[isFloat](v, (meta && meta.decimals) || 1);
+        setCustomEffectFieldValueText(genericDrawerBody, field, text); // core/custom-effect-drawer-ui.js
+    },
+
+    /** Thả tay slider: lưu + dựng lại scene nếu field cần. */
+    commitFieldSlider(field) {
+        saveConfig();
+        this._refreshForField(this._fieldMeta(field));
+    },
+
+    _fieldMeta(field) {
+        return (CUSTOM_EFFECT_FIELDS[this._openType] || []).find((f) => f.id === field); // core/custom-effect.js
+    },
+
+    /** Field chỉ đọc lúc khởi tạo scene (`refresh`) -> ép dựng lại để thấy ngay. */
+    _refreshForField(meta) {
+        if (!meta || !meta.refresh) return;
+        this._runRefresh(meta.refresh);
+    },
+
     _runRefresh(name) {
-        if (name === 'resizeCanvas') resizeCanvas(); // core
-        else if (name === 'initThreeJS') initThreeJS(); // core/webgl
-        else if (name === 'initThreeJSConnector') initThreeJSConnector(); // core/webgl
+        (CUSTOM_EFFECT_REFRESH_BY_NAME[name] || VIZ_NOOP)(); // VIZ_NOOP: event/workflow/visualizer-render.js
     },
 
-    _wire(type) {
-        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-        if (closeBtn) closeBtn.addEventListener('click', () => workflowGenericDrawerHelpers.closeFully());
-
-        const colorModeSelect = genericDrawerBody.querySelector('#ce-color-mode');
-        const solidRow = genericDrawerBody.querySelector('#ce-solid-color-row');
-        const dynamicRow = genericDrawerBody.querySelector('#ce-dynamic-color-row');
-        if (colorModeSelect) {
-            colorModeSelect.addEventListener('change', (e) => {
-                setCustomEffectField(type, 'mode', e.target.value); // core
-                saveConfig();
-                solidRow.classList.toggle('hidden', e.target.value !== 'solid');
-                solidRow.classList.toggle('flex', e.target.value === 'solid');
-                dynamicRow.classList.toggle('hidden', e.target.value !== 'dynamic');
-                dynamicRow.classList.toggle('flex', e.target.value === 'dynamic');
-                updateProgressBarCSS(); // core
-            });
-        }
-
-        const solidText = genericDrawerBody.querySelector('#ce-solid-color-text');
-        const solidPicker = genericDrawerBody.querySelector('#ce-solid-color-picker');
-        if (solidPicker) {
-            solidPicker.addEventListener('input', (e) => {
-                setCustomEffectField(type, 'solidColor', e.target.value); // core
-                if (solidText) solidText.value = e.target.value;
-                saveConfig();
-                updateProgressBarCSS(); // core
-            });
-        }
-        if (solidText) {
-            solidText.addEventListener('input', (e) => {
-                if (!/^#[0-9A-F]{6}$/i.test(e.target.value)) return;
-                setCustomEffectField(type, 'solidColor', e.target.value); // core
-                if (solidPicker) solidPicker.value = e.target.value;
-                saveConfig();
-                updateProgressBarCSS(); // core
-            });
-        }
-
-        const dynA = genericDrawerBody.querySelector('#ce-dyn-color-a');
-        const dynB = genericDrawerBody.querySelector('#ce-dyn-color-b');
-        if (dynA) dynA.addEventListener('input', (e) => { setCustomEffectField(type, 'dynA', e.target.value); saveConfig(); });
-        if (dynB) dynB.addEventListener('input', (e) => { setCustomEffectField(type, 'dynB', e.target.value); saveConfig(); updateProgressBarCSS(); });
-
-        const blurToggle = genericDrawerBody.querySelector('#ce-blur-enable');
-        const blurIntensityRow = genericDrawerBody.querySelector('#ce-blur-intensity-row');
-        if (blurToggle) {
-            blurToggle.addEventListener('change', (e) => {
-                setCustomEffectField(type, 'blurEnabled', e.target.checked); // core
-                saveConfig();
-                blurIntensityRow.classList.toggle('hidden', !e.target.checked);
-                blurIntensityRow.classList.toggle('flex', e.target.checked);
-            });
-        }
-        const blurIntensity = genericDrawerBody.querySelector('#ce-blur-intensity');
-        const blurIntensityVal = genericDrawerBody.querySelector('#ce-val-blur-intensity');
-        if (blurIntensity) {
-            blurIntensity.addEventListener('input', (e) => {
-                const v = parseInt(e.target.value, 10);
-                setCustomEffectField(type, 'blurIntensity', v); // core
-                if (blurIntensityVal) blurIntensityVal.textContent = `${v}%`;
-            });
-            blurIntensity.addEventListener('change', () => saveConfig());
-        }
-
-        genericDrawerBody.querySelectorAll('.ce-field-toggle').forEach((el) => {
-            el.addEventListener('change', (e) => {
-                const field = e.target.dataset.field;
-                setCustomEffectField(type, field, e.target.checked); // core
-                saveConfig();
-                const meta = (CUSTOM_EFFECT_FIELDS[type] || []).find((f) => f.id === field); // core
-                if (meta && meta.refresh) this._runRefresh(meta.refresh);
-                // MỚI (23/09/2026) — field có `rerender` (vd burstEnabled của brain): field khác có showIf
-                // phụ thuộc nó -> vẽ lại body để hiện/ẩn ngay.
-                if (meta && meta.rerender) this._rerenderBody(type);
-            });
-        });
-
-        // MỚI (23/09/2026) — field type 'select' (vd brainDirection/timelineShape của brain).
-        genericDrawerBody.querySelectorAll('.ce-field-select').forEach((el) => {
-            el.addEventListener('change', (e) => {
-                const field = e.target.dataset.field;
-                setCustomEffectField(type, field, e.target.value); // core
-                saveConfig();
-                const meta = (CUSTOM_EFFECT_FIELDS[type] || []).find((f) => f.id === field); // core
-                if (meta && meta.refresh) this._runRefresh(meta.refresh);
-                if (meta && meta.rerender) this._rerenderBody(type);
-            });
-        });
-
-        genericDrawerBody.querySelectorAll('.ce-field-slider').forEach((el) => {
-            const field = el.dataset.field;
-            const isFloat = el.dataset.float === '1';
-            const meta = (CUSTOM_EFFECT_FIELDS[type] || []).find((f) => f.id === field); // core
-            const valEl = genericDrawerBody.querySelector(`.ce-field-val[data-field-val="${field}"]`);
-            el.addEventListener('input', (e) => {
-                const v = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
-                setCustomEffectField(type, field, v); // core
-                if (valEl) valEl.textContent = isFloat ? v.toFixed((meta && meta.decimals) || 1) : v;
-            });
-            el.addEventListener('change', () => {
-                saveConfig();
-                if (meta && meta.refresh) this._runRefresh(meta.refresh);
-            });
-        });
-
-        if (type === 'rain') this._wireLamps(type);
-        if (type === 'lighting') { this._wireFireworksStyles(type); this._wireFireworksTexts(type); }
+    /** Field có `rerender` (vd burstEnabled của brain): field khác có showIf phụ thuộc nó -> vẽ lại body. */
+    _rerenderForField(meta) {
+        if (!meta || !meta.rerender) return;
+        this._rerenderBody();
     },
 
-    /** Checkbox 14 kiểu nổ (customEffect.lighting.enabledStyles, style con "fireworks") — mỗi
-     * checkbox ghi thẳng field, không re-render. No-op khi style hiện tại là "thunder" (section
-     * không render nên querySelectorAll rỗng), cùng khuôn if (type==='rain') this._wireLamps(). */
-    _wireFireworksStyles(type) {
-        genericDrawerBody.querySelectorAll('.ce-fw-style-check').forEach((el) => {
-            el.addEventListener('change', (e) => {
-                const cfg = getEffectConfig(type);
-                const key = e.target.dataset.style;
-                const next = e.target.checked
-                    ? [...cfg.enabledStyles, key]
-                    : cfg.enabledStyles.filter((s) => s !== key);
-                setCustomEffectField(type, 'enabledStyles', next); // core
-                saveConfig();
-            });
-        });
+    // ===================== Lighting fireworks =====================
+
+    /** Checkbox 14 kiểu nổ (customEffect.lighting.enabledStyles) — ghi thẳng, không vẽ lại. */
+    setFireworksStyleEnabled(style, checked) {
+        const cfg = getEffectConfig(this._openType); // core
+        setCustomEffectField(this._openType, 'enabledStyles', CUSTOM_EFFECT_FW_STYLES_BY_CHECKED[checked](cfg.enabledStyles, style)); // core
+        saveConfig();
     },
 
-    /** Chữ bắn pháo hoa (customEffect.lighting.customTexts) — thêm/xoá đổi độ dài mảng -> re-
-     * render toàn body, cùng khuôn _wireLamps(). */
-    _wireFireworksTexts(type) {
-        const addBtn = genericDrawerBody.querySelector('#ce-fw-text-add');
-        const input = genericDrawerBody.querySelector('#ce-fw-text-input');
-        if (addBtn && input) {
-            addBtn.addEventListener('click', () => {
-                const cfg = getEffectConfig(type);
-                const text = input.value.trim().toUpperCase();
-                if (!text || cfg.customTexts.length >= CUSTOM_EFFECT_MAX_TEXTS) return; // core
-                setCustomEffectField(type, 'customTexts', [...cfg.customTexts, text]); // core
-                saveConfig();
-                this._rerenderBody(type);
-            });
-        }
-        genericDrawerBody.querySelectorAll('.ce-fw-text-remove').forEach((el) => {
-            el.addEventListener('click', (e) => {
-                const idx = parseInt(e.target.dataset.textIndex, 10);
-                const cfg = getEffectConfig(type);
-                setCustomEffectField(type, 'customTexts', cfg.customTexts.filter((_, i) => i !== idx)); // core
-                saveConfig();
-                this._rerenderBody(type);
-            });
-        });
+    /** Chữ bắn pháo hoa (customEffect.lighting.customTexts) — thêm/xoá đổi độ dài mảng -> vẽ lại body. */
+    addFireworksText(rawText) {
+        const cfg = getEffectConfig(this._openType); // core
+        const text = rawText.trim().toUpperCase();
+        if (!text || cfg.customTexts.length >= CUSTOM_EFFECT_MAX_TEXTS) return; // core
+        setCustomEffectField(this._openType, 'customTexts', [...cfg.customTexts, text]); // core
+        saveConfig();
+        this._rerenderBody();
     },
 
-    /** Đèn tuỳ chỉnh (Rain, style street) — customEffect.rain.customLamps (mảng, core/custom-
-     * effect.js). Thêm/xoá đổi ĐỘ DÀI mảng -> re-render toàn body. 3 slider/đèn chỉ đổi 1 field
-     * -> ghi thẳng, không re-render (chỉ cập nhật số hiển thị tại chỗ, giống field thường). */
-    _wireLamps(type) {
-        const addBtn = genericDrawerBody.querySelector('#ce-lamp-add');
-        if (addBtn) {
-            addBtn.addEventListener('click', () => {
-                const cfg = getEffectConfig(type);
-                if (cfg.customLamps.length >= CUSTOM_EFFECT_MAX_LAMPS) return;
-                const next = [...cfg.customLamps, { ...CUSTOM_EFFECT_DEFAULT_LAMP }];
-                setCustomEffectField(type, 'customLamps', next);
-                saveConfig(); this._runRefresh('resizeCanvas');
-                this._rerenderBody(type);
-            });
-        }
-        genericDrawerBody.querySelectorAll('.ce-lamp-remove').forEach((el) => {
-            el.addEventListener('click', (e) => {
-                const idx = parseInt(e.target.dataset.lampIndex, 10);
-                const cfg = getEffectConfig(type);
-                const next = cfg.customLamps.filter((_, i) => i !== idx);
-                setCustomEffectField(type, 'customLamps', next);
-                saveConfig(); this._runRefresh('resizeCanvas');
-                this._rerenderBody(type);
-            });
-        });
-        const wireLampSlider = (selector, field, unit, isFloat) => {
-            genericDrawerBody.querySelectorAll(selector).forEach((el) => {
-                const idx = parseInt(el.dataset.lampIndex, 10);
-                // FIX (14/08/2026, Giang báo "kéo slider lamp N, số không chạy theo trên UI") —
-                // TRƯỚC `.closest('[data-lamp-index]')` khớp NGAY chính `el` (slider tự mang
-                // data-lamp-index để đọc idx ở dòng trên) thay vì leo lên div cha -> valEl luôn
-                // null. Đổi sang class riêng `ce-lamp-row` (components/custom-effect-drawer.js,
-                // KHÔNG trùng bất kỳ phần tử con nào) để chắc chắn lấy đúng div cha.
-                const row = el.closest('.ce-lamp-row');
-                const valEl = row ? row.querySelector(`.ce-lamp-val[data-lamp-val="${unit.key}"]`) : null;
-                el.addEventListener('input', (e) => {
-                    const v = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
-                    const cfg = getEffectConfig(type);
-                    const next = cfg.customLamps.map((l, i) => (i === idx ? { ...l, [field]: v } : l));
-                    setCustomEffectField(type, 'customLamps', next);
-                    if (valEl) valEl.textContent = isFloat ? `${v.toFixed(1)}${unit.suffix}` : `${v}${unit.suffix}`;
-                });
-                el.addEventListener('change', () => { saveConfig(); this._runRefresh('resizeCanvas'); });
-            });
-        };
-        wireLampSlider('.ce-lamp-x', 'xPercent', { key: 'x', suffix: '%' }, false);
-        wireLampSlider('.ce-lamp-height', 'heightPx', { key: 'height', suffix: 'px' }, false);
-        wireLampSlider('.ce-lamp-flare', 'flareScale', { key: 'flare', suffix: '' }, true);
+    removeFireworksText(index) {
+        const cfg = getEffectConfig(this._openType); // core
+        setCustomEffectField(this._openType, 'customTexts', cfg.customTexts.filter((_, i) => i !== index)); // core
+        saveConfig();
+        this._rerenderBody();
+    },
+
+    // ===================== Rain street — đèn tuỳ chỉnh =====================
+
+    /** Thêm/xoá đèn đổi ĐỘ DÀI mảng -> dựng lại cảnh phố + vẽ lại body. */
+    addLamp() {
+        const cfg = getEffectConfig(this._openType); // core
+        if (cfg.customLamps.length >= CUSTOM_EFFECT_MAX_LAMPS) return; // core
+        setCustomEffectField(this._openType, 'customLamps', [...cfg.customLamps, { ...CUSTOM_EFFECT_DEFAULT_LAMP }]); // core
+        saveConfig();
+        this._runRefresh('resizeCanvas');
+        this._rerenderBody();
+    },
+
+    removeLamp(index) {
+        const cfg = getEffectConfig(this._openType); // core
+        setCustomEffectField(this._openType, 'customLamps', cfg.customLamps.filter((_, i) => i !== index)); // core
+        saveConfig();
+        this._runRefresh('resizeCanvas');
+        this._rerenderBody();
+    },
+
+    /** Kéo 1 slider của đèn thứ `index`: ghi đúng 1 field của đèn đó + số hiển thị, CHƯA lưu (không vẽ lại body). */
+    previewLampSlider(index, key, raw) {
+        const slider = CUSTOM_EFFECT_LAMP_SLIDERS[key];
+        const v = CUSTOM_EFFECT_PARSE_BY_FLOAT[slider.isFloat](raw);
+        const cfg = getEffectConfig(this._openType); // core
+        const next = cfg.customLamps.map((l, i) => (i === index ? { ...l, [slider.field]: v } : l));
+        setCustomEffectField(this._openType, 'customLamps', next); // core
+        setCustomEffectLampValueText(genericDrawerBody, index, key, CUSTOM_EFFECT_LAMP_TEXT_BY_FLOAT[slider.isFloat](v, slider.suffix)); // core/custom-effect-drawer-ui.js
+    },
+
+    /** Thả tay slider đèn: lưu + dựng lại cảnh phố. */
+    commitLampSlider() {
+        saveConfig();
+        this._runRefresh('resizeCanvas');
     },
 };

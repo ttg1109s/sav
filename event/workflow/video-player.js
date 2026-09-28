@@ -507,8 +507,8 @@ const workflowVideoPlayer = {
                 // #webgl-canvas (vortex/connector) không có gì tự làm hiện lại sau khi bị ẩn, và
                 // fftSize/allocateBuffers() không được refresh cho video mới. Gọi thêm ở đây,
                 // ĐÚNG vị trí tương ứng bên Song (sau khi audio graph đã nối xong).
-                updateTypeUI(); // core/visualizer/visualizer-display.js
-                resetConnectorPerTrackState(); // core/webgl/three-connector.js — cùng lý do bên Song
+                workflowVisualizerRender.activateCurrentStyle(); // event/workflow/visualizer-render.js — SỬA 28/09/2026, thay updateTypeUI() (core cũ)
+                workflowVisualizerRender.resetForNewMedia(); // cùng lý do bên Song — SỬA 28/09/2026, thay resetConnectorPerTrackState() gọi thẳng
             }, !isTransition, appState.get('gameplayArmedGameId') != null, { // SỬA (25/09/2026, đợt 4) — hook thay `direction`: Player tự quyết Transition (preset Next/Prev) + khớp Resolution layer B, xem docstring swapBgVideoSource()
                 onLayerBFilled: () => workflowPlayerDisplaySettings.syncVideoPlayerResolutionLayerB(), // event/workflow/player-display-settings.js
                 runTransition: () => workflowPlayerDisplaySettings.runVideoPlayerTransition(direction), // event/workflow/player-display-settings.js
