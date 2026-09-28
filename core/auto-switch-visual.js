@@ -299,3 +299,14 @@
         // SỬA 25/09/2026 — play/pause/loadedmetadata của audioPlayer giờ đi Router -> event/workflow/player-controls.js
         // (handleAudioPlayEvent/handleAudioPauseEvent/handleAudioLoadedMetadataEvent) -> workflowAutoSwitchVisual.
         // syncPlayState()/onSongChanged(); core/player-controls.js KHÔNG còn gọi vào đây nữa.
+
+        /** MỚI (28/09/2026, auto-switch -> VirtualMachineState) — Việc cần làm với đồng hồ nhánh 'fixed' khi media
+         * play/pause hoặc app vào/ra nền: 'off' (tính năng tắt / không có media / không phải nhánh 'fixed' -> dọn task),
+         * 'start' (chưa từng có task -> bắt đầu), 'resume' / 'pause' (theo điều kiện được chạy). Hàm thuần, Workflow
+         * tự đọc 3 giá trị đầu vào. */
+        function resolveAutoSwitchSyncPhase(isFixedActive, hasTimerTask, isRunAllowed) {
+            if (!isFixedActive) return 'off';
+            if (!hasTimerTask) return 'start';
+            return isRunAllowed ? 'resume' : 'pause';
+        }
+

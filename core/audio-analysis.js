@@ -226,3 +226,9 @@
             bpmEl.textContent = bpmText;
             noteEl.textContent = noteText;
         }
+
+        /** MỚI (28/09/2026, Phase 4) — Nốt MIDI gần nhất còn "tươi" (được cập nhật trong `freshMs` ms). Gộp 4 bản
+         * chép cũ (circuit/brain/clock/dot — cùng ngưỡng 300ms) trong workflow visualizer. */
+        function isPitchNoteFresh(midiNote, noteTime, now, freshMs) {
+            return midiNote !== null && midiNote !== undefined && (now - (noteTime || 0)) < freshMs;
+        }

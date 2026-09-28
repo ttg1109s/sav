@@ -113,7 +113,8 @@
                 // `bumpSongPlayCount()`...). `taskManager.operator(name,'enabled')` tự guard
                 // chống double-start (no-op nếu đã chạy) nên gọi `start()` từ đây an toàn tuyệt
                 // đối, kể cả khi nhánh này không còn là nhánh "lần đầu" duy nhất chạy nó.
-                allocateBuffers(); resizeCanvas(); workflowVisualizerRender.start(); updateDOMBackground();
+                // SỬA (28/09/2026, Phase 3) — bỏ resizeCanvas() (core cũ, đã xoá): start() tự dựng canvas/scene theo khung nhìn.
+                allocateBuffers(); workflowVisualizerRender.start(); updateDOMBackground();
             } else if (appState.get('audioContext').state === 'suspended' || appState.get('audioContext').state === 'interrupted') appState.get('audioContext').resume();
         }
 
@@ -167,3 +168,8 @@
 
         // (25/09/2026) 2 hàm cổng seek v2 (setAudioOutputConnected/readAnalyserRms) ĐÃ XOÁ — cổng v3 không còn ngắt loa/đo
         // analyser, xem event/workflow/player-controls.js::runGatedSeek().
+
+        /** MỚI (28/09/2026, Phase 3) — Đổi độ phân giải FFT của analyser chính (effect cần phổ mịn dùng 2048). */
+        function setAnalyserFftSize(analyser, fftSize) {
+            analyser.fftSize = fftSize;
+        }

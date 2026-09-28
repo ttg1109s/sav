@@ -1028,7 +1028,9 @@
                 if (idx === -1) idx = 0;
                 appState.set('currentModeIndex', idx);
             }
-            updateDOMBackground(); updatePlaylistBg(); updateProgressBarCSS(); updateTypeUI();
+            updateDOMBackground(); updatePlaylistBg(); updateProgressBarCSS();
+            // (updateTypeUI() — BỎ 28/09/2026: đã tách về workflowVisualizerRender.activateCurrentStyle(), gọi ngay sau
+            //  loadConfig() ở event/workflow/app-boot.js — core không gọi Workflow.)
 
             // XOÁ (24/09/2026, rà soát refresh DOM) — `initVisualizerMiscSettingsUIFromConfig()` (core/visualizer/
             // visualizer-misc-settings.js, đã xoá): chỉ đồng bộ 3 control keepScreenOn/visualizerType/gameMode mà id

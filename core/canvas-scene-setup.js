@@ -18,41 +18,39 @@
             } catch(e) { return null; }
         }
 
-        function resizeCanvas() {
-            appState.set('dpr', window.devicePixelRatio || 1);
-            const dpr = appState.get('dpr');
-            canvas.width = window.innerWidth * dpr; canvas.height = window.innerHeight * dpr;
-            const tRenderer = appState.get('tRenderer');
-            if(tRenderer) {
-                tRenderer.setSize(window.innerWidth, window.innerHeight);
-                if (appState.get('tInitialized') && appState.get('tCamera')) {
-                    const tCamera = appState.get('tCamera');
-                    tCamera.aspect = window.innerWidth/window.innerHeight; tCamera.updateProjectionMatrix();
-                }
-            }
-            
-            initStars(); initThreeJS(); updateThreeJSColors(); initRubik();
-            appState.set('ripples', []);
-            appState.set('glassStaticDrops', []); appState.set('glassStreaks', []); appState.set('activeLightnings', []); appState.set('starFlashes', []);
-            
-            const rainCfg = getEffectConfig('rain'); // core/custom-effect.js
+        // [XOÁ — 28/09/2026, Phase 3 dọn visualizer] `resizeCanvas()` + `window.addEventListener('resize', resizeCanvas)`
+        // ĐÃ BỎ: core tự nghe sự kiện cửa sổ (bỏ qua Listener -> Router) và tự gọi 6 core khác (initStars/
+        // initThreeJS/initRubik/generateStreetScene...), kèm lỗi dựng lại cả scene Vortex mỗi lần resize (rò GPU).
+        // Nay: event/listener/visualizer-viewport.js -> router -> workflowVisualizerRender.onViewportResize() —
+        // Workflow đổi kích thước canvas/renderer rồi báo từng group (event/workflow/visualizer/*.js) tự dựng lại
+        // phần của mình. 3 hàm thuần dưới đây là các mảnh tách ra từ thân resizeCanvas() cũ.
 
-            for(let i=0; i < rainCfg.glassDropDensity; i++) appState.mutate('glassStaticDrops', arr => arr.push({x: Math.random() * canvas.width, y: Math.random() * canvas.height, r: (Math.random() * 1.5 + 0.5) * dpr}));
-
-            let buildings = []; let currentX = -50 * dpr;
-            const bldScale = rainCfg.streetBuildingScale;
-            while(currentX < canvas.width + 50 * dpr) {
-                let w = (Math.random() * 60 + 30) * dpr * bldScale; let h = (Math.random() * 250 + 80) * dpr;
-                let winStepX = 14 * dpr * (bldScale > 1 ? 1.5 : 1); let winStepY = 18 * dpr * (bldScale > 1 ? 1.5 : 1);
-                let cols = Math.floor(w / winStepX); let rows = Math.floor(h / winStepY); let windows = [];
-                for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (Math.random() > 0.3) windows.push({ r: r, c: c, isAlwaysOn: Math.random() > 0.85, fftBin: Math.floor(Math.random() * 40) }); // SỬA 25/09/2026 — bỏ colorType (màu cố định), màu cửa giờ theo color mode, xem core/visualizer/groups/rain/glass.js
-                buildings.push({x: currentX, w: w, h: h, cols: cols, rows: rows, windows: windows}); currentX += w + (Math.random() * 15 * dpr); 
-            }
-            appState.set('cityBuildings', buildings);
-
-            generateStreetScene();
+        /** Đặt kích thước pixel thật của canvas 2D theo khung nhìn CSS × dpr. */
+        function resizeVisualizerCanvas(canvasEl, cssWidth, cssHeight, dpr) {
+            canvasEl.width = cssWidth * dpr;
+            canvasEl.height = cssHeight * dpr;
         }
-        window.addEventListener('resize', resizeCanvas);
+
+        /** Giọt nước tĩnh trên kính (Rain glass) rải ngẫu nhiên khắp canvas — y hệt công thức trong resizeCanvas() cũ. */
+        function buildGlassStaticDrops(count, width, height, dpr) {
+            const drops = [];
+            for (let i = 0; i < count; i++) drops.push({ x: Math.random() * width, y: Math.random() * height, r: (Math.random() * 1.5 + 0.5) * dpr });
+            return drops;
+        }
+
+        /** Dãy nhà thành phố phía sau kính (Rain glass) — y hệt công thức trong resizeCanvas() cũ (màu cửa theo color
+         * mode, xem core/visualizer/groups/rain/glass.js). */
+        function buildRainCityBuildings(width, dpr, bldScale) {
+            const buildings = []; let currentX = -50 * dpr;
+            while (currentX < width + 50 * dpr) {
+                const w = (Math.random() * 60 + 30) * dpr * bldScale; const h = (Math.random() * 250 + 80) * dpr;
+                const winStepX = 14 * dpr * (bldScale > 1 ? 1.5 : 1); const winStepY = 18 * dpr * (bldScale > 1 ? 1.5 : 1);
+                const cols = Math.floor(w / winStepX); const rows = Math.floor(h / winStepY); const windows = [];
+                for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (Math.random() > 0.3) windows.push({ r: r, c: c, isAlwaysOn: Math.random() > 0.85, fftBin: Math.floor(Math.random() * 40) });
+                buildings.push({ x: currentX, w: w, h: h, cols: cols, rows: rows, windows: windows }); currentX += w + (Math.random() * 15 * dpr);
+            }
+            return buildings;
+        }
 
         // Chiều cao (px thiết bị, đã *dpr) của vùng thanh điều khiển dưới cùng (progress bar + tên
         // bài/control/thời gian) — mặt đất của visual Street PHẢI nằm cao hơn mốc này để không bị
