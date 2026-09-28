@@ -130,9 +130,10 @@ const workflowVizBar = {
 
         // SỬA (28/09/2026, Giang báo "quá thưa") — số cột theo bán kính ĐANG VẼ (làm mượt chậm + trễ đổi số), ô 15px/cột:
         // cột rộng tối đa nằm sát nhau ở chân; cột bo góc đỉnh.
-        const layout = computeBlackHoleBarLayout(this._resolveBlackHoleHalfCount(currentRadius, dpr), frame.bufferLength); // core
+        const layout = computeBlackHoleBarLayout(this._resolveBlackHoleHalfCount(cfg, currentRadius, dpr), frame.bufferLength); // core
         const dynamicMaxBarHeight = (cfg.maxH / 1000) * (minDimension * 0.25);
         const bars = computeBlackHoleBarsFrame(frame.vizDataArray, layout.usefulLength, layout.spanBins, cfg.minH, dpr, dynamicMaxBarHeight); // core
+        this._blackHole.meanHeight = computeBlackHoleMeanBarHeight(bars); // core — frame sau đếm cột theo đầu cột
         bars.forEach((b) => {
             const color = getComputedColor(...b.colorArgs); // core/audio-analysis.js
             paintBlackHoleBarShapes(ctx, b.angles, b.height, centerX, centerY, currentRadius, cfg.barWidth, cfg.barTopRadius, color.fill, color.glow, dpr, frame.perf.blurMult); // core
@@ -142,16 +143,31 @@ const workflowVizBar = {
         paintBlackHoleCore(ctx, centerX, centerY, currentRadius); // core
     },
 
-    /** Trạng thái đếm cột Black Hole (KHÔNG thuộc STATE): bán kính giữ đỉnh + số cột nửa vòng đang dùng. */
-    _blackHole: { avgRadius: 0, halfCount: 0, lastTime: 0 },
+    /** Trạng thái đếm cột Black Hole (KHÔNG thuộc STATE): bán kính đầu cột giữ đỉnh, số cột nửa vòng đang dùng, chiều cao
+     * cột trung bình frame trước, khoá config ảnh hưởng kích thước + số frame "bám ngay" sau khi config đó đổi. */
+    _blackHole: { refRadius: 0, halfCount: 0, meanHeight: 0, lastTime: 0, configKey: '', snapFrames: 0 },
 
-    _resolveBlackHoleHalfCount(currentRadius, dpr) {
+    /** Số cột nửa vòng theo bán kính ĐẦU CỘT (hố đen + cao trung bình) — giữ đỉnh khi phát; đổi bán kính/chiều cao trong
+     * Custom Effect thì bám NGAY (bỏ giữ đỉnh + ngưỡng trễ vài frame) thay vì chờ nhả chậm. */
+    _resolveBlackHoleHalfCount(cfg, currentRadius, dpr) {
         const bh = this._blackHole;
+        this._snapBlackHoleCountOnConfigChange([cfg.radiusRatio, cfg.radiusEnergyMult, cfg.maxH, cfg.minH].join('|'));
         const now = performance.now();
-        bh.avgRadius = smoothBlackHoleBarRadius(bh.avgRadius, currentRadius, computeFrameDeltaMs(now, bh.lastTime)); // core
+        const snapping = bh.snapFrames > 0;
+        const dt = snapping ? Infinity : computeFrameDeltaMs(now, bh.lastTime); // core/visualizer/frame-clock.js — Infinity = bám ngay
         bh.lastTime = now;
-        bh.halfCount = resolveBlackHoleBarHalfCount(bh.halfCount, bh.avgRadius, dpr); // core
+        bh.snapFrames = Math.max(0, bh.snapFrames - 1);
+        bh.refRadius = smoothBlackHoleBarRadius(bh.refRadius, currentRadius + bh.meanHeight, dt); // core
+        bh.halfCount = resolveBlackHoleBarHalfCount(snapping ? 0 : bh.halfCount, bh.refRadius, dpr); // core
         return bh.halfCount;
+    },
+
+    /** Config kích thước hố đen/cột vừa đổi -> bám ngay trong vài frame (chiều cao trung bình cần 1-2 frame để cập nhật). */
+    _snapBlackHoleCountOnConfigChange(configKey) {
+        const bh = this._blackHole;
+        if (configKey === bh.configKey) return;
+        bh.configKey = configKey;
+        bh.snapFrames = 6;
     },
 
     /** Quầng sáng quanh lỗ đen — chỉ khi đang phát và năng lượng vượt ngưỡng flare. */
