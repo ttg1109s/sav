@@ -366,10 +366,11 @@
         // globalHueOffset, beatScale, vizDataArray, pitchTimeDomainArray, previousSpectrumArray,
         // beatTimes, fluxHistory — STATE, xem service/state.js.
         let smoothedBeatRadius = 0, smoothedPitchY = 0; // biến NỘI BỘ (không thuộc STATE)
-        let lastBeatTime = 0, runningFluxMean = 0; // biến NỘI BỘ (không thuộc STATE)
+        // (lastBeatTime/runningFluxMean — ĐÃ BỎ 28/09/2026: mốc beat đọc từ appState `lastBeatTime`, trung bình
+        //  flux tính tại chỗ bằng computeArrayMean(), xem event/workflow/audio-analysis.js.)
 
         // currentModeIndex — STATE, xem service/state.js.
-        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        // (noteNames — ĐÃ BỎ 28/09/2026, thay bằng MIDI_NOTE_NAMES trong core/audio-analysis.js.)
 
         // stars, starFlashes, rubikCubes, rubikPitchHistory, rubikPitchAvg, raindrops, ripples,
         // glassStaticDrops, glassStreaks, cityBuildings, activeLightnings, streetLamps, streetRain,
