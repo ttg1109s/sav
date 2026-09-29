@@ -187,7 +187,7 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.suctionBase': 'Base suction speed',
     'customEffectDrawer.field.suctionEnergyMult': 'Suction energy reactivity',
     'customEffectDrawer.field.flareThreshold': 'Flare trigger threshold',
-    'customEffectDrawer.field.flashFadeSpeed': 'Flash fade speed',
+    'customEffectDrawer.field.hawkingEnabled': 'Hawking radiation', // MỚI 29/09/2026 — Black Hole
     'customEffectDrawer.field.flashEnabled': 'Screen flash',
     'customEffectDrawer.field.flashThreshold': 'Flash trigger threshold',
     'customEffectDrawer.field.flashMaxOpacity': 'Flash max opacity',
