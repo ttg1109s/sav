@@ -288,7 +288,7 @@ const workflowPlayer = {
             // chục ms đầu (worker là bất đồng bộ, kết quả cũ có thể vẫn đang "bay" lúc đổi bài).
             appState.set('latestPitchFrequency', -1); appState.set('lastValidNoteStr', null); appState.set('lastValidNoteTime', 0); appState.set('lastValidMidiNote', null);
             appState.set('rubikPitchHistory', []); appState.set('rubikPitchAvg', 0);
-            appState.set('raindrops', []); appState.set('ripples', []); appState.set('glassStaticDrops', []); appState.set('glassStreaks', []); appState.set('activeLightnings', []); appState.set('starFlashes', []);
+            appState.set('raindrops', []); appState.set('ripples', []); appState.set('glassStaticDrops', []); appState.set('glassStreaks', []); appState.set('activeLightnings', []); // (starFlashes — ĐÃ BỎ 29/09/2026, chớp sao Black Hole bỏ hẳn)
             workflowVisualizerRender.resetForNewMedia(); // event/workflow/visualizer-render.js — SỬA 28/09/2026 (thay resetConnectorPerTrackState() gọi thẳng): mọi group dọn trạng thái theo bài (connector: tia/tín hiệu còn bay dở)
             setupAudioContext(); workflowVisualizerRender.activateCurrentStyle(); // SỬA 28/09/2026 — thay updateTypeUI() (core cũ)
 
