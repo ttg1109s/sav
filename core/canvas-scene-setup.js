@@ -61,7 +61,8 @@
         }
 
         /** Sao Black Hole: 5 cụm góc, 3 lớp tốc độ/kích thước, vài sao ngả xanh/vàng (màu GỐC — sao KHÔNG theo Color mode,
-         * Giang 29/09/2026). `vAngle`/`vDist` = vận tốc 1 frame chuẩn 60fps, bước vật lý ghi lại mỗi frame để vẽ vệt cong. */
+         * Giang 29/09/2026). `trail` = lịch sử vị trí cực {angle, distance} (mới -> cũ) + `trailClock` (ms tới lần lấy mẫu
+         * kế) — stepBlackHoleStars() ghi, dùng để vẽ vệt đúng đường sao đã đi. */
         function buildBlackHoleStars(count, maxDist, dpr) {
             const starList = [];
             for (let i = 0; i < count; i++) {
@@ -71,7 +72,7 @@
                 const sizeMult = layer < 0.2 ? 0.5 : (layer < 0.7 ? 1.0 : 2.0);
                 const colorRand = Math.random();
                 const colorTint = colorRand > 0.9 ? '200, 220, 255' : (colorRand > 0.8 ? '255, 240, 200' : '255, 255, 255');
-                starList.push({ angle: angle, distance: Math.random() * maxDist, size: (Math.random() * 1.5 + 0.5) * sizeMult * dpr, baseSpeed: baseSpeed * dpr, colorTint: colorTint, vAngle: 0, vDist: 0 });
+                starList.push({ angle: angle, distance: Math.random() * maxDist, size: (Math.random() * 1.5 + 0.5) * sizeMult * dpr, baseSpeed: baseSpeed * dpr, colorTint: colorTint, trail: [], trailClock: 0 });
             }
             return starList;
         }
