@@ -37,6 +37,28 @@
 const SEEK_GATE_SEEKED_TIMEOUT_MS = 3000; // đợi 'seeked'/'loadedmetadata' tối đa — phòng media không bao giờ xong (file lỗi) để không câm vĩnh viễn
 const SEEK_GATE_UNMUTE_RAMP_SEC = 0.03;   // mở tiếng dần 30ms — tránh tiếng "tách"
 
+/** Lặp 1 bài (repeat-one, hết bài tự nhiên) — phát lại từ đầu theo loại media đang phát (readme/event-bus-flow.md mục 7).
+ * SỬA (29/09/2026, Giang báo: lặp 1 bài vẫn lọt ĐUÔI tiếng cũ, thanh tiến trình/timer vẫn chạy từ 0 -> tiếng lệch sau
+ * currentTime, phụ đề lệch dồn qua mỗi vòng) — Song trước đây gán `currentTime = 0` TRẦN (bỏ qua cổng seek), hàng đợi
+ * tiếng cũ của iOS không bị xoá nên vài giây cuối phát lại SAU khi currentTime đã về 0. Nay Song đi qua cổng seek
+ * (`_restartSongForRepeatOne()`, nạp lại nguồn = xoá hàng đợi). Video/Photo giữ nguyên hành vi cũ. */
+const REPEAT_ONE_RESTART_BY_MEDIA = {
+    song: () => workflowPlayerControls._restartSongForRepeatOne(),
+    video: (activeEl) => {
+        activeEl.currentTime = 0;
+        activeEl.play().catch((err) => console.error('[workflowPlayerControls] bgVideoElement.play() lỗi:', err));
+    },
+    // Photo: không có sự kiện 'play' DOM thật (photoPlayerFakeMediaElement.play() chỉ đổi cờ) nên PHẢI gọi
+    // startListenClock() THẲNG — handleMediaEnded() vừa dừng đồng hồ ngay trước (xem goToNextTrack()). SỬA 25/09/2026:
+    // + chạy lại Point Move từ đầu (event/workflow/photo-player.js).
+    photo: (activeEl) => {
+        activeEl.currentTime = 0;
+        activeEl.play();
+        startListenClock();
+        workflowPhotoPlayer.onClockRestarted();
+    },
+};
+
 const workflowPlayerControls = {
 
     /** MỚI (24/09/2026, dọn nợ "taskManager trong core") — THAY core `forceBackToPlaylistUI()` cũ ở MỌI nơi "về
@@ -88,6 +110,8 @@ const workflowPlayerControls = {
      * @param {number} targetSec
      * @param {boolean} resumeAfter - true = `play()` sau seek dù cổng không tự giữ (Video đã bị pause lúc kéo tay)
      * @param {number|null} [verifyToleranceSec] - Video: sau 'seeked' đọc lại currentTime, lệch > mức này thì gán lại; null = không kiểm (Song)
+     * @returns {Promise<boolean>} MỚI (29/09/2026) — true = cổng chạy TRỌN (đã seek + mở tiếng + thả hold); false = bị lệnh seek
+     *   mới hơn tiếp quản / media đổi giữa chừng / play() lỗi. Nơi gọi cũ không await — không ảnh hưởng.
      */
     async runGatedSeek(mediaEl, targetSec, resumeAfter, verifyToleranceSec = null) {
         const token = ++this._seekGateToken;
@@ -111,8 +135,8 @@ const workflowPlayerControls = {
             const metaPromise = this._waitMediaEvent(mediaEl, 'loadedmetadata');
             mediaEl.load();
             await metaPromise;
-            if (token !== this._seekGateToken) return; // lệnh seek mới hơn đã tiếp quản — nó tự lo play()/mở tiếng
-            if (mediaEl.currentSrc !== srcAtStart) { this._abortSeekGate(); return; } // media đã đổi giữa lúc chờ (Next/chọn bài)
+            if (token !== this._seekGateToken) return false; // lệnh seek mới hơn đã tiếp quản — nó tự lo play()/mở tiếng
+            if (mediaEl.currentSrc !== srcAtStart) { this._abortSeekGate(); return false; } // media đã đổi giữa lúc chờ (Next/chọn bài)
         }
 
         // Seek. [SỬA 21/09/2026 — giữ nguyên] còn seek dở HOẶC lệch mốc -> luôn gán lại (seek mới huỷ seek dở); Video kiểm lại vị trí.
@@ -123,12 +147,12 @@ const workflowPlayerControls = {
                 const seekedPromise = this._waitMediaEvent(mediaEl, 'seeked'); // đăng ký listener TRƯỚC khi gán currentTime
                 mediaEl.currentTime = targetSec;
                 await seekedPromise;
-                if (token !== this._seekGateToken) return;
+                if (token !== this._seekGateToken) return false;
                 if (verifyToleranceSec === null || Math.abs(mediaEl.currentTime - targetSec) <= verifyToleranceSec) break;
             }
         }
-        if (token !== this._seekGateToken) return;
-        if (mediaEl.currentSrc !== srcAtStart) { this._abortSeekGate(); return; }
+        if (token !== this._seekGateToken) return false;
+        if (mediaEl.currentSrc !== srcAtStart) { this._abortSeekGate(); return false; }
 
         // Mở tiếng TRƯỚC rồi mới play() (play() lúc trang không ra tiếng làm iOS bỏ Next/Prev ở màn hình khoá — xem lịch sử v2).
         this._setMasterGainForSeekGate(false);
@@ -139,13 +163,25 @@ const workflowPlayerControls = {
                 await mediaEl.play(); // promise xong SAU khi sự kiện 'play' đã qua listener -> hold còn nguyên lúc đó -> bị bỏ qua đúng ý
             } catch (err) {
                 console.error('[workflowPlayerControls] runGatedSeek: play() lỗi sau seek:', err);
-                if (heldByGate) { this._releaseSeekGateHold(mediaEl, true); return; } // không phát lại được -> báo 'pause' THẬT cho UI
+                if (heldByGate) { this._releaseSeekGateHold(mediaEl, true); return false; } // không phát lại được -> báo 'pause' THẬT cho UI
             }
-            if (token !== this._seekGateToken) return;
+            if (token !== this._seekGateToken) return false;
         }
         if (heldByGate) this._releaseSeekGateHold(mediaEl, false);
         if (isSong) updateMediaPositionState(); // core/player-controls.js — Media Session đúng vị trí mới (nạp lại đã reset)
         console.log(`[seekGate] ${isSong ? 'song (nạp lại)' : 'video'} ${wasPlaying ? 'đang phát' : 'đang dừng'} -> ${targetSec.toFixed(2)}s | tổng ${Math.round(performance.now() - startMs)}ms`);
+        return true;
+    },
+
+    /** MỚI (29/09/2026) — lặp 1 bài cho Song: cổng seek về 0 (nạp lại nguồn -> xoá hàng đợi tiếng cũ của iOS) rồi MỚI play().
+     * Không để cổng tự play (resumeAfter = false): sau 'ended' media đã dừng THẬT (sự kiện 'pause' thật đã tới UI/đồng hồ
+     * nghe/VBG), play() trong lúc cổng còn giữ sẽ bị bỏ qua -> UI kẹt ở trạng thái dừng. play() SAU khi cổng thả hold phát
+     * sự kiện 'play' thật -> icon, đồng hồ nghe, VBG, auto-switch chạy lại như bản cũ. Cổng không chạy trọn (người dùng
+     * seek/đổi bài giữa chừng) -> lệnh mới tự lo, không play() chồng. */
+    async _restartSongForRepeatOne() {
+        const completed = await this.runGatedSeek(audioPlayer, 0, false);
+        if (!completed) return;
+        audioPlayer.play().catch((err) => console.error('[workflowPlayerControls] audioPlayer.play() lỗi khi lặp 1 bài:', err));
     },
 
     /** Sự kiện của `mediaEl` lúc này là do CỔNG tự pause/nạp lại/play tạm (Workflow bỏ qua: handleAudioPlayEvent/
@@ -280,20 +316,10 @@ const workflowPlayerControls = {
         const activeEl = getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode); // core/player-controls.js — DÙNG CHUNG Song/Video/Photo (Next/Prev + Game Mode) — SỬA (Giang yêu cầu, Photo tích hợp duration) thêm isPhotoPlayerMode
 
         if (shouldRestartInsteadOfAdvance(repeatMode, force)) { // core mới (order.js) — repeat-mode-2, KHÔNG force
-            activeEl.currentTime = 0;
-            if (isVideoPlayerMode) activeEl.play().catch((err) => console.error('[workflowPlayerControls] bgVideoElement.play() lỗi:', err));
-            // FIX (Giang yêu cầu "thêm thời gian listen cho photo") — nhánh này CHỈ tới được từ
-            // `handleMediaEnded()` (photo hết TỰ NHIÊN, repeat-single) — hàm đó LUÔN gọi
-            // `stopListenClock()` NGAY TRƯỚC KHI gọi `goToNextTrack(false)` (xem handleMediaEnded()
-            // dưới), nên lúc chạy tới đây đồng hồ totalTime CHẮC CHẮN vừa bị dừng. Song/Video tự
-            // khởi động lại đồng hồ đó qua sự kiện 'play' THẬT của thẻ <audio>/<video> (handleAudio-
-            // Play()/handleVideoPlayState(), core/player-controls.js & event/workflow/video-
-            // player.js) — Photo KHÔNG có sự kiện DOM thật (`photoPlayerFakeMediaElement.play()`
-            // CHỈ đổi cờ `photoPlayerPaused`, KHÔNG tự bắn gì thêm — xem core/photo-player.js) nên
-            // PHẢI gọi `startListenClock()` THẲNG ở đây, nếu không ảnh lặp lại (repeat-single) sẽ
-            // câm lặng ngừng tính totalTime sau đúng 1 vòng đầu tiên.
-            else if (isPhotoPlayerMode) { activeEl.play(); startListenClock(); workflowPhotoPlayer.onClockRestarted(); } // photoPlayerFakeMediaElement.play() KHÔNG async, KHÔNG cần .catch() — SỬA 25/09/2026: + chạy lại Point Move từ đầu (event/workflow/photo-player.js)
-            else activeEl.play();
+            // Nhánh này CHỈ tới được từ `handleMediaEnded()` (hết tự nhiên) — đồng hồ nghe vừa bị dừng ngay trước. Song/Video
+            // tự khởi động lại đồng hồ qua sự kiện 'play' THẬT; Photo gọi thẳng (xem REPEAT_ONE_RESTART_BY_MEDIA).
+            const mediaKind = isVideoPlayerMode ? 'video' : (isPhotoPlayerMode ? 'photo' : 'song');
+            REPEAT_ONE_RESTART_BY_MEDIA[mediaKind](activeEl);
             return;
         }
 
