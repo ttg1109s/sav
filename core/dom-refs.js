@@ -126,6 +126,11 @@
         const statsPanel = document.getElementById('stats-panel');
         // Chụp khung hình bgVideoElement đang phát -> Photo (chỉ hiện lúc Video Player mode).
         const btnCaptureVideoFrame = document.getElementById('btn-capture-video-frame');
+        // MỚI (29/09/2026) — Zoom mode Player (kính lúp Control Center): icon, lớp bắt cử chỉ, lớp nhận transform
+        // (bọc NGOÀI #visual-motion-react, index.html) — xem core/player-zoom.js + event/workflow/player-zoom.js.
+        const btnPlayerZoom = document.getElementById('btn-player-zoom');
+        const playerZoomSurface = document.getElementById('player-zoom-surface');
+        const playerZoomLayer = document.getElementById('player-zoom-layer');
         // Volume HUD — icon loa 5 mốc + slider, panel nổi riêng — xem core/hud.js.
         const btnOpenVolume = document.getElementById('btn-open-volume');
         const visualizerVolumeHud = document.getElementById('visualizer-volume-hud');
