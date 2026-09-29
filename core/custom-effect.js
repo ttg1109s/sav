@@ -179,6 +179,8 @@ const CUSTOM_EFFECT_FIELDS = {
         // MỚI (25/09/2026) — mirror: nâng treble trên 1kHz + làm mượt kề (Monstercat), core/visualizer/groups/bar/mirror.js
         { id: 'mirrorTilt', labelKey: 'customEffectDrawer.field.mirrorTilt', type: 'sliderFloat', min: 0, max: 6, step: 0.5, decimals: 1, card: 'reaction', showIf: (cfg) => cfg.barStyle === 'mirror' },
         { id: 'mirrorSmoothSpread', labelKey: 'customEffectDrawer.field.mirrorSmoothSpread', type: 'sliderFloat', min: 0, max: 0.9, step: 0.05, decimals: 2, card: 'reaction', showIf: (cfg) => cfg.barStyle === 'mirror' },
+        // MỚI (29/09/2026, Giang) — bật/tắt tia bức xạ Hawking (beat mạnh), core/visualizer/groups/bar/black-hole.js.
+        { id: 'hawkingEnabled', labelKey: 'customEffectDrawer.field.hawkingEnabled', type: 'toggle', card: 'reaction', showIf: (cfg) => cfg.barStyle === 'black hole' },
         { id: 'flareThreshold', labelKey: 'customEffectDrawer.field.flareThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, card: 'reaction', showIf: (cfg) => cfg.barStyle === 'black hole' },
         // (flashFadeSpeed — ĐÃ BỎ 29/09/2026, Giang: bỏ hiệu ứng chớp khi sao va vào viền hố đen.)
         // MỚI (25/09/2026, Giang) — độ phình (%) của dot tác động, chỉ kiểu 'radius' (kiểu 'height' đã có maxH).
