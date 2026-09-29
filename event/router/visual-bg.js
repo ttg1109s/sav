@@ -46,6 +46,11 @@ const routerVisualBg = (() => {
                 workflowVisualBg.changeSyncPlaybackSpeed(msg.payload.checked);
                 break;
 
+            // MỚI (30/09/2026, Giang) — Resolution media VBG (card Media), giống Player.
+            case 'visualBg.resolutionMode.change':
+                workflowVisualBg.changeResolutionMode(msg.payload.value);
+                break;
+
             case 'visualBg.openGradientPanel.click':
                 // SỬA (đợt migrate Visualizer Screen) — điều hướng qua ngăn xếp app-settings.js
                 // (liên tuyến domain, TH2) thay vì gọi thẳng — workflowVisualBg.openGradientPanel()
