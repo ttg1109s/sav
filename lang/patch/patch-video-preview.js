@@ -29,6 +29,7 @@ const LANG_PATCH_VIDEO_PREVIEW = {
     'videoPreview.rail.crop': 'Crop',
     'videoPreview.rail.rotate': 'Rotate',
     'videoPreview.rail.flip': 'Flip',
+    'videoPreview.rail.capture': 'Capture', // MỚI 29/09/2026 — nút Chụp khung hình ở hàng công cụ editor
     'videoPreview.rail.reset': 'Reset',
     'videoPreview.tool.trim.title': 'Trim',
     'videoPreview.tool.crop.title': 'Crop',
