@@ -42,6 +42,9 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsVisualizer.gesture.hint': 'Swipe/tap controls on the Visualizer screen',
     'visualBgSettingsDrawer.title': 'Visual Background',
     'visualBgSettingsDrawer.groupMedia.title': 'Media',
+    // MỚI (29/09/2026) — toggle tổng đầu panel Visual Background.
+    'visualBgSettingsDrawer.enabled.label': 'Visual Background',
+    'visualBgSettingsDrawer.enabled.hint': 'Off hides photo/video; background colour stays',
     'visualBgSettingsDrawer.groupPlayback.title': 'Playback',
     'visualBgSettingsDrawer.motion.label': 'Motion',
     'visualBgSettingsDrawer.syncSpeed.label': 'Sync playback speed',

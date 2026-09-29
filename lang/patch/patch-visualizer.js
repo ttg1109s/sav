@@ -26,6 +26,10 @@ const LANG_PATCH_VISUALIZER = {
     'gameplayCircle.ended.hitTier.miss': 'Miss',
     'gameplayCircle.ended.replayLabel': 'Replay',
     'gameplayCircle.ended.nextLabel': 'Next song',
+    // MỚI (29/09/2026, Giang yêu cầu "đổi ngữ cảnh cho phù hợp") — nút Next ở modal Kết quả theo loại media vừa chơi,
+    // chọn ở event/workflow/gameplay.js::onSongEnded() (GAMEPLAY_NEXT_LABEL_KEY_BY_MEDIA).
+    'gameplayCircle.ended.nextVideoLabel': 'Next video',
+    'gameplayCircle.ended.nextPhotoLabel': 'Next photo',
     'gameplayCircle.ended.endLabel': 'Back to playlist',
     'gameplayCircle.ended.playCountLabel.singular': 'Played 1 time',
     'gameplayCircle.ended.playCountLabel.plural': 'Played {count} times',
