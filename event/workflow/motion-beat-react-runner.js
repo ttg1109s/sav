@@ -62,7 +62,7 @@
  * @param {() => object|null} getPresetFn - trả preset {reactBeatAudio:{...}} hoặc null.
  * @param {(() => number)=} getSpeedFn - tuỳ chọn, trả hệ số tốc độ phát hiện tại (Video Player
  *        truyền `playbackSpeed` để decay envelope co giãn theo — VBG không truyền, mặc định 1).
- * @returns {{sync: () => void, stop: () => void, pause: () => void, resume: () => void, release: () => void}}
+ * @returns {{sync: () => void, stop: () => void, pause: () => void, resume: () => void, release: (durationMs?: number) => void}}
  */
 
 /** Registry MỌI runner đã tạo — dùng bởi notifyMotionBeatReactPresetsChanged() ngay dưới. List
@@ -111,6 +111,11 @@ function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn, 
     // MỚI (29/09/2026) — đang "nhả về baseline" (`release()`): _tick() coi beatScale = 0 -> envelope decay êm về 0
     // theo đúng MOTION_ENGINE_BEATREACT_DECAY_MS, KHÔNG đọc nhạc. Xoá bởi resume()/sync() vòng mới/stop().
     let releasing = false;
+    // MỚI (29/09/2026, Giang: "thời gian về base phải theo thời gian Transition") — release có hẹn thời lượng: envelope
+    // đi TUYẾN TÍNH theo THỜI GIAN THẬT từ `releaseFromEnvelope` về 0, chạm 0 đúng `releaseStartMs + releaseDurationMs`.
+    let releaseFromEnvelope = 0;
+    let releaseStartMs = 0;
+    let releaseDurationMs = 0; // 0 = không hẹn -> decay chuẩn (MOTION_ENGINE_BEATREACT_DECAY_MS)
 
     /** MỚI (phản hồi Giang — Random Max) — biên trần dùng cho 1 lượt "beat": `randomMax` tắt -> LUÔN
      * đúng `configuredMax` (hành vi CŨ, không đổi). `randomMax` bật -> resolve NGẪU NHIÊN 1 lần mỗi
@@ -175,7 +180,9 @@ function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn, 
         }
 
         const speed = (typeof getSpeedFn === 'function' ? getSpeedFn() : 1) || 1; // tuỳ chọn — VBG không truyền -> luôn 1
-        envelope = computeMotionEngineBeatReactEnvelope(envelope, beatScale, deltaMs, MOTION_ENGINE_BEATREACT_DECAY_MS / speed); // core/motion-engine.js + hằng số đầu file này
+        envelope = (releasing && releaseDurationMs > 0)
+            ? releaseFromEnvelope * (1 - Math.min(1, (now - releaseStartMs) / releaseDurationMs)) // SỬA 29/09/2026 — release có hẹn: về 0 đúng hạn
+            : computeMotionEngineBeatReactEnvelope(envelope, beatScale, deltaMs, MOTION_ENGINE_BEATREACT_DECAY_MS / speed); // core/motion-engine.js + hằng số đầu file này
         const energy = envelope;
 
         const zoomScale = rb.zoom.enabled ? computeMotionEngineBeatReactZoomScale(zoomEffectiveMax, energy) : 1; // core/motion-engine.js
@@ -233,13 +240,18 @@ function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn, 
     }
 
     /** MỚI (29/09/2026, Giang: "trong khi transition cũng phải về baseline") — NHẢ VỀ BASELINE: task chạy tiếp (kể cả
-     * đang bị pause) nhưng coi beatScale = 0 -> envelope decay êm từ vị trí hiện tại về baseline trong ~DECAY_MS (co
-     * giãn theo tốc độ), rồi đứng yên ở baseline. Trong lúc release, `pause()` no-op (không đóng băng giữa chừng);
-     * `resume()` kết thúc release, đọc nhạc thật lại từ envelope đang có. Cơ chế thuần (nguyên tắc tua vít) — nơi
-     * tiêu thụ tự quyết lúc nào nhả. No-op nếu runner chưa chạy (không preset React Beat). */
-    function release() {
+     * đang bị pause) nhưng không đọc nhạc -> envelope trượt êm từ vị trí hiện tại về baseline rồi đứng yên ở đó.
+     * `durationMs` > 0 (SỬA cùng ngày — "theo thời gian Transition"): trượt TUYẾN TÍNH theo thời gian thật, chạm baseline
+     * ĐÚNG sau `durationMs`; không truyền/<=0: decay chuẩn ~DECAY_MS (co giãn theo tốc độ). Trong lúc release, `pause()`
+     * no-op (không đóng băng giữa chừng); `resume()` kết thúc release, đọc nhạc thật lại từ envelope đang có. Cơ chế
+     * thuần (nguyên tắc tua vít) — nơi tiêu thụ tự quyết lúc nào nhả + bao lâu. No-op nếu runner chưa chạy.
+     * @param {number} [durationMs] */
+    function release(durationMs) {
         if (!taskManager.plan[taskName]) return;
         releasing = true;
+        releaseFromEnvelope = envelope;
+        releaseStartMs = performance.now();
+        releaseDurationMs = durationMs > 0 ? durationMs : 0;
         taskManager.resume(taskName); // service/task-manager.js — resume task đang chạy là vô hại
     }
 

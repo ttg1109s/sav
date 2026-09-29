@@ -104,7 +104,9 @@ function createMotionTransitionRunner(taskName) {
      * @param {object} preset @param {number} advanceMs - thời lượng hiển thị SAU khi incomingEl
      *        "current" — dùng kẹp thời lượng transition (xem capMotionEngineTransitionDurationMs()).
      * @param {() => void} [onSettle] - gọi ĐÚNG 1 LẦN khi `outgoingEl` "xong việc" — animation/cắt
-     *        cứng đã kết thúc, layer đó CÓ THỂ bị nơi gọi tái sử dụng/dọn/gán nội dung mới. */
+     *        cứng đã kết thúc, layer đó CÓ THỂ bị nơi gọi tái sử dụng/dọn/gán nội dung mới.
+     * @returns {number} MỚI (29/09/2026) — thời lượng THẬT của lượt này (ms, đã kẹp/chia in-out = mốc onSettle);
+     *          0 = cắt cứng. Cho nơi gọi đồng bộ việc khác theo đúng Transition (vd React Beat nhả về baseline). */
     function runTransition(containerEl, outgoingEl, incomingEl, preset, advanceMs, onSettle) {
         _settlePending();
 
@@ -114,7 +116,7 @@ function createMotionTransitionRunner(taskName) {
             outgoingEl.classList.remove('me-current');
             incomingEl.classList.add('me-current');
             if (onSettle) onSettle();
-            return;
+            return 0;
         }
 
         setMotionEngineTransitionType(containerEl, preset.transitionType); // core
@@ -143,6 +145,7 @@ function createMotionTransitionRunner(taskName) {
             pendingCleanup = null;
             if (onSettle) onSettle();
         }, cleanupDelayMs, taskName);
+        return cleanupDelayMs;
     }
 
     /** Dừng hẳn — huỷ timer cleanup còn treo (gọi `onSettle` NGAY nếu có, để nơi gọi vẫn kịp dọn

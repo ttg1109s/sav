@@ -93,11 +93,12 @@ const workflowMotionStage = {
     /** Transition giữa 2 layer do BÊN GỌI chọn — Stage không biết layer chứa gì (xem nguyên tắc Runner).
      * @param {number} token @param {HTMLElement} containerEl @param {HTMLElement} outgoingEl
      * @param {HTMLElement} incomingEl @param {object} preset @param {number} capMs - kẹp thời lượng
-     * (0 = không kẹp) @param {() => void} [onSettle] @returns {boolean} false nếu token hết hiệu lực */
+     * (0 = không kẹp) @param {() => void} [onSettle]
+     * @returns {number|null} SỬA (29/09/2026) — thời lượng THẬT của lượt Transition (ms, 0 = cắt cứng); `null` nếu
+     *          token hết hiệu lực (không chạy gì). Trước đây trả boolean — nơi gọi cũ chỉ dùng như cờ "đã chạy". */
     runTransition(token, containerEl, outgoingEl, incomingEl, preset, capMs, onSettle) {
-        if (!this.isCurrent(token)) return false;
-        this._transitionRunner.runTransition(containerEl, outgoingEl, incomingEl, preset, capMs, onSettle);
-        return true;
+        if (!this.isCurrent(token)) return null;
+        return this._transitionRunner.runTransition(containerEl, outgoingEl, incomingEl, preset, capMs, onSettle);
     },
 
     /** Point Move cho nội dung MỚI (ghi lại mốc "bắt đầu hiện"). Cũng dùng khi nơi tiêu thụ muốn chạy
@@ -138,9 +139,11 @@ const workflowMotionStage = {
     },
 
     /** MỚI (29/09/2026) — React Beat nhả êm về baseline (không đụng Point Move) — `resume()` kết thúc. Bên mượn tự
-     * quyết lúc nào (vd Player Video: suốt Transition đổi video). @param {number} token */
-    releaseBeat(token) {
+     * quyết lúc nào (vd Player Video: suốt Transition đổi video).
+     * @param {number} token @param {number} [durationMs] - về tới baseline ĐÚNG sau ngần này (vd = thời lượng Transition);
+     *        <=0/không truyền -> decay chuẩn của Runner. */
+    releaseBeat(token, durationMs) {
         if (!this.isCurrent(token)) return;
-        this._beatReactRunner.release();
+        this._beatReactRunner.release(durationMs);
     },
 };

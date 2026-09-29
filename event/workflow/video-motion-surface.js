@@ -89,15 +89,20 @@ const workflowVideoMotionSurface = {
      * VỪA nhận thumb MỚI) — nơi gọi tự lo NỘI DUNG 2 layer trước/sau (surface không đụng). Sai owner -> resolve
      * ngay (coi như cắt cứng, không chặn luồng đổi nguồn).
      * @param {string} owner @param {object} preset @param {number} capMs - 0 = không kẹp
+     * @param {{releaseBeat?: boolean}} [options] - MỚI (29/09/2026): `releaseBeat` — nơi tiêu thụ muốn React Beat nhả
+     *        về baseline SONG SONG và KẾT THÚC ĐÚNG cùng lúc Transition (thời lượng thật do Stage trả về; cắt cứng -> decay
+     *        chuẩn của Runner). Surface chỉ nối 2 cơ chế theo yêu cầu, không tự quyết.
      * @returns {Promise<void>} resolve khi layer A "xong việc" */
-    runTransition(owner, preset, capMs) {
+    runTransition(owner, preset, capMs, options) {
         if (!this.hasLease(owner)) return Promise.resolve();
+        const releaseBeat = !!(options && options.releaseBeat);
         return new Promise((resolve) => {
-            const started = workflowMotionStage.runTransition( // event/workflow/motion-stage.js
+            const durationMs = workflowMotionStage.runTransition( // event/workflow/motion-stage.js
                 this._stageToken, motionEngineReactLayer, bgVideoElement, visualBgImageElement, // core/dom-refs.js — container, outgoing (A), incoming (B)
                 preset || MOTION_ENGINE_NO_OP_PRESET, capMs, resolve, // core/motion-presets.js
             );
-            if (!started) resolve();
+            if (durationMs === null) { resolve(); return; }
+            if (releaseBeat) workflowMotionStage.releaseBeat(this._stageToken, durationMs); // event/workflow/motion-stage.js
         });
     },
 
@@ -134,9 +139,9 @@ const workflowVideoMotionSurface = {
     },
 
     /** MỚI (29/09/2026) — React Beat nhả êm về baseline (Point Move giữ nguyên trạng thái), `resume()` kết thúc.
-     * @param {string} owner */
-    releaseBeat(owner) {
+     * @param {string} owner @param {number} [durationMs] - xem workflowMotionStage.releaseBeat() */
+    releaseBeat(owner, durationMs) {
         if (!this.hasLease(owner)) return;
-        workflowMotionStage.releaseBeat(this._stageToken); // event/workflow/motion-stage.js
+        workflowMotionStage.releaseBeat(this._stageToken, durationMs); // event/workflow/motion-stage.js
     },
 };
