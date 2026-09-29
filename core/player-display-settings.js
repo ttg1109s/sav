@@ -28,19 +28,31 @@
  * display-settings.js, event/workflow/player-display-settings.js, event/workflow/app-settings.js.
  */
 
-/** 4 mode Resolution — áp dụng riêng cho Video và Photo (2 field độc lập `videoResolutionMode`/
- * `photoResolutionMode`, xem core/config.js). 'cover' — kéo giãn lấp đầy khung, giữ tỉ lệ, CẮT bớt
- * phần dư (object-fit: cover) — ĐÚNG hành vi mặc định gốc trước khi có tính năng Resolution (MỚI,
- * Giang yêu cầu bổ sung lại). 'fit' — giữ tỉ lệ, căn giữa, có thể dư viền (object-fit: contain).
+/** 3 mode Resolution — áp dụng riêng cho Video và Photo (2 field độc lập `videoResolutionMode`/
+ * `photoResolutionMode`, xem core/config.js).
+ * SỬA (29/09/2026, Giang yêu cầu) — BỎ 'cover' + 'fit', thay bằng 'fill' (MẶC ĐỊNH): phóng video/ảnh TỪ
+ * GIỮA ra cho tới khi lấp đầy TOÀN BỘ chiều ngang VÀ chiều dọc của màn Visualizer, GIỮ tỉ lệ, phần dư
+ * (theo chiều còn lại) bị zoom-cắt đều 2 bên (object-fit/background-size: cover + position center).
  * 'stretch' — kéo giãn lấp đầy khung, KHÔNG giữ tỉ lệ (object-fit: fill). 'trueMax' — giữ NGUYÊN
- * kích thước gốc, CHỈ co lại (KHÔNG phóng to) nếu vượt khung — khác 'fit' ở chỗ ảnh/video NHỎ hơn
- * khung thì đứng nguyên kích thước gốc, không bị kéo lớn lên. */
+ * kích thước gốc, CHỈ co lại (KHÔNG phóng to) nếu vượt khung — ảnh/video NHỎ hơn khung thì đứng nguyên
+ * kích thước gốc, không bị kéo lớn lên.
+ * Giá trị cũ đã lưu ('cover'/'fit') được quy về 'fill' lúc boot — xem normalizePlayerResolutionMode(). */
 const PLAYER_RESOLUTION_MODES = [
-    { value: 'cover', labelKey: 'playerDisplaySettings.resolution.cover' },
-    { value: 'fit', labelKey: 'playerDisplaySettings.resolution.fit' },
+    { value: 'fill', labelKey: 'playerDisplaySettings.resolution.fill' },
     { value: 'stretch', labelKey: 'playerDisplaySettings.resolution.stretch' },
     { value: 'trueMax', labelKey: 'playerDisplaySettings.resolution.trueMax' },
 ];
+
+/** Mode mặc định + đích quy đổi cho mọi giá trị lạ/cũ ('cover'/'fit' đã bỏ 29/09/2026). */
+const PLAYER_RESOLUTION_DEFAULT_MODE = 'fill';
+
+/** Core thuần — quy 1 giá trị Resolution bất kỳ (kể cả giá trị cũ đã lưu 'cover'/'fit' hoặc thiếu) về
+ * ĐÚNG 1 trong PLAYER_RESOLUTION_MODES; không khớp -> PLAYER_RESOLUTION_DEFAULT_MODE ('fill').
+ * @param {*} resolutionMode @returns {string} */
+function normalizePlayerResolutionMode(resolutionMode) {
+    const isKnown = PLAYER_RESOLUTION_MODES.some((m) => m.value === resolutionMode);
+    return isKnown ? resolutionMode : PLAYER_RESOLUTION_DEFAULT_MODE;
+}
 
 /** 3 "vai trò" Motion ĐỘC LẬP của Player — mỗi vai trò 1 hàng chọn RIÊNG cho Video/Photo (tuỳ
  * `kinds`), cùng chọn trong TOÀN BỘ danh sách preset Motion (màn Chọn — SỬA 24/09/2026, bỏ cơ chế
@@ -118,15 +130,14 @@ function resolvePlayerResolutionField(kind) {
 function resolvePlayerObjectFitCss(resolutionMode) {
     if (resolutionMode === 'stretch') return 'fill';
     if (resolutionMode === 'trueMax') return 'scale-down';
-    if (resolutionMode === 'fit') return 'contain';
-    return 'cover'; // 'cover' — cũng là fallback an toàn cho giá trị lạ/thiếu (ĐÚNG hành vi mặc định gốc)
+    return 'cover'; // 'fill' (mặc định) — phóng từ giữa lấp đầy, giữ tỉ lệ, cắt phần dư; cũng là fallback cho giá trị lạ/cũ
 }
 
 /** Core thuần — chuỗi CSS `background-size` (dùng cho `#visual-bg-image`, 1 <div> nền
  * background-image, KHÔNG có `object-fit` như <img>/<video> nên phải tự tính tay thay vì có sẵn
- * 1 từ khoá CSS như Video) ứng với 1 giá trị PLAYER_RESOLUTION_MODES. 'cover'/'fit'/'stretch' map
- * thẳng 1-1 sang từ khoá CSS cùng tên (`cover`/`contain`/`100% 100%`) — không cần `naturalWidth`/
- * `naturalHeight`/kích thước khung.
+ * 1 từ khoá CSS như Video) ứng với 1 giá trị PLAYER_RESOLUTION_MODES. 'fill'/'stretch' map thẳng sang
+ * `cover`/`100% 100%` (tâm ảnh cố định ở giữa nhờ `background-position: center` sẵn trong CSS) — không cần
+ * `naturalWidth`/`naturalHeight`/kích thước khung.
  *
  * 'trueMax' tự viết lại ĐÚNG ngữ nghĩa `object-fit: scale-down`: ảnh NHỎ hơn khung ở CẢ 2 chiều ->
  * giữ nguyên kích thước gốc (`'auto'`, KHÔNG phóng to) — NGƯỢC LẠI (vượt khung ở ÍT NHẤT 1 chiều)
@@ -138,11 +149,10 @@ function resolvePlayerObjectFitCss(resolutionMode) {
  * @returns {string} giá trị hợp lệ cho CSS `background-size` */
 function resolvePlayerBackgroundSizeCss(resolutionMode, naturalWidth, naturalHeight, containerWidth, containerHeight) {
     if (resolutionMode === 'stretch') return '100% 100%';
-    if (resolutionMode === 'fit') return 'contain';
     if (resolutionMode === 'trueMax') {
         if (!naturalWidth || !naturalHeight) return 'contain';
         const fitsWithoutScaling = naturalWidth <= containerWidth && naturalHeight <= containerHeight;
         return fitsWithoutScaling ? 'auto' : 'contain';
     }
-    return 'cover'; // 'cover' — cũng là fallback an toàn cho giá trị lạ/thiếu (ĐÚNG hành vi mặc định gốc)
+    return 'cover'; // 'fill' (mặc định) — phóng từ giữa lấp đầy, giữ tỉ lệ, cắt phần dư; cũng là fallback cho giá trị lạ/cũ
 }

@@ -73,7 +73,7 @@ function clearVideoPlayerResolutionFromDOM() {
  * dừng), giữ chỗ trong lúc video mới đang buffer (chống nháy đen). Layer B lúc đó PHẢI cùng kích
  * thước/tỉ lệ với layer A — nếu không, gọi hàm này với `resolutionMode` khác layer A (hoặc bỏ qua
  * luôn) sẽ khiến 2 layer LỆCH kích thước, lộ layer B không khớp layer A qua khoảng hở (nếu
- * Resolution đang là kiểu có khoảng hở, vd 'fit'/'trueMax').
+ * Resolution đang là kiểu có khoảng hở, vd 'trueMax').
  *
  * `naturalWidth`/`naturalHeight` dùng `bgVideoElement.videoWidth`/`.videoHeight` (KHÔNG dùng
  * `record.width`/`.height` như Photo Player mode — Video không có field đó) — tại thời điểm gọi từ

@@ -533,9 +533,9 @@
          * chọn trong TOÀN BỘ preset Motion qua màn Chọn (event/workflow/player-display-settings.js
          * ::openMotionSlotPicker()).
          *
-         * `videoResolutionMode`/`photoResolutionMode` — 'cover' (kéo giãn lấp đầy khung, giữ tỉ lệ,
-         * CẮT bớt phần dư — mặc định, ĐÚNG hành vi gốc trước khi có Resolution) | 'fit' (giữ tỉ lệ,
-         * căn giữa, có thể có viền đen) | 'stretch' (kéo giãn lấp đầy khung, KHÔNG giữ tỉ lệ) |
+         * `videoResolutionMode`/`photoResolutionMode` — 'fill' (MẶC ĐỊNH — SỬA 29/09/2026, Giang: thay
+         * 'cover' + 'fit' đã bỏ; phóng từ GIỮA lấp đầy toàn bộ ngang/dọc màn Visualizer, giữ tỉ lệ,
+         * zoom-cắt phần dư; giá trị cũ quy về 'fill' lúc boot) | 'stretch' (kéo giãn lấp đầy khung, KHÔNG giữ tỉ lệ) |
          * 'trueMax' (giữ nguyên kích thước gốc, CHỈ co lại — không phóng to — nếu vượt khung, xem
          * core/player-display-settings.js::PLAYER_RESOLUTION_MODES). ĐÃ có cơ chế hoạt động thật
          * (core/player-display-apply.js) — RIÊNG Video, `bgVideoElement`/`visualBgImageElement`
@@ -556,11 +556,11 @@
          * kind. `null` = chưa gắn preset nào cho vai trò đó.
          */
         const DEFAULT_PLAYER_DISPLAY_CONFIG = {
-            videoResolutionMode: 'cover',
+            videoResolutionMode: 'fill',
             videoTransitionNextPresetId: null,
             videoTransitionPrevPresetId: null,
             videoShowingPresetId: null,
-            photoResolutionMode: 'cover',
+            photoResolutionMode: 'fill',
             photoTransitionNextPresetId: null,
             photoTransitionPrevPresetId: null,
             photoPointMovePresetId: null,
