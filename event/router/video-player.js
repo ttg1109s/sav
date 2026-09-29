@@ -42,7 +42,9 @@ const routerVideoPlayer = (() => {
             }
 
             case 'videoPlayer.captureFrame.click': {
-                workflowVideoPlayer.captureCurrentFrame();
+                // SỬA (29/09/2026) — nút Chụp của Video editor dùng CHUNG event này, kèm `sourceVideoEl`
+                // (`<video>` của editor); Control Center không kèm -> workflow tự dùng bgVideoElement.
+                workflowVideoPlayer.captureCurrentFrame(msg.payload && msg.payload.sourceVideoEl);
                 break;
             }
 
