@@ -564,6 +564,11 @@
             photoTransitionNextPresetId: null,
             photoTransitionPrevPresetId: null,
             photoPointMovePresetId: null,
+            // MỚI (29/09/2026, Giang) — mức zoom/pan của Zoom mode (kính lúp Control Center), MỖI kind 1 bộ riêng,
+            // lưu bền qua boot. x, y = TỈ LỆ của khung (translate, transform-origin 0 0), KHÔNG phải px — xem
+            // core/player-zoom.js. {scale:1,x:0,y:0} = gốc (không zoom).
+            videoZoom: { scale: 1, x: 0, y: 0 },
+            photoZoom: { scale: 1, x: 0, y: 0 },
         };
 
         /**
@@ -683,6 +688,8 @@
                 photoTransitionNextPresetId: 'nullable-string',
                 photoTransitionPrevPresetId: 'nullable-string',
                 photoPointMovePresetId: 'nullable-string',
+                videoZoom: 'object', // MỚI 29/09/2026 — {scale,x,y} hệ tỉ lệ, xem DEFAULT_PLAYER_DISPLAY_CONFIG
+                photoZoom: 'object',
                 // Video KHÔNG còn 'videoPointMovePresetId'/'videoReactBeatPresetId' riêng — ĐÃ GỘP
                 // thành 'videoShowingPresetId' (Giang chốt). Photo KHÔNG có field tương đương —
                 // không có React Beat để gộp cùng (Photo Player mode phát im lặng, Giang chỉ ra),

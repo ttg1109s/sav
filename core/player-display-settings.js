@@ -114,6 +114,12 @@ function resolvePlayerMotionPresetField(kind, slot) {
     return entry ? `${kind}${entry.fieldSuffix}` : null;
 }
 
+/** Core thuần — tên field domain 'playerDisplay' giữ mức zoom/pan (Zoom mode kính lúp) của 1 kind — MỚI 29/09/2026,
+ * Giang: zoom video riêng, photo riêng, lưu bền. @param {'video'|'photo'} kind @returns {string} */
+function resolvePlayerZoomField(kind) {
+    return `${kind}Zoom`;
+}
+
 /** Core thuần — tên field domain 'playerDisplay' giữ Resolution mode của 1 kind.
  * @param {'video'|'photo'} kind @returns {string} */
 function resolvePlayerResolutionField(kind) {

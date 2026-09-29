@@ -108,12 +108,14 @@ function wireAppSettingsSystem(bodyEl) {
 function wireAppSettingsPlayerDetail(bodyEl, kind) {
     const resolutionSelect = bodyEl.querySelector(`#setting-player-${kind}-resolution`);
     const motionSlotRows = bodyEl.querySelectorAll('[data-player-motion-slot]'); // components/settings/player-display-settings.js — chỉ dựng đúng slot của kind này
+    const zoomResetBtn = bodyEl.querySelector(`#setting-player-${kind}-zoom-reset`); // MỚI 29/09/2026 — reset nhanh zoom/pan
 
     // --- addEventListener: gom cuối hàm (Rule 5a) ---
     if (resolutionSelect) resolutionSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.player.resolution.change', payload: { kind, value: e.target.value } }));
     motionSlotRows.forEach((rowEl) => {
         rowEl.addEventListener('click', () => eventBus.send({ router: 'appSettings', type: 'appSettings.player.motionSlot.openPicker.click', payload: { kind, slot: rowEl.dataset.playerMotionSlot } }));
     });
+    if (zoomResetBtn) zoomResetBtn.addEventListener('click', () => eventBus.send({ router: 'appSettings', type: 'appSettings.player.zoom.reset.click', payload: { kind } }));
 }
 
 /** Màn Playlist — 2 <select> (Nguồn/Kiểu xem, TÁI DÙNG msg.type gốc của cụm "playlist" — router đó
