@@ -36,6 +36,10 @@ const TPL_VISUALIZER_OVERLAY = `
     <div id="visualizer-ui" class="fixed inset-0 z-30 pointer-events-none fade-enter hidden flex flex-col">
         <div class="flex-grow relative">
             <div id="visualizer-gesture-surface" class="absolute inset-0 z-20 pointer-events-auto"></div>
+            <!-- MỚI (29/09/2026, Giang) — lớp bắt cử chỉ zoom/pan của Zoom mode (kính lúp), CHỈ hiện lúc Zoom mode,
+                 đè LÊN #visualizer-gesture-surface (z 21) để tắt mọi cử chỉ app, vẫn DƯỚI top bar/Control Center.
+                 Style ở assets/css/base.css (#player-zoom-surface) — xem event/workflow/player-zoom.js. -->
+            <div id="player-zoom-surface" class="hidden"></div>
 
             <!-- SỬA (mục 2, phản hồi Giang — "loại bỏ toàn bộ khung box của subtitles, chỉ giữ
                  lại text trắng và shadow") — #subtitle-frame ĐÃ BỎ toàn bộ class "khung"
@@ -102,6 +106,12 @@ const TPL_VISUALIZER_OVERLAY = `
                     <button id="btn-capture-video-frame" data-cc-action class="hidden flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.captureFrame.title" title="${t('visualizerOverlay.captureFrame.title')}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.captureFrame.label">${t('visualizerOverlay.captureFrame.label')}</span>
+                    </button>
+                    <!-- MỚI (29/09/2026, Giang) — kính lúp: bật/tắt Zoom mode (tắt cử chỉ app, dùng pinch/pan để zoom
+                         Video/Photo). Chỉ hiện ở Video/Photo Player mode — xem event/workflow/player-zoom.js. -->
+                    <button id="btn-player-zoom" data-cc-action class="hidden flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.playerZoom.title" title="${t('visualizerOverlay.playerZoom.title')}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.2-5.2M10.5 17a6.5 6.5 0 100-13 6.5 6.5 0 000 13z" /><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 7.5v6M7.5 10.5h6" /></svg>
+                        <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.playerZoom.label">${t('visualizerOverlay.playerZoom.label')}</span>
                     </button>
                     <button id="btn-open-volume" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.volume.title" title="${t('visualizerOverlay.volume.title')}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5 6 9H3v6h3l5 4V5z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.5 8.5a5 5 0 010 7M18 6a9 9 0 010 12" /></svg>
