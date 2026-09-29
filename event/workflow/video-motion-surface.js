@@ -132,4 +132,11 @@ const workflowVideoMotionSurface = {
         if (!this.hasLease(owner)) return;
         workflowMotionStage.resume(this._stageToken);
     },
+
+    /** MỚI (29/09/2026) — React Beat nhả êm về baseline (Point Move giữ nguyên trạng thái), `resume()` kết thúc.
+     * @param {string} owner */
+    releaseBeat(owner) {
+        if (!this.hasLease(owner)) return;
+        workflowMotionStage.releaseBeat(this._stageToken); // event/workflow/motion-stage.js
+    },
 };

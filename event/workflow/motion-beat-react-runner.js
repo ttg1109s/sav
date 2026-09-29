@@ -25,7 +25,7 @@
  * khỏi nơi tiêu thụ": nơi tiêu thụ tự lọc xem tiếng hét đó có liên quan tới mình không.
  *
  * `createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn)` — factory, trả về
- * `{ sync(), stop(), pause(), resume() }`:
+ * `{ sync(), stop(), pause(), resume(), release() }` (`release()` MỚI 29/09/2026 — nhả êm về baseline, xem hàm):
  *   `getTargetElementFn()` — trả element sẽ nhận `style.transform` (gọi lại mỗi lần `sync()`,
  *   KHÔNG cache cứng lúc tạo runner — target CÓ THỂ đổi giữa các lần sync, vd Video Player mode di
  *   chuyển nội dung của mình vào/ra 1 element DÙNG CHUNG, xem event/workflow/video-player.js).
@@ -62,7 +62,7 @@
  * @param {() => object|null} getPresetFn - trả preset {reactBeatAudio:{...}} hoặc null.
  * @param {(() => number)=} getSpeedFn - tuỳ chọn, trả hệ số tốc độ phát hiện tại (Video Player
  *        truyền `playbackSpeed` để decay envelope co giãn theo — VBG không truyền, mặc định 1).
- * @returns {{sync: () => void, stop: () => void, pause: () => void, resume: () => void}}
+ * @returns {{sync: () => void, stop: () => void, pause: () => void, resume: () => void, release: () => void}}
  */
 
 /** Registry MỌI runner đã tạo — dùng bởi notifyMotionBeatReactPresetsChanged() ngay dưới. List
@@ -108,6 +108,9 @@ function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn, 
     let panYEffectiveMax = null;
     let rotateEffectiveMax = null;
     let cachedPreset = null; // CHỈ cập nhật lúc sync() chạy (event-driven) — _tick() ĐỌC từ đây, KHÔNG tự .find() mỗi frame
+    // MỚI (29/09/2026) — đang "nhả về baseline" (`release()`): _tick() coi beatScale = 0 -> envelope decay êm về 0
+    // theo đúng MOTION_ENGINE_BEATREACT_DECAY_MS, KHÔNG đọc nhạc. Xoá bởi resume()/sync() vòng mới/stop().
+    let releasing = false;
 
     /** MỚI (phản hồi Giang — Random Max) — biên trần dùng cho 1 lượt "beat": `randomMax` tắt -> LUÔN
      * đúng `configuredMax` (hành vi CŨ, không đổi). `randomMax` bật -> resolve NGẪU NHIÊN 1 lần mỗi
@@ -143,7 +146,7 @@ function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn, 
         const rawDeltaMs = lastTickMs ? (now - lastTickMs) : 16; // lượt tick đầu (chưa có mốc trước) -> giả định 1 frame ~16ms
         const deltaMs = rawDeltaMs > MOTION_BEATREACT_MAX_FRAME_GAP_MS ? 16 : rawDeltaMs;
         lastTickMs = now;
-        const beatScale = appState.get('beatScale'); // service/state/visualizer-runtime.js
+        const beatScale = releasing ? 0 : appState.get('beatScale'); // service/state/visualizer-runtime.js — SỬA 29/09/2026: đang release -> 0 (decay về baseline)
 
         const isAttacking = beatScale >= envelope;
         const isNewBeat = isAttacking && !wasAttacking; // rising edge — "beat mới"
@@ -197,6 +200,7 @@ function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn, 
         const shouldRun = !!preset;
         const isRunning = taskManager.isTaskRunning(taskName); // service/task-manager.js
         if (shouldRun && !isRunning) {
+            releasing = false; // MỚI 29/09/2026 — vòng mới luôn đọc nhạc thật
             envelope = 0; wasAttacking = false; panXPolarity = 0; panYPolarity = 0; rotatePolarity = 0; lastTickMs = 0; // bắt đầu vòng MỚI luôn từ baseline
             zoomEffectiveMax = null; panXEffectiveMax = null; panYEffectiveMax = null; rotateEffectiveMax = null; // reset Random Max — roll LẠI ngay lượt beat đầu của vòng mới
             taskManager.addNew(taskName, { time: 0, exe: _tick, mode: 'raf', count: 0 }); // service/task-manager.js — CHỈ đăng ký, CHƯA chạy
@@ -209,6 +213,7 @@ function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn, 
     /** Dừng hẳn task + trả target về KHÔNG transform (tránh kẹt ở giá trị cuối trước lúc dừng). */
     function stop() {
         cachedPreset = null;
+        releasing = false; // MỚI 29/09/2026
         if (taskManager.plan[taskName]) taskManager.kill(taskName); // service/task-manager.js
         const target = getTargetElementFn();
         if (target) target.style.transform = '';
@@ -217,14 +222,28 @@ function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn, 
     /** Đóng băng TẠI ĐÚNG VỊ TRÍ đang chạy — KHÁC `stop()`, KHÔNG dọn transform/reset state, chỉ
      * tạm ngưng task. `resume()` tiếp tục đúng chỗ. No-op nếu chưa từng chạy. */
     function pause() {
+        if (releasing) return; // MỚI 29/09/2026 — đang nhả về baseline thì KHÔNG đóng băng giữa chừng (xem release())
         if (taskManager.plan[taskName]) taskManager.pause(taskName); // service/task-manager.js
     }
 
+    /** Tiếp tục ĐỌC NHẠC thật (thoát cả pause lẫn release) — tiếp đúng envelope hiện tại, không giật. */
     function resume() {
+        releasing = false; // MỚI 29/09/2026
         if (taskManager.plan[taskName]) taskManager.resume(taskName); // service/task-manager.js
     }
 
-    const runnerHandle = { sync, stop, pause, resume };
+    /** MỚI (29/09/2026, Giang: "trong khi transition cũng phải về baseline") — NHẢ VỀ BASELINE: task chạy tiếp (kể cả
+     * đang bị pause) nhưng coi beatScale = 0 -> envelope decay êm từ vị trí hiện tại về baseline trong ~DECAY_MS (co
+     * giãn theo tốc độ), rồi đứng yên ở baseline. Trong lúc release, `pause()` no-op (không đóng băng giữa chừng);
+     * `resume()` kết thúc release, đọc nhạc thật lại từ envelope đang có. Cơ chế thuần (nguyên tắc tua vít) — nơi
+     * tiêu thụ tự quyết lúc nào nhả. No-op nếu runner chưa chạy (không preset React Beat). */
+    function release() {
+        if (!taskManager.plan[taskName]) return;
+        releasing = true;
+        taskManager.resume(taskName); // service/task-manager.js — resume task đang chạy là vô hại
+    }
+
+    const runnerHandle = { sync, stop, pause, resume, release };
     _motionBeatReactRunnerRegistry.push(runnerHandle); // đăng ký NGAY lúc tạo — notifyMotionBeatReactPresetsChanged() cần thấy nó dù chưa từng sync() lần nào
     return runnerHandle;
 }

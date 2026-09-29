@@ -73,6 +73,12 @@ const workflowPlayerDisplaySettings = {
      * (Giang chỉ ra: next/prev/end tự nhiên), Runner dùng thẳng `preset.transitionDurationMs`.
      * @param {'next'|'prev'} direction @returns {Promise<void>} resolve khi layer A "xong việc". */
     runVideoPlayerTransition(direction) {
+        // MỚI (29/09/2026, Giang: "React transition xong mới về baseline — yêu cầu trong khi transition cũng về
+        // baseline") — TRƯỚC ĐÂY 'pause' của video A (swapBgVideoSource() pause để đứng hình) đóng băng React Beat tại
+        // vị trí X suốt Transition, chỉ khi video B 'play' mới decay về. Giờ Player quyết: bắt đầu Transition thì NHẢ
+        // React Beat về baseline (decay êm ~250ms, song song với Transition); video B 'play' -> resumeVideoMotion()
+        // (handleVideoPlayState()) tự kết thúc release, React đọc nhạc video B từ baseline. Point Move không đổi.
+        workflowVideoMotionSurface.releaseBeat(PLAYER_VIDEO_MOTION_SURFACE_OWNER); // event/workflow/video-motion-surface.js
         return workflowVideoMotionSurface.runTransition(PLAYER_VIDEO_MOTION_SURFACE_OWNER, this._resolveVideoTransitionPreset(direction), 0); // event/workflow/video-motion-surface.js
     },
 

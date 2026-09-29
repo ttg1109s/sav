@@ -136,4 +136,11 @@ const workflowMotionStage = {
         this._pointMoveRunner.resume();
         this._beatReactRunner.resume();
     },
+
+    /** MỚI (29/09/2026) — React Beat nhả êm về baseline (không đụng Point Move) — `resume()` kết thúc. Bên mượn tự
+     * quyết lúc nào (vd Player Video: suốt Transition đổi video). @param {number} token */
+    releaseBeat(token) {
+        if (!this.isCurrent(token)) return;
+        this._beatReactRunner.release();
+    },
 };
