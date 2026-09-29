@@ -50,6 +50,9 @@ const LANG_PATCH_VISUALIZER = {
     // Video Player mode. (statsToggle.* ĐÃ XOÁ — toggle dời vào Settings, xem statsPanelEnable.*.)
     'visualizerOverlay.captureFrame.title': 'Capture frame as photo',
     'visualizerOverlay.captureFrame.label': 'Capture',
+    // MỚI (29/09/2026) — kính lúp Zoom mode Player Video/Photo (event/workflow/player-zoom.js)
+    'visualizerOverlay.playerZoom.title': 'Zoom mode (pinch to zoom, turns off gestures)',
+    'visualizerOverlay.playerZoom.label': 'Zoom',
     'visualizerOverlay.volume.title': 'Volume',
     'visualizerOverlay.volume.label': 'Volume',
     'visualizerOverlay.speed.title': 'Playback speed',
