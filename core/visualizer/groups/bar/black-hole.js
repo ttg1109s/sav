@@ -11,8 +11,9 @@
  *      (bán kính mượt ×0.15/frame, sao cộng mỗi frame) đổi sang dt — màn 90/120Hz chạy cùng tốc độ màn 60Hz.
  *      `smoothedBeatRadius` (biến global ở core/dom-refs.js) chuyển thành trạng thái riêng của Workflow.
  *   3. Màu + hiệu năng: flare/tia theo Color mode (getComputedColor() — Workflow resolve rồi truyền vào). SAO GIỮ MÀU GỐC
- *      (trắng, vài sao ngả xanh/vàng — Giang: sao không nối vào Color mode). Glow cột
- *      không còn `shadowBlur` từng cột: vẽ 1 lượt vào 2 lớp canvas phụ độ phân giải thấp rồi phóng lên (downsample-blur).
+ *      (trắng, vài sao ngả xanh/vàng — Giang: sao không nối vào Color mode). [HOÀN NGUYÊN cùng ngày — Giang: glow chất
+ *      lượng kém] Glow qua lớp canvas phụ độ phân giải thấp (downsample-blur: nhoè răng cưa, lấp khe cột, nhấp nháy) ĐÃ
+ *      BỎ — cột lẫn tia Hawking quay về `shadowBlur` (Gaussian thật). Cột: đúng như bản cũ (10px × cường độ Blur).
  *      Hiệu ứng CHỚP khi sao va vào viền hố đen ĐÃ BỎ HẲN (Giang) — cùng state `starFlashes` + field `flashFadeSpeed`.
  *   4. Hình ảnh: sao vẽ thành VỆT theo LỊCH SỬ vị trí thật (đuôi đi đúng đường xoáy sao đã đi, mờ + mảnh dần; đầu là chấm
  *      sao gốc);
@@ -267,15 +268,17 @@ function orderBlackHoleBarsClockwise(bars, colors) {
 }
 
 /** 1 cột: khối chữ nhật mọc từ viền ra ngoài, chân phẳng, 2 góc ĐỈNH bo `topRadiusPx` (px CSS 0-5). `widthPx` px CSS
- * (5-10). Tô bằng `color` (không shadow — glow vẽ riêng qua lớp phụ, xem paintBlackHoleGlowLayers()). Chỉ Canvas API;
- * ghép được với transform sẵn có của ctx (lớp glow thu nhỏ). */
-function paintBlackHoleBar(ctx, entry, color, centerX, centerY, radius, widthPx, topRadiusPx, dpr) {
+ * (5-10). Tô `entry.fill`, glow = `shadowBlur` màu `entry.glow` bán kính 10px × `blurMult` (HOÀN NGUYÊN bản cũ; Blur tắt
+ * -> blurMult 0 -> không glow). Chỉ Canvas API. */
+function paintBlackHoleBar(ctx, entry, centerX, centerY, radius, widthPx, topRadiusPx, dpr, blurMult) {
     const w = Math.max(BLACK_HOLE_BAR_WIDTH_MIN, Math.min(BLACK_HOLE_BAR_WIDTH_MAX, widthPx)) * dpr;
     const h = entry.height;
     const r = Math.max(0, Math.min(Math.min(BLACK_HOLE_BAR_TOP_RADIUS_MAX, topRadiusPx) * dpr, w / 2, h));
     const hw = w / 2;
     ctx.save();
-    ctx.fillStyle = color;
+    ctx.fillStyle = entry.fill;
+    ctx.shadowColor = blurMult > 0 ? entry.glow : 'transparent';
+    ctx.shadowBlur = 10 * dpr * blurMult;
     ctx.translate(centerX + Math.cos(entry.angle) * radius, centerY + Math.sin(entry.angle) * radius);
     ctx.rotate(entry.angle); // trục x hướng ra ngoài tâm, +y = phía theo chiều kim đồng hồ
     ctx.beginPath();
@@ -304,56 +307,6 @@ function beginBlackHoleSeamClip(ctx, entry, centerX, centerY, radius, maxHeight)
 }
 
 function endBlackHoleSeamClip(ctx) {
-    ctx.restore();
-}
-
-// ===================== glow (downsample-blur) =====================
-
-/** Lớp glow: `near` = 1 texel / 2px CSS (quầng sát), `far` = 1 texel / 6px CSS (quầng loang). Phóng lên bằng nội suy
- * song tuyến -> mờ gần giống shadowBlur nhưng chỉ tốn 2 drawImage/frame thay vì shadowBlur từng cột. */
-const BLACK_HOLE_GLOW_NEAR_CSS_PX = 2;
-const BLACK_HOLE_GLOW_FAR_CSS_PX = 6;
-
-/** Tạo 2 canvas phụ (không gắn DOM — chỉ là bộ đệm pixel) theo kích thước canvas chính. */
-function createBlackHoleGlowLayers(canvasWidth, canvasHeight, dpr) {
-    const make = (cssPerTexel) => {
-        const c = document.createElement('canvas');
-        c.width = Math.max(1, Math.ceil(canvasWidth / (cssPerTexel * dpr)));
-        c.height = Math.max(1, Math.ceil(canvasHeight / (cssPerTexel * dpr)));
-        return { canvas: c, ctx: c.getContext('2d'), scale: c.width / canvasWidth };
-    };
-    return { key: `${canvasWidth}x${canvasHeight}@${dpr}`, near: make(BLACK_HOLE_GLOW_NEAR_CSS_PX), far: make(BLACK_HOLE_GLOW_FAR_CSS_PX) };
-}
-
-/** Khoá kích thước để Workflow biết lớp glow còn khớp canvas chính không. */
-function computeBlackHoleGlowKey(canvasWidth, canvasHeight, dpr) {
-    return `${canvasWidth}x${canvasHeight}@${dpr}`;
-}
-
-/** Xoá lớp near + đặt transform thu nhỏ (toạ độ vẽ vẫn là px thiết bị của canvas chính). */
-function beginBlackHoleGlowPass(layers) {
-    const n = layers.near;
-    n.ctx.setTransform(1, 0, 0, 1, 0, 0);
-    n.ctx.clearRect(0, 0, n.canvas.width, n.canvas.height);
-    n.ctx.setTransform(n.scale, 0, 0, n.scale, 0, 0);
-}
-
-/** near -> thu tiếp vào far, rồi phóng cả 2 lên canvas chính (far loang trước, near sát sau) với độ mạnh `alpha`, kiểu
- * hoà trộn `compositeOp` ('source-over' cho glow cột, 'lighter' cho dải nhiệt tia Hawking). */
-function paintBlackHoleGlowLayers(ctx, layers, canvasWidth, canvasHeight, alpha, compositeOp) {
-    const f = layers.far;
-    f.ctx.setTransform(1, 0, 0, 1, 0, 0);
-    f.ctx.clearRect(0, 0, f.canvas.width, f.canvas.height);
-    f.ctx.imageSmoothingEnabled = true;
-    f.ctx.drawImage(layers.near.canvas, 0, 0, f.canvas.width, f.canvas.height);
-    ctx.save();
-    ctx.globalCompositeOperation = compositeOp;
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.globalAlpha = Math.min(1, alpha);
-    ctx.drawImage(f.canvas, 0, 0, canvasWidth, canvasHeight);
-    ctx.globalAlpha = Math.min(1, alpha * 0.8);
-    ctx.drawImage(layers.near.canvas, 0, 0, canvasWidth, canvasHeight);
     ctx.restore();
 }
 
@@ -388,6 +341,8 @@ function paintBlackHoleCore(ctx, centerX, centerY, currentRadius) {
 //     (BLACK_HOLE_BURST_RAY_FRONT) vẽ ĐÈ LÊN hố đen + vòng cột -> như tia xuyên qua hố đen hướng về người xem.
 //   - Màu theo Color mode DỌC thân tia: Workflow resolve bảng `palette` (getComputedColor(k, K, …)) — tâm = màu đầu, mép
 //     màn hình = màu cuối (solid: 1 màu; dynamic: dynA -> dynB; gradient: dải hue như vòng cột).
+//   - [lượt 3, Giang] Độ mờ của dải nhiệt + quầng tia chớp = `shadowBlur` (Gaussian thật) thay lớp phụ downsample. Độ mờ
+//     là BẢN CHẤT của tia (Giang: "dày và có độ mờ") nên KHÔNG phụ thuộc toggle/cường độ Blur của Custom Effect.
 
 const BLACK_HOLE_BURST_MAX = 3;          // số tia tồn tại cùng lúc
 const BLACK_HOLE_BURST_LIFE_MS = 700;    // tuổi thọ 1 tia
@@ -494,38 +449,48 @@ function createBlackHoleRayGradient(ctx, reach, palette) {
     return along;
 }
 
+/** Bán kính shadowBlur tối đa của dải nhiệt (px CSS) — chặn chi phí blur trên máy yếu khi tia dày nhất. */
+const BLACK_HOLE_BURST_HALO_MAX_PX = 36;
+
 /**
- * Dải nhiệt mềm của 1 NỬA tia — vẽ vào LỚP PHỤ thu nhỏ (ctx của createBlackHoleGlowLayers(), transform thu nhỏ đã đặt),
- * Workflow phóng lên bằng paintBlackHoleGlowLayers(…, 'lighter') -> mép dải mờ mịn (downsample-blur) mà vẫn giữ màu Color
- * mode dọc thân. Hình giọt dài: đầu tròn ở tâm, thon dần tới đầu tia; 2 lớp lồng nhau (lõi đậm hơn). `look` =
- * computeBlackHoleBurstLook(), `gradient` = createBlackHoleRayGradient() (tạo trên chính ctx này). Chỉ Canvas API.
+ * Dải nhiệt mềm của 1 NỬA tia trên canvas chính: hình giọt dài (đầu tròn ở tâm, thon dần tới đầu tia) tô `gradient` màu dọc
+ * thân (createBlackHoleRayGradient()); lớp ngoài có `shadowBlur` màu `haloRgb` ("r, g, b" — điểm giữa bảng màu, shadow chỉ
+ * nhận 1 màu) làm mép mờ, lớp lõi hẹp đậm hơn không shadow. `look` = computeBlackHoleBurstLook(). Hoà trộn 'lighter'.
+ * Chỉ Canvas API.
  */
-function paintBlackHoleBurstBand(ctx, burst, rayIndex, centerX, centerY, reach, look, gradient) {
+function paintBlackHoleBurstBand(ctx, burst, rayIndex, centerX, centerY, reach, look, gradient, haloRgb, dpr) {
     const len = reach * look.grow;
-    ctx.save();
-    ctx.translate(centerX, centerY);
-    ctx.rotate(burst.angle + rayIndex * Math.PI);
-    ctx.fillStyle = gradient;
-    [[1, 0.22], [0.45, 0.4]].forEach(([w, a]) => {
-        const h = look.halfT * w;
-        ctx.globalAlpha = Math.min(1, look.alpha * a);
+    const spindle = (h) => {
         ctx.beginPath();
         ctx.arc(0, 0, h, Math.PI / 2, Math.PI * 1.5); // đầu tròn ở tâm — nửa trước đè lên hố đen không lộ mép cắt thẳng
         ctx.quadraticCurveTo(len * 0.3, -h * 0.55, len, 0); // thon dần về đầu tia
         ctx.quadraticCurveTo(len * 0.3, h * 0.55, 0, h);
         ctx.closePath();
         ctx.fill();
-    });
+    };
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.translate(centerX, centerY);
+    ctx.rotate(burst.angle + rayIndex * Math.PI);
+    ctx.fillStyle = gradient;
+    ctx.globalAlpha = Math.min(1, look.alpha * 0.22);
+    ctx.shadowColor = `rgba(${haloRgb}, 0.9)`;
+    ctx.shadowBlur = Math.min(look.halfT, BLACK_HOLE_BURST_HALO_MAX_PX * dpr);
+    spindle(look.halfT * 0.8);
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = Math.min(1, look.alpha * 0.4);
+    spindle(look.halfT * 0.4);
     ctx.restore();
 }
 
 /**
  * Tia chớp + hạt thoát của 1 NỬA tia (`rayIndex` = BLACK_HOLE_BURST_RAY_BACK | _FRONT) trên canvas chính — hệ toạ độ cục
  * bộ: gốc = tâm hố đen, +x = hướng nửa tia (nửa trước cộng π). `reach` = độ dài tới hết mép (computeBlackHoleRayReach()).
- * Tia chớp gấp khúc + nhánh 3 nét (quầng rộng mờ -> lõi mảnh) tô gradient màu dọc thân; hạt thoát lấy màu theo vị trí.
+ * Tia chớp gấp khúc + nhánh 3 nét (quầng rộng mờ -> nét giữa có shadowBlur màu `haloRgb` -> lõi mảnh) tô gradient màu
+ * dọc thân; hạt thoát lấy màu theo vị trí.
  * Hoà trộn 'lighter' (cộng sáng) trong save/restore. Chỉ Canvas API.
  */
-function paintBlackHoleBurstBolt(ctx, burst, rayIndex, centerX, centerY, reach, dpr, look, palette) {
+function paintBlackHoleBurstBolt(ctx, burst, rayIndex, centerX, centerY, reach, dpr, look, palette, haloRgb) {
     const len = reach * look.grow;
     const bolt = burst.bolt[rayIndex];
     const lastColor = palette.length - 1;
@@ -543,13 +508,17 @@ function paintBlackHoleBurstBolt(ctx, burst, rayIndex, centerX, centerY, reach, 
     };
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    [[look.halfT * 0.35, 0.3], [3 * dpr, 0.6], [1.3 * dpr, 1]].forEach(([width, a]) => {
+    // Quầng rộng mờ -> nét giữa (có shadowBlur quầng sáng) -> lõi mảnh.
+    [[look.halfT * 0.35, 0.3, 0], [3 * dpr, 0.6, 10 * dpr], [1.3 * dpr, 1, 0]].forEach(([width, a, blur]) => {
         ctx.globalAlpha = Math.min(1, look.alpha * a);
+        ctx.shadowColor = blur > 0 ? `rgb(${haloRgb})` : 'transparent';
+        ctx.shadowBlur = blur;
         ctx.lineWidth = width;
         stroke(bolt.pts);
         ctx.lineWidth = width * 0.6;
         bolt.forks.forEach(stroke);
     });
+    ctx.shadowBlur = 0;
     ctx.globalAlpha = Math.min(1, look.alpha);
     burst.particles[rayIndex].forEach((p) => {
         const t = p.t0 + p.v * look.life01;
