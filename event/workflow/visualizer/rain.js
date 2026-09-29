@@ -109,7 +109,8 @@ const workflowVizRain = {
 
     /** Nền tối riêng của Rain — chỉ khi KHÔNG có Visual Background (ảnh/video/folder) và không ở Video Player mode. */
     _paintBackdrop(frame) {
-        const hasCustomBg = appConfigVisualBg.getAll().source.list.some((k) => k !== null) || appState.get('isVideoPlayerMode');
+        const vbgCfg = appConfigVisualBg.getAll();
+        const hasCustomBg = (vbgCfg.enabled !== false && vbgCfg.source.list.some((k) => k !== null)) || appState.get('isVideoPlayerMode'); // SỬA 29/09/2026 — VBG tắt (toggle tổng) = không có media, Rain tự sơn nền
         if (hasCustomBg) return;
         const { ctx, canvas } = frame;
         ctx.fillStyle = getVisualBgFillStyle(ctx, canvas.width, canvas.height); // core/visual-bg.js
