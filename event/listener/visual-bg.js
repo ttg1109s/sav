@@ -17,6 +17,7 @@ const VISUAL_BG_SETTINGS_INPUT_MAP = {
     'setting-visual-bg-duration-seconds:click': { type: 'visualBg.durationSeconds.openPicker', bare: true },
     'setting-visual-bg-open-motion-picker:click': { type: 'visualBg.motionPicker.open.click', bare: true }, // SỬA 24/09/2026 — thay select 'setting-visual-bg-motion-preset' (mở màn Chọn Motion)
     'setting-visual-bg-sync-speed:change': { type: 'visualBg.syncPlaybackSpeed.change', checkbox: true },
+    'setting-visual-bg-resolution:change': { type: 'visualBg.resolutionMode.change' }, // MỚI 30/09/2026 — Resolution card Media
     'setting-visual-bg-pick-video:click': { type: 'visualBg.pickVideo.click', bare: true },
     'setting-visual-bg-pick-photo:click': { type: 'visualBg.pickPhoto.click', bare: true },
     'setting-visual-bg-pick-folder:click': { type: 'visualBg.pickFolder.click', bare: true },
