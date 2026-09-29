@@ -241,7 +241,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.6.2/dist/panzoom.min.js"></script>
 
     <!-- CSS tách riêng theo domain, ?v= ép tải lại khi deploy (không đụng CDN — đã tự version). -->
-    <link rel="stylesheet" href="assets/css/base.css?v=20260924r3">
+    <link rel="stylesheet" href="assets/css/base.css?v=20260929zm1">
     <link rel="stylesheet" href="assets/css/sliders.css?v=20260925f1">
     <link rel="stylesheet" href="assets/css/glass.css?v=20260923v5">
     <link rel="stylesheet" href="assets/css/animations.css?v=20260813v1">
@@ -325,6 +325,11 @@
          Photo dùng `#visual-bg-photo-motion-container` (bên dưới); Video Player mode dùng THẲNG
          `#visual-motion-react` (element NÀY, cha chung DÙNG THẬT SỰ CHUNG với VBG — GIỮ NGUYÊN tên
          cũ, KHÔNG đổi theo prefix `visual-bg-photo-motion-*` — xem event/workflow/video-player.js). -->
+    <!-- MỚI (29/09/2026, Giang — Zoom mode kính lúp của Player Video/Photo) — `#player-zoom-layer` bọc NGOÀI
+         `#visual-motion-react`, nhận transform zoom/pan của người dùng (event/workflow/player-zoom.js). Nằm NGOÀI
+         Motion (React Beat/Point Move/Transition không biết lớp này) — nhận đúng mốc z-index -1 cũ của
+         `.me-beat-react` (assets/css/base.css), thứ tự lớp so với #visual-bg-image/#bg-video KHÔNG đổi. -->
+    <div id="player-zoom-layer">
     <div id="visual-motion-react" class="me-beat-react me-transition-scope">
         <div id="visual-bg-photo-motion-container" class="hidden me-transition-scope">
             <div id="visual-bg-photo-motion-players" class="me-pointmove-players">
@@ -336,6 +341,7 @@
                 </div>
             </div>
         </div>
+    </div>
     </div>
 
     <!-- Canvas WebGL (Three.js - Vortex Engine, dùng chung 1 canvas) -->
@@ -367,7 +373,7 @@
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
     <script src="lang/patch/patch-common.js?v=20260924v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260921v7"></script>
-    <script src="lang/patch/patch-visualizer.js?v=20260929gm1"></script>
+    <script src="lang/patch/patch-visualizer.js?v=20260929zm1"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260929fill1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260921v9"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
@@ -378,7 +384,7 @@
     <!-- MỚI ("Song/Video Unification" v12, gộp Video Editor vào Modal xem Video) — modal xem Video
          mới sống NGAY trong trang này (KHÔNG còn trang riêng video-editor.html, ĐÃ XOÁ), xem
          lang/lang.js. -->
-    <script src="lang/patch/patch-video-preview.js?v=20260927c1"></script>
+    <script src="lang/patch/patch-video-preview.js?v=20260929cap1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — bottom nav + panel Photo/Game/Statis/Setting
          mới, xem lang/patch/patch-app-panel-nav.js. -->
     <script src="lang/patch/patch-app-panel-nav.js?v=20260924m1"></script>
@@ -396,7 +402,7 @@
     <!-- Game Mode overlay (Circle mode v1, MỚI 16/08/2026) — PHẢI nạp TRƯỚC components/visualizer-
          overlay.js (file đó nội suy ${TPL_GAMEPLAY_OVERLAY}, xem components/gameplay-overlay.js). -->
     <script src="components/gameplay-overlay.js?v=20260819v1"></script>
-    <script src="components/visualizer-overlay.js?v=20260925rs1"></script>
+    <script src="components/visualizer-overlay.js?v=20260929zm1"></script>
     <!-- components/subtitle-modal.js ĐÃ XOÁ (10/07/2026) — Subtitle Editor chuyển sang trang riêng
          (subtitle-editor.html), KHÔNG còn modal ở trang chính. -->
     <script src="components/bottom-player.js?v=20260704v1"></script>
@@ -456,7 +462,7 @@
          conventions.md) — CHỈ chuỗi HTML (TPL_VIDEO_PREVIEW), không addEventListener. Đặt cạnh
          generic-drawer.js (cùng vai trò "component tĩnh"), dù bản thân được clone MỖI LẦN MỞ
          (core/file-manager/video-ui.js) chứ không mount 1 lần lúc boot như generic-drawer.js. -->
-    <script src="components/video-preview.js?v=20260927c2"></script>
+    <script src="components/video-preview.js?v=20260929cap1"></script>
     <script src="components/items.js?v=20260728v1"></script>
     <!-- Panel "Display" (Main "Visualizer Screen") — 5 toggle UI chrome. -->
     <script src="components/settings/visualizer-display-panel.js?v=20260923v1"></script>
@@ -536,6 +542,8 @@
     <script src="service/state/visual-bg.js?v=20260806v1"></script>
     <script src="service/state/video-player-mode.js?v=20260818v1"></script>
     <script src="service/state/photo-player-mode.js?v=20260925p3"></script>
+    <!-- MỚI (29/09/2026) — cờ Zoom mode (kính lúp) của Player Video/Photo, xem event/workflow/player-zoom.js. -->
+    <script src="service/state/player-zoom.js?v=20260929zm1"></script>
     <script src="service/state/wakelock-tab.js?v=20260925bg1"></script>
     <script src="service/state/auto-switch.js?v=20260926as1"></script>
     <script src="service/state/listen-stats.js?v=20260725v1"></script>
@@ -550,7 +558,7 @@
     <script src="service/state/element-style-editor.js?v=20260816v2"></script>
     <!-- THAY service/state/video-editor.js (ĐÃ XOÁ cùng video-editor.html — "Song/Video
          Unification" v12, gộp vào Modal xem Video). -->
-    <script src="service/state/video-preview.js?v=20260927c1"></script>
+    <script src="service/state/video-preview.js?v=20260929cap1"></script>
     <!-- service/state/record/index.js — đăng ký account 'player' (thay đoạn <script> inline cũ)
          — xem service/state/record/index.js. -->
     <!-- service/state/gameplay-runtime.js — Game Mode (Circle mode v1, MỚI 16/08/2026). PHẢI nạp
@@ -584,7 +592,7 @@
          actions.js (core, dòng dưới) cần `new EventStore(...)` ngay lúc nạp. Tự đứng độc lập
          (không phụ thuộc eventBus), nên tách riêng lên đây an toàn. -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260929bh5"></script>
+    <script src="core/dom-refs.js?v=20260929zm1"></script>
     <!-- core/slider-panel-scroll.js — 2 hàm dùng chung (getPositionStart/scrollSliderTo) cho mọi
          khung cuộn ngang kiểu "slider panel" (settings-panel-stack-ui.js, player-controls.js). -->
     <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
@@ -676,7 +684,7 @@
          core/file-manager/video-ui.js ĐÃ XOÁ HẲN (Batch 6, mục 6d, phản hồi Giang — modal "Chi
          tiết" riêng nó từng chứa đã bỏ, dùng chung modal Playlist đã video-aware). -->
     <script src="core/file-manager/video.js?v=20260926p1"></script>
-    <script src="core/file-manager/video-ui.js?v=20260927c2"></script>
+    <script src="core/file-manager/video-ui.js?v=20260929cap1"></script>
     <!-- Tool migration thumbnail 320x320 (tools/migrate-video-thumbs-320.js, Batch 3) — Giang xác
          nhận đã chạy xong tốt, ĐÃ XOÁ (batch 4, 27/07/2026): dòng <script> này + file
          tools/migrate-video-thumbs-320.js (xoá tay thủ công, xem thông báo bàn giao). -->
@@ -764,6 +772,8 @@
     <script src="core/visualizer-control-center.js?v=20260806v1"></script>
     <!-- Core thuần: phân loại toạ độ chạm cho hệ thống cử chỉ (event/workflow/visualizer-gesture.js). -->
     <script src="core/visualizer-gesture.js?v=20260811v4"></script>
+    <!-- MỚI (29/09/2026) — Zoom mode Player: toán zoom/pan thuần + Core-DOM, xem core/player-zoom.js. -->
+    <script src="core/player-zoom.js?v=20260929zm1"></script>
     <!-- core/gameplay/*.js — Game Mode. engine.js/engine-ui.js DÙNG CHUNG mọi mode (chấm điểm/
          hit-test/flux/modal-start-end/ring %/sao) — circle-mode.js/circle-mode-ui.js CHỈ RIÊNG mode
          "Circle" (spawn lưới pitch/vật lý wave/canvas). KHÔNG phụ thuộc file nào khác trong khối
@@ -1166,7 +1176,7 @@
          workflowPlaylist.navigateToActiveMenuVideoEdit() gọi thẳng workflowVideoPreview.open()
          (không tầng trung gian) — cần core/file-manager/video-ui.js, core/media-transform.js,
          core/video-editor/*, core/video-player-capture.js (đã nạp ở nhóm CORE/STATE). -->
-    <script src="event/workflow/video-preview.js?v=20260927c2"></script>
+    <script src="event/workflow/video-preview.js?v=20260929cap1"></script>
     <script src="event/router/video-preview.js?v=20260927c1"></script>
     <script src="event/listener/video-preview.js?v=20260802v1"></script>
     <!-- XOÁ (loại bỏ Document Reader khỏi app) — cụm "fileManagerDocument" (workflow/router/
@@ -1240,8 +1250,8 @@
          mediaType khi click video trong Playlist (đi qua eventBus để Block gate chặn khoá chéo với
          Video nền). PHẢI nạp SAU event/workflow/video-player.js (cần workflowVideoPlayer.
          startFromPlaylist() đã tồn tại). -->
-    <script src="event/workflow/video-player.js?v=20260929gm1"></script>
-    <script src="event/router/video-player.js?v=20260915v1"></script>
+    <script src="event/workflow/video-player.js?v=20260929zm1"></script>
+    <script src="event/router/video-player.js?v=20260929cap1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
     <!-- MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — event/workflow/photo-
          player.js: orchestration (đọc DB, taskManager đếm giờ tự next). KHÔNG có router/listener
@@ -1254,7 +1264,7 @@
          workflow/visual-bg-common.js/visual-bg-video.js ("vbg chỉ hợp lệ với song" nên tái dùng
          clearMediaLayers()/applyCurrentVisualBg() Video Player mode đã dùng thay vì tự vẽ DOM
          riêng, cần workflowVisualBg tồn tại trước). -->
-    <script src="event/workflow/photo-player.js?v=20260929sub1"></script>
+    <script src="event/workflow/photo-player.js?v=20260929zm1"></script>
     <!-- event/workflow/number-countup.js — MỚI (21/09/2026): vòng lặp timer count-up dùng chung (cần taskManager + core/number-countup.js). PHẢI nạp TRƯỚC gameplay-engine.js VÀ statis-panel.js. -->
     <script src="event/workflow/number-countup.js?v=20260921v1"></script>
     <!-- Cụm "gameplay" — Game Mode. gameplay-engine.js (Workflow DÙNG CHUNG mọi mode: cooldown/
@@ -1375,6 +1385,10 @@
     <script src="event/workflow/visualizer-gesture.js?v=20260813v1"></script>
     <script src="event/router/visualizer-gesture.js?v=20260811v2"></script>
     <script src="event/listener/visualizer-gesture.js?v=20260811v2"></script>
+    <!-- MỚI (29/09/2026) — cụm "playerZoom" (kính lúp Control Center, Zoom mode Player Video/Photo). -->
+    <script src="event/workflow/player-zoom.js?v=20260929zm1"></script>
+    <script src="event/router/player-zoom.js?v=20260929zm1"></script>
+    <script src="event/listener/player-zoom.js?v=20260929zm1"></script>
     <!-- Cụm "subtitleStyleSettings" — Batch D2 (Settings restructure, 06/07/2026): GIỜ CẦN
          workflow (openPanel() push động + 8 hàm set* nay Rule 1-4 đầy đủ, không còn tự gọi core
          khác — xem event/workflow/subtitle-style-settings.js). CẦN core/settings-panel-stack-ui.js,
