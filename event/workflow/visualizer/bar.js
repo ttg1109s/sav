@@ -121,7 +121,7 @@ const workflowVizBar = {
     // CẢI TIẾN (29/09/2026, Giang duyệt) — xem docblock core/visualizer/groups/bar/black-hole.js: envelope cột + mọi bước
     // theo dt, flare/tia theo Color mode, glow qua lớp phụ, sao vệt cong (màu gốc), tia bức xạ Hawking; bỏ chớp sao.
     // Mức cột HOÀN NGUYÊN ánh xạ cũ (FFT 256, 35% phổ) — bỏ dải LOG qua core mirror (Giang: lộn xộn).
-    // Thứ tự lớp: flare -> sao -> tia Hawking -> glow cột -> cột -> tâm (tia nằm SAU vòng cột).
+    // Thứ tự lớp: flare -> sao -> nửa SAU tia Hawking -> glow cột -> cột -> tâm -> nửa TRƯỚC tia Hawking (xuyên qua).
 
     /** Trạng thái Black Hole (KHÔNG thuộc STATE): bán kính nền đã mượt (thay biến global `smoothedBeatRadius` cũ ở
      * core/dom-refs.js), đếm cột (bán kính đầu cột giữ đỉnh, số cột nửa vòng, cao trung bình frame trước, khoá config +
@@ -131,7 +131,7 @@ const workflowVizBar = {
         baseRadius: 0, refRadius: 0, halfCount: 0, meanHeight: 0, lastTime: 0, configKey: '', snapFrames: 0,
         levels: new Float32Array(0),
         bursts: [], beatAvg: 0, beatWin: createBeatFluxWindow(), // core/visualizer/beat-window.js (nạp trước file này)
-        glow: null,
+        glow: null, hawkingGlow: null,
     },
 
     _drawBlackHole(frame) {
@@ -151,9 +151,12 @@ const workflowVizBar = {
 
         this._paintBlackHoleFlare(frame, centerX, centerY, currentRadius);
         this._drawBlackHoleStars(frame, centerX, centerY, maxDist, currentRadius, currentSuction, dt);
-        this._drawBlackHoleBursts(frame, centerX, centerY, currentRadius, dt);
+        this._advanceBlackHoleBursts(frame, dt);
+        const hawkingPalette = this._resolveHawkingPalette(frame);
+        this._paintBlackHoleBurstRays(frame, centerX, centerY, BLACK_HOLE_BURST_RAY_BACK, hawkingPalette);
         this._drawBlackHoleRing(frame, centerX, centerY, minDimension, currentRadius, dt);
         paintBlackHoleCore(ctx, centerX, centerY, currentRadius); // core
+        this._paintBlackHoleBurstRays(frame, centerX, centerY, BLACK_HOLE_BURST_RAY_FRONT, hawkingPalette);
     },
 
     /** Quầng sáng quanh lỗ đen — chỉ khi đang phát và năng lượng vượt ngưỡng flare; màu theo Color mode. */
@@ -171,17 +174,39 @@ const workflowVizBar = {
         drawBlackHoleStarStreaks(frame.ctx, appState.get('stars'), centerX, centerY, maxDist, currentRadius, frame.dpr); // core
     },
 
-    /** Tia bức xạ Hawking: bắn tia mới nếu có beat mạnh, già đi theo dt, đổi hình tia chớp định kỳ, vẽ. */
-    _drawBlackHoleBursts(frame, centerX, centerY, currentRadius, dt) {
+    /** Tia bức xạ Hawking: bắn tia mới nếu có beat mạnh, già đi theo dt, đổi hình tia chớp định kỳ. Tắt toggle thì không
+     * bắn thêm; tia còn lại vẫn già đi (không vẽ) và tự hết. */
+    _advanceBlackHoleBursts(frame, dt) {
         const bh = this._blackHole;
         this._spawnBlackHoleBurst(frame);
         bh.bursts = stepBlackHoleBursts(bh.bursts, dt); // core
-        if (bh.bursts.length === 0) return;
-        const rgb = resolveBlackHoleRgb(frame.ctx, getComputedColor(0, 1, 200).glow); // core + core/audio-analysis.js
-        bh.bursts.forEach((burst) => {
-            this._renewBlackHoleBolt(burst);
-            paintBlackHoleBurst(frame.ctx, burst, centerX, centerY, currentRadius, frame.canvas.width, frame.dpr, rgb); // core
-        });
+        bh.bursts.forEach((burst) => this._renewBlackHoleBolt(burst));
+    },
+
+    /** Bảng màu Color mode dọc thân tia (tâm -> mép), dạng "r, g, b" — resolve 1 lần/frame, chỉ khi có tia. */
+    _resolveHawkingPalette(frame) {
+        if (this._blackHole.bursts.length === 0) return [];
+        return Array.from({ length: BLACK_HOLE_BURST_PALETTE_SIZE }, (_, k) => resolveBlackHoleRgb(frame.ctx, getComputedColor(k, BLACK_HOLE_BURST_PALETTE_SIZE, 200).glow)); // core + core/audio-analysis.js
+    },
+
+    /** Vẽ 1 nửa (sau/trước) của mọi tia đang bay — mỗi nửa dài tới hết mép màn hình theo góc của nó. Dải nhiệt vẽ gom vào
+     * lớp phụ riêng của Hawking rồi phóng lên 1 lần ('lighter' — mép mờ mịn), tia chớp + hạt vẽ thẳng lên canvas chính. */
+    _paintBlackHoleBurstRays(frame, centerX, centerY, rayIndex, palette) {
+        if (!frame.cfg.hawkingEnabled) return;
+        const bursts = this._blackHole.bursts;
+        if (bursts.length === 0) return;
+        const { ctx, canvas, dpr } = frame;
+        const halfW = canvas.width / 2, halfH = canvas.height / 2;
+        const rays = bursts.map((burst) => ({
+            burst,
+            reach: computeBlackHoleRayReach(burst.angle + rayIndex * Math.PI, halfW, halfH, 60 * dpr), // core
+            look: computeBlackHoleBurstLook(burst, dpr), // core
+        }));
+        const layers = this._ensureGlowLayers(frame, 'hawkingGlow');
+        beginBlackHoleGlowPass(layers); // core
+        rays.forEach((r) => paintBlackHoleBurstBand(layers.near.ctx, r.burst, rayIndex, centerX, centerY, r.reach, r.look, createBlackHoleRayGradient(layers.near.ctx, r.reach, palette))); // core
+        paintBlackHoleGlowLayers(ctx, layers, canvas.width, canvas.height, 1, 'lighter'); // core
+        rays.forEach((r) => paintBlackHoleBurstBolt(ctx, r.burst, rayIndex, centerX, centerY, r.reach, dpr, r.look, palette)); // core
     },
 
     /** Beat MỚI (cửa sổ riêng của Black Hole — tiêu thụ trước để beat cũ lúc tạm dừng không bắn khi phát lại) + đang
@@ -189,6 +214,7 @@ const workflowVizBar = {
     _spawnBlackHoleBurst(frame) {
         const bh = this._blackHole;
         if (!workflowVizBeatWindow.consumeNewBeat(bh.beatWin, frame.lastBeatTime)) return;
+        if (!frame.cfg.hawkingEnabled) return; // toggle Custom Effect (29/09/2026)
         if (!frame.isPlaying) return;
         const isStrong = isBlackHoleBurstBeat(frame.beatScale, bh.beatAvg); // core
         bh.beatAvg = updateBlackHoleBeatAverage(bh.beatAvg, frame.beatScale); // core
@@ -250,19 +276,20 @@ const workflowVizBar = {
     _paintBlackHoleBarGlow(frame, entries, centerX, centerY, currentRadius) {
         const blurMult = frame.perf.blurMult;
         if (!(blurMult > 0)) return;
-        const layers = this._ensureBlackHoleGlowLayers(frame);
+        const layers = this._ensureGlowLayers(frame, 'glow');
         beginBlackHoleGlowPass(layers); // core
         entries.forEach((e) => paintBlackHoleBar(layers.near.ctx, e, e.glow, centerX, centerY, currentRadius, frame.cfg.barWidth, frame.cfg.barTopRadius, frame.dpr)); // core
-        paintBlackHoleGlowLayers(frame.ctx, layers, frame.canvas.width, frame.canvas.height, blurMult); // core
+        paintBlackHoleGlowLayers(frame.ctx, layers, frame.canvas.width, frame.canvas.height, blurMult, 'source-over'); // core
     },
 
-    /** Lớp glow khớp kích thước canvas hiện tại — dựng lại khi canvas/dpr đổi. */
-    _ensureBlackHoleGlowLayers(frame) {
+    /** Cặp lớp phụ (near/far) khớp kích thước canvas hiện tại — dựng lại khi canvas/dpr đổi. `slot` = ô trạng thái trong
+     * `_blackHole`: 'glow' (glow cột) | 'hawkingGlow' (dải nhiệt tia Hawking) — 2 cặp riêng vì vẽ ở 2 thời điểm khác nhau. */
+    _ensureGlowLayers(frame, slot) {
         const bh = this._blackHole;
         const key = computeBlackHoleGlowKey(frame.canvas.width, frame.canvas.height, frame.dpr); // core
-        if (bh.glow && bh.glow.key === key) return bh.glow;
-        bh.glow = createBlackHoleGlowLayers(frame.canvas.width, frame.canvas.height, frame.dpr); // core
-        return bh.glow;
+        if (bh[slot] && bh[slot].key === key) return bh[slot];
+        bh[slot] = createBlackHoleGlowLayers(frame.canvas.width, frame.canvas.height, frame.dpr); // core
+        return bh[slot];
     },
 
     /** Khép vòng: vẽ lại cột đầu tiên, chỉ trong nửa phía cột vẽ cuối, để nó đè lên cột đó (đúng luật "bị cột kế tiếp che"). */
