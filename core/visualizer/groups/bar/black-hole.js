@@ -14,8 +14,8 @@
  *      (trắng, vài sao ngả xanh/vàng — Giang: sao không nối vào Color mode). Glow cột
  *      không còn `shadowBlur` từng cột: vẽ 1 lượt vào 2 lớp canvas phụ độ phân giải thấp rồi phóng lên (downsample-blur).
  *      Hiệu ứng CHỚP khi sao va vào viền hố đen ĐÃ BỎ HẲN (Giang) — cùng state `starFlashes` + field `flashFadeSpeed`.
- *   4. Hình ảnh: sao vẽ thành VỆT CONG bám đúng quỹ đạo xoắn ốc sao đang đi (đuôi mờ + mảnh dần, đầu là chấm sao gốc;
- *      sát viền đuôi kéo dài theo phương tiếp tuyến — giả thấu kính hấp dẫn);
+ *   4. Hình ảnh: sao vẽ thành VỆT theo LỊCH SỬ vị trí thật (đuôi đi đúng đường xoáy sao đã đi, mờ + mảnh dần; đầu là chấm
+ *      sao gốc);
  *      sóng xung kích -> tia chớp dày, mờ kiểu bức xạ Hawking (lượt 2: toggle bật/tắt, hướng 360° ngẫu nhiên, dài hết mép,
  *      nửa sau DƯỚI + nửa trước ĐÈ LÊN hố đen/cột = xuyên qua, màu Color mode dọc thân tia) (Giang).
  *
@@ -49,61 +49,63 @@ function computeBlackHoleBeatRadius(baseRadius, beatScale, minDimension) {
 
 // ===================== sao =====================
 
-/** Vệt sao = quãng đường của bấy nhiêu frame 60fps, chia BLACK_HOLE_STAR_TRAIL_SEGMENTS đoạn lấy mẫu trên quỹ đạo thật. */
-const BLACK_HOLE_STAR_TRAIL_FRAMES = 14;
-const BLACK_HOLE_STAR_TRAIL_SEGMENTS = 4;
-/** Kéo dài vệt theo phương tiếp tuyến khi sát viền: × (1 + GAIN × (R/d)²). */
-const BLACK_HOLE_STAR_LENS_GAIN = 4;
+/** Vệt sao = LỊCH SỬ vị trí thật (SỬA 29/09/2026, Giang báo: vệt cong nhưng không đổi theo đường xoáy — cả vệt như 1
+ * khuôn cong cứng bị kéo đi). Bản trước ngoại suy lùi từ vận tốc HIỆN TẠI (+ hệ số "thấu kính" giả) nên mọi đoạn đuôi cùng
+ * 1 độ cong, lực hút đổi theo nhạc làm cả vệt co giãn/lắc theo. Nay mỗi sao ghi lại vị trí cực {angle, distance} mỗi
+ * BLACK_HOLE_STAR_TRAIL_SAMPLE_MS (theo thời gian thật, không theo frame) — tối đa BLACK_HOLE_STAR_TRAIL_POINTS điểm
+ * (~240ms quãng đường) — đuôi đi ĐÚNG đường sao đã đi: ngoài xa là cung tròn quanh tâm, càng gần tâm càng xoáy gắt
+ * theo đường hút vào. Toạ độ cực nên đuôi luôn bám tâm hố đen. */
+const BLACK_HOLE_STAR_TRAIL_SAMPLE_MS = 40;
+const BLACK_HOLE_STAR_TRAIL_POINTS = 6;
 
-/** Bước vật lý sao (công thức cũ, nhân `frameScale` = dt / 1 frame 60fps). Lưu vận tốc 1 frame chuẩn vào
- * `vAngle`/`vDist` để vẽ vệt. Sao rơi qua viền -> tái sinh ở rìa ngoài (KHÔNG còn chớp — Giang bỏ). */
+/** Bước vật lý sao (công thức cũ, theo dt: `frameScale` = dt / 1 frame 60fps) + ghi lịch sử vệt: đủ chu kỳ lấy mẫu thì
+ * đẩy vị trí TRƯỚC khi di chuyển vào đầu `trail` (bỏ điểm cũ nhất khi vượt số điểm). Sao rơi qua viền -> tái sinh ở rìa
+ * ngoài, xoá sạch vệt (không kéo 1 đường từ tâm ra mép). KHÔNG còn chớp (Giang bỏ). */
 function stepBlackHoleStars(maxDist, currentRadius, currentSuction, frameScale) {
+    const dtMs = frameScale * BLACK_HOLE_FRAME_MS;
     appState.mutate('stars', (arr) => arr.forEach((star) => {
+        star.trailClock += dtMs;
+        if (star.trailClock >= BLACK_HOLE_STAR_TRAIL_SAMPLE_MS) {
+            star.trailClock %= BLACK_HOLE_STAR_TRAIL_SAMPLE_MS;
+            star.trail.unshift({ angle: star.angle, distance: star.distance });
+            if (star.trail.length > BLACK_HOLE_STAR_TRAIL_POINTS) star.trail.pop();
+        }
         const distRatio = Math.max(0.05, star.distance / maxDist);
         const accel = 1 + (0.05 / distRatio);
-        star.vAngle = star.baseSpeed * 0.002 * accel;
-        star.vDist = star.baseSpeed * currentSuction * accel;
-        star.angle += star.vAngle * frameScale;
-        star.distance -= star.vDist * frameScale;
+        star.angle += star.baseSpeed * 0.002 * accel * frameScale;
+        star.distance -= star.baseSpeed * currentSuction * accel * frameScale;
         if (star.distance >= currentRadius) return;
         star.distance = maxDist * (1 + Math.random() * 0.2);
         star.angle = Math.random() * Math.PI * 2;
+        star.trail.length = 0;
+        star.trailClock = 0;
     }), { skipCheck: true });
 }
 
 /** Vẽ sao: ĐẦU = chấm sao gốc (màu `colorTint`, alpha 0.1 + tỉ lệ khoảng cách, bán kính size·tỉ lệ + 0.5px — y bản gốc);
- * ĐUÔI = vệt CONG lấy mẫu lùi dọc quỹ đạo xoắn ốc (góc lùi theo vAngle, bán kính lùi theo vDist), mờ + mảnh dần về
- * cuối. Đuôi ngắn hơn 1px (sao ở xa, gần như đứng yên) -> chỉ vẽ chấm. Chỉ Canvas API. */
-function drawBlackHoleStarStreaks(ctx, stars, centerX, centerY, maxDist, currentRadius, dpr) {
-    const stepFrames = BLACK_HOLE_STAR_TRAIL_FRAMES / BLACK_HOLE_STAR_TRAIL_SEGMENTS;
+ * ĐUÔI = nối vị trí hiện tại qua các điểm lịch sử `trail` (mới -> cũ), mờ + mảnh dần về cuối. Chưa có lịch sử (vừa tái
+ * sinh) -> chỉ vẽ chấm. Chỉ Canvas API. */
+function drawBlackHoleStarStreaks(ctx, stars, centerX, centerY, maxDist, dpr) {
+    const toXY = (angle, distance) => ({ x: centerX + Math.cos(angle) * distance, y: centerY + Math.sin(angle) * distance });
     ctx.save();
     ctx.lineCap = 'round';
     stars.forEach((star) => {
         const ratio = star.distance / maxDist;
         const alpha = Math.min(1, 0.1 + ratio);
         const headR = Math.max(0.1, star.size * ratio + 0.5 * dpr);
-        const lens = 1 + BLACK_HOLE_STAR_LENS_GAIN * Math.pow(currentRadius / Math.max(currentRadius, star.distance), 2);
-        const pointAt = (k) => {
-            const a = star.angle - star.vAngle * lens * stepFrames * k;
-            const d = star.distance + star.vDist * stepFrames * k;
-            return { x: centerX + Math.cos(a) * d, y: centerY + Math.sin(a) * d };
-        };
-        const head = pointAt(0);
-        const tail = pointAt(BLACK_HOLE_STAR_TRAIL_SEGMENTS);
-        if (Math.hypot(tail.x - head.x, tail.y - head.y) >= dpr) {
-            let prev = head;
-            for (let k = 1; k <= BLACK_HOLE_STAR_TRAIL_SEGMENTS; k++) {
-                const next = pointAt(k);
-                const fade = 1 - k / (BLACK_HOLE_STAR_TRAIL_SEGMENTS + 1);
-                ctx.strokeStyle = `rgba(${star.colorTint}, ${alpha * fade * 0.7})`;
-                ctx.lineWidth = Math.max(0.2, 2 * headR * fade * 0.8);
-                ctx.beginPath();
-                ctx.moveTo(prev.x, prev.y);
-                ctx.lineTo(next.x, next.y);
-                ctx.stroke();
-                prev = next;
-            }
-        }
+        const head = toXY(star.angle, star.distance);
+        let prev = head;
+        star.trail.forEach((p, i) => {
+            const next = toXY(p.angle, p.distance);
+            const fade = 1 - (i + 1) / (BLACK_HOLE_STAR_TRAIL_POINTS + 1);
+            ctx.strokeStyle = `rgba(${star.colorTint}, ${alpha * fade * 0.7})`;
+            ctx.lineWidth = Math.max(0.2, 2 * headR * fade * 0.8);
+            ctx.beginPath();
+            ctx.moveTo(prev.x, prev.y);
+            ctx.lineTo(next.x, next.y);
+            ctx.stroke();
+            prev = next;
+        });
         ctx.fillStyle = `rgba(${star.colorTint}, ${alpha})`;
         ctx.beginPath();
         ctx.arc(head.x, head.y, headR, 0, Math.PI * 2);
