@@ -374,7 +374,7 @@
     <script src="lang/patch/patch-common.js?v=20260924v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260921v7"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260929zm1"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260929fill1"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260929zs1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260921v9"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 2 drawer con Song/Photo & Album, xem plan-v12-multimedia-decisions.md). -->
@@ -477,7 +477,7 @@
     <!-- MỚI (Giang yêu cầu "Player" — Resolution + Motion của Video/Photo lúc phát chính) — CẦN
          core/player-display-settings.js (nạp bên dưới, PLAYER_RESOLUTION_MODES/PLAYER_MOTION_SLOTS/
          resolvePlayer*Field()). -->
-    <script src="components/settings/player-display-settings.js?v=20260924m1"></script>
+    <script src="components/settings/player-display-settings.js?v=20260929zs1"></script>
     <!-- MỚI (23/09/2026) — màn Settings > System > Pagination. CẦN core/pagination.js (nạp bên dưới —
          PAGINATION_PLACES/PAGINATION_STYLES chỉ đọc lúc DỰNG màn, không lúc nạp). -->
     <script src="components/settings/pagination.js?v=20260924v1"></script>
@@ -577,7 +577,7 @@
          restoreDefaultVizConfig/saveConfig/loadConfig) — KHÔNG còn giữ Z_INDEX/global
          error-handler (dời ở trên) hay CONST dùng chéo domain khác (nay sống trong đúng package
          service/state/*.js). PHẢI nạp SAU service/state.js (cần class AppConfig). -->
-    <script src="core/config.js?v=20260929fill1"></script>
+    <script src="core/config.js?v=20260929zs1"></script>
     <!-- core/custom-effect.js — Core thuần hệ Custom Effect (getEffectConfig/setCustomEffectField),
          NẠP NGAY SAU core/config.js (cần DEFAULT_CUSTOM_EFFECT/appConfigViz) — mọi hàm vẽ/scene-setup
          phía dưới đều cần file này. -->
@@ -720,7 +720,7 @@
          (đã nạp) + core/generic-drawer.js (đã nạp ngay trên). -->
     <script src="core/app-panel-nav.js?v=20260921v2"></script>
     <script src="core/placeholder-panel.js?v=20260819v1"></script>
-    <script src="core/app-settings-ui.js?v=20260924m1"></script>
+    <script src="core/app-settings-ui.js?v=20260929zs1"></script>
     <!-- MỚI (20/09/2026, Giang yêu cầu thiết kế lại Main Setting dạng carousel ngang) — core UI thuần: scale
          card theo khoảng cách tới tâm + cuộn vô hạn + hiệu ứng mở. CHỈ gọi lúc chạy từ event/workflow/
          app-settings.js + event/router/app-settings.js (nạp ở dưới) — thứ tự với 2 file đó không bắt
@@ -753,7 +753,7 @@
     <script src="core/motion-presets.js?v=20260925r1"></script>
     <!-- MỚI (Giang yêu cầu "Player") — hằng số thuần PLAYER_RESOLUTION_MODES/PLAYER_MOTION_SLOTS +
          2 hàm resolve tên field + normalizePlayerResolutionMode(), xem core/player-display-settings.js. Không phụ thuộc file nào. -->
-    <script src="core/player-display-settings.js?v=20260929fill1"></script>
+    <script src="core/player-display-settings.js?v=20260929zs1"></script>
     <!-- MỚI (Giang yêu cầu "Resolution cho player video&photo, không liên quan VBG") — Core-DOM áp/gỡ
          object-fit/background-size THẬT lên bgVideoElement/visualBgImageElement, xem core/player-
          display-apply.js. NẠP SAU core/dom-refs.js (đã nạp từ trước, dòng 517) + file phía trên. -->
@@ -773,7 +773,7 @@
     <!-- Core thuần: phân loại toạ độ chạm cho hệ thống cử chỉ (event/workflow/visualizer-gesture.js). -->
     <script src="core/visualizer-gesture.js?v=20260811v4"></script>
     <!-- MỚI (29/09/2026) — Zoom mode Player: toán zoom/pan thuần + Core-DOM, xem core/player-zoom.js. -->
-    <script src="core/player-zoom.js?v=20260929zm1"></script>
+    <script src="core/player-zoom.js?v=20260929zs1"></script>
     <!-- core/gameplay/*.js — Game Mode. engine.js/engine-ui.js DÙNG CHUNG mọi mode (chấm điểm/
          hit-test/flux/modal-start-end/ring %/sao) — circle-mode.js/circle-mode-ui.js CHỈ RIÊNG mode
          "Circle" (spawn lưới pitch/vật lý wave/canvas). KHÔNG phụ thuộc file nào khác trong khối
@@ -1132,7 +1132,7 @@
          'playerDisplay', GIAI ĐOẠN 1 — CHƯA có cơ chế áp dụng lên runtime), xem event/workflow/
          player-display-settings.js. NẠP TRƯỚC event/workflow/app-settings.js (gọi trực tiếp, không
          qua router riêng) và event/workflow/app-boot.js (gọi loadPersistedPlayerDisplayOnBoot()). -->
-    <script src="event/workflow/player-display-settings.js?v=20260929fill1"></script>
+    <script src="event/workflow/player-display-settings.js?v=20260929zs1"></script>
     <!-- MỚI (23/09/2026) — workflowPagination: domain 'pagination' (load/ghi bền) + CỬA DUY NHẤT để 1 danh
          sách dùng pagination theo cài đặt chung. NẠP TRƯỚC event/workflow/app-settings.js (gọi trực tiếp)
          và event/workflow/app-boot.js (loadPersistedPaginationOnBoot()). -->
@@ -1220,8 +1220,8 @@
          workflowFileManagerFolderBrowser/workflowFileManagerStorage đã nạp ở trên — KHÔNG bắt
          buộc thứ tự nạp CHẶT với các file đó, vì mọi tham chiếu đều nằm TRONG thân hàm, chỉ chạy
          SAU khi cả trang đã nạp xong, không chạy ngay lúc parse). -->
-    <script src="event/workflow/app-settings.js?v=20260929va1"></script>
-    <script src="event/router/app-settings.js?v=20260924m1"></script>
+    <script src="event/workflow/app-settings.js?v=20260929zs1"></script>
+    <script src="event/router/app-settings.js?v=20260929zs1"></script>
     <!-- Cụm "placeholderPanels" (đóng Game/Statis). Photo đã hợp nhất vào Playlist, không còn cụm
          "photoPanel" riêng. -->
     <script src="event/workflow/placeholder-panels.js?v=20260819v1"></script>
@@ -1250,7 +1250,7 @@
          mediaType khi click video trong Playlist (đi qua eventBus để Block gate chặn khoá chéo với
          Video nền). PHẢI nạp SAU event/workflow/video-player.js (cần workflowVideoPlayer.
          startFromPlaylist() đã tồn tại). -->
-    <script src="event/workflow/video-player.js?v=20260929zm1"></script>
+    <script src="event/workflow/video-player.js?v=20260929zs1"></script>
     <script src="event/router/video-player.js?v=20260929cap1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
     <!-- MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — event/workflow/photo-
@@ -1264,7 +1264,7 @@
          workflow/visual-bg-common.js/visual-bg-video.js ("vbg chỉ hợp lệ với song" nên tái dùng
          clearMediaLayers()/applyCurrentVisualBg() Video Player mode đã dùng thay vì tự vẽ DOM
          riêng, cần workflowVisualBg tồn tại trước). -->
-    <script src="event/workflow/photo-player.js?v=20260929zm1"></script>
+    <script src="event/workflow/photo-player.js?v=20260929zs1"></script>
     <!-- event/workflow/number-countup.js — MỚI (21/09/2026): vòng lặp timer count-up dùng chung (cần taskManager + core/number-countup.js). PHẢI nạp TRƯỚC gameplay-engine.js VÀ statis-panel.js. -->
     <script src="event/workflow/number-countup.js?v=20260921v1"></script>
     <!-- Cụm "gameplay" — Game Mode. gameplay-engine.js (Workflow DÙNG CHUNG mọi mode: cooldown/
@@ -1386,7 +1386,7 @@
     <script src="event/router/visualizer-gesture.js?v=20260811v2"></script>
     <script src="event/listener/visualizer-gesture.js?v=20260811v2"></script>
     <!-- MỚI (29/09/2026) — cụm "playerZoom" (kính lúp Control Center, Zoom mode Player Video/Photo). -->
-    <script src="event/workflow/player-zoom.js?v=20260929zm1"></script>
+    <script src="event/workflow/player-zoom.js?v=20260929zs1"></script>
     <script src="event/router/player-zoom.js?v=20260929zm1"></script>
     <script src="event/listener/player-zoom.js?v=20260929zm1"></script>
     <!-- Cụm "subtitleStyleSettings" — Batch D2 (Settings restructure, 06/07/2026): GIỜ CẦN
