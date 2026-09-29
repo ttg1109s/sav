@@ -22,7 +22,8 @@
  *
  * `#video-preview-crop-layer` vẫn là con thật của `#video-preview-media-wrap` (như đợt 4), hiện
  * bằng CSS khi `data-tool="crop"` (không còn class `is-visible`).
- * `#video-preview-stage` (MỚI, Phase 1 26/09/2026) — khung chứa poster + `<video>` mà Panzoom điều
+ * `#video-preview-stage` (MỚI, Phase 1 26/09/2026) — khung chứa poster + `<video>`. SỬA (29/09/2026, Giang):
+ * zoom-pan ĐÃ BỎ HẲN — stage giờ chỉ còn là khung bọc, không còn Panzoom nào điều khiển. Mô tả cũ: khung mà Panzoom điều
  * khiển. Zoom-pan là CHẾ ĐỘ XEM + HỆ TOẠ ĐỘ để gắn chữ/sticker sau này (Giang chốt), KHÔNG ảnh hưởng
  * file xuất. Tách Panzoom ra phần tử riêng để transform zoom/pan (ghi lên stage) và transform xoay/
  * lật (ghi lên `<video>`) không còn giẫm lên nhau (trước đây cùng ghi `videoEl.style.transform`).
@@ -81,6 +82,12 @@ const TPL_VIDEO_PREVIEW = `
                     <button id="video-preview-flip-btn" type="button" class="video-preview-tool-item">
                         <span class="video-preview-tool-circle"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 8L4 12l4 4M16 8l4 4-4 4"/></svg></span>
                         <span id="video-preview-flip-label" class="video-preview-tool-label"></span>
+                    </button>
+                    <!-- MỚI (29/09/2026, Giang) — Chụp khung hình đang dừng/phát của video trong editor, lưu vào
+                         Photo. Bắn ĐÚNG event của nút Capture ở Control Center (xem core/file-manager/video-ui.js). -->
+                    <button id="video-preview-capture-btn" type="button" class="video-preview-tool-item">
+                        <span class="video-preview-tool-circle"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg></span>
+                        <span id="video-preview-capture-label" class="video-preview-tool-label"></span>
                     </button>
                 </div>
             </div>
