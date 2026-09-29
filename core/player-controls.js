@@ -459,6 +459,18 @@
             // DỜI (25/09/2026) — auto-switch-visual ra event/workflow/player-controls.js::handleAudioPauseEvent().
         }
 
+        /**
+         * MỚI (29/09/2026, Giang chọn "xả hàng đợi lúc pause") — 'pause' vừa tới có phải lần DỪNG THẬT của đúng bài Song
+         * đang nạp (sẽ resume lại chính bài này) không, để Workflow xả hàng đợi tiếng iOS ngay (nạp lại + seek về chỗ dừng).
+         * Loại trừ: media vẫn đang phát (đã play lại trước khi sự kiện tới), hết bài ('pause' đi trước 'ended' — nạp lại lúc
+         * này sẽ xoá luôn sự kiện 'ended' đang chờ, hỏng Next/lặp bài), đang ở Video/Photo Player mode hoặc đã bỏ bài
+         * (currentKey null), nguồn đã đổi/thu hồi (đổi bài: playMedia() thu hồi blob URL + pause trước khi gán src mới).
+         * Thuần — mọi giá trị do Workflow đọc sẵn. @returns {boolean}
+         */
+        function shouldFlushSongQueueOnPause({ isPaused, isEnded, isVideoPlayerMode, isPhotoPlayerMode, currentKey, currentObjectURL, mediaSrc }) {
+            return isPaused && !isEnded && !isVideoPlayerMode && !isPhotoPlayerMode && currentKey !== null && !!currentObjectURL && mediaSrc === currentObjectURL;
+        }
+
         // [SỬA — plan-playmedia-reorg.md, xử lý triệt để] `handleAudioEnded()` ĐÃ XOÁ khỏi đây —
         // 2 lời gọi Core nối tiếp (stopListenClock() rồi playNext()) VỐN ĐÃ vi phạm Rule 3 (Core
         // gọi Core, core-legacy-audit.md từng track), đúng bản chất Workflow. Chuyển hẳn thành
