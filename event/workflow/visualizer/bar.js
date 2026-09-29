@@ -94,7 +94,7 @@ const workflowVizBar = {
     },
 
     /** Khung nhìn đổi: rải lại sao Black Hole (thay phần tương ứng của resizeCanvas() cũ). SỬA (29/09/2026) — chớp sao
-     * (`starFlashes`) đã bỏ hẳn. Lớp glow tự dựng lại theo kích thước ở frame kế. */
+     * (`starFlashes`) đã bỏ hẳn. */
     onResize(viewport) {
         appState.set('stars', buildBlackHoleStars(getEffectConfig('bar').starCount, Math.max(canvas.width, canvas.height), viewport.dpr)); // core/canvas-scene-setup.js + core/custom-effect.js
         console.log('writer: "workflowVizBar.onResize", page: "stars", content: "rải lại sao Black Hole"');
@@ -119,19 +119,18 @@ const workflowVizBar = {
 
     // ===================== black hole =====================
     // CẢI TIẾN (29/09/2026, Giang duyệt) — xem docblock core/visualizer/groups/bar/black-hole.js: envelope cột + mọi bước
-    // theo dt, flare/tia theo Color mode, glow qua lớp phụ, sao vệt cong (màu gốc), tia bức xạ Hawking; bỏ chớp sao.
+    // theo dt, flare/tia theo Color mode, glow shadowBlur (hoàn nguyên), sao vệt theo lịch sử vị trí (màu gốc), tia bức xạ
+    // Hawking; bỏ chớp sao.
     // Mức cột HOÀN NGUYÊN ánh xạ cũ (FFT 256, 35% phổ) — bỏ dải LOG qua core mirror (Giang: lộn xộn).
     // Thứ tự lớp: flare -> sao -> nửa SAU tia Hawking -> glow cột -> cột -> tâm -> nửa TRƯỚC tia Hawking (xuyên qua).
 
     /** Trạng thái Black Hole (KHÔNG thuộc STATE): bán kính nền đã mượt (thay biến global `smoothedBeatRadius` cũ ở
      * core/dom-refs.js), đếm cột (bán kính đầu cột giữ đỉnh, số cột nửa vòng, cao trung bình frame trước, khoá config +
-     * số frame bám ngay), envelope mức từng dải, tia Hawking đang bay + mức bass trung bình tại beat + cửa sổ beat riêng,
-     * lớp glow. */
+     * số frame bám ngay), envelope mức từng dải, tia Hawking đang bay + mức bass trung bình tại beat + cửa sổ beat riêng. */
     _blackHole: {
         baseRadius: 0, refRadius: 0, halfCount: 0, meanHeight: 0, lastTime: 0, configKey: '', snapFrames: 0,
         levels: new Float32Array(0),
         bursts: [], beatAvg: 0, beatWin: createBeatFluxWindow(), // core/visualizer/beat-window.js (nạp trước file này)
-        glow: null, hawkingGlow: null,
     },
 
     _drawBlackHole(frame) {
@@ -189,24 +188,21 @@ const workflowVizBar = {
         return Array.from({ length: BLACK_HOLE_BURST_PALETTE_SIZE }, (_, k) => resolveBlackHoleRgb(frame.ctx, getComputedColor(k, BLACK_HOLE_BURST_PALETTE_SIZE, 200).glow)); // core + core/audio-analysis.js
     },
 
-    /** Vẽ 1 nửa (sau/trước) của mọi tia đang bay — mỗi nửa dài tới hết mép màn hình theo góc của nó. Dải nhiệt vẽ gom vào
-     * lớp phụ riêng của Hawking rồi phóng lên 1 lần ('lighter' — mép mờ mịn), tia chớp + hạt vẽ thẳng lên canvas chính. */
+    /** Vẽ 1 nửa (sau/trước) của mọi tia đang bay — mỗi nửa dài tới hết mép màn hình theo góc của nó: dải nhiệt (shadowBlur)
+     * rồi tia chớp + hạt. Quầng shadow lấy màu giữa bảng màu (shadow chỉ nhận 1 màu). */
     _paintBlackHoleBurstRays(frame, centerX, centerY, rayIndex, palette) {
         if (!frame.cfg.hawkingEnabled) return;
         const bursts = this._blackHole.bursts;
         if (bursts.length === 0) return;
         const { ctx, canvas, dpr } = frame;
         const halfW = canvas.width / 2, halfH = canvas.height / 2;
-        const rays = bursts.map((burst) => ({
-            burst,
-            reach: computeBlackHoleRayReach(burst.angle + rayIndex * Math.PI, halfW, halfH, 60 * dpr), // core
-            look: computeBlackHoleBurstLook(burst, dpr), // core
-        }));
-        const layers = this._ensureGlowLayers(frame, 'hawkingGlow');
-        beginBlackHoleGlowPass(layers); // core
-        rays.forEach((r) => paintBlackHoleBurstBand(layers.near.ctx, r.burst, rayIndex, centerX, centerY, r.reach, r.look, createBlackHoleRayGradient(layers.near.ctx, r.reach, palette))); // core
-        paintBlackHoleGlowLayers(ctx, layers, canvas.width, canvas.height, 1, 'lighter'); // core
-        rays.forEach((r) => paintBlackHoleBurstBolt(ctx, r.burst, rayIndex, centerX, centerY, r.reach, dpr, r.look, palette)); // core
+        const haloRgb = palette[Math.floor(palette.length / 2)];
+        bursts.forEach((burst) => {
+            const reach = computeBlackHoleRayReach(burst.angle + rayIndex * Math.PI, halfW, halfH, 60 * dpr); // core
+            const look = computeBlackHoleBurstLook(burst, dpr); // core
+            paintBlackHoleBurstBand(ctx, burst, rayIndex, centerX, centerY, reach, look, createBlackHoleRayGradient(ctx, reach, palette), haloRgb, dpr); // core
+            paintBlackHoleBurstBolt(ctx, burst, rayIndex, centerX, centerY, reach, dpr, look, palette, haloRgb); // core
+        });
     },
 
     /** Beat MỚI (cửa sổ riêng của Black Hole — tiêu thụ trước để beat cũ lúc tạm dừng không bắn khi phát lại) + đang
@@ -229,7 +225,7 @@ const workflowVizBar = {
         renewBlackHoleBolt(burst); // core
     },
 
-    /** Vòng cột: số cột nửa vòng (theo chu vi đầu cột) -> mức theo ánh xạ cũ -> envelope theo dt -> cột -> glow (lớp phụ)
+    /** Vòng cột: số cột nửa vòng (theo chu vi đầu cột) -> mức theo ánh xạ cũ -> envelope theo dt -> cột (glow shadowBlur)
      * -> tô theo chiều kim đồng hồ + khép vòng. */
     _drawBlackHoleRing(frame, centerX, centerY, minDimension, currentRadius, dt) {
         const { ctx, cfg, dpr } = frame;
@@ -246,9 +242,8 @@ const workflowVizBar = {
             return { fill: c.fillNoAlpha, glow: c.glow };
         });
         const entries = orderBlackHoleBarsClockwise(bars, colors); // core
-        this._paintBlackHoleBarGlow(frame, entries, centerX, centerY, currentRadius);
-        entries.forEach((e) => paintBlackHoleBar(ctx, e, e.fill, centerX, centerY, currentRadius, cfg.barWidth, cfg.barTopRadius, dpr)); // core
-        this._closeBlackHoleSeam(ctx, entries, centerX, centerY, currentRadius, cfg, dpr);
+        entries.forEach((e) => paintBlackHoleBar(ctx, e, centerX, centerY, currentRadius, cfg.barWidth, cfg.barTopRadius, dpr, frame.perf.blurMult)); // core
+        this._closeBlackHoleSeam(ctx, entries, centerX, centerY, currentRadius, cfg, dpr, frame.perf.blurMult);
     },
 
     /** Số cột nửa vòng theo bán kính ĐẦU CỘT (hố đen + cao trung bình) — giữ đỉnh khi phát; đổi bán kính/chiều cao trong
@@ -271,33 +266,12 @@ const workflowVizBar = {
         bh.snapFrames = 6;
     },
 
-    /** Glow cột (thay shadowBlur từng cột): vẽ cột màu glow vào lớp phụ thu nhỏ rồi phóng lên sau lưng vòng cột — chỉ khi
-     * Blur của Custom Effect đang bật; độ mạnh = cường độ blur. */
-    _paintBlackHoleBarGlow(frame, entries, centerX, centerY, currentRadius) {
-        const blurMult = frame.perf.blurMult;
-        if (!(blurMult > 0)) return;
-        const layers = this._ensureGlowLayers(frame, 'glow');
-        beginBlackHoleGlowPass(layers); // core
-        entries.forEach((e) => paintBlackHoleBar(layers.near.ctx, e, e.glow, centerX, centerY, currentRadius, frame.cfg.barWidth, frame.cfg.barTopRadius, frame.dpr)); // core
-        paintBlackHoleGlowLayers(frame.ctx, layers, frame.canvas.width, frame.canvas.height, blurMult, 'source-over'); // core
-    },
-
-    /** Cặp lớp phụ (near/far) khớp kích thước canvas hiện tại — dựng lại khi canvas/dpr đổi. `slot` = ô trạng thái trong
-     * `_blackHole`: 'glow' (glow cột) | 'hawkingGlow' (dải nhiệt tia Hawking) — 2 cặp riêng vì vẽ ở 2 thời điểm khác nhau. */
-    _ensureGlowLayers(frame, slot) {
-        const bh = this._blackHole;
-        const key = computeBlackHoleGlowKey(frame.canvas.width, frame.canvas.height, frame.dpr); // core
-        if (bh[slot] && bh[slot].key === key) return bh[slot];
-        bh[slot] = createBlackHoleGlowLayers(frame.canvas.width, frame.canvas.height, frame.dpr); // core
-        return bh[slot];
-    },
-
     /** Khép vòng: vẽ lại cột đầu tiên, chỉ trong nửa phía cột vẽ cuối, để nó đè lên cột đó (đúng luật "bị cột kế tiếp che"). */
-    _closeBlackHoleSeam(ctx, entries, centerX, centerY, radius, cfg, dpr) {
+    _closeBlackHoleSeam(ctx, entries, centerX, centerY, radius, cfg, dpr, blurMult) {
         if (entries.length < 2) return;
         const first = entries[0];
         beginBlackHoleSeamClip(ctx, first, centerX, centerY, radius, Math.max(...entries.map((e) => e.height))); // core
-        paintBlackHoleBar(ctx, first, first.fill, centerX, centerY, radius, cfg.barWidth, cfg.barTopRadius, dpr); // core
+        paintBlackHoleBar(ctx, first, centerX, centerY, radius, cfg.barWidth, cfg.barTopRadius, dpr, blurMult); // core
         endBlackHoleSeamClip(ctx); // core
     },
 
