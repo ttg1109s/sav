@@ -118,6 +118,19 @@ input[type="file"] { display: none; }
    có cơ chế hidden riêng đang tự quản lý (chuyển Playlist<->Visualizer). */
 .force-hidden { display: none !important; }
 
+/* MỚI (29/09/2026, Giang — Zoom mode kính lúp của Player Video/Photo, xem event/workflow/player-zoom.js).
+   `#player-zoom-layer` (index.html) bọc NGOÀI `#visual-motion-react`: nhận ĐÚNG mốc z-index -1 + pointer-events:none
+   của `.me-beat-react` (con giờ xếp trong stacking context của lớp này, thứ tự so với #visual-bg-image -2 /
+   #bg-video 0 không đổi). transform-origin 0 0 — khớp công thức core/player-zoom.js. overflow:hidden cắt phần
+   phóng to tràn khung. */
+#player-zoom-layer { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; transform-origin: 0 0; }
+/* Lớp bắt cử chỉ zoom — đè #visualizer-gesture-surface (z 20) để tắt mọi cử chỉ app; touch-action none: trình
+   duyệt không tự pinch-zoom/cuộn trang. Ẩn/hiện bằng `.hidden` (core/player-zoom.js). */
+#player-zoom-surface { position: absolute; inset: 0; z-index: 21; pointer-events: auto; touch-action: none; }
+/* Zoom mode: ép hiện nút mở Control Center (lối duy nhất để tắt kính lúp khi cử chỉ vuốt rìa trên đã tắt) — thắng
+   `.force-hidden` của setting nhờ selector ID. */
+#btn-open-control-center.player-zoom-force-visible { display: flex !important; }
+
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
