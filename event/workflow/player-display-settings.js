@@ -118,6 +118,8 @@ const workflowPlayerDisplaySettings = {
                 Object.assign(cfg, saved);
                 cfg.videoResolutionMode = normalizePlayerResolutionMode(cfg.videoResolutionMode); // core/player-display-settings.js
                 cfg.photoResolutionMode = normalizePlayerResolutionMode(cfg.photoResolutionMode);
+                cfg.videoZoom = sanitizePlayerZoom(cfg.videoZoom); // core/player-zoom.js — MỚI 29/09/2026: bản lưu cũ chưa có / hỏng -> gốc
+                cfg.photoZoom = sanitizePlayerZoom(cfg.photoZoom);
             }); // core/config.js
             console.log('writer: "loadPersistedPlayerDisplayOnBoot", page: "playerDisplayConfig", content: "khôi phục từ meta.playerDisplayConfig (Resolution đã chuẩn hoá)"');
         }
@@ -144,6 +146,33 @@ const workflowPlayerDisplaySettings = {
         } else if (kind === 'photo' && appState.get('isPhotoPlayerMode')) {
             workflowPhotoPlayer.refreshResolution(); // event/workflow/photo-player.js — SỬA 25/09/2026: Photo giữ record + surface của mình, tự áp lại lên ĐÚNG layer đang hiện
         }
+    },
+
+    // ===================== Zoom (MỚI 29/09/2026, Giang — mức zoom/pan của Zoom mode kính lúp lưu bền, video riêng
+    // photo riêng; Settings > Player > Video/Photo có nhóm Zoom hiện số + nút reset nhanh) =====================
+
+    /** Mức zoom/pan đã lưu của 1 kind, ĐÃ chuẩn hoá (hệ tỉ lệ, xem core/player-zoom.js).
+     * @param {'video'|'photo'} kind @returns {{scale:number,x:number,y:number}} */
+    getZoom(kind) {
+        const field = resolvePlayerZoomField(kind); // core/player-display-settings.js
+        return sanitizePlayerZoom(appConfigPlayerDisplay.getAll()[field]); // core/player-zoom.js + core/config.js
+    },
+
+    /** Ghi bền mức zoom/pan của 1 kind (gọi từ workflowPlayerZoom lúc nhấc hết ngón, hoặc resetZoom()).
+     * @param {'video'|'photo'} kind @param {{scale:number,x:number,y:number}} zoom - hệ tỉ lệ */
+    async saveZoom(kind, zoom) {
+        const field = resolvePlayerZoomField(kind); // core/player-display-settings.js
+        const value = sanitizePlayerZoom(zoom); // core/player-zoom.js — bản sao sạch, không giữ tham chiếu object của Workflow khác
+        appConfigPlayerDisplay.mutateAll((cfg) => { cfg[field] = value; }); // core/config.js
+        console.log(`writer: "workflowPlayerDisplaySettings.saveZoom", page: "playerDisplayConfig", content: "${field}=${JSON.stringify(value)}"`);
+        await setMeta('playerDisplayConfig', appConfigPlayerDisplay.getAll()); // service/db.js
+    },
+
+    /** Reset nhanh zoom/pan của 1 kind về gốc (nút ở Settings > Player > Video/Photo > Zoom); đang ở đúng Player
+     * mode đó -> hình về gốc ngay. @param {'video'|'photo'} kind */
+    async resetZoom(kind) {
+        await this.saveZoom(kind, PLAYER_ZOOM_DEFAULT); // core/player-zoom.js
+        workflowPlayerZoom.refreshFromConfig(kind); // event/workflow/player-zoom.js — liên tuyến domain
     },
 
     /** MỚI (24/09/2026, Giang yêu cầu — THAY select Motion + cơ chế đăng ký consumer 'player' cũ) — ứng

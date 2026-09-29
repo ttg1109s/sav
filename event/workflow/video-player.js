@@ -432,7 +432,7 @@ const workflowVideoPlayer = {
         // từng gọi rời bên dưới).
         workflowPlayerDisplaySettings.acquireVideoMotion(); // event/workflow/player-display-settings.js
         setBgVideoElementForPlayerMode(true); // core/video-player.js — bỏ muted + tắt loop + hiện + pointer-events
-        workflowPlayerZoom.onPlayerModeEnter(); // event/workflow/player-zoom.js — MỚI 29/09/2026: hiện kính lúp Control Center
+        workflowPlayerZoom.onPlayerModeEnter('video'); // event/workflow/player-zoom.js — MỚI 29/09/2026: hiện kính lúp Control Center + áp lại zoom/pan đã lưu của Video
         // MỚI (Giang yêu cầu "Resolution cho player video&photo, không liên quan VBG") — áp NGAY
         // lúc vào mode, đọc từ config đã lưu (Settings > Visualizer Screen > Player > Video).
         if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.applyVideoPlayerResolutionOnEnter(); // event/workflow/player-display-settings.js

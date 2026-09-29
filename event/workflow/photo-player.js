@@ -146,7 +146,7 @@ const workflowPhotoPlayer = {
         if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.clearMediaLayers(); // event/workflow/visual-bg.js — liên tuyến domain
 
         enterPhotoPlayerModeState(); // core/photo-player.js
-        workflowPlayerZoom.onPlayerModeEnter(); // event/workflow/player-zoom.js — MỚI 29/09/2026: hiện kính lúp Control Center
+        workflowPlayerZoom.onPlayerModeEnter('photo'); // event/workflow/player-zoom.js — MỚI 29/09/2026: hiện kính lúp Control Center + áp lại zoom/pan đã lưu của Photo
         await this.playPhotoByKey(startKey, switchScreen); // FIX (10/09/2026) — truyền ĐÚNG switchScreen của người gọi thay vì luôn mặc định true, xem docstring startFromPlaylist() ở trên
     },
 

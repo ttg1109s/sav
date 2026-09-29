@@ -997,6 +997,14 @@ const workflowAppSettings = {
         await workflowPlayerDisplaySettings.changeResolutionMode(kind, value); // event/workflow/player-display-settings.js
     },
 
+    /** MỚI (29/09/2026, Giang) — ứng nút reset nhanh zoom/pan (Player > Video/Photo > Zoom): về gốc rồi vẽ lại màn
+     * tại chỗ (cùng độ sâu -> giữ scroll) để 3 con số Zoom/Pan X/Pan Y hiện lại giá trị mới.
+     * @param {'video'|'photo'} kind */
+    async handlePlayerZoomReset(kind) {
+        await workflowPlayerDisplaySettings.resetZoom(kind); // event/workflow/player-display-settings.js
+        this._renderPlayerDetail(kind);
+    },
+
     // XOÁ (24/09/2026) — handlePlayerMotionSlotChange() (ứng select Motion cũ): hàng Motion giờ mở màn Chọn,
     // router gọi thẳng workflowPlayerDisplaySettings.openMotionSlotPicker() (event/router/app-settings.js).
 
