@@ -13,8 +13,26 @@
  */
 function renderVisualBgPanelBody() {
     return `
-                <!-- ===================== MEDIA — chọn nguồn ===================== -->
+                <!-- ===================== TOGGLE TỔNG (MỚI 29/09/2026, Giang) — tắt chỉ dỡ media ảnh/video, lớp màu
+                     (Background colour) vẫn sơn; bật lại nạp lại từ đầu. Workflow đồng bộ checked qua refreshPanelUI(),
+                     xem workflowVisualBg.toggleEnabled() (event/workflow/visual-bg-common.js). ===================== -->
                 <div>
+                    <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
+                        <div class="flex justify-between items-center gap-3 p-4" data-uitk="cardHoverBg">
+                            <div class="min-w-0">
+                                <span class="text-sm font-medium block" data-i18n="visualBgSettingsDrawer.enabled.label">${t('visualBgSettingsDrawer.enabled.label')}</span>
+                                <span class="text-xs block mt-0.5" data-uitk="textSecondary" data-i18n="visualBgSettingsDrawer.enabled.hint">${t('visualBgSettingsDrawer.enabled.hint')}</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="setting-visual-bg-enabled" class="sr-only peer">
+                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all" data-uitk="toggleTrackOff toggleTrackOn"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===================== MEDIA — chọn nguồn ===================== -->
+                <div class="mt-6">
                     <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2" data-uitk="accentText" data-i18n="visualBgSettingsDrawer.groupMedia.title">${t('visualBgSettingsDrawer.groupMedia.title')}</h3>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                         <div class="p-4">
