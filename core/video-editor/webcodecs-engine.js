@@ -20,6 +20,15 @@
  * session crop của modal) được đưa qua ĐÚNG biến đổi của preview để ra toạ độ khung hình ĐẦU RA,
  * nơi Mediabunny áp `crop` (sau xoay + lật) — xem `_mapCropRectToOutputFrame()`.
  *
+ * FIX (29/09/2026, Giang báo: "cắt phần đầu -> video mới bấm vào tự nhảy về giữa, kéo lùi cũng bị ép về giữa",
+ * cắt cuối thì đúng) — NGUYÊN NHÂN: bản Mediabunny đang dùng KHÔNG còn ép transcode khi có `trim.start` (giả định
+ * cũ trong comment trước đây đã sai). Mặc định `copy.mode='preferred'` + `copy.boundaryPolicy='expand'` -> track
+ * video được COPY nguyên gói từ KEYFRAME ĐỨNG TRƯỚC điểm cắt, phần dư trước điểm cắt mang timestamp ÂM (MP4 hỗ trợ
+ * `negativeTimestampSupport: 'full'` qua edit list). Trình phát WebKit xử lý đoạn âm này sai -> mốc bắt đầu thật
+ * của file lệch vào giữa, không seek lùi được. SỬA: CHỈ khi cắt đầu — video `forceTranscode` (cắt đúng khung hình
+ * tại điểm cắt, timestamp bắt đầu từ 0) + `copy.boundaryPolicy='shrink'` (audio vẫn COPY, không cần AAC encoder,
+ * nhưng bắt đầu từ gói ĐẦU TIÊN SAU điểm cắt -> không còn timestamp âm). Cắt cuối (đang đúng) giữ nguyên hành vi cũ.
+ *
  * Rule 3 — chỉ gọi API thư viện ngoài (Mediabunny/WebCodecs), không gọi core nào khác của project.
  * Rule 2 — không đọc `appState`. Đích ghi (OPFS writable) do Workflow chuẩn bị, truyền qua tham số.
  */
@@ -83,9 +92,11 @@ async function processVideo({ sourceBlob, cutStart, cutEnd, sourceDuration, crop
         video.flip = !!flipH;
     }
     if (cropRect) video.crop = _mapCropRectToOutputFrame(cropRect, sourceWidth, sourceHeight, deg, flipH);
+    // FIX 29/09/2026 — cắt đầu: transcode video để khung đầu tiên nằm ĐÚNG điểm cắt ở timestamp 0 (xem docstring đầu file).
+    if (trimStart) video.forceTranscode = true;
 
     const trim = {};
-    if (trimStart) trim.start = cutStart; // đặt start ép transcode cả video lẫn audio (giới hạn Mediabunny) — chỉ đặt khi thật sự cắt đầu
+    if (trimStart) trim.start = cutStart; // chỉ đặt khi thật sự cắt đầu
     if (trimEnd) trim.end = cutEnd;
 
     const conversion = await Mediabunny.Conversion.init({
@@ -95,6 +106,9 @@ async function processVideo({ sourceBlob, cutStart, cutEnd, sourceDuration, crop
         video,
         audio: muteAudio ? { discard: true } : undefined,
         trim: (trimStart || trimEnd) ? trim : undefined,
+        // FIX 29/09/2026 — cắt đầu: gói audio copy bắt đầu SAU điểm cắt (không kéo gói trước điểm cắt vào với
+        // timestamp âm). Không cắt đầu -> mặc định Mediabunny ('expand'), đúng hành vi cắt cuối đang chạy tốt.
+        copy: trimStart ? { boundaryPolicy: 'shrink' } : undefined,
     });
     if (!conversion.isValid) {
         return { status: 'invalid', reasons: conversion.discardedTracks.map((d) => `${d.track.type}:${d.reason}`) };
