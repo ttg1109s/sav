@@ -16,7 +16,8 @@
  *      Hiệu ứng CHỚP khi sao va vào viền hố đen ĐÃ BỎ HẲN (Giang) — cùng state `starFlashes` + field `flashFadeSpeed`.
  *   4. Hình ảnh: sao vẽ thành VỆT CONG bám đúng quỹ đạo xoắn ốc sao đang đi (đuôi mờ + mảnh dần, đầu là chấm sao gốc;
  *      sát viền đuôi kéo dài theo phương tiếp tuyến — giả thấu kính hấp dẫn);
- *      sóng xung kích -> tia chớp ngang dày, mờ kiểu bức xạ Hawking, phóng ra từ 2 bên hố đen, nằm SAU vòng cột (Giang).
+ *      sóng xung kích -> tia chớp dày, mờ kiểu bức xạ Hawking (lượt 2: toggle bật/tắt, hướng 360° ngẫu nhiên, dài hết mép,
+ *      nửa sau DƯỚI + nửa trước ĐÈ LÊN hố đen/cột = xuyên qua, màu Color mode dọc thân tia) (Giang).
  *
  * Mọi hàm THUẦN theo Rule 2/3 (không appState.get(), không gọi core khác) — riêng `stepBlackHoleStars()` GHI
  * `appState.mutate('stars')` (Rule 2 cho phép ghi; hot path nên không log, Rule 4 ngoại lệ). Điều phối ở
@@ -335,14 +336,16 @@ function beginBlackHoleGlowPass(layers) {
     n.ctx.setTransform(n.scale, 0, 0, n.scale, 0, 0);
 }
 
-/** near -> thu tiếp vào far, rồi phóng cả 2 lên canvas chính (far loang trước, near sát sau) với độ mạnh `alpha`. */
-function paintBlackHoleGlowLayers(ctx, layers, canvasWidth, canvasHeight, alpha) {
+/** near -> thu tiếp vào far, rồi phóng cả 2 lên canvas chính (far loang trước, near sát sau) với độ mạnh `alpha`, kiểu
+ * hoà trộn `compositeOp` ('source-over' cho glow cột, 'lighter' cho dải nhiệt tia Hawking). */
+function paintBlackHoleGlowLayers(ctx, layers, canvasWidth, canvasHeight, alpha, compositeOp) {
     const f = layers.far;
     f.ctx.setTransform(1, 0, 0, 1, 0, 0);
     f.ctx.clearRect(0, 0, f.canvas.width, f.canvas.height);
     f.ctx.imageSmoothingEnabled = true;
     f.ctx.drawImage(layers.near.canvas, 0, 0, f.canvas.width, f.canvas.height);
     ctx.save();
+    ctx.globalCompositeOperation = compositeOp;
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     ctx.globalAlpha = Math.min(1, alpha);
@@ -372,19 +375,30 @@ function paintBlackHoleCore(ctx, centerX, centerY, currentRadius) {
 }
 
 // ===================== tia bức xạ Hawking =====================
-// MỚI (29/09/2026, Giang — thay "sóng xung kích"): beat mạnh -> tia chớp NGANG, dày, mờ, phóng từ 2 bên hố đen ra mép
-// màn hình, nằm SAU vòng cột. Gợi hình minh hoạ bức xạ Hawking: dải sáng nhiệt mềm toả ra từ chân trời sự kiện + hạt
-// thoát ra ngoài; lõi là tia chớp gấp khúc có nhánh, đổi hình liên tục (nhấp nháy).
+// MỚI (29/09/2026, Giang — thay "sóng xung kích"): beat mạnh -> tia chớp dày, mờ phóng từ tâm hố đen ra 2 phía ngược nhau.
+// Gợi hình minh hoạ bức xạ Hawking: dải sáng nhiệt mềm + hạt thoát ra ngoài; lõi là tia chớp gấp khúc có nhánh, đổi hình
+// liên tục (nhấp nháy).
+// SỬA (29/09/2026, Giang, lượt 2):
+//   - Bật/tắt bằng toggle Custom Effect `hawkingEnabled`.
+//   - HƯỚNG PHÓNG 360°: mỗi tia 1 góc ngẫu nhiên (trước đây chỉ nằm ngang); mỗi nửa tia kéo dài tới HẾT MÉP màn hình
+//     theo đúng góc đó (computeBlackHoleRayReach()).
+//   - XUYÊN QUA: tia chia 2 nửa — nửa SAU (BLACK_HOLE_BURST_RAY_BACK) vẽ DƯỚI hố đen + vòng cột, nửa TRƯỚC
+//     (BLACK_HOLE_BURST_RAY_FRONT) vẽ ĐÈ LÊN hố đen + vòng cột -> như tia xuyên qua hố đen hướng về người xem.
+//   - Màu theo Color mode DỌC thân tia: Workflow resolve bảng `palette` (getComputedColor(k, K, …)) — tâm = màu đầu, mép
+//     màn hình = màu cuối (solid: 1 màu; dynamic: dynA -> dynB; gradient: dải hue như vòng cột).
 
 const BLACK_HOLE_BURST_MAX = 3;          // số tia tồn tại cùng lúc
 const BLACK_HOLE_BURST_LIFE_MS = 700;    // tuổi thọ 1 tia
-const BLACK_HOLE_BURST_GROW_MS = 160;    // thời gian phóng từ viền ra tới mép
+const BLACK_HOLE_BURST_GROW_MS = 160;    // thời gian phóng từ tâm ra tới mép
 const BLACK_HOLE_BOLT_REFRESH_MS = 45;   // đổi hình tia chớp (nhấp nháy)
 const BLACK_HOLE_BOLT_SEGMENTS = 14;
-const BLACK_HOLE_BURST_PARTICLES = 6;    // hạt thoát mỗi bên
+const BLACK_HOLE_BURST_PARTICLES = 6;    // hạt thoát mỗi nửa tia
 const BLACK_HOLE_BURST_MIN_BEAT = 0.2;   // beat quá nhỏ (đoạn nhạc rất nhẹ) không bắn
 const BLACK_HOLE_BURST_BEAT_RATIO = 1.03; // beat phải mạnh hơn mức beat trung bình gần đây ≥ 3%
 const BLACK_HOLE_BURST_AVG_ALPHA = 0.2;   // EMA mức bass tại các beat (theo từng BEAT, không theo frame)
+const BLACK_HOLE_BURST_RAY_BACK = 0;     // nửa tia vẽ DƯỚI hố đen + cột
+const BLACK_HOLE_BURST_RAY_FRONT = 1;    // nửa tia vẽ ĐÈ LÊN hố đen + cột (hướng ngược nửa sau)
+const BLACK_HOLE_BURST_PALETTE_SIZE = 6; // số điểm màu dọc thân tia (Workflow resolve)
 
 /** Beat MỚI (Workflow đã xác nhận) có đủ "mạnh" để bắn tia không: bass lúc beat vượt ngưỡng tối thiểu VÀ vượt mức bass
  * trung bình của các beat gần đây (`beatAvg`) — tương đối nên bất biến độ to nhỏ bài hát (chỉ các beat nổi hơn mặt
@@ -398,13 +412,18 @@ function updateBlackHoleBeatAverage(beatAvg, beatScale) {
     return beatAvg > 0 ? beatAvg + (beatScale - beatAvg) * BLACK_HOLE_BURST_AVG_ALPHA : beatScale;
 }
 
-/** 1 tia mới. `strength` 0-1 (bass lúc beat) quyết định độ dày/độ sáng. Hạt thoát: vị trí đầu `t0` (tỉ lệ quãng đường),
- * tốc độ `v` (quãng đường đầy / tuổi thọ), lệch dọc `off` (đơn vị nửa bề dày). */
+/** 1 tia mới: góc ngẫu nhiên 0-2π (nửa sau đi theo `angle`, nửa trước theo `angle + π`). `strength` 0-1 (bass lúc beat)
+ * quyết định độ dày/độ sáng. Hạt thoát mỗi nửa: vị trí đầu `t0` (tỉ lệ quãng đường), tốc độ `v` (quãng đường đầy / tuổi
+ * thọ), lệch ngang `off` (đơn vị nửa bề dày). */
 function createBlackHoleBurst(strength) {
     const particles = () => Array.from({ length: BLACK_HOLE_BURST_PARTICLES }, () => ({
         t0: Math.random() * 0.25, v: 0.9 + Math.random() * 0.9, off: (Math.random() - 0.5) * 1.4, size: 0.8 + Math.random() * 1.2,
     }));
-    return { age: 0, life: BLACK_HOLE_BURST_LIFE_MS, strength: Math.max(0.3, Math.min(1, strength)), boltAge: 0, bolt: null, particles: { left: particles(), right: particles() } };
+    return {
+        age: 0, life: BLACK_HOLE_BURST_LIFE_MS, strength: Math.max(0.3, Math.min(1, strength)),
+        angle: Math.random() * Math.PI * 2,
+        boltAge: 0, bolt: null, particles: [particles(), particles()],
+    };
 }
 
 /** Tăng tuổi mọi tia theo dt, trả danh sách tia còn sống (mảng MỚI). */
@@ -418,10 +437,10 @@ function isBlackHoleBoltStale(burst) {
     return burst.bolt === null || burst.boltAge >= BLACK_HOLE_BOLT_REFRESH_MS;
 }
 
-/** Dựng lại hình tia chớp (sửa tại chỗ `burst` vừa nhận — Rule 3b): mỗi bên 1 đường gấp khúc toạ độ CHUẨN HOÁ
- * {t: 0..1 dọc tia, off: -1..1 theo nửa bề dày} + 2 nhánh rẽ ngắn toả ra ngoài. */
+/** Dựng lại hình tia chớp (sửa tại chỗ `burst` vừa nhận — Rule 3b): mỗi nửa 1 đường gấp khúc toạ độ CHUẨN HOÁ
+ * {t: 0..1 dọc tia, off: -1..1 theo nửa bề dày} + 2 nhánh rẽ ngắn toả ra ngoài. `bolt[0]` = nửa sau, `bolt[1]` = nửa trước. */
 function renewBlackHoleBolt(burst) {
-    const side = () => {
+    const ray = () => {
         const pts = [{ t: 0, off: 0 }];
         let off = 0;
         for (let k = 1; k <= BLACK_HOLE_BOLT_SEGMENTS; k++) {
@@ -440,72 +459,103 @@ function renewBlackHoleBolt(burst) {
         });
         return { pts, forks };
     };
-    burst.bolt = { left: side(), right: side() };
+    burst.bolt = [ray(), ray()];
     burst.boltAge = 0;
 }
 
-/**
- * Vẽ 1 tia (2 bên) — chỉ Canvas API. `rgb` = "r, g, b" (Color mode). Mỗi bên: (1) dải nhiệt mềm hình thoi (dày ở viền,
- * nhọn ở đầu) tô gradient ngang-thân mờ 2 mép, (2) tia chớp gấp khúc + nhánh vẽ 3 lớp nét (quầng rộng mờ -> lõi mảnh
- * sáng), (3) hạt thoát bay dọc tia. Độ dài phóng ra theo tuổi (ease-out), độ sáng tắt dần + nhấp nháy nhẹ. Hoà trộn
- * 'lighter' (cộng sáng) trong save/restore.
- */
-function paintBlackHoleBurst(ctx, burst, centerX, centerY, radius, canvasWidth, dpr, rgb) {
+/** Khoảng cách từ tâm màn hình tới MÉP màn hình theo góc `angle` (tia xuất phát ở tâm canvas) + `margin` để cả bề dày
+ * tia cũng ra khỏi mép. Tia chéo góc dài hơn tia ngang/dọc — mọi góc đều chạm hết mép. */
+function computeBlackHoleRayReach(angle, halfWidth, halfHeight, margin) {
+    const cx = Math.abs(Math.cos(angle)), sy = Math.abs(Math.sin(angle));
+    const toSide = cx > 1e-6 ? halfWidth / cx : Infinity;
+    const toTopBottom = sy > 1e-6 ? halfHeight / sy : Infinity;
+    return Math.min(toSide, toTopBottom) + margin;
+}
+
+/** Trạng thái vẽ 1 tia ở frame này: độ dài đã phóng (0-1, ease-out), độ sáng (tắt dần + nhấp nháy nhẹ), nửa bề dày. */
+function computeBlackHoleBurstLook(burst, dpr) {
     const life01 = burst.age / burst.life;
-    const grow = 1 - Math.pow(1 - Math.min(1, burst.age / BLACK_HOLE_BURST_GROW_MS), 3);
-    const alpha = burst.strength * Math.pow(1 - life01, 1.5) * (0.85 + Math.random() * 0.15);
-    const halfT = (18 + 34 * burst.strength) * dpr;
-    const startInset = radius * 0.9;
-    const fullReach = canvasWidth / 2 - startInset + 20 * dpr;
-    const reach = fullReach * grow;
-    const col = (a) => `rgba(${rgb}, ${Math.max(0, Math.min(1, a))})`;
-    const drawSide = (dir, bolt, particles) => {
-        const x0 = centerX + dir * startInset;
-        const px = (t) => x0 + dir * t * reach;
-        const py = (off) => centerY + off * halfT * 0.4;
-        // (1) dải nhiệt mềm — 2 lớp (rộng mờ + hẹp đậm)
-        [[1, 0.55], [0.45, 0.85]].forEach(([w, a]) => {
-            const h = halfT * w;
-            const grad = ctx.createLinearGradient(0, centerY - h, 0, centerY + h);
-            grad.addColorStop(0, col(0));
-            grad.addColorStop(0.5, col(alpha * a));
-            grad.addColorStop(1, col(0));
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.moveTo(x0, centerY - h);
-            ctx.quadraticCurveTo(x0 + dir * reach * 0.55, centerY - h * 0.8, px(1), centerY);
-            ctx.quadraticCurveTo(x0 + dir * reach * 0.55, centerY + h * 0.8, x0, centerY + h);
-            ctx.closePath();
-            ctx.fill();
-        });
-        // (2) tia chớp + nhánh — quầng rộng -> lõi mảnh
-        const stroke = (pts) => {
-            ctx.beginPath();
-            pts.forEach((p, k) => (k === 0 ? ctx.moveTo(px(p.t), py(p.off)) : ctx.lineTo(px(p.t), py(p.off))));
-            ctx.stroke();
-        };
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        [[halfT * 0.35, 0.3], [3 * dpr, 0.6], [1.3 * dpr, 1]].forEach(([width, a]) => {
-            ctx.lineWidth = width;
-            ctx.strokeStyle = col(alpha * a);
-            stroke(bolt.pts);
-            ctx.lineWidth = width * 0.6;
-            bolt.forks.forEach(stroke);
-        });
-        // (3) hạt thoát
-        ctx.fillStyle = col(alpha);
-        particles.forEach((p) => {
-            const t = p.t0 + p.v * life01;
-            if (t > 1.1) return;
-            ctx.beginPath();
-            ctx.arc(x0 + dir * t * fullReach, centerY + p.off * halfT, p.size * 1.5 * dpr, 0, Math.PI * 2);
-            ctx.fill();
-        });
+    return {
+        life01,
+        grow: 1 - Math.pow(1 - Math.min(1, burst.age / BLACK_HOLE_BURST_GROW_MS), 3),
+        alpha: burst.strength * Math.pow(1 - life01, 1.5) * (0.85 + Math.random() * 0.15),
+        halfT: (18 + 34 * burst.strength) * dpr,
     };
+}
+
+/** Gradient màu DỌC thân nửa tia (hệ toạ độ đã xoay: 0 -> reach trên trục x) từ `palette` ("r, g, b", tâm -> mép) —
+ * cố định theo không gian (màu không trôi khi tia đang phóng ra). */
+function createBlackHoleRayGradient(ctx, reach, palette) {
+    const along = ctx.createLinearGradient(0, 0, reach, 0);
+    const last = palette.length - 1;
+    palette.forEach((rgb, k) => along.addColorStop(last > 0 ? k / last : 0, `rgb(${rgb})`));
+    return along;
+}
+
+/**
+ * Dải nhiệt mềm của 1 NỬA tia — vẽ vào LỚP PHỤ thu nhỏ (ctx của createBlackHoleGlowLayers(), transform thu nhỏ đã đặt),
+ * Workflow phóng lên bằng paintBlackHoleGlowLayers(…, 'lighter') -> mép dải mờ mịn (downsample-blur) mà vẫn giữ màu Color
+ * mode dọc thân. Hình giọt dài: đầu tròn ở tâm, thon dần tới đầu tia; 2 lớp lồng nhau (lõi đậm hơn). `look` =
+ * computeBlackHoleBurstLook(), `gradient` = createBlackHoleRayGradient() (tạo trên chính ctx này). Chỉ Canvas API.
+ */
+function paintBlackHoleBurstBand(ctx, burst, rayIndex, centerX, centerY, reach, look, gradient) {
+    const len = reach * look.grow;
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter'; // cộng sáng như nguồn phát xạ (chồng lên sao/flare sáng hơn, không che)
-    drawSide(-1, burst.bolt.left, burst.particles.left);
-    drawSide(1, burst.bolt.right, burst.particles.right);
+    ctx.translate(centerX, centerY);
+    ctx.rotate(burst.angle + rayIndex * Math.PI);
+    ctx.fillStyle = gradient;
+    [[1, 0.22], [0.45, 0.4]].forEach(([w, a]) => {
+        const h = look.halfT * w;
+        ctx.globalAlpha = Math.min(1, look.alpha * a);
+        ctx.beginPath();
+        ctx.arc(0, 0, h, Math.PI / 2, Math.PI * 1.5); // đầu tròn ở tâm — nửa trước đè lên hố đen không lộ mép cắt thẳng
+        ctx.quadraticCurveTo(len * 0.3, -h * 0.55, len, 0); // thon dần về đầu tia
+        ctx.quadraticCurveTo(len * 0.3, h * 0.55, 0, h);
+        ctx.closePath();
+        ctx.fill();
+    });
+    ctx.restore();
+}
+
+/**
+ * Tia chớp + hạt thoát của 1 NỬA tia (`rayIndex` = BLACK_HOLE_BURST_RAY_BACK | _FRONT) trên canvas chính — hệ toạ độ cục
+ * bộ: gốc = tâm hố đen, +x = hướng nửa tia (nửa trước cộng π). `reach` = độ dài tới hết mép (computeBlackHoleRayReach()).
+ * Tia chớp gấp khúc + nhánh 3 nét (quầng rộng mờ -> lõi mảnh) tô gradient màu dọc thân; hạt thoát lấy màu theo vị trí.
+ * Hoà trộn 'lighter' (cộng sáng) trong save/restore. Chỉ Canvas API.
+ */
+function paintBlackHoleBurstBolt(ctx, burst, rayIndex, centerX, centerY, reach, dpr, look, palette) {
+    const len = reach * look.grow;
+    const bolt = burst.bolt[rayIndex];
+    const lastColor = palette.length - 1;
+    const px = (t) => t * len;
+    const py = (off) => off * look.halfT * 0.4;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.translate(centerX, centerY);
+    ctx.rotate(burst.angle + rayIndex * Math.PI);
+    ctx.strokeStyle = createBlackHoleRayGradient(ctx, reach, palette);
+    const stroke = (pts) => {
+        ctx.beginPath();
+        pts.forEach((p, k) => (k === 0 ? ctx.moveTo(px(p.t), py(p.off)) : ctx.lineTo(px(p.t), py(p.off))));
+        ctx.stroke();
+    };
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    [[look.halfT * 0.35, 0.3], [3 * dpr, 0.6], [1.3 * dpr, 1]].forEach(([width, a]) => {
+        ctx.globalAlpha = Math.min(1, look.alpha * a);
+        ctx.lineWidth = width;
+        stroke(bolt.pts);
+        ctx.lineWidth = width * 0.6;
+        bolt.forks.forEach(stroke);
+    });
+    ctx.globalAlpha = Math.min(1, look.alpha);
+    burst.particles[rayIndex].forEach((p) => {
+        const t = p.t0 + p.v * look.life01;
+        if (t > 1) return;
+        ctx.fillStyle = `rgb(${palette[Math.round(t * lastColor)]})`;
+        ctx.beginPath();
+        ctx.arc(t * reach, p.off * look.halfT, p.size * 1.5 * dpr, 0, Math.PI * 2);
+        ctx.fill();
+    });
     ctx.restore();
 }
