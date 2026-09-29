@@ -357,6 +357,11 @@
          * `workflowVisualBg.loadPersistedSettingsOnBoot()`.
          */
         const DEFAULT_VISUAL_BG_CONFIG = {
+            // MỚI (29/09/2026, Giang) — toggle TỔNG của Visual Background (đầu panel VBG). Giang chốt: tắt CHỈ dỡ
+            // media ảnh/video (không nạp, không task, không Motion) — lớp màu solid/gradient (+ Movement) VẪN sơn;
+            // bật lại = nạp lại từ đầu (không nhớ vị trí). Giữ NGUYÊN source/pending/mọi cài đặt khác khi tắt.
+            // Restore default -> true. Xem workflowVisualBg.toggleEnabled() (event/workflow/visual-bg-common.js).
+            enabled: true,
             type: 'photo',                  // 'photo' | 'video' — đổi type = gỡ hẳn source cũ (khác kiểu key)
 
             source: {
@@ -620,6 +625,7 @@
 
         AppConfig.defineDomain('visualBg', {
             schema: {
+                enabled: 'boolean', // MỚI 29/09/2026 — toggle tổng, xem DEFAULT_VISUAL_BG_CONFIG.enabled
                 type: 'string',
                 source: 'object', // { originKind: nullable-string, originId: nullable-string, list: array }
                 pending: 'object', // { originKind: nullable-string, originId: nullable-string, list: array } — xem DEFAULT_VISUAL_BG_CONFIG.pending
