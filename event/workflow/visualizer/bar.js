@@ -168,10 +168,10 @@ const workflowVizBar = {
         paintBlackHoleFlare(frame.ctx, frame.canvas.width, frame.canvas.height, centerX, centerY, currentRadius, rgb, flareAlpha); // core
     },
 
-    /** Sao: bước vật lý theo dt rồi vẽ (chấm sao màu gốc + vệt cong dọc quỹ đạo). */
+    /** Sao: bước vật lý theo dt (+ ghi lịch sử vị trí) rồi vẽ (chấm sao màu gốc + vệt theo đường đã đi). */
     _drawBlackHoleStars(frame, centerX, centerY, maxDist, currentRadius, currentSuction, dt) {
         stepBlackHoleStars(maxDist, currentRadius, currentSuction, dt / BLACK_HOLE_FRAME_MS); // core
-        drawBlackHoleStarStreaks(frame.ctx, appState.get('stars'), centerX, centerY, maxDist, currentRadius, frame.dpr); // core
+        drawBlackHoleStarStreaks(frame.ctx, appState.get('stars'), centerX, centerY, maxDist, frame.dpr); // core
     },
 
     /** Tia bức xạ Hawking: bắn tia mới nếu có beat mạnh, già đi theo dt, đổi hình tia chớp định kỳ. Tắt toggle thì không
