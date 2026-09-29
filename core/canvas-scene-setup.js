@@ -60,19 +60,18 @@
             };
         }
 
-        /** Sao Black Hole: 5 cụm góc, 3 lớp tốc độ/kích thước. SỬA (29/09/2026, Giang duyệt cải tiến Black Hole) — sao theo
-         * Color mode của Custom Effect: thay tint cố định (trắng/xanh/vàng) bằng `colorSlot` 0..colorSlots-1 (Workflow resolve
-         * bảng màu mỗi frame qua getComputedColor()); `vAngle`/`vDist` = vận tốc 1 frame chuẩn 60fps, bước vật lý ghi lại mỗi
-         * frame để vẽ vệt sao. */
-        function buildBlackHoleStars(count, maxDist, dpr, colorSlots) {
+        /** Sao Black Hole: 5 cụm góc, 3 lớp tốc độ/kích thước, vài sao ngả xanh/vàng (màu GỐC — sao KHÔNG theo Color mode,
+         * Giang 29/09/2026). `vAngle`/`vDist` = vận tốc 1 frame chuẩn 60fps, bước vật lý ghi lại mỗi frame để vẽ vệt cong. */
+        function buildBlackHoleStars(count, maxDist, dpr) {
             const starList = [];
             for (let i = 0; i < count; i++) {
                 const clusterAngle = (Math.floor(Math.random() * 5) / 5) * Math.PI * 2; const angle = clusterAngle + (Math.random() * 1.5 - 0.75);
                 const layer = Math.random();
                 const baseSpeed = layer < 0.2 ? 0.1 : (layer < 0.7 ? 0.4 : 1.0);
                 const sizeMult = layer < 0.2 ? 0.5 : (layer < 0.7 ? 1.0 : 2.0);
-                const colorSlot = Math.floor(Math.random() * colorSlots);
-                starList.push({ angle: angle, distance: Math.random() * maxDist, size: (Math.random() * 1.5 + 0.5) * sizeMult * dpr, baseSpeed: baseSpeed * dpr, colorSlot: colorSlot, vAngle: 0, vDist: 0 });
+                const colorRand = Math.random();
+                const colorTint = colorRand > 0.9 ? '200, 220, 255' : (colorRand > 0.8 ? '255, 240, 200' : '255, 255, 255');
+                starList.push({ angle: angle, distance: Math.random() * maxDist, size: (Math.random() * 1.5 + 0.5) * sizeMult * dpr, baseSpeed: baseSpeed * dpr, colorTint: colorTint, vAngle: 0, vDist: 0 });
             }
             return starList;
         }
