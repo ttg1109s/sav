@@ -37,6 +37,11 @@ const routerVisualBg = (() => {
                 workflowVisualBg.openMotionPicker();
                 break;
 
+            // MỚI (29/09/2026, Giang) — toggle tổng đầu panel: tắt chỉ dỡ media ảnh/video, giữ lớp màu.
+            case 'visualBg.enabled.change':
+                workflowVisualBg.toggleEnabled(msg.payload.checked);
+                break;
+
             case 'visualBg.syncPlaybackSpeed.change':
                 workflowVisualBg.changeSyncPlaybackSpeed(msg.payload.checked);
                 break;
