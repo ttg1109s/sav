@@ -54,7 +54,7 @@
                 // để cột rộng nhất chỉ CHẠM mép nhau, xem core/visualizer/groups/bar/black-hole.js); barTopRadius bo 2 góc đỉnh 0-5px.
                 barWidth: 8, barTopRadius: 2, starCount: 200,
                 radiusRatio: 0.13, radiusEnergyMult: 0.05, suctionBase: 0.2, suctionEnergyMult: 2.5,
-                flareThreshold: 0.65, flashFadeSpeed: 0.08,
+                flareThreshold: 0.65, // (flashFadeSpeed — ĐÃ BỎ 29/09/2026 cùng hiệu ứng chớp sao)
                 // MỚI (25/09/2026, Giang) — style "dot": trục thời gian chuyển từ connector brain (core/
                 // visualizer/groups/bar/dot.js). maxH ở trên dùng cho kiểu tác động 'height'.
                 dotCount: 40, dotShape: 'line', dotImpactMode: 'radius', dotLineVibrate: true,

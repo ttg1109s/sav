@@ -146,7 +146,7 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'cascadeKeyCount', labelKey: 'customEffectDrawer.field.cascadeKeyCount', type: 'slider', min: 16, max: 128, step: 4, card: 'layout', showIf: (cfg) => cfg.barStyle === 'cascade' },
         // Style "black hole" (CHUYỂN NHÓM 05/09/2026 — trước đây bucket 'black hole' riêng, dùng CHUNG
         // field 'maxH' ở trên, không khai riêng). radiusRatio + radiusEnergyMult là 1 cặp kích thước.
-        // SỬA (28/09/2026, Giang; 29/09: tối đa 15 -> 10px) — độ rộng cột 5-10px (số cột tính theo chu vi hố đen, 15px = ô mỗi cột) + bo góc đỉnh 0-5px.
+        // SỬA (28/09/2026, Giang; 29/09: tối đa 15 -> 10px) — độ rộng cột 5-10px (số cột tính theo chu vi hố đen, 10px = ô mỗi cột) + bo góc đỉnh 0-5px.
         { id: 'barWidth', labelKey: 'visualizerSettingsDrawer.barWidth.label', type: 'slider', min: 5, max: 10, step: 1, card: 'layout', showIf: (cfg) => cfg.barStyle === 'black hole' },
         { id: 'barTopRadius', labelKey: 'customEffectDrawer.field.barTopRadius', type: 'slider', min: 0, max: 5, step: 1, card: 'layout', showIf: (cfg) => cfg.barStyle === 'black hole' },
         { id: 'starCount', labelKey: 'customEffectDrawer.field.starCount', type: 'slider', min: 40, max: 400, step: 10, card: 'layout', showIf: (cfg) => cfg.barStyle === 'black hole', refresh: 'resizeCanvas' },
@@ -180,7 +180,7 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'mirrorTilt', labelKey: 'customEffectDrawer.field.mirrorTilt', type: 'sliderFloat', min: 0, max: 6, step: 0.5, decimals: 1, card: 'reaction', showIf: (cfg) => cfg.barStyle === 'mirror' },
         { id: 'mirrorSmoothSpread', labelKey: 'customEffectDrawer.field.mirrorSmoothSpread', type: 'sliderFloat', min: 0, max: 0.9, step: 0.05, decimals: 2, card: 'reaction', showIf: (cfg) => cfg.barStyle === 'mirror' },
         { id: 'flareThreshold', labelKey: 'customEffectDrawer.field.flareThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, card: 'reaction', showIf: (cfg) => cfg.barStyle === 'black hole' },
-        { id: 'flashFadeSpeed', labelKey: 'customEffectDrawer.field.flashFadeSpeed', type: 'sliderFloat', min: 0.02, max: 0.2, step: 0.01, decimals: 2, card: 'reaction', showIf: (cfg) => cfg.barStyle === 'black hole' },
+        // (flashFadeSpeed — ĐÃ BỎ 29/09/2026, Giang: bỏ hiệu ứng chớp khi sao va vào viền hố đen.)
         // MỚI (25/09/2026, Giang) — độ phình (%) của dot tác động, chỉ kiểu 'radius' (kiểu 'height' đã có maxH).
         { id: 'dotSwell', labelKey: 'customEffectDrawer.field.dotSwell', type: 'slider', min: 50, max: 300, step: 10, card: 'reaction', showIf: (cfg) => cfg.barStyle === 'dot' && cfg.dotImpactMode !== 'height' },
         // (25/09/2026, lượt 2) bẻ góc 2 nhánh — chỉ kiểu 'height'

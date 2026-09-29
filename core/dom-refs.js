@@ -365,14 +365,16 @@
         // isSeeking, dpr, currentObjectURL, currentCoverObjectURL, frameCounter, smoothedEnergy,
         // globalHueOffset, beatScale, vizDataArray, pitchTimeDomainArray, previousSpectrumArray,
         // beatTimes, fluxHistory — STATE, xem service/state.js.
-        let smoothedBeatRadius = 0, smoothedPitchY = 0; // biến NỘI BỘ (không thuộc STATE)
+        let smoothedPitchY = 0; // biến NỘI BỘ (không thuộc STATE)
+        // (smoothedBeatRadius — ĐÃ BỎ 29/09/2026: bán kính Black Hole làm mượt theo dt, trạng thái riêng `_blackHole.baseRadius`
+        //  của event/workflow/visualizer/bar.js.)
         // (lastBeatTime/runningFluxMean — ĐÃ BỎ 28/09/2026: mốc beat đọc từ appState `lastBeatTime`, trung bình
         //  flux tính tại chỗ bằng computeArrayMean(), xem event/workflow/audio-analysis.js.)
 
         // currentModeIndex — STATE, xem service/state.js.
         // (noteNames — ĐÃ BỎ 28/09/2026, thay bằng MIDI_NOTE_NAMES trong core/audio-analysis.js.)
 
-        // stars, starFlashes, rubikCubes, rubikPitchHistory, rubikPitchAvg, raindrops, ripples,
+        // stars, rubikCubes, rubikPitchHistory, rubikPitchAvg, raindrops, ripples,
         // glassStaticDrops, glassStreaks, cityBuildings, activeLightnings, streetLamps, streetRain,
         // streetGroundY — STATE, xem service/state.js.
         // (tunnelAngle, bgRaindrops — dead code: không được đọc/ghi ở bất kỳ đâu khác trong toàn
