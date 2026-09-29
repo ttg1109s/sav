@@ -34,6 +34,8 @@
  *   dimLeftEl, dimRightEl, rangeBorderEl, playheadEl, currentTimeLabelEl, trimLengthLabelEl,
  *   toolTitleEl, flipBtn, saveModeLabelEl }
  * SỬA (27/09/2026, Giang: "bỏ nút on/off sound") — bỏ `muteBtn` + nhãn của nó.
+ * MỚI (29/09/2026, Giang) — `captureBtn` ở hàng công cụ: bắn 'videoPlayer.captureFrame.click' (event của nút
+ * Capture ở Control Center) kèm `sourceVideoEl: videoEl`. Zoom-pan editor đã bỏ — `stageEl` vẫn trả về (khung bọc).
  */
 function openVideoPreviewModal(data) {
     const stale = document.getElementById('video-preview-overlay');
@@ -54,6 +56,7 @@ function openVideoPreviewModal(data) {
         cropLabel: { selector: '#video-preview-crop-tool-label', prop: 'textContent', value: t('videoPreview.rail.crop') },
         rotateLabel: { selector: '#video-preview-rotate-label', prop: 'textContent', value: t('videoPreview.rail.rotate') },
         flipLabel: { selector: '#video-preview-flip-label', prop: 'textContent', value: t('videoPreview.rail.flip') },
+        captureLabel: { selector: '#video-preview-capture-label', prop: 'textContent', value: t('videoPreview.rail.capture') }, // MỚI 29/09/2026
         saveModeLabel: { selector: '#video-preview-save-mode-label', prop: 'textContent', value: t(`videoPreview.saveMode.${data.saveMode}`) },
         ...ratioButtonSlots,
     });
@@ -87,6 +90,7 @@ function openVideoPreviewModal(data) {
     const cropToolBtn = fragment.querySelector('#video-preview-crop-tool-btn');
     const rotateBtn = fragment.querySelector('#video-preview-rotate-btn');
     const flipBtn = fragment.querySelector('#video-preview-flip-btn');
+    const captureBtn = fragment.querySelector('#video-preview-capture-btn'); // MỚI 29/09/2026
     const saveModeBtn = fragment.querySelector('#video-preview-save-mode-btn');
     const saveModeLabelEl = fragment.querySelector('#video-preview-save-mode-label');
     const closeBtn = fragment.querySelector('#video-preview-close-btn');
@@ -121,6 +125,9 @@ function openVideoPreviewModal(data) {
     cropToolBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.tool.open', payload: { tool: 'crop' } }));
     rotateBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.rotate.click', payload: {} }));
     flipBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.flip.click', payload: {} }));
+    // MỚI (29/09/2026, Giang: "chỉ cần gọi lại event giống như capture trong icon control center") — ĐÚNG event của
+    // #btn-capture-video-frame, chỉ kèm nguồn là `<video>` của editor (Control Center không kèm -> bgVideoElement).
+    captureBtn.addEventListener('click', () => eventBus.send({ router: 'videoPlayer', type: 'videoPlayer.captureFrame.click', payload: { sourceVideoEl: videoEl } }));
 
     // Topbar công cụ (trạng thái Cắt/Cắt khung)
     toolCancelBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.tool.cancel', payload: {} }));
