@@ -1107,22 +1107,22 @@
          Runner, không dùng Point Move/Transition Runner). -->
     <script src="event/workflow/motion-transition-runner.js?v=20260914v2"></script>
     <script src="event/workflow/motion-point-move-runner.js?v=20260925s1"></script>
-    <script src="event/workflow/motion-beat-react-runner.js?v=20260929rb1"></script>
+    <script src="event/workflow/motion-beat-react-runner.js?v=20260929rl1"></script>
     <!-- MỚI (25/09/2026, Giang duyệt mô hình 3 tầng) — Motion Stage: HOST DÙNG CHUNG gói 3 Runner trên cho
          ĐÚNG 1 bề mặt render đang hoạt động, cơ chế mượn/trả có token (nguyên tắc tua vít: không biết nội
          dung, không biết nơi tiêu thụ). NẠP SAU 3 Runner. Nơi dùng (event/workflow/visual-bg-photo-motion.js
          — Image surface, nạp phía trên) chỉ gọi lúc chạy. -->
-    <script src="event/workflow/motion-stage.js?v=20260925s1"></script>
+    <script src="event/workflow/motion-stage.js?v=20260929rl1"></script>
     <!-- MỚI (25/09/2026, đợt 4 Motion) — Video surface: tầng "bề mặt media" cho video A/B (#bg-video + #visual-bg-image
          làm cầu nối), DÙNG CHUNG cho mọi nơi tiêu thụ video nền (Player Video; đợt 5: VBG Video) — mượn Motion Stage
          ngay trên, gắn/gỡ DOM qua core/player-display-apply.js. Nơi dùng chỉ gọi lúc chạy. -->
-    <script src="event/workflow/video-motion-surface.js?v=20260925v5"></script>
+    <script src="event/workflow/video-motion-surface.js?v=20260929rl1"></script>
 
     <!-- MỚI (Giang yêu cầu "Player") — workflowPlayerDisplaySettings (load/ghi bền domain
          'playerDisplay', GIAI ĐOẠN 1 — CHƯA có cơ chế áp dụng lên runtime), xem event/workflow/
          player-display-settings.js. NẠP TRƯỚC event/workflow/app-settings.js (gọi trực tiếp, không
          qua router riêng) và event/workflow/app-boot.js (gọi loadPersistedPlayerDisplayOnBoot()). -->
-    <script src="event/workflow/player-display-settings.js?v=20260925v4"></script>
+    <script src="event/workflow/player-display-settings.js?v=20260929rl1"></script>
     <!-- MỚI (23/09/2026) — workflowPagination: domain 'pagination' (load/ghi bền) + CỬA DUY NHẤT để 1 danh
          sách dùng pagination theo cài đặt chung. NẠP TRƯỚC event/workflow/app-settings.js (gọi trực tiếp)
          và event/workflow/app-boot.js (loadPersistedPaginationOnBoot()). -->
