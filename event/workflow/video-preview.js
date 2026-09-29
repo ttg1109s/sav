@@ -1,10 +1,15 @@
 /**
  * event/workflow/video-preview.js — Workflow "videoPreview". Modal xem/sửa Video kiểu Story: trạng
  * thái xem (video tràn màn hình + rail dọc) và 2 công cụ Cắt / Cắt khung (mỗi lúc 1 công cụ, xem mục
- * SỬA 26/09/2026 dưới); Zoom-pan (Panzoom trên chính videoEl) luôn sống, không thuộc công cụ nào.
+ * SỬA 26/09/2026 dưới).
+ *
+ * SỬA (29/09/2026, Giang) — BỎ HẲN zoom-pan (Panzoom) trong editor: không còn session, không còn
+ * reset/snapshot zoom. Thêm nút Chụp (Capture) ở hàng công cụ — bắn ĐÚNG event Control Center
+ * 'videoPlayer.captureFrame.click' (kèm `sourceVideoEl` = `<video>` của editor), xem
+ * core/file-manager/video-ui.js + event/workflow/video-player.js::captureCurrentFrame().
  *
  * `open()` bọc TOÀN BỘ trong `withLoadingShield()` (core/loading-shield-util.js) — chỉ tắt shield
- * SAU KHI modal đã dựng xong VÀ đã có metadata thật (crop/trim/zoom-pan sẵn sàng tương tác), không
+ * SAU KHI modal đã dựng xong VÀ đã có metadata thật (crop/trim sẵn sàng tương tác), không
  * chỉ sau khi DOM append xong.
  *
  * `this._modalHandle`/`this._beforeToolSnapshot`/`this._resolveMetadataReady` giữ TRỰC TIẾP trên
@@ -223,14 +228,13 @@ const workflowVideoPreview = {
             appState.set('videoPreviewActiveDrag', null);
             appState.set('videoPreviewActiveTool', 'none');
             appState.set('videoPreviewSaveMode', 'asNew');
-            appState.set('videoPreviewZoomPanSession', null);
             appState.set('videoPreviewIsPlaying', false);
 
             const metadataReadyPromise = new Promise((resolve) => { this._resolveMetadataReady = resolve; });
             const metadataTimeout = taskManager.once(() => this.handleMetadataFailed(), VIDEO_PREVIEW_METADATA_TIMEOUT_MS); // service/task-manager.js
             this._modalHandle = openVideoPreviewModal({ videoUrl, posterUrl, filename: record.filename, saveMode: 'asNew', ratioPresets }); // core/file-manager/video-ui.js
 
-            const metadataOk = await metadataReadyPromise; // true = crop/trim/zoom-pan đã dựng xong; false = `<video>` lỗi/quá hạn
+            const metadataOk = await metadataReadyPromise; // true = crop/trim đã dựng xong; false = `<video>` lỗi/quá hạn
             metadataTimeout.kill();
             if (!metadataOk) { this._reallyClose(); failKey = 'videoPreview.metadataFailed'; return; }
             pct(35);
@@ -263,17 +267,10 @@ const workflowVideoPreview = {
         const cropSession = initCropSession(w, h, { padRatio: 0 }); // core/media-transform.js — full-frame, không crop cho tới khi tự kéo
         appState.set('videoPreviewCropSession', cropSession);
 
-        // Chuyển từ poster tĩnh sang video thật (đứng yên tại khung hình 0 — KHÔNG auto-play) TRƯỚC
-        // khi init Panzoom (mục 2, phản hồi Giang — BUG THẬT: init lúc `videoEl` còn `display:none`
-        // khiến `getBoundingClientRect()` đo ra {0,0,0,0}, Panzoom tính sai giới hạn zoom/pan ngay từ
-        // đầu — xem docstring đầu file).
+        // Chuyển từ poster tĩnh sang video thật (đứng yên tại khung hình 0 — KHÔNG auto-play).
+        // (29/09/2026 — zoom-pan Panzoom đã bỏ hẳn, không còn init gì trên `stageEl`.)
         this._modalHandle.posterEl.classList.add('hidden');
         this._modalHandle.videoEl.classList.remove('hidden');
-
-        // Phase 1 — Panzoom trên `stageEl` (bọc poster+video), KHÔNG còn trên `videoEl`: transform
-        // zoom/pan (stage) và xoay/lật (video) tách 2 phần tử, không giẫm lên nhau.
-        const zoomPanSession = initPanzoomSession(this._modalHandle.stageEl, { maxScale: 4, minScale: 1, contain: 'outside', cursor: 'default' }); // core/media-transform.js — chế độ xem, luôn sống
-        appState.set('videoPreviewZoomPanSession', zoomPanSession);
 
         this._renderTrimPositions();
 
@@ -457,9 +454,6 @@ const workflowVideoPreview = {
         this._setActiveTool(tool);
 
         if (tool === 'crop') {
-            // Khung crop KHÔNG nằm trong stage (không zoom theo) — đưa zoom-pan về 1 để 2 bên khớp.
-            const zoomPanSession = appState.get('videoPreviewZoomPanSession');
-            if (zoomPanSession) zoomPanSession.reset({ animate: false });
             this._syncCropCanvasBox();
             this._drawCropOverlay();
             this._renderRatioButtonsActiveState();
@@ -783,8 +777,6 @@ const workflowVideoPreview = {
         appState.set('videoPreviewFlipH', false);
         appState.set('videoPreviewCutStart', 0);
         appState.set('videoPreviewCutEnd', appState.get('videoPreviewSourceDuration'));
-        const zoomPanSession = appState.get('videoPreviewZoomPanSession');
-        resetPanzoomSession(zoomPanSession); // core/media-transform.js
         this._renderTransformPreview();
         this._drawCropOverlay();
         this._renderTrimPositions();
@@ -792,18 +784,16 @@ const workflowVideoPreview = {
         appState.set('videoPreviewHasUnsavedChanges', true);
     },
 
-    /** @returns {object} snapshot — crop rect/tỉ lệ + rotate + flip + cut + zoom-pan hiện tại. DÙNG
+    /** @returns {object} snapshot — crop rect/tỉ lệ + rotate + flip + cut hiện tại. DÙNG
      * RIÊNG cho khôi phục lúc Huỷ công cụ (`_beforeToolSnapshot`, xem `handleToolOpen()`/
      * `handleToolCancel()`) — KHÔNG còn liên quan Undo/Redo (đã bỏ hẳn, mục 1 phản hồi Giang). */
     _buildSnapshot() {
         const cropSession = appState.get('videoPreviewCropSession');
-        const zoomPanSession = appState.get('videoPreviewZoomPanSession');
         return {
             cropRect: getCropSessionRect(cropSession), aspectRatio: cropSession.aspectRatio, // core/media-transform.js
             rotateDeg: appState.get('videoPreviewRotateDeg'),
             flipH: appState.get('videoPreviewFlipH'),
             cutStart: appState.get('videoPreviewCutStart'), cutEnd: appState.get('videoPreviewCutEnd'),
-            zoomPan: getPanzoomState(zoomPanSession), // core/media-transform.js
         };
     },
 
@@ -816,9 +806,6 @@ const workflowVideoPreview = {
         appState.set('videoPreviewFlipH', snapshot.flipH);
         appState.set('videoPreviewCutStart', snapshot.cutStart);
         appState.set('videoPreviewCutEnd', snapshot.cutEnd);
-        const zoomPanSession = appState.get('videoPreviewZoomPanSession');
-        zoomPanSession.zoom(snapshot.zoomPan.scale, { animate: false });
-        zoomPanSession.pan(snapshot.zoomPan.x, snapshot.zoomPan.y, { animate: false });
         this._renderTransformPreview();
         this._drawCropOverlay();
         this._renderTrimPositions();
@@ -961,8 +948,6 @@ const workflowVideoPreview = {
     _reallyClose() {
         this._filmstripUrls.forEach((url) => revokeBlobUrl(url)); // service/blob-url.js — Phase 1
         this._filmstripUrls = [];
-        const zoomPanSession = appState.get('videoPreviewZoomPanSession');
-        if (zoomPanSession) destroyPanzoomSession(zoomPanSession); // core/media-transform.js
         if (this._modalHandle) { this._modalHandle.close(); this._modalHandle = null; }
         appState.set('videoPreviewVideoKey', null);
         appState.set('videoPreviewRecord', null);
@@ -972,7 +957,6 @@ const workflowVideoPreview = {
         appState.set('videoPreviewActiveTool', 'none');
         appState.set('videoPreviewSaveMode', 'asNew');
         this._beforeToolSnapshot = null;
-        appState.set('videoPreviewZoomPanSession', null);
         appState.set('videoPreviewIsPlaying', false);
     },
 };
