@@ -107,18 +107,24 @@ const workflowPlayerDisplaySettings = {
 
     /** Khôi phục lựa chọn đã lưu bền LÚC BOOT — gọi từ event/workflow/app-boot.js. Chưa từng lưu
      * (boot lần đầu) -> `saved` rỗng, giữ nguyên default đã seed sẵn trong appConfigPlayerDisplay
-     * (Resolution 'fit', mọi *PresetId null). KHÔNG áp dụng gì lên DOM lúc boot — chưa ở Video/Photo
-     * Player mode nào (mode chỉ vào được từ Playlist, không tự động lúc boot). */
+     * (Resolution 'fill', mọi *PresetId null). KHÔNG áp dụng gì lên DOM lúc boot — chưa ở Video/Photo
+     * Player mode nào (mode chỉ vào được từ Playlist, không tự động lúc boot).
+     * SỬA (29/09/2026) — 'cover'/'fit' đã bỏ: quy 2 field Resolution về mode hợp lệ ('cover'/'fit'/lạ ->
+     * 'fill') NGAY sau khi khôi phục, để select hiện đúng + lần ghi kế tiếp lưu giá trị sạch. */
     async loadPersistedPlayerDisplayOnBoot() {
         const saved = await getMeta('playerDisplayConfig'); // service/db.js
         if (saved && typeof saved === 'object') {
-            appConfigPlayerDisplay.mutateAll((cfg) => Object.assign(cfg, saved)); // core/config.js
-            console.log('writer: "loadPersistedPlayerDisplayOnBoot", page: "playerDisplayConfig", content: "khôi phục từ meta.playerDisplayConfig"');
+            appConfigPlayerDisplay.mutateAll((cfg) => {
+                Object.assign(cfg, saved);
+                cfg.videoResolutionMode = normalizePlayerResolutionMode(cfg.videoResolutionMode); // core/player-display-settings.js
+                cfg.photoResolutionMode = normalizePlayerResolutionMode(cfg.photoResolutionMode);
+            }); // core/config.js
+            console.log('writer: "loadPersistedPlayerDisplayOnBoot", page: "playerDisplayConfig", content: "khôi phục từ meta.playerDisplayConfig (Resolution đã chuẩn hoá)"');
         }
     },
 
     /** Ứng select Resolution đổi (màn Player > Video hoặc Photo). KHÔNG validate `value` khớp
-     * PLAYER_RESOLUTION_MODES ở đây — `<select>` chỉ có đúng 4 `<option>` hợp lệ nên giá trị luôn
+     * PLAYER_RESOLUTION_MODES ở đây — `<select>` chỉ có đúng 3 `<option>` hợp lệ nên giá trị luôn
      * sạch, cùng tinh thần các select đơn giản khác trong app-settings.js (vd Theme mode).
      *
      * ÁP LIVE ngay nếu đang Ở ĐÚNG mode kind vừa đổi — người dùng thấy hiệu ứng NGAY trong lúc

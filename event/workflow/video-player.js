@@ -152,7 +152,7 @@ const workflowVideoPlayer = {
             applyVisualBgImageToDOM(true, forcedUrl); // core/visual-bg.js
             // Layer B (visualBgImageElement, NGANG HÀNG với layer A #bg-video, xem docstring
             // core/player-display-apply.js) vừa đổi nội dung — PHẢI khớp Resolution hiện tại của
-            // Video, nếu không khoảng hở của video (lúc Resolution 'fit'/'trueMax') sẽ lộ ra đúng
+            // Video, nếu không khoảng hở của video (lúc Resolution 'trueMax') sẽ lộ ra đúng
             // layer B NÀY với kích thước KHÔNG khớp (mặc định luôn 'cover'). CHỈ áp lúc THẬT SỰ
             // đang ở Video Player mode — hàm swapBgVideoSource() này DÙNG CHUNG với Visual
             // Background (workflowVisualBg._playVideoKey()), không liên quan gì tới Resolution của
