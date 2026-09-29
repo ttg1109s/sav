@@ -84,9 +84,9 @@
         const FFT_HIGH_RES_GROUPS = ['vortex', 'lighting', 'connector'];
         // MỚI (25/09/2026, Giang — cải tiến bar mirror) — style lẻ cần FFT cao trong group còn lại chạy FFT
         // chuẩn: 'mirror' chia dải log (40Hz-16kHz), FFT 256 (~187Hz/bin) quá thô cho vùng bass. Các style
-        // khác của group bar (cascade/dot) GIỮ FFT 256 — hình của chúng không đổi.
-        // SỬA (29/09/2026, Giang duyệt) — 'black hole' cũng chia dải LOG bằng core của mirror (vòng cột), cần FFT 2048.
-        const FFT_HIGH_RES_STYLES = ['mirror', 'black hole'];
+        // khác của group bar (cascade/black hole/dot) GIỮ FFT 256 — hình của chúng không đổi. (29/09/2026: 'black hole' từng
+        // thêm vào đây cho dải LOG — HOÀN NGUYÊN cùng ngày theo Giang, ánh xạ cột cũ chạy trên FFT 256.)
+        const FFT_HIGH_RES_STYLES = ['mirror'];
         /** @param {string} group @param {string} [style] - style con đang chạy (updateTypeUI() truyền vào). */
         function needsHighResFft(group, style) {
             return FFT_HIGH_RES_GROUPS.includes(group) || FFT_HIGH_RES_STYLES.includes(style);
