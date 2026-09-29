@@ -189,8 +189,7 @@ Object.assign(workflowVisualBg, {
         setVideoBgGain(0);
         const cfg = appConfigVisualBg.getAll();
         const isCyclingSlideshow = cfg.listPlaybackMode === 'slideshow' && this._effectiveCount(cfg.source.list) > 1;
-        const { enabled: hasAudioB } = getVisualBgVideoAudioSetting(cfg.source.videoAudio, videoKey);
-        bgVideoElement.loop = !isCyclingSlideshow && !hasAudioB;
+        bgVideoElement.loop = this._computeVideoLoop(cfg, videoKey); // SỬA 29/09/2026 — tách helper, dùng chung với _applyLiveIfCurrentVideo()
         bgVideoElement.classList.remove('hidden');
         this._isSwappingVideo = true;
         // MỚI (25/09/2026, đợt 5 Motion) — mượn Video surface (cùng owner gọi lại -> chỉ cập nhật getter). Video ĐẦU
@@ -490,12 +489,32 @@ Object.assign(workflowVisualBg, {
         }
     },
 
+    /** MỚI (29/09/2026) — `bgVideoElement.loop` ĐÚNG cho `videoKey` theo cấu hình hiện tại: native loop CHỈ khi không
+     * cycle nhiều video VÀ video KHÔNG bật Audio B (lý do xem docstring `_playVideoKey()`: native loop lúc đang audible
+     * bị iOS coi là giành audio session mới -> pause Song). Tách ra để `_playVideoKey()` (lúc nạp) và
+     * `_applyLiveIfCurrentVideo()` (đổi Audio B giữa chừng) dùng CHUNG 1 công thức.
+     * @param {object} cfg @param {string} videoKey @returns {boolean} */
+    _computeVideoLoop(cfg, videoKey) {
+        const isCyclingSlideshow = cfg.listPlaybackMode === 'slideshow' && this._effectiveCount(cfg.source.list) > 1;
+        const { enabled: hasAudioB } = getVisualBgVideoAudioSetting(cfg.source.videoAudio, videoKey); // core/visual-bg.js
+        return !isCyclingSlideshow && !hasAudioB;
+    },
+
     /** `videoKey` vừa sửa audio TRÙNG video đang phát ngay lúc này -> áp lên DOM NGAY, không đợi
-     * vòng cycle sau mới nghe thấy hiệu lực. */
+     * vòng cycle sau mới nghe thấy hiệu lực.
+     * FIX (29/09/2026, Giang báo bug "VBG 1 video: tắt tiếng lặp bình thường, bật tiếng cùng Song thì tới lúc loop bị
+     * pause cả video lẫn Song") — TRƯỚC ĐÂY chỉ áp muted/volume/gain, KHÔNG cập nhật `loop`: video nạp lúc Audio B
+     * còn TẮT mang `loop=true` (native loop), bật Audio B giữa chừng -> video audible NHƯNG vẫn native loop -> tới cuối
+     * video iOS coi lần lặp là giành audio session mới, cưỡng chế pause Song -> 'pause' của Song kéo theo
+     * `syncPlaybackToAudio()` pause luôn video nền. Giờ tính lại `loop` NGAY cùng lúc: bật Audio B -> `loop=false`, lặp
+     * đi qua đường thủ công `_onVideoEnded()` -> `_restartCurrentVideoInPlace()` (câm cứng -> seek 0 -> play -> bỏ câm
+     * sau 'playing') như video nạp sẵn lúc Audio B đã bật; tắt Audio B -> về lại native loop. */
     _applyLiveIfCurrentVideo(videoKey) {
         if (this._listIndex < 0) return;
         const cfg = appConfigVisualBg.getAll();
-        if (cfg.type === 'video' && cfg.source.list[this._listIndex] === videoKey) this._applyVideoAudioSettingToElement(videoKey);
+        if (cfg.type !== 'video' || cfg.source.list[this._listIndex] !== videoKey) return;
+        this._applyVideoAudioSettingToElement(videoKey);
+        bgVideoElement.loop = this._computeVideoLoop(cfg, videoKey);
     },
 
     /** Video — mở picker multi-select (thay `openSingleVideoPicker()` cũ). */

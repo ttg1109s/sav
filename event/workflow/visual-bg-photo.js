@@ -119,10 +119,11 @@ Object.assign(workflowVisualBg, {
     /** Bật/tắt hẹn giờ tự chuyển ảnh kế theo đúng điều kiện HIỆN TẠI — gọi lại MỖI LẦN điều kiện CÓ
      * THỂ vừa đổi: bắt đầu cycle, mỗi tick xong (rearm cho vòng kế), Song play/pause
      * (`syncPlaybackToAudio()`). Điều kiện CHẠY: type='photo' + Song đang phát thật + KHÔNG phải
-     * `perSong` (mode đó chuyển ảnh do ĐỔI BÀI quyết định, không phải hẹn giờ) + còn >1 item sống. */
+     * `perSong` (mode đó chuyển ảnh do ĐỔI BÀI quyết định, không phải hẹn giờ) + còn >1 item sống.
+     * SỬA (29/09/2026) — thêm điều kiện toggle tổng VBG đang bật (`_isMediaEnabled()`, visual-bg-common.js). */
     _syncPhotoTicking() {
         const cfg = appConfigVisualBg.getAll();
-        const shouldRun = cfg.type === 'photo' && this._isSongActiveForVbg() && cfg.listPlaybackMode !== 'perSong' && this._effectiveCount(cfg.source.list) > 1; // SỬA 25/09/2026 — app ẩn (chế độ nền) không hẹn giờ đổi ảnh, event/workflow/visual-bg-common.js
+        const shouldRun = this._isMediaEnabled() && cfg.type === 'photo' && this._isSongActiveForVbg() && cfg.listPlaybackMode !== 'perSong' && this._effectiveCount(cfg.source.list) > 1; // SỬA 25/09/2026 — app ẩn (chế độ nền) không hẹn giờ đổi ảnh, event/workflow/visual-bg-common.js
         if (shouldRun) {
             taskManager.once(() => this._photoTick(), this._computePhotoAdvanceMs(this._photoRecord), VISUAL_BG_PHOTO_ADVANCE_TASK);
         } else {
@@ -137,6 +138,7 @@ Object.assign(workflowVisualBg, {
      * -> giữ nguyên ảnh cũ (KHÔNG tự thử tiếp), vẫn rearm hẹn giờ cho vòng SAU (hẹn giờ KHÔNG BAO GIỜ
      * đứng hình, kể cả gặp item hỏng liên tiếp, vì rearm nằm ở `_syncPhotoTicking()` gọi CUỐI). */
     async _photoTick() {
+        if (!this._isMediaEnabled()) return; // MỚI 29/09/2026 — toggle tổng tắt (phòng hờ: task đã bị clearMediaLayers() kill), event/workflow/visual-bg-common.js
         if (await this._checkAndApplyPendingSource()) return;
         const cfg = appConfigVisualBg.getAll();
         if (cfg.type !== 'photo') return;

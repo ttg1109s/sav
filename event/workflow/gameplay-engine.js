@@ -69,8 +69,10 @@ const workflowGameplayEngine = {
      * (nhiều lap màu khi >100%) + 2 dòng điểm count-up chồng giữa + sao + breakdown tier.
      * `tierOrder`/`tierLabels` do mode tự truyền (tên/nhãn tier thuộc config riêng mode).
      * `durationLabel` đã FORMAT SẴN (mode tự gọi formatTime() — Core-ui/engine-ui.js không được gọi
-     * hàm core khác file, Rule 3a). `onReplay`/`onNext`/`onEnd` do mode tự truyền. */
-    showEndModal({ finalScore, totalScore, maxScore, starMax, starRating, hitCounts, tierOrder, tierLabels, title, durationLabel, difficultyLabel, playCountLabel, onReplay, onNext, onEnd }) {
+     * hàm core khác file, Rule 3a). `onReplay`/`onNext`/`onEnd` do mode tự truyền.
+     * `nextLabel` MỚI (29/09/2026) — nhãn nút Next ĐÃ DỊCH SẴN theo loại media (Song/Video/Photo), mode tự chọn;
+     * thiếu -> nhãn Song cũ. */
+    showEndModal({ finalScore, totalScore, maxScore, starMax, starRating, hitCounts, tierOrder, tierLabels, title, durationLabel, difficultyLabel, playCountLabel, nextLabel, onReplay, onNext, onEnd }) {
         const deltaPercent = computeScoreDeltaPercent(totalScore, maxScore); // core (engine.js)
         const ringPercent = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
         const laps = computeScoreRingLaps(ringPercent, GAMEPLAY_SCORE_RING_MAX_EXTRA_LAPS); // core
@@ -80,7 +82,7 @@ const workflowGameplayEngine = {
             '',
             [
                 { label: t('gameplayCircle.ended.replayLabel'), onClick: onReplay },
-                { label: t('gameplayCircle.ended.nextLabel'), onClick: onNext },
+                { label: nextLabel || t('gameplayCircle.ended.nextLabel'), onClick: onNext },
                 { label: t('gameplayCircle.ended.endLabel'), onClick: onEnd },
             ],
             { bodyHtml: buildResultBodyHtml({ ringSvg, starMax, starRating, hitCounts, tierOrder, tierLabels, title, durationLabel, difficultyLabel, playCountLabel }), showCancel: false }

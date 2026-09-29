@@ -99,6 +99,7 @@ const workflowVisualBg = {
                     if (typeof gm.colorSwapTransitionMs === 'number' && gm.colorSwapTransitionMs >= VISUAL_BG_GRADIENT_MOVEMENT_TRANSITION_MIN_MS && gm.colorSwapTransitionMs <= VISUAL_BG_GRADIENT_MOVEMENT_TRANSITION_MAX_MS) cfg.gradientMovement.colorSwapTransitionMs = gm.colorSwapTransitionMs;
                 }
                 if (typeof saved.motionPresetId === 'string' || saved.motionPresetId === null) cfg.motionPresetId = saved.motionPresetId;
+                if (typeof saved.enabled === 'boolean') cfg.enabled = saved.enabled; // MỚI 29/09/2026 — toggle tổng
             });
             console.log(`writer: "workflowVisualBg.loadPersistedSettingsOnBoot", page: "visualBgConfig", content: "nạp lại từ meta"`);
         }
@@ -179,6 +180,10 @@ const workflowVisualBg = {
         this.clearMediaLayers();
         updateDOMBackground();
         const cfg = appConfigVisualBg.getAll();
+        // MỚI (29/09/2026) — toggle tổng tắt: dừng ở đây — media đã dỡ hẳn (clearMediaLayers) + màu đã sơn
+        // (updateDOMBackground() tự bỏ ép đen khi tắt). Mọi đường áp lại (boot/đổi nguồn/thoát Player mode/Restore)
+        // đều đi qua ĐÚNG hàm này nên chỉ cần 1 guard.
+        if (!this._isMediaEnabled()) return;
         const count = this._effectiveCount(cfg.source.list);
         if (cfg.type === 'video') return this._applyVideo(cfg);
         return this._applyPhoto(cfg);
@@ -239,6 +244,7 @@ const workflowVisualBg = {
      * `source.list.length<=1`. Dùng chung cho cả ảnh lẫn video — mọi quyết định "khi nào chuyển
      * ảnh" đều qua đúng 1 điểm này. */
     async advanceForSongChange() {
+        if (!this._isMediaEnabled()) return; // MỚI 29/09/2026 — tắt: không advance, pending (nếu có) giữ nguyên chờ bật lại
         const cfg = appConfigVisualBg.getAll();
         if (await this._checkAndApplyPendingSource()) return;
         if (cfg.listPlaybackMode !== 'perSong') return;
@@ -275,6 +281,7 @@ const workflowVisualBg = {
         // đây lúc đang ở Player mode (vd `audioPlayer.pause()` khi VÀO mode bắn 'pause' TRỄ) — VBG không được đụng
         // `bgVideoElement`/surface đang thuộc Player. Thoát mode -> restoreAfterPlayerMode() tự đồng bộ lại.
         if (appState.get('isVideoPlayerMode') || appState.get('isPhotoPlayerMode')) return;
+        if (!this._isMediaEnabled()) return; // MỚI 29/09/2026 — tắt: không có media nào để phát/dừng, KHÔNG được tự nạp video (nhánh (1)) hay hẹn giờ ảnh
         const cfg = appConfigVisualBg.getAll();
         const songActive = this._isSongActiveForVbg(); // SỬA 25/09/2026 — thay `!audioPlayer.paused`: app ẩn (chế độ nền) = coi như Song dừng
         if (cfg.type !== 'video') {
@@ -291,6 +298,27 @@ const workflowVisualBg = {
         if (appState.get('playbackStoppedAtPlaylistEnd')) { this._revertToPlaceholder(); return; }
         syncVisualBgVideoPlayback(true);
         workflowVideoMotionSurface.pause(VISUAL_BG_VIDEO_SURFACE_OWNER); // MỚI (25/09/2026, đợt 5) — Motion VBG Video đứng yên theo Song, event/workflow/video-motion-surface.js
+    },
+
+    /** MỚI (29/09/2026) — toggle tổng VBG (`enabled`) đang bật hay không. Tắt = không nạp/không cycle media ảnh/video,
+     * lớp màu vẫn sơn. Field thiếu (config cũ) coi như bật. @returns {boolean} */
+    _isMediaEnabled() {
+        return appConfigVisualBg.getAll().enabled !== false;
+    },
+
+    /** MỚI (29/09/2026, Giang) — toggle TỔNG đầu panel ('visualBg.enabled.change'). Tắt: dỡ hẳn media qua đúng đường
+     * áp chung (`applyCurrentVisualBg()` -> `clearMediaLayers()` + sơn màu, guard `_isMediaEnabled()` dừng trước bước
+     * nạp media). Bật: nạp lại TỪ ĐẦU — có pending (chọn nguồn mới lúc đang tắt) thì áp pending trước, cùng thứ tự
+     * boot (`loadPersistedSettingsOnBoot()`). Đang ở Player mode: `applyCurrentVisualBg()` tự bỏ qua, thoát mode sẽ
+     * áp đúng trạng thái qua `restoreAfterPlayerMode()`. Cấu hình nguồn/màu/Motion giữ nguyên.
+     * @param {boolean} checked */
+    async toggleEnabled(checked) {
+        appConfigVisualBg.mutateAll((cfg) => { cfg.enabled = !!checked; });
+        console.log(`writer: "workflowVisualBg.toggleEnabled", page: "visualBgConfig", content: "enabled=${!!checked}"`);
+        await this._persist();
+        await this.refreshPanelUI();
+        if (checked && appConfigVisualBg.getAll().pending.originKind) { await this._checkAndApplyPendingSource(); return; }
+        await this.applyCurrentVisualBg();
     },
 
     /** MỚI (25/09/2026, Giang — ẩn tab/PWA chỉ để audio Song phát nền) — "Song đang chạy" THEO GÓC NHÌN VBG: Song
@@ -884,6 +912,9 @@ const workflowVisualBg = {
         if (!this._isMainPanelMounted()) return;
         const cfg = appConfigVisualBg.getAll();
         const q = (sel) => visualBgSettingsPanelEl.querySelector(sel);
+
+        const enabledCheckbox = q('#setting-visual-bg-enabled'); // MỚI 29/09/2026 — toggle tổng đầu panel
+        if (enabledCheckbox) enabledCheckbox.checked = cfg.enabled !== false;
 
         const listPlaybackSelect = q('#setting-visual-bg-list-playback-mode');
         const listPlaybackRow = q('#visual-bg-list-playback-row');

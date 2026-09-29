@@ -43,6 +43,13 @@
  */
 const GAMEPLAY_MISS_SHATTER_COLOR = '#f87171'; // đỏ-400, khớp màu .gameplay-tier-popup--miss (assets/css/gameplay.css)
 
+// MỚI (29/09/2026) — mediaType (playlistCache) -> key nhãn nút Next ở modal Kết quả, xem onSongEnded().
+const GAMEPLAY_NEXT_LABEL_KEY_BY_MEDIA = {
+    song: 'gameplayCircle.ended.nextLabel',
+    video: 'gameplayCircle.ended.nextVideoLabel',
+    photo: 'gameplayCircle.ended.nextPhotoLabel',
+};
+
 const workflowGameplay = {
     _nextWaveId: 1,
     _nextSpawnIndex: 0,                // luân phiên màu A/B (mode dynamic), reset mỗi phiên
@@ -488,6 +495,11 @@ const workflowGameplay = {
         const maxScore = gameplayCircleCount * perfectTier.score;
         const starRating = computeStarRating(gameplayTotalScore, maxScore, cfg); // core (engine.js)
         const durationLabel = formatTime(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode).duration); // core (core/playlist/state.js) — SỬA (Giang yêu cầu, Photo tích hợp duration)
+        // MỚI (29/09/2026, Giang yêu cầu "đổi ngữ cảnh cho phù hợp") — nhãn nút Next theo loại media ĐANG chơi (Next
+        // đi tiếp trong CÙNG playlist Nguồn đó nên cùng loại). Object map (event-bus-flow.md §7), không if/else.
+        // Đọc TRƯỚC khi persistScore()/Next đổi currentKey.
+        const endedCached = appState.get('playlistCache').get(appState.get('currentKey'));
+        const nextLabelKey = GAMEPLAY_NEXT_LABEL_KEY_BY_MEDIA[endedCached && endedCached.mediaType] || GAMEPLAY_NEXT_LABEL_KEY_BY_MEDIA.song;
 
         const { title, playCount } = await workflowGameplayEngine.persistScore('circle', gameplayDifficulty, finalScore);
 
@@ -512,6 +524,7 @@ const workflowGameplay = {
             playCountLabel: playCount === 1
                 ? t('gameplayCircle.ended.playCountLabel.singular')
                 : tFormat('gameplayCircle.ended.playCountLabel.plural', { count: playCount }),
+            nextLabel: t(nextLabelKey),
             onReplay: () => this.replay(),
             onNext: () => this.nextSong(),
             onEnd: () => this.exitToPlaylist(),

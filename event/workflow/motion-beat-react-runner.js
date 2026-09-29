@@ -74,6 +74,9 @@
 // DỜI (25/09/2026) từ event/workflow/visual-bg-photo-motion.js về ĐÂY — hằng số CƠ CHẾ của Runner, không
 // thuộc riêng nơi tiêu thụ nào (nguyên tắc tua vít). GIỮ NGUYÊN tên + giá trị.
 const MOTION_ENGINE_BEATREACT_DECAY_MS = 250;
+// MỚI (29/09/2026) — khoảng hở giữa 2 tick lớn hơn mức này = Runner vừa bị ĐỨNG (pause/resume, ẩn tab), KHÔNG phải
+// thời gian chạy thật -> _tick() coi như 1 frame, tránh envelope rơi cứng về base (xem FIX trong _tick()).
+const MOTION_BEATREACT_MAX_FRAME_GAP_MS = 100;
 
 const _motionBeatReactRunnerRegistry = [];
 
@@ -126,7 +129,19 @@ function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn, 
         const rb = cachedPreset.reactBeatAudio;
         const target = getTargetElementFn();
         const now = performance.now();
-        const deltaMs = lastTickMs ? (now - lastTickMs) : 16; // lượt tick đầu (chưa có mốc trước) -> giả định 1 frame ~16ms
+        // FIX (29/09/2026, Giang báo bug "React bật -> Player Video react đang ở vị trí X -> sang video khác -> KHÔNG về
+        // base mượt mà hardcut giật về"). Nguyên nhân: đổi video = `bgVideoElement.pause()` -> Runner `pause()` đóng
+        // băng tại X, `lastTickMs` giữ mốc CŨ; video mới 'play' -> `resume()` -> tick đầu tính `deltaMs` = CẢ khoảng
+        // đứng (đọc DB + decode thumb + Transition, thường vài trăm ms tới >1s) > MOTION_ENGINE_BEATREACT_DECAY_MS (250)
+        // -> computeMotionEngineBeatReactEnvelope() trừ 1 phát hết quãng decay -> envelope rơi thẳng về beatScale, tức
+        // transform nhảy cứng từ X về base trong ĐÚNG 1 frame. Cùng lỗi ở MỌI kiểu pause/resume khác (pause tay rồi
+        // phát tiếp, taskManager.pauseAll() lúc ẩn tab). SỬA tại CƠ CHẾ (nguyên tắc tua vít — nơi tiêu thụ không cần
+        // biết): khoảng hở > MOTION_BEATREACT_MAX_FRAME_GAP_MS KHÔNG phải "thời gian đã chạy" mà là "thời gian đứng"
+        // -> coi như 1 frame (~16ms, CÙNG giả định lượt tick đầu) -> envelope decay tiếp ĐÚNG từ X, êm về base trong
+        // ~250ms như mọi beat bình thường. Ngưỡng 100ms: trên mọi frame thật (kể cả 30fps ~33ms, giật nhẹ vài frame),
+        // nên KHÔNG đổi cảm giác decay lúc đang chạy bình thường.
+        const rawDeltaMs = lastTickMs ? (now - lastTickMs) : 16; // lượt tick đầu (chưa có mốc trước) -> giả định 1 frame ~16ms
+        const deltaMs = rawDeltaMs > MOTION_BEATREACT_MAX_FRAME_GAP_MS ? 16 : rawDeltaMs;
         lastTickMs = now;
         const beatScale = appState.get('beatScale'); // service/state/visualizer-runtime.js
 

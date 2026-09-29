@@ -223,13 +223,9 @@ const workflowVideoPlayer = {
         // lượt Transition KẾ TIẾP cần trạng thái sạch này làm điểm xuất phát.
         this._swapReadyPromise = new Promise((resolve) => {
             let done = false;
-            const finish = () => {
-                if (done) return;
-                done = true;
-                // Lần vào Video Player mode: nếu lượt swap này đã bị lượt mới hơn thay thế (Next/Prev/chọn video khác)
-                // hoặc đã thoát mode (clearBgVideoSource() đã ẩn + dọn) thì KHÔNG gỡ ẩn/đụng class layer nữa — sẽ hiện
-                // video đã bị dọn, hoặc phá state lượt mới (nó tự có `finish()` riêng).
-                if (isSurfaceEntry && (swapGeneration !== this._mediaGeneration || !workflowVideoMotionSurface.isAttached())) { resolve(); return; } // SỬA 25/09/2026 — "đã trả surface" thay "đã thoát Video Player mode" (VBG Video cũng dùng)
+            // TÁCH (29/09/2026) — phần "lộ video thật" (gỡ ẩn, trả `.me-current` về layer A, opacity 1) tách khỏi
+            // `resolve()` để nhánh skipAutoplay (Game Mode armed) hoãn RIÊNG phần này, xem nhánh `if (skipAutoplay)` dưới.
+            const revealVideo = () => {
                 if (hideVideoUntilReady) bgVideoElement.classList.remove('hidden'); // video thật đã có khung hình (hoặc hết 2s chờ) -> gỡ ẩn, dùng CHUNG đúng 1 mốc sẵn có, không thêm cơ chế chờ riêng
                 if (isSurfaceEntry) { // lần hiện TĨNH đầu (vào Player mode / VBG Video hiện video đầu): trả `.me-current` về video, layer B về lớp dự phòng nằm dưới (cùng cặp `finish()` của nhánh Transition ngay dưới)
                     bgVideoElement.classList.add('me-current');
@@ -244,14 +240,41 @@ const workflowVideoPlayer = {
                     bgVideoElement.classList.add('me-current'); // FIX — xem comment trên _swapReadyPromise
                     if (visualBgImageElement) visualBgImageElement.classList.remove('me-current');
                 }
+            };
+            const finish = () => {
+                if (done) return;
+                done = true;
+                // Lần vào Video Player mode: nếu lượt swap này đã bị lượt mới hơn thay thế (Next/Prev/chọn video khác)
+                // hoặc đã thoát mode (clearBgVideoSource() đã ẩn + dọn) thì KHÔNG gỡ ẩn/đụng class layer nữa — sẽ hiện
+                // video đã bị dọn, hoặc phá state lượt mới (nó tự có `finish()` riêng).
+                if (isSurfaceEntry && (swapGeneration !== this._mediaGeneration || !workflowVideoMotionSurface.isAttached())) { resolve(); return; } // SỬA 25/09/2026 — "đã trả surface" thay "đã thoát Video Player mode" (VBG Video cũng dùng)
+                revealVideo();
                 resolve();
             };
             if (skipAutoplay) {
                 // SỬA (08/09/2026, Game Mode gate) — KHÔNG gọi .play() ở bước (3) nên sự kiện
                 // 'playing' sẽ KHÔNG bắn tới lúc _beginPlaying() (event/workflow/gameplay.js) tự
-                // .play() sau cooldown — coi "sẵn sàng" NGAY (đã có poster tĩnh), tránh
-                // waitBgVideoReady() phía dưới treo oan hết 2s timeout vô ích.
-                finish();
+                // .play() sau cooldown — coi "sẵn sàng" NGAY, tránh waitBgVideoReady() phía dưới
+                // treo oan hết 2s timeout vô ích.
+                //
+                // FIX (29/09/2026, Giang báo bug "Game Mode -> Video Player -> hết video -> Next -> hiện thumb full
+                // video B -> Transition -> CHƯA load video B thì mất thumb, màn hình đen -> load xong mới hiện video";
+                // cùng lỗi ở lần VÀO mode lúc armed). TRƯỚC ĐÂY gọi `finish()` NGAY -> `revealVideo()` chạy ngay lúc
+                // video B vừa gán src, CHƯA có khung hình nào: trả `.me-current` về layer A + opacity 1 -> layer A
+                // (đang rỗng/đen, poster không đáng tin trên iOS) đè lên thumb full-res layer B. Giờ CHỈ `resolve()`
+                // ngay (giữ nguyên lý do không treo waitBgVideoReady()), còn `revealVideo()` hoãn tới 'playing' THẬT
+                // đầu tiên — tức lúc `_beginPlaying()` phát sau countdown. Suốt countdown thumb full-res layer B đứng
+                // thay chỗ (đúng khung hình tĩnh của video B). KHÔNG timeout fallback: countdown dài hơn 2s, và nếu
+                // người chơi thoát Game Mode không phát thì thumb B vẫn đang hiện đúng nội dung, video tự lộ khi 'play'
+                // sau này. Guard lượt swap cũ: đã có lượt swap mới hơn (Next/Prev/VBG đổi nguồn — cùng tăng
+                // `_mediaGeneration`) hoặc đã trả Video surface -> bỏ qua, không phá state lượt mới.
+                done = true;
+                resolve();
+                bgVideoElement.addEventListener('playing', () => {
+                    if (swapGeneration !== this._mediaGeneration) return;
+                    if (isOnMotionSurface && !workflowVideoMotionSurface.isAttached()) return;
+                    revealVideo();
+                }, { once: true });
             } else {
                 bgVideoElement.addEventListener('playing', finish, { once: true });
                 taskManager.once(finish, 2000, 'videoPlayingReadyFallback');
@@ -380,6 +403,16 @@ const workflowVideoPlayer = {
      *        docstring `playVideoByKey()` — Next/Prev vật lý/auto-next truyền `false`.
      */
     async startFromPlaylist(startKey, switchScreen = true) {
+        // FIX (29/09/2026, Giang báo bug "Song có sub, đang hiện sub -> chuyển sang Video thì sub
+        // vẫn đứng nguyên trên player") — Video KHÔNG dùng phụ đề, nhưng TRƯỚC ĐÂY vào mode chỉ
+        // pause audioPlayer + null currentKey, KHÔNG dọn khối phụ đề đang hiện (#sub-active-lines)
+        // lẫn `subtitles` của Song cũ. Dọn CẢ 2, và dọn TRƯỚC `audioPlayer.pause()` bên dưới: pause
+        // (kèm flush reload + seek back lúc pause) còn bắn thêm 'timeupdate' -> processSubtitles()
+        // (core/subtitle/subtitle-display.js) — nếu `subtitles` vẫn là của Song cũ nó sẽ vẽ LẠI đúng
+        // dòng vừa xoá. Quay lại Song sau đó: currentKey đã null nên playMedia() nạp lại phụ đề
+        // từ record như bình thường (event/workflow/player.js).
+        appState.set('subtitles', []);
+        clearAllActiveSubBlocks(); // core/subtitle/subtitle-display.js
         const previousSongKey = appState.get('currentKey');
         if (previousSongKey !== null) {
             audioPlayer.pause(); // bắn sự kiện 'pause' NGUYÊN BẢN -> handleAudioPause() (core/player-controls.js, KHÔNG đụng) tự lo icon/wake lock/Media Session cho Song
