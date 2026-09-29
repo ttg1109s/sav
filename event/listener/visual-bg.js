@@ -10,6 +10,7 @@
 // còn trong DOM; màn Visual Background mở qua Settings > Visualizer Screen, event/workflow/app-settings.js).
 
 const VISUAL_BG_SETTINGS_INPUT_MAP = {
+    'setting-visual-bg-enabled:change': { type: 'visualBg.enabled.change', checkbox: true }, // MỚI 29/09/2026 — toggle tổng
     'setting-visual-bg-list-playback-mode:change': { type: 'visualBg.listPlaybackMode.change' },
     'setting-visual-bg-next-order:change': { type: 'visualBg.nextOrder.change' },
     'setting-visual-bg-duration-mode:change': { type: 'visualBg.durationMode.change' },
