@@ -45,6 +45,9 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // MỚI (29/09/2026) — toggle tổng đầu panel Visual Background.
     'visualBgSettingsDrawer.enabled.label': 'Visual Background',
     'visualBgSettingsDrawer.enabled.hint': 'Off hides photo/video; background colour stays',
+    // MỚI (30/09/2026) — Resolution trong card Media, nhãn theo type đang chọn (option dùng lại 'playerDisplaySettings.resolution.*').
+    'visualBgSettingsDrawer.resolution.labelVideo': 'Video resolution',
+    'visualBgSettingsDrawer.resolution.labelPhoto': 'Photo resolution',
     'visualBgSettingsDrawer.groupPlayback.title': 'Playback',
     'visualBgSettingsDrawer.motion.label': 'Motion',
     'visualBgSettingsDrawer.syncSpeed.label': 'Sync playback speed',
