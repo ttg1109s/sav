@@ -6,7 +6,6 @@
         AppState.definePackage('visualizer-scenes', {
             schema: {
                 stars: 'array',
-                starFlashes: 'array',
                 rubikCubes: 'array',
                 rubikPitchHistory: 'array',
                 rubikPitchAvg: 'number',
@@ -25,7 +24,6 @@
             buildDefaults() {
                 return {
                     stars: [],
-                    starFlashes: [],
                     rubikCubes: [],
                     rubikPitchHistory: [],
                     rubikPitchAvg: 0,
