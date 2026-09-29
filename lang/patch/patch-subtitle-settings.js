@@ -295,6 +295,13 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'playerDisplaySettings.resolution.stretch': 'Stretch',
     'playerDisplaySettings.resolution.trueMax': 'True size (max-capped)',
     'playerDisplaySettings.motion.groupTitle': 'Motion',
+    // MỚI (29/09/2026, Giang) — nhóm Zoom (mức zoom/pan của Zoom mode kính lúp, lưu bền, video/photo riêng)
+    'playerDisplaySettings.zoom.groupTitle': 'Zoom',
+    'playerDisplaySettings.zoom.scale': 'Zoom level',
+    'playerDisplaySettings.zoom.panX': 'Pan X',
+    'playerDisplaySettings.zoom.panY': 'Pan Y',
+    'playerDisplaySettings.zoom.reset': 'Reset zoom & pan',
+    'playerDisplaySettings.zoom.hint': 'Pan is measured from the center of the video/photo. Zoom and pan with gestures in Zoom mode (magnifier in Control Center).',
     // SỬA (phản hồi Giang, đổi tên cho gọn/rõ) — "Transition — Next/Previous" -> "Next/Previous
     // Transition".
     'playerDisplaySettings.motion.transitionNext.label': 'Next Transition',
