@@ -36,7 +36,6 @@ AppState.definePackage('video-preview', {
         videoPreviewActiveDrag: 'nullable-string',  // 'start' | 'end' | 'seek' | null — đang kéo/tua gì trên dải phim
         videoPreviewActiveTool: 'string',           // 'none' | 'trim' | 'crop' — công cụ đang mở
         videoPreviewSaveMode: 'string',             // 'asNew' | 'overwrite' — kiểu lưu đang chọn ở viên dưới thẻ video (UI lần 2, thay videoPreviewRailExpanded)
-        videoPreviewZoomPanSession: 'any',          // session core/media-transform.js, null khi đóng
         videoPreviewIsPlaying: 'boolean',           // đang phát hay đang pause (tap màn hình để đảo)
     },
     buildDefaults() {
@@ -56,7 +55,6 @@ AppState.definePackage('video-preview', {
             videoPreviewActiveDrag: null,
             videoPreviewActiveTool: 'none',
             videoPreviewSaveMode: 'asNew',
-            videoPreviewZoomPanSession: null,
             videoPreviewIsPlaying: false,
         };
     },
