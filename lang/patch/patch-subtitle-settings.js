@@ -289,10 +289,9 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // Point Move, React Beat), không tách riêng key theo từng select.
     'playerDisplaySettings.resolution.groupTitle': 'Resolution',
     'playerDisplaySettings.resolution.label': 'Resolution',
-    // MỚI (Giang yêu cầu bổ sung lại) — mặc định (DEFAULT_PLAYER_DISPLAY_CONFIG, core/config.js),
-    // ĐÚNG hành vi gốc trước khi có tính năng Resolution (object-fit/background-size: cover).
-    'playerDisplaySettings.resolution.cover': 'Cover',
-    'playerDisplaySettings.resolution.fit': 'Fit (center)',
+    // SỬA (29/09/2026, Giang) — 'cover' + 'fit' ĐÃ XOÁ, thay bằng 'fill' (mặc định, DEFAULT_PLAYER_DISPLAY_CONFIG,
+    // core/config.js): phóng từ giữa lấp đầy màn hình, giữ tỉ lệ, cắt phần dư.
+    'playerDisplaySettings.resolution.fill': 'Fill',
     'playerDisplaySettings.resolution.stretch': 'Stretch',
     'playerDisplaySettings.resolution.trueMax': 'True size (max-capped)',
     'playerDisplaySettings.motion.groupTitle': 'Motion',
