@@ -12,6 +12,9 @@
  * `.app-settings-scope` đè màu — assets/css/layout-nav.css).
  */
 function renderVisualBgPanelBody() {
+    // MỚI (30/09/2026) — option Resolution dựng từ CÙNG danh sách mode của Player (PLAYER_RESOLUTION_MODES, core/player-
+    // display-settings.js) + dùng lại nhãn của Player; giá trị đang chọn do Workflow điền qua refreshPanelUI().
+    const resolutionOptionsHtml = PLAYER_RESOLUTION_MODES.map((m) => `<option value="${m.value}">${t(m.labelKey)}</option>`).join('');
     return `
                 <!-- ===================== TOGGLE TỔNG (MỚI 29/09/2026, Giang) — tắt chỉ dỡ media ảnh/video, lớp màu
                      (Background colour) vẫn sơn; bật lại nạp lại từ đầu. Workflow đồng bộ checked qua refreshPanelUI(),
@@ -55,6 +58,16 @@ function renderVisualBgPanelBody() {
                                 <button type="button" id="setting-visual-bg-pick-photo" class="flex-1 text-xs font-medium text-center py-2.5 rounded-lg transition-colors" data-uitk="btnNeutralBg btnNeutralText btnNeutralHoverBg" data-i18n="visualBgSettingsDrawer.pickPhoto.label">${t('visualBgSettingsDrawer.pickPhoto.label')}</button>
                                 <button type="button" id="setting-visual-bg-pick-folder" class="flex-1 text-xs font-medium text-center py-2.5 rounded-lg transition-colors" data-uitk="btnNeutralBg btnNeutralText btnNeutralHoverBg" data-i18n="visualBgSettingsDrawer.pickFolder.label">${t('visualBgSettingsDrawer.pickFolder.label')}</button>
                             </div>
+                        </div>
+
+                        <!-- MỚI (30/09/2026, Giang) — Resolution của media VBG (Fill/Stretch/True size), giống Player > Video/Photo.
+                             LUÔN hiện; giá trị RIÊNG cho Video/Photo — nhãn + giá trị theo type đang chọn, Workflow điền qua
+                             refreshPanelUI(), xem workflowVisualBg.changeResolutionMode() (event/workflow/visual-bg-common.js). -->
+                        <div id="visual-bg-resolution-row" class="flex justify-between items-center p-4 border-t" data-uitk="dividerBorder cardHoverBg">
+                            <span id="visual-bg-resolution-label" class="text-sm font-medium"></span>
+                            <select id="setting-visual-bg-resolution" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
+                                ${resolutionOptionsHtml}
+                            </select>
                         </div>
                     </div>
                 </div>
