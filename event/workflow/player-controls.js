@@ -426,7 +426,8 @@ const workflowPlayerControls = {
         workflowVisualBg.syncPlaybackToAudio(); // event/workflow/visual-bg-common.js
     },
 
-    /** MỚI (24/09/2026) — ứng với 'playerControls.audio.pause', đối xứng `handleAudioPlayEvent()` ngay trên. */
+    /** MỚI (24/09/2026) — ứng với 'playerControls.audio.pause', đối xứng `handleAudioPlayEvent()` ngay trên.
+     * SỬA (29/09/2026) — cuối cùng xả hàng đợi tiếng iOS (`_flushSongQueueAfterPause()`), xem docblock method đó. */
     handleAudioPauseEvent() {
         if (this.isHeldBySeekGate(audioPlayer)) return; // MỚI 25/09/2026 — pause() tạm của cổng seek v2 (chờ đuôi tiếng cũ), không đổi icon/đồng hồ/VBG
         handleAudioPause(); // core/player-controls.js
@@ -434,6 +435,34 @@ const workflowPlayerControls = {
         const currentKey = appState.get('currentKey');
         if (currentKey) workflowPlaylistRender.refreshSongNode(currentKey); // event/workflow/playlist-render.js — chấm "đang pause"
         workflowVisualBg.syncPlaybackToAudio(); // event/workflow/visual-bg-common.js
+        this._flushSongQueueAfterPause();
+    },
+
+    /**
+     * MỚI (29/09/2026, Giang báo resume Song còn dư âm; Giang chọn hướng B "xả hàng đợi lúc pause"). iOS không xả hàng đợi
+     * tiếng (giữa <audio> và Web Audio) khi pause mà chỉ ĐÓNG BĂNG nó (đo ở cổng seek v2) -> resume phát phần đóng băng
+     * trước (nghe như dư âm), currentTime đi trước tiếng thật -> thanh/timer/phụ đề lệch dồn qua mỗi lần pause. Xả NGAY lúc
+     * pause bằng đúng cơ chế cổng seek v3: nạp lại nguồn + seek về chỗ dừng (cổng giữ hold -> sự kiện tạm không lọt ra
+     * UI). Mọi đường resume sau đó (nút trong app, cử chỉ, màn hình khoá, tai nghe, Control Center iOS) chỉ là play()
+     * thường, không trễ. Pause bị loại trừ: xem shouldFlushSongQueueOnPause() (core/player-controls.js).
+     */
+    async _flushSongQueueAfterPause() {
+        const { currentKey, currentObjectURL, isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['currentKey', 'currentObjectURL', 'isVideoPlayerMode', 'isPhotoPlayerMode']);
+        const shouldFlush = shouldFlushSongQueueOnPause({ // core/player-controls.js
+            isPaused: audioPlayer.paused, isEnded: audioPlayer.ended, isVideoPlayerMode, isPhotoPlayerMode,
+            currentKey, currentObjectURL, mediaSrc: audioPlayer.src,
+        });
+        if (!shouldFlush) return;
+        const completed = await this.runGatedSeek(audioPlayer, audioPlayer.currentTime, false);
+        this._syncSongPlayAfterFlush(completed);
+    },
+
+    /** Người dùng bấm phát lại NGAY trong lúc cổng đang xả (vài chục-trăm ms): sự kiện 'play' thật đã bị hold nuốt -> cổng
+     * xong mà media đang phát thì gửi lại 'play' cho UI/đồng hồ nghe/VBG đồng bộ. Cổng không chạy trọn (seek/đổi bài giữa
+     * chừng) -> lệnh mới tự lo sự kiện của nó. */
+    _syncSongPlayAfterFlush(completed) {
+        if (!completed || audioPlayer.paused) return;
+        eventBus.send({ router: 'playerControls', type: 'playerControls.audio.play', payload: {} });
     },
 
     /** MỚI (25/09/2026) — ứng với 'playerControls.audio.loadedmetadata': core cập nhật thanh tiến trình/Media Session/tốc độ,
