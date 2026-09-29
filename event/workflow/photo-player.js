@@ -146,6 +146,7 @@ const workflowPhotoPlayer = {
         if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.clearMediaLayers(); // event/workflow/visual-bg.js — liên tuyến domain
 
         enterPhotoPlayerModeState(); // core/photo-player.js
+        workflowPlayerZoom.onPlayerModeEnter(); // event/workflow/player-zoom.js — MỚI 29/09/2026: hiện kính lúp Control Center
         await this.playPhotoByKey(startKey, switchScreen); // FIX (10/09/2026) — truyền ĐÚNG switchScreen của người gọi thay vì luôn mặc định true, xem docstring startFromPlaylist() ở trên
     },
 
@@ -163,6 +164,7 @@ const workflowPhotoPlayer = {
      *        các lớp nền, VBG được khôi phục lúc thoát Video) — xem thân hàm.
      */
     async exitPhotoPlayerMode(restoreVisualBg = true) {
+        workflowPlayerZoom.onPlayerModeLeave(); // event/workflow/player-zoom.js — MỚI 29/09/2026: tắt Zoom mode + về mức 1 + ẩn kính lúp (ĐỒNG BỘ, trước mọi await)
         taskManager.kill(PHOTO_PLAYER_TICK_TASK);
         this._photoGeneration += 1; // MỚI (25/09/2026) — `onShown` còn treo của ảnh cuối (surface dừng ngay dưới) tự bỏ qua
         this._currentRecord = null;

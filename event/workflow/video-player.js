@@ -432,6 +432,7 @@ const workflowVideoPlayer = {
         // từng gọi rời bên dưới).
         workflowPlayerDisplaySettings.acquireVideoMotion(); // event/workflow/player-display-settings.js
         setBgVideoElementForPlayerMode(true); // core/video-player.js — bỏ muted + tắt loop + hiện + pointer-events
+        workflowPlayerZoom.onPlayerModeEnter(); // event/workflow/player-zoom.js — MỚI 29/09/2026: hiện kính lúp Control Center
         // MỚI (Giang yêu cầu "Resolution cho player video&photo, không liên quan VBG") — áp NGAY
         // lúc vào mode, đọc từ config đã lưu (Settings > Visualizer Screen > Player > Video).
         if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.applyVideoPlayerResolutionOnEnter(); // event/workflow/player-display-settings.js
@@ -445,6 +446,7 @@ const workflowVideoPlayer = {
      * Background thật, phải trả lại đúng lúc thoát). `updateDOMBackground()` (core/color-utils.js)
      * trả `visualizerSolidBg` về đúng màu/gradient cấu hình. */
     async exitVideoPlayerMode() {
+        workflowPlayerZoom.onPlayerModeLeave(); // event/workflow/player-zoom.js — MỚI 29/09/2026: tắt Zoom mode + về mức 1 + ẩn kính lúp (ĐỒNG BỘ, trước mọi await)
         setBgVideoElementForPlayerMode(false); // core/video-player.js — trả lại muted+loop=true, pointer-events mặc định
         // MỚI (Giang yêu cầu "Resolution cho player video&photo, không liên quan VBG") — gỡ override
         // NGAY lúc thoát mode — BẮT BUỘC, để #bg-video trả về CSS mặc định (object-fit: cover) phục
@@ -840,9 +842,15 @@ const workflowVideoPlayer = {
      * theo event-bus-flow.md mục 4B) TRƯỚC `saveImage()` — ảnh chụp từ khung hình video CŨNG phải
      * có `duration` như mọi ảnh khác, không có ngoại lệ. `await` thêm `saveImage()` (trước đây
      * fire-and-forget) — cần chờ `computePhotoDuration()` (đọc `blob.arrayBuffer()`) xong TRƯỚC,
-     * nên hàm chờ nốt luôn bước ghi record cho gọn 1 mạch async. */
-    async captureCurrentFrame() {
-        const sourceCanvas = captureVideoFrameToCanvas(bgVideoElement); // core/video-player-capture.js
+     * nên hàm chờ nốt luôn bước ghi record cho gọn 1 mạch async.
+     * SỬA (29/09/2026, Giang) — nhận thêm `sourceVideoEl` tuỳ chọn: nút Chụp của Video editor (Video Preview modal)
+     * bắn CÙNG event, kèm `<video>` của editor; thiếu (Control Center / gesture) -> `bgVideoElement` như cũ. Chụp
+     * khung hình GỐC của video (không áp crop/xoay/lật đang xem trong editor).
+     * @param {HTMLVideoElement} [sourceVideoEl] */
+    async captureCurrentFrame(sourceVideoEl) {
+        const videoEl = sourceVideoEl || bgVideoElement; // core/dom-refs.js
+        if (!videoEl || !videoEl.videoWidth) { await alertModal(t('videoPlayer.captureFrame.failed')); return; } // guard — chưa có khung hình
+        const sourceCanvas = captureVideoFrameToCanvas(videoEl); // core/video-player-capture.js
         const blob = await new Promise((resolve) => sourceCanvas.toBlob(resolve, 'image/jpeg', 0.95));
         if (!blob) { await alertModal(t('videoPlayer.captureFrame.failed')); return; }
         const thumbBlob = await buildExtractedPhotoThumbnail(sourceCanvas, 0.2); // core/video-player-capture.js
