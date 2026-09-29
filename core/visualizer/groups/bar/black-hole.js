@@ -4,23 +4,24 @@
  * viền + (MỚI 29/09/2026) tia bức xạ Hawking bắn ngang 2 bên khi beat mạnh.
  *
  * CẢI TIẾN (29/09/2026, Giang duyệt sau phần nghiên cứu):
- *   1. Tần số: FFT 2048 (needsHighResFft, service/state/visualizer-runtime.js) + chia dải LOG 40Hz-16kHz, quy dB, nâng
- *      treble — Workflow gọi thẳng core của mirror (`computeBarMirrorLevels()`/`spreadBarMirrorLevels()`, thuần) với số
- *      dải = số cột nửa vòng. Bỏ ánh xạ tuyến tính 35% bin + boost tuyến tính + pow(…,2) cũ (bass chỉ còn 1-2 cột ở đáy).
+ *   1. [HOÀN NGUYÊN cùng ngày — Giang: "bar scale lộn xộn, chỗ cao chỗ thấp, không dàn đều"] Chia dải LOG qua core mirror
+ *      + FFT 2048 đã BỎ. Mức cột quay về ánh xạ cũ: FFT 256, 35% đầu phổ trải đều lên số cột, đỉnh trong cửa sổ bin/cột,
+ *      tăng cường tần cao tuyến tính, làm mượt 3 cột kề, tương phản pow 2 (`computeBlackHoleBarLevels()`).
  *   2. Chuyển động: envelope cột theo dt (lên nhanh, xuống chậm) — KHÔNG có vạch đỉnh (Giang). Mọi bước theo frame cũ
  *      (bán kính mượt ×0.15/frame, sao cộng mỗi frame) đổi sang dt — màn 90/120Hz chạy cùng tốc độ màn 60Hz.
  *      `smoothedBeatRadius` (biến global ở core/dom-refs.js) chuyển thành trạng thái riêng của Workflow.
- *   3. Màu + hiệu năng: flare/sao/tia theo Color mode (getComputedColor() — Workflow resolve rồi truyền vào). Glow cột
+ *   3. Màu + hiệu năng: flare/tia theo Color mode (getComputedColor() — Workflow resolve rồi truyền vào). SAO GIỮ MÀU GỐC
+ *      (trắng, vài sao ngả xanh/vàng — Giang: sao không nối vào Color mode). Glow cột
  *      không còn `shadowBlur` từng cột: vẽ 1 lượt vào 2 lớp canvas phụ độ phân giải thấp rồi phóng lên (downsample-blur).
  *      Hiệu ứng CHỚP khi sao va vào viền hố đen ĐÃ BỎ HẲN (Giang) — cùng state `starFlashes` + field `flashFadeSpeed`.
- *   4. Hình ảnh: sao vẽ thành VỆT theo vận tốc (sát viền bị kéo dài theo phương tiếp tuyến — giả thấu kính hấp dẫn);
+ *   4. Hình ảnh: sao vẽ thành VỆT CONG bám đúng quỹ đạo xoắn ốc sao đang đi (đuôi mờ + mảnh dần, đầu là chấm sao gốc;
+ *      sát viền đuôi kéo dài theo phương tiếp tuyến — giả thấu kính hấp dẫn);
  *      sóng xung kích -> tia chớp ngang dày, mờ kiểu bức xạ Hawking, phóng ra từ 2 bên hố đen, nằm SAU vòng cột (Giang).
  *
  * Mọi hàm THUẦN theo Rule 2/3 (không appState.get(), không gọi core khác) — riêng `stepBlackHoleStars()` GHI
  * `appState.mutate('stars')` (Rule 2 cho phép ghi; hot path nên không log, Rule 4 ngoại lệ). Điều phối ở
  * event/workflow/visualizer/bar.js (`_drawBlackHole()`).
  *
- * NẠP SAU: core/visualizer/groups/bar/mirror.js (Workflow dùng core của mirror — chỉ lúc chạy).
  */
 
 /** Tỉ lệ đổi bước "theo frame" cũ sang dt: 1 = 1 frame 60fps. */
@@ -47,10 +48,9 @@ function computeBlackHoleBeatRadius(baseRadius, beatScale, minDimension) {
 
 // ===================== sao =====================
 
-/** Số ô màu của sao — mỗi sao giữ 1 ô cố định (buildBlackHoleStars), Workflow resolve bảng màu mỗi frame. */
-const BLACK_HOLE_STAR_COLOR_SLOTS = 12;
-/** Độ dài vệt sao = quãng đường của bấy nhiêu frame 60fps. */
-const BLACK_HOLE_STAR_TRAIL_FRAMES = 5;
+/** Vệt sao = quãng đường của bấy nhiêu frame 60fps, chia BLACK_HOLE_STAR_TRAIL_SEGMENTS đoạn lấy mẫu trên quỹ đạo thật. */
+const BLACK_HOLE_STAR_TRAIL_FRAMES = 14;
+const BLACK_HOLE_STAR_TRAIL_SEGMENTS = 4;
 /** Kéo dài vệt theo phương tiếp tuyến khi sát viền: × (1 + GAIN × (R/d)²). */
 const BLACK_HOLE_STAR_LENS_GAIN = 4;
 
@@ -70,23 +70,43 @@ function stepBlackHoleStars(maxDist, currentRadius, currentSuction, frameScale) 
     }), { skipCheck: true });
 }
 
-/** Vẽ sao thành vệt: đầu vệt = vị trí hiện tại, đuôi lùi theo vận tốc BLACK_HOLE_STAR_TRAIL_FRAMES frame; phần tiếp
- * tuyến của đuôi dài thêm khi sát viền. `palette[slot]` = màu CSS đặc. Nét bo tròn -> sao đứng yên vẫn là chấm. */
-function drawBlackHoleStarStreaks(ctx, stars, centerX, centerY, maxDist, currentRadius, dpr, palette) {
+/** Vẽ sao: ĐẦU = chấm sao gốc (màu `colorTint`, alpha 0.1 + tỉ lệ khoảng cách, bán kính size·tỉ lệ + 0.5px — y bản gốc);
+ * ĐUÔI = vệt CONG lấy mẫu lùi dọc quỹ đạo xoắn ốc (góc lùi theo vAngle, bán kính lùi theo vDist), mờ + mảnh dần về
+ * cuối. Đuôi ngắn hơn 1px (sao ở xa, gần như đứng yên) -> chỉ vẽ chấm. Chỉ Canvas API. */
+function drawBlackHoleStarStreaks(ctx, stars, centerX, centerY, maxDist, currentRadius, dpr) {
+    const stepFrames = BLACK_HOLE_STAR_TRAIL_FRAMES / BLACK_HOLE_STAR_TRAIL_SEGMENTS;
     ctx.save();
     ctx.lineCap = 'round';
     stars.forEach((star) => {
         const ratio = star.distance / maxDist;
+        const alpha = Math.min(1, 0.1 + ratio);
+        const headR = Math.max(0.1, star.size * ratio + 0.5 * dpr);
         const lens = 1 + BLACK_HOLE_STAR_LENS_GAIN * Math.pow(currentRadius / Math.max(currentRadius, star.distance), 2);
-        const tailAngle = star.angle - star.vAngle * BLACK_HOLE_STAR_TRAIL_FRAMES * lens;
-        const tailDist = star.distance + star.vDist * BLACK_HOLE_STAR_TRAIL_FRAMES;
-        ctx.globalAlpha = Math.min(1, 0.1 + ratio);
-        ctx.strokeStyle = palette[star.colorSlot] || palette[0];
-        ctx.lineWidth = Math.max(0.2, 2 * (star.size * ratio + 0.5 * dpr));
+        const pointAt = (k) => {
+            const a = star.angle - star.vAngle * lens * stepFrames * k;
+            const d = star.distance + star.vDist * stepFrames * k;
+            return { x: centerX + Math.cos(a) * d, y: centerY + Math.sin(a) * d };
+        };
+        const head = pointAt(0);
+        const tail = pointAt(BLACK_HOLE_STAR_TRAIL_SEGMENTS);
+        if (Math.hypot(tail.x - head.x, tail.y - head.y) >= dpr) {
+            let prev = head;
+            for (let k = 1; k <= BLACK_HOLE_STAR_TRAIL_SEGMENTS; k++) {
+                const next = pointAt(k);
+                const fade = 1 - k / (BLACK_HOLE_STAR_TRAIL_SEGMENTS + 1);
+                ctx.strokeStyle = `rgba(${star.colorTint}, ${alpha * fade * 0.7})`;
+                ctx.lineWidth = Math.max(0.2, 2 * headR * fade * 0.8);
+                ctx.beginPath();
+                ctx.moveTo(prev.x, prev.y);
+                ctx.lineTo(next.x, next.y);
+                ctx.stroke();
+                prev = next;
+            }
+        }
+        ctx.fillStyle = `rgba(${star.colorTint}, ${alpha})`;
         ctx.beginPath();
-        ctx.moveTo(centerX + Math.cos(tailAngle) * tailDist, centerY + Math.sin(tailAngle) * tailDist);
-        ctx.lineTo(centerX + Math.cos(star.angle) * star.distance, centerY + Math.sin(star.angle) * star.distance);
-        ctx.stroke();
+        ctx.arc(head.x, head.y, headR, 0, Math.PI * 2);
+        ctx.fill();
     });
     ctx.restore();
 }
@@ -118,10 +138,8 @@ const BLACK_HOLE_BAR_TOP_RADIUS_MAX = 5;
 const BLACK_HOLE_BAR_RADIUS_ATTACK_MS = 120;
 const BLACK_HOLE_BAR_RADIUS_RELEASE_MS = 2500;
 const BLACK_HOLE_BAR_COUNT_HYSTERESIS = 0.6;
-/** Tham số chia dải LOG (dùng core mirror) — hằng riêng của black hole, không đọc field mirrorTilt/mirrorSmoothSpread
- * (Custom Effect không chia sẻ giữa các style). Tilt = mặc định mirror; spread nhẹ thay làm mượt 3 cột kề cũ. */
-const BLACK_HOLE_BAR_TILT_DB = 3;
-const BLACK_HOLE_BAR_SPREAD = 0.3;
+/** Tỉ lệ dải bin dùng (vùng trầm/trung — 35% đầu phổ FFT 256, như bản cũ). */
+const BLACK_HOLE_BAR_SPAN_FRAC = 0.35;
 /** Envelope cột: hằng thời gian lên / xuống (ms). */
 const BLACK_HOLE_BAR_ATTACK_MS = 25;
 const BLACK_HOLE_BAR_RELEASE_MS = 220;
@@ -148,9 +166,44 @@ function resolveBlackHoleBarHalfCount(prevHalfCount, avgRadius, dpr) {
     return Math.max(2, keep ? prevHalfCount : Math.ceil(ideal));
 }
 
-/** Số dải tần = số cột trên nửa vòng tính cả cột đáy/đỉnh nằm trên trục dọc (vòng đủ = 2 × halfCount cột). */
-function computeBlackHoleBandCount(halfCount) {
-    return halfCount + 1;
+/** Số cột trên nửa vòng (tính cả cột đỉnh/đáy dùng chung — vòng đủ = 2 × halfCount cột) + số bin phổ trải lên chúng.
+ * @returns {{ usefulLength: number, spanBins: number }} */
+function computeBlackHoleBarLayout(halfCount, bufferLength) {
+    return {
+        usefulLength: halfCount + 1,
+        spanBins: Math.max(2, Math.floor(bufferLength * BLACK_HOLE_BAR_SPAN_FRAC)),
+    };
+}
+
+/**
+ * Mức 0-1 từng cột — ÁNH XẠ CŨ giữ nguyên công thức (HOÀN NGUYÊN 29/09/2026): cột i đặt tại bin liên tục
+ * i × (spanBins − 1) / (usefulLength − 1) (cột đầu = bin 0, cột cuối = bin cuối), lấy ĐỈNH trong cửa sổ ± nửa khoảng
+ * bin/cột (nội suy ở 2 mép), tăng cường tần cao tuyến tính, làm mượt 3 cột kề (1-3-1), tương phản pow 2. Chỉ tách phần
+ * "ra chiều cao" sang computeBlackHoleBarsFrame() để envelope theo dt chen vào giữa. Bin im lặng (raw = 0) -> 0.
+ * @returns {Float32Array}
+ */
+function computeBlackHoleBarLevels(vizDataArray, usefulLength, spanBins) {
+    const binStep = usefulLength > 1 ? (spanBins - 1) / (usefulLength - 1) : 0;
+    const binAt = (b) => vizDataArray[b] || 0;
+    const sampleAt = (x) => {
+        const b0 = Math.floor(x), f = x - b0;
+        return binAt(b0) * (1 - f) + binAt(Math.min(spanBins - 1, b0 + 1)) * f;
+    };
+    const raw = [];
+    for (let i = 0; i < usefulLength; i++) {
+        const center = i * binStep;
+        const lo = Math.max(0, center - binStep / 2), hi = Math.min(spanBins - 1, center + binStep / 2);
+        let peak = Math.max(sampleAt(lo), sampleAt(hi));
+        for (let b = Math.ceil(lo); b <= Math.floor(hi); b++) peak = Math.max(peak, binAt(b));
+        raw.push(peak);
+    }
+    const boosted = raw.map((v, i) => Math.min(255, v * (1 + (i / usefulLength) * 1.2)));
+    const levels = new Float32Array(usefulLength);
+    for (let i = 0; i < usefulLength; i++) {
+        const val = i > 0 && i < usefulLength - 1 ? (boosted[i - 1] + boosted[i] * 3 + boosted[i + 1]) / 5 : boosted[i];
+        levels[i] = raw[i] > 0 ? Math.pow(val / 255, 2.0) : 0;
+    }
+    return levels;
 }
 
 /** Envelope trước đó (0-1) kéo giãn về `count` phần tử bằng nội suy tuyến tính — số cột đổi theo bán kính thì cột không
@@ -180,8 +233,9 @@ function stepBlackHoleBarEnvelope(prevLevels, targetLevels, dtMs) {
 }
 
 /**
- * Khung hình vòng cột — THUẦN. `levels[i]` 0-1, i = 0 là dải thấp nhất (bass, cột ĐÁY), cuối = cao nhất (cột ĐỈNH); mỗi
- * mức vẽ thành 2 cột đối xứng trái/phải quanh trục dọc (cột đáy/đỉnh nằm trên trục -> 1 bản).
+ * Khung hình vòng cột — THUẦN. `levels[i]` 0-1 (computeBlackHoleBarLevels() + envelope), i = 0 là cột ĐÁY (bin thấp),
+ * cuối = cột ĐỈNH; chiều cao = minH + mức × maxH động × 1.2 (như bản cũ). Mỗi mức vẽ thành 2 cột đối xứng trái/phải
+ * quanh trục dọc (cột đáy/đỉnh nằm trên trục -> 1 bản). Giá trị màu = √mức × 255 (= byte đã làm mượt của bản cũ).
  * @returns {{colorArgs:number[], angles:number[], height:number}[]}
  */
 function computeBlackHoleBarsFrame(levels, minH, dpr, dynamicMaxBarHeight) {
@@ -194,7 +248,7 @@ function computeBlackHoleBarsFrame(levels, minH, dpr, dynamicMaxBarHeight) {
         const angleOffset = (i / Math.max(1, n - 1)) * Math.PI;
         const onAxis = i === 0 || i === n - 1;
         const angles = onAxis ? [(Math.PI / 2) - angleOffset] : [(Math.PI / 2) - angleOffset, (Math.PI / 2) + angleOffset];
-        bars.push({ colorArgs: [i, n, Math.round(level * 255)], angles, height });
+        bars.push({ colorArgs: [i, n, Math.round(Math.sqrt(level) * 255)], angles, height });
     }
     return bars;
 }
