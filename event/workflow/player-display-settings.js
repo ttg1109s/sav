@@ -236,12 +236,14 @@ const workflowPlayerDisplaySettings = {
      * đang ở Video Player mode — hàm đó DÙNG CHUNG với Visual Background, guard ở nơi gọi) — layer A
      * KHÔNG cần gọi lại tương ứng (CSS `object-fit` tự tính theo video hiện tại, xem docstring
      * `applyVideoPlayerResolutionOnEnter()`) nhưng layer B (`background-size`, tính tay) THÌ CÓ —
-     * mỗi lần nội dung layer B đổi (ảnh khác), phải tính LẠI theo kích thước ảnh MỚI đó. Đọc
-     * `bgVideoElement.videoWidth`/`.videoHeight` của video VỪA pause (layer B vừa chụp lại đúng
-     * video đó) làm kích thước gốc cho mode 'trueMax' — xem docstring core/player-display-
-     * apply.js::applyVideoPlayerResolutionToLayerBDOM(). */
-    syncVideoPlayerResolutionLayerB() {
-        applyVideoPlayerResolutionToLayerBDOM(appConfigPlayerDisplay.getAll().videoResolutionMode); // core/player-display-apply.js + core/config.js
+     * mỗi lần nội dung layer B đổi (ảnh khác), phải tính LẠI theo kích thước ảnh MỚI đó.
+     * FIX (30/09/2026, Giang) — kích thước gốc cho 'trueMax' lấy từ `record.width/height` của video MỚI (thumb vừa vào
+     * layer B), KHÔNG còn đọc `bgVideoElement.videoWidth` (lúc hook chạy vẫn là video CŨ) — xem docstring core/player-
+     * display-apply.js::applyVideoPlayerResolutionToLayerBDOM().
+     * @param {object|null} record - record video có thumb vừa vào layer B (hook `onLayerBFilled(record)`). */
+    syncVideoPlayerResolutionLayerB(record) {
+        const naturalSize = { width: (record && record.width) || null, height: (record && record.height) || null };
+        applyVideoPlayerResolutionToLayerBDOM(appConfigPlayerDisplay.getAll().videoResolutionMode, naturalSize); // core/player-display-apply.js + core/config.js
     },
 
     /** Gỡ override Resolution khỏi `bgVideoElement` — gọi lúc THOÁT Video Player mode

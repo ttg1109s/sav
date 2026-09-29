@@ -20,6 +20,8 @@
  *     loop native lẫn tự lặp thủ công `_restartCurrentVideoInPlace()`), xem `_onVideoTimeUpdate()`.
  *   - Đứng/chạy theo Song (syncPlaybackToAudio()). Thumb placeholder tĩnh (Song dừng) KHÔNG mượn surface.
  * =====================================================================
+ * MỚI (30/09/2026, Giang) — Resolution VBG (card Media): layer A/B khớp `videoResolutionMode` của VBG, xem khối
+ * "Resolution VBG Video" bên dưới + workflowVisualBg.changeResolutionMode() (event/workflow/visual-bg-common.js).
  *
  * NẠP SAU: event/workflow/visual-bg-common.js, core/visual-bg-video.js.
  */
@@ -34,6 +36,7 @@ Object.assign(workflowVisualBg, {
     _videoAudioRows: null,   // cache {key,name}[] đọc lúc mở panel "Âm thanh Video"
     _stuckRecoveryTimer: null, // fallback taskManager.once() khi key hiện tại mất giữa lúc cycle mode 'slideshow'
     _videoLoopLastTimeSec: 0, // MỚI (đợt 5) — currentTime ở 'timeupdate' gần nhất, phát hiện vòng lặp mới (lùi về đầu)
+    _videoNaturalSize: null, // MỚI (30/09/2026, Resolution VBG) — {width,height} gốc (record) của video có thumb VỪA vào layer B — áp lại sống lúc đổi Resolution ('trueMax' cần)
 
     /** Video thật (nạp `bgVideoElement`/`play()`) chỉ nạp khi Song đang thật sự phát
      * (`!audioPlayer.paused`); nếu chưa, hiện thumb full-res tĩnh của item sẽ phát
@@ -54,7 +57,7 @@ Object.assign(workflowVisualBg, {
         this._listIndex = index;
         const key = startList[index];
         if (!key) return;
-        if (!this._isSongActiveForVbg()) { if (typeof workflowVideoPlayer !== 'undefined') await workflowVideoPlayer.showStaticBgThumb(key); return; } // SỬA 25/09/2026 — app ẩn (chế độ nền) cũng coi như Song dừng, event/workflow/visual-bg-common.js
+        if (!this._isSongActiveForVbg()) { if (typeof workflowVideoPlayer !== 'undefined') await workflowVideoPlayer.showStaticBgThumb(key, (record) => this._onVideoLayerBFilled(record)); return; } // SỬA 25/09/2026 — app ẩn (chế độ nền) cũng coi như Song dừng, event/workflow/visual-bg-common.js
         await this._playVideoKey(key);
     },
 
@@ -191,6 +194,7 @@ Object.assign(workflowVisualBg, {
         const isCyclingSlideshow = cfg.listPlaybackMode === 'slideshow' && this._effectiveCount(cfg.source.list) > 1;
         bgVideoElement.loop = this._computeVideoLoop(cfg, videoKey); // SỬA 29/09/2026 — tách helper, dùng chung với _applyLiveIfCurrentVideo()
         bgVideoElement.classList.remove('hidden');
+        this._applyVideoLayerAResolution(); // MỚI 30/09/2026 — Resolution VBG lên layer A TRƯỚC khi đổi nguồn (object-fit tự tính theo video mới)
         this._isSwappingVideo = true;
         // MỚI (25/09/2026, đợt 5 Motion) — mượn Video surface (cùng owner gọi lại -> chỉ cập nhật getter). Video ĐẦU
         // (chưa có video VBG nào đang hiện) -> hiện TĨNH qua cầu thumb (`isTransition=false`, không hook); đã có ->
@@ -200,8 +204,12 @@ Object.assign(workflowVisualBg, {
         workflowVideoMotionSurface.acquire(VISUAL_BG_VIDEO_SURFACE_OWNER, { getBeatPresetFn: () => this._getMotionBeatPreset() }); // event/workflow/video-motion-surface.js
         if (isFirstVideo) workflowVideoMotionSurface.showBridgeLayer(VISUAL_BG_VIDEO_SURFACE_OWNER); // giữ thumb placeholder (nếu đang hiện) không bị .motion-layer ẩn mất
         this._videoLoopLastTimeSec = 0;
-        const swapHooks = isFirstVideo ? null : {
-            runTransition: () => workflowVideoMotionSurface.runTransition(VISUAL_BG_VIDEO_SURFACE_OWNER, motionPreset, this._computeVideoTransitionCapMs(cfg, isCyclingSlideshow)),
+        // SỬA (30/09/2026, Resolution VBG) — LUÔN truyền hook `onLayerBFilled` (khớp `background-size` layer B theo Resolution
+        // VBG, kể cả video ĐẦU); `runTransition` vẫn CHỈ có khi không phải video đầu (null -> swapBgVideoSource() coi như
+        // không có hook Transition, y hệt `hooks=null` trước đây).
+        const swapHooks = {
+            onLayerBFilled: (swapRecord) => this._onVideoLayerBFilled(swapRecord),
+            runTransition: isFirstVideo ? null : () => workflowVideoMotionSurface.runTransition(VISUAL_BG_VIDEO_SURFACE_OWNER, motionPreset, this._computeVideoTransitionCapMs(cfg, isCyclingSlideshow)),
         };
         let record;
         try {
@@ -240,6 +248,39 @@ Object.assign(workflowVisualBg, {
             this._activateVideoPointMove(true);
             workflowVideoMotionSurface.syncBeat(VISUAL_BG_VIDEO_SURFACE_OWNER); // event/workflow/video-motion-surface.js
         });
+    },
+
+    // ===================== Resolution VBG Video (MỚI 30/09/2026, Giang — dropdown Resolution ở card Media) =====================
+    // CÙNG mô hình 2 layer với Player Video (core/player-display-apply.js): layer A `bgVideoElement` (`object-fit`, trình
+    // duyệt tự tính theo video đang nạp — áp 1 lần trước mỗi lượt đổi nguồn) + layer B `visualBgImageElement` (`background-
+    // size`, tính tay theo kích thước gốc của video có thumb VỪA vào layer B), đọc `videoResolutionMode` của VBG. Player vào mode -> tự đè giá trị của nó;
+    // thoát mode -> gỡ về '' rồi VBG áp lại qua restoreAfterPlayerMode() -> _playVideoKey()/placeholder (đi qua 2 hàm dưới).
+
+    /** Áp Resolution VBG lên layer A. */
+    _applyVideoLayerAResolution() {
+        applyVisualBgVideoResolutionToDOM(resolvePlayerObjectFitCss(this._resolutionModeFor('video'))); // core/visual-bg-video.js + core/player-display-settings.js
+    },
+
+    /** Áp Resolution VBG lên layer B theo `_videoNaturalSize` (thiếu -> 'trueMax' tự fallback 'contain', xem
+     * resolvePlayerBackgroundSizeCss()). */
+    _applyVideoLayerBResolution() {
+        const size = this._videoNaturalSize || { width: null, height: null };
+        const frame = measureVisualBgVideoFrame(); // core/visual-bg-video.js
+        applyVisualBgVideoBridgeSizeToDOM(resolvePlayerBackgroundSizeCss(this._resolutionModeFor('video'), size.width, size.height, frame.width, frame.height)); // core/visual-bg-video.js + core/player-display-settings.js
+    },
+
+    /** Hook `onLayerBFilled` (swapBgVideoSource()/showStaticBgThumb(), event/workflow/video-player.js) — thumb của video
+     * `record` vừa vào layer B: nhớ kích thước gốc rồi khớp Resolution ngay (cùng task, chưa kịp paint size cũ).
+     * @param {object|null} record */
+    _onVideoLayerBFilled(record) {
+        this._videoNaturalSize = { width: (record && record.width) || null, height: (record && record.height) || null };
+        this._applyVideoLayerBResolution();
+    },
+
+    /** Đổi Resolution sống lúc VBG Video đang hiện (video thật hoặc thumb placeholder) — gọi từ changeResolutionMode(). */
+    _refreshVideoResolution() {
+        this._applyVideoLayerAResolution();
+        this._applyVideoLayerBResolution();
     },
 
     // ===================== Motion VBG Video (MỚI 25/09/2026, đợt 5) — chỉ QUYẾT ĐỊNH của VBG =====================
@@ -379,7 +420,7 @@ Object.assign(workflowVisualBg, {
         // MỚI (đợt 5) — placeholder tĩnh KHÔNG mượn surface: trả trước (dừng Motion, đưa DOM A/B về "nhà" — layer B
         // hết `.motion-layer` nên thumb tĩnh hiện được bình thường). Song phát lại -> `_playVideoKey()` mượn lại.
         workflowVideoMotionSurface.release(VISUAL_BG_VIDEO_SURFACE_OWNER); // event/workflow/video-motion-surface.js
-        if (typeof workflowVideoPlayer !== 'undefined') await workflowVideoPlayer.showStaticBgThumb(key);
+        if (typeof workflowVideoPlayer !== 'undefined') await workflowVideoPlayer.showStaticBgThumb(key, (record) => this._onVideoLayerBFilled(record)); // SỬA 30/09/2026 — khớp Resolution VBG cho thumb placeholder
     },
 
     /** Mở panel — đọc tên từng video (song song) rồi vẽ hàng. `_videoAudioRows` là bản chụp tại

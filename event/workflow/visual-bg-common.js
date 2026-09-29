@@ -100,6 +100,13 @@ const workflowVisualBg = {
                 }
                 if (typeof saved.motionPresetId === 'string' || saved.motionPresetId === null) cfg.motionPresetId = saved.motionPresetId;
                 if (typeof saved.enabled === 'boolean') cfg.enabled = saved.enabled; // MỚI 29/09/2026 — toggle tổng
+                // MỚI (30/09/2026) — Resolution riêng Video/Photo của VBG; thiếu/lạ -> 'fill' (core/player-display-settings.js).
+                // `saved.resolutionMode` = field chung của bản patch đầu (đã bỏ) — còn thì làm giá trị dự phòng cho cả 2.
+                cfg.videoResolutionMode = normalizePlayerResolutionMode(saved.videoResolutionMode || saved.resolutionMode);
+                cfg.photoResolutionMode = normalizePlayerResolutionMode(saved.photoResolutionMode || saved.resolutionMode);
+                // FIX (30/09/2026, Giang) — trước đây field này KHÔNG được nạp lại lúc boot -> toggle "Sync playback speed"
+                // luôn về false sau mỗi lần khởi động lại app dù đã lưu true.
+                if (typeof saved.videoSyncPlaybackSpeed === 'boolean') cfg.videoSyncPlaybackSpeed = saved.videoSyncPlaybackSpeed;
             });
             console.log(`writer: "workflowVisualBg.loadPersistedSettingsOnBoot", page: "visualBgConfig", content: "nạp lại từ meta"`);
         }
@@ -234,6 +241,11 @@ const workflowVisualBg = {
         // `.motion-layer`) TRƯỚC khi dọn nguồn video — no-op nếu owner khác (Player) đang giữ.
         if (typeof workflowVideoMotionSurface !== 'undefined') workflowVideoMotionSurface.release(VISUAL_BG_VIDEO_SURFACE_OWNER); // event/workflow/video-motion-surface.js
         if (typeof workflowVideoPlayer !== 'undefined') workflowVideoPlayer.clearBgVideoSource();
+        // MỚI (30/09/2026, Resolution VBG) — gỡ override Resolution VBG khỏi layer A/B (trả CSS mặc định) — Player vào mode
+        // (gọi hàm này TRƯỚC khi áp Resolution của nó) nhận 2 element sạch; VBG áp lại ở lượt hiện media kế tiếp.
+        this._videoNaturalSize = null;
+        applyVisualBgVideoResolutionToDOM(''); // core/visual-bg-video.js
+        applyVisualBgVideoBridgeSizeToDOM('');
         applyVisualBgImageToDOM(false, '');
         if (visualBgImageObjectUrl) revokeBlobUrl(visualBgImageObjectUrl);
         appState.set('visualBgImageObjectUrl', '');
@@ -943,6 +955,13 @@ const workflowVisualBg = {
         const videoAudioRow = q('#setting-visual-bg-open-video-audio');
         if (videoAudioRow) videoAudioRow.classList.toggle('hidden', !(cfg.type === 'video' && count >= 1));
 
+        // MỚI (30/09/2026) — Resolution (card Media): LUÔN hiện (Giang); nhãn + giá trị theo `type` đang chọn (Video/Photo
+        // mỗi bên 1 giá trị riêng).
+        const resolutionLabel = q('#visual-bg-resolution-label');
+        if (resolutionLabel) resolutionLabel.textContent = t(cfg.type === 'video' ? 'visualBgSettingsDrawer.resolution.labelVideo' : 'visualBgSettingsDrawer.resolution.labelPhoto');
+        const resolutionSelect = q('#setting-visual-bg-resolution');
+        if (resolutionSelect) resolutionSelect.value = this._resolutionModeFor(cfg.type);
+
         const syncSpeedRow = q('#visual-bg-sync-speed-row');
         if (syncSpeedRow) syncSpeedRow.classList.toggle('hidden', cfg.type !== 'video');
         const syncSpeedCheckbox = q('#setting-visual-bg-sync-speed');
@@ -1015,6 +1034,35 @@ const workflowVisualBg = {
             this._applyVideoPlaybackSpeedSetting(); // event/workflow/visual-bg-video.js
             this._refreshVideoMotion(); // MỚI (25/09/2026, đợt 5) — Point Move tính lại theo playbackRate mới, KHÔNG chạy lại hành trình
         }
+    },
+
+    /** MỚI (30/09/2026) — Resolution VBG của 1 kind, ĐÃ chuẩn hoá (core/player-display-settings.js). DÙNG CHUNG cho
+     * visual-bg-video.js ('video') + visual-bg-photo.js ('photo') + refreshPanelUI().
+     * @param {'video'|'photo'} kind @returns {string} */
+    _resolutionModeFor(kind) {
+        return normalizePlayerResolutionMode(appConfigVisualBg.getAll()[resolvePlayerResolutionField(kind)]); // core/player-display-settings.js
+    },
+
+    /** MỚI (30/09/2026, Giang — "dropdown chọn resolution cho media VBG giống Player") — ứng
+     * 'visualBg.resolutionMode.change' (select #setting-visual-bg-resolution, card Media). Ghi vào field của `type` ĐANG
+     * chọn (videoResolutionMode/photoResolutionMode — SỬA 30/09/2026, Giang: giá trị riêng mỗi type), rồi áp SỐNG lên
+     * media VBG đang hiện (không nạp lại, không Transition). Đang ở Video/Photo Player mode hoặc toggle tổng tắt -> chỉ
+     * lưu (VBG không đang hiện media; lượt áp VBG kế tiếp tự đọc giá trị mới).
+     * @param {string} value - 1 trong PLAYER_RESOLUTION_MODES[].value */
+    async changeResolutionMode(value) {
+        const kind = appConfigVisualBg.getAll().type;
+        const field = resolvePlayerResolutionField(kind); // core/player-display-settings.js
+        const mode = normalizePlayerResolutionMode(value);
+        appConfigVisualBg.mutateAll((cfg) => { cfg[field] = mode; });
+        console.log(`writer: "workflowVisualBg.changeResolutionMode", page: "visualBgConfig", content: "${field}=${mode}"`);
+        await this._persist();
+        if (appState.get('isVideoPlayerMode') || appState.get('isPhotoPlayerMode') || !this._isMediaEnabled()) return;
+        const refreshByType = {
+            video: () => this._refreshVideoResolution(), // event/workflow/visual-bg-video.js
+            photo: () => this._refreshPhotoResolution(), // event/workflow/visual-bg-photo.js
+        };
+        const refresh = refreshByType[kind];
+        if (refresh) refresh();
     },
 
     /** Ghi tên nguồn đang chọn vào `#visual-bg-source-name` + hiện/ẩn nút Làm tươi/Gỡ nguồn theo

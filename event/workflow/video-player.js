@@ -106,7 +106,8 @@ const workflowVideoPlayer = {
      *   (25/09/2026, đợt 4 Motion — THAY tham số `direction` cũ): HOOK do NƠI GỌI truyền, hàm này KHÔNG còn tự
      *   rẽ nhánh `isVideoPlayerMode` + gọi thẳng workflowPlayerDisplaySettings cho phần Motion/Resolution layer B
      *   (nguyên tắc tua vít — cơ chế đổi nguồn không biết ai đang dùng nó):
-     *   `onLayerBFilled()` — gọi NGAY sau khi thumb full-res vừa vào layer B (Player: khớp Resolution layer B).
+     *   `onLayerBFilled(record)` — gọi NGAY sau khi thumb full-res vừa vào layer B (Player: khớp Resolution layer B;
+     *   VBG — MỚI 30/09/2026: khớp Resolution VBG theo `record.width/height`).
      *   `runTransition()` — CHỈ gọi khi `isTransition` + record có `thumbFullBlob`: chạy Transition A->B rồi
      *   resolve (Player: preset Next/Prev qua Video surface). CÓ hook này thì hàm tự lo trọn bộ cơ chế layer
      *   A/B quanh nó (ẩn A bằng opacity trước khi đụng src, trả `.me-current` về A khi 'playing').
@@ -159,7 +160,9 @@ const workflowVideoPlayer = {
             // Player.
             // SỬA (25/09/2026, đợt 4) — qua hook `onLayerBFilled` của nơi gọi (Player truyền; VBG không cần) thay vì
             // tự check `isVideoPlayerMode` + gọi thẳng workflowPlayerDisplaySettings.
-            if (hooks && typeof hooks.onLayerBFilled === 'function') hooks.onLayerBFilled();
+            // SỬA (30/09/2026) — truyền `record`: cả Player lẫn VBG cần `record.width/height` của video MỚI cho 'trueMax'
+            // (bgVideoElement lúc này vẫn mang kích thước video CŨ).
+            if (hooks && typeof hooks.onLayerBFilled === 'function') hooks.onLayerBFilled(record);
 
             // Lần VÀO mode (không Transition): layer B mang `.motion-layer` (attachVideoPlayerMotionToSharedReactLayer())
             // nên MẶC ĐỊNH opacity:0 — phải gán `.me-current` (opacity 1, z-index 2) thì mới thấy được lúc video bị ẩn.
@@ -325,9 +328,12 @@ const workflowVideoPlayer = {
      * core/visual-bg.js) — KHÔNG viết lại logic decode/paint đó, chỉ bỏ hẳn bước gán `src`/`play()`
      * theo sau (Rule 3c: hàm con phục vụ tái dùng, không phải copy-paste).
      * @param {string} videoKey
+     * @param {((record: object) => void)|null} [onLayerBFilled=null] - MỚI (30/09/2026, Resolution VBG) — HOOK của nơi gọi,
+     *   CÙNG ý nghĩa hook `onLayerBFilled` của `swapBgVideoSource()`: gọi NGAY sau khi thumb vừa vào layer B (VBG: khớp
+     *   `background-size` theo Resolution VBG + kích thước gốc `record.width/height`). Không truyền -> như cũ.
      * @returns {Promise<boolean>} true nếu hiện được (record tồn tại + có `thumbFullBlob`).
      */
-    async showStaticBgThumb(videoKey) {
+    async showStaticBgThumb(videoKey, onLayerBFilled = null) {
         const record = await getVideoRecord(videoKey); // service/db.js
         if (!record || !record.thumbFullBlob) return false;
         bgVideoElement.pause();
@@ -341,6 +347,7 @@ const workflowVideoPlayer = {
         if (this._forcedBgObjectUrl) { try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {} }
         this._forcedBgObjectUrl = forcedUrl;
         applyVisualBgImageToDOM(true, forcedUrl); // core/visual-bg.js
+        if (typeof onLayerBFilled === 'function') onLayerBFilled(record); // MỚI 30/09/2026 — cùng task với dòng trên, chưa kịp paint size mặc định
         this._swapReadyPromise = null;
         return true;
     },
@@ -545,7 +552,7 @@ const workflowVideoPlayer = {
                 workflowVisualizerRender.activateCurrentStyle(); // event/workflow/visualizer-render.js — SỬA 28/09/2026, thay updateTypeUI() (core cũ)
                 workflowVisualizerRender.resetForNewMedia(); // cùng lý do bên Song — SỬA 28/09/2026, thay resetConnectorPerTrackState() gọi thẳng
             }, !isTransition, appState.get('gameplayArmedGameId') != null, { // SỬA (25/09/2026, đợt 4) — hook thay `direction`: Player tự quyết Transition (preset Next/Prev) + khớp Resolution layer B, xem docstring swapBgVideoSource()
-                onLayerBFilled: () => workflowPlayerDisplaySettings.syncVideoPlayerResolutionLayerB(), // event/workflow/player-display-settings.js
+                onLayerBFilled: (record) => workflowPlayerDisplaySettings.syncVideoPlayerResolutionLayerB(record), // event/workflow/player-display-settings.js — FIX 30/09/2026: kích thước gốc của video MỚI
                 runTransition: () => workflowPlayerDisplaySettings.runVideoPlayerTransition(direction), // event/workflow/player-display-settings.js
             }); // hideUntilReady=!isTransition — CHỈ lần VÀO mode (SỬA 21/09/2026: ẩn video tới khi 'playing', lộ thumb full-res layer B; Next/Prev đã có Transition lo) — SỬA (08/09/2026) thêm skipAutoplay: armed Game Mode thì chỉ nạp khung hình tĩnh, KHÔNG .play() ở swapBgVideoSource(), xem docstring hàm đó. `direction` MỚI (Giang yêu cầu Transition Video Player mode) — truyền THẲNG xuống, xem docstring swapBgVideoSource().
             if (!record) {

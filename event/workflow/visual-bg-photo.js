@@ -108,12 +108,30 @@ Object.assign(workflowVisualBg, {
                 transitionPreset: motionPreset,
                 pointMovePreset: motionPreset,
                 advanceMs,
+                backgroundSize: this._computePhotoResolutionCss(record), // MỚI 30/09/2026 — Resolution VBG (card Media)
                 getBeatPresetFn: () => this._getMotionBeatPreset(),
             });
         } catch (e) {
             revokeBlobUrl(objectUrl); // giao thất bại giữa chừng -> Engine chưa kịp giữ URL, VBG tự thu hồi
             throw e;
         }
+    },
+
+    /** MỚI (30/09/2026, Giang — dropdown Resolution ở card Media VBG, giống Player) — chuỗi `background-size` cho 1 ảnh
+     * VBG theo `photoResolutionMode` của VBG (KHÔNG phải của Player). Tái dùng ĐÚNG hàm tính của Player Photo
+     * (computePhotoPlayerBackgroundSizeCss(), core/player-display-apply.js — đo khung `visualBgPhotoMotionContainer`, CHÍNH
+     * khung Image surface mà VBG Photo đang dùng) — chỉ khác giá trị mode truyền vào. 'trueMax' cần `record.width/height`
+     * (record cũ thiếu -> 'contain').
+     * @param {object|null} record @returns {string} */
+    _computePhotoResolutionCss(record) {
+        return computePhotoPlayerBackgroundSizeCss(this._resolutionModeFor('photo'), record && record.width, record && record.height); // core/player-display-apply.js
+    },
+
+    /** Đổi Resolution sống lúc VBG Photo đang hiện ảnh — gọi từ changeResolutionMode(). No-op nếu surface không
+     * đang giữ ảnh của VBG (updateBackgroundSize() tự chặn sai owner). */
+    _refreshPhotoResolution() {
+        if (!this._photoRecord) return;
+        workflowVisualBgPhotoMotion.updateBackgroundSize(VISUAL_BG_IMAGE_SURFACE_OWNER, this._computePhotoResolutionCss(this._photoRecord)); // event/workflow/visual-bg-photo-motion.js
     },
 
     /** Bật/tắt hẹn giờ tự chuyển ảnh kế theo đúng điều kiện HIỆN TẠI — gọi lại MỖI LẦN điều kiện CÓ
