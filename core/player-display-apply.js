@@ -75,18 +75,22 @@ function clearVideoPlayerResolutionFromDOM() {
  * luôn) sẽ khiến 2 layer LỆCH kích thước, lộ layer B không khớp layer A qua khoảng hở (nếu
  * Resolution đang là kiểu có khoảng hở, vd 'trueMax').
  *
- * `naturalWidth`/`naturalHeight` dùng `bgVideoElement.videoWidth`/`.videoHeight` (KHÔNG dùng
- * `record.width`/`.height` như Photo Player mode — Video không có field đó) — tại thời điểm gọi từ
- * `swapBgVideoSource()` (đã `pause()` nhưng CHƯA đổi `src`), 2 giá trị này vẫn PHẢN ÁNH ĐÚNG video
- * VỪA dừng (chính là video mà layer B vừa chụp lại) — trùng tỉ lệ khung hình, đúng ý.
+ * FIX (30/09/2026, Giang) — kích thước gốc cho 'trueMax' giờ nhận qua tham số `naturalSize`. TRƯỚC ĐÂY luôn đọc
+ * `bgVideoElement.videoWidth`/`.videoHeight` — nhưng lúc gọi từ hook `onLayerBFilled` của `swapBgVideoSource()` (đã
+ * `pause()`, CHƯA đổi `src`) 2 giá trị đó là của video CŨ, trong khi layer B vừa nhận thumb full-res của video MỚI
+ * -> 2 video khác kích thước thì thumb cầu nối lệch size với video mới. Giờ nơi gọi truyền `{width,height}` của
+ * record video MỚI (có thể null ở record cũ -> 'contain'). KHÔNG truyền `naturalSize` (lúc vào mode / đổi Settings
+ * sống — layer B đang giữ thumb của CHÍNH video đang nạp) -> vẫn đọc `bgVideoElement.videoWidth` như cũ (đúng).
  * @param {string} resolutionMode - appConfigPlayerDisplay.getAll().videoResolutionMode, CÙNG giá
- *        trị vừa/đang áp cho layer A. */
-function applyVideoPlayerResolutionToLayerBDOM(resolutionMode) {
+ *        trị vừa/đang áp cho layer A.
+ * @param {{width: (number|null), height: (number|null)}} [naturalSize] - kích thước gốc của video có thumb ĐANG ở
+ *        layer B; bỏ trống -> đọc từ `bgVideoElement`. */
+function applyVideoPlayerResolutionToLayerBDOM(resolutionMode, naturalSize) {
     if (!visualBgImageElement) return; // core/dom-refs.js
     const containerWidth = visualBgImageElement.clientWidth || window.innerWidth;
     const containerHeight = visualBgImageElement.clientHeight || window.innerHeight;
-    const naturalWidth = (bgVideoElement && bgVideoElement.videoWidth) || null;
-    const naturalHeight = (bgVideoElement && bgVideoElement.videoHeight) || null;
+    const naturalWidth = naturalSize ? naturalSize.width : ((bgVideoElement && bgVideoElement.videoWidth) || null);
+    const naturalHeight = naturalSize ? naturalSize.height : ((bgVideoElement && bgVideoElement.videoHeight) || null);
     visualBgImageElement.style.backgroundSize = resolvePlayerBackgroundSizeCss(resolutionMode, naturalWidth, naturalHeight, containerWidth, containerHeight); // core/player-display-settings.js
 }
 

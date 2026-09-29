@@ -4,7 +4,7 @@
  * core/visual-bg-common.js. Điều phối ở event/workflow/visual-bg-video.js — vòng đời DOM thật của
  * `bgVideoElement` (đổi nguồn/ẩn/hiện/dọn object URL) sống ở event/workflow/video-player.js
  * (workflowVideoPlayer), dùng chung cho cả Video Player mode thật lẫn VBG trang trí.
- * NẠP SAU: core/visual-bg-common.js.
+ * NẠP SAU: core/visual-bg-common.js. 3 hàm Resolution cuối file (MỚI 30/09/2026) đọc core/dom-refs.js lúc CHẠY.
  */
 
 /**
@@ -67,4 +67,32 @@ const VISUAL_BG_VIDEO_AUDIO_GAIN_CEILING = 0.9;
 function resolveVisualBgVideoAudioGain(volumePercent) {
     const clamped = Math.min(VISUAL_BG_VIDEO_AUDIO_VOLUME_MAX, Math.max(VISUAL_BG_VIDEO_AUDIO_VOLUME_MIN, volumePercent));
     return (clamped / 100) * VISUAL_BG_VIDEO_AUDIO_GAIN_CEILING;
+}
+
+// ===================== Resolution VBG Video (MỚI 30/09/2026, Giang — dropdown Resolution ở card Media VBG,
+// giống Player) — 3 hàm Core-DOM dưới: KHÔNG tự đọc config/appState (Rule 2), nhận chuỗi CSS ĐÃ TÍNH SẴN qua tham
+// số (Workflow tính bằng resolvePlayerObjectFitCss()/resolvePlayerBackgroundSizeCss(), core/player-display-
+// settings.js — KHÔNG gọi chéo core->core ở đây), CHỈ gán lên 2 biến DOM tĩnh `bgVideoElement` (layer A) /
+// `visualBgImageElement` (layer B — cầu nối thumb full-res của Video surface / thumb placeholder lúc Song dừng),
+// core/dom-refs.js. Chuỗi rỗng = gỡ override, trả CSS tĩnh mặc định (`cover`, assets/css/base.css). =====================
+
+/** Core-DOM — `object-fit` của layer A (`bgVideoElement`). @param {string} objectFitCss - '' = gỡ override */
+function applyVisualBgVideoResolutionToDOM(objectFitCss) {
+    if (!bgVideoElement) return; // core/dom-refs.js
+    bgVideoElement.style.objectFit = objectFitCss || '';
+}
+
+/** Core-DOM — `background-size` của layer B (`visualBgImageElement`), PHẢI khớp layer A để thumb cầu nối/placeholder
+ * không lệch kích thước với video thật. @param {string} backgroundSizeCss - '' = gỡ override */
+function applyVisualBgVideoBridgeSizeToDOM(backgroundSizeCss) {
+    if (!visualBgImageElement) return; // core/dom-refs.js
+    visualBgImageElement.style.backgroundSize = backgroundSizeCss || '';
+}
+
+/** Core-DOM (chỉ ĐỌC) — kích thước khung chứa layer B (đang ẩn/đo ra 0 -> fallback viewport, cùng cách
+ * applyVideoPlayerResolutionToLayerBDOM() của Player). @returns {{width:number, height:number}} */
+function measureVisualBgVideoFrame() {
+    const width = (visualBgImageElement && visualBgImageElement.clientWidth) || window.innerWidth; // core/dom-refs.js
+    const height = (visualBgImageElement && visualBgImageElement.clientHeight) || window.innerHeight;
+    return { width, height };
 }

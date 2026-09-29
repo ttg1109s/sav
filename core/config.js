@@ -460,6 +460,16 @@
             // Chỉ có ý nghĩa khi type==='video' — bgVideoElement có theo tốc độ phát chung
             // (playbackSpeed, DEFAULT_VIZ_CONFIG) hay giữ cố định 1x. Mặc định false.
             videoSyncPlaybackSpeed: false,
+            // MỚI (30/09/2026, Giang — "dropdown resolution cho media VBG giống Player") — cách media VBG (ảnh/video)
+            // lấp khung màn Visualizer: CÙNG bộ giá trị + ngữ nghĩa với Player (PLAYER_RESOLUTION_MODES, core/player-
+            // display-settings.js): 'fill' (MẶC ĐỊNH — phóng từ giữa lấp đầy, giữ tỉ lệ, cắt phần dư; trùng hành vi cũ
+            // `cover` của CSS tĩnh) | 'stretch' (kéo giãn, KHÔNG giữ tỉ lệ) | 'trueMax' (giữ kích thước gốc, chỉ co nếu
+            // vượt khung). SỬA (30/09/2026, Giang) — giá trị RIÊNG cho Video và Photo của VBG (CÙNG tên field với
+            // domain 'playerDisplay', ghép qua resolvePlayerResolutionField(kind)) — dropdown ở card Media hiện/ghi field
+            // của `type` đang chọn. ĐỘC LẬP hoàn toàn với Resolution của Player.
+            // Xem workflowVisualBg.changeResolutionMode() (event/workflow/visual-bg-common.js).
+            videoResolutionMode: 'fill',
+            photoResolutionMode: 'fill',
         };
 
         const DEFAULT_READER_CONFIG = {
@@ -646,6 +656,7 @@
                 durationMode: 'string', durationSeconds: 'number',
                 motionPresetId: 'nullable-string',
                 videoSyncPlaybackSpeed: 'boolean',
+                videoResolutionMode: 'string', photoResolutionMode: 'string', // MỚI 30/09/2026 — xem DEFAULT_VISUAL_BG_CONFIG
             },
             defaults: DEFAULT_VISUAL_BG_CONFIG,
         });
