@@ -374,7 +374,7 @@
     <script src="lang/patch/patch-common.js?v=20260924v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260921v7"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260929zm1"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260929zs1"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260930vbgres2"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260921v9"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 2 drawer con Song/Photo & Album, xem plan-v12-multimedia-decisions.md). -->
@@ -471,7 +471,7 @@
     <!-- Batch 8, ver 12 "Multi Media" — Motion Settings Drawer (Cấu hình Transition/Ken Burns/
          React Beat Audio, hệ preset độc lập — xem components/motion-settings-drawer.js). -->
     <script src="components/motion-settings-drawer.js?v=20260925r2"></script>
-    <script src="components/visual-bg-settings-drawer.js?v=20260929vbg1"></script>
+    <script src="components/visual-bg-settings-drawer.js?v=20260930vbgres2"></script>
     <script src="components/visual-bg-gradient-drawer.js?v=20260924r1"></script>
     <script src="components/visual-bg-video-audio-drawer.js?v=20260923v1"></script>
     <!-- MỚI (Giang yêu cầu "Player" — Resolution + Motion của Video/Photo lúc phát chính) — CẦN
@@ -577,7 +577,7 @@
          restoreDefaultVizConfig/saveConfig/loadConfig) — KHÔNG còn giữ Z_INDEX/global
          error-handler (dời ở trên) hay CONST dùng chéo domain khác (nay sống trong đúng package
          service/state/*.js). PHẢI nạp SAU service/state.js (cần class AppConfig). -->
-    <script src="core/config.js?v=20260929zs1"></script>
+    <script src="core/config.js?v=20260930vbgres2"></script>
     <!-- core/custom-effect.js — Core thuần hệ Custom Effect (getEffectConfig/setCustomEffectField),
          NẠP NGAY SAU core/config.js (cần DEFAULT_CUSTOM_EFFECT/appConfigViz) — mọi hàm vẽ/scene-setup
          phía dưới đều cần file này. -->
@@ -757,7 +757,7 @@
     <!-- MỚI (Giang yêu cầu "Resolution cho player video&photo, không liên quan VBG") — Core-DOM áp/gỡ
          object-fit/background-size THẬT lên bgVideoElement/visualBgImageElement, xem core/player-
          display-apply.js. NẠP SAU core/dom-refs.js (đã nạp từ trước, dòng 517) + file phía trên. -->
-    <script src="core/player-display-apply.js?v=20260925p3"></script>
+    <script src="core/player-display-apply.js?v=20260930vbgres2"></script>
     <!-- MỚI — Core-UI (Rule 5c, hậu tố -ui.js) dựng đường cong Timing cho Point Move 'all' mode,
          xem core/point-move-timing-ui.js. NẠP SAU core/motion-presets.js/motion-engine.js. -->
     <script src="core/point-move-timing-ui.js?v=20260903v5"></script>
@@ -800,7 +800,7 @@
          photo (chỉ tách file tổ chức, vẫn 1 hệ thống). Nạp SAU service/state.js + core/dom-refs.js,
          common PHẢI nạp trước video/photo. -->
     <script src="core/visual-bg-common.js?v=20260904v1"></script>
-    <script src="core/visual-bg-video.js?v=20260904v1"></script>
+    <script src="core/visual-bg-video.js?v=20260930vbgres2"></script>
     <script src="core/visual-bg-photo.js?v=20260904v1"></script>
     <!-- core/subtitle/subtitles.js ĐÃ CHUYỂN (10/07/2026) — CHỈ nạp ở subtitle-editor.html giờ
          (soạn phụ đề chuyển sang trang riêng). core/subtitle/subtitle-display.js (hiển thị phụ đề
@@ -1132,7 +1132,7 @@
          'playerDisplay', GIAI ĐOẠN 1 — CHƯA có cơ chế áp dụng lên runtime), xem event/workflow/
          player-display-settings.js. NẠP TRƯỚC event/workflow/app-settings.js (gọi trực tiếp, không
          qua router riêng) và event/workflow/app-boot.js (gọi loadPersistedPlayerDisplayOnBoot()). -->
-    <script src="event/workflow/player-display-settings.js?v=20260929zs1"></script>
+    <script src="event/workflow/player-display-settings.js?v=20260930vbgres2"></script>
     <!-- MỚI (23/09/2026) — workflowPagination: domain 'pagination' (load/ghi bền) + CỬA DUY NHẤT để 1 danh
          sách dùng pagination theo cài đặt chung. NẠP TRƯỚC event/workflow/app-settings.js (gọi trực tiếp)
          và event/workflow/app-boot.js (loadPersistedPaginationOnBoot()). -->
@@ -1140,11 +1140,11 @@
 
     <!-- Cụm "visualBg" — Workflow tách 3 file: common (định nghĩa `workflowVisualBg`), video/photo
          (`Object.assign()` thêm vào) — common PHẢI nạp trước video/photo. -->
-    <script src="event/workflow/visual-bg-common.js?v=20260929vbg1"></script>
-    <script src="event/workflow/visual-bg-video.js?v=20260929va1"></script>
-    <script src="event/workflow/visual-bg-photo.js?v=20260929vbg1"></script>
-    <script src="event/router/visual-bg.js?v=20260929va1"></script>
-    <script src="event/listener/visual-bg.js?v=20260929vbg1"></script>
+    <script src="event/workflow/visual-bg-common.js?v=20260930vbgres2"></script>
+    <script src="event/workflow/visual-bg-video.js?v=20260930vbgres2"></script>
+    <script src="event/workflow/visual-bg-photo.js?v=20260930vbgres2"></script>
+    <script src="event/router/visual-bg.js?v=20260930vbgres2"></script>
+    <script src="event/listener/visual-bg.js?v=20260930vbgres2"></script>
 
     <!-- Cụm "gestureSettings" — panel Settings "Cử chỉ", cùng khuôn push/pop Settings Stack. Chia
          4 section (Điều hướng/Tap/Seek/Vuốt cạnh — components/gesture-settings-drawer.js).
@@ -1250,7 +1250,7 @@
          mediaType khi click video trong Playlist (đi qua eventBus để Block gate chặn khoá chéo với
          Video nền). PHẢI nạp SAU event/workflow/video-player.js (cần workflowVideoPlayer.
          startFromPlaylist() đã tồn tại). -->
-    <script src="event/workflow/video-player.js?v=20260929zs1"></script>
+    <script src="event/workflow/video-player.js?v=20260930vbgres2"></script>
     <script src="event/router/video-player.js?v=20260929cap1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
     <!-- MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — event/workflow/photo-
