@@ -103,6 +103,12 @@ const routerAppSettings = (() => {
                 break;
             }
 
+            // MỚI (29/09/2026, Giang) — nút reset nhanh zoom/pan (Player > Video/Photo > Zoom).
+            case 'appSettings.player.zoom.reset.click': {
+                workflowAppSettings.handlePlayerZoomReset(msg.payload.kind);
+                break;
+            }
+
             // SỬA (24/09/2026, Giang yêu cầu — xoá cơ chế đăng ký Motion vào nơi tiêu thụ) — THAY case
             // 'appSettings.player.motionSlot.change' (select cũ): hàng Motion giờ mở THẲNG màn Chọn của Motion.
             // Chuẩn bị state (đọc id đang gắn) + điều hướng -> Workflow của domain 'playerDisplay' (liên tuyến).
