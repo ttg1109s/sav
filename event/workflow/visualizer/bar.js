@@ -94,9 +94,9 @@ const workflowVizBar = {
     },
 
     /** Khung nhìn đổi: rải lại sao Black Hole (thay phần tương ứng của resizeCanvas() cũ). SỬA (29/09/2026) — chớp sao
-     * (`starFlashes`) đã bỏ hẳn; sao nhận số ô màu (theo Color mode). Lớp glow tự dựng lại theo kích thước ở frame kế. */
+     * (`starFlashes`) đã bỏ hẳn. Lớp glow tự dựng lại theo kích thước ở frame kế. */
     onResize(viewport) {
-        appState.set('stars', buildBlackHoleStars(getEffectConfig('bar').starCount, Math.max(canvas.width, canvas.height), viewport.dpr, BLACK_HOLE_STAR_COLOR_SLOTS)); // core/canvas-scene-setup.js + core/custom-effect.js
+        appState.set('stars', buildBlackHoleStars(getEffectConfig('bar').starCount, Math.max(canvas.width, canvas.height), viewport.dpr)); // core/canvas-scene-setup.js + core/custom-effect.js
         console.log('writer: "workflowVizBar.onResize", page: "stars", content: "rải lại sao Black Hole"');
     },
 
@@ -118,8 +118,9 @@ const workflowVizBar = {
     },
 
     // ===================== black hole =====================
-    // CẢI TIẾN (29/09/2026, Giang duyệt) — xem docblock core/visualizer/groups/bar/black-hole.js: dải tần LOG (core mirror),
-    // envelope cột + mọi bước theo dt, màu theo Color mode, glow qua lớp phụ, sao thành vệt, tia bức xạ Hawking; bỏ chớp sao.
+    // CẢI TIẾN (29/09/2026, Giang duyệt) — xem docblock core/visualizer/groups/bar/black-hole.js: envelope cột + mọi bước
+    // theo dt, flare/tia theo Color mode, glow qua lớp phụ, sao vệt cong (màu gốc), tia bức xạ Hawking; bỏ chớp sao.
+    // Mức cột HOÀN NGUYÊN ánh xạ cũ (FFT 256, 35% phổ) — bỏ dải LOG qua core mirror (Giang: lộn xộn).
     // Thứ tự lớp: flare -> sao -> tia Hawking -> glow cột -> cột -> tâm (tia nằm SAU vòng cột).
 
     /** Trạng thái Black Hole (KHÔNG thuộc STATE): bán kính nền đã mượt (thay biến global `smoothedBeatRadius` cũ ở
@@ -164,11 +165,10 @@ const workflowVizBar = {
         paintBlackHoleFlare(frame.ctx, frame.canvas.width, frame.canvas.height, centerX, centerY, currentRadius, rgb, flareAlpha); // core
     },
 
-    /** Sao: bước vật lý theo dt rồi vẽ vệt — bảng màu Color mode resolve 1 lần/frame (mỗi sao giữ 1 ô cố định). */
+    /** Sao: bước vật lý theo dt rồi vẽ (chấm sao màu gốc + vệt cong dọc quỹ đạo). */
     _drawBlackHoleStars(frame, centerX, centerY, maxDist, currentRadius, currentSuction, dt) {
         stepBlackHoleStars(maxDist, currentRadius, currentSuction, dt / BLACK_HOLE_FRAME_MS); // core
-        const palette = Array.from({ length: BLACK_HOLE_STAR_COLOR_SLOTS }, (_, i) => getComputedColor(i, BLACK_HOLE_STAR_COLOR_SLOTS, 170).fillNoAlpha); // core/audio-analysis.js
-        drawBlackHoleStarStreaks(frame.ctx, appState.get('stars'), centerX, centerY, maxDist, currentRadius, frame.dpr, palette); // core
+        drawBlackHoleStarStreaks(frame.ctx, appState.get('stars'), centerX, centerY, maxDist, currentRadius, frame.dpr); // core
     },
 
     /** Tia bức xạ Hawking: bắn tia mới nếu có beat mạnh, già đi theo dt, đổi hình tia chớp định kỳ, vẽ. */
@@ -203,15 +203,14 @@ const workflowVizBar = {
         renewBlackHoleBolt(burst); // core
     },
 
-    /** Vòng cột: số dải = số cột nửa vòng (theo chu vi đầu cột) -> mức LOG (core mirror) -> envelope theo dt -> cột ->
-     * glow (lớp phụ) -> tô theo chiều kim đồng hồ + khép vòng. */
+    /** Vòng cột: số cột nửa vòng (theo chu vi đầu cột) -> mức theo ánh xạ cũ -> envelope theo dt -> cột -> glow (lớp phụ)
+     * -> tô theo chiều kim đồng hồ + khép vòng. */
     _drawBlackHoleRing(frame, centerX, centerY, minDimension, currentRadius, dt) {
-        const { ctx, cfg, dpr, analyser } = frame;
+        const { ctx, cfg, dpr } = frame;
         const bh = this._blackHole;
-        const bandCount = computeBlackHoleBandCount(this._resolveBlackHoleHalfCount(cfg, currentRadius, dpr, dt)); // core
-        const rawLevels = computeBarMirrorLevels(frame.vizDataArray, analyser.frequencyBinCount, analyser.context.sampleRate, analyser.minDecibels, analyser.maxDecibels, bandCount, BLACK_HOLE_BAR_TILT_DB); // core/visualizer/groups/bar/mirror.js
-        const targetLevels = spreadBarMirrorLevels(rawLevels, BLACK_HOLE_BAR_SPREAD); // core/visualizer/groups/bar/mirror.js
-        bh.levels = stepBlackHoleBarEnvelope(resampleBlackHoleLevels(bh.levels, bandCount), targetLevels, dt); // core
+        const layout = computeBlackHoleBarLayout(this._resolveBlackHoleHalfCount(cfg, currentRadius, dpr, dt), frame.bufferLength); // core
+        const targetLevels = computeBlackHoleBarLevels(frame.vizDataArray, layout.usefulLength, layout.spanBins); // core
+        bh.levels = stepBlackHoleBarEnvelope(resampleBlackHoleLevels(bh.levels, layout.usefulLength), targetLevels, dt); // core
         const dynamicMaxBarHeight = (cfg.maxH / 1000) * (minDimension * 0.25);
         const bars = computeBlackHoleBarsFrame(bh.levels, cfg.minH, dpr, dynamicMaxBarHeight); // core
         bh.meanHeight = computeBlackHoleMeanBarHeight(bars); // core — frame sau đếm cột theo đầu cột
