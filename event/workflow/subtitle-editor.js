@@ -653,7 +653,7 @@ const workflowSubtitleEditor = {
 
     /** Dựng header+body Generic Drawer từ `_karaokeWords` hiện tại — CHỈ gọi lúc MỞ drawer (dựng lại
      * DOM + tạo lại WaveSurfer mini, quá nặng cho mỗi lần kéo/gõ); kéo/gõ tự vá DOM trực tiếp qua
-     * _syncKaraokeWordInputs()/_renderKaraokeMarkers()/_renderKaraokeLabels(). */
+     * _syncKaraokeWordInputs()/_renderKaraokeRegions(). */
     _renderKaraokeDrawer() {
         const config = {
             height: 'auto',
@@ -712,22 +712,21 @@ const workflowSubtitleEditor = {
     },
 
     /** VIẾT LẠI (30/09/2026, Giang báo "Unable to load the mini waveform" + "play của word chỉ được
-     * play ở mini waveform này").
+     * play ở mini waveform này"; SỬA LẦN 2 cùng ngày: phát từ bằng Web Audio, chỉ bôi xanh vùng phát,
+     * chữ nằm TRONG vùng chia từng từ, cuộn ngang cho dòng dài/nhiều từ).
      *
-     * NGUYÊN NHÂN LỖI CŨ: bản trước tạo WaveSurfer mini TẢI + GIẢI MÃ LẠI NGUYÊN CẢ BÀI (lần giải mã
-     * thứ 2, song song waveform chính) rồi zoom/cuộn cho vừa đúng dòng — nặng, dễ hỏng trên iOS
-     * (decodeAudioData lần 2 thất bại -> 'error'), canvas cả bài rộng hàng chục nghìn px. Nghe từng từ
-     * lại chạy qua waveform CHÍNH (seek <audio> MP3 — xấp xỉ, không chính xác tới từng từ).
+     * NGUYÊN NHÂN LỖI GỐC: bản đầu tạo WaveSurfer mini TẢI + GIẢI MÃ LẠI NGUYÊN CẢ BÀI (lần giải mã thứ
+     * 2, song song waveform chính) — nặng, dễ hỏng trên iOS.
      *
-     * BẢN MỚI: waveform mini chỉ chứa ĐÚNG đoạn [start,end] của dòng (trục thời gian mini: 0 = start
-     * dòng, lấp đầy khung, không cuộn):
+     * CÁCH LÀM: waveform mini chỉ chứa ĐÚNG đoạn [start,end] của dòng (trục mini: 0 = start dòng):
      *   1. Nguồn PCM mono (`_getKaraokeSourceAudio()`): giải mã file gốc 1 LẦN/phiên trang ở
-     *      KARAOKE_DECODE_SAMPLE_RATE (nghe rõ chữ), cache lại cho mọi dòng; lỗi/bài quá dài -> dùng
-     *      lại PCM 8000Hz WaveSurfer chính ĐÃ giải mã sẵn (getDecodedData(), không giải mã thêm).
-     *   2. Cắt đúng đoạn -> peaks (vẽ sóng, KHÔNG để WaveSurfer tự giải mã) + WAV PCM 16-bit (audio
-     *      riêng của waveform mini — seek chính xác tới từng mẫu) — core/audio-segment.js.
-     *   3. WaveSurfer mini load(url WAV, peaks, duration) — có media riêng, nút ▶ từng từ phát TRÊN nó
-     *      (progress/con trỏ chạy trên waveform mini), waveform chính không bị đụng tới.
+     *      KARAOKE_DECODE_SAMPLE_RATE, cache cho mọi dòng; lỗi/bài quá dài -> PCM 8000Hz của waveform chính.
+     *   2. Cắt đúng đoạn (`_karaokeSegment`) -> peaks để VẼ (WaveSurfer không tự giải mã gì) + 1 WAV nhỏ
+     *      CHỈ để <audio> nội bộ của WaveSurfer có nguồn hợp lệ (không phát qua nó — xem
+     *      _toggleKaraokeWordPlay(): phát bằng Web Audio trên CHÍNH đoạn PCM này).
+     *   3. Bề rộng: mỗi từ trung bình ≥ KARAOKE_MINI_MIN_WORD_PX — dòng ngắn/ít từ vừa khung, dòng
+     *      dài/nhiều từ tự rộng hơn khung -> vuốt ngang để cuộn (`touch-action: pan-x` ở khung, mốc chia
+     *      `touch-action: none` để vẫn kéo được).
      * Lỗi bất kỳ bước nào -> báo lỗi NGAY TRONG khung, nút ▶ giữ khoá (ô ms vẫn dùng được). */
     async _initKaraokeMiniWaveform() {
         const token = appState.get('_karaokeInitToken') + 1;
@@ -745,25 +744,32 @@ const workflowSubtitleEditor = {
             if (!source) throw new Error('Không có dữ liệu PCM (cả giải mã riêng lẫn getDecodedData() đều không có).');
             const segment = sliceMonoSamples(source.samples, source.sampleRate, appState.get('_karaokeLineStart'), appState.get('_karaokeLineEnd')); // core/audio-segment.js
             if (segment.length === 0) throw new Error('Đoạn audio của dòng rỗng (start/end nằm ngoài bài?).');
-            const segmentDurationSec = segment.length / source.sampleRate;
-            const peaks = computeMonoPeaks(segment, KARAOKE_MINI_PEAK_BUCKETS); // core/audio-segment.js
-            const wavBuffer = encodeMonoWavPcm16(segment, source.sampleRate); // core/audio-segment.js
-            const url = URL.createObjectURL(new Blob([wavBuffer], { type: 'audio/wav' }));
+            const durationSec = segment.length / source.sampleRate;
+            appState.set('_karaokeSegment', { samples: segment, sampleRate: source.sampleRate });
+            appState.set('_karaokeSegmentBuffer', null); // AudioBuffer dựng lười lúc bấm ▶ lần đầu (cần AudioContext)
+
+            const viewWidth = containerEl.clientWidth > 0 ? containerEl.clientWidth : 300; // drawer vừa mở có thể chưa kịp layout
+            const wordCount = appState.get('_karaokeWords').length;
+            // `viewWidth - 1`: dòng vừa khung thì chắc chắn KHÔNG tràn 1px do làm tròn (hiện thanh cuộn thừa).
+            const pxPerSec = Math.max(viewWidth - 1, KARAOKE_MINI_MIN_WORD_PX * wordCount) / durationSec;
+            appState.set('_karaokeMiniPxPerSec', pxPerSec);
+            const peaks = computeMonoPeaks(segment, Math.max(KARAOKE_MINI_PEAK_BUCKETS, Math.ceil(pxPerSec * durationSec * 2))); // core/audio-segment.js
+            const url = URL.createObjectURL(new Blob([encodeMonoWavPcm16(segment, source.sampleRate)], { type: 'audio/wav' })); // core/audio-segment.js
             appState.set('_karaokeAudioUrl', url);
             appState.set('_karaokeRegionsPlugin', WaveSurfer.Regions.create());
             const ws = WaveSurfer.create({
                 container: containerEl,
-                height: 80, // số CỐ ĐỊNH khớp height:80px của #karaoke-mini-waveform (components/subtitle-karaoke-drawer.js)
+                height: KARAOKE_MINI_HEIGHT_PX, // khớp height của #karaoke-mini-waveform (components/subtitle-karaoke-drawer.js)
                 waveColor: '#94a3b8',
-                progressColor: '#0ea5e9',
-                cursorColor: '#0284c7',
-                cursorWidth: 2,
+                progressColor: '#94a3b8', // SỬA — KHÔNG tô tiến trình từ đầu dòng; chỉ bôi xanh ĐÚNG vùng đang phát (region highlight, _tickKaraokeWordProgress())
+                cursorWidth: 0,
                 normalize: true,
                 interact: false, // chạm vào sóng KHÔNG seek — chỉ kéo mốc chia + nút ▶ từng từ
                 dragToSeek: false,
                 autoScroll: false,
                 autoCenter: false,
-                fillParent: true, // đoạn dòng lấp ĐẦY bề rộng khung, không cuộn
+                minPxPerSec: pxPerSec,
+                fillParent: true,
                 plugins: [appState.get('_karaokeRegionsPlugin')],
             });
             appState.set('_karaokeWavesurfer', ws);
@@ -772,20 +778,15 @@ const workflowSubtitleEditor = {
                 appState.set('_karaokeMiniReady', true);
                 const loadingEl = document.getElementById('karaoke-mini-waveform-loading');
                 if (loadingEl) loadingEl.classList.add('hidden');
-                this._renderKaraokeMarkers();
-                this._renderKaraokeLabels();
+                this._renderKaraokeRegions();
                 this._setKaraokeWordPlayEnabled(true);
             });
-            ws.on('timeupdate', (currentTime) => this._onKaraokeMiniTimeUpdate(currentTime));
-            ws.on('play', () => this._updateKaraokeWordPlayIcons());
-            ws.on('pause', () => this._resetKaraokeWordPlayback());
-            ws.on('finish', () => this._resetKaraokeWordPlayback());
             ws.on('error', (err) => {
                 console.error('[subtitle-editor] karaoke mini waveform lỗi:', err);
                 this._showKaraokeWaveformError();
             });
-            // peaks + duration truyền sẵn -> WaveSurfer KHÔNG fetch/giải mã gì, chỉ gắn WAV vào <audio> riêng của nó.
-            ws.load(url, [peaks], segmentDurationSec).catch((err) => {
+            // peaks + duration truyền sẵn -> WaveSurfer KHÔNG fetch/giải mã gì.
+            ws.load(url, [peaks], durationSec).catch((err) => {
                 console.error('[subtitle-editor] karaoke mini waveform load() bị reject:', err);
                 this._showKaraokeWaveformError();
             });
@@ -851,89 +852,112 @@ const workflowSubtitleEditor = {
     },
 
     _destroyKaraokeMiniWaveform() {
+        this._stopKaraokeWordPlayback();
         appState.set('_karaokeMiniReady', false);
-        appState.set('_karaokePlayingIndex', null);
+        appState.set('_karaokeLabelRegions', []);
+        appState.set('_karaokeMarkerRegions', []);
         if (appState.get('_karaokeWavesurfer')) {
             try { appState.get('_karaokeWavesurfer').destroy(); } catch (e) { /* im lặng — instance có thể đã hỏng sẵn */ }
             appState.set('_karaokeWavesurfer', null);
         }
         appState.set('_karaokeRegionsPlugin', null);
+        appState.set('_karaokeSegment', null);
+        appState.set('_karaokeSegmentBuffer', null);
         if (appState.get('_karaokeAudioUrl')) {
             URL.revokeObjectURL(appState.get('_karaokeAudioUrl'));
             appState.set('_karaokeAudioUrl', null);
         }
     },
 
-    /** Vẽ lại TOÀN BỘ mốc chia trên waveform mini theo `_karaokeWords` hiện tại — xoá hết region cũ,
-     * dựng lại từ đầu (N-1 mốc, N = số từ — bỏ mốc đầu/cuối dòng, CỐ ĐỊNH không kéo được). Mốc =
-     * Region "điểm" (start===end). SỬA (30/09/2026): giờ TƯƠNG ĐỐI (0 = start dòng — waveform mini chỉ
-     * chứa đúng đoạn dòng) + mỗi mốc có 1 núm tròn ở chân (vạch 2px trần quá mảnh, khó bắt bằng ngón tay). */
-    _renderKaraokeMarkers() {
+    /** Dựng lại TOÀN BỘ region của waveform mini theo `_karaokeWords` hiện tại (gọi lúc 'ready' + sau khi
+     * gõ ô ms). 2 lớp, THỨ TỰ quan trọng (dựng sau nằm trên):
+     *   1. Vùng TỪ (N region [đầu từ, cuối từ]) — chữ của từ nằm TRONG vùng đó (SỬA 30/09/2026, Giang:
+     *      "word ghi bên trong vùng chia của từng từ" — thay dải nhãn riêng bên dưới), nền xen kẽ nhạt để
+     *      phân biệt từ liền kề. Region nằm trong vùng cuộn của WaveSurfer nên chữ cuộn theo sóng.
+     *      `pointer-events: none` — không chặn thao tác kéo mốc.
+     *   2. Mốc chia (N-1 region điểm start===end) + núm tròn ở chân để bắt bằng ngón tay;
+     *      `touch-action: none` — khung cho vuốt ngang để cuộn, riêng mốc thì kéo được.
+     * Region highlight đang phát (nếu có) KHÔNG bị xoá. */
+    _renderKaraokeRegions() {
         const regionsPlugin = appState.get('_karaokeRegionsPlugin');
         if (!regionsPlugin || !appState.get('_karaokeMiniReady')) return;
-        regionsPlugin.getRegions().forEach((r) => r.remove());
-        const boundaries = computeKaraokeWordBoundariesMs(appState.get('_karaokeWords')); // core
+        appState.get('_karaokeLabelRegions').forEach((r) => r.remove());
+        appState.get('_karaokeMarkerRegions').forEach((r) => r.remove());
+        const words = appState.get('_karaokeWords');
+        const boundaries = computeKaraokeWordBoundariesMs(words); // core
+
+        const labelRegions = words.map((w, i) => {
+            const label = document.createElement('div');
+            label.textContent = w.word;
+            label.style.cssText = 'width:100%;box-sizing:border-box;padding:3px 3px 0;font-size:11px;line-height:13px;font-weight:600;color:#334155;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 0 3px #fff,0 0 3px #fff;pointer-events:none';
+            const region = regionsPlugin.addRegion({
+                start: boundaries[i] / 1000,
+                end: boundaries[i + 1] / 1000,
+                drag: false,
+                resize: false,
+                color: i % 2 === 0 ? 'rgba(148, 163, 184, 0.14)' : 'rgba(148, 163, 184, 0.04)',
+            });
+            // Gắn chữ THẲNG vào element của region, KHÔNG qua option `content`: Regions v7 tự "né chồng lấn"
+            // mọi `content` (đẩy margin-top xuống khi 2 content giao nhau theo chiều ngang) — chữ các từ liền
+            // kề + núm mốc chia sẽ bị đẩy lệch lung tung.
+            if (region.element) {
+                region.element.style.pointerEvents = 'none';
+                region.element.appendChild(label);
+            }
+            return region;
+        });
+
+        const markerRegions = [];
         for (let i = 1; i < boundaries.length - 1; i++) {
-            const timeSec = boundaries[i] / 1000;
             const handle = document.createElement('div');
             handle.style.cssText = 'position:absolute;left:-10px;bottom:3px;width:18px;height:18px;border-radius:9999px;background:#f59e0b;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35)';
             const region = regionsPlugin.addRegion({
-                start: timeSec,
-                end: timeSec,
+                start: boundaries[i] / 1000,
+                end: boundaries[i] / 1000,
                 drag: true,
                 resize: false,
                 color: 'rgba(245, 158, 11, 0.95)',
-                content: handle,
             });
+            if (region.element) {
+                region.element.style.touchAction = 'none';
+                region.element.appendChild(handle); // cùng lý do chữ vùng từ ở trên — không qua `content`
+            }
             const dividerIndex = i - 1; // mốc GIỮA words[dividerIndex] và words[dividerIndex+1]
-            region.on('update', () => this._onKaraokeMarkerDrag(dividerIndex, region)); // bắn LIÊN TỤC lúc đang kéo — đủ rẻ, không cần đợi drag xong
+            region.on('update', () => this._onKaraokeMarkerDrag(dividerIndex, region)); // bắn LIÊN TỤC lúc đang kéo
+            markerRegions.push(region);
         }
-    },
-
-    /** MỚI (30/09/2026) — dải nhãn TỪ ngay dưới waveform mini: mỗi từ đặt đúng khoảng giữa 2 mốc chia
-     * (theo % tổng thời lượng dòng — khớp toạ độ Regions vì sóng lấp đầy khung), để nhìn là biết đoạn
-     * nào là từ nào lúc kéo mốc. Dựng lại toàn bộ mỗi lần (vài chục span, rẻ). */
-    _renderKaraokeLabels() {
-        const labelsEl = document.getElementById('karaoke-mini-labels');
-        if (!labelsEl) return;
-        const words = appState.get('_karaokeWords');
-        const boundaries = computeKaraokeWordBoundariesMs(words); // core
-        const total = boundaries[boundaries.length - 1] || 1;
-        labelsEl.innerHTML = words.map((w, i) => {
-            const left = (boundaries[i] / total) * 100;
-            const width = ((boundaries[i + 1] - boundaries[i]) / total) * 100;
-            return `<span style="position:absolute;top:0;left:${left}%;width:${width}%;height:16px;line-height:16px;font-size:10px;text-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#64748b">${escapeHtml(w.word)}</span>`; // core/modal-choice-ui.js (escapeHtml)
-        }).join('');
+        appState.set('_karaokeLabelRegions', labelRegions);
+        appState.set('_karaokeMarkerRegions', markerRegions);
     },
 
     /** Ứng với 1 mốc chia đang được kéo tay trên waveform mini — vị trí MỚI (giây, TƯƠNG ĐỐI trong
-     * dòng) -> ms, giao redistributeKaraokeBoundary() (core) tính lại. WaveSurfer không tự biết ràng
-     * buộc "2 mốc liền kề không được vượt qua nhau" — sau khi core kẹp lại, tự setOptions() ngược vào
-     * region về ĐÚNG giá trị đã kẹp (lệch < 1ms thì thôi, không lặp vô hạn). */
+     * dòng) -> ms, giao redistributeKaraokeBoundary() (core) tính lại. Kẹp xong tự setOptions() ngược
+     * vào mốc (lệch < 1ms thì thôi, không lặp vô hạn) + dời 2 vùng TỪ liền kề theo (không dựng lại —
+     * đang kéo). */
     _onKaraokeMarkerDrag(dividerIndex, region) {
         const newBoundaryMs = Math.round(region.start * 1000);
         const words = redistributeKaraokeBoundary(appState.get('_karaokeWords'), dividerIndex, newBoundaryMs); // core
         appState.set('_karaokeWords', words);
         this._syncKaraokeWordInputs();
-        this._renderKaraokeLabels();
         const boundaries = computeKaraokeWordBoundariesMs(words); // core
         const clampedTime = boundaries[dividerIndex + 1] / 1000;
         if (Math.abs(clampedTime - region.start) > 0.001) region.setOptions({ start: clampedTime, end: clampedTime });
+        const labelRegions = appState.get('_karaokeLabelRegions');
+        [dividerIndex, dividerIndex + 1].forEach((i) => {
+            if (labelRegions[i]) labelRegions[i].setOptions({ start: boundaries[i] / 1000, end: boundaries[i + 1] / 1000 });
+        });
     },
 
     /** Ô input ms gõ tay ('change', xem _wireKaraokeDrawer()) — quy đổi qua applyKaraokeWordMsInput()
-     * (core, CÙNG lõi redistributeKaraokeBoundary() với kéo tay) rồi vẽ lại mốc + nhãn + đồng bộ input.
-     * SỬA (30/09/2026) — đồng bộ LUÔN cả ô vừa gõ: trước đây ô đang focus bị bỏ qua, nên giá trị bị core
-     * kẹp lại (vượt tổng/dưới sàn/dòng 1 từ) vẫn hiện số người dùng gõ — sai với timing thật. Giá trị
-     * không phải số -> trả ô về số đang có. */
+     * (core, CÙNG lõi redistributeKaraokeBoundary() với kéo tay) rồi dựng lại region + đồng bộ input.
+     * Đồng bộ LUÔN cả ô vừa gõ (giá trị có thể đã bị core kẹp); giá trị không phải số -> trả ô về số cũ. */
     _onKaraokeWordMsChange(index, newMs) {
         const words = isNaN(newMs)
             ? appState.get('_karaokeWords')
             : applyKaraokeWordMsInput(appState.get('_karaokeWords'), index, Math.max(KARAOKE_MIN_WORD_MS, newMs)); // core
         appState.set('_karaokeWords', words);
         this._syncKaraokeWordInputs(index);
-        this._renderKaraokeMarkers();
-        this._renderKaraokeLabels();
+        this._renderKaraokeRegions();
     },
 
     /** Ghi lại giá trị ms hiển thị trên MỌI ô input theo `_karaokeWords` hiện tại — bỏ qua ô đang
@@ -946,76 +970,129 @@ const workflowSubtitleEditor = {
         });
     },
 
-    /** Nút ▶ từng từ — VIẾT LẠI (30/09/2026, Giang: "play của word chỉ được play ở mini waveform này")
-     * — phát TRÊN waveform mini (audio WAV riêng của đoạn dòng, xem _initKaraokeMiniWaveform()), KHÔNG
-     * còn mượn waveform chính. Bấm lại đúng từ đang phát = dừng; bấm từ khác lúc đang phát = nhảy sang
-     * từ đó. Tự dừng ở cuối từ qua _onKaraokeMiniTimeUpdate().
-     *
-     * iOS có thể chưa nạp metadata cho <audio> của waveform mini (chưa từng được chạm) — lúc đó
-     * setTime() trước play() bị bỏ qua, audio chạy từ 0: tắt tiếng + play() NGAY trong cú bấm (giữ
-     * quyền phát của user gesture) rồi seek lại khi metadata về (_karaokeLateSeek()). */
+    /** Nút ▶ từng từ. SỬA LẦN 2 (30/09/2026, Giang báo "play 1 từ -> phát từ khác -> không có tiếng"):
+     * bỏ hẳn cách phát qua <audio> WAV của WaveSurfer mini (seek <audio> trên iOS lúc đang dừng/đang
+     * tắt tiếng chờ metadata không đáng tin — lượt phát thứ 2 im lặng). Giờ phát bằng Web Audio:
+     * AudioBufferSourceNode trên CHÍNH đoạn PCM của dòng (`_karaokeSegment`) — start(0, đầu từ, độ dài từ)
+     * chính xác tới từng mẫu, không seek, mỗi lượt 1 node MỚI nên phát bao nhiêu lần/đổi từ liên tục
+     * đều có tiếng. Bấm lại đúng từ đang phát = dừng; bấm từ khác = dừng từ cũ, phát từ mới.
+     * Tiến trình vẽ bằng region highlight (chỉ bôi xanh [đầu từ, vị trí đang phát]) qua task raf. */
     _toggleKaraokeWordPlay(index) {
-        const ws = appState.get('_karaokeWavesurfer');
-        if (!ws || !appState.get('_karaokeMiniReady')) return;
-        if (appState.get('_karaokePlayingIndex') === index && ws.isPlaying()) {
-            ws.pause(); // 'pause' -> _resetKaraokeWordPlayback()
-            return;
-        }
+        if (!appState.get('_karaokeMiniReady')) return;
+        const wasThis = appState.get('_karaokePlayingIndex') === index;
+        this._stopKaraokeWordPlayback();
+        if (wasThis) return;
         const range = computeKaraokeWordPlayRange(appState.get('_karaokeWords'), 0, index); // core — lineStartSec = 0: trục mini bắt đầu từ start dòng
         if (range.end <= range.start) return;
         this._stopMainPlayback();
+        const ctx = this._ensureKaraokeAudioContext(); // PHẢI chạy đồng bộ trong cú bấm (iOS chỉ cho resume() trong user gesture)
+        const buffer = ctx ? this._ensureKaraokeSegmentBuffer(ctx) : null;
+        if (!ctx || !buffer) return;
+        const node = ctx.createBufferSource();
+        node.buffer = buffer;
+        node.connect(ctx.destination);
+        node.start(0, range.start, range.end - range.start);
+        appState.set('_karaokeSourceNode', node);
         appState.set('_karaokePlayingIndex', index);
+        appState.set('_karaokePlayStartSec', range.start);
         appState.set('_karaokePlayEndSec', range.end);
-        const needsLateSeek = ws.getMediaElement().readyState < 1;
-        if (needsLateSeek) ws.setMuted(true);
-        ws.setTime(range.start);
-        if (!ws.isPlaying()) {
-            const result = ws.play();
-            if (result && typeof result.catch === 'function') {
-                result.catch((err) => {
-                    console.warn('[subtitle-editor] karaoke: play() waveform mini bị reject:', err);
-                    this._resetKaraokeWordPlayback();
-                });
-            }
+        appState.set('_karaokePlayStartCtxTime', ctx.currentTime); // ctx đang suspended (chờ resume) thì currentTime đứng yên -> tiến trình cũng đứng, khớp tiếng
+        const regionsPlugin = appState.get('_karaokeRegionsPlugin');
+        const highlight = regionsPlugin.addRegion({ start: range.start, end: range.start + 0.001, drag: false, resize: false, color: 'rgba(14, 165, 233, 0.35)' });
+        if (highlight.element) highlight.element.style.pointerEvents = 'none';
+        appState.set('_karaokeHighlightRegion', highlight);
+        this._scrollKaraokeMiniIntoView(range.start);
+        taskManager.addNew('karaokeWordProgress', { time: 0, exe: () => this._tickKaraokeWordProgress(), mode: 'raf', count: 0 }); // service/task-manager.js
+        taskManager.operator('karaokeWordProgress', 'enabled');
+        this._updateKaraokeWordPlayIcons();
+    },
+
+    /** AudioContext DÙNG CHUNG cho mọi lượt nghe từ trong phiên trang (tạo 1 lần — iOS giới hạn số
+     * AudioContext đồng thời) + đăng ký audioSession 'playback' (Safari/iOS 16.4+ — Web Audio không bị
+     * công tắc im lặng tắt tiếng, cùng cách core/audio-engine.js của index.html) + resume() nếu đang
+     * suspended. @returns {AudioContext|null} */
+    _ensureKaraokeAudioContext() {
+        try {
+            if (typeof navigator !== 'undefined' && navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback';
+        } catch (e) { console.warn('[subtitle-editor] karaoke: không đăng ký được audioSession (bỏ qua):', e); }
+        let ctx = appState.get('_karaokeAudioCtx');
+        if (!ctx) {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) { console.error('[subtitle-editor] karaoke: trình duyệt không có Web Audio API.'); return null; }
+            ctx = new Ctx();
+            appState.set('_karaokeAudioCtx', ctx);
         }
-        if (needsLateSeek) this._karaokeLateSeek(index, range.start, 40);
-        this._updateKaraokeWordPlayIcons();
+        if (ctx.state !== 'running' && typeof ctx.resume === 'function') ctx.resume().catch((err) => console.warn('[subtitle-editor] karaoke: AudioContext.resume() bị từ chối:', err));
+        return ctx;
     },
 
-    /** Chờ <audio> của waveform mini có metadata (thăm dò 50ms/lần, tối đa `attemptsLeft` lần) rồi seek
-     * đúng đầu từ + bật tiếng lại. Người dùng đã dừng/đổi từ khác -> chỉ bật tiếng lại rồi thôi. */
-    _karaokeLateSeek(index, startSec, attemptsLeft) {
-        taskManager.once(() => {
-            const ws = appState.get('_karaokeWavesurfer');
-            if (!ws) return;
-            const stillWanted = appState.get('_karaokePlayingIndex') === index;
-            const ready = ws.getMediaElement().readyState >= 1;
-            if (stillWanted && !ready && attemptsLeft > 0) { this._karaokeLateSeek(index, startSec, attemptsLeft - 1); return; }
-            if (stillWanted && ready) ws.setTime(startSec);
-            ws.setMuted(false);
-        }, 50);
+    /** AudioBuffer của đoạn dòng đang mở — dựng lười 1 lần/lượt mở drawer từ `_karaokeSegment`.
+     * @param {AudioContext} ctx @returns {AudioBuffer|null} */
+    _ensureKaraokeSegmentBuffer(ctx) {
+        const cached = appState.get('_karaokeSegmentBuffer');
+        if (cached) return cached;
+        const segment = appState.get('_karaokeSegment');
+        if (!segment) return null;
+        try {
+            const buffer = ctx.createBuffer(1, segment.samples.length, segment.sampleRate);
+            buffer.getChannelData(0).set(segment.samples);
+            appState.set('_karaokeSegmentBuffer', buffer);
+            return buffer;
+        } catch (err) {
+            console.error('[subtitle-editor] karaoke: không dựng được AudioBuffer cho đoạn dòng:', err);
+            return null;
+        }
     },
 
-    /** 'timeupdate' của waveform mini (WaveSurfer bắn theo từng khung hình lúc đang phát) — tới mốc
-     * cuối của từ đang phát thì dừng. */
-    _onKaraokeMiniTimeUpdate(currentTime) {
+    /** Task raf trong lúc đang phát 1 từ — kéo dài region highlight tới vị trí đang phát (tính theo đồng
+     * hồ AudioContext), giữ vị trí đó trong khung nhìn (dòng dài đang cuộn), tới cuối từ thì dừng. */
+    _tickKaraokeWordProgress() {
+        const ctx = appState.get('_karaokeAudioCtx');
+        const highlight = appState.get('_karaokeHighlightRegion');
+        if (!ctx || !highlight || appState.get('_karaokePlayingIndex') === null) { this._stopKaraokeWordPlayback(); return; }
+        const start = appState.get('_karaokePlayStartSec');
+        const end = appState.get('_karaokePlayEndSec');
+        const current = Math.min(end, start + Math.max(0, ctx.currentTime - appState.get('_karaokePlayStartCtxTime')));
+        highlight.setOptions({ start, end: Math.max(start + 0.001, current) });
+        this._scrollKaraokeMiniIntoView(current);
+        if (current >= end) this._stopKaraokeWordPlayback();
+    },
+
+    /** Dòng dài (sóng rộng hơn khung) — cuộn waveform mini sao cho mốc `timeSec` nằm trong khung nhìn
+     * (còn 20px lề phải); đã thấy thì không cuộn. Dòng vừa khung -> getScroll() luôn 0, không làm gì. */
+    _scrollKaraokeMiniIntoView(timeSec) {
         const ws = appState.get('_karaokeWavesurfer');
-        if (!ws || appState.get('_karaokePlayingIndex') === null) return;
-        if (currentTime >= appState.get('_karaokePlayEndSec') && ws.isPlaying()) ws.pause();
+        if (!ws) return;
+        const containerEl = document.getElementById('karaoke-mini-waveform');
+        const width = typeof ws.getWidth === 'function' ? ws.getWidth() : (containerEl ? containerEl.clientWidth : 0);
+        if (width <= 0) return;
+        const x = timeSec * appState.get('_karaokeMiniPxPerSec');
+        const scroll = ws.getScroll();
+        if (x < scroll || x > scroll + width - 20) ws.setScroll(Math.max(0, x - width * 0.25));
     },
 
-    /** Dừng (tự hết từ, bấm lại, hết đoạn, play() bị từ chối...) — reset state + bật tiếng + icon. */
-    _resetKaraokeWordPlayback() {
+    /** Dừng lượt nghe từ đang chạy (nếu có) — dừng + tháo node, tắt task raf, gỡ highlight, reset state
+     * + icon. An toàn gọi nhiều lần. */
+    _stopKaraokeWordPlayback() {
+        taskManager.kill('karaokeWordProgress'); // service/task-manager.js — no-op nếu không có
+        const node = appState.get('_karaokeSourceNode');
+        if (node) {
+            try { node.stop(); } catch (e) { /* đã tự dừng — bỏ qua */ }
+            try { node.disconnect(); } catch (e) { /* bỏ qua */ }
+            appState.set('_karaokeSourceNode', null);
+        }
+        const highlight = appState.get('_karaokeHighlightRegion');
+        if (highlight) {
+            try { highlight.remove(); } catch (e) { /* waveform mini đã bị huỷ */ }
+            appState.set('_karaokeHighlightRegion', null);
+        }
         appState.set('_karaokePlayingIndex', null);
-        const ws = appState.get('_karaokeWavesurfer');
-        if (ws) ws.setMuted(false);
         this._updateKaraokeWordPlayIcons();
     },
 
-    /** Đổi icon ▶/⏸ của các nút từ trong drawer theo ĐÚNG từ đang phát trên waveform mini. */
+    /** Đổi icon ▶/⏸ của các nút từ trong drawer theo ĐÚNG từ đang phát. */
     _updateKaraokeWordPlayIcons() {
-        const ws = appState.get('_karaokeWavesurfer');
-        const activeIndex = (ws && ws.isPlaying()) ? appState.get('_karaokePlayingIndex') : null;
+        const activeIndex = appState.get('_karaokePlayingIndex');
         genericDrawerBody.querySelectorAll('[data-karaoke-word-play]').forEach((btn) => {
             const isThis = activeIndex !== null && String(activeIndex) === btn.dataset.karaokeWordPlay;
             const playIcon = btn.querySelector('.karaoke-word-play-icon');
@@ -1065,7 +1142,7 @@ const workflowSubtitleEditor = {
         this._renderLines();
     },
 
-    /** Đóng drawer karaoke — dọn SẠCH waveform mini (destroy — tự dừng audio của nó — + revoke URL) +
+    /** Đóng drawer karaoke — dọn SẠCH waveform mini (dừng lượt nghe từ đang chạy, destroy, revoke URL) +
      * reset state, dùng CHUNG closeFully() (event/workflow/generic-drawer-helpers.js). Tăng token để
      * lượt dựng waveform mini còn đang await (nếu có) tự bỏ. GIỮ `_karaokeSourceAudio` (cache PCM dùng
      * lại cho dòng khác). */
