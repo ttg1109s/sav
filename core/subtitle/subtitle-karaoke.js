@@ -27,6 +27,11 @@ const KARAOKE_DECODE_SAMPLE_RATE = 22050;
 const KARAOKE_HIRES_MAX_DURATION_SEC = 1200;
 // Số ô peaks vẽ waveform mini (~ bề rộng khung x mật độ điểm ảnh màn hình điện thoại).
 const KARAOKE_MINI_PEAK_BUCKETS = 1200;
+// MỚI (30/09/2026, Giang: "có cơ chế cuộn cho line subtitle dài, nhiều từ") — bề rộng TRUNG BÌNH tối thiểu
+// (px) cho 1 từ trên waveform mini: tổng bề rộng sóng = max(khung, số từ x giá trị này) -> vượt khung thì cuộn ngang.
+const KARAOKE_MINI_MIN_WORD_PX = 56;
+// Chiều cao waveform mini (px) — PHẢI khớp height của #karaoke-mini-waveform (components/subtitle-karaoke-drawer.js).
+const KARAOKE_MINI_HEIGHT_PX = 88;
 
 /** Tách text 1 dòng thành mảng TỪ (theo khoảng trắng, mỗi từ = 1 âm tiết tiếng Việt) — bỏ chuỗi
  * rỗng/toàn khoảng trắng. @param {string} text @returns {Array<string>} */
