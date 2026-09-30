@@ -51,14 +51,8 @@
         // THUẦN dưới đây trả dữ liệu; Workflow (host + group visualizer) đọc config/khung nhìn và ghi appState. Công thức và
         // thứ tự Math.random giữ nguyên.
 
-        /** 3 bộ đệm phân tích audio theo độ phân giải FFT hiện tại (phổ vẽ, phổ frame trước cho flux, sóng cho pitch). */
-        function createAnalysisBuffers(frequencyBinCount, pitchFftSize) {
-            return {
-                vizDataArray: new Uint8Array(frequencyBinCount),
-                previousSpectrumArray: new Uint8Array(frequencyBinCount),
-                pitchTimeDomainArray: new Float32Array(pitchFftSize),
-            };
-        }
+        // (createAnalysisBuffers() — ĐÃ XOÁ 01/10/2026: phổ vẽ do workflowVisualizerRender.allocateVizSpectrumBuffer() cấp,
+        // bộ đệm phân tích do workflowAudioAnalysis.allocateBuffers() cấp theo analyser phân tích cố định.)
 
         /** Sao Black Hole: 5 cụm góc, 3 lớp tốc độ/kích thước, vài sao ngả xanh/vàng (màu GỐC — sao KHÔNG theo Color mode,
          * Giang 29/09/2026). `trail` = lịch sử vị trí cực {angle, distance} (mới -> cũ) + `trailClock` (ms tới lần lấy mẫu

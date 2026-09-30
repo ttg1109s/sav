@@ -1,6 +1,9 @@
 /**
  * Tính màu sắc theo dữ liệu tần số (getComputedColor) & cập nhật bảng thống kê BPM / Pitch / Energy.
  *
+ * [SỬA — 01/10/2026] Các số liệu chung (beatScale/smoothedEnergy/energy/flux/beat/BPM) nay tính trên phổ PHÂN TÍCH cố định
+ * (`analysisSpectrumArray`, analyserPitch FFT 2048) thay vì phổ vẽ `vizDataArray` (fftSize đổi theo effect) — cùng 1 bài
+ * cho cùng số liệu dù đang chọn effect nào. BPM: xem core/audio-tempo.js.
  * [SỬA — 28/09/2026, Phase 2 dọn visualizer] `updateStatsDashboard()` ĐÃ XOÁ — tách thành các Core thuần
  * ở cuối file (energy/flux/beat/BPM/pitch/chữ hiển thị/ghi DOM), điều phối dời sang
  * event/workflow/audio-analysis.js. Spectral flux giờ quy về thang 128 bin (hết lệch độ nhạy beat giữa
@@ -142,13 +145,16 @@
         const AUDIO_FLUX_BEAT_MEAN_RATIO = 1.3;
         /** Độ dài tối đa các lịch sử cuộn (giữ nguyên giá trị cũ). */
         const AUDIO_FLUX_HISTORY_MAX = 45;
-        const AUDIO_BEAT_INTERVALS_MAX = 5;
+        // (AUDIO_BEAT_INTERVALS_MAX, AUDIO_BPM_MIN/MAX — ĐÃ BỎ 01/10/2026 cùng computeBpmFromMeanInterval(): BPM nay ước lượng
+        // bằng tự tương quan đường bao onset, xem core/audio-tempo.js.)
         const AUDIO_PITCH_HISTORY_MAX = 30;
         /** Giữ hiển thị nốt cuối trong khoảng này (ms) khi worker tạm chưa bắt được pitch. */
         const AUDIO_NOTE_HOLD_MS = 250;
-        /** BPM ngoài khoảng (min, max) bị bỏ qua — không ghi đè BPM đang hiển thị. */
-        const AUDIO_BPM_MIN = 40;
-        const AUDIO_BPM_MAX = 220;
+        /** MỚI (01/10/2026) — sau mỗi lần dòng thời gian bị ngắt (pause/seek/cổng seek/đổi bài/app ẩn) bỏ qua phát hiện beat
+         * + đường bao tempo trong khoảng này: phổ đang dâng từ im lặng lên (analyser làm mượt 0.8/frame) sinh flux giả. */
+        const ANALYSIS_SETTLE_MS = 250;
+        /** 2 tick phân tích cách nhau quá khoảng này (app ẩn, máy treo) -> coi như dòng thời gian bị ngắt. */
+        const ANALYSIS_TICK_GAP_MS = 500;
         const MIDI_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
         /** Năng lượng tổng phổ quy ra % (0-100) — y hệt công thức cũ (trung bình biên độ × 1.5). */
@@ -198,13 +204,19 @@
             while (history.length > maxLen) history.shift();
         }
 
-        /** BPM từ trung bình khoảng cách beat (ms). `intervalCount < 2` (chưa đủ dữ liệu) hoặc ra ngoài
-         * khoảng hợp lệ -> null (nơi gọi giữ nguyên BPM cũ, đúng hành vi trước đây). Nhận SẴN trung bình
-         * (Workflow tự gọi computeArrayMean() trước) — không tự tính lại, tránh trùng logic (Rule 3c). */
-        function computeBpmFromMeanInterval(meanIntervalMs, intervalCount) {
-            if (intervalCount < 2) return null;
-            const bpm = Math.round(60000 / meanIntervalMs);
-            return (bpm > AUDIO_BPM_MIN && bpm < AUDIO_BPM_MAX) ? bpm : null;
+        // (computeBpmFromMeanInterval() — ĐÃ XOÁ 01/10/2026, thay bằng core/audio-tempo.js::estimateTempoFromOnsets().)
+
+        /**
+         * MỚI (01/10/2026) — Pha phát của media ĐỐI VỚI PHÂN TÍCH:
+         *   'held'    — cổng seek đang giữ media (pause/nạp lại tạm) hoặc media đang seek: KHÔNG phải người dùng dừng, số
+         *               liệu giữ nguyên (không nháy "---"), chỉ đánh dấu dòng thời gian bị ngắt.
+         *   'playing' — đang phát thật (currentTime > 0, giữ điều kiện cũ).
+         *   'stopped' — dừng thật / chưa phát.
+         * @param {boolean} isHeld @param {boolean} isPaused @param {number} currentTime @returns {'held'|'playing'|'stopped'}
+         */
+        function resolveAnalysisPlaybackPhase(isHeld, isPaused, currentTime) {
+            if (isHeld) return 'held';
+            return !isPaused && currentTime > 0 ? 'playing' : 'stopped';
         }
 
         /** Tần số (Hz) -> số nốt MIDI. Tần số không hợp lệ (<= 0, worker chưa bắt được) hoặc nốt ngoài
@@ -222,7 +234,7 @@
 
         /** Chữ hiển thị ô Pitch: đang phát + đủ năng lượng + nốt gần nhất còn "tươi" (trong
          * AUDIO_NOTE_HOLD_MS) -> tên nốt đó; mọi trường hợp khác -> "---". */
-        function resolveNoteDisplayText(isPlaying, energyPercent, lastNoteStr, lastNoteTime, now) {
+        function resolveNoteDisplayText(isPlaying, energyPercent, lastNoteStr, lastNoteTime, now) { // isPlaying: Workflow truyền "không dừng thật" (phase !== 'stopped')
             if (!isPlaying || energyPercent <= 1) return '---';
             if (!lastNoteStr || (now - lastNoteTime) >= AUDIO_NOTE_HOLD_MS) return '---';
             return lastNoteStr;

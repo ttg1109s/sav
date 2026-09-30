@@ -1021,7 +1021,9 @@
             // XOÁ (24/09/2026, rà soát refresh DOM) — `workflowTheme.refreshThemeCardUI()` (core gọi Workflow): loadConfig()
             // chỉ chạy lúc boot, Generic Drawer luôn đang đóng -> lời gọi đó luôn no-op (không có #theme-bg-cards nào để vá).
 
-            if(appState.get('masterGainNode')) appState.get('masterGainNode').gain.value = appConfigViz.getAll().volume / 100;
+            // XOÁ 01/10/2026: dòng gán masterGainNode.gain = volume — dòng chết (loadConfig() chỉ chạy lúc boot, audio graph chỉ
+            // dựng ở lượt phát đầu tiên nên node chưa tồn tại) và nay sai nghĩa (master là cổng seek; âm lượng ở volumeGainNode,
+            // workflowAudioEngine._buildGraph() tự đọc volume từ config lúc dựng).
             // Volume HUD (core/hud.js) tự đồng bộ icon+slider MỖI LẦN MỞ (workflowHud.
             // openVolume(), đọc appConfigViz tươi) — không cần đồng bộ UI tĩnh nào ở đây (khác bản cũ có
             // #setting-volume tĩnh từ lúc boot, đã xoá cùng UI Settings EQ/Volume cũ).

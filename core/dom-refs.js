@@ -356,7 +356,7 @@
         // audioContext, analyser, analyserPitch, animationId, masterGainNode, eqBandNodes,
         // isSeeking, dpr, currentObjectURL, currentCoverObjectURL, frameCounter, smoothedEnergy,
         // globalHueOffset, beatScale, vizDataArray, pitchTimeDomainArray, previousSpectrumArray,
-        // beatTimes, fluxHistory — STATE, xem service/state.js.
+        // fluxHistory — STATE, xem service/state.js. (beatTimes ĐÃ BỎ 01/10/2026 — BPM tính ở core/audio-tempo.js.)
         let smoothedPitchY = 0; // biến NỘI BỘ (không thuộc STATE)
         // (smoothedBeatRadius — ĐÃ BỎ 29/09/2026: bán kính Black Hole làm mượt theo dt, trạng thái riêng `_blackHole.baseRadius`
         //  của event/workflow/visualizer/bar.js.)
