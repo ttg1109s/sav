@@ -15,15 +15,9 @@
                 // dạng string phẳng qua meta) tự migrate 1 lần lúc boot, xem
                 // core/file-manager/folder.js::migrateActivePlayListFolderIfNeeded().
                 activePlayListFolder: 'object', // {song: string|null, video: string|null, photo: string|null}
-                // MỚI (06/09/2026, hợp nhất Folder vào Playlist, mục 4b — "Read-only" folder, dùng
-                // Block gate chặn upload) — LUÔN phản ánh field `isReadOnly` của folder đang active
-                // TẠI ĐÚNG `activeMediaSource` hiện tại (không phải object theo Nguồn như
-                // `activePlayListFolder` — Block gate (event/block.js) chỉ đọc được field TĨNH, 1
-                // giá trị phẳng là đủ vì tại 1 thời điểm chỉ có 1 Nguồn đang hiển thị/có thể upload).
-                // Cập nhật ở event/workflow/playlist-scope.js::applyFolderScope()/applyAllSongsScope()
-                // (chạy đúng lúc `activeMediaSource` thay đổi hoặc Scope đổi) VÀ ngay khi checkbox
-                // "Read-only" ở Properties bị đổi trong lúc CHÍNH folder đó đang active (xem
-                // event/workflow/file-manager-folder-browser.js::showFolderProperties()).
+                // `isReadOnly` của folder đang Scope ở Nguồn đang hiển thị — field PHẲNG để Block gate
+                // (event/block.js) chặn upload. Ghi bởi playlist-scope.js::applyFolderScope()/applyAllSongsScope()
+                // và file-manager-folder-browser.js::_syncActiveFolderReadOnly() (đổi Read-only trong Thuộc tính).
                 isActiveFolderReadOnly: 'boolean',
                 selectionMode: 'boolean',                // chế độ chọn nhiều (checkbox) trong Playlist
                 // SỬA (07/09/2026, Giang chỉ ra "đằng nào cũng sửa, đổi tên đỡ nhầm" — cùng đợt đổi
