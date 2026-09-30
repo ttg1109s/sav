@@ -99,15 +99,23 @@
          * @param {number} relativeThreshold - tỉ lệ lệch tối thiểu, vd 0.35 = lệch 35%.
          */
         function detectMusicTransition(beatFluxHistory, energyWindowBeats, sectionWindowBeats, relativeThreshold) {
-            const avg = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
-            const checkWindow = (windowSize) => {
-                if (beatFluxHistory.length < windowSize * 2) return false;
-                const recentAvg = avg(beatFluxHistory.slice(-windowSize));
-                const priorAvg = avg(beatFluxHistory.slice(-windowSize * 2, -windowSize));
-                if (priorAvg <= 0) return false; // tránh chia 0 lúc đoạn trước hoàn toàn im lặng
-                return Math.abs(recentAvg - priorAvg) / priorAvg >= relativeThreshold;
-            };
-            return checkWindow(energyWindowBeats) || checkWindow(sectionWindowBeats);
+            // SỬA (01/10/2026, dọn nợ core rule, Giang duyệt "xử lý toàn bộ") — bỏ 2 hàm con `avg`/`checkWindow` vi phạm
+            // Rule 3c: `avg` trùng logic computeArrayMean() cùng file (3c-2), `checkWindow` không tự có vòng lặp (3c-1) và
+            // gọi hàm con khác (3c-4). Viết thẳng 1 vòng lặp qua 2 cửa sổ. Không cần tính TRUNG BÌNH: 2 đoạn so sánh luôn
+            // cùng độ dài `size`, nên |TB mới - TB cũ| / TB cũ = |tổng mới - tổng cũ| / tổng cũ — kết quả y hệt bản cũ,
+            // chữ ký giữ nguyên (5 nơi gọi không đổi).
+            const windowSizes = [energyWindowBeats, sectionWindowBeats];
+            const len = beatFluxHistory.length;
+            for (let w = 0; w < windowSizes.length; w++) {
+                const size = windowSizes[w];
+                if (len < size * 2) continue; // chưa đủ 2 đoạn để so
+                let recentSum = 0, priorSum = 0;
+                for (let i = len - size; i < len; i++) recentSum += beatFluxHistory[i];
+                for (let i = len - size * 2; i < len - size; i++) priorSum += beatFluxHistory[i];
+                if (priorSum <= 0) continue; // tránh chia 0 lúc đoạn trước hoàn toàn im lặng
+                if (Math.abs(recentSum - priorSum) / priorSum >= relativeThreshold) return true;
+            }
+            return false;
         }
 
         /** Xấp xỉ ranh giới phrase bằng đếm beat cố định (không có phrase detection thật). Nơi gọi
@@ -118,7 +126,7 @@
 
         // =====================================================================================
         // [TÁCH — 28/09/2026, Phase 2 dọn visualizer, Giang duyệt] Thay `updateStatsDashboard()` cũ
-        // (1 hàm di sản: 21 lần appState.get, tự ghi DOM, tự gọi requestPitchDetection(), rẽ nhiều
+        // (1 hàm di sản: 21 lần appState.get, tự ghi DOM, tự gọi requestPitchDetection() [nay workflowAudioEngine.requestPitch()], rẽ nhiều
         // tiến trình) bằng các Core THUẦN dưới đây — mỗi hàm 1 việc, chỉ nhận tham số, không đọc
         // appState, không gọi core khác. Điều phối (đọc state, chọn nhánh, ghi state, gọi pitch worker)
         // nằm ở event/workflow/audio-analysis.js (`workflowAudioAnalysis`).

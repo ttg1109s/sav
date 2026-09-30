@@ -351,7 +351,8 @@
         const subtitleDisplay = document.getElementById('subtitle-display'), subtitleFrame = document.getElementById('subtitle-frame'), subActiveLines = document.getElementById('sub-active-lines');
         const subtitleKaraokeFx = document.getElementById('subtitle-karaoke-fx'), subtitleKaraokePointer = document.getElementById('subtitle-karaoke-pointer');
 
-        let source; // biến NỘI BỘ (không thuộc STATE) — chỉ dùng trong audio-engine.js
+        // (let source — ĐÃ BỎ 01/10/2026: nguồn MediaElement của audioPlayer giờ giữ ở workflowAudioEngine._songSourceNode,
+        // event/workflow/audio-engine.js)
         // audioContext, analyser, analyserPitch, animationId, masterGainNode, eqBandNodes,
         // isSeeking, dpr, currentObjectURL, currentCoverObjectURL, frameCounter, smoothedEnergy,
         // globalHueOffset, beatScale, vizDataArray, pitchTimeDomainArray, previousSpectrumArray,

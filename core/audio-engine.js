@@ -1,136 +1,125 @@
 /**
- * Khởi tạo AudioContext, chuỗi xử lý EQ (BiquadFilter nối tiếp), cầu nối Worker nhận diện cao độ YIN.
- * (Trích từ file gốc, dòng 973-1015 trong khối <script>)
+ * core/audio-engine.js — Core THUẦN dựng Web Audio graph (AudioContext, EQ BiquadFilter nối tiếp, master gain,
+ * 2 analyser) + tạo/gửi khung cho Worker nhận diện cao độ YIN.
  *
- * PITCH WORKER (v7): detectPitchYIN() đã dời sang core/workers/pitch-worker.js, chạy trên thread riêng
- * — xem audio-analysis.js để biết cách kết quả bất đồng bộ được tiêu thụ. Khu vực dưới đây chỉ còn
- * lại "cầu nối": khởi tạo 1 Worker duy nhất, gửi buffer (transfer, không copy) kèm reqId, và giữ
- * lại kết quả mới nhất hợp lệ cho audio-analysis.js đọc.
+ * [DỌN NỢ CORE RULE — 01/10/2026, Giang yêu cầu "xử lý toàn bộ" vi phạm phân tích audio] 3 hàm di sản ĐÃ XOÁ:
+ *   - setupAudioContext()      — R1 (2 tiến trình: tạo mới / resume), R2 (~20 lần appState.get), R3 (gọi
+ *                                initPitchWorker/findEqPresetById/applyEqGains/updateDOMBackground, gọi NGƯỢC lên
+ *                                workflowVisualizerRender.start()), R4 (set không log).
+ *   - initPitchWorker()        — R2, R4 (onmessage/onerror ghi state không log).
+ *   - requestPitchDetection()  — R2, R3 (gọi initPitchWorker(); bảng audit cũ ghi sót cột R3).
+ * Điều phối (đọc state/config, chọn tạo mới hay resume, ghi state, giữ reqId, khởi động vòng lặp) dời sang
+ * event/workflow/audio-engine.js (`workflowAudioEngine.setup()` / `ensurePitchWorker()` / `requestPitch()`).
+ * File này chỉ còn builder 1 việc, nhận tham số, không appState.get(), không gọi core khác (Rule 1-3).
+ * Hết luôn ngoại lệ "Core gọi Workflow" duy nhất của vòng lặp render (readme/event-bus-flow.md mục 1).
  *
- * FIX (log 9->10, mục "play lại/Next/Prev không ra tiếng sau khi quay lại tab trên iOS"): nguyên
- * nhân gốc rễ THẬT là ở ĐÂY, không phải ở currentKey/isShieldBusy (đã sửa ở bản trước, vẫn đúng và
- * cần giữ). Trên iOS Safari, khi tab/app bị ẩn, AudioContext KHÔNG chuyển sang 'suspended' (trạng
- * thái do CHÍNH app tự gọi suspend() — resume() được) mà chuyển sang 'interrupted' — một trạng thái
- * THỨ BA, riêng của Safari, do HỆ ĐIỀU HÀNH áp đặt từ ngoài app (xem MDN BaseAudioContext.state).
- * setupAudioContext() (hàm này) trước đây CHỈ kiểm tra `audioContext.state === 'suspended'` ở nhánh
- * `else if` — bỏ sót hoàn toàn 'interrupted'. Vì audioContext là biến toàn cục chỉ được TẠO MỚI
- * đúng 1 lần (`if (!audioContext)`), mọi lượt gọi lại setupAudioContext() sau đó (Play, Next, Prev,
- * chọn bài trong playlist — TẤT CẢ đều đi qua playSong() -> setupAudioContext() ở cuối) chỉ rơi vào
- * nhánh else if, và else if đó KHÔNG khớp 'interrupted' -> không resume() -> graph âm thanh (analyser/
- * analyserPitch/EQ) vẫn nối với 1 context bị OS "ngắt" -> KHÔNG có tiếng phát ra, và
- * analyser.getByteFrequencyData()/analyserPitch.getFloatTimeDomainData() (dùng cho BPM/Pitch/Energy
- * ở audio-analysis.js) chỉ đọc được dữ liệu rỗng/cũ từ 1 context đã ngắt — giải thích ĐÚNG NGUYÊN
- * VĂN triệu chứng "nhạc không phát ra tiếng + BPM/Pitch/Energy không hoạt động" dù currentKey/icon
- * Play đã đúng (bản fix log 8->9 đã sửa đúng phần currentKey/isShieldBusy/UI, nhưng tầng AudioContext
- * bên dưới vẫn câm vì lỗ hổng riêng này) — và giải thích luôn vì sao Next/Prev "lây" cùng lỗi: mọi
- * đường đều dùng CHUNG 1 audioContext toàn cục, hỏng ở 1 chỗ là hỏng cho mọi bài sau đó.
+ * Ghi chú lịch sử còn đúng (log 9->10, iOS): khi app bị ẩn, AudioContext của Safari chuyển sang 'interrupted'
+ * (trạng thái do HỆ ĐIỀU HÀNH áp đặt, khác 'suspended' do app tự gọi) — resume phải xét CẢ 2 trạng thái. Nay
+ * dùng chung resumeAudioContextIfInterrupted() bên dưới cho mọi lượt gọi lại workflowAudioEngine.setup().
  *
- * Sửa: thêm 'interrupted' vào điều kiện resume (gộp chung với 'suspended', cùng 1 cách xử lý —
- * resume() hợp lệ cho cả 2 trạng thái theo đúng spec). Không đổi gì khác trong hàm.
+ * PITCH WORKER (v7): detectPitchYIN() chạy ở core/workers/pitch-worker.js (thread riêng). Giao thức message
+ * xem docstring file worker.
  */
-        // pitchWorker, pitchWorkerBusy, latestPitchFrequency — STATE, xem service/state.js.
-        let pitchReqCounter = 0;           // biến NỘI BỘ — tăng dần, đối chiếu reqId để loại bỏ hồi đáp cũ/lạc (hiếm, do giật khung)
-        let latestPitchReqId = -1;         // biến NỘI BỘ
 
-        function initPitchWorker() {
-            if (appState.get('pitchWorker')) return;
-            try {
-                appState.set('pitchWorker', new Worker('core/workers/pitch-worker.js'));
-                appState.get('pitchWorker').onmessage = function(e) {
-                    const { frequency, reqId } = e.data;
-                    // Chỉ nhận kết quả nếu nó MỚI HƠN reqId đã ghi nhận gần nhất — phòng trường hợp
-                    // hiếm 2 message bay đồng thời (giật khung) trả về không đúng thứ tự gửi.
-                    if (reqId >= latestPitchReqId) { latestPitchReqId = reqId; appState.set('latestPitchFrequency', frequency); }
-                    appState.set('pitchWorkerBusy', false);
-                };
-                appState.get('pitchWorker').onerror = function(err) {
-                    console.error('[audio-engine] Lỗi pitch-worker, tắt phát hiện cao độ:', err);
-                    appState.set('pitchWorker', null); appState.set('pitchWorkerBusy', false);
-                };
-            } catch (err) {
-                console.error('[audio-engine] Không tạo được pitch-worker (trình duyệt không hỗ trợ Worker qua file://?):', err);
-                appState.set('pitchWorker', null);
-            }
-        }
+/** Script pitch worker — Classic Worker (KHÔNG type 'module'), bắt buộc để chạy được qua file://. */
+const PITCH_WORKER_URL = 'core/workers/pitch-worker.js';
+/** Gain phẳng 10 dải — dùng khi chưa có preset EQ nào khớp id đang chọn (preset chưa nạp kịp / đã xoá). */
+const EQ_FLAT_GAINS = Object.freeze([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
-        /**
-         * Gửi 1 khung pitchTimeDomainArray sang worker để phân tích — KHÔNG chờ kết quả (bất đồng
-         * bộ). Bỏ qua nếu worker đang bận (request trước chưa hồi đáp) để hàng đợi message không bị
-         * dồn lúc máy yếu — kết quả vẫn dùng tạm giá trị cũ (latestPitchFrequency), độ trễ thêm tối
-         * đa vài khung hình, không gây lệch cảm nhận được (xem thảo luận độ trễ ở audio-analysis.js).
-         *
-         * QUAN TRỌNG — phải CLONE trước khi transfer: pitchTimeDomainArray là buffer TÁI SỬ DỤNG
-         * (ghi đè mỗi frame bởi analyserPitch.getFloatTimeDomainData), nếu transfer thẳng buffer gốc
-         * thì nó sẽ bị "neutered" (mất quyền sở hữu) ngay sau lần gửi đầu tiên và toàn bộ frame sau
-         * sẽ ghi vào một buffer đã chết.
-         */
-        function requestPitchDetection(buf, sampleRate) {
-            if (!appState.get('pitchWorker')) { initPitchWorker(); if (!appState.get('pitchWorker')) return; }
-            if (appState.get('pitchWorkerBusy')) return;
-            appState.set('pitchWorkerBusy', true);
-            const clone = buf.slice(); // Float32Array.slice() cấp ArrayBuffer MỚI, an toàn để transfer
-            pitchReqCounter++;
-            appState.get('pitchWorker').postMessage({ buf: clone, sampleRate, reqId: pitchReqCounter }, [clone.buffer]);
-        }
+/**
+ * Tạo Worker nhận diện cao độ. Trình duyệt không cho tạo (vd chặn Worker qua file://) -> null, log lỗi.
+ * try/catch ở đây là xử lý lỗi của CÙNG 1 việc "tạo worker", không phải 2 tiến trình (Rule 1).
+ * @param {string} scriptUrl @returns {Worker|null}
+ */
+function createPitchWorker(scriptUrl) {
+    try {
+        return new Worker(scriptUrl);
+    } catch (err) {
+        console.error('[audio-engine] Không tạo được pitch-worker (trình duyệt không hỗ trợ Worker qua file://?):', err);
+        return null;
+    }
+}
 
-        function setupAudioContext() {
-            if (!appState.get('audioContext')) {
-                appState.set('audioContext', new (window.AudioContext || window.webkitAudioContext)());
-                source = appState.get('audioContext').createMediaElementSource(audioPlayer);
+/**
+ * Gửi 1 khung time-domain sang worker — KHÔNG chờ kết quả. PHẢI clone trước khi transfer: `buf` là buffer TÁI
+ * SỬ DỤNG (analyserPitch.getFloatTimeDomainData ghi đè mỗi frame), transfer thẳng buffer gốc sẽ làm nó bị
+ * "neutered" ngay lần gửi đầu, mọi frame sau ghi vào 1 buffer đã chết.
+ * @param {Worker} worker @param {Float32Array} buf @param {number} sampleRate @param {number} reqId
+ */
+function postPitchFrame(worker, buf, sampleRate, reqId) {
+    const clone = buf.slice(); // Float32Array.slice() cấp ArrayBuffer MỚI, an toàn để transfer
+    worker.postMessage({ buf: clone, sampleRate, reqId }, [clone.buffer]);
+}
 
-                appState.set('analyser', appState.get('audioContext').createAnalyser()); appState.get('analyser').fftSize = APP_CONFIG.fftSizeStandard;
-                appState.set('analyserPitch', appState.get('audioContext').createAnalyser()); appState.get('analyserPitch').fftSize = APP_CONFIG.fftSizePitch;
+/**
+ * Mở AudioContext mới + nguồn MediaElement cho phần tử phát (Song: `audioPlayer`). Mỗi phần tử media chỉ
+ * createMediaElementSource() được 1 lần trong đời context — nơi gọi (Workflow) tự đảm bảo chỉ gọi 1 lần.
+ * @param {HTMLMediaElement} mediaEl @returns {{audioContext: AudioContext, sourceNode: MediaElementAudioSourceNode}}
+ */
+function openAudioContextForElement(mediaEl) {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const sourceNode = audioContext.createMediaElementSource(mediaEl);
+    return { audioContext, sourceNode };
+}
 
-                appState.set('masterGainNode', appState.get('audioContext').createGain()); appState.get('masterGainNode').gain.value = appConfigViz.getAll().volume / 100;
+/** AnalyserNode mới với fftSize cho trước. @param {AudioContext} audioContext @param {number} fftSize @returns {AnalyserNode} */
+function createAnalyserNode(audioContext, fftSize) {
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = fftSize;
+    return analyser;
+}
 
-                let prevNode = source; appState.set('eqBandNodes', []);
-                EQ_FREQS.forEach(freq => {
-                    let filter = appState.get('audioContext').createBiquadFilter();
-                    filter.type = "peaking"; filter.frequency.value = freq; filter.Q.value = 1; filter.gain.value = 0;
-                    prevNode.connect(filter); prevNode = filter; appState.mutate('eqBandNodes', arr => arr.push(filter));
-                });
+/** GainNode mới với mức gain ban đầu. @param {AudioContext} audioContext @param {number} gainValue @returns {GainNode} */
+function createGainNode(audioContext, gainValue) {
+    const gainNode = audioContext.createGain();
+    gainNode.gain.value = gainValue;
+    return gainNode;
+}
 
-                // FIX (phản hồi Giang, hệ thống preset EQ mới) — applyEQPreset(mode) cũ (tra bảng
-                // EQ_PRESETS tĩnh) ĐÃ XOÁ HẲN — tra preset theo id trong appState.eqPresets (nạp
-                // lúc boot, event/workflow/eq-presets.js::loadPresetsOnBoot(), CHẮC CHẮN đã xong
-                // trước khi setupAudioContext() có thể chạy lần đầu — chỉ xảy ra sau 1 thao tác
-                // phát nhạc của người dùng, luôn SAU khi app-boot hoàn tất). Fallback [0*10] an
-                // toàn nếu vì lý do gì đó chưa nạp kịp (không có preset nào tên vậy vẫn không vỡ).
-                {
-                    const eqPresets = appState.get('eqPresets');
-                    const activePreset = findEqPresetById(eqPresets, appConfigViz.getAll().eqPresetId); // core/eq-presets.js
-                    applyEqGains(appState.get('eqBandNodes'), activePreset ? activePreset.gains : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // core/eq-presets.js
-                }
-                prevNode.connect(appState.get('masterGainNode')); appState.get('masterGainNode').connect(appState.get('analyser')); appState.get('masterGainNode').connect(appState.get('analyserPitch')); appState.get('analyser').connect(appState.get('audioContext').destination);
+/**
+ * Chuỗi BiquadFilter 'peaking' NỐI TIẾP bắt đầu từ `inputNode`, mỗi tần số 1 dải (Q=1, gain 0 — gain thật do
+ * applyEqGains() đặt sau). Không có tần số nào -> chuỗi rỗng, đầu ra chính là `inputNode`.
+ * @param {AudioContext} audioContext @param {AudioNode} inputNode @param {number[]} frequencies
+ * @returns {{filters: BiquadFilterNode[], outputNode: AudioNode}}
+ */
+function buildPeakingEqChain(audioContext, inputNode, frequencies) {
+    const filters = [];
+    let prevNode = inputNode;
+    frequencies.forEach((freq) => {
+        const filter = audioContext.createBiquadFilter();
+        filter.type = 'peaking'; filter.frequency.value = freq; filter.Q.value = 1; filter.gain.value = 0;
+        prevNode.connect(filter);
+        prevNode = filter;
+        filters.push(filter);
+    });
+    return { filters, outputNode: prevNode };
+}
 
-                initPitchWorker();
-                // MỚI (20/07/2026, plan-space-galaxy.md Phần A, mục A2) — `drawVisualizer()` cũ
-                // (core/visualizer/draw-visualizer.js, nay đã RỖNG) ĐỔI thành
-                // `workflowVisualizerRender.start()` — Core gọi Workflow, VI PHẠM KỸ THUẬT Rule 3,
-                // NHƯNG ĐÃ ĐÁNH DẤU RÕ là ngoại lệ đã biết (nhất quán với việc `playSong()`, hàm
-                // gọi `setupAudioContext()`, vốn dĩ đã Core-gọi-Core tràn lan từ trước —
-                // `switchToVisualizer()`/`refreshSongNode()`/`renderPlaylistDiff()`/
-                // `bumpSongPlayCount()`...). `taskManager.operator(name,'enabled')` tự guard
-                // chống double-start (no-op nếu đã chạy) nên gọi `start()` từ đây an toàn tuyệt
-                // đối, kể cả khi nhánh này không còn là nhánh "lần đầu" duy nhất chạy nó.
-                // SỬA (28/09/2026, Phase 3) — bỏ resizeCanvas() (core cũ, đã xoá): start() tự dựng canvas/scene theo khung nhìn.
-                // SỬA (28/09/2026, Phase 5) — bỏ allocateBuffers() (đã tách): start() tự cấp phát bộ đệm phân tích.
-                workflowVisualizerRender.start(); updateDOMBackground();
-            } else if (appState.get('audioContext').state === 'suspended' || appState.get('audioContext').state === 'interrupted') appState.get('audioContext').resume();
-        }
-
+/**
+ * Nối phần đuôi graph: đầu ra EQ -> master gain -> cả 2 analyser; CHỈ analyser chính ra loa (analyserPitch chỉ để
+ * đọc time-domain, không nối destination — tránh phát tiếng 2 lần). Giữ nguyên đúng thứ tự nối của bản cũ.
+ * @param {AudioNode} eqOutputNode @param {GainNode} masterGainNode @param {AnalyserNode} analyser
+ * @param {AnalyserNode} analyserPitch @param {AudioDestinationNode} destination
+ */
+function wireAudioOutputGraph(eqOutputNode, masterGainNode, analyser, analyserPitch, destination) {
+    eqOutputNode.connect(masterGainNode);
+    masterGainNode.connect(analyser);
+    masterGainNode.connect(analyserPitch);
+    analyser.connect(destination);
+}
 
         // ===================== Phát nền khi ẩn tab/PWA (MỚI 25/09/2026, Giang yêu cầu) =====================
-        // 2 hàm THUẦN dưới đây do event/workflow/app-visibility.js (workflowAppVisibility) gọi — KHÔNG tự đọc appState,
+        // 2 hàm THUẦN dưới đây do event/workflow/app-visibility.js (workflowAppVisibility) gọi — resumeAudioContextIfInterrupted()
+        // còn được event/workflow/audio-engine.js (workflowAudioEngine.setup(), nhánh đã có context) dùng lại. KHÔNG tự đọc appState,
         // KHÔNG gọi hàm core nào khác, KHÔNG dùng taskManager (Rule 1-3).
 
         /**
          * Đăng ký Audio Session loại 'playback' (Audio Session API — Safari/iOS 16.4+, `navigator.audioSession`).
          * NGUYÊN NHÂN GỐC lỗi "ẩn app thì mất tiếng nhưng currentTime vẫn chạy, hết bài -> Next mới có tiếng lại":
-         * `audioPlayer` đi QUA Web Audio (createMediaElementSource ở setupAudioContext()) nên tiếng thật phát ra từ
+         * `audioPlayer` đi QUA Web Audio (createMediaElementSource ở workflowAudioEngine.setup() — trước 01/10/2026 là setupAudioContext()) nên tiếng thật phát ra từ
          * AudioContext; iOS mặc định xếp trang dùng Web Audio vào loại session KHÔNG được phát nền -> vừa ẩn app là
          * AudioContext bị hệ điều hành chuyển sang 'interrupted' (câm), còn <audio> vẫn chạy tiếp (currentTime vẫn
-         * tăng). Next/Prev "chữa" được chỉ vì playSong() -> setupAudioContext() gọi resume(). Khai báo 'playback' =
+         * tăng). Next/Prev "chữa" được chỉ vì mỗi lượt phát bài đều gọi lại hàm dựng graph (nay workflowAudioEngine.setup()), hàm đó resume(). Khai báo 'playback' =
          * báo iOS đây là app phát nhạc (giống app Music): được phát nền + hiện trên màn hình khoá. Hệ quả phụ (đúng
          * chuẩn app nhạc): tiếng phát cả khi gạt công tắc im lặng.
          * Idempotent — chỉ gán khi khác. Trình duyệt không hỗ trợ -> no-op.
@@ -151,8 +140,8 @@
 
         /**
          * Lưới an toàn cho phát nền: AudioContext bị hệ điều hành ngắt ('interrupted' — riêng Safari) hoặc treo
-         * ('suspended') trong lúc media VẪN đang phát -> resume() ngay (cùng điều kiện resume đã có ở
-         * setupAudioContext()/togglePlayPause()). `shouldBeRunning` = false (không có gì đang phát) thì KHÔNG đụng —
+         * ('suspended') trong lúc media VẪN đang phát -> resume() ngay (cùng điều kiện resume với
+         * togglePlayPause(); workflowAudioEngine.setup() gọi hàm này với `shouldBeRunning` = true). `shouldBeRunning` = false (không có gì đang phát) thì KHÔNG đụng —
          * không tự đánh thức context lúc người dùng đã pause.
          * @param {AudioContext|null|undefined} audioContext - appState.get('audioContext') do Workflow đọc sẵn.
          * @param {boolean} shouldBeRunning - media đang thật sự phát (Workflow tự tính).

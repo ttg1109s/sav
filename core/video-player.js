@@ -70,7 +70,8 @@ let _videoBgGainNode = null; // MỚI (09/08/2026, mục 1) — xem docstring se
 /**
  * Nối `bgVideoElement` (KHÔNG PHẢI `audioPlayer`) vào analyser đã có sẵn, QUA 1 GainNode riêng
  * (`_videoBgGainNode`) — KHÔNG nối thẳng `masterGainNode` như bản cũ. PHẢI gọi
- * `setupAudioContext()` (core/audio-engine.js) trước hàm này ít nhất 1 lần trong phiên.
+ * `workflowAudioEngine.setup()` (event/workflow/audio-engine.js — thay setupAudioContext() từ 01/10/2026) trước hàm
+ * này ít nhất 1 lần trong phiên.
  * SỬA (09/08/2026, mục 1, phản hồi Giang — "video bg vẫn không mute") — nghiên cứu: sau khi
  * `createMediaElementSource()` "chiếm" audio output của 1 element, `.muted`/`.volume` của CHÍNH
  * element đó KHÔNG đáng tin cậy trên mọi engine trình duyệt để câm/chỉnh âm lượng phần audio ĐÃ
@@ -89,11 +90,11 @@ function connectVideoElementToAnalyser() {
     _videoAnalyserSourceNode.connect(_videoBgGainNode);
     // FIX (phản hồi Giang — "EQ không khả dụng cho Video Player mode") — TRƯỚC ĐÂY nối thẳng
     // `_videoBgGainNode` -> `masterGainNode`, BỎ QUA hoàn toàn chuỗi EQ (BiquadFilter nối tiếp,
-    // core/audio-engine.js::setupAudioContext()) — chuỗi đó CHỈ xây từ `audioPlayer` (Song). Giờ
+    // event/workflow/audio-engine.js::_buildGraph()) — chuỗi đó CHỈ xây từ `audioPlayer` (Song). Giờ
     // nối vào ĐÚNG ĐIỂM VÀO của chuỗi EQ (`eqBandNodes[0]`, cùng điểm `audioPlayer` nối vào) thay
     // vì thẳng masterGainNode — Song/Video không bao giờ phát đồng thời (isVideoPlayerMode loại
     // trừ nhau) nên dùng chung 1 chuỗi EQ an toàn. Chuỗi EQ tự chảy tiếp ra masterGainNode ở cuối
-    // (đã nối sẵn trong setupAudioContext()) — không cần nối lại đoạn đó.
+    // (đã nối sẵn trong workflowAudioEngine._buildGraph()) — không cần nối lại đoạn đó.
     const eqBandNodes = appState.get('eqBandNodes');
     const eqEntryNode = (eqBandNodes && eqBandNodes.length > 0) ? eqBandNodes[0] : appState.get('masterGainNode');
     _videoBgGainNode.connect(eqEntryNode);
