@@ -30,13 +30,6 @@
  * trước khi thêm vào đây, chưa làm trong patch này.]
  */
 
-// ===================== fileManagerFolderBrowser — (lịch sử, xem bên dưới) =====================
-// XOÁ (06/09/2026, Giang chốt mục 3.6 — "bỏ hẳn màn Read") — toàn bộ đoạn lịch sử dưới đây nói về
-// message 'fileManagerFolderBrowser.read.scope.change' (toggle Scope ở màn Read cũ) — message đó
-// VÀ màn Read đã bỏ hẳn (xem event/workflow/file-manager-folder-browser.js). Không đăng ký Block
-// gate nào thay thế: tap tile giờ áp Scope NGAY (không qua bước bật/tắt toggle nào để chặn), guard
-// clause cần thiết (nếu có) nằm thẳng trong `applyFolderFromTile()`.
-
 // ===================== Generic Drawer — chặn mở chồng khi đang mở =====================
 // MỚI (13/07/2026, Giang yêu cầu) — Generic Drawer dùng CHUNG cho nhiều tính năng, CHỈ 1 bodyHtml
 // tại 1 thời điểm. Nếu 2 nơi cùng lúc gọi mở (vd người dùng bấm liên tiếp rất nhanh, hoặc 1 tính
@@ -49,36 +42,17 @@
 // XOÁ (loại bỏ Document Reader khỏi app) — đăng ký `documentPicker.open.click` bỏ hẳn cùng tính
 // năng.
 
-// MỚI (Batch 5, "Song/Video Unification" mục 6e) — Folder Browser cũng mở Generic Drawer, đúng quy
-// định ngay phía trên (mỗi msg.type "mở" tự đăng ký riêng 1 dòng).
-eventBus.registerBlock('fileManagerFolderBrowser.open.click', [
-    [
-        { field: 'isGenericDrawerOpen', operator: '===', value: true },
-    ],
-]);
-
-// MỚI (06/09/2026, hợp nhất Folder vào Playlist, mục 4b — "Read-only", Giang chỉ định RÕ dùng
-// event/block.js cho ca này) — CHẶN HẲN mở menu upload khi folder đang Scope của Nguồn hiện tại có
-// `isReadOnly: true` — không cho thêm item mới vào 1 folder read-only (upload tự gắn vào folder
-// active, xem event/workflow/playlist.js::uploadVideos()/uploadPhotos()/core/playlist/loader.js::
-// handleAudioFiles()). `isActiveFolderReadOnly` (service/state/file-manager.js) là 1 giá trị PHẲNG
-// (không phải object theo Nguồn như `activePlayListFolder`) — LUÔN đồng bộ đúng Nguồn ĐANG HIỂN
-// THỊ tại mọi thời điểm (xem event/workflow/playlist-scope.js::applyFolderScope()/
-// applyAllSongsScope()), nên field tĩnh này đủ dùng cho Block gate (không cần đọc `activeMediaSource`
-// động — đúng giới hạn của `resolveFieldPath()`, event/bus.js, chỉ đọc field CỐ ĐỊNH). Có `notify`
-// (khác gate 'fileManagerFolderBrowser.open.click' ngay trên, gate đó im lặng đúng ý) — người dùng
-// cần biết TẠI SAO không mở được upload, không phải chặn hẳn không giải thích gì.
+// Folder Read-only — chặn mở menu upload khi folder đang Scope của Nguồn hiện tại có `isReadOnly`
+// (upload tự gắn vào folder active). `isActiveFolderReadOnly` là field phẳng luôn khớp Nguồn đang hiển
+// thị (service/state/file-manager.js). Có `notify` để người dùng biết lý do.
 eventBus.registerBlock('playlist.uploadMenu.open', [
     [
         { field: 'isActiveFolderReadOnly', operator: '===', value: true },
     ],
 ], { notify: t('fileManager.folderBrowser.uploadBlockedReadOnly') });
 
-// MỚI (14/07/2026, tích hợp Add to Folder -> Generic Drawer grid) — 'playlist.actionMenu.addToFolder'
-// là msg.type RIÊNG (không chia sẻ với hành động khác, khác 'playlist.selection.moreMenu.select'
-// bản chọn nhiều — msg.type đó CHUNG cho cả play/export/addToFolder/delete qua payload.action, KHÔNG
-// đăng ký block ở đây vì sẽ chặn nhầm cả 3 hành động còn lại). Lớp overlay (core/generic-drawer.js)
-// đã chặn click xuyên qua VỀ MẶT HÌNH ẢNH khi Drawer đang mở — block này là lớp phòng thủ thứ 2.
+// "Thêm vào thư mục" (menu 1 item) mở Generic Drawer — chặn khi Drawer đang mở (lớp phòng thủ thứ 2 sau
+// overlay). Không gate 'playlist.selection.moreMenu.select' vì msg.type đó dùng chung cho nhiều hành động.
 eventBus.registerBlock('playlist.actionMenu.addToFolder', [
     [
         { field: 'isGenericDrawerOpen', operator: '===', value: true },
