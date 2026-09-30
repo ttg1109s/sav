@@ -558,11 +558,9 @@ Object.assign(workflowVisualBg, {
         bgVideoElement.loop = this._computeVideoLoop(cfg, videoKey);
     },
 
-    /** Video — mở picker multi-select (thay `openSingleVideoPicker()` cũ). */
+    /** Mở picker Video multi-select — danh sách qua `listPickableMedia()` (bỏ video thuộc folder Hidden). */
     async openPickVideo() {
         this._pickerSelectedKeys = [];
-        // SỬA (24/09/2026) — mở qua Workflow helper (core/media-picker-drawer-ui.js không còn tự mở Drawer). `_pickerOpen`
-        // THAY `_pickerCleanup` (không còn hàm gỡ listener: listener gắn trên nội dung động, tự mất khi đóng).
         workflowGenericDrawerHelpers.mountMediaPicker({
             routerName: 'visualBg', msgPrefix: 'visualBg.videoPicker', title: t('fileManager.video.pickerTitle'),
             bodyHtml: this._buildMultiPickerBodyHtml('file-manager-video-picker-scroll', 'file-manager-video-picker-empty', t('fileManager.video.empty')),
@@ -570,7 +568,7 @@ Object.assign(workflowVisualBg, {
         });
         this._pickerOpen = true;
 
-        const videos = await listVideos();
+        const videos = await workflowPlaylistScope.listPickableMedia('video'); // event/workflow/playlist-scope.js — bỏ item thuộc folder Hidden
         if (!this._pickerOpen) return;
 
         const scrollEl = genericDrawerBody.querySelector('#file-manager-video-picker-scroll');

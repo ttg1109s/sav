@@ -169,10 +169,9 @@ Object.assign(workflowVisualBg, {
         this._syncPhotoTicking();
     },
 
-    /** Mở picker Ảnh multi-select — cùng khuôn `openPickVideo()`. */
+    /** Mở picker Ảnh multi-select — cùng khuôn `openPickVideo()` (event/workflow/visual-bg-video.js). */
     async openPickPhoto() {
         this._pickerSelectedKeys = [];
-        // SỬA (24/09/2026) — cùng khuôn `openPickVideo()` (event/workflow/visual-bg-video.js).
         workflowGenericDrawerHelpers.mountMediaPicker({
             routerName: 'visualBg', msgPrefix: 'visualBg.photoPicker', title: t('visualBgSettingsDrawer.pickPhoto.label'),
             bodyHtml: this._buildMultiPickerBodyHtml('visual-bg-photo-picker-scroll', 'visual-bg-photo-picker-empty', t('fileManager.photo.image.empty')),
@@ -180,7 +179,7 @@ Object.assign(workflowVisualBg, {
         });
         this._pickerOpen = true;
 
-        const images = await listImages();
+        const images = await workflowPlaylistScope.listPickableMedia('photo'); // event/workflow/playlist-scope.js — bỏ item thuộc folder Hidden
         if (!this._pickerOpen) return;
 
         const scrollEl = genericDrawerBody.querySelector('#visual-bg-photo-picker-scroll');

@@ -32,7 +32,10 @@
  * Rule 3 (siết 03/08/2026, readme/core-function-conventions.md) — Core CẤM tự đọc service/db.js;
  * `listMediaRecords()` đọc DB trực tiếp nên PHẢI nằm ở Workflow này, không phải Core.
  *
- * NẠP SAU: core/playlist/scope.js (loadAllSongs), service/db.js (setMeta, getFolderSongMap,
+ * `listPickableMedia(mediaType)` — ảnh/video thư viện trừ item thuộc folder Hidden, cho mọi picker.
+ *
+ * NẠP SAU: core/playlist/scope.js (loadAllSongs/filterOutExcludedMedia), core/file-manager/image.js
+ * (listImages), core/file-manager/video.js (listVideos), service/db.js (setMeta, getFolderSongMap,
  * getAllSongKeys/getAllVideoKeys/getAllImageKeys, getSongRecord/getVideoRecord/getImageRecord),
  * event/workflow/playlist-order.js (workflowPlaylistOrder.*), core/playlist/render.js
  * (renderPlaylistDiff/updateEmptyState), core/modal-choice-ui.js (modalChoice),
@@ -48,6 +51,12 @@ const MEDIA_DB_ACCESSOR = {
     song: { getAllKeys: getAllSongKeys, getRecord: getSongRecord },
     video: { getAllKeys: getAllVideoKeys, getRecord: getVideoRecord },
     photo: { getAllKeys: getAllImageKeys, getRecord: getImageRecord },
+};
+
+// map mediaType -> hàm liệt kê thư viện (core/file-manager/image.js | video.js), dùng bởi listPickableMedia().
+const PICKABLE_MEDIA_LISTER = {
+    photo: () => listImages(),
+    video: () => listVideos(),
 };
 
 const workflowPlaylistScope = {
@@ -227,6 +236,20 @@ const workflowPlaylistScope = {
         workflowPlaylistRender.renderPlaylistDiff();
         updateEmptyState();
         if (typeof PlaylistMain !== 'undefined') await PlaylistMain.updateActiveFolderBadge();
+    },
+
+    /**
+     * Danh sách ảnh/video cho picker chọn từ thư viện — bỏ item thuộc folder Hidden (cùng quy tắc view
+     * "Tất cả"). Dùng chung cho mọi picker (bìa bài hát, nền Theme, Visual Background, nền Clock).
+     * @param {'photo'|'video'} mediaType
+     * @returns {Promise<Array<{key: string}>>}
+     */
+    async listPickableMedia(mediaType) {
+        const [items, excludedKeys] = await Promise.all([
+            PICKABLE_MEDIA_LISTER[mediaType](), // core/file-manager/image.js | video.js
+            getExcludedSongKeysFromFolders(mediaType), // core/file-manager/folder.js
+        ]);
+        return filterOutExcludedMedia(items, excludedKeys); // core/playlist/scope.js
     },
 
     /**

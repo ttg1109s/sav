@@ -67,41 +67,29 @@ const workflowFileManagerPhoto = {
         });
     },
 
-    // ===================== Picker ảnh dùng chung (Generic Drawer) — single-select (chọn 1 ảnh, vd
-    // bìa bài hát/Theme Background) — tap ẢNH NÀO là chọn NGAY ảnh đó + đóng drawer. ==============
+    // ===================== Picker ảnh dùng chung (Generic Drawer) — single-select =====================
 
-    /** Chọn 1 ảnh làm bìa bài hát HOẶC ảnh nền Theme — single-select: bấm ẢNH NÀO là chọn NGAY ảnh
-     * đó + đóng drawer, KHÔNG có nút xác nhận riêng. Gọi TỪ event/workflow/playlist.js::
-     * pickCoverFromLibrary() VÀ event/workflow/theme.js::pickNewBackgroundImage() (Workflow gọi
-     * Workflow miền khác, TỰ DO theo event-bus-flow.md mục 4B).
+    /** Chọn 1 ảnh (bìa bài hát — event/workflow/playlist.js; nền mặt Clock — event/workflow/custom-effect.js):
+     * bấm ảnh nào chọn NGAY ảnh đó + đóng drawer, không nút xác nhận.
      * @param {(imageKey: string) => void} onSelect
-     * @param {() => void} [onCancel] - gọi khi đóng picker MÀ CHƯA chọn gì (nút X) — nơi gọi tự trả
-     *        toggle "On" về "off" nếu có.
+     * @param {() => void} [onCancel] - gọi khi đóng bằng nút X mà chưa chọn gì.
      */
     async openCoverImagePicker(onSelect, onCancel) {
         _imagePickerSession = { onSelect, onCancel, hasSelected: false };
         await this._openImagePickerDrawer(t('playlistView.songEdit.coverPickLibrary'));
     },
 
-    /** Dựng khung Generic Drawer cho picker ảnh. Nghiệp vụ THẬT (chọn 1 ảnh) tách hẳn ở
-     * `handleImagePickerTileClick()` bên dưới, KHÔNG lẫn vào hàm dựng khung này.
-     * Height `90vh` (mặc định `70vh` của Generic Drawer không đủ chỗ cho lưới ảnh cuộn thoải mái).
-     * Trình tự ĐÃ CHỐT: drawer trượt lên xong HẲN (nghe `transitionend` THẬT, core/generic-
-     * drawer.js) -> đọc DB + windowing.
+    /** Mở khung picker (`workflowGenericDrawerHelpers.mountMediaPicker()`, 90vh), đợi drawer trượt xong rồi
+     * mới đọc DB + dựng lưới. Danh sách qua `listPickableMedia()` — bỏ ảnh thuộc folder Hidden.
      * @param {string} title
      */
     async _openImagePickerDrawer(title) {
-        // Rule 5a — dựng Generic Drawer + wire closeBtn/delegated click lưới ảnh nằm ở CORE
-        // (core/media-picker-drawer-ui.js (nay: workflowGenericDrawerHelpers.mountMediaPicker()), dùng chung picker ảnh/
-        // video), Workflow chỉ gọi Core với data đã chuẩn bị sẵn (title/bodyHtml).
-        // SỬA (24/09/2026) — mở qua Workflow helper (core picker không còn tự mở Drawer); chờ trượt xong bằng taskManager
-        // THAY `transitionend` gắn thẳng lên panel TĨNH (listener ngoài tầng Listener; lại còn nổi bọt từ phần tử con).
         workflowGenericDrawerHelpers.mountMediaPicker({ routerName: 'fileManagerPhoto', msgPrefix: 'fileManagerPhoto.imagePicker', title, bodyHtml: this._buildImagePickerBodyHtml(), tileSelector: '[data-image-key]', tileDataKey: 'imageKey' });
 
         await new Promise((resolve) => { taskManager.once(resolve, GENERIC_DRAWER_ANIM_MS, 'fileManagerPhotoPickerOpenSettle'); }); // core/generic-drawer.js
 
-        const images = await listImages(); // core/file-manager/image.js
-        if (!_imagePickerSession) return; // guard — user đóng picker RẤT NHANH trong lúc đang đọc DB (hiếm, nhưng an toàn — tránh vẽ vào drawer đã đóng)
+        const images = await workflowPlaylistScope.listPickableMedia('photo'); // event/workflow/playlist-scope.js — bỏ item thuộc folder Hidden
+        if (!_imagePickerSession) return; // guard — picker bị đóng trong lúc đang đọc DB
 
         const scrollEl = genericDrawerBody.querySelector('#file-manager-image-picker-scroll');
         const emptyEl = genericDrawerBody.querySelector('#file-manager-image-picker-empty');
@@ -109,10 +97,7 @@ const workflowFileManagerPhoto = {
         this.setupPhotoGridWindow(scrollEl, images);
     },
 
-    /** HTML khung picker: scroll container (grid windowing sẽ chèn vào TRONG đây). Đặt ở Workflow —
-     * hàm THUẦN chỉ trả string (không `createElement`/`addEventListener`), KHÔNG thuộc phạm vi
-     * Rule 5a/5c, khác hẳn phần dựng+wire Generic Drawer thật (đã dời sang core/media-picker-
-     * drawer-helper.js::openMediaPickerDrawerUi()).
+    /** Khung picker: scroll container (lưới windowing chèn vào trong). Chuỗi thuần.
      * @returns {string}
      */
     _buildImagePickerBodyHtml() {

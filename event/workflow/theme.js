@@ -1,40 +1,26 @@
 /**
- * event/workflow/theme.js — "THẰNG THỰC THI CUỐI" của router "theme": chốt NỀN của app (Light/Dark không nền · Solid · Gradient · Background media).
+ * event/workflow/theme.js — thực thi router "theme": chốt NỀN của app (Light · Dark · Morphin: None/Gradient/Background media).
  *
- * VIẾT LẠI 21/09/2026 (Giang yêu cầu "sửa lại UI: 3 card Solid/Gradient/Background media phản ánh đúng nền của nó + nút chọn bên dưới; Background
- * media cho thêm VIDEO; sửa lỗi dropdown nền chọn mục khác đều bị fallback về cái hiện tại; media bị xoá/mất -> boot fallback về lựa chọn trước đó").
- * Điểm chốt (Giang đã chọn khi được hỏi):
- *   - Nền media THAM CHIẾU item thư viện (`bgMediaKind` 'photo'|'video' + `bgMediaKey`) thay vì copy blob vào meta như bản cũ -> video không nhân đôi
- *     dung lượng; item bị xoá/mất thì lúc boot `loadPlaylistBgMediaAsset()` (core/config.js) tự về `bgFallbackMode` (nền Solid/Gradient chọn gần nhất).
- *   - Video nền CHỈ chạy khi đang ở màn App Panel và tab đang hiện; vào Visualizer / ẩn app -> pause (`syncBackgroundVideoPlayback()`).
- *   - Solid là mode RIÊNG có màu riêng (`bgSolidColor`) — hết cách "đoán solid từ gradient 2 màu giống nhau" vốn là nguyên nhân dropdown cũ nhảy ngược.
- *     SỬA 23/09/2026 (Giang: "bỏ toàn bộ background solid -> thay bằng none") — mode 'solid' ĐÃ XOÁ, card đầu là 'none' (Morphin không nền, không có ô màu).
- *   - MỚI 23/09/2026 (Giang báo lỗi vào lại Morphin bị ép về Background media) — mỗi lần chốt 1 kiểu nền Morphin ('none'|'gradient'|'background') đều ghi
- *     `morphinLastMode`; workflowAppSettings.handleUiThemeChange() dùng nó khi vào lại Morphin từ Light/Dark.
+ *   - Background media THAM CHIẾU item thư viện (`bgMediaKind` 'photo'|'video' + `bgMediaKey`), không copy blob; item bị xoá/mất -> boot
+ *     tự về `bgFallbackMode` (`loadPlaylistBgMediaAsset()`, core/config.js).
+ *   - Video nền chỉ chạy ở màn App Panel khi tab đang hiện (`syncBackgroundVideoPlayback()`).
+ *   - Mỗi lần chốt 1 kiểu nền Morphin đều ghi `morphinLastMode` (workflowAppSettings.handleUiThemeChange() dùng khi vào lại Morphin).
  *
- * Các method chốt mode: `applyNonBackgroundMode(mode)` (light/dark/solid/gradient), `reuseExistingBackgroundMedia()` (bấm lại card media khi đã có
- * item), `pickBackgroundMedia(kind)` + `handleMediaPickerTileClick()` (chọn item mới) — Router (event/router/theme.js) chọn ĐÚNG 1 method; đều kết thúc
- * bằng `_commitThemeMode()`. Sửa màu (`setGradientFrom`/`setGradientTo`) cũng CHỌN luôn card Gradient (`_commitColorEdit()`).
+ * Method chốt mode (Router chọn đúng 1): `applyNonBackgroundMode(mode)`, `reuseExistingBackgroundMedia()`, `pickBackgroundMedia(kind)` +
+ * `handleMediaPickerTileClick()` — đều kết thúc bằng `_commitThemeMode()`. Sửa màu (`setGradientFrom/To`) chọn luôn card Gradient.
+ * Picker = `workflowGenericDrawerHelpers.mountMediaPicker()` (updateInPlace, đang đứng trong Settings), danh sách qua
+ * `workflowPlaylistScope.listPickableMedia()` (bỏ item folder Hidden); chọn xong/đóng thì dựng lại màn Theme.
  *
- * Picker chọn item thư viện = Generic Drawer TÁI DÙNG `openMediaPickerDrawerUi()` (core/media-picker-drawer-ui.js) + lưới ảnh/video có sẵn
- * (`workflowFileManagerPhoto.setupPhotoGridWindow()`, `workflowVideoGalleryWindow`), mở `updateInPlace` vì đang đứng TRONG Settings (cùng khuôn picker của
- * Visual Background); chọn xong/đóng thì dựng lại màn Theme (`workflowAppSettings._renderTheme()`).
- *
- * `_commitThemeMode()` mutate `cfg.themeMode` TRƯỚC, rồi `updatePlaylistBg()` (core/color-utils.js — đọc themeMode để biết vẽ gì) + `forceGlassRepaint()`
- * (fix WebKit/iOS backdrop-filter không tự resample) + đồng bộ status bar/preloader + trạng thái phát video nền + UI card.
- *
- * NẠP SAU: core/config.js (saveConfig, resolveAppBgMedia), core/color-utils.js (updatePlaylistBg, forceGlassRepaint, setAppBgVideoPlayback),
- * core/visualizer/visualizer-display.js (setThemeGradientFrom/To, setAppGlassBlur/Tint), core/loading-shield-util.js (withLoadingShield), core/theme-background-ui.js
- * (patchThemeBackgroundCards), core/media-picker-drawer-ui.js (openMediaPickerDrawerUi), core/file-manager/image.js (listImages), core/file-manager/video.js
- * (listVideos), event/workflow/file-manager-photo.js, event/workflow/photo-gallery-window.js, event/workflow/video-gallery-window.js,
- * event/workflow/app-settings.js (workflowAppSettings._renderTheme — runtime), event/workflow/ui-theme.js (workflowUiTheme — runtime), core/dom-refs.js
- * (appStack, genericDrawerBody).
+ * NẠP SAU: core/config.js, core/color-utils.js, core/visualizer/visualizer-display.js, core/loading-shield-util.js,
+ * core/theme-background-ui.js, event/workflow/generic-drawer-helpers.js, event/workflow/playlist-scope.js, event/workflow/file-manager-photo.js,
+ * event/workflow/photo-gallery-window.js, event/workflow/video-gallery-window.js, event/workflow/app-settings.js (runtime),
+ * event/workflow/ui-theme.js (runtime), core/dom-refs.js.
  */
 const THEME_MORPHIN_BG_MODES = ['none', 'gradient', 'background']; // MỚI 23/09/2026 — 3 kiểu nền của Morphin (khớp THEME_BG_CARD_MODES, core/theme-background-ui.js)
 
 const workflowTheme = {
     _mediaPickerKind: null, // 'photo' | 'video' | null — đang có picker media nền mở hay không
-    _mediaPickerOpen: false, // SỬA (24/09/2026) — THAY `_mediaPickerCleanup` (hàm gỡ listener cũ, không còn cần — listener gắn trên nội dung động)
+    _mediaPickerOpen: false, // guard: picker bị đóng trong lúc đang đọc DB
 
     /**
      * Ứng với 'theme.selectMode.click' khi `mode !== 'background'` (light/dark/none/gradient) — Router đã chọn ĐÚNG method này. None/Gradient
@@ -64,14 +50,14 @@ const workflowTheme = {
         this._mediaPickerKind = kind;
         const isPhoto = kind === 'photo';
         const scrollId = 'theme-bg-picker-scroll', emptyId = 'theme-bg-picker-empty';
-        workflowGenericDrawerHelpers.mountMediaPicker({ // event/workflow/generic-drawer-helpers.js — SỬA 24/09/2026
+        workflowGenericDrawerHelpers.mountMediaPicker({ // event/workflow/generic-drawer-helpers.js
             routerName: 'theme', msgPrefix: 'theme.mediaPicker',
             title: isPhoto ? t('playlistView.songEdit.coverPickLibrary') : t('fileManager.video.pickerTitle'),
             bodyHtml: this._buildMediaPickerBodyHtml(scrollId, emptyId, isPhoto ? t('fileManager.photo.image.empty') : t('fileManager.video.empty')),
             tileSelector: isPhoto ? '[data-image-key]' : '.video-tile', tileDataKey: isPhoto ? 'imageKey' : 'videoKey', showConfirmButton: false, updateInPlace: true,
         });
         this._mediaPickerOpen = true;
-        const items = isPhoto ? await listImages() : await listVideos(); // core/file-manager/image.js | video.js
+        const items = await workflowPlaylistScope.listPickableMedia(kind); // event/workflow/playlist-scope.js — bỏ item thuộc folder Hidden
         if (!this._mediaPickerOpen) return; // guard — đóng picker RẤT NHANH lúc đang đọc DB
         const scrollEl = genericDrawerBody.querySelector(`#${scrollId}`);
         const emptyEl = genericDrawerBody.querySelector(`#${emptyId}`);
