@@ -272,17 +272,9 @@ function renderPlaylistFilterEditBody(preset, source, isActive) {
 }
 
 /**
- * MỚI (Giang yêu cầu tính năng "folder tự quyết áp dụng Filter", màn "Cài đặt filter" RIÊNG cho 1
- * folder, mở qua dropdown long-press — event/workflow/file-manager-folder-browser.js). TÁI DÙNG
- * THẲNG `_renderFilterTextFieldRow()`/`_renderFilterNumericFieldRow()` ngay trên (CÙNG field rule y
- * hệt màn Edit preset) — KHÁC màn đó ở việc KHÔNG có hàng "Name"/checkbox "Có áp dụng cho thư mục"
- * (2 khái niệm đó thuộc hệ Preset, không liên quan filter RIÊNG của 1 folder) và KHÔNG có 2 nút
- * Select/Update/Delete cuối trang (modalChoice() tự có nút Đóng mặc định — xem
- * event/workflow/file-manager-folder-browser.js::showFolderFilterEditor()). Bọc trong
- * `max-h-[55vh] overflow-y-auto` RIÊNG — CHỈ ở đây cần, vì đây là nội dung TỰ DO trong `modalChoice()`
- * (core/modal-choice-ui.js — card KHÔNG có sẵn giới hạn chiều cao/scroll, chỉ hợp cho nội dung ngắn
- * như showFolderProperties() 2 checkbox; ĐẾN 8 field row ở đây chắc chắn tràn màn hình mobile nếu
- * không tự bọc scroll).
+ * Body màn "Cài đặt filter" riêng của 1 folder (Generic Drawer, event/workflow/file-manager-folder-browser.js::
+ * filterFromTileMenu()). Tái dùng `_renderFilterTextFieldRow()`/`_renderFilterNumericFieldRow()` như màn Edit preset,
+ * nhưng không có hàng Name/checkbox "Có áp dụng cho thư mục" và không có nút cuối trang (nút Áp dụng ở header).
  * @param {object} config - `playlistFilterConfig[mediaType]` shape — CÙNG `folderRecord.filterConfig`
  *   (core/file-manager/folder.js), KHÔNG cần chuyển đổi.
  * @param {'song'|'video'|'photo'} mediaType
