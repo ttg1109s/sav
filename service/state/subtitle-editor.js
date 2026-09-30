@@ -45,14 +45,25 @@
                 _karaokeLineEnd: 'number',
                 _karaokeWavesurfer: 'any',          // WaveSurfer instance MINI (waveform riêng vùng dòng đó) | null
                 _karaokeRegionsPlugin: 'any',
-                _karaokeAudioUrl: 'nullable-string', // URL.createObjectURL() riêng cho waveform mini — tự revoke lúc đóng drawer
-                // MỚI (30/09/2026) — waveform mini giờ CÓ audio riêng (WAV đúng đoạn dòng, dựng từ PCM
-                // giải mã sẵn), nút ▶ từng từ phát TRÊN nó — xem _initKaraokeMiniWaveform().
+                _karaokeAudioUrl: 'nullable-string', // URL WAV nhỏ làm nguồn <audio> nội bộ của WaveSurfer mini (không phát qua nó) — tự revoke lúc đóng drawer
+                // MỚI (30/09/2026) — waveform mini chỉ chứa đúng đoạn dòng (PCM giải mã sẵn), nút ▶ từng từ
+                // phát TRÊN nó — xem _initKaraokeMiniWaveform().
                 _karaokeSourceAudio: 'any',         // {samples: Float32Array mono, sampleRate} — giải mã 1 LẦN/phiên trang, dùng lại cho mọi dòng | null
                 _karaokeInitToken: 'number',        // tăng mỗi lần dựng waveform mini — lượt dựng cũ (đang await) thấy lệch token thì tự bỏ
                 _karaokeMiniReady: 'boolean',       // waveform mini đã 'ready' (mở khoá nút ▶ từng từ)
                 _karaokePlayingIndex: 'nullable-number', // index từ đang phát trên waveform mini (null = không phát)
                 _karaokePlayEndSec: 'number',       // mốc dừng (giây, TƯƠNG ĐỐI trong dòng) của từ đang phát
+                // MỚI (30/09/2026, lần 2) — nghe từ bằng Web Audio + highlight vùng phát + chữ trong vùng từ + cuộn ngang.
+                _karaokeSegment: 'any',             // {samples: Float32Array, sampleRate} — PCM đúng đoạn dòng đang mở | null
+                _karaokeSegmentBuffer: 'any',       // AudioBuffer dựng từ _karaokeSegment (lười, lúc bấm ▶ lần đầu) | null
+                _karaokeAudioCtx: 'any',            // AudioContext DÙNG CHUNG cả phiên trang (tạo lúc bấm ▶ lần đầu) | null
+                _karaokeSourceNode: 'any',          // AudioBufferSourceNode đang phát | null
+                _karaokePlayStartSec: 'number',     // đầu từ đang phát (giây, TƯƠNG ĐỐI trong dòng)
+                _karaokePlayStartCtxTime: 'number', // AudioContext.currentTime lúc bắt đầu phát — tính vị trí đang phát
+                _karaokeHighlightRegion: 'any',     // region bôi xanh [đầu từ, vị trí đang phát] | null
+                _karaokeLabelRegions: 'array',      // region vùng TỪ (có chữ bên trong), theo index từ
+                _karaokeMarkerRegions: 'array',     // region mốc chia (kéo được)
+                _karaokeMiniPxPerSec: 'number',     // px/giây của waveform mini (quy đổi thời điểm -> vị trí cuộn)
             },
             buildDefaults() {
                 return {
@@ -93,6 +104,16 @@
                     _karaokeMiniReady: false,
                     _karaokePlayingIndex: null,
                     _karaokePlayEndSec: 0,
+                    _karaokeSegment: null,
+                    _karaokeSegmentBuffer: null,
+                    _karaokeAudioCtx: null,
+                    _karaokeSourceNode: null,
+                    _karaokePlayStartSec: 0,
+                    _karaokePlayStartCtxTime: 0,
+                    _karaokeHighlightRegion: null,
+                    _karaokeLabelRegions: [],
+                    _karaokeMarkerRegions: [],
+                    _karaokeMiniPxPerSec: 1,
                 };
             },
         });
