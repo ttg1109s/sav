@@ -51,7 +51,7 @@ const routerVisualizerDisplay = (() => {
             // ===================== Volume (Control Center HUD) =====================
             case 'visualizerDisplay.volume.input': {
                 const { value } = msg.payload;
-                setVolume(value);
+                workflowAudioEngine.setVolume(value); // event/workflow/audio-engine.js — SỬA 01/10/2026: thay setVolume() core (đã xoá)
                 break;
             }
 
