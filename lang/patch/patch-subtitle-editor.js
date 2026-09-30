@@ -37,6 +37,7 @@ const LANG_PATCH_SUBTITLE_EDITOR = {
     // chạy qua waveform mini nên lúc lỗi báo rõ nút ▶ bị khoá.
     'subtitleEditor.karaoke.waveformError': 'Unable to load the mini waveform — word playback is unavailable. You can still adjust timing using the ms fields below.',
     'subtitleEditor.karaoke.waveformLoading': 'Loading audio…',
+    'subtitleEditor.karaoke.scrollLabel': 'Scroll waveform',
     'subtitleEditor.listEmpty': 'No subtitles yet. Use the tools below to add some.',
     'subtitleEditor.btnUpload.title': 'Upload .srt',
     'subtitleEditor.btnAutoTiming.title': 'Auto timing',
