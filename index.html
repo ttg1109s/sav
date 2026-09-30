@@ -470,7 +470,7 @@
     <script src="components/subtitle-settings-drawer.js?v=20260923v1"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Motion Settings Drawer (Cấu hình Transition/Ken Burns/
          React Beat Audio, hệ preset độc lập — xem components/motion-settings-drawer.js). -->
-    <script src="components/motion-settings-drawer.js?v=20260925r2"></script>
+    <script src="components/motion-settings-drawer.js?v=20260930hidden3"></script>
     <script src="components/visual-bg-settings-drawer.js?v=20260930vbgres2"></script>
     <script src="components/visual-bg-gradient-drawer.js?v=20260924r1"></script>
     <script src="components/visual-bg-video-audio-drawer.js?v=20260923v1"></script>
@@ -737,7 +737,7 @@
     <script src="core/motion-engine.js?v=20260903v4"></script>
     <!-- Core THUẦN cho hệ "Cấu hình Motion" (preset đặt tên được, độc lập khỏi Visual Background)
          — xem core/motion-presets.js. -->
-    <script src="core/motion-presets.js?v=20260925r1"></script>
+    <script src="core/motion-presets.js?v=20260930hidden3"></script>
     <!-- MỚI (Giang yêu cầu "Player") — hằng số thuần PLAYER_RESOLUTION_MODES/PLAYER_MOTION_SLOTS +
          2 hàm resolve tên field + normalizePlayerResolutionMode(), xem core/player-display-settings.js. Không phụ thuộc file nào. -->
     <script src="core/player-display-settings.js?v=20260929zs1"></script>
@@ -1060,8 +1060,9 @@
     <!-- Playlist Filter Presets (màn List/Edit trong Settings). CẦN core/playlist/filter-presets.js,
          components/playlist-filter-drawer.js, filter-rule-edit.js (ngay trên); workflowAppSettings/
          workflowPlaylistScope gọi lúc runtime. -->
-    <script src="event/workflow/playlist-filter-presets.js?v=20260930hidden2"></script>
-    <script src="event/router/playlist-filter-presets.js?v=20260908v1"></script>
+    <script src="event/workflow/playlist-filter-presets.js?v=20260930hidden3"></script>
+    <script src="event/router/playlist-filter-presets.js?v=20260930hidden3"></script>
+    <script src="event/listener/playlist-filter-presets.js?v=20260930hidden3"></script>
     <!-- Panel "Song & Video" cũ (file-manager-song.js) đã xoá, thay bằng "Quản lý lưu trữ" (gộp 3
          domain: song/video/photo) — CẦN core/file-manager/{image,album}.js,
          components/file-manager-storage.js (đã nạp ở nhóm CORE/COMPONENTS). -->
@@ -1076,13 +1077,11 @@
          Burns), CHỈ còn đúng 1 vai trò: `_tick()` (taskManager) — cụm router "slideshowSettings"
          (từng ở đây) ĐÃ BỎ HẲN (29/08/2026), xem event/workflow/motion-presets.js ngay dưới. -->
     <script src="event/workflow/visual-bg-photo-motion.js?v=20260925p3"></script>
-    <!-- MỚI (29/08/2026) — hệ "Cấu hình Motion" độc lập (Settings > System > Motion), thay
-         hẳn router/listener "slideshowSettings" cũ (2 file event/router,listener/slideshow.js ĐÃ
-         XOÁ) — xem event/workflow/motion-presets.js, event/router/motion-presets.js. Không
-         cần listener riêng — mọi wiring DOM động nằm trong event/workflow/app-settings.js
-         (_render*() onMount, liên tuyến domain, xem docstring file đó). -->
-    <script src="event/workflow/motion-presets.js?v=20260925r1"></script>
-    <script src="event/router/motion-presets.js?v=20260925r1"></script>
+    <!-- Cấu hình Motion (Settings > System > Motion + chế độ Chọn). Listener delegate trên Generic Drawer
+         (event/listener/motion-presets.js) thay cho wiring trong onMount của app-settings.js. -->
+    <script src="event/workflow/motion-presets.js?v=20260930hidden3"></script>
+    <script src="event/router/motion-presets.js?v=20260930hidden3"></script>
+    <script src="event/listener/motion-presets.js?v=20260930hidden3"></script>
 
     <!-- MỚI (Giang chỉ ra: "đã tách bạch rõ trách nhiệm motion phải quản lý việc apply live bất kể
          nơi tiêu thụ... sau này có N nơi tiêu thụ thì cũng ko thể nhân bản để áp dụng") — 3 module
@@ -1195,14 +1194,14 @@
     <script src="event/workflow/player.js?v=20260929bh5"></script>
     <script src="event/workflow/playlist.js?v=20260925bg2"></script>
     <script src="event/router/playlist.js?v=20260924r2"></script>
-    <script src="event/listener/playlist.js?v=20260930hidden2"></script>
+    <script src="event/listener/playlist.js?v=20260930hidden3"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel + phân phối lại section Settings, phản hồi
          Giang) — cụm "appSettings" (điều hướng swap Setting, TÁI DÙNG workflowGestureSettings/
          workflowSlideshow/workflowPlaylist/workflowSettingsMisc/workflowFileManagerPhoto/
          workflowFileManagerFolderBrowser/workflowFileManagerStorage đã nạp ở trên — KHÔNG bắt
          buộc thứ tự nạp CHẶT với các file đó, vì mọi tham chiếu đều nằm TRONG thân hàm, chỉ chạy
          SAU khi cả trang đã nạp xong, không chạy ngay lúc parse). -->
-    <script src="event/workflow/app-settings.js?v=20260929zs1"></script>
+    <script src="event/workflow/app-settings.js?v=20260930hidden3"></script>
     <script src="event/router/app-settings.js?v=20260929zs1"></script>
     <!-- Cụm "placeholderPanels" (đóng Game/Statis). Photo đã hợp nhất vào Playlist, không còn cụm
          "photoPanel" riêng. -->
