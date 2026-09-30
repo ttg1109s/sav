@@ -1,99 +1,84 @@
 /**
- * event/router/file-manager-folder-browser.js — Router tên "fileManagerFolderBrowser", tự đăng ký
- * với eventBus lúc nạp. MỚI (ver12 "Song/Video Unification", Batch 5, mục 6e).
+ * event/router/file-manager-folder-browser.js — Router "fileManagerFolderBrowser" (Folder Browser trong Generic Drawer),
+ * tự đăng ký với eventBus lúc nạp. Mọi case giao event/workflow/file-manager-folder-browser.js. Mở Folder
+ * Browser đi qua tab Folder ('appPanelNav.folder.click' -> workflowAppPanelNav.openFolder() -> openList()).
  *
- * SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow") — TRƯỚC
- * ĐÂY toàn bộ tương tác BÊN TRONG Generic Drawer đi THẲNG `workflowFileManagerFolderBrowser.xxx()`
- * (Workflow tự `addEventListener`), CỐ Ý "bỏ qua Router" — SAI Rule 5a. Toàn bộ wiring đã dời sang
- * core/file-manager/folder-picker-ui.js::wireFolderPickerDrawerEvents(), đi qua ĐÚNG router này.
- *
- * SỬA (06/09/2026, Giang chốt mục 3.6 — "bỏ hẳn màn Read") — mọi case 'read.*' (back/close/rename/
- * delete/removeItem/removeAll/pagination/2 toggle Scope-Exclude) bỏ hẳn cùng màn hình đó. Thêm 2
- * case MỚI cho tile: `.tile.click` (áp dụng Scope ngay) và `.tile.longpress` (mở dropdown hành
- * động, xem event/workflow/file-manager-folder-browser.js) + 4 case đích của dropdown đó
- * (`.tileMenu.rename/delete/filter/properties.click` — Exclude/Hidden nay là checkbox trong Properties, không còn case riêng).
+ * Nguồn message: lưới List
+ * (wireFolderPickerDrawerEvents, msgPrefix 'fileManagerFolderBrowser.list'); dropdown giữ tay (openDropdownMenu);
+ * modal đổi tên (openRenameFolderModal); modal Thuộc tính (wireFolderPropertiesModalUi); màn Filter Edit
+ * (wireFolderFilterEditUi) — đều ở core/file-manager/folder-picker-ui.js trừ dropdown.
  *
  * NẠP SAU: event/bus.js, event/workflow/file-manager-folder-browser.js.
- * NẠP TRƯỚC: event/listener/file-manager-song.js (nút "Duyệt thư mục" delegate ở đó).
  */
 const routerFileManagerFolderBrowser = (() => {
     function handle(msg) {
         switch (msg.type) {
-            // MỚI (24/09/2026) — field rule trong màn Filter Edit (change/input/click, gửi từ
-            // workflowFileManagerFolderBrowser._wireFilterEditEvents()) — THAY listener gọi thẳng method.
-            case 'fileManagerFolderBrowser.filterEdit.field': {
-                workflowFileManagerFolderBrowser._handleFolderFilterFieldEvent(msg.payload.event);
-                break;
-            }
-
-            case 'fileManagerFolderBrowser.open.click':
-                workflowFileManagerFolderBrowser.openList(); // >1 hàm core (đọc DB + vẽ) -> workflow
-                break;
-
-            case 'fileManagerFolderBrowser.rename.confirm': {
-                const { folderId, name } = msg.payload;
-                workflowFileManagerFolderBrowser.confirmRenameFolder(folderId, name);
-                break;
-            }
-
             // ===================== List =====================
-
-            case 'fileManagerFolderBrowser.list.close.click': {
+            case 'fileManagerFolderBrowser.list.close.click':
                 workflowFileManagerFolderBrowser.closeBrowser();
                 break;
-            }
-            // SỬA (06/09/2026, mục 2.1 — "tap thư mục -> áp dụng ngay") — TRƯỚC ĐÂY gọi openRead()
-            // (chuyển sang màn xem nội dung folder, ĐÃ XOÁ). Giờ áp Scope THẲNG.
-            case 'fileManagerFolderBrowser.list.tile.click': {
+            case 'fileManagerFolderBrowser.list.tile.click':
                 workflowFileManagerFolderBrowser.applyFolderFromTile(msg.payload.folderId);
                 break;
-            }
-            // MỚI (06/09/2026, mục 2.7 — long-press mở dropdown, xem `openTileActionsMenu()`).
-            case 'fileManagerFolderBrowser.list.tile.longpress': {
+            case 'fileManagerFolderBrowser.list.tile.longpress':
                 workflowFileManagerFolderBrowser.openTileActionsMenu(msg.payload.folderId, msg.payload.anchorEl);
                 break;
-            }
-            case 'fileManagerFolderBrowser.list.page.change': { // MỚI 23/09/2026 — thanh phân trang List (Settings > System > Pagination)
+            case 'fileManagerFolderBrowser.list.page.change':
                 workflowFileManagerFolderBrowser.setListPage(msg.payload.pageIndex);
                 break;
-            }
-
-            case 'fileManagerFolderBrowser.list.addTile.click': {
+            case 'fileManagerFolderBrowser.list.addTile.click':
                 workflowFileManagerFolderBrowser.createFolderInBrowser();
                 break;
-            }
-            case 'fileManagerFolderBrowser.list.rename.commit': {
+            case 'fileManagerFolderBrowser.list.rename.commit':
                 workflowFileManagerFolderBrowser.commitListRename(msg.payload.folderId, msg.payload.name);
+                break;
+
+            // ===================== Dropdown giữ tay =====================
+            case 'fileManagerFolderBrowser.tileMenu.rename.click':
+                workflowFileManagerFolderBrowser.renameFromTileMenu(msg.payload.folderId);
+                break;
+            case 'fileManagerFolderBrowser.tileMenu.delete.click':
+                workflowFileManagerFolderBrowser.deleteFromTileMenu(msg.payload.folderId);
+                break;
+            case 'fileManagerFolderBrowser.tileMenu.filter.click':
+                workflowFileManagerFolderBrowser.filterFromTileMenu(msg.payload.folderId);
+                break;
+            case 'fileManagerFolderBrowser.tileMenu.properties.click':
+                workflowFileManagerFolderBrowser.propertiesFromTileMenu(msg.payload.folderId);
+                break;
+
+            // ===================== Modal đổi tên =====================
+            case 'fileManagerFolderBrowser.rename.confirm':
+                workflowFileManagerFolderBrowser.confirmRenameFolder(msg.payload.folderId, msg.payload.name);
+                break;
+
+            // ===================== Modal Thuộc tính — 3 checkbox =====================
+            case 'fileManagerFolderBrowser.properties.readOnly.change': {
+                const { folderId, mediaType, enabled } = msg.payload;
+                workflowFileManagerFolderBrowser.changeReadOnlyFromProperties(folderId, mediaType, enabled);
+                break;
+            }
+            case 'fileManagerFolderBrowser.properties.hidden.change': {
+                const { folderId, mediaType, enabled } = msg.payload;
+                workflowFileManagerFolderBrowser.changeHiddenFromProperties(folderId, mediaType, enabled);
+                break;
+            }
+            case 'fileManagerFolderBrowser.properties.applyFilter.change': {
+                const { folderId, mediaType, enabled } = msg.payload;
+                workflowFileManagerFolderBrowser.changeApplyFilterFromProperties(folderId, mediaType, enabled);
                 break;
             }
 
-            // ===================== Dropdown menu long-press (core/dropdown-menu.js) =====================
-            case 'fileManagerFolderBrowser.tileMenu.rename.click': {
-                workflowFileManagerFolderBrowser.renameFromTileMenu(msg.payload.folderId);
-                break;
-            }
-            case 'fileManagerFolderBrowser.tileMenu.delete.click': {
-                workflowFileManagerFolderBrowser.deleteFromTileMenu(msg.payload.folderId);
-                break;
-            }
-            case 'fileManagerFolderBrowser.tileMenu.properties.click': {
-                workflowFileManagerFolderBrowser.propertiesFromTileMenu(msg.payload.folderId);
-                break;
-            }
-            // MỚI (Giang yêu cầu tính năng "folder tự quyết áp dụng Filter", mục "Cài đặt filter").
-            case 'fileManagerFolderBrowser.tileMenu.filter.click': {
-                workflowFileManagerFolderBrowser.filterFromTileMenu(msg.payload.folderId);
-                break;
-            }
-            // MỚI — 2 nút header màn Filter Edit (Back/Áp dụng, xem showFolderFilterEditor()).
-            case 'fileManagerFolderBrowser.filterEdit.back.click': {
+            // ===================== Filter Edit =====================
+            case 'fileManagerFolderBrowser.filterEdit.back.click':
                 workflowFileManagerFolderBrowser.backFromFilterEdit();
                 break;
-            }
-            case 'fileManagerFolderBrowser.filterEdit.apply.click': {
+            case 'fileManagerFolderBrowser.filterEdit.apply.click':
                 workflowFileManagerFolderBrowser.applyFolderFilterEdit();
                 break;
-            }
+            case 'fileManagerFolderBrowser.filterEdit.field':
+                workflowFileManagerFolderBrowser.handleFilterFieldEvent(msg.payload.event);
+                break;
 
             default:
                 console.warn(`[router:fileManagerFolderBrowser] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`, msg);
