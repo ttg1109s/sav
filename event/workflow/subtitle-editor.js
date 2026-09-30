@@ -774,6 +774,7 @@ const workflowSubtitleEditor = {
                 autoCenter: false,
                 minPxPerSec: pxPerSec,
                 fillParent: true,
+                hideScrollbar: true, // SỬA (lần 4) — không hiện thanh cuộn native (cuộn ảo qua thanh trượt, xem _setupKaraokeMiniScroll())
                 plugins: [appState.get('_karaokeRegionsPlugin')],
             });
             appState.set('_karaokeWavesurfer', ws);
@@ -1046,14 +1047,35 @@ const workflowSubtitleEditor = {
         this._positionKaraokeKnobs();
     },
 
-    /** Lúc waveform mini 'ready': TẮT cuộn tay của WaveSurfer (khung cuộn nội bộ -> overflow-x hidden:
-     * vuốt/lăn chuột không cuộn được, `setScroll()` bằng code vẫn chạy) — Giang: "bỏ scroll trên wave
-     * form để tránh tranh event kéo mốc", cuộn chỉ qua thanh trượt; hiện thanh trượt nếu sóng rộng hơn
-     * khung. */
+    /** Lúc waveform mini 'ready': TẮT cuộn tay của WaveSurfer — Giang: "bỏ scroll trên wave form để
+     * tránh tranh event kéo mốc", cuộn chỉ qua thanh trượt; hiện thanh trượt nếu sóng rộng hơn khung.
+     * SỬA (30/09/2026, lần 4, Giang báo "vẫn chưa ẩn được thanh cuộn native") — bản trước chỉ gán inline
+     * `overflowX = 'hidden'` lên khung cuộn nội bộ: stylesheet trong Shadow DOM của WaveSurfer (và chính
+     * WaveSurfer lúc vẽ lại) vẫn thắng/ghi đè -> thanh cuộn native còn hiện. Giờ chèn hẳn 1 <style>
+     * `!important` VÀO shadow root của waveform mini (stylesheet !important thắng mọi inline thường):
+     * khung cuộn `overflow-x: hidden` (vuốt/lăn chuột không cuộn được, `setScroll()` bằng code vẫn chạy)
+     * + ẩn thanh cuộn (Firefox `scrollbar-width`, WebKit `::-webkit-scrollbar`) + `user-select: none`
+     * cho mọi thứ bên trong (chữ từ trong region không bị bôi chọn/hiện menu khi nhấn giữ). Thêm option
+     * `hideScrollbar: true` lúc tạo (xem _initKaraokeMiniWaveform()) làm lớp thứ 2. */
     _setupKaraokeMiniScroll() {
         const ws = appState.get('_karaokeWavesurfer');
         const wrapper = ws && typeof ws.getWrapper === 'function' ? ws.getWrapper() : null;
-        if (wrapper && wrapper.parentElement) wrapper.parentElement.style.overflowX = 'hidden';
+        const scrollEl = wrapper ? wrapper.parentElement : null;
+        const root = wrapper && typeof wrapper.getRootNode === 'function' ? wrapper.getRootNode() : null;
+        if (root && root !== document && typeof root.appendChild === 'function' && !root.querySelector('style[data-karaoke-mini]')) {
+            // Khung cuộn nội bộ của WaveSurfer v7 mang class 'scroll' — lấy class thật từ element cho chắc.
+            const scrollClass = scrollEl && scrollEl.classList && scrollEl.classList.length > 0 ? scrollEl.classList[0] : 'scroll';
+            const style = document.createElement('style');
+            style.dataset.karaokeMini = '1';
+            style.textContent = ':host, :host * { -webkit-user-select: none !important; user-select: none !important; -webkit-touch-callout: none !important; }'
+                + ` .${scrollClass} { overflow-x: hidden !important; scrollbar-width: none !important; -ms-overflow-style: none !important; }`
+                + ` .${scrollClass}::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }`;
+            root.appendChild(style);
+        }
+        if (scrollEl) {
+            scrollEl.style.setProperty('overflow-x', 'hidden', 'important'); // lớp dự phòng nếu không tìm được shadow root
+            scrollEl.style.setProperty('scrollbar-width', 'none', 'important');
+        }
         const geo = this._getKaraokeMiniGeometry();
         const row = document.getElementById('karaoke-mini-scroll-row');
         if (row) row.classList.toggle('hidden', !(geo && geo.maxScroll > 1));
