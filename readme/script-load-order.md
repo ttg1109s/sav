@@ -108,8 +108,8 @@ core/visualizer/draw-visualizer.js  ← nạp SAU CÙNG trong khối core/ — g
                                    ButtonsWhenPlaylistReady())
 ```
 
-> **Lưu ý riêng `core/pitch-worker.js`:** KHÔNG nằm trong danh sách `<script src="...">` — được nạp
-> bằng `new Worker('core/pitch-worker.js')` ngay trong `audio-engine.js`, chạy trên thread hoàn
+> **Lưu ý riêng `core/pitch-worker.js`** (nay `core/workers/pitch-worker.js`)**:** KHÔNG nằm trong danh sách `<script src="...">` — được nạp
+> bằng `new Worker(...)` (`core/audio-engine.js::createPitchWorker()`, `workflowAudioEngine` gọi), chạy trên thread hoàn
 > toàn riêng biệt, không chia sẻ global scope (không dùng `appState`/`eventBus`/bất kỳ global nào
 > khác của app).
 
@@ -183,3 +183,14 @@ event/router/visualizer-viewport.js → event/listener/visualizer-viewport.js
 ```
 Thứ tự router trước listener (cùng quy ước các cụm khác). Listener resize chỉ gửi thư lúc chạy.
 
+## Bổ sung 01/10/2026 (dọn nợ core rule phân tích audio)
+
+```
+core/eq-presets.js → core/audio-engine.js     ← (không đổi) builder thuần, không gọi gì lúc nạp
+...
+event/workflow/audio-engine.js                ← MỚI: ngay TRƯỚC event/workflow/audio-analysis.js (file đó gọi
+event/workflow/audio-analysis.js                 workflowAudioEngine.requestPitch() lúc chạy)
+event/workflow/visualizer-render.js
+```
+`workflowAudioEngine.setup()` thay `setupAudioContext()` ở 4 nơi gọi (player.js, video-player.js, photo-player.js,
+visual-bg-video.js) — mọi lời gọi xảy ra lúc chạy, sau khi toàn bộ script đã nạp.

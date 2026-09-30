@@ -62,9 +62,11 @@ DOM (`click`/`change`/`input`...), `tab`/`window` lifecycle (`visibilitychange`/
 > Từ 21/09/2026 file này quản lý 2 task `raf`: `audioAnalysis` (phân tích audio + status bar + Game tick,
 > luôn chạy) và `visualizerRender` (chỉ vẽ, tự đăng ký/kill theo `cfg.visualEnabled` — Show Visual — qua
 > `_syncRenderTask()` gọi mỗi frame từ task `audioAnalysis`, KHÔNG qua eventBus/Router).
-> Điểm khởi động DUY NHẤT của vòng lặp này là `core/audio-engine.js::setupAudioContext()` gọi
-> `workflowVisualizerRender.start()` — 1 ngoại lệ Core-gọi-Workflow ĐÃ ĐÁNH DẤU RÕ (xem comment
-> tại đó), KHÔNG phải tiền lệ cho phép Core gọi Workflow ở nơi khác.
+> Điểm khởi động DUY NHẤT của vòng lặp này là `event/workflow/audio-engine.js::_buildGraph()` (qua
+> `workflowAudioEngine.setup()`) gọi `workflowVisualizerRender.start()` — Workflow gọi Workflow. **[01/10/2026]** Trước
+> đó là `core/audio-engine.js::setupAudioContext()` — ngoại lệ Core-gọi-Workflow duy nhất, nay ĐÃ HẾT (hàm đó đã xoá).
+> Cùng trường hợp riêng này: hồi đáp của pitch worker (`onmessage`/`onerror`) được `workflowAudioEngine` gắn và xử lý
+> trực tiếp — là nửa sau của vòng phân tích mỗi frame, không đi qua Listener/Router.
 
 Ngoại lệ đã chốt từ trước (rule 2b.7 + audit đầy đủ ở [changelog/v11.md mục
 2](./changelog/v11.md), 18/18 `addEventListener` ngoài `/event/` được liệt kê tên + lý do): browser

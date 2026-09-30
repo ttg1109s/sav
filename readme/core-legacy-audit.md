@@ -102,6 +102,22 @@ Core MỚI viết đủ Rule 1-3 (không cần miễn trừ dù chạy mỗi fra
 Ngoại lệ còn giữ (ghi rõ): hàm vẽ canvas trong `groups/**` vẫn `appState.mutate()` (GHI — Rule 2 cho phép) ở vài chỗ di sản
 (`stepAndDrawBlackHoleStars`, `advanceAndDrawBlackHoleFlashes`, `maybeSpawnRainStreak`...).
 
+**Cập nhật 01/10/2026 — dọn nợ phân tích audio (Giang: "xử lý toàn bộ")** — các dòng `core/audio-engine.js` trong bảng bên
+dưới (mục theo file + Phụ lục Rule 1 weak) là LỊCH SỬ:
+- `core/audio-engine.js :: setupAudioContext` / `initPitchWorker` / `requestPitchDetection` ĐÃ XOÁ. Điều phối dời sang Workflow
+  MỚI `event/workflow/audio-engine.js` (`workflowAudioEngine.setup()` / `ensurePitchWorker()` / `requestPitch()`, rẽ nhánh
+  tạo-mới/resume bằng object map `AUDIO_ENGINE_SETUP_BY_HAS_CONTEXT`). Core còn lại toàn builder thuần 1 việc:
+  `createPitchWorker`, `postPitchFrame`, `openAudioContextForElement`, `createAnalyserNode`, `createGainNode`,
+  `buildPeakingEqChain`, `wireAudioOutputGraph` (+ `applyPlaybackAudioSession`, `resumeAudioContextIfInterrupted`,
+  `setAnalyserFftSize` vốn đã thuần). Hết ngoại lệ Core-gọi-Workflow `workflowVisualizerRender.start()`.
+- Bảng cũ ghi SÓT: `requestPitchDetection` có gọi `initPitchWorker()` (R3), cột R3 cũ ghi "—"; cột R3 của `setupAudioContext`
+  (`allocateBuffers`, `applyEQPreset`) đã lỗi thời từ 28/09 — thực tế lúc xoá là `initPitchWorker`, `findEqPresetById`,
+  `applyEqGains`, `updateDOMBackground` + `workflowVisualizerRender.start()`.
+- `core/audio-analysis.js :: detectMusicTransition` — vi phạm Rule 3c CHƯA từng được ghi nhận (hàm con `avg` trùng
+  `computeArrayMean`, `checkWindow` không tự có vòng lặp và gọi hàm con khác): viết lại 1 vòng lặp thẳng qua 2 cửa sổ, so
+  TỔNG thay vì TRUNG BÌNH (2 đoạn cùng độ dài nên tỉ lệ lệch y hệt) — chữ ký/kết quả không đổi, 5 nơi gọi giữ nguyên.
+- Vẫn miễn trừ hot path (KHÔNG đổi): `core/audio-analysis.js :: getComputedColor`, `getActiveBlurMult`.
+
 ## Thống kê tổng quan (quét lại 12/07/2026 — THAY số liệu cũ)
 
 - Tổng file `core/**/*.js` hiện có: **66** (bản gốc: 48, +18) — sau loại hot-path: **56** file đưa
@@ -281,6 +297,8 @@ _Không phát hiện vi phạm Rule 1 (strong)/2/3 nào — mọi function đề
 | `executeRestoreDefaults` | 38-42 | — | — | `saveConfig` |
 
 ### `core/audio-engine.js`
+
+> **LỊCH SỬ — đã xử lý 01/10/2026**, xem mục "Cập nhật 01/10/2026 — dọn nợ phân tích audio" ở đầu bài. 3 hàm dưới đây không còn.
 
 | Hàm | Dòng | R2 (`appState.get` — số lần) | R1-strong (else/switch) | R3 (gọi void xác nhận) |
 |---|---|---|---|---|

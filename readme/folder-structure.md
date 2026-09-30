@@ -175,7 +175,9 @@ visual-master/
 │   ├── player-controls.js        — next/prev/shuffle/repeat, showResumeChoiceModal() — nợ kỹ
 │   │                              thuật MỚI: seek-trước-rồi-phát trong Subtitle Editor có gốc rễ
 │   │                              tương tự (xem event/workflow/subtitle-editor.js, changelog/v12.md)
-│   ├── audio-engine.js           — AudioContext, khởi tạo pitch worker
+│   ├── audio-engine.js           — Builder thuần Web Audio graph (AudioContext/EQ/gain/analyser) +
+│   │                              tạo/gửi khung pitch worker. Điều phối ở event/workflow/audio-engine.js
+│   │                              (setupAudioContext()/initPitchWorker()/requestPitchDetection() ĐÃ XOÁ 01/10/2026)
 │   ├── app-cleanup.js            — executeAppCleanup(): dọn animation loop/AudioContext/object
 │   │                              URL/flush listen-stats/wake lock khi tab ĐÓNG THẬT (F5/điều
 │   │                              hướng) — gọi từ event/tab.js 'beforeunload'
@@ -195,7 +197,8 @@ visual-master/
 │   │                              quyết định; 2 listener click (nút/overlay) KHÔNG qua bus. VI
 │   │                              PHẠM Rule 5c (thiếu hậu tố -ui.js) — nợ kỹ thuật đã ghi nhận
 │   ├── pitch-worker.js           — Web Worker thuần cho thuật toán YIN, KHÔNG nằm trong danh sách
-│   │                              <script> (nạp bằng new Worker(...) trong audio-engine.js)
+│   │                              <script> (nạp bằng new Worker(...) — core/audio-engine.js::createPitchWorker(),
+│   │                              workflowAudioEngine gọi; nay nằm ở core/workers/pitch-worker.js)
 │   ├── file-manager/             — MỚI (Nhóm B/C/A, 02-11/07) — 13 file
 │   │   ├── nav.js                   — điều hướng chung File Manager (mở/đóng 3 drawer con)
 │   │   ├── folder.js                — CRUD folder nhạc, addSongsToFolder() (qua VirtualMachineState)
@@ -309,7 +312,8 @@ visual-master/
                                    visualizer-render (MỚI, xem trên) — từ 28/09/2026 chỉ còn phần
                                    VẼ + vòng đời chung; task phân tích 'audioAnalysis' tách sang
                                    audio-analysis.js (workflowAudioAnalysis, ghi đè file mồ côi
-                                   cùng tên trước đây)
+                                   cùng tên trước đây); audio-engine.js (MỚI 01/10/2026 —
+                                   workflowAudioEngine: dựng/resume audio graph, pitch worker)
         └── visualizer/           — MỚI 28/09/2026 (Phase 4): workflow RIÊNG từng group Visualizer —
                                    bar.js, rain.js, lighting.js, shape.js, vortex.js, connector.js
                                    (bảng `styles` + hook vòng đời, tự registerGroup() vào host
