@@ -9,15 +9,15 @@
  *   - Filter Edit: bộ rule riêng của folder, draft RAM, chỉ ghi DB khi bấm "Áp dụng".
  *
  * Wiring DOM ở core/file-manager/folder-picker-ui.js (wireFolderPickerDrawerEvents/wireFolderPropertiesModalUi/
- * wireFolderFilterEditUi) + core/dropdown-menu.js — mọi tương tác về đây qua Router. Rẽ nhánh = guard + object map
- * (readme/event-bus-flow.md §7).
+ * wireFolderFilterEditUi) + core/dropdown-menu.js; field rule của Filter Edit đi qua delegate chung
+ * `handlePlaylistFilterPanelEvent()` (event/listener/playlist.js, `data-filter-owner="folder"`) và sửa qua
+ * workflowFilterRuleEdit (dùng chung với màn Edit preset). Rẽ nhánh = guard + object map (readme/event-bus-flow.md §7).
  *
  * NẠP SAU: core/file-manager/folder.js, core/file-manager/folder-picker-ui.js, components/items.js, core/dropdown-menu.js,
- * core/modal-choice-ui.js, core/storage-manager.js, core/about-stats.js (formatBytes), core/playlist/filter.js,
- * components/playlist-filter-drawer.js (buildFolderFilterEditBodyHtml), service/state/playlist.js
- * (clonePlaylistFilterConfigDefaults), core/time-picker-modal.js, core/pagination-ui.js, core/dom-refs.js, service/z-index.js,
- * event/workflow/generic-drawer-helpers.js, event/workflow/pagination.js, event/workflow/playlist-scope.js,
- * event/workflow/file-manager-storage.js.
+ * core/modal-choice-ui.js, core/storage-manager.js, core/about-stats.js (formatBytes), components/playlist-filter-drawer.js
+ * (buildFolderFilterEditBodyHtml), service/state/playlist.js (clonePlaylistFilterConfigDefaults), core/pagination-ui.js,
+ * core/dom-refs.js, service/z-index.js, event/workflow/filter-rule-edit.js, event/workflow/generic-drawer-helpers.js,
+ * event/workflow/pagination.js, event/workflow/playlist-scope.js, event/workflow/file-manager-storage.js.
  */
 
 const FOLDER_ICON_RENAME = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>';
@@ -47,55 +47,9 @@ const FOLDER_DRAWER_MOUNT_BY_FIRST_OPEN = { // event/workflow/generic-drawer-hel
     false: (config) => workflowGenericDrawerHelpers.update(config),
 };
 
-// ---- Filter Edit ----
 const FOLDER_FILTER_DRAFT_BY_HAS_CONFIG = {
     true: (folderRecord) => JSON.parse(JSON.stringify(folderRecord.filterConfig)), // deep clone — không mutate record gốc
     false: (folderRecord, mediaType) => clonePlaylistFilterConfigDefaults()[mediaType], // service/state/playlist.js
-};
-// Hiển thị giá trị rule lên ô nhập/nút: 'seconds' là <button> time-picker, còn lại là <input>.
-const FOLDER_FILTER_DISPLAY_BY_KIND = { // core/playlist/filter.js
-    seconds: (el, kind, value) => { el.textContent = _formatSecondsAsHms(value); },
-    text: (el, kind, value) => { el.value = value || ''; },
-    numeric: (el, kind, value) => { el.value = _formatFilterNumberForInput(kind, value); },
-};
-const FOLDER_FILTER_PARSE_BY_IS_TEXT = { // core/playlist/filter.js
-    true: (kind, raw) => raw,
-    false: (kind, raw) => _parseFilterNumberInput(kind, raw),
-};
-const FOLDER_FILTER_NEW_RULE_BY_IS_TEXT = {
-    true: () => ({ op: '===', value: '' }),
-    false: () => ({ mode: 'single', op: '===', value: 0, valueTo: 0 }),
-};
-const FOLDER_FILTER_RULE_BY_ENABLED = {
-    true: (kind) => FOLDER_FILTER_NEW_RULE_BY_IS_TEXT[kind === 'text'](),
-    false: () => null,
-};
-const FOLDER_FILTER_PROP_SETTER = {
-    op: (rule, field, kind, el) => { rule.op = el.value; },
-    mode: (rule, field, kind, el) => { rule.mode = el.value; workflowFileManagerFolderBrowser._setFilterRowModeUi(workflowFileManagerFolderBrowser._filterRowEl(field), el.value); },
-    value: (rule, field, kind, el) => { rule.value = FOLDER_FILTER_PARSE_BY_IS_TEXT[kind === 'text'](kind, el.value); },
-    valueTo: (rule, field, kind, el) => { rule.valueTo = _parseFilterNumberInput(kind, el.value); }, // core/playlist/filter.js
-};
-const FOLDER_FILTER_FIELD_EDIT_BY_IS_ENABLED_PROP = {
-    true: (field, prop, kind, el) => workflowFileManagerFolderBrowser._setFilterFieldEnabled(field, kind, el.checked),
-    false: (field, prop, kind, el) => workflowFileManagerFolderBrowser._setFilterFieldProp(field, prop, kind, el),
-};
-const FOLDER_FILTER_EVENT_BY_IS_TIME_TRIGGER = {
-    true: (e, el, field, prop) => workflowFileManagerFolderBrowser._openFilterTimePicker(e, field, prop),
-    false: (e, el, field, prop) => workflowFileManagerFolderBrowser._applyFilterFieldEvent(e, el, field, prop),
-};
-// Đồng bộ 1 hàng rule lên DOM: hàng có khối single/range (mode) hoặc chỉ 1 ô value.
-const FOLDER_FILTER_ROW_SYNC_BY_HAS_MODE_BLOCKS = {
-    false: (rowEl, kind, rule) => {
-        workflowFileManagerFolderBrowser._setFilterDisplayUi(rowEl.querySelector('[data-filter-prop="value"]'), kind, rule.value);
-    },
-    true: (rowEl, kind, rule, rangeBlock, singleBlock) => {
-        const wf = workflowFileManagerFolderBrowser;
-        wf._setFilterDisplayUi(singleBlock && singleBlock.querySelector('[data-filter-prop="value"]'), kind, rule.value);
-        wf._setFilterDisplayUi(rangeBlock && rangeBlock.querySelector('[data-filter-prop="value"]'), kind, rule.value);
-        wf._setFilterDisplayUi(rangeBlock && rangeBlock.querySelector('[data-filter-prop="valueTo"]'), kind, rule.valueTo);
-        wf._setFilterRowModeUi(rowEl, rule.mode);
-    },
 };
 
 const workflowFileManagerFolderBrowser = {
@@ -380,7 +334,7 @@ const workflowFileManagerFolderBrowser = {
 
     /** Swap Drawer (đang mở từ List) sang màn Filter Edit, đổ draft lên DOM rồi wire. */
     _renderFilterEdit() {
-        const bodyHtml = buildFolderFilterEditBodyHtml(this._filterEditDraft, this._filterEditMediaType, t); // components/playlist-filter-drawer.js
+        const bodyHtml = buildFolderFilterEditBodyHtml(this._filterEditMediaType); // components/playlist-filter-drawer.js
         workflowGenericDrawerHelpers.update({ // event/workflow/generic-drawer-helpers.js
             scrollKey: 'folderBrowser:filterEdit',
             scrollReset: true,
@@ -390,8 +344,8 @@ const workflowFileManagerFolderBrowser = {
             bodyHtml,
             bodyClass: 'overflow-y-auto',
         });
-        this._syncFilterEditUi(this._filterEditDraft);
-        wireFolderFilterEditUi(); // core/file-manager/folder-picker-ui.js
+        workflowFilterRuleEdit.syncUi(this._filterEditDraft); // event/workflow/filter-rule-edit.js
+        wireFolderFilterEditUi(); // core/file-manager/folder-picker-ui.js — nút Back/Áp dụng; field đi qua delegate chung (event/listener/playlist.js)
     },
 
     _buildFilterEditHeaderHtml() {
@@ -422,101 +376,16 @@ const workflowFileManagerFolderBrowser = {
         await this._reapplyScopeIfActive(folderId, mediaType);
     },
 
-    /** 'fileManagerFolderBrowser.filterEdit.field' — change/input/click trong body. Chỉ sửa draft RAM + DOM tại chỗ (không vẽ lại, giữ focus). */
-    handleFilterFieldEvent(e) {
+    /** 'fileManagerFolderBrowser.filterEdit.field.change' — chỉ sửa draft RAM + DOM tại chỗ (không vẽ lại, giữ focus). */
+    setFilterField(field, prop, value) {
         if (!this._filterEditDraft) return; // guard: không ở màn Filter Edit
-        const el = e.target.closest('[data-filter-field]');
-        if (!el) return;
-        const { filterField: field, filterProp: prop } = el.dataset;
-        if (!field || !prop) return;
-        FOLDER_FILTER_EVENT_BY_IS_TIME_TRIGGER[el.hasAttribute('data-filter-time-trigger')](e, el, field, prop);
+        workflowFilterRuleEdit.applyFieldChange(this._filterEditDraft, field, prop, value); // event/workflow/filter-rule-edit.js
     },
 
-    /** Nút time-picker (totalTime/duration) — chọn xong ghi thẳng draft + cập nhật chữ trên nút. */
-    _openFilterTimePicker(e, field, prop) {
-        if (e.type !== 'click') return;
-        const rule = this._filterEditDraft[field];
-        if (!rule) return; // guard: field đang tắt
-        openTimePickerModal({ // core/time-picker-modal.js
-            title: t(`playlistFilterPanel.field.${field}`),
-            format: 'h-m-s',
-            valueMs: (rule[prop] || 0) * 1000,
-            minMs: 0,
-            maxMs: 359999000, // 99:59:59
-            onConfirm: (resultMs) => {
-                const seconds = Math.round(resultMs / 1000);
-                rule[prop] = seconds;
-                const btn = genericDrawerBody.querySelector(`[data-filter-field="${field}"][data-filter-prop="${prop}"][data-filter-time-trigger]`);
-                this._setFilterDisplayUi(btn, 'seconds', seconds);
-            },
-        });
-    },
-
-    /** Checkbox 'enabled' chỉ nghe 'change'; op/mode/value/valueTo không nghe 'click'. */
-    _applyFilterFieldEvent(e, el, field, prop) {
-        const isEnabledProp = prop === 'enabled';
-        if (isEnabledProp && e.type !== 'change') return;
-        if (!isEnabledProp && e.type === 'click') return;
-        FOLDER_FILTER_FIELD_EDIT_BY_IS_ENABLED_PROP[isEnabledProp](field, prop, _filterFieldKind(field), el); // core/playlist/filter.js
-    },
-
-    _setFilterFieldEnabled(field, kind, enabled) {
-        this._filterEditDraft[field] = FOLDER_FILTER_RULE_BY_ENABLED[enabled](kind);
-        this._setFilterRowBodyEnabledUi(this._filterRowEl(field), enabled);
-    },
-
-    _setFilterFieldProp(field, prop, kind, el) {
-        const rule = this._filterEditDraft[field];
-        if (!rule) return; // guard: field đang tắt
-        const setter = FOLDER_FILTER_PROP_SETTER[prop];
-        if (!setter) return;
-        setter(rule, field, kind, el);
-    },
-
-    /** Đổ toàn bộ draft lên DOM vừa dựng. */
-    _syncFilterEditUi(config) {
-        for (const field of Object.keys(config)) {
-            const rule = config[field];
-            const rowEl = this._filterRowEl(field);
-            if (!rowEl) continue;
-            const enableEl = rowEl.querySelector('[data-filter-prop="enabled"]');
-            if (enableEl) enableEl.checked = !!rule;
-            this._setFilterRowBodyEnabledUi(rowEl, !!rule);
-            if (!rule) continue;
-            const opEl = rowEl.querySelector('[data-filter-prop="op"]');
-            if (opEl && rule.op !== undefined) opEl.value = rule.op;
-            const modeEl = rowEl.querySelector('[data-filter-prop="mode"]');
-            if (modeEl && rule.mode !== undefined) modeEl.value = rule.mode;
-            const rangeBlock = rowEl.querySelector('[data-filter-range-block]');
-            const singleBlock = rowEl.querySelector('[data-filter-single-block]');
-            FOLDER_FILTER_ROW_SYNC_BY_HAS_MODE_BLOCKS[!!(rangeBlock || singleBlock)](rowEl, _filterFieldKind(field), rule, rangeBlock, singleBlock); // core/playlist/filter.js
-        }
-    },
-
-    _filterRowEl(field) {
-        return genericDrawerBody.querySelector(`[data-filter-row="${field}"]`);
-    },
-
-    _setFilterDisplayUi(el, kind, value) {
-        if (!el) return;
-        (FOLDER_FILTER_DISPLAY_BY_KIND[kind] || FOLDER_FILTER_DISPLAY_BY_KIND.numeric)(el, kind, value);
-    },
-
-    /** Mờ + khoá thân hàng khi field tắt. */
-    _setFilterRowBodyEnabledUi(rowEl, enabled) {
-        const bodyBlockEl = rowEl && rowEl.querySelector('[data-filter-body]');
-        if (!bodyBlockEl) return;
-        bodyBlockEl.classList.toggle('opacity-40', !enabled);
-        bodyBlockEl.classList.toggle('pointer-events-none', !enabled);
-    },
-
-    /** Hiện khối single hoặc range theo mode. */
-    _setFilterRowModeUi(rowEl, mode) {
-        if (!rowEl || mode === undefined) return;
-        const rangeBlock = rowEl.querySelector('[data-filter-range-block]');
-        const singleBlock = rowEl.querySelector('[data-filter-single-block]');
-        if (!rangeBlock || !singleBlock) return;
-        rangeBlock.classList.toggle('hidden', mode === 'single');
-        singleBlock.classList.toggle('hidden', mode !== 'single');
+    /** 'fileManagerFolderBrowser.filterEdit.openTimePicker.click' (totalTime/duration). */
+    openFilterTimePicker(field, prop) {
+        const draft = this._filterEditDraft;
+        if (!draft) return; // guard: không ở màn Filter Edit
+        workflowFilterRuleEdit.openTimePicker(draft, field, prop, (seconds) => workflowFilterRuleEdit.applyFieldChange(draft, field, prop, String(seconds))); // event/workflow/filter-rule-edit.js
     },
 };
