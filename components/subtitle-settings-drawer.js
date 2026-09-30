@@ -1,48 +1,14 @@
 /**
- * Component: panel con "Phụ đề" (mục 2, phản hồi Giang — "loại bỏ toàn bộ khung box của
- * subtitles, chỉ giữ lại text trắng và shadow, toàn bộ tuỳ chọn -> xoá") — NESTED bên trong panel
- * "Display" (mục 2 tiếp — "vẫn cấp cho subtitle một sub panel ở trong Display Visualizer"), mở
- * qua nút `#setting-open-subtitle-panel` (components/settings/visualizer-display-panel.js).
+ * components/subtitle-settings-drawer.js — Body panel con "Subtitles" (Settings > Display > Subtitles), dựng qua
+ * workflowAppSettings._renderSubtitle(). Đồng bộ giá trị + ẩn/hiện hàng phụ thuộc: event/workflow/subtitle-style-
+ * settings.js. Listener: event/listener/subtitle-style-settings.js (delegation trên genericDrawerBody).
  *
- * === VIẾT LẠI TOÀN BỘ (mục 2) === Trước đây file này ("Tùy chỉnh Phụ đề") có 10 input style
- * (màu/độ trong suốt nền, màu/độ trong suốt/độ dày/độ uốn viền khung, màu chữ, cỡ chữ, line-
- * height, letter-spacing) — TOÀN BỘ ĐÃ XOÁ. Khung nền phụ đề (bg/border/blur/shadow) không còn
- * tồn tại — chỉ còn chữ trắng + shadow CỐ ĐỊNH qua CSS tĩnh (`.sub-text-glow` + class `text-white`
- * gắn thẳng trên từng dòng phụ đề, xem core/subtitle/subtitle-display.js::addActiveSubBlock()) —
- * panel này giờ CHỈ còn ĐÚNG 1 toggle bật/tắt, đồng bộ qua
- * `workflowSubtitleStyleSettings.refresh()` (event/workflow/subtitle-style-settings.js).
+ * 3 khối: (1) Custom styling (toggle; bật -> nút Styling mở Element Style Editor cho #subtitle-frame, tắt -> cỡ chữ
+ * 8-16px + màu); (2) Comming/In/Outing; (3) Karaoke (dòng có timing đã Apply ở Subtitle Editor).
+ * Toggle "Show subtitles" nằm ở panel cha Display (components/settings/visualizer-display-panel.js).
  *
- * MỚI (15/08/2026, mục 4a) — thêm nút "Styling" mở Element Style Editor (event/workflow/
- * element-style-editor.js) áp CHUNG lên `subtitleFrame` (khung bao mọi dòng phụ đề đang active,
- * KHÔNG áp riêng từng dòng — xem event/workflow/subtitle-style-settings.js::openStyling()).
- *
- * SỬA (16/08/2026, mục 3 — Giang yêu cầu "toggle tuỳ chọn sử dụng hiển thị mặc định, On để áp dụng
- * tuỳ chỉnh thì lúc này mới hiện nút styling") — card "Styling" cũ (luôn hiện) TÁCH thành 3 khối
- * trong CÙNG 1 card: (1) toggle `#setting-subtitle-use-custom-styling` LUÔN hiện; (2) nút Styling
- * (`#setting-open-subtitle-styling`) — CHỈ hiện khi toggle BẬT; (3) 2 field mặc định (cỡ chữ
- * 8-16px + màu chữ, `#setting-subtitle-default-fields`) — CHỈ hiện khi toggle TẮT. (2)/(3) LUÔN
- * render TĨNH cả 2 trong HTML (1 cái `hidden` sẵn) — ẩn/hiện qua toggle `hidden` class ở Workflow
- * (KHÔNG re-render lại toàn panel mỗi lần đổi toggle, xem workflowSubtitleStyleSettings
- * ::_syncCustomStylingVisibility(), event/workflow/subtitle-style-settings.js).
- *
- * MỚI (15/08/2026, mục 4b) — 3 hàng Comming/In/Outing (_renderSubtitleTransitionSection()) — đọc
- * `SUBTITLE_TRANSITION_EFFECTS`/`SUBTITLE_IN_EFFECTS` (core/subtitle/subtitle-transition.js) để
- * dựng option — file NÀY PHẢI nạp SAU file đó (xem index.html).
- *
- * CHUYỂN (mục 1, Giang yêu cầu "chuyển Show subtitles sang Display > section card COMPONENTS") —
- * card toggle `#setting-subtitles-enabled` ("Show subtitles") ĐÃ DỜI KHỎI panel con này, giờ nằm
- * trong card "Thành phần" của panel cha "Display" (components/settings/visualizer-display-
- * panel.js) — ID GIỮ NGUYÊN nên listener/router/workflow cũ (event/listener/subtitle-style-
- * settings.js, event/router/subtitle-style-settings.js) KHÔNG cần đổi gì (delegation trên
- * `genericDrawerBody`, không phụ thuộc phần tử đó nằm ở panel con nào — xem docstring đầu file
- * event/listener/subtitle-style-settings.js). Đồng bộ giá trị lúc mở panel ĐÃ CHUYỂN từ
- * `workflowSubtitleStyleSettings.refresh()` sang `workflowVisualizerDisplay.openDisplayPanel()`
- * (event/workflow/visualizer-display.js) — panel con này giờ CHỈ còn Custom Styling + Transition.
- *
- * SỬA (09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — viết LẠI TRỰC TIẾP bằng bảng màu sáng,
- * không còn phụ thuộc `.app-settings-scope` đè màu (assets/css/layout-nav.css). (Lưu ý: `text-white`
- * nhắc ở docstring trên là màu CHỮ PHỤ ĐỀ THẬT hiển thị đè lên video/ảnh nền — KHÔNG phải màu UI
- * panel Settings này, không liên quan tới đợt sửa này.)
+ * NẠP SAU: core/subtitle/subtitle-transition.js (SUBTITLE_TRANSITION_EFFECTS/SUBTITLE_IN_EFFECTS),
+ * core/subtitle/subtitle-karaoke-display-ui.js (KARAOKE_POINTER_SHAPES) — chỉ cần lúc gọi hàm, không lúc nạp file.
  */
 function renderSubtitlePanelBody() {
     return `
@@ -80,48 +46,26 @@ function renderSubtitlePanelBody() {
                         </div>
                     </div>
                     ${_renderSubtitleTransitionSection()}
+                    ${_renderSubtitleKaraokeSection()}
                 </div>
 `;
 }
 
-/** MỚI (16/08/2026, mục 3 — "Nếu là mặc định cho phép chỉnh sửa cỡ chữ từ 8px-16px") — 9 mốc
- * NGUYÊN (8..16), KHÔNG dùng slider — nhất quán mọi field khác trong panel này đều là `<select>`
- * (Comming/In/Outing effect), tránh thêm 1 kiểu control khác + wiring "live label" riêng cho
- * slider (đơn giản hoá, CÙNG lý do Opacity ở Element Style Editor cũng chọn input số thay vì
- * slider, xem components/element-style-editor-drawer.js). */
+/** Cỡ chữ mặc định 8..16px. */
 function _subtitleFontSizeOptions() {
     let opts = '';
     for (let px = 8; px <= 16; px++) opts += `<option value="${px}">${px}px</option>`;
     return opts;
 }
 
-/** MỚI (15/08/2026, mục 4b) — 3 hàng Comming/In/Outing. Dropdown effect DÙNG CHUNG cho MỌI dòng
- * phụ đề (KHÔNG lưu riêng từng dòng) — khung giờ thực tế mỗi dòng tự tính lúc phát dựa trên chính
- * start/end dòng đó (core/subtitle/subtitle-transition.js), xem event/workflow/subtitle-style-
- * settings.js. Comming/Outing có thêm 1 dropdown DẤU (+/-, MỚI — Giang yêu cầu "thêm dropdown tuỳ
- * chọn +-", THAY cho input số ÂM/DƯƠNG gộp chung trước đó) + 1 nút ĐỘ LỚN thuần dương [0,5] — nút
- * này SỬA (16/08/2026, mục 3) mở modal "bánh xe cuộn số" DÙNG CHUNG (core/time-picker-modal.js,
- * format 's-ms', TỪNG là `<input type="number" step="0.001">` thô) — Workflow tự GHÉP dấu (+/-) +
- * kết quả modal thành mili giây CÓ DẤU lúc ghi state (xem event/workflow/subtitle-style-
- * settings.js::openMagnitudePicker(), event/listener/subtitle-style-settings.js cho phần dấu).
- * Biên [0,5] — SUBTITLE_TRANSITION_MAX_MS, core/subtitle/subtitle-transition.js — biên ÁP DỤNG
- * THỰC TẾ còn bị kẹp thêm theo 1/3 tổng thời lượng từng dòng, nhắc rõ trong hint. "In" KHÔNG có nút
- * này (hiệu ứng LIÊN TỤC suốt lúc hiển thị, không có mốc thời gian riêng). */
+/** Comming/In/Outing — dropdown effect chung mọi dòng; Comming/Outing thêm dấu (+/-) + nút độ lớn mở
+ * openTimePickerModal (format 's-ms', biên [0, SUBTITLE_TRANSITION_MAX_MS]). `data-ms` = độ lớn hiện có. */
 function _renderSubtitleTransitionSection() {
     const effectOptions = (map) => {
         let opts = `<option value="none">${t('settingsSubtitleStyle.effect.none')}</option>`;
         Object.keys(map).forEach((key) => { opts += `<option value="${key}">${t(`settingsSubtitleStyle.effect.${key}`)}</option>`; });
         return opts;
     };
-    // SỬA (16/08/2026, mục 3 — Giang hỏi "sao ô nhập s không dùng timer picker modal với đơn vị
-    // s:ms?") — `<input type="number" step="0.001">` cũ ĐỔI thành `<button>` mở modal "bánh xe cuộn
-    // số" DÙNG CHUNG (core/time-picker-modal.js::openTimePickerModal(), format 's-ms' — CÙNG hệ
-    // token 's:ms' đã dùng cho Motion transitionDuration, xem event/workflow/motion-presets.js::
-    // openTransitionDurationPicker()) — id GIỮ NGUYÊN (setting-subtitle-${prefix}-magnitude) để
-    // event/listener/subtitle-style-settings.js tra cứu không đổi, chỉ đổi Ý NGHĨA sự kiện wire
-    // ('click' mở modal, KHÔNG còn 'change' đọc .value trực tiếp) — xem
-    // event/workflow/subtitle-style-settings.js::openMagnitudePicker(). `data-ms` = giá trị mili
-    // giây ĐANG có (Workflow tự đồng bộ mỗi lần đổi, KHÔNG cần đọc ngược từ chữ hiển thị).
     const valueField = (prefix) => `
                             <select id="setting-subtitle-${prefix}-sign" class="rounded-lg px-1.5 py-1.5 text-xs outline-none" data-uitk="inputBg inputBorder inputText">
                                 <option value="+">+</option>
@@ -153,6 +97,59 @@ function _renderSubtitleTransitionSection() {
                                     <select id="setting-subtitle-outing-effect" class="rounded-lg px-2 py-1.5 text-xs outline-none" data-uitk="inputBg inputBorder inputText">${effectOptions(SUBTITLE_TRANSITION_EFFECTS)}</select>
                                     ${valueField('outing')}
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+`;
+}
+
+/** Karaoke — toggle bật + các hàng phụ thuộc (ẩn/hiện theo cấu hình, xem resolveKaraokeSettingsVisibility()). */
+function _renderSubtitleKaraokeSection() {
+    const toggle = (id) => `
+                                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                    <input type="checkbox" id="${id}" class="sr-only peer">
+                                    <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" data-uitk="toggleTrackOff toggleTrackOn"></div>
+                                </label>`;
+    const select = (id, options) => `<select id="${id}" class="rounded-lg px-2 py-1.5 text-xs outline-none" data-uitk="inputBg inputBorder inputText">${options.map((key) => `<option value="${key}">${t(`settingsSubtitleStyle.karaoke.option.${key}`)}</option>`).join('')}</select>`;
+    const row = (rowId, labelKey, control) => `
+                            <div${rowId ? ` id="${rowId}"` : ''} class="flex justify-between items-center gap-2 px-4 py-3 border-t" data-uitk="dividerBorder">
+                                <span class="text-sm font-medium" data-i18n="${labelKey}">${t(labelKey)}</span>
+                                ${control}
+                            </div>`;
+    const range = (id, labelKey, min, max, step) => `
+                                <div class="flex flex-col gap-1.5">
+                                    <div class="flex justify-between items-center gap-2">
+                                        <span class="text-xs" data-uitk="textSecondary" data-i18n="${labelKey}">${t(labelKey)}</span>
+                                        <span id="${id}-value" class="text-xs tabular-nums" data-uitk="textSecondary"></span>
+                                    </div>
+                                    <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" class="w-full" style="accent-color:#eab308">
+                                </div>`;
+    return `
+                    <div>
+                        <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2" data-uitk="categoryAccent:yellow" data-i18n="settingsSubtitleStyle.karaoke.sectionTitle">${t('settingsSubtitleStyle.karaoke.sectionTitle')}</h3>
+                        <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
+                            <div class="flex justify-between items-center p-4">
+                                <div class="pr-3">
+                                    <div class="text-sm font-medium" data-i18n="settingsSubtitleStyle.karaoke.enable.label">${t('settingsSubtitleStyle.karaoke.enable.label')}</div>
+                                    <div class="text-xs mt-0.5" data-uitk="textSecondary" data-i18n="settingsSubtitleStyle.karaoke.enable.hint">${t('settingsSubtitleStyle.karaoke.enable.hint')}</div>
+                                </div>
+                                ${toggle('setting-subtitle-karaoke-enabled')}
+                            </div>
+                            <div id="setting-subtitle-karaoke-body" class="flex flex-col">
+                                ${row('', 'settingsSubtitleStyle.karaoke.mode.label', select('setting-subtitle-karaoke-mode', ['k', 'kf', 'vanish', 'reveal']))}
+                                ${row('setting-subtitle-karaoke-dissolve-row', 'settingsSubtitleStyle.karaoke.dissolve.label', select('setting-subtitle-karaoke-dissolve', ['fade', 'dust', 'smoke']))}
+                                ${row('', 'settingsSubtitleStyle.karaoke.color.label', '<input type="color" id="setting-subtitle-karaoke-color" value="#facc15" class="w-10 h-8 rounded-lg bg-transparent cursor-pointer p-0.5" data-uitk="inputBorder">')}
+                                ${row('', 'settingsSubtitleStyle.karaoke.effect.label', select('setting-subtitle-karaoke-effect', ['none', 'swell', 'bounceUp', 'dropDown', 'squashX', 'squashY']))}
+                                ${row('setting-subtitle-karaoke-squash-row', 'settingsSubtitleStyle.karaoke.squash.label', select('setting-subtitle-karaoke-squash', ['in', 'out']))}
+                                ${row('', 'settingsSubtitleStyle.karaoke.outline.label', toggle('setting-subtitle-karaoke-outline'))}
+                                <div id="setting-subtitle-karaoke-outline-params" class="flex flex-col gap-3 px-4 pb-4">
+                                    ${range('setting-subtitle-karaoke-outline-width', 'settingsSubtitleStyle.karaoke.outlineWidth.label', 0.5, 6, 0.5)}
+                                    ${range('setting-subtitle-karaoke-outline-opacity', 'settingsSubtitleStyle.karaoke.outlineOpacity.label', 0, 1, 0.05)}
+                                    ${range('setting-subtitle-karaoke-outline-glow', 'settingsSubtitleStyle.karaoke.outlineGlow.label', 0, 1, 0.05)}
+                                    ${range('setting-subtitle-karaoke-outline-blur', 'settingsSubtitleStyle.karaoke.outlineBlur.label', 0, 20, 1)}
+                                </div>
+                                ${row('', 'settingsSubtitleStyle.karaoke.pointer.label', toggle('setting-subtitle-karaoke-pointer'))}
+                                ${row('setting-subtitle-karaoke-pointer-shape-row', 'settingsSubtitleStyle.karaoke.pointerShape.label', select('setting-subtitle-karaoke-pointer-shape', Object.keys(KARAOKE_POINTER_SHAPES)))}
                             </div>
                         </div>
                     </div>

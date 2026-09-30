@@ -16,8 +16,7 @@
  * #btn-toggle-stats-panel ĐÃ DỜI sang Settings (checkbox) — xem core/visualizer-ui-visibility.js.
  * 3 giá trị BPM/Pitch/Energy đổi từ 3 màu riêng (xanh lá/vàng/hồng) sang TRẮNG hết.
  *
- * #btn-subtitle ĐÃ BỎ HẲN — bật/tắt phụ đề chỉ còn qua checkbox có sẵn trong Settings
- * (#setting-subtitles-enabled, components/settings/subtitle-style.js), không cần lối tắt trùng.
+ * Bật/tắt phụ đề: checkbox #setting-subtitles-enabled (Settings > Display).
  *
  * #btn-capture-video-frame MỚI — chụp khung hình `bgVideoElement` đang phát, lưu vào Photo. CHỈ
  * hiện lúc Video Player mode (`.hidden` mặc định, gỡ trong setBgVideoElementForPlayerMode(),
@@ -41,25 +40,16 @@ const TPL_VISUALIZER_OVERLAY = `
                  Style ở assets/css/base.css (#player-zoom-surface) — xem event/workflow/player-zoom.js. -->
             <div id="player-zoom-surface" class="hidden"></div>
 
-            <!-- SỬA (mục 2, phản hồi Giang — "loại bỏ toàn bộ khung box của subtitles, chỉ giữ
-                 lại text trắng và shadow") — #subtitle-frame ĐÃ BỎ toàn bộ class "khung"
-                 (bg-black/40, backdrop-blur-md, px-6 py-3, rounded-2xl, border, border-white/10,
-                 shadow-2xl) — chỉ còn class LAYOUT thuần (căn giữa/giới hạn bề rộng), KHÔNG còn
-                 nền/viền/đổ bóng nào.
-                 SỬA (16/08/2026, mục 3 — Giang chỉ ra "tuỳ chỉnh chưa thắng inline") — chữ trắng +
-                 shadow KHÔNG còn hardcode trên TỪNG DÒNG phụ đề nữa (trước đây gây ra đúng lỗi
-                 Giang chỉ ra: property EXPLICIT trên con LUÔN thắng property INHERITED từ cha, dù
-                 cha có set qua inline hay không) — chuyển XUỐNG chính #subtitle-frame làm SÀN AN
-                 TOÀN qua 2 class sub-text-glow + subtitle-default-appearance (assets/css/base.css,
-                 specificity CLASS thấp) — giờ style tuỳ chỉnh (Custom Styling HOẶC 2 field mặc
-                 định) áp THẲNG lên CHÍNH div này (inline, LUÔN thắng class) mới thật sự "thắng"
-                 được, xem core/subtitle/subtitle-style-settings.js applySubtitleFrameStyle().
-                 Từng dòng phụ đề (thẻ p, core/subtitle/subtitle-display.js addActiveSubBlock())
-                 KHÔNG còn hardcode class nào nữa — kế thừa HOÀN TOÀN từ đây. -->
+            <!-- Phụ đề lúc phát (event/workflow/subtitle-display.js). #subtitle-frame mang style chữ CHUNG (class
+                 mặc định sàn an toàn + inline tuỳ chỉnh — Element Style Editor hoặc màu/cỡ chữ mặc định); từng dòng
+                 <p> không gắn class chữ, kế thừa hoàn toàn. Karaoke: canvas hạt bụi/khói + pointer nằm trong
+                 #subtitle-display (biến CSS karaoke đặt ở đây, ngoài #subtitle-frame) — CSS ở assets/css/base.css. -->
             <div id="subtitle-display" class="absolute bottom-[20%] w-full px-4 sm:px-10 flex flex-col items-center justify-center pointer-events-none z-[60] hidden">
                 <div id="subtitle-frame" class="text-center max-w-4xl flex flex-col items-center gap-1.5 sub-text-glow subtitle-default-appearance">
                     <div id="sub-active-lines" class="flex flex-col items-center gap-1.5"></div>
                 </div>
+                <canvas id="subtitle-karaoke-fx"></canvas>
+                <div id="subtitle-karaoke-pointer" class="hidden"></div>
             </div>
 
             <!-- Hàng trên cùng HỢP NHẤT — Control Center (trái) + BPM/Pitch/Energy (giữa,
