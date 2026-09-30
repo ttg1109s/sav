@@ -5,8 +5,9 @@
  *
  * Nguồn message: lưới List
  * (wireFolderPickerDrawerEvents, msgPrefix 'fileManagerFolderBrowser.list'); dropdown giữ tay (openDropdownMenu);
- * modal đổi tên (openRenameFolderModal); modal Thuộc tính (wireFolderPropertiesModalUi); màn Filter Edit
- * (wireFolderFilterEditUi) — đều ở core/file-manager/folder-picker-ui.js trừ dropdown.
+ * modal đổi tên (openRenameFolderModal); modal Thuộc tính (wireFolderPropertiesModalUi); nút header màn Filter Edit
+ * (wireFolderFilterEditUi) — đều ở core/file-manager/folder-picker-ui.js trừ dropdown; field rule của Filter Edit
+ * (`filterEdit.field.change`/`filterEdit.openTimePicker.click`) từ delegate chung event/listener/playlist.js.
  *
  * NẠP SAU: event/bus.js, event/workflow/file-manager-folder-browser.js.
  */
@@ -76,8 +77,11 @@ const routerFileManagerFolderBrowser = (() => {
             case 'fileManagerFolderBrowser.filterEdit.apply.click':
                 workflowFileManagerFolderBrowser.applyFolderFilterEdit();
                 break;
-            case 'fileManagerFolderBrowser.filterEdit.field':
-                workflowFileManagerFolderBrowser.handleFilterFieldEvent(msg.payload.event);
+            case 'fileManagerFolderBrowser.filterEdit.field.change':
+                workflowFileManagerFolderBrowser.setFilterField(msg.payload.field, msg.payload.prop, msg.payload.value);
+                break;
+            case 'fileManagerFolderBrowser.filterEdit.openTimePicker.click':
+                workflowFileManagerFolderBrowser.openFilterTimePicker(msg.payload.field, msg.payload.prop);
                 break;
 
             default:
