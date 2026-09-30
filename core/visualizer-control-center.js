@@ -15,7 +15,7 @@
  * XOÁ THỦ CÔNG file cũ `core/state-and-video-bg.js` (đã đổi tên, không còn dùng).
  */
 
-        // subtitles, isSubtitlesEnabled, activeSubIds, editingSubId, currentCalculatedBpm,
+        // subtitles, isSubtitlesEnabled, activeSubIds, currentCalculatedBpm,
         // isShuffle, shuffleIndices, repeatMode, lastValidNoteStr, lastValidNoteTime,
         // lastValidMidiNote — STATE, xem service/state.js. isSubtitlesEnabled giá trị khởi tạo
         // `true` chỉ là tạm — được ĐỒNG BỘ LẠI từ vizConfig.subtitlesEnabled (đã lưu) ngay trong

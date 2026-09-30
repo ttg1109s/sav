@@ -10,8 +10,9 @@
  *   - 2 bootstrap listener (touchstart/click {once:true}) — xin wake lock lần đầu
  *     người dùng tương tác, gắn chặt context của chính module này
  *
- * PHẢI nạp SAU: core/config.js (vizConfig), core/dom-refs.js (audioPlayer).
+ * PHẢI nạp SAU: core/config.js (vizConfig), core/dom-refs.js (audioPlayer), thư viện NoSleep (CDN, index.html).
  */
+        const noSleep = new NoSleep(); // fallback khi không có navigator.wakeLock (trước đây nằm lạc cuối core/subtitle/subtitle-display.js)
         async function requestWakeLock() {
             if (typeof appState !== 'undefined' && appConfigViz.getAll().keepScreenOn === false) { releaseWakeLock(); return; }
             try {

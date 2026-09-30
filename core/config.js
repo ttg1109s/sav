@@ -254,36 +254,31 @@
             autoSwitchVisualSecondsFixed: 30,
             autoSwitchVisualSecondsRandomMin: 10,
             autoSwitchVisualSecondsRandom: 60,
+            // Phụ đề lúc phát (event/workflow/subtitle-display.js, Settings > Display > Subtitles).
             subtitlesEnabled: true,
-            // MỚI (15/08/2026, mục 4a — "box chung cho subtitles line") — chuỗi CSS build từ
-            // Element Style Editor (core/element-style-editor.js), áp lên `subtitleFrame` (khung
-            // BAO NGOÀI mọi dòng phụ đề đang active, id="subtitle-frame") — CHUNG cho mọi dòng,
-            // KHÔNG áp riêng từng dòng (khác coming/in/outing, per-line — xem hội thoại). Rỗng =
-            // chưa chỉnh gì, giữ nguyên chữ trắng + shadow mặc định (mục 2).
-            subtitleBoxCss: '',
-            // MỚI (16/08/2026, mục 3 — Giang yêu cầu "toggle tuỳ chọn sử dụng hiển thị mặc định,
-            // On để áp dụng tuỳ chỉnh") — công tắc CHỌN 1 TRONG 2 kiểu hiển thị cho subtitleFrame:
-            // false (mặc định) = dùng `subtitleDefaultFontSize`/`subtitleDefaultColor` ngay dưới +
-            // nền chữ tĩnh CỐ ĐỊNH (font-weight/line-height/text-shadow, class
-            // `.subtitle-default-appearance` + `.sub-text-glow`, assets/css/base.css); true = dùng
-            // `subtitleBoxCss` (Element Style Editor đầy đủ, nút "Styling" CHỈ hiện khi bật cái
-            // NÀY). Xem applySubtitleFrameStyle(), core/subtitle/subtitle-style-settings.js.
-            subtitleUseCustomStyling: false,
-            // MỚI (16/08/2026, mục 3 — "Nếu là mặc định cho phép chỉnh sửa cỡ chữ từ 8px-16px, cho
-            // phép chỉnh color") — 2 field CHỈ có tác dụng lúc `subtitleUseCustomStyling === false`
-            // — biên fontSize [8,16] ép ở UI (components/subtitle-settings-drawer.js), KHÔNG ép lại
-            // ở đây (core không tự phán đúng/sai input, xem core-function-conventions.md).
+            subtitleBoxCss: '', // CSS từ Element Style Editor cho khung #subtitle-frame (chỉ áp khi subtitleUseCustomStyling)
+            subtitleUseCustomStyling: false, // false = chỉ màu + cỡ chữ (2 field dưới, cỡ 8-16px chọn ở UI)
             subtitleDefaultFontSize: 16,
             subtitleDefaultColor: '#ffffff',
-            // MỚI (15/08/2026, mục 4b) — hiệu ứng Comming/In/Outing khi 1 dòng phụ đề bắt đầu/kết
-            // thúc hiệu lực — CHUNG 1 cài đặt cho MỌI dòng (KHÔNG lưu riêng từng dòng, xem hội
-            // thoại), nhưng KHUNG THỜI GIAN thực tế áp dụng được TÍNH RIÊNG mỗi dòng lúc phát, lấy
-            // start/end của CHÍNH dòng đó làm mốc neo — xem core/subtitle/subtitle-transition.js.
-            // valueMs CÓ DẤU (+/-), biên [-5000,5000] — dấu quyết định Comming/Outing "ăn" vào
-            // TRƯỚC hay SAU mốc neo (xem ví dụ Giang trong hội thoại, computeSubtitleTransitionWindow()).
+            // Comming/In/Outing — chung mọi dòng, khung giờ neo start/end từng dòng (core/subtitle/subtitle-transition.js).
+            // valueMs có dấu, biên [-5000, 5000].
             subtitleCommingEffect: 'none', subtitleCommingValueMs: 0,
             subtitleInEffect: 'none',
             subtitleOutingEffect: 'none', subtitleOutingValueMs: 0,
+            // Karaoke (dòng có timing đã Apply ở Subtitle Editor) — core/subtitle/subtitle-karaoke-display.js.
+            subtitleKaraokeEnabled: true,
+            subtitleKaraokeMode: 'kf',             // 'k' | 'kf' | 'vanish' | 'reveal'
+            subtitleKaraokeDissolve: 'fade',       // hiệu ứng tan/hiện cho vanish/reveal: 'fade' | 'dust' | 'smoke'
+            subtitleKaraokeColor: '#facc15',       // màu phần đã hát — riêng karaoke, ưu tiên hơn style phụ đề
+            subtitleKaraokeActiveEffect: 'none',   // 'none' | 'swell' | 'bounceUp' | 'dropDown' | 'squashX' | 'squashY'
+            subtitleKaraokeSquashDirection: 'in',  // squashX/Y: 'in' thu vào | 'out' phóng ra
+            subtitleKaraokeOutline: false,         // viền từ đang hát
+            subtitleKaraokeOutlineWidth: 2,        // px
+            subtitleKaraokeOutlineOpacity: 1,      // 0..1 (độ mờ viền)
+            subtitleKaraokeOutlineGlow: 0.6,       // 0..1 (độ sáng quầng)
+            subtitleKaraokeOutlineBlur: 6,         // px (độ nhoè quầng)
+            subtitleKaraokePointer: false,
+            subtitleKaraokePointerShape: 'default', // 'default' | 'pointer' | 'text' | 'crosshair' (vẽ lại kiểu CSS cursor)
             // 3 toggle RIÊNG hiện/ẩn UI chrome màn Visualizer (bỏ hẳn "full mode" gộp chung),
             // Settings -> Hiển thị Visualizer. NHẤT QUÁN với statsPanelVisible: đặt tên KHẲNG ĐỊNH
             // ("hiện"), mặc định BẬT (true) — KHÔNG đặt tên phủ định "hideX" mặc định tắt (đã sửa,
@@ -627,6 +622,11 @@
                 subtitleCommingEffect: 'string', subtitleCommingValueMs: 'number',
                 subtitleInEffect: 'string',
                 subtitleOutingEffect: 'string', subtitleOutingValueMs: 'number',
+                subtitleKaraokeEnabled: 'boolean', subtitleKaraokeMode: 'string', subtitleKaraokeDissolve: 'string',
+                subtitleKaraokeColor: 'string', subtitleKaraokeActiveEffect: 'string', subtitleKaraokeSquashDirection: 'string',
+                subtitleKaraokeOutline: 'boolean', subtitleKaraokeOutlineWidth: 'number', subtitleKaraokeOutlineOpacity: 'number',
+                subtitleKaraokeOutlineGlow: 'number', subtitleKaraokeOutlineBlur: 'number',
+                subtitleKaraokePointer: 'boolean', subtitleKaraokePointerShape: 'string',
                 bottomPlayerVisible: 'boolean', playlistButtonVisible: 'boolean', controlCenterButtonVisible: 'boolean',
                 gestureActionSwipeUp: 'string', gestureActionSwipeDown: 'string',
                 gestureActionSwipeLeft: 'string', gestureActionSwipeRight: 'string',
@@ -995,11 +995,7 @@
                 if (cfg.autoSwitchVisualListBy !== 'group' && cfg.autoSwitchVisualListBy !== 'style') cfg.autoSwitchVisualListBy = 'style';
                 cfg.autoSwitchVisualGroupList = normalizeAutoSwitchGroupList(cfg.autoSwitchVisualGroupList, EFFECT_GROUPS); // core/auto-switch-visual.js
                 cfg.autoSwitchVisualStyleList = normalizeAutoSwitchStyleList(cfg.autoSwitchVisualStyleList, MODES); // core/auto-switch-visual.js
-                // XOÁ (mục 2, phản hồi Giang — "loại bỏ toàn bộ khung box, xoá toàn bộ tuỳ chọn")
-                // — khối migrate `cfg.subtitleStyle` (2 dòng gán default + 1 dòng clamp fontSize)
-                // ĐÃ BỎ HẲN: field không còn tồn tại trong DEFAULT_VIZ_CONFIG/schema nữa. Config cũ
-                // của người dùng có thể còn sót `subtitleStyle` trong localStorage — vô hại, không
-                // ai đọc field đó nữa (core/subtitle/subtitle-display.js không còn tham chiếu).
+                delete cfg.subtitleStyle; // field khung phụ đề cũ (đã bỏ từ lâu) — dọn khỏi localStorage
             });
 
             // SỬA (phát hiện bug boot vỡ ngay từ đầu, phản hồi Giang — "config không load ngay từ
@@ -1069,7 +1065,7 @@
             // XOÁ (24/09/2026, rà soát refresh DOM) — `initVisualizerMiscSettingsUIFromConfig()` (core/visualizer/
             // visualizer-misc-settings.js, đã xoá): chỉ đồng bộ 3 control keepScreenOn/visualizerType/gameMode mà id
             // không còn trong DOM (const luôn null) — cả cụm "visualizerMiscSettings" đã chết, xoá cùng lúc.
-            if (typeof initSubtitleStateFromConfig === 'function') initSubtitleStateFromConfig();
+            // (Phụ đề: áp cờ bật/tắt + style khung + karaoke ở workflowSubtitleDisplay.initFromConfig(), gọi từ app-boot.)
             if (typeof initAutoSwitchCycleButtonFromConfig === 'function') initAutoSwitchCycleButtonFromConfig();
             // 3 toggle ẩn/hiện UI chrome màn Visualizer, tự áp lại lúc boot (khác setStatsPanelVisible()
             // — domain 'player' RIÊNG, tự áp qua workflowPlayerControls.loadPersistedPlayerConfigOnBoot(),

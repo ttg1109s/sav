@@ -347,23 +347,9 @@
         const settingLanguageUpload = document.getElementById('setting-language-upload');
         const settingLanguageDelete = document.getElementById('setting-language-delete');
 
-        // XOÁ (24/09/2026, rà soát refresh DOM) — subtitleModal/btnCloseSubModal (#subtitle-modal/#btn-close-sub-modal): id không còn trong DOM, const luôn null.
-        // XOÁ (24/09/2026, rà soát refresh DOM) — srtUpload/btnApplySub (#srt-upload chỉ có ở subtitle-editor.html — trang đó không nạp file này): id không còn trong DOM, const luôn null.
-        const btnAddSub = document.getElementById('btn-add-sub'), btnExportSrt = document.getElementById('btn-export-srt');
+        // Phụ đề lúc phát (components/visualizer-overlay.js) — event/workflow/subtitle-display.js.
         const subtitleDisplay = document.getElementById('subtitle-display'), subtitleFrame = document.getElementById('subtitle-frame'), subActiveLines = document.getElementById('sub-active-lines');
-        const subListContainer = document.getElementById('sub-list-container'), subEmptyState = document.getElementById('sub-empty-state');
-        const btnAutoTiming = document.getElementById('btn-auto-timing');
-        const iconAutoTimingIdle = document.getElementById('icon-auto-timing-idle'), iconAutoTimingRecording = document.getElementById('icon-auto-timing-recording');
-        // autoSubStartTime — STATE, xem service/state.js.
-
-        // Toggle "Hiện phụ đề" (ver 8 refine) — ĐÃ CHUYỂN vào panel "Phụ đề" (nested BÊN TRONG
-        // panel "Display", mục 2 "vẫn cấp subpanel trong Display Visualizer") — không còn tĩnh ở
-        // Main, `settingSubtitlesEnabled` ĐÃ XOÁ, đọc/ghi qua delegation (settingsStackBody) +
-        // `workflowSubtitleStyleSettings.refresh()` đồng bộ lúc panel mở, xem event/workflow/
-        // subtitle-style-settings.js.
-        // (8 const settingSub*/valSub* ĐÃ XOÁ — Batch D2: 8 input style Subtitle giờ sống động
-        // BÊN TRONG panel push/pop, không còn DOM tĩnh — event/listener/subtitle-style-
-        // settings.js dùng delegation trên settingsStackBody thay vì đọc const ở đây.)
+        const subtitleKaraokeFx = document.getElementById('subtitle-karaoke-fx'), subtitleKaraokePointer = document.getElementById('subtitle-karaoke-pointer');
 
         let source; // biến NỘI BỘ (không thuộc STATE) — chỉ dùng trong audio-engine.js
         // audioContext, analyser, analyserPitch, animationId, masterGainNode, eqBandNodes,

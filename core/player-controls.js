@@ -508,12 +508,12 @@
 
         /**
          * Cập nhật UI theo thời gian thực lúc đang phát (sự kiện 'timeupdate', bắn rất dày) — thanh
-         * tiến trình (nếu không đang kéo tay), hiển thị thời gian hiện tại, xử lý phụ đề, đồng bộ
-         * Media Session mỗi 5s. Ứng với msg.type 'playerControls.audio.timeupdate'.
+         * tiến trình (nếu không đang kéo tay), hiển thị thời gian hiện tại, đồng bộ Media Session mỗi 5s.
+         * Phụ đề: workflowPlayerControls.handleAudioTimeUpdateEvent() gọi workflowSubtitleDisplay.sync() sau hàm này.
          */
         function handleAudioTimeUpdate() {
             if (!appState.get('isSeeking')) { progressBar.value = audioPlayer.currentTime; updateProgressBarCSS(); } 
-            currentTimeDisplay.textContent = formatTime(audioPlayer.currentTime); processSubtitles(audioPlayer.currentTime);
+            currentTimeDisplay.textContent = formatTime(audioPlayer.currentTime);
             if (Date.now() - lastPositionSync > 5000) { updateMediaPositionState(); lastPositionSync = Date.now(); }
             // (Thống kê thời lượng nghe KHÔNG còn tính ở đây — xem "Bộ đếm thời gian nghe thật"
             //  phía trên: đo bằng đồng hồ thực, độc lập với currentTime/thanh tiến trình.)
@@ -522,12 +522,11 @@
         /**
          * Người dùng ĐANG kéo tay thanh tiến trình (sự kiện 'input' trên progressBar, bắn liên tục
          * khi kéo) — đặt cờ isSeeking để handleAudioTimeUpdate() không đè giá trị, hiển thị tạm
-         * thời gian theo VỊ TRÍ ĐANG KÉO (chưa commit), xử lý phụ đề theo vị trí đó luôn. Ứng với
-         * msg.type 'playerControls.progressBar.seeking'.
+         * thời gian theo VỊ TRÍ ĐANG KÉO (chưa commit). Phụ đề theo vị trí kéo: workflowPlayerControls.handleSongSeeking().
          * @param {number} value - progressBar.value tại thời điểm kéo
          */
         function handleProgressBarSeeking(value) {
-            appState.set('isSeeking', true); currentTimeDisplay.textContent = formatTime(value); updateProgressBarCSS(); processSubtitles(value);
+            appState.set('isSeeking', true); currentTimeDisplay.textContent = formatTime(value); updateProgressBarCSS();
         }
 
         /**
