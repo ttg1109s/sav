@@ -19,7 +19,11 @@
 /** @param {number} sec @returns {string} "HH:MM:SS,mmm" */
 function secToStr(sec) {
     if (isNaN(sec) || sec < 0) return '00:00:00,000';
-    const h = Math.floor(sec / 3600); const m = Math.floor((sec % 3600) / 60); const s = Math.floor(sec % 60); const ms = Math.floor((sec % 1) * 1000);
+    // SỬA (30/09/2026) — TRƯỚC ĐÂY tính ms bằng `Math.floor((sec % 1) * 1000)` — sai số dấu phẩy động
+    // (vd 2.3 % 1 = 0.29999...) khiến ",300" thành ",299": nhập .srt rồi xuất lại (hoặc Lưu) là giờ bị
+    // hụt 1ms, lệch dần qua mỗi lần. Làm tròn TỔNG ms 1 lần rồi mới tách h/m/s/ms.
+    const totalMs = Math.round(sec * 1000);
+    const h = Math.floor(totalMs / 3600000); const m = Math.floor((totalMs % 3600000) / 60000); const s = Math.floor((totalMs % 60000) / 1000); const ms = totalMs % 1000;
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`;
 }
 
@@ -32,9 +36,12 @@ function strToSec(str) {
 
 /** @param {string} data nội dung file .srt @returns {Array<Object>} */
 function parseSRT(data) {
+    // SỬA (30/09/2026) — file .srt lưu kiểu Windows (CRLF `\r\n`) hoặc có BOM đầu file TRƯỚC ĐÂY không khớp
+    // regex (chỉ nhận `\n`) -> nhập vào ra danh sách RỖNG, im lặng. Chuẩn hoá xuống dòng + bỏ BOM trước.
+    const text = String(data || '').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
     const regex = /(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n([\s\S]*?)(?=\n\n|\n*$)/g;
     const result = []; let match;
-    while ((match = regex.exec(data)) !== null) {
+    while ((match = regex.exec(text)) !== null) {
         result.push({ id: `${Date.now()}-${Math.random()}`, start: strToSec(match[2]), end: strToSec(match[3]), startStr: match[2], endStr: match[3], text: match[4] });
     }
     return result;

@@ -19,6 +19,14 @@
  */
 
 const KARAOKE_MIN_WORD_MS = 10; // sàn thời lượng 1 từ — kéo tay/gõ số không bao giờ cho về 0 hay âm
+// MỚI (30/09/2026) — waveform mini + nghe từng từ trong drawer Karaoke giải mã RIÊNG file gốc ở tần số
+// này (WaveSurfer chính giải mã mặc định 8000Hz — chỉ đủ vẽ sóng, nghe rất rè/đục, không đủ để canh chữ).
+const KARAOKE_DECODE_SAMPLE_RATE = 22050;
+// Bài dài hơn ngưỡng này (giây) KHÔNG giải mã riêng (tránh ngốn RAM trên điện thoại) — dùng lại dữ
+// liệu 8000Hz của WaveSurfer chính.
+const KARAOKE_HIRES_MAX_DURATION_SEC = 1200;
+// Số ô peaks vẽ waveform mini (~ bề rộng khung x mật độ điểm ảnh màn hình điện thoại).
+const KARAOKE_MINI_PEAK_BUCKETS = 1200;
 
 /** Tách text 1 dòng thành mảng TỪ (theo khoảng trắng, mỗi từ = 1 âm tiết tiếng Việt) — bỏ chuỗi
  * rỗng/toàn khoảng trắng. @param {string} text @returns {Array<string>} */
@@ -128,4 +136,44 @@ function applyKaraokeWordMsInput(words, wordIndex, newMs) {
 function computeKaraokeWordPlayRange(words, lineStartSec, wordIndex) {
     const boundaries = computeKaraokeWordBoundariesMs(words);
     return { start: lineStartSec + boundaries[wordIndex] / 1000, end: lineStartSec + boundaries[wordIndex + 1] / 1000 };
+}
+
+/** MỚI (30/09/2026, sửa lỗi) — co/giãn `karaoke` đã lưu cho KHỚP thời lượng HIỆN TẠI của dòng — dùng
+ * sau MỌI thao tác đổi start/end mà GIỮ nguyên chữ (sửa giờ dòng rồi ✓ Áp dụng, Shift chỉ start hoặc
+ * chỉ end...). TRƯỚC ĐÂY tổng ms karaoke giữ nguyên số cũ trong khi dòng đã dài/ngắn đi -> mốc chia
+ * vượt ra ngoài dòng, từ cuối bị cắt/hụt. Co/giãn theo TỈ LỆ trên các mốc cộng dồn (làm tròn từng
+ * mốc, không làm tròn từng từ) -> tổng LUÔN khớp đúng thời lượng mới, không lệch vài ms. Dòng quá
+ * ngắn không đủ sàn KARAOKE_MIN_WORD_MS cho mọi từ, hoặc tổng cũ = 0 -> chia đều lại.
+ * Chỉ xử lý dòng có id trong `ids` VÀ có `karaoke` là mảng; dòng khác giữ nguyên tham chiếu.
+ * @param {Array<Object>} subtitles @param {Set<string>} ids @returns {Array<Object>} mảng MỚI */
+function fitSubtitlesKaraokeToDuration(subtitles, ids) {
+    return subtitles.map((sub) => {
+        if (!ids.has(sub.id) || !Array.isArray(sub.karaoke) || sub.karaoke.length === 0) return sub;
+        const durationMs = Math.max(0, Math.round((sub.end - sub.start) * 1000));
+        const count = sub.karaoke.length;
+        const oldTotal = sub.karaoke.reduce((sum, pair) => sum + (Number(pair[1]) || 0), 0);
+        if (oldTotal === durationMs) return sub;
+        let msList;
+        if (oldTotal <= 0 || durationMs < count * KARAOKE_MIN_WORD_MS) {
+            const base = Math.floor(durationMs / count);
+            msList = sub.karaoke.map((_, i) => (i === count - 1 ? durationMs - base * (count - 1) : base));
+        } else {
+            const ratio = durationMs / oldTotal;
+            let cumOld = 0;
+            let prevNew = 0;
+            msList = sub.karaoke.map((pair, i) => {
+                cumOld += Number(pair[1]) || 0;
+                const boundary = i === count - 1 ? durationMs : Math.round(cumOld * ratio);
+                const ms = boundary - prevNew;
+                prevNew = boundary;
+                return ms;
+            });
+            // Làm tròn có thể đẩy 1 từ rất ngắn xuống dưới sàn -> chia đều lại cho an toàn.
+            if (msList.some((ms) => ms < KARAOKE_MIN_WORD_MS)) {
+                const base = Math.floor(durationMs / count);
+                msList = sub.karaoke.map((_, i) => (i === count - 1 ? durationMs - base * (count - 1) : base));
+            }
+        }
+        return { ...sub, karaoke: sub.karaoke.map((pair, i) => [pair[0], msList[i]]) };
+    });
 }
