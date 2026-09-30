@@ -38,14 +38,21 @@
 
                 // MỚI (17/09/2026, tính năng karaoke) — xem core/subtitle/subtitle-karaoke.js +
                 // event/workflow/subtitle-editor.js (openKaraokeDrawer()...). Waveform mini TÁCH
-                // HẲN khỏi _wavesurfer/_regionsPlugin ở trên (thuần hiển thị, không phát audio riêng).
+                // HẲN khỏi _wavesurfer/_regionsPlugin ở trên.
                 _karaokeEditingLineId: 'nullable-string', // id dòng đang mở drawer karaoke (null = đóng)
                 _karaokeWords: 'array',             // mảng làm việc {word, ms} — CHƯA chắc đã Apply (bấm Áp dụng mới ghi vào field `karaoke` của dòng)
-                _karaokeLineStart: 'number',        // cache start (giây) của dòng đang mở, phục vụ quy đổi mốc chia <-> giờ tuyệt đối
+                _karaokeLineStart: 'number',        // cache start (giây) của dòng đang mở — cắt đúng đoạn audio cho waveform mini (trục thời gian mini: 0 = start dòng)
                 _karaokeLineEnd: 'number',
                 _karaokeWavesurfer: 'any',          // WaveSurfer instance MINI (waveform riêng vùng dòng đó) | null
                 _karaokeRegionsPlugin: 'any',
                 _karaokeAudioUrl: 'nullable-string', // URL.createObjectURL() riêng cho waveform mini — tự revoke lúc đóng drawer
+                // MỚI (30/09/2026) — waveform mini giờ CÓ audio riêng (WAV đúng đoạn dòng, dựng từ PCM
+                // giải mã sẵn), nút ▶ từng từ phát TRÊN nó — xem _initKaraokeMiniWaveform().
+                _karaokeSourceAudio: 'any',         // {samples: Float32Array mono, sampleRate} — giải mã 1 LẦN/phiên trang, dùng lại cho mọi dòng | null
+                _karaokeInitToken: 'number',        // tăng mỗi lần dựng waveform mini — lượt dựng cũ (đang await) thấy lệch token thì tự bỏ
+                _karaokeMiniReady: 'boolean',       // waveform mini đã 'ready' (mở khoá nút ▶ từng từ)
+                _karaokePlayingIndex: 'nullable-number', // index từ đang phát trên waveform mini (null = không phát)
+                _karaokePlayEndSec: 'number',       // mốc dừng (giây, TƯƠNG ĐỐI trong dòng) của từ đang phát
             },
             buildDefaults() {
                 return {
@@ -81,6 +88,11 @@
                     _karaokeWavesurfer: null,
                     _karaokeRegionsPlugin: null,
                     _karaokeAudioUrl: null,
+                    _karaokeSourceAudio: null,
+                    _karaokeInitToken: 0,
+                    _karaokeMiniReady: false,
+                    _karaokePlayingIndex: null,
+                    _karaokePlayEndSec: 0,
                 };
             },
         });
