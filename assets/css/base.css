@@ -92,28 +92,28 @@ input[type="file"] { display: none; }
 
 .sub-text-glow { text-shadow: 0 1px 3px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.5); }
 
-/* MỚI (16/08/2026, mục 3 — Giang chỉ ra "tuỳ chỉnh Styling chưa thắng inline subtitle vì mặc định
-   đang áp cho từng dòng chứ không phải khung chung") — nền chữ MẶC ĐỊNH cho #subtitle-frame (khung
-   BAO NGOÀI mọi dòng, KHÔNG phải từng <p> nữa — xem core/subtitle/subtitle-display.js::
-   addActiveSubBlock(), core/subtitle/subtitle-style-settings.js::applySubtitleFrameStyle()).
-   Specificity CLASS (thấp hơn inline) — CHỈ là SÀN AN TOÀN, để inline style tuỳ chỉnh (Element
-   Style Editor lúc bật Custom, HOẶC 2 field subtitleDefaultFontSize/subtitleDefaultColor lúc TẮT
-   Custom) ĐÈ ĐÚNG property nào đã set, property nào KHÔNG set vẫn rơi về đây (an toàn — chữ không
-   bao giờ "biến mất" dù custom chỉ chỉnh 1-2 thuộc tính). color/font-size CỐ Ý vẫn có mặt ở đây
-   dù 2 field đó LUÔN được set qua inline (default mode) — làm sàn an toàn CUỐI cho ca Custom bật
-   nhưng KHÔNG bật field color/fontSize trong Styling. text-shadow DÙNG CHUNG `.sub-text-glow` có
-   sẵn ở trên (áp CHUNG 2 class trên #subtitle-frame, KHÔNG lặp giá trị shadow ở đây — `.sub-text-
-   glow` còn dùng chung với #stats-panel, KHÔNG được sửa trực tiếp class đó). */
+/* Phụ đề: sàn an toàn cho #subtitle-frame (specificity class < inline style tuỳ chỉnh — thuộc tính nào tuỳ chỉnh
+   không set thì rơi về đây). Bóng chữ dùng chung .sub-text-glow ở trên (còn dùng cho #stats-panel). */
 .subtitle-default-appearance { color: #ffffff; font-size: 16px; font-weight: 700; line-height: 1.375; }
 
-/* MỚI (15/08/2026, mục 4b) — hiệu ứng "In" (liên tục suốt lúc dòng phụ đề đang hiển thị ổn định,
-   giữa Comming và Outing) — bật/tắt qua class, xem core/subtitle/subtitle-display.js::
-   _applySubtitleBlockPhase() + SUBTITLE_IN_EFFECTS (core/subtitle/subtitle-transition.js). */
+/* Hiệu ứng "In" của dòng phụ đề (SUBTITLE_IN_EFFECTS, core/subtitle/subtitle-transition.js). */
 @keyframes sub-in-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
 .sub-in-pulse { animation: sub-in-pulse 1.6s ease-in-out infinite; }
 
 @keyframes sub-in-glow { 0%, 100% { text-shadow: 0 1px 3px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.5); } 50% { text-shadow: 0 1px 3px rgba(0,0,0,0.85), 0 0 12px rgba(255,255,255,0.85); } }
 .sub-in-glow { animation: sub-in-glow 1.8s ease-in-out infinite; }
+
+/* Karaoke phụ đề (core/subtitle/subtitle-karaoke-display-ui.js). Biến --kr-* đặt trên #subtitle-display.
+   Khai báo trực tiếp trên span từ -> luôn thắng style kế thừa từ #subtitle-frame (Giang: karaoke ưu tiên). */
+.kr-word { position: relative; display: inline-block; transform-origin: 50% 60%; }
+.kr-fill { position: absolute; left: 0; top: 0; right: 0; bottom: 0; white-space: pre; color: var(--kr-color, #facc15); -webkit-text-fill-color: var(--kr-color, #facc15); text-shadow: none; clip-path: inset(0 100% 0 0); -webkit-clip-path: inset(0 100% 0 0); pointer-events: none; }
+.kr-word.kr-outline > .kr-base,
+.kr-word.kr-outline > .kr-fill { -webkit-text-stroke: var(--kr-ow, 2px) var(--kr-oc, #facc15); paint-order: stroke fill; text-shadow: 0 0 var(--kr-blur, 6px) var(--kr-gc, transparent), 0 0 var(--kr-blur, 6px) var(--kr-gc, transparent); }
+/* Canvas hạt bụi/khói: phủ khung phụ đề + chừa trên/dưới cho hạt bay (đè quy tắc `canvas {...}` toàn cục ở trên). */
+#subtitle-karaoke-fx { position: absolute; left: 0; top: -180px; width: 100%; height: calc(100% + 240px); pointer-events: none; z-index: 1; }
+#subtitle-karaoke-pointer { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 2; transition: transform 0.18s ease-out; }
+#subtitle-karaoke-pointer svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
 /* "Chế độ xem toàn màn hình" (core/visualizer-ui-visibility.js) — tách khỏi .hidden vì vài phần tử
    có cơ chế hidden riêng đang tự quản lý (chuyển Playlist<->Visualizer). */
 .force-hidden { display: none !important; }
