@@ -378,7 +378,7 @@
     <script src="lang/patch/patch-settings-misc.js?v=20260921v9"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 2 drawer con Song/Photo & Album, xem plan-v12-multimedia-decisions.md). -->
-    <script src="lang/patch/patch-file-manager.js?v=20260920v1"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20260930hidden1"></script>
     <!-- MỚI (10/07/2026) — dùng ở CẢ index.html LẪN subtitle-editor.html, xem lang/lang.js. -->
     <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
     <!-- MỚI ("Song/Video Unification" v12, gộp Video Editor vào Modal xem Video) — modal xem Video
@@ -412,7 +412,7 @@
          Settings cũ (xem ngay dưới), tạm KHÔNG có lối vào UI nào — GIỮ NGUYÊN script (chỉ là hàm
          render, vô hại khi chưa gọi tới, đợi hướng dẫn nối lại sau). -->
     <script src="components/playlist-sort-drawer.js?v=20260923v1"></script>
-    <script src="components/playlist-filter-drawer.js?v=20260924v2"></script>
+    <script src="components/playlist-filter-drawer.js?v=20260930hidden1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel, phản hồi Giang) — bottom nav 7 mục Media/
          Folder/Photo/Storage/Game/Statis/Setting. -->
     <script src="components/app-bottom-nav.js?v=20260921v6"></script>
@@ -548,7 +548,7 @@
     <script src="service/state/auto-switch.js?v=20260926as1"></script>
     <script src="service/state/listen-stats.js?v=20260725v1"></script>
     <script src="service/state/app-misc.js?v=20260725v1"></script>
-    <script src="service/state/file-manager.js?v=20260731v1"></script>
+    <script src="service/state/file-manager.js?v=20260930hidden1"></script>
     <script src="service/state/generic-drawer.js?v=20260725v1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — package appPanelActiveTab, xem
          service/state/app-panel-nav.js. -->
@@ -620,12 +620,10 @@
     <!-- MỚI (10/07/2026) — TÁCH RIÊNG khỏi service/db.js (phản hồi Giang: db.js chỉ nên thuần
          IndexedDB, cipher không phải I/O). Dùng ở CẢ index.html LẪN subtitle-editor.html. -->
     <script src="service/song-key-cipher.js?v=20260710v1"></script>
-    <!-- Ver 12 "Multi Media" (plan-v12-multimedia.md mục 4.b1) — Folder nhạc (File Manager → Song).
-         folder.js CẦN core/db.js (slugify + CRUD folders/folder_song/songs). folder-picker-ui.js
-         CẦN t() (lang/lang.js, đã nạp từ rất sớm) — không phụ thuộc folder.js (chỉ dựng DOM +
-         callback do nơi gọi truyền vào). -->
-    <script src="core/file-manager/folder.js?v=20260924v1"></script>
-    <script src="core/file-manager/folder-picker-ui.js?v=20260911v1"></script>
+    <!-- Folder (Song/Video/Photo). folder.js = nghiệp vụ + data layer (service/db.js); folder-picker-ui.js =
+         modal đổi tên + wiring lưới Folder/Thuộc tính/Filter Edit trong Generic Drawer (Rule 5a). -->
+    <script src="core/file-manager/folder.js?v=20260930hidden1"></script>
+    <script src="core/file-manager/folder-picker-ui.js?v=20260930hidden1"></script>
     <!-- Pagination DÙNG CHUNG (14/07/2026; SỬA 23/09/2026 — dãy số rút gọn "…", « » cho 'arrow', style
          'loadMore', aria, màu qua theme key). core/pagination.js = core THUẦN + template (CẦN t()/tFormat(),
          lang/lang.js đã nạp từ rất sớm); core/pagination-ui.js = wire nút -> eventBus (Rule 5a). Nơi dùng
@@ -634,17 +632,6 @@
          event/workflow/pagination.js. -->
     <script src="core/pagination.js?v=20260924v2"></script>
     <script src="core/pagination-ui.js?v=20260924v1"></script>
-    <!-- core/file-manager/nav.js ĐÃ XOÁ khỏi đây (Batch D7, batch CUỐI Nhóm D) — file đó giờ
-         RỖNG (0 hàm, cả 3 khu vực Song/Folder Detail/Photo đã chuyển hết sang push/pop
-         động) — XOÁ TAY file core/file-manager/nav.js, không tự động xoá.
-         core/file-manager/folder-list-ui.js ĐÃ XOÁ (Batch 5, "Song/Video Unification" mục 6e) —
-         danh sách folder giờ là grid Generic Drawer, tái dùng components/items.js
-         (itemTemplateFolderTile), xem event/workflow/file-manager-folder-browser.js. -->
-    <!-- Phase 2 (mục 1b/c, CHỐT 03/07/2026) — Folder Detail Drawer. CẦN core/file-manager/folder.js
-         (getFolderSongKeys) + core/dom-refs.js (đã nạp ngay trên). -->
-    <!-- XOÁ (06/09/2026, Giang chốt mục 3.6 — "bỏ hẳn màn Read") — core/file-manager/folder-detail-ui.js
-         (renderFolderDetailSongList/setFolderDetailTitle, chỉ phục vụ màn Read cũ) bỏ hẳn cùng màn
-         hình đó, xem event/workflow/file-manager-folder-browser.js. -->
     <!-- Batch 3 (03/07/2026) — Ảnh. image.js độc lập với folder.js (không dùng chung hàm nào ngoài
          slugify()/getMeta()/setMeta() ở core/db.js) — chỉ cần SAU core/db.js. photo-ui.js CẦN
          dom-refs.js (đã nạp ở block DOM refs phía trên) + image.js (dùng trong workflow, không
@@ -846,10 +833,8 @@
          playlist.js, đã nạp) — xem event/workflow/playlist-filter-presets.js (nạp SAU, cùng khu
          playlist-scope.js). -->
     <script src="core/playlist/filter-presets.js?v=20260908v1"></script>
-    <!-- Phase 2 (bước 3 scoping, CHỐT 03/07/2026) — loadAllSongs()/loadSongsFromFolder(), viết
-         MỚI hoàn toàn, KHÔNG đụng loader.js — chỉ lọc trên playlistCache đã có sẵn trong RAM.
-         CẦN core/file-manager/folder.js (getFolderSongKeys) + core/db.js (getFolderSongMap). -->
-    <script src="core/playlist/scope.js?v=20260714v2"></script>
+    <!-- View "Tất cả": loadAllSongs() + filterOutExcludedMedia() (loại item thuộc folder Hidden). Core thuần. -->
+    <script src="core/playlist/scope.js?v=20260930hidden1"></script>
     <!-- Ver 12 "Multi Media" (plan-v12-multimedia.md mục 4.b1) — "Chọn nhiều". selection.js/
          bulk-actions.js đều là hàm THUẦN (không gọi buildSongNode/renderPlaylistFull/
          renderPlaylistDiff/removeSongFromAllFolders... — các lời gọi core void nối tiếp đó đã dời
@@ -1013,7 +998,7 @@
          (hạ tầng rẽ nhánh, dùng xuyên cụm) -> workflow/*.js -> router/*.js (register với bus) ->
          listener/*.js (addEventListener cuối, cần bus + router đã sẵn sàng). -->
     <script src="event/bus.js?v=20260703v1"></script>
-    <script src="event/block.js?v=20260731v3"></script>
+    <script src="event/block.js?v=20260930hidden1"></script>
     <script src="event/virtual-machine-state.js?v=20260701v1"></script>
     <!-- Cụm "infoIcon" (MỚI, phản hồi Giang — icon (i) nhỏ dùng chung) — CẦN core/info-icon-ui.js
          (đã nạp ở nhóm CORE phía trên). Listener delegate trên document.body — luôn có sẵn, không
@@ -1069,7 +1054,7 @@
          attachCoverFallback/selectionIndicatorHtml/updateEmptyState), core/playlist/state.js
          (formatTime) — đã nạp ở nhóm CORE phía trên. -->
     <script src="event/workflow/playlist-render.js?v=20260924r4"></script>
-    <script src="event/workflow/playlist-scope.js?v=20260911v2"></script>
+    <script src="event/workflow/playlist-scope.js?v=20260930hidden1"></script>
     <!-- MỚI (08/09/2026, hệ "Playlist Filter Presets") — CRUD danh sách preset + công tắc tổng,
          mirror event/workflow/motion-presets.js. CẦN core/playlist/filter-presets.js,
          components/playlist-filter-drawer.js (nạp ở nhóm components phía trên), workflowPlaylistScope
@@ -1082,13 +1067,10 @@
          components/file-manager-storage.js (đã nạp ở nhóm CORE/COMPONENTS). -->
     <script src="event/workflow/file-manager-storage.js?v=20260925bg2"></script>
     <script src="event/router/file-manager-storage.js?v=20260920v1"></script>
-    <!-- Folder Browser — Generic Drawer List↔Read thay Folder List/Detail kiểu panel-stack cũ. CẦN
-         core/generic-drawer.js, components/items.js, core/file-manager/{folder,folder-detail-ui,
-         folder-picker-ui}.js, core/pagination.js — đều đã nạp ở nhóm CORE. PHẢI nạp TRƯỚC
-         event/listener/file-manager-storage.js (hàng "Song & Video" gửi eventBus thẳng tới router
-         này). -->
-    <script src="event/workflow/file-manager-folder-browser.js?v=20260924r3"></script>
-    <script src="event/router/file-manager-folder-browser.js?v=20260924r3"></script>
+    <!-- Folder Browser (Generic Drawer, mở từ tab Folder). CẦN core/file-manager/{folder,folder-picker-ui}.js,
+         components/items.js, core/pagination.js (nhóm CORE). -->
+    <script src="event/workflow/file-manager-folder-browser.js?v=20260930hidden1"></script>
+    <script src="event/router/file-manager-folder-browser.js?v=20260930hidden1"></script>
     <script src="event/listener/file-manager-storage.js?v=20260729v2"></script>
     <!-- Batch 8, ver 12 "Multi Media" — engine cycle ảnh Slideshow nền Visual (transition/Ken
          Burns), CHỈ còn đúng 1 vai trò: `_tick()` (taskManager) — cụm router "slideshowSettings"
@@ -1141,8 +1123,8 @@
     <!-- Cụm "visualBg" — Workflow tách 3 file: common (định nghĩa `workflowVisualBg`), video/photo
          (`Object.assign()` thêm vào) — common PHẢI nạp trước video/photo. -->
     <script src="event/workflow/visual-bg-common.js?v=20260930vbgres2"></script>
-    <script src="event/workflow/visual-bg-video.js?v=20260930vbgres2"></script>
-    <script src="event/workflow/visual-bg-photo.js?v=20260930vbgres2"></script>
+    <script src="event/workflow/visual-bg-video.js?v=20260930hidden1"></script>
+    <script src="event/workflow/visual-bg-photo.js?v=20260930hidden1"></script>
     <script src="event/router/visual-bg.js?v=20260930vbgres2"></script>
     <script src="event/listener/visual-bg.js?v=20260930vbgres2"></script>
 
@@ -1158,7 +1140,7 @@
          lúc user tương tác) + core/file-manager/image.js (sortImagesByAddedDateDesc/groupImagesByDay).
          KHÔNG có listener riêng: cả 3 message của router 'fileManagerPhoto' đều do chính workflow
          (core/media-picker-drawer-ui.js::wireMediaPickerDrawerUi) và core/file-manager/photo-ui.js tự gửi từ DOM tự dựng. -->
-    <script src="event/workflow/file-manager-photo.js?v=20260924r3"></script>
+    <script src="event/workflow/file-manager-photo.js?v=20260930hidden1"></script>
     <script src="event/router/file-manager-photo.js?v=20260731v8"></script>
     <!-- TÁCH RA (31/07/2026, yêu cầu Giang) — cụm "imageEdit", Edit mode của modal xem ảnh Photo
          (trước đây sống chung trong file-manager-photo.js). CẦN workflowFileManagerPhoto (3 khe đọc
@@ -1327,7 +1309,7 @@
          trên) + updatePlaylistBg() (đã nạp ở nhóm CORE). (applyBgImageEnabled() đã xoá 21/09/2026.) -->
     <!-- MỚI (21/09/2026, Giang yêu cầu UI nền 3 card Solid/Gradient/Background media) — dựng/gắn/vá cụm 3 card ở Settings > System > Theme (Morphin). Được gọi lúc RUNTIME bởi event/workflow/app-settings.js + event/workflow/theme.js. -->
     <script src="core/theme-background-ui.js?v=20260923v6"></script>
-    <script src="event/workflow/theme.js?v=20260924r3"></script>
+    <script src="event/workflow/theme.js?v=20260930hidden1"></script>
     <script src="event/router/theme.js?v=20260923v6"></script>
     <script src="event/listener/theme.js?v=20260921v4"></script>
     <!-- MỚI (25/09/2026, Giang yêu cầu) — cụm "appVisibility": ẩn tab/PWA chỉ để audio Song phát nền (Audio Session
