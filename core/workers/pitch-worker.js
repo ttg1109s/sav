@@ -8,7 +8,8 @@
  * hàm này là dữ liệu số thuần (không đụng DOM/Canvas/Three.js) nên an toàn để chuyển hẳn sang
  * thread riêng.
  *
- * GIAO THỨC MESSAGE (xem audio-analysis.js, hàm requestPitchDetection()):
+ * GIAO THỨC MESSAGE (bên gửi/nhận: event/workflow/audio-engine.js — requestPitch()/_onPitchReply(), gửi qua
+ * core/audio-engine.js::postPitchFrame(); trước 01/10/2026 là requestPitchDetection()):
  *   postMessage vào worker : { buf: Float32Array (TRANSFERRED, không phải copy), sampleRate: number, reqId: number }
  *   postMessage từ worker   : { frequency: number, reqId: number }
  * `reqId` dùng để main thread loại bỏ kết quả CŨ trả về trễ (nếu có >1 request đang bay) —
