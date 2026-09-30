@@ -19,8 +19,8 @@
  *     đâu ngoài `eseGeneratedCss` (appState runtime), đúng vai trò "công cụ chung, không biết
  *     nghiệp vụ cụ thể". MỚI (15/08/2026) — dùng LẦN ĐẦU bởi Subtitle "Styling" (mục 4a, xem
  *     event/workflow/subtitle-style-settings.js::openStyling()): `targetEl = subtitleFrame`
- *     (style CHUNG cho khung bao mọi dòng, KHÔNG áp riêng từng dòng phụ đề) + `onApply` gọi
- *     `setSubtitleBoxCss()` (core/subtitle/subtitle-style-settings.js) rồi `saveConfig()`.
+ *     (style CHUNG cho khung bao mọi dòng, KHÔNG áp riêng từng dòng phụ đề) + `onApply` ghi
+ *     `subtitleBoxCss` (setSubtitleVizField(), core/subtitle/subtitle-style-settings.js) rồi `saveConfig()`.
  *
  * Nội dung Box/Text HOÀN TOÀN template string tĩnh (components/element-style-editor-drawer.js,
  * KHÔNG dùng createElement) — Workflow tự querySelector + addEventListener trên genericDrawerBody/
@@ -212,7 +212,7 @@ const workflowElementStyleEditor = {
      * bấm "Áp dụng". TÁI DÙNG ĐÚNG cặp hàm `buildElementStyleCssString()`+`applyElementStyleToDom()`
      * (core) mà `_apply()` dùng để áp thật lên `targetEl` — đảm bảo preview KHÔNG BAO GIỜ lệch so
      * với kết quả thật. `removeAttribute('style')` TRƯỚC khi áp lại — CÙNG lý do
-     * `applySubtitleFrameStyle()` (core/subtitle/subtitle-style-settings.js): applyElementStyleToDom()
+     * `workflowSubtitleDisplay.applyFrameStyle()` (event/workflow/subtitle-display.js): applyElementStyleToDom()
      * chỉ setProperty() TỪNG khai báo, KHÔNG tự xoá property THỪA nếu draft mới bỏ bớt property so
      * với lần sơn trước (vd vừa tắt Border đã bật trước đó). */
     _updatePreview() {

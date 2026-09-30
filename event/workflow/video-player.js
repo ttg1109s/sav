@@ -410,16 +410,10 @@ const workflowVideoPlayer = {
      *        docstring `playVideoByKey()` — Next/Prev vật lý/auto-next truyền `false`.
      */
     async startFromPlaylist(startKey, switchScreen = true) {
-        // FIX (29/09/2026, Giang báo bug "Song có sub, đang hiện sub -> chuyển sang Video thì sub
-        // vẫn đứng nguyên trên player") — Video KHÔNG dùng phụ đề, nhưng TRƯỚC ĐÂY vào mode chỉ
-        // pause audioPlayer + null currentKey, KHÔNG dọn khối phụ đề đang hiện (#sub-active-lines)
-        // lẫn `subtitles` của Song cũ. Dọn CẢ 2, và dọn TRƯỚC `audioPlayer.pause()` bên dưới: pause
-        // (kèm flush reload + seek back lúc pause) còn bắn thêm 'timeupdate' -> processSubtitles()
-        // (core/subtitle/subtitle-display.js) — nếu `subtitles` vẫn là của Song cũ nó sẽ vẽ LẠI đúng
-        // dòng vừa xoá. Quay lại Song sau đó: currentKey đã null nên playMedia() nạp lại phụ đề
-        // từ record như bình thường (event/workflow/player.js).
+        // Video không dùng phụ đề: dọn `subtitles` + khối đang hiện TRƯỚC audioPlayer.pause() (pause còn bắn
+        // 'timeupdate' -> sync phụ đề sẽ vẽ lại dòng cũ). Quay lại Song: currentKey null nên playMedia() nạp lại.
         appState.set('subtitles', []);
-        clearAllActiveSubBlocks(); // core/subtitle/subtitle-display.js
+        workflowSubtitleDisplay.clearAll(); // event/workflow/subtitle-display.js
         const previousSongKey = appState.get('currentKey');
         if (previousSongKey !== null) {
             audioPlayer.pause(); // bắn sự kiện 'pause' NGUYÊN BẢN -> handleAudioPause() (core/player-controls.js, KHÔNG đụng) tự lo icon/wake lock/Media Session cho Song

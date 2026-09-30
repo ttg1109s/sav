@@ -28,8 +28,8 @@
  *
  * NẠP SAU: core/playlist/actions.js (removeKeyFromDisplay), core/playlist/render.js
  * (attachCoverFallback/scrollToCurrentKeyAnimated), core/playlist/order.js, core/player-controls.js
- * (requestWakeLock/switchToVisualizer), core/listen-stats.js (bumpSongPlayCount), core/subtitle/
- * subtitle-display.js (clearAllActiveSubBlocks), core/audio-engine.js (setupAudioContext),
+ * (requestWakeLock/switchToVisualizer), core/listen-stats.js (bumpSongPlayCount), event/workflow/
+ * subtitle-display.js (workflowSubtitleDisplay.clearAll — chỉ gọi lúc chạy), core/audio-engine.js (setupAudioContext),
  * core/visualizer/visualizer-display.js (updateTypeUI), event/bus.js, event/workflow/video-player.js
  * (workflowVideoPlayer.exitVideoPlayerMode). NẠP TRƯỚC: event/workflow/player-controls.js,
  * event/router/playlist.js, event/router/playlist-empty-state.js (cả 3 đều gọi
@@ -293,12 +293,7 @@ const workflowPlayer = {
             setupAudioContext(); workflowVisualizerRender.activateCurrentStyle(); // SỬA 28/09/2026 — thay updateTypeUI() (core cũ)
 
             appState.set('subtitles', record.subtitles ? record.subtitles.slice() : []);
-            // SỬA (10/07/2026, Subtitle Editor chuyển sang trang riêng): resetAutoSub()/
-            // renderSubList() ĐÃ XOÁ cùng modal cũ — không còn UI soạn phụ đề nào ở trang
-            // chính để "reset trạng thái ghi âm timing"/"vẽ lại danh sách" nữa.
-            // clearAllActiveSubBlocks() GIỮ NGUYÊN (core/subtitle/subtitle-display.js — hiển
-            // thị phụ đề lúc phát, KHÔNG liên quan gì tới việc soạn nội dung).
-            clearAllActiveSubBlocks();
+            workflowSubtitleDisplay.clearAll(); // event/workflow/subtitle-display.js — dọn khối phụ đề + karaoke bài cũ
 
             // MỚI (v13 Batch D, hoàn thiện ở Batch E) — báo cho domain "Visual Background" biết
             // bài hát vừa ĐỔI THẬT, thay cho task poll `currentKey` mỗi 1s mà engine slideshow

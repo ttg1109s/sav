@@ -1082,14 +1082,14 @@ const workflowSubtitleEditor = {
         this._syncKaraokeMiniScrollUi();
     },
 
-    /** Ô input ms gõ tay ('change', xem _wireKaraokeDrawer()) — quy đổi qua applyKaraokeWordMsInput()
-     * (core, CÙNG lõi redistributeKaraokeBoundary() với kéo tay) rồi dựng lại region + đồng bộ input.
-     * Đồng bộ LUÔN cả ô vừa gõ (giá trị có thể đã bị core kẹp); giá trị không phải số -> trả ô về số cũ. */
+    /** Ô ms gõ tay ('change') — computeKaraokeInputBoundary() (core) quy ra mốc cần kéo, rồi CÙNG lõi kéo tay
+     * redistributeKaraokeBoundary() (core). Đồng bộ luôn cả ô vừa gõ (giá trị có thể bị kẹp); không phải số /
+     * dòng 1 từ (không có mốc) -> trả ô về số cũ. */
     _onKaraokeWordMsChange(index, newMs) {
-        const words = isNaN(newMs)
-            ? appState.get('_karaokeWords')
-            : applyKaraokeWordMsInput(appState.get('_karaokeWords'), index, Math.max(KARAOKE_MIN_WORD_MS, newMs)); // core
-        appState.set('_karaokeWords', words);
+        const words = appState.get('_karaokeWords');
+        const target = isNaN(newMs) ? null : computeKaraokeInputBoundary(words, index, Math.max(KARAOKE_MIN_WORD_MS, newMs)); // core
+        const next = target ? redistributeKaraokeBoundary(words, target.dividerIndex, target.boundaryMs) : words; // core
+        appState.set('_karaokeWords', next);
         this._syncKaraokeWordInputs(index);
         this._renderKaraokeRegions();
     },

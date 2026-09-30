@@ -20,6 +20,7 @@ const workflowAppBoot = {
         // SỬA (28/09/2026, Phase 3 dọn visualizer) — kích hoạt style đã lưu (nhãn icon, vizConfig, scene WebGL nếu cần):
         // trước đây loadConfig() (core) tự gọi updateTypeUI() (core cũ, đã tách về Workflow).
         workflowVisualizerRender.activateCurrentStyle(); // event/workflow/visualizer-render.js
+        workflowSubtitleDisplay.initFromConfig(); // event/workflow/subtitle-display.js — cờ bật/tắt, style khung, karaoke
         // MỚI (10/09/2026, Giang yêu cầu "tạm thời dùng Service Worker" — vá bug tải file zip lớn
         // (>500MB) lỗi "WebKitBlobResource error 1" trên Safari, xem docstring đầy đủ ở core/
         // large-file-download.js) — đăng ký NGAY LÚC BOOT, KHÔNG await (không ảnh hưởng gì tới hiển

@@ -119,13 +119,9 @@ const workflowPhotoPlayer = {
         // animation "idle" như ý ban đầu).
         setupAudioContext(); // core/audio-engine.js
 
-        // FIX (29/09/2026, Giang báo bug "Song có sub, đang hiện sub -> chuyển sang Photo thì sub
-        // vẫn đứng nguyên trên player") — CÙNG lỗi/CÙNG sửa như workflowVideoPlayer.
-        // startFromPlaylist() (event/workflow/video-player.js): Photo KHÔNG dùng phụ đề -> dọn
-        // `subtitles` + khối phụ đề đang hiện TRƯỚC `audioPlayer.pause()` (tránh 'timeupdate' bắn
-        // sau pause vẽ lại dòng cũ qua processSubtitles()).
+        // Photo không dùng phụ đề: dọn trước audioPlayer.pause() (cùng lý do workflowVideoPlayer.startFromPlaylist()).
         appState.set('subtitles', []);
-        clearAllActiveSubBlocks(); // core/subtitle/subtitle-display.js
+        workflowSubtitleDisplay.clearAll(); // event/workflow/subtitle-display.js
         const previousKey = appState.get('currentKey');
         // Im lặng NGUỒN CŨ bất kể đang là Song hay Video — Giang chốt "im lặng hoàn toàn" lúc Photo
         // đang hiển thị, không phân biệt trước đó đang phát gì.
