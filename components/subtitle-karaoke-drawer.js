@@ -14,7 +14,7 @@
  * nhánh này chỉ là lưới an toàn thứ 2).
  *
  * NẠP SAU: lang/lang.js (t()), core/modal-choice-ui.js (escapeHtml()), core/subtitle/
- * subtitle-karaoke.js (KARAOKE_MIN_WORD_MS).
+ * subtitle-karaoke.js (KARAOKE_MIN_WORD_MS, KARAOKE_MINI_HEIGHT_PX).
  */
 
 function renderKaraokeDrawerHeader() {
@@ -32,18 +32,19 @@ function renderKaraokeDrawerBody(words, isApplied) {
     if (words.length === 0) {
         return `<div class="px-4 py-6 text-sm text-center" data-uitk="textSecondary">${t('subtitleEditor.karaoke.noWords')}</div>`;
     }
-    // SỬA (30/09/2026) — khung waveform mini: sóng âm 80px + dải nhãn TỪ 16px ngay dưới (mỗi từ nằm
-    // đúng khoảng giữa 2 mốc chia, Workflow tự vẽ lại lúc kéo/gõ — xem _renderKaraokeLabels()) + lớp
-    // "Đang tải" (giải mã audio lần đầu mất ~1s). `touch-action:none` trên khung sóng: kéo mốc chia
-    // bằng ngón tay KHÔNG kéo cuộn body Drawer theo. Style inline (không thêm class Tailwind mới —
+    // SỬA (30/09/2026, lần 2) — khung waveform mini cao KARAOKE_MINI_HEIGHT_PX: chữ từng từ nằm TRONG
+    // vùng chia của từ đó (region, Workflow tự dựng — xem _renderKaraokeRegions()), bỏ dải nhãn riêng
+    // bên dưới. Dòng dài/nhiều từ: sóng rộng hơn khung, vuốt ngang để cuộn — `touch-action: pan-x`
+    // (vuốt dọc không kéo cuộn body Drawer theo; mốc chia tự đặt `touch-action: none` để kéo được).
+    // Lớp "Đang tải" (giải mã audio lần đầu ~1s). Style inline (không thêm class Tailwind mới —
     // tailwind.css build sẵn, class chưa từng dùng sẽ không có CSS).
+    const h = KARAOKE_MINI_HEIGHT_PX;
     return `
         <div class="px-4 pt-3 pb-4 flex flex-col gap-3">
-            <div class="relative w-full" style="height:98px">
-                <div id="karaoke-mini-waveform" class="absolute rounded-xl overflow-hidden" style="left:0;right:0;top:0;height:80px;touch-action:none" data-uitk="cardBg cardBorder"></div>
-                <div id="karaoke-mini-labels" class="absolute" style="left:0;right:0;top:82px;height:16px;pointer-events:none"></div>
-                <div id="karaoke-mini-waveform-loading" class="absolute rounded-xl flex items-center justify-center text-center text-xs px-3" style="left:0;right:0;top:0;height:80px;pointer-events:none" data-uitk="textSecondary">${t('subtitleEditor.karaoke.waveformLoading')}</div>
-                <div id="karaoke-mini-waveform-error" class="hidden absolute rounded-xl flex items-center justify-center text-center text-xs px-3" style="left:0;right:0;top:0;height:80px" data-uitk="cardBg cardBorder textSecondary">${t('subtitleEditor.karaoke.waveformError')}</div>
+            <div class="relative w-full" style="height:${h}px">
+                <div id="karaoke-mini-waveform" class="absolute rounded-xl overflow-hidden" style="left:0;right:0;top:0;height:${h}px;touch-action:pan-x" data-uitk="cardBg cardBorder"></div>
+                <div id="karaoke-mini-waveform-loading" class="absolute rounded-xl flex items-center justify-center text-center text-xs px-3" style="left:0;right:0;top:0;height:${h}px;pointer-events:none" data-uitk="textSecondary">${t('subtitleEditor.karaoke.waveformLoading')}</div>
+                <div id="karaoke-mini-waveform-error" class="hidden absolute rounded-xl flex items-center justify-center text-center text-xs px-3" style="left:0;right:0;top:0;height:${h}px" data-uitk="cardBg cardBorder textSecondary">${t('subtitleEditor.karaoke.waveformError')}</div>
             </div>
             <div class="flex flex-col gap-1.5">
                 ${words.map((w, i) => renderKaraokeWordRow(w.word, w.ms, i, words.length === 1)).join('')}
