@@ -132,6 +132,9 @@ if (srtUpload) {
     srtUpload.addEventListener('change', (e) => {
         const file = e.target.files[0]; if (!file) return;
         eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.importSrt.change', payload: { file } });
+        // SỬA (30/09/2026) — xoá giá trị input sau khi đã lấy file: chọn LẠI đúng file .srt đó lần 2 trước
+        // đây không bắn 'change' (giá trị không đổi) -> bấm Upload như không có gì xảy ra.
+        e.target.value = '';
     });
 }
 
