@@ -546,3 +546,30 @@ function buildRandomMotionPreset(name, randomFn) {
     }
     return preset;
 }
+
+/** Pure — kẹp giá trị ô nhập số về [min, max] của chính ô đó (giá trị rỗng/không hợp lệ -> 0 rồi kẹp).
+ * @param {string|number} raw @param {number} min @param {number} max @returns {number} */
+function clampMotionNumberInput(raw, min, max) {
+    return Math.max(min, Math.min(max, Number(raw) || 0));
+}
+
+/** Pure — index hàng (danh sách Point Move) đang nằm dưới `clientY` để làm đích thả; hàng `blocked[i]` (hàng đang
+ * kéo, Point 0) không nhận. -1 = không có. @param {Array<{top:number,bottom:number}>} rects
+ * @param {number} clientY @param {boolean[]} blocked @returns {number} */
+function findPointMoveDropRowIndex(rects, clientY, blocked) {
+    return rects.findIndex((rect, i) => !blocked[i] && clientY >= rect.top && clientY <= rect.bottom);
+}
+
+/** Pure — CSS transform giãn trục thời gian màn Timing theo "mức giãn thêm" (0-100%): chỉ scaleX, giữ chiều cao.
+ * @param {number} extraPct @param {number} maxExtraScaleX @returns {string} */
+function computePointMoveTimingZoomTransform(extraPct, maxExtraScaleX) {
+    return `scaleX(${1 + (extraPct / 100) * maxExtraScaleX})`;
+}
+
+/** Pure — vị trí dải tô màu giữa 2 tay kéo dual-range (%, theo biên [lo, hi] của slider).
+ * @returns {{left: string, width: string}} */
+function computePointMoveRangeFill(lo, hi, minValue, maxValue) {
+    const leftPct = ((minValue - lo) / (hi - lo)) * 100;
+    const rightPct = ((maxValue - lo) / (hi - lo)) * 100;
+    return { left: `${leftPct}%`, width: `${Math.max(0, rightPct - leftPct)}%` };
+}
