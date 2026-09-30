@@ -29,6 +29,8 @@ const LANG_PATCH_SUBTITLE_EDITOR = {
     'subtitleEditor.line.btnKaraoke': 'Karaoke timing',
     'subtitleEditor.karaoke.title': 'Karaoke timing',
     'subtitleEditor.karaoke.apply': 'Apply',
+    // MỚI (30/09/2026, yêu cầu Giang) — gỡ karaoke khỏi dòng (field `karaoke` về null, dấu tích xanh ở nút "kr" biến mất).
+    'subtitleEditor.karaoke.unapply': 'Unapply',
     'subtitleEditor.karaoke.noWords': 'This line has no text yet — add words before timing karaoke.',
     // MỚI (17/09/2026, sửa lỗi waveform mini không hiện gì — báo lỗi RÕ thay vì im lặng console.error).
     // SỬA (30/09/2026) — ô ms nằm DƯỚI waveform mini (không phải "above" như bản cũ); nghe từng từ chỉ
