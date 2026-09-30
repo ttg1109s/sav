@@ -659,7 +659,7 @@ const workflowSubtitleEditor = {
             height: 'auto',
             maxHeight: '80vh',
             headerHtml: renderKaraokeDrawerHeader(), // components/subtitle-karaoke-drawer.js
-            bodyHtml: renderKaraokeDrawerBody(appState.get('_karaokeWords')), // components/subtitle-karaoke-drawer.js
+            bodyHtml: renderKaraokeDrawerBody(appState.get('_karaokeWords'), this._isKaraokeLineApplied()), // components/subtitle-karaoke-drawer.js
             bodyClass: 'overflow-y-auto',
         };
         if (genericDrawerPanel.classList.contains('hidden')) {
@@ -671,6 +671,14 @@ const workflowSubtitleEditor = {
         this._initKaraokeMiniWaveform();
     },
 
+    /** MỚI (30/09/2026) — dòng đang mở drawer CÓ karaoke đã Áp dụng chưa (quyết định hiện nút "Bỏ áp
+     * dụng") — CÙNG điều kiện dấu tích xanh ở nút "kr" (core/subtitle/subtitles-ui.js::buildLineCard()). */
+    _isKaraokeLineApplied() {
+        const id = appState.get('_karaokeEditingLineId');
+        const sub = appState.get('_subtitles').find((s) => s.id === id);
+        return !!sub && Array.isArray(sub.karaoke) && sub.karaoke.length > 0;
+    },
+
     /** Generic Drawer KHÔNG biết nội dung là gì (component chỉ trả string) — tự querySelector +
      * addEventListener NGAY SAU khi gán HTML, CÙNG khuôn mọi feature Generic Drawer khác (xem
      * docstring core/generic-drawer.js + event/workflow/eq-presets.js::_wireListView()). */
@@ -680,6 +688,9 @@ const workflowSubtitleEditor = {
 
         const applyBtn = genericDrawerBody.querySelector('#karaoke-drawer-apply');
         if (applyBtn) applyBtn.addEventListener('click', () => this.applyKaraokeDrawer());
+
+        const unapplyBtn = genericDrawerBody.querySelector('#karaoke-drawer-unapply'); // chỉ có khi dòng đang có karaoke
+        if (unapplyBtn) unapplyBtn.addEventListener('click', () => this.unapplyKaraokeDrawer());
 
         // Ô ms gõ tay — nghe 'change' (chỉ chạy lúc rời focus/Enter), KHÔNG 'input' (mỗi phím gõ) —
         // tránh giành giật giá trị/kẹp lại NGAY trong lúc người dùng còn đang gõ dở.
@@ -1030,7 +1041,28 @@ const workflowSubtitleEditor = {
         if (id === null) return;
         const karaokeArray = workingWordsToKaraokeArray(appState.get('_karaokeWords')); // core
         appState.set('_subtitles', computeUpdatedSubtitles(appState.get('_subtitles'), id, { karaoke: karaokeArray })); // core
+        this._rebuildLineCard(id); // MỚI (30/09/2026) — dựng lại card để hiện dấu tích xanh ở nút "kr"
         this.closeKaraokeDrawer();
+    },
+
+    /** MỚI (30/09/2026, yêu cầu Giang) — nút "Bỏ áp dụng": gỡ karaoke khỏi dòng (`karaoke` = null — lần
+     * mở sau quay về chia đều), dựng lại card (dấu tích xanh ở nút "kr" biến mất) rồi đóng drawer. CÙNG
+     * quy ước Áp dụng: chỉ đổi `_subtitles` làm việc, bấm "Lưu" mới ghi DB. */
+    unapplyKaraokeDrawer() {
+        const id = appState.get('_karaokeEditingLineId');
+        if (id === null) return;
+        appState.set('_subtitles', computeUpdatedSubtitles(appState.get('_subtitles'), id, { karaoke: null })); // core
+        this._rebuildLineCard(id);
+        this.closeKaraokeDrawer();
+    },
+
+    /** Xoá card cache của ĐÚNG 1 dòng rồi render lại — renderSubtitleLines() tự dựng card mới cho dòng đó
+     * từ dữ liệu mới nhất (card cũ đóng gói `sub` CŨ lúc dựng, không tự đổi), các dòng khác giữ nguyên. */
+    _rebuildLineCard(id) {
+        const node = appState.get('_lineCardNodesById').get(id);
+        if (node) node.remove();
+        appState.get('_lineCardNodesById').delete(id);
+        this._renderLines();
     },
 
     /** Đóng drawer karaoke — dọn SẠCH waveform mini (destroy — tự dừng audio của nó — + revoke URL) +
