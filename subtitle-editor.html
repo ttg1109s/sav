@@ -332,7 +332,7 @@
     <script src="lang/patch/patch-subtitle-settings.js?v=20260930vbgres2"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260714v1"></script>
     <script src="lang/patch/patch-file-manager.js?v=20260930hidden1"></script>
-    <script src="lang/patch/patch-subtitle-editor.js?v=20260930kr2"></script>
+    <script src="lang/patch/patch-subtitle-editor.js?v=20260930kr4"></script>
     <!-- SỬA ("Song/Video Unification" v12, gộp Video Editor vào Modal xem Video, patch-video-
          editor.js ĐÃ XOÁ cùng video-editor.html) — cần nạp Ở ĐÂY dù trang này không dùng key nào
          trong đó — lang.js (dùng CHUNG nhiều trang) Object.assign() 9 biến LANG_PATCH_*, THIẾU
@@ -392,7 +392,7 @@
          isGenericDrawerOpen — DÙNG CHUNG y hệt index.html, xem service/state/generic-drawer.js).
          PHẢI nạp SAU core/modal-choice-ui.js (alertModal). -->
     <script src="service/state.js?v=20260725v1"></script>
-    <script src="service/state/subtitle-editor.js?v=20260930kr3"></script>
+    <script src="service/state/subtitle-editor.js?v=20260930kr4"></script>
     <script src="service/state/app-misc.js?v=20260725v1"></script>
     <script src="service/state/generic-drawer.js?v=20260917v1"></script>
     <script src="service/state/record/subtitle-editor.js?v=20260917v1"></script>
@@ -419,7 +419,7 @@
          cần escapeHtml() (core/modal-choice-ui.js, đã nạp trên) + KARAOKE_MIN_WORD_MS (file THUẦN
          ngay trên). -->
     <script src="core/subtitle/subtitle-karaoke.js?v=20260930kr3"></script>
-    <script src="components/subtitle-karaoke-drawer.js?v=20260930kr3"></script>
+    <script src="components/subtitle-karaoke-drawer.js?v=20260930kr4"></script>
     <!-- MỚI (30/09/2026) — core THUẦN xử lý đoạn PCM (gộp mono/cắt đoạn/peaks/đóng gói WAV) cho waveform
          mini của drawer Karaoke (có audio RIÊNG đúng đoạn dòng — nút ▶ từng từ phát trên đó). Không phụ
          thuộc gì, chỉ cần nạp TRƯỚC event/workflow/subtitle-editor.js. -->
@@ -432,7 +432,7 @@
     <!-- MỚI (17/09/2026) — closeFully() dùng chung cho MỌI tính năng Generic Drawer (ở đây: drawer
          karaoke) — file THUẦN, chỉ cần core/generic-drawer.js + genericDrawerPanel (đã nạp trên). -->
     <script src="event/workflow/generic-drawer-helpers.js?v=20260924r9"></script>
-    <script src="event/workflow/subtitle-editor.js?v=20260930kr3"></script>
+    <script src="event/workflow/subtitle-editor.js?v=20260930kr4"></script>
     <script src="event/router/subtitle-editor.js?v=20260712v7"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowSubtitleEditor.init() ngay khi chạy. -->
     <script src="event/listener/subtitle-editor.js?v=20260930kr1"></script>
