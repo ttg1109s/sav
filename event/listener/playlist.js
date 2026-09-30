@@ -274,42 +274,41 @@ function handlePlaylistSortPanelChange(e) {
     eventBus.send({ router: 'playlist', type: entry.type, payload: { [entry.payloadKey]: e.target.value } });
 }
 
-// ===================== Màn Edit preset Filter (settings-stack, delegate) =====================
-// Field theo Nguồn (name/album/artist/addedAt/count/totalTime/size) — mỗi control mang
-// data-filter-field/data-filter-prop TƯỜNG MINH (xem components/playlist-filter-drawer.js) —
-// KHÔNG suy field/prop từ `id` (khối "đơn"/"range" của field số CÙNG prop 'value' nhưng khác id).
-// SỬA (08/09/2026, hệ "Playlist Filter Presets") — router đổi từ "playlist" sang
-// "playlistFilterPresets" (ghi vào preset đang sửa thay vì bộ rule sống trực tiếp); nhánh
-// `#btn-playlist-filter-apply` cũ ĐÃ BỎ — 2 nút "Chọn áp dụng"/"Xoá" giờ wire trực tiếp trong
-// onMount() của event/workflow/app-settings.js::_renderPlaylistFilterEdit() (CÙNG khuôn EQ/Motion
-// Edit, KHÔNG qua delegate chung này — data-filter-field CHỈ dùng cho field rule, không phải nút
-// hành động cuối trang).
+// ===================== Field rule Filter (delegate chung trên genericDrawerBody) =====================
+// Control mang data-filter-field/data-filter-prop (components/playlist-filter-drawer.js). Khối chứa mang
+// `data-filter-owner` quyết định router đích: màn Edit preset hoặc màn "Cài đặt filter" của folder — 2 màn
+// cùng markup nên PHẢI tách theo owner, không thì 1 thao tác bị xử lý ở cả 2 nơi. Nút time-picker
+// (data-filter-time-trigger) là 'click' thật; checkbox 'enabled' chỉ nghe 'change'; op/mode/value/valueTo
+// không nghe 'click'.
+const FILTER_EDIT_TARGET_BY_OWNER = {
+    preset: { router: 'playlistFilterPresets', prefix: 'playlistFilterPresets' },
+    folder: { router: 'fileManagerFolderBrowser', prefix: 'fileManagerFolderBrowser.filterEdit' },
+};
 
 function handlePlaylistFilterPanelEvent(e) {
     const el = e.target.closest('[data-filter-field]');
     if (!el) return;
     const { filterField: field, filterProp: prop } = el.dataset;
     if (!field || !prop) return;
-    // MỚI (phản hồi Giang — "totalTime/duration dùng time picker modal") — nút mở time-picker
-    // (data-filter-time-trigger) là 'click' THẬT SỰ (KHÔNG như op/mode/value/valueTo thường —
-    // những cái đó chỉ nghe 'change'/'input', xem 2 guard clause ngay dưới) — bắt TRƯỚC 2 guard đó.
+    const ownerEl = el.closest('[data-filter-owner]');
+    const target = ownerEl && FILTER_EDIT_TARGET_BY_OWNER[ownerEl.dataset.filterOwner];
+    if (!target) return;
     if (el.hasAttribute('data-filter-time-trigger')) {
         if (e.type !== 'click') return;
-        eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.openTimePicker.click', payload: { field, prop } });
+        eventBus.send({ router: target.router, type: `${target.prefix}.openTimePicker.click`, payload: { field, prop } });
         return;
     }
-    if (prop === 'enabled' && e.type !== 'change') return; // checkbox chỉ nghe 'change'
-    if (prop !== 'enabled' && e.type === 'click') return; // op/mode/value/valueTo không có 'click'
+    if (prop === 'enabled' && e.type !== 'change') return;
+    if (prop !== 'enabled' && e.type === 'click') return;
     const value = prop === 'enabled' ? el.checked : el.value;
-    eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.field.change', payload: { field, prop, value } });
+    eventBus.send({ router: target.router, type: `${target.prefix}.field.change`, payload: { field, prop, value } });
 }
 
 if (genericDrawerBody) { // SỬA (đợt tái cấu trúc bottom nav) — settingsStackBody nay thuộc Photo, nội dung này sống trong genericDrawerBody
     genericDrawerBody.addEventListener('change', handlePlaylistSortPanelChange);
     genericDrawerBody.addEventListener('change', handlePlaylistFilterPanelEvent);
     genericDrawerBody.addEventListener('input', handlePlaylistFilterPanelEvent);
-    // nút "Áp dụng" (bare click, id `btn-playlist-filter-apply`) — CÙNG handler, nhánh riêng ở đầu
-    // hàm (KHÔNG khớp regex `filter-*` nên phải bắt TRƯỚC, xem đầu handlePlaylistFilterPanelEvent()).
+    // 'click' — nút mở time-picker của field thời lượng
     genericDrawerBody.addEventListener('click', handlePlaylistFilterPanelEvent);
 }
 
