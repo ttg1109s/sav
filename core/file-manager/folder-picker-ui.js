@@ -147,22 +147,15 @@ function wireFolderPropertiesModalUi(folderId, mediaType) {
 }
 
 /**
- * Wire màn "Cài đặt filter" của folder trong Generic Drawer — gọi SAU khi nội dung vừa dựng. Nút
- * Back/Áp dụng -> `fileManagerFolderBrowser.filterEdit.back|apply.click`; change/input/click trên các
- * con trực tiếp của body (DOM động, tự mất khi nội dung bị thay) -> `filterEdit.field` { event }.
+ * Wire 2 nút header màn "Cài đặt filter" của folder (Back/Áp dụng) — gọi SAU khi nội dung vừa dựng. Field rule
+ * bên trong body KHÔNG wire ở đây: đi qua delegate chung `handlePlaylistFilterPanelEvent()` (event/listener/
+ * playlist.js) theo `data-filter-owner="folder"`.
  */
 function wireFolderFilterEditUi() {
     const backBtn = genericDrawerHeader.querySelector('#btn-folder-filter-edit-back');
     const applyBtn = genericDrawerHeader.querySelector('#btn-folder-filter-edit-apply');
-    const bodyRoots = Array.from(genericDrawerBody.children);
-    const sendField = (e) => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.filterEdit.field', payload: { event: e } });
 
     // --- addEventListener gom cuối hàm (Rule 5a) ---
     if (backBtn) backBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.filterEdit.back.click', payload: {} }));
     if (applyBtn) applyBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.filterEdit.apply.click', payload: {} }));
-    bodyRoots.forEach((root) => {
-        root.addEventListener('change', sendField);
-        root.addEventListener('input', sendField);
-        root.addEventListener('click', sendField); // nút mở time-picker (data-filter-time-trigger)
-    });
 }
