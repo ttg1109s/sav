@@ -5,11 +5,12 @@
  */
         AppState.definePackage('audio-engine', {
             schema: {
-                audioContext: 'any',           // AudioContext | undefined trước setupAudioContext()
-                analyser: 'any',               // AnalyserNode | undefined
-                analyserPitch: 'any',          // AnalyserNode | undefined
+                audioContext: 'any',           // AudioContext | undefined trước workflowAudioEngine.setup() (event/workflow/audio-engine.js)
+                analyser: 'any',               // AnalyserNode | undefined — phổ VẼ, fftSize đổi theo effect
+                analyserPitch: 'any',          // AnalyserNode | undefined — phân tích CHUNG (FFT cố định 2048): phổ cho beat/energy/flux/BPM (01/10/2026) + time-domain cho pitch
                 animationId: 'any',            // number (requestAnimationFrame id) | undefined
-                masterGainNode: 'any',         // GainNode | undefined
+                masterGainNode: 'any',         // GainNode | undefined — cổng seek (1 bình thường, 0 khi cổng giữ), đứng TRƯỚC 2 analyser
+                volumeGainNode: 'any',         // GainNode | undefined — MỚI 01/10/2026: âm lượng người dùng, CHỈ nhánh ra loa
                 eqBandNodes: 'array',
                 eqPresets: 'array',
                 isSeeking: 'boolean',
@@ -29,6 +30,7 @@
                     analyserPitch: undefined,
                     animationId: undefined,
                     masterGainNode: undefined,
+                    volumeGainNode: undefined,
                     eqBandNodes: [],
                     eqPresets: [],
                     isSeeking: false,

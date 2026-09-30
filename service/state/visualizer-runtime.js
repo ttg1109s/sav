@@ -10,10 +10,10 @@
                 smoothedEnergy: 'number',
                 globalHueOffset: 'number',
                 beatScale: 'number',
-                vizDataArray: 'any',             // Uint8Array | undefined trước khi audio context init
-                pitchTimeDomainArray: 'any',      // Uint8Array | undefined
-                previousSpectrumArray: 'any',     // Float32Array | undefined
-                beatTimes: 'array',
+                vizDataArray: 'any',             // Uint8Array | undefined trước khi audio context init — phổ VẼ (analyser, fftSize theo effect)
+                analysisSpectrumArray: 'any',    // MỚI 01/10/2026 — Uint8Array(1024) | undefined: phổ PHÂN TÍCH chung (analyserPitch, FFT cố định 2048)
+                pitchTimeDomainArray: 'any',      // Float32Array | undefined
+                previousSpectrumArray: 'any',     // Uint8Array | undefined — baseline flux, cùng cỡ analysisSpectrumArray (01/10/2026)
                 fluxHistory: 'array',
                 frameCounter: 'number',
                 dpr: 'number',
@@ -29,7 +29,7 @@
                     vizDataArray: undefined,
                     pitchTimeDomainArray: undefined,
                     previousSpectrumArray: undefined,
-                    beatTimes: [],
+                    analysisSpectrumArray: undefined,
                     fluxHistory: [],
                     frameCounter: 0,
                     dpr: 1,
