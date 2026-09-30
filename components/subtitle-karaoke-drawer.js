@@ -9,7 +9,7 @@
  * trong sau khi HTML này được gán — xem event/workflow/subtitle-editor.js::
  * _initKaraokeMiniWaveform(); SỬA 30/09/2026: waveform mini CÓ audio riêng — đúng đoạn dòng đó — nút
  * ▶ từng từ phát TRÊN chính nó) + danh sách hàng "từ | ô ms | nút ▶ nghe riêng từ đó" + nút "Áp
- * dụng" cuối. Dòng CHƯA có chữ (không từ nào) -> chỉ hiện 1 dòng thông báo, không có waveform/nút Áp
+ * dụng" cuối (MỚI 30/09/2026: kèm nút "Bỏ áp dụng" bên trái nếu dòng đang có karaoke). Dòng CHƯA có chữ (không từ nào) -> chỉ hiện 1 dòng thông báo, không có waveform/nút Áp
  * dụng (Workflow đã chặn từ trước, không mở drawer cho trường hợp này — xem openKaraokeDrawer() —
  * nhánh này chỉ là lưới an toàn thứ 2).
  *
@@ -26,8 +26,9 @@ function renderKaraokeDrawerHeader() {
     `;
 }
 
-/** @param {Array<{word: string, ms: number}>} words */
-function renderKaraokeDrawerBody(words) {
+/** @param {Array<{word: string, ms: number}>} words
+ * @param {boolean} isApplied dòng ĐANG có karaoke đã Áp dụng -> hiện thêm nút "Bỏ áp dụng" (MỚI 30/09/2026) */
+function renderKaraokeDrawerBody(words, isApplied) {
     if (words.length === 0) {
         return `<div class="px-4 py-6 text-sm text-center" data-uitk="textSecondary">${t('subtitleEditor.karaoke.noWords')}</div>`;
     }
@@ -47,7 +48,10 @@ function renderKaraokeDrawerBody(words) {
             <div class="flex flex-col gap-1.5">
                 ${words.map((w, i) => renderKaraokeWordRow(w.word, w.ms, i, words.length === 1)).join('')}
             </div>
-            <button id="karaoke-drawer-apply" type="button" class="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors" data-uitk="btnPrimaryBg btnPrimaryHoverBg textOnAccent">${t('subtitleEditor.karaoke.apply')}</button>
+            <div class="flex gap-2">
+                ${isApplied ? `<button id="karaoke-drawer-unapply" type="button" class="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors" data-uitk="btnNeutralBg btnNeutralHoverBg btnNeutralText">${t('subtitleEditor.karaoke.unapply')}</button>` : ''}
+                <button id="karaoke-drawer-apply" type="button" class="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors" data-uitk="btnPrimaryBg btnPrimaryHoverBg textOnAccent">${t('subtitleEditor.karaoke.apply')}</button>
+            </div>
         </div>
     `;
 }
