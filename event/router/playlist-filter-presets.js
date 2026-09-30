@@ -3,6 +3,8 @@
  * eventBus lúc nạp. Mọi msg.type của hệ "Playlist Filter Presets" (danh sách/sửa/chọn áp dụng),
  * xem event/workflow/playlist-filter-presets.js (workflowPlaylistFilterPresets).
  *
+ * Nguồn message: event/listener/playlist-filter-presets.js (delegate trên Generic Drawer).
+ *
  * NẠP SAU: event/bus.js, event/workflow/playlist-filter-presets.js.
  */
 const routerPlaylistFilterPresets = (() => {
@@ -46,19 +48,19 @@ const routerPlaylistFilterPresets = (() => {
                 break;
 
             case 'playlistFilterPresets.select.click':
-                workflowPlaylistFilterPresets.selectPreset(msg.payload.id, msg.payload.source);
+                workflowPlaylistFilterPresets.selectEditing();
                 break;
 
             case 'playlistFilterPresets.delete.click':
-                workflowPlaylistFilterPresets.deletePreset(msg.payload.id);
+                workflowPlaylistFilterPresets.deleteEditing();
                 break;
 
             case 'playlistFilterPresets.quickUnselect.click':
-                workflowPlaylistFilterPresets.unselectPreset(msg.payload.source);
+                workflowPlaylistFilterPresets.quickUnselect();
                 break;
 
             case 'playlistFilterPresets.unselect.click':
-                workflowPlaylistFilterPresets.unselectPreset(msg.payload.source);
+                workflowPlaylistFilterPresets.unselectEditing();
                 break;
 
             default:

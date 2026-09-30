@@ -3,6 +3,9 @@
  * Mọi msg.type của hệ "Cấu hình Motion" (danh sách/sửa/Point Move/Timing/Chọn — picker), xem
  * event/workflow/motion-presets.js (workflowMotionPresets).
  *
+ * Nguồn message: event/listener/motion-presets.js (delegate trên Generic Drawer), core/point-move-timing-ui.js
+ * (node thanh Timing), core/pagination-ui.js (phân trang picker).
+ *
  * NẠP SAU: event/bus.js, event/workflow/motion-presets.js.
  */
 const routerMotionPresets = (() => {
@@ -115,8 +118,16 @@ const routerMotionPresets = (() => {
                 workflowMotionPresets.duplicatePointMove(msg.payload.id);
                 break;
 
-            case 'motionPresets.pointMove.swapOrder.change':
-                workflowMotionPresets.swapPointMoveOrder(msg.payload.idA, msg.payload.idB);
+            case 'motionPresets.pointMove.drag.start':
+                workflowMotionPresets.startPointMoveDrag(msg.payload);
+                break;
+
+            case 'motionPresets.pointMove.drag.move':
+                workflowMotionPresets.movePointMoveDrag(msg.payload.clientY);
+                break;
+
+            case 'motionPresets.pointMove.drag.end':
+                workflowMotionPresets.endPointMoveDrag();
                 break;
 
             case 'motionPresets.pointMove.delete.click':
@@ -147,6 +158,18 @@ const routerMotionPresets = (() => {
                 workflowMotionPresets.changePointMoveFieldRange(msg.payload.fieldKey, msg.payload.which, msg.payload.value);
                 break;
 
+            case 'motionPresets.pointMove.fieldRange.preview':
+                workflowMotionPresets.previewPointMoveFieldRange(msg.payload.fieldKey);
+                break;
+
+            case 'motionPresets.pointMove.numberInput.change':
+                workflowMotionPresets.commitPointMoveNumberInput(msg.payload.fieldKey, msg.payload.which, msg.payload.raw);
+                break;
+
+            case 'motionPresets.pointMove.signToggle.click':
+                workflowMotionPresets.togglePointMoveInputSign(msg.payload.fieldKey, msg.payload.which);
+                break;
+
             case 'motionPresets.pointMove.openTiming.click':
                 workflowMotionPresets.openPointMoveTiming();
                 break;
@@ -163,10 +186,22 @@ const routerMotionPresets = (() => {
                 workflowMotionPresets.openPointMoveTimingNodeModal(msg.payload.id);
                 break;
 
+            case 'motionPresets.pointMove.timingZoom.click':
+                workflowMotionPresets.stepPointMoveTimingZoom(msg.payload.delta);
+                break;
+
             // ===================== React Beat Audio =====================
 
             case 'motionPresets.beatReact.field.change':
                 workflowMotionPresets.changeBeatReactField(msg.payload.effectKey, msg.payload.fieldKey, msg.payload.value);
+                break;
+
+            case 'motionPresets.beatReact.maxSlider.input':
+                workflowMotionPresets.previewBeatReactMax(msg.payload.effectKey, msg.payload.value);
+                break;
+
+            case 'motionPresets.beatReact.maxInput.change':
+                workflowMotionPresets.commitBeatReactMaxInput(msg.payload.effectKey, msg.payload.fieldKey, msg.payload.raw);
                 break;
 
             case 'motionPresets.reset.click':
@@ -178,9 +213,7 @@ const routerMotionPresets = (() => {
                 break;
 
             // ===================== Chế độ Chọn (picker) =====================
-            // MỚI (24/09/2026) — THAY 2 case 'motionPresets.applyConsumer.change'/'motionPresets.applyToggle.click'
-            // của cơ chế đăng ký "Áp dụng cho" cũ (ĐÃ XOÁ). Nơi tiêu thụ mở màn này qua
-            // workflowMotionPresets.openPicker() (Workflow gọi Workflow, không qua message riêng ở đây).
+            // Nơi tiêu thụ mở màn này qua workflowMotionPresets.openPicker() (Workflow gọi Workflow).
 
             case 'motionPresets.picker.select.click':
                 workflowMotionPresets.selectPickerDraft(msg.payload.id);
