@@ -32,26 +32,40 @@ function renderKaraokeDrawerBody(words, isApplied) {
     if (words.length === 0) {
         return `<div class="px-4 py-6 text-sm text-center" data-uitk="textSecondary">${t('subtitleEditor.karaoke.noWords')}</div>`;
     }
-    // SỬA (30/09/2026, lần 2) — khung waveform mini cao KARAOKE_MINI_HEIGHT_PX: chữ từng từ nằm TRONG
-    // vùng chia của từ đó (region, Workflow tự dựng — xem _renderKaraokeRegions()), bỏ dải nhãn riêng
-    // bên dưới. Dòng dài/nhiều từ: sóng rộng hơn khung, vuốt ngang để cuộn — `touch-action: pan-x`
-    // (vuốt dọc không kéo cuộn body Drawer theo; mốc chia tự đặt `touch-action: none` để kéo được).
-    // Lớp "Đang tải" (giải mã audio lần đầu ~1s). Style inline (không thêm class Tailwind mới —
-    // tailwind.css build sẵn, class chưa từng dùng sẽ không có CSS).
+    // SỬA (30/09/2026, lần 3, Giang) — khối waveform mini:
+    //   - Sát mép (không gap/không bo góc) + `sticky top-0` ĐẦU body Drawer: cuộn danh sách từ bên dưới
+    //     vẫn luôn thấy waveform (cùng cách preview của Element Style Editor, components/
+    //     element-style-editor-drawer.js::_renderEsePreviewBox() — sticky, KHÔNG fixed thật). Body Drawer
+    //     không có padding riêng nên dính đúng mép dưới header, không hở.
+    //   - Waveform KHÔNG cuộn bằng tay nữa (`touch-action: pan-y` — vuốt ngang không làm gì, không giành
+    //     sự kiện với núm kéo mốc); dòng dài/nhiều từ cuộn ẢO qua thanh trượt `#karaoke-mini-scroll` bên
+    //     dưới (chỉ hiện khi sóng rộng hơn khung — Workflow tự bật).
+    //   - `#karaoke-mini-knobs`: lớp núm kéo mốc chia — NGOÀI khung sóng (khung sóng tự overflow-hidden,
+    //     lớp này thì không) nên núm tròn nằm vắt ngang mép dưới, tràn ra ngoài khung. `padding-bottom`
+    //     của khối chừa chỗ cho phần núm tràn xuống.
+    // Style inline (không thêm class Tailwind mới — tailwind.css build sẵn).
     const h = KARAOKE_MINI_HEIGHT_PX;
     return `
-        <div class="px-4 pt-3 pb-4 flex flex-col gap-3">
-            <div class="relative w-full" style="height:${h}px">
-                <div id="karaoke-mini-waveform" class="absolute rounded-xl overflow-hidden" style="left:0;right:0;top:0;height:${h}px;touch-action:pan-x" data-uitk="cardBg cardBorder"></div>
-                <div id="karaoke-mini-waveform-loading" class="absolute rounded-xl flex items-center justify-center text-center text-xs px-3" style="left:0;right:0;top:0;height:${h}px;pointer-events:none" data-uitk="textSecondary">${t('subtitleEditor.karaoke.waveformLoading')}</div>
-                <div id="karaoke-mini-waveform-error" class="hidden absolute rounded-xl flex items-center justify-center text-center text-xs px-3" style="left:0;right:0;top:0;height:${h}px" data-uitk="cardBg cardBorder textSecondary">${t('subtitleEditor.karaoke.waveformError')}</div>
+        <div class="flex flex-col">
+            <div class="sticky top-0 z-10 border-b" style="padding-bottom:10px" data-uitk="panelFlushBg dividerBorder">
+                <div class="relative w-full" style="height:${h}px">
+                    <div id="karaoke-mini-waveform" class="absolute overflow-hidden" style="left:0;right:0;top:0;height:${h}px;touch-action:pan-y" data-uitk="cardBg"></div>
+                    <div id="karaoke-mini-knobs" style="position:absolute;left:0;right:0;top:0;height:0;overflow:visible;pointer-events:none;z-index:6"></div>
+                    <div id="karaoke-mini-waveform-loading" class="absolute flex items-center justify-center text-center text-xs px-3" style="left:0;right:0;top:0;height:${h}px;pointer-events:none" data-uitk="textSecondary">${t('subtitleEditor.karaoke.waveformLoading')}</div>
+                    <div id="karaoke-mini-waveform-error" class="hidden absolute flex items-center justify-center text-center text-xs px-3" style="left:0;right:0;top:0;height:${h}px;z-index:7" data-uitk="cardBg textSecondary">${t('subtitleEditor.karaoke.waveformError')}</div>
+                </div>
+                <div id="karaoke-mini-scroll-row" class="hidden" style="padding:12px 16px 0">
+                    <input id="karaoke-mini-scroll" type="range" min="0" max="1000" step="1" value="0" aria-label="${t('subtitleEditor.karaoke.scrollLabel')}" style="width:100%;margin:0;accent-color:#0ea5e9">
+                </div>
             </div>
-            <div class="flex flex-col gap-1.5">
-                ${words.map((w, i) => renderKaraokeWordRow(w.word, w.ms, i, words.length === 1)).join('')}
-            </div>
-            <div class="flex gap-2">
-                ${isApplied ? `<button id="karaoke-drawer-unapply" type="button" class="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors" data-uitk="btnNeutralBg btnNeutralHoverBg btnNeutralText">${t('subtitleEditor.karaoke.unapply')}</button>` : ''}
-                <button id="karaoke-drawer-apply" type="button" class="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors" data-uitk="btnPrimaryBg btnPrimaryHoverBg textOnAccent">${t('subtitleEditor.karaoke.apply')}</button>
+            <div class="px-4 pt-3 pb-4 flex flex-col gap-3">
+                <div class="flex flex-col gap-1.5">
+                    ${words.map((w, i) => renderKaraokeWordRow(w.word, w.ms, i, words.length === 1)).join('')}
+                </div>
+                <div class="flex gap-2">
+                    ${isApplied ? `<button id="karaoke-drawer-unapply" type="button" class="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors" data-uitk="btnNeutralBg btnNeutralHoverBg btnNeutralText">${t('subtitleEditor.karaoke.unapply')}</button>` : ''}
+                    <button id="karaoke-drawer-apply" type="button" class="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors" data-uitk="btnPrimaryBg btnPrimaryHoverBg textOnAccent">${t('subtitleEditor.karaoke.apply')}</button>
+                </div>
             </div>
         </div>
     `;
