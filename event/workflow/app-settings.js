@@ -1,64 +1,27 @@
 /**
- * event/workflow/app-settings.js — "THẰNG THỰC THI CUỐI" cho Setting (VIẾT LẠI, phản hồi Giang —
- * "tận dụng UI cũ, không đổi logic code, chỉ phân phối lại section + styling theo generic drawer").
+ * event/workflow/app-settings.js — Settings trong Generic Drawer (router "appSettings").
  *
- * KIẾN TRÚC: Setting dùng THẲNG `core/generic-drawer.js` (singleton chung, Giang chỉ định rõ), 90vh.
- * Điều hướng nhiều cấp (Main -> System -> Theme/Gesture/Motion/Language, Main -> Playlist ->
- * Sắp xếp/Lọc...) KHÔNG dùng lại `core/settings-panel-stack-ui.js` (cơ chế push/pop CŨ, DOM đó giờ
- * thuộc về Photo, xem components/photo-panel.js) — mà dùng đúng "cơ chế swap nội dung của Generic
- * Drawer đã có" (Giang chỉ định): `updateGenericDrawer()` (đã dùng bởi eq-presets.js/custom-
- * effect.js) + 1 NGĂN XẾP JS thuần (`_screenStack`, mảng hàm render) để Back
- * biết quay lại ĐÚNG màn trước, KHÔNG phải DOM push/pop.
+ * Điều hướng nhiều cấp = swap nội dung Drawer + ngăn xếp JS `_screenStack` (mảng hàm render) để Back về đúng màn
+ * trước; mỗi độ sâu 1 `scrollKey` riêng (giữ vị trí cuộn khi vẽ lại/quay lại). Mỗi màn `_renderXxx()` gọi `_render()`
+ * với HTML từ components/settings/*, components/*-drawer.js; `onMount` CHỈ đồng bộ giá trị hoặc gọi hàm wire của core
+ * (core/app-settings-ui.js, core/pagination-ui.js) — KHÔNG `addEventListener` ở đây. Tương tác của màn Playlist
+ * Filter và Motion đi qua delegate event/listener/playlist-filter-presets.js và event/listener/motion-presets.js.
  *
- * TÁI DÙNG NGUYÊN VẸN mọi hàm render/hàm đồng bộ giá trị đã có (renderGestureSettingsPanelBody(),
- * workflowGestureSettings.openPanel(), TPL_SETTINGS_LANGUAGE, renderLanguageOptions(), renderDebugConsolePanelBody(),
- * workflowSettingsMisc.openDebugConsole(), TPL_SETTINGS_PLAYLIST_VIEW, workflowPlaylist.
- * workflowPlaylist.openSortPanel() (Filter giờ tự quản qua workflowPlaylistFilterPresets, KHÔNG
- * còn openFilterPanel()), 3 hàm askRestartApp/askRestoreDefaults/askClearCache) — các
- * hàm đó ĐÃ được sửa (đợt này) để đọc/ghi qua `genericDrawerBody` thay vì panel push động cũ
- * (`fooPanelEl = pushSettingsPanel(...)` -> `fooPanelEl = genericDrawerBody`) — bản thân NGHIỆP VỤ
- * (field nào ghi gì, gọi core nào) HOÀN TOÀN KHÔNG đổi, chỉ đổi "nội dung sống ở container nào".
+ * Main là carousel ngang (components/settings/app-settings-main.js, wire ở core/app-settings-ui.js, scale/loop ở
+ * core/settings-carousel-ui.js). Motion: Quản lý mở từ System; nơi tiêu thụ (Visual Background, Player) mở danh sách
+ * ở chế độ Chọn (`_renderMotionPicker()`, workflowMotionPresets.openPicker()).
  *
- * STYLING (SỬA 09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — TRƯỚC ĐÂY bodyHtml mọi màn bọc
- * trong `.app-settings-scope`, CSS đè màu sang light theme (assets/css/layout-nav.css), KHÔNG sửa
- * màu trực tiếp trong từng template cũ. Giờ mọi template con đã tự viết LẠI bằng đúng bảng màu
- * sáng (xem docstring từng file), override CSS đó ĐÃ XOÁ HẲN — wrapper chỉ còn `class="text-slate-
- * 900 p-4"` (màu chữ mặc định kế thừa xuống + padding, không còn ý nghĩa "scope đè màu" nào nữa).
+ * CÒN NỢ (Giang dời lại): nút Cancel của picker chọn THƯ MỤC video trong Visual Background chưa tự quay lại màn Visual
+ * Background (hạ tầng `workflowPlaylist._openFolderPickerDrawer()` dùng chung với Playlist).
  *
- * Visualizer Screen (Display/Auto-Switch/Visual Background, kể cả 2 sub-panel Gradient/Video Audio
- * + picker con video/ảnh/thư mục của Visual Background) ĐÃ migrate xong (đợt "làm nốt visualizer") —
- * cùng khuôn Gesture/Motion/Language/Troubleshooting. Motion (Cấu hình Transition/Ken Burns/React
- * Beat Audio, hệ preset độc lập) — Quản lý mở từ System; nơi tiêu thụ (Visual Background, Player)
- * mở THẲNG danh sách Motion ở chế độ CHỌN (`_renderMotionPicker()`, SỬA 24/09/2026 — thay cơ chế
- * đăng ký "Áp dụng cho" cũ, xem event/workflow/motion-presets.js::openPicker()).
- *
- * CÒN NỢ (đã biết, chưa sửa — dời lại theo yêu cầu Giang "logic bổ sung tính sau"): nút Cancel của
- * picker chọn THƯ MỤC video (1 trong 4 nguồn Visual Background) chưa tự quay lại Visual Background
- * — hạ tầng `workflowPlaylist._openFolderPickerDrawer()` dùng CHUNG với Playlist, chưa sửa vì rủi ro
- * ảnh hưởng nơi khác. 3 picker còn lại (ảnh đơn/video đơn/album) đã tự quay lại đúng (xem
- * `_closePickerDrawer()`/`openPickPhoto()`, event/workflow/visual-bg.js).
- *
- * SỬA (20/09/2026, Giang yêu cầu thiết kế lại Main Setting) — màn Main giờ là carousel ngang (xem
- * `_renderMain()`/`handleCarouselCardTap()`; UI ở components/settings/app-settings-main.js, wire ở
- * core/app-settings-ui.js::wireAppSettingsMainCarousel(), scale/loop ở core/settings-carousel-ui.js).
- *
- * NẠP SAU: core/generic-drawer.js, core/app-panel-nav.js, components/settings/app-settings-main.js,
- * core/settings-carousel-ui.js,
- * components/settings/playlist-view.js, components/settings/language.js, components/gesture-
- * settings-drawer.js, components/motion-settings-drawer.js, components/debug-console-drawer.js,
- * components/playlist-sort-drawer.js, components/playlist-filter-drawer.js, core/playlist/
- * filter-presets.js, event/workflow/playlist-filter-presets.js, components/settings/
- * visualizer-display-panel.js, components/settings/visualizer-auto-switch-drawer.js, components/
- * visual-bg-settings-drawer.js, components/visual-bg-gradient-drawer.js, components/visual-bg-
- * video-audio-drawer.js, event/workflow/generic-drawer-helpers.js, event/workflow/app-panel-nav.js,
- * event/workflow/gesture-settings.js, event/workflow/visual-bg-photo-motion.js, event/workflow/playlist.js,
- * event/workflow/settings-misc.js, event/workflow/visualizer-display.js, event/workflow/
- * visual-bg.js, lang/language-settings.js (renderLanguageOptions/updateLanguageDeleteButtonVisibility),
- * core/player-display-settings.js, components/settings/player-display-settings.js, event/workflow/
- * player-display-settings.js (MỚI — "Player", xem docstring nhóm hàm _renderPlayer() ngay dưới),
- * components/settings/pagination.js + event/workflow/pagination.js (MỚI 23/09/2026 — System > Pagination).
- * NẠP TRƯỚC: event/router/player-controls.js, event/router/app-settings.js,
- * event/router/app-panel-nav.js, event/router/visual-bg.js.
+ * NẠP SAU: core/generic-drawer.js, core/app-settings-ui.js, core/settings-carousel-ui.js, core/pagination-ui.js,
+ * core/playlist/filter-presets.js, core/motion-presets.js, core/player-display-settings.js, components/settings/*,
+ * components/{gesture-settings,motion-settings,debug-console,playlist-sort,playlist-filter,visual-bg-settings,
+ * visual-bg-gradient,visual-bg-video-audio}-drawer.js, lang/language-settings.js, event/workflow/{generic-drawer-helpers,
+ * app-panel-nav,gesture-settings,playlist,playlist-filter-presets,motion-presets,settings-misc,visualizer-display,
+ * visual-bg-common,player-display-settings,pagination}.js.
+ * NẠP TRƯỚC: event/router/player-controls.js, event/router/app-settings.js, event/router/app-panel-nav.js,
+ * event/router/visual-bg.js.
  */
 /** Carousel Main (xem `_renderMain()`): chờ drawer trượt lên gần xong rồi mới cho card đầu tiên phóng
  * to, thời lượng phóng to, và độ trễ debounce sau sự kiện `scroll` CUỐI CÙNG để coi là "đã dừng hẳn"
@@ -71,13 +34,8 @@ const APP_SETTINGS_CAROUSEL_ENTRANCE_TASK = 'appSettingsCarouselEntrance';
 const APP_SETTINGS_CAROUSEL_ENTRANCE_END_TASK = 'appSettingsCarouselEntranceEnd';
 const APP_SETTINGS_CAROUSEL_SETTLE_TASK = 'appSettingsCarouselSettle';
 
-/** MỚI (21/09/2026) — tô sáng hàng Point Move đang là ĐÍCH THẢ lúc kéo-sắp-xếp (Motion drawer). Trước đây bật/tắt class cứng
- * `bg-sky-100` (pastel chói trên Dark/Morphin, lại còn đè lên nền card do theme áp) — giờ đổi bộ KEY của chính hàng đó rồi áp lại
- * theme cho riêng nó: đích thả = `rowActiveBg` (nền "đang chọn"), bình thường = `cardBg`; `cardBorder` giữ cả 2 trạng thái. */
-function setMotionRowDropHighlight(rowEl, isHighlighted) {
-    rowEl.dataset.uitk = isHighlighted ? 'rowActiveBg cardBorder' : 'cardBg cardBorder';
-    if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(rowEl, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
-}
+// 6 field của 1 Point Move (màn Point Move Edit).
+const APP_SETTINGS_POINT_MOVE_FIELD_KEYS = ['linearX', 'linearY', 'rotate', 'zoom', 'flipX', 'flipY'];
 
 const workflowAppSettings = {
 
@@ -120,14 +78,10 @@ const workflowAppSettings = {
 
     // ===================== Khung dùng chung =====================
 
-    /** Dựng header (Back nếu không phải Main + Close X luôn có) + bodyHtml bọc `text-slate-900 p-4`
-     * rồi mở/swap Generic Drawer + gọi `onMount(genericDrawerBody)` để màn tự đồng bộ giá trị/wire.
-     * MỞ RỘNG (29/08/2026, hệ "Cấu hình Motion") — tham số thứ 4 `extraHeaderHtml` (tuỳ chọn,
-     * KHÔNG đổi gì cho mọi màn cũ không truyền) — chèn THÊM 1 nút hành động vào header (vd "+" ở màn
-     * danh sách preset, "Xoá"/"Reset" ở màn sửa 1 preset) — đặt TRƯỚC nút Close, căn phải cùng cụm.
+    /** Dựng header (Back nếu không phải Main + Close X) + body bọc `p-4`, mở/swap Generic Drawer, rồi `onMount(body)` —
+     * chỉ đồng bộ giá trị hoặc gọi hàm wire của core, không addEventListener.
      * @param {string} title @param {string} bodyHtml @param {(body: HTMLElement) => void} [onMount]
-     * @param {string} [extraHeaderHtml] - HTML 1 (hoặc vài) nút, tự wire ở `onMount` (Rule 5a — nút
-     *        RIÊNG của từng màn, không thuộc `wireAppSettingsHeader()` dùng chung).
+     * @param {string} [extraHeaderHtml] - nút hành động riêng của màn, đặt trước nút Close (tương tác qua Listener của màn đó).
      */
     _render(title, bodyHtml, onMount, extraHeaderHtml) {
         const hasBack = this._screenStack.length > 0;
@@ -248,89 +202,41 @@ const workflowAppSettings = {
         });
     },
 
-    /** Danh sách preset Filter CỦA Nguồn đang chọn (`activeMediaSource`) — tap dòng = sửa, mỗi dòng
-     * có thêm nút chọn áp dụng nhanh + xoá nhanh (CÙNG khuôn _renderMotionList() — KHÁC Motion 1
-     * chỗ: Motion được CHỌN từ phía nơi tiêu thụ (màn Chọn `_renderMotionPicker()`), Playlist Filter
-     * cần bấm "chọn áp dụng" được NGAY từ danh sách, phản hồi Giang). SỬA (09/09/2026, phản hồi Giang mục cuối — "mỗi source media 1
-     * list filter khác nhau") — `playlistFilterPresets`/`playlistFilterActivePresetId` giờ keyed
-     * theo Nguồn, danh sách này CHỈ đọc/hiện đúng phần của Nguồn đang chọn — đổi Nguồn ở Settings →
-     * Playlist rồi mở lại "Lọc" sẽ thấy danh sách KHÁC hẳn (độc lập, không lẫn giữa Song/Video/
-     * Photo). Tiêu đề có thêm tên Nguồn (mẫu "Filters for Song", SỬA 09/09/2026 phản hồi Giang —
-     * TRƯỚC ĐÂY nối bằng dấu "—") cho rõ đang xem preset của Nguồn nào. */
+    /** Danh sách preset Filter của Nguồn đang chọn (mỗi Nguồn 1 danh sách riêng) — đổi Nguồn so với lần vẽ trước thì về
+     * trang 1. Tương tác: event/listener/playlist-filter-presets.js. */
     _renderPlaylistFilterList() {
         this._currentRenderFn = () => this._renderPlaylistFilterList();
         const source = appState.get('activeMediaSource');
         const presets = appState.get('playlistFilterPresets')[source];
         const activeId = appState.get('playlistFilterActivePresetId')[source];
-        // MỚI 23/09/2026 — nơi 'filterPresets' của Settings > System > Pagination (tắt = vẽ hết như cũ). Mỗi Nguồn
-        // 1 danh sách khác hẳn -> Nguồn đổi so với lần vẽ trước thì về trang 1.
-        if (this._playlistFilterListSource !== source) { this._playlistFilterListSource = source; this._playlistFilterListPageIndex = 0; }
+        this._resetFilterListPageOnSourceChange(source);
         const view = workflowPagination.computePlaceView('filterPresets', presets, this._playlistFilterListPageIndex); // event/workflow/pagination.js
-        this._playlistFilterListPageIndex = view.pageIndex; // giá trị đã kẹp (vd vừa xoá preset cuối của trang cuối)
+        this._playlistFilterListPageIndex = view.pageIndex; // đã kẹp (vd vừa xoá preset cuối của trang cuối)
         this._render(
             tFormat('playlistFilterPresetsDrawer.list.titleForSource', { source: t('settingsPlaylistBg.mediaSource.' + source) }),
             renderPlaylistFilterListBody(view.pageItems, activeId, workflowPagination.buildControlsHtml(view)), // components/playlist-filter-drawer.js
-            (body) => {
-                wirePaginationControls(body.querySelector('#playlist-filter-list-pagination'), 'appSettings', 'appSettings.playlistFilterList.page.change'); // core/pagination-ui.js
-                body.querySelectorAll('[data-playlist-filter-tile]').forEach((el) => {
-                    el.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.tile.click', payload: { id: el.dataset.playlistFilterTile } }));
-                });
-                body.querySelectorAll('[data-playlist-filter-quickselect]').forEach((el) => {
-                    el.addEventListener('click', (e) => { e.stopPropagation(); eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.quickSelect.click', payload: { id: el.dataset.playlistFilterQuickselect } }); });
-                });
-                body.querySelectorAll('[data-playlist-filter-quickdelete]').forEach((el) => {
-                    el.addEventListener('click', (e) => { e.stopPropagation(); eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.quickDelete.click', payload: { id: el.dataset.playlistFilterQuickdelete } }); });
-                });
-                // MỚI (09/09/2026, phản hồi Giang — "với filter đang active, thay vì nút delete ->
-                // unselect") — dòng active hiện nút bỏ chọn thay vì xoá nhanh, xem components/
-                // playlist-filter-drawer.js::renderPlaylistFilterListBody().
-                body.querySelectorAll('[data-playlist-filter-quickunselect]').forEach((el) => {
-                    el.addEventListener('click', (e) => { e.stopPropagation(); eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.quickUnselect.click', payload: { source } }); });
-                });
-                const addBtn = body.querySelector('#btn-playlist-filter-list-add');
-                if (addBtn) addBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.add.click', payload: {} }));
-            },
+            (body) => wirePaginationControls(body.querySelector('#playlist-filter-list-pagination'), 'appSettings', 'appSettings.playlistFilterList.page.change'), // core/pagination-ui.js
         );
     },
 
-    /** Sửa 1 preset (`workflowPlaylistFilterPresets._editingId`, Nguồn `_editingSource` — CHỐT lúc
-     * mở màn, KHÔNG đọc lại `activeMediaSource`, xem docstring đầu event/workflow/
-     * playlist-filter-presets.js) — field rule theo ĐÚNG Nguồn đó (component render RỖNG,
-     * `_syncEditUI()` tự bind giá trị NGAY sau khi mount) + 2 nút "Chọn áp dụng"/"Xoá" cuối — nút
-     * đầu đổi chữ thành "Cập nhật" khi preset đang sửa CHÍNH LÀ preset đang active CHO ĐÚNG NGUỒN
-     * ĐÓ (`isActive`, xem components/playlist-filter-drawer.js::renderPlaylistFilterEditBody()).
-     * XOÁ (09/09/2026, phản hồi Giang mục 1 — "loại bỏ cơ chế này") — cơ chế `_leaveGuard`/
-     * `autoUnapplyIfInvalid()` (tự gỡ filter khi thoát X/Back mà preset đang active hết field hợp
-     * lệ) ĐÃ BỎ HẲN — sửa preset đang active xuống hết field hợp lệ rồi thoát KHÔNG còn tự gỡ gì cả,
-     * ảnh chốt (`playlistFilterAppliedConfig`) giữ NGUYÊN cho tới khi bấm "Chọn áp dụng"/"Cập nhật"
-     * LẦN NỮA — ĐÚNG 1 quy tắc DUY NHẤT xuyên suốt: sửa field KHÔNG BAO GIỜ tự đổi filter thật, chỉ
-     * "Chọn áp dụng"/"Cập nhật" mới đổi (xoá preset đang active vẫn tự gỡ như cũ — KHÔNG liên quan
-     * cơ chế đã xoá này, xem workflowPlaylistFilterPresets._deletePresetById()). */
+    _resetFilterListPageOnSourceChange(source) {
+        if (this._playlistFilterListSource === source) return;
+        this._playlistFilterListSource = source;
+        this._playlistFilterListPageIndex = 0;
+    },
+
+    /** Sửa 1 preset (`workflowPlaylistFilterPresets._editingId`, Nguồn `_editingSource` chốt lúc mở). Preset đang active
+     * -> nút đầu "Cập nhật", nút sau "Bỏ chọn". Tương tác: event/listener/playlist-filter-presets.js. */
     _renderPlaylistFilterEdit() {
         this._currentRenderFn = () => this._renderPlaylistFilterEdit();
         const source = workflowPlaylistFilterPresets._editingSource;
         const preset = findPlaylistFilterPresetById(appState.get('playlistFilterPresets')[source], workflowPlaylistFilterPresets._editingId); // core/playlist/filter-presets.js
-        if (!preset) { this.back(); return; } // guard: preset vừa bị xoá ở nơi khác giữa lúc đang sửa — quay lại danh sách an toàn
+        if (!preset) { this.back(); return; } // guard: preset vừa bị xoá ở nơi khác
         const isActive = preset.id === appState.get('playlistFilterActivePresetId')[source];
         this._render(
             tFormat('playlistFilterPresetsDrawer.edit.titleForSource', { source: t('settingsPlaylistBg.mediaSource.' + source) }),
             renderPlaylistFilterEditBody(preset, source, isActive), // components/playlist-filter-drawer.js
-            (body) => {
-                workflowPlaylistFilterPresets._syncEditUI(); // event/workflow/playlist-filter-presets.js — bind giá trị field NGAY sau mount
-                const nameInput = body.querySelector('#playlist-filter-drawer-name');
-                if (nameInput) nameInput.addEventListener('blur', (e) => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.name.change', payload: { value: e.target.value } }));
-                // MỚI (09/09/2026, phản hồi Giang — checkbox "Có áp dụng cho thư mục hay không")
-                const appliesToFolderCheckbox = body.querySelector('#playlist-filter-drawer-appliestofolder');
-                if (appliesToFolderCheckbox) appliesToFolderCheckbox.addEventListener('change', (e) => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.appliesToFolder.change', payload: { value: e.target.checked } }));
-                const selectBtn = body.querySelector('#btn-playlist-filter-select');
-                if (selectBtn) selectBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.select.click', payload: { id: preset.id, source } }));
-                const deleteBtn = body.querySelector('#btn-playlist-filter-delete');
-                if (deleteBtn) deleteBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.delete.click', payload: { id: preset.id } }));
-                // MỚI (09/09/2026) — preset đang active hiện nút "Bỏ chọn" thay vì "Xoá" (id khác,
-                // xem renderPlaylistFilterEditBody()) — CHỈ 1 trong 2 nút tồn tại trong DOM mỗi lần.
-                const unselectBtn = body.querySelector('#btn-playlist-filter-unselect');
-                if (unselectBtn) unselectBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.unselect.click', payload: { source } }));
-            },
+            () => workflowPlaylistFilterPresets._syncEditUI(), // event/workflow/playlist-filter-presets.js — đổ giá trị field sau mount
         );
     },
 
@@ -442,35 +348,20 @@ const workflowAppSettings = {
         });
     },
 
-    // ===================== Motion — hệ Cấu hình độc lập =====================
-    // 2 lối vào: System > Motion -> danh sách preset (Quản lý — CRUD); nơi tiêu thụ (VBG Photo, Player)
-    // -> CÙNG danh sách đó ở chế độ CHỌN (`_renderMotionPicker()`). SỬA (24/09/2026, Giang yêu cầu) —
-    // cơ chế đăng ký nơi tiêu thụ ("Áp dụng cho" trong màn Edit) ĐÃ XOÁ — xem components/motion-
-    // settings-drawer.js + event/workflow/motion-presets.js (workflowMotionPresets).
+    // ===================== Motion =====================
+    // System > Motion -> danh sách preset (CRUD); nơi tiêu thụ (VBG, Player) -> cùng danh sách ở chế độ Chọn
+    // (`_renderMotionPicker()`). Mọi tương tác: event/listener/motion-presets.js -> router 'motionPresets'.
 
     /** Danh sách preset — tap = sửa, nút xoá nhanh mỗi dòng. */
     _renderMotionList() {
         this._currentRenderFn = () => this._renderMotionList();
         const presets = appState.get('motionPresets');
-        // MỚI 23/09/2026 — nơi 'motionPresets' của Settings > System > Pagination (tắt = vẽ hết như cũ).
         const view = workflowPagination.computePlaceView('motionPresets', presets, this._motionListPageIndex); // event/workflow/pagination.js
-        this._motionListPageIndex = view.pageIndex; // giá trị đã kẹp (vd vừa xoá hết preset trang cuối)
+        this._motionListPageIndex = view.pageIndex; // đã kẹp
         this._render(
             t('motionPresetsDrawer.list.title'),
             renderMotionListBody(view.pageItems, workflowPagination.buildControlsHtml(view)), // components/motion-settings-drawer.js
-            (body) => {
-                wirePaginationControls(body.querySelector('#motion-list-pagination'), 'appSettings', 'appSettings.motionList.page.change'); // core/pagination-ui.js
-                body.querySelectorAll('[data-motion-preset-tile]').forEach((el) => {
-                    el.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.tile.click', payload: { id: el.dataset.motionPresetTile } }));
-                });
-                body.querySelectorAll('[data-motion-preset-quickdelete]').forEach((el) => {
-                    el.addEventListener('click', (e) => { e.stopPropagation(); eventBus.send({ router: 'motionPresets', type: 'motionPresets.quickDelete.click', payload: { id: el.dataset.motionPresetQuickdelete } }); });
-                });
-                const addBtn = body.querySelector('#btn-motion-list-add');
-                const addRandomBtn = body.querySelector('#btn-motion-list-add-random'); // MỚI 25/09/2026 — random thông minh
-                if (addBtn) addBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.add.click', payload: {} }));
-                if (addRandomBtn) addRandomBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.addRandom.click', payload: {} }));
-            },
+            (body) => wirePaginationControls(body.querySelector('#motion-list-pagination'), 'appSettings', 'appSettings.motionList.page.change'), // core/pagination-ui.js
         );
     },
 
@@ -491,26 +382,16 @@ const workflowAppSettings = {
         genericDrawerBody.scrollTop = 0;
     },
 
-    /** MỚI (24/09/2026, Giang yêu cầu) — danh sách preset ở chế độ CHỌN, mở từ nơi tiêu thụ qua
-     * `workflowMotionPresets.openPicker()` (event/workflow/motion-presets.js — giữ toàn bộ state phiên
-     * Chọn: tiêu đề, nháp, trang, `onApply`). Tap dòng = chọn nháp (vẽ lại tại chỗ); nút "Apply" ở
-     * header = xác nhận + tự back(). Pagination DÙNG CHUNG nơi 'motionPresets' với `_renderMotionList()`. */
+    /** Danh sách preset ở chế độ Chọn (phiên do `workflowMotionPresets.openPicker()` giữ) — tap dòng = chọn nháp, nút
+     * Apply ở header = xác nhận + back(). Phân trang dùng chung nơi 'motionPresets'. */
     _renderMotionPicker() {
         this._currentRenderFn = () => this._renderMotionPicker();
         const data = workflowMotionPresets.getPickerRenderData(); // event/workflow/motion-presets.js
-        if (!data) { this.back(); return; } // guard: không còn phiên Chọn nào (đã Apply) — quay lại an toàn
+        if (!data) { this.back(); return; } // guard: phiên Chọn đã kết thúc
         this._render(
             data.title,
-            renderMotionPickerBody(data.view.pageItems, data.draftId, workflowPagination.buildControlsHtml(data.view)), // components/motion-settings-drawer.js, event/workflow/pagination.js
-            (body) => {
-                const optionEls = body.querySelectorAll('[data-motion-picker-option]');
-                const applyBtn = genericDrawerHeader.querySelector('#btn-motion-picker-apply'); // core/dom-refs.js — nút nằm ở HEADER (extraHeaderHtml), không phải body
-                wirePaginationControls(body.querySelector('#motion-picker-pagination'), 'motionPresets', 'motionPresets.picker.page.change'); // core/pagination-ui.js
-                optionEls.forEach((el) => {
-                    el.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.picker.select.click', payload: { id: el.dataset.motionPickerOption } }));
-                });
-                if (applyBtn) applyBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.picker.apply.click', payload: {} }));
-            },
+            renderMotionPickerBody(data.view.pageItems, data.draftId, workflowPagination.buildControlsHtml(data.view)), // components/motion-settings-drawer.js
+            (body) => wirePaginationControls(body.querySelector('#motion-picker-pagination'), 'motionPresets', 'motionPresets.picker.page.change'), // core/pagination-ui.js
             renderMotionPickerApplyButtonHtml(), // components/motion-settings-drawer.js
         );
     },
@@ -519,210 +400,24 @@ const workflowAppSettings = {
     _renderMotionEdit() {
         this._currentRenderFn = () => this._renderMotionEdit();
         const preset = findMotionPresetById(appState.get('motionPresets'), workflowMotionPresets._editingId); // core/motion-presets.js
-        if (!preset) { this.back(); return; } // guard: preset vừa bị xoá ở nơi khác giữa lúc đang sửa — quay lại danh sách an toàn
+        if (!preset) { this.back(); return; } // guard: preset vừa bị xoá ở nơi khác
         this._render(
             t('motionPresetsDrawer.edit.title'),
             renderMotionEditBody(preset), // components/motion-settings-drawer.js
-            (body) => {
-                const nameInput = body.querySelector('#setting-motion-name');
-                if (nameInput) nameInput.addEventListener('blur', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.name.change', payload: { value: e.target.value } }));
-                const transitionEnabled = body.querySelector('#setting-motion-transition-enabled');
-                if (transitionEnabled) transitionEnabled.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.transitionEnabled.change', payload: { checked: e.target.checked } }));
-                const transitionType = body.querySelector('#setting-motion-transition');
-                if (transitionType) transitionType.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.transitionType.change', payload: { value: e.target.value } }));
-                const transitionDirection = body.querySelector('#setting-motion-transition-direction');
-                if (transitionDirection) transitionDirection.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.transitionDirection.change', payload: { value: e.target.value } }));
-                const transitionZoomDirection = body.querySelector('#setting-motion-transition-zoom-direction');
-                if (transitionZoomDirection) transitionZoomDirection.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.transitionZoomDirection.change', payload: { value: e.target.value } }));
-                const transitionSpinDirection = body.querySelector('#setting-motion-transition-spin-direction');
-                if (transitionSpinDirection) transitionSpinDirection.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.transitionSpinDirection.change', payload: { value: e.target.value } }));
-                const transitionWipeDirection = body.querySelector('#setting-motion-transition-wipe-direction');
-                if (transitionWipeDirection) transitionWipeDirection.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.transitionWipeDirection.change', payload: { value: e.target.value } }));
-                const transitionCurtainDirection = body.querySelector('#setting-motion-transition-curtain-direction');
-                if (transitionCurtainDirection) transitionCurtainDirection.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.transitionCurtainDirection.change', payload: { value: e.target.value } }));
-                const edgeFlipVariant = body.querySelector('#setting-motion-edge-flip-variant');
-                if (edgeFlipVariant) edgeFlipVariant.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.edgeFlipVariant.change', payload: { value: e.target.value } }));
-                const edgeFlipStaticOld = body.querySelector('#setting-motion-edge-flip-static-old');
-                if (edgeFlipStaticOld) edgeFlipStaticOld.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.edgeFlipStaticOld.change', payload: { checked: e.target.checked } }));
-                const transitionDurationBtn = body.querySelector('#setting-motion-transition-duration');
-                if (transitionDurationBtn) transitionDurationBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.openTransitionDurationPicker.click', payload: {} }));
-                const ratioSlider = body.querySelector('#setting-motion-transition-ratio');
-                if (ratioSlider) {
-                    ratioSlider.addEventListener('input', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.transitionRatio.preview', payload: { value: Number(e.target.value) } }));
-                    ratioSlider.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.transitionRatio.change', payload: { value: Number(e.target.value) } }));
-                }
-                workflowMotionPresets._updateTransitionRatioLabel(preset.transitionDurationMs, preset.transitionInOutRatio); // event/workflow/motion-presets.js
-                const easingSelect = body.querySelector('#setting-motion-transition-easing');
-                if (easingSelect) easingSelect.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.transitionEasing.change', payload: { value: e.target.value } }));
-
-                // Point Move (thay Ken Burns) — nav "danh sách" + 2 select (chế độ chạy/thứ tự).
-                // SỬA (phản hồi Giang — dời "Return baseline"/"Timing" sang subpanel Point moves) —
-                // 2 wiring đó KHÔNG còn ở đây nữa, xem _renderPointMoveList() bên dưới.
-                const pointMoveEnabled = body.querySelector('#setting-motion-pointmove-enabled');
-                if (pointMoveEnabled) pointMoveEnabled.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.enabled.change', payload: { checked: e.target.checked } }));
-                const pointMoveListBtn = body.querySelector('#btn-motion-pointmove-list');
-                if (pointMoveListBtn) pointMoveListBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.openList.click', payload: {} }));
-                const pointMoveRunMode = body.querySelector('#setting-motion-pointmove-runmode');
-                if (pointMoveRunMode) pointMoveRunMode.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.runMode.change', payload: { value: e.target.value } }));
-                const pointMoveOrder = body.querySelector('#setting-motion-pointmove-order');
-                if (pointMoveOrder) pointMoveOrder.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.oneOrder.change', payload: { value: e.target.value } }));
-
-                // "React Beat Audio" — mọi control (checkbox/slider/select) gửi CÙNG 1 msg.type, chỉ
-                // khác payload {effectKey, fieldKey, value} — GENERIC, khớp đúng
-                // `workflowMotionPresets.changeBeatReactField()` (1 hàm xử lý mọi field).
-                const sendBeatReact = (effectKey, fieldKey, value) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.beatReact.field.change', payload: { effectKey, fieldKey, value } });
-                const wireBeatReactCheckbox = (id, effectKey, fieldKey) => {
-                    const el = body.querySelector(`#${id}`);
-                    if (el) el.addEventListener('change', (e) => sendBeatReact(effectKey, fieldKey, e.target.checked));
-                };
-                const wireBeatReactSelect = (id, effectKey, fieldKey) => {
-                    const el = body.querySelector(`#${id}`);
-                    if (el) el.addEventListener('change', (e) => sendBeatReact(effectKey, fieldKey, e.target.value));
-                };
-                // MỚI (phản hồi Giang — ô nhập số type=number sync 2 chiều với slider) — slider kéo
-                // (`input`) chỉ cập nhật LIVE ô input (chưa persist); thả tay (`change`) MỚI persist.
-                // Gõ tay vào ô input, thoát focus/Enter (`change`) — tự kẹp [min,max] (validate JS,
-                // không tin số ngoài biên dù `type=number` đã hạn chế phần lớn), đồng bộ NGƯỢC lại
-                // slider, rồi persist CÙNG msg.type với slider (server không phân biệt nguồn).
-                const wireBeatReactMax = (key, fieldKey) => {
-                    const slider = body.querySelector(`#setting-motion-beatreact-${key}-max`);
-                    const input = body.querySelector(`#motion-beatreact-${key}-max-input`);
-                    if (slider && input) slider.addEventListener('input', (e) => { input.value = e.target.value; });
-                    if (slider) slider.addEventListener('change', (e) => sendBeatReact(key, fieldKey, Number(e.target.value)));
-                    if (input) input.addEventListener('change', (e) => {
-                        const v = Math.max(Number(input.min), Math.min(Number(input.max), Number(e.target.value) || 0));
-                        input.value = v;
-                        if (slider) slider.value = v;
-                        sendBeatReact(key, fieldKey, v);
-                    });
-                };
-                wireBeatReactCheckbox('setting-motion-beatreact-enabled', null, 'enabled');
-                ['zoom', 'panX', 'panY', 'rotate'].forEach((key) => {
-                    wireBeatReactCheckbox(`setting-motion-beatreact-${key}-enabled`, key, 'enabled');
-                    wireBeatReactMax(key, key === 'rotate' ? 'maxDeg' : 'maxPct');
-                    wireBeatReactCheckbox(`setting-motion-beatreact-${key}-randommax`, key, 'randomMax'); // MỚI — Random Max, xem core/motion-presets.js
-                });
-                wireBeatReactSelect('setting-motion-beatreact-panX-direction', 'panX', 'direction');
-                wireBeatReactSelect('setting-motion-beatreact-panY-direction', 'panY', 'direction');
-                wireBeatReactSelect('setting-motion-beatreact-rotate-direction', 'rotate', 'direction');
-                wireBeatReactCheckbox('setting-motion-beatreact-panX-reverse', 'panX', 'reverse');
-                wireBeatReactCheckbox('setting-motion-beatreact-panY-reverse', 'panY', 'reverse');
-                wireBeatReactCheckbox('setting-motion-beatreact-rotate-reverse', 'rotate', 'reverse');
-
-                const resetBtn = body.querySelector('#btn-motion-edit-reset');
-                if (resetBtn) resetBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.reset.click', payload: {} }));
-                const deleteBtn = body.querySelector('#btn-motion-edit-delete');
-                if (deleteBtn) deleteBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.delete.click', payload: {} }));
-                // XOÁ (24/09/2026) — wiring nhóm "Áp dụng cho" (select nơi tiêu thụ + nút Đăng ký/Huỷ) — cơ chế đã bỏ.
-            },
+            () => workflowMotionPresets._updateTransitionRatioLabel(preset.transitionDurationMs, preset.transitionInOutRatio), // event/workflow/motion-presets.js
         );
     },
 
-    /** Danh sách point move của preset đang sửa — [kéo] | checkbox | tên | nhân bản | xoá | sửa.
-     * Kéo trên tay cầm (⠿) HOÁN ĐỔI TOÀN BỘ 2 point move (order N + mọi field, bao gồm timingX —
-     * CÙNG LÚC, phản hồi Giang) — hàng đang kéo NỔI LÊN bám con trỏ (translateY/z-index/shadow),
-     * pointer-events THUẦN (touch-compatible, không dùng HTML5 Drag-and-Drop API vì hỗ trợ cảm ứng/
-     * mobile kém). */
+    /** Danh sách point move của preset đang sửa — [kéo] | checkbox | tên | nhân bản | xoá | sửa. Kéo tay cầm hoán đổi
+     * toàn bộ 2 point move (workflowMotionPresets.startPointMoveDrag()/endPointMoveDrag()). */
     _renderPointMoveList() {
         this._currentRenderFn = () => this._renderPointMoveList();
         const preset = findMotionPresetById(appState.get('motionPresets'), workflowMotionPresets._editingId); // core/motion-presets.js
         if (!preset) { this.back(); return; }
-        this._render(
-            t('motionSettingsDrawer.pointMove.list.label'),
-            renderPointMoveListBody(preset), // components/motion-settings-drawer.js — SỬA (phản hồi Giang) — nhận CẢ preset (cần pointMoveEndForceBaseline/pointMoveRunMode cho card "Return baseline"/"Timing" MỚI dời vào đây)
-            (body) => {
-                body.querySelectorAll('[data-ptmove-checkbox]').forEach((el) => {
-                    el.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.toggleChecked.change', payload: { id: el.dataset.ptmoveCheckbox, checked: e.target.checked } }));
-                });
-                body.querySelectorAll('[data-ptmove-duplicate]').forEach((el) => {
-                    el.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.duplicate.click', payload: { id: el.dataset.ptmoveDuplicate } }));
-                });
-                body.querySelectorAll('[data-ptmove-delete]').forEach((el) => {
-                    el.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.delete.click', payload: { id: el.dataset.ptmoveDelete } }));
-                });
-                body.querySelectorAll('[data-ptmove-edit]').forEach((el) => {
-                    el.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.openEdit.click', payload: { id: el.dataset.ptmoveEdit } }));
-                });
-                const addBtn = body.querySelector('#btn-ptmove-add');
-                if (addBtn) addBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.add.click', payload: {} }));
-
-                // MỚI (phản hồi Giang — dời từ màn Edit chính vào đây) — "Return baseline" (đổi tên
-                // từ "Endpoint: force baseline") + "Timing", CHỈ hiện khi pointMoveRunMode==='all'
-                // (renderPointMoveListBody() đã tự ẩn cả card khi khác 'all', ở đây querySelector chỉ
-                // trả null vô hại nếu card không tồn tại).
-                const endForce = body.querySelector('#setting-motion-pointmove-end-force-baseline');
-                if (endForce) endForce.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.endForceBaseline.change', payload: { checked: e.target.checked } }));
-                const timingBtn = body.querySelector('#btn-motion-pointmove-timing');
-                if (timingBtn) timingBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.openTiming.click', payload: {} }));
-
-                // Kéo-thả sắp xếp lại — pointer-events thuần (touch OK), gom addEventListener tại đây
-                // (Workflow, không bị Rule 5a giới hạn). Node ĐANG kéo NỔI LÊN + BÁM THEO con trỏ
-                // (translateY, z-index, shadow) — phản hồi Giang: "phải nổi lên và kéo được, không
-                // phải thêm border rồi coi như đã kéo" — + `user-select:none` lúc đang kéo (phản hồi
-                // Giang) tránh bôi đen chữ ngoài ý muốn. Thả xong gửi ĐÚNG 1 thao tác hoán đổi TOÀN
-                // BỘ (order N + mọi field, bao gồm timingX — CÙNG LÚC, xem
-                // event/workflow/motion-presets.js::swapPointMoveOrder()). SỬA (phản hồi Giang —
-                // "Point 0 = start point") — hàng ĐẦU (index 0, `pointMoves[0].id`) KHÔNG còn tay cầm
-                // kéo trong template (renderPointMoveListBody()) nên KHÔNG BAO GIỜ là `draggingId`;
-                // ở đây CHẶN THÊM nó khỏi làm ĐÍCH thả (hoverRowEl) — kéo hàng khác THẢ ĐÈ lên hàng 0
-                // vẫn phải vô hiệu, không chỉ chặn chiều kéo-ra.
-                const rows = Array.from(body.querySelectorAll('[data-ptmove-row]'));
-                const point0Id = preset.pointMoves[0] ? preset.pointMoves[0].id : null;
-                let draggingId = null;
-                let draggingRowEl = null;
-                let dragStartClientY = 0;
-                let hoverRowEl = null;
-                body.querySelectorAll('[data-ptmove-drag-handle]').forEach((handle) => {
-                    handle.addEventListener('pointerdown', (e) => {
-                        e.preventDefault();
-                        draggingId = handle.dataset.ptmoveDragHandle;
-                        draggingRowEl = rows.find((row) => row.dataset.ptmoveRow === draggingId) || null;
-                        dragStartClientY = e.clientY;
-                        if (draggingRowEl) {
-                            draggingRowEl.style.position = 'relative';
-                            draggingRowEl.style.zIndex = '30';
-                            draggingRowEl.style.boxShadow = '0 10px 24px rgba(0,0,0,0.25)';
-                            draggingRowEl.style.userSelect = 'none';
-                        }
-                        document.body.style.userSelect = 'none';
-                    });
-                });
-                document.addEventListener('pointermove', (e) => {
-                    if (!draggingId || !draggingRowEl) return;
-                    draggingRowEl.style.transform = `translateY(${e.clientY - dragStartClientY}px) scale(1.02)`;
-                    if (hoverRowEl) setMotionRowDropHighlight(hoverRowEl, false);
-                    hoverRowEl = rows.find((row) => {
-                        if (row === draggingRowEl || row.dataset.ptmoveRow === point0Id) return false; // Point 0 KHÔNG nhận thả (start point cố định)
-                        const rect = row.getBoundingClientRect();
-                        return e.clientY >= rect.top && e.clientY <= rect.bottom;
-                    }) || null;
-                    if (hoverRowEl) setMotionRowDropHighlight(hoverRowEl, true);
-                });
-                document.addEventListener('pointerup', () => {
-                    if (!draggingId) return;
-                    if (draggingRowEl) {
-                        draggingRowEl.style.position = '';
-                        draggingRowEl.style.zIndex = '';
-                        draggingRowEl.style.boxShadow = '';
-                        draggingRowEl.style.transform = '';
-                        draggingRowEl.style.userSelect = '';
-                    }
-                    document.body.style.userSelect = '';
-                    if (hoverRowEl) setMotionRowDropHighlight(hoverRowEl, false);
-                    const targetId = hoverRowEl ? hoverRowEl.dataset.ptmoveRow : null;
-                    if (targetId && targetId !== draggingId) {
-                        eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.swapOrder.change', payload: { idA: draggingId, idB: targetId } });
-                    }
-                    draggingId = null;
-                    draggingRowEl = null;
-                    hoverRowEl = null;
-                });
-            },
-        );
+        this._render(t('motionSettingsDrawer.pointMove.list.label'), renderPointMoveListBody(preset)); // components/motion-settings-drawer.js
     },
 
-    /** Sửa 1 point move (`workflowMotionPresets._editingPointMoveId`) — 6 nhóm thông số, mỗi nhóm
-     * DÙNG CHUNG 1 bộ wiring (`wirePointMoveField()`) vì hình dạng UI giống hệt nhau. */
+    /** Sửa 1 point move (`workflowMotionPresets._editingPointMoveId`) — 6 field cùng hình dạng UI. */
     _renderPointMoveEdit() {
         this._currentRenderFn = () => this._renderPointMoveEdit();
         const preset = findMotionPresetById(appState.get('motionPresets'), workflowMotionPresets._editingId); // core/motion-presets.js
@@ -731,113 +426,12 @@ const workflowAppSettings = {
         this._render(
             t('motionSettingsDrawer.pointMove.edit.title'),
             renderPointMoveEditBody(pointMove), // components/motion-settings-drawer.js
-            (body) => {
-                const wirePointMoveField = (fieldKey, hasUnit) => {
-                    if (hasUnit) {
-                        body.querySelectorAll(`[data-ptmove-unit="${fieldKey}"]`).forEach((el) => {
-                            el.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.unit.change', payload: { fieldKey, unit: el.dataset.value } }));
-                        });
-                    }
-                    const modeSelect = body.querySelector(`[data-ptmove-mode="${fieldKey}"]`);
-                    if (modeSelect) modeSelect.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldMode.change', payload: { fieldKey, mode: e.target.value } }));
-
-                    // MỚI (phản hồi Giang — ô nhập số type=number sync 2 chiều với slider "single").
-                    const singleInput = body.querySelector(`#setting-ptmove-${fieldKey}-single`);
-                    const singleInputNum = body.querySelector(`#ptmove-${fieldKey}-single-input`);
-                    if (singleInput) {
-                        singleInput.addEventListener('input', (e) => {
-                            if (singleInputNum) singleInputNum.value = e.target.value; // slider kéo -> cập nhật LIVE ô input, chưa persist
-                            eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldSingle.preview', payload: { fieldKey, value: Number(e.target.value) } });
-                        });
-                        singleInput.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldSingle.change', payload: { fieldKey, value: Number(e.target.value) } }));
-                    }
-                    if (singleInputNum) {
-                        singleInputNum.addEventListener('change', (e) => { // gõ tay xong (blur/Enter) -> tự kẹp biên, đồng bộ NGƯỢC slider, persist
-                            const v = Math.max(Number(singleInputNum.min), Math.min(Number(singleInputNum.max), Number(e.target.value) || 0));
-                            singleInputNum.value = v;
-                            if (singleInput) singleInput.value = v;
-                            eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldSingle.change', payload: { fieldKey, value: v } });
-                        });
-                    }
-
-                    const rangeMinInput = body.querySelector(`#setting-ptmove-${fieldKey}-rangemin`);
-                    const rangeMaxInput = body.querySelector(`#setting-ptmove-${fieldKey}-rangemax`);
-                    const rangeMinInputNum = body.querySelector(`#ptmove-${fieldKey}-rangemin-input`);
-                    const rangeMaxInputNum = body.querySelector(`#ptmove-${fieldKey}-rangemax-input`);
-                    const fillEl = body.querySelector(`#ptmove-${fieldKey}-range-fill`);
-                    const previewRangeFill = () => { // cập nhật dải tô màu + 2 ô input số NGAY lúc kéo — thuần DOM cục bộ, KHÔNG qua eventBus (không phải state, không cần persist)
-                        if (!rangeMinInput || !rangeMaxInput) return;
-                        if (fillEl) {
-                            const lo = Number(rangeMinInput.min), hi = Number(rangeMinInput.max);
-                            const leftPct = ((Number(rangeMinInput.value) - lo) / (hi - lo)) * 100;
-                            const rightPct = ((Number(rangeMaxInput.value) - lo) / (hi - lo)) * 100;
-                            fillEl.style.left = `${leftPct}%`;
-                            fillEl.style.width = `${Math.max(0, rightPct - leftPct)}%`;
-                        }
-                        if (rangeMinInputNum) rangeMinInputNum.value = rangeMinInput.value;
-                        if (rangeMaxInputNum) rangeMaxInputNum.value = rangeMaxInput.value;
-                    };
-                    if (rangeMinInput) {
-                        rangeMinInput.addEventListener('input', previewRangeFill);
-                        rangeMinInput.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldRange.change', payload: { fieldKey, which: 'min', value: Number(e.target.value) } }));
-                    }
-                    if (rangeMaxInput) {
-                        rangeMaxInput.addEventListener('input', previewRangeFill);
-                        rangeMaxInput.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldRange.change', payload: { fieldKey, which: 'max', value: Number(e.target.value) } }));
-                    }
-                    // MỚI (phản hồi Giang) — 2 ô nhập số min/max sync 2 chiều với 2 tay kéo dual-range.
-                    if (rangeMinInputNum) {
-                        rangeMinInputNum.addEventListener('change', (e) => {
-                            const v = Math.max(Number(rangeMinInputNum.min), Math.min(Number(rangeMinInputNum.max), Number(e.target.value) || 0));
-                            rangeMinInputNum.value = v;
-                            if (rangeMinInput) rangeMinInput.value = v;
-                            previewRangeFill();
-                            eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldRange.change', payload: { fieldKey, which: 'min', value: v } });
-                        });
-                    }
-                    if (rangeMaxInputNum) {
-                        rangeMaxInputNum.addEventListener('change', (e) => {
-                            const v = Math.max(Number(rangeMaxInputNum.min), Math.min(Number(rangeMaxInputNum.max), Number(e.target.value) || 0));
-                            rangeMaxInputNum.value = v;
-                            if (rangeMaxInput) rangeMaxInput.value = v;
-                            previewRangeFill();
-                            eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldRange.change', payload: { fieldKey, which: 'max', value: v } });
-                        });
-                    }
-                    workflowMotionPresets._updatePointMoveFieldLabel(fieldKey); // event/workflow/motion-presets.js — set dải tô màu + ô input dual-range lúc mở màn
-                };
-                wirePointMoveField('linearX', true);
-                wirePointMoveField('linearY', true);
-                wirePointMoveField('rotate', false);
-                wirePointMoveField('zoom', false);
-                wirePointMoveField('flipX', false);
-                wirePointMoveField('flipY', false);
-
-                // MỚI (phản hồi Giang — nút "±" đảo dấu, bù bàn phím `inputmode="decimal"` của iOS
-                // KHÔNG có phím trừ) — GENERIC 1 wiring DUY NHẤT cho MỌI nút (data-ptmove-sign-toggle
-                // = id của ô input nó đảo dấu, xem components/motion-settings-drawer.js). Bấm -> đảo
-                // dấu giá trị `.value` hiện có, kẹp lại [min,max], rồi TÁI DÙNG đúng luồng 'change' đã
-                // wire sẵn cho ô input đó ở trên (clamp/đồng bộ slider/persist) — KHÔNG lặp code.
-                body.querySelectorAll('[data-ptmove-sign-toggle]').forEach((btn) => {
-                    btn.addEventListener('click', () => {
-                        const inputEl = body.querySelector(`#${btn.dataset.ptmoveSignToggle}`);
-                        if (!inputEl) return;
-                        const negated = -(Number(inputEl.value) || 0);
-                        inputEl.value = Math.max(Number(inputEl.min), Math.min(Number(inputEl.max), negated));
-                        inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-                    });
-                });
-            },
+            () => APP_SETTINGS_POINT_MOVE_FIELD_KEYS.forEach((fieldKey) => workflowMotionPresets._updatePointMoveFieldLabel(fieldKey)), // event/workflow/motion-presets.js — ô số + dải tô màu lúc mở
         );
     },
 
-    /** Đường cong Timing (chỉ dùng khi `pointMoveRunMode==='all'`) — SVG THẬT dựng bởi
-     * `workflowMotionPresets._renderTimingCurve()` (gọi core-ui, xem core/point-move-timing-ui.js).
-     * Zoom (+/-) thuần view, KHÔNG persist — chỉ đổi CSS `transform:scaleX()` cục bộ NGAY TẠI ĐÂY
-     * (SỬA, phản hồi Giang — mục đích zoom là GIÃN KHOẢNG CÁCH GIỮA CÁC NODE theo trục thời gian để
-     * đỡ bấm/kéo nhầm, KHÔNG phải phóng to toàn bộ hình — chỉ scaleX, giữ NGUYÊN chiều cao/cỡ node/
-     * chữ; thang hiển thị 0%-100% ĐÚNG NGHĨA "mức giãn thêm", KHÔNG phải % kích thước kết quả kiểu
-     * 100%-300% như bản trước), không qua eventBus/workflow (không có state nào cần ghi nhớ). */
+    /** Đường cong Timing (chỉ khi `pointMoveRunMode==='all'`) — SVG dựng bởi `workflowMotionPresets._renderTimingCurve()`;
+     * zoom +/- chỉ giãn trục thời gian (scaleX), không persist, về 0 mỗi lần vẽ. */
     _renderPointMoveTiming() {
         this._currentRenderFn = () => this._renderPointMoveTiming();
         const preset = findMotionPresetById(appState.get('motionPresets'), workflowMotionPresets._editingId); // core/motion-presets.js
@@ -847,21 +441,7 @@ const workflowAppSettings = {
             renderPointMoveTimingBody(preset.pointMoves), // components/motion-settings-drawer.js
             (body) => {
                 workflowMotionPresets._renderTimingCurve(body.querySelector('#ptmove-timing-container')); // event/workflow/motion-presets.js
-
-                const ZOOM_STEPS_PCT = [0, 25, 50, 75, 100]; // "mức giãn thêm" (0 = không giãn) — KHÔNG phải % kích thước kết quả
-                const ZOOM_MAX_EXTRA_SCALE_X = 1; // 100% giãn thêm -> scaleX tối đa = 1 + 1 = 2 (gấp đôi khoảng cách ngang, giữ nguyên chiều cao)
-                let zoomIdx = 0;
-                const zoomableEl = body.querySelector('#ptmove-timing-container');
-                const zoomLabelEl = body.querySelector('#ptmove-timing-zoom-label');
-                const applyZoom = () => {
-                    const extraPct = ZOOM_STEPS_PCT[zoomIdx];
-                    if (zoomableEl) zoomableEl.style.transform = `scaleX(${1 + (extraPct / 100) * ZOOM_MAX_EXTRA_SCALE_X})`;
-                    if (zoomLabelEl) zoomLabelEl.textContent = `${extraPct}%`;
-                };
-                const zoomInBtn = body.querySelector('#btn-ptmove-timing-zoom-in');
-                if (zoomInBtn) zoomInBtn.addEventListener('click', () => { zoomIdx = Math.min(ZOOM_STEPS_PCT.length - 1, zoomIdx + 1); applyZoom(); });
-                const zoomOutBtn = body.querySelector('#btn-ptmove-timing-zoom-out');
-                if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => { zoomIdx = Math.max(0, zoomIdx - 1); applyZoom(); });
+                workflowMotionPresets.resetPointMoveTimingZoom();
             },
         );
     },

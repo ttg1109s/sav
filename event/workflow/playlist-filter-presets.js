@@ -123,6 +123,11 @@ const workflowPlaylistFilterPresets = {
         workflowAppSettings._renderPlaylistFilterList(); // liên tuyến domain
     },
 
+    /** 'playlistFilterPresets.quickUnselect.click' — bỏ chọn preset active của Nguồn đang chọn (reload). */
+    async quickUnselect() {
+        await this.unselectPreset(appState.get('activeMediaSource'));
+    },
+
     // ===================== Màn Edit 1 preset (theo _editingSource đã chốt) =====================
 
     /** onMount màn Edit (event/workflow/app-settings.js::_renderPlaylistFilterEdit()) — đổ config preset lên DOM. */
@@ -178,8 +183,18 @@ const workflowPlaylistFilterPresets = {
         workflowFilterRuleEdit.openTimePicker(preset.config, field, prop, (seconds) => this.setFilterField(field, prop, String(seconds))); // event/workflow/filter-rule-edit.js
     },
 
+    /** 'playlistFilterPresets.select.click' — nút Chọn áp dụng/Cập nhật ở màn Edit. */
+    async selectEditing() {
+        await this.selectPreset(this._editingId, this._editingSource);
+    },
+
+    /** 'playlistFilterPresets.unselect.click' — nút Bỏ chọn ở màn Edit (preset đang sửa là preset active). */
+    async unselectEditing() {
+        await this.unselectPreset(this._editingSource);
+    },
+
     /**
-     * 'playlistFilterPresets.select.click' / quickSelect — preset `id` thành preset active của `source`: chụp ảnh chốt
+     * Chọn áp dụng (selectEditing / quickSelect) — preset `id` thành preset active của `source`: chụp ảnh chốt
      * (deep clone — setFilterField() sửa object rule lồng bên trong) + appliesToFolder, lưu, hỏi reload. Ở lại màn
      * hiện tại. Chặn (cảnh báo) nếu preset chưa có field rule hợp lệ nào.
      * @param {string} id @param {'song'|'video'|'photo'} source
@@ -203,7 +218,7 @@ const workflowPlaylistFilterPresets = {
         workflowPlaylistScope.askReloadToApplyNow(t('playlistFilterPresetsDrawer.reloadPrompt')); // liên tuyến domain, event/workflow/playlist-scope.js
     },
 
-    /** 'playlistFilterPresets.unselect.click' / quickUnselect — gỡ preset active của `source` (không xoá preset) + reload.
+    /** Bỏ chọn (unselectEditing / quickUnselect) — gỡ preset active của `source` (không xoá preset) + reload.
      * @param {'song'|'video'|'photo'} source */
     async unselectPreset(source) {
         this._clearActiveState(source);
@@ -213,9 +228,9 @@ const workflowPlaylistFilterPresets = {
         window.location.reload();
     },
 
-    /** 'playlistFilterPresets.delete.click' — xoá preset đang sửa, back() về danh sách (pop ngăn xếp + giữ cuộn). @param {string} id */
-    async deletePreset(id) {
-        await this._deletePresetById(id, this._editingSource);
+    /** 'playlistFilterPresets.delete.click' — xoá preset đang sửa, back() về danh sách (pop ngăn xếp + giữ cuộn). */
+    async deleteEditing() {
+        await this._deletePresetById(this._editingId, this._editingSource);
         workflowAppSettings.back(); // liên tuyến domain
     },
 
