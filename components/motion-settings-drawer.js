@@ -6,7 +6,7 @@
  * SỬA (24/09/2026, Giang yêu cầu) — nhóm "Áp dụng cho" (đăng ký nơi tiêu thụ) ở màn Edit ĐÃ XOÁ.
  *
  * 6 màn (mỗi màn 1 hàm render, tất cả điều hướng qua workflowAppSettings.navigateTo(), xem
- * event/workflow/app-settings.js + event/workflow/motion-presets.js):
+ * event/workflow/app-settings.js + event/workflow/motion-presets.js; tương tác qua event/listener/motion-presets.js):
  *   1. `renderMotionListBody(presets)` — danh sách preset, tap = sửa, nút xoá nhanh mỗi dòng.
  *   2. `renderMotionEditBody(preset)` — sửa 1 preset: Transition + Point Move (thay Ken Burns, xem
  *      core/motion-presets.js) + React Beat Audio + "Quản lý" (đổi tên/Reset/Xoá).
@@ -455,8 +455,8 @@ function renderPointMoveFieldRows(key, field, cfg) {
                         <input type="range" data-ptmove-range="max" data-suffix="${cfg.suffix}" id="setting-ptmove-${key}-rangemax" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.rangeMax}" class="ptmove-range-input">
                     </div>`;
     // MỚI (phản hồi Giang — ô nhập số type=number sync 2 chiều với slider) — single mode: 1 ô; range
-    // mode: 2 ô (min/max), cùng min/max/step với slider tương ứng (validate JS ở event/workflow/
-    // app-settings.js — kẹp biên trước khi gửi qua eventBus).
+    // mode: 2 ô (min/max), cùng min/max/step với slider tương ứng (kẹp biên ở event/workflow/
+    // motion-presets.js::commitPointMoveNumberInput()).
     // MỚI LẦN 2 (phản hồi Giang — `inputmode="decimal"` fix được bàn phím full nhưng bàn phím decimal
     // của iOS KHÔNG có phím trừ, field cho phép âm (boundMin<0 — CẢ 6 field Point Move) không gõ được
     // số âm nữa) — thêm nút "±" nhỏ cạnh MỖI ô input thuộc field cho phép âm, bấm để ĐẢO DẤU giá trị
@@ -524,7 +524,7 @@ function renderPointMoveEditBody(pointMove) {
  * TAP (không kéo) vào 1 node mở modal nhập số chính xác, xem event/workflow/motion-presets.js::
  * openPointMoveTimingNodeModal(). 2 nút zoom +/- CHỈ đổi CSS `transform:scaleX()` cục bộ theo trục
  * thời gian (KHÔNG lưu, KHÔNG qua eventBus — thuần view, giãn khoảng cách giữa các node để đỡ bấm/
- * kéo nhầm, xem event/workflow/app-settings.js::_renderPointMoveTiming()).
+ * kéo nhầm, xem event/workflow/motion-presets.js::stepPointMoveTimingZoom()).
  * @param {object[]} pointMoves - CHƯA dùng trực tiếp trong hàm này nữa (danh sách ô nhập số ĐÃ bỏ)
  *   — giữ tham số để chữ ký hàm ổn định, phòng cần lại sau này. */
 function renderPointMoveTimingBody(pointMoves) {
