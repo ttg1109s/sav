@@ -138,8 +138,19 @@ function buildLineCard(sub, uiState, callbacks) {
     if (krBtn) {
         krBtn.type = 'button';
         krBtn.title = t('subtitleEditor.line.btnKaraoke');
-        krBtn.className = 'sub-line-kr-btn px-2 h-7 flex items-center justify-center rounded-full bg-fuchsia-500/15 hover:bg-fuchsia-500/25 text-fuchsia-400 text-[11px] font-bold transition-colors' + (isBlockedByOtherEdit ? ' pointer-events-none opacity-40' : '');
+        krBtn.className = 'sub-line-kr-btn relative px-2 h-7 flex items-center justify-center rounded-full bg-fuchsia-500/15 hover:bg-fuchsia-500/25 text-fuchsia-400 text-[11px] font-bold transition-colors' + (isBlockedByOtherEdit ? ' pointer-events-none opacity-40' : '');
         krBtn.textContent = 'kr';
+        // MỚI (30/09/2026, yêu cầu Giang) — dòng ĐANG có karaoke (đã Áp dụng, `sub.karaoke` là mảng) ->
+        // thêm dấu tích xanh ở góc trên-phải nút "kr"; Bỏ áp dụng (karaoke về null) -> không dựng dấu.
+        // Không cần so khớp text ở đây: sửa chữ lệch timing đã tự reset `karaoke` về null (Workflow
+        // applyLineEdit()). Style inline — không thêm class Tailwind mới (tailwind.css build sẵn).
+        if (Array.isArray(sub.karaoke) && sub.karaoke.length > 0) {
+            const appliedBadge = document.createElement('span');
+            appliedBadge.className = 'sub-line-kr-applied';
+            appliedBadge.style.cssText = 'position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:9999px;background:#10b981;border:2px solid #0b0f1a;display:flex;align-items:center;justify-content:center;pointer-events:none';
+            appliedBadge.innerHTML = CHECK_ICON_SVG.replace('h-3.5 w-3.5', 'text-white').replace('<svg ', '<svg style="width:8px;height:8px" ');
+            krBtn.appendChild(appliedBadge);
+        }
         actionsWrap.appendChild(krBtn);
     }
 
