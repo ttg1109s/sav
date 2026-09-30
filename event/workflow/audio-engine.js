@@ -10,6 +10,8 @@
  *                            Gọi lại nhiều lần/nhiều nguồn an toàn (Song/Video/Photo/VBG Video đều gọi).
  *   - `ensurePitchWorker()`— thay `initPitchWorker()`.
  *   - `requestPitch()`     — thay `requestPitchDetection()` (event/workflow/audio-analysis.js gọi mỗi frame).
+ *   - `setVolume()`        — (01/10/2026) thay `setVolume()` core cũ; âm lượng tách khỏi phân tích (volumeGainNode).
+ *   - `discardPendingPitch()` — (01/10/2026) bỏ hồi đáp pitch của bài cũ khi đổi bài.
  *
  * `workflowVisualizerRender.start()` nay do Workflow này gọi (Workflow gọi Workflow — hợp lệ), hết ngoại lệ
  * "Core gọi Workflow" duy nhất từng ghi ở readme/event-bus-flow.md mục 1.
@@ -51,21 +53,22 @@ const workflowAudioEngine = {
         this._songSourceNode = sourceNode;
         const analyser = createAnalyserNode(audioContext, APP_CONFIG.fftSizeStandard); // core
         const analyserPitch = createAnalyserNode(audioContext, APP_CONFIG.fftSizePitch); // core
-        const masterGainNode = createGainNode(audioContext, vizCfg.volume / 100); // core
+        const masterGainNode = createGainNode(audioContext, 1); // core — cổng seek (câm cả loa lẫn phân tích), bình thường = 1
+        const volumeGainNode = createGainNode(audioContext, vizCfg.volume / 100); // core — CHỈ nhánh ra loa (01/10/2026)
         const eq = buildPeakingEqChain(audioContext, sourceNode, EQ_FREQS); // core
         // Preset EQ nạp lúc boot (workflowEqPresets.loadPresetsOnBoot()) — luôn xong trước lượt phát đầu tiên; không
         // khớp id nào (chưa nạp kịp/đã xoá) thì EQ phẳng.
         const activePreset = findEqPresetById(appState.get('eqPresets'), vizCfg.eqPresetId); // core/eq-presets.js
         applyEqGains(eq.filters, activePreset ? activePreset.gains : EQ_FLAT_GAINS); // core/eq-presets.js
-        wireAudioOutputGraph(eq.outputNode, masterGainNode, analyser, analyserPitch, audioContext.destination); // core
-        this._commitGraphState(audioContext, analyser, analyserPitch, masterGainNode, eq.filters);
+        wireAudioOutputGraph(eq.outputNode, masterGainNode, volumeGainNode, analyser, analyserPitch, audioContext.destination); // core
+        this._commitGraphState(audioContext, analyser, analyserPitch, masterGainNode, volumeGainNode, eq.filters);
         this.ensurePitchWorker();
         workflowVisualizerRender.start(); // event/workflow/visualizer-render.js — cần analyser đã có trong state
         updateDOMBackground(); // core/color-utils.js
     },
 
     /** Ghi các node vào state — PHẢI trước `workflowVisualizerRender.start()` (start() đọc `analyser`). */
-    _commitGraphState(audioContext, analyser, analyserPitch, masterGainNode, eqBandNodes) {
+    _commitGraphState(audioContext, analyser, analyserPitch, masterGainNode, volumeGainNode, eqBandNodes) {
         appState.set('audioContext', audioContext);
         console.log(`writer: "workflowAudioEngine._commitGraphState", page: "audioContext", content: "AudioContext mới (${audioContext.sampleRate} Hz)"`);
         appState.set('analyser', analyser);
@@ -73,9 +76,34 @@ const workflowAudioEngine = {
         appState.set('analyserPitch', analyserPitch);
         console.log(`writer: "workflowAudioEngine._commitGraphState", page: "analyserPitch", content: "fftSize ${analyserPitch.fftSize}"`);
         appState.set('masterGainNode', masterGainNode);
-        console.log(`writer: "workflowAudioEngine._commitGraphState", page: "masterGainNode", content: "gain ${masterGainNode.gain.value}"`);
+        console.log(`writer: "workflowAudioEngine._commitGraphState", page: "masterGainNode", content: "gain ${masterGainNode.gain.value} (cổng seek)"`);
+        appState.set('volumeGainNode', volumeGainNode);
+        console.log(`writer: "workflowAudioEngine._commitGraphState", page: "volumeGainNode", content: "gain ${volumeGainNode.gain.value}"`);
         appState.set('eqBandNodes', eqBandNodes);
         console.log(`writer: "workflowAudioEngine._commitGraphState", page: "eqBandNodes", content: "${eqBandNodes.length} dải"`);
+    },
+
+    // ===================== Âm lượng =====================
+
+    /**
+     * Ứng với 'visualizerDisplay.volume.input' (Volume HUD). THAY `setVolume()` core cũ (core/visualizer/visualizer-display.js,
+     * đã xoá 01/10/2026 — R2 tự appState.get, ghi thẳng masterGainNode). Âm lượng giờ nằm ở `volumeGainNode` — node CHỈ có
+     * trên nhánh ra loa, nên phân tích audio không đổi theo volume.
+     * @param {string|number} value - 0..100
+     */
+    setVolume(value) {
+        appConfigViz.mutateAll((cfg) => { cfg.volume = parseInt(value, 10); });
+        const volume = appConfigViz.getAll().volume;
+        console.log(`writer: "workflowAudioEngine.setVolume", page: "vizConfig", content: "volume=${volume}"`);
+        this._applyVolumeGain(appState.get('volumeGainNode'), volume);
+        saveConfig(); // core/config.js
+        syncVolumeHudIcon(volume); // core/hud.js — icon loa Volume HUD khớp dù đổi âm lượng từ đâu
+    },
+
+    /** Chưa có audio graph (chưa phát lần nào) -> bỏ qua; lượt dựng graph đầu tiên tự đọc volume từ config. */
+    _applyVolumeGain(volumeGainNode, volume) {
+        if (!volumeGainNode) return;
+        volumeGainNode.gain.value = volume / 100;
     },
 
     /** Đã có context (mọi lượt phát sau lượt đầu): resume nếu 'suspended'/'interrupted' (iOS), không thì no-op. */
@@ -119,6 +147,17 @@ const workflowAudioEngine = {
     _onPitchReply(data) {
         this._acceptPitchFrequency(data.frequency, data.reqId);
         appState.set('pitchWorkerBusy', false); // hot path — không log
+    },
+
+    /**
+     * Đổi bài/video (event/workflow/audio-analysis.js::resetForNewMedia()): mọi hồi đáp đang "bay" của bài CŨ phải bị bỏ —
+     * trước đây chỉ đặt `latestPitchFrequency = -1` nên hồi đáp cũ về sau vẫn được nhận, nốt bài cũ hiện ~250 ms (lỗi 4,
+     * 01/10/2026). Nâng mốc reqId lên trên mọi request đã gửi; request kế tiếp (= mốc mới) vẫn được nhận.
+     */
+    discardPendingPitch() {
+        this._latestPitchReqId = this._pitchReqCounter + 1;
+        appState.set('latestPitchFrequency', -1);
+        console.log(`writer: "workflowAudioEngine.discardPendingPitch", page: "latestPitchFrequency", content: "-1 (bỏ hồi đáp tới reqId ${this._pitchReqCounter})"`);
     },
 
     /** Hồi đáp CŨ hơn hồi đáp đã nhận (về trễ, sai thứ tự) -> bỏ. */

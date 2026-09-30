@@ -227,15 +227,16 @@ const workflowPlayerControls = {
         });
     },
 
-    /** Mute/mở tiếng `masterGainNode` cho cổng seek (v1 — đã xác nhận có hiệu lực, gain=0 trong log). Mở tiếng khôi phục ĐÚNG
-     * âm lượng đang cấu hình (`appConfigViz.volume`), mở dần 30ms. Chưa có audio graph -> no-op. @param {boolean} muted */
+    /** Mute/mở tiếng `masterGainNode` cho cổng seek (v1 — đã xác nhận có hiệu lực, gain=0 trong log). SỬA 01/10/2026: âm
+     * lượng người dùng đã tách sang `volumeGainNode` (event/workflow/audio-engine.js) nên master chỉ còn là CỔNG — mở tiếng
+     * về 1 (không còn đọc `appConfigViz.volume`), mở dần 30ms. Chưa có audio graph -> no-op. @param {boolean} muted */
     _setMasterGainForSeekGate(muted) {
         const { masterGainNode, audioContext } = appState.get(['masterGainNode', 'audioContext']);
         if (!masterGainNode || !audioContext) return;
         const now = audioContext.currentTime;
         masterGainNode.gain.cancelScheduledValues(now);
         masterGainNode.gain.setValueAtTime(0, now);
-        if (!muted) masterGainNode.gain.linearRampToValueAtTime(appConfigViz.getAll().volume / 100, now + SEEK_GATE_UNMUTE_RAMP_SEC);
+        if (!muted) masterGainNode.gain.linearRampToValueAtTime(1, now + SEEK_GATE_UNMUTE_RAMP_SEC);
     },
 
     /** Ứng với 'playerControls.audio.timeupdate'. Lúc cổng seek v3 đang nạp lại nguồn, currentTime tạm về 0 -> bỏ qua để

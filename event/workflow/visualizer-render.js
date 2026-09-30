@@ -85,7 +85,7 @@ const workflowVisualizerRender = {
     start() {
         taskManager.kill(RENDER_TASK);
         this._renderActive = false;
-        this.allocateAnalysisBuffers(); // thay allocateBuffers() (core cũ, từng được gọi ngay trước start())
+        this.allocateVizSpectrumBuffer(); // phổ VẼ theo FFT effect hiện tại (bộ đệm phân tích: workflowAudioAnalysis.start())
         this.rebuildCanvasScenes(); // thay resizeCanvas() cũ (từng được gọi ngay trước start())
         workflowAudioAnalysis.start(); // event/workflow/audio-analysis.js
     },
@@ -134,15 +134,18 @@ const workflowVisualizerRender = {
     // ===================== Sự kiện media / khung nhìn =====================
 
     /** Phát hiện media vừa SEEK (mọi nguồn: kéo thanh seek, cử chỉ, Media Session, đổi bài, tab ẩn rồi hiện lại)
-     * — task phân tích gọi mỗi frame. Photo Player mode bỏ qua (không có audio/seek thật). */
+     * — task phân tích gọi mỗi frame. Photo Player mode bỏ qua (không có audio/seek thật).
+     * SỬA 01/10/2026: trả kết quả để task phân tích ngắt đường bao tempo (workflowAudioAnalysis._breakOnSeek()).
+     * @returns {boolean} */
     _detectMediaSeek(isVideoPlayerMode, isPhotoPlayerMode) {
-        if (isPhotoPlayerMode) return;
+        if (isPhotoPlayerMode) return false;
         const media = isVideoPlayerMode ? bgVideoElement : audioPlayer;
         const t = media.currentTime;
         const isSeek = media.seeking || media !== this._seekLastMedia || Math.abs(t - this._seekLastTime) > SEEK_JUMP_THRESHOLD_SEC;
         this._seekLastMedia = media;
         this._seekLastTime = t;
         this._notifySeek(isSeek);
+        return isSeek;
     },
 
     _notifySeek(isSeek) {
@@ -153,6 +156,7 @@ const workflowVisualizerRender = {
     /** MỚI (Phase 3) — đổi bài/video: báo mọi group dọn trạng thái theo bài (thay các lời gọi thẳng
      * `resetConnectorPerTrackState()` rải ở event/workflow/player.js + video-player.js). */
     resetForNewMedia() {
+        workflowAudioAnalysis.resetForNewMedia(); // event/workflow/audio-analysis.js — MỚI 01/10/2026: số liệu phân tích theo bài, chung Song + Video
         this._broadcast('onNewMedia');
     },
 
@@ -220,17 +224,17 @@ const workflowVisualizerRender = {
         const analyser = appState.get('analyser');
         if (!analyser) return;
         setAnalyserFftSize(analyser, needsHighResFft(groupName, style) ? APP_CONFIG.fftSizeHighRes : APP_CONFIG.fftSizeStandard); // core/audio-engine.js
-        this.allocateAnalysisBuffers();
+        this.allocateVizSpectrumBuffer();
     },
 
-    /** MỚI (Phase 5, THAY allocateBuffers() core cũ) — cấp phát lại 3 bộ đệm phân tích theo FFT hiện tại. Chưa có
-     * AudioContext -> bỏ qua. */
-    allocateAnalysisBuffers() {
-        const { analyser, analyserPitch } = appState.get(['analyser', 'analyserPitch']);
-        if (!analyser || !analyserPitch) return;
-        const buffers = createAnalysisBuffers(analyser.frequencyBinCount, analyserPitch.fftSize); // core/canvas-scene-setup.js
-        Object.keys(buffers).forEach((key) => appState.set(key, buffers[key]));
-        console.log(`writer: "workflowVisualizerRender.allocateAnalysisBuffers", page: "vizDataArray/previousSpectrumArray/pitchTimeDomainArray", content: "${analyser.frequencyBinCount} bin"`);
+    /** Cấp phát lại phổ VẼ (`vizDataArray`) theo FFT effect hiện tại. Chưa có AudioContext -> bỏ qua.
+     * SỬA 01/10/2026 (thay allocateAnalysisBuffers()): phổ phân tích + baseline flux + sóng pitch giờ theo analyser
+     * PHÂN TÍCH cố định, do workflowAudioAnalysis.allocateBuffers() cấp 1 lần — đổi effect không còn làm mất baseline. */
+    allocateVizSpectrumBuffer() {
+        const analyser = appState.get('analyser');
+        if (!analyser) return;
+        appState.set('vizDataArray', new Uint8Array(analyser.frequencyBinCount));
+        console.log(`writer: "workflowVisualizerRender.allocateVizSpectrumBuffer", page: "vizDataArray", content: "${analyser.frequencyBinCount} bin"`);
     },
 
     /** MỚI (Phase 5) — renderer WebGL dùng chung (Vortex + Connector): có rồi thì dùng lại, chưa có thì tạo với

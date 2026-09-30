@@ -283,11 +283,9 @@ const workflowPlayer = {
             if (!appState.get('domNodesByKey').has(key)) workflowPlaylistRender.renderPlaylistDiff();
             if (!switchScreen) workflowPlaylistRender.scrollToCurrentOrDefer();
             updatePlayButtonPlayingState(appState.get('currentKey'), appState.get('displayOrder')); // core/playlist/render.js — FIX (10/09/2026) Rule 2: Core nhận tham số, không tự appState.get()
-            appState.set('beatTimes', []); appState.set('fluxHistory', []); appState.set('currentCalculatedBpm', "---"); statBpm.textContent = "---"; statNote.textContent = "---";
-            // Reset trạng thái pitch worker — tránh hiện sót nốt nhạc của bài VỪA đổi trong vài
-            // chục ms đầu (worker là bất đồng bộ, kết quả cũ có thể vẫn đang "bay" lúc đổi bài).
-            appState.set('latestPitchFrequency', -1); appState.set('lastValidNoteStr', null); appState.set('lastValidNoteTime', 0); appState.set('lastValidMidiNote', null);
-            appState.set('rubikPitchHistory', []); appState.set('rubikPitchAvg', 0);
+            // (DỜI 01/10/2026: reset số liệu phân tích theo bài — flux/BPM/ô BPM+Pitch/pitch worker/rubikPitch* — sang
+            // workflowAudioAnalysis.resetForNewMedia(), gọi qua workflowVisualizerRender.resetForNewMedia() ngay dưới; dùng
+            // chung với nhánh Video. `beatTimes` bỏ hẳn — BPM nay tính ở core/audio-tempo.js.)
             appState.set('raindrops', []); appState.set('ripples', []); appState.set('glassStaticDrops', []); appState.set('glassStreaks', []); appState.set('activeLightnings', []); // (starFlashes — ĐÃ BỎ 29/09/2026, chớp sao Black Hole bỏ hẳn)
             workflowVisualizerRender.resetForNewMedia(); // event/workflow/visualizer-render.js — SỬA 28/09/2026 (thay resetConnectorPerTrackState() gọi thẳng): mọi group dọn trạng thái theo bài (connector: tia/tín hiệu còn bay dở)
             workflowAudioEngine.setup(); workflowVisualizerRender.activateCurrentStyle(); // SỬA 01/10/2026 — thay setupAudioContext() (core cũ, đã xoá)
