@@ -274,42 +274,8 @@ function handlePlaylistSortPanelChange(e) {
     eventBus.send({ router: 'playlist', type: entry.type, payload: { [entry.payloadKey]: e.target.value } });
 }
 
-// ===================== Field rule Filter (delegate chung trên genericDrawerBody) =====================
-// Control mang data-filter-field/data-filter-prop (components/playlist-filter-drawer.js). Khối chứa mang
-// `data-filter-owner` quyết định router đích: màn Edit preset hoặc màn "Cài đặt filter" của folder — 2 màn
-// cùng markup nên PHẢI tách theo owner, không thì 1 thao tác bị xử lý ở cả 2 nơi. Nút time-picker
-// (data-filter-time-trigger) là 'click' thật; checkbox 'enabled' chỉ nghe 'change'; op/mode/value/valueTo
-// không nghe 'click'.
-const FILTER_EDIT_TARGET_BY_OWNER = {
-    preset: { router: 'playlistFilterPresets', prefix: 'playlistFilterPresets' },
-    folder: { router: 'fileManagerFolderBrowser', prefix: 'fileManagerFolderBrowser.filterEdit' },
-};
-
-function handlePlaylistFilterPanelEvent(e) {
-    const el = e.target.closest('[data-filter-field]');
-    if (!el) return;
-    const { filterField: field, filterProp: prop } = el.dataset;
-    if (!field || !prop) return;
-    const ownerEl = el.closest('[data-filter-owner]');
-    const target = ownerEl && FILTER_EDIT_TARGET_BY_OWNER[ownerEl.dataset.filterOwner];
-    if (!target) return;
-    if (el.hasAttribute('data-filter-time-trigger')) {
-        if (e.type !== 'click') return;
-        eventBus.send({ router: target.router, type: `${target.prefix}.openTimePicker.click`, payload: { field, prop } });
-        return;
-    }
-    if (prop === 'enabled' && e.type !== 'change') return;
-    if (prop !== 'enabled' && e.type === 'click') return;
-    const value = prop === 'enabled' ? el.checked : el.value;
-    eventBus.send({ router: target.router, type: `${target.prefix}.field.change`, payload: { field, prop, value } });
-}
-
 if (genericDrawerBody) { // SỬA (đợt tái cấu trúc bottom nav) — settingsStackBody nay thuộc Photo, nội dung này sống trong genericDrawerBody
     genericDrawerBody.addEventListener('change', handlePlaylistSortPanelChange);
-    genericDrawerBody.addEventListener('change', handlePlaylistFilterPanelEvent);
-    genericDrawerBody.addEventListener('input', handlePlaylistFilterPanelEvent);
-    // 'click' — nút mở time-picker của field thời lượng
-    genericDrawerBody.addEventListener('click', handlePlaylistFilterPanelEvent);
 }
 
 if (playlistSearchInput) {
