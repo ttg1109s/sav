@@ -232,14 +232,8 @@
 
         // XOÁ 23/09/2026: setThemeSolidColor() — nền Solid đã bỏ (Giang: thay bằng None, không dùng nền).
 
-        /** Âm lượng tổng (masterGainNode). msg.type 'visualizerDisplay.volume.input'. @param {string} value */
-        function setVolume(value) {
-            appConfigViz.mutateAll(cfg => { cfg.volume = parseInt(value); });
-            const volume = appConfigViz.getAll().volume;
-            if(appState.get('masterGainNode')) appState.get('masterGainNode').gain.value = volume / 100; saveConfig();
-            // Icon loa Volume HUD (core/hud.js) luôn khớp dù đổi âm lượng từ đâu.
-            if (typeof syncVolumeHudIcon === 'function') syncVolumeHudIcon(volume);
-        }
+        // XOÁ 01/10/2026: setVolume() — R2 (tự appState.get), ghi thẳng masterGainNode. Nay workflowAudioEngine.setVolume()
+        // (event/workflow/audio-engine.js) ghi volumeGainNode — âm lượng tách khỏi phân tích audio.
 
         // setEQMode(value) ĐÃ XOÁ HẲN (đổi 'eqMode' cũ + updateEQSlidersUI() UI tĩnh cũ) — THAY
         // bằng workflowEqPresets.cyclePreset()/selectPresetForEdit() (event/workflow/eq-presets.js).
