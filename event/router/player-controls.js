@@ -287,7 +287,7 @@ const routerPlayerControls = (() => {
                         workflowVideoPlayer.handleVideoSeeking(value);
                     } },
                     { state: mode, operation: '===', value: 'song', callback: () => {
-                        handleProgressBarSeeking(value);
+                        workflowPlayerControls.handleSongSeeking(value); // + phụ đề theo vị trí kéo
                     } },
                 ]);
                 break;
