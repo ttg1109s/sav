@@ -1,113 +1,41 @@
 /**
- * core/file-manager/folder.js — Folder nhạc (File Manager → Song → Folder), ver 12 "Multi Media".
- * Toàn bộ function MỚI ở file này viết từ đầu theo plan-v12-multimedia.md mục 4.b1 — tuân 4 rule
- * ở core-function-conventions.md.
+ * core/file-manager/folder.js — nghiệp vụ Folder (Song/Video/Photo).
  *
- * GHI CHÚ THIẾT KẾ (đọc trước khi sửa file này): các hàm CRUD thô định nghĩa ở service/db.js
- * (getFolderRecord/setFolderRecord/deleteFolderRecord/getAllFolderKeys,
- * getFolderSongMap/setFolderSongMap/deleteFolderSongMap) được coi là TẦNG DỮ LIỆU thuần (tương
- * đương idbKeyval.get/set/del dùng trực tiếp khắp project) — KHÔNG tính là "core khác" theo Rule 3
- * (core-function-conventions.md). Rule 3 nhắm tới việc 1 hàm core MỚI gọi 1 hàm core NGHIỆP VỤ
- * khác (có thể là workflow-shaped) mà không dùng kết quả — không nhắm tới việc gọi thẳng hàm CRUD
- * đọc/ghi 1 record IndexedDB. Nhờ vậy, các hàm dưới đây được phép tự đọc/ghi nhiều record trong
- * CÙNG 1 hàm nếu đó là ĐÚNG 1 tiến trình nghiệp vụ duy nhất (Rule 1) — ví dụ deleteFolder() đọc +
- * ghi nhiều record `songs` để dọn field `folder[folderId]` TRƯỚC khi xoá `folder_song`/`folders`,
- * vẫn là 1 tiến trình "xoá 1 folder", không phải nhiều tiến trình khác nhau.
+ * CRUD thô ở service/db.js (getFolderRecord/setFolderRecord/deleteFolderRecord/getAllFolderKeys,
+ * getFolderSongMap/setFolderSongMap/deleteFolderSongMap, get/set*Record, getMeta/setMeta) là TẦNG DỮ
+ * LIỆU — gọi thẳng không tính là "core gọi core" (Rule 3). Mỗi hàm dưới đây vẫn đúng 1 tiến trình (Rule 1).
  *
- * Schema (CHỐT — xem plan-v12-multimedia.md mục 4.b1):
+ * Schema:
  *   folders     : { [folderId]: { id, name, type, excludeFromMainPlaylist, isReadOnly, applyFilter, filterConfig } }
- *   folder_song : { [folderId]: { list: [songKey|null, ...], empty: number } } — tombstone null
- *                 khi gỡ bài khỏi folder, KHÔNG splice (giữ nguyên index/position).
+ *     - type: 'song'|'video'|'photo', gán lúc tạo. Folder cũ có thể `type` null -> đọc là 'song'.
+ *     - excludeFromMainPlaylist (Hidden, vắng = false): item bị loại khỏi view "Tất cả" và khỏi picker
+ *       chọn ảnh/video; không ảnh hưởng view Scope của chính folder đó.
+ *     - isReadOnly (vắng = false): chặn thêm/gỡ item + đổi tên; KHÔNG chặn xoá folder.
+ *     - applyFilter (vắng = TRUE — đọc bằng `!== false`) + filterConfig (null = chưa cấu hình, cùng
+ *       shape `playlistFilterConfig[mediaType]`) — công thức áp: event/workflow/playlist-scope.js::applyFolderScope().
+ *   folder_song : { [folderId]: { list: [key|null, ...], empty: number } } — gỡ item = tombstone null
+ *                 (không splice, giữ nguyên vị trí).
+ *   record media: record.folder = { [folderId]: position } — vị trí của item trong folder_song.list.
+ *   meta.folderIndex      : { song: [], video: [], photo: [] } — folderId gom sẵn theo type, duy trì
+ *                           bởi createFolder()/deleteFolder(); build 1 lần bởi migrateFolderIndexIfNeeded().
+ *   meta.deletedFolderIds : id đã từng bị xoá — không bao giờ cấp lại (xem resolveFolderId()).
  *
- * MỚI (hợp nhất Photo vào Playlist, CHỐT Giang — "sửa theo cấu trúc {song:{list folder}, video:{},
- * photo:{}} để O(1) list folder, khỏi phải logic") —
- *   meta.folderIndex : { song: string[], video: string[], photo: string[] } — folderId GOM SẴN
- *                 theo type, DUY TRÌ TĂNG DẦN (createFolder() thêm/deleteFolder() bớt), KHÔNG BAO
- *                 GIỜ quét lại toàn bộ `folders` để tự suy luận nữa (trừ đúng 1 lần migrate dữ liệu
- *                 cũ, xem migrateFolderIndexIfNeeded() cuối file, gọi 1 LẦN lúc boot). `listFolders
- *                 (type)` giờ đọc THẲNG `folderIndex[type]` — O(số folder ĐÚNG type đó), không còn
- *                 quét+lọc O(tổng mọi type) như bản cũ. `addSongsToFolder()` theo đó BỎ HẲN bước
- *                 validate/rẽ nhánh typeMismatch — UI chỉ bao giờ đưa vào ĐÚNG folder cùng type
- *                 (đọc từ `folderIndex[activeMediaSource]`), không còn khả năng lệch type để phải
- *                 phòng.
- *
- * MỚI (ver12 "Song/Video Unification", Batch 4, xem plan-v12-song-video-unification.md mục 5) —
- * 2 field MỚI trên record `folders`:
- *   - `type: 'song'|'video'|'photo'` — CHỐT LẠI (hợp nhất Photo vào Playlist, "cho phép trùng tên,
- *     định danh = folder name + type") — type giờ gán NGAY LÚC TẠO (Playlist source nào đang active
- *     lúc tạo folder thì gán type đó, xem resolveFolderId()/createFolder()), KHÔNG còn khái niệm
- *     "chưa xác định (null), khoá dần theo item đầu tiên thêm vào" của bản CŨ. Folder TẠO TRƯỚC thay
- *     đổi này có thể vẫn còn `type: null`/undefined — nơi ĐỌC field này PHẢI tự suy luận ngầm
- *     `type || 'song'` (xem addSongsToFolder()) — KHÔNG cần migration/backfill DB riêng.
- *   - `excludeFromMainPlaylist: boolean` (default false, field vắng mặt = false) — Scope vs
- *     Exclude (mục 5): CHỈ ảnh hưởng view "Tất cả" (core/playlist/scope.js::loadAllSongs()), không
- *     đụng gì view Scope theo 1 folder cụ thể (List step, event/workflow/playlist-scope.js, chỉ
- *     đọc key thuộc folder đó, không quan tâm field này).
- *   songs (field mới trên record có sẵn) : record.folder = { [folderId]: position (number) } —
- *                 sự TỒN TẠI của key folderId đã đủ biết "từng thêm vào folder này chưa"; trạng
- *                 thái đang-ở-trong hay đã-gỡ đọc thẳng từ folder_song[folderId].list[position].
- *   meta.deletedFolderIds : string[] — MỚI (03/07/2026, đợt 5). Danh sách folderId ĐÃ TỪNG bị xoá,
- *                 dùng để KHÔNG BAO GIỜ cấp lại (xem resolveFolderId()) — chặn bug tham chiếu cũ
- *                 (record.folder[folderId] còn sót trên bài đã tombstone-rồi-folder-bị-xoá) đọc
- *                 nhầm sang 1 folder MỚI trùng id.
- *
- * MỚI (Giang yêu cầu — folder tự quyết áp dụng Filter hay không, "như lãnh chúa có quyền bật/tắt
- * nghe theo filter") — 2 field MỚI trên record `folders`:
- *   - `applyFilter: boolean` (mặc định `true`, field vắng mặt = `true` — NGƯỢC CHIỀU 2 field trên,
- *     đọc bằng `record.applyFilter !== false`, KHÔNG được `!!record.applyFilter`) — `false` = folder
- *     này CÃI LỆNH, không bị Filter tổng hay Filter riêng nào áp cả, bất kể `filterConfig` gì.
- *   - `filterConfig: object|null` (mặc định `null`) — bộ rule filter RIÊNG của folder này, CÙNG
- *     shape `playlistFilterConfig[mediaType]` (core/playlist/filter.js đọc thẳng được). `applyFilter
- *     =true` + `filterConfig` có ít nhất 1 field bật (`hasValidPlaylistFilterField()`, core/
- *     playlist/filter-presets.js) -> dùng `filterConfig` NÀY, KHÔNG quan tâm Filter tổng/checkbox
- *     "Có áp dụng cho thư mục" đang gì. `applyFilter=true` + `filterConfig` rỗng/null/không field
- *     nào hợp lệ (CHƯA tự cấu hình gì) -> hỏi tới checkbox preset "Có áp dụng cho thư mục hay
- *     không" (`playlistFilterAppliesToFolder[mediaType]`, service/state/playlist.js): bật -> mượn
- *     TẠM Filter tổng đang sống (`playlistFilterConfig[mediaType]`, appState); tắt -> KHÔNG áp gì
- *     — xem event/workflow/playlist-scope.js::applyFolderScope() cho công thức đầy đủ 3 nhánh.
- *
- * NẠP SAU: service/db.js (cần mọi hàm CRUD kể trên + slugify() dùng chung cho resolveFolderId),
- * event/virtual-machine-state.js (addSongsToFolder() dùng VirtualMachineState.run() để chọn đúng
- * hàm theo trạng thái thành viên — chỉ tham chiếu BÊN TRONG thân hàm, không chạy lúc parse, nên
- * an toàn dù event/virtual-machine-state.js nạp SAU file này trong index.html thật, giống cách
- * nhiều file core khác tham chiếu hàm định nghĩa muộn hơn).
+ * NẠP SAU: service/db.js. addSongsToFolder() dùng VirtualMachineState (event/virtual-machine-state.js)
+ * lúc chạy — nạp sau file này vẫn an toàn.
  */
 
 /**
- * Sinh folderId DUY NHẤT từ tên folder + type, tái dùng slugify() đã có ở db.js (cùng thuật toán
- * với resolveSongKey — KHÔNG trùng logic, chỉ đổi store kiểm tra tồn tại).
- *
- * MỞ RỘNG (CHỐT Giang — "cho phép trùng tên, định danh = folder name + type") — id CHÍNH THỨC gộp
- * LUÔN `type` vào base slug (`${slug}-${type}`), KHÔNG còn chỉ dựa vào tên — 2 folder CÙNG TÊN
- * nhưng KHÁC type (vd "Yêu thích" cho Song và "Yêu thích" cho Photo) tự nhiên nhận 2 id khác nhau
- * ngay từ bước sinh id, không cần thêm cơ chế phân biệt nào khác ở tầng trên. Folder TẠO TRƯỚC thay
- * đổi này (id KHÔNG có hậu tố type) KHÔNG bị đụng tới — id là khoá tra cứu nội bộ, không cần khớp
- * quy ước mới để tiếp tục hoạt động đúng.
- *
- * SỬA 03/07/2026 (đợt 5) — THÊM điều kiện thứ 2: id ứng viên KHÔNG được nằm trong
- * `meta.deletedFolderIds` (danh sách id đã TỪNG bị xoá, dù hiện không còn record `folders` nào).
- * LÝ DO: `deleteFolder()` chỉ dọn được `record.folder[folderId]` cho bài ĐANG active trong folder
- * lúc xoá (không thể biết bài nào đã bị TOMBSTONE trước đó — folder_song.list đã null hoá, mất
- * dấu vết songKey). Nếu 1 folderId bị tái sử dụng (folder mới trùng tên -> trùng slug), bài từng
- * bị tombstone-rồi-folder-bị-xoá vẫn còn `record.folder[folderId] = vị trí cũ` sống sót trên chính
- * record của nó — đọc nhầm sang `folder_song` MỚI (rỗng) sẽ bị hiểu sai thành 'active' (vì
- * `list[vị trí cũ]` ở mảng rỗng là `undefined`, không phải `null`) -> addSongsToFolder() coi như
- * "đã có sẵn", bỏ qua, không thêm thật — đúng bug bác vừa phát hiện (TH1: báo thành công nhưng
- * folder vẫn rỗng). Cách sửa AN TOÀN NHẤT (không đổi schema `folders`/`folder_song` hiện có, không
- * cần quét toàn bộ thư viện bài — vẫn giữ deleteFolder() ở đúng O(số bài ĐANG có trong folder)):
- * KHÔNG BAO GIỜ cấp lại 1 id đã từng tồn tại, kể cả sau khi xoá — folder tạo lại cùng tên+type sẽ
- * nhận id khác (`...-2`, `...-3`...), y hệt cơ chế suffix có sẵn khi trùng tên+type với folder ĐANG
- * SỐNG.
+ * Sinh folderId duy nhất: `${slug}-${type}` (+ `-2`, `-3`... nếu trùng). Không cấp lại id nằm trong
+ * `meta.deletedFolderIds` — item từng bị tombstone trước khi folder bị xoá vẫn còn `record.folder[id]`
+ * cũ; tái dùng id sẽ khiến addSongsToFolder() đọc nhầm vị trí đó thành 'active'.
  * @param {string} name
  * @param {'song'|'video'|'photo'} type
  * @returns {Promise<string>}
  */
 async function resolveFolderId(name, type) {
-    const baseSlug = `${slugify(name) || 'folder'}-${type}`; // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
+    const baseSlug = `${slugify(name) || 'folder'}-${type}`;
     console.log(`[resolveFolderId] callTo: "slugify", request: "chuẩn hoá tên '${name}' + type '${type}' thành slug làm base cho id"`);
-    // SỬA (20/09/2026, tối ưu độ phức tạp) — `Set` dựng 1 lần (O(D)) để mỗi lần thử candidate chỉ tốn `.has()` O(1)
-    // — TRƯỚC ĐÂY `Array.includes()` O(D) MỖI vòng `while` => O(r·D) khi có r lần trùng id.
-    const deletedIds = new Set((await getMeta('deletedFolderIds')) || []); // data layer (service/db.js)
+    const deletedIds = new Set((await getMeta('deletedFolderIds')) || []); // data layer
     let candidate = baseSlug;
     let suffix = 2;
     while (true) {
@@ -118,40 +46,19 @@ async function resolveFolderId(name, type) {
 }
 
 /**
- * Tạo 1 folder mới rỗng — nhận `folderId` ĐÃ ĐƯỢC XÁC ĐỊNH SẴN qua tham số (nơi gọi tự
- * `resolveFolderId(name, type)` TRƯỚC, rồi gọi hàm này — 2 core TÁCH RỜI, Workflow tự gọi CẢ HAI theo
- * đúng thứ tự). 1 tiến trình duy nhất: kiểm tra trùng TÊN (không phải id — id lúc này CHẮC CHẮN
- * không trùng, đã tự `resolveFolderId()` đảm bảo) -> ghi metadata -> ghi mapping rỗng -> thêm vào
- * `folderIndex[type]` — nhánh "trùng tên -> dừng sớm" là guard clause (Rule 1 cho phép), KHÔNG phải
- * rẽ nhánh 2 tiến trình khác nhau.
- *
- * MỞ RỘNG (hợp nhất Photo vào Playlist, CHỐT Giang — "cấu trúc {song,video,photo} để O(1) list
- * folder") — trùng tên giờ đọc THẲNG `folderIndex[type]` (chỉ fetch record CÙNG type, không quét
- * toàn bộ `folders`) — O(số folder cùng type), không còn O(tổng mọi type) như bản trước. Tạo xong
- * PUSH folderId vào `folderIndex[type]`, ghi lại `meta.folderIndex` — đây là nơi DUY NHẤT
- * `folderIndex` được THÊM phần tử (đối xứng deleteFolder() là nơi DUY NHẤT bớt).
- * So khớp tên CASE-SENSITIVE (phân biệt hoa/thường): "abc" / "ABC" / "Abc" được coi là 3 tên KHÁC
- * NHAU, được phép cùng tồn tại (kể cả cùng type); CHỈ chặn khi trùng tuyệt đối từng ký tự (VÀ cùng
- * type).
- * @param {string} folderId - ĐÃ resolve sẵn qua `resolveFolderId(name, type)`.
+ * Tạo 1 folder rỗng với `folderId` đã resolve sẵn (Workflow gọi resolveFolderId() trước). Trùng tên
+ * (case-sensitive) trong cùng type -> 'duplicateName'. Tạo xong push id vào `folderIndex[type]`.
+ * @param {string} folderId
  * @param {string} name
  * @param {'song'|'video'|'photo'} type
  * @returns {Promise<{status: 'duplicateName'|'ok', folderId?: string}>}
  */
 async function createFolder(folderId, name, type) {
-    const folderIndex = (await getMeta('folderIndex')) || { song: [], video: [], photo: [] }; // data layer — fallback phòng hiếm khi migrate chưa kịp chạy
+    const folderIndex = (await getMeta('folderIndex')) || { song: [], video: [], photo: [] }; // data layer
     const sameTypeIds = folderIndex[type] || [];
     const sameTypeFolders = (await Promise.all(sameTypeIds.map((id) => getFolderRecord(id)))).filter(Boolean); // service/db.js
     if (sameTypeFolders.some(f => f.name === name)) return { status: 'duplicateName' };
 
-    // MỚI (06/09/2026, hợp nhất Folder vào Playlist, mục 4b) — `isReadOnly: false` mặc định. Folder
-    // TẠO TRƯỚC field này thiếu hẳn — nơi ĐỌC luôn qua `!!record.isReadOnly` (undefined -> false),
-    // cùng quy ước `excludeFromMainPlaylist` ngay dưới, không cần migrate dữ liệu cũ.
-    // MỚI (Giang yêu cầu "folder như lãnh chúa có quyền bật/tắt filter") — `applyFilter: true` mặc
-    // định (NGƯỢC chiều 2 field trên — vắng mặt = TRUE, không phải false — nơi ĐỌC PHẢI dùng
-    // `record.applyFilter !== false`, KHÔNG được `!!record.applyFilter`, xem event/workflow/
-    // playlist-scope.js::applyFolderScope()). `filterConfig: null` mặc định — chưa cấu hình field
-    // nào (mở màn "Cài đặt filter" lần đầu sẽ thấy TOÀN BỘ field tắt, giống filter tổng lúc trống).
     await setFolderRecord(folderId, { id: folderId, name, type, isReadOnly: false, applyFilter: true, filterConfig: null });
     await setFolderSongMap(folderId, { list: [], empty: 0 });
 
@@ -162,12 +69,7 @@ async function createFolder(folderId, name, type) {
 }
 
 /**
- * Đổi tên 1 folder đã có. Guard clause thuần (không tồn tại / trùng tên -> dừng sớm) — KHÔNG phải
- * rẽ nhánh tiến trình theo Rule 1.
- * MỞ RỘNG (hợp nhất Photo vào Playlist) — đọc `folderIndex[record.type]` (O(cùng type)) thay vì
- * `listFolders()` toàn bộ — cùng tối ưu đã áp dụng ở createFolder().
- * SỬA 03/07/2026 (đợt 6, điểm 4) — thêm guard chặn trùng tên (case-sensitive), TRỪ chính folder
- * đang đổi tên (đổi tên "về lại tên cũ y hệt" không tính là trùng với "chính nó").
+ * Đổi tên 1 folder. Trùng tên (case-sensitive) với folder KHÁC cùng type -> 'duplicateName'.
  * @param {string} folderId
  * @param {string} newName
  * @returns {Promise<{status: 'notFound'|'duplicateName'|'ok'}>}
@@ -187,22 +89,10 @@ async function renameFolder(folderId, newName) {
 }
 
 /**
- * Xoá 1 folder — thứ tự BẮT BUỘC theo plan mục 6 "Đã chốt": dọn field `folder[folderId]` khỏi
- * TỪNG bài đang có trong `list` TRƯỚC, xong mới xoá `folder_song`, cuối cùng xoá metadata `folders`.
+ * Xoá 1 folder: dọn `record.folder[folderId]` trên từng item đang có trong folder -> xoá folder_song
+ * -> xoá record folders -> bớt khỏi `folderIndex` (dò cả 3 nhóm) -> ghi vào `deletedFolderIds`.
  * @param {string} folderId
- * @returns {Promise<{status: 'notFound'|'ok'}>}
- */
-/**
- * SỬA (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — thêm tham số `mediaType`
- * ('song'|'video') — TRƯỚC ĐÂY hardcode `getSongRecord`/`setSongRecord`, khiến xoá 1 folder type
- * 'video' không dọn được field `record.folder[folderId]` trên record Video (record đó nằm ở store
- * KHÁC hẳn — `videos`, không phải `songs` — `getSongRecord()` trả `undefined` cho videoKey). Chọn
- * ĐÚNG hàm đọc/ghi service/db.js theo `mediaType` (data layer, ngoại lệ Rule 3) — KHÔNG rẽ nhánh
- * TỪNG item trong vòng lặp (1 folder LUÔN đúng 1 loại, chọn 1 LẦN trước vòng lặp là đủ).
- * MỞ RỘNG (hợp nhất Photo vào Playlist) — thêm nhánh 'photo' (store `images`).
- * @param {string} folderId
- * @param {'song'|'video'|'photo'} [mediaType] - mặc định 'song' (an toàn cho folder rỗng/type null
- *        — vòng lặp bên dưới khi đó cũng rỗng, không tham chiếu store nào).
+ * @param {'song'|'video'|'photo'} [mediaType] - chọn store record; vắng = 'song'.
  * @returns {Promise<{status: 'notFound'|'ok'}>}
  */
 async function deleteFolder(folderId, mediaType) {
@@ -212,15 +102,10 @@ async function deleteFolder(folderId, mediaType) {
     const getRecordFn = mediaType === 'video' ? getVideoRecord : mediaType === 'photo' ? getImageRecord : getSongRecord; // service/db.js
     const setRecordFn = mediaType === 'video' ? setVideoRecord : mediaType === 'photo' ? setImageRecord : setSongRecord; // service/db.js
 
-    // [TỰ SỬA 14/07/2026, tự audit lại Rule 3] — trước đây gọi getFolderSongKeys() (1 core KHÁC
-    // trong CÙNG file) rồi biện minh "có return value nên hợp lệ" — SAI theo đúng Rule 3 hiện hành
-    // (readme/core-function-conventions.md mục 3a: "không còn tiêu chí nào để hợp lệ hoá core gọi
-    // core"). Inline TRỰC TIẾP logic 1 dòng của getFolderSongKeys() (lọc tombstone null) tại đây,
-    // không gọi hàm đó nữa.
-    const songKeys = folderMap.list.filter((k) => k != null);
+    const songKeys = folderMap.list.filter((k) => k != null); // inline getFolderSongKeys() — Rule 3
     for (const songKey of songKeys) {
         const record = await getRecordFn(songKey);
-        if (!record || !record.folder) continue; // guard: record đã bị xoá/hỏng dữ liệu ở nơi khác — bỏ qua, không chặn xoá folder
+        if (!record || !record.folder) continue; // guard: record đã mất/hỏng — không chặn xoá folder
         delete record.folder[folderId];
         await setRecordFn(songKey, record);
     }
@@ -228,10 +113,6 @@ async function deleteFolder(folderId, mediaType) {
     await deleteFolderSongMap(folderId);
     await deleteFolderRecord(folderId);
 
-    // MỞ RỘNG (hợp nhất Photo vào Playlist) — bớt folderId khỏi `folderIndex[mediaType]` — đối
-    // xứng với bước "push vào index" ở createFolder(). Dò cả 3 nhóm thay vì chỉ đúng `mediaType`
-    // truyền vào — phòng trường hợp hiếm `mediaType` truyền sai/thiếu (mặc định 'song' ở tham số),
-    // đảm bảo id mồ côi không sót lại ở nhóm nào.
     const folderIndex = (await getMeta('folderIndex')) || { song: [], video: [], photo: [] }; // data layer
     let indexChanged = false;
     for (const t of ['song', 'video', 'photo']) {
@@ -241,8 +122,6 @@ async function deleteFolder(folderId, mediaType) {
     }
     if (indexChanged) await setMeta('folderIndex', folderIndex); // data layer
 
-    // MỚI (03/07/2026, đợt 5) — ghi nhận id này ĐÃ TỪNG DÙNG, vĩnh viễn không cấp lại (xem giải
-    // thích đầy đủ ở resolveFolderId() phía trên).
     const deletedIds = (await getMeta('deletedFolderIds')) || [];
     if (!deletedIds.includes(folderId)) {
         deletedIds.push(folderId);
@@ -253,51 +132,23 @@ async function deleteFolder(folderId, mediaType) {
 }
 
 /**
- * Đặt lại TOÀN BỘ folder về rỗng (`list: [], empty: 0`) — dùng khi xoá sạch thư viện nhạc (mục 3,
- * CHỐT 03/07/2026): lúc đó mọi bài đã mất, mọi `folder_song` còn lại chỉ là tham chiếu rác tới
- * songKey không còn tồn tại. KHÔNG xoá record `folders` (giữ tên folder người dùng đã đặt) — chỉ
- * dọn rỗng nội dung. Rule 1: đơn tuyến (1 tiến trình "dọn sạch mọi folder"), lặp qua từng folder là
- * chi tiết triển khai, không phải rẽ nhánh nghiệp vụ khác nhau.
+ * Đặt mọi folder về rỗng (giữ record `folders`) — dùng khi xoá sạch thư viện.
  * @returns {Promise<void>}
  */
 async function clearAllFolderSongData() {
-    const ids = await getAllFolderKeys(); // data layer (service/db.js)
+    const ids = await getAllFolderKeys(); // data layer
     for (const id of ids) {
-        await setFolderSongMap(id, { list: [], empty: 0 }); // data layer (service/db.js)
+        await setFolderSongMap(id, { list: [], empty: 0 }); // data layer
     }
 }
 
 /**
- * SỬA LẦN 2 (sau trao đổi Rule 3): bản trước tách `insertNewFolderMembership`/
- * `refillTombstonedFolderMembership` thành 2 hàm core riêng rồi GỌI chúng (void, không return) từ
- * bên trong `addSongsToFolder()` — dù đi qua VirtualMachineState, đây VẪN LÀ core gọi core void chỉ
- * để side-effect (Rule 3, "bất kể đơn giản, bất kể qua cơ chế chọn hàm nào"). VMState chỉ giải
- * quyết Rule 1 (CHỌN hàm nào chạy) — KHÔNG "miễn" Rule 3 (hàm được chọn có được phép void hay
- * không). Sửa đúng: 2 callback của VMState.run() dưới đây là CODE NỘI BỘ (closure) của chính
- * addSongsToFolder(), KHÔNG gọi ra hàm nào khác — không còn là "core gọi core" nữa nên Rule 3 không
- * áp dụng, đồng thời vẫn giữ đúng Rule 1 (điều phối qua VMState, không if/else tay).
- *
- * [TỰ SỬA LẦN 3, 27/07/2026, phản hồi Giang — tự audit lại phát hiện SAI Ở LẦN SỬA TRƯỚC]
- * `getFolderMembershipState()` TỪNG được giữ lại như 1 hàm core RIÊNG (top-level), biện minh
- * "CÓ return value, đúng tiêu chí Rule 3c" — SAI: điều kiện ĐẦU TIÊN của Rule 3c là hàm con PHẢI là
- * "closure lồng bên trong, KHÔNG PHẢI hàm top-level riêng" — hàm đó khai `function
- * getFolderMembershipState(...)` Ở TOP-LEVEL file, không phải closure bên trong
- * `addSongsToFolder()`, nên KHÔNG đạt điều kiện này — đây VẪN LÀ core gọi core (Rule 3 vi phạm
- * thật, không phải trường hợp ngoại lệ). Sửa: xoá hẳn hàm top-level đó, INLINE logic 2 dòng của nó
- * trực tiếp vào bên trong vòng lặp `addSongsToFolder()` (xem bên dưới) — giờ mới thật sự là "code
- * nội bộ", không gọi ra hàm nào khác, đúng cả Rule 1 lẫn Rule 3.
- */
-/** Thêm NHIỀU bài vào 1 folder — đúng thuật toán CHỐT ở plan mục 4.b1 "Thêm vào folder".
- *
- * BỎ HẲN RẼ NHÁNH (hợp nhất Photo vào Playlist, CHỐT Giang — "Add song không cần rẽ nhánh, chỉ cần
- * thêm -> lấy media hiện tại -> set type cho nó luôn") — KHÔNG còn validate/so khớp type nữa: folder
- * giờ luôn có `type` CỐ ĐỊNH từ lúc tạo (xem createFolder()), và UI CHỈ BAO GIỜ đưa vào đây 1 folder
- * đã được lọc ĐÚNG type từ `folderIndex[activeMediaSource]` (xem event/workflow/playlist.js::
- * openAddToFolderPicker*()) — không còn khả năng lệch type để phải phòng ngừa, tham số `mediaType`
- * giờ CHỈ dùng để chọn ĐÚNG store đọc/ghi (song/video/photo), không còn dùng để validate.
+ * Thêm nhiều item vào 1 folder. Trạng thái thành viên từng item: 'new' (push cuối), 'tombstoned'
+ * (điền lại đúng vị trí cũ), 'active' (bỏ qua) — chọn qua VirtualMachineState, callback là closure
+ * nội bộ (không gọi core khác). UI chỉ đưa vào folder cùng type nên không validate type.
  * @param {string[]} songKeys
  * @param {string} folderId
- * @param {'song'|'video'|'photo'} mediaType
+ * @param {'song'|'video'|'photo'} mediaType - chọn store record.
  * @returns {Promise<{status: 'notFound'|'ok', addedCount: number}>}
  */
 async function addSongsToFolder(songKeys, folderId, mediaType) {
@@ -305,26 +156,17 @@ async function addSongsToFolder(songKeys, folderId, mediaType) {
     if (!folderMap) return { status: 'notFound', addedCount: 0 };
 
     let addedCount = 0;
-    // SỬA (phản hồi Giang 28/07/2026) — chọn ĐÚNG hàm đọc/ghi service/db.js theo `mediaType` MỘT
-    // LẦN trước vòng lặp (record Video nằm store `videos`, KHÁC hẳn `songs` — TRƯỚC ĐÂY hardcode
-    // getSongRecord/setSongRecord khiến thêm Video vào folder không lưu được gì, dù validate type ở
-    // trên đã đúng). Data layer, ngoại lệ Rule 3. MỞ RỘNG (hợp nhất Photo) — thêm nhánh 'photo'.
-    const getRecordFn = mediaType === 'video' ? getVideoRecord : mediaType === 'photo' ? getImageRecord : getSongRecord;
-    const setRecordFn = mediaType === 'video' ? setVideoRecord : mediaType === 'photo' ? setImageRecord : setSongRecord;
+    const getRecordFn = mediaType === 'video' ? getVideoRecord : mediaType === 'photo' ? getImageRecord : getSongRecord; // service/db.js
+    const setRecordFn = mediaType === 'video' ? setVideoRecord : mediaType === 'photo' ? setImageRecord : setSongRecord; // service/db.js
     for (const songKey of songKeys) {
         const record = await getRecordFn(songKey);
-        if (!record) continue; // guard: bài không còn tồn tại — bỏ qua, không chặn cả lô (early-exit thuần, đúng guard clause)
+        if (!record) continue; // guard: item không còn tồn tại — không chặn cả lô
         if (!record.folder) record.folder = {};
 
-        // [TỰ SỬA 27/07/2026] INLINE trực tiếp (trước đây gọi getFolderMembershipState(), 1 hàm
-        // core top-level RIÊNG — SAI Rule 3, xem docstring phía trên) — cùng đúng 2 dòng logic,
-        // giờ là CODE NỘI BỘ của addSongsToFolder(), không gọi ra hàm nào khác.
         const membershipState = !(folderId in record.folder)
             ? 'new'
             : (folderMap.list[record.folder[folderId]] === null ? 'tombstoned' : 'active');
         VirtualMachineState.run([
-            // 2 callback dưới đây là CODE NỘI BỘ (đóng gói trong chính addSongsToFolder), KHÔNG
-            // gọi ra hàm core nào khác -> không phải "core gọi core", Rule 3 không áp dụng.
             { state: membershipState, operation: '===', value: 'new', callback: () => {
                 const position = folderMap.list.length;
                 folderMap.list.push(songKey);
@@ -337,7 +179,7 @@ async function addSongsToFolder(songKeys, folderId, mediaType) {
                 folderMap.empty--;
                 addedCount++;
             } },
-            { state: membershipState, operation: '===', value: 'active', callback: () => {} }, // đã ở trong rồi — no-op có chủ đích (khai báo rõ, tránh cảnh báo "không rule nào khớp")
+            { state: membershipState, operation: '===', value: 'active', callback: () => {} }, // đã ở trong — no-op có chủ đích
         ]);
         await setRecordFn(songKey, record);
     }
@@ -346,17 +188,15 @@ async function addSongsToFolder(songKeys, folderId, mediaType) {
 }
 
 /**
- * Gỡ cascade 1 bài khỏi TẤT CẢ folder nó từng thuộc — dùng khi bài bị XOÁ THẬT khỏi `songs`
- * (khác "gỡ khỏi 1 folder cụ thể", xem plan mục 6 "Đã chốt"). Nhận songRecord qua tham số (Rule 2
- * — không tự appState.get()), KHÔNG tự setSongRecord() lại record (nơi gọi đang xoá hẳn record đó
- * ngay sau, ghi lại vô nghĩa).
- * @param {Object} songRecord - record đầy đủ của bài SẮP bị xoá (đã getSongRecord() từ trước)
+ * Tombstone 1 item khỏi MỌI folder nó thuộc — dùng khi item bị xoá hẳn khỏi thư viện. Không ghi lại
+ * record (nơi gọi xoá record ngay sau).
+ * @param {Object} songRecord - record đầy đủ của item sắp bị xoá.
  */
 async function removeSongFromAllFolders(songRecord) {
     if (!songRecord || !songRecord.folder) return;
     for (const folderId of Object.keys(songRecord.folder)) {
         const folderMap = await getFolderSongMap(folderId);
-        if (!folderMap) continue; // guard: folder đã bị xoá trước đó, record chỉ còn sót field cũ
+        if (!folderMap) continue; // guard: folder đã bị xoá, record chỉ còn sót field cũ
         const position = songRecord.folder[folderId];
         if (folderMap.list[position] != null) {
             folderMap.list[position] = null;
@@ -367,21 +207,10 @@ async function removeSongFromAllFolders(songRecord) {
 }
 
 /**
- * Gỡ ĐÚNG 1 bài khỏi 1 folder cụ thể — CHỈ gỡ khỏi danh sách, KHÔNG xoá bài (khác hẳn "Xoá bài
- * khỏi Playlist", xem plan-v12-multimedia.md mục 6 "Đã chốt"). Đối xứng với addSongsToFolder() —
- * cùng thuật toán tombstone (`list[position] = null`, `empty++`) đã CHỐT ở mục 4.b1.
- * MỚI (Phase 2, CHỐT 03/07/2026) — dùng bởi icon X trong Folder Detail Drawer.
+ * Gỡ 1 item khỏi 1 folder (tombstone) — không xoá item khỏi thư viện.
  * @param {string} songKey
  * @param {string} folderId
- * @returns {Promise<{status: 'notFound'|'ok'}>}
- */
-/**
- * SỬA (phản hồi Giang 28/07/2026) — thêm tham số `mediaType`, cùng lý do đã sửa ở deleteFolder()
- * ngay trên (record Video nằm store KHÁC, `getSongRecord()` không đọc được). MỞ RỘNG (hợp nhất
- * Photo vào Playlist) — thêm nhánh 'photo'.
- * @param {string} songKey
- * @param {string} folderId
- * @param {'song'|'video'|'photo'} [mediaType] - mặc định 'song'.
+ * @param {'song'|'video'|'photo'} [mediaType] - vắng = 'song'.
  * @returns {Promise<{status: 'notFound'|'ok'}>}
  */
 async function removeSongFromFolder(songKey, folderId, mediaType) {
@@ -402,14 +231,10 @@ async function removeSongFromFolder(songKey, folderId, mediaType) {
 }
 
 /**
- * Gỡ NHIỀU bài cùng lúc khỏi 1 folder cụ thể — bulk-subset, đối xứng `addSongsToFolder()` (nhận
- * mảng key, 1 lượt đọc/ghi `folderMap` DUY NHẤT thay vì gọi `removeSongFromFolder()` N lần riêng lẻ
- * — N lượt gọi riêng sẽ đọc/ghi lại `folder_song` N LẦN, tốn kém không cần thiết khi Selection mode
- * có thể chọn hàng chục bài cùng lúc). MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 5 —
- * Selection mode "Gỡ khỏi thư mục", xem event/workflow/playlist.js::removeSelectedSongsFromFolder()).
+ * Gỡ nhiều item khỏi 1 folder trong 1 lượt đọc/ghi folder_song (Selection mode).
  * @param {string[]} songKeys
  * @param {string} folderId
- * @param {'song'|'video'|'photo'} [mediaType] - mặc định 'song'.
+ * @param {'song'|'video'|'photo'} [mediaType] - vắng = 'song'.
  * @returns {Promise<{status: 'notFound'|'ok', removedCount: number}>}
  */
 async function removeSongsFromFolder(songKeys, folderId, mediaType) {
@@ -420,7 +245,7 @@ async function removeSongsFromFolder(songKeys, folderId, mediaType) {
     let removedCount = 0;
     for (const songKey of songKeys) {
         const record = await getRecordFn(songKey);
-        if (!record || !record.folder || !(folderId in record.folder)) continue; // guard: bài không tồn tại/không thuộc folder này — bỏ qua, không chặn cả lô
+        if (!record || !record.folder || !(folderId in record.folder)) continue; // guard: không thuộc folder này — bỏ qua
         const position = record.folder[folderId];
         if (folderMap.list[position] !== null) {
             folderMap.list[position] = null;
@@ -433,9 +258,7 @@ async function removeSongsFromFolder(songKeys, folderId, mediaType) {
 }
 
 /**
- * Bật/tắt cờ "loại khỏi view Tất cả" của 1 folder (Scope vs Exclude, MỚI Batch 4, xem
- * plan-v12-song-video-unification.md mục 5). Guard clause thuần (Rule 1) — folder không tồn tại
- * thì dừng sớm, KHÔNG phải rẽ nhánh tiến trình khác.
+ * Ghi cờ Hidden (`excludeFromMainPlaylist`).
  * @param {string} folderId
  * @param {boolean} enabled
  * @returns {Promise<{status: 'notFound'|'ok'}>}
@@ -449,14 +272,7 @@ async function setFolderExcludeFlag(folderId, enabled) {
 }
 
 /**
- * Bật/tắt "Read-only" 1 folder — MỚI (06/09/2026, hợp nhất Folder vào Playlist, mục 4b, Giang yêu
- * cầu "giống Windows"). Khi `true`: KHÔNG cho remove item khỏi folder (Selection mode/menu 3-chấm
- * lẻ), KHÔNG cho thêm item mới (upload tự gắn — chặn qua event/block.js, field
- * `isActiveFolderReadOnly`, xem event/workflow/playlist-scope.js; "Thêm vào thư mục" picker cũng tự
- * loại folder này khỏi danh sách, xem event/workflow/playlist.js), KHÔNG cho đổi tên (ẩn mục Đổi
- * tên khỏi dropdown long-press, xem event/workflow/file-manager-folder-browser.js). XOÁ folder vẫn
- * cho phép bình thường (Giang chốt "trừ delete") — hàm `deleteFolder()` không đọc field này.
- * Mirror `setFolderExcludeFlag()` ngay trên — CÙNG cấu trúc.
+ * Ghi cờ Read-only (`isReadOnly`).
  * @param {string} folderId
  * @param {boolean} enabled
  * @returns {Promise<{status: 'notFound'|'ok'}>}
@@ -470,12 +286,7 @@ async function setFolderReadOnlyFlag(folderId, enabled) {
 }
 
 /**
- * Bật/tắt "Áp dụng filter" 1 folder — MỚI (Giang yêu cầu "folder như lãnh chúa có quyền bật/tắt
- * nghe hay không nghe theo filter"). Field vắng mặt (folder tạo TRƯỚC tính năng này) = coi như
- * `true` (mặc định VÂNG LỆNH filter tổng — hành vi hệt hiện tại lúc tính năng này chưa tồn tại,
- * xem event/workflow/playlist-scope.js::applyFolderScope()). Mirror `setFolderReadOnlyFlag()` ngay
- * trên — CÙNG cấu trúc, KHÔNG có "trạng thái chưa quyết" nào khác ngoài `true`/`false` (CHỐT
- * Giang — "mặc định checkbox chỉ có true hoặc false thôi").
+ * Ghi cờ "Áp dụng filter" (`applyFilter`).
  * @param {string} folderId
  * @param {boolean} enabled
  * @returns {Promise<{status: 'notFound'|'ok'}>}
@@ -489,11 +300,7 @@ async function setFolderApplyFilterFlag(folderId, enabled) {
 }
 
 /**
- * Ghi bộ rule filter RIÊNG của 1 folder — MỚI (Giang yêu cầu tính năng "Cài đặt filter" riêng cho
- * folder, mở qua dropdown long-press, xem event/workflow/file-manager-folder-browser.js). `config`
- * CÙNG SHAPE `playlistFilterConfig[mediaType]` hiện có (core/playlist/filter.js đọc thẳng được,
- * không cần chuyển đổi) — `null` = chưa cấu hình field nào (mặc định lúc folder chưa từng mở màn
- * "Cài đặt filter"). Mirror `setFolderExcludeFlag()`/`setFolderReadOnlyFlag()` — CÙNG cấu trúc.
+ * Ghi bộ rule filter riêng của folder (`filterConfig`, null = chưa cấu hình).
  * @param {string} folderId
  * @param {object|null} config
  * @returns {Promise<{status: 'notFound'|'ok'}>}
@@ -507,12 +314,8 @@ async function setFolderFilterConfig(folderId, config) {
 }
 
 /**
- * MỚI (23/09/2026, Giang: "Restore default setting -> mọi thứ phải reset hết về gốc, không có ngoại lệ
- * và vùng cấm") — đưa 4 cờ CÀI ĐẶT của 1 folder về đúng giá trị lúc `createFolder()` vừa tạo:
- * `excludeFromMainPlaylist` false, `isReadOnly` false, `applyFilter` true, `filterConfig` null. GIỮ
- * NGUYÊN id/tên/type và nội dung folder (`folder_song`) — đó là DỮ LIỆU thư viện, không phải cài đặt.
- * Nhận `record` qua tham số (Workflow đã đọc sẵn qua `listFolders()` — Rule 3, không tự đọc lại), sửa
- * tại chỗ rồi ghi (data layer). Cùng cấu trúc 4 hàm set*Flag/FilterConfig ngay trên, gộp 1 lượt ghi.
+ * Restore default settings — đưa 4 cờ cài đặt về giá trị lúc tạo; giữ id/tên/type/nội dung (dữ liệu,
+ * không phải cài đặt). Nhận `record` đã đọc sẵn từ Workflow.
  * @param {{id: string}} record
  * @returns {Promise<void>}
  */
@@ -525,51 +328,28 @@ async function resetFolderRecordSettings(record) {
 }
 
 /**
- * Gom OR (hợp) toàn bộ songKey đang bị loại khỏi view "Tất cả" — hợp của `folder_song.list` của
- * MỌI folder CÙNG LOẠI `mediaType` có `excludeFromMainPlaylist === true` (mục 5, "Exclude là OR
- * trên mọi folder chứa bài đó"). Rule 1: đơn tuyến — CHỈ tính 1 tập hợp duy nhất, không rẽ nhánh
- * nghiệp vụ nào khác. Rule 3: chỉ gọi API `service/db.js` (data layer, ngoại lệ — xem docstring đầu
- * file) — KHÔNG gọi core nào khác trong file này.
- *
- * FIX (Giang báo — "Exclude của Folder có thể loại nhầm media khác loại nếu key trùng") — TRƯỚC
- * ĐÂY gom key từ CẢ 3 loại folder (song/video/photo) vào chung 1 Set, mất thông tin loại. Song,
- * Video, Photo dùng namespace store KHÁC NHAU nhưng key đều sinh từ CÙNG kiểu slug filename — 2
- * file trùng tên ở 2 nguồn khác nhau (vd `songs:hello-world` và `videos:hello-world`) hoàn toàn có
- * thể tồn tại. Set gộp chung khiến `applyAllSongsScope()` (event/workflow/playlist-scope.js) lọc
- * NHẦM: Exclude áp cho Song lại loại luôn Video cùng tên dù Video đó KHÔNG nằm trong folder Exclude
- * nào. SỬA: nhận `mediaType` qua tham số (Rule 2), CHỈ gom key từ folder ĐÚNG loại đó — nơi gọi tự
- * `appState.get('activeMediaSource')` rồi truyền vào (nguồn đang browse quyết định loại cần lọc).
- * SỬA (20/09/2026, tối ưu độ phức tạp) — TRƯỚC ĐÂY `getAllFolderKeys()` + fetch metadata CỦA MỌI folder
- * (O(F), F = tổng folder cả 3 loại) rồi mới lọc `type`; giờ đọc THẲNG `meta.folderIndex[mediaType]` —
- * cùng khuôn `listFolders(type)` — chỉ fetch folder ĐÚNG loại (O(Fₜ)). Hàm này chạy MỖI lần
- * `applyAllSongsScope()`, nên khác biệt lớn khi 1 loại chiếm đa số folder. Đọc `folder_song` của các
- * folder Exclude giờ chạy song song (`Promise.all`, chỉ đọc) thay vì tuần tự.
+ * Hợp các key thuộc MỌI folder Hidden của đúng `mediaType` (key 3 loại media có thể trùng slug nên
+ * không gộp chéo loại). Dùng cho view "Tất cả" và picker chọn ảnh/video.
  * @param {'song'|'video'|'photo'} mediaType
  * @returns {Promise<Set<string>>}
  */
 async function getExcludedSongKeysFromFolders(mediaType) {
-    const folderIndex = (await getMeta('folderIndex')) || { song: [], video: [], photo: [] }; // data layer — cùng khuôn listFolders()
+    const folderIndex = (await getMeta('folderIndex')) || { song: [], video: [], photo: [] }; // data layer
     const ids = folderIndex[mediaType] || [];
     const records = await Promise.all(ids.map((id) => getFolderRecord(id))); // service/db.js
-    const excludedFolderIds = records.filter((r) => r && r.excludeFromMainPlaylist && r.type === mediaType).map((r) => r.id);
+    const excludedFolderIds = records.filter((r) => r && r.excludeFromMainPlaylist).map((r) => r.id);
 
-    const folderMaps = await Promise.all(excludedFolderIds.map((folderId) => getFolderSongMap(folderId))); // service/db.js — chỉ đọc, song song
+    const folderMaps = await Promise.all(excludedFolderIds.map((folderId) => getFolderSongMap(folderId))); // service/db.js
     const excludedKeys = new Set();
     for (const folderMap of folderMaps) {
-        if (!folderMap) continue; // guard: folder vừa bị xoá giữa lúc đang gom — bỏ qua, không coi là lỗi
+        if (!folderMap) continue; // guard: folder vừa bị xoá giữa lúc gom
         for (const key of folderMap.list) { if (key != null) excludedKeys.add(key); }
     }
     return excludedKeys;
 }
 
 /**
- * Liệt kê toàn bộ folder hiện có (metadata), dùng cho picker/UI danh sách.
- * VIẾT LẠI (hợp nhất Photo vào Playlist, CHỐT Giang — "cấu trúc {song,video,photo} để O(1) list
- * folder, khỏi phải logic") — đọc THẲNG `meta.folderIndex[type]` (folderId đã gom sẵn theo type,
- * duy trì tăng dần bởi createFolder()/deleteFolder()) — CHỈ fetch record của ĐÚNG type cần, O(số
- * folder type đó). KHÔNG còn quét `getAllFolderKeys()` + lọc O(tổng mọi type) như bản trước.
- * Không truyền `type` -> gộp cả 3 nhóm (vẫn cần cho vài chỗ đọc chéo type, vd
- * getExcludedSongKeysFromFolders()).
+ * Liệt kê record folder theo type (đọc `meta.folderIndex`); không truyền `type` -> cả 3 loại.
  * @param {'song'|'video'|'photo'} [type]
  * @returns {Promise<Array<{id: string, name: string, type: string}>>}
  */
@@ -581,28 +361,21 @@ async function listFolders(type) {
 }
 
 /**
- * Migrate 1 LẦN DUY NHẤT — build `meta.folderIndex` lần đầu cho dữ liệu cũ (folder tạo TRƯỚC khi
- * có index này, thời điểm đó identity chỉ là tên, chưa gộp type vào id) — quét TOÀN BỘ `folders`
- * (đúng NGOẠI LỆ DUY NHẤT còn dùng `getAllFolderKeys()` kiểu cũ trong cả file, mọi chỗ khác từ nay
- * đọc thẳng index). Idempotent qua `meta.folderIndexMigrated` (boolean) — gọi lại không sao, tự
- * dừng sớm nếu đã chạy rồi. Gọi 1 LẦN lúc boot (event/workflow/app-boot.js), TRƯỚC bất kỳ thao tác
- * folder nào của người dùng trong phiên — `listFolders()`/`createFolder()`/`deleteFolder()` từ đó
- * trở đi LUÔN giả định `meta.folderIndex` đã tồn tại đúng, không tự kiểm tra/migrate lại (Rule 1:
- * mỗi hàm 1 tiến trình — migrate là tiến trình RIÊNG, chỉ chạy đúng 1 lần ở boot, không lặp lại
- * ngầm bên trong mọi lần đọc/ghi folder).
+ * Migrate 1 lần (idempotent qua `meta.folderIndexMigrated`) — build `meta.folderIndex` từ toàn bộ
+ * `folders`; folder chưa có type xếp vào 'song'. Gọi lúc boot (event/workflow/app-boot.js).
  * @returns {Promise<void>}
  */
 async function migrateFolderIndexIfNeeded() {
     const migrated = await getMeta('folderIndexMigrated'); // data layer
     if (migrated) return;
 
-    const ids = await getAllFolderKeys(); // data layer — ngoại lệ DUY NHẤT còn quét toàn bộ, chỉ chạy 1 lần
+    const ids = await getAllFolderKeys(); // data layer — nơi duy nhất quét toàn bộ, chỉ chạy 1 lần
     const records = await Promise.all(ids.map((id) => getFolderRecord(id)));
     const folderIndex = { song: [], video: [], photo: [] };
-    const seenIds = { song: new Set(), video: new Set(), photo: new Set() }; // SỬA (20/09/2026) — Set khử trùng O(1) thay `Array.includes()` O(Fₜ) => migrate O(F) đúng nghĩa
+    const seenIds = { song: new Set(), video: new Set(), photo: new Set() };
     for (const record of records) {
         if (!record) continue;
-        const t = record.type || 'song'; // legacy folder (type null/undefined, tạo TRƯỚC Batch 4) coi như 'song'
+        const t = record.type || 'song';
         if (!folderIndex[t]) { folderIndex[t] = []; seenIds[t] = new Set(); }
         if (!seenIds[t].has(record.id)) { seenIds[t].add(record.id); folderIndex[t].push(record.id); }
     }
@@ -611,38 +384,41 @@ async function migrateFolderIndexIfNeeded() {
 }
 
 /**
- * Migrate 1 LẦN DUY NHẤT — `meta.activePlayListFolder` đổi schema (06/09/2026, Giang chốt "mỗi
- * Nguồn tự nhớ folder riêng") từ 1 giá trị PHẲNG (string folderId, hoặc null = không scope) sang
- * object `{song,video,photo}` (mỗi field tự nhớ folder RIÊNG của đúng Nguồn đó, xem
- * service/state/file-manager.js). Idempotent qua `meta.activePlayListFolderMigrated` (boolean),
- * cùng khuôn `migrateFolderIndexIfNeeded()` ngay trên. Gọi 1 LẦN lúc boot, TRƯỚC bất kỳ chỗ nào đọc
- * `meta.activePlayListFolder`/`appState.activePlayListFolder` (event/workflow/app-boot.js).
- * Giá trị cũ (nếu có, 1 folderId phẳng) được gán vào ĐÚNG field theo `type` của chính folder đó
- * (đọc qua `getFolderRecord()`) — folder không còn tồn tại (đã bị xoá) hoặc đọc lỗi thì bỏ qua,
- * coi như phiên trước chưa từng scope gì (an toàn hơn giữ tham chiếu chết).
+ * Migrate 1 lần (idempotent qua `meta.activePlayListFolderMigrated`) — `meta.activePlayListFolder`
+ * từ string phẳng sang `{song, video, photo}`; giá trị cũ gán vào đúng field theo type của folder đó
+ * (folder đã mất -> bỏ). Gọi lúc boot, trước mọi chỗ đọc field này.
  * @returns {Promise<void>}
  */
 async function migrateActivePlayListFolderIfNeeded() {
     const migrated = await getMeta('activePlayListFolderMigrated'); // data layer
     if (migrated) return;
 
-    const old = await getMeta('activePlayListFolder'); // data layer — dạng CŨ: string|null|undefined
+    const old = await getMeta('activePlayListFolder'); // data layer — dạng cũ: string|null|undefined
     const next = { song: null, video: null, photo: null };
     if (typeof old === 'string' && old) {
         const folderRecord = await getFolderRecord(old); // service/db.js
-        const type = folderRecord ? (folderRecord.type || 'song') : null; // legacy folder chưa có type -> coi như 'song', cùng quy ước migrateFolderIndexIfNeeded()
+        const type = folderRecord ? (folderRecord.type || 'song') : null;
         if (type && Object.prototype.hasOwnProperty.call(next, type)) next[type] = old;
     }
     await setMeta('activePlayListFolder', next);
     await setMeta('activePlayListFolderMigrated', true);
 }
 
-/** Pure — danh sách songKey ĐANG THẬT trong folder (lọc bỏ lỗ tombstone null). Không I/O. */
+/** Pure — key đang thật sự trong folder (bỏ tombstone null). */
 function getFolderSongKeys(folderMap) {
     return folderMap.list.filter(k => k != null);
 }
 
-/** Pure — check rỗng hoàn toàn O(1), không scan mảng. Không I/O. */
+/** Pure — folder rỗng hoàn toàn, O(1). */
 function isFolderEmpty(folderMap) {
     return folderMap.empty === folderMap.list.length;
+}
+
+/** Pure — tên mặc định "Thư mục N" cho folder mới, chưa trùng tên folder nào trong `folders`. */
+function computeNextFolderName(folders) {
+    const existingNames = new Set(folders.map((f) => f.name));
+    let n = folders.length + 1;
+    let name = tFormat('fileManager.folderBrowser.defaultNewFolderName', { n });
+    while (existingNames.has(name)) { n++; name = tFormat('fileManager.folderBrowser.defaultNewFolderName', { n }); }
+    return name;
 }

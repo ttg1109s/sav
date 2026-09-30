@@ -1,32 +1,18 @@
 /**
- * core/file-manager/folder-picker-ui.js — Modal đổi tên 1 folder.
+ * core/file-manager/folder-picker-ui.js — UI Folder dùng chung: modal đổi tên folder, wiring lưới
+ * chọn Folder trong Generic Drawer (Folder Browser và "Thêm vào thư mục" của Playlist), wiring modal
+ * Thuộc tính và màn "Cài đặt filter" của Folder Browser. Callback CHỈ `eventBus.send()` (Rule 5a).
  *
- * [DỌN 14/07/2026] — `openFolderPickerModal()` (modal "Thêm vào thư mục" cũ, chọn folder có sẵn
- * HOẶC tạo mới) ĐÃ XOÁ khỏi file này — không còn nơi gọi nào từ 14/07/2026 (thay bằng Generic
- * Drawer grid, xem components/items.js::itemTemplateFolderTile()/buildAddFolderTileHtml() +
- * event/workflow/playlist.js::_openFolderPickerDrawer()). Đã MỒ CÔI từ trước (0 lời gọi thật), giờ
- * xoá hẳn luôn vì đang sửa file này cho việc khác — không để lại code chết không cần thiết.
- *
- * Đây là hàm UI-thuần (dựng DOM), KHÔNG chứa nghiệp vụ đọc/ghi IndexedDB — không thuộc phạm vi 4
- * rule core-function-conventions.md (rule đó áp cho hàm NGHIỆP VỤ, không áp cho hàm dựng UI thuần).
- *
- * NẠP SAU: core/modal-choice-ui.js (dùng chung escapeHtml()), lang/lang.js (t()), event/bus.js.
+ * NẠP SAU: core/modal-choice-ui.js (modalChoice() dựng `#modal-choice-body`), lang/lang.js (t()), event/bus.js, service/task-manager.js,
+ * core/dom-refs.js (genericDrawerHeader/Body), core/ui-theme/apply-ui.js (runtime).
  */
 
+// Ngưỡng giữ tay mở menu hành động của 1 folder tile.
+const FOLDER_TILE_HOLD_MS = 1000;
+
 /**
- * Modal đổi tên 1 folder — 1 ô nhập liệu đã điền sẵn tên hiện tại + 2 nút Huỷ/Lưu.
- *
- * [SỬA 14/07/2026, tự audit lại Rule 5a — Giang yêu cầu "đụng hàm di sản phải refactor luôn theo
- * rule"] — TRƯỚC ĐÂY nút "Lưu" gọi THẲNG callback `onConfirm(name)` truyền vào tham số — đúng khuôn
- * CŨ của `modalChoice()`, nhưng khuôn đó giờ CHỈ còn là ngoại lệ ĐÃ AUDIT riêng cho chính
- * `modalChoice()` (readme/core-function-conventions.md mục 5a) — file NÀY (docstring bản cũ) từng
- * tự nhận "CÙNG PATTERN với modalChoice()" để suy ra miễn trừ tương tự, ĐÃ bị coi KHÔNG hợp lệ
- * (chưa qua audit chính thức, xem readme/event-bus-flow.md). Giờ nút "Lưu" CHỈ bắn eventBus.send().
- *
- * SỬA (Batch 5, "Song/Video Unification" mục 6e) — router đích đổi từ 'fileManagerSong' sang
- * 'fileManagerFolderBrowser' (Folder List/Detail cũ kiểu Settings-panel ĐÃ THAY bằng Generic Drawer
- * List↔Read, xem event/workflow/file-manager-folder-browser.js) — chỉ nơi gọi này là nơi DUY NHẤT
- * còn dùng modal đổi tên, không cần giữ 2 đích.
+ * Modal đổi tên 1 folder (ô nhập điền sẵn tên hiện tại + Huỷ/Lưu). Lưu -> router
+ * 'fileManagerFolderBrowser' `rename.confirm`.
  * @param {string} currentName
  * @param {string} folderId
  */
@@ -37,7 +23,7 @@ function openRenameFolderModal(currentName, folderId) {
     const overlay = document.createElement('div');
     overlay.id = 'rename-folder-overlay';
     overlay.className = 'fixed inset-0 z-[130] backdrop-blur-sm flex items-center justify-center px-5';
-    overlay.dataset.uitk = 'overlayBg'; // SỬA (09/09/2026, hệ UI Theme mở rộng) — trước đây bg-black/70 riêng, giờ DÙNG CHUNG overlayBg (bg-black/50, cố ý không đổi theo theme)
+    overlay.dataset.uitk = 'overlayBg';
 
     const card = document.createElement('div');
     card.className = 'rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
@@ -74,84 +60,40 @@ function openRenameFolderModal(currentName, folderId) {
 
     overlay.appendChild(card);
     document.body.appendChild(overlay);
-    // GUARD (09/09/2026) — file này còn nạp ở subtitle-editor.html (trang RIÊNG, KHÔNG có
-    // core/ui-theme/*.js) — gọi thẳng applyUiThemeToDom() ở đó sẽ ReferenceError. Chỉ áp
-    // theme khi hạ tầng ĐÃ nạp (index.html), bỏ qua im lặng nếu chưa (trang khác).
-    if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(overlay, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
+    applyUiThemeToDom(overlay, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
     inputEl.focus();
     inputEl.select();
 
-    // --- addEventListener: gom cuối hàm (Rule 5a) — callback CHỈ bắn eventBus.send() ---
+    // --- addEventListener gom cuối hàm (Rule 5a) ---
     cancelBtn.addEventListener('click', closeModal);
     saveBtn.addEventListener('click', () => {
         const name = inputEl.value.trim();
-        if (!name) return; // guard clause thuần — chưa nhập tên thì không làm gì
+        if (!name) return; // guard: tên rỗng
         closeModal();
         eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.rename.confirm', payload: { folderId, name } });
     });
 }
 
-// ===================== "9 file khác" (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ
-// không phải workflow" — rà rộng ra ngoài Photo/Edit) =====================
-// 3 hàm dưới đây TÁCH RA từ event/workflow/playlist.js::_wireFolderPickerEvents() và
-// event/workflow/file-manager-folder-browser.js::_wireListEvents()/_wireReadEvents() — Generic
-// Drawer picker/browser Folder DÙNG CHUNG cấu trúc HTML (components/items.js::
-// itemTemplateFolderTile()/buildAddFolderTileHtml()) giữa 2 domain (playlist chọn folder để thêm
-// bài hát VS file-manager-folder-browser duyệt/quản lý folder) nên đặt chung 1 file, nhưng vẫn 2
-// hàm RIÊNG (router đích khác nhau, không gộp thành 1 hàm nhận tham số router).
-
 /**
- * Wire lại TOÀN BỘ sự kiện 1 lưới chọn Folder trong Generic Drawer, SAU MỖI lần vẽ lại grid (nội
- * dung `genericDrawerBody` bị thay hoàn toàn mỗi lần).
- *
- * GỘP (v13 Batch B, phản hồi Giang "tại sao phải thêm hàm logic trùng lặp?") — TRƯỚC ĐÂY là 2 hàm
- * `wirePlaylistFolderPickerEvents()` + `wireFolderBrowserListEvents()` GIỐNG NHAU TỪNG DÒNG, chỉ
- * khác tên router + tiền tố msg.type. Comment cũ tự biện minh "vẫn 2 hàm RIÊNG (router đích khác
- * nhau, không gộp thành 1 hàm nhận tham số router)" — LÝ LẼ ĐÓ SAI: truyền tên router/tiền tố là
- * truyền GIÁ TRỊ, KHÔNG phải rẽ nhánh giữa ≥2 tiến trình nghiệp vụ, nên Rule 1 không hề bị đụng tới
- * (cùng bản chất `setImage(el, url)`). Hàm này vẫn ĐÚNG 1 tiến trình duy nhất: "gắn sự kiện cho
- * lưới folder vừa vẽ" — không có if/else nào chọn giữa 2 kịch bản khác nhau.
- *
- * Nơi gọi tự quyết định LƯỚI CHỨA GÌ (lọc theo `folder.type`, ẩn tile "Tạo mới"...) TRƯỚC khi vẽ —
- * hàm này KHÔNG nhận tham số lọc nào, KHÔNG tự đọc DB (Rule 2/3b: chuẩn bị dữ liệu là việc của
- * Workflow, core chỉ thi hành trên đúng thứ đã được đưa cho).
- *
- * Input sửa tên (nếu đang có) tự focus + select — KHÔNG qua eventBus (hành vi UI thuần "đặt con trỏ
- * vào ô vừa hiện ra", không phải 1 quyết định nghiệp vụ).
- *
- * @param {string} routerName - tên router đích, vd 'playlist' | 'fileManagerFolderBrowser' | 'visualBg'.
- * @param {string} msgPrefix - tiền tố msg.type, vd 'playlist.folderPicker' | 'fileManagerFolderBrowser.list'.
+ * Wire toàn bộ sự kiện 1 lưới Folder trong Generic Drawer — gọi lại SAU MỖI lần vẽ grid (nội dung
+ * `genericDrawerBody` bị thay hoàn toàn). Nơi gọi tự lọc nội dung lưới trước khi vẽ. Phát:
+ * `${msgPrefix}.close.click` / `.confirm.click` / `.typeChange` / `.tile.click` / `.tile.longpress`
+ * (giữ tay FOLDER_TILE_HOLD_MS; click ngay sau long-press bị nuốt) / `.addTile.click` / `.rename.commit`
+ * (blur hoặc Enter). Phần tử tuỳ chọn không có trong DOM thì bỏ qua.
+ * @param {string} routerName - vd 'playlist' | 'fileManagerFolderBrowser'.
+ * @param {string} msgPrefix - vd 'playlist.folderPicker' | 'fileManagerFolderBrowser.list'.
  */
-// MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 4) — ngưỡng giữ tay mở menu hành động 1
-// folder tile (đổi tên/xoá/ẩn-hiện/thuộc tính) — CÙNG khuôn `EQ_CYCLE_HOLD_MS`
-// (event/workflow/eq-presets.js)/`CUSTOM_EFFECT_HOLD_MS` (event/workflow/custom-effect.js), cố
-// định, không phải setting.
-// SỬA (Giang yêu cầu — "1.5s hold -> 1s") — rút ngắn từ 1500ms xuống 1000ms, nhạy tay hơn.
-const FOLDER_TILE_HOLD_MS = 1000;
-
 function wireFolderPickerDrawerEvents(routerName, msgPrefix) {
     const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
     if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: routerName, type: `${msgPrefix}.close.click`, payload: {} }));
 
-    // MỚI (29/08/2026) — nút "Chọn (N)" xác nhận (multiSelect) + dropdown đổi loại folder đang
-    // duyệt (typeOptions) — CẢ 2 tuỳ chọn, chỉ xuất hiện trong headerHtml khi nơi gọi truyền
-    // tương ứng (xem event/workflow/playlist.js::_buildFolderPickerHeaderHtml()); querySelector trả
-    // null thì bỏ qua im lặng, không đụng gì tới 2 luồng "Thêm vào thư mục" của Playlist tự thân.
     const confirmBtn = genericDrawerHeader.querySelector('#playlist-folder-picker-confirm');
     if (confirmBtn) confirmBtn.addEventListener('click', () => eventBus.send({ router: routerName, type: `${msgPrefix}.confirm.click`, payload: {} }));
 
     const typeSelect = genericDrawerHeader.querySelector('#playlist-folder-picker-type');
     if (typeSelect) typeSelect.addEventListener('change', (e) => eventBus.send({ router: routerName, type: `${msgPrefix}.typeChange`, payload: { value: e.target.value } }));
 
-    // SỬA (06/09/2026, hợp nhất Folder vào Playlist, Batch 4) — thêm giữ tay 1s ->
-    // `${msgPrefix}.tile.longpress` (CÙNG khuôn EQ_CYCLE_HOLD_MS, xem hằng số ngay trên) — `click`
-    // bình thường (tap ngắn) VẪN bắn `${msgPrefix}.tile.click` y hệt trước giờ, CHỈ bị nuốt (không
-    // bắn) đúng 1 lần NGAY SAU 1 lượt long-press vừa nổ (trình duyệt luôn tự phát `click` NGAY SAU
-    // `pointerup`, kể cả sau khi đã giữ đủ lâu — không chặn thì tap-áp-folder sẽ chạy NGAY SAU khi
-    // đóng/mở menu hành động, sai ý). Cờ `holdFired` khai báo RIÊNG mỗi lượt forEach (mỗi tile 1
-    // biến đóng riêng — nhiều tile cùng tồn tại trong lưới, không dùng chung 1 cờ module-level như
-    // eq-presets.js (chỉ có đúng 1 nút)). `taskId` gắn kèm `folderId` để 2 tile giữ cùng lúc (hiếm)
-    // không đụng chung 1 task.
+    // Mỗi tile 1 cờ `holdFired` riêng; taskId gắn folderId để 2 tile không dùng chung task.
     genericDrawerBody.querySelectorAll('.generic-item-folder-tile').forEach((tileEl) => {
         const folderId = tileEl.dataset.folderId;
         const holdTaskId = `folder-tile-longpress-${folderId}`;
@@ -167,7 +109,7 @@ function wireFolderPickerDrawerEvents(routerName, msgPrefix) {
         tileEl.addEventListener('pointercancel', () => { taskManager.kill(holdTaskId); holdFired = false; });
         tileEl.addEventListener('pointerleave', () => { taskManager.kill(holdTaskId); holdFired = false; });
         tileEl.addEventListener('click', () => {
-            if (holdFired) { holdFired = false; return; } // vừa long-press xong — click phát sinh theo sau không còn ý nghĩa "tap"
+            if (holdFired) { holdFired = false; return; } // click tự phát sau long-press — nuốt
             eventBus.send({ router: routerName, type: `${msgPrefix}.tile.click`, payload: { folderId } });
         });
     });
@@ -181,12 +123,46 @@ function wireFolderPickerDrawerEvents(routerName, msgPrefix) {
         renameInputEl.select();
         const commit = () => eventBus.send({ router: routerName, type: `${msgPrefix}.rename.commit`, payload: { folderId: renameInputEl.closest('[data-folder-id]').dataset.folderId, name: renameInputEl.value } });
         renameInputEl.addEventListener('blur', commit);
-        renameInputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') renameInputEl.blur(); }); // Enter -> blur -> tự trigger commit ở trên, không lặp lại logic
+        renameInputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') renameInputEl.blur(); }); // Enter -> blur -> commit
     }
 }
 
-// XOÁ (06/09/2026, Giang chốt mục 3.6 — "bỏ hẳn màn Read") — `wireFolderBrowserReadEvents()`
-// (wiring cho màn Read cũ: back/rename/delete/removeItem/removeAll/pagination/2 toggle Scope-
-// Exclude) bỏ hẳn cùng màn hình đó — Folder Browser giờ CHỈ còn màn List (tap = áp dụng ngay, giữ
-// tay 1s = menu hành động, xem `wireFolderPickerDrawerEvents()` ngay trên +
-// event/workflow/file-manager-folder-browser.js).
+/**
+ * Wire 3 checkbox trong modal Thuộc tính folder (Read-only/Hidden/Áp dụng filter) — gọi NGAY sau
+ * `modalChoice()` dựng xong. Phát `fileManagerFolderBrowser.properties.{readOnly|hidden|applyFilter}.change`
+ * với payload `{ folderId, mediaType, enabled }`.
+ * @param {string} folderId
+ * @param {'song'|'video'|'photo'} mediaType
+ */
+function wireFolderPropertiesModalUi(folderId, mediaType) {
+    const modalBody = document.getElementById('modal-choice-body');
+    const checkboxes = [
+        ['readOnly', modalBody.querySelector('#folder-properties-readonly-checkbox')],
+        ['hidden', modalBody.querySelector('#folder-properties-hidden-checkbox')],
+        ['applyFilter', modalBody.querySelector('#folder-properties-applyfilter-checkbox')],
+    ];
+
+    // --- addEventListener gom cuối hàm (Rule 5a) ---
+    checkboxes.forEach(([name, el]) => el.addEventListener('change', (e) => eventBus.send({ router: 'fileManagerFolderBrowser', type: `fileManagerFolderBrowser.properties.${name}.change`, payload: { folderId, mediaType, enabled: e.target.checked } })));
+}
+
+/**
+ * Wire màn "Cài đặt filter" của folder trong Generic Drawer — gọi SAU khi nội dung vừa dựng. Nút
+ * Back/Áp dụng -> `fileManagerFolderBrowser.filterEdit.back|apply.click`; change/input/click trên các
+ * con trực tiếp của body (DOM động, tự mất khi nội dung bị thay) -> `filterEdit.field` { event }.
+ */
+function wireFolderFilterEditUi() {
+    const backBtn = genericDrawerHeader.querySelector('#btn-folder-filter-edit-back');
+    const applyBtn = genericDrawerHeader.querySelector('#btn-folder-filter-edit-apply');
+    const bodyRoots = Array.from(genericDrawerBody.children);
+    const sendField = (e) => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.filterEdit.field', payload: { event: e } });
+
+    // --- addEventListener gom cuối hàm (Rule 5a) ---
+    if (backBtn) backBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.filterEdit.back.click', payload: {} }));
+    if (applyBtn) applyBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.filterEdit.apply.click', payload: {} }));
+    bodyRoots.forEach((root) => {
+        root.addEventListener('change', sendField);
+        root.addEventListener('input', sendField);
+        root.addEventListener('click', sendField); // nút mở time-picker (data-filter-time-trigger)
+    });
+}
