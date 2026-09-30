@@ -43,11 +43,14 @@ function renderKaraokeDrawerBody(words, isApplied) {
     //   - `#karaoke-mini-knobs`: lớp núm kéo mốc chia — NGOÀI khung sóng (khung sóng tự overflow-hidden,
     //     lớp này thì không) nên núm tròn nằm vắt ngang mép dưới, tràn ra ngoài khung. `padding-bottom`
     //     của khối chừa chỗ cho phần núm tràn xuống.
+    //   - `user-select: none` cả khối (SỬA lần 4, Giang): nhấn giữ/kéo trên sóng, chữ từ, núm, thanh trượt
+    //     không bôi chọn chữ / hiện menu copy của iOS (phần bên trong Shadow DOM của WaveSurfer do
+    //     Workflow chèn style riêng, xem _setupKaraokeMiniScroll()).
     // Style inline (không thêm class Tailwind mới — tailwind.css build sẵn).
     const h = KARAOKE_MINI_HEIGHT_PX;
     return `
         <div class="flex flex-col">
-            <div class="sticky top-0 z-10 border-b" style="padding-bottom:10px" data-uitk="panelFlushBg dividerBorder">
+            <div class="sticky top-0 z-10 border-b" style="padding-bottom:10px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none" data-uitk="panelFlushBg dividerBorder">
                 <div class="relative w-full" style="height:${h}px">
                     <div id="karaoke-mini-waveform" class="absolute overflow-hidden" style="left:0;right:0;top:0;height:${h}px;touch-action:pan-y" data-uitk="cardBg"></div>
                     <div id="karaoke-mini-knobs" style="position:absolute;left:0;right:0;top:0;height:0;overflow:visible;pointer-events:none;z-index:6"></div>
