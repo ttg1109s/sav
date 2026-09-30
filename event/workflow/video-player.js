@@ -19,7 +19,7 @@
  * riêng cho Video.
  *
  * NẠP SAU: core/video-player.js, core/playlist/order.js (updateShuffleArray/recomputeDisplayOrder/
- * recomputeRenderOrder), service/db.js (getVideoRecord), core/audio-engine.js (setupAudioContext),
+ * recomputeRenderOrder), service/db.js (getVideoRecord), event/workflow/audio-engine.js (workflowAudioEngine.setup — thay setupAudioContext() từ 01/10/2026),
  * event/workflow/player-controls.js (`workflowPlayerControls.goToNextTrack()` — dùng ở
  * handleVideoPlayerEnded() bên dưới), event/workflow/playlist-scope.js
  * (`applyFolderScope()`/`applyAllSongsScope()` — dùng ở refreshVideoPlaylistIfActive() bên dưới).
@@ -76,7 +76,7 @@ const workflowVideoPlayer = {
      *   đầu cũng cần — thumb đứng yên tới khi video thật sự sẵn sàng, xem docstring
      *   `workflowVisualBg._playVideoKey()`).
      * @param {Function} [beforePlay=null] - hook chạy NGAY TRƯỚC khi gán `poster`/`src`/`play()` —
-     *   CHỈ để `playVideoByKey()` chèn `setupAudioContext()`/`connectVideoElementToAnalyser()` ĐÚNG
+     *   CHỈ để `playVideoByKey()` chèn `workflowAudioEngine.setup()`/`connectVideoElementToAnalyser()` ĐÚNG
      *   VỊ TRÍ như bản gốc. Visual Background KHÔNG truyền (SỬA 09/08/2026, mục 1+2 — nối Web Audio
      *   dời sang `workflowVisualBg._applyVideoAudioSettingToElement()`, chạy TRƯỚC lời gọi này, LƯỜI
      *   — chỉ nối đúng lúc Audio B thật sự bật cho video đó, mặc định câm không đụng Web Audio).
@@ -518,9 +518,9 @@ const workflowVideoPlayer = {
             // có để nối vào). Truyền qua `beforePlay` để chạy ĐÚNG vị trí bản gốc: sau khi tạo object
             // URL, TRƯỚC khi gán poster/src/play() — Visual Background không cần nên không truyền.
             const record = await this.swapBgVideoSource(videoKey, isTransition, () => {
-                setupAudioContext(); // core/audio-engine.js — dùng CHUNG với Song/Visual BG, KHÔNG đụng file đó
+                workflowAudioEngine.setup(); // event/workflow/audio-engine.js — dùng CHUNG với Song/Photo/Visual BG (thay setupAudioContext(), 01/10/2026)
                 // FIX (phản hồi Giang — tách riêng khỏi core/audio-engine.js, CHỈ áp cho luồng Video
-                // Player mode, không đụng luồng Visual BG video/Song dùng chung hàm setupAudioContext()
+                // Player mode, không đụng luồng Visual BG video/Song dùng chung workflowAudioEngine.setup()
                 // ở trên) — nghi vấn: AudioContext mới tạo (lần đầu/phiên) có thể ở 'suspended' tuỳ
                 // trình duyệt/thời điểm gesture, khiến video câm + analyser đọc rỗng (BPM/Pitch/Energy
                 // không nhảy). resume() TƯỜNG MINH riêng ở ĐÂY — an toàn dù context đã 'running' (no-op).

@@ -29,7 +29,7 @@
  * NẠP SAU: core/playlist/actions.js (removeKeyFromDisplay), core/playlist/render.js
  * (attachCoverFallback/scrollToCurrentKeyAnimated), core/playlist/order.js, core/player-controls.js
  * (requestWakeLock/switchToVisualizer), core/listen-stats.js (bumpSongPlayCount), event/workflow/
- * subtitle-display.js (workflowSubtitleDisplay.clearAll — chỉ gọi lúc chạy), core/audio-engine.js (setupAudioContext),
+ * subtitle-display.js (workflowSubtitleDisplay.clearAll — chỉ gọi lúc chạy), event/workflow/audio-engine.js (workflowAudioEngine.setup — thay setupAudioContext() từ 01/10/2026),
  * core/visualizer/visualizer-display.js (updateTypeUI), event/bus.js, event/workflow/video-player.js
  * (workflowVideoPlayer.exitVideoPlayerMode). NẠP TRƯỚC: event/workflow/player-controls.js,
  * event/router/playlist.js, event/router/playlist-empty-state.js (cả 3 đều gọi
@@ -290,7 +290,8 @@ const workflowPlayer = {
             appState.set('rubikPitchHistory', []); appState.set('rubikPitchAvg', 0);
             appState.set('raindrops', []); appState.set('ripples', []); appState.set('glassStaticDrops', []); appState.set('glassStreaks', []); appState.set('activeLightnings', []); // (starFlashes — ĐÃ BỎ 29/09/2026, chớp sao Black Hole bỏ hẳn)
             workflowVisualizerRender.resetForNewMedia(); // event/workflow/visualizer-render.js — SỬA 28/09/2026 (thay resetConnectorPerTrackState() gọi thẳng): mọi group dọn trạng thái theo bài (connector: tia/tín hiệu còn bay dở)
-            setupAudioContext(); workflowVisualizerRender.activateCurrentStyle(); // SỬA 28/09/2026 — thay updateTypeUI() (core cũ)
+            workflowAudioEngine.setup(); workflowVisualizerRender.activateCurrentStyle(); // SỬA 01/10/2026 — thay setupAudioContext() (core cũ, đã xoá)
+            // SỬA 28/09/2026 — thay updateTypeUI() (core cũ)
 
             appState.set('subtitles', record.subtitles ? record.subtitles.slice() : []);
             workflowSubtitleDisplay.clearAll(); // event/workflow/subtitle-display.js — dọn khối phụ đề + karaoke bài cũ

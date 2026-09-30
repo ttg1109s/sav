@@ -30,6 +30,13 @@ let visualBgVideoAudioPanelEl = null;
 /** "Fix time": cưỡng chế chuyển video kế sau đúng `durationSeconds` giây, không chờ video tự phát hết. */
 const VISUAL_BG_VIDEO_FIXTIME_TASK = 'visualBgVideoFixTime';
 
+/** Audio B của VBG video bật / tắt — object map thay if/else (readme/event-bus-flow.md mục 7; chuyển 01/10/2026 khi
+ * sửa đúng khối này: setupAudioContext() -> workflowAudioEngine.setup()). Khoá = `!!enabled`. */
+const VISUAL_BG_VIDEO_AUDIO_BY_ENABLED = {
+    true: (gain) => workflowVisualBg._connectVideoAudio(gain),
+    false: () => setVideoBgGain(0), // core/video-player.js
+};
+
 Object.assign(workflowVisualBg, {
     _isSwappingVideo: false, // guard chống race "video chạy/lặp/đen màn thất thường"
     _currentVideoKey: null,  // key video ĐANG THẬT SỰ nạp trong bgVideoElement (khác appState.currentKey — của bài hát/video đang phát thật)
@@ -366,13 +373,14 @@ Object.assign(workflowVisualBg, {
         const gain = resolveVisualBgVideoAudioGain(volumePercent);
         bgVideoElement.muted = !enabled;
         bgVideoElement.volume = gain;
-        if (enabled) {
-            setupAudioContext();
-            connectVideoElementToAnalyser();
-            setVideoBgGain(gain);
-        } else {
-            setVideoBgGain(0);
-        }
+        VISUAL_BG_VIDEO_AUDIO_BY_ENABLED[!!enabled](gain);
+    },
+
+    /** Audio B bật: đảm bảo audio graph (event/workflow/audio-engine.js), nối bgVideoElement vào graph rồi đặt gain. */
+    _connectVideoAudio(gain) {
+        workflowAudioEngine.setup(); // event/workflow/audio-engine.js — thay setupAudioContext() (core cũ)
+        connectVideoElementToAnalyser(); // core/video-player.js
+        setVideoBgGain(gain); // core/video-player.js
     },
 
     /** Đánh dấu vị trí hiện tại là mất + ẩn — không reset index/task, chờ advance() lần sau tự bước

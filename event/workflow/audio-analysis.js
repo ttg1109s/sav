@@ -22,8 +22,8 @@
  * DOM) là method riêng mở đầu bằng guard.
  *
  * Start/pause/resume/kill task: xem `workflowVisualizerRender.start()/stop()/suspendForBackground()/
- * resumeFromBackground()` — nơi điều phối vòng đời chung của CẢ 2 task (giữ nguyên điểm gọi cũ:
- * core/audio-engine.js, event/workflow/app-visibility.js).
+ * resumeFromBackground()` — nơi điều phối vòng đời chung của CẢ 2 task (điểm gọi: event/workflow/audio-engine.js
+ * — thay core/audio-engine.js::setupAudioContext() từ 01/10/2026 — và event/workflow/app-visibility.js).
  *
  * NẠP: trước event/workflow/visualizer-render.js (xem index.html). Mọi tham chiếu tới core/workflow khác
  * chỉ xảy ra lúc chạy (sau khi toàn bộ script đã nạp), không phải lúc nạp file.
@@ -141,12 +141,13 @@ const workflowAudioAnalysis = {
     },
 
     /** Gửi buffer time-domain cho pitch worker (không chờ) rồi dùng kết quả MỚI NHẤT worker đã trả
-     * (`latestPitchFrequency`, có thể trễ vài frame — xem core/audio-engine.js). Quá nhỏ tiếng thì bỏ qua. */
+     * (`latestPitchFrequency`, có thể trễ vài frame — xem event/workflow/audio-engine.js). Quá nhỏ tiếng thì bỏ qua. */
     _detectPitch(energyPercent, now) {
         if (energyPercent <= 1) return;
         const s = appState.get(['analyserPitch', 'pitchTimeDomainArray', 'audioContext', 'latestPitchFrequency']);
         s.analyserPitch.getFloatTimeDomainData(s.pitchTimeDomainArray);
-        requestPitchDetection(s.pitchTimeDomainArray, s.audioContext.sampleRate); // core/audio-engine.js (di sản)
+        // SỬA (01/10/2026) — thay requestPitchDetection() (core di sản, R2/R3) bằng Workflow gọi Workflow.
+        workflowAudioEngine.requestPitch(s.pitchTimeDomainArray, s.audioContext.sampleRate); // event/workflow/audio-engine.js
         this._commitPitch(computeMidiNoteFromFrequency(s.latestPitchFrequency), now); // core
     },
 

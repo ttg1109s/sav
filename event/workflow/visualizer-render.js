@@ -28,8 +28,8 @@
  * đường đổi `visualEnabled` (toggle, Restore default, boot, khôi phục backup) đều tự được bắt, không cần phát
  * event ở từng nơi.
  *
- * Điểm khởi động: core/audio-engine.js::setupAudioContext() gọi `start()` (Core gọi Workflow — ngoại lệ đã biết,
- * xem comment tại đó). `start()` giờ tự dựng canvas/scene theo khung nhìn (thay `resizeCanvas()` cũ đứng ngay
+ * Điểm khởi động: event/workflow/audio-engine.js::_buildGraph() gọi `start()` (Workflow gọi Workflow — từ 01/10/2026;
+ * trước đó là core/audio-engine.js::setupAudioContext(), ngoại lệ Core gọi Workflow nay đã hết). `start()` giờ tự dựng canvas/scene theo khung nhìn (thay `resizeCanvas()` cũ đứng ngay
  * trước nó).
  *
  * NẠP: sau event/workflow/audio-analysis.js, TRƯỚC 6 file event/workflow/visualizer/*.js (các file đó gọi
@@ -85,8 +85,8 @@ const workflowVisualizerRender = {
     start() {
         taskManager.kill(RENDER_TASK);
         this._renderActive = false;
-        this.allocateAnalysisBuffers(); // thay allocateBuffers() (core cũ) setupAudioContext() gọi ngay trước start()
-        this.rebuildCanvasScenes(); // thay resizeCanvas() cũ (setupAudioContext() gọi ngay trước start())
+        this.allocateAnalysisBuffers(); // thay allocateBuffers() (core cũ, từng được gọi ngay trước start())
+        this.rebuildCanvasScenes(); // thay resizeCanvas() cũ (từng được gọi ngay trước start())
         workflowAudioAnalysis.start(); // event/workflow/audio-analysis.js
     },
 

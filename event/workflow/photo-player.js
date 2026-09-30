@@ -117,7 +117,7 @@ const workflowPhotoPlayer = {
         // audioContext/analyser/vizDataArray/vòng lặp render TỒN TẠI, phần "im lặng" Photo vẫn giữ
         // nguyên (audioPlayer đứng yên/paused nên analyser tự đọc dữ liệu gần như 0, ra đúng
         // animation "idle" như ý ban đầu).
-        setupAudioContext(); // core/audio-engine.js
+        workflowAudioEngine.setup(); // event/workflow/audio-engine.js — SỬA 01/10/2026: thay setupAudioContext() (core cũ, đã xoá); comment lịch sử phía trên giữ tên cũ
 
         // Photo không dùng phụ đề: dọn trước audioPlayer.pause() (cùng lý do workflowVideoPlayer.startFromPlaylist()).
         appState.set('subtitles', []);
