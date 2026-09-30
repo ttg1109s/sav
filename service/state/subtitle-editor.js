@@ -63,7 +63,8 @@
                 _karaokeHighlightRegion: 'any',     // region bôi xanh [đầu từ, vị trí đang phát] | null
                 _karaokeLabelRegions: 'array',      // region vùng TỪ (có chữ bên trong), theo index từ
                 _karaokeMarkerRegions: 'array',     // region mốc chia (kéo được)
-                _karaokeMiniPxPerSec: 'number',     // px/giây của waveform mini (quy đổi thời điểm -> vị trí cuộn)
+                _karaokeMiniDurationSec: 'number',  // thời lượng (giây) đoạn dòng trên waveform mini — tính px/giây thật từ bề rộng sóng
+                _karaokeKnobDrag: 'any',            // {dividerIndex, pointerId, startX, startMs} lúc đang kéo núm mốc chia | null
             },
             buildDefaults() {
                 return {
@@ -113,7 +114,8 @@
                     _karaokeHighlightRegion: null,
                     _karaokeLabelRegions: [],
                     _karaokeMarkerRegions: [],
-                    _karaokeMiniPxPerSec: 1,
+                    _karaokeMiniDurationSec: 0,
+                    _karaokeKnobDrag: null,
                 };
             },
         });
