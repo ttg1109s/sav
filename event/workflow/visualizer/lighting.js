@@ -136,7 +136,11 @@ const workflowVizLighting = {
 
     /** Pháo tới đỉnh: nổ theo kiểu của nó, cỡ theo biên độ dải tần + beat lúc phóng, góp vào chớp màn hình. */
     _explodeRocket(rocket, step) {
-        const { cfg, isPlaying, beatScale, vizDataArray } = step.frame;
+        const { cfg, isPlaying } = step.frame;
+        // SỬA (01/10/2026, Giang báo "pháo bắn lên không nổ") — lượt chuyển sang frame.audio sót dòng tách biến này (tách từ
+        // `step.frame`, không phải `frame`): beatScale/vizDataArray thành undefined -> độ mạnh nổ NaN -> hạt nổ không hiện.
+        const beatScale = step.frame.audio.beatScale(); // service/audio-analysis.js
+        const vizDataArray = step.frame.audio.spectrum(LIGHTING_FFT_SIZE); // service/audio-analysis.js
         const binValue01 = (vizDataArray && vizDataArray[rocket.binIndex] !== undefined) ? vizDataArray[rocket.binIndex] / 255 : 0;
         const sizeScale = computeFireworksSizeScale(binValue01, rocket.launchBeatScale); // core
         const power = computeFireworksBurstPower(cfg.burstPower, beatScale) * sizeScale; // core
