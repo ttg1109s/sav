@@ -2164,6 +2164,7 @@ const workflowPlaylist = {
         await withLoadingShield(t('common.loading.generic'), async () => {
             await workflowPlaylistScope.persistScopeChoice(null, mediaType);
             await workflowPlaylistScope.applyAllSongsScope(mediaType);
+            workflowPlaylistRender.scrollToCurrentOrTop(); // SỬA (02/10/2026) — quy tắc A, CÙNG lý do applyFolderFromTile() (event/workflow/file-manager-folder-browser.js)
         });
     },
 

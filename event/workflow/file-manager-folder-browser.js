@@ -138,6 +138,9 @@ const workflowFileManagerFolderBrowser = {
         await withLoadingShield(t('common.loading.generic'), async () => { // core/loading-shield-util.js
             await workflowPlaylistScope.persistScopeChoice(folderId, mediaType);
             await workflowPlaylistScope.applyFolderScope(folderId, mediaType);
+            // SỬA (02/10/2026, Giang chốt quy tắc A cho cả đổi folder Scope) — trước đây giữ nguyên scrollTop cũ (của danh
+            // sách trước khi đổi Scope, vô nghĩa với danh sách mới). Folder có media đang phát -> tới thẳng nó, không -> về đầu.
+            workflowPlaylistRender.scrollToCurrentOrTop(); // event/workflow/playlist-render.js
         });
         this.closeBrowser();
     },

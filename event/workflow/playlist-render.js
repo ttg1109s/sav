@@ -65,7 +65,10 @@ const workflowPlaylistRender = {
         const hasRealCover = !!(cached && cached.cover);
         const coverUrl = hasRealCover ? URL.createObjectURL(cached.cover) : DEFAULT_VINYL;
 
-        const isPlaying = (key === appState.get('currentKey'));
+        // FIX (02/10/2026, Giang) — trước đây chỉ so key: đang phát video mà sang Nguồn Photo, ảnh nào trùng slug tên file với
+        // video đó bị tô "đang phát". Giờ phải khớp thêm LOẠI media đang phát với Nguồn đang xem (playlistCache luôn là cache
+        // của `activeMediaSource`, nên đó chính là loại của node đang dựng).
+        const isPlaying = key === appState.get('currentKey') && this._playingMediaType() === appState.get('activeMediaSource');
         const isActuallyPlaying = isPlaying && !((cached && cached.mediaType === 'video') ? bgVideoElement.paused : audioPlayer.paused);
         const eqIconHtml = isActuallyPlaying ? `<div class="flex items-end gap-[2px] h-3 w-3"><div class="w-[3px] eq-1" data-uitk="eqBarBg"></div><div class="w-[3px] eq-2" data-uitk="eqBarBg"></div><div class="w-[3px] eq-3" data-uitk="eqBarBg"></div></div>` : (isPlaying ? `<div class="w-2 h-2 rounded-full shadow-[0_0_5px_rgba(14,165,233,0.8)]" data-uitk="btnPrimaryPillBg"></div>` : '');
         // SỬA (24/09/2026, rà soát refresh DOM) — node dựng ra LUÔN ở dạng "thường" (có nút 3 chấm, không vòng
@@ -261,15 +264,22 @@ const workflowPlaylistRender = {
 
     /** MỚI (02/10/2026, Giang chốt quy tắc A + yêu cầu "current video -> đổi Nguồn Photo -> về lại Video -> phải về
      * current") — gọi SAU khi danh sách đã render lại (đổi từ khoá Search: workflowPlaylistOrder.applySearchQuery();
-     * đổi Nguồn: workflowPlaylist.switchSource(), THAY `resetPlaylistScrollTop()` luôn-về-0 trước đây). */
+     * đổi Nguồn: workflowPlaylist.switchSource(), THAY `resetPlaylistScrollTop()` luôn-về-0 trước đây; đổi folder Scope:
+     * tap folder — workflowFileManagerFolderBrowser.applyFolderFromTile(), nút X badge — workflowPlaylist.
+     * exitActiveFolderScope(), SỬA 02/10/2026). */
     scrollToCurrentOrTop() {
         const isCurrentListed = isPlayingMediaListed( // core/playlist/render.js
             appState.get('currentKey'),
-            appState.get('isVideoPlayerMode'),
-            appState.get('isPhotoPlayerMode'),
+            this._playingMediaType(),
             appState.get('activeMediaSource'),
             appState.get('renderOrder'),
         );
         PLAYLIST_SCROLL_BY_CURRENT_LISTED[isCurrentListed]();
+    },
+
+    /** MỚI (02/10/2026) — loại media đang phát ('song'|'video'|'photo'), dùng chung cho buildSongNode() (tô "đang phát")
+     * và scrollToCurrentOrTop() (quy tắc A) — 1 chỗ đọc 2 cờ player mode. */
+    _playingMediaType() {
+        return resolvePlayingMediaType(appState.get('isVideoPlayerMode'), appState.get('isPhotoPlayerMode')); // core/playlist/render.js
     },
 };
