@@ -49,7 +49,7 @@ const BAR_DOT_IMPACT_COLOR_BY_TWO_COLOR = {
  * trải dải màu theo VỊ TRÍ dot (getComputedColor(i, dotCount, mức phồng) — cùng cách bar mirror/cascade tô), các mode
  * khác dùng 1 màu chung như cũ. */
 const BAR_DOT_COLORS_BY_GRADIENT = {
-    true: (dotCount, smoothed) => Array.from({ length: dotCount }, (_, i) => getComputedColor(i, dotCount, 128 + 127 * Math.min(1, smoothed[i]))), // core/audio-analysis.js
+    true: (dotCount, smoothed) => Array.from({ length: dotCount }, (_, i) => getComputedColor(i, dotCount, 128 + 127 * Math.min(1, smoothed[i]))), // core/visualizer/effect-paint.js
     false: (dotCount, smoothed, shared) => new Array(dotCount).fill(shared),
 };
 
@@ -111,7 +111,7 @@ const workflowVizBar = {
         const { ctx, canvas, cfg, dpr } = frame;
         const keys = computeBarCascadeFrame(cfg, canvas.width, canvas.height, dpr, frame.vizDataArray); // core
         keys.forEach((k) => {
-            const color = getComputedColor(...k.colorArgs); // core/audio-analysis.js
+            const color = getComputedColor(...k.colorArgs); // core/visualizer/effect-paint.js
             paintBarRects(ctx, [k.shadowRect, k.capRect], color.fill, color.glow, dpr, frame.perf.blurMult, 10); // core
         });
         ctx.shadowBlur = 0;
@@ -163,7 +163,7 @@ const workflowVizBar = {
         const cfg = frame.cfg;
         if (!frame.isPlaying || frame.smoothedEnergy <= cfg.flareThreshold) return;
         const flareAlpha = (frame.smoothedEnergy - cfg.flareThreshold) * 2.5;
-        const rgb = resolveBlackHoleRgb(frame.ctx, getComputedColor(0, 1, Math.round(frame.smoothedEnergy * 255)).glow); // core + core/audio-analysis.js
+        const rgb = resolveBlackHoleRgb(frame.ctx, getComputedColor(0, 1, Math.round(frame.smoothedEnergy * 255)).glow); // core + core/visualizer/effect-paint.js
         paintBlackHoleFlare(frame.ctx, frame.canvas.width, frame.canvas.height, centerX, centerY, currentRadius, rgb, flareAlpha); // core
     },
 
@@ -185,7 +185,7 @@ const workflowVizBar = {
     /** Bảng màu Color mode dọc thân tia (tâm -> mép), dạng "r, g, b" — resolve 1 lần/frame, chỉ khi có tia. */
     _resolveHawkingPalette(frame) {
         if (this._blackHole.bursts.length === 0) return [];
-        return Array.from({ length: BLACK_HOLE_BURST_PALETTE_SIZE }, (_, k) => resolveBlackHoleRgb(frame.ctx, getComputedColor(k, BLACK_HOLE_BURST_PALETTE_SIZE, 200).glow)); // core + core/audio-analysis.js
+        return Array.from({ length: BLACK_HOLE_BURST_PALETTE_SIZE }, (_, k) => resolveBlackHoleRgb(frame.ctx, getComputedColor(k, BLACK_HOLE_BURST_PALETTE_SIZE, 200).glow)); // core + core/visualizer/effect-paint.js
     },
 
     /** Vẽ 1 nửa (sau/trước) của mọi tia đang bay — mỗi nửa dài tới hết mép màn hình theo góc của nó: dải nhiệt (shadowBlur)
@@ -238,7 +238,7 @@ const workflowVizBar = {
         bh.meanHeight = computeBlackHoleMeanBarHeight(bars); // core — frame sau đếm cột theo đầu cột
         // Cột tô màu ĐẶC (fillNoAlpha) để cột trên che hẳn cột dưới (29/09/2026).
         const colors = bars.map((b) => {
-            const c = getComputedColor(...b.colorArgs); // core/audio-analysis.js
+            const c = getComputedColor(...b.colorArgs); // core/visualizer/effect-paint.js
             return { fill: c.fillNoAlpha, glow: c.glow };
         });
         const entries = orderBlackHoleBarsClockwise(bars, colors); // core
@@ -289,7 +289,7 @@ const workflowVizBar = {
         const peaks = this._mirrorPeaks ? this._mirrorPeaks.vals : null;
         const mirrorFrame = computeBarMirrorFrame(cfg, canvas.width, canvas.height, dpr, levels, peaks); // core
         mirrorFrame.bars.forEach((b) => {
-            const color = getComputedColor(...b.colorArgs); // core/audio-analysis.js
+            const color = getComputedColor(...b.colorArgs); // core/visualizer/effect-paint.js
             paintBarRects(ctx, b.rects, color.fill, color.glow, dpr, frame.perf.blurMult, 15); // core
         });
         ctx.shadowBlur = 0;
@@ -334,7 +334,7 @@ const workflowVizBar = {
         const vibrate = !moving && dnaMax <= 0 && base.shape === 'line' && cfg.dotLineVibrate !== false; // DNA còn dở (đang nhập lại) thì chưa rung
         const vibAmpPx = BAR_DOT_VIBRATION_BY_ON[vibrate](frame, dt);
 
-        const color = getComputedColor(0, 1, 128); // core/audio-analysis.js
+        const color = getComputedColor(0, 1, 128); // core/visualizer/effect-paint.js
         const colors = BAR_DOT_COLORS_BY_GRADIENT[cfg.mode === 'gradient'](dotCount, dot.smoothed, color);
         const mode = cfg.dotImpactMode === 'height' ? 'height' : 'radius';
         const paint = {

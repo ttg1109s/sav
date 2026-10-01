@@ -104,7 +104,7 @@ const workflowVizConnector = {
         const meshScale = computeConnectorMeshScale(cellSize); // core
         const { edges, inDegree } = buildSynapseGraph(cells); // core
         const neurons = cells.map((cell, i) => {
-            const color = getComputedColor(i, neuronCount, 128); // core/audio-analysis.js
+            const color = getComputedColor(i, neuronCount, 128); // core/visualizer/effect-paint.js
             const neuron = createAnatomicalNeuron(i, cell.position, inDegree[i], new THREE.Color(color.fillNoAlpha).getHex(), new THREE.Color(color.glow).getHex(), glowTexture, meshScale); // core
             attachThreeChild(networkGroup, neuron.container); // core
             return neuron;
@@ -117,7 +117,7 @@ const workflowVizConnector = {
     _buildCircuitNodes(nodeCount, nodeGroup) {
         const { cells } = buildCircuitCubeCells(nodeCount); // core/webgl/three-connector.js
         const chips = cells.map((cell, i) => {
-            const colorHex = new THREE.Color(getComputedColor(i, cells.length, 128).fillNoAlpha).getHex(); // core/audio-analysis.js — fillNoAlpha tránh cảnh báo alpha của THREE.Color
+            const colorHex = new THREE.Color(getComputedColor(i, cells.length, 128).fillNoAlpha).getHex(); // core/visualizer/effect-paint.js — fillNoAlpha tránh cảnh báo alpha của THREE.Color
             const chip = assembleCircuitChip(cell, i, colorHex, createChipMesh(colorHex)); // core
             attachThreeChild(nodeGroup, chip.group); // core
             return chip;
@@ -240,7 +240,7 @@ const workflowVizConnector = {
             this._fireNeuron(frame, wf, neuron, i, energyByte, diff);
             neuron.prevBinEnergy = energyByte;
             decayNeuronState(neuron, wf.deltaTime); // core — fade glow + adaptation + lateralInhibition
-            const color = getComputedColor(i, neurons.length, energyByte); // core/audio-analysis.js
+            const color = getComputedColor(i, neurons.length, energyByte); // core/visualizer/effect-paint.js
             applyNeuronExcitement(neuron, color.fillNoAlpha, color.glow); // core
             applyConnectorGlowSettings(neuron.glowSprite, cfg.glowEnabled, wf.glowIntensity); // core/visualizer/groups/connector/common.js
         });
@@ -318,7 +318,7 @@ const workflowVizConnector = {
         const pitchNodeIndex = this._resolvePitchNodeIndex(frame, chips.length);
 
         chips.forEach((chip, i) => {
-            const chipColor = getComputedColor(i, chips.length, 128); // core/audio-analysis.js — dataValue=128 như lúc build
+            const chipColor = getComputedColor(i, chips.length, 128); // core/visualizer/effect-paint.js — dataValue=128 như lúc build
             applyChipLiveColor(chip, chipColor.fillNoAlpha); // core/visualizer/groups/connector/circuit.js
             applyChipGlowSettings(chip.bodyMesh, cfg.glowEnabled, wf.glowIntensity); // core/visualizer/groups/connector/common.js
             decayChipSpin(chip, wf.deltaTime); // core

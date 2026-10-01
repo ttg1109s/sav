@@ -139,7 +139,7 @@ const workflowVizRain = {
         const streetLamps = appState.get('streetLamps');
         const lampSpecs = advanceRainLampsAndBuildSpecs(streetLamps, isPlaying, beatScale, dpr); // core
         lampSpecs.forEach((spec) => {
-            const lampColor = getComputedColor(...spec.colorArgs); // core/audio-analysis.js
+            const lampColor = getComputedColor(...spec.colorArgs); // core/visualizer/effect-paint.js
             const lampFill = workflowVisualizerRender.modeColor(cfg, spec.colorArgs[0], lampColor.fill, 'gradient');
             paintRainLamp(ctx, spec, lampFill, dpr); // core
         });
@@ -155,7 +155,7 @@ const workflowVizRain = {
         if (Math.random() <= 0.92) return;
         const mainLamp = streetLamps.find((l) => l.main);
         if (!mainLamp) return;
-        const rippleColor = getComputedColor(0, 1, 200); // core/audio-analysis.js
+        const rippleColor = getComputedColor(0, 1, 200); // core/visualizer/effect-paint.js
         spawnRainRipple(mainLamp.x, groundY, frame.canvas.height, frame.dpr, rippleColor.fill, rippleColor.glow); // core
     },
 };
