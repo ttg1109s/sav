@@ -17,7 +17,7 @@
  *   1. Thang tần số LOG (40Hz..16kHz, trần = Nyquist) thay tuyến tính — trước đây 16/32 thanh gần tâm
  *      hiển thị 6-12kHz (gần như im lặng), toàn bộ 0-1kHz dồn vào ~3 thanh sát mép. Mỗi thanh lấy MAX
  *      các bin trong dải; dải hẹp hơn 1 bin (vùng bass) nội suy tại tần số giữa dải -> không bị bậc
- *      thang. Cần FFT 2048 riêng cho style này (needsHighResFft(group, style), service/state/
+ *      thang. Cần FFT 2048 riêng cho style này (BAR_MIRROR_FFT_SIZE, event/workflow/visualizer/bar.js — trước đây needsHighResFft(group, style), service/state/
  *      visualizer-runtime.js).
  *   2. Dải dB -85..-25 (như audioMotion) thay -100..-30 mặc định của analyser — quy đổi NGAY TẠI ĐÂY từ
  *      byte + min/maxDecibels thật của analyser (không đổi analyser dùng chung với effect khác).
