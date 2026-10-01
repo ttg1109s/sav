@@ -221,10 +221,13 @@ const workflowVisualizerRender = {
     _spectrumSize: 0,
 
     /** SỬA 01/10/2026 (thay _applyFftSizeForStyle() + allocateVizSpectrumBuffer() — đổi fftSize 1 analyser chung): style
-     * XIN phổ theo cỡ của nó qua audioAnalysis (service/audio-analysis.js) — mirror/vortex/lighting/connector 2048, còn
-     * lại 256, đúng như trước nên hình không đổi. Trả cỡ cũ, xin cỡ mới; xin được cả trước khi có AudioContext. */
+     * XIN phổ theo cỡ GROUP TỰ KHAI BÁO (`group.spectrumSize(style)`, cạnh code của group — thay bảng needsHighResFft cũ ở
+     * service/state/visualizer-runtime.js) qua audioAnalysis (service/audio-analysis.js). Cỡ giữ nguyên như trước nên hình
+     * không đổi. Trả cỡ cũ, xin cỡ mới; xin được cả trước khi có AudioContext. Group lạ -> bỏ qua. */
     _requireSpectrumForStyle(groupName, style) {
-        const size = needsHighResFft(groupName, style) ? APP_CONFIG.fftSizeHighRes : APP_CONFIG.fftSizeStandard; // service/state/visualizer-runtime.js
+        const group = this._groups[groupName];
+        if (!group) return;
+        const size = group.spectrumSize(style);
         if (size === this._spectrumSize) return;
         audioAnalysis.releaseSpectrum(this._spectrumSize);
         audioAnalysis.requireSpectrum(size);
@@ -289,29 +292,26 @@ const workflowVisualizerRender = {
         const vizCfg = appConfigViz.getAll();
         if (vizCfg.visualEnabled === false) return; // phòng thủ — config vừa đổi, task chưa kịp bị kill (tối đa 1 frame)
         const s = appState.get(['dpr', 'isVideoPlayerMode', 'frameEffectConfig']);
-        // SỬA 01/10/2026 — mọi dữ liệu audio đọc từ kho audioAnalysis (service/audio-analysis.js), không còn key appState.
-        const spectrum = audioAnalysis.spectrum(this._spectrumSize);
-        if (!spectrum) return; // guard — audio context chưa init / chưa xin phổ
-        const analyser = audioAnalysis.spectrumAnalyser(this._spectrumSize);
         const cfg = s.frameEffectConfig;
+        const group = vizCfg.type;
+        const style = cfg[GROUP_STYLE_FIELD[group]];
+        // Phổ đã xin phải khớp style ĐANG vẽ (đổi style ở nơi không qua activateCurrentStyle() vẫn tự khớp) — không đổi thì
+        // hàm trả về ngay, không tốn gì.
+        this._requireSpectrumForStyle(group, style);
+        // SỬA 01/10/2026 — mọi dữ liệu audio effect tự đọc qua `frame.audio` (kho audioAnalysis, service/audio-analysis.js).
+        if (!audioAnalysis.spectrum(this._spectrumSize)) return; // guard — audio context chưa init / chưa xin phổ
         const media = s.isVideoPlayerMode ? bgVideoElement : audioPlayer;
         const frame = {
             ctx, canvas, cfg,
-            group: vizCfg.type,
-            style: cfg[GROUP_STYLE_FIELD[vizCfg.type]],
+            group,
+            style,
             perf: { blurMult: getActiveBlurMult() }, // core/visualizer/effect-paint.js
             isPlaying: !media.paused,
-            // Ảnh chụp audio của frame (mọi effect trong frame thấy CÙNG giá trị) + `audio` = kho để đọc thêm.
+            // CÁCH ĐỌC AUDIO DUY NHẤT của effect (01/10/2026, Giang: "thống nhất theo chuẩn"): frame.audio.xxx() — không còn
+            // các trường ảnh chụp beatScale/smoothedEnergy/hue/vizDataArray/analyser/bufferLength/lastBeatTime/midiNote. Task
+            // phân tích chạy TRƯỚC task vẽ trong cùng khung hình nên giá trị cố định suốt frame vẽ.
             audio: audioAnalysis,
-            beatScale: audioAnalysis.beatScale(),
-            smoothedEnergy: audioAnalysis.smoothedEnergy(),
-            hue: audioAnalysis.hueOffset(),
-            vizDataArray: spectrum,
-            analyser,
-            bufferLength: spectrum.length,
             dpr: s.dpr,
-            lastBeatTime: audioAnalysis.lastBeatTime(),
-            midiNote: audioAnalysis.pitchMidi(),
         };
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         this._drawStyle(frame);
