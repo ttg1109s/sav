@@ -26,6 +26,7 @@ const RESTORE_DEFAULTS_META_KEYS = [
     'motionPresets', // SỬA 24/09/2026 — 'motionApply' BỎ (cơ chế đăng ký Motion vào nơi tiêu thụ đã xoá, boot tự delMeta key cũ)
     'playlistFilterPresets', 'playlistFilterActivePresetId', 'playlistFilterAppliedConfig', 'playlistFilterAppliesToFolder',
     'playlistConfig', 'playerConfig', 'playerDisplayConfig', 'uiThemeConfig', 'paginationConfig',
+    'recorderConfig', // MỚI 01/10/2026 — Ghi âm (khử tiếng vọng / bù trễ giọng), event/workflow/recorder.js
     'activePlayListFolder', // thư mục đang áp cho từng Nguồn -> về "Tất cả"
 ];
 

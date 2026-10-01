@@ -541,6 +541,8 @@ const workflowAppSettings = {
         const rows = [
             { key: 'playerVideo', icon: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z', labelKey: 'appSettings.player.video.label', hintKey: 'appSettings.player.video.hint' },
             { key: 'playerPhoto', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', labelKey: 'appSettings.player.photo.label', hintKey: 'appSettings.player.photo.hint' },
+            // MỚI (01/10/2026, Giang chốt vị trí) — Ghi âm (Song/Video Player): khử tiếng vọng + bù trễ giọng.
+            { key: 'playerRecorder', icon: 'M12 3a3 3 0 00-3 3v6a3 3 0 006 0V6a3 3 0 00-3-3zM19 11a7 7 0 01-14 0M12 18v3M8.5 21h7', labelKey: 'appSettings.player.recorder.label', hintKey: 'appSettings.player.recorder.hint' },
         ];
         this._render(t('appSettings.player.label'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js — TÁI DÙNG cơ chế chung data-app-settings-nav
     },
@@ -553,6 +555,13 @@ const workflowAppSettings = {
     _renderPlayerPhoto() {
         this._currentRenderFn = () => this._renderPlayerPhoto();
         this._renderPlayerDetail('photo');
+    },
+
+    /** MỚI (01/10/2026, Ghi âm) — Player > Ghi âm: khử tiếng vọng (toggle) + bù trễ giọng (slider), domain 'recorder'
+     * (core/config.js). Đổi giá trị không vẽ lại màn (không field nào phụ thuộc nhau) — xem workflowRecorder.changeConfigField(). */
+    _renderPlayerRecorder() {
+        this._currentRenderFn = () => this._renderPlayerRecorder();
+        this._render(t('appSettings.player.recorder.label'), renderRecorderSettingsBody(appConfigRecorder.getAll()), wireAppSettingsRecorder); // components/settings/recorder-settings.js, core/config.js, core/app-settings-ui.js
     },
 
     /** Dựng CHUNG 1 màn Resolution + Motion cho Video/Photo (2 kind gần như đối xứng, chỉ khác

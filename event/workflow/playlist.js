@@ -84,6 +84,13 @@ const MEDIA_DELETE_ACCESSOR = {
     photo: { getRecord: getImageRecord, deleteRecord: deleteImageRecord },
 };
 
+/** MỚI (01/10/2026, Ghi âm) — lưu bản ghi xong: cập nhật danh sách RAM theo Nguồn đang chọn (event-bus-flow.md mục 7 —
+ * object map). Chỉ Nguồn Song đụng danh sách; Video/Photo không làm gì (loader nạp lại từ DB khi chuyển sang Song). */
+const RECORDED_SONG_INDEX_BY_SOURCE = {
+    song: (key, record) => workflowPlaylist._indexRecordedSongInSongSource(key, record),
+    other: () => {},
+};
+
 const workflowPlaylist = {
 
     /** MỚI (21/09/2026, Giang yêu cầu — cuộn hoãn khi menu 3 chấm đang mở) — ĐƯỜNG ĐÓNG DUY NHẤT của menu 3 chấm
@@ -694,6 +701,73 @@ const workflowPlaylist = {
 
     // ===================== Upload Song — DỜI (24/09/2026) từ core/playlist/loader.js =====================
 
+    /**
+     * TÁCH (01/10/2026, Ghi âm — Giang duyệt) từ vòng lặp `uploadSongs()` — đưa 1 record Song VỪA ghi DB vào danh sách
+     * đang hiện trong RAM (Nguồn Song). `isNew` = key chưa có trong playlistOrder (bài mới, không phải ghi đè).
+     * FIX cũ giữ nguyên (Giang báo "song mới upload thiếu addedAt/size trong playlistCache"): object ghi vào cache có
+     * ĐỦ addedAt/size giống `buildSongPlaylistCache()` (core/playlist/loader.js) — đọc `record.blob.size` cho khớp 100%.
+     * CHỈ gọi khi Nguồn đang là Song — Video/Photo dùng chung các map này cho danh sách CỦA CHÚNG.
+     * @param {string} key @param {{filename:string, tag:object, cover:Blob|null, duration:number, addedAt:number, blob:Blob}} record @param {boolean} isNew
+     */
+    _indexSongInPlaylistState(key, record, isNew) {
+        if (isNew) appState.mutate('playlistOrder', arr => arr.push(key));
+        appState.mutate('playlistCache', m => m.set(key, { filename: record.filename, tag: record.tag, cover: record.cover, duration: record.duration, addedAt: record.addedAt, size: record.blob.size || 0 }));
+        appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(record.tag.title)));
+        appState.mutate('confirmedBrokenKeys', s => s.delete(key));
+        console.log(`writer: "workflowPlaylist._indexSongInPlaylistState", page: "playlistOrder/playlistCache/songNameIndex/confirmedBrokenKeys", content: "${key} (${isNew ? 'mới' : 'ghi đè'})"`);
+    },
+
+    /**
+     * TÁCH (01/10/2026) từ `uploadSongs()` — làm mới danh sách sau khi thêm bài (Nguồn Song). updateShuffleArray()/
+     * applyNewSongsToDisplayOrder()/recomputeRenderOrder() thuộc event/workflow/playlist-order.js (workflowPlaylistOrder).
+     * @param {string[]} newlyAddedKeys - CHỈ key mới (không gồm ghi đè)
+     */
+    _refreshPlaylistAfterSongsAdded(newlyAddedKeys) {
+        workflowPlaylistOrder.updateShuffleArray();
+        workflowPlaylistOrder.applyNewSongsToDisplayOrder(newlyAddedKeys); // (B) hàng đợi phát: nối cuối / pending
+        workflowPlaylistOrder.recomputeRenderOrder(); // (A) UI: sắp xếp lại NGAY
+        workflowPlaylistRender.renderPlaylistDiff();
+    },
+
+    /**
+     * TÁCH (01/10/2026) từ `uploadSongs()` (MỚI 06/09/2026, hợp nhất Folder vào Playlist, Batch 6) — đang Scope 1 folder
+     * Song thì gắn mọi key (mới HOẶC ghi đè) vào ĐÚNG folder đó — 1 lượt bulk. Đọc `activePlayListFolder.song` — đúng
+     * folder Song kể cả khi Nguồn đang là Video (Ghi âm lúc phát Video, Giang chốt).
+     * @param {string[]} keys
+     */
+    async _attachSongsToActiveSongFolder(keys) {
+        const activeFolderIdForSong = appState.get('activePlayListFolder').song;
+        if (!activeFolderIdForSong || keys.length === 0) return;
+        await addSongsToFolder(keys, activeFolderIdForSong, 'song'); // core/file-manager/folder.js
+    },
+
+    /**
+     * MỚI (01/10/2026, Ghi âm — Giang chốt) — lưu bản ghi thành 1 Song MỚI (tên file có dấu thời gian tới giây -> không
+     * đè bài cũ). LUÔN ghi DB `songs` + gắn folder Song đang active. Danh sách trong RAM (playlistOrder/playlistCache/
+     * songNameIndex) CHỈ cập nhật khi Nguồn đang là Song — đang ở Video thì để nguyên (các map đó đang chứa danh sách
+     * Video), chuyển sang Nguồn Song loader tự nạp lại từ DB nên bài ghi âm có mặt.
+     * @param {{filename:string, blob:Blob, tag:{title:string, artist:string, album:string}, cover:Blob|null, duration:number}} song
+     * @returns {Promise<string>} key vừa lưu
+     */
+    async addRecordedSong(song) {
+        const key = await resolveSongKey(song.filename); // service/db.js
+        const record = { filename: song.filename, blob: song.blob, tag: song.tag, cover: song.cover, subtitles: [], duration: song.duration, addedAt: Date.now() };
+        await setSongRecord(key, record); // service/db.js
+        console.log(`writer: "workflowPlaylist.addRecordedSong", page: "db.songs", content: "${key} (${song.blob.type || 'không rõ MIME'}, ${song.blob.size} byte)"`);
+        const activeMediaSource = appState.get('activeMediaSource');
+        (RECORDED_SONG_INDEX_BY_SOURCE[activeMediaSource] || RECORDED_SONG_INDEX_BY_SOURCE.other)(key, record);
+        await this._attachSongsToActiveSongFolder([key]);
+        return key;
+    },
+
+    /** Nhánh 'song' của RECORDED_SONG_INDEX_BY_SOURCE — key đã có trong playlistOrder (hiếm: trùng tên file) -> ghi đè. */
+    _indexRecordedSongInSongSource(key, record) {
+        const isNew = !appState.get('playlistOrder').includes(key);
+        this._indexSongInPlaylistState(key, record, isNew);
+        this._refreshPlaylistAfterSongsAdded(isNew ? [key] : []);
+    },
+
+
     /** DỜI (24/09/2026, dọn nợ "Core gọi Workflow") từ core/playlist/loader.js::handleAudioFiles() — thân GIỮ NGUYÊN.
      *
      * Xử lý 1 FileList bất kỳ (từ input chọn file rời HOẶC input "Chọn cả thư mục") — TÁCH
@@ -818,45 +892,22 @@ const workflowPlaylist = {
                     // addSongsToFolder()/removeSongsFromFolder(), core/file-manager/folder.js).
                     allProcessedKeys.push(key);
 
-                    if (!isOverwrite) { appState.mutate('playlistOrder', arr => arr.push(key)); playlistOrderSet.add(key); newlyAddedKeys.push(key); }
-                    // FIX (Giang báo — "song mới upload thiếu addedAt/size trong playlistCache") —
-                    // TRƯỚC ĐÂY object ghi vào cache CHỈ có filename/tag/cover/duration, thiếu
-                    // addedAt/size mà `buildSongPlaylistCache()` (core/playlist/loader.js, gọi
-                    // qua `workflowPlaylistScope.loadPlaylistCacheForSource('song', ...)`) LUÔN
-                    // có đủ — khiến Sort newest/oldest/size VÀ Filter theo ngày/dung lượng coi bài
-                    // vừa upload như addedAt=0/size=0 CHO TỚI KHI reload trang (F5 chạy lại nạp
-                    // cache, tự vá đủ field). `record.addedAt` đã có sẵn (gán Date.now() lúc tạo
-                    // record ở trên); `record.blob` CHÍNH LÀ `file` (File extends Blob, có `.size`
-                    // sẵn) — dùng ĐÚNG `record.blob.size` cho khớp 100% với cách
-                    // `buildSongPlaylistCache()` đọc (`record.blob.size`), không suy ra từ biến
-                    // `file` riêng để tránh lệch nếu sau này `record.blob` đổi nguồn khác `file`.
-                    appState.mutate('playlistCache', m => m.set(key, { filename: record.filename, tag: record.tag, cover: record.cover, duration: record.duration, addedAt: record.addedAt, size: record.blob.size || 0 }));
-                    appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(record.tag.title)));
-                    appState.mutate('confirmedBrokenKeys', s => s.delete(key));
+                    if (!isOverwrite) { playlistOrderSet.add(key); newlyAddedKeys.push(key); }
+                    // SỬA (01/10/2026, Ghi âm — Giang duyệt tách) — 4 lần mutate playlistOrder/playlistCache/songNameIndex/
+                    // confirmedBrokenKeys dời vào `_indexSongInPlaylistState()` (dùng chung với `addRecordedSong()`), thứ tự
+                    // và nội dung GIỮ NGUYÊN (gồm fix addedAt/size trong playlistCache — xem docblock method đó).
+                    this._indexSongInPlaylistState(key, record, !isOverwrite);
                 } catch (err) {
                     console.error(`[playlist] Không nạp được "${file.name}":`, err);
                     const errMsg = (err && err.name && err.message) ? `${err.name}: ${err.message}` : String(err && err.message || err || t('common.unknownError'));
                     failedFiles.push(`${escapeHtml(file.name)} — ${escapeHtml(errMsg)}`);
                 }
             }
-            // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — updateShuffleArray()/
-            // applyNewSongsToDisplayOrder()/recomputeRenderOrder() ĐÃ DỜI hẳn sang
-            // event/workflow/playlist-order.js (workflowPlaylistOrder) — gọi từ ĐÂY về hình
-            // thức là Core gọi Workflow (hàm bao NGOÀI đã tự appState.mutate() sẵn từ trước —
-            // nợ kỹ thuật riêng của loader.js, CHƯA relocate cả hàm trong đợt này, CÙNG loại nợ
-            // DB-read đã biết của file này, xem core-function-conventions.md mục 3b).
-            workflowPlaylistOrder.updateShuffleArray();
-            workflowPlaylistOrder.applyNewSongsToDisplayOrder(newlyAddedKeys); // (B) hàng đợi phát: nối cuối / pending
-            workflowPlaylistOrder.recomputeRenderOrder(); // (A) UI: sắp xếp lại NGAY
-            workflowPlaylistRender.renderPlaylistDiff();
-            // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 6) — nếu đang Scope 1 folder
-            // Song, gắn LUÔN mọi file vừa upload (mới HOẶC ghi đè) vào ĐÚNG folder đó — 1 lượt
-            // bulk duy nhất (Rule 3b: core-gọi-core không áp cho vòng lặp workflow-orchestration
-            // này, đã có tiền lệ removeSongFromAllFolders() ngay trên cùng file).
-            const activeFolderIdForSong = appState.get('activePlayListFolder').song;
-            if (activeFolderIdForSong && allProcessedKeys.length > 0) {
-                await addSongsToFolder(allProcessedKeys, activeFolderIdForSong, 'song'); // core/file-manager/folder.js
-            }
+            // SỬA (01/10/2026, Ghi âm — Giang duyệt tách) — 4 bước làm mới danh sách + gắn folder đang active dời vào
+            // `_refreshPlaylistAfterSongsAdded()`/`_attachSongsToActiveSongFolder()` (dùng chung với `addRecordedSong()`),
+            // thứ tự và nội dung GIỮ NGUYÊN.
+            this._refreshPlaylistAfterSongsAdded(newlyAddedKeys);
+            await this._attachSongsToActiveSongFolder(allProcessedKeys);
         });
 
         if (!shieldRan) {
