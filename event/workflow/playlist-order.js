@@ -169,4 +169,35 @@ const workflowPlaylistOrder = {
         this.recomputeRenderOrder();
         workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js, Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ")
     },
+
+    // ===================== Search (DỜI 02/10/2026 từ core/playlist/render.js::applySearchQuery()) =====================
+    // Giang chốt quy tắc A cho cuộn khi đổi từ khoá — đụng tới hàm này nên dọn luôn nợ cũ của nó (core tự appState.get()/
+    // set() + gọi 2 Workflow, ghi nhận ở docstring cũ): cả cụm dời về đây, router gọi Workflow (event-bus-flow.md mục 4B).
+    // 2 hàm core UI ô tìm kiếm (core/playlist/main.js) không còn gọi applySearchQuery() — chỉ còn lo phần DOM của ô nhập.
+
+    /** Ứng với 'playlist.search.input' — nút xoá hiện/ẩn theo có chữ, rồi lọc lại danh sách.
+     * @param {string} value */
+    searchInput(value) {
+        syncPlaylistSearchClearButton(value); // core/playlist/main.js
+        this.applySearchQuery(value);
+    },
+
+    /** Ứng với 'playlist.search.clear' — xoá ô nhập + ẩn nút xoá + focus lại, rồi bỏ lọc. */
+    searchClear() {
+        resetPlaylistSearchInput(); // core/playlist/main.js
+        this.applySearchQuery('');
+    },
+
+    /** Ô tìm kiếm đổi: CHỈ lọc lại danh sách hiển thị (renderOrder) — KHÔNG đụng hàng đợi phát. Thân cũ giữ nguyên
+     * (set searchQuery -> recomputeRenderOrder -> renderPlaylistDiff), THÊM bước cuối: cuộn theo quy tắc A (Giang chốt
+     * 02/10/2026) — kết quả có media đang phát -> tới thẳng nó, không có -> về đầu danh sách.
+     * @param {string} raw */
+    applySearchQuery(raw) {
+        const normalizedQuery = normalizeSongName(raw); // core/song-search.js
+        appState.set('searchQuery', normalizedQuery);
+        console.log(`writer: "workflowPlaylistOrder.applySearchQuery", page: "searchQuery", content: "${normalizedQuery}"`);
+        this.recomputeRenderOrder();
+        workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js — chỉ ẩn/hiện key bị Search lọc, không rebuild
+        workflowPlaylistRender.scrollToCurrentOrTop(); // event/workflow/playlist-render.js
+    },
 };

@@ -1948,7 +1948,8 @@ const workflowPlaylist = {
      * (`MEDIA_SWITCH_I18N`). Luồng: exit selection mode -> set activeMediaSource -> trong 1
      * `withLoadingShield()`: `applyFolderScope()`/`applyAllSongsScope()` (event/workflow/
      * playlist-scope.js) tự lo HẾT — nạp cache ĐÚNG phạm vi (folder đang nhớ cho Nguồn này nếu có)
-     * + Filter + render 1 LẦN DUY NHẤT — rồi resetPlaylistScrollTop(); ngoài shield: đổi search
+     * + Filter + render 1 LẦN DUY NHẤT — rồi cuộn tới media đang phát nếu có trong Nguồn mới, không thì về đầu
+     * (workflowPlaylistRender.scrollToCurrentOrTop(), SỬA 02/10/2026); ngoài shield: đổi search
      * placeholder + upload accept + hiện 2 nút Play/Shuffle + lưu bền Nguồn.
      * KHÔNG reset `displaySortMode` — sort mode là 1 lựa chọn CHUNG, độc lập Nguồn (Giang chốt
      * "dùng chung hết" 4 kiểu sort az/za/newest/oldest cho cả 3).
@@ -1991,7 +1992,10 @@ const workflowPlaylist = {
             const onProgress = (done, total) => { loadingText.textContent = tFormat(i18n.loadingKey, { done, total }); };
             if (folderForThisSource) await workflowPlaylistScope.applyFolderScope(folderForThisSource, mediaType, onProgress);
             else await workflowPlaylistScope.applyAllSongsScope(mediaType, onProgress);
-            resetPlaylistScrollTop(); // core — danh sách vừa đổi hẳn Nguồn, scrollTop cũ vô nghĩa -> về 0 tức thì
+            // SỬA (02/10/2026, Giang yêu cầu "current video -> đổi Nguồn Photo -> về lại Video -> phải về current") — trước
+            // đây LUÔN resetPlaylistScrollTop() (về 0). Giờ theo quy tắc A: Nguồn mới có media đang phát -> tới thẳng nó
+            // (tức thì); không có -> về 0 như cũ.
+            workflowPlaylistRender.scrollToCurrentOrTop(); // event/workflow/playlist-render.js
         });
         if (playlistSearchInput) playlistSearchInput.placeholder = t(i18n.placeholderKey);
         this._applyUploadInputAccept(mediaType); // "1 khung, không nhân bản" — nút upload dùng chung cho cả 3 Nguồn, chỉ đổi accept

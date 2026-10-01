@@ -16,7 +16,7 @@
  * revokeNodeCoverUrl/showPlaylistLoading/updatePlaylistLoading/
  * hidePlaylistLoading/resetPlaylistScrollTop — thuần hẳn) + nhóm tự đọc `appState` nhưng KHÔNG gọi
  * chéo hàm nào trong cụm này (`updateEmptyState`/`scrollToSongIfPending`/`scrollToCurrentKeyInstant`/
- * `scrollToCurrentKeyAnimated`/`applySearchQuery` — nợ kỹ thuật RIÊNG, chưa relocate đợt này, xem
+ * `scrollToCurrentKeyAnimated` — nợ kỹ thuật RIÊNG, chưa relocate đợt này, xem
  * docstring từng hàm đó).
  *
  * FIX (Giang chỉ ra — "search rồi tắt từ khoá lại rebuild DOM thay vì chỉ ẩn/hiện tạm") —
@@ -42,6 +42,14 @@
  * kỹ thuật RIÊNG của các file đó, CÙNG loại đã ghi nhận ở applySearchQuery()/removeKeyFromDisplay(),
  * chưa relocate cả hàm trong đợt này).
  */
+/** MỚI (02/10/2026, Giang chốt quy tắc A) — cuộn sau khi DANH SÁCH đổi nội dung (đổi từ khoá Search / đổi Nguồn):
+ * media đang phát CÓ trong danh sách -> tới thẳng nó (tức thì, không animation — gõ từng ký tự mà trượt sẽ giật); KHÔNG
+ * có -> về đầu danh sách. Object map theo event-bus-flow.md mục 7 (khoá boolean thật từ `isPlayingMediaListed()`). */
+const PLAYLIST_SCROLL_BY_CURRENT_LISTED = {
+    true: () => scrollToCurrentKeyInstant(), // core/playlist/render.js
+    false: () => resetPlaylistScrollTop(), // core/playlist/render.js
+};
+
 const workflowPlaylistRender = {
     /** Dựng 1 DOM node HOÀN CHỈNH cho 1 bài (Song/Video/Photo dùng CHUNG, chỉ khác nội dung
      * `cached`) — 2 layout (grid/list) loại trừ nhau theo `isGridView`. Dời NGUYÊN VẸN từ
@@ -78,7 +86,7 @@ const workflowPlaylistRender = {
             wrapper.dataset.role = 'play-item';
             wrapper.innerHTML = `
                 <div class="w-full aspect-square relative mb-2.5">
-                    <img src="${coverUrl}" class="w-full h-full rounded-2xl object-cover shadow-lg">
+                    <img src="${coverUrl}" loading="lazy" decoding="async" class="w-full h-full rounded-2xl object-cover shadow-lg">
                     ${isPlaying ? `<div class="absolute inset-0 bg-black/30 rounded-2xl flex items-center justify-center backdrop-blur-[2px]">${eqIconHtml}</div>` : ''}
                     <div class="absolute top-2 right-2 flex bg-black/40 rounded-full">${menuBtnHtml}</div>
                 </div>
@@ -89,13 +97,16 @@ const workflowPlaylistRender = {
             wrapper.dataset.uitk = 'cardHoverBg rowPressBg'; // SỬA 21/09/2026 — trước đây `active:bg-slate-100`/`bg-sky-50` class cứng; nhấn giữ = rowPressBg, rê chuột = cardHoverBg. SỬA 24/09/2026 — nền hàng ĐANG CHỌN không còn đặt ở đây (tint `selectionTintBg` do showSelectionIndicator() thêm/gỡ, xem _applySelectionLayer())
             wrapper.dataset.role = 'play-item';
             wrapper.innerHTML = `
-                <img src="${coverUrl}" class="w-12 h-12 rounded-lg flex-shrink-0 object-cover shadow-md">
+                <img src="${coverUrl}" loading="lazy" decoding="async" class="w-12 h-12 rounded-lg flex-shrink-0 object-cover shadow-md">
                 <div class="flex-grow flex flex-col justify-center overflow-hidden gap-0.5">
                     <div class="flex items-center gap-2"><h3 class="text-[16px] leading-tight font-semibold truncate" data-uitk="${isPlaying ? 'accentText' : 'textPrimary'}">${title}</h3>${isPlaying ? eqIconHtml : ''}</div>
                     <p class="text-[13px] truncate font-medium" data-uitk="textSecondary">${secondLineHtml}</p>
                 </div>
                 <div class="flex">${menuBtnHtml}</div>`;
         }
+        // MỚI (02/10/2026, Giang chốt phương án A) — `loading="lazy"` + `decoding="async"` ở 2 thẻ <img> trên: item đang bị
+        // trình duyệt bỏ qua render (`content-visibility: auto`, assets/css/layout-nav.css) hoặc đang ẩn vì Search
+        // (`display:none`) KHÔNG tải ảnh bìa cho tới khi lại gần khung nhìn; decode ảnh không chặn main thread.
         attachCoverFallback(wrapper.querySelector('img')); // core/playlist/render.js
         if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(wrapper, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — MỚI (09/09/2026, hệ UI Theme mở rộng "đổi hết trừ Visualizer") — node dựng ĐỘNG (createElement+innerHTML), KHÔNG tự động qua applyUiThemeToDom(document,...) lúc boot như nội dung tĩnh — phải tự áp NGAY ở đây mỗi khi dựng 1 node mới
         this._applySelectionLayer(wrapper, key); // MỚI (24/09/2026) — xem docstring hàm đó
@@ -131,6 +142,7 @@ const workflowPlaylistRender = {
             appState.mutate('domNodesByKey', m => m.set(key, node));
             playlistContainer.appendChild(node);
         });
+        this.syncItemBlockSize(); // MỚI (02/10/2026) — chiều cao ước lượng cho item ngoài khung nhìn, xem docstring hàm đó
         updatePlayButtonPlayingState(appState.get('currentKey'), appState.get('displayOrder')); // core/playlist/render.js — FIX (10/09/2026) Rule 2: Core nhận tham số, không tự appState.get()
         updateEmptyState(); // core/playlist/render.js
         console.log(`writer: "workflowPlaylistRender.renderPlaylistFull", page: "(chẩn đoán)", content: "${(performance.now() - _t0).toFixed(0)}ms cho ${appState.get('renderOrder').length} item (dựng lại TOÀN BỘ DOM)"`);
@@ -186,6 +198,7 @@ const workflowPlaylistRender = {
             prevNode = node;
         }
 
+        this.syncItemBlockSize(); // MỚI (02/10/2026) — lượt diff đầu tiên có item (lúc Full chạy với danh sách rỗng) mới đo được
         updatePlayButtonPlayingState(appState.get('currentKey'), appState.get('displayOrder')); // core/playlist/render.js — FIX (10/09/2026) Rule 2: Core nhận tham số, không tự appState.get()
         updateEmptyState(); // core/playlist/render.js
         console.log(`writer: "workflowPlaylistRender.renderPlaylistDiff", page: "(chẩn đoán)", content: "${(performance.now() - _t0).toFixed(0)}ms — dựng mới ${_builtCount}/${appState.get('renderOrder').length} node, ẩn tạm ${_hiddenCount}, xoá hẳn ${_destroyedCount}"`);
@@ -230,5 +243,33 @@ const workflowPlaylistRender = {
         playlistStore.set({ scrollToCurrentPending: false });
         console.log(`writer: "workflowPlaylistRender.flushPendingScrollToCurrent", page: "playlistStore.scrollToCurrentPending", content: "false (menu đã đóng — cuộn bù)"`);
         scrollToCurrentKeyAnimated(); // core/playlist/render.js
+    },
+
+    /** MỚI (02/10/2026, Giang chốt phương án A — `content-visibility: auto` cho item Playlist) — đo chiều cao nội dung
+     * của 1 item ĐANG HIỂN THỊ (phần tử đầu `renderOrder`) rồi ghi làm chiều cao ước lượng cho MỌI item đang bị trình
+     * duyệt bỏ qua render. Item List cao đều nhau, tile Grid cao đều theo bề rộng cột -> 1 phép đo đúng cho cả danh
+     * sách; ước lượng KHỚP chiều cao thật nên vị trí cuộn/scroll-to-current không lệch khi item vào/ra khung nhìn.
+     * Gọi cuối renderPlaylistFull()/renderPlaylistDiff() (đổi Grid/List, lượt render đầu có item) + khi khung cuộn đổi
+     * kích thước ('playlist.viewport.resize' — xoay máy làm đổi bề rộng cột Grid). */
+    syncItemBlockSize() {
+        const firstKey = appState.get('renderOrder')[0];
+        const node = firstKey ? appState.get('domNodesByKey').get(firstKey) : null; // chọn GIÁ TRỊ, không rẽ tiến trình
+        const px = measurePlaylistItemBlockSize(node); // core/playlist/render.js
+        if (!(px > 0)) return; // guard — chưa có item / đang display:none, giữ giá trị cũ (CSS có fallback)
+        applyPlaylistItemBlockSize(playlistContainer, px); // core/playlist/render.js
+    },
+
+    /** MỚI (02/10/2026, Giang chốt quy tắc A + yêu cầu "current video -> đổi Nguồn Photo -> về lại Video -> phải về
+     * current") — gọi SAU khi danh sách đã render lại (đổi từ khoá Search: workflowPlaylistOrder.applySearchQuery();
+     * đổi Nguồn: workflowPlaylist.switchSource(), THAY `resetPlaylistScrollTop()` luôn-về-0 trước đây). */
+    scrollToCurrentOrTop() {
+        const isCurrentListed = isPlayingMediaListed( // core/playlist/render.js
+            appState.get('currentKey'),
+            appState.get('isVideoPlayerMode'),
+            appState.get('isPhotoPlayerMode'),
+            appState.get('activeMediaSource'),
+            appState.get('renderOrder'),
+        );
+        PLAYLIST_SCROLL_BY_CURRENT_LISTED[isCurrentListed]();
     },
 };
