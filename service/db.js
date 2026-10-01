@@ -348,7 +348,18 @@
         // (db.js, nạp sớm nhất) để dùng CHUNG giữa playlist.js (quét nhanh lúc khởi động/thêm bài,
         // KHÔNG decode) và storage-manager.js (quét sâu ở Quản lý dung lượng, có decode) — tránh 2
         // nơi định nghĩa "thế nào là hợp lệ" lệch nhau.
-        const VALID_MP3_MIME_TYPES = new Set(['audio/mpeg', 'audio/mp3', 'audio/mpa', '']);
+        //
+        // SỬA (01/10/2026, Ghi âm — lỗi có sẵn phát hiện lúc làm) — TRƯỚC ĐÂY CHỈ nhận MIME mp3, trong khi lúc upload
+        // `validateAudioFile()` (core/upload-validation.js) lại nhận cả m4a/aac/wav/ogg/flac/webm -> bài m4a upload
+        // xong biến mất sau reload (filterValidSongRecords() loại) và bị "Scan & clean broken files" coi là hỏng. Bản
+        // ghi âm lưu theo định dạng OS (iOS: audio/mp4, Chrome: audio/webm) dính đúng lỗi đó. Giờ nhận ĐÚNG tập MIME
+        // mà upload nhận (khớp VALID_AUDIO_MIME_TYPES) + bỏ tham số ";codecs=..." trước khi so. Tên hằng giữ nguyên
+        // (2 nơi gọi chỉ dùng qua isQuickValidMime()).
+        const VALID_MP3_MIME_TYPES = new Set([
+            'audio/mpeg', 'audio/mp3', 'audio/mpa', '',
+            'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/ogg', 'audio/x-m4a', 'audio/m4a', 'audio/mp4', 'audio/aac',
+            'audio/flac', 'audio/x-flac', 'audio/webm',
+        ]);
         function isQuickValidMime(mime) {
-            return VALID_MP3_MIME_TYPES.has((mime || '').toLowerCase());
+            return VALID_MP3_MIME_TYPES.has(String(mime || '').split(';')[0].trim().toLowerCase());
         }
