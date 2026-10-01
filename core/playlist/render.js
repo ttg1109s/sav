@@ -15,7 +15,7 @@
  * VỤ RIÊNG — không đủ điều kiện Rule 3c để làm closure lồng) — CẢ 4 ĐÃ DỜI sang event/workflow/
  * playlist-render.js (`workflowPlaylistRender`), CÙNG đợt dời order.js -> playlist-order.js. File
  * NÀY giờ CHỈ còn hàm THUẦN/tiện ích nhỏ + nhóm tự đọc `appState` nhưng KHÔNG gọi chéo hàm nào
- * trong cụm vừa dời (`updateEmptyState`/3 hàm scroll/`applySearchQuery` — nợ kỹ thuật RIÊNG, chưa
+ * trong cụm vừa dời (`updateEmptyState`/3 hàm scroll — nợ kỹ thuật RIÊNG, chưa
  * relocate đợt này, xem docstring từng hàm).
  */
 
@@ -281,21 +281,54 @@
             playlistContainer.parentElement.scrollTop = 0;
         }
 
-        /** Ô tìm kiếm thay đổi: CHỈ lọc lại danh sách hiển thị (renderOrder) — KHÔNG đụng hàng đợi phát.
-         * SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — `recomputeRenderOrder()`/
-         * `renderPlaylistDiff()` ĐÃ DỜI hẳn sang event/workflow/playlist-order.js
-         * (`workflowPlaylistOrder`)/event/workflow/playlist-render.js (`workflowPlaylistRender`) —
-         * cả 2 đều cần gọi hàm khác (`liveKeys`/`songMatchesQuery`/`sortKeysByMode`/`buildSongNode`,
-         * Rule 3a cấm core gọi core). Hàm NÀY (`applySearchQuery`) VẪN nằm trong core/playlist/
-         * render.js, tự `appState.get()`/`.set()` sẵn từ trước (nợ kỹ thuật riêng — file này còn
-         * `updateEmptyState`/3 hàm scroll tự đọc appState tương tự) — CHƯA relocate cả hàm trong
-         * đợt này (phạm vi Giang xác nhận là 2 hàm/cụm cụ thể, không phải toàn bộ render.js). Gọi
-         * cả 2 method Workflow từ ĐÂY về hình thức là Core gọi Workflow — KHÔNG bị Rule 3a cấm theo
-         * đúng câu chữ (rule đó chỉ nói Core-gọi-Core), nhưng ngược hướng "Core thi hành/Workflow
-         * chuẩn bị" (Rule 3b) — ghi nhận là nợ CÒN LẠI, cùng loại với nợ DB-read đã biết của
-         * `loader.js`, chỉ dứt điểm được nếu relocate NGUYÊN hàm này sang workflow ở đợt sau. */
-        function applySearchQuery(raw) {
-            appState.set('searchQuery', normalizeSongName(raw));
-            workflowPlaylistOrder.recomputeRenderOrder(); // event/workflow/playlist-order.js (dời từ core/playlist/order.js) — tự đọc searchQuery vừa set ở trên qua appState
-            workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — FIX kèm theo: chỉ ẨN key bị Search lọc còn tồn tại trong playlistOrder, không rebuild
+        // DỜI (02/10/2026, Giang chốt quy tắc cuộn khi đổi từ khoá) — `applySearchQuery()` (core tự appState.get()/set()
+        // + gọi 2 Workflow — nợ Rule 2/3b đã ghi nhận) dời hẳn sang event/workflow/playlist-order.js
+        // (`workflowPlaylistOrder.applySearchQuery()`), kèm bước cuộn mới theo quy tắc A (xem `isPlayingMediaListed()` dưới).
+
+        /** MỚI (02/10/2026, Giang chốt phương án A — `content-visibility: auto` cho item Playlist, assets/css/layout-nav.css)
+         * — đo chiều cao VÙNG NỘI DUNG (content-box: trừ padding + border) của 1 node item, để làm
+         * `contain-intrinsic-block-size` cho mọi item đang bị trình duyệt bỏ qua render (ngoài khung nhìn). Phải là
+         * content-box vì `contain-intrinsic-*` là kích thước NỘI DUNG — padding/border trình duyệt tự cộng thêm.
+         * Tạm ép `content-visibility: visible` (node có thể đang bị bỏ qua -> cao bằng giá trị ước lượng, không phải thật)
+         * + `transform: none` (`active:scale-[0.98]` lúc đang nhấn làm getBoundingClientRect co lại) rồi trả lại inline
+         * style cũ NGAY — 1 lượt layout cưỡng bức, không để lại dấu vết gì trên node.
+         * Hàm THUẦN: nhận node qua tham số, trả số px (0 nếu không đo được — node null/đang `display:none`).
+         * @param {HTMLElement|null} node @returns {number} */
+        function measurePlaylistItemBlockSize(node) {
+            if (!node) return 0; // guard
+            const prevContentVisibility = node.style.contentVisibility;
+            const prevTransform = node.style.transform;
+            node.style.contentVisibility = 'visible';
+            node.style.transform = 'none';
+            const cs = getComputedStyle(node);
+            const borderBoxHeight = node.getBoundingClientRect().height;
+            const contentHeight = borderBoxHeight
+                - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
+                - parseFloat(cs.borderTopWidth) - parseFloat(cs.borderBottomWidth);
+            node.style.contentVisibility = prevContentVisibility;
+            node.style.transform = prevTransform;
+            return borderBoxHeight > 0 ? contentHeight : 0; // display:none -> 0, nơi gọi tự guard
+        }
+
+        /** MỚI (02/10/2026) — ghi biến CSS `--playlist-item-block-size` lên #playlist-container (assets/css/layout-nav.css
+         * đọc làm `contain-intrinsic-block-size`). Giữ số lẻ (tile Grid `aspect-square` thường cao lẻ px) — làm tròn sẽ lệch
+         * tích luỹ theo số item phía trên, làm scroll-to-current trượt khỏi đúng tâm. Hàm THUẦN.
+         * @param {HTMLElement} containerEl @param {number} px */
+        function applyPlaylistItemBlockSize(containerEl, px) {
+            if (!containerEl) return; // guard
+            containerEl.style.setProperty('--playlist-item-block-size', `${px}px`);
+        }
+
+        /** MỚI (02/10/2026, Giang chốt quy tắc A — cuộn khi đổi từ khoá Search / đổi Nguồn) — media ĐANG PHÁT có nằm trong
+         * danh sách đang hiển thị không. KHÔNG chỉ so `currentKey` trong `renderOrder`: Song/Video/Photo sinh key theo CÙNG
+         * kiểu slug tên file (trùng key giữa 3 Nguồn là có thật — xem switchSource(), event/workflow/playlist.js), nên còn
+         * phải khớp LOẠI media đang phát với Nguồn đang xem (đang phát video thì 1 ảnh trùng tên trong Nguồn Photo KHÔNG
+         * được coi là current). Loại đang phát suy từ 2 cờ player mode (chọn GIÁ TRỊ, không rẽ tiến trình).
+         * Hàm THUẦN — nhận đủ qua tham số, trả boolean thật.
+         * @param {string|null} currentKey @param {boolean} isVideoPlayerMode @param {boolean} isPhotoPlayerMode
+         * @param {'song'|'video'|'photo'} activeMediaSource @param {string[]} renderOrder @returns {boolean} */
+        function isPlayingMediaListed(currentKey, isVideoPlayerMode, isPhotoPlayerMode, activeMediaSource, renderOrder) {
+            if (currentKey == null) return false; // guard — chưa phát gì
+            const playingMediaType = isVideoPlayerMode ? 'video' : (isPhotoPlayerMode ? 'photo' : 'song');
+            return playingMediaType === activeMediaSource && renderOrder.includes(currentKey);
         }

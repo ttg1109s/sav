@@ -154,20 +154,22 @@
         }
 
         /**
-         * Ứng với ô tìm kiếm gõ chữ — toggle hiện/ẩn nút xoá theo có chữ hay không, rồi lọc lại
-         * danh sách hiển thị qua applySearchQuery() (đã có sẵn ở playlist/render.js).
+         * Ô tìm kiếm gõ chữ — CHỈ toggle hiện/ẩn nút xoá theo có chữ hay không.
+         * SỬA + ĐỔI TÊN (02/10/2026, từ `handlePlaylistSearchInput`) — bỏ lời gọi `applySearchQuery()` (core gọi core, Rule
+         * 3a): việc lọc lại danh sách + cuộn theo quy tắc A dời sang `workflowPlaylistOrder.searchInput()` (event/workflow/
+         * playlist-order.js), Workflow gọi hàm này rồi tự lọc. Tên cũ gợi ý "xử lý cả ô tìm kiếm" — không còn đúng nữa.
          * @param {string} value
          */
-        function handlePlaylistSearchInput(value) {
+        function syncPlaylistSearchClearButton(value) {
             if (playlistSearchClear) playlistSearchClear.classList.toggle('hidden', !value);
-            applySearchQuery(value);
         }
 
-        /** Ứng với nút xoá ô tìm kiếm — reset input + ẩn nút + xoá lọc + focus lại ô nhập. */
-        function clearPlaylistSearch() {
+        /** Nút xoá ô tìm kiếm — reset input + ẩn nút + focus lại ô nhập.
+         * SỬA + ĐỔI TÊN (02/10/2026, từ `clearPlaylistSearch`) — CÙNG lý do hàm ngay trên: bỏ `applySearchQuery('')`, phần
+         * bỏ lọc do `workflowPlaylistOrder.searchClear()` lo. */
+        function resetPlaylistSearchInput() {
             if (playlistSearchInput) playlistSearchInput.value = '';
             if (playlistSearchClear) playlistSearchClear.classList.add('hidden');
-            applySearchQuery('');
             if (playlistSearchInput) playlistSearchInput.focus();
         }
 
