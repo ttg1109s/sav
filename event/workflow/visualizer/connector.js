@@ -214,7 +214,7 @@ const workflowVizConnector = {
         workflowVizBeatWindow.closeInterval(win);
         countBeatSinceTrigger(win); // core/visualizer/beat-window.js
         if (win.beatsSinceTrigger < 2) return;
-        if (!detectMusicTransition(win.history, 2, cfg.sectionWindowBeats, cfg.fluxThreshold)) return; // core/audio-analysis.js
+        if (!detectMusicTransition(win.history, 2, cfg.sectionWindowBeats, cfg.fluxThreshold)) return; // core/visualizer/beat-window.js
         resetBeatTriggerCount(win); // core
         const s = appState.get(['cnCamera', 'cnControls', 'cnChips', 'cnActiveSignalsCircuit']);
         const mode = triggerCinematicCameraShift(s.cnCamera, s.cnControls, s.cnChips, s.cnActiveSignalsCircuit); // core/webgl

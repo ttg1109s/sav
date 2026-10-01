@@ -186,7 +186,7 @@ const workflowVizLighting = {
         if (!workflowVizBeatWindow.consumeNewBeat(win, frame.lastBeatTime)) return;
         workflowVizBeatWindow.closeInterval(win);
         if (!frame.isPlaying || !cfg.finaleEnabled) return;
-        if (!detectMusicTransition(win.history, 2, cfg.sectionWindowBeats, cfg.fluxThreshold)) return; // core (audio-analysis.js)
+        if (!detectMusicTransition(win.history, 2, cfg.sectionWindowBeats, cfg.fluxThreshold)) return; // core/visualizer/beat-window.js
         this._fireFinale(cfg, frame.beatScale);
     },
 

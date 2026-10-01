@@ -114,7 +114,7 @@ const workflowVizVortex = {
         const { tPathParams, tPathTarget } = appState.get(['tPathParams', 'tPathTarget']);
         const settle = this._phaseDeltas(tPathParams, tPathTarget);
         if (!isVortexTurnSettled(settle.x, settle.y, VORTEX_TURN_SETTLE_RAD)) return; // core (three-vortex.js)
-        if (!detectMusicTransition(win.history, 2, cfg.sectionWindowBeats, cfg.fluxThreshold)) return; // core (audio-analysis.js)
+        if (!detectMusicTransition(win.history, 2, cfg.sectionWindowBeats, cfg.fluxThreshold)) return; // core/visualizer/beat-window.js
         resetBeatTriggerCount(win); // core
 
         const direction = pickVortexDirectionFromNote(frame.midiNote); // core (three-vortex.js)
