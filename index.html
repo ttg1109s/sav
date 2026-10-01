@@ -532,11 +532,11 @@
          nạp TRƯỚC service/state/record/index.js (dòng registry() cần mọi package đã đăng ký). -->
     <script src="service/state/playlist.js?v=20260911v1"></script>
     <script src="service/state/player.js?v=20260725v1"></script>
-    <script src="service/state/visualizer-runtime.js?v=20261001au2"></script>
+    <script src="service/state/visualizer-runtime.js?v=20261001af1"></script>
     <script src="service/state/visualizer-scenes.js?v=20260929bh5"></script>
     <script src="service/state/three-vortex.js?v=20260725v1"></script>
     <script src="service/state/three-connector.js?v=20260922v2"></script>
-    <script src="service/state/audio-engine.js?v=20261001au2"></script>
+    <script src="service/state/audio-engine.js?v=20261001af1"></script>
     <script src="service/state/subtitle.js?v=20261001kr1"></script>
     <script src="service/state/shuffle-repeat.js?v=20260725v1"></script>
     <script src="service/state/visual-bg.js?v=20260806v1"></script>
@@ -863,18 +863,22 @@
          event/workflow/audio-engine.js (_buildGraph() gọi findEqPresetById()/applyEqGains() — trước 01/10/2026 là
          core/audio-engine.js::setupAudioContext()). -->
     <script src="core/eq-presets.js?v=20260811v1"></script>
-    <script src="core/audio-engine.js?v=20261001au2"></script>
+    <script src="core/audio-engine.js?v=20261001af1"></script>
     <script src="core/app-cleanup.js?v=20260630v1"></script>
     <!-- GỘP (10/08/2026) toggle ẩn/hiện Stats panel + 3 nút chrome (bottom player/playlist/mở
          Control Center, mỗi cái 1 toggle RIÊNG trong Settings -> Hiển thị Visualizer — bỏ hẳn
          "full mode" gộp chung) vào 1 file — PHẢI nạp TRƯỚC audio-analysis.js (đọc biến
          isStatsPanelVisible qua appState, không đụng file này trực tiếp, nhưng giữ thứ tự cũ). -->
     <script src="core/visualizer-ui-visibility.js?v=20260810v2"></script>
-    <script src="core/audio-analysis.js?v=20261001au2"></script>
+    <script src="core/audio-analysis.js?v=20261001af1"></script>
     <!-- core/audio-tempo.js — MỚI (01/10/2026): ước lượng BPM bằng tự tương quan đường bao onset (thay "trung bình 5 khoảng
          beat"). Core thuần, không phụ thuộc gì lúc nạp; PHẢI nạp TRƯỚC event/workflow/audio-analysis.js (workflow đó tạo
          đường bao createOnsetEnvelope() ngay lúc nạp). -->
-    <script src="core/audio-tempo.js?v=20261001au2"></script>
+    <script src="core/audio-tempo.js?v=20261001af1"></script>
+    <!-- core/audio-features.js — MỚI (01/10/2026): đặc trưng audio mở rộng (dải Hz, onset theo dải, centroid/rolloff/spread/
+         flatness, chroma/key/hợp âm, vibrato, RMS/crest/ZCR, im lặng, loudness trend/build-up/drop). Core thuần; PHẢI nạp
+         TRƯỚC event/workflow/audio-features.js (workflow đó dùng hằng số + createOnsetEnvelope() LÚC NẠP). -->
+    <script src="core/audio-features.js?v=20261001af1"></script>
     <script src="core/rubik-math.js?v=20260625v8e"></script>
     <script src="core/about-stats.js?v=20260706v1"></script>
     <!-- Khắc phục sự cố (ver 10 refine, bổ sung) — "Khởi động lại app"/"Khôi phục cài đặt mặc
@@ -975,11 +979,14 @@
          worker (workflowAudioEngine.setup()/requestPitch()), thay setupAudioContext()/initPitchWorker()/
          requestPitchDetection() của core/audio-engine.js (file đó giờ chỉ còn builder thuần). Nạp TRƯỚC
          audio-analysis.js (file đó gọi workflowAudioEngine.requestPitch() lúc chạy). -->
-    <script src="event/workflow/audio-engine.js?v=20261001au2"></script>
+    <script src="event/workflow/audio-engine.js?v=20261001af1"></script>
     <!-- event/workflow/audio-analysis.js — MỚI (28/09/2026, Phase 2): task PHÂN TÍCH audio mỗi frame
          (FFT/beat/BPM/pitch/thanh trạng thái/Game tick/nốt bay), tách từ visualizer-render.js. Nạp TRƯỚC
          visualizer-render.js (file đó tham chiếu AUDIO_ANALYSIS_TASK/workflowAudioAnalysis lúc chạy). -->
-    <script src="event/workflow/audio-analysis.js?v=20261001au2"></script>
+    <!-- event/workflow/audio-features.js — MỚI (01/10/2026): điều phối đặc trưng mở rộng -> appState `audioFeatures`.
+         workflowAudioAnalysis._tick() gọi measureFrame()/track(). Nạp TRƯỚC audio-analysis.js. -->
+    <script src="event/workflow/audio-features.js?v=20261001af1"></script>
+    <script src="event/workflow/audio-analysis.js?v=20261001af1"></script>
     <!-- event/workflow/visualizer-render.js — Workflow sở hữu vòng lặp VẼ + vòng đời chung của 2 task
          (taskManager mode 'raf'). Khởi động thật từ event/workflow/audio-engine.js::_buildGraph() gọi
          workflowVisualizerRender.start() lúc phát bài đầu tiên. Đặt ở đây (không phải /event/ phía
