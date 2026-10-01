@@ -120,6 +120,18 @@ function wireAppSettingsPlayerDetail(bodyEl, kind) {
 
 /** Màn Playlist — 2 <select> (Nguồn/Kiểu xem, TÁI DÙNG msg.type gốc của cụm "playlist" — router đó
  * KHÔNG đổi gì) + 2 nút mở Sắp xếp/Lọc (điều hướng nội bộ Setting). */
+/** MỚI (01/10/2026, Ghi âm) — màn Player > Ghi âm (components/settings/recorder-settings.js). Toggle bắn ở `change`;
+ * slider bắn `input` (chỉ cập nhật nhãn) + `change` (thả tay -> lưu). Rule 5a — callback CHỈ eventBus.send, gom cuối hàm. */
+function wireAppSettingsRecorder(bodyEl) {
+    const echoToggle = bodyEl.querySelector('#setting-recorder-echo-cancellation');
+    const latencySlider = bodyEl.querySelector('#setting-recorder-latency');
+
+    // --- addEventListener: gom cuối hàm (Rule 5a) ---
+    if (echoToggle) echoToggle.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.recorder.field.change', payload: { field: 'echoCancellation', value: e.target.checked } }));
+    if (latencySlider) latencySlider.addEventListener('input', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.recorder.latency.input', payload: { value: e.target.value } }));
+    if (latencySlider) latencySlider.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.recorder.field.change', payload: { field: 'latencyMs', value: e.target.value } }));
+}
+
 function wireAppSettingsPlaylist(bodyEl) {
     const mediaSourceSelect = bodyEl.querySelector('#setting-playlist-media-source');
     if (mediaSourceSelect) mediaSourceSelect.addEventListener('change', (e) => eventBus.send({ router: 'playlist', type: 'playlist.mediaSource.change', payload: { source: e.target.value } }));

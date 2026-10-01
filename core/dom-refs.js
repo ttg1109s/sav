@@ -131,6 +131,13 @@
         const btnPlayerZoom = document.getElementById('btn-player-zoom');
         const playerZoomSurface = document.getElementById('player-zoom-surface');
         const playerZoomLayer = document.getElementById('player-zoom-layer');
+        // MỚI (01/10/2026) — Ghi âm (icon Control Center, Song/Video Player — ẩn ở Photo) + overlay chặn mọi cử chỉ
+        // (components/recorder-overlay.js) — xem core/recorder.js + event/workflow/recorder.js.
+        const btnRecordStart = document.getElementById('btn-record-start');
+        const recorderLayer = document.getElementById('recorder-layer');
+        const btnRecorderStop = document.getElementById('btn-recorder-stop');
+        const recorderTimer = document.getElementById('recorder-timer');
+        const recorderLevel = document.getElementById('recorder-level');
         // Volume HUD — icon loa 5 mốc + slider, panel nổi riêng — xem core/hud.js.
         const btnOpenVolume = document.getElementById('btn-open-volume');
         const visualizerVolumeHud = document.getElementById('visualizer-volume-hud');

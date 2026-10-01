@@ -147,6 +147,26 @@ function wireAudioOutputGraph(eqOutputNode, masterGainNode, volumeGainNode, anal
         }
 
         /**
+         * MỚI (01/10/2026, Ghi âm) — Audio Session loại 'play-and-record' trong LÚC GHI (mic + phát cùng lúc). Gọi TRƯỚC
+         * getUserMedia(); ghi xong (dừng/huỷ/lỗi) Workflow gọi lại applyPlaybackAudioSession() để trả về 'playback' (giữ
+         * phát nền). Idempotent, trình duyệt không hỗ trợ -> no-op. Log trạng thái thật sau khi gán để soi trên Debug
+         * console (iOS có thể đổi đường ra loa/âm lượng khi chuyển loại session).
+         * @returns {boolean} true nếu trình duyệt hỗ trợ Audio Session API.
+         */
+        function applyPlayAndRecordAudioSession() {
+            if (typeof navigator === 'undefined' || !navigator.audioSession) return false;
+            try {
+                if (navigator.audioSession.type !== 'play-and-record') {
+                    navigator.audioSession.type = 'play-and-record';
+                    console.log(`[audio-engine] audioSession.type = "${navigator.audioSession.type}", state = "${navigator.audioSession.state}"`);
+                }
+            } catch (e) {
+                console.warn('[audio-engine] Không chuyển được audioSession sang play-and-record (bỏ qua):', e);
+            }
+            return true;
+        }
+
+        /**
          * Lưới an toàn cho phát nền: AudioContext bị hệ điều hành ngắt ('interrupted' — riêng Safari) hoặc treo
          * ('suspended') trong lúc media VẪN đang phát -> resume() ngay (cùng điều kiện resume với
          * togglePlayPause(); workflowAudioEngine.setup() gọi hàm này với `shouldBeRunning` = true). `shouldBeRunning` = false (không có gì đang phát) thì KHÔNG đụng —

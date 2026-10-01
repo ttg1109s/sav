@@ -32,7 +32,7 @@
  * ::startFromPlaylist()/exitPhotoPlayerMode()). `currentKey` (package `playlist`, DÙNG CHUNG với
  * Song/Video) do Workflow tự lo riêng, KHÔNG thuộc phạm vi 2 hàm này — mirror enterVideoPlayerModeState()/
  * exitVideoPlayerModeState() (core/video-player.js). */
-/** Vào Photo Player mode — ảnh không có duration thật để chỉnh tốc độ, nên ẩn icon Speed (Control
+/** Vào Photo Player mode — ảnh không có duration thật để chỉnh tốc độ, nên ẩn icon Speed + icon Ghi âm (Control
  * Center) + thanh seek (ảnh không hỗ trợ kéo tay tuỳ ý — chỉ phát tuần tự theo duration cố định).
  * Nhãn giờ current/duration VẪN hiển thị/cập nhật bình thường (mỗi giây, xem event/workflow/
  * photo-player.js::_photoPlayerTick()) — chỉ thanh kéo tay bị ẩn. @see exitPhotoPlayerModeState() */
@@ -40,11 +40,13 @@ function enterPhotoPlayerModeState() {
     appState.set('isPhotoPlayerMode', true);
     if (progressBarRow) progressBarRow.classList.add('hidden');
     if (btnOpenSpeed) btnOpenSpeed.classList.add('hidden');
+    if (btnRecordStart) btnRecordStart.classList.add('hidden'); // MỚI 01/10/2026 — Ghi âm: Photo phát im lặng, không có gì để ghi cùng
 }
 function exitPhotoPlayerModeState() {
     appState.set('isPhotoPlayerMode', false);
     if (progressBarRow) progressBarRow.classList.remove('hidden');
     if (btnOpenSpeed) btnOpenSpeed.classList.remove('hidden');
+    if (btnRecordStart) btnRecordStart.classList.remove('hidden');
 }
 
 /** Tính elapsed (giây) HIỆN TẠI từ 3 field đồng hồ giả — THUẦN, không side-effect, gọi lại nhiều

@@ -589,6 +589,17 @@
             },
         };
 
+        /**
+         * MỚI (01/10/2026, Giang chốt) — domain 'recorder' (Settings > Visualizer Screen > Player > Ghi âm), persist qua
+         * `meta.recorderConfig` (event/workflow/recorder.js). `echoCancellation` — khử tiếng vọng của mic (loa ngoài nên
+         * bật, đeo tai nghe có thể tắt cho giọng tự nhiên hơn). `latencyMs` — bù trễ giọng: trễ NHÁNH NHẠC đi vào bản ghi
+         * (tiếng nghe ở loa không đổi), kẹp 0..500 bước 10 (core/recorder.js::clampRecorderLatencyMs()).
+         */
+        const DEFAULT_RECORDER_CONFIG = {
+            echoCancellation: true,
+            latencyMs: 100,
+        };
+
         AppConfig.defineDomain('viz', {
             schema: {
                 type: 'string', customEffect: 'object',
@@ -704,6 +715,14 @@
             defaults: DEFAULT_PAGINATION_CONFIG,
         });
 
+        AppConfig.defineDomain('recorder', {
+            schema: {
+                echoCancellation: 'boolean',
+                latencyMs: 'number',
+            },
+            defaults: DEFAULT_RECORDER_CONFIG,
+        });
+
         /** Seed CẢ 3 domain config NGAY TẠI ĐÂY — lúc nạp core/config.js (SỬA 27/07/2026, trước
          * đây gọi trễ hơn từ event/workflow/app-boot.js lúc DOMContentLoaded, để hở 1 khoảng giữa
          * lúc tạo accessor bên dưới và lúc seed thật sự -> access() console.warn "chưa seed()" 3
@@ -721,6 +740,7 @@
             appConfig.seed('uiTheme');
             appConfig.seed('playerDisplay');
             appConfig.seed('pagination'); // MỚI 23/09/2026
+            appConfig.seed('recorder'); // MỚI 01/10/2026 — Ghi âm
         }
         seedConfig();
 
@@ -733,6 +753,7 @@
         const appConfigUiTheme = appConfig.access('uiTheme');
         const appConfigPlayerDisplay = appConfig.access('playerDisplay');
         const appConfigPagination = appConfig.access('pagination'); // MỚI 23/09/2026 — Settings > System > Pagination
+        const appConfigRecorder = appConfig.access('recorder'); // MỚI 01/10/2026 — Settings > Player > Ghi âm
 
         /** Reset vizConfig về default (gộp từ core/app-recovery.js::executeRestoreDefaults() cũ —
          * CHỈ phần reset, KHÔNG gồm saveConfig()/reload(), 2 việc đó vẫn ở app-recovery.js). */
