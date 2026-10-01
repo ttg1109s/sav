@@ -99,7 +99,7 @@ const CUSTOM_EFFECT_STYLE = {
     vortex: { field: 'vortexStyle', options: ['rings', 'bars', 'wave'] },
     lighting: { field: 'lightingStyle', options: ['thunder', 'fireworks'] },
     shape: { field: 'shapeStyle', options: ['rubik', 'clock'] },
-    connector: { field: 'connectorStyle', options: ['synapse', 'circuit', 'brain'] },
+    connector: { field: 'connectorStyle', options: ['synapse', 'circuit'] }, // 'brain' xoá 01/10/2026
 };
 
 /** Key i18n cho từng option style — TÁI DÙNG bộ text sẵn có (visualizerSettingsDrawer.*), không
@@ -113,7 +113,7 @@ const CUSTOM_EFFECT_STYLE_LABEL_KEYS = {
     vortex: { rings: 'visualizerSettingsDrawer.vortexStyle.rings', bars: 'visualizerSettingsDrawer.vortexStyle.bars', wave: 'visualizerSettingsDrawer.vortexStyle.wave' },
     lighting: { thunder: 'visualizerSettingsDrawer.lightingStyle.thunder', fireworks: 'visualizerSettingsDrawer.lightingStyle.fireworks' },
     shape: { rubik: 'visualizerSettingsDrawer.shapeStyle.rubik', clock: 'visualizerSettingsDrawer.shapeStyle.clock' },
-    connector: { synapse: 'visualizerSettingsDrawer.connectorStyle.synapse', circuit: 'visualizerSettingsDrawer.connectorStyle.circuit', brain: 'visualizerSettingsDrawer.connectorStyle.brain' },
+    connector: { synapse: 'visualizerSettingsDrawer.connectorStyle.synapse', circuit: 'visualizerSettingsDrawer.connectorStyle.circuit' },
 };
 
 /** Field riêng của TỪNG effect, hiện SAU khối Color trong Drawer — dựng UI DATA-DRIVEN (1 hàm render chung
@@ -282,24 +282,18 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'autoLaunchDensity', labelKey: 'customEffectDrawer.field.fwAutoLaunchDensity', type: 'slider', min: 5, max: 100, step: 5, card: 'reaction', showIf: (cfg) => cfg.lightingStyle === 'fireworks' },
     ],
     connector: [
-        // ── music ── (circuit = camera shift, brain = burst). 2 tham số dùng CHUNG, hiện khi toggle của
-        // style đang chọn bật. SỬA (25/09/2026, rà soát) — cameraShiftEnabled trước đây THIẾU `rerender`
+        // ── music ── (circuit = camera shift; brain burst đã xoá cùng style brain 01/10/2026). 2 tham số hiện khi toggle bật. SỬA (25/09/2026, rà soát) — cameraShiftEnabled trước đây THIẾU `rerender`
         // (bật/tắt không hiện/ẩn 2 tham số ngay) + nằm lẻ ngoài card music.
         { id: 'cameraShiftEnabled', labelKey: 'customEffectDrawer.field.connectorCameraShiftEnabled', type: 'toggle', card: 'music', showIf: (cfg) => cfg.connectorStyle === 'circuit', rerender: true },
-        { id: 'burstEnabled', labelKey: 'customEffectDrawer.field.brainBurstEnabled', type: 'toggle', card: 'music', showIf: (cfg) => cfg.connectorStyle === 'brain', rerender: true },
-        { id: 'sectionWindowBeats', labelKey: 'customEffectDrawer.field.musicSectionWindowBeats', type: 'slider', min: 6, max: 32, step: 1, card: 'music', showIf: (cfg) => (cfg.connectorStyle === 'circuit' && cfg.cameraShiftEnabled) || (cfg.connectorStyle === 'brain' && cfg.burstEnabled) },
-        { id: 'fluxThreshold', labelKey: 'customEffectDrawer.field.musicFluxThreshold', type: 'sliderFloat', min: 0.1, max: 1, step: 0.05, decimals: 2, card: 'music', showIf: (cfg) => (cfg.connectorStyle === 'circuit' && cfg.cameraShiftEnabled) || (cfg.connectorStyle === 'brain' && cfg.burstEnabled) },
-        // ── glow ── glow sprite (mọi style; brain nhân vào mọi shadowBlur) + bloom (circuit).
+        { id: 'sectionWindowBeats', labelKey: 'customEffectDrawer.field.musicSectionWindowBeats', type: 'slider', min: 6, max: 32, step: 1, card: 'music', showIf: (cfg) => cfg.connectorStyle === 'circuit' && cfg.cameraShiftEnabled },
+        { id: 'fluxThreshold', labelKey: 'customEffectDrawer.field.musicFluxThreshold', type: 'sliderFloat', min: 0.1, max: 1, step: 0.05, decimals: 2, card: 'music', showIf: (cfg) => cfg.connectorStyle === 'circuit' && cfg.cameraShiftEnabled },
+        // ── glow ── glow sprite (mọi style) + bloom (circuit).
         // SỬA (25/09/2026, rà soát) — toggle `rerender`, cường độ ẩn khi tắt (cùng khuôn khối Blur chung).
         { id: 'glowEnabled', labelKey: 'customEffectDrawer.field.connectorGlowEnabled', type: 'toggle', card: 'glow', rerender: true },
         { id: 'glowIntensity', labelKey: 'customEffectDrawer.field.connectorGlowIntensity', type: 'slider', min: 0, max: 100, step: 5, card: 'glow', showIf: (cfg) => cfg.glowEnabled !== false },
         { id: 'bloomStrengthBase', labelKey: 'customEffectDrawer.field.bloomStrengthBase', type: 'sliderFloat', min: 0, max: 4, step: 0.1, decimals: 1, card: 'glow', showIf: (cfg) => cfg.connectorStyle === 'circuit' },
         { id: 'bloomStrengthEnergyMult', labelKey: 'customEffectDrawer.field.bloomStrengthEnergyMult', type: 'sliderFloat', min: 0, max: 4, step: 0.1, decimals: 1, card: 'glow', showIf: (cfg) => cfg.connectorStyle === 'circuit' },
-        // ── element ── (brain: bật/tắt từng thành phần, brain.js::_applySettings())
-        { id: 'brainShowNodes', labelKey: 'customEffectDrawer.field.brainShowNodes', type: 'toggle', card: 'element', showIf: (cfg) => cfg.connectorStyle === 'brain' },
-        { id: 'brainShowOrbit', labelKey: 'customEffectDrawer.field.brainShowOrbit', type: 'toggle', card: 'element', showIf: (cfg) => cfg.connectorStyle === 'brain' },
-        { id: 'brainShowStrings', labelKey: 'customEffectDrawer.field.brainShowStrings', type: 'toggle', card: 'element', showIf: (cfg) => cfg.connectorStyle === 'brain' },
-        { id: 'brainOrbitTrail', labelKey: 'customEffectDrawer.field.brainOrbitTrail', type: 'slider', min: 0, max: 12, step: 1, card: 'element', showIf: (cfg) => cfg.connectorStyle === 'brain' },
+        // ── element ──
         { id: 'trailLength', labelKey: 'customEffectDrawer.field.trailLength', type: 'slider', min: 5, max: 60, step: 5, card: 'element', showIf: (cfg) => cfg.connectorStyle === 'circuit' },
         // ── layout ──
         // SỬA (yêu cầu Giang 16/09/2026, layout lưới phẳng) — neuronCount max 48->64, min/step 16/4.
@@ -307,41 +301,17 @@ const CUSTOM_EFFECT_FIELDS = {
         // ĐỔI (circuit lưới lập phương, buildCircuitCubeCells()): 16-64/4, khớp neuronCount synapse.
         { id: 'nodeCount', labelKey: 'customEffectDrawer.field.nodeCount', type: 'slider', min: 16, max: 64, step: 4, card: 'layout', showIf: (cfg) => cfg.connectorStyle === 'circuit', refresh: 'initThreeJSConnector' },
         { id: 'maxConcurrentSignals', labelKey: 'customEffectDrawer.field.maxConcurrentSignals', type: 'slider', min: 20, max: 90, step: 5, card: 'layout', showIf: (cfg) => cfg.connectorStyle === 'circuit' },
-        // MỚI (23/09/2026, Giang) — style 'brain', type 'select'. brain.js tự dựng lại layout khi giá trị đổi
-        // (so với lần vẽ trước) nên không cần `refresh`.
-        { id: 'brainDirection', labelKey: 'customEffectDrawer.field.brainDirection', type: 'select', card: 'layout', showIf: (cfg) => cfg.connectorStyle === 'brain', options: [
-            { value: 'ltr', labelKey: 'customEffectDrawer.brainDirection.ltr' },
-            { value: 'rtl', labelKey: 'customEffectDrawer.brainDirection.rtl' },
-            { value: 'ttb', labelKey: 'customEffectDrawer.brainDirection.ttb' },
-            { value: 'btt', labelKey: 'customEffectDrawer.brainDirection.btt' },
-        ] },
-        { id: 'brainSignalCount', labelKey: 'customEffectDrawer.field.brainSignalCount', type: 'slider', min: 40, max: 200, step: 10, card: 'layout', showIf: (cfg) => cfg.connectorStyle === 'brain' },
-        { id: 'brainOrbitDotCount', labelKey: 'customEffectDrawer.field.brainOrbitDotCount', type: 'slider', min: 1, max: 16, step: 1, card: 'layout', showIf: (cfg) => cfg.connectorStyle === 'brain' },
-        // (23/09/2026) khoảng cách dot trong đoàn theo hoạ âm của nốt — min (hoạ âm yếu) / max (hoạ âm mạnh), % độ dài dây
-        { id: 'brainStringDotGapMin', labelKey: 'customEffectDrawer.field.brainStringDotGapMin', type: 'sliderFloat', min: 0.5, max: 10, step: 0.5, decimals: 1, card: 'layout', showIf: (cfg) => cfg.connectorStyle === 'brain' },
-        { id: 'brainStringDotGapMax', labelKey: 'customEffectDrawer.field.brainStringDotGapMax', type: 'sliderFloat', min: 2, max: 20, step: 0.5, decimals: 1, card: 'layout', showIf: (cfg) => cfg.connectorStyle === 'brain' },
-        { id: 'brainStringDotGapLive', labelKey: 'customEffectDrawer.field.brainStringDotGapLive', type: 'toggle', card: 'layout', showIf: (cfg) => cfg.connectorStyle === 'brain' },
         // ── motion ──
         { id: 'synapseSpeedBase', labelKey: 'customEffectDrawer.field.synapseSpeedBase', type: 'slider', min: 20, max: 200, step: 5, card: 'motion', showIf: (cfg) => cfg.connectorStyle === 'synapse' },
         { id: 'synapseSpeedEnergyMult', labelKey: 'customEffectDrawer.field.synapseSpeedEnergyMult', type: 'slider', min: 0, max: 150, step: 5, card: 'motion', showIf: (cfg) => cfg.connectorStyle === 'synapse' },
         { id: 'circuitSpeedBase', labelKey: 'customEffectDrawer.field.circuitSpeedBase', type: 'slider', min: 20, max: 200, step: 5, card: 'motion', showIf: (cfg) => cfg.connectorStyle === 'circuit' },
         { id: 'circuitSpeedEnergyMult', labelKey: 'customEffectDrawer.field.circuitSpeedEnergyMult', type: 'slider', min: 0, max: 150, step: 5, card: 'motion', showIf: (cfg) => cfg.connectorStyle === 'circuit' },
-        { id: 'brainInputSpeed', labelKey: 'customEffectDrawer.field.brainInputSpeed', type: 'sliderFloat', min: 0.5, max: 3, step: 0.1, decimals: 1, card: 'motion', showIf: (cfg) => cfg.connectorStyle === 'brain' },
-        { id: 'brainOrbitBeatsPerLap', labelKey: 'customEffectDrawer.field.brainOrbitBeatsPerLap', type: 'slider', min: 2, max: 32, step: 1, card: 'motion', showIf: (cfg) => cfg.connectorStyle === 'brain' },
-        { id: 'brainStringDotBeats', labelKey: 'customEffectDrawer.field.brainStringDotBeats', type: 'slider', min: 1, max: 8, step: 1, card: 'motion', showIf: (cfg) => cfg.connectorStyle === 'brain' },
         // ── reaction ──
-        // fireThreshold/lateralInhibitStrength — cả 3 style (circuit dùng CHUNG logic bắn với synapse; brain:
-        // ngưỡng nhiễu flux của node trong ellipse / dải loé đè 2 dải kề). lateralInhibitStrength (17/09/2026,
+        // fireThreshold/lateralInhibitStrength — cả 2 style (circuit dùng CHUNG logic bắn với synapse). lateralInhibitStrength (17/09/2026,
         // applyLateralInhibition(), core/visualizer/groups/connector/synapse.js): ngưỡng bắn bị ĐÈ LÊN (byte
         // 0-255) ở nơ-ron LÂN CẬN mỗi khi 1 nơ-ron vừa bắn — 0 = tắt, càng cao càng thưa.
         { id: 'fireThreshold', labelKey: 'customEffectDrawer.field.fireThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, card: 'reaction' },
         { id: 'lateralInhibitStrength', labelKey: 'customEffectDrawer.field.lateralInhibitStrength', type: 'slider', min: 0, max: 150, step: 10, card: 'reaction' },
-        { id: 'brainFilterStrictness', labelKey: 'customEffectDrawer.field.brainFilterStrictness', type: 'sliderFloat', min: 0.8, max: 1, step: 0.01, decimals: 2, card: 'reaction', showIf: (cfg) => cfg.connectorStyle === 'brain' },
-        { id: 'brainPumpSqueeze', labelKey: 'customEffectDrawer.field.brainPumpSqueeze', type: 'slider', min: 0, max: 50, step: 2, card: 'reaction', showIf: (cfg) => cfg.connectorStyle === 'brain' },
-        { id: 'brainPumpSensitivity', labelKey: 'customEffectDrawer.field.brainPumpSensitivity', type: 'sliderFloat', min: 1, max: 10, step: 0.5, decimals: 1, card: 'reaction', showIf: (cfg) => cfg.connectorStyle === 'brain' },
-        { id: 'brainNodeFlashSensitivity', labelKey: 'customEffectDrawer.field.brainNodeFlashSensitivity', type: 'sliderFloat', min: 1, max: 10, step: 0.5, decimals: 1, card: 'reaction', showIf: (cfg) => cfg.connectorStyle === 'brain' },
-        { id: 'brainStringAmplitude', labelKey: 'customEffectDrawer.field.brainStringAmplitude', type: 'slider', min: 0, max: 200, step: 10, card: 'reaction', showIf: (cfg) => cfg.connectorStyle === 'brain' },
-        { id: 'brainStringDecayMs', labelKey: 'customEffectDrawer.field.brainStringDecayMs', type: 'slider', min: 100, max: 1000, step: 20, card: 'reaction', showIf: (cfg) => cfg.connectorStyle === 'brain' },
     ],
 };
 /** MỚI (25/09/2026, Giang báo "maxH chỉnh ở mirror, sang cascade vẫn dùng chung giá trị -> sai") — field
@@ -360,8 +330,8 @@ const CUSTOM_EFFECT_FIELDS = {
  *   - lighting (thunder/fireworks) + rain (glass/street): 3 field chớp CUSTOM_EFFECT_FLASH_FIELDS.
  *   - vortex (rings/bars/wave): warpSpeedBase/warpSpeedEnergyMult + Redirect (redirectEnabled/
  *     sectionWindowBeats/fluxThreshold).
- *   - connector (synapse/circuit/brain): glowEnabled/glowIntensity/fireThreshold/lateralInhibitStrength;
- *     sectionWindowBeats/fluxThreshold (circuit camera shift / brain burst). */
+ *   - connector (synapse/circuit): glowEnabled/glowIntensity/fireThreshold/lateralInhibitStrength;
+ *     sectionWindowBeats/fluxThreshold (circuit camera shift). */
 const CUSTOM_EFFECT_COLOR_FIELDS = ['mode', 'solidColor', 'dynA', 'dynB'];
 const CUSTOM_EFFECT_BLUR_FIELDS = ['blurEnabled', 'blurIntensity'];
 const CUSTOM_EFFECT_PER_STYLE_FIELDS = {
@@ -375,7 +345,7 @@ const CUSTOM_EFFECT_PER_STYLE_FIELDS = {
 
 /** Config đầy đủ (default merge field thiếu) của 1 effect theo type. SỬA (25/09/2026) — đè thêm giá trị
  * RIÊNG của style đang chọn cho các field trong CUSTOM_EFFECT_PER_STYLE_FIELDS (xem docblock bảng đó).
- * `byStyle` là chỗ lưu nội bộ, không trả ra ngoài -> nơi đọc (Drawer, hàm vẽ, brain `settings`) vẫn thấy
+ * `byStyle` là chỗ lưu nội bộ, không trả ra ngoài -> nơi đọc (Drawer, hàm vẽ) vẫn thấy
  * object phẳng y như trước. */
 function getEffectConfig(type) {
     const cfg = appConfigViz.getAll();

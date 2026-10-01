@@ -159,20 +159,8 @@
                 circuitSpeedBase: 80, circuitSpeedEnergyMult: 60,
                 bloomStrengthBase: 2.2, bloomStrengthEnergyMult: 0.8,
                 cameraShiftEnabled: true, sectionWindowBeats: 12, fluxThreshold: 0.5,
-                // MỚI (23/09/2026, Giang) — style 'brain': chiều toàn bộ brain filter (ltr/rtl/ttb/btt),
-                // hình trục thời gian (line/sinDown/sinUp/circle/square/triangle), burst theo Music
-                // Transition. sectionWindowBeats/fluxThreshold ở trên cùng field với circuit (giá trị lưu RIÊNG từng style từ 25/09/2026).
-                brainDirection: 'ltr', burstEnabled: true, // (25/09/2026) timelineShape bỏ — trục thời gian chuyển sang bar 'dot'
-                // MỚI (23/09/2026, Giang "thêm hết custom effect") — style 'brain', xem
-                // core/visualizer/groups/connector/brain.js::_applySettings(). Ngoài ra brain nay dùng
-                // chung field glowEnabled/glowIntensity/fireThreshold/lateralInhibitStrength ở trên (giá trị lưu RIÊNG từng style từ 25/09/2026).
-                brainShowOrbit: true, brainShowNodes: true, brainShowStrings: true,
-                brainSignalCount: 120, brainFilterStrictness: 0.98, brainInputSpeed: 1.5,
-                brainPumpSqueeze: 22, brainPumpSensitivity: 4, brainNodeFlashSensitivity: 5,
-                brainStringAmplitude: 100, brainStringDecayMs: 380, brainStringDotBeats: 2,
-                brainStringDotGapMin: 2.5, brainStringDotGapMax: 10, // (23/09/2026) % độ dài dây — khoảng cách dot theo hoạ âm
-                brainStringDotGapLive: true, // (23/09/2026) khoảng cách co giãn liên tục theo hoạ âm hiện tại (tắt = chốt lúc bắn)
-                brainOrbitDotCount: 8, brainOrbitBeatsPerLap: 8, brainOrbitTrail: 6,
+                // (Style 'brain' + 18 field brain*/burstEnabled — ĐÃ XOÁ 01/10/2026 theo Giang; loadConfig() dọn khỏi cấu hình
+                // đã lưu và đưa lựa chọn brain về 'synapse'.)
             },
         };
 
@@ -993,6 +981,14 @@
                 if (cfg.autoSwitchVisualSecondsRandomMin > cfg.autoSwitchVisualSecondsRandom) cfg.autoSwitchVisualSecondsRandom = cfg.autoSwitchVisualSecondsRandomMin;
                 // Danh sách group/style — chuẩn hoá theo registry hiện tại (group/style mới thêm vào cuối, đã tick).
                 if (cfg.autoSwitchVisualListBy !== 'group' && cfg.autoSwitchVisualListBy !== 'style') cfg.autoSwitchVisualListBy = 'style';
+                // XOÁ style 'brain' (01/10/2026, Giang): mọi lựa chọn brain -> 'synapse' (trước khi chuẩn hoá — không để rơi về
+                // 'random'/mất tick); dọn field brain* khỏi bucket connector + ô byStyle.brain.
+                const cn = (cfg.customEffect || {}).connector;
+                if (cn && cn.connectorStyle === 'brain') cn.connectorStyle = 'synapse';
+                if (cn) Object.keys(cn).forEach((k) => { if (k.indexOf('brain') === 0 || k === 'burstEnabled') delete cn[k]; });
+                if (cn && cn.byStyle) delete cn.byStyle.brain;
+                cfg.autoSwitchVisualGroupList = (cfg.autoSwitchVisualGroupList || []).map((item) => (item && item.key === 'connector' && item.style === 'brain' ? { ...item, style: 'synapse' } : item));
+                cfg.autoSwitchVisualStyleList = (cfg.autoSwitchVisualStyleList || []).map((item) => (item && item.key === 'brain' ? { ...item, key: 'synapse' } : item));
                 cfg.autoSwitchVisualGroupList = normalizeAutoSwitchGroupList(cfg.autoSwitchVisualGroupList, EFFECT_GROUPS); // core/auto-switch-visual.js
                 cfg.autoSwitchVisualStyleList = normalizeAutoSwitchStyleList(cfg.autoSwitchVisualStyleList, MODES); // core/auto-switch-visual.js
                 delete cfg.subtitleStyle; // field khung phụ đề cũ (đã bỏ từ lâu) — dọn khỏi localStorage

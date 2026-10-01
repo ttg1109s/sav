@@ -98,19 +98,19 @@ function buildPeakingEqChain(audioContext, inputNode, frequencies) {
 /**
  * Nối phần đuôi graph (SỬA 01/10/2026 — Giang: "volume độc lập với phân tích"):
  *
- *   đầu ra EQ -> masterGainNode (cổng seek, bình thường = 1) -+-> analyser       (phổ VẼ, fftSize theo effect)
- *                                                             +-> analyserPitch  (phân tích chung, FFT cố định 2048)
+ *   đầu ra EQ -> masterGainNode (cổng seek, bình thường = 1) -+-> analyserPitch  (phân tích chung, FFT cố định 2048)
+ *                                                             +-> analyser theo cỡ (phổ VẼ — service/audio-analysis.js tạo
+ *                                                             |   khi có effect xin, từ 01/10/2026)
  *                                                             +-> volumeGainNode (âm lượng người dùng) -> loa
  *
  * 2 analyser rẽ nhánh TRƯỚC âm lượng nên kéo volume (kể cả về 0) không đổi số liệu phân tích; EQ vẫn nằm trước nên
  * preset EQ vẫn ảnh hưởng phân tích (đúng ý Giang — EQ đổi tính chất nhạc). Cổng seek vẫn câm CẢ loa lẫn phân tích.
  * Analyser không cần nối ra loa để xử lý (analyserPitch vốn đã không nối, pitch vẫn chạy trên iOS).
  * @param {AudioNode} eqOutputNode @param {GainNode} masterGainNode @param {GainNode} volumeGainNode
- * @param {AnalyserNode} analyser @param {AnalyserNode} analyserPitch @param {AudioDestinationNode} destination
+ * @param {AnalyserNode} analyserPitch @param {AudioDestinationNode} destination
  */
-function wireAudioOutputGraph(eqOutputNode, masterGainNode, volumeGainNode, analyser, analyserPitch, destination) {
+function wireAudioOutputGraph(eqOutputNode, masterGainNode, volumeGainNode, analyserPitch, destination) {
     eqOutputNode.connect(masterGainNode);
-    masterGainNode.connect(analyser);
     masterGainNode.connect(analyserPitch);
     masterGainNode.connect(volumeGainNode);
     volumeGainNode.connect(destination);
@@ -167,7 +167,5 @@ function wireAudioOutputGraph(eqOutputNode, masterGainNode, volumeGainNode, anal
         // (25/09/2026) 2 hàm cổng seek v2 (setAudioOutputConnected/readAnalyserRms) ĐÃ XOÁ — cổng v3 không còn ngắt loa/đo
         // analyser, xem event/workflow/player-controls.js::runGatedSeek().
 
-        /** MỚI (28/09/2026, Phase 3) — Đổi độ phân giải FFT của analyser chính (effect cần phổ mịn dùng 2048). */
-        function setAnalyserFftSize(analyser, fftSize) {
-            analyser.fftSize = fftSize;
-        }
+        // (setAnalyserFftSize() — ĐÃ XOÁ 01/10/2026: không còn 1 analyser vẽ đổi cỡ; mỗi cỡ phổ 1 analyser riêng,
+        // service/audio-analysis.js::requireSpectrum().)
