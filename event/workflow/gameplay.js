@@ -39,7 +39,7 @@
  *
  * NẠP SAU: event/workflow/gameplay-engine.js, core/gameplay/circle-mode.js, core/gameplay/engine.js,
  * core/gameplay/circle-mode-ui.js, core/player-controls.js (getActiveMediaElement),
- * core/audio-analysis.js (detectMusicTransition/isPhraseBoundary).
+ * core/visualizer/beat-window.js (detectMusicTransition/isPhraseBoundary — dời từ core/audio-analysis.js 01/10/2026).
  */
 const GAMEPLAY_MISS_SHATTER_COLOR = '#f87171'; // đỏ-400, khớp màu .gameplay-tier-popup--miss (assets/css/gameplay.css)
 
@@ -249,10 +249,10 @@ const workflowGameplay = {
 
             // Trigger refresh vị trí theo audio — CHỈ xét khi map đã có THẬT và CHƯA đang pending.
             // fluxThreshold DÙNG CHUNG cho energy/section, chỉ khác nhau ở CỬA SỔ so sánh — gộp
-            // sẵn trong detectMusicTransition() (core/audio-analysis.js).
+            // sẵn trong detectMusicTransition() (core/visualizer/beat-window.js).
             if (!justRebuilt && !gameplayRefreshPending) {
-                const musicTransition = detectMusicTransition(this._beatFluxHistory, diffCfg.energyWindowBeats, diffCfg.sectionWindowBeats, diffCfg.fluxThreshold); // core (audio-analysis.js)
-                const phraseBoundary = isPhraseBoundary(this._beatsSincePhraseRefresh, cfg.refreshBeatsForPhrase); // core (audio-analysis.js)
+                const musicTransition = detectMusicTransition(this._beatFluxHistory, diffCfg.energyWindowBeats, diffCfg.sectionWindowBeats, diffCfg.fluxThreshold); // core/visualizer/beat-window.js
+                const phraseBoundary = isPhraseBoundary(this._beatsSincePhraseRefresh, cfg.refreshBeatsForPhrase); // core/visualizer/beat-window.js
                 if (musicTransition || phraseBoundary) {
                     appState.set('gameplayRefreshPending', true, { skipCheck: true });
                     this._beatsSincePhraseRefresh = 0;
