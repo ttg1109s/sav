@@ -1,0 +1,111 @@
+/* Ghi âm (MỚI 01/10/2026) — xem components/recorder-overlay.js. CSS riêng (không thêm class Tailwind mới — không có
+   bước build lại tailwind.css cho class tuỳ ý như z-[66]). */
+
+/* Lớp phủ: trên #gameplay-layer (65) và phụ đề (60) trong stacking context #visualizer-ui; trong suốt — chỉ nuốt chạm. */
+#recorder-layer {
+    z-index: 66;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Viền đỏ "thở" quanh màn hình — tín hiệu đang ghi nhìn thấy ở mọi góc. */
+.recorder-edge-glow {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    box-shadow: inset 0 0 0 2px rgba(239, 68, 68, 0.55), inset 0 0 36px rgba(239, 68, 68, 0.35);
+    animation: recorder-edge-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes recorder-edge-breathe {
+    0%, 100% { opacity: 0.45; }
+    50% { opacity: 1; }
+}
+
+/* Viên REC — giữa, ngay dưới hàng nút trên cùng (không đè nút X / nút quay lại danh sách). */
+.recorder-indicator {
+    position: absolute;
+    top: calc(1rem + 3.25rem);
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.85rem;
+    border-radius: 9999px;
+    color: #f8fafc;
+    font-size: 0.8rem;
+    line-height: 1;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.recorder-dot {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 9999px;
+    background: #ef4444;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    animation: recorder-dot-pulse 1.2s ease-out infinite;
+}
+
+@keyframes recorder-dot-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); opacity: 1; }
+    70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); opacity: 0.75; }
+    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); opacity: 1; }
+}
+
+.recorder-label {
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #fca5a5;
+}
+
+.recorder-timer {
+    font-variant-numeric: tabular-nums;
+    min-width: 2.6rem;
+}
+
+/* 5 vạch mức mic — 1 biến --rec-level (0..1) do core/recorder-ui.js::setRecorderLevel() ghi, mỗi vạch nhạy khác nhau. */
+.recorder-level {
+    --rec-level: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    height: 0.9rem;
+}
+
+.recorder-level i {
+    display: block;
+    width: 3px;
+    height: 100%;
+    border-radius: 2px;
+    background: #f8fafc;
+    transform-origin: center;
+    transform: scaleY(calc(0.18 + var(--rec-level) * var(--rec-k)));
+    transition: transform 90ms linear;
+}
+
+.recorder-level i:nth-child(1) { --rec-k: 0.45; }
+.recorder-level i:nth-child(2) { --rec-k: 0.7; }
+.recorder-level i:nth-child(3) { --rec-k: 0.82; }
+.recorder-level i:nth-child(4) { --rec-k: 0.7; }
+.recorder-level i:nth-child(5) { --rec-k: 0.45; }
+
+/* Modal nghe lại — mini waveform. */
+.recorder-review-wave-wrap {
+    width: 100%;
+    height: 72px;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background: rgba(148, 163, 184, 0.12);
+}
+
+.recorder-review-wave {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: pointer;
+}
