@@ -114,6 +114,15 @@ if (playlistContainer) {
     });
 }
 
+// MỚI (02/10/2026, Giang chốt phương án A — `content-visibility: auto` cho item Playlist) — khung cuộn Playlist (div
+// `overflow-y-auto` bọc #playlist-container, components/playlist-view.js) đổi kích thước -> báo Router đo lại chiều cao
+// ước lượng của item (tile Grid cao theo bề rộng cột, xoay máy là đổi). ResizeObserver tự gom về 1 lần/khung hình.
+if (playlistContainer && playlistContainer.parentElement && typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => {
+        eventBus.send({ router: 'playlist', type: 'playlist.viewport.resize', payload: {} });
+    }).observe(playlistContainer.parentElement);
+}
+
 // ===================== Modal: Bài hát lỗi lúc phát =====================
 if (btnPlaybackErrorKeep) {
     btnPlaybackErrorKeep.addEventListener('click', () => {
