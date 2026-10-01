@@ -6,6 +6,12 @@
  * -> guard + object map (readme/event-bus-flow.md mục 7). Resize (thay resizeCanvas() cũ): dựng lại sao Black Hole; onNewMedia: dọn tia Hawking.
  */
 
+/** Cỡ phổ VẼ (01/10/2026: group tự khai báo, host xin qua audioAnalysis.requireSpectrum()). Mirror chia dải log 40 Hz-16 kHz
+ * nên cần FFT mịn; cascade/black hole/dot giữ 256 như từ trước. */
+const BAR_FFT_SIZE = 256;
+const BAR_MIRROR_FFT_SIZE = 2048;
+const BAR_FFT_SIZE_BY_STYLE = Object.freeze({ mirror: BAR_MIRROR_FFT_SIZE, cascade: BAR_FFT_SIZE, 'black hole': BAR_FFT_SIZE, dot: BAR_FFT_SIZE });
+
 /** Mirror: bật vạch đỉnh -> bước mô phỏng đỉnh; tắt -> bỏ trạng thái (bật lại khởi tạo từ mức hiện tại). */
 const BAR_MIRROR_PEAKS_BY_ENABLED = {
     true: (levels, prevPeaks, dt) => stepBarMirrorPeaks(levels, prevPeaks, dt), // core
@@ -69,6 +75,8 @@ const BAR_DOT_PAINT_BY_IMPACT = {
 
 const workflowVizBar = {
     defaultStyle: 'mirror',
+    /** Cỡ phổ VẼ style cần — host gọi khi kích hoạt style để xin qua audioAnalysis.requireSpectrum() (01/10/2026). */
+    spectrumSize(style) { return BAR_FFT_SIZE_BY_STYLE[style] || BAR_FFT_SIZE_BY_STYLE[this.defaultStyle]; }, // style lạ -> host vẽ style mặc định
 
     _mirrorPeaks: null,
     _mirrorLastTime: 0,
@@ -109,7 +117,7 @@ const workflowVizBar = {
 
     _drawCascade(frame) {
         const { ctx, canvas, cfg, dpr } = frame;
-        const keys = computeBarCascadeFrame(cfg, canvas.width, canvas.height, dpr, frame.vizDataArray); // core
+        const keys = computeBarCascadeFrame(cfg, canvas.width, canvas.height, dpr, frame.audio.spectrum(BAR_FFT_SIZE)); // core
         keys.forEach((k) => {
             const color = getComputedColor(...k.colorArgs); // core/visualizer/effect-paint.js
             paintBarRects(ctx, [k.shadowRect, k.capRect], color.fill, color.glow, dpr, frame.perf.blurMult, 10); // core
@@ -143,10 +151,10 @@ const workflowVizBar = {
         const dt = computeFrameDeltaMs(now, bh.lastTime); // core/visualizer/frame-clock.js
         bh.lastTime = now;
 
-        const targetRadius = computeBlackHoleTargetRadius(minDimension, frame.smoothedEnergy, cfg.radiusRatio, cfg.radiusEnergyMult); // core
+        const targetRadius = computeBlackHoleTargetRadius(minDimension, frame.audio.smoothedEnergy(), cfg.radiusRatio, cfg.radiusEnergyMult); // core
         bh.baseRadius = smoothBlackHoleBaseRadius(bh.baseRadius, targetRadius, dt); // core
-        const currentRadius = computeBlackHoleBeatRadius(bh.baseRadius, frame.beatScale, minDimension); // core
-        const currentSuction = cfg.suctionBase + (frame.isPlaying ? frame.smoothedEnergy * cfg.suctionEnergyMult : 0);
+        const currentRadius = computeBlackHoleBeatRadius(bh.baseRadius, frame.audio.beatScale(), minDimension); // core
+        const currentSuction = cfg.suctionBase + (frame.isPlaying ? frame.audio.smoothedEnergy() * cfg.suctionEnergyMult : 0);
 
         this._paintBlackHoleFlare(frame, centerX, centerY, currentRadius);
         this._drawBlackHoleStars(frame, centerX, centerY, maxDist, currentRadius, currentSuction, dt);
@@ -161,9 +169,9 @@ const workflowVizBar = {
     /** Quầng sáng quanh lỗ đen — chỉ khi đang phát và năng lượng vượt ngưỡng flare; màu theo Color mode. */
     _paintBlackHoleFlare(frame, centerX, centerY, currentRadius) {
         const cfg = frame.cfg;
-        if (!frame.isPlaying || frame.smoothedEnergy <= cfg.flareThreshold) return;
-        const flareAlpha = (frame.smoothedEnergy - cfg.flareThreshold) * 2.5;
-        const rgb = resolveBlackHoleRgb(frame.ctx, getComputedColor(0, 1, Math.round(frame.smoothedEnergy * 255)).glow); // core + core/visualizer/effect-paint.js
+        if (!frame.isPlaying || frame.audio.smoothedEnergy() <= cfg.flareThreshold) return;
+        const flareAlpha = (frame.audio.smoothedEnergy() - cfg.flareThreshold) * 2.5;
+        const rgb = resolveBlackHoleRgb(frame.ctx, getComputedColor(0, 1, Math.round(frame.audio.smoothedEnergy() * 255)).glow); // core + core/visualizer/effect-paint.js
         paintBlackHoleFlare(frame.ctx, frame.canvas.width, frame.canvas.height, centerX, centerY, currentRadius, rgb, flareAlpha); // core
     },
 
@@ -209,14 +217,14 @@ const workflowVizBar = {
      * phát + nổi hơn mặt bằng các beat gần đây (so TRƯỚC khi cập nhật mặt bằng) + chưa đủ số tia tối đa -> thêm 1 tia. */
     _spawnBlackHoleBurst(frame) {
         const bh = this._blackHole;
-        if (!workflowVizBeatWindow.consumeNewBeat(bh.beatWin, frame.lastBeatTime)) return;
+        if (!workflowVizBeatWindow.consumeNewBeat(bh.beatWin, frame.audio.lastBeatTime())) return;
         if (!frame.cfg.hawkingEnabled) return; // toggle Custom Effect (29/09/2026)
         if (!frame.isPlaying) return;
-        const isStrong = isBlackHoleBurstBeat(frame.beatScale, bh.beatAvg); // core
-        bh.beatAvg = updateBlackHoleBeatAverage(bh.beatAvg, frame.beatScale); // core
+        const isStrong = isBlackHoleBurstBeat(frame.audio.beatScale(), bh.beatAvg); // core
+        bh.beatAvg = updateBlackHoleBeatAverage(bh.beatAvg, frame.audio.beatScale()); // core
         if (!isStrong) return;
         if (bh.bursts.length >= BLACK_HOLE_BURST_MAX) return;
-        bh.bursts.push(createBlackHoleBurst(frame.beatScale)); // core
+        bh.bursts.push(createBlackHoleBurst(frame.audio.beatScale())); // core
     },
 
     /** Đổi hình tia chớp khi đã tới hạn (nhấp nháy). */
@@ -230,8 +238,9 @@ const workflowVizBar = {
     _drawBlackHoleRing(frame, centerX, centerY, minDimension, currentRadius, dt) {
         const { ctx, cfg, dpr } = frame;
         const bh = this._blackHole;
-        const layout = computeBlackHoleBarLayout(this._resolveBlackHoleHalfCount(cfg, currentRadius, dpr, dt), frame.bufferLength); // core
-        const targetLevels = computeBlackHoleBarLevels(frame.vizDataArray, layout.usefulLength, layout.spanBins); // core
+        const spectrum = frame.audio.spectrum(BAR_FFT_SIZE); // service/audio-analysis.js
+        const layout = computeBlackHoleBarLayout(this._resolveBlackHoleHalfCount(cfg, currentRadius, dpr, dt), spectrum.length); // core
+        const targetLevels = computeBlackHoleBarLevels(spectrum, layout.usefulLength, layout.spanBins); // core
         bh.levels = stepBlackHoleBarEnvelope(resampleBlackHoleLevels(bh.levels, layout.usefulLength), targetLevels, dt); // core
         const dynamicMaxBarHeight = (cfg.maxH / 1000) * (minDimension * 0.25);
         const bars = computeBlackHoleBarsFrame(bh.levels, cfg.minH, dpr, dynamicMaxBarHeight); // core
@@ -278,12 +287,14 @@ const workflowVizBar = {
     // ===================== mirror =====================
 
     _drawMirror(frame) {
-        const { ctx, canvas, cfg, dpr, analyser } = frame;
+        const { ctx, canvas, cfg, dpr } = frame;
+        const spectrum = frame.audio.spectrum(BAR_MIRROR_FFT_SIZE); // service/audio-analysis.js
+        const analyser = frame.audio.spectrumAnalyser(BAR_MIRROR_FFT_SIZE); // chỉ để đọc minDecibels/maxDecibels/sampleRate
         const time = performance.now();
         const dt = computeFrameDeltaMs(time, this._mirrorLastTime); // core/visualizer/frame-clock.js
         this._mirrorLastTime = time;
         const barCount = resolveBarMirrorCount(cfg); // core
-        const rawLevels = computeBarMirrorLevels(frame.vizDataArray, analyser.frequencyBinCount, analyser.context.sampleRate, analyser.minDecibels, analyser.maxDecibels, barCount, cfg.mirrorTilt); // core
+        const rawLevels = computeBarMirrorLevels(spectrum, analyser.frequencyBinCount, analyser.context.sampleRate, analyser.minDecibels, analyser.maxDecibels, barCount, cfg.mirrorTilt); // core
         const levels = spreadBarMirrorLevels(rawLevels, cfg.mirrorSmoothSpread); // core
         this._mirrorPeaks = BAR_MIRROR_PEAKS_BY_ENABLED[cfg.mirrorPeaks !== false](levels, this._mirrorPeaks, dt);
         const peaks = this._mirrorPeaks ? this._mirrorPeaks.vals : null;
@@ -319,13 +330,14 @@ const workflowVizBar = {
         const dnaMax = stepDotDnaPairs(dot.dnaLevels, dot.dnaBonds, dt, dnaOn, dot.dnaBreakClock); // core
         this._advanceDnaRotation(frame, dnaMax, dt);
 
-        dot.energyPeak = computeDotEnergyPeak(dot.energyPeak, frame.smoothedEnergy, dt); // core
-        const isOnset = frame.isPlaying && frame.lastBeatTime && frame.lastBeatTime !== dot.lastSeenBeatTime;
-        dot.lastSeenBeatTime = frame.lastBeatTime || dot.lastSeenBeatTime;
+        dot.energyPeak = computeDotEnergyPeak(dot.energyPeak, frame.audio.smoothedEnergy(), dt); // core
+        const isOnset = frame.isPlaying && frame.audio.lastBeatTime() && frame.audio.lastBeatTime() !== dot.lastSeenBeatTime;
+        dot.lastSeenBeatTime = frame.audio.lastBeatTime() || dot.lastSeenBeatTime;
         dot.clusters = stepDotClusters(dot.clusters, time, this._buildDotSpawn(frame, isOnset), dotCount); // core
+        const spectrum = frame.audio.spectrum(BAR_FFT_SIZE); // service/audio-analysis.js
         const clusterEnergies = dot.clusters.map((cl) => {
             const arr = [];
-            for (let k = 0; k < cl.clusterSize; k++) arr.push(computeBinRangePeak(frame.vizDataArray, tonotopicBinRange(k, cl.clusterSize, frame.bufferLength)) / 255); // core/visualizer/groups/connector/synapse.js
+            for (let k = 0; k < cl.clusterSize; k++) arr.push(computeBinRangePeak(spectrum, tonotopicBinRange(k, cl.clusterSize, spectrum.length)) / 255); // core/visualizer/groups/connector/synapse.js
             return arr;
         });
         const targets = computeDotTargetBoosts(dot.clusters, clusterEnergies, time, dotCount); // core
@@ -402,7 +414,7 @@ const workflowVizBar = {
 
     _stepDotSnake(frame, dotCount, dt) {
         if (!frame.isPlaying) return;
-        this._dot.snake = stepDotSnake(this._dot.snake, dt / 1000, frame.smoothedEnergy, dotCount); // core
+        this._dot.snake = stepDotSnake(this._dot.snake, dt / 1000, frame.audio.smoothedEnergy(), dotCount); // core
     },
 
     /** Hình trục tĩnh — dựng lại khi đổi kích thước canvas/hình/số dot. */
@@ -443,7 +455,7 @@ const workflowVizBar = {
     /** Xoắn DNA quay khi đang phát và còn cặp DNA hiện. */
     _advanceDnaRotation(frame, dnaMax, dt) {
         if (!frame.isPlaying || dnaMax <= 0) return;
-        const energy = isFinite(frame.smoothedEnergy) ? frame.smoothedEnergy : 0;
+        const energy = isFinite(frame.audio.smoothedEnergy()) ? frame.audio.smoothedEnergy() : 0;
         this._dot.dnaRot = (this._dot.dnaRot + (dt / 1000) * (DOT_DNA_ROT_SPEED + energy * DOT_DNA_ROT_ENERGY)) % (Math.PI * 2);
     },
 
@@ -451,16 +463,17 @@ const workflowVizBar = {
     _buildDotSpawn(frame, isOnset) {
         if (!isOnset) return null;
         return {
-            normEnergy: (isFinite(frame.smoothedEnergy) ? frame.smoothedEnergy : 0) / Math.max(this._dot.energyPeak, 0.05),
-            clusterSize: pitchToDotClusterSize(frame.midiNote), // core
+            normEnergy: (isFinite(frame.audio.smoothedEnergy()) ? frame.audio.smoothedEnergy() : 0) / Math.max(this._dot.energyPeak, 0.05),
+            clusterSize: pitchToDotClusterSize(frame.audio.pitchMidi()), // core
         };
     },
 
     _stepDotVibration(frame, dt) {
         // SỬA 01/10/2026 — độ "tươi" của nốt + sampleRate đọc từ kho audioAnalysis (hết tự trừ Date.now()).
         const noteFresh = frame.isPlaying && frame.audio.isPitchFresh(DOT_NOTE_FRESH_MS); // service/audio-analysis.js
-        const midi = noteFresh ? frame.midiNote : null;
-        const noteEnergy = computeDotNoteEnergy(midi, frame.vizDataArray, frame.bufferLength, frame.audio.sampleRate()); // core
+        const midi = noteFresh ? frame.audio.pitchMidi() : null;
+        const spectrum = frame.audio.spectrum(BAR_FFT_SIZE); // service/audio-analysis.js
+        const noteEnergy = computeDotNoteEnergy(midi, spectrum, spectrum.length, frame.audio.sampleRate()); // core
         stepDotLineVibration(this._dot.vibAmps, dt, midi, noteEnergy); // core
         return Math.min(frame.canvas.width, frame.canvas.height) * DOT_VIB_AMP_FRAC;
     },

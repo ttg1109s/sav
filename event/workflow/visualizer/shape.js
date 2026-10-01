@@ -9,6 +9,9 @@
  * thay vì theo phổ, thêm ảnh nền mặt số (bìa bài hoặc ảnh thư viện, độ đục chỉnh được).
  */
 
+/** Cỡ phổ VẼ của group (01/10/2026: group tự khai báo, host xin qua audioAnalysis.requireSpectrum()). */
+const SHAPE_FFT_SIZE = 256;
+
 const CLOCK_SECOND_HAND_COLOR = '#e0283f';
 const CLOCK_GLOW_PX = 14;
 const CLOCK_PENDULUM_GHOST_LAG = 0.09; // rad pha giữa 2 dây ma liên tiếp (bóng mờ dây con lắc)
@@ -47,6 +50,8 @@ const CLOCK_BG_LOAD_BY_KIND = {
 
 const workflowVizShape = {
     defaultStyle: 'rubik',
+    /** Cỡ phổ VẼ style cần — host gọi khi kích hoạt style để xin qua audioAnalysis.requireSpectrum() (01/10/2026). */
+    spectrumSize() { return SHAPE_FFT_SIZE; },
 
     /** Trạng thái style clock (KHÔNG thuộc STATE) — trước đây là các biến `_clock*` cấp module. `tickGlow` = mức 60
      * vạch phút vừa được kim giây quét (28/09/2026, thay vạch theo phổ). */
@@ -69,8 +74,11 @@ const workflowVizShape = {
     // ===================== rubik =====================
 
     _drawRubik(frame) {
-        const { ctx, canvas, cfg, dpr, isPlaying, smoothedEnergy, beatScale, vizDataArray } = frame;
-        const currentMidi = frame.midiNote;
+        const { ctx, canvas, cfg, dpr, isPlaying } = frame;
+        const smoothedEnergy = frame.audio.smoothedEnergy(); // service/audio-analysis.js
+        const beatScale = frame.audio.beatScale(); // service/audio-analysis.js
+        const vizDataArray = frame.audio.spectrum(SHAPE_FFT_SIZE); // service/audio-analysis.js
+        const currentMidi = frame.audio.pitchMidi();
         const rubikPitchAvg = frame.audio.pitchAverage(); // service/audio-analysis.js (01/10/2026, trước đây appState rubikPitchAvg)
 
         advanceRubikSelfSpin(isPlaying, currentMidi, rubikPitchAvg, smoothedEnergy, cfg.pitchSensitivity); // core
@@ -119,7 +127,11 @@ const workflowVizShape = {
     // ===================== clock =====================
 
     _drawClock(frame) {
-        const { ctx, canvas, cfg, dpr, isPlaying, smoothedEnergy, beatScale, vizDataArray, analyser } = frame;
+        const { ctx, canvas, cfg, dpr, isPlaying } = frame;
+        const smoothedEnergy = frame.audio.smoothedEnergy(); // service/audio-analysis.js
+        const beatScale = frame.audio.beatScale(); // service/audio-analysis.js
+        const vizDataArray = frame.audio.spectrum(SHAPE_FFT_SIZE); // service/audio-analysis.js
+        const analyser = frame.audio.spectrumAnalyser(SHAPE_FFT_SIZE); // service/audio-analysis.js
         const clock = this._clock;
         const W = canvas.width, H = canvas.height;
         const dialR = (Math.min(W, H) / 2) * (cfg.clockSizeRatio || 0.8) / 1.18;
@@ -132,7 +144,7 @@ const workflowVizShape = {
 
         const bpm = frame.audio.bpmOr(0); // service/audio-analysis.js — chưa đo -> 0 -> core dùng ×1
         const noteFresh = frame.audio.isPitchFresh(CLOCK_PITCH_FRESH_MS); // service/audio-analysis.js (01/10/2026)
-        clock.pitch = advanceClockPitchHands(clock.pitch, dt, isPlaying, frame.midiNote, noteFresh, this._clockStartSec(), bpm); // core
+        clock.pitch = advanceClockPitchHands(clock.pitch, dt, isPlaying, frame.audio.pitchMidi(), noteFresh, this._clockStartSec(), bpm); // core
         const totalSec = clock.pitch.virtualSec;
         const handsDir = clock.pitch.level / 2; // bánh răng + vòng quỹ đạo cùng chiều kim, bậc 1/7 = 1.5×
         const jam = clock.pitch.jam;

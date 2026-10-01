@@ -16,6 +16,9 @@
  * bên trong), fireNeuronActionPotential/spawnCircuitSignal (đọc appState).
  */
 
+/** Cỡ phổ VẼ của group (01/10/2026: group tự khai báo, host xin qua audioAnalysis.requireSpectrum()). */
+const CONNECTOR_FFT_SIZE = 2048;
+
 // Số frame giữ connector "ổn định lại" (không bắn, mỗi frame lấy FFT hiện tại làm baseline) sau lần seek CUỐI —
 // analyser tự làm mượt FFT (smoothingTimeConstant 0.8) nên còn kéo đuôi audio CŨ ~0.2s sau khi media seek xong.
 const CONNECTOR_SEEK_SETTLE_FRAMES = 15;
@@ -40,6 +43,8 @@ const CONNECTOR_CAMERA_VIEW_BY_STYLE = {
 const workflowVizConnector = {
     usesWebgl: true,
     defaultStyle: 'circuit',
+    /** Cỡ phổ VẼ style cần — host gọi khi kích hoạt style để xin qua audioAnalysis.requireSpectrum() (01/10/2026). */
+    spectrumSize() { return CONNECTOR_FFT_SIZE; },
 
     /** >0 = đang "ổn định lại" sau seek, trừ dần mỗi frame WebGL. */
     _settleFrames: 0,
@@ -208,7 +213,7 @@ const workflowVizConnector = {
         const win = this._cameraShiftWin;
         const cfg = frame.cfg;
         this._accumulateCameraShiftFlux(frame);
-        if (!workflowVizBeatWindow.consumeNewBeat(win, frame.lastBeatTime)) return;
+        if (!workflowVizBeatWindow.consumeNewBeat(win, frame.audio.lastBeatTime())) return;
         if (!frame.isPlaying || frame.style !== 'circuit') return;
         if (!cfg.cameraShiftEnabled) return;
         workflowVizBeatWindow.closeInterval(win);
@@ -228,12 +233,13 @@ const workflowVizConnector = {
 
     _stepSynapse(frame, wf) {
         const cfg = frame.cfg;
+        const spectrum = frame.audio.spectrum(CONNECTOR_FFT_SIZE); // service/audio-analysis.js
         const neurons = appState.get('cnNeurons');
         this._clearSynapseSignalsWhenSettling(wf.isSettling); // tia sinh trước seek — xoá NGAY, không để bay tiếp
-        const speed = computeConnectorSpeed(cfg.synapseSpeedBase, cfg.synapseSpeedEnergyMult, frame.smoothedEnergy); // core/webgl
+        const speed = computeConnectorSpeed(cfg.synapseSpeedBase, cfg.synapseSpeedEnergyMult, frame.audio.smoothedEnergy()); // core/webgl
 
         neurons.forEach((neuron, i) => {
-            const rawPeak = computeBinRangePeak(frame.vizDataArray, tonotopicBinRange(i, neurons.length, frame.bufferLength)); // core/visualizer/groups/connector/synapse.js — đỉnh dải tần tonotopic (log)
+            const rawPeak = computeBinRangePeak(spectrum, tonotopicBinRange(i, neurons.length, spectrum.length)); // core/visualizer/groups/connector/synapse.js — đỉnh dải tần tonotopic (log)
             this._rebaselineWhenSettling(neuron, rawPeak, wf.isSettling); // frame này KHÔNG phải onset (diff = 0)
             const energyByte = applyTonotopicSmoothing(neuron, rawPeak, i, neurons.length); // core — mượt-hoá tăng dần theo tần số
             const diff = energyByte - neuron.prevBinEnergy;
@@ -309,12 +315,13 @@ const workflowVizConnector = {
 
     _stepCircuit(frame, wf) {
         const cfg = frame.cfg;
+        const spectrum = frame.audio.spectrum(CONNECTOR_FFT_SIZE); // service/audio-analysis.js
         const chips = appState.get('cnChips');
         this._clearCircuitSignalsWhenSettling(chips, wf.isSettling); // xung sinh trước seek — xoá NGAY, trả pin về rảnh
         const activeSignals = appState.get('cnActiveSignalsCircuit');
         const cnGroupCircuit = appState.get('cnGroupCircuit');
-        const speed = computeConnectorSpeed(cfg.circuitSpeedBase, cfg.circuitSpeedEnergyMult, frame.smoothedEnergy); // core/webgl
-        appState.get('cnBloomPass').strength = computeConnectorSpeed(cfg.bloomStrengthBase, cfg.bloomStrengthEnergyMult, frame.smoothedEnergy); // core/webgl
+        const speed = computeConnectorSpeed(cfg.circuitSpeedBase, cfg.circuitSpeedEnergyMult, frame.audio.smoothedEnergy()); // core/webgl
+        appState.get('cnBloomPass').strength = computeConnectorSpeed(cfg.bloomStrengthBase, cfg.bloomStrengthEnergyMult, frame.audio.smoothedEnergy()); // core/webgl
         const pitchNodeIndex = this._resolvePitchNodeIndex(frame, chips.length);
 
         chips.forEach((chip, i) => {
@@ -323,7 +330,7 @@ const workflowVizConnector = {
             applyChipGlowSettings(chip.bodyMesh, cfg.glowEnabled, wf.glowIntensity); // core/visualizer/groups/connector/common.js
             decayChipSpin(chip, wf.deltaTime); // core
 
-            const rawPeak = computeBinRangePeak(frame.vizDataArray, tonotopicBinRange(i, chips.length, frame.bufferLength)); // core/visualizer/groups/connector/synapse.js
+            const rawPeak = computeBinRangePeak(spectrum, tonotopicBinRange(i, chips.length, spectrum.length)); // core/visualizer/groups/connector/synapse.js
             this._rebaselineWhenSettling(chip, rawPeak, wf.isSettling);
             const energyByte = applyTonotopicSmoothing(chip, rawPeak, i, chips.length); // core
             const diff = energyByte - chip.prevBinEnergy;
@@ -345,9 +352,10 @@ const workflowVizConnector = {
     _resolvePitchNodeIndex(frame, chipCount) {
         if (!frame.isPlaying || chipCount <= 1) return null;
         if (!frame.audio.isPitchFresh(CONNECTOR_PITCH_FRESH_MS)) return null; // service/audio-analysis.js (01/10/2026)
-        const pitchHz = 440 * Math.pow(2, (frame.midiNote - 69) / 12);
-        const ranges = Array.from({ length: chipCount }, (_, j) => tonotopicBinRange(j, chipCount, frame.bufferLength)); // core/visualizer/groups/connector/synapse.js
-        return findTonotopicNodeForBin(ranges, frequencyToFftBin(pitchHz, frame.bufferLength, frame.audio.sampleRate())); // core
+        const pitchHz = 440 * Math.pow(2, (frame.audio.pitchMidi() - 69) / 12);
+        const binCount = CONNECTOR_FFT_SIZE / 2;
+        const ranges = Array.from({ length: chipCount }, (_, j) => tonotopicBinRange(j, chipCount, binCount)); // core/visualizer/groups/connector/synapse.js
+        return findTonotopicNodeForBin(ranges, frequencyToFftBin(pitchHz, binCount, frame.audio.sampleRate())); // core
     },
 
     _fireChip(frame, wf, chips, chip, i, energyByte, diff, activeSignals, cnGroupCircuit, pitchNodeIndex) {

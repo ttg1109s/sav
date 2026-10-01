@@ -7,6 +7,9 @@
  * tĩnh, dãy nhà, cảnh phố; chọn style rain (`onStyleApplied`) cũng dựng lại như cũ.
  */
 
+/** Cỡ phổ VẼ của group (01/10/2026: group tự khai báo, host xin qua audioAnalysis.requireSpectrum()). */
+const RAIN_FFT_SIZE = 256;
+
 /** Cửa sổ nhà (glass): sáng -> đúng màu color mode; tắt -> màu tương phản. */
 const RAIN_GLASS_WINDOW_COLOR_BY_LIT = {
     true: (litColor) => litColor.css,
@@ -22,6 +25,8 @@ const RAIN_STREET_GROUND_STOPS_BY_MODE = {
 
 const workflowVizRain = {
     defaultStyle: 'glass',
+    /** Cỡ phổ VẼ style cần — host gọi khi kích hoạt style để xin qua audioAnalysis.requireSpectrum() (01/10/2026). */
+    spectrumSize() { return RAIN_FFT_SIZE; },
 
     styles: {
         glass: (frame) => workflowVizRain._drawGlass(frame),
@@ -53,7 +58,9 @@ const workflowVizRain = {
     // ===================== glass =====================
 
     _drawGlass(frame) {
-        const { ctx, canvas, cfg, dpr, isPlaying, smoothedEnergy, vizDataArray } = frame;
+        const { ctx, canvas, cfg, dpr, isPlaying } = frame;
+        const smoothedEnergy = frame.audio.smoothedEnergy(); // service/audio-analysis.js
+        const vizDataArray = frame.audio.spectrum(RAIN_FFT_SIZE); // service/audio-analysis.js
         ctx.lineCap = 'round';
         this._paintBackdrop(frame);
 
@@ -89,13 +96,14 @@ const workflowVizRain = {
 
     /** Dãy nhà thành phố sau kính (toggle glassCityVisible) — cửa sổ theo color mode. */
     _paintGlassCity(frame) {
-        const { ctx, canvas, cfg, dpr, isPlaying, vizDataArray } = frame;
+        const { ctx, canvas, cfg, dpr, isPlaying } = frame;
+        const vizDataArray = frame.audio.spectrum(RAIN_FFT_SIZE); // service/audio-analysis.js
         if (cfg.glassCityVisible === false) return;
         const cityOpacity = (typeof cfg.glassCityOpacity === 'number' ? cfg.glassCityOpacity : 40) / 100;
         const cityFrame = computeRainCityFrame(canvas.width, canvas.height, appState.get('cityBuildings'), dpr, vizDataArray, isPlaying); // core
         const palette = {
             mode: cfg.mode, solid: hexToRgb(cfg.solidColor), dynA: hexToRgb(cfg.dynA), dynB: hexToRgb(cfg.dynB), // core/color-utils.js
-            hueOffset: frame.hue,
+            hueOffset: frame.audio.hueOffset(),
         };
         const windowColors = cityFrame.windows.map((w) => RAIN_GLASS_WINDOW_COLOR_BY_LIT[!!w.lit](resolveRainCityLitColor(palette, w.t, w.value))); // core
         paintRainCity(ctx, cityFrame, windowColors, cityOpacity); // core
@@ -120,7 +128,10 @@ const workflowVizRain = {
     // ===================== street =====================
 
     _drawStreet(frame) {
-        const { ctx, canvas, cfg, dpr, isPlaying, smoothedEnergy, beatScale, vizDataArray } = frame;
+        const { ctx, canvas, cfg, dpr, isPlaying } = frame;
+        const smoothedEnergy = frame.audio.smoothedEnergy(); // service/audio-analysis.js
+        const beatScale = frame.audio.beatScale(); // service/audio-analysis.js
+        const vizDataArray = frame.audio.spectrum(RAIN_FFT_SIZE); // service/audio-analysis.js
         ctx.lineCap = 'round';
         this._paintBackdrop(frame);
 
@@ -151,7 +162,7 @@ const workflowVizRain = {
 
     /** Gợn sóng dưới chân đèn chính theo beat mạnh (xác suất 8% mỗi frame khi beatScale > 0.55). */
     _spawnRippleOnBeat(frame, streetLamps, groundY) {
-        if (!frame.isPlaying || frame.beatScale <= 0.55) return;
+        if (!frame.isPlaying || frame.audio.beatScale() <= 0.55) return;
         if (Math.random() <= 0.92) return;
         const mainLamp = streetLamps.find((l) => l.main);
         if (!mainLamp) return;

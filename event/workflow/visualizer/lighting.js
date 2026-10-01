@@ -7,6 +7,9 @@
  * hiện (thay phần tương ứng của resizeCanvas() cũ).
  */
 
+/** Cỡ phổ VẼ của group (01/10/2026: group tự khai báo, host xin qua audioAnalysis.requireSpectrum()). */
+const LIGHTING_FFT_SIZE = 2048;
+
 const FIREWORKS_SIZE_BIN_MIN = 2;
 const FIREWORKS_SIZE_BIN_MAX = 40;
 const FIREWORKS_FINALE_ROCKET_COUNT = 10;
@@ -40,6 +43,8 @@ const FIREWORKS_SPEC_OPTIONS_BY_TARGET = {
 
 const workflowVizLighting = {
     defaultStyle: 'thunder',
+    /** Cỡ phổ VẼ style cần — host gọi khi kích hoạt style để xin qua audioAnalysis.requireSpectrum() (01/10/2026). */
+    spectrumSize() { return LIGHTING_FFT_SIZE; },
 
     _fwFlashAlpha: 0,
     _fwLastLaunchAt: 0,
@@ -61,7 +66,9 @@ const workflowVizLighting = {
     // ===================== thunder =====================
 
     _drawThunder(frame) {
-        const { ctx, canvas, cfg, isPlaying, smoothedEnergy, vizDataArray } = frame;
+        const { ctx, canvas, cfg, isPlaying } = frame;
+        const smoothedEnergy = frame.audio.smoothedEnergy(); // service/audio-analysis.js
+        const vizDataArray = frame.audio.spectrum(LIGHTING_FFT_SIZE); // service/audio-analysis.js
         ctx.lineCap = 'round';
         ctx.lineJoin = 'miter';
 
@@ -91,7 +98,9 @@ const workflowVizLighting = {
     // ===================== fireworks =====================
 
     _drawFireworks(frame) {
-        const { ctx, canvas, cfg, dpr, isPlaying, beatScale, vizDataArray } = frame;
+        const { ctx, canvas, cfg, dpr, isPlaying } = frame;
+        const beatScale = frame.audio.beatScale(); // service/audio-analysis.js
+        const vizDataArray = frame.audio.spectrum(LIGHTING_FFT_SIZE); // service/audio-analysis.js
 
         this._autoLaunch(frame);
         this._updateFinaleTrigger(frame);
@@ -144,12 +153,12 @@ const workflowVizLighting = {
     _autoLaunch(frame) {
         const cfg = frame.cfg;
         const bpm = frame.audio.bpmOr(120); // service/audio-analysis.js (01/10/2026)
-        const intervalMs = computeFireworksAutoLaunchIntervalMs(bpm, cfg.autoLaunchDensity, frame.smoothedEnergy, frame.isPlaying); // core
+        const intervalMs = computeFireworksAutoLaunchIntervalMs(bpm, cfg.autoLaunchDensity, frame.audio.smoothedEnergy(), frame.isPlaying); // core
         const now = performance.now();
         if (now - this._fwLastLaunchAt < intervalMs) return;
         if (appState.get('fwRockets').length >= cfg.maxConcurrentRockets) return;
         this._fwLastLaunchAt = now;
-        this._launchOne(cfg, frame.beatScale);
+        this._launchOne(cfg, frame.audio.beatScale());
     },
 
     /** Vật chất hoá SPEC (core trả về) thành hạt thật: resolve màu + màu đích theo color mode. */
@@ -183,11 +192,11 @@ const workflowVizLighting = {
         const cfg = frame.cfg;
         const win = this._finaleWin;
         workflowVizBeatWindow.accumulateLatest(win, frame.audio.fluxHistory()); // service/audio-analysis.js (01/10/2026)
-        if (!workflowVizBeatWindow.consumeNewBeat(win, frame.lastBeatTime)) return;
+        if (!workflowVizBeatWindow.consumeNewBeat(win, frame.audio.lastBeatTime())) return;
         workflowVizBeatWindow.closeInterval(win);
         if (!frame.isPlaying || !cfg.finaleEnabled) return;
         if (!detectMusicTransition(win.history, 2, cfg.sectionWindowBeats, cfg.fluxThreshold)) return; // core/visualizer/beat-window.js
-        this._fireFinale(cfg, frame.beatScale);
+        this._fireFinale(cfg, frame.audio.beatScale());
     },
 
     /** Loạt pháo + chữ tuỳ chỉnh kế tiếp (nếu có). */

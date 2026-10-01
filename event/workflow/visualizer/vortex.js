@@ -13,6 +13,9 @@
  * từ các core nhỏ — không core nào gọi core khác.
  */
 
+/** Cỡ phổ VẼ của group (01/10/2026: group tự khai báo, host xin qua audioAnalysis.requireSpectrum()). */
+const VORTEX_FFT_SIZE = 2048;
+
 /** Bước cập nhật mesh theo style — object map thay if/else theo cfg.vortexStyle. */
 const VORTEX_SCENE_STEP_BY_STYLE = {
     rings: (frame, motion) => workflowVizVortex._stepRings(frame, motion),
@@ -23,6 +26,8 @@ const VORTEX_SCENE_STEP_BY_STYLE = {
 const workflowVizVortex = {
     usesWebgl: true,
     defaultStyle: 'rings',
+    /** Cỡ phổ VẼ style cần — host gọi khi kích hoạt style để xin qua audioAnalysis.requireSpectrum() (01/10/2026). */
+    spectrumSize() { return VORTEX_FFT_SIZE; },
 
     /** Cửa sổ beat flux RIÊNG (không dùng chung mảng với Fireworks/Circle). */
     _beatWin: createBeatFluxWindow(), // core/visualizer/beat-window.js
@@ -103,7 +108,7 @@ const workflowVizVortex = {
     _steerTunnel(frame) {
         const win = this._beatWin;
         workflowVizBeatWindow.accumulateLatest(win, frame.audio.fluxHistory()); // service/audio-analysis.js (01/10/2026)
-        if (!workflowVizBeatWindow.consumeNewBeat(win, frame.lastBeatTime)) return;
+        if (!workflowVizBeatWindow.consumeNewBeat(win, frame.audio.lastBeatTime())) return;
         workflowVizBeatWindow.closeInterval(win);
         countBeatSinceTrigger(win); // core/visualizer/beat-window.js
         if (!frame.isPlaying) return;
@@ -117,14 +122,14 @@ const workflowVizVortex = {
         if (!detectMusicTransition(win.history, 2, cfg.sectionWindowBeats, cfg.fluxThreshold)) return; // core/visualizer/beat-window.js
         resetBeatTriggerCount(win); // core
 
-        const direction = pickVortexDirectionFromNote(frame.midiNote); // core (three-vortex.js)
+        const direction = pickVortexDirectionFromNote(frame.audio.pitchMidi()); // core (three-vortex.js)
         appState.set('tPathTarget', this._wrapTargetPhases(computeVortexCurveTarget(tPathTarget, direction)), { skipCheck: true }); // core
     },
 
     _renderTunnel(frame) {
         if (!appState.get('tInitialized')) return;
         const cfg = frame.cfg;
-        const tWarpSpeed = computeVortexWarpSpeed(cfg.warpSpeedBase, cfg.warpSpeedEnergyMult, frame.smoothedEnergy); // core
+        const tWarpSpeed = computeVortexWarpSpeed(cfg.warpSpeedBase, cfg.warpSpeedEnergyMult, frame.audio.smoothedEnergy()); // core
         const tCurrentWarpZ = this._rebaseWarpZ(appState.get('tCurrentWarpZ') - tWarpSpeed);
         appState.set('tCurrentWarpZ', tCurrentWarpZ, { skipCheck: true });
 
@@ -176,32 +181,34 @@ const workflowVizVortex = {
 
     _stepRings(frame, motion) {
         const cfg = frame.cfg;
+        const spectrum = frame.audio.spectrum(VORTEX_FFT_SIZE); // service/audio-analysis.js
         const tRings = appState.get('tRings');
         tRings.forEach((ring, idx) => {
             placeVortexRingZ(ring, wrapVortexObjectZ(ring.position.z, motion.tWarpSpeed * VORTEX_RINGS_Z_SPEED, motion.tCurrentWarpZ, TUNNEL_DEPTH)); // core (rings.js + common.js)
             const center = getVortexCenterAt(ring.position.z, motion.pathParams, motion.tCurrentWarpZ); // core/webgl/three-vortex.js
-            const val = frame.vizDataArray[idx % frame.bufferLength] || 0;
+            const val = spectrum[idx % spectrum.length] || 0;
             const color = getComputedColor(idx, tRings.length, val); // core/visualizer/effect-paint.js
             const colorToApply = workflowVisualizerRender.modeColor(cfg, idx, color.fill, 'solid');
-            finishVortexRingFrame(ring, center, val, frame.smoothedEnergy, colorToApply); // core
+            finishVortexRingFrame(ring, center, val, frame.audio.smoothedEnergy(), colorToApply); // core
         });
     },
 
     _stepBars(frame, motion) {
         const cfg = frame.cfg;
+        const spectrum = frame.audio.spectrum(VORTEX_FFT_SIZE); // service/audio-analysis.js
         const dummy = new THREE.Object3D();
         const barsRingCount = cfg.barsRingCount, barsPerRing = cfg.barsPerRing;
         const twistPerRing = (Math.PI * 2 / barsRingCount) * cfg.barsTwistFactor;
-        const globalTwist = audioAnalysis.frameIndex() * 0.004; // service/audio-analysis.js (01/10/2026, trước đây frameCounter)
+        const globalTwist = frame.audio.frameIndex() * 0.004; // service/audio-analysis.js (01/10/2026, trước đây frameCounter)
         const { tBarsMesh, tBarRingZs } = appState.get(['tBarsMesh', 'tBarRingZs']);
         for (let r = 0; r < barsRingCount; r++) {
             placeVortexBarRingZ(tBarRingZs, r, wrapVortexObjectZ(tBarRingZs[r], motion.tWarpSpeed * VORTEX_BARS_Z_SPEED, motion.tCurrentWarpZ, TUNNEL_DEPTH)); // core (bars.js + common.js)
             const z = tBarRingZs[r];
             const center = getVortexCenterAt(z, motion.pathParams, motion.tCurrentWarpZ); // core/webgl/three-vortex.js
-            const val = frame.vizDataArray[r % 40] || 0;
+            const val = spectrum[r % 40] || 0;
             const color = getComputedColor(r, barsRingCount, val); // core/visualizer/effect-paint.js
             const threeColor = new THREE.Color(workflowVisualizerRender.modeColor(cfg, r, color.fill, 'solid'));
-            computeVortexBarsRingFrame(dummy, tBarsMesh, r, barsPerRing, z, center, val, frame.smoothedEnergy, twistPerRing, globalTwist, threeColor); // core
+            computeVortexBarsRingFrame(dummy, tBarsMesh, r, barsPerRing, z, center, val, frame.audio.smoothedEnergy(), twistPerRing, globalTwist, threeColor); // core
         }
         tBarsMesh.instanceMatrix.needsUpdate = true;
         this._flagInstanceColorUpdate(tBarsMesh);
@@ -215,14 +222,15 @@ const workflowVizVortex = {
 
     _stepWaves(frame, motion) {
         const cfg = frame.cfg;
+        const spectrum = frame.audio.spectrum(VORTEX_FFT_SIZE); // service/audio-analysis.js
         const tWaveMeshes = appState.get('tWaveMeshes');
         tWaveMeshes.forEach((wave, idx) => {
             placeVortexWaveZ(wave, wrapVortexObjectZ(wave.position.z, motion.tWarpSpeed * VORTEX_WAVE_Z_SPEED, motion.tCurrentWarpZ, TUNNEL_DEPTH)); // core (wave.js + common.js)
             const center = getVortexCenterAt(wave.position.z, motion.pathParams, motion.tCurrentWarpZ); // core/webgl/three-vortex.js
-            const val = frame.vizDataArray[idx % frame.bufferLength] || 0;
+            const val = spectrum[idx % spectrum.length] || 0;
             const color = getComputedColor(idx, tWaveMeshes.length, val); // core/visualizer/effect-paint.js
             const colorToApply = workflowVisualizerRender.modeColor(cfg, idx, color.fill, 'solid');
-            finishVortexWaveFrame(wave, center, cfg.waveRotationBase, cfg.waveRotationEnergyMult, cfg.waveScaleBase, cfg.waveScaleEnergyMult, frame.smoothedEnergy, colorToApply); // core
+            finishVortexWaveFrame(wave, center, cfg.waveRotationBase, cfg.waveRotationEnergyMult, cfg.waveScaleBase, cfg.waveScaleEnergyMult, frame.audio.smoothedEnergy(), colorToApply); // core
         });
     },
 };
