@@ -44,13 +44,18 @@ function wireRecorderReviewBody(bodyEl) {
 }
 
 /**
- * Vẽ mini waveform: cột đối xứng quanh trục giữa, cột trước `progressRatio` tô màu "đã phát". Tự khớp kích thước
- * canvas theo CSS × devicePixelRatio (modal đổi cỡ theo màn hình).
+ * Vẽ mini waveform: cột đối xứng quanh trục giữa, cột trước `progressRatio` tô màu "đã phát". Kích thước bộ đệm
+ * canvas = kích thước KHUNG CHỨA × devicePixelRatio (modal đổi cỡ theo màn hình).
+ * SỬA (02/10/2026, Giang báo modal vỡ layout, cột waveform tràn khỏi modal) — trước đây đo `canvasEl.clientWidth`:
+ * thiếu CSS co canvas về 100% khung thì cỡ hiển thị = thuộc tính width/height vừa gán -> mỗi frame lại nhân thêm dpr,
+ * canvas phình vô hạn. Giờ đo KHUNG CHỨA (parentElement, cỡ cố định 72px) — không còn vòng phản hồi.
  * @param {HTMLCanvasElement} canvasEl @param {Float32Array} peaks 0..1 @param {number} progressRatio 0..1 @param {number} dpr
  */
 function drawRecorderWaveform(canvasEl, peaks, progressRatio, dpr) {
-    const cssW = canvasEl.clientWidth;
-    const cssH = canvasEl.clientHeight;
+    const boxEl = canvasEl.parentElement;
+    if (!boxEl) return;
+    const cssW = boxEl.clientWidth;
+    const cssH = boxEl.clientHeight;
     if (cssW === 0 || cssH === 0) return;
     const w = Math.round(cssW * dpr);
     const h = Math.round(cssH * dpr);
