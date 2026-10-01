@@ -11,7 +11,9 @@
  * GIAO THỨC MESSAGE (bên gửi/nhận: event/workflow/audio-engine.js — requestPitch()/_onPitchReply(), gửi qua
  * core/audio-engine.js::postPitchFrame(); trước 01/10/2026 là requestPitchDetection()):
  *   postMessage vào worker : { buf: Float32Array (TRANSFERRED, không phải copy), sampleRate: number, reqId: number }
- *   postMessage từ worker   : { frequency: number, reqId: number }
+ *   postMessage từ worker   : { frequency: number, confidence: number, reqId: number }
+ *   `confidence` (MỚI 01/10/2026) = 1 - giá trị YIN tại lag được chọn (0-1; -1 tần số -> 0). Main thread dùng để loại
+ *   nốt giả (PITCH_MIN_CONFIDENCE, core/audio-features.js). Thuật toán chọn tần số KHÔNG đổi.
  * `reqId` dùng để main thread loại bỏ kết quả CŨ trả về trễ (nếu có >1 request đang bay) —
  * tránh tình huống hiếm gặp lúc giật khung làm 2 message chồng nhau, kết quả về sai thứ tự.
  *
@@ -19,6 +21,7 @@
  * toàn bộ phần còn lại của project (vanilla script, share global scope, không build step).
  */
 
+/** @returns {{frequency: number, confidence: number}} */
 function detectPitchYIN(buf, sampleRate) {
     const halfLen = Math.floor(buf.length / 2); let yinBuffer = new Float32Array(halfLen); let threshold = 0.15;
     yinBuffer[0] = 1; let runningSum = 0;
@@ -29,17 +32,17 @@ function detectPitchYIN(buf, sampleRate) {
     for (let tau = 2; tau < halfLen; tau++) {
         if (yinBuffer[tau] < threshold) {
             while (tau + 1 < halfLen && yinBuffer[tau + 1] < yinBuffer[tau]) tau++;
-            return sampleRate / tau;
+            return { frequency: sampleRate / tau, confidence: Math.max(0, Math.min(1, 1 - yinBuffer[tau])) };
         }
     }
     let minTau = 2; let minVal = yinBuffer[2];
     for (let tau = 2; tau < halfLen; tau++) { if (yinBuffer[tau] < minVal) { minVal = yinBuffer[tau]; minTau = tau; } }
-    if (minVal < 0.6) return sampleRate / minTau;
-    return -1;
+    if (minVal < 0.6) return { frequency: sampleRate / minTau, confidence: Math.max(0, Math.min(1, 1 - minVal)) };
+    return { frequency: -1, confidence: 0 };
 }
 
 self.onmessage = function(e) {
     const { buf, sampleRate, reqId } = e.data;
-    const frequency = detectPitchYIN(buf, sampleRate);
-    self.postMessage({ frequency, reqId });
+    const result = detectPitchYIN(buf, sampleRate);
+    self.postMessage({ frequency: result.frequency, confidence: result.confidence, reqId });
 };
