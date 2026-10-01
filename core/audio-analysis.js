@@ -51,43 +51,8 @@
             return (current + 0.5 + (beatScale * 5)) % 360;
         }
 
-        /** Màu riêng theo TỪNG effect (cfg.customEffect[cfg.type]) — không còn 1 mode màu chung
-         * cho toàn app, xem core/custom-effect.js::getActiveEffectConfig(). */
-        function getComputedColor(i, totalLength, dataValue) {
-            // SỬA (28/09/2026, Phase 2 dọn visualizer) — đọc config effect ĐÃ RESOLVE SẴN cho frame vẽ hiện tại
-            // (`frameEffectConfig`, workflowVisualizerRender._tickDraw() ghi đầu frame, xoá về null cuối frame)
-            // thay vì gọi getActiveEffectConfig() MỖI LẦN — hàm đó tạo object mới (2 spread + forEach + delete)
-            // mỗi lời gọi, nhân với hàng trăm lời gọi/frame. Ngoài frame vẽ (init scene, UI...) giá trị là
-            // null -> rơi về getActiveEffectConfig() như cũ, luôn đọc config MỚI NHẤT. Hàm hot-path di sản
-            // (miễn trừ, core-legacy-audit.md) — chỉ đổi NGUỒN đọc, không đổi logic.
-            const ec = appState.get('frameEffectConfig') || getActiveEffectConfig(); // core/custom-effect.js
-            // MỚI (Giang báo "THREE.Color: Alpha component of hsla(...) will be ignored" khi ở connector):
-            // `fillNoAlpha` = CÙNG màu với `fill` nhưng KHÔNG có alpha — dành riêng cho nơi đưa màu vào
-            // THREE.Color (connector). Parser hsla() của THREE r128 luôn cảnh báo (mỗi lần gọi, kể cả mỗi
-            // frame) khi alpha < 1 dù bỏ qua alpha; canvas 2D vẫn dùng `fill` (alpha 0.9) như cũ. 2 mode
-            // còn lại vốn không có alpha nên `fillNoAlpha` === `fill`.
-            if (ec.mode === 'dynamic') { const c = interpolateColor(ec.dynA, ec.dynB, i / totalLength); return { fill: c, fillNoAlpha: c, glow: c }; }
-            else if (ec.mode === 'gradient') {
-                let baseHue = (audioAnalysis.hueOffset() + (i / totalLength) * 240) % 360; // SỬA 01/10/2026: globalHueOffset dời vào service/audio-analysis.js (hot path miễn trừ — vẫn tự đọc như trước)
-                let finalHue = (baseHue + (dataValue / 255) * 80) % 360;
-                // FIX (16/09/2026, Giang báo "THREE.Color: Unknown color hsla(...)"): saturation/
-                // lightness PHẢI là số nguyên — parser hsl()/hsla() của THREE.Color (r128) chỉ nhận
-                // %-value dạng \d+ (không hỗ trợ thập phân), trong khi hue thì hỗ trợ thập phân bình
-                // thường. Trước đây 2 giá trị này là số thập phân (vd "83.764...%") -> khớp regex
-                // thất bại toàn bộ -> "Unknown color" (không chỉ dừng ở mức cảnh báo "alpha ignored"
-                // như khi chúng tình cờ là số nguyên). Math.round() ở đây không ảnh hưởng canvas 2D
-                // (fillStyle vẫn nhận hsla() bình thường, sai khác <1% không nhận ra được bằng mắt).
-                let lightness = Math.round(40 + (dataValue / 255) * 30);
-                let saturation = Math.round(70 + (dataValue / 255) * 30);
-                return { fill: `hsla(${finalHue}, ${saturation}%, ${lightness}%, 0.9)`, fillNoAlpha: `hsl(${finalHue}, ${saturation}%, ${lightness}%)`, glow: `hsl(${finalHue}, 100%, ${lightness + 15}%)` };
-            } else return { fill: ec.solidColor, fillNoAlpha: ec.solidColor, glow: ec.solidColor };
-        }
-
-        /** Cường độ blur/glow effect ĐANG CHẠY, quy đổi 0-1 cho `perf.blurMult` cũ — 0 nếu tắt. */
-        function getActiveBlurMult() {
-            const ec = appState.get('frameEffectConfig') || getActiveEffectConfig(); // xem ghi chú ở getComputedColor()
-            return ec.blurEnabled ? ec.blurIntensity / 100 : 0;
-        }
+        // (getComputedColor() / getActiveBlurMult() — DỜI 01/10/2026 sang core/visualizer/effect-paint.js: tính màu/blur của
+        // effect, không phải phân tích audio.)
 
         /** "Nhạc vừa biến động" — so trung bình `windowSize` MỐC/BEAT gần nhất với `windowSize`
          * mốc trước đó, lệch tương đối (không phải tuyệt đối — bất biến độ to nhỏ bài hát/thiết
@@ -148,8 +113,7 @@
         // (AUDIO_BEAT_INTERVALS_MAX, AUDIO_BPM_MIN/MAX — ĐÃ BỎ 01/10/2026 cùng computeBpmFromMeanInterval(): BPM nay ước lượng
         // bằng tự tương quan đường bao onset, xem core/audio-tempo.js.)
         const AUDIO_PITCH_HISTORY_MAX = 30;
-        /** Giữ hiển thị nốt cuối trong khoảng này (ms) khi worker tạm chưa bắt được pitch. */
-        const AUDIO_NOTE_HOLD_MS = 250;
+        // (AUDIO_NOTE_HOLD_MS — DỜI 01/10/2026 sang core/visualizer/stats-bar.js cùng resolveNoteDisplayText().)
         /** MỚI (01/10/2026) — sau mỗi lần dòng thời gian bị ngắt (pause/seek/cổng seek/đổi bài/app ẩn) bỏ qua phát hiện beat
          * + đường bao tempo trong khoảng này: phổ đang dâng từ im lặng lên (analyser làm mượt 0.8/frame) sinh flux giả. */
         const ANALYSIS_SETTLE_MS = 250;
@@ -232,23 +196,8 @@
             return `${MIDI_NOTE_NAMES[midi % 12]}${Math.floor(midi / 12) - 1}`;
         }
 
-        /** Chữ hiển thị ô Pitch: đang phát + đủ năng lượng + nốt gần nhất còn "tươi" (trong
-         * AUDIO_NOTE_HOLD_MS) -> tên nốt đó; mọi trường hợp khác -> "---". */
-        // SỬA 01/10/2026: tham số 2 đổi từ `energyPercent` (<= 1 -> "---") sang `hasSignal` (RMS trên ngưỡng im lặng, xem
-        // workflowAudioAnalysis._tick()). Energy % tính trên 1024 bin của phổ phân tích cố định nên 1 giọng/nhạc cụ đơn
-        // (ít bin có năng lượng) dễ rơi <= 1% dù nghe rõ — pitch bị tắt oan (phát hiện khi test vibrato).
-        function resolveNoteDisplayText(isPlaying, hasSignal, lastNoteStr, lastNoteTime, now) { // isPlaying: Workflow truyền "không dừng thật" (phase !== 'stopped')
-            if (!isPlaying || !hasSignal) return '---';
-            if (!lastNoteStr || (now - lastNoteTime) >= AUDIO_NOTE_HOLD_MS) return '---';
-            return lastNoteStr;
-        }
-
-        /** Ghi 3 ô số liệu BPM / Pitch / Energy trên thanh trạng thái. */
-        function paintAudioStatsBar(energyEl, bpmEl, noteEl, energyText, bpmText, noteText) {
-            energyEl.textContent = energyText;
-            bpmEl.textContent = bpmText;
-            noteEl.textContent = noteText;
-        }
+        // (resolveNoteDisplayText() / paintAudioStatsBar() — DỜI 01/10/2026 sang core/visualizer/stats-bar.js: định dạng +
+        // ghi DOM thanh số liệu BPM/Pitch/Energy, không phải phân tích audio.)
 
         // (isPitchNoteFresh() — ĐÃ XOÁ 01/10/2026: nơi gọi dùng audioAnalysis.isPitchFresh(ms) — service/audio-analysis.js
         // tự lo mốc thời gian, hết lẫn Date.now()/performance.now().)
