@@ -19,6 +19,9 @@ const routerAppVisibility = (() => {
                 const gameplayPhase = appState.get('gameplayPhase');
                 const phase = msg.payload.visible ? 'visible' : (gameplayPhase === 'idle' ? 'hiddenIdle' : 'hiddenGame');
                 VirtualMachineState.run([
+                    // MỚI (01/10/2026, Ghi âm — Giang chốt) — ẩn app lúc đang ghi = như bấm X (modal nghe lại chờ sẵn khi quay
+                    // lại); modal nghe lại đang phát lặp thì dừng. Đặt ĐẦU: dừng ghi (trả Audio Session) trước khi bật keep-alive.
+                    { state: phase, operation: '!==', value: 'visible', callback: () => workflowRecorder.handleAppHidden() },
                     { state: phase, operation: '!==', value: 'visible', callback: () => workflowAppVisibility.startBackgroundAudioKeepAlive() },
                     { state: phase, operation: '===', value: 'hiddenIdle', callback: () => workflowAppVisibility.enterBackgroundSuspend() },
                     { state: phase, operation: '===', value: 'visible', callback: () => workflowAppVisibility.exitBackground() },

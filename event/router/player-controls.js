@@ -186,6 +186,10 @@ const routerPlayerControls = (() => {
 
             case 'playerControls.audio.pause': {
                 workflowPlayerControls.handleAudioPauseEvent(); // SỬA (24/09/2026) — đối xứng case trên
+                // MỚI (01/10/2026, Ghi âm) — pause từ ngoài (tai nghe, màn hình khoá, cuộc gọi) lúc đang ghi = như bấm X
+                // (Giang chốt). Bước tuỳ chọn tự guard recordPhase === 'recording' — pause do chính lệnh dừng ghi bắn ra
+                // tới lúc phase đã là 'stopping' nên không lặp.
+                workflowRecorder.handleInterruption();
                 break;
             }
 
@@ -217,10 +221,17 @@ const routerPlayerControls = (() => {
                 // ảnh không có — xem docstring đầu file đó) vào CÙNG fallthrough — hết ảnh xử lý Y
                 // HỆT hết bài/video (auto next lúc idle, hiện màn kết quả lúc đang Game Mode),
                 // KHÔNG có lý do tách case riêng.
-                const gameplayPhase = appState.get('gameplayPhase');
+                //
+                // SỬA (01/10/2026, Ghi âm — Giang chốt "end cũng không tự động chuyển bài") — thêm chủ thể thứ 3: đang có
+                // phiên ghi âm (recordPhase KHÁC 'idle', kể cả lúc modal nghe lại đang mở) -> workflowRecorder.onMediaEnded()
+                // (đánh dấu hết thật + dừng ghi nếu còn đang ghi); Huỷ/Lưu xong mới sang bài kế. Ghi âm và Game loại trừ
+                // nhau (Block gate 'recorder.start.click', event/block.js) — gộp 2 trạng thái thành 1 giá trị chủ thể.
+                const { gameplayPhase, recordPhase } = appState.get(['gameplayPhase', 'recordPhase']);
+                const endedOwner = recordPhase !== 'idle' ? 'recorder' : (gameplayPhase !== 'idle' ? 'game' : 'player');
                 VirtualMachineState.run([
-                    { state: gameplayPhase, operation: '===', value: 'idle', callback: () => workflowPlayerControls.handleMediaEnded() },
-                    { state: gameplayPhase, operation: '!==', value: 'idle', callback: () => workflowGameplay.onSongEnded() },
+                    { state: endedOwner, operation: '===', value: 'player', callback: () => workflowPlayerControls.handleMediaEnded() },
+                    { state: endedOwner, operation: '===', value: 'game', callback: () => workflowGameplay.onSongEnded() },
+                    { state: endedOwner, operation: '===', value: 'recorder', callback: () => workflowRecorder.onMediaEnded() },
                 ]);
                 break;
             }
@@ -260,6 +271,7 @@ const routerPlayerControls = (() => {
 
             case 'playerControls.video.pause': {
                 workflowVideoPlayer.handleVideoPauseState();
+                workflowRecorder.handleInterruption(); // MỚI (01/10/2026, Ghi âm) — cùng lý do case 'playerControls.audio.pause'
                 break;
             }
 

@@ -36,6 +36,7 @@ const routerAppSettings = (() => {
         player: () => workflowAppSettings._renderPlayer(),
         playerVideo: () => workflowAppSettings._renderPlayerVideo(),
         playerPhoto: () => workflowAppSettings._renderPlayerPhoto(),
+        playerRecorder: () => workflowAppSettings._renderPlayerRecorder(), // MỚI 01/10/2026 — Ghi âm (con của Player)
         pagination: () => workflowAppSettings._renderPagination(), // MỚI 23/09/2026 — con của System
     };
 
@@ -114,6 +115,19 @@ const routerAppSettings = (() => {
             // Chuẩn bị state (đọc id đang gắn) + điều hướng -> Workflow của domain 'playerDisplay' (liên tuyến).
             case 'appSettings.player.motionSlot.openPicker.click': {
                 workflowPlayerDisplaySettings.openMotionSlotPicker(msg.payload.kind, msg.payload.slot);
+                break;
+            }
+
+            // MỚI (01/10/2026, Ghi âm) — Settings > Player > Ghi âm: toggle khử tiếng vọng / slider bù trễ (thả tay) đổi.
+            // Chuẩn hoá + ghi bền -> Workflow của domain 'recorder' (liên tuyến).
+            case 'appSettings.recorder.field.change': {
+                workflowRecorder.changeConfigField(msg.payload.field, msg.payload.value);
+                break;
+            }
+
+            // Đang kéo slider bù trễ — chỉ cập nhật nhãn giá trị, message tự đủ nghĩa -> gọi thẳng Core (mục 4A).
+            case 'appSettings.recorder.latency.input': {
+                setRecorderLatencyLabel(genericDrawerBody, Number(msg.payload.value)); // core/recorder-ui.js
                 break;
             }
 
