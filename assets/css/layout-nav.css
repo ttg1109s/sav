@@ -124,3 +124,37 @@
 #settings-stack-body { will-change: scroll-position; display: flex; overflow-x: hidden; overflow-y: hidden; scroll-behavior: smooth; flex: 1 1 auto; min-height: 0; }
 .settings-stack-panel { width: 100%; height: 100%; flex-shrink: 0; }
 
+
+/* ===================== Playlist — chỉ render item gần khung nhìn (MỚI 02/10/2026, Giang chốt phương án A) =====================
+   Vẫn dựng ĐỦ node như trước (event/workflow/playlist-render.js) — `content-visibility: auto` để trình duyệt BỎ QUA
+   style/layout/vẽ phần ruột của item nằm xa khung nhìn, chỉ giữ 1 hộp rỗng cao đúng `--playlist-item-block-size`
+   (Workflow đo từ 1 item thật — workflowPlaylistRender.syncItemBlockSize(); 48px chỉ là giá trị dự phòng trước lần đo
+   đầu). Chiều cao ước lượng KHỚP chiều cao thật nên vị trí cuộn không nhảy khi item vào/ra vùng render, scroll-to-current
+   (scrollIntoView/getBoundingClientRect) vẫn đúng với cả item đang bị bỏ qua. Item ẩn vì Search (`.hidden` =
+   display:none) không bị ảnh hưởng. Trình duyệt chưa hỗ trợ (iOS < 18) bỏ qua 2 dòng này — chạy như cũ.
+   KHÔNG dùng từ khoá `auto` trong contain-intrinsic-block-size: "nhớ kích thước lần render trước" sẽ giữ số CŨ cho tile
+   Grid sau khi xoay máy (bề rộng cột đổi) — 1 biến đo lại khi resize luôn đúng hơn với danh sách cao đều. */
+#playlist-container > [data-role="play-item"] {
+    content-visibility: auto;
+    contain-intrinsic-block-size: var(--playlist-item-block-size, 48px);
+}
+/* Grid: `content-visibility: auto` kéo theo paint containment — mọi thứ vẽ tràn ra ngoài hộp tile bị CẮT, gồm bóng
+   `shadow-lg` của ảnh bìa (ảnh rộng đúng bằng tile). Nới hộp tile ra 12px mỗi bên trái/phải/trên bằng padding + margin
+   âm (bề rộng cộng bù 24px) — ảnh/chữ giữ NGUYÊN kích thước & vị trí cũ, chỉ có chỗ cho bóng. Phía dưới không cần: bóng
+   dưới ảnh rơi vào vùng chữ, vẫn nằm trong tile. Kèm theo:
+   - background-clip: content-box — tint "đang chọn" (selectionTintBg) chỉ phủ đúng vùng cũ, không loang ra phần nới.
+   - pointer-events: phần nới chồng lên khe giữa 2 tile -> bản thân tile không nhận chạm, chỉ các con (ảnh/chữ/nút) nhận;
+     listener vẫn tìm ra tile qua closest('[data-role="play-item"]').
+   - vòng chọn (core/playlist/selection.js, `absolute top-2 left-2` theo tile) dời thêm 12px cho đúng chỗ cũ trên ảnh. */
+#playlist-container.grid > [data-role="play-item"] {
+    padding: 12px 12px 0;
+    margin: -12px -12px 0;
+    width: calc(100% + 24px);
+    background-clip: content-box;
+    pointer-events: none;
+}
+#playlist-container.grid > [data-role="play-item"] > * { pointer-events: auto; }
+#playlist-container.grid > [data-role="play-item"] > [data-role="selection-indicator"] {
+    top: calc(0.5rem + 12px);
+    left: calc(0.5rem + 12px);
+}
