@@ -258,7 +258,7 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'waveRotationEnergyMult', labelKey: 'customEffectDrawer.field.waveRotationEnergyMult', type: 'sliderFloat', min: 0, max: 0.3, step: 0.01, decimals: 2, card: 'motion', showIf: (cfg) => cfg.vortexStyle === 'wave' },
     ],
     lighting: [
-        // ── music ── (style "fireworks") — tham số THẬT của detectMusicTransition() (core/audio-analysis.js),
+        // ── music ── (style "fireworks") — tham số THẬT của detectMusicTransition() (core/visualizer/beat-window.js),
         // quyết định finale (event/workflow/visualizer-render.js::_fwUpdateFinaleTrigger()); style "thunder"
         // không dùng. Card "Chữ bắn pháo hoa" (chỉ bắn trong finale) vẽ NGAY SAU card này.
         // SỬA (25/09/2026, rà soát) — toggle `rerender`, 2 tham số ẩn khi tắt Finale.
