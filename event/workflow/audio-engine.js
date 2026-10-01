@@ -145,7 +145,7 @@ const workflowAudioEngine = {
 
     /** Hồi đáp worker: nhận tần số nếu không phải hồi đáp cũ, rồi luôn nhả cờ bận. */
     _onPitchReply(data) {
-        this._acceptPitchFrequency(data.frequency, data.reqId);
+        this._acceptPitchFrequency(data.frequency, data.confidence, data.reqId);
         appState.set('pitchWorkerBusy', false); // hot path — không log
     },
 
@@ -157,14 +157,17 @@ const workflowAudioEngine = {
     discardPendingPitch() {
         this._latestPitchReqId = this._pitchReqCounter + 1;
         appState.set('latestPitchFrequency', -1);
+        appState.set('latestPitchConfidence', 0);
         console.log(`writer: "workflowAudioEngine.discardPendingPitch", page: "latestPitchFrequency", content: "-1 (bỏ hồi đáp tới reqId ${this._pitchReqCounter})"`);
     },
 
     /** Hồi đáp CŨ hơn hồi đáp đã nhận (về trễ, sai thứ tự) -> bỏ. */
-    _acceptPitchFrequency(frequency, reqId) {
+    _acceptPitchFrequency(frequency, confidence, reqId) {
         if (reqId < this._latestPitchReqId) return;
         this._latestPitchReqId = reqId;
         appState.set('latestPitchFrequency', frequency); // hot path — không log
+        // hot path — MỚI 01/10/2026. Worker bản cũ còn trong cache (chưa gửi confidence) -> coi như 1 để không chặn nhầm mọi nốt.
+        appState.set('latestPitchConfidence', typeof confidence === 'number' ? confidence : 1);
     },
 
     /** Worker lỗi -> tắt hẳn (state null); `requestPitch()` lượt sau sẽ thử tạo lại. */

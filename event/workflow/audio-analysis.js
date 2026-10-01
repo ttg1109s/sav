@@ -17,6 +17,10 @@
  *     ANALYSIS_SETTLE_MS (hết beat giả lúc phổ dâng lại). BPM của bài đang phát hiện lại NGAY khi resume.
  *   - (3)(4) `resetForNewMedia()` — reset số liệu phân tích theo bài, dùng CHUNG Song + Video (gọi từ
  *     workflowVisualizerRender.resetForNewMedia()), bỏ luôn hồi đáp pitch đang bay của bài cũ.
+ *   - Đặc trưng mở rộng (dải Hz, onset theo dải, centroid/rolloff/spread/flatness, tần số trội, chroma/key/hợp âm,
+ *     độ tin cậy pitch, hướng giai điệu/vibrato, RMS/peak/crest/ZCR, im lặng, xu hướng loudness/build-up/drop): giao
+ *     event/workflow/audio-features.js (`measureFrame()` trước khi ghi baseline, `track()` sau khi xét pha). Pitch giờ
+ *     lọc theo độ tin cậy YIN (PITCH_MIN_CONFIDENCE).
  *
  * Mỗi frame:
  *   1. Đồng bộ canvas + task vẽ với Show Visual (`workflowVisualizerRender.syncVisibility()`).
@@ -82,6 +86,7 @@ const workflowAudioAnalysis = {
         console.log(`writer: "workflowAudioAnalysis.allocateBuffers", page: "analysisSpectrumArray/previousSpectrumArray/pitchTimeDomainArray", content: "${binCount} bin, ${analyserPitch.fftSize} mẫu"`);
         this._onsetBandEdges = buildOnsetBandEdges(binCount, audioContext.sampleRate, TEMPO_ONSET_FREQ_MIN_HZ, TEMPO_ONSET_FREQ_MAX_HZ, TEMPO_ONSET_BAND_COUNT); // core/audio-tempo.js
         this._baselineValid = false;
+        workflowAudioFeatures.allocate(analyserPitch, audioContext.sampleRate); // event/workflow/audio-features.js
     },
 
     /**
@@ -103,6 +108,7 @@ const workflowAudioAnalysis = {
         appState.set('rubikPitchAvg', 0);
         console.log(`writer: "workflowAudioAnalysis.resetForNewMedia", page: "fluxHistory/currentCalculatedBpm/lastValidNote*/rubikPitch*", content: "reset theo bài mới"`);
         workflowAudioEngine.discardPendingPitch(); // event/workflow/audio-engine.js — bỏ hồi đáp pitch của bài cũ (lỗi 4)
+        workflowAudioFeatures.resetForNewMedia(); // event/workflow/audio-features.js — key/hợp âm/onset/im lặng theo bài
         statBpm.textContent = '---';
         statNote.textContent = '---';
     },
@@ -113,7 +119,7 @@ const workflowAudioAnalysis = {
         workflowVisualizerRender.syncVisibility(isVisualOff); // bật/tắt canvas + task VẼ theo Show Visual
 
         const s = appState.get([
-            'vizDataArray', 'analysisSpectrumArray', 'previousSpectrumArray', 'analyser', 'analyserPitch', 'frameCounter',
+            'vizDataArray', 'analysisSpectrumArray', 'previousSpectrumArray', 'pitchTimeDomainArray', 'analyser', 'analyserPitch', 'frameCounter',
             'smoothedEnergy', 'globalHueOffset', 'isVideoPlayerMode', 'isPhotoPlayerMode', 'isStatsPanelVisible',
         ]);
         if (!s.vizDataArray || !s.analysisSpectrumArray) return; // guard — audio context chưa init
@@ -130,6 +136,7 @@ const workflowAudioAnalysis = {
 
         s.analyser.getByteFrequencyData(s.vizDataArray); // phổ VẼ — effect tự đọc
         s.analyserPitch.getByteFrequencyData(s.analysisSpectrumArray); // phổ PHÂN TÍCH — cố định, không đổi theo effect
+        s.analyserPitch.getFloatTimeDomainData(s.pitchTimeDomainArray); // sóng ~46 ms mới nhất — RMS/ZCR (audio-features) + pitch
         const spectrum = s.analysisSpectrumArray;
         const binCount = spectrum.length;
         const media = s.isVideoPlayerMode ? bgVideoElement : audioPlayer;
@@ -145,6 +152,7 @@ const workflowAudioAnalysis = {
         const energyPercent = computeEnergyPercent(spectrum, binCount); // core
         const flux = computeNormalizedSpectralFlux(spectrum, s.previousSpectrumArray, binCount, this._baselineValid); // core
         const onset = computeBandedOnsetStrength(spectrum, s.previousSpectrumArray, this._onsetBandEdges, this._baselineValid); // core/audio-tempo.js
+        workflowAudioFeatures.measureFrame(spectrum, s.previousSpectrumArray, this._baselineValid, s.pitchTimeDomainArray); // TRƯỚC khi ghi đè baseline
         storeSpectrumBaseline(s.previousSpectrumArray, spectrum, binCount); // core
         this._baselineValid = true;
 
@@ -152,10 +160,22 @@ const workflowAudioAnalysis = {
         const isHeld = media.seeking || workflowPlayerControls.isHeldBySeekGate(media); // event/workflow/player-controls.js
         const phase = resolveAnalysisPlaybackPhase(isHeld, media.paused, media.currentTime); // core
         const now = Date.now();
-        AUDIO_STATS_BY_PHASE[phase]({ now, nowPerf, flux, onset, energyPercent });
+        // Có tín hiệu = RMS trên ngưỡng im lặng (audio-features vừa đo ở measureFrame()) — cổng cho pitch + ô Pitch.
+        const features = appState.get('audioFeatures');
+        const hasSignal = !!features && features.rmsDb > SILENCE_ENTER_DB;
+        AUDIO_STATS_BY_PHASE[phase]({ now, nowPerf, flux, onset, hasSignal });
+        const p = appState.get(['latestPitchFrequency', 'latestPitchConfidence']);
+        workflowAudioFeatures.track({
+            nowPerf,
+            isSettled: phase === 'playing' && !this._settlePending && nowPerf >= this._settleUntilPerf, // cùng quy tắc ổn định với BPM
+            mediaTimeSec: media.currentTime,
+            mediaDurationSec: media.duration,
+            pitchFrequency: p.latestPitchFrequency,
+            pitchConfidence: p.latestPitchConfidence,
+        });
 
         const t = appState.get(['currentCalculatedBpm', 'lastValidNoteStr', 'lastValidNoteTime']);
-        const noteText = resolveNoteDisplayText(phase !== 'stopped', energyPercent, t.lastValidNoteStr, t.lastValidNoteTime, now); // core
+        const noteText = resolveNoteDisplayText(phase !== 'stopped', hasSignal, t.lastValidNoteStr, t.lastValidNoteTime, now); // core
         // Lúc cổng seek giữ media (vài trăm ms), phổ bị câm tạm — giữ nguyên 3 ô số liệu thay vì nháy về 0%/---.
         this._paintStats(s.isStatsPanelVisible && phase !== 'held', `${energyPercent}%`, t.currentCalculatedBpm, noteText);
 
@@ -202,7 +222,7 @@ const workflowAudioAnalysis = {
     _analyzePlayingStats(frame) {
         this._openSettleWindowIfPending(frame.nowPerf);
         this._showCurrentBpm();
-        this._detectPitch(frame.energyPercent, frame.now);
+        this._detectPitch(frame.hasSignal, frame.now);
         if (frame.nowPerf < this._settleUntilPerf) return; // guard — phổ đang dâng lại sau chỗ ngắt
         appState.mutate('fluxHistory', (arr) => pushBoundedHistory(arr, frame.flux, AUDIO_FLUX_HISTORY_MAX), { skipCheck: true }); // core
         const s = appState.get(['fluxHistory', 'lastBeatTime']);
@@ -261,13 +281,15 @@ const workflowAudioAnalysis = {
     // ===================== Pitch =====================
 
     /** Gửi buffer time-domain cho pitch worker (không chờ) rồi dùng kết quả MỚI NHẤT worker đã trả
-     * (`latestPitchFrequency`, có thể trễ vài frame — xem event/workflow/audio-engine.js). Quá nhỏ tiếng thì bỏ qua. */
-    _detectPitch(energyPercent, now) {
-        if (energyPercent <= 1) return;
-        const s = appState.get(['analyserPitch', 'pitchTimeDomainArray', 'audioContext', 'latestPitchFrequency']);
-        s.analyserPitch.getFloatTimeDomainData(s.pitchTimeDomainArray);
-        workflowAudioEngine.requestPitch(s.pitchTimeDomainArray, s.audioContext.sampleRate); // event/workflow/audio-engine.js
-        this._commitPitch(computeMidiNoteFromFrequency(s.latestPitchFrequency), now); // core
+     * (`latestPitchFrequency`, có thể trễ vài frame — xem event/workflow/audio-engine.js). Không có tín hiệu (RMS dưới
+     * ngưỡng im lặng — SỬA 01/10/2026, trước đây energy <= 1%) thì bỏ qua. */
+    _detectPitch(hasSignal, now) {
+        if (!hasSignal) return;
+        const s = appState.get(['pitchTimeDomainArray', 'audioContext', 'latestPitchFrequency', 'latestPitchConfidence']);
+        workflowAudioEngine.requestPitch(s.pitchTimeDomainArray, s.audioContext.sampleRate); // event/workflow/audio-engine.js — sóng đã đọc đầu _tick()
+        // MỚI 01/10/2026 — loại nốt giả: độ tin cậy YIN dưới PITCH_MIN_CONFIDENCE (core/audio-features.js) thì bỏ.
+        const frequency = s.latestPitchConfidence >= PITCH_MIN_CONFIDENCE ? s.latestPitchFrequency : -1;
+        this._commitPitch(computeMidiNoteFromFrequency(frequency), now); // core
     },
 
     /** Ghi nốt vừa bắt được + cập nhật pha tham chiếu cho Rubik (luôn chạy dù dải số liệu ẩn). */
