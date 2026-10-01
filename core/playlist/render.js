@@ -319,16 +319,21 @@
             containerEl.style.setProperty('--playlist-item-block-size', `${px}px`);
         }
 
-        /** MỚI (02/10/2026, Giang chốt quy tắc A — cuộn khi đổi từ khoá Search / đổi Nguồn) — media ĐANG PHÁT có nằm trong
-         * danh sách đang hiển thị không. KHÔNG chỉ so `currentKey` trong `renderOrder`: Song/Video/Photo sinh key theo CÙNG
-         * kiểu slug tên file (trùng key giữa 3 Nguồn là có thật — xem switchSource(), event/workflow/playlist.js), nên còn
-         * phải khớp LOẠI media đang phát với Nguồn đang xem (đang phát video thì 1 ảnh trùng tên trong Nguồn Photo KHÔNG
-         * được coi là current). Loại đang phát suy từ 2 cờ player mode (chọn GIÁ TRỊ, không rẽ tiến trình).
-         * Hàm THUẦN — nhận đủ qua tham số, trả boolean thật.
-         * @param {string|null} currentKey @param {boolean} isVideoPlayerMode @param {boolean} isPhotoPlayerMode
+        /** MỚI (02/10/2026) — LOẠI media đang phát, suy từ 2 cờ player mode (`isVideoPlayerMode`/`isPhotoPlayerMode`; không
+         * cờ nào bật = Song). Chọn GIÁ TRỊ, không rẽ tiến trình. Dùng để so với Nguồn đang xem: Song/Video/Photo sinh key
+         * theo CÙNG kiểu slug tên file nên trùng key giữa 3 Nguồn là có thật — chỉ so `currentKey` là chưa đủ (xem
+         * switchSource(), event/workflow/playlist.js). Hàm THUẦN.
+         * @param {boolean} isVideoPlayerMode @param {boolean} isPhotoPlayerMode @returns {'song'|'video'|'photo'} */
+        function resolvePlayingMediaType(isVideoPlayerMode, isPhotoPlayerMode) {
+            return isVideoPlayerMode ? 'video' : (isPhotoPlayerMode ? 'photo' : 'song');
+        }
+
+        /** MỚI (02/10/2026, Giang chốt quy tắc A — cuộn khi đổi từ khoá Search / đổi Nguồn / đổi folder Scope) — media ĐANG
+         * PHÁT có nằm trong danh sách đang hiển thị không: khớp key VÀ khớp loại media đang phát (`resolvePlayingMediaType()`,
+         * nơi gọi tự tính trước) với Nguồn đang xem. Hàm THUẦN — nhận đủ qua tham số, trả boolean thật.
+         * @param {string|null} currentKey @param {'song'|'video'|'photo'} playingMediaType
          * @param {'song'|'video'|'photo'} activeMediaSource @param {string[]} renderOrder @returns {boolean} */
-        function isPlayingMediaListed(currentKey, isVideoPlayerMode, isPhotoPlayerMode, activeMediaSource, renderOrder) {
+        function isPlayingMediaListed(currentKey, playingMediaType, activeMediaSource, renderOrder) {
             if (currentKey == null) return false; // guard — chưa phát gì
-            const playingMediaType = isVideoPlayerMode ? 'video' : (isPhotoPlayerMode ? 'photo' : 'song');
             return playingMediaType === activeMediaSource && renderOrder.includes(currentKey);
         }
