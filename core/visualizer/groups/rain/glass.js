@@ -58,7 +58,7 @@ function paintRainMoon(ctx, moon) {
  *      15% cửa luôn sáng mờ, còn lại sáng khi bin FFT của nó > 140).
  *   2. resolveRainCityLitColor()  — màu cửa SÁNG = ĐÚNG màu mode (Giang chốt: không pha):
  *      solid = solidColor, dynamic = dynA->dynB theo vị trí ngang, gradient = THEO TỪNG CỬA, cùng công
- *      thức getComputedColor() (core/audio-analysis.js).
+ *      thức getComputedColor() (core/visualizer/effect-paint.js).
  *   3. resolveRainCityOffColor()  — màu cửa TẮT TƯƠNG PHẢN với màu sáng (Giang chốt): hue đối (+180°),
  *      độ sáng lật phía (sáng >= 50% -> tắt tối 25%, sáng tối -> tắt 70%); màu gần xám (S < 15%) giữ
  *      xám, chỉ lật độ sáng. Vẽ ở alpha thấp RAIN_CITY_OFF_ALPHA.
@@ -95,7 +95,7 @@ function computeRainCityFrame(canvasWidth, canvasHeight, cityBuildings, dpr, viz
  * tự hexToRgb() 1 lần/frame. @param {number} t - vị trí ngang 0-1 @param {number} value - byte FFT 0-255 */
 function resolveRainCityLitColor(palette, t, value) {
     if (palette.mode === 'gradient') {
-        // Cùng công thức nhánh gradient của getComputedColor() (core/audio-analysis.js), i/total = t.
+        // Cùng công thức nhánh gradient của getComputedColor() (core/visualizer/effect-paint.js), i/total = t.
         const h = (palette.hueOffset + t * 240 + (value / 255) * 80) % 360;
         const s = Math.round(70 + (value / 255) * 30);
         const l = Math.round(40 + (value / 255) * 30);
