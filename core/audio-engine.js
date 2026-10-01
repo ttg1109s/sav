@@ -22,7 +22,7 @@
  */
 
 /** Script pitch worker — Classic Worker (KHÔNG type 'module'), bắt buộc để chạy được qua file://. */
-const PITCH_WORKER_URL = 'core/workers/pitch-worker.js';
+const PITCH_WORKER_URL = 'core/workers/pitch-worker.js?v=20261001af1'; // ?v — đổi mỗi khi sửa worker (cùng quy ước index.html), tránh cache bản cũ
 /** Gain phẳng 10 dải — dùng khi chưa có preset EQ nào khớp id đang chọn (preset chưa nạp kịp / đã xoá). */
 const EQ_FLAT_GAINS = Object.freeze([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 

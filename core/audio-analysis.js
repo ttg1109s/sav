@@ -234,8 +234,11 @@
 
         /** Chữ hiển thị ô Pitch: đang phát + đủ năng lượng + nốt gần nhất còn "tươi" (trong
          * AUDIO_NOTE_HOLD_MS) -> tên nốt đó; mọi trường hợp khác -> "---". */
-        function resolveNoteDisplayText(isPlaying, energyPercent, lastNoteStr, lastNoteTime, now) { // isPlaying: Workflow truyền "không dừng thật" (phase !== 'stopped')
-            if (!isPlaying || energyPercent <= 1) return '---';
+        // SỬA 01/10/2026: tham số 2 đổi từ `energyPercent` (<= 1 -> "---") sang `hasSignal` (RMS trên ngưỡng im lặng, xem
+        // workflowAudioAnalysis._tick()). Energy % tính trên 1024 bin của phổ phân tích cố định nên 1 giọng/nhạc cụ đơn
+        // (ít bin có năng lượng) dễ rơi <= 1% dù nghe rõ — pitch bị tắt oan (phát hiện khi test vibrato).
+        function resolveNoteDisplayText(isPlaying, hasSignal, lastNoteStr, lastNoteTime, now) { // isPlaying: Workflow truyền "không dừng thật" (phase !== 'stopped')
+            if (!isPlaying || !hasSignal) return '---';
             if (!lastNoteStr || (now - lastNoteTime) >= AUDIO_NOTE_HOLD_MS) return '---';
             return lastNoteStr;
         }
