@@ -136,3 +136,23 @@ eventBus.registerBlock('visualBg.openPanel.click', [
 // xảy ra nữa vì <select> LUÔN có 1 giá trị (mặc định "Tất cả"), không có khái niệm rỗng. Field
 // `appState.storageAnySourceEnabled` (service/state/file-manager.js) cũng đã bỏ theo — không còn
 // ai đọc/ghi.
+
+// ===================== Ghi âm (MỚI 01/10/2026, Giang yêu cầu) =====================
+// Bắt đầu ghi — chặn hẳn khi: đã có phiên ghi (mọi phase khác 'idle', kể cả modal nghe lại), đang Photo Player (phát im
+// lặng, nút cũng đã ẩn — core/photo-player.js), hoặc đang ở Game Mode (2 chế độ cùng chiếm 'ended' + khoá điều khiển,
+// loại trừ nhau — event/router/player-controls.js). Xem event/workflow/recorder.js.
+eventBus.registerBlock('recorder.start.click', [
+    [{ field: 'recordPhase', operator: '!==', value: 'idle' }],
+    [{ field: 'isPhotoPlayerMode', operator: '===', value: true }],
+    [{ field: 'gameplayPhase', operator: '!==', value: 'idle' }],
+]);
+
+// Đang có phiên ghi -> chặn đổi/tua bài từ MỌI lối vào còn lại ngoài overlay: Media Session màn hình khoá (Next/Prev),
+// thanh player (đã khoá CSS), cử chỉ (đã bị overlay che). Cùng 1 ý nghĩa ở ≥2 entry point -> Block gate (event-bus-flow.md mục 2).
+const RECORDER_SESSION_ACTIVE_BLOCK = [
+    [{ field: 'recordPhase', operator: '!==', value: 'idle' }],
+];
+eventBus.registerBlock('playerControls.next.click', RECORDER_SESSION_ACTIVE_BLOCK);
+eventBus.registerBlock('playerControls.prev.click', RECORDER_SESSION_ACTIVE_BLOCK);
+eventBus.registerBlock('playerControls.playPause.click', RECORDER_SESSION_ACTIVE_BLOCK);
+eventBus.registerBlock('playerControls.restart.click', RECORDER_SESSION_ACTIVE_BLOCK);
