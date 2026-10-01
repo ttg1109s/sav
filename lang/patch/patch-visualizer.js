@@ -478,4 +478,29 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.dotBend.backslash': 'Slant  \\',
     'customEffectDrawer.field.dotBendAngle': 'Bend angle (°)',
 
+    // MỚI (01/10/2026) — Ghi âm Player Song/Video (components/recorder-overlay.js, event/workflow/recorder.js).
+    'recorder.start.title': 'Record your voice with the music that is playing',
+    'recorder.start.label': 'Record',
+    'recorder.stop.title': 'Stop recording',
+    'recorder.review.title': 'Recording',
+    'recorder.review.save': 'Save',
+    'recorder.review.playPause': 'Play / pause',
+    'recorder.review.hint': 'Plays on loop — tap the waveform to jump',
+    'recorder.error.unsupported': 'Recording is not available here. The microphone needs the app to be opened over HTTPS (not file://) in a browser that supports recording.',
+    'recorder.error.noMedia': 'Start playing a song or video first, then record.',
+    'recorder.error.micDenied': 'Could not use the microphone ({message}). Allow microphone access for this site and try again.',
+    'recorder.error.startFailed': 'Could not start recording: {message}',
+    'recorder.error.empty': 'Nothing was recorded.',
+    'recorder.error.saveFailed': 'Could not save the recording: {message}',
+    'recorder.tag.title': '{title} (Recording {time})',
+    'recorder.tag.album': 'Recording',
+    'recorder.tag.untitled': 'Recording',
+    // Settings > Visualizer Screen > Player > Ghi âm (components/settings/recorder-settings.js).
+    'recorderSettings.groupTitle': 'Recording',
+    'recorderSettings.echoCancellation.label': 'Echo cancellation',
+    'recorderSettings.echoCancellation.info': 'Removes the music coming out of the speaker from the microphone. Keep it on when using the speaker; with headphones you can turn it off for a more natural voice.',
+    'recorderSettings.latency.label': 'Voice delay compensation',
+    'recorderSettings.latency.info': 'Your voice always reaches the recording a little later than the music. This delays the music inside the recording (not what you hear) so both line up. Wired headphones/speaker: about 100 ms. Bluetooth headphones: about 200-300 ms.',
+    'recorderSettings.hint': 'Applies from the next recording.',
+
 };

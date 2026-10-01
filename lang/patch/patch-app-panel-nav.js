@@ -100,11 +100,13 @@ const LANG_PATCH_APP_PANEL_NAV = {
     // MỚI (Giang yêu cầu "Player" — Resolution + Motion của Video/Photo lúc phát chính, Settings >
     // Visualizer Screen > Player > Video/Photo, xem core/player-display-settings.js).
     'appSettings.player.label': 'Player',
-    'appSettings.player.hint': 'Resolution and Motion for Video/Photo playback',
+    'appSettings.player.hint': 'Resolution and Motion for Video/Photo playback, Recording',
     'appSettings.player.video.label': 'Video',
     'appSettings.player.video.hint': 'Resolution and Motion for Video playback',
     'appSettings.player.photo.label': 'Photo',
     'appSettings.player.photo.hint': 'Resolution and Motion for Photo playback',
+    'appSettings.player.recorder.label': 'Recording',
+    'appSettings.player.recorder.hint': 'Echo cancellation and voice delay compensation',
 
     'appSettings.system.title': 'System',
     'appSettings.system.theme.label': 'Theme',
