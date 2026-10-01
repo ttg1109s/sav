@@ -191,10 +191,6 @@ visual-master/
 │   ├── audio-tempo.js            — MỚI 01/10/2026: Core thuần ước lượng BPM (đường bao onset theo dải log,
 │   │                              tự tương quan + prior 120 BPM, gập quãng tám, trung vị) — thay BPM "trung bình
 │   │                              5 khoảng beat"; workflowAudioAnalysis điều phối
-│   ├── audio-features.js         — MỚI 01/10/2026: Core thuần đặc trưng audio mở rộng (6 dải Hz + onset theo
-│   │                              dải, centroid/spread/rolloff/flatness, tần số trội, chroma/key/hợp âm, vibrato/
-│   │                              hướng giai điệu, RMS/peak/crest/ZCR, im lặng, loudness trend/build-up/drop) ->
-│   │                              appState `audioFeatures`; điều phối event/workflow/audio-features.js
 │   ├── rubik-math.js             — HOT PATH (mỗi frame, dùng bởi visualizer/types/rubik.js)
 │   ├── about-stats.js            — computeStats() cho About Drawer
 │   ├── app-recovery.js           — Khởi động lại app / Khôi phục cài đặt mặc định
@@ -321,7 +317,7 @@ visual-master/
                                    audio-analysis.js (workflowAudioAnalysis, ghi đè file mồ côi
                                    cùng tên trước đây); audio-engine.js (MỚI 01/10/2026 —
                                    workflowAudioEngine: dựng/resume audio graph, pitch worker, âm lượng);
-                                   audio-features.js (MỚI 01/10/2026 — workflowAudioFeatures: đặc trưng mở rộng)
+                                   (audio-features.js — 01/10/2026 tạo rồi GỘP lại vào audio-analysis.js cùng ngày)
         └── visualizer/           — MỚI 28/09/2026 (Phase 4): workflow RIÊNG từng group Visualizer —
                                    bar.js, rain.js, lighting.js, shape.js, vortex.js, connector.js
                                    (bảng `styles` + hook vòng đời, tự registerGroup() vào host
@@ -368,3 +364,15 @@ tại từ ver 11 (xem [why-no-es6-module.md](./why-no-es6-module.md)), đườn
 | [v12](./changelog/v12.md) | `service/operation.js`; `event/block.js`; `event/virtual-machine-state.js`; `core/generic-drawer.js`; `core/settings-panel-stack.js`; `core/slider-panel-scroll.js`; `core/file-manager/` (13 file); `core/subtitle/subtitles-ui.js`; `components/generic-drawer.js`; `components/items.js`; `components/file-manager.js`; `components/settings/theme.js`; `components/settings/file-manager-section.js`; `components/settings/playlist-view.js`; `components/slideshow-settings-drawer.js`; `subtitle-editor.html`; `service/song-key-cipher.js`; `assets/css/slideshow.css`; 10 cụm `/event/` mới (file-manager, file-manager-song/photo/document/cleanup, document-reader, settings-stack-nav, slideshow, subtitle-editor, theme); `lang/patch/patch-file-manager.js`, `patch-subtitle-editor.js`; `service/db.js` (DB_VERSION 3→4, +5 store); `readme/event-bus-flow.md`; `readme/core-function-conventions.md` (+ Rule 5, 10/07); `readme/core-legacy-audit.md`; `readme/changelog/v12.md` | `event/bus.js` (thêm blocks Map, registerBlock(), evalCondition()); `index.html` (nhiều đợt — gỡ Toast UI Editor/Turndown, thêm script mới); `core/config.js`/`service/state.js` (DEFAULT_VIZ_CONFIG +gradientFrom/gradientTo); hầu hết `core/playlist/*.js`, `core/player-controls.js`, `core/state-and-video-bg.js` (đụng tới ở mức nào đó qua nhiều đợt B/C/D); `readme/script-load-order.md`; `readme/changelog-index.md`; `README.md` | `components/subtitle-modal.js`; `components/document-picker-drawer.js`; `components/document-reader.js` | **Không itemize đầy đủ tuyệt đối** — cùng lý do v11: ver 12 là nhiều phiên rải từ đầu 07 tới 12/07/2026 (hạ tầng block/VM-state → Đa phương tiện B/C → Settings/Theme D → Subtitle Editor trang riêng → Documents Nhóm A), không phải 1 đợt code. 2 file mồ côi CHƯA xoá dù không còn nạp: `event/workflow/document-picker.js`, `lang/patch/subtitle-editor.html` (lạc chỗ) — xem `changelog/v12.md` mục 11. |
 
 ← [Quay lại README](../README.md)
+
+## Bổ sung 01/10/2026 — kho phân tích audio + xoá Brain
+
+- `service/audio-analysis.js` — MỚI: class `AudioAnalysisStore`, instance `audioAnalysis`. Kho dữ liệu phân tích audio
+  (năng lượng, beat, BPM, pitch, 6 dải Hz, onset theo dải, hình dạng phổ, chroma/key/hợp âm, vibrato, RMS/loudness, im
+  lặng, build-up/drop) + phổ để vẽ xin theo cỡ FFT. API CHỈ ĐỌC cho mọi nơi; chỉ event/workflow/audio-analysis.js ghi.
+  Ngoại lệ có chủ đích của luật "mọi đọc/ghi qua appState" (giống AppConfig).
+- `core/audio-analysis.js` — nay chứa TOÀN BỘ phép tính audio thuần (đã gộp core/audio-features.js). `core/audio-tempo.js`
+  giữ riêng (thuật toán BPM).
+- `event/workflow/audio-analysis.js` — nay gồm cả phần đặc trưng (đã gộp event/workflow/audio-features.js).
+- `core/visualizer/groups/connector/brain.js` — ĐÃ XOÁ (style connector 'brain' bỏ hẳn; lựa chọn cũ -> 'synapse').
+

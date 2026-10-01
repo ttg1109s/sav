@@ -125,7 +125,11 @@ dưới (mục theo file + Phụ lục Rule 1 weak) là LỊCH SỬ:
   (`workflowVisualizerRender.allocateVizSpectrumBuffer()`) và bộ đệm phân tích (`workflowAudioAnalysis.allocateBuffers()`).
 - `core/audio-analysis.js :: computeBpmFromMeanInterval` ĐÃ XOÁ; Core mới đủ Rule 1-3: `resolveAnalysisPlaybackPhase`
   (audio-analysis.js) + toàn bộ `core/audio-tempo.js`.
-- (lượt 3) Core MỚI đủ Rule 1-3: toàn bộ `core/audio-features.js`. `resolveNoteDisplayText` đổi tham số 2 từ
+- (lượt 3) Core MỚI đủ Rule 1-3: toàn bộ `core/audio-features.js` (lượt 4: GỘP vào `core/audio-analysis.js`).
+- (lượt 4) Xoá: `computeMidiNoteFromFrequency` (gộp vào `computeMidiFloatFromFrequency` + `isValidMidiNote`), `isPitchNoteFresh`
+  (nơi gọi dùng `audioAnalysis.isPitchFresh()`), `setAnalyserFftSize`, cả `core/visualizer/groups/connector/brain.js`.
+  `getComputedColor` (miễn trừ hot path) nay đọc `audioAnalysis.hueOffset()` thay `appState.get('globalHueOffset')` — cùng
+  loại đọc trạng thái, không thêm vi phạm. `resolveNoteDisplayText` đổi tham số 2 từ
   `energyPercent` sang `hasSignal` (RMS trên ngưỡng im lặng).
 
 ## Thống kê tổng quan (quét lại 12/07/2026 — THAY số liệu cũ)

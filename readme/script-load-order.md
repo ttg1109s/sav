@@ -217,3 +217,10 @@ event/workflow/audio-analysis.js                 đọc AUDIO_FEATURE_BANDS LÚC
 `core/workers/pitch-worker.js` nạp bằng `new Worker(PITCH_WORKER_URL)` — URL nay có `?v=` (core/audio-engine.js), đổi mỗi
 khi sửa worker để không dính bản cũ trong cache.
 
+## Bổ sung 01/10/2026 (lượt 4 — kho audioAnalysis, gộp file, xoá Brain)
+
+- `core/audio-features.js` và `event/workflow/audio-features.js` (lượt 3) ĐÃ GỘP vào 2 file `audio-analysis.js` tương ứng —
+  bỏ 2 thẻ script; mục "lượt 3" phía trên là LỊCH SỬ.
+- `service/audio-analysis.js` — MỚI, đặt ngay sau `service/state/audio-engine.js`; không phụ thuộc gì lúc nạp.
+- `core/visualizer/groups/connector/brain.js` — ĐÃ XOÁ cùng thẻ script.
+
