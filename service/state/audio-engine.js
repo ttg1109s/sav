@@ -6,7 +6,6 @@
         AppState.definePackage('audio-engine', {
             schema: {
                 audioContext: 'any',           // AudioContext | undefined trước workflowAudioEngine.setup() (event/workflow/audio-engine.js)
-                analyser: 'any',               // AnalyserNode | undefined — phổ VẼ, fftSize đổi theo effect
                 analyserPitch: 'any',          // AnalyserNode | undefined — phân tích CHUNG (FFT cố định 2048): phổ cho beat/energy/flux/BPM (01/10/2026) + time-domain cho pitch
                 animationId: 'any',            // number (requestAnimationFrame id) | undefined
                 masterGainNode: 'any',         // GainNode | undefined — cổng seek (1 bình thường, 0 khi cổng giữ), đứng TRƯỚC 2 analyser
@@ -18,16 +17,10 @@
                 currentCoverObjectURL: 'nullable-string',
                 pitchWorker: 'any',            // Worker | null
                 pitchWorkerBusy: 'boolean',
-                latestPitchFrequency: 'number',
-                latestPitchConfidence: 'number', // MỚI 01/10/2026 — 0-1, 1 - giá trị YIN (core/workers/pitch-worker.js)
-                lastValidNoteStr: 'nullable-string',
-                lastValidNoteTime: 'number',
-                lastValidMidiNote: 'nullable-number',
             },
             buildDefaults() {
                 return {
                     audioContext: undefined,
-                    analyser: undefined,
                     analyserPitch: undefined,
                     animationId: undefined,
                     masterGainNode: undefined,
@@ -39,11 +32,6 @@
                     currentCoverObjectURL: null,
                     pitchWorker: null,
                     pitchWorkerBusy: false,
-                    latestPitchFrequency: -1,
-                    latestPitchConfidence: 0,
-                    lastValidNoteStr: null,
-                    lastValidNoteTime: 0,
-                    lastValidMidiNote: null,
                 };
             },
         });

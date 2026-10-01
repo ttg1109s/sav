@@ -7,8 +7,6 @@
             schema: {
                 stars: 'array',
                 rubikCubes: 'array',
-                rubikPitchHistory: 'array',
-                rubikPitchAvg: 'number',
                 raindrops: 'array',
                 ripples: 'array',
                 glassStaticDrops: 'array',
@@ -25,8 +23,6 @@
                 return {
                     stars: [],
                     rubikCubes: [],
-                    rubikPitchHistory: [],
-                    rubikPitchAvg: 0,
                     raindrops: [],
                     ripples: [],
                     glassStaticDrops: [],

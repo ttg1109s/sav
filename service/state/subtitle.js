@@ -8,7 +8,6 @@
                 subtitles: 'array',
                 isSubtitlesEnabled: 'boolean',
                 activeSubIds: 'set',
-                currentCalculatedBpm: 'string', // BPM do audio-analysis tính (để đây từ trước, nhiều domain đọc)
                 karaokeRenderConfig: 'any',        // ảnh chụp cấu hình karaoke dùng trong vòng raf
                 karaokeLines: 'map',               // id dòng -> {id, words: [{el, baseEl, fillEl, text, startSec, endSec, phase, fill, opacity, revealAt}]}
                 karaokeParticles: 'array',         // hạt bụi/khói đang bay
@@ -23,7 +22,6 @@
                     subtitles: [],
                     isSubtitlesEnabled: true,
                     activeSubIds: new Set(),
-                    currentCalculatedBpm: '---',
                     karaokeRenderConfig: null,
                     karaokeLines: new Map(),
                     karaokeParticles: [],
