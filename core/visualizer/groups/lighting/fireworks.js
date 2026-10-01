@@ -5,7 +5,7 @@
  *
  * [SỬA — rà soát Rule 3, không ngoại lệ] TRƯỚC ĐÂY 14 hàm `explodeFireworksXXX()` +
  * `splitFireworksParticle()` + `explodeFireworksText()` tự gọi thẳng `createFireworksParticle()`
- * (cùng file) VÀ `getComputedColor()` (core/audio-analysis.js, khác file) — cả 2 đều là Core gọi
+ * (cùng file) VÀ `getComputedColor()` (core/visualizer/effect-paint.js, khác file) — cả 2 đều là Core gọi
  * Core, vi phạm Rule 3a, KHÔNG đạt điều kiện miễn trừ Rule 3c (createFireworksParticle() là hàm
  * top-level tái dùng ở ≥14 nơi, tự nó là 1 GIÁ TRỊ HOÀN CHỈNH có ý nghĩa nghiệp vụ riêng — "1 hạt
  * pháo hoa" — không phải hàm con chỉ phục vụ vòng lặp/giá trị trung gian). SỬA: 14 hàm explode* +
@@ -20,7 +20,7 @@
  * `drawScreenFlash()` (core/visualizer/draw/) — nguồn năng lượng = beatScale tại lúc rocket nổ.
  *
  * NẠP SAU: core/visualizer/groups/lighting/common.js; core/config.js (FIREWORKS_STYLE_KEYS);
- * core/custom-effect.js (getActiveEffectConfig); core/audio-analysis.js (getComputedColor).
+ * core/custom-effect.js (getActiveEffectConfig); core/visualizer/effect-paint.js (getComputedColor).
  */
 
 // ================================ Style "fireworks" (pháo hoa) ================================
@@ -146,7 +146,7 @@ function updateFireworksParticle(particle) {
     return particle.alpha > 0 ? 'alive' : 'dead';
 }
 
-/** @param {number} blurMult - 0..1, getActiveBlurMult() (core/audio-analysis.js) — 0 nếu tắt
+/** @param {number} blurMult - 0..1, getActiveBlurMult() (core/visualizer/effect-paint.js) — 0 nếu tắt
  * "Glow/blur" ở Custom Effect Drawer. Glow ở ĐÚNG vùng nổ (shadowBlur quanh mỗi hạt). */
 function drawFireworksParticle(ctx, particle, blurMult, dpr) {
     if (particle.alpha <= 0) return;
