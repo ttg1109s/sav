@@ -36,8 +36,11 @@ const TPL_RECORDER_OVERLAY = `
 function renderRecorderReviewBody() {
     return `
         <div class="flex flex-col gap-3">
-            <div class="recorder-review-wave-wrap">
-                <canvas id="recorder-review-wave" class="recorder-review-wave"></canvas>
+            <!-- SỬA (02/10/2026, Giang báo lỗi layout) — kích thước khung đặt INLINE (không phụ thuộc assets/css/recorder.css
+                 đã nạp hay chưa) + canvas position:absolute: kích thước nội tại của canvas KHÔNG BAO GIỜ đẩy được layout,
+                 drawRecorderWaveform() đo theo KHUNG chứ không đo chính canvas (xem core/recorder-ui.js). -->
+            <div class="recorder-review-wave-wrap" style="position:relative;width:100%;height:72px;overflow:hidden;border-radius:0.75rem;">
+                <canvas id="recorder-review-wave" class="recorder-review-wave" style="position:absolute;left:0;top:0;width:100%;height:100%;display:block;"></canvas>
             </div>
             <div class="flex items-center gap-3">
                 <button type="button" id="btn-recorder-preview-toggle" class="w-10 h-10 shrink-0 rounded-full flex items-center justify-center" data-uitk="btnPrimaryBg textOnAccent" title="${t('recorder.review.playPause')}">
