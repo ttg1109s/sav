@@ -796,8 +796,8 @@ const workflowVisualBg = {
      * core/visualizer/types/space.js dùng cho camera Space. Pha mới luôn bắt đầu từ đúng giá trị
      * pha cũ vừa dừng (không "nhảy" góc). */
     _commitNextGradientPhase(gm) {
-        const bpm = parseInt(appState.get('currentCalculatedBpm'), 10) || 120;
-        const energy = appState.get('smoothedEnergy') || 0;
+        const bpm = audioAnalysis.bpmOr(120); // service/audio-analysis.js (SỬA 01/10/2026)
+        const energy = audioAnalysis.smoothedEnergy();
         const musicSpeedFactor = computeMusicSpeedFactor(bpm, energy, VISUAL_BG_GRADIENT_MUSIC_FACTOR_MIN, VISUAL_BG_GRADIENT_MUSIC_FACTOR_MAX);
         const duration = computeGradientPhaseDuration(VISUAL_BG_GRADIENT_PHASE_BASE_MS, musicSpeedFactor);
 

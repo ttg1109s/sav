@@ -85,7 +85,6 @@ const workflowVisualizerRender = {
     start() {
         taskManager.kill(RENDER_TASK);
         this._renderActive = false;
-        this.allocateVizSpectrumBuffer(); // phổ VẼ theo FFT effect hiện tại (bộ đệm phân tích: workflowAudioAnalysis.start())
         this.rebuildCanvasScenes(); // thay resizeCanvas() cũ (từng được gọi ngay trước start())
         workflowAudioAnalysis.start(); // event/workflow/audio-analysis.js
     },
@@ -215,26 +214,22 @@ const workflowVisualizerRender = {
         const usesWebgl = (this._groups[groupName] || {}).usesWebgl === true;
         setWebglCanvasHidden(document.getElementById('webgl-canvas'), !(usesWebgl && visualizerScreenShown)); // core
         this._callGroupHook(groupName, 'activate', style);
-        this._applyFftSizeForStyle(groupName, style);
+        this._requireSpectrumForStyle(groupName, style);
     },
 
-    /** Effect cần phổ mịn (vortex/lighting/connector/mirror) dùng FFT 2048, còn lại 256 — rồi cấp phát lại buffer
-     * (flux frame kế tiếp tự coi baseline chưa hợp lệ, xem workflowAudioAnalysis). Chưa có AudioContext -> bỏ qua. */
-    _applyFftSizeForStyle(groupName, style) {
-        const analyser = appState.get('analyser');
-        if (!analyser) return;
-        setAnalyserFftSize(analyser, needsHighResFft(groupName, style) ? APP_CONFIG.fftSizeHighRes : APP_CONFIG.fftSizeStandard); // core/audio-engine.js
-        this.allocateVizSpectrumBuffer();
-    },
+    /** Cỡ phổ VẼ effect hiện tại đang dùng (0 = chưa xin). */
+    _spectrumSize: 0,
 
-    /** Cấp phát lại phổ VẼ (`vizDataArray`) theo FFT effect hiện tại. Chưa có AudioContext -> bỏ qua.
-     * SỬA 01/10/2026 (thay allocateAnalysisBuffers()): phổ phân tích + baseline flux + sóng pitch giờ theo analyser
-     * PHÂN TÍCH cố định, do workflowAudioAnalysis.allocateBuffers() cấp 1 lần — đổi effect không còn làm mất baseline. */
-    allocateVizSpectrumBuffer() {
-        const analyser = appState.get('analyser');
-        if (!analyser) return;
-        appState.set('vizDataArray', new Uint8Array(analyser.frequencyBinCount));
-        console.log(`writer: "workflowVisualizerRender.allocateVizSpectrumBuffer", page: "vizDataArray", content: "${analyser.frequencyBinCount} bin"`);
+    /** SỬA 01/10/2026 (thay _applyFftSizeForStyle() + allocateVizSpectrumBuffer() — đổi fftSize 1 analyser chung): style
+     * XIN phổ theo cỡ của nó qua audioAnalysis (service/audio-analysis.js) — mirror/vortex/lighting/connector 2048, còn
+     * lại 256, đúng như trước nên hình không đổi. Trả cỡ cũ, xin cỡ mới; xin được cả trước khi có AudioContext. */
+    _requireSpectrumForStyle(groupName, style) {
+        const size = needsHighResFft(groupName, style) ? APP_CONFIG.fftSizeHighRes : APP_CONFIG.fftSizeStandard; // service/state/visualizer-runtime.js
+        if (size === this._spectrumSize) return;
+        audioAnalysis.releaseSpectrum(this._spectrumSize);
+        audioAnalysis.requireSpectrum(size);
+        this._spectrumSize = size;
+        console.log(`writer: "workflowVisualizerRender._requireSpectrumForStyle", page: "audioAnalysis.spectrum", content: "FFT ${size} (${groupName}/${style})"`);
     },
 
     /** MỚI (Phase 5) — renderer WebGL dùng chung (Vortex + Connector): có rồi thì dùng lại, chưa có thì tạo với
@@ -293,11 +288,11 @@ const workflowVisualizerRender = {
     _drawFrame() {
         const vizCfg = appConfigViz.getAll();
         if (vizCfg.visualEnabled === false) return; // phòng thủ — config vừa đổi, task chưa kịp bị kill (tối đa 1 frame)
-        const s = appState.get([
-            'vizDataArray', 'analyser', 'beatScale', 'smoothedEnergy', 'globalHueOffset', 'lastValidMidiNote',
-            'lastBeatTime', 'dpr', 'isVideoPlayerMode', 'frameEffectConfig',
-        ]);
-        if (!s.vizDataArray || !s.analyser) return; // guard — audio context chưa init
+        const s = appState.get(['dpr', 'isVideoPlayerMode', 'frameEffectConfig']);
+        // SỬA 01/10/2026 — mọi dữ liệu audio đọc từ kho audioAnalysis (service/audio-analysis.js), không còn key appState.
+        const spectrum = audioAnalysis.spectrum(this._spectrumSize);
+        if (!spectrum) return; // guard — audio context chưa init / chưa xin phổ
+        const analyser = audioAnalysis.spectrumAnalyser(this._spectrumSize);
         const cfg = s.frameEffectConfig;
         const media = s.isVideoPlayerMode ? bgVideoElement : audioPlayer;
         const frame = {
@@ -306,15 +301,17 @@ const workflowVisualizerRender = {
             style: cfg[GROUP_STYLE_FIELD[vizCfg.type]],
             perf: { blurMult: getActiveBlurMult() }, // core/audio-analysis.js
             isPlaying: !media.paused,
-            beatScale: s.beatScale,
-            smoothedEnergy: s.smoothedEnergy,
-            hue: s.globalHueOffset,
-            vizDataArray: s.vizDataArray,
-            analyser: s.analyser,
-            bufferLength: s.analyser.frequencyBinCount,
+            // Ảnh chụp audio của frame (mọi effect trong frame thấy CÙNG giá trị) + `audio` = kho để đọc thêm.
+            audio: audioAnalysis,
+            beatScale: audioAnalysis.beatScale(),
+            smoothedEnergy: audioAnalysis.smoothedEnergy(),
+            hue: audioAnalysis.hueOffset(),
+            vizDataArray: spectrum,
+            analyser,
+            bufferLength: spectrum.length,
             dpr: s.dpr,
-            lastBeatTime: s.lastBeatTime,
-            midiNote: s.lastValidMidiNote,
+            lastBeatTime: audioAnalysis.lastBeatTime(),
+            midiNote: audioAnalysis.pitchMidi(),
         };
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         this._drawStyle(frame);

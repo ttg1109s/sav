@@ -151,7 +151,7 @@ function createMotionBeatReactRunner(taskName, getTargetElementFn, getPresetFn, 
         const rawDeltaMs = lastTickMs ? (now - lastTickMs) : 16; // lượt tick đầu (chưa có mốc trước) -> giả định 1 frame ~16ms
         const deltaMs = rawDeltaMs > MOTION_BEATREACT_MAX_FRAME_GAP_MS ? 16 : rawDeltaMs;
         lastTickMs = now;
-        const beatScale = releasing ? 0 : appState.get('beatScale'); // service/state/visualizer-runtime.js — SỬA 29/09/2026: đang release -> 0 (decay về baseline)
+        const beatScale = releasing ? 0 : audioAnalysis.beatScale(); // service/audio-analysis.js (01/10/2026) — SỬA 29/09/2026: đang release -> 0 (decay về baseline)
 
         const isAttacking = beatScale >= envelope;
         const isNewBeat = isAttacking && !wasAttacking; // rising edge — "beat mới"

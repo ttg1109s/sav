@@ -134,7 +134,7 @@ const workflowGameplay = {
         console.log(`writer: "workflowGameplay._beginPlaying", page: "gameplayPhase", content: "playing"`);
         // Snapshot lastBeatTime NGAY LÚC NÀY — tránh 1 beat CŨ (detect trước khi countdown bắt đầu)
         // bị hiểu nhầm là "vừa mới có" rồi spawn ngay lập tức.
-        this._lastConsumedBeatTime = appState.get('lastBeatTime'); // SỬA 28/09/2026 — trước đây đọc biến toàn cục
+        this._lastConsumedBeatTime = audioAnalysis.lastBeatTime(); // service/audio-analysis.js (SỬA 01/10/2026 — trước đó appState lastBeatTime)
         this._beatsSinceEligible = 0;
         this._beatsSincePhraseRefresh = 0;
         this._nextSpawnIndex = 0;
@@ -195,13 +195,18 @@ const workflowGameplay = {
         const cfg = GAMEPLAY_CIRCLE_CONFIG;
         const {
             gameplayWaves, gameplayCircleCount, gameplayDifficulty, gameplayPitchCellMap,
-            gameplayRefreshPending, currentCalculatedBpm, smoothedEnergy, lastValidMidiNote,
-            fluxHistory, gameplayTotalScore, lastBeatTime,
+            gameplayRefreshPending, gameplayTotalScore,
         } = appState.get([
             'gameplayWaves', 'gameplayCircleCount', 'gameplayDifficulty', 'gameplayPitchCellMap',
-            'gameplayRefreshPending', 'currentCalculatedBpm', 'smoothedEnergy', 'lastValidMidiNote',
-            'fluxHistory', 'gameplayTotalScore', 'lastBeatTime', // lastBeatTime: SỬA 28/09/2026, trước đây đọc biến toàn cục
+            'gameplayRefreshPending', 'gameplayTotalScore',
         ]);
+        // SỬA 01/10/2026 — số liệu audio đọc từ kho audioAnalysis (service/audio-analysis.js). BPM giữ dạng chữ ("---" khi
+        // chưa có) vì core gameplay tự parseFloat + rơi về giá trị dự phòng — hành vi y như trước.
+        const currentCalculatedBpm = audioAnalysis.bpmText();
+        const smoothedEnergy = audioAnalysis.smoothedEnergy();
+        const lastValidMidiNote = audioAnalysis.pitchMidi();
+        const fluxHistory = audioAnalysis.fluxHistory();
+        const lastBeatTime = audioAnalysis.lastBeatTime();
         const diffCfg = cfg.difficulty[gameplayDifficulty];
 
         // Gộp flux MỖI FRAME vào bộ tích luỹ giữa 2 beat — độc lập fps máy, xem docstring đầu file.
@@ -356,7 +361,7 @@ const workflowGameplay = {
         const ec = getActiveEffectConfig(); // core (custom-effect.js)
         let colorMain, colorLight;
         if (ec.mode === 'gradient') {
-            const hueOffset = appState.get('globalHueOffset');
+            const hueOffset = audioAnalysis.hueOffset(); // service/audio-analysis.js
             colorMain = computeCircleColorGradientMain(hueOffset); // core
             colorLight = computeCircleColorGradientLight(hueOffset); // core
         } else if (ec.mode === 'dynamic') {
@@ -586,7 +591,7 @@ const workflowGameplay = {
     },
 
     _resetSessionCounters() {
-        this._lastConsumedBeatTime = appState.get('lastBeatTime'); // tránh beat cũ (bài/phiên trước) bị tính là "mới"
+        this._lastConsumedBeatTime = audioAnalysis.lastBeatTime(); // tránh beat cũ (bài/phiên trước) bị tính là "mới"
         this._beatsSinceEligible = 0;
         this._beatsSincePhraseRefresh = 0;
         this._nextSpawnIndex = 0;

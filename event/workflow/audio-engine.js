@@ -38,6 +38,12 @@ const workflowAudioEngine = {
     /** Bộ đếm reqId tăng dần + reqId mới nhất đã nhận — loại hồi đáp CŨ về trễ/sai thứ tự (hiếm, lúc giật khung). */
     _pitchReqCounter: 0,
     _latestPitchReqId: -1,
+    /** Hồi đáp worker mới nhất (đầu VÀO của phân tích — không phải đặc trưng; trước đây appState latestPitch*). */
+    _pitchFrequency: -1,
+    _pitchConfidence: 0,
+
+    latestPitchFrequency() { return this._pitchFrequency; },
+    latestPitchConfidence() { return this._pitchConfidence; },
 
     /** Đảm bảo audio graph tồn tại và đang chạy. Thay `setupAudioContext()` (core cũ) ở mọi nơi gọi. */
     setup() {
@@ -51,7 +57,6 @@ const workflowAudioEngine = {
         const vizCfg = appConfigViz.getAll();
         const { audioContext, sourceNode } = openAudioContextForElement(audioPlayer); // core/audio-engine.js
         this._songSourceNode = sourceNode;
-        const analyser = createAnalyserNode(audioContext, APP_CONFIG.fftSizeStandard); // core
         const analyserPitch = createAnalyserNode(audioContext, APP_CONFIG.fftSizePitch); // core
         const masterGainNode = createGainNode(audioContext, 1); // core — cổng seek (câm cả loa lẫn phân tích), bình thường = 1
         const volumeGainNode = createGainNode(audioContext, vizCfg.volume / 100); // core — CHỈ nhánh ra loa (01/10/2026)
@@ -60,19 +65,19 @@ const workflowAudioEngine = {
         // khớp id nào (chưa nạp kịp/đã xoá) thì EQ phẳng.
         const activePreset = findEqPresetById(appState.get('eqPresets'), vizCfg.eqPresetId); // core/eq-presets.js
         applyEqGains(eq.filters, activePreset ? activePreset.gains : EQ_FLAT_GAINS); // core/eq-presets.js
-        wireAudioOutputGraph(eq.outputNode, masterGainNode, volumeGainNode, analyser, analyserPitch, audioContext.destination); // core
-        this._commitGraphState(audioContext, analyser, analyserPitch, masterGainNode, volumeGainNode, eq.filters);
+        // (analyser VẼ riêng — ĐÃ BỎ 01/10/2026: phổ để vẽ xin theo cỡ qua audioAnalysis.requireSpectrum(), service/
+        // audio-analysis.js tự tạo analyser cho từng cỡ, nối từ masterGainNode.)
+        wireAudioOutputGraph(eq.outputNode, masterGainNode, volumeGainNode, analyserPitch, audioContext.destination); // core
+        this._commitGraphState(audioContext, analyserPitch, masterGainNode, volumeGainNode, eq.filters);
         this.ensurePitchWorker();
         workflowVisualizerRender.start(); // event/workflow/visualizer-render.js — cần analyser đã có trong state
         updateDOMBackground(); // core/color-utils.js
     },
 
     /** Ghi các node vào state — PHẢI trước `workflowVisualizerRender.start()` (start() đọc `analyser`). */
-    _commitGraphState(audioContext, analyser, analyserPitch, masterGainNode, volumeGainNode, eqBandNodes) {
+    _commitGraphState(audioContext, analyserPitch, masterGainNode, volumeGainNode, eqBandNodes) {
         appState.set('audioContext', audioContext);
         console.log(`writer: "workflowAudioEngine._commitGraphState", page: "audioContext", content: "AudioContext mới (${audioContext.sampleRate} Hz)"`);
-        appState.set('analyser', analyser);
-        console.log(`writer: "workflowAudioEngine._commitGraphState", page: "analyser", content: "fftSize ${analyser.fftSize}"`);
         appState.set('analyserPitch', analyserPitch);
         console.log(`writer: "workflowAudioEngine._commitGraphState", page: "analyserPitch", content: "fftSize ${analyserPitch.fftSize}"`);
         appState.set('masterGainNode', masterGainNode);
@@ -156,18 +161,18 @@ const workflowAudioEngine = {
      */
     discardPendingPitch() {
         this._latestPitchReqId = this._pitchReqCounter + 1;
-        appState.set('latestPitchFrequency', -1);
-        appState.set('latestPitchConfidence', 0);
-        console.log(`writer: "workflowAudioEngine.discardPendingPitch", page: "latestPitchFrequency", content: "-1 (bỏ hồi đáp tới reqId ${this._pitchReqCounter})"`);
+        this._pitchFrequency = -1;
+        this._pitchConfidence = 0;
+        console.log(`writer: "workflowAudioEngine.discardPendingPitch", page: "_pitchFrequency (nội bộ)", content: "-1 (bỏ hồi đáp tới reqId ${this._pitchReqCounter})"`);
     },
 
     /** Hồi đáp CŨ hơn hồi đáp đã nhận (về trễ, sai thứ tự) -> bỏ. */
     _acceptPitchFrequency(frequency, confidence, reqId) {
         if (reqId < this._latestPitchReqId) return;
         this._latestPitchReqId = reqId;
-        appState.set('latestPitchFrequency', frequency); // hot path — không log
-        // hot path — MỚI 01/10/2026. Worker bản cũ còn trong cache (chưa gửi confidence) -> coi như 1 để không chặn nhầm mọi nốt.
-        appState.set('latestPitchConfidence', typeof confidence === 'number' ? confidence : 1);
+        this._pitchFrequency = frequency;
+        // Worker bản cũ còn trong cache (chưa gửi confidence) -> coi như 1 để không chặn nhầm mọi nốt.
+        this._pitchConfidence = typeof confidence === 'number' ? confidence : 1;
     },
 
     /** Worker lỗi -> tắt hẳn (state null); `requestPitch()` lượt sau sẽ thử tạo lại. */
