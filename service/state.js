@@ -29,6 +29,8 @@
  * THIẾT KẾ AppState (không đổi so với bản gốc, TRỪ registry() — xem docstring tại chỗ):
  *   - MỌI đọc/ghi (kể cả hot path 60fps) ĐỀU BẮT BUỘC đi qua appState.get()/set()/mutate(),
  *     không có ngoại lệ, không có STATE.xxx trần nào lọt ra ngoài file này.
+ *     NGOẠI LỆ CÓ CHỦ ĐÍCH (01/10/2026, Giang chốt): dữ liệu phân tích audio nằm ở kho riêng `audioAnalysis`
+ *     (service/audio-analysis.js — class, API chỉ đọc), cùng loại với AppConfig; KHÔNG còn key audio nào ở đây.
  *   - `appState.get(key)` — đọc; nhận cả `key` dạng ARRAY (gộp nhiều lần đọc vào 1 lệnh gọi).
  *   - `appState.set(key, value, options)` — gán TOÀN BỘ giá trị mới, validate theo schema (trừ
  *     skipCheck). Sai kiểu: console.warn + KHÔNG ghi + (notifyUI=true) alertModal.
