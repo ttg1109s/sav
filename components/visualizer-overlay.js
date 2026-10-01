@@ -103,6 +103,13 @@ const TPL_VISUALIZER_OVERLAY = `
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.2-5.2M10.5 17a6.5 6.5 0 100-13 6.5 6.5 0 000 13z" /><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 7.5v6M7.5 10.5h6" /></svg>
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.playerZoom.label">${t('visualizerOverlay.playerZoom.label')}</span>
                     </button>
+                    <!-- MỚI (01/10/2026, Giang yêu cầu) — Ghi âm: mic + tiếng đang phát trộn thành 1 bản ghi. Hiện ở Song/Video
+                         Player, ẩn ở Photo (không có tiếng — core/photo-player.js). Bắt đầu ghi -> overlay #recorder-layer
+                         chặn mọi thao tác (components/recorder-overlay.js) — xem event/workflow/recorder.js. -->
+                    <button id="btn-record-start" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="recorder.start.title" title="${t('recorder.start.title')}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3a3 3 0 00-3 3v6a3 3 0 006 0V6a3 3 0 00-3-3z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-14 0M12 18v3M8.5 21h7" /></svg>
+                        <span class="text-[10px] font-medium" data-i18n="recorder.start.label">${t('recorder.start.label')}</span>
+                    </button>
                     <button id="btn-open-volume" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.volume.title" title="${t('visualizerOverlay.volume.title')}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5 6 9H3v6h3l5 4V5z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.5 8.5a5 5 0 010 7M18 6a9 9 0 010 12" /></svg>
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.volume.label">${t('visualizerOverlay.volume.label')}</span>
@@ -126,6 +133,7 @@ const TPL_VISUALIZER_OVERLAY = `
                 </div>
             </div>
 ${TPL_GAMEPLAY_OVERLAY}
+${TPL_RECORDER_OVERLAY}
 
             <!-- Volume HUD — "phóng" gần nút #btn-open-volume, kính mờ, giống popup volume hệ
                  thống iOS: icon loa BÊN TRÁI (5 mốc 0-100%, xem core/hud.js) + 1 slider
