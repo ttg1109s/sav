@@ -366,14 +366,23 @@ const routerPlaylist = (() => {
                 break;
             }
 
+            // SỬA (02/10/2026) — trước đây gọi thẳng 1 hàm core (handlePlaylistSearchInput/clearPlaylistSearch) nhưng 2 hàm đó
+            // lại tự gọi applySearchQuery() (core gọi core). Giờ ≥2 bước (UI ô nhập + lọc + cuộn theo quy tắc A) -> giao Workflow.
             case 'playlist.search.input': {
                 const { value } = msg.payload;
-                handlePlaylistSearchInput(value); // CHỈ 1 hàm core -> gọi thẳng
+                workflowPlaylistOrder.searchInput(value); // event/workflow/playlist-order.js
                 break;
             }
 
             case 'playlist.search.clear': {
-                clearPlaylistSearch(); // CHỈ 1 hàm core -> gọi thẳng
+                workflowPlaylistOrder.searchClear(); // event/workflow/playlist-order.js
+                break;
+            }
+
+            // MỚI (02/10/2026, phương án A content-visibility) — khung cuộn Playlist đổi kích thước (xoay máy...) -> đo lại
+            // chiều cao ước lượng của item (tile Grid cao theo bề rộng cột). Cần đọc state -> giao Workflow.
+            case 'playlist.viewport.resize': {
+                workflowPlaylistRender.syncItemBlockSize(); // event/workflow/playlist-render.js
                 break;
             }
 
