@@ -12,6 +12,7 @@
                 beatScale: 'number',
                 vizDataArray: 'any',             // Uint8Array | undefined trước khi audio context init — phổ VẼ (analyser, fftSize theo effect)
                 analysisSpectrumArray: 'any',    // MỚI 01/10/2026 — Uint8Array(1024) | undefined: phổ PHÂN TÍCH chung (analyserPitch, FFT cố định 2048)
+                audioFeatures: 'any',            // MỚI 01/10/2026 — object đặc trưng mở rộng (core/audio-features.js::createAudioFeatures()), ghi tại chỗ mỗi frame | undefined
                 pitchTimeDomainArray: 'any',      // Float32Array | undefined
                 previousSpectrumArray: 'any',     // Uint8Array | undefined — baseline flux, cùng cỡ analysisSpectrumArray (01/10/2026)
                 fluxHistory: 'array',
@@ -30,6 +31,7 @@
                     pitchTimeDomainArray: undefined,
                     previousSpectrumArray: undefined,
                     analysisSpectrumArray: undefined,
+                    audioFeatures: undefined,
                     fluxHistory: [],
                     frameCounter: 0,
                     dpr: 1,
