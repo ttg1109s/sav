@@ -36,7 +36,7 @@
             },
         });
 
-        const APP_CONFIG = Object.freeze({ fftSizeStandard: 256, fftSizeHighRes: 2048, fftSizePitch: 2048, bpmMinWaitTime: 250 });
+        const APP_CONFIG = Object.freeze({ fftSizePitch: 2048, bpmMinWaitTime: 250 }); // fftSizeStandard/HighRes bỏ 01/10/2026 — cỡ phổ vẽ do từng group khai báo
         const EQ_FREQS = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
         const EQ_LABELS = ['32', '64', '125', '250', '500', '1K', '2K', '4K', '8K', '16K'];
         // EQ_PRESETS (bảng tĩnh cũ) ĐÃ XOÁ — THAY bằng preset lưu DB, xem core/eq-presets.js::
