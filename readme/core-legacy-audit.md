@@ -61,7 +61,7 @@ Toàn bộ hàm trong các file sau (chạy mỗi khung hình từ 2 task `raf` 
 
 Và các hàm cụ thể (nằm trong file KHÔNG hoàn toàn hot-path, nhưng bản thân hàm chạy mỗi frame):
 
-- `core/audio-analysis.js :: getComputedColor`, `getActiveBlurMult` (28/09/2026: đọc
+- `core/visualizer/effect-paint.js :: getComputedColor`, `getActiveBlurMult` (28/09/2026: đọc
   `frameEffectConfig` resolve 1 lần/frame, xem docstring hàm)
 - `core/color-utils.js :: interpolateColor`
 
@@ -113,10 +113,10 @@ dưới (mục theo file + Phụ lục Rule 1 weak) là LỊCH SỬ:
 - Bảng cũ ghi SÓT: `requestPitchDetection` có gọi `initPitchWorker()` (R3), cột R3 cũ ghi "—"; cột R3 của `setupAudioContext`
   (`allocateBuffers`, `applyEQPreset`) đã lỗi thời từ 28/09 — thực tế lúc xoá là `initPitchWorker`, `findEqPresetById`,
   `applyEqGains`, `updateDOMBackground` + `workflowVisualizerRender.start()`.
-- `core/audio-analysis.js :: detectMusicTransition` — vi phạm Rule 3c CHƯA từng được ghi nhận (hàm con `avg` trùng
+- `core/audio-analysis.js :: detectMusicTransition` (nay ở core/visualizer/beat-window.js) — vi phạm Rule 3c CHƯA từng được ghi nhận (hàm con `avg` trùng
   `computeArrayMean`, `checkWindow` không tự có vòng lặp và gọi hàm con khác): viết lại 1 vòng lặp thẳng qua 2 cửa sổ, so
   TỔNG thay vì TRUNG BÌNH (2 đoạn cùng độ dài nên tỉ lệ lệch y hệt) — chữ ký/kết quả không đổi, 5 nơi gọi giữ nguyên.
-- Vẫn miễn trừ hot path (KHÔNG đổi): `core/audio-analysis.js :: getComputedColor`, `getActiveBlurMult`.
+- Vẫn miễn trừ hot path (KHÔNG đổi): `core/visualizer/effect-paint.js :: getComputedColor`, `getActiveBlurMult`.
 
 **Cập nhật 01/10/2026 (lượt 2 — sửa lỗi audio)** — thêm các dòng LỊCH SỬ trong bảng dưới:
 - `core/visualizer/visualizer-display.js :: setVolume` ĐÃ XOÁ (R2) -> `workflowAudioEngine.setVolume()` ghi `volumeGainNode`

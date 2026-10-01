@@ -375,4 +375,8 @@ tại từ ver 11 (xem [why-no-es6-module.md](./why-no-es6-module.md)), đườn
   giữ riêng (thuật toán BPM).
 - `event/workflow/audio-analysis.js` — nay gồm cả phần đặc trưng (đã gộp event/workflow/audio-features.js).
 - `core/visualizer/groups/connector/brain.js` — ĐÃ XOÁ (style connector 'brain' bỏ hẳn; lựa chọn cũ -> 'synapse').
+- (01/10/2026, sau đó) `core/visualizer/effect-paint.js` — MỚI: `getComputedColor`/`getActiveBlurMult` (màu + blur effect, hot
+  path miễn trừ) dời từ core/audio-analysis.js. `core/visualizer/stats-bar.js` — MỚI: `resolveNoteDisplayText`/
+  `paintAudioStatsBar` + `AUDIO_NOTE_HOLD_MS` (thanh BPM/Pitch/Energy). core/audio-analysis.js nay CHỈ còn phép tính audio
+  (`detectMusicTransition`/`isPhraseBoundary` — dời tiếp sang core/visualizer/beat-window.js cùng ngày).
 
