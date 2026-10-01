@@ -118,6 +118,16 @@ dưới (mục theo file + Phụ lục Rule 1 weak) là LỊCH SỬ:
   TỔNG thay vì TRUNG BÌNH (2 đoạn cùng độ dài nên tỉ lệ lệch y hệt) — chữ ký/kết quả không đổi, 5 nơi gọi giữ nguyên.
 - Vẫn miễn trừ hot path (KHÔNG đổi): `core/audio-analysis.js :: getComputedColor`, `getActiveBlurMult`.
 
+**Cập nhật 01/10/2026 (lượt 2 — sửa lỗi audio)** — thêm các dòng LỊCH SỬ trong bảng dưới:
+- `core/visualizer/visualizer-display.js :: setVolume` ĐÃ XOÁ (R2) -> `workflowAudioEngine.setVolume()` ghi `volumeGainNode`
+  (âm lượng tách khỏi phân tích). Dòng gán `masterGainNode.gain` trong `core/config.js :: loadConfig` (dòng chết) đã xoá.
+- `core/canvas-scene-setup.js :: createAnalysisBuffers` ĐÃ XOÁ — Workflow tự cấp `vizDataArray`
+  (`workflowVisualizerRender.allocateVizSpectrumBuffer()`) và bộ đệm phân tích (`workflowAudioAnalysis.allocateBuffers()`).
+- `core/audio-analysis.js :: computeBpmFromMeanInterval` ĐÃ XOÁ; Core mới đủ Rule 1-3: `resolveAnalysisPlaybackPhase`
+  (audio-analysis.js) + toàn bộ `core/audio-tempo.js`.
+- (lượt 3) Core MỚI đủ Rule 1-3: toàn bộ `core/audio-features.js`. `resolveNoteDisplayText` đổi tham số 2 từ
+  `energyPercent` sang `hasSignal` (RMS trên ngưỡng im lặng).
+
 ## Thống kê tổng quan (quét lại 12/07/2026 — THAY số liệu cũ)
 
 - Tổng file `core/**/*.js` hiện có: **66** (bản gốc: 48, +18) — sau loại hot-path: **56** file đưa

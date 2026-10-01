@@ -188,6 +188,13 @@ visual-master/
 │   │                              getComputedColor() — HOT PATH, xem core-legacy-audit.md.
 │   │                              (updateStatsDashboard() cũ ĐÃ XOÁ 28/09/2026 — điều phối dời sang
 │   │                              event/workflow/audio-analysis.js)
+│   ├── audio-tempo.js            — MỚI 01/10/2026: Core thuần ước lượng BPM (đường bao onset theo dải log,
+│   │                              tự tương quan + prior 120 BPM, gập quãng tám, trung vị) — thay BPM "trung bình
+│   │                              5 khoảng beat"; workflowAudioAnalysis điều phối
+│   ├── audio-features.js         — MỚI 01/10/2026: Core thuần đặc trưng audio mở rộng (6 dải Hz + onset theo
+│   │                              dải, centroid/spread/rolloff/flatness, tần số trội, chroma/key/hợp âm, vibrato/
+│   │                              hướng giai điệu, RMS/peak/crest/ZCR, im lặng, loudness trend/build-up/drop) ->
+│   │                              appState `audioFeatures`; điều phối event/workflow/audio-features.js
 │   ├── rubik-math.js             — HOT PATH (mỗi frame, dùng bởi visualizer/types/rubik.js)
 │   ├── about-stats.js            — computeStats() cho About Drawer
 │   ├── app-recovery.js           — Khởi động lại app / Khôi phục cài đặt mặc định
@@ -313,7 +320,8 @@ visual-master/
                                    VẼ + vòng đời chung; task phân tích 'audioAnalysis' tách sang
                                    audio-analysis.js (workflowAudioAnalysis, ghi đè file mồ côi
                                    cùng tên trước đây); audio-engine.js (MỚI 01/10/2026 —
-                                   workflowAudioEngine: dựng/resume audio graph, pitch worker)
+                                   workflowAudioEngine: dựng/resume audio graph, pitch worker, âm lượng);
+                                   audio-features.js (MỚI 01/10/2026 — workflowAudioFeatures: đặc trưng mở rộng)
         └── visualizer/           — MỚI 28/09/2026 (Phase 4): workflow RIÊNG từng group Visualizer —
                                    bar.js, rain.js, lighting.js, shape.js, vortex.js, connector.js
                                    (bảng `styles` + hook vòng đời, tự registerGroup() vào host

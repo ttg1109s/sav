@@ -194,3 +194,26 @@ event/workflow/visualizer-render.js
 ```
 `workflowAudioEngine.setup()` thay `setupAudioContext()` ở 4 nơi gọi (player.js, video-player.js, photo-player.js,
 visual-bg-video.js) — mọi lời gọi xảy ra lúc chạy, sau khi toàn bộ script đã nạp.
+
+## Bổ sung 01/10/2026 (lượt 2 — sửa lỗi audio: volume/BPM/reset theo bài/chuẩn hoá phân tích)
+
+```
+core/audio-analysis.js
+core/audio-tempo.js                           ← MỚI: ngay sau audio-analysis.js, TRƯỚC event/workflow/audio-analysis.js
+                                                (workflowAudioAnalysis tạo _onsetEnvelope bằng createOnsetEnvelope() LÚC NẠP)
+```
+
+## Bổ sung 01/10/2026 (lượt 3 — đặc trưng audio mở rộng)
+
+```
+core/audio-analysis.js
+core/audio-tempo.js
+core/audio-features.js                        ← MỚI: sau audio-tempo.js (dùng nhưng không gọi lúc nạp)
+...
+event/workflow/audio-engine.js
+event/workflow/audio-features.js              ← MỚI: TRƯỚC audio-analysis.js; tạo ring buffer (createOnsetEnvelope) +
+event/workflow/audio-analysis.js                 đọc AUDIO_FEATURE_BANDS LÚC NẠP nên PHẢI sau 2 core trên
+```
+`core/workers/pitch-worker.js` nạp bằng `new Worker(PITCH_WORKER_URL)` — URL nay có `?v=` (core/audio-engine.js), đổi mỗi
+khi sửa worker để không dính bản cũ trong cache.
+
