@@ -457,10 +457,10 @@ const workflowVizBar = {
     },
 
     _stepDotVibration(frame, dt) {
-        const { lastValidNoteTime, audioContext } = appState.get(['lastValidNoteTime', 'audioContext']);
-        const noteFresh = frame.isPlaying && isPitchNoteFresh(frame.midiNote, lastValidNoteTime, Date.now(), DOT_NOTE_FRESH_MS); // core/audio-analysis.js
+        // SỬA 01/10/2026 — độ "tươi" của nốt + sampleRate đọc từ kho audioAnalysis (hết tự trừ Date.now()).
+        const noteFresh = frame.isPlaying && frame.audio.isPitchFresh(DOT_NOTE_FRESH_MS); // service/audio-analysis.js
         const midi = noteFresh ? frame.midiNote : null;
-        const noteEnergy = computeDotNoteEnergy(midi, frame.vizDataArray, frame.bufferLength, audioContext ? audioContext.sampleRate : 44100); // core
+        const noteEnergy = computeDotNoteEnergy(midi, frame.vizDataArray, frame.bufferLength, frame.audio.sampleRate()); // core
         stepDotLineVibration(this._dot.vibAmps, dt, midi, noteEnergy); // core
         return Math.min(frame.canvas.width, frame.canvas.height) * DOT_VIB_AMP_FRAC;
     },

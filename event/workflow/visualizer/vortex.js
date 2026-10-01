@@ -102,7 +102,7 @@ const workflowVizVortex = {
      * Redirect tắt thì không bao giờ rẽ; lượt rẽ trước chưa hội tụ thì bỏ qua (tránh giằng co giữa các hướng). */
     _steerTunnel(frame) {
         const win = this._beatWin;
-        workflowVizBeatWindow.accumulateLatest(win, appState.get('fluxHistory'));
+        workflowVizBeatWindow.accumulateLatest(win, frame.audio.fluxHistory()); // service/audio-analysis.js (01/10/2026)
         if (!workflowVizBeatWindow.consumeNewBeat(win, frame.lastBeatTime)) return;
         workflowVizBeatWindow.closeInterval(win);
         countBeatSinceTrigger(win); // core/visualizer/beat-window.js
@@ -192,7 +192,7 @@ const workflowVizVortex = {
         const dummy = new THREE.Object3D();
         const barsRingCount = cfg.barsRingCount, barsPerRing = cfg.barsPerRing;
         const twistPerRing = (Math.PI * 2 / barsRingCount) * cfg.barsTwistFactor;
-        const globalTwist = appState.get('frameCounter') * 0.004;
+        const globalTwist = audioAnalysis.frameIndex() * 0.004; // service/audio-analysis.js (01/10/2026, trước đây frameCounter)
         const { tBarsMesh, tBarRingZs } = appState.get(['tBarsMesh', 'tBarRingZs']);
         for (let r = 0; r < barsRingCount; r++) {
             placeVortexBarRingZ(tBarRingZs, r, wrapVortexObjectZ(tBarRingZs[r], motion.tWarpSpeed * VORTEX_BARS_Z_SPEED, motion.tCurrentWarpZ, TUNNEL_DEPTH)); // core (bars.js + common.js)

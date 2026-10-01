@@ -71,7 +71,7 @@ const workflowVizShape = {
     _drawRubik(frame) {
         const { ctx, canvas, cfg, dpr, isPlaying, smoothedEnergy, beatScale, vizDataArray } = frame;
         const currentMidi = frame.midiNote;
-        const rubikPitchAvg = appState.get('rubikPitchAvg');
+        const rubikPitchAvg = frame.audio.pitchAverage(); // service/audio-analysis.js (01/10/2026, trước đây appState rubikPitchAvg)
 
         advanceRubikSelfSpin(isPlaying, currentMidi, rubikPitchAvg, smoothedEnergy, cfg.pitchSensitivity); // core
         maybeTriggerRubikLayerTurn(isPlaying, smoothedEnergy, currentMidi, cfg.rotationEnergyThreshold, rubikPitchAvg); // core
@@ -130,9 +130,8 @@ const workflowVizShape = {
         const caseVisible = cfg.clockCaseVisible !== false;
         const glowPx = CLOCK_GLOW_PX * dpr * frame.perf.blurMult;
 
-        const { lastValidNoteTime, currentCalculatedBpm } = appState.get(['lastValidNoteTime', 'currentCalculatedBpm']);
-        const bpm = parseFloat(currentCalculatedBpm) || 0; // '---' (chưa đo) -> 0 -> core dùng ×1
-        const noteFresh = isPitchNoteFresh(frame.midiNote, lastValidNoteTime, Date.now(), CLOCK_PITCH_FRESH_MS); // core/audio-analysis.js
+        const bpm = frame.audio.bpmOr(0); // service/audio-analysis.js — chưa đo -> 0 -> core dùng ×1
+        const noteFresh = frame.audio.isPitchFresh(CLOCK_PITCH_FRESH_MS); // service/audio-analysis.js (01/10/2026)
         clock.pitch = advanceClockPitchHands(clock.pitch, dt, isPlaying, frame.midiNote, noteFresh, this._clockStartSec(), bpm); // core
         const totalSec = clock.pitch.virtualSec;
         const handsDir = clock.pitch.level / 2; // bánh răng + vòng quỹ đạo cùng chiều kim, bậc 1/7 = 1.5×

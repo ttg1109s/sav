@@ -1,7 +1,7 @@
 /**
  * event/workflow/visualizer/beat-window.js — [MỚI 28/09/2026, Phase 4 dọn visualizer] Điều phối "cửa sổ beat
  * flux" (core/visualizer/beat-window.js) cho 4 effect tự phát hiện chuyển đoạn: Vortex (rẽ ống), Connector
- * circuit (đổi góc máy), Connector brain (burst), Lighting fireworks (finale). Mỗi effect giữ object cửa sổ riêng
+ * circuit (đổi góc máy), Lighting fireworks (finale). Mỗi effect giữ object cửa sổ riêng
  * và tự quyết thứ tự các bước (giữ đúng thứ tự từng bản cũ); file này chỉ gom 3 bước lặp lại ở cả 4 nơi.
  */
 

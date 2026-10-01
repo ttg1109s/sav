@@ -1,5 +1,7 @@
 /**
- * event/workflow/visualizer/connector.js — Group "connector" (3 style: synapse + circuit = WebGL, brain = canvas 2D).
+ * event/workflow/visualizer/connector.js — Group "connector" (2 style WebGL: synapse + circuit).
+ * [01/10/2026] Style 'brain' (canvas 2D) ĐÃ XOÁ HẲN theo Giang; dữ liệu audio đọc từ kho audioAnalysis
+ * (frame.audio — service/audio-analysis.js) thay vì key appState.
  *
  * [TÁCH — 28/09/2026, Phase 3-4 dọn visualizer] Từ `_tickConnectorBeat/Render/Synapse/Circuit/Brain()` +
  * `_tickBrainBurstTrigger()` của event/workflow/visualizer-render.js cũ + các biến `_cn*`/`_br*`. Hành vi mỗi frame
@@ -17,7 +19,7 @@
 // Số frame giữ connector "ổn định lại" (không bắn, mỗi frame lấy FFT hiện tại làm baseline) sau lần seek CUỐI —
 // analyser tự làm mượt FFT (smoothingTimeConstant 0.8) nên còn kéo đuôi audio CŨ ~0.2s sau khi media seek xong.
 const CONNECTOR_SEEK_SETTLE_FRAMES = 15;
-// Nốt (lastValidMidiNote) chỉ coi là "đang phát" nếu được cập nhật trong khoảng này (ms) — circuit + brain.
+// Nốt chỉ coi là "đang phát" nếu được cập nhật trong khoảng này (ms) — circuit.
 const CONNECTOR_PITCH_FRESH_MS = 300;
 
 /** Kết quả updateCircuitSignal() -> việc cần làm (null/khác = đang bay, không làm gì). */
@@ -41,16 +43,12 @@ const workflowVizConnector = {
 
     /** >0 = đang "ổn định lại" sau seek, trừ dần mỗi frame WebGL. */
     _settleFrames: 0,
-    /** Style 'brain' (canvas 2D): canvas WebGL đã xoá trắng chưa (tránh kẹt khung hình cuối của synapse/circuit). */
-    _webglBlank: false,
-    /** Cửa sổ beat flux riêng: circuit đổi góc máy (cinematic shift) và brain burst. */
+    /** Cửa sổ beat flux riêng: circuit đổi góc máy (cinematic shift). */
     _cameraShiftWin: createBeatFluxWindow(), // core/visualizer/beat-window.js
-    _burstWin: createBeatFluxWindow(),
 
     styles: {
         synapse: (frame) => workflowVizConnector._drawSynapse(frame),
         circuit: (frame) => workflowVizConnector._drawCircuit(frame),
-        brain: (frame) => workflowVizConnector._drawBrain(frame),
     },
 
     // ===================== Vòng đời =====================
@@ -177,7 +175,6 @@ const workflowVizConnector = {
         this._tickCameraShift(frame);
         const wf = this._beginWebglFrame();
         if (!wf) return;
-        this._webglBlank = false;
         this._stepSynapse(frame, wf);
         appState.get('cnControls').update();
         appState.get('tRenderer').render(appState.get('cnScene'), appState.get('cnCamera'));
@@ -187,7 +184,6 @@ const workflowVizConnector = {
         this._tickCameraShift(frame);
         const wf = this._beginWebglFrame();
         if (!wf) return;
-        this._webglBlank = false;
         this._stepCircuit(frame, wf);
         appState.get('cnControls').update();
         appState.get('cnComposer').render();
@@ -227,7 +223,7 @@ const workflowVizConnector = {
 
     _accumulateCameraShiftFlux(frame) {
         if (frame.style !== 'circuit' || !frame.cfg.cameraShiftEnabled) return;
-        workflowVizBeatWindow.accumulateLatest(this._cameraShiftWin, appState.get('fluxHistory'));
+        workflowVizBeatWindow.accumulateLatest(this._cameraShiftWin, frame.audio.fluxHistory()); // service/audio-analysis.js
     },
 
     _stepSynapse(frame, wf) {
@@ -348,11 +344,10 @@ const workflowVizConnector = {
     /** Node (chip) mà nốt đang phát rơi vào dải tần — đích ưu tiên của xung; null nếu không có nốt "tươi". */
     _resolvePitchNodeIndex(frame, chipCount) {
         if (!frame.isPlaying || chipCount <= 1) return null;
-        const { lastValidMidiNote, lastValidNoteTime, audioContext } = appState.get(['lastValidMidiNote', 'lastValidNoteTime', 'audioContext']);
-        if (!audioContext || !isPitchNoteFresh(lastValidMidiNote, lastValidNoteTime, Date.now(), CONNECTOR_PITCH_FRESH_MS)) return null; // core/audio-analysis.js
-        const pitchHz = 440 * Math.pow(2, (lastValidMidiNote - 69) / 12);
+        if (!frame.audio.isPitchFresh(CONNECTOR_PITCH_FRESH_MS)) return null; // service/audio-analysis.js (01/10/2026)
+        const pitchHz = 440 * Math.pow(2, (frame.midiNote - 69) / 12);
         const ranges = Array.from({ length: chipCount }, (_, j) => tonotopicBinRange(j, chipCount, frame.bufferLength)); // core/visualizer/groups/connector/synapse.js
-        return findTonotopicNodeForBin(ranges, frequencyToFftBin(pitchHz, frame.bufferLength, audioContext.sampleRate)); // core
+        return findTonotopicNodeForBin(ranges, frequencyToFftBin(pitchHz, frame.bufferLength, frame.audio.sampleRate())); // core
     },
 
     _fireChip(frame, wf, chips, chip, i, energyByte, diff, activeSignals, cnGroupCircuit, pitchNodeIndex) {
@@ -395,188 +390,8 @@ const workflowVizConnector = {
         if (appState.get('cnActiveCamMode') !== 'ORBIT_SWEEP') return;
         driftOrbitSweepCamera(appState.get('cnCamera'), cnClock.getElapsedTime()); // core/visualizer/groups/connector/circuit.js
     },
-
-    // ===================== Frame — canvas 2D (brain) =====================
-
-    /** Brain vẽ canvas 2D (host đã clearRect); canvas WebGL xoá trắng 1 lần để không kẹt khung cuối synapse/circuit.
-     * SỬA (28/09/2026, Phase 5) — THAY brainFilterOriginal.draw(): Workflow điều phối các core thuần của
-     * core/visualizer/groups/connector/brain.js (thứ tự bước/vẽ giữ nguyên bản cũ). */
-    _drawBrain(frame) {
-        this._tickCameraShift(frame); // tiêu thụ beat như mọi style (đúng thứ tự cũ)
-        this._blankWebglOnce(this._beginWebglFrame());
-        this._fireBrainBurst(this._isBrainBurstDue(frame));
-        const s = appState.get(['audioContext', 'lastValidNoteTime', 'currentCalculatedBpm']);
-        const brain = this._brain;
-        const tuning = computeBrainTuning(frame.cfg); // core/visualizer/groups/connector/brain.js
-        const time = performance.now();
-        const bpm = parseFloat(s.currentCalculatedBpm);
-        const sampleRate = s.audioContext ? s.audioContext.sampleRate : 44100;
-        const noteFresh = isPitchNoteFresh(frame.midiNote, s.lastValidNoteTime, Date.now(), CONNECTOR_PITCH_FRESH_MS); // core/audio-analysis.js
-        const colors = [0, 1, 2].map((role) => getComputedColor(role, 3, 128)); // core/audio-analysis.js — 0 viền/node/hạt, 1 viền phụ, 2 dây ra
-        const spectrum = { vizDataArray: frame.vizDataArray, bufferLength: frame.bufferLength, sampleRate };
-
-        this._ensureBrainLayout(frame.canvas, frame.cfg.brainDirection || 'ltr', tuning.signalCount);
-        stepBrainInputPump(brain, tuning, time, frame.beatScale, frame.isPlaying); // core
-        stepBrainFilterFlux(brain, tuning, time, this._brainBandEnergies(frame)); // core
-        stepBrainOrbit(brain, tuning, time, bpm, frame.isPlaying, this._brainCentroid(frame)); // core
-        this._stepBrainStrings(brain, tuning, time, frame, noteFresh, bpm, spectrum);
-
-        const layout = brain.layout;
-        advanceBrainParticles(brain.particles, tuning.speedMultiplier); // core
-        const points = brain.particles.map((p) => this._brainParticlePoint(brain.inputPaths[p.pathIndex], p.t));
-        beginBrainPaint(frame.ctx, layout.matrix); // core
-        drawBrainInputCurves(frame.ctx, brain.inputPaths, colors[0]); // core
-        drawBrainParticles(frame.ctx, brain.particles, points, colors[0], tuning.glowMult); // core
-        settleBrainParticles(brain.particles, points, brain.bursts, tuning.filterStrictness, colors[0].glow); // core
-        drawBrainBursts(frame.ctx, brain.bursts, tuning.glowMult); // core
-        advanceBrainBursts(brain.bursts); // core
-        this._drawBrainStrings(frame.ctx, brain, tuning, time, colors[2]);
-        saveBrainCanvas(frame.ctx); // core
-        drawBrainFilterShell(frame.ctx, layout.filterPos, time, colors[0], colors[1], tuning.glowMult); // core
-        this._drawBrainFilterNodes(frame.ctx, brain, tuning, colors[0]);
-        restoreBrainCanvas(frame.ctx); // core
-        this._drawBrainOrbit(frame.ctx, brain, tuning, colors[0]);
-        restoreBrainCanvas(frame.ctx); // core — đóng beginBrainPaint()
-    },
-
-    /** Trạng thái brain (KHÔNG thuộc STATE) — core/visualizer/groups/connector/brain.js::createBrainState(). */
-    _brain: createBrainState(),
-
-    /** Dựng lại bố cục + đường/hạt/node khi đổi kích thước canvas, hướng chảy hoặc số tín hiệu vào. Thứ tự dựng (và
-     * tiêu thụ Math.random) giữ nguyên initNodesAndPaths() cũ: node -> đường vào + hạt -> dây ra. */
-    _ensureBrainLayout(canvasEl, direction, signalCount) {
-        const brain = this._brain;
-        const key = computeBrainLayoutKey(canvasEl.width, canvasEl.height, direction, signalCount); // core
-        if (key === brain.layoutKey) return;
-        brain.layoutKey = key;
-        const layout = computeBrainLayout(canvasEl.width, canvasEl.height, direction); // core
-        brain.layout = layout;
-        brain.filterNodes = buildBrainFilterNodes(layout.filterPos); // core
-        const input = buildBrainInputPathsAndParticles(signalCount, layout.filterPos, layout.leftPersonPos); // core
-        brain.inputPaths = input.inputPaths;
-        brain.particles = input.particles;
-        brain.outputPaths = buildBrainOutputPaths(layout.filterPos, layout.rightPersonPos, layout.width, layout.stageH); // core
-        brain.outputPaths.forEach((path) => {
-            const samples = Array.from({ length: BRAIN_ARC_LUT_SAMPLES + 1 }, (_, k) => computeBrainBezierPoint(path, k / BRAIN_ARC_LUT_SAMPLES)); // core
-            path.arcLut = buildBrainArcLengthLut(samples); // core — dot chạy đều tốc độ dọc dây
-        });
-    },
-
-    /** Năng lượng 0-1 của 16 dải tonotopic cho chớp node bộ lọc. */
-    _brainBandEnergies(frame) {
-        return Array.from({ length: BRAIN_FILTER_FLUX_BAND_COUNT }, (_, b) => computeBinRangePeak(frame.vizDataArray, tonotopicBinRange(b, BRAIN_FILTER_FLUX_BAND_COUNT, frame.bufferLength)) / 255); // core/visualizer/groups/connector/synapse.js
-    },
-
-    /** Trọng tâm phổ — chỉ khi đang phát (dừng -> 0, dot quỹ đạo nhỏ/mờ dần). */
-    _brainCentroid(frame) {
-        if (!frame.isPlaying) return 0;
-        return computeBrainSpectralCentroid(frame.vizDataArray, frame.bufferLength); // core
-    },
-
-    /** Vị trí hạt trên đường vào; đường không còn (hiếm) -> null (bỏ qua, như bản cũ). */
-    _brainParticlePoint(path, t) {
-        if (!path) return null;
-        return computeBrainBezierPoint(path, t); // core
-    },
-
-    /** Dây ra: nốt hiện tại -> biên độ rung + (nốt mới) 1 đoàn dot mới; rồi tiến các đoàn đang chạy. */
-    _stepBrainStrings(brain, tuning, time, frame, noteFresh, bpm, spectrum) {
-        const noteEnergy = computeBrainFreqEnergy(computeBrainNoteFrequency(frame.midiNote), spectrum.vizDataArray, spectrum.bufferLength, spectrum.sampleRate); // core
-        const step = stepBrainStringNote(brain, tuning, time, frame.midiNote, noteFresh, frame.isPlaying, bpm, noteEnergy); // core
-        this._startBrainTrain(brain, tuning, step.newTrain, spectrum);
-        const liveTargets = brain.strings.trains.map((tr) => this._brainLiveTrainTarget(tr, tuning, spectrum));
-        advanceBrainStringTrains(brain, tuning, time, step.dt, liveTargets); // core
-    },
-
-    _startBrainTrain(brain, tuning, train, spectrum) {
-        if (!train) return;
-        const count = computeBrainTrainCount(train.midi); // core
-        startBrainStringTrain(brain, train, count, this._brainTrainOffsets(train.midi, count, tuning, spectrum)); // core
-    },
-
-    /** Khoảng cách dot mục tiêu theo hoạ âm HIỆN TẠI (toggle "khoảng cách sống"; đoàn 1 dot không cần). */
-    _brainLiveTrainTarget(train, tuning, spectrum) {
-        if (!tuning.stringDotGapLive || train.count <= 1) return null;
-        return this._brainTrainOffsets(train.midi, train.count, tuning, spectrum);
-    },
-
-    /** Năng lượng các hoạ âm bậc 2..count của nốt -> khoảng cách dot. */
-    _brainTrainOffsets(midi, count, tuning, spectrum) {
-        const f0 = computeBrainNoteFrequency(midi); // core
-        const energies = Array.from({ length: Math.max(0, count - 1) }, (_, j) => computeBrainFreqEnergy(f0 * (j + 2), spectrum.vizDataArray, spectrum.bufferLength, spectrum.sampleRate)); // core
-        return computeBrainTrainOffsets(energies, tuning.stringDotGapMin, tuning.stringDotGapMax); // core
-    },
-
-    /** Dây ra + đoàn dot + chấm đầu dây (toggle brainShowStrings). */
-    _drawBrainStrings(ctx, brain, tuning, time, color) {
-        if (!tuning.showStrings) return;
-        const lines = brain.outputPaths.map((path, s) => this._brainStringLine(brain, tuning, s, time));
-        const trainDots = [];
-        brain.strings.trains.forEach((tr) => {
-            const head = (time - tr.startTime) / tr.runMs;
-            for (let j = 0; j < tr.count; j++) {
-                const u = head - tr.offsets[j];
-                if (u < 0 || u > 1) continue;
-                const pt = this._brainStringPoint(brain, tuning, tr.stringIdx, computeBrainArcT(brain.outputPaths[tr.stringIdx].arcLut, u), time); // core
-                trainDots.push({ x: pt.x, y: pt.y, alpha: Math.min(1, u / 0.12) });
-            }
-        });
-        drawBrainOutputStrings(ctx, brain.outputPaths, brain.strings.amp, lines, trainDots, brain.strings.endFlash, color, tuning.glowMult); // core
-    },
-
-    /** Điểm mẫu của 1 dây đang rung; dây gần như đứng yên (biên độ < 0.01) -> null (vẽ bezier thẳng). */
-    _brainStringLine(brain, tuning, s, time) {
-        if (brain.strings.amp[s] < 0.01) return null;
-        return Array.from({ length: BRAIN_STRING_SAMPLES + 1 }, (_, k) => this._brainStringPoint(brain, tuning, s, k / BRAIN_STRING_SAMPLES, time));
-    },
-
-    /** Điểm trên dây s tại t = điểm bezier + độ lệch rung. */
-    _brainStringPoint(brain, tuning, s, t, time) {
-        const pt = computeBrainBezierPoint(brain.outputPaths[s], t); // core
-        return { x: pt.x, y: pt.y + computeBrainStringOffsetY(brain.strings.amp[s], brain.layout.stageH, tuning.stringAmpMaxFrac, s, t, time) }; // core
-    },
-
-    /** Dây nối + node bộ lọc (toggle brainShowNodes) — dây vẽ theo vị trí trước khi node nhích, node vẽ sau khi nhích. */
-    _drawBrainFilterNodes(ctx, brain, tuning, primary) {
-        if (!tuning.showNodes) return;
-        drawBrainFilterLinks(ctx, brain.filterNodes, brain.flux.flash, brain.layout.filterPos, primary); // core
-        advanceBrainFilterNodes(brain.filterNodes); // core
-        drawBrainFilterNodes(ctx, brain.filterNodes, brain.flux.flash, primary, tuning.glowMult); // core
-    },
-
-    /** Dot quỹ đạo (toggle brainShowOrbit). */
-    _drawBrainOrbit(ctx, brain, tuning, primary) {
-        if (!tuning.showOrbit) return;
-        drawBrainOrbitDots(ctx, brain.orbit, tuning, brain.layout.filterPos, primary); // core
-    },
-
-    /** `wf` null = scene WebGL chưa dựng -> không có gì để xoá. */
-    _blankWebglOnce(wf) {
-        if (!wf || this._webglBlank) return;
-        appState.get('tRenderer').clear();
-        this._webglBlank = true;
-    },
-
-    _fireBrainBurst(isDue) {
-        if (!isDue) return;
-        triggerBrainBurst(this._brain); // core/visualizer/groups/connector/brain.js
-    },
-
-    /** Brain burst khi nhạc chuyển đoạn (toggle burstEnabled) — cửa sổ beat flux riêng, debounce 2 beat. */
-    _isBrainBurstDue(frame) {
-        const cfg = frame.cfg;
-        if (!cfg.burstEnabled) return false;
-        const win = this._burstWin;
-        workflowVizBeatWindow.accumulateLatest(win, appState.get('fluxHistory'));
-        if (!workflowVizBeatWindow.consumeNewBeat(win, frame.lastBeatTime)) return false;
-        if (!frame.isPlaying) return false;
-        workflowVizBeatWindow.closeInterval(win);
-        countBeatSinceTrigger(win); // core/visualizer/beat-window.js
-        if (win.beatsSinceTrigger < 2) return false;
-        if (!detectMusicTransition(win.history, 2, cfg.sectionWindowBeats, cfg.fluxThreshold)) return false; // core/audio-analysis.js
-        resetBeatTriggerCount(win); // core
-        return true;
-    },
+    // (Style 'brain' — canvas 2D: ĐÃ XOÁ HẲN 01/10/2026 theo Giang, cùng core/visualizer/groups/connector/brain.js.
+    // Cấu hình đã lưu đang chọn brain -> synapse, xem core/config.js.)
 };
 
 workflowVisualizerRender.registerGroup('connector', workflowVizConnector);

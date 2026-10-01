@@ -143,7 +143,7 @@ const workflowVizLighting = {
     /** Tự phóng theo nhịp BPM/mật độ/năng lượng, tối đa maxConcurrentRockets pháo cùng lúc. */
     _autoLaunch(frame) {
         const cfg = frame.cfg;
-        const bpm = parseInt(appState.get('currentCalculatedBpm'), 10) || 120;
+        const bpm = frame.audio.bpmOr(120); // service/audio-analysis.js (01/10/2026)
         const intervalMs = computeFireworksAutoLaunchIntervalMs(bpm, cfg.autoLaunchDensity, frame.smoothedEnergy, frame.isPlaying); // core
         const now = performance.now();
         if (now - this._fwLastLaunchAt < intervalMs) return;
@@ -182,7 +182,7 @@ const workflowVizLighting = {
     _updateFinaleTrigger(frame) {
         const cfg = frame.cfg;
         const win = this._finaleWin;
-        workflowVizBeatWindow.accumulateLatest(win, appState.get('fluxHistory'));
+        workflowVizBeatWindow.accumulateLatest(win, frame.audio.fluxHistory()); // service/audio-analysis.js (01/10/2026)
         if (!workflowVizBeatWindow.consumeNewBeat(win, frame.lastBeatTime)) return;
         workflowVizBeatWindow.closeInterval(win);
         if (!frame.isPlaying || !cfg.finaleEnabled) return;
