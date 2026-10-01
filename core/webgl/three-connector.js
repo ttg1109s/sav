@@ -814,7 +814,7 @@ function buildConnectorComposer(renderer, scene, camera, width, height) {
     return { composer, bloomPass };
 }
 
-/** Chỉ nhóm của style đang chọn được hiện ('brain' vẽ canvas 2D -> cả 2 nhóm ẩn). */
+/** Chỉ nhóm của style đang chọn được hiện. */
 function setConnectorGroupVisibility(groupSynapse, groupCircuit, style) {
     groupSynapse.visible = style === 'synapse';
     groupCircuit.visible = style === 'circuit';
@@ -834,7 +834,7 @@ function applySynapseCameraView(scene, camera, controls) {
     camera.updateProjectionMatrix();
 }
 
-/** Góc máy circuit (cũng dùng cho brain — nhánh `else` cũ): cho xoay/zoom/pan, không autoRotate (GSAP cinematic riêng). */
+/** Góc máy circuit: cho xoay/zoom/pan, không autoRotate (GSAP cinematic riêng). */
 function applyCircuitCameraView(scene, camera, controls) {
     scene.fog = new THREE.FogExp2(0x02040a, 0.005);
     camera.fov = 45; camera.far = 1000;
