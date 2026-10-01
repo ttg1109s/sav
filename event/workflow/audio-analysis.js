@@ -200,7 +200,7 @@ const workflowAudioAnalysis = {
             mediaDurationSec: media.duration,
         });
 
-        const noteText = resolveNoteDisplayText(phase !== 'stopped', d.hasSignal, d.pitch.name, d.pitch.time, nowPerf); // core
+        const noteText = resolveNoteDisplayText(phase !== 'stopped', d.hasSignal, d.pitch.name, d.pitch.time, nowPerf); // core/visualizer/stats-bar.js
         // Lúc cổng seek giữ media (vài trăm ms), phổ bị câm tạm — giữ nguyên 3 ô thay vì nháy về 0%/---.
         this._paintStats(s.isStatsPanelVisible && phase !== 'held', `${d.energyPercent}%`, audioAnalysis.bpmText(), noteText);
 
@@ -462,7 +462,7 @@ const workflowAudioAnalysis = {
     /** Thanh trạng thái — dải số liệu ẩn (hoặc đang 'held') thì bỏ qua phần DOM. */
     _paintStats(shouldPaint, energyText, bpmText, noteText) {
         if (!shouldPaint) return;
-        paintAudioStatsBar(statEnergy, statBpm, statNote, energyText, bpmText, noteText); // core
+        paintAudioStatsBar(statEnergy, statBpm, statNote, energyText, bpmText, noteText); // core/visualizer/stats-bar.js
     },
 
     /** Nốt nhạc bay — điều kiện sinh là phép tính trong Core, ở đây chỉ guard, dựng nốt rồi hẹn giờ gỡ. */

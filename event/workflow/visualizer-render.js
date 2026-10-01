@@ -299,7 +299,7 @@ const workflowVisualizerRender = {
             ctx, canvas, cfg,
             group: vizCfg.type,
             style: cfg[GROUP_STYLE_FIELD[vizCfg.type]],
-            perf: { blurMult: getActiveBlurMult() }, // core/audio-analysis.js
+            perf: { blurMult: getActiveBlurMult() }, // core/visualizer/effect-paint.js
             isPlaying: !media.paused,
             // Ảnh chụp audio của frame (mọi effect trong frame thấy CÙNG giá trị) + `audio` = kho để đọc thêm.
             audio: audioAnalysis,
