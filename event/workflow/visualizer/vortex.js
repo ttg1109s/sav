@@ -17,6 +17,16 @@
 const VORTEX_FFT_SIZE = 2048;
 
 /** Bước cập nhật mesh theo style — object map thay if/else theo cfg.vortexStyle. */
+/** Biên độ uốn ống theo toggle Redirect (SỬA 01/10/2026, Giang báo "tắt Redirect ống vẫn đảo qua đảo lại"): đường tâm ống
+ * là đường SIN theo chiều sâu (getVortexCenterAt(), core/webgl/three-vortex.js) với biên độ mặc định 450/300 — camera bay
+ * dọc nên DÙ không rẽ vẫn lượn trái-phải/lên-xuống. Tắt Redirect -> biên độ đích về 0 (ống thẳng tắp; computeNextVortexPath()
+ * lerp êm, ~1 s thẳng được một nửa, ~5 s thẳng hẳn). Bật lại khi đang thẳng -> trả biên độ mặc định (giá trị khởi tạo,
+ * service/state/three-vortex.js), lượt rẽ sau tự rung quanh mức này như cũ. Khoá = `cfg.redirectEnabled !== false`. */
+const VORTEX_AMPLITUDE_BY_REDIRECT = {
+    false: Object.freeze({ ampX: 0, ampY: 0 }),
+    true: Object.freeze({ ampX: 450, ampY: 300 }),
+};
+
 const VORTEX_SCENE_STEP_BY_STYLE = {
     rings: (frame, motion) => workflowVizVortex._stepRings(frame, motion),
     bars: (frame, motion) => workflowVizVortex._stepBars(frame, motion),
@@ -98,8 +108,22 @@ const workflowVizVortex = {
 
     /** Hướng rẽ ống trước (theo beat/pitch), rồi cập nhật vị trí/màu/camera + render. */
     _draw(frame) {
+        this._syncTunnelStraightness(frame.cfg);
         this._steerTunnel(frame);
         this._renderTunnel(frame);
+    },
+
+    /** Đồng bộ biên độ uốn ống với toggle Redirect — chỉ ghi khi trạng thái thẳng/cong của đích CHƯA khớp toggle (đổi toggle,
+     * hoặc lần đầu sau khi bật lại), không ghi mỗi frame. Chưa dựng scene -> bỏ qua. */
+    _syncTunnelStraightness(cfg) {
+        if (!appState.get('tInitialized')) return;
+        const target = appState.get('tPathTarget');
+        const wantCurved = cfg.redirectEnabled !== false;
+        const isCurved = target.ampX !== 0 || target.ampY !== 0;
+        if (wantCurved === isCurved) return;
+        const amp = VORTEX_AMPLITUDE_BY_REDIRECT[wantCurved];
+        appState.set('tPathTarget', { ...target, ampX: amp.ampX, ampY: amp.ampY }, { skipCheck: true });
+        console.log(`writer: "workflowVizVortex._syncTunnelStraightness", page: "tPathTarget", content: "ampX=${amp.ampX}, ampY=${amp.ampY} (redirect ${wantCurved ? 'bật' : 'tắt'})"`);
     },
 
     /** Hướng rẽ ống theo nhạc: đủ điều kiện "nhạc vừa biến động" (detectMusicTransition()) -> chọn hướng theo
