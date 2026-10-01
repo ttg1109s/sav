@@ -30,7 +30,7 @@ function normalizeSongName(name) {
  * So khớp 1 bài hát với query đã CHUẨN HOÁ SẴN (title/artist/album đưa vào ở dạng THÔ, hàm này tự
  * `normalizeSongName()` từng field trước khi so — nơi gọi KHÔNG cần tự chuẩn hoá 3 field đó).
  * @param {string} normalizedQuery - query NGƯỜI DÙNG đã qua `normalizeSongName()` từ trước (nơi gọi
- *   tự làm 1 lần, không lặp lại mỗi bài — xem `applySearchQuery()` ở `core/playlist/render.js`).
+ *   tự làm 1 lần, không lặp lại mỗi bài — xem `workflowPlaylistOrder.applySearchQuery()` ở `event/workflow/playlist-order.js`).
  * @param {string} title @param {string} artist @param {string} album
  * @returns {boolean}
  */
