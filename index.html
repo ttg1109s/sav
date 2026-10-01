@@ -874,7 +874,7 @@
          "full mode" gộp chung) vào 1 file — PHẢI nạp TRƯỚC audio-analysis.js (đọc biến
          isStatsPanelVisible qua appState, không đụng file này trực tiếp, nhưng giữ thứ tự cũ). -->
     <script src="core/visualizer-ui-visibility.js?v=20260810v2"></script>
-    <script src="core/audio-analysis.js?v=20261001mv1"></script>
+    <script src="core/audio-analysis.js?v=20261001mv2"></script>
     <!-- core/visualizer/effect-paint.js + core/visualizer/stats-bar.js — DỜI (01/10/2026) từ core/audio-analysis.js: màu/blur
          effect (getComputedColor/getActiveBlurMult, hot path miễn trừ) và thanh số liệu BPM/Pitch/Energy. Chỉ được gọi lúc
          chạy, không phụ thuộc thứ tự nạp. -->
@@ -932,7 +932,7 @@
     <script src="core/visualizer/draw/window-frame.js?v=20260719v1"></script>
     <script src="core/visualizer/draw/flying-note-ui.js?v=20260928p2"></script>
     <!-- MỚI (28/09/2026, Phase 4): cửa sổ beat flux dùng chung 4 effect + bước thời gian giữa 2 frame vẽ (core thuần). -->
-    <script src="core/visualizer/beat-window.js?v=20260928p4"></script>
+    <script src="core/visualizer/beat-window.js?v=20261001mv2"></script>
     <script src="core/visualizer/frame-clock.js?v=20260928p4"></script>
     <!-- [MỚI 19/09/2026, yêu cầu Giang] screen-flash.js — chớp sáng toàn màn hình DÙNG CHUNG (Lighting +
          Rain), cap opacity 0.8. Cần SCREEN_FLASH_MAX_ALPHA (core/custom-effect.js, nạp phía trên). -->
