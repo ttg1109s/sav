@@ -532,11 +532,11 @@
          nạp TRƯỚC service/state/record/index.js (dòng registry() cần mọi package đã đăng ký). -->
     <script src="service/state/playlist.js?v=20260911v1"></script>
     <script src="service/state/player.js?v=20260725v1"></script>
-    <script src="service/state/visualizer-runtime.js?v=20261001aa1"></script>
+    <script src="service/state/visualizer-runtime.js?v=20261001fa1"></script>
     <script src="service/state/visualizer-scenes.js?v=20261001aa1"></script>
     <script src="service/state/three-vortex.js?v=20260725v1"></script>
     <script src="service/state/three-connector.js?v=20260922v2"></script>
-    <script src="service/state/audio-engine.js?v=20261001aa1"></script>
+    <script src="service/state/audio-engine.js?v=20261001fa1"></script>
     <!-- service/audio-analysis.js — MỚI (01/10/2026, Giang chốt): KHO dữ liệu phân tích audio (class AudioAnalysisStore,
          instance `audioAnalysis`) — API chỉ đọc cho effect/Game/React Beat/VBG; event/workflow/audio-analysis.js là nơi DUY
          NHẤT ghi. Thay mọi key audio trong appState. Không phụ thuộc gì lúc nạp. -->
@@ -992,17 +992,17 @@
          (taskManager mode 'raf'). Khởi động thật từ event/workflow/audio-engine.js::_buildGraph() gọi
          workflowVisualizerRender.start() lúc phát bài đầu tiên. Đặt ở đây (không phải /event/ phía
          dưới) vì thuộc nhóm "vòng lặp render 60fps tự taskManager", không qua eventBus/Router. -->
-    <script src="event/workflow/visualizer-render.js?v=20261001aa1"></script>
+    <script src="event/workflow/visualizer-render.js?v=20261001fa1"></script>
     <!-- event/workflow/visualizer/*.js — MỚI (28/09/2026, Phase 4): workflow RIÊNG từng group (tách khỏi visualizer-render.js).
          PHẢI nạp SAU visualizer-render.js (mỗi file gọi workflowVisualizerRender.registerGroup() lúc nạp) và SAU mọi core
          của group (dot.js cấp phát mảng theo DOT_VIB_SLOTS lúc nạp). beat-window.js trước 6 group. -->
     <script src="event/workflow/visualizer/beat-window.js?v=20260928p4"></script>
-    <script src="event/workflow/visualizer/bar.js?v=20261001aa1"></script>
-    <script src="event/workflow/visualizer/rain.js?v=20260929vbg1"></script>
-    <script src="event/workflow/visualizer/lighting.js?v=20261001aa1"></script>
-    <script src="event/workflow/visualizer/shape.js?v=20261001aa1"></script>
-    <script src="event/workflow/visualizer/vortex.js?v=20261001aa1"></script>
-    <script src="event/workflow/visualizer/connector.js?v=20261001aa1"></script>
+    <script src="event/workflow/visualizer/bar.js?v=20261001fa1"></script>
+    <script src="event/workflow/visualizer/rain.js?v=20261001fa1"></script>
+    <script src="event/workflow/visualizer/lighting.js?v=20261001fa1"></script>
+    <script src="event/workflow/visualizer/shape.js?v=20261001fa1"></script>
+    <script src="event/workflow/visualizer/vortex.js?v=20261001fa1"></script>
+    <script src="event/workflow/visualizer/connector.js?v=20261001fa1"></script>
 
 
     <!-- Kiến trúc /event/ — nạp CUỐI CÙNG, sau toàn bộ js/* (router/workflow chỉ gọi lại hàm core
