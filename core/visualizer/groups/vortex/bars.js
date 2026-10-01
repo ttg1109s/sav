@@ -6,7 +6,7 @@
  * `stepVortexBarRingZ()` vẫn `appState.mutate('tBarRingZs', ...)` như bản gốc (Rule 2 chỉ cấm
  * ĐỌC). Workflow (`_tickVortexRender()`, event/workflow/visualizer-render.js) tự vòng lặp gọi
  * RIÊNG LẺ hàm này rồi `getVortexCenterAt()` (core/webgl/three-vortex.js) rồi
- * `getComputedColor()` (core/audio-analysis.js) rồi `computeVortexBarsRingFrame()` cho TỪNG vòng
+ * `getComputedColor()` (core/visualizer/effect-paint.js) rồi `computeVortexBarsRingFrame()` cho TỪNG vòng
  * bar. `dummy`/`tBarsMesh` là object Three.js NHẬN QUA THAM SỐ.
  *
  * NẠP SAU: core/visualizer/groups/vortex/common.js.
