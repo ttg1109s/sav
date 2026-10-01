@@ -253,6 +253,8 @@
     <link rel="stylesheet" href="assets/css/motion-engine.css?v=20260914v1">
     <!-- Game Mode (Circle mode v1, MỚI 16/08/2026) — xem components/gameplay-overlay.js. -->
     <link rel="stylesheet" href="assets/css/gameplay.css?v=20260902v4">
+    <!-- MỚI (01/10/2026) — overlay Ghi âm + mini waveform modal nghe lại — xem components/recorder-overlay.js. -->
+    <link rel="stylesheet" href="assets/css/recorder.css?v=20261001rec1">
     <!-- Game Panel (App Panel tab "Game", danh sách card kiểu appstore, MỚI 02/09/2026) — xem
          core/gameplay/game-panel-ui.js. -->
     <link rel="stylesheet" href="assets/css/game-panel.css?v=20260902v1">
@@ -373,7 +375,7 @@
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
     <script src="lang/patch/patch-common.js?v=20260924v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260921v7"></script>
-    <script src="lang/patch/patch-visualizer.js?v=20261001aa1"></script>
+    <script src="lang/patch/patch-visualizer.js?v=20261001rec1"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20261001kr1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260921v9"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
@@ -387,7 +389,7 @@
     <script src="lang/patch/patch-video-preview.js?v=20260929cap1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — bottom nav + panel Photo/Game/Statis/Setting
          mới, xem lang/patch/patch-app-panel-nav.js. -->
-    <script src="lang/patch/patch-app-panel-nav.js?v=20260924m1"></script>
+    <script src="lang/patch/patch-app-panel-nav.js?v=20261001rec1"></script>
     <script src="lang/lang.js?v=20260731v1"></script>
 
     <!-- =====================================================================
@@ -402,7 +404,10 @@
     <!-- Game Mode overlay (Circle mode v1, MỚI 16/08/2026) — PHẢI nạp TRƯỚC components/visualizer-
          overlay.js (file đó nội suy ${TPL_GAMEPLAY_OVERLAY}, xem components/gameplay-overlay.js). -->
     <script src="components/gameplay-overlay.js?v=20260819v1"></script>
-    <script src="components/visualizer-overlay.js?v=20261001kr1"></script>
+    <!-- MỚI (01/10/2026) — overlay Ghi âm (TPL_RECORDER_OVERLAY + renderRecorderReviewBody()). PHẢI nạp TRƯỚC
+         components/visualizer-overlay.js (nội suy ${TPL_RECORDER_OVERLAY}). -->
+    <script src="components/recorder-overlay.js?v=20261001rec1"></script>
+    <script src="components/visualizer-overlay.js?v=20261001rec1"></script>
     <!-- components/subtitle-modal.js ĐÃ XOÁ (10/07/2026) — Subtitle Editor chuyển sang trang riêng
          (subtitle-editor.html), KHÔNG còn modal ở trang chính. -->
     <script src="components/bottom-player.js?v=20260704v1"></script>
@@ -478,6 +483,8 @@
          core/player-display-settings.js (nạp bên dưới, PLAYER_RESOLUTION_MODES/PLAYER_MOTION_SLOTS/
          resolvePlayer*Field()). -->
     <script src="components/settings/player-display-settings.js?v=20260929zs1"></script>
+    <!-- MỚI (01/10/2026) — Settings > Player > Ghi âm (renderRecorderSettingsBody()). -->
+    <script src="components/settings/recorder-settings.js?v=20261001rec1"></script>
     <!-- MỚI (23/09/2026) — màn Settings > System > Pagination. CẦN core/pagination.js (nạp bên dưới —
          PAGINATION_PLACES/PAGINATION_STYLES chỉ đọc lúc DỰNG màn, không lúc nạp). -->
     <script src="components/settings/pagination.js?v=20260924v1"></script>
@@ -569,6 +576,9 @@
          TRƯỚC service/state/record/index.js (registry('player','all') cần package này đã
          definePackage() xong, xem docstring file đó). -->
     <script src="service/state/gameplay-runtime.js?v=20260902v9"></script>
+    <!-- MỚI (01/10/2026) — service/state/recorder.js — Ghi âm (recordPhase/recordBlob/recordMeta, session-only). PHẢI
+         nạp TRƯỚC service/state/record/index.js. -->
+    <script src="service/state/recorder.js?v=20261001rec1"></script>
     <!-- MỚI (29/08/2026) — service/state/motion-presets.js — hệ "Cấu hình Motion" độc lập.
          PHẢI nạp TRƯỚC service/state/record/index.js (registry('player','all') cần package này đã
          đăng ký) — BUG đã sửa: thiếu dòng nạp này khiến appState.get('motionPresets') luôn
@@ -581,7 +591,7 @@
          restoreDefaultVizConfig/saveConfig/loadConfig) — KHÔNG còn giữ Z_INDEX/global
          error-handler (dời ở trên) hay CONST dùng chéo domain khác (nay sống trong đúng package
          service/state/*.js). PHẢI nạp SAU service/state.js (cần class AppConfig). -->
-    <script src="core/config.js?v=20261001aa1"></script>
+    <script src="core/config.js?v=20261001rec1"></script>
     <!-- core/custom-effect.js — Core thuần hệ Custom Effect (getEffectConfig/setCustomEffectField),
          NẠP NGAY SAU core/config.js (cần DEFAULT_CUSTOM_EFFECT/appConfigViz) — mọi hàm vẽ/scene-setup
          phía dưới đều cần file này. -->
@@ -596,7 +606,7 @@
          actions.js (core, dòng dưới) cần `new EventStore(...)` ngay lúc nạp. Tự đứng độc lập
          (không phụ thuộc eventBus), nên tách riêng lên đây an toàn. -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20261001au2"></script>
+    <script src="core/dom-refs.js?v=20261001rec1"></script>
     <!-- core/slider-panel-scroll.js — 2 hàm dùng chung (getPositionStart/scrollSliderTo) cho mọi
          khung cuộn ngang kiểu "slider panel" (settings-panel-stack-ui.js, player-controls.js). -->
     <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
@@ -612,7 +622,7 @@
          khác — hầu hết gọi taskManager.once()/addNew() ngay khi gắn listener lúc parse. -->
     <script src="service/task-manager.js?v=20260720v1"></script>
     <!-- service/db.js — CHUYỂN từ `core/db.js` cùng lý do trên (dịch vụ hạ tầng IndexedDB thuần). -->
-    <script src="service/db.js?v=20260711v1"></script>
+    <script src="service/db.js?v=20261001rec1"></script>
     <!-- MỚI (03/08/2026) — 2 hạ tầng dùng CHUNG, KHÔNG thuộc riêng module nào (Rule 3b, readme/
          core-function-conventions.md) — đặt cạnh service/db.js đúng vai trò "service/", không tách
          nhóm theo nơi dùng đầu tiên (Video Preview chỉ là nơi dùng ĐẦU TIÊN, không phải chủ sở
@@ -711,7 +721,7 @@
          (đã nạp) + core/generic-drawer.js (đã nạp ngay trên). -->
     <script src="core/app-panel-nav.js?v=20260921v2"></script>
     <script src="core/placeholder-panel.js?v=20260819v1"></script>
-    <script src="core/app-settings-ui.js?v=20260929zs1"></script>
+    <script src="core/app-settings-ui.js?v=20261001rec1"></script>
     <!-- MỚI (20/09/2026, Giang yêu cầu thiết kế lại Main Setting dạng carousel ngang) — core UI thuần: scale
          card theo khoảng cách tới tâm + cuộn vô hạn + hiệu ứng mở. CHỈ gọi lúc chạy từ event/workflow/
          app-settings.js + event/router/app-settings.js (nạp ở dưới) — thứ tự với 2 file đó không bắt
@@ -858,7 +868,7 @@
          `applyVisualBgImageToDOM()` (core/visual-bg-photo.js) tái dùng `#visual-bg-image`, gọi thẳng từ
          event/workflow/photo-player.js. Đặt CẠNH core/video-player.js cho dễ đọc, cùng lý do
          comment ngay trên. NẠP SAU service/state.js. -->
-    <script src="core/photo-player.js?v=20260925p3"></script>
+    <script src="core/photo-player.js?v=20261001rec1"></script>
     <!-- Chụp khung hình bgVideoElement đang phát -> lưu Photo (nút Control Center, Video Player
          mode) — di dời từ core/video-editor/frame-extract.js (nút "Trích xuất ảnh" trong modal
          Video Preview đã bỏ hẳn), dùng chung bởi workflowVideoPreview._buildThumbForBlob(). -->
@@ -867,7 +877,10 @@
          event/workflow/audio-engine.js (_buildGraph() gọi findEqPresetById()/applyEqGains() — trước 01/10/2026 là
          core/audio-engine.js::setupAudioContext()). -->
     <script src="core/eq-presets.js?v=20260811v1"></script>
-    <script src="core/audio-engine.js?v=20261001aa1"></script>
+    <script src="core/audio-engine.js?v=20261001rec1"></script>
+    <!-- MỚI (01/10/2026) — Ghi âm: core thuần (graph ghi/MIME/peaks/tên file) + core-ui (overlay, modal nghe lại). -->
+    <script src="core/recorder.js?v=20261001rec1"></script>
+    <script src="core/recorder-ui.js?v=20261001rec1"></script>
     <script src="core/app-cleanup.js?v=20260630v1"></script>
     <!-- GỘP (10/08/2026) toggle ẩn/hiện Stats panel + 3 nút chrome (bottom player/playlist/mở
          Control Center, mỗi cái 1 toggle RIÊNG trong Settings -> Hiển thị Visualizer — bỏ hẳn
@@ -1011,7 +1024,7 @@
          (hạ tầng rẽ nhánh, dùng xuyên cụm) -> workflow/*.js -> router/*.js (register với bus) ->
          listener/*.js (addEventListener cuối, cần bus + router đã sẵn sàng). -->
     <script src="event/bus.js?v=20260703v1"></script>
-    <script src="event/block.js?v=20260930hidden1"></script>
+    <script src="event/block.js?v=20261001rec1"></script>
     <script src="event/virtual-machine-state.js?v=20260701v1"></script>
     <!-- Cụm "infoIcon" (MỚI, phản hồi Giang — icon (i) nhỏ dùng chung) — CẦN core/info-icon-ui.js
          (đã nạp ở nhóm CORE phía trên). Listener delegate trên document.body — luôn có sẵn, không
@@ -1031,7 +1044,7 @@
          sang cụm "fileManagerSong" ngay dưới (plan-v12-multimedia.md mục 3). Batch D1: aboutDrawer
          giờ CẦN workflow (push panel + tính thống kê), xem event/workflow/settings-misc.js. -->
     <script src="core/settings-misc-ui.js?v=20260924v1"></script>
-    <script src="event/workflow/settings-misc.js?v=20260924m1"></script>
+    <script src="event/workflow/settings-misc.js?v=20261001rec1"></script>
     <script src="event/router/settings-misc.js?v=20260924v1"></script>
     <script src="event/listener/settings-misc.js?v=20260924r1"></script>
     <!-- Ver 12 "Multi Media" — CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7): cụm
@@ -1205,7 +1218,7 @@
          core/listen-stats.js (bumpSongPlayCount), event/workflow/video-player.js (workflowVideoPlayer
          — chỉ dùng trong callback runtime, không bắt buộc thứ tự nạp so với dòng NGAY DƯỚI). -->
     <script src="event/workflow/player.js?v=20261001au2"></script>
-    <script src="event/workflow/playlist.js?v=20260925bg2"></script>
+    <script src="event/workflow/playlist.js?v=20261001rec1"></script>
     <script src="event/router/playlist.js?v=20260924r2"></script>
     <script src="event/listener/playlist.js?v=20260930hidden3"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel + phân phối lại section Settings, phản hồi
@@ -1214,8 +1227,8 @@
          workflowFileManagerFolderBrowser/workflowFileManagerStorage đã nạp ở trên — KHÔNG bắt
          buộc thứ tự nạp CHẶT với các file đó, vì mọi tham chiếu đều nằm TRONG thân hàm, chỉ chạy
          SAU khi cả trang đã nạp xong, không chạy ngay lúc parse). -->
-    <script src="event/workflow/app-settings.js?v=20260930hidden3"></script>
-    <script src="event/router/app-settings.js?v=20260929zs1"></script>
+    <script src="event/workflow/app-settings.js?v=20261001rec1"></script>
+    <script src="event/router/app-settings.js?v=20261001rec1"></script>
     <!-- Cụm "placeholderPanels" (đóng Game/Statis). Photo đã hợp nhất vào Playlist, không còn cụm
          "photoPanel" riêng. -->
     <script src="event/workflow/placeholder-panels.js?v=20260819v1"></script>
@@ -1293,7 +1306,7 @@
     <script src="event/router/statis-panel.js?v=20260924v1"></script>
     <script src="event/listener/statis-panel.js?v=20260924v1"></script>
     <script src="event/workflow/player-controls.js?v=20261001au2"></script>
-    <script src="event/router/player-controls.js?v=20261001kr1"></script>
+    <script src="event/router/player-controls.js?v=20261001rec1"></script>
     <script src="event/listener/player-controls.js?v=20260925rs1"></script>
     <!-- Cụm "visualizerDisplay": ảnh nền, độ mờ nền, cycle effect, panel "Display". Cấu hình riêng
          effect ĐÃ DỜI sang cụm "customEffect" (Custom Effect Drawer, xem file ngay dưới) — router
@@ -1330,8 +1343,13 @@
          event/workflow/visualizer-render.js, event/workflow/visual-bg-common.js, event/workflow/photo-player.js (đều đã
          nạp ở trên). NẠP TRƯỚC event/workflow/app-boot.js (boot gọi registerAudioSessionOnBoot()). -->
     <script src="event/workflow/app-visibility.js?v=20260925bg2"></script>
-    <script src="event/router/app-visibility.js?v=20260925bg1"></script>
+    <script src="event/router/app-visibility.js?v=20261001rec1"></script>
     <script src="event/listener/app-visibility.js?v=20260925bg1"></script>
+    <!-- MỚI (01/10/2026) — Ghi âm Player Song/Video (icon Control Center). event/router/player-controls.js +
+         event/router/app-visibility.js gọi workflowRecorder lúc chạy (hết bài / pause ngoài / ẩn app). -->
+    <script src="event/workflow/recorder.js?v=20261001rec1"></script>
+    <script src="event/router/recorder.js?v=20261001rec1"></script>
+    <script src="event/listener/recorder.js?v=20261001rec1"></script>
     <!-- Cụm "statsPanel" ĐÃ XOÁ (checkbox toggle stats panel dời vào Settings, dùng chung
          cụm "visualizerDisplay" — xem event/workflow/visualizer-display.js::setStatsPanelEnabled()). -->
     <!-- Cụm "savLogo" ĐÃ NGỪNG NẠP (SỬA — Giang yêu cầu "logo header full text, không animation")
@@ -1414,7 +1432,7 @@
          xem comment ở đó). Chuỗi boot thật (~15 bước) nay ở workflow. Đặt SAU CÙNG TUYỆT ĐỐI (kể
          cả sau event/tab.js) để mọi workflowXxx/VirtualMachineState/hàm core mà
          workflowAppBoot.boot() cần tới đều CHẮC CHẮN đã được định nghĩa ở phía TRÊN nó. -->
-    <script src="event/workflow/app-boot.js?v=20261001kr1"></script>
+    <script src="event/workflow/app-boot.js?v=20261001rec1"></script>
     <script src="event/router/app-boot.js?v=20260725v1"></script>
 
 </body>
