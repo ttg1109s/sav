@@ -92,3 +92,19 @@ mục ở trên — cách áp dụng có khác biệt so với visual canvas 2D 
    `galaxyNebulaCount`, `galaxyDustCount` cho Space; `stars`/`tunnelRings` cho Vortex).
 
 ← [Quay lại README](../README.md)
+
+## Đọc dữ liệu audio trong effect (CHUẨN từ 01/10/2026)
+
+- **Một cách đọc duy nhất:** `frame.audio.xxx()` — `frame.audio` là kho `audioAnalysis` (service/audio-analysis.js). `frame`
+  KHÔNG còn các trường ảnh chụp `beatScale/smoothedEnergy/hue/vizDataArray/analyser/bufferLength/lastBeatTime/midiNote`.
+  Ví dụ: `frame.audio.beatScale()`, `frame.audio.smoothedEnergy()`, `frame.audio.hueOffset()`, `frame.audio.lastBeatTime()`,
+  `frame.audio.pitchMidi()`, `frame.audio.isPitchFresh(ms)`, `frame.audio.bpmOr(fallback)`, `frame.audio.fluxHistory()`,
+  `frame.audio.band('bass')`, `frame.audio.isBandOnset('bass', ms)`... (danh sách đầy đủ: đầu file service/audio-analysis.js).
+- **Phổ để vẽ — group tự khai báo cỡ:** hằng số cạnh code group (`BAR_FFT_SIZE`/`BAR_MIRROR_FFT_SIZE`, `LIGHTING_FFT_SIZE`,
+  `RAIN_FFT_SIZE`, `SHAPE_FFT_SIZE`, `VORTEX_FFT_SIZE`, `CONNECTOR_FFT_SIZE`) + method `spectrumSize(style)` trên object group.
+  Host (workflowVisualizerRender) xin đúng cỡ khi kích hoạt style (và tự khớp lại mỗi frame). Trong effect:
+  `const spectrum = frame.audio.spectrum(VORTEX_FFT_SIZE);` — số bin = `spectrum.length`; cần minDecibels/maxDecibels/
+  sampleRate thì `frame.audio.spectrumAnalyser(SIZE)`. Chỉ đọc cỡ mà style của mình đã khai báo (cỡ khác có thể null).
+- **Core effect** (`core/visualizer/groups/**`) KHÔNG gọi kho (Rule 2) — workflow đọc qua `frame.audio` rồi truyền tham số.
+- Group mới: thêm `spectrumSize(style)` vào object group — thiếu method này host không xin được phổ, effect sẽ không vẽ.
+

@@ -104,3 +104,8 @@
 | Dot: dải màu theo vị trí ở mode gradient | `BAR_DOT_COLORS_BY_GRADIENT` (event/workflow/visualizer/bar.js) |
 | Clock: vạch phút sáng theo kim giây, ảnh nền mặt số (bìa bài / ảnh thư viện), con lắc | `core/visualizer/groups/shape/clock.js` (`stepClockTickGlow`, `paintClockBackground`) + `event/workflow/visualizer/shape.js` (`_syncClockBackground`); field ảnh `imagePick` — components/custom-effect-drawer.js + `pickImageField()` (event/workflow/custom-effect.js) |
 | Style tắt khối Blur riêng (vd fireworks) | `CUSTOM_EFFECT_NO_BLUR_STYLES` (core/custom-effect.js) |
+
+> Bổ sung 01/10/2026: màu/blur effect (`getComputedColor`/`getActiveBlurMult`) -> `core/visualizer/effect-paint.js`; chữ + ghi DOM
+> thanh BPM/Pitch/Energy -> `core/visualizer/stats-bar.js` (cả 2 dời khỏi core/audio-analysis.js).
+> Cách effect đọc audio (`frame.audio.xxx()`) + group tự khai báo cỡ phổ (`spectrumSize(style)`): xem readme/visual-conventions.md mục "Đọc dữ liệu audio trong effect".
+
