@@ -22,6 +22,33 @@ const VISUAL_BG_VIDEO_SURFACE_OWNER = 'visualBg';
 let visualBgSettingsPanelEl = null;
 let visualBgGradientPanelEl = null;
 
+// MỚI (02/10/2026, Giang duyệt — đọc DB cả lô) — đọc nhiều record theo key trong 1 transaction (service/db.js), thay
+// `Promise.all(keys.map(getVideoRecord|getImageRecord))` (mỗi record 1 transaction mở cùng lúc — danh sách lớn làm sập
+// trang). Kèm dọn rẽ nhánh của 2 hàm bị sửa (_readOriginKeys/_applyNextOrderToKeys) sang object map — event-bus-flow.md
+// mục 7. Loại không có trong bảng -> 'photo', ĐÚNG hành vi cũ (`type === 'video' ? video : ảnh`).
+const VISUAL_BG_RECORDS_BY_TYPE = {
+    video: (keys) => getVideoRecordsByKeys(keys), // service/db.js
+    photo: (keys) => getImageRecordsByKeys(keys), // service/db.js
+};
+const VISUAL_BG_ITEM_NAME_BY_TYPE = {
+    video: (record) => record.customName || stripFileExtension(record.filename),
+    photo: (record) => record.filename,
+};
+// Mode không có trong bảng -> A-Z, ĐÚNG hành vi cũ (mọi mode khác newest/oldest sắp theo tên, chỉ 'za' đảo chiều).
+const VISUAL_BG_SORT_BY_MODE = {
+    newest: (items) => sortVisualBgItemsByAddedAt(items, true), // core/visual-bg-common.js
+    oldest: (items) => sortVisualBgItemsByAddedAt(items, false),
+    za: (items) => sortVisualBgItemsByName(items, true),
+    az: (items) => sortVisualBgItemsByName(items, false),
+};
+// originKind không có trong bảng -> 'group', ĐÚNG hành vi cũ (nhánh cuối của chuỗi if cũ).
+const VISUAL_BG_ORIGIN_KEYS_BY_KIND = {
+    single: (type, originId) => (originId ? [originId] : []),
+    multi: (type, originId) => workflowVisualBg._readMultiOriginKeys(type, originId),
+    groupMulti: (type, originId) => workflowVisualBg._readGroupMultiOriginKeys(type, originId),
+    group: (type, originId) => workflowVisualBg._readGroupOriginKeys(type, originId),
+};
+
 const workflowVisualBg = {
     _listIndex: -1, // vị trí hiện tại trong `source.list` — dùng chung video lẫn ảnh
     _colorPersistTimer: null,
@@ -362,21 +389,30 @@ const workflowVisualBg = {
      * @returns {Promise<string[]>}
      */
     async _readOriginKeys(type, originKind, originId) {
-        if (originKind === 'single') return originId ? [originId] : [];
-        if (originKind === 'multi') {
-            const keys = this._decodeMultiOriginId(originId);
-            const records = await Promise.all(keys.map((k) => (type === 'video' ? getVideoRecord(k) : getImageRecord(k))));
-            return keys.filter((_, i) => records[i]);
+        // SỬA (02/10/2026) — chuỗi if theo originKind -> object map; mỗi nhánh cũ thành 1 method riêng ngay dưới (thân giữ nguyên).
+        return (VISUAL_BG_ORIGIN_KEYS_BY_KIND[originKind] || VISUAL_BG_ORIGIN_KEYS_BY_KIND.group)(type, originId);
+    },
+
+    /** originKind='multi' — các key đã chọn, bỏ key không còn record (đọc cả lô trong 1 transaction). */
+    async _readMultiOriginKeys(type, originId) {
+        const keys = this._decodeMultiOriginId(originId);
+        const records = await (VISUAL_BG_RECORDS_BY_TYPE[type] || VISUAL_BG_RECORDS_BY_TYPE.photo)(keys);
+        return keys.filter((_, i) => records[i]);
+    },
+
+    /** originKind='groupMulti' — gộp key của nhiều folder theo đúng thứ tự chọn. */
+    async _readGroupMultiOriginKeys(type, originId) {
+        const folderIds = this._decodeMultiOriginId(originId);
+        const merged = [];
+        for (const folderId of folderIds) {
+            const map = await getFolderSongMap(folderId);
+            merged.push(...(await this._applyNextOrderToKeys(type, map ? getFolderSongKeys(map) : [])));
         }
-        if (originKind === 'groupMulti') {
-            const folderIds = this._decodeMultiOriginId(originId);
-            const merged = [];
-            for (const folderId of folderIds) {
-                const map = await getFolderSongMap(folderId);
-                merged.push(...(await this._applyNextOrderToKeys(type, map ? getFolderSongKeys(map) : [])));
-            }
-            return merged;
-        }
+        return merged;
+    },
+
+    /** originKind='group' — key của 1 folder. */
+    async _readGroupOriginKeys(type, originId) {
         const map = await getFolderSongMap(originId);
         return this._applyNextOrderToKeys(type, map ? getFolderSongKeys(map) : []);
     },
@@ -403,14 +439,16 @@ const workflowVisualBg = {
      * `appConfigPlaylist.displaySortMode`. */
     async _applyNextOrderToKeys(type, keys) {
         if (appConfigVisualBg.getAll().nextOrder !== 'playlist' || keys.length === 0) return keys;
-        const records = await Promise.all(keys.map((k) => (type === 'video' ? getVideoRecord(k) : getImageRecord(k))));
+        // SỬA (02/10/2026) — đọc cả lô trong 1 transaction; 2 rẽ nhánh theo type/mode cũ -> object map (xem đầu file).
+        const records = await (VISUAL_BG_RECORDS_BY_TYPE[type] || VISUAL_BG_RECORDS_BY_TYPE.photo)(keys);
+        const nameOf = VISUAL_BG_ITEM_NAME_BY_TYPE[type] || VISUAL_BG_ITEM_NAME_BY_TYPE.photo;
         const items = keys.map((k, i) => ({
             key: k,
-            name: records[i] ? (type === 'video' ? (records[i].customName || stripFileExtension(records[i].filename)) : records[i].filename) : k,
+            name: records[i] ? nameOf(records[i]) : k,
             addedAt: records[i] ? records[i].addedAt : 0,
         }));
         const mode = appConfigPlaylist.getAll().displaySortMode;
-        const sorted = (mode === 'newest' || mode === 'oldest') ? sortVisualBgItemsByAddedAt(items, mode === 'newest') : sortVisualBgItemsByName(items, mode === 'za');
+        const sorted = (VISUAL_BG_SORT_BY_MODE[mode] || VISUAL_BG_SORT_BY_MODE.az)(items);
         return sorted.map((it) => it.key);
     },
 

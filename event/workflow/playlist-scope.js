@@ -34,9 +34,9 @@
  *
  * `listPickableMedia(mediaType)` — ảnh/video thư viện trừ item thuộc folder Hidden, cho mọi picker.
  *
- * NẠP SAU: core/playlist/scope.js (loadAllSongs/filterOutExcludedMedia), core/file-manager/image.js
- * (listImages), core/file-manager/video.js (listVideos), service/db.js (setMeta, getFolderSongMap,
- * getAllSongKeys/getAllVideoKeys/getAllImageKeys, getSongRecord/getVideoRecord/getImageRecord),
+ * NẠP SAU: core/playlist/scope.js (loadAllSongs/filterOutExcludedMedia), service/db.js (setMeta, getFolderSongMap,
+ * getAll{Song,Video,Image}Records/get{Song,Video,Image}RecordsByKeys — SỬA 02/10/2026, thay listImages()/listVideos()
+ * + getAll*Keys/get*Record từng key),
  * event/workflow/playlist-order.js (workflowPlaylistOrder.*), core/playlist/render.js
  * (renderPlaylistDiff/updateEmptyState), core/modal-choice-ui.js (modalChoice),
  * core/file-manager/folder.js (getFolderRecord/getExcludedSongKeysFromFolders),
@@ -47,23 +47,35 @@
 // listMediaRecords() ngay dưới. Thêm 1 loại media MỚI theo Adapter pattern (đã có sẵn 1 mảng record
 // đầy đủ) chỉ cần thêm 1 dòng ở đây + 1 entry MEDIA_ADAPTER_SHAPE (core/playlist/loader.js) — KHÔNG
 // cần viết thêm hàm listX() ở tầng Core.
+// SỬA (02/10/2026, Giang duyệt — thư viện 10000 record làm sập trang) — trước đây {getAllKeys, getRecord} rồi đọc
+// `Promise.all(keys.map(getRecord))`: MỖI record 1 transaction, mở cùng lúc. Giờ đọc cả lô trong 1 transaction qua
+// 2 hàm data layer mới (service/db.js): toàn thư viện = cursor, theo danh sách key (folder) = nhiều get trong 1 tx.
 const MEDIA_DB_ACCESSOR = {
-    song: { getAllKeys: getAllSongKeys, getRecord: getSongRecord },
-    video: { getAllKeys: getAllVideoKeys, getRecord: getVideoRecord },
-    photo: { getAllKeys: getAllImageKeys, getRecord: getImageRecord },
+    song: { getAllRecords: getAllSongRecords, getRecordsByKeys: getSongRecordsByKeys },
+    video: { getAllRecords: getAllVideoRecords, getRecordsByKeys: getVideoRecordsByKeys },
+    photo: { getAllRecords: getAllImageRecords, getRecordsByKeys: getImageRecordsByKeys },
 };
 
-// map mediaType -> hàm liệt kê thư viện (core/file-manager/image.js | video.js), dùng bởi listPickableMedia().
+// map mediaType -> hàm liệt kê thư viện, dùng bởi listPickableMedia(). SỬA (02/10/2026) — trước đây gọi listImages()/
+// listVideos() (core/file-manager/image.js | video.js): 2 hàm core TỰ ĐỌC DB (vi phạm Rule 3b) và cũng đọc mỗi record
+// 1 transaction song song -> xoá 2 hàm đó, gọi thẳng data layer (Workflow được đọc DB).
 const PICKABLE_MEDIA_LISTER = {
-    photo: () => listImages(),
-    video: () => listVideos(),
+    photo: () => getAllImageRecords(), // service/db.js
+    video: () => getAllVideoRecords(), // service/db.js
+};
+
+// MỚI (02/10/2026) — listMediaRecords(): có folderId -> chỉ đọc key của folder đó; không -> cả thư viện. 2 tiến trình
+// đọc khác nhau -> object map (event-bus-flow.md mục 7), khoá boolean thật `!!folderId`.
+const MEDIA_RECORDS_BY_FOLDER_SCOPED = {
+    true: (accessor, folderId, onProgress) => workflowPlaylistScope._listFolderMediaRecords(accessor, folderId, onProgress),
+    false: (accessor, folderId, onProgress) => accessor.getAllRecords(onProgress),
 };
 
 const workflowPlaylistScope = {
 
     /**
-     * List — đọc key (toàn bộ thư viện, hoặc CHỈ của 1 folder nếu có `folderId`) rồi fetch từng
-     * record qua `MEDIA_DB_ACCESSOR`. `onProgress(done, total)` — `total` LUÔN khớp đúng số record
+     * List — đọc record (toàn bộ thư viện, hoặc CHỈ của 1 folder nếu có `folderId`) qua `MEDIA_DB_ACCESSOR`, cả lô
+     * trong 1 transaction (SỬA 02/10/2026). `onProgress(done, total)` — `total` LUÔN khớp đúng số record
      * SẼ đọc (folder nhỏ thì total nhỏ, không còn hiện nhầm tổng thư viện khi đang Scope).
      * @param {'song'|'video'|'photo'} mediaType
      * @param {string|null} [folderId] - có giá trị -> CHỈ đọc key của folder này
@@ -71,22 +83,17 @@ const workflowPlaylistScope = {
      * @returns {Promise<Array<object>>} mảng record (đã gộp `key`), record null/rỗng đã lọc bỏ
      */
     async listMediaRecords(mediaType, folderId, onProgress) {
-        const { getAllKeys, getRecord } = MEDIA_DB_ACCESSOR[mediaType];
-        let keys;
-        if (folderId) {
-            const folderMap = await getFolderSongMap(folderId); // service/db.js
-            keys = folderMap ? folderMap.list.filter((k) => k != null) : [];
-        } else {
-            keys = await getAllKeys();
-        }
-        let done = 0;
-        const records = await Promise.all(keys.map(async (key) => {
-            const record = await getRecord(key);
-            done++;
-            if (typeof onProgress === 'function') onProgress(done, keys.length);
-            return record ? { key, ...record } : null;
-        }));
-        return records.filter(Boolean);
+        // SỬA (02/10/2026) — đọc cả lô trong 1 transaction (xem MEDIA_DB_ACCESSOR); if/else cũ -> object map.
+        return MEDIA_RECORDS_BY_FOLDER_SCOPED[!!folderId](MEDIA_DB_ACCESSOR[mediaType], folderId, onProgress);
+    },
+
+    /** MỚI (02/10/2026, tách từ listMediaRecords()) — record của ĐÚNG các key trong 1 folder, đọc trong 1 transaction.
+     * @param {{getRecordsByKeys: Function}} accessor @param {string} folderId @param {Function} [onProgress] */
+    async _listFolderMediaRecords(accessor, folderId, onProgress) {
+        const folderMap = await getFolderSongMap(folderId); // service/db.js
+        const keys = folderMap ? folderMap.list.filter((k) => k != null) : []; // chọn GIÁ TRỊ
+        const records = await accessor.getRecordsByKeys(keys, onProgress);
+        return keys.map((key, i) => (records[i] ? { key, ...records[i] } : null)).filter(Boolean);
     },
 
     /**
@@ -246,7 +253,7 @@ const workflowPlaylistScope = {
      */
     async listPickableMedia(mediaType) {
         const [items, excludedKeys] = await Promise.all([
-            PICKABLE_MEDIA_LISTER[mediaType](), // core/file-manager/image.js | video.js
+            PICKABLE_MEDIA_LISTER[mediaType](), // service/db.js (SỬA 02/10/2026 — trước đây core/file-manager/image.js | video.js)
             getExcludedSongKeysFromFolders(mediaType), // core/file-manager/folder.js
         ]);
         return filterOutExcludedMedia(items, excludedKeys); // core/playlist/scope.js

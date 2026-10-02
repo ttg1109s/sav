@@ -75,9 +75,7 @@ const workflowPlaylistOrder = {
         // field (nối bằng ký tự xuống dòng — query 1 dòng không thể khớp vắt qua 2 field).
         const live = liveKeys(playlistOrder, confirmedBrokenKeys); // core/playlist/order.js
         const searchTextMemo = this._searchTextMemo();
-        const filtered = searchQuery
-            ? live.filter((key) => this._searchTextOf(key, playlistCache.get(key), searchTextMemo).includes(searchQuery))
-            : live; // không có query -> giữ nguyên (chọn GIÁ TRỊ)
+        const filtered = live.filter((key) => !searchQuery || this._searchTextOf(key, playlistCache.get(key), searchTextMemo).includes(searchQuery)); // không có query -> mọi bài khớp (vị từ boolean, không rẽ tiến trình)
         const sorted = sortKeysByMode(filtered, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap); // core/playlist/order.js
         appState.set('renderOrder', sorted);
         console.log(`writer: "workflowPlaylistOrder.recomputeRenderOrder", page: "renderOrder", content: "${(performance.now() - _t0).toFixed(0)}ms cho ${sorted.length} item"`);

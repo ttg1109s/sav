@@ -431,14 +431,14 @@ Object.assign(workflowVisualBg, {
         if (typeof workflowVideoPlayer !== 'undefined') await workflowVideoPlayer.showStaticBgThumb(key, (record) => this._onVideoLayerBFilled(record)); // SỬA 30/09/2026 — khớp Resolution VBG cho thumb placeholder
     },
 
-    /** Mở panel — đọc tên từng video (song song) rồi vẽ hàng. `_videoAudioRows` là bản chụp tại
+    /** Mở panel — đọc tên các video (cả lô, 1 transaction) rồi vẽ hàng. `_videoAudioRows` là bản chụp tại
      * thời điểm mở, không tự cập nhật nếu `source.list` đổi sau đó (cycle/reshuffle chạy nền) —
      * đóng mở lại panel để thấy danh sách mới. */
     async openVideoAudioPanel() {
         visualBgVideoAudioPanelEl = genericDrawerBody;
         const cfg = appConfigVisualBg.getAll();
         const keys = cfg.source.list.filter((k) => k !== null);
-        const records = await Promise.all(keys.map((k) => getVideoRecord(k)));
+        const records = await getVideoRecordsByKeys(keys); // service/db.js — SỬA (02/10/2026): cả lô trong 1 transaction, thay Promise.all(getVideoRecord) mỗi key 1 transaction
         this._videoAudioRows = keys.map((key, i) => ({
             key,
             name: records[i] ? (records[i].customName || stripFileExtension(records[i].filename)) : key,

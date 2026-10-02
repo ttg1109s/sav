@@ -91,6 +91,13 @@ const RECORDED_SONG_INDEX_BY_SOURCE = {
     other: () => {},
 };
 
+/** MỚI (02/10/2026, rà event-bus-flow.md mục 7) — switchSource(): Nguồn mới có folder Scope đang nhớ -> áp folder đó;
+ * không -> cả thư viện. Trước đây if/else. Khoá boolean thật `!!folderForThisSource`. */
+const SOURCE_SCOPE_APPLY_BY_HAS_FOLDER = {
+    true: (folderId, mediaType, onProgress) => workflowPlaylistScope.applyFolderScope(folderId, mediaType, onProgress),
+    false: (folderId, mediaType, onProgress) => workflowPlaylistScope.applyAllSongsScope(mediaType, onProgress),
+};
+
 const workflowPlaylist = {
 
     /** MỚI (21/09/2026, Giang yêu cầu — cuộn hoãn khi menu 3 chấm đang mở) — ĐƯỜNG ĐÓNG DUY NHẤT của menu 3 chấm
@@ -1983,10 +1990,7 @@ const workflowPlaylist = {
         // KHÔNG áp dụng khi mediaType KHÔNG đổi (vd bấm lại đúng Nguồn đang xem) — giữ nguyên tối
         // ưu diff cho các lượt gọi applyFolderScope()/applyAllSongsScope() khác (tap folder, upload-
         // refresh...) vốn không đổi Nguồn nên không có rủi ro trùng key này.
-        if (mediaType !== appState.get('activeMediaSource')) {
-            appState.get('domNodesByKey').forEach(revokeNodeCoverUrl); // core/playlist/render.js
-            appState.mutate('domNodesByKey', m => m.clear());
-        }
+        this._dropDomNodesIfSourceChanged(mediaType); // SỬA (02/10/2026, rà event-bus-flow.md mục 7) — bước tuỳ chọn -> method mở đầu bằng guard
 
         appState.set('activeMediaSource', mediaType);
         console.log(`writer: "switchSource", page: "activeMediaSource", content: "${mediaType}"`);
@@ -1995,8 +1999,7 @@ const workflowPlaylist = {
         await withLoadingShield(t('playlistView.loading.generic'), async () => {
             const folderForThisSource = appState.get('activePlayListFolder')[mediaType];
             const onProgress = (done, total) => { loadingText.textContent = tFormat(i18n.loadingKey, { done, total }); };
-            if (folderForThisSource) await workflowPlaylistScope.applyFolderScope(folderForThisSource, mediaType, onProgress);
-            else await workflowPlaylistScope.applyAllSongsScope(mediaType, onProgress);
+            await SOURCE_SCOPE_APPLY_BY_HAS_FOLDER[!!folderForThisSource](folderForThisSource, mediaType, onProgress); // SỬA (02/10/2026, mục 7) — if/else -> object map
             // SỬA (02/10/2026, Giang yêu cầu "current video -> đổi Nguồn Photo -> về lại Video -> phải về current") — trước
             // đây LUÔN resetPlaylistScrollTop() (về 0). Giờ theo quy tắc A: Nguồn mới có media đang phát -> tới thẳng nó
             // (tức thì); không có -> về 0 như cũ.
@@ -2008,6 +2011,16 @@ const workflowPlaylist = {
         if (btnPlaylistEmptyShuffle) btnPlaylistEmptyShuffle.classList.remove('hidden');
         await this._persistPlaylistConfig(); // lưu bền Nguồn để không mất sau reload
     },
+    /** Tách từ switchSource() (02/10/2026, event-bus-flow.md mục 7 — bước tuỳ chọn) — Nguồn THẬT SỰ đổi thì dọn hẳn
+     * domNodesByKey (lý do: xem comment FIX 10/09/2026 trong switchSource()); bấm lại đúng Nguồn đang xem thì giữ nguyên.
+     * @param {'song'|'video'|'photo'} mediaType */
+    _dropDomNodesIfSourceChanged(mediaType) {
+        if (mediaType === appState.get('activeMediaSource')) return; // guard — Nguồn không đổi
+        appState.get('domNodesByKey').forEach(revokeNodeCoverUrl); // core/playlist/render.js
+        appState.mutate('domNodesByKey', m => m.clear());
+        console.log(`writer: "workflowPlaylist._dropDomNodesIfSourceChanged", page: "domNodesByKey", content: "clear (đổi Nguồn sang ${mediaType})"`);
+    },
+
 
     /**
      * "Sắp xếp" đổi giá trị (Settings → Playlist) — MỚI, tách khỏi router (phản hồi Giang, mục 5
