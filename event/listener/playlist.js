@@ -115,12 +115,48 @@ if (playlistContainer) {
 }
 
 // MỚI (02/10/2026, Giang chốt phương án A — `content-visibility: auto` cho item Playlist) — khung cuộn Playlist (div
-// `overflow-y-auto` bọc #playlist-container, components/playlist-view.js) đổi kích thước -> báo Router đo lại chiều cao
-// ước lượng của item (tile Grid cao theo bề rộng cột, xoay máy là đổi). ResizeObserver tự gom về 1 lần/khung hình.
+// `overflow-y-auto` bọc #playlist-container, components/playlist-view.js) đổi kích thước -> báo Router kèm BỀ RỘNG mới
+// (Workflow chỉ đo lại chiều cao ước lượng của item khi bề rộng đổi — tile Grid cao theo bề rộng cột, xoay máy là đổi).
+// ResizeObserver tự gom về 1 lần/khung hình.
 if (playlistContainer && playlistContainer.parentElement && typeof ResizeObserver !== 'undefined') {
-    new ResizeObserver(() => {
-        eventBus.send({ router: 'playlist', type: 'playlist.viewport.resize', payload: {} });
+    new ResizeObserver((entries) => {
+        const width = entries[entries.length - 1].contentRect.width;
+        eventBus.send({ router: 'playlist', type: 'playlist.viewport.resize', payload: { width } });
     }).observe(playlistContainer.parentElement);
+}
+
+// MỚI (02/10/2026, tối ưu 10000 item — Giang duyệt) — ảnh bìa gắn THEO NHU CẦU: buildSongNode() dựng node bìa thật ở
+// trạng thái chờ (`data-cover-pending="true"`, <img> chưa có src). MutationObserver bám #playlist-container: node chờ bìa
+// được thêm vào -> IntersectionObserver theo dõi; node rời DOM -> thôi theo dõi (IntersectionObserver giữ tham chiếu
+// mạnh tới mục tiêu — không gỡ là rò node cũ). Node lại gần khung nhìn (cách 1 màn hình trên/dưới) -> thôi theo dõi
+// (1 lần là đủ) + báo Router danh sách key để Workflow gắn object URL (event/workflow/playlist-render.js::
+// attachCoverUrls()). Node ẩn vì Search (display:none) không bao giờ "giao nhau" nên chưa tải cho tới khi hiện lại.
+if (playlistContainer && playlistContainer.parentElement
+    && typeof IntersectionObserver !== 'undefined' && typeof MutationObserver !== 'undefined') {
+    const coverNearViewportObserver = new IntersectionObserver((entries) => {
+        const keys = [];
+        entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            coverNearViewportObserver.unobserve(entry.target);
+            keys.push(entry.target.dataset.key);
+        });
+        if (!keys.length) return;
+        eventBus.send({ router: 'playlist', type: 'playlist.cover.nearViewport', payload: { keys } });
+    }, { root: playlistContainer.parentElement, rootMargin: '100% 0px' });
+
+    new MutationObserver((records) => {
+        // Gom mọi node bị đụng trong lượt này rồi xét trạng thái CUỐI (diff dời node = 1 bản ghi gỡ + 1 bản ghi thêm).
+        const touched = new Set();
+        records.forEach((record) => {
+            record.addedNodes.forEach((node) => touched.add(node));
+            record.removedNodes.forEach((node) => touched.add(node));
+        });
+        touched.forEach((node) => {
+            if (node.nodeType !== 1) return;
+            if (node.isConnected && node.dataset.coverPending === 'true') coverNearViewportObserver.observe(node);
+            else coverNearViewportObserver.unobserve(node);
+        });
+    }).observe(playlistContainer, { childList: true });
 }
 
 // ===================== Modal: Bài hát lỗi lúc phát =====================
