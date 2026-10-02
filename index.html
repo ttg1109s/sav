@@ -622,7 +622,7 @@
          khác — hầu hết gọi taskManager.once()/addNew() ngay khi gắn listener lúc parse. -->
     <script src="service/task-manager.js?v=20260720v1"></script>
     <!-- service/db.js — CHUYỂN từ `core/db.js` cùng lý do trên (dịch vụ hạ tầng IndexedDB thuần). -->
-    <script src="service/db.js?v=20261001rec1"></script>
+    <script src="service/db.js?v=20261002cv4"></script>
     <!-- MỚI (03/08/2026) — 2 hạ tầng dùng CHUNG, KHÔNG thuộc riêng module nào (Rule 3b, readme/
          core-function-conventions.md) — đặt cạnh service/db.js đúng vai trò "service/", không tách
          nhóm theo nơi dùng đầu tiên (Video Preview chỉ là nơi dùng ĐẦU TIÊN, không phải chủ sở
@@ -653,7 +653,7 @@
          XOÁ (loại bỏ Album khỏi Photo Panel) — album.js (CRUD store 'albums', đã ngừng dùng cùng
          store — xem comment DB_VERSION ở service/db.js) bỏ hẳn cùng tính năng, không còn nơi nào
          gọi tới. -->
-    <script src="core/file-manager/image.js?v=20260823v1"></script>
+    <script src="core/file-manager/image.js?v=20261002cv4"></script>
     <script src="core/file-manager/photo-ui.js?v=20260924r3"></script>
     <!-- MỚI (v13) — picker Generic Drawer DÙNG CHUNG cho lưới ảnh lẫn lưới video. ĐỔI TÊN (24/09/2026) từ
          core/media-picker-drawer-helper.js (Rule 5c — file core wire UI phải hậu tố `-ui`). -->
@@ -684,7 +684,7 @@
          dùng chung hàm nào ngoài slugify()/service/db.js) — chỉ cần SAU service/db.js.
          core/file-manager/video-ui.js ĐÃ XOÁ HẲN (Batch 6, mục 6d, phản hồi Giang — modal "Chi
          tiết" riêng nó từng chứa đã bỏ, dùng chung modal Playlist đã video-aware). -->
-    <script src="core/file-manager/video.js?v=20260926p1"></script>
+    <script src="core/file-manager/video.js?v=20261002cv4"></script>
     <script src="core/file-manager/video-ui.js?v=20260929cap1"></script>
     <!-- Tool migration thumbnail 320x320 (tools/migrate-video-thumbs-320.js, Batch 3) — Giang xác
          nhận đã chạy xong tốt, ĐÃ XOÁ (batch 4, 27/07/2026): dòng <script> này + file
@@ -826,7 +826,7 @@
          ngay khi nạp — mọi #id đã có sẵn trong DOM vì js/main.js đã mount component trước nhóm core. -->
     <script src="core/playlist/state.js?v=20260625v8e"></script>
     <script src="core/playlist/order.js?v=20260818v1"></script>
-    <script src="core/playlist/render.js?v=20261002cv3"></script>
+    <script src="core/playlist/render.js?v=20261002cv4"></script>
     <script src="core/playlist/loader.js?v=20260924r2"></script>
     <script src="core/playlist/actions.js?v=20260924r2"></script>
     <script src="core/playlist/main.js?v=20261002cv1"></script>
@@ -850,7 +850,7 @@
          hết sang event/workflow/playlist.js sau đợt rà soát Rule 3, xem comment đầu 2 file), chỉ
          cần core/dom-refs.js (selectionActionBar...)/service/state.js (appState). Đặt ở đây (cuối
          nhóm playlist) cho gọn, không bắt buộc thứ tự nào khác trong nhóm CORE. -->
-    <script src="core/playlist/selection.js?v=20261002cv3"></script>
+    <script src="core/playlist/selection.js?v=20261002cv4"></script>
     <script src="core/playlist/bulk-actions.js?v=20260702v2"></script>
     <!-- core/player-controls.js (rút gọn ver 11): TÁCH RA khỏi đây phần "Settings hiệu ứng/màu/
          EQ/volume" — giờ ở visualizers/visualizer-display.js (khu VISUALIZERS dưới), vì đúng
@@ -1068,7 +1068,7 @@
          nạp sau trong cùng nhóm EVENT này). CẦN core/playlist/order.js (liveKeys/sortKeysByMode),
          core/song-search.js (songMatchesQuery), core/playlist/render.js (renderPlaylistDiff) — cả 3
          đã nạp ở nhóm CORE phía trên. -->
-    <script src="event/workflow/playlist-order.js?v=20261002cv3"></script>
+    <script src="event/workflow/playlist-order.js?v=20261002cv4"></script>
     <!-- MỚI (CÙNG đợt trên, Giang chỉ ra "search rồi tắt từ khoá lại rebuild thay vì chỉ ẩn/hiện
          tạm") — event/workflow/playlist-render.js: workflowPlaylistRender, dời NGUYÊN VẸN 4 hàm từ
          core/playlist/render.js (buildSongNode/renderPlaylistFull/renderPlaylistDiff/
@@ -1079,8 +1079,8 @@
          CẦN core/playlist/render.js (revokeNodeCoverUrl/songActionMenuButtonHtml/
          attachCoverFallback/selectionIndicatorHtml/updateEmptyState), core/playlist/state.js
          (formatTime) — đã nạp ở nhóm CORE phía trên. -->
-    <script src="event/workflow/playlist-render.js?v=20261002cv3"></script>
-    <script src="event/workflow/playlist-scope.js?v=20260930hidden1"></script>
+    <script src="event/workflow/playlist-render.js?v=20261002cv4"></script>
+    <script src="event/workflow/playlist-scope.js?v=20261002cv4"></script>
     <!-- Sửa field rule filter dùng chung: màn Edit preset + màn "Cài đặt filter" của folder. -->
     <script src="event/workflow/filter-rule-edit.js?v=20260930hidden2"></script>
     <!-- Playlist Filter Presets (màn List/Edit trong Settings). CẦN core/playlist/filter-presets.js,
@@ -1147,8 +1147,8 @@
 
     <!-- Cụm "visualBg" — Workflow tách 3 file: common (định nghĩa `workflowVisualBg`), video/photo
          (`Object.assign()` thêm vào) — common PHẢI nạp trước video/photo. -->
-    <script src="event/workflow/visual-bg-common.js?v=20261001aa1"></script>
-    <script src="event/workflow/visual-bg-video.js?v=20261001ae1"></script>
+    <script src="event/workflow/visual-bg-common.js?v=20261002cv4"></script>
+    <script src="event/workflow/visual-bg-video.js?v=20261002cv4"></script>
     <script src="event/workflow/visual-bg-photo.js?v=20260930hidden1"></script>
     <script src="event/router/visual-bg.js?v=20260930vbgres2"></script>
     <script src="event/listener/visual-bg.js?v=20260930vbgres2"></script>
@@ -1218,9 +1218,9 @@
          core/listen-stats.js (bumpSongPlayCount), event/workflow/video-player.js (workflowVideoPlayer
          — chỉ dùng trong callback runtime, không bắt buộc thứ tự nạp so với dòng NGAY DƯỚI). -->
     <script src="event/workflow/player.js?v=20261001au2"></script>
-    <script src="event/workflow/playlist.js?v=20261002cv3"></script>
+    <script src="event/workflow/playlist.js?v=20261002cv4"></script>
     <script src="event/router/playlist.js?v=20261002cv3"></script>
-    <script src="event/listener/playlist.js?v=20261002cv3"></script>
+    <script src="event/listener/playlist.js?v=20261002cv4"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel + phân phối lại section Settings, phản hồi
          Giang) — cụm "appSettings" (điều hướng swap Setting, TÁI DÙNG workflowGestureSettings/
          workflowSlideshow/workflowPlaylist/workflowSettingsMisc/workflowFileManagerPhoto/
