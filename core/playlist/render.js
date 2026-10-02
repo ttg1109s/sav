@@ -249,11 +249,9 @@
          * cuộn sớm hơn có thể nhắm nhầm lúc danh sách còn đang lọc lại theo folder). */
         // DỜI (02/10/2026, rà Rule 2/3b) — `scrollToSongIfPending()` (tự đọc localStorage + appState, tự hẹn
         // requestAnimationFrame) sang event/workflow/playlist-render.js::scrollToSongIfPending(); phần cuộn còn lại ở đây:
-        /** Cuộn 1 node Playlist vào giữa khung nhìn. `behavior` 'smooth' (quay về từ subtitle-editor) | 'auto' (tức thì).
-         * Hàm LÁ — thao tác trên node nhận vào. @param {HTMLElement} node @param {ScrollBehavior} behavior */
-        function scrollPlaylistNodeIntoView(node, behavior) {
-            node.scrollIntoView({ behavior, block: 'center' });
-        }
+        // XOÁ (02/10/2026, Giang: "loại bỏ animation, gán giá trị scroll thẳng") — `scrollPlaylistNodeIntoView()`
+        // (scrollIntoView smooth/auto): nơi gọi duy nhất `_scrollToKeyNode()` đã thay bằng
+        // workflowPlaylistRender._scrollToKeyInstant() (computePlaylistCenterScrollTop() + setPlaylistScrollTop() dưới).
 
         // XOÁ (02/10/2026, xử lý nợ 02/10/2026) — `scrollToCurrentKeyInstant()` (tự appState.get(), Rule 2): nơi gọi cuối cùng
         // (core/player-controls.js::switchToVisualizer()) đã dời sang Workflow, mọi nơi dùng
@@ -280,23 +278,18 @@
         // DỜI (02/10/2026, rà Rule 2) — `scrollToCurrentKeyAnimated()` (tự appState.get() currentKey/domNodesByKey, đọc
         // class `playlist-hidden`) sang event/workflow/playlist-render.js::scrollToCurrentAnimated(); 3 phần THUẦN ở đây
         // (số học GIỮ NGUYÊN từng hệ số: tốc độ 2,2 px/ms, clamp 200-800ms, ease-in-out-quad):
-        /** Tính đường cuộn đưa `node` vào giữa khung `scrollEl`. Hàm THUẦN (chỉ đo 2 phần tử nhận vào).
-         * @returns {{start:number, distance:number, duration:number}} */
-        function computePlaylistCenterScrollPlan(scrollEl, node) {
+        // SỬA (02/10/2026, Giang: "loại bỏ animation, gán giá trị scroll thẳng") — `computePlaylistCenterScrollPlan()`
+        // (trả start/distance/duration cho animation) -> `computePlaylistCenterScrollTop()` chỉ trả scrollTop đích;
+        // XOÁ `easeInOutQuad()` (hết nơi dùng). Phép tính vị trí GIỮ NGUYÊN.
+        /** Tính scrollTop đưa `node` vào giữa khung `scrollEl` (kẹp trong [0, maxScroll]). Hàm THUẦN (chỉ đo hộp của 2
+         * phần tử nhận vào — không đụng phần ruột item đang bị content-visibility bỏ qua).
+         * @param {HTMLElement} scrollEl @param {HTMLElement} node @returns {number} */
+        function computePlaylistCenterScrollTop(scrollEl, node) {
             const containerRect = scrollEl.getBoundingClientRect();
             const nodeRect = node.getBoundingClientRect();
             const nodeOffsetTop = (nodeRect.top - containerRect.top) + scrollEl.scrollTop;
             const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
-            const targetScrollTop = Math.max(0, Math.min(maxScroll, nodeOffsetTop - (scrollEl.clientHeight / 2) + (nodeRect.height / 2)));
-            const start = scrollEl.scrollTop;
-            const distance = targetScrollTop - start;
-            const PX_PER_MS = 2.2; // tốc độ cuộn cố định -> thời lượng tự tỉ lệ theo khoảng cách thật
-            const duration = Math.max(200, Math.min(800, Math.abs(distance) / PX_PER_MS));
-            return { start, distance, duration };
-        }
-        /** ease-in-out-quad, t trong [0,1]. Hàm THUẦN. */
-        function easeInOutQuad(t) {
-            return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+            return Math.max(0, Math.min(maxScroll, nodeOffsetTop - (scrollEl.clientHeight / 2) + (nodeRect.height / 2)));
         }
         /** Đặt scrollTop của khung cuộn. Hàm LÁ. */
         function setPlaylistScrollTop(scrollEl, top) {
