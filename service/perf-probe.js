@@ -29,7 +29,6 @@
  *   [Motion P/R] — pause rồi resume Motion Stage (React Beat + Point Move) của bên đang mượn.
  *   [Dòng PL]  — dựng lại dòng Playlist đang phát (refreshSongNode), y như pause/play làm.
  *   [Dựng lại PL] — renderPlaylistFull().
- *   [Ẩn PL]    — (bật/tắt) ẩn hẳn #app-stack lúc ở Visualizer (visibility:hidden sau 0.5s trượt).
  *   [Chạm]     — (v5) KHÔNG làm gì, không ghi log. Giang báo bấm nút nào của v3 cũng hết giật, dù 5 nút làm 5 việc
  *                khác nhau (có nút chỉ đổi 1 class) -> nghi chính cú CHẠM là thứ chữa. Nút này mượt lại => xác nhận.
  *   [Chạm chặn] — (v5) cũng không làm gì, nhưng preventDefault() ngay touchstart (trình duyệt KHÔNG xử lý cú chạm
@@ -50,7 +49,6 @@
  *   [Không WL]      — requestWakeLock() thành no-op (bật lên thì nhả wake lock đang giữ 1 lần). Màn hình có thể tự tắt.
  *   [Không làm mới PL] — refreshSongNode() bỏ qua lúc Playlist đang ẩn (dòng đang phát sẽ hiển thị cũ — chỉ để đo).
  *   [Không cuộn]    — scrollToCurrentInstant()/scrollToCurrentWhenShown() thành no-op (về Playlist không nhảy tới bài).
- *   [Ẩn PL]         — ẩn hẳn #app-stack khỏi render khi ở Visualizer.
  *   [Chạm]          — không làm gì (để gỡ giật khi cần).
  * Nhật ký chạm (v7): mỗi cú chạm bất kỳ (trừ nút probe) -> 3s sau ghi 1 dòng: phần tử được chạm, khoảng chặn main
  * thread dài nhất trong 1.5s đầu, fps sau 3s, các công tắc đang bật. Giang copy các dòng `[perf-probe] chạm` ở Debug console.
@@ -66,10 +64,6 @@
     // ===== CSS =====
     const style = document.createElement('style');
     style.textContent = `
-@media (max-width: 1023px) {
-  html.probe-hide-pl #app-stack { transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0s; }
-  html.probe-hide-pl #app-stack.playlist-hidden { visibility: hidden; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0.5s; }
-}
 #perf-probe-hud { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 4px); left: 4px; z-index: 2147483647;
   font: 10px/1.35 ui-monospace, Menlo, monospace; color: #fff; background: rgba(0,0,0,0.65); padding: 4px 6px;
   border-radius: 6px; white-space: pre; pointer-events: none; max-width: calc(100vw - 8px); overflow: hidden; }
@@ -88,8 +82,7 @@
     btnWrap.innerHTML = '<button type="button" data-probe-noop="plain">Chạm</button>'
         + '<button type="button" data-probe="probe-no-wakelock" aria-pressed="false">Không WL</button>'
         + '<button type="button" data-probe="probe-no-plrefresh" aria-pressed="false">Không làm mới PL</button>'
-        + '<button type="button" data-probe="probe-no-scroll" aria-pressed="false">Không cuộn</button>'
-        + '<button type="button" data-probe="probe-hide-pl" aria-pressed="false">Ẩn PL</button>';
+        + '<button type="button" data-probe="probe-no-scroll" aria-pressed="false">Không cuộn</button>';
     document.body.appendChild(hud);
     document.body.appendChild(btnWrap);
 
@@ -269,7 +262,7 @@
         tapRecord = { ts: performance.now(), label: describeTapTarget(e.target), maxGapMs: 0 };
     }, { capture: true, passive: true });
     function activeToggles() {
-        return ['probe-no-wakelock', 'probe-no-plrefresh', 'probe-no-scroll', 'probe-hide-pl'].filter(isOn).map((c) => c.replace('probe-', '')).join(',') || '-';
+        return ['probe-no-wakelock', 'probe-no-plrefresh', 'probe-no-scroll'].filter(isOn).map((c) => c.replace('probe-', '')).join(',') || '-';
     }
     function flushTapRecord(now) {
         const { fps } = frameStats(now);
