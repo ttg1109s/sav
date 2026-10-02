@@ -63,7 +63,11 @@ const workflowPlaylistRender = {
             ? `${artist} <span class="opacity-50">·</span> ${durationLabel}`
             : durationLabel;
         const hasRealCover = !!(cached && cached.cover);
-        const coverUrl = hasRealCover ? URL.createObjectURL(cached.cover) : DEFAULT_VINYL;
+        // SỬA (02/10/2026, tối ưu 10000 item) — KHÔNG tạo object URL cho bìa thật lúc dựng nữa (đo: chiếm ~70% thời gian
+        // dựng 10000 node). Node bìa thật dựng ở trạng thái "chờ bìa": <img> chưa có src + `data-cover-pending="true"`;
+        // URL gắn sau qua attachNodeCover() (core/playlist/render.js) khi node lại gần khung nhìn. Bìa mặc định (đĩa than)
+        // là URL tĩnh, gắn luôn như cũ.
+        const coverSrcAttr = hasRealCover ? '' : `src="${DEFAULT_VINYL}"`; // chọn GIÁ TRỊ
 
         // FIX (02/10/2026, Giang) — trước đây chỉ so key: đang phát video mà sang Nguồn Photo, ảnh nào trùng slug tên file với
         // video đó bị tô "đang phát". Giờ phải khớp thêm LOẠI media đang phát với Nguồn đang xem (playlistCache luôn là cache
@@ -82,14 +86,15 @@ const workflowPlaylistRender = {
 
         const wrapper = document.createElement('div');
         wrapper.dataset.key = key;
-        wrapper._coverObjectUrl = hasRealCover ? coverUrl : null;
+        wrapper._coverObjectUrl = null; // gắn sau bởi attachNodeCover()
+        wrapper.dataset.coverPending = String(hasRealCover); // event/listener/playlist.js chỉ theo dõi node 'true'
 
         if (isGridViewNow) {
             wrapper.className = `flex flex-col cursor-pointer active:scale-[0.98] transition-transform group relative w-full`;
             wrapper.dataset.role = 'play-item';
             wrapper.innerHTML = `
                 <div class="w-full aspect-square relative mb-2.5">
-                    <img src="${coverUrl}" loading="lazy" decoding="async" class="w-full h-full rounded-2xl object-cover shadow-lg">
+                    <img ${coverSrcAttr} loading="lazy" decoding="async" class="w-full h-full rounded-2xl object-cover shadow-lg">
                     ${isPlaying ? `<div class="absolute inset-0 bg-black/30 rounded-2xl flex items-center justify-center backdrop-blur-[2px]">${eqIconHtml}</div>` : ''}
                     <div class="absolute top-2 right-2 flex bg-black/40 rounded-full">${menuBtnHtml}</div>
                 </div>
@@ -100,7 +105,7 @@ const workflowPlaylistRender = {
             wrapper.dataset.uitk = 'cardHoverBg rowPressBg'; // SỬA 21/09/2026 — trước đây `active:bg-slate-100`/`bg-sky-50` class cứng; nhấn giữ = rowPressBg, rê chuột = cardHoverBg. SỬA 24/09/2026 — nền hàng ĐANG CHỌN không còn đặt ở đây (tint `selectionTintBg` do showSelectionIndicator() thêm/gỡ, xem _applySelectionLayer())
             wrapper.dataset.role = 'play-item';
             wrapper.innerHTML = `
-                <img src="${coverUrl}" loading="lazy" decoding="async" class="w-12 h-12 rounded-lg flex-shrink-0 object-cover shadow-md">
+                <img ${coverSrcAttr} loading="lazy" decoding="async" class="w-12 h-12 rounded-lg flex-shrink-0 object-cover shadow-md">
                 <div class="flex-grow flex flex-col justify-center overflow-hidden gap-0.5">
                     <div class="flex items-center gap-2"><h3 class="text-[16px] leading-tight font-semibold truncate" data-uitk="${isPlaying ? 'accentText' : 'textPrimary'}">${title}</h3>${isPlaying ? eqIconHtml : ''}</div>
                     <p class="text-[13px] truncate font-medium" data-uitk="textSecondary">${secondLineHtml}</p>
@@ -123,14 +128,12 @@ const workflowPlaylistRender = {
      * refreshSongNode) đều qua `buildSongNode()` nên chỉ cần gọi ở cuối hàm đó.
      * @param {HTMLElement} node @param {string} key */
     _applySelectionLayer(node, key) {
-        const selectionMode = appState.get('selectionMode');
-        VirtualMachineState.run([
-            { state: selectionMode, operation: '===', value: true, callback: () => showSelectionIndicator(node, key, appState.get('selectedMediaKeys'), workflowPlaylist._selectionThemeClasses()) }, // core/playlist/selection.js + event/workflow/playlist.js
-            // SỬA (24/09/2026, Giang gửi log boot: 51 dòng "[VirtualMachineState] run() — không rule nào khớp" — mỗi node dựng
-            // 1 dòng khi KHÔNG ở chế độ chọn) — khai báo rõ nhánh "không chọn" là no-op có chủ đích, CÙNG khuôn
-            // event/router/gameplay.js (nhánh armedGameId === null).
-            { state: selectionMode, operation: '===', value: false, callback: () => {} },
-        ]);
+        // SỬA (02/10/2026, tối ưu 10000 item) — vòng tròn TRỐNG (chưa chọn) + ẩn nút 3 chấm giờ do CSS vẽ theo class
+        // `is-selecting` của #playlist-container (applySelectionChrome(), core/playlist/selection.js; assets/css/
+        // layout-nav.css) — node chưa chọn KHÔNG cần patch gì. Chỉ node ĐÃ CHỌN mới cần tint + vòng có dấu tick.
+        const isSelectedNode = appState.get('selectionMode') && appState.get('selectedMediaKeys').has(key);
+        if (!isSelectedNode) return; // guard
+        showSelectionIndicator(node, key, appState.get('selectedMediaKeys'), workflowPlaylist._selectionThemeClasses()); // core/playlist/selection.js + event/workflow/playlist.js
     },
 
     /** Dựng lại TOÀN BỘ DOM (đổi layout grid/list, hoặc lệch số lượng node). Dời NGUYÊN VẸN từ
@@ -145,6 +148,7 @@ const workflowPlaylistRender = {
             appState.mutate('domNodesByKey', m => m.set(key, node));
             playlistContainer.appendChild(node);
         });
+        this._invalidateItemBlockSize(); // SỬA (02/10/2026) — dựng lại toàn bộ (có thể vừa đổi Grid/List) -> đo lại từ đầu
         this.syncItemBlockSize(); // MỚI (02/10/2026) — chiều cao ước lượng cho item ngoài khung nhìn, xem docstring hàm đó
         updatePlayButtonPlayingState(appState.get('currentKey'), appState.get('displayOrder')); // core/playlist/render.js — FIX (10/09/2026) Rule 2: Core nhận tham số, không tự appState.get()
         updateEmptyState(); // core/playlist/render.js
@@ -201,7 +205,9 @@ const workflowPlaylistRender = {
             prevNode = node;
         }
 
-        this.syncItemBlockSize(); // MỚI (02/10/2026) — lượt diff đầu tiên có item (lúc Full chạy với danh sách rỗng) mới đo được
+        // SỬA (02/10/2026, tối ưu 10000 item) — trước đây đo lại MỖI lượt diff (mỗi ký tự Search): mỗi lần đo = thêm
+        // ~2 lượt layout toàn danh sách. Giờ diff CHỈ đo khi chưa đo được lần nào (Full chạy lúc danh sách rỗng).
+        this._syncItemBlockSizeIfUnmeasured();
         updatePlayButtonPlayingState(appState.get('currentKey'), appState.get('displayOrder')); // core/playlist/render.js — FIX (10/09/2026) Rule 2: Core nhận tham số, không tự appState.get()
         updateEmptyState(); // core/playlist/render.js
         console.log(`writer: "workflowPlaylistRender.renderPlaylistDiff", page: "(chẩn đoán)", content: "${(performance.now() - _t0).toFixed(0)}ms — dựng mới ${_builtCount}/${appState.get('renderOrder').length} node, ẩn tạm ${_hiddenCount}, xoá hẳn ${_destroyedCount}"`);
@@ -216,6 +222,7 @@ const workflowPlaylistRender = {
         const oldNode = appState.get('domNodesByKey').get(key);
         if (!oldNode) return;
         const newNode = this.buildSongNode(key);
+        this._attachNodeCover(newNode, key); // MỚI (02/10/2026) — node dựng lại TẠI CHỖ (thường đang trong khung nhìn): gắn bìa ngay, không chờ IntersectionObserver kẻo bìa chớp trắng
         if (oldNode.classList.contains('hidden')) newNode.classList.add('hidden');
         revokeNodeCoverUrl(oldNode); // core/playlist/render.js
         oldNode.replaceWith(newNode);
@@ -259,7 +266,48 @@ const workflowPlaylistRender = {
         const node = firstKey ? appState.get('domNodesByKey').get(firstKey) : null; // chọn GIÁ TRỊ, không rẽ tiến trình
         const px = measurePlaylistItemBlockSize(node); // core/playlist/render.js
         if (!(px > 0)) return; // guard — chưa có item / đang display:none, giữ giá trị cũ (CSS có fallback)
+        if (px === playlistStore.get('itemBlockSizePx')) return; // guard — SỬA (02/10/2026): ghi lại cùng giá trị vẫn làm trình duyệt layout lại toàn danh sách
         applyPlaylistItemBlockSize(playlistContainer, px); // core/playlist/render.js
+        playlistStore.set({ itemBlockSizePx: px });
+        console.log(`writer: "workflowPlaylistRender.syncItemBlockSize", page: "playlistStore.itemBlockSizePx", content: "${px}"`);
+    },
+
+    /** MỚI (02/10/2026) — đo chỉ khi chưa đo được lần nào kể từ lần dựng lại toàn bộ gần nhất (xem renderPlaylistDiff()). */
+    _syncItemBlockSizeIfUnmeasured() {
+        if (playlistStore.get('itemBlockSizePx') > 0) return; // guard — đã đo
+        this.syncItemBlockSize();
+    },
+
+    /** MỚI (02/10/2026) — quên số đo cũ (renderPlaylistFull(): Grid/List có thể vừa đổi, số cũ không còn đúng). */
+    _invalidateItemBlockSize() {
+        playlistStore.set({ itemBlockSizePx: 0 });
+        console.log(`writer: "workflowPlaylistRender._invalidateItemBlockSize", page: "playlistStore.itemBlockSizePx", content: "0 (dựng lại toàn bộ — đo lại)"`);
+    },
+
+    /** MỚI (02/10/2026) — 'playlist.viewport.resize': CHỈ đo lại khi BỀ RỘNG khung cuộn đổi (xoay máy — tile Grid cao theo
+     * bề rộng cột). Đổi chiều cao (bàn phím, thanh địa chỉ) không làm item đổi cao -> bỏ qua, khỏi tốn 2 lượt layout.
+     * @param {number} width - bề rộng khung cuộn (ResizeObserver gửi kèm). */
+    onViewportResize(width) {
+        if (width === playlistStore.get('viewportWidth')) return; // guard
+        playlistStore.set({ viewportWidth: width });
+        console.log(`writer: "workflowPlaylistRender.onViewportResize", page: "playlistStore.viewportWidth", content: "${width}"`);
+        this.syncItemBlockSize();
+    },
+
+    /** MỚI (02/10/2026, tối ưu 10000 item) — 'playlist.cover.nearViewport': gắn ảnh bìa thật cho các node vừa lại gần
+     * khung nhìn (IntersectionObserver, event/listener/playlist.js). Tra node theo key NGAY LÚC NÀY (node lúc phát hiện
+     * có thể đã bị dựng lại/đổi Nguồn — tra lại thì luôn đúng node đang sống).
+     * @param {string[]} keys */
+    attachCoverUrls(keys) {
+        const domNodesByKey = appState.get('domNodesByKey');
+        keys.forEach((key) => this._attachNodeCover(domNodesByKey.get(key), key));
+    },
+
+    /** MỚI (02/10/2026) — gắn bìa thật cho 1 node nếu bài có bìa (dùng chung attachCoverUrls()/refreshSongNode()). */
+    _attachNodeCover(node, key) {
+        const cached = appState.get('playlistCache').get(key);
+        if (!cached || !cached.cover) return; // guard — bài không có bìa thật (đang dùng đĩa than mặc định)
+        attachNodeCover(node, cached.cover); // core/playlist/render.js
     },
 
     /** MỚI (02/10/2026, Giang chốt quy tắc A + yêu cầu "current video -> đổi Nguồn Photo -> về lại Video -> phải về

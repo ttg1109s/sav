@@ -382,8 +382,12 @@ const workflowPlaylist = {
     /** Dọn dẹp DÙNG CHUNG khi thoát chế độ chọn (gọi từ 4 hành động dưới sau khi xong việc) —
      * KHÔNG phải core (workflow không bị 4 rule ràng buộc), chỉ là helper nội bộ tránh lặp code. */
     _exitSelectionMode() {
+        // SỬA (02/10/2026, tối ưu 10000 item) — chỉ gỡ dấu ở node ĐÃ CHỌN (vòng trống của các node còn lại là CSS, tắt theo
+        // class `is-selecting` ở applySelectionChrome(false)). Lấy danh sách TRƯỚC khi disableSelectionMode() xoá tập chọn.
+        const selectedKeysBefore = [...appState.get('selectedMediaKeys')];
         disableSelectionMode();
-        appState.get('domNodesByKey').forEach((node) => hideSelectionIndicator(node));
+        const domNodesByKey = appState.get('domNodesByKey');
+        selectedKeysBefore.forEach((key) => hideSelectionIndicator(domNodesByKey.get(key)));
         updateSelectionActionBar(false, 0);
         applySelectionChrome(false);
     },
@@ -391,6 +395,7 @@ const workflowPlaylist = {
     /** Ứng với 'playlist.selection.toggle'. */
     toggleSelectionMode() {
         const enabled = !appState.get('selectionMode');
+        const selectedKeysBefore = [...appState.get('selectedMediaKeys')]; // SỬA (02/10/2026) — lấy TRƯỚC khi disableSelectionMode() xoá tập chọn
         VirtualMachineState.run([
             { state: enabled, operation: '===', value: true, callback: () => enableSelectionMode() },
             { state: enabled, operation: '===', value: false, callback: () => disableSelectionMode() },
@@ -398,12 +403,12 @@ const workflowPlaylist = {
         const selectedMediaKeys = appState.get('selectedMediaKeys'); // đọc LẠI sau khi core ghi xong (disableSelectionMode có thể vừa clear nó)
         const domNodesByKey = appState.get('domNodesByKey');
         const themeClasses = this._selectionThemeClasses();
-        // Vòng lặp + chọn showSelectionIndicator/hideSelectionIndicator theo `enabled` ĐẶT Ở ĐÂY
-        // (workflow), KHÔNG phải core — đây là ≥2 lời gọi core void nối tiếp nhau (đúng hình dạng
-        // Workflow theo Rule 3/event-bus-flow.md mục 4B), workflow được phép làm việc này tự do.
+        // SỬA (02/10/2026, tối ưu 10000 item) — trước đây lặp qua MỌI node (đo 10000 item: ~1,4 s). Vòng tròn trống + ẩn nút
+        // 3 chấm giờ là CSS theo class `is-selecting` (applySelectionChrome() ngay dưới), nên chỉ còn lặp qua các key ĐÃ
+        // CHỌN (thường rỗng lúc bật, vài key lúc tắt).
         VirtualMachineState.run([
-            { state: enabled, operation: '===', value: true, callback: () => domNodesByKey.forEach((node, key) => showSelectionIndicator(node, key, selectedMediaKeys, themeClasses)) },
-            { state: enabled, operation: '===', value: false, callback: () => domNodesByKey.forEach((node) => hideSelectionIndicator(node)) },
+            { state: enabled, operation: '===', value: true, callback: () => selectedKeysBefore.forEach((key) => showSelectionIndicator(domNodesByKey.get(key), key, selectedMediaKeys, themeClasses)) },
+            { state: enabled, operation: '===', value: false, callback: () => selectedKeysBefore.forEach((key) => hideSelectionIndicator(domNodesByKey.get(key))) },
         ]);
         updateSelectionActionBar(enabled, selectedMediaKeys.size);
         applySelectionChrome(enabled);
@@ -2045,6 +2050,7 @@ const workflowPlaylist = {
      */
     async changeViewMode(mode) {
         setPlaylistViewMode(mode); // core (core/playlist/main.js) — chỉ ghi isGridView + className
+        applySelectionChrome(appState.get('selectionMode')); // MỚI (02/10/2026) — className vừa bị gán lại, mất class `is-selecting` (vòng tròn chọn CSS) nếu đang chọn
         workflowPlaylistRender.renderPlaylistFull(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — layout grid/list đổi cấu trúc node hoàn toàn, không diff được
         await this._persistPlaylistConfig();
     },

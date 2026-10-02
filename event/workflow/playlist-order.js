@@ -37,6 +37,11 @@
  * video-player.js, file-manager-storage.js, core/playlist/render.js, actions.js, loader.js,
  * core/storage-manager.js).
  */
+/** MỚI (02/10/2026, tối ưu 10000 item) — gõ Search: lọc lại danh sách sau khi NGỪNG gõ 150ms (gõ liên tục chỉ lọc 1 lần
+ * cuối — gõ Telex 1 chữ có dấu là 2-3 sự kiện input). Task tên cố định -> taskManager.once() tự huỷ lần hẹn trước. */
+const PLAYLIST_SEARCH_DEBOUNCE_MS = 150;
+const PLAYLIST_SEARCH_APPLY_TASK = 'playlistSearchApply';
+
 const workflowPlaylistOrder = {
 
     /** DỜI (24/09/2026, dọn nợ "Core gọi Workflow") từ core/playlist/actions.js::removeKeyFromDisplay() — thân GIỮ
@@ -64,10 +69,15 @@ const workflowPlaylistOrder = {
         const { playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, mediaStatsMap } = appState.get([
             'playlistOrder', 'confirmedBrokenKeys', 'searchQuery', 'playlistCache', 'displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'mediaStatsMap',
         ]);
-        const filtered = liveKeys(playlistOrder, confirmedBrokenKeys).filter((key) => { // core/playlist/order.js
-            const cached = playlistCache.get(key);
-            return songMatchesQuery(searchQuery, cached ? cached.tag.title : key, cached ? cached.tag.artist : '', cached ? cached.tag.album : ''); // core/song-search.js
-        });
+        // SỬA (02/10/2026, tối ưu 10000 item) — trước đây songMatchesQuery() chuẩn hoá lại 3 field (title/artist/album) của
+        // MỌI bài ở MỖI lần lọc (10000 bài = 30000 lượt normalize NFD + regex mỗi ký tự gõ). Giờ chuỗi đã chuẩn hoá được nhớ
+        // theo key (_searchTextOf()), chỉ tính lại khi tag đổi. Kết quả lọc GIỮ NGUYÊN: khớp nếu query nằm trong 1 trong 3
+        // field (nối bằng ký tự xuống dòng — query 1 dòng không thể khớp vắt qua 2 field).
+        const live = liveKeys(playlistOrder, confirmedBrokenKeys); // core/playlist/order.js
+        const searchTextMemo = this._searchTextMemo();
+        const filtered = searchQuery
+            ? live.filter((key) => this._searchTextOf(key, playlistCache.get(key), searchTextMemo).includes(searchQuery))
+            : live; // không có query -> giữ nguyên (chọn GIÁ TRỊ)
         const sorted = sortKeysByMode(filtered, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap); // core/playlist/order.js
         appState.set('renderOrder', sorted);
         console.log(`writer: "workflowPlaylistOrder.recomputeRenderOrder", page: "renderOrder", content: "${(performance.now() - _t0).toFixed(0)}ms cho ${sorted.length} item"`);
@@ -178,14 +188,43 @@ const workflowPlaylistOrder = {
     /** Ứng với 'playlist.search.input' — nút xoá hiện/ẩn theo có chữ, rồi lọc lại danh sách.
      * @param {string} value */
     searchInput(value) {
-        syncPlaylistSearchClearButton(value); // core/playlist/main.js
-        this.applySearchQuery(value);
+        syncPlaylistSearchClearButton(value); // core/playlist/main.js — nút xoá phản hồi NGAY
+        taskManager.once(() => this.applySearchQuery(value), PLAYLIST_SEARCH_DEBOUNCE_MS, PLAYLIST_SEARCH_APPLY_TASK); // SỬA (02/10/2026) — lọc sau khi ngừng gõ, xem PLAYLIST_SEARCH_DEBOUNCE_MS
     },
 
     /** Ứng với 'playlist.search.clear' — xoá ô nhập + ẩn nút xoá + focus lại, rồi bỏ lọc. */
     searchClear() {
+        taskManager.kill(PLAYLIST_SEARCH_APPLY_TASK); // MỚI (02/10/2026) — huỷ lượt lọc đang hẹn của chữ vừa gõ, kẻo nó chạy SAU và lọc lại
         resetPlaylistSearchInput(); // core/playlist/main.js
         this.applySearchQuery('');
+    },
+
+    /** MỚI (02/10/2026, tối ưu 10000 item) — Map key -> { source, text } nhớ chuỗi tìm kiếm ĐÃ CHUẨN HOÁ của từng bài
+     * (playlistStore, tạo lần đầu cần). Không cần dọn theo key: mục của bài đã xoá chỉ nằm im, mục của bài đổi tag tự
+     * tính lại (so `source`). */
+    _searchTextMemo() {
+        const existing = playlistStore.get('searchTextMemo');
+        if (existing) return existing;
+        const memo = new Map();
+        playlistStore.set({ searchTextMemo: memo });
+        console.log(`writer: "workflowPlaylistOrder._searchTextMemo", page: "playlistStore.searchTextMemo", content: "khởi tạo Map rỗng"`);
+        return memo;
+    },
+
+    /** MỚI (02/10/2026) — chuỗi tìm kiếm đã chuẩn hoá của 1 bài: title/artist/album (bài chưa có cache: chính key) qua
+     * normalizeSongName() (core/song-search.js), nối bằng '\n'. Nhớ theo key, chỉ chuẩn hoá lại khi 1 trong 3 field gốc đổi
+     * (sửa tag / đổi Nguồn trùng key). Ghi thẳng vào Map trong store — KHÔNG log từng mục (10000 dòng/lần lọc đầu).
+     * @param {string} key @param {Object|undefined} cached @param {Map} memo @returns {string} */
+    _searchTextOf(key, cached, memo) {
+        const title = cached ? cached.tag.title : key;
+        const artist = cached ? cached.tag.artist : '';
+        const album = cached ? cached.tag.album : '';
+        const source = `${title}\n${artist}\n${album}`;
+        const hit = memo.get(key);
+        if (hit && hit.source === source) return hit.text; // guard — đã chuẩn hoá đúng bản tag này
+        const text = `${normalizeSongName(title)}\n${normalizeSongName(artist)}\n${normalizeSongName(album)}`; // core/song-search.js
+        memo.set(key, { source, text });
+        return text;
     },
 
     /** Ô tìm kiếm đổi: CHỈ lọc lại danh sách hiển thị (renderOrder) — KHÔNG đụng hàng đợi phát. Thân cũ giữ nguyên
