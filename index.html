@@ -1079,7 +1079,7 @@
          CẦN core/playlist/render.js (revokeNodeCoverUrl/songActionMenuButtonHtml/
          attachCoverFallback/selectionIndicatorHtml/updateEmptyState), core/playlist/state.js
          (formatTime) — đã nạp ở nhóm CORE phía trên. -->
-    <script src="event/workflow/playlist-render.js?v=20261002cv6"></script>
+    <script src="event/workflow/playlist-render.js?v=20261002cv7"></script>
     <script src="event/workflow/playlist-scope.js?v=20261002cv5"></script>
     <!-- Sửa field rule filter dùng chung: màn Edit preset + màn "Cài đặt filter" của folder. -->
     <script src="event/workflow/filter-rule-edit.js?v=20260930hidden2"></script>
@@ -1434,6 +1434,9 @@
          workflowAppBoot.boot() cần tới đều CHẮC CHẮN đã được định nghĩa ở phía TRÊN nó. -->
     <script src="event/workflow/app-boot.js?v=20261002cv5"></script>
     <script src="event/router/app-boot.js?v=20260725v1"></script>
+    <!-- TẠM (02/10/2026) — service/perf-probe.js: HUD chẩn đoán giật sau khi về Playlist rồi vào lại. Độc lập kiến trúc,
+         cần appStack (core/dom-refs.js), appState, taskManager. XOÁ dòng này + file sau khi chẩn đoán xong. -->
+    <script src="service/perf-probe.js?v=20261002pp2"></script>
 
 </body>
 </html>
