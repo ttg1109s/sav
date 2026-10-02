@@ -412,11 +412,26 @@ const workflowPlaylistRender = {
     },
 
     /** Dời từ core `scrollToCurrentKeyInstant()` (bản core ĐÃ XOÁ 02/10/2026) — cuộn
-     * TỨC THÌ tới currentKey (gọi lúc Playlist đang dịch ra ngoài khung nhìn). */
+     * TỨC THÌ tới currentKey (gọi lúc Playlist đang dịch ra ngoài khung nhìn).
+     * FIX (02/10/2026, Giang báo "về Playlist rồi vào lại thì giật toàn bộ video/motion/visual, đổi Nguồn qua lại thì mượt
+     * lại") — KHÔNG dùng `scrollIntoView()` nữa. `returnToPlaylistUI()` gọi hàm này TRƯỚC khi Playlist trượt vào, lúc
+     * #app-stack còn nằm hẳn ngoài màn hình: mọi item đang bị `content-visibility: auto` bỏ qua render, và
+     * `scrollIntoView()` (1) buộc trình duyệt xử lý node đích đang bị bỏ qua, (2) cuộn CẢ chuỗi khung cuộn tổ tiên chứ
+     * không riêng khung Playlist. Lần vào đầu từ boot không dính vì lúc đó Playlist còn trên màn hình (cuộn cùng nhịp với
+     * `slidePlaylistOut()`), đổi Nguồn không dính vì cuộn sau `renderPlaylistFull()` lúc Playlist đang hiện.
+     * Giờ: tính đích "đặt node vào giữa khung" bằng CÙNG phép tính của bản animated (`computePlaylistCenterScrollPlan()` —
+     * chỉ đọc hộp của chính node + khung cuộn, không đụng phần ruột đang bị bỏ qua), rồi gán thẳng `scrollTop` của ĐÚNG
+     * khung cuộn Playlist. Vẫn tức thì, vẫn chạy trước khi trượt vào (giữ yêu cầu 29/07/2026 "cuộn tức thì cả 2 chiều"). */
     scrollToCurrentInstant() {
         const key = appState.get('currentKey');
         if (!key) return; // guard — chưa phát gì
-        this._scrollToKeyNode(key, 'auto');
+        const node = appState.get('domNodesByKey').get(key);
+        if (!node || !node.isConnected) return; // guard — node không còn (khác scope/kết quả tìm kiếm)
+        if (node.classList.contains('hidden')) return; // guard — đang ẩn vì Search (display:none, không có hộp để đo) — bản scrollIntoView cũ cũng no-op ở case này
+        const scrollEl = playlistContainer.parentElement; // div "overflow-y-auto" thật sự cuộn (components/playlist-view.js)
+        const plan = computePlaylistCenterScrollPlan(scrollEl, node); // core/playlist/render.js — chỉ dùng start/distance, bỏ duration
+        if (Math.abs(plan.distance) < 1) return; // guard — đã đúng vị trí
+        setPlaylistScrollTop(scrollEl, plan.start + plan.distance); // core/playlist/render.js
     },
 
     /** Cuộn tới node của `key` nếu node còn gắn DOM (không có — đang khác scope/kết quả tìm kiếm — thì bỏ qua êm). */
