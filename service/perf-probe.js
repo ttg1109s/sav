@@ -1,5 +1,5 @@
 /**
- * service/perf-probe.js — TẠM (02/10/2026, v6), CHỈ ĐỂ CHẨN ĐOÁN bug "về Playlist rồi chọn media -> giật toàn bộ
+ * service/perf-probe.js — TẠM (02/10/2026, v7), CHỈ ĐỂ CHẨN ĐOÁN bug "về Playlist rồi chọn media -> giật toàn bộ
  * (video/motion/visual) kéo dài qua Next/Prev; pause rồi play lại thì mượt". KHÔNG thuộc kiến trúc event-bus — 1 HUD đo
  * đạc độc lập, xoá hẳn file + thẻ <script> cuối index.html sau khi chẩn đoán xong.
  *
@@ -42,6 +42,18 @@
  *                cuộn native (UIScrollView) của nó bị gỡ, không còn tương tác cuộn nào treo lại được; về Playlist thì trả
  *                `overflow-y: auto` (scrollTop giữ nguyên, cuộn bằng code vẫn chạy bình thường). Bật mà KHÔNG còn tái hiện
  *                được giật => chốt nguyên nhân + phương án.
+ *                -> Giang báo (02/10/2026): bật vẫn tái hiện được giật => KHÔNG phải khung cuộn Playlist. (v7: đã gỡ nút.)
+ *
+ * v7 — CHIA ĐÔI tìm BƯỚC gây ra trạng thái giật. Đã biết: giật bắt đầu đúng lúc ĐỔI MEDIA (chọn bài từ Playlist / Next),
+ * chữa bằng 1 cú chạm native bất kỳ. Mỗi nút dưới là 1 công tắc (bật = xanh, BẬT TRƯỚC rồi mới tái hiện), tắt hẳn 1
+ * bước trong luồng đổi media. Bật nút nào mà KHÔNG còn tái hiện được => bước đó là thủ phạm.
+ *   [Không WL]      — requestWakeLock() thành no-op (bật lên thì nhả wake lock đang giữ 1 lần). Màn hình có thể tự tắt.
+ *   [Không làm mới PL] — refreshSongNode() bỏ qua lúc Playlist đang ẩn (dòng đang phát sẽ hiển thị cũ — chỉ để đo).
+ *   [Không cuộn]    — scrollToCurrentInstant()/scrollToCurrentAnimated() thành no-op (về Playlist không nhảy tới bài).
+ *   [Ẩn PL]         — ẩn hẳn #app-stack khỏi render khi ở Visualizer.
+ *   [Chạm]          — không làm gì (để gỡ giật khi cần).
+ * Nhật ký chạm (v7): mỗi cú chạm bất kỳ (trừ nút probe) -> 3s sau ghi 1 dòng: phần tử được chạm, khoảng chặn main
+ * thread dài nhất trong 1.5s đầu, fps sau 3s, các công tắc đang bật. Giang copy các dòng `[perf-probe] chạm` ở Debug console.
  * Mỗi lần đổi màn Playlist <-> Visualizer và mỗi lần bấm nút: ghi 1 dòng tóm tắt ra console (Debug console để copy).
  */
 (function setupPerfProbe() {
@@ -58,9 +70,6 @@
   html.probe-hide-pl #app-stack { transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0s; }
   html.probe-hide-pl #app-stack.playlist-hidden { visibility: hidden; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0.5s; }
 }
-@media (max-width: 1023px) {
-  html.probe-lock-scroll #app-stack.playlist-hidden .probe-pl-scroller { overflow: hidden !important; }
-}
 #perf-probe-hud { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 4px); left: 4px; z-index: 2147483647;
   font: 10px/1.35 ui-monospace, Menlo, monospace; color: #fff; background: rgba(0,0,0,0.65); padding: 4px 6px;
   border-radius: 6px; white-space: pre; pointer-events: none; max-width: calc(100vw - 8px); overflow: hidden; }
@@ -76,24 +85,49 @@
     hud.id = 'perf-probe-hud';
     const btnWrap = document.createElement('div');
     btnWrap.id = 'perf-probe-btns';
-    btnWrap.innerHTML = '<button type="button" data-probe-action="rafPauseResume">Raf P/R</button>'
-        + '<button type="button" data-probe-action="motionPauseResume">Motion P/R</button>'
-        + '<button type="button" data-probe-action="refreshRow">Dòng PL</button>'
-        + '<button type="button" data-probe-action="rebuild">Dựng lại PL</button>'
-        + '<button type="button" data-probe="probe-hide-pl" aria-pressed="false">Ẩn PL</button>'
-        + '<button type="button" data-probe-noop="plain">Chạm</button>'
-        + '<button type="button" data-probe-noop="blocked">Chạm chặn</button>'
-        + '<button type="button" data-probe="probe-lock-scroll" aria-pressed="false">Khoá cuộn</button>';
+    btnWrap.innerHTML = '<button type="button" data-probe-noop="plain">Chạm</button>'
+        + '<button type="button" data-probe="probe-no-wakelock" aria-pressed="false">Không WL</button>'
+        + '<button type="button" data-probe="probe-no-plrefresh" aria-pressed="false">Không làm mới PL</button>'
+        + '<button type="button" data-probe="probe-no-scroll" aria-pressed="false">Không cuộn</button>'
+        + '<button type="button" data-probe="probe-hide-pl" aria-pressed="false">Ẩn PL</button>';
     document.body.appendChild(hud);
     document.body.appendChild(btnWrap);
 
     ['pointerdown', 'pointerup', 'touchstart', 'touchend'].forEach((type) => {
         btnWrap.addEventListener(type, (e) => e.stopPropagation(), { passive: true });
     });
-    // (v5) [Chạm chặn] — chặn xử lý chạm native ngay từ touchstart (listener KHÔNG passive mới gọi được preventDefault).
-    const blockedTouchBtn = btnWrap.querySelector('button[data-probe-noop="blocked"]');
-    blockedTouchBtn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false });
-    blockedTouchBtn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false });
+    // ===== (v7) Công tắc chia đôi — bọc đúng các hàm trong luồng đổi media =====
+    const rootEl = document.documentElement;
+    const isOn = (cls) => rootEl.classList.contains(cls);
+
+    // Wake lock: hàm khai báo toàn cục (core/wakelock.js) -> gán lại thuộc tính window, các chỗ gọi trần `requestWakeLock()` dùng bản bọc.
+    const originalRequestWakeLock = window.requestWakeLock;
+    window.requestWakeLock = function probeRequestWakeLock() {
+        if (isOn('probe-no-wakelock')) return undefined;
+        return originalRequestWakeLock.apply(this, arguments);
+    };
+
+    const originalRefreshSongNode = workflowPlaylistRender.refreshSongNode;
+    workflowPlaylistRender.refreshSongNode = function probeRefreshSongNode() {
+        if (isOn('probe-no-plrefresh') && appStack.classList.contains('playlist-hidden')) return undefined;
+        return originalRefreshSongNode.apply(this, arguments);
+    };
+
+    const originalScrollInstant = workflowPlaylistRender.scrollToCurrentInstant;
+    workflowPlaylistRender.scrollToCurrentInstant = function probeScrollInstant() {
+        if (isOn('probe-no-scroll')) return undefined;
+        return originalScrollInstant.apply(this, arguments);
+    };
+    const originalScrollAnimated = workflowPlaylistRender.scrollToCurrentAnimated;
+    workflowPlaylistRender.scrollToCurrentAnimated = function probeScrollAnimated() {
+        if (isOn('probe-no-scroll')) return undefined;
+        return originalScrollAnimated.apply(this, arguments);
+    };
+
+    // Việc làm thêm ngay lúc bật 1 công tắc.
+    const TOGGLE_ON_HOOKS = {
+        'probe-no-wakelock': () => releaseWakeLock(), // core/wakelock.js — nhả cái đang giữ
+    };
 
     // ===== Đếm số lần callback THẬT SỰ chạy của từng task raf =====
     // Bọc `loop.callback` (thuộc tính công khai của Loop, #runRaf() gọi `this.callback()`) — task mới tạo sau (addNew)
@@ -162,15 +196,14 @@
         }
         const btn = e.target.closest('button[data-probe]');
         if (!btn) return;
-        const isOn = document.documentElement.classList.toggle(btn.dataset.probe);
-        btn.setAttribute('aria-pressed', String(isOn));
-        console.log(`[perf-probe] ${btn.dataset.probe} = ${isOn}`);
+        const turnedOn = rootEl.classList.toggle(btn.dataset.probe);
+        btn.setAttribute('aria-pressed', String(turnedOn));
+        if (turnedOn && TOGGLE_ON_HOOKS[btn.dataset.probe]) TOGGLE_ON_HOOKS[btn.dataset.probe]();
+        console.log(`[perf-probe] ${btn.dataset.probe} = ${turnedOn}`);
     });
 
     // ===== Thu số liệu =====
     const container = document.getElementById('playlist-container');
-    // (v6) Đánh dấu khung cuộn Playlist (div "overflow-y-auto" bọc #playlist-container, components/playlist-view.js — không có id).
-    if (container && container.parentElement) container.parentElement.classList.add('probe-pl-scroller');
 
     function countRenderedRows() {
         if (!container) return '0/0';
@@ -217,6 +250,32 @@
         lastDropped = dropped;
     }
 
+    // ===== (v7) Nhật ký chạm =====
+    const TAP_BLOCK_WINDOW_MS = 1500;
+    const TAP_REPORT_DELAY_MS = 3000;
+    let tapRecord = null; // {ts, label, maxGapMs}
+    function describeTapTarget(el) {
+        if (!el || !el.closest) return '?';
+        const withId = el.closest('[id]');
+        const text = (el.textContent || '').trim().slice(0, 16);
+        return `${withId ? '#' + withId.id : el.tagName.toLowerCase()}${text ? ' "' + text + '"' : ''}`;
+    }
+    // Pha capture trên document, passive — chỉ ghi nhận, không can thiệp. Nút probe đã stopPropagation ở btnWrap
+    // nhưng capture trên document chạy TRƯỚC -> lọc riêng.
+    document.addEventListener('pointerdown', (e) => {
+        if (e.target && e.target.closest && e.target.closest('#perf-probe-btns')) return;
+        if (tapRecord) flushTapRecord(performance.now()); // chạm dồn dập -> chốt bản trước
+        tapRecord = { ts: performance.now(), label: describeTapTarget(e.target), maxGapMs: 0 };
+    }, { capture: true, passive: true });
+    function activeToggles() {
+        return ['probe-no-wakelock', 'probe-no-plrefresh', 'probe-no-scroll', 'probe-hide-pl'].filter(isOn).map((c) => c.replace('probe-', '')).join(',') || '-';
+    }
+    function flushTapRecord(now) {
+        const { fps } = frameStats(now);
+        console.log(`[perf-probe] chạm ${tapRecord.label} | chặn max ${tapRecord.maxGapMs.toFixed(0)}ms | fps sau ${((now - tapRecord.ts) / 1000).toFixed(1)}s ${fps} | màn ${appStack.classList.contains('playlist-hidden') ? 'VIS' : 'PL'} | bật: ${activeToggles()}`);
+        tapRecord = null;
+    }
+
     // ===== Vòng đo =====
     const frameLog = [];
     let lastFrameTs = 0;
@@ -258,6 +317,10 @@
     function tick() {
         const now = performance.now();
         if (lastFrameTs) frameLog.push([now, now - lastFrameTs]);
+        if (tapRecord && lastFrameTs && now - tapRecord.ts <= TAP_BLOCK_WINDOW_MS) {
+            tapRecord.maxGapMs = Math.max(tapRecord.maxGapMs, now - lastFrameTs);
+        }
+        if (tapRecord && now - tapRecord.ts >= TAP_REPORT_DELAY_MS) flushTapRecord(now);
         lastFrameTs = now;
         wrapRafCallbacks();
         sampleReactTransform();
