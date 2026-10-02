@@ -27,75 +27,31 @@ if (songActionOverlay) {
     });
 }
 
+// SỬA (02/10/2026, rà file đã đụng) — chuỗi 9 `if (btn.dataset.menuAction === '...') { send; return; }` -> bảng tra
+// hành động -> message (CÙNG 9 msg.type/payload như cũ). Lịch sử tách từng message riêng: addToFolder (mục 1d,
+// 03/07/2026), editSubtitles (10/07/2026), editVideoFile/editImage/viewVideoThumb (19/09/2026), restore (Batch "Export
+// dọn nợ"), delete/edit (v13 Batch F — xoá 'playlist.actionMenu.select' dùng chung), removeFromFolder (09/09/2026, sót nối
+// dây). `songKey` trong payload của delete/removeFromFolder: message tự mô tả đối tượng (Block gate chỉ với tới payload) —
+// đọc 1 giá trị để DỰNG payload, không phải nghiệp vụ (Rule 5a).
+const SONG_ACTION_MENU_MESSAGE = {
+    addToFolder: () => ({ type: 'playlist.actionMenu.addToFolder', payload: {} }),
+    editSubtitles: () => ({ type: 'playlist.actionMenu.editSubtitles', payload: {} }),
+    editVideoFile: () => ({ type: 'playlist.actionMenu.editVideoFile', payload: {} }),
+    editImage: () => ({ type: 'playlist.actionMenu.editImage', payload: {} }),
+    viewVideoThumb: () => ({ type: 'playlist.actionMenu.viewVideoThumb', payload: {} }),
+    restore: () => ({ type: 'playlist.actionMenu.restore', payload: {} }),
+    delete: () => ({ type: 'playlist.actionMenu.delete.click', payload: { songKey: playlistStore.get('songActionMenuKey') } }),
+    removeFromFolder: () => ({ type: 'playlist.actionMenu.removeFromFolder.click', payload: { songKey: playlistStore.get('songActionMenuKey') } }),
+    edit: () => ({ type: 'playlist.actionMenu.edit.click', payload: {} }),
+};
+
 if (songActionMenu) {
     songActionMenu.addEventListener('click', (e) => {
         const btn = e.target.closest('button[data-menu-action]');
         if (!btn) return; // không bấm trúng 1 trong các nút hành động -> không gửi gì cả
-        // MỚI (mục 1d, CHỐT 03/07/2026): addToFolder đi message RIÊNG, KHÔNG qua
-        // 'playlist.actionMenu.select' (handleSongActionMenuSelect() cũ) — xem comment ở
-        // components/playlist-view.js chỗ khai báo nút này.
-        if (btn.dataset.menuAction === 'addToFolder') {
-            eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.addToFolder', payload: {} });
-            return;
-        }
-        // MỚI (10/07/2026) — "Sửa phụ đề": CÙNG PRECEDENT với addToFolder ở trên (message riêng,
-        // không qua handleSongActionMenuSelect() cũ — xem comment router/playlist.js).
-        if (btn.dataset.menuAction === 'editSubtitles') {
-            eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.editSubtitles', payload: {} });
-            return;
-        }
-        // XOÁ (phản hồi Giang — "bỏ luôn set background cho dropdown của video đi") —
-        // dispatch 'setAsBgVideo' đã bỏ hẳn cùng lúc với nút dropdown tương ứng.
-        if (btn.dataset.menuAction === 'editVideoFile') {
-            eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.editVideoFile', payload: {} });
-            return;
-        }
-        // MỚI (Giang yêu cầu — "thêm dropdown edit image -> mở openImagePreview()") — CÙNG
-        // PRECEDENT với 'editVideoFile' ngay trên.
-        if (btn.dataset.menuAction === 'editImage') {
-            eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.editImage', payload: {} });
-            return;
-        }
-        // MỚI (19/09/2026, Giang yêu cầu — "thêm nút xem thumb full res cho video playlist") — CÙNG
-        // PRECEDENT với 'editImage' ngay trên.
-        if (btn.dataset.menuAction === 'viewVideoThumb') {
-            eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.viewVideoThumb', payload: {} });
-            return;
-        }
-        // MỚI (Batch "Export dọn nợ kiến trúc", phản hồi Giang) — "Xuất file": CÙNG PRECEDENT với
-        // addToFolder/editSubtitles ở trên (message riêng, không qua handleSongActionMenuSelect()
-        // cũ — hàm đó đã có sẵn nhánh if/else vi phạm Rule 1, không mở rộng thêm).
-        if (btn.dataset.menuAction === 'restore') {
-            eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.restore', payload: {} });
-            return;
-        }
-        // SỬA (v13 Batch F) — 2 hành động cuối ('delete'/'edit') TÁCH thành msg.type RIÊNG, xoá
-        // hẳn 'playlist.actionMenu.select' dùng chung. Đây là bước cuối của xu hướng đã chạy suốt
-        // file này (addToFolder/editSubtitles/editVideoFile/restore lần lượt tách ra trước đó vì
-        // `handleSongActionMenuSelect()` có if/else vi phạm Rule 1) — giờ hàm core đó không còn
-        // nhánh nào, xoá luôn.
-        // `songKey` ĐƯA VÀO PAYLOAD: message phải tự mô tả đối tượng nó tác động lên. Trước đây key
-        // chỉ nằm trong `playlistStore` và core tự đọc — Block gate (chỉ với tới appState/appConfig/
-        // payload) không kiểm được "bài sắp xoá có đang làm Visual Background không". Đọc 1 giá trị
-        // để DỰNG payload cùng loại với đọc `btn.dataset`, không phải nghiệp vụ (Rule 5a).
-        if (btn.dataset.menuAction === 'delete') {
-            eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.delete.click', payload: { songKey: playlistStore.get('songActionMenuKey') } });
-            return;
-        }
-        // MỚI (09/09/2026, Giang báo bug "Gỡ khỏi thư mục ở menu 1 item không dùng được") — action
-        // NÀY đã có nút trong HTML (song-menu-btn-remove-from-folder, components/playlist-view.js)
-        // + hàm workflow xử lý sẵn (workflowPlaylist.removeSongFromFolderMenu(), event/workflow/
-        // playlist.js) TỪ TRƯỚC (06/09/2026, hợp nhất Folder vào Playlist) nhưng LỠ SÓT không nối
-        // dây ở listener này — bấm không gửi msg nào, hàm workflow không bao giờ được gọi. Cùng
-        // PRECEDENT với 'delete' ngay trên (cần songKey trong payload).
-        if (btn.dataset.menuAction === 'removeFromFolder') {
-            eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.removeFromFolder.click', payload: { songKey: playlistStore.get('songActionMenuKey') } });
-            return;
-        }
-        if (btn.dataset.menuAction === 'edit') {
-            eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.edit.click', payload: {} });
-            return;
-        }
+        const buildMessage = SONG_ACTION_MENU_MESSAGE[btn.dataset.menuAction];
+        if (!buildMessage) return; // hành động không có trong bảng
+        eventBus.send({ router: 'playlist', ...buildMessage() });
     });
 }
 
@@ -108,9 +64,8 @@ if (playlistContainer) {
             return;
         }
         const item = e.target.closest('[data-role="play-item"]');
-        if (item) {
-            eventBus.send({ router: 'playlist', type: 'playlist.item.playClick', payload: { key: item.dataset.key } });
-        }
+        if (!item) return; // bấm ra ngoài mọi item
+        eventBus.send({ router: 'playlist', type: 'playlist.item.playClick', payload: { key: item.dataset.key } });
     });
 }
 
@@ -134,14 +89,10 @@ if (playlistContainer && playlistContainer.parentElement && typeof ResizeObserve
 if (playlistContainer && playlistContainer.parentElement
     && typeof IntersectionObserver !== 'undefined' && typeof MutationObserver !== 'undefined') {
     const coverNearViewportObserver = new IntersectionObserver((entries) => {
-        const keys = [];
-        entries.forEach((entry) => {
-            if (!entry.isIntersecting) return;
-            coverNearViewportObserver.unobserve(entry.target);
-            keys.push(entry.target.dataset.key);
-        });
-        if (!keys.length) return;
-        eventBus.send({ router: 'playlist', type: 'playlist.cover.nearViewport', payload: { keys } });
+        const nearTargets = entries.filter((entry) => entry.isIntersecting).map((entry) => entry.target);
+        nearTargets.forEach((target) => coverNearViewportObserver.unobserve(target)); // 1 lần là đủ
+        if (!nearTargets.length) return; // guard — lượt này không node nào lại gần
+        eventBus.send({ router: 'playlist', type: 'playlist.cover.nearViewport', payload: { keys: nearTargets.map((target) => target.dataset.key) } });
     }, { root: playlistContainer.parentElement, rootMargin: '100% 0px' });
 
     new MutationObserver((records) => {
@@ -151,11 +102,13 @@ if (playlistContainer && playlistContainer.parentElement
             record.addedNodes.forEach((node) => touched.add(node));
             record.removedNodes.forEach((node) => touched.add(node));
         });
-        touched.forEach((node) => {
-            if (node.nodeType !== 1) return;
-            if (node.isConnected && node.dataset.coverPending === 'true') coverNearViewportObserver.observe(node);
-            else coverNearViewportObserver.unobserve(node);
-        });
+        // Chỉ quản lý ĐĂNG KÝ theo dõi (không quyết định nghiệp vụ): gỡ hết node vừa bị đụng, rồi đăng ký lại đúng các
+        // node còn trong DOM VÀ đang chờ bìa (cùng vai trò bộ chọn `closest('[data-role=...]')` của các listener khác).
+        const touchedElements = [...touched].filter((node) => node.nodeType === 1);
+        touchedElements.forEach((node) => coverNearViewportObserver.unobserve(node));
+        touchedElements
+            .filter((node) => node.isConnected && node.dataset.coverPending === 'true')
+            .forEach((node) => coverNearViewportObserver.observe(node));
     }).observe(playlistContainer, { childList: true });
 }
 
