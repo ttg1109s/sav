@@ -42,6 +42,13 @@
 const PLAYLIST_SEARCH_DEBOUNCE_MS = 150;
 const PLAYLIST_SEARCH_APPLY_TASK = 'playlistSearchApply';
 
+/** MỚI (02/10/2026) — applyNewSongsToDisplayOrder(): 3 kịch bản theo resolveNewSongsDisplayMode() (core/playlist/order.js). */
+const NEW_SONGS_DISPLAY_BY_MODE = {
+    resync: () => workflowPlaylistOrder._resyncDisplayOrderIfStale(),
+    resort: () => workflowPlaylistOrder.recomputeDisplayOrder(),
+    append: (newKeys) => workflowPlaylistOrder._appendNewKeysAsPending(newKeys),
+};
+
 const workflowPlaylistOrder = {
 
     /** DỜI (24/09/2026, dọn nợ "Core gọi Workflow") từ core/playlist/actions.js::removeKeyFromDisplay() — thân GIỮ
@@ -58,7 +65,7 @@ const workflowPlaylistOrder = {
         this.updateShuffleArray();
         this.recomputeRenderOrder();
         workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js
-        updateEmptyState(); // core/playlist/render.js
+        workflowPlaylistRender.syncEmptyState(); // SỬA (02/10/2026) — thay core updateEmptyState()
     },
     /** Tính lại renderOrder = các bài hợp lệ, lọc theo ô tìm kiếm, sắp theo mode hiện tại. KHÔNG
      * bao giờ phụ thuộc currentKey/pending/hàng đợi phát — UI luôn "đúng như mắt thấy". Dời NGUYÊN
@@ -109,15 +116,19 @@ const workflowPlaylistOrder = {
     updateShuffleArray() {
         appState.set('shuffleIndices', appState.get('playlistOrder').slice());
         console.log(`writer: "workflowPlaylistOrder.updateShuffleArray", page: "shuffleIndices", content: "reset theo toàn bộ playlistOrder"`);
-        if (appState.get('isShuffle')) {
-            appState.mutate('shuffleIndices', arr => {
-                for (let i = arr.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [arr[i], arr[j]] = [arr[j], arr[i]];
-                }
-            });
-            console.log(`writer: "workflowPlaylistOrder.updateShuffleArray", page: "shuffleIndices", content: "đã trộn ngẫu nhiên (isShuffle=true)"`);
-        }
+        this._shuffleIndicesIfEnabled(); // SỬA (02/10/2026, mục 7) — bước tuỳ chọn -> method mở đầu bằng guard
+    },
+
+    /** Tách từ updateShuffleArray() — Shuffle đang bật thì trộn ngẫu nhiên shuffleIndices (Fisher-Yates, thân giữ nguyên). */
+    _shuffleIndicesIfEnabled() {
+        if (!appState.get('isShuffle')) return; // guard
+        appState.mutate('shuffleIndices', arr => {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+        });
+        console.log(`writer: "workflowPlaylistOrder._shuffleIndicesIfEnabled", page: "shuffleIndices", content: "đã trộn ngẫu nhiên (isShuffle=true)"`);
     },
 
     /** Thêm bài MỚI vào hàng đợi phát: không đang phát gì -> resort ngay; đang phát -> nối cuối +
@@ -126,21 +137,27 @@ const workflowPlaylistOrder = {
      * xoá khỏi đó) — 2 lời gọi `recomputeDisplayOrder()` đổi thành `this.recomputeDisplayOrder()`
      * (method cùng object, không còn cần gom tham số ở callsite nữa — method đó tự đọc appState). */
     applyNewSongsToDisplayOrder(newKeys) {
-        if (newKeys.length === 0) {
-            const playlistOrder = appState.get('playlistOrder');
-            const confirmedBrokenKeys = appState.get('confirmedBrokenKeys');
-            if (appState.get('displayOrder').length !== liveKeys(playlistOrder, confirmedBrokenKeys).length) this.recomputeDisplayOrder(); // core/playlist/order.js (liveKeys)
-            return;
-        }
-        if (!appState.get('currentKey')) { this.recomputeDisplayOrder(); return; }
-        const displaySet = new Set(appState.get('displayOrder')); // tra cứu O(1) thay cho .includes() O(n)
-        for (const k of newKeys) {
-            if (!displaySet.has(k)) {
-                appState.mutate('displayOrder', arr => arr.push(k));
-                displaySet.add(k);
-            }
-            appState.mutate('pendingResortKeys', s => s.add(k));
-        }
+        // SỬA (02/10/2026, rà event-bus-flow.md mục 7) — chuỗi if cũ (3 kịch bản) -> 1 giá trị trạng thái (core thuần) +
+        // object map; thân từng kịch bản giữ nguyên.
+        const mode = resolveNewSongsDisplayMode(newKeys.length, !!appState.get('currentKey')); // core/playlist/order.js
+        NEW_SONGS_DISPLAY_BY_MODE[mode](newKeys);
+    },
+
+    /** Không có bài mới — chỉ tính lại hàng đợi phát nếu đang lệch số bài hợp lệ. */
+    _resyncDisplayOrderIfStale() {
+        const { displayOrder, playlistOrder, confirmedBrokenKeys } = appState.get(['displayOrder', 'playlistOrder', 'confirmedBrokenKeys']);
+        if (displayOrder.length === liveKeys(playlistOrder, confirmedBrokenKeys).length) return; // guard — đã khớp (core/playlist/order.js)
+        this.recomputeDisplayOrder();
+    },
+
+    /** Đang phát — nối bài mới (chưa có) vào cuối hàng đợi phát + ghi nhận chờ resort khi chạm biên. */
+    _appendNewKeysAsPending(newKeys) {
+        const displaySet = new Set(appState.get('displayOrder')); // tra cứu O(1)
+        const keysToAppend = [...new Set(newKeys)].filter((k) => !displaySet.has(k));
+        appState.mutate('displayOrder', arr => arr.push(...keysToAppend));
+        console.log(`writer: "workflowPlaylistOrder._appendNewKeysAsPending", page: "displayOrder", content: "nối thêm ${keysToAppend.length} key"`);
+        appState.mutate('pendingResortKeys', s => newKeys.forEach((k) => s.add(k)));
+        console.log(`writer: "workflowPlaylistOrder._appendNewKeysAsPending", page: "pendingResortKeys", content: "thêm ${newKeys.length} key chờ resort"`);
     },
 
     /** Đổi kiểu sắp xếp hiển thị — cập nhật CẢ render lẫn hàng đợi phát rồi vẽ lại. az/za/newest/

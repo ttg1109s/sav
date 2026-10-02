@@ -363,7 +363,7 @@ const workflowFileManagerStorage = {
             // recomputeDisplayOrder()/recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/
             // playlist-order.js (workflowPlaylistOrder) — gọi trực tiếp, tự đọc playlistOrder=[]
             // vừa set ở trên qua appState, không cần truyền tham số nữa.
-            workflowPlaylistOrder.updateShuffleArray(); workflowPlaylistOrder.recomputeDisplayOrder(); workflowPlaylistOrder.recomputeRenderOrder(); workflowPlaylistRender.renderPlaylistDiff(); updateEmptyState(); // 3 method đầu + renderPlaylistDiff() ở event/workflow/playlist-order.js + playlist-render.js (dời từ core/playlist/order.js + render.js), updateEmptyState() vẫn core (core/playlist/render.js)
+            workflowPlaylistOrder.updateShuffleArray(); workflowPlaylistOrder.recomputeDisplayOrder(); workflowPlaylistOrder.recomputeRenderOrder(); workflowPlaylistRender.renderPlaylistDiff(); workflowPlaylistRender.syncEmptyState(); // 3 method đầu + renderPlaylistDiff() ở event/workflow/playlist-order.js + playlist-render.js (dời từ core/playlist/order.js + render.js), syncEmptyState() ở playlist-render.js (SỬA 02/10/2026 — thay core updateEmptyState())
         }
     },
 
@@ -378,7 +378,7 @@ const workflowFileManagerStorage = {
             appState.set('playlistOrder', []);
             appState.mutate('playlistCache', (m) => m.clear());
             // SỬA — CÙNG LÝ DO _resetVideoRuntimeStateAfterClear() ngay trên.
-            workflowPlaylistOrder.updateShuffleArray(); workflowPlaylistOrder.recomputeDisplayOrder(); workflowPlaylistOrder.recomputeRenderOrder(); workflowPlaylistRender.renderPlaylistDiff(); updateEmptyState(); // 3 method đầu + renderPlaylistDiff() ở event/workflow/playlist-order.js + playlist-render.js (dời từ core/playlist/order.js + render.js), updateEmptyState() vẫn core (core/playlist/render.js)
+            workflowPlaylistOrder.updateShuffleArray(); workflowPlaylistOrder.recomputeDisplayOrder(); workflowPlaylistOrder.recomputeRenderOrder(); workflowPlaylistRender.renderPlaylistDiff(); workflowPlaylistRender.syncEmptyState(); // 3 method đầu + renderPlaylistDiff() ở event/workflow/playlist-order.js + playlist-render.js (dời từ core/playlist/order.js + render.js), syncEmptyState() ở playlist-render.js (SỬA 02/10/2026 — thay core updateEmptyState())
         }
     },
 

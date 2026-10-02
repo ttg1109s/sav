@@ -595,7 +595,7 @@ const workflowVideoPlayer = {
 
             if (previousKey && previousKey !== videoKey) workflowPlaylistRender.refreshSongNode(previousKey); // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — dòng video/song TRƯỚC đó, CHỈ khi khác videoKey
             workflowPlaylistRender.refreshSongNode(videoKey); // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — dòng video NÀY, cập nhật isPlaying/eq indicator, đọc bgVideoElement.paused — `.play()` vừa gọi trong swapBgVideoSource() đã đặt paused=false ngay (dù 'playing' chưa bắn; armed Game Mode thì skipAutoplay nên vẫn paused như trước), và handleVideoPlayState() sẽ refresh lại lúc sự kiện 'play' bắn
-            updatePlayButtonPlayingState(appState.get('currentKey'), appState.get('displayOrder')); // core/playlist/render.js — FIX (10/09/2026) Rule 2: Core nhận tham số, không tự appState.get()
+            workflowPlaylistRender.syncPlayButtonPlayingState(); // event/workflow/playlist-render.js — SỬA (02/10/2026): khớp cả loại media (key trùng giữa các Nguồn)
 
             // MỚI (phản hồi Giang 29/07/2026, mục 2 — scroll animated Next/Prev) — dời logic
             // switchToVisualizer()/scrollToCurrentKeyAnimated() vào ĐÂY (TRƯỚC ĐÂY router/

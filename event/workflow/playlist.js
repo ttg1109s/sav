@@ -1870,7 +1870,7 @@ const workflowPlaylist = {
             workflowPlaylistOrder.updateShuffleArray();
             workflowPlaylistOrder.recomputeRenderOrder();
             workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
-            updateEmptyState(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
+            workflowPlaylistRender.syncEmptyState(); // SỬA (02/10/2026) — thay core updateEmptyState() // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
         });
 
         this._exitSelectionMode();
@@ -1909,7 +1909,7 @@ const workflowPlaylist = {
             workflowPlaylistOrder.updateShuffleArray();
             workflowPlaylistOrder.recomputeRenderOrder();
             workflowPlaylistRender.renderPlaylistDiff();
-            updateEmptyState();
+            workflowPlaylistRender.syncEmptyState(); // SỬA (02/10/2026) — thay core updateEmptyState()
 
             const folderMap = await getFolderSongMap(folderId); // service/db.js
             if (isFolderEmpty(folderMap)) { // core/file-manager/folder.js
@@ -1940,7 +1940,7 @@ const workflowPlaylist = {
             workflowPlaylistOrder.updateShuffleArray();
             workflowPlaylistOrder.recomputeRenderOrder();
             workflowPlaylistRender.renderPlaylistDiff();
-            updateEmptyState();
+            workflowPlaylistRender.syncEmptyState(); // SỬA (02/10/2026) — thay core updateEmptyState()
 
             const folderMap = await getFolderSongMap(folderId); // service/db.js
             if (isFolderEmpty(folderMap)) { // core/file-manager/folder.js
@@ -2203,7 +2203,7 @@ const workflowPlaylist = {
         // `mediaSourceSelectEl` + gọi `PlaylistMain.updateActiveFolderUI(...)` từng ở đây đã bỏ hẳn
         // cùng hàm đó — badge mới tự cập nhật từ event/workflow/playlist-scope.js, không cần đồng
         // bộ gì thêm ở đây nữa.
-        PlaylistMain.initMediaSource(genericDrawerBody.querySelector('#setting-playlist-media-source'));
+        PlaylistMain.initMediaSource(genericDrawerBody.querySelector('#setting-playlist-media-source'), appState.get('activeMediaSource')); // SỬA (02/10/2026) — core nhận tham số (Rule 2)
     }
 };
 

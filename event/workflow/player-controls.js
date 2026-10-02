@@ -67,7 +67,7 @@ const workflowPlayerControls = {
      * 500ms sau (khớp transition transform 0.5s, assets/css/style.css) ẩn hẳn UI Visualizer + diff lại danh sách.
      * KHÔNG đụng `isVisualizerActive` — nơi gọi tự `setVisualizerActiveFalse()` nếu cần (y như bản cũ). */
     returnToPlaylistUI() {
-        scrollToCurrentKeyInstant(); // core/playlist/render.js
+        workflowPlaylistRender.scrollToCurrentInstant(); // SỬA (02/10/2026) — bản đúng rule (core scrollToCurrentKeyInstant() tự appState.get())
         slideBackToPlaylistUi(); // core/player-controls.js
         if (typeof closeControlCenter === 'function') closeControlCenter(); // core/visualizer-control-center.js — phòng panel còn mở sót
         taskManager.once(() => {

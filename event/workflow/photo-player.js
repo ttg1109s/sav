@@ -253,7 +253,7 @@ const workflowPhotoPlayer = {
 
         if (previousKey && previousKey !== photoKey) workflowPlaylistRender.refreshSongNode(previousKey); // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
         workflowPlaylistRender.refreshSongNode(photoKey);
-        updatePlayButtonPlayingState(appState.get('currentKey'), appState.get('displayOrder')); // core/playlist/render.js — FIX (10/09/2026) Rule 2: Core nhận tham số, không tự appState.get()
+        workflowPlaylistRender.syncPlayButtonPlayingState(); // event/workflow/playlist-render.js — SỬA (02/10/2026): khớp cả loại media (key trùng giữa các Nguồn)
 
         if (switchScreen) switchToVisualizer(); else workflowPlaylistRender.scrollToCurrentOrDefer(); // core/player-controls.js / event/workflow/playlist-render.js (hoãn cuộn nếu menu 3 chấm đang mở)
 

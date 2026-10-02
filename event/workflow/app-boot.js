@@ -143,7 +143,7 @@ const workflowAppBoot = {
         if (bootMediaSource === 'song') {
             let shownLoadingOverlay = false;
             bootOnProgress = (done, total) => {
-                if (!shownLoadingOverlay) { showPlaylistLoading(0, total); shownLoadingOverlay = true; } // core/playlist/render.js — tự fade out khi DOM list dựng xong (updateEmptyState(), trong applyFolderScope()/applyAllSongsScope())
+                if (!shownLoadingOverlay) { workflowPlaylistRender.showPlaylistLoading(0, total); shownLoadingOverlay = true; } // core/playlist/render.js — tự fade out khi DOM list dựng xong (updateEmptyState(), trong applyFolderScope()/applyAllSongsScope())
                 updatePlaylistLoading(done, total);
             };
         }
@@ -159,7 +159,7 @@ const workflowAppBoot = {
         }
         // Cuộn tới bài vừa sửa phụ đề xong (quay lại từ subtitle-editor.html qua nút "←") — đặt
         // SAU CÙNG (đã nạp cache + khôi phục activePlayListFolder xong).
-        if (typeof scrollToSongIfPending === 'function') scrollToSongIfPending();
+        workflowPlaylistRender.scrollToSongIfPending(); // SỬA (02/10/2026) — dời từ core (Rule 2/3b), xem method đó
 
         // XOÁ (30/07/2026, cùng ngày) — `workflowFileManagerVideo.regenerateAllVideoThumbFull()`
         // (thêm rồi xoá NGAY TRONG CÙNG NGÀY, chạy ngầm 1 lần lúc boot quét lại toàn bộ video cũ) —
@@ -171,7 +171,7 @@ const workflowAppBoot = {
         // Nguồn boot không phải Song (chưa từng show()) hoặc render xong renderOrder vẫn rỗng (mọi
         // record hỏng — `updateEmptyState()` chỉ tự hide khi renderOrder > 0, xem hàm đó) —
         // hidePlaylistLoading() tự no-op nếu lớp chưa từng hiện/đã ẩn.
-        hidePlaylistLoading(); // core/playlist/render.js
+        workflowPlaylistRender.hidePlaylistLoading(); // SỬA (02/10/2026) — dời từ core (taskManager trong core, Rule 3)
 
         // MỚI (phản hồi Giang — "shield loading không full-screen + Video không có shield") — báo
         // cho preloader full-screen (index.html, đầu <body>) biết Playlist đã THẬT SỰ dựng xong (renderOrder

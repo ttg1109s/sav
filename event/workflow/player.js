@@ -282,7 +282,7 @@ const workflowPlayer = {
             workflowPlaylistRender.refreshSongNode(key);
             if (!appState.get('domNodesByKey').has(key)) workflowPlaylistRender.renderPlaylistDiff();
             if (!switchScreen) workflowPlaylistRender.scrollToCurrentOrDefer();
-            updatePlayButtonPlayingState(appState.get('currentKey'), appState.get('displayOrder')); // core/playlist/render.js — FIX (10/09/2026) Rule 2: Core nhận tham số, không tự appState.get()
+            workflowPlaylistRender.syncPlayButtonPlayingState(); // event/workflow/playlist-render.js — SỬA (02/10/2026): khớp cả loại media (key trùng giữa các Nguồn)
             // (DỜI 01/10/2026: reset số liệu phân tích theo bài — flux/BPM/ô BPM+Pitch/pitch worker/rubikPitch* — sang
             // workflowAudioAnalysis.resetForNewMedia(), gọi qua workflowVisualizerRender.resetForNewMedia() ngay dưới; dùng
             // chung với nhánh Video. `beatTimes` bỏ hẳn — BPM nay tính ở core/audio-tempo.js.)
