@@ -1,5 +1,5 @@
 /**
- * service/perf-probe.js — TẠM (02/10/2026, v5), CHỈ ĐỂ CHẨN ĐOÁN bug "về Playlist rồi chọn media -> giật toàn bộ
+ * service/perf-probe.js — TẠM (02/10/2026, v6), CHỈ ĐỂ CHẨN ĐOÁN bug "về Playlist rồi chọn media -> giật toàn bộ
  * (video/motion/visual) kéo dài qua Next/Prev; pause rồi play lại thì mượt". KHÔNG thuộc kiến trúc event-bus — 1 HUD đo
  * đạc độc lập, xoá hẳn file + thẻ <script> cuối index.html sau khi chẩn đoán xong.
  *
@@ -35,6 +35,13 @@
  *   [Chạm chặn] — (v5) cũng không làm gì, nhưng preventDefault() ngay touchstart (trình duyệt KHÔNG xử lý cú chạm
  *                theo kiểu native: không click, không tương tác cuộn). [Chạm] chữa mà [Chạm chặn] không => thứ chữa là
  *                xử lý chạm native của iOS (trạng thái tương tác/cuộn của WebKit), không phải code JS của app.
+ *                -> Giang xác nhận (02/10/2026): [Chạm] chữa, [Chạm chặn] không; JS mọi task raf chỉ 0.7–2ms/frame cả lúc
+ *                giật => trình duyệt tự hạ nhịp vẽ, không phải code nặng.
+ *   [Khoá cuộn] — (v6, bật/tắt, BẬT TRƯỚC khi tái hiện) thử phương án sửa: lúc #app-stack mang `.playlist-hidden`
+ *                (đang ở / đang trượt sang Visualizer) đổi khung cuộn Playlist sang `overflow: hidden` -> trên iOS khung
+ *                cuộn native (UIScrollView) của nó bị gỡ, không còn tương tác cuộn nào treo lại được; về Playlist thì trả
+ *                `overflow-y: auto` (scrollTop giữ nguyên, cuộn bằng code vẫn chạy bình thường). Bật mà KHÔNG còn tái hiện
+ *                được giật => chốt nguyên nhân + phương án.
  * Mỗi lần đổi màn Playlist <-> Visualizer và mỗi lần bấm nút: ghi 1 dòng tóm tắt ra console (Debug console để copy).
  */
 (function setupPerfProbe() {
@@ -50,6 +57,9 @@
 @media (max-width: 1023px) {
   html.probe-hide-pl #app-stack { transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0s; }
   html.probe-hide-pl #app-stack.playlist-hidden { visibility: hidden; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0.5s; }
+}
+@media (max-width: 1023px) {
+  html.probe-lock-scroll #app-stack.playlist-hidden .probe-pl-scroller { overflow: hidden !important; }
 }
 #perf-probe-hud { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 4px); left: 4px; z-index: 2147483647;
   font: 10px/1.35 ui-monospace, Menlo, monospace; color: #fff; background: rgba(0,0,0,0.65); padding: 4px 6px;
@@ -72,7 +82,8 @@
         + '<button type="button" data-probe-action="rebuild">Dựng lại PL</button>'
         + '<button type="button" data-probe="probe-hide-pl" aria-pressed="false">Ẩn PL</button>'
         + '<button type="button" data-probe-noop="plain">Chạm</button>'
-        + '<button type="button" data-probe-noop="blocked">Chạm chặn</button>';
+        + '<button type="button" data-probe-noop="blocked">Chạm chặn</button>'
+        + '<button type="button" data-probe="probe-lock-scroll" aria-pressed="false">Khoá cuộn</button>';
     document.body.appendChild(hud);
     document.body.appendChild(btnWrap);
 
@@ -158,6 +169,8 @@
 
     // ===== Thu số liệu =====
     const container = document.getElementById('playlist-container');
+    // (v6) Đánh dấu khung cuộn Playlist (div "overflow-y-auto" bọc #playlist-container, components/playlist-view.js — không có id).
+    if (container && container.parentElement) container.parentElement.classList.add('probe-pl-scroller');
 
     function countRenderedRows() {
         if (!container) return '0/0';
