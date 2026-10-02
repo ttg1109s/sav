@@ -749,4 +749,30 @@ không so sánh trực tiếp 1:1 được do phạm vi file khác nhau).
 
 ---
 
+## Rà "file đã đụng" — đợt Playlist 10000 item (02/10/2026)
+
+Rà lại các file đã sửa trong đợt Playlist (content-visibility, ảnh bìa theo nhu cầu, đọc DB cả lô, quy tắc cuộn A,
+"Đang phát" theo loại media). **Đã sửa xong** (đúng Rule 1-5 + event-bus-flow.md mục 7): `core/playlist/render.js`
+(trừ 2 mục nợ dưới), `core/playlist/main.js`, `core/playlist/selection.js`, `core/song-search.js`,
+`event/workflow/playlist-render.js`, `playlist-order.js`, `playlist-scope.js`, `file-manager-folder-browser.js`,
+`event/router/playlist.js`, `event/router/playlist-empty-state.js`, `event/listener/playlist.js`.
+Nhóm `if (el) el.x = ...` kiểm DOM ref null (dom-refs.js) giữ nguyên — phòng vệ, không phải rẽ tiến trình.
+
+**Nợ CÒN LẠI trong các file đó** (chưa sửa — sửa kéo theo file/luồng khác ngoài đợt này):
+
+| File | Hàm | Vi phạm | Vì sao chưa sửa |
+|---|---|---|---|
+| `core/playlist/render.js` | `scrollToCurrentKeyInstant` | Rule 2 (tự `appState.get`) | Nơi gọi duy nhất còn lại: `core/player-controls.js::switchToVisualizer()` (core di sản, 6 nơi gọi gồm `core/visualizer-control-center.js`). Mọi Workflow đã dùng `workflowPlaylistRender.scrollToCurrentInstant()`. |
+| `core/playlist/render.js` | `attachCoverFallback` | Rule 5a (`addEventListener` callback tự đổi `src`, không qua bus) | Dùng chung với `core/playlist/actions.js` (×2, core di sản), `event/workflow/player.js`, `event/workflow/playlist.js`. |
+| `core/file-manager/video.js` | `resolveVideoKey`, `setVideoCustomName`, `setVideoThumbnails`, `replaceVideoMedia`, `computeVideoStats` | Rule 3b (core tự đọc DB) | Nằm trong luồng upload/sửa/thống kê Video — đổi chữ ký kéo theo các Workflow gọi. (`listVideos()` đã xoá.) |
+| `core/file-manager/image.js` | `resolveImageKey`, `updateImageBlob`, `deleteImage`, `computeImageStats` | Rule 3b | Cùng lý do, luồng Photo. (`listImages()` đã xoá.) |
+| `event/workflow/playlist.js` | ~87 chỗ / 29 hàm — nặng nhất `uploadSongs` (16), `deleteMediaFromActionMenu` (7), `_captureFirstFrame` (7), `deleteSelectedMedia` (6) | mục 7 (if/else, bước tuỳ chọn `if (x) f()`, 3 ngôi chọn hàm) | File 2200 dòng, đụng upload/xuất/xoá — cần đợt riêng có test trên máy. |
+| `event/workflow/visual-bg-common.js` | ~73 chỗ / 22 hàm — nặng nhất `loadPersistedSettingsOnBoot` (34), `_tickGradientMovement` (8, hot path) | mục 7 | Cùng lý do (Visual Background). |
+| `event/workflow/visual-bg-video.js` | ~22 chỗ / 13 hàm | mục 7 | Cùng lý do. |
+
+Số đếm ở 3 dòng cuối là quét tự động (bỏ guard `return/continue/break/throw` và kiểm null DOM ref) — cần đọc từng chỗ
+khi sửa thật, 1 phần có thể là guard viết dạng khối.
+
+---
+
 ← [Quay lại core-function-conventions.md](./core-function-conventions.md)
