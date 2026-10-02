@@ -762,15 +762,26 @@ Nhóm `if (el) el.x = ...` kiểm DOM ref null (dom-refs.js) giữ nguyên — p
 
 | File | Hàm | Vi phạm | Vì sao chưa sửa |
 |---|---|---|---|
-| `core/playlist/render.js` | `scrollToCurrentKeyInstant` | Rule 2 (tự `appState.get`) | Nơi gọi duy nhất còn lại: `core/player-controls.js::switchToVisualizer()` (core di sản, 6 nơi gọi gồm `core/visualizer-control-center.js`). Mọi Workflow đã dùng `workflowPlaylistRender.scrollToCurrentInstant()`. |
-| `core/playlist/render.js` | `attachCoverFallback` | Rule 5a (`addEventListener` callback tự đổi `src`, không qua bus) | Dùng chung với `core/playlist/actions.js` (×2, core di sản), `event/workflow/player.js`, `event/workflow/playlist.js`. |
+| ~~`core/playlist/render.js`~~ | ~~`scrollToCurrentKeyInstant`~~ | — | **ĐÃ XỬ LÝ 02/10/2026** — xoá; `core/player-controls.js::switchToVisualizer()` tách 3 hàm lá (`slidePlaylistOut`/`showVisualizerUi`/`revealVisualizerCanvas`), điều phối sang `workflowPlayerControls.switchToVisualizer()`; `returnToVisualizer()` (core/visualizer-control-center.js) sang `workflowPlayerControls.returnToVisualizer()`; 3 player dùng `workflowPlayerControls.showTrackChange()`/`switchToVisualizerIfRequested()`. |
+| ~~`core/playlist/render.js`~~ | ~~`attachCoverFallback`~~ | — | **ĐÃ XỬ LÝ 02/10/2026** — callback chỉ bắn `playlist.cover.error`, router gọi core `applyDefaultCover()`. (2 nơi gọi trong `core/playlist/actions.js` vẫn là core gọi core — nợ của file đó, chưa rà.) |
 | `core/file-manager/video.js` | `resolveVideoKey`, `setVideoCustomName`, `setVideoThumbnails`, `replaceVideoMedia`, `computeVideoStats` | Rule 3b (core tự đọc DB) | Nằm trong luồng upload/sửa/thống kê Video — đổi chữ ký kéo theo các Workflow gọi. (`listVideos()` đã xoá.) |
 | `core/file-manager/image.js` | `resolveImageKey`, `updateImageBlob`, `deleteImage`, `computeImageStats` | Rule 3b | Cùng lý do, luồng Photo. (`listImages()` đã xoá.) |
 | `event/workflow/playlist.js` | ~87 chỗ / 29 hàm — nặng nhất `uploadSongs` (16), `deleteMediaFromActionMenu` (7), `_captureFirstFrame` (7), `deleteSelectedMedia` (6) | mục 7 (if/else, bước tuỳ chọn `if (x) f()`, 3 ngôi chọn hàm) | File 2200 dòng, đụng upload/xuất/xoá — cần đợt riêng có test trên máy. |
 | `event/workflow/visual-bg-common.js` | ~73 chỗ / 22 hàm — nặng nhất `loadPersistedSettingsOnBoot` (34), `_tickGradientMovement` (8, hot path) | mục 7 | Cùng lý do (Visual Background). |
 | `event/workflow/visual-bg-video.js` | ~22 chỗ / 13 hàm | mục 7 | Cùng lý do. |
 
-Số đếm ở 3 dòng cuối là quét tự động (bỏ guard `return/continue/break/throw` và kiểm null DOM ref) — cần đọc từng chỗ
+**Ngoài phạm vi đợt Playlist (chỉ bị đổi dòng gọi) — quét tự động 02/10/2026, chưa sửa:**
+
+| File | Số chỗ / hàm | Nặng nhất |
+|---|---|---|
+| `event/workflow/app-boot.js` | ~22 / 1 | `boot()` (toàn bộ) |
+| `event/workflow/file-manager-storage.js` | ~48 / 16 | `clearAllStoredData` (7), `executeScanBroken` (5) |
+| `event/workflow/player-controls.js` | ~24 / 10 | `runGatedSeek` (11) |
+| `event/workflow/player.js` | ~16 / 1 | `playMedia()` (toàn bộ) |
+| `event/workflow/video-player.js` | ~51 / 16 | `swapBgVideoSource` (17), `playVideoByKey` (6) |
+| `event/workflow/photo-player.js` | ~19 / 7 | `startFromPlaylist` (5) |
+
+Số đếm ở các bảng trên là quét tự động (bỏ guard `return/continue/break/throw` và kiểm null DOM ref) — cần đọc từng chỗ
 khi sửa thật, 1 phần có thể là guard viết dạng khối.
 
 ---
