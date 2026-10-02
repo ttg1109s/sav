@@ -1,5 +1,5 @@
 /**
- * service/perf-probe.js — TẠM (02/10/2026, v3), CHỈ ĐỂ CHẨN ĐOÁN bug "về Playlist rồi chọn media -> giật toàn bộ
+ * service/perf-probe.js — TẠM (02/10/2026, v5), CHỈ ĐỂ CHẨN ĐOÁN bug "về Playlist rồi chọn media -> giật toàn bộ
  * (video/motion/visual) kéo dài qua Next/Prev; pause rồi play lại thì mượt". KHÔNG thuộc kiến trúc event-bus — 1 HUD đo
  * đạc độc lập, xoá hẳn file + thẻ <script> cuối index.html sau khi chẩn đoán xong.
  *
@@ -8,12 +8,19 @@
  * dòng Playlist đang phát (refreshSongNode), đĩa xoay ở player bottom, và chính pipeline của <video>. HUD + nút dưới đây
  * chia đôi từng phần để biết phần nào "chữa" được.
  *
+ * v4 — số liệu v3 cho thấy: tick/s mọi task = fps (KHÔNG có chuỗi rAF nhân đôi), PL hiện 0/669 ở Visualizer, video gần như
+ * không rơi frame. Cần tách tiếp: 1 frame ~130ms bị tiêu vào JS (callback raf) hay vào phần trình duyệt tự làm
+ * (style/layout/paint/composite, task khác). Thêm dòng "ms/frame" + "RB đổi/s" (xem dưới).
+ *
  * HUD (~2 lần/giây):
  *   fps / jank      — fps 2s gần nhất / số frame > 25ms trong 2s đó.
  *   tick/s          — số lần MỖI task raf của taskManager thực sự chạy callback trong 1 giây. Bình thường = fps.
  *                     Task nào ~2x, 3x fps => có 2, 3 chuỗi requestAnimationFrame chạy song song trong CÙNG 1 Loop
  *                     (chuỗi thừa chỉ chết khi Loop bị pause từ bên ngoài — khớp hiện tượng "pause/play là mượt").
  *   anim css/tr/js  — số animation đang chạy: CSS animation / CSS transition / Web Animation thuần (Point Move dùng loại này).
+ *   ms/frame        — (v4) trung bình mỗi frame: tổng thời gian chạy callback raf (JS) / khoảng cách frame / phần còn lại
+ *                     (= trình duyệt tự làm + task khác). Task nặng nhất kèm số ms/tick.
+ *   RB đổi/s        — (v4) số lần transform của #visual-motion-react (React Beat) THẬT SỰ đổi giá trị mỗi giây.
  *   video rơi/s     — số frame video bị bỏ mỗi giây (getVideoPlaybackQuality của #bg-video).
  *   PL hiện         — số item Playlist đang được render / tổng (content-visibility).
  *
@@ -23,6 +30,11 @@
  *   [Dòng PL]  — dựng lại dòng Playlist đang phát (refreshSongNode), y như pause/play làm.
  *   [Dựng lại PL] — renderPlaylistFull().
  *   [Ẩn PL]    — (bật/tắt) ẩn hẳn #app-stack lúc ở Visualizer (visibility:hidden sau 0.5s trượt).
+ *   [Chạm]     — (v5) KHÔNG làm gì, không ghi log. Giang báo bấm nút nào của v3 cũng hết giật, dù 5 nút làm 5 việc
+ *                khác nhau (có nút chỉ đổi 1 class) -> nghi chính cú CHẠM là thứ chữa. Nút này mượt lại => xác nhận.
+ *   [Chạm chặn] — (v5) cũng không làm gì, nhưng preventDefault() ngay touchstart (trình duyệt KHÔNG xử lý cú chạm
+ *                theo kiểu native: không click, không tương tác cuộn). [Chạm] chữa mà [Chạm chặn] không => thứ chữa là
+ *                xử lý chạm native của iOS (trạng thái tương tác/cuộn của WebKit), không phải code JS của app.
  * Mỗi lần đổi màn Playlist <-> Visualizer và mỗi lần bấm nút: ghi 1 dòng tóm tắt ra console (Debug console để copy).
  */
 (function setupPerfProbe() {
@@ -42,7 +54,7 @@
 #perf-probe-hud { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 4px); left: 4px; z-index: 2147483647;
   font: 10px/1.35 ui-monospace, Menlo, monospace; color: #fff; background: rgba(0,0,0,0.65); padding: 4px 6px;
   border-radius: 6px; white-space: pre; pointer-events: none; max-width: calc(100vw - 8px); overflow: hidden; }
-#perf-probe-btns { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 124px); left: 4px; right: 4px; z-index: 2147483647;
+#perf-probe-btns { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 140px); left: 4px; right: 4px; z-index: 2147483647;
   display: flex; flex-wrap: wrap; gap: 4px; pointer-events: none; }
 #perf-probe-btns button { pointer-events: auto; font: 10px ui-monospace, Menlo, monospace; color: #fff; background: rgba(0,0,0,0.65);
   border: 1px solid rgba(255,255,255,0.4); border-radius: 6px; padding: 4px 6px; }
@@ -58,19 +70,27 @@
         + '<button type="button" data-probe-action="motionPauseResume">Motion P/R</button>'
         + '<button type="button" data-probe-action="refreshRow">Dòng PL</button>'
         + '<button type="button" data-probe-action="rebuild">Dựng lại PL</button>'
-        + '<button type="button" data-probe="probe-hide-pl" aria-pressed="false">Ẩn PL</button>';
+        + '<button type="button" data-probe="probe-hide-pl" aria-pressed="false">Ẩn PL</button>'
+        + '<button type="button" data-probe-noop="plain">Chạm</button>'
+        + '<button type="button" data-probe-noop="blocked">Chạm chặn</button>';
     document.body.appendChild(hud);
     document.body.appendChild(btnWrap);
 
     ['pointerdown', 'pointerup', 'touchstart', 'touchend'].forEach((type) => {
         btnWrap.addEventListener(type, (e) => e.stopPropagation(), { passive: true });
     });
+    // (v5) [Chạm chặn] — chặn xử lý chạm native ngay từ touchstart (listener KHÔNG passive mới gọi được preventDefault).
+    const blockedTouchBtn = btnWrap.querySelector('button[data-probe-noop="blocked"]');
+    blockedTouchBtn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false });
+    blockedTouchBtn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false });
 
     // ===== Đếm số lần callback THẬT SỰ chạy của từng task raf =====
     // Bọc `loop.callback` (thuộc tính công khai của Loop, #runRaf() gọi `this.callback()`) — task mới tạo sau (addNew)
     // được bọc ở lượt tick kế tiếp của probe.
     const tickCountByTask = {};
     let tickRateByTask = {};
+    const tickMsByTask = {}; // (v4) tổng ms callback trong giây hiện tại
+    let tickMsRateByTask = {}; // (v4) tổng ms/giây của giây trước
     function wrapRafCallbacks() {
         Object.keys(taskManager.plan).forEach((name) => {
             const loop = taskManager.plan[name];
@@ -78,7 +98,12 @@
             const original = loop.callback;
             const wrapped = function probeCountedCallback() {
                 tickCountByTask[name] = (tickCountByTask[name] || 0) + 1;
-                return original.apply(this, arguments);
+                const t0 = performance.now();
+                try {
+                    return original.apply(this, arguments);
+                } finally {
+                    tickMsByTask[name] = (tickMsByTask[name] || 0) + (performance.now() - t0);
+                }
             };
             wrapped.__probeWrapped = true;
             loop.callback = wrapped;
@@ -157,6 +182,18 @@
         return `${css}/${tr}/${running.length - css - tr}`;
     }
 
+    // (v4) React Beat có thật sự đổi transform không (so giá trị inline mỗi frame của probe).
+    const reactLayer = document.getElementById('visual-motion-react');
+    let lastReactTransform = '';
+    let reactChangeCount = 0;
+    let reactChangePerSec = 0;
+    function sampleReactTransform() {
+        if (!reactLayer) return;
+        const value = reactLayer.style.transform;
+        if (value !== lastReactTransform) reactChangeCount++;
+        lastReactTransform = value;
+    }
+
     let lastDropped = null;
     let droppedPerSec = 0;
     function sampleDroppedFrames() {
@@ -188,9 +225,21 @@
         const { fps, jank } = frameStats(now);
         const screen = appStack.classList.contains('playlist-hidden') ? 'VIS' : 'PL';
         const ticks = Object.keys(tickRateByTask).map((n) => `${n.replace(/Task$|Tick$/, '')}:${tickRateByTask[n]}`).join(' ');
+        // (v4) ms/frame: JS raf (tổng mọi task) / khoảng cách frame / còn lại
+        const jsMsPerSec = Object.keys(tickMsRateByTask).reduce((acc, n) => acc + tickMsRateByTask[n], 0);
+        const framesPerSec = Math.max(1, fps);
+        const jsMs = jsMsPerSec / framesPerSec;
+        const frameMs = 1000 / framesPerSec;
+        let heaviest = '';
+        let heaviestMs = 0;
+        Object.keys(tickMsRateByTask).forEach((n) => {
+            const perTick = tickMsRateByTask[n] / Math.max(1, tickRateByTask[n] || 0);
+            if (perTick > heaviestMs) { heaviestMs = perTick; heaviest = n; }
+        });
         return `${screen} fps ${fps} | jank ${jank}/2s | video rơi/s ${droppedPerSec}\n`
             + `tick/s ${ticks}\n`
-            + `anim css/tr/js ${countAnimations()} | PL hiện ${countRenderedRows()}`;
+            + `ms/frame JS ${jsMs.toFixed(1)} / frame ${frameMs.toFixed(0)} / khác ${Math.max(0, frameMs - jsMs).toFixed(0)} | nặng: ${heaviest.replace(/Task$|Tick$/, '')} ${heaviestMs.toFixed(1)}ms\n`
+            + `anim css/tr/js ${countAnimations()} | RB đổi/s ${reactChangePerSec} | PL hiện ${countRenderedRows()}`;
     }
 
     function tick() {
@@ -198,10 +247,16 @@
         if (lastFrameTs) frameLog.push([now, now - lastFrameTs]);
         lastFrameTs = now;
         wrapRafCallbacks();
+        sampleReactTransform();
 
         if (now - lastSecTs >= 1000) {
             tickRateByTask = Object.assign({}, tickCountByTask);
             Object.keys(tickCountByTask).forEach((n) => { tickCountByTask[n] = 0; });
+            tickMsRateByTask = Object.assign({}, tickMsByTask);
+            Object.keys(tickMsByTask).forEach((n) => { tickMsByTask[n] = 0; });
+            Object.keys(tickMsRateByTask).forEach((n) => { if (!taskManager.plan[n]) delete tickMsRateByTask[n]; });
+            reactChangePerSec = reactChangeCount;
+            reactChangeCount = 0;
             Object.keys(tickRateByTask).forEach((n) => { if (!taskManager.plan[n]) delete tickRateByTask[n]; });
             sampleDroppedFrames();
             lastSecTs = now;
