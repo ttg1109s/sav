@@ -38,8 +38,15 @@ const routerPlaylistEmptyState = (() => {
                 // trực tiếp từ `currentKey`/`displayOrder` — ĐÚNG 1 nguồn sự thật DUY NHẤT, y hệt
                 // công thức `updatePlayButtonPlayingState()` dùng để đặt nhãn — không còn phụ thuộc
                 // cache nào phải nhớ đồng bộ đúng lúc nữa, tự nhiên khớp nhãu 100% mọi lúc.
+                // SỬA (02/10/2026, Giang báo "Đang phát" sai khi key trùng giữa các Nguồn) — "đang phát" phải khớp cả LOẠI media
+                // đang phát với Nguồn đang xem (CÙNG công thức workflowPlaylistRender.syncPlayButtonPlayingState() dùng đặt nhãn).
                 const currentKey = appState.get('currentKey');
-                const isPlayingState = currentKey != null && appState.get('displayOrder').includes(currentKey);
+                const playingMediaType = resolvePlayingMediaType(appState.get('isVideoPlayerMode'), appState.get('isPhotoPlayerMode')); // core/playlist/render.js
+                const activeMediaSource = appState.get('activeMediaSource');
+                const isPlayingState = isPlayingMediaListed(currentKey, playingMediaType, activeMediaSource, appState.get('displayOrder')); // core/playlist/render.js
+                // Media hiện tại thuộc Nguồn KHÁC (vd video đang phát khi đang xem Photo) -> bấm Phát chạy bài đầu của Nguồn này,
+                // không đem key của Nguồn khác đi tra cache Nguồn này (trùng key = phát nhầm, không trùng = không tìm thấy).
+                const resumableKey = playingMediaType === activeMediaSource ? currentKey : null; // chọn GIÁ TRỊ
                 VirtualMachineState.run([
                     { state: isPlayingState, operation: '===', value: true, callback: () => returnToVisualizer() }, // core/visualizer-control-center.js
                     { state: isPlayingState, operation: '===', value: false, callback: () => {
@@ -48,7 +55,7 @@ const routerPlaylistEmptyState = (() => {
                             { state: sectionActive, operation: '===', value: true, callback: () => workflowPlaylistEmptyState.resetToTopLevelThenPlay() },
                             { state: sectionActive, operation: '===', value: false, callback: () => {
                                 const displayOrder = appState.get('displayOrder');
-                                if (displayOrder.length > 0) workflowPlayer.playMedia(currentKey || displayOrder[0]);
+                                if (displayOrder.length > 0) workflowPlayer.playMedia(resumableKey || displayOrder[0]);
                             } },
                         ]);
                     } },
