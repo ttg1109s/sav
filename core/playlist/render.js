@@ -57,10 +57,16 @@
          * DEFAULT_VINYL (vốn là data URI, không bao giờ lỗi) vẫn lỡ bị lỗi vì lý do khác.
          */
         function attachCoverFallback(imgEl) {
-            imgEl.addEventListener('error', function onCoverError() {
-                this.removeEventListener('error', onCoverError);
-                if (this.src !== DEFAULT_VINYL) this.src = DEFAULT_VINYL;
-            });
+            // SỬA (02/10/2026, xử lý nợ 02/10/2026 — Rule 5a) — callback trước đây TỰ đổi `src` (không qua bus). Giờ CHỈ bắn
+            // 'playlist.cover.error' (router gọi applyDefaultCover() ngay dưới); `once` thay cho tự removeEventListener.
+            imgEl.addEventListener('error', () => eventBus.send({ router: 'playlist', type: 'playlist.cover.error', payload: { img: imgEl } }), { once: true });
+        }
+
+        /** MỚI (02/10/2026, tách từ callback cũ của attachCoverFallback()) — ảnh bìa lỗi -> về đĩa than mặc định. Hàm LÁ.
+         * @param {HTMLImageElement} imgEl */
+        function applyDefaultCover(imgEl) {
+            if (imgEl.src === DEFAULT_VINYL) return; // guard — đã là ảnh mặc định
+            imgEl.src = DEFAULT_VINYL;
         }
 
         /**
@@ -249,32 +255,9 @@
             node.scrollIntoView({ behavior, block: 'center' });
         }
 
-        /** MỚI (fix/tính năng, phản hồi Giang 29/07/2026, "scroll tức thì trước khi ra vào
-         * playlist ngay tại vị trí song/video là current") — cuộn TỨC THÌ (KHÔNG animation, khác
-         * scrollToSongIfPending() ngay trên — hàm đó CỐ Ý smooth vì dùng lúc quay về từ trang
-         * KHÁC hẳn, subtitle-editor.html) tới đúng dòng của `currentKey`, gọi từ CẢ 2 hướng
-         * chuyển màn Playlist<->Visualizer (switchToVisualizer()/forceBackToPlaylistUI(), core/
-         * player-controls.js) — LUÔN gọi lúc Playlist đang bị `transform` dịch ra ngoài khung nhìn
-         * (class 'playlist-hidden', KHÔNG phải display:none — vẫn scroll được bình thường dù đang
-         * lệch khỏi khung nhìn), nên cuộn xong TRƯỚC khi slide-in/slide-out kịp lộ ra, đúng nghĩa
-         * "tức thì" — không phải cuộn nhanh, mà là đã ở ĐÚNG vị trí từ trước khi người dùng kịp
-         * thấy. KHÔNG truyền `behavior` (mặc định 'auto' — cuộn ngay, không animation, khác hẳn
-         * 'smooth' phía trên).
-         * Guard 3 lớp (giống hệt scrollToSongIfPending()): `currentKey` rỗng (chưa phát gì) ->
-         * bỏ qua; key không có trong `domNodesByKey` (đang khác scope/folder/kết quả tìm kiếm) ->
-         * bỏ qua êm; node có nhưng KHÔNG còn gắn DOM thật (isConnected=false, hiếm, lệch nhịp
-         * render) -> bỏ qua. */
-        // NỢ KỸ THUẬT CÒN LẠI (02/10/2026, rà file đã đụng) — hàm này VẪN tự appState.get() (Rule 2). Mọi nơi gọi trong
-        // Workflow đã chuyển sang workflowPlaylistRender.scrollToCurrentInstant() (bản đúng rule); chỉ còn ĐÚNG 1 nơi gọi
-        // là core/player-controls.js::switchToVisualizer() (core di sản, có 6 nơi gọi khác — gồm cả core/visualizer-
-        // control-center.js). Xoá hàm này kéo theo phải dời switchToVisualizer() -> để đợt riêng.
-        function scrollToCurrentKeyInstant() {
-            const key = appState.get('currentKey');
-            if (!key) return;
-            const node = appState.get('domNodesByKey').get(key);
-            if (!node || !node.isConnected) return;
-            node.scrollIntoView({ block: 'center' });
-        }
+        // XOÁ (02/10/2026, xử lý nợ 02/10/2026) — `scrollToCurrentKeyInstant()` (tự appState.get(), Rule 2): nơi gọi cuối cùng
+        // (core/player-controls.js::switchToVisualizer()) đã dời sang Workflow, mọi nơi dùng
+        // workflowPlaylistRender.scrollToCurrentInstant() (event/workflow/playlist-render.js).
 
         /** MỚI (phản hồi Giang 29/07/2026, mục 2 — "next/prev... phải scroll tới nhưng có hiệu
          * ứng cuộn, thời gian tính theo độ dài playlist chứ không hard-code") — cuộn CÓ ANIMATION,
