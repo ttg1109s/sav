@@ -131,26 +131,9 @@ async function deleteImage(imageKey) {
     return { status: 'ok' };
 }
 
-/**
- * Liệt kê toàn bộ ảnh hiện có.
- * MỚI (phản hồi Giang — "loading shield khi nạp cần x/total item") — thêm `onProgress` (tuỳ chọn,
- * KHÔNG đổi hành vi nơi gọi cũ không truyền tham số này) — CÙNG LÝ DO/CÙNG CÁCH SỬA listVideos()
- * (core/file-manager/video.js): giữ nguyên `Promise.all()` song song, `done` đếm theo thứ tự
- * record nào đọc xong TRƯỚC, đủ dùng cho thanh tiến trình.
- * @param {(done: number, total: number) => void} [onProgress]
- * @returns {Promise<Array<{key: string, blob: Blob, filename: string, addedAt: number}>>}
- */
-async function listImages(onProgress) {
-    const keys = await getAllImageKeys();
-    let done = 0;
-    const records = await Promise.all(keys.map(async (key) => {
-        const record = await getImageRecord(key);
-        done++;
-        if (typeof onProgress === 'function') onProgress(done, keys.length);
-        return record ? { key, ...record } : null;
-    }));
-    return records.filter(Boolean);
-}
+// XOÁ (02/10/2026, Giang duyệt) — `listImages()` (core TỰ ĐỌC DB — vi phạm Rule 3b; đọc MỖI record 1 transaction song
+// song — thư viện lớn làm sập trang). Nơi gọi duy nhất (event/workflow/playlist-scope.js::PICKABLE_MEDIA_LISTER) giờ
+// gọi thẳng `getAllImageRecords()` (service/db.js — 1 transaction, cursor).
 
 /**
  * MỚI (29/07/2026, yêu cầu Giang — panel "Quản lý lưu trữ" MỚI, mục 2a "bổ sung thống kê dung

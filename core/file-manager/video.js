@@ -178,27 +178,9 @@ async function replaceVideoMedia(videoKey, media) {
  * nhau (2 thuần CRUD, 1 tự cascade) gây nhầm lẫn khi đọc code.
  */
 
-/**
- * Liệt kê toàn bộ video hiện có.
- * MỚI (phản hồi Giang — "loading shield khi nạp cần x/total item") — thêm `onProgress` (tuỳ chọn,
- * KHÔNG đổi hành vi nơi gọi cũ không truyền tham số này). Vẫn đọc SONG SONG qua `Promise.all()`
- * (KHÔNG đổi sang tuần tự — giữ nguyên đặc tính hiệu năng cũ), `done` đếm theo THỨ TỰ record nào
- * đọc xong TRƯỚC (không nhất thiết đúng thứ tự `keys`) — đủ dùng cho thanh tiến trình (chỉ cần
- * đếm dồn tới `total`, không cần đúng thứ tự).
- * @param {(done: number, total: number) => void} [onProgress]
- * @returns {Promise<Array<{key: string, blob: Blob, thumbBlob: Blob, thumbFullBlob: (Blob|null), width: number, height: number, duration: number, filename: string, addedAt: number}>>}
- */
-async function listVideos(onProgress) {
-    const keys = await getAllVideoKeys();
-    let done = 0;
-    const records = await Promise.all(keys.map(async (key) => {
-        const record = await getVideoRecord(key);
-        done++;
-        if (typeof onProgress === 'function') onProgress(done, keys.length);
-        return record ? { key, ...record } : null;
-    }));
-    return records.filter(Boolean);
-}
+// XOÁ (02/10/2026, Giang duyệt) — `listVideos()` (core TỰ ĐỌC DB — vi phạm Rule 3b; đọc MỖI record 1 transaction song
+// song — thư viện lớn làm sập trang). Nơi gọi duy nhất (event/workflow/playlist-scope.js::PICKABLE_MEDIA_LISTER) giờ
+// gọi thẳng `getAllVideoRecords()` (service/db.js — 1 transaction, cursor).
 
 /**
  * Thống kê Video (số lượng, dung lượng) — MỚI (ver12 "Song/Video Unification", Batch 5, mục 6a),
