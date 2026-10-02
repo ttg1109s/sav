@@ -255,7 +255,7 @@ const workflowPhotoPlayer = {
         workflowPlaylistRender.refreshSongNode(photoKey);
         workflowPlaylistRender.syncPlayButtonPlayingState(); // event/workflow/playlist-render.js — SỬA (02/10/2026): khớp cả loại media (key trùng giữa các Nguồn)
 
-        if (switchScreen) switchToVisualizer(); else workflowPlaylistRender.scrollToCurrentOrDefer(); // core/player-controls.js / event/workflow/playlist-render.js (hoãn cuộn nếu menu 3 chấm đang mở)
+        workflowPlayerControls.showTrackChange(switchScreen); // event/workflow/player-controls.js — SỬA (02/10/2026): if/else -> object map ở đó
 
         // Vòng lặp đồng hồ — kill task CŨ (nếu lỡ còn sót từ ảnh trước) rồi addNew() lại MỖI LẦN đổi
         // ảnh (KHÔNG dùng taskManager.resume() — mỗi ảnh là 1 "phiên" đếm MỚI, cùng lý do

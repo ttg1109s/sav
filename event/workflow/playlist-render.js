@@ -411,7 +411,7 @@ const workflowPlaylistRender = {
         requestAnimationFrame(() => this._scrollToKeyNode(key, 'smooth'));
     },
 
-    /** Dời từ core `scrollToCurrentKeyInstant()` (bản core còn lại cho core/player-controls.js, xem nợ ghi ở đó) — cuộn
+    /** Dời từ core `scrollToCurrentKeyInstant()` (bản core ĐÃ XOÁ 02/10/2026) — cuộn
      * TỨC THÌ tới currentKey (gọi lúc Playlist đang dịch ra ngoài khung nhìn). */
     scrollToCurrentInstant() {
         const key = appState.get('currentKey');

@@ -59,7 +59,43 @@ const REPEAT_ONE_RESTART_BY_MEDIA = {
     },
 };
 
+/** MỚI (02/10/2026, xử lý nợ 02/10/2026) — đổi bài xong: bấm tay 1 dòng Playlist (switchScreen=true) -> sang Visualizer;
+ * Next/Prev/tự chuyển (false) -> chỉ cuộn Playlist tới bài mới. Trước đây mỗi player (player.js/video-player.js/
+ * photo-player.js) tự viết `if (switchScreen) switchToVisualizer(); else ...scrollToCurrentOrDefer();`. */
+const TRACK_CHANGE_SCREEN_BY_SWITCH = {
+    true: () => workflowPlayerControls.switchToVisualizer(),
+    false: () => workflowPlaylistRender.scrollToCurrentOrDefer(), // event/workflow/playlist-render.js
+};
+
 const workflowPlayerControls = {
+
+    /** DỜI (02/10/2026) từ core/player-controls.js::switchToVisualizer() — thứ tự giữ nguyên: trượt Playlist ra -> cuộn
+     * Playlist tới bài đang phát NGAY lúc nó vừa rời khung nhìn (yêu cầu Giang 29/07/2026 "scroll tức thì cả 2 chiều")
+     * -> hiện UI Visualizer -> 50ms sau fade-in canvas. */
+    switchToVisualizer() {
+        slidePlaylistOut(); // core/player-controls.js
+        workflowPlaylistRender.scrollToCurrentInstant(); // event/workflow/playlist-render.js
+        showVisualizerUi(); // core/player-controls.js
+        taskManager.once(() => revealVisualizerCanvas(appConfigViz.getAll().type), 50, 'showVisualizerFadeIn'); // core/player-controls.js
+    },
+
+    /** DỜI (02/10/2026) từ core/visualizer-control-center.js::returnToVisualizer() — quay về Visualizer nếu đang có bài. */
+    returnToVisualizer() {
+        if (!appState.get('currentKey')) return; // guard — chưa phát gì
+        this.switchToVisualizer();
+    },
+
+    /** Bước tuỳ chọn cho luồng Song (event/workflow/player.js::playMedia() — sang Visualizer TRƯỚC khi refresh node, cuộn
+     * Playlist (nhánh không chuyển màn) làm riêng SAU đó, nên không dùng chung showTrackChange()). @param {boolean} switchScreen */
+    switchToVisualizerIfRequested(switchScreen) {
+        if (!switchScreen) return; // guard
+        this.switchToVisualizer();
+    },
+
+    /** Đổi bài xong — chọn màn theo `switchScreen` (xem TRACK_CHANGE_SCREEN_BY_SWITCH). @param {boolean} switchScreen */
+    showTrackChange(switchScreen) {
+        TRACK_CHANGE_SCREEN_BY_SWITCH[!!switchScreen]();
+    },
 
     /** MỚI (24/09/2026, dọn nợ "taskManager trong core") — THAY core `forceBackToPlaylistUI()` cũ ở MỌI nơi "về
      * Playlist" (nút Back, xoá bài/video đang là currentKey, xoá hàng loạt, Clear All). Thứ tự giữ đúng bản cũ:

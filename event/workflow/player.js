@@ -160,7 +160,7 @@ const workflowPlayer = {
         // cùng lý do đã giải thích ở dòng gửi phía dưới (playMedia() CHỈ gọi từ hành động "muốn
         // phát" thật, an toàn gửi vô điều kiện).
         if (key === appState.get('currentKey')) {
-            if (switchScreen) switchToVisualizer(); else workflowPlaylistRender.scrollToCurrentOrDefer();
+            workflowPlayerControls.showTrackChange(switchScreen); // event/workflow/player-controls.js — SỬA (02/10/2026): if/else -> object map ở đó
             // SỬA (08/09/2026, Giang yêu cầu "toàn bộ case không được phát trước khi cooldown
             // xong") — bấm lại ĐÚNG bài đang armed Game Mode KHÔNG được .play() ngay tại đây nữa,
             // kể cả đang pause (đang phát dở cũng phải reset qua cooldown, không riêng gì lúc đang
@@ -277,7 +277,7 @@ const workflowPlayer = {
             // cuối hàm này. `switchToVisualizer()` KHÔNG bị gate — Giang chốt: vào Game Mode không
             // bắt buộc phải về thẳng Visualizer, 2 việc độc lập nhau.
             if (appState.get('gameplayArmedGameId') == null) audioPlayer.play();
-            if (switchScreen) switchToVisualizer();
+            workflowPlayerControls.switchToVisualizerIfRequested(switchScreen); // event/workflow/player-controls.js — SỬA (02/10/2026): dời từ core, bước tuỳ chọn -> method có guard
             if (previousKey) workflowPlaylistRender.refreshSongNode(previousKey);
             workflowPlaylistRender.refreshSongNode(key);
             if (!appState.get('domNodesByKey').has(key)) workflowPlaylistRender.renderPlaylistDiff();
