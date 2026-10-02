@@ -13,7 +13,7 @@ const routerVisualizerControlCenter = (() => {
         switch (msg.type) {
 
             case 'visualizerControlCenter.returnToVisualizer.click':
-                returnToVisualizer();
+                workflowPlayerControls.returnToVisualizer(); // event/workflow/player-controls.js — SỬA (02/10/2026): dời từ core
                 break;
 
             case 'visualizerControlCenter.toggle.click':

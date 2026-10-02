@@ -389,6 +389,13 @@ const routerPlaylist = (() => {
 
             // MỚI (02/10/2026, tối ưu 10000 item) — node chờ bìa vừa lại gần khung nhìn (IntersectionObserver,
             // event/listener/playlist.js) -> gắn object URL ảnh bìa. Cần tra state (node/cache theo key) -> giao Workflow.
+            // MỚI (02/10/2026, xử lý nợ Rule 5a của attachCoverFallback()) — ảnh bìa (Playlist / record art / modal sửa)
+            // tải lỗi -> về ảnh mặc định. Message tự đủ dữ liệu (chính thẻ <img>) -> gọi thẳng 1 hàm core.
+            case 'playlist.cover.error': {
+                applyDefaultCover(msg.payload.img); // core/playlist/render.js
+                break;
+            }
+
             case 'playlist.cover.nearViewport': {
                 const { keys } = msg.payload;
                 workflowPlaylistRender.attachCoverUrls(keys); // event/workflow/playlist-render.js

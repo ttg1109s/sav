@@ -48,7 +48,7 @@ const routerPlaylistEmptyState = (() => {
                 // không đem key của Nguồn khác đi tra cache Nguồn này (trùng key = phát nhầm, không trùng = không tìm thấy).
                 const resumableKey = playingMediaType === activeMediaSource ? currentKey : null; // chọn GIÁ TRỊ
                 VirtualMachineState.run([
-                    { state: isPlayingState, operation: '===', value: true, callback: () => returnToVisualizer() }, // core/visualizer-control-center.js
+                    { state: isPlayingState, operation: '===', value: true, callback: () => workflowPlayerControls.returnToVisualizer() }, // event/workflow/player-controls.js (SỬA 02/10/2026 — dời từ core)
                     { state: isPlayingState, operation: '===', value: false, callback: () => {
                         const sectionActive = appState.get('sectionQueueActive');
                         VirtualMachineState.run([
