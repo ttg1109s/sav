@@ -110,44 +110,30 @@
             console.log(`writer: "setVisualizerActiveFalse", page: "isVisualizerActive", content: "false"`);
         }
 
-        function switchToVisualizer() {
-            // FIX (04/07/2026, mục 4) — 'playlist-hidden' THAY '-translate-y-full' (dọc -> ngang)
-            // + thêm 'visualizer-active' cho CẢ 2 (visualizerUI/playerContainer) NGAY LÚC NÀY
-            // (cùng lúc gỡ 'hidden') để slide ngang chạy đồng thời với Playlist thoát màn hình.
-            // SỬA (07/07/2026, batch gộp container) — class dời sang `#side-left-container`.
-            // HOTFIX 16 (08/07/2026) — dời TIẾP sang `#app-stack` (xem forceBackToPlaylistUI() ở
-            // trên, cùng lý do).
+        // DỜI (02/10/2026, xử lý nợ ghi ở readme/core-legacy-audit.md mục 02/10/2026) — `switchToVisualizer()` (core tự gọi
+        // core scrollToCurrentKeyInstant() + tự dùng taskManager + tự đọc appConfigViz — Rule 2/3) tách thành 3 hàm lá dưới;
+        // điều phối (cuộn Playlist tới bài đang phát, hẹn 50ms fade-in) sang workflowPlayerControls.switchToVisualizer()
+        // (event/workflow/player-controls.js). Thứ tự & nội dung từng bước GIỮ NGUYÊN. Lịch sử: HOTFIX 12 (08/07/2026) đã
+        // xoá dòng `sideLeftContainer.scrollLeft = 0` — xem changelog; KHÔNG gọi handleVideoBackground() ở đây (chuyển màn
+        // KHÔNG điều khiển video, video chỉ bám theo nhạc).
+
+        /** Bước 1 — bắt đầu trượt Playlist ra (class 'playlist-hidden' trên #app-stack, FIX 04/07/2026 dọc -> ngang). */
+        function slidePlaylistOut() {
             appStack.classList.add('playlist-hidden');
-            // MỚI (phản hồi Giang 29/07/2026, "scroll tức thì trước khi ra vào playlist") — cuộn
-            // NGAY SAU khi bắt đầu dịch Playlist ra khỏi khung nhìn (transform vừa thêm ở trên) —
-            // đảm bảo lần quay lại TIẾP THEO (kể cả không đi qua forceBackToPlaylistUI(), hiếm khi
-            // xảy ra nhưng để đối xứng đúng yêu cầu "cả 2 chiều ra/vào") danh sách đã sẵn đúng vị
-            // trí dòng đang phát, không cần đợi thêm bước nào khác.
-            scrollToCurrentKeyInstant(); // core/playlist/render.js
-            // HOTFIX 12 (08/07/2026, Giang truy đúng gốc) — ĐÃ XOÁ dòng `sideLeftContainer.
-            // scrollLeft = 0;` từng nằm ở đây (thêm HOTFIX 7/8, tưởng "phòng thủ rẻ, vô hại" —
-            // SAI). `#side-left-container` có CSS `scroll-behavior: smooth` (assets/css/
-            // style.css) — theo đúng đặc tả CSSOM View, gán TRỰC TIẾP `.scrollLeft = x` dùng
-            // "auto" behavior, và "auto" LUÔN phân giải theo `scroll-behavior` tính toán của phần
-            // tử: đã khai `smooth` thì gán thẳng `scrollLeft` KHÔNG hề nhảy tức thời như tưởng —
-            // nó tự ANIMATE, chạy CÙNG LÚC với transition `transform` 0.5s (do vừa thêm class
-            // `playlist-hidden` ngay trên) trên CHÍNH 1 phần tử — 2 animation khác cơ chế
-            // (transform-transition CSS thuần vs scroll smooth-animation) chồng lên nhau, đúng
-            // nguồn gây hiện tượng "giật đi giật lại" Giang báo, dù bug chỉ LỘ RA muộn hơn (lúc
-            // quay lại Playlist rồi mở Settings) vì đó là lần đầu người dùng THẤY lại
-            // #side-left-container sau khi trạng thái cuộn nội bộ của nó bị animation này làm
-            // lệch. Dòng đó cũng CHƯA BAO GIỜ thật sự cần: cả 3 nơi gọi switchToVisualizer()
-            // (tap bài hát trong Playlist, core/playlist/actions.js x2; nút "Quay lại Visualizer"
-            // #btn-return-visual, core/state-and-video-bg.js::returnToVisualizer()) ĐỀU chỉ có
-            // thể bấm được lúc trang Playlist đang hiện — tức `scrollLeft` LUÔN đã ≈0 sẵn từ
-            // trước, gán lại 0 chưa từng có tác dụng thật, chỉ có tác dụng PHỤ (bug) như trên.
+        }
+
+        /** Bước 2 — đánh dấu đang ở Visualizer + hiện UI Visualizer (slide ngang chạy đồng thời với Playlist thoát). */
+        function showVisualizerUi() {
             appState.set('isVisualizerActive', true); // MỚI (07/07/2026, phản hồi Giang mục 1)
+            console.log(`writer: "showVisualizerUi", page: "isVisualizerActive", content: "true"`); // MỚI (02/10/2026) — Rule 4 vốn thiếu
             visualizerUI.classList.remove('hidden'); playerContainer.classList.remove('hidden');
             visualizerUI.classList.add('visualizer-active'); playerContainer.classList.add('visualizer-active');
-            // KHÔNG gọi handleVideoBackground() ở đây nữa: chuyển màn hình KHÔNG được điều khiển video
-            // (video chỉ bám theo trạng thái nhạc). Playlist đè z-[60] tự che video khi cần.
-            taskManager.once(() => { 
-                visualizerUI.classList.add('fade-enter-active'); canvas.classList.remove('opacity-0'); 
+        }
+
+        /** Bước 3 (sau 50ms) — fade-in canvas. `vizType` do Workflow đọc từ appConfigViz truyền vào.
+         * @param {string} vizType */
+        function revealVisualizerCanvas(vizType) {
+            visualizerUI.classList.add('fade-enter-active'); canvas.classList.remove('opacity-0');
                 // FIX (Giang báo — "Vortex mất render mỗi lần ra/vào Playlist") — thiếu check
                 // 'vortex' ở đây từng gây bug tương tự khi còn group "space" dùng chung
                 // #webgl-canvas (xem core/visualizer/visualizer-display.js::updateTypeUI()).
@@ -162,9 +148,8 @@
                 // connector của updateTypeUI() không gỡ opacity-0; canvas kẹt vô hình tới khi Next/
                 // Prev (đã ở Visualizer sẵn -> updateTypeUI() thấy 'playlist-hidden' -> gỡ). Nhánh Song
                 // không dính vì player.js gọi switchToVisualizer() TRƯỚC updateTypeUI().
-                const t = appConfigViz.getAll().type;
-                if (t === 'vortex' || t === 'connector') document.getElementById('webgl-canvas').classList.remove('opacity-0');
-            }, 50, 'showVisualizerFadeIn');
+            if (vizType !== 'vortex' && vizType !== 'connector') return; // guard — chỉ 2 type này dùng chung #webgl-canvas
+            document.getElementById('webgl-canvas').classList.remove('opacity-0');
         }
 
         /**

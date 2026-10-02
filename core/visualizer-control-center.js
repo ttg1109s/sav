@@ -32,10 +32,8 @@
         // sau gộp lại dùng chung currentCoverObjectURL nhưng quên xoá biến cũ). Xoá hẳn thay vì giữ
         // 1 state key vĩnh viễn null không ai đọc/ghi thật.
 
-        /** Core thuần: quay về màn Visualizer (nếu đang có bài hiện tại). */
-        function returnToVisualizer() {
-            if (appState.get('currentKey')) switchToVisualizer();
-        }
+        // DỜI (02/10/2026, xử lý nợ 02/10/2026) — `returnToVisualizer()` (core tự appState.get('currentKey') + gọi core
+        // switchToVisualizer()) sang event/workflow/player-controls.js::workflowPlayerControls.returnToVisualizer().
 
         // ===================== "Control Center" của màn Visualizer (ver 8 refine) =====================
         // 1 nút mở ở góc trái, panel grid icon PHÓNG RA TỪ TRUNG TÂM (scale từ vị trí nút bấm).
