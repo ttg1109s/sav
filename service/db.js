@@ -254,6 +254,68 @@
         function deleteVideoRecord(videoKey) { return idbKeyval.del(videoKey, videosStore); }
         function getAllVideoKeys() { return idbKeyval.keys(videosStore); }
 
+        // ===================== Đọc NHIỀU record trong 1 transaction (MỚI 02/10/2026, Giang duyệt) =====================
+        // LÝ DO: trước đây mọi nơi cần nhiều record đều `Promise.all(keys.map(getXRecord))` — MỖI record 1 transaction
+        // riêng, tất cả mở CÙNG LÚC. Đo trên trình duyệt (record cùng shape bài hát thật: blob audio + cover): 3000 record
+        // đã làm SẬP tiến trình trang, trong khi đọc bằng cursor trong 1 transaction nạp 10000 record ~1,1 s. 2 hàm lõi
+        // dưới đây là CƠ CHẾ đọc (data layer, không nghiệp vụ), các hàm theo từng store ở cuối chỉ gắn đúng store.
+
+        /** Đọc TOÀN BỘ record của 1 store bằng cursor trong ĐÚNG 1 transaction. `onProgress(done, total)` gọi sau mỗi
+         * record (`total` lấy từ `count()` trong cùng transaction) — giữ được thanh tiến trình "x/total" như cách cũ.
+         * @param {Function} storeAccessor - từ makeStoreAccessor() @param {(done:number,total:number)=>void} [onProgress]
+         * @returns {Promise<Array<object>>} record đã gộp `key` (`{ key, ...record }`), đúng thứ tự key của store */
+        function _readAllStoreRecords(storeAccessor, onProgress) {
+            const report = typeof onProgress === 'function' ? onProgress : () => {};
+            return storeAccessor('readonly', (store) => new Promise((resolve, reject) => {
+                const records = [];
+                const countRequest = store.count();
+                countRequest.onerror = () => reject(countRequest.error);
+                countRequest.onsuccess = () => {
+                    const total = countRequest.result;
+                    const cursorRequest = store.openCursor();
+                    cursorRequest.onerror = () => reject(cursorRequest.error);
+                    cursorRequest.onsuccess = () => {
+                        const cursor = cursorRequest.result;
+                        if (!cursor) { resolve(records); return; } // hết record
+                        records.push({ key: cursor.key, ...cursor.value });
+                        report(records.length, total);
+                        cursor.continue();
+                    };
+                };
+            }));
+        }
+
+        /** Đọc các record theo danh sách key trong ĐÚNG 1 transaction — thay trực tiếp cho
+         * `Promise.all(keys.map(getXRecord))`: kết quả THẲNG HÀNG với `keys` (key không tồn tại -> `undefined`, y như
+         * getXRecord()). `onProgress(done, total)` gọi sau mỗi record đọc xong.
+         * @param {Function} storeAccessor @param {string[]} keys @param {(done:number,total:number)=>void} [onProgress]
+         * @returns {Promise<Array<object|undefined>>} */
+        function _readStoreRecordsByKeys(storeAccessor, keys, onProgress) {
+            if (!keys.length) return Promise.resolve([]); // guard — không mở transaction rỗng
+            const report = typeof onProgress === 'function' ? onProgress : () => {};
+            return storeAccessor('readonly', (store) => new Promise((resolve, reject) => {
+                const results = new Array(keys.length);
+                let done = 0;
+                keys.forEach((key, index) => {
+                    const request = store.get(key);
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => {
+                        results[index] = request.result;
+                        done++;
+                        report(done, keys.length);
+                        if (done === keys.length) resolve(results);
+                    };
+                });
+            }));
+        }
+
+        function getAllSongRecords(onProgress) { return _readAllStoreRecords(songsStore, onProgress); }
+        function getAllVideoRecords(onProgress) { return _readAllStoreRecords(videosStore, onProgress); }
+        function getAllImageRecords(onProgress) { return _readAllStoreRecords(imagesStore, onProgress); }
+        function getSongRecordsByKeys(keys, onProgress) { return _readStoreRecordsByKeys(songsStore, keys, onProgress); }
+        function getVideoRecordsByKeys(keys, onProgress) { return _readStoreRecordsByKeys(videosStore, keys, onProgress); }
+        function getImageRecordsByKeys(keys, onProgress) { return _readStoreRecordsByKeys(imagesStore, keys, onProgress); }
+
 
         /**
          * slugify: hạ thường, bỏ dấu tiếng Việt, bỏ ký tự đặc biệt, nối bằng "-".
