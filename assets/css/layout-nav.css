@@ -158,3 +158,30 @@
     top: calc(0.5rem + 12px);
     left: calc(0.5rem + 12px);
 }
+
+/* ===================== Playlist — chế độ "Chọn nhiều" bằng 1 class (MỚI 02/10/2026, tối ưu 10000 item) =====================
+   #playlist-container.is-selecting (applySelectionChrome(), core/playlist/selection.js) thay cho việc tạo 1 vòng tròn +
+   ẩn nút 3 chấm trên TỪNG node lúc bật chế độ chọn (đo 10000 item: ~1,4 s). Vòng TRỐNG vẽ bằng ::after, đúng y bản cũ
+   (`absolute top-2 left-2 w-6 h-6 rounded-full border-2 bg-black/30 border-white/30`, cố định không theo theme). Item ĐÃ
+   CHỌN vẫn do showSelectionIndicator() thêm 1 element thật (z-10, màu theo theme, có tick) đè đúng chỗ vòng trống. */
+#playlist-container.is-selecting > [data-role="play-item"] { position: relative; }
+#playlist-container.is-selecting > [data-role="play-item"]::after {
+    content: '';
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    box-sizing: border-box;
+    border-radius: 9999px;
+    border: 2px solid rgb(255 255 255 / 0.3);
+    background-color: rgb(0 0 0 / 0.3);
+    z-index: 9;
+    pointer-events: none;
+}
+/* Grid: tile đã nới 12px (chừa chỗ bóng ảnh — khối content-visibility phía trên) -> dời theo, giống vòng có tick. */
+#playlist-container.grid.is-selecting > [data-role="play-item"]::after {
+    top: calc(0.5rem + 12px);
+    left: calc(0.5rem + 12px);
+}
+#playlist-container.is-selecting button[data-action="menu"] { display: none; }
