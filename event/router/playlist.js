@@ -382,7 +382,16 @@ const routerPlaylist = (() => {
             // MỚI (02/10/2026, phương án A content-visibility) — khung cuộn Playlist đổi kích thước (xoay máy...) -> đo lại
             // chiều cao ước lượng của item (tile Grid cao theo bề rộng cột). Cần đọc state -> giao Workflow.
             case 'playlist.viewport.resize': {
-                workflowPlaylistRender.syncItemBlockSize(); // event/workflow/playlist-render.js
+                const { width } = msg.payload;
+                workflowPlaylistRender.onViewportResize(width); // event/workflow/playlist-render.js — SỬA (02/10/2026): chỉ đo lại khi bề rộng đổi
+                break;
+            }
+
+            // MỚI (02/10/2026, tối ưu 10000 item) — node chờ bìa vừa lại gần khung nhìn (IntersectionObserver,
+            // event/listener/playlist.js) -> gắn object URL ảnh bìa. Cần tra state (node/cache theo key) -> giao Workflow.
+            case 'playlist.cover.nearViewport': {
+                const { keys } = msg.payload;
+                workflowPlaylistRender.attachCoverUrls(keys); // event/workflow/playlist-render.js
                 break;
             }
 
