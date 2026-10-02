@@ -77,13 +77,13 @@ function showSelectionIndicator(node, key, selectedMediaKeys, themeClasses) {
     // #playlist-container có class `is-selecting` (applySelectionChrome() bên dưới; assets/css/layout-nav.css) — bật chế
     // độ chọn không còn phải tạo 1 element/ẩn 1 nút trên TỪNG node (đo 10000 item: ~1,4 s). Hàm này giờ chỉ lo phần
     // RIÊNG của item ĐÃ CHỌN: gỡ sạch dấu cũ, rồi nếu đang chọn thì tint + vòng có tick (đè đúng chỗ vòng trống của CSS).
-    _clearSelectionTint(node);
-    const previousIndicator = node.querySelector('[data-role="selection-indicator"]');
-    if (previousIndicator) previousIndicator.remove();
+    node.classList.remove(...(node.dataset.selectionTint || '').split(/\s+/).filter(Boolean)); // gỡ tint cũ (đọc lại từ data-selection-tint; chưa có -> danh sách rỗng)
+    delete node.dataset.selectionTint;
+    node.querySelectorAll('[data-role="selection-indicator"]').forEach((el) => el.remove()); // gỡ vòng có tick cũ (nếu có)
     if (!selectedMediaKeys.has(key)) return; // chưa chọn -> để CSS vẽ vòng trống
 
     const tint = themeClasses.tint.split(/\s+/).filter(Boolean);
-    if (tint.length) node.classList.add(...tint);
+    node.classList.add(...tint);
     node.dataset.selectionTint = tint.join(' ');
 
     const indicator = document.createElement('div');
@@ -93,20 +93,16 @@ function showSelectionIndicator(node, key, selectedMediaKeys, themeClasses) {
     node.appendChild(indicator);
 }
 
-/** Gỡ tint chọn (nếu có) mà `showSelectionIndicator()` đã thêm — đọc lại từ `data-selection-tint`. Hàm lá, chỉ DOM API. */
-function _clearSelectionTint(node) {
-    const prev = node.dataset.selectionTint;
-    if (prev) node.classList.remove(...prev.split(/\s+/).filter(Boolean));
-    delete node.dataset.selectionTint;
-}
+// XOÁ (02/10/2026, rà Rule 3a) — `_clearSelectionTint(node)` (hàm top-level riêng, show/hideSelectionIndicator() cùng
+// gọi = core gọi core) — 3 dòng thân nhập thẳng vào 2 hàm đó.
 
-/** Gỡ chỉ báo + hiện lại menu 3 chấm cho 1 node — dùng khi thoát chế độ chọn. */
+/** Gỡ tint + vòng có tick của 1 node đã chọn — dùng khi thoát chế độ chọn (nút 3 chấm + vòng trống là CSS `is-selecting`). */
 function hideSelectionIndicator(node) {
     if (!node) return; // guard
     // SỬA (02/10/2026) — không còn đụng nút 3 chấm (CSS `is-selecting` ẩn/hiện nó), chỉ gỡ phần riêng của item đã chọn.
-    _clearSelectionTint(node);
-    const indicator = node.querySelector('[data-role="selection-indicator"]');
-    if (indicator) indicator.remove();
+    node.classList.remove(...(node.dataset.selectionTint || '').split(/\s+/).filter(Boolean)); // gỡ tint cũ (đọc lại từ data-selection-tint; chưa có -> danh sách rỗng)
+    delete node.dataset.selectionTint;
+    node.querySelectorAll('[data-role="selection-indicator"]').forEach((el) => el.remove());
 }
 
 /** Patch thanh hành động (số lượng, ẩn/hiện) — hàm THUẦN, nhận đủ qua tham số. */

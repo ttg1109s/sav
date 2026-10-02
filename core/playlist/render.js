@@ -77,18 +77,53 @@
 
         /** MỚI (02/10/2026, tối ưu 10000 item — Giang duyệt) — gắn ảnh bìa THẬT cho 1 node mà buildSongNode() đã dựng ở trạng
          * thái "chờ bìa" (`data-cover-pending="true"`, <img> chưa có src). Đo trên 10000 item: tạo object URL cho TẤT CẢ
-         * bìa lúc dựng chiếm ~70% thời gian dựng -> giờ chỉ tạo khi node lại gần khung nhìn (IntersectionObserver ở
-         * event/listener/playlist.js -> 'playlist.cover.nearViewport') hoặc ngay khi node được dựng lại tại chỗ
-         * (refreshSongNode()). Idempotent: node đã có URL -> bỏ qua (cùng khuôn revokeNodeCoverUrl() ngay trên, URL vẫn do
-         * revokeNodeCoverUrl() thu hồi khi node bị bỏ). Hàm LÁ — chỉ gọi API service/blob-url.js.
-         * @param {HTMLElement|null} node @param {Blob} coverBlob */
-        function attachNodeCover(node, coverBlob) {
-            if (!node || !coverBlob || node._coverObjectUrl) return; // guard — idempotent
-            const url = createBlobUrl(coverBlob); // service/blob-url.js
+         * bìa lúc dựng chiếm ~70% thời gian dựng -> giờ chỉ tạo khi node lại gần khung nhìn hoặc được dựng lại tại chỗ.
+         * SỬA (02/10/2026, rà Rule 3b) — bản đầu tự gọi `createBlobUrl()` (TẠO tài nguyên = việc CHUẨN BỊ, cấm Core): giờ
+         * Workflow tạo URL (workflowPlaylistRender._attachNodeCover()) rồi truyền xuống; hàm này chỉ GHI lên node nhận vào.
+         * URL vẫn do revokeNodeCoverUrl() ngay trên thu hồi khi node bị bỏ. Hàm LÁ.
+         * @param {HTMLElement} node @param {string} url */
+        function setNodeCoverUrl(node, url) {
             node._coverObjectUrl = url;
             node.dataset.coverPending = 'false';
             const img = node.querySelector('img');
             if (img) img.src = url;
+        }
+
+        /** MỚI (02/10/2026, rà event-bus-flow.md mục 7 — tách từ buildSongNode() của Workflow) — 2 bố cục node Playlist
+         * (Grid/List) trước đây là 1 if/else trong Workflow. Mỗi hàm dựng ĐÚNG 1 bố cục lên `wrapper` nhận vào (className +
+         * data-role + innerHTML) — HTML GIỮ NGUYÊN từng ký tự, Workflow chọn hàm bằng object map. Ternary bên trong chỉ
+         * là trình bày (có/không icon đang phát). Hàm THUẦN.
+         * @param {HTMLElement} wrapper
+         * @param {{coverSrcAttr:string, isPlaying:boolean, eqIconHtml:string, menuBtnHtml:string, title:string, secondLineHtml:string}} view */
+        function fillGridSongNode(wrapper, view) {
+            wrapper.className = `flex flex-col cursor-pointer active:scale-[0.98] transition-transform group relative w-full`;
+            wrapper.dataset.role = 'play-item';
+            wrapper.innerHTML = `
+                <div class="w-full aspect-square relative mb-2.5">
+                    <img ${view.coverSrcAttr} loading="lazy" decoding="async" class="w-full h-full rounded-2xl object-cover shadow-lg">
+                    ${view.isPlaying ? `<div class="absolute inset-0 bg-black/30 rounded-2xl flex items-center justify-center backdrop-blur-[2px]">${view.eqIconHtml}</div>` : ''}
+                    <div class="absolute top-2 right-2 flex bg-black/40 rounded-full">${view.menuBtnHtml}</div>
+                </div>
+                <h3 class="text-[15px] font-semibold leading-tight line-clamp-1 px-1" data-uitk="textPrimary">${view.title}</h3>
+                <p class="text-[13px] font-medium line-clamp-1 px-1 mt-0.5" data-uitk="textSecondary">${view.secondLineHtml}</p>`;
+        }
+
+        /** Bố cục List — xem docstring fillGridSongNode() ngay trên.
+         * `data-uitk="cardHoverBg rowPressBg"` (SỬA 21/09/2026 — trước đây `active:bg-slate-100`/`bg-sky-50` class cứng;
+         * nhấn giữ = rowPressBg, rê chuột = cardHoverBg); nền hàng ĐANG CHỌN không đặt ở đây (tint `selectionTintBg` do
+         * showSelectionIndicator() thêm/gỡ).
+         * @param {HTMLElement} wrapper @param {object} view - cùng shape fillGridSongNode() */
+        function fillListSongNode(wrapper, view) {
+            wrapper.className = `flex items-center gap-4 px-5 py-3 transition-colors cursor-pointer w-full group`;
+            wrapper.dataset.uitk = 'cardHoverBg rowPressBg';
+            wrapper.dataset.role = 'play-item';
+            wrapper.innerHTML = `
+                <img ${view.coverSrcAttr} loading="lazy" decoding="async" class="w-12 h-12 rounded-lg flex-shrink-0 object-cover shadow-md">
+                <div class="flex-grow flex flex-col justify-center overflow-hidden gap-0.5">
+                    <div class="flex items-center gap-2"><h3 class="text-[16px] leading-tight font-semibold truncate" data-uitk="${view.isPlaying ? 'accentText' : 'textPrimary'}">${view.title}</h3>${view.isPlaying ? view.eqIconHtml : ''}</div>
+                    <p class="text-[13px] truncate font-medium" data-uitk="textSecondary">${view.secondLineHtml}</p>
+                </div>
+                <div class="flex">${view.menuBtnHtml}</div>`;
         }
 
         // XOÁ (24/09/2026, rà soát refresh DOM) — `selectionIndicatorHtml()` (vòng tròn chọn vẽ INLINE lúc dựng
