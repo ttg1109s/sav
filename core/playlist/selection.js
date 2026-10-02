@@ -145,7 +145,7 @@ function openSelectionMoreMenu(canRemoveFromFolder) {
     const rect = btnSelectionMore.getBoundingClientRect();
     const menuWidth = 208;
     let left = rect.right - menuWidth;
-    if (left < 8) left = 8;
+    left = Math.max(8, left); // SỬA (02/10/2026) — kẹp mép trái bằng phép tính, không if
     selectionMoreMenu.style.left = `${left}px`;
     selectionMoreMenu.style.bottom = `${window.innerHeight - rect.top + 8}px`;
     selectionMoreMenu.classList.remove('hidden');

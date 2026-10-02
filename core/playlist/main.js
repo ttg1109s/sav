@@ -99,9 +99,9 @@
             // `genericDrawerBody`/`body` đang render), KHÔNG cache — xem event/workflow/app-settings.js
             // ::_renderPlaylist() (nơi gọi CHÍNH, mỗi lần màn Playlist Settings mở) và
             // event/workflow/playlist.js::syncPlaylistSettingsUI().
-            initMediaSource(selectEl) {
+            initMediaSource(selectEl, mediaSource) {
                 if (!selectEl) return;
-                selectEl.value = appState.get('activeMediaSource'); // đồng bộ giá trị hiện tại lúc Settings mở ra
+                selectEl.value = mediaSource; // SỬA (02/10/2026, Rule 2) — nhận qua tham số thay vì tự appState.get('activeMediaSource')
             },
 
             /**
@@ -121,18 +121,18 @@
              * `persistScopeChoice()` như hàm cũ — badge phản ánh SCOPE THẬT ĐANG ÁP DỤNG, không chỉ
              * ý định vừa lưu, dù 2 hàm đó luôn gọi liền nhau trong thực tế nên khác biệt không lộ ra).
              */
-            async updateActiveFolderBadge() {
-                if (!playlistActiveFolderBadge) return; // guard phòng vệ thuần — thực tế luôn mounted (tĩnh, không thuộc content-swap)
-                const folderId = appState.get('activePlayListFolder')[appState.get('activeMediaSource')];
-                if (!folderId) {
-                    playlistActiveFolderBadge.classList.add('hidden');
-                    return;
-                }
-                const folderRecord = typeof getFolderRecord === 'function' ? await getFolderRecord(folderId) : null;
-                if (playlistActiveFolderBadgeName) playlistActiveFolderBadgeName.textContent = folderRecord ? folderRecord.name : '';
-                playlistActiveFolderBadge.classList.remove('hidden');
-            }
+            // DỜI (02/10/2026, rà Rule 2/3b) — `updateActiveFolderBadge()` (tự appState.get() + tự đọc DB getFolderRecord +
+            // if/else) tách: Workflow đọc (workflowPlaylistScope._syncActiveFolderBadge()), Core vẽ (applyActiveFolderBadge()
+            // ngay dưới object này).
         };
+
+        /** MỚI (02/10/2026, tách từ PlaylistMain.updateActiveFolderBadge()) — hiện/ẩn badge "đang xem folder" trong ô tìm
+         * kiếm + tên folder. Hàm LÁ. @param {boolean} isScoped @param {string} folderName */
+        function applyActiveFolderBadge(isScoped, folderName) {
+            if (!playlistActiveFolderBadge) return; // guard phòng vệ — thực tế luôn mounted (tĩnh)
+            if (playlistActiveFolderBadgeName) playlistActiveFolderBadgeName.textContent = folderName;
+            playlistActiveFolderBadge.classList.toggle('hidden', !isScoped);
+        }
 
         /**
          * Ứng với select "Kiểu xem" đổi giá trị — đổi isGridView + className của playlistContainer.
@@ -148,6 +148,7 @@
         function setPlaylistViewMode(mode) {
             const isGridView = mode === 'grid';
             appState.set('isGridView', isGridView);
+            console.log(`writer: "setPlaylistViewMode", page: "isGridView", content: "${isGridView}"`); // MỚI (02/10/2026) — Rule 4 vốn thiếu
             playlistContainer.className = isGridView
                 ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-6 px-5 pb-32'
                 : 'flex flex-col pb-32';
@@ -182,7 +183,7 @@
         // `mediaSourceSelect` (dom-refs.js) đã XOÁ — tại đúng dòng này (bootstrap lúc script vừa
         // nạp) chắc chắn trả `null` (Settings chưa từng mở), NO-OP đúng ý nghĩa như trước giờ.
         const bootMediaSourceSelectEl = genericDrawerBody.querySelector('#setting-playlist-media-source');
-        PlaylistMain.initMediaSource(bootMediaSourceSelectEl);
+        PlaylistMain.initMediaSource(bootMediaSourceSelectEl, appState.get('activeMediaSource'));
         // XOÁ (06/09/2026) — `PlaylistMain.updateActiveFolderUI(bootMediaSourceSelectEl)` bỏ theo
         // hàm đã xoá (mục 3.1, xem docstring updateActiveFolderBadge() ngay trên). Không gọi
         // `updateActiveFolderBadge()` thay thế Ở ĐÂY: badge tĩnh đã `hidden` sẵn trong HTML gốc,

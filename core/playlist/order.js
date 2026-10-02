@@ -206,3 +206,12 @@ function decideBoundaryAction(repeatMode, force) {
 function shouldRestartInsteadOfAdvance(repeatMode, force) {
     return !force && repeatMode === 2;
 }
+
+/** MỚI (02/10/2026, rà event-bus-flow.md mục 7 cho workflowPlaylistOrder.applyNewSongsToDisplayOrder()) — gộp 2 điều
+ * kiện thành 1 giá trị trạng thái: không có bài mới -> 'resync' (chỉ đồng bộ lại nếu lệch); chưa phát gì -> 'resort'
+ * (sắp lại toàn bộ ngay); đang phát -> 'append' (nối cuối + chờ resort, không làm gãy thứ tự đang nghe). Hàm THUẦN.
+ * @param {number} newKeyCount @param {boolean} hasCurrent @returns {'resync'|'resort'|'append'} */
+function resolveNewSongsDisplayMode(newKeyCount, hasCurrent) {
+    if (newKeyCount === 0) return 'resync';
+    return hasCurrent ? 'append' : 'resort';
+}

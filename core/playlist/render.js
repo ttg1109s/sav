@@ -72,7 +72,11 @@
          * loại khỏi domNodesByKey (xoá bài khỏi danh sách, hoặc refreshSongNode thay node cũ).
          */
         function revokeNodeCoverUrl(node) {
-            if (node && node._coverObjectUrl) { try { URL.revokeObjectURL(node._coverObjectUrl); } catch (e) {} node._coverObjectUrl = null; }
+            // SỬA (02/10/2026, rà Rule 3b) — thu hồi qua `revokeBlobUrl()` (service/blob-url.js — API dọn tài nguyên Core ĐƯỢC
+            // gọi) thay vì gọi thẳng URL.revokeObjectURL; điều kiện gộp viết lại thành guard.
+            if (!node || !node._coverObjectUrl) return; // guard — node chưa từng có bìa thật
+            revokeBlobUrl(node._coverObjectUrl);
+            node._coverObjectUrl = null;
         }
 
         /** MỚI (02/10/2026, tối ưu 10000 item — Giang duyệt) — gắn ảnh bìa THẬT cho 1 node mà buildSongNode() đã dựng ở trạng
@@ -155,12 +159,14 @@
          * tự `appState.get()` rồi truyền vào, đúng vai Workflow "chuẩn bị dữ liệu cho Core thi
          * hành". KHÔNG đổi 1 dòng LOGIC bên trong — chỉ đổi nguồn lấy 2 giá trị từ tự đọc sang nhận
          * tham số.
-         * @param {string|null} currentKey
-         * @param {string[]} displayOrder
+         * @param {boolean} isPlaying - media đang phát có thuộc hàng đợi phát của Nguồn đang xem không
          */
-        function updatePlayButtonPlayingState(currentKey, displayOrder) {
+        function updatePlayButtonPlayingState(isPlaying) {
+            // SỬA (02/10/2026, Giang báo "Đang phát" sai khi key trùng giữa các Nguồn) — trước đây tự tính
+            // `currentKey != null && displayOrder.includes(currentKey)` (chỉ so key: đang phát video mà sang Nguồn Photo,
+            // ảnh trùng tên file làm nút báo "Đang phát"). Công thức đúng (khớp cả LOẠI media) giờ tính ở Workflow
+            // (workflowPlaylistRender.syncPlayButtonPlayingState()) qua isPlayingMediaListed() — hàm này chỉ còn VẼ.
             if (!btnPlaylistEmptyPlay) return;
-            const isPlaying = currentKey != null && displayOrder.includes(currentKey);
             btnPlaylistEmptyPlay.classList.toggle('animate-pulse', isPlaying);
             btnPlaylistEmptyPlay.dataset.playing = String(isPlaying);
             if (btnPlaylistEmptyPlayLabel) btnPlaylistEmptyPlayLabel.textContent = isPlaying ? t('playlistView.btnPlaying') : t('playlistView.btnPlay');
@@ -172,7 +178,9 @@
             if (!el) return;
             playlistEmpty.classList.add('hidden');
             const se = document.getElementById('playlist-search-empty'); if (se) se.classList.add('hidden');
-            updatePlaylistLoading(done, total);
+            // SỬA (02/10/2026, rà Rule 3a) — trước đây gọi updatePlaylistLoading() (core gọi core) — đặt chữ ngay tại đây.
+            const txt = document.getElementById('playlist-loading-text');
+            if (txt) txt.textContent = total ? tFormat('playlistView.loading.withCount', { done, total }) : t('playlistView.loading.generic');
             el.classList.remove('hidden');
             // ép reflow trước khi tăng opacity để transition fade-in chạy mượt
             void el.offsetWidth;
@@ -182,44 +190,42 @@
             const txt = document.getElementById('playlist-loading-text');
             if (txt) txt.textContent = total ? tFormat('playlistView.loading.withCount', { done, total }) : t('playlistView.loading.generic');
         }
-        function hidePlaylistLoading() {
+        // SỬA (02/10/2026, rà Rule 3 — taskManager cấm trong Core) — `hidePlaylistLoading()` (mờ dần + taskManager.once()
+        // ẩn hẳn sau 320ms) tách thành 2 hàm lá dưới; Workflow (workflowPlaylistRender.hidePlaylistLoading()) tự hẹn giờ.
+        /** Bắt đầu mờ dần lớp "đang nạp danh sách" (transition-opacity duration-300). */
+        function fadeOutPlaylistLoading() {
             const el = document.getElementById('playlist-loading-list');
-            if (!el || el.classList.contains('hidden')) return;
+            if (!el) return; // guard
             el.style.opacity = '0';
-            taskManager.once(() => el.classList.add('hidden'), 320); // khớp transition-opacity duration-300
+        }
+        /** Ẩn hẳn lớp "đang nạp danh sách" (gọi sau khi mờ dần xong). */
+        function concealPlaylistLoading() {
+            const el = document.getElementById('playlist-loading-list');
+            if (!el) return; // guard
+            el.classList.add('hidden');
         }
 
         /** Cập nhật trạng thái rỗng/không-kết-quả thuần từ dữ liệu (không liên quan hàng đợi phát).
-         * SỬA — `liveKeys()` (core/playlist/order.js) VỪA sửa Rule 2 (nhận tham số thay vì tự
-         * appState.get()), cập nhật lời gọi ĐỦ tham số để không vỡ. */
-        function updateEmptyState() {
-            const totalSongs = liveKeys(appState.get('playlistOrder'), appState.get('confirmedBrokenKeys')).length;
-            const emptyEl = playlistEmpty;
+         * SỬA (02/10/2026, rà Rule 1/2/3a) — trước đây `updateEmptyState()` tự appState.get() (Rule 2), gọi liveKeys() +
+         * hidePlaylistLoading() (core gọi core, Rule 3a) và rẽ if/else 3 nhánh (Rule 1). Giờ Workflow
+         * (workflowPlaylistRender.syncEmptyState()) đếm sẵn rồi truyền vào; 3 trạng thái cũ viết lại thành 2 boolean
+         * hiện/ẩn — kết quả hiển thị y hệt: thư viện rỗng -> hiện "chưa có bài"; có bài nhưng lọc ra 0 -> hiện "không có
+         * kết quả"; còn lại ẩn cả hai. Chữ đổi theo Nguồn qua bảng tra GIÁ TRỊ (không rẽ tiến trình).
+         * @param {number} totalCount - số bài hợp lệ của Nguồn/Scope @param {number} renderCount - số bài đang hiển thị
+         * @param {'song'|'video'|'photo'} mediaSource */
+        function applyPlaylistEmptyState(totalCount, renderCount, mediaSource) {
+            const EMPTY_TEXT_KEY = { song: 'playlistView.empty.noSongs', video: 'playlistView.empty.noVideos', photo: 'playlistView.empty.noPhotos' };
+            const SEARCH_EMPTY_TEXT_KEY = { song: 'playlistView.empty.noSearchResults', video: 'playlistView.empty.noSearchResultsVideo', photo: 'playlistView.empty.noSearchResultsPhoto' };
+            const isLibraryEmpty = totalCount === 0;
+            const isSearchEmpty = !isLibraryEmpty && renderCount === 0;
             const searchEmptyEl = document.getElementById('playlist-search-empty');
-            // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — 2 chuỗi rỗng/không-
-            // kết-quả trước đây LUÔN nói "song" kể cả khi đang browse Nguồn Video — đổi chữ theo
-            // `activeMediaSource` mỗi lần hàm này chạy (rẻ, chỉ 2 dòng textContent).
-            // MỞ RỘNG (hợp nhất Photo vào Playlist) — thêm nhánh 'photo' vào cùng cơ chế.
-            const mediaSource = appState.get('activeMediaSource');
-            const emptyTextEl = emptyEl.querySelector('p');
-            if (emptyTextEl) emptyTextEl.textContent = t(mediaSource === 'video' ? 'playlistView.empty.noVideos' : mediaSource === 'photo' ? 'playlistView.empty.noPhotos' : 'playlistView.empty.noSongs');
-            if (searchEmptyEl) {
-                const searchTextEl = searchEmptyEl.querySelector('p');
-                if (searchTextEl) searchTextEl.textContent = t(mediaSource === 'video' ? 'playlistView.empty.noSearchResultsVideo' : mediaSource === 'photo' ? 'playlistView.empty.noSearchResultsPhoto' : 'playlistView.empty.noSearchResults');
-            }
-            // Khi đã có dữ liệu thật để dựng list (renderOrder > 0) thì lớp "đang nạp" không còn cần
-            // -> fade out (an toàn nếu nó đang hiện; no-op nếu đã ẩn).
-            if (appState.get('renderOrder').length > 0) hidePlaylistLoading();
-            if (totalSongs === 0) {
-                emptyEl.classList.remove('hidden');
-                if (searchEmptyEl) searchEmptyEl.classList.add('hidden');
-            } else if (appState.get('renderOrder').length === 0) {
-                emptyEl.classList.add('hidden');
-                if (searchEmptyEl) searchEmptyEl.classList.remove('hidden');
-            } else {
-                emptyEl.classList.add('hidden');
-                if (searchEmptyEl) searchEmptyEl.classList.add('hidden');
-            }
+            const emptyTextEl = playlistEmpty.querySelector('p');
+            if (emptyTextEl) emptyTextEl.textContent = t(EMPTY_TEXT_KEY[mediaSource] || EMPTY_TEXT_KEY.song);
+            playlistEmpty.classList.toggle('hidden', !isLibraryEmpty);
+            if (!searchEmptyEl) return; // guard — khối "không có kết quả" chưa mount
+            const searchTextEl = searchEmptyEl.querySelector('p');
+            if (searchTextEl) searchTextEl.textContent = t(SEARCH_EMPTY_TEXT_KEY[mediaSource] || SEARCH_EMPTY_TEXT_KEY.song);
+            searchEmptyEl.classList.toggle('hidden', !isSearchEmpty);
         }
 
         /** SỬA (yêu cầu Giang) — cuộn tới ĐÚNG bài hát vừa sửa phụ đề xong (quay lại từ
@@ -235,18 +241,12 @@
          * Gọi từ core/visualizer/draw-visualizer.js, NGAY SAU initPlaylistFromDB() + khôi phục
          * activePlayListFolder (đảm bảo scope/danh sách đã ở trạng thái CUỐI CÙNG trước khi cuộn —
          * cuộn sớm hơn có thể nhắm nhầm lúc danh sách còn đang lọc lại theo folder). */
-        function scrollToSongIfPending() {
-            const isEditingSubtitle = localStorage.getItem('sav_editingSubtitle') === 'true';
-            if (!isEditingSubtitle) return; // cờ false (hoặc chưa từng có) -> không làm gì cả, đúng yêu cầu Giang
-            const key = localStorage.getItem('sav_scrollToSongKey');
-            localStorage.setItem('sav_editingSubtitle', 'false'); // đặt lại false NGAY — chỉ dùng 1 lần
-            localStorage.removeItem('sav_scrollToSongKey'); // xoá hẳn key bài hát
-            if (!key) return;
-            requestAnimationFrame(() => {
-                const node = appState.get('domNodesByKey').get(key);
-                if (!node || !node.isConnected) return; // không tìm thấy (bài có thể đang ở scope/folder khác lúc quay lại) -> bỏ qua im lặng
-                node.scrollIntoView({ behavior: 'smooth', block: 'center' }); // CHỈ cuộn — KHÔNG thêm viền sáng/nháy gì (yêu cầu Giang)
-            });
+        // DỜI (02/10/2026, rà Rule 2/3b) — `scrollToSongIfPending()` (tự đọc localStorage + appState, tự hẹn
+        // requestAnimationFrame) sang event/workflow/playlist-render.js::scrollToSongIfPending(); phần cuộn còn lại ở đây:
+        /** Cuộn 1 node Playlist vào giữa khung nhìn. `behavior` 'smooth' (quay về từ subtitle-editor) | 'auto' (tức thì).
+         * Hàm LÁ — thao tác trên node nhận vào. @param {HTMLElement} node @param {ScrollBehavior} behavior */
+        function scrollPlaylistNodeIntoView(node, behavior) {
+            node.scrollIntoView({ behavior, block: 'center' });
         }
 
         /** MỚI (fix/tính năng, phản hồi Giang 29/07/2026, "scroll tức thì trước khi ra vào
@@ -264,6 +264,10 @@
          * bỏ qua; key không có trong `domNodesByKey` (đang khác scope/folder/kết quả tìm kiếm) ->
          * bỏ qua êm; node có nhưng KHÔNG còn gắn DOM thật (isConnected=false, hiếm, lệch nhịp
          * render) -> bỏ qua. */
+        // NỢ KỸ THUẬT CÒN LẠI (02/10/2026, rà file đã đụng) — hàm này VẪN tự appState.get() (Rule 2). Mọi nơi gọi trong
+        // Workflow đã chuyển sang workflowPlaylistRender.scrollToCurrentInstant() (bản đúng rule); chỉ còn ĐÚNG 1 nơi gọi
+        // là core/player-controls.js::switchToVisualizer() (core di sản, có 6 nơi gọi khác — gồm cả core/visualizer-
+        // control-center.js). Xoá hàm này kéo theo phải dời switchToVisualizer() -> để đợt riêng.
         function scrollToCurrentKeyInstant() {
             const key = appState.get('currentKey');
             if (!key) return;
@@ -290,34 +294,30 @@
          * quay lại. Gọi từ core/playlist/actions.js (Song) + event/router/video-player.js (Video),
          * ĐÚNG nhánh switchScreen===false (Next/Prev, KHÔNG phải bấm tay 1 dòng trong Playlist —
          * bấm tay đã switchToVisualizer() luôn, không cần cuộn gì thêm). */
-        function scrollToCurrentKeyAnimated() {
-            if (appStack.classList.contains('playlist-hidden')) return; // đang ở Visualizer -> không cuộn gì cả
-            const key = appState.get('currentKey');
-            if (!key) return;
-            const node = appState.get('domNodesByKey').get(key);
-            if (!node || !node.isConnected) return;
-
-            const scrollEl = playlistContainer.parentElement; // div bọc ngoài "overflow-y-auto" thật sự cuộn (components/playlist-view.js) — #playlist-container chỉ chứa nội dung, không tự cuộn
+        // DỜI (02/10/2026, rà Rule 2) — `scrollToCurrentKeyAnimated()` (tự appState.get() currentKey/domNodesByKey, đọc
+        // class `playlist-hidden`) sang event/workflow/playlist-render.js::scrollToCurrentAnimated(); 3 phần THUẦN ở đây
+        // (số học GIỮ NGUYÊN từng hệ số: tốc độ 2,2 px/ms, clamp 200-800ms, ease-in-out-quad):
+        /** Tính đường cuộn đưa `node` vào giữa khung `scrollEl`. Hàm THUẦN (chỉ đo 2 phần tử nhận vào).
+         * @returns {{start:number, distance:number, duration:number}} */
+        function computePlaylistCenterScrollPlan(scrollEl, node) {
             const containerRect = scrollEl.getBoundingClientRect();
             const nodeRect = node.getBoundingClientRect();
             const nodeOffsetTop = (nodeRect.top - containerRect.top) + scrollEl.scrollTop;
             const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
             const targetScrollTop = Math.max(0, Math.min(maxScroll, nodeOffsetTop - (scrollEl.clientHeight / 2) + (nodeRect.height / 2)));
-
-            const startScrollTop = scrollEl.scrollTop;
-            const distance = targetScrollTop - startScrollTop;
-            if (Math.abs(distance) < 1) return; // đã sẵn đúng vị trí -> khỏi animate
-
-            const PX_PER_MS = 2.2; // tốc độ cuộn cố định -> thời lượng tự tỉ lệ theo khoảng cách thật, KHÔNG hard-code 1 mốc chung cho mọi độ dài playlist
+            const start = scrollEl.scrollTop;
+            const distance = targetScrollTop - start;
+            const PX_PER_MS = 2.2; // tốc độ cuộn cố định -> thời lượng tự tỉ lệ theo khoảng cách thật
             const duration = Math.max(200, Math.min(800, Math.abs(distance) / PX_PER_MS));
-            const startTime = performance.now();
-            function step(now) {
-                const t = Math.min(1, (now - startTime) / duration);
-                const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; // ease-in-out-quad
-                scrollEl.scrollTop = startScrollTop + distance * eased;
-                if (t < 1) requestAnimationFrame(step);
-            }
-            requestAnimationFrame(step);
+            return { start, distance, duration };
+        }
+        /** ease-in-out-quad, t trong [0,1]. Hàm THUẦN. */
+        function easeInOutQuad(t) {
+            return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        }
+        /** Đặt scrollTop của khung cuộn. Hàm LÁ. */
+        function setPlaylistScrollTop(scrollEl, top) {
+            scrollEl.scrollTop = top;
         }
 
         /** MỚI (29/07/2026, yêu cầu Giang mục 2 — "đổi song <-> video playlist thì scroll = 0
