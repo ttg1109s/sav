@@ -67,10 +67,11 @@ const RENDER_NODE_BY_EXISTS = {
 /** MỚI (02/10/2026, Giang chốt quy tắc A) — cuộn sau khi DANH SÁCH đổi nội dung (đổi từ khoá Search / đổi Nguồn):
  * media đang phát CÓ trong danh sách -> tới thẳng nó (tức thì, không animation — gõ từng ký tự mà trượt sẽ giật); KHÔNG
  * có -> về đầu danh sách. Object map theo event-bus-flow.md mục 7 (khoá boolean thật từ `isPlayingMediaListed()`). */
-// MỚI (02/10/2026, rà mục 7) — scrollToCurrentOrDefer(): menu 3 chấm đang mở -> hoãn; không -> cuộn có animation.
+// MỚI (02/10/2026, rà mục 7) — scrollToCurrentOrDefer(): menu 3 chấm đang mở -> hoãn; không -> cuộn.
+// SỬA (02/10/2026, Giang: "loại bỏ animation, gán giá trị scroll thẳng") — nhánh false không còn cuộn có animation.
 const SCROLL_TO_CURRENT_BY_MENU_OPEN = {
     true: () => workflowPlaylistRender._deferScrollToCurrent(),
-    false: () => workflowPlaylistRender.scrollToCurrentAnimated(),
+    false: () => workflowPlaylistRender.scrollToCurrentWhenShown(),
 };
 const PLAYLIST_LOADING_HIDE_TASK = 'playlistLoadingHide'; // MỚI (02/10/2026) — xem hidePlaylistLoading()
 
@@ -272,12 +273,12 @@ const workflowPlaylistRender = {
 
     /** MỚI (21/09/2026) — chạy lượt cuộn đang hoãn bởi `scrollToCurrentOrDefer()` (nếu có). Không có cờ chờ ->
      * no-op. Gọi SAU khi menu 3 chấm đã đóng (`workflowPlaylist.closeActionMenu()`). Nếu Playlist đã bị ẩn (đang
-     * ở Visualizer) thì `scrollToCurrentAnimated()` tự bỏ qua, còn `scrollToCurrentInstant()` lo lúc quay lại. */
+     * ở Visualizer) thì `scrollToCurrentWhenShown()` tự bỏ qua, còn `scrollToCurrentInstant()` lo lúc quay lại. */
     flushPendingScrollToCurrent() {
         if (!playlistStore.get('scrollToCurrentPending')) return;
         playlistStore.set({ scrollToCurrentPending: false });
         console.log(`writer: "workflowPlaylistRender.flushPendingScrollToCurrent", page: "playlistStore.scrollToCurrentPending", content: "false (menu đã đóng — cuộn bù)"`);
-        this.scrollToCurrentAnimated(); // SỬA (02/10/2026) — dời từ core scrollToCurrentKeyAnimated() (Rule 2)
+        this.scrollToCurrentWhenShown(); // SỬA (02/10/2026) — bỏ animation, xem method đó
     },
 
     /** MỚI (02/10/2026, Giang chốt phương án A — `content-visibility: auto` cho item Playlist) — đo chiều cao nội dung
@@ -401,64 +402,47 @@ const workflowPlaylistRender = {
     },
 
     /** Dời từ core `scrollToSongIfPending()` — quay về từ subtitle-editor.html: cờ `sav_editingSubtitle` + key
-     * `sav_scrollToSongKey` (localStorage) -> cuộn MƯỢT tới đúng bài, rồi xoá cờ NGAY (chỉ dùng 1 lần). Thân giữ nguyên. */
+     * `sav_scrollToSongKey` (localStorage) -> cuộn tới đúng bài, rồi xoá cờ NGAY (chỉ dùng 1 lần).
+     * SỬA (02/10/2026, Giang: "loại bỏ animation, gán giá trị scroll thẳng") — bỏ `scrollIntoView({behavior:'smooth'})`,
+     * gán thẳng scrollTop qua `_scrollToKeyInstant()`. */
     scrollToSongIfPending() {
         if (localStorage.getItem('sav_editingSubtitle') !== 'true') return; // guard — cờ false/chưa từng có
         const key = localStorage.getItem('sav_scrollToSongKey');
         localStorage.setItem('sav_editingSubtitle', 'false');
         localStorage.removeItem('sav_scrollToSongKey');
         if (!key) return; // guard
-        requestAnimationFrame(() => this._scrollToKeyNode(key, 'smooth'));
+        requestAnimationFrame(() => this._scrollToKeyInstant(key));
     },
 
-    /** Dời từ core `scrollToCurrentKeyInstant()` (bản core ĐÃ XOÁ 02/10/2026) — cuộn
-     * TỨC THÌ tới currentKey (gọi lúc Playlist đang dịch ra ngoài khung nhìn).
-     * FIX (02/10/2026, Giang báo "về Playlist rồi vào lại thì giật toàn bộ video/motion/visual, đổi Nguồn qua lại thì mượt
-     * lại") — KHÔNG dùng `scrollIntoView()` nữa. `returnToPlaylistUI()` gọi hàm này TRƯỚC khi Playlist trượt vào, lúc
-     * #app-stack còn nằm hẳn ngoài màn hình: mọi item đang bị `content-visibility: auto` bỏ qua render, và
-     * `scrollIntoView()` (1) buộc trình duyệt xử lý node đích đang bị bỏ qua, (2) cuộn CẢ chuỗi khung cuộn tổ tiên chứ
-     * không riêng khung Playlist. Lần vào đầu từ boot không dính vì lúc đó Playlist còn trên màn hình (cuộn cùng nhịp với
-     * `slidePlaylistOut()`), đổi Nguồn không dính vì cuộn sau `renderPlaylistFull()` lúc Playlist đang hiện.
-     * Giờ: tính đích "đặt node vào giữa khung" bằng CÙNG phép tính của bản animated (`computePlaylistCenterScrollPlan()` —
-     * chỉ đọc hộp của chính node + khung cuộn, không đụng phần ruột đang bị bỏ qua), rồi gán thẳng `scrollTop` của ĐÚNG
-     * khung cuộn Playlist. Vẫn tức thì, vẫn chạy trước khi trượt vào (giữ yêu cầu 29/07/2026 "cuộn tức thì cả 2 chiều"). */
+    /** Dời từ core `scrollToCurrentKeyInstant()` (bản core ĐÃ XOÁ 02/10/2026) — cuộn TỨC THÌ tới currentKey. Gọi được cả
+     * lúc Playlist đang dịch ra ngoài khung nhìn (`returnToPlaylistUI()` gọi TRƯỚC khi trượt vào, `switchToVisualizer()`).
+     * SỬA (02/10/2026) — không dùng `scrollIntoView()` (cuộn cả chuỗi khung cuộn tổ tiên), gán thẳng `scrollTop` của
+     * ĐÚNG khung cuộn Playlist, xem `_scrollToKeyInstant()`. */
     scrollToCurrentInstant() {
         const key = appState.get('currentKey');
         if (!key) return; // guard — chưa phát gì
-        const node = appState.get('domNodesByKey').get(key);
-        if (!node || !node.isConnected) return; // guard — node không còn (khác scope/kết quả tìm kiếm)
-        if (node.classList.contains('hidden')) return; // guard — đang ẩn vì Search (display:none, không có hộp để đo) — bản scrollIntoView cũ cũng no-op ở case này
-        const scrollEl = playlistContainer.parentElement; // div "overflow-y-auto" thật sự cuộn (components/playlist-view.js)
-        const plan = computePlaylistCenterScrollPlan(scrollEl, node); // core/playlist/render.js — chỉ dùng start/distance, bỏ duration
-        if (Math.abs(plan.distance) < 1) return; // guard — đã đúng vị trí
-        setPlaylistScrollTop(scrollEl, plan.start + plan.distance); // core/playlist/render.js
+        this._scrollToKeyInstant(key);
     },
 
-    /** Cuộn tới node của `key` nếu node còn gắn DOM (không có — đang khác scope/kết quả tìm kiếm — thì bỏ qua êm). */
-    _scrollToKeyNode(key, behavior) {
-        const node = appState.get('domNodesByKey').get(key);
-        if (!node || !node.isConnected) return; // guard
-        scrollPlaylistNodeIntoView(node, behavior); // core/playlist/render.js
-    },
-
-    /** Dời từ core `scrollToCurrentKeyAnimated()` — cuộn CÓ ANIMATION tới currentKey lúc Playlist ĐANG hiển thị (Next/
-     * Prev), thời lượng tỉ lệ khoảng cách (xem computePlaylistCenterScrollPlan()). Đang ở Visualizer -> không cuộn. */
-    scrollToCurrentAnimated() {
+    /** MỚI (02/10/2026, Giang: "loại bỏ animation, gán giá trị scroll thẳng") — THAY `scrollToCurrentAnimated()` (ĐÃ
+     * XOÁ: vòng requestAnimationFrame ghi scrollTop 200–800ms, không tự dừng khi Playlist trượt ra). Dùng lúc đổi bài
+     * mà Playlist có thể đang hiển thị (Next/Prev/auto-next qua `scrollToCurrentOrDefer()`, cuộn bù sau khi đóng menu
+     * 3 chấm). Đang ở Visualizer -> không cuộn (giữ hành vi cũ: `scrollToCurrentInstant()` lo lúc quay lại). */
+    scrollToCurrentWhenShown() {
         if (appStack.classList.contains('playlist-hidden')) return; // guard — đang ở Visualizer
-        const key = appState.get('currentKey');
-        if (!key) return; // guard
+        this.scrollToCurrentInstant();
+    },
+
+    /** MỚI (02/10/2026) — gán thẳng `scrollTop` để đặt node của `key` vào giữa khung cuộn Playlist (không animation,
+     * không `scrollIntoView()`). Node không còn gắn DOM (khác scope/kết quả tìm kiếm) hoặc đang ẩn vì Search
+     * (display:none, không có hộp để đo) -> bỏ qua êm. */
+    _scrollToKeyInstant(key) {
         const node = appState.get('domNodesByKey').get(key);
         if (!node || !node.isConnected) return; // guard
+        if (node.classList.contains('hidden')) return; // guard — đang ẩn vì Search
         const scrollEl = playlistContainer.parentElement; // div "overflow-y-auto" thật sự cuộn (components/playlist-view.js)
-        const plan = computePlaylistCenterScrollPlan(scrollEl, node); // core/playlist/render.js
-        if (Math.abs(plan.distance) < 1) return; // guard — đã đúng vị trí
-        const startTime = performance.now();
-        const step = (now) => {
-            const t = Math.min(1, (now - startTime) / plan.duration);
-            setPlaylistScrollTop(scrollEl, plan.start + plan.distance * easeInOutQuad(t)); // core/playlist/render.js
-            if (t >= 1) return; // guard — xong
-            requestAnimationFrame(step);
-        };
-        requestAnimationFrame(step);
+        const targetScrollTop = computePlaylistCenterScrollTop(scrollEl, node); // core/playlist/render.js
+        if (Math.abs(targetScrollTop - scrollEl.scrollTop) < 1) return; // guard — đã đúng vị trí
+        setPlaylistScrollTop(scrollEl, targetScrollTop); // core/playlist/render.js
     },
 };
