@@ -65,7 +65,7 @@ function deselectMedia(key) {
  * chỉ dùng DOM API của trình duyệt — KHÔNG tính là "core khác" theo Rule 3).
  */
 
-/** Hiện chỉ báo đã/chưa chọn + ẩn menu 3 chấm cho 1 node.
+/** Áp dấu "đã chọn" (tint + vòng có tick) cho 1 node nếu key đang được chọn, gỡ nếu không — vòng trống + ẩn menu 3 chấm là CSS (xem thân hàm).
  * SỬA 23/09/2026 (rà soát theme — mục "còn nợ" multi-select tint sky cứng) — thêm `themeClasses` ({tint, indicatorSelected}: chuỗi class
  * Tailwind ĐÃ TRA SẴN theo theme đang active, Workflow truyền vào — event/workflow/playlist.js::_selectionThemeClasses()). Hàm vẫn là LÁ:
  * không gọi core nào khác, không tự tra theme, chỉ thao tác classList. Class tint đã thêm được nhớ ở `data-selection-tint` để gỡ đúng
@@ -73,26 +73,24 @@ function deselectMedia(key) {
  * @param {{tint:string, indicatorSelected:string}} themeClasses */
 function showSelectionIndicator(node, key, selectedMediaKeys, themeClasses) {
     if (!node) return; // guard: node không tồn tại (hiếm, race với render) — bỏ qua
-    const menuBtn = node.querySelector('button[data-action="menu"]');
-    if (menuBtn) menuBtn.classList.add('hidden'); // tránh 2 mục tiêu bấm cạnh tranh nhau
-
-    const isSelected = selectedMediaKeys.has(key);
+    // SỬA (02/10/2026, tối ưu 10000 item) — vòng tròn TRỐNG + ẩn nút 3 chấm giờ do CSS vẽ cho MỌI item khi
+    // #playlist-container có class `is-selecting` (applySelectionChrome() bên dưới; assets/css/layout-nav.css) — bật chế
+    // độ chọn không còn phải tạo 1 element/ẩn 1 nút trên TỪNG node (đo 10000 item: ~1,4 s). Hàm này giờ chỉ lo phần
+    // RIÊNG của item ĐÃ CHỌN: gỡ sạch dấu cũ, rồi nếu đang chọn thì tint + vòng có tick (đè đúng chỗ vòng trống của CSS).
     _clearSelectionTint(node);
-    if (isSelected) {
-        const tint = themeClasses.tint.split(/\s+/).filter(Boolean);
-        if (tint.length) node.classList.add(...tint);
-        node.dataset.selectionTint = tint.join(' ');
-    }
-    node.classList.add('relative'); // positioning context cho overlay — vô hại nếu đã có sẵn (grid view)
+    const previousIndicator = node.querySelector('[data-role="selection-indicator"]');
+    if (previousIndicator) previousIndicator.remove();
+    if (!selectedMediaKeys.has(key)) return; // chưa chọn -> để CSS vẽ vòng trống
 
-    let indicator = node.querySelector('[data-role="selection-indicator"]');
-    if (!indicator) {
-        indicator = document.createElement('div');
-        indicator.dataset.role = 'selection-indicator';
-        node.appendChild(indicator);
-    }
-    indicator.className = `absolute top-2 left-2 z-10 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? `border-transparent ${themeClasses.indicatorSelected}` : 'bg-black/30 border-white/30'}`;
-    indicator.innerHTML = isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : '';
+    const tint = themeClasses.tint.split(/\s+/).filter(Boolean);
+    if (tint.length) node.classList.add(...tint);
+    node.dataset.selectionTint = tint.join(' ');
+
+    const indicator = document.createElement('div');
+    indicator.dataset.role = 'selection-indicator';
+    indicator.className = `absolute top-2 left-2 z-10 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors border-transparent ${themeClasses.indicatorSelected}`;
+    indicator.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+    node.appendChild(indicator);
 }
 
 /** Gỡ tint chọn (nếu có) mà `showSelectionIndicator()` đã thêm — đọc lại từ `data-selection-tint`. Hàm lá, chỉ DOM API. */
@@ -105,8 +103,7 @@ function _clearSelectionTint(node) {
 /** Gỡ chỉ báo + hiện lại menu 3 chấm cho 1 node — dùng khi thoát chế độ chọn. */
 function hideSelectionIndicator(node) {
     if (!node) return; // guard
-    const menuBtn = node.querySelector('button[data-action="menu"]');
-    if (menuBtn) menuBtn.classList.remove('hidden');
+    // SỬA (02/10/2026) — không còn đụng nút 3 chấm (CSS `is-selecting` ẩn/hiện nó), chỉ gỡ phần riêng của item đã chọn.
     _clearSelectionTint(node);
     const indicator = node.querySelector('[data-role="selection-indicator"]');
     if (indicator) indicator.remove();
@@ -126,6 +123,10 @@ function updateSelectionActionBar(selectionMode, count) {
  * Hàm THUẦN, nhận selectionMode qua tham số.
  */
 function applySelectionChrome(selectionMode) {
+    // MỚI (02/10/2026, tối ưu 10000 item) — 1 class trên container thay cho patch từng node: CSS vẽ vòng tròn trống + ẩn
+    // nút 3 chấm cho mọi item (assets/css/layout-nav.css). Gọi lại sau mỗi lần container bị gán lại className (đổi
+    // Grid/List — workflowPlaylist.changeViewMode()).
+    if (playlistContainer) playlistContainer.classList.toggle('is-selecting', selectionMode);
     if (btnToggleSelection) btnToggleSelection.classList.toggle('!text-sky-400', selectionMode);
     // XOÁ (phản hồi Giang — "1 khung, không nhân bản") — dòng toggle `btnUploadVideo` bỏ hẳn cùng
     // lúc element đó bị xoá — nút upload giờ DÙNG CHUNG (btnUploadAudio) cho cả 3 Nguồn, dòng dưới

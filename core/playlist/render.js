@@ -75,6 +75,22 @@
             if (node && node._coverObjectUrl) { try { URL.revokeObjectURL(node._coverObjectUrl); } catch (e) {} node._coverObjectUrl = null; }
         }
 
+        /** MỚI (02/10/2026, tối ưu 10000 item — Giang duyệt) — gắn ảnh bìa THẬT cho 1 node mà buildSongNode() đã dựng ở trạng
+         * thái "chờ bìa" (`data-cover-pending="true"`, <img> chưa có src). Đo trên 10000 item: tạo object URL cho TẤT CẢ
+         * bìa lúc dựng chiếm ~70% thời gian dựng -> giờ chỉ tạo khi node lại gần khung nhìn (IntersectionObserver ở
+         * event/listener/playlist.js -> 'playlist.cover.nearViewport') hoặc ngay khi node được dựng lại tại chỗ
+         * (refreshSongNode()). Idempotent: node đã có URL -> bỏ qua (cùng khuôn revokeNodeCoverUrl() ngay trên, URL vẫn do
+         * revokeNodeCoverUrl() thu hồi khi node bị bỏ). Hàm LÁ — chỉ gọi API service/blob-url.js.
+         * @param {HTMLElement|null} node @param {Blob} coverBlob */
+        function attachNodeCover(node, coverBlob) {
+            if (!node || !coverBlob || node._coverObjectUrl) return; // guard — idempotent
+            const url = createBlobUrl(coverBlob); // service/blob-url.js
+            node._coverObjectUrl = url;
+            node.dataset.coverPending = 'false';
+            const img = node.querySelector('img');
+            if (img) img.src = url;
+        }
+
         // XOÁ (24/09/2026, rà soát refresh DOM) — `selectionIndicatorHtml()` (vòng tròn chọn vẽ INLINE lúc dựng
         // node, không có `data-role`) bỏ hẳn: chỉ báo chọn giờ ĐÚNG 1 đường duy nhất `showSelectionIndicator()`/
         // `hideSelectionIndicator()` (core/playlist/selection.js), Workflow áp lên node vừa dựng — xem
