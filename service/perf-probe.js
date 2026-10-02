@@ -1,5 +1,5 @@
 /**
- * service/perf-probe.js — TẠM (02/10/2026, v7), CHỈ ĐỂ CHẨN ĐOÁN bug "về Playlist rồi chọn media -> giật toàn bộ
+ * service/perf-probe.js — TẠM (02/10/2026, v8), CHỈ ĐỂ CHẨN ĐOÁN bug "về Playlist rồi chọn media -> giật toàn bộ
  * (video/motion/visual) kéo dài qua Next/Prev; pause rồi play lại thì mượt". KHÔNG thuộc kiến trúc event-bus — 1 HUD đo
  * đạc độc lập, xoá hẳn file + thẻ <script> cuối index.html sau khi chẩn đoán xong.
  *
@@ -49,7 +49,7 @@
  * bước trong luồng đổi media. Bật nút nào mà KHÔNG còn tái hiện được => bước đó là thủ phạm.
  *   [Không WL]      — requestWakeLock() thành no-op (bật lên thì nhả wake lock đang giữ 1 lần). Màn hình có thể tự tắt.
  *   [Không làm mới PL] — refreshSongNode() bỏ qua lúc Playlist đang ẩn (dòng đang phát sẽ hiển thị cũ — chỉ để đo).
- *   [Không cuộn]    — scrollToCurrentInstant()/scrollToCurrentAnimated() thành no-op (về Playlist không nhảy tới bài).
+ *   [Không cuộn]    — scrollToCurrentInstant()/scrollToCurrentWhenShown() thành no-op (về Playlist không nhảy tới bài).
  *   [Ẩn PL]         — ẩn hẳn #app-stack khỏi render khi ở Visualizer.
  *   [Chạm]          — không làm gì (để gỡ giật khi cần).
  * Nhật ký chạm (v7): mỗi cú chạm bất kỳ (trừ nút probe) -> 3s sau ghi 1 dòng: phần tử được chạm, khoảng chặn main
@@ -118,10 +118,11 @@
         if (isOn('probe-no-scroll')) return undefined;
         return originalScrollInstant.apply(this, arguments);
     };
-    const originalScrollAnimated = workflowPlaylistRender.scrollToCurrentAnimated;
-    workflowPlaylistRender.scrollToCurrentAnimated = function probeScrollAnimated() {
+    // (v8) scrollToCurrentAnimated() đã bị xoá (fix "gán scroll thẳng") — bọc bản thay thế scrollToCurrentWhenShown().
+    const originalScrollWhenShown = workflowPlaylistRender.scrollToCurrentWhenShown;
+    workflowPlaylistRender.scrollToCurrentWhenShown = function probeScrollWhenShown() {
         if (isOn('probe-no-scroll')) return undefined;
-        return originalScrollAnimated.apply(this, arguments);
+        return originalScrollWhenShown.apply(this, arguments);
     };
 
     // Việc làm thêm ngay lúc bật 1 công tắc.
