@@ -8,9 +8,8 @@
    badge số thứ tự góc trên phải, CÙNG tinh thần .photo-tile-marked/.photo-tile-badge nhưng tile
    folder không phải ảnh nền full nên không dùng lại được style đó (nền trắng Generic Drawer, không
    phải ảnh phủ kín tile). */
-.generic-item-folder-tile-selected .generic-folder-tile-icon-wrap > div:first-child {
-    box-shadow: 0 0 0 2px #0ea5e9;
-}
+/* XOÁ (06/10/2026) — box-shadow viền chọn trên ô icon: ô giờ cắt hình thư mục bằng clip-path nên box-shadow bị cắt
+   mất; viền chọn thay bằng SVG nét vẽ theo cùng path (components/items.js::itemTemplateFolderTile, selectedRingHtml). */
 .generic-folder-tile-badge {
     position: absolute;
     top: -4px;
@@ -26,4 +25,22 @@
     font-weight: 700;
     line-height: 14px;
     text-align: center;
+}
+
+/* MỚI (06/10/2026, Giang: "bung chữ khi touch/hover ở header logo") — logo header "Audivis" <-> "Audio Visualizer".
+   Trạng thái do core/sav-logo.js::setSavLogoExpanded() bật/tắt class .sav-logo-expanded trên #sav-logo
+   (components/playlist-view.js). Chèn "o " sau "Audi", đổi "v" thường -> "V" hoa (2 span chồng vai: "v" co + mờ đi,
+   "V" giãn + hiện lên cùng lúc), chèn "ualizer" sau "Vis" (trễ 0.1s). Thu lại chạy ngược, không trễ. */
+#sav-logo .sav-logo-expand,
+#sav-logo .sav-logo-swap-out,
+#sav-logo .sav-logo-swap-in { display: inline-block; overflow: hidden; vertical-align: bottom; transition: max-width 0.35s ease-out, opacity 0.35s ease-out; }
+#sav-logo .sav-logo-expand { white-space: pre; max-width: 0; }
+#sav-logo .sav-logo-swap-out { max-width: 1em; opacity: 1; }
+#sav-logo .sav-logo-swap-in { max-width: 0; opacity: 0; }
+#sav-logo.sav-logo-expanded .sav-logo-expand-1 { max-width: 1.2em; }
+#sav-logo.sav-logo-expanded .sav-logo-expand-2 { max-width: 4.6em; transition-delay: 0.1s; }
+#sav-logo.sav-logo-expanded .sav-logo-swap-out { max-width: 0; opacity: 0; }
+#sav-logo.sav-logo-expanded .sav-logo-swap-in { max-width: 1em; opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+    #sav-logo .sav-logo-expand, #sav-logo .sav-logo-swap-out, #sav-logo .sav-logo-swap-in { transition: none; }
 }
