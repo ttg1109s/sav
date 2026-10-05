@@ -16,6 +16,9 @@
  */
 const workflowAppBoot = {
     async boot() {
+        // MỚI (05/10/2026) — app luôn mở ở Playlist: sân khấu Visualizer (gồm #visualizer-ui) ra khỏi cây render ngay từ
+        // đầu ở bố cục xếp chồng — event/workflow/player-controls.js. Đồng bộ, không phụ thuộc gì bên dưới.
+        workflowPlayerControls.offstageVisualStageOnBoot();
         await loadConfig();
         // SỬA (28/09/2026, Phase 3 dọn visualizer) — kích hoạt style đã lưu (nhãn icon, vizConfig, scene WebGL nếu cần):
         // trước đây loadConfig() (core) tự gọi updateTypeUI() (core cũ, đã tách về Workflow).

@@ -70,9 +70,22 @@ const TRACK_CHANGE_SCREEN_BY_SWITCH = {
 // MỚI (05/10/2026, Giang chốt hướng sửa "về Playlist rồi vào lại thì giật toàn bộ video/motion/visual") — xem
 // switchToVisualizer()/returnToPlaylistUI()/_suspendVisualStage()/_revealEffectsWhenMediaReady().
 const PLAYLIST_OFFSTAGE_TASK = 'playlistOffstageAfterSlide'; // hẹn đưa Playlist ra khỏi cây render sau khi trượt xong
+const HIDE_VISUALIZER_UI_TASK = 'hideVisualizerUiAfterFade'; // hẹn ẩn UI + sân khấu Visualizer sau khi Playlist trượt vào xong
 const SCREEN_SLIDE_MS = 500; // khớp transition transform 0.5s của #app-stack (assets/css/layout-nav.css)
 const MEDIA_READY_TIMEOUT_TASK = 'visualizerMediaReadyTimeout';
 const MEDIA_READY_TIMEOUT_MS = 6000; // lưới an toàn: media không bao giờ báo 'canplaythrough' -> vẫn hiện effect, ghi log
+
+/** MỚI (05/10/2026) — đổi bố cục màn hình lúc đang chạy (xoay iPad/kéo cửa sổ qua mốc 1024px), key = bố cục xếp chồng. */
+const SCREEN_LAYOUT_CHANGE_BY_STACKED = {
+    true: () => workflowPlayerControls._applyStackedLayout(),
+    false: () => workflowPlayerControls._applyDesktopLayout(),
+};
+
+/** Vừa chuyển sang bố cục xếp chồng — key = đang ở Visualizer (#app-stack có 'playlist-hidden'). */
+const STACKED_LAYOUT_BY_ON_VISUALIZER = {
+    true: () => setPlaylistOffstage(true), // core/player-controls.js — Playlist đang bị che: ra khỏi cây render
+    false: () => workflowPlayerControls._suspendVisualStage(), // đang ở Playlist: dừng Visualizer + ẩn sân khấu
+};
 
 /** Phần tử media cần chờ 'canplaythrough' trước khi hiện lại effect, theo chế độ phát (object map, key = chế độ).
  * Photo Player mode: ảnh — chờ qua collectVisualStageImageUrls() (chung cho mọi chế độ). Song: audio + video nền VBG
@@ -92,6 +105,10 @@ const workflowPlayerControls = {
      * Playlist tới bài đang phát NGAY lúc nó vừa rời khung nhìn (yêu cầu Giang 29/07/2026 "scroll tức thì cả 2 chiều")
      * -> hiện UI Visualizer -> 50ms sau fade-in canvas. */
     switchToVisualizer() {
+        // MỚI (05/10/2026, sửa race) — vào lại Visualizer TRONG lúc Playlist còn đang trượt vào (<500ms) thì huỷ hẹn ẩn
+        // của lượt về Playlist trước: không huỷ thì tới hẹn `hideVisualizerUiAfterFade()` vẫn gắn 'hidden' cho
+        // #visualizer-ui/#player-container ngay khi người dùng đang ở Visualizer (mất nút + thanh điều khiển).
+        taskManager.kill(HIDE_VISUALIZER_UI_TASK);
         slidePlaylistOut(); // core/player-controls.js
         workflowPlaylistRender.scrollToCurrentInstant(); // event/workflow/playlist-render.js
         showVisualizerUi(); // core/player-controls.js
@@ -149,7 +166,8 @@ const workflowPlayerControls = {
     },
 
     /** MỚI (05/10/2026, Giang chốt — "về Playlist -> pause audioAnalysis + visualizerRender + ẩn ở lớp cha
-     * visualizer") — gọi lúc Playlist đã trượt vào xong. Media (Song/Video/Photo) VẪN phát tiếng. Bỏ qua ở desktop (2 cột
+     * visualizer") — gọi lúc Playlist đã trượt vào xong. Từ 05/10/2026 (lượt 2) #visualizer-ui cũng nằm trong lớp cha
+     * này (main.js) nên ẩn cùng. Media (Song/Video/Photo) VẪN phát tiếng. Bỏ qua ở desktop (2 cột
      * hiện song song) hoặc nếu lúc tới hẹn người dùng đã vào lại Visualizer. */
     _suspendVisualStage() {
         if (appStack.classList.contains('playlist-hidden')) return; // guard — đã vào lại Visualizer trước khi tới hẹn
@@ -190,12 +208,49 @@ const workflowPlayerControls = {
         setPlaylistOffstage(false); // core/player-controls.js
         workflowPlaylistRender.scrollToCurrentInstant(); // SỬA (02/10/2026) — bản đúng rule (core scrollToCurrentKeyInstant() tự appState.get())
         slideBackToPlaylistUi(); // core/player-controls.js
+        // MỚI (05/10/2026) — UI giờ còn hiện suốt lúc trượt ra (không còn tắt opacity tức thì) -> chặn chạm trong lúc
+        // đó. Desktop: UI Visualizer vẫn hiện song song, không chặn. (chọn GIÁ TRỊ, không rẽ tiến trình)
+        setVisualizerUiInert(isStackedScreenLayout()); // core/player-controls.js
         if (typeof closeControlCenter === 'function') closeControlCenter(); // core/visualizer-control-center.js — phòng panel còn mở sót
+        // SỬA (05/10/2026) — `_suspendVisualStage()` chạy ĐẦU TIÊN: trước đây đứng sau `renderPlaylistDiff()`, diff
+        // ném lỗi (taskManager nuốt lỗi của cả callback) thì sân khấu không ẩn + 2 task Visualizer chạy tiếp ở Playlist.
         taskManager.once(() => {
+            this._suspendVisualStage(); // Playlist đã che kín: dừng Visualizer + ẩn sân khấu (gồm #visualizer-ui)
             hideVisualizerUiAfterFade(); // core/player-controls.js
             workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js
-            this._suspendVisualStage(); // MỚI (05/10/2026) — Playlist đã che kín: dừng Visualizer + ẩn sân khấu hình
-        }, SCREEN_SLIDE_MS, 'hideVisualizerUiAfterFade');
+        }, SCREEN_SLIDE_MS, HIDE_VISUALIZER_UI_TASK);
+    },
+
+    /** MỚI (05/10/2026) — boot (event/workflow/app-boot.js): app luôn mở ở Playlist -> đưa sân khấu Visualizer ra khỏi
+     * cây render ngay từ đầu (bố cục xếp chồng), để "đang ở Playlist = sân khấu offstage" đúng cả trước lần vào
+     * Visualizer đầu tiên. Chưa có task Visualizer nào lúc này (chỉ dựng khi phát lần đầu) nên không cần hold. */
+    offstageVisualStageOnBoot() {
+        if (!isStackedScreenLayout()) return; // guard — desktop, core/player-controls.js
+        setVisualStageOffstage(true); // core/player-controls.js
+    },
+
+    /** MỚI (05/10/2026) — ứng 'playerControls.screenLayout.change' (event/listener/player-controls.js): bố cục đổi qua
+     * mốc 1024px lúc đang chạy. Trước đây: đang ở Playlist (2 task bị hold) mà chuyển sang desktop thì Visualizer hiện
+     * lại nhưng đứng hình tới lần vào Visualizer kế tiếp. @param {boolean} isStacked */
+    handleScreenLayoutChange(isStacked) {
+        SCREEN_LAYOUT_CHANGE_BY_STACKED[isStacked === true]();
+    },
+
+    _applyStackedLayout() {
+        STACKED_LAYOUT_BY_ON_VISUALIZER[appStack.classList.contains('playlist-hidden')](); // core/dom-refs.js
+    },
+
+    /** Desktop: Visualizer luôn hiện song song -> gỡ chặn chạm, chạy lại 2 task nếu đang hold, hiện canvas nếu đang có bài
+     * (class offstage của Playlist/sân khấu không cần gỡ — CSS chỉ có hiệu lực <1024px). */
+    _applyDesktopLayout() {
+        setVisualizerUiInert(false); // core/player-controls.js
+        workflowVisualizerRender.releasePlaylistHold(); // event/workflow/visualizer-render.js
+        this._revealCanvasIfHasTrack();
+    },
+
+    _revealCanvasIfHasTrack() {
+        if (!appState.get('currentKey')) return; // guard — chưa có bài, canvas để ẩn như lúc boot
+        revealVisualizerCanvas(appConfigViz.getAll().type); // core/player-controls.js
     },
 
     /** DỜI (24/09/2026) từ core/player-controls.js::handleBackToPlaylistClick() — ứng với
