@@ -143,5 +143,10 @@
         });
 
         /** Ảnh đĩa vinyl mặc định (SVG base64) — dùng khi bài hát không có ảnh bìa riêng. Chỉ
-         * domain playlist dùng (render.js/actions.js/loader.js) — không thuộc CONST dùng chung. */
-        const DEFAULT_VINYL = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0OCIgZmlsbD0iIzFlMjkzYiIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjE2IiBmaWxsPSIjMGYxNzJhIi8+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iMTUiIGZpbGw9IiNjYmQ1ZTEiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0IiBmaWxsPSIjMGYxNzJhIi8+PC9zdmc+';
+         * domain playlist dùng (render.js/actions.js/loader.js) — không thuộc CONST dùng chung.
+         * SỬA (06/10/2026, Giang yêu cầu "tạo lại thumb cover mặc định dạng vuông, giữ tinh thần cũ") — bản cũ là
+         * 1 đĩa TRÒN trên nền trong suốt (4 góc trống, nhìn lệch so với bìa thật vuông). Giờ là ô VUÔNG kín: nền
+         * gradient slate (#64748b -> #334155) + đĩa vinyl ở giữa GIỮ NGUYÊN bảng màu cũ (thân #1e293b, viền nhãn
+         * #0f172a, nhãn #cbd5e1, lỗ giữa #0f172a), thêm rãnh đĩa + 1 vệt sáng + bóng mờ dưới đĩa. Đĩa nằm chính giữa
+         * (bán kính 40/100) nên chỗ nào cắt tròn (#record-art, rounded-full) vẫn ra đúng 1 đĩa than. */
+        const DEFAULT_VINYL = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM2NDc0OGIiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMzMzQxNTUiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0idXJsKCNnKSIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTEuNSIgcj0iNDAiIGZpbGw9IiMwZjE3MmEiIG9wYWNpdHk9IjAuMzUiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0MCIgZmlsbD0iIzFlMjkzYiIvPjxnIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzBmMTcyYSIgc3Ryb2tlLXdpZHRoPSIwLjgiPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjM1Ii8+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iMzAiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSIyNSIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjIwIi8+PC9nPjxwYXRoIGQ9Ik0yMiAzNkEzMiAzMiAwIDAgMSAzNiAyMiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjEuNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iMTMiIGZpbGw9IiMwZjE3MmEiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSIxMiIgZmlsbD0iI2NiZDVlMSIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjMuNSIgZmlsbD0iIzBmMTcyYSIvPjwvc3ZnPgo=';
