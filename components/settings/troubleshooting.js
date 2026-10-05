@@ -12,6 +12,8 @@
  *      modalChoice 3 nút "Reset app" cũ). "Restart app" (nút thứ 3 của modal cũ) KHÔNG ở đây — đã chuyển lên
  *      icon header Playlist (components/playlist-view.js, id "setting-restart-app").
  *      Wire: core/app-settings-ui.js::wireAppSettingsTroubleshooting().
+ *      MỚI (05/10/2026, Giang yêu cầu) — hàng thứ 5 [Performance HUD (công tắc)]: bật/tắt HUD đo hiệu năng
+ *      (service/perf-probe.js). Trạng thái hiện tại do Workflow truyền vào (`isPerfProbeOn`).
  *
  *   2. `renderVideoThumbRepairBody()` — màn "Scan & fix video thumbnails": CHỈ phần kiểm tra + sửa thumb
  *      (cover/full-res) của Video, DỜI từ logic quét của Storage. KHÔNG phải "Scan & clean broken files" của
@@ -52,12 +54,34 @@ function _renderTroubleshootingActionRow(action, iconPath, labelHtml, hintHtml) 
     `;
 }
 
-function renderTroubleshootingBody() {
+/** MỚI (05/10/2026) — 1 hàng CÔNG TẮC (bật/tắt tại chỗ, không mở màn con) — cùng khuôn card + switch của các
+ * setting khác (vd components/settings/recorder-settings.js). */
+function _renderTroubleshootingToggleRow(inputId, isChecked, iconPath, labelHtml, hintHtml) {
+    return `
+        <div class="w-full px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-3" data-uitk="cardBg cardBorder">
+            <div class="flex items-center gap-3 min-w-0">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="accentTextSoft" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${iconPath}" /></svg>
+                <div class="min-w-0">
+                    <div class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${labelHtml}</div>
+                    <div class="text-xs mt-0.5" data-uitk="textSecondary">${hintHtml}</div>
+                </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                <input type="checkbox" id="${inputId}" class="sr-only peer" ${isChecked ? 'checked' : ''}>
+                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all" data-uitk="toggleTrackOff toggleTrackOn"></div>
+            </label>
+        </div>
+    `;
+}
+
+/** @param {boolean} isPerfProbeOn - SỬA (05/10/2026): trạng thái công tắc Performance HUD (Workflow truyền vào). */
+function renderTroubleshootingBody(isPerfProbeOn) {
     return `
         ${_renderTroubleshootingNavRow('debugConsole', 'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', t('settingsMisc.debugConsole.title'), t('appSettings.troubleshooting.debugConsole.hint'))}
         ${_renderTroubleshootingActionRow('restoreDefaults', 'M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6', t('appSettings.resetApp.restoreDefaults.label'), t('appSettings.resetApp.restoreDefaults.hint'))}
         ${_renderTroubleshootingActionRow('clearCache', 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16', t('appSettings.resetApp.clearCache.label'), t('appSettings.resetApp.clearCache.hint'))}
         ${_renderTroubleshootingNavRow('videoThumb', 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z', t('appSettings.troubleshooting.videoThumb.label'), t('appSettings.troubleshooting.videoThumb.hint'))}
+        ${_renderTroubleshootingToggleRow('setting-perf-probe-enabled', isPerfProbeOn, 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', t('appSettings.troubleshooting.perfProbe.label'), t('appSettings.troubleshooting.perfProbe.hint'))}
     `;
 }
 
