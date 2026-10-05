@@ -240,7 +240,7 @@ const workflowAppSettings = {
         );
     },
 
-    // ===================== System (Theme/Motion/Language/Pagination) =====================
+    // ===================== System (Theme/Motion/Language/Recording/Pagination) =====================
 
     _renderSystem() {
         this._currentRenderFn = () => this._renderSystem();
@@ -248,6 +248,8 @@ const workflowAppSettings = {
             { key: 'theme', icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h9a2 2 0 012 2v12a4 4 0 01-4 4H7zm0 0h10a2 2 0 002-2v-9', labelKey: 'appSettings.system.theme.label', hintKey: 'appSettings.system.theme.hint' },
             { key: 'motion', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', labelKey: 'appSettings.system.motion.label', hintKey: 'appSettings.system.motion.hint' },
             { key: 'language', icon: 'M3.6 9h16.8M3.6 15h16.8M11.5 3a17 17 0 000 18M12.5 3a17 17 0 010 18M21 12a9 9 0 11-18 0 9 9 0 0118 0z', labelKey: 'appSettings.system.language.label', hintKey: 'appSettings.system.language.hint' },
+            // DỜI (05/10/2026, Giang yêu cầu) — Ghi âm từ Visualizer Screen > Player sang System, đứng trên Pagination.
+            { key: 'recorder', icon: 'M12 3a3 3 0 00-3 3v6a3 3 0 006 0V6a3 3 0 00-3-3zM19 11a7 7 0 01-14 0M12 18v3M8.5 21h7', labelKey: 'appSettings.system.recorder.label', hintKey: 'appSettings.system.recorder.hint' },
             // MỚI 23/09/2026 (Giang yêu cầu) — cài đặt CHUNG cho mọi danh sách có phân trang, xem _renderPagination() bên dưới.
             { key: 'pagination', icon: 'M4 6h16M4 11h16M8 16l-2 2.5L8 21M16 16l2 2.5-2 2.5', labelKey: 'appSettings.system.pagination.label', hintKey: 'appSettings.system.pagination.hint' },
         ];
@@ -466,7 +468,9 @@ const workflowAppSettings = {
         const rows = [
             { key: 'display', icon: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v10a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM8 21h8m-4-4v4', labelKey: 'settingsVisualizer.openDisplay.label', hintKey: 'settingsVisualizer.openDisplay.hint' },
             { key: 'autoSwitch', icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15', labelKey: 'settingsVisualizer.openAutoSwitch.label', hintKey: 'settingsVisualizer.openAutoSwitch.hint' },
-            { key: 'visualBg', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', labelKey: 'settingsVisualizer.visualBg.label', hintKey: 'settingsVisualizer.visualBg.hint' },
+            // SỬA (05/10/2026, Giang yêu cầu) — "Visual Background" đổi thành "Background Color": màn này chỉ còn card màu
+            // nền; phần media (toggle tổng + Media + Playback) dời sang Player > Song > Background Media.
+            { key: 'visualBgColor', icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01', labelKey: 'settingsVisualizer.bgColor.label', hintKey: 'settingsVisualizer.bgColor.hint' },
             // MỚI (Giang chốt "gesture cùng nhóm chủ đề với Display/Visual Background — cử chỉ chỉ
             // có tác dụng trên #visualizer-gesture-surface") — DỜI từ System sang đây, đổi
             // labelKey/hintKey sang cặp key CÙNG namespace 'settingsVisualizer.*' đã có sẵn (chưa
@@ -503,14 +507,13 @@ const workflowAppSettings = {
         });
     },
 
-    /** Visual Background — Main. Tự mở thêm 2 sub-panel (Gradient/Video Audio, xem
-     * _renderVisualBgGradient()/_renderVisualBgVideoAudio() ngay dưới) + picker Generic Drawer con
-     * (video/ảnh/album/folder — event/workflow/visual-bg.js tự gọi thẳng `navigateTo()`/
-     * `_renderVisualBg()` để quay lại đúng chỗ, xem docstring tại đó). */
-    _renderVisualBg() {
-        this._currentRenderFn = () => this._renderVisualBg();
-        this._render(t('visualBgSettingsDrawer.title'), renderVisualBgPanelBody(), () => {
-            workflowVisualBg.openPanel(); // event/workflow/visual-bg.js
+    /** SỬA (05/10/2026, Giang yêu cầu — tách màn Visual Background cũ) — Visualizer Screen > Background Color: CHỈ card
+     * màu nền (Solid/Gradient), sub panel Gradient (`_renderVisualBgGradient()`). Phần media ở
+     * `_renderPlayerSongBgMedia()`. CÙNG workflowVisualBg (openPanel()/refreshPanelUI() tự bỏ qua control không có). */
+    _renderVisualBgColor() {
+        this._currentRenderFn = () => this._renderVisualBgColor();
+        this._render(t('settingsVisualizer.bgColor.label'), renderVisualBgColorPanelBody(), () => { // components/visual-bg-settings-drawer.js
+            workflowVisualBg.openPanel(); // event/workflow/visual-bg-common.js
         });
     },
 
@@ -535,16 +538,35 @@ const workflowAppSettings = {
     // display-settings.js::openMotionSlotPicker(). 2 kind 'video'/'photo' hoàn toàn ĐỐI XỨNG -> dùng
     // chung _renderPlayerDetail() thay vì viết 2 hàm gần như giống hệt nhau) =====================
 
-    /** Danh sách con — 2 row Video/Photo, CÙNG khuôn renderAppSettingsRowList() (data-app-settings-nav). */
+    /** Danh sách con — Song/Video/Photo, CÙNG khuôn renderAppSettingsRowList() (data-app-settings-nav). SỬA (05/10/2026,
+     * Giang yêu cầu) — thêm Song (đầu danh sách, chứa Background Media); Ghi âm DỜI sang System. */
     _renderPlayer() {
         this._currentRenderFn = () => this._renderPlayer();
         const rows = [
+            { key: 'playerSong', icon: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3', labelKey: 'appSettings.player.song.label', hintKey: 'appSettings.player.song.hint' },
             { key: 'playerVideo', icon: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z', labelKey: 'appSettings.player.video.label', hintKey: 'appSettings.player.video.hint' },
             { key: 'playerPhoto', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', labelKey: 'appSettings.player.photo.label', hintKey: 'appSettings.player.photo.hint' },
-            // MỚI (01/10/2026, Giang chốt vị trí) — Ghi âm (Song/Video Player): khử tiếng vọng + bù trễ giọng.
-            { key: 'playerRecorder', icon: 'M12 3a3 3 0 00-3 3v6a3 3 0 006 0V6a3 3 0 00-3-3zM19 11a7 7 0 01-14 0M12 18v3M8.5 21h7', labelKey: 'appSettings.player.recorder.label', hintKey: 'appSettings.player.recorder.hint' },
         ];
         this._render(t('appSettings.player.label'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js — TÁI DÙNG cơ chế chung data-app-settings-nav
+    },
+
+    /** MỚI (05/10/2026, Giang yêu cầu) — Player > Song: danh sách con, hiện có 1 row Background Media. */
+    _renderPlayerSong() {
+        this._currentRenderFn = () => this._renderPlayerSong();
+        const rows = [
+            { key: 'playerSongBgMedia', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', labelKey: 'appSettings.player.song.bgMedia.label', hintKey: 'appSettings.player.song.bgMedia.hint' },
+        ];
+        this._render(t('appSettings.player.song.label'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js
+    },
+
+    /** MỚI (05/10/2026, tách từ màn Visual Background cũ) — Player > Song > Background Media: toggle tổng + Media + Playback
+     * của Visual Background. Sub panel Video audio (`_renderVisualBgVideoAudio()`) + picker Generic Drawer con (video/ảnh/
+     * thư mục — event/workflow/visual-bg-common.js tự gọi lại hàm này để quay về đúng chỗ, xem `_closePickerDrawer()`). */
+    _renderPlayerSongBgMedia() {
+        this._currentRenderFn = () => this._renderPlayerSongBgMedia();
+        this._render(t('appSettings.player.song.bgMedia.label'), renderVisualBgMediaPanelBody(), () => { // components/visual-bg-settings-drawer.js
+            workflowVisualBg.openPanel(); // event/workflow/visual-bg-common.js
+        });
     },
 
     _renderPlayerVideo() {
@@ -557,11 +579,11 @@ const workflowAppSettings = {
         this._renderPlayerDetail('photo');
     },
 
-    /** MỚI (01/10/2026, Ghi âm) — Player > Ghi âm: khử tiếng vọng (toggle) + bù trễ giọng (slider), domain 'recorder'
+    /** MỚI (01/10/2026, Ghi âm) — System > Ghi âm (DỜI 05/10/2026 từ Player, Giang yêu cầu): khử tiếng vọng (toggle) + bù trễ giọng (slider), domain 'recorder'
      * (core/config.js). Đổi giá trị không vẽ lại màn (không field nào phụ thuộc nhau) — xem workflowRecorder.changeConfigField(). */
-    _renderPlayerRecorder() {
-        this._currentRenderFn = () => this._renderPlayerRecorder();
-        this._render(t('appSettings.player.recorder.label'), renderRecorderSettingsBody(appConfigRecorder.getAll()), wireAppSettingsRecorder); // components/settings/recorder-settings.js, core/config.js, core/app-settings-ui.js
+    _renderRecorder() {
+        this._currentRenderFn = () => this._renderRecorder();
+        this._render(t('appSettings.system.recorder.label'), renderRecorderSettingsBody(appConfigRecorder.getAll()), wireAppSettingsRecorder); // components/settings/recorder-settings.js, core/config.js, core/app-settings-ui.js
     },
 
     /** Dựng CHUNG 1 màn Resolution + Motion cho Video/Photo (2 kind gần như đối xứng, chỉ khác

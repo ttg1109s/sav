@@ -943,23 +943,26 @@ const workflowVisualBg = {
         await this.refreshPanelUI();
     },
 
-    /** MỚI (24/09/2026, rà soát refresh DOM) — màn Visual Background CHÍNH có đang thật sự gắn trong Generic
+    /** SỬA (05/10/2026, tách màn VBG thành Background Media + Background Color) — 1 trong 2 màn VBG có đang gắn trong
+     * Generic Drawer không: nhận diện qua `[data-visual-bg-panel]` ở gốc mỗi màn (components/visual-bg-settings-drawer.js).
+     * Trước đây nhận diện bằng `#visual-bg-source-name` — màn Background Color không có phần tử đó nên sẽ không bao giờ
+     * được đồng bộ. Lịch sử (24/09/2026): màn Visual Background CHÍNH có đang thật sự gắn trong Generic
      * Drawer không. Guard cũ chỉ hỏi "Drawer có đang mở" — không đủ: Drawer dùng CHUNG 1 body cho mọi màn, lúc
      * đang mở Storage/Statistics/Settings khác thì guard cũ vẫn cho qua; nếu phiên này CHƯA TỪNG mở panel VBG
      * thì `visualBgSettingsPanelEl` còn null -> TypeError giữa `_checkAndApplyPendingSource()` (boot/đổi bài/hết
-     * video/nhịp ảnh), bỏ lỡ `applyCurrentVisualBg()` và nhịp rearm của slideshow ảnh. Nhận diện bằng phần tử
-     * CHỈ màn chính có (`#visual-bg-source-name`, components/visual-bg-settings-drawer.js).
+     * video/nhịp ảnh), bỏ lỡ `applyCurrentVisualBg()` và nhịp rearm của slideshow ảnh.
      * @returns {boolean} */
-    _isMainPanelMounted() {
+    _isPanelMounted() {
         if (!visualBgSettingsPanelEl || genericDrawerPanel.classList.contains('hidden')) return false;
-        return !!visualBgSettingsPanelEl.querySelector('#visual-bg-source-name');
+        return !!visualBgSettingsPanelEl.querySelector('[data-visual-bg-panel]');
     },
 
     /** Đồng bộ UI panel theo config hiện tại — gọi lúc mở panel + sau mọi thay đổi field. Guard
      * đơn thuần: chỉ đồng bộ NẾU màn VBG chính đang gắn, không tự ý mở màn nào (kể cả khi gọi từ
-     * `_checkAndApplyPendingSource()` lúc boot). SỬA (24/09/2026) — guard đổi sang `_isMainPanelMounted()`. */
+     * `_checkAndApplyPendingSource()` lúc boot). SỬA (24/09/2026) — guard đổi sang `_isMainPanelMounted()`; SỬA (05/10/2026)
+     * — `_isPanelMounted()` (màn Background Media HOẶC Background Color — mọi control đều `if (el)`, thiếu thì bỏ qua). */
     async refreshPanelUI() {
-        if (!this._isMainPanelMounted()) return;
+        if (!this._isPanelMounted()) return;
         const cfg = appConfigVisualBg.getAll();
         const q = (sel) => visualBgSettingsPanelEl.querySelector(sel);
 
@@ -1032,7 +1035,7 @@ const workflowVisualBg = {
      * `appState.motionApply.photoVisualBg` cũ, cơ chế đăng ký đã xoá) — ứng tap hàng Motion: mở THẲNG
      * danh sách Motion ở chế độ CHỌN (event/workflow/motion-presets.js::openPicker(), liên tuyến domain).
      * Apply ở màn Chọn -> `changeMotionPresetId()` (ghi + áp live), rồi màn Chọn tự back() về đây —
-     * `_renderVisualBg()` dựng lại màn, `refreshPanelUI()` điền tên preset mới. */
+     * `_renderPlayerSongBgMedia()` dựng lại màn, `refreshPanelUI()` điền tên preset mới. */
     openMotionPicker() {
         workflowMotionPresets.openPicker({ // event/workflow/motion-presets.js
             title: t('visualBgSettingsDrawer.motion.label'),
@@ -1165,10 +1168,11 @@ const workflowVisualBg = {
     },
 
     /** Visual BG sống trong chính Generic Drawer picker vừa mượn — `closeFully()` sẽ đóng luôn
-     * Visual BG, không có gì để quay lại, nên tự mở lại màn Visual Background thay vì đóng hẳn. */
+     * Visual BG, không có gì để quay lại, nên tự mở lại màn chọn nguồn thay vì đóng hẳn. SỬA (05/10/2026) — màn đó
+     * giờ là Player > Song > Background Media (event/workflow/app-settings.js). */
     _closePickerDrawer() {
         this._pickerOpen = false;
-        workflowAppSettings._renderVisualBg();
+        workflowAppSettings._renderPlayerSongBgMedia(); // event/workflow/app-settings.js
     },
 
     /** HTML khung picker Video/Ảnh: scroll container (grid windowing chèn vào TRONG) + nút "Chọn"
@@ -1262,7 +1266,7 @@ const workflowVisualBg = {
                 emptyMsg: eligible.length === 0
                     ? t(type === 'video' ? 'visualBgSettingsDrawer.folderPicker.emptyNoFolder.video' : 'visualBgSettingsDrawer.folderPicker.emptyNoFolder.photo')
                     : '',
-                onClose: () => workflowAppSettings._renderVisualBg(),
+                onClose: () => workflowAppSettings._renderPlayerSongBgMedia(), // SỬA (05/10/2026) — màn chọn nguồn giờ ở Player > Song > Background Media
                 multiSelect: true,
                 typeOptions: { current: type },
                 onTypeChange: (newType) => this._openFolderPickerForType(newType, true),
