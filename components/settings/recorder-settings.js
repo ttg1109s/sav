@@ -1,5 +1,5 @@
 /**
- * Component: màn Settings > Visualizer Screen > Player > Ghi âm (MỚI 01/10/2026, Giang chốt vị trí). 2 dòng, toggle
+ * Component: màn Settings > System > Ghi âm (MỚI 01/10/2026; DỜI 05/10/2026 từ Visualizer Screen > Player, Giang yêu cầu). 2 dòng, toggle
  * trước slider: Khử tiếng vọng (echoCancellation, mặc định bật) + Bù trễ giọng (latencyMs, 0-500ms, bước 10).
  * Domain AppConfig 'recorder' (core/config.js), lưu bền meta.recorderConfig (event/workflow/recorder.js).
  * Wire: core/app-settings-ui.js::wireAppSettingsRecorder() -> router 'appSettings'.
