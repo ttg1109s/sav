@@ -521,10 +521,7 @@
         // định, JS chỉ hiện khi item đang mở menu là Photo — xem openSongActionMenu(), core/
         // playlist/actions.js).
         const songMenuBtnEditImage = document.getElementById('song-menu-btn-edit-image');
-        // MỚI (19/09/2026, Giang yêu cầu — "thêm nút xem thumb full res cho video playlist") — nút RIÊNG
-        // cho Video, mirror `songMenuBtnEditImage` (ẩn mặc định, JS chỉ hiện khi item đang mở menu là
-        // Video — xem openSongActionMenu(), core/playlist/actions.js).
-        const songMenuBtnViewVideoThumb = document.getElementById('song-menu-btn-view-video-thumb');
+        // XOÁ (06/10/2026, Giang) — `songMenuBtnViewVideoThumb` (#song-menu-btn-view-video-thumb) bỏ hẳn cùng action.
         // MỚI (06/09/2026, hợp nhất Folder vào Playlist) — nút "Gỡ khỏi thư mục" ở menu 3-chấm.
         const songMenuBtnRemoveFromFolder = document.getElementById('song-menu-btn-remove-from-folder');
         const playbackErrorModal = document.getElementById('playback-error-modal');
@@ -536,7 +533,12 @@
         const songEditArtistInput = document.getElementById('song-edit-artist');
         const songEditAlbumInput = document.getElementById('song-edit-album');
         const songEditCoverPreview = document.getElementById('song-edit-cover-preview');
+        // SỬA (06/10/2026, Giang mục 3c) — nút "Choose" giờ chỉ bung/thu menu 2 lựa chọn; #song-edit-cover-pick-library
+        // GIỮ id cũ nhưng giờ là dòng "Photo" TRONG menu đó; thêm dòng "Video thumbnail".
+        const songEditCoverChooseBtn = document.getElementById('song-edit-cover-choose');
+        const songEditCoverChooseMenu = document.getElementById('song-edit-cover-choose-menu');
         const songEditCoverPickLibraryBtn = document.getElementById('song-edit-cover-pick-library');
+        const songEditCoverPickVideoThumbBtn = document.getElementById('song-edit-cover-pick-video-thumb');
         const songEditCoverRemoveBtn = document.getElementById('song-edit-cover-remove');
         const songEditTabButtons = document.querySelectorAll('.song-edit-tab-btn');
         // SỬA (10/07/2026, gộp song-info-modal vào làm tab đầu — phản hồi Giang): `songEditTabInfo`
