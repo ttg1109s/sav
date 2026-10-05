@@ -13,6 +13,12 @@
  * — cần cả eventBus.send() và mọi biến DOM đã sẵn sàng trước khi gắn addEventListener.
  */
 
+// ===================== Bố cục màn hình (MỚI 05/10/2026) =====================
+// Xoay iPad / kéo cửa sổ qua mốc 1024px: bố cục xếp chồng <-> desktop 2 cột. STACKED_SCREEN_LAYOUT_QUERY: core/player-controls.js.
+window.matchMedia(STACKED_SCREEN_LAYOUT_QUERY).addEventListener('change', (e) => {
+    eventBus.send({ router: 'playerControls', type: 'playerControls.screenLayout.change', payload: { isStacked: e.matches } });
+});
+
 // ===================== Click UI =====================
 if (btnBackPlaylist) {
     btnBackPlaylist.addEventListener('click', () => {
