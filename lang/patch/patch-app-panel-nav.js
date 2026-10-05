@@ -98,7 +98,10 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.troubleshooting.videoThumb.btnFix': 'Fix thumbnails',
     // MỚI (05/10/2026) — công tắc HUD đo hiệu năng (service/perf-probe.js)
     'appSettings.troubleshooting.perfProbe.label': 'Performance HUD',
-    'appSettings.troubleshooting.perfProbe.hint': 'Shows FPS, frame timing and task rates at the top of the screen; tap logs go to Debug console',
+    'appSettings.troubleshooting.perfProbe.hint': 'Floating strip with FPS, frame timing and task rates; drag the grip to move it, tap logs go to Debug console',
+    'appSettings.troubleshooting.perfProbe.orientation': 'Strip direction',
+    'appSettings.troubleshooting.perfProbe.horizontal': 'Horizontal',
+    'appSettings.troubleshooting.perfProbe.vertical': 'Vertical',
 
     // MỚI (Giang yêu cầu "Player" — Resolution + Motion của Video/Photo lúc phát chính, Settings >
     // Visualizer Screen > Player > Video/Photo, xem core/player-display-settings.js).
