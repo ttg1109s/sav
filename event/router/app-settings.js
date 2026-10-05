@@ -25,6 +25,7 @@ const routerAppSettings = (() => {
         troubleshooting: () => workflowAppSettings._renderTroubleshooting(),
         debugConsole: () => workflowAppSettings._renderDebugConsole(), // MỚI (20/09/2026) — con của Troubleshooting
         videoThumb: () => workflowAppSettings._renderVideoThumbRepair(), // MỚI (20/09/2026) — con của Troubleshooting (scan & fix thumb video)
+        perfHud: () => workflowAppSettings._renderPerfHudSettings(), // MỚI (05/10/2026) — con của Troubleshooting (Performance HUD)
         theme: () => workflowAppSettings._renderTheme(),
         gesture: () => workflowAppSettings._renderGesture(),
         motion: () => workflowAppSettings._renderMotionList(),

@@ -109,16 +109,8 @@ const routerSettingsMisc = (() => {
                 break;
             }
 
-            // MỚI (05/10/2026, Giang yêu cầu) — công tắc Performance HUD ở Settings > Troubleshooting.
-            case 'settingsMisc.perfProbe.toggle': {
-                workflowSettingsMisc.setPerfProbeEnabled(msg.payload.checked);
-                break;
-            }
-
-            case 'settingsMisc.perfProbe.orientation': {
-                workflowSettingsMisc.setPerfProbeOrientation(msg.payload.orientation);
-                break;
-            }
+            // (05/10/2026) 2 case 'settingsMisc.perfProbe.*' ĐÃ DỜI — Performance HUD có router riêng 'perfHud'
+            // (event/router/perf-hud.js), không còn sống ký gửi ở cụm settingsMisc.
 
             default:
                 console.warn(`[router:settingsMisc] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`);
