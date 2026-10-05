@@ -24,6 +24,11 @@
  * trúc DOM cha/con — đồng bộ giá trị toggle mới CŨNG chuyển sang đúng hàm đó (KHÔNG còn ở
  * workflowSubtitleStyleSettings.refresh(), event/workflow/subtitle-style-settings.js).
  *
+ * SỬA (05/10/2026, Giang yêu cầu) — panel đổi tên "Components Display"; bỏ khối 1 + tiêu đề "Thành phần": giờ CHỈ 1
+ * card không tiêu đề — "Show effect" (đổi tên từ "Show visual", mô tả rút gọn) lên đầu card, tiếp theo Show subtitles +
+ * Stats panel + 3 toggle UI chrome. Nút mở panel con "Subtitles" DỜI ra Settings > Visualizer Screen > Subtitles.
+ * Mô tả các bản trước ở trên giữ làm lịch sử.
+ *
  * SỬA (09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — viết LẠI TRỰC TIẾP bằng bảng màu sáng,
  * không còn phụ thuộc `.app-settings-scope` đè màu (assets/css/layout-nav.css). Accent icon phụ đề
  * + tiêu đề "Thành phần" giữ nguyên tông yellow (đậm từ -400 lên -600 để đủ tương phản trên nền
@@ -43,43 +48,18 @@ function renderVisualizerDisplayPanelBody() {
                             </label>
                         </div>`;
 
+    // SỬA (05/10/2026, Giang yêu cầu) — CHỈ 1 card, KHÔNG tiêu đề nhóm: "Show effect" (đổi tên từ "Show visual") đứng đầu,
+    // sau đó các toggle thành phần như cũ. Nút mở panel con "Subtitles" ĐÃ DỜI ra Visualizer Screen (row 'subtitle',
+    // event/workflow/app-settings.js::_renderVisualizerScreen()).
     return `
-        <div class="flex flex-col gap-4">
-            <!-- KHÔNG header — Visual enable + nút mở panel con "Phụ đề" (mục 2, phản hồi Giang
-                 "vẫn cấp cho subtitle một sub panel ở trong Display Visualizer"). Panel con giờ
-                 có thêm Styling + coming/in/outing (mục 4), xem components/subtitle-settings-
-                 drawer.js. -->
-            <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
-                ${toggleRow('setting-visual-enable', 'settingsVisualizer.visualEnable.label', 'settingsVisualizer.visualEnable.hint', true, true)}
-                <button id="setting-open-subtitle-panel" class="flex justify-between items-center p-4 w-full text-left" data-uitk="cardHoverBg">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="categoryAccent:yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
-                        <div class="min-w-0">
-                            <!-- SỬA (15/08/2026) — TRƯỚC dùng 'settingsSubtitleStyle.openDrawer.label'/'.hint',
-                                 2 KEY ĐÃ BỊ XOÁ khỏi lang (xem comment "XOÁ (mục 2)" ở lang/patch/
-                                 patch-subtitle-settings.js) nhưng code cũ VẪN gọi t() với key đó (bug có
-                                 sẵn, hiện text thô ra UI) — đổi đúng theo 2 key comment đó CHỈ ĐỊNH thay
-                                 thế: tái dùng 'sectionTitle'/'.enable.hint'. -->
-                            <div class="text-sm font-medium truncate" data-i18n="settingsSubtitleStyle.sectionTitle">${t('settingsSubtitleStyle.sectionTitle')}</div>
-                            <div class="text-xs mt-0.5 truncate" data-uitk="textSecondary" data-i18n="settingsSubtitleStyle.openPanel.hint">${t('settingsSubtitleStyle.openPanel.hint')}</div>
-                        </div>
-                    </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-                </button>
-            </div>
-
-            <!-- SECTION: THÀNH PHẦN — gộp chung Stats panel + 3 toggle UI chrome cố định. -->
-            <div>
-                <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2" data-uitk="categoryAccent:yellow" data-i18n="visualizerSettingsDrawer.section.components">${t('visualizerSettingsDrawer.section.components')}</h3>
-                <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
-                    ${toggleRow('setting-subtitles-enabled', 'settingsSubtitleStyle.enable.label', 'settingsSubtitleStyle.enable.hint', true, true)}
-                    ${toggleRow('setting-stats-panel-enable', 'visualizerSettingsDrawer.statsPanelEnable.label', 'visualizerSettingsDrawer.statsPanelEnable.hint', false, true)}
-                    ${toggleRow('setting-bottom-player-enable', 'visualizerSettingsDrawer.bottomPlayerEnable.label', 'visualizerSettingsDrawer.bottomPlayerEnable.hint', false, true)}
-                    ${toggleRow('setting-playlist-button-enable', 'visualizerSettingsDrawer.playlistButtonEnable.label', 'visualizerSettingsDrawer.playlistButtonEnable.hint', false, true)}
-                    ${toggleRow('setting-control-center-button-enable', 'visualizerSettingsDrawer.controlCenterButtonEnable.label', 'visualizerSettingsDrawer.controlCenterButtonEnable.hint', false, false)}
-                    <div class="px-4 py-3 text-xs border-t" data-uitk="dividerBorder textSecondary" data-i18n="visualizerSettingsDrawer.uiToggleGroupHint">${t('visualizerSettingsDrawer.uiToggleGroupHint')}</div>
-                </div>
-            </div>
+        <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
+            ${toggleRow('setting-visual-enable', 'settingsVisualizer.visualEnable.label', 'settingsVisualizer.visualEnable.hint', true, true)}
+            ${toggleRow('setting-subtitles-enabled', 'settingsSubtitleStyle.enable.label', 'settingsSubtitleStyle.enable.hint', true, true)}
+            ${toggleRow('setting-stats-panel-enable', 'visualizerSettingsDrawer.statsPanelEnable.label', 'visualizerSettingsDrawer.statsPanelEnable.hint', false, true)}
+            ${toggleRow('setting-bottom-player-enable', 'visualizerSettingsDrawer.bottomPlayerEnable.label', 'visualizerSettingsDrawer.bottomPlayerEnable.hint', false, true)}
+            ${toggleRow('setting-playlist-button-enable', 'visualizerSettingsDrawer.playlistButtonEnable.label', 'visualizerSettingsDrawer.playlistButtonEnable.hint', false, true)}
+            ${toggleRow('setting-control-center-button-enable', 'visualizerSettingsDrawer.controlCenterButtonEnable.label', 'visualizerSettingsDrawer.controlCenterButtonEnable.hint', false, false)}
+            <div class="px-4 py-3 text-xs border-t" data-uitk="dividerBorder textSecondary" data-i18n="visualizerSettingsDrawer.uiToggleGroupHint">${t('visualizerSettingsDrawer.uiToggleGroupHint')}</div>
         </div>
 `;
 }
