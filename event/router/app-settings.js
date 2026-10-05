@@ -33,11 +33,13 @@ const routerAppSettings = (() => {
         playlistSort: () => workflowAppSettings._renderPlaylistSort(),
         display: () => workflowAppSettings._renderDisplay(),
         autoSwitch: () => workflowAppSettings._renderAutoSwitch(),
-        visualBg: () => workflowAppSettings._renderVisualBg(),
+        visualBgColor: () => workflowAppSettings._renderVisualBgColor(), // SỬA (05/10/2026) — thay 'visualBg' (Visual Background -> Background Color)
         player: () => workflowAppSettings._renderPlayer(),
         playerVideo: () => workflowAppSettings._renderPlayerVideo(),
         playerPhoto: () => workflowAppSettings._renderPlayerPhoto(),
-        playerRecorder: () => workflowAppSettings._renderPlayerRecorder(), // MỚI 01/10/2026 — Ghi âm (con của Player)
+        playerSong: () => workflowAppSettings._renderPlayerSong(), // MỚI 05/10/2026 — Song (con của Player)
+        playerSongBgMedia: () => workflowAppSettings._renderPlayerSongBgMedia(), // MỚI 05/10/2026 — Background Media (con của Player > Song)
+        recorder: () => workflowAppSettings._renderRecorder(), // DỜI 05/10/2026 — Ghi âm (con của System, trước đây 'playerRecorder' con của Player)
         pagination: () => workflowAppSettings._renderPagination(), // MỚI 23/09/2026 — con của System
     };
 
@@ -119,7 +121,7 @@ const routerAppSettings = (() => {
                 break;
             }
 
-            // MỚI (01/10/2026, Ghi âm) — Settings > Player > Ghi âm: toggle khử tiếng vọng / slider bù trễ (thả tay) đổi.
+            // MỚI (01/10/2026, Ghi âm) — Settings > System > Ghi âm (dời từ Player 05/10/2026): toggle khử tiếng vọng / slider bù trễ (thả tay) đổi.
             // Chuẩn hoá + ghi bền -> Workflow của domain 'recorder' (liên tuyến).
             case 'appSettings.recorder.field.change': {
                 workflowRecorder.changeConfigField(msg.payload.field, msg.payload.value);
