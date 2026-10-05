@@ -72,40 +72,37 @@
  * THÔ, có sẵn field `type`), không cần đổi gì ở 2 nơi gọi.
  * @param {{id: string, name: string, type?: 'song'|'video'|'photo'|null}} folder
  */
+/** MỚI (06/10/2026, Giang: "lớp cha dùng clip-path cắt thành hình folder") — hình thư mục cho ô 56x56 (w-14 h-14) của
+ * folder tile, toạ độ px tuyệt đối: tab bo tròn góc trên-trái (y 6..13), thân bo góc 6px (y 13..52, x 2..54). DÙNG CHUNG
+ * cho clip-path của ô lẫn nét viền chọn (selectedRingHtml) — sửa 1 chỗ, 2 nơi khớp nhau. */
+const FOLDER_TILE_SHAPE_PATH = 'M2 12 Q2 6 8 6 L19 6 Q21.8 6 23.5 8.2 L25.5 10.8 Q27.2 13 30 13 L48 13 Q54 13 54 19 L54 46 Q54 52 48 52 L8 52 Q2 52 2 46 Z';
+
 function itemTemplateFolderTile(folder, ctx) {
     const isEditing = !!(ctx && ctx.editingFolderId === folder.id);
-    // SỬA (06/10/2026, Giang — bỏ nền tròn của icon loại, phóng to icon loại) — icon thư mục to hơn (h-7 -> h-10) để
-    // icon loại (giờ KHÔNG còn nền) nằm GỌN trong lòng thư mục, không đè lên nét viền; stroke-width hạ 1.5 -> 1.25
-    // để nét viền giữ độ dày gần như cũ khi phóng to.
-    const folderIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.25" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>`;
-
     // type: null/chưa xác định -> '' (giữ NGUYÊN icon thư mục mặc định, không chồng gì).
     // SỬA (khôi phục — Giang báo "folder photo chưa có icon như song/video") — 'photo' bị THIẾU
     // hẳn khỏi ternary này từ đầu (chỉ viết cho song/video lúc "Song/Video Unification", Photo
     // hợp nhất vào Playlist SAU — folder.type === 'photo' rơi về nhánh mặc định '', không icon).
     const typeOverlaySvg = folder.type === 'song'
-        ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 004.5 14C2.567 14 1 15.343 1 17s1.567 3 3.5 3 3.5-1.343 3.5-3V7.82l8-1.6v5.894A4.37 4.37 0 0014.5 12c-1.933 0-3.5 1.343-3.5 3s1.567 3 3.5 3 3.5-1.343 3.5-3V3z" /></svg>`
+        ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 20 20"><path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 004.5 14C2.567 14 1 15.343 1 17s1.567 3 3.5 3 3.5-1.343 3.5-3V7.82l8-1.6v5.894A4.37 4.37 0 0014.5 12c-1.933 0-3.5 1.343-3.5 3s1.567 3 3.5 3 3.5-1.343 3.5-3V3z" /></svg>`
         : folder.type === 'video'
-        ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM16.553 7.106A1 1 0 0016 8v4a1 1 0 00.553.894l2 1A1 1 0 0020 13V7a1 1 0 00-1.447-.894l-2 1z" /></svg>`
+        ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM16.553 7.106A1 1 0 0016 8v4a1 1 0 00.553.894l2 1A1 1 0 0020 13V7a1 1 0 00-1.447-.894l-2 1z" /></svg>`
         : folder.type === 'photo'
-        ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l3.5-4.5 2.5 3.01L13.5 8 18 15H16z" clip-rule="evenodd" /></svg>`
+        ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l3.5-4.5 2.5 3.01L13.5 8 18 15H16z" clip-rule="evenodd" /></svg>`
         : '';
     // SỬA (06/10/2026, Giang báo "icon folder song/video/photo có 1 vòng tròn, đổi theme Dark/Morphin mới lộ") — BỎ hẳn
-    // nền tròn tối (`w-6 h-6 rounded-full bg-[#0f172a]`): nền cứng màu slate-900 nằm trên ô icon theo theme nên lộ
-    // thành 1 chấm tròn lạc tông (kèm 2 mẩu viền thư mục ló ra 2 bên). Icon loại giờ đặt THẲNG trong lòng thư mục,
-    // to hơn (h-3.5 -> h-4). Màu phân loại vẫn hardcode (không qua theme), nhưng đổi sang shade -500 vì không còn nền
-    // tối làm nền tương phản — -400/sky-300 cũ quá nhạt trên ô sáng của Light. `padding-top:3px` dời icon xuống đúng
-    // tâm lòng thư mục (phần dưới tab, lệch xuống so với tâm ô 56px).
+    // nền tròn tối (`w-6 h-6 rounded-full bg-[#0f172a]`) phủ giữa.
+    // SỬA LẦN 2 (06/10/2026, Giang: "icon bỏ hình dạng thư mục đi, chỉ có icon; lớp cha dùng clip-path cắt thành hình
+    // folder") — BỎ luôn SVG viền thư mục: chính ô màu theme (accentIconBoxBg) được cắt thành hình thư mục bằng
+    // clip-path (FOLDER_TILE_SHAPE_PATH), bên trong CHỈ còn icon loại (to hơn: h-4 -> h-6), đặt giữa phần thân (dưới
+    // tab — `padding-top:9px`). Folder chưa có type -> chỉ còn hình thư mục trơn. Màu phân loại vẫn hardcode (-500, đủ
+    // tương phản trên ô của cả 3 theme). Ô KHÔNG còn rounded-2xl (clip-path tự bo góc).
     const typeOverlayColorClass = folder.type === 'song' ? 'text-emerald-500' : folder.type === 'photo' ? 'text-sky-500' : 'text-violet-500';
     const typeOverlayHtml = typeOverlaySvg
-        ? `<div class="absolute inset-0 flex items-center justify-center pointer-events-none ${typeOverlayColorClass}" style="padding-top:3px">${typeOverlaySvg}</div>`
+        ? `<div class="absolute inset-0 flex items-center justify-center pointer-events-none ${typeOverlayColorClass}" style="padding-top:9px">${typeOverlaySvg}</div>`
         : '';
-    // SỬA (09/09/2026, hệ UI Theme) — icon box màu ĐI QUA `data-uitk` (accentIconBoxBg/Text, core/
-    // ui-theme/light.js) THAY hardcode `bg-sky-100 text-sky-600` — badge tròn TỐI phủ giữa (loại
-    // media song/video/photo) GIỮ NGUYÊN hardcode, KHÔNG qua theme (màu PHÂN LOẠI dữ liệu, không
-    // phải màu giao diện — cùng tinh thần 3 màu thanh Storage Management giữ nguyên khi "xử lý
-    // triệt để dark cũ"). SỬA 06/10/2026 — badge tròn tối đã BỎ (xem typeOverlayHtml trên).
-    const iconBoxHtml = `<div class="relative w-14 h-14 rounded-2xl flex items-center justify-center shrink-0" data-uitk="accentIconBoxBg accentIconBoxText">${folderIconSvg}${typeOverlayHtml}</div>`;
+    // SỬA (09/09/2026, hệ UI Theme) — màu ô ĐI QUA `data-uitk` (accentIconBoxBg/Text, core/ui-theme/*.js).
+    const iconBoxHtml = `<div class="relative w-14 h-14 shrink-0" style="clip-path:path('${FOLDER_TILE_SHAPE_PATH}');-webkit-clip-path:path('${FOLDER_TILE_SHAPE_PATH}')" data-uitk="accentIconBoxBg accentIconBoxText">${typeOverlayHtml}</div>`;
 
     if (isEditing) {
         return `
@@ -122,9 +119,13 @@ function itemTemplateFolderTile(folder, ctx) {
     const order = ctx && ctx.selectedOrder ? ctx.selectedOrder.get(folder.id) : null;
     const selectedRingClass = order ? ' generic-item-folder-tile-selected' : '';
     const selectedBadgeHtml = order ? `<span class="generic-folder-tile-badge">${order}</span>` : '';
+    // SỬA (06/10/2026) — viền chọn KHÔNG còn là box-shadow trên ô (clip-path cắt mất) mà là 1 SVG vẽ NÉT theo đúng
+    // FOLDER_TILE_SHAPE_PATH, chồng ngoài ô (không bị cắt). drop-shadow cũng không dùng được: ô nền trong mờ ở Dark/
+    // Morphin làm bóng xanh ló xuyên qua cả lòng ô.
+    const selectedRingHtml = order ? `<svg class="absolute inset-0 w-14 h-14 pointer-events-none" viewBox="0 0 56 56" fill="none"><path d="${FOLDER_TILE_SHAPE_PATH}" stroke="#0ea5e9" stroke-width="2.5" stroke-linejoin="round"/></svg>` : '';
     return `
         <button type="button" class="generic-item-folder-tile select-none flex flex-col items-center gap-1.5 w-20${selectedRingClass}" data-folder-id="${escapeHtml(folder.id)}">
-            <div class="generic-folder-tile-icon-wrap relative">${iconBoxHtml}${selectedBadgeHtml}</div>
+            <div class="generic-folder-tile-icon-wrap relative">${iconBoxHtml}${selectedRingHtml}${selectedBadgeHtml}</div>
             <span class="text-xs font-medium text-center leading-tight break-words" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;" data-uitk="textSecondaryStrong">${escapeHtml(folder.name)}</span>
         </button>
     `;
