@@ -245,7 +245,7 @@
     <link rel="stylesheet" href="assets/css/sliders.css?v=20260925f1">
     <link rel="stylesheet" href="assets/css/glass.css?v=20260923v5">
     <link rel="stylesheet" href="assets/css/animations.css?v=20260813v1">
-    <link rel="stylesheet" href="assets/css/layout-nav.css?v=20261002cv4">
+    <link rel="stylesheet" href="assets/css/layout-nav.css?v=20261005vs2">
     <link rel="stylesheet" href="assets/css/photo-gallery.css?v=20260923v1">
     <link rel="stylesheet" href="assets/css/video-gallery.css?v=20260923v1">
     <link rel="stylesheet" href="assets/css/video-preview.css?v=20260927c1">
@@ -279,77 +279,86 @@
          là chuyện ĐÈ 1 LỚP KHÁC LÊN TRÊN `<video>` (z-index/stacking, KHÔNG dùng được vì WKWebView/
          iOS compositing riêng) — còn đây là DI CHUYỂN `#bg-video` VÀO LÀM CON của 1 lớp cha nhận
          transform (scale/pan/rotate), 2 cơ chế CSS khác nhau hoàn toàn. -->
-    <div id="video-player-motion-pointmove">
-        <video id="bg-video" loop muted playsinline class="hidden"></video>
-    </div>
-    <!-- Từng thử 1 #video-player-thumb-overlay riêng ở đây (đè LÊN video) — BỎ, <video> hardware-
-         decode trên WKWebView/iOS nằm ở compositing layer riêng, không CSS nào đè lên được (xem
-         core/video-player.js). MỚI (31/07/2026) — lớp dự phòng multi-browser giờ chèn vào
-         #visual-bg-image NẰM DƯỚI thay vào đó (xem event/workflow/video-player.js::playVideoByKey()).
-         SỬA (Giang chỉ ra đúng — "vbg chỉ hợp lệ với song thì quan tâm gì đang phát video/photo bị
-         ngắt quãng") — "Photo Player mode" (ảnh đang phát như 1 track) từng có element RIÊNG
-         `#photo-player-image` ở đây, ĐÃ XOÁ — giờ tái dùng ĐÚNG `#visual-bg-image` này, CÙNG cơ chế
-         `clearMediaLayers()`/`applyCurrentVisualBg()` (event/workflow/visual-bg-common.js) Video
-         Player mode đã dùng từ trước — xem event/workflow/photo-player.js. -->
-    <!-- FIX (04/07/2026, mục 1a phản hồi Giang) — nền màu Settings (bgColor) tách hẳn khỏi
-         `document.body` (trước đây `document.body.style.backgroundColor = cfg.bgColor` — nghi
-         ngờ 1 phần nguyên nhân màu tràn vào status bar/tai thỏ OS). `<body>` ở trên giữ NGUYÊN
-         #000000 tĩnh (JS không đụng vào nữa) — element riêng này mới là nơi thật sự đổi màu theo
-         Settings. Xem core/color-utils.js (updateDOMBackground) + assets/css/base.css. -->
-    <div id="visualizer-solid-bg"></div>
-    <!-- Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual). Xem
-         assets/css/base.css (#visual-bg-image) + core/visual-bg-photo.js (applyVisualBgImageToDOM). -->
-    <div id="visual-bg-image" class="hidden"></div>
-    <!-- Motion Engine nền Visual Photo (nguồn nền thứ 3, CHỈ VBG-Photo — VBG-Video KHÔNG dùng cơ
-         chế này, xem guard `cfg.type !== 'video'` ở event/workflow/visual-bg-common.js) — 2 lớp
-         ảnh xen kẽ ("player" A/B), JS ở core/motion-engine.js (hàm thuần, dùng chung) +
-         event/workflow/visual-bg-photo-motion.js (workflow, riêng VBG-Photo — ĐỔI TÊN 17/09/2026
-         từ event/workflow/motion-engine.js). CSS: assets/css/motion-engine.css
-         (z-index -1, giữa #visual-bg-image và #bg-video). 3 tầng, 3 vai trò (SỬA, phản hồi Giang —
-         "point move phải là 1 div cha bao quanh layer A, B chứ không phải chỉ A hoặc B, tránh việc
-         move A rồi lộ B"):
-           `#visual-bg-photo-motion-players` (.me-pointmove-players, NGOÀI CÙNG, bọc CHUNG cả 2 player A/B)
-           — nhận transform Point Move DUY NHẤT (pan/zoom/rotate/flip, xem core/motion-presets.js)
-           cho TOÀN BỘ khung hình — 2 layer A/B bên trong LUÔN di chuyển CÙNG NHAU như 1 khối cứng,
-           không còn khái niệm "mỗi layer tự Point Move riêng" (nguồn gốc bug "move A lộ B" cũ).
-           `.motion-layer` (A/B, GIỮA) — CHỈ animation chuyển cảnh (Transition).
-           `.me-pointmove-pan` (CON, TRONG CÙNG) — CHỈ còn mang background-image, hết animation
-           riêng.
-         `.me-beat-react` bọc TRỌN `#visual-bg-photo-motion-container` (CẢ 2 player A/B), mang transform
-         React Beat Audio (event/workflow/visual-bg-photo-motion.js::_tickBeatReact()) — transform CỘNG DỒN
-         theo cây DOM với `.me-pointmove-players` bên trong, LUÔN chạy song song (không còn khái
-         niệm "thay thế" Point Move). -->
-    <!-- MỚI (Giang chỉ ra: "Motion cung cấp cơ chế THUẦN, nơi tiêu thụ tự quyết gắn ở đâu") — class
-         `.me-transition-scope` (assets/css/motion-engine.css) — điều kiện ĐỂ hiệu ứng CSS transition
-         (fade/slide/wipe/...) chạy được là 1 phần tử mang class NÀY set `data-transition`/hướng
-         (setMotionEngineTransitionType()/setMotionEngineTransitionDirections(), core/motion-engine.js)
-         — KHÔNG có tác dụng gì nếu KHÔNG kèm `data-transition`, nên gắn SẴN, TĨNH ở đây vô hại. VBG-
-         Photo dùng `#visual-bg-photo-motion-container` (bên dưới); Video Player mode dùng THẲNG
-         `#visual-motion-react` (element NÀY, cha chung DÙNG THẬT SỰ CHUNG với VBG — GIỮ NGUYÊN tên
-         cũ, KHÔNG đổi theo prefix `visual-bg-photo-motion-*` — xem event/workflow/video-player.js). -->
-    <!-- MỚI (29/09/2026, Giang — Zoom mode kính lúp của Player Video/Photo) — `#player-zoom-layer` bọc NGOÀI
-         `#visual-motion-react`, nhận transform zoom/pan của người dùng (event/workflow/player-zoom.js). Nằm NGOÀI
-         Motion (React Beat/Point Move/Transition không biết lớp này) — nhận đúng mốc z-index -1 cũ của
-         `.me-beat-react` (assets/css/base.css), thứ tự lớp so với #visual-bg-image/#bg-video KHÔNG đổi. -->
-    <div id="player-zoom-layer">
-    <div id="visual-motion-react" class="me-beat-react me-transition-scope">
-        <div id="visual-bg-photo-motion-container" class="hidden me-transition-scope">
-            <div id="visual-bg-photo-motion-players" class="me-pointmove-players">
-                <div id="visual-bg-photo-motion-layer-1" class="motion-layer">
-                    <div id="visual-bg-photo-motion-layer-1-pan" class="me-pointmove-pan"></div>
-                </div>
-                <div id="visual-bg-photo-motion-layer-2" class="motion-layer">
-                    <div id="visual-bg-photo-motion-layer-2-pan" class="me-pointmove-pan"></div>
+    <!-- MỚI (05/10/2026, Giang chốt — "về Playlist -> pause audioAnalysis + visualizerRender + ẩn ở lớp cha visualizer")
+         — `#visualizer-stage`: lớp cha CHUNG của toàn bộ sân khấu hình Visualizer (video Player/VBG, nền màu, ảnh nền,
+         lớp Motion, 2 canvas effect). div THƯỜNG không style (không position/transform/z-index) -> KHÔNG tạo containing
+         block hay stacking context mới: mọi lớp con fixed/z-index âm vẫn xếp theo gốc y như trước khi bọc. Ẩn = 1 class
+         trên lớp này (assets/css/layout-nav.css, chỉ <1024px), gắn/gỡ ở core/player-controls.js::setVisualStageOffstage().
+         Vị trí "nhà" của #video-player-motion-pointmove/#visual-bg-image (core/dom-refs.js đo lúc boot) giờ nằm TRONG lớp
+         này — trả về nhà vẫn đúng. -->
+    <div id="visualizer-stage">
+        <div id="video-player-motion-pointmove">
+            <video id="bg-video" loop muted playsinline class="hidden"></video>
+        </div>
+        <!-- Từng thử 1 #video-player-thumb-overlay riêng ở đây (đè LÊN video) — BỎ, <video> hardware-
+             decode trên WKWebView/iOS nằm ở compositing layer riêng, không CSS nào đè lên được (xem
+             core/video-player.js). MỚI (31/07/2026) — lớp dự phòng multi-browser giờ chèn vào
+             #visual-bg-image NẰM DƯỚI thay vào đó (xem event/workflow/video-player.js::playVideoByKey()).
+             SỬA (Giang chỉ ra đúng — "vbg chỉ hợp lệ với song thì quan tâm gì đang phát video/photo bị
+             ngắt quãng") — "Photo Player mode" (ảnh đang phát như 1 track) từng có element RIÊNG
+             `#photo-player-image` ở đây, ĐÃ XOÁ — giờ tái dùng ĐÚNG `#visual-bg-image` này, CÙNG cơ chế
+             `clearMediaLayers()`/`applyCurrentVisualBg()` (event/workflow/visual-bg-common.js) Video
+             Player mode đã dùng từ trước — xem event/workflow/photo-player.js. -->
+        <!-- FIX (04/07/2026, mục 1a phản hồi Giang) — nền màu Settings (bgColor) tách hẳn khỏi
+             `document.body` (trước đây `document.body.style.backgroundColor = cfg.bgColor` — nghi
+             ngờ 1 phần nguyên nhân màu tràn vào status bar/tai thỏ OS). `<body>` ở trên giữ NGUYÊN
+             #000000 tĩnh (JS không đụng vào nữa) — element riêng này mới là nơi thật sự đổi màu theo
+             Settings. Xem core/color-utils.js (updateDOMBackground) + assets/css/base.css. -->
+        <div id="visualizer-solid-bg"></div>
+        <!-- Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual). Xem
+             assets/css/base.css (#visual-bg-image) + core/visual-bg-photo.js (applyVisualBgImageToDOM). -->
+        <div id="visual-bg-image" class="hidden"></div>
+        <!-- Motion Engine nền Visual Photo (nguồn nền thứ 3, CHỈ VBG-Photo — VBG-Video KHÔNG dùng cơ
+             chế này, xem guard `cfg.type !== 'video'` ở event/workflow/visual-bg-common.js) — 2 lớp
+             ảnh xen kẽ ("player" A/B), JS ở core/motion-engine.js (hàm thuần, dùng chung) +
+             event/workflow/visual-bg-photo-motion.js (workflow, riêng VBG-Photo — ĐỔI TÊN 17/09/2026
+             từ event/workflow/motion-engine.js). CSS: assets/css/motion-engine.css
+             (z-index -1, giữa #visual-bg-image và #bg-video). 3 tầng, 3 vai trò (SỬA, phản hồi Giang —
+             "point move phải là 1 div cha bao quanh layer A, B chứ không phải chỉ A hoặc B, tránh việc
+             move A rồi lộ B"):
+               `#visual-bg-photo-motion-players` (.me-pointmove-players, NGOÀI CÙNG, bọc CHUNG cả 2 player A/B)
+               — nhận transform Point Move DUY NHẤT (pan/zoom/rotate/flip, xem core/motion-presets.js)
+               cho TOÀN BỘ khung hình — 2 layer A/B bên trong LUÔN di chuyển CÙNG NHAU như 1 khối cứng,
+               không còn khái niệm "mỗi layer tự Point Move riêng" (nguồn gốc bug "move A lộ B" cũ).
+               `.motion-layer` (A/B, GIỮA) — CHỈ animation chuyển cảnh (Transition).
+               `.me-pointmove-pan` (CON, TRONG CÙNG) — CHỈ còn mang background-image, hết animation
+               riêng.
+             `.me-beat-react` bọc TRỌN `#visual-bg-photo-motion-container` (CẢ 2 player A/B), mang transform
+             React Beat Audio (event/workflow/visual-bg-photo-motion.js::_tickBeatReact()) — transform CỘNG DỒN
+             theo cây DOM với `.me-pointmove-players` bên trong, LUÔN chạy song song (không còn khái
+             niệm "thay thế" Point Move). -->
+        <!-- MỚI (Giang chỉ ra: "Motion cung cấp cơ chế THUẦN, nơi tiêu thụ tự quyết gắn ở đâu") — class
+             `.me-transition-scope` (assets/css/motion-engine.css) — điều kiện ĐỂ hiệu ứng CSS transition
+             (fade/slide/wipe/...) chạy được là 1 phần tử mang class NÀY set `data-transition`/hướng
+             (setMotionEngineTransitionType()/setMotionEngineTransitionDirections(), core/motion-engine.js)
+             — KHÔNG có tác dụng gì nếu KHÔNG kèm `data-transition`, nên gắn SẴN, TĨNH ở đây vô hại. VBG-
+             Photo dùng `#visual-bg-photo-motion-container` (bên dưới); Video Player mode dùng THẲNG
+             `#visual-motion-react` (element NÀY, cha chung DÙNG THẬT SỰ CHUNG với VBG — GIỮ NGUYÊN tên
+             cũ, KHÔNG đổi theo prefix `visual-bg-photo-motion-*` — xem event/workflow/video-player.js). -->
+        <!-- MỚI (29/09/2026, Giang — Zoom mode kính lúp của Player Video/Photo) — `#player-zoom-layer` bọc NGOÀI
+             `#visual-motion-react`, nhận transform zoom/pan của người dùng (event/workflow/player-zoom.js). Nằm NGOÀI
+             Motion (React Beat/Point Move/Transition không biết lớp này) — nhận đúng mốc z-index -1 cũ của
+             `.me-beat-react` (assets/css/base.css), thứ tự lớp so với #visual-bg-image/#bg-video KHÔNG đổi. -->
+        <div id="player-zoom-layer">
+        <div id="visual-motion-react" class="me-beat-react me-transition-scope">
+            <div id="visual-bg-photo-motion-container" class="hidden me-transition-scope">
+                <div id="visual-bg-photo-motion-players" class="me-pointmove-players">
+                    <div id="visual-bg-photo-motion-layer-1" class="motion-layer">
+                        <div id="visual-bg-photo-motion-layer-1-pan" class="me-pointmove-pan"></div>
+                    </div>
+                    <div id="visual-bg-photo-motion-layer-2" class="motion-layer">
+                        <div id="visual-bg-photo-motion-layer-2-pan" class="me-pointmove-pan"></div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-    </div>
+        </div>
 
-    <!-- Canvas WebGL (Three.js - Vortex Engine, dùng chung 1 canvas) -->
-    <canvas id="webgl-canvas" class="opacity-0 transition-opacity duration-700"></canvas>
-    <!-- Canvas 2D (toàn bộ các hiệu ứng visualizer khác) -->
-    <canvas id="visualizer" class="opacity-0 transition-opacity duration-700"></canvas>
+        <!-- Canvas WebGL (Three.js - Vortex Engine, dùng chung 1 canvas) -->
+        <canvas id="webgl-canvas" class="opacity-0 transition-opacity duration-700"></canvas>
+        <!-- Canvas 2D (toàn bộ các hiệu ứng visualizer khác) -->
+        <canvas id="visualizer" class="opacity-0 transition-opacity duration-700"></canvas>
+    </div>
 
     <!-- Nơi các "component" HTML (xem js/components/) sẽ được lắp vào lúc khởi động -->
     <div id="app-root"></div>
@@ -389,7 +398,7 @@
     <script src="lang/patch/patch-video-preview.js?v=20260929cap1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — bottom nav + panel Photo/Game/Statis/Setting
          mới, xem lang/patch/patch-app-panel-nav.js. -->
-    <script src="lang/patch/patch-app-panel-nav.js?v=20261001rec1"></script>
+    <script src="lang/patch/patch-app-panel-nav.js?v=20261005ph1"></script>
     <script src="lang/lang.js?v=20260731v1"></script>
 
     <!-- =====================================================================
@@ -437,7 +446,7 @@
     <!-- MỚI (20/09/2026, Giang yêu cầu gộp Debug console + Reset app + Quét file lỗi vào Troubleshooting) —
          template màn Troubleshooting + khối "Quét & dọn file lỗi" (dời từ components/file-manager-storage.js),
          xem event/workflow/app-settings.js::_renderTroubleshooting()/_renderBrokenScan(). -->
-    <script src="components/settings/troubleshooting.js?v=20260923v1"></script>
+    <script src="components/settings/troubleshooting.js?v=20261005ph1"></script>
     <script src="components/game-panel.js?v=20260923v5"></script>
     <script src="components/statis-panel.js?v=20260923v5"></script>
     <!-- MỚI (18/07/2026, Giang yêu cầu) — panel xem console log (Settings > Misc). -->
@@ -555,7 +564,7 @@
     <script src="service/state/photo-player-mode.js?v=20260925p3"></script>
     <!-- MỚI (29/09/2026) — cờ Zoom mode (kính lúp) của Player Video/Photo, xem event/workflow/player-zoom.js. -->
     <script src="service/state/player-zoom.js?v=20260929zm1"></script>
-    <script src="service/state/wakelock-tab.js?v=20260925bg1"></script>
+    <script src="service/state/wakelock-tab.js?v=20261005vs2"></script>
     <script src="service/state/auto-switch.js?v=20260926as1"></script>
     <script src="service/state/listen-stats.js?v=20260725v1"></script>
     <script src="service/state/app-misc.js?v=20260725v1"></script>
@@ -721,7 +730,7 @@
          (đã nạp) + core/generic-drawer.js (đã nạp ngay trên). -->
     <script src="core/app-panel-nav.js?v=20260921v2"></script>
     <script src="core/placeholder-panel.js?v=20260819v1"></script>
-    <script src="core/app-settings-ui.js?v=20261001rec1"></script>
+    <script src="core/app-settings-ui.js?v=20261005ph1"></script>
     <!-- MỚI (20/09/2026, Giang yêu cầu thiết kế lại Main Setting dạng carousel ngang) — core UI thuần: scale
          card theo khoảng cách tới tâm + cuộn vô hạn + hiệu ứng mở. CHỈ gọi lúc chạy từ event/workflow/
          app-settings.js + event/router/app-settings.js (nạp ở dưới) — thứ tự với 2 file đó không bắt
@@ -856,7 +865,7 @@
          EQ/volume" — giờ ở visualizers/visualizer-display.js (khu VISUALIZERS dưới), vì đúng
          ranh giới nghiệp vụ là cấu hình Visualizer, không phải điều khiển phát nhạc. Xem comment
          đầu core/player-controls.js để biết đầy đủ lý do tách + đảm bảo thứ tự nạp an toàn. -->
-    <script src="core/player-controls.js?v=20261002cv6"></script>
+    <script src="core/player-controls.js?v=20261005vs2"></script>
     <!-- MỚI (21/07/2026, mục 4 — Video Player mode) — core/video-player.js: tính next/prev key,
          mutate state, toggle UI nút. Đặt CẠNH core/player-controls.js cho dễ đọc (2 tính năng liên
          quan chặt, dù KHÔNG đụng chung file nào). NẠP SAU service/state.js (đã nạp từ đầu). -->
@@ -1005,7 +1014,7 @@
          (taskManager mode 'raf'). Khởi động thật từ event/workflow/audio-engine.js::_buildGraph() gọi
          workflowVisualizerRender.start() lúc phát bài đầu tiên. Đặt ở đây (không phải /event/ phía
          dưới) vì thuộc nhóm "vòng lặp render 60fps tự taskManager", không qua eventBus/Router. -->
-    <script src="event/workflow/visualizer-render.js?v=20261001fa1"></script>
+    <script src="event/workflow/visualizer-render.js?v=20261005vs2"></script>
     <!-- event/workflow/visualizer/*.js — MỚI (28/09/2026, Phase 4): workflow RIÊNG từng group (tách khỏi visualizer-render.js).
          PHẢI nạp SAU visualizer-render.js (mỗi file gọi workflowVisualizerRender.registerGroup() lúc nạp) và SAU mọi core
          của group (dot.js cấp phát mảng theo DOT_VIB_SLOTS lúc nạp). beat-window.js trước 6 group. -->
@@ -1044,8 +1053,8 @@
          sang cụm "fileManagerSong" ngay dưới (plan-v12-multimedia.md mục 3). Batch D1: aboutDrawer
          giờ CẦN workflow (push panel + tính thống kê), xem event/workflow/settings-misc.js. -->
     <script src="core/settings-misc-ui.js?v=20260924v1"></script>
-    <script src="event/workflow/settings-misc.js?v=20261001rec1"></script>
-    <script src="event/router/settings-misc.js?v=20260924v1"></script>
+    <script src="event/workflow/settings-misc.js?v=20261005ph1"></script>
+    <script src="event/router/settings-misc.js?v=20261005ph1"></script>
     <script src="event/listener/settings-misc.js?v=20260924r1"></script>
     <!-- Ver 12 "Multi Media" — CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7): cụm
          "fileManager" (khung điều hướng cấp cao cũ) ĐÃ BỎ HẲN — thay bằng 3 cụm ĐỘC LẬP, mỗi cụm
@@ -1147,7 +1156,7 @@
 
     <!-- Cụm "visualBg" — Workflow tách 3 file: common (định nghĩa `workflowVisualBg`), video/photo
          (`Object.assign()` thêm vào) — common PHẢI nạp trước video/photo. -->
-    <script src="event/workflow/visual-bg-common.js?v=20261002cv4"></script>
+    <script src="event/workflow/visual-bg-common.js?v=20261005vs2"></script>
     <script src="event/workflow/visual-bg-video.js?v=20261002cv4"></script>
     <script src="event/workflow/visual-bg-photo.js?v=20260930hidden1"></script>
     <script src="event/router/visual-bg.js?v=20260930vbgres2"></script>
@@ -1227,7 +1236,7 @@
          workflowFileManagerFolderBrowser/workflowFileManagerStorage đã nạp ở trên — KHÔNG bắt
          buộc thứ tự nạp CHẶT với các file đó, vì mọi tham chiếu đều nằm TRONG thân hàm, chỉ chạy
          SAU khi cả trang đã nạp xong, không chạy ngay lúc parse). -->
-    <script src="event/workflow/app-settings.js?v=20261001rec1"></script>
+    <script src="event/workflow/app-settings.js?v=20261005ph1"></script>
     <script src="event/router/app-settings.js?v=20261001rec1"></script>
     <!-- Cụm "placeholderPanels" (đóng Game/Statis). Photo đã hợp nhất vào Playlist, không còn cụm
          "photoPanel" riêng. -->
@@ -1305,7 +1314,7 @@
     <script src="event/workflow/statis-panel.js?v=20260924v1"></script>
     <script src="event/router/statis-panel.js?v=20260924v1"></script>
     <script src="event/listener/statis-panel.js?v=20260924v1"></script>
-    <script src="event/workflow/player-controls.js?v=20261002cv6"></script>
+    <script src="event/workflow/player-controls.js?v=20261005vs2"></script>
     <script src="event/router/player-controls.js?v=20261001rec1"></script>
     <script src="event/listener/player-controls.js?v=20260925rs1"></script>
     <!-- Cụm "visualizerDisplay": ảnh nền, độ mờ nền, cycle effect, panel "Display". Cấu hình riêng
@@ -1369,7 +1378,7 @@
     <script src="event/workflow/subtitle-modal.js?v=20261001kr1"></script>
     <!-- Cụm "autoSwitchVisual" — Batch D3 (06/07/2026): core đã refactor Rule 1-4 đầy đủ, GIỜ CẦN
          workflow (event/workflow/auto-switch-visual.js) — không còn gọi thẳng core như trước. -->
-    <script src="event/workflow/auto-switch-visual.js?v=20260928p4"></script>
+    <script src="event/workflow/auto-switch-visual.js?v=20261005vs2"></script>
     <script src="event/router/auto-switch-visual.js?v=20260926as2"></script>
     <script src="event/listener/auto-switch-visual.js?v=20260926as2"></script>
     <!-- Cụm "visualizerControlCenter" (ver 11, patch 11). -->
@@ -1434,9 +1443,11 @@
          workflowAppBoot.boot() cần tới đều CHẮC CHẮN đã được định nghĩa ở phía TRÊN nó. -->
     <script src="event/workflow/app-boot.js?v=20261002cv5"></script>
     <script src="event/router/app-boot.js?v=20260725v1"></script>
-    <!-- TẠM (02/10/2026) — service/perf-probe.js: HUD chẩn đoán giật sau khi về Playlist rồi vào lại. Độc lập kiến trúc,
-         cần appStack (core/dom-refs.js), appState, taskManager. XOÁ dòng này + file sau khi chẩn đoán xong. -->
-<!-- <script src="service/perf-probe.js?v=20261002pp8"></script> -->
+    <!-- service/perf-probe.js — HUD đo hiệu năng (fps, tick/s task raf, ms/frame, nhật ký chạm ra Debug console). Bật/tắt ở
+         Settings > Troubleshooting > Performance HUD (nhớ qua localStorage). Ra đời 02/10/2026 để chẩn đoán giật khi ra vào
+         Playlist; SỬA 05/10/2026 thành công cụ bật/tắt, chỉ đo, không can thiệp luồng app. Cần taskManager, appState,
+         appStack (core/dom-refs.js); router/workflow 'settingsMisc' + event/workflow/app-settings.js gọi `perfProbe` lúc chạy. -->
+    <script src="service/perf-probe.js?v=20261005ph1"></script>
 
 </body>
 </html>
