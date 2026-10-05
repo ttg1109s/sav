@@ -590,7 +590,7 @@
         };
 
         /**
-         * MỚI (01/10/2026, Giang chốt) — domain 'recorder' (Settings > Visualizer Screen > Player > Ghi âm), persist qua
+         * MỚI (01/10/2026, Giang chốt) — domain 'recorder' (Settings > System > Ghi âm — dời từ Visualizer Screen > Player 05/10/2026), persist qua
          * `meta.recorderConfig` (event/workflow/recorder.js). `echoCancellation` — khử tiếng vọng của mic (loa ngoài nên
          * bật, đeo tai nghe có thể tắt cho giọng tự nhiên hơn). `latencyMs` — bù trễ giọng: trễ NHÁNH NHẠC đi vào bản ghi
          * (tiếng nghe ở loa không đổi), kẹp 0..500 bước 10 (core/recorder.js::clampRecorderLatencyMs()).
@@ -780,7 +780,7 @@
         const appConfigUiTheme = appConfig.access('uiTheme');
         const appConfigPlayerDisplay = appConfig.access('playerDisplay');
         const appConfigPagination = appConfig.access('pagination'); // MỚI 23/09/2026 — Settings > System > Pagination
-        const appConfigRecorder = appConfig.access('recorder'); // MỚI 01/10/2026 — Settings > Player > Ghi âm
+        const appConfigRecorder = appConfig.access('recorder'); // MỚI 01/10/2026 — Settings > System > Ghi âm (dời từ Player 05/10/2026)
         const appConfigPerfHud = appConfig.access('perfHud'); // MỚI 05/10/2026 — Settings > Troubleshooting > Performance HUD
 
         /** Reset vizConfig về default (gộp từ core/app-recovery.js::executeRestoreDefaults() cũ —

@@ -139,7 +139,7 @@ function wireAppSettingsPlayerDetail(bodyEl, kind) {
 
 /** Màn Playlist — 2 <select> (Nguồn/Kiểu xem, TÁI DÙNG msg.type gốc của cụm "playlist" — router đó
  * KHÔNG đổi gì) + 2 nút mở Sắp xếp/Lọc (điều hướng nội bộ Setting). */
-/** MỚI (01/10/2026, Ghi âm) — màn Player > Ghi âm (components/settings/recorder-settings.js). Toggle bắn ở `change`;
+/** MỚI (01/10/2026, Ghi âm) — màn System > Ghi âm (dời từ Player 05/10/2026) (components/settings/recorder-settings.js). Toggle bắn ở `change`;
  * slider bắn `input` (chỉ cập nhật nhãn) + `change` (thả tay -> lưu). Rule 5a — callback CHỈ eventBus.send, gom cuối hàm. */
 function wireAppSettingsRecorder(bodyEl) {
     const echoToggle = bodyEl.querySelector('#setting-recorder-echo-cancellation');
