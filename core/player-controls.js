@@ -73,7 +73,13 @@
             // ĐÃ ở đúng vị trí dòng đang phát từ đầu, không có pha nhảy/cuộn nào lộ ra mắt.
             // DỜI (24/09/2026) — `scrollToCurrentKeyInstant()` (core gọi core) ra Workflow `returnToPlaylistUI()`, vẫn
             // chạy TRƯỚC hàm này (đúng lý do cũ: cuộn xong lúc Playlist còn nằm ngoài khung nhìn).
-            visualizerUI.classList.remove('fade-enter-active');
+            // SỬA (05/10/2026, Giang báo "bấm về Playlist thì icon Control Center/thông số nhạc/nút về Playlist ẩn luôn dù
+            // lớp dưới chưa ẩn, Playlist chưa che kín") — BỎ dòng `visualizerUI.classList.remove('fade-enter-active')`:
+            // gỡ class đó làm #visualizer-ui rơi về `.fade-enter { opacity:0 }` NGAY (transition opacity của
+            // `.fade-enter-active` bị `#visualizer-ui { transition: transform … }` ở layout-nav.css — selector ID — ghi đè
+            // hẳn, nên không có fade). Giờ UI trượt ra bằng transform cùng nhịp thanh player dưới; tới mốc 500ms ẩn cùng
+            // #visualizer-stage (lớp cha, xem main.js) + `hideVisualizerUiAfterFade()`. Chặn chạm trong lúc trượt:
+            // `setVisualizerUiInert()` (Workflow gọi).
             canvas.classList.add('opacity-0');
             const webglCanvasEl = document.getElementById('webgl-canvas');
             if (webglCanvasEl) webglCanvasEl.classList.add('opacity-0');
@@ -110,10 +116,21 @@
         // huỷ lượt chờ cũ) nằm ở event/workflow/player-controls.js. CSS đi kèm: assets/css/layout-nav.css (khối
         // "playlist-offstage" / "visual-stage-offstage", CHỈ có hiệu lực <1024px — desktop 2 cột hiện song song).
 
+        /** Media query của bố cục xếp chồng — khớp breakpoint 1024px ở assets/css/layout-nav.css. Dùng chung cho
+         * isStackedScreenLayout() và listener đổi bố cục (event/listener/player-controls.js, MỚI 05/10/2026). */
+        const STACKED_SCREEN_LAYOUT_QUERY = '(max-width: 1023px)';
+
         /** Bố cục xếp chồng (<1024px): Playlist và Visualizer trượt đè nhau — CHỈ bố cục này mới ẩn được 1 bên.
          * Desktop (>=1024px) 2 cột hiện song song vĩnh viễn (layout-nav.css). @returns {boolean} */
         function isStackedScreenLayout() {
-            return window.matchMedia('(max-width: 1023px)').matches;
+            return window.matchMedia(STACKED_SCREEN_LAYOUT_QUERY).matches;
+        }
+
+        /** MỚI (05/10/2026) — chặn/mở mọi tương tác trong #visualizer-ui (nút, cử chỉ, Control Center) bằng thuộc tính
+         * `inert`. Bật lúc UI đang trượt ra về Playlist (bấm lại nút về Playlist/mở Control Center giữa chừng không còn
+         * lọt); `showVisualizerUi()` tự tắt khi vào lại. @param {boolean} isInert */
+        function setVisualizerUiInert(isInert) {
+            visualizerUI.inert = isInert;
         }
 
         /** Đưa Playlist ra khỏi cây render (`display:none` cho #side-left-container qua class trên #app-stack) hoặc trả
@@ -197,12 +214,16 @@
             console.log(`writer: "showVisualizerUi", page: "isVisualizerActive", content: "true"`); // MỚI (02/10/2026) — Rule 4 vốn thiếu
             visualizerUI.classList.remove('hidden'); playerContainer.classList.remove('hidden');
             visualizerUI.classList.add('visualizer-active'); playerContainer.classList.add('visualizer-active');
+            // SỬA (05/10/2026) — UI (nút/thông số) hiện NGAY cùng lúc trượt vào, không đợi media nạp đủ như effect.
+            // Trước đây `fade-enter-active` gắn ở `revealVisualizerCanvas()` (sau khi media nạp đủ) nên nút hiện trễ.
+            visualizerUI.classList.add('fade-enter-active');
+            visualizerUI.inert = false;
         }
 
         /** Bước 3 (sau 50ms) — fade-in canvas. `vizType` do Workflow đọc từ appConfigViz truyền vào.
          * @param {string} vizType */
         function revealVisualizerCanvas(vizType) {
-            visualizerUI.classList.add('fade-enter-active'); canvas.classList.remove('opacity-0');
+            canvas.classList.remove('opacity-0'); // SỬA (05/10/2026) — `fade-enter-active` của #visualizer-ui dời sang showVisualizerUi()
                 // FIX (Giang báo — "Vortex mất render mỗi lần ra/vào Playlist") — thiếu check
                 // 'vortex' ở đây từng gây bug tương tự khi còn group "space" dùng chung
                 // #webgl-canvas (xem core/visualizer/visualizer-display.js::updateTypeUI()).
