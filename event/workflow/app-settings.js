@@ -467,6 +467,8 @@ const workflowAppSettings = {
         this._currentRenderFn = () => this._renderVisualizerScreen();
         const rows = [
             { key: 'display', icon: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v10a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM8 21h8m-4-4v4', labelKey: 'settingsVisualizer.openDisplay.label', hintKey: 'settingsVisualizer.openDisplay.hint' },
+            // DỜI (05/10/2026, Giang yêu cầu) — Subtitles từ nút trong panel Display ra thành row riêng ở đây.
+            { key: 'subtitle', icon: 'M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z', labelKey: 'settingsSubtitleStyle.sectionTitle', hintKey: 'settingsSubtitleStyle.openPanel.hint' },
             { key: 'autoSwitch', icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15', labelKey: 'settingsVisualizer.openAutoSwitch.label', hintKey: 'settingsVisualizer.openAutoSwitch.hint' },
             // SỬA (05/10/2026, Giang yêu cầu) — "Visual Background" đổi thành "Background Color": màn này chỉ còn card màu
             // nền; phần media (toggle tổng + Media + Playback) dời sang Player > Song > Background Media.
