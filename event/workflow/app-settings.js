@@ -608,16 +608,23 @@ const workflowAppSettings = {
         });
     },
 
-    // ===================== Troubleshooting (SỬA 20/09/2026, Giang yêu cầu gộp vào 1 nhóm) — màn danh sách
-    // PHẲNG 4 hàng ngang hàng: [Debug console >] · [Restore default settings] · [Clear app cache] (2 hàng
-    // riêng, thay modalChoice 3 nút "Reset app" cũ) · [Scan & fix video thumbnails >].
+    // ===================== Troubleshooting (SỬA 20/09/2026, Giang yêu cầu gộp vào 1 nhóm; SỬA 05/10/2026 sắp xếp lại)
+    // — màn danh sách PHẲNG 5 hàng: [Debug console >] · [Scan & fix video thumbnails >] · [Performance HUD >] ·
+    // [Restore default settings] · [Clear app cache] (2 hàng hành động xuống cuối).
     // "Restart app" KHÔNG còn ở Settings — chuyển lên icon header Playlist (components/playlist-view.js,
     // id `setting-restart-app`, đã có sẵn listener ở event/listener/settings-misc.js). =====================
 
     _renderTroubleshooting() {
         this._currentRenderFn = () => this._renderTroubleshooting();
-        // SỬA (05/10/2026) — truyền trạng thái Performance HUD (bật/tắt + hướng dải, service/perf-probe.js).
-        this._render(t('appSettings.row.troubleshooting'), renderTroubleshootingBody(perfProbe.isEnabled(), perfProbe.getOrientation()), wireAppSettingsTroubleshooting); // components/settings/troubleshooting.js, core/app-settings-ui.js
+        // SỬA (05/10/2026, Giang yêu cầu) — Performance HUD thành màn con (_renderPerfHudSettings()), không còn truyền trạng thái.
+        this._render(t('appSettings.row.troubleshooting'), renderTroubleshootingBody(), wireAppSettingsTroubleshooting); // components/settings/troubleshooting.js, core/app-settings-ui.js
+    },
+
+    /** MỚI (05/10/2026, Giang yêu cầu) — màn con Performance HUD: Hiển thị / Kiểu / Chiều (chỉ khi Kiểu = strip). Gọi lại
+     * tại chỗ từ workflowPerfHud.setStyle()/setOrientation() (event/workflow/perf-hud.js) để cập nhật nút đang chọn. */
+    _renderPerfHudSettings() {
+        this._currentRenderFn = () => this._renderPerfHudSettings();
+        this._render(t('appSettings.troubleshooting.perfHud.label'), renderPerfHudSettingsBody(appConfigPerfHud.getAll()), wireAppSettingsPerfHud); // components/settings/troubleshooting.js, core/config.js, core/app-settings-ui.js
     },
 
     /** Debug console — TÁI DÙNG NGUYÊN workflowSettingsMisc.openDebugConsole() (vẽ danh sách log + wire nút). */

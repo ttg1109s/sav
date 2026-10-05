@@ -27,6 +27,7 @@ const RESTORE_DEFAULTS_META_KEYS = [
     'playlistFilterPresets', 'playlistFilterActivePresetId', 'playlistFilterAppliedConfig', 'playlistFilterAppliesToFolder',
     'playlistConfig', 'playerConfig', 'playerDisplayConfig', 'uiThemeConfig', 'paginationConfig',
     'recorderConfig', // MỚI 01/10/2026 — Ghi âm (khử tiếng vọng / bù trễ giọng), event/workflow/recorder.js
+    'perfHudConfig', // MỚI 05/10/2026 — Performance HUD (bật/tắt, kiểu, chiều, vị trí), event/workflow/perf-hud.js
     'activePlayListFolder', // thư mục đang áp cho từng Nguồn -> về "Tất cả"
 ];
 
@@ -35,22 +36,7 @@ const RESTORE_DEFAULTS_LOCAL_STORAGE_KEYS = ['visualMasterConfigV21', 'visualMas
 
 const workflowSettingsMisc = {
 
-    /** MỚI (05/10/2026, Giang yêu cầu — "lớp perf-probe thêm 1 nút ở Troubleshooting để bật/tắt") — ứng
-     * 'settingsMisc.perfProbe.toggle'. Bật/tắt HUD đo hiệu năng + nhớ cho lần boot sau (service/perf-probe.js tự lưu
-     * localStorage). @param {boolean} checked */
-    setPerfProbeEnabled(checked) {
-        perfProbe.setEnabled(!!checked); // service/perf-probe.js
-        console.log(`writer: "workflowSettingsMisc.setPerfProbeEnabled", page: "localStorage.sav_perfProbeEnabled", content: "${!!checked}"`);
-    },
-
-    /** MỚI (05/10/2026, Giang yêu cầu) — ứng 'settingsMisc.perfProbe.orientation': xoay dải HUD ngang/dọc (nhớ cho lần
-     * sau) rồi vẽ lại màn Troubleshooting để nút đang chọn đổi màu (giữ vị trí cuộn).
-     * @param {'horizontal'|'vertical'} orientation */
-    setPerfProbeOrientation(orientation) {
-        perfProbe.setOrientation(orientation); // service/perf-probe.js
-        console.log(`writer: "workflowSettingsMisc.setPerfProbeOrientation", page: "localStorage.sav_perfProbeOrientation", content: "${perfProbe.getOrientation()}"`);
-        workflowAppSettings._renderTroubleshooting(); // event/workflow/app-settings.js
-    },
+    // (05/10/2026) setPerfProbeEnabled()/setPerfProbeOrientation() ĐÃ DỜI sang workflowPerfHud (event/workflow/perf-hud.js).
 
     _debugConsolePageIndex: 0, // MỚI 23/09/2026 — trang đang xem của Debug console (nơi 'debugConsole' của Pagination), core tự kẹp
     _debugConsolePanelEl: null, // panel Debug Console đang mở (pushSettingsPanel() dựng mới mỗi lần) — clearDebugConsoleLog() cần vẽ lại danh sách

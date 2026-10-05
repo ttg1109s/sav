@@ -59,6 +59,10 @@ const workflowAppBoot = {
         // sách phân trang nào kịp dựng (mọi danh sách chỉ dựng sau boot, lúc người dùng mở), xem event/workflow/pagination.js.
         if (typeof workflowPagination !== 'undefined') await workflowPagination.loadPersistedPaginationOnBoot();
         if (typeof workflowRecorder !== 'undefined') await workflowRecorder.loadPersistedConfigOnBoot(); // MỚI 01/10/2026 — Ghi âm (meta.recorderConfig)
+        // MỚI (05/10/2026) — Performance HUD (meta.perfHudConfig): khôi phục cấu hình + bật lại HUD nếu lần trước đang bật.
+        // Thay `perfProbe.restoreOnBoot()` của service/perf-probe.js cũ (đã xoá, từng tự chạy lúc nạp script). KHÔNG await —
+        // độc lập hoàn toàn, không gì phía dưới phụ thuộc nó.
+        if (typeof workflowPerfHud !== 'undefined') workflowPerfHud.loadPersistedConfigOnBoot(); // event/workflow/perf-hud.js
         // SỬA (fix bug "bật vbg nguồn video -> playlist mãi mới render") — KHÔNG await ở đây nữa.
         // `loadPersistedSettingsOnBoot()` tự áp nền ngầm (video không còn chặn chờ 'playing' lúc
         // boot — xem event/workflow/visual-bg.js::_playVideoKey()); boot() chạy thẳng xuống playlist
