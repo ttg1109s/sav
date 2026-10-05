@@ -10,16 +10,6 @@
 /* +4px overshoot cố định (không phải %) — bù sai số làm tròn subpixel của transform% trên 1 số
    thiết bị, tránh lộ 1-2px nội dung ở rìa khi "đã trượt hết cỡ" nhưng vẫn lệch. */
 #app-stack.playlist-hidden { transform: translateX(calc(100% + 4px)); }
-
-/* Mobile/tablet: vẫn trượt Playlist ra đủ 0.5s, sau đó ngừng paint cả cửa sổ khi Visualizer hiện.
-   `transform` một mình chỉ đưa khung ra ngoài viewport; WebKit vẫn có thể giữ compositing/scroll
-   state của khung đó sau khi đổi media. Khi quay về, visibility được khôi phục ngay trước khi
-   transform trượt vào nên không làm mất animation. Desktop luôn hiện Playlist song song nên không áp dụng. */
-@media (max-width: 1023px) {
-    #app-stack { visibility: visible; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0s; }
-    #app-stack.playlist-hidden { visibility: hidden; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0.5s; }
-}
-
 #app-bg { position: absolute; inset: 0; } /* SỬA (bottom nav) — #side-left-container KHÔNG còn absolute (xem #app-stack flex-column bên dưới), chỉ #app-bg giữ full-bleed nền */
 /* #app-bg là khung cắt (overflow:hidden), 2 con TÁCH BIỆT: #app-bg-image (ảnh gốc, luôn nét, không
    transform/filter) + #app-bg-blur-layer (đè lên trên, nhận scale/blur — core/color-utils.js::
@@ -40,6 +30,18 @@
     #visualizer-ui { display: flex !important; opacity: 1 !important; pointer-events: auto !important; }
     #player-container { display: flex !important; }
     #btn-back-playlist { display: none !important; }
+}
+
+/* MỚI (05/10/2026, Giang chốt hướng sửa "về Playlist rồi vào lại thì giật toàn bộ video/motion/visual") — CHỈ bố cục
+   xếp chồng (<1024px; desktop 2 cột hiện song song nên KHÔNG ẩn bên nào). Class do core/player-controls.js gắn/gỡ
+   (setPlaylistOffstage()/setVisualStageOffstage()), điều phối ở event/workflow/player-controls.js:
+   - #app-stack.playlist-offstage: Playlist ra khỏi cây render sau khi trượt sang Visualizer xong, trả lại NGAY trước
+     bước cuộn tới bài đang phát lúc quay về.
+   - #visualizer-stage.visualizer-stage-offstage: lớp cha sân khấu hình Visualizer (index.html) ra khỏi cây render lúc
+     đang ở Playlist — media VẪN phát tiếng, chỉ ẩn hình. */
+@media (max-width: 1023px) {
+    #app-stack.playlist-offstage #side-left-container { display: none; }
+    #visualizer-stage.visualizer-stage-offstage { display: none; }
 }
 
 /* #side-left-container: cuộn ngang THẬT (overflow-x), 2 "trang" #playlist-view/#drawer-settings
