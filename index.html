@@ -35,11 +35,14 @@
             tên ngắn hơn nữa cho riêng home-screen label này). Đổi tên ở đây CÙNG lúc đổi luôn
             <title> ngay dưới (khác lần sửa trước — lần đó CHỈ đổi riêng thẻ này, giữ <title> là tên
             đầy đủ cũ; giờ đổi tên app THẬT nên cả 2 CÙNG "Audio Visualizer").
+         4. SỬA LẦN 4 (06/10/2026, Giang yêu cầu "đổi toàn bộ tên app thành Audivis") — cả thẻ này lẫn
+            <title> giờ là "Audivis" (7 ký tự, 1 từ — chắc chắn không bị SpringBoard nén). Riêng màn
+            Preloader vẫn bung chữ "Audivis" -> "Audio Visualizer" (tên đầy đủ), xem #app-preloader-name.
          apple-touch-icon.png (180×180, nền đặc — KHÔNG để trong suốt, iOS tự bo góc/viền riêng,
          icon nguồn để trong suốt dễ bị viền đen/trắng lệch) tạo từ chính favicon.png (chỉ khác
          iOS bỏ qua favicon.png cho mục đích này, phải có file/thẻ riêng). -->
-    <meta name="apple-mobile-web-app-title" content="Audio Visualizer">
-    <title>Audio Visualizer</title>
+    <meta name="apple-mobile-web-app-title" content="Audivis">
+    <title>Audivis</title>
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
 
@@ -81,10 +84,17 @@
            lúc preloader vừa hiện (CSS @keyframes, KHÔNG cần JS/hover/tap nữa — trước đây cần JS vì
            kích hoạt bằng tương tác người dùng, preloader thì phải tự chạy). KHÔNG tô màu (đã bỏ
            theo phản hồi Giang) — cùng 1 màu, chỉ khác đang ẩn/hiện. */
-        #app-preloader-name .app-preloader-expand-1 { display: inline-block; overflow: hidden; white-space: pre; vertical-align: bottom; max-width: 0; animation: app-preloader-expand-udio 0.4s ease-out 0.5s both; }
-        #app-preloader-name .app-preloader-expand-2 { display: inline-block; overflow: hidden; white-space: nowrap; vertical-align: bottom; max-width: 0; animation: app-preloader-expand-isualizer 0.4s ease-out 0.7s both; }
-        @keyframes app-preloader-expand-udio { from { max-width: 0; } to { max-width: 3.2em; } }
-        @keyframes app-preloader-expand-isualizer { from { max-width: 0; } to { max-width: 5.4em; } }
+        /* SỬA (06/10/2026, Giang: "tại màn preload Audivis -> Audio Visualizer") — chữ ban đầu là tên app MỚI
+           "Audivis", rồi bung thành tên đầy đủ "Audio Visualizer": chèn "o " sau "Audi" + đổi "v" thường -> "V" hoa
+           (2 span chồng vai: "v" co lại + mờ đi, "V" giãn ra + hiện lên CÙNG lúc), rồi chèn "ualizer" sau "Vis". */
+        #app-preloader-name .app-preloader-expand-1 { display: inline-block; overflow: hidden; white-space: pre; vertical-align: bottom; max-width: 0; animation: app-preloader-expand-o 0.4s ease-out 0.5s both; }
+        #app-preloader-name .app-preloader-swap-out { display: inline-block; overflow: hidden; vertical-align: bottom; max-width: 1em; animation: app-preloader-swap-out 0.4s ease-out 0.5s both; }
+        #app-preloader-name .app-preloader-swap-in { display: inline-block; overflow: hidden; vertical-align: bottom; max-width: 0; opacity: 0; animation: app-preloader-swap-in 0.4s ease-out 0.5s both; }
+        #app-preloader-name .app-preloader-expand-2 { display: inline-block; overflow: hidden; white-space: nowrap; vertical-align: bottom; max-width: 0; animation: app-preloader-expand-ualizer 0.4s ease-out 0.7s both; }
+        @keyframes app-preloader-expand-o { from { max-width: 0; } to { max-width: 1.2em; } }
+        @keyframes app-preloader-swap-out { from { max-width: 1em; opacity: 1; } to { max-width: 0; opacity: 0; } }
+        @keyframes app-preloader-swap-in { from { max-width: 0; opacity: 0; } to { max-width: 1em; opacity: 1; } }
+        @keyframes app-preloader-expand-ualizer { from { max-width: 0; } to { max-width: 4.6em; } }
 
         #app-preloader-dots { position: relative; width: 36px; height: 36px; margin-top: 8px; color: #94a3b8; }
         .app-preloader-dark #app-preloader-dots { color: #71717a; } /* zinc-500 */
@@ -108,14 +118,15 @@
            người dùng vẫn biết app đang tải mà không bị hiệu ứng "xoay/nhảy" gây khó chịu. */
         @media (prefers-reduced-motion: reduce) {
             .app-preloader-dot { animation-duration: 1.8s; }
-            #app-preloader-name .app-preloader-expand-1, #app-preloader-name .app-preloader-expand-2 { animation: none; max-width: none; }
+            #app-preloader-name .app-preloader-expand-1, #app-preloader-name .app-preloader-expand-2, #app-preloader-name .app-preloader-swap-in { animation: none; max-width: none; opacity: 1; }
+            #app-preloader-name .app-preloader-swap-out { display: none; }
         }
     </style>
     <div id="app-preloader">
         <div id="app-preloader-logo">
             <svg viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
         </div>
-        <div id="app-preloader-name">A<span class="app-preloader-expand-1">udio </span>V<span class="app-preloader-expand-2">isualizer</span></div>
+        <div id="app-preloader-name">Audi<span class="app-preloader-expand-1">o </span><span class="app-preloader-swap-out">v</span><span class="app-preloader-swap-in">V</span>is<span class="app-preloader-expand-2">ualizer</span></div>
         <div id="app-preloader-dots">
             <span class="app-preloader-dot"></span><span class="app-preloader-dot"></span><span class="app-preloader-dot"></span><span class="app-preloader-dot"></span>
             <span class="app-preloader-dot"></span><span class="app-preloader-dot"></span><span class="app-preloader-dot"></span><span class="app-preloader-dot"></span>
@@ -385,7 +396,7 @@
          tFormat() — PHẢI nạp trước mọi components/*.js (template TPL_* gọi t() ngay lúc parse).
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
     <script src="lang/patch/patch-common.js?v=20260924v1"></script>
-    <script src="lang/patch/patch-playlist.js?v=20260921v7"></script>
+    <script src="lang/patch/patch-playlist.js?v=20261006audivis1"></script>
     <script src="lang/patch/patch-visualizer.js?v=20261005disp4"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20261005disp4"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260921v9"></script>
@@ -411,7 +422,7 @@
     <!-- MỚI (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings chung 1 container cuộn
          ngang) — chỉ định nghĩa 2 biến chuỗi mở/đóng khung bọc, xem components/app-view-stack.js. -->
     <script src="components/app-view-stack.js?v=20260921v7"></script>
-    <script src="components/playlist-view.js?v=20260923v3"></script>
+    <script src="components/playlist-view.js?v=20261006audivis1"></script>
     <!-- Game Mode overlay (Circle mode v1, MỚI 16/08/2026) — PHẢI nạp TRƯỚC components/visualizer-
          overlay.js (file đó nội suy ${TPL_GAMEPLAY_OVERLAY}, xem components/gameplay-overlay.js). -->
     <script src="components/gameplay-overlay.js?v=20260819v1"></script>
@@ -550,7 +561,7 @@
     <!-- 18 package STATE theo domain (đợt tái cấu trúc 25/07/2026) — mỗi file tự
          AppState.definePackage(...) lúc nạp, CHƯA dựng STATE sống (chỉ đăng ký metadata). PHẢI
          nạp TRƯỚC service/state/record/index.js (dòng registry() cần mọi package đã đăng ký). -->
-    <script src="service/state/playlist.js?v=20260911v1"></script>
+    <script src="service/state/playlist.js?v=20261006audivis1"></script>
     <script src="service/state/player.js?v=20260725v1"></script>
     <script src="service/state/visualizer-runtime.js?v=20261001fa1"></script>
     <script src="service/state/visualizer-scenes.js?v=20261001aa1"></script>
@@ -619,7 +630,7 @@
          actions.js (core, dòng dưới) cần `new EventStore(...)` ngay lúc nạp. Tự đứng độc lập
          (không phụ thuộc eventBus), nên tách riêng lên đây an toàn. -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20261001rec1"></script>
+    <script src="core/dom-refs.js?v=20261006audivis1"></script>
     <!-- core/slider-panel-scroll.js — 2 hàm dùng chung (getPositionStart/scrollSliderTo) cho mọi
          khung cuộn ngang kiểu "slider panel" (settings-panel-stack-ui.js, player-controls.js). -->
     <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
@@ -667,7 +678,7 @@
          store — xem comment DB_VERSION ở service/db.js) bỏ hẳn cùng tính năng, không còn nơi nào
          gọi tới. -->
     <script src="core/file-manager/image.js?v=20261002cv4"></script>
-    <script src="core/file-manager/photo-ui.js?v=20260924r3"></script>
+    <script src="core/file-manager/photo-ui.js?v=20261006audivis1"></script>
     <!-- MỚI (v13) — picker Generic Drawer DÙNG CHUNG cho lưới ảnh lẫn lưới video. ĐỔI TÊN (24/09/2026) từ
          core/media-picker-drawer-helper.js (Rule 5c — file core wire UI phải hậu tố `-ui`). -->
     <script src="core/media-picker-drawer-ui.js?v=20260924r3"></script>
@@ -841,7 +852,7 @@
     <script src="core/playlist/order.js?v=20261002cv5"></script>
     <script src="core/playlist/render.js?v=20261002cv8"></script>
     <script src="core/playlist/loader.js?v=20260924r2"></script>
-    <script src="core/playlist/actions.js?v=20260924r2"></script>
+    <script src="core/playlist/actions.js?v=20261006audivis1"></script>
     <script src="core/playlist/main.js?v=20261002cv5"></script>
     <!-- MỚI (mục 1d, Playlist Filter, phản hồi Giang) — applyPlaylistFilter() (SQL
          WHERE...AND style), dùng bởi switchToSongSource()/switchToVideoSource() (event/
@@ -1182,7 +1193,7 @@
          lúc user tương tác) + core/file-manager/image.js (sortImagesByAddedDateDesc/groupImagesByDay).
          KHÔNG có listener riêng: cả 3 message của router 'fileManagerPhoto' đều do chính workflow
          (core/media-picker-drawer-ui.js::wireMediaPickerDrawerUi) và core/file-manager/photo-ui.js tự gửi từ DOM tự dựng. -->
-    <script src="event/workflow/file-manager-photo.js?v=20260930hidden1"></script>
+    <script src="event/workflow/file-manager-photo.js?v=20261006audivis1"></script>
     <script src="event/router/file-manager-photo.js?v=20260731v8"></script>
     <!-- TÁCH RA (31/07/2026, yêu cầu Giang) — cụm "imageEdit", Edit mode của modal xem ảnh Photo
          (trước đây sống chung trong file-manager-photo.js). CẦN workflowFileManagerPhoto (3 khe đọc
@@ -1235,9 +1246,9 @@
          core/listen-stats.js (bumpSongPlayCount), event/workflow/video-player.js (workflowVideoPlayer
          — chỉ dùng trong callback runtime, không bắt buộc thứ tự nạp so với dòng NGAY DƯỚI). -->
     <script src="event/workflow/player.js?v=20261002cv6"></script>
-    <script src="event/workflow/playlist.js?v=20261002cv5"></script>
-    <script src="event/router/playlist.js?v=20261002cv6"></script>
-    <script src="event/listener/playlist.js?v=20261002cv5"></script>
+    <script src="event/workflow/playlist.js?v=20261006audivis1"></script>
+    <script src="event/router/playlist.js?v=20261006audivis1"></script>
+    <script src="event/listener/playlist.js?v=20261006audivis1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel + phân phối lại section Settings, phản hồi
          Giang) — cụm "appSettings" (điều hướng swap Setting, TÁI DÙNG workflowGestureSettings/
          workflowSlideshow/workflowPlaylist/workflowSettingsMisc/workflowFileManagerPhoto/

@@ -1,4 +1,6 @@
-# Simple Audio Visualizer
+# Audivis
+
+(Tên cũ: Simple Audio Visualizer → Audio Visualizer — đổi thành Audivis 06/10/2026.)
 
 Bản chia nhỏ và phát triển từ tệp `VM_4.html` gốc (2032 dòng, 1 file duy nhất)
 thành các file CSS / JS / "component" HTML riêng biệt, **không dùng ES6
