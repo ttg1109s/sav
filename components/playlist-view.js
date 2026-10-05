@@ -30,7 +30,7 @@ const TPL_PLAYLIST_VIEW = `
             <!-- Hàng 1: logo header bên trái (tĩnh, full text) + cụm icon góc phải (Thêm nhạc +
                  Cài đặt + Đổi giao diện). -->
             <div class="flex justify-between items-center gap-5 mb-3" data-uitk="textPrimary">
-                <!-- Logo "Audio Visualizer" — không khung/nền/viền, in đậm, 1 màu (theo theme).
+                <!-- Logo (06/10/2026: "Audivis", trước là "Audio Visualizer") — không khung/nền/viền, in đậm, 1 màu (theo theme).
                      LỊCH SỬ (giữ lại vì vẫn còn liên quan touch-action bên dưới) — bản CŨ (trước
                      "thiết kế lại theo hướng simple") có animation thu/mở "SAV" <-> tên đầy đủ khi
                      hover/tap, và từng dính bug "bấm logo không ăn, có lúc còn bị zoom vào trang":
@@ -62,7 +62,9 @@ const TPL_PLAYLIST_VIEW = `
                      theme), không có gì để phân biệt "A"/"V" với phần còn lại nữa — animation
                      reveal đã chuyển hẳn sang preloader (index.html, xem @keyframes
                      app-preloader-expand-*). -->
-                <div id="sav-logo" class="flex items-baseline shrink-0 select-none leading-none font-extrabold text-base" style="touch-action: manipulation;">Audio Visualizer</div>
+                <!-- SỬA (06/10/2026, Giang yêu cầu "đổi toàn bộ tên app thành Audivis") — chữ logo đổi thành tên
+                     app mới. Tên đầy đủ "Audio Visualizer" giờ CHỈ còn xuất hiện ở preloader (index.html). -->
+                <div id="sav-logo" class="flex items-baseline shrink-0 select-none leading-none font-extrabold text-base" style="touch-action: manipulation;">Audivis</div>
                 <div class="flex items-center gap-5 shrink-0">
                 <!-- XOÁ (09/09/2026, Giang yêu cầu "loại bỏ nút icon visualizer playing ở header,
                      gộp vào nút Phát") — #btn-return-visual (icon "chấm tròn" nhấp nháy, bấm quay
@@ -357,26 +359,43 @@ const TPL_PLAYLIST_VIEW = `
                 </div>
             </div>
 
-            <!-- Tab 3: Ảnh bìa — không đổi. -->
+            <!-- Tab 3: Ảnh bìa.
+                 SỬA (06/10/2026, Giang yêu cầu):
+                   3a. Bỏ hẳn khối gợi ý "Accepts PNG, JPG or WEBP..." (key 'coverHint' xoá theo).
+                   3b. "Choose photo" -> "Choose", "Remove cover" -> "Remove", 2 nút nằm CÙNG 1 hàng.
+                   3c. "Choose" không mở picker ngay nữa mà bung menu 2 lựa chọn ngay dưới hàng nút:
+                       Photo (picker ảnh thư viện — đường cũ 'playlist.editCover.pickFromLibrary', GIỮ id
+                       #song-edit-cover-pick-library) + Video thumbnail (picker video, lấy thumb cover của
+                       video làm ảnh bìa — event/workflow/playlist.js::pickCoverFromVideoThumb()).
+                 Menu ẩn/hiện chỉ bằng class "hidden" (class tĩnh có sẵn "flex flex-col", .hidden sinh SAU
+                 .flex trong tailwind.css nên thắng) — xem toggleSongEditCoverChooseMenu(), core/playlist/actions.js. -->
             <div id="song-edit-tab-cover" class="hidden flex-col gap-4 p-5">
                 <div class="flex items-center gap-4">
                     <div class="w-24 h-24 rounded-2xl overflow-hidden shrink-0 shadow-lg" data-uitk="cardBorder cardBg">
                         <img id="song-edit-cover-preview" src="" class="w-full h-full object-cover" data-i18n-title="playlistView.songEdit.coverAlt" alt="${t('playlistView.songEdit.coverAlt')}">
                     </div>
-                    <div class="flex flex-col gap-2 flex-1">
-                        <button id="song-edit-cover-pick-library" class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-colors shadow" data-uitk="btnPrimaryPillBg btnPrimaryPillHoverBg textOnAccent">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                            <span data-i18n="playlistView.songEdit.coverPickLibrary">${t('playlistView.songEdit.coverPickLibrary')}</span>
-                        </button>
-                        <button id="song-edit-cover-remove" class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-colors" data-uitk="cardBg cardBorder destructiveText hoverDestructiveBg">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            <span data-i18n="playlistView.songEdit.coverRemove">${t('playlistView.songEdit.coverRemove')}</span>
-                        </button>
+                    <div class="flex flex-col gap-2 flex-1 min-w-0">
+                        <div class="flex gap-2">
+                            <button id="song-edit-cover-choose" aria-expanded="false" class="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-colors shadow" data-uitk="btnPrimaryPillBg btnPrimaryPillHoverBg textOnAccent">
+                                <span data-i18n="playlistView.songEdit.coverChoose">${t('playlistView.songEdit.coverChoose')}</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" data-role="chevron" class="h-3.5 w-3.5 shrink-0 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                            </button>
+                            <button id="song-edit-cover-remove" class="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-colors" data-uitk="cardBg cardBorder destructiveText hoverDestructiveBg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                <span data-i18n="playlistView.songEdit.coverRemove">${t('playlistView.songEdit.coverRemove')}</span>
+                            </button>
+                        </div>
+                        <div id="song-edit-cover-choose-menu" class="hidden flex flex-col rounded-xl overflow-hidden border" data-uitk="cardBg cardBorder">
+                            <button id="song-edit-cover-pick-library" class="flex items-center gap-3 w-full px-3 py-2.5 text-xs font-semibold text-left transition-colors" data-uitk="cardHoverBg textPrimary">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" data-uitk="iconHue:violet" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                <span data-i18n="playlistView.songEdit.coverFromPhoto">${t('playlistView.songEdit.coverFromPhoto')}</span>
+                            </button>
+                            <button id="song-edit-cover-pick-video-thumb" class="flex items-center gap-3 w-full px-3 py-2.5 text-xs font-semibold text-left transition-colors border-t" data-uitk="cardHoverBg textPrimary dividerBorder">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" data-uitk="iconHue:sky" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                <span data-i18n="playlistView.songEdit.coverFromVideoThumb">${t('playlistView.songEdit.coverFromVideoThumb')}</span>
+                            </button>
+                        </div>
                     </div>
-                </div>
-                <div class="flex items-start gap-2 rounded-lg p-3" data-uitk="cardBg cardBorder">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 mt-0.5" data-uitk="accentTextSoft" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    <p class="text-[11px] leading-relaxed" data-uitk="textSecondary" data-i18n="playlistView.songEdit.coverHint">${t('playlistView.songEdit.coverHint')}</p>
                 </div>
             </div>
 
@@ -475,16 +494,8 @@ const TPL_PLAYLIST_VIEW = `
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" data-uitk="iconHue:violet" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
             <span data-i18n="playlistView.songMenu.editImage">${t('playlistView.songMenu.editImage')}</span>
         </button>
-        <!-- MỚI (19/09/2026, Giang yêu cầu — "thêm nút xem thumb full res cho video playlist, tận dụng
-             luôn open modal view image") — RIÊNG của Video, mirror ĐÚNG khuôn song-menu-btn-edit-image
-             ngay trên (ẩn mặc định, JS chỉ hiện khi item đang mở menu là Video — xem
-             openSongActionMenu(), core/playlist/actions.js). Mở lại modal xem ảnh (photo-ui.js) ở chế
-             độ CHỈ XEM (viewOnly) với record.thumbFullBlob — xem workflowPlaylist.
-             openActiveMenuVideoThumb(). -->
-        <button id="song-menu-btn-view-video-thumb" data-menu-action="viewVideoThumb" class="hidden flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors border-t" data-uitk="cardHoverBg textPrimary dividerBorder">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" data-uitk="iconHue:emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-            <span data-i18n="playlistView.songMenu.viewVideoThumb">${t('playlistView.songMenu.viewVideoThumb')}</span>
-        </button>
+        <!-- XOÁ (06/10/2026, Giang yêu cầu "xoá action view thumb full res ở video playlist") — nút
+             #song-menu-btn-view-video-thumb ("View full thumbnail") bỏ hẳn cùng toàn bộ đường đi của nó. -->
         <!-- MỚI (mục 1d, CHỐT 03/07/2026) — dùng data-menu-action="addToFolder" RIÊNG, KHÔNG đi
              qua handleSongActionMenuSelect() (đã có sẵn 4 nhánh if/else — thêm nhánh thứ 5 vào đó
              sẽ buộc phải đưa NGUYÊN hàm cũ về đủ 4 rule, tốn công hơn hẳn tính năng này). Xử lý ở
