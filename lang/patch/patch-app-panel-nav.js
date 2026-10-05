@@ -96,12 +96,28 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.troubleshooting.videoThumb.label': 'Scan & fix video thumbnails',
     'appSettings.troubleshooting.videoThumb.hint': 'Finds videos with missing, black or unreadable full-res thumbnails and regenerates them',
     'appSettings.troubleshooting.videoThumb.btnFix': 'Fix thumbnails',
-    // MỚI (05/10/2026) — công tắc HUD đo hiệu năng (service/perf-probe.js)
-    'appSettings.troubleshooting.perfProbe.label': 'Performance HUD',
-    'appSettings.troubleshooting.perfProbe.hint': 'Floating strip with FPS, janky frames, frame time, JS time and dropped video frames; drag the grip to move it, tap logs go to Debug console',
-    'appSettings.troubleshooting.perfProbe.orientation': 'Strip direction',
-    'appSettings.troubleshooting.perfProbe.horizontal': 'Horizontal',
-    'appSettings.troubleshooting.perfProbe.vertical': 'Vertical',
+    // SỬA (05/10/2026) — Performance HUD thành màn con của Troubleshooting (event/workflow/perf-hud.js). Thay các key
+    // 'appSettings.troubleshooting.perfProbe.*' cũ.
+    'appSettings.troubleshooting.perfHud.label': 'Performance HUD',
+    'appSettings.troubleshooting.perfHud.hint': 'FPS, janky frames, frame time, JS time and dropped video frames',
+    'appSettings.troubleshooting.perfHud.enabled': 'Show HUD',
+    'appSettings.troubleshooting.perfHud.style': 'Style',
+    'appSettings.troubleshooting.perfHud.style.strip': 'Strip',
+    'appSettings.troubleshooting.perfHud.style.detail': 'Detailed',
+    'appSettings.troubleshooting.perfHud.orientation': 'Direction',
+    'appSettings.troubleshooting.perfHud.horizontal': 'Horizontal',
+    'appSettings.troubleshooting.perfHud.vertical': 'Vertical',
+    'appSettings.troubleshooting.perfHud.footnote': 'Touch and hold the HUD to drag it. Each tap is logged to Debug console.',
+    // Nhãn trên chính HUD (components/perf-hud.js) — strip: nhãn ngắn dưới số; detail: nhãn đầy đủ của từng hàng.
+    'perfHud.fps': 'FPS',
+    'perfHud.strip.jank': 'Jank',
+    'perfHud.strip.frame': 'Frame',
+    'perfHud.strip.js': 'JS RAF',
+    'perfHud.strip.drop': 'Video',
+    'perfHud.detail.jank': 'Janky frames (>25ms / 2s)',
+    'perfHud.detail.frame': 'Frame time (ms)',
+    'perfHud.detail.js': 'JS, all RAF tasks (ms)',
+    'perfHud.detail.drop': 'Dropped video frames (/s)',
 
     // MỚI (Giang yêu cầu "Player" — Resolution + Motion của Video/Photo lúc phát chính, Settings >
     // Visualizer Screen > Player > Video/Photo, xem core/player-display-settings.js).
