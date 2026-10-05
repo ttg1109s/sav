@@ -115,6 +115,11 @@ const routerSettingsMisc = (() => {
                 break;
             }
 
+            case 'settingsMisc.perfProbe.orientation': {
+                workflowSettingsMisc.setPerfProbeOrientation(msg.payload.orientation);
+                break;
+            }
+
             default:
                 console.warn(`[router:settingsMisc] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`);
         }
