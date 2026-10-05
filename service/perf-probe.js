@@ -1,148 +1,71 @@
 /**
- * service/perf-probe.js — TẠM (02/10/2026, v8), CHỈ ĐỂ CHẨN ĐOÁN bug "về Playlist rồi chọn media -> giật toàn bộ
- * (video/motion/visual) kéo dài qua Next/Prev; pause rồi play lại thì mượt". KHÔNG thuộc kiến trúc event-bus — 1 HUD đo
- * đạc độc lập, xoá hẳn file + thẻ <script> cuối index.html sau khi chẩn đoán xong.
+ * service/perf-probe.js — HUD đo hiệu năng trên máy (không cần DevTools). Bật/tắt ở Settings > Troubleshooting >
+ * "Performance HUD" (components/settings/troubleshooting.js -> router 'settingsMisc' ->
+ * workflowSettingsMisc.setPerfProbeEnabled() -> `perfProbe.setEnabled()`). Trạng thái nhớ ở localStorage
+ * (`sav_perfProbeEnabled`) — boot tự bật lại nếu lần trước đang bật.
  *
- * v3 — manh mối mới: pause -> play chữa được. Pause/play của media đụng tới (đã rà code): React Beat (task raf
- * 'motionEngineBeatReactTick' pause -> resume), Point Move (Web Animation pause/resume), đồng hồ Auto switch, dựng lại
- * dòng Playlist đang phát (refreshSongNode), đĩa xoay ở player bottom, và chính pipeline của <video>. HUD + nút dưới đây
- * chia đôi từng phần để biết phần nào "chữa" được.
+ * LỊCH SỬ: ra đời 02/10/2026 (v1–v10) để chẩn đoán bug "về Playlist rồi vào lại thì giật toàn bộ video/motion/visual".
+ * v11 (05/10/2026, Giang yêu cầu "thêm 1 nút ở Troubleshooting để bật/tắt"): bỏ hẳn các nút thí nghiệm A/B (đã xong
+ * vai trò) và mọi chỗ bọc hàm app — CHỈ còn đo đạc, không can thiệp luồng nào. Tắt = gỡ HUD + dừng task đo; phần bọc
+ * callback task raf (đếm tick/s, ms/frame) vẫn nằm đó nhưng không ghi gì khi tắt.
  *
- * v4 — số liệu v3 cho thấy: tick/s mọi task = fps (KHÔNG có chuỗi rAF nhân đôi), PL hiện 0/669 ở Visualizer, video gần như
- * không rơi frame. Cần tách tiếp: 1 frame ~130ms bị tiêu vào JS (callback raf) hay vào phần trình duyệt tự làm
- * (style/layout/paint/composite, task khác). Thêm dòng "ms/frame" + "RB đổi/s" (xem dưới).
+ * HUD (góc trái trên, không nhận chạm), cập nhật ~2 lần/giây:
+ *   fps / jank      — fps 2s gần nhất / số frame > 25ms trong 2s đó / số frame video bị bỏ mỗi giây (#bg-video).
+ *   tick/s          — số lần MỖI task raf của taskManager thật sự chạy callback mỗi giây (bình thường = fps).
+ *   ms/frame        — JS của mọi task raf mỗi frame / khoảng cách frame / phần còn lại (trình duyệt tự làm + task
+ *                     khác) + task nặng nhất (ms/tick).
+ *   anim css/tr/js  — số animation đang chạy (CSS animation / CSS transition / Web Animation).
+ *   PL hiện         — số item Playlist trình duyệt đang render / tổng (content-visibility).
+ * Console (Debug console để copy): 1 dòng tóm tắt 1,5s sau mỗi lần đổi màn Playlist <-> Visualizer, và 1 dòng cho mỗi
+ * cú chạm (3s sau chạm hoặc khi có cú chạm kế): phần tử được chạm, khoảng chặn main thread dài nhất 1,5s đầu, fps.
  *
- * HUD (~2 lần/giây):
- *   fps / jank      — fps 2s gần nhất / số frame > 25ms trong 2s đó.
- *   tick/s          — số lần MỖI task raf của taskManager thực sự chạy callback trong 1 giây. Bình thường = fps.
- *                     Task nào ~2x, 3x fps => có 2, 3 chuỗi requestAnimationFrame chạy song song trong CÙNG 1 Loop
- *                     (chuỗi thừa chỉ chết khi Loop bị pause từ bên ngoài — khớp hiện tượng "pause/play là mượt").
- *   anim css/tr/js  — số animation đang chạy: CSS animation / CSS transition / Web Animation thuần (Point Move dùng loại này).
- *   ms/frame        — (v4) trung bình mỗi frame: tổng thời gian chạy callback raf (JS) / khoảng cách frame / phần còn lại
- *                     (= trình duyệt tự làm + task khác). Task nặng nhất kèm số ms/tick.
- *   RB đổi/s        — (v4) số lần transform của #visual-motion-react (React Beat) THẬT SỰ đổi giá trị mỗi giây.
- *   video rơi/s     — số frame video bị bỏ mỗi giây (getVideoPlaybackQuality của #bg-video).
- *   PL hiện         — số item Playlist đang được render / tổng (content-visibility).
- *
- * Nút (bấm khi ĐANG giật ở Visualizer, mỗi nút 1 lần, xem có hết giật không):
- *   [Raf P/R]  — pause rồi resume MỌI task raf (giết chuỗi rAF thừa nếu có, KHÔNG đụng media/motion state).
- *   [Motion P/R] — pause rồi resume Motion Stage (React Beat + Point Move) của bên đang mượn.
- *   [Dòng PL]  — dựng lại dòng Playlist đang phát (refreshSongNode), y như pause/play làm.
- *   [Dựng lại PL] — renderPlaylistFull().
- *   [Ẩn PL]    — (bật/tắt) ẩn hẳn #app-stack lúc ở Visualizer (visibility:hidden sau 0.5s trượt).
- *   [Chạm]     — (v5) KHÔNG làm gì, không ghi log. Giang báo bấm nút nào của v3 cũng hết giật, dù 5 nút làm 5 việc
- *                khác nhau (có nút chỉ đổi 1 class) -> nghi chính cú CHẠM là thứ chữa. Nút này mượt lại => xác nhận.
- *   [Chạm chặn] — (v5) cũng không làm gì, nhưng preventDefault() ngay touchstart (trình duyệt KHÔNG xử lý cú chạm
- *                theo kiểu native: không click, không tương tác cuộn). [Chạm] chữa mà [Chạm chặn] không => thứ chữa là
- *                xử lý chạm native của iOS (trạng thái tương tác/cuộn của WebKit), không phải code JS của app.
- *                -> Giang xác nhận (02/10/2026): [Chạm] chữa, [Chạm chặn] không; JS mọi task raf chỉ 0.7–2ms/frame cả lúc
- *                giật => trình duyệt tự hạ nhịp vẽ, không phải code nặng.
- *   [Khoá cuộn] — (v6, bật/tắt, BẬT TRƯỚC khi tái hiện) thử phương án sửa: lúc #app-stack mang `.playlist-hidden`
- *                (đang ở / đang trượt sang Visualizer) đổi khung cuộn Playlist sang `overflow: hidden` -> trên iOS khung
- *                cuộn native (UIScrollView) của nó bị gỡ, không còn tương tác cuộn nào treo lại được; về Playlist thì trả
- *                `overflow-y: auto` (scrollTop giữ nguyên, cuộn bằng code vẫn chạy bình thường). Bật mà KHÔNG còn tái hiện
- *                được giật => chốt nguyên nhân + phương án.
- *                -> Giang báo (02/10/2026): bật vẫn tái hiện được giật => KHÔNG phải khung cuộn Playlist. (v7: đã gỡ nút.)
- *
- * v7 — CHIA ĐÔI tìm BƯỚC gây ra trạng thái giật. Đã biết: giật bắt đầu đúng lúc ĐỔI MEDIA (chọn bài từ Playlist / Next),
- * chữa bằng 1 cú chạm native bất kỳ. Mỗi nút dưới là 1 công tắc (bật = xanh, BẬT TRƯỚC rồi mới tái hiện), tắt hẳn 1
- * bước trong luồng đổi media. Bật nút nào mà KHÔNG còn tái hiện được => bước đó là thủ phạm.
- *   [Không WL]      — requestWakeLock() thành no-op (bật lên thì nhả wake lock đang giữ 1 lần). Màn hình có thể tự tắt.
- *   [Không làm mới PL] — refreshSongNode() bỏ qua lúc Playlist đang ẩn (dòng đang phát sẽ hiển thị cũ — chỉ để đo).
- *   [Không cuộn]    — scrollToCurrentInstant()/scrollToCurrentWhenShown() thành no-op (về Playlist không nhảy tới bài).
- *   [Ẩn PL]         — ẩn hẳn #app-stack khỏi render khi ở Visualizer.
- *   [Chạm]          — không làm gì (để gỡ giật khi cần).
- * Nhật ký chạm (v7): mỗi cú chạm bất kỳ (trừ nút probe) -> 3s sau ghi 1 dòng: phần tử được chạm, khoảng chặn main
- * thread dài nhất trong 1.5s đầu, fps sau 3s, các công tắc đang bật. Giang copy các dòng `[perf-probe] chạm` ở Debug console.
- * Mỗi lần đổi màn Playlist <-> Visualizer và mỗi lần bấm nút: ghi 1 dòng tóm tắt ra console (Debug console để copy).
+ * Độc lập kiến trúc event-bus (dịch vụ chẩn đoán). Cần: taskManager (service/task-manager.js), appState, appStack
+ * (core/dom-refs.js). Nạp CUỐI index.html.
  */
-(function setupPerfProbe() {
+const perfProbe = (function createPerfProbe() {
+    const STORAGE_KEY = 'sav_perfProbeEnabled';
     const PROBE_TASK = 'perfProbe';
-    const WINDOW_MS = 2000;
-    const JANK_MS = 25;
+    const WINDOW_MS = 2000; // cửa sổ thống kê fps/jank
+    const JANK_MS = 25; // frame dài hơn mức này = 1 lần giật
     const HUD_REFRESH_MS = 500;
-    const SNAPSHOT_DELAY_MS = 1500;
-
-    // ===== CSS =====
-    const style = document.createElement('style');
-    style.textContent = `
-@media (max-width: 1023px) {
-  html.probe-hide-pl #app-stack { transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0s; }
-  html.probe-hide-pl #app-stack.playlist-hidden { visibility: hidden; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0.5s; }
-}
+    const SNAPSHOT_DELAY_MS = 1500; // đợi trượt xong + vài frame rồi mới chụp số liệu sau khi đổi màn
+    const TAP_BLOCK_WINDOW_MS = 1500;
+    const TAP_REPORT_DELAY_MS = 3000;
+    const HUD_CSS = `
 #perf-probe-hud { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 4px); left: 4px; z-index: 2147483647;
   font: 10px/1.35 ui-monospace, Menlo, monospace; color: #fff; background: rgba(0,0,0,0.65); padding: 4px 6px;
-  border-radius: 6px; white-space: pre; pointer-events: none; max-width: calc(100vw - 8px); overflow: hidden; }
-#perf-probe-btns { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 140px); left: 4px; right: 4px; z-index: 2147483647;
-  display: flex; flex-wrap: wrap; gap: 4px; pointer-events: none; }
-#perf-probe-btns button { pointer-events: auto; font: 10px ui-monospace, Menlo, monospace; color: #fff; background: rgba(0,0,0,0.65);
-  border: 1px solid rgba(255,255,255,0.4); border-radius: 6px; padding: 4px 6px; }
-#perf-probe-btns button[aria-pressed="true"] { background: #16a34a; }
-`;
-    document.head.appendChild(style);
+  border-radius: 6px; white-space: pre; pointer-events: none; max-width: calc(100vw - 8px); overflow: hidden; }`;
 
-    const hud = document.createElement('div');
-    hud.id = 'perf-probe-hud';
-    const btnWrap = document.createElement('div');
-    btnWrap.id = 'perf-probe-btns';
-    btnWrap.innerHTML = '<button type="button" data-probe-noop="plain">Chạm</button>'
-        + '<button type="button" data-probe="probe-no-wakelock" aria-pressed="false">Không WL</button>'
-        + '<button type="button" data-probe="probe-no-plrefresh" aria-pressed="false">Không làm mới PL</button>'
-        + '<button type="button" data-probe="probe-no-scroll" aria-pressed="false">Không cuộn</button>'
-        + '<button type="button" data-probe="probe-hide-pl" aria-pressed="false">Ẩn PL</button>';
-    document.body.appendChild(hud);
-    document.body.appendChild(btnWrap);
+    let enabled = false;
+    let styleEl = null;
+    let hudEl = null;
 
-    ['pointerdown', 'pointerup', 'touchstart', 'touchend'].forEach((type) => {
-        btnWrap.addEventListener(type, (e) => e.stopPropagation(), { passive: true });
-    });
-    // ===== (v7) Công tắc chia đôi — bọc đúng các hàm trong luồng đổi media =====
-    const rootEl = document.documentElement;
-    const isOn = (cls) => rootEl.classList.contains(cls);
-
-    // Wake lock: hàm khai báo toàn cục (core/wakelock.js) -> gán lại thuộc tính window, các chỗ gọi trần `requestWakeLock()` dùng bản bọc.
-    const originalRequestWakeLock = window.requestWakeLock;
-    window.requestWakeLock = function probeRequestWakeLock() {
-        if (isOn('probe-no-wakelock')) return undefined;
-        return originalRequestWakeLock.apply(this, arguments);
-    };
-
-    const originalRefreshSongNode = workflowPlaylistRender.refreshSongNode;
-    workflowPlaylistRender.refreshSongNode = function probeRefreshSongNode() {
-        if (isOn('probe-no-plrefresh') && appStack.classList.contains('playlist-hidden')) return undefined;
-        return originalRefreshSongNode.apply(this, arguments);
-    };
-
-    const originalScrollInstant = workflowPlaylistRender.scrollToCurrentInstant;
-    workflowPlaylistRender.scrollToCurrentInstant = function probeScrollInstant() {
-        if (isOn('probe-no-scroll')) return undefined;
-        return originalScrollInstant.apply(this, arguments);
-    };
-    // (v8) scrollToCurrentAnimated() đã bị xoá (fix "gán scroll thẳng") — bọc bản thay thế scrollToCurrentWhenShown().
-    const originalScrollWhenShown = workflowPlaylistRender.scrollToCurrentWhenShown;
-    workflowPlaylistRender.scrollToCurrentWhenShown = function probeScrollWhenShown() {
-        if (isOn('probe-no-scroll')) return undefined;
-        return originalScrollWhenShown.apply(this, arguments);
-    };
-
-    // Việc làm thêm ngay lúc bật 1 công tắc.
-    const TOGGLE_ON_HOOKS = {
-        'probe-no-wakelock': () => releaseWakeLock(), // core/wakelock.js — nhả cái đang giữ
-    };
-
-    // ===== Đếm số lần callback THẬT SỰ chạy của từng task raf =====
-    // Bọc `loop.callback` (thuộc tính công khai của Loop, #runRaf() gọi `this.callback()`) — task mới tạo sau (addNew)
-    // được bọc ở lượt tick kế tiếp của probe.
+    // ===== Số liệu =====
+    const frameLog = []; // [timestamp, delta]
+    let lastFrameTs = 0;
+    let lastHudTs = 0;
+    let lastSecTs = 0;
+    let lastScreen = false;
+    let snapshotDueTs = 0;
+    let snapshotLabel = '';
+    let tapRecord = null; // {ts, label, maxGapMs}
     const tickCountByTask = {};
+    const tickMsByTask = {};
     let tickRateByTask = {};
-    const tickMsByTask = {}; // (v4) tổng ms callback trong giây hiện tại
-    let tickMsRateByTask = {}; // (v4) tổng ms/giây của giây trước
+    let tickMsRateByTask = {};
+    let lastDropped = null;
+    let droppedPerSec = 0;
+
+    // ===== Đếm callback THẬT SỰ chạy của từng task raf =====
+    // Bọc `loop.callback` (thuộc tính công khai của Loop, #runRaf() gọi `this.callback()`); task tạo sau (addNew) được
+    // bọc ở lượt tick kế tiếp của probe. Khi tắt: không đếm (chỉ còn 1 phép so sánh mỗi lần gọi).
     function wrapRafCallbacks() {
         Object.keys(taskManager.plan).forEach((name) => {
             const loop = taskManager.plan[name];
             if (!loop || loop.mode !== 'raf' || loop.callback.__probeWrapped || name === PROBE_TASK) return;
             const original = loop.callback;
             const wrapped = function probeCountedCallback() {
+                if (!enabled) return original.apply(this, arguments);
                 tickCountByTask[name] = (tickCountByTask[name] || 0) + 1;
                 const t0 = performance.now();
                 try {
@@ -156,63 +79,21 @@
         });
     }
 
-    // ===== Thí nghiệm =====
-    const PROBE_ACTIONS = {
-        rafPauseResume: () => {
-            const names = Object.keys(taskManager.plan).filter((n) => n !== PROBE_TASK && taskManager.plan[n].mode === 'raf' && taskManager.isTaskRunning(n));
-            names.forEach((n) => taskManager.pause(n));
-            names.forEach((n) => taskManager.resume(n));
-            return `Raf P/R: ${names.join(',')}`;
-        },
-        motionPauseResume: () => {
-            const lease = workflowMotionStage._lease; // event/workflow/motion-stage.js
-            if (!lease) return 'Motion P/R: không ai đang mượn Stage';
-            workflowMotionStage.pause(lease.token);
-            workflowMotionStage.resume(lease.token);
-            return `Motion P/R: token ${lease.token}`;
-        },
-        refreshRow: () => {
-            const key = appState.get('currentKey');
-            if (!key) return 'Dòng PL: chưa phát gì';
-            workflowPlaylistRender.refreshSongNode(key); // event/workflow/playlist-render.js
-            return `Dòng PL: ${key}`;
-        },
-        rebuild: () => {
-            const t0 = performance.now();
-            workflowPlaylistRender.renderPlaylistFull(); // event/workflow/playlist-render.js
-            return `Dựng lại PL (${(performance.now() - t0).toFixed(0)}ms)`;
-        },
-    };
-
-    btnWrap.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const actionBtn = e.target.closest('button[data-probe-action]');
-        if (actionBtn) {
-            const before = buildReport(performance.now()).replace(/\n/g, ' | ');
-            const what = PROBE_ACTIONS[actionBtn.dataset.probeAction]();
-            console.log(`[perf-probe] TRƯỚC ${what} :: ${before}`);
-            pendingAfterLabel = what;
-            snapshotDueTs = performance.now() + 2500; // đủ 1 cửa sổ 2s sau thí nghiệm
-            return;
-        }
-        const btn = e.target.closest('button[data-probe]');
-        if (!btn) return;
-        const turnedOn = rootEl.classList.toggle(btn.dataset.probe);
-        btn.setAttribute('aria-pressed', String(turnedOn));
-        if (turnedOn && TOGGLE_ON_HOOKS[btn.dataset.probe]) TOGGLE_ON_HOOKS[btn.dataset.probe]();
-        console.log(`[perf-probe] ${btn.dataset.probe} = ${turnedOn}`);
-    });
-
-    // ===== Thu số liệu =====
-    const container = document.getElementById('playlist-container');
+    function frameStats(now) {
+        while (frameLog.length && now - frameLog[0][0] > WINDOW_MS) frameLog.shift();
+        const n = frameLog.length;
+        const jank = frameLog.reduce((acc, f) => acc + (f[1] > JANK_MS ? 1 : 0), 0);
+        const fps = n > 1 ? Math.round((n - 1) * 1000 / (frameLog[n - 1][0] - frameLog[0][0])) : 0;
+        return { fps, jank };
+    }
 
     function countRenderedRows() {
+        const container = document.getElementById('playlist-container');
         if (!container) return '0/0';
-        const rows = container.children;
         let rendered = 0;
         let total = 0;
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
+        for (let i = 0; i < container.children.length; i++) {
+            const row = container.children[i];
             if (row.classList.contains('hidden')) continue;
             total++;
             const child = row.firstElementChild;
@@ -229,20 +110,6 @@
         return `${css}/${tr}/${running.length - css - tr}`;
     }
 
-    // (v4) React Beat có thật sự đổi transform không (so giá trị inline mỗi frame của probe).
-    const reactLayer = document.getElementById('visual-motion-react');
-    let lastReactTransform = '';
-    let reactChangeCount = 0;
-    let reactChangePerSec = 0;
-    function sampleReactTransform() {
-        if (!reactLayer) return;
-        const value = reactLayer.style.transform;
-        if (value !== lastReactTransform) reactChangeCount++;
-        lastReactTransform = value;
-    }
-
-    let lastDropped = null;
-    let droppedPerSec = 0;
     function sampleDroppedFrames() {
         const video = document.getElementById('bg-video');
         if (!video || typeof video.getVideoPlaybackQuality !== 'function') { droppedPerSec = 'n/a'; return; }
@@ -251,57 +118,13 @@
         lastDropped = dropped;
     }
 
-    // ===== (v7) Nhật ký chạm =====
-    const TAP_BLOCK_WINDOW_MS = 1500;
-    const TAP_REPORT_DELAY_MS = 3000;
-    let tapRecord = null; // {ts, label, maxGapMs}
-    function describeTapTarget(el) {
-        if (!el || !el.closest) return '?';
-        const withId = el.closest('[id]');
-        const text = (el.textContent || '').trim().slice(0, 16);
-        return `${withId ? '#' + withId.id : el.tagName.toLowerCase()}${text ? ' "' + text + '"' : ''}`;
-    }
-    // Pha capture trên document, passive — chỉ ghi nhận, không can thiệp. Nút probe đã stopPropagation ở btnWrap
-    // nhưng capture trên document chạy TRƯỚC -> lọc riêng.
-    document.addEventListener('pointerdown', (e) => {
-        if (e.target && e.target.closest && e.target.closest('#perf-probe-btns')) return;
-        if (tapRecord) flushTapRecord(performance.now()); // chạm dồn dập -> chốt bản trước
-        tapRecord = { ts: performance.now(), label: describeTapTarget(e.target), maxGapMs: 0 };
-    }, { capture: true, passive: true });
-    function activeToggles() {
-        return ['probe-no-wakelock', 'probe-no-plrefresh', 'probe-no-scroll', 'probe-hide-pl'].filter(isOn).map((c) => c.replace('probe-', '')).join(',') || '-';
-    }
-    function flushTapRecord(now) {
-        const { fps } = frameStats(now);
-        console.log(`[perf-probe] chạm ${tapRecord.label} | chặn max ${tapRecord.maxGapMs.toFixed(0)}ms | fps sau ${((now - tapRecord.ts) / 1000).toFixed(1)}s ${fps} | màn ${appStack.classList.contains('playlist-hidden') ? 'VIS' : 'PL'} | bật: ${activeToggles()}`);
-        tapRecord = null;
-    }
-
-    // ===== Vòng đo =====
-    const frameLog = [];
-    let lastFrameTs = 0;
-    let lastHudTs = 0;
-    let lastSecTs = performance.now();
-    let lastScreen = appStack.classList.contains('playlist-hidden');
-    let snapshotDueTs = 0;
-    let pendingAfterLabel = '';
-
-    function frameStats(now) {
-        while (frameLog.length && now - frameLog[0][0] > WINDOW_MS) frameLog.shift();
-        const n = frameLog.length;
-        const jank = frameLog.reduce((acc, f) => acc + (f[1] > JANK_MS ? 1 : 0), 0);
-        const fps = n > 1 ? Math.round((n - 1) * 1000 / (frameLog[n - 1][0] - frameLog[0][0])) : 0;
-        return { fps, jank };
-    }
-
     function buildReport(now) {
         const { fps, jank } = frameStats(now);
         const screen = appStack.classList.contains('playlist-hidden') ? 'VIS' : 'PL';
-        const ticks = Object.keys(tickRateByTask).map((n) => `${n.replace(/Task$|Tick$/, '')}:${tickRateByTask[n]}`).join(' ');
-        // (v4) ms/frame: JS raf (tổng mọi task) / khoảng cách frame / còn lại
-        const jsMsPerSec = Object.keys(tickMsRateByTask).reduce((acc, n) => acc + tickMsRateByTask[n], 0);
+        const shortName = (n) => n.replace(/Task$|Tick$/, '');
+        const ticks = Object.keys(tickRateByTask).map((n) => `${shortName(n)}:${tickRateByTask[n]}`).join(' ');
         const framesPerSec = Math.max(1, fps);
-        const jsMs = jsMsPerSec / framesPerSec;
+        const jsMs = Object.keys(tickMsRateByTask).reduce((acc, n) => acc + tickMsRateByTask[n], 0) / framesPerSec;
         const frameMs = 1000 / framesPerSec;
         let heaviest = '';
         let heaviestMs = 0;
@@ -311,10 +134,31 @@
         });
         return `${screen} fps ${fps} | jank ${jank}/2s | video rơi/s ${droppedPerSec}\n`
             + `tick/s ${ticks}\n`
-            + `ms/frame JS ${jsMs.toFixed(1)} / frame ${frameMs.toFixed(0)} / khác ${Math.max(0, frameMs - jsMs).toFixed(0)} | nặng: ${heaviest.replace(/Task$|Tick$/, '')} ${heaviestMs.toFixed(1)}ms\n`
-            + `anim css/tr/js ${countAnimations()} | RB đổi/s ${reactChangePerSec} | PL hiện ${countRenderedRows()}`;
+            + `ms/frame JS ${jsMs.toFixed(1)} / frame ${frameMs.toFixed(0)} / khác ${Math.max(0, frameMs - jsMs).toFixed(0)} | nặng: ${shortName(heaviest)} ${heaviestMs.toFixed(1)}ms\n`
+            + `anim css/tr/js ${countAnimations()} | PL hiện ${countRenderedRows()}`;
     }
 
+    // ===== Nhật ký chạm =====
+    function describeTapTarget(el) {
+        if (!el || !el.closest) return '?';
+        const withId = el.closest('[id]');
+        const text = (el.textContent || '').trim().slice(0, 16);
+        return `${withId ? '#' + withId.id : el.tagName.toLowerCase()}${text ? ' "' + text + '"' : ''}`;
+    }
+
+    function flushTapRecord(now) {
+        const { fps } = frameStats(now);
+        console.log(`[perf-probe] chạm ${tapRecord.label} | chặn max ${tapRecord.maxGapMs.toFixed(0)}ms | fps sau ${((now - tapRecord.ts) / 1000).toFixed(1)}s ${fps} | màn ${appStack.classList.contains('playlist-hidden') ? 'VIS' : 'PL'}`);
+        tapRecord = null;
+    }
+
+    // Pha capture trên document, passive — chỉ ghi nhận, không can thiệp.
+    function onPointerDown(e) {
+        if (tapRecord) flushTapRecord(performance.now()); // chạm dồn dập -> chốt bản trước
+        tapRecord = { ts: performance.now(), label: describeTapTarget(e.target), maxGapMs: 0 };
+    }
+
+    // ===== Vòng đo (task raf của chính probe) =====
     function tick() {
         const now = performance.now();
         if (lastFrameTs) frameLog.push([now, now - lastFrameTs]);
@@ -324,17 +168,15 @@
         if (tapRecord && now - tapRecord.ts >= TAP_REPORT_DELAY_MS) flushTapRecord(now);
         lastFrameTs = now;
         wrapRafCallbacks();
-        sampleReactTransform();
 
         if (now - lastSecTs >= 1000) {
             tickRateByTask = Object.assign({}, tickCountByTask);
-            Object.keys(tickCountByTask).forEach((n) => { tickCountByTask[n] = 0; });
             tickMsRateByTask = Object.assign({}, tickMsByTask);
+            Object.keys(tickCountByTask).forEach((n) => { tickCountByTask[n] = 0; });
             Object.keys(tickMsByTask).forEach((n) => { tickMsByTask[n] = 0; });
-            Object.keys(tickMsRateByTask).forEach((n) => { if (!taskManager.plan[n]) delete tickMsRateByTask[n]; });
-            reactChangePerSec = reactChangeCount;
-            reactChangeCount = 0;
-            Object.keys(tickRateByTask).forEach((n) => { if (!taskManager.plan[n]) delete tickRateByTask[n]; });
+            Object.keys(tickRateByTask).forEach((n) => {
+                if (!taskManager.plan[n]) { delete tickRateByTask[n]; delete tickMsRateByTask[n]; }
+            });
             sampleDroppedFrames();
             lastSecTs = now;
         }
@@ -342,21 +184,71 @@
         const screenNow = appStack.classList.contains('playlist-hidden');
         if (screenNow !== lastScreen) {
             lastScreen = screenNow;
-            pendingAfterLabel = `đổi màn -> ${screenNow ? 'Visualizer' : 'Playlist'}`;
+            snapshotLabel = `đổi màn -> ${screenNow ? 'Visualizer' : 'Playlist'}`;
             snapshotDueTs = now + SNAPSHOT_DELAY_MS;
         }
 
         if (now - lastHudTs >= HUD_REFRESH_MS) {
             lastHudTs = now;
-            hud.textContent = buildReport(now);
+            hudEl.textContent = buildReport(now);
         }
 
         if (snapshotDueTs && now >= snapshotDueTs) {
             snapshotDueTs = 0;
-            console.log(`[perf-probe] SAU ${pendingAfterLabel} :: ${buildReport(now).replace(/\n/g, ' | ')}`);
+            console.log(`[perf-probe] SAU ${snapshotLabel} :: ${buildReport(now).replace(/\n/g, ' | ')}`);
         }
     }
 
-    taskManager.addNew(PROBE_TASK, { time: 0, exe: tick, mode: 'raf', count: 0 }); // service/task-manager.js
-    taskManager.operator(PROBE_TASK, 'enabled');
+    // ===== Bật / tắt =====
+    function enable() {
+        if (enabled) return; // guard
+        enabled = true;
+        styleEl = document.createElement('style');
+        styleEl.textContent = HUD_CSS;
+        document.head.appendChild(styleEl);
+        hudEl = document.createElement('div');
+        hudEl.id = 'perf-probe-hud';
+        document.body.appendChild(hudEl);
+        frameLog.length = 0;
+        lastFrameTs = 0;
+        lastSecTs = performance.now();
+        lastScreen = appStack.classList.contains('playlist-hidden');
+        lastDropped = null;
+        document.addEventListener('pointerdown', onPointerDown, { capture: true, passive: true });
+        taskManager.addNew(PROBE_TASK, { time: 0, exe: tick, mode: 'raf', count: 0 }); // service/task-manager.js
+        taskManager.operator(PROBE_TASK, 'enabled');
+    }
+
+    function disable() {
+        if (!enabled) return; // guard
+        enabled = false;
+        taskManager.kill(PROBE_TASK);
+        document.removeEventListener('pointerdown', onPointerDown, { capture: true });
+        if (hudEl) hudEl.remove();
+        if (styleEl) styleEl.remove();
+        hudEl = null;
+        styleEl = null;
+        tapRecord = null;
+        snapshotDueTs = 0;
+    }
+
+    return {
+        /** @returns {boolean} */
+        isEnabled() {
+            return enabled;
+        },
+
+        /** Bật/tắt HUD và nhớ lựa chọn cho lần boot sau. @param {boolean} on */
+        setEnabled(on) {
+            localStorage.setItem(STORAGE_KEY, on ? 'true' : 'false');
+            if (on) enable(); else disable();
+        },
+
+        /** Boot: bật lại nếu lần trước đang bật. */
+        restoreOnBoot() {
+            if (localStorage.getItem(STORAGE_KEY) === 'true') enable();
+        },
+    };
 })();
+
+perfProbe.restoreOnBoot();
