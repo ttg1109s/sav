@@ -1,32 +1,34 @@
 /**
- * service/perf-probe.js — HUD đo hiệu năng trên máy (không cần DevTools). Bật/tắt ở Settings > Troubleshooting >
- * "Performance HUD" (components/settings/troubleshooting.js -> router 'settingsMisc' ->
- * workflowSettingsMisc.setPerfProbeEnabled() -> `perfProbe.setEnabled()`). Trạng thái nhớ ở localStorage
- * (`sav_perfProbeEnabled`) — boot tự bật lại nếu lần trước đang bật.
+ * service/perf-probe.js — HUD đo hiệu năng trên máy (không cần DevTools). Bật/tắt + xoay ngang/dọc ở Settings >
+ * Troubleshooting > "Performance HUD" (components/settings/troubleshooting.js -> router 'settingsMisc' ->
+ * workflowSettingsMisc.setPerfProbeEnabled()/setPerfProbeOrientation() -> `perfProbe.setEnabled()/setOrientation()`).
+ * Nhớ qua localStorage: `sav_perfProbeEnabled`, `sav_perfProbeOrientation`, `sav_perfProbePosition`.
  *
  * LỊCH SỬ: ra đời 02/10/2026 (v1–v10) để chẩn đoán bug "về Playlist rồi vào lại thì giật toàn bộ video/motion/visual".
- * v11 (05/10/2026, Giang yêu cầu "thêm 1 nút ở Troubleshooting để bật/tắt"): bỏ hẳn các nút thí nghiệm A/B (đã xong
- * vai trò) và mọi chỗ bọc hàm app — CHỈ còn đo đạc, không can thiệp luồng nào. Tắt = gỡ HUD + dừng task đo; phần bọc
- * callback task raf (đếm tick/s, ms/frame) vẫn nằm đó nhưng không ghi gì khi tắt.
+ * v11 (05/10/2026): chỉ còn đo đạc, không can thiệp luồng app; bật/tắt ở Troubleshooting.
+ * v12 (05/10/2026): dải icon hoá, ăn theme, kéo thả bằng tay cầm, xoay ngang/dọc.
+ * v13 (05/10/2026, Giang góp ý "không có màu nền, chữ không tương phản, không xuống dòng, nhỏ quá" + "bỏ thông số
+ * không cần thiết" + "tham khảo icon trên mạng"):
+ *   - Nền: lớp nền theme (`modalCardBg`) ĐỤC 80% (opacity 0.8) — chữ `textPrimary` cùng theme nên luôn tương phản
+ *     đúng với Light/Dark/Morphin.
+ *   - To hơn: chữ 13px, icon 16px, padding rộng hơn; số dùng tabular-nums (không nhảy bề rộng).
+ *   - Dải ngang tự XUỐNG DÒNG khi chạm mép màn hình (flex-wrap, max-width = bề rộng màn hình).
+ *   - Icon: bộ Lucide (lucide.dev, giấy phép ISC — nét 2px, đầu tròn, viewBox 24), path chép theo bản gốc.
+ *   - Chỉ giữ 5 chỉ số đọc được ngay giật hay không + vì đâu; BỎ tick/s từng task, task nặng nhất, số animation,
+ *     số item Playlist đang render (đều là số liệu chẩn đoán riêng của đợt điều tra 02–05/10, đã xong vai trò).
  *
- * v12 (05/10/2026, Giang yêu cầu): HUD thành 1 DẢI icon hoá `⠿  ⚡ fps  ⚠ jank  🎞 rơi  ⟳ tick  ⏱ ms  ▣ nặng  ✦ anim
- * ☰ PL` (KHÔNG vạch phân cách — các mục cách nhau bằng khoảng trống), bọc 1 box vừa nội dung (fit-content) có padding, ĂN THEO THEME (data-uitk + applyUiThemeToDom(),
- * core/ui-theme/apply-ui.js) — lớp NỀN trong suốt ~80% (chữ/icon giữ rõ). Xoay ngang/dọc chọn ở Settings >
- * Troubleshooting > Performance HUD (`setOrientation()`). Nắm tay cầm ⠿ kéo đi khắp màn hình (vị trí nhớ lại). Mọi giá
- * trị chỉ đổi textContent (không dựng lại DOM mỗi lượt).
- *
- * Các chỉ số (thứ tự trong dải), cập nhật ~2 lần/giây:
- *   fps / jank      — fps 2s gần nhất / số frame > 25ms trong 2s đó / số frame video bị bỏ mỗi giây (#bg-video).
- *   tick/s          — số lần MỖI task raf của taskManager thật sự chạy callback mỗi giây (bình thường = fps).
- *   ms/frame        — JS của mọi task raf mỗi frame / khoảng cách frame / phần còn lại (trình duyệt tự làm + task
- *                     khác) + task nặng nhất (ms/tick).
- *   anim css/tr/js  — số animation đang chạy (CSS animation / CSS transition / Web Animation).
- *   PL hiện         — số item Playlist trình duyệt đang render / tổng (content-visibility).
+ * 5 chỉ số (thứ tự trong dải), cập nhật ~2 lần/giây:
+ *   gauge           — FPS trung bình 2s gần nhất.
+ *   triangle-alert  — số frame giật (> 25ms) trong 2s gần nhất.
+ *   timer           — thời gian 1 frame trung bình (ms).
+ *   code            — thời gian JS của MỌI task raf (taskManager) trong 1 frame (ms). Frame lâu mà JS nhỏ = trình duyệt
+ *                     tự làm (style/layout/paint/composite); JS lớn = code app nặng.
+ *   film            — số frame video bị bỏ mỗi giây (#bg-video, getVideoPlaybackQuality()).
  * Console (Debug console để copy): 1 dòng tóm tắt 1,5s sau mỗi lần đổi màn Playlist <-> Visualizer, và 1 dòng cho mỗi
  * cú chạm (3s sau chạm hoặc khi có cú chạm kế): phần tử được chạm, khoảng chặn main thread dài nhất 1,5s đầu, fps.
  *
- * Độc lập kiến trúc event-bus (dịch vụ chẩn đoán). Cần: taskManager (service/task-manager.js), appState, appStack
- * (core/dom-refs.js). Nạp CUỐI index.html.
+ * Độc lập kiến trúc event-bus (dịch vụ chẩn đoán). Cần: taskManager (service/task-manager.js), appStack
+ * (core/dom-refs.js), applyUiThemeToDom/_activeUiThemeKeyList (core/ui-theme/apply-ui.js). Nạp CUỐI index.html.
  */
 const perfProbe = (function createPerfProbe() {
     const STORAGE_KEY = 'sav_perfProbeEnabled';
@@ -40,19 +42,35 @@ const perfProbe = (function createPerfProbe() {
     const SNAPSHOT_DELAY_MS = 1500; // đợi trượt xong + vài frame rồi mới chụp số liệu sau khi đổi màn
     const TAP_BLOCK_WINDOW_MS = 1500;
     const TAP_REPORT_DELAY_MS = 3000;
+
     // Cấu trúc/khoảng cách viết CSS thuần (tailwind.css là bản dựng sẵn, class mới không có); MÀU lấy từ theme qua
-    // data-uitk. Nền là 1 lớp riêng (opacity 0.2 = trong suốt 80%) để chữ/icon không mờ theo.
+    // data-uitk. Nền là 1 lớp riêng (opacity 0.8) để chữ/icon không mờ theo.
     const HUD_CSS = `
-#perf-probe-hud { position: fixed; z-index: 2147483647; width: max-content; pointer-events: none;
-  font: 600 10px/1.2 ui-monospace, Menlo, monospace; border-radius: 10px; }
-#perf-probe-hud .pp-bg { position: absolute; inset: 0; border-radius: inherit; opacity: 0.2; pointer-events: none; }
-#perf-probe-hud .pp-strip { position: relative; display: flex; align-items: center; gap: 8px; padding: 4px 8px; }
-#perf-probe-hud.pp-vertical .pp-strip { flex-direction: column; align-items: flex-start; gap: 4px; padding: 6px 8px; }
-#perf-probe-hud .pp-item { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
-#perf-probe-hud .pp-item svg { width: 12px; height: 12px; flex-shrink: 0; }
-#perf-probe-hud .pp-handle { pointer-events: auto; touch-action: none; cursor: grab; justify-content: center; padding: 2px; }
-#perf-probe-hud.pp-vertical .pp-handle { align-self: center; }
-#perf-probe-hud .pp-handle svg { width: 14px; height: 14px; }`;
+#perf-probe-hud { position: fixed; z-index: 2147483647; width: max-content; max-width: calc(100vw - ${EDGE_GAP_PX * 2}px);
+  pointer-events: none; font: 600 13px/1.25 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric: tabular-nums; border-radius: 14px; }
+#perf-probe-hud .pp-bg { position: absolute; inset: 0; border-radius: inherit; opacity: 0.8; pointer-events: none; }
+#perf-probe-hud .pp-strip { position: relative; display: flex; flex-wrap: wrap; align-items: center; column-gap: 14px;
+  row-gap: 6px; padding: 8px 12px; }
+#perf-probe-hud.pp-vertical .pp-strip { flex-direction: column; flex-wrap: nowrap; align-items: flex-start; row-gap: 8px; }
+#perf-probe-hud .pp-item { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+#perf-probe-hud .pp-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+#perf-probe-hud .pp-unit { font-weight: 500; font-size: 11px; opacity: 0.7; }
+#perf-probe-hud .pp-handle { pointer-events: auto; touch-action: none; cursor: grab; padding: 4px; margin: -4px 0 -4px -6px; }
+#perf-probe-hud.pp-vertical .pp-handle { align-self: center; margin: -4px 0; }
+#perf-probe-hud .pp-handle svg { width: 18px; height: 18px; }`;
+
+    // Icon Lucide (https://lucide.dev, ISC) — phần tử con bên trong <svg viewBox="0 0 24 24" stroke-width="2"
+    // stroke-linecap="round" stroke-linejoin="round">. `unit` hiện nhỏ sau số.
+    const HUD_ITEMS = [
+        { id: 'fps', unit: 'fps', icon: '<path d="M12 15l3.5-3.5"/><path d="M20.3 18c.4-1 .7-2.2.7-3.4C21 9.8 17 6 12 6s-9 3.8-9 8.6c0 1.2.3 2.4.7 3.4"/>' }, // gauge
+        { id: 'jank', unit: '/2s', icon: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>' }, // triangle-alert
+        { id: 'frame', unit: 'ms', icon: '<line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/>' }, // timer
+        { id: 'js', unit: 'ms', icon: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>' }, // code
+        { id: 'drop', unit: '/s', icon: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/>' }, // film
+    ];
+    const GRIP_ICON = '<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>'; // grip-vertical
+    const svgOf = (inner) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
 
     let enabled = false;
     let styleEl = null;
@@ -60,19 +78,6 @@ const perfProbe = (function createPerfProbe() {
     let valueEls = {}; // id chỉ số -> <span> giá trị (chỉ đổi textContent)
     let orientation = localStorage.getItem(ORIENTATION_KEY) === 'vertical' ? 'vertical' : 'horizontal';
     let dragState = null; // {pointerId, offsetX, offsetY} khi đang kéo
-
-    // Icon (path Heroicons outline, stroke = màu chữ theme) — mỗi chỉ số 1 icon, thứ tự = thứ tự trong dải.
-    const HUD_ITEMS = [
-        { id: 'fps', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
-        { id: 'jank', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' },
-        { id: 'drop', icon: 'M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z' },
-        { id: 'tick', icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' },
-        { id: 'ms', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
-        { id: 'heavy', icon: 'M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z' },
-        { id: 'anim', icon: 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z' },
-        { id: 'pl', icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
-    ];
-    const GRIP_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
 
     // ===== Số liệu =====
     const frameLog = []; // [timestamp, delta]
@@ -83,29 +88,26 @@ const perfProbe = (function createPerfProbe() {
     let snapshotDueTs = 0;
     let snapshotLabel = '';
     let tapRecord = null; // {ts, label, maxGapMs}
-    const tickCountByTask = {};
-    const tickMsByTask = {};
-    let tickRateByTask = {};
-    let tickMsRateByTask = {};
+    let jsMsThisSec = 0; // tổng ms JS của mọi task raf trong giây đang đếm
+    let jsMsLastSec = 0;
     let lastDropped = null;
     let droppedPerSec = 0;
 
-    // ===== Đếm callback THẬT SỰ chạy của từng task raf =====
+    // ===== Đo thời gian JS của mọi task raf =====
     // Bọc `loop.callback` (thuộc tính công khai của Loop, #runRaf() gọi `this.callback()`); task tạo sau (addNew) được
-    // bọc ở lượt tick kế tiếp của probe. Khi tắt: không đếm (chỉ còn 1 phép so sánh mỗi lần gọi).
+    // bọc ở lượt tick kế tiếp của probe. Khi tắt: không cộng (chỉ còn 1 phép so sánh mỗi lần gọi).
     function wrapRafCallbacks() {
         Object.keys(taskManager.plan).forEach((name) => {
             const loop = taskManager.plan[name];
             if (!loop || loop.mode !== 'raf' || loop.callback.__probeWrapped || name === PROBE_TASK) return;
             const original = loop.callback;
-            const wrapped = function probeCountedCallback() {
+            const wrapped = function probeTimedCallback() {
                 if (!enabled) return original.apply(this, arguments);
-                tickCountByTask[name] = (tickCountByTask[name] || 0) + 1;
                 const t0 = performance.now();
                 try {
                     return original.apply(this, arguments);
                 } finally {
-                    tickMsByTask[name] = (tickMsByTask[name] || 0) + (performance.now() - t0);
+                    jsMsThisSec += performance.now() - t0;
                 }
             };
             wrapped.__probeWrapped = true;
@@ -121,68 +123,32 @@ const perfProbe = (function createPerfProbe() {
         return { fps, jank };
     }
 
-    function countRenderedRows() {
-        const container = document.getElementById('playlist-container');
-        if (!container) return '0/0';
-        let rendered = 0;
-        let total = 0;
-        for (let i = 0; i < container.children.length; i++) {
-            const row = container.children[i];
-            if (row.classList.contains('hidden')) continue;
-            total++;
-            const child = row.firstElementChild;
-            if (child && typeof child.checkVisibility === 'function' && child.checkVisibility({ contentVisibilityAuto: true })) rendered++;
-        }
-        return `${rendered}/${total}`;
-    }
-
-    function countAnimations() {
-        if (typeof document.getAnimations !== 'function') return 'n/a';
-        const running = document.getAnimations().filter((a) => a.playState === 'running');
-        const css = running.filter((a) => typeof CSSAnimation !== 'undefined' && a instanceof CSSAnimation).length;
-        const tr = running.filter((a) => typeof CSSTransition !== 'undefined' && a instanceof CSSTransition).length;
-        return `${css}/${tr}/${running.length - css - tr}`;
-    }
-
     function sampleDroppedFrames() {
         const video = document.getElementById('bg-video');
-        if (!video || typeof video.getVideoPlaybackQuality !== 'function') { droppedPerSec = 'n/a'; return; }
+        if (!video || typeof video.getVideoPlaybackQuality !== 'function') { droppedPerSec = '-'; return; }
         const dropped = video.getVideoPlaybackQuality().droppedVideoFrames;
         droppedPerSec = lastDropped === null ? 0 : Math.max(0, dropped - lastDropped);
         lastDropped = dropped;
     }
 
-    /** Tính 1 lượt số liệu. @returns {object} */
+    /** 1 lượt số liệu. @returns {{screen:string, fps:number, jank:number, frameMs:number, jsMs:number, drop:(number|string)}} */
     function buildMetrics(now) {
         const { fps, jank } = frameStats(now);
-        const shortName = (n) => n.replace(/Task$|Tick$/, '');
-        const taskNames = Object.keys(tickRateByTask).sort();
         const framesPerSec = Math.max(1, fps);
-        const jsMs = Object.keys(tickMsRateByTask).reduce((acc, n) => acc + tickMsRateByTask[n], 0) / framesPerSec;
-        const frameMs = 1000 / framesPerSec;
-        let heaviest = '';
-        let heaviestMs = 0;
-        Object.keys(tickMsRateByTask).forEach((n) => {
-            const perTick = tickMsRateByTask[n] / Math.max(1, tickRateByTask[n] || 0);
-            if (perTick > heaviestMs) { heaviestMs = perTick; heaviest = n; }
-        });
         return {
             screen: appStack.classList.contains('playlist-hidden') ? 'VIS' : 'PL',
-            fps, jank, drop: droppedPerSec,
-            tickValues: taskNames.map((n) => tickRateByTask[n]).join('·'),
-            tickNamed: taskNames.map((n) => `${shortName(n)}:${tickRateByTask[n]}`).join(' '),
-            jsMs, frameMs, otherMs: Math.max(0, frameMs - jsMs),
-            heaviest: shortName(heaviest), heaviestMs,
-            anim: countAnimations(), pl: countRenderedRows(),
+            fps,
+            jank,
+            frameMs: 1000 / framesPerSec,
+            jsMs: jsMsLastSec / framesPerSec,
+            drop: droppedPerSec,
         };
     }
 
     /** Dòng chữ đầy đủ nhãn — CHỈ dùng ghi console (Debug console để copy). */
     function buildReport(now) {
         const m = buildMetrics(now);
-        return `${m.screen} fps ${m.fps} | jank ${m.jank}/2s | video rơi/s ${m.drop} | tick/s ${m.tickNamed}`
-            + ` | ms/frame JS ${m.jsMs.toFixed(1)} / frame ${m.frameMs.toFixed(0)} / khác ${m.otherMs.toFixed(0)}`
-            + ` | nặng: ${m.heaviest} ${m.heaviestMs.toFixed(1)}ms | anim css/tr/js ${m.anim} | PL hiện ${m.pl}`;
+        return `${m.screen} fps ${m.fps} | jank ${m.jank}/2s | frame ${m.frameMs.toFixed(0)}ms | JS ${m.jsMs.toFixed(1)}ms | video rơi ${m.drop}/s`;
     }
 
     /** Ghi giá trị mới vào dải (chỉ textContent). */
@@ -191,12 +157,9 @@ const perfProbe = (function createPerfProbe() {
         const VALUES = {
             fps: `${m.fps}`,
             jank: `${m.jank}`,
+            frame: m.frameMs.toFixed(0),
+            js: m.jsMs.toFixed(1),
             drop: `${m.drop}`,
-            tick: m.tickValues || '-',
-            ms: `${m.jsMs.toFixed(1)}/${m.frameMs.toFixed(0)}/${m.otherMs.toFixed(0)}`,
-            heavy: `${m.heaviest.slice(0, 10)} ${m.heaviestMs.toFixed(1)}`,
-            anim: m.anim,
-            pl: m.pl,
         };
         Object.keys(VALUES).forEach((id) => { if (valueEls[id]) valueEls[id].textContent = VALUES[id]; });
     }
@@ -206,9 +169,9 @@ const perfProbe = (function createPerfProbe() {
         hudEl = document.createElement('div');
         hudEl.id = 'perf-probe-hud';
         hudEl.setAttribute('data-uitk', 'textPrimary');
-        const itemsHtml = HUD_ITEMS.map((item) => `<div class="pp-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-uitk="accentText"><path d="${item.icon}"/></svg><span data-pp-value="${item.id}">-</span></div>`).join('');
+        const itemsHtml = HUD_ITEMS.map((item) => `<div class="pp-item"><span class="pp-icon" data-uitk="accentText">${svgOf(item.icon)}</span><span data-pp-value="${item.id}">-</span><span class="pp-unit">${item.unit}</span></div>`).join('');
         hudEl.innerHTML = '<div class="pp-bg" data-uitk="modalCardBg modalCardBorder"></div>'
-            + `<div class="pp-strip"><div class="pp-item pp-handle">${GRIP_SVG}</div>${itemsHtml}</div>`;
+            + `<div class="pp-strip"><div class="pp-item pp-handle" data-uitk="textSecondary">${svgOf(GRIP_ICON)}</div>${itemsHtml}</div>`;
         valueEls = {};
         hudEl.querySelectorAll('[data-pp-value]').forEach((el) => { valueEls[el.dataset.ppValue] = el; });
         applyOrientationClass();
@@ -294,13 +257,8 @@ const perfProbe = (function createPerfProbe() {
         wrapRafCallbacks();
 
         if (now - lastSecTs >= 1000) {
-            tickRateByTask = Object.assign({}, tickCountByTask);
-            tickMsRateByTask = Object.assign({}, tickMsByTask);
-            Object.keys(tickCountByTask).forEach((n) => { tickCountByTask[n] = 0; });
-            Object.keys(tickMsByTask).forEach((n) => { tickMsByTask[n] = 0; });
-            Object.keys(tickRateByTask).forEach((n) => {
-                if (!taskManager.plan[n]) { delete tickRateByTask[n]; delete tickMsRateByTask[n]; }
-            });
+            jsMsLastSec = jsMsThisSec;
+            jsMsThisSec = 0;
             sampleDroppedFrames();
             lastSecTs = now;
         }
@@ -319,7 +277,7 @@ const perfProbe = (function createPerfProbe() {
 
         if (snapshotDueTs && now >= snapshotDueTs) {
             snapshotDueTs = 0;
-            console.log(`[perf-probe] SAU ${snapshotLabel} :: ${buildReport(now).replace(/\n/g, ' | ')}`);
+            console.log(`[perf-probe] SAU ${snapshotLabel} :: ${buildReport(now)}`);
         }
     }
 
@@ -334,6 +292,8 @@ const perfProbe = (function createPerfProbe() {
         frameLog.length = 0;
         lastFrameTs = 0;
         lastSecTs = performance.now();
+        jsMsThisSec = 0;
+        jsMsLastSec = 0;
         lastScreen = appStack.classList.contains('playlist-hidden');
         lastDropped = null;
         document.addEventListener('pointerdown', onPointerDown, { capture: true, passive: true });
