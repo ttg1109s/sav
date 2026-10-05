@@ -241,9 +241,10 @@ const LANG_PATCH_VISUALIZER = {
 
     // MỚI (12/08/2026) — panel "Display" (Main "Visualizer Screen"), thay hẳn "Customize
     // Visualizer" — gộp "Hiện Visual" (trước ở Main) + 4 toggle UI chrome cũ vào 1 panel riêng.
-    'settingsVisualizer.openDisplay.label': 'Display',
-    'settingsVisualizer.openDisplay.hint': 'Show/hide the visualizer and on-screen UI elements',
-    'visualizerDisplayPanel.title': 'Display',
+    // SỬA (05/10/2026, Giang yêu cầu) — đổi tên "Display" -> "Components Display".
+    'settingsVisualizer.openDisplay.label': 'Components Display',
+    'settingsVisualizer.openDisplay.hint': 'Show/hide the effect and on-screen UI elements',
+    'visualizerDisplayPanel.title': 'Components Display',
     'visualizerAutoSwitchDrawer.title': 'Auto-Switch Effect',
     'visualizerSettingsDrawer.autoSwitchEnable.label': 'Enable auto-switch',
     // VIẾT LẠI (26/09/2026, Giang "cải tiến lại Auto-Switch Effect") — bỏ key mode 'duration'/'random' cũ + 3 nhãn ô số giây.
@@ -400,7 +401,7 @@ const LANG_PATCH_VISUALIZER = {
     // chrome cố định) trong panel "Display" — xem components/settings/visualizer-display-panel.js.
     // SỬA (chốt LẦN 2, cùng ngày) — 2 key `section.display`/`section.controlUi` của bản trước ĐÃ
     // GỘP LẠI thành 1 key DUY NHẤT này (Giang yêu cầu bỏ tách riêng, gộp chung 1 section).
-    'visualizerSettingsDrawer.section.components': 'Components',
+    // (05/10/2026) 'visualizerSettingsDrawer.section.components' ĐÃ XOÁ — panel Components Display bỏ tiêu đề nhóm.
 
     'visualizerSettingsDrawer.connectorStyle.synapse': 'Synapse',
     'visualizerSettingsDrawer.connectorStyle.circuit': 'Circuit',

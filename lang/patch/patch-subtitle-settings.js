@@ -435,8 +435,9 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // Visualizer" — panel body: components/settings/visualizer-auto-switch-drawer.js.
     'settingsVisualizer.openAutoSwitch.label': 'Auto-Switch Effect',
     'settingsVisualizer.openAutoSwitch.hint': 'Automatically cycle through effects over time',
-    'settingsVisualizer.visualEnable.label': 'Show visual',
-    'settingsVisualizer.visualEnable.hint': 'Turn off to show only the background (video/image/color), hiding the visualizer effect without touching Video Background.',
+    // SỬA (05/10/2026, Giang yêu cầu) — "Show visual" -> "Show effect", mô tả rút gọn.
+    'settingsVisualizer.visualEnable.label': 'Show effect',
+    'settingsVisualizer.visualEnable.hint': 'Off shows only the background',
     // MỚI (12/08/2026, mục 4b) — hàng "Làm mờ" MỚI, đứng NGAY SAU "Show visual" — dời từ card
     // "Custom Effect" (trước đây "Visualizer Geometry") sang ĐÂY, DÙNG LẠI ĐÚNG key
     // visualizerSettingsDrawer.blurEnable.* (không tạo key trùng nghĩa).
