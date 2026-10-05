@@ -255,6 +255,8 @@
     <link rel="stylesheet" href="assets/css/gameplay.css?v=20260902v4">
     <!-- MỚI (01/10/2026) — overlay Ghi âm + mini waveform modal nghe lại — xem components/recorder-overlay.js. -->
     <link rel="stylesheet" href="assets/css/recorder.css?v=20261002rec2">
+    <!-- MỚI (05/10/2026) — cấu trúc Performance HUD (components/perf-hud.js); màu lấy từ theme qua data-uitk. -->
+    <link rel="stylesheet" href="assets/css/perf-hud.css?v=20261005hud1">
     <!-- Game Panel (App Panel tab "Game", danh sách card kiểu appstore, MỚI 02/09/2026) — xem
          core/gameplay/game-panel-ui.js. -->
     <link rel="stylesheet" href="assets/css/game-panel.css?v=20260902v1">
@@ -398,7 +400,7 @@
     <script src="lang/patch/patch-video-preview.js?v=20260929cap1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — bottom nav + panel Photo/Game/Statis/Setting
          mới, xem lang/patch/patch-app-panel-nav.js. -->
-    <script src="lang/patch/patch-app-panel-nav.js?v=20261005ph4"></script>
+    <script src="lang/patch/patch-app-panel-nav.js?v=20261005hud1"></script>
     <script src="lang/lang.js?v=20260731v1"></script>
 
     <!-- =====================================================================
@@ -446,7 +448,9 @@
     <!-- MỚI (20/09/2026, Giang yêu cầu gộp Debug console + Reset app + Quét file lỗi vào Troubleshooting) —
          template màn Troubleshooting + khối "Quét & dọn file lỗi" (dời từ components/file-manager-storage.js),
          xem event/workflow/app-settings.js::_renderTroubleshooting()/_renderBrokenScan(). -->
-    <script src="components/settings/troubleshooting.js?v=20261005ph2"></script>
+    <script src="components/settings/troubleshooting.js?v=20261005hud1"></script>
+    <!-- MỚI (05/10/2026) — template Performance HUD (strip/detail), instantiate ở core/perf-hud-ui.js. -->
+    <script src="components/perf-hud.js?v=20261005hud1"></script>
     <script src="components/game-panel.js?v=20260923v5"></script>
     <script src="components/statis-panel.js?v=20260923v5"></script>
     <!-- MỚI (18/07/2026, Giang yêu cầu) — panel xem console log (Settings > Misc). -->
@@ -600,7 +604,7 @@
          restoreDefaultVizConfig/saveConfig/loadConfig) — KHÔNG còn giữ Z_INDEX/global
          error-handler (dời ở trên) hay CONST dùng chéo domain khác (nay sống trong đúng package
          service/state/*.js). PHẢI nạp SAU service/state.js (cần class AppConfig). -->
-    <script src="core/config.js?v=20261001rec1"></script>
+    <script src="core/config.js?v=20261005hud1"></script>
     <!-- core/custom-effect.js — Core thuần hệ Custom Effect (getEffectConfig/setCustomEffectField),
          NẠP NGAY SAU core/config.js (cần DEFAULT_CUSTOM_EFFECT/appConfigViz) — mọi hàm vẽ/scene-setup
          phía dưới đều cần file này. -->
@@ -730,7 +734,7 @@
          (đã nạp) + core/generic-drawer.js (đã nạp ngay trên). -->
     <script src="core/app-panel-nav.js?v=20260921v2"></script>
     <script src="core/placeholder-panel.js?v=20260819v1"></script>
-    <script src="core/app-settings-ui.js?v=20261005ph2"></script>
+    <script src="core/app-settings-ui.js?v=20261005hud1"></script>
     <!-- MỚI (20/09/2026, Giang yêu cầu thiết kế lại Main Setting dạng carousel ngang) — core UI thuần: scale
          card theo khoảng cách tới tâm + cuộn vô hạn + hiệu ứng mở. CHỈ gọi lúc chạy từ event/workflow/
          app-settings.js + event/router/app-settings.js (nạp ở dưới) — thứ tự với 2 file đó không bắt
@@ -890,6 +894,10 @@
     <!-- MỚI (01/10/2026) — Ghi âm: core thuần (graph ghi/MIME/peaks/tên file) + core-ui (overlay, modal nghe lại). -->
     <script src="core/recorder.js?v=20261001rec1"></script>
     <script src="core/recorder-ui.js?v=20261002rec2"></script>
+    <!-- MỚI (05/10/2026) — Performance HUD: core thuần (tính số liệu) + core-ui (dựng/ghi DOM, wire chạm -> eventBus).
+         Thay service/perf-probe.js (đã xoá). CẦN service/component-dynamic.js (instantiateComponent) + components/perf-hud.js. -->
+    <script src="core/perf-hud.js?v=20261005hud1"></script>
+    <script src="core/perf-hud-ui.js?v=20261005hud1"></script>
     <script src="core/app-cleanup.js?v=20260630v1"></script>
     <!-- GỘP (10/08/2026) toggle ẩn/hiện Stats panel + 3 nút chrome (bottom player/playlist/mở
          Control Center, mỗi cái 1 toggle RIÊNG trong Settings -> Hiển thị Visualizer — bỏ hẳn
@@ -1033,7 +1041,7 @@
          (hạ tầng rẽ nhánh, dùng xuyên cụm) -> workflow/*.js -> router/*.js (register với bus) ->
          listener/*.js (addEventListener cuối, cần bus + router đã sẵn sàng). -->
     <script src="event/bus.js?v=20260703v1"></script>
-    <script src="event/block.js?v=20261001rec1"></script>
+    <script src="event/block.js?v=20261005hud1"></script>
     <script src="event/virtual-machine-state.js?v=20260701v1"></script>
     <!-- Cụm "infoIcon" (MỚI, phản hồi Giang — icon (i) nhỏ dùng chung) — CẦN core/info-icon-ui.js
          (đã nạp ở nhóm CORE phía trên). Listener delegate trên document.body — luôn có sẵn, không
@@ -1053,8 +1061,8 @@
          sang cụm "fileManagerSong" ngay dưới (plan-v12-multimedia.md mục 3). Batch D1: aboutDrawer
          giờ CẦN workflow (push panel + tính thống kê), xem event/workflow/settings-misc.js. -->
     <script src="core/settings-misc-ui.js?v=20260924v1"></script>
-    <script src="event/workflow/settings-misc.js?v=20261005ph2"></script>
-    <script src="event/router/settings-misc.js?v=20261005ph2"></script>
+    <script src="event/workflow/settings-misc.js?v=20261005hud1"></script>
+    <script src="event/router/settings-misc.js?v=20261005hud1"></script>
     <script src="event/listener/settings-misc.js?v=20260924r1"></script>
     <!-- Ver 12 "Multi Media" — CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7): cụm
          "fileManager" (khung điều hướng cấp cao cũ) ĐÃ BỎ HẲN — thay bằng 3 cụm ĐỘC LẬP, mỗi cụm
@@ -1236,8 +1244,8 @@
          workflowFileManagerFolderBrowser/workflowFileManagerStorage đã nạp ở trên — KHÔNG bắt
          buộc thứ tự nạp CHẶT với các file đó, vì mọi tham chiếu đều nằm TRONG thân hàm, chỉ chạy
          SAU khi cả trang đã nạp xong, không chạy ngay lúc parse). -->
-    <script src="event/workflow/app-settings.js?v=20261005ph2"></script>
-    <script src="event/router/app-settings.js?v=20261001rec1"></script>
+    <script src="event/workflow/app-settings.js?v=20261005hud1"></script>
+    <script src="event/router/app-settings.js?v=20261005hud1"></script>
     <!-- Cụm "placeholderPanels" (đóng Game/Statis). Photo đã hợp nhất vào Playlist, không còn cụm
          "photoPanel" riêng. -->
     <script src="event/workflow/placeholder-panels.js?v=20260819v1"></script>
@@ -1359,6 +1367,12 @@
     <script src="event/workflow/recorder.js?v=20261001rec1"></script>
     <script src="event/router/recorder.js?v=20261001rec1"></script>
     <script src="event/listener/recorder.js?v=20261001rec1"></script>
+    <!-- MỚI (05/10/2026) — cụm 'perfHud' (Performance HUD, Settings > Troubleshooting). Workflow CẦN core/perf-hud*.js,
+         core/config.js (appConfigPerfHud), core/ui-theme/apply-ui.js; gọi workflowAppSettings lúc chạy. NẠP TRƯỚC
+         event/workflow/app-boot.js (boot gọi loadPersistedConfigOnBoot()). Listener cần event/block.js (Block gate). -->
+    <script src="event/workflow/perf-hud.js?v=20261005hud1"></script>
+    <script src="event/router/perf-hud.js?v=20261005hud1"></script>
+    <script src="event/listener/perf-hud.js?v=20261005hud1"></script>
     <!-- Cụm "statsPanel" ĐÃ XOÁ (checkbox toggle stats panel dời vào Settings, dùng chung
          cụm "visualizerDisplay" — xem event/workflow/visualizer-display.js::setStatsPanelEnabled()). -->
     <!-- Cụm "savLogo" ĐÃ NGỪNG NẠP (SỬA — Giang yêu cầu "logo header full text, không animation")
@@ -1441,13 +1455,8 @@
          xem comment ở đó). Chuỗi boot thật (~15 bước) nay ở workflow. Đặt SAU CÙNG TUYỆT ĐỐI (kể
          cả sau event/tab.js) để mọi workflowXxx/VirtualMachineState/hàm core mà
          workflowAppBoot.boot() cần tới đều CHẮC CHẮN đã được định nghĩa ở phía TRÊN nó. -->
-    <script src="event/workflow/app-boot.js?v=20261002cv5"></script>
+    <script src="event/workflow/app-boot.js?v=20261005hud1"></script>
     <script src="event/router/app-boot.js?v=20260725v1"></script>
-    <!-- service/perf-probe.js — HUD đo hiệu năng (fps, tick/s task raf, ms/frame, nhật ký chạm ra Debug console). Bật/tắt ở
-         Settings > Troubleshooting > Performance HUD (nhớ qua localStorage). Ra đời 02/10/2026 để chẩn đoán giật khi ra vào
-         Playlist; SỬA 05/10/2026 thành công cụ bật/tắt, chỉ đo, không can thiệp luồng app. Cần taskManager, appState,
-         appStack (core/dom-refs.js); router/workflow 'settingsMisc' + event/workflow/app-settings.js gọi `perfProbe` lúc chạy. -->
-    <script src="service/perf-probe.js?v=20261005ph4"></script>
 
 </body>
 </html>
