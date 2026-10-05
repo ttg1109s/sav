@@ -156,3 +156,10 @@ eventBus.registerBlock('playerControls.next.click', RECORDER_SESSION_ACTIVE_BLOC
 eventBus.registerBlock('playerControls.prev.click', RECORDER_SESSION_ACTIVE_BLOCK);
 eventBus.registerBlock('playerControls.playPause.click', RECORDER_SESSION_ACTIVE_BLOCK);
 eventBus.registerBlock('playerControls.restart.click', RECORDER_SESSION_ACTIVE_BLOCK);
+
+// ===================== Performance HUD (MỚI 05/10/2026) =====================
+// Nhật ký chạm (event/listener/perf-hud.js nghe MỌI cú chạm trong app) — HUD tắt thì chặn HẲN trước Router, không chạy gì.
+// Đọc thẳng domain AppConfig 'perfHud' (core/config.js) — bus tự nhận diện gốc 'perfHudConfig' (event/bus.js::resolveFieldPath()).
+eventBus.registerBlock('perfHud.app.pointerdown', [
+    [{ field: 'perfHudConfig.enabled', operator: '!==', value: true }],
+]);
