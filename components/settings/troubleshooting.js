@@ -3,17 +3,16 @@
  * "scan check thumb full res video và fix" vào nhóm Troubleshooting). Template tĩnh cho 2 màn trong Setting
  * (Generic Drawer, event/workflow/app-settings.js) — Rule 5d: chỉ trả chuỗi HTML, KHÔNG addEventListener.
  *
- *   1. `renderTroubleshootingBody()` — màn danh sách PHẲNG, 4 hàng NGANG HÀNG (không chia nhóm/tiêu đề):
+ *   1. `renderTroubleshootingBody()` — màn danh sách PHẲNG, 5 hàng NGANG HÀNG (không chia nhóm/tiêu đề).
+ *      SỬA (05/10/2026, Giang yêu cầu sắp xếp lại) — 3 màn con lên trên, 2 hàng hành động nguy hiểm xuống CUỐI:
  *        [Debug console >]                — mở màn con (`data-app-settings-nav="debugConsole"`)
+ *        [Scan & fix video thumbnails >]  — mở màn con (`data-app-settings-nav="videoThumb"`)
+ *        [Performance HUD >]              — mở màn con (`data-app-settings-nav="perfHud"`, MỚI 05/10/2026 — trước đó
+ *                                           là 1 card công tắc nằm thẳng trong danh sách)
  *        [Restore default settings]       — bấm là hỏi xác nhận (`data-troubleshooting-action`)
  *        [Clear app cache]                — bấm là hỏi xác nhận (`data-troubleshooting-action`)
- *        [Scan & fix video thumbnails >]  — mở màn con (`data-app-settings-nav="videoThumb"`)
- *      "Restore default settings" và "Clear app cache" là 2 hàng RIÊNG cùng cấp với Debug console (THAY
- *      modalChoice 3 nút "Reset app" cũ). "Restart app" (nút thứ 3 của modal cũ) KHÔNG ở đây — đã chuyển lên
- *      icon header Playlist (components/playlist-view.js, id "setting-restart-app").
+ *      "Restart app" KHÔNG ở đây — icon header Playlist (components/playlist-view.js, id "setting-restart-app").
  *      Wire: core/app-settings-ui.js::wireAppSettingsTroubleshooting().
- *      MỚI (05/10/2026, Giang yêu cầu) — card thứ 5 [Performance HUD (công tắc) + Hướng dải: Ngang/Dọc]: bật/tắt +
- *      xoay HUD đo hiệu năng (service/perf-probe.js). Trạng thái hiện tại do Workflow truyền vào.
  *
  *   2. `renderVideoThumbRepairBody()` — màn "Scan & fix video thumbnails": CHỈ phần kiểm tra + sửa thumb
  *      (cover/full-res) của Video, DỜI từ logic quét của Storage. KHÔNG phải "Scan & clean broken files" của
@@ -22,6 +21,10 @@
  *      Wire: core/app-settings-ui.js::wireAppSettingsVideoThumb(). Xử lý: event/workflow/file-manager-storage.js
  *      (`executeScanVideoThumbs()`/`executeRepairBroken()`), router 'fileManagerStorage' (case
  *      'fileManagerStorage.videoThumb.*').
+ *
+ *   3. `renderPerfHudSettingsBody(cfg)` — MỚI (05/10/2026) — màn con "Performance HUD": [Hiển thị (công tắc)] +
+ *      [Kiểu: Strip / Chi tiết] + [Chiều: Ngang / Dọc — CHỈ hiện khi Kiểu = Strip]. Wire:
+ *      core/app-settings-ui.js::wireAppSettingsPerfHud() -> router 'perfHud' (event/workflow/perf-hud.js).
  */
 
 /** 1 hàng ĐIỀU HƯỚNG (mở màn con) — cùng khuôn card với renderAppSettingsRowList()
@@ -54,52 +57,14 @@ function _renderTroubleshootingActionRow(action, iconPath, labelHtml, hintHtml) 
     `;
 }
 
-/** MỚI (05/10/2026, Giang yêu cầu) — card Performance HUD: hàng trên = công tắc bật/tắt (cùng khuôn switch các setting
- * khác, vd components/settings/recorder-settings.js); hàng dưới = 2 nút chọn hướng dải HUD (Ngang/Dọc), nút đang chọn
- * tô nền chính. @param {boolean} isOn @param {'horizontal'|'vertical'} orientation */
-function _renderTroubleshootingPerfProbeCard(isOn, orientation) {
-    const ORIENTATION_OPTIONS = [
-        { value: 'horizontal', label: t('appSettings.troubleshooting.perfProbe.horizontal'), icon: 'M4 12h16M4 12l3-3m-3 3l3 3m13-3l-3-3m3 3l-3 3' },
-        { value: 'vertical', label: t('appSettings.troubleshooting.perfProbe.vertical'), icon: 'M12 4v16M12 4l-3 3m3-3l3 3m-3 13l-3-3m3 3l3-3' },
-    ];
-    const orientationButtonsHtml = ORIENTATION_OPTIONS.map((opt) => `
-                <button type="button" data-perf-probe-orientation="${opt.value}" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5" data-uitk="${opt.value === orientation ? 'btnPrimaryBg textOnAccent' : 'btnNeutralBg btnNeutralText'}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${opt.icon}" /></svg>
-                    <span>${opt.label}</span>
-                </button>`).join('');
-    return `
-        <div class="w-full px-4 py-3.5 rounded-2xl mb-2 flex flex-col gap-3" data-uitk="cardBg cardBorder">
-            <div class="flex items-center justify-between gap-3">
-                <div class="flex items-center gap-3 min-w-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="accentTextSoft" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                    <div class="min-w-0">
-                        <div class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${t('appSettings.troubleshooting.perfProbe.label')}</div>
-                        <div class="text-xs mt-0.5" data-uitk="textSecondary">${t('appSettings.troubleshooting.perfProbe.hint')}</div>
-                    </div>
-                </div>
-                <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                    <input type="checkbox" id="setting-perf-probe-enabled" class="sr-only peer" ${isOn ? 'checked' : ''}>
-                    <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all" data-uitk="toggleTrackOff toggleTrackOn"></div>
-                </label>
-            </div>
-            <div class="flex items-center justify-between gap-3">
-                <span class="text-xs" data-uitk="textSecondary">${t('appSettings.troubleshooting.perfProbe.orientation')}</span>
-                <div class="flex gap-2">${orientationButtonsHtml}
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-/** SỬA (05/10/2026): nhận trạng thái Performance HUD do Workflow truyền vào.
- * @param {boolean} isPerfProbeOn @param {'horizontal'|'vertical'} perfProbeOrientation */
-function renderTroubleshootingBody(isPerfProbeOn, perfProbeOrientation) {
+/** SỬA (05/10/2026, Giang yêu cầu) — Performance HUD thành màn con; Restore default settings + Clear app cache xuống cuối. */
+function renderTroubleshootingBody() {
     return `
         ${_renderTroubleshootingNavRow('debugConsole', 'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', t('settingsMisc.debugConsole.title'), t('appSettings.troubleshooting.debugConsole.hint'))}
+        ${_renderTroubleshootingNavRow('videoThumb', 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z', t('appSettings.troubleshooting.videoThumb.label'), t('appSettings.troubleshooting.videoThumb.hint'))}
+        ${_renderTroubleshootingNavRow('perfHud', 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', t('appSettings.troubleshooting.perfHud.label'), t('appSettings.troubleshooting.perfHud.hint'))}
         ${_renderTroubleshootingActionRow('restoreDefaults', 'M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6', t('appSettings.resetApp.restoreDefaults.label'), t('appSettings.resetApp.restoreDefaults.hint'))}
         ${_renderTroubleshootingActionRow('clearCache', 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16', t('appSettings.resetApp.clearCache.label'), t('appSettings.resetApp.clearCache.hint'))}
-        ${_renderTroubleshootingNavRow('videoThumb', 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z', t('appSettings.troubleshooting.videoThumb.label'), t('appSettings.troubleshooting.videoThumb.hint'))}
-        ${_renderTroubleshootingPerfProbeCard(isPerfProbeOn, perfProbeOrientation)}
     `;
 }
 
@@ -122,6 +87,59 @@ function renderVideoThumbRepairBody() {
                     <button id="btn-video-thumb-dismiss" class="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors" data-uitk="btnNeutralBg btnNeutralHoverBg btnNeutralText">${t('storageDrawer.btnDismissScan')}</button>
                 </div>
             </div>
+        </div>
+    `;
+}
+
+/** 1 hàng chọn dạng nút đoạn (segmented) — nút đang chọn tô nền chính (cùng khuôn nút Ngang/Dọc bản trước).
+ * @param {string} labelHtml @param {string} dataAttr - tên data-* gắn trên từng nút
+ * @param {Array<{value:string, label:string, icon:string}>} options @param {string} current @param {boolean} withDivider */
+function _renderPerfHudSegmentRow(labelHtml, dataAttr, options, current, withDivider) {
+    const buttonsHtml = options.map((opt) => `
+                <button type="button" ${dataAttr}="${opt.value}" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5" data-uitk="${opt.value === current ? 'btnPrimaryBg textOnAccent' : 'btnNeutralBg btnNeutralText'}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${opt.icon}" /></svg>
+                    <span>${opt.label}</span>
+                </button>`).join('');
+    return `
+            <div class="flex justify-between items-center gap-3 p-4${withDivider ? ' border-t' : ''}" data-uitk="dividerBorder">
+                <span class="text-sm font-medium">${labelHtml}</span>
+                <div class="flex gap-2 shrink-0">${buttonsHtml}
+                </div>
+            </div>`;
+}
+
+/** MỚI (05/10/2026, Giang yêu cầu) — màn con Performance HUD. Thứ tự trong card: công tắc trước, 2 hàng chọn sau.
+ * Hàng Chiều CHỈ có khi Kiểu = strip (kiểu chi tiết không có chiều). Workflow vẽ lại màn mỗi lần đổi Kiểu/Chiều.
+ * @param {{enabled:boolean, style:string, orientation:string}} cfg - domain AppConfig 'perfHud' (core/config.js) */
+function renderPerfHudSettingsBody(cfg) {
+    const STYLE_OPTIONS = [
+        { value: 'strip', label: t('appSettings.troubleshooting.perfHud.style.strip'), icon: 'M4 9h16a1 1 0 011 1v4a1 1 0 01-1 1H4a1 1 0 01-1-1v-4a1 1 0 011-1zm5 0v6m5-6v6' },
+        { value: 'detail', label: t('appSettings.troubleshooting.perfHud.style.detail'), icon: 'M6 4h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2zM4 10h16M8 14h5m-5 3h3' },
+    ];
+    const ORIENTATION_OPTIONS = [
+        { value: 'horizontal', label: t('appSettings.troubleshooting.perfHud.horizontal'), icon: 'M4 12h16M4 12l3-3m-3 3l3 3m13-3l-3-3m3 3l-3 3' },
+        { value: 'vertical', label: t('appSettings.troubleshooting.perfHud.vertical'), icon: 'M12 4v16M12 4l-3 3m3-3l3 3m-3 13l-3-3m3 3l3-3' },
+    ];
+    const orientationRowHtml = cfg.style === 'strip'
+        ? _renderPerfHudSegmentRow(t('appSettings.troubleshooting.perfHud.orientation'), 'data-perf-hud-orientation', ORIENTATION_OPTIONS, cfg.orientation, true)
+        : '';
+    return `
+        <div>
+            <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
+                <div class="flex justify-between items-center gap-3 p-4">
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium">${t('appSettings.troubleshooting.perfHud.enabled')}</div>
+                        <div class="text-xs mt-0.5" data-uitk="textSecondary">${t('appSettings.troubleshooting.perfHud.hint')}</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input type="checkbox" id="setting-perf-hud-enabled" class="sr-only peer" ${cfg.enabled ? 'checked' : ''}>
+                        <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all" data-uitk="toggleTrackOff toggleTrackOn"></div>
+                    </label>
+                </div>
+                ${_renderPerfHudSegmentRow(t('appSettings.troubleshooting.perfHud.style'), 'data-perf-hud-style', STYLE_OPTIONS, cfg.style, true)}
+                ${orientationRowHtml}
+            </div>
+            <p class="text-xs mt-2 ml-2" data-uitk="textSecondary">${t('appSettings.troubleshooting.perfHud.footnote')}</p>
         </div>
     `;
 }
