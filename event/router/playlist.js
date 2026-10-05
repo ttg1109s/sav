@@ -10,7 +10,8 @@
  *   - Nghiệp vụ chỉ cần ĐÚNG 1 HÀM CORE -> router tự gọi thẳng hàm đó, BỎ QUA workflow hoàn toàn.
  *   - Nghiệp vụ cần >1 hàm core (hoặc cần phối hợp shield/modal) -> router giao cho
  *     workflowPlaylist xử lý (chỉ 'playlist.playbackError.delete', 'playlist.editCover.pickFromLibrary',
- *     'playlist.edit.save' rơi vào nhánh này — xem workflow/playlist.js).
+ *     'playlist.editCover.pickFromVideoThumb' (+ 2 message picker video), 'playlist.edit.save' rơi vào nhánh
+ *     này — xem workflow/playlist.js).
  *
  * NGOẠI LỆ ĐÃ CHỐT: handleFilePickerChange()/handleFolderPickerChange() (nạp nhạc mới) GIỮ
  * NGUYÊN là hàm core "lớn" có sẵn withLoadingShield + nhiều alertModal LỒNG SẴN bên trong (giống
@@ -185,6 +186,31 @@ const routerPlaylist = (() => {
                 break;
             }
 
+            // MỚI (06/10/2026, Giang mục 3c) — nút "Choose" bung/thu menu 2 lựa chọn. CHỈ 1 hàm core thuần UI -> gọi thẳng.
+            case 'playlist.editCover.chooseMenu.toggle': {
+                toggleSongEditCoverChooseMenu(); // core/playlist/actions.js
+                break;
+            }
+
+            // MỚI (06/10/2026, Giang mục 3c) — dòng "Video thumbnail": đóng menu + mở picker video + (sau khi chọn)
+            // đọc record + áp thumb làm ảnh bìa -> nhiều bước nối tiếp -> Workflow.
+            case 'playlist.editCover.pickFromVideoThumb': {
+                workflowPlaylist.pickCoverFromVideoThumb();
+                break;
+            }
+
+            // MỚI (06/10/2026) — 2 message của picker video chọn thumb làm ảnh bìa (bắn từ core/media-picker-drawer-ui.js
+            // với msgPrefix 'playlist.editCover.videoPicker').
+            case 'playlist.editCover.videoPicker.tile.click': {
+                workflowPlaylist.handleCoverVideoPickerTileClick(msg.payload.videoKey);
+                break;
+            }
+
+            case 'playlist.editCover.videoPicker.close.click': {
+                workflowPlaylist.handleCoverVideoPickerCloseClick();
+                break;
+            }
+
             case 'playlist.editCover.remove': {
                 // CHỈ CẦN ĐÚNG 1 HÀM CORE (không shield/modal) -> gọi THẲNG.
                 removeSongEditCover();
@@ -229,13 +255,7 @@ const routerPlaylist = (() => {
                 break;
             }
 
-            // MỚI (19/09/2026, Giang yêu cầu — "thêm nút xem thumb full res cho video playlist, tận dụng
-            // luôn open modal view image") — CÙNG PRECEDENT với 'editImage' ngay trên: cần ≥2 lời gọi
-            // nối tiếp (đọc key + đóng menu + đọc record + mở modal) -> Workflow.
-            case 'playlist.actionMenu.viewVideoThumb': {
-                workflowPlaylist.openActiveMenuVideoThumb();
-                break;
-            }
+            // XOÁ (06/10/2026, Giang) — case 'playlist.actionMenu.viewVideoThumb' bỏ hẳn cùng action.
 
             // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video) — nút duration trong
             // tab "Sửa" của nhóm field Photo, CHỈ CẦN ĐÚNG 1 HÀM WORKFLOW (mở time-picker — core/
