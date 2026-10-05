@@ -137,27 +137,13 @@ if (songEditTabButtons) {
     });
 }
 
-// SỬA (06/10/2026, Giang mục 3c) — nút "Choose" chỉ bung/thu menu 2 lựa chọn ngay dưới (Photo / Video thumbnail).
+// VIẾT LẠI (04/07/2026, mục 3 phản hồi Giang) — bỏ hẳn nút Upload (#song-edit-cover-upload) + input file trực tiếp.
+// SỬA (06/10/2026, Giang) — nút "Choose" xổ dropdown nổi 2 lựa chọn Photo / Video thumbnail (core/dropdown-menu.js;
+// mỗi mục tự bắn 'playlist.editCover.pickFromLibrary' / 'playlist.editCover.pickFromVideoThumb' — xem
+// event/workflow/playlist.js::openCoverChooseMenu()).
 if (songEditCoverChooseBtn) {
     songEditCoverChooseBtn.addEventListener('click', () => {
-        eventBus.send({ router: 'playlist', type: 'playlist.editCover.chooseMenu.toggle', payload: {} });
-    });
-}
-
-// VIẾT LẠI (04/07/2026, mục 3 phản hồi Giang) — bỏ hẳn nút Upload (#song-edit-cover-upload) + input
-// file trực tiếp. SỬA (06/10/2026) — nút này giờ là dòng "Photo" trong menu của "Choose" (message GIỮ NGUYÊN,
-// xem event/workflow/playlist.js::pickCoverFromLibrary).
-if (songEditCoverPickLibraryBtn) {
-    songEditCoverPickLibraryBtn.addEventListener('click', () => {
-        eventBus.send({ router: 'playlist', type: 'playlist.editCover.pickFromLibrary', payload: {} });
-    });
-}
-
-// MỚI (06/10/2026, Giang mục 3c) — dòng "Video thumbnail": chọn 1 video, lấy thumb cover của nó làm ảnh bìa
-// (event/workflow/playlist.js::pickCoverFromVideoThumb).
-if (songEditCoverPickVideoThumbBtn) {
-    songEditCoverPickVideoThumbBtn.addEventListener('click', () => {
-        eventBus.send({ router: 'playlist', type: 'playlist.editCover.pickFromVideoThumb', payload: {} });
+        eventBus.send({ router: 'playlist', type: 'playlist.editCover.choose.click', payload: {} });
     });
 }
 
