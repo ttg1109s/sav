@@ -109,6 +109,12 @@ const routerSettingsMisc = (() => {
                 break;
             }
 
+            // MỚI (05/10/2026, Giang yêu cầu) — công tắc Performance HUD ở Settings > Troubleshooting.
+            case 'settingsMisc.perfProbe.toggle': {
+                workflowSettingsMisc.setPerfProbeEnabled(msg.payload.checked);
+                break;
+            }
+
             default:
                 console.warn(`[router:settingsMisc] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`);
         }
