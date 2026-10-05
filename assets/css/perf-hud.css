@@ -1,0 +1,57 @@
+/*
+ * assets/css/perf-hud.css — MỚI (05/10/2026). Cấu trúc/kích thước Performance HUD (components/perf-hud.js). Thay khối
+ * <style> do service/perf-probe.js cũ tự chèn lúc chạy (đã xoá). CHỈ cấu trúc — MÀU do theme app gán qua data-uitk
+ * (nền, chữ, vạch kẻ, icon), vạch kẻ chỉ khai độ dày + kiểu ở đây, màu viền lấy từ class `dividerBorder` của theme.
+ */
+#perf-hud {
+    position: fixed;
+    z-index: 2147483647;
+    width: max-content;
+    max-width: calc(100vw - 8px);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-variant-numeric: tabular-nums;
+    border-radius: 18px;
+    /* Chạm giữ để kéo (event/workflow/perf-hud.js): HUD nhận chạm, không cuộn/zoom trang, không bôi chữ/hiện menu iOS */
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+#perf-hud .pph-bg { position: absolute; inset: 0; border-radius: inherit; opacity: 0.85; pointer-events: none; transition: opacity 0.15s ease; }
+#perf-hud .pph-body { position: relative; display: flex; }
+#perf-hud svg { width: 100%; height: 100%; display: block; }
+
+/* Đang kéo (sau khi chạm giữ đủ lâu) — nhấc nhẹ lên để biết đã bắt được */
+#perf-hud.pph-dragging { transform: scale(1.04); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28); }
+#perf-hud.pph-dragging .pph-bg { opacity: 1; }
+
+/* ===== Kiểu strip ===== */
+#perf-hud.pph-strip .pph-body { flex-wrap: wrap; align-items: stretch; padding: 10px 6px; }
+#perf-hud .pph-hero { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 14px; line-height: 1; }
+#perf-hud .pph-hero-label { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; margin-bottom: 4px; }
+#perf-hud .pph-hero-value { font-size: 30px; font-weight: 800; line-height: 1; }
+#perf-hud .pph-cell { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 58px;
+    padding: 2px 10px; border-left-width: 1px; border-left-style: solid; }
+#perf-hud .pph-icon { width: 20px; height: 20px; flex-shrink: 0; }
+#perf-hud .pph-value { font-size: 17px; font-weight: 700; line-height: 1.1; }
+#perf-hud .pph-label { font-size: 11px; font-weight: 500; line-height: 1.1; white-space: nowrap; }
+
+/* Chiều Dọc: các khối xếp chồng, vạch kẻ chuyển lên trên mỗi ô */
+#perf-hud.pph-strip.pph-vertical .pph-body { flex-direction: column; flex-wrap: nowrap; padding: 8px 6px; }
+#perf-hud.pph-strip.pph-vertical .pph-hero { padding: 4px 8px 10px; }
+#perf-hud.pph-strip.pph-vertical .pph-cell { border-left-width: 0; border-top-width: 1px; border-top-style: solid; padding: 8px 8px; }
+
+/* ===== Kiểu detail ===== */
+#perf-hud.pph-detail { width: 284px; }
+#perf-hud.pph-detail .pph-body { flex-direction: column; padding: 14px 16px 6px; }
+#perf-hud .pph-head { display: flex; align-items: center; gap: 12px; padding-bottom: 12px; }
+#perf-hud .pph-head-icon { width: 34px; height: 34px; flex-shrink: 0; }
+#perf-hud .pph-head-text { display: flex; flex-direction: column; line-height: 1; }
+#perf-hud .pph-head-label { font-size: 12px; font-weight: 600; margin-bottom: 3px; }
+#perf-hud .pph-spark { flex: 1; display: flex; align-items: flex-end; justify-content: flex-end; gap: 2px; height: 34px; min-width: 0; }
+#perf-hud .pph-bar { flex: 0 1 4px; min-width: 2px; height: 4%; border-radius: 1px; background: currentColor; transition: height 0.3s ease; }
+#perf-hud .pph-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top-width: 1px; border-top-style: solid; }
+#perf-hud .pph-row-label { flex: 1; min-width: 0; font-size: 13px; font-weight: 500; line-height: 1.25; }
+#perf-hud .pph-row .pph-value { font-size: 17px; text-align: right; min-width: 40px; }
