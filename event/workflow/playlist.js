@@ -252,9 +252,87 @@ const workflowPlaylist = {
      * TỰ DO theo event-bus-flow.md mục 4B — KHÔNG cần tự đọc `listImages()`/tự gọi
      * `setupPhotoGridWindow()` ở đây nữa (picker MỚI tự lo toàn bộ, kể cả đọc DB). */
     pickCoverFromLibrary() {
+        toggleSongEditCoverChooseMenu(false); // core/playlist/actions.js — SỬA (06/10/2026): nút giờ nằm trong menu của "Choose", chọn xong thì thu menu
         workflowFileManagerPhoto.openCoverImagePicker((imageKey) => { // event/workflow/file-manager-photo.js
             this.applyCoverFromLibrary(imageKey);
         });
+    },
+
+    // ===================== Ảnh bìa từ thumb video — MỚI (06/10/2026, Giang mục 3c) =====================
+    // "Choose" -> "Video thumbnail": picker video (Generic Drawer, single-select — bấm tile chọn NGAY, không nút xác
+    // nhận) -> lấy `thumbBlob` của video (thumb VUÔNG 320px — đúng "cover" video đang hiện ở lưới Playlist, xem
+    // extractVideoThumbAndMeta()); record cũ thiếu `thumbBlob` thì lùi về `thumbFullBlob` (khung đầu, kích thước gốc).
+    // Bọc thành `File` rồi TÁI DÙNG NGUYÊN changeSongEditCover() — y hệt nhánh Photo (applyCoverFromLibrary()): ảnh
+    // chỉ là PENDING, Lưu mới ghi DB + APIC, Huỷ bỏ hết.
+    // Hạ tầng picker: workflowGenericDrawerHelpers.mountMediaPicker() + workflowVideoGalleryWindow (CÙNG khuôn
+    // picker video nền của workflowTheme.pickBackgroundMedia()); mở MỚI (không updateInPlace — modal Sửa thông tin
+    // không nằm trong Generic Drawer) rồi đợi drawer trượt xong mới đọc DB + dựng lưới (CÙNG khuôn
+    // workflowFileManagerPhoto._openImagePickerDrawer()).
+    _coverVideoPickerOpen: false, // guard: picker đang mở hay không (đóng rất nhanh lúc đang đọc DB / race tap)
+
+    /** Ứng với 'playlist.editCover.pickFromVideoThumb'. */
+    async pickCoverFromVideoThumb() {
+        toggleSongEditCoverChooseMenu(false); // core/playlist/actions.js
+        const scrollId = 'song-edit-cover-video-picker-scroll', emptyId = 'song-edit-cover-video-picker-empty';
+        workflowGenericDrawerHelpers.mountMediaPicker({ // event/workflow/generic-drawer-helpers.js
+            routerName: 'playlist', msgPrefix: 'playlist.editCover.videoPicker',
+            title: t('fileManager.video.pickerTitle'),
+            bodyHtml: `
+                <div class="flex-1 min-h-0 overflow-y-auto relative" id="${scrollId}">
+                    <p id="${emptyId}" class="hidden text-sm text-center py-10 px-6" data-uitk="textSecondary">${t('fileManager.video.empty')}</p>
+                </div>
+            `,
+            tileSelector: '.video-tile', tileDataKey: 'videoKey',
+        });
+        this._coverVideoPickerOpen = true;
+
+        await new Promise((resolve) => { taskManager.once(resolve, GENERIC_DRAWER_ANIM_MS, 'songEditCoverVideoPickerOpenSettle'); }); // core/generic-drawer.js
+        if (!this._coverVideoPickerOpen) return; // guard — picker bị đóng trong lúc drawer đang trượt
+
+        const videos = await workflowPlaylistScope.listPickableMedia('video'); // event/workflow/playlist-scope.js — bỏ item thuộc folder Hidden
+        if (!this._coverVideoPickerOpen) return; // guard — picker bị đóng trong lúc đang đọc DB
+
+        const scrollEl = genericDrawerBody.querySelector(`#${scrollId}`);
+        const emptyEl = genericDrawerBody.querySelector(`#${emptyId}`);
+        if (emptyEl) emptyEl.classList.toggle('hidden', videos.length > 0);
+        workflowVideoGalleryWindow.mount('genericDrawer', { scrollEl, videos, badgeMode: null }); // event/workflow/video-gallery-window.js
+    },
+
+    /** Ứng với 'playlist.editCover.videoPicker.tile.click' — bấm là chọn NGAY + đóng picker. @param {string} videoKey */
+    async handleCoverVideoPickerTileClick(videoKey) {
+        if (!this._coverVideoPickerOpen) return; // guard: picker đã đóng (race hiếm)
+        this._teardownCoverVideoPicker();
+        await this.applyCoverFromVideoThumb(videoKey);
+    },
+
+    /** Ứng với 'playlist.editCover.videoPicker.close.click' — nút X: huỷ, giữ nguyên ảnh bìa đang chờ. */
+    handleCoverVideoPickerCloseClick() {
+        if (!this._coverVideoPickerOpen) return;
+        this._teardownCoverVideoPicker();
+    },
+
+    /** Gỡ lưới windowing (revoke object URL ngay) + đóng drawer — dùng chung cho chọn xong / huỷ. */
+    _teardownCoverVideoPicker() {
+        workflowVideoGalleryWindow.unmount('genericDrawer'); // event/workflow/video-gallery-window.js
+        workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
+        this._coverVideoPickerOpen = false;
+    },
+
+    /** Đọc record video -> thumb (vuông, lùi về full-res) -> `File` -> changeSongEditCover() (pending, chưa ghi DB).
+     * @param {string} videoKey */
+    async applyCoverFromVideoThumb(videoKey) {
+        const record = await getVideoRecord(videoKey); // service/db.js
+        if (!record) return; // guard: video vừa bị xoá ở tab/thao tác khác
+        const thumb = record.thumbBlob || record.thumbFullBlob;
+        if (!thumb) {
+            await alertModal(t('playlistView.songEdit.coverVideoThumbMissing'));
+            return;
+        }
+        const file = new File([thumb], `${stripFileExtension(record.filename)}.jpg`, { type: thumb.type || 'image/jpeg' }); // core/file-manager/video.js (stripFileExtension)
+        const result = changeSongEditCover(file); // core/playlist/actions.js — CÓ return, DÙNG ngay dưới
+        if (result.status === 'invalid') {
+            await alertModal(result.reason);
+        }
     },
 
     /** Callback của picker ở trên — bọc Blob đã có sẵn thành `File` rồi TÁI DÙNG NGUYÊN
@@ -1453,25 +1531,8 @@ const workflowPlaylist = {
         workflowFileManagerPhoto.openImagePreview(key); // event/workflow/file-manager-photo.js
     },
 
-    /** MỚI (19/09/2026, Giang yêu cầu — "thêm nút xem thumb full res cho video playlist, tận dụng
-     * luôn open modal view image") — mirror khuôn navigateToActiveMenuPhotoEdit() ngay trên, khác ở
-     * chỗ ảnh KHÔNG đến từ bảng ảnh mà từ `record.thumbFullBlob` (khung hình đầu video ở đúng kích
-     * thước gốc, xem extractVideoThumbAndMeta()) — nên tái dùng modal ở chế độ CHỈ XEM (tham số 2 của
-     * `openImagePreview()` — không Edit/Lưu, không tăng lượt xem Photo). Video cũ chưa có
-     * `thumbFullBlob` (null) -> báo, KHÔNG mở modal trống (sửa được qua Storage -> Scan broken, xem
-     * `isVideoRecordCorrupted()` tầng `fixable`). */
-    async openActiveMenuVideoThumb() {
-        const key = playlistStore.get('songActionMenuKey');
-        if (!key) return;
-        workflowPlaylist.closeActionMenu();
-        const record = await getVideoRecord(key); // service/db.js
-        if (!record) return; // guard: video vừa bị xoá ở tab/thao tác khác
-        if (!record.thumbFullBlob) {
-            alertModal(t('playlistView.songMenu.viewVideoThumbMissing'));
-            return;
-        }
-        workflowFileManagerPhoto.openImagePreview(key, { blob: record.thumbFullBlob, filename: record.filename }); // event/workflow/file-manager-photo.js — viewOnly
-    },
+    // XOÁ (06/10/2026, Giang yêu cầu "xoá action view thumb full res ở video playlist") — openActiveMenuVideoThumb()
+    // (mở thumbFullBlob của video trong modal xem ảnh ở chế độ chỉ xem) bỏ hẳn cùng action.
 
     /** Lọc danh sách folder cho picker "Thêm vào thư mục" — MỚI (06/09/2026, hợp nhất Folder vào
      * Playlist, mục 2 + 4b). Loại 2 loại folder KHÔNG hợp lệ làm đích "thêm vào":
