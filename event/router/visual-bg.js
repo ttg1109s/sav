@@ -217,7 +217,8 @@ const routerVisualBg = (() => {
             // MỚI (08/08/2026) — sub-panel "Âm thanh Video".
             case 'visualBg.openVideoAudioPanel.click':
                 // SỬA (đợt migrate Visualizer Screen) — cùng khuôn openGradientPanel.click ngay trên.
-                workflowAppSettings.navigateTo(() => workflowAppSettings._renderVisualBgVideoAudio());
+                // SỬA (05/10/2026) — Workflow đọc tên video TRƯỚC rồi tự navigateTo() (màn vào đã đủ hàng, không giật chiều cao).
+                workflowVisualBg.openVideoAudioPanel(); // event/workflow/visual-bg-video.js
                 break;
 
             // SỬA (08/08/2026, phản hồi Giang — icon(1) toggle ngay, %(2) mở modal — 2 case riêng).
