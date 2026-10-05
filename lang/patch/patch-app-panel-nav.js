@@ -121,14 +121,18 @@ const LANG_PATCH_APP_PANEL_NAV = {
 
     // MỚI (Giang yêu cầu "Player" — Resolution + Motion của Video/Photo lúc phát chính, Settings >
     // Visualizer Screen > Player > Video/Photo, xem core/player-display-settings.js).
+    // SỬA (05/10/2026, Giang yêu cầu) — thêm Song (Background Media dời từ Visual Background cũ); Ghi âm dời sang System
+    // ('appSettings.player.recorder.*' -> 'appSettings.system.recorder.*').
     'appSettings.player.label': 'Player',
-    'appSettings.player.hint': 'Resolution and Motion for Video/Photo playback, Recording',
+    'appSettings.player.hint': 'Song background media, Resolution and Motion for Video/Photo',
+    'appSettings.player.song.label': 'Song',
+    'appSettings.player.song.hint': 'Background media while a song plays',
+    'appSettings.player.song.bgMedia.label': 'Background Media',
+    'appSettings.player.song.bgMedia.hint': 'Photo or video behind the visualizer',
     'appSettings.player.video.label': 'Video',
     'appSettings.player.video.hint': 'Resolution and Motion for Video playback',
     'appSettings.player.photo.label': 'Photo',
     'appSettings.player.photo.hint': 'Resolution and Motion for Photo playback',
-    'appSettings.player.recorder.label': 'Recording',
-    'appSettings.player.recorder.hint': 'Echo cancellation and voice delay compensation',
 
     'appSettings.system.title': 'System',
     'appSettings.system.theme.label': 'Theme',
@@ -141,6 +145,8 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.system.motion.hint': 'Transition, Ken Burns, and beat-reactive movement',
     'appSettings.system.language.label': 'Language',
     'appSettings.system.language.hint': 'App display language',
+    'appSettings.system.recorder.label': 'Recording', // DỜI (05/10/2026) từ 'appSettings.player.recorder.*'
+    'appSettings.system.recorder.hint': 'Echo cancellation and voice delay compensation',
     // MỚI 23/09/2026 — Settings > System > Pagination (components/settings/pagination.js) — mỗi nơi 1 card riêng
     'appSettings.system.pagination.label': 'Pagination',
     'appSettings.system.pagination.hint': 'Choose which lists are split into pages',

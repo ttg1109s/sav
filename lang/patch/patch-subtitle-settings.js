@@ -36,11 +36,13 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // tĩnh / slideshow album) thành 1. 3 key `settingsPlaylistBg.videoEnable.*` +
     // `settingsPlaylistBg.visualBgImage.*` + `settingsVisualizer.slideshowSetting.*` cũ ĐÃ XOÁ
     // (2 toggle + 1 nút tương ứng không còn tồn tại trong Settings).
-    'settingsVisualizer.visualBg.label': 'Visual Background',
-    'settingsVisualizer.visualBg.hint': 'Photo or video behind the visualizer',
+    // SỬA (05/10/2026, Giang yêu cầu) — 'settingsVisualizer.visualBg.*' ĐÃ XOÁ: màn Visual Background tách thành
+    // Background Color (ở đây) + Player > Song > Background Media ('appSettings.player.song.bgMedia.*',
+    // lang/patch/patch-app-panel-nav.js).
+    'settingsVisualizer.bgColor.label': 'Background Color',
+    'settingsVisualizer.bgColor.hint': 'Solid colour or gradient behind the visualizer',
     'settingsVisualizer.gesture.label': 'Gestures',
     'settingsVisualizer.gesture.hint': 'Swipe/tap controls on the Visualizer screen',
-    'visualBgSettingsDrawer.title': 'Visual Background',
     'visualBgSettingsDrawer.groupMedia.title': 'Media',
     // MỚI (29/09/2026) — toggle tổng đầu panel Visual Background.
     'visualBgSettingsDrawer.enabled.label': 'Visual Background',
@@ -52,7 +54,7 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'visualBgSettingsDrawer.motion.label': 'Motion',
     'visualBgSettingsDrawer.syncSpeed.label': 'Sync playback speed',
     'visualBgSettingsDrawer.motion.none': 'None',
-    'visualBgSettingsDrawer.groupColor.title': 'Background colour',
+    // (05/10/2026) 'visualBgSettingsDrawer.title' + 'visualBgSettingsDrawer.groupColor.title' ĐÃ XOÁ — không còn dùng.
     'visualBgSettingsDrawer.colorMode.label': 'Colour style',
     'visualBgSettingsDrawer.colorMode.solid': 'Solid',
     'visualBgSettingsDrawer.colorMode.gradient': 'Gradient',
