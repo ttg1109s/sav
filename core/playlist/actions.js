@@ -119,9 +119,7 @@
             // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video, "thêm dropdown edit
             // image -> mở openImagePreview()") — mirror songMenuBtnEditVideo ngay trên.
             if (songMenuBtnEditImage) songMenuBtnEditImage.classList.toggle('hidden', !isPhoto);
-            // MỚI (19/09/2026, Giang yêu cầu — "thêm nút xem thumb full res cho video playlist") — CHỈ
-            // Video có `thumbFullBlob`, mirror songMenuBtnEditImage ngay trên.
-            if (songMenuBtnViewVideoThumb) songMenuBtnViewVideoThumb.classList.toggle('hidden', !isVideo);
+            // XOÁ (06/10/2026, Giang) — dòng bật/tắt nút "View full thumbnail" của Video bỏ hẳn cùng action.
             // MỚI (06/09/2026, hợp nhất Folder vào Playlist) — chỉ hiện khi đang Scope 1 folder của
             // ĐÚNG Nguồn hiện tại VÀ folder đó không phải Read-only (mục 4b), CÙNG điều kiện
             // `canRemoveFromFolder` đã tính cho bản Selection mode (event/router/playlist.js, case
@@ -215,6 +213,19 @@
         function revokeSongEditPendingPreview() {
             const url = playlistStore.get('songEditPendingCoverPreviewUrl');
             if (url) { URL.revokeObjectURL(url); playlistStore.set({ songEditPendingCoverPreviewUrl: null }); }
+        }
+
+        /** MỚI (06/10/2026, Giang mục 3c) — bung/thu menu 2 lựa chọn (Photo / Video thumbnail) dưới nút "Choose"
+         * ở tab Ảnh bìa. Thuần UI: ẩn/hiện menu + `aria-expanded` + xoay mũi tên của nút. Cùng ngữ nghĩa
+         * `classList.toggle(cls, force)`: không truyền `open` = đảo trạng thái hiện tại; truyền true/false = ép mở/đóng.
+         * @param {boolean} [open] */
+        function toggleSongEditCoverChooseMenu(open) {
+            if (!songEditCoverChooseMenu || !songEditCoverChooseBtn) return; // guard: template chưa mount
+            const isOpen = typeof open === 'boolean' ? open : songEditCoverChooseMenu.classList.contains('hidden');
+            songEditCoverChooseMenu.classList.toggle('hidden', !isOpen);
+            songEditCoverChooseBtn.setAttribute('aria-expanded', String(isOpen));
+            const chevron = songEditCoverChooseBtn.querySelector('[data-role="chevron"]');
+            if (chevron) chevron.classList.toggle('rotate-180', isOpen);
         }
 
         /** MỚI (10/07/2026, gộp song-info-modal vào làm tab đầu — phản hồi Giang): tổng quát hoá
@@ -372,6 +383,15 @@
             if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(songEditTabDetails, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
 
             setSongEditTab('details'); // MẶC ĐỊNH mở tab "Chi tiết" trước (đúng yêu cầu Giang — Info là tab đầu)
+            // MỚI (06/10/2026) — menu "Choose" (tab Ảnh bìa) luôn bắt đầu ở trạng thái THU mỗi lần mở modal (lần
+            // trước có thể đóng modal khi menu còn mở). Gán DOM trực tiếp, KHÔNG gọi toggleSongEditCoverChooseMenu()
+            // (core gọi core — Rule 3).
+            if (songEditCoverChooseMenu) songEditCoverChooseMenu.classList.add('hidden');
+            if (songEditCoverChooseBtn) {
+                songEditCoverChooseBtn.setAttribute('aria-expanded', 'false');
+                const chevron = songEditCoverChooseBtn.querySelector('[data-role="chevron"]');
+                if (chevron) chevron.classList.remove('rotate-180');
+            }
             songEditModal.classList.remove('hidden');
         }
 
