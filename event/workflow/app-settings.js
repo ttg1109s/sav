@@ -616,8 +616,8 @@ const workflowAppSettings = {
 
     _renderTroubleshooting() {
         this._currentRenderFn = () => this._renderTroubleshooting();
-        // SỬA (05/10/2026) — truyền trạng thái công tắc Performance HUD (service/perf-probe.js).
-        this._render(t('appSettings.row.troubleshooting'), renderTroubleshootingBody(perfProbe.isEnabled()), wireAppSettingsTroubleshooting); // components/settings/troubleshooting.js, core/app-settings-ui.js
+        // SỬA (05/10/2026) — truyền trạng thái Performance HUD (bật/tắt + hướng dải, service/perf-probe.js).
+        this._render(t('appSettings.row.troubleshooting'), renderTroubleshootingBody(perfProbe.isEnabled(), perfProbe.getOrientation()), wireAppSettingsTroubleshooting); // components/settings/troubleshooting.js, core/app-settings-ui.js
     },
 
     /** Debug console — TÁI DÙNG NGUYÊN workflowSettingsMisc.openDebugConsole() (vẽ danh sách log + wire nút). */

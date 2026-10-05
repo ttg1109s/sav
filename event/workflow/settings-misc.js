@@ -43,6 +43,15 @@ const workflowSettingsMisc = {
         console.log(`writer: "workflowSettingsMisc.setPerfProbeEnabled", page: "localStorage.sav_perfProbeEnabled", content: "${!!checked}"`);
     },
 
+    /** MỚI (05/10/2026, Giang yêu cầu) — ứng 'settingsMisc.perfProbe.orientation': xoay dải HUD ngang/dọc (nhớ cho lần
+     * sau) rồi vẽ lại màn Troubleshooting để nút đang chọn đổi màu (giữ vị trí cuộn).
+     * @param {'horizontal'|'vertical'} orientation */
+    setPerfProbeOrientation(orientation) {
+        perfProbe.setOrientation(orientation); // service/perf-probe.js
+        console.log(`writer: "workflowSettingsMisc.setPerfProbeOrientation", page: "localStorage.sav_perfProbeOrientation", content: "${perfProbe.getOrientation()}"`);
+        workflowAppSettings._renderTroubleshooting(); // event/workflow/app-settings.js
+    },
+
     _debugConsolePageIndex: 0, // MỚI 23/09/2026 — trang đang xem của Debug console (nơi 'debugConsole' của Pagination), core tự kẹp
     _debugConsolePanelEl: null, // panel Debug Console đang mở (pushSettingsPanel() dựng mới mỗi lần) — clearDebugConsoleLog() cần vẽ lại danh sách
 
