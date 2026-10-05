@@ -35,6 +35,14 @@ const RESTORE_DEFAULTS_LOCAL_STORAGE_KEYS = ['visualMasterConfigV21', 'visualMas
 
 const workflowSettingsMisc = {
 
+    /** MỚI (05/10/2026, Giang yêu cầu — "lớp perf-probe thêm 1 nút ở Troubleshooting để bật/tắt") — ứng
+     * 'settingsMisc.perfProbe.toggle'. Bật/tắt HUD đo hiệu năng + nhớ cho lần boot sau (service/perf-probe.js tự lưu
+     * localStorage). @param {boolean} checked */
+    setPerfProbeEnabled(checked) {
+        perfProbe.setEnabled(!!checked); // service/perf-probe.js
+        console.log(`writer: "workflowSettingsMisc.setPerfProbeEnabled", page: "localStorage.sav_perfProbeEnabled", content: "${!!checked}"`);
+    },
+
     _debugConsolePageIndex: 0, // MỚI 23/09/2026 — trang đang xem của Debug console (nơi 'debugConsole' của Pagination), core tự kẹp
     _debugConsolePanelEl: null, // panel Debug Console đang mở (pushSettingsPanel() dựng mới mỗi lần) — clearDebugConsoleLog() cần vẽ lại danh sách
 

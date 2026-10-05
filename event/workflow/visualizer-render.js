@@ -72,6 +72,11 @@ const workflowVisualizerRender = {
     /** group -> workflow của group (event/workflow/visualizer/*.js tự đăng ký lúc nạp). */
     _groups: {},
 
+    /** MỚI (05/10/2026) — cờ nội bộ (KHÔNG thuộc STATE): 2 task đang bị GIỮ vì người dùng ở màn Playlist (hoặc vừa vào
+     * lại Visualizer nhưng media chưa nạp đủ). Chỉ `holdForPlaylist()`/`releasePlaylistHold()` ghi; mọi đường tự chạy
+     * lại task khác (app hiện lại, `start()` dựng lại graph) tôn trọng cờ này. Xem event/workflow/player-controls.js. */
+    _heldForPlaylist: false,
+
     /** Group tự đăng ký lúc nạp file. */
     registerGroup(group, groupWorkflow) {
         this._groups[group] = groupWorkflow;
@@ -87,6 +92,7 @@ const workflowVisualizerRender = {
         this._renderActive = false;
         this.rebuildCanvasScenes(); // thay resizeCanvas() cũ (từng được gọi ngay trước start())
         workflowAudioAnalysis.start(); // event/workflow/audio-analysis.js
+        if (this._heldForPlaylist) taskManager.pause(AUDIO_ANALYSIS_TASK); // MỚI (05/10/2026) — graph dựng lại lúc đang ở Playlist: giữ nguyên trạng thái giữ
     },
 
     /** Không có nơi nào gọi hiện tại — giữ để đối xứng API. */
@@ -104,11 +110,37 @@ const workflowVisualizerRender = {
         console.log('[workflowVisualizerRender] tạm dừng task "audioAnalysis" + "visualizerRender" (app ẩn)'); // log vòng đời task — không phải ghi appState
     },
 
-    /** Ngược lại `suspendForBackground()` — resume() tự guard. */
+    /** Ngược lại `suspendForBackground()` — resume() tự guard.
+     * SỬA (05/10/2026) — app hiện lại lúc đang ở màn Playlist (hoặc đang chờ media nạp đủ) -> KHÔNG chạy lại, để
+     * `releasePlaylistHold()` lo khi vào Visualizer. */
     resumeFromBackground() {
+        if (this._heldForPlaylist) { // guard — đang giữ vì Playlist
+            console.log('[workflowVisualizerRender] app hiện lại nhưng đang ở Playlist — giữ nguyên tạm dừng 2 task');
+            return;
+        }
         taskManager.resume(AUDIO_ANALYSIS_TASK); // event/workflow/audio-analysis.js
         taskManager.resume(RENDER_TASK);
         console.log('[workflowVisualizerRender] chạy lại task "audioAnalysis" + "visualizerRender" (app hiện lại)');
+    },
+
+    /** MỚI (05/10/2026, Giang chốt — "về Playlist -> stop visualizer giống như ẩn tab") — tạm dừng cả 2 task (pause(),
+     * giữ đăng ký, y như ẩn tab) + bật cờ giữ. Gọi từ event/workflow/player-controls.js lúc Playlist đã trượt vào xong. */
+    holdForPlaylist() {
+        this._heldForPlaylist = true;
+        taskManager.pause(AUDIO_ANALYSIS_TASK); // event/workflow/audio-analysis.js
+        taskManager.pause(RENDER_TASK);
+        console.log('[workflowVisualizerRender] tạm dừng task "audioAnalysis" + "visualizerRender" (đang ở Playlist)');
+    },
+
+    /** MỚI (05/10/2026) — ngược lại `holdForPlaylist()`: gỡ cờ giữ, chạy lại 2 task NẾU app không đang ẩn (ẩn thì để
+     * `resumeFromBackground()` lo khi hiện lại). Gọi khi đã vào Visualizer VÀ media hiện tại nạp đủ. */
+    releasePlaylistHold() {
+        if (!this._heldForPlaylist) return; // guard — không giữ gì
+        this._heldForPlaylist = false;
+        if (appState.get('isBackgroundSuspended')) return; // guard — app đang ẩn
+        taskManager.resume(AUDIO_ANALYSIS_TASK); // event/workflow/audio-analysis.js
+        taskManager.resume(RENDER_TASK);
+        console.log('[workflowVisualizerRender] chạy lại task "audioAnalysis" + "visualizerRender" (đã vào Visualizer, media nạp đủ)');
     },
 
     /** `workflowAudioAnalysis._tick()` gọi mỗi frame: ẩn/hiện 2 canvas + bật/tắt task VẼ theo Show Visual. */

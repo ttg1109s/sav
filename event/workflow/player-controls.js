@@ -67,7 +67,26 @@ const TRACK_CHANGE_SCREEN_BY_SWITCH = {
     false: () => workflowPlaylistRender.scrollToCurrentOrDefer(), // event/workflow/playlist-render.js
 };
 
+// MỚI (05/10/2026, Giang chốt hướng sửa "về Playlist rồi vào lại thì giật toàn bộ video/motion/visual") — xem
+// switchToVisualizer()/returnToPlaylistUI()/_suspendVisualStage()/_revealEffectsWhenMediaReady().
+const PLAYLIST_OFFSTAGE_TASK = 'playlistOffstageAfterSlide'; // hẹn đưa Playlist ra khỏi cây render sau khi trượt xong
+const SCREEN_SLIDE_MS = 500; // khớp transition transform 0.5s của #app-stack (assets/css/layout-nav.css)
+const MEDIA_READY_TIMEOUT_TASK = 'visualizerMediaReadyTimeout';
+const MEDIA_READY_TIMEOUT_MS = 6000; // lưới an toàn: media không bao giờ báo 'canplaythrough' -> vẫn hiện effect, ghi log
+
+/** Phần tử media cần chờ 'canplaythrough' trước khi hiện lại effect, theo chế độ phát (object map, key = chế độ).
+ * Photo Player mode: ảnh — chờ qua collectVisualStageImageUrls() (chung cho mọi chế độ). Song: audio + video nền VBG
+ * nếu đang hiển thị (VBG ảnh cũng đi đường ảnh chung). */
+const MEDIA_ELEMENTS_TO_WAIT_BY_MODE = {
+    video: () => [bgVideoElement],
+    photo: () => [],
+    song: () => (isBgVideoShown() ? [audioPlayer, bgVideoElement] : [audioPlayer]), // core/player-controls.js
+};
+
 const workflowPlayerControls = {
+
+    // ===== Sân khấu Visualizer khi ra/vào Playlist — state nội bộ (KHÔNG thuộc STATE) =====
+    _mediaReadyToken: 0, // tăng mỗi lần vào Visualizer / về Playlist — lượt chờ media cũ thấy token lệch thì tự bỏ
 
     /** DỜI (02/10/2026) từ core/player-controls.js::switchToVisualizer() — thứ tự giữ nguyên: trượt Playlist ra -> cuộn
      * Playlist tới bài đang phát NGAY lúc nó vừa rời khung nhìn (yêu cầu Giang 29/07/2026 "scroll tức thì cả 2 chiều")
@@ -76,7 +95,67 @@ const workflowPlayerControls = {
         slidePlaylistOut(); // core/player-controls.js
         workflowPlaylistRender.scrollToCurrentInstant(); // event/workflow/playlist-render.js
         showVisualizerUi(); // core/player-controls.js
-        taskManager.once(() => revealVisualizerCanvas(appConfigViz.getAll().type), 50, 'showVisualizerFadeIn'); // core/player-controls.js
+        // SỬA (05/10/2026, Giang chốt) — (1) sân khấu hình trở lại cây render NGAY (video/ảnh hiện + nạp tiếp), (2)
+        // Playlist trượt ra xong thì ra khỏi cây render, (3) effect (2 task Visualizer + fade-in canvas) CHỈ chạy lại khi
+        // media hiện tại nạp đủ ('canplaythrough' / ảnh giải mã xong) — trước đây fade-in canvas cố định sau 50ms.
+        // Ý "tạo 1 thao tác chạm giả" Giang đề xuất: KHÔNG làm được — sự kiện chạm do JS tạo (dispatchEvent) luôn
+        // isTrusted=false, không đi qua hệ cử chỉ native của iOS.
+        this._resumeVisualStage();
+        this._schedulePlaylistOffstage();
+        const token = ++this._mediaReadyToken;
+        taskManager.once(() => this._revealEffectsWhenMediaReady(token), 50, 'showVisualizerFadeIn'); // service/task-manager.js
+    },
+
+    /** MỚI (05/10/2026) — Playlist trượt ra xong (SCREEN_SLIDE_MS) -> ra khỏi cây render. Bỏ qua nếu lúc tới hẹn
+     * người dùng đã quay về Playlist, hoặc đang ở bố cục desktop (2 cột hiện song song). */
+    _schedulePlaylistOffstage() {
+        taskManager.once(() => {
+            if (!appStack.classList.contains('playlist-hidden')) return; // guard — đã quay về Playlist
+            if (!isStackedScreenLayout()) return; // guard — desktop, core/player-controls.js
+            setPlaylistOffstage(true); // core/player-controls.js
+        }, SCREEN_SLIDE_MS, PLAYLIST_OFFSTAGE_TASK);
+    },
+
+    /** MỚI (05/10/2026) — chờ media hiện tại nạp đủ rồi mới chạy lại effect + fade-in canvas. Lượt chờ bị thay thế
+     * (đổi màn tiếp/vào lại) thì tự bỏ. Lưới an toàn MEDIA_READY_TIMEOUT_MS: hết hạn vẫn hiện effect (ghi log lý do).
+     * @param {number} token */
+    async _revealEffectsWhenMediaReady(token) {
+        const result = await Promise.race([
+            this._waitCurrentMediaReady(),
+            new Promise((resolve) => { taskManager.once(() => resolve('timeout'), MEDIA_READY_TIMEOUT_MS, MEDIA_READY_TIMEOUT_TASK); }),
+        ]);
+        if (token !== this._mediaReadyToken) return; // guard — đã có lượt đổi màn mới hơn
+        taskManager.kill(MEDIA_READY_TIMEOUT_TASK);
+        if (!appState.get('isVisualizerActive')) return; // guard — không còn ở Visualizer
+        console.log(`[workflowPlayerControls] media hiện tại: ${result} -> hiện lại effect`); // log điều phối — không ghi appState
+        workflowVisualizerRender.releasePlaylistHold(); // event/workflow/visualizer-render.js
+        revealVisualizerCanvas(appConfigViz.getAll().type); // core/player-controls.js
+    },
+
+    /** MỚI (05/10/2026) — chờ MỌI media đang dùng trên sân khấu: phần tử audio/video theo chế độ phát
+     * (MEDIA_ELEMENTS_TO_WAIT_BY_MODE) + mọi ảnh nền đang hiển thị. @returns {Promise<string>} tóm tắt kết quả cho log */
+    async _waitCurrentMediaReady() {
+        const mode = appState.get('isVideoPlayerMode') ? 'video' : (appState.get('isPhotoPlayerMode') ? 'photo' : 'song'); // chọn GIÁ TRỊ (key object map)
+        const mediaWaits = MEDIA_ELEMENTS_TO_WAIT_BY_MODE[mode]().map((el) => waitMediaCanPlayThrough(el)); // core/player-controls.js
+        const imageWaits = collectVisualStageImageUrls().map((url) => waitImageUrlDecoded(url)); // core/player-controls.js
+        const results = await Promise.all([...mediaWaits, ...imageWaits]);
+        return `${mode} [${results.join(', ') || 'không có media'}]`;
+    },
+
+    /** MỚI (05/10/2026) — lớp cha sân khấu hình trở lại cây render (gọi lặp vô hại). 2 task Visualizer KHÔNG chạy lại ở
+     * đây — chờ `_revealEffectsWhenMediaReady()`. */
+    _resumeVisualStage() {
+        setVisualStageOffstage(false); // core/player-controls.js
+    },
+
+    /** MỚI (05/10/2026, Giang chốt — "về Playlist -> pause audioAnalysis + visualizerRender + ẩn ở lớp cha
+     * visualizer") — gọi lúc Playlist đã trượt vào xong. Media (Song/Video/Photo) VẪN phát tiếng. Bỏ qua ở desktop (2 cột
+     * hiện song song) hoặc nếu lúc tới hẹn người dùng đã vào lại Visualizer. */
+    _suspendVisualStage() {
+        if (appStack.classList.contains('playlist-hidden')) return; // guard — đã vào lại Visualizer trước khi tới hẹn
+        if (!isStackedScreenLayout()) return; // guard — desktop, core/player-controls.js
+        workflowVisualizerRender.holdForPlaylist(); // event/workflow/visualizer-render.js
+        setVisualStageOffstage(true); // core/player-controls.js
     },
 
     /** DỜI (02/10/2026) từ core/visualizer-control-center.js::returnToVisualizer() — quay về Visualizer nếu đang có bài. */
@@ -103,17 +182,26 @@ const workflowPlayerControls = {
      * 500ms sau (khớp transition transform 0.5s, assets/css/style.css) ẩn hẳn UI Visualizer + diff lại danh sách.
      * KHÔNG đụng `isVisualizerActive` — nơi gọi tự `setVisualizerActiveFalse()` nếu cần (y như bản cũ). */
     returnToPlaylistUI() {
+        // MỚI (05/10/2026) — huỷ hẹn ẩn Playlist + lượt chờ media đang dở, trả Playlist vào cây render TRƯỚC bước cuộn
+        // (node phải có hộp để đo vị trí).
+        taskManager.kill(PLAYLIST_OFFSTAGE_TASK);
+        taskManager.kill(MEDIA_READY_TIMEOUT_TASK);
+        this._mediaReadyToken++;
+        setPlaylistOffstage(false); // core/player-controls.js
         workflowPlaylistRender.scrollToCurrentInstant(); // SỬA (02/10/2026) — bản đúng rule (core scrollToCurrentKeyInstant() tự appState.get())
         slideBackToPlaylistUi(); // core/player-controls.js
         if (typeof closeControlCenter === 'function') closeControlCenter(); // core/visualizer-control-center.js — phòng panel còn mở sót
         taskManager.once(() => {
             hideVisualizerUiAfterFade(); // core/player-controls.js
             workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js
-        }, 500, 'hideVisualizerUiAfterFade');
+            this._suspendVisualStage(); // MỚI (05/10/2026) — Playlist đã che kín: dừng Visualizer + ẩn sân khấu hình
+        }, SCREEN_SLIDE_MS, 'hideVisualizerUiAfterFade');
     },
 
     /** DỜI (24/09/2026) từ core/player-controls.js::handleBackToPlaylistClick() — ứng với
-     * 'playerControls.backToPlaylist.click'. KHÔNG dừng/ẩn video: Playlist (z-[60]) tự che video, video vẫn chạy theo nhạc. */
+     * 'playerControls.backToPlaylist.click'. Video vẫn chạy theo nhạc. SỬA (05/10/2026) — hình video/effect giờ được ẩn
+     * khỏi cây render + Visualizer dừng sau khi Playlist trượt vào xong (`returnToPlaylistUI()` -> `_suspendVisualStage()`),
+     * tiếng vẫn phát. */
     handleBackToPlaylistClick() {
         this.returnToPlaylistUI();
         setVisualizerActiveFalse(); // core/player-controls.js
