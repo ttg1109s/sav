@@ -40,7 +40,10 @@
             Preloader vẫn bung chữ "Audivis" -> "Audio Visualizer" (tên đầy đủ), xem #app-preloader-name.
          apple-touch-icon.png (180×180, nền đặc — KHÔNG để trong suốt, iOS tự bo góc/viền riêng,
          icon nguồn để trong suốt dễ bị viền đen/trắng lệch) tạo từ chính favicon.png (chỉ khác
-         iOS bỏ qua favicon.png cho mục đích này, phải có file/thẻ riêng). -->
+         iOS bỏ qua favicon.png cho mục đích này, phải có file/thẻ riêng).
+         06/10/2026 (icon Audivis): favicon.png nền TRONG SUỐT (trình duyệt hiển thị alpha đúng); apple-touch-icon.png
+         FULL-BLEED nền đặc, KHÔNG tự bo góc — iOS tô pixel trong suốt thành đen rồi áp mask bo góc riêng, nên bản bo
+         góc sẵn + nền trong suốt bị lộ viền/góc đen. -->
     <meta name="apple-mobile-web-app-title" content="Audivis">
     <title>Audivis</title>
     <link rel="icon" type="image/png" href="favicon.png">
@@ -492,7 +495,7 @@
          generic-drawer.js (cùng vai trò "component tĩnh"), dù bản thân được clone MỖI LẦN MỞ
          (core/file-manager/video-ui.js) chứ không mount 1 lần lúc boot như generic-drawer.js. -->
     <script src="components/video-preview.js?v=20260929cap1"></script>
-    <script src="components/items.js?v=20260728v1"></script>
+    <script src="components/items.js?v=20261006audivis2"></script>
     <!-- Panel "Display" (Main "Visualizer Screen") — 5 toggle UI chrome. -->
     <script src="components/settings/visualizer-display-panel.js?v=20261005disp4"></script>
     <script src="components/settings/visualizer-auto-switch-drawer.js?v=20260926as2"></script>
