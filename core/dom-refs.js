@@ -533,12 +533,10 @@
         const songEditArtistInput = document.getElementById('song-edit-artist');
         const songEditAlbumInput = document.getElementById('song-edit-album');
         const songEditCoverPreview = document.getElementById('song-edit-cover-preview');
-        // SỬA (06/10/2026, Giang mục 3c) — nút "Choose" giờ chỉ bung/thu menu 2 lựa chọn; #song-edit-cover-pick-library
-        // GIỮ id cũ nhưng giờ là dòng "Photo" TRONG menu đó; thêm dòng "Video thumbnail".
+        // SỬA (06/10/2026, Giang) — nút "Choose" (#song-edit-cover-choose) xổ dropdown nổi Photo / Video thumbnail
+        // (core/dropdown-menu.js). #song-edit-cover-pick-library ("Choose photo") XOÁ — 2 lựa chọn giờ là mục dropdown,
+        // không còn phần tử riêng trong template.
         const songEditCoverChooseBtn = document.getElementById('song-edit-cover-choose');
-        const songEditCoverChooseMenu = document.getElementById('song-edit-cover-choose-menu');
-        const songEditCoverPickLibraryBtn = document.getElementById('song-edit-cover-pick-library');
-        const songEditCoverPickVideoThumbBtn = document.getElementById('song-edit-cover-pick-video-thumb');
         const songEditCoverRemoveBtn = document.getElementById('song-edit-cover-remove');
         const songEditTabButtons = document.querySelectorAll('.song-edit-tab-btn');
         // SỬA (10/07/2026, gộp song-info-modal vào làm tab đầu — phản hồi Giang): `songEditTabInfo`
