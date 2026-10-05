@@ -33,6 +33,7 @@ const routerAppSettings = (() => {
         playlistSort: () => workflowAppSettings._renderPlaylistSort(),
         display: () => workflowAppSettings._renderDisplay(),
         autoSwitch: () => workflowAppSettings._renderAutoSwitch(),
+        subtitle: () => workflowAppSettings._renderSubtitle(), // DỜI 05/10/2026 — Subtitles thành row của Visualizer Screen (trước mở từ nút trong panel Display)
         visualBgColor: () => workflowAppSettings._renderVisualBgColor(), // SỬA (05/10/2026) — thay 'visualBg' (Visual Background -> Background Color)
         player: () => workflowAppSettings._renderPlayer(),
         playerVideo: () => workflowAppSettings._renderPlayerVideo(),

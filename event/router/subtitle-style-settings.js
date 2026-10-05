@@ -5,9 +5,8 @@
 const routerSubtitleStyleSettings = (() => {
     function handle(msg) {
         switch (msg.type) {
-            case 'subtitleStyleSettings.openPanel.click':
-                workflowAppSettings.navigateTo(() => workflowAppSettings._renderSubtitle()); // liên tuyến: ngăn xếp Settings
-                break;
+            // (05/10/2026) case 'subtitleStyleSettings.openPanel.click' ĐÃ XOÁ — Subtitles mở qua row 'subtitle' của
+            // Visualizer Screen (event/router/app-settings.js NAV_TARGETS).
             case 'subtitleStyleSettings.openStyling.click':
                 workflowSubtitleStyleSettings.openStyling();
                 break;
