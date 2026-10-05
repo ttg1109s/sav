@@ -506,7 +506,10 @@ const workflowGameplay = {
         const endedCached = appState.get('playlistCache').get(appState.get('currentKey'));
         const nextLabelKey = GAMEPLAY_NEXT_LABEL_KEY_BY_MEDIA[endedCached && endedCached.mediaType] || GAMEPLAY_NEXT_LABEL_KEY_BY_MEDIA.song;
 
-        const { title, playCount } = await workflowGameplayEngine.persistScore('circle', gameplayDifficulty, finalScore);
+        // SỬA (05/10/2026) — truyền loại media ĐANG chơi để ghi điểm đúng store (trước đây luôn 'songs' -> Video/Photo không lưu
+        // được điểm). Chọn GIÁ TRỊ theo chế độ phát, cùng nguồn với getActiveMediaElement().
+        const playingMediaType = isVideoPlayerMode ? 'video' : (isPhotoPlayerMode ? 'photo' : 'song');
+        const { title, playCount } = await workflowGameplayEngine.persistScore('circle', gameplayDifficulty, finalScore, playingMediaType);
 
         appState.set('gameplayWaves', [], { skipCheck: true });
         console.log(`writer: "workflowGameplay.onSongEnded", page: "gameplayWaves", content: "cleared"`);
