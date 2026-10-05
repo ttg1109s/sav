@@ -8,8 +8,8 @@
  *
  * Cơ chế: mỗi component là một chuỗi HTML (TPL_...) được "lắp" (mount) vào đúng vị
  * trí của nó trong <div id="app-root"> bằng innerHTML, theo đúng thứ tự xuất hiện
- * trong file gốc ban đầu (loading-shield, playlist-view, visualizer-overlay,
- * bottom-player, settings-drawer).
+ * trong file gốc ban đầu (loading-shield, playlist-view, bottom-player, settings-drawer).
+ * Riêng visualizer-overlay (#visualizer-ui) lắp vào CUỐI #visualizer-stage (SỬA 05/10/2026, xem cuối hàm).
  *
  * Không dùng fetch()/import vì ứng dụng được thiết kế để chạy trực tiếp qua
  * file:// (mở file index.html bằng double-click), không qua server.
@@ -42,7 +42,19 @@
         TPL_APP_VIEW_STACK_CLOSE_OUTER +
         TPL_GAME_PANEL +
         TPL_STATIS_PANEL +
-        TPL_VISUALIZER_OVERLAY +
         TPL_BOTTOM_PLAYER +
         TPL_GENERIC_DRAWER;
+
+    // SỬA (05/10/2026, Giang chốt) — TPL_VISUALIZER_OVERLAY (#visualizer-ui) KHÔNG còn lắp vào #app-root mà lắp vào CUỐI
+    // #visualizer-stage (index.html) — lớp cha CHUNG của sân khấu Visualizer: về Playlist thì 1 class trên lớp cha ẩn
+    // cả hình lẫn UI (assets/css/layout-nav.css, chỉ <1024px). #visualizer-stage là div thường (không position/
+    // transform/z-index) nên #visualizer-ui (fixed inset-0 z-30) vẫn xếp lớp theo gốc y như cũ. Lắp ở CUỐI (sau 2
+    // canvas) để không lệch mốc "nhà" (parent + nextSibling) của #video-player-motion-pointmove/#visual-bg-image mà
+    // core/dom-refs.js đo lúc boot.
+    const visualizerStage = document.getElementById('visualizer-stage');
+    if (!visualizerStage) {
+        console.error('[main.js] Không tìm thấy #visualizer-stage trong index.html — không thể lắp #visualizer-ui.');
+        return;
+    }
+    visualizerStage.insertAdjacentHTML('beforeend', TPL_VISUALIZER_OVERLAY);
 })();
