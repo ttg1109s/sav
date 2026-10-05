@@ -36,8 +36,8 @@
             <title> ngay dưới (khác lần sửa trước — lần đó CHỈ đổi riêng thẻ này, giữ <title> là tên
             đầy đủ cũ; giờ đổi tên app THẬT nên cả 2 CÙNG "Audio Visualizer").
          4. SỬA LẦN 4 (06/10/2026, Giang yêu cầu "đổi toàn bộ tên app thành Audivis") — cả thẻ này lẫn
-            <title> giờ là "Audivis" (7 ký tự, 1 từ — chắc chắn không bị SpringBoard nén). Riêng màn
-            Preloader vẫn bung chữ "Audivis" -> "Audio Visualizer" (tên đầy đủ), xem #app-preloader-name.
+            <title> giờ là "Audivis" (7 ký tự, 1 từ — chắc chắn không bị SpringBoard nén). Hiệu ứng bung
+            chữ "Audivis" -> "Audio Visualizer" nằm ở logo header (hover/chạm), preloader chỉ hiện tĩnh "Audivis".
          apple-touch-icon.png (180×180, nền đặc — KHÔNG để trong suốt, iOS tự bo góc/viền riêng,
          icon nguồn để trong suốt dễ bị viền đen/trắng lệch) tạo từ chính favicon.png (chỉ khác
          iOS bỏ qua favicon.png cho mục đích này, phải có file/thẻ riêng).
@@ -87,17 +87,9 @@
            lúc preloader vừa hiện (CSS @keyframes, KHÔNG cần JS/hover/tap nữa — trước đây cần JS vì
            kích hoạt bằng tương tác người dùng, preloader thì phải tự chạy). KHÔNG tô màu (đã bỏ
            theo phản hồi Giang) — cùng 1 màu, chỉ khác đang ẩn/hiện. */
-        /* SỬA (06/10/2026, Giang: "tại màn preload Audivis -> Audio Visualizer") — chữ ban đầu là tên app MỚI
-           "Audivis", rồi bung thành tên đầy đủ "Audio Visualizer": chèn "o " sau "Audi" + đổi "v" thường -> "V" hoa
-           (2 span chồng vai: "v" co lại + mờ đi, "V" giãn ra + hiện lên CÙNG lúc), rồi chèn "ualizer" sau "Vis". */
-        #app-preloader-name .app-preloader-expand-1 { display: inline-block; overflow: hidden; white-space: pre; vertical-align: bottom; max-width: 0; animation: app-preloader-expand-o 0.4s ease-out 0.5s both; }
-        #app-preloader-name .app-preloader-swap-out { display: inline-block; overflow: hidden; vertical-align: bottom; max-width: 1em; animation: app-preloader-swap-out 0.4s ease-out 0.5s both; }
-        #app-preloader-name .app-preloader-swap-in { display: inline-block; overflow: hidden; vertical-align: bottom; max-width: 0; opacity: 0; animation: app-preloader-swap-in 0.4s ease-out 0.5s both; }
-        #app-preloader-name .app-preloader-expand-2 { display: inline-block; overflow: hidden; white-space: nowrap; vertical-align: bottom; max-width: 0; animation: app-preloader-expand-ualizer 0.4s ease-out 0.7s both; }
-        @keyframes app-preloader-expand-o { from { max-width: 0; } to { max-width: 1.2em; } }
-        @keyframes app-preloader-swap-out { from { max-width: 1em; opacity: 1; } to { max-width: 0; opacity: 0; } }
-        @keyframes app-preloader-swap-in { from { max-width: 0; opacity: 0; } to { max-width: 1em; opacity: 1; } }
-        @keyframes app-preloader-expand-ualizer { from { max-width: 0; } to { max-width: 4.6em; } }
+        /* XOÁ (06/10/2026, Giang: "bỏ hiệu ứng bung chữ ở preload, bung chữ khi touch/hover ở header logo") — toàn bộ
+           span/keyframes bung chữ (app-preloader-expand-*/swap-*) bỏ hẳn: preloader giờ chỉ hiện TĨNH tên app
+           "Audivis". Hiệu ứng "Audivis" -> "Audio Visualizer" chuyển về logo header (core/sav-logo.js, misc.css). */
 
         #app-preloader-dots { position: relative; width: 36px; height: 36px; margin-top: 8px; color: #94a3b8; }
         .app-preloader-dark #app-preloader-dots { color: #71717a; } /* zinc-500 */
@@ -121,15 +113,13 @@
            người dùng vẫn biết app đang tải mà không bị hiệu ứng "xoay/nhảy" gây khó chịu. */
         @media (prefers-reduced-motion: reduce) {
             .app-preloader-dot { animation-duration: 1.8s; }
-            #app-preloader-name .app-preloader-expand-1, #app-preloader-name .app-preloader-expand-2, #app-preloader-name .app-preloader-swap-in { animation: none; max-width: none; opacity: 1; }
-            #app-preloader-name .app-preloader-swap-out { display: none; }
         }
     </style>
     <div id="app-preloader">
         <div id="app-preloader-logo">
             <svg viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
         </div>
-        <div id="app-preloader-name">Audi<span class="app-preloader-expand-1">o </span><span class="app-preloader-swap-out">v</span><span class="app-preloader-swap-in">V</span>is<span class="app-preloader-expand-2">ualizer</span></div>
+        <div id="app-preloader-name">Audivis</div>
         <div id="app-preloader-dots">
             <span class="app-preloader-dot"></span><span class="app-preloader-dot"></span><span class="app-preloader-dot"></span><span class="app-preloader-dot"></span>
             <span class="app-preloader-dot"></span><span class="app-preloader-dot"></span><span class="app-preloader-dot"></span><span class="app-preloader-dot"></span>
@@ -263,7 +253,7 @@
     <link rel="stylesheet" href="assets/css/photo-gallery.css?v=20260923v1">
     <link rel="stylesheet" href="assets/css/video-gallery.css?v=20260923v1">
     <link rel="stylesheet" href="assets/css/video-preview.css?v=20260927c1">
-    <link rel="stylesheet" href="assets/css/misc.css?v=20260813v1">
+    <link rel="stylesheet" href="assets/css/misc.css?v=20261006audivis3">
     <link rel="stylesheet" href="assets/css/motion-engine.css?v=20260914v1">
     <!-- Game Mode (Circle mode v1, MỚI 16/08/2026) — xem components/gameplay-overlay.js. -->
     <link rel="stylesheet" href="assets/css/gameplay.css?v=20260902v4">
@@ -425,7 +415,7 @@
     <!-- MỚI (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings chung 1 container cuộn
          ngang) — chỉ định nghĩa 2 biến chuỗi mở/đóng khung bọc, xem components/app-view-stack.js. -->
     <script src="components/app-view-stack.js?v=20260921v7"></script>
-    <script src="components/playlist-view.js?v=20261006audivis1"></script>
+    <script src="components/playlist-view.js?v=20261006audivis3"></script>
     <!-- Game Mode overlay (Circle mode v1, MỚI 16/08/2026) — PHẢI nạp TRƯỚC components/visualizer-
          overlay.js (file đó nội suy ${TPL_GAMEPLAY_OVERLAY}, xem components/gameplay-overlay.js). -->
     <script src="components/gameplay-overlay.js?v=20260819v1"></script>
@@ -495,7 +485,7 @@
          generic-drawer.js (cùng vai trò "component tĩnh"), dù bản thân được clone MỖI LẦN MỞ
          (core/file-manager/video-ui.js) chứ không mount 1 lần lúc boot như generic-drawer.js. -->
     <script src="components/video-preview.js?v=20260929cap1"></script>
-    <script src="components/items.js?v=20261006audivis2"></script>
+    <script src="components/items.js?v=20261006audivis3"></script>
     <!-- Panel "Display" (Main "Visualizer Screen") — 5 toggle UI chrome. -->
     <script src="components/settings/visualizer-display-panel.js?v=20261005disp4"></script>
     <script src="components/settings/visualizer-auto-switch-drawer.js?v=20260926as2"></script>
@@ -564,7 +554,7 @@
     <!-- 18 package STATE theo domain (đợt tái cấu trúc 25/07/2026) — mỗi file tự
          AppState.definePackage(...) lúc nạp, CHƯA dựng STATE sống (chỉ đăng ký metadata). PHẢI
          nạp TRƯỚC service/state/record/index.js (dòng registry() cần mọi package đã đăng ký). -->
-    <script src="service/state/playlist.js?v=20261006audivis1"></script>
+    <script src="service/state/playlist.js?v=20261006audivis3"></script>
     <script src="service/state/player.js?v=20260725v1"></script>
     <script src="service/state/visualizer-runtime.js?v=20261001fa1"></script>
     <script src="service/state/visualizer-scenes.js?v=20261001aa1"></script>
@@ -633,7 +623,7 @@
          actions.js (core, dòng dưới) cần `new EventStore(...)` ngay lúc nạp. Tự đứng độc lập
          (không phụ thuộc eventBus), nên tách riêng lên đây an toàn. -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20261006audivis1"></script>
+    <script src="core/dom-refs.js?v=20261006audivis3"></script>
     <!-- core/slider-panel-scroll.js — 2 hàm dùng chung (getPositionStart/scrollSliderTo) cho mọi
          khung cuộn ngang kiểu "slider panel" (settings-panel-stack-ui.js, player-controls.js). -->
     <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
@@ -644,6 +634,9 @@
          — 4 file cụm savLogo (core/sav-logo.js + event/{workflow,router,listener}/sav-logo.js) đã
          MỒ CÔI (không còn phần tử `.sav-logo-expand` nào để chúng thao tác, xem components/
          playlist-view.js) — NGỪNG NẠP ở đây (và ở cụm /event/ phía dưới), CHƯA xoá file khỏi dự án. -->
+    <!-- NẠP LẠI (06/10/2026, Giang: "bung chữ khi touch/hover ở header logo") — logo header giờ bung "Audivis" ->
+         "Audio Visualizer" (span .sav-logo-expand/.sav-logo-swap-* trong components/playlist-view.js). -->
+    <script src="core/sav-logo.js?v=20261006audivis3"></script>
     <!-- service/task-manager.js — quản lý tập trung mọi setInterval/setTimeout của app (kể cả
          timeout bắn 1 lần). Nạp ngay sau dom-refs.js, trước modal-choice-ui.js/db.js và mọi file core
          khác — hầu hết gọi taskManager.once()/addNew() ngay khi gắn listener lúc parse. -->
@@ -855,7 +848,7 @@
     <script src="core/playlist/order.js?v=20261002cv5"></script>
     <script src="core/playlist/render.js?v=20261002cv8"></script>
     <script src="core/playlist/loader.js?v=20260924r2"></script>
-    <script src="core/playlist/actions.js?v=20261006audivis1"></script>
+    <script src="core/playlist/actions.js?v=20261006audivis3"></script>
     <script src="core/playlist/main.js?v=20261002cv5"></script>
     <!-- MỚI (mục 1d, Playlist Filter, phản hồi Giang) — applyPlaylistFilter() (SQL
          WHERE...AND style), dùng bởi switchToSongSource()/switchToVideoSource() (event/
@@ -1249,9 +1242,9 @@
          core/listen-stats.js (bumpSongPlayCount), event/workflow/video-player.js (workflowVideoPlayer
          — chỉ dùng trong callback runtime, không bắt buộc thứ tự nạp so với dòng NGAY DƯỚI). -->
     <script src="event/workflow/player.js?v=20261002cv6"></script>
-    <script src="event/workflow/playlist.js?v=20261006audivis1"></script>
-    <script src="event/router/playlist.js?v=20261006audivis1"></script>
-    <script src="event/listener/playlist.js?v=20261006audivis1"></script>
+    <script src="event/workflow/playlist.js?v=20261006audivis3"></script>
+    <script src="event/router/playlist.js?v=20261006audivis3"></script>
+    <script src="event/listener/playlist.js?v=20261006audivis3"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel + phân phối lại section Settings, phản hồi
          Giang) — cụm "appSettings" (điều hướng swap Setting, TÁI DÙNG workflowGestureSettings/
          workflowSlideshow/workflowPlaylist/workflowSettingsMisc/workflowFileManagerPhoto/
@@ -1389,8 +1382,11 @@
     <script src="event/listener/perf-hud.js?v=20261005hud1"></script>
     <!-- Cụm "statsPanel" ĐÃ XOÁ (checkbox toggle stats panel dời vào Settings, dùng chung
          cụm "visualizerDisplay" — xem event/workflow/visualizer-display.js::setStatsPanelEnabled()). -->
-    <!-- Cụm "savLogo" ĐÃ NGỪNG NẠP (SỬA — Giang yêu cầu "logo header full text, không animation")
-         — xem ghi chú đầy đủ ở chỗ ngừng nạp core/sav-logo.js phía trên. -->
+    <!-- Cụm "savLogo" — NẠP LẠI (06/10/2026, Giang: "bung chữ khi touch/hover ở header logo"), xem chỗ nạp
+         core/sav-logo.js phía trên. -->
+    <script src="event/workflow/sav-logo.js?v=20261006audivis3"></script>
+    <script src="event/router/sav-logo.js?v=20261006audivis3"></script>
+    <script src="event/listener/sav-logo.js?v=20261006audivis3"></script>
     <!-- Cụm "languageSettings" (ver 11, patch 7). -->
     <script src="event/workflow/language-settings.js?v=20260629v1"></script>
     <script src="event/router/language-settings.js?v=20260629v1"></script>
