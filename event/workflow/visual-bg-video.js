@@ -431,11 +431,13 @@ Object.assign(workflowVisualBg, {
         if (typeof workflowVideoPlayer !== 'undefined') await workflowVideoPlayer.showStaticBgThumb(key, (record) => this._onVideoLayerBFilled(record)); // SỬA 30/09/2026 — khớp Resolution VBG cho thumb placeholder
     },
 
-    /** Mở panel — đọc tên các video (cả lô, 1 transaction) rồi vẽ hàng. `_videoAudioRows` là bản chụp tại
-     * thời điểm mở, không tự cập nhật nếu `source.list` đổi sau đó (cycle/reshuffle chạy nền) —
-     * đóng mở lại panel để thấy danh sách mới. */
+    /** Ứng 'visualBg.openVideoAudioPanel.click' — đọc tên các video (cả lô, 1 transaction) TRƯỚC, rồi mới chuyển màn với
+     * danh sách đã dựng sẵn trong bodyHtml. SỬA (05/10/2026, Giang báo "vào Video audio bị thụt xuống rồi khựng trồi
+     * lên") — trước đây chuyển màn với khung RỖNG rồi mới đọc DB + vẽ hàng trong onMount: Generic Drawer đo chiều cao
+     * đích theo khung rỗng (thấp) -> co xuống, rồi hàng về -> MutationObserver nhắm lại cao lên = giật. `_videoAudioRows`
+     * là bản chụp tại thời điểm mở, không tự cập nhật nếu `source.list` đổi sau đó (cycle/reshuffle chạy nền) — đóng mở
+     * lại panel để thấy danh sách mới. */
     async openVideoAudioPanel() {
-        visualBgVideoAudioPanelEl = genericDrawerBody;
         const cfg = appConfigVisualBg.getAll();
         const keys = cfg.source.list.filter((k) => k !== null);
         const records = await getVideoRecordsByKeys(keys); // service/db.js — SỬA (02/10/2026): cả lô trong 1 transaction, thay Promise.all(getVideoRecord) mỗi key 1 transaction
@@ -443,18 +445,25 @@ Object.assign(workflowVisualBg, {
             key,
             name: records[i] ? (records[i].customName || stripFileExtension(records[i].filename)) : key,
         }));
-        this._renderVideoAudioRows(this._videoAudioRows, appConfigVisualBg.getAll().source.videoAudio);
+        workflowAppSettings.navigateTo(() => workflowAppSettings._renderVisualBgVideoAudio()); // event/workflow/app-settings.js (liên tuyến: ngăn xếp Settings)
     },
 
-    /** Vẽ danh sách: tên video | icon loa (1, toggle ngay) | "x%" (2, mở modal chỉnh mức). */
-    _renderVideoAudioRows(rows, videoAudioMap) {
-        const listEl = visualBgVideoAudioPanelEl.querySelector('#visual-bg-video-audio-list');
-        if (rows.length === 0) {
-            listEl.innerHTML = `<div class="p-4 text-sm text-center" data-uitk="textSecondary">${t('visualBgSettingsDrawer.videoAudio.empty')}</div>`;
-            applyUiThemeToDom(listEl, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — SỬA 23/09/2026: innerHTML vẽ SAU lúc mở drawer -> áp theme lại
-            return;
-        }
-        listEl.innerHTML = rows.map(({ key, name }) => {
+    /** onMount của màn Video audio (event/workflow/app-settings.js::_renderVisualBgVideoAudio()) — chỉ ghi nhận body đang
+     * gắn để `_refreshVideoAudioRowButtons()` cập nhật đúng 1 hàng sau khi đổi. Danh sách đã có sẵn trong bodyHtml. */
+    mountVideoAudioPanel() {
+        visualBgVideoAudioPanelEl = genericDrawerBody;
+    },
+
+    /** HTML danh sách hàng từ bản chụp `_videoAudioRows` (đọc ở `openVideoAudioPanel()`) — dựng TRƯỚC khi gắn (đi chung
+     * bodyHtml, Workflow Generic Drawer áp theme 1 lượt). Vẽ lại tại chỗ/quay lại màn này dùng lại bản chụp. @returns {string} */
+    buildVideoAudioListHtml() {
+        return this._buildVideoAudioRowsHtml(this._videoAudioRows || [], appConfigVisualBg.getAll().source.videoAudio);
+    },
+
+    /** Danh sách: tên video | icon loa (1, toggle ngay) | "x%" (2, mở modal chỉnh mức). @returns {string} */
+    _buildVideoAudioRowsHtml(rows, videoAudioMap) {
+        if (rows.length === 0) return `<div class="p-4 text-sm text-center" data-uitk="textSecondary">${t('visualBgSettingsDrawer.videoAudio.empty')}</div>`;
+        return rows.map(({ key, name }) => {
             const { enabled, volumePercent } = getVisualBgVideoAudioSetting(videoAudioMap, key);
             return `
             <div class="p-4 last:border-b-0 flex items-center gap-2 border-b" data-uitk="dividerBorder">
@@ -463,11 +472,10 @@ Object.assign(workflowVisualBg, {
                 <button type="button" data-visual-bg-video-audio-open-volume="${escapeHtml(key)}" class="shrink-0 px-1 py-2 transition-colors"><span data-visual-bg-video-audio-volume-display="${escapeHtml(key)}" class="text-xs font-mono tabular-nums" data-uitk="${this._videoAudioStateUitk(enabled)}">${volumePercent}%</span></button>
             </div>`;
         }).join('');
-        applyUiThemeToDom(listEl, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — SỬA 23/09/2026: innerHTML vẽ SAU lúc mở drawer -> áp theme lại
     },
 
     /** Icon loa thường (bật) / loa gạch chéo (tắt) — DÙNG CHUNG lúc vẽ hàng lần đầu
-     * (`_renderVideoAudioRows()`) LẪN lúc cập nhật lại đúng 1 nút sau khi toggle
+     * (`_buildVideoAudioRowsHtml()`) LẪN lúc cập nhật lại đúng 1 nút sau khi toggle
      * (`_refreshVideoAudioRowButtons()`) — tránh viết trùng markup 2 chỗ. */
     _videoAudioIconInnerHtml(enabled) {
         const iconPath = enabled

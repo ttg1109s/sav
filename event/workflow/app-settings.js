@@ -197,7 +197,8 @@ const workflowAppSettings = {
     _renderPlaylistSort() {
         this._currentRenderFn = () => this._renderPlaylistSort();
         const source = appState.get('activeMediaSource'); // MỚI (hợp nhất Photo vào Playlist) — Photo ẩn 2 field times/duration
-        this._render(t('playlistSortPanel.title'), renderPlaylistSortPanelBody(source), () => {
+        // SỬA (05/10/2026) — truyền field Stats để template dựng sẵn đúng hàng Hướng (chiều cao đo đúng ngay, không giật).
+        this._render(t('playlistSortPanel.title'), renderPlaylistSortPanelBody(source, appState.get('displayStatSortField')), () => {
             workflowPlaylist.openSortPanel(); // event/workflow/playlist.js — đồng bộ giá trị (đã migrate sang genericDrawerBody)
         });
     },
@@ -526,10 +527,12 @@ const workflowAppSettings = {
         });
     },
 
+    /** SỬA (05/10/2026) — danh sách hàng dựng SẴN trong bodyHtml (workflowVisualBg đọc DB TRƯỚC khi chuyển màn, xem
+     * event/workflow/visual-bg-video.js::openVideoAudioPanel()) -> chiều cao Drawer đo đúng ngay, không co rồi giãn. */
     _renderVisualBgVideoAudio() {
         this._currentRenderFn = () => this._renderVisualBgVideoAudio();
-        this._render(t('visualBgSettingsDrawer.openVideoAudio.label'), renderVisualBgVideoAudioPanelBody(), () => {
-            workflowVisualBg.openVideoAudioPanel(); // event/workflow/visual-bg.js
+        this._render(t('visualBgSettingsDrawer.openVideoAudio.label'), renderVisualBgVideoAudioPanelBody(workflowVisualBg.buildVideoAudioListHtml()), () => { // components/visual-bg-video-audio-drawer.js
+            workflowVisualBg.mountVideoAudioPanel(); // event/workflow/visual-bg-video.js
         });
     },
 

@@ -131,6 +131,17 @@ const workflowGameplayEngine = {
         if (!record.game[mode]) record.game[mode] = {};
         if (!record.game[mode][difficulty]) record.game[mode][difficulty] = [];
         record.game[mode][difficulty].push({ time: Date.now(), score: finalScore });
+        // FIX (05/10/2026, Giang báo "Game mode > hết bài > về Playlist > phát lại ĐÚNG bài đó -> hết cooldown thì câm, bấm
+        // X hiện modal 'Can't play this Song… corrupted'; reset app thì file vẫn bình thường; chọn bài khác rồi quay lại
+        // thì hết") — CÙNG GỐC bug round-trip Blob đã ghi ở service/db.js::rematerializeBlob(): hàm này đọc nguyên record
+        // (gồm `blob` audio + `cover`) rồi ghi LẠI đúng Blob handle vừa đọc từ IndexedDB -> backing file cũ bị coi là đã
+        // thay thế ngay trong phiên, trong khi audioPlayer vẫn dùng blob URL tạo từ backing file đó (phát lại ĐÚNG bài =
+        // nhánh `key === currentKey` của playMedia(), KHÔNG tạo URL mới) -> nạp lại lỗi -> câm + sự kiện 'error'. Chọn bài
+        // khác/vào lại sau đó tạo URL mới từ record mới nên bình thường; Video mode không bị vì getSongRecord() không đọc
+        // được record video (store riêng) nên không ghi gì. Vật chất hoá lại TRƯỚC khi ghi — đúng khuôn
+        // core/playlist/actions.js::applySongEditAndSave().
+        if (record.blob) record.blob = await rematerializeBlob(record.blob); // service/db.js
+        if (record.cover) record.cover = await rematerializeBlob(record.cover); // service/db.js — CÙNG lý do (cover cũng round-trip)
         await setSongRecord(key, record); // service/db.js
         // [SỬA] `record.tag.title` CHỈ tồn tại cho Song — Video dùng `customName`/`filename` (KHÔNG
         // có `.tag`, xem core/file-manager/video.js), cùng công thức display title dùng chung toàn
