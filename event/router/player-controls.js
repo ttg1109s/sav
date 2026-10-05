@@ -77,6 +77,12 @@ const routerPlayerControls = (() => {
         switch (msg.type) {
 
             // ===================== Click UI =====================
+            // MỚI (05/10/2026) — bố cục màn hình đổi qua mốc 1024px lúc đang chạy (event/listener/player-controls.js).
+            case 'playerControls.screenLayout.change': {
+                workflowPlayerControls.handleScreenLayoutChange(msg.payload.isStacked);
+                break;
+            }
+
             case 'playerControls.backToPlaylist.click': {
                 // XOÁ (phản hồi Giang — "đã hợp nhất Video & Song vào Playlist, không cần nữa") —
                 // nhánh isVideoPlayerMode===true (workflowVideoPlayer.handleBackToPlaylistFromVideoMode(),
