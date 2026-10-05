@@ -600,6 +600,22 @@
             latencyMs: 100,
         };
 
+        /**
+         * MỚI (05/10/2026, Giang yêu cầu đưa perf-probe về core + event bus) — domain 'perfHud' (Settings > Troubleshooting >
+         * Performance HUD), persist qua `meta.perfHudConfig` (event/workflow/perf-hud.js) — thay 3 key localStorage
+         * `sav_perfProbe*` của service/perf-probe.js cũ (đã xoá). Restore default settings xoá key này.
+         *   - `enabled` — hiện HUD + chạy vòng đo.
+         *   - `style` — 'strip' (dải) | 'detail' (thẻ chi tiết) — PERF_HUD_STYLES (core/perf-hud.js).
+         *   - `orientation` — 'horizontal' | 'vertical', chỉ áp cho kiểu strip.
+         *   - `position` — {left, top} (px) lần kéo cuối; null = vị trí mặc định (PERF_HUD_DEFAULT_POSITION).
+         */
+        const DEFAULT_PERF_HUD_CONFIG = {
+            enabled: false,
+            style: 'strip',
+            orientation: 'horizontal',
+            position: null,
+        };
+
         AppConfig.defineDomain('viz', {
             schema: {
                 type: 'string', customEffect: 'object',
@@ -723,6 +739,16 @@
             defaults: DEFAULT_RECORDER_CONFIG,
         });
 
+        AppConfig.defineDomain('perfHud', {
+            schema: {
+                enabled: 'boolean',
+                style: 'string',
+                orientation: 'string',
+                position: 'any', // {left, top} | null
+            },
+            defaults: DEFAULT_PERF_HUD_CONFIG,
+        });
+
         /** Seed CẢ 3 domain config NGAY TẠI ĐÂY — lúc nạp core/config.js (SỬA 27/07/2026, trước
          * đây gọi trễ hơn từ event/workflow/app-boot.js lúc DOMContentLoaded, để hở 1 khoảng giữa
          * lúc tạo accessor bên dưới và lúc seed thật sự -> access() console.warn "chưa seed()" 3
@@ -741,6 +767,7 @@
             appConfig.seed('playerDisplay');
             appConfig.seed('pagination'); // MỚI 23/09/2026
             appConfig.seed('recorder'); // MỚI 01/10/2026 — Ghi âm
+            appConfig.seed('perfHud'); // MỚI 05/10/2026 — Performance HUD
         }
         seedConfig();
 
@@ -754,6 +781,7 @@
         const appConfigPlayerDisplay = appConfig.access('playerDisplay');
         const appConfigPagination = appConfig.access('pagination'); // MỚI 23/09/2026 — Settings > System > Pagination
         const appConfigRecorder = appConfig.access('recorder'); // MỚI 01/10/2026 — Settings > Player > Ghi âm
+        const appConfigPerfHud = appConfig.access('perfHud'); // MỚI 05/10/2026 — Settings > Troubleshooting > Performance HUD
 
         /** Reset vizConfig về default (gộp từ core/app-recovery.js::executeRestoreDefaults() cũ —
          * CHỈ phần reset, KHÔNG gồm saveConfig()/reload(), 2 việc đó vẫn ở app-recovery.js). */

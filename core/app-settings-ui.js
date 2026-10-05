@@ -60,14 +60,12 @@ const APP_SETTINGS_TROUBLESHOOTING_ACTION_MSG = {
 };
 
 /** Màn Troubleshooting (components/settings/troubleshooting.js::renderTroubleshootingBody()) — 2 loại
- * hàng: ĐIỀU HƯỚNG (`data-app-settings-nav`, mở màn con Debug console/Scan & fix video thumbnails — CÙNG msg.type với
+ * hàng: ĐIỀU HƯỚNG (`data-app-settings-nav`, mở màn con Debug console/Scan & fix video thumbnails/Performance HUD — CÙNG msg.type với
  * Main/System) và HÀNH ĐỘNG (`data-troubleshooting-action`, Restore default settings/Clear app cache).
  * @param {HTMLElement} bodyEl */
 function wireAppSettingsTroubleshooting(bodyEl) {
     const navBtns = bodyEl.querySelectorAll('[data-app-settings-nav]');
     const actionBtns = bodyEl.querySelectorAll('[data-troubleshooting-action]');
-    const perfProbeToggle = bodyEl.querySelector('#setting-perf-probe-enabled'); // MỚI (05/10/2026) — công tắc Performance HUD
-    const perfProbeOrientationBtns = bodyEl.querySelectorAll('[data-perf-probe-orientation]'); // MỚI (05/10/2026) — hướng dải HUD
 
     // --- addEventListener: gom cuối hàm (Rule 5a) ---
     navBtns.forEach((btn) => {
@@ -76,9 +74,24 @@ function wireAppSettingsTroubleshooting(bodyEl) {
     actionBtns.forEach((btn) => {
         btn.addEventListener('click', () => eventBus.send({ router: 'settingsMisc', type: APP_SETTINGS_TROUBLESHOOTING_ACTION_MSG[btn.dataset.troubleshootingAction], payload: {} }));
     });
-    if (perfProbeToggle) perfProbeToggle.addEventListener('change', () => eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.perfProbe.toggle', payload: { checked: perfProbeToggle.checked } }));
-    perfProbeOrientationBtns.forEach((btn) => {
-        btn.addEventListener('click', () => eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.perfProbe.orientation', payload: { orientation: btn.dataset.perfProbeOrientation } }));
+}
+
+/** MỚI (05/10/2026) — màn con "Performance HUD" (components/settings/troubleshooting.js::renderPerfHudSettingsBody()) —
+ * công tắc + nút Kiểu + nút Chiều (chỉ có khi Kiểu = strip), callback CHỈ `eventBus.send()` tới router 'perfHud'
+ * (Rule 5a, gom cuối hàm). Thay 2 msg.type 'settingsMisc.perfProbe.*' cũ.
+ * @param {HTMLElement} bodyEl */
+function wireAppSettingsPerfHud(bodyEl) {
+    const enabledToggle = bodyEl.querySelector('#setting-perf-hud-enabled');
+    const styleBtns = bodyEl.querySelectorAll('[data-perf-hud-style]');
+    const orientationBtns = bodyEl.querySelectorAll('[data-perf-hud-orientation]');
+
+    // --- addEventListener: gom cuối hàm (Rule 5a) ---
+    if (enabledToggle) enabledToggle.addEventListener('change', () => eventBus.send({ router: 'perfHud', type: 'perfHud.enabled.change', payload: { checked: enabledToggle.checked } }));
+    styleBtns.forEach((btn) => {
+        btn.addEventListener('click', () => eventBus.send({ router: 'perfHud', type: 'perfHud.style.change', payload: { style: btn.dataset.perfHudStyle } }));
+    });
+    orientationBtns.forEach((btn) => {
+        btn.addEventListener('click', () => eventBus.send({ router: 'perfHud', type: 'perfHud.orientation.change', payload: { orientation: btn.dataset.perfHudOrientation } }));
     });
 }
 
