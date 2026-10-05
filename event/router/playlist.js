@@ -186,13 +186,14 @@ const routerPlaylist = (() => {
                 break;
             }
 
-            // MỚI (06/10/2026, Giang mục 3c) — nút "Choose" bung/thu menu 2 lựa chọn. CHỈ 1 hàm core thuần UI -> gọi thẳng.
-            case 'playlist.editCover.chooseMenu.toggle': {
-                toggleSongEditCoverChooseMenu(); // core/playlist/actions.js
+            // MỚI (06/10/2026, Giang) — nút "Choose" xổ dropdown Photo / Video thumbnail: dựng danh sách mục (mỗi mục
+            // bắn eventBus — Rule 5a) rồi mở dropdown neo nút -> Workflow.
+            case 'playlist.editCover.choose.click': {
+                workflowPlaylist.openCoverChooseMenu();
                 break;
             }
 
-            // MỚI (06/10/2026, Giang mục 3c) — dòng "Video thumbnail": đóng menu + mở picker video + (sau khi chọn)
+            // MỚI (06/10/2026, Giang mục 3c) — mục "Video thumbnail" của dropdown: mở picker video + (sau khi chọn)
             // đọc record + áp thumb làm ảnh bìa -> nhiều bước nối tiếp -> Workflow.
             case 'playlist.editCover.pickFromVideoThumb': {
                 workflowPlaylist.pickCoverFromVideoThumb();
