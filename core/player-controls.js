@@ -105,6 +105,75 @@
          * phải mở Settings) phải tự gọi thêm hàm này — xem danh sách nơi gọi ở docstring
          * `forceBackToPlaylistUI()`.
          */
+        // ===== MỚI (05/10/2026, Giang chốt hướng sửa "về Playlist rồi vào lại thì giật toàn bộ video/motion/visual") =====
+        // 3 nhóm hàm LÁ dưới đây chỉ thao tác DOM/đọc trạng thái phần tử nhận vào — điều phối (khi nào gọi, chờ ra sao,
+        // huỷ lượt chờ cũ) nằm ở event/workflow/player-controls.js. CSS đi kèm: assets/css/layout-nav.css (khối
+        // "playlist-offstage" / "visual-stage-offstage", CHỈ có hiệu lực <1024px — desktop 2 cột hiện song song).
+
+        /** Bố cục xếp chồng (<1024px): Playlist và Visualizer trượt đè nhau — CHỈ bố cục này mới ẩn được 1 bên.
+         * Desktop (>=1024px) 2 cột hiện song song vĩnh viễn (layout-nav.css). @returns {boolean} */
+        function isStackedScreenLayout() {
+            return window.matchMedia('(max-width: 1023px)').matches;
+        }
+
+        /** Đưa Playlist ra khỏi cây render (`display:none` cho #side-left-container qua class trên #app-stack) hoặc trả
+         * lại. Gọi SAU khi Playlist trượt ra xong / TRƯỚC khi cuộn tới bài đang phát lúc quay về.
+         * @param {boolean} isOffstage */
+        function setPlaylistOffstage(isOffstage) {
+            appStack.classList.toggle('playlist-offstage', isOffstage);
+        }
+
+        /** Đưa lớp cha sân khấu hình Visualizer (`#visualizer-stage`, index.html — video/ảnh nền, lớp Motion, 2 canvas
+         * effect) ra khỏi cây render hoặc trả lại. Media vẫn phát tiếng (chỉ ẩn hình). @param {boolean} isOffstage */
+        function setVisualStageOffstage(isOffstage) {
+            document.getElementById('visualizer-stage').classList.toggle('visualizer-stage-offstage', isOffstage);
+        }
+
+        /** Video nền đang thật sự hiển thị (VBG-Video của Song: `#bg-video` gỡ 'hidden' + có nguồn). @returns {boolean} */
+        function isBgVideoShown() {
+            return !bgVideoElement.classList.contains('hidden') && !!bgVideoElement.currentSrc;
+        }
+
+        /** Chờ 1 phần tử media đủ dữ liệu phát liền mạch (readyState HAVE_ENOUGH_DATA = 'canplaythrough'). Lỗi/huỷ
+         * nạp/đổi nguồn cũng kết thúc lượt chờ (không treo) — trả về lý do để nơi gọi ghi log.
+         * @param {HTMLMediaElement} el @returns {Promise<string>} 'ready' | 'canplaythrough' | 'error' | 'abort' | 'emptied' */
+        function waitMediaCanPlayThrough(el) {
+            if (el.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA) return Promise.resolve('ready');
+            return new Promise((resolve) => {
+                const EVENTS = ['canplaythrough', 'error', 'abort', 'emptied'];
+                const onDone = (e) => {
+                    EVENTS.forEach((type) => el.removeEventListener(type, onDone));
+                    resolve(e.type);
+                };
+                EVENTS.forEach((type) => el.addEventListener(type, onDone));
+            });
+        }
+
+        /** URL ảnh (blob:/http:) đang làm nền HIỂN THỊ trên sân khấu: `#visual-bg-image` (VBG-Photo tĩnh / Photo Player
+         * mode / lớp dự phòng của Video) + 2 lớp ảnh Motion (VBG-Photo) nếu container đang hiện. @returns {string[]} */
+        function collectVisualStageImageUrls() {
+            const els = [document.getElementById('visual-bg-image')];
+            const motionContainer = document.getElementById('visual-bg-photo-motion-container');
+            if (motionContainer && !motionContainer.classList.contains('hidden')) {
+                els.push(...motionContainer.querySelectorAll('.me-pointmove-pan'));
+            }
+            const urls = [];
+            els.forEach((el) => {
+                if (!el || el.classList.contains('hidden')) return; // guard — lớp đang ẩn không cần chờ
+                const match = /url\(["']?([^"')]+)["']?\)/.exec(el.style.backgroundImage || '');
+                if (match) urls.push(match[1]);
+            });
+            return urls;
+        }
+
+        /** Chờ 1 ảnh giải mã xong (cùng URL -> lấy lại từ bộ nhớ đệm của trình duyệt). Lỗi cũng kết thúc lượt chờ.
+         * @param {string} url @returns {Promise<string>} 'decoded' | 'error' */
+        function waitImageUrlDecoded(url) {
+            const img = new Image();
+            img.src = url;
+            return img.decode().then(() => 'decoded', () => 'error');
+        }
+
         function setVisualizerActiveFalse() {
             appState.set('isVisualizerActive', false);
             console.log(`writer: "setVisualizerActiveFalse", page: "isVisualizerActive", content: "false"`);
