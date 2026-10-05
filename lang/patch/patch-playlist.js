@@ -13,7 +13,8 @@ const LANG_PATCH_PLAYLIST = {
     // (title attribute) của logo #sav-logo trong header Playlist, KHÔNG phải chữ hiển thị (chữ
     // hiển thị tự dựng bằng các span riêng trong components/playlist-view.js, xem SỬA cùng đợt ở
     // đó — thu gọn còn "AV", mở ra "Audio Visualizer").
-    'playlistView.logo.title': 'Audio Visualizer',
+    // SỬA (06/10/2026, Giang yêu cầu "đổi toàn bộ tên app thành Audivis").
+    'playlistView.logo.title': 'Audivis',
     'playlistView.btnUploadAudio.title': 'Add music',
     'playlistView.btnSettings.title': 'Settings',
     'playlistView.search.placeholder': 'Search songs, artists, albums...',
@@ -73,9 +74,17 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.songEdit.coverAlt': 'Cover art',
     // VIẾT LẠI (04/07/2026, mục 3 phản hồi Giang) — bỏ hẳn nút Upload riêng (key 'coverChoose' cũ
     // đã xoá) — chỉ còn 1 nút DUY NHẤT, đổi tên "Choose photo".
+    // SỬA (06/10/2026, Giang) — 'coverPickLibrary' KHÔNG còn là chữ nút trong tab Ảnh bìa (nút giờ là
+    // 'coverChoose' + menu 2 lựa chọn ngay dưới), nhưng VẪN DÙNG làm tiêu đề picker ảnh (event/workflow/
+    // file-manager-photo.js::openCoverImagePicker(), event/workflow/theme.js) — giữ nguyên.
     'playlistView.songEdit.coverPickLibrary': 'Choose photo',
-    'playlistView.songEdit.coverRemove': 'Remove cover',
-    'playlistView.songEdit.coverHint': 'Accepts PNG, JPG or WEBP. The image is stored with the song in IndexedDB and written to the APIC tag on export.',
+    'playlistView.songEdit.coverChoose': 'Choose',
+    'playlistView.songEdit.coverRemove': 'Remove',
+    // MỚI (06/10/2026) — 2 lựa chọn trong menu bung từ nút "Choose".
+    'playlistView.songEdit.coverFromPhoto': 'Photo',
+    'playlistView.songEdit.coverFromVideoThumb': 'Video thumbnail',
+    'playlistView.songEdit.coverVideoThumbMissing': 'This video has no thumbnail yet. Go to Settings → Troubleshooting → "Scan & fix video thumbnails" to repair it.',
+    // XOÁ (06/10/2026, Giang) — 'playlistView.songEdit.coverHint' (dòng gợi ý PNG/JPG/WEBP + APIC) bỏ hẳn.
     'playlistView.songEdit.btnCancel': 'Cancel',
     'playlistView.songEdit.btnSave': 'Save',
     // SỬA (10/07/2026): 'songInfo.title'/'btnExport'/'btnClose' ĐÃ XOÁ — #song-info-modal không
@@ -130,8 +139,7 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.songMenu.editImage': 'Edit image',
     // MỚI (19/09/2026, Giang yêu cầu — "thêm nút xem thumb full res cho video playlist") — hành động
     // RIÊNG của Video, mirror editImage ngay trên.
-    'playlistView.songMenu.viewVideoThumb': 'View full thumbnail',
-    'playlistView.songMenu.viewVideoThumbMissing': 'This video has no full-resolution thumbnail yet. Go to Storage → "Scan & clean broken files" to repair it.',
+    // XOÁ (06/10/2026, Giang) — 'playlistView.songMenu.viewVideoThumb' + 'viewVideoThumbMissing' bỏ hẳn cùng action.
     'playlistView.songMenu.delete': 'Delete song',
     // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — dropdown Video dùng chung
     // template với Song (#song-action-menu) nhưng nhãn tĩnh vẫn luôn nói "song" — đổi chữ qua JS
