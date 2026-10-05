@@ -74,28 +74,37 @@
  */
 function itemTemplateFolderTile(folder, ctx) {
     const isEditing = !!(ctx && ctx.editingFolderId === folder.id);
-    const folderIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>`;
+    // SỬA (06/10/2026, Giang — bỏ nền tròn của icon loại, phóng to icon loại) — icon thư mục to hơn (h-7 -> h-10) để
+    // icon loại (giờ KHÔNG còn nền) nằm GỌN trong lòng thư mục, không đè lên nét viền; stroke-width hạ 1.5 -> 1.25
+    // để nét viền giữ độ dày gần như cũ khi phóng to.
+    const folderIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.25" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>`;
 
     // type: null/chưa xác định -> '' (giữ NGUYÊN icon thư mục mặc định, không chồng gì).
     // SỬA (khôi phục — Giang báo "folder photo chưa có icon như song/video") — 'photo' bị THIẾU
     // hẳn khỏi ternary này từ đầu (chỉ viết cho song/video lúc "Song/Video Unification", Photo
     // hợp nhất vào Playlist SAU — folder.type === 'photo' rơi về nhánh mặc định '', không icon).
     const typeOverlaySvg = folder.type === 'song'
-        ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 004.5 14C2.567 14 1 15.343 1 17s1.567 3 3.5 3 3.5-1.343 3.5-3V7.82l8-1.6v5.894A4.37 4.37 0 0014.5 12c-1.933 0-3.5 1.343-3.5 3s1.567 3 3.5 3 3.5-1.343 3.5-3V3z" /></svg>`
+        ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 004.5 14C2.567 14 1 15.343 1 17s1.567 3 3.5 3 3.5-1.343 3.5-3V7.82l8-1.6v5.894A4.37 4.37 0 0014.5 12c-1.933 0-3.5 1.343-3.5 3s1.567 3 3.5 3 3.5-1.343 3.5-3V3z" /></svg>`
         : folder.type === 'video'
-        ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM16.553 7.106A1 1 0 0016 8v4a1 1 0 00.553.894l2 1A1 1 0 0020 13V7a1 1 0 00-1.447-.894l-2 1z" /></svg>`
+        ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM16.553 7.106A1 1 0 0016 8v4a1 1 0 00.553.894l2 1A1 1 0 0020 13V7a1 1 0 00-1.447-.894l-2 1z" /></svg>`
         : folder.type === 'photo'
-        ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l3.5-4.5 2.5 3.01L13.5 8 18 15H16z" clip-rule="evenodd" /></svg>`
+        ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l3.5-4.5 2.5 3.01L13.5 8 18 15H16z" clip-rule="evenodd" /></svg>`
         : '';
-    const typeOverlayColorClass = folder.type === 'song' ? 'text-emerald-400' : folder.type === 'photo' ? 'text-sky-300' : 'text-violet-400';
+    // SỬA (06/10/2026, Giang báo "icon folder song/video/photo có 1 vòng tròn, đổi theme Dark/Morphin mới lộ") — BỎ hẳn
+    // nền tròn tối (`w-6 h-6 rounded-full bg-[#0f172a]`): nền cứng màu slate-900 nằm trên ô icon theo theme nên lộ
+    // thành 1 chấm tròn lạc tông (kèm 2 mẩu viền thư mục ló ra 2 bên). Icon loại giờ đặt THẲNG trong lòng thư mục,
+    // to hơn (h-3.5 -> h-4). Màu phân loại vẫn hardcode (không qua theme), nhưng đổi sang shade -500 vì không còn nền
+    // tối làm nền tương phản — -400/sky-300 cũ quá nhạt trên ô sáng của Light. `padding-top:3px` dời icon xuống đúng
+    // tâm lòng thư mục (phần dưới tab, lệch xuống so với tâm ô 56px).
+    const typeOverlayColorClass = folder.type === 'song' ? 'text-emerald-500' : folder.type === 'photo' ? 'text-sky-500' : 'text-violet-500';
     const typeOverlayHtml = typeOverlaySvg
-        ? `<div class="absolute inset-0 flex items-center justify-center"><div class="w-6 h-6 rounded-full bg-[#0f172a] flex items-center justify-center ${typeOverlayColorClass}">${typeOverlaySvg}</div></div>`
+        ? `<div class="absolute inset-0 flex items-center justify-center pointer-events-none ${typeOverlayColorClass}" style="padding-top:3px">${typeOverlaySvg}</div>`
         : '';
     // SỬA (09/09/2026, hệ UI Theme) — icon box màu ĐI QUA `data-uitk` (accentIconBoxBg/Text, core/
     // ui-theme/light.js) THAY hardcode `bg-sky-100 text-sky-600` — badge tròn TỐI phủ giữa (loại
     // media song/video/photo) GIỮ NGUYÊN hardcode, KHÔNG qua theme (màu PHÂN LOẠI dữ liệu, không
     // phải màu giao diện — cùng tinh thần 3 màu thanh Storage Management giữ nguyên khi "xử lý
-    // triệt để dark cũ").
+    // triệt để dark cũ"). SỬA 06/10/2026 — badge tròn tối đã BỎ (xem typeOverlayHtml trên).
     const iconBoxHtml = `<div class="relative w-14 h-14 rounded-2xl flex items-center justify-center shrink-0" data-uitk="accentIconBoxBg accentIconBoxText">${folderIconSvg}${typeOverlayHtml}</div>`;
 
     if (isEditing) {
