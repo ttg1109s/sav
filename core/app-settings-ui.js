@@ -67,6 +67,7 @@ function wireAppSettingsTroubleshooting(bodyEl) {
     const navBtns = bodyEl.querySelectorAll('[data-app-settings-nav]');
     const actionBtns = bodyEl.querySelectorAll('[data-troubleshooting-action]');
     const perfProbeToggle = bodyEl.querySelector('#setting-perf-probe-enabled'); // MỚI (05/10/2026) — công tắc Performance HUD
+    const perfProbeOrientationBtns = bodyEl.querySelectorAll('[data-perf-probe-orientation]'); // MỚI (05/10/2026) — hướng dải HUD
 
     // --- addEventListener: gom cuối hàm (Rule 5a) ---
     navBtns.forEach((btn) => {
@@ -76,6 +77,9 @@ function wireAppSettingsTroubleshooting(bodyEl) {
         btn.addEventListener('click', () => eventBus.send({ router: 'settingsMisc', type: APP_SETTINGS_TROUBLESHOOTING_ACTION_MSG[btn.dataset.troubleshootingAction], payload: {} }));
     });
     if (perfProbeToggle) perfProbeToggle.addEventListener('change', () => eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.perfProbe.toggle', payload: { checked: perfProbeToggle.checked } }));
+    perfProbeOrientationBtns.forEach((btn) => {
+        btn.addEventListener('click', () => eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.perfProbe.orientation', payload: { orientation: btn.dataset.perfProbeOrientation } }));
+    });
 }
 
 /** Màn "Scan & fix video thumbnails" (components/settings/troubleshooting.js::renderVideoThumbRepairBody()) —
