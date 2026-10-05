@@ -4,20 +4,21 @@
  * tắt audio, tick vào phần volume để nhập % audio").
  *
  * CÙNG khuôn `visual-bg-gradient-drawer.js`: push/pop qua Settings Stack (core/settings-panel-
- * stack-ui.js), template này chỉ dựng KHUNG rỗng — danh sách hàng (1 hàng/video trong
- * `source.list`) vẽ ĐỘNG bởi `workflowVisualBg._renderVideoAudioRows()` (cần đọc DB lấy tên video,
- * không dựng được tại thời điểm build template thuần).
+ * stack-ui.js). SỬA (05/10/2026) — nhận SẴN HTML danh sách hàng (1 hàng/video trong `source.list`,
+ * `workflowVisualBg.buildVideoAudioListHtml()` dựng sau khi đọc DB lấy tên video) thay vì khung rỗng vẽ sau
+ * — Generic Drawer đo đúng chiều cao ngay lúc gắn, không co xuống rồi giãn lên.
  *
  * Áp dụng CẢ single lẫn list (Giang chốt) — single chỉ hiện đúng 1 hàng.
  * Logic: event/workflow/visual-bg.js (workflowVisualBg). Listener/router: cụm "visualBg" (DÙNG
  * CHUNG cluster, không tách riêng — cùng cách gradient drawer không có listener/router riêng).
  */
-function renderVisualBgVideoAudioPanelBody() {
+/** @param {string} listHtml - HTML các hàng (hoặc dòng "trống") */
+function renderVisualBgVideoAudioPanelBody(listHtml) {
     return `
                 <div>
                     <p class="text-xs mb-3 ml-2" data-uitk="textSecondary" data-i18n="visualBgSettingsDrawer.videoAudio.hint">${t('visualBgSettingsDrawer.videoAudio.hint')}</p>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
-                        <div id="visual-bg-video-audio-list" class="flex flex-col"></div>
+                        <div id="visual-bg-video-audio-list" class="flex flex-col">${listHtml}</div>
                     </div>
                 </div>
 `;

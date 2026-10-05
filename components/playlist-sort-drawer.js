@@ -21,12 +21,16 @@
  * cho Photo (lúc đó `duration` hard-code 0, vô nghĩa) — giờ `duration` là số THẬT (tính lúc upload,
  * core/playlist/loader.js::buildAdaptedPlaylistCache()), HIỆN LẠI cho Photo giống Song/Video.
  * @param {string} source - 'song' | 'video' | 'photo'.
+ * @param {string} statField - field Stats đang chọn (appState 'displayStatSortField'). SỬA (05/10/2026, Giang báo "vào Sort
+ *   panel bị thụt xuống rồi khựng trồi lên") — hàng Hướng dựng SẴN đúng trạng thái ẩn/hiện ngay trong template: trước đây
+ *   luôn `hidden` rồi onMount (openSortPanel()) mới gỡ -> Generic Drawer đo chiều cao đích lúc hàng còn ẩn (thấp), rồi
+ *   MutationObserver thấy nội dung cao thêm -> nhắm lại giữa chừng = thụt xuống rồi giật lên.
  *
  * SỬA (09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — viết LẠI TRỰC TIẾP bằng bảng màu sáng,
  * không còn phụ thuộc `.app-settings-scope` đè màu (assets/css/layout-nav.css) để hiện đúng trên
  * Generic Drawer nền trắng.
  */
-function renderPlaylistSortPanelBody(source) {
+function renderPlaylistSortPanelBody(source, statField) {
     // SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — field 'times' KHÔNG còn ẩn theo
     // Nguồn nữa (Photo giờ hiện field này giống Video) — biến `isPhoto` cũ (dùng để ẩn) đã bỏ,
     // thay bằng biến chọn NHÃN hiển thị theo Nguồn dưới đây.
@@ -54,9 +58,9 @@ function renderPlaylistSortPanelBody(source) {
                             </select>
                         </div>
                         <!-- MỚI (mục 3) — dropdown hướng, CHỈ hiện khi field ở trên khác 'none' —
-                             mặc định "hidden", workflowPlaylist.openSortPanel() tự gỡ/gắn lại lúc
-                             mở panel + lúc đổi field (changeStatSortField()). -->
-                        <div data-sort-direction-row class="hidden flex flex-col p-4 gap-1.5">
+                             SỬA (05/10/2026): trạng thái lúc mở dựng sẵn từ tham số statField; đổi field
+                             lúc đang mở do changeStatSortField() gỡ/gắn. -->
+                        <div data-sort-direction-row class="${statField === 'none' ? 'hidden ' : ''}flex flex-col p-4 gap-1.5">
                             <div class="flex justify-between items-center">
                                 <span class="text-sm font-medium truncate" data-i18n="playlistSortPanel.statDirection.label">${t('playlistSortPanel.statDirection.label')}</span>
                                 <select id="setting-playlist-sort-stat-direction" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
