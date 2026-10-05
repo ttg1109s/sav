@@ -29,7 +29,7 @@ if (songActionOverlay) {
 
 // SỬA (02/10/2026, rà file đã đụng) — chuỗi 9 `if (btn.dataset.menuAction === '...') { send; return; }` -> bảng tra
 // hành động -> message (CÙNG 9 msg.type/payload như cũ). Lịch sử tách từng message riêng: addToFolder (mục 1d,
-// 03/07/2026), editSubtitles (10/07/2026), editVideoFile/editImage/viewVideoThumb (19/09/2026), restore (Batch "Export
+// 03/07/2026), editSubtitles (10/07/2026), editVideoFile/editImage (19/09/2026; viewVideoThumb XOÁ 06/10/2026), restore (Batch "Export
 // dọn nợ"), delete/edit (v13 Batch F — xoá 'playlist.actionMenu.select' dùng chung), removeFromFolder (09/09/2026, sót nối
 // dây). `songKey` trong payload của delete/removeFromFolder: message tự mô tả đối tượng (Block gate chỉ với tới payload) —
 // đọc 1 giá trị để DỰNG payload, không phải nghiệp vụ (Rule 5a).
@@ -38,7 +38,6 @@ const SONG_ACTION_MENU_MESSAGE = {
     editSubtitles: () => ({ type: 'playlist.actionMenu.editSubtitles', payload: {} }),
     editVideoFile: () => ({ type: 'playlist.actionMenu.editVideoFile', payload: {} }),
     editImage: () => ({ type: 'playlist.actionMenu.editImage', payload: {} }),
-    viewVideoThumb: () => ({ type: 'playlist.actionMenu.viewVideoThumb', payload: {} }),
     restore: () => ({ type: 'playlist.actionMenu.restore', payload: {} }),
     delete: () => ({ type: 'playlist.actionMenu.delete.click', payload: { songKey: playlistStore.get('songActionMenuKey') } }),
     removeFromFolder: () => ({ type: 'playlist.actionMenu.removeFromFolder.click', payload: { songKey: playlistStore.get('songActionMenuKey') } }),
@@ -138,12 +137,27 @@ if (songEditTabButtons) {
     });
 }
 
+// SỬA (06/10/2026, Giang mục 3c) — nút "Choose" chỉ bung/thu menu 2 lựa chọn ngay dưới (Photo / Video thumbnail).
+if (songEditCoverChooseBtn) {
+    songEditCoverChooseBtn.addEventListener('click', () => {
+        eventBus.send({ router: 'playlist', type: 'playlist.editCover.chooseMenu.toggle', payload: {} });
+    });
+}
+
 // VIẾT LẠI (04/07/2026, mục 3 phản hồi Giang) — bỏ hẳn nút Upload (#song-edit-cover-upload) + input
-// file trực tiếp: chỉ còn nút "Choose photo" mở picker (xem
-// event/workflow/playlist.js::pickCoverFromLibrary).
+// file trực tiếp. SỬA (06/10/2026) — nút này giờ là dòng "Photo" trong menu của "Choose" (message GIỮ NGUYÊN,
+// xem event/workflow/playlist.js::pickCoverFromLibrary).
 if (songEditCoverPickLibraryBtn) {
     songEditCoverPickLibraryBtn.addEventListener('click', () => {
         eventBus.send({ router: 'playlist', type: 'playlist.editCover.pickFromLibrary', payload: {} });
+    });
+}
+
+// MỚI (06/10/2026, Giang mục 3c) — dòng "Video thumbnail": chọn 1 video, lấy thumb cover của nó làm ảnh bìa
+// (event/workflow/playlist.js::pickCoverFromVideoThumb).
+if (songEditCoverPickVideoThumbBtn) {
+    songEditCoverPickVideoThumbBtn.addEventListener('click', () => {
+        eventBus.send({ router: 'playlist', type: 'playlist.editCover.pickFromVideoThumb', payload: {} });
     });
 }
 
