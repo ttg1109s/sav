@@ -20,6 +20,11 @@
  * cho video upload, dùng bởi `uploadVideos()`/`extractVideoThumbAndMeta()` bên dưới. */
 const VIDEO_THUMBNAIL_SIZE = 320;
 
+/** MỚI (06/10/2026) — icon 2 mục dropdown "Choose" ở tab Ảnh bìa (openCoverChooseMenu()). Chuỗi SVG cố định trong
+ * code (không có input người dùng) — core/dropdown-menu.js dán thẳng qua innerHTML. */
+const SONG_EDIT_COVER_ICON_PHOTO = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>';
+const SONG_EDIT_COVER_ICON_VIDEO = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>';
+
 /** MỚI (19/09/2026) — hằng số cho việc chụp KHUNG HÌNH ĐẦU video lúc upload (`extractVideoThumbAndMeta()`
  * và các hàm `_captureFirstFrame()`/`_probeVideoFrame()` cùng file). */
 const VIDEO_MAX_CANVAS_PIXELS = 16777216; // trần diện tích canvas của Safari/iOS (4096×4096) — vượt là canvas không dùng được (ảnh đen)
@@ -251,8 +256,19 @@ const workflowPlaylist = {
      * workflow/file-manager-photo.js, chỉ khác mode single-select). Workflow gọi Workflow miền khác,
      * TỰ DO theo event-bus-flow.md mục 4B — KHÔNG cần tự đọc `listImages()`/tự gọi
      * `setupPhotoGridWindow()` ở đây nữa (picker MỚI tự lo toàn bộ, kể cả đọc DB). */
+    /** MỚI (06/10/2026, Giang: "nút Choose xổ xuống dropdown") — ứng với 'playlist.editCover.choose.click'. Dropdown
+     * nổi DÙNG CHUNG (core/dropdown-menu.js) neo dưới nút "Choose"; z-index mặc định 127 > modal Sửa thông tin
+     * (z-[120]) nên không cần truyền riêng. Mỗi mục CHỈ bắn eventBus (Rule 5a). */
+    openCoverChooseMenu() {
+        if (!songEditCoverChooseBtn) return; // guard: template chưa mount
+        const send = (type) => () => eventBus.send({ router: 'playlist', type, payload: {} });
+        openDropdownMenu(songEditCoverChooseBtn, [ // core/dropdown-menu.js
+            { icon: SONG_EDIT_COVER_ICON_PHOTO, name: t('playlistView.songEdit.coverFromPhoto'), callback: send('playlist.editCover.pickFromLibrary') },
+            { icon: SONG_EDIT_COVER_ICON_VIDEO, name: t('playlistView.songEdit.coverFromVideoThumb'), callback: send('playlist.editCover.pickFromVideoThumb') },
+        ]);
+    },
+
     pickCoverFromLibrary() {
-        toggleSongEditCoverChooseMenu(false); // core/playlist/actions.js — SỬA (06/10/2026): nút giờ nằm trong menu của "Choose", chọn xong thì thu menu
         workflowFileManagerPhoto.openCoverImagePicker((imageKey) => { // event/workflow/file-manager-photo.js
             this.applyCoverFromLibrary(imageKey);
         });
@@ -272,7 +288,6 @@ const workflowPlaylist = {
 
     /** Ứng với 'playlist.editCover.pickFromVideoThumb'. */
     async pickCoverFromVideoThumb() {
-        toggleSongEditCoverChooseMenu(false); // core/playlist/actions.js
         const scrollId = 'song-edit-cover-video-picker-scroll', emptyId = 'song-edit-cover-video-picker-empty';
         workflowGenericDrawerHelpers.mountMediaPicker({ // event/workflow/generic-drawer-helpers.js
             routerName: 'playlist', msgPrefix: 'playlist.editCover.videoPicker',
