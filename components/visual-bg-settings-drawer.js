@@ -10,12 +10,21 @@
  * SỬA (09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — viết LẠI TRỰC TIẾP bằng bảng màu sáng
  * (trước đây `glass-modal`/`border-white/5`/`bg-white/5`/select `bg-black/50`, phụ thuộc
  * `.app-settings-scope` đè màu — assets/css/layout-nav.css).
+ *
+ * TÁCH (05/10/2026, Giang yêu cầu) — 1 màn "Visual Background" cũ thành 2 màn ở 2 chỗ khác nhau, CÙNG workflowVisualBg/
+ * cùng id control (listener delegate theo id, event/listener/visual-bg.js — KHÔNG đổi gì):
+ *   - `renderVisualBgMediaPanelBody()` — Settings > Visualizer Screen > Player > Song > Background Media: toggle tổng +
+ *     card Media + card Playback.
+ *   - `renderVisualBgColorPanelBody()` — Settings > Visualizer Screen > Background Color: CHỈ card màu nền, bỏ tiêu đề nhóm.
+ * Gốc mỗi màn mang `data-visual-bg-panel` — workflowVisualBg._isPanelMounted() nhận diện màn VBG (bất kỳ) đang gắn để
+ * refreshPanelUI() đồng bộ (control không có trong màn hiện tại thì tự bỏ qua).
  */
-function renderVisualBgPanelBody() {
+function renderVisualBgMediaPanelBody() {
     // MỚI (30/09/2026) — option Resolution dựng từ CÙNG danh sách mode của Player (PLAYER_RESOLUTION_MODES, core/player-
     // display-settings.js) + dùng lại nhãn của Player; giá trị đang chọn do Workflow điền qua refreshPanelUI().
     const resolutionOptionsHtml = PLAYER_RESOLUTION_MODES.map((m) => `<option value="${m.value}">${t(m.labelKey)}</option>`).join('');
     return `
+            <div data-visual-bg-panel="media">
                 <!-- ===================== TOGGLE TỔNG (MỚI 29/09/2026, Giang) — tắt chỉ dỡ media ảnh/video, lớp màu
                      (Background colour) vẫn sơn; bật lại nạp lại từ đầu. Workflow đồng bộ checked qua refreshPanelUI(),
                      xem workflowVisualBg.toggleEnabled() (event/workflow/visual-bg-common.js). ===================== -->
@@ -150,9 +159,18 @@ function renderVisualBgPanelBody() {
                     </div>
                 </div>
 
+            </div>
+`;
+}
+
+/** MỚI (05/10/2026, tách từ màn Visual Background cũ) — Settings > Visualizer Screen > Background Color: card màu nền
+ * (Solid/Gradient), độc lập với media (vẫn sơn khi toggle tổng tắt). Bỏ tiêu đề nhóm "Background colour" (Giang yêu cầu —
+ * tên màn đã nói rõ). Sub panel Gradient mở từ hàng `#setting-visual-bg-open-gradient` (router 'visualBg'). */
+function renderVisualBgColorPanelBody() {
+    return `
+            <div data-visual-bg-panel="color">
                 <!-- ===================== MÀU NỀN — độc lập, luôn hiện ===================== -->
-                <div class="mt-6">
-                    <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2" data-uitk="accentText" data-i18n="visualBgSettingsDrawer.groupColor.title">${t('visualBgSettingsDrawer.groupColor.title')}</h3>
+                <div>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                         <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder cardHoverBg">
                             <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.colorMode.label">${t('visualBgSettingsDrawer.colorMode.label')}</span>
@@ -176,5 +194,6 @@ function renderVisualBgPanelBody() {
                         </button>
                     </div>
                 </div>
+            </div>
 `;
 }
