@@ -1,6 +1,6 @@
 /**
  * event/listener/subtitle-style-settings.js — Listener cụm "subtitleStyleSettings": delegation trên
- * genericDrawerBody (panel Display có #setting-open-subtitle-panel + #setting-subtitles-enabled; panel con Subtitles
+ * genericDrawerBody (panel Components Display có #setting-subtitles-enabled; panel Subtitles
  * dựng bởi components/subtitle-settings-drawer.js). Chỉ đọc giá trị control rồi gửi message.
  *
  * NẠP SAU CÙNG (sau bus, core, workflow, router, dom-refs). Cần core/subtitle/subtitle-transition.js
@@ -27,7 +27,8 @@ function _sendSubtitleSettings(type, payload) {
 
 if (genericDrawerBody) {
     genericDrawerBody.addEventListener('click', (e) => {
-        if (e.target.closest('#setting-open-subtitle-panel')) _sendSubtitleSettings('openPanel.click', {});
+        // (05/10/2026) Bỏ '#setting-open-subtitle-panel' -> 'openPanel.click' — nút đã gỡ, Subtitles mở qua row
+        // 'subtitle' của Visualizer Screen (router 'appSettings', data-app-settings-nav).
         if (e.target.closest('#setting-open-subtitle-styling')) _sendSubtitleSettings('openStyling.click', {});
         const magnitudeBtn = e.target.closest('#setting-subtitle-comming-magnitude, #setting-subtitle-outing-magnitude');
         if (magnitudeBtn) _sendSubtitleSettings('openMagnitudePicker.click', { prefix: magnitudeBtn.id.includes('comming') ? 'comming' : 'outing' });
