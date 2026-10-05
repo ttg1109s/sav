@@ -398,7 +398,7 @@
     <script src="lang/patch/patch-video-preview.js?v=20260929cap1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — bottom nav + panel Photo/Game/Statis/Setting
          mới, xem lang/patch/patch-app-panel-nav.js. -->
-    <script src="lang/patch/patch-app-panel-nav.js?v=20261005ph1"></script>
+    <script src="lang/patch/patch-app-panel-nav.js?v=20261005ph2"></script>
     <script src="lang/lang.js?v=20260731v1"></script>
 
     <!-- =====================================================================
@@ -446,7 +446,7 @@
     <!-- MỚI (20/09/2026, Giang yêu cầu gộp Debug console + Reset app + Quét file lỗi vào Troubleshooting) —
          template màn Troubleshooting + khối "Quét & dọn file lỗi" (dời từ components/file-manager-storage.js),
          xem event/workflow/app-settings.js::_renderTroubleshooting()/_renderBrokenScan(). -->
-    <script src="components/settings/troubleshooting.js?v=20261005ph1"></script>
+    <script src="components/settings/troubleshooting.js?v=20261005ph2"></script>
     <script src="components/game-panel.js?v=20260923v5"></script>
     <script src="components/statis-panel.js?v=20260923v5"></script>
     <!-- MỚI (18/07/2026, Giang yêu cầu) — panel xem console log (Settings > Misc). -->
@@ -730,7 +730,7 @@
          (đã nạp) + core/generic-drawer.js (đã nạp ngay trên). -->
     <script src="core/app-panel-nav.js?v=20260921v2"></script>
     <script src="core/placeholder-panel.js?v=20260819v1"></script>
-    <script src="core/app-settings-ui.js?v=20261005ph1"></script>
+    <script src="core/app-settings-ui.js?v=20261005ph2"></script>
     <!-- MỚI (20/09/2026, Giang yêu cầu thiết kế lại Main Setting dạng carousel ngang) — core UI thuần: scale
          card theo khoảng cách tới tâm + cuộn vô hạn + hiệu ứng mở. CHỈ gọi lúc chạy từ event/workflow/
          app-settings.js + event/router/app-settings.js (nạp ở dưới) — thứ tự với 2 file đó không bắt
@@ -1053,8 +1053,8 @@
          sang cụm "fileManagerSong" ngay dưới (plan-v12-multimedia.md mục 3). Batch D1: aboutDrawer
          giờ CẦN workflow (push panel + tính thống kê), xem event/workflow/settings-misc.js. -->
     <script src="core/settings-misc-ui.js?v=20260924v1"></script>
-    <script src="event/workflow/settings-misc.js?v=20261005ph1"></script>
-    <script src="event/router/settings-misc.js?v=20261005ph1"></script>
+    <script src="event/workflow/settings-misc.js?v=20261005ph2"></script>
+    <script src="event/router/settings-misc.js?v=20261005ph2"></script>
     <script src="event/listener/settings-misc.js?v=20260924r1"></script>
     <!-- Ver 12 "Multi Media" — CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7): cụm
          "fileManager" (khung điều hướng cấp cao cũ) ĐÃ BỎ HẲN — thay bằng 3 cụm ĐỘC LẬP, mỗi cụm
@@ -1236,7 +1236,7 @@
          workflowFileManagerFolderBrowser/workflowFileManagerStorage đã nạp ở trên — KHÔNG bắt
          buộc thứ tự nạp CHẶT với các file đó, vì mọi tham chiếu đều nằm TRONG thân hàm, chỉ chạy
          SAU khi cả trang đã nạp xong, không chạy ngay lúc parse). -->
-    <script src="event/workflow/app-settings.js?v=20261005ph1"></script>
+    <script src="event/workflow/app-settings.js?v=20261005ph2"></script>
     <script src="event/router/app-settings.js?v=20261001rec1"></script>
     <!-- Cụm "placeholderPanels" (đóng Game/Statis). Photo đã hợp nhất vào Playlist, không còn cụm
          "photoPanel" riêng. -->
@@ -1447,7 +1447,7 @@
          Settings > Troubleshooting > Performance HUD (nhớ qua localStorage). Ra đời 02/10/2026 để chẩn đoán giật khi ra vào
          Playlist; SỬA 05/10/2026 thành công cụ bật/tắt, chỉ đo, không can thiệp luồng app. Cần taskManager, appState,
          appStack (core/dom-refs.js); router/workflow 'settingsMisc' + event/workflow/app-settings.js gọi `perfProbe` lúc chạy. -->
-    <script src="service/perf-probe.js?v=20261005ph1"></script>
+    <script src="service/perf-probe.js?v=20261005ph3"></script>
 
 </body>
 </html>
