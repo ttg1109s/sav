@@ -392,7 +392,7 @@
     <script src="lang/patch/patch-playlist.js?v=20261006audivis1"></script>
     <script src="lang/patch/patch-visualizer.js?v=20261005disp4"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20261005disp4"></script>
-    <script src="lang/patch/patch-settings-misc.js?v=20261006q1"></script>
+    <script src="lang/patch/patch-settings-misc.js?v=20261006r4"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 2 drawer con Song/Photo & Album, xem plan-v12-multimedia-decisions.md). -->
     <script src="lang/patch/patch-file-manager.js?v=20261006z1"></script>
@@ -464,7 +464,7 @@
     <script src="components/debug-console-drawer.js?v=20261006dbg1"></script>
     <!-- MỚI (29/07/2026, yêu cầu Giang mục 2) — panel "Quản lý lưu trữ" (renderFileManagerStorage
          ManagementPanelBody()), gộp ĐỦ 3 domain Song/Video/Photo. -->
-    <script src="components/file-manager-storage.js?v=20261006q1"></script>
+    <script src="components/file-manager-storage.js?v=20261006r4"></script>
     <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer, khung TRẮNG dùng CHUNG
          cho nhiều tính năng (Folder Browser/Add to Folder picker...). items.js (mục 3) ĐỘC LẬP với
          Generic Drawer (xem docstring đầu file) nhưng đặt cạnh nhau cho dễ đọc. -->
@@ -530,7 +530,7 @@
     <!-- infoIconHtml()/showInfoPopover() — icon (i) nhỏ dùng chung + popover giải thích neo tại icon (text + nút X),
          MỚI (phản hồi Giang). CẦN Z_INDEX (đã nạp dòng trên) + escapeHtml() (modal-choice-ui.js, đã
          nạp ngay trên) — nạp SAU cả 2. -->
-    <script src="core/info-icon-ui.js?v=20261006r1"></script>
+    <script src="core/info-icon-ui.js?v=20261006r4"></script>
     <!-- core/edit-history.js ĐÃ GỠ (Phase 1 editor video, 26/09/2026) — không còn nơi nào dùng từ khi
          bỏ Undo/Redo (05/08/2026); Giang xoá tay file core/edit-history.js. -->
     <!-- openTimePickerModal() dùng chung (Subtitle Editor + Motion transition-duration picker) —
@@ -830,7 +830,7 @@
          đặt + style khung), display-ui (khối dòng), karaoke (timing, thuần — dùng chung với subtitle-editor.html),
          karaoke-display (thuần) + karaoke-display-ui (DOM/canvas). Điều phối: event/workflow/subtitle-display.js.
          (core/subtitle/subtitle-display.js cũ ĐÃ XOÁ — thay bằng display-ui + workflow.) -->
-    <script src="core/subtitle/subtitle-transition.js?v=20261001kr1"></script>
+    <script src="core/subtitle/subtitle-transition.js?v=20261006r4"></script>
     <script src="core/subtitle/subtitle-style-settings.js?v=20261001kr1"></script>
     <script src="core/subtitle/subtitle-display-ui.js?v=20261001kr1"></script>
     <script src="core/subtitle/subtitle-karaoke.js?v=20261001kr1"></script>
@@ -1452,7 +1452,7 @@
     <script src="event/listener/player-zoom.js?v=20260929zm1"></script>
     <!-- Phụ đề lúc phát: workflowSubtitleDisplay (dòng + karaoke, gọi từ workflowPlayerControls/app-boot/player).
          Cụm "subtitleStyleSettings" (panel Settings > Display > Subtitles). -->
-    <script src="event/workflow/subtitle-display.js?v=20261001kr1"></script>
+    <script src="event/workflow/subtitle-display.js?v=20261006r4"></script>
     <script src="event/workflow/subtitle-style-settings.js?v=20261001kr1"></script>
     <script src="event/router/subtitle-style-settings.js?v=20261005disp4"></script>
     <script src="event/listener/subtitle-style-settings.js?v=20261005disp4"></script>
