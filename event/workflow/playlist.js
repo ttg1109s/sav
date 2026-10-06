@@ -1198,7 +1198,14 @@ const workflowPlaylist = {
                     const key = await resolveSongKey(file.name);
                     const isOverwrite = playlistOrderSet.has(key);
 
-                    const record = { filename: file.name, blob: file, tag, cover, subtitles: [], duration, addedAt: Date.now() };
+                    // FIX (06/10/2026, Giang báo "bài VỪA upload: ẩn app thì nhạc dừng + mất Media Session; reload/vào lại thì ổn")
+                    // — `file` là File của ô chọn file: trên iOS nó trỏ tới file TẠM của trình chọn file, và Blob đọc lại từ
+                    // IndexedDB NGAY TRONG PHIÊN upload có thể vẫn trỏ về đúng file tạm đó (sau khi tải lại trang mới trỏ về bản
+                    // IndexedDB tự giữ — đúng triệu chứng "reload thì ổn"). App vào nền, iOS thu quyền/dọn file tạm -> nguồn phát
+                    // chết. Vật chất hoá thành Blob trong RAM trước khi ghi để bản lưu không còn dính file tạm (cùng cơ chế
+                    // rematerializeBlob(), service/db.js). Chỉ áp cho Song (phát nền); file Song thường chỉ vài chục MB.
+                    const ownedBlob = await rematerializeBlob(file); // service/db.js
+                    const record = { filename: file.name, blob: ownedBlob, tag, cover, subtitles: [], duration, addedAt: Date.now() };
                     if (isOverwrite) {
                         // SỬA (06/10/2026, plan-media-db-split.md) — chỉ đọc meta (không mở Blob). Ghi đè giữ lại phụ đề
                         // (như cũ) + folder / thống kê / điểm Game (giờ nằm trong meta — trước đây field folder bị mất khi ghi đè).
