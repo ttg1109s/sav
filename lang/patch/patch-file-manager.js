@@ -207,6 +207,8 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.song.storageAction.doneDownloadOnly': 'Zip file(s) downloaded.',
     'fileManager.song.storageAction.doneDeleteOnly': '{scope} deleted from this device.',
     'fileManager.song.storageAction.zipErrorSkippedDelete': "Couldn't build the zip file: {message}. Deletion was skipped to avoid losing data without a backup.",
+    // MỚI (06/10/2026, chia zip nhiều phần) — chưa tải đủ mọi phần zip -> KHÔNG xoá dữ liệu nguồn đó.
+    'fileManager.song.storageAction.notAllDownloadedSkippedDelete': "Not every zip part was downloaded, so that data was not deleted. Run it again and download all parts to delete.",
     // ── File Manager -> Song & Video -> Folder Browser (grid folder) ──────────────────────────
     // XOÁ (06/09/2026, Giang chốt mục 3.6 — "bỏ hẳn màn Read") — toàn bộ key riêng cho màn Read cũ
     // (2 toggle Scope/Exclude + hint, trạng thái rỗng, nút "Xoá hết bài", tiêu đề "Gỡ khỏi folder")
