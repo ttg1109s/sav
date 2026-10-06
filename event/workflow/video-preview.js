@@ -912,10 +912,14 @@ const workflowVideoPreview = {
                 if (mode === 'overwrite') {
                     const r = await replaceVideoMedia(videoKey, { blob, ...meta }); // core/file-manager/video.js — giữ customName/addedAt...
                     if (r.status === 'notFound') { resultKey = 'videoPreview.videoNotFound'; return; }
+                    // MỚI (06/10/2026, plan-media-db-split.md mục 7) — báo request trung tâm: video này đang phát/làm nền thì tự nạp lại.
+                    eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced', payload: { type: 'video', key: videoKey } });
                 } else {
-                    const newKey = await saveVideo(blob, this._buildNewFilename(), meta.thumbBlob, meta.width, meta.height, meta.duration, meta.thumbFullBlob, meta.thumbFullIsBlack); // core/file-manager/video.js
+                    const newFilename = this._buildNewFilename();
+                    const newKey = await resolveVideoKey(newFilename); // service/db.js — SỬA 06/10/2026: key resolve ở Workflow (Rule 3)
+                    await saveVideo(newKey, blob, newFilename, meta.thumbBlob, meta.width, meta.height, meta.duration, meta.thumbFullBlob, meta.thumbFullIsBlack); // core/file-manager/video.js
                     const activeFolderIdForVideo = appState.get('activePlayListFolder').video; // cùng khuôn workflowPlaylist.uploadVideos()
-                    if (activeFolderIdForVideo) await addSongsToFolder([newKey], activeFolderIdForVideo, 'video'); // core/file-manager/folder.js
+                    if (activeFolderIdForVideo) await workflowPlaylist.addMediaToFolder([newKey], activeFolderIdForVideo, 'video'); // event/workflow/playlist.js — SỬA 06/10/2026 (Workflow đọc folder_song trước, Rule 3b)
                 }
                 pct(100);
                 saved = true;

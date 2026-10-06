@@ -23,7 +23,11 @@ const workflowFileManagerCleanup = {
     async run() {
         const total = await withLoadingShield(t('fileManager.cleanup.running'), async () => {
             const checks = getRegisteredCleanupChecks(); // core
-            let sum = 0;
+            // MỚI (06/10/2026, plan-media-db-split.md — Rule 3b) — check cần đọc DB: Workflow chuẩn bị dữ liệu rồi gọi core.
+            const [songMetas, deletedFolderIds] = await Promise.all([getAllMediaMeta('song'), getMeta('deletedFolderIds')]); // service/db.js
+            const staleFolderFieldCount = await cleanupOrphanedSongFolderFields(songMetas, deletedFolderIds || []); // core/file-manager/cleanup.js
+            if (staleFolderFieldCount > 0) console.log(`[fileManagerCleanup] "orphanedSongFolderFields": đã dọn ${staleFolderFieldCount} mục.`);
+            let sum = staleFolderFieldCount;
             for (const check of checks) {
                 const count = await check.run();
                 sum += count;

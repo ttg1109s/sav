@@ -997,6 +997,8 @@ const workflowImageEdit = {
             const { thumbBlob, width, height } = await workflowFileManagerPhoto.resizeImageForThumbnail(finalBlob);
             const duration = await workflowFileManagerPhoto.computePhotoDuration(finalBlob, width, height); // MỚI — event/workflow/file-manager-photo.js
             await updateImageBlob(imageKey, finalBlob, thumbBlob, width, height, duration); // core/file-manager/image.js
+            // MỚI (06/10/2026, plan-media-db-split.md mục 7) — báo request trung tâm: ảnh này đang hiện/làm nền thì tự nạp lại.
+            eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced', payload: { type: 'photo', key: imageKey } });
         });
         if (tooLargeReason) { await alertModal(tFormat('common.validate.generatedNotSaved', { reason: tooLargeReason })); return; } // giữ modal sửa ảnh mở
         workflowFileManagerPhoto.closeImagePreview();
@@ -1016,14 +1018,15 @@ const workflowImageEdit = {
 
         let tooLargeReason = null; // MỚI (06/10/2026) — cùng lý do saveEditOverwrite() ngay trên
         await withLoadingShield(t('common.loading.savingImageEdit'), async () => {
-            const originalRecord = await getImageRecord(this._activeImageKey); // service/db.js
+            const originalRecord = await getMediaMeta('photo', this._activeImageKey); // service/db.js — SỬA 06/10/2026: chỉ cần filename, không mở Blob
             const finalBlob = await this._exportEditedBlob();
             const sizeCheck = validateMediaFileSize(finalBlob); // core/upload-validation.js
             if (!sizeCheck.valid) { tooLargeReason = sizeCheck.reason; return; }
             const { thumbBlob, width, height } = await workflowFileManagerPhoto.resizeImageForThumbnail(finalBlob);
             const duration = await workflowFileManagerPhoto.computePhotoDuration(finalBlob, width, height); // MỚI — event/workflow/file-manager-photo.js
             const newFilename = this._buildEditedNewFilename(originalRecord ? originalRecord.filename : 'photo.jpg');
-            await saveImage(finalBlob, newFilename, thumbBlob, width, height, duration); // core/file-manager/image.js
+            const newKey = await resolveImageKey(newFilename); // service/db.js — SỬA 06/10/2026: key resolve ở Workflow (Rule 3)
+            await saveImage(newKey, finalBlob, newFilename, thumbBlob, width, height, duration); // core/file-manager/image.js
         });
         if (tooLargeReason) { await alertModal(tFormat('common.validate.generatedNotSaved', { reason: tooLargeReason })); return; } // giữ modal sửa ảnh mở
         workflowFileManagerPhoto.closeImagePreview();

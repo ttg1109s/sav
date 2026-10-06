@@ -215,7 +215,11 @@ const workflowFileManagerFolderBrowser = {
             tFormat(`fileManager.song.deleteFolderConfirm${FOLDER_TEXT_SUFFIX_BY_TYPE[folderType]}`, { name: escapeHtml(folderRecord.name) }),
             [
                 { label: t('fileManager.song.btnDeleteFolder'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnDestructiveBg btnDestructiveHoverBg textOnAccent', onClick: async () => {
-                    await deleteFolder(folderId, folderType); // core/file-manager/folder.js
+                    // SỬA (06/10/2026, plan-media-db-split.md — Rule 3b) — Workflow đọc sẵn dữ liệu cho core deleteFolder().
+                    const [folderMap, folderIndex, deletedIds] = await Promise.all([
+                        getFolderSongMap(folderId), getMeta('folderIndex'), getMeta('deletedFolderIds'),
+                    ]); // service/db.js
+                    if (folderMap) await deleteFolder(folderId, folderType, folderMap, folderIndex || { song: [], video: [], photo: [] }, deletedIds || []); // core/file-manager/folder.js
                     await this.openList();
                 } }
             ],

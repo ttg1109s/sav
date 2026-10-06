@@ -23,36 +23,20 @@ const GAMEPLAY_SCORE_COUNTUP_STEPS = 24;
 const GAMEPLAY_SCORE_RING_MAX_EXTRA_LAPS = 3;
 const GAMEPLAY_SCORE_RING_PALETTE = ['#38bdf8', '#4ade80', '#fbbf24', '#f472b6']; // sky/emerald/amber/pink-400
 
-/**
- * MỚI (05/10/2026, Giang yêu cầu "xử lý luôn video không ghi được điểm") — store ghi điểm theo loại media ĐANG chơi (object
- * map, key = 'song' | 'video' | 'photo'). Trước đây `persistScore()` LUÔN đọc/ghi store 'songs' -> Video/Photo không bao giờ
- * lưu được điểm (getSongRecord(key của video) không ra record), tệ hơn: key video trùng key 1 bài hát thì điểm ghi NHẦM vào
- * bài hát đó.
- *   - read/write: cặp hàm service/db.js của đúng store.
- *   - blobFields: mọi field Blob của record — PHẢI vật chất hoá lại trước khi ghi (bug round-trip Blob, xem
- *     service/db.js::rematerializeBlob(); danh sách khớp applySongEditAndSave()/applyVideoEditAndSave(), core/playlist/
- *     actions.js — Video thêm `thumbFullBlob`, Photo có `blob` + `thumbBlob`).
- *   - coverOf: Blob dùng làm `cover` trong playlistCache — khớp core/playlist/loader.js (Song: record.cover; Video/Photo:
- *     thumbBlob, Photo fallback ảnh gốc). Trỏ cache sang Blob MỚI, không thì item Playlist vẽ lại từ Blob cũ sẽ vỡ ảnh
- *     (FIX 2 trong docstring applyVideoEditAndSave()).
- */
-const GAMEPLAY_SCORE_RECORD_BY_MEDIA = {
-    song: {
-        read: (key) => getSongRecord(key), write: (key, record) => setSongRecord(key, record), // service/db.js
-        blobFields: ['blob', 'cover'],
-        coverOf: (record) => record.cover || null,
-    },
-    video: {
-        read: (key) => getVideoRecord(key), write: (key, record) => setVideoRecord(key, record), // service/db.js
-        blobFields: ['blob', 'thumbBlob', 'thumbFullBlob'],
-        coverOf: (record) => record.thumbBlob || null,
-    },
-    photo: {
-        read: (key) => getImageRecord(key), write: (key, record) => setImageRecord(key, record), // service/db.js
-        blobFields: ['blob', 'thumbBlob'],
-        coverOf: (record) => record.thumbBlob || record.blob || null,
-    },
-};
+// SỬA (06/10/2026, plan-media-db-split.md) — XOÁ bảng `GAMEPLAY_SCORE_RECORD_BY_MEDIA` (read/write/blobFields/coverOf theo
+// từng store): điểm Game nằm trong META của media, ghi qua `updateMediaMeta(type, key, ...)` (service/db.js — CHỈ store
+// meta, không đụng Blob) -> hết lỗi round-trip tận gốc (bài câm / "file hỏng" khi phát lại đúng bài vừa chơi), không
+// còn rematerializeBlob() lẫn bước trỏ lại cover trong playlistCache. Loại media hợp lệ đi thẳng làm `type`.
+const GAMEPLAY_SCORE_MEDIA_TYPES = new Set(['song', 'video', 'photo']);
+
+/** Thêm 1 lượt chơi vào `meta.game[mode][difficulty]` — hàm THUẦN dùng làm `mutate` cho updateMediaMeta(). */
+function appendGameplayScore(meta, mode, difficulty, finalScore) {
+    const game = { ...(meta.game || {}) };
+    const byMode = { ...(game[mode] || {}) };
+    byMode[difficulty] = [...(byMode[difficulty] || []), { time: Date.now(), score: finalScore }];
+    game[mode] = byMode;
+    return { ...meta, game };
+}
 
 const workflowGameplayEngine = {
 
@@ -158,42 +142,19 @@ const workflowGameplayEngine = {
      */
     async persistScore(mode, difficulty, finalScore, mediaType) {
         const key = appState.get('currentKey');
-        const spec = GAMEPLAY_SCORE_RECORD_BY_MEDIA[mediaType];
-        if (!key || !spec) return { title: '', playCount: 0 }; // guard
-        const record = await spec.read(key);
-        if (!record) return { title: '', playCount: 0 };
-        if (!record.game) record.game = {};
-        if (!record.game[mode]) record.game[mode] = {};
-        if (!record.game[mode][difficulty]) record.game[mode][difficulty] = [];
-        record.game[mode][difficulty].push({ time: Date.now(), score: finalScore });
-        // FIX (05/10/2026, Giang báo "Game mode > hết bài > về Playlist > phát lại ĐÚNG bài đó -> hết cooldown thì câm, bấm
-        // X hiện modal 'Can't play this Song… corrupted'; reset app thì file vẫn bình thường; chọn bài khác rồi quay lại
-        // thì hết") — CÙNG GỐC bug round-trip Blob đã ghi ở service/db.js::rematerializeBlob(): hàm này đọc nguyên record
-        // (gồm `blob` audio + `cover`) rồi ghi LẠI đúng Blob handle vừa đọc từ IndexedDB -> backing file cũ bị coi là đã
-        // thay thế ngay trong phiên, trong khi audioPlayer vẫn dùng blob URL tạo từ backing file đó (phát lại ĐÚNG bài =
-        // nhánh `key === currentKey` của playMedia(), KHÔNG tạo URL mới) -> nạp lại lỗi -> câm + sự kiện 'error'. Chọn bài
-        // khác/vào lại sau đó tạo URL mới từ record mới nên bình thường. Vật chất hoá lại TRƯỚC khi ghi — đúng khuôn
-        // core/playlist/actions.js::applySongEditAndSave(). SỬA (05/10/2026, lượt 2) — mọi field Blob theo loại media.
-        for (const field of spec.blobFields) {
-            if (record[field]) record[field] = await rematerializeBlob(record[field]); // service/db.js
-        }
-        await spec.write(key, record);
-        this._pointCacheCoverToFreshBlob(key, mediaType, spec.coverOf(record));
-        // [SỬA] `record.tag.title` CHỈ tồn tại cho Song — Video dùng `customName`/`filename` (KHÔNG
-        // có `.tag`, xem core/file-manager/video.js), cùng công thức display title dùng chung toàn
-        // project (vd core/playlist/loader.js dòng ~358 lúc build Adapter cho playlistCache).
-        const title = (record.tag && record.tag.title)
-            ? record.tag.title
-            : (record.customName || (record.filename ? stripFileExtension(record.filename) : key)); // stripFileExtension: core/file-manager/video.js
-        return { title, playCount: record.game[mode][difficulty].length };
+        if (!key || !GAMEPLAY_SCORE_MEDIA_TYPES.has(mediaType)) return { title: '', playCount: 0 }; // guard
+        const result = await updateMediaMeta(mediaType, key, (meta) => appendGameplayScore(meta, mode, difficulty, finalScore)); // service/db.js
+        if (result.status === 'notFound') return { title: '', playCount: 0 };
+        const meta = result.meta;
+        // `meta.tag.title` CHỈ tồn tại cho Song — Video/Photo dùng `customName`/`filename`, cùng công thức display title
+        // dùng chung toàn project (core/playlist/loader.js).
+        const title = (meta.tag && meta.tag.title)
+            ? meta.tag.title
+            : (meta.customName || (meta.filename ? stripFileExtension(meta.filename) : key)); // stripFileExtension: core/file-manager/video.js
+        console.log(`[workflowGameplayEngine.persistScore] ghi điểm ${finalScore} (${mode}/${difficulty}) vào meta ${mediaType} "${key}"`);
+        return { title, playCount: meta.game[mode][difficulty].length };
     },
 
-    /** Bước tuỳ chọn — playlistCache đang là của ĐÚNG loại media vừa ghi (cache theo Nguồn đang chọn) thì trỏ `cover`
-     * sang Blob vừa vật chất hoá (Blob cũ round-trip -> item vẽ lại bị vỡ ảnh, rơi về vinyl mặc định). */
-    _pointCacheCoverToFreshBlob(key, mediaType, coverBlob) {
-        if (appState.get('activeMediaSource') !== mediaType) return; // guard — cache đang là Nguồn khác
-        const cached = appState.get('playlistCache').get(key);
-        if (!cached) return; // guard
-        cached.cover = coverBlob;
-    },
+    // XOÁ (06/10/2026, plan-media-db-split.md) — `_pointCacheCoverToFreshBlob()`: chỉ tồn tại để chữa lỗi round-trip Blob,
+    // giờ điểm Game ghi CHỈ vào meta nên cover trong playlistCache không bị ảnh hưởng.
 };

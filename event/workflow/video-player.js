@@ -860,7 +860,8 @@ const workflowVideoPlayer = {
         const thumbBlob = await buildExtractedPhotoThumbnail(sourceCanvas, 0.2); // core/video-player-capture.js
         const filename = `${buildExtractedPhotoFilename()}.jpg`; // core/video-player-capture.js
         const duration = await workflowFileManagerPhoto.computePhotoDuration(blob, sourceCanvas.width, sourceCanvas.height); // event/workflow/file-manager-photo.js
-        await saveImage(blob, filename, thumbBlob, sourceCanvas.width, sourceCanvas.height, duration); // core/file-manager/image.js
+        const imageKey = await resolveImageKey(filename); // service/db.js — SỬA 06/10/2026: key resolve ở Workflow (Rule 3)
+        await saveImage(imageKey, blob, filename, thumbBlob, sourceCanvas.width, sourceCanvas.height, duration); // core/file-manager/image.js
         await alertModal(t('videoPlayer.captureFrame.success'));
     },
 

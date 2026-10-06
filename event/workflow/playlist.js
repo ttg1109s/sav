@@ -83,10 +83,13 @@ const MEDIA_SWITCH_I18N = {
  * hành vi khác nhau (trước đây `deleteVideo()`/`deleteImage()`, core/file-manager/video.js/image.js,
  * tự cascade RỒI xoá — 2 hàm đó ĐÃ XOÁ). Nơi gọi (Workflow) LUÔN tự gọi `removeSongFromAllFolders()`
  * TRƯỚC bước `deleteRecord` — ĐỒNG NHẤT cho cả 3 loại, không còn ai "tự lo" khác ai. */
+// SỬA (06/10/2026, plan-media-db-split.md) — deleteSongRecord/deleteVideoRecord/deleteImageRecord ĐÃ XOÁ HẲN: xoá qua
+// `deleteMediaRecord(type, key)` (3 store trong 1 transaction). `getRecord` giờ CHỈ đọc meta (chỉ cần field `folder`
+// cho removeSongFromAllFolders(), không cần mở Blob).
 const MEDIA_DELETE_ACCESSOR = {
-    song: { getRecord: getSongRecord, deleteRecord: deleteSongRecord },
-    video: { getRecord: getVideoRecord, deleteRecord: deleteVideoRecord },
-    photo: { getRecord: getImageRecord, deleteRecord: deleteImageRecord },
+    song: { getRecord: (key) => getMediaMeta('song', key), deleteRecord: (key) => deleteMediaRecord('song', key) }, // service/db.js
+    video: { getRecord: (key) => getMediaMeta('video', key), deleteRecord: (key) => deleteMediaRecord('video', key) },
+    photo: { getRecord: (key) => getMediaMeta('photo', key), deleteRecord: (key) => deleteMediaRecord('photo', key) },
 };
 
 /** MỚI (01/10/2026, Ghi âm) — lưu bản ghi xong: cập nhật danh sách RAM theo Nguồn đang chọn (event-bus-flow.md mục 7 —
@@ -238,7 +241,7 @@ const workflowPlaylist = {
         await withLoadingShield(t('common.loading.deleting'), async () => {
             // SỬA (24/09/2026) — 3 bước của core `deleteBrokenSongByKey()` cũ đứng cạnh nhau ở đây (bản cũ: core gọi
             // core removeSongStats + removeKeyFromDisplay). Thứ tự giữ nguyên.
-            await deleteSongRecord(key); // service/db.js
+            await deleteMediaRecord('song', key); // service/db.js — SỬA 06/10/2026 (3 store, plan-media-db-split.md)
             removeSongStats(key); // core/listen-stats.js
             workflowPlaylistOrder.removeKeyFromDisplay(key); // event/workflow/playlist-order.js
         });
@@ -389,57 +392,142 @@ const workflowPlaylist = {
         workflowPlaylistRender.renderPlaylistDiff();
     },
 
+    /**
+     * SỬA (06/10/2026, plan-media-db-split.md) — ghi qua `updateMediaMeta()` (service/db.js — CHỈ store meta, không
+     * ghi lại Blob nào) với meta mới do core thuần dựng (`buildVideoEditMeta`/`buildPhotoEditMeta`/`buildSongEditMeta`,
+     * core/playlist/actions.js). Phần cập nhật RAM/DOM sau khi lưu (playlistCache, songNameIndex, tiêu đề player,
+     * Media Session) trước đây nằm trong 3 hàm core `apply*EditAndSave()` (tự appState.get + DOM — vi phạm Rule 2/3)
+     * giờ ở `_syncEdited*Runtime()` ngay dưới. Rẽ nhánh theo loại media qua object map (event-bus-flow.md mục 7).
+     */
     async executeSaveEdit() {
         const key = playlistStore.get('songEditCurrentKey');
         if (!key) return; // không có modal nào đang mở -> no-op, giống hành vi gốc
         const cached = appState.get('playlistCache').get(key);
-        const isVideo = cached && cached.mediaType === 'video';
-        const isPhoto = cached && cached.mediaType === 'photo';
+        const mediaType = (cached && cached.mediaType) || 'song';
+        const saveByType = {
+            video: () => this._saveVideoEdit(key),
+            photo: () => this._savePhotoEdit(key),
+            song: () => this._saveSongEdit(key),
+        };
+        const result = await saveByType[mediaType]();
+        // Shield đã đóng HẲN tới đây — an toàn để hiện modal (xem quy tắc shield/modal đầu file).
+        if (result.status === 'notFound') await alertModal(t('common.songEdit.notFound'));
+        closeSongEditModal(); // core thuần UI — đóng modal trong MỌI trường hợp (giống bản gốc)
+        this._refreshAfterMediaEditSave(key); // vẽ lại danh sách/sắp xếp lại nếu cần
+    },
 
-        if (isVideo) {
-            const { customName, album } = captureVideoEditFormState(); // core THUẦN
-            let result;
-            await withLoadingShield(t('common.loading.savingInfo'), async () => {
-                result = await applyVideoEditAndSave(key, customName, album); // core THUẦN, nhận key/customName/album qua tham số
-            });
-            if (result.status === 'notFound') await alertModal(t('common.songEdit.notFound'));
-            closeSongEditModal();
-            this._refreshAfterMediaEditSave(key); // DÙNG CHUNG — không có gì "của riêng Song"
-            return;
-        }
-
-        // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video) — CÙNG KHUÔN nhánh Video
-        // ngay trên, chỉ khác 2 field đọc/ghi (customName + durationSec thay vì chỉ customName).
-        if (isPhoto) {
-            const { customName, durationSec, album } = capturePhotoEditFormState(); // core THUẦN
-            let result;
-            await withLoadingShield(t('common.loading.savingInfo'), async () => {
-                result = await applyPhotoEditAndSave(key, customName, durationSec, album); // core THUẦN
-            });
-            if (result.status === 'notFound') await alertModal(t('common.songEdit.notFound'));
-            closeSongEditModal();
-            this._refreshAfterMediaEditSave(key);
-            return;
-        }
-
-        // captureSongEditFormState() là core THUẦN, không shield — chỉ đọc dữ liệu hiện có của
-        // form + playlistStore, không ghi gì cả.
-        const { newTag, pendingCover } = captureSongEditFormState();
-
+    async _saveVideoEdit(key) {
+        const { customName, album } = captureVideoEditFormState(); // core THUẦN
         let result;
         await withLoadingShield(t('common.loading.savingInfo'), async () => {
-            // applySongEditAndSave() là core THUẦN, nhận key/newTag/pendingCover qua THAM SỐ
-            // (không tự đọc playlistStore bên trong) -> an toàn để bọc shield quanh nó.
-            result = await applySongEditAndSave(key, newTag, pendingCover);
+            result = await updateMediaMeta('video', key, (meta) => buildVideoEditMeta(meta, customName, album)); // service/db.js + core/playlist/actions.js
         });
+        if (result.status === 'ok') this._syncEditedVideoRuntime(key, result.meta);
+        return result;
+    },
 
-        // Shield đã đóng HẲN tới đây — an toàn để hiện modal (xem quy tắc shield/modal đầu file).
-        if (result.status === 'notFound') {
-            await alertModal(t('common.songEdit.notFound'));
+    async _savePhotoEdit(key) {
+        const { customName, durationSec, album } = capturePhotoEditFormState(); // core THUẦN
+        let result;
+        await withLoadingShield(t('common.loading.savingInfo'), async () => {
+            result = await updateMediaMeta('photo', key, (meta) => buildPhotoEditMeta(meta, customName, durationSec, album)); // service/db.js + core/playlist/actions.js
+        });
+        if (result.status === 'ok') this._syncEditedPhotoRuntime(key, result.meta);
+        return result;
+    },
+
+    async _saveSongEdit(key) {
+        const { newTag, pendingCover } = captureSongEditFormState(); // core THUẦN — chỉ đọc form + playlistStore
+        // Ảnh bìa: File mới -> ghi Blob mới vào store thumb; 'remove' -> xoá thumb; còn lại giữ nguyên (không ghi gì).
+        const coverChange = (pendingCover instanceof File && 'file') || (pendingCover === 'remove' && 'remove') || 'keep';
+        const writeCoverByChange = {
+            file: () => setMediaThumbs('song', key, { cover: pendingCover }), // service/db.js
+            remove: () => setMediaThumbs('song', key, { cover: null }),
+            keep: () => Promise.resolve(),
+        };
+        let result;
+        await withLoadingShield(t('common.loading.savingInfo'), async () => {
+            result = await updateMediaMeta('song', key, (meta) => buildSongEditMeta(meta, newTag)); // service/db.js + core/playlist/actions.js
+            if (result.status === 'ok') await writeCoverByChange[coverChange]();
+        });
+        if (result.status === 'ok') this._syncEditedSongRuntime(key, result.meta, coverChange, pendingCover);
+        return result;
+    },
+
+    /** Cập nhật RAM/DOM sau khi lưu tab "Sửa" Video — thân DỜI từ core `applyVideoEditAndSave()` (06/10/2026), bỏ phần
+     * trỏ lại `cached.cover` (chỉ tồn tại để chữa lỗi round-trip, giờ Blob không bị ghi lại nên cover cũ vẫn dùng được). */
+    _syncEditedVideoRuntime(key, meta) {
+        const displayName = meta.customName || stripFileExtension(meta.filename); // core/file-manager/video.js
+        const cached = appState.get('playlistCache').get(key);
+        if (cached) {
+            cached.tag.title = displayName;
+            cached.tag.album = meta.album || ''; // search/filter đọc field này (core/playlist/order.js, core/playlist/filter.js)
         }
+        appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(displayName)));
+        console.log(`writer: "workflowPlaylist._syncEditedVideoRuntime", page: "songNameIndex", content: "${key} -> ${displayName}"`);
+        if (key !== appState.get('currentKey')) return;
+        playerTitle.textContent = displayName;
+        if ('mediaSession' in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: displayName, artist: '', artwork: [] });
+    },
 
-        closeSongEditModal(); // core thuần, thuần UI — đóng modal trong MỌI trường hợp (giống bản gốc)
-        this._refreshAfterMediaEditSave(key); // vẽ lại danh sách/sắp xếp lại nếu cần
+    /** Bản Photo của `_syncEditedVideoRuntime()` — thân DỜI từ core `applyPhotoEditAndSave()` (06/10/2026). */
+    _syncEditedPhotoRuntime(key, meta) {
+        const displayName = meta.customName || stripFileExtension(meta.filename); // core/file-manager/video.js
+        const cached = appState.get('playlistCache').get(key);
+        if (cached) {
+            cached.tag.title = displayName;
+            cached.tag.album = meta.album || '';
+            cached.duration = meta.duration;
+        }
+        appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(displayName)));
+        console.log(`writer: "workflowPlaylist._syncEditedPhotoRuntime", page: "songNameIndex", content: "${key} -> ${displayName}"`);
+        if (key !== appState.get('currentKey')) return;
+        playerTitle.textContent = displayName;
+        appState.set('photoPlayerDurationSec', meta.duration, { skipCheck: true }); // event/workflow/photo-player.js đọc mỗi tick — ảnh đang hiện đổi thời lượng ngay
+        console.log(`writer: "workflowPlaylist._syncEditedPhotoRuntime", page: "photoPlayerDurationSec", content: "${meta.duration}"`);
+        if ('mediaSession' in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: displayName, artist: '', artwork: [] });
+    },
+
+    /** Bản Song — thân DỜI từ core `applySongEditAndSave()` (06/10/2026). Ảnh bìa trong RAM/DOM chỉ đổi khi người dùng
+     * chọn ảnh mới / xoá ảnh (`coverChange`); giữ nguyên thì URL cover đang hiện vẫn dùng tiếp.
+     * @param {string} key @param {object} meta @param {'file'|'remove'|'keep'} coverChange @param {File|string|null} pendingCover */
+    _syncEditedSongRuntime(key, meta, coverChange, pendingCover) {
+        const cached = appState.get('playlistCache').get(key);
+        const cachedCoverByChange = { file: () => pendingCover, remove: () => null, keep: () => (cached ? cached.cover : null) };
+        const cover = cachedCoverByChange[coverChange]();
+        if (cached) { cached.tag = meta.tag; cached.cover = cover || null; }
+        appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(meta.tag.title)));
+        console.log(`writer: "workflowPlaylist._syncEditedSongRuntime", page: "songNameIndex", content: "${key} -> ${meta.tag.title}"`);
+        if (key !== appState.get('currentKey')) return;
+        playerTitle.textContent = meta.tag.title; playerArtist.textContent = meta.tag.artist;
+        const refreshCoverUrlByChange = {
+            file: () => this._replaceCurrentCoverUrl(createBlobUrl(pendingCover)), // service/blob-url.js
+            remove: () => this._replaceCurrentCoverUrl(DEFAULT_VINYL),
+            keep: () => {},
+        };
+        refreshCoverUrlByChange[coverChange]();
+        if ('mediaSession' in navigator) {
+            const coverUrl = appState.get('currentCoverObjectURL');
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: meta.tag.title || "Visual Master",
+                artist: meta.tag.artist || "Unknown Artist",
+                artwork: cover ? [{ src: coverUrl, sizes: '512x512', type: cover.type || 'image/jpeg' }] : []
+            });
+        }
+    },
+
+    /** Thay URL ảnh bìa bài ĐANG phát (thu hồi URL blob cũ) + gán lại #record-art. #record-art là phần tử ĐỘNG (tạo lại
+     * qua innerHTML mỗi lần đổi bài) nên tự getElementById tại chỗ; gắn lại fallback mỗi lần đổi src (core/playlist/render.js).
+     * @param {string} url */
+    _replaceCurrentCoverUrl(url) {
+        const oldUrl = appState.get('currentCoverObjectURL');
+        if (oldUrl && oldUrl.startsWith('blob:')) revokeBlobUrl(oldUrl); // service/blob-url.js
+        appState.set('currentCoverObjectURL', url);
+        console.log(`writer: "workflowPlaylist._replaceCurrentCoverUrl", page: "currentCoverObjectURL", content: "${url.startsWith('blob:') ? 'blob mới' : url}"`);
+        const recordArtEl = document.getElementById('record-art');
+        if (!recordArtEl) return;
+        recordArtEl.src = url;
+        attachCoverFallback(recordArtEl); // core/playlist/render.js
     },
 
     /** Ứng với click nút duration ở tab "Sửa" của nhóm field Photo — mở time-picker (core/time-
@@ -840,10 +928,23 @@ const workflowPlaylist = {
      * folder Song kể cả khi Nguồn đang là Video (Ghi âm lúc phát Video, Giang chốt).
      * @param {string[]} keys
      */
+    /**
+     * MỚI (06/10/2026, plan-media-db-split.md — Rule 3b) — Workflow CHUẨN BỊ cho core `addSongsToFolder()` (core/file-manager/
+     * folder.js — giờ không tự đọc DB): đọc `folder_song` của folder đích, folder không tồn tại thì dừng. DÙNG CHUNG mọi
+     * nơi thêm media vào folder (upload, ghi âm, picker "Thêm vào thư mục", Video editor "Lưu mới").
+     * @param {string[]} keys @param {string} folderId @param {'song'|'video'|'photo'} mediaType
+     * @returns {Promise<{status: 'notFound'|'ok', addedCount: number}>}
+     */
+    async addMediaToFolder(keys, folderId, mediaType) {
+        const folderMap = await getFolderSongMap(folderId); // service/db.js
+        if (!folderMap) return { status: 'notFound', addedCount: 0 };
+        return addSongsToFolder(keys, folderId, mediaType, folderMap); // core/file-manager/folder.js
+    },
+
     async _attachSongsToActiveSongFolder(keys) {
         const activeFolderIdForSong = appState.get('activePlayListFolder').song;
         if (!activeFolderIdForSong || keys.length === 0) return;
-        await addSongsToFolder(keys, activeFolderIdForSong, 'song'); // core/file-manager/folder.js
+        await this.addMediaToFolder(keys, activeFolderIdForSong, 'song'); // workflowPlaylist.addMediaToFolder() — SỬA 06/10/2026 (đọc folder_song rồi gọi core addSongsToFolder)
     },
 
     /**
@@ -856,8 +957,12 @@ const workflowPlaylist = {
      */
     async addRecordedSong(song) {
         const key = await resolveSongKey(song.filename); // service/db.js
-        const record = { filename: song.filename, blob: song.blob, tag: song.tag, cover: song.cover, subtitles: [], duration: song.duration, addedAt: Date.now() };
-        await setSongRecord(key, record); // service/db.js
+        // SỬA (06/10/2026, plan-media-db-split.md) — cover gốc lấy từ playlistCache (Blob ĐỌC TỪ IndexedDB của bài/video
+        // nguồn) nên vật chất hoá thành Blob mới trước khi ghi sang record khác (tránh lỗi round-trip); file ghi âm vốn
+        // là Blob mới. Ghi qua createMediaRecord() (3 store).
+        const cover = song.cover ? await rematerializeBlob(song.cover) : null; // service/db.js
+        const record = { filename: song.filename, blob: song.blob, tag: song.tag, cover, subtitles: [], duration: song.duration, addedAt: Date.now() };
+        await createMediaRecord('song', key, record); // service/db.js
         console.log(`writer: "workflowPlaylist.addRecordedSong", page: "db.songs", content: "${key} (${song.blob.type || 'không rõ MIME'}, ${song.blob.size} byte)"`);
         const activeMediaSource = appState.get('activeMediaSource');
         (RECORDED_SONG_INDEX_BY_SOURCE[activeMediaSource] || RECORDED_SONG_INDEX_BY_SOURCE.other)(key, record);
@@ -988,10 +1093,14 @@ const workflowPlaylist = {
 
                     const record = { filename: file.name, blob: file, tag, cover, subtitles: [], duration, addedAt: Date.now() };
                     if (isOverwrite) {
-                        const old = await getSongRecord(key);
-                        if (old && old.subtitles) record.subtitles = old.subtitles;
+                        // SỬA (06/10/2026, plan-media-db-split.md) — chỉ đọc meta (không mở Blob). Ghi đè giữ lại phụ đề
+                        // (như cũ) + folder / thống kê / điểm Game (giờ nằm trong meta — trước đây field folder bị mất khi ghi đè).
+                        const old = await getMediaMeta('song', key); // service/db.js
+                        if (old) Object.assign(record, { subtitles: old.subtitles || [], folder: old.folder, stats: old.stats, game: old.game });
                     }
-                    await setSongRecord(key, record);
+                    await createMediaRecord('song', key, record); // service/db.js — 3 store, file + cover đều là Blob mới
+                    // MỚI (06/10/2026, plan mục 7) — báo request trung tâm: nếu bài này đang phát/đang dùng thì tự nạp lại.
+                    eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced', payload: { type: 'song', key } });
                     // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 6 — "upload tự gắn
                     // vào folder đang active") — gom key vào ĐÂY (CẢ 2 nhánh mới/ghi đè, xem
                     // docstring cuối vòng lặp for) — gắn folder hàng loạt SAU vòng lặp, không
@@ -1117,7 +1226,9 @@ const workflowPlaylist = {
                 loadingText.textContent = tFormat('common.upload.loadingProgress', { done: i + 1, total: fileArray.length });
                 try {
                     const { thumbBlob, thumbFullBlob, thumbFullIsBlack, width, height, duration } = await this.extractVideoThumbAndMeta(file);
-                    const videoKey = await saveVideo(file, file.name, thumbBlob, width, height, duration, thumbFullBlob, thumbFullIsBlack); // core/file-manager/video.js — CÓ return (videoKey), trước đây bị bỏ qua
+                    const videoKey = await resolveVideoKey(file.name); // service/db.js — SỬA 06/10/2026: key resolve ở Workflow (Rule 3)
+                    await saveVideo(videoKey, file, file.name, thumbBlob, width, height, duration, thumbFullBlob, thumbFullIsBlack); // core/file-manager/video.js
+                    eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced', payload: { type: 'video', key: videoKey } }); // MỚI 06/10/2026 — trùng tên = ghi đè, trung tâm tự nạp lại nếu đang dùng
                     uploadedVideoKeys.push(videoKey);
                 } catch (err) {
                     console.error(`[uploadVideos] chụp thumbnail/lưu thất bại cho file "${file.name}":`, err);
@@ -1130,7 +1241,7 @@ const workflowPlaylist = {
             // handleAudioFiles() (core/playlist/loader.js).
             const activeFolderIdForVideo = appState.get('activePlayListFolder').video;
             if (activeFolderIdForVideo && uploadedVideoKeys.length > 0) {
-                await addSongsToFolder(uploadedVideoKeys, activeFolderIdForVideo, 'video'); // core/file-manager/folder.js
+                await this.addMediaToFolder(uploadedVideoKeys, activeFolderIdForVideo, 'video'); // workflowPlaylist.addMediaToFolder() — SỬA 06/10/2026 (đọc folder_song rồi gọi core addSongsToFolder)
             }
         });
         // input tự dọn value trong chính listener của nó (event/listener/playlist.js, fileInput/folderInput dùng chung).
@@ -1184,7 +1295,9 @@ const workflowPlaylist = {
                 try {
                     const { thumbBlob, width, height } = await workflowFileManagerPhoto.resizeImageForThumbnail(file); // event/workflow/file-manager-photo.js — tái dùng NGUYÊN thuật toán resize cũ
                     const duration = await workflowFileManagerPhoto.computePhotoDuration(file, width, height); // MỚI — Photo tích hợp duration như Song/Video (event/workflow/file-manager-photo.js)
-                    const imageKey = await saveImage(file, file.name, thumbBlob, width, height, duration); // core/file-manager/image.js — CÓ return (imageKey), trước đây bị bỏ qua
+                    const imageKey = await resolveImageKey(file.name); // service/db.js — SỬA 06/10/2026: key resolve ở Workflow (Rule 3)
+                    await saveImage(imageKey, file, file.name, thumbBlob, width, height, duration); // core/file-manager/image.js
+                    eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced', payload: { type: 'photo', key: imageKey } }); // MỚI 06/10/2026 — trùng tên = ghi đè
                     uploadedImageKeys.push(imageKey);
                 } catch (err) {
                     console.error(`[uploadPhotos] resize/lưu thất bại cho file "${file.name}":`, err);
@@ -1194,7 +1307,7 @@ const workflowPlaylist = {
             // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 6) — CÙNG LÝ DO uploadVideos() ngay trên.
             const activeFolderIdForPhoto = appState.get('activePlayListFolder').photo;
             if (activeFolderIdForPhoto && uploadedImageKeys.length > 0) {
-                await addSongsToFolder(uploadedImageKeys, activeFolderIdForPhoto, 'photo'); // core/file-manager/folder.js
+                await this.addMediaToFolder(uploadedImageKeys, activeFolderIdForPhoto, 'photo'); // workflowPlaylist.addMediaToFolder() — SỬA 06/10/2026 (đọc folder_song rồi gọi core addSongsToFolder)
             }
         });
         // input tự dọn value trong chính listener của nó (event/listener/playlist.js, fileInput/folderInput dùng chung).
@@ -1598,7 +1711,7 @@ const workflowPlaylist = {
         await this._openFolderPickerDrawer(async (folderId) => {
             let result;
             await withLoadingShield(t('common.loading.savingInfo'), async () => {
-                result = await addSongsToFolder([key], folderId, mediaType); // core có sẵn (core/file-manager/folder.js)
+                result = await this.addMediaToFolder([key], folderId, mediaType); // workflowPlaylist.addMediaToFolder() — SỬA 06/10/2026 (đọc folder_song rồi gọi core addSongsToFolder)
             });
             // XOÁ (hợp nhất Photo vào Playlist, cấu trúc folderIndex) — check `status==='typeMismatch'`
             // bỏ hẳn: addSongsToFolder() không còn trả trạng thái đó nữa (picker giờ CHỈ đưa vào
@@ -1627,7 +1740,7 @@ const workflowPlaylist = {
         await this._openFolderPickerDrawer(async (folderId) => {
             let result;
             await withLoadingShield(t('common.loading.savingInfo'), async () => {
-                result = await addSongsToFolder(keys, folderId, mediaType); // core có sẵn (core/file-manager/folder.js)
+                result = await this.addMediaToFolder(keys, folderId, mediaType); // workflowPlaylist.addMediaToFolder() — SỬA 06/10/2026 (đọc folder_song rồi gọi core addSongsToFolder)
             });
             // XOÁ (hợp nhất Photo vào Playlist, cấu trúc folderIndex) — cùng lý do bản 1-bài phía
             // trên: check `status==='typeMismatch'` bỏ hẳn.

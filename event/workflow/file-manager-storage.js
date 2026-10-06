@@ -71,8 +71,7 @@ const workflowFileManagerStorage = {
             // [QUYẾT ĐỊNH 1.8] "Xóa hết dữ liệu" CHỈ xóa bài hát (và thống kê nghe riêng từng bài,
             // vì bài hát đã mất). KHÔNG đụng tới ảnh/video nền (bgImage/videoBg) — đó là tài nguyên
             // người dùng thiết lập riêng, không nằm trong "thư viện nhạc".
-            const songKeys = await getAllSongKeys();
-            for (const key of songKeys) await deleteSongRecord(key);
+            await clearAllMediaOfType('song'); // service/db.js — SỬA 06/10/2026: xoá 3 store Song trong 1 transaction (thay vòng deleteSongRecord)
             await delMeta('totalListenSeconds');
             if (typeof clearAllSongStats === 'function') await clearAllSongStats();
 
@@ -434,7 +433,7 @@ const workflowFileManagerStorage = {
                 ? await this._downloadZipFor(getAllVideoKeys, collectAllVideosZipEntries, t('fileManager.song.storageAction.zipNameVideo'))
                 : { status: 'ok' };
             if (deleteEnabled && result.status === 'ok') {
-                await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllVideosData(); }); // core/storage-manager.js
+                await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllMediaOfType('video'); }); // service/db.js — SỬA 06/10/2026 (thay core clearAllVideosData)
                 await this._resetVideoRuntimeStateAfterClear();
             }
             return result;
@@ -444,7 +443,7 @@ const workflowFileManagerStorage = {
                 ? await this._downloadZipFor(getAllImageKeys, collectAllPhotosZipEntries, t('storageDrawer.zipNamePhoto'))
                 : { status: 'ok' };
             if (deleteEnabled && result.status === 'ok') {
-                await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllPhotosData(); }); // core/storage-manager.js
+                await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllMediaOfType('photo'); }); // service/db.js — SỬA 06/10/2026 (thay core clearAllPhotosData)
                 await this._resetPhotoRuntimeStateAfterClear();
             }
             return result;
@@ -600,15 +599,15 @@ const workflowFileManagerStorage = {
 
         await withLoadingShield(t('common.storage.deletingBroken'), async () => {
             if (songResults.length > 0) {
-                const deletedSongKeys = await deleteCorruptedSongs(songResults, currentKey); // core/storage-manager.js — SỬA 24/09/2026: trả về key đã xoá
+                const deletedSongKeys = await deleteCorruptedMediaRecords('song', songResults, currentKey); // core/storage-manager.js — GỘP 06/10/2026
                 deletedSongKeys.forEach((key) => workflowPlaylistOrder.removeKeyFromDisplay(key)); // event/workflow/playlist-order.js
             }
             if (videoResults.length > 0) {
-                const deletedVideoKeys = await deleteCorruptedVideos(videoResults, currentKey); // core/storage-manager.js
+                const deletedVideoKeys = await deleteCorruptedMediaRecords('video', videoResults, currentKey); // core/storage-manager.js — GỘP 06/10/2026
                 deletedVideoKeys.forEach((key) => workflowPlaylistOrder.removeKeyFromDisplay(key)); // event/workflow/playlist-order.js (dời từ core 24/09/2026)
             }
             if (photoResults.length > 0) {
-                await deleteCorruptedPhotos(photoResults); // core/storage-manager.js — tự dọn cascade album bên trong
+                await deleteCorruptedMediaRecords('photo', photoResults, null); // core/storage-manager.js — GỘP 06/10/2026
             }
             if (!genericDrawerPanel.classList.contains('hidden')) {
                 resetScanResultUI(
@@ -648,6 +647,8 @@ const workflowFileManagerStorage = {
                 try {
                     const { thumbBlob, thumbFullBlob, thumbFullIsBlack } = await workflowPlaylist.extractVideoThumbAndMeta(record.blob); // event/workflow/playlist.js
                     await setVideoThumbnails(key, thumbBlob, thumbFullBlob, thumbFullIsBlack); // core/file-manager/video.js — thumbFullIsBlack: đen THẬT -> scan lần sau bỏ qua (MỚI 19/09/2026)
+                    // MỚI (06/10/2026, plan-media-db-split.md mục 7) — báo request trung tâm: video này đang dùng thì tự làm tươi ảnh.
+                    eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced', payload: { type: 'video', key } });
                     fixedCount++;
                 } catch (err) {
                     console.error(`[executeRepairBroken] tạo lại thumbnail thất bại cho video "${key}":`, err);

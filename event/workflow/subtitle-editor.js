@@ -1666,6 +1666,10 @@ const workflowSubtitleEditor = {
         if (!sizeCheck.valid) { await alertModal(tFormat('common.validate.generatedNotSaved', { reason: sizeCheck.reason })); return; }
         const key = await resolveSongKey(fileName); // service/db.js
         const baseTitle = appState.get('_record').tag?.title || appState.get('_songKey');
+        // SỬA (06/10/2026, plan-media-db-split.md) — cover lấy từ bài gốc (Blob ĐỌC TỪ IndexedDB) -> vật chất hoá thành Blob
+        // mới trước khi ghi sang record khác (tránh lỗi round-trip); `blob` đoạn cắt vốn là Blob mới vừa encode.
+        const sourceCover = appState.get('_record').cover;
+        const cover = sourceCover ? await rematerializeBlob(sourceCover) : null; // service/db.js
         const record = {
             filename: fileName,
             blob,
@@ -1674,12 +1678,12 @@ const workflowSubtitleEditor = {
                 artist: appState.get('_record').tag?.artist || '',
                 album: appState.get('_record').tag?.album || '',
             },
-            cover: appState.get('_record').cover || null,
+            cover,
             subtitles: [],
             duration: appState.get('_region').end - appState.get('_region').start,
             addedAt: Date.now(),
         };
-        await setSongRecord(key, record); // service/db.js
+        await createMediaRecord('song', key, record); // service/db.js — SỬA 06/10/2026: 3 store
         await alertModal(t('subtitleEditor.cutMp3.inserted')); // core/modal-choice-ui.js
     },
 
@@ -1862,14 +1866,13 @@ const workflowSubtitleEditor = {
     // ============================== Lưu / điều hướng ==============================
 
     /** Nút "Lưu" — ghi xuống IndexedDB NGAY (KHÔNG tự điều hướng đi đâu — tách biệt "lưu" và
-     * "rời trang", đúng yêu cầu Giang thêm nút "←" RIÊNG). Cùng fix round-trip blob đã áp dụng ở
-     * applySongEditAndSave()/applySubtitlesAndClose() cũ (xem rematerializeBlob(), service/db.js). */
+     * "rời trang", đúng yêu cầu Giang thêm nút "←" RIÊNG).
+     * SỬA (06/10/2026, plan-media-db-split.md) — phụ đề nằm trong meta: ghi qua `updateMediaMeta()` (CHỈ store meta),
+     * không còn đọc + ghi lại nguyên record kèm Blob (bỏ rematerializeBlob — hết lỗi round-trip tận gốc). */
     async saveToDatabase() {
-        const record = await getSongRecord(appState.get('_songKey')); // service/db.js
-        if (!record) return;
-        record.subtitles = appState.get('_subtitles').slice();
-        if (record.blob) record.blob = await rematerializeBlob(record.blob); // service/db.js
-        await setSongRecord(appState.get('_songKey'), record); // service/db.js
+        const subtitles = appState.get('_subtitles').slice();
+        const result = await updateMediaMeta('song', appState.get('_songKey'), (meta) => ({ ...meta, subtitles })); // service/db.js
+        if (result.status === 'notFound') return; // bài đã bị xoá ở tab khác — giữ hành vi cũ (im lặng)
         await alertModal(t('subtitleEditor.saved'));
     },
 
