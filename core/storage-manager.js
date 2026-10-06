@@ -55,12 +55,13 @@
          *          MỚI (06/10/2026) — kết quả `computeOriginStorageBreakdown()` (ngay dưới), Workflow
          *          tính sẵn rồi truyền vào (Rule 3 — hàm này KHÔNG tự gọi core đó). `null` = không có
          *          estimate -> thanh vẽ như cũ (tỉ lệ giữa 3 media), ẩn dòng "còn trống".
+         * @param {{totalBytesText: string, freeText: string}} texts - SỬA (06/10/2026, dọn nợ Rule 3a) — chuỗi dung lượng
+         *          Workflow định dạng sẵn (formatBytes(), core/about-stats.js) — hàm này không gọi core khác nữa.
          */
-        function renderStorageStats(songStats, videoStats, photoStats, els, originBreakdown) {
+        function renderStorageStats(songStats, videoStats, photoStats, els, originBreakdown, texts) {
             const { totalBytesEl, barSongsEl, barVideosEl, barPhotosEl, barOtherEl, freeRowEl, freeBytesEl, countSongsEl, countVideosEl, countPhotosEl } = els;
             if (!totalBytesEl) return; // guard: panel "Quản lý lưu trữ" đang đóng
-            const totalBytes = songStats.totalBytes + videoStats.totalBytes + photoStats.totalBytes;
-            totalBytesEl.textContent = formatBytes(totalBytes);
+            totalBytesEl.textContent = texts.totalBytesText;
 
             // FIX (29/07/2026, Giang phát hiện qua ảnh chụp màn hình — "Photo có 7 ảnh nhưng không
             // thấy chỉ báo dung lượng") — công thức % THUẦN theo tỉ lệ (bản cũ) khiến đoạn nào có
@@ -105,32 +106,14 @@
             if (barPhotosEl) { barPhotosEl.style.width = `${photoPct}%`; barPhotosEl.dataset.bytes = String(photoStats.totalBytes); }
             if (barOtherEl) { barOtherEl.style.width = `${otherPct}%`; barOtherEl.dataset.bytes = String(otherBytes); }
             if (freeRowEl) freeRowEl.classList.toggle('hidden', !originBreakdown);
-            if (freeBytesEl && originBreakdown) freeBytesEl.textContent = `${formatBytes(freeBytes)} / ${formatBytes(originBreakdown.quota)}`;
+            if (freeBytesEl && originBreakdown) freeBytesEl.textContent = texts.freeText;
             if (countSongsEl) countSongsEl.textContent = `${songStats.totalSongs}`;
             if (countVideosEl) countVideosEl.textContent = `${videoStats.totalVideos}`;
             if (countPhotosEl) countPhotosEl.textContent = `${photoStats.totalImages}`;
         }
 
-        /**
-         * MỚI (06/10/2026, Giang yêu cầu "check quota" — dùng ngay thanh dung lượng Storage Management)
-         * — đọc `navigator.storage.estimate()`: dung lượng ĐANG DÙNG + TỐI ĐA cho phép của CẢ origin
-         * (IndexedDB + OPFS + Cache Storage gộp chung — Safari không có `usageDetails` để tách riêng
-         * IndexedDB). Safari hỗ trợ từ iOS 17; web app màn hình chính có quota khoảng 60% dung lượng
-         * máy. Số là ƯỚC TÍNH (trình duyệt có thể làm tròn), không chính xác từng byte.
-         * Không hỗ trợ/lỗi -> trả `null` (KHÔNG throw) — nơi gọi tự rơi về hiển thị cũ.
-         * @returns {Promise<{usage: number, quota: number}|null>}
-         */
-        async function estimateOriginStorage() {
-            if (typeof navigator === 'undefined' || !navigator.storage || typeof navigator.storage.estimate !== 'function') return null;
-            try {
-                const { usage, quota } = await navigator.storage.estimate();
-                if (!(quota > 0)) return null;
-                return { usage: usage || 0, quota };
-            } catch (err) {
-                console.warn('[storage-manager] navigator.storage.estimate() lỗi — bỏ qua phần quota:', err);
-                return null;
-            }
-        }
+        // DỜI (06/10/2026, dọn nợ Rule 3b) — `estimateOriginStorage()` (core tự ĐỌC navigator.storage.estimate()) sang
+        // event/workflow/file-manager-storage.js::_estimateOriginStorage().
 
         /**
          * MỚI (06/10/2026) — THUẦN tính toán: tách usage của origin thành "Khác" (usage trừ tổng
@@ -153,57 +136,34 @@
 
         // ===================== Giải phóng bộ nhớ =====================
 
-        /** Gom `{filename, blob}` đã khử trùng tên (thêm hậu tố "(n)" nếu trùng) cho 1 danh sách
-         * key — DÙNG CHUNG bởi cả 3 hàm buildAllXZipBlob() ngay dưới (TRƯỚC ĐÂY mỗi hàm tự viết
-         * lặp lại Y HỆT logic đặt tên này).
-         * @param {string[]} keys
-         * @param {(key:string) => Promise<object|undefined>} getRecordFn
-         * @param {string} defaultExt - đuôi mặc định nếu record thiếu filename (vd ".mp3"/".mp4")
-         * @returns {Promise<Array<{filename:string, blob:Blob}>>}
-         */
         /**
-         * Gom `keys` thành mảng `{filename, blob}` sẵn sàng nén — DÙNG CHUNG bởi cả 3
-         * buildAllXZipBlob() (Song/Video/Photo).
+         * THAY (06/10/2026, dọn nợ Rule 3b — Giang yêu cầu) `_collectZipEntries()` (core tự gọi hàm đọc record truyền vào +
+         * tự gắn tag): giờ CHỈ còn phần THUẦN — từ `records` (Workflow đã đọc 1 transaction, thẳng hàng `keys`) dựng danh sách
+         * file cần nén, bỏ key không còn tồn tại / thiếu Blob, đặt tên chống trùng (thêm hậu tố " (n)"). Workflow
+         * (event/workflow/zip-download.js::collectEntries()) tự lấy Blob cuối (Song gắn lại tag ID3).
          * @param {string[]} keys
-         * @param {(key:string) => Promise<object>} getRecordFn
-         * @param {string} defaultExt
-         * @param {(record:object) => Promise<Blob>} [resolveBlobFn] - FIX (Giang báo bug "nén song
-         *   Storage Manager bỏ qua hoàn toàn phần gán lại tag mp3") — MỚI, mặc định trả thẳng
-         *   `record.blob` (raw, HÀNH VI CŨ — giữ nguyên 100% cho Video/Photo, 2 hàm đó KHÔNG truyền
-         *   tham số này). Song truyền `buildTaggedBlob` (core/id3-export.js) vào đây — xem
-         *   buildAllSongsZipBlob() ngay dưới.
+         * @param {Array<object|undefined>} records - thẳng hàng `keys`
+         * @param {string} defaultExt - đuôi mặc định nếu record thiếu filename (vd ".mp3")
+         * @returns {Array<{filename: string, record: object}>}
          */
-        async function _collectZipEntries(keys, getRecordFn, defaultExt, resolveBlobFn = async (record) => record.blob) {
+        function planZipEntries(keys, records, defaultExt) {
             const usedNames = new Map(); // filename -> số lần đã dùng, để chống trùng tên trong zip
-            const entries = [];
-            for (const key of keys) {
-                const record = await getRecordFn(key);
-                if (!record || !record.blob) continue;
+            const plan = [];
+            keys.forEach((key, index) => {
+                const record = records[index];
+                if (!record || !record.blob) return;
                 let name = record.filename || `${key}${defaultExt}`;
                 if (usedNames.has(name)) {
                     const count = usedNames.get(name) + 1; usedNames.set(name, count);
                     const dot = name.lastIndexOf('.');
                     name = dot > -1 ? `${name.slice(0, dot)} (${count})${name.slice(dot)}` : `${name} (${count})`;
                 } else { usedNames.set(name, 0); }
-                // FIX (Giang báo bug "nén song Storage Manager bỏ qua hoàn toàn phần gán lại tag
-                // mp3") — bọc try/catch quanh `resolveBlobFn()`: CÙNG khuôn resilience
-                // `exportSelectedSongsZip()` (event/workflow/playlist.js) đã có sẵn — 1 file lỗi
-                // (vd blob hỏng khiến ID3Writer ném lỗi) KHÔNG được phép làm rớt TOÀN BỘ lượt tải
-                // hàng loạt (có thể hàng trăm/nghìn file); rơi về `record.blob` GỐC cho riêng file
-                // đó, các file khác vẫn tiếp tục bình thường.
-                let blob;
-                try {
-                    blob = await resolveBlobFn(record); // record.blob (mặc định) HOẶC buildTaggedBlob(record) cho Song
-                } catch (e) {
-                    console.error(`[storage-manager] Lỗi resolveBlobFn() cho "${name}", dùng file gốc thay thế:`, e);
-                    blob = record.blob;
-                }
-                entries.push({ filename: name, blob });
-            }
-            return entries;
+                plan.push({ filename: name, record });
+            });
+            return plan;
         }
 
-        /** Nén `entries` (đã gom sẵn qua `_collectZipEntries()`) thành 1 Blob .zip — DÙNG CHUNG bởi
+        /** Nén `entries` (đã gom sẵn qua `workflowZipDownload.collectEntries()`) thành 1 Blob .zip — DÙNG CHUNG bởi
          * cả 3 hàm buildAllXZipBlob() ngay dưới. Dùng `buildZipStreamingToOpfs()` (core/
          * streaming-zip.js — thư viện zip.js, ghi TĂNG DẦN vào OPFS, không giới hạn dung lượng RAM)
          * — đây là ĐƯỜNG DUY NHẤT để nén zip trong app.
@@ -266,38 +226,8 @@
             return blob;
         }
 
-        /**
-         * Đóng gói toàn bộ MP3 thành 1 file .zip, tên file giữ nguyên filename gốc — trùng tên tự
-         * thêm số đếm để không ghi đè lẫn nhau.
-         * FIX (Giang báo bug "nén song Storage Manager bỏ qua hoàn toàn phần gán lại tag mp3") —
-         * TRƯỚC ĐÂY đóng gói THẲNG `record.blob` gốc (không gắn tag mới, giữ nguyên file thật) —
-         * nghĩa là mọi thay đổi Tiêu đề/Nghệ sĩ/Album/Ảnh bìa sửa qua app (`record.tag`/
-         * `record.cover`) KHÔNG hề có mặt trong file MP3 tải về hàng loạt qua đây (dù màn "Sửa" 1
-         * bài lẻ, event/workflow/playlist.js::exportSongWithTag(), VẪN gắn đúng — 2 đường tải khác
-         * nhau, đường lẻ được sửa từ trước, đường hàng loạt này thì SÓT). SỬA — truyền
-         * `buildTaggedBlob` (core/id3-export.js, CÙNG hàm đường tải lẻ dùng) làm `resolveBlobFn` cho
-         * `_collectZipEntries()` — mỗi bài giờ được ghi lại tag MỚI NHẤT trước khi nén, khớp ĐÚNG
-         * những gì đang hiển thị trong app. Đánh đổi: chậm hơn ĐÔI CHÚT cho thư viện rất lớn (mỗi
-         * bài phải đọc `arrayBuffer()` + ghi lại tag, thay vì tham chiếu thẳng Blob có sẵn) — ID3
-         * Writer chỉ thao tác trực tiếp phần header tag (không giải mã/mã hoá lại audio) nên KHÔNG
-         * đáng kể với cỡ thư viện thông thường.
-         * SỬA (06/09/2026, hợp nhất Folder vào Playlist — "Properties -> Download" cho 1 folder cụ
-         * thể) — thêm tham số `keys` TUỲ CHỌN: có truyền thì zip ĐÚNG danh sách đó (không tự
-         * `getAllSongKeys()` nữa); không truyền (`undefined`, mọi lời gọi CŨ) thì giữ NGUYÊN hành vi
-         * gốc (toàn bộ thư viện) — tương thích ngược 100%, không cần sửa nơi gọi cũ.
-         * SỬA (10/09/2026, Giang yêu cầu "làm đầy đủ, thay JSZip toàn app") — thân hàm tách sang 2
-         * hàm dùng chung `_collectZipEntries()`/`_compressZipEntries()` ngay trên (KHÔNG đổi hành
-         * vi/tham số bên ngoài, vẫn nhận `(keys, onProgress)` trả `Promise<Blob>` y hệt cũ — mọi nơi
-         * gọi hàm này KHÔNG cần sửa gì).
-         * @param {string[]} [keys]
-         */
-        async function collectAllSongsZipEntries(keys) {
-            // SỬA (06/10/2026, Giang yêu cầu chia zip >500MB thành nhiều phần) — ĐỔI TÊN từ
-            // buildAllSongsZipBlob(keys, onProgress): giờ CHỈ gom entries, KHÔNG nén nữa — việc chia nhóm
-            // + nén từng phần do Workflow điều phối (event/workflow/zip-download.js::compressInParts()).
-            if (!keys) keys = await getAllSongKeys();
-            return _collectZipEntries(keys, getSongRecord, '.mp3', buildTaggedBlob); // core/id3-export.js
-        }
+        // XOÁ (06/10/2026, dọn nợ Rule 3b) — `collectAllSongsZipEntries()`/`collectAllVideosZipEntries()`/`collectAllPhotosZipEntries()`
+        // (core tự đọc DB): Workflow gọi `workflowZipDownload.collectEntries(type, keys)` (event/workflow/zip-download.js).
 
         /**
          * Cờ RAM (sống trong phiên hiện tại, KHÔNG bền qua reload) — true SUỐT lúc
@@ -308,18 +238,6 @@
         // workflowPlaylistRender + core khác) sang event/workflow/file-manager-storage.js::
         // `workflowFileManagerStorage.clearAllStoredData()`, thân giữ nguyên (chỉ đổi phần "về Playlist").
 
-        /**
-         * MỚI (ver12 "Song/Video Unification", Batch 5, mục 6b) — mirror buildAllSongsZipBlob()
-         * ngay trên, bản của Video (mỗi domain viết riêng, cùng quy ước "mỗi domain 1 hàm" đã dùng
-         * cho renderVideoStorageStats()/computeVideoStats()).
-         * SỬA (06/09/2026) — thêm `keys` tuỳ chọn, CÙNG LÝ DO buildAllSongsZipBlob() ngay trên.
-         * @param {string[]} [keys]
-         */
-        async function collectAllVideosZipEntries(keys) {
-            // SỬA (06/10/2026) — ĐỔI TÊN từ buildAllVideosZipBlob(), CÙNG lý do collectAllSongsZipEntries() ở trên.
-            if (!keys) keys = await getAllVideoKeys(); // service/db.js
-            return _collectZipEntries(keys, getVideoRecord, '.mp4');
-        }
 
         // XOÁ (06/10/2026, plan-media-db-split.md) — `clearAllVideosData()`: Workflow gọi thẳng `clearAllMediaOfType('video')`
         // (service/db.js — xoá 3 store trong 1 transaction, thay vòng deleteVideoRecord() từng key).
@@ -508,16 +426,6 @@
         // chéo). NẠP THÊM: core/file-manager/image.js (getAllImageKeys/getImageRecord/
         // deleteImageRecord). =====================
 
-        /** Đóng gói TOÀN BỘ ảnh GỐC (blob thật, không phải thumbBlob) thành 1 file .zip. Mirror
-         * `buildAllVideosZipBlob()` ngay trên.
-         * SỬA (06/09/2026) — thêm `keys` tuỳ chọn, CÙNG LÝ DO buildAllSongsZipBlob() ở trên.
-         * @param {string[]} [keys]
-         */
-        async function collectAllPhotosZipEntries(keys) {
-            // SỬA (06/10/2026) — ĐỔI TÊN từ buildAllPhotosZipBlob(), CÙNG lý do collectAllSongsZipEntries() ở trên.
-            if (!keys) keys = await getAllImageKeys(); // service/db.js
-            return _collectZipEntries(keys, getImageRecord, '.jpg');
-        }
 
         // XOÁ (06/10/2026, plan-media-db-split.md) — `clearAllPhotosData()`: Workflow gọi thẳng `clearAllMediaOfType('photo')`.
 

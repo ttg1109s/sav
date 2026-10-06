@@ -11,7 +11,7 @@
  *
  * PHẢI nạp SAU: core/resume-state-storage.js (saveResumeStateToLocalStorage, setResumeFlag),
  *   core/dom-refs.js (audioPlayer, bgVideoElement).
- * PHẢI nạp TRƯỚC: core/app-cleanup.js, event/tab.js.
+ * PHẢI nạp TRƯỚC: event/workflow/app-cleanup.js, event/tab.js.
  */
         const HIDE_RELOAD_DEBOUNCE_MS = 50;
 

@@ -3,7 +3,7 @@
  *
  * Tách khỏi file này (đã chuyển sang):
  *   - lifecycle listener (beforeunload) → event/tab.js
- *   - executeAppCleanup() → core/app-cleanup.js
+ *   - workflowAppCleanup.run() → event/workflow/app-cleanup.js (dời từ core/app-cleanup.js 06/10/2026)
  *
  * Giữ lại ở đây:
  *   - requestWakeLock() / releaseWakeLock() — API wake lock thuần

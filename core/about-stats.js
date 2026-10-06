@@ -8,7 +8,7 @@
  * xem components/about-drawer.js/settings-drawer.js). Việc mở/render thống kê giờ ở
  * event/workflow/settings-misc.js::openAbout() (push panel + tự querySelector bên trong để điền
  * giá trị); việc đóng dùng CHUNG core/settings-panel-stack.js::popSettingsPanel() cho MỌI panel,
- * không riêng About. 3 hàm THUẦN dưới đây (formatBytes/formatDurationLong/computeStats) GIỮ
+ * không riêng About. 3 hàm THUẦN dưới đây (formatBytes/formatDurationLong/summarizeSongLibrary — trước là computeStats) GIỮ
  * NGUYÊN — vẫn được dùng lại từ nơi gọi mới, và `formatBytes` còn dùng ở core/storage-manager.js +
  * core/file-manager/document-ui.js (KHÔNG được xoá).
  */
@@ -26,17 +26,20 @@
             return tFormat('common.durationLong.minuteOnly', { m });
         }
 
-        async function computeStats() {
-            const keys = await getAllSongKeys();
-            let totalSongs = 0, totalDuration = 0, totalBytes = 0;
-            for (const key of keys) {
-                const record = await getSongRecord(key);
-                if (!record || !record.blob) continue;
-                totalSongs++;
-                totalDuration += record.duration || 0;
-                totalBytes += record.blob.size + (record.cover ? record.cover.size : 0);
-            }
-            const totalListenSeconds = (await getMeta('totalListenSeconds')) || 0;
-            return { totalSongs, totalDuration, totalListenSeconds, totalBytes };
+        /**
+         * THAY (06/10/2026, dọn nợ Rule 3b — Giang yêu cầu) `computeStats()` (core tự đọc DB, mỗi bài 1 transaction): giờ
+         * THUẦN tổng hợp từ record Workflow đã đọc (getAllSongRecords() — 1 transaction) + tổng giây nghe (meta).
+         * Bỏ qua record thiếu Blob (hỏng) như bản cũ.
+         * @param {Array<object>} records @param {number} totalListenSeconds
+         * @returns {{totalSongs: number, totalDuration: number, totalListenSeconds: number, totalBytes: number}}
+         */
+        function summarizeSongLibrary(records, totalListenSeconds) {
+            const valid = records.filter((record) => record && record.blob);
+            return {
+                totalSongs: valid.length,
+                totalDuration: valid.reduce((sum, record) => sum + (record.duration || 0), 0),
+                totalListenSeconds,
+                totalBytes: valid.reduce((sum, record) => sum + record.blob.size + (record.cover ? record.cover.size : 0), 0),
+            };
         }
 

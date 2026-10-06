@@ -85,98 +85,41 @@
         // nhánh Service Worker, mà trong PWA iOS nhánh đó mở màn "Open in..." kẹt app (Quick Look).
         const LARGE_FILE_SKIP_SHARE_BYTES = 600 * 1024 * 1024;
 
+        // DỜI (06/10/2026, dọn nợ Rule 1/3 — Giang yêu cầu "xử lý nốt nợ kỹ thuật") — `triggerDownload()` (core tự rẽ 3 đường
+        // Service Worker / Share / <a download> + gọi core khác) và `promptDownloadReady()` (core dựng modal + callback gọi
+        // thẳng core) sang Workflow `workflowZipDownload.deliverFile()` / `promptSingle()` (event/workflow/zip-download.js —
+        // giữ nguyên toàn bộ lý do/hành vi đã ghi ở docstring cũ: share cần user activation, file > LARGE_FILE_SKIP_SHARE_BYTES
+        // bỏ share, SW chỉ có qua HTTPS, <a download> là lưới cuối). Ở đây chỉ còn 2 hàm THI HÀNH đúng 1 việc mỗi hàm.
+
         /**
-         * SỬA (06/10/2026) — trả về `true` nếu đã giao file cho hệ điều hành (share xong, hoặc đã kích hoạt tải qua
-         * Service Worker/<a download> — 2 đường này không có tín hiệu "đã xong" nên coi như đã giao), `false` nếu
-         * người dùng huỷ Share Sheet (AbortError). Dùng để modal nhiều phần zip biết phần nào đã tải
-         * (event/workflow/zip-download.js) và để chỉ xoá dữ liệu khi đã tải đủ (Storage Management).
-         * @returns {Promise<boolean>}
+         * Mở Share Sheet của hệ điều hành cho 1 File (iOS: "Lưu vào Tệp"). PHẢI gọi trong lúc còn user activation (Workflow
+         * gọi đồng bộ ngay trong lượt bấm). Không tự fallback — trả kết quả để Workflow quyết định.
+         * @param {File} file
+         * @returns {Promise<'shared'|'aborted'|'failed'>} 'aborted' = người dùng tự huỷ Share Sheet
          */
-        async function triggerDownload(blob, filename) {
-            const isLargeFile = blob.size > LARGE_FILE_SKIP_SHARE_BYTES;
-            if (isLargeFile && isLargeFileDownloadSupported()) { // core/large-file-download.js
-                try {
-                    await triggerLargeFileDownloadViaServiceWorker(blob, filename); // core/large-file-download.js
-                    return true;
-                } catch (err) {
-                    console.warn('[triggerDownload] Tải qua Service Worker (Cache Storage) lỗi, rơi về <a download> (blob:):', err);
-                }
+        async function shareFileViaSystem(file) {
+            try {
+                await navigator.share({ files: [file] });
+                return 'shared';
+            } catch (err) {
+                if (err && err.name === 'AbortError') return 'aborted';
+                console.warn('[shareFileViaSystem] navigator.share() lỗi:', err);
+                return 'failed';
             }
-            if (!isLargeFile && navigator.canShare && navigator.share) {
-                try {
-                    const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
-                    if (navigator.canShare({ files: [file] })) {
-                        await navigator.share({ files: [file] });
-                        return true;
-                    }
-                } catch (err) {
-                    // Người dùng tự bấm Huỷ ở Share Sheet cũng ném AbortError tại đây — tôn trọng,
-                    // KHÔNG rơi xuống <a download> trong case đó (đã hiện đúng UI, họ chỉ đổi ý).
-                    if (err && err.name === 'AbortError') return false;
-                    console.warn('[triggerDownload] navigator.share() lỗi, dùng lại <a download>:', err);
-                }
-            }
-            // <a download> trực tiếp trên `blob` GỐC (blob: URL) — KHÔNG bọc new File() (xem lý do
-            // đầy đủ ở docstring hàm này) — `a.download` tự lo phần đặt tên hiển thị. Lưới an toàn
-            // cuối cùng khi Service Worker không khả dụng (vd chạy qua file://) — vẫn có thể dính
-            // bug WebKitBlobResource với file rất lớn, chưa có cách nào khác đã xác nhận hoạt động.
-            const url = URL.createObjectURL(blob);
+        }
+
+        /**
+         * Tải qua `<a download>` trên 1 URL Workflow tạo sẵn (Workflow tự tạo + thu hồi blob URL — Rule 3b). `a.download` tự
+         * đặt tên hiển thị, không cần bọc `new File()`.
+         * @param {string} url @param {string} filename
+         */
+        function clickDownloadAnchor(url, filename) {
             const a = document.createElement('a');
             a.href = url; a.download = filename; a.click();
-            URL.revokeObjectURL(url);
-            return true;
         }
 
-        /**
-         * MỚI (10/09/2026, cùng bug/lý do docstring `triggerDownload()` ngay trên) — hiện
-         * modalChoice() "File đã sẵn sàng — {size}", nút "Tải xuống" bên trong CHÍNH nó mới gọi
-         * `triggerDownload()` (giữ ĐÚNG user-activation của lượt bấm nút đó, KHÔNG phải lượt bấm gốc
-         * đã hết hạn từ lâu) — DÙNG CHUNG cho MỌI luồng export/tải xuống hiện có (Song/Video/Photo
-         * export lẻ + zip hàng loạt ở event/workflow/playlist.js, zip Storage Management + Folder
-         * Download ở event/workflow/file-manager-storage.js) — nơi gọi CHỈ cần build xong blob rồi
-         * gọi hàm này THAY VÌ tự gọi `triggerDownload()` trực tiếp.
-         *
-         * FIX (10/09/2026, Giang báo bug "tải zip lỗi/rỗng ở Storage Management, Folder, chế độ
-         * Chọn") — GỐC BỆNH: nút "Tải xuống" TRƯỚC ĐÂY gọi `triggerDownload(blob, filename)` (hàm
-         * ASYNC — `navigator.share()`/đọc Blob vẫn đang chạy dở) nhưng KHÔNG `await` nó trước khi
-         * gọi `resolve()` ngay dòng sau — Promise của `promptDownloadReady()` vì vậy resolve gần
-         * như NGAY LẬP TỨC, trước khi việc tải/share thật sự xong. Với zip STREAM từ OPFS
-         * (`buildZipStreamingToOpfs()`, core/streaming-zip.js — mọi zip ở Storage Management/Folder
-         * Download/chế độ Chọn giờ đều đi qua đường này), nơi gọi (`zipAndDownloadOrFallback()`,
-         * event/workflow/file-manager-storage.js; `exportSelectedSongsZip()` và 2 hàm zip Video/
-         * Photo tương ứng, event/workflow/playlist.js) LUÔN `await promptDownloadReady(...)` XONG
-         * RỒI MỚI gọi `cleanupStreamingZipTemp()` xoá file .zip tạm khỏi OPFS — resolve sớm khiến
-         * bước xoá đó chạy CHỒNG LẤN lúc `navigator.share()`/`<a download>` còn đang đọc dở đúng
-         * file vừa bị xoá, sinh lỗi/file rỗng/Share Sheet báo thất bại. Giờ `.finally(resolve)` —
-         * đợi `triggerDownload()` chạy XONG (thành công hay lỗi đều tính là xong) rồi mới resolve,
-         * đảm bảo bước dọn OPFS ở nơi gọi luôn diễn ra SAU khi đã đọc xong dữ liệu thật.
-         *
-         * MỚI (10/09/2026, Giang yêu cầu) — nếu `blob` đi qua `_compressZipEntries()` (core/storage-
-         * manager.js — MỌI luồng zip: Storage Management/Folder/chế độ Chọn), nó có sẵn thuộc tính
-         * JS tuỳ biến `_zipDurationMs` (tổng thời gian nén, đo ở đó) — đọc lại đây để hiện thêm
-         * "thời gian xử lý" trong modal. Export lẻ 1 file (Song/Video/Photo, KHÔNG qua
-         * `_compressZipEntries()`) sẽ KHÔNG có thuộc tính này — modal tự rơi về bản KHÔNG có dòng
-         * thời gian xử lý (2 chuỗi dịch riêng, xem lang/patch/patch-common.js).
-         * @param {Blob} blob @param {string} filename
-         * @returns {Promise<boolean>} resolve khi modal đã đóng VÀ triggerDownload() đã chạy xong (bấm Tải xuống), hoặc đóng ngay (bấm Huỷ).
-         *   SỬA (06/10/2026) — giá trị resolve: `true` = đã tải, `false` = bấm Huỷ / huỷ Share Sheet / lỗi — nơi gọi cũ bỏ qua
-         *   giá trị này vẫn chạy y nguyên; Storage Management dùng nó để KHÔNG xoá dữ liệu khi chưa tải.
-         */
-        function promptDownloadReady(blob, filename) {
-            return new Promise((resolve) => {
-                const bodyText = blob._zipDurationMs != null
-                    ? tFormat('common.export.readyBodyWithDuration', { size: formatBytes(blob.size), duration: _formatProcessingDuration(blob._zipDurationMs) })
-                    : tFormat('common.export.readyBody', { size: formatBytes(blob.size) }); // core/about-stats.js
-                modalChoice( // core/modal-choice-ui.js
-                    bodyText,
-                    [{ label: t('common.export.readyBtnDownload'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent', onClick: () => { triggerDownload(blob, filename).then((ok) => resolve(ok), () => resolve(false)); } }],
-                    { title: t('common.export.readyTitle'), onCancel: () => resolve(false) }
-                );
-            });
-        }
-
-        /** Định dạng số mili-giây thành chuỗi ngắn cho "thời gian xử lý" trong modal
-         * `promptDownloadReady()` ngay trên — MỚI (10/09/2026, Giang yêu cầu). Cố tình KHÔNG dùng
+        /** Định dạng số mili-giây thành chuỗi ngắn cho "thời gian xử lý" trong modal tải xuống
+         * (event/workflow/zip-download.js) — MỚI (10/09/2026, Giang yêu cầu). Cố tình KHÔNG dùng
          * `formatDurationLong()` (core/about-stats.js, đơn vị giờ/phút — dành cho tổng thời lượng
          * nghe, quá thô cho việc đo vài giây/vài chục giây của bước nén zip).
          * @param {number} ms @returns {string}

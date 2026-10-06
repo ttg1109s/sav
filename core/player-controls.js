@@ -477,7 +477,9 @@
         function handleAudioPause() {
             iconPlay.classList.remove('hidden'); iconPause.classList.add('hidden'); 
             let recordArtDynamic = document.getElementById('record-art'); if(recordArtDynamic) recordArtDynamic.classList.add('paused');
-            releaseWakeLock(); if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "paused";
+            // DỜI (06/10/2026, dọn nợ Rule 3a) — `releaseWakeLock()` (core gọi core) ra event/workflow/player-controls.js::
+            // handleAudioPauseEvent(), ngay sau lời gọi hàm này.
+            if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "paused";
             // DỜI (24/09/2026) — refreshSongNode + workflowVisualBg.syncPlaybackToAudio() ra
             // event/workflow/player-controls.js::handleAudioPauseEvent() (cùng lý do handleAudioPlay() ngay trên).
             // DỜI (06/10/2026) — `stopListenClock()` ra event/workflow/player-controls.js::handleAudioPauseEvent()
