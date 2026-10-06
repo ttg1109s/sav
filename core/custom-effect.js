@@ -99,7 +99,7 @@ const CUSTOM_EFFECT_STYLE = {
     vortex: { field: 'vortexStyle', options: ['rings', 'bars', 'wave'] },
     lighting: { field: 'lightingStyle', options: ['thunder', 'fireworks'] },
     shape: { field: 'shapeStyle', options: ['rubik', 'clock'] },
-    connector: { field: 'connectorStyle', options: ['synapse', 'circuit'] }, // 'brain' xoá 01/10/2026
+    connector: { field: 'connectorStyle', options: ['circuit'] }, // 'brain' xoá 01/10/2026, 'synapse' xoá 06/10/2026 (Giang)
 };
 
 /** Key i18n cho từng option style — TÁI DÙNG bộ text sẵn có (visualizerSettingsDrawer.*), không
@@ -113,7 +113,7 @@ const CUSTOM_EFFECT_STYLE_LABEL_KEYS = {
     vortex: { rings: 'visualizerSettingsDrawer.vortexStyle.rings', bars: 'visualizerSettingsDrawer.vortexStyle.bars', wave: 'visualizerSettingsDrawer.vortexStyle.wave' },
     lighting: { thunder: 'visualizerSettingsDrawer.lightingStyle.thunder', fireworks: 'visualizerSettingsDrawer.lightingStyle.fireworks' },
     shape: { rubik: 'visualizerSettingsDrawer.shapeStyle.rubik', clock: 'visualizerSettingsDrawer.shapeStyle.clock' },
-    connector: { synapse: 'visualizerSettingsDrawer.connectorStyle.synapse', circuit: 'visualizerSettingsDrawer.connectorStyle.circuit' },
+    connector: { circuit: 'visualizerSettingsDrawer.connectorStyle.circuit' },
 };
 
 /** Field riêng của TỪNG effect, hiện SAU khối Color trong Drawer — dựng UI DATA-DRIVEN (1 hàm render chung
@@ -282,36 +282,40 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'autoLaunchDensity', labelKey: 'customEffectDrawer.field.fwAutoLaunchDensity', type: 'slider', min: 5, max: 100, step: 5, card: 'reaction', showIf: (cfg) => cfg.lightingStyle === 'fireworks' },
     ],
     connector: [
-        // ── music ── (circuit = camera shift; brain burst đã xoá cùng style brain 01/10/2026). 2 tham số hiện khi toggle bật. SỬA (25/09/2026, rà soát) — cameraShiftEnabled trước đây THIẾU `rerender`
-        // (bật/tắt không hiện/ẩn 2 tham số ngay) + nằm lẻ ngoài card music.
-        { id: 'cameraShiftEnabled', labelKey: 'customEffectDrawer.field.connectorCameraShiftEnabled', type: 'toggle', card: 'music', showIf: (cfg) => cfg.connectorStyle === 'circuit', rerender: true },
-        { id: 'sectionWindowBeats', labelKey: 'customEffectDrawer.field.musicSectionWindowBeats', type: 'slider', min: 6, max: 32, step: 1, card: 'music', showIf: (cfg) => cfg.connectorStyle === 'circuit' && cfg.cameraShiftEnabled },
-        { id: 'fluxThreshold', labelKey: 'customEffectDrawer.field.musicFluxThreshold', type: 'sliderFloat', min: 0.1, max: 1, step: 0.05, decimals: 2, card: 'music', showIf: (cfg) => cfg.connectorStyle === 'circuit' && cfg.cameraShiftEnabled },
-        // ── glow ── glow sprite (mọi style) + bloom (circuit).
-        // SỬA (25/09/2026, rà soát) — toggle `rerender`, cường độ ẩn khi tắt (cùng khuôn khối Blur chung).
+        // [06/10/2026, Giang] style 'synapse' XOÁ — connector chỉ còn circuit nên bỏ hết điều kiện `connectorStyle === ...`.
+        // ── music ── camera shift (cinematic) — chỉ có nghĩa ở camera orbit.
+        { id: 'cameraShiftEnabled', labelKey: 'customEffectDrawer.field.connectorCameraShiftEnabled', type: 'toggle', card: 'music', showIf: (cfg) => (cfg.cameraMode || 'orbit') === 'orbit', rerender: true },
+        { id: 'sectionWindowBeats', labelKey: 'customEffectDrawer.field.musicSectionWindowBeats', type: 'slider', min: 6, max: 32, step: 1, card: 'music', showIf: (cfg) => (cfg.cameraMode || 'orbit') === 'orbit' && cfg.cameraShiftEnabled },
+        { id: 'fluxThreshold', labelKey: 'customEffectDrawer.field.musicFluxThreshold', type: 'sliderFloat', min: 0.1, max: 1, step: 0.05, decimals: 2, card: 'music', showIf: (cfg) => (cfg.cameraMode || 'orbit') === 'orbit' && cfg.cameraShiftEnabled },
+        // ── glow ── phát sáng chip + bloom.
         { id: 'glowEnabled', labelKey: 'customEffectDrawer.field.connectorGlowEnabled', type: 'toggle', card: 'glow', rerender: true },
         { id: 'glowIntensity', labelKey: 'customEffectDrawer.field.connectorGlowIntensity', type: 'slider', min: 0, max: 100, step: 5, card: 'glow', showIf: (cfg) => cfg.glowEnabled !== false },
-        { id: 'bloomStrengthBase', labelKey: 'customEffectDrawer.field.bloomStrengthBase', type: 'sliderFloat', min: 0, max: 4, step: 0.1, decimals: 1, card: 'glow', showIf: (cfg) => cfg.connectorStyle === 'circuit' },
-        { id: 'bloomStrengthEnergyMult', labelKey: 'customEffectDrawer.field.bloomStrengthEnergyMult', type: 'sliderFloat', min: 0, max: 4, step: 0.1, decimals: 1, card: 'glow', showIf: (cfg) => cfg.connectorStyle === 'circuit' },
-        // ── element ──
-        { id: 'trailLength', labelKey: 'customEffectDrawer.field.trailLength', type: 'slider', min: 5, max: 60, step: 5, card: 'element', showIf: (cfg) => cfg.connectorStyle === 'circuit' },
-        // ── layout ──
-        // SỬA (yêu cầu Giang 16/09/2026, layout lưới phẳng) — neuronCount max 48->64, min/step 16/4.
-        { id: 'neuronCount', labelKey: 'customEffectDrawer.field.neuronCount', type: 'slider', min: 16, max: 64, step: 4, card: 'layout', showIf: (cfg) => cfg.connectorStyle === 'synapse', refresh: 'initThreeJSConnector' },
-        // ĐỔI (circuit lưới lập phương, buildCircuitCubeCells()): 16-64/4, khớp neuronCount synapse.
-        { id: 'nodeCount', labelKey: 'customEffectDrawer.field.nodeCount', type: 'slider', min: 16, max: 64, step: 4, card: 'layout', showIf: (cfg) => cfg.connectorStyle === 'circuit', refresh: 'initThreeJSConnector' },
-        { id: 'maxConcurrentSignals', labelKey: 'customEffectDrawer.field.maxConcurrentSignals', type: 'slider', min: 20, max: 90, step: 5, card: 'layout', showIf: (cfg) => cfg.connectorStyle === 'circuit' },
-        // ── motion ──
-        { id: 'synapseSpeedBase', labelKey: 'customEffectDrawer.field.synapseSpeedBase', type: 'slider', min: 20, max: 200, step: 5, card: 'motion', showIf: (cfg) => cfg.connectorStyle === 'synapse' },
-        { id: 'synapseSpeedEnergyMult', labelKey: 'customEffectDrawer.field.synapseSpeedEnergyMult', type: 'slider', min: 0, max: 150, step: 5, card: 'motion', showIf: (cfg) => cfg.connectorStyle === 'synapse' },
-        { id: 'circuitSpeedBase', labelKey: 'customEffectDrawer.field.circuitSpeedBase', type: 'slider', min: 20, max: 200, step: 5, card: 'motion', showIf: (cfg) => cfg.connectorStyle === 'circuit' },
-        { id: 'circuitSpeedEnergyMult', labelKey: 'customEffectDrawer.field.circuitSpeedEnergyMult', type: 'slider', min: 0, max: 150, step: 5, card: 'motion', showIf: (cfg) => cfg.connectorStyle === 'circuit' },
-        // ── reaction ──
-        // fireThreshold/lateralInhibitStrength — cả 2 style (circuit dùng CHUNG logic bắn với synapse). lateralInhibitStrength (17/09/2026,
-        // applyLateralInhibition(), core/visualizer/groups/connector/synapse.js): ngưỡng bắn bị ĐÈ LÊN (byte
-        // 0-255) ở nơ-ron LÂN CẬN mỗi khi 1 nơ-ron vừa bắn — 0 = tắt, càng cao càng thưa.
+        { id: 'bloomStrengthBase', labelKey: 'customEffectDrawer.field.bloomStrengthBase', type: 'sliderFloat', min: 0, max: 4, step: 0.1, decimals: 1, card: 'glow' },
+        { id: 'bloomStrengthEnergyMult', labelKey: 'customEffectDrawer.field.bloomStrengthEnergyMult', type: 'sliderFloat', min: 0, max: 4, step: 0.1, decimals: 1, card: 'glow' },
+        // ── element ── vệt sáng xung + độ sáng đường mạch (MỚI 06/10/2026 — dây + nút chạm luôn hiện).
+        { id: 'trailLength', labelKey: 'customEffectDrawer.field.trailLength', type: 'slider', min: 5, max: 60, step: 5, card: 'element' },
+        { id: 'traceOpacity', labelKey: 'customEffectDrawer.field.traceOpacity', type: 'sliderFloat', min: 0.05, max: 1, step: 0.05, decimals: 2, card: 'element' },
+        // ── layout ── nodeCount (16-64/4) = số chip = TỔNG số chân mỗi chip (chia đều 4 cạnh) — dựng lại scene.
+        { id: 'nodeCount', labelKey: 'customEffectDrawer.field.nodeCount', type: 'slider', min: 16, max: 64, step: 4, card: 'layout', refresh: 'initThreeJSConnector' },
+        { id: 'maxConcurrentSignals', labelKey: 'customEffectDrawer.field.maxConcurrentSignals', type: 'slider', min: 20, max: 90, step: 5, card: 'layout' },
+        // ── motion ── MỚI (06/10/2026, Giang) — 3 chế độ camera; 'fixed' có slider X/Y/Z + xoay ngang/dọc (đọc mỗi frame).
+        { id: 'cameraMode', labelKey: 'customEffectDrawer.field.connectorCameraMode', type: 'select', card: 'motion', rerender: true, options: [
+            { value: 'orbit', labelKey: 'customEffectDrawer.connectorCameraMode.orbit' },
+            { value: 'follow', labelKey: 'customEffectDrawer.connectorCameraMode.follow' },
+            { value: 'fixed', labelKey: 'customEffectDrawer.connectorCameraMode.fixed' },
+        ] },
+        { id: 'camPosX', labelKey: 'customEffectDrawer.field.connectorCamPosX', type: 'slider', min: -80, max: 80, step: 1, card: 'motion', showIf: (cfg) => cfg.cameraMode === 'fixed' },
+        { id: 'camPosY', labelKey: 'customEffectDrawer.field.connectorCamPosY', type: 'slider', min: -80, max: 80, step: 1, card: 'motion', showIf: (cfg) => cfg.cameraMode === 'fixed' },
+        { id: 'camPosZ', labelKey: 'customEffectDrawer.field.connectorCamPosZ', type: 'slider', min: 20, max: 260, step: 5, card: 'motion', showIf: (cfg) => cfg.cameraMode === 'fixed' },
+        { id: 'camRotY', labelKey: 'customEffectDrawer.field.connectorCamRotY', type: 'slider', min: -180, max: 180, step: 5, card: 'motion', showIf: (cfg) => cfg.cameraMode === 'fixed' },
+        { id: 'camRotX', labelKey: 'customEffectDrawer.field.connectorCamRotX', type: 'slider', min: -85, max: 85, step: 5, card: 'motion', showIf: (cfg) => cfg.cameraMode === 'fixed' },
+        { id: 'circuitSpeedBase', labelKey: 'customEffectDrawer.field.circuitSpeedBase', type: 'slider', min: 20, max: 200, step: 5, card: 'motion' },
+        { id: 'circuitSpeedEnergyMult', labelKey: 'customEffectDrawer.field.circuitSpeedEnergyMult', type: 'slider', min: 0, max: 150, step: 5, card: 'motion' },
+        // ── reaction ── ngưỡng bắn + ức chế láng giềng (tonotopic.js) + MỚI 06/10/2026: số chân phóng tối đa mỗi lần bắn
+        // (số chân thật theo năng lượng onset, xem pickFirePinCountFromEnergy(), core/visualizer/groups/connector/circuit.js).
         { id: 'fireThreshold', labelKey: 'customEffectDrawer.field.fireThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, card: 'reaction' },
         { id: 'lateralInhibitStrength', labelKey: 'customEffectDrawer.field.lateralInhibitStrength', type: 'slider', min: 0, max: 150, step: 10, card: 'reaction' },
+        { id: 'maxPinsPerFire', labelKey: 'customEffectDrawer.field.maxPinsPerFire', type: 'slider', min: 1, max: 8, step: 1, card: 'reaction' },
     ],
 };
 /** MỚI (25/09/2026, Giang báo "maxH chỉnh ở mirror, sang cascade vẫn dùng chung giá trị -> sai") — field
@@ -330,8 +334,9 @@ const CUSTOM_EFFECT_FIELDS = {
  *   - lighting (thunder/fireworks) + rain (glass/street): 3 field chớp CUSTOM_EFFECT_FLASH_FIELDS.
  *   - vortex (rings/bars/wave): warpSpeedBase/warpSpeedEnergyMult + Redirect (redirectEnabled/
  *     sectionWindowBeats/fluxThreshold).
- *   - connector (synapse/circuit): glowEnabled/glowIntensity/fireThreshold/lateralInhibitStrength;
- *     sectionWindowBeats/fluxThreshold (circuit camera shift). */
+ *   - connector: glowEnabled/glowIntensity/fireThreshold/lateralInhibitStrength; sectionWindowBeats/fluxThreshold
+ *     (camera shift). Từ 06/10/2026 connector chỉ còn 1 style (circuit) — giữ entry để giá trị đã lưu ở byStyle.circuit
+ *     vẫn được đọc. */
 const CUSTOM_EFFECT_COLOR_FIELDS = ['mode', 'solidColor', 'dynA', 'dynB'];
 const CUSTOM_EFFECT_BLUR_FIELDS = ['blurEnabled', 'blurIntensity'];
 const CUSTOM_EFFECT_PER_STYLE_FIELDS = {

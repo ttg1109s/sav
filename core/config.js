@@ -146,21 +146,22 @@
             },
             connector: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
-                connectorStyle: 'synapse',
+                connectorStyle: 'circuit', // [06/10/2026, Giang] style 'synapse' XOÁ — connector chỉ còn circuit
                 glowEnabled: true, glowIntensity: 100,
-                neuronCount: 32, fireThreshold: 0.55, // SỬA 16/09/2026: mặc định 30->32, xem custom-effect.js (slider max 48->64)
-                // XOÁ (yêu cầu Giang 17/09/2026 — "loại bỏ tính đàn hồi", "cơ cấu lại custom
-                // effect"): springStiffnessBase/EnergyMult, dampingBase/EnergyMult (stepNeuronSpring()
-                // đã xoá, synapse.js), rotateSpeedBase/EnergyMult (camera/lưới hết tự xoay từ
-                // 16/09/2026) — cả 6 default đều mồ côi, bỏ theo field/UI đã gỡ ở core/custom-effect.js.
-                lateralInhibitStrength: 70, // MỚI — mức đè ngưỡng lân cận khi 1 nơ-ron bắn, xem core/custom-effect.js
-                synapseSpeedBase: 85, synapseSpeedEnergyMult: 60,
-                nodeCount: 32, maxConcurrentSignals: 60, trailLength: 20, // ĐỔI (circuit lưới lập phương): nodeCount 55->32 (slider 16-64); XOÁ signalsPerBeat (quota theo beat đã bỏ, xem visualizer-render.js::_tickConnectorCircuit())
+                fireThreshold: 0.55,
+                lateralInhibitStrength: 70, // mức đè ngưỡng láng giềng khi 1 chip bắn, xem core/custom-effect.js
+                // (XOÁ 06/10/2026 cùng style synapse: neuronCount, synapseSpeedBase, synapseSpeedEnergyMult — loadConfig() dọn khỏi
+                // cấu hình đã lưu.)
+                nodeCount: 32, maxConcurrentSignals: 60, trailLength: 20, // nodeCount = số chip = tổng chân mỗi chip
                 circuitSpeedBase: 80, circuitSpeedEnergyMult: 60,
                 bloomStrengthBase: 2.2, bloomStrengthEnergyMult: 0.8,
                 cameraShiftEnabled: true, sectionWindowBeats: 12, fluxThreshold: 0.5,
-                // (Style 'brain' + 18 field brain*/burstEnabled — ĐÃ XOÁ 01/10/2026 theo Giang; loadConfig() dọn khỏi cấu hình
-                // đã lưu và đưa lựa chọn brain về 'synapse'.)
+                // MỚI (06/10/2026, Giang) — thiết kế lại circuit: số chân phóng tối đa mỗi lần bắn, độ sáng đường mạch, 3 chế độ
+                // camera ('orbit' | 'follow' | 'fixed') + vị trí/góc camera cố định (X/Y dời, Z khoảng cách, xoay ngang/dọc theo độ).
+                maxPinsPerFire: 3, traceOpacity: 0.35,
+                cameraMode: 'orbit',
+                camPosX: 0, camPosY: 0, camPosZ: 150, camRotY: 35, camRotX: 20,
+                // (Style 'brain' + 18 field brain*/burstEnabled — ĐÃ XOÁ 01/10/2026 theo Giang.)
             },
         };
 
@@ -1030,14 +1031,17 @@
                 if (cfg.autoSwitchVisualSecondsRandomMin > cfg.autoSwitchVisualSecondsRandom) cfg.autoSwitchVisualSecondsRandom = cfg.autoSwitchVisualSecondsRandomMin;
                 // Danh sách group/style — chuẩn hoá theo registry hiện tại (group/style mới thêm vào cuối, đã tick).
                 if (cfg.autoSwitchVisualListBy !== 'group' && cfg.autoSwitchVisualListBy !== 'style') cfg.autoSwitchVisualListBy = 'style';
-                // XOÁ style 'brain' (01/10/2026, Giang): mọi lựa chọn brain -> 'synapse' (trước khi chuẩn hoá — không để rơi về
-                // 'random'/mất tick); dọn field brain* khỏi bucket connector + ô byStyle.brain.
+                // XOÁ style 'brain' (01/10/2026) + 'synapse' (06/10/2026, Giang): connector chỉ còn 'circuit' — mọi lựa chọn style
+                // khác -> 'circuit' (trước khi chuẩn hoá); dọn field brain*/burstEnabled + field riêng synapse khỏi bucket connector
+                // và ô byStyle.brain/synapse.
                 const cn = (cfg.customEffect || {}).connector;
-                if (cn && cn.connectorStyle === 'brain') cn.connectorStyle = 'synapse';
-                if (cn) Object.keys(cn).forEach((k) => { if (k.indexOf('brain') === 0 || k === 'burstEnabled') delete cn[k]; });
-                if (cn && cn.byStyle) delete cn.byStyle.brain;
-                cfg.autoSwitchVisualGroupList = (cfg.autoSwitchVisualGroupList || []).map((item) => (item && item.key === 'connector' && item.style === 'brain' ? { ...item, style: 'synapse' } : item));
-                cfg.autoSwitchVisualStyleList = (cfg.autoSwitchVisualStyleList || []).map((item) => (item && item.key === 'brain' ? { ...item, key: 'synapse' } : item));
+                const CONNECTOR_REMOVED_STYLES = ['brain', 'synapse'];
+                const CONNECTOR_REMOVED_FIELDS = ['burstEnabled', 'neuronCount', 'synapseSpeedBase', 'synapseSpeedEnergyMult'];
+                if (cn) cn.connectorStyle = 'circuit';
+                if (cn) Object.keys(cn).forEach((k) => { if (k.indexOf('brain') === 0 || CONNECTOR_REMOVED_FIELDS.includes(k)) delete cn[k]; });
+                if (cn && cn.byStyle) CONNECTOR_REMOVED_STYLES.forEach((st) => { delete cn.byStyle[st]; });
+                cfg.autoSwitchVisualGroupList = (cfg.autoSwitchVisualGroupList || []).map((item) => (item && item.key === 'connector' && CONNECTOR_REMOVED_STYLES.includes(item.style) ? { ...item, style: 'circuit' } : item));
+                cfg.autoSwitchVisualStyleList = (cfg.autoSwitchVisualStyleList || []).map((item) => (item && CONNECTOR_REMOVED_STYLES.includes(item.key) ? { ...item, key: 'circuit' } : item));
                 cfg.autoSwitchVisualGroupList = normalizeAutoSwitchGroupList(cfg.autoSwitchVisualGroupList, EFFECT_GROUPS); // core/auto-switch-visual.js
                 cfg.autoSwitchVisualStyleList = normalizeAutoSwitchStyleList(cfg.autoSwitchVisualStyleList, MODES); // core/auto-switch-visual.js
                 delete cfg.subtitleStyle; // field khung phụ đề cũ (đã bỏ từ lâu) — dọn khỏi localStorage
