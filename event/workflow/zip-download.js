@@ -18,6 +18,15 @@
  * Trạng thái modal nhiều phần (`_parts`, `_bodyEl`, `_downloaded`, `_busyIndex`, `_resolveParts`) chỉ sống trong
  * lúc modal mở — cùng cách event/workflow/recorder.js giữ trạng thái modal nghe lại.
  *
+ * MỞ RỘNG (06/10/2026, dọn nợ Rule 1/3 — Giang yêu cầu) — cụm này giờ lo MỌI lượt tải file ra ngoài, không riêng zip:
+ *   - `deliverFile(blob, filename)` — THAY core `triggerDownload()`: chọn đường Service Worker / Share / <a download>
+ *     bằng object map, gọi core thi hành từng đường (core/large-file-download.js, core/id3-export.js).
+ *   - `promptSingle(blob, filename)` — THAY core `promptDownloadReady()`: modal "Sẵn sàng tải xuống" 1 file, nút đi qua
+ *     eventBus ('zipDownload.single.click' / '.cancel') -> `downloadSingle()` / `cancelSingle()`.
+ *   - `collectEntries(type, keys)` — THAY core `collectAll*ZipEntries()`/`_collectZipEntries()` (core tự đọc DB): đọc
+ *     record 1 transaction, core thuần `planZipEntries()` đặt tên chống trùng, Song gắn lại tag qua `buildTaggedBlob()`.
+ *   Tên cụm 'zipDownload' giữ nguyên (lịch sử) — nghĩa thực tế là "tải xuống".
+ *
  * NẠP SAU: core/upload-validation.js (MEDIA_FILE_MAX_BYTES — đọc NGAY lúc nạp), core/storage-manager.js,
  * core/id3-export.js, core/streaming-zip.js, core/about-stats.js, core/modal-choice-ui.js, core/zip-download-ui.js,
  * components/zip-download-parts.js. NẠP TRƯỚC: event/router/zip-download.js.
@@ -48,7 +57,35 @@ const ZIP_PARTS_SUMMARY_BY_HAS_DURATION = {
     false: (vars) => tFormat('common.export.partsBody', vars),
 };
 
+/** Đường giao file cho hệ điều hành — chọn trong deliverFile(). Share hỏng (không phải huỷ) và Service Worker lỗi đều rơi về
+ * <a download> (lưới cuối, như bản core cũ). */
+const FILE_DELIVERY_BY_ROUTE = {
+    serviceWorker: (blob, filename) => triggerLargeFileDownloadViaServiceWorker(blob, filename) // core/large-file-download.js
+        .then(() => true, (err) => {
+            console.warn('[zip-download] Tải qua Service Worker lỗi, rơi về <a download>:', err);
+            return workflowZipDownload._deliverViaAnchor(blob, filename);
+        }),
+    share: (blob, filename, file) => shareFileViaSystem(file) // core/id3-export.js
+        .then((result) => SHARE_RESULT_TO_DELIVERED[result](blob, filename)),
+    anchor: (blob, filename) => Promise.resolve(workflowZipDownload._deliverViaAnchor(blob, filename)),
+};
+
+/** Kết quả Share Sheet -> đã giao file chưa. Người dùng tự huỷ = KHÔNG rơi về <a download> (họ chỉ đổi ý). */
+const SHARE_RESULT_TO_DELIVERED = {
+    shared: () => true,
+    aborted: () => false,
+    failed: (blob, filename) => workflowZipDownload._deliverViaAnchor(blob, filename),
+};
+
+/** Nguồn record + đuôi mặc định + cách lấy Blob cho zip theo loại media. Song gắn lại tag ID3 (core/id3-export.js). */
+const ZIP_ENTRY_SOURCE_BY_TYPE = {
+    song: { readRecords: (keys) => getSongRecordsByKeys(keys), defaultExt: '.mp3', resolveBlob: (record) => buildTaggedBlob(record) },
+    video: { readRecords: (keys) => getVideoRecordsByKeys(keys), defaultExt: '.mp4', resolveBlob: (record) => Promise.resolve(record.blob) },
+    photo: { readRecords: (keys) => getImageRecordsByKeys(keys), defaultExt: '.jpg', resolveBlob: (record) => Promise.resolve(record.blob) },
+};
+
 const workflowZipDownload = {
+    _single: null,
     _parts: null,
     _bodyEl: null,
     _downloaded: null,
@@ -86,7 +123,7 @@ const workflowZipDownload = {
     async deliver(parts) {
         if (parts.length === 0) return true; // không có gì để tải (mọi key đều không còn tồn tại)
         const deliverByCount = {
-            true: () => promptDownloadReady(parts[0].blob, parts[0].filename), // core/id3-export.js — modal 1 file cũ, giữ nguyên
+            true: () => this.promptSingle(parts[0].blob, parts[0].filename), // modal 1 file, giữ nguyên hành vi cũ
             false: () => this._presentParts(parts),
         };
         const allDownloaded = await deliverByCount[parts.length === 1]();
@@ -135,7 +172,7 @@ const workflowZipDownload = {
         const rowEl = this._bodyEl.querySelector(`[data-zip-part-row="${index}"]`);
         this._busyIndex = index;
         markZipPartDownloading(rowEl, t('common.export.partDownloading')); // core/zip-download-ui.js
-        const ok = await triggerDownload(part.blob, part.filename).catch(() => false); // core/id3-export.js
+        const ok = await this.deliverFile(part.blob, part.filename).catch(() => false);
         this._busyIndex = null;
         if (!this._parts) return; // modal đã đóng trong lúc chờ (hiếm)
         const resultByOk = {
@@ -164,6 +201,95 @@ const workflowZipDownload = {
         this._busyIndex = null;
         this._resolveParts = null;
         resolve(allDownloaded);
+    },
+
+    /**
+     * Giao 1 file cho hệ điều hành — THAY core `triggerDownload()` (06/10/2026). PHẢI gọi đồng bộ ngay trong lượt bấm thật
+     * (eventBus đồng bộ) — trước bước Share KHÔNG có await nào. Chọn đường:
+     *   - file > LARGE_FILE_SKIP_SHARE_BYTES (core/id3-export.js) + Service Worker khả dụng (HTTPS) -> 'serviceWorker';
+     *   - file nhỏ hơn + trình duyệt cho share đúng File này -> 'share';
+     *   - còn lại -> 'anchor' (<a download>, có thể dính lỗi WebKitBlobResource với file rất lớn qua file://).
+     * @param {Blob} blob @param {string} filename
+     * @returns {Promise<boolean>} true = đã giao (SW/anchor không có tín hiệu "xong" nên coi như đã giao), false = huỷ Share Sheet
+     */
+    deliverFile(blob, filename) {
+        const isLargeFile = blob.size > LARGE_FILE_SKIP_SHARE_BYTES; // core/id3-export.js
+        // File lớn KHÔNG bọc new File() (bản cũ nghi bước này ép sao chép byte) — chỉ cần cho đường Share.
+        const file = isLargeFile ? null : new File([blob], filename, { type: blob.type || 'application/octet-stream' });
+        const canShare = !!file && !!navigator.canShare && !!navigator.share && navigator.canShare({ files: [file] });
+        const route = (isLargeFile && isLargeFileDownloadSupported() && 'serviceWorker') // core/large-file-download.js
+            || (canShare && 'share')
+            || 'anchor';
+        console.log(`[zip-download] Giao "${filename}" (${(blob.size / (1024 * 1024)).toFixed(1)}MB) qua đường "${route}"`);
+        return FILE_DELIVERY_BY_ROUTE[route](blob, filename, file);
+    },
+
+    /** Lưới cuối: blob URL tạo + thu hồi ở Workflow, core chỉ bấm <a download>. @returns {boolean} */
+    _deliverViaAnchor(blob, filename) {
+        const url = createBlobUrl(blob); // service/blob-url.js
+        clickDownloadAnchor(url, filename); // core/id3-export.js
+        revokeBlobUrl(url); // service/blob-url.js
+        return true;
+    },
+
+    /**
+     * Modal "Sẵn sàng tải xuống" cho 1 file — THAY core `promptDownloadReady()` (06/10/2026), giữ nguyên chữ/hành vi: nút
+     * "Tải xuống" mới giao file (user activation của ĐÚNG lượt bấm đó), Huỷ thì đóng. Nút đi qua eventBus.
+     * @param {Blob} blob @param {string} filename
+     * @returns {Promise<boolean>} true = đã tải, false = Huỷ / huỷ Share Sheet / lỗi
+     */
+    promptSingle(blob, filename) {
+        const bodyByHasDuration = {
+            true: () => tFormat('common.export.readyBodyWithDuration', { size: formatBytes(blob.size), duration: _formatProcessingDuration(blob._zipDurationMs) }), // core/about-stats.js, core/id3-export.js
+            false: () => tFormat('common.export.readyBody', { size: formatBytes(blob.size) }),
+        };
+        return new Promise((resolve) => {
+            this._single = { blob, filename, resolve };
+            modalChoice( // core/modal-choice-ui.js
+                bodyByHasDuration[blob._zipDurationMs != null](),
+                [{ label: t('common.export.readyBtnDownload'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent', onClick: () => eventBus.send({ router: 'zipDownload', type: 'zipDownload.single.click', payload: {} }) }],
+                { title: t('common.export.readyTitle'), onCancel: () => eventBus.send({ router: 'zipDownload', type: 'zipDownload.single.cancel', payload: {} }) }
+            );
+        });
+    },
+
+    /** Ứng với 'zipDownload.single.click' — modal đã tự đóng; giao file ngay trong lượt bấm. */
+    async downloadSingle() {
+        const single = this._single;
+        if (!single) return; // guard: modal đã xử lý
+        this._single = null;
+        const ok = await this.deliverFile(single.blob, single.filename).catch(() => false);
+        single.resolve(ok === true);
+    },
+
+    /** Ứng với 'zipDownload.single.cancel'. */
+    cancelSingle() {
+        const single = this._single;
+        if (!single) return;
+        this._single = null;
+        single.resolve(false);
+    },
+
+    /**
+     * Gom `{filename, blob}` sẵn sàng nén cho 1 loại media — THAY core `collectAll*ZipEntries()`/`_collectZipEntries()`
+     * (06/10/2026, core tự đọc DB). Đọc record 1 transaction, core thuần `planZipEntries()` đặt tên chống trùng + bỏ key
+     * không còn tồn tại; 1 file gắn tag lỗi thì rơi về file gốc (không làm rớt cả lượt).
+     * @param {'song'|'video'|'photo'} type @param {string[]} keys
+     * @returns {Promise<Array<{filename: string, blob: Blob}>>}
+     */
+    async collectEntries(type, keys) {
+        const source = ZIP_ENTRY_SOURCE_BY_TYPE[type];
+        const records = await source.readRecords(keys); // service/db.js
+        const plan = planZipEntries(keys, records, source.defaultExt); // core/storage-manager.js
+        const entries = [];
+        for (const item of plan) {
+            const blob = await source.resolveBlob(item.record).catch((e) => {
+                console.error(`[zip-download] Lỗi chuẩn bị file "${item.filename}", dùng file gốc thay thế:`, e);
+                return item.record.blob;
+            });
+            entries.push({ filename: item.filename, blob });
+        }
+        return entries;
     },
 
     _progressText() {

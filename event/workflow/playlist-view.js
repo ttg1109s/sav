@@ -275,13 +275,13 @@ const TPL_PLAYLIST_VIEW = `
 
             <!-- Tab 1 (MẶC ĐỊNH/đầu): Chi tiết — gộp từ #song-info-modal cũ (title/artist/album/
                  duration/lượt nghe/thời gian đã nghe, đọc-thôi) — populate qua JS
-                 (core/playlist/actions.js::openSongEditModal(), dùng songInfoRowHtml()). -->
+                 (event/workflow/playlist.js::openSongEditModal(), dùng songInfoRowHtml()). -->
             <div id="song-edit-tab-details" class="flex flex-col p-5"></div>
 
             <!-- Tab 2: Sửa — ĐỔI TÊN từ "Thông tin" (tab đầu cũ) — 2 nhóm LOẠI TRỪ NHAU tuỳ media
                  type (SỬA phản hồi Giang 28/07/2026, "video/song modal": Song = 3 field title/
                  artist/album như cũ; Video = CHỈ 1 ô tên hiển thị, KHÔNG có 3 tag) — JS
-                 (core/playlist/actions.js::openSongEditModal()) tự ẩn/hiện ĐÚNG 1 group. -->
+                 (event/workflow/playlist.js::openSongEditModal()) tự ẩn/hiện ĐÚNG 1 group. -->
             <div id="song-edit-tab-fields" class="hidden flex-col gap-3 p-5">
                 <div id="song-edit-fields-song-group" class="flex flex-col gap-3">
                     <div class="flex flex-col gap-1.5">

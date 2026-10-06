@@ -92,6 +92,69 @@ const MEDIA_DELETE_ACCESSOR = {
     photo: { getRecord: (key) => getMediaMeta('photo', key), deleteRecord: (key) => deleteMediaRecord('photo', key) },
 };
 
+/** MỚI (06/10/2026, dọn nợ Rule 2/3 — modal Sửa thông tin dời từ core) — đọc meta cho modal: Video/Photo cần field CHỈ có
+ * trên record thô (customName/filename/album/width/height) — chỉ store meta, không mở Blob; Song dùng thẳng playlistCache. */
+const SONG_EDIT_META_READER = {
+    song: () => Promise.resolve(null),
+    video: (key) => getMediaMeta('video', key), // service/db.js
+    photo: (key) => getMediaMeta('photo', key),
+};
+
+/** Điền tab "Sửa" theo loại media. */
+const SONG_EDIT_FIELDS_FILLER = {
+    song: (cached) => workflowPlaylist._fillSongEditFields(cached),
+    video: (cached, meta) => fillVideoEditFields(meta ? (meta.customName || stripFileExtension(meta.filename)) : '', meta ? (meta.album || '') : ''), // core/playlist/actions.js
+    photo: (cached, meta) => workflowPlaylist._fillPhotoEditFields(cached, meta),
+};
+
+/** Icon (path SVG) dùng trong tab "Chi tiết" — giữ NGUYÊN các path của bản core cũ. */
+const SONG_INFO_ICON = {
+    file: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+    resolution: 'M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4',
+    album: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0',
+    playCount: 'M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z',
+    clock: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+    size: 'M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0l-2 7H6l-2-7m16 0H4',
+    title: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z',
+    artist: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
+};
+
+/** HTML tab "Chi tiết" theo loại media — đúng thứ tự/màu/nhãn của bản core cũ. songInfoRowHtml(): core/playlist/actions.js;
+ * formatListenTime(): core/listen-stats.js; formatBytes(): core/about-stats.js; formatTime(): core/playlist/state.js. */
+const SONG_EDIT_DETAILS_HTML = {
+    video: (cached, meta, stats) => {
+        const emptyVal = t('playlistView.songInfo.empty');
+        const resolutionText = (meta && meta.width && meta.height) ? `${meta.width}×${meta.height}` : emptyVal;
+        return songInfoRowHtml(SONG_INFO_ICON.file, 'sky', t('playlistView.songInfo.fieldFilename'), (meta && meta.filename) ? escapeHtml(meta.filename) : emptyVal)
+            + songInfoRowHtml(SONG_INFO_ICON.resolution, 'emerald', t('playlistView.songInfo.fieldResolution'), resolutionText)
+            + songInfoRowHtml(SONG_INFO_ICON.album, 'fuchsia', t('playlistView.songInfo.fieldAlbum'), (meta && meta.album) ? escapeHtml(meta.album) : emptyVal)
+            + songInfoRowHtml(SONG_INFO_ICON.playCount, 'rose', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count }))
+            + songInfoRowHtml(SONG_INFO_ICON.clock, 'indigo', t('playlistView.songInfo.fieldViewDuration'), formatListenTime(stats.totalTime))
+            + songInfoRowHtml(SONG_INFO_ICON.size, 'teal', t('playlistView.songInfo.fieldSize'), formatBytes(cached.size));
+    },
+    photo: (cached, meta, stats) => {
+        const emptyVal = t('playlistView.songInfo.empty');
+        const resolutionText = (cached.width && cached.height) ? `${cached.width}×${cached.height}` : emptyVal;
+        return songInfoRowHtml(SONG_INFO_ICON.file, 'sky', t('playlistView.songInfo.fieldFilename'), (meta && meta.filename) ? escapeHtml(meta.filename) : emptyVal)
+            + songInfoRowHtml(SONG_INFO_ICON.resolution, 'emerald', t('playlistView.songInfo.fieldResolution'), resolutionText)
+            + songInfoRowHtml(SONG_INFO_ICON.album, 'fuchsia', t('playlistView.songInfo.fieldAlbum'), (meta && meta.album) ? escapeHtml(meta.album) : emptyVal)
+            + songInfoRowHtml(SONG_INFO_ICON.clock, 'amber', t('playlistView.songInfo.fieldDuration'), formatTime(cached.duration))
+            + songInfoRowHtml(SONG_INFO_ICON.playCount, 'rose', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count }))
+            + songInfoRowHtml(SONG_INFO_ICON.clock, 'indigo', t('playlistView.songInfo.fieldViewDuration'), formatListenTime(stats.totalTime))
+            + songInfoRowHtml(SONG_INFO_ICON.size, 'teal', t('playlistView.songInfo.fieldSize'), formatBytes(cached.size));
+    },
+    song: (cached, meta, stats) => {
+        const emptyVal = t('playlistView.songInfo.empty');
+        return songInfoRowHtml(SONG_INFO_ICON.title, 'sky', t('playlistView.songInfo.fieldTitle'), cached.tag.title ? escapeHtml(cached.tag.title) : emptyVal)
+            + songInfoRowHtml(SONG_INFO_ICON.artist, 'violet', t('playlistView.songInfo.fieldArtist'), cached.tag.artist ? escapeHtml(cached.tag.artist) : emptyVal)
+            + songInfoRowHtml(SONG_INFO_ICON.album, 'emerald', t('playlistView.songInfo.fieldAlbum'), cached.tag.album ? escapeHtml(cached.tag.album) : emptyVal)
+            + songInfoRowHtml(SONG_INFO_ICON.clock, 'amber', t('playlistView.songInfo.fieldDuration'), formatTime(cached.duration))
+            + songInfoRowHtml(SONG_INFO_ICON.playCount, 'rose', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count }))
+            + songInfoRowHtml(SONG_INFO_ICON.clock, 'indigo', t('playlistView.songInfo.fieldListened'), formatListenTime(stats.totalTime))
+            + songInfoRowHtml(SONG_INFO_ICON.size, 'teal', t('playlistView.songInfo.fieldSize'), formatBytes(cached.size));
+    },
+};
+
 /** MỚI (01/10/2026, Ghi âm) — lưu bản ghi xong: cập nhật danh sách RAM theo Nguồn đang chọn (event-bus-flow.md mục 7 —
  * object map). Chỉ Nguồn Song đụng danh sách; Video/Photo không làm gì (loader nạp lại từ DB khi chuyển sang Song). */
 const RECORDED_SONG_INDEX_BY_SOURCE = {
@@ -212,11 +275,50 @@ const workflowPlaylist = {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return; // guard: menu không mở
         workflowPlaylist.closeActionMenu(); // core/playlist/actions.js
-        // SỬA (06/10/2026, plan-media-db-split.md mục 6) — Workflow đọc sẵn thống kê ĐÚNG loại media rồi truyền vào (core cũ tự
-        // gọi getSongStats(key) — core gọi core, và key trùng giữa các loại bị cộng chung).
+        this.openSongEditModal(key); // SỬA 06/10/2026 — dời từ core (dọn nợ Rule 2/3), xem method ngay dưới
+    },
+
+    /**
+     * DỜI (06/10/2026, dọn nợ Rule 2/3 — Giang yêu cầu "xử lý nốt nợ kỹ thuật") từ core/playlist/actions.js::openSongEditModal()
+     * — modal Sửa thông tin DÙNG CHUNG Song/Video/Photo (rẽ theo `cached.mediaType` bằng object map). Workflow ĐỌC mọi thứ
+     * (playlistCache, meta Video/Photo — chỉ store meta, thống kê đúng loại), TẠO blob URL preview cover, rồi gọi các bước
+     * core THI HÀNH (core/playlist/actions.js). Hành vi giữ nguyên bản core cũ.
+     * @param {string} key
+     */
+    async openSongEditModal(key) {
         const cached = appState.get('playlistCache').get(key);
-        const stats = workflowListenStats.getStats((cached && cached.mediaType) || 'song', key); // event/workflow/listen-stats.js
-        openSongEditModal(key, stats); // core/playlist/actions.js
+        if (!cached) return; // guard
+        const mediaType = cached.mediaType || 'song';
+        const stats = workflowListenStats.getStats(mediaType, key); // event/workflow/listen-stats.js
+        const meta = await SONG_EDIT_META_READER[mediaType](key);
+        playlistStore.set({ songEditCurrentKey: key, songEditPendingCover: null });
+        console.log(`writer: "workflowPlaylist.openSongEditModal", page: "playlistStore.songEditCurrentKey", content: "${key} (${mediaType})"`);
+        revokeSongEditPendingPreview(); // core/playlist/actions.js — dọn preview còn sót từ lần mở trước
+        toggleSongEditFieldGroups(mediaType); // core/playlist/actions.js
+        SONG_EDIT_FIELDS_FILLER[mediaType](cached, meta);
+        setSongEditDetailsHtml(SONG_EDIT_DETAILS_HTML[mediaType](cached, meta, stats)); // core/playlist/actions.js
+        // Nội dung tab "Chi tiết" là DOM dựng động — không tự ăn theme lúc boot, phải áp ngay ở đây.
+        if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(songEditTabDetails, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
+        setSongEditTab('details'); // core/playlist/actions.js — mở tab "Chi tiết" trước
+        showSongEditModal(); // core/playlist/actions.js
+    },
+
+    /** Điền tab "Sửa" Song: tag + preview cover HIỆN TẠI (blob URL sống tới lúc đóng modal / đổi ảnh — lưu vào
+     * songEditPendingCoverPreviewUrl để được thu hồi đồng bộ). */
+    _fillSongEditFields(cached) {
+        fillSongEditFields(cached.tag); // core/playlist/actions.js
+        const coverUrl = cached.cover ? createBlobUrl(cached.cover) : DEFAULT_VINYL; // service/blob-url.js
+        setSongEditCoverPreview(coverUrl); // core/playlist/actions.js
+        if (!cached.cover) return;
+        playlistStore.set({ songEditPendingCoverPreviewUrl: coverUrl });
+        console.log(`writer: "workflowPlaylist._fillSongEditFields", page: "playlistStore.songEditPendingCoverPreviewUrl", content: "blob mới"`);
+    },
+
+    /** Điền tab "Sửa" Photo + thời lượng pending (chỉ ghi thật lúc bấm Lưu, cùng nguyên tắc pendingCover của Song). */
+    _fillPhotoEditFields(cached, meta) {
+        fillPhotoEditFields(meta ? (meta.customName || stripFileExtension(meta.filename)) : '', meta ? (meta.album || '') : '', formatTime(cached.duration)); // core/playlist/actions.js, core/file-manager/video.js, core/playlist/state.js
+        playlistStore.set({ songEditPendingPhotoDurationSec: cached.duration || 0 });
+        console.log(`writer: "workflowPlaylist._fillPhotoEditFields", page: "playlistStore.songEditPendingPhotoDurationSec", content: "${cached.duration || 0}"`);
     },
 
     /** MỚI (24/09/2026, dọn nợ "Core gọi Workflow") — ứng với 'playlist.playbackError.keep' (nút "Giữ lại"). THAY
@@ -1500,9 +1602,9 @@ const workflowPlaylist = {
             await alertModal(t('common.export.notFound'));
         } else if (resultFlag === 'tagWriteFailed') {
             await alertModal(t('common.export.tagWriteFailed'));
-            await promptDownloadReady(failedRecord.blob, failedRecord.filename); // core/id3-export.js
+            await workflowZipDownload.promptSingle(failedRecord.blob, failedRecord.filename); // event/workflow/zip-download.js (SỬA 06/10/2026 — thay core promptDownloadReady)
         } else {
-            await promptDownloadReady(successBlob, successFilename); // core/id3-export.js
+            await workflowZipDownload.promptSingle(successBlob, successFilename); // event/workflow/zip-download.js (SỬA 06/10/2026 — thay core promptDownloadReady)
         }
     },
 
@@ -1523,7 +1625,7 @@ const workflowPlaylist = {
         if (notFound) { await alertModal(t('common.export.notFound')); return; }
         // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — xem
         // docstring exportSelectedSongsZip()/promptDownloadReady() (core/id3-export.js).
-        await promptDownloadReady(blob, filename); // core/id3-export.js
+        await workflowZipDownload.promptSingle(blob, filename); // event/workflow/zip-download.js (SỬA 06/10/2026 — thay core promptDownloadReady)
     },
 
     /**
@@ -1543,7 +1645,7 @@ const workflowPlaylist = {
         if (notFound) { await alertModal(t('common.export.notFound')); return; }
         // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — xem
         // docstring exportSelectedSongsZip()/promptDownloadReady() (core/id3-export.js).
-        await promptDownloadReady(blob, filename); // core/id3-export.js
+        await workflowZipDownload.promptSingle(blob, filename); // event/workflow/zip-download.js (SỬA 06/10/2026 — thay core promptDownloadReady)
     },
 
     /**
@@ -1564,10 +1666,10 @@ const workflowPlaylist = {
             // `new JSZip()...generateAsync()` ở đây; giờ giao cho `_collectZipEntries()` +
             // `_compressZipEntries()` (core/storage-manager.js — ĐƯỜNG DUY NHẤT để nén zip, JSZip
             // đã bỏ hẳn khỏi app, xem docstring đầy đủ ở đó/core/streaming-zip.js).
-            entries = await _collectZipEntries(keys, getVideoRecord, '.mp4'); // core/storage-manager.js — tự bỏ qua key không còn tồn tại (record undefined)
+            entries = await workflowZipDownload.collectEntries('video', keys); // event/workflow/zip-download.js — SỬA 06/10/2026 (dọn nợ Rule 3b), tự bỏ qua key không còn tồn tại
             zipParts = await workflowZipDownload.compressInParts(entries, t('playlistView.selection.exportZipFilenameVideo')); // event/workflow/zip-download.js
         });
-        const failedCount = keys.length - entries.length; // key bị bỏ qua trong _collectZipEntries() (video không còn tồn tại, race) — CÙNG cách đếm cũ, không đọc lại DB lần 2
+        const failedCount = keys.length - entries.length; // key bị bỏ qua trong workflowZipDownload.collectEntries() (video không còn tồn tại, race) — CÙNG cách đếm cũ, không đọc lại DB lần 2
 
         this._exitSelectionMode();
         // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — xem
@@ -1592,7 +1694,7 @@ const workflowPlaylist = {
         // SỬA (10/09/2026, Giang yêu cầu "làm giống Folder Download/Storage Management") — xem lý do
         // đầy đủ ở exportSelectedSongsZip() ngay trên.
         await withLoadingShield(t('common.storage.zippingStart'), async () => {
-            entries = await _collectZipEntries(keys, getImageRecord, '.jpg'); // core/storage-manager.js — tự bỏ qua key không còn tồn tại (record undefined)
+            entries = await workflowZipDownload.collectEntries('photo', keys); // event/workflow/zip-download.js — SỬA 06/10/2026 (dọn nợ Rule 3b), tự bỏ qua key không còn tồn tại
             zipParts = await workflowZipDownload.compressInParts(entries, t('playlistView.selection.exportZipFilenamePhoto')); // event/workflow/zip-download.js
         });
         const failedCount = keys.length - entries.length; // CÙNG cách đếm ở exportSelectedVideosZip() ngay trên

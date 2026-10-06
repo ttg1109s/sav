@@ -155,16 +155,39 @@ const workflowFileManagerStorage = {
         workflowAppPanelNav.activateMedia(); // event/workflow/app-panel-nav.js
     },
 
+    /**
+     * DỜI (06/10/2026, dọn nợ Rule 3b) từ core/storage-manager.js::estimateOriginStorage() — đọc
+     * `navigator.storage.estimate()`: dung lượng ĐANG DÙNG + TỐI ĐA của CẢ origin (IndexedDB + OPFS + Cache Storage gộp
+     * chung — Safari không có `usageDetails`). Safari hỗ trợ từ iOS 17; web app màn hình chính có quota khoảng 60% dung
+     * lượng máy. Số là ƯỚC TÍNH. Không hỗ trợ/lỗi -> `null` (KHÔNG throw).
+     * @returns {Promise<{usage: number, quota: number}|null>}
+     */
+    async _estimateOriginStorage() {
+        if (typeof navigator === 'undefined' || !navigator.storage || typeof navigator.storage.estimate !== 'function') return null;
+        try {
+            const { usage, quota } = await navigator.storage.estimate();
+            if (!(quota > 0)) return null;
+            return { usage: usage || 0, quota };
+        } catch (err) {
+            console.warn('[file-manager-storage] navigator.storage.estimate() lỗi — bỏ qua phần quota:', err);
+            return null;
+        }
+    },
+
     /** Vẽ lại thống kê dung lượng (3 domain) + reset UI quét lỗi — gọi lúc mở panel/sau khi
      * xoá xong. */
     async refreshTab() {
         if (genericDrawerPanel.classList.contains('hidden')) return; // panel đã đóng — an toàn bỏ qua
 
-        // SỬA (06/10/2026, Giang yêu cầu) — đọc THÊM `navigator.storage.estimate()` song song 3 stats
-        // (core/storage-manager.js — trả null nếu không hỗ trợ, KHÔNG throw).
-        const [songStats, videoStats, photoStats, originEstimate] = await Promise.all([
-            computeStats(), computeVideoStats(), computeImageStats(), estimateOriginStorage()
-        ]); // core/about-stats.js, core/file-manager/video.js, core/file-manager/image.js, core/storage-manager.js
+        // SỬA (06/10/2026, dọn nợ Rule 3b — Giang yêu cầu) — Workflow ĐỌC toàn bộ dữ liệu (record 3 loại — 1 transaction mỗi
+        // loại thay vì mỗi record 1 transaction; tổng giây nghe; estimate quota) rồi core THUẦN tổng hợp. Trước đây
+        // computeStats()/computeVideoStats()/computeImageStats() + estimateOriginStorage() là core tự đọc DB/trình duyệt.
+        const [songRecords, videoRecords, imageRecords, totalListenSeconds, originEstimate] = await Promise.all([
+            getAllSongRecords(), getAllVideoRecords(), getAllImageRecords(), getMeta('totalListenSeconds'), this._estimateOriginStorage(),
+        ]); // service/db.js
+        const songStats = summarizeSongLibrary(songRecords, totalListenSeconds || 0); // core/about-stats.js
+        const videoStats = summarizeVideoLibrary(videoRecords); // core/file-manager/video.js
+        const photoStats = summarizeImageLibrary(imageRecords); // core/file-manager/image.js
         const mediaBytes = songStats.totalBytes + videoStats.totalBytes + photoStats.totalBytes;
         const originBreakdown = computeOriginStorageBreakdown(mediaBytes, originEstimate); // core/storage-manager.js — null nếu không có estimate
         const statEls = {
@@ -179,7 +202,11 @@ const workflowFileManagerStorage = {
             countVideosEl: genericDrawerBody.querySelector('#stat-storage-count-video'),
             countPhotosEl: genericDrawerBody.querySelector('#stat-storage-count-photo'),
         };
-        renderStorageStats(songStats, videoStats, photoStats, statEls, originBreakdown); // core/storage-manager.js — ghi SỐ CUỐI + độ rộng thanh (thanh tự animate bằng CSS transition)
+        const storageTexts = { // core/about-stats.js::formatBytes() — định dạng sẵn cho core (Rule 3a)
+            totalBytesText: formatBytes(mediaBytes),
+            freeText: originBreakdown ? `${formatBytes(originBreakdown.freeBytes)} / ${formatBytes(originBreakdown.quota)}` : '',
+        };
+        renderStorageStats(songStats, videoStats, photoStats, statEls, originBreakdown, storageTexts); // core/storage-manager.js — ghi SỐ CUỐI + độ rộng thanh (thanh tự animate bằng CSS transition)
         this._startStorageCountup(statEls, songStats, videoStats, photoStats, originBreakdown); // đếm-lên các con số từ 0 tới số vừa ghi
         resetScanResultUI( // core/storage-manager.js
             genericDrawerBody.querySelector('#storage-scan-result'),
@@ -302,19 +329,19 @@ const workflowFileManagerStorage = {
      * XOÁ (10/09/2026, Giang yêu cầu "loại bỏ toàn bộ JSZip") — tham số `getRecordFn` bỏ hẳn, chỉ
      * dùng cho nhánh "ước lượng dung lượng + tải riêng từng file" (dự phòng JSZip) đã xoá ở
      * `zipAndDownloadOrFallback()` ngay dưới, xem docstring hàm đó.
-     * SỬA (06/10/2026, chia zip nhiều phần) — `buildZipFn` đổi thành `collectEntriesFn` (core/storage-manager.js::
-     * collectAll*ZipEntries(), chỉ gom entries), việc nén do `zipAndDownloadOrFallback()` ngay dưới điều phối.
+     * SỬA (06/10/2026, chia zip nhiều phần + dọn nợ Rule 3b) — tham số hàm gom đổi thành `mediaType`: gom entries qua
+     * `workflowZipDownload.collectEntries(mediaType, keys)` (event/workflow/zip-download.js — Workflow tự đọc record).
+     * @param {'song'|'video'|'photo'} mediaType
      * @param {() => Promise<string[]>} getKeysFn
-     * @param {(keys: string[]) => Promise<Array<{filename:string, blob:Blob}>>} collectEntriesFn
      * @param {string} zipNamePrefix - đã dịch sẵn qua t(), dùng làm tên file
      * @returns {Promise<{status: 'ok'|'noItems'|'zipError'|'cancelled', message?: string}>}
      */
-    async _downloadZipFor(getKeysFn, collectEntriesFn, zipNamePrefix) {
+    async _downloadZipFor(mediaType, getKeysFn, zipNamePrefix) {
         const keys = await getKeysFn();
         if (keys.length === 0) return { status: 'noItems' }; // guard: không có gì để đóng gói
 
         const dateStr = new Date().toISOString().slice(0, 10);
-        return this.zipAndDownloadOrFallback(keys, collectEntriesFn, `${zipNamePrefix}-${dateStr}.zip`);
+        return this.zipAndDownloadOrFallback(mediaType, keys, `${zipNamePrefix}-${dateStr}.zip`);
     },
 
     /**
@@ -340,16 +367,16 @@ const workflowFileManagerStorage = {
      * 'cancelled' khi CHƯA tải đủ mọi phần (bấm Huỷ/Xong sớm, huỷ Share Sheet) — `_runStorageActionForSource()` chỉ xoá
      * dữ liệu khi 'ok', nên giờ KHÔNG còn xoá khi người dùng chưa thật sự tải về (trước đây bấm Huỷ ở modal 1 file vẫn
      * tính là 'ok').
+     * @param {'song'|'video'|'photo'} mediaType - SỬA 06/10/2026 (thay `collectEntriesFn`, dọn nợ Rule 3b)
      * @param {string[]} keys
-     * @param {(keys:string[]) => Promise<Array<{filename:string, blob:Blob}>>} collectEntriesFn
      * @param {string} zipFileName - tên file .zip ĐẦY ĐỦ (đã gồm ".zip") — có nhiều phần thì thêm hậu tố "-part{i}of{n}"
      * @returns {Promise<{status:'ok'|'zipError'|'cancelled', message?:string}>}
      */
-    async zipAndDownloadOrFallback(keys, collectEntriesFn, zipFileName) {
+    async zipAndDownloadOrFallback(mediaType, keys, zipFileName) {
         let zipParts;
         try {
             await withLoadingShield(t('common.storage.zippingStart'), async () => {
-                const entries = await collectEntriesFn(keys); // core/storage-manager.js
+                const entries = await workflowZipDownload.collectEntries(mediaType, keys); // event/workflow/zip-download.js
                 zipParts = await workflowZipDownload.compressInParts(entries, zipFileName); // event/workflow/zip-download.js
             });
         } catch (err) {
@@ -419,7 +446,7 @@ const workflowFileManagerStorage = {
         // từng trạng thái "không phải lỗi".
         if (sourceKey === 'song') {
             const result = downloadEnabled
-                ? await this._downloadZipFor(getAllSongKeys, collectAllSongsZipEntries, t('fileManager.song.storageAction.zipNameSong'))
+                ? await this._downloadZipFor('song', getAllSongKeys, t('fileManager.song.storageAction.zipNameSong'))
                 : { status: 'ok' };
             if (deleteEnabled && result.status === 'ok') {
                 await withLoadingShield(t('common.storage.deletingData'), async () => { await workflowFileManagerStorage.clearAllStoredData(); }); // SỬA 24/09/2026 — dời từ core/storage-manager.js (Song)
@@ -430,7 +457,7 @@ const workflowFileManagerStorage = {
         }
         if (sourceKey === 'video') {
             const result = downloadEnabled
-                ? await this._downloadZipFor(getAllVideoKeys, collectAllVideosZipEntries, t('fileManager.song.storageAction.zipNameVideo'))
+                ? await this._downloadZipFor('video', getAllVideoKeys, t('fileManager.song.storageAction.zipNameVideo'))
                 : { status: 'ok' };
             if (deleteEnabled && result.status === 'ok') {
                 await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllMediaOfType('video'); workflowListenStats.forgetType('video'); }); // service/db.js — SỬA 06/10/2026 (thay core clearAllVideosData)
@@ -440,7 +467,7 @@ const workflowFileManagerStorage = {
         }
         if (sourceKey === 'photo') {
             const result = downloadEnabled
-                ? await this._downloadZipFor(getAllImageKeys, collectAllPhotosZipEntries, t('storageDrawer.zipNamePhoto'))
+                ? await this._downloadZipFor('photo', getAllImageKeys, t('storageDrawer.zipNamePhoto'))
                 : { status: 'ok' };
             if (deleteEnabled && result.status === 'ok') {
                 await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllMediaOfType('photo'); workflowListenStats.forgetType('photo'); }); // service/db.js — SỬA 06/10/2026 (thay core clearAllPhotosData)

@@ -620,6 +620,7 @@ const workflowPlayerControls = {
     handleAudioPauseEvent() {
         if (this.isHeldBySeekGate(audioPlayer)) return; // MỚI 25/09/2026 — pause() tạm của cổng seek v2 (chờ đuôi tiếng cũ), không đổi icon/đồng hồ/VBG
         handleAudioPause(); // core/player-controls.js
+        releaseWakeLock(); // core/wakelock.js — DỜI 06/10/2026 từ trong core handleAudioPause() (Rule 3a)
         workflowListenStats.stopClock(); // event/workflow/listen-stats.js — DỜI 06/10/2026 từ trong core handleAudioPause()
         workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — DỜI 25/09/2026 từ trong core handleAudioPause()
         const currentKey = appState.get('currentKey');
