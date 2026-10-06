@@ -128,7 +128,7 @@ function computeEffectiveFireThresholdByte(neuron, cfg) {
 // stepNeuronSpring() — vật lý lò xo Hooke's Law. Đã bỏ hẳn — nơ-ron đứng CỐ ĐỊNH đúng `restPosition`.
 // ĐỔI TÊN decayNeuronExcitement() -> decayNeuronState() (cùng đợt sửa 17/09 — thêm 2 trạng thái mới
 // ở trên): hàm này giờ decay CẢ BA trạng thái tạm thời của 1 nơ-ron mỗi frame — năng lượng bừng
-// sáng (energy — nay là độ sáng phát quang của chip circuit, applyChipGlowSettings(), common.js), tự thích nghi (adaptation) và bị hàng xóm
+// sáng (energy — nay là độ bừng sáng của chip circuit, applyChipEnergyGlow(), common.js), tự thích nghi (adaptation) và bị hàng xóm
 // ức chế (lateralInhibition) — gộp chung 1 hàm vì cùng là "trạng thái tạm thời decay theo thời
 // gian", gọi 1 lần/node/frame từ Workflow (event/workflow/visualizer/connector.js).
 function decayNeuronState(neuron, deltaTime) {
