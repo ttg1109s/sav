@@ -10,5 +10,5 @@
 document.body.addEventListener('click', (e) => {
     const btn = e.target.closest('.info-icon-btn');
     if (!btn) return;
-    eventBus.send({ router: 'infoIcon', type: 'infoIcon.click', payload: { text: btn.dataset.infoText || '' } });
+    eventBus.send({ router: 'infoIcon', type: 'infoIcon.click', payload: { text: btn.dataset.infoText || '', anchorEl: btn } }); // SỬA 06/10/2026 — + anchorEl: popover neo tại icon
 });
