@@ -13,12 +13,40 @@
  * PHẢI nạp SAU: core/config.js (vizConfig), core/dom-refs.js (audioPlayer), thư viện NoSleep (CDN, index.html).
  */
         const noSleep = new NoSleep(); // fallback khi không có navigator.wakeLock (trước đây nằm lạc cuối core/subtitle/subtitle-display.js)
+        /* SỬA (06/10/2026, Giang báo log "ERROR: NotAllowedError, Document is hidden" x2 mỗi lần tự chuyển bài lúc app ẩn) —
+         * NGUYÊN NHÂN: Wake Lock API từ chối mọi request khi trang đang ẩn (NotAllowedError). Lỗi của request gốc bị catch
+         * im lặng, nhưng nhánh catch lại rơi sang `noSleep.enable()` — NoSleep 0.12.0 khi máy CÓ navigator.wakeLock thì
+         * CŨNG gọi chính navigator.wakeLock.request() lần nữa, tự `console.error(name + ', ' + message)` (đúng định dạng
+         * dòng log) rồi throw — promise đó không ai bắt (try/catch quanh lời gọi đồng bộ không bắt được async). x2 vì tự
+         * chuyển bài gọi requestWakeLock() 2 lần: goToNextTrack() + playMedia() (event/workflow/player-controls.js, player.js).
+         * SỬA: (1) trang ẩn -> bỏ qua (không thể giữ màn hình sáng khi app không hiện); (2) NoSleep CHỈ dùng khi máy không có
+         * navigator.wakeLock (fallback thật sự), không dùng làm "thử lại" sau khi API gốc từ chối; (3) bắt promise của
+         * noSleep.enable() để không còn unhandled rejection. */
+        /* SỬA (06/10/2026, cùng đợt) — KHÔNG xin chồng: mỗi lần request() ra 1 sentinel RIÊNG, màn hình còn sáng chừng nào CÒN
+         * 1 sentinel chưa nhả, nhưng appState chỉ giữ cái cuối -> releaseWakeLock() (pause) chỉ nhả được cái cuối, các cái
+         * trước rò rỉ giữ màn sáng. Chuyển bài gọi requestWakeLock() 2 lần liền (goToNextTrack() + playMedia()) nên rất dễ
+         * xảy ra. Giờ: đang giữ 1 sentinel chưa nhả, hoặc đang chờ request trước trả về -> bỏ qua. */
+        let _wakeLockRequestPending = false;
         async function requestWakeLock() {
             if (typeof appState !== 'undefined' && appConfigViz.getAll().keepScreenOn === false) { releaseWakeLock(); return; }
+            if (document.visibilityState === 'hidden') return; // guard: Wake Lock chỉ xin được khi trang đang hiện
+            if (!('wakeLock' in navigator)) { _enableNoSleepFallback(); return; }
+            const current = appState.get('nativeWakeLock');
+            if (current && !current.released) return; // guard: đang giữ — không xin chồng
+            if (_wakeLockRequestPending) return; // guard: request trước chưa trả về
+            _wakeLockRequestPending = true;
             try {
-                if ('wakeLock' in navigator) { appState.set('nativeWakeLock', await navigator.wakeLock.request('screen')); appState.get('nativeWakeLock').addEventListener('release', () => {}); }
-                else { try { if (!noSleep.isEnabled) noSleep.enable(); } catch(e) {} }
-            } catch (err) { try { if (!noSleep.isEnabled) noSleep.enable(); } catch (e) {} }
+                appState.set('nativeWakeLock', await navigator.wakeLock.request('screen'));
+            } catch (err) { // bị từ chối (vd tiết kiệm pin) — không thử NoSleep: bản 0.12 cũng gọi lại đúng API này
+            } finally {
+                _wakeLockRequestPending = false;
+            }
+        }
+
+        /** NoSleep (video ẩn lặp) — chỉ cho máy KHÔNG có navigator.wakeLock. enable() trả Promise -> bắt cả lỗi async. */
+        function _enableNoSleepFallback() {
+            if (noSleep.isEnabled) return;
+            try { Promise.resolve(noSleep.enable()).catch(() => {}); } catch (e) {}
         }
 
         function releaseWakeLock() {
