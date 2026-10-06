@@ -42,7 +42,11 @@ const TPL_VIDEO_PREVIEW = `
             <button id="video-preview-tool-done-btn" type="button" class="video-preview-topbar-btn is-primary"></button>
         </div>
 
-        <div id="video-preview-media-wrap" class="video-preview-card relative flex-1 min-h-0 overflow-hidden bg-black">
+        <!-- MỚI (06/10/2026, Giang: "thừa mép đen trên dưới video") — vùng bọc chiếm phần màn còn trống, thẻ video
+             (#video-preview-media-wrap) nằm giữa và có kích thước ĐÚNG tỉ lệ nội dung (Workflow tính, xem
+             workflowVideoPreview._fitCardToContent()) — không còn khung đen thừa quanh video. -->
+        <div id="video-preview-card-area" class="video-preview-card-area">
+        <div id="video-preview-media-wrap" class="video-preview-card relative overflow-hidden bg-black">
             <div id="video-preview-stage" class="absolute inset-0">
                 <img id="video-preview-poster" class="absolute inset-0 w-full h-full object-contain" alt="">
                 <div id="video-preview-crop-view" class="absolute inset-0 overflow-hidden">
@@ -91,6 +95,20 @@ const TPL_VIDEO_PREVIEW = `
                     </button>
                 </div>
             </div>
+        </div>
+
+        </div>
+
+        <!-- MỚI (06/10/2026, Giang: "thêm dải seek ở phần preview bên ngoài") — chỉ hiện ở trạng thái xem, chạy trong
+             đoạn đã cắt (Start..End), nhãn trái = vị trí trong đoạn, phải = độ dài đoạn. -->
+        <div id="video-preview-seek-row" class="video-preview-seek-row">
+            <span id="video-preview-seek-current" class="video-preview-seek-time">00:00</span>
+            <div id="video-preview-seek-track" class="video-preview-seek-track">
+                <div class="video-preview-seek-rail"></div>
+                <div id="video-preview-seek-fill" class="video-preview-seek-fill"></div>
+                <div id="video-preview-seek-thumb" class="video-preview-seek-thumb"></div>
+            </div>
+            <span id="video-preview-seek-total" class="video-preview-seek-time">00:00</span>
         </div>
 
         <div id="video-preview-tool-bottom" class="video-preview-tool-bottom">
