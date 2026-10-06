@@ -26,7 +26,7 @@
  * KHÔNG đụng: đồng hồ đếm thời gian nghe (bài vẫn đang được nghe thật), sự kiện 'ended' -> Next (Song phải tự chuyển
  * bài được lúc ẩn), video nền màn App Panel (cụm theme đã tự dừng khi ẩn app).
  *
- * NẠP SAU: event/workflow/visualizer-render.js, event/workflow/visual-bg-common.js, event/workflow/photo-player.js
+ * NẠP SAU: event/workflow/visualizer-render.js, event/workflow/visual-bg-common.js, event/workflow/photo-player.js, core/wakelock.js
  * (chỉ tham chiếu lúc RUNTIME), core/audio-engine.js, service/task-manager.js, core/dom-refs.js (audioPlayer,
  * bgVideoElement). NẠP TRƯỚC: event/router/app-visibility.js.
  */
@@ -68,14 +68,29 @@ const workflowAppVisibility = {
         this._lastLoggedContextState = '';
         const resumingVideo = this._pausedVideoPlayer && appState.get('isVideoPlayerMode');
         resumeAudioContextIfInterrupted(appState.get('audioContext'), this._isAnyMediaPlaying() || resumingVideo); // core/audio-engine.js
-        if (!appState.get('isBackgroundSuspended')) return;
+        this._exitBackgroundSuspend();
+        this._reacquireWakeLockIfPlaying();
+    },
 
+    /** Tách từ exitBackground() (06/10/2026) — khôi phục đúng những gì chế độ nền đã tạm dừng. */
+    _exitBackgroundSuspend() {
+        if (!appState.get('isBackgroundSuspended')) return; // guard: không vào chế độ nền (vd đang chơi Game)
         appState.set('isBackgroundSuspended', false);
         console.log(`writer: "workflowAppVisibility.exitBackground", page: "isBackgroundSuspended", content: "false"`);
         workflowVisualizerRender.resumeFromBackground(); // event/workflow/visualizer-render.js
         workflowVisualBg.onBackgroundSuspendChange(); // event/workflow/visual-bg-common.js — tự bỏ qua nếu đang Player mode
         workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — chạy tiếp nếu Song đang phát
         this._restorePlayerMedia();
+    },
+
+    /** MỚI (06/10/2026, Giang) — trình duyệt TỰ nhả Wake Lock khi app ẩn; hiện lại mà media vẫn đang phát (Song phát nền,
+     * hoặc Video/Photo vừa được `_restorePlayerMedia()` phát tiếp) thì xin lại, không thì màn hình tự tắt dù bật
+     * keepScreenOn. Chạy SAU `_exitBackgroundSuspend()` để thấy đúng trạng thái đã phát tiếp. */
+    _reacquireWakeLockIfPlaying() {
+        const isPhotoRunning = appState.get('isPhotoPlayerMode') && !appState.get('photoPlayerPaused');
+        if (!this._isAnyMediaPlaying() && !isPhotoRunning) return; // guard: không có gì đang phát
+        requestWakeLock(); // core/wakelock.js
+        console.log('[workflowAppVisibility] (app hiện lại) media đang phát -> xin lại Wake Lock');
     },
 
     /** Media đang THẬT SỰ phát (Song, hoặc video của Video Player mode). */
