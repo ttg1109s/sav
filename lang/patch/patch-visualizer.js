@@ -403,7 +403,6 @@ const LANG_PATCH_VISUALIZER = {
     // GỘP LẠI thành 1 key DUY NHẤT này (Giang yêu cầu bỏ tách riêng, gộp chung 1 section).
     // (05/10/2026) 'visualizerSettingsDrawer.section.components' ĐÃ XOÁ — panel Components Display bỏ tiêu đề nhóm.
 
-    'visualizerSettingsDrawer.connectorStyle.synapse': 'Synapse',
     'visualizerSettingsDrawer.connectorStyle.circuit': 'Circuit',
     'visualizerSettingsDrawer.connectorStyle.brain': 'Brain filter',
     'customEffectDrawer.field.connectorGlowEnabled': 'Glow',
@@ -411,18 +410,27 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.bloomStrengthBase': 'Bloom strength',
     'customEffectDrawer.field.bloomStrengthEnergyMult': 'Bloom strength (energy boost)',
     'customEffectDrawer.field.connectorCameraShiftEnabled': 'Cinematic camera shift',
-    'customEffectDrawer.field.neuronCount': 'Neuron count',
     'customEffectDrawer.field.fireThreshold': 'Fire threshold',
     'customEffectDrawer.field.lateralInhibitStrength': 'Lateral inhibition',
     'customEffectDrawer.field.springStiffness': 'Spring stiffness',
-    'customEffectDrawer.field.synapseSpeedBase': 'Signal speed',
-    'customEffectDrawer.field.synapseSpeedEnergyMult': 'Signal speed (energy boost)',
     'customEffectDrawer.field.nodeCount': 'Chip count',
     'customEffectDrawer.field.signalsPerBeat': 'Signals per beat',
     'customEffectDrawer.field.maxConcurrentSignals': 'Max concurrent signals',
     'customEffectDrawer.field.trailLength': 'Trail length',
     'customEffectDrawer.field.circuitSpeedBase': 'Signal speed',
     'customEffectDrawer.field.circuitSpeedEnergyMult': 'Signal speed (energy boost)',
+    // MỚI (06/10/2026, Giang — thiết kế lại circuit + 3 chế độ camera; synapse đã xoá)
+    'customEffectDrawer.field.traceOpacity': 'Trace brightness',
+    'customEffectDrawer.field.maxPinsPerFire': 'Max pins per fire',
+    'customEffectDrawer.field.connectorCameraMode': 'Camera',
+    'customEffectDrawer.connectorCameraMode.orbit': 'Free orbit',
+    'customEffectDrawer.connectorCameraMode.follow': 'Follow bits',
+    'customEffectDrawer.connectorCameraMode.fixed': 'Fixed (outside)',
+    'customEffectDrawer.field.connectorCamPosX': 'Camera X',
+    'customEffectDrawer.field.connectorCamPosY': 'Camera Y',
+    'customEffectDrawer.field.connectorCamPosZ': 'Camera Z (distance)',
+    'customEffectDrawer.field.connectorCamRotY': 'Rotate horizontal',
+    'customEffectDrawer.field.connectorCamRotX': 'Rotate vertical',
     // MỚI (23/09/2026) — style 'brain' (core/custom-effect.js, core/visualizer/groups/connector/brain.js)
     'customEffectDrawer.field.brainBurstEnabled': 'Signal burst on music transition',
     'customEffectDrawer.field.brainDirection': 'Direction',
