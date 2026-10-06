@@ -1,6 +1,7 @@
 /**
  * service/state/video-preview.js — Package STATE domain "video-preview" — modal xem/sửa Video.
- * Đăng ký cùng account 'player' qua service/state/record/index.js (registry('all')). PHẢI nạp SAU
+ * SỬA (06/10/2026) — trình sửa video tách thành trang riêng: package này giờ CHỈ nạp ở video-editor.html, đăng ký
+ * qua service/state/record/video-editor.js (trước đây cùng account 'player' của index.html). PHẢI nạp SAU
  * service/state.js.
  *
  * `_cropSession`/`_zoomPanSession` kiểu 'any' — object nội bộ của core/media-transform.js, KHÔNG
