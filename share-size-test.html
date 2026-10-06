@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<!--
+  share-size-test.html — TRANG CHẨN ĐOÁN TẠM (06/10/2026, Giang yêu cầu "kiểm tra kích thước ngưỡng
+  dung lượng bị crash") — đo ngưỡng file lớn nhất mà navigator.share({files}) chịu được trước khi
+  app crash trên iOS (PWA màn hình chính và tab Safari).
+
+  ĐỘC LẬP HOÀN TOÀN với app: KHÔNG được index.html nạp, KHÔNG dùng appState/event bus/core nào —
+  chỉ là công cụ đo, XOÁ file này sau khi có kết quả.
+
+  CÁCH ĐO:
+    - Tạo 1 file test trong OPFS (giống hệt zip export thật — file nằm trên đĩa, KHÔNG phải Blob RAM).
+    - Bấm "Share" (lượt chạm thật — giữ user activation) -> ghi "đang thử" vào localStorage TRƯỚC
+      khi gọi share() (ghi đồng bộ, còn nguyên dù app crash ngay sau) -> share xong ghi kết quả.
+    - Mở lại trang mà còn 1 lượt "đang thử" chưa có kết quả = lượt đó đã CRASH/reload.
+  Không có DevTools trên điện thoại nên mọi kết quả hiện ngay trên trang + nút "Sao chép kết quả".
+-->
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Share test">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>Share test</title>
+    <style>
+        :root {
+            --bg: #f3f4f6; --card: #ffffff; --text: #18181b; --muted: #6b7280; --line: #e5e7eb;
+            --accent: #6d28d9; --accent-text: #ffffff; --ok: #15803d; --warn: #b45309; --bad: #b91c1c;
+            box-sizing: border-box;
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #18181b; --card: #27272a; --text: #f4f4f5; --muted: #a1a1aa; --line: #3f3f46;
+                --accent: #8b5cf6; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171;
+            }
+        }
+        *, *::before, *::after { box-sizing: inherit; }
+        body {
+            margin: 0; background: var(--bg); color: var(--text);
+            font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        main { max-width: 520px; margin: 0 auto; padding: 16px; }
+        h1 { font-size: 20px; margin: 4px 0 2px; }
+        .env { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+        .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+        .card h2 { font-size: 15px; margin: 0 0 10px; }
+        .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .chips button { flex: 1 1 auto; min-width: 56px; }
+        input[type=number] {
+            width: 110px; font: inherit; padding: 9px 10px; border-radius: 10px;
+            border: 1px solid var(--line); background: var(--bg); color: var(--text);
+        }
+        label.check { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; font-size: 14px; }
+        label.check input { margin-top: 4px; }
+        button {
+            font: inherit; font-weight: 600; padding: 10px 14px; border-radius: 10px;
+            border: 1px solid var(--line); background: var(--bg); color: var(--text);
+        }
+        button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); width: 100%; margin-top: 12px; padding: 13px; }
+        button:disabled { opacity: 0.45; }
+        button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .status { margin-top: 10px; font-size: 14px; color: var(--muted); min-height: 21px; }
+        .bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+        .bar > div { height: 100%; width: 0; background: var(--accent); }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { text-align: left; padding: 6px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+        th { color: var(--muted); font-weight: 600; }
+        .r-ok { color: var(--ok); font-weight: 600; }
+        .r-cancel { color: var(--warn); font-weight: 600; }
+        .r-crash, .r-error { color: var(--bad); font-weight: 600; }
+        .empty { color: var(--muted); font-size: 14px; }
+        .hint { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Share test</h1>
+    <div class="env" id="env"></div>
+
+    <section class="card">
+        <h2>1. Tạo file test</h2>
+        <div class="row chips" id="chips"></div>
+        <div class="row" style="margin-top:10px">
+            <input type="number" id="size-input" min="10" max="4000" step="10" value="300" inputmode="numeric" aria-label="Dung lượng (MB)">
+            <span>MB</span>
+        </div>
+        <button class="primary" id="btn-create">Tạo file</button>
+        <div class="bar"><div id="bar"></div></div>
+        <div class="status" id="create-status"></div>
+    </section>
+
+    <section class="card">
+        <h2>2. Share</h2>
+        <label class="check">
+            <input type="checkbox" id="wrap-check" checked>
+            <span>Bọc <code>new File()</code> như code hiện tại. Bỏ chọn để share thẳng file OPFS.</span>
+        </label>
+        <button class="primary" id="btn-share" disabled>Share</button>
+        <div class="status" id="share-status"></div>
+        <p class="hint">Trong Share Sheet chọn "Lưu vào Tệp" và lưu xong mới tính là thành công.</p>
+    </section>
+
+    <section class="card">
+        <h2>Kết quả</h2>
+        <div id="history"></div>
+        <div class="row" style="margin-top:12px">
+            <button id="btn-copy">Sao chép kết quả</button>
+            <button id="btn-clear">Xoá lịch sử</button>
+        </div>
+        <div class="status" id="history-status"></div>
+    </section>
+</main>
+
+<script>
+    // ===== Hằng số =====
+    const MB = 1024 * 1024;
+    const OPFS_DIR = 'share-test'; // thư mục tạm riêng — KHÔNG đụng 'sav-zip-tmp' của app thật
+    const STORAGE_KEY = 'shareSizeTest.history';
+    const PRESETS_MB = [200, 300, 400, 500, 600, 800];
+
+    const el = (id) => document.getElementById(id);
+    let testFile = null; // File OPFS đã tạo xong, chờ share
+    let testMb = 0;
+
+    // ===== Môi trường =====
+    function isStandalone() {
+        return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+    }
+    function iosVersion() {
+        const m = navigator.userAgent.match(/OS (\d+)_(\d+)/);
+        return m ? `iOS ${m[1]}.${m[2]}` : 'không rõ iOS';
+    }
+    function renderEnv() {
+        el('env').textContent = `${isStandalone() ? 'PWA màn hình chính' : 'Tab trình duyệt'} · ${iosVersion()}`;
+    }
+
+    // ===== Lịch sử (localStorage — ghi đồng bộ, sống sót qua crash) =====
+    function loadHistory() {
+        try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch (e) { return []; }
+    }
+    function saveHistory(list) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch (e) { /* đầy bộ nhớ — bỏ qua */ }
+    }
+    // Lượt nào còn 'pending' lúc mở trang = lượt đó đã crash/reload giữa chừng
+    function markPendingAsCrash() {
+        const list = loadHistory();
+        let changed = false;
+        list.forEach((item) => { if (item.result === 'pending') { item.result = 'crash'; changed = true; } });
+        if (changed) saveHistory(list);
+    }
+    function updateEntry(id, patch) {
+        const list = loadHistory();
+        const item = list.find((x) => x.id === id);
+        if (item) { Object.assign(item, patch); saveHistory(list); }
+    }
+
+    const RESULT_LABEL = { ok: 'OK', cancel: 'Huỷ', crash: 'CRASH', error: 'Lỗi', pending: 'Đang thử' };
+    function renderHistory() {
+        const list = loadHistory();
+        if (!list.length) { el('history').innerHTML = '<div class="empty">Chưa có lượt thử nào.</div>'; return; }
+        const rows = list.slice().reverse().map((x) => {
+            const detail = x.error ? ` (${x.error})` : '';
+            const secs = x.ms != null ? `${(x.ms / 1000).toFixed(1)}s` : '';
+            return `<tr><td>${x.mb} MB</td><td>${x.wrap ? 'new File' : 'OPFS'}</td><td>${x.standalone ? 'PWA' : 'Tab'}</td>`
+                + `<td class="r-${x.result}">${RESULT_LABEL[x.result] || x.result}${detail}</td><td>${secs}</td></tr>`;
+        }).join('');
+        el('history').innerHTML = `<div class="table-wrap"><table><thead><tr><th>Dung lượng</th><th>Cách</th><th>Chế độ</th><th>Kết quả</th><th>Thời gian</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+    function historyAsText() {
+        const head = `Share test — ${iosVersion()} — ${navigator.userAgent}`;
+        const lines = loadHistory().map((x) => `${x.mb}MB | ${x.wrap ? 'new File' : 'OPFS'} | ${x.standalone ? 'PWA' : 'Tab'} | ${RESULT_LABEL[x.result] || x.result}${x.error ? ' (' + x.error + ')' : ''}${x.ms != null ? ' | ' + (x.ms / 1000).toFixed(1) + 's' : ''}`);
+        return [head, ...lines].join('\n');
+    }
+
+    // ===== Tạo file test trong OPFS =====
+    async function getTestDir() {
+        const root = await navigator.storage.getDirectory();
+        return root.getDirectoryHandle(OPFS_DIR, { create: true });
+    }
+    async function clearTestDir() {
+        try {
+            const root = await navigator.storage.getDirectory();
+            await root.removeEntry(OPFS_DIR, { recursive: true });
+        } catch (e) { /* chưa có thư mục — bỏ qua */ }
+    }
+    // 1 chunk 1MB dữ liệu ngẫu nhiên, dùng lại cho mọi lần ghi (getRandomValues tối đa 65536 byte/lần)
+    function makeRandomChunk() {
+        const buf = new Uint8Array(MB);
+        for (let i = 0; i < MB; i += 65536) crypto.getRandomValues(buf.subarray(i, i + 65536));
+        return buf;
+    }
+
+    // Đường A: createWritable() trên main thread (Safari bản mới)
+    async function writeWithWritable(fileHandle, mb, onProgress) {
+        const writable = await fileHandle.createWritable();
+        const chunk = makeRandomChunk();
+        for (let i = 0; i < mb; i++) {
+            await writable.write(chunk);
+            if (i % 10 === 0) onProgress(i / mb);
+        }
+        await writable.close();
+    }
+
+    // Đường B: createSyncAccessHandle() trong Worker (Safari 16.4+) — Worker dựng inline qua Blob URL
+    const WORKER_SRC = `
+        self.onmessage = async (e) => {
+            const { dir, name, mb } = e.data;
+            try {
+                const root = await navigator.storage.getDirectory();
+                const d = await root.getDirectoryHandle(dir, { create: true });
+                const fh = await d.getFileHandle(name, { create: true });
+                const h = await fh.createSyncAccessHandle();
+                h.truncate(0);
+                const MB = 1024 * 1024;
+                const chunk = new Uint8Array(MB);
+                for (let i = 0; i < MB; i += 65536) crypto.getRandomValues(chunk.subarray(i, i + 65536));
+                for (let i = 0; i < mb; i++) {
+                    h.write(chunk, { at: i * MB });
+                    if (i % 10 === 0) self.postMessage({ type: 'progress', value: i / mb });
+                }
+                h.flush(); h.close();
+                self.postMessage({ type: 'done' });
+            } catch (err) {
+                self.postMessage({ type: 'error', message: String(err && err.message || err) });
+            }
+        };`;
+    function writeWithWorker(name, mb, onProgress) {
+        return new Promise((resolve, reject) => {
+            const url = URL.createObjectURL(new Blob([WORKER_SRC], { type: 'text/javascript' }));
+            const worker = new Worker(url);
+            worker.onmessage = (e) => {
+                const msg = e.data;
+                if (msg.type === 'progress') onProgress(msg.value);
+                if (msg.type === 'done') { worker.terminate(); URL.revokeObjectURL(url); resolve(); }
+                if (msg.type === 'error') { worker.terminate(); URL.revokeObjectURL(url); reject(new Error(msg.message)); }
+            };
+            worker.onerror = (e) => { worker.terminate(); URL.revokeObjectURL(url); reject(new Error(e.message || 'Worker lỗi')); };
+            worker.postMessage({ dir: OPFS_DIR, name, mb });
+        });
+    }
+
+    function setProgress(v) { el('bar').style.width = `${Math.round(v * 100)}%`; }
+
+    async function createTestFile() {
+        const mb = Math.round(Number(el('size-input').value));
+        if (!(mb >= 10 && mb <= 4000)) { el('create-status').textContent = 'Nhập dung lượng từ 10 đến 4000 MB.'; return; }
+        if (!navigator.storage || !navigator.storage.getDirectory) { el('create-status').textContent = 'Trình duyệt không hỗ trợ OPFS.'; return; }
+
+        el('btn-create').disabled = true; el('btn-share').disabled = true;
+        testFile = null; setProgress(0);
+        el('create-status').textContent = `Đang tạo ${mb} MB…`;
+        await clearTestDir(); // chỉ giữ 1 file test tại 1 thời điểm
+        const name = `share-test-${mb}MB.zip`; // đuôi .zip + type zip — giống bản export thật
+        const t0 = performance.now();
+        try {
+            const dir = await getTestDir();
+            const fileHandle = await dir.getFileHandle(name, { create: true });
+            let path = 'createWritable';
+            try {
+                if (typeof fileHandle.createWritable !== 'function') throw new Error('không có createWritable');
+                await writeWithWritable(fileHandle, mb, setProgress);
+            } catch (errA) {
+                path = 'Worker';
+                await writeWithWorker(name, mb, setProgress);
+            }
+            testFile = await fileHandle.getFile();
+            testMb = mb;
+            setProgress(1);
+            el('create-status').textContent = `Đã tạo ${(testFile.size / MB).toFixed(0)} MB qua ${path} (${((performance.now() - t0) / 1000).toFixed(1)}s). Bấm Share.`;
+            el('btn-share').disabled = false;
+        } catch (err) {
+            el('create-status').textContent = `Tạo file lỗi: ${err && err.message || err}`;
+        } finally {
+            el('btn-create').disabled = false;
+        }
+    }
+
+    // ===== Share — chạy THẲNG trong click handler (giữ user activation) =====
+    function shareTestFile() {
+        if (!testFile) return;
+        const wrap = el('wrap-check').checked;
+        const file = wrap ? new File([testFile], testFile.name, { type: 'application/zip' }) : testFile;
+        if (!navigator.canShare || !navigator.canShare({ files: [file] })) {
+            el('share-status').textContent = 'Thiết bị không cho share file này (canShare = false).';
+            return;
+        }
+        const entry = { id: Date.now(), mb: testMb, wrap, standalone: isStandalone(), result: 'pending' };
+        const list = loadHistory(); list.push(entry); saveHistory(list); // ghi TRƯỚC khi share — còn lại nếu crash
+        renderHistory();
+        el('share-status').textContent = `Đang share ${testMb} MB…`;
+        el('btn-share').disabled = true;
+        const t0 = performance.now();
+        navigator.share({ files: [file] })
+            .then(() => {
+                updateEntry(entry.id, { result: 'ok', ms: Math.round(performance.now() - t0) });
+                el('share-status').textContent = `${testMb} MB: OK.`;
+            })
+            .catch((err) => {
+                const name = err && err.name || 'Error';
+                const result = name === 'AbortError' ? 'cancel' : 'error';
+                updateEntry(entry.id, { result, error: result === 'error' ? `${name}: ${err && err.message || ''}` : undefined, ms: Math.round(performance.now() - t0) });
+                el('share-status').textContent = `${testMb} MB: ${result === 'cancel' ? 'đã huỷ hoặc share thất bại' : name}.`;
+            })
+            .finally(() => { el('btn-share').disabled = false; renderHistory(); });
+    }
+
+    // ===== Gắn sự kiện =====
+    PRESETS_MB.forEach((mb) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.textContent = mb;
+        b.addEventListener('click', () => { el('size-input').value = mb; });
+        el('chips').appendChild(b);
+    });
+    el('btn-create').addEventListener('click', createTestFile);
+    el('btn-share').addEventListener('click', shareTestFile);
+    el('btn-copy').addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(historyAsText()); el('history-status').textContent = 'Đã sao chép.'; }
+        catch (e) { el('history-status').textContent = 'Không sao chép được — chụp màn hình bảng kết quả.'; }
+    });
+    el('btn-clear').addEventListener('click', () => { saveHistory([]); renderHistory(); el('history-status').textContent = ''; });
+
+    // ===== Khởi động =====
+    markPendingAsCrash();
+    renderEnv();
+    renderHistory();
+    clearTestDir(); // dọn file test sót lại từ lần trước (vd sau crash)
+</script>
+</body>
+</html>
