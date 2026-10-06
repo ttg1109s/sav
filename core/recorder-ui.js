@@ -89,7 +89,39 @@ function setRecorderPreviewState(bodyEl, isPlaying, timeText) {
     if (timeEl && timeEl.textContent !== timeText) timeEl.textContent = timeText;
 }
 
-/** Nhãn giá trị slider bù trễ (Settings > Player > Ghi âm) cập nhật trong lúc kéo. @param {HTMLElement} bodyEl @param {number} ms */
+/** MỚI (07/10/2026) — Count-in: hiện số giây còn lại (lớp .is-counting trên #recorder-layer làm mờ viên REC); `seconds`
+ * <= 0 -> ẩn số + gỡ lớp. @param {HTMLElement} layerEl @param {HTMLElement} countEl @param {number} seconds */
+function setRecorderCountIn(layerEl, countEl, seconds) {
+    const counting = seconds > 0;
+    layerEl.classList.toggle('is-counting', counting);
+    countEl.classList.toggle('hidden', !counting);
+    countEl.textContent = counting ? String(seconds) : '';
+}
+
+/** MỚI (07/10/2026) — Clip warning: tô đỏ vạch mức mic. @param {HTMLElement} indicatorEl @param {boolean} clipping */
+function setRecorderClip(indicatorEl, clipping) {
+    indicatorEl.classList.toggle('is-clipping', clipping);
+}
+
+/** MỚI (07/10/2026) — nút Latency calibration (Settings > System > Ghi âm) lúc đang đo: khoá nút + đổi nhãn. Không có nút
+ * (đang ở màn khác / chế độ Speaker) -> bỏ qua. @param {HTMLElement} bodyEl @param {boolean} busy @param {string} label */
+function setRecorderCalibrationBusy(bodyEl, busy, label) {
+    const btn = bodyEl.querySelector('#setting-recorder-calibrate');
+    if (!btn) return;
+    btn.disabled = busy;
+    btn.style.opacity = busy ? '0.6' : '';
+    btn.textContent = label;
+}
+
+/** MỚI (07/10/2026) — đo xong: đặt slider Sync + nhãn theo giá trị mới (màn không cần vẽ lại). @param {HTMLElement} bodyEl @param {number} ms */
+function setRecorderLatencyControl(bodyEl, ms) {
+    const slider = bodyEl.querySelector('#setting-recorder-latency');
+    const labelEl = bodyEl.querySelector('#setting-recorder-latency-value');
+    if (slider) slider.value = String(ms);
+    if (labelEl) labelEl.textContent = `${ms} ms`;
+}
+
+/** Nhãn giá trị slider Sync (trước là "Bù trễ giọng") cập nhật trong lúc kéo. @param {HTMLElement} bodyEl @param {number} ms */
 function setRecorderLatencyLabel(bodyEl, ms) {
     const labelEl = bodyEl.querySelector('#setting-recorder-latency-value');
     if (labelEl) labelEl.textContent = `${ms} ms`;

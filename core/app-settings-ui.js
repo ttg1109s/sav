@@ -139,16 +139,24 @@ function wireAppSettingsPlayerDetail(bodyEl, kind) {
 
 /** Màn Playlist — 2 <select> (Nguồn/Kiểu xem, TÁI DÙNG msg.type gốc của cụm "playlist" — router đó
  * KHÔNG đổi gì) + 2 nút mở Sắp xếp/Lọc (điều hướng nội bộ Setting). */
-/** MỚI (01/10/2026, Ghi âm) — màn System > Ghi âm (dời từ Player 05/10/2026) (components/settings/recorder-settings.js). Toggle bắn ở `change`;
- * slider bắn `input` (chỉ cập nhật nhãn) + `change` (thả tay -> lưu). Rule 5a — callback CHỈ eventBus.send, gom cuối hàm. */
+/** MỚI (01/10/2026, Ghi âm) — màn System > Ghi âm (dời từ Player 05/10/2026) (components/settings/recorder-settings.js). Select
+ * bắn ở `change`; slider Sync bắn `input` (chỉ cập nhật nhãn) + `change` (thả tay -> lưu); nút Latency calibration bắn `click`.
+ * SỬA (07/10/2026) — bỏ toggle Echo cancellation; thêm Recording mode / Count-in / Recording quality / Latency calibration.
+ * Sync + nút đo chỉ có ở chế độ Headphones (querySelector null -> bỏ qua). Rule 5a — callback CHỈ eventBus.send, gom cuối hàm. */
 function wireAppSettingsRecorder(bodyEl) {
-    const echoToggle = bodyEl.querySelector('#setting-recorder-echo-cancellation');
+    const modeSelect = bodyEl.querySelector('#setting-recorder-mode');
+    const countInSelect = bodyEl.querySelector('#setting-recorder-count-in');
+    const qualitySelect = bodyEl.querySelector('#setting-recorder-quality');
     const latencySlider = bodyEl.querySelector('#setting-recorder-latency');
+    const calibrateBtn = bodyEl.querySelector('#setting-recorder-calibrate');
 
     // --- addEventListener: gom cuối hàm (Rule 5a) ---
-    if (echoToggle) echoToggle.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.recorder.field.change', payload: { field: 'echoCancellation', value: e.target.checked } }));
+    if (modeSelect) modeSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.recorder.field.change', payload: { field: 'mode', value: e.target.value } }));
+    if (countInSelect) countInSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.recorder.field.change', payload: { field: 'countInSec', value: e.target.value } }));
+    if (qualitySelect) qualitySelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.recorder.field.change', payload: { field: 'quality', value: e.target.value } }));
     if (latencySlider) latencySlider.addEventListener('input', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.recorder.latency.input', payload: { value: e.target.value } }));
     if (latencySlider) latencySlider.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.recorder.field.change', payload: { field: 'latencyMs', value: e.target.value } }));
+    if (calibrateBtn) calibrateBtn.addEventListener('click', () => eventBus.send({ router: 'appSettings', type: 'appSettings.recorder.calibrate.click', payload: {} }));
 }
 
 function wireAppSettingsPlaylist(bodyEl) {

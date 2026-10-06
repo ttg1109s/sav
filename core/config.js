@@ -593,13 +593,17 @@
 
         /**
          * MỚI (01/10/2026, Giang chốt) — domain 'recorder' (Settings > System > Ghi âm — dời từ Visualizer Screen > Player 05/10/2026), persist qua
-         * `meta.recorderConfig` (event/workflow/recorder.js). `echoCancellation` — khử tiếng vọng của mic (loa ngoài nên
-         * bật, đeo tai nghe có thể tắt cho giọng tự nhiên hơn). `latencyMs` — bù trễ giọng: trễ NHÁNH NHẠC đi vào bản ghi
-         * (tiếng nghe ở loa không đổi), kẹp 0..500 bước 10 (core/recorder.js::clampRecorderLatencyMs()).
+         * `meta.recorderConfig` (event/workflow/recorder.js).
+         * SỬA (07/10/2026, Giang — cải tiến Ghi âm): `echoCancellation` BỎ (mic luôn thu thô). `mode` — 'speaker' (CHỈ mic:
+         * nhạc từ loa + giọng) | 'headphones' (nhạc gốc + mic). `latencyMs` — Sync (trước là "Bù trễ giọng", chỉ chế độ
+         * headphones): trễ NHÁNH NHẠC đi vào bản ghi, kẹp 0..500 bước 10 (core/recorder.js::clampRecorderLatencyMs()).
+         * `countInSec` — Count-in 0/3/5 giây. `quality` — Recording quality 'standard'|'high'|'max' (bitrate, core/recorder.js).
          */
         const DEFAULT_RECORDER_CONFIG = {
-            echoCancellation: true,
+            mode: 'speaker',
             latencyMs: 100,
+            countInSec: 3,
+            quality: 'standard',
         };
 
         /**
@@ -735,8 +739,10 @@
 
         AppConfig.defineDomain('recorder', {
             schema: {
-                echoCancellation: 'boolean',
+                mode: 'string',
                 latencyMs: 'number',
+                countInSec: 'number',
+                quality: 'string',
             },
             defaults: DEFAULT_RECORDER_CONFIG,
         });

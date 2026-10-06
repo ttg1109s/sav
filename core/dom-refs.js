@@ -138,6 +138,8 @@
         const btnRecorderStop = document.getElementById('btn-recorder-stop');
         const recorderTimer = document.getElementById('recorder-timer');
         const recorderLevel = document.getElementById('recorder-level');
+        const recorderIndicator = document.getElementById('recorder-indicator'); // MỚI 07/10/2026 — Clip warning (.is-clipping)
+        const recorderCountIn = document.getElementById('recorder-countin'); // MỚI 07/10/2026 — Count-in
         // Volume HUD — icon loa 5 mốc + slider, panel nổi riêng — xem core/hud.js.
         const btnOpenVolume = document.getElementById('btn-open-volume');
         const visualizerVolumeHud = document.getElementById('visualizer-volume-hud');
