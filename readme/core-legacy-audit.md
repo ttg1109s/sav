@@ -774,6 +774,25 @@ Nhóm `if (el) el.x = ...` kiểm DOM ref null (dom-refs.js) giữ nguyên — p
 Số đếm ở các bảng trên là quét tự động (bỏ guard `return/continue/break/throw` và kiểm null DOM ref) — cần đọc từng chỗ
 khi sửa thật, 1 phần có thể là guard viết dạng khối.
 
+
+## Rà wiring sự kiện trong Workflow (07/10/2026)
+
+Workflow tự `addEventListener` lên nội dung Generic Drawer / `window`, callback gọi thẳng Workflow/core — bỏ qua
+Listener -> Block gate -> Router ([event-bus-flow.md](./event-bus-flow.md) mục 1). Chưa nằm trong danh sách miễn trừ
+đã audit (`changelog/v11.md` mục 2). Cách và thứ tự trả nợ: [plan/plan-event-bus-wiring-07-10-2026.md](./plan/plan-event-bus-wiring-07-10-2026.md).
+
+| File | Chỗ | Vi phạm | Trạng thái |
+|---|---|---|---|
+| `event/workflow/eq-presets.js` | 10 (`_wireListView()`, `_wireEditView()`) | Wiring drawer, callback gọi thẳng | Chưa sửa — plan đợt 1 |
+| `event/workflow/settings-misc.js` | 1 (dòng 93, nút X Debug Console) | Callback gọi thẳng `closeFully()` | Chưa sửa — đợt 2 |
+| `event/workflow/file-manager-storage.js` | 1 (dòng 143, nút X Storage) | Đăng ký sai tầng (callback đã `eventBus.send`) | Chưa sửa — đợt 2 |
+| `event/workflow/gameplay.js` | 1 (dòng 629, `window.resize`) | Viện dẫn tiền lệ `core/canvas-scene-setup.js` đã xoá 28/09/2026 | Chưa sửa — đợt 3 |
+| `event/workflow/visualizer-display.js` | 4 (kéo-thả Auto-Switch, dòng 58-90) | Pointer handler trong Workflow | Chưa sửa — đợt 4 |
+| `event/workflow/element-style-editor.js` | 12 (`_wire()` + font picker) | Wiring drawer, callback gọi thẳng Workflow + core | Chưa sửa — đợt 5 |
+| `event/workflow/motion-presets.js:812`, `image-edit.js:925` | 2 (ô nhập modal ghi draft) | Chờ Giang chốt (plan mục 6) | — |
+| `video-player.js`, `visual-bg-video.js`, `player-controls.js`, `player.js`, `recorder.js`, `video-thumb-extract.js`, `video-preview.js` | ~13 (`{once:true}` chờ mốc media/recorder, `window.error` lúc export) | Chờ Giang chốt miễn trừ hay sửa (plan mục 6) | — |
+| `event/workflow/subtitle-editor.js` | 15 (trang riêng) | Chưa rà | Ngoài phạm vi, chờ Giang chốt |
+
 ---
 
 ← [Quay lại core-function-conventions.md](./core-function-conventions.md)
