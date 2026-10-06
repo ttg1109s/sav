@@ -147,14 +147,14 @@
             connector: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
                 connectorStyle: 'circuit', // [06/10/2026, Giang] style 'synapse' XOÁ — connector chỉ còn circuit
-                glowEnabled: true, glowIntensity: 100,
+                glowEnabled: true, glowIntensity: 55, // SỬA 07/10/2026 — Glow = bloom: 55% × 4 = 2.2 (= Bloom strength mặc định cũ)
                 fireThreshold: 0.55,
                 lateralInhibitStrength: 70, // mức đè ngưỡng láng giềng khi 1 chip bắn, xem core/custom-effect.js
                 // (XOÁ 06/10/2026 cùng style synapse: neuronCount, synapseSpeedBase, synapseSpeedEnergyMult — loadConfig() dọn khỏi
                 // cấu hình đã lưu.)
                 nodeCount: 32, maxConcurrentSignals: 60, trailLength: 20, // nodeCount = số chip = tổng chân mỗi chip
                 circuitSpeedBase: 80, circuitSpeedEnergyMult: 60,
-                bloomStrengthBase: 2.2, bloomStrengthEnergyMult: 0.8,
+                bloomStrengthEnergyMult: 0.8, // (bloomStrengthBase XOÁ 07/10/2026 — gộp vào glowIntensity, xem loadConfig())
                 cameraShiftEnabled: true, sectionWindowBeats: 12, fluxThreshold: 0.5,
                 // MỚI (06/10/2026, Giang) — thiết kế lại circuit: số chân phóng tối đa mỗi lần bắn, độ sáng đường mạch, 3 chế độ
                 // camera ('orbit' | 'follow' | 'fixed') + vị trí/góc camera cố định (X/Y dời, Z khoảng cách, xoay ngang/dọc theo độ).
@@ -1040,6 +1040,15 @@
                 if (cn) cn.connectorStyle = 'circuit';
                 if (cn) Object.keys(cn).forEach((k) => { if (k.indexOf('brain') === 0 || CONNECTOR_REMOVED_FIELDS.includes(k)) delete cn[k]; });
                 if (cn && cn.byStyle) CONNECTOR_REMOVED_STYLES.forEach((st) => { delete cn.byStyle[st]; });
+                // GỘP Bloom strength vào Glow intensity (07/10/2026, Giang báo 2 khối xung đột): giữ đúng độ bloom đang thấy —
+                // glowIntensity = bloomStrengthBase / 4 (bloom tối đa) theo %, làm tròn bước 5; ghi cả ô byStyle.circuit (glowIntensity
+                // là field lưu theo style, giá trị cũ ở đó là nghĩa "phát sáng thân chip", không còn đúng).
+                if (cn && typeof cn.bloomStrengthBase === 'number') {
+                    const glowFromBloom = Math.max(0, Math.min(100, Math.round(cn.bloomStrengthBase / 4 * 100 / 5) * 5));
+                    cn.glowIntensity = glowFromBloom;
+                    if (cn.byStyle && cn.byStyle.circuit) cn.byStyle.circuit.glowIntensity = glowFromBloom;
+                }
+                if (cn) delete cn.bloomStrengthBase;
                 cfg.autoSwitchVisualGroupList = (cfg.autoSwitchVisualGroupList || []).map((item) => (item && item.key === 'connector' && CONNECTOR_REMOVED_STYLES.includes(item.style) ? { ...item, style: 'circuit' } : item));
                 cfg.autoSwitchVisualStyleList = (cfg.autoSwitchVisualStyleList || []).map((item) => (item && CONNECTOR_REMOVED_STYLES.includes(item.key) ? { ...item, key: 'circuit' } : item));
                 cfg.autoSwitchVisualGroupList = normalizeAutoSwitchGroupList(cfg.autoSwitchVisualGroupList, EFFECT_GROUPS); // core/auto-switch-visual.js
