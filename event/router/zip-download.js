@@ -9,6 +9,8 @@ const routerZipDownload = (() => {
         switch (msg.type) {
             case 'zipDownload.part.click': { workflowZipDownload.downloadPart(msg.payload.index); break; }
             case 'zipDownload.done.click': { workflowZipDownload.finishParts(); break; }
+            case 'zipDownload.single.click': { workflowZipDownload.downloadSingle(); break; } // MỚI 06/10/2026 — modal 1 file
+            case 'zipDownload.single.cancel': { workflowZipDownload.cancelSingle(); break; }
             default:
                 console.warn(`[router:zipDownload] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`, msg);
         }
