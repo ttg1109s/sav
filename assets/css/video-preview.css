@@ -56,8 +56,74 @@
 .video-preview-overlay { background: #111111; }
 /* Thẻ video bo góc, nằm dưới thanh trạng thái. Lúc dùng công cụ thì bỏ bo/khoảng cách (topbar đã lo safe-area). */
 .video-preview-overlay[data-tool="none"] .video-preview-card {
-    margin-top: env(safe-area-inset-top, 0px);
     border-radius: 22px;
+}
+
+/* MỚI (06/10/2026, Giang: "thừa mép đen trên dưới video") — vùng bọc chiếm phần màn còn trống, thẻ video nằm giữa. Kích
+   thước thẻ (px) do Workflow đặt inline = đúng tỉ lệ nội dung (workflowVideoPreview._fitCardToContent()); 100% chỉ là dự
+   phòng trước khi có metadata. Khoảng tránh tai thỏ (safe-area) chuyển từ thẻ sang vùng bọc — margin không tính vào phần
+   Workflow đo. */
+.video-preview-card-area {
+    flex: 1 1 auto;
+    min-height: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.video-preview-overlay[data-tool="none"] .video-preview-card-area {
+    margin-top: env(safe-area-inset-top, 0px);
+}
+.video-preview-card {
+    flex: 0 0 auto;
+    width: 100%;
+    height: 100%;
+}
+
+/* MỚI (06/10/2026, Giang: "thêm dải seek ở phần preview bên ngoài") — chỉ ở trạng thái xem. */
+.video-preview-seek-row {
+    display: none;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px 0;
+    color: rgba(255,255,255,0.8);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+.video-preview-overlay[data-tool="none"] .video-preview-seek-row { display: flex; }
+.video-preview-seek-time { min-width: 38px; text-align: center; }
+.video-preview-seek-track {
+    position: relative;
+    flex: 1 1 auto;
+    height: 28px;
+    touch-action: none;
+    cursor: pointer;
+}
+.video-preview-seek-rail,
+.video-preview-seek-fill {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    height: 4px;
+    margin-top: -2px;
+    border-radius: 9999px;
+    pointer-events: none;
+}
+.video-preview-seek-rail { right: 0; background: rgba(255,255,255,0.22); }
+.video-preview-seek-fill { width: 0; background: #fff; }
+.video-preview-seek-thumb {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    margin: -7px 0 0 -7px;
+    border-radius: 9999px;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    pointer-events: none;
 }
 .video-preview-overlay:not([data-tool="none"]) .video-preview-save-bar { display: none; }
 
