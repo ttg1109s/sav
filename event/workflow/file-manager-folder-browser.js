@@ -215,11 +215,20 @@ const workflowFileManagerFolderBrowser = {
                         getFolderSongMap(folderId), getMeta('folderIndex'), getMeta('deletedFolderIds'),
                     ]); // service/db.js
                     if (folderMap) await deleteFolder(folderId, folderType, folderMap, folderIndex || { song: [], video: [], photo: [] }, deletedIds || []); // core/file-manager/folder.js
+                    await this._reloadAllViewIfHiddenDeleted(folderRecord); // MỚI (06/10/2026, Giang) — xem docstring
                     await this.openList();
                 } }
             ],
             { title: t('fileManager.song.deleteFolderTitle') }
         );
+    },
+
+    /** MỚI (06/10/2026, Giang báo: xoá folder Hidden khi đang ở view "Tất cả" thì media trong đó KHÔNG hiện lại) —
+     * trước đây xoá xong chỉ vẽ lại List folder, `playlistOrder` vẫn là bản đã loại media của folder Hidden cho tới lần nạp
+     * lại kế tiếp (đổi Scope/boot). Folder vừa xoá là Hidden -> nạp lại view "Tất cả" ngay (nếu đang ở đúng view đó). */
+    async _reloadAllViewIfHiddenDeleted(folderRecord) {
+        if (!folderRecord.excludeFromMainPlaylist) return; // guard: folder không Hidden — view "Tất cả" không đổi
+        await this._reloadAllViewIfShowing(folderRecord.type || 'song');
     },
 
     // ============================== Thuộc tính ==============================
