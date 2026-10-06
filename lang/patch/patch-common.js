@@ -68,12 +68,23 @@ const LANG_PATCH_COMMON = {
     // core/storage-manager.js::_compressZipEntries()) — export lẻ 1 file dùng bản readyBody ở trên.
     'common.export.readyBodyWithDuration': 'File size: {size}. Processing time: {duration}.',
     'common.export.readyBtnDownload': 'Download',
+    // MỚI (06/10/2026, Giang yêu cầu chia zip >500MB thành nhiều phần) — modal danh sách phần zip
+    // (event/workflow/zip-download.js + components/zip-download-parts.js). Tiêu đề dùng lại readyTitle.
+    'common.export.partsBody': 'Total size: {size}, split into {n} zip files (up to {limit} each). Download each part.',
+    'common.export.partsBodyWithDuration': 'Total size: {size}, split into {n} zip files (up to {limit} each). Processing time: {duration}. Download each part.',
+    'common.export.partsProgress': 'Downloaded {done} / {total}',
+    'common.export.partFileCount': '{n} file(s)',
+    'common.export.partDownloading': 'Downloading...',
+    'common.export.partDownloaded': 'Downloaded',
+    'common.export.partDownloadAgain': 'Download again',
+    'common.export.partsBtnDone': 'Done',
 
     // MỚI (10/09/2026, Giang yêu cầu "loại bỏ toàn bộ JSZip") — ném ra khi `isStreamingZipAvailable()`
     // (core/streaming-zip.js) false, tức trình duyệt không hỗ trợ OPFS — KHÔNG còn JSZip để rơi về
     // nữa, xem `_compressZipEntries()` (core/storage-manager.js).
     'common.storage.zipNotSupported': "Your browser doesn't support the file system features needed to create zip files. Please update your browser.",
     'common.storage.zippingProgress': 'Packing zip file ({percent}%)...',
+    'common.storage.zippingPartProgress': 'Packing zip file {part}/{total} ({percent}%)...', // MỚI 06/10/2026 — khi chia nhiều phần
     'common.storage.zippingStart': 'Packing zip file (0%)...',
     'common.storage.deletingData': 'Deleting data...',
     'common.storage.zipDownloadError': "Couldn't complete the download: {message}",
@@ -134,6 +145,11 @@ const LANG_PATCH_COMMON = {
     'common.validate.typeLabel.audio': 'music files (mp3, wav, ogg, m4a, aac, flac)',
     'common.validate.typeLabel.image': 'PNG, JPG, or WEBP images',
     'common.validate.typeLabel.video': 'MP4, WEBM, OGG, or MOV videos',
+    // MỚI (06/10/2026, Giang chốt "file <= 500MB mới được upload") — core/upload-validation.js::validateMediaFileSize()
+    'common.validate.fileTooLarge': 'File is too large ({sizeMb} MB). The limit is {limitMb} MB per file.',
+    // MỚI (06/10/2026, Giang chốt "media do app tự tạo chặn 500MB") — ghi âm, cắt đoạn (Subtitle editor), xuất video
+    // (Video editor), lưu ảnh đã sửa, chụp khung hình. {reason} = chuỗi fileTooLarge ngay trên.
+    'common.validate.generatedNotSaved': '{reason} The result was not saved.',
 
     'common.fatalError.alert': 'An unexpected error occurred ({context}). Please reload the page (F5).\n\nDetails: {message}',
 
