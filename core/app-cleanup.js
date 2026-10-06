@@ -36,8 +36,8 @@
                     .catch(err => console.warn('[app-cleanup] Không ghi được totalListenSeconds lúc unload (best-effort):', err));
             }
 
-            // ── Listen stats: flush per-song stats còn debounce ──────────────
-            if (typeof flushSongStats === 'function') flushSongStats();
+            // ── Listen stats per-media: DỜI (06/10/2026) sang event/tab.js (`workflowListenStats.flush()`, gọi ngay sau hàm này) —
+            // core không gọi core/Workflow (Rule 3).
 
             // ── Wake lock ─────────────────────────────────────────────────────
             releaseWakeLock();

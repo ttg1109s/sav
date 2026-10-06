@@ -434,60 +434,9 @@
             }
         }
 
-        // ===== Bộ đếm THỜI GIAN NGHE THẬT — đồng hồ thực, ĐỘC LẬP với thanh tiến trình =====
-        // Trước đây thời lượng nghe được suy ra từ delta của audioPlayer.currentTime (vị trí thanh
-        // tiến trình). Cách đó không đáng tin: currentTime nhảy khi seek, khựng khi buffer, và phụ
-        // thuộc tốc độ phát — không phản ánh đúng "đã nghe bao lâu theo đồng hồ". Bản này đo bằng
-        // performance.now(): một task lặp 1s (qua taskManager, mode 'timeout' — bù trôi, tránh dồn
-        // tick khi tab bị throttle nền) chỉ chạy KHI nhạc thực sự đang phát, cộng dồn delta thời
-        // gian thực vào cả tổng (meta.totalListenSeconds) lẫn từng bài (addSongListenTime).
-        //
-        // Mỗi lần play() là 1 "phiên" đếm MỚI (không nối tiếp pha cũ của lần phát trước) — vì vậy
-        // startListenClock() luôn kill() task cũ (nếu lỡ còn sót) rồi addNew() + enabled() lại từ
-        // đầu, KHÔNG dùng taskManager.resume() (resume() giữ nguyên remainingTime để nối đúng pha
-        // — đúng nghĩa cho việc tạm dừng/tiếp tục GIỮA chừng 1 phiên, không phải bắt đầu phiên mới).
-        const LISTEN_CLOCK_TASK = 'listenClock';
-        // _listenLastTick, pendingListenSeconds — STATE (phần tổng chưa flush vào IndexedDB, cũng
-        // được app-cleanup.js flush lúc unload) — xem service/state.js.
-
-        function _listenTick() {
-            const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-            let delta = (now - appState.get('_listenLastTick')) / 1000;
-            appState.set('_listenLastTick', now, { skipCheck: true }); // chạy mỗi giây qua taskManager — bỏ qua validate để đảm bảo hiệu năng
-            if (!(delta > 0)) return;
-            // Chặn delta bất thường khi tab bị treo/throttle nền hoặc máy ngủ rồi thức (tránh cộng
-            // vọt hàng phút/giờ). Giới hạn 4s/tick (chu kỳ 1s nên bình thường delta ~1s).
-            if (delta > 4) delta = 4;
-            appState.set('pendingListenSeconds', appState.get('pendingListenSeconds') + delta, { skipCheck: true }); // chạy mỗi giây qua taskManager — bỏ qua validate để đảm bảo hiệu năng
-            if (appState.get('currentKey') && typeof addSongListenTime === 'function') addSongListenTime(appState.get('currentKey'), delta);
-            if (appState.get('pendingListenSeconds') >= 5) {
-                const toFlush = appState.get('pendingListenSeconds'); appState.set('pendingListenSeconds', 0, { skipCheck: true }); // chạy mỗi giây qua taskManager — bỏ qua validate để đảm bảo hiệu năng
-                // FIX (log 9->10, mục "Promise bị reject nhưng không ai .catch()"): hàm này chạy mỗi
-                // GIÂY qua taskManager (xem startListenClock()) SUỐT lúc nhạc đang phát — nếu tab bị
-                // ẩn trên iOS và connection IndexedDB bị hệ điều hành đóng/treo giữa lúc transaction
-                // đang mở (db.transaction() throw đồng bộ một DOMException khi connection đã chết —
-                // xem db.js, makeStoreAccessor), exception đó tự biến thành promise reject vì nằm
-                // trong .then() callback. Thiếu .catch() ở đây khiến nó thoát ra dưới dạng
-                // "unhandled promise rejection" — có thể lặp lại MỖI GIÂY nếu trạng thái lỗi kéo dài,
-                // đúng log "[FATAL] Promise bị reject nhưng không ai .catch(): TypeError {}" người
-                // dùng báo lại qua console-log tool. Best-effort — bỏ qua lỗi (log để dò), không để
-                // 1 lượt ghi thống kê lỗi làm crash/spam lỗi ra ngoài.
-                getMeta('totalListenSeconds')
-                    .then(v => setMeta('totalListenSeconds', (v || 0) + toFlush))
-                    .catch(err => console.warn('[player-controls] Không ghi được totalListenSeconds (best-effort, bỏ qua):', err));
-            }
-        }
-        function startListenClock() {
-            taskManager.kill(LISTEN_CLOCK_TASK); // phòng còn sót từ phiên trước (an toàn nếu gọi lại)
-            appState.set('_listenLastTick', (typeof performance !== 'undefined' ? performance.now() : Date.now())); // chạy 1 lần lúc bắt đầu phiên — giữ validate bình thường
-            taskManager.addNew(LISTEN_CLOCK_TASK, { time: 1000, exe: _listenTick, mode: 'timeout', count: 0 });
-            taskManager.operator(LISTEN_CLOCK_TASK, 'enabled');
-        }
-        function stopListenClock() {
-            if (!taskManager.isTaskRunning(LISTEN_CLOCK_TASK)) return;
-            _listenTick(); // chốt nốt phần lẻ kể từ tick gần nhất trước khi dừng
-            taskManager.kill(LISTEN_CLOCK_TASK);
-        }
+        // DỜI (06/10/2026, plan-media-db-split.md mục 6) — đồng hồ nghe (LISTEN_CLOCK_TASK/_listenTick/startListenClock/
+        // stopListenClock — core tự appState.get + đọc DB, vi phạm Rule 2/3b) sang event/workflow/listen-stats.js
+        // (`workflowListenStats.startClock()/stopClock()/_tick()`), logic giữ nguyên, cộng giờ theo ĐÚNG loại media đang phát.
 
         /**
          * Audio bắt đầu phát (sự kiện 'play' của audioPlayer) — cập nhật icon, record-art quay,
@@ -510,7 +459,8 @@
             if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
             // DỜI (24/09/2026) — `workflowPlaylistRender.refreshSongNode(currentKey)` ra
             // event/workflow/player-controls.js::handleAudioPlayEvent() (core gọi Workflow + tự đọc appState).
-            startListenClock();
+            // DỜI (06/10/2026) — `startListenClock()` (core gọi core) ra event/workflow/player-controls.js::handleAudioPlayEvent()
+            // (`workflowListenStats.startClock()`), ngay sau lời gọi hàm này.
             // DỜI (25/09/2026) — đồng bộ auto-switch-visual (`syncAutoSwitchVisualPlayState()`, nay là
             // `workflowAutoSwitchVisual.syncPlayState()`) ra event/workflow/player-controls.js::handleAudioPlayEvent().
             // DỜI (24/09/2026) — đồng bộ video nền theo nhạc (`workflowVisualBg.syncPlaybackToAudio()`, core gọi
@@ -530,7 +480,8 @@
             releaseWakeLock(); if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "paused";
             // DỜI (24/09/2026) — refreshSongNode + workflowVisualBg.syncPlaybackToAudio() ra
             // event/workflow/player-controls.js::handleAudioPauseEvent() (cùng lý do handleAudioPlay() ngay trên).
-            stopListenClock();
+            // DỜI (06/10/2026) — `stopListenClock()` ra event/workflow/player-controls.js::handleAudioPauseEvent()
+            // (`workflowListenStats.stopClock()`), ngay sau lời gọi hàm này.
             // DỜI (25/09/2026) — auto-switch-visual ra event/workflow/player-controls.js::handleAudioPauseEvent().
         }
 
