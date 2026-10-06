@@ -1,5 +1,5 @@
-/* sliders.css — mọi input[type=range]/input[type=color] trong app. 3 nhóm nền TRẮNG (.eq-preset-
-   slider/.ce-slider) TÁCH RIÊNG khỏi nhóm nền TỐI (.setting-slider/.eq-slider) — track
+/* sliders.css — mọi input[type=range]/input[type=color] trong app. nhóm nền TRẮNG (.ce-slider; .eq-preset-
+   slider đã bỏ 07/10/2026) TÁCH RIÊNG khỏi nhóm nền TỐI (.setting-slider/.eq-slider) — track
    rgba(255,255,255,0.1) của nhóm tối gần như vô hình trên nền trắng của Generic Drawer.
    [.setting-slider/.eq-slider CHỈ còn dùng ở nền THẬT tối (components/visualizer-overlay.js,
    core/volume-hud.js) — KHÔNG sửa 2 class này, hợp lệ ở đúng chỗ đang dùng.]
@@ -21,17 +21,9 @@ input[type=range].setting-slider::-webkit-slider-thumb { -webkit-appearance: non
 input[type=range].eq-slider { -webkit-appearance: none; width: 100px; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; outline: none; transform: rotate(-90deg); position: absolute; }
 input[type=range].eq-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%; background: #8b5cf6; cursor: pointer; box-shadow: 0 0 5px rgba(139, 92, 246, 0.8); }
 
-/* Slider dọc lưỡng cực (-12..+12, Edit EQ trên Generic Drawer nền trắng) — track sáng + mốc 0dB +
-   dải fill tím từ mốc 0 tới giá trị hiện tại (JS set style.bottom/height%, xem event/workflow/
-   eq-presets.js::_wireEditView()). Dùng `-webkit-appearance: slider-vertical` (dọc THẬT, không qua
-   transform:rotate() — kiểu cũ khiến WebKit tính sai toạ độ chạm dọc, kéo bị "nhảy nấc"). */
-.eq-preset-slider-box { width: 24px; height: 108px; position: relative; }
-.eq-preset-slider-track { position: absolute; left: 50%; top: 1px; bottom: 1px; width: 6px; margin-left: -3px; border-radius: 999px; background: var(--uitk-slider-track, #e2e8f0); overflow: hidden; }
-.eq-preset-slider-track::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--uitk-slider-mark, #94a3b8); }
-.eq-preset-slider-fill { position: absolute; left: 0; right: 0; background: var(--uitk-eq-fill, #8b5cf6); }
-input[type=range].eq-preset-slider { -webkit-appearance: slider-vertical; appearance: slider-vertical; position: absolute; left: 0; top: 0; width: 24px; height: 108px; background: transparent; outline: none; margin: 0; padding: 0; }
-input[type=range].eq-preset-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #ffffff; border: 3px solid var(--uitk-eq-fill, #8b5cf6); cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-input[type=range].eq-preset-slider:disabled::-webkit-slider-thumb { border-color: var(--uitk-slider-disabled, #cbd5e1); }
+/* XOÁ (07/10/2026, Giang: "bỏ box, slider ngang, mỗi kênh 1 dòng, giống slider bình thường") — `.eq-preset-slider*`
+   (slider DỌC lưỡng cực -12..+12 trong box riêng của Edit EQ). Edit EQ giờ dùng input[type=range] thường
+   (`.eq-band-slider` chỉ là hook JS, không có CSS riêng — màu theo key theme `accentControl` như mọi slider panel). */
 
 /* Slider ngang nền trắng — Custom Effect Drawer (components/custom-effect-drawer.js). */
 input[type=range].ce-slider { -webkit-appearance: none; width: 100%; height: 4px; background: var(--uitk-slider-track, #e2e8f0); border-radius: 2px; outline: none; }
