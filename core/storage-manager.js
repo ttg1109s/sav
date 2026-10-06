@@ -225,6 +225,34 @@
          * @param {(done:number,total:number,percent:number|null) => void} [onProgress]
          * @returns {Promise<Blob>}
          */
+        /**
+         * MỚI (06/10/2026, Giang yêu cầu "zip lớn hơn 500MB thì chia thành nhóm rồi zip") — THUẦN tính toán:
+         * chia `entries` thành các nhóm liên tiếp (GIỮ thứ tự gốc), tổng dung lượng mỗi nhóm <= `maxBytes`.
+         * 1 entry tự nó đã lớn hơn `maxBytes` (file cũ nạp trước khi có giới hạn upload) đứng riêng 1 nhóm.
+         * Không có entry nào -> mảng rỗng. Workflow nén TỪNG nhóm bằng `_compressZipEntries()` ngay dưới.
+         * @param {Array<{filename:string, blob:Blob}>} entries
+         * @param {number} maxBytes
+         * @returns {Array<Array<{filename:string, blob:Blob}>>}
+         */
+        function groupZipEntriesBySize(entries, maxBytes) {
+            const groups = [];
+            let current = [];
+            let currentBytes = 0;
+            for (const entry of entries) {
+                const size = entry.blob.size;
+                // nhóm đang dở mà thêm entry này sẽ vượt ngưỡng -> chốt nhóm, mở nhóm mới
+                if (current.length > 0 && currentBytes + size > maxBytes) {
+                    groups.push(current);
+                    current = [];
+                    currentBytes = 0;
+                }
+                current.push(entry);
+                currentBytes += size;
+            }
+            if (current.length > 0) groups.push(current);
+            return groups;
+        }
+
         async function _compressZipEntries(entries, onProgress) {
             if (!isStreamingZipAvailable()) { // core/streaming-zip.js
                 throw new Error(t('common.storage.zipNotSupported'));
@@ -263,10 +291,12 @@
          * gọi hàm này KHÔNG cần sửa gì).
          * @param {string[]} [keys]
          */
-        async function buildAllSongsZipBlob(keys, onProgress) {
+        async function collectAllSongsZipEntries(keys) {
+            // SỬA (06/10/2026, Giang yêu cầu chia zip >500MB thành nhiều phần) — ĐỔI TÊN từ
+            // buildAllSongsZipBlob(keys, onProgress): giờ CHỈ gom entries, KHÔNG nén nữa — việc chia nhóm
+            // + nén từng phần do Workflow điều phối (event/workflow/zip-download.js::compressInParts()).
             if (!keys) keys = await getAllSongKeys();
-            const entries = await _collectZipEntries(keys, getSongRecord, '.mp3', buildTaggedBlob); // core/id3-export.js
-            return _compressZipEntries(entries, onProgress);
+            return _collectZipEntries(keys, getSongRecord, '.mp3', buildTaggedBlob); // core/id3-export.js
         }
 
         /**
@@ -285,10 +315,10 @@
          * SỬA (06/09/2026) — thêm `keys` tuỳ chọn, CÙNG LÝ DO buildAllSongsZipBlob() ngay trên.
          * @param {string[]} [keys]
          */
-        async function buildAllVideosZipBlob(keys, onProgress) {
+        async function collectAllVideosZipEntries(keys) {
+            // SỬA (06/10/2026) — ĐỔI TÊN từ buildAllVideosZipBlob(), CÙNG lý do collectAllSongsZipEntries() ở trên.
             if (!keys) keys = await getAllVideoKeys(); // service/db.js
-            const entries = await _collectZipEntries(keys, getVideoRecord, '.mp4');
-            return _compressZipEntries(entries, onProgress);
+            return _collectZipEntries(keys, getVideoRecord, '.mp4');
         }
 
         /**
@@ -519,10 +549,10 @@
          * SỬA (06/09/2026) — thêm `keys` tuỳ chọn, CÙNG LÝ DO buildAllSongsZipBlob() ở trên.
          * @param {string[]} [keys]
          */
-        async function buildAllPhotosZipBlob(keys, onProgress) {
+        async function collectAllPhotosZipEntries(keys) {
+            // SỬA (06/10/2026) — ĐỔI TÊN từ buildAllPhotosZipBlob(), CÙNG lý do collectAllSongsZipEntries() ở trên.
             if (!keys) keys = await getAllImageKeys(); // service/db.js
-            const entries = await _collectZipEntries(keys, getImageRecord, '.jpg');
-            return _compressZipEntries(entries, onProgress);
+            return _collectZipEntries(keys, getImageRecord, '.jpg');
         }
 
         /**

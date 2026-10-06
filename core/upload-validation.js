@@ -74,3 +74,22 @@
         function validateVideoFile(file) {
             return validateFileType(file, VALID_VIDEO_MIME_TYPES, VALID_VIDEO_EXTENSIONS, t('common.validate.typeLabel.video'));
         }
+
+        // ===================== (d) GIỚI HẠN DUNG LƯỢNG MỖI FILE =====================
+        // MỚI (06/10/2026, Giang chốt sau khi đo bằng share-size-test.html: share 600MB vẫn ổn) —
+        // mỗi file media nạp vào thư viện (Song/Video/Photo) tối đa 500MB. Lý do: trong PWA iOS chỉ
+        // navigator.share() lưu được file ra ngoài, và share phải đọc nguyên file vào RAM — giữ mọi
+        // file dưới mức đã đo an toàn để file nào cũng xuất/sao lưu được. DÙNG CHUNG làm cỡ tối đa
+        // mỗi phần zip (core/storage-manager.js::groupZipEntriesBySize()).
+        const MEDIA_FILE_MAX_BYTES = 500 * 1024 * 1024;
+
+        /**
+         * Kiểm tra dung lượng 1 file media trước khi nạp — cùng dạng trả về với validateFileType().
+         * @param {File} file
+         * @returns {{valid: boolean, reason?: string}}
+         */
+        function validateMediaFileSize(file) {
+            if (file.size <= MEDIA_FILE_MAX_BYTES) return { valid: true };
+            const toMb = (bytes) => Math.round(bytes / (1024 * 1024));
+            return { valid: false, reason: tFormat('common.validate.fileTooLarge', { sizeMb: toMb(file.size), limitMb: toMb(MEDIA_FILE_MAX_BYTES) }) };
+        }

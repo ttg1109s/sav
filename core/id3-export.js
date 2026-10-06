@@ -79,14 +79,25 @@
          * lại với file zip lớn thật, chạy qua HTTPS, trước khi coi đây đã xong dứt điểm.
          * @param {Blob} blob @param {string} filename
          */
-        const LARGE_FILE_SKIP_SHARE_BYTES = 500 * 1024 * 1024; // 500MB — Giang đề xuất
+        // SỬA (06/10/2026, Giang đo bằng share-size-test.html: share 600MB vẫn ổn trên PWA) — nâng ngưỡng bỏ
+        // share từ 500MB lên 600MB. BẮT BUỘC > cỡ tối đa mỗi phần zip (MEDIA_FILE_MAX_BYTES = 500MB, core/
+        // upload-validation.js) cộng phần header zip — nếu không, 1 phần zip ~500MB + vài KB header sẽ rơi sang
+        // nhánh Service Worker, mà trong PWA iOS nhánh đó mở màn "Open in..." kẹt app (Quick Look).
+        const LARGE_FILE_SKIP_SHARE_BYTES = 600 * 1024 * 1024;
 
+        /**
+         * SỬA (06/10/2026) — trả về `true` nếu đã giao file cho hệ điều hành (share xong, hoặc đã kích hoạt tải qua
+         * Service Worker/<a download> — 2 đường này không có tín hiệu "đã xong" nên coi như đã giao), `false` nếu
+         * người dùng huỷ Share Sheet (AbortError). Dùng để modal nhiều phần zip biết phần nào đã tải
+         * (event/workflow/zip-download.js) và để chỉ xoá dữ liệu khi đã tải đủ (Storage Management).
+         * @returns {Promise<boolean>}
+         */
         async function triggerDownload(blob, filename) {
             const isLargeFile = blob.size > LARGE_FILE_SKIP_SHARE_BYTES;
             if (isLargeFile && isLargeFileDownloadSupported()) { // core/large-file-download.js
                 try {
                     await triggerLargeFileDownloadViaServiceWorker(blob, filename); // core/large-file-download.js
-                    return;
+                    return true;
                 } catch (err) {
                     console.warn('[triggerDownload] Tải qua Service Worker (Cache Storage) lỗi, rơi về <a download> (blob:):', err);
                 }
@@ -96,12 +107,12 @@
                     const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
                     if (navigator.canShare({ files: [file] })) {
                         await navigator.share({ files: [file] });
-                        return;
+                        return true;
                     }
                 } catch (err) {
                     // Người dùng tự bấm Huỷ ở Share Sheet cũng ném AbortError tại đây — tôn trọng,
                     // KHÔNG rơi xuống <a download> trong case đó (đã hiện đúng UI, họ chỉ đổi ý).
-                    if (err && err.name === 'AbortError') return;
+                    if (err && err.name === 'AbortError') return false;
                     console.warn('[triggerDownload] navigator.share() lỗi, dùng lại <a download>:', err);
                 }
             }
@@ -113,6 +124,7 @@
             const a = document.createElement('a');
             a.href = url; a.download = filename; a.click();
             URL.revokeObjectURL(url);
+            return true;
         }
 
         /**
@@ -146,7 +158,9 @@
          * `_compressZipEntries()`) sẽ KHÔNG có thuộc tính này — modal tự rơi về bản KHÔNG có dòng
          * thời gian xử lý (2 chuỗi dịch riêng, xem lang/patch/patch-common.js).
          * @param {Blob} blob @param {string} filename
-         * @returns {Promise<void>} resolve khi modal đã đóng VÀ triggerDownload() đã chạy xong (bấm Tải xuống), hoặc đóng ngay (bấm Huỷ)
+         * @returns {Promise<boolean>} resolve khi modal đã đóng VÀ triggerDownload() đã chạy xong (bấm Tải xuống), hoặc đóng ngay (bấm Huỷ).
+         *   SỬA (06/10/2026) — giá trị resolve: `true` = đã tải, `false` = bấm Huỷ / huỷ Share Sheet / lỗi — nơi gọi cũ bỏ qua
+         *   giá trị này vẫn chạy y nguyên; Storage Management dùng nó để KHÔNG xoá dữ liệu khi chưa tải.
          */
         function promptDownloadReady(blob, filename) {
             return new Promise((resolve) => {
@@ -155,8 +169,8 @@
                     : tFormat('common.export.readyBody', { size: formatBytes(blob.size) }); // core/about-stats.js
                 modalChoice( // core/modal-choice-ui.js
                     bodyText,
-                    [{ label: t('common.export.readyBtnDownload'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent', onClick: () => { triggerDownload(blob, filename).finally(resolve); } }],
-                    { title: t('common.export.readyTitle'), onCancel: () => resolve() }
+                    [{ label: t('common.export.readyBtnDownload'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent', onClick: () => { triggerDownload(blob, filename).then((ok) => resolve(ok), () => resolve(false)); } }],
+                    { title: t('common.export.readyTitle'), onCancel: () => resolve(false) }
                 );
             });
         }
