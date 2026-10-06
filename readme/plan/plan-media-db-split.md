@@ -1,6 +1,6 @@
 # Plan — Tách Blob khỏi bản ghi media + gộp thống kê vào meta media
 
-> Đặt tại `readme/plan-media-db-split.md`. Trạng thái: **NHÁP — Giang đã chốt hướng chính (06/10/2026, mục 0.5), còn vài điểm nhỏ ở mục 11**.
+> Đặt tại `readme/plan-media-db-split.md`. Trạng thái: **ĐÃ DUYỆT (06/10/2026)** — đang làm theo mục 8.
 > Phạm vi: 2 việc gộp chung 1 dự án vì dùng chung 1 lần chuyển dữ liệu:
 > **(A)** tách Blob ra store riêng theo từng loại media (mục 2.1); **(B)** đưa `songStats` (+ điểm Game) vào bản ghi meta của từng media.
 
@@ -81,11 +81,12 @@ Sau khi (A) tách Blob, record meta nhẹ → lý do này hết → (B) khả th
 | video | `videos` | `video_blobs` | `video_thumbs` — field `thumbBlob`, `thumbFullBlob` |
 | photo | `images` | `image_blobs` | `image_thumbs` — field `thumbBlob` |
 
-**Key** (đề xuất — chờ chốt mục 11.1):
-- meta + media blob: **key media như hiện nay** (chuỗi `slugify()`), mỗi media đúng 1 entry mỗi store.
-- thumb blob: **array key `[keyMedia, field]`** — vì Video có 2 thumb; mỗi thumb 1 entry riêng nên fix thumbnail
-  `thumbFullBlob` không chạm `thumbBlob`. Đọc/xoá mọi thumb của 1 media bằng khoảng
-  `IDBKeyRange.bound([key], [key, '\uffff'])`.
+**Key** (Giang chốt 06/10/2026 — KHÔNG dùng array key): **cả 3 store dùng chung key media như hiện nay** (chuỗi
+`slugify()`), mỗi media đúng 1 entry mỗi store.
+- media blob: value = Blob file chính.
+- thumb blob: value = **object chứa mọi thumb của media đó** (`{ cover }` / `{ thumbBlob, thumbFullBlob }` / `{ thumbBlob }`).
+  Bất biến: luôn ghi **cả object với Blob MỚI** — không bao giờ đọc thumb lên rồi ghi lại (đúng lớp lỗi round-trip).
+  Thực tế đã khớp: fix thumbnail / thay file video luôn tạo lại cả 2 thumb; Song chỉ có `cover`; Photo chỉ có `thumbBlob`.
 
 Danh sách field thumb mỗi loại: hằng số `THUMB_FIELDS_BY_TYPE` trong service/db.js — nguồn sự thật DUY NHẤT.
 
@@ -105,7 +106,7 @@ Mọi field cũ giữ nguyên tên (`filename`, `tag`, `subtitles`, `folder`, `c
 - **Create**: ghi meta + media blob + mọi thumb của loại đó trong **1 transaction** (3 store).
 - **Update meta**: read-modify-write chỉ store meta; hàm ghi tự **gạt bỏ field Blob** nếu lọt vào (phòng thủ).
 - **Update Blob**: chỉ ghi đúng store/field truyền vào (file chính hoặc từng thumb).
-- **Delete**: xoá meta + media blob + mọi thumb `[key, *]` trong 1 transaction.
+- **Delete**: xoá entry `key` ở cả 3 store trong 1 transaction.
 
 ---
 
@@ -136,11 +137,13 @@ Mọi field cũ giữ nguyên tên (`filename`, `tag`, `subtitles`, `folder`, `c
 | `updateMediaMeta(type, key, mutate)` | sửa dữ liệu thường |
 | `updateMediaMetaBatch([{type, key, mutate}])` | flush thống kê, xoá folder, dọn mồ côi — 1 transaction nhiều store |
 | `setMediaBlob(type, key, blob)` | đổi file chính (sửa ảnh, thay file video, upload ghi đè) |
-| `setMediaThumbs(type, key, { field: Blob })` | đổi thumb (fix thumbnail, đổi cover) |
+| `setMediaThumbs(type, key, thumbs)` | đổi thumb (fix thumbnail, đổi cover) — `thumbs` PHẢI đủ mọi field của loại đó, toàn Blob mới (guard) |
 | `deleteMediaRecord(type, key)` | xoá meta + mọi Blob |
 
-`set*Record` / `delete*Record` cũ: **xoá hẳn** sau Lượt 2 (đường ghi cũ còn sót sẽ lỗi ngay lúc chạy, không lặng lẽ tái tạo bug).
-`delete*Record` có thể giữ làm alias mỏng gọi `deleteMediaRecord` nếu ít rủi ro hơn — Giang chốt.
+`set*Record` / `delete*Record` cũ: **xoá hẳn** (Giang chốt 06/10/2026, không alias) — đường ghi cũ còn sót sẽ lỗi ngay
+lúc chạy. Mọi chỗ đổi sang API mới phải **tuân core rule + event bus**: hàm core bị đụng mà đang tự gọi hàm ĐỌC của
+service/db.js (`get*Record`, `getAll*Keys` — vi phạm Rule 3, nợ cũ ở `core/playlist/actions.js`, `core/file-manager/*`,
+`core/storage-manager.js`...) thì dời phần đọc lên Workflow, core nhận record qua tham số; core chỉ còn gọi hàm GHI.
 
 `rematerializeBlob()`: gỡ khỏi 6 đường ghi; **giữ** 2 chỗ chỉ để decode trong Subtitle editor (`_initWaveform`, `_decodeKaraokeSourceHiRes`) — không liên quan ghi.
 
@@ -196,7 +199,8 @@ không cảnh báo — máy chưa xoá app sẽ mất thư viện cũ (Giang ch�
 - `flushSongStats()`: throttle 4s **giữ nguyên**; ghi `updateMediaMetaBatch` cho đúng các key bẩn (thường 1).
 - `removeSongStats()` → chỉ còn xoá RAM (`forgetMediaStats(type, key)`), không ghi DB (xoá record đã xoá stats).
 - `clearAllSongStats()` → `updateMediaMetaBatch` bỏ `stats` mọi record 3 loại (có tiến độ) + xoá RAM.
-- `service/state/listen-stats.js`: `_songStatsDirty` (boolean) → `_mediaStatsDirtyKeys` (Set) hoặc giữ biến module — Giang chốt.
+- `service/state/listen-stats.js`: `_songStatsDirty` (boolean) → `mediaStatsDirtyKeys` (Set key `type:key`) — **nằm trong
+  state** (Giang chốt 06/10/2026), ghi qua `appState.mutate()` kèm log (Rule 4; lượt ghi mỗi giây dùng `skipCheck` như cũ).
 
 ### 6.2 Chỗ gọi
 
@@ -222,7 +226,18 @@ Với bất biến mới, chỉ 🟡 còn có thể làm chết URL đang dùng,
 | Sửa ảnh đang hiện (Photo Player / VBG) | `blob`, `thumbBlob` | image surface | vẽ lại ảnh hiện tại |
 | Fix thumbnail video đang phát | thumb | ảnh tĩnh nền | không ảnh hưởng video; làm tươi ảnh tĩnh |
 
-Có thể gom vào 1 hàm Workflow `refreshInUseMediaIfAffected(type, key, fields)` — Giang chốt vị trí.
+**Giang chốt (06/10/2026) — 1 "request trung tâm", tuân core rule + event bus:**
+- Nơi quản lý thao tác thay file (Workflow upload / Video editor / Sửa ảnh / Fix thumbnail) ghi DB xong thì CHỈ bắn
+  `eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced', payload: { type, key } })` — không tự kiểm
+  tra ai đang dùng, không tự nạp lại gì.
+- Router `mediaInUse` (event/router/media-in-use.js) giao cho `workflowMediaInUse.handleContentReplaced(type, key)`
+  (event/workflow/media-in-use.js). Workflow này TỰ đọc state để biết media đó đang được dùng ở đâu — phát chính
+  (Song: `currentKey` + nguồn Song; Player Video; Photo Player), đang chạy làm Visual Background (VBG Video/Photo),
+  node trong Playlist (cover/thumb) — rồi TỰ quyết định xử lý: gọi đúng hàm nạp lại của workflow chủ quản (nạp nguồn
+  mới từ DB, giữ vị trí phát + trạng thái phát/dừng; ảnh thì vẽ lại). Rẽ nhánh theo state bằng object map /
+  `VirtualMachineState` (event-bus-flow.md mục 7/7a) — không if/else nghiệp vụ.
+- Media không được dùng ở đâu -> không làm gì.
+
 
 ---
 
@@ -281,8 +296,20 @@ store meta). Bỏ Lượt 0 (hotfix Game mode) — Lượt 2 sửa tận gốc.
 Đã chốt (06/10/2026): Blob tách theo từng loại, 3 store/loại; không chuyển dữ liệu, xoá store cũ; (B) làm cùng đợt; bỏ
 H/R, `songStats_legacy`, nút chạy lại chuyển dữ liệu, Lượt 0.
 
-Còn lại:
-1. Key store thumb: `[keyMedia, field]` như mục 2.1 — đồng ý?
-2. `set*Record` / `delete*Record` cũ: **xoá hẳn** (đề xuất — sót chỗ nào lỗi lộ ngay) hay giữ alias mỏng?
-3. Trạng thái key thống kê bẩn (mục 6.1): `service/state` hay biến module trong `core/listen-stats.js`?
-4. Hàm nạp lại media đang dùng khi thay file (mục 7): đặt ở Workflow nào?
+Chốt thêm (06/10/2026): key cả 3 store = key media, thumb là 1 object/media (mục 2.1); `set*Record`/`delete*Record`
+xoá hẳn, tuân core rule + event bus (mục 3.3); key thống kê bẩn nằm trong state (mục 6.1).
+
+Chốt cuối (06/10/2026): Giang **duyệt plan**; mục 7 = request trung tâm `mediaInUse` (bắn type + key, trung tâm tự
+kiểm state + tự xử lý). Không còn điểm nào chờ chốt.
+
+### Tiến độ giao patch (không deploy riêng lẻ — chỉ deploy khi đủ Lượt 1 + 2 + 3)
+- [x] Lượt 1 — `service/db.js` v6, 9 store, API mục 3 (sav-13-db-split-1-patch.zip).
+- [x] Lượt 2a — mọi chỗ ghi/xoá sang API mới + dời phần đọc khỏi core bị đụng (Rule 3b) (sav-13-db-split-2a-patch.zip):
+  `resolveVideoKey`/`resolveImageKey` dời về service/db.js (`resolveMediaKey`); core `saveVideo`/`saveImage` nhận key;
+  `setVideoThumbnails`/`replaceVideoMedia`/`updateImageBlob` ghi riêng từng store; 3 `apply*EditAndSave` -> core thuần
+  `build*EditMeta` + `workflowPlaylist._save*Edit`/`_syncEdited*Runtime`; `deleteFolder`/`addSongsToFolder` nhận dữ liệu
+  qua tham số (`workflowPlaylist.addMediaToFolder`); `cleanupOrphanedSongFolderFields` do Workflow chuẩn bị; 3
+  `deleteCorrupted*` gộp `deleteCorruptedMediaRecords`; bỏ `clearAllVideosData`/`clearAllPhotosData`/`setVideoCustomName`/
+  `deleteImage` (chết hoặc thay bằng `clearAllMediaOfType`); điểm Game + phụ đề ghi qua `updateMediaMeta`.
+- [ ] Lượt 2b — request trung tâm `mediaInUse` (mục 7) — các chỗ thay file đã bắn sẵn `mediaInUse.contentReplaced`.
+- [ ] Lượt 3 — thống kê + điểm Game vào meta (mục 6).
