@@ -321,24 +321,8 @@
             return _collectZipEntries(keys, getVideoRecord, '.mp4');
         }
 
-        /**
-         * MỚI (Batch 5, mục 6b) — xoá TOÀN BỘ record Video. CỐ Ý viết ĐƠN GIẢN + THUẦN (Rule 1-4
-         * đầy đủ — không appState, không DOM, không gọi core nào khác trong file này) — KHÔNG mirror
-         * đầy đủ độ phức tạp của `clearAllStoredData()` (Song) phía trên: hàm đó là code DI SẢN, tự
-         * làm rất nhiều việc (appState, DOM, gọi hàm khác, cờ an toàn khi bị gián đoạn giữa chừng) —
-         * VI PHẠM Rule 1-4 nhiều chỗ, nhưng KHÔNG bị đụng tới ở batch này (không "đụng phải" theo
-         * đúng nghĩa sửa thân hàm) nên GIỮ NGUYÊN, không tự ý sửa lại. Hàm Video MỚI này viết ĐÚNG
-         * chuẩn ngay từ đầu — phần đồng bộ RAM/UI (thoát Video Player mode nếu đang bật, rỗng hoá
-         * playlistCache nếu đang browse nguồn Video) đẩy hẳn sang Workflow gọi SAU khi hàm này chạy
-         * xong (xem event/workflow/file-manager-song.js::_resetVideoRuntimeStateAfterClear()).
-         * KHÔNG có cờ an toàn "clearingInProgress" như bản Song (tính năng mới, đơn giản hoá có chủ
-         * đích — nếu cần độ an toàn tương đương khi bị gián đoạn giữa chừng, cần yêu cầu riêng).
-         * @returns {Promise<void>}
-         */
-        async function clearAllVideosData() {
-            const keys = await getAllVideoKeys(); // service/db.js
-            for (const key of keys) await deleteVideoRecord(key); // service/db.js
-        }
+        // XOÁ (06/10/2026, plan-media-db-split.md) — `clearAllVideosData()`: Workflow gọi thẳng `clearAllMediaOfType('video')`
+        // (service/db.js — xoá 3 store trong 1 transaction, thay vòng deleteVideoRecord() từng key).
 
         /**
          * XOÁ (Batch 5, "Song/Video Unification" mục 6b) — `downloadAllSongsThenClear()`/
@@ -391,21 +375,22 @@
         }
 
         /**
-         * NGHIỆP VỤ THUẦN: xoá đúng các record trong scanResults (trừ currentKeyNow đang phát).
-         * KHÔNG tự gọi resetScanResultUI()/renderStorageStats() — quyết định thứ tự đó là của workflow.
-         * SỬA (24/09/2026, dọn nợ) — KHÔNG còn tự gọi removeKeyFromDisplay() (đã dời sang Workflow): TRẢ VỀ danh sách
-         * key đã xoá, Workflow tự loại khỏi Playlist — CÙNG khuôn deleteCorruptedVideos()/deleteCorruptedPhotos().
-         *
+         * GỘP (06/10/2026, plan-media-db-split.md) — THAY 3 hàm `deleteCorruptedSongs()`/`deleteCorruptedVideos()`/
+         * `deleteCorruptedPhotos()` (cùng 1 quy trình, chỉ khác store — đổi sang `deleteMediaRecord(type, key)` xoá 3 store
+         * trong 1 transaction). Bỏ qua `skipKey` (media đang phát — Photo truyền null). TRẢ VỀ danh sách key đã xoá,
+         * Workflow tự loại khỏi Playlist. Bổ sung log ghi state (Rule 4) mà bản cũ thiếu.
+         * @param {'song'|'video'|'photo'} type
          * @param {Array<{key:string}>} scanResults
-         * @param {string|null} currentKeyNow
+         * @param {string|null} skipKey
          * @returns {Promise<string[]>} key đã xoá thật.
          */
-        async function deleteCorruptedSongs(scanResults, currentKeyNow) {
+        async function deleteCorruptedMediaRecords(type, scanResults, skipKey) {
             const deletedKeys = [];
             for (const { key } of scanResults) {
-                if (key === currentKeyNow) continue;
-                await deleteSongRecord(key);
+                if (key === skipKey) continue;
+                await deleteMediaRecord(type, key); // service/db.js
                 appState.mutate('confirmedBrokenKeys', s => s.delete(key));
+                console.log(`writer: "deleteCorruptedMediaRecords", page: "confirmedBrokenKeys", content: "-${key}"`);
                 deletedKeys.push(key);
             }
             return deletedKeys;
@@ -486,28 +471,7 @@
             return results;
         }
 
-        /**
-         * Bản Video của deleteCorruptedSongs() ngay trên — KHÁC 1 điểm CÓ CHỦ ĐÍCH: KHÔNG tự gọi
-         * `removeKeyFromDisplay()` bên trong (hàm đó ở core/playlist/actions.js — FILE KHÁC, gọi
-         * thẳng từ đây sẽ là core gọi core, Rule 3 — bản Song ĐÃ vi phạm y hệt kiểu này từ trước,
-         * nhưng không "đụng phải" theo đúng nghĩa sửa thân hàm nên KHÔNG tự ý sửa lại; hàm MỚI này
-         * viết ĐÚNG chuẩn ngay từ đầu). Trả về danh sách key ĐÃ xoá — Workflow (event/workflow/
-         * file-manager-song.js) tự gọi `removeKeyFromDisplay()` cho TỪNG key sau khi hàm này chạy
-         * xong.
-         * @param {Array<{key:string}>} scanResults
-         * @param {string|null} currentKeyNow
-         * @returns {Promise<string[]>} danh sách videoKey đã xoá thật (currentKeyNow bị loại trừ)
-         */
-        async function deleteCorruptedVideos(scanResults, currentKeyNow) {
-            const deletedKeys = [];
-            for (const { key } of scanResults) {
-                if (key === currentKeyNow) continue;
-                await deleteVideoRecord(key);
-                appState.mutate('confirmedBrokenKeys', s => s.delete(key));
-                deletedKeys.push(key);
-            }
-            return deletedKeys;
-        }
+        // GỘP (06/10/2026) — `deleteCorruptedVideos()` vào `deleteCorruptedMediaRecords('video', ...)` (phía trên).
 
         /** @param {HTMLElement} resultEl @param {HTMLElement} listEl */
         function resetScanResultUI(resultEl, listEl) {
@@ -555,18 +519,7 @@
             return _collectZipEntries(keys, getImageRecord, '.jpg');
         }
 
-        /**
-         * Xoá TOÀN BỘ ảnh. Viết ĐƠN GIẢN + THUẦN — không appState, không DOM (cùng tinh thần
-         * `clearAllVideosData()` ngay trên, KHÔNG mirror độ phức tạp/cờ an toàn của
-         * `clearAllStoredData()` bản Song di sản).
-         * XOÁ (loại bỏ Album khỏi Photo Panel) — rỗng hoá `imageKeys` của từng album bỏ hẳn cùng
-         * tính năng (Album không còn tồn tại trong app).
-         * @returns {Promise<void>}
-         */
-        async function clearAllPhotosData() {
-            const keys = await getAllImageKeys(); // service/db.js
-            for (const key of keys) await deleteImageRecord(key); // service/db.js
-        }
+        // XOÁ (06/10/2026, plan-media-db-split.md) — `clearAllPhotosData()`: Workflow gọi thẳng `clearAllMediaOfType('photo')`.
 
         /** Bản Photo của `isRecordCorrupted()`/`isVideoRecordCorrupted()` — thử decode ảnh qua
          * `Image()` (DOM API cho việc TÍNH TOÁN thuần, KHÔNG phải dựng UI — cùng tiền lệ dùng
@@ -608,19 +561,5 @@
             return results;
         }
 
-        /** Bản Photo của `deleteCorruptedVideos()`.
-         * XOÁ (loại bỏ Album khỏi Photo Panel) — dọn cascade khỏi mọi album đang chứa ảnh vừa xoá
-         * bỏ hẳn cùng tính năng (Album không còn tồn tại trong app).
-         * @param {Array<{key:string}>} scanResults
-         * @returns {Promise<string[]>} danh sách imageKey đã xoá thật.
-         */
-        async function deleteCorruptedPhotos(scanResults) {
-            const deletedKeys = [];
-            for (const { key } of scanResults) {
-                await deleteImageRecord(key);
-                appState.mutate('confirmedBrokenKeys', s => s.delete(key));
-                deletedKeys.push(key);
-            }
-            return deletedKeys;
-        }
+        // GỘP (06/10/2026) — `deleteCorruptedPhotos()` vào `deleteCorruptedMediaRecords('photo', ...)` (đầu file).
 // (Document — ĐÃ XOÁ, loại bỏ Document Reader khỏi app: buildAllDocumentsZipBlob/clearAllDocumentsData/isDocumentRecordCorrupted/scanAllDocumentsForCorruption/deleteCorruptedDocuments bỏ hẳn cùng tính năng.)
