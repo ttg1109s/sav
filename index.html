@@ -392,7 +392,7 @@
     <script src="lang/patch/patch-playlist.js?v=20261006audivis1"></script>
     <script src="lang/patch/patch-visualizer.js?v=20261005disp4"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20261005disp4"></script>
-    <script src="lang/patch/patch-settings-misc.js?v=20260921v9"></script>
+    <script src="lang/patch/patch-settings-misc.js?v=20261006q1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 2 drawer con Song/Photo & Album, xem plan-v12-multimedia-decisions.md). -->
     <script src="lang/patch/patch-file-manager.js?v=20260930hidden1"></script>
@@ -461,7 +461,7 @@
     <script src="components/debug-console-drawer.js?v=20260924v1"></script>
     <!-- MỚI (29/07/2026, yêu cầu Giang mục 2) — panel "Quản lý lưu trữ" (renderFileManagerStorage
          ManagementPanelBody()), gộp ĐỦ 3 domain Song/Video/Photo. -->
-    <script src="components/file-manager-storage.js?v=20260923v1"></script>
+    <script src="components/file-manager-storage.js?v=20261006q1"></script>
     <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer, khung TRẮNG dùng CHUNG
          cho nhiều tính năng (Folder Browser/Add to Folder picker...). items.js (mục 3) ĐỘC LẬP với
          Generic Drawer (xem docstring đầu file) nhưng đặt cạnh nhau cho dễ đọc. -->
@@ -946,7 +946,7 @@
     <!-- MỚI (10/09/2026) — core/streaming-zip.js: nén .zip STREAM thẳng vào OPFS thay JSZip, xem
          docstring đầu file đó. NẠP TRƯỚC storage-manager.js (hàm buildAllXZipBlob() ở đó gọi tới). -->
     <script src="core/streaming-zip.js?v=20260910v10"></script>
-    <script src="core/storage-manager.js?v=20260924r2"></script>
+    <script src="core/storage-manager.js?v=20261006q1"></script>
 
     <!-- 4) VISUALIZERS: hàm vẽ canvas dùng chung (core/visualizer/draw/), từng visual riêng
          (groups/), rồi 2 Workflow vòng lặp (audio-analysis.js + visualizer-render.js) nạp sau cùng vì
@@ -1116,7 +1116,7 @@
     <!-- Panel "Song & Video" cũ (file-manager-song.js) đã xoá, thay bằng "Quản lý lưu trữ" (gộp 3
          domain: song/video/photo) — CẦN core/file-manager/{image,album}.js,
          components/file-manager-storage.js (đã nạp ở nhóm CORE/COMPONENTS). -->
-    <script src="event/workflow/file-manager-storage.js?v=20261002cv5"></script>
+    <script src="event/workflow/file-manager-storage.js?v=20261006q1"></script>
     <script src="event/router/file-manager-storage.js?v=20260920v1"></script>
     <!-- Folder Browser (Generic Drawer, mở từ tab Folder). CẦN core/file-manager/{folder,folder-picker-ui}.js,
          components/items.js, core/pagination.js (nhóm CORE). -->
