@@ -254,7 +254,7 @@
     <link rel="stylesheet" href="assets/css/video-gallery.css?v=20260923v1">
     <link rel="stylesheet" href="assets/css/video-preview.css?v=20260927c1">
     <link rel="stylesheet" href="assets/css/misc.css?v=20261006audivis3">
-    <link rel="stylesheet" href="assets/css/motion-engine.css?v=20260914v1">
+    <link rel="stylesheet" href="assets/css/motion-engine.css?v=20261006r1">
     <!-- Game Mode (Circle mode v1, MỚI 16/08/2026) — xem components/gameplay-overlay.js. -->
     <link rel="stylesheet" href="assets/css/gameplay.css?v=20260902v4">
     <!-- MỚI (01/10/2026) — overlay Ghi âm + mini waveform modal nghe lại — xem components/recorder-overlay.js. -->
@@ -523,22 +523,22 @@
          file gọi hàm helper của chúng (playlist/*.js, equalizer.js, subtitle/*.js...). -->
     <!-- service/z-index.js — bảng z-index tập trung, PHẢI nạp trước core/modal-choice-ui.js
          (Z_INDEX.MODAL_CHOICE) và mọi core/ dùng z-index. Zero dependency. -->
-    <script src="service/z-index.js?v=20260915v2"></script>
+    <script src="service/z-index.js?v=20261006r1"></script>
     <!-- modalChoice() — modal "hỏi quyết định" dùng chung, tự dựng/xoá DOM động. Nạp sớm: service/
          state.js cần modal-choice-ui.js sẵn sàng trước (option notifyUI của appState.set/mutate). -->
-    <script src="core/modal-choice-ui.js?v=20260818v1"></script>
-    <!-- infoIconHtml()/showInfoPopup() — icon (i) nhỏ dùng chung + popup giải thích (text + nút X),
+    <script src="core/modal-choice-ui.js?v=20261006r1"></script>
+    <!-- infoIconHtml()/showInfoPopover() — icon (i) nhỏ dùng chung + popover giải thích neo tại icon (text + nút X),
          MỚI (phản hồi Giang). CẦN Z_INDEX (đã nạp dòng trên) + escapeHtml() (modal-choice-ui.js, đã
          nạp ngay trên) — nạp SAU cả 2. -->
-    <script src="core/info-icon-ui.js?v=20260915v1"></script>
+    <script src="core/info-icon-ui.js?v=20261006r1"></script>
     <!-- core/edit-history.js ĐÃ GỠ (Phase 1 editor video, 26/09/2026) — không còn nơi nào dùng từ khi
          bỏ Undo/Redo (05/08/2026); Giang xoá tay file core/edit-history.js. -->
     <!-- openTimePickerModal() dùng chung (Subtitle Editor + Motion transition-duration picker) —
          chỉ phụ thuộc t(). -->
-    <script src="core/time-picker-modal.js?v=20260915v4"></script>
+    <script src="core/time-picker-modal.js?v=20261006r1"></script>
     <!-- openSliderInputModal() dùng chung (VBG "Âm thanh Video" dùng đầu tiên) — cùng khuôn
          time-picker-modal.js. -->
-    <script src="core/slider-input-modal.js?v=20260923v1"></script>
+    <script src="core/slider-input-modal.js?v=20261006r1"></script>
     <!-- core/fatal-error.js + event/listener/app-boot.js — global error-handler: 2 listener error/
          unhandledrejection tự kiểm tra `typeof eventBus` — có (sau khi event/bus.js nạp) thì gửi
          qua eventBus cho event/router/app-boot.js xử lý; chưa có thì gọi thẳng _reportFatalError()
@@ -1058,9 +1058,9 @@
     <!-- Cụm "infoIcon" (MỚI, phản hồi Giang — icon (i) nhỏ dùng chung) — CẦN core/info-icon-ui.js
          (đã nạp ở nhóm CORE phía trên). Listener delegate trên document.body — luôn có sẵn, không
          cần dom-refs.js nào. -->
-    <script src="event/workflow/info-icon.js?v=20260915v1"></script>
-    <script src="event/router/info-icon.js?v=20260915v1"></script>
-    <script src="event/listener/info-icon.js?v=20260915v1"></script>
+    <script src="event/workflow/info-icon.js?v=20261006r1"></script>
+    <script src="event/router/info-icon.js?v=20261006r1"></script>
+    <script src="event/listener/info-icon.js?v=20261006r1"></script>
     <!-- XOÁ (24/09/2026, rà soát refresh DOM) — cụm "settingsStackNav" (workflow/router/listener): #settings-stack-body
          không còn trong DOM nên listener chưa từng được gắn, `popSettingsPanel()` không còn định nghĩa ở đâu.
          MỚI (24/09/2026) — cụm "genericDrawer": Listener `scroll` trên body Generic Drawer -> Router -> Workflow
@@ -1135,7 +1135,7 @@
     <script src="event/router/file-manager-storage.js?v=20260920v1"></script>
     <!-- Folder Browser (Generic Drawer, mở từ tab Folder). CẦN core/file-manager/{folder,folder-picker-ui}.js,
          components/items.js, core/pagination.js (nhóm CORE). -->
-    <script src="event/workflow/file-manager-folder-browser.js?v=20261006db5"></script>
+    <script src="event/workflow/file-manager-folder-browser.js?v=20261006r1"></script>
     <script src="event/router/file-manager-folder-browser.js?v=20260930hidden2"></script>
     <script src="event/listener/file-manager-storage.js?v=20260729v2"></script>
     <!-- Batch 8, ver 12 "Multi Media" — engine cycle ảnh Slideshow nền Visual (transition/Ken
