@@ -36,6 +36,11 @@
  * SỬA (27/09/2026, Giang: "bỏ nút on/off sound") — bỏ `muteBtn` + nhãn của nó.
  * MỚI (29/09/2026, Giang) — `captureBtn` ở hàng công cụ: bắn 'videoPlayer.captureFrame.click' (event của nút
  * Capture ở Control Center) kèm `sourceVideoEl: videoEl`. Zoom-pan editor đã bỏ — `stageEl` vẫn trả về (khung bọc).
+ * SỬA (06/10/2026, Giang — tách trình sửa video thành trang riêng video-editor.html): hàm này giờ chạy trên trang đó
+ * (không còn nạp ở index.html). Nút Chụp bắn 'videoPreview.capture.click' (trang không có router 'videoPlayer'); thêm
+ * `cardAreaEl` (vùng bọc thẻ video — Workflow đo để thẻ khít tỉ lệ nội dung) và dải seek ngoài màn xem
+ * (`seekTrackEl`/`seekFillEl`/`seekThumbEl`/`seekCurrentLabelEl`/`seekTotalLabelEl`, 'pointerdown' trên track ->
+ * 'videoPreview.outerSeek.pointerDown'; kéo tiếp theo dõi trên document như dải phim, event/listener/video-preview.js).
  */
 function openVideoPreviewModal(data) {
     const stale = document.getElementById('video-preview-overlay');
@@ -64,6 +69,7 @@ function openVideoPreviewModal(data) {
     const overlayEl = fragment.querySelector('#video-preview-overlay');
     overlayEl.style.zIndex = String(Z_INDEX.VIDEO_PREVIEW); // service/z-index.js
 
+    const cardAreaEl = fragment.querySelector('#video-preview-card-area'); // MỚI 06/10/2026
     const mediaWrapEl = fragment.querySelector('#video-preview-media-wrap');
     const stageEl = fragment.querySelector('#video-preview-stage');
     const cropViewEl = fragment.querySelector('#video-preview-crop-view'); // 27/09/2026 — khung cắt xem trước (overflow:hidden) bọc <video>
@@ -95,6 +101,12 @@ function openVideoPreviewModal(data) {
     const saveModeLabelEl = fragment.querySelector('#video-preview-save-mode-label');
     const closeBtn = fragment.querySelector('#video-preview-close-btn');
     const saveBtn = fragment.querySelector('#video-preview-save-btn');
+    // MỚI (06/10/2026) — dải seek ngoài màn xem
+    const seekTrackEl = fragment.querySelector('#video-preview-seek-track');
+    const seekFillEl = fragment.querySelector('#video-preview-seek-fill');
+    const seekThumbEl = fragment.querySelector('#video-preview-seek-thumb');
+    const seekCurrentLabelEl = fragment.querySelector('#video-preview-seek-current');
+    const seekTotalLabelEl = fragment.querySelector('#video-preview-seek-total');
 
     document.body.appendChild(fragment);
     overlayEl.classList.remove('hidden');
@@ -127,7 +139,10 @@ function openVideoPreviewModal(data) {
     flipBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.flip.click', payload: {} }));
     // MỚI (29/09/2026, Giang: "chỉ cần gọi lại event giống như capture trong icon control center") — ĐÚNG event của
     // #btn-capture-video-frame, chỉ kèm nguồn là `<video>` của editor (Control Center không kèm -> bgVideoElement).
-    captureBtn.addEventListener('click', () => eventBus.send({ router: 'videoPlayer', type: 'videoPlayer.captureFrame.click', payload: { sourceVideoEl: videoEl } }));
+    // SỬA (06/10/2026) — trang video-editor.html không có router 'videoPlayer': bắn về router của chính editor (Workflow gọi
+    // workflowVideoFrameCapture.captureToPhoto() — CÙNG luồng với nút Capture ở Control Center).
+    captureBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.capture.click', payload: {} }));
+    seekTrackEl.addEventListener('pointerdown', (e) => eventBus.send({ router: 'videoPreview', type: 'videoPreview.outerSeek.pointerDown', payload: { clientX: e.clientX } })); // MỚI 06/10/2026
 
     // Topbar công cụ (trạng thái Cắt/Cắt khung)
     toolCancelBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.tool.cancel', payload: {} }));
@@ -152,9 +167,10 @@ function openVideoPreviewModal(data) {
 
     return {
         close: closeModal,
-        overlayEl, mediaWrapEl, stageEl, cropViewEl, videoEl, posterEl, cropCanvasEl, ratioButtons, ratioFlipBtn,
+        overlayEl, cardAreaEl, mediaWrapEl, stageEl, cropViewEl, videoEl, posterEl, cropCanvasEl, ratioButtons, ratioFlipBtn,
         filmstripTrackEl, filmstripFramesEl, startHandleEl, endHandleEl, dimLeftEl, dimRightEl, rangeBorderEl, playheadEl,
         currentTimeLabelEl, trimLengthLabelEl, toolTitleEl, flipBtn, saveModeLabelEl,
+        seekTrackEl, seekFillEl, seekThumbEl, seekCurrentLabelEl, seekTotalLabelEl,
     };
 }
 
