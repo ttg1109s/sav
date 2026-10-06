@@ -1660,6 +1660,10 @@ const workflowSubtitleEditor = {
      * nhất quán. Không cần tự thêm vào playlistOrder — initPlaylistFromDB() coi store `songs` là
      * chân lý duy nhất, tự quét lại khi index.html mở, bài mới sẽ tự xuất hiện. */
     async _insertCutBlobAsNewSong(blob, fileName) {
+        // MỚI (06/10/2026, Giang chốt "media do app tự tạo chặn 500MB") — cùng giới hạn upload. core/upload-validation.js
+        // giờ cũng nạp ở subtitle-editor.html (xem thẻ <script> ở đó).
+        const sizeCheck = validateMediaFileSize(blob); // core/upload-validation.js
+        if (!sizeCheck.valid) { await alertModal(tFormat('common.validate.generatedNotSaved', { reason: sizeCheck.reason })); return; }
         const key = await resolveSongKey(fileName); // service/db.js
         const baseTitle = appState.get('_record').tag?.title || appState.get('_songKey');
         const record = {

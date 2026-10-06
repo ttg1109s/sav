@@ -881,6 +881,7 @@ const workflowVideoPreview = {
         const params = this._buildProcessParams();
         let resultKey = null; // key thông báo sau khi shield tắt
         let saved = false;
+        let tooLargeReason = null; // MỚI (06/10/2026) — video xuất ra vượt 500MB/file -> không lưu, báo sau khi shield tắt
 
         await withLoadingShield(tFormat('videoPreview.save.progress', { percent: 0 }), async () => { // core/loading-shield-util.js
             const pct = (p) => this._setShieldPercent('videoPreview.save.progress', p);
@@ -899,6 +900,10 @@ const workflowVideoPreview = {
                     temp = null;
                 }
                 const blob = result.blob || await readVideoEditTempFile(temp.fileHandle); // core/video-editor/opfs-temp.js
+                // MỚI (06/10/2026, Giang chốt "media do app tự tạo chặn 500MB") — cùng giới hạn upload (core/upload-validation.js);
+                // dừng TRƯỚC khi chụp thumb/ghi DB, finally bên dưới tự dọn file tạm OPFS.
+                const sizeCheck = validateMediaFileSize(blob); // core/upload-validation.js
+                if (!sizeCheck.valid) { tooLargeReason = sizeCheck.reason; return; }
                 pct(92);
 
                 const meta = await workflowPlaylist.extractVideoThumbAndMeta(blob); // event/workflow/playlist.js — timeout + thumb vuông + full-res
@@ -929,6 +934,7 @@ const workflowVideoPreview = {
             await workflowVideoPlayer.refreshVideoPlaylistIfActive(); // event/workflow/video-player.js — tự guard nguồn Video
             this._reallyClose();
         }
+        if (tooLargeReason) { await alertModal(tFormat('common.validate.generatedNotSaved', { reason: tooLargeReason })); return; } // modal editor giữ nguyên để chỉnh tiếp (vd cắt ngắn hơn)
         if (resultKey) await alertModal(t(resultKey));
     },
 

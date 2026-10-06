@@ -434,6 +434,14 @@ const workflowRecorder = {
         this._teardownPreview();
         this._setPhase('saving');
         const song = this._buildRecordedSong(recordBlob, recordMeta, new Date());
+        // MỚI (06/10/2026, Giang chốt "media do app tự tạo chặn 500MB") — cùng giới hạn upload (core/upload-validation.js):
+        // quá cỡ thì báo, KHÔNG lưu, kết thúc phiên như Huỷ.
+        const sizeCheck = validateMediaFileSize(song.blob); // core/upload-validation.js
+        if (!sizeCheck.valid) {
+            await alertModal(tFormat('common.validate.generatedNotSaved', { reason: sizeCheck.reason }));
+            this._endSession();
+            return;
+        }
         try {
             const key = await workflowPlaylist.addRecordedSong(song); // event/workflow/playlist.js
             console.log(`[recorder] Đã lưu bản ghi thành Song "${key}" — ${song.filename}`);

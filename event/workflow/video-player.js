@@ -854,6 +854,9 @@ const workflowVideoPlayer = {
         const sourceCanvas = captureVideoFrameToCanvas(videoEl); // core/video-player-capture.js
         const blob = await new Promise((resolve) => sourceCanvas.toBlob(resolve, 'image/jpeg', 0.95));
         if (!blob) { await alertModal(t('videoPlayer.captureFrame.failed')); return; }
+        // MỚI (06/10/2026, Giang chốt "media do app tự tạo chặn 500MB") — cùng giới hạn upload (core/upload-validation.js).
+        const sizeCheck = validateMediaFileSize(blob); // core/upload-validation.js
+        if (!sizeCheck.valid) { await alertModal(tFormat('common.validate.generatedNotSaved', { reason: sizeCheck.reason })); return; }
         const thumbBlob = await buildExtractedPhotoThumbnail(sourceCanvas, 0.2); // core/video-player-capture.js
         const filename = `${buildExtractedPhotoFilename()}.jpg`; // core/video-player-capture.js
         const duration = await workflowFileManagerPhoto.computePhotoDuration(blob, sourceCanvas.width, sourceCanvas.height); // event/workflow/file-manager-photo.js
