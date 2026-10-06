@@ -44,7 +44,6 @@
             wave: 'visualizerSettingsDrawer.vortexStyle.wave',
             rubik: 'visualizerSettingsDrawer.shapeStyle.rubik',
             clock: 'visualizerSettingsDrawer.shapeStyle.clock', // MỚI 26/09/2026
-            synapse: 'visualizerSettingsDrawer.connectorStyle.synapse',
             circuit: 'visualizerSettingsDrawer.connectorStyle.circuit',
             brain: 'visualizerSettingsDrawer.connectorStyle.brain',
         };
