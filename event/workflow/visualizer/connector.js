@@ -197,7 +197,7 @@ const workflowVizConnector = {
         const isSettling = this._settleFrames > 0;
         this._settleFrames = Math.max(0, this._settleFrames - 1);
         return {
-            glowIntensity: getConnectorGlowMult() * 100, // core/custom-effect.js
+            glowMult: getConnectorGlowMult(), // core/custom-effect.js — 0 khi tắt Glow
             deltaTime: Math.min(cnClock.getDelta(), 0.1), // core/webgl/three-connector.js
             isSettling,
         };
@@ -290,7 +290,10 @@ const workflowVizConnector = {
         const s = appState.get(['cnChips', 'cnActiveSignalsCircuit', 'cnGroupCircuit', 'cnTrace', 'cnJunction', 'cnSignalAssets', 'cnBloomPass']);
         const chips = s.cnChips;
         const speed = computeConnectorSpeed(cfg.circuitSpeedBase, cfg.circuitSpeedEnergyMult, frame.audio.smoothedEnergy()); // core/webgl
-        s.cnBloomPass.strength = computeConnectorSpeed(cfg.bloomStrengthBase, cfg.bloomStrengthEnergyMult, frame.audio.smoothedEnergy()); // core/webgl
+        // SỬA (07/10/2026, Giang báo Glow/Bloom xung đột) — Glow là bloom: bật/tắt = bật/tắt pass bloom (tắt thì không tốn
+        // GPU), Glow intensity 0-100% = bloom 0-CIRCUIT_BLOOM_MAX, energy boost cộng thêm theo năng lượng nhạc.
+        s.cnBloomPass.enabled = cfg.glowEnabled !== false;
+        s.cnBloomPass.strength = computeConnectorSpeed(wf.glowMult * CIRCUIT_BLOOM_MAX, cfg.bloomStrengthEnergyMult, frame.audio.smoothedEnergy()); // core/webgl
         const pitchNodeIndex = this._resolvePitchNodeIndex(frame, chips.length);
 
         // Lượt 1: màu + năng lượng dải tần + độ tăng của MỌI chip (lượt 2 cần biết dải nào đang onset để chọn chân).
@@ -306,7 +309,7 @@ const workflowVizConnector = {
             this._fireChip(frame, wf, chips, chip, i, pitchNodeIndex, s);
             chip.prevBinEnergy = chip.frameEnergy;
             decayNeuronState(chip, wf.deltaTime); // core/visualizer/groups/connector/tonotopic.js
-            applyChipGlowSettings(chip, cfg.glowEnabled, wf.glowIntensity); // core/visualizer/groups/connector/common.js
+            applyChipEnergyGlow(chip); // core/visualizer/groups/connector/common.js
         });
         updateCircuitTraceColors(s.cnTrace, s.cnJunction, chips, cfg.traceOpacity); // core/visualizer/groups/connector/circuit.js
 
