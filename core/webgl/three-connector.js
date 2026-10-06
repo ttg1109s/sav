@@ -33,6 +33,8 @@ const CIRCUIT_NODE_FALLBACK = 32;
 const CIRCUIT_CUBE_HALF_EXTENT = 32;
 // Vị trí camera mặc định chế độ orbit (cũng là vị trí khởi tạo của sân khấu).
 const CIRCUIT_ORBIT_HOME = { x: 0, y: 30, z: 210 };
+// Bloom tối đa ứng với Glow intensity 100% (07/10/2026 — Glow = bloom, xem event/workflow/visualizer/connector.js).
+const CIRCUIT_BLOOM_MAX = 4;
 // Trần số nút tròn tại điểm chạm dây (InstancedMesh) — chặn trường hợp cực đoan ở 64 chip.
 const CIRCUIT_JUNCTION_MAX = 6000;
 // Số đỉnh tối đa của vệt sáng 1 xung (đầu + cuối + các góc bẻ của dây, dây tối đa 7 điểm).
