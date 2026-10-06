@@ -96,7 +96,36 @@
         // version DB (IndexedDB không ràng buộc schema trong value của 1 store) — chỉ cần các core
         // function đọc/ghi record 'songs' biết thêm field này khi cần (việc của bước sau, xem
         // plan-v12 mục 5 bước 2-3), KHÔNG thuộc phạm vi hạ tầng DB ở bước này.
-        const DB_VERSION = 5;
+        // SỬA (06/10/2026, plan-media-db-split.md — Giang duyệt) — tăng lên 6: mỗi loại media tách 3 store riêng
+        // (meta / file chính / thumb — xem MEDIA_STORES_BY_TYPE ngay dưới). KHÔNG chuyển dữ liệu cũ (Giang chốt "xoá đi
+        // cài lại là xong"): DB v1-v5 lên v6 thì xoá thẳng 3 store media cũ (đang chứa Blob lẫn dữ liệu thường) + key
+        // thống kê cũ trong `meta`, xem openDatabase().
+        const DB_VERSION = 6;
+
+        /**
+         * MỚI (06/10/2026, plan-media-db-split.md mục 2.1) — 3 store cho MỖI loại media, cùng 1 key media (chuỗi
+         * slugify(), như trước đây), mỗi media đúng 1 entry mỗi store:
+         *   - meta : dữ liệu thường (filename, tag, subtitles, folder, stats, game...) — KHÔNG chứa Blob nào.
+         *   - blob : Blob file chính (value là Blob trực tiếp).
+         *   - thumb: object chứa MỌI thumb của media đó (THUMB_FIELDS_BY_TYPE) — luôn ghi cả object bằng Blob MỚI.
+         * Sửa dữ liệu thường chỉ ghi store meta -> không bao giờ ghi lại Blob đọc từ chính IndexedDB (gốc lỗi
+         * "round-trip Blob": URL đang phát chết sau khi sửa info/folder/phụ đề/điểm Game).
+         */
+        const MEDIA_STORES_BY_TYPE = {
+            song: { meta: 'songs', blob: 'song_blobs', thumb: 'song_thumbs' },
+            video: { meta: 'videos', blob: 'video_blobs', thumb: 'video_thumbs' },
+            photo: { meta: 'images', blob: 'image_blobs', thumb: 'image_thumbs' },
+        };
+        /** Field thumb của từng loại — nguồn sự thật DUY NHẤT để tách/ghép record. */
+        const THUMB_FIELDS_BY_TYPE = {
+            song: ['cover'],
+            video: ['thumbBlob', 'thumbFullBlob'],
+            photo: ['thumbBlob'],
+        };
+        /** Store media của bản DB v1-v5 (Blob nằm chung record) — xoá khi nâng lên v6. */
+        const LEGACY_MEDIA_STORES = ['songs', 'videos', 'images'];
+        /** Key thống kê cũ trong store `meta` — xoá khi nâng lên v6 (thống kê giờ nằm trong meta từng media). */
+        const LEGACY_META_KEYS = ['songStats', 'gameScores'];
 
         // FIX (11/07/2026, phát hiện qua bảng debug log MỚI trên subtitle-editor.html — xem
         // ReferenceError "Can't find variable: appState" + "Cannot access 'songsStore' before
@@ -132,9 +161,26 @@
         function openDatabase() {
             return new Promise((resolve, reject) => {
                 const request = indexedDB.open(DB_NAME, DB_VERSION);
-                request.onupgradeneeded = () => {
+                request.onupgradeneeded = (event) => {
                     const db = request.result;
-                    if (!db.objectStoreNames.contains('songs')) db.createObjectStore('songs');
+                    // MỚI (06/10/2026, plan-media-db-split.md mục 4) — DB cũ (v1-v5) lên v6: xoá thẳng store media cũ + key
+                    // thống kê cũ, KHÔNG chuyển dữ liệu (Giang chốt). DB mới tạo (oldVersion 0) bỏ qua bước này.
+                    if (event.oldVersion > 0 && event.oldVersion < 6) {
+                        LEGACY_MEDIA_STORES
+                            .filter((name) => db.objectStoreNames.contains(name))
+                            .forEach((name) => db.deleteObjectStore(name));
+                        if (db.objectStoreNames.contains('meta')) {
+                            const legacyMeta = request.transaction.objectStore('meta');
+                            LEGACY_META_KEYS.forEach((metaKey) => legacyMeta.delete(metaKey));
+                        }
+                        console.warn(`[db] Nâng DB v${event.oldVersion} -> v6: đã xoá thư viện media cũ (không chuyển dữ liệu — plan-media-db-split.md mục 4).`);
+                    }
+                    // 9 store media (3 store/loại) — idempotent, cùng khuôn các store khác bên dưới.
+                    Object.values(MEDIA_STORES_BY_TYPE).forEach((names) => {
+                        Object.values(names)
+                            .filter((name) => !db.objectStoreNames.contains(name))
+                            .forEach((name) => db.createObjectStore(name));
+                    });
                     if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta');
                     // 'languages' (lang.js, batch i18n): key = mã ngôn ngữ (vd 'vi', 'fr'), value =
                     // { meta: {code, name}, keys: {...} } đã validate (diff với en default — xem
@@ -146,12 +192,11 @@
                     // để DB cũ (v1-v3) tự bổ sung mà không mất dữ liệu store khác đã có.
                     if (!db.objectStoreNames.contains('folders')) db.createObjectStore('folders');
                     if (!db.objectStoreNames.contains('folder_song')) db.createObjectStore('folder_song');
-                    if (!db.objectStoreNames.contains('images')) db.createObjectStore('images');
+                    // ('images'/'videos' — giờ tạo ở vòng 9 store media phía trên.)
                     // XOÁ (loại bỏ Album khỏi Photo Panel) — ngừng tạo store 'albums' cho lần cài
                     // đặt mới (xem comment ở khai báo DB_VERSION phía trên).
                     // XOÁ (loại bỏ Document Reader khỏi app) — ngừng tạo store 'documents' cho lần
                     // cài đặt mới (xem comment ở khai báo DB_VERSION phía trên).
-                    if (!db.objectStoreNames.contains('videos')) db.createObjectStore('videos'); // MỚI (21/07/2026, module Video)
                 };
                 request.onsuccess = () => {
                     const db = request.result;
@@ -200,6 +245,26 @@
             });
         }
 
+        /**
+         * MỚI (06/10/2026, plan-media-db-split.md mục 3.1) — cùng cơ chế makeStoreAccessor() (tự mở lại connection +
+         * retry 1 lần) nhưng mở 1 transaction trên NHIỀU store — callback nhận chính `IDBTransaction`.
+         * Lưu ý: transaction IndexedDB tự commit khi gặp await ngoài IDB — mọi việc đọc file/arrayBuffer() phải xong
+         * TRƯỚC khi gọi hàm ghi.
+         * @param {string[]} storeNames
+         */
+        function makeMultiStoreAccessor(storeNames) {
+            return (txMode, callback) => _getDbReadyPromise().then((db) => {
+                try {
+                    return callback(db.transaction(storeNames, txMode));
+                } catch (err) {
+                    if (!isDeadConnectionError(err)) throw err;
+                    console.warn(`[db] Connection IndexedDB đã chết lúc mở transaction (store "${storeNames.join(', ')}") — tự mở connection mới và thử lại 1 lần.`, err);
+                    _setDbReadyPromise(openDatabase());
+                    return _getDbReadyPromise().then((freshDb) => callback(freshDb.transaction(storeNames, txMode)));
+                }
+            });
+        }
+
         const songsStore = makeStoreAccessor('songs');
         const metaStore = makeStoreAccessor('meta');
         const languagesStore = makeStoreAccessor('languages');
@@ -237,9 +302,8 @@
         // còn sống nhưng 'folders' tương ứng đã bị xoá — xem core/file-manager/cleanup.js).
         function getAllFolderSongKeys() { return idbKeyval.keys(folderSongStore); }
 
-        function getImageRecord(imageKey) { return idbKeyval.get(imageKey, imagesStore); }
-        function setImageRecord(imageKey, record) { return idbKeyval.set(imageKey, record, imagesStore); }
-        function deleteImageRecord(imageKey) { return idbKeyval.del(imageKey, imagesStore); }
+        // XOÁ (06/10/2026) — setImageRecord()/deleteImageRecord(), xem API media chung cuối file.
+        function getImageRecord(imageKey) { return getMediaRecord('photo', imageKey); }
         function getAllImageKeys() { return idbKeyval.keys(imagesStore); }
 
         // XOÁ (loại bỏ Album khỏi Photo Panel) — CRUD 'albums' (getAlbumRecord/setAlbumRecord/
@@ -249,9 +313,8 @@
         // setDocumentRecord/deleteDocumentRecord/getAllDocumentKeys) bỏ hẳn cùng tính năng.
 
         // MỚI (21/07/2026, module File Manager -> Video) — CRUD thô, cùng khuôn 'images' ở trên.
-        function getVideoRecord(videoKey) { return idbKeyval.get(videoKey, videosStore); }
-        function setVideoRecord(videoKey, record) { return idbKeyval.set(videoKey, record, videosStore); }
-        function deleteVideoRecord(videoKey) { return idbKeyval.del(videoKey, videosStore); }
+        // XOÁ (06/10/2026) — setVideoRecord()/deleteVideoRecord(), xem API media chung cuối file.
+        function getVideoRecord(videoKey) { return getMediaRecord('video', videoKey); }
         function getAllVideoKeys() { return idbKeyval.keys(videosStore); }
 
         // ===================== Đọc NHIỀU record trong 1 transaction (MỚI 02/10/2026, Giang duyệt) =====================
@@ -260,61 +323,18 @@
         // đã làm SẬP tiến trình trang, trong khi đọc bằng cursor trong 1 transaction nạp 10000 record ~1,1 s. 2 hàm lõi
         // dưới đây là CƠ CHẾ đọc (data layer, không nghiệp vụ), các hàm theo từng store ở cuối chỉ gắn đúng store.
 
-        /** Đọc TOÀN BỘ record của 1 store bằng cursor trong ĐÚNG 1 transaction. `onProgress(done, total)` gọi sau mỗi
-         * record (`total` lấy từ `count()` trong cùng transaction) — giữ được thanh tiến trình "x/total" như cách cũ.
-         * @param {Function} storeAccessor - từ makeStoreAccessor() @param {(done:number,total:number)=>void} [onProgress]
-         * @returns {Promise<Array<object>>} record đã gộp `key` (`{ key, ...record }`), đúng thứ tự key của store */
-        function _readAllStoreRecords(storeAccessor, onProgress) {
-            const report = typeof onProgress === 'function' ? onProgress : () => {};
-            return storeAccessor('readonly', (store) => new Promise((resolve, reject) => {
-                const records = [];
-                const countRequest = store.count();
-                countRequest.onerror = () => reject(countRequest.error);
-                countRequest.onsuccess = () => {
-                    const total = countRequest.result;
-                    const cursorRequest = store.openCursor();
-                    cursorRequest.onerror = () => reject(cursorRequest.error);
-                    cursorRequest.onsuccess = () => {
-                        const cursor = cursorRequest.result;
-                        if (!cursor) { resolve(records); return; } // hết record
-                        records.push({ key: cursor.key, ...cursor.value });
-                        report(records.length, total);
-                        cursor.continue();
-                    };
-                };
-            }));
-        }
+        // (06/10/2026) — 2 hàm lõi cũ `_readAllStoreRecords()`/`_readStoreRecordsByKeys()` (đọc 1 store) ĐÃ THAY bằng
+        // bản đọc 3 store media trong 1 transaction `_readAllMediaRecords()`/`_readMediaRecordsByKeys()` (cuối file),
+        // giữ nguyên cách báo tiến trình `onProgress(done, total)`.
 
-        /** Đọc các record theo danh sách key trong ĐÚNG 1 transaction — thay trực tiếp cho
-         * `Promise.all(keys.map(getXRecord))`: kết quả THẲNG HÀNG với `keys` (key không tồn tại -> `undefined`, y như
-         * getXRecord()). `onProgress(done, total)` gọi sau mỗi record đọc xong.
-         * @param {Function} storeAccessor @param {string[]} keys @param {(done:number,total:number)=>void} [onProgress]
-         * @returns {Promise<Array<object|undefined>>} */
-        function _readStoreRecordsByKeys(storeAccessor, keys, onProgress) {
-            if (!keys.length) return Promise.resolve([]); // guard — không mở transaction rỗng
-            const report = typeof onProgress === 'function' ? onProgress : () => {};
-            return storeAccessor('readonly', (store) => new Promise((resolve, reject) => {
-                const results = new Array(keys.length);
-                let done = 0;
-                keys.forEach((key, index) => {
-                    const request = store.get(key);
-                    request.onerror = () => reject(request.error);
-                    request.onsuccess = () => {
-                        results[index] = request.result;
-                        done++;
-                        report(done, keys.length);
-                        if (done === keys.length) resolve(results);
-                    };
-                });
-            }));
-        }
-
-        function getAllSongRecords(onProgress) { return _readAllStoreRecords(songsStore, onProgress); }
-        function getAllVideoRecords(onProgress) { return _readAllStoreRecords(videosStore, onProgress); }
-        function getAllImageRecords(onProgress) { return _readAllStoreRecords(imagesStore, onProgress); }
-        function getSongRecordsByKeys(keys, onProgress) { return _readStoreRecordsByKeys(songsStore, keys, onProgress); }
-        function getVideoRecordsByKeys(keys, onProgress) { return _readStoreRecordsByKeys(videosStore, keys, onProgress); }
-        function getImageRecordsByKeys(keys, onProgress) { return _readStoreRecordsByKeys(imagesStore, keys, onProgress); }
+        // SỬA (06/10/2026, plan-media-db-split.md mục 3.2) — GIỮ chữ ký + hình dạng kết quả cũ (record đã ghép blob +
+        // thumb), nhưng đọc 3 store trong 1 transaction (xem _readAllMediaRecords()/_readMediaRecordsByKeys() cuối file).
+        function getAllSongRecords(onProgress) { return _readAllMediaRecords('song', onProgress); }
+        function getAllVideoRecords(onProgress) { return _readAllMediaRecords('video', onProgress); }
+        function getAllImageRecords(onProgress) { return _readAllMediaRecords('photo', onProgress); }
+        function getSongRecordsByKeys(keys, onProgress) { return _readMediaRecordsByKeys('song', keys, onProgress); }
+        function getVideoRecordsByKeys(keys, onProgress) { return _readMediaRecordsByKeys('video', keys, onProgress); }
+        function getImageRecordsByKeys(keys, onProgress) { return _readMediaRecordsByKeys('photo', keys, onProgress); }
 
 
         /**
@@ -338,21 +358,31 @@
          *   - slug đã tồn tại, filename TRÙNG -> ghi đè (trả lại đúng slug đó).
          *   - slug đã tồn tại, filename KHÁC -> thêm hậu tố số (slug-2, slug-3, ...).
          */
-        async function resolveSongKey(filename) {
-            const baseSlug = slugify(filename);
+        /**
+         * SỬA (06/10/2026, plan-media-db-split.md — dời resolveVideoKey()/resolveImageKey() từ core/file-manager/
+         * video.js / image.js về đây): cả 3 loại dùng CHUNG thuật toán, đọc CHỈ store meta (không mở Blob). Là hàm ĐỌC
+         * của data layer -> Workflow gọi rồi truyền key xuống core (core không được gọi hàm đọc — Rule 3).
+         * @param {'song'|'video'|'photo'} type @param {string} filename @param {string} fallbackSlug - slug rỗng thì dùng
+         * @returns {Promise<string>}
+         */
+        async function resolveMediaKey(type, filename, fallbackSlug) {
+            const baseSlug = slugify(filename) || fallbackSlug;
             let candidate = baseSlug;
             let suffix = 2;
             while (true) {
-                const existing = await idbKeyval.get(candidate, songsStore);
+                const existing = await getMediaMeta(type, candidate);
                 if (!existing) return candidate; // slug trống -> dùng luôn
-                if (existing.filename === filename) return candidate; // cùng bài -> ghi đè đúng key này
+                if (existing.filename === filename) return candidate; // cùng file -> ghi đè đúng key này
                 candidate = `${baseSlug}-${suffix}`; suffix++;
             }
         }
+        function resolveSongKey(filename) { return resolveMediaKey('song', filename, 'song'); }
+        function resolveVideoKey(filename) { return resolveMediaKey('video', filename, 'video'); }
+        function resolveImageKey(filename) { return resolveMediaKey('photo', filename, 'image'); }
 
-        function getSongRecord(key) { return idbKeyval.get(key, songsStore); }
-        function setSongRecord(key, record) { return idbKeyval.set(key, record, songsStore); }
-        function deleteSongRecord(key) { return idbKeyval.del(key, songsStore); }
+        // XOÁ (06/10/2026, plan-media-db-split.md — Giang chốt "xoá hẳn") — setSongRecord()/deleteSongRecord(): ghi/xoá
+        // qua API media chung (createMediaRecord/updateMediaMeta/setMediaBlob/setMediaThumbs/deleteMediaRecord, cuối file).
+        function getSongRecord(key) { return getMediaRecord('song', key); }
         function getAllSongKeys() { return idbKeyval.keys(songsStore); }
 
         /**
@@ -425,3 +455,269 @@
         function isQuickValidMime(mime) {
             return VALID_MP3_MIME_TYPES.has(String(mime || '').split(';')[0].trim().toLowerCase());
         }
+
+        // ===================== API media 3 store (MỚI 06/10/2026, plan-media-db-split.md mục 2-3, Giang duyệt) =====================
+        // Lớp truy cập dữ liệu THUẦN — không nghiệp vụ. Mọi chỗ ghi media trong app đi qua các hàm dưới đây;
+        // setSongRecord/setVideoRecord/setImageRecord + deleteSongRecord/deleteVideoRecord/deleteImageRecord ĐÃ XOÁ HẲN.
+
+        const _mediaTxByType = {
+            song: makeMultiStoreAccessor(Object.values(MEDIA_STORES_BY_TYPE.song)),
+            video: makeMultiStoreAccessor(Object.values(MEDIA_STORES_BY_TYPE.video)),
+            photo: makeMultiStoreAccessor(Object.values(MEDIA_STORES_BY_TYPE.photo)),
+        };
+        const _mediaMetaStoreByType = { song: songsStore, video: videosStore, photo: imagesStore };
+
+        /** Ghép 3 phần thành record đúng hình dạng cũ (meta + `blob` + field thumb). Không có meta = media không tồn tại. */
+        function _mergeMediaRecord(meta, blob, thumbs) {
+            if (!meta) return undefined;
+            return { ...meta, blob, ...(thumbs || {}) };
+        }
+
+        /** Tách 1 record đầy đủ (hình dạng cũ) thành 3 phần. `thumbs` = null nếu mọi field thumb đều trống. */
+        function _splitMediaRecord(type, record) {
+            const thumbFields = THUMB_FIELDS_BY_TYPE[type];
+            const meta = { ...record };
+            delete meta.blob;
+            delete meta.key; // phòng khi record tới từ getAll*Records() (đã gộp key)
+            const thumbs = {};
+            thumbFields.forEach((field) => { thumbs[field] = record[field] || null; delete meta[field]; });
+            const hasThumb = thumbFields.some((field) => thumbs[field]);
+            return { meta, blob: record.blob, thumbs: hasThumb ? thumbs : null };
+        }
+
+        /** Phòng thủ: gạt mọi field Blob (file chính + thumb) khỏi object meta trước khi ghi. */
+        function _stripMediaBlobFields(type, meta) {
+            const clean = { ...meta };
+            delete clean.blob;
+            delete clean.key;
+            THUMB_FIELDS_BY_TYPE[type].forEach((field) => { delete clean[field]; });
+            return clean;
+        }
+
+        /** Đợi 1 transaction ghi hoàn tất. */
+        function _awaitTx(tx, value) {
+            return new Promise((resolve, reject) => {
+                tx.oncomplete = () => resolve(value);
+                tx.onerror = () => reject(tx.error);
+                tx.onabort = () => reject(tx.error || new Error('Transaction IndexedDB bị huỷ'));
+            });
+        }
+
+        /** Đọc record đã ghép theo danh sách key trong ĐÚNG 1 transaction (3 store). Kết quả thẳng hàng với `keys`
+         * (key không tồn tại -> `undefined`). `onProgress(done, total)` sau mỗi record ghép xong. */
+        function _readMediaRecordsByKeys(type, keys, onProgress) {
+            if (!keys.length) return Promise.resolve([]); // guard — không mở transaction rỗng
+            const report = typeof onProgress === 'function' ? onProgress : () => {};
+            const names = MEDIA_STORES_BY_TYPE[type];
+            return _mediaTxByType[type]('readonly', (tx) => new Promise((resolve, reject) => {
+                const metaStoreObj = tx.objectStore(names.meta);
+                const blobStoreObj = tx.objectStore(names.blob);
+                const thumbStoreObj = tx.objectStore(names.thumb);
+                const results = new Array(keys.length);
+                let done = 0;
+                keys.forEach((key, index) => {
+                    const parts = {};
+                    let pending = 3;
+                    const finishPart = () => {
+                        pending--;
+                        if (pending > 0) return;
+                        results[index] = _mergeMediaRecord(parts.meta, parts.blob, parts.thumbs);
+                        done++;
+                        report(done, keys.length);
+                        if (done === keys.length) resolve(results);
+                    };
+                    const readInto = (storeObj, field) => {
+                        const request = storeObj.get(key);
+                        request.onerror = () => reject(request.error);
+                        request.onsuccess = () => { parts[field] = request.result; finishPart(); };
+                    };
+                    readInto(metaStoreObj, 'meta');
+                    readInto(blobStoreObj, 'blob');
+                    readInto(thumbStoreObj, 'thumbs');
+                });
+            }));
+        }
+
+        /** Đọc TOÀN BỘ record đã ghép của 1 loại (cursor trên store meta) trong ĐÚNG 1 transaction. Kết quả gộp `key`
+         * (`{ key, ...record }`), đúng thứ tự key của store meta — cùng hình dạng bản cũ. */
+        function _readAllMediaRecords(type, onProgress) {
+            const report = typeof onProgress === 'function' ? onProgress : () => {};
+            const names = MEDIA_STORES_BY_TYPE[type];
+            return _mediaTxByType[type]('readonly', (tx) => new Promise((resolve, reject) => {
+                const metaStoreObj = tx.objectStore(names.meta);
+                const blobStoreObj = tx.objectStore(names.blob);
+                const thumbStoreObj = tx.objectStore(names.thumb);
+                const records = [];
+                let pending = 0;
+                let cursorDone = false;
+                let total = 0;
+                let done = 0;
+                const maybeResolve = () => { if (cursorDone && pending === 0) resolve(records); };
+                const countRequest = metaStoreObj.count();
+                countRequest.onerror = () => reject(countRequest.error);
+                countRequest.onsuccess = () => {
+                    total = countRequest.result;
+                    const cursorRequest = metaStoreObj.openCursor();
+                    cursorRequest.onerror = () => reject(cursorRequest.error);
+                    cursorRequest.onsuccess = () => {
+                        const cursor = cursorRequest.result;
+                        if (!cursor) { cursorDone = true; maybeResolve(); return; } // hết record
+                        const entry = { key: cursor.key, ...cursor.value };
+                        records.push(entry);
+                        let partsLeft = 2;
+                        pending++;
+                        const finishPart = () => {
+                            partsLeft--;
+                            if (partsLeft > 0) return;
+                            pending--;
+                            done++;
+                            report(done, total);
+                            maybeResolve();
+                        };
+                        const blobRequest = blobStoreObj.get(cursor.key);
+                        blobRequest.onerror = () => reject(blobRequest.error);
+                        blobRequest.onsuccess = () => { entry.blob = blobRequest.result; finishPart(); };
+                        const thumbRequest = thumbStoreObj.get(cursor.key);
+                        thumbRequest.onerror = () => reject(thumbRequest.error);
+                        thumbRequest.onsuccess = () => { Object.assign(entry, thumbRequest.result || {}); finishPart(); };
+                        cursor.continue();
+                    };
+                };
+            }));
+        }
+
+        // ----- Đọc -----
+
+        /** Record đã ghép (hình dạng cũ) của 1 media — `undefined` nếu không tồn tại.
+         * @param {'song'|'video'|'photo'} type @param {string} key */
+        function getMediaRecord(type, key) {
+            return _readMediaRecordsByKeys(type, [key]).then((results) => results[0]);
+        }
+        /** CHỈ dữ liệu thường (không mở Blob) — vd nạp thống kê lúc boot. */
+        function getMediaMeta(type, key) { return idbKeyval.get(key, _mediaMetaStoreByType[type]); }
+        /** CHỈ dữ liệu thường của mọi media 1 loại, gộp `key` (`{ key, ...meta }`). */
+        function getAllMediaMeta(type) {
+            return _mediaMetaStoreByType[type]('readonly', (store) => new Promise((resolve, reject) => {
+                const records = [];
+                const cursorRequest = store.openCursor();
+                cursorRequest.onerror = () => reject(cursorRequest.error);
+                cursorRequest.onsuccess = () => {
+                    const cursor = cursorRequest.result;
+                    if (!cursor) { resolve(records); return; }
+                    records.push({ key: cursor.key, ...cursor.value });
+                    cursor.continue();
+                };
+            }));
+        }
+        /** Blob file chính của 1 media. */
+        function getMediaBlob(type, key) {
+            return _mediaTxByType[type]('readonly', (tx) => new Promise((resolve, reject) => {
+                const request = tx.objectStore(MEDIA_STORES_BY_TYPE[type].blob).get(key);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve(request.result);
+            }));
+        }
+        /** Object thumb của 1 media (`{ cover }` / `{ thumbBlob, thumbFullBlob }` / `{ thumbBlob }`) — `undefined` nếu không có. */
+        function getMediaThumbs(type, key) {
+            return _mediaTxByType[type]('readonly', (tx) => new Promise((resolve, reject) => {
+                const request = tx.objectStore(MEDIA_STORES_BY_TYPE[type].thumb).get(key);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve(request.result);
+            }));
+        }
+
+        // ----- Ghi -----
+
+        /** Tạo mới (hoặc ghi đè trọn) 1 media: tự tách `record` (hình dạng cũ) thành meta / blob / thumb, ghi 3 store
+         * trong 1 transaction. Blob trong `record` PHẢI là Blob mới (File người dùng chọn, Blob vừa tạo) — không phải
+         * Blob vừa đọc từ IndexedDB.
+         * @param {'song'|'video'|'photo'} type @param {string} key @param {object} record
+         * @returns {Promise<string>} key */
+        function createMediaRecord(type, key, record) {
+            const names = MEDIA_STORES_BY_TYPE[type];
+            const parts = _splitMediaRecord(type, record);
+            return _mediaTxByType[type]('readwrite', (tx) => {
+                tx.objectStore(names.meta).put(parts.meta, key);
+                tx.objectStore(names.blob).put(parts.blob, key);
+                const thumbStoreObj = tx.objectStore(names.thumb);
+                const writeThumbsByHasThumb = { true: () => thumbStoreObj.put(parts.thumbs, key), false: () => thumbStoreObj.delete(key) };
+                writeThumbsByHasThumb[parts.thumbs !== null]();
+                return _awaitTx(tx, key);
+            });
+        }
+
+        /** Sửa dữ liệu thường của 1 media — đọc + ghi CHỈ store meta trong 1 transaction. `mutate(meta)` PHẢI đồng bộ +
+         * thuần (trả về object meta mới); mọi field Blob lọt vào bị gạt bỏ.
+         * @returns {Promise<{status: 'ok'|'notFound', meta?: object}>} */
+        function updateMediaMeta(type, key, mutate) {
+            return updateMediaMetaBatch([{ type, key, mutate }]).then((results) => results[0]);
+        }
+
+        /** Sửa dữ liệu thường của NHIỀU media (có thể nhiều loại) trong ĐÚNG 1 transaction — flush thống kê, xoá folder,
+         * dọn mồ côi. Kết quả thẳng hàng với `items`.
+         * @param {Array<{type: 'song'|'video'|'photo', key: string, mutate: (meta: object) => object}>} items
+         * @returns {Promise<Array<{status: 'ok'|'notFound', meta?: object}>>} */
+        function updateMediaMetaBatch(items) {
+            if (!items.length) return Promise.resolve([]); // guard — không mở transaction rỗng
+            const metaStoreNames = [...new Set(items.map((item) => MEDIA_STORES_BY_TYPE[item.type].meta))];
+            return makeMultiStoreAccessor(metaStoreNames)('readwrite', (tx) => {
+                const results = new Array(items.length);
+                items.forEach((item, index) => {
+                    const storeObj = tx.objectStore(MEDIA_STORES_BY_TYPE[item.type].meta);
+                    const request = storeObj.get(item.key);
+                    request.onsuccess = () => {
+                        const current = request.result;
+                        if (!current) { results[index] = { status: 'notFound' }; return; } // media đã bị xoá (race)
+                        const next = _stripMediaBlobFields(item.type, item.mutate({ ...current }));
+                        storeObj.put(next, item.key);
+                        results[index] = { status: 'ok', meta: next };
+                    };
+                });
+                return _awaitTx(tx, results);
+            });
+        }
+
+        /** Thay file chính của 1 media (sửa ảnh, thay file video, upload ghi đè). `blob` PHẢI là Blob mới. */
+        function setMediaBlob(type, key, blob) {
+            return _mediaTxByType[type]('readwrite', (tx) => {
+                tx.objectStore(MEDIA_STORES_BY_TYPE[type].blob).put(blob, key);
+                return _awaitTx(tx, key);
+            });
+        }
+
+        /** Thay TOÀN BỘ thumb của 1 media — `thumbs` PHẢI có đủ mọi field THUMB_FIELDS_BY_TYPE[type] (giá trị Blob mới
+         * hoặc null); thiếu field là lỗi lập trình (ném ngay, không ghi nửa vời). Mọi field null -> xoá entry thumb.
+         * @param {'song'|'video'|'photo'} type @param {string} key @param {object} thumbs */
+        function setMediaThumbs(type, key, thumbs) {
+            const thumbFields = THUMB_FIELDS_BY_TYPE[type];
+            const missing = thumbFields.filter((field) => !(field in thumbs));
+            if (missing.length > 0) return Promise.reject(new Error(`[db] setMediaThumbs(${type}) thiếu field: ${missing.join(', ')}`));
+            const clean = {};
+            thumbFields.forEach((field) => { clean[field] = thumbs[field] || null; });
+            const hasThumb = thumbFields.some((field) => clean[field]);
+            return _mediaTxByType[type]('readwrite', (tx) => {
+                const storeObj = tx.objectStore(MEDIA_STORES_BY_TYPE[type].thumb);
+                const writeByHasThumb = { true: () => storeObj.put(clean, key), false: () => storeObj.delete(key) };
+                writeByHasThumb[hasThumb]();
+                return _awaitTx(tx, key);
+            });
+        }
+
+        /** Xoá hẳn 1 media khỏi cả 3 store trong 1 transaction. */
+        function deleteMediaRecord(type, key) {
+            const names = MEDIA_STORES_BY_TYPE[type];
+            return _mediaTxByType[type]('readwrite', (tx) => {
+                Object.values(names).forEach((name) => tx.objectStore(name).delete(key));
+                return _awaitTx(tx, key);
+            });
+        }
+
+        /** Xoá TOÀN BỘ media của 1 loại (cả 3 store) trong 1 transaction. */
+        function clearAllMediaOfType(type) {
+            const names = MEDIA_STORES_BY_TYPE[type];
+            return _mediaTxByType[type]('readwrite', (tx) => {
+                Object.values(names).forEach((name) => tx.objectStore(name).clear());
+                return _awaitTx(tx, type);
+            });
+        }
+
