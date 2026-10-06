@@ -61,7 +61,11 @@ function renderFileManagerStorageManagementPanelBody() {
                                 <div id="stat-storage-bar-other" class="h-full transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendOther" style="width:0%;background-color:#94a3b8"></div>
                             </div>
                             <div id="stat-storage-free-row" class="hidden flex items-baseline justify-between">
-                                <span class="text-xs" data-uitk="textSecondary" data-i18n="storageDrawer.statFreeBytes">${t('storageDrawer.statFreeBytes')}</span>
+                                <!-- SỬA (06/10/2026, Giang) — + icon (i) giải thích con số ước lượng (core/info-icon-ui.js) -->
+                                <span class="flex items-center gap-1.5">
+                                    <span class="text-xs" data-uitk="textSecondary" data-i18n="storageDrawer.statFreeBytes">${t('storageDrawer.statFreeBytes')}</span>
+                                    ${infoIconHtml(t('storageDrawer.statFreeBytesInfo'))}
+                                </span>
                                 <span id="stat-storage-free-bytes" class="text-xs font-mono tabular-nums" data-uitk="textSecondary">—</span>
                             </div>
                         </div>
