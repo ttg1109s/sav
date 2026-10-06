@@ -111,6 +111,8 @@ const workflowVizConnector = {
             cnInitialized: true,
         };
         Object.keys(entries).forEach((key) => appState.set(key, entries[key], { skipCheck: true }));
+        this._camMode = null; // camera MỚI — frame tới vào chế độ camera đang chọn
+        this._followSignal = null;
         console.log(`writer: "workflowVizConnector._build", page: "cnScene/cnChips/cnWires/...", content: "dựng scene Connector (${board.chips.length} chip, ${board.wires.length} dây, ${board.junction.mesh.count} nút chạm)"`);
         this._applyStyleView(cfg.connectorStyle);
     },
@@ -139,13 +141,15 @@ const workflowVizConnector = {
         return { chips, wires, trace, junction, assets: createCircuitSignalAssets(metrics) }; // core
     },
 
-    /** Góc máy circuit (fog/fov/giới hạn controls) + dừng tween cinematic đang chạy; chế độ camera áp lại ở frame tới. */
+    /** Góc máy circuit: fog/fov/giới hạn controls — KHÔNG đụng vị trí camera.
+     * SỬA (07/10/2026, Giang báo "camera hardcut về gốc khi audio dừng / sang bài mới") — host gọi `activate` MỖI lần đổi
+     * bài/video (event/workflow/player.js, video-player.js::activateCurrentStyle()). Bản 06/10 ở đây còn dừng tween
+     * cinematic + xoá `_camMode`/`_followSignal` -> frame sau chạy lại `enter` của chế độ orbit = đặt camera về vị trí nhà
+     * -> giật cắt mỗi khi hết bài/đổi bài. Nay chế độ camera chỉ "vào lại" khi scene vừa dựng (_build) hoặc người dùng đổi
+     * chế độ trong Custom Effect; đổi bài giữ nguyên góc máy, tween cinematic đang chạy và dãy bit đang bám. */
     _applyStyleView() {
         const s = appState.get(['cnScene', 'cnCamera', 'cnControls']);
-        stopThreeCameraTweens(s.cnCamera, s.cnControls); // core/webgl/three-common.js
         applyCircuitCameraView(s.cnScene, s.cnCamera, s.cnControls); // core/webgl/three-connector.js
-        this._camMode = null;
-        this._followSignal = null;
     },
 
     _disposeScene() {
