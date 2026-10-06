@@ -49,9 +49,15 @@
          *          countVideosEl: HTMLElement, countPhotosEl: HTMLElement}} els
          *          toàn bộ phần tử DOM cần cập nhật, querySelector sẵn ở Workflow rồi truyền vào
          *          (Rule 2/3 — Core không tự đọc DOM ngoài tham số).
+         *          MỚI (06/10/2026) — thêm `barOtherEl`, `freeRowEl`, `freeBytesEl` (đoạn "Khác" +
+         *          dòng "còn trống" của thanh, xem components/file-manager-storage.js).
+         * @param {{otherBytes: number, freeBytes: number, quota: number}|null} [originBreakdown] -
+         *          MỚI (06/10/2026) — kết quả `computeOriginStorageBreakdown()` (ngay dưới), Workflow
+         *          tính sẵn rồi truyền vào (Rule 3 — hàm này KHÔNG tự gọi core đó). `null` = không có
+         *          estimate -> thanh vẽ như cũ (tỉ lệ giữa 3 media), ẩn dòng "còn trống".
          */
-        function renderStorageStats(songStats, videoStats, photoStats, els) {
-            const { totalBytesEl, barSongsEl, barVideosEl, barPhotosEl, countSongsEl, countVideosEl, countPhotosEl } = els;
+        function renderStorageStats(songStats, videoStats, photoStats, els, originBreakdown) {
+            const { totalBytesEl, barSongsEl, barVideosEl, barPhotosEl, barOtherEl, freeRowEl, freeBytesEl, countSongsEl, countVideosEl, countPhotosEl } = els;
             if (!totalBytesEl) return; // guard: panel "Quản lý lưu trữ" đang đóng
             const totalBytes = songStats.totalBytes + videoStats.totalBytes + photoStats.totalBytes;
             totalBytesEl.textContent = formatBytes(totalBytes);
@@ -80,8 +86,14 @@
                 return raw.map((p, i) => (isBoosted[i] ? MIN_VISIBLE_PERCENT : p * shrinkFactor));
             }
 
-            const [songPct, videoPct, photoPct] = computeBarPercents([
-                songStats.totalBytes, videoStats.totalBytes, photoStats.totalBytes
+            // SỬA (06/10/2026) — có estimate thì đưa THÊM "Khác" + "còn trống" vào phép chia: tổng =
+            // quota của app, thanh thành thang đo theo quota (phần "còn trống" KHÔNG vẽ div riêng —
+            // chính là phần track còn lại; % của nó chỉ dùng để tính, bỏ qua). Không có estimate thì 2
+            // giá trị này = 0 -> phép chia y hệt cách cũ (tỉ lệ giữa 3 media).
+            const otherBytes = originBreakdown ? originBreakdown.otherBytes : 0;
+            const freeBytes = originBreakdown ? originBreakdown.freeBytes : 0;
+            const [songPct, videoPct, photoPct, otherPct] = computeBarPercents([
+                songStats.totalBytes, videoStats.totalBytes, photoStats.totalBytes, otherBytes, freeBytes
             ]);
             // MỚI (29/07/2026, yêu cầu Giang mục 2 — "thêm phần số dung lượng khi ấn vào mỗi phần
             // của thanh") — gắn `dataset.bytes` (số byte THẬT, KHÔNG phải %) vào từng đoạn — đọc lại
@@ -91,9 +103,52 @@
             if (barSongsEl) { barSongsEl.style.width = `${songPct}%`; barSongsEl.dataset.bytes = String(songStats.totalBytes); }
             if (barVideosEl) { barVideosEl.style.width = `${videoPct}%`; barVideosEl.dataset.bytes = String(videoStats.totalBytes); }
             if (barPhotosEl) { barPhotosEl.style.width = `${photoPct}%`; barPhotosEl.dataset.bytes = String(photoStats.totalBytes); }
+            if (barOtherEl) { barOtherEl.style.width = `${otherPct}%`; barOtherEl.dataset.bytes = String(otherBytes); }
+            if (freeRowEl) freeRowEl.classList.toggle('hidden', !originBreakdown);
+            if (freeBytesEl && originBreakdown) freeBytesEl.textContent = `${formatBytes(freeBytes)} / ${formatBytes(originBreakdown.quota)}`;
             if (countSongsEl) countSongsEl.textContent = `${songStats.totalSongs}`;
             if (countVideosEl) countVideosEl.textContent = `${videoStats.totalVideos}`;
             if (countPhotosEl) countPhotosEl.textContent = `${photoStats.totalImages}`;
+        }
+
+        /**
+         * MỚI (06/10/2026, Giang yêu cầu "check quota" — dùng ngay thanh dung lượng Storage Management)
+         * — đọc `navigator.storage.estimate()`: dung lượng ĐANG DÙNG + TỐI ĐA cho phép của CẢ origin
+         * (IndexedDB + OPFS + Cache Storage gộp chung — Safari không có `usageDetails` để tách riêng
+         * IndexedDB). Safari hỗ trợ từ iOS 17; web app màn hình chính có quota khoảng 60% dung lượng
+         * máy. Số là ƯỚC TÍNH (trình duyệt có thể làm tròn), không chính xác từng byte.
+         * Không hỗ trợ/lỗi -> trả `null` (KHÔNG throw) — nơi gọi tự rơi về hiển thị cũ.
+         * @returns {Promise<{usage: number, quota: number}|null>}
+         */
+        async function estimateOriginStorage() {
+            if (typeof navigator === 'undefined' || !navigator.storage || typeof navigator.storage.estimate !== 'function') return null;
+            try {
+                const { usage, quota } = await navigator.storage.estimate();
+                if (!(quota > 0)) return null;
+                return { usage: usage || 0, quota };
+            } catch (err) {
+                console.warn('[storage-manager] navigator.storage.estimate() lỗi — bỏ qua phần quota:', err);
+                return null;
+            }
+        }
+
+        /**
+         * MỚI (06/10/2026) — THUẦN tính toán: tách usage của origin thành "Khác" (usage trừ tổng
+         * media) + "còn trống" (quota trừ phần đã dùng). Estimate có thể THẤP hơn tổng media đếm từ
+         * DB (ước tính/làm tròn của trình duyệt) — kẹp về 0 để không ra số âm, và lấy max(usage,
+         * media) làm "đã dùng" để phần còn trống không bị thổi phồng.
+         * @param {number} mediaBytes - tổng byte Song + Video + Photo
+         * @param {{usage: number, quota: number}|null} estimate - `estimateOriginStorage()`
+         * @returns {{otherBytes: number, freeBytes: number, quota: number}|null}
+         */
+        function computeOriginStorageBreakdown(mediaBytes, estimate) {
+            if (!estimate) return null;
+            const usedBytes = Math.max(estimate.usage, mediaBytes);
+            return {
+                otherBytes: Math.max(0, estimate.usage - mediaBytes),
+                freeBytes: Math.max(0, estimate.quota - usedBytes),
+                quota: estimate.quota,
+            };
         }
 
         // ===================== Giải phóng bộ nhớ =====================
