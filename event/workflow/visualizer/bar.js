@@ -12,11 +12,7 @@ const BAR_FFT_SIZE = 256;
 const BAR_MIRROR_FFT_SIZE = 2048;
 const BAR_FFT_SIZE_BY_STYLE = Object.freeze({ mirror: BAR_MIRROR_FFT_SIZE, cascade: BAR_FFT_SIZE, 'black hole': BAR_FFT_SIZE, dot: BAR_FFT_SIZE });
 
-/** Mirror: bật vạch đỉnh -> bước mô phỏng đỉnh; tắt -> bỏ trạng thái (bật lại khởi tạo từ mức hiện tại). */
-const BAR_MIRROR_PEAKS_BY_ENABLED = {
-    true: (levels, prevPeaks, dt) => stepBarMirrorPeaks(levels, prevPeaks, dt), // core
-    false: () => null,
-};
+// (BAR_MIRROR_PEAKS_BY_ENABLED + _mirrorPeaks/_mirrorLastTime — vạch đỉnh mirror "Peak caps" — ĐÃ XOÁ 07/10/2026, Giang.)
 
 /** Dot: hình trục nền theo chế độ di chuyển (rắn bò hay hình tĩnh). */
 const BAR_DOT_BASE_BY_SNAKE = {
@@ -77,9 +73,6 @@ const workflowVizBar = {
     defaultStyle: 'mirror',
     /** Cỡ phổ VẼ style cần — host gọi khi kích hoạt style để xin qua audioAnalysis.requireSpectrum() (01/10/2026). */
     spectrumSize(style) { return BAR_FFT_SIZE_BY_STYLE[style] || BAR_FFT_SIZE_BY_STYLE[this.defaultStyle]; }, // style lạ -> host vẽ style mặc định
-
-    _mirrorPeaks: null,
-    _mirrorLastTime: 0,
 
     /** Trạng thái style dot (KHÔNG thuộc STATE) — trước đây là ~20 biến `_dot*` cấp module của visualizer-render.js. */
     _dot: {
@@ -290,15 +283,10 @@ const workflowVizBar = {
         const { ctx, canvas, cfg, dpr } = frame;
         const spectrum = frame.audio.spectrum(BAR_MIRROR_FFT_SIZE); // service/audio-analysis.js
         const analyser = frame.audio.spectrumAnalyser(BAR_MIRROR_FFT_SIZE); // chỉ để đọc minDecibels/maxDecibels/sampleRate
-        const time = performance.now();
-        const dt = computeFrameDeltaMs(time, this._mirrorLastTime); // core/visualizer/frame-clock.js
-        this._mirrorLastTime = time;
         const barCount = resolveBarMirrorCount(cfg); // core
         const rawLevels = computeBarMirrorLevels(spectrum, analyser.frequencyBinCount, analyser.context.sampleRate, analyser.minDecibels, analyser.maxDecibels, barCount, cfg.mirrorTilt); // core
         const levels = spreadBarMirrorLevels(rawLevels, cfg.mirrorSmoothSpread); // core
-        this._mirrorPeaks = BAR_MIRROR_PEAKS_BY_ENABLED[cfg.mirrorPeaks !== false](levels, this._mirrorPeaks, dt);
-        const peaks = this._mirrorPeaks ? this._mirrorPeaks.vals : null;
-        const mirrorFrame = computeBarMirrorFrame(cfg, canvas.width, canvas.height, dpr, levels, peaks); // core
+        const mirrorFrame = computeBarMirrorFrame(cfg, canvas.width, canvas.height, dpr, levels); // core
         mirrorFrame.bars.forEach((b) => {
             const color = getComputedColor(...b.colorArgs); // core/visualizer/effect-paint.js
             paintBarRects(ctx, b.rects, color.fill, color.glow, dpr, frame.perf.blurMult, 15); // core
