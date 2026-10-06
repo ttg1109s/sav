@@ -1,19 +1,16 @@
 /**
- * event/workflow/visualizer/connector.js — Group "connector" (2 style WebGL: synapse + circuit).
- * [01/10/2026] Style 'brain' (canvas 2D) ĐÃ XOÁ HẲN theo Giang; dữ liệu audio đọc từ kho audioAnalysis
- * (frame.audio — service/audio-analysis.js) thay vì key appState.
+ * event/workflow/visualizer/connector.js — Group "connector" (WebGL, style DUY NHẤT: circuit).
+ * [01/10/2026] Style 'brain' (canvas 2D) ĐÃ XOÁ HẲN theo Giang; dữ liệu audio đọc từ kho audioAnalysis (frame.audio).
+ * [06/10/2026, Giang] Style 'synapse' ĐÃ XOÁ HẲN (mạng neuron, tia điện thế, góc máy synapse). Circuit thiết kế lại:
+ *   - Chip vuông, chân thanh mảnh liền thân, đứng yên; tổng chân mỗi chip = Chip count; mỗi chân nối riêng 1 chip bằng
+ *     dây thẳng/bẻ góc vuông, chỗ dây chạm nhau có nút tròn (builder: core/webgl/three-connector.js).
+ *   - Bit phóng ra từ chân, chạy dọc dây và đi hết vào chân đích; chân nào phóng = kết hợp dải tần onset + năng lượng +
+ *     pitch (core/visualizer/groups/connector/circuit.js).
+ *   - Camera 3 chế độ (field `cameraMode`): 'orbit' (như cũ: OrbitControls + cinematic shift), 'follow' (bắt ngẫu nhiên 1
+ *     dãy bit, đi theo nó; xong thì bắt dãy khác), 'fixed' (cố định nhìn từ ngoài vào, slider X/Y/Z + xoay ngang/dọc).
  *
- * [TÁCH — 28/09/2026, Phase 3-4 dọn visualizer] Từ `_tickConnectorBeat/Render/Synapse/Circuit/Brain()` +
- * `_tickBrainBurstTrigger()` của event/workflow/visualizer-render.js cũ + các biến `_cn*`/`_br*`. Hành vi mỗi frame
- * giữ nguyên; thay đổi:
- *   - Vòng đời (Phase 3): resize đổi aspect camera + kích thước EffectComposer (trước đây KHÔNG xử lý — xoay máy
- *     làm synapse/circuit méo, bloom sai độ phân giải). Dựng lại theo Custom Effect (số neuron/node) dọn hết
- *     scene, texture, render target bloom, OrbitControls cũ trước (trước đây bỏ lại, listener chồng dần).
- *   - Seek/đổi bài qua hook host (`onSeek`/`onNewMedia`) thay cờ nằm trong host + lời gọi thẳng rải rác.
- *   - Beat flux dùng cửa sổ chung; rẽ nhánh -> guard + object map (readme/event-bus-flow.md mục 7).
- * Phase 5 (28/09/2026): scene dựng qua builder thuần (buildConnectorStage/buildConnectorComposer), góc máy/ẩn hiện
- * theo style + dọn khi đổi bài do Workflow điều phối. Còn di sản: buildSynapseNetwork/buildCircuitNodes (chuỗi builder
- * bên trong), fireNeuronActionPotential/spawnCircuitSignal (đọc appState).
+ * [TÁCH — 28/09/2026, Phase 3-5 dọn visualizer] vòng đời (resize, dựng lại theo Custom Effect, seek/đổi bài qua hook host),
+ * rẽ nhánh -> guard + object map (readme/event-bus-flow.md mục 7).
  */
 
 /** Cỡ phổ VẼ của group (01/10/2026: group tự khai báo, host xin qua audioAnalysis.requireSpectrum()). */
@@ -22,22 +19,41 @@ const CONNECTOR_FFT_SIZE = 2048;
 // Số frame giữ connector "ổn định lại" (không bắn, mỗi frame lấy FFT hiện tại làm baseline) sau lần seek CUỐI —
 // analyser tự làm mượt FFT (smoothingTimeConstant 0.8) nên còn kéo đuôi audio CŨ ~0.2s sau khi media seek xong.
 const CONNECTOR_SEEK_SETTLE_FRAMES = 15;
-// Nốt chỉ coi là "đang phát" nếu được cập nhật trong khoảng này (ms) — circuit.
+// Nốt chỉ coi là "đang phát" nếu được cập nhật trong khoảng này (ms).
 const CONNECTOR_PITCH_FRESH_MS = 300;
+// trailLength (slider, đơn vị lịch sử = số bước, 2 bước/unit) -> độ dài vệt sáng theo world units.
+const CONNECTOR_TRAIL_UNITS_PER_STEP = 0.5;
 
-/** Kết quả updateCircuitSignal() -> việc cần làm (null/khác = đang bay, không làm gì). */
+/** Kết quả updateCircuitSignal() -> việc cần làm (null = đang bay, không làm gì). */
 const CIRCUIT_SIGNAL_BY_RESULT = {
     destroy: (signal, index, activeSignals, cnGroupCircuit) => {
         destroyCircuitSignal(signal, cnGroupCircuit); // core/webgl/three-connector.js
         activeSignals.splice(index, 1);
     },
-    arrive: (signal) => onCircuitSignalArrival(signal), // core/webgl/three-connector.js — GSAP shockwave + bắt đầu fade
+    arrive: (signal) => onCircuitSignalArrival(signal), // core/visualizer/groups/connector/circuit.js — chip đích sáng bừng
 };
 
-/** Góc máy theo style — synapse nhìn thẳng lưới; circuit (và brain — nhánh `else` cũ) cho xoay/zoom. */
-const CONNECTOR_CAMERA_VIEW_BY_STYLE = {
-    synapse: (scene, camera, controls) => applySynapseCameraView(scene, camera, controls), // core/webgl/three-connector.js
-    circuit: (scene, camera, controls) => applyCircuitCameraView(scene, camera, controls),
+/** Chế độ camera (cfg.cameraMode) -> vào chế độ + bước mỗi frame. Giá trị lạ -> orbit. */
+const CONNECTOR_CAMERA_MODES = {
+    orbit: {
+        enter: (s) => enterCircuitOrbitCamera(s.cnCamera, s.cnControls), // core/visualizer/groups/connector/circuit.js
+        tick: (frame, wf, s) => {
+            workflowVizConnector._driftOrbitSweep(s.cnCamera);
+            s.cnControls.update();
+        },
+    },
+    follow: {
+        enter: (s) => {
+            enterCircuitManualCamera(s.cnControls); // core
+            workflowVizConnector._followSignal = null;
+            workflowVizConnector._followLook.set(0, 0, 0);
+        },
+        tick: (frame, wf, s) => workflowVizConnector._tickFollowCamera(wf, s),
+    },
+    fixed: {
+        enter: (s) => enterCircuitManualCamera(s.cnControls), // core
+        tick: (frame, wf, s) => applyFixedCircuitCameraPose(s.cnCamera, frame.cfg.camPosX, frame.cfg.camPosY, frame.cfg.camPosZ, frame.cfg.camRotY, frame.cfg.camRotX), // core
+    },
 };
 
 const workflowVizConnector = {
@@ -48,11 +64,15 @@ const workflowVizConnector = {
 
     /** >0 = đang "ổn định lại" sau seek, trừ dần mỗi frame WebGL. */
     _settleFrames: 0,
-    /** Cửa sổ beat flux riêng: circuit đổi góc máy (cinematic shift). */
+    /** Cửa sổ beat flux riêng: camera orbit đổi góc máy (cinematic shift). */
     _cameraShiftWin: createBeatFluxWindow(), // core/visualizer/beat-window.js
+    /** Chế độ camera đang áp dụng (null = chưa vào chế độ nào -> frame tới chạy `enter`). */
+    _camMode: null,
+    /** Chế độ bám bit: xung đang bám + điểm nhìn (đuổi mượt). */
+    _followSignal: null,
+    _followLook: new THREE.Vector3(),
 
     styles: {
-        synapse: (frame) => workflowVizConnector._drawSynapse(frame),
         circuit: (frame) => workflowVizConnector._drawCircuit(frame),
     },
 
@@ -68,86 +88,75 @@ const workflowVizConnector = {
         this._build();
     },
 
-    /** Custom Effect đổi số neuron/node (field refresh 'initThreeJSConnector' — tên lịch sử): dọn scene cũ rồi dựng lại. */
+    /** Custom Effect đổi số chip (field refresh 'initThreeJSConnector' — tên lịch sử): dọn scene cũ rồi dựng lại. */
     rebuild() {
         this._disposeScene();
         this._build();
     },
 
-    /** Phase 5 — THAY initThreeJSConnector() (core cũ): Workflow điều phối builder thuần + ghi appState. Mạng synapse
-     * (buildSynapseNetwork) và lưới chip (buildCircuitNodes) vẫn là builder di sản trong core/webgl/three-connector.js. */
     _build() {
         const cfg = getEffectConfig('connector'); // core/custom-effect.js
         const renderer = workflowVisualizerRender.ensureSharedRenderer(Math.min(window.devicePixelRatio, 2)); // event/workflow/visualizer-render.js
         const width = window.innerWidth, height = window.innerHeight;
         const stage = buildConnectorStage(width / height, renderer); // core/webgl/three-connector.js
-        const glowTexture = createGlowTexture(); // core
-        const sparkTexture = createActionPotentialSparkTexture(); // core
-        const { neurons, synapses } = this._buildSynapseNetwork(cfg.neuronCount, stage.groupSynapse, glowTexture, width / height);
-        attachThreeChild(stage.groupSynapse, buildMicroscopicFluidParticles()); // core
-        const chips = this._buildCircuitNodes(cfg.nodeCount, stage.groupCircuit);
+        const board = this._buildCircuitBoard(cfg, stage.groupCircuit);
         const post = buildConnectorComposer(renderer, stage.scene, stage.camera, width, height); // core
         const entries = {
             cnScene: stage.scene, cnCamera: stage.camera, cnControls: stage.controls,
             cnComposer: post.composer, cnBloomPass: post.bloomPass,
-            cnGroupSynapse: stage.groupSynapse, cnGroupCircuit: stage.groupCircuit,
-            cnNeurons: neurons, cnSynapses: synapses, cnChips: chips,
-            cnActiveSignalsSynapse: [], cnActiveSignalsCircuit: [],
-            cnGlowTexture: glowTexture, cnSparkTexture: sparkTexture,
+            cnGroupCircuit: stage.groupCircuit,
+            cnChips: board.chips, cnWires: board.wires, cnTrace: board.trace, cnJunction: board.junction,
+            cnSignalAssets: board.assets,
+            cnActiveSignalsCircuit: [],
             cnInitialized: true,
         };
         Object.keys(entries).forEach((key) => appState.set(key, entries[key], { skipCheck: true }));
-        console.log(`writer: "workflowVizConnector._build", page: "cnScene/cnNeurons/cnChips/...", content: "dựng scene Connector (${neurons.length} neuron, ${chips.length} chip)"`);
+        console.log(`writer: "workflowVizConnector._build", page: "cnScene/cnChips/cnWires/...", content: "dựng scene Connector (${board.chips.length} chip, ${board.wires.length} dây, ${board.junction.mesh.count} nút chạm)"`);
         this._applyStyleView(cfg.connectorStyle);
     },
 
-    /** Lưới neuron phẳng lấp đầy khung nhìn -> đồ thị sợi trục -> từng neuron (màu theo color mode) -> từng sợi trục.
-     * THAY buildSynapseNetwork() (core cũ gọi 6 core khác). Thứ tự tạo (và tiêu thụ Math.random) giữ nguyên. */
-    _buildSynapseNetwork(neuronCount, networkGroup, glowTexture, aspect) {
-        const dims = computeSynapseGridDims(neuronCount, aspect); // core/webgl/three-connector.js
-        const { cells, cellSize } = buildSynapseGridCells(neuronCount, dims, computeSynapseVisibleFrustum(aspect)); // core
-        const meshScale = computeConnectorMeshScale(cellSize); // core
-        const { edges, inDegree } = buildSynapseGraph(cells); // core
-        const neurons = cells.map((cell, i) => {
-            const color = getComputedColor(i, neuronCount, 128); // core/visualizer/effect-paint.js
-            const neuron = createAnatomicalNeuron(i, cell.position, inDegree[i], new THREE.Color(color.fillNoAlpha).getHex(), new THREE.Color(color.glow).getHex(), glowTexture, meshScale); // core
-            attachThreeChild(networkGroup, neuron.container); // core
-            return neuron;
-        });
-        const synapses = edges.map((edge) => createPhysicalSynapticAxon(neurons[edge.from], neurons[edge.to], neurons[edge.from].fillColorHex, meshScale)); // core
-        return { neurons, synapses };
-    },
-
-    /** Chip theo lưới lập phương (lớp ngoài vào trong) -> màu -> mesh -> dữ liệu chip -> láng giềng. THAY buildCircuitNodes(). */
-    _buildCircuitNodes(nodeCount, nodeGroup) {
-        const { cells } = buildCircuitCubeCells(nodeCount); // core/webgl/three-connector.js
-        const chips = cells.map((cell, i) => {
-            const colorHex = new THREE.Color(getComputedColor(i, cells.length, 128).fillNoAlpha).getHex(); // core/visualizer/effect-paint.js — fillNoAlpha tránh cảnh báo alpha của THREE.Color
-            const chip = assembleCircuitChip(cell, i, colorHex, createChipMesh(colorHex)); // core
-            attachThreeChild(nodeGroup, chip.group); // core
+    /** Lưới lập phương -> cỡ chip/chân -> vị trí chân -> 1 geometry chip dùng chung -> từng chip (màu theo color mode) ->
+     * láng giềng -> gán chân cho chip đích -> dây -> mesh dây + nút chạm -> tài nguyên xung. */
+    _buildCircuitBoard(cfg, group) {
+        const cube = buildCircuitCubeCells(cfg.nodeCount); // core/webgl/three-connector.js
+        const pinTotal = cube.cells.length; // tổng chân mỗi chip = Chip count (Giang 06/10/2026)
+        const metrics = computeCircuitChipMetrics(cube.spacing, pinTotal); // core
+        const slots = buildCircuitPinSlots(metrics, pinTotal); // core
+        const chipGeometry = buildChipGeometry(metrics, slots); // core
+        const chips = cube.cells.map((cell, i) => {
+            const colorHex = new THREE.Color(getComputedColor(i, cube.cells.length, 128).fillNoAlpha).getHex(); // core/visualizer/effect-paint.js
+            const chip = assembleCircuitChip(cell, i, colorHex, createChipMesh(colorHex, chipGeometry, cube.spacing * 0.9), slots); // core
+            attachThreeChild(group, chip.group); // core
             return chip;
         });
         linkCircuitChipNeighbors(chips); // core
-        return chips;
+        assignCircuitPinTargets(chips); // core
+        const wires = buildCircuitWires(chips, metrics); // core
+        const trace = buildCircuitTraceMesh(wires, cfg.traceOpacity); // core
+        attachThreeChild(group, trace.mesh); // core
+        const junction = buildCircuitJunctionMesh(collectCircuitJunctions(wires, CIRCUIT_JUNCTION_MAX), metrics.junctionRadius, cfg.traceOpacity); // core
+        attachThreeChild(group, junction.mesh); // core
+        return { chips, wires, trace, junction, assets: createCircuitSignalAssets(metrics) }; // core
     },
 
-    /** Ẩn/hiện nhóm + góc máy theo style (THAY updateConnectorVisibility()). Dừng tween cinematic đang chạy trước. */
-    _applyStyleView(style) {
-        const s = appState.get(['cnScene', 'cnCamera', 'cnControls', 'cnGroupSynapse', 'cnGroupCircuit']);
+    /** Góc máy circuit (fog/fov/giới hạn controls) + dừng tween cinematic đang chạy; chế độ camera áp lại ở frame tới. */
+    _applyStyleView() {
+        const s = appState.get(['cnScene', 'cnCamera', 'cnControls']);
         stopThreeCameraTweens(s.cnCamera, s.cnControls); // core/webgl/three-common.js
-        setConnectorGroupVisibility(s.cnGroupSynapse, s.cnGroupCircuit, style); // core/webgl/three-connector.js
-        (CONNECTOR_CAMERA_VIEW_BY_STYLE[style] || CONNECTOR_CAMERA_VIEW_BY_STYLE.circuit)(s.cnScene, s.cnCamera, s.cnControls);
+        applyCircuitCameraView(s.cnScene, s.cnCamera, s.cnControls); // core/webgl/three-connector.js
+        this._camMode = null;
+        this._followSignal = null;
     },
 
     _disposeScene() {
         if (!appState.get('cnInitialized')) return;
-        const s = appState.get(['cnScene', 'cnCamera', 'cnControls', 'cnComposer', 'cnGlowTexture', 'cnSparkTexture']);
+        const s = appState.get(['cnScene', 'cnCamera', 'cnControls', 'cnComposer', 'cnSignalAssets']);
         stopThreeCameraTweens(s.cnCamera, s.cnControls); // core/webgl/three-common.js
         disposeOrbitControls(s.cnControls); // core
         disposeThreeComposer(s.cnComposer); // core
         disposeThreeObjectTree(s.cnScene); // core
-        disposeThreeTexture(s.cnGlowTexture); // core
-        disposeThreeTexture(s.cnSparkTexture); // core
+        disposeCircuitSignalAssets(s.cnSignalAssets); // core/webgl/three-connector.js
+        this._followSignal = null;
     },
 
     /** Khung nhìn đổi: aspect camera + composer (bloom tính lại render target). Renderer do host đổi. */
@@ -163,39 +172,26 @@ const workflowVizConnector = {
         this._settleFrames = CONNECTOR_SEEK_SETTLE_FRAMES;
     },
 
-    /** Đổi bài/video: dọn tia/xung đang bay + đưa neuron/chip về trạng thái nghỉ (THAY resetConnectorPerTrackState()). */
+    /** Đổi bài/video: dọn xung đang bay + đưa chip về trạng thái nghỉ. */
     onNewMedia() {
         if (!appState.get('cnInitialized')) return;
-        const { cnNeurons, cnChips } = appState.get(['cnNeurons', 'cnChips']);
-        cnNeurons.forEach((n) => rebaselineTonotopicNode(n, 0)); // core/visualizer/groups/connector/synapse.js — năng lượng/thích nghi/ức chế về 0
-        this._clearSynapseSignals();
-        this._clearCircuitSignals(cnChips);
-        releaseCircuitPins(cnChips); // core/visualizer/groups/connector/circuit.js — kể cả khi không còn xung nào
-        cnChips.forEach((c) => rebaselineTonotopicNode(c, 0)); // core
+        const cnChips = appState.get('cnChips');
+        this._clearCircuitSignals();
+        cnChips.forEach((c) => rebaselineTonotopicNode(c, 0)); // core/visualizer/groups/connector/tonotopic.js
     },
 
-    // ===================== Frame — WebGL (synapse / circuit) =====================
-
-    _drawSynapse(frame) {
-        this._tickCameraShift(frame);
-        const wf = this._beginWebglFrame();
-        if (!wf) return;
-        this._stepSynapse(frame, wf);
-        appState.get('cnControls').update();
-        appState.get('tRenderer').render(appState.get('cnScene'), appState.get('cnCamera'));
-    },
+    // ===================== Frame =====================
 
     _drawCircuit(frame) {
         this._tickCameraShift(frame);
         const wf = this._beginWebglFrame();
         if (!wf) return;
         this._stepCircuit(frame, wf);
-        appState.get('cnControls').update();
+        this._tickCamera(frame, wf);
         appState.get('cnComposer').render();
     },
 
-    /** Phần đầu chung mỗi frame WebGL: null nếu scene chưa dựng. Luôn tiêu thụ đồng hồ + trừ cửa sổ ổn định
-     * (kể cả style brain) — đúng như `_tickConnectorRender()` cũ. */
+    /** Phần đầu chung mỗi frame WebGL: null nếu scene chưa dựng. Luôn tiêu thụ đồng hồ + trừ cửa sổ ổn định. */
     _beginWebglFrame() {
         if (!appState.get('cnInitialized')) return null;
         const isSettling = this._settleFrames > 0;
@@ -207,15 +203,46 @@ const workflowVizConnector = {
         };
     },
 
-    /** Circuit: nhạc chuyển đoạn -> đổi góc máy (cinematic shift). Tích luỹ flux MỖI FRAME (chỉ khi đang ở
-     * circuit + bật camera shift), tiêu thụ beat ở MỌI style — giữ đúng thứ tự gốc. */
+    /** Camera: chế độ đổi (Custom Effect) -> vào chế độ mới (dừng tween cinematic cũ), rồi bước của chế độ hiện tại. */
+    _tickCamera(frame, wf) {
+        const s = appState.get(['cnCamera', 'cnControls', 'cnActiveSignalsCircuit', 'cnSignalAssets']);
+        const modeKey = CONNECTOR_CAMERA_MODES[frame.cfg.cameraMode] ? frame.cfg.cameraMode : 'orbit';
+        const mode = CONNECTOR_CAMERA_MODES[modeKey];
+        this._enterCameraModeWhenChanged(modeKey, mode, s);
+        mode.tick(frame, wf, s);
+    },
+
+    _enterCameraModeWhenChanged(modeKey, mode, s) {
+        if (this._camMode === modeKey) return;
+        stopThreeCameraTweens(s.cnCamera, s.cnControls); // core/webgl/three-common.js
+        mode.enter(s);
+        this._camMode = modeKey;
+        console.log(`writer: "workflowVizConnector._enterCameraModeWhenChanged", page: "_camMode", content: "${modeKey}"`);
+    },
+
+    /** Bám dãy bit: xung đang bám đã vào hết chip / đã tới nơi -> bắt xung khác (ngẫu nhiên); chưa có xung -> đứng yên. */
+    _tickFollowCamera(wf, s) {
+        this._repickFollowSignalWhenStale(s.cnActiveSignalsCircuit);
+        if (!this._followSignal) return;
+        stepFollowCircuitCamera(s.cnCamera, this._followLook, this._followSignal, wf.deltaTime, s.cnSignalAssets.followBack, s.cnSignalAssets.followUp); // core/visualizer/groups/connector/circuit.js
+    },
+
+    _repickFollowSignalWhenStale(activeSignals) {
+        const current = this._followSignal;
+        if (current && !current.done && !current.arrived) return;
+        const next = pickFollowCircuitSignal(activeSignals); // core
+        if (!next) return; // không có xung mới — vẫn bám nốt xung cũ (đang vào chip) hoặc đứng yên
+        this._followSignal = next;
+    },
+
+    /** Orbit: nhạc chuyển đoạn -> đổi góc máy (cinematic shift). Tích luỹ flux MỖI FRAME (chỉ khi bật camera shift ở
+     * chế độ orbit), tiêu thụ beat ở MỌI frame — giữ đúng thứ tự gốc. */
     _tickCameraShift(frame) {
         const win = this._cameraShiftWin;
         const cfg = frame.cfg;
         this._accumulateCameraShiftFlux(frame);
         if (!workflowVizBeatWindow.consumeNewBeat(win, frame.audio.lastBeatTime())) return;
-        if (!frame.isPlaying || frame.style !== 'circuit') return;
-        if (!cfg.cameraShiftEnabled) return;
+        if (!frame.isPlaying || !this._isCameraShiftActive(cfg)) return;
         workflowVizBeatWindow.closeInterval(win);
         countBeatSinceTrigger(win); // core/visualizer/beat-window.js
         if (win.beatsSinceTrigger < 2) return;
@@ -226,180 +253,118 @@ const workflowVizConnector = {
         appState.set('cnActiveCamMode', mode, { skipCheck: true });
     },
 
+    /** Cinematic shift chỉ có nghĩa ở camera orbit (2 chế độ kia tự đặt camera mỗi frame). */
+    _isCameraShiftActive(cfg) {
+        return !!cfg.cameraShiftEnabled && (cfg.cameraMode || 'orbit') === 'orbit';
+    },
+
     _accumulateCameraShiftFlux(frame) {
-        if (frame.style !== 'circuit' || !frame.cfg.cameraShiftEnabled) return;
+        if (!this._isCameraShiftActive(frame.cfg)) return;
         workflowVizBeatWindow.accumulateLatest(this._cameraShiftWin, frame.audio.fluxHistory()); // service/audio-analysis.js
-    },
-
-    _stepSynapse(frame, wf) {
-        const cfg = frame.cfg;
-        const spectrum = frame.audio.spectrum(CONNECTOR_FFT_SIZE); // service/audio-analysis.js
-        const neurons = appState.get('cnNeurons');
-        this._clearSynapseSignalsWhenSettling(wf.isSettling); // tia sinh trước seek — xoá NGAY, không để bay tiếp
-        const speed = computeConnectorSpeed(cfg.synapseSpeedBase, cfg.synapseSpeedEnergyMult, frame.audio.smoothedEnergy()); // core/webgl
-
-        neurons.forEach((neuron, i) => {
-            const rawPeak = computeBinRangePeak(spectrum, tonotopicBinRange(i, neurons.length, spectrum.length)); // core/visualizer/groups/connector/synapse.js — đỉnh dải tần tonotopic (log)
-            this._rebaselineWhenSettling(neuron, rawPeak, wf.isSettling); // frame này KHÔNG phải onset (diff = 0)
-            const energyByte = applyTonotopicSmoothing(neuron, rawPeak, i, neurons.length); // core — mượt-hoá tăng dần theo tần số
-            const diff = energyByte - neuron.prevBinEnergy;
-            this._fireNeuron(frame, wf, neuron, i, energyByte, diff);
-            neuron.prevBinEnergy = energyByte;
-            decayNeuronState(neuron, wf.deltaTime); // core — fade glow + adaptation + lateralInhibition
-            const color = getComputedColor(i, neurons.length, energyByte); // core/visualizer/effect-paint.js
-            applyNeuronExcitement(neuron, color.fillNoAlpha, color.glow); // core
-            applyConnectorGlowSettings(neuron.glowSprite, cfg.glowEnabled, wf.glowIntensity); // core/visualizer/groups/connector/common.js
-        });
-
-        const activeSignals = appState.get('cnActiveSignalsSynapse');
-        for (let i = activeSignals.length - 1; i >= 0; i--) {
-            const signal = activeSignals[i];
-            const arrived = stepActionPotential(signal, signal.synapse, speed * signal.speedMult, wf.deltaTime); // core — tốc độ nền × độ mạnh onset đã sinh ra tia
-            if (!arrived) continue;
-            signal.synapse.fromNeuron.container.remove(signal.mesh); // spark là con của neuron nguồn (fireNeuronActionPotential)
-            signal.mesh.geometry.dispose(); signal.mesh.material.dispose();
-            activeSignals.splice(i, 1);
-            setNeuronEnergy(signal.synapse.toNeuron, 2.2); // core/webgl/three-connector.js — neuron đích sáng lên khi tia tới
-        }
-    },
-
-    /** Onset (biên độ tăng vượt ngưỡng hiệu dụng) -> thích nghi + ức chế neuron lân cận + bắn điện thế hoạt động. */
-    _fireNeuron(frame, wf, neuron, i, energyByte, diff) {
-        const cfg = frame.cfg;
-        const thresholdByte = computeEffectiveFireThresholdByte(neuron, cfg); // core/visualizer/groups/connector/synapse.js
-        if (!shouldFireTonotopicNode(frame.isPlaying, wf.isSettling, diff, energyByte, thresholdByte)) return; // core
-        triggerNeuronAdaptation(neuron); // core — tự đè ngưỡng lên (refractory)
-        neuron.connectedSynapses.forEach((s) => applyLateralInhibition(s.toNeuron, cfg.lateralInhibitStrength)); // core
-        neuron.incomingSynapses.forEach((s) => applyLateralInhibition(s.fromNeuron, cfg.lateralInhibitStrength)); // core
-        const sparks = launchActionPotentialSparks(neuron, appState.get('cnSparkTexture'), Math.min(2.2, 1.2 + diff / 60), computeSignalSpeedMult(diff)); // core/webgl/three-connector.js
-        appState.mutate('cnActiveSignalsSynapse', (arr) => arr.push(...sparks), { skipCheck: true });
     },
 
     _rebaselineWhenSettling(node, rawPeak, isSettling) {
         if (!isSettling) return;
-        rebaselineTonotopicNode(node, rawPeak); // core/visualizer/groups/connector/synapse.js
+        rebaselineTonotopicNode(node, rawPeak); // core/visualizer/groups/connector/tonotopic.js
     },
 
-    /** Xoá mọi tia synapse đang bay (dispose mesh) — chỉ khi đang ổn định lại sau seek. */
-    _clearSynapseSignalsWhenSettling(isSettling) {
+    /** Xoá mọi xung đang bay — chỉ khi đang ổn định lại sau seek. */
+    _clearCircuitSignalsWhenSettling(isSettling) {
         if (!isSettling) return;
-        this._clearSynapseSignals();
+        this._clearCircuitSignals();
     },
 
-    _clearSynapseSignals() {
-        const activeSignals = appState.get('cnActiveSignalsSynapse');
-        if (activeSignals.length === 0) return;
-        activeSignals.forEach((signal) => {
-            signal.synapse.fromNeuron.container.remove(signal.mesh);
-            signal.mesh.geometry.dispose(); signal.mesh.material.dispose();
-        });
-        appState.set('cnActiveSignalsSynapse', [], { skipCheck: true });
-        console.log(`writer: "workflowVizConnector._clearSynapseSignalsWhenSettling", page: "cnActiveSignalsSynapse", content: "xoá ${activeSignals.length} tia (seek/đổi bài)"`);
-    },
-
-    /** Xoá mọi xung circuit đang bay + trả pin về rảnh — chỉ khi đang ổn định lại sau seek. */
-    _clearCircuitSignalsWhenSettling(chips, isSettling) {
-        if (!isSettling) return;
-        this._clearCircuitSignals(chips);
-    },
-
-    _clearCircuitSignals(chips) {
+    _clearCircuitSignals() {
         const activeSignals = appState.get('cnActiveSignalsCircuit');
         if (activeSignals.length === 0) return;
         const cnGroupCircuit = appState.get('cnGroupCircuit');
         activeSignals.forEach((signal) => destroyCircuitSignal(signal, cnGroupCircuit)); // core/webgl/three-connector.js
         appState.set('cnActiveSignalsCircuit', [], { skipCheck: true });
-        console.log(`writer: "workflowVizConnector._clearCircuitSignalsWhenSettling", page: "cnActiveSignalsCircuit", content: "xoá ${activeSignals.length} xung (seek/đổi bài)"`);
-        chips.forEach((chip) => chip.pins.forEach((pin) => { pin.busy = false; }));
+        console.log(`writer: "workflowVizConnector._clearCircuitSignals", page: "cnActiveSignalsCircuit", content: "xoá ${activeSignals.length} xung (seek/đổi bài)"`);
     },
 
     _stepCircuit(frame, wf) {
         const cfg = frame.cfg;
         const spectrum = frame.audio.spectrum(CONNECTOR_FFT_SIZE); // service/audio-analysis.js
-        const chips = appState.get('cnChips');
-        this._clearCircuitSignalsWhenSettling(chips, wf.isSettling); // xung sinh trước seek — xoá NGAY, trả pin về rảnh
-        const activeSignals = appState.get('cnActiveSignalsCircuit');
-        const cnGroupCircuit = appState.get('cnGroupCircuit');
+        this._clearCircuitSignalsWhenSettling(wf.isSettling); // xung sinh trước seek — xoá NGAY
+        const s = appState.get(['cnChips', 'cnActiveSignalsCircuit', 'cnGroupCircuit', 'cnTrace', 'cnJunction', 'cnSignalAssets', 'cnBloomPass']);
+        const chips = s.cnChips;
         const speed = computeConnectorSpeed(cfg.circuitSpeedBase, cfg.circuitSpeedEnergyMult, frame.audio.smoothedEnergy()); // core/webgl
-        appState.get('cnBloomPass').strength = computeConnectorSpeed(cfg.bloomStrengthBase, cfg.bloomStrengthEnergyMult, frame.audio.smoothedEnergy()); // core/webgl
+        s.cnBloomPass.strength = computeConnectorSpeed(cfg.bloomStrengthBase, cfg.bloomStrengthEnergyMult, frame.audio.smoothedEnergy()); // core/webgl
         const pitchNodeIndex = this._resolvePitchNodeIndex(frame, chips.length);
 
+        // Lượt 1: màu + năng lượng dải tần + độ tăng của MỌI chip (lượt 2 cần biết dải nào đang onset để chọn chân).
         chips.forEach((chip, i) => {
-            const chipColor = getComputedColor(i, chips.length, 128); // core/visualizer/effect-paint.js — dataValue=128 như lúc build
-            applyChipLiveColor(chip, chipColor.fillNoAlpha); // core/visualizer/groups/connector/circuit.js
-            applyChipGlowSettings(chip.bodyMesh, cfg.glowEnabled, wf.glowIntensity); // core/visualizer/groups/connector/common.js
-            decayChipSpin(chip, wf.deltaTime); // core
-
-            const rawPeak = computeBinRangePeak(spectrum, tonotopicBinRange(i, chips.length, spectrum.length)); // core/visualizer/groups/connector/synapse.js
+            applyChipLiveColor(chip, getComputedColor(i, chips.length, 128).fillNoAlpha); // core/visualizer/groups/connector/circuit.js + effect-paint.js
+            const rawPeak = computeBinRangePeak(spectrum, tonotopicBinRange(i, chips.length, spectrum.length)); // core/visualizer/groups/connector/tonotopic.js
             this._rebaselineWhenSettling(chip, rawPeak, wf.isSettling);
-            const energyByte = applyTonotopicSmoothing(chip, rawPeak, i, chips.length); // core
-            const diff = energyByte - chip.prevBinEnergy;
-            this._fireChip(frame, wf, chips, chip, i, energyByte, diff, activeSignals, cnGroupCircuit, pitchNodeIndex);
-            chip.prevBinEnergy = energyByte;
-            decayNeuronState(chip, wf.deltaTime); // core
+            chip.frameEnergy = applyTonotopicSmoothing(chip, rawPeak, i, chips.length); // core
+            chip.frameDiff = chip.frameEnergy - chip.prevBinEnergy;
         });
+        // Lượt 2: bắn + cập nhật mốc + decay + độ sáng.
+        chips.forEach((chip, i) => {
+            this._fireChip(frame, wf, chips, chip, i, pitchNodeIndex, s);
+            chip.prevBinEnergy = chip.frameEnergy;
+            decayNeuronState(chip, wf.deltaTime); // core/visualizer/groups/connector/tonotopic.js
+            applyChipGlowSettings(chip, cfg.glowEnabled, wf.glowIntensity); // core/visualizer/groups/connector/common.js
+        });
+        updateCircuitTraceColors(s.cnTrace, s.cnJunction, chips, cfg.traceOpacity); // core/visualizer/groups/connector/circuit.js
 
-        this._driftOrbitSweep();
-
+        const activeSignals = s.cnActiveSignalsCircuit;
+        const trailUnits = cfg.trailLength * CONNECTOR_TRAIL_UNITS_PER_STEP;
         for (let i = activeSignals.length - 1; i >= 0; i--) {
             const signal = activeSignals[i];
-            const result = updateCircuitSignal(signal, wf.deltaTime, speed, cfg.trailLength); // core/visualizer/groups/connector/circuit.js
-            (CIRCUIT_SIGNAL_BY_RESULT[result] || VIZ_NOOP)(signal, i, activeSignals, cnGroupCircuit);
+            const result = updateCircuitSignal(signal, wf.deltaTime, speed, trailUnits, s.cnSignalAssets.bitGap); // core/visualizer/groups/connector/circuit.js
+            (CIRCUIT_SIGNAL_BY_RESULT[result] || VIZ_NOOP)(signal, i, activeSignals, s.cnGroupCircuit);
         }
     },
 
-    /** Node (chip) mà nốt đang phát rơi vào dải tần — đích ưu tiên của xung; null nếu không có nốt "tươi". */
+    /** Chip (dải tần) chứa nốt đang phát — đích ưu tiên của chân phóng; null nếu không có nốt "tươi". */
     _resolvePitchNodeIndex(frame, chipCount) {
         if (!frame.isPlaying || chipCount <= 1) return null;
         if (!frame.audio.isPitchFresh(CONNECTOR_PITCH_FRESH_MS)) return null; // service/audio-analysis.js (01/10/2026)
         const pitchHz = 440 * Math.pow(2, (frame.audio.pitchMidi() - 69) / 12);
         const binCount = CONNECTOR_FFT_SIZE / 2;
-        const ranges = Array.from({ length: chipCount }, (_, j) => tonotopicBinRange(j, chipCount, binCount)); // core/visualizer/groups/connector/synapse.js
+        const ranges = Array.from({ length: chipCount }, (_, j) => tonotopicBinRange(j, chipCount, binCount)); // core/visualizer/groups/connector/tonotopic.js
         return findTonotopicNodeForBin(ranges, frequencyToFftBin(pitchHz, binCount, frame.audio.sampleRate())); // core
     },
 
-    _fireChip(frame, wf, chips, chip, i, energyByte, diff, activeSignals, cnGroupCircuit, pitchNodeIndex) {
+    /** Onset dải tần của chip -> thích nghi + ức chế láng giềng + phóng bit từ các chân. */
+    _fireChip(frame, wf, chips, chip, i, pitchNodeIndex, s) {
         const cfg = frame.cfg;
-        if (!shouldFireTonotopicNode(frame.isPlaying, wf.isSettling, diff, energyByte, computeEffectiveFireThresholdByte(chip, cfg))) return; // core/visualizer/groups/connector/synapse.js
+        if (!shouldFireTonotopicNode(frame.isPlaying, wf.isSettling, chip.frameDiff, chip.frameEnergy, computeEffectiveFireThresholdByte(chip, cfg))) return; // core/visualizer/groups/connector/tonotopic.js
         triggerNeuronAdaptation(chip); // core
         chip.neighbors.forEach((n) => applyLateralInhibition(chips[n], cfg.lateralInhibitStrength)); // core
-        this._spawnCircuitPulse(cfg, chips, chip, i, energyByte, activeSignals, cnGroupCircuit, pitchNodeIndex);
+        markCircuitChipFired(chip); // core/visualizer/groups/connector/circuit.js
+        this._launchFromPins(cfg, chips, chip, i, pitchNodeIndex, s);
     },
 
-    /** Bắn 1 xung từ chip nguồn tới đích (theo pitch nếu có) — bỏ qua khi đã đủ số xung đồng thời, không có đích,
-     * hoặc không còn pin rảnh. */
-    _spawnCircuitPulse(cfg, chips, chip, i, energyByte, activeSignals, cnGroupCircuit, pitchNodeIndex) {
+    /** Số chân theo năng lượng -> chip đích (pitch + dải tần onset) -> mỗi đích 1 xung chạy trên dây của chân tương ứng.
+     * Bỏ qua khi đã đủ số xung đồng thời hoặc cặp đó đang có xung bay. */
+    _launchFromPins(cfg, chips, chip, i, pitchNodeIndex, s) {
+        const baseThresholdByte = cfg.fireThreshold * 255;
+        const pinCount = pickFirePinCountFromEnergy(chip.frameEnergy, baseThresholdByte, cfg.maxPinsPerFire); // core/visualizer/groups/connector/circuit.js
+        const targets = pickCircuitFireTargets(chips, i, pitchNodeIndex, pinCount, baseThresholdByte); // core
+        const onBitCount = pickOnBitCountFromEnergy(chip.frameEnergy, baseThresholdByte); // core
+        targets.forEach((t) => this._launchOne(cfg, chips, chip, i, t, onBitCount, s));
+    },
+
+    _launchOne(cfg, chips, chip, i, t, onBitCount, s) {
+        const activeSignals = s.cnActiveSignalsCircuit;
         if (activeSignals.length >= cfg.maxConcurrentSignals) return;
-        const targetIndex = pickCircuitTargetIndex(chips, i, pitchNodeIndex); // core/visualizer/groups/connector/circuit.js
-        if (targetIndex === null) return;
-        const onBitCount = pickOnBitCountFromEnergy(energyByte, cfg.fireThreshold * 255); // core
-        const signal = this._createCircuitSignal(chip, chips[targetIndex], activeSignals, onBitCount, cnGroupCircuit);
-        if (!signal) return;
+        if (hasCircuitSignalBetween(activeSignals, chip, chips[t])) return; // core/webgl/three-connector.js
+        const pin = chip.pins[chip.pinByTarget[t]];
+        if (!pin || pin.wireIndex < 0) return;
+        const wire = appState.get('cnWires')[pin.wireIndex];
+        const signal = createCircuitSignal(chip, chips[t], wire, wire.a !== i, buildBitPattern(onBitCount), chip.color, s.cnSignalAssets, s.cnGroupCircuit); // core
         appState.mutate('cnActiveSignalsCircuit', (arr) => arr.push(signal), { skipCheck: true });
-        pulseChipOnFire(chip); // core/webgl/three-connector.js
     },
 
-    /** 1 xung từ chip nguồn tới chip đích (null nếu đích thiếu/trùng nguồn hoặc cặp này đang có xung bay): pin gần nhất 2
-     * đầu -> đường Manhattan 3D -> mẫu bit -> mesh xung + bit. THAY spawnCircuitSignal()/createCircuitSignal() gọi lồng. */
-    _createCircuitSignal(sourceChip, targetChip, activeSignals, onBitCount, cnGroupCircuit) {
-        if (!targetChip || targetChip === sourceChip) return null;
-        if (hasCircuitSignalBetween(activeSignals, sourceChip, targetChip)) return null; // core/webgl/three-connector.js
-        const sourcePin = pickNearestFreePin(sourceChip, targetChip.pos); // core
-        const targetPin = pickNearestFreePin(targetChip, sourceChip.pos); // core
-        const { startPos, endPos } = computeCircuitSignalEndpoints(sourceChip, targetChip, sourcePin, targetPin); // core
-        const pathPoints = create3DManhattanPath(startPos, endPos); // core
-        const signal = createCircuitSignal(sourceChip, targetChip, sourcePin, targetPin, startPos, pathPoints, buildBitPattern(onBitCount), cnGroupCircuit); // core (+ circuit.js)
-        initCircuitSignalBits(signal); // core
-        return signal;
-    },
-
-    /** Chế độ camera ORBIT_SWEEP: trôi chậm quanh cụm chip. */
-    _driftOrbitSweep() {
+    /** Orbit — chế độ cinematic ORBIT_SWEEP: trôi chậm quanh cụm chip. */
+    _driftOrbitSweep(camera) {
         if (appState.get('cnActiveCamMode') !== 'ORBIT_SWEEP') return;
-        driftOrbitSweepCamera(appState.get('cnCamera'), cnClock.getElapsedTime()); // core/visualizer/groups/connector/circuit.js
+        driftOrbitSweepCamera(camera, cnClock.getElapsedTime()); // core/visualizer/groups/connector/circuit.js
     },
-    // (Style 'brain' — canvas 2D: ĐÃ XOÁ HẲN 01/10/2026 theo Giang, cùng core/visualizer/groups/connector/brain.js.
-    // Cấu hình đã lưu đang chọn brain -> synapse, xem core/config.js.)
 };
 
 workflowVisualizerRender.registerGroup('connector', workflowVizConnector);
