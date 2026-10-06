@@ -161,20 +161,27 @@ const workflowFileManagerStorage = {
     async refreshTab() {
         if (genericDrawerPanel.classList.contains('hidden')) return; // panel đã đóng — an toàn bỏ qua
 
-        const [songStats, videoStats, photoStats] = await Promise.all([
-            computeStats(), computeVideoStats(), computeImageStats()
-        ]); // core/about-stats.js, core/file-manager/video.js, core/file-manager/image.js
+        // SỬA (06/10/2026, Giang yêu cầu) — đọc THÊM `navigator.storage.estimate()` song song 3 stats
+        // (core/storage-manager.js — trả null nếu không hỗ trợ, KHÔNG throw).
+        const [songStats, videoStats, photoStats, originEstimate] = await Promise.all([
+            computeStats(), computeVideoStats(), computeImageStats(), estimateOriginStorage()
+        ]); // core/about-stats.js, core/file-manager/video.js, core/file-manager/image.js, core/storage-manager.js
+        const mediaBytes = songStats.totalBytes + videoStats.totalBytes + photoStats.totalBytes;
+        const originBreakdown = computeOriginStorageBreakdown(mediaBytes, originEstimate); // core/storage-manager.js — null nếu không có estimate
         const statEls = {
             totalBytesEl: genericDrawerBody.querySelector('#stat-storage-total-bytes'),
             barSongsEl: genericDrawerBody.querySelector('#stat-storage-bar-songs'),
             barVideosEl: genericDrawerBody.querySelector('#stat-storage-bar-videos'),
             barPhotosEl: genericDrawerBody.querySelector('#stat-storage-bar-photos'),
+            barOtherEl: genericDrawerBody.querySelector('#stat-storage-bar-other'),
+            freeRowEl: genericDrawerBody.querySelector('#stat-storage-free-row'),
+            freeBytesEl: genericDrawerBody.querySelector('#stat-storage-free-bytes'),
             countSongsEl: genericDrawerBody.querySelector('#stat-storage-count-song'),
             countVideosEl: genericDrawerBody.querySelector('#stat-storage-count-video'),
             countPhotosEl: genericDrawerBody.querySelector('#stat-storage-count-photo'),
         };
-        renderStorageStats(songStats, videoStats, photoStats, statEls); // core/storage-manager.js — ghi SỐ CUỐI + độ rộng thanh (thanh tự animate bằng CSS transition)
-        this._startStorageCountup(statEls, songStats, videoStats, photoStats); // đếm-lên các con số từ 0 tới số vừa ghi
+        renderStorageStats(songStats, videoStats, photoStats, statEls, originBreakdown); // core/storage-manager.js — ghi SỐ CUỐI + độ rộng thanh (thanh tự animate bằng CSS transition)
+        this._startStorageCountup(statEls, songStats, videoStats, photoStats, originBreakdown); // đếm-lên các con số từ 0 tới số vừa ghi
         resetScanResultUI( // core/storage-manager.js
             genericDrawerBody.querySelector('#storage-scan-result'),
             genericDrawerBody.querySelector('#storage-scan-list')
@@ -185,13 +192,19 @@ const workflowFileManagerStorage = {
      * khung 0 NGAY (đồng bộ, không nháy số cuối trước khi đếm) rồi chạy `workflowNumberCountup.run()`; giá trị mỗi khung do
      * `computeCountupValue()` (core), định dạng byte dùng `formatBytes()` (core/about-stats.js — chính hàm đã dùng lúc ghi số cuối, nên khung cuối
      * khớp từng ký tự). Gọi lại `refreshTab()` (vd sau khi xoá xong) tự huỷ lượt cũ (`run()` kill trùng tên). */
-    _startStorageCountup(els, songStats, videoStats, photoStats) {
+    _startStorageCountup(els, songStats, videoStats, photoStats, originBreakdown) {
         const asInteger = (value) => `${value}`;
+        // MỚI (06/10/2026) — "còn trống / tối đa": chỉ phần còn trống đếm lên, tối đa giữ nguyên.
+        // Không có estimate thì el = null (bị filter bỏ ngay dưới) — dòng đó vốn đang ẩn.
+        const freeTarget = originBreakdown
+            ? { el: els.freeBytesEl, finalValue: originBreakdown.freeBytes, format: (value) => `${formatBytes(value)} / ${formatBytes(originBreakdown.quota)}` } // core/about-stats.js
+            : { el: null };
         const targets = [
             { el: els.totalBytesEl, finalValue: songStats.totalBytes + videoStats.totalBytes + photoStats.totalBytes, format: formatBytes }, // core/about-stats.js
             { el: els.countSongsEl, finalValue: songStats.totalSongs, format: asInteger },
             { el: els.countVideosEl, finalValue: videoStats.totalVideos, format: asInteger },
             { el: els.countPhotosEl, finalValue: photoStats.totalImages, format: asInteger },
+            freeTarget,
         ].filter((target) => target.el);
         if (targets.length === 0) return; // panel đang đóng
         const paintFrame = (step, steps) => {
