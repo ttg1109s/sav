@@ -18,15 +18,23 @@
  */
 
 /**
- * Trích `count` khung hình rải ĐỀU theo thời gian (kể cả điểm đầu/cuối) từ 1 Blob video.
+ * Trích khung hình dải phim từ 1 Blob video. SỬA (06/10/2026, Giang #4: "lấy tổng time của video / 10 lấy được các mốc
+ * khung ảnh") — `count` ô chia ĐỀU thời lượng, ô thứ i lấy khung tại mốc `start + (i + offsetFraction) / count × span`
+ * (mặc định offsetFraction = 0 -> mốc 0, span/count, 2·span/count... — KHÔNG còn lấy đúng mốc CUỐI file như bản cũ
+ * `i/(count-1)`, mốc đó hay không có khung -> ô đen). `options.indices` (tuỳ chọn) = chỉ trích các ô này — Workflow dùng
+ * để trích LẠI những ô còn thiếu ảnh, với `offsetFraction` khác (vd 0.5 = giữa ô).
  * @param {Blob} sourceBlob
- * @param {number} count - số khung hình cần trích.
+ * @param {number} count - số ô của cả dải.
  * @param {number} thumbWidth @param {number} thumbHeight - kích thước mỗi khung hình xuất ra (px).
- * @param {(done:number, total:number) => void} [onProgress] - MỚI (Phase 1, 26/09/2026 — Giang: hiện
- *   % lúc tải video vào edit) — gọi sau MỖI khung trích xong. Không truyền = hành vi cũ.
- * @returns {Promise<Array<{timestamp:number, blob:Blob|null}>>} - `blob` null nếu khung đó lỗi (Workflow tự bỏ qua, không chặn cả dải).
+ * @param {(done:number, total:number) => void} [onProgress] - gọi sau MỖI khung trích xong.
+ * @param {{indices?: number[], offsetFraction?: number}} [options]
+ * @returns {Promise<Array<{index:number, timestamp:number|null, blob:Blob|null}>>} - theo đúng thứ tự `indices` (mặc định
+ *   0..count-1); `blob` null nếu khung đó lỗi/không có (Workflow tự xử lý, không chặn cả dải).
  */
-async function buildCutFilmstripFrames(sourceBlob, count, thumbWidth, thumbHeight, onProgress) {
+async function buildCutFilmstripFrames(sourceBlob, count, thumbWidth, thumbHeight, onProgress, options) {
+    const opts = options || {};
+    const indices = opts.indices || Array.from({ length: count }, (_, i) => i);
+    const offsetFraction = opts.offsetFraction || 0;
     const input = new Mediabunny.Input({ source: new Mediabunny.BlobSource(sourceBlob), formats: Mediabunny.ALL_FORMATS });
     const videoTrack = await input.getPrimaryVideoTrack();
     if (!videoTrack) { if (typeof input.dispose === 'function') input.dispose(); return []; } // guard — không có track video (không nên xảy ra, đã qua compat-guard trước đó)
@@ -35,12 +43,13 @@ async function buildCutFilmstripFrames(sourceBlob, count, thumbWidth, thumbHeigh
     const startTimestamp = await videoTrack.getFirstTimestamp();
     const endTimestamp = await videoTrack.computeDuration();
     const span = Math.max(0, endTimestamp - startTimestamp);
-    const timestamps = Array.from({ length: count }, (_, i) => startTimestamp + (count > 1 ? i / (count - 1) : 0) * span);
+    const timestamps = indices.map((i) => startTimestamp + ((i + offsetFraction) / count) * span);
 
     const frames = [];
     for await (const result of sink.canvasesAtTimestamps(timestamps)) {
+        const index = indices[frames.length];
         // Phase 1 — bản Mediabunny mới có thể trả `null` cho mốc không có khung hình -> giữ ô trống, không crash cả dải.
-        if (!result) { frames.push({ timestamp: null, blob: null }); if (onProgress) onProgress(frames.length, count); continue; }
+        if (!result) { frames.push({ index, timestamp: null, blob: null }); if (onProgress) onProgress(frames.length, indices.length); continue; }
         let blob = null;
         try {
             const out = document.createElement('canvas'); // canvas nội bộ, KHÔNG gắn DOM — chỉ làm bộ đệm pixel (Rule 5 không áp dụng)
@@ -51,8 +60,8 @@ async function buildCutFilmstripFrames(sourceBlob, count, thumbWidth, thumbHeigh
         } catch (err) {
             console.error('[buildCutFilmstripFrames] lỗi vẽ 1 khung hình filmstrip, bỏ qua khung đó:', err);
         }
-        frames.push({ timestamp: result.timestamp, blob });
-        if (onProgress) onProgress(frames.length, count);
+        frames.push({ index, timestamp: result.timestamp, blob });
+        if (onProgress) onProgress(frames.length, indices.length);
     }
     // MỚI (Phase 1) — giải phóng tài nguyên đọc file (trước đây Input không bao giờ được dispose).
     if (typeof input.dispose === 'function') input.dispose();
