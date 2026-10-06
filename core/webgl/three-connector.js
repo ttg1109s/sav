@@ -1,9 +1,19 @@
 /**
- * core/webgl/three-connector.js — port GẦN NGUYÊN VĂN 2 demo gốc (neuron sinh học 3D + mạch tín
- * hiệu lượng tử 3D), chỉ đổi đúng phần đã chốt: vị trí/graph nơ-ron (3 vỏ cầu), trigger (32 bin
- * audio thay click), tốc độ/xung lực/damping (audio-driven), màu (getComputedColor), hình node
- * circuit (chip+chân thay icosahedron+ring), quota spawn theo beat. Camera (OrbitControls +
- * GSAP cinematic của circuit) GIỮ NGUYÊN cơ chế gốc — chỉ đổi driver/thời điểm kích hoạt.
+ * core/webgl/three-connector.js — builder THUẦN (dựng mesh/scene, không đọc appState) cho group "connector".
+ *
+ * [06/10/2026, Giang] Style 'synapse' ĐÃ XOÁ HẲN (lưới neuron, sợi trục, tia điện thế, hạt dịch nền, góc máy synapse) —
+ * connector giờ CHỈ còn style 'circuit'. Cấu hình đã lưu đang chọn synapse/brain -> 'circuit' (core/config.js::loadConfig()).
+ *
+ * [06/10/2026, Giang — thiết kế lại circuit, giữ khối lập phương 3D]
+ *   - Chip VUÔNG dẹt, chân THANH MẢNH ở cả 4 cạnh; TỔNG số chân mỗi chip = Chip count (nodeCount) chia đều 4 cạnh. Thân +
+ *     chân gộp chung MỘT geometry (buildChipGeometry()) -> chân liền mạch với thân. 1 geometry dùng chung mọi chip.
+ *   - Chân đứng yên: không phập phồng, không xoay (bỏ gsap scale pulse + tự quay). Chip "nháy" bằng độ phát sáng.
+ *   - Mỗi chân dành riêng cho 1 chip khác (assignCircuitPinTargets(): chân quay về phía chip đích) -> có đúng 1 dây
+ *     (đường mạch) cho mỗi cặp chip; chân thừa (tổng N chân, N-1 chip khác) là chân "của chính nó", không nối.
+ *   - Dây = đường thẳng + bẻ góc vuông (buildCircuitWires()): chân -> ra ngoài 1 đoạn -> lên/xuống "kênh" nằm GIỮA 2 lớp
+ *     chip -> chạy ngang trong kênh -> xuống/lên -> vào chân đích. Đoạn ngang luôn nằm trong kênh nên không xuyên thân chip.
+ *   - Dây chạm/cắt nhau -> 1 nút tròn tại điểm chạm (collectCircuitJunctions() + InstancedMesh).
+ *   - Bit chạy DỌC dây có sẵn, ra từ đầu chân nguồn và đi HẾT vào chân đích (updateCircuitSignal(), circuit.js).
  */
 
 let cnClock = new THREE.Clock();
@@ -12,533 +22,21 @@ function computeConnectorSpeed(base, mult, energy) {
     return base + mult * energy;
 }
 
-// ===================== SYNAPSE — port từ "3D Biological Neural Network Simulation" =====================
-
-function createGlowTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 128; canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-    gradient.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
-    gradient.addColorStop(0.25, 'rgba(0, 220, 255, 0.9)');
-    gradient.addColorStop(0.55, 'rgba(30, 80, 240, 0.35)');
-    gradient.addColorStop(0.85, 'rgba(120, 20, 200, 0.1)');
-    gradient.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = gradient; ctx.fillRect(0, 0, 128, 128);
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
-    return texture;
-}
-
-function createActionPotentialSparkTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 64; canvas.height = 64;
-    const ctx = canvas.getContext('2d');
-    const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    gradient.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
-    gradient.addColorStop(0.3, 'rgba(0, 255, 220, 0.95)');
-    gradient.addColorStop(0.7, 'rgba(0, 140, 255, 0.5)');
-    gradient.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = gradient; ctx.fillRect(0, 0, 64, 64);
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
-    return texture;
-}
-
-/**
- * SỬA (yêu cầu Giang 16/09/2026 — "đang vo viên lẫn lộn -> làm phẳng map dạng 2D, nhưng vẫn cấu
- * trúc 3D"): bỏ hẳn layout 3 vỏ CẦU (fibonacciSpherePoint, đã xoá) — thay bằng LƯỚI PHẲNG (mặt
- * X-Y CỤC BỘ của cnGroupSynapse, Z=0 lúc rest). "Vẫn cấu trúc 3D" đến từ trục Z cục bộ = trục
- * "đàn hồi" (lún/phồng khi bắn tín hiệu — xem impulse Z-only ở _tickConnectorSynapse, event/
- * workflow/visualizer-render.js) — lưới phẳng nhưng KHÔNG phẳng lì, vẫn gồ ghề động theo audio.
- *
- * SỬA TIẾP (phản hồi Giang cùng ngày — "map phải trải đều/diện tích bằng màn hình" + "bỏ camera
- * xoay/zoom"): bản đầu tiên chỉ khớp XẤP XỈ theo tỉ lệ khung hình rồi để camera tự xoay quanh —
- * KHÔNG đúng ý "diện tích bằng màn hình". Sửa lại đúng nghĩa đen: SYNAPSE_CAMERA_FOV_DEG/
- * SYNAPSE_CAMERA_DISTANCE dưới đây PHẢI khớp NGUYÊN VĂN cnCamera.fov/position ở
- * updateConnectorVisibility() (cuối file) — buildSynapseGridCells() tính NGƯỢC ra đúng khung hình
- * (frustum) camera nhìn thấy ở mặt phẳng Z=0, rồi trải lưới KÍN 92% khung hình đó (chừa biên nhỏ
- * tránh mesh rìa bị crop) — lấp ĐÚNG diện tích màn hình, không còn ước lượng. Camera giờ đứng
- * THẲNG trục Z (không lệch Y), OrbitControls khoá HẲN rotate/zoom/pan — không tự xoay/orbit nữa
- * (rotateSpeedBase/EnergyMult trong config vẫn còn field nhưng KHÔNG còn tác dụng cho style
- * synapse — nợ kỹ thuật đã biết, chưa gỡ field/slider vì ngoài phạm vi yêu cầu lần này).
- *
- * Chốt với Giang (3 câu hỏi 16/09/2026):
- * 1) Lưới ĐỀU, vòng đồng tâm HÌNH CHỮ NHẬT ngoài->trong — giữ tinh thần "shell mạnh ngoài/yếu
- *    trong" cũ, chỉ đổi hình cầu -> hình chữ nhật phẳng (KHÔNG so le ngẫu nhiên như phác thảo).
- * 2) Lún/phồng: xem hàm _tickConnectorSynapse — 1 xung +Z duy nhất lúc bắn (khử cực), lò xo Hooke
- *    GIỮ NGUYÊN bên dưới tự overshoot rồi undershoot ÂM trước khi ổn định — đúng dạng sóng điện
- *    thế hoạt động thật (depolarize -> hyperpolarization undershoot -> rest). MỚI (phản hồi Giang
- *    "đàn hồi quá mạnh, văng mất") — kẹp biên velocity/displacement, xem stepNeuronSpring() (core/
- *    visualizer/groups/connector/synapse.js): xung Z LUÔN CÙNG DẤU (không tự triệt tiêu như 3 trục
- *    ngẫu nhiên cũ) nên nơ-ron bậc-vào cao (nhiều dây tới, nhất là sau SỬA TIẾP mục 3 dưới đảm bảo
- *    tối thiểu 1 dây/nơ-ron) có thể nhận NHIỀU xung dồn dập cộng don không giới hạn — kẹp là lớp
- *    bảo vệ cuối, không phụ thuộc xung tới từ đâu/dồn bao nhiêu lần.
- * 3) Lân cận lan tín hiệu: đồ thị CỐ ĐỊNH dựng 1 LẦN lúc khởi tạo theo Ô LƯỚI THẬT kề nhau. SỬA
- *    TIẾP (phản hồi Giang "không phát tín hiệu liên tục dù audio vẫn có") — bản đầu random-skip
- *    35% ĐỘC LẬP mỗi hướng khiến nơ-ron ở biên/góc (ít ứng viên) có xác suất KHÔNG CÓ dây ra nào
- *    (connectedSynapses rỗng) -> bắn tín hiệu nhưng không gì để lan -> im lặng dù vẫn còn audio.
- *    Sửa: mọi nơ-ron còn ≥1 ứng viên hướng "tới" LUÔN được đảm bảo ÍT NHẤT 1 dây ra, phần ứng viên
- *    còn lại mới random 50% thêm — cùng tinh thần connectCount=2-3/nơ-ron bảo đảm tối thiểu của
- *    graph shell cũ, không phó mặc hoàn toàn cho random nữa.
- *
- * XOÁ HẲN (yêu cầu Giang 17/09/2026 — "loại bỏ tính đàn hồi"): toàn bộ mục 2) ở trên (lò xo Hooke,
- * xung +Z, kẹp velocity/offset qua stepNeuronSpring()) không còn nữa — nơ-ron đứng CỐ ĐỊNH đúng
- * restPosition, không còn dao động Z. Giữ nguyên đoạn mô tả trên như NHẬT KÝ quyết định (đã từng
- * làm gì/vì sao), không xoá — tránh đọc nhầm tưởng lò xo còn tồn tại: xem decayNeuronState()
- * (core/visualizer/groups/connector/synapse.js, đổi tên từ decayNeuronExcitement() cùng đợt sửa
- * 17/09/2026 khi thêm adaptation/lateralInhibition) — chỉ còn phần fade glow được giữ lại.
- */
-
-// PHẢI khớp NGUYÊN VĂN cnCamera.fov/position.z gán trong updateConnectorVisibility() (cuối file,
-// style synapse) — xem giải thích ở docblock trên.
-const SYNAPSE_CAMERA_FOV_DEG = 50;
-const SYNAPSE_CAMERA_DISTANCE = 380;
-
-// Kích thước thế giới (world units) camera nhìn thấy trọn khung hình ở mặt phẳng Z=0 (nơi lưới
-// nơ-ron đứng yên lúc rest) — suy ngược từ FOV/khoảng cách camera + tỉ lệ khung hình MÀN HÌNH
-// THẬT (window.innerWidth/innerHeight).
-// SỬA (28/09/2026, Phase 5) — nhận `aspect` qua tham số (trước đây tự đọc window.innerWidth/innerHeight).
-function computeSynapseVisibleFrustum(aspect) {
-    const halfHeight = SYNAPSE_CAMERA_DISTANCE * Math.tan((SYNAPSE_CAMERA_FOV_DEG * Math.PI / 180) / 2);
-    return { width: halfHeight * 2 * aspect, height: halfHeight * 2 };
-}
-
-// Cột/hàng khớp tỉ lệ khung hình MÀN HÌNH THẬT — kẹp biên tránh lưới dẹt bất thường ở màn siêu
-// ngang/dọc.
-function computeSynapseGridDims(neuronCount, viewAspect) {
-    const aspect = Math.max(0.5, Math.min(2.2, viewAspect));
-    const rows = Math.max(1, Math.round(Math.sqrt(neuronCount / aspect)));
-    const cols = Math.max(1, Math.ceil(neuronCount / rows));
-    return { cols, rows };
-}
-
-// "Vòng" = khoảng cách Chebyshev tới viền lưới gần nhất (0 = ô viền ngoài cùng, tăng dần vào
-// tâm) — dùng để chọn ĐÚNG neuronCount ô, ưu tiên viền ngoài trước khi cols*rows > neuronCount
-// (hầu như luôn xảy ra) — đúng yêu cầu "phân bổ nơ-ron tại các điểm từ ngoài vào trong".
-
-/**
- * Trả về đúng neuronCount ô {col, row, ring, position(cục bộ, Z=0)} + cellSize thật (world units)
- * — lưới lấp KÍN 92% khung hình camera thấy (computeSynapseVisibleFrustum(), chừa biên nhỏ tránh
- * mesh rìa bị bloom/khung hình cắt). cellSizeX/Y tính RIÊNG mỗi trục — khớp đúng hình chữ nhật
- * màn hình thật (dọc/ngang/vuông), không còn ép về 1 span vuông như bản trước.
- */
-// SỬA (28/09/2026, Phase 5 — không core gọi core) — nhận SẴN `dims` (computeSynapseGridDims()) + `frustum`
-// (computeSynapseVisibleFrustum()) do Workflow tính; "vòng" (khoảng cách tới mép lưới) tính tại chỗ (ringIndexOf() cũ chỉ
-// dùng ở đây -> gộp vào).
-function buildSynapseGridCells(neuronCount, dims, frustum) {
-    const { cols, rows } = dims;
-    const fillRatio = 0.92;
-    const cellSizeX = (frustum.width * fillRatio) / Math.max(cols - 1, 1);
-    const cellSizeY = (frustum.height * fillRatio) / Math.max(rows - 1, 1);
-
-    const cells = [];
-    for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) cells.push({ col: c, row: r, ring: Math.min(c, cols - 1 - c, r, rows - 1 - r) });
-    }
-    cells.sort((a, b) => a.ring - b.ring || a.row - b.row || a.col - b.col);
-    const chosen = cells.slice(0, neuronCount);
-
-    const halfW = (cols - 1) * cellSizeX / 2, halfH = (rows - 1) * cellSizeY / 2;
-    chosen.forEach((cell) => { cell.position = new THREE.Vector3(cell.col * cellSizeX - halfW, halfH - cell.row * cellSizeY, 0); });
-    return { cells: chosen, cellSize: Math.min(cellSizeX, cellSizeY) };
-}
-
-// SỬA (phản hồi Giang "không phát tín hiệu liên tục") — mọi nơ-ron còn ≥1 ứng viên hướng "tới"
-// (phải/xuống/chéo-xuống-phải/chéo-lên-phải) LUÔN được đảm bảo ÍT NHẤT 1 dây ra (ép chọn ngẫu
-// nhiên 1 trong số ứng viên), phần còn lại mới random 50% thêm — không còn nơ-ron "câm" (0 dây
-// ra) chỉ vì xui rủi random như bản trước. Chỉ nơ-ron ở góc/biên tận cùng (0 ứng viên) chấp nhận
-// không có dây ra — đúng bản chất đồ thị có hướng có điểm cuối.
-function buildSynapseGraph(cells) {
-    const cellMap = new Map();
-    cells.forEach((cell, idx) => cellMap.set(`${cell.col},${cell.row}`, idx));
-    const DIRS = [[1, 0], [0, 1], [1, 1], [1, -1]];
-    const edges = [];
-    const inDegree = new Array(cells.length).fill(0);
-    cells.forEach((cell, idx) => {
-        const candidates = DIRS
-            .map(([dc, dr]) => cellMap.get(`${cell.col + dc},${cell.row + dr}`))
-            .filter((t) => t !== undefined);
-        if (candidates.length === 0) return;
-
-        const guaranteed = candidates[Math.floor(Math.random() * candidates.length)];
-        edges.push({ from: idx, to: guaranteed }); inDegree[guaranteed]++;
-        candidates.forEach((target) => {
-            if (target !== guaranteed && Math.random() > 0.5) { edges.push({ from: idx, to: target }); inDegree[target]++; }
-        });
-    });
-    return { edges, inDegree };
-}
-
-/**
- * Bán kính mesh (nucleus/soma/dendrite/axon/myelin/bouton/spark, xem createAnatomicalNeuron()/
- * createPhysicalSynapticAxon()) tỉ lệ theo cellSize THẬT sau khi lưới đã lấp kín khung hình —
- * "tự thân các nhân, dây, sợi to nhỏ theo kích thước hiển thị của visualizer screen" (yêu cầu
- * Giang). Mốc 60 ~ cellSize mặc định ở neuronCount=32 trên khung hình cỡ điện thoại phổ biến (đã
- * test). Kẹp biên tránh 2 cực đoan (ô rất nhỏ ở neuronCount=64 màn hẹp / ô rất to ở neuronCount=16
- * màn rộng).
- */
-function computeConnectorMeshScale(cellSize) {
-    return Math.max(0.4, Math.min(2.2, cellSize / 60));
-}
-
-/**
- * Creates an anatomically authentic 3D Neuron Model — GIỮ NGUYÊN NGUYÊN VẸN mô hình hình học gốc
- * (nucleus, soma deform, dendrite arbor+spines — cùng loại geometry/cấu trúc, không đổi). ĐỔI:
- * dendriteCount = đúng inDegree (không random 5-7 nữa); màu nhận từ getComputedColor() thay
- * hardcode; MỚI (16/09/2026) — tham số `scale` nhân đều mọi bán kính/chiều dài tuyệt đối (nucleus/
- * nucleolus/soma/glow/dendrite/spine) — "tự thân nhân/dây/sợi to nhỏ theo kích thước hiển thị",
- * xem computeConnectorMeshScale(). Không đổi TỈ LỆ giữa các phần (mọi noise/offset tương đối
- * theo somaRadius vẫn nguyên công thức gốc, tự động ăn theo khi somaRadius scale).
- */
-function createAnatomicalNeuron(id, position, dendriteCount, fillColorHex, glowColorHex, glowTexture, scale) {
-    const neuronGroup = new THREE.Group();
-    neuronGroup.position.copy(position);
-    const restPosition = position.clone();
-
-    const nucleusGeo = new THREE.SphereGeometry(1.6 * scale, 20, 20);
-    const nucleusMat = new THREE.MeshStandardMaterial({
-        color: fillColorHex, emissive: fillColorHex, emissiveIntensity: 0.95, roughness: 0.25, metalness: 0.5
-    });
-    const nucleusMesh = new THREE.Mesh(nucleusGeo, nucleusMat);
-    neuronGroup.add(nucleusMesh);
-
-    const nucleolusMesh = new THREE.Mesh(new THREE.SphereGeometry(0.65 * scale, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-    nucleusMesh.add(nucleolusMesh);
-
-    const somaRadius = 4.0 * scale;
-    const somaGeo = new THREE.IcosahedronGeometry(somaRadius, 3);
-    const posAttr = somaGeo.attributes.position;
-    const vertex = new THREE.Vector3();
-    for (let i = 0; i < posAttr.count; i++) {
-        vertex.fromBufferAttribute(posAttr, i);
-        const noise = Math.sin(vertex.x * 0.95) * Math.cos(vertex.y * 0.95) * Math.sin(vertex.z * 0.95);
-        vertex.multiplyScalar(1.0 + noise * 0.2);
-        posAttr.setXYZ(i, vertex.x, vertex.y, vertex.z);
-    }
-    somaGeo.computeVertexNormals();
-
-    const somaMat = new THREE.MeshStandardMaterial({
-        color: fillColorHex, emissive: fillColorHex, emissiveIntensity: 0.65,
-        transparent: true, opacity: 0.78, roughness: 0.3, metalness: 0.55
-    });
-    const somaMesh = new THREE.Mesh(somaGeo, somaMat);
-    somaMesh.userData = { neuronId: id };
-    neuronGroup.add(somaMesh);
-
-    const glowSprite = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: glowTexture, color: glowColorHex, transparent: true, blending: THREE.AdditiveBlending, opacity: 0.85
-    }));
-    glowSprite.scale.setScalar(25 * scale);
-    neuronGroup.add(glowSprite);
-
-    // ĐỔI: dendrite dùng ĐÚNG màu hệ core (fillColorHex) thay hardcode 0x00b3ff/0x0033aa.
-    const dendriteGroup = new THREE.Group();
-    const dendriteMat = new THREE.MeshStandardMaterial({ color: fillColorHex, emissive: fillColorHex, emissiveIntensity: 0.5, roughness: 0.4 });
-    const dendriteEndpoints = [];
-
-    for (let d = 0; d < dendriteCount; d++) {
-        let dDir = new THREE.Vector3((Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2).normalize();
-
-        const curvePoints = [];
-        let currentPoint = dDir.clone().multiplyScalar(somaRadius * 0.8);
-        curvePoints.push(currentPoint.clone());
-
-        const segments = 4;
-        const branchLength = (11 + Math.random() * 8) * scale;
-        for (let s = 1; s <= segments; s++) {
-            const stepProgress = s / segments;
-            const jitter = new THREE.Vector3((Math.random() - 0.5) * 3.5, (Math.random() - 0.5) * 3.5, (Math.random() - 0.5) * 3.5).multiplyScalar(scale);
-            currentPoint = dDir.clone().multiplyScalar(somaRadius + branchLength * stepProgress).add(jitter);
-            curvePoints.push(currentPoint.clone());
-        }
-
-        const dendriteCurve = new THREE.CatmullRomCurve3(curvePoints);
-        const dendriteMesh = new THREE.Mesh(new THREE.TubeGeometry(dendriteCurve, 14, 0.65 * scale, 8, false), dendriteMat);
-        dendriteGroup.add(dendriteMesh);
-
-        for (let sp = 0; sp < 5; sp++) {
-            const spineProgress = 0.3 + Math.random() * 0.6;
-            const spineMesh = new THREE.Mesh(new THREE.SphereGeometry(0.35 * scale, 8, 8), dendriteMat);
-            spineMesh.position.copy(dendriteCurve.getPoint(spineProgress));
-            dendriteGroup.add(spineMesh);
-        }
-
-        dendriteEndpoints.push(curvePoints[curvePoints.length - 1].clone().add(position));
-    }
-    neuronGroup.add(dendriteGroup);
-
-    // MỚI (yêu cầu Giang 17/09/2026 — 2 việc):
-    // 1) `dendriteMat` trả ra ngoài — applyNeuronExcitement() (synapse.js) cần đồng bộ màu SỐNG
-    //    mỗi frame cho dendrite, trước đây bake 1 lần rồi bỏ luôn tham chiếu.
-    // 2) `incomingSynapses` — danh sách CHIỀU NGƯỢC (ai có dây TỚI nơ-ron này). Dùng lại hôm nay cho
-    //    lateral inhibition (applyLateralInhibition(), synapse.js) — khi 1 nơ-ron bắn, cả nơ-ron nó
-    //    NỐI TỚI lẫn nơ-ron NỐI TỚI nó đều bị coi là "lân cận trực tiếp", cần biết cả 2 chiều.
-    // BỎ (yêu cầu Giang — "loại bỏ tính đàn hồi"): field `velocity` — chỉ tồn tại để
-    // stepNeuronSpring() (synapse.js, ĐÃ XOÁ) cộng dồn xung lực rồi tích vào `position`. Không còn
-    // vật lý lò xo nào đọc/ghi nó nữa.
-    // ĐỔI (yêu cầu Giang 17/09/2026 — "cải thiện mapping audio giống dẫn truyền tín hiệu thần
-    // kinh"): `lastFiredFrame` (cooldown nhị phân theo frameCounter) THAY bằng 3 trạng thái mới —
-    // `adaptation` (tự thích nghi sau khi CHÍNH nơ-ron này bắn), `lateralInhibition` (bị hàng xóm đè
-    // sau khi HỌ bắn), `smoothedBinEnergy` (bộ nhớ đệm cho applyTonotopicSmoothing() — mô phỏng
-    // rate coding ở dải tần cao) — cả 3 đều ở synapse.js, xem giải thích đầy đủ ở đó.
-    return {
-        id, position, restPosition,
-        container: neuronGroup, somaMesh, nucleusMesh, glowSprite, dendriteMat, scale,
-        dendriteEndpoints, dendriteTipCursor: 0, fillColorHex, glowColorHex,
-        energy: 0.0, connectedSynapses: [], incomingSynapses: [], prevBinEnergy: 0,
-        adaptation: 0, lateralInhibition: 0, smoothedBinEnergy: 0,
-    };
-}
-
-/**
- * Builds a continuous physical Axon — GIỮ NGUYÊN hillock/myelin+node-of-Ranvier/bouton của gốc.
- * ĐỔI 3 chỗ (phản hồi Giang, round sau):
- * 1) targetPos chọn ĐÚNG 1 dendrite tip theo cursor tuần tự (không nearest-search).
- * 2) toạ độ tính CỤC BỘ quanh `fromNeuron.restPosition`, axonGroup làm con của
- *    `fromNeuron.container` (không phải `networkGroup`) — để khi nơ-ron NGUỒN nảy lò xo, toàn bộ
- *    axon (output của nó) nảy theo NHƯ 1 khối cứng, không còn tách rời.
- * 3) biên độ uốn cong (bend) tỉ lệ THEO totalDistance thay vì hằng số tuyệt đối gốc — ở khoảng
- *    cách xa (3 vỏ cầu bán kính lớn) hằng số cũ quá nhỏ so với chiều dài, trông thẳng đơ.
- * Màu hillock/core/myelin/bouton dùng `colorHex` (màu hệ core của fromNeuron) thay 4 màu
- * cyan-teal hardcode gốc.
- */
-function createPhysicalSynapticAxon(fromNeuron, toNeuron, colorHex, scale) {
-    const origin = fromNeuron.restPosition;
-    const startPos = fromNeuron.position.clone().sub(origin);
-
-    let targetWorld = toNeuron.position;
-    if (toNeuron.dendriteEndpoints.length > 0) {
-        targetWorld = toNeuron.dendriteEndpoints[toNeuron.dendriteTipCursor % toNeuron.dendriteEndpoints.length];
-        toNeuron.dendriteTipCursor++;
-    }
-    const targetPos = targetWorld.clone().sub(origin);
-
-    const totalVector = targetPos.clone().sub(startPos);
-    const totalDistance = totalVector.length();
-    const axonDir = totalVector.clone().normalize();
-
-    const axonGroup = new THREE.Group();
-
-    // MỚI (16/09/2026): tham số `scale` nhân đều mọi bán kính/offset tuyệt đối — cùng lý do/cơ
-    // chế với createAnatomicalNeuron(), xem computeConnectorMeshScale().
-    const hillockMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.5 * scale, 2.2 * scale, 3.0 * scale, 10),
-        new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 0.6 })
-    );
-    hillockMesh.position.copy(startPos.clone().add(axonDir.clone().multiplyScalar(2.8 * scale)));
-    hillockMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), axonDir);
-    axonGroup.add(hillockMesh);
-
-    const curvePoints = [startPos.clone().add(axonDir.clone().multiplyScalar(3.5 * scale))];
-    // SỬA (phản hồi Giang — line thẳng đơ): bản trước chỉ 1 cung sin phẳng, biên độ quá nhỏ so
-    // khoảng cách 3 vỏ cầu mới (nhìn xa lại càng phẳng). Đổi sang uốn 3D thật — 2 trục vuông góc
-    // độc lập (perp1/perp2) + 2 tần số sin lệch pha mỗi nhánh (wiggle1/wiggle2) -> đường ngoằn
-    // ngoèo tự nhiên, biên độ ~18-36% chiều dài (đủ thấy rõ ở khoảng cách camera zoom-out cố
-    // định). envelope vẫn về 0 ở 2 đầu — không gãy khúc chỗ nối vào neuron.
-    const perp1 = new THREE.Vector3(-axonDir.y, axonDir.x, axonDir.z || 0.001).normalize();
-    const perp2 = new THREE.Vector3().crossVectors(axonDir, perp1).normalize();
-    const bendAmount = totalDistance * (0.18 + Math.random() * 0.18);
-    const phase = Math.random() * Math.PI * 2;
-    const segments = 6;
-    for (let i = 1; i < segments; i++) {
-        const frac = i / segments;
-        const midPoint = startPos.clone().lerp(targetPos, frac);
-        const envelope = Math.sin(frac * Math.PI);
-        const wiggle1 = Math.sin(frac * Math.PI * 2 + phase) * bendAmount;
-        const wiggle2 = Math.cos(frac * Math.PI * 3 + phase * 1.3) * bendAmount * 0.6;
-        const bend = perp1.clone().multiplyScalar(envelope * wiggle1).add(perp2.clone().multiplyScalar(envelope * wiggle2));
-        curvePoints.push(midPoint.add(bend));
-    }
-    curvePoints.push(targetPos.clone());
-
-    const axonCurve = new THREE.CatmullRomCurve3(curvePoints);
-
-    const axonCoreMesh = new THREE.Mesh(
-        new THREE.TubeGeometry(axonCurve, 36, 0.42 * scale, 8, false),
-        new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 0.8 })
-    );
-    axonGroup.add(axonCoreMesh);
-
-    const myelinMat = new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 0.3, roughness: 0.25, metalness: 0.75 });
-    const myelinCount = Math.max(2, Math.floor(totalDistance / (18.0 * scale))); // mật độ đốt myelin/chiều dài GIỮ NGUYÊN cảm giác dù scale bao nhiêu
-    const nodesOfRanvierGaps = [];
-    for (let m = 0; m < myelinCount; m++) {
-        const startT = (m / myelinCount) + 0.035;
-        const endT = ((m + 1) / myelinCount) - 0.035;
-        if (startT >= 0.95) break;
-        const segSubPoints = [];
-        for (let st = 0; st <= 6; st++) {
-            const t = Math.min(0.96, startT + (endT - startT) * (st / 6));
-            segSubPoints.push(axonCurve.getPoint(t));
-        }
-        if (segSubPoints.length > 1) {
-            const myelinMesh = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(segSubPoints), 8, 0.9 * scale, 10, false), myelinMat);
-            axonGroup.add(myelinMesh);
-        }
-        nodesOfRanvierGaps.push(axonCurve.getPoint(Math.min(0.98, endT + 0.018)));
-    }
-
-    const boutonMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(1.1 * scale, 12, 12),
-        new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 0.95 })
-    );
-    boutonMesh.position.copy(targetPos);
-    axonGroup.add(boutonMesh);
-
-    fromNeuron.container.add(axonGroup); // ĐỔI: con của neuron NGUỒN, không phải networkGroup — nảy cùng lúc lò xo nảy
-
-    // MỚI (yêu cầu Giang 17/09/2026 — đổi màu phải render lại từ đầu): giữ riêng tham chiếu
-    // hillock/core/myelin/bouton — applyNeuronExcitement() (synapse.js) đồng bộ màu SỐNG mỗi frame
-    // qua các tham chiếu này thay vì chỉ bake 1 lần ở trên rồi bỏ quên.
-    const synapseObject = {
-        fromNeuron, toNeuron, axonCurve, totalDistance, nodesOfRanvier: nodesOfRanvierGaps,
-        groupMesh: axonGroup, originOffset: origin,
-        hillockMesh, axonCoreMesh, myelinMat, boutonMesh,
-    };
-    fromNeuron.connectedSynapses.push(synapseObject);
-    // MỚI (yêu cầu Giang — đàn hồi "cơ học", dây tách khỏi nơ-ron lân cận): đăng ký thêm CHIỀU
-    // NGƯỢC ở toNeuron — xem giải thích đầy đủ ở stepNeuronSpring() (synapse.js).
-    toNeuron.incomingSynapses.push(synapseObject);
-    return synapseObject;
-}
-
-// SỬA (16/09/2026 — lưới phẳng thay 3 vỏ cầu): orchestrator vẫn "graph trước, hình học sau" như
-// bản trước, chỉ đổi NGUỒN vị trí (buildSynapseGridCells thay fibonacciSpherePoint) + graph theo
-// lân cận ô lưới (buildSynapseGraph(cells) thay theo shell) — createAnatomicalNeuron()/
-// createPhysicalSynapticAxon() GIỮ NGUYÊN mô hình hình học, chỉ nhận thêm `meshScale`.
-// [TÁCH — 28/09/2026, Phase 5] buildSynapseNetwork() ĐÃ BỎ (gọi 6 core + getComputedColor): Workflow
-// (event/workflow/visualizer/connector.js::_buildSynapseNetwork()) ghép lưới -> đồ thị -> từng neuron -> từng sợi trục.
-
-// GIỮ NGUYÊN 100% — hạt lỏng nền, không đổi gì.
-function buildMicroscopicFluidParticles() {
-    const count = 500;
-    const posArray = new Float32Array(count * 3);
-    for (let i = 0; i < count * 3; i += 3) {
-        posArray[i] = (Math.random() - 0.5) * 400;
-        posArray[i + 1] = (Math.random() - 0.5) * 400;
-        posArray[i + 2] = (Math.random() - 0.5) * 400;
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-    const mat = new THREE.PointsMaterial({ size: 1.2, color: 0x00b3ff, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending });
-    return new THREE.Points(geo, mat);
-}
-
-// GIỮ NGUYÊN mesh spark + spawn theo MỌI connectedSynapses. ĐỔI: energyOverride (mặc định 2.2 y
-// hệt gốc cho trường hợp lan truyền tới; truyền riêng cho trường hợp bắn theo onset bin).
-// SỬA (bug Giang phát hiện 17/09/2026 — "chạy liên tục nhưng quá liên tục, nhiều nhân gần như đồng
-// thời phát tín hiệu, toàn mạng đều phát -> lag"): TRƯỚC ĐÂY hàm này được gọi ở CẢ 2 nơi — (1) khi
-// 1 nơ-ron TỰ bắn do onset audio thật (_tickConnectorSynapse, có cooldown + ngưỡng), VÀ (2) khi 1
-// spark ĐÃ TỚI ĐÍCH (cuối stepActionPotential, KHÔNG qua cooldown/ngưỡng nào) — cả 2 trường hợp đều
-// unconditionally spawn spark MỚI tới TẤT CẢ `connectedSynapses` của nơ-ron đó. Trường hợp (2) biến
-// đây thành 1 CHAIN REACTION vô điều kiện: A bắn -> spark tới B -> B lại tự động bắn spark tới MỌI
-// nơ-ron B nối tới -> cứ thế lan tiếp không có gì chặn lại (không cooldown, không ngưỡng audio) —
-// qua vài nhịp là lan phủ gần hết mạng (đồ thị lưới liền kề, hầu như node nào cũng có đường tới),
-// đúng hiện tượng "toàn mạng đều phát tín hiệu" + lag (số spark sinh ra tăng nhanh mỗi khi 1 cụm
-// onset thật xảy ra). Tách riêng: hàm này giờ CHỈ dùng cho trường hợp (1) (bắn THẬT + lan tín hiệu
-// ra ngoài) — trường hợp (2) chuyển qua litNeuronFromSignalArrival() ngay dưới (chỉ sáng, không lan
-// tiếp). Bỏ luôn tham số `impulseVector` (không còn `neuron.velocity` để cộng vào — xem
-// stepNeuronSpring() ĐÃ XOÁ, synapse.js, "loại bỏ tính đàn hồi" theo yêu cầu Giang).
-// THÊM (yêu cầu Giang 17/09/2026 — tốc độ truyền tín hiệu nên theo độ mạnh của chính onset): tham
-// số `speedMult` (từ computeSignalSpeedMult(diff), synapse.js) lưu thẳng vào từng signal spawn ra —
-// _tickConnectorSynapse() (visualizer-render.js) nhân nó với tốc độ NỀN chung khi gọi
-// stepActionPotential(). Mặc định 1 (không đổi tốc độ) nếu gọi thiếu tham số.
-// SỬA (28/09/2026, Phase 5) — THAY fireNeuronActionPotential(neuronIdx, ...) (tự appState.get neurons/sparkTexture +
-// appState.mutate): nhận thẳng neuron + texture, đặt năng lượng, gắn 1 tia vào MỖI sợi trục đi ra và TRẢ danh sách tia —
-// Workflow tự đẩy vào cnActiveSignalsSynapse.
-function launchActionPotentialSparks(neuron, sparkTexture, energy, speedMult) {
-    neuron.energy = energy;
-    return neuron.connectedSynapses.map((synapse) => {
-        const sparkMesh = new THREE.Mesh(new THREE.SphereGeometry(0.85 * neuron.scale, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-        const sparkGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTexture, transparent: true, blending: THREE.AdditiveBlending }));
-        sparkGlow.scale.setScalar(8.5 * neuron.scale);
-        sparkMesh.add(sparkGlow);
-        synapse.fromNeuron.container.add(sparkMesh); // con của neuron NGUỒN — axonCurve ở toạ độ cục bộ quanh nó
-        return { synapse, progress: 0.0, mesh: sparkMesh, speedMult };
-    });
-}
-
-// MỚI (yêu cầu Giang 17/09/2026 — chặn chain reaction, xem giải thích đầy đủ ở
-// fireNeuronActionPotential() ngay trên): gọi khi 1 spark ĐÃ TỚI ĐÍCH — chỉ bừng sáng (glow pulse
-// qua applyNeuronExcitement(), synapse.js) tại đúng nơ-ron đích, KHÔNG spawn thêm spark nào ra
-// connectedSynapses của nó — dừng lan truyền đúng 1 bước kể từ nơ-ron bắn onset thật.
-// SỬA (28/09/2026, Phase 5) — THAY litNeuronFromSignalArrival(neuronIdx) (tự appState.get): nhận thẳng neuron đích.
-function setNeuronEnergy(neuron, energy) {
-    neuron.energy = energy;
-}
-
-// ===================== CIRCUIT — port từ "Mô Phỏng Tín Hiệu Điện Tử Lượng Tử 3D" =====================
-
-// XOÁ (yêu cầu Giang — "bỏ những hình vuông bên ngoài dùng để trang trí"): createQuantumEnvironment()
-// (600 điểm PointsMaterial không texture -> mỗi điểm vẽ ra HÌNH VUÔNG, rải trong hộp 160×100×160 quanh
-// cube node — thuần trang trí nền, không tham gia graph/audio). Bỏ luôn lời gọi trong
-// initThreeJSConnector().
-
-// ĐỔI: hình node — thân chip + N chân cố định (trang trí/cấu trúc, KHÔNG khớp graph vì bản gốc
-// không có graph cố định nào — xem spawnCircuitSignal(), any-to-any y hệt gốc). Giữ PointLight
-// per-node của gốc.
-const CIRCUIT_PIN_COUNT = 8;
-
-function createChipMesh(colorHex) {
-    const group = new THREE.Group();
-    const bodyMesh = new THREE.Mesh(
-        new THREE.BoxGeometry(2.4, 0.8, 2.4),
-        new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 0.8, roughness: 0.2, metalness: 0.8 })
-    );
-    group.add(bodyMesh);
-
-    const pinMat = new THREE.MeshBasicMaterial({ color: colorHex });
-    const pins = [];
-    for (let p = 0; p < CIRCUIT_PIN_COUNT; p++) {
-        const angle = (p / CIRCUIT_PIN_COUNT) * Math.PI * 2;
-        const pinMesh = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.25, 0.9), pinMat);
-        pinMesh.position.set(Math.cos(angle) * 1.6, 0, Math.sin(angle) * 1.6);
-        pinMesh.rotation.y = -angle;
-        group.add(pinMesh);
-        pins.push({ mesh: pinMesh, busy: false });
-    }
-
-    const pLight = new THREE.PointLight(colorHex, 1.2, 20);
-    group.add(pLight);
-
-    // MỚI (yêu cầu Giang 17/09/2026 — đổi màu phải render lại từ đầu): trả thêm pinMat/pLight —
-    // applyChipLiveColor() (core/visualizer/groups/connector/circuit.js) cần đồng bộ màu SỐNG mỗi
-    // frame, trước đây bake 1 lần ở đây rồi bỏ luôn tham chiếu.
-    return { group, bodyMesh, pins, pinMat, pLight };
-}
-
-// Chọn chân TRỐNG hướng gần nhất về phía node kia (không có graph cố định để khớp — tín hiệu
-// động như bản gốc, chân chỉ là điểm neo vật lý). Hết chân trống thì dùng lại (không chặn tín
-// hiệu, đúng tinh thần "any-to-any" gốc).
-function pickNearestFreePin(chip, towardWorldPos) {
-    const localDir = towardWorldPos.clone().sub(chip.pos).normalize();
-    let best = null, bestDot = -Infinity;
-    chip.pins.forEach((pin) => {
-        if (pin.busy) return;
-        const dot = pin.mesh.position.clone().normalize().dot(localDir);
-        if (dot > bestDot) { bestDot = dot; best = pin; }
-    });
-    if (!best) best = chip.pins[Math.floor(Math.random() * chip.pins.length)];
-    best.busy = true;
-    return best;
-}
-
-// ===== Circuit — bố trí node theo LƯỚI LẬP PHƯƠNG k×k×k, lấp từ lớp ngoài vào trong =====
-// MỚI (yêu cầu Giang — "circuit chỉnh 16-64 node, phân bổ node theo dạng lập phương từ ngoài vào
-// trong", "map giống synapse"): THAY layout random-snap-lưới cũ (trùng ô thì bỏ -> số chip thật
-// hụt so với slider, mỗi lần init 1 khác). Mirror ĐÚNG khuôn buildSynapseGridCells() (2D) sang 3D:
-// "vòng" (ring) = khoảng cách Chebyshev tới MẶT cube gần nhất (0 = lớp vỏ ngoài cùng), sắp ô theo
-// ring -> z -> y -> x rồi lấy nodeCount ô ĐẦU — nên node index i ứng với dải tần i (tonotopic, bass
-// ở vỏ ngoài, treble vào lõi) đúng như neuron synapse. KHÁC synapse 1 điểm: lớp CUỐI chưa lấp đủ
-// được rải ĐỀU (stride) trong lớp đó thay vì lấy nguyên 1 nửa theo thứ tự z/y/x — nếu không cube
-// bị lệch hẳn về 1 phía khi nodeCount nhỏ. Hệ quả: lõi 2×2×2 (k=4) chỉ có node khi nodeCount >= 57.
+// ===================== Circuit — bố trí node theo LƯỚI LẬP PHƯƠNG k×k×k, lấp từ lớp ngoài vào trong =====================
+// (Giang 20/09/2026) "vòng" (ring) = khoảng cách Chebyshev tới MẶT cube gần nhất (0 = vỏ ngoài), sắp ô theo ring rồi lấy
+// nodeCount ô ĐẦU — node index i ứng với dải tần i (tonotopic, bass ở vỏ ngoài, treble vào lõi). Lớp cuối chưa lấp đủ được
+// rải ĐỀU (stride) trong lớp đó để cube không lệch về 1 phía. GIỮ NGUYÊN.
 const CIRCUIT_NODE_MIN = 16;
 const CIRCUIT_NODE_MAX = 64;
 const CIRCUIT_NODE_FALLBACK = 32;
-// Nửa cạnh cube (world units) — cố định để cube luôn vừa khung camera circuit (vị trí khởi tạo
-// (0,30,210), fov 45) kể cả màn dọc; khoảng cách giữa 2 ô tự co theo k.
+// Nửa cạnh cube (world units) — cố định để cube luôn vừa khung camera orbit (vị trí (0,30,210), fov 45) kể cả màn dọc.
 const CIRCUIT_CUBE_HALF_EXTENT = 32;
+// Vị trí camera mặc định chế độ orbit (cũng là vị trí khởi tạo của sân khấu).
+const CIRCUIT_ORBIT_HOME = { x: 0, y: 30, z: 210 };
+// Trần số nút tròn tại điểm chạm dây (InstancedMesh) — chặn trường hợp cực đoan ở 64 chip.
+const CIRCUIT_JUNCTION_MAX = 6000;
+// Số đỉnh tối đa của vệt sáng 1 xung (đầu + cuối + các góc bẻ của dây, dây tối đa 7 điểm).
+const CIRCUIT_TRAIL_MAX_POINTS = 12;
 
 function buildCircuitCubeCells(nodeCountRaw) {
     const requested = Math.round(Number(nodeCountRaw));
@@ -576,25 +74,114 @@ function buildCircuitCubeCells(nodeCountRaw) {
     return { cells: chosen, spacing, k };
 }
 
-// ĐỔI (xem buildCircuitCubeCells() phía trên): vị trí từ lưới lập phương thay random-snap. MỚI:
-// mỗi chip mang thêm trạng thái audio RIÊNG (prevBinEnergy/smoothedBinEnergy/adaptation/
-// lateralInhibition/energy — cùng tên field neuron synapse để TÁI DÙNG nguyên các hàm trong
-// core/visualizer/groups/connector/synapse.js) + `neighbors` (chỉ số chip lân cận trong lưới,
-// Chebyshev <= 1 theo toạ độ ô — dùng cho lateral inhibition).
-// [TÁCH — 28/09/2026, Phase 5] buildCircuitNodes() ĐÃ BỎ (gọi buildCircuitCubeCells/createChipMesh/getComputedColor):
-// Workflow ghép ô lập phương -> màu -> mesh chip -> dữ liệu chip (assembleCircuitChip) -> láng giềng (linkCircuitChipNeighbors).
+// ===================== Chip vuông + chân =====================
 
-/** Dữ liệu 1 chip từ ô lưới + mesh đã dựng (createChipMesh()) — gắn mesh vào đúng vị trí ô. */
-function assembleCircuitChip(cell, index, colorHex, chipMesh) {
-    chipMesh.group.position.copy(cell.position);
+/** Kích thước chip/chân/dây/bit tỉ lệ theo khoảng cách ô lưới (k=3 -> 32, k=4 -> ~21.3) và số chân mỗi cạnh. */
+function computeCircuitChipMetrics(spacing, pinTotal) {
+    const size = spacing * 0.24;
+    const perEdgeMax = Math.ceil(pinTotal / 4);
+    const pitch = size / (perEdgeMax + 1);
+    const pinWidth = Math.min(pitch * 0.4, size * 0.06);
     return {
-        id: `NODE_${index}`, pos: cell.position.clone(), cell: { x: cell.x, y: cell.y, z: cell.z, ring: cell.ring },
-        group: chipMesh.group, bodyMesh: chipMesh.bodyMesh, pins: chipMesh.pins, pinMat: chipMesh.pinMat, pLight: chipMesh.pLight, color: colorHex,
-        neighbors: [], energy: 0, prevBinEnergy: 0, smoothedBinEnergy: 0, adaptation: 0, lateralInhibition: 0,
+        spacing, size,
+        thickness: size * 0.14,
+        pinLen: size * 0.2,
+        pinWidth,
+        pinThick: size * 0.14 * 0.3,
+        stubLen: size * 0.25,               // đoạn dây thẳng ra khỏi đầu chân trước khi bẻ góc
+        channelHalf: spacing / 2,           // kênh đi dây nằm giữa 2 lớp chip
+        bitRadius: size * 0.045,
+        ghostRadius: size * 0.018,
+        headRadius: size * 0.06,
+        bitGap: size * 0.28,                // khoảng cách giữa 2 bit liên tiếp dọc dây
+        junctionRadius: Math.max(pinWidth * 1.4, size * 0.03),
+        followBack: size * 1.4,             // camera bám bit: lùi sau đuôi dãy bit
+        followUp: size * 0.6,               // ... và nhích lên/lệch ra ngoài dây
     };
 }
 
-/** Láng giềng của mỗi chip = các chip cách ≤ 1 ô theo cả 3 trục (Chebyshev). Sửa tại chỗ mảng nhận vào. */
+/** Vị trí các chân (toạ độ CỤC BỘ chip, mặt XZ, y=0): `pinTotal` chân chia đều 4 cạnh (dư thì cạnh đầu thêm 1), mỗi
+ * chân {base (sát mép thân), tip (đầu chân), dir (hướng ra ngoài), angle}. Sắp theo góc quanh tâm chip. */
+function buildCircuitPinSlots(metrics, pinTotal) {
+    const S = metrics.size;
+    const base = Math.floor(pinTotal / 4), rem = pinTotal % 4;
+    const edges = [
+        { dir: new THREE.Vector3(1, 0, 0), at: (u) => new THREE.Vector3(S / 2, 0, u) },
+        { dir: new THREE.Vector3(0, 0, 1), at: (u) => new THREE.Vector3(u, 0, S / 2) },
+        { dir: new THREE.Vector3(-1, 0, 0), at: (u) => new THREE.Vector3(-S / 2, 0, u) },
+        { dir: new THREE.Vector3(0, 0, -1), at: (u) => new THREE.Vector3(u, 0, -S / 2) },
+    ];
+    const slots = [];
+    edges.forEach((edge, e) => {
+        const count = base + (e < rem ? 1 : 0);
+        for (let m = 0; m < count; m++) {
+            const u = -S / 2 + S * (m + 1) / (count + 1);
+            const basePos = edge.at(u);
+            const tip = basePos.clone().add(edge.dir.clone().multiplyScalar(metrics.pinLen));
+            slots.push({ base: basePos, tip, dir: edge.dir.clone(), angle: Math.atan2(tip.z, tip.x) });
+        }
+    });
+    slots.sort((a, b) => a.angle - b.angle);
+    return slots;
+}
+
+/** 1 geometry DUY NHẤT cho thân vuông + mọi chân (gộp buffer không chỉ mục) — chân cắm sâu vào thân 1 đoạn nên liền
+ * mạch, không hở khe. Dùng chung cho mọi chip (mỗi chip vật liệu riêng để đổi màu/độ sáng). */
+function buildChipGeometry(metrics, slots) {
+    const parts = [new THREE.BoxGeometry(metrics.size, metrics.thickness, metrics.size)];
+    const overlap = metrics.size * 0.04;
+    const len = metrics.pinLen + overlap;
+    slots.forEach((slot) => {
+        const alongX = Math.abs(slot.dir.x) > 0.5;
+        const pin = new THREE.BoxGeometry(alongX ? len : metrics.pinWidth, metrics.pinThick, alongX ? metrics.pinWidth : len);
+        const center = slot.base.clone().add(slot.dir.clone().multiplyScalar((metrics.pinLen - overlap) / 2));
+        pin.translate(center.x, center.y, center.z);
+        parts.push(pin);
+    });
+    const flat = parts.map((g) => g.toNonIndexed());
+    const total = flat.reduce((n, g) => n + g.attributes.position.count, 0);
+    const positions = new Float32Array(total * 3);
+    const normals = new Float32Array(total * 3);
+    let offset = 0;
+    flat.forEach((g) => {
+        positions.set(g.attributes.position.array, offset * 3);
+        normals.set(g.attributes.normal.array, offset * 3);
+        offset += g.attributes.position.count;
+    });
+    parts.concat(flat).forEach((g) => g.dispose());
+    const merged = new THREE.BufferGeometry();
+    merged.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    merged.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+    merged.computeBoundingSphere();
+    return merged;
+}
+
+/** Mesh 1 chip (geometry dùng chung) + PointLight riêng (giữ như bản gốc). */
+function createChipMesh(colorHex, geometry, lightDistance) {
+    const group = new THREE.Group();
+    const material = new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 0.8, roughness: 0.25, metalness: 0.8 });
+    const bodyMesh = new THREE.Mesh(geometry, material);
+    group.add(bodyMesh);
+    const pLight = new THREE.PointLight(colorHex, 1.2, lightDistance);
+    group.add(pLight);
+    return { group, bodyMesh, material, pLight };
+}
+
+/** Dữ liệu 1 chip từ ô lưới + mesh + vị trí chân. Chân: toạ độ THẾ GIỚI đầu chân + hướng; chip đích/dây gán sau
+ * (assignCircuitPinTargets(), buildCircuitWires()). Trạng thái audio cùng tên field cũ để dùng lại tonotopic.js. */
+function assembleCircuitChip(cell, index, colorHex, chipMesh, slots) {
+    chipMesh.group.position.copy(cell.position);
+    return {
+        id: `NODE_${index}`, index, pos: cell.position.clone(), cell: { x: cell.x, y: cell.y, z: cell.z, ring: cell.ring },
+        group: chipMesh.group, bodyMesh: chipMesh.bodyMesh, material: chipMesh.material, pLight: chipMesh.pLight, color: colorHex,
+        pins: slots.map((slot, s) => ({ slot: s, angle: slot.angle, dir: slot.dir.clone(), tipWorld: cell.position.clone().add(slot.tip), targetIndex: -1, wireIndex: -1 })),
+        pinByTarget: [], neighbors: [],
+        energy: 0, prevBinEnergy: 0, smoothedBinEnergy: 0, adaptation: 0, lateralInhibition: 0,
+        frameEnergy: 0, frameDiff: 0,
+    };
+}
+
+/** Láng giềng của mỗi chip = các chip cách ≤ 1 ô theo cả 3 trục (Chebyshev) — lateral inhibition. Sửa tại chỗ. */
 function linkCircuitChipNeighbors(chips) {
     chips.forEach((a, i) => {
         chips.forEach((b, j) => {
@@ -604,128 +191,258 @@ function linkCircuitChipNeighbors(chips) {
     });
 }
 
-// GIỮ NGUYÊN 100% thuật toán bẻ góc vuông + densify của gốc (bỏ field "corners" không ai dùng).
-function create3DManhattanPath(startPos, endPos) {
-    const points = [startPos.clone()];
-    const current = startPos.clone();
-    const target = endPos.clone();
-    const axes = Math.random() > 0.5 ? ['x', 'y', 'z'] : ['z', 'x', 'y'];
-    axes.forEach((axis) => {
-        if (Math.abs(current[axis] - target[axis]) > 0.1) { current[axis] = target[axis]; points.push(current.clone()); }
+/** Mỗi chip: N-1 chip khác -> N chân. Sắp chip đích theo góc (mặt XZ) quanh chip này, sắp chân theo góc, rồi tìm độ
+ * xoay vòng khớp 2 dãy sai lệch góc NHỎ NHẤT -> mỗi chân hướng gần đúng về chip nó nối. Chip cùng cột (không lệch XZ)
+ * nhận góc rải theo golden angle. Chân còn dư (chân "của chính nó") giữ targetIndex = -1. Sửa tại chỗ. */
+function assignCircuitPinTargets(chips) {
+    const n = chips.length;
+    chips.forEach((chip, i) => {
+        const targets = [];
+        chips.forEach((other, j) => {
+            if (j === i) return;
+            const dx = other.pos.x - chip.pos.x, dz = other.pos.z - chip.pos.z;
+            const flat = dx * dx + dz * dz < 1e-6;
+            targets.push({ j, angle: flat ? ((j * 2.39996323) % (Math.PI * 2)) - Math.PI : Math.atan2(dz, dx) });
+        });
+        targets.sort((a, b) => a.angle - b.angle);
+        const pinCount = chip.pins.length;
+        let bestShift = 0, bestCost = Infinity;
+        for (let r = 0; r < pinCount; r++) {
+            let cost = 0;
+            for (let k = 0; k < targets.length; k++) {
+                const diff = Math.abs(targets[k].angle - chip.pins[(k + r) % pinCount].angle) % (Math.PI * 2);
+                cost += Math.min(diff, Math.PI * 2 - diff);
+            }
+            if (cost < bestCost) { bestCost = cost; bestShift = r; }
+        }
+        chip.pinByTarget = new Array(n).fill(-1);
+        targets.forEach((t, k) => {
+            const pinIndex = (k + bestShift) % pinCount;
+            chip.pins[pinIndex].targetIndex = t.j;
+            chip.pinByTarget[t.j] = pinIndex;
+        });
     });
-    const densePoints = [];
-    for (let i = 0; i < points.length - 1; i++) {
-        const pA = points[i], pB = points[i + 1];
-        const steps = Math.max(2, Math.floor(pA.distanceTo(pB) * 2));
-        for (let s = 0; s < steps; s++) densePoints.push(new THREE.Vector3().lerpVectors(pA, pB, s / steps));
+}
+
+// ===================== Dây (đường mạch) =====================
+
+/** 1 dây cho mỗi cặp chip (i<j), nối chân i->j với chân j->i. Đường: đầu chân A -> thẳng ra (stub) -> dọc trục Y tới kênh
+ * (giữa lớp A và lớp kế bên phía chip B; cùng lớp thì kênh phía tâm cube) -> 2 đoạn ngang vuông góc trong kênh (thứ tự X/Z
+ * xen kẽ theo cặp) -> dọc trục Y tới stub B -> vào đầu chân B. Bỏ điểm trùng/thẳng hàng. Ghi wireIndex vào 2 chân.
+ * Trả mảng {a, b, points, cum (độ dài cộng dồn), total}. */
+function buildCircuitWires(chips, metrics) {
+    const wires = [];
+    const h = metrics.channelHalf;
+    for (let i = 0; i < chips.length; i++) {
+        for (let j = i + 1; j < chips.length; j++) {
+            const A = chips[i], B = chips[j];
+            const pinA = A.pins[A.pinByTarget[j]], pinB = B.pins[B.pinByTarget[i]];
+            if (!pinA || !pinB) continue;
+            const stubA = pinA.tipWorld.clone().add(pinA.dir.clone().multiplyScalar(metrics.stubLen));
+            const stubB = pinB.tipWorld.clone().add(pinB.dir.clone().multiplyScalar(metrics.stubLen));
+            const dy = B.pos.y - A.pos.y;
+            let side = Math.sign(dy);
+            if (Math.abs(dy) < 1e-3) side = A.pos.y < -1e-3 ? 1 : (A.pos.y > 1e-3 ? -1 : ((i + j) % 2 ? 1 : -1));
+            const yc = A.pos.y + side * h;
+            const corner = (i * 7 + j * 3) % 2
+                ? new THREE.Vector3(stubB.x, yc, stubA.z)
+                : new THREE.Vector3(stubA.x, yc, stubB.z);
+            const raw = [pinA.tipWorld.clone(), stubA, new THREE.Vector3(stubA.x, yc, stubA.z), corner, new THREE.Vector3(stubB.x, yc, stubB.z), stubB, pinB.tipWorld.clone()];
+            const dedup = raw.filter((p, k) => k === 0 || p.distanceToSquared(raw[k - 1]) > 1e-8);
+            const points = dedup.filter((p, k) => {
+                if (k === 0 || k === dedup.length - 1) return true;
+                const d1 = p.clone().sub(dedup[k - 1]).normalize(), d2 = dedup[k + 1].clone().sub(p).normalize();
+                return d1.dot(d2) < 0.9999;
+            });
+            const cum = [0];
+            for (let k = 1; k < points.length; k++) cum.push(cum[k - 1] + points[k].distanceTo(points[k - 1]));
+            pinA.wireIndex = wires.length;
+            pinB.wireIndex = wires.length;
+            wires.push({ a: i, b: j, points, cum, total: cum[cum.length - 1] });
+        }
     }
-    densePoints.push(endPos.clone());
-    return densePoints;
+    return wires;
 }
 
-// ĐỔI: DynamicQuantumSignal (class gốc) -> factory + hàm rời (khớp style vanilla project, không
-// dùng class) — GIỮ NGUYÊN toàn bộ field/cơ chế (line grow-to-front, bit payload, fade/destroy).
-/** Điểm đầu/cuối của 1 xung = vị trí chip + vị trí pin (toạ độ thế giới). */
-function computeCircuitSignalEndpoints(sourceChip, targetChip, sourcePin, targetPin) {
-    return { startPos: sourceChip.pos.clone().add(sourcePin.mesh.position), endPos: targetChip.pos.clone().add(targetPin.mesh.position) };
-}
-
-// SỬA (28/09/2026, Phase 5 — không core gọi core) — nhận SẴN đường đi (create3DManhattanPath()) + mẫu bit (buildBitPattern())
-// do Workflow tạo; bit mesh dựng riêng bằng initCircuitSignalBits() (Workflow gọi ngay sau).
-function createCircuitSignal(sourceChip, targetChip, sourcePin, targetPin, startPos, pathPoints, binaryPattern, cnGroupCircuit) {
-    const totalSteps = pathPoints.length;
-
-    let totalDistance = 0;
-    for (let i = 1; i < pathPoints.length; i++) totalDistance += pathPoints[i - 1].distanceTo(pathPoints[i]);
-
-    const positions = new Float32Array(totalSteps * 3);
-    for (let i = 0; i < totalSteps; i++) { positions[i * 3] = startPos.x; positions[i * 3 + 1] = startPos.y; positions[i * 3 + 2] = startPos.z; }
-    const lineGeometry = new THREE.BufferGeometry();
-    lineGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    const lineMaterial = new THREE.LineBasicMaterial({ color: sourceChip.color, transparent: true, opacity: 0.9, linewidth: 3 });
-    const lineMesh = new THREE.Line(lineGeometry, lineMaterial);
-    cnGroupCircuit.add(lineMesh);
-
-    const headSpark = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-    headSpark.position.copy(startPos);
-    cnGroupCircuit.add(headSpark);
-
-    const bitContainer = new THREE.Group();
-    cnGroupCircuit.add(bitContainer);
-
-    const signal = {
-        source: sourceChip, target: targetChip, sourcePin, targetPin, color: sourceChip.color,
-        pathPoints, totalSteps, totalDistance, progress: 0, lineGeometry, lineMaterial, lineMesh,
-        headSpark, binaryPattern, bitMeshes: [], bitContainer,
-        isFinished: false, isFading: false, fadeOpacity: 0.9,
-    };
-    return signal;
-}
-
-// ĐỔI (yêu cầu Giang — "các hạt bit phải là hình tròn"): bit=1 trước là "hộp neon" BoxGeometry
-// 0.35×0.35×0.7 -> nay là HÌNH CẦU (cùng vật liệu neon emissive); bit=0 "chấm ma" vốn đã là cầu nhỏ,
-// GIỮ NGUYÊN. Geometry dùng CHUNG (tạo lười 1 lần, không dispose theo từng signal) — trước đây mỗi bit
-// `new` 1 geometry riêng mà destroyCircuitSignal() không dispose -> rò bộ nhớ GPU theo số xung; cầu
-// nhiều đỉnh hơn hộp nên nếu giữ cách cũ sẽ rò nhanh hơn, và xung giờ bắn theo audio từng node nên nhiều hơn.
-let _cnBitSphereGeometry = null;
-let _cnBitGhostGeometry = null;
-
-function initCircuitSignalBits(signal) {
-    if (!_cnBitSphereGeometry) _cnBitSphereGeometry = new THREE.SphereGeometry(0.28, 12, 12);
-    if (!_cnBitGhostGeometry) _cnBitGhostGeometry = new THREE.SphereGeometry(0.08, 6, 6);
-    signal.binaryPattern.forEach((bit, idx) => {
-        const mesh = bit
-            ? new THREE.Mesh(_cnBitSphereGeometry, new THREE.MeshStandardMaterial({
-                color: signal.color, emissive: signal.color, emissiveIntensity: 1.5, roughness: 0.1
-            }))
-            : new THREE.Mesh(_cnBitGhostGeometry, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2 }));
-        mesh.visible = false;
-        signal.bitContainer.add(mesh);
-        signal.bitMeshes.push({ mesh, bitVal: bit ? 1 : 0, offsetIndex: idx });
+/** Toàn bộ dây vẽ bằng 1 LineSegments (vertex color): nửa dây phía chip A mang màu A, nửa phía B mang màu B (đoạn vắt
+ * qua điểm giữa tự chuyển màu). `vertexChip` = chip quyết định màu từng đỉnh — updateCircuitTraceColors() đọc lại. */
+function buildCircuitTraceMesh(wires, opacity) {
+    let segCount = 0;
+    wires.forEach((w) => { segCount += w.points.length - 1; });
+    const positions = new Float32Array(segCount * 2 * 3);
+    const colors = new Float32Array(segCount * 2 * 3);
+    const vertexChip = new Int16Array(segCount * 2);
+    let v = 0;
+    wires.forEach((w) => {
+        for (let k = 0; k < w.points.length - 1; k++) {
+            [k, k + 1].forEach((idx) => {
+                const p = w.points[idx];
+                positions[v * 3] = p.x; positions[v * 3 + 1] = p.y; positions[v * 3 + 2] = p.z;
+                vertexChip[v] = w.cum[idx] / Math.max(1e-6, w.total) < 0.5 ? w.a : w.b;
+                v++;
+            });
+        }
     });
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    const material = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity, depthWrite: false });
+    const mesh = new THREE.LineSegments(geometry, material);
+    return { mesh, vertexChip, lastHex: [] };
 }
 
-function onCircuitSignalArrival(signal) {
-    signal.isFinished = true;
-    signal.headSpark.visible = false;
-    signal.sourcePin.busy = false;
-    signal.targetPin.busy = false;
-    // SỬA: gsap.to(yoyo) -> gsap.fromTo(1 -> 1.8 -> 1, overwrite) — giờ NHIỀU xung cùng đổ về 1 node
-    // đích (map theo pitch) nên 2 lần nháy chồng nhau rất hay xảy ra: gsap.to() thứ 2 bắt đầu từ
-    // scale đang phình dở rồi yoyo về ĐÚNG giá trị dở dang đó -> chip kẹt to vĩnh viễn, cộng dồn.
-    // fromTo luôn neo về 1 và overwrite huỷ tween cũ trên cùng scale nên luôn trả đúng 1.
-    gsap.fromTo(signal.target.bodyMesh.scale, { x: 1, y: 1, z: 1 }, { x: 1.8, y: 1.8, z: 1.8, duration: 0.15, yoyo: true, repeat: 1, ease: 'power2.out', overwrite: true });
-    signal.isFading = true;
+/** Điểm 2 dây KHÁC NHAU chạm/cắt nhau (mọi đoạn đều song song trục X/Y/Z): X×Z cùng cao độ y, X×Y cùng z, Z×Y cùng x —
+ * gom theo toạ độ chung (bucket) để không phải xét mọi cặp đoạn. Tính cả chạm đầu mút (dây rẽ nhánh khỏi dây khác). Đoạn
+ * TRÙNG phương nằm chồng nhau coi như 1 đường bus, không đặt nút. Khử trùng điểm, tối đa `maxCount`.
+ * Trả [{ position, chip }] (chip = chip A của dây đầu tiên, dùng làm màu nút). */
+function collectCircuitJunctions(wires, maxCount) {
+    const q = (v) => Math.round(v * 1000);
+    const EPS = 1e-3;
+    const inRange = (v, lo, hi) => v >= lo - EPS && v <= hi + EPS;
+    const buckets = { xByY: new Map(), zByY: new Map(), xByZ: new Map(), yByZ: new Map(), zByX: new Map(), yByX: new Map() };
+    const put = (map, key, seg) => { if (!map.has(key)) map.set(key, []); map.get(key).push(seg); };
+    wires.forEach((w, wi) => {
+        for (let k = 0; k < w.points.length - 1; k++) {
+            const p = w.points[k], r = w.points[k + 1];
+            const seg = { wire: wi, chip: w.a, p };
+            if (Math.abs(p.x - r.x) > EPS) {
+                seg.lo = Math.min(p.x, r.x); seg.hi = Math.max(p.x, r.x);
+                put(buckets.xByY, q(p.y), seg); put(buckets.xByZ, q(p.z), seg);
+            } else if (Math.abs(p.z - r.z) > EPS) {
+                seg.lo = Math.min(p.z, r.z); seg.hi = Math.max(p.z, r.z);
+                put(buckets.zByY, q(p.y), seg); put(buckets.zByX, q(p.x), seg);
+            } else if (Math.abs(p.y - r.y) > EPS) {
+                seg.lo = Math.min(p.y, r.y); seg.hi = Math.max(p.y, r.y);
+                put(buckets.yByZ, q(p.z), seg); put(buckets.yByX, q(p.x), seg);
+            }
+        }
+    });
+    const found = new Map();
+    const add = (x, y, z, chip) => {
+        if (found.size >= maxCount) return;
+        const key = `${q(x)},${q(y)},${q(z)}`;
+        if (!found.has(key)) found.set(key, { position: new THREE.Vector3(x, y, z), chip });
+    };
+    // X × Z (cùng y): X-seg cố định z, Z-seg cố định x
+    buckets.xByY.forEach((xs, key) => {
+        const zs = buckets.zByY.get(key);
+        if (!zs) return;
+        xs.forEach((a) => zs.forEach((b) => {
+            if (a.wire === b.wire) return;
+            if (inRange(b.p.x, a.lo, a.hi) && inRange(a.p.z, b.lo, b.hi)) add(b.p.x, a.p.y, a.p.z, a.chip);
+        }));
+    });
+    // X × Y (cùng z): X-seg cố định y, Y-seg cố định x
+    buckets.xByZ.forEach((xs, key) => {
+        const ys = buckets.yByZ.get(key);
+        if (!ys) return;
+        xs.forEach((a) => ys.forEach((b) => {
+            if (a.wire === b.wire) return;
+            if (inRange(b.p.x, a.lo, a.hi) && inRange(a.p.y, b.lo, b.hi)) add(b.p.x, a.p.y, a.p.z, a.chip);
+        }));
+    });
+    // Z × Y (cùng x): Z-seg cố định y, Y-seg cố định z
+    buckets.zByX.forEach((zs, key) => {
+        const ys = buckets.yByX.get(key);
+        if (!ys) return;
+        zs.forEach((a) => ys.forEach((b) => {
+            if (a.wire === b.wire) return;
+            if (inRange(b.p.z, a.lo, a.hi) && inRange(a.p.y, b.lo, b.hi)) add(a.p.x, a.p.y, b.p.z, a.chip);
+        }));
+    });
+    return Array.from(found.values());
 }
 
-function destroyCircuitSignal(signal, cnGroupCircuit) {
-    cnGroupCircuit.remove(signal.lineMesh);
-    cnGroupCircuit.remove(signal.headSpark);
-    cnGroupCircuit.remove(signal.bitContainer);
-    signal.lineGeometry.dispose();
-    signal.lineMaterial.dispose();
-    signal.bitMeshes.forEach((b) => b.mesh.material.dispose()); // MỚI: chỉ vật liệu riêng từng bit — geometry cầu DÙNG CHUNG, KHÔNG dispose (xem initCircuitSignalBits())
+/** Nút tròn tại điểm chạm — InstancedMesh (1 draw call) màu từng nút theo chip (updateCircuitTraceColors()). */
+function buildCircuitJunctionMesh(junctions, radius, opacity) {
+    const geometry = new THREE.SphereGeometry(radius, 10, 8);
+    const material = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: Math.min(1, opacity * 1.6) });
+    const mesh = new THREE.InstancedMesh(geometry, material, Math.max(1, junctions.length));
+    const matrix = new THREE.Matrix4();
+    const white = new THREE.Color(0xffffff);
+    junctions.forEach((jn, idx) => {
+        matrix.makeTranslation(jn.position.x, jn.position.y, jn.position.z);
+        mesh.setMatrixAt(idx, matrix);
+        mesh.setColorAt(idx, white); // tạo instanceColor TRƯỚC lần render đầu
+    });
+    mesh.count = junctions.length;
+    mesh.frustumCulled = false; // r128 cull theo bounding sphere geometry gốc (tại gốc toạ độ), không theo vị trí instance
+    mesh.instanceMatrix.needsUpdate = true;
+    return { mesh, junctionChip: Int16Array.from(junctions.map((jn) => jn.chip)) };
 }
 
-// ĐỔI (yêu cầu Giang — audio kích hoạt từng node): nguồn VÀ ĐÍCH đều do Workflow chọn sẵn
-// (nguồn = node có dải tần vừa onset, đích = node theo pitch — xem _tickConnectorCircuit(),
-// visualizer-render.js), hàm này chỉ dựng tín hiệu. Bỏ random target + trần 90 cứng gốc (trần
-// giờ là cfg.maxConcurrentSignals, Workflow tự kiểm tra) — GIỮ chống trùng cặp đang bay.
-// [TÁCH — 28/09/2026, Phase 5] spawnCircuitSignal() ĐÃ BỎ (gọi pickNearestFreePin + createCircuitSignal): Workflow
-// (_spawnCircuitPulse()) kiểm hasCircuitSignalBetween() rồi ghép pin -> đường -> bit -> xung.
+// ===================== Xung bit =====================
+
+/** Geometry dùng chung cho mọi xung của lần dựng này (tỉ lệ theo cỡ chip) — dispose khi dựng lại scene. */
+function createCircuitSignalAssets(metrics) {
+    return {
+        bitGeo: new THREE.SphereGeometry(metrics.bitRadius, 10, 8),
+        ghostGeo: new THREE.SphereGeometry(metrics.ghostRadius, 6, 5),
+        headGeo: new THREE.SphereGeometry(metrics.headRadius, 10, 8),
+        bitGap: metrics.bitGap,
+        followBack: metrics.followBack,
+        followUp: metrics.followUp,
+    };
+}
+
+function disposeCircuitSignalAssets(assets) {
+    assets.bitGeo.dispose();
+    assets.ghostGeo.dispose();
+    assets.headGeo.dispose();
+}
+
+/** 1 xung chạy trên dây `wire` từ chip nguồn (reverse = đi ngược chiều lưu của dây). Gồm vệt sáng (Line, tối đa
+ * CIRCUIT_TRAIL_MAX_POINTS đỉnh), đầu xung trắng và dãy bit (1 = cầu màu, 0 = chấm mờ). Bit ẩn tới khi ló ra khỏi chân. */
+function createCircuitSignal(sourceChip, targetChip, wire, reverse, binaryPattern, colorHex, assets, parentGroup) {
+    const container = new THREE.Group();
+    const trailGeo = new THREE.BufferGeometry();
+    trailGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(CIRCUIT_TRAIL_MAX_POINTS * 3), 3));
+    trailGeo.setDrawRange(0, 0);
+    const trailMat = new THREE.LineBasicMaterial({ color: colorHex, transparent: true, opacity: 0.95 });
+    const trailLine = new THREE.Line(trailGeo, trailMat);
+    trailLine.frustumCulled = false; // đỉnh đổi mỗi frame — bounding sphere không cập nhật
+    container.add(trailLine);
+
+    const headMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const headSpark = new THREE.Mesh(assets.headGeo, headMat);
+    headSpark.visible = false;
+    container.add(headSpark);
+
+    const bitMat = new THREE.MeshBasicMaterial({ color: colorHex });
+    const ghostMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
+    const bitMeshes = binaryPattern.map((bit) => {
+        const mesh = new THREE.Mesh(bit ? assets.bitGeo : assets.ghostGeo, bit ? bitMat : ghostMat);
+        mesh.visible = false;
+        container.add(mesh);
+        return mesh;
+    });
+    parentGroup.add(container);
+
+    return {
+        source: sourceChip, target: targetChip, wire, reverse, color: colorHex,
+        headDist: 0, arrived: false, done: false,
+        container, trailGeo, trailMat, trailLine, headSpark, headMat, bitMat, ghostMat, bitMeshes,
+        headPos: sourceChip.pos.clone(), headDir: new THREE.Vector3(1, 0, 0), tailPos: sourceChip.pos.clone(),
+    };
+}
+
+/** Gỡ xung khỏi scene + giải phóng vật liệu/geometry riêng (geometry bit/đầu xung dùng chung — không dispose). */
+function destroyCircuitSignal(signal, parentGroup) {
+    parentGroup.remove(signal.container);
+    signal.trailGeo.dispose();
+    signal.trailMat.dispose();
+    signal.headMat.dispose();
+    signal.bitMat.dispose();
+    signal.ghostMat.dispose();
+    signal.done = true;
+}
 
 /** Đã có xung đang bay từ `sourceChip` tới `targetChip` chưa (tránh bắn trùng cặp). */
 function hasCircuitSignalBetween(activeSignals, sourceChip, targetChip) {
     return activeSignals.some((s) => s.source === sourceChip && s.target === targetChip);
 }
 
-// MỚI: chip nguồn nháy nhẹ lúc bắn (arrival đã có nháy ở đích) — cùng khuôn fromTo/overwrite của
-// onCircuitSignalArrival() (xem lý do ở đó) để 2 lần nháy chồng nhau vẫn luôn về scale 1.
-function pulseChipOnFire(chip) {
-    gsap.fromTo(chip.bodyMesh.scale, { x: 1, y: 1, z: 1 }, { x: 1.45, y: 1.45, z: 1.45, duration: 0.1, yoyo: true, repeat: 1, ease: 'power2.out', overwrite: true });
-}
-
-// GIỮ NGUYÊN 100% — 3 chế độ + hằng số hình học + tween GSAP của triggerCinematicCameraShift() gốc.
+// GIỮ NGUYÊN — 3 chế độ + hằng số hình học + tween GSAP của triggerCinematicCameraShift() gốc (chỉ chạy ở camera orbit).
 function triggerCinematicCameraShift(camera, controls, chips, activeSignals) {
     const modes = ['ORBIT_SWEEP', 'TRACK_SIGNAL', 'CLOSE_NODE'];
     const mode = modes[Math.floor(Math.random() * modes.length)];
@@ -746,35 +463,22 @@ function triggerCinematicCameraShift(camera, controls, chips, activeSignals) {
     return mode;
 }
 
-// ===================== bootstrap dùng chung =====================
+// ===================== bootstrap =====================
 
-// MỚI (phản hồi Giang — "circuit nền đen, không lộ lớp phía sau như vortex/synapse"): circuit là
-// style DUY NHẤT render qua EffectComposer + UnrealBloomPass (three r128). Pass bloom cộng
-// (AdditiveBlending, SRC_ALPHA/ONE) 1 texture blur có alpha = 1.0 MỌI pixel lên kết quả → kênh
-// alpha của canvas bị đẩy lên 1 khắp màn hình (nền trong suốt của scene bị "đổ" thành đen đặc),
-// dù scene.background=null/setClearAlpha(0). Synapse/vortex render thẳng tRenderer nên không dính.
-// Pass cuối này TÍNH LẠI alpha từ độ sáng (alpha = max(r,g,b)): pixel đen -> trong suốt (lộ
-// Visual Background/video phía sau), pixel sáng (chip, tia, halo bloom) -> đặc dần. Canvas WebGL
-// mặc định premultipliedAlpha=true và rgb <= max(rgb) = alpha luôn đúng điều kiện premultiplied
-// hợp lệ -> phần glow cộng sáng lên lớp phía sau đúng kiểu additive, không viền đen quanh halo.
+// Circuit render qua EffectComposer + UnrealBloomPass; pass cuối TÍNH LẠI alpha từ độ sáng (alpha = max(r,g,b)) để nền
+// trong suốt lộ Visual Background phía sau (bloom cộng đẩy alpha lên 1 khắp màn hình). GIỮ NGUYÊN.
 const CN_ALPHA_FROM_LUMA_SHADER = {
     uniforms: { tDiffuse: { value: null } },
     vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: 'uniform sampler2D tDiffuse; varying vec2 vUv; void main() { vec4 c = texture2D(tDiffuse, vUv); float a = clamp(max(c.r, max(c.g, c.b)), 0.0, 1.0); gl_FragColor = vec4(c.rgb, a); }'
 };
 
-// [TÁCH — 28/09/2026, Phase 5 dọn visualizer] initThreeJSConnector()/resetConnectorPerTrackState()/updateConnectorVisibility()
-// ĐÃ BỎ: đọc/ghi appState, gọi getEffectConfig() + chuỗi core khác, rẽ 2 tiến trình theo style. Nay: builder/hàm thuần dưới
-// đây, điều phối (đọc config, renderer dùng chung, textures, mạng synapse/circuit, ghi appState, chọn góc máy theo style,
-// dọn tia khi đổi bài) ở event/workflow/visualizer/connector.js.
-
-/** Sân khấu Connector: scene trong suốt, camera, OrbitControls, 4 đèn, 2 nhóm rỗng (synapse, circuit) đã gắn vào scene
- * — thuần, trả object. Thông số giữ nguyên initThreeJSConnector() cũ. */
+/** Sân khấu Connector: scene trong suốt, camera, OrbitControls, 4 đèn, nhóm circuit rỗng đã gắn vào scene. */
 function buildConnectorStage(aspect, renderer) {
     const scene = new THREE.Scene();
     scene.background = null; // trong suốt — lộ Visual Background phía dưới
     const camera = new THREE.PerspectiveCamera(50, aspect, 0.1, 1200);
-    camera.position.set(0, 30, 210);
+    camera.position.set(CIRCUIT_ORBIT_HOME.x, CIRCUIT_ORBIT_HOME.y, CIRCUIT_ORBIT_HOME.z);
 
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -792,19 +496,17 @@ function buildConnectorStage(aspect, renderer) {
     scene.add(fillLight);
     scene.add(new THREE.PointLight(0x00f3ff, 2.0, 100));
 
-    const groupSynapse = new THREE.Group();
     const groupCircuit = new THREE.Group();
-    scene.add(groupSynapse);
     scene.add(groupCircuit);
-    return { scene, camera, controls, groupSynapse, groupCircuit };
+    return { scene, camera, controls, groupCircuit };
 }
 
-/** Gắn 1 object con vào nhóm (vd lớp hạt dịch vi mô vào nhóm synapse). */
+/** Gắn 1 object con vào nhóm. */
 function attachThreeChild(parent, child) {
     parent.add(child);
 }
 
-/** Chuỗi hậu kỳ của circuit: render -> bloom -> alpha theo độ sáng (giữ nền trong suốt). */
+/** Chuỗi hậu kỳ: render -> bloom -> alpha theo độ sáng (giữ nền trong suốt). */
 function buildConnectorComposer(renderer, scene, camera, width, height) {
     const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(width, height), 2.2, 0.6, 0.12);
     const composer = new THREE.EffectComposer(renderer);
@@ -814,27 +516,7 @@ function buildConnectorComposer(renderer, scene, camera, width, height) {
     return { composer, bloomPass };
 }
 
-/** Chỉ nhóm của style đang chọn được hiện. */
-function setConnectorGroupVisibility(groupSynapse, groupCircuit, style) {
-    groupSynapse.visible = style === 'synapse';
-    groupCircuit.visible = style === 'circuit';
-}
-
-/** Góc máy synapse: nhìn thẳng lưới phẳng, khoá xoay/zoom/pan (lưới lấp đầy khung nhìn). */
-function applySynapseCameraView(scene, camera, controls) {
-    scene.fog = new THREE.FogExp2(0x010308, 0.0018);
-    camera.fov = SYNAPSE_CAMERA_FOV_DEG; camera.far = 1200;
-    camera.position.set(0, 0, SYNAPSE_CAMERA_DISTANCE);
-    controls.target.set(0, 0, 0);
-    controls.minDistance = SYNAPSE_CAMERA_DISTANCE; controls.maxDistance = SYNAPSE_CAMERA_DISTANCE;
-    controls.enableZoom = false;
-    controls.enableRotate = false;
-    controls.enablePan = false;
-    controls.autoRotate = false;
-    camera.updateProjectionMatrix();
-}
-
-/** Góc máy circuit: cho xoay/zoom/pan, không autoRotate (GSAP cinematic riêng). */
+/** Góc máy circuit: fog + fov + giới hạn OrbitControls (bật/tắt điều khiển do chế độ camera quyết định). */
 function applyCircuitCameraView(scene, camera, controls) {
     scene.fog = new THREE.FogExp2(0x02040a, 0.005);
     camera.fov = 45; camera.far = 1000;
