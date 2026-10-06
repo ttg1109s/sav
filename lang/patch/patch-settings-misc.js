@@ -71,7 +71,12 @@ const LANG_PATCH_SETTINGS_MISC = {
     // MỚI (06/10/2026, Giang yêu cầu — navigator.storage.estimate() ngay thanh dung lượng) — đoạn
     // "Khác" của thanh (usage của origin trừ media) + dòng "còn trống / tối đa" ngay dưới thanh.
     'storageDrawer.legendOther': 'Other (app data, temp files)',
-    'storageDrawer.statFreeBytes': 'Available / app limit',
+    // SỬA (06/10/2026, Giang) — "app limit" -> "Limit"; + chú thích icon (i) ngay cạnh nhãn (statFreeBytesInfo).
+    'storageDrawer.statFreeBytes': 'Available / Limit',
+    // MỚI (06/10/2026, Giang) — đã đối chiếu MDN "Storage quotas and eviction criteria": quota là ước lượng THẬN TRỌNG
+    // của trình duyệt (tính theo TỔNG dung lượng máy, không theo chỗ còn trống; có thể làm lệch cố ý chống fingerprint),
+    // nên chỗ ghi được THẬT có thể ít hơn khi app khác chiếm đầy bộ nhớ; máy sắp hết chỗ thì hệ thống có thể xoá dữ liệu web.
+    'storageDrawer.statFreeBytesInfo': 'An estimate reported by the browser/OS, not the real free space on your device. The limit is based on your device\'s total storage, so when other apps fill up the device, the space SAV can actually use may be smaller than shown. If the device runs very low on storage, the system may also clear website data.',
     // MỚI (29/07/2026, mục 2c) — tiêu đề section "Chọn mục xoá" (THAY "Free up storage" — giờ
     // gồm CẢ phần chọn nguồn LẪN 2 toggle hành động trong CÙNG 1 khối, không tách riêng nữa).
     // SỬA (29/07/2026, yêu cầu Giang) — đổi tên hiển thị thành "Delete & Backup" (khớp đúng ý
