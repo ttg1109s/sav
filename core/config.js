@@ -45,8 +45,9 @@
                 barStyle: 'mirror', minH: 4, maxH: 400, mirrorBarCount: 32,
                 barFillRatio: 0.6, barCornerRadius: 3,
                 // MỚI (25/09/2026, Giang — cải tiến mirror, core/visualizer/groups/bar/mirror.js): thân bướm = bội
-                // số gap thường (1-6), nâng treble trên 1kHz (dB/quãng tám), vạch đỉnh, làm mượt kề (0 = tắt).
-                mirrorCenterGap: 2, mirrorTilt: 3, mirrorPeaks: true, mirrorSmoothSpread: 0,
+                // số gap thường (1-6), nâng treble trên 1kHz (dB/quãng tám), làm mượt kề (0 = tắt). (mirrorPeaks — vạch đỉnh
+                // "Peak caps" — XOÁ 07/10/2026, Giang; loadConfig() dọn khỏi cấu hình đã lưu.)
+                mirrorCenterGap: 2, mirrorTilt: 3, mirrorSmoothSpread: 0,
                 cascadeBaseAlpha: 0.2, cascadeKeyCount: 64,
                 // Style "black hole" (CHUYỂN NHÓM 05/09/2026 — trước đây bucket 'black hole' riêng)
                 // — dùng CHUNG minH/maxH ở trên (cùng field, cùng ý nghĩa "chiều cao cột tần số").
@@ -1050,6 +1051,10 @@
                 }
                 if (cn) delete cn.bloomStrengthBase;
                 if (cn) delete cn.bloomStrengthEnergyMult; // energy boost của bloom BỎ (07/10/2026, Giang)
+                // XOÁ option "Peak caps" của bar mirror (07/10/2026, Giang) — dọn field khỏi bucket bar + mọi ô byStyle.
+                const barCfg = (cfg.customEffect || {}).bar;
+                if (barCfg) delete barCfg.mirrorPeaks;
+                if (barCfg && barCfg.byStyle) Object.keys(barCfg.byStyle).forEach((st) => { if (barCfg.byStyle[st]) delete barCfg.byStyle[st].mirrorPeaks; });
                 cfg.autoSwitchVisualGroupList = (cfg.autoSwitchVisualGroupList || []).map((item) => (item && item.key === 'connector' && CONNECTOR_REMOVED_STYLES.includes(item.style) ? { ...item, style: 'circuit' } : item));
                 cfg.autoSwitchVisualStyleList = (cfg.autoSwitchVisualStyleList || []).map((item) => (item && CONNECTOR_REMOVED_STYLES.includes(item.key) ? { ...item, key: 'circuit' } : item));
                 cfg.autoSwitchVisualGroupList = normalizeAutoSwitchGroupList(cfg.autoSwitchVisualGroupList, EFFECT_GROUPS); // core/auto-switch-visual.js

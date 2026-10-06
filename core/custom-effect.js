@@ -127,7 +127,7 @@ const CUSTOM_EFFECT_STYLE_LABEL_KEYS = {
 const CUSTOM_EFFECT_FIELDS = {
     bar: [
         // ── element ──
-        { id: 'mirrorPeaks', labelKey: 'customEffectDrawer.field.mirrorPeaks', type: 'toggle', card: 'element', showIf: (cfg) => cfg.barStyle === 'mirror' }, // MỚI 25/09/2026
+        // (mirrorPeaks — "Peak caps" — ĐÃ XOÁ 07/10/2026, Giang.)
         { id: 'cascadeBaseAlpha', labelKey: 'customEffectDrawer.field.cascadeBaseAlpha', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, card: 'element', showIf: (cfg) => cfg.barStyle === 'cascade' },
         // dotImpactMode (card 'reaction', chỉ style 'dot') — select nên luôn đứng trước maxH (slider) trong card,
         // theo CUSTOM_EFFECT_FIELD_TYPE_ORDER.
