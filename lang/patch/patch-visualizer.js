@@ -63,8 +63,11 @@ const LANG_PATCH_VISUALIZER = {
     'eqPresets.defaultNewPresetName': 'New preset',
     'eqPresets.editTitle': 'Edit preset',
     'eqPresets.resetButton.title': 'Restore original values',
-    'eqPresets.save': 'Save',
+    // XOÁ (07/10/2026) — 'eqPresets.save' (nút Lưu đã bỏ — Edit EQ tự lưu).
     'eqPresets.apply': 'Apply',
+    'eqPresets.applied': 'Applied', // MỚI 07/10/2026 — nút Áp dụng ở trạng thái khoá (preset đang dùng)
+    'eqPresets.appliedNotice': '"{name}" is now applied.', // MỚI 07/10/2026 — modal sau khi bấm Áp dụng
+    'eqPresets.alreadyApplied': '"{name}" is already applied.', // MỚI 07/10/2026 — bấm nút Áp dụng đang khoá
     'eqPresets.name.label': 'Name',
     'eqPresets.lockedHint': 'Default is read-only and cannot be edited or deleted.',
     'eqPresets.delete': 'Delete preset',
@@ -118,7 +121,7 @@ const LANG_PATCH_VISUALIZER = {
     'effectPicker.title': 'Choose effect',
     'effectPicker.groupLabel': 'Category',
     'effectPicker.styleLabel': 'Style',
-    'effectPicker.autoSwitchLocked': 'Auto-Switch Effect is on, so effects can\'t be picked manually. Turn it off in Settings › Auto-Switch Effect. Hold the icon to open Custom Effect.', // MỚI 26/09/2026
+    'effectPicker.autoSwitchLocked': 'Auto-Switch Effect is on, so effects can\'t be picked or customized manually. Turn it off in Settings › Auto-Switch Effect.', // MỚI 26/09/2026; SỬA 07/10/2026 — giữ icon cũng bị chặn (Custom Effect), bỏ câu "Hold the icon..." 
     'visualizerSettingsDrawer.mirrorCount.label': 'Number of bars (per side)',
     'visualizerSettingsDrawer.rainStyle.label': 'Rain effect style',
     'visualizerSettingsDrawer.rainStyle.glass': 'Drips on glass',

@@ -271,8 +271,8 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'motionPresetsDrawer.defaultName': 'Motion {n}',
     'motionPresetsDrawer.migratedName': 'Default',
     'motionPresetsDrawer.list.add.label': 'Add new configuration',
-    'motionPresetsDrawer.list.addRandom.label': 'Random', // MỚI 25/09/2026 — random thông minh (ngắn: nằm CÙNG HÀNG nút Add)
-    'motionPresetsDrawer.randomName': 'Random {n}',
+    // XOÁ (07/10/2026) — 'motionPresetsDrawer.list.addRandom.label' / 'motionPresetsDrawer.randomName' (nút random cả preset đã bỏ).
+    'motionPresetsDrawer.randomValues.title': 'Randomize values', // MỚI 07/10/2026 — nút xúc xắc nhóm React Beat / Point Move
     'motionPresetsDrawer.list.delete.title': 'Delete',
     'motionPresetsDrawer.list.empty': 'No configurations yet — add one to get started.',
     'motionPresetsDrawer.edit.title': 'Edit configuration',
