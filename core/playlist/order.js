@@ -51,8 +51,10 @@ function liveKeys(playlistOrder, confirmedBrokenKeys) {
  *   — core/playlist/filter.js) — bài chưa có thống kê coi như 0.
  * @param {string} statDirection - displayStatSortDirection hiện tại — 'desc'|'asc'
  * @param {Map} songNameIndex @param {Map} playlistCache @param {Map} mediaStatsMap
+ * @param {'song'|'video'|'photo'} mediaType - SỬA (06/10/2026, plan-media-db-split.md mục 6) — key `mediaStatsMap` giờ là
+ *   `type:key` (key trùng giữa các loại không còn cộng chung); `keys` luôn cùng 1 loại (Nguồn đang xem).
  */
-function sortKeysByMode(keys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap) {
+function sortKeysByMode(keys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap, mediaType) {
     // Trục (1) — tên/ngày, closure CỤC BỘ (không phải hàm top-level riêng — xem docstring).
     const nameCmp = (nameMode === 'newest' || nameMode === 'oldest')
         ? (a, b) => {
@@ -69,8 +71,8 @@ function sortKeysByMode(keys, nameMode, statField, statDirection, songNameIndex,
 
     // Trục (2) — thống kê, CÙNG LÝ DO gộp thẳng thành closure cục bộ, không tách hàm riêng.
     let getValue;
-    if (statField === 'count') getValue = (k) => (mediaStatsMap.get(k) || {}).count || 0;
-    else if (statField === 'times') getValue = (k) => (mediaStatsMap.get(k) || {}).totalTime || 0;
+    if (statField === 'count') getValue = (k) => (mediaStatsMap.get(`${mediaType}:${k}`) || {}).count || 0;
+    else if (statField === 'times') getValue = (k) => (mediaStatsMap.get(`${mediaType}:${k}`) || {}).totalTime || 0;
     else if (statField === 'size') getValue = (k) => (playlistCache.get(k) || {}).size || 0;
     else getValue = (k) => (playlistCache.get(k) || {}).duration || 0; // 'duration'
     const desc = statDirection === 'desc';

@@ -148,16 +148,17 @@ function _startOfLocalDayMs(ms) {
  * @param {Map} playlistCache
  * @param {Map} mediaStatsMap
  * @param {Object<string, ?Object>} rulesBucket - `playlistFilterConfig.song` hoặc `.video`
+ * @param {'song'|'video'|'photo'} mediaType - SỬA (06/10/2026, plan-media-db-split.md mục 6) — key `mediaStatsMap` là `type:key`.
  * @returns {string[]}
  */
-function applyPlaylistFilter(keys, playlistCache, mediaStatsMap, rulesBucket) {
+function applyPlaylistFilter(keys, playlistCache, mediaStatsMap, rulesBucket, mediaType) {
     const activeFields = Object.keys(rulesBucket).filter((field) => rulesBucket[field]);
     if (activeFields.length === 0) return keys.slice();
 
     return keys.filter((key) => {
         const cached = playlistCache.get(key);
         if (!cached) return false;
-        const stats = mediaStatsMap.get(key) || { count: 0, totalTime: 0 };
+        const stats = mediaStatsMap.get(`${mediaType}:${key}`) || { count: 0, totalTime: 0 };
 
         for (const field of activeFields) {
             const rule = rulesBucket[field];

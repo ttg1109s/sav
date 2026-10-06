@@ -262,7 +262,7 @@
          * (event/workflow/file-manager-video.js::_extractVideoMediaInfo() ĐÃ XOÁ) — `getVideoRecord()`
          * không còn trả các field đó nữa.
          */
-        async function openSongEditModal(key) {
+        async function openSongEditModal(key, stats) {
             const cached = appState.get('playlistCache').get(key); if (!cached) return;
             playlistStore.set({ songEditCurrentKey: key, songEditPendingCover: null });
             revokeSongEditPendingPreview(); // an toàn cho CẢ 3 nhánh — dọn preview còn sót từ lần mở TRƯỚC (nếu có)
@@ -276,7 +276,8 @@
             // dropdown của photo") — nhóm field thứ 3, mirror ĐÚNG cách 2 nhóm trên toggle.
             if (songEditFieldsPhotoGroup) songEditFieldsPhotoGroup.classList.toggle('hidden', !isPhoto);
 
-            const stats = getSongStats(key); // core/listen-stats.js — key-agnostic (Map<string,...>), dùng chung được cho videoKey/imageKey
+            // SỬA (06/10/2026, plan-media-db-split.md mục 6) — `stats` ({count, totalTime}, ĐÚNG loại media) do Workflow truyền
+            // vào (workflowPlaylist.openSongEditFromActionMenu()) thay cho tự gọi getSongStats(key) (core gọi core).
             const emptyVal = t('playlistView.songInfo.empty');
 
             if (isVideo) {
@@ -438,55 +439,17 @@
         }
 
         /**
-         * Bản Video của applySongEditAndSave() ngay trên — VIẾT RIÊNG (không gọi
-         * core/file-manager/video.js::setVideoCustomName(), core gọi core khác file VẪN là core
-         * gọi core — Rule 3 áp dụng bất kể ranh giới file) — inline 2 dòng ghi customName trực
-         * tiếp tại đây.
-         * FIX (Giang báo — sau khi Lưu tab "Sửa", cover mất + phát lỗi không hiển thị video) — CÙNG
-         * GỐC BUG đã fix cho Song (`rematerializeBlob()`, service/db.js, xem comment ở
-         * applySongEditAndSave() dưới) nhưng CHƯA từng áp dụng ở đây: `record.blob`/`record.thumbBlob`
-         * đọc lên từ `getVideoRecord()` là Blob ROUND-TRIP qua IndexedDB — ghi lại NGUYÊN 2 Blob đó
-         * (dù không đổi 1 byte nội dung) khiến backing file không ổn định trong CÙNG phiên (bug
-         * Chromium) — thumbnail (record.thumbBlob, hiện ở item Playlist) vỡ NGAY, video (record.blob)
-         * lỗi decode khi phát lại KHÔNG CẦN reload trang. Vật chất hoá lại CẢ 2 trước khi ghi.
-         * FIX 2 (Giang báo tiếp — "vẫn bị lỗi... bị chèn cover mặc định") — bug trên CHỈ vá được
-         * phần GHI XUỐNG DB; `cached.cover` (playlistCache, THỨ THẬT sự được dùng để vẽ lại item
-         * ngay sau khi Lưu — xem core/playlist/render.js) vẫn là Blob CŨ, đọc TỪ TRƯỚC lúc modal mở
-         * (khác reference với `record.thumbBlob` vừa rematerialize ở trên) — object URL tạo từ Blob
-         * cũ đó decode lỗi (CÙNG root cause), `attachCoverFallback()` (render.js) bắt lỗi `onerror`
-         * rồi tự thay bằng DEFAULT_VINYL — ĐÚNG triệu chứng "bị chèn cover mặc định". Fix: trỏ
-         * `cached.cover` sang ĐÚNG Blob vừa rematerialize (chắc chắn ổn định) thay vì Blob cũ.
-         * @param {string} key
-         * @param {string} customName - rỗng = xoá tên riêng, rơi về filename gốc (đã bỏ đuôi mở
-         *        rộng) khi hiển thị.
-         * @param {string} album - rỗng = xoá album.
-         * @returns {{status: 'notFound'|'ok'}}
+         * SỬA (06/10/2026, plan-media-db-split.md — THAY `applyVideoEditAndSave()`, core cũ tự đọc DB + appState + DOM,
+         * vi phạm Rule 2/3) — CHỈ còn phần tính dữ liệu THUẦN: meta mới sau khi sửa tab "Sửa" của Video. Workflow
+         * (event/workflow/playlist.js::executeSaveEdit()) truyền hàm này vào `updateMediaMeta()` (service/db.js — chỉ ghi
+         * store meta, KHÔNG ghi lại Blob nào nên hết hẳn lỗi round-trip cũ: cover mất / video lỗi decode sau khi Lưu).
+         * @param {object} meta - meta hiện tại (KHÔNG có Blob)
+         * @param {string} customName - rỗng = xoá tên riêng
+         * @param {string} album - rỗng = xoá album
+         * @returns {object} meta mới
          */
-        async function applyVideoEditAndSave(key, customName, album) {
-            const record = await getVideoRecord(key); // service/db.js
-            if (!record) return { status: 'notFound' };
-            record.customName = customName || null;
-            record.album = album || null; // MỚI (Giang yêu cầu — field Album)
-            if (record.blob) record.blob = await rematerializeBlob(record.blob); // service/db.js — FIX round-trip, xem docstring trên
-            if (record.thumbBlob) record.thumbBlob = await rematerializeBlob(record.thumbBlob); // service/db.js — CÙNG lý do, thumbnail item Playlist
-            await setVideoRecord(key, record); // service/db.js
-
-            const displayName = record.customName || stripFileExtension(record.filename); // core/file-manager/video.js
-            const cached = appState.get('playlistCache').get(key);
-            if (cached) {
-                cached.tag.title = displayName;
-                cached.tag.album = record.album || ''; // MỚI — search/filter đọc field này (core/playlist/order.js, core/playlist/filter.js), đã hoạt động chung sẵn, chỉ cần field có dữ liệu
-                cached.cover = record.thumbBlob || record.blob; // FIX 2 — trỏ sang Blob vừa rematerialize, xem docstring trên
-            }
-            appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(displayName)));
-
-            if (key === appState.get('currentKey')) {
-                playerTitle.textContent = displayName;
-                if ('mediaSession' in navigator) {
-                    navigator.mediaSession.metadata = new MediaMetadata({ title: displayName, artist: '', artwork: [] });
-                }
-            }
-            return { status: 'ok' };
+        function buildVideoEditMeta(meta, customName, album) {
+            return { ...meta, customName: customName || null, album: album || null };
         }
 
         /**
@@ -509,116 +472,28 @@
         }
 
         /**
-         * Bản Photo của applyVideoEditAndSave() ngay trên — VIẾT RIÊNG (cùng lý do Rule 3 đã giải
-         * thích ở đó). Ghi CẢ `customName` LẪN `duration` LẪN `album` cùng lúc (1 nút Lưu cho cả
-         * tab "Sửa").
-         * FIX (Giang báo — sau khi Lưu tab "Sửa", cover mất + phát lỗi không hiển thị ảnh) — CÙNG
-         * GỐC BUG applyVideoEditAndSave() ngay trên vừa fix (`rematerializeBlob()`, service/db.js)
-         * — `record.blob`/`record.thumbBlob` round-trip qua IndexedDB, PHẢI vật chất hoá lại trước
-         * khi ghi.
-         * FIX 2 (Giang báo tiếp — "vẫn bị lỗi... bị chèn cover mặc định") — CÙNG GỐC applyVideoEditAndSave()'s
-         * FIX 2 — `cached.cover` phải trỏ sang ĐÚNG Blob vừa rematerialize, xem docstring ở đó.
-         * @param {string} key
-         * @param {string} customName - rỗng = xoá tên riêng, rơi về filename gốc khi hiển thị.
-         * @param {number} durationSec - giây, số thực, KHÔNG kẹp trần (Giang chốt "có min nhưng
-         *        không max" — sàn DURATION_MIN_SEC đã tự áp trong openPhotoEditDurationPicker(),
-         *        event/workflow/playlist.js, TRƯỚC khi giá trị này tới được đây).
-         * @param {string} album - rỗng = xoá album.
-         * @returns {{status: 'notFound'|'ok'}}
+         * SỬA (06/10/2026, plan-media-db-split.md — THAY `applyPhotoEditAndSave()`, cùng lý do buildVideoEditMeta() ngay
+         * trên) — meta mới sau khi sửa tab "Sửa" của Photo (tên riêng + thời lượng + album).
+         * @param {object} meta
+         * @param {string} customName - rỗng = xoá tên riêng
+         * @param {number} durationSec - giây (sàn DURATION_MIN_SEC đã áp ở picker, không kẹp trần)
+         * @param {string} album - rỗng = xoá album
+         * @returns {object} meta mới
          */
-        async function applyPhotoEditAndSave(key, customName, durationSec, album) {
-            const record = await getImageRecord(key); // service/db.js
-            if (!record) return { status: 'notFound' };
-            record.customName = customName || null;
-            record.duration = durationSec;
-            record.album = album || null; // MỚI (Giang yêu cầu — field Album)
-            if (record.blob) record.blob = await rematerializeBlob(record.blob); // service/db.js — FIX round-trip, xem docstring applyVideoEditAndSave()
-            if (record.thumbBlob) record.thumbBlob = await rematerializeBlob(record.thumbBlob); // service/db.js — CÙNG lý do, thumbnail item Playlist
-            await setImageRecord(key, record); // service/db.js
-
-            const displayName = record.customName || stripFileExtension(record.filename);
-            const cached = appState.get('playlistCache').get(key);
-            if (cached) {
-                cached.tag.title = displayName;
-                cached.tag.album = record.album || ''; // MỚI — search/filter dùng chung sẵn, xem applyVideoEditAndSave()
-                cached.duration = durationSec;
-                cached.cover = record.thumbBlob || record.blob; // FIX 2 — xem docstring applyVideoEditAndSave()
-            }
-            appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(displayName)));
-
-            if (key === appState.get('currentKey')) {
-                playerTitle.textContent = displayName;
-                appState.set('photoPlayerDurationSec', durationSec, { skipCheck: true }); // event/workflow/photo-player.js đọc field này mỗi tick — ảnh ĐANG hiển thị đổi duration ngay, không cần đợi phát lại
-                if ('mediaSession' in navigator) {
-                    navigator.mediaSession.metadata = new MediaMetadata({ title: displayName, artist: '', artwork: [] });
-                }
-            }
-            return { status: 'ok' };
+        function buildPhotoEditMeta(meta, customName, durationSec, album) {
+            return { ...meta, customName: customName || null, duration: durationSec, album: album || null };
         }
 
         /**
-         * Hàm core THUẦN, nhận toàn bộ data qua tham số (KHÔNG tự đọc playlistStore) — để
-         * workflow bọc withLoadingShield() quanh đúng lệnh gọi này.
-         * @param {string} key
-         * @param {Object} newTag
-         * @param {File|'remove'|null} pendingCover
-         * @returns {{status: 'notFound'|'ok'}}
+         * SỬA (06/10/2026, plan-media-db-split.md — THAY `applySongEditAndSave()`, cùng lý do buildVideoEditMeta() ở trên)
+         * — meta mới sau khi sửa tag Song. Ảnh bìa KHÔNG nằm trong meta: Workflow tự ghi store thumb qua
+         * `setMediaThumbs()` khi người dùng chọn ảnh mới / xoá ảnh (giữ nguyên thì không ghi gì).
+         * @param {object} meta
+         * @param {Object} newTag - {title, artist, album}
+         * @returns {object} meta mới
          */
-        async function applySongEditAndSave(key, newTag, pendingCover) {
-            const record = await getSongRecord(key);
-            if (!record) return { status: 'notFound' };
-            record.tag = { ...record.tag, ...newTag };
-            // Ảnh bìa: File mới -> ghi thẳng Blob (File là 1 dạng Blob, lưu IndexedDB được luôn,
-            // giống cách record.cover đã được ghi từ jsmediatags lúc nạp file ban đầu). 'remove'
-            // -> xóa hẳn field cover (record không còn cover -> các nơi đọc cover tự fallback
-            // DEFAULT_VINYL, đúng hành vi cũ khi 1 bài chưa từng có cover).
-            if (pendingCover instanceof File) record.cover = pendingCover;
-            else if (pendingCover === 'remove') delete record.cover;
-            // FIX (Giang báo — sau khi Lưu tab "Sửa" mà KHÔNG đổi cover, cover mất) — TRƯỚC ĐÂY chỉ
-            // rematerialize `record.blob`, bỏ sót `record.cover`: khi người dùng CHỈ sửa title/
-            // artist (không đụng cover), `record.cover` ở đây vẫn NGUYÊN Blob round-trip từ
-            // getSongRecord() phía trên (2 nhánh if/else if trên KHÔNG chạy) — CÙNG GỐC BUG với
-            // record.blob ngay dưới (rematerializeBlob(), service/db.js), ghi lại nguyên xi cũng vỡ
-            // y hệt. CHỈ rematerialize khi record.cover THỰC SỰ là Blob round-trip (không phải File
-            // mới vừa gán ở nhánh trên, cũng không phải đã bị xoá) — dùng else if nối tiếp 2 nhánh
-            // trên, tự loại 2 trường hợp đó.
-            else if (record.cover) record.cover = await rematerializeBlob(record.cover);
-            // FIX (decode lỗi khi nghe lại bài VỪA sửa info, không reload mới hết) — xem giải thích
-            // đầy đủ tại rematerializeBlob() (db.js). record.blob ở đây là Blob round-trip từ
-            // getSongRecord() phía trên, PHẢI vật chất hoá lại thành Blob mới trước khi ghi đè.
-            if (record.blob) record.blob = await rematerializeBlob(record.blob);
-            await setSongRecord(key, record);
-
-            const cached = appState.get('playlistCache').get(key);
-            if (cached) { cached.tag = record.tag; cached.cover = record.cover || null; }
-            appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(record.tag.title)));
-
-            if (key === appState.get('currentKey')) {
-                playerTitle.textContent = record.tag.title; playerArtist.textContent = record.tag.artist;
-                if (appState.get('currentCoverObjectURL') && appState.get('currentCoverObjectURL').startsWith('blob:')) URL.revokeObjectURL(appState.get('currentCoverObjectURL'));
-                appState.set('currentCoverObjectURL', record.cover ? URL.createObjectURL(record.cover) : DEFAULT_VINYL);
-                // NGOẠI LỆ CỐ Ý: #record-art là phần tử ĐỘNG (tạo lại qua innerHTML mỗi lần đổi
-                // bài) — không thể dùng biến cố định từ dom-refs.js, phải tự getElementById tại
-                // chỗ cần (xem comment chi tiết ở khối "Playlist actions" trong dom-refs.js).
-                const recordArtEl = document.getElementById('record-art');
-                if (recordArtEl) {
-                    recordArtEl.src = appState.get('currentCoverObjectURL');
-                    // Gắn lại fallback mỗi khi đổi src (ver 8 refine, mục 4) — listener cũ tự
-                    // gỡ sau 1 lần lỗi (xem attachCoverFallback ở render.js), nên ảnh MỚI vừa
-                    // đổi sang cần listener mới của riêng nó để vẫn được bảo vệ.
-                    attachCoverFallback(recordArtEl);
-                }
-                if ('mediaSession' in navigator) {
-                    navigator.mediaSession.metadata = new MediaMetadata({
-                        title: record.tag.title || "Visual Master",
-                        artist: record.tag.artist || "Unknown Artist",
-                        // Ver 8 refine (mục 4): dùng đúng record.cover.type thật, xem comment
-                        // tương tự ở playSong() phía trên.
-                        artwork: record.cover ? [{ src: appState.get('currentCoverObjectURL'), sizes: '512x512', type: record.cover.type || 'image/jpeg' }] : []
-                    });
-                }
-            }
-            return { status: 'ok' };
+        function buildSongEditMeta(meta, newTag) {
+            return { ...meta, tag: { ...meta.tag, ...newTag } };
         }
 
         // DỜI (24/09/2026, rà soát refresh DOM) — `refreshAfterSongEditSave()` (tự `appState.get()` + gọi 3 hàm
