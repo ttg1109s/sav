@@ -95,7 +95,12 @@
  * video-preview.js, service/blob-url.js, event/workflow/media-transform-helpers.js (đổi tên từ
  * crop-ratio-helpers.js).
  */
-const FILMSTRIP_FRAME_COUNT = 14;
+// SỬA (06/10/2026, Giang #4: "lấy tổng time của video / 10 lấy được các mốc khung ảnh lưu tạm vào ram") — 14 -> 10 ô,
+// mốc ô thứ i = i × thời lượng/10 (core/video-editor/filmstrip.js). Ô nào không trích được ảnh: tạm hiện ảnh của ô gần
+// nhất (không còn ô đen), rồi trích LẠI ở giữa ô khi thả tay cầm Start/End (`_refillMissingFilmstripFrames()`).
+const FILMSTRIP_FRAME_COUNT = 10;
+const FILMSTRIP_THUMB_H = 56;              // = chiều cao dải phim (assets/css/video-preview.css)
+const FILMSTRIP_REFILL_OFFSET = 0.5;       // trích lại tại GIỮA ô (mốc đầu ô đã không có khung)
 const MIN_TRIM_DURATION = 0.3; // giây — khoảng cách tối thiểu giữa Start/End
 
 const VIDEO_PREVIEW_METADATA_TIMEOUT_MS = 15000; // Phase 1 — quá hạn chờ `<video>` báo metadata thì coi như hỏng, không kẹt shield
@@ -201,6 +206,7 @@ const workflowVideoPreview = {
     _beforeToolSnapshot: null, // { snapshot, hadUnsaved } lúc mở Cắt/Cắt khung — Huỷ khôi phục (RIÊNG, không phải Undo/Redo — mục đó đã bỏ hẳn 05/08/2026)
     _resolveMetadataReady: null,
     _filmstripUrls: [], // Phase 1 — blob URL ảnh dải phim, revoke khi đóng modal (trước đây rò rỉ 14 URL/lần mở)
+    _filmstripRefilling: false, // MỚI 06/10/2026 — đang trích lại ô thiếu ảnh (chỉ 1 lượt 1 lúc)
     _dragResumePlay: false, // SỬA (05/08/2026, mục 6) — nhớ lại video đang play hay pause TRƯỚC khi kéo tay cầm/tua, để nhả tay cầm KHÔNG tự auto-play nếu trước đó đang pause
 
     /** Cập nhật dòng chữ shield thành "... N%". @param {string} key @param {number} percent */
@@ -307,32 +313,82 @@ const workflowVideoPreview = {
         if (this._resolveMetadataReady) { this._resolveMetadataReady(false); this._resolveMetadataReady = null; }
     },
 
-    /** Trích N khung hình nền dải phim — SỬA (Phase 1): chạy TRONG shield của `open()`, báo tiến độ.
+    /** Trích ảnh nền dải phim (10 ô, xem FILMSTRIP_FRAME_COUNT) — chạy TRONG shield của `open()`, báo tiến độ. Ảnh giữ
+     * trong RAM: `videoPreviewFilmstripFrames` = 10 ô `{blob, url}` (url = blob URL tạo 1 lần, revoke lúc đóng).
      * @param {(done:number, total:number) => void} [onProgress] */
     async _renderFilmstripFrames(onProgress) {
         const record = appState.get('videoPreviewRecord');
-        const w = appState.get('videoPreviewNativeW'), h = appState.get('videoPreviewNativeH');
-        const thumbH = 56;
-        const thumbW = Math.max(30, Math.round(thumbH * (w / (h || 1))));
-        const frames = await buildCutFilmstripFrames(record.blob, FILMSTRIP_FRAME_COUNT, thumbW, thumbH, onProgress); // core/video-editor/filmstrip.js
+        const size = this._computeFilmstripThumbSize();
+        const frames = await buildCutFilmstripFrames(record.blob, FILMSTRIP_FRAME_COUNT, size.w, size.h, onProgress); // core/video-editor/filmstrip.js
         if (!this._modalHandle) return; // guard: modal đã đóng trước khi trích xong
-        appState.set('videoPreviewFilmstripFrames', frames);
+        const slots = Array.from({ length: FILMSTRIP_FRAME_COUNT }, () => ({ blob: null, url: null, refilled: false }));
+        frames.forEach((frame) => this._storeFilmstripFrame(slots, frame));
+        appState.set('videoPreviewFilmstripFrames', slots);
+        this._renderFilmstripCells();
+    },
 
-        // #video-preview-filmstrip-frames TÁCH RIÊNG khỏi #video-preview-filmstrip-track (SỬA
-        // 04/08/2026) — track không còn overflow:hidden nên 2 tay cầm ở 0%/100% không bị cắt mất
-        // nửa; container riêng này mới overflow:hidden để bo góc ảnh nền.
+    /** Kích thước 1 ảnh ô dải phim theo tỉ lệ video gốc. @returns {{w:number, h:number}} */
+    _computeFilmstripThumbSize() {
+        const w = appState.get('videoPreviewNativeW'), h = appState.get('videoPreviewNativeH');
+        return { w: Math.max(30, Math.round(FILMSTRIP_THUMB_H * (w / (h || 1)))), h: FILMSTRIP_THUMB_H };
+    },
+
+    /** Ghi 1 khung vừa trích vào ô của nó (tạo blob URL 1 lần). @param {Array} slots @param {{index:number, blob:Blob|null}} frame */
+    _storeFilmstripFrame(slots, frame) {
+        const slot = slots[frame.index];
+        if (!slot || !frame.blob) return; // guard: ô lạ / khung không trích được
+        slot.blob = frame.blob;
+        slot.url = createBlobUrl(frame.blob); // service/blob-url.js — revoke ở _disposeModal()
+        this._filmstripUrls.push(slot.url);
+    },
+
+    /** Vẽ lại 10 ô từ RAM: ô thiếu ảnh mượn ảnh của ô gần nhất có ảnh (không còn dải đen).
+     * #video-preview-filmstrip-frames TÁCH RIÊNG khỏi #video-preview-filmstrip-track (SỬA 04/08/2026) — track không còn
+     * overflow:hidden nên 2 tay cầm ở 0%/100% không bị cắt mất nửa; container riêng này mới overflow:hidden để bo góc. */
+    _renderFilmstripCells() {
+        const slots = appState.get('videoPreviewFilmstripFrames');
         const framesEl = this._modalHandle.filmstripFramesEl;
         framesEl.innerHTML = '';
-        frames.forEach(({ blob }) => {
+        slots.forEach((slot, i) => {
             const cell = document.createElement('div');
             cell.className = 'video-preview-filmstrip-frame';
-            if (blob) {
-                const url = createBlobUrl(blob); // service/blob-url.js — revoke ở _reallyClose() (Phase 1)
-                this._filmstripUrls.push(url);
-                cell.style.backgroundImage = `url(${url})`;
-            }
+            const url = slot.url || this._nearestFilmstripUrl(slots, i);
+            cell.style.backgroundImage = url ? `url(${url})` : '';
             framesEl.appendChild(cell);
         });
+    },
+
+    /** URL ảnh của ô gần ô `index` nhất (trái trước, phải sau, xa dần). @returns {string|null} */
+    _nearestFilmstripUrl(slots, index) {
+        for (let d = 1; d < slots.length; d++) {
+            const left = slots[index - d], right = slots[index + d];
+            if (left && left.url) return left.url;
+            if (right && right.url) return right.url;
+        }
+        return null;
+    },
+
+    /** MỚI (06/10/2026, Giang #4: "cập nhật khi start/end trim kết thúc") — thả tay cầm Start/End: ô nào vẫn thiếu ảnh
+     * (và chưa trích lại lần nào) được trích LẠI ở giữa ô, chạy nền (không shield), xong vẽ lại dải. Mỗi ô chỉ thử lại 1
+     * lần — vẫn không có khung thì giữ ảnh mượn của ô gần nhất. */
+    async _refillMissingFilmstripFrames() {
+        if (this._filmstripRefilling) return; // guard: đang có 1 lượt trích lại
+        const slots = appState.get('videoPreviewFilmstripFrames');
+        const indices = slots.map((slot, i) => (!slot.url && !slot.refilled ? i : -1)).filter((i) => i >= 0);
+        if (indices.length === 0) return; // guard: dải đã đủ ảnh
+        this._filmstripRefilling = true;
+        indices.forEach((i) => { slots[i].refilled = true; });
+        try {
+            const size = this._computeFilmstripThumbSize();
+            const frames = await buildCutFilmstripFrames(appState.get('videoPreviewRecord').blob, FILMSTRIP_FRAME_COUNT, size.w, size.h, null, { indices, offsetFraction: FILMSTRIP_REFILL_OFFSET }); // core/video-editor/filmstrip.js
+            if (!this._modalHandle) return; // guard: đã rời editor trong lúc trích
+            frames.forEach((frame) => this._storeFilmstripFrame(slots, frame));
+            this._renderFilmstripCells();
+        } catch (err) {
+            console.error('[workflowVideoPreview._refillMissingFilmstripFrames] trích lại ô thiếu ảnh lỗi (giữ ảnh mượn):', err);
+        } finally {
+            this._filmstripRefilling = false;
+        }
     },
 
     /** Vị trí 2 tay cầm Start/End + 2 dim + viền — tính lại mỗi lần cutStart/cutEnd đổi. */
@@ -419,10 +475,17 @@ const workflowVideoPreview = {
         appState.set('videoPreviewActiveDrag', null);
         if (!activeDrag) return;
         if (activeDrag !== 'seek' && activeDrag !== 'outerSeek') appState.set('videoPreviewHasUnsavedChanges', true); // tua thuần không phải thao tác sửa
+        this._refillFilmstripAfterHandleDrag(activeDrag); // MỚI 06/10/2026 (#4)
         if (this._dragResumePlay) { // CHỈ tự play lại nếu TRƯỚC đó đang play (mục 6 — không còn auto-play mặc định)
             this._modalHandle.videoEl.play().catch(() => {});
             appState.set('videoPreviewIsPlaying', true);
         }
+    },
+
+    /** Chỉ sau khi thả tay cầm Start/End (không phải tua). @param {string} activeDrag */
+    _refillFilmstripAfterHandleDrag(activeDrag) {
+        if (activeDrag !== 'start' && activeDrag !== 'end') return; // guard: tua dải phim/dải seek ngoài
+        this._refillMissingFilmstripFrames();
     },
 
     // ===================== Cut: phát/tạm dừng =====================
@@ -1106,6 +1169,7 @@ const workflowVideoPreview = {
     _disposeModal() {
         this._filmstripUrls.forEach((url) => revokeBlobUrl(url)); // service/blob-url.js — Phase 1
         this._filmstripUrls = [];
+        this._filmstripRefilling = false;
         if (this._modalHandle) { this._modalHandle.close(); this._modalHandle = null; }
         appState.set('videoPreviewVideoKey', null);
         appState.set('videoPreviewRecord', null);
