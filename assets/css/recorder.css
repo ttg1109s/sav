@@ -93,6 +93,41 @@
 .recorder-level i:nth-child(4) { --rec-k: 0.7; }
 .recorder-level i:nth-child(5) { --rec-k: 0.45; }
 
+/* MỚI (07/10/2026) — Clip warning: giọng quá to (|mẫu| ≥ 0.98) -> vạch mức mic đỏ, giữ 1s (core/recorder-ui.js::setRecorderClip()). */
+.recorder-indicator.is-clipping .recorder-level i {
+    background: #ef4444;
+}
+
+/* MỚI (07/10/2026) — Count-in: số đếm ngược lớn giữa màn; viên REC mờ đi trong lúc đếm (chưa ghi). */
+.recorder-countin {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 7rem;
+    font-weight: 800;
+    line-height: 1;
+    color: #f8fafc;
+    text-shadow: 0 4px 28px rgba(0, 0, 0, 0.55);
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+    animation: recorder-countin-pop 1s ease-out infinite;
+}
+
+@keyframes recorder-countin-pop {
+    0% { transform: translate(-50%, -50%) scale(1.25); opacity: 0.3; }
+    25% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(0.92); opacity: 0.85; }
+}
+
+#recorder-layer.is-counting .recorder-indicator {
+    opacity: 0.45;
+}
+
+#recorder-layer.is-counting .recorder-dot {
+    animation: none;
+}
+
 /* Modal nghe lại — mini waveform. */
 .recorder-review-wave-wrap {
     width: 100%;
