@@ -490,7 +490,7 @@ const workflowGameplay = {
      * gọi Core tự do) — `core/gameplay/engine-ui.js` (Core-ui) KHÔNG được gọi `escapeHtml()`
      * (Rule 3a, hàm đó nằm ở modal-choice-ui.js, KHÁC file). */
     async onSongEnded() {
-        stopListenClock(); // core — giữ parity với workflowPlayerControls.handleMediaEnded()
+        workflowListenStats.stopClock(); // event/workflow/listen-stats.js (SỬA 06/10/2026 — dời từ core) — giữ parity với workflowPlayerControls.handleMediaEnded()
         const { gameplayTotalScore, gameplayCircleCount, gameplayHitCounts, gameplayDifficulty, isVideoPlayerMode, isPhotoPlayerMode } = appState.get([
             'gameplayTotalScore', 'gameplayCircleCount', 'gameplayHitCounts', 'gameplayDifficulty', 'isVideoPlayerMode', 'isPhotoPlayerMode',
         ]);

@@ -94,7 +94,7 @@ const workflowAppBoot = {
         // XOÁ (29/08/2026) — comment cũ "Domain slideshow đã gộp vào visualBgConfig.slideshow (v13
         // Batch C)" không còn đúng — Motion tách hẳn thành hệ preset độc lập (migrate ở dòng
         // `workflowMotionPresets.loadPresetsOnBoot()` phía trên), không còn nhúng trong VBG.
-        if (typeof loadSongStats === 'function') await loadSongStats();
+        await workflowListenStats.loadAll(); // event/workflow/listen-stats.js — SỬA 06/10/2026 (thay core loadSongStats: thống kê nằm trong meta từng media)
 
         // MỚI (phản hồi Giang, mục 5 "Đồng bộ lại config Playlist Settings") — khôi phục
         // Nguồn/Sắp xếp/Kiểu xem đã lưu bền TRƯỚC KHI quyết định nạp playlistCache theo nguồn nào

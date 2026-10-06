@@ -177,7 +177,7 @@ const workflowPlaylist = {
             const record = await getRecord(mediaKey);
             if (record) await removeSongFromAllFolders(record); // core/file-manager/folder.js
             await deleteRecord(mediaKey);
-            removeSongStats(mediaKey); // dọn luôn thống kê nghe của bài đã xoá — key-agnostic, dùng chung được cho Video/Photo
+            workflowListenStats.forget(mediaType, mediaKey); // event/workflow/listen-stats.js — dọn thống kê RAM của media đã xoá (SỬA 06/10/2026: đúng loại)
             workflowPlaylistOrder.removeKeyFromDisplay(mediaKey); // event/workflow/playlist-order.js (dời từ core 24/09/2026)
 
             if (isCurrent && isVideo) {
@@ -212,7 +212,11 @@ const workflowPlaylist = {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return; // guard: menu không mở
         workflowPlaylist.closeActionMenu(); // core/playlist/actions.js
-        openSongEditModal(key); // core/playlist/actions.js
+        // SỬA (06/10/2026, plan-media-db-split.md mục 6) — Workflow đọc sẵn thống kê ĐÚNG loại media rồi truyền vào (core cũ tự
+        // gọi getSongStats(key) — core gọi core, và key trùng giữa các loại bị cộng chung).
+        const cached = appState.get('playlistCache').get(key);
+        const stats = workflowListenStats.getStats((cached && cached.mediaType) || 'song', key); // event/workflow/listen-stats.js
+        openSongEditModal(key, stats); // core/playlist/actions.js
     },
 
     /** MỚI (24/09/2026, dọn nợ "Core gọi Workflow") — ứng với 'playlist.playbackError.keep' (nút "Giữ lại"). THAY
@@ -242,7 +246,7 @@ const workflowPlaylist = {
             // SỬA (24/09/2026) — 3 bước của core `deleteBrokenSongByKey()` cũ đứng cạnh nhau ở đây (bản cũ: core gọi
             // core removeSongStats + removeKeyFromDisplay). Thứ tự giữ nguyên.
             await deleteMediaRecord('song', key); // service/db.js — SỬA 06/10/2026 (3 store, plan-media-db-split.md)
-            removeSongStats(key); // core/listen-stats.js
+            workflowListenStats.forget('song', key); // event/workflow/listen-stats.js (SỬA 06/10/2026)
             workflowPlaylistOrder.removeKeyFromDisplay(key); // event/workflow/playlist-order.js
         });
         // Bản gốc KHÔNG hiện alertModal nào sau khi xoá xong ở luồng này — giữ đúng hành vi cũ,
@@ -1378,8 +1382,8 @@ const workflowPlaylist = {
         // trên `undefined` -> TypeError ngay lần so sánh đầu (chắc chắn xảy ra khi chọn ≥2 bài).
         // Đọc ĐỦ 6 field, gọi ĐÚNG thứ tự 7 tham số — CÙNG khuôn đã dùng đúng ở
         // recomputeRenderOrder()/recomputeDisplayOrder() (core/playlist/order.js).
-        const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache: cache, mediaStatsMap } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap']);
-        const sorted = sortKeysByMode(keys, nameMode, statField, statDirection, songNameIndex, cache, mediaStatsMap); // core có sẵn, CÓ return, DÙNG NGAY dưới -> hợp lệ Rule 3
+        const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache: cache, mediaStatsMap, activeMediaSource } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'activeMediaSource']);
+        const sorted = sortKeysByMode(keys, nameMode, statField, statDirection, songNameIndex, cache, mediaStatsMap, activeMediaSource); // core/playlist/order.js — SỬA 06/10/2026: + loại media (key thống kê `type:key`)
         appState.set('displayOrder', sorted);
         console.log(`writer: "playSelectedSongs", page: "displayOrder", content: "${sorted.length} bài đã chọn, sort theo displaySortMode hiện tại"`);
         // FIX (vi phạm Rule 4 — core-function-conventions.md, mỗi lượt ghi appState phải có log)
@@ -2064,7 +2068,7 @@ const workflowPlaylist = {
                 if (!record) continue; // guard: đã bị xoá từ trước (hiếm, race) — bỏ qua, không chặn cả lô
                 await removeSongFromAllFolders(record); // core có sẵn (core/file-manager/folder.js) — nhận record THÔ qua tham số, generic cho cả Song/Video/Photo
                 await deleteRecord(key);
-                removeSongStats(key); // core có sẵn (core/listen-stats.js)
+                workflowListenStats.forget(mediaType, key); // event/workflow/listen-stats.js (SỬA 06/10/2026: đúng loại)
                 deletedKeys.push(key);
             }
             deletedCount = deletedKeys.length;

@@ -205,7 +205,7 @@ const workflowPlaylistScope = {
         const rulesBucket = !folderApplyFilter
             ? defaultRulesBucket
             : (folderHasOwnFilter ? folderRecordForFilter.filterConfig : (globalAppliesToFolder ? globalRulesBucket : defaultRulesBucket));
-        const filteredKeys = applyPlaylistFilter(appState.get('playlistOrder'), appState.get('playlistCache'), appState.get('mediaStatsMap'), rulesBucket);
+        const filteredKeys = applyPlaylistFilter(appState.get('playlistOrder'), appState.get('playlistCache'), appState.get('mediaStatsMap'), rulesBucket, mediaType); // core/playlist/filter.js — SỬA 06/10/2026: + loại media
         appState.set('playlistOrder', filteredKeys);
         console.log(`writer: "applyFolderScope", page: "playlistOrder", content: "Filter: ${filteredKeys.length}/${beforeCount} sau lọc (source=${mediaType}, applyFilter=${folderApplyFilter}, ownFilter=${folderHasOwnFilter}, globalAppliesToFolder=${globalAppliesToFolder})"`);
         this._reportFinalProgress(progressWasCalled, onProgress, filteredKeys.length); // sửa lại "x/total" đọng lại trên màn loading — số CUỐI CÙNG sau Filter, xem docstring trên
@@ -236,7 +236,7 @@ const workflowPlaylistScope = {
         const excludedKeys = await getExcludedSongKeysFromFolders(mediaType); // core/file-manager/folder.js — CHỈ Exclude của ĐÚNG mediaType
         loadAllSongs(appState.get('playlistCache'), excludedKeys); // core/playlist/scope.js
         const beforeCount = appState.get('playlistOrder').length;
-        const filteredKeys = applyPlaylistFilter(appState.get('playlistOrder'), appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig')[mediaType]);
+        const filteredKeys = applyPlaylistFilter(appState.get('playlistOrder'), appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig')[mediaType], mediaType); // core/playlist/filter.js — SỬA 06/10/2026: + loại media
         appState.set('playlistOrder', filteredKeys);
         console.log(`writer: "applyAllSongsScope", page: "playlistOrder", content: "Filter: ${filteredKeys.length}/${beforeCount} sau lọc (source=${mediaType})"`);
         this._reportFinalProgress(progressWasCalled, onProgress, filteredKeys.length); // xem docstring applyFolderScope()

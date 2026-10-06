@@ -472,7 +472,7 @@ const workflowVideoPlayer = {
         if (typeof workflowVisualBg !== 'undefined') await workflowVisualBg.restoreAfterPlayerMode(); // liên tuyến domain
 
         exitVideoPlayerModeState(); // core/video-player.js
-        releaseWakeLock(); stopListenClock(); // core/player-controls.js — dọn nốt 2 cơ chế đã bật lúc phát
+        releaseWakeLock(); workflowListenStats.stopClock(); // event/workflow/listen-stats.js (SỬA 06/10/2026 — dời từ core) — dọn nốt 2 cơ chế đã bật lúc phát
     },
 
     /** Nạp 1 video vào `bgVideoElement` (DUY NHẤT — xem docstring đầu file) + phát ngay + cập nhật
@@ -616,7 +616,7 @@ const workflowVideoPlayer = {
             // nhánh Video dispatch ra KHỎI hàm đó TRƯỚC khi tới dòng gọi, nên Play Count chưa
             // từng tăng cho Video. `mediaStatsMap` (core/listen-stats.js) vốn đã key-agnostic nên
             // gọi thẳng ở đây là đủ, không cần sửa gì thêm ở listen-stats.js.
-            bumpSongPlayCount(videoKey); // core/listen-stats.js
+            workflowListenStats.bumpPlayCount('video', videoKey); // event/workflow/listen-stats.js (SỬA 06/10/2026: thêm loại media)
 
             // MỚI (phản hồi Giang "visualBg.songChanged liên quan gì tới video play mode?") — tín
             // hiệu "media đổi thật" cho Game Mode, CÙNG msg.type `workflowPlayer.playMedia()`
@@ -695,7 +695,7 @@ const workflowVideoPlayer = {
         // hay chấm tròn xanh (đang pause) cho dòng Playlist — thiếu nó khiến dòng đứng yên ở trạng
         // thái lúc `playVideoByKey()` gọi lần cuối (lúc 'playing'), không cập nhật theo Play/Pause.
         if (appState.get('currentKey')) workflowPlaylistRender.refreshSongNode(appState.get('currentKey'));
-        requestWakeLock(); startListenClock(); // core/player-controls.js
+        requestWakeLock(); workflowListenStats.startClock(); // event/workflow/listen-stats.js (SỬA 06/10/2026 — dời từ core) 
         workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — MỚI 26/09/2026: đồng hồ đổi hiệu ứng chạy theo Video
         workflowPlayerDisplaySettings.resumeVideoMotion(); // MỚI (25/09/2026, đợt 4) — Point Move/React Beat chạy tiếp theo video (no-op nếu Player không giữ Video surface), event/workflow/player-display-settings.js
     },
@@ -707,7 +707,7 @@ const workflowVideoPlayer = {
         const recordArtDynamic = document.getElementById('record-art'); if (recordArtDynamic) recordArtDynamic.classList.add('paused'); // cùng khuôn handleAudioPause() core/player-controls.js
         if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
         if (appState.get('currentKey')) workflowPlaylistRender.refreshSongNode(appState.get('currentKey')); // FIX (31/07/2026) — xem giải thích ở handleVideoPlayState()
-        releaseWakeLock(); stopListenClock(); // core/player-controls.js
+        releaseWakeLock(); workflowListenStats.stopClock(); // event/workflow/listen-stats.js (SỬA 06/10/2026 — dời từ core) 
         workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — MỚI 26/09/2026
         workflowPlayerDisplaySettings.pauseVideoMotion(); // MỚI (25/09/2026, đợt 4) — Point Move/React Beat đứng yên cùng video (no-op nếu Player không giữ Video surface), event/workflow/player-display-settings.js
     },

@@ -189,7 +189,7 @@ const workflowPhotoPlayer = {
         // tự xoá `background-size` + revoke URL ảnh chính khi `clearMediaLayers()` (ngay trên) dừng nó.
         this._revokeObjectUrls();
         exitPhotoPlayerModeState(); // core/photo-player.js
-        releaseWakeLock(); stopListenClock(); // core/player-controls.js — SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — dừng đồng hồ totalTime lúc thoát mode, CÙNG khuôn workflowVideoPlayer.exitVideoPlayerMode
+        releaseWakeLock(); workflowListenStats.stopClock(); // event/workflow/listen-stats.js (SỬA 06/10/2026 — dời từ core) — SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — dừng đồng hồ totalTime lúc thoát mode, CÙNG khuôn workflowVideoPlayer.exitVideoPlayerMode
 
         if (restorePromise) await restorePromise; // lớp nền VBG nạp xong (chỉ để nơi gọi nào cần đợi thì đợi; playMedia() không đợi)
     },
@@ -225,7 +225,7 @@ const workflowPhotoPlayer = {
         appState.set('currentKey', photoKey);
         console.log(`writer: "playPhotoByKey", page: "currentKey", content: "${photoKey}"`);
         workflowAutoSwitchVisual.onMediaChanged(); // event/workflow/auto-switch-visual.js — MỚI 26/09/2026, nhánh 'perMedia'
-        bumpSongPlayCount(photoKey); // core/listen-stats.js — mediaStatsMap key-agnostic, dùng thẳng được (CÙNG cách Video làm)
+        workflowListenStats.bumpPlayCount('photo', photoKey); // event/workflow/listen-stats.js (SỬA 06/10/2026: thêm loại media — key trùng giữa các loại không còn cộng chung)
 
         const durationSec = record.duration || 5; // CÙNG fallback core/playlist/loader.js::buildAdaptedPlaylistCache() (MEDIA_ADAPTER_SHAPE.photo.durationFallback) cho record cũ thiếu field
         appState.set('photoPlayerDurationSec', durationSec, { skipCheck: true });
@@ -249,7 +249,7 @@ const workflowPhotoPlayer = {
         updatePhotoPlayerTimeLabels(0, durationSec); // core/photo-player.js — nhãn giờ ban đầu, seek bar không đụng tới (ẩn hẳn)
         updatePhotoPlayerPlayPauseIcon(true); // core/photo-player.js
 
-        requestWakeLock(); startListenClock(); // core/player-controls.js — SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — Photo giờ đếm totalTime CÙNG cơ chế Video (mediaStatsMap key-agnostic đã sẵn key-agnostic từ trước, chỉ thiếu lời gọi bật đồng hồ); label hiển thị đổi thành "Watch time" (chỉ khác chữ hiển thị, xem core/playlist/actions.js), logic đếm giữ NGUYÊN
+        requestWakeLock(); workflowListenStats.startClock(); // event/workflow/listen-stats.js (SỬA 06/10/2026 — dời từ core) — SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — Photo giờ đếm totalTime CÙNG cơ chế Video (mediaStatsMap key-agnostic đã sẵn key-agnostic từ trước, chỉ thiếu lời gọi bật đồng hồ); label hiển thị đổi thành "Watch time" (chỉ khác chữ hiển thị, xem core/playlist/actions.js), logic đếm giữ NGUYÊN
 
         if (previousKey && previousKey !== photoKey) workflowPlaylistRender.refreshSongNode(previousKey); // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
         workflowPlaylistRender.refreshSongNode(photoKey);
@@ -279,10 +279,10 @@ const workflowPhotoPlayer = {
             ]);
             const frozenElapsed = computePhotoPlayerElapsedSec(photoPlayerElapsedBeforePauseSec, photoPlayerStartedAtMs, photoPlayerPaused || photoPlayerClockHeld, performance.now()); // core/photo-player.js — đang GIỮ (chờ Transition) -> elapsed đứng yên
             appState.set('photoPlayerElapsedBeforePauseSec', frozenElapsed, { skipCheck: true });
-            stopListenClock(); // core/player-controls.js — MỚI (Giang yêu cầu "thêm thời gian listen cho photo") — dừng đếm totalTime lúc pause, không tính giờ đứng yên là "đã xem"
+            workflowListenStats.stopClock(); // event/workflow/listen-stats.js (SỬA 06/10/2026 — dời từ core) — MỚI (Giang yêu cầu "thêm thời gian listen cho photo") — dừng đếm totalTime lúc pause, không tính giờ đứng yên là "đã xem"
         } else {
             appState.set('photoPlayerStartedAtMs', performance.now(), { skipCheck: true });
-            startListenClock(); // core/player-controls.js — MỚI — tiếp tục đếm totalTime lúc resume
+            workflowListenStats.startClock(); // event/workflow/listen-stats.js (SỬA 06/10/2026 — dời từ core) — MỚI — tiếp tục đếm totalTime lúc resume
         }
         appState.set('photoPlayerPaused', nowPaused, { skipCheck: true });
         updatePhotoPlayerPlayPauseIcon(!nowPaused); // core/photo-player.js

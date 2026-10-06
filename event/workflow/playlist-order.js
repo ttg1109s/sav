@@ -73,8 +73,8 @@ const workflowPlaylistOrder = {
      * tự `appState.get()` ngay tại đây (Workflow được phép), không còn nhận qua tham số nữa. */
     recomputeRenderOrder() {
         const _t0 = performance.now(); // MỚI (chẩn đoán boot chậm, phản hồi Giang) — đo thời gian THẬT, không đổi logic
-        const { playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, mediaStatsMap } = appState.get([
-            'playlistOrder', 'confirmedBrokenKeys', 'searchQuery', 'playlistCache', 'displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'mediaStatsMap',
+        const { playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, mediaStatsMap, activeMediaSource } = appState.get([
+            'playlistOrder', 'confirmedBrokenKeys', 'searchQuery', 'playlistCache', 'displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'mediaStatsMap', 'activeMediaSource',
         ]);
         // SỬA (02/10/2026, tối ưu 10000 item) — trước đây songMatchesQuery() chuẩn hoá lại 3 field (title/artist/album) của
         // MỌI bài ở MỖI lần lọc (10000 bài = 30000 lượt normalize NFD + regex mỗi ký tự gõ). Giờ chuỗi đã chuẩn hoá được nhớ
@@ -83,7 +83,7 @@ const workflowPlaylistOrder = {
         const live = liveKeys(playlistOrder, confirmedBrokenKeys); // core/playlist/order.js
         const searchTextMemo = this._searchTextMemo();
         const filtered = live.filter((key) => !searchQuery || this._searchTextOf(key, playlistCache.get(key), searchTextMemo).includes(searchQuery)); // không có query -> mọi bài khớp (vị từ boolean, không rẽ tiến trình)
-        const sorted = sortKeysByMode(filtered, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap); // core/playlist/order.js
+        const sorted = sortKeysByMode(filtered, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap, activeMediaSource); // core/playlist/order.js — SỬA 06/10/2026: + loại media
         appState.set('renderOrder', sorted);
         console.log(`writer: "workflowPlaylistOrder.recomputeRenderOrder", page: "renderOrder", content: "${(performance.now() - _t0).toFixed(0)}ms cho ${sorted.length} item"`);
     },
@@ -95,10 +95,10 @@ const workflowPlaylistOrder = {
      * -> đặt lại sectionQueueActive=false cho khớp. Dời NGUYÊN VẸN từ core/playlist/order.js::
      * recomputeDisplayOrder() (đã xoá khỏi đó). */
     recomputeDisplayOrder() {
-        const { playlistOrder, confirmedBrokenKeys, displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap } = appState.get([
-            'playlistOrder', 'confirmedBrokenKeys', 'displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap',
+        const { playlistOrder, confirmedBrokenKeys, displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, activeMediaSource } = appState.get([
+            'playlistOrder', 'confirmedBrokenKeys', 'displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'activeMediaSource',
         ]);
-        const sorted = sortKeysByMode(liveKeys(playlistOrder, confirmedBrokenKeys), nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap); // core/playlist/order.js
+        const sorted = sortKeysByMode(liveKeys(playlistOrder, confirmedBrokenKeys), nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap, activeMediaSource); // core/playlist/order.js — SỬA 06/10/2026: + loại media
         appState.set('displayOrder', sorted);
         console.log(`writer: "workflowPlaylistOrder.recomputeDisplayOrder", page: "displayOrder", content: "resort lại theo displaySortMode, về top-level"`);
         appState.mutate('pendingResortKeys', s => s.clear());

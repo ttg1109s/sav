@@ -243,7 +243,7 @@ const workflowFileManagerPhoto = {
         const image = { key: imageKey, ...record };
 
         this._activeImageKey = imageKey; // workflowImageEdit cần lại lúc decode canvas
-        bumpSongPlayCount(imageKey); // core/listen-stats.js — tên hàm giữ nguyên (dùng CHUNG cho mọi mediaType), Photo dùng làm "lượt click xem"
+        workflowListenStats.bumpPlayCount('photo', imageKey); // event/workflow/listen-stats.js — Photo dùng làm "lượt click xem" (SỬA 06/10/2026: thêm loại media)
 
         this._activeImageModalHandle = openImagePreviewModal(image); // core/file-manager/photo-ui.js — KHÔNG còn callbacks (Rule 5a, Core tự bắn eventBus cố định), Router gọi lại các hàm dưới đây, đọc _activeImageKey thay vì closure
         this._initZoom();

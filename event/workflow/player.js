@@ -252,7 +252,7 @@ const workflowPlayer = {
                 });
             }
 
-            bumpSongPlayCount(key); // +1 số lần nghe ngay khi bắt đầu phát bài mới
+            workflowListenStats.bumpPlayCount('song', key); // event/workflow/listen-stats.js — +1 số lần nghe ngay khi bắt đầu phát bài mới (SỬA 06/10/2026: thêm loại media)
 
             // SỬA (phản hồi Giang 29/07/2026, mục 2 — "next/prev... phải scroll tới nhưng có
             // hiệu ứng cuộn") — nhánh switchScreen=false (Next/Prev vật lý) giờ gọi

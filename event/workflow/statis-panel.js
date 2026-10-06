@@ -160,7 +160,7 @@ const workflowStatisPanel = {
      * fallback filename bỏ đuôi cho Video/Photo; Song dùng thẳng `tag.title` đã đọc ID3). */
     _buildStatisItem(record, mediaType) {
         const name = mediaType === 'song' ? record.tag.title : (record.customName || stripFileExtension(record.filename)); // core/file-manager/video.js
-        const stats = getSongStats(record.key); // core/listen-stats.js — key-agnostic, {count, totalTime}
+        const stats = workflowListenStats.getStats(mediaType, record.key); // event/workflow/listen-stats.js — SỬA 06/10/2026: đúng loại media, {count, totalTime}
         return { key: record.key, mediaType, name, count: stats.count, totalTime: stats.totalTime };
     },
 

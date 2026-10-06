@@ -73,7 +73,7 @@ const workflowFileManagerStorage = {
             // người dùng thiết lập riêng, không nằm trong "thư viện nhạc".
             await clearAllMediaOfType('song'); // service/db.js — SỬA 06/10/2026: xoá 3 store Song trong 1 transaction (thay vòng deleteSongRecord)
             await delMeta('totalListenSeconds');
-            if (typeof clearAllSongStats === 'function') await clearAllSongStats();
+            workflowListenStats.forgetType('song'); // event/workflow/listen-stats.js — SỬA 06/10/2026: thống kê mất cùng record, chỉ dọn RAM loại Song
 
             // Đồng bộ lại toàn bộ state RAM — không reload trang, để người dùng thấy ngay kết quả.
             appState.set('playlistOrder', []); appState.set('displayOrder', []); appState.mutate('playlistCache', m => m.clear()); appState.mutate('songNameIndex', m => m.clear()); appState.mutate('confirmedBrokenKeys', s => s.clear());
@@ -433,7 +433,7 @@ const workflowFileManagerStorage = {
                 ? await this._downloadZipFor(getAllVideoKeys, collectAllVideosZipEntries, t('fileManager.song.storageAction.zipNameVideo'))
                 : { status: 'ok' };
             if (deleteEnabled && result.status === 'ok') {
-                await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllMediaOfType('video'); }); // service/db.js — SỬA 06/10/2026 (thay core clearAllVideosData)
+                await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllMediaOfType('video'); workflowListenStats.forgetType('video'); }); // service/db.js — SỬA 06/10/2026 (thay core clearAllVideosData)
                 await this._resetVideoRuntimeStateAfterClear();
             }
             return result;
@@ -443,7 +443,7 @@ const workflowFileManagerStorage = {
                 ? await this._downloadZipFor(getAllImageKeys, collectAllPhotosZipEntries, t('storageDrawer.zipNamePhoto'))
                 : { status: 'ok' };
             if (deleteEnabled && result.status === 'ok') {
-                await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllMediaOfType('photo'); }); // service/db.js — SỬA 06/10/2026 (thay core clearAllPhotosData)
+                await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllMediaOfType('photo'); workflowListenStats.forgetType('photo'); }); // service/db.js — SỬA 06/10/2026 (thay core clearAllPhotosData)
                 await this._resetPhotoRuntimeStateAfterClear();
             }
             return result;

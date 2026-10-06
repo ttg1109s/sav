@@ -54,7 +54,7 @@ const REPEAT_ONE_RESTART_BY_MEDIA = {
     photo: (activeEl) => {
         activeEl.currentTime = 0;
         activeEl.play();
-        startListenClock();
+        workflowListenStats.startClock(); // event/workflow/listen-stats.js (SỬA 06/10/2026 — dời từ core)
         workflowPhotoPlayer.onClockRestarted();
     },
 };
@@ -596,7 +596,7 @@ const workflowPlayerControls = {
      * "không viết thêm hàm nào chỉ để tạo ra hai đường không cần thiết".
      */
     handleMediaEnded() {
-        stopListenClock(); // core (core/player-controls.js)
+        workflowListenStats.stopClock(); // event/workflow/listen-stats.js (SỬA 06/10/2026 — dời từ core)
         this.goToNextTrack(false); // Workflow gọi method khác trong CÙNG object — tự do
     },
 
@@ -608,6 +608,7 @@ const workflowPlayerControls = {
     handleAudioPlayEvent() {
         if (this.isHeldBySeekGate(audioPlayer)) return; // MỚI 25/09/2026 — play() tạm của cổng seek v2, không phải người dùng phát lại
         handleAudioPlay(); // core/player-controls.js
+        workflowListenStats.startClock(); // event/workflow/listen-stats.js — DỜI 06/10/2026 từ trong core handleAudioPlay() (cùng vị trí thứ tự)
         workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — DỜI 25/09/2026 từ trong core handleAudioPlay() (cùng vị trí thứ tự)
         const currentKey = appState.get('currentKey');
         if (currentKey) workflowPlaylistRender.refreshSongNode(currentKey); // event/workflow/playlist-render.js — EQ bars "đang phát"
@@ -619,6 +620,7 @@ const workflowPlayerControls = {
     handleAudioPauseEvent() {
         if (this.isHeldBySeekGate(audioPlayer)) return; // MỚI 25/09/2026 — pause() tạm của cổng seek v2 (chờ đuôi tiếng cũ), không đổi icon/đồng hồ/VBG
         handleAudioPause(); // core/player-controls.js
+        workflowListenStats.stopClock(); // event/workflow/listen-stats.js — DỜI 06/10/2026 từ trong core handleAudioPause()
         workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — DỜI 25/09/2026 từ trong core handleAudioPause()
         const currentKey = appState.get('currentKey');
         if (currentKey) workflowPlaylistRender.refreshSongNode(currentKey); // event/workflow/playlist-render.js — chấm "đang pause"
