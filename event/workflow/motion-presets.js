@@ -121,19 +121,8 @@ const workflowMotionPresets = {
         workflowAppSettings.navigateTo(() => workflowAppSettings._renderMotionEdit()); // liên tuyến domain
     },
 
-    /** MỚI (25/09/2026, Giang chọn) — "random thông minh": sinh 1 preset NGẪU NHIÊN HỢP LÝ (Transition êm/mạnh có trọng
-     * số, Point Move kiểu Ken Burns mạch lạc không lộ mép, React Beat nhẹ — xem core/motion-presets.js::
-     * buildRandomMotionPreset()), thêm vào danh sách rồi mở NGAY màn Edit để xem/chỉnh tiếp (CÙNG luồng addPreset()).
-     * Tên "Random N" (N = vị trí mới trong danh sách, cùng cách đánh số tên mặc định). */
-    async addRandomPreset() {
-        const presets = appState.get('motionPresets');
-        const preset = buildRandomMotionPreset(tFormat('motionPresetsDrawer.randomName', { n: presets.length + 1 })); // core/motion-presets.js
-        appState.set('motionPresets', [...presets, preset]);
-        console.log(`writer: "workflowMotionPresets.addRandomPreset", page: "motionPresets", content: "random preset ${preset.id} (${preset.transitionType}, ${preset.pointMoveRunMode}, ${preset.pointMoves.length} point)"`);
-        await this._persist();
-        this._editingId = preset.id;
-        workflowAppSettings.navigateTo(() => workflowAppSettings._renderMotionEdit()); // liên tuyến domain
-    },
+    // XOÁ (07/10/2026, Giang: "loại bỏ nút tính năng tạo presets random") — `addRandomPreset()`; thay bằng
+    // `randomizeBeatReactValues()` / `randomizePointMoveValues()` (random giá trị slider theo nhóm, xem dưới).
 
     /** Ứng tap 1 dòng preset trong danh sách — mở màn Edit.
      * @param {string} id */
@@ -893,6 +882,40 @@ const workflowMotionPresets = {
         inputEl.value = value;
         this._setInputValueById(`setting-motion-beatreact-${effectKey}-max`, value);
         await this.changeBeatReactField(effectKey, fieldKey, value);
+    },
+
+    // ===================== Random giá trị slider theo nhóm — MỚI (07/10/2026, Giang) =====================
+
+    /** 'motionPresets.beatReact.random.click' — nút xúc xắc nhóm React Beat: mỗi lần bấm sinh lại Max của cả 4 slider
+     * (zoom/panX/panY/rotate — core/motion-presets.js::buildRandomBeatReactMaxValues()); bật/tắt, hướng, Reverse,
+     * Random Max giữ nguyên. Ghi qua `_mutateEditing()` (persist + broadcast live cho runner đang chạy), đồng bộ
+     * slider + ô số tại chỗ (không vẽ lại cả màn, giữ vị trí cuộn). */
+    async randomizeBeatReactValues() {
+        const values = buildRandomBeatReactMaxValues(); // core/motion-presets.js
+        await this._mutateEditing((p) => {
+            const rb = { ...p.reactBeatAudio };
+            values.forEach(({ effectKey, fieldKey, value }) => { rb[effectKey] = { ...rb[effectKey], [fieldKey]: value }; });
+            p.reactBeatAudio = rb;
+        });
+        console.log(`writer: "workflowMotionPresets.randomizeBeatReactValues", page: "motionPresets", content: "${this._editingId} — ${values.map((v) => `${v.effectKey}=${v.value}`).join(', ')}"`);
+        if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
+        values.forEach(({ effectKey, value }) => {
+            this._setInputValueById(`motion-beatreact-${effectKey}-max-input`, value);
+            this._setInputValueById(`setting-motion-beatreact-${effectKey}-max`, value);
+        });
+    },
+
+    /** 'motionPresets.pointMove.random.click' — nút xúc xắc màn Point Move Edit: mỗi lần bấm sinh lại giá trị cả 6
+     * slider của point move đang sửa (core/motion-presets.js::buildRandomPointMoveFieldValues() — giữ mode/đơn vị),
+     * rồi vẽ lại TẠI CHỖ (dual-range cần dựng lại vị trí 2 tay kéo, cùng cách `changePointMoveFieldRange()`). */
+    async randomizePointMoveValues() {
+        const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
+        const pointMove = preset ? findPointMoveById(preset.pointMoves, this._editingPointMoveId) : null; // core/motion-presets.js
+        if (!pointMove) return; // guard: point move vừa bị xoá
+        const fields = buildRandomPointMoveFieldValues(pointMove); // core/motion-presets.js
+        await this._mutateEditingPointMove((pm) => { Object.assign(pm, fields); });
+        console.log(`writer: "workflowMotionPresets.randomizePointMoveValues", page: "motionPresets", content: "${this._editingId}/${this._editingPointMoveId} — 6 field random"`);
+        workflowAppSettings._renderPointMoveEdit(); // liên tuyến domain — vẽ lại TẠI CHỖ
     },
 
     // ===================== Quản lý preset =====================

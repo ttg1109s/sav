@@ -33,6 +33,13 @@ const THUMBNAIL_SCALE_RATIO = 0.2;
 // DỜI (06/10/2026) — 5 hằng số DURATION_* của computePhotoDuration() sang event/workflow/photo-duration.js.
 
 
+/** MỚI (07/10/2026) — dọn picker ảnh xong: picker mở ĐÈ (drawer riêng) -> đóng hẳn drawer; picker mở TẠI CHỖ trong drawer
+ * của nơi gọi (Custom Effect) -> giữ drawer, nơi gọi tự vẽ lại màn của mình trong callback. */
+const IMAGE_PICKER_DRAWER_TEARDOWN_BY_IN_PLACE = {
+    true: () => {},
+    false: () => workflowGenericDrawerHelpers.closeFully(), // event/workflow/generic-drawer-helpers.js
+};
+
 const workflowFileManagerPhoto = {
 
     _activeImageModalHandle: null, // { close, imgEl, canvasWrap, baseCanvas, renderCanvas, interactCanvas, toolsBtn, adjustPopup, ... } của modal xem ảnh đang mở — null khi không mở modal nào
@@ -65,20 +72,29 @@ const workflowFileManagerPhoto = {
 
     /** Chọn 1 ảnh (bìa bài hát — event/workflow/playlist.js; nền mặt Clock — event/workflow/custom-effect.js):
      * bấm ảnh nào chọn NGAY ảnh đó + đóng drawer, không nút xác nhận.
+     * SỬA (07/10/2026, Giang báo "Custom Effect clock -> picker ảnh -> X thoát luôn cả picker lẫn Custom Effect, phải
+     * back lại") — thêm `opts.inPlace`: nơi gọi ĐANG đứng trong chính Generic Drawer (Custom Effect) thì picker THAY
+     * nội dung tại chỗ (`updateInPlace`, cùng cách picker Theme/VBG) và lúc chọn/X KHÔNG đóng drawer — nơi gọi tự vẽ
+     * lại màn của mình trong callback. Trước đây picker luôn `closeFully()` (hẹn giờ ẩn drawer sau khi trượt xuống)
+     * rồi callback gọi `workflowCustomEffect.open()` NGAY — drawer lúc đó chưa kịp `hidden` nên open() chỉ thay nội
+     * dung, sau đó hẹn giờ ẩn của closeFully() vẫn chạy -> ẩn mất luôn Custom Effect.
      * @param {(imageKey: string) => void} onSelect
      * @param {() => void} [onCancel] - gọi khi đóng bằng nút X mà chưa chọn gì.
+     * @param {{inPlace?: boolean}} [opts]
      */
-    async openCoverImagePicker(onSelect, onCancel) {
-        _imagePickerSession = { onSelect, onCancel, hasSelected: false };
-        await this._openImagePickerDrawer(t('playlistView.songEdit.coverPickLibrary'));
+    async openCoverImagePicker(onSelect, onCancel, opts) {
+        const inPlace = !!(opts && opts.inPlace);
+        _imagePickerSession = { onSelect, onCancel, hasSelected: false, inPlace };
+        await this._openImagePickerDrawer(t('playlistView.songEdit.coverPickLibrary'), inPlace);
     },
 
     /** Mở khung picker (`workflowGenericDrawerHelpers.mountMediaPicker()`, 90vh), đợi drawer trượt xong rồi
      * mới đọc DB + dựng lưới. Danh sách qua `listPickableMedia()` — bỏ ảnh thuộc folder Hidden.
      * @param {string} title
+     * @param {boolean} [inPlace] - true = thay nội dung drawer đang mở (xem openCoverImagePicker()).
      */
-    async _openImagePickerDrawer(title) {
-        workflowGenericDrawerHelpers.mountMediaPicker({ routerName: 'fileManagerPhoto', msgPrefix: 'fileManagerPhoto.imagePicker', title, bodyHtml: this._buildImagePickerBodyHtml(), tileSelector: '[data-image-key]', tileDataKey: 'imageKey' });
+    async _openImagePickerDrawer(title, inPlace) {
+        workflowGenericDrawerHelpers.mountMediaPicker({ routerName: 'fileManagerPhoto', msgPrefix: 'fileManagerPhoto.imagePicker', title, bodyHtml: this._buildImagePickerBodyHtml(), tileSelector: '[data-image-key]', tileDataKey: 'imageKey', updateInPlace: !!inPlace });
 
         await new Promise((resolve) => { taskManager.once(resolve, GENERIC_DRAWER_ANIM_MS, 'fileManagerPhotoPickerOpenSettle'); }); // core/generic-drawer.js
 
@@ -127,8 +143,9 @@ const workflowFileManagerPhoto = {
     /** Dọn session + unmount windowing (revoke object URL NGAY, không đợi lần mount() kế tiếp mới
      * tự dọn) + đóng drawer — DÙNG CHUNG cho MỌI lối thoát picker (chọn xong/huỷ). */
     _teardownImagePicker() {
+        const inPlace = !!(_imagePickerSession && _imagePickerSession.inPlace);
         workflowPhotoGalleryWindow.unmount('genericDrawer'); // event/workflow/photo-gallery-window.js
-        workflowGenericDrawerHelpers.closeFully();
+        IMAGE_PICKER_DRAWER_TEARDOWN_BY_IN_PLACE[inPlace](); // tại chỗ: giữ drawer, nơi gọi tự vẽ lại màn của mình
         _imagePickerSession = null;
     },
 

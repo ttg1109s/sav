@@ -44,6 +44,13 @@ const CUSTOM_EFFECT_CYCLE_CLICK_BY_LOCKED = {
     false: () => openEffectPickerModal((style) => workflowVisualizerRender.applyStyle(style)), // core/visualizer/visualizer-display.js
 };
 
+/** GIỮ #btn-cycle-mode đủ 1.5s — SỬA (07/10/2026, Giang: "khi auto switch bật cũng chặn luôn việc chỉnh custom
+ * effect"): auto-switch đang bật -> chỉ báo lý do (cùng thông báo bấm ngắn), KHÔNG mở Drawer; tắt -> mở như cũ. */
+const CUSTOM_EFFECT_HOLD_BY_LOCKED = {
+    true: () => alertModal(t('effectPicker.autoSwitchLocked'), { title: t('effectPicker.title') }), // core/modal-choice-ui.js
+    false: () => workflowCustomEffect.open(),
+};
+
 /** Drawer đang đóng -> mở mới (cuộn từ đầu); đang mở (nội dung khác) -> thay nội dung. */
 const CUSTOM_EFFECT_DRAWER_BY_CLOSED = {
     true: (config) => workflowGenericDrawerHelpers.open(config), // event/workflow/generic-drawer-helpers.js
@@ -104,7 +111,7 @@ const workflowCustomEffect = {
     _fireHold() {
         this._holdFired = true;
         this._closeControlCenterIfLoaded();
-        this.open();
+        CUSTOM_EFFECT_HOLD_BY_LOCKED[appConfigViz.getAll().autoSwitchVisualEnabled === true]();
     },
 
     _closeControlCenterIfLoaded() {
@@ -114,8 +121,8 @@ const workflowCustomEffect = {
 
     /** Ứng với `click` DOM thật trên #btn-cycle-mode (tap 3 lần gán cycleMode — event/workflow/visualizer-gesture.js,
      * gọi .click() — cũng đi qua đây). Click ngay sau khi hold vừa mở Drawer -> bỏ qua. [05/09/2026] mở modal chọn
-     * effect thay vì tự xoay 1 bước; [26/09/2026] auto-switch đang bật thì chỉ báo lý do (nút không `disabled` để
-     * GIỮ vẫn mở được Drawer). */
+     * effect thay vì tự xoay 1 bước; [26/09/2026] auto-switch đang bật thì chỉ báo lý do. [07/10/2026] GIỮ cũng bị chặn
+     * khi auto-switch bật (xem CUSTOM_EFFECT_HOLD_BY_LOCKED) — nút vẫn không `disabled` để bấm/giữ còn hiện được lý do. */
     onCycleModeClick() {
         if (this._consumeHoldFired()) return;
         CUSTOM_EFFECT_CYCLE_CLICK_BY_LOCKED[appConfigViz.getAll().autoSwitchVisualEnabled === true]();
@@ -262,14 +269,17 @@ const workflowCustomEffect = {
 
     // ===================== Field ảnh (imagePick) — MỚI 28/09/2026 (nền mặt số clock) =====================
 
-    /** Mở picker ảnh thư viện (mượn Generic Drawer); chọn xong hoặc huỷ đều mở lại Custom Effect Drawer. */
+    /** Mở picker ảnh thư viện TẠI CHỖ trong Generic Drawer đang mở; chọn xong hoặc X (huỷ) đều quay lại màn Custom Effect
+     * (vẽ lại body, giữ vị trí cuộn cũ). SỬA (07/10/2026, Giang báo "X của picker thoát luôn cả nó và custom effect") —
+     * trước đây picker mở như 1 drawer riêng rồi `closeFully()` lúc chọn/huỷ, hẹn giờ ẩn của nó ẩn mất luôn Custom
+     * Effect vừa mở lại — giờ `inPlace` (xem event/workflow/file-manager-photo.js::openCoverImagePicker()). */
     pickImageField(field) {
         const type = this._openType;
         workflowFileManagerPhoto.openCoverImagePicker((imageKey) => { // event/workflow/file-manager-photo.js
             setCustomEffectField(type, field, imageKey); // core/custom-effect.js
             saveConfig();
-            this.open();
-        }, () => this.open());
+            this._rerenderBody();
+        }, () => this._rerenderBody(), { inPlace: true });
     },
 
     /** Bỏ ảnh đã chọn — effect quay về nguồn mặc định (clock: bìa bài đang phát). */

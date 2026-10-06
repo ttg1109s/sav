@@ -2122,10 +2122,7 @@ const workflowPlaylist = {
         // khác 'none'. SỬA (đợt tái cấu trúc bottom nav App Panel) — panel Sắp xếp giờ sống trong
         // `genericDrawerBody` (core/generic-drawer.js), KHÔNG còn qua `peekTopSettingsPanel()`
         // (đó là stack CŨ, nay thuộc về Photo — xem event/workflow/app-settings.js).
-        {
-            const directionRow = genericDrawerBody.querySelector('[data-sort-direction-row]');
-            if (directionRow) directionRow.classList.toggle('hidden', field === 'none');
-        }
+        this._syncSortStatDependents(genericDrawerBody, field);
         await this._persistPlaylistConfig();
     },
 
@@ -2243,7 +2240,18 @@ const workflowPlaylist = {
         const statField = appState.get('displayStatSortField');
         panelEl.querySelector('#setting-playlist-sort-stat-field').value = statField;
         panelEl.querySelector('#setting-playlist-sort-stat-direction').value = appState.get('displayStatSortDirection');
-        panelEl.querySelector('[data-sort-direction-row]').classList.toggle('hidden', statField === 'none');
+        this._syncSortStatDependents(panelEl, statField);
+    },
+
+    /** MỚI (07/10/2026, Giang) — ẩn/hiện 2 phần tử CHỈ có nghĩa khi Stats đang chọn field khác 'none': hàng Hướng +
+     * icon (i) giải thích cạnh nhãn Tên/Ngày (thay dòng gợi ý chữ cũ). Panel không mở (phần tử null) -> bỏ qua.
+     * @param {HTMLElement} panelEl @param {string} statField */
+    _syncSortStatDependents(panelEl, statField) {
+        const isOff = statField === 'none';
+        ['[data-sort-direction-row]', '[data-sort-stat-info]'].forEach((selector) => {
+            const el = panelEl.querySelector(selector);
+            if (el) el.classList.toggle('hidden', isOff);
+        });
     },
 
     // XOÁ (08/09/2026, hệ "Playlist Filter Presets") — openFilterPanel()/_syncFilterPanelUI()/

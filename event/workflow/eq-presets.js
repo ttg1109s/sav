@@ -34,6 +34,19 @@
 const EQ_CYCLE_HOLD_MS = 1500; // SỬA (13/08/2026, Giang yêu cầu "giảm hold xuống 1.5s") — trước 3000ms — ngưỡng giữ để mở Edit EQ, cố định, không phải setting (cùng tinh thần SEEK_HOLD_ACTIVATE_MS)
 const EQ_CYCLE_HOLD_TASK = 'eqPresetsCycleHoldPending';
 
+/** MỚI (07/10/2026, Giang) — bấm nút Áp dụng trong Edit, theo "preset này ĐANG được áp dụng chưa": chưa -> áp dụng +
+ * thông báo đã chọn (nút chuyển sang trạng thái khoá); rồi -> chỉ thông báo "đang áp dụng rồi". */
+const EQ_APPLY_CLICK_BY_ACTIVE = {
+    true: (preset) => alertModal(tFormat('eqPresets.alreadyApplied', { name: escapeHtml(preset.name) }), { title: t('eqPresets.title') }), // core/modal-choice-ui.js
+    false: (preset) => workflowEqPresets._applyAndNotify(preset),
+};
+
+/** MỚI (07/10/2026) — kéo slider: preset đang áp dụng -> đổi âm thanh NGAY; preset khác -> chỉ cập nhật giá trị (không đụng audio). */
+const EQ_LIVE_GAINS_BY_ACTIVE = {
+    true: (gains) => applyEqGains(appState.get('eqBandNodes'), gains), // core/eq-presets.js
+    false: () => {},
+};
+
 const workflowEqPresets = {
     _editingId: null, // id preset đang sửa trong mode 'edit' (null nếu đang ở 'list'/đóng hẳn)
     _draftGains: null,
@@ -125,7 +138,7 @@ const workflowEqPresets = {
     },
 
     /** Mở view List của Generic Drawer EQ — gọi từ _fireCycleHold() (giữ 1.5s #btn-cycle-eq, THAY
-     * 'eqPresets.openDrawer.click'/#btn-edit-eq đã bỏ) hoặc từ _saveEdit()/_deletePreset() (quay
+     * 'eqPresets.openDrawer.click'/#btn-edit-eq đã bỏ) hoặc từ _deletePreset() (quay
      * lại List sau khi Lưu/Xoá xong). */
     /** @param {boolean} [scrollReset] - SỬA (24/09/2026) — true = mở mới (bắt đầu từ đầu); mặc định false = quay
      *        lại từ Edit/vẽ lại sau Lưu/Xoá -> về đúng vị trí cuộn cũ của List (event/workflow/generic-drawer-helpers.js, `scrollKey`). */
@@ -220,89 +233,120 @@ const workflowEqPresets = {
         this._editingId = id;
         this._draftGains = preset.gains.slice();
         this._draftName = preset.name;
-        const isBuiltIn = buildDefaultEqPresets().some((p) => p.id === id); // core — Workflow tự tra (Rule 3, component không tự gọi core)
-        // SỬA (phản hồi Giang mục 1 — CÙNG lý do openListView() ngay trên, đây chính xác là nguyên
-        // nhân khoảng trống trắng bên dưới nút Apply/Delete preset trong ảnh Giang gửi: nội dung
-        // Edit view (Name + 8 slider + 2 nút) NGẮN hơn hẳn 70vh, nhưng trước đây bị fix cứng 70vh).
+        // SỬA (phản hồi Giang mục 1) — height 'auto' + trần 70vh (nội dung Edit ngắn hơn 70vh, trước đây bị fix cứng 70vh).
+        this._renderEditView(preset, { scrollReset: true });
+    },
+
+    /** MỚI (07/10/2026) — dựng (hoặc dựng lại tại chỗ) view Edit cho `preset` — dùng chung mở mới / Khôi phục mặc định /
+     * Áp dụng (nút đổi sang trạng thái khoá). Tên + gains hiển thị = bản đang sửa (`_draftName`/`_draftGains`).
+     * @param {object} preset @param {{scrollReset?: boolean}} [opts] */
+    _renderEditView(preset, opts) {
+        const isBuiltIn = buildDefaultEqPresets().some((p) => p.id === preset.id); // core — Workflow tự tra (Rule 3, component không tự gọi core)
+        const isActive = appConfigViz.getAll().eqPresetId === preset.id;
         workflowGenericDrawerHelpers.update({ // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js — chuyển mượt, không đóng/mở lại
-            scrollKey: 'eqPresets:edit', // MỚI (24/09/2026) — màn đi TỚI: từ đầu; vị trí List được Workflow nhớ cho lúc quay về
-            scrollReset: true,
+            scrollKey: 'eqPresets:edit', // màn đi TỚI: từ đầu (scrollReset); vẽ lại tại chỗ: giữ vị trí cuộn
+            scrollReset: !!(opts && opts.scrollReset),
             height: 'auto',
             maxHeight: '70vh',
             headerHtml: renderEqEditHeader(preset, isBuiltIn), // components/eq-presets-drawer.js
-            bodyHtml: renderEqEditBody(preset),
+            bodyHtml: renderEqEditBody({ ...preset, name: this._draftName, gains: this._draftGains }, isActive),
             bodyClass: 'overflow-y-auto px-4 py-3',
         });
-        this._wireEditView(preset, isBuiltIn);
+        this._wireEditView(preset);
     },
 
-    _wireEditView(preset, isBuiltIn) {
+    /** SỬA (07/10/2026, Giang: "bỏ tính năng save") — KHÔNG còn nút Lưu: kéo slider cập nhật số + (nếu preset đang áp
+     * dụng) đổi âm thanh NGAY lúc kéo (`input`), thả tay (`change`) mới ghi DB; tên ghi lúc rời ô (`change`). */
+    _wireEditView(preset) {
         const backBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-back');
         if (backBtn) backBtn.addEventListener('click', () => this.openListView());
 
-        // MỚI (12/08/2026, Giang yêu cầu "thêm nút apply cạnh nút delete") — xem docstring components/eq-presets-drawer.js
-        // (SỬA 3) + _applyPreset() ngay dưới. SỬA (25/09/2026, Giang yêu cầu "thêm nút apply cho default EQ") — wire TRƯỚC guard
-        // locked: preset Default (locked) giờ cũng có nút Áp dụng (1 mình, full-width — vẫn không Lưu/Xoá/sửa được).
+        // Nút Áp dụng — có cả ở preset Default (locked). Xem onApplyClick().
         const applyBtn = genericDrawerBody.querySelector('#eq-drawer-apply');
-        if (applyBtn) applyBtn.addEventListener('click', () => this._applyPreset(preset.id));
+        if (applyBtn) applyBtn.addEventListener('click', () => this.onApplyClick(preset.id));
 
-        if (preset.locked) return; // Default — chỉ xem + Áp dụng, không có nút Lưu/Xoá/Khôi phục/input nào để wire thêm
+        if (preset.locked) return; // Default — chỉ xem + Áp dụng, không có slider/tên/Xoá/Khôi phục để wire thêm
 
-        const saveBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-save');
-        if (saveBtn) saveBtn.addEventListener('click', () => this._saveEdit());
-
-        // FIX (12/08/2026, Giang yêu cầu — "eq mặc định có nút reset ở header") — CHỈ hiện/wire với
-        // preset GỐC (isBuiltIn) — nút vốn không được render cho preset người dùng tự tạo (xem
-        // renderEqEditHeader()), querySelector trả null thì đơn giản bỏ qua, không cần check lại
-        // isBuiltIn ở đây.
+        // FIX (12/08/2026) — nút Khôi phục chỉ render với preset gốc (renderEqEditHeader()), null thì bỏ qua.
         const resetBtn = genericDrawerHeader.querySelector('#btn-eq-drawer-reset');
         if (resetBtn) resetBtn.addEventListener('click', () => this._resetEditToDefault(preset.id));
 
         const nameInput = genericDrawerBody.querySelector('#eq-drawer-name');
-        if (nameInput) nameInput.addEventListener('input', (e) => { this._draftName = e.target.value; });
+        if (nameInput) {
+            nameInput.addEventListener('input', (e) => { this._draftName = e.target.value; });
+            nameInput.addEventListener('change', () => this._commitName());
+        }
 
-        genericDrawerBody.querySelectorAll('.eq-preset-slider').forEach((slider) => {
-            slider.addEventListener('input', (e) => {
-                const index = parseInt(e.target.dataset.index, 10);
-                if (isNaN(index)) return;
-                const value = parseInt(e.target.value, 10);
-                this._draftGains[index] = value;
-                const valEl = genericDrawerBody.querySelector(`#eq-edit-val-${index}`);
-                if (valEl) valEl.textContent = value > 0 ? `+${value}` : value;
-                // SỬA (12/08/2026, Giang báo "không hiển thị thanh dọc") — dải fill tím
-                // (.eq-preset-slider-fill, components/eq-presets-drawer.js) giờ tự đổi left/width
-                // %  NGAY khi kéo, dùng CHUNG computeEqFillRect() (component đã tính lúc render
-                // lần đầu — tái dùng để 2 nơi luôn khớp công thức, không chép lại phép tính).
-                const fillEl = genericDrawerBody.querySelector(`#eq-edit-fill-${index}`);
-                if (fillEl) {
-                    const fill = computeEqFillRect(value); // components/eq-presets-drawer.js
-                    fillEl.style.bottom = `${fill.bottom}%`;
-                    fillEl.style.height = `${fill.height}%`;
-                }
-            });
+        genericDrawerBody.querySelectorAll('.eq-band-slider').forEach((slider) => {
+            slider.addEventListener('input', (e) => this._previewBandGain(e.target));
+            slider.addEventListener('change', () => this._commitGains());
         });
 
         const deleteBtn = genericDrawerBody.querySelector('#eq-drawer-delete');
         if (deleteBtn) deleteBtn.addEventListener('click', () => this._deletePreset(preset.id));
     },
 
-    /** Ứng với nút "Áp dụng" cạnh Xoá trong body Edit (MỚI, 12/08/2026; SỬA 25/09/2026 — preset Default/locked cũng có,
-     * đứng 1 mình vì không Xoá được, xem components/eq-presets-drawer.js; slider khoá nên `_draftGains` = đúng gains gốc) — CHỌN preset
-     * đang sửa làm preset ĐANG DÙNG (`eqPresetId`) NGAY LẬP TỨC, đồng thời áp `_draftGains` (giá
-     * trị đang chỉnh trên slider LÚC NÀY, kể cả CHƯA bấm Lưu) lên audio graph thật — cho nghe thử
-     * trực tiếp trong lúc chỉnh. KHÁC HẲN Lưu (_saveEdit(), chỉ GHI DB — chỉ áp gains lên audio
-     * NẾU preset đó ĐÃ SẴN đang active từ trước): Áp dụng KHÔNG ghi `_draftGains` vào danh sách
-     * preset lưu DB (bấm Lưu riêng mới ghi thật — vẫn đúng nguyên tắc 1 cửa ghi DB duy nhất cho
-     * "sửa nội dung 1 preset"), chỉ đổi preset nào đang ĐƯỢC CHỌN + phát ra âm thanh gì ngay bây
-     * giờ. Giữ nguyên ở Edit view sau khi bấm (không quay về List) — người dùng có thể chỉnh tiếp
-     * rồi Áp dụng lại nhiều lần để nghe thử trước khi quyết định Lưu.
+    /** Đang kéo 1 slider kênh: cập nhật `_draftGains` + số dB; preset đang áp dụng thì áp gains lên audio NGAY.
+     * @param {HTMLInputElement} sliderEl */
+    _previewBandGain(sliderEl) {
+        const index = parseInt(sliderEl.dataset.index, 10);
+        if (isNaN(index)) return;
+        const value = parseInt(sliderEl.value, 10);
+        this._draftGains[index] = value;
+        const valEl = genericDrawerBody.querySelector(`#eq-edit-val-${index}`);
+        if (valEl) valEl.textContent = value > 0 ? `+${value}` : value;
+        EQ_LIVE_GAINS_BY_ACTIVE[appConfigViz.getAll().eqPresetId === this._editingId](this._draftGains);
+    },
+
+    /** Thả tay slider: ghi gains đang sửa vào danh sách preset (DB). Âm thanh đã đổi sẵn lúc kéo. */
+    async _commitGains() {
+        const id = this._editingId;
+        if (!id) return;
+        const presets = appState.get('eqPresets').map((p) => (p.id === id ? { ...p, gains: this._draftGains.slice() } : p));
+        appState.set('eqPresets', presets);
+        console.log(`writer: "workflowEqPresets._commitGains", page: "eqPresets", content: "${id} — [${this._draftGains.join(',')}]"`);
+        await setMeta('eqPresets', presets); // service/db.js
+    },
+
+    /** Rời ô Tên: ghi tên mới; rỗng -> trả về tên cũ. Preset đang áp dụng -> đổi nhãn badge EQ theo. */
+    async _commitName() {
+        const id = this._editingId;
+        const current = findEqPresetById(appState.get('eqPresets'), id); // core
+        if (!current) return;
+        const name = this._draftName.trim();
+        if (!name) {
+            this._draftName = current.name;
+            const nameInput = genericDrawerBody.querySelector('#eq-drawer-name');
+            if (nameInput) nameInput.value = current.name;
+            return;
+        }
+        const presets = appState.get('eqPresets').map((p) => (p.id === id ? { ...p, name } : p));
+        appState.set('eqPresets', presets);
+        console.log(`writer: "workflowEqPresets._commitName", page: "eqPresets", content: "${id} — ${name}"`);
+        await setMeta('eqPresets', presets); // service/db.js
+        if (appConfigViz.getAll().eqPresetId === id) syncEqBadgeLabel(name); // core
+    },
+
+    /** MỚI (07/10/2026, Giang) — nút Áp dụng trong Edit: preset chưa áp dụng -> chọn + thông báo đã chọn, nút chuyển
+     * sang trạng thái khoá "Đang áp dụng"; đã áp dụng (nút khoá) -> thông báo "đang áp dụng rồi".
      * @param {string} id */
-    _applyPreset(id) {
-        appConfigViz.mutateAll((cfg) => { cfg.eqPresetId = id; });
-        applyEqGains(appState.get('eqBandNodes'), this._draftGains); // core
+    onApplyClick(id) {
         const preset = findEqPresetById(appState.get('eqPresets'), id); // core
-        syncEqBadgeLabel(this._draftName.trim() || (preset ? preset.name : '')); // core
+        if (!preset) return;
+        EQ_APPLY_CLICK_BY_ACTIVE[appConfigViz.getAll().eqPresetId === id](preset);
+    },
+
+    /** Chọn preset làm preset ĐANG DÙNG (`eqPresetId`), áp gains (bản đang sửa — luôn khớp DB vì tự lưu), vẽ lại Edit
+     * để nút sang trạng thái khoá, rồi hiện thông báo. (Thay `_applyPreset()` cũ.)
+     * @param {object} preset */
+    _applyAndNotify(preset) {
+        appConfigViz.mutateAll((cfg) => { cfg.eqPresetId = preset.id; });
+        console.log(`writer: "workflowEqPresets._applyAndNotify", page: "vizConfig.eqPresetId", content: "${preset.id}"`);
+        applyEqGains(appState.get('eqBandNodes'), this._draftGains); // core
+        syncEqBadgeLabel(preset.name); // core
         saveConfig();
+        this._renderEditView(preset);
+        alertModal(tFormat('eqPresets.appliedNotice', { name: escapeHtml(preset.name) }), { title: t('eqPresets.title') }); // core/modal-choice-ui.js
     },
 
     /** Ứng với nút "Khôi phục mặc định" trong header Edit (CHỈ hiện với preset gốc chưa khoá, xem
@@ -311,7 +355,7 @@ const workflowEqPresets = {
      * (SỬA 12/08/2026, Giang báo bug "Reset default không ghi lại danh sách eq mặc định" — bản
      * trước chỉ đổi `_draftGains` để xem trước, không `setMeta()`, nên gains "khôi phục" bị mất
      * nếu người dùng rời Edit view mà quên bấm Lưu riêng — nay Khôi phục TỰ NÓ là 1 hành động ghi
-     * hoàn chỉnh, không phụ thuộc bấm Lưu nữa, CÙNG khuôn _saveEdit()/_deletePreset() — chỉ khác
+     * hoàn chỉnh, CÙNG khuôn _commitGains()/_deletePreset() — chỉ khác
      * NGUỒN giá trị gains dùng để ghi). Tên đang gõ dở (`_draftName`) GIỮ NGUYÊN, KHÔNG ghi vào DB
      * — nút này chỉ khôi phục/ghi lại THÔNG SỐ (gains), không đụng tên.
      * @param {string} id */
@@ -319,7 +363,7 @@ const workflowEqPresets = {
         const factory = buildDefaultEqPresets().find((p) => p.id === id); // core
         if (!factory) return; // an toàn — nút vốn đã ẩn với preset không phải built-in
         this._draftGains = factory.gains.slice();
-        const presets = appState.get('eqPresets').map((p) => (p.id === id ? { ...p, gains: this._draftGains } : p));
+        const presets = appState.get('eqPresets').map((p) => (p.id === id ? { ...p, gains: this._draftGains.slice() } : p)); // copy — _draftGains còn bị slider sửa tại chỗ
         appState.set('eqPresets', presets);
         await setMeta('eqPresets', presets);
         if (appConfigViz.getAll().eqPresetId === id) {
@@ -327,32 +371,11 @@ const workflowEqPresets = {
         }
         const preset = findEqPresetById(presets, id); // core — lấy locked/id hiện tại (bản VỪA ghi)
         if (!preset) return;
-        // SỬA (phản hồi Giang mục 1) — CÙNG lý do _openEditView() ngay trên (chính vẽ lại view Edit,
-        // config phải khớp NHAU — thiếu ở đây thì bấm "Khôi phục mặc định" lại quay về fix cứng 70vh).
-        workflowGenericDrawerHelpers.update({ // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
-            scrollKey: 'eqPresets:edit', // MỚI (24/09/2026) — vẽ lại TẠI CHỖ màn Edit -> giữ vị trí cuộn
-            height: 'auto',
-            maxHeight: '70vh',
-            headerHtml: renderEqEditHeader(preset, true), // components/eq-presets-drawer.js — chắc chắn isBuiltIn (nút chỉ hiện khi true)
-            bodyHtml: renderEqEditBody({ ...preset, name: this._draftName, gains: this._draftGains }),
-            bodyClass: 'overflow-y-auto px-4 py-3',
-        });
-        this._wireEditView(preset, true);
+        this._renderEditView(preset); // vẽ lại TẠI CHỖ (giữ vị trí cuộn)
     },
 
-    /** Lưu tên/gains đang sửa — nếu ĐÚNG preset đang active thì áp gains mới ngay lập tức. */
-    async _saveEdit() {
-        const id = this._editingId;
-        const name = this._draftName.trim() || findEqPresetById(appState.get('eqPresets'), id).name;
-        const presets = appState.get('eqPresets').map((p) => (p.id === id ? { ...p, name, gains: this._draftGains } : p));
-        appState.set('eqPresets', presets);
-        await setMeta('eqPresets', presets);
-        if (appConfigViz.getAll().eqPresetId === id) {
-            applyEqGains(appState.get('eqBandNodes'), this._draftGains); // core
-            syncEqBadgeLabel(name); // core
-        }
-        this.openListView();
-    },
+    // XOÁ (07/10/2026, Giang: "bỏ tính năng save") — `_saveEdit()`: slider tự lưu lúc thả tay (_commitGains()), tên lúc
+    // rời ô (_commitName()); preset đang áp dụng đổi âm thanh ngay lúc kéo (_previewBandGain()).
 
     /** Xoá preset (guard: không xoá được preset locked — nút Xoá vốn đã ẩn cho locked, chặn thêm
      * ở đây phòng gọi nhầm). Nếu xoá đúng preset đang active, về lại Default ('flat').
