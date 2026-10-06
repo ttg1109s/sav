@@ -584,8 +584,9 @@ const workflowAppSettings = {
         this._renderPlayerDetail('photo');
     },
 
-    /** MỚI (01/10/2026, Ghi âm) — System > Ghi âm (DỜI 05/10/2026 từ Player, Giang yêu cầu): khử tiếng vọng (toggle) + bù trễ giọng (slider), domain 'recorder'
-     * (core/config.js). Đổi giá trị không vẽ lại màn (không field nào phụ thuộc nhau) — xem workflowRecorder.changeConfigField(). */
+    /** MỚI (01/10/2026, Ghi âm) — System > Ghi âm (DỜI 05/10/2026 từ Player, Giang yêu cầu), domain 'recorder' (core/config.js).
+     * SỬA 07/10/2026 — Recording mode / Count-in / Recording quality (select) + Sync (slider) + Latency calibration (nút);
+     * đổi Recording mode -> workflowRecorder.changeConfigField() gọi lại hàm này (Sync + nút đo chỉ có ở Headphones). */
     _renderRecorder() {
         this._currentRenderFn = () => this._renderRecorder();
         this._render(t('appSettings.system.recorder.label'), renderRecorderSettingsBody(appConfigRecorder.getAll()), wireAppSettingsRecorder); // components/settings/recorder-settings.js, core/config.js, core/app-settings-ui.js

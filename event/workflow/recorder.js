@@ -14,8 +14,18 @@
  *      Lưu: ghi thành 1 Song MỚI (workflowPlaylist.addRecordedSong()) — định dạng theo OS (iOS m4a, Chrome webm), tag tự
  *      tạo "<tên gốc> (Recording dd/MM HH:mm)" / nghệ sĩ gốc / album "Recording" / cover gốc (Video: thumbnail) — rồi
  *      đi tiếp y hệt Huỷ.
- * Cấu hình bền (Settings > Visualizer Screen > Player > Ghi âm): khử tiếng vọng + bù trễ giọng — domain AppConfig
- * 'recorder' (core/config.js), lưu meta.recorderConfig (`loadPersistedConfigOnBoot()`/`changeConfigField()`).
+ * Cấu hình bền (Settings > System > Ghi âm) — domain AppConfig 'recorder' (core/config.js), lưu meta.recorderConfig
+ * (`loadPersistedConfigOnBoot()`/`changeConfigField()`).
+ *
+ * [07/10/2026, Giang — cải tiến Ghi âm, tên tính năng theo các app karaoke/thu âm]
+ *   - BỎ Echo cancellation: mic luôn thu thô (core/recorder.js::buildRecorderMicConstraints()).
+ *   - Recording mode: 'speaker' = CHỈ mic (nhạc từ loa + giọng); 'headphones' = nhạc gốc + mic, nhạc trễ theo Sync.
+ *   - Count-in: đếm ngược N giây (media tạm dừng) rồi nhạc + MediaRecorder cùng bắt đầu. Trong lúc đếm phase vẫn là
+ *     'starting' (Block gate + khoá điều khiển như đang ghi); X / ẩn app / mic bị thu hồi -> huỷ phiên, trả media như cũ.
+ *     'pause' do chính lệnh dừng media lúc vào đếm bắn ra bị handleInterruption() bỏ qua (chỉ xử lý phase 'recording').
+ *   - Clip warning: vạch mức mic đỏ khi |mẫu| ≥ RECORDER_CLIP_THRESHOLD (giữ RECORDER_CLIP_HOLD_MS).
+ *   - Recording quality: bitrate MediaRecorder (audioBitsPerSecond).
+ *   - Latency calibration (Headphones): phát tick ra tai nghe đặt sát mic, đo độ lệch trong cùng graph -> điền Sync.
  *
  * NGOẠI LỆ CÓ CHỦ ĐÍCH (cùng loại pitch worker của workflowAudioEngine, event-bus-flow.md mục 1): `ondataavailable`/
  * 'stop' của MediaRecorder là NỬA SAU bất đồng bộ của chính API ghi -> gắn + xử lý ngay tại đây, không qua Listener/
@@ -36,7 +46,10 @@ const RECORDER_PREVIEW_TASK = 'recorderPreviewPlayhead';
 const RECORDER_STOP_TIMEOUT_TASK = 'recorderStopTimeout';
 const RECORDER_STOP_TIMEOUT_MS = 3000; // MediaRecorder không bắn 'stop' (hiếm, iOS) -> vẫn lấy phần đã thu
 const RECORDER_TIMESLICE_MS = 1000; // gom dữ liệu theo từng giây — dừng đột ngột vẫn còn gần đủ
-const RECORDER_MIC_ANALYSER_FFT = 512;
+const RECORDER_MIC_ANALYSER_FFT = 2048; // SỬA 07/10/2026 (512 -> 2048) — khung dài hơn, Clip warning ít sót đỉnh hơn
+const RECORDER_COUNT_IN_TASK = 'recorderCountIn';
+const RECORDER_COUNT_IN_INTERVAL_MS = 1000;
+const RECORDER_CALIB_TASK = 'recorderCalibration';
 const RECORDER_WAVE_BUCKETS = 96;
 
 /** Bản ghi có dữ liệu -> mở modal nghe lại; rỗng (mic lỗi/dừng quá sớm) -> báo rồi kết thúc như Huỷ. */
@@ -57,10 +70,48 @@ const RECORDER_PREVIEW_TOGGLE_BY_PAUSED = {
     false: (el) => el.pause(),
 };
 
-/** Chuẩn hoá giá trị Settings theo field (field lạ -> bỏ qua). */
+/** Chuẩn hoá giá trị Settings theo field (field lạ -> bỏ qua). SỬA 07/10/2026 — bỏ echoCancellation; thêm mode/countInSec/quality. */
 const RECORDER_CONFIG_NORMALIZER_BY_FIELD = {
-    echoCancellation: (value) => value === true,
-    latencyMs: (value) => clampRecorderLatencyMs(value), // core/recorder.js
+    mode: (value) => normalizeRecorderMode(value), // core/recorder.js
+    latencyMs: (value) => clampRecorderLatencyMs(value),
+    countInSec: (value) => normalizeRecorderCountIn(value),
+    quality: (value) => normalizeRecorderQuality(value),
+};
+
+/** Đổi field xong cần làm thêm gì (field không có -> không gì): đổi chế độ thu làm hiện/ẩn Sync + nút đo -> vẽ lại màn. */
+const RECORDER_AFTER_FIELD_CHANGE = {
+    mode: () => workflowAppSettings._renderRecorder(), // event/workflow/app-settings.js — vẽ lại tại chỗ, giữ vị trí cuộn
+};
+
+/** Graph ghi theo chế độ thu (core/recorder.js). Chế độ lạ đã được chuẩn hoá từ lúc đọc config. */
+const RECORDER_GRAPH_BY_MODE = {
+    speaker: (audioContext, masterGainNode, stream) => buildRecorderMicOnlyGraph(audioContext, stream, RECORDER_MIC_ANALYSER_FFT),
+    headphones: (audioContext, masterGainNode, stream, delaySec) => buildRecorderMixGraph(audioContext, masterGainNode, stream, delaySec, RECORDER_MIC_ANALYSER_FFT),
+};
+
+/** Media đang phát trước khi tạm dừng (Count-in bị huỷ / Latency calibration xong) -> phát tiếp; đang dừng -> giữ nguyên.
+ * KHÁC RECORDER_AFTER_SESSION_BY_MEDIA_ENDED (nhánh true ở đó là sang bài kế). */
+const RECORDER_RESUME_BY_WAS_PLAYING = {
+    true: (activeEl) => workflowRecorder._resumeMedia(activeEl),
+    false: () => {},
+};
+
+/** Có Count-in (> 0 giây) -> đếm rồi mới ghi; không -> ghi ngay. */
+const RECORDER_START_BY_COUNT_IN = {
+    true: (sec, activeEl) => workflowRecorder._runCountIn(sec, activeEl),
+    false: (sec, activeEl) => workflowRecorder._beginRecording(activeEl),
+};
+
+/** X (recorder.stop.click) theo phase: đang ghi -> dừng như cũ; đang khởi động (xin mic / Count-in) -> huỷ Count-in. */
+const RECORDER_STOP_BY_PHASE = {
+    recording: () => workflowRecorder._stopRecording(),
+    starting: () => workflowRecorder._cancelCountIn(),
+};
+
+/** Kết quả Latency calibration -> áp vào Sync hoặc báo không đo được. */
+const RECORDER_CALIB_RESULT_BY_OK = {
+    true: (result) => workflowRecorder._applyCalibration(result),
+    false: (result) => workflowRecorder._reportCalibrationFailed(result),
 };
 
 const workflowRecorder = {
@@ -71,6 +122,9 @@ const workflowRecorder = {
     _chunks: [],
     _startedAtMs: 0,
     _levelBuf: null,       // Float32Array đo mức mic (tái dùng mỗi tick)
+    _clipUntilMs: 0,       // Clip warning — còn tô đỏ tới mốc này (performance.now())
+    _countIn: null,        // { remaining, resumeAfterCancel } khi đang Count-in, null khi không
+    _calibrating: false,   // đang chạy Latency calibration (chặn bấm đo lần 2)
     _previewEl: null,      // <audio> nghe lại — NGOÀI audio graph chính (không làm visualizer nhảy theo)
     _previewUrl: null,
     _previewDurationSec: 0,
@@ -84,9 +138,12 @@ const workflowRecorder = {
     async loadPersistedConfigOnBoot() {
         const saved = await getMeta('recorderConfig'); // service/db.js
         if (!saved || typeof saved !== 'object') return;
+        // SỬA 07/10/2026 — `echoCancellation` cũ BỎ (không đọc; lần lưu kế tiếp tự rơi khỏi meta.recorderConfig).
         appConfigRecorder.mutateAll((cfg) => {
-            cfg.echoCancellation = saved.echoCancellation !== false;
-            cfg.latencyMs = clampRecorderLatencyMs(saved.latencyMs ?? cfg.latencyMs); // core/recorder.js
+            cfg.mode = normalizeRecorderMode(saved.mode ?? cfg.mode); // core/recorder.js
+            cfg.latencyMs = clampRecorderLatencyMs(saved.latencyMs ?? cfg.latencyMs);
+            cfg.countInSec = normalizeRecorderCountIn(saved.countInSec ?? cfg.countInSec);
+            cfg.quality = normalizeRecorderQuality(saved.quality ?? cfg.quality);
         }); // core/config.js
         console.log('writer: "workflowRecorder.loadPersistedConfigOnBoot", page: "recorderConfig", content: "khôi phục từ meta.recorderConfig"');
     },
@@ -100,6 +157,7 @@ const workflowRecorder = {
         appConfigRecorder.mutateAll((cfg) => { cfg[field] = next; }); // core/config.js
         console.log(`writer: "workflowRecorder.changeConfigField", page: "recorderConfig", content: "${field}=${next}"`);
         await setMeta('recorderConfig', { ...appConfigRecorder.getAll() }); // service/db.js
+        (RECORDER_AFTER_FIELD_CHANGE[field] || (() => {}))();
     },
 
     // ===================== Bắt đầu ghi =====================
@@ -122,11 +180,11 @@ const workflowRecorder = {
         this._setPhase('starting');
         const cfg = appConfigRecorder.getAll(); // core/config.js
         applyPlayAndRecordAudioSession(); // core/audio-engine.js — TRƯỚC getUserMedia
-        const stream = await this._requestMic(cfg.echoCancellation);
+        const stream = await this._requestMic();
         if (!stream) { this._abortStart(); return; }
 
         try {
-            await this._beginCapture(stream, audioContext, masterGainNode, cfg.latencyMs);
+            await this._beginCapture(stream, audioContext, masterGainNode, cfg);
         } catch (err) {
             console.error('[recorder] Không bắt đầu ghi được:', err);
             this._releaseCaptureResources();
@@ -142,29 +200,82 @@ const workflowRecorder = {
             sourceTag: cached.tag || null,     // Song: tag ID3 thật; Video: tag adapter (title = tên video, artist rỗng)
             sourceCover: cached.cover || null, // Song: cover ID3; Video: thumbnail
             mimeType: this._mediaRecorder.mimeType || '',
-            latencyMs: cfg.latencyMs,
+            mode: cfg.mode, // MỚI 07/10/2026
+            latencyMs: cfg.latencyMs, // chỉ có tác dụng ở chế độ 'headphones'
             mediaEnded: false,
             durationSec: 0,
         });
-        console.log(`writer: "workflowRecorder.start", page: "recordMeta", content: "${currentKey} (${isVideoPlayerMode ? 'video' : 'song'})"`);
-        this._setPhase('recording');
+        console.log(`writer: "workflowRecorder.start", page: "recordMeta", content: "${currentKey} (${isVideoPlayerMode ? 'video' : 'song'}, ${cfg.mode})"`);
 
         showRecorderLayer(recorderLayer); // core/recorder-ui.js
         setPlayerControlsBlocked(true); // core/player-controls.js — thanh player dưới đáy (ngoài stacking context overlay)
         setRecorderTimerText(recorderTimer, formatTime(0)); // core/recorder-ui.js, core/playlist/state.js
         setRecorderLevel(recorderLevel, 0);
+        setRecorderClip(recorderIndicator, false);
+        this._clipUntilMs = 0;
+        const activeEl = getActiveMediaElement(isVideoPlayerMode, false); // core/player-controls.js
+        RECORDER_START_BY_COUNT_IN[cfg.countInSec > 0](cfg.countInSec, activeEl);
+    },
+
+    /** Bắt đầu ghi THẬT (ngay, hoặc sau Count-in): MediaRecorder chạy, phase 'recording', đồng hồ + mức mic, media phát.
+     * @param {HTMLMediaElement} activeEl */
+    _beginRecording(activeEl) {
+        this._mediaRecorder.start(RECORDER_TIMESLICE_MS);
+        this._setPhase('recording');
         this._startedAtMs = performance.now();
         taskManager.kill(RECORDER_TIMER_TASK);
         taskManager.addNew(RECORDER_TIMER_TASK, { time: RECORDER_TIMER_INTERVAL_MS, exe: () => this._tick(), mode: 'interval', count: 0 });
         taskManager.operator(RECORDER_TIMER_TASK, 'enabled');
-
-        this._ensureMediaPlaying(getActiveMediaElement(isVideoPlayerMode, false)); // core/player-controls.js
+        this._ensureMediaPlaying(activeEl);
     },
 
-    /** Xin mic. Bị từ chối/lỗi -> báo người dùng, trả null. @param {boolean} echoCancellation @returns {Promise<MediaStream|null>} */
-    async _requestMic(echoCancellation) {
+    // ===================== Count-in (MỚI 07/10/2026) =====================
+
+    /** Dừng media (nếu đang phát — nhớ để huỷ thì phát lại), hiện số đếm, mỗi giây trừ 1; hết thì ghi.
+     * @param {number} seconds @param {HTMLMediaElement} activeEl */
+    _runCountIn(seconds, activeEl) {
+        this._countIn = { remaining: seconds, resumeAfterCancel: !activeEl.paused };
+        activeEl.pause(); // 'pause' bắn ra lúc phase còn 'starting' -> handleInterruption() bỏ qua
+        setRecorderCountIn(recorderLayer, recorderCountIn, seconds); // core/recorder-ui.js
+        taskManager.kill(RECORDER_COUNT_IN_TASK);
+        taskManager.addNew(RECORDER_COUNT_IN_TASK, { time: RECORDER_COUNT_IN_INTERVAL_MS, exe: () => this._tickCountIn(activeEl), mode: 'interval', count: 0 });
+        taskManager.operator(RECORDER_COUNT_IN_TASK, 'enabled');
+    },
+
+    /** @param {HTMLMediaElement} activeEl */
+    _tickCountIn(activeEl) {
+        if (!this._countIn) return;
+        this._countIn.remaining -= 1;
+        setRecorderCountIn(recorderLayer, recorderCountIn, this._countIn.remaining); // core/recorder-ui.js (<= 0 tự ẩn)
+        if (this._countIn.remaining > 0) return;
+        taskManager.kill(RECORDER_COUNT_IN_TASK);
+        this._countIn = null;
+        this._beginRecording(activeEl);
+    },
+
+    /** Huỷ phiên đang Count-in (X / ẩn app / mic bị thu hồi): dọn mic + graph, gỡ overlay, mở khoá, media về như trước.
+     * Bước tuỳ chọn — không đang đếm thì không làm gì. */
+    _cancelCountIn() {
+        const countIn = this._countIn;
+        if (!countIn) return;
+        taskManager.kill(RECORDER_COUNT_IN_TASK);
+        this._countIn = null;
+        setRecorderCountIn(recorderLayer, recorderCountIn, 0); // core/recorder-ui.js
+        this._releaseCaptureResources();
+        hideRecorderLayer(recorderLayer);
+        setPlayerControlsBlocked(false); // core/player-controls.js
+        appState.set('recordMeta', null);
+        console.log('writer: "workflowRecorder._cancelCountIn", page: "recordMeta", content: "null (huỷ lúc Count-in)"');
+        this._setPhase('idle');
+        const activeEl = getActiveMediaElement(appState.get('isVideoPlayerMode'), false); // core/player-controls.js
+        RECORDER_RESUME_BY_WAS_PLAYING[countIn.resumeAfterCancel](activeEl);
+    },
+
+    /** Xin mic (thu thô — Echo cancellation đã bỏ 07/10/2026). Bị từ chối/lỗi -> báo người dùng, trả null.
+     * @returns {Promise<MediaStream|null>} */
+    async _requestMic() {
         try {
-            return await navigator.mediaDevices.getUserMedia(buildRecorderMicConstraints(echoCancellation)); // core/recorder.js
+            return await navigator.mediaDevices.getUserMedia(buildRecorderMicConstraints()); // core/recorder.js
         } catch (err) {
             console.warn('[recorder] getUserMedia lỗi:', err);
             await alertModal(tFormat('recorder.error.micDenied', { message: escapeHtml(err && err.name ? err.name : String(err)) }));
@@ -172,23 +283,23 @@ const workflowRecorder = {
         }
     },
 
-    /** Dựng graph + MediaRecorder + bắt đầu thu. Ném lỗi để start() dọn và báo. */
-    async _beginCapture(stream, audioContext, masterGainNode, latencyMs) {
+    /** Dựng graph (theo chế độ thu) + MediaRecorder (MIME theo OS + bitrate theo Recording quality) — CHƯA bắt đầu thu
+     * (_beginRecording() gọi start(), ngay hoặc sau Count-in). Ném lỗi để start() dọn và báo. */
+    async _beginCapture(stream, audioContext, masterGainNode, cfg) {
         this._stream = stream;
         if (audioContext.state !== 'running') await audioContext.resume();
-        this._graph = buildRecorderMixGraph(audioContext, masterGainNode, stream, latencyMs / 1000, RECORDER_MIC_ANALYSER_FFT); // core/recorder.js
+        this._graph = RECORDER_GRAPH_BY_MODE[cfg.mode](audioContext, masterGainNode, stream, cfg.latencyMs / 1000); // core/recorder.js
         this._levelBuf = new Float32Array(this._graph.micAnalyser.fftSize);
         const mimeType = RECORDER_MIME_CANDIDATES.find((candidate) => MediaRecorder.isTypeSupported(candidate)) || ''; // core/recorder.js — định dạng theo OS
-        const options = mimeType ? { mimeType } : undefined;
+        const options = buildRecorderOptions(mimeType, cfg.quality); // core/recorder.js
         this._chunks = [];
         this._mediaRecorder = new MediaRecorder(this._graph.destination.stream, options);
         this._mediaRecorder.ondataavailable = (e) => this._collectChunk(e.data); // nửa sau bất đồng bộ của API ghi (xem đầu file)
         stream.getAudioTracks().forEach((track) => {
             track.addEventListener('ended', () => eventBus.send({ router: 'recorder', type: 'recorder.mic.ended', payload: {} }), { once: true });
         });
-        this._mediaRecorder.start(RECORDER_TIMESLICE_MS);
         const session = navigator.audioSession ? `${navigator.audioSession.type}/${navigator.audioSession.state}` : 'không hỗ trợ';
-        console.log(`[recorder] Bắt đầu ghi — mimeType="${this._mediaRecorder.mimeType}", audioSession=${session}, bù trễ=${latencyMs}ms, sampleRate=${audioContext.sampleRate}, baseLatency=${audioContext.baseLatency}, outputLatency=${audioContext.outputLatency}`);
+        console.log(`[recorder] Sẵn sàng ghi — mode=${cfg.mode}, mimeType="${this._mediaRecorder.mimeType}", bitrate=${options.audioBitsPerSecond}, audioSession=${session}, sync=${cfg.latencyMs}ms, countIn=${cfg.countInSec}s, sampleRate=${audioContext.sampleRate}, baseLatency=${audioContext.baseLatency}, outputLatency=${audioContext.outputLatency}`);
     },
 
     /** Huỷ khởi động (mic bị từ chối/lỗi dựng graph): trả Audio Session + phase về idle. */
@@ -203,12 +314,15 @@ const workflowRecorder = {
         this._chunks.push(data);
     },
 
-    /** Tick đồng hồ + mức mic của overlay (interval 100ms). */
+    /** Tick đồng hồ + mức mic + Clip warning của overlay (interval 100ms). */
     _tick() {
-        setRecorderTimerText(recorderTimer, formatTime((performance.now() - this._startedAtMs) / 1000)); // core/recorder-ui.js
+        const now = performance.now();
+        setRecorderTimerText(recorderTimer, formatTime((now - this._startedAtMs) / 1000)); // core/recorder-ui.js
         if (!this._graph) return;
         this._graph.micAnalyser.getFloatTimeDomainData(this._levelBuf);
         setRecorderLevel(recorderLevel, computeRecorderMicLevel(this._levelBuf)); // core/recorder.js -> core/recorder-ui.js
+        this._clipUntilMs = computeRecorderMicPeak(this._levelBuf) >= RECORDER_CLIP_THRESHOLD ? now + RECORDER_CLIP_HOLD_MS : this._clipUntilMs; // core/recorder.js
+        setRecorderClip(recorderIndicator, now < this._clipUntilMs); // core/recorder-ui.js
     },
 
     /** Media đang dừng lúc bấm ghi -> tự phát ("ghi cùng audio đang phát"). @param {HTMLMediaElement} activeEl */
@@ -219,8 +333,13 @@ const workflowRecorder = {
 
     // ===================== Dừng ghi =====================
 
-    /** Ứng 'recorder.stop.click' (X) — và là đích chung của mọi đường dừng khác (handleInterruption()). */
-    async stop() {
+    /** Ứng 'recorder.stop.click' (X): đang ghi -> dừng; đang Count-in -> huỷ phiên (SỬA 07/10/2026). */
+    stop() {
+        (RECORDER_STOP_BY_PHASE[appState.get('recordPhase')] || (() => {}))();
+    },
+
+    /** Dừng ghi — đích chung của X và mọi đường dừng khác (handleInterruption()). */
+    async _stopRecording() {
         if (appState.get('recordPhase') !== 'recording') return;
         this._setPhase('stopping'); // từ đây 'pause' do chính hàm này bắn sẽ bị handleInterruption() bỏ qua
         taskManager.kill(RECORDER_TIMER_TASK);
@@ -242,12 +361,20 @@ const workflowRecorder = {
      * chỉ chạy khi đang ghi thật, nơi gọi gọi thẳng không điều kiện (event-bus-flow.md mục 7). */
     handleInterruption() {
         if (appState.get('recordPhase') !== 'recording') return;
-        this.stop();
+        this._stopRecording();
     },
 
-    /** Ứng 'appVisibility.document.change' khi app ẩn — dừng ghi như X + dừng nghe thử (không phát lặp ngầm). */
+    /** Ứng 'recorder.mic.ended' (mic bị hệ điều hành thu hồi) — như X: dừng ghi, hoặc huỷ nếu đang Count-in. */
+    handleMicEnded() {
+        this.handleInterruption();
+        this._cancelCountIn();
+    },
+
+    /** Ứng 'appVisibility.document.change' khi app ẩn — dừng ghi như X (hoặc huỷ Count-in) + dừng nghe thử (không phát lặp
+     * ngầm). Latency calibration đang chạy thì tự kết thúc theo hẹn giờ (dữ liệu ẩn app có thể hỏng -> báo đo lại). */
     handleAppHidden() {
         this.handleInterruption();
+        this._cancelCountIn();
         this._pausePreview();
     },
 
@@ -291,6 +418,7 @@ const workflowRecorder = {
         this._stream = null;
         this._mediaRecorder = null;
         this._levelBuf = null;
+        this._clipUntilMs = 0;
         this._chunks = [];
         this._disposeGraph(graph);
         this._stopStream(stream);
@@ -305,6 +433,85 @@ const workflowRecorder = {
     _stopStream(stream) {
         if (!stream) return;
         stopMediaStreamTracks(stream); // core/recorder.js
+    },
+
+    // ===================== Latency calibration (MỚI 07/10/2026, chế độ Headphones) =====================
+
+    /** Ứng 'appSettings.recorder.calibrate.click' — kiểm tra điều kiện rồi mở modal hướng dẫn (đặt tai nghe sát mic). */
+    async openCalibration() {
+        if (this._calibrating) return;
+        const { recordPhase, audioContext } = appState.get(['recordPhase', 'audioContext']);
+        if (recordPhase !== 'idle') { await alertModal(t('recorderSettings.calibration.error.busy')); return; } // core/modal-choice-ui.js
+        if (!isMediaRecordingSupported(navigator, window.MediaRecorder)) { await alertModal(t('recorder.error.unsupported')); return; } // core/recorder.js
+        if (!audioContext) { await alertModal(t('recorderSettings.calibration.error.noAudio')); return; }
+        modalChoice(t('recorderSettings.calibration.instructions'), [
+            { label: t('recorderSettings.calibration.start'), themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent', onClick: () => eventBus.send({ router: 'recorder', type: 'recorder.calibration.start.click', payload: {} }) },
+        ], { title: t('recorderSettings.calibration.label') }); // core/modal-choice-ui.js
+    },
+
+    /** Ứng 'recorder.calibration.start.click': tạm dừng media -> mic (thu thô) -> phát + thu chuỗi tick -> phân tích ->
+     * dọn -> media phát lại nếu đang phát -> áp kết quả. */
+    async runCalibration() {
+        if (this._calibrating || appState.get('recordPhase') !== 'idle') return;
+        const { audioContext, isVideoPlayerMode } = appState.get(['audioContext', 'isVideoPlayerMode']);
+        if (!audioContext) return;
+        this._calibrating = true;
+        setRecorderCalibrationBusy(genericDrawerBody, true, t('recorderSettings.calibration.measuring')); // core/recorder-ui.js
+        const activeEl = getActiveMediaElement(isVideoPlayerMode, false); // core/player-controls.js
+        const resumeMedia = !activeEl.paused;
+        activeEl.pause(); // nhạc lọt vào mic sẽ làm nhiễu phép đo
+
+        applyPlayAndRecordAudioSession(); // core/audio-engine.js — TRƯỚC getUserMedia
+        const stream = await this._requestMic();
+        const result = stream ? await this._measureLatency(audioContext, stream) : null;
+        this._stopStream(stream);
+        applyPlaybackAudioSession(); // core/audio-engine.js
+        RECORDER_RESUME_BY_WAS_PLAYING[resumeMedia](activeEl);
+        this._calibrating = false;
+        setRecorderCalibrationBusy(genericDrawerBody, false, t('recorderSettings.calibration.button'));
+        if (!result) return; // mic bị từ chối — _requestMic() đã báo
+        await RECORDER_CALIB_RESULT_BY_OK[result.ok](result);
+    },
+
+    /** Dựng graph đo, thu 2 kênh (gốc + mic) tới hết chuỗi tick, gỡ graph, phân tích.
+     * @param {AudioContext} audioContext @param {MediaStream} stream
+     * @returns {Promise<{ok: boolean, latencyMs: number, matches: number, spreadMs: number}>} */
+    async _measureLatency(audioContext, stream) {
+        if (audioContext.state !== 'running') await audioContext.resume();
+        const graph = buildLatencyCalibrationGraph(audioContext, stream, audioContext.currentTime + RECORDER_CALIB_LEAD_SEC); // core/recorder.js
+        const refParts = [], micParts = [];
+        // NGOẠI LỆ CÓ CHỦ ĐÍCH (cùng loại ondataavailable của MediaRecorder, xem đầu file): onaudioprocess là nửa thu dữ
+        // liệu của chính phép đo — chỉ chép mẫu, không quyết định gì.
+        graph.processor.onaudioprocess = (e) => {
+            refParts.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+            micParts.push(new Float32Array(e.inputBuffer.getChannelData(1)));
+        };
+        const waitMs = Math.max(0, (graph.endAt - audioContext.currentTime) * 1000);
+        await new Promise((resolve) => taskManager.once(resolve, waitMs, RECORDER_CALIB_TASK));
+        disposeLatencyCalibrationGraph(graph); // core/recorder.js
+        const result = detectCalibrationLatencyMs(this._concatSamples(refParts), this._concatSamples(micParts), audioContext.sampleRate); // core/recorder.js
+        console.log(`[recorder] Latency calibration — ok=${result.ok}, trễ=${result.latencyMs.toFixed(1)}ms, khớp ${result.matches}/${RECORDER_CALIB_CLICK_COUNT} tick, lệch ${result.spreadMs.toFixed(1)}ms`);
+        return result;
+    },
+
+    /** @param {Float32Array[]} parts @returns {Float32Array} */
+    _concatSamples(parts) {
+        const out = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
+        let offset = 0;
+        parts.forEach((p) => { out.set(p, offset); offset += p.length; });
+        return out;
+    },
+
+    /** Đo được -> làm tròn theo slider, lưu vào Sync, cập nhật slider đang hiện, báo kết quả. */
+    async _applyCalibration(result) {
+        const ms = clampRecorderLatencyMs(result.latencyMs); // core/recorder.js
+        await this.changeConfigField('latencyMs', ms);
+        setRecorderLatencyControl(genericDrawerBody, ms); // core/recorder-ui.js
+        await alertModal(tFormat('recorderSettings.calibration.done', { ms })); // core/modal-choice-ui.js
+    },
+
+    async _reportCalibrationFailed() {
+        await alertModal(t('recorderSettings.calibration.error.failed')); // core/modal-choice-ui.js
     },
 
     // ===================== Modal nghe lại =====================
