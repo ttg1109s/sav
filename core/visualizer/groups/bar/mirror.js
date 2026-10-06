@@ -24,7 +24,7 @@
  *   3. Nâng treble (mirrorTilt, dB/quãng tám) CHỈ phía trên 1kHz — bass giữ nguyên để cánh vẫn cao hơn
  *      thân (khác tilt 2 chiều của FabFilter/SPAN vốn hạ bass, làm phẳng mất hình cánh bướm).
  *   4. Làm mượt kề kiểu Monstercat (CAVA) — mirrorSmoothSpread 0 = tắt.
- *   5. Vạch đỉnh (mirrorPeaks): giữ 500ms rồi rơi có gia tốc (~0.75s từ đỉnh về 0, như audioMotion).
+ *   5. (Vạch đỉnh — mirrorPeaks/"Peak caps" — ĐÃ XOÁ 07/10/2026 theo Giang.)
  *   6. Khoảng giữa (thân bướm) = mirrorCenterGap × gap thường (1 = đều như gap giữa 2 thanh) — dải co lại
  *      cho VỪA nửa màn hình. Sửa lỗi cũ: centerOffset đẩy dải ra ngoài mà không co lại -> thanh ngoài
  *      cùng (bass) tràn khỏi mép nửa bề rộng.
@@ -33,9 +33,8 @@
  *    mọc xuống từ centerY, mỗi rect tự bo góc -> khấc ở trục tách 2 dải là CHỦ ĐÍCH, không phải lỗi.)
  *
  * THUẦN, không side-effect, không đọc appState/getActiveEffectConfig (Rule 2/3) — Workflow
- * (`_tickBar()`, event/workflow/visualizer-render.js) tự gom state (vạch đỉnh giữ ở Workflow), tự gọi
- * RIÊNG LẺ: computeBarMirrorLevels() -> spreadBarMirrorLevels() -> stepBarMirrorPeaks() ->
- * computeBarMirrorFrame(), rồi resolve màu qua getComputedColor() + paintBarRects() (common.js).
+ * (event/workflow/visualizer/bar.js::_drawMirror()) tự gom state, tự gọi
+ * RIÊNG LẺ: computeBarMirrorLevels() -> spreadBarMirrorLevels() -> computeBarMirrorFrame(), rồi resolve màu qua getComputedColor() + paintBarRects() (common.js).
  *
  * NẠP SAU: core/visualizer/groups/bar/common.js (chỉ để thứ tự đọc nhất quán).
  */
@@ -45,11 +44,9 @@ const BAR_MIRROR_FREQ_MAX_HZ = 16000;
 const BAR_MIRROR_TILT_PIVOT_HZ = 1000;
 const BAR_MIRROR_DB_FLOOR = -85;
 const BAR_MIRROR_DB_CEIL = -25;
-const BAR_MIRROR_PEAK_HOLD_MS = 500;
-const BAR_MIRROR_PEAK_GRAVITY = 3.5; // chiều cao chuẩn hoá (0-1) / giây² — rơi từ 1 về 0 ≈ 0.75s
 
 /** Số thanh MỖI BÊN (10-32), mặc định 32 nếu chưa từng đặt. Workflow dùng để khớp độ dài mảng
- * levels/vạch đỉnh với computeBarMirrorFrame(). */
+ * levels với computeBarMirrorFrame(). */
 function resolveBarMirrorCount(cfg) {
     return Math.max(10, Math.min(32, cfg.mirrorBarCount || BAR_MIRROR_COUNT_PER_SIDE));
 }
@@ -113,40 +110,15 @@ function spreadBarMirrorLevels(levels, spread) {
     return out;
 }
 
-/** 1 bước vạch đỉnh: mức mới >= đỉnh -> đỉnh nhảy lên + giữ BAR_MIRROR_PEAK_HOLD_MS; hết giữ -> rơi có
- * gia tốc BAR_MIRROR_PEAK_GRAVITY, không thấp hơn mức hiện tại. Trả state MỚI (không sửa `prev`);
- * `prev` null/lệch độ dài -> khởi tạo từ `levels`.
- * @param {Float32Array} levels @param {{vals:Float32Array,holds:Float32Array,vels:Float32Array}|null} prev
- * @param {number} dtMs @returns {{vals:Float32Array,holds:Float32Array,vels:Float32Array}} */
-function stepBarMirrorPeaks(levels, prev, dtMs) {
-    const n = levels.length;
-    if (!prev || prev.vals.length !== n) {
-        return { vals: Float32Array.from(levels), holds: new Float32Array(n).fill(BAR_MIRROR_PEAK_HOLD_MS), vels: new Float32Array(n) };
-    }
-    const vals = new Float32Array(n), holds = new Float32Array(n), vels = new Float32Array(n);
-    const dt = dtMs / 1000;
-    for (let i = 0; i < n; i++) {
-        if (levels[i] >= prev.vals[i]) {
-            vals[i] = levels[i]; holds[i] = BAR_MIRROR_PEAK_HOLD_MS; vels[i] = 0;
-        } else if (prev.holds[i] > 0) {
-            vals[i] = prev.vals[i]; holds[i] = prev.holds[i] - dtMs; vels[i] = 0;
-        } else {
-            vels[i] = prev.vels[i] + BAR_MIRROR_PEAK_GRAVITY * dt;
-            vals[i] = Math.max(levels[i], prev.vals[i] - vels[i] * dt);
-            holds[i] = 0;
-        }
-    }
-    return { vals, holds, vels };
-}
+// (stepBarMirrorPeaks() — mô phỏng vạch đỉnh — ĐÃ XOÁ 07/10/2026 cùng option "Peak caps", Giang.)
 
 /**
  * Khung hình BAR MIRROR — THUẦN.
  * @param {object} cfg - getActiveEffectConfig()
  * @param {Float32Array} levels - 0-1 theo dải, chỉ số 0 = bass (độ dài = resolveBarMirrorCount(cfg))
- * @param {Float32Array|null} peaks - vạch đỉnh 0-1 cùng độ dài, null = tắt
  * @returns {{ bars: {colorArgs:number[], rects:object[]}[] }}
  */
-function computeBarMirrorFrame(cfg, canvasWidth, canvasHeight, dpr, levels, peaks) {
+function computeBarMirrorFrame(cfg, canvasWidth, canvasHeight, dpr, levels) {
     const centerX = canvasWidth / 2, centerY = canvasHeight / 2;
     const halfWidth = canvasWidth / 2;
     const maxBarLen = cfg.maxH * dpr * 0.5;
@@ -163,7 +135,6 @@ function computeBarMirrorFrame(cfg, canvasWidth, canvasHeight, dpr, levels, peak
     const gapW = slot - barW;
     const bodyHalf = gapW * centerGapMult / 2;
     const cornerR = cfg.barCornerRadius * dpr;
-    const capH = 2 * dpr, capGap = 2 * dpr;
 
     const bars = [];
     for (let i = 0; i < barCount; i++) {
@@ -180,14 +151,6 @@ function computeBarMirrorFrame(cfg, canvasWidth, canvasHeight, dpr, levels, peak
             rects.push({ x: rx, y: centerY, w: barW, h: len, cornerR });
             rects.push({ x: lx, y: centerY - len, w: barW, h: len, cornerR });
             rects.push({ x: lx, y: centerY, w: barW, h: len, cornerR });
-        }
-        if (peaks && peaks[band] > 0.01) {
-            const pLen = peaks[band] * maxBarLen;
-            const capR = Math.min(cornerR, capH / 2);
-            rects.push({ x: rx, y: centerY - pLen - capGap - capH, w: barW, h: capH, cornerR: capR });
-            rects.push({ x: rx, y: centerY + pLen + capGap, w: barW, h: capH, cornerR: capR });
-            rects.push({ x: lx, y: centerY - pLen - capGap - capH, w: barW, h: capH, cornerR: capR });
-            rects.push({ x: lx, y: centerY + pLen + capGap, w: barW, h: capH, cornerR: capR });
         }
         if (rects.length) bars.push({ colorArgs: [i, barCount, Math.round(level * 255)], rects });
     }
