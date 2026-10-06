@@ -9,6 +9,9 @@
  *   Giờ mỗi sync() tính sẵn MỐC KẾ TIẾP (computeSubtitleLineNextBoundary(), core/subtitle/subtitle-transition.js);
  *   task raf 'subtitleClock' (chỉ chạy khi Song đang phát + còn mốc) mỗi khung hình chỉ so currentTime với mốc đó —
  *   tới mốc (hoặc tua lùi) mới gọi sync(): đúng khung hình, gần như 0 chi phí. 'timeupdate' vẫn giữ làm lưới an toàn.
+ * - SỬA (06/10/2026, Giang chọn phương án A) — mọi thời điểm hiển thị (dòng + karaoke) = `currentTime` TRỪ độ trễ đầu ra
+ *   của AudioContext (computeSubtitleDisplayTime(), core/subtitle/subtitle-transition.js) qua `_displayTime()`. sync()
+ *   (public, nhận vị trí media thô) đổi 1 lần rồi gọi `_syncAt()`; đồng hồ mốc + karaoke tự đổi rồi dùng `_syncAt()`.
  * - Karaoke (dòng có `karaoke` hợp lệ + bật trong Settings): task raf 'subtitleKaraoke' chỉ chạy khi còn dòng
  *   karaoke hoặc hạt đang bay — bài không karaoke tốn 0 chi phí. Mỗi khung hình đọc audioPlayer.currentTime,
  *   tính pha/tô của từng từ (core/subtitle/subtitle-karaoke-display.js), chỉ ghi DOM khi giá trị đổi.
@@ -154,8 +157,21 @@ const workflowSubtitleDisplay = {
 
     // ===================== Dòng phụ đề (theo 'timeupdate') =====================
 
-    /** Đồng bộ các khối dòng với thời điểm `currentTime`. */
+    /** Đồng bộ các khối dòng với vị trí media `currentTime` (THÔ, chưa bù độ trễ — mọi nơi gọi bên ngoài truyền thẳng
+     * audioPlayer.currentTime / vị trí đang kéo). */
     sync(currentTime) {
+        this._syncAt(this._displayTime(currentTime));
+    },
+
+    /** MỚI (06/10/2026) — vị trí media -> thời điểm phụ đề nên hiển thị (trừ độ trễ đầu ra, đọc sống mỗi lần vì
+     * outputLatency đổi khi đổi tai nghe/loa). @param {number} mediaTimeSec @returns {number} */
+    _displayTime(mediaTimeSec) {
+        const ctx = appState.get('audioContext');
+        return computeSubtitleDisplayTime(mediaTimeSec, ctx && ctx.baseLatency, ctx && ctx.outputLatency); // core/subtitle/subtitle-transition.js
+    },
+
+    /** Thân sync() cũ — `currentTime` ở đây là thời điểm hiển thị ĐÃ bù độ trễ. */
+    _syncAt(currentTime) {
         const s = appState.get(['isSubtitlesEnabled', 'subtitles', 'activeSubIds']);
         if (!s.isSubtitlesEnabled) { this.clearAll(); return; }
         const cfg = appConfigViz.getAll();
@@ -324,7 +340,7 @@ const workflowSubtitleDisplay = {
 
     _tickKaraoke() {
         const nowMs = performance.now();
-        const t = audioPlayer.currentTime;
+        const t = this._displayTime(audioPlayer.currentTime); // SỬA 06/10/2026 — bù độ trễ đầu ra, khớp dòng phụ đề
         const isJump = isKaraokeTimeJump(appState.get('karaokeLastMediaTime'), t); // core
         appState.set('karaokeLastMediaTime', t, { skipCheck: true });
         const kcfg = appState.get('karaokeRenderConfig');
@@ -503,12 +519,12 @@ const workflowSubtitleDisplay = {
     _tickSubtitleClock() {
         if (this._stopSubtitleClockIfIdle()) return;
         if (workflowPlayerControls.isHeldBySeekGate(audioPlayer)) return; // guard: cổng seek đang nạp lại nguồn, currentTime tạm về 0 (event/workflow/player-controls.js)
-        const t = audioPlayer.currentTime;
+        const t = this._displayTime(audioPlayer.currentTime); // mốc tính theo thời điểm hiển thị (đã bù độ trễ)
         const last = this._lastClockSec;
         this._lastClockSec = t;
         const jumpedBack = last !== null && t < last;
         if (t < this._nextBoundarySec && !jumpedBack) return; // guard: chưa tới mốc
-        this.sync(t);
+        this._syncAt(t);
     },
 
     /** Pause / hết mốc -> tắt đồng hồ ('timeupdate' lúc play/seek gọi sync() bật lại). @returns {boolean} true = đã tắt */
@@ -518,13 +534,13 @@ const workflowSubtitleDisplay = {
         return true;
     },
 
-    /** Chẩn đoán (Debug console) — độ trễ từ lúc audio rời Web Audio tới loa/tai nghe. Phụ đề bám `currentTime` của
-     * <audio>, nhưng tiếng NGHE THẤY trễ hơn đúng khoảng này (Bluetooth có thể 0.1-0.3s) — để quyết định có bù hay không. */
+    /** Chẩn đoán (Debug console) — độ trễ từ lúc audio rời Web Audio tới loa/tai nghe, ĐANG được bù vào phụ đề
+     * (`_displayTime()`). "n/a" = trình duyệt không báo -> phần đó không bù. */
     _logAudioLatencyOnce() {
         const ctx = appState.get('audioContext');
         if (!ctx || ctx === this._loggedLatencyContext) return;
         this._loggedLatencyContext = ctx;
         const fmt = (v) => (typeof v === 'number' ? `${v.toFixed(3)}s` : 'n/a');
-        console.log(`[workflowSubtitleDisplay] độ trễ đầu ra AudioContext: baseLatency=${fmt(ctx.baseLatency)}, outputLatency=${fmt(ctx.outputLatency)} (n/a = trình duyệt không báo)`);
+        console.log(`[workflowSubtitleDisplay] độ trễ đầu ra AudioContext: baseLatency=${fmt(ctx.baseLatency)}, outputLatency=${fmt(ctx.outputLatency)} — đang bù vào phụ đề (n/a = trình duyệt không báo, không bù)`);
     },
 };
