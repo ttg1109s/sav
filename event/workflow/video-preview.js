@@ -77,6 +77,18 @@
  * `videoPreviewSaveMode`, mặc định 'asNew' — an toàn, không đè mất bản gốc) + nút xanh "Lưu"
  * (`handleSaveClick` -> `_runSave(kiểu đang chọn)`). Nhãn Âm lượng cố định (icon tự đổi theo tắt/bật).
  *
+ * TÁCH TRANG (06/10/2026, Giang — "tách trình editor video thành một trang html riêng, tham khảo subtitle editor";
+ * sau đó chốt BỎ hẳn hướng đa clip, giữ đơn giản): Workflow này giờ chạy trên video-editor.html (không còn nạp ở
+ * index.html). Vào trang = `bootFromUrl()` (?video=<key mã hoá>, service/song-key-cipher.js); "đóng modal" = quay về
+ * index.html (`_reallyClose()` -> `_leaveToPlaylist()`, cùng cơ chế cuộn tới đúng item của subtitle-editor.html:
+ * localStorage `sav_editingSubtitle` + `sav_scrollToSongKey` — tên cờ giữ nguyên, xem event/listener/render.js).
+ * Lưu xong: báo kết quả rồi quay về, cuộn tới video vừa lưu (Lưu mới -> key mới). Bỏ những gì chỉ có ở index.html:
+ * `mediaInUse` (index nạp lại từ đầu khi quay về), `workflowVideoPlayer.refreshVideoPlaylistIfActive()`; folder đích của
+ * "Video mới" đọc từ meta `activePlayListFolder` trong DB (index.html tự ghi mỗi lần đổi Scope); thumb qua
+ * workflowVideoThumbExtract, nút Chụp qua workflowVideoFrameCapture (2 workflow dùng chung, tách từ index).
+ * Cùng đợt: thẻ video khít đúng tỉ lệ nội dung (`_fitCardToContent()`, hết mép đen thừa) + dải seek ngoài màn xem
+ * (`handleOuterSeekPointerDown()`/`_renderOuterSeek()`, chạy trong đoạn Start..End).
+ *
  * NẠP SAU: core/file-manager/video-ui.js, core/media-transform.js (gộp crop-selector.js +
  * image-zoom.js + cycleRotation(), 04/08/2026), core/video-editor/compat-guard.js/filmstrip.js/
  * webcodecs-engine.js, core/video-player-capture.js, core/file-manager/video.js/image.js, service/state/
@@ -196,7 +208,17 @@ const workflowVideoPreview = {
         loadingText.textContent = tFormat(key, { percent: Math.max(0, Math.min(100, Math.round(percent))) }); // dom-refs (tiền lệ workflowPlaylist.uploadVideos())
     },
 
-    /** @param {string} videoKey */
+    /** MỚI (06/10/2026) — vào trang video-editor.html: đọc `?video=` rồi mở editor; không mở được -> báo (open() tự báo
+     * lý do) rồi quay về Playlist. Gọi 1 lần từ event/listener/video-preview.js qua router. */
+    async bootFromUrl() {
+        const encoded = new URLSearchParams(window.location.search).get('video');
+        const videoKey = encoded ? decodeSongKeyFromUrl(encoded) : null; // service/song-key-cipher.js
+        if (!videoKey) { await alertModal(t('videoPreview.videoNotFound')); this._leaveToPlaylist(null); return; } // guard: link hỏng
+        const opened = await this.open(videoKey);
+        if (!opened) this._leaveToPlaylist(videoKey);
+    },
+
+    /** @param {string} videoKey @returns {Promise<boolean>} true = editor đã mở (SỬA 06/10/2026 — trước đây không trả gì) */
     async open(videoKey) {
         let failKey = null; // key thông báo lỗi — báo SAU khi shield tắt
         let failDetail = ''; // chi tiết kỹ thuật kèm theo (vd lỗi chạy file thư viện) — hiện luôn lên màn hình
@@ -236,7 +258,7 @@ const workflowVideoPreview = {
 
             const metadataOk = await metadataReadyPromise; // true = crop/trim đã dựng xong; false = `<video>` lỗi/quá hạn
             metadataTimeout.kill();
-            if (!metadataOk) { this._reallyClose(); failKey = 'videoPreview.metadataFailed'; return; }
+            if (!metadataOk) { this._disposeModal(); failKey = 'videoPreview.metadataFailed'; return; } // SỬA 06/10/2026 — chỉ dọn, bootFromUrl() tự quay về sau khi báo
             pct(35);
 
             // Dải phim trích TRONG shield (Phase 1 — Giang: hiện % lúc tải video vào edit) — bước tốn
@@ -249,6 +271,7 @@ const workflowVideoPreview = {
             pct(100);
         });
         if (failKey) await alertModal(failDetail ? `${t(failKey)}\n\n${failDetail}` : t(failKey));
+        return !failKey;
     },
 
     /** Ứng với 'videoPreview.metadata.loaded' — `<video>` vừa biết xong kích thước/thời lượng thật. */
@@ -273,6 +296,7 @@ const workflowVideoPreview = {
         this._modalHandle.videoEl.classList.remove('hidden');
 
         this._renderTrimPositions();
+        this._renderTransformPreview(); // MỚI 06/10/2026 — thẻ video khít tỉ lệ ngay khi biết kích thước thật
 
         if (this._resolveMetadataReady) { this._resolveMetadataReady(true); this._resolveMetadataReady = null; }
     },
@@ -327,6 +351,7 @@ const workflowVideoPreview = {
         this._modalHandle.startHandleEl.style.left = `${leftPx}px`;
         this._modalHandle.endHandleEl.style.left = `${trackWidth - rightPx}px`;
         this._modalHandle.trimLengthLabelEl.textContent = _formatVideoPreviewTime(cutEnd - cutStart); // độ dài đoạn đang chọn (panel Cắt)
+        this._renderOuterSeek(this._modalHandle.videoEl.currentTime); // MỚI 06/10/2026 — độ dài đoạn đổi -> dải seek ngoài đổi theo
     },
 
     // ===================== Cut: tay cầm Start/End =====================
@@ -369,6 +394,7 @@ const workflowVideoPreview = {
         const activeDrag = appState.get('videoPreviewActiveDrag');
         if (!activeDrag) return; // bắn liên tục từ document, guard bình thường
         if (activeDrag === 'seek') { this._seekToClientX(clientX); return; }
+        if (activeDrag === 'outerSeek') { this._seekOuterToClientX(clientX); return; } // MỚI 06/10/2026 — dải seek ngoài
 
         const duration = appState.get('videoPreviewSourceDuration');
         const rect = this._modalHandle.filmstripTrackEl.getBoundingClientRect();
@@ -392,7 +418,7 @@ const workflowVideoPreview = {
         const activeDrag = appState.get('videoPreviewActiveDrag');
         appState.set('videoPreviewActiveDrag', null);
         if (!activeDrag) return;
-        if (activeDrag !== 'seek') appState.set('videoPreviewHasUnsavedChanges', true); // tua thuần không phải thao tác sửa
+        if (activeDrag !== 'seek' && activeDrag !== 'outerSeek') appState.set('videoPreviewHasUnsavedChanges', true); // tua thuần không phải thao tác sửa
         if (this._dragResumePlay) { // CHỈ tự play lại nếu TRƯỚC đó đang play (mục 6 — không còn auto-play mặc định)
             this._modalHandle.videoEl.play().catch(() => {});
             appState.set('videoPreviewIsPlaying', true);
@@ -416,6 +442,69 @@ const workflowVideoPreview = {
         const trackWidth = this._modalHandle.filmstripTrackEl.getBoundingClientRect().width || 1;
         this._modalHandle.playheadEl.style.left = `${(currentTime / duration) * trackWidth}px`;
         this._modalHandle.currentTimeLabelEl.textContent = _formatVideoPreviewTime(currentTime);
+        this._renderOuterSeek(currentTime); // MỚI 06/10/2026
+    },
+
+    // ===================== Dải seek ngoài màn xem (MỚI 06/10/2026, Giang) =====================
+
+    /** 'videoPreview.outerSeek.pointerDown' — chạm/kéo dải seek ngoài: tua trong đoạn Start..End (kéo tiếp đi qua
+     * 'videoPreview.trimDrag.move' như dải phim, `videoPreviewActiveDrag` = 'outerSeek'). @param {number} clientX */
+    handleOuterSeekPointerDown(clientX) {
+        if (!this._modalHandle || appState.get('videoPreviewSourceDuration') <= 0) return; // guard: chưa có metadata
+        this._dragResumePlay = appState.get('videoPreviewIsPlaying');
+        appState.set('videoPreviewActiveDrag', 'outerSeek');
+        this._modalHandle.videoEl.pause();
+        appState.set('videoPreviewIsPlaying', false);
+        this._seekOuterToClientX(clientX);
+    },
+
+    /** @param {number} clientX */
+    _seekOuterToClientX(clientX) {
+        const cutStart = appState.get('videoPreviewCutStart'), cutEnd = appState.get('videoPreviewCutEnd');
+        const rect = this._modalHandle.seekTrackEl.getBoundingClientRect();
+        const fraction = Math.max(0, Math.min(1, (clientX - rect.left) / (rect.width || 1)));
+        const time = cutStart + fraction * (cutEnd - cutStart);
+        this._modalHandle.videoEl.currentTime = time;
+        this._renderPlayheadPosition(time);
+    },
+
+    /** Vẽ dải seek ngoài: vị trí trong đoạn Start..End + 2 nhãn (đã phát / độ dài đoạn). @param {number} currentTime */
+    _renderOuterSeek(currentTime) {
+        const h = this._modalHandle;
+        const cutStart = appState.get('videoPreviewCutStart'), cutEnd = appState.get('videoPreviewCutEnd');
+        const span = Math.max(0.001, cutEnd - cutStart);
+        const fraction = Math.max(0, Math.min(1, (currentTime - cutStart) / span));
+        h.seekFillEl.style.width = `${fraction * 100}%`;
+        h.seekThumbEl.style.left = `${fraction * 100}%`;
+        h.seekCurrentLabelEl.textContent = _formatVideoPreviewTime(fraction * span);
+        h.seekTotalLabelEl.textContent = _formatVideoPreviewTime(span);
+    },
+
+    // ===================== Chụp / đổi kích thước màn (MỚI 06/10/2026) =====================
+
+    /** 'videoPreview.capture.click' — chụp khung hình đang dừng/phát thành ảnh mới (CÙNG luồng nút Capture ở Control
+     * Center của index.html). */
+    async handleCaptureClick() {
+        if (!this._modalHandle) return; // guard
+        const videoEl = this._modalHandle.videoEl;
+        videoEl.pause();
+        appState.set('videoPreviewIsPlaying', false);
+        await workflowVideoFrameCapture.captureToPhoto(videoEl); // event/workflow/video-frame-capture.js
+    },
+
+    /** 'videoPreview.window.resize' — xoay máy/đổi cỡ cửa sổ: tính lại thẻ video, khung crop (nếu đang Cắt khung), dải phim. */
+    handleWindowResize() {
+        if (!this._modalHandle || appState.get('videoPreviewSourceDuration') <= 0) return; // guard: chưa có metadata
+        this._renderTransformPreview();
+        this._resyncCropCanvasIfActive();
+        this._renderTrimPositions();
+        this._renderPlayheadPosition(this._modalHandle.videoEl.currentTime);
+    },
+
+    _resyncCropCanvasIfActive() {
+        if (appState.get('videoPreviewActiveTool') !== 'crop') return; // guard
+        this._syncCropCanvasBox();
+        this._drawCropOverlay();
     },
 
     /** Ứng với 'play'/'pause' của `<video>` — CHỈ vẽ biểu tượng Play giữa màn hình (class
@@ -699,6 +788,7 @@ const workflowVideoPreview = {
      *   - Trạng thái xem / Thu ngắn MÀ đã cắt khung: hiện ĐÚNG vùng đã cắt, phóng vừa khung chứa —
      *     `_applyCroppedPreview()` (cắt bằng khung cha `cropViewEl`, KHÔNG dùng clip-path). */
     _renderTransformPreview() {
+        this._fitCardToContent(); // MỚI 06/10/2026 — thẻ đổi kích thước TRƯỚC, mọi phép đo bên dưới (và _getRotateTransform()) đọc thẻ mới
         const videoEl = this._modalHandle.videoEl;
         const cropViewEl = this._modalHandle.cropViewEl;
         const cropRect = appState.get('videoPreviewActiveTool') === 'crop' ? null : this._computeCropRect();
@@ -707,6 +797,29 @@ const workflowVideoPreview = {
         ['left', 'top', 'right', 'bottom', 'width', 'height'].forEach((k) => { cropViewEl.style[k] = ''; });
         ['left', 'top', 'right', 'bottom', 'width', 'height', 'maxWidth', 'maxHeight', 'transformOrigin', 'objectFit'].forEach((k) => { videoEl.style[k] = ''; });
         videoEl.style.transform = this._getRotateTransform().transform;
+    },
+
+    /** MỚI (06/10/2026, Giang: "thừa mép đen trên dưới video") — thẻ video (`mediaWrapEl`) lấy ĐÚNG tỉ lệ nội dung đang
+     * hiện rồi phóng vừa khít vùng bọc `cardAreaEl` (kiểu contain): trạng thái xem/Cắt = vùng đã cắt khung (nếu có) sau
+     * xoay; đang Cắt khung = cả khung hình sau xoay (để thấy hết mà kéo khung). Video bên trong vẫn `object-contain`/
+     * `_applyCroppedPreview()` nên lấp đúng thẻ, không còn dải đen thừa. Chưa có metadata -> trả về 100% (CSS). */
+    _fitCardToContent() {
+        const cardEl = this._modalHandle.mediaWrapEl;
+        const w = appState.get('videoPreviewNativeW'), h = appState.get('videoPreviewNativeH');
+        if (!w || !h) { cardEl.style.width = ''; cardEl.style.height = ''; return; } // guard: chưa biết kích thước thật
+        const content = this._computeContentSize(w, h);
+        const area = this._modalHandle.cardAreaEl.getBoundingClientRect();
+        const s = Math.min(area.width / content.w, area.height / content.h);
+        cardEl.style.width = `${Math.max(1, Math.floor(content.w * s))}px`;
+        cardEl.style.height = `${Math.max(1, Math.floor(content.h * s))}px`;
+    },
+
+    /** Kích thước (px gốc) của nội dung đang hiện, SAU xoay. @returns {{w:number, h:number}} */
+    _computeContentSize(w, h) {
+        const cropRect = appState.get('videoPreviewActiveTool') === 'crop' ? null : this._computeCropRect();
+        const base = cropRect ? { w: cropRect.w, h: cropRect.h } : { w, h };
+        const deg = appState.get('videoPreviewRotateDeg');
+        return (deg === 90 || deg === 270) ? { w: base.h, h: base.w } : base;
     },
 
     /** Xem trước kết quả cắt khung ngay trên màn chính.
@@ -882,6 +995,7 @@ const workflowVideoPreview = {
         let resultKey = null; // key thông báo sau khi shield tắt
         let saved = false;
         let tooLargeReason = null; // MỚI (06/10/2026) — video xuất ra vượt 500MB/file -> không lưu, báo sau khi shield tắt
+        let savedKey = null; // MỚI (06/10/2026, trang riêng) — key video vừa lưu, để quay về Playlist cuộn đúng tới nó
 
         await withLoadingShield(tFormat('videoPreview.save.progress', { percent: 0 }), async () => { // core/loading-shield-util.js
             const pct = (p) => this._setShieldPercent('videoPreview.save.progress', p);
@@ -906,20 +1020,20 @@ const workflowVideoPreview = {
                 if (!sizeCheck.valid) { tooLargeReason = sizeCheck.reason; return; }
                 pct(92);
 
-                const meta = await workflowPlaylist.extractVideoThumbAndMeta(blob); // event/workflow/playlist.js — timeout + thumb vuông + full-res
+                const meta = await workflowVideoThumbExtract.extract(blob); // event/workflow/video-thumb-extract.js — timeout + thumb vuông + full-res (SỬA 06/10/2026: tách khỏi workflowPlaylist)
                 pct(96);
 
                 if (mode === 'overwrite') {
                     const r = await replaceVideoMedia(videoKey, { blob, ...meta }); // core/file-manager/video.js — giữ customName/addedAt...
                     if (r.status === 'notFound') { resultKey = 'videoPreview.videoNotFound'; return; }
-                    // MỚI (06/10/2026, plan-media-db-split.md mục 7) — báo request trung tâm: video này đang phát/làm nền thì tự nạp lại.
-                    eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced', payload: { type: 'video', key: videoKey } });
+                    // XOÁ (06/10/2026, trang riêng) — báo 'mediaInUse' (router của index.html): quay về là index nạp lại từ đầu.
+                    savedKey = videoKey;
                 } else {
                     const newFilename = this._buildNewFilename();
                     const newKey = await resolveVideoKey(newFilename); // service/db.js — SỬA 06/10/2026: key resolve ở Workflow (Rule 3)
                     await saveVideo(newKey, blob, newFilename, meta.thumbBlob, meta.width, meta.height, meta.duration, meta.thumbFullBlob, meta.thumbFullIsBlack); // core/file-manager/video.js
-                    const activeFolderIdForVideo = appState.get('activePlayListFolder').video; // cùng khuôn workflowPlaylist.uploadVideos()
-                    if (activeFolderIdForVideo) await workflowPlaylist.addMediaToFolder([newKey], activeFolderIdForVideo, 'video'); // event/workflow/playlist.js — SỬA 06/10/2026 (Workflow đọc folder_song trước, Rule 3b)
+                    await this._attachToActiveVideoFolder(newKey); // SỬA 06/10/2026 (trang riêng) — folder Video đang Scope đọc từ DB
+                    savedKey = newKey;
                 }
                 pct(100);
                 saved = true;
@@ -933,13 +1047,24 @@ const workflowVideoPreview = {
             }
         });
 
-        if (saved) {
-            appState.set('videoPreviewHasUnsavedChanges', false);
-            await workflowVideoPlayer.refreshVideoPlaylistIfActive(); // event/workflow/video-player.js — tự guard nguồn Video
-            this._reallyClose();
-        }
-        if (tooLargeReason) { await alertModal(tFormat('common.validate.generatedNotSaved', { reason: tooLargeReason })); return; } // modal editor giữ nguyên để chỉnh tiếp (vd cắt ngắn hơn)
+        if (tooLargeReason) { await alertModal(tFormat('common.validate.generatedNotSaved', { reason: tooLargeReason })); return; } // editor giữ nguyên để chỉnh tiếp (vd cắt ngắn hơn)
         if (resultKey) await alertModal(t(resultKey));
+        // SỬA (06/10/2026, trang riêng) — báo kết quả TRƯỚC rồi mới quay về Playlist (index.html nạp lại, cuộn tới video vừa lưu).
+        if (!saved) return; // guard: lưu hỏng -> ở lại sửa tiếp
+        appState.set('videoPreviewHasUnsavedChanges', false);
+        this._reallyClose(savedKey);
+    },
+
+    /** MỚI (06/10/2026, trang riêng) — "Video mới" vào folder Video đang Scope (cùng khuôn upload video): trang này không có
+     * appState của index.html nên đọc meta `activePlayListFolder` (index.html ghi mỗi lần đổi Scope,
+     * workflowPlaylistScope.persistScopeChoice()). Đang ở "Tất cả"/folder vừa bị xoá -> bỏ qua. @param {string} newKey */
+    async _attachToActiveVideoFolder(newKey) {
+        const scope = await getMeta('activePlayListFolder'); // service/db.js
+        const folderId = scope && scope.video;
+        if (!folderId) return; // guard: đang ở view "Tất cả"
+        const folderMap = await getFolderSongMap(folderId); // service/db.js
+        if (!folderMap) return; // guard: folder không còn
+        await addSongsToFolder([newKey], folderId, 'video', folderMap); // core/file-manager/folder.js
     },
 
     // ===================== Đóng modal =====================
@@ -955,7 +1080,30 @@ const workflowVideoPreview = {
         );
     },
 
-    _reallyClose() {
+    /** SỬA (06/10/2026, trang riêng) — "đóng" = dọn rồi quay về Playlist, cuộn tới `scrollKey` (mặc định video đang sửa).
+     * @param {string} [scrollKey] */
+    _reallyClose(scrollKey) {
+        const key = scrollKey || appState.get('videoPreviewVideoKey');
+        this._disposeModal();
+        this._leaveToPlaylist(key);
+    },
+
+    /** Quay về index.html — cùng cơ chế subtitle-editor.html::back(): cờ + key trong localStorage để index tự cuộn tới
+     * item (event/listener/render.js), điều hướng bằng `location.href` (không history.back() — bfcache có thể bỏ qua
+     * boot). @param {string|null} scrollKey */
+    _leaveToPlaylist(scrollKey) {
+        this._rememberScrollTarget(scrollKey);
+        window.location.href = 'index.html';
+    },
+
+    _rememberScrollTarget(scrollKey) {
+        if (!scrollKey) return; // guard: không có item để cuộn tới
+        localStorage.setItem('sav_editingSubtitle', 'true'); // tên cờ dùng chung với subtitle-editor.html, giữ nguyên
+        localStorage.setItem('sav_scrollToSongKey', scrollKey);
+    },
+
+    /** Dọn tài nguyên + DOM editor (thân `_reallyClose()` cũ, trước khi tách trang). */
+    _disposeModal() {
         this._filmstripUrls.forEach((url) => revokeBlobUrl(url)); // service/blob-url.js — Phase 1
         this._filmstripUrls = [];
         if (this._modalHandle) { this._modalHandle.close(); this._modalHandle = null; }

@@ -867,20 +867,9 @@ const workflowVideoPlayer = {
      * khung hình GỐC của video (không áp crop/xoay/lật đang xem trong editor).
      * @param {HTMLVideoElement} [sourceVideoEl] */
     async captureCurrentFrame(sourceVideoEl) {
-        const videoEl = sourceVideoEl || bgVideoElement; // core/dom-refs.js
-        if (!videoEl || !videoEl.videoWidth) { await alertModal(t('videoPlayer.captureFrame.failed')); return; } // guard — chưa có khung hình
-        const sourceCanvas = captureVideoFrameToCanvas(videoEl); // core/video-player-capture.js
-        const blob = await new Promise((resolve) => sourceCanvas.toBlob(resolve, 'image/jpeg', 0.95));
-        if (!blob) { await alertModal(t('videoPlayer.captureFrame.failed')); return; }
-        // MỚI (06/10/2026, Giang chốt "media do app tự tạo chặn 500MB") — cùng giới hạn upload (core/upload-validation.js).
-        const sizeCheck = validateMediaFileSize(blob); // core/upload-validation.js
-        if (!sizeCheck.valid) { await alertModal(tFormat('common.validate.generatedNotSaved', { reason: sizeCheck.reason })); return; }
-        const thumbBlob = await buildExtractedPhotoThumbnail(sourceCanvas, 0.2); // core/video-player-capture.js
-        const filename = `${buildExtractedPhotoFilename()}.jpg`; // core/video-player-capture.js
-        const duration = await workflowFileManagerPhoto.computePhotoDuration(blob, sourceCanvas.width, sourceCanvas.height); // event/workflow/file-manager-photo.js
-        const imageKey = await resolveImageKey(filename); // service/db.js — SỬA 06/10/2026: key resolve ở Workflow (Rule 3)
-        await saveImage(imageKey, blob, filename, thumbBlob, sourceCanvas.width, sourceCanvas.height, duration); // core/file-manager/image.js
-        await alertModal(t('videoPlayer.captureFrame.success'));
+        // DỜI (06/10/2026, tách trình sửa video thành trang riêng) — thân hàm sang event/workflow/video-frame-capture.js
+        // (dùng chung với nút Chụp của video-editor.html). Ở đây chỉ còn chọn nguồn: Control Center -> video đang phát.
+        await workflowVideoFrameCapture.captureToPhoto(sourceVideoEl || bgVideoElement); // core/dom-refs.js
     },
 
     /**
