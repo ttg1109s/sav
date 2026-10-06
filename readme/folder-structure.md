@@ -378,3 +378,14 @@ tại từ ver 11 (xem [why-no-es6-module.md](./why-no-es6-module.md)), đườn
   `paintAudioStatsBar` + `AUDIO_NOTE_HOLD_MS` (thanh BPM/Pitch/Energy). core/audio-analysis.js nay CHỈ còn phép tính audio
   (`detectMusicTransition`/`isPhraseBoundary` — dời tiếp sang core/visualizer/beat-window.js cùng ngày).
 
+
+## Bổ sung 06/10/2026 (xoá style synapse, thiết kế lại circuit)
+
+- `core/visualizer/groups/connector/synapse.js` — ĐÃ XOÁ (style connector 'synapse' bỏ hẳn; lựa chọn cũ -> 'circuit').
+  Phần dùng chung (dải tần tonotopic, mượt hoá, thích nghi, ức chế láng giềng, ổn định lại sau seek) chuyển sang
+  `core/visualizer/tonotopic.js` (tên hàm giữ nguyên; circuit + dot của group bar vẫn gọi). DỜI 07/10/2026 từ
+  `groups/connector/tonotopic.js` ra `core/visualizer/` vì dùng chung nhiều group.
+- `core/webgl/three-connector.js` — chỉ còn builder circuit: chip vuông + chân liền thân (1 geometry), gán chân cho chip
+  đích, dây thẳng/bẻ góc vuông, nút tròn tại điểm chạm, tài nguyên xung bit.
+- `core/visualizer/groups/connector/circuit.js` — bước frame: chọn chân phóng (dải tần + năng lượng + pitch), xung bit đi
+  hết vào chân đích, màu dây, 3 chế độ camera (orbit / bám bit / cố định).

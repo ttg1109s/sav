@@ -223,3 +223,8 @@ khi sửa worker để không dính bản cũ trong cache.
 - `service/audio-analysis.js` — MỚI, đặt ngay sau `service/state/audio-engine.js`; không phụ thuộc gì lúc nạp.
 - `core/visualizer/groups/connector/brain.js` — ĐÃ XOÁ cùng thẻ script.
 
+
+## Bổ sung 06/10/2026
+
+- `core/visualizer/groups/connector/synapse.js` — ĐÃ XOÁ. Phần dùng chung nay là `core/visualizer/tonotopic.js`, nạp ngay sau
+  `core/visualizer/frame-clock.js` (07/10/2026 — trước đó nằm ở `groups/connector/tonotopic.js`).
