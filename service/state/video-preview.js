@@ -32,7 +32,7 @@ AppState.definePackage('video-preview', {
         videoPreviewRotateDeg: 'number',            // 0/90/180/270
         videoPreviewFlipH: 'boolean',               // lật ngang (mục 4, phản hồi Giang 05/08/2026)
         videoPreviewHasUnsavedChanges: 'boolean',
-        videoPreviewFilmstripFrames: 'array',       // [{timestamp, blob}] từ buildCutFilmstripFrames()
+        videoPreviewFilmstripFrames: 'array',       // SỬA 06/10/2026 (#4) — 10 ô dải phim trong RAM: [{blob, url, refilled}] (workflowVideoPreview._renderFilmstripFrames())
         videoPreviewCropSession: 'any',             // session core/media-transform.js, null khi đóng
         videoPreviewActiveDrag: 'nullable-string',  // 'start' | 'end' | 'seek' | null — đang kéo/tua gì trên dải phim
         videoPreviewActiveTool: 'string',           // 'none' | 'trim' | 'crop' — công cụ đang mở
