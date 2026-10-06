@@ -1,5 +1,6 @@
 /**
  * event/router/video-preview.js — Router "videoPreview", tự đăng ký với eventBus.
+ * SỬA (06/10/2026) — chỉ nạp ở video-editor.html (trình sửa video tách thành trang riêng).
  * NẠP SAU: event/bus.js, event/workflow/video-preview.js (workflowVideoPreview).
  */
 const routerVideoPreview = (() => {
@@ -36,6 +37,12 @@ const routerVideoPreview = (() => {
             case 'videoPreview.reset.click': { workflowVideoPreview.handleReset(); break; }
 
             case 'videoPreview.save.click': { workflowVideoPreview.handleSaveClick(); break; }
+
+            // MỚI (06/10/2026, tách trang video-editor.html) — vào trang, dải seek ngoài, nút Chụp, đổi kích thước màn
+            case 'videoPreview.page.boot': { workflowVideoPreview.bootFromUrl(); break; }
+            case 'videoPreview.outerSeek.pointerDown': { workflowVideoPreview.handleOuterSeekPointerDown(msg.payload.clientX); break; }
+            case 'videoPreview.capture.click': { workflowVideoPreview.handleCaptureClick(); break; }
+            case 'videoPreview.window.resize': { workflowVideoPreview.handleWindowResize(); break; }
 
             default:
                 console.warn(`[router:videoPreview] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`);
