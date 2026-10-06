@@ -291,9 +291,9 @@ const workflowVizConnector = {
         const chips = s.cnChips;
         const speed = computeConnectorSpeed(cfg.circuitSpeedBase, cfg.circuitSpeedEnergyMult, frame.audio.smoothedEnergy()); // core/webgl
         // SỬA (07/10/2026, Giang báo Glow/Bloom xung đột) — Glow là bloom: bật/tắt = bật/tắt pass bloom (tắt thì không tốn
-        // GPU), Glow intensity 0-100% = bloom 0-CIRCUIT_BLOOM_MAX, energy boost cộng thêm theo năng lượng nhạc.
+        // GPU), Glow intensity 0-100% = bloom 0-CIRCUIT_BLOOM_MAX, cố định (energy boost BỎ cùng ngày theo Giang).
         s.cnBloomPass.enabled = cfg.glowEnabled !== false;
-        s.cnBloomPass.strength = computeConnectorSpeed(wf.glowMult * CIRCUIT_BLOOM_MAX, cfg.bloomStrengthEnergyMult, frame.audio.smoothedEnergy()); // core/webgl
+        s.cnBloomPass.strength = wf.glowMult * CIRCUIT_BLOOM_MAX; // core/webgl/three-connector.js
         const pitchNodeIndex = this._resolvePitchNodeIndex(frame, chips.length);
 
         // Lượt 1: màu + năng lượng dải tần + độ tăng của MỌI chip (lượt 2 cần biết dải nào đang onset để chọn chân).
