@@ -1,8 +1,8 @@
 # Plan — Tách Blob khỏi bản ghi media + gộp thống kê vào meta media
 
-> Đặt tại `readme/plan-media-db-split.md`. Trạng thái: **NHÁP — chờ Giang chốt mục 11**.
+> Đặt tại `readme/plan-media-db-split.md`. Trạng thái: **NHÁP — Giang đã chốt hướng chính (06/10/2026, mục 0.5), còn vài điểm nhỏ ở mục 11**.
 > Phạm vi: 2 việc gộp chung 1 dự án vì dùng chung 1 lần chuyển dữ liệu:
-> **(A)** tách mọi Blob ra store riêng `media_blobs`; **(B)** đưa `songStats` (+ điểm Game) vào bản ghi meta của từng media.
+> **(A)** tách Blob ra store riêng theo từng loại media (mục 2.1); **(B)** đưa `songStats` (+ điểm Game) vào bản ghi meta của từng media.
 
 ---
 
@@ -44,6 +44,15 @@ xoá folder chứa bài đang phát.
 Header `core/listen-stats.js`: record chứa Blob → ghi lại mỗi vài giây để cập nhật `totalTime` quá nặng.
 Sau khi (A) tách Blob, record meta nhẹ → lý do này hết → (B) khả thi.
 
+### 0.5 Giang chốt (06/10/2026)
+- **Giữ IndexedDB** — không chuyển Blob sang OPFS (đã cân nhắc OPFS, bỏ).
+- **Mỗi loại media có 3 store riêng: meta / media blob / thumb blob** (Song, Video, Photo → 9 store, xem mục 2.1).
+- **Không chuyển dữ liệu cũ, không xử lý gộp gì cả** ("xoá đi cài lại là xong") — nâng `DB_VERSION` thì xoá thẳng
+  store cũ, không modal, không cảnh báo (mục 4). Bỏ toàn bộ phần chuyển dữ liệu / H-R / record dạng cũ / gộp thống kê cũ.
+- **(B) thống kê + điểm Game vào meta: làm cùng đợt.**
+- Liên quan (đã làm): mỗi file media tối đa **500MB** — cả upload lẫn media app tự tạo (ghi âm, cắt đoạn, xuất video,
+  sửa ảnh, chụp khung hình); zip > 500MB tự chia nhiều phần, modal tải hiện từng phần.
+
 ---
 
 ## 1. Mục tiêu / Ngoài phạm vi
@@ -66,28 +75,26 @@ Sau khi (A) tách Blob, record meta nhẹ → lý do này hết → (B) khả th
 
 ### 2.1 Store sau khi tách (`DB_VERSION` 5 → 6)
 
-| Store | Chứa | Key |
-|---|---|---|
-| `songs` / `videos` / `images` | **CHỈ** dữ liệu thường (không Blob) | key media (như cũ) |
-| `media_blobs` (MỚI) | mỗi Blob là 1 entry riêng | **array key** `[type, key, field]` |
+| Loại | Meta (dữ liệu thường, KHÔNG Blob) | Media blob (file chính) | Thumb blob (ảnh nhỏ) |
+|---|---|---|---|
+| song | `songs` | `song_blobs` | `song_thumbs` — field `cover` |
+| video | `videos` | `video_blobs` | `video_thumbs` — field `thumbBlob`, `thumbFullBlob` |
+| photo | `images` | `image_blobs` | `image_thumbs` — field `thumbBlob` |
 
-`type` ∈ `song` / `video` / `photo`. Array key cho phép xoá/đọc theo khoảng `[type, key]` bằng `IDBKeyRange.bound([type, key], [type, key, '\uffff'])`.
+**Key** (đề xuất — chờ chốt mục 11.1):
+- meta + media blob: **key media như hiện nay** (chuỗi `slugify()`), mỗi media đúng 1 entry mỗi store.
+- thumb blob: **array key `[keyMedia, field]`** — vì Video có 2 thumb; mỗi thumb 1 entry riêng nên fix thumbnail
+  `thumbFullBlob` không chạm `thumbBlob`. Đọc/xoá mọi thumb của 1 media bằng khoảng
+  `IDBKeyRange.bound([key], [key, '\uffff'])`.
 
-**Field Blob mỗi loại** (hằng số `MEDIA_BLOB_FIELDS` trong service/db.js — nguồn sự thật DUY NHẤT):
+Danh sách field thumb mỗi loại: hằng số `THUMB_FIELDS_BY_TYPE` trong service/db.js — nguồn sự thật DUY NHẤT.
 
-| Loại | Field |
-|---|---|
-| song | `blob`, `cover` |
-| video | `blob`, `thumbBlob`, `thumbFullBlob` |
-| photo | `blob`, `thumbBlob` |
-
-Mỗi field 1 entry riêng → fix thumbnail video **không** chạm `blob` video (đang phát vẫn an toàn).
+(Bản nháp trước đặt 1 store `media_blobs` chung cho cả 3 loại với key `[type, key, field]` — đã thay bằng bảng trên.)
 
 ### 2.2 Bản ghi meta — field mới
 
 | Field | Kiểu | Ghi chú |
 |---|---|---|
-| `schema` | `2` | đánh dấu đã chuyển; record thiếu field này = dạng cũ (Blob còn bên trong) |
 | `stats` | `{ count, totalTime }` | thay `meta.songStats[key]` |
 | `game` | `{ [mode]: { [difficulty]: [{time, score}] } }` | Song đã có sẵn field này; Video/Photo mới có |
 
@@ -95,10 +102,10 @@ Mọi field cũ giữ nguyên tên (`filename`, `tag`, `subtitles`, `folder`, `c
 
 ### 2.3 Bất biến
 
-- **Create**: ghi meta + mọi Blob trong **1 transaction** (2 store).
+- **Create**: ghi meta + media blob + mọi thumb của loại đó trong **1 transaction** (3 store).
 - **Update meta**: read-modify-write chỉ store meta; hàm ghi tự **gạt bỏ field Blob** nếu lọt vào (phòng thủ).
-- **Update Blob**: chỉ ghi đúng field truyền vào.
-- **Delete**: xoá meta + mọi entry `[type, key, *]` trong 1 transaction.
+- **Update Blob**: chỉ ghi đúng store/field truyền vào (file chính hoặc từng thumb).
+- **Delete**: xoá meta + media blob + mọi thumb `[key, *]` trong 1 transaction.
 
 ---
 
@@ -106,17 +113,18 @@ Mọi field cũ giữ nguyên tên (`filename`, `tag`, `subtitles`, `folder`, `c
 
 ### 3.1 Hạ tầng
 - `makeMultiStoreAccessor(storeNames)` — transaction nhiều store, cùng cơ chế tự mở lại connection + retry 1 lần như `makeStoreAccessor()`.
-- `MEDIA_STORE_BY_TYPE = { song: 'songs', video: 'videos', photo: 'images' }`.
+- `MEDIA_STORES_BY_TYPE = { song: { meta: 'songs', blob: 'song_blobs', thumb: 'song_thumbs' }, video: {...}, photo: {...} }`.
+- `THUMB_FIELDS_BY_TYPE = { song: ['cover'], video: ['thumbBlob', 'thumbFullBlob'], photo: ['thumbBlob'] }`.
 - Lưu ý kỹ thuật: transaction IndexedDB **tự commit khi await promise ngoài IDB** → mọi `arrayBuffer()` / đọc file phải xong **trước** khi mở transaction ghi.
 
 ### 3.2 Đọc
 
 | Hàm | Ghi chú |
 |---|---|
-| `getSongRecord` / `getVideoRecord` / `getImageRecord` | **giữ chữ ký** — đọc gộp meta + Blob trong 1 transaction; record dạng cũ trả nguyên (Blob đã ở trong) |
+| `getSongRecord` / `getVideoRecord` / `getImageRecord` | **giữ chữ ký** — đọc gộp meta + blob + thumb trong 1 transaction, trả record đúng hình dạng cũ |
 | `get*RecordsByKeys`, `getAll*Records` | **giữ chữ ký**, đọc gộp |
 | `getMediaMeta(type, key)` / `getAllMediaMeta(type)` | MỚI — chỉ meta (boot nạp stats, không mở Blob) |
-| `getMediaBlob(type, key, field)` | MỚI — đọc 1 Blob |
+| `getMediaBlob(type, key)` / `getMediaThumb(type, key, field)` | MỚI — đọc riêng file chính / 1 thumb |
 
 → khoảng 60 chỗ đọc ở khoảng 25 file **không phải sửa**.
 
@@ -124,10 +132,11 @@ Mọi field cũ giữ nguyên tên (`filename`, `tag`, `subtitles`, `folder`, `c
 
 | Hàm | Dùng cho |
 |---|---|
-| `createMediaRecord(type, key, record)` | tạo mới: tự tách field Blob theo `MEDIA_BLOB_FIELDS` |
-| `updateMediaMeta(type, key, mutate)` | sửa dữ liệu thường; record dạng cũ → **chuyển record đó trước** (mục 4.4) rồi mới sửa |
+| `createMediaRecord(type, key, record)` | tạo mới: tự tách `blob` + field thumb theo `THUMB_FIELDS_BY_TYPE` |
+| `updateMediaMeta(type, key, mutate)` | sửa dữ liệu thường |
 | `updateMediaMetaBatch([{type, key, mutate}])` | flush thống kê, xoá folder, dọn mồ côi — 1 transaction nhiều store |
-| `setMediaBlobs(type, key, { field: Blob })` | đổi nội dung thật (sửa ảnh, fix thumbnail, thay file) |
+| `setMediaBlob(type, key, blob)` | đổi file chính (sửa ảnh, thay file video, upload ghi đè) |
+| `setMediaThumbs(type, key, { field: Blob })` | đổi thumb (fix thumbnail, đổi cover) |
 | `deleteMediaRecord(type, key)` | xoá meta + mọi Blob |
 
 `set*Record` / `delete*Record` cũ: **xoá hẳn** sau Lượt 2 (đường ghi cũ còn sót sẽ lỗi ngay lúc chạy, không lặng lẽ tái tạo bug).
@@ -137,49 +146,12 @@ Mọi field cũ giữ nguyên tên (`filename`, `tag`, `subtitles`, `folder`, `c
 
 ---
 
-## 4. Chuyển dữ liệu (1 lần, lúc boot)
+## 4. Nâng cấp DB — KHÔNG chuyển dữ liệu (Giang chốt 06/10/2026)
 
-### 4.1 Điều kiện + thời điểm
-- Chạy khi `meta.mediaSchemaVersion < 2`.
-- Trong `event/workflow/app-boot.js`: **sau** `loadConfig()` / `migrateFolderIndexIfNeeded()`, **trước** `loadSongStats()`, trước khi nạp Playlist,
-  trước bất kỳ media nào phát → không có URL nào đang dùng để làm chết.
-- Hiện `withLoadingShield` có tiến độ `x/tổng` (preloader đang che sẵn, chỉ cần đổi chữ).
-- Chỉ chạy ở `index.html`. `subtitle-editor.html` không chạy (xem 4.4).
-
-### 4.2 Từng record (làm lại được)
-Cho mỗi `type`, mỗi record **thiếu `schema: 2`**:
-1. Ngoài transaction: lấy các Blob theo `MEDIA_BLOB_FIELDS` (xem 4.3 về cách lấy).
-2. 1 transaction `readwrite` [store meta, `media_blobs`]:
-   `put` từng Blob vào `[type, key, field]` → `put` meta (bỏ field Blob, gắn `schema: 2`, gắn `stats`/`game` từ 4.5).
-3. Lỗi ở record nào → ghi log + để nguyên dạng cũ (đọc gộp vẫn đọc được), lần boot sau chạy lại.
-
-Ghi tiến độ vào `meta.mediaMigrationProgress` (để log/resume), xong hết → `meta.mediaSchemaVersion = 2` → **`location.reload()`**
-(mở connection IndexedDB mới, dứt điểm mọi Blob handle round-trip trong phiên).
-
-### 4.3 Cách lấy Blob để ghi sang store mới — **cần chốt (mục 11)**
-
-| Phương án | Cách | Ưu | Nhược |
-|---|---|---|---|
-| **H — Blob handle gốc + reload** | `put` thẳng Blob vừa đọc | không tốn RAM, nhanh | đúng kiểu round-trip; an toàn chỉ nhờ không có gì phát + reload ngay sau |
-| **R — vật chất hoá** | `new Blob([await blob.arrayBuffer()])` | Blob tách hẳn file cũ | RAM đỉnh = cỡ file; video vài trăm MB trên iPhone có thể sập tab |
-
-Đề xuất: **H**, kèm R cho file < 50 MB nếu thử máy thấy H không ổn. **Bắt buộc thử trên iPhone với bản sao thư viện thật** trước khi phát hành.
-
-Quota: mỗi record tạm 2 bản trong lúc transaction chưa commit → đỉnh tăng thêm ~1 file lớn nhất.
-
-### 4.4 Record dạng cũ gặp ngoài lượt chuyển
-`updateMediaMeta()` thấy record thiếu `schema: 2` → chạy đúng bước 4.2 cho riêng record đó rồi mới sửa.
-Áp cho `subtitle-editor.html` (mở trước khi index chuyển xong) và record lỗi ở lượt boot trước.
-Rủi ro: record đó **đang phát** ở trang index → giữ quy tắc chung, xem mục 7 (nạp lại nguồn).
-
-### 4.5 Gộp thống kê + điểm Game cũ
-- `meta.songStats` (key trần): với mỗi key, tra 3 store:
-  - có ở **1** store → gán `stats` vào record đó;
-  - có ở **nhiều** store → số liệu đã cộng lẫn từ trước, không tách lại được → **gán cho Song** (đề xuất) + log danh sách key trùng;
-  - không có ở store nào → bỏ (mồ côi) + log.
-- `record.game` của Song: đã nằm trong meta → **không cần chuyển**.
-- `meta.gameScores` (nếu làm Lượt 0): gộp vào `record.game` đúng loại, rồi xoá key.
-- Xong: đổi tên `meta.songStats` → `meta.songStats_legacy` (giữ 1 phiên bản để phòng hoàn tác), xoá ở bản sau.
+`onupgradeneeded` khi `oldVersion < 6`: **xoá thẳng** store `songs` / `videos` / `images` cũ (đang chứa Blob) rồi tạo
+lại đủ 9 store của mục 2.1; xoá luôn các key thống kê cũ trong `meta` (`songStats`, `gameScores` nếu có). Không modal,
+không cảnh báo — máy chưa xoá app sẽ mất thư viện cũ (Giang chấp nhận: "xoá đi cài lại là xong"). Các store khác
+(`meta` còn lại, `folders`, `folder_song`, `languages`...) giữ nguyên; field folder của media cũ mất theo store.
 
 ---
 
@@ -192,7 +164,7 @@ Rủi ro: record đó **đang phát** ở trang index → giữ quy tắc chung,
 | C | Cắt đoạn thành bài mới | `event/workflow/subtitle-editor.js::_insertCutBlobAsNewSong` | `createMediaRecord('song')` |
 | C | Upload video | `core/file-manager/video.js::saveVideo` | `createMediaRecord('video')` |
 | C | Upload ảnh / Lưu thành ảnh mới | `core/file-manager/image.js::saveImage` | `createMediaRecord('photo')` |
-| 🔴 | Sửa thông tin Song | `core/playlist/actions.js::applySongEditAndSave` | `updateMediaMeta` (+ `setMediaBlobs({cover})` nếu đổi cover) |
+| 🔴 | Sửa thông tin Song | `core/playlist/actions.js::applySongEditAndSave` | `updateMediaMeta` (+ `setMediaThumbs({cover})` nếu đổi cover) |
 | 🔴 | Sửa thông tin Video | `core/playlist/actions.js::applyVideoEditAndSave` | `updateMediaMeta` |
 | 🔴 | Sửa thông tin Photo | `core/playlist/actions.js::applyPhotoEditAndSave` | `updateMediaMeta` |
 | 🔴 | Lưu phụ đề | `event/workflow/subtitle-editor.js::saveToDatabase` | `updateMediaMeta` |
@@ -201,14 +173,14 @@ Rủi ro: record đó **đang phát** ở trang index → giữ quy tắc chung,
 | 🔴 | Dọn folder mồ côi | `core/file-manager/cleanup.js::cleanupOrphanedSongFolderFields` | `updateMediaMetaBatch` |
 | 🔴 | Đổi tên video | `core/file-manager/video.js::setVideoCustomName` | `updateMediaMeta` |
 | 🔴 | Điểm Game | `event/workflow/gameplay-engine.js::persistScore` | `updateMediaMeta` |
-| 🟡 | Upload ghi đè (giữ phụ đề) | `event/workflow/playlist.js` (vòng upload) | `setMediaBlobs` + `updateMediaMeta` |
-| 🟡 | Sửa ảnh ghi đè | `core/file-manager/image.js::updateImageBlob` | `setMediaBlobs` + `updateMediaMeta` (width/height/duration) |
-| 🟡 | Scan & fix thumbnail | `core/file-manager/video.js::setVideoThumbnails` | `setMediaBlobs({thumbBlob, thumbFullBlob})` + `updateMediaMeta` (thumbFullBlack) |
-| 🟡 | Thay file video | `core/file-manager/video.js::replaceVideoMedia` | `setMediaBlobs` + `updateMediaMeta` |
+| 🟡 | Upload ghi đè (giữ phụ đề) | `event/workflow/playlist.js` (vòng upload) | `setMediaBlob` + `setMediaThumbs({cover})` + `updateMediaMeta` |
+| 🟡 | Sửa ảnh ghi đè | `core/file-manager/image.js::updateImageBlob` | `setMediaBlob` + `setMediaThumbs({thumbBlob})` + `updateMediaMeta` (width/height/duration) |
+| 🟡 | Scan & fix thumbnail | `core/file-manager/video.js::setVideoThumbnails` | `setMediaThumbs({thumbBlob, thumbFullBlob})` + `updateMediaMeta` (thumbFullBlack) |
+| 🟡 | Thay file video | `core/file-manager/video.js::replaceVideoMedia` | `setMediaBlob` + `setMediaThumbs` + `updateMediaMeta` |
 
 **Delete**: các đường xoá hiện tại (`playlist.js` bảng theo loại, `executePlaybackErrorDelete`, `storage-manager.js::deleteCorrupted*` / `clearAll*Data`,
 `file-manager-storage.js::clearAllStoredData`, `image.js::deleteImage`) đổi sang `deleteMediaRecord`. Hàm "xoá toàn bộ 1 loại" dùng
-`clear()` store meta + xoá khoảng `[type]` trong `media_blobs`.
+`clear()` cả 3 store của loại đó (meta, blob, thumb).
 
 **Rule core** (core-function-conventions.md): `core/file-manager/*` và `core/playlist/actions.js` vẫn gọi data layer như hiện nay
 (ngoại lệ Rule 3 đã có). `mutate` truyền vào `updateMediaMeta` phải thuần (không gọi core khác).
@@ -256,26 +228,24 @@ Có thể gom vào 1 hàm Workflow `refreshInUseMediaIfAffected(type, key, field
 
 ## 8. Lượt thực hiện
 
-| Lượt | Nội dung | Phát hành? |
-|---|---|---|
-| **0** (hotfix) | Gỡ phần vật chất hoá Blob ở `persistScore()` (đang làm Video mất hình); tạm lưu điểm Game vào `meta.gameScores` (Lượt 1 gộp vào record). | Có — ngay |
-| **1** | `service/db.js`: v6, `media_blobs`, accessor nhiều store, API mục 3, đọc gộp hỗ trợ dạng cũ; module chuyển dữ liệu (mục 4) + gắn vào boot + reload. | **Không** (phát hành chung Lượt 2) |
-| **2** | Đổi 18 chỗ ghi (mục 5), đổi đường xoá, gỡ `set*Record` cũ + 6 chỗ `rematerializeBlob`; mục 7. | Có — cùng Lượt 1 |
-| **3** | Thống kê mức 2 (mục 6). | Có |
-| **4** | Sửa lỗi sau thử máy; cập nhật readme (`folder-structure.md`, `where-to-edit.md`, docstring đầu `service/db.js`, `core/listen-stats.js`). | Có |
+| Lượt | Nội dung |
+|---|---|
+| **1** | `service/db.js`: v6 + 9 store (mục 2.1, 4), accessor nhiều store, API mục 3. |
+| **2** | Đổi 18 chỗ ghi (mục 5), đổi đường xoá, gỡ `set*Record` cũ + 6 chỗ `rematerializeBlob`; mục 7. |
+| **3** | Thống kê + điểm Game vào meta (mục 6). |
+| **4** | Sửa lỗi sau thử máy; cập nhật readme (`folder-structure.md`, `where-to-edit.md`, docstring đầu `service/db.js`, `core/listen-stats.js`). |
 
-Lượt 1 + 2 phải đi cùng: nếu chỉ có Lượt 1, đường ghi cũ (`set*Record`) sẽ ghi Blob ngược vào store meta.
+Lượt 1 + 2 + 3 **phát hành chung 1 lần** (Giang chốt làm cùng đợt; Lượt 1 đứng riêng thì đường ghi cũ ghi Blob ngược vào
+store meta). Bỏ Lượt 0 (hotfix Game mode) — Lượt 2 sửa tận gốc.
 
 ---
 
 ## 9. Kiểm thử (iPhone, không DevTools — log qua Debug console)
 
-**Chuyển dữ liệu**
-- [ ] Bản sao thư viện thật (Song + Video lớn + Photo): chuyển xong, reload, mọi item phát / hiện đúng.
-- [ ] Tắt app giữa lượt chuyển → mở lại → chạy tiếp, không mất / không nhân đôi.
-- [ ] Mở `subtitle-editor.html` **trước** khi index chuyển: đọc / lưu phụ đề được.
-- [ ] Storage Management: dung lượng trước / sau gần bằng nhau (không còn bản thừa sau khi xong).
-- [ ] Log key thống kê trùng / mồ côi hiện trong Debug console.
+**Nâng cấp / cài mới**
+- [ ] Cài mới: upload Song + Video + Photo → phát / hiện đúng; Storage Management đếm đúng dung lượng.
+- [ ] Máy còn DB v5: mở bản mới → thư viện rỗng, app chạy bình thường, Settings giữ nguyên.
+- [ ] Mở `subtitle-editor.html`: đọc / lưu phụ đề / chèn đoạn cắt được.
 
 **Lỗi cũ phải hết**
 - [ ] Game mode: hết bài → về Playlist → phát lại đúng bài (Song, Video); nút Replay.
@@ -299,24 +269,20 @@ Lượt 1 + 2 phải đi cùng: nếu chỉ có Lượt 1, đường ghi cũ (`s
 
 | Rủi ro | Mức | Giảm thiểu |
 |---|---|---|
-| Mất dữ liệu khi chuyển | Cao | mỗi record 1 transaction nguyên tử; lỗi → giữ dạng cũ; thử với bản sao trước |
-| Sập tab vì RAM (phương án R) | Cao | ưu tiên H; R chỉ cho file nhỏ |
-| H vẫn dính round-trip trên WebKit | Trung bình | không gì phát trong lúc chuyển + reload ngay; thử máy bắt buộc |
-| Vượt quota giữa chừng | Trung bình | chuyển từng record; báo lỗi rõ + dừng, lần boot sau tiếp |
+| Máy chưa xoá app mất thư viện khi lên v6 | Đã chấp nhận | Giang chốt không chuyển dữ liệu |
 | Sót 1 đường ghi cũ | Trung bình | xoá hẳn `set*Record` → lỗi lộ ngay khi chạy |
-| Boot lần đầu sau update lâu | Thấp | chỉ 1 lần, có tiến độ |
-| Gán nhầm thống kê key trùng | Thấp | số liệu đã lẫn từ trước; log để Giang biết |
+| Transaction tự commit giữa chừng | Trung bình | mọi `await` ngoài IDB (đọc file, `arrayBuffer()`) xong TRƯỚC khi mở transaction ghi |
+| Thay file đang phát làm chết URL | Thấp | mục 7 |
 
 ---
 
 ## 11. Cần Giang chốt
 
-1. `media_blobs` 1 store chung (array key) — hay 3 store riêng (`song_blobs`, ...)?
-2. Cách lấy Blob khi chuyển: **H** (handle gốc + reload) hay **R** (vật chất hoá) — hay H + R cho file nhỏ?
-3. Thống kê key trùng nhiều loại: gán cho Song?
-4. Giữ `meta.songStats_legacy` bao lâu (đề xuất: 1 phiên bản)?
-5. `set*Record` / `delete*Record` cũ: xoá hẳn hay giữ alias?
-6. Trạng thái key thống kê bẩn: đưa vào `service/state` hay biến module trong `core/listen-stats.js`?
-7. Vị trí hàm nạp lại media đang dùng (mục 7).
-8. Có cần nút "Chạy lại chuyển dữ liệu" trong Settings > Troubleshooting không?
-9. Làm **Lượt 0** (hotfix Game mode) ngay?
+Đã chốt (06/10/2026): Blob tách theo từng loại, 3 store/loại; không chuyển dữ liệu, xoá store cũ; (B) làm cùng đợt; bỏ
+H/R, `songStats_legacy`, nút chạy lại chuyển dữ liệu, Lượt 0.
+
+Còn lại:
+1. Key store thumb: `[keyMedia, field]` như mục 2.1 — đồng ý?
+2. `set*Record` / `delete*Record` cũ: **xoá hẳn** (đề xuất — sót chỗ nào lỗi lộ ngay) hay giữ alias mỏng?
+3. Trạng thái key thống kê bẩn (mục 6.1): `service/state` hay biến module trong `core/listen-stats.js`?
+4. Hàm nạp lại media đang dùng khi thay file (mục 7): đặt ở Workflow nào?
