@@ -199,6 +199,11 @@
             card.appendChild(row);
         }
 
+        /* SỬA (06/10/2026, Giang báo: effect 2D canvas [clock bật con lắc] mở modal chọn effect thì giật nặng, Perf HUD
+         * vẫn bình thường) — overlay BỎ `backdrop-blur-sm`. `backdrop-filter` phủ TOÀN MÀN trên 1 canvas vẽ lại mỗi frame
+         * buộc compositor/GPU chụp + làm mờ lại cả màn hình MỖI frame — chi phí nằm ở tầng compositor nên Perf HUD (đo
+         * rAF/JS trên main thread) không thấy, mắt thì thấy giật. Giờ chỉ còn lớp đen `overlayBg` (giống Generic Drawer).
+         * Áp cùng lúc cho overlay của core/slider-input-modal.js + core/time-picker-modal.js. */
         function modalChoice(text, choices, options) {
             options = options || {};
             choices = choices || [];
@@ -209,7 +214,7 @@
 
             const overlay = document.createElement('div');
             overlay.id = 'modal-choice-overlay';
-            overlay.className = 'fixed inset-0 backdrop-blur-sm flex items-center justify-center px-5';
+            overlay.className = 'fixed inset-0 flex items-center justify-center px-5'; // SỬA (06/10/2026, Giang) — bỏ backdrop-blur-sm, xem docstring modalChoice() (core/modal-choice-ui.js)
             overlay.dataset.uitk = 'overlayBg'; // SỬA (09/09/2026) — trước đây bg-black/70 hardcode riêng, giờ DÙNG CHUNG đúng overlayBg với Generic Drawer (bg-black/50, cố ý KHÔNG đổi theo theme — xem docstring core/ui-theme/light.js)
             overlay.style.zIndex = String(Z_INDEX.MODAL_CHOICE);
 

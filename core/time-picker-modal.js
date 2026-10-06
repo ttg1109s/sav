@@ -221,7 +221,7 @@ function openTimePickerModal(config) {
 
     const overlay = document.createElement('div');
     overlay.id = 'time-picker-modal-overlay';
-    overlay.className = 'fixed inset-0 backdrop-blur-sm flex items-center justify-center px-5';
+    overlay.className = 'fixed inset-0 flex items-center justify-center px-5'; // SỬA (06/10/2026, Giang) — bỏ backdrop-blur-sm, xem docstring modalChoice() (core/modal-choice-ui.js)
     overlay.dataset.uitk = 'overlayBg';
     overlay.style.zIndex = String(zIndex);
 
