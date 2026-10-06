@@ -407,8 +407,7 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.connectorStyle.brain': 'Brain filter',
     'customEffectDrawer.field.connectorGlowEnabled': 'Glow',
     'customEffectDrawer.field.connectorGlowIntensity': 'Glow intensity',
-    'customEffectDrawer.field.bloomStrengthBase': 'Bloom strength',
-    'customEffectDrawer.field.bloomStrengthEnergyMult': 'Bloom strength (energy boost)',
+    'customEffectDrawer.field.bloomStrengthEnergyMult': 'Glow (energy boost)', // SỬA 07/10/2026 — Bloom strength gộp vào Glow intensity
     'customEffectDrawer.field.connectorCameraShiftEnabled': 'Cinematic camera shift',
     'customEffectDrawer.field.fireThreshold': 'Fire threshold',
     'customEffectDrawer.field.lateralInhibitStrength': 'Lateral inhibition',
