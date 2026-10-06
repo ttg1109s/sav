@@ -326,12 +326,12 @@
 
     <!-- ===================== SCRIPT ===================== -->
     <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
-    <script src="lang/patch/patch-common.js?v=20260714v1"></script>
+    <script src="lang/patch/patch-common.js?v=20261006z2"></script>
     <script src="lang/patch/patch-playlist.js?v=20261006audivis1"></script>
     <script src="lang/patch/patch-visualizer.js?v=20261001rec1"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20261001kr1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260714v1"></script>
-    <script src="lang/patch/patch-file-manager.js?v=20260930hidden1"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20261006z1"></script>
     <script src="lang/patch/patch-subtitle-editor.js?v=20260930kr4"></script>
     <!-- SỬA ("Song/Video Unification" v12, gộp Video Editor vào Modal xem Video, patch-video-
          editor.js ĐÃ XOÁ cùng video-editor.html) — cần nạp Ở ĐÂY dù trang này không dùng key nào
@@ -411,6 +411,9 @@
          SỚM, cùng vị trí quy ước như index.html ("ngay sau dom-refs.js" — trang này không có
          dom-refs.js nên đặt cạnh service/db.js cho gọn). -->
     <script src="service/task-manager.js?v=20260712v1"></script>
+    <!-- MỚI (06/10/2026, Giang chốt "media do app tự tạo chặn 500MB") — validateMediaFileSize() cho "Chèn" đoạn cắt
+         thành bài mới (event/workflow/subtitle-editor.js::_insertCutBlobAsNewSong()). Chỉ cần lang/lang.js (tFormat). -->
+    <script src="core/upload-validation.js?v=20261006z1"></script>
     <script src="core/subtitle/subtitles.js?v=20260930kr1"></script>
     <script src="core/subtitle/subtitles-ui.js?v=20260930kr2"></script>
     <!-- MỚI (17/09/2026, yêu cầu Giang — tính năng karaoke) — core THUẦN tách từ/chia ms/kéo-gõ
@@ -432,7 +435,7 @@
     <!-- MỚI (17/09/2026) — closeFully() dùng chung cho MỌI tính năng Generic Drawer (ở đây: drawer
          karaoke) — file THUẦN, chỉ cần core/generic-drawer.js + genericDrawerPanel (đã nạp trên). -->
     <script src="event/workflow/generic-drawer-helpers.js?v=20260924r9"></script>
-    <script src="event/workflow/subtitle-editor.js?v=20261001kr1"></script>
+    <script src="event/workflow/subtitle-editor.js?v=20261006z2"></script>
     <script src="event/router/subtitle-editor.js?v=20260712v7"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowSubtitleEditor.init() ngay khi chạy. -->
     <script src="event/listener/subtitle-editor.js?v=20260930kr1"></script>

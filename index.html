@@ -388,14 +388,14 @@
          .json vì chạy qua file://). /lang/lang.js gộp cả 5 (Object.assign) rồi định nghĩa t()/
          tFormat() — PHẢI nạp trước mọi components/*.js (template TPL_* gọi t() ngay lúc parse).
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
-    <script src="lang/patch/patch-common.js?v=20260924v1"></script>
+    <script src="lang/patch/patch-common.js?v=20261006z2"></script>
     <script src="lang/patch/patch-playlist.js?v=20261006audivis1"></script>
     <script src="lang/patch/patch-visualizer.js?v=20261005disp4"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20261005disp4"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20261006q1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 2 drawer con Song/Photo & Album, xem plan-v12-multimedia-decisions.md). -->
-    <script src="lang/patch/patch-file-manager.js?v=20260930hidden1"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20261006z1"></script>
     <!-- MỚI (10/07/2026) — dùng ở CẢ index.html LẪN subtitle-editor.html, xem lang/lang.js. -->
     <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
     <!-- MỚI ("Song/Video Unification" v12, gộp Video Editor vào Modal xem Video) — modal xem Video
@@ -422,6 +422,9 @@
     <!-- MỚI (01/10/2026) — overlay Ghi âm (TPL_RECORDER_OVERLAY + renderRecorderReviewBody()). PHẢI nạp TRƯỚC
          components/visualizer-overlay.js (nội suy ${TPL_RECORDER_OVERLAY}). -->
     <script src="components/recorder-overlay.js?v=20261002rec2"></script>
+    <!-- MỚI (06/10/2026) — thân modal tải nhiều phần zip (danh sách phần + nút Tải xuống từng phần), xem
+         components/zip-download-parts.js. Dùng bởi event/workflow/zip-download.js. -->
+    <script src="components/zip-download-parts.js?v=20261006z1"></script>
     <script src="components/visualizer-overlay.js?v=20261001rec1"></script>
     <!-- components/subtitle-modal.js ĐÃ XOÁ (10/07/2026) — Subtitle Editor chuyển sang trang riêng
          (subtitle-editor.html), KHÔNG còn modal ở trang chính. -->
@@ -782,7 +785,7 @@
     <!-- MỚI — Core-UI (Rule 5c, hậu tố -ui.js) dựng đường cong Timing cho Point Move 'all' mode,
          xem core/point-move-timing-ui.js. NẠP SAU core/motion-presets.js/motion-engine.js. -->
     <script src="core/point-move-timing-ui.js?v=20260903v5"></script>
-    <script src="core/upload-validation.js?v=20260823v1"></script>
+    <script src="core/upload-validation.js?v=20261006z1"></script>
     <script src="core/listen-stats.js?v=20260625v10"></script>
     <script src="core/loading-shield-util.js?v=20260625v10"></script>
     <script src="core/webgl/three-vortex.js?v=20260928p6"></script>
@@ -942,11 +945,13 @@
          triggerDownload() ở đó gọi isLargeFileDownloadSupported()/
          triggerLargeFileDownloadViaServiceWorker()). -->
     <script src="core/large-file-download.js?v=20260910v3"></script>
-    <script src="core/id3-export.js?v=20260910v6"></script>
+    <script src="core/id3-export.js?v=20261006z1"></script>
     <!-- MỚI (10/09/2026) — core/streaming-zip.js: nén .zip STREAM thẳng vào OPFS thay JSZip, xem
          docstring đầu file đó. NẠP TRƯỚC storage-manager.js (hàm buildAllXZipBlob() ở đó gọi tới). -->
     <script src="core/streaming-zip.js?v=20260910v10"></script>
-    <script src="core/storage-manager.js?v=20261006q1"></script>
+    <script src="core/storage-manager.js?v=20261006z1"></script>
+    <!-- MỚI (06/10/2026) — core-ui modal tải nhiều phần zip (wire nút từng phần -> eventBus, đổi trạng thái hàng). -->
+    <script src="core/zip-download-ui.js?v=20261006z1"></script>
 
     <!-- 4) VISUALIZERS: hàm vẽ canvas dùng chung (core/visualizer/draw/), từng visual riêng
          (groups/), rồi 2 Workflow vòng lặp (audio-analysis.js + visualizer-render.js) nạp sau cùng vì
@@ -1116,11 +1121,17 @@
     <!-- Panel "Song & Video" cũ (file-manager-song.js) đã xoá, thay bằng "Quản lý lưu trữ" (gộp 3
          domain: song/video/photo) — CẦN core/file-manager/{image,album}.js,
          components/file-manager-storage.js (đã nạp ở nhóm CORE/COMPONENTS). -->
-    <script src="event/workflow/file-manager-storage.js?v=20261006q1"></script>
+    <!-- MỚI (06/10/2026, Giang yêu cầu chia zip >500MB thành nhiều phần) — cụm 'zipDownload': chia nhóm + nén từng phần
+         + modal danh sách phần. Workflow CẦN core/upload-validation.js (MEDIA_FILE_MAX_BYTES, đọc lúc nạp), core/storage-
+         manager.js, core/id3-export.js, core/zip-download-ui.js, components/zip-download-parts.js. Gọi bởi
+         event/workflow/file-manager-storage.js + event/workflow/playlist.js lúc chạy. -->
+    <script src="event/workflow/zip-download.js?v=20261006z1"></script>
+    <script src="event/router/zip-download.js?v=20261006z1"></script>
+    <script src="event/workflow/file-manager-storage.js?v=20261006z1"></script>
     <script src="event/router/file-manager-storage.js?v=20260920v1"></script>
     <!-- Folder Browser (Generic Drawer, mở từ tab Folder). CẦN core/file-manager/{folder,folder-picker-ui}.js,
          components/items.js, core/pagination.js (nhóm CORE). -->
-    <script src="event/workflow/file-manager-folder-browser.js?v=20261002cv2"></script>
+    <script src="event/workflow/file-manager-folder-browser.js?v=20261006z1"></script>
     <script src="event/router/file-manager-folder-browser.js?v=20260930hidden2"></script>
     <script src="event/listener/file-manager-storage.js?v=20260729v2"></script>
     <!-- Batch 8, ver 12 "Multi Media" — engine cycle ảnh Slideshow nền Visual (transition/Ken
@@ -1195,7 +1206,7 @@
          (trước đây sống chung trong file-manager-photo.js). CẦN workflowFileManagerPhoto (3 khe đọc
          handle/imageKey/albumId) + core/photo-editor-engine.js/core/media-transform.js/core/generic-
          drawer.js/service/z-index.js (đã nạp ở nhóm CORE). -->
-    <script src="event/workflow/image-edit.js?v=20260924r3"></script>
+    <script src="event/workflow/image-edit.js?v=20261006z2"></script>
     <script src="event/router/image-edit.js?v=20260731v5"></script>
     <script src="event/listener/image-edit.js?v=20260731v2"></script>
     <!-- Cụm "fileManagerVideo" đã xoá hẳn (mọi lời gọi thật đến từ Playlist/Settings, không phải
@@ -1207,7 +1218,7 @@
          workflowPlaylist.navigateToActiveMenuVideoEdit() gọi thẳng workflowVideoPreview.open()
          (không tầng trung gian) — cần core/file-manager/video-ui.js, core/media-transform.js,
          core/video-editor/*, core/video-player-capture.js (đã nạp ở nhóm CORE/STATE). -->
-    <script src="event/workflow/video-preview.js?v=20260929cap1"></script>
+    <script src="event/workflow/video-preview.js?v=20261006z2"></script>
     <script src="event/router/video-preview.js?v=20260927c1"></script>
     <script src="event/listener/video-preview.js?v=20260802v1"></script>
     <!-- XOÁ (loại bỏ Document Reader khỏi app) — cụm "fileManagerDocument" (workflow/router/
@@ -1242,7 +1253,7 @@
          core/listen-stats.js (bumpSongPlayCount), event/workflow/video-player.js (workflowVideoPlayer
          — chỉ dùng trong callback runtime, không bắt buộc thứ tự nạp so với dòng NGAY DƯỚI). -->
     <script src="event/workflow/player.js?v=20261002cv6"></script>
-    <script src="event/workflow/playlist.js?v=20261006audivis3"></script>
+    <script src="event/workflow/playlist.js?v=20261006z1"></script>
     <script src="event/router/playlist.js?v=20261006audivis3"></script>
     <script src="event/listener/playlist.js?v=20261006audivis3"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel + phân phối lại section Settings, phản hồi
@@ -1281,7 +1292,7 @@
          mediaType khi click video trong Playlist (đi qua eventBus để Block gate chặn khoá chéo với
          Video nền). PHẢI nạp SAU event/workflow/video-player.js (cần workflowVideoPlayer.
          startFromPlaylist() đã tồn tại). -->
-    <script src="event/workflow/video-player.js?v=20261002cv6"></script>
+    <script src="event/workflow/video-player.js?v=20261006z2"></script>
     <script src="event/router/video-player.js?v=20260929cap1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
     <!-- MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — event/workflow/photo-
@@ -1371,7 +1382,7 @@
     <script src="event/listener/app-visibility.js?v=20260925bg1"></script>
     <!-- MỚI (01/10/2026) — Ghi âm Player Song/Video (icon Control Center). event/router/player-controls.js +
          event/router/app-visibility.js gọi workflowRecorder lúc chạy (hết bài / pause ngoài / ẩn app). -->
-    <script src="event/workflow/recorder.js?v=20261001rec1"></script>
+    <script src="event/workflow/recorder.js?v=20261006z2"></script>
     <script src="event/router/recorder.js?v=20261001rec1"></script>
     <script src="event/listener/recorder.js?v=20261001rec1"></script>
     <!-- MỚI (05/10/2026) — cụm 'perfHud' (Performance HUD, Settings > Troubleshooting). Workflow CẦN core/perf-hud*.js,
