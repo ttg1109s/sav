@@ -288,10 +288,9 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'sectionWindowBeats', labelKey: 'customEffectDrawer.field.musicSectionWindowBeats', type: 'slider', min: 6, max: 32, step: 1, card: 'music', showIf: (cfg) => (cfg.cameraMode || 'orbit') === 'orbit' && cfg.cameraShiftEnabled },
         { id: 'fluxThreshold', labelKey: 'customEffectDrawer.field.musicFluxThreshold', type: 'sliderFloat', min: 0.1, max: 1, step: 0.05, decimals: 2, card: 'music', showIf: (cfg) => (cfg.cameraMode || 'orbit') === 'orbit' && cfg.cameraShiftEnabled },
         // ── glow ── SỬA (07/10/2026, Giang báo Glow/Bloom xung đột): gộp thành 1 khối — Glow bật/tắt bloom, Glow intensity
-        // = độ mạnh bloom (thay slider Bloom strength, đã bỏ), energy boost = phần cộng thêm theo nhạc. Ẩn cả 2 slider khi tắt.
+        // = độ mạnh bloom (thay slider Bloom strength, đã bỏ). Bloom energy boost BỎ cùng ngày (Giang).
         { id: 'glowEnabled', labelKey: 'customEffectDrawer.field.connectorGlowEnabled', type: 'toggle', card: 'glow', rerender: true },
         { id: 'glowIntensity', labelKey: 'customEffectDrawer.field.connectorGlowIntensity', type: 'slider', min: 0, max: 100, step: 5, card: 'glow', showIf: (cfg) => cfg.glowEnabled !== false },
-        { id: 'bloomStrengthEnergyMult', labelKey: 'customEffectDrawer.field.bloomStrengthEnergyMult', type: 'sliderFloat', min: 0, max: 4, step: 0.1, decimals: 1, card: 'glow', showIf: (cfg) => cfg.glowEnabled !== false },
         // ── element ── vệt sáng xung + độ sáng đường mạch (MỚI 06/10/2026 — dây + nút chạm luôn hiện).
         { id: 'trailLength', labelKey: 'customEffectDrawer.field.trailLength', type: 'slider', min: 5, max: 60, step: 5, card: 'element' },
         { id: 'traceOpacity', labelKey: 'customEffectDrawer.field.traceOpacity', type: 'sliderFloat', min: 0.05, max: 1, step: 0.05, decimals: 2, card: 'element' },

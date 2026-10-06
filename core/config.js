@@ -154,7 +154,7 @@
                 // cấu hình đã lưu.)
                 nodeCount: 32, maxConcurrentSignals: 60, trailLength: 20, // nodeCount = số chip = tổng chân mỗi chip
                 circuitSpeedBase: 80, circuitSpeedEnergyMult: 60,
-                bloomStrengthEnergyMult: 0.8, // (bloomStrengthBase XOÁ 07/10/2026 — gộp vào glowIntensity, xem loadConfig())
+                // (bloomStrengthBase XOÁ 07/10/2026 — gộp vào glowIntensity; bloomStrengthEnergyMult XOÁ cùng ngày, Giang. Xem loadConfig().)
                 cameraShiftEnabled: true, sectionWindowBeats: 12, fluxThreshold: 0.5,
                 // MỚI (06/10/2026, Giang) — thiết kế lại circuit: số chân phóng tối đa mỗi lần bắn, độ sáng đường mạch, 3 chế độ
                 // camera ('orbit' | 'follow' | 'fixed') + vị trí/góc camera cố định (X/Y dời, Z khoảng cách, xoay ngang/dọc theo độ).
@@ -1049,6 +1049,7 @@
                     if (cn.byStyle && cn.byStyle.circuit) cn.byStyle.circuit.glowIntensity = glowFromBloom;
                 }
                 if (cn) delete cn.bloomStrengthBase;
+                if (cn) delete cn.bloomStrengthEnergyMult; // energy boost của bloom BỎ (07/10/2026, Giang)
                 cfg.autoSwitchVisualGroupList = (cfg.autoSwitchVisualGroupList || []).map((item) => (item && item.key === 'connector' && CONNECTOR_REMOVED_STYLES.includes(item.style) ? { ...item, style: 'circuit' } : item));
                 cfg.autoSwitchVisualStyleList = (cfg.autoSwitchVisualStyleList || []).map((item) => (item && CONNECTOR_REMOVED_STYLES.includes(item.key) ? { ...item, key: 'circuit' } : item));
                 cfg.autoSwitchVisualGroupList = normalizeAutoSwitchGroupList(cfg.autoSwitchVisualGroupList, EFFECT_GROUPS); // core/auto-switch-visual.js
