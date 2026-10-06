@@ -9,7 +9,7 @@ const routerInfoIcon = (() => {
     function handle(msg) {
         switch (msg.type) {
             case 'infoIcon.click':
-                workflowInfoIcon.show(msg.payload.text);
+                workflowInfoIcon.show(msg.payload.text, msg.payload.anchorEl);
                 break;
             default:
                 console.warn(`[routerInfoIcon] msg.type không xác định: "${msg.type}"`, msg);
