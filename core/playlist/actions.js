@@ -239,138 +239,51 @@
             btnSongEditSave.classList.toggle('hidden', tab === 'details');
         }
 
-        /**
-         * SỬA (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — modal này DÙNG CHUNG
-         * cho cả Song lẫn Video (Batch 1: Adapter khiến playlistCache của Video có shape giống hệt
-         * Song, `cached.mediaType` phân biệt) — TRƯỚC ĐÂY luôn hiện Title/Artist/Album/tab Cover dù
-         * đang mở cho 1 VIDEO (rỗng vô nghĩa cho Artist/Album, tab Cover không áp dụng được cho
-         * Video). Giờ rẽ nhánh theo `cached.mediaType`:
-         *   - Video: tab "Chi tiết" đổi hẳn sang thông số kỹ thuật (tên file gốc/dung lượng/codec/
-         *     độ phân giải/fps/thời lượng/bitrate/codec+bitrate âm thanh/ngày tải) + GIỮ Lượt phát/
-         *     Đã nghe (dùng CHUNG mediaStatsMap, key-agnostic — xem core/listen-stats.js). Tab "Sửa"
-         *     chỉ còn 1 ô "Tên hiển thị" (customName). Tab "Ảnh bìa" ẨN HẲN (Video không có khái
-         *     niệm ảnh bìa tự chọn).
-         *   - Song: GIỮ NGUYÊN 100% hành vi cũ.
-         * Đọc `getVideoRecord()` (service/db.js, data layer — ngoại lệ Rule 3) để lấy field CHỈ có
-         * trên record thô (customName/blob.size) — `playlistCache` (Adapter shape) không có field này.
-         *
-         * XOÁ (29/07/2026, yêu cầu Giang mục 1 — "chỉ giữ filename/RESOLUTION/playcount/listened")
-         * — tab "Chi tiết" của Video RÚT GỌN CHỈ CÒN 4 field: tên file gốc, độ phân giải, lượt
-         * phát, đã nghe — bỏ hẳn dung lượng/codec/fps/thời lượng/bitrate/codec+bitrate âm thanh/
-         * ngày tải (7 field). Vì 5 trong số đó (codec/fps/bitrate/audioCodec/audioBitrate) CHỈ tồn
-         * tại để phục vụ hiển thị ở đây, việc phân tích mediainfo.js (WASM) lúc upload cũng bỏ theo
-         * (event/workflow/file-manager-video.js::_extractVideoMediaInfo() ĐÃ XOÁ) — `getVideoRecord()`
-         * không còn trả các field đó nữa.
-         */
-        async function openSongEditModal(key, stats) {
-            const cached = appState.get('playlistCache').get(key); if (!cached) return;
-            playlistStore.set({ songEditCurrentKey: key, songEditPendingCover: null });
-            revokeSongEditPendingPreview(); // an toàn cho CẢ 3 nhánh — dọn preview còn sót từ lần mở TRƯỚC (nếu có)
+        // DỜI (06/10/2026, dọn nợ Rule 2/3 — Giang yêu cầu "xử lý nốt nợ kỹ thuật") — `openSongEditModal()` (core tự
+        // appState.get('playlistCache'), tự đọc DB getVideoRecord/getImageRecord, tự tạo blob URL, gọi ~10 hàm core khác) sang
+        // event/workflow/playlist.js::openSongEditModal(). Ở đây chỉ còn các bước THI HÀNH ghi DOM, mỗi hàm đúng 1 việc,
+        // Workflow gọi lần lượt. Giữ nguyên hành vi: Video/Photo ẩn tab Ảnh bìa; ô tên điền sẵn tên đang hiển thị
+        // (customName hoặc filename bỏ đuôi); tab "Chi tiết" mở trước.
 
-            const isVideo = cached.mediaType === 'video';
-            const isPhoto = cached.mediaType === 'photo';
+        /** Ẩn/hiện tab Ảnh bìa + 3 nhóm field theo loại media. @param {'song'|'video'|'photo'} mediaType */
+        function toggleSongEditFieldGroups(mediaType) {
+            const isVideo = mediaType === 'video';
+            const isPhoto = mediaType === 'photo';
             songEditTabBtnCover.classList.toggle('hidden', isVideo || isPhoto);
             songEditFieldsSongGroup.classList.toggle('hidden', isVideo || isPhoto);
             songEditFieldsVideoGroup.classList.toggle('hidden', !isVideo);
-            // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video, "thêm action detail cho
-            // dropdown của photo") — nhóm field thứ 3, mirror ĐÚNG cách 2 nhóm trên toggle.
             if (songEditFieldsPhotoGroup) songEditFieldsPhotoGroup.classList.toggle('hidden', !isPhoto);
+        }
 
-            // SỬA (06/10/2026, plan-media-db-split.md mục 6) — `stats` ({count, totalTime}, ĐÚNG loại media) do Workflow truyền
-            // vào (workflowPlaylist.openSongEditFromActionMenu()) thay cho tự gọi getSongStats(key) (core gọi core).
-            const emptyVal = t('playlistView.songInfo.empty');
+        /** Điền tab "Sửa" Video — tên đang hiển thị (ghi thẳng .value, không dùng placeholder) + album. */
+        function fillVideoEditFields(displayName, album) {
+            songEditCustomNameInput.value = displayName;
+            songEditCustomNameInput.placeholder = '';
+            if (songEditVideoAlbumInput) songEditVideoAlbumInput.value = album;
+        }
 
-            if (isVideo) {
-                const videoRecord = await getVideoRecord(key); // service/db.js
-                // FIX (Giang báo — "edit name chỉ là placeholder, cần chèn sẵn vào input") — TRƯỚC
-                // ĐÂY .value luôn rỗng khi chưa từng đặt customName, filename chỉ nằm ở placeholder
-                // (chữ xám, không phải giá trị thật) — giờ LUÔN điền .value bằng đúng tên ĐANG hiển
-                // thị (customName nếu có, không thì filename bỏ đuôi mở rộng) — mở lên thấy tên
-                // thật, sửa trực tiếp, không cần gõ lại từ đầu. Bỏ hẳn .placeholder (không còn cần
-                // — .value đã luôn có nội dung khi record tồn tại).
-                songEditCustomNameInput.value = videoRecord ? (videoRecord.customName || stripFileExtension(videoRecord.filename)) : ''; // core/file-manager/video.js
-                songEditCustomNameInput.placeholder = '';
-                // MỚI (Giang yêu cầu — "bổ sung field album edit ở details của video/photo") — mirror
-                // ĐÚNG cách songEditAlbumInput của Song hoạt động (core/playlist/loader.js::
-                // buildAdaptedPlaylistCache() đọc record.album vào cached.tag.album).
-                if (songEditVideoAlbumInput) songEditVideoAlbumInput.value = videoRecord ? (videoRecord.album || '') : '';
+        /** Điền tab "Sửa" Photo — tên + album + nhãn thời lượng (giá trị pending ghi ở playlistStore do Workflow lo). */
+        function fillPhotoEditFields(displayName, album, durationText) {
+            songEditPhotoNameInput.value = displayName;
+            songEditPhotoNameInput.placeholder = '';
+            if (songEditPhotoAlbumInput) songEditPhotoAlbumInput.value = album;
+            songEditPhotoDurationValueEl.textContent = durationText;
+        }
 
-                const resolutionText = (videoRecord && videoRecord.width && videoRecord.height) ? `${videoRecord.width}×${videoRecord.height}` : emptyVal;
+        /** Điền tab "Sửa" Song từ tag hiện tại (ảnh bìa preview do Workflow gán qua setSongEditCoverPreview()). */
+        function fillSongEditFields(tag) {
+            songEditTitleInput.value = tag.title || '';
+            songEditArtistInput.value = tag.artist || '';
+            songEditAlbumInput.value = tag.album || '';
+        }
 
-                songEditTabDetails.innerHTML =
-                    songInfoRowHtml('M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', 'sky', t('playlistView.songInfo.fieldFilename'), (videoRecord && videoRecord.filename) ? escapeHtml(videoRecord.filename) : emptyVal) +
-                    songInfoRowHtml('M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4', 'emerald', t('playlistView.songInfo.fieldResolution'), resolutionText) +
-                    // MỚI (Giang yêu cầu — thêm field Album) — mirror ĐÚNG hàng Album của Song ngay dưới.
-                    songInfoRowHtml('M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0', 'fuchsia', t('playlistView.songInfo.fieldAlbum'), (videoRecord && videoRecord.album) || emptyVal) +
-                    songInfoRowHtml('M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z', 'rose', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count })) +
-                    // SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — nhãn đổi từ
-                    // 'fieldListened' ("Listened") sang 'fieldViewDuration' ("Watch time") cho
-                    // Video (Photo dưới nhánh else if cũng dùng key này) — CHỈ khác chữ hiển thị,
-                    // field/logic (`stats.totalTime`, `formatListenTime()`) giữ NGUYÊN.
-                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'indigo', t('playlistView.songInfo.fieldViewDuration'), formatListenTime(stats.totalTime)) +
-                    // MỚI (mục 1e, phản hồi Giang — "detail modal thêm dung lượng") — formatBytes()
-                    // có sẵn (core/about-stats.js, dùng chung với Quản lý dung lượng), đọc thẳng
-                    // `cached.size` (core/playlist/loader.js, cùng đợt thêm với addedAt).
-                    songInfoRowHtml('M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0l-2 7H6l-2-7m16 0H4', 'teal', t('playlistView.songInfo.fieldSize'), formatBytes(cached.size));
-            } else if (isPhoto) {
-                // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video, "trong đó sẽ hiển thị
-                // tên file, kích thước, duration, count, filesize" — ĐÚNG 5 field theo thứ tự Giang
-                // liệt kê). MỚI (Giang yêu cầu sau — thêm field Album) — chèn thêm 1 hàng, KHÔNG
-                // đổi thứ tự 5 field gốc.
-                // SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — thêm lại hàng "View
-                // duration" (TRƯỚC ĐÂY loại trừ hẳn — ảnh chưa tính thời gian xem) — Photo giờ đếm
-                // `totalTime` CÙNG cơ chế Video (event/workflow/photo-player.js), đặt NGAY SAU
-                // PlayCount, TRƯỚC Size — khớp ĐÚNG vị trí tương đối của hàng này ở nhánh Video
-                // ngay trên. Nhãn dùng 'fieldViewDuration' ("Watch time"), KHÁC 'fieldListened'
-                // ("Listened") Song vẫn dùng — CHỈ khác chữ hiển thị.
-                const imageRecord = await getImageRecord(key); // service/db.js
-                // FIX (Giang báo — "edit name chỉ là placeholder, cần chèn sẵn vào input") — CÙNG
-                // lý do nhánh Video ngay trên.
-                songEditPhotoNameInput.value = imageRecord ? (imageRecord.customName || stripFileExtension(imageRecord.filename)) : '';
-                songEditPhotoNameInput.placeholder = '';
-                if (songEditPhotoAlbumInput) songEditPhotoAlbumInput.value = imageRecord ? (imageRecord.album || '') : '';
-                songEditPhotoDurationValueEl.textContent = formatTime(cached.duration);
-                playlistStore.set({ songEditPendingPhotoDurationSec: cached.duration || 0 }); // pending riêng — chỉ ghi thật lúc bấm Lưu, cùng nguyên tắc pendingCover của Song
+        /** Gán nội dung tab "Chi tiết" (HTML dựng sẵn từ songInfoRowHtml() ở Workflow — giá trị người dùng đã escape). */
+        function setSongEditDetailsHtml(html) {
+            songEditTabDetails.innerHTML = html;
+        }
 
-                const resolutionText = (cached.width && cached.height) ? `${cached.width}×${cached.height}` : emptyVal;
-
-                songEditTabDetails.innerHTML =
-                    songInfoRowHtml('M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', 'sky', t('playlistView.songInfo.fieldFilename'), (imageRecord && imageRecord.filename) ? escapeHtml(imageRecord.filename) : emptyVal) +
-                    songInfoRowHtml('M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4', 'emerald', t('playlistView.songInfo.fieldResolution'), resolutionText) +
-                    songInfoRowHtml('M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0', 'fuchsia', t('playlistView.songInfo.fieldAlbum'), (imageRecord && imageRecord.album) || emptyVal) +
-                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'amber', t('playlistView.songInfo.fieldDuration'), formatTime(cached.duration)) +
-                    songInfoRowHtml('M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z', 'rose', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count })) +
-                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'indigo', t('playlistView.songInfo.fieldViewDuration'), formatListenTime(stats.totalTime)) +
-                    songInfoRowHtml('M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0l-2 7H6l-2-7m16 0H4', 'teal', t('playlistView.songInfo.fieldSize'), formatBytes(cached.size));
-            } else {
-                songEditTitleInput.value = cached.tag.title || '';
-                songEditArtistInput.value = cached.tag.artist || '';
-                songEditAlbumInput.value = cached.tag.album || '';
-
-                setSongEditCoverPreview(cached.cover ? URL.createObjectURL(cached.cover) : DEFAULT_VINYL);
-                // Object URL trên chỉ sống trong lúc modal mở (preview ảnh HIỆN TẠI, không phải pending);
-                // gán vào songEditPendingCoverPreviewUrl để được revoke đồng bộ lúc đóng modal/đổi ảnh.
-                if (cached.cover) playlistStore.set({ songEditPendingCoverPreviewUrl: songEditCoverPreview.src });
-
-                songEditTabDetails.innerHTML =
-                    songInfoRowHtml('M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z', 'sky', t('playlistView.songInfo.fieldTitle'), cached.tag.title || emptyVal) +
-                    songInfoRowHtml('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', 'violet', t('playlistView.songInfo.fieldArtist'), cached.tag.artist || emptyVal) +
-                    songInfoRowHtml('M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0', 'emerald', t('playlistView.songInfo.fieldAlbum'), cached.tag.album || emptyVal) +
-                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'amber', t('playlistView.songInfo.fieldDuration'), formatTime(cached.duration)) +
-                    songInfoRowHtml('M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z', 'rose', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count })) +
-                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'indigo', t('playlistView.songInfo.fieldListened'), formatListenTime(stats.totalTime)) +
-                    // MỚI (mục 1e) — CÙNG LÝ DO nhánh Video ngay trên.
-                    songInfoRowHtml('M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0l-2 7H6l-2-7m16 0H4', 'teal', t('playlistView.songInfo.fieldSize'), formatBytes(cached.size));
-            }
-
-            // MỚI (09/09/2026, hệ UI Theme mở rộng) — songEditTabDetails.innerHTML vừa gán ở CẢ 3
-            // nhánh trên là nội dung DỰNG ĐỘNG (không phải template tĩnh có sẵn từ lúc boot) —
-            // KHÔNG tự động ăn theme qua applyUiThemeToDom(document,...) lúc boot (cùng loại gap đã
-            // phát hiện ở buildSongNode(), event/workflow/playlist-render.js) — phải tự áp NGAY ở
-            // đây, đúng 1 lần cho dù nhánh nào vừa chạy ở trên.
-            if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(songEditTabDetails, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
-
-            setSongEditTab('details'); // MẶC ĐỊNH mở tab "Chi tiết" trước (đúng yêu cầu Giang — Info là tab đầu)
+        /** Hiện modal Sửa thông tin. */
+        function showSongEditModal() {
             songEditModal.classList.remove('hidden');
         }
 

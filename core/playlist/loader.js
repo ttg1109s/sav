@@ -201,7 +201,7 @@
                     mediaType,
                     size: record.blob.size || 0, // MỚI (mục 1e) — cùng lý do Song, xem comment ở buildSongPlaylistCache()
                 };
-                for (const field of shape.extraFields) entry[field] = record[field] || 0; // MỚI — field phụ theo type (vd width/height của Photo — modal Chi tiết, core/playlist/actions.js::openSongEditModal())
+                for (const field of shape.extraFields) entry[field] = record[field] || 0; // MỚI — field phụ theo type (vd width/height của Photo — modal Chi tiết, event/workflow/playlist.js::openSongEditModal())
                 appState.mutate('playlistCache', m => m.set(record.key, entry));
                 appState.mutate('songNameIndex', m => m.set(record.key, normalizeSongName(title)));
             }
