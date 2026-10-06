@@ -1127,6 +1127,10 @@
          event/workflow/file-manager-storage.js + event/workflow/playlist.js lúc chạy. -->
     <script src="event/workflow/zip-download.js?v=20261006z1"></script>
     <script src="event/router/zip-download.js?v=20261006z1"></script>
+    <!-- MỚI (06/10/2026, plan-media-db-split.md mục 7) — request trung tâm 'mediaInUse': nơi thay file bắn {type, key}, workflow
+         tự kiểm state (node Playlist / Player chính / Visual Background) rồi tự nạp lại. Chỉ gọi các workflow khác lúc chạy. -->
+    <script src="event/workflow/media-in-use.js?v=20261006db3"></script>
+    <script src="event/router/media-in-use.js?v=20261006db3"></script>
     <script src="event/workflow/file-manager-storage.js?v=20261006db2"></script>
     <script src="event/router/file-manager-storage.js?v=20260920v1"></script>
     <!-- Folder Browser (Generic Drawer, mở từ tab Folder). CẦN core/file-manager/{folder,folder-picker-ui}.js,
@@ -1183,8 +1187,8 @@
     <!-- Cụm "visualBg" — Workflow tách 3 file: common (định nghĩa `workflowVisualBg`), video/photo
          (`Object.assign()` thêm vào) — common PHẢI nạp trước video/photo. -->
     <script src="event/workflow/visual-bg-common.js?v=20261005set3"></script>
-    <script src="event/workflow/visual-bg-video.js?v=20261005fix5"></script>
-    <script src="event/workflow/visual-bg-photo.js?v=20260930hidden1"></script>
+    <script src="event/workflow/visual-bg-video.js?v=20261006db3"></script>
+    <script src="event/workflow/visual-bg-photo.js?v=20261006db3"></script>
     <script src="event/router/visual-bg.js?v=20261005fix5"></script>
     <script src="event/listener/visual-bg.js?v=20260930vbgres2"></script>
 
@@ -1252,8 +1256,8 @@
          core/playlist/render.js, core/player-controls.js (requestWakeLock/switchToVisualizer),
          core/listen-stats.js (bumpSongPlayCount), event/workflow/video-player.js (workflowVideoPlayer
          — chỉ dùng trong callback runtime, không bắt buộc thứ tự nạp so với dòng NGAY DƯỚI). -->
-    <script src="event/workflow/player.js?v=20261002cv6"></script>
-    <script src="event/workflow/playlist.js?v=20261006db2"></script>
+    <script src="event/workflow/player.js?v=20261006db3"></script>
+    <script src="event/workflow/playlist.js?v=20261006db3"></script>
     <script src="event/router/playlist.js?v=20261006audivis3"></script>
     <script src="event/listener/playlist.js?v=20261006audivis3"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel + phân phối lại section Settings, phản hồi
@@ -1292,7 +1296,7 @@
          mediaType khi click video trong Playlist (đi qua eventBus để Block gate chặn khoá chéo với
          Video nền). PHẢI nạp SAU event/workflow/video-player.js (cần workflowVideoPlayer.
          startFromPlaylist() đã tồn tại). -->
-    <script src="event/workflow/video-player.js?v=20261006db2"></script>
+    <script src="event/workflow/video-player.js?v=20261006db3"></script>
     <script src="event/router/video-player.js?v=20260929cap1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
     <!-- MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — event/workflow/photo-
@@ -1306,7 +1310,7 @@
          workflow/visual-bg-common.js/visual-bg-video.js ("vbg chỉ hợp lệ với song" nên tái dùng
          clearMediaLayers()/applyCurrentVisualBg() Video Player mode đã dùng thay vì tự vẽ DOM
          riêng, cần workflowVisualBg tồn tại trước). -->
-    <script src="event/workflow/photo-player.js?v=20261002cv6"></script>
+    <script src="event/workflow/photo-player.js?v=20261006db3"></script>
     <!-- event/workflow/number-countup.js — MỚI (21/09/2026): vòng lặp timer count-up dùng chung (cần taskManager + core/number-countup.js). PHẢI nạp TRƯỚC gameplay-engine.js VÀ statis-panel.js. -->
     <script src="event/workflow/number-countup.js?v=20260921v1"></script>
     <!-- Cụm "gameplay" — Game Mode. gameplay-engine.js (Workflow DÙNG CHUNG mọi mode: cooldown/
