@@ -25,6 +25,10 @@
  * ('pointerdown' — CHỈ báo bắt đầu kéo/tua, theo dõi tiếp mới ở đây)/cropCanvasEl ('pointerdown' —
  * CHỈ báo bắt đầu + hit-test, theo dõi tiếp mới ở đây).
  *
+ * SỬA (06/10/2026, tách trình sửa video thành trang riêng) — file này giờ CHỈ nạp ở video-editor.html, nạp CUỐI: thêm
+ * 'resize' của window (thẻ video/khung crop tính lại) và bắn 'videoPreview.page.boot' 1 lần để Workflow đọc ?video= và mở
+ * editor. 'pointermove'/'pointerup' của document giờ cũng theo dõi tiếp cú kéo dải seek ngoài màn xem ('outerSeek').
+ *
  * NẠP SAU: event/bus.js, event/router/video-preview.js, event/workflow/video-preview.js.
  */
 document.addEventListener('pointermove', (e) => {
@@ -39,3 +43,8 @@ document.addEventListener('pointermove', (e) => {
 document.addEventListener('pointerup', () => {
     eventBus.send({ router: 'videoPreview', type: 'videoPreview.cropCanvas.pointerUp', payload: {} });
 });
+window.addEventListener('resize', () => {
+    eventBus.send({ router: 'videoPreview', type: 'videoPreview.window.resize', payload: {} });
+});
+// Vào trang: Workflow đọc ?video= rồi mở editor (event/workflow/video-preview.js::bootFromUrl()).
+eventBus.send({ router: 'videoPreview', type: 'videoPreview.page.boot', payload: {} });
