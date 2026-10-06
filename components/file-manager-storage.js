@@ -45,10 +45,25 @@ function renderFileManagerStorageManagementPanelBody() {
                              pointer + data-legend-key, đọc bởi event/listener/file-manager-
                              storage.js) — hiện số byte THẬT của đúng đoạn đó qua alertModal (xem
                              event/workflow/file-manager-storage.js::showSegmentBytes()). -->
-                        <div class="h-2.5 w-full rounded-full overflow-hidden flex" data-uitk="progressTrackBg">
-                            <div id="stat-storage-bar-songs" class="h-full bg-sky-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendSongs" style="width:0%"></div>
-                            <div id="stat-storage-bar-videos" class="h-full bg-violet-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendVideos" style="width:0%"></div>
-                            <div id="stat-storage-bar-photos" class="h-full bg-emerald-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendPhotos" style="width:0%"></div>
+                        <!-- MỚI (06/10/2026, Giang yêu cầu "dùng navigator.storage.estimate() ngay thanh tính
+                             dung lượng của các media") — khi có estimate, THANG ĐO của thanh = quota của app
+                             (kiểu Settings > Dung lượng của iOS): 3 đoạn media + 1 đoạn "Khác" (usage
+                             của origin trừ phần media — OPFS zip tạm, Cache Storage, dữ liệu app khác),
+                             phần track còn lại = còn trống. Không có estimate (trình duyệt cũ/file://)
+                             thì thanh rơi về cách cũ (tỉ lệ giữa 3 media), dòng "còn trống" ẩn.
+                             Đoạn "Khác" dùng màu inline (slate-400) — class bg-slate-400 CHƯA có trong
+                             assets/css/tailwind.css, tránh phải rebuild CSS chỉ vì 1 màu dữ liệu. -->
+                        <div class="flex flex-col gap-1.5">
+                            <div class="h-2.5 w-full rounded-full overflow-hidden flex" data-uitk="progressTrackBg">
+                                <div id="stat-storage-bar-songs" class="h-full bg-sky-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendSongs" style="width:0%"></div>
+                                <div id="stat-storage-bar-videos" class="h-full bg-violet-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendVideos" style="width:0%"></div>
+                                <div id="stat-storage-bar-photos" class="h-full bg-emerald-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendPhotos" style="width:0%"></div>
+                                <div id="stat-storage-bar-other" class="h-full transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendOther" style="width:0%;background-color:#94a3b8"></div>
+                            </div>
+                            <div id="stat-storage-free-row" class="hidden flex items-baseline justify-between">
+                                <span class="text-xs" data-uitk="textSecondary" data-i18n="storageDrawer.statFreeBytes">${t('storageDrawer.statFreeBytes')}</span>
+                                <span id="stat-storage-free-bytes" class="text-xs font-mono tabular-nums" data-uitk="textSecondary">—</span>
+                            </div>
                         </div>
                         <!-- MỚI (mục 2b, phản hồi Giang "list ngay dưới song/video/photo
                              (bên trái) - count items (bên phải)") — THAY hẳn 2 "vòng tròn số lượng"
