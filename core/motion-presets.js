@@ -422,129 +422,70 @@ function sanitizeMotionBeatReact(raw, blank) {
  * + giá trị. Không có `id` (nên Point Move Runner coi như "không thuộc preset nào" — broadcast bỏ qua). */
 const MOTION_ENGINE_NO_OP_PRESET = { transitionEnabled: false, transitionType: 'fade', transitionDurationMs: 1000, transitionInOutRatio: 50, transitionEasing: 'linear', pointMoves: [], pointMoveEnabled: false, pointMoveRunMode: 'all', pointMoveOneOrder: 'sequential', pointMoveEndForceBaseline: false, reactBeatAudio: { enabled: false, zoom: { enabled: false }, panX: { enabled: false }, panY: { enabled: false }, rotate: { enabled: false } } };
 
-// ===================== Random thông minh — tự sinh 1 preset hợp lý (MỚI 25/09/2026, Giang chọn) =====================
-// Core THUẦN: chỉ dựng 1 object preset (không đọc/ghi state, không DOM). Nơi gọi (event/workflow/motion-presets.js::
-// addRandomPreset()) tự lưu + mở màn Edit để người dùng xem/chỉnh tiếp. "Hợp lý" = random TRONG các khuôn đã biết là
-// đẹp, không random đều trên toàn biên (toàn biên ra kết quả vô nghĩa: zoom -2, xoay 360°, lộ mép ảnh...):
-//   - Transition: kiểu êm (fade/zoom/slide/blur/rotateFade/circleReveal/curtain/wipe) nặng ký gấp 3 kiểu mạnh
-//     (flipCard/flipEdge/glitch/whipPan/spin); thời lượng theo nhóm (êm 700-1600ms, mạnh 500-1100ms); easing mềm; mọi
-//     field hướng mà kiểu đó hỗ trợ đặt 'random' (Runner tự luân phiên, không lặp liền kề).
-//   - Point Move: kiểu Ken Burns MẠCH LẠC — 1 "chủ đề" (zoom vào HOẶC ra + 1 hướng lia cố định) cho cả hành trình;
-//     lia luôn nằm trong biên an toàn theo mức zoom tại điểm đó (không lộ mép); không xoay/lật. 80% 'all' (2-4 điểm,
-//     mốc thời gian trải đều có xê dịch), 20% 'one' (3-5 đích nhẹ, thứ tự random). Giá trị bám bước thanh trượt.
-//   - React Beat: 50% bật — luôn có zoom nhẹ (105/110%), đôi khi thêm lia ngang 105%.
-// Kết quả LUÔN qua được `sanitizeMotionPreset()` nguyên vẹn (mọi giá trị nằm trong biên + danh sách hợp lệ).
+// XOÁ (07/10/2026, Giang: "loại bỏ nút tính năng tạo presets random") — `buildRandomMotionPreset()` + 2 danh sách
+// `MOTION_RANDOM_SOFT/BOLD_TRANSITION_TYPES` (random cả 1 preset từ danh sách). THAY bằng nút Random theo TỪNG nhóm
+// (React Beat / Point Move), mỗi lần bấm sinh lại CHỈ giá trị các slider của nhóm đó — 2 hàm ngay dưới.
 
-const MOTION_RANDOM_SOFT_TRANSITION_TYPES = ['fade', 'zoom', 'slide', 'blur', 'rotateFade', 'circleReveal', 'curtain', 'wipe'];
-const MOTION_RANDOM_BOLD_TRANSITION_TYPES = ['flipCard', 'flipEdge', 'glitch', 'whipPan', 'spin'];
+// ===================== Random giá trị slider theo nhóm — MỚI (07/10/2026, Giang) =====================
+// Core THUẦN: chỉ dựng giá trị mới (không đọc/ghi state, không DOM). KHÔNG đụng công tắc bật/tắt, hướng, Reverse,
+// Random Max, mode single/randomRange hay đơn vị — chỉ đúng CON SỐ của slider. "Hợp lý" = random trong 1 khoảng nhẹ
+// đã biết là đẹp (không random đều toàn biên — zoom 200%, xoay 360° là vô nghĩa), giá trị bám ĐÚNG bước của slider
+// (kéo tay tiếp không bị nắn lệch).
 
-/**
- * @param {string} name - tên preset mới (nơi gọi tự dịch/đánh số)
- * @param {() => number} [randomFn=Math.random] - nguồn ngẫu nhiên [0,1) (truyền vào để test được)
- * @returns {object} preset hợp lệ (id mới)
- */
-function buildRandomMotionPreset(name, randomFn) {
+/** Khoảng random của slider Max mỗi hiệu ứng React Beat — bước khớp slider (components/motion-settings-drawer.js). */
+const MOTION_BEAT_REACT_RANDOM_RANGES = [
+    { effectKey: 'zoom', fieldKey: 'maxPct', lo: 105, hi: 150, step: 5 },
+    { effectKey: 'panX', fieldKey: 'maxPct', lo: 105, hi: 130, step: 5 },
+    { effectKey: 'panY', fieldKey: 'maxPct', lo: 105, hi: 130, step: 5 },
+    { effectKey: 'rotate', fieldKey: 'maxDeg', lo: 15, hi: 90, step: 15 },
+];
+
+/** Pure — giá trị Max mới cho cả 4 slider React Beat (zoom/panX/panY/rotate).
+ * @param {() => number} [randomFn=Math.random] @returns {Array<{effectKey:string, fieldKey:string, value:number}>} */
+function buildRandomBeatReactMaxValues(randomFn) {
     const rnd = typeof randomFn === 'function' ? randomFn : Math.random;
-    const between = (lo, hi) => lo + rnd() * (hi - lo);
-    const pick = (list) => list[Math.floor(rnd() * list.length)];
-    const round = (v, digits) => { const f = Math.pow(10, digits); return Math.round(v * f) / f; };
-    const preset = buildBlankMotionPreset(name);
+    // 1 giá trị trong [lo, hi] bám bước `step` (closure cục bộ — core không gọi core khác, Rule 3).
+    const pickStep = (lo, hi, step) => Math.round((lo + Math.floor(rnd() * (Math.round((hi - lo) / step) + 1)) * step) * 100) / 100;
+    return MOTION_BEAT_REACT_RANDOM_RANGES.map((r) => ({ effectKey: r.effectKey, fieldKey: r.fieldKey, value: pickStep(r.lo, r.hi, r.step) }));
+}
 
-    // --- Transition ---
-    const isBold = rnd() < 0.25; // soft : bold = 3 : 1 (tính theo nhóm, không theo từng kiểu)
-    const transitionType = pick(isBold ? MOTION_RANDOM_BOLD_TRANSITION_TYPES : MOTION_RANDOM_SOFT_TRANSITION_TYPES);
-    preset.transitionEnabled = true;
-    preset.transitionType = MOTION_ENGINE_TRANSITION_TYPES.includes(transitionType) ? transitionType : 'fade'; // core/motion-engine.js — phòng danh sách kiểu đổi sau này
-    preset.transitionDurationMs = Math.round((isBold ? between(500, 1100) : between(700, 1600)) / 50) * 50;
-    preset.transitionInOutRatio = transitionSupportsInOutRatio(preset.transitionType) ? pick([40, 45, 50, 55, 60]) : 50; // core/motion-engine.js — bước 5 của thanh trượt
-    preset.transitionEasing = pick(['ease', 'ease-in-out', 'ease-out']);
-    if (transitionSupportsDirection(preset.transitionType)) preset.transitionDirection = 'random'; // core/motion-engine.js
-    if (transitionSupportsZoomDirection(preset.transitionType)) preset.transitionZoomDirection = 'random';
-    if (transitionSupportsSpinDirection(preset.transitionType)) preset.transitionSpinDirection = 'random';
-    if (transitionSupportsWipeDirection(preset.transitionType)) preset.transitionWipeDirection = 'random';
-    if (transitionSupportsCurtainDirection(preset.transitionType)) preset.transitionCurtainDirection = 'random';
-    preset.edgeFlipVariant = pick(MOTION_ENGINE_EDGE_FLIP_VARIANTS);
-    preset.edgeFlipStaticOld = rnd() < 0.5;
-
-    // --- Point Move (Ken Burns mạch lạc) ---
-    // MỌI giá trị bám ĐÚNG bước của thanh trượt màn Edit (zoom 0.05, lia 5%, beat zoom/pan 5%) — preset sinh ra
-    // hiển thị/chỉnh tiếp được chính xác, không bị thanh trượt "nắn" lệch khi người dùng chạm vào.
-    // Lia an toàn: scale = 1 + zoom -> phần dư mỗi bên = zoom/2 (theo bề rộng) — chỉ dùng 80% phần dư, làm tròn
-    // VỀ PHÍA 0 theo bước 5% (không bao giờ vượt biên an toàn -> không lộ mép). Không xoay/lật (xoay dù nhẹ cũng
-    // cần zoom lớn mới không lộ góc — bỏ hẳn cho chắc).
-    const snap = (v, step) => round(Math.round(v / step) * step, 2);
-    const snapTowardZero = (v, step) => round((v < 0 ? Math.ceil(v / step) : Math.floor(v / step)) * step, 2);
-    const safePanPct = (zoom) => Math.max(0, (zoom * 100) / 2 * 0.8);
-    const angle = between(0, Math.PI * 2);
-    const dirX = Math.cos(angle);
-    const dirY = Math.sin(angle);
-    const buildPoint = (zoom, panFactor) => {
-        const pm = buildBlankPointMove();
-        const z = snap(zoom, 0.05);
-        const panPct = safePanPct(z) * panFactor;
-        pm.zoom.single = z;
-        pm.linearX.single = snapTowardZero(dirX * panPct, 5);
-        pm.linearY.single = snapTowardZero(dirY * panPct, 5);
-        return pm;
+/** Pure — giá trị mới cho 6 field của 1 point move. Giữ nguyên `mode` + `unit` từng field: field 'single' đổi
+ * `single`, field 'randomRange' đổi cặp `rangeMin <= rangeMax` (2 lần random trong cùng khoảng rồi sắp xếp).
+ * Kiểu Ken Burns không lộ mép: zoom 0.05–0.35 trước, lia X/Y nằm trong biên an toàn theo mức zoom LỚN NHẤT có thể
+ * của field zoom (80% phần dư mỗi bên, làm tròn về phía 0 theo bước slider); xoay ±15°, lật ±20° (nhẹ).
+ * @param {object} pointMove - 1 phần tử `preset.pointMoves`.
+ * @param {() => number} [randomFn=Math.random]
+ * @returns {{linearX:object, linearY:object, rotate:object, zoom:object, flipX:object, flipY:object}} field MỚI (copy). */
+function buildRandomPointMoveFieldValues(pointMove, randomFn) {
+    const rnd = typeof randomFn === 'function' ? randomFn : Math.random;
+    // 1 giá trị trong [lo, hi] bám bước `step`; làm tròn 2 chữ số khử sai số dấu phẩy động (bước 0.05) — closure cục bộ (Rule 3).
+    const pickStep = (lo, hi, step) => Math.round((lo + Math.floor(rnd() * (Math.round((hi - lo) / step) + 1)) * step) * 100) / 100;
+    const fillField = (field, lo, hi, step) => {
+        if (field.mode === 'randomRange') {
+            const a = pickStep(lo, hi, step);
+            const b = pickStep(lo, hi, step);
+            return { ...field, rangeMin: Math.min(a, b), rangeMax: Math.max(a, b) };
+        }
+        return { ...field, single: pickStep(lo, hi, step) };
     };
-
-    preset.pointMoveEnabled = true;
-    preset.pointMoveEndForceBaseline = false;
-    if (rnd() < 0.8) {
-        preset.pointMoveRunMode = 'all';
-        const count = 2 + Math.floor(rnd() * 3); // 2..4 điểm (gồm Point 0)
-        const zoomIn = rnd() < 0.5;
-        const zLow = between(0.05, 0.1);
-        const zHigh = between(0.2, 0.35);
-        const zStart = zoomIn ? zLow : zHigh;
-        const zEnd = zoomIn ? zHigh : zLow;
-        const points = [];
-        for (let i = 0; i < count; i++) {
-            const t = i / (count - 1); // 0..1 dọc hành trình
-            const zoom = zStart + (zEnd - zStart) * t;
-            // lia 1 hướng cố định: từ phía ngược (-1) sang phía thuận (+1), giữa có xê dịch nhẹ
-            const panFactor = Math.max(-1, Math.min(1, -1 + 2 * t + (i > 0 && i < count - 1 ? between(-0.15, 0.15) : 0)));
-            const pm = buildPoint(zoom, panFactor);
-            if (i > 0) {
-                const jitter = i < count - 1 ? between(-8, 8) : between(-12, 0); // điểm cuối: 88-100%
-                pm.timingX = round(Math.max(1, Math.min(100, t * 100 + jitter)), 2);
-            }
-            points.push(pm);
-        }
-        // mốc thời gian tăng dần + không trùng (resolvePointMoveTimingX() — cùng quy tắc UI)
-        for (let i = 1; i < points.length; i++) {
-            const floor = points[i - 1].timingX + 0.2;
-            const others = points.filter((_, k) => k !== i).map((p) => p.timingX);
-            points[i].timingX = resolvePointMoveTimingX(Math.max(points[i].timingX, floor), others, 0, 100);
-        }
-        preset.pointMoves = points;
-    } else {
-        preset.pointMoveRunMode = 'one';
-        preset.pointMoveOneOrder = 'random';
-        const count = 3 + Math.floor(rnd() * 3); // 3..5 đích
-        const points = [];
-        for (let i = 0; i < count; i++) {
-            const a = between(0, Math.PI * 2);
-            const pm = buildBlankPointMove();
-            const z = snap(between(0.1, 0.3), 0.05);
-            const panPct = safePanPct(z) * between(0.5, 1);
-            pm.zoom.single = z;
-            pm.linearX.single = snapTowardZero(Math.cos(a) * panPct, 5);
-            pm.linearY.single = snapTowardZero(Math.sin(a) * panPct, 5);
-            if (i > 0) pm.timingX = round(i * (100 / count), 2); // 'one' không dùng timing — chỉ để không trùng mốc
-            points.push(pm);
-        }
-        preset.pointMoves = points;
-    }
-
-    // --- React Beat --- (bám bước 5% của thanh trượt; bỏ xoay — bước 15° quá mạnh cho "nhẹ")
-    const rb = preset.reactBeatAudio;
-    rb.enabled = rnd() < 0.5;
-    if (rb.enabled) {
-        rb.zoom = { enabled: true, maxPct: pick([105, 110]), randomMax: rnd() < 0.5 };
-        if (rnd() < 0.3) rb.panX = { enabled: true, direction: pick(['leftToRight', 'rightToLeft']), maxPct: 105, reverse: rnd() < 0.5, randomMax: rnd() < 0.5 };
-    }
-    return preset;
+    const zoom = fillField(pointMove.zoom, 0.05, 0.35, 0.05);
+    const maxZoom = zoom.mode === 'randomRange' ? zoom.rangeMax : zoom.single;
+    const safePct = (maxZoom * 100) / 2 * 0.8; // phần dư mỗi bên (% bề rộng) khi scale = 1 + zoom
+    // Biên lia an toàn theo đơn vị của CHÍNH field (px quy đổi xấp xỉ theo khung 400px — màn dọc điện thoại).
+    const fillLinear = (field) => {
+        const isPx = field.unit === 'px';
+        const step = isPx ? 10 : 5;
+        const limit = Math.floor((isPx ? safePct * 4 : safePct) / step) * step; // về phía 0, bội của step
+        return fillField(field, -limit, limit, step);
+    };
+    return {
+        linearX: fillLinear(pointMove.linearX),
+        linearY: fillLinear(pointMove.linearY),
+        rotate: fillField(pointMove.rotate, -15, 15, 5),
+        zoom,
+        flipX: fillField(pointMove.flipX, -20, 20, 5),
+        flipY: fillField(pointMove.flipY, -20, 20, 5),
+    };
 }
 
 /** Pure — kẹp giá trị ô nhập số về [min, max] của chính ô đó (giá trị rỗng/không hợp lệ -> 0 rồi kẹp).
