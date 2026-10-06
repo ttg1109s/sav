@@ -9,8 +9,10 @@ const routerRecorder = (() => {
         switch (msg.type) {
             case 'recorder.start.click': { workflowRecorder.start(); break; }
             case 'recorder.stop.click': { workflowRecorder.stop(); break; }
-            // Mic bị hệ điều hành thu hồi giữa chừng (cuộc gọi, app khác giành mic) — Giang chốt: xử lý như X.
-            case 'recorder.mic.ended': { workflowRecorder.handleInterruption(); break; }
+            // Mic bị hệ điều hành thu hồi giữa chừng (cuộc gọi, app khác giành mic) — Giang chốt: xử lý như X (kể cả đang Count-in).
+            case 'recorder.mic.ended': { workflowRecorder.handleMicEnded(); break; }
+            // MỚI (07/10/2026) — bấm "Bắt đầu đo" trong modal hướng dẫn Latency calibration.
+            case 'recorder.calibration.start.click': { workflowRecorder.runCalibration(); break; }
             case 'recorder.preview.toggle.click': { workflowRecorder.togglePreview(); break; }
             case 'recorder.preview.seek': { workflowRecorder.seekPreview(msg.payload.ratio); break; }
             case 'recorder.review.save.click': { workflowRecorder.save(); break; }

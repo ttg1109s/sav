@@ -122,7 +122,8 @@ const routerAppSettings = (() => {
                 break;
             }
 
-            // MỚI (01/10/2026, Ghi âm) — Settings > System > Ghi âm (dời từ Player 05/10/2026): toggle khử tiếng vọng / slider bù trễ (thả tay) đổi.
+            // MỚI (01/10/2026, Ghi âm) — Settings > System > Ghi âm (dời từ Player 05/10/2026): select (Recording mode / Count-in /
+            // Recording quality — SỬA 07/10/2026, toggle khử tiếng vọng đã bỏ) / slider Sync (thả tay) đổi.
             // Chuẩn hoá + ghi bền -> Workflow của domain 'recorder' (liên tuyến).
             case 'appSettings.recorder.field.change': {
                 workflowRecorder.changeConfigField(msg.payload.field, msg.payload.value);
@@ -132,6 +133,13 @@ const routerAppSettings = (() => {
             // Đang kéo slider bù trễ — chỉ cập nhật nhãn giá trị, message tự đủ nghĩa -> gọi thẳng Core (mục 4A).
             case 'appSettings.recorder.latency.input': {
                 setRecorderLatencyLabel(genericDrawerBody, Number(msg.payload.value)); // core/recorder-ui.js
+                break;
+            }
+
+            // MỚI (07/10/2026) — nút Latency calibration (chế độ Headphones): kiểm tra điều kiện + modal hướng dẫn -> Workflow
+            // của domain 'recorder' (liên tuyến).
+            case 'appSettings.recorder.calibrate.click': {
+                workflowRecorder.openCalibration();
                 break;
             }
 
