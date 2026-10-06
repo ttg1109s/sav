@@ -47,7 +47,7 @@
             rain: ['glass', 'street'],
             vortex: ['rings', 'bars', 'wave'],
             shape: ['rubik', 'clock'], // 'clock' MỚI 26/09/2026 — đồng hồ lộ máy (groups/shape/clock.js)
-            connector: ['synapse', 'circuit'], // 'brain' ĐÃ XOÁ 01/10/2026 (Giang) — lựa chọn cũ rơi về 'synapse' (core/config.js)
+            connector: ['circuit'], // 'brain' XOÁ 01/10/2026, 'synapse' XOÁ 06/10/2026 (Giang) — lựa chọn cũ rơi về 'circuit' (core/config.js)
         };
         const GROUP_STYLE_FIELD = {
             bar: 'barStyle', lighting: 'lightingStyle', rain: 'rainStyle',
