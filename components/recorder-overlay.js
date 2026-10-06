@@ -11,6 +11,8 @@
  * `#btn-recorder-stop` (X) — ĐÚNG vị trí #btn-open-control-center (top-4 left-3 sm:left-6), cùng #btn-gameplay-exit.
  * `#recorder-indicator` — chấm đỏ nhấp nháy + "REC" + đồng hồ + 5 vạch mức mic; viền đỏ thở quanh màn hình
  * (`.recorder-edge-glow`). CSS: assets/css/recorder.css.
+ * MỚI (07/10/2026) — `#recorder-countin`: số đếm ngược lớn giữa màn (Count-in, ẩn khi không đếm); lớp `.is-counting` trên
+ * #recorder-layer làm mờ viên REC trong lúc đếm; lớp `.is-clipping` trên #recorder-indicator tô đỏ vạch mức mic (Clip warning).
  *
  * `renderRecorderReviewBody()` — bodyHtml của modal nghe lại (modalChoice, core/modal-choice-ui.js): canvas mini
  * waveform + nút phát/dừng + nhãn giờ. Tương tác wire ở core/recorder-ui.js::wireRecorderReviewBody().
@@ -29,6 +31,8 @@ const TPL_RECORDER_OVERLAY = `
                     <span id="recorder-timer" class="recorder-timer">0:00</span>
                     <span id="recorder-level" class="recorder-level"><i></i><i></i><i></i><i></i><i></i></span>
                 </div>
+
+                <div id="recorder-countin" class="recorder-countin hidden" aria-live="assertive"></div>
             </div>
 `;
 
