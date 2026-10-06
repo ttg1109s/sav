@@ -252,7 +252,7 @@
     <link rel="stylesheet" href="assets/css/layout-nav.css?v=20261005vs2">
     <link rel="stylesheet" href="assets/css/photo-gallery.css?v=20260923v1">
     <link rel="stylesheet" href="assets/css/video-gallery.css?v=20260923v1">
-    <link rel="stylesheet" href="assets/css/video-preview.css?v=20260927c1">
+    <!-- XOÁ (06/10/2026) — assets/css/video-preview.css: trình sửa video tách thành trang riêng video-editor.html. -->
     <link rel="stylesheet" href="assets/css/misc.css?v=20261006audivis3">
     <link rel="stylesheet" href="assets/css/motion-engine.css?v=20261006r1">
     <!-- Game Mode (Circle mode v1, MỚI 16/08/2026) — xem components/gameplay-overlay.js. -->
@@ -487,7 +487,7 @@
          conventions.md) — CHỈ chuỗi HTML (TPL_VIDEO_PREVIEW), không addEventListener. Đặt cạnh
          generic-drawer.js (cùng vai trò "component tĩnh"), dù bản thân được clone MỖI LẦN MỞ
          (core/file-manager/video-ui.js) chứ không mount 1 lần lúc boot như generic-drawer.js. -->
-    <script src="components/video-preview.js?v=20260929cap1"></script>
+    <!-- XOÁ (06/10/2026) — components/video-preview.js: chỉ còn nạp ở video-editor.html. -->
     <script src="components/items.js?v=20261006audivis3"></script>
     <!-- Panel "Display" (Main "Visualizer Screen") — 5 toggle UI chrome. -->
     <script src="components/settings/visualizer-display-panel.js?v=20261005disp4"></script>
@@ -589,7 +589,7 @@
     <script src="service/state/element-style-editor.js?v=20260816v2"></script>
     <!-- THAY service/state/video-editor.js (ĐÃ XOÁ cùng video-editor.html — "Song/Video
          Unification" v12, gộp vào Modal xem Video). -->
-    <script src="service/state/video-preview.js?v=20260929cap1"></script>
+    <!-- XOÁ (06/10/2026) — service/state/video-preview.js: chỉ còn nạp ở video-editor.html (account riêng). -->
     <!-- service/state/record/index.js — đăng ký account 'player' (thay đoạn <script> inline cũ)
          — xem service/state/record/index.js. -->
     <!-- service/state/gameplay-runtime.js — Game Mode (Circle mode v1, MỚI 16/08/2026). PHẢI nạp
@@ -698,17 +698,13 @@
          Rotate/Trích xuất ảnh (core/file-manager/video-ui.js, event/workflow/video-preview.js).
          Mediabunny (WebCodecs, CDN) tải lười lúc mở modal (_ensureMediabunnyLoaded()), không nạp
          <script> cứng ở đây — tránh nặng tải cho người không dùng Video. -->
-    <script src="core/video-editor/compat-guard.js?v=20260926p1"></script>
-    <script src="core/video-editor/webcodecs-engine.js?v=20260929trim1"></script>
-    <script src="core/video-editor/filmstrip.js?v=20260926p1"></script>
     <!-- MỚI (Phase 1 editor video) — file tạm OPFS làm đích ghi video xuất (không gom cả file trong RAM). -->
-    <script src="core/video-editor/opfs-temp.js?v=20260926p1"></script>
     <!-- MỚI (21/07/2026) — File Manager -> Video. Độc lập với image.js (không
          dùng chung hàm nào ngoài slugify()/service/db.js) — chỉ cần SAU service/db.js.
          core/file-manager/video-ui.js ĐÃ XOÁ HẲN (Batch 6, mục 6d, phản hồi Giang — modal "Chi
          tiết" riêng nó từng chứa đã bỏ, dùng chung modal Playlist đã video-aware). -->
     <script src="core/file-manager/video.js?v=20261006db5"></script>
-    <script src="core/file-manager/video-ui.js?v=20260929cap1"></script>
+    <!-- XOÁ (06/10/2026) — core/file-manager/video-ui.js + core/video-editor/*.js: chỉ còn nạp ở video-editor.html. -->
     <!-- Tool migration thumbnail 320x320 (tools/migrate-video-thumbs-320.js, Batch 3) — Giang xác
          nhận đã chạy xong tốt, ĐÃ XOÁ (batch 4, 27/07/2026): dòng <script> này + file
          tools/migrate-video-thumbs-320.js (xoá tay thủ công, xem thông báo bàn giao). -->
@@ -1204,7 +1200,14 @@
          lúc user tương tác) + core/file-manager/image.js (sortImagesByAddedDateDesc/groupImagesByDay).
          KHÔNG có listener riêng: cả 3 message của router 'fileManagerPhoto' đều do chính workflow
          (core/media-picker-drawer-ui.js::wireMediaPickerDrawerUi) và core/file-manager/photo-ui.js tự gửi từ DOM tự dựng. -->
-    <script src="event/workflow/file-manager-photo.js?v=20261006db4"></script>
+    <!-- MỚI (06/10/2026) — 3 workflow DÙNG CHUNG với video-editor.html, tách nguyên logic từ playlist.js (chụp khung đầu/
+         thumb video), file-manager-photo.js (duration ảnh) và video-player.js (chụp khung hình thành ảnh). Các tên cũ ở
+         3 file đó vẫn giữ, chỉ gọi sang đây. Chỉ cần service/task-manager.js + core/file-manager/image.js +
+         core/video-player-capture.js + core/upload-validation.js (đã nạp ở nhóm CORE). -->
+    <script src="event/workflow/video-thumb-extract.js?v=20261006r6"></script>
+    <script src="event/workflow/photo-duration.js?v=20261006r6"></script>
+    <script src="event/workflow/video-frame-capture.js?v=20261006r6"></script>
+    <script src="event/workflow/file-manager-photo.js?v=20261006r6"></script>
     <script src="event/router/file-manager-photo.js?v=20260731v8"></script>
     <!-- TÁCH RA (31/07/2026, yêu cầu Giang) — cụm "imageEdit", Edit mode của modal xem ảnh Photo
          (trước đây sống chung trong file-manager-photo.js). CẦN workflowFileManagerPhoto (3 khe đọc
@@ -1222,9 +1225,8 @@
          workflowPlaylist.navigateToActiveMenuVideoEdit() gọi thẳng workflowVideoPreview.open()
          (không tầng trung gian) — cần core/file-manager/video-ui.js, core/media-transform.js,
          core/video-editor/*, core/video-player-capture.js (đã nạp ở nhóm CORE/STATE). -->
-    <script src="event/workflow/video-preview.js?v=20261006db2"></script>
-    <script src="event/router/video-preview.js?v=20260927c1"></script>
-    <script src="event/listener/video-preview.js?v=20260802v1"></script>
+    <!-- SỬA (06/10/2026, Giang) — cụm "videoPreview" (workflow/router/listener) CHUYỂN sang trang riêng video-editor.html;
+         navigateToActiveMenuVideoEdit() giờ chuyển trang (video-editor.html?video=<key mã hoá>). -->
     <!-- XOÁ (loại bỏ Document Reader khỏi app) — cụm "fileManagerDocument" (workflow/router/
          listener panel Document trong File Manager) bỏ hẳn cùng tính năng. -->
     <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — cụm "fileManagerCleanup" (nút "Dọn dẹp dữ liệu",
@@ -1257,7 +1259,7 @@
          core/listen-stats.js (bumpSongPlayCount), event/workflow/video-player.js (workflowVideoPlayer
          — chỉ dùng trong callback runtime, không bắt buộc thứ tự nạp so với dòng NGAY DƯỚI). -->
     <script src="event/workflow/player.js?v=20261006db4"></script>
-    <script src="event/workflow/playlist.js?v=20261006up1"></script>
+    <script src="event/workflow/playlist.js?v=20261006r6"></script>
     <script src="event/router/playlist.js?v=20261006audivis3"></script>
     <script src="event/listener/playlist.js?v=20261006audivis3"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel + phân phối lại section Settings, phản hồi
@@ -1296,7 +1298,7 @@
          mediaType khi click video trong Playlist (đi qua eventBus để Block gate chặn khoá chéo với
          Video nền). PHẢI nạp SAU event/workflow/video-player.js (cần workflowVideoPlayer.
          startFromPlaylist() đã tồn tại). -->
-    <script src="event/workflow/video-player.js?v=20261006db4"></script>
+    <script src="event/workflow/video-player.js?v=20261006r6"></script>
     <script src="event/router/video-player.js?v=20260929cap1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
     <!-- MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — event/workflow/photo-
