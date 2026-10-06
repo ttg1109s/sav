@@ -4,9 +4,10 @@
  * event/workflow/eq-presets.js). 2 mode, CÙNG khuôn Document Reader (List <-> Read):
  *   - 'list': danh sách preset (tên + khoá-icon nếu locked) + nút "+" trong HEADER để tạo preset
  *     mới (KHÔNG còn ô nhập tên/nút Tạo trong body — xem SỬA 2 bên dưới).
- *   - 'edit': tên (hàng "Name | input", khoá nếu locked) + 10 slider dọc lưỡng cực (-12..+12,
- *     khoá nếu locked) + Lưu (ẩn nếu locked) + Áp dụng + Xoá (2 nút cạnh nhau, CẢ 2 ẩn nếu locked
- *     — xem SỬA 3 bên dưới).
+ *   - 'edit': tên (hàng "Name | input", khoá nếu locked) + 10 dòng slider NGANG -12..+12 (khoá nếu
+ *     locked) + Áp dụng + Xoá (Xoá ẩn nếu locked). SỬA (07/10/2026, Giang) — bỏ Lưu: chỉnh là tự lưu,
+ *     preset đang áp dụng thì có tác dụng ngay; slider dọc trong box -> dòng ngang thường; Áp dụng có
+ *     trạng thái khoá "Đang áp dụng" (xem renderEqEditBody()).
  *
  * SỬA 3 (12/08/2026, Giang yêu cầu "thêm nút apply cạnh nút delete") — hàng dưới cùng body Edit
  * TRƯỚC ĐÂY chỉ có Xoá (full-width) — giờ thêm `#eq-drawer-apply` NGAY BÊN CẠNH (`flex gap-2`, mỗi
@@ -93,42 +94,36 @@ function renderEqEditHeader(preset, isBuiltIn) {
     const resetBtn = (!preset.locked && isBuiltIn)
         ? `<button id="btn-eq-drawer-reset" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors shrink-0" data-uitk="headerCloseHover headerCloseIcon" title="${t('eqPresets.resetButton.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M4 9a8 8 0 1 1 2.34 5.66" /></svg></button>`
         : '';
-    const saveBtn = preset.locked ? '' : `<button id="btn-generic-drawer-save" class="px-3 py-1.5 rounded-full transition-colors text-sm font-medium shrink-0" data-uitk="btnPrimaryPillBg btnPrimaryPillHoverBg textOnAccent" data-i18n="eqPresets.save">${t('eqPresets.save')}</button>`;
+    // XOÁ (07/10/2026, Giang: "bỏ tính năng save") — nút Lưu ở header: mọi chỉnh sửa (slider, tên) giờ TỰ LƯU, preset
+    // đang áp dụng thì slider có tác dụng NGAY khi kéo — xem event/workflow/eq-presets.js::_wireEditView().
     return `
         <div class="relative flex items-center justify-center px-14 py-3 border-b" data-uitk="dividerBorder">
             <button id="btn-generic-drawer-back" class="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full shrink-0" data-uitk="cardHoverBg textSecondaryStrong" title="${t('eqPresets.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg></button>
             <h3 class="text-sm font-bold truncate px-10" data-uitk="textPrimary" data-i18n="eqPresets.editTitle">${t('eqPresets.editTitle')}</h3>
-            <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 shrink-0">${resetBtn}${saveBtn}</div>
+            <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 shrink-0">${resetBtn}</div>
         </div>
     `;
 }
 
-/** Tính % chiều cao (bottom/height thật, KHÔNG còn qua trục xoay — xem SỬA 12/08/2026 trong CSS
- * .eq-preset-slider*) của dải màu biểu diễn 1 giá trị gain -12..+12 — LUÔN kéo dài từ mốc 0dB
- * (giữa track, bottom 50%) lên/xuống phía giá trị hiện tại, để thấy NGAY hướng tăng/giảm bằng mắt.
- * @param {number} gain -12..12 @returns {{bottom: number, height: number}} % */
-function computeEqFillRect(gain) {
-    const clamped = Math.max(-12, Math.min(12, gain));
-    const height = (Math.abs(clamped) / 24) * 100;
-    const bottom = clamped >= 0 ? 50 : 50 - height;
-    return { bottom, height };
-}
+// XOÁ (07/10/2026, Giang: "bỏ box các slider chỉnh kênh, slider nằm ngang, mỗi kênh 1 dòng, giống slider bình thường")
+// — `computeEqFillRect()` (dải fill tím của slider DỌC) + khung `.eq-preset-slider-box` từng kênh; CSS
+// `.eq-preset-slider*` đã gỡ khỏi assets/css/sliders.css.
 
-/** @param {{id: string, name: string, gains: number[], locked: boolean}} preset */
-function renderEqEditBody(preset) {
-    const sliders = preset.gains.map((g, i) => {
-        const fill = computeEqFillRect(g); // dùng lại ở event/workflow/eq-presets.js::_wireEditView() mỗi lần kéo
-        return `
-        <div class="flex flex-col items-center gap-1.5 w-8 shrink-0">
-            <span class="text-[10px] font-semibold tabular-nums" data-uitk="categoryAccent:violet" id="eq-edit-val-${i}">${g > 0 ? `+${g}` : g}</span>
-            <div class="eq-preset-slider-box">
-                <div class="eq-preset-slider-track"><div class="eq-preset-slider-fill" id="eq-edit-fill-${i}" style="bottom:${fill.bottom}%;height:${fill.height}%;"></div></div>
-                <input type="range" class="eq-preset-slider" min="-12" max="12" step="1" value="${g}" data-index="${i}" ${preset.locked ? 'disabled' : ''}>
-            </div>
-            <span class="text-[9px] tabular-nums" data-uitk="textMutedIcon">${EQ_LABELS[i]}</span>
-        </div>
-    `;
-    }).join('');
+/** SỬA (07/10/2026, Giang) — 10 kênh giờ là 10 DÒNG ngang (nhãn tần số | slider thường | giá trị dB), cùng kiểu
+ * slider/hàng của các màn Settings khác; nút Áp dụng có 2 trạng thái: chưa áp dụng (nút nhấn) / ĐANG áp dụng
+ * (khoá — vẫn bấm được để hiện thông báo "đang áp dụng rồi", xem event/workflow/eq-presets.js::onApplyClick()).
+ * @param {{id: string, name: string, gains: number[], locked: boolean}} preset
+ * @param {boolean} isActive - preset này đang là preset được chọn (`eqPresetId`) — Workflow tự tính. */
+function renderEqEditBody(preset, isActive) {
+    const rows = preset.gains.map((g, i) => `
+                <div class="flex items-center gap-3 px-4 py-3${i < preset.gains.length - 1 ? ' border-b' : ''}"${i < preset.gains.length - 1 ? ' data-uitk="dividerBorder"' : ''}>
+                    <span class="w-10 shrink-0 text-xs tabular-nums" data-uitk="textSecondary">${EQ_LABELS[i]}</span>
+                    <input type="range" class="eq-band-slider flex-1 min-w-0" min="-12" max="12" step="1" value="${g}" data-index="${i}" data-uitk="accentControl" ${preset.locked ? 'disabled' : ''}>
+                    <span class="w-10 shrink-0 text-right text-xs font-semibold tabular-nums" data-uitk="textPrimary" id="eq-edit-val-${i}">${g > 0 ? `+${g}` : g}</span>
+                </div>`).join('');
+    const applyBtn = isActive
+        ? `<button id="eq-drawer-apply" type="button" data-eq-applied="1" class="${preset.locked ? 'w-full' : 'flex-1'} py-3 rounded-2xl transition-colors text-sm font-medium flex items-center justify-center gap-1.5" data-uitk="btnNeutralBg btnNeutralText"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg><span data-i18n="eqPresets.applied">${t('eqPresets.applied')}</span></button>`
+        : `<button id="eq-drawer-apply" type="button" class="${preset.locked ? 'w-full' : 'flex-1'} py-3 rounded-2xl transition-colors text-sm font-medium" data-uitk="btnAccentSoft" data-i18n="eqPresets.apply">${t('eqPresets.apply')}</button>`;
 
     return `
         <div class="flex flex-col gap-4">
@@ -137,13 +132,11 @@ function renderEqEditBody(preset) {
                 <input type="text" id="eq-drawer-name" maxlength="24" value="${escapeHtml(preset.name)}" ${preset.locked ? 'disabled' : ''} class="flex-1 min-w-0 bg-transparent text-right py-3 text-sm outline-none disabled:opacity-60" data-uitk="textPrimary">
             </div>
             ${preset.locked ? `<p class="text-xs -mt-2 px-1" data-uitk="textMutedIcon" data-i18n="eqPresets.lockedHint">${t('eqPresets.lockedHint')}</p>` : ''}
-            <div class="rounded-2xl p-3" data-uitk="cardBg cardBorder">
-                <div class="flex items-end gap-2 overflow-x-auto px-1 pb-0.5">${sliders}</div>
+            <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">${rows}
             </div>
-            ${preset.locked ? `
-            <button id="eq-drawer-apply" type="button" class="w-full py-3 rounded-2xl transition-colors text-sm font-medium" data-uitk="btnAccentSoft" data-i18n="eqPresets.apply">${t('eqPresets.apply')}</button>` : `
+            ${preset.locked ? applyBtn : `
             <div class="flex gap-2">
-                <button id="eq-drawer-apply" type="button" class="flex-1 py-3 rounded-2xl transition-colors text-sm font-medium" data-uitk="btnAccentSoft" data-i18n="eqPresets.apply">${t('eqPresets.apply')}</button>
+                ${applyBtn}
                 <button id="eq-drawer-delete" type="button" class="flex-1 py-3 rounded-2xl transition-colors text-sm font-medium" data-uitk="btnDestructiveSoft" data-i18n="eqPresets.delete">${t('eqPresets.delete')}</button>
             </div>`}
         </div>

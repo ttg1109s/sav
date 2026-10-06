@@ -37,13 +37,11 @@
  * đặt trong `#motion-list-pagination` cuối danh sách để Workflow wire (core/pagination-ui.js).
  * @param {Array} presets @param {string} [paginationHtml] */
 function renderMotionListBody(presets, paginationHtml) {
-    // MỚI (25/09/2026, Giang chọn "nút tự sinh cả preset ngẫu nhiên hợp lý") — nút Random CÙNG HÀNG với "Thêm" (Giang
-    // chốt): sinh preset random thông minh (core/motion-presets.js::buildRandomMotionPreset()) rồi mở Edit. "Thêm" chiếm
-    // phần rộng (flex-1), Random gọn bên phải, KHÁC tông màu (card trung tính) để phân biệt với hành động chính.
+    // XOÁ (07/10/2026, Giang) — nút "Random" (sinh cả 1 preset ngẫu nhiên) cạnh "Thêm" đã bỏ; thay bằng nút Random
+    // theo nhóm (React Beat / Point Move Edit), xem `motionRandomButtonHtml()`.
     const addRowHtml = `
         <div class="flex gap-2 mb-2">
             <button type="button" id="btn-motion-list-add" class="flex-1 min-w-0 truncate text-center px-4 py-3.5 rounded-2xl text-sm font-semibold" data-uitk="btnAccentSoft accentSoftBorder">${t('motionPresetsDrawer.list.add.label')}</button>
-            <button type="button" id="btn-motion-list-add-random" class="shrink-0 text-center px-4 py-3.5 rounded-2xl text-sm font-semibold" data-uitk="cardBg cardBorder cardHoverBg textSecondaryStrong" data-i18n="motionPresetsDrawer.list.addRandom.label">${t('motionPresetsDrawer.list.addRandom.label')}</button>
         </div>
     `;
     if (presets.length === 0) {
@@ -105,6 +103,13 @@ const MOTION_SETTINGS_BEATREACT_DIRECTIONS_Y = [
     { value: 'upToDown', labelKey: 'motionPresetsDrawer.beatReact.direction.upToDown' },
     { value: 'downToUp', labelKey: 'motionPresetsDrawer.beatReact.direction.downToUp' },
 ];
+
+/** MỚI (07/10/2026, Giang) — nút Random nhỏ (icon xúc xắc) của 1 nhóm slider: mỗi lần bấm sinh lại giá trị các
+ * slider trong nhóm (event/workflow/motion-presets.js::randomizeBeatReactValues()/randomizePointMoveValues()).
+ * @param {string} id @returns {string} */
+function motionRandomButtonHtml(id) {
+    return `<button type="button" id="${id}" class="w-7 h-7 flex items-center justify-center rounded-lg shrink-0" data-uitk="btnNeutralBg btnNeutralHoverBg btnNeutralText" title="${escapeHtml(t('motionPresetsDrawer.randomValues.title'))}"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5" stroke-linejoin="round"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor" stroke="none"/></svg></button>`;
+}
 
 /** Dựng các hàng (checkbox bật + [select hướng + checkbox reverse + tick Random Max] + ô nhập số +
  * slider max biên độ) cho 1 hiệu ứng con (zoom/panX/panY/rotate) trong nhóm "React Beat Audio" —
@@ -325,10 +330,13 @@ function renderMotionEditBody(preset) {
                 <div>
                     <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2 mt-4 flex items-center justify-between" data-uitk="accentText">
                         <span data-i18n="motionPresetsDrawer.beatReact.groupTitle">${t('motionPresetsDrawer.beatReact.groupTitle')}</span>
-                        <label class="relative inline-flex items-center cursor-pointer shrink-0 normal-case tracking-normal">
-                            <input type="checkbox" id="setting-motion-beatreact-enabled" class="sr-only peer" ${preset.reactBeatAudio.enabled ? 'checked' : ''}>
-                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" data-uitk="toggleTrackOff toggleTrackOn"></div>
-                        </label>
+                        <div class="flex items-center gap-2.5 shrink-0 normal-case tracking-normal">
+                            ${motionRandomButtonHtml('btn-motion-beatreact-random')}
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="setting-motion-beatreact-enabled" class="sr-only peer" ${preset.reactBeatAudio.enabled ? 'checked' : ''}>
+                                <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" data-uitk="toggleTrackOff toggleTrackOn"></div>
+                            </label>
+                        </div>
                     </h3>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                         ${renderMotionBeatReactEffectRows('zoom', preset.reactBeatAudio.zoom, {
@@ -503,8 +511,14 @@ function renderPointMoveFieldRows(key, field, cfg) {
 function renderPointMoveEditBody(pointMove) {
     const linearBounds = pointMove.linearX.unit === 'px' ? { min: -1000, max: 1000, step: 10 } : { min: -200, max: 200, step: 5 };
     const linearYBounds = pointMove.linearY.unit === 'px' ? { min: -1000, max: 1000, step: 10 } : { min: -200, max: 200, step: 5 };
+    // MỚI (07/10/2026, Giang) — nút Random của nhóm Point Move: hàng tiêu đề nhỏ trên card 6 thông số (cùng kiểu
+    // tiêu đề nhóm của màn Edit preset), mỗi lần bấm sinh lại giá trị cả 6 slider (giữ mode/đơn vị).
     return `
                 <div>
+                    <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2 flex items-center justify-between" data-uitk="accentText">
+                        <span data-i18n="motionSettingsDrawer.groupPointMove.title">${t('motionSettingsDrawer.groupPointMove.title')}</span>
+                        <div class="flex items-center shrink-0 normal-case tracking-normal">${motionRandomButtonHtml('btn-ptmove-random')}</div>
+                    </h3>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                         ${renderPointMoveFieldRows('linearX', pointMove.linearX, { titleKey: 'motionSettingsDrawer.pointMove.field.linearX', hasUnit: true, boundMin: linearBounds.min, boundMax: linearBounds.max, step: linearBounds.step, suffix: pointMove.linearX.unit })}
                         ${renderPointMoveFieldRows('linearY', pointMove.linearY, { titleKey: 'motionSettingsDrawer.pointMove.field.linearY', hasUnit: true, boundMin: linearYBounds.min, boundMax: linearYBounds.max, step: linearYBounds.step, suffix: pointMove.linearY.unit })}

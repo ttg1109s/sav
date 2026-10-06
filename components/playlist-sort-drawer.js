@@ -39,7 +39,14 @@ function renderPlaylistSortPanelBody(source, statField) {
                 <div>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                         <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder cardHoverBg">
-                            <span class="text-sm font-medium truncate" data-i18n="playlistSortPanel.nameMode.label">${t('playlistSortPanel.nameMode.label')}</span>
+                            <!-- SỬA (07/10/2026, Giang) — dòng gợi ý "Stats quyết định thứ tự trước, Tên/Ngày chỉ phá thế bằng" (trước
+                                 đây là chữ dưới hàng Hướng) chuyển thành icon (i) cạnh nhãn Tên/Ngày, CHỈ hiện khi Stats đang chọn
+                                 field khác 'none' (ẩn/hiện qua data-sort-stat-info, cùng chỗ với hàng Hướng — xem
+                                 workflowPlaylist._syncSortStatDependents()). -->
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <span class="text-sm font-medium truncate" data-i18n="playlistSortPanel.nameMode.label">${t('playlistSortPanel.nameMode.label')}</span>
+                                <span data-sort-stat-info class="${statField === 'none' ? 'hidden ' : ''}flex shrink-0">${infoIconHtml(t('playlistSortPanel.statField.hint'))}</span>
+                            </div>
                             <select id="setting-playlist-sort-name" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
                                 <option value="az" data-i18n="settingsPlaylistBg.sortMode.az">${t('settingsPlaylistBg.sortMode.az')}</option>
                                 <option value="za" data-i18n="settingsPlaylistBg.sortMode.za">${t('settingsPlaylistBg.sortMode.za')}</option>
@@ -60,15 +67,12 @@ function renderPlaylistSortPanelBody(source, statField) {
                         <!-- MỚI (mục 3) — dropdown hướng, CHỈ hiện khi field ở trên khác 'none' —
                              SỬA (05/10/2026): trạng thái lúc mở dựng sẵn từ tham số statField; đổi field
                              lúc đang mở do changeStatSortField() gỡ/gắn. -->
-                        <div data-sort-direction-row class="${statField === 'none' ? 'hidden ' : ''}flex flex-col p-4 gap-1.5">
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm font-medium truncate" data-i18n="playlistSortPanel.statDirection.label">${t('playlistSortPanel.statDirection.label')}</span>
-                                <select id="setting-playlist-sort-stat-direction" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
-                                    <option value="desc" data-i18n="playlistSortPanel.statDirection.desc">${t('playlistSortPanel.statDirection.desc')}</option>
-                                    <option value="asc" data-i18n="playlistSortPanel.statDirection.asc">${t('playlistSortPanel.statDirection.asc')}</option>
-                                </select>
-                            </div>
-                            <div class="text-xs" data-uitk="textSecondary" data-i18n="playlistSortPanel.statField.hint">${t('playlistSortPanel.statField.hint')}</div>
+                        <div data-sort-direction-row class="${statField === 'none' ? 'hidden ' : ''}flex justify-between items-center p-4">
+                            <span class="text-sm font-medium truncate" data-i18n="playlistSortPanel.statDirection.label">${t('playlistSortPanel.statDirection.label')}</span>
+                            <select id="setting-playlist-sort-stat-direction" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
+                                <option value="desc" data-i18n="playlistSortPanel.statDirection.desc">${t('playlistSortPanel.statDirection.desc')}</option>
+                                <option value="asc" data-i18n="playlistSortPanel.statDirection.asc">${t('playlistSortPanel.statDirection.asc')}</option>
+                            </select>
                         </div>
                     </div>
                 </div>
