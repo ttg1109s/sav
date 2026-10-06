@@ -89,45 +89,40 @@ async function renameFolder(folderId, newName) {
 }
 
 /**
- * Xoá 1 folder: dọn `record.folder[folderId]` trên từng item đang có trong folder -> xoá folder_song
- * -> xoá record folders -> bớt khỏi `folderIndex` (dò cả 3 nhóm) -> ghi vào `deletedFolderIds`.
+ * Xoá 1 folder: dọn `meta.folder[folderId]` trên từng item đang có trong folder -> xoá folder_song -> xoá record folders
+ * -> bớt khỏi `folderIndex` (dò cả 3 nhóm) -> ghi vào `deletedFolderIds`.
+ * SỬA (06/10/2026, plan-media-db-split.md — setXRecord đã xoá + Rule 3b): KHÔNG còn tự đọc DB. Workflow
+ * (event/workflow/file-manager-folder-browser.js::deleteFromTileMenu()) đọc sẵn `folderMap`/`folderIndex`/`deletedIds`
+ * rồi truyền vào; field `folder` của từng item dọn qua `updateMediaMetaBatch()` (service/db.js — CHỈ store meta, 1
+ * transaction cho cả lô, không đụng Blob).
  * @param {string} folderId
- * @param {'song'|'video'|'photo'} [mediaType] - chọn store record; vắng = 'song'.
- * @returns {Promise<{status: 'notFound'|'ok'}>}
+ * @param {'song'|'video'|'photo'} mediaType
+ * @param {{list: Array<string|null>, empty: number}} folderMap - bản đọc từ getFolderSongMap() (Workflow đã guard tồn tại)
+ * @param {{song: string[], video: string[], photo: string[]}} folderIndex - meta.folderIndex hiện tại
+ * @param {string[]} deletedIds - meta.deletedFolderIds hiện tại
+ * @returns {Promise<{status: 'ok'}>}
  */
-async function deleteFolder(folderId, mediaType) {
-    const folderMap = await getFolderSongMap(folderId);
-    if (!folderMap) return { status: 'notFound' };
-
-    const getRecordFn = mediaType === 'video' ? getVideoRecord : mediaType === 'photo' ? getImageRecord : getSongRecord; // service/db.js
-    const setRecordFn = mediaType === 'video' ? setVideoRecord : mediaType === 'photo' ? setImageRecord : setSongRecord; // service/db.js
-
-    const songKeys = folderMap.list.filter((k) => k != null); // inline getFolderSongKeys() — Rule 3
-    for (const songKey of songKeys) {
-        const record = await getRecordFn(songKey);
-        if (!record || !record.folder) continue; // guard: record đã mất/hỏng — không chặn xoá folder
-        delete record.folder[folderId];
-        await setRecordFn(songKey, record);
-    }
+async function deleteFolder(folderId, mediaType, folderMap, folderIndex, deletedIds) {
+    const itemKeys = folderMap.list.filter((k) => k != null);
+    await updateMediaMetaBatch(itemKeys.map((key) => ({ // service/db.js
+        type: mediaType,
+        key,
+        mutate: (meta) => {
+            if (!meta.folder) return meta; // item không còn field folder — giữ nguyên
+            const folder = { ...meta.folder };
+            delete folder[folderId];
+            return { ...meta, folder };
+        },
+    })));
 
     await deleteFolderSongMap(folderId);
     await deleteFolderRecord(folderId);
 
-    const folderIndex = (await getMeta('folderIndex')) || { song: [], video: [], photo: [] }; // data layer
-    let indexChanged = false;
-    for (const t of ['song', 'video', 'photo']) {
-        if (!folderIndex[t]) continue;
-        const idx = folderIndex[t].indexOf(folderId);
-        if (idx !== -1) { folderIndex[t].splice(idx, 1); indexChanged = true; }
-    }
-    if (indexChanged) await setMeta('folderIndex', folderIndex); // data layer
-
-    const deletedIds = (await getMeta('deletedFolderIds')) || [];
-    if (!deletedIds.includes(folderId)) {
-        deletedIds.push(folderId);
-        await setMeta('deletedFolderIds', deletedIds);
-    }
-
+    const nextIndex = { song: [], video: [], photo: [], ...folderIndex };
+    ['song', 'video', 'photo'].forEach((type) => { nextIndex[type] = (nextIndex[type] || []).filter((id) => id !== folderId); });
+    await setMeta('folderIndex', nextIndex); // data layer
+    if (!deletedIds.includes(folderId)) await setMeta('deletedFolderIds', [...deletedIds, folderId]);
+    console.log(`[deleteFolder] xoá folder "${folderId}" (${mediaType}), dọn field folder trên ${itemKeys.length} item`);
     return { status: 'ok' };
 }
 
@@ -143,47 +138,47 @@ async function clearAllFolderSongData() {
 }
 
 /**
- * Thêm nhiều item vào 1 folder. Trạng thái thành viên từng item: 'new' (push cuối), 'tombstoned'
- * (điền lại đúng vị trí cũ), 'active' (bỏ qua) — chọn qua VirtualMachineState, callback là closure
- * nội bộ (không gọi core khác). UI chỉ đưa vào folder cùng type nên không validate type.
- * @param {string[]} songKeys
+ * Thêm nhiều item vào 1 folder. Trạng thái thành viên từng item: 'new' (push cuối), 'tombstoned' (điền lại đúng vị trí
+ * cũ), 'active' (bỏ qua) — chọn qua VirtualMachineState, callback là closure nội bộ (không gọi core khác). UI chỉ đưa
+ * vào folder cùng type nên không validate type.
+ * SỬA (06/10/2026, plan-media-db-split.md — setXRecord đã xoá + Rule 3b): KHÔNG còn tự đọc DB. Workflow
+ * (event/workflow/playlist.js::addMediaToFolder()) đọc sẵn `folderMap` rồi truyền vào. Membership tính NGAY trong
+ * `mutate` của `updateMediaMetaBatch()` (service/db.js — 1 transaction, request chạy đúng thứ tự `itemKeys` nên vị trí
+ * push vào `folderMap.list` giữ nguyên thứ tự như bản cũ); item không tồn tại tự bị bỏ qua (`notFound`).
+ * @param {string[]} itemKeys
  * @param {string} folderId
- * @param {'song'|'video'|'photo'} mediaType - chọn store record.
- * @returns {Promise<{status: 'notFound'|'ok', addedCount: number}>}
+ * @param {'song'|'video'|'photo'} mediaType
+ * @param {{list: Array<string|null>, empty: number}} folderMap - bản đọc từ getFolderSongMap(), hàm này SỬA tại chỗ rồi ghi lại
+ * @returns {Promise<{status: 'ok', addedCount: number}>}
  */
-async function addSongsToFolder(songKeys, folderId, mediaType) {
-    const folderMap = await getFolderSongMap(folderId);
-    if (!folderMap) return { status: 'notFound', addedCount: 0 };
-
+async function addSongsToFolder(itemKeys, folderId, mediaType, folderMap) {
     let addedCount = 0;
-    const getRecordFn = mediaType === 'video' ? getVideoRecord : mediaType === 'photo' ? getImageRecord : getSongRecord; // service/db.js
-    const setRecordFn = mediaType === 'video' ? setVideoRecord : mediaType === 'photo' ? setImageRecord : setSongRecord; // service/db.js
-    for (const songKey of songKeys) {
-        const record = await getRecordFn(songKey);
-        if (!record) continue; // guard: item không còn tồn tại — không chặn cả lô
-        if (!record.folder) record.folder = {};
-
-        const membershipState = !(folderId in record.folder)
-            ? 'new'
-            : (folderMap.list[record.folder[folderId]] === null ? 'tombstoned' : 'active');
-        VirtualMachineState.run([
-            { state: membershipState, operation: '===', value: 'new', callback: () => {
-                const position = folderMap.list.length;
-                folderMap.list.push(songKey);
-                record.folder[folderId] = position;
-                addedCount++;
-            } },
-            { state: membershipState, operation: '===', value: 'tombstoned', callback: () => {
-                const position = record.folder[folderId];
-                folderMap.list[position] = songKey;
-                folderMap.empty--;
-                addedCount++;
-            } },
-            { state: membershipState, operation: '===', value: 'active', callback: () => {} }, // đã ở trong — no-op có chủ đích
-        ]);
-        await setRecordFn(songKey, record);
-    }
+    await updateMediaMetaBatch(itemKeys.map((itemKey) => ({ // service/db.js
+        type: mediaType,
+        key: itemKey,
+        mutate: (meta) => {
+            const folder = { ...(meta.folder || {}) };
+            const membershipState = !(folderId in folder)
+                ? 'new'
+                : (folderMap.list[folder[folderId]] === null ? 'tombstoned' : 'active');
+            VirtualMachineState.run([
+                { state: membershipState, operation: '===', value: 'new', callback: () => {
+                    folder[folderId] = folderMap.list.length;
+                    folderMap.list.push(itemKey);
+                    addedCount++;
+                } },
+                { state: membershipState, operation: '===', value: 'tombstoned', callback: () => {
+                    folderMap.list[folder[folderId]] = itemKey;
+                    folderMap.empty--;
+                    addedCount++;
+                } },
+                { state: membershipState, operation: '===', value: 'active', callback: () => {} }, // đã ở trong — no-op có chủ đích
+            ]);
+            return { ...meta, folder };
+        },
+    })));
     await setFolderSongMap(folderId, folderMap);
+    console.log(`[addSongsToFolder] thêm ${addedCount}/${itemKeys.length} ${mediaType} vào folder "${folderId}"`);
     return { status: 'ok', addedCount };
 }
 

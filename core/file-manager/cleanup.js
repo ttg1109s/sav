@@ -54,25 +54,29 @@ function getRegisteredCleanupChecks() {
  * ACTIVE tại thời điểm xoá — xem giải thích đầy đủ ở core/file-manager/folder.js dòng 40-52,
  * "resolveFolderId() — SỬA 03/07/2026 đợt 5"). Dùng `meta.deletedFolderIds` (danh sách ĐẦY ĐỦ mọi
  * folderId từng bị xoá) để biết chính xác cần dọn field nào trên mỗi bài.
+ * SỬA (06/10/2026, plan-media-db-split.md — setSongRecord đã xoá + Rule 3b): KHÔNG còn tự đọc DB và KHÔNG còn đăng ký
+ * vào registry (registry chạy hàm không tham số). Workflow (event/workflow/file-manager-cleanup.js::run()) đọc sẵn meta
+ * mọi bài + `deletedFolderIds` rồi gọi hàm này; ghi qua `updateMediaMetaBatch()` (CHỈ store meta, 1 transaction).
+ * @param {Array<{key: string, folder?: object}>} songMetas - getAllMediaMeta('song')
+ * @param {string[]} deletedFolderIds - meta.deletedFolderIds
  * @returns {Promise<number>} số bài hát đã dọn field `folder[...]` mồ côi.
  */
-async function cleanupOrphanedSongFolderFields() {
-    const deletedFolderIds = (await getMeta('deletedFolderIds')) || []; // data layer
+async function cleanupOrphanedSongFolderFields(songMetas, deletedFolderIds) {
     if (deletedFolderIds.length === 0) return 0;
     const deletedSet = new Set(deletedFolderIds);
-
-    const songKeys = await getAllSongKeys(); // data layer
-    let fixedCount = 0;
-    for (const key of songKeys) {
-        const record = await getSongRecord(key); // data layer
-        if (!record || !record.folder) continue;
-        const staleIds = Object.keys(record.folder).filter((id) => deletedSet.has(id));
-        if (staleIds.length === 0) continue;
-        staleIds.forEach((id) => { delete record.folder[id]; });
-        await setSongRecord(key, record); // data layer
-        fixedCount++;
-    }
-    return fixedCount;
+    const staleItems = songMetas
+        .filter((meta) => meta.folder && Object.keys(meta.folder).some((id) => deletedSet.has(id)))
+        .map((meta) => ({
+            type: 'song',
+            key: meta.key,
+            mutate: (current) => {
+                const folder = { ...(current.folder || {}) };
+                Object.keys(folder).filter((id) => deletedSet.has(id)).forEach((id) => { delete folder[id]; });
+                return { ...current, folder };
+            },
+        }));
+    await updateMediaMetaBatch(staleItems); // service/db.js
+    return staleItems.length;
 }
 
 /**
@@ -154,7 +158,8 @@ async function cleanupOrphanedZipTempFiles() {
     return fixedCount;
 }
 
-registerCleanupCheck('orphanedSongFolderFields', cleanupOrphanedSongFolderFields);
+// SỬA (06/10/2026) — 'orphanedSongFolderFields' KHÔNG còn đăng ký ở đây: cần dữ liệu đọc từ DB (Rule 3b) nên
+// event/workflow/file-manager-cleanup.js::run() tự chuẩn bị + gọi cleanupOrphanedSongFolderFields().
 registerCleanupCheck('orphanedFolderSongMaps', cleanupOrphanedFolderSongMaps);
 registerCleanupCheck('orphanedZipTempFiles', cleanupOrphanedZipTempFiles);
 

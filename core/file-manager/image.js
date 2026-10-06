@@ -25,7 +25,7 @@
  * Trùng filename: ÁP DỤNG Y HỆT logic resolveSongKey() (mục 6 "Đã chốt" — ảnh/docs dùng chung công
  * thức với song). KHÔNG lặp lại thuật toán, gọi thẳng slugify() dùng chung.
  *
- * NẠP SAU: service/db.js (getImageRecord/setImageRecord/deleteImageRecord/getAllImageKeys/slugify).
+ * NẠP SAU: service/db.js (createMediaRecord/updateMediaMeta/setMediaBlob/setMediaThumbs — API media 3 store, 06/10/2026).
  *
  * PATCH mục 1/2 (14/07/2026, group ảnh theo ngày + Item/window ảo); VIẾT LẠI (rewrite Photo/
  * Album, dùng fjGallery) — 2 hàm THUẦN `sortImagesByAddedDateDesc()`/`groupImagesByDay()` (đổi
@@ -34,100 +34,45 @@
  * window.js.
  */
 
-/**
- * Sinh imageKey DUY NHẤT từ tên file — CÙNG THUẬT TOÁN resolveSongKey (service/db.js): slug chưa tồn
- * tại -> dùng luôn; slug đã tồn tại + filename TRÙNG -> ghi đè cùng key; slug đã tồn tại + filename
- * KHÁC -> thêm hậu tố số.
- * @param {string} filename
- * @returns {Promise<string>}
- */
-async function resolveImageKey(filename) {
-    const baseSlug = slugify(filename) || 'image'; // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
-    console.log(`[resolveImageKey] callTo: "slugify", request: "chuẩn hoá tên file '${filename}' thành slug làm base cho key"`);
-    let candidate = baseSlug;
-    let suffix = 2;
-    while (true) {
-        const existing = await getImageRecord(candidate); // data layer (service/db.js)
-        if (!existing) return candidate;
-        if (existing.filename === filename) return candidate; // cùng file -> ghi đè đúng key này
-        candidate = `${baseSlug}-${suffix}`; suffix++;
-    }
-}
+// DỜI (06/10/2026, plan-media-db-split.md) — `resolveImageKey()` (core TỰ ĐỌC DB — vi phạm Rule 3) sang service/db.js
+// (data layer, dùng chung `resolveMediaKey()` với Song/Video). Workflow gọi nó rồi truyền key vào `saveImage()`.
+// XOÁ (06/10/2026) — `deleteImage()`: không còn nơi nào gọi (xoá ảnh đi qua `deleteMediaRecord('photo', ...)`).
 
 /**
- * Lưu 1 ảnh mới (hoặc ghi đè nếu trùng filename — xem resolveImageKey()). 1 tiến trình duy nhất:
- * sinh key -> ghi record. `thumbBlob`/`width`/`height`/`duration` PHẢI tính SẴN trước khi gọi hàm
- * này (Workflow — event/workflow/file-manager-photo.js::resizeImageForThumbnail()/
- * computePhotoDuration(), cần Image/canvas/File.arrayBuffer() là DOM/Web API, core KHÔNG được đụng
- * theo Rule 1-4) — hàm này (core) CHỈ ghi lại nguyên xi, không tự resize/decode/hash gì thêm.
- * SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video, thừa hưởng Play/Next-Prev/Shuffle
- * của Playlist) — thêm tham số `duration` (giây, số thực — event/workflow/file-manager-photo.js::
- * computePhotoDuration()), ghi vào record CÙNG lúc với `thumbBlob`/`width`/`height`.
- * @param {File|Blob} file - blob ẢNH GỐC (không resize).
+ * Lưu 1 ảnh mới (hoặc ghi đè trọn nếu trùng filename — key do Workflow resolve sẵn qua `resolveImageKey()`,
+ * service/db.js). `thumbBlob`/`width`/`height`/`duration` PHẢI tính SẴN ở Workflow.
+ * SỬA (06/10/2026, plan-media-db-split.md) — ghi qua `createMediaRecord('photo', ...)` (3 store), nhận `imageKey`
+ * qua tham số (Rule 3).
+ * @param {string} imageKey
+ * @param {File|Blob} file - ảnh GỐC, Blob MỚI (không đọc từ IndexedDB).
  * @param {string} filename
- * @param {Blob} thumbBlob - ảnh đã resize sẵn, dùng cho lưới (Giai đoạn 1, mục 3d).
- * @param {number} width - chiều rộng ẢNH GỐC (px), đo lúc resize.
- * @param {number} height - chiều cao ẢNH GỐC (px), đo lúc resize.
- * @param {number} duration - giây, số thực, tính lúc upload (computePhotoDuration()).
- * @returns {Promise<string>} imageKey vừa lưu
+ * @param {Blob} thumbBlob
+ * @param {number} width @param {number} height - kích thước ảnh GỐC.
+ * @param {number} duration - giây.
+ * @returns {Promise<string>} imageKey
  */
-async function saveImage(file, filename, thumbBlob, width, height, duration) {
-    const imageKey = await resolveImageKey(filename); // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
-    console.log(`[saveImage] callTo: "resolveImageKey", request: "sinh/tái dùng key duy nhất từ tên file '${filename}'"`);
-    await setImageRecord(imageKey, { blob: file, thumbBlob, width, height, duration, filename, addedAt: Date.now() });
+async function saveImage(imageKey, file, filename, thumbBlob, width, height, duration) {
+    await createMediaRecord('photo', imageKey, { blob: file, thumbBlob, width, height, duration, filename, addedAt: Date.now() }); // service/db.js
+    console.log(`[saveImage] ghi ảnh "${imageKey}" (${filename}) vào 3 store media`);
     return imageKey;
 }
 
 /**
- * MỚI (14/07/2026, mục cuối — tính năng Edit ảnh, TRANG GỐC `image-edit.html` đã XOÁ 31/07/2026,
- * hàm này giờ phục vụ Edit mode MỚI trong modal xem ảnh — event/workflow/file-manager-photo.js::
- * saveEditOverwrite()) — ghi đè `blob` sau khi sửa, giữ nguyên `filename`/`addedAt` (đọc record đầy
- * đủ, ghi đè ĐÚNG các field cần đổi, lưu lại nguyên record).
- *
- * HOÀN THIỆN (Giai đoạn 5, rewrite Photo/Album — trả nợ kỹ thuật ghi ở Giai đoạn 1) — nhận thêm
- * `thumbBlob`/`width`/`height`, ghi đè CẢ 3 cùng lúc với `blob` — trước đây chỉ ghi `blob`, khiến
- * `thumbBlob` (lưới ảnh) SAI tỉ lệ/nội dung so với ảnh vừa sửa (crop/rotate đổi cả kích thước lẫn
- * hình ảnh) VĨNH VIỄN cho tới khi tự sửa lại code — KHÔNG có cơ chế backfill tự động nào cứu (đính
- * chính: comment cũ ở đầu file này từng nhắc "backfill lười khi mở full-view" như đã cài — thực tế
- * CHƯA BAO GIỜ implement, chỉ là dự định ghi nhầm thành đã làm; ảnh cũ thiếu `thumbBlob`/`width`/
- * `height` VẪN đang fallback vĩnh viễn về `blob` gốc (event/workflow/photo-gallery-window.js đọc
- * `image.thumbBlob || image.blob`) + tỉ lệ 1/1 (fjGallery không có attribute width/height thật để
- * đọc), không tự sửa dù đã mở full-view — cần Giang xác nhận có cần implement
- * backfill thật hay chấp nhận giữ nguyên cho tới khi ảnh được re-upload/edit). Nơi gọi
- * (event/workflow/file-manager-photo.js::saveEditOverwrite()) PHẢI tự resize thumbnail TRƯỚC khi
- * gọi hàm này — core không được đụng canvas (Rule 1-4, DOM API).
- * SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — nhận thêm `duration`, ghi đè
- * CÙNG lúc — sửa ảnh (crop/rotate) đổi cả kích thước lẫn dung lượng nên tính lại cho nhất quán với
- * `saveImage()` (thay vì giữ nguyên số cũ, giờ SAI so với nội dung ảnh thật).
- * @param {string} imageKey
- * @param {Blob} newBlob - ảnh GỐC đã sửa.
- * @param {Blob} thumbBlob - thumbnail đã resize sẵn, cùng công thức lúc upload.
- * @param {number} width - chiều rộng ảnh GỐC đã sửa (px).
- * @param {number} height - chiều cao ảnh GỐC đã sửa (px).
- * @param {number} duration - giây, số thực, tính lại từ ảnh GỐC đã sửa (computePhotoDuration()).
+ * Ghi đè ảnh sau khi sửa ("Ghi đè" trong Edit mode), giữ nguyên `filename`/`addedAt`/folder/thống kê... Nhận cả
+ * `thumbBlob`/`width`/`height`/`duration` MỚI (crop/rotate đổi cả kích thước lẫn nội dung).
+ * SỬA (06/10/2026, plan-media-db-split.md) — 3 bước ghi riêng từng store: meta (kích thước/thời lượng — cũng là bước
+ * kiểm tồn tại), file chính, thumb; không đọc lại record (Rule 3 + lỗi round-trip). Báo "đang dùng" là việc của
+ * Workflow nơi gọi (request trung tâm `mediaInUse`).
+ * @param {string} imageKey @param {Blob} newBlob @param {Blob} thumbBlob
+ * @param {number} width @param {number} height @param {number} duration
  * @returns {Promise<{status: 'notFound'|'ok'}>}
  */
 async function updateImageBlob(imageKey, newBlob, thumbBlob, width, height, duration) {
-    const record = await getImageRecord(imageKey); // data layer
-    if (!record) return { status: 'notFound' };
-    await setImageRecord(imageKey, { ...record, blob: newBlob, thumbBlob, width, height, duration });
-    return { status: 'ok' };
-}
-
-/**
- * Xoá hẳn 1 ảnh khỏi thư viện.
- * XOÁ (loại bỏ Album khỏi Photo Panel) — cascade dọn khỏi mọi album đang chứa ảnh này bỏ hẳn cùng
- * tính năng (Album không còn tồn tại trong app, store 'albums' cũ không còn nơi nào đọc/ghi tới).
- * (Phần dọn tham chiếu `vizConfig.bgImage`/`visualBgImage` — mục 5c
- * plan-v12-multimedia-decisions.md — thuộc Batch 5, CHƯA code ở đây vì 2 field đó CHƯA tồn tại.)
- * @param {string} imageKey
- * @returns {Promise<{status: 'notFound'|'ok'}>}
- */
-async function deleteImage(imageKey) {
-    const record = await getImageRecord(imageKey);
-    if (!record) return { status: 'notFound' };
-
-    await deleteImageRecord(imageKey);
+    const metaResult = await updateMediaMeta('photo', imageKey, (meta) => ({ ...meta, width, height, duration })); // service/db.js
+    if (metaResult.status === 'notFound') return { status: 'notFound' };
+    await setMediaBlob('photo', imageKey, newBlob); // service/db.js
+    await setMediaThumbs('photo', imageKey, { thumbBlob }); // service/db.js
+    console.log(`[updateImageBlob] ghi đè ảnh "${imageKey}"`);
     return { status: 'ok' };
 }
 

@@ -41,127 +41,81 @@
  * xoá 1 video nằm ở tầng Workflow (`event/workflow/playlist.js::MEDIA_DELETE_ACCESSOR`), KHÔNG còn
  * ở đây (xem `deleteVideo()` — ĐÃ XOÁ, thay bằng `deleteVideoRecord()` thuần CRUD, service/db.js).
  *
- * NẠP SAU: service/db.js (getVideoRecord/setVideoRecord/deleteVideoRecord/getAllVideoKeys/slugify).
+ * NẠP SAU: service/db.js (createMediaRecord/updateMediaMeta/setMediaBlob/setMediaThumbs — API media 3 store, 06/10/2026).
  */
 
-/**
- * Sinh videoKey DUY NHẤT từ tên file — CÙNG THUẬT TOÁN resolveImageKey()/resolveSongKey() (service/
- * db.js): slug chưa tồn tại -> dùng luôn; slug đã tồn tại + filename TRÙNG -> ghi đè cùng key; slug
- * đã tồn tại + filename KHÁC -> thêm hậu tố số.
- * @param {string} filename
- * @returns {Promise<string>}
- */
-async function resolveVideoKey(filename) {
-    const baseSlug = slugify(filename) || 'video'; // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
-    console.log(`[resolveVideoKey] callTo: "slugify", request: "chuẩn hoá tên file '${filename}' thành slug làm base cho key"`);
-    let candidate = baseSlug;
-    let suffix = 2;
-    while (true) {
-        const existing = await getVideoRecord(candidate); // data layer (service/db.js)
-        if (!existing) return candidate;
-        if (existing.filename === filename) return candidate; // cùng file -> ghi đè đúng key này
-        candidate = `${baseSlug}-${suffix}`; suffix++;
-    }
-}
+// DỜI (06/10/2026, plan-media-db-split.md) — `resolveVideoKey()` (core TỰ ĐỌC DB — vi phạm Rule 3) sang service/db.js
+// (data layer, dùng chung `resolveMediaKey()` với Song/Photo). Workflow gọi nó rồi truyền key vào `saveVideo()`.
+// XOÁ (06/10/2026) — `setVideoCustomName()`: không còn nơi nào gọi (tên riêng ghi qua tab "Sửa", core/playlist/actions.js).
 
 /**
- * Lưu 1 video mới (hoặc ghi đè nếu trùng filename — xem resolveVideoKey()). `thumbBlob`/`width`/
- * `height`/`duration`/`thumbFullBlob` PHẢI tính SẴN trước khi gọi hàm này (Workflow — event/
- * workflow/file-manager-video.js::_extractVideoThumbAndMeta()) — hàm này (core) CHỈ ghi lại nguyên
- * xi.
- *
- * XOÁ (29/07/2026, yêu cầu Giang) — tham số `mediaInfo` (codec/fps/bitrate/audioCodec/
- * audioBitrate, PHÂN TÍCH qua mediainfo.js) ĐÃ BỎ HẲN cùng lúc 5 field tương ứng trong schema — tab
- * "Chi tiết" không còn hiển thị các field này nữa (core/playlist/actions.js), phân tích mediainfo.js
- * lúc upload cũng bỏ theo (không còn ai tiêu thụ kết quả).
- * `customName` khởi tạo `null` (chưa đặt tên hiển thị riêng — tab "Chi tiết" rơi về `filename` gốc
- * khi hiện, xem event/workflow/video-player.js).
- * @param {File|Blob} file - blob video GỐC (không resize).
+ * Lưu 1 video mới (hoặc ghi đè trọn nếu trùng filename — key do Workflow resolve sẵn qua `resolveVideoKey()`,
+ * service/db.js). `thumbBlob`/`width`/`height`/`duration`/`thumbFullBlob` PHẢI tính SẴN (Workflow —
+ * event/workflow/playlist.js::extractVideoThumbAndMeta()) — hàm này CHỈ ghi lại nguyên xi.
+ * SỬA (06/10/2026, plan-media-db-split.md) — ghi qua `createMediaRecord('video', ...)` (tự tách meta / file / thumb
+ * vào 3 store); nhận `videoKey` qua tham số thay vì tự resolve (Rule 3 — core không gọi hàm đọc).
+ * `customName` khởi tạo `null` (tab "Chi tiết" rơi về `filename` gốc khi hiện).
+ * @param {string} videoKey
+ * @param {File|Blob} file - blob video GỐC (không resize), Blob MỚI (không đọc từ IndexedDB).
  * @param {string} filename
- * @param {Blob} thumbBlob - khung hình đã chụp + center-crop vuông + resize sẵn, dùng cho lưới/cover.
- * @param {number} width - chiều rộng video GỐC (px).
- * @param {number} height - chiều cao video GỐC (px).
- * @param {number} duration - thời lượng video (giây).
- * @param {Blob} [thumbFullBlob] - MỚI (29/07/2026) khung hình ĐẦU TIÊN (time=0), FULL RESOLUTION
- *        (không crop/resize) — TÁCH RIÊNG với `thumbBlob`, KHÔNG thay thế. `undefined`/`null` nếu
- *        nơi gọi không tính (vd video-editor.js ghi đè lại video đã chỉnh sửa) — rơi về `null`.
- * @param {boolean} [thumbFullIsBlack] - MỚI (19/09/2026) khung đầu đen THẬT, xem docstring đầu file.
- * @returns {Promise<string>} videoKey vừa lưu
+ * @param {Blob} thumbBlob - khung hình center-crop vuông + resize, dùng cho lưới/cover.
+ * @param {number} width @param {number} height - kích thước video GỐC (px).
+ * @param {number} duration - giây.
+ * @param {Blob} [thumbFullBlob] - khung đầu tiên full resolution (`null` nếu không có).
+ * @param {boolean} [thumbFullIsBlack] - khung đầu đen THẬT, xem docstring đầu file.
+ * @returns {Promise<string>} videoKey
  */
-async function saveVideo(file, filename, thumbBlob, width, height, duration, thumbFullBlob, thumbFullIsBlack) {
-    const videoKey = await resolveVideoKey(filename); // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
-    console.log(`[saveVideo] callTo: "resolveVideoKey", request: "sinh/tái dùng key duy nhất từ tên file '${filename}'"`);
-    await setVideoRecord(videoKey, {
+async function saveVideo(videoKey, file, filename, thumbBlob, width, height, duration, thumbFullBlob, thumbFullIsBlack) {
+    await createMediaRecord('video', videoKey, { // service/db.js
         blob: file, thumbBlob, thumbFullBlob: thumbFullBlob || null, width, height, duration, filename, addedAt: Date.now(),
         customName: null,
-        thumbFullBlack: !!thumbFullIsBlack, // MỚI (19/09/2026) — xem docstring đầu file
+        thumbFullBlack: !!thumbFullIsBlack,
     });
+    console.log(`[saveVideo] ghi video "${videoKey}" (${filename}) vào 3 store media`);
     return videoKey;
 }
 
 /**
- * Đặt/xoá tên hiển thị riêng (customName) cho 1 video — MỚI (Batch 5, mục 6c). CHỈ hiển thị TRONG
- * app (Playlist/Video Player/tab Chi tiết) — KHÔNG remux/nhúng vào file khi export (download vẫn
- * lấy theo `filename` GỐC, xem event/router/file-manager-video.js). Guard clause thuần (Rule 1):
- * video không tồn tại thì dừng sớm, KHÔNG phải rẽ nhánh tiến trình khác.
- * @param {string} videoKey
- * @param {string|null} customName - `null`/rỗng = xoá tên riêng, rơi về `filename` gốc khi hiện.
- * @returns {Promise<{status: 'notFound'|'ok'}>}
- */
-async function setVideoCustomName(videoKey, customName) {
-    const record = await getVideoRecord(videoKey);
-    if (!record) return { status: 'notFound' };
-    record.customName = customName || null;
-    await setVideoRecord(videoKey, record);
-    return { status: 'ok' };
-}
-
-/**
- * MỚI (18/09/2026, tính năng "Sửa file lỗi" — Storage → Scan broken) — ghi đè `thumbBlob`/
- * `thumbFullBlob` của 1 video ĐÃ TỒN TẠI, dùng khi "sửa" 1 record chỉ THIẾU THUMB (blob chính vẫn
- * đọc/phát được, xem `isVideoRecordCorrupted()` core/storage-manager.js) — KHÔNG đụng
- * `blob`/`width`/`height`/`duration`/`filename`/`customName`/`addedAt`. Cùng khuôn
- * `setVideoCustomName()` ngay trên (đọc record, patch ĐÚNG field, ghi lại). Nơi gọi
- * (`workflowFileManagerStorage.executeRepairBroken()`, event/workflow/file-manager-storage.js) tự
- * chụp thumb mới qua `workflowPlaylist.extractVideoThumbAndMeta(record.blob)` (Workflow, cần DOM)
- * RỒI mới gọi hàm THUẦN CRUD này ghi kết quả xuống — hàm này không tự chụp gì.
+ * MỚI (18/09/2026, "Sửa file lỗi" — Storage → Scan broken) — thay thumb của 1 video ĐÃ TỒN TẠI (blob chính vẫn
+ * phát được). Nơi gọi (`workflowFileManagerStorage.executeRepairBroken()`) tự chụp thumb mới rồi mới gọi hàm này.
+ * SỬA (06/10/2026, plan-media-db-split.md) — không còn đọc/ghi lại nguyên record (Rule 3 + lỗi round-trip): cờ
+ * `thumbFullBlack` ghi qua `updateMediaMeta()` (CHỈ store meta — cũng là bước kiểm tồn tại), 2 thumb MỚI ghi qua
+ * `setMediaThumbs()` (CHỈ store thumb). Không đụng file chính.
  * @param {string} videoKey
  * @param {Blob} thumbBlob
  * @param {Blob} thumbFullBlob
- * @param {boolean} [thumbFullIsBlack] - MỚI (19/09/2026) khung đầu đen THẬT (đã chụp lại đúng cách vẫn đen), xem docstring đầu file.
+ * @param {boolean} [thumbFullIsBlack]
  * @returns {Promise<{status: 'notFound'|'ok'}>}
  */
 async function setVideoThumbnails(videoKey, thumbBlob, thumbFullBlob, thumbFullIsBlack) {
-    const record = await getVideoRecord(videoKey);
-    if (!record) return { status: 'notFound' };
-    record.thumbBlob = thumbBlob;
-    record.thumbFullBlob = thumbFullBlob || null;
-    record.thumbFullBlack = !!thumbFullIsBlack;
-    await setVideoRecord(videoKey, record);
+    const metaResult = await updateMediaMeta('video', videoKey, (meta) => ({ ...meta, thumbFullBlack: !!thumbFullIsBlack })); // service/db.js
+    if (metaResult.status === 'notFound') return { status: 'notFound' };
+    await setMediaThumbs('video', videoKey, { thumbBlob, thumbFullBlob: thumbFullBlob || null }); // service/db.js
+    console.log(`[setVideoThumbnails] ghi thumb mới cho video "${videoKey}"`);
     return { status: 'ok' };
 }
 
 /**
- * MỚI (Phase 1 editor video, 26/09/2026) — thay NỘI DUNG media của 1 video ĐÃ TỒN TẠI ("Lưu đè" từ
- * modal sửa Video), GIỮ NGUYÊN mọi field khác của record (`customName`, `addedAt`, `filename`...).
- * Trước đây Workflow ghi thẳng 1 object MỚI qua `setVideoRecord()` → mất `customName`,
- * `thumbFullBlob`, `thumbFullBlack` (tên riêng biến mất, "Scan & fix video thumbnails" báo lỗi).
- * Đọc-sửa-ghi đúng khuôn `setVideoThumbnails()` ngay dưới. Guard clause thuần (Rule 1).
+ * MỚI (Phase 1 editor video, 26/09/2026) — thay NỘI DUNG media của 1 video ĐÃ TỒN TẠI ("Lưu đè" từ modal sửa
+ * Video), GIỮ NGUYÊN mọi field khác (`customName`, `addedAt`, `filename`, folder, thống kê...).
+ * SỬA (06/10/2026, plan-media-db-split.md) — 3 bước ghi riêng từng store: meta (kích thước/thời lượng/cờ đen — cũng
+ * là bước kiểm tồn tại), file chính, thumb. Báo "đang dùng" (nạp lại nếu video này đang phát/làm nền) là việc của
+ * Workflow nơi gọi (request trung tâm `mediaInUse`), không phải của hàm này.
  * @param {string} videoKey
  * @param {{blob: Blob, thumbBlob: Blob, thumbFullBlob: (Blob|null), thumbFullIsBlack: boolean, width: number, height: number, duration: number}} media
  * @returns {Promise<{status: 'notFound'|'ok'}>}
  */
 async function replaceVideoMedia(videoKey, media) {
-    const record = await getVideoRecord(videoKey);
-    if (!record) return { status: 'notFound' };
-    record.blob = media.blob;
-    record.thumbBlob = media.thumbBlob;
-    record.thumbFullBlob = media.thumbFullBlob || null;
-    record.thumbFullBlack = !!media.thumbFullIsBlack;
-    record.width = media.width;
-    record.height = media.height;
-    record.duration = media.duration;
-    await setVideoRecord(videoKey, record);
+    const metaResult = await updateMediaMeta('video', videoKey, (meta) => ({ // service/db.js
+        ...meta,
+        thumbFullBlack: !!media.thumbFullIsBlack,
+        width: media.width,
+        height: media.height,
+        duration: media.duration,
+    }));
+    if (metaResult.status === 'notFound') return { status: 'notFound' };
+    await setMediaBlob('video', videoKey, media.blob); // service/db.js
+    await setMediaThumbs('video', videoKey, { thumbBlob: media.thumbBlob, thumbFullBlob: media.thumbFullBlob || null }); // service/db.js
     console.log(`[replaceVideoMedia] ghi đè media video "${videoKey}" (giữ nguyên tên riêng/ngày thêm)`);
     return { status: 'ok' };
 }
