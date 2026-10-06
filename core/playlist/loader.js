@@ -10,6 +10,13 @@
         /**
          * Đọc duration 1 file qua thẻ Audio() tạm — CHỈ dùng lúc nạp file mới & quét sâu ở Quản lý
          * dung lượng (KHÔNG dùng lúc khởi động/quét nhanh). Có timeout an toàn cho Safari iOS.
+         * SỬA (07/10/2026, lỗi Giang báo "scan file lỗi xong vào lại đúng bài đang phát -> khựng giật,
+         * rớt fps, UI phản hồi chậm") — trước đây chỉ revoke object URL, thẻ Audio tạm VẪN giữ media
+         * player gốc (iOS: AVPlayer/AVAsset) tới khi GC dọn — quét 53 bài = 53 player mồ côi sống
+         * song song với audio chính. Giờ GIẢI PHÓNG HẲN theo đúng cách chuẩn của HTMLMediaElement:
+         * pause -> removeAttribute('src') -> load() (đưa element về NETWORK_EMPTY, huỷ player), gỡ
+         * listener, rồi mới revoke URL. `preload='metadata'` để không buffer cả file chỉ để lấy duration.
+         * Cờ `released` chặn giải phóng 2 lần (load() rỗng có thể bắn lại 'error'/'emptied' trên vài engine).
          */
         function readAudioDuration(file) {
             return new Promise((resolve) => {
@@ -19,10 +26,23 @@
                 try { tempUrl = URL.createObjectURL(file); }
                 catch (err) { console.error('[playlist] Không tạo được object URL để đọc duration:', err); return safeResolve(0); }
                 const tempAudio = new Audio();
-                const cleanup = () => { try { URL.revokeObjectURL(tempUrl); } catch (e) {} };
+                tempAudio.preload = 'metadata';
+                let released = false;
+                const onMeta = () => { safetyTimeout.kill(); const d = tempAudio.duration; cleanup(); safeResolve(isFinite(d) ? d : 0); };
+                const onError = () => { safetyTimeout.kill(); cleanup(); safeResolve(0); };
+                const cleanup = () => {
+                    if (released) return;
+                    released = true;
+                    tempAudio.removeEventListener('loadedmetadata', onMeta);
+                    tempAudio.removeEventListener('error', onError);
+                    try { tempAudio.pause(); } catch (e) {}
+                    tempAudio.removeAttribute('src');
+                    try { tempAudio.load(); } catch (e) {} // huỷ media player gốc ngay, không chờ GC
+                    try { URL.revokeObjectURL(tempUrl); } catch (e) {}
+                };
                 const safetyTimeout = taskManager.once(() => { cleanup(); safeResolve(0); }, 8000);
-                tempAudio.addEventListener('loadedmetadata', () => { safetyTimeout.kill(); const d = tempAudio.duration; cleanup(); safeResolve(isFinite(d) ? d : 0); });
-                tempAudio.addEventListener('error', () => { safetyTimeout.kill(); cleanup(); safeResolve(0); });
+                tempAudio.addEventListener('loadedmetadata', onMeta);
+                tempAudio.addEventListener('error', onError);
                 try { tempAudio.src = tempUrl; }
                 catch (err) { safetyTimeout.kill(); cleanup(); safeResolve(0); }
             });
