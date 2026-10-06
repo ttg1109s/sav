@@ -342,9 +342,13 @@
                 try { tempUrl = URL.createObjectURL(record.blob); }
                 catch (err) { return safeResolve({ corrupted: true, fixable: false, reason: t('common.storage.scanReasonBrokenBlob') }); }
                 const tempVideo = document.createElement('video');
-                const cleanup = () => { try { URL.revokeObjectURL(tempUrl); } catch (e) {} };
-                const safetyTimeout = taskManager.once(() => { cleanup(); safeResolve({ corrupted: true, fixable: false, reason: t('common.storage.scanReasonNoDecode') }); }, 8000);
-                tempVideo.addEventListener('loadedmetadata', () => {
+                // SỬA (07/10/2026, lỗi "scan xong vào lại bài đang phát bị khựng") — chỉ cần metadata, không buffer/decode
+                // khung hình; muted + playsInline để iOS không coi thẻ tạm là media có tiếng (không đụng audio session).
+                tempVideo.preload = 'metadata';
+                tempVideo.muted = true;
+                tempVideo.playsInline = true;
+                let released = false;
+                const onMeta = () => {
                     safetyTimeout.kill(); cleanup();
                     // MỚI — blob chính đọc được: kiểm thêm 2 field thumb, KHÔNG chặn phát nhưng vẫn
                     // tính "lỗi cần sửa" (đúng yêu cầu Giang, khác hẳn coi là bình thường như trước).
@@ -353,8 +357,24 @@
                     if (!record.thumbFullBlob) missingReasons.push(t('common.storage.scanReasonMissingThumbFull'));
                     if (missingReasons.length > 0) { safeResolve({ corrupted: true, fixable: true, reason: missingReasons.join(', ') }); return; }
                     safeResolve({ corrupted: false });
-                }, { once: true });
-                tempVideo.addEventListener('error', () => { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: true, fixable: false, reason: t('common.storage.scanReasonNoDecode') }); }, { once: true });
+                };
+                const onError = () => { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: true, fixable: false, reason: t('common.storage.scanReasonNoDecode') }); };
+                // SỬA (07/10/2026) — giải phóng HẲN thẻ <video> tạm (trước đây chỉ revoke URL, element vẫn giữ media player +
+                // phiên giải mã video tới khi GC dọn — quét N video = N player mồ côi). Thứ tự chuẩn: pause -> bỏ src -> load()
+                // -> revoke. Cờ `released` chặn chạy 2 lần (load() rỗng có thể bắn lại 'error' trên vài engine).
+                const cleanup = () => {
+                    if (released) return;
+                    released = true;
+                    tempVideo.removeEventListener('loadedmetadata', onMeta);
+                    tempVideo.removeEventListener('error', onError);
+                    try { tempVideo.pause(); } catch (e) {}
+                    tempVideo.removeAttribute('src');
+                    try { tempVideo.load(); } catch (e) {}
+                    try { URL.revokeObjectURL(tempUrl); } catch (e) {}
+                };
+                const safetyTimeout = taskManager.once(() => { cleanup(); safeResolve({ corrupted: true, fixable: false, reason: t('common.storage.scanReasonNoDecode') }); }, 8000);
+                tempVideo.addEventListener('loadedmetadata', onMeta);
+                tempVideo.addEventListener('error', onError);
                 try { tempVideo.src = tempUrl; }
                 catch (err) { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: true, fixable: false, reason: t('common.storage.scanReasonBrokenBlob') }); }
             });
@@ -441,10 +461,23 @@
                 try { tempUrl = URL.createObjectURL(record.blob); }
                 catch (err) { return safeResolve({ corrupted: true, reason: t('common.storage.scanReasonBrokenBlob') }); }
                 const img = new Image();
-                const cleanup = () => { try { URL.revokeObjectURL(tempUrl); } catch (e) {} };
+                let released = false;
+                const onLoad = () => { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: false }); };
+                const onError = () => { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: true, reason: t('common.storage.scanReasonNoDecode') }); };
+                // SỬA (07/10/2026, lỗi "scan xong vào lại bài đang phát bị khựng") — bỏ src để nhả bitmap full-res đã
+                // decode ngay (trước đây ảnh decode xong vẫn nằm trong bộ nhớ tới khi GC dọn — quét cả thư viện ảnh
+                // full-res = dồn áp lực bộ nhớ). Gỡ listener TRƯỚC khi bỏ src (bỏ src có thể bắn 'error' trên vài engine).
+                const cleanup = () => {
+                    if (released) return;
+                    released = true;
+                    img.removeEventListener('load', onLoad);
+                    img.removeEventListener('error', onError);
+                    img.removeAttribute('src');
+                    try { URL.revokeObjectURL(tempUrl); } catch (e) {}
+                };
                 const safetyTimeout = taskManager.once(() => { cleanup(); safeResolve({ corrupted: true, reason: t('common.storage.scanReasonNoDecode') }); }, 8000);
-                img.addEventListener('load', () => { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: false }); }, { once: true });
-                img.addEventListener('error', () => { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: true, reason: t('common.storage.scanReasonNoDecode') }); }, { once: true });
+                img.addEventListener('load', onLoad);
+                img.addEventListener('error', onError);
                 img.src = tempUrl;
             });
         }
