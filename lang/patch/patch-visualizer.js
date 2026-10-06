@@ -185,7 +185,6 @@ const LANG_PATCH_VISUALIZER = {
     // MỚI (25/09/2026) — bar mirror cải tiến (core/visualizer/groups/bar/mirror.js)
     'customEffectDrawer.field.mirrorCenterGap': 'Center gap (× bar gap)',
     'customEffectDrawer.field.mirrorTilt': 'Treble lift (dB/octave)',
-    'customEffectDrawer.field.mirrorPeaks': 'Peak caps',
     'customEffectDrawer.field.mirrorSmoothSpread': 'Neighbor smoothing',
     'customEffectDrawer.field.cascadeBaseAlpha': 'Cascade base opacity',
     'customEffectDrawer.field.cascadeKeyCount': 'Number of cascade keys',
