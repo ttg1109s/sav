@@ -415,7 +415,7 @@
     <!-- MỚI (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings chung 1 container cuộn
          ngang) — chỉ định nghĩa 2 biến chuỗi mở/đóng khung bọc, xem components/app-view-stack.js. -->
     <script src="components/app-view-stack.js?v=20260921v7"></script>
-    <script src="components/playlist-view.js?v=20261006audivis3"></script>
+    <script src="components/playlist-view.js?v=20261006db5"></script>
     <!-- Game Mode overlay (Circle mode v1, MỚI 16/08/2026) — PHẢI nạp TRƯỚC components/visualizer-
          overlay.js (file đó nội suy ${TPL_GAMEPLAY_OVERLAY}, xem components/gameplay-overlay.js). -->
     <script src="components/gameplay-overlay.js?v=20260819v1"></script>
@@ -676,7 +676,7 @@
          XOÁ (loại bỏ Album khỏi Photo Panel) — album.js (CRUD store 'albums', đã ngừng dùng cùng
          store — xem comment DB_VERSION ở service/db.js) bỏ hẳn cùng tính năng, không còn nơi nào
          gọi tới. -->
-    <script src="core/file-manager/image.js?v=20261006db2"></script>
+    <script src="core/file-manager/image.js?v=20261006db5"></script>
     <script src="core/file-manager/photo-ui.js?v=20261006audivis1"></script>
     <!-- MỚI (v13) — picker Generic Drawer DÙNG CHUNG cho lưới ảnh lẫn lưới video. ĐỔI TÊN (24/09/2026) từ
          core/media-picker-drawer-helper.js (Rule 5c — file core wire UI phải hậu tố `-ui`). -->
@@ -707,7 +707,7 @@
          dùng chung hàm nào ngoài slugify()/service/db.js) — chỉ cần SAU service/db.js.
          core/file-manager/video-ui.js ĐÃ XOÁ HẲN (Batch 6, mục 6d, phản hồi Giang — modal "Chi
          tiết" riêng nó từng chứa đã bỏ, dùng chung modal Playlist đã video-aware). -->
-    <script src="core/file-manager/video.js?v=20261006db2"></script>
+    <script src="core/file-manager/video.js?v=20261006db5"></script>
     <script src="core/file-manager/video-ui.js?v=20260929cap1"></script>
     <!-- Tool migration thumbnail 320x320 (tools/migrate-video-thumbs-320.js, Batch 3) — Giang xác
          nhận đã chạy xong tốt, ĐÃ XOÁ (batch 4, 27/07/2026): dòng <script> này + file
@@ -836,7 +836,7 @@
     <script src="core/subtitle/subtitle-karaoke.js?v=20261001kr1"></script>
     <script src="core/subtitle/subtitle-karaoke-display.js?v=20261001kr1"></script>
     <script src="core/subtitle/subtitle-karaoke-display-ui.js?v=20261001kr1"></script>
-    <script src="core/wakelock.js?v=20261001kr1"></script>
+    <script src="core/wakelock.js?v=20261006db5"></script>
     <script src="core/color-utils.js?v=20260929vbg1"></script>
     <script src="core/canvas-scene-setup.js?v=20261001au2"></script>
     <!-- MỚI (23/07/2026, refactor phản hồi Giang) — normalizeSongName()/songMatchesQuery() dùng
@@ -850,8 +850,8 @@
     <script src="core/playlist/state.js?v=20260625v8e"></script>
     <script src="core/playlist/order.js?v=20261006db4"></script>
     <script src="core/playlist/render.js?v=20261002cv8"></script>
-    <script src="core/playlist/loader.js?v=20260924r2"></script>
-    <script src="core/playlist/actions.js?v=20261006db4"></script>
+    <script src="core/playlist/loader.js?v=20261006db5"></script>
+    <script src="core/playlist/actions.js?v=20261006db5"></script>
     <script src="core/playlist/main.js?v=20261002cv5"></script>
     <!-- MỚI (mục 1d, Playlist Filter, phản hồi Giang) — applyPlaylistFilter() (SQL
          WHERE...AND style), dùng bởi switchToSongSource()/switchToVideoSource() (event/
@@ -879,7 +879,7 @@
          EQ/volume" — giờ ở visualizers/visualizer-display.js (khu VISUALIZERS dưới), vì đúng
          ranh giới nghiệp vụ là cấu hình Visualizer, không phải điều khiển phát nhạc. Xem comment
          đầu core/player-controls.js để biết đầy đủ lý do tách + đảm bảo thứ tự nạp an toàn. -->
-    <script src="core/player-controls.js?v=20261006db4"></script>
+    <script src="core/player-controls.js?v=20261006db5"></script>
     <!-- MỚI (21/07/2026, mục 4 — Video Player mode) — core/video-player.js: tính next/prev key,
          mutate state, toggle UI nút. Đặt CẠNH core/player-controls.js cho dễ đọc (2 tính năng liên
          quan chặt, dù KHÔNG đụng chung file nào). NẠP SAU service/state.js (đã nạp từ đầu). -->
@@ -908,7 +908,7 @@
          Thay service/perf-probe.js (đã xoá). CẦN service/component-dynamic.js (instantiateComponent) + components/perf-hud.js. -->
     <script src="core/perf-hud.js?v=20261005hud1"></script>
     <script src="core/perf-hud-ui.js?v=20261005hud1"></script>
-    <script src="core/app-cleanup.js?v=20261006db4"></script>
+    <!-- XOÁ (06/10/2026, dọn nợ Rule 2/3) — core/app-cleanup.js (executeAppCleanup) dời sang event/workflow/app-cleanup.js. -->
     <!-- GỘP (10/08/2026) toggle ẩn/hiện Stats panel + 3 nút chrome (bottom player/playlist/mở
          Control Center, mỗi cái 1 toggle RIÊNG trong Settings -> Hiển thị Visualizer — bỏ hẳn
          "full mode" gộp chung) vào 1 file — PHẢI nạp TRƯỚC audio-analysis.js (đọc biến
@@ -925,7 +925,7 @@
          đường bao createOnsetEnvelope() ngay lúc nạp). -->
     <script src="core/audio-tempo.js?v=20261001af1"></script>
     <script src="core/rubik-math.js?v=20260625v8e"></script>
-    <script src="core/about-stats.js?v=20260706v1"></script>
+    <script src="core/about-stats.js?v=20261006db5"></script>
     <!-- Khắc phục sự cố (ver 10 refine, bổ sung) — "Khởi động lại app"/"Khôi phục cài đặt mặc
          định" trong Settings. PHẢI nạp SAU dom-refs.js/main.js (cần btnRestartApp/btnRestoreDefaults
          đã có ref + HTML thật đã chèn), config.js (saveConfig/loadConfig giờ ở đây),
@@ -945,11 +945,11 @@
          triggerDownload() ở đó gọi isLargeFileDownloadSupported()/
          triggerLargeFileDownloadViaServiceWorker()). -->
     <script src="core/large-file-download.js?v=20260910v3"></script>
-    <script src="core/id3-export.js?v=20261006z1"></script>
+    <script src="core/id3-export.js?v=20261006db5"></script>
     <!-- MỚI (10/09/2026) — core/streaming-zip.js: nén .zip STREAM thẳng vào OPFS thay JSZip, xem
          docstring đầu file đó. NẠP TRƯỚC storage-manager.js (hàm buildAllXZipBlob() ở đó gọi tới). -->
     <script src="core/streaming-zip.js?v=20260910v10"></script>
-    <script src="core/storage-manager.js?v=20261006db2"></script>
+    <script src="core/storage-manager.js?v=20261006db5"></script>
     <!-- MỚI (06/10/2026) — core-ui modal tải nhiều phần zip (wire nút từng phần -> eventBus, đổi trạng thái hàng). -->
     <script src="core/zip-download-ui.js?v=20261006z1"></script>
 
@@ -1125,17 +1125,17 @@
          + modal danh sách phần. Workflow CẦN core/upload-validation.js (MEDIA_FILE_MAX_BYTES, đọc lúc nạp), core/storage-
          manager.js, core/id3-export.js, core/zip-download-ui.js, components/zip-download-parts.js. Gọi bởi
          event/workflow/file-manager-storage.js + event/workflow/playlist.js lúc chạy. -->
-    <script src="event/workflow/zip-download.js?v=20261006z1"></script>
-    <script src="event/router/zip-download.js?v=20261006z1"></script>
+    <script src="event/workflow/zip-download.js?v=20261006db5"></script>
+    <script src="event/router/zip-download.js?v=20261006db5"></script>
     <!-- MỚI (06/10/2026, plan-media-db-split.md mục 7) — request trung tâm 'mediaInUse': nơi thay file bắn {type, key}, workflow
          tự kiểm state (node Playlist / Player chính / Visual Background) rồi tự nạp lại. Chỉ gọi các workflow khác lúc chạy. -->
     <script src="event/workflow/media-in-use.js?v=20261006db3"></script>
     <script src="event/router/media-in-use.js?v=20261006db3"></script>
-    <script src="event/workflow/file-manager-storage.js?v=20261006db4"></script>
+    <script src="event/workflow/file-manager-storage.js?v=20261006db5"></script>
     <script src="event/router/file-manager-storage.js?v=20260920v1"></script>
     <!-- Folder Browser (Generic Drawer, mở từ tab Folder). CẦN core/file-manager/{folder,folder-picker-ui}.js,
          components/items.js, core/pagination.js (nhóm CORE). -->
-    <script src="event/workflow/file-manager-folder-browser.js?v=20261006db2"></script>
+    <script src="event/workflow/file-manager-folder-browser.js?v=20261006db5"></script>
     <script src="event/router/file-manager-folder-browser.js?v=20260930hidden2"></script>
     <script src="event/listener/file-manager-storage.js?v=20260729v2"></script>
     <!-- Batch 8, ver 12 "Multi Media" — engine cycle ảnh Slideshow nền Visual (transition/Ken
@@ -1257,7 +1257,7 @@
          core/listen-stats.js (bumpSongPlayCount), event/workflow/video-player.js (workflowVideoPlayer
          — chỉ dùng trong callback runtime, không bắt buộc thứ tự nạp so với dòng NGAY DƯỚI). -->
     <script src="event/workflow/player.js?v=20261006db4"></script>
-    <script src="event/workflow/playlist.js?v=20261006db4"></script>
+    <script src="event/workflow/playlist.js?v=20261006db5"></script>
     <script src="event/router/playlist.js?v=20261006audivis3"></script>
     <script src="event/listener/playlist.js?v=20261006audivis3"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel + phân phối lại section Settings, phản hồi
@@ -1347,7 +1347,7 @@
     <!-- MỚI (06/10/2026, plan-media-db-split.md mục 6) — workflowListenStats: thống kê nghe/xem từng media (lưu trong meta,
          RAM key `type:key`) + đồng hồ nghe (dời từ core/listen-stats.js + core/player-controls.js). Chỉ gọi lúc chạy. -->
     <script src="event/workflow/listen-stats.js?v=20261006db4"></script>
-    <script src="event/workflow/player-controls.js?v=20261006db4"></script>
+    <script src="event/workflow/player-controls.js?v=20261006db5"></script>
     <script src="event/router/player-controls.js?v=20261005stg2"></script>
     <script src="event/listener/player-controls.js?v=20261005stg2"></script>
     <!-- Cụm "visualizerDisplay": ảnh nền, độ mờ nền, cycle effect, panel "Display". Cấu hình riêng
@@ -1467,9 +1467,11 @@
     <script src="event/workflow/eq-presets.js?v=20260925dq1"></script>
     <script src="event/router/eq-presets.js?v=20260924v1"></script>
     <script src="event/listener/eq-presets.js?v=20260813v1"></script>
+    <!-- MỚI (06/10/2026, dọn nợ Rule 2/3) — workflowAppCleanup (dời từ core/app-cleanup.js::executeAppCleanup). -->
+    <script src="event/workflow/app-cleanup.js?v=20261006db5"></script>
     <!-- event/tab.js — lifecycle listener của tab (beforeunload). Gọi thẳng hàm, không qua bus.
-         Nạp CUỐI CÙNG trong toàn bộ /event/ vì phụ thuộc core/app-cleanup.js đã nạp từ trên. -->
-    <script src="event/tab.js?v=20261006db4"></script>
+         Nạp CUỐI CÙNG trong toàn bộ /event/ vì phụ thuộc event/workflow/app-cleanup.js ngay trên. -->
+    <script src="event/tab.js?v=20261006db5"></script>
     <!-- event/workflow/ui-theme.js (MỚI 09/09/2026, hệ UI Theme) — CẦN core/ui-theme/registry.js,
          core/ui-theme/apply-ui.js, core/generic-drawer.js (setGenericDrawerUiTheme, đã nạp ở
          nhóm trên), core/config.js (appConfigUiTheme), service/db.js (getMeta/setMeta, đã nạp ở
