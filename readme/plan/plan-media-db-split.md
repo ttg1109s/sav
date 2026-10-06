@@ -316,4 +316,18 @@ kiểm state + tự xử lý). Không còn điểm nào chờ chốt.
   `workflowVideoPlayer.reloadCurrentVideoKeepingPosition()`, `workflowPhotoPlayer.reloadCurrentPhoto()`,
   `workflowVisualBg.reloadCurrentVideoKeepingPosition()`/`reloadCurrentPhoto()` (+ getter `getCurrentVideoKey()`/
   `getCurrentPhotoKey()`); `workflowPlaylist.replaceCurrentCoverUrl()` thành public (dùng chung).
-- [ ] Lượt 3 — thống kê + điểm Game vào meta (mục 6).
+- [x] Lượt 3 — thống kê vào meta (mục 6) (sav-13-db-split-3-patch.zip; điểm Game đã vào meta ở Lượt 2a): Workflow mới
+  `workflowListenStats` (event/workflow/listen-stats.js) = toàn bộ phần đọc state/DB/hẹn giờ của core/listen-stats.js cũ +
+  đồng hồ nghe dời từ core/player-controls.js; core/listen-stats.js chỉ còn hàm thuần (`mediaStatsKey`/`parseMediaStatsKey`/
+  `buildMediaStatsMap`/`formatListenTime`); state `mediaStatsDirtyKeys` thay `_songStatsDirty`; `sortKeysByMode`/
+  `applyPlaylistFilter` nhận thêm `mediaType`; `openSongEditModal(key, stats)` nhận thống kê từ Workflow; flush lúc unload dời
+  sang event/tab.js. `clearAllSongStats` bỏ (record bị xoá thì thống kê mất theo — chỉ dọn RAM bằng `forgetType`).
+
+- [x] Dọn nợ kỹ thuật (Giang yêu cầu 06/10/2026, sav-13-debt-cleanup-patch.zip) — mọi hàm core đã đụng trong đợt này hết vi phạm
+  Rule 2/3: `openSongEditModal` -> Workflow; `executeAppCleanup` -> event/workflow/app-cleanup.js (xoá core/app-cleanup.js);
+  `computeStats`/`computeVideoStats`/`computeImageStats` -> thuần `summarize*Library(records)`; `estimateOriginStorage` ->
+  Workflow; `renderStorageStats` nhận chuỗi định dạng sẵn; `triggerDownload`/`promptDownloadReady`/`_collectZipEntries`/
+  `collectAll*ZipEntries` -> `workflowZipDownload.deliverFile()/promptSingle()/collectEntries()` + core thuần
+  `shareFileViaSystem`/`clickDownloadAnchor`/`planZipEntries`; `handleAudioPause` không còn gọi `releaseWakeLock`.
+
+**ĐỦ Lượt 1 + 2a + 2b + 3 + dọn nợ -> deploy được, thử theo mục 9.** Còn Lượt 4 (sửa lỗi sau thử máy + cập nhật readme).
