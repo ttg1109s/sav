@@ -4,6 +4,11 @@
  *
  * - sync(t): gọi mỗi 'timeupdate' / lúc kéo thanh tiến trình (workflowPlayerControls) — thêm/xoá khối dòng,
  *   chuyển pha Comming/In/Outing (CSS transition tự nội suy, không cần 60fps).
+ * - SỬA (06/10/2026, Giang "kiểm tra timing phụ đề, chống lệch") — 'timeupdate' chỉ bắn mỗi 15-250ms (iOS/Chrome
+ *   thường ~250ms), nên dòng hiện/đổi pha/ẩn TRỄ tới 1/4 giây (trung bình ~1/8 giây), lệch không đều giữa các dòng.
+ *   Giờ mỗi sync() tính sẵn MỐC KẾ TIẾP (computeSubtitleLineNextBoundary(), core/subtitle/subtitle-transition.js);
+ *   task raf 'subtitleClock' (chỉ chạy khi Song đang phát + còn mốc) mỗi khung hình chỉ so currentTime với mốc đó —
+ *   tới mốc (hoặc tua lùi) mới gọi sync(): đúng khung hình, gần như 0 chi phí. 'timeupdate' vẫn giữ làm lưới an toàn.
  * - Karaoke (dòng có `karaoke` hợp lệ + bật trong Settings): task raf 'subtitleKaraoke' chỉ chạy khi còn dòng
  *   karaoke hoặc hạt đang bay — bài không karaoke tốn 0 chi phí. Mỗi khung hình đọc audioPlayer.currentTime,
  *   tính pha/tô của từng từ (core/subtitle/subtitle-karaoke-display.js), chỉ ghi DOM khi giá trị đổi.
@@ -14,6 +19,7 @@
  * core/element-style-editor.js, core/color-utils.js, core/dom-refs.js, service/task-manager.js.
  */
 const SUBTITLE_KARAOKE_TASK = 'subtitleKaraoke';
+const SUBTITLE_CLOCK_TASK = 'subtitleClock'; // MỚI 06/10/2026 — xem docstring đầu file
 const SUBTITLE_KARAOKE_DPR_MAX = 2;
 
 const SUBTITLE_BLOCK_ADD_BY_KARAOKE = {
@@ -88,6 +94,10 @@ const KARAOKE_POINTER_PLACE_BY_VISIBLE = {
 };
 
 const workflowSubtitleDisplay = {
+    _nextBoundarySec: Infinity,   // MỚI 06/10/2026 — mốc (giây) gần nhất mà 1 dòng sẽ đổi pha, tính ở sync()
+    _lastClockSec: null,          // currentTime ở khung hình trước của 'subtitleClock' (phát hiện tua lùi)
+    _pointerWord: null,           // MỚI 06/10/2026 — từ karaoke pointer đang chỉ (đặt lại khi các dòng xê dịch)
+    _loggedLatencyContext: null,  // AudioContext đã log độ trễ đầu ra (chỉ log 1 lần mỗi context)
 
     // ===================== Boot / cài đặt =====================
 
@@ -125,6 +135,7 @@ const workflowSubtitleDisplay = {
         setKaraokePointerShapeUi(subtitleKaraokePointer, kcfg.pointerShape);
         setKaraokePointerVisibleUi(subtitleKaraokePointer, false);
         appState.set('karaokePointerLineId', null);
+        this._pointerWord = null;
         appState.get('karaokeLines').forEach((line) => line.words.forEach((w) => this._resetKaraokeWord(w)));
         this._resumeKaraokeLoop(); // đang pause vẫn vẽ lại ngay 1 khung hình
     },
@@ -148,13 +159,17 @@ const workflowSubtitleDisplay = {
         const s = appState.get(['isSubtitlesEnabled', 'subtitles', 'activeSubIds']);
         if (!s.isSubtitlesEnabled) { this.clearAll(); return; }
         const cfg = appConfigViz.getAll();
-        const nowActive = this._collectActiveLines(s.subtitles, currentTime, cfg);
-        s.activeSubIds.forEach((id) => this._removeBlockIfInactive(id, nowActive));
-        nowActive.forEach((entry, id) => this._addBlockIfNew(id, entry, s.activeSubIds));
+        const { nowActive, nextBoundarySec } = this._collectActiveLines(s.subtitles, currentTime, cfg);
+        this._nextBoundarySec = nextBoundarySec;
+        let layoutChanged = false; // có khối dòng nào thêm/bớt -> các dòng còn lại xê dịch
+        s.activeSubIds.forEach((id) => { layoutChanged = this._removeBlockIfInactive(id, nowActive) || layoutChanged; });
+        nowActive.forEach((entry, id) => { layoutChanged = this._addBlockIfNew(id, entry, s.activeSubIds) || layoutChanged; });
         appState.set('activeSubIds', new Set(nowActive.keys()), { skipCheck: true });
         nowActive.forEach((entry, id) => this._applyBlockPhase(id, entry, cfg, currentTime));
         this._syncDisplayVisibility();
+        this._realignKaraokePointer(layoutChanged);
         this._resumeKaraokeLoop(); // play lại / seek lúc pause -> vòng raf chạy tiếp (nó tự dừng khi pause, xem _stopKaraokeLoopIfIdle())
+        this._ensureSubtitleClock();
     },
 
     /** Xoá sạch mọi khối + karaoke (đổi bài, sang Video/Photo, tắt phụ đề). */
@@ -165,36 +180,46 @@ const workflowSubtitleDisplay = {
         appState.set('karaokeParticles', [], { skipCheck: true });
         appState.set('karaokePointerLineId', null);
         taskManager.kill(SUBTITLE_KARAOKE_TASK);
+        taskManager.kill(SUBTITLE_CLOCK_TASK);
+        this._nextBoundarySec = Infinity;
+        this._pointerWord = null;
         appState.set('karaokeLastMediaTime', null, { skipCheck: true });
         this._clearKaraokeFx();
         setKaraokePointerVisibleUi(subtitleKaraokePointer, false); // core -ui
         setSubtitleDisplayVisibleUi(subtitleDisplay, false); // core -ui
     },
 
-    /** @returns {Map<string, {sub: Object, commingWindow: Object, outingWindow: Object, phase: string}>} */
+    /** SỬA 06/10/2026 — trả thêm `nextBoundarySec` (mốc gần nhất > t mà pha 1 dòng bất kỳ sẽ đổi, xem 'subtitleClock').
+     * @returns {{nowActive: Map<string, {sub: Object, commingWindow: Object, outingWindow: Object, phase: string}>, nextBoundarySec: number}} */
     _collectActiveLines(subtitles, t, cfg) {
         const commingOn = cfg.subtitleCommingEffect !== 'none';
         const outingOn = cfg.subtitleOutingEffect !== 'none';
         const nowActive = new Map();
+        let nextBoundarySec = Infinity;
         subtitles.forEach((sub) => {
             const commingWindow = computeSubtitleTransitionWindow(sub.start, cfg.subtitleCommingValueMs, sub.start, sub.end); // core
             const outingWindow = computeSubtitleTransitionWindow(sub.end, cfg.subtitleOutingValueMs, sub.start, sub.end); // core
+            nextBoundarySec = Math.min(nextBoundarySec, computeSubtitleLineNextBoundary(t, sub, commingWindow, outingWindow, commingOn, outingOn)); // core
             const phase = resolveSubtitleLinePhase(t, sub, commingWindow, outingWindow, commingOn, outingOn); // core
             if (!phase) return;
             nowActive.set(sub.id, { sub, commingWindow, outingWindow, phase });
         });
-        return nowActive;
+        return { nowActive, nextBoundarySec };
     },
 
+    /** @returns {boolean} true = đã gỡ 1 khối (bố cục đổi) */
     _removeBlockIfInactive(id, nowActive) {
-        if (nowActive.has(id)) return;
+        if (nowActive.has(id)) return false;
         removeSubtitleBlockUi(subActiveLines, id); // core
         this._dropKaraokeLine(id);
+        return true;
     },
 
+    /** @returns {boolean} true = đã thêm 1 khối (bố cục đổi) */
     _addBlockIfNew(id, entry, activeSubIds) {
-        if (activeSubIds.has(id)) return;
+        if (activeSubIds.has(id)) return false;
         SUBTITLE_BLOCK_ADD_BY_KARAOKE[this._isKaraokeEligible(entry.sub)](entry);
+        return true;
     },
 
     /** Dòng hiện karaoke khi: bật karaoke + dòng có timing đã Apply + timing còn khớp chữ. */
@@ -262,7 +287,21 @@ const workflowSubtitleDisplay = {
     _hidePointerOfLine(id) {
         if (appState.get('karaokePointerLineId') !== id) return;
         appState.set('karaokePointerLineId', null);
+        this._pointerWord = null;
         setKaraokePointerVisibleUi(subtitleKaraokePointer, false); // core -ui
+    },
+
+    /** MỚI (06/10/2026, Giang báo: nhiều dòng karaoke cùng hiện, 1 dòng mất trước -> trục Y của pointer sai) — pointer chỉ
+     * được đặt lúc 1 từ BẮT ĐẦU hát; khối dòng khác thêm/bớt (#sub-active-lines xếp dọc, neo đáy) làm dòng đang hát xê
+     * dịch nhưng pointer đứng nguyên chỗ cũ. Giờ mỗi lần bố cục đổi thì đặt lại pointer lên đúng từ đang chỉ (đặt thẳng,
+     * không trượt). Bỏ transform hiệu ứng (swell/bounce...) của từ trước khi đo — khung hình karaoke kế tự áp lại. */
+    _realignKaraokePointer(layoutChanged) {
+        if (!layoutChanged) return;
+        const w = this._pointerWord;
+        if (!w || appState.get('karaokePointerLineId') === null) return; // guard: pointer đang ẩn
+        if (!w.el.isConnected) return; // guard: từ đã bị gỡ cùng dòng của nó
+        setKaraokeWordTransformUi(w.el, ''); // core -ui
+        positionKaraokePointerUi(subtitleKaraokePointer, w.el, subtitleDisplay, appState.get('karaokeRenderConfig').pointerShape.anchor, 'none'); // core -ui
     },
 
     /** Đưa từ về trạng thái "chưa tính" — khung hình kế đặt thẳng đúng trạng thái (không hiệu ứng). */
@@ -342,6 +381,7 @@ const workflowSubtitleDisplay = {
         if (!kcfg.pointer) return;
         KARAOKE_POINTER_PLACE_BY_VISIBLE[appState.get('karaokePointerLineId') !== null](w, kcfg);
         appState.set('karaokePointerLineId', lineId, { skipCheck: true });
+        this._pointerWord = w;
     },
 
     /** Hiệu ứng từ đang hát: 1 nhịp theo đúng thời lượng từ. */
@@ -442,7 +482,49 @@ const workflowSubtitleDisplay = {
         if (hasLines) return;
         appState.set('karaokeLastMediaTime', null, { skipCheck: true });
         appState.set('karaokePointerLineId', null);
+        this._pointerWord = null;
         setKaraokePointerVisibleUi(subtitleKaraokePointer, false); // core -ui
         this._syncDisplayVisibility();
+    },
+
+    // ===================== Đồng hồ mốc phụ đề (MỚI 06/10/2026) =====================
+
+    /** Bật 'subtitleClock' nếu Song đang phát và còn mốc phía trước. Gọi cuối mỗi sync(). */
+    _ensureSubtitleClock() {
+        if (taskManager.isTaskRunning(SUBTITLE_CLOCK_TASK)) return;
+        if (audioPlayer.paused || this._nextBoundarySec === Infinity) return; // guard: không có gì để canh
+        this._lastClockSec = null;
+        taskManager.addNew(SUBTITLE_CLOCK_TASK, { time: 0, exe: () => this._tickSubtitleClock(), mode: 'raf', count: 0 }); // service/task-manager.js
+        taskManager.operator(SUBTITLE_CLOCK_TASK, 'enabled');
+        this._logAudioLatencyOnce();
+    },
+
+    /** Mỗi khung hình: chỉ đọc currentTime + so mốc; tới mốc hoặc tua lùi mới sync(). */
+    _tickSubtitleClock() {
+        if (this._stopSubtitleClockIfIdle()) return;
+        if (workflowPlayerControls.isHeldBySeekGate(audioPlayer)) return; // guard: cổng seek đang nạp lại nguồn, currentTime tạm về 0 (event/workflow/player-controls.js)
+        const t = audioPlayer.currentTime;
+        const last = this._lastClockSec;
+        this._lastClockSec = t;
+        const jumpedBack = last !== null && t < last;
+        if (t < this._nextBoundarySec && !jumpedBack) return; // guard: chưa tới mốc
+        this.sync(t);
+    },
+
+    /** Pause / hết mốc -> tắt đồng hồ ('timeupdate' lúc play/seek gọi sync() bật lại). @returns {boolean} true = đã tắt */
+    _stopSubtitleClockIfIdle() {
+        if (!audioPlayer.paused && this._nextBoundarySec !== Infinity) return false;
+        taskManager.kill(SUBTITLE_CLOCK_TASK);
+        return true;
+    },
+
+    /** Chẩn đoán (Debug console) — độ trễ từ lúc audio rời Web Audio tới loa/tai nghe. Phụ đề bám `currentTime` của
+     * <audio>, nhưng tiếng NGHE THẤY trễ hơn đúng khoảng này (Bluetooth có thể 0.1-0.3s) — để quyết định có bù hay không. */
+    _logAudioLatencyOnce() {
+        const ctx = appState.get('audioContext');
+        if (!ctx || ctx === this._loggedLatencyContext) return;
+        this._loggedLatencyContext = ctx;
+        const fmt = (v) => (typeof v === 'number' ? `${v.toFixed(3)}s` : 'n/a');
+        console.log(`[workflowSubtitleDisplay] độ trễ đầu ra AudioContext: baseLatency=${fmt(ctx.baseLatency)}, outputLatency=${fmt(ctx.outputLatency)} (n/a = trình duyệt không báo)`);
     },
 };
