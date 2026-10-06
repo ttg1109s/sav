@@ -147,9 +147,15 @@
    event/workflow/visual-bg-photo-motion.js) — KHÔNG còn animation/transform gì của riêng nó (Point Move đã
    dời lên `.me-pointmove-players`, xem docstring đầu file) — `inset: 0` đơn giản, KHÔNG cần overscan
    riêng ở tầng này nữa (overscan giờ nằm ở `.me-pointmove-players`, nơi THẬT SỰ nhận transform). */
+/* SỬA (06/10/2026, Giang báo: Resolution Fill của Photo "lặp lại background repeat") — THIẾU `background-repeat: no-repeat`
+   (CÙNG lỗi #visual-bg-image đã sửa trước đây, assets/css/base.css). Fill = `cover` khớp ĐÚNG khít 1 chiều, phép làm tròn
+   sub-pixel để lộ 1 dải mảnh của ô lặp kế tiếp (mép đối diện của ảnh) ở rìa — Point Move/React Beat/Player Zoom phóng to
+   dải đó thành vệt thấy rõ; 'trueMax' (`contain`/`auto`) thì lặp kín cả khoảng trống. Lớp này là bề mặt ảnh dùng chung của
+   Player Photo + VBG Photo (event/workflow/visual-bg-photo-motion.js), nên sửa 1 chỗ cho cả hai. */
 .me-pointmove-pan {
     position: absolute; inset: 0;
     background-size: cover; background-position: center;
+    background-repeat: no-repeat;
 }
 
 /* SỬA (Giang chỉ ra: "Motion cung cấp cơ chế THUẦN — cái tua vít — không quan tâm ai dùng/gắn ở đâu,
