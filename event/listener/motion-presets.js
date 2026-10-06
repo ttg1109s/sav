@@ -41,7 +41,8 @@ const MOTION_CHECKBOX_TYPE_BY_ID = {
 // Nút đơn: id -> [msg.type, payload].
 const MOTION_BUTTON_MSG_BY_ID = {
     'btn-motion-list-add': ['motionPresets.add.click', {}],
-    'btn-motion-list-add-random': ['motionPresets.addRandom.click', {}],
+    'btn-motion-beatreact-random': ['motionPresets.beatReact.random.click', {}], // MỚI 07/10/2026 — thay 'btn-motion-list-add-random' (đã bỏ)
+    'btn-ptmove-random': ['motionPresets.pointMove.random.click', {}],
     'setting-motion-transition-duration': ['motionPresets.openTransitionDurationPicker.click', {}],
     'btn-motion-pointmove-list': ['motionPresets.pointMove.openList.click', {}],
     'btn-motion-edit-reset': ['motionPresets.reset.click', {}],
