@@ -300,9 +300,7 @@ _Không phát hiện vi phạm Rule 1 (strong)/2/3 nào — mọi function đề
 
 ### `core/app-cleanup.js`
 
-| Hàm | Dòng | R2 (`appState.get` — số lần) | R1-strong (else/switch) | R3 (gọi void xác nhận) |
-|---|---|---|---|---|
-| `executeAppCleanup` | 16-45 | ✓ (5) | — | `releaseWakeLock` |
+✅ **ĐÃ XỬ LÝ (06/10/2026)** — file đã xoá, `executeAppCleanup` dời sang `event/workflow/app-cleanup.js` (`workflowAppCleanup.run()`).
 
 ### `core/app-recovery.js`
 
@@ -450,13 +448,9 @@ _Không phát hiện vi phạm Rule 1 (strong)/2/3 nào — mọi function đề
 
 ### `core/listen-stats.js`
 
-| Hàm | Dòng | R2 (`appState.get` — số lần) | R1-strong (else/switch) | R3 (gọi void xác nhận) |
-|---|---|---|---|---|
-| `getSongStats` | 32-35 | ✓ (1) | — | — |
-| `_ensureStats` | 37-41 | ✓ (1) | — | — |
-| `bumpSongPlayCount` | 43-47 | — | — | `scheduleSongStatsSave` |
-| `addSongListenTime` | 49-53 | — | — | `scheduleSongStatsSave` |
-| `flushSongStats` | 80-87 | ✓ (2) | — | — |
+✅ **ĐÃ XỬ LÝ (06/10/2026, plan-media-db-split.md Lượt 3)** — toàn bộ phần đọc state/DB/hẹn giờ dời sang
+`event/workflow/listen-stats.js` (`workflowListenStats`); file chỉ còn hàm thuần (`mediaStatsKey`/`parseMediaStatsKey`/
+`buildMediaStatsMap`/`formatListenTime`).
 
 ### `core/loading-shield-util.js`
 
@@ -486,10 +480,9 @@ _Không phát hiện vi phạm Rule 1 (strong)/2/3 nào — mọi function đề
 | `cycleRepeatMode` | 380-385 | ✓ (4) | ✓ | — |
 | `scrollSideLeftToSettingsSmooth` | 410-412 | — | — | `scrollSliderTo` |
 | `scrollSideLeftToPlaylistSmooth` | 415-417 | — | — | `scrollSliderTo` |
-| `_listenTick` | 451-477 | ✓ (6) | — | — |
-| `stopListenClock` | 484-488 | — | — | `_listenTick` |
-| `handleAudioPlay` | 495-505 | ✓ (2) | — | `startListenClock`, `syncVideoBgToAudio` |
-| `handleAudioPause` | 511-519 | ✓ (2) | — | `releaseWakeLock`, `stopListenClock`, `syncVideoBgToAudio` |
+| ~~`_listenTick`~~ / ~~`stopListenClock`~~ | — | — | — | ✅ 06/10/2026 — dời sang `workflowListenStats._tick()/stopClock()` |
+| `handleAudioPlay` | — | — | — | ✅ 06/10/2026 — không còn gọi core (đồng hồ nghe gọi ở `workflowPlayerControls.handleAudioPlayEvent()`) |
+| `handleAudioPause` | — | — | — | ✅ 06/10/2026 — không còn gọi core (`releaseWakeLock` + đồng hồ nghe gọi ở `handleAudioPauseEvent()`) |
 | `handleAudioEnded` | 526-528 | — | — | `stopListenClock` |
 | `handleAudioError` | 549-553 | ✓ (4) | — | `handlePlaybackError` |
 | `handleAudioTimeUpdate` | 564-570 | ✓ (1) | — | — |
@@ -503,7 +496,7 @@ _Không phát hiện vi phạm Rule 1 (strong)/2/3 nào — mọi function đề
 | `handlePlaybackError` | 273-278 | ✓ (1) | — | — |
 | `confirmKeepBrokenSong` | 285-293 | — | — | `removeKeyFromDisplay` |
 | `deleteBrokenSongByKey` | 315-319 | — | — | `removeKeyFromDisplay`, `removeSongStats` |
-| `openSongEditModal` | 367-395 | ✓ (1) | — | `revokeSongEditPendingPreview`, `setSongEditCoverPreview`, `setSongEditTab`, `songInfoRowHtml` |
+| ~~`openSongEditModal`~~ | — | — | — | ✅ 06/10/2026 — dời sang `workflowPlaylist.openSongEditModal()`; core còn 6 hàm ghi DOM đơn việc (`toggleSongEditFieldGroups`/`fill*EditFields`/`setSongEditDetailsHtml`/`showSongEditModal`) |
 | `closeSongEditModal` | 397-403 | — | — | `revokeSongEditPendingPreview` |
 | `changeSongEditCover` | 412-420 | — | — | `revokeSongEditPendingPreview`, `setSongEditCoverPreview` |
 | `removeSongEditCover` | 423-427 | — | — | `revokeSongEditPendingPreview`, `setSongEditCoverPreview` |
@@ -693,7 +686,7 @@ không so sánh trực tiếp 1:1 được do phạm vi file khác nhau).
 
 | File | Hàm | Dòng |
 |---|---|---|
-| `core/app-cleanup.js` | `executeAppCleanup` | 16-45 |
+| ~~`core/app-cleanup.js`~~ | ~~`executeAppCleanup`~~ — ✅ dời sang Workflow 06/10/2026 | — |
 | `core/audio-engine.js` | `initPitchWorker` | 35-54 |
 | `core/audio-engine.js` | `requestPitchDetection` | 67-74 |
 | `core/auto-switch-visual.js` | `pickNextAutoSwitchVisualType` | 60-68 |
@@ -706,18 +699,15 @@ không so sánh trực tiếp 1:1 được do phạm vi file khác nhau).
 | `core/canvas-scene-setup.js` | `allocateBuffers` | 5-10 |
 | `core/canvas-scene-setup.js` | `resizeCanvas` | 21-48 |
 | `core/equalizer.js` | `updateEQSlidersUI` | 26-30 |
-| `core/listen-stats.js` | `_ensureStats` | 37-41 |
-| `core/listen-stats.js` | `flushSongStats` | 80-87 |
+| ~~`core/listen-stats.js`~~ | ~~`_ensureStats`/`flushSongStats`~~ — ✅ 06/10/2026 | — |
 | `core/loading-shield-util.js` | `withLoadingShield` | 17-54 |
 | `core/player-controls.js` | `showResumeChoiceModal` | 196-264 |
 | `core/player-controls.js` | `updateResumeModalTitleIfPending` | 276-285 |
 | `core/player-controls.js` | `switchToVisualizer` | 287-321 |
-| `core/player-controls.js` | `_listenTick` | 451-477 |
-| `core/player-controls.js` | `handleAudioPlay` | 495-505 |
-| `core/player-controls.js` | `handleAudioPause` | 511-519 |
+| ~~`core/player-controls.js`~~ | ~~`_listenTick`/`handleAudioPlay`/`handleAudioPause`~~ — ✅ 06/10/2026 | — |
 | `core/player-controls.js` | `handleAudioError` | 549-553 |
 | `core/player-controls.js` | `handleAudioTimeUpdate` | 564-570 |
-| `core/playlist/actions.js` | `openSongEditModal` | 367-395 |
+| ~~`core/playlist/actions.js`~~ | ~~`openSongEditModal`~~ — ✅ 06/10/2026 | — |
 | `core/playlist/actions.js` | `refreshAfterSongEditSave` | 507-513 |
 | `core/playlist/loader.js` | `scanValidSongsFromDB` | 288-305 |
 | `core/playlist/order.js` | `sortKeysByMode` | 17-26 |
@@ -764,8 +754,8 @@ Nhóm `if (el) el.x = ...` kiểm DOM ref null (dom-refs.js) giữ nguyên — p
 |---|---|---|---|
 | ~~`core/playlist/render.js`~~ | ~~`scrollToCurrentKeyInstant`~~ | — | **ĐÃ XỬ LÝ 02/10/2026** — xoá; `core/player-controls.js::switchToVisualizer()` tách 3 hàm lá (`slidePlaylistOut`/`showVisualizerUi`/`revealVisualizerCanvas`), điều phối sang `workflowPlayerControls.switchToVisualizer()`; `returnToVisualizer()` (core/visualizer-control-center.js) sang `workflowPlayerControls.returnToVisualizer()`; 3 player dùng `workflowPlayerControls.showTrackChange()`/`switchToVisualizerIfRequested()`. |
 | ~~`core/playlist/render.js`~~ | ~~`attachCoverFallback`~~ | — | **ĐÃ XỬ LÝ 02/10/2026** — callback chỉ bắn `playlist.cover.error`, router gọi core `applyDefaultCover()`. (2 nơi gọi trong `core/playlist/actions.js` vẫn là core gọi core — nợ của file đó, chưa rà.) |
-| `core/file-manager/video.js` | `resolveVideoKey`, `setVideoCustomName`, `setVideoThumbnails`, `replaceVideoMedia`, `computeVideoStats` | Rule 3b (core tự đọc DB) | Nằm trong luồng upload/sửa/thống kê Video — đổi chữ ký kéo theo các Workflow gọi. (`listVideos()` đã xoá.) |
-| `core/file-manager/image.js` | `resolveImageKey`, `updateImageBlob`, `deleteImage`, `computeImageStats` | Rule 3b | Cùng lý do, luồng Photo. (`listImages()` đã xoá.) |
+| ~~`core/file-manager/video.js`~~ | ~~`resolveVideoKey`, `setVideoCustomName`, `setVideoThumbnails`, `replaceVideoMedia`, `computeVideoStats`~~ | — | **ĐÃ XỬ LÝ 06/10/2026** (plan-media-db-split.md) — resolve key dời về service/db.js, `setVideoCustomName` xoá (chết), 2 hàm ghi chỉ còn ghi, `computeVideoStats` -> thuần `summarizeVideoLibrary(records)`. |
+| ~~`core/file-manager/image.js`~~ | ~~`resolveImageKey`, `updateImageBlob`, `deleteImage`, `computeImageStats`~~ | — | **ĐÃ XỬ LÝ 06/10/2026** — cùng cách Video; `deleteImage` xoá (chết), `computeImageStats` -> `summarizeImageLibrary(records)`. |
 | `event/workflow/playlist.js` | ~87 chỗ / 29 hàm — nặng nhất `uploadSongs` (16), `deleteMediaFromActionMenu` (7), `_captureFirstFrame` (7), `deleteSelectedMedia` (6) | mục 7 (if/else, bước tuỳ chọn `if (x) f()`, 3 ngôi chọn hàm) | File 2200 dòng, đụng upload/xuất/xoá — cần đợt riêng có test trên máy. |
 | `event/workflow/visual-bg-common.js` | ~73 chỗ / 22 hàm — nặng nhất `loadPersistedSettingsOnBoot` (34), `_tickGradientMovement` (8, hot path) | mục 7 | Cùng lý do (Visual Background). |
 | `event/workflow/visual-bg-video.js` | ~22 chỗ / 13 hàm | mục 7 | Cùng lý do. |

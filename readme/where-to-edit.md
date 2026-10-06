@@ -30,7 +30,7 @@
 | Mọi timer lặp/bắn-một-lần | `service/task-manager.js` (instance global `taskManager` — `addNew`/`once`/`pause`/`resume`/`kill`/`isTaskRunning`) |
 | "Xoá hết dữ liệu" / tải nhạc về rồi xoá | `core/storage-manager.js` (`clearAllStoredData`); UI/listener/router qua cụm `settingsMisc` (patch 5, nhánh `storageDrawer`) |
 | Khởi động lại app / Khôi phục cài đặt mặc định | `core/app-recovery.js`; UI ở `components/settings/misc.js`; listener/router qua cụm `settingsMisc` (patch 5, nhánh `appRecovery`) |
-| Dọn tài nguyên khi tab đóng thật (F5/điều hướng) | `core/app-cleanup.js` (`executeAppCleanup()`), gọi từ `event/tab.js` |
+| Dọn tài nguyên khi tab đóng thật (F5/điều hướng) | `event/workflow/app-cleanup.js` (`workflowAppCleanup.run()`, dời từ core 06/10/2026), gọi từ `event/tab.js` |
 | Toggle ẩn/hiện dải BPM/Pitch/Energy | `core/stats-panel-toggle.js`; UI nút ở `components/visualizer-overlay.js` (`#btn-toggle-stats-panel`); listener/router qua cụm `statsPanel` (patch 4) |
 | Đa ngôn ngữ (i18n) — bộ điều phối, dịch text | `lang/lang.js` (`LANG_EN_KEYS` gộp từ `lang/patch/*.js`, English cứng RAM, gốc/fallback). Hàm `t(key, fallback?)`/`tFormat(key, vars)` |
 | Đa ngôn ngữ — thêm/sửa 1 key dịch | `lang/patch/*.js` (đúng file patch theo namespace — xem comment đầu `lang/lang.js`) |

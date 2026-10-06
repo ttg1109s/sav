@@ -79,8 +79,6 @@ core/playlist/actions.js
 core/playlist/main.js
 core/player-controls.js
 core/audio-engine.js
-core/app-cleanup.js             ← [v11] PHẢI nạp SAU dom-refs.js/listen-stats.js/player-controls.js/
-                                   db.js/wakelock.js (executeAppCleanup() cần cả 5)
 core/stats-panel-toggle.js      ← PHẢI nạp TRƯỚC audio-analysis.js (đọc isStatsPanelVisible)
 core/audio-analysis.js
 core/rubik-math.js
@@ -154,8 +152,9 @@ event/virtual-machine-state.js      ← [ver 12] object VirtualMachineState.run(
   event/router/visualizer-misc-settings.js → event/listener/visualizer-misc-settings.js (không có workflow)
   event/router/equalizer-settings.js → event/listener/equalizer-settings.js   (không có workflow)
 
+event/workflow/app-cleanup.js       ← MỚI 06/10/2026 (dời từ core/app-cleanup.js) — ngay TRƯỚC event/tab.js
 event/tab.js                        ← CUỐI CÙNG trong toàn bộ /event/ — phụ thuộc core/tab-hide-
-                                       reload.js + core/app-cleanup.js đã nạp từ khối 4
+                                       reload.js + event/workflow/app-cleanup.js
 ```
 
 Trong 1 cụm: **workflow trước** (router gọi vào đó) → **router** (đăng ký với bus NGAY lúc nạp) →

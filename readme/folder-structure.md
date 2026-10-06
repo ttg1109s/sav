@@ -178,9 +178,7 @@ visual-master/
 │   ├── audio-engine.js           — Builder thuần Web Audio graph (AudioContext/EQ/gain/analyser) +
 │   │                              tạo/gửi khung pitch worker. Điều phối ở event/workflow/audio-engine.js
 │   │                              (setupAudioContext()/initPitchWorker()/requestPitchDetection() ĐÃ XOÁ 01/10/2026)
-│   ├── app-cleanup.js            — executeAppCleanup(): dọn animation loop/AudioContext/object
-│   │                              URL/flush listen-stats/wake lock khi tab ĐÓNG THẬT (F5/điều
-│   │                              hướng) — gọi từ event/tab.js 'beforeunload'
+│   │   (app-cleanup.js — ĐÃ XOÁ 06/10/2026, dời sang event/workflow/app-cleanup.js::workflowAppCleanup.run())
 │   ├── stats-panel-toggle.js     — toggle ẩn/hiện dải BPM/Pitch/Energy — VẪN CHƯA lưu vào vizConfig
 │   │                              (nợ kỹ thuật mở, xem changelog/v12.md Nhóm B mục 11)
 │   ├── audio-analysis.js         — Core thuần phân tích audio mỗi frame (beatScale/energy/flux
