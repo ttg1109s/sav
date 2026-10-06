@@ -325,7 +325,7 @@ const workflowVizBar = {
         const spectrum = frame.audio.spectrum(BAR_FFT_SIZE); // service/audio-analysis.js
         const clusterEnergies = dot.clusters.map((cl) => {
             const arr = [];
-            for (let k = 0; k < cl.clusterSize; k++) arr.push(computeBinRangePeak(spectrum, tonotopicBinRange(k, cl.clusterSize, spectrum.length)) / 255); // core/visualizer/groups/connector/tonotopic.js
+            for (let k = 0; k < cl.clusterSize; k++) arr.push(computeBinRangePeak(spectrum, tonotopicBinRange(k, cl.clusterSize, spectrum.length)) / 255); // core/visualizer/tonotopic.js
             return arr;
         });
         const targets = computeDotTargetBoosts(dot.clusters, clusterEnergies, time, dotCount); // core

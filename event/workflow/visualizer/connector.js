@@ -177,7 +177,7 @@ const workflowVizConnector = {
         if (!appState.get('cnInitialized')) return;
         const cnChips = appState.get('cnChips');
         this._clearCircuitSignals();
-        cnChips.forEach((c) => rebaselineTonotopicNode(c, 0)); // core/visualizer/groups/connector/tonotopic.js
+        cnChips.forEach((c) => rebaselineTonotopicNode(c, 0)); // core/visualizer/tonotopic.js
     },
 
     // ===================== Frame =====================
@@ -265,7 +265,7 @@ const workflowVizConnector = {
 
     _rebaselineWhenSettling(node, rawPeak, isSettling) {
         if (!isSettling) return;
-        rebaselineTonotopicNode(node, rawPeak); // core/visualizer/groups/connector/tonotopic.js
+        rebaselineTonotopicNode(node, rawPeak); // core/visualizer/tonotopic.js
     },
 
     /** Xoá mọi xung đang bay — chỉ khi đang ổn định lại sau seek. */
@@ -299,7 +299,7 @@ const workflowVizConnector = {
         // Lượt 1: màu + năng lượng dải tần + độ tăng của MỌI chip (lượt 2 cần biết dải nào đang onset để chọn chân).
         chips.forEach((chip, i) => {
             applyChipLiveColor(chip, getComputedColor(i, chips.length, 128).fillNoAlpha); // core/visualizer/groups/connector/circuit.js + effect-paint.js
-            const rawPeak = computeBinRangePeak(spectrum, tonotopicBinRange(i, chips.length, spectrum.length)); // core/visualizer/groups/connector/tonotopic.js
+            const rawPeak = computeBinRangePeak(spectrum, tonotopicBinRange(i, chips.length, spectrum.length)); // core/visualizer/tonotopic.js
             this._rebaselineWhenSettling(chip, rawPeak, wf.isSettling);
             chip.frameEnergy = applyTonotopicSmoothing(chip, rawPeak, i, chips.length); // core
             chip.frameDiff = chip.frameEnergy - chip.prevBinEnergy;
@@ -308,7 +308,7 @@ const workflowVizConnector = {
         chips.forEach((chip, i) => {
             this._fireChip(frame, wf, chips, chip, i, pitchNodeIndex, s);
             chip.prevBinEnergy = chip.frameEnergy;
-            decayNeuronState(chip, wf.deltaTime); // core/visualizer/groups/connector/tonotopic.js
+            decayNeuronState(chip, wf.deltaTime); // core/visualizer/tonotopic.js
             applyChipEnergyGlow(chip); // core/visualizer/groups/connector/common.js
         });
         updateCircuitTraceColors(s.cnTrace, s.cnJunction, chips, cfg.traceOpacity); // core/visualizer/groups/connector/circuit.js
@@ -328,14 +328,14 @@ const workflowVizConnector = {
         if (!frame.audio.isPitchFresh(CONNECTOR_PITCH_FRESH_MS)) return null; // service/audio-analysis.js (01/10/2026)
         const pitchHz = 440 * Math.pow(2, (frame.audio.pitchMidi() - 69) / 12);
         const binCount = CONNECTOR_FFT_SIZE / 2;
-        const ranges = Array.from({ length: chipCount }, (_, j) => tonotopicBinRange(j, chipCount, binCount)); // core/visualizer/groups/connector/tonotopic.js
+        const ranges = Array.from({ length: chipCount }, (_, j) => tonotopicBinRange(j, chipCount, binCount)); // core/visualizer/tonotopic.js
         return findTonotopicNodeForBin(ranges, frequencyToFftBin(pitchHz, binCount, frame.audio.sampleRate())); // core
     },
 
     /** Onset dải tần của chip -> thích nghi + ức chế láng giềng + phóng bit từ các chân. */
     _fireChip(frame, wf, chips, chip, i, pitchNodeIndex, s) {
         const cfg = frame.cfg;
-        if (!shouldFireTonotopicNode(frame.isPlaying, wf.isSettling, chip.frameDiff, chip.frameEnergy, computeEffectiveFireThresholdByte(chip, cfg))) return; // core/visualizer/groups/connector/tonotopic.js
+        if (!shouldFireTonotopicNode(frame.isPlaying, wf.isSettling, chip.frameDiff, chip.frameEnergy, computeEffectiveFireThresholdByte(chip, cfg))) return; // core/visualizer/tonotopic.js
         triggerNeuronAdaptation(chip); // core
         chip.neighbors.forEach((n) => applyLateralInhibition(chips[n], cfg.lateralInhibitStrength)); // core
         markCircuitChipFired(chip); // core/visualizer/groups/connector/circuit.js
