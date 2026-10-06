@@ -48,3 +48,27 @@ function resolveSubtitleLinePhase(t, sub, commingWindow, outingWindow, commingOn
     if (outingOn && t >= outingWindow.from) return 'outing';
     return 'in';
 }
+
+/** MỚI (06/10/2026, Giang — chống lệch timing phụ đề) — sau mốc cuối (`activeTo`) dòng mới hết hiệu lực khi t > activeTo,
+ * nên mốc kích hoạt đặt sau đó 1 chút. */
+const SUBTITLE_BOUNDARY_EPS_SEC = 0.001;
+
+/** MỚI (06/10/2026) — mốc thời gian GẦN NHẤT (> t) mà pha của 1 dòng sẽ đổi (null -> comming/in -> outing -> null),
+ * CÙNG quy tắc `resolveSubtitleLinePhase()` ở trên. Workflow lấy min của mọi dòng làm mốc đồng bộ kế tiếp — không còn
+ * phải chờ 'timeupdate' (thưa tới ~250ms). Không còn mốc nào -> Infinity.
+ * @returns {number} giây */
+function computeSubtitleLineNextBoundary(t, sub, commingWindow, outingWindow, commingOn, outingOn) {
+    const activeFrom = commingOn ? commingWindow.from : sub.start;
+    const activeTo = outingOn ? outingWindow.to : sub.end;
+    const points = [
+        activeFrom,                                          // null -> hiện
+        commingOn ? commingWindow.to : activeFrom,           // comming -> in
+        outingOn ? outingWindow.from : activeTo,             // in -> outing
+        activeTo + SUBTITLE_BOUNDARY_EPS_SEC,                // -> null (ẩn)
+    ];
+    let next = Infinity;
+    for (let i = 0; i < points.length; i++) {
+        if (points[i] > t && points[i] < next) next = points[i];
+    }
+    return next;
+}
