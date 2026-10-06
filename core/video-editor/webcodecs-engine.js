@@ -29,6 +29,16 @@
  * tại điểm cắt, timestamp bắt đầu từ 0) + `copy.boundaryPolicy='shrink'` (audio vẫn COPY, không cần AAC encoder,
  * nhưng bắt đầu từ gói ĐẦU TIÊN SAU điểm cắt -> không còn timestamp âm). Cắt cuối (đang đúng) giữ nguyên hành vi cũ.
  *
+ * FIX (06/10/2026, Giang báo: "crop không cắt đúng vùng chọn mà chỉ resize" — xác nhận lỗi ở FILE ĐÃ LƯU, màn xem đúng):
+ * option `video.crop` của Mediabunny cắt bằng `drawImage(VideoFrame, sx, sy, sw, sh, ...)` (lấy 1 VÙNG NGUỒN từ chính
+ * VideoFrame). WebKit/iOS có tiền sử xử lý sai vùng nguồn của drawImage, và với VideoFrame thì kết quả đúng là triệu chứng
+ * Giang thấy: CẢ khung hình bị ép vào kích thước vùng crop (resize) thay vì cắt. Khi CÓ cắt khung, engine giờ KHÔNG giao
+ * crop/xoay/lật cho Mediabunny nữa mà tự làm qua `video.process` (`_buildCropProcess()`): (1) vẽ NGUYÊN khung hình
+ * (không vùng nguồn) vào canvas W×H đúng hướng hiển thị; (2) vẽ canvas đó (canvas->canvas — đường WebKit làm đúng) sang
+ * canvas đầu ra bằng 1 ma trận affine = lật -> xoay -> dời gốc về góc vùng crop — CÙNG thứ tự với preview và với
+ * `_mapCropRectToOutputFrame()`, phần ngoài vùng crop tự rơi ra ngoài canvas. Không cắt khung (chỉ xoay/lật) giữ nguyên
+ * đường Mediabunny cũ (đang chạy đúng).
+ *
  * Rule 3 — chỉ gọi API thư viện ngoài (Mediabunny/WebCodecs), không gọi core nào khác của project.
  * Rule 2 — không đọc `appState`. Đích ghi (OPFS writable) do Workflow chuẩn bị, truyền qua tham số.
  */
@@ -54,6 +64,44 @@ function _mapCropRectToOutputFrame(rect, w, h, deg, flipH) {
     const left = even(Math.min(a[0], b[0])), top = even(Math.min(a[1], b[1]));
     const width = Math.max(2, even(Math.abs(b[0] - a[0]))), height = Math.max(2, even(Math.abs(b[1] - a[1])));
     return { left, top, width, height };
+}
+
+/** Ma trận affine canvas [a,b,c,d,e,f] đưa điểm (x,y) hệ GỐC W×H sang khung đầu ra — ĐÚNG phép của
+ * `_mapPointToOutputFrame()` (lật ngang rồi xoay `deg`), viết dạng ma trận để canvas tự biến đổi cả khung hình. Hàm con
+ * phục vụ `_buildCropProcess()` (Rule 3c). @returns {number[]} */
+function _computeOutputFrameMatrix(w, h, deg, flipH) {
+    const s = flipH ? -1 : 1, t = flipH ? w : 0; // fx = s·x + t
+    if (deg === 90) return [0, s, -1, 0, h, t];          // X = h - y, Y = fx
+    if (deg === 180) return [-s, 0, 0, -1, w - t, h];    // X = w - fx, Y = h - y
+    if (deg === 270) return [0, -s, 1, 0, 0, w - t];     // X = y, Y = w - fx
+    return [s, 0, 0, 1, t, 0];                           // X = fx, Y = y
+}
+
+/** MỚI (06/10/2026) — hàm `process` cho Mediabunny Conversion khi có cắt khung (xem docstring đầu file). 2 canvas nội bộ
+ * (bộ đệm pixel, không gắn DOM) tạo 1 lần, dùng lại mọi khung hình (Mediabunny tự chụp nội dung canvas trả về thành
+ * VideoSample ngay lúc nhận — cùng cách engine biến đổi của chính nó dùng lại 1 canvas). Hàm con (Rule 3c).
+ * @param {{left:number, top:number, width:number, height:number}} outRect - vùng crop trong khung đầu ra (số chẵn).
+ * @returns {(sample: object) => HTMLCanvasElement} */
+function _buildCropProcess(outRect, w, h, deg, flipH) {
+    const fullCanvas = document.createElement('canvas'); // khung hình nguyên vẹn, đúng hướng hiển thị W×H
+    fullCanvas.width = w;
+    fullCanvas.height = h;
+    const fullCtx = fullCanvas.getContext('2d');
+    const outCanvas = document.createElement('canvas'); // khung đầu ra = đúng vùng crop
+    outCanvas.width = outRect.width;
+    outCanvas.height = outRect.height;
+    const outCtx = outCanvas.getContext('2d');
+    const m = _computeOutputFrameMatrix(w, h, deg, flipH);
+    return (sample) => {
+        sample.drawWithFit(fullCtx, { fit: 'fill' }); // nguyên khung (tự áp hướng xoay gốc của file), KHÔNG vùng nguồn
+        outCtx.setTransform(1, 0, 0, 1, 0, 0);
+        outCtx.fillStyle = '#000';
+        outCtx.fillRect(0, 0, outCanvas.width, outCanvas.height);
+        outCtx.setTransform(m[0], m[1], m[2], m[3], m[4] - outRect.left, m[5] - outRect.top); // lật -> xoay -> dời gốc về góc vùng crop
+        outCtx.drawImage(fullCanvas, 0, 0);
+        outCtx.setTransform(1, 0, 0, 1, 0, 0);
+        return outCanvas;
+    };
 }
 
 /**
@@ -87,11 +135,16 @@ async function processVideo({ sourceBlob, cutStart, cutEnd, sourceDuration, crop
     });
 
     const video = { allowTransformationMetadata: false }; // "nướng" xoay/lật vào khung hình — không phụ thuộc trình phát có hiểu metadata lật hay không
-    if (deg !== 0 || flipH) {
+    if (cropRect) {
+        // FIX 06/10/2026 — cắt khung tự làm qua `process` (gồm luôn xoay/lật), KHÔNG dùng video.crop/rotate/flip của Mediabunny.
+        const outRect = _mapCropRectToOutputFrame(cropRect, sourceWidth, sourceHeight, deg, flipH);
+        video.process = _buildCropProcess(outRect, sourceWidth, sourceHeight, deg, flipH);
+        video.processedWidth = outRect.width;
+        video.processedHeight = outRect.height;
+    } else if (deg !== 0 || flipH) {
         video.rotate = flipH && (deg === 90 || deg === 270) ? (360 - deg) % 360 : deg;
         video.flip = !!flipH;
     }
-    if (cropRect) video.crop = _mapCropRectToOutputFrame(cropRect, sourceWidth, sourceHeight, deg, flipH);
     // FIX 29/09/2026 — cắt đầu: transcode video để khung đầu tiên nằm ĐÚNG điểm cắt ở timestamp 0 (xem docstring đầu file).
     if (trimStart) video.forceTranscode = true;
 
