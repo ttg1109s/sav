@@ -7,8 +7,12 @@
  * SỬA (06/10/2026, Giang: "(i) ấn vào không phải mở modal mà popover ngay vị trí của (i)") — thay popup giữa
  * màn (overlay đen + blur) bằng TOGGLETIP (mẫu Carbon/TPGi: bấm icon mới hiện, bấm lại icon hoặc bấm ra ngoài
  * thì đóng, nội dung `role="status"`). Vị trí kiểu Floating UI: ưu tiên NẰM DƯỚI icon, không đủ chỗ thì LẬT
- * lên trên; trượt ngang (shift) để luôn cách mép màn `INFO_POPOVER_EDGE_PX`. Không mũi tên (kiểu "rich tooltip"
- * Material 3) — card dùng modalCardBg của theme (Morphin là kính), mũi tên chồng lên kính trong suốt sẽ lộ mép.
+ * lên trên; trượt ngang (shift) để luôn cách mép màn `INFO_POPOVER_EDGE_PX`.
+ * SỬA (06/10/2026, Giang: "thêm cái tam giác, đỉnh tại vị trí (i)") — mũi tên = 1 ô vuông xoay 45° CÙNG theme key
+ * card (modalCardBg + modalCardBorder), anh em SAU card (vẽ đè lên viền card), `clip-path` cắt còn đúng NỬA tam giác
+ * nhô ra ngoài — nên không có phần chồng lên thân card (Morphin là kính trong suốt, chồng lên sẽ lộ 2 lớp kính). Đáy
+ * tam giác lấn vào card đúng 1px để che đường viền của card ở chỗ giao. Đỉnh nằm thẳng tâm icon (i), cách icon
+ * `INFO_POPOVER_TIP_GAP_PX`. Popover bị kẹp dọc (màn quá thấp, không đủ chỗ cả trên lẫn dưới) -> ẩn mũi tên.
  *
  * Bấm ra ngoài: 1 lớp "scrim" TRONG SUỐT (cụm DOM tự tạo — đúng Rule 5a, không gắn listener lên document/window)
  * phủ toàn màn, bấm vào = đóng + nuốt luôn cú bấm đó (giống popover iOS) — bấm lại đúng icon (i) cũng rơi vào
@@ -26,7 +30,15 @@
 
 const INFO_POPOVER_MAX_WIDTH_PX = 280; // bề rộng tối đa của popover
 const INFO_POPOVER_EDGE_PX = 8;        // khoảng cách tối thiểu tới mép màn hình
-const INFO_POPOVER_GAP_PX = 6;         // khoảng cách popover <-> icon
+const INFO_POPOVER_ARROW_PX = 12;      // cạnh ô vuông mũi tên (trước khi xoay)
+const INFO_POPOVER_TIP_GAP_PX = 2;     // khoảng cách đỉnh mũi tên <-> icon
+// Phần mũi tên nhô ra khỏi card = nửa đường chéo trừ 1px lấn vào card (che viền).
+const INFO_POPOVER_ARROW_OUT_PX = (INFO_POPOVER_ARROW_PX * Math.SQRT2) / 2 - 1;
+const INFO_POPOVER_GAP_PX = INFO_POPOVER_ARROW_OUT_PX + INFO_POPOVER_TIP_GAP_PX; // khoảng cách card <-> icon
+const INFO_POPOVER_ARROW_INSET_PX = 16; // mũi tên không sát góc bo của card (rounded-xl = 12px)
+// clip-path nửa ô vuông nhô ra ngoài: xoay 45° thì góc trên-trái chỉ LÊN, góc dưới-phải chỉ XUỐNG.
+const INFO_POPOVER_ARROW_CLIP_UP = 'polygon(0 0, 100% 0, 0 100%)';
+const INFO_POPOVER_ARROW_CLIP_DOWN = 'polygon(100% 0, 100% 100%, 0 100%)';
 
 /** @param {string} text - nội dung giải thích, văn bản THUẦN (KHÔNG hỗ trợ HTML, khác modalChoice()
  * — escapeHtml() ngay tại đây nên nơi gọi không cần tự lo). @returns {string} */
@@ -68,7 +80,15 @@ function showInfoPopover(text, anchorEl) {
     closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
     popover.appendChild(closeBtn);
 
+    const arrow = document.createElement('div');
+    arrow.className = 'fixed';
+    arrow.dataset.uitk = 'modalCardBg modalCardBorder';
+    arrow.style.width = `${INFO_POPOVER_ARROW_PX}px`;
+    arrow.style.height = `${INFO_POPOVER_ARROW_PX}px`;
+    arrow.style.boxShadow = 'none'; // theme kính có box-shadow — bóng của ô vuông xoay sẽ lộ ra ngoài tam giác
+
     scrim.appendChild(popover);
+    scrim.appendChild(arrow); // SAU card -> đè lên viền card ở đáy tam giác
     document.body.appendChild(scrim);
     if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(scrim, _activeUiThemeKeyList); // theme áp TRƯỚC khi đo (padding/viền đổi kích thước)
 
@@ -87,8 +107,20 @@ function showInfoPopover(text, anchorEl) {
     popover.style.top = `${top}px`;
     popover.style.transformOrigin = `${anchorCenterX - left}px ${placeAbove ? '100%' : '0%'}`; // phóng ra từ phía icon
     popover.style.visibility = '';
+
+    // --- Mũi tên: tâm ô vuông nằm trên mép card (lấn vào 1px), x = tâm icon kẹp trong phần cạnh thẳng của card ---
+    const arrowCenterX = Math.max(left + INFO_POPOVER_ARROW_INSET_PX, Math.min(anchorCenterX, left + popW - INFO_POPOVER_ARROW_INSET_PX));
+    const arrowCenterY = placeAbove ? top + popH - 1 : top + 1;
+    arrow.style.left = `${arrowCenterX - INFO_POPOVER_ARROW_PX / 2}px`;
+    arrow.style.top = `${arrowCenterY - INFO_POPOVER_ARROW_PX / 2}px`;
+    arrow.style.transform = 'rotate(45deg)';
+    arrow.style.clipPath = placeAbove ? INFO_POPOVER_ARROW_CLIP_DOWN : INFO_POPOVER_ARROW_CLIP_UP;
+    arrow.style.webkitClipPath = arrow.style.clipPath;
+    arrow.style.display = top === rawTop ? '' : 'none'; // bị kẹp dọc -> đỉnh không còn chỉ đúng icon, ẩn đi
+
     if (typeof popover.animate === 'function') {
         popover.animate([{ opacity: 0, transform: 'scale(0.92)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 140, easing: 'ease-out' });
+        arrow.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: 'ease-out' });
     }
 
     // --- addEventListener: gom cuối hàm (Rule 5a — cụm DOM MỚI tự tạo bên trong chính hàm này) ---
