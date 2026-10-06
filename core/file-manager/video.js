@@ -137,22 +137,18 @@ async function replaceVideoMedia(videoKey, media) {
 // gọi thẳng `getAllVideoRecords()` (service/db.js — 1 transaction, cursor).
 
 /**
- * Thống kê Video (số lượng, dung lượng) — MỚI (ver12 "Song/Video Unification", Batch 5, mục 6a),
- * mirror `computeStats()` (core/about-stats.js, Song) — CỐ Ý viết riêng bản của Video (Rule 3: core
- * cấm gọi core khác, kể cả hàm gần giống — cùng quy ước đã áp dụng cho `formatVideoDuration()`/
- * `groupVideosByDay()` trong chính file này).
- * @returns {Promise<{totalVideos: number, totalBytes: number}>}
+ * Thống kê Video (số lượng, dung lượng) — THAY (06/10/2026, dọn nợ Rule 3b — Giang yêu cầu) `computeVideoStats()` (core
+ * tự đọc DB, mỗi video 1 transaction): giờ THUẦN tổng hợp từ record Workflow đã đọc (getAllVideoRecords()). Cộng cả
+ * thumbBlob + thumbFullBlob vào dung lượng thật như bản cũ; bỏ qua record thiếu Blob.
+ * @param {Array<object>} records
+ * @returns {{totalVideos: number, totalBytes: number}}
  */
-async function computeVideoStats() {
-    const keys = await getAllVideoKeys();
-    let totalVideos = 0, totalBytes = 0;
-    for (const key of keys) {
-        const record = await getVideoRecord(key);
-        if (!record || !record.blob) continue;
-        totalVideos++;
-        totalBytes += record.blob.size + (record.thumbBlob ? record.thumbBlob.size : 0) + (record.thumbFullBlob ? record.thumbFullBlob.size : 0); // MỚI (29/07/2026) — cộng thêm thumbFullBlob (full-res, thường nặng hơn hẳn thumbBlob vuông) vào tổng dung lượng thật
-    }
-    return { totalVideos, totalBytes };
+function summarizeVideoLibrary(records) {
+    const valid = records.filter((record) => record && record.blob);
+    return {
+        totalVideos: valid.length,
+        totalBytes: valid.reduce((sum, record) => sum + record.blob.size + (record.thumbBlob ? record.thumbBlob.size : 0) + (record.thumbFullBlob ? record.thumbFullBlob.size : 0), 0),
+    };
 }
 
 // ===================== Group theo ngày (windowing IntersectionObserver, cùng khuôn Photo) =========
