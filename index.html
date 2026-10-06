@@ -388,7 +388,7 @@
          .json vì chạy qua file://). /lang/lang.js gộp cả 5 (Object.assign) rồi định nghĩa t()/
          tFormat() — PHẢI nạp trước mọi components/*.js (template TPL_* gọi t() ngay lúc parse).
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
-    <script src="lang/patch/patch-common.js?v=20261006z2"></script>
+    <script src="lang/patch/patch-common.js?v=20261006z1"></script>
     <script src="lang/patch/patch-playlist.js?v=20261006audivis1"></script>
     <script src="lang/patch/patch-visualizer.js?v=20261005disp4"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20261005disp4"></script>
@@ -1206,7 +1206,7 @@
          (trước đây sống chung trong file-manager-photo.js). CẦN workflowFileManagerPhoto (3 khe đọc
          handle/imageKey/albumId) + core/photo-editor-engine.js/core/media-transform.js/core/generic-
          drawer.js/service/z-index.js (đã nạp ở nhóm CORE). -->
-    <script src="event/workflow/image-edit.js?v=20261006z2"></script>
+    <script src="event/workflow/image-edit.js?v=20260924r3"></script>
     <script src="event/router/image-edit.js?v=20260731v5"></script>
     <script src="event/listener/image-edit.js?v=20260731v2"></script>
     <!-- Cụm "fileManagerVideo" đã xoá hẳn (mọi lời gọi thật đến từ Playlist/Settings, không phải
@@ -1218,7 +1218,7 @@
          workflowPlaylist.navigateToActiveMenuVideoEdit() gọi thẳng workflowVideoPreview.open()
          (không tầng trung gian) — cần core/file-manager/video-ui.js, core/media-transform.js,
          core/video-editor/*, core/video-player-capture.js (đã nạp ở nhóm CORE/STATE). -->
-    <script src="event/workflow/video-preview.js?v=20261006z2"></script>
+    <script src="event/workflow/video-preview.js?v=20260929cap1"></script>
     <script src="event/router/video-preview.js?v=20260927c1"></script>
     <script src="event/listener/video-preview.js?v=20260802v1"></script>
     <!-- XOÁ (loại bỏ Document Reader khỏi app) — cụm "fileManagerDocument" (workflow/router/
@@ -1292,7 +1292,7 @@
          mediaType khi click video trong Playlist (đi qua eventBus để Block gate chặn khoá chéo với
          Video nền). PHẢI nạp SAU event/workflow/video-player.js (cần workflowVideoPlayer.
          startFromPlaylist() đã tồn tại). -->
-    <script src="event/workflow/video-player.js?v=20261006z2"></script>
+    <script src="event/workflow/video-player.js?v=20261002cv6"></script>
     <script src="event/router/video-player.js?v=20260929cap1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
     <!-- MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — event/workflow/photo-
@@ -1382,7 +1382,7 @@
     <script src="event/listener/app-visibility.js?v=20260925bg1"></script>
     <!-- MỚI (01/10/2026) — Ghi âm Player Song/Video (icon Control Center). event/router/player-controls.js +
          event/router/app-visibility.js gọi workflowRecorder lúc chạy (hết bài / pause ngoài / ẩn app). -->
-    <script src="event/workflow/recorder.js?v=20261006z2"></script>
+    <script src="event/workflow/recorder.js?v=20261001rec1"></script>
     <script src="event/router/recorder.js?v=20261001rec1"></script>
     <script src="event/listener/recorder.js?v=20261001rec1"></script>
     <!-- MỚI (05/10/2026) — cụm 'perfHud' (Performance HUD, Settings > Troubleshooting). Workflow CẦN core/perf-hud*.js,
