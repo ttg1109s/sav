@@ -358,17 +358,27 @@
          *   - slug đã tồn tại, filename TRÙNG -> ghi đè (trả lại đúng slug đó).
          *   - slug đã tồn tại, filename KHÁC -> thêm hậu tố số (slug-2, slug-3, ...).
          */
-        async function resolveSongKey(filename) {
-            const baseSlug = slugify(filename);
+        /**
+         * SỬA (06/10/2026, plan-media-db-split.md — dời resolveVideoKey()/resolveImageKey() từ core/file-manager/
+         * video.js / image.js về đây): cả 3 loại dùng CHUNG thuật toán, đọc CHỈ store meta (không mở Blob). Là hàm ĐỌC
+         * của data layer -> Workflow gọi rồi truyền key xuống core (core không được gọi hàm đọc — Rule 3).
+         * @param {'song'|'video'|'photo'} type @param {string} filename @param {string} fallbackSlug - slug rỗng thì dùng
+         * @returns {Promise<string>}
+         */
+        async function resolveMediaKey(type, filename, fallbackSlug) {
+            const baseSlug = slugify(filename) || fallbackSlug;
             let candidate = baseSlug;
             let suffix = 2;
             while (true) {
-                const existing = await idbKeyval.get(candidate, songsStore);
+                const existing = await getMediaMeta(type, candidate);
                 if (!existing) return candidate; // slug trống -> dùng luôn
-                if (existing.filename === filename) return candidate; // cùng bài -> ghi đè đúng key này
+                if (existing.filename === filename) return candidate; // cùng file -> ghi đè đúng key này
                 candidate = `${baseSlug}-${suffix}`; suffix++;
             }
         }
+        function resolveSongKey(filename) { return resolveMediaKey('song', filename, 'song'); }
+        function resolveVideoKey(filename) { return resolveMediaKey('video', filename, 'video'); }
+        function resolveImageKey(filename) { return resolveMediaKey('photo', filename, 'image'); }
 
         // XOÁ (06/10/2026, plan-media-db-split.md — Giang chốt "xoá hẳn") — setSongRecord()/deleteSongRecord(): ghi/xoá
         // qua API media chung (createMediaRecord/updateMediaMeta/setMediaBlob/setMediaThumbs/deleteMediaRecord, cuối file).
