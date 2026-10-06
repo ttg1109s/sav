@@ -5,11 +5,12 @@
  * definePackage() xong).
  *
  * SESSION-ONLY (Giang chốt "bản ghi lưu tạm trong ram state") — KHÔNG có bản sao nào trong AppConfig/DB. Cấu hình bền
- * (khử tiếng vọng, bù trễ giọng) là chuyện KHÁC — domain AppConfig 'recorder' (core/config.js).
+ * (chế độ thu, Sync, Count-in, chất lượng — SỬA 07/10/2026) là chuyện KHÁC — domain AppConfig 'recorder' (core/config.js).
  *
  * `recordPhase` (enum string):
  *   'idle'      — không ghi. Mọi điều khiển bình thường.
- *   'starting'  — đang xin mic/dựng graph (chặn bấm ghi lần 2).
+ *   'starting'  — đang xin mic/dựng graph (chặn bấm ghi lần 2), và cả lúc Count-in đếm ngược (MỚI 07/10/2026 — overlay đã
+ *                 hiện, điều khiển đã khoá, MediaRecorder CHƯA chạy).
  *   'recording' — đang ghi, overlay che toàn màn Visualizer, mọi cử chỉ/điều khiển bị chặn.
  *   'stopping'  — đã bấm X/hết bài/bị ngắt, đang đợi MediaRecorder trả dữ liệu (pause tự bắn trong lúc này bị bỏ qua).
  *   'review'    — modal nghe lại (mini waveform, phát lặp) đang mở.
@@ -17,8 +18,9 @@
  * Mọi phase KHÁC 'idle' đều chặn Next/Prev/Play-Pause/Restart (event/block.js) và giữ 'ended' không tự chuyển bài
  * (event/router/player-controls.js).
  *
- * `recordBlob` — Blob bản ghi hoàn chỉnh (giọng + nhạc đã trộn sẵn lúc ghi, Giang chốt phương án A). null khi chưa có.
- * `recordMeta` — { mediaKind: 'song'|'video', sourceKey, sourceTag, sourceCover, mimeType, latencyMs, mediaEnded,
+ * `recordBlob` — Blob bản ghi hoàn chỉnh (chế độ Headphones: giọng + nhạc gốc trộn sẵn lúc ghi, Giang chốt phương án A;
+ *   chế độ Speaker: chỉ mic — nhạc từ loa + giọng). null khi chưa có.
+ * `recordMeta` — { mediaKind: 'song'|'video', sourceKey, sourceTag, sourceCover, mimeType, mode, latencyMs, mediaEnded,
  *   durationSec } — chốt lúc bắt đầu ghi; `mediaEnded` bật true nếu media hết THẬT trong phiên (Huỷ/Lưu xong sẽ sang
  *   bài kế thay vì phát tiếp); `durationSec` điền lúc mở modal nghe lại.
  */
