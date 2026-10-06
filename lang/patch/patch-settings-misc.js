@@ -68,6 +68,10 @@ const LANG_PATCH_SETTINGS_MISC = {
     // 1 key MỚI này bổ sung cho ĐỦ 3 domain (Song/Video/Photo — XOÁ Document, loại bỏ Document
     // Reader khỏi app).
     'storageDrawer.legendPhotos': 'Photos',
+    // MỚI (06/10/2026, Giang yêu cầu — navigator.storage.estimate() ngay thanh dung lượng) — đoạn
+    // "Khác" của thanh (usage của origin trừ media) + dòng "còn trống / tối đa" ngay dưới thanh.
+    'storageDrawer.legendOther': 'Other (app data, temp files)',
+    'storageDrawer.statFreeBytes': 'Available / app limit',
     // MỚI (29/07/2026, mục 2c) — tiêu đề section "Chọn mục xoá" (THAY "Free up storage" — giờ
     // gồm CẢ phần chọn nguồn LẪN 2 toggle hành động trong CÙNG 1 khối, không tách riêng nữa).
     // SỬA (29/07/2026, yêu cầu Giang) — đổi tên hiển thị thành "Delete & Backup" (khớp đúng ý
