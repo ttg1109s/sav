@@ -311,5 +311,9 @@ kiểm state + tự xử lý). Không còn điểm nào chờ chốt.
   qua tham số (`workflowPlaylist.addMediaToFolder`); `cleanupOrphanedSongFolderFields` do Workflow chuẩn bị; 3
   `deleteCorrupted*` gộp `deleteCorruptedMediaRecords`; bỏ `clearAllVideosData`/`clearAllPhotosData`/`setVideoCustomName`/
   `deleteImage` (chết hoặc thay bằng `clearAllMediaOfType`); điểm Game + phụ đề ghi qua `updateMediaMeta`.
-- [ ] Lượt 2b — request trung tâm `mediaInUse` (mục 7) — các chỗ thay file đã bắn sẵn `mediaInUse.contentReplaced`.
+- [x] Lượt 2b — request trung tâm `mediaInUse` (mục 7) (sav-13-db-split-2b-patch.zip): event/workflow/media-in-use.js +
+  event/router/media-in-use.js; hàm nạp lại ở workflow chủ quản: `workflowPlayer.reloadCurrentSongKeepingPosition()`,
+  `workflowVideoPlayer.reloadCurrentVideoKeepingPosition()`, `workflowPhotoPlayer.reloadCurrentPhoto()`,
+  `workflowVisualBg.reloadCurrentVideoKeepingPosition()`/`reloadCurrentPhoto()` (+ getter `getCurrentVideoKey()`/
+  `getCurrentPhotoKey()`); `workflowPlaylist.replaceCurrentCoverUrl()` thành public (dùng chung).
 - [ ] Lượt 3 — thống kê + điểm Game vào meta (mục 6).
