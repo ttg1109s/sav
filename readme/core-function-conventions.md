@@ -148,10 +148,13 @@ lời gọi core→core, bất kể hình dạng gì, đều phải chuyển ra 
 lẫn `-ui.js`, Rule 5c) — không có ngoại lệ theo nguồn hay theo loại core.
 
 **Danh sách cụ thể ĐƯỢC Core gọi (thuộc nhóm Ghi/Sửa):**
-- `service/db.js` — CHỈ hàm ghi/xoá (`setMeta`/`setSongRecord`/`setImageRecord`/`setAlbumRecord`/
-  `setDocumentRecord`/`setVideoRecord`/`setFolderRecord`/`setFolderSongMap`/`deleteXxxRecord`...).
-  **CẤM** mọi hàm đọc (`getMeta`/`getSongRecord`/`getAlbumRecord`/`getImageRecord`/
-  `getDocumentRecord`/`getVideoRecord`/`getFolderRecord`/`getFolderSongMap`/`getAll*Keys`...).
+- `service/db.js` — CHỈ hàm ghi/xoá (`setMeta`/`setFolderRecord`/`setFolderSongMap`/`deleteFolder*`... và — SỬA
+  06/10/2026, plan-media-db-split.md — API media 3 store: `createMediaRecord`/`updateMediaMeta`/`updateMediaMetaBatch`/
+  `setMediaBlob`/`setMediaThumbs`/`deleteMediaRecord`/`clearAllMediaOfType`; `set*Record`/`delete*Record` media cũ ĐÃ
+  XOÁ). `updateMediaMeta*` xếp nhóm GHI/SỬA (đọc-sửa-ghi TRONG data layer, `mutate` thuần — cùng bản chất
+  `appState.mutate()`).
+  **CẤM** mọi hàm đọc (`getMeta`/`getSongRecord`/`getImageRecord`/`getVideoRecord`/`getMediaRecord`/`getMediaMeta`/
+  `getAllMediaMeta`/`getMediaBlob`/`getMediaThumbs`/`resolve*Key`/`getFolderRecord`/`getFolderSongMap`/`getAll*Keys`...).
 - `service/db.js::slugify(filename)` — sửa/biến đổi thẳng tham số nhận vào, không lấy thêm gì.
 - `service/component-dynamic.js::instantiateComponent(html, slotMap)` — clone rồi GHI ĐÈ slot, cùng
   bản chất `mutate()`.
