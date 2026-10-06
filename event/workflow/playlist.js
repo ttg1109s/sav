@@ -895,11 +895,13 @@ const workflowPlaylist = {
         // (3a) Lọc định dạng nhạc NGAY khi nhận file — accept="" của <input> chỉ là gợi ý UI,
         // không chặn thật (xem upload-validation.js). File không hợp lệ bị loại khỏi danh sách
         // xử lý và liệt kê chung với failedFiles, KHÔNG được đưa vào IndexedDB/playlist.
+        // SỬA (06/10/2026, Giang chốt "file <= 500MB mới được upload") — kiểm thêm dung lượng
+        // (core/upload-validation.js::validateMediaFileSize()), lấy lỗi ĐẦU TIÊN gặp phải để báo.
         const files = [];
         for (const file of allFiles) {
-            const check = validateAudioFile(file);
-            if (check.valid) files.push(file);
-            else failedFiles.push(`${escapeHtml(file.name)} — ${check.reason}`);
+            const firstFail = [validateAudioFile(file), validateMediaFileSize(file)].find((check) => !check.valid); // core/upload-validation.js
+            if (!firstFail) files.push(file);
+            else failedFiles.push(`${escapeHtml(file.name)} — ${firstFail.reason}`);
         }
         if (files.length === 0) {
             if (failedFiles.length > 0) await alertModal(tFormat('common.upload.failedList', { n: failedFiles.length, list: failedFiles.join('\n\n') }));
@@ -1101,8 +1103,10 @@ const workflowPlaylist = {
      * @param {FileList|File[]} files
      */
     async uploadVideos(files) {
-        const fileArray = Array.from(files);
-        if (fileArray.length === 0) return;
+        // SỬA (06/10/2026, Giang chốt "file <= 500MB mới được upload") — tách file quá cỡ ra TRƯỚC
+        // vòng nạp (không chụp thumbnail, không lưu), báo riêng ở cuối hàm.
+        const { acceptedFiles: fileArray, oversizedLines } = this._splitOversizedFiles(files);
+        if (fileArray.length === 0) { await this._alertOversizedFiles(oversizedLines); return; }
 
         let failedCount = 0;
         const skippedFilenames = []; // MỚI (18/09/2026) — tên từng file bị skip, để báo cuối lô
@@ -1135,6 +1139,7 @@ const workflowPlaylist = {
         // vừa upload — KHÔNG cần đổi Nguồn tắt/bật lại.
         await workflowVideoPlayer.refreshVideoPlaylistIfActive(); // event/workflow/video-player.js — tự guard activeMediaSource, no-op nếu Playlist không ở nguồn Video
         const successCount = fileArray.length - failedCount;
+        await this._alertOversizedFiles(oversizedLines); // MỚI (06/10/2026) — file quá 500MB bị bỏ qua
         // MỚI (18/09/2026) — báo riêng danh sách file bị skip TRƯỚC, rồi mới báo thành công (nếu
         // có) — `r.filename`-style dữ liệu NGƯỜI DÙNG (tên file), PHẢI escapeHtml() trước khi nhúng,
         // cùng nguyên tắc đã áp dụng ở renderScanResultUI() (core/storage-manager.js).
@@ -1166,8 +1171,9 @@ const workflowPlaylist = {
      * @param {FileList|File[]} files
      */
     async uploadPhotos(files) {
-        const fileArray = Array.from(files);
-        if (fileArray.length === 0) return;
+        // SỬA (06/10/2026) — cùng giới hạn 500MB/file như uploadVideos() ngay trên.
+        const { acceptedFiles: fileArray, oversizedLines } = this._splitOversizedFiles(files);
+        if (fileArray.length === 0) { await this._alertOversizedFiles(oversizedLines); return; }
 
         let failedCount = 0;
         const uploadedImageKeys = []; // MỚI (06/09/2026, Batch 6) — gắn folder hàng loạt SAU vòng lặp, xem cuối hàm
@@ -1202,7 +1208,31 @@ const workflowPlaylist = {
             console.log(`writer: "uploadPhotos", page: "playlistOrder", content: "${appState.get('playlistOrder').length} ảnh (làm mới sau upload)"`);
         }
         const successCount = fileArray.length - failedCount;
+        await this._alertOversizedFiles(oversizedLines); // MỚI (06/10/2026) — file quá 500MB bị bỏ qua
         await alertModal(tFormat('fileManager.photo.image.uploadSuccess', { count: successCount })); // tái dùng NGUYÊN lang key cũ của Photo Panel
+    },
+
+    /**
+     * MỚI (06/10/2026, Giang chốt "file <= 500MB mới được upload") — DÙNG CHUNG uploadVideos()/uploadPhotos():
+     * tách file vượt giới hạn (core/upload-validation.js::validateMediaFileSize()) khỏi danh sách nạp, trả kèm
+     * từng dòng báo lỗi đã escape sẵn (tên file là dữ liệu người dùng). Song tự kiểm trong vòng lọc định dạng
+     * riêng của uploadSongs() (gộp chung danh sách failedFiles có sẵn).
+     * @param {FileList|File[]} files
+     * @returns {{acceptedFiles: File[], oversizedLines: string[]}}
+     */
+    _splitOversizedFiles(files) {
+        const checked = Array.from(files).map((file) => ({ file, check: validateMediaFileSize(file) })); // core/upload-validation.js
+        return {
+            acceptedFiles: checked.filter((x) => x.check.valid).map((x) => x.file),
+            oversizedLines: checked.filter((x) => !x.check.valid).map((x) => `${escapeHtml(x.file.name)} — ${x.check.reason}`),
+        };
+    },
+
+    /** Báo danh sách file bị bỏ qua vì quá cỡ — tái dùng NGUYÊN key `common.upload.failedList` của Song. Không có gì thì bỏ qua.
+     * @param {string[]} oversizedLines */
+    async _alertOversizedFiles(oversizedLines) {
+        if (oversizedLines.length === 0) return;
+        await alertModal(tFormat('common.upload.failedList', { n: oversizedLines.length, list: oversizedLines.join('\n\n') }));
     },
 
     /**
@@ -1268,7 +1298,7 @@ const workflowPlaylist = {
         if (keys.length === 0) return;
 
         let failedCount = 0;
-        let zipBlob;
+        let zipParts; // SỬA (06/10/2026) — nhiều phần zip <= 500MB (event/workflow/zip-download.js), trước là 1 zipBlob
         // SỬA (10/09/2026, Giang yêu cầu "làm giống Folder Download/Storage Management") — TRƯỚC ĐÂY
         // dùng `t('common.loading.exportingFile')` (chữ TĨNH, không hiện %) suốt cả quá trình — giờ
         // ĐỔI sang ĐÚNG chữ + cách cập nhật % y hệt `zipAndDownloadOrFallback()`
@@ -1297,10 +1327,8 @@ const workflowPlaylist = {
             // thêm resilience per-file RIÊNG (`failedCount` báo người dùng biết CHÍNH XÁC bao nhiêu
             // bài bị fallback, xem catch() ngay trên) mà `buildAllSongsZipBlob()` không trả ra
             // ngoài (chỉ tự log console) — giữ 2 đường tách nhau CÓ CHỦ Ý cho khác biệt UI này.
-            zipBlob = await _compressZipEntries(entries, (done, total, percent) => { // core/storage-manager.js
-                const pct = percent != null ? Math.round(percent) : Math.round((done / total) * 100);
-                loadingText.textContent = tFormat('common.storage.zippingProgress', { percent: pct });
-            });
+            // SỬA (06/10/2026, Giang yêu cầu chia zip >500MB) — nén qua workflowZipDownload (tự chia nhóm + cập nhật %).
+            zipParts = await workflowZipDownload.compressInParts(entries, t('playlistView.selection.exportZipFilename')); // event/workflow/zip-download.js
         });
 
         this._exitSelectionMode();
@@ -1310,8 +1338,7 @@ const workflowPlaylist = {
         // đã hết hạn sau khi chờ build zip xong) — giao cho promptDownloadReady() (core/
         // id3-export.js), nút "Tải xuống" bên trong modal đó mới thật sự gọi triggerDownload() với
         // activation MỚI/còn nguyên.
-        await promptDownloadReady(zipBlob, t('playlistView.selection.exportZipFilename')); // core/id3-export.js
-        if (zipBlob._opfsTempName) await cleanupStreamingZipTemp(zipBlob._opfsTempName); // core/streaming-zip.js — dọn file tạm OPFS sau khi modal đã đóng
+        await workflowZipDownload.deliver(zipParts); // event/workflow/zip-download.js — 1 phần: modal cũ; nhiều phần: modal danh sách; tự dọn file tạm OPFS
         if (failedCount > 0) await alertModal(t('playlistView.selection.exportPartialFail'));
     },
 
@@ -1410,7 +1437,7 @@ const workflowPlaylist = {
         const keys = Array.from(appState.get('selectedMediaKeys'));
         if (keys.length === 0) return;
 
-        let zipBlob;
+        let zipParts; // SỬA (06/10/2026) — nhiều phần zip, xem exportSelectedSongsZip()
         let entries;
         // SỬA (10/09/2026, Giang yêu cầu "làm giống Folder Download/Storage Management") — xem lý do
         // đầy đủ ở exportSelectedSongsZip() ngay trên.
@@ -1420,18 +1447,14 @@ const workflowPlaylist = {
             // `_compressZipEntries()` (core/storage-manager.js — ĐƯỜNG DUY NHẤT để nén zip, JSZip
             // đã bỏ hẳn khỏi app, xem docstring đầy đủ ở đó/core/streaming-zip.js).
             entries = await _collectZipEntries(keys, getVideoRecord, '.mp4'); // core/storage-manager.js — tự bỏ qua key không còn tồn tại (record undefined)
-            zipBlob = await _compressZipEntries(entries, (done, total, percent) => { // core/storage-manager.js
-                const pct = percent != null ? Math.round(percent) : Math.round((done / total) * 100);
-                loadingText.textContent = tFormat('common.storage.zippingProgress', { percent: pct });
-            });
+            zipParts = await workflowZipDownload.compressInParts(entries, t('playlistView.selection.exportZipFilenameVideo')); // event/workflow/zip-download.js
         });
         const failedCount = keys.length - entries.length; // key bị bỏ qua trong _collectZipEntries() (video không còn tồn tại, race) — CÙNG cách đếm cũ, không đọc lại DB lần 2
 
         this._exitSelectionMode();
         // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — xem
         // docstring exportSelectedSongsZip()/promptDownloadReady() (core/id3-export.js).
-        await promptDownloadReady(zipBlob, t('playlistView.selection.exportZipFilenameVideo')); // core/id3-export.js
-        if (zipBlob._opfsTempName) await cleanupStreamingZipTemp(zipBlob._opfsTempName); // core/streaming-zip.js — dọn file tạm OPFS sau khi modal đã đóng
+        await workflowZipDownload.deliver(zipParts); // event/workflow/zip-download.js — tự dọn file tạm OPFS
         if (failedCount > 0) await alertModal(t('playlistView.selection.exportPartialFail'));
     },
 
@@ -1446,24 +1469,20 @@ const workflowPlaylist = {
         const keys = Array.from(appState.get('selectedMediaKeys'));
         if (keys.length === 0) return;
 
-        let zipBlob;
+        let zipParts; // SỬA (06/10/2026) — nhiều phần zip, xem exportSelectedSongsZip()
         let entries;
         // SỬA (10/09/2026, Giang yêu cầu "làm giống Folder Download/Storage Management") — xem lý do
         // đầy đủ ở exportSelectedSongsZip() ngay trên.
         await withLoadingShield(t('common.storage.zippingStart'), async () => {
             entries = await _collectZipEntries(keys, getImageRecord, '.jpg'); // core/storage-manager.js — tự bỏ qua key không còn tồn tại (record undefined)
-            zipBlob = await _compressZipEntries(entries, (done, total, percent) => { // core/storage-manager.js
-                const pct = percent != null ? Math.round(percent) : Math.round((done / total) * 100);
-                loadingText.textContent = tFormat('common.storage.zippingProgress', { percent: pct });
-            });
+            zipParts = await workflowZipDownload.compressInParts(entries, t('playlistView.selection.exportZipFilenamePhoto')); // event/workflow/zip-download.js
         });
         const failedCount = keys.length - entries.length; // CÙNG cách đếm ở exportSelectedVideosZip() ngay trên
 
         this._exitSelectionMode();
         // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — xem
         // docstring exportSelectedSongsZip()/promptDownloadReady() (core/id3-export.js).
-        await promptDownloadReady(zipBlob, t('playlistView.selection.exportZipFilenamePhoto')); // core/id3-export.js
-        if (zipBlob._opfsTempName) await cleanupStreamingZipTemp(zipBlob._opfsTempName); // core/streaming-zip.js — dọn file tạm OPFS sau khi modal đã đóng
+        await workflowZipDownload.deliver(zipParts); // event/workflow/zip-download.js — tự dọn file tạm OPFS
         if (failedCount > 0) await alertModal(t('playlistView.selection.exportPartialFail'));
     },
 

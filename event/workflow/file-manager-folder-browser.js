@@ -37,10 +37,12 @@ const FOLDER_RECORD_GETTER_BY_TYPE = { // service/db.js
     video: (key) => getVideoRecord(key),
     photo: (key) => getImageRecord(key),
 };
-const FOLDER_ZIP_BUILDER_BY_TYPE = { // core/storage-manager.js
-    song: (...args) => buildAllSongsZipBlob(...args),
-    video: (...args) => buildAllVideosZipBlob(...args),
-    photo: (...args) => buildAllPhotosZipBlob(...args),
+// SỬA (06/10/2026, chia zip nhiều phần) — buildAll*ZipBlob() đổi thành collectAll*ZipEntries() (chỉ gom entries,
+// nén + chia phần do workflowZipDownload điều phối qua workflowFileManagerStorage.zipAndDownloadOrFallback()).
+const FOLDER_ZIP_ENTRIES_BY_TYPE = { // core/storage-manager.js
+    song: (keys) => collectAllSongsZipEntries(keys),
+    video: (keys) => collectAllVideosZipEntries(keys),
+    photo: (keys) => collectAllPhotosZipEntries(keys),
 };
 const FOLDER_DRAWER_MOUNT_BY_FIRST_OPEN = { // event/workflow/generic-drawer-helpers.js
     true: (config) => workflowGenericDrawerHelpers.open(config),
@@ -314,7 +316,7 @@ const workflowFileManagerFolderBrowser = {
 
     /** Tải toàn bộ item của folder thành .zip — dùng chung luồng của Storage Management. */
     async _downloadFolderZip(folderName, mediaType, keys) {
-        const result = await workflowFileManagerStorage.zipAndDownloadOrFallback(keys, FOLDER_ZIP_BUILDER_BY_TYPE[mediaType], `${folderName}.zip`); // event/workflow/file-manager-storage.js
+        const result = await workflowFileManagerStorage.zipAndDownloadOrFallback(keys, FOLDER_ZIP_ENTRIES_BY_TYPE[mediaType], `${folderName}.zip`); // event/workflow/file-manager-storage.js
         await this._alertZipError(result);
     },
 

@@ -303,17 +303,19 @@ const workflowFileManagerStorage = {
      * XOÁ (10/09/2026, Giang yêu cầu "loại bỏ toàn bộ JSZip") — tham số `getRecordFn` bỏ hẳn, chỉ
      * dùng cho nhánh "ước lượng dung lượng + tải riêng từng file" (dự phòng JSZip) đã xoá ở
      * `zipAndDownloadOrFallback()` ngay dưới, xem docstring hàm đó.
+     * SỬA (06/10/2026, chia zip nhiều phần) — `buildZipFn` đổi thành `collectEntriesFn` (core/storage-manager.js::
+     * collectAll*ZipEntries(), chỉ gom entries), việc nén do `zipAndDownloadOrFallback()` ngay dưới điều phối.
      * @param {() => Promise<string[]>} getKeysFn
-     * @param {(keys: string[], onProgress: function) => Promise<Blob>} buildZipFn
+     * @param {(keys: string[]) => Promise<Array<{filename:string, blob:Blob}>>} collectEntriesFn
      * @param {string} zipNamePrefix - đã dịch sẵn qua t(), dùng làm tên file
-     * @returns {Promise<{status: 'ok'|'noItems'|'zipError', message?: string}>}
+     * @returns {Promise<{status: 'ok'|'noItems'|'zipError'|'cancelled', message?: string}>}
      */
-    async _downloadZipFor(getKeysFn, buildZipFn, zipNamePrefix) {
+    async _downloadZipFor(getKeysFn, collectEntriesFn, zipNamePrefix) {
         const keys = await getKeysFn();
         if (keys.length === 0) return { status: 'noItems' }; // guard: không có gì để đóng gói
 
         const dateStr = new Date().toISOString().slice(0, 10);
-        return this.zipAndDownloadOrFallback(keys, buildZipFn, `${zipNamePrefix}-${dateStr}.zip`);
+        return this.zipAndDownloadOrFallback(keys, collectEntriesFn, `${zipNamePrefix}-${dateStr}.zip`);
     },
 
     /**
@@ -333,19 +335,23 @@ const workflowFileManagerStorage = {
      * `buildZipStreamingToOpfs()`, core/streaming-zip.js), gọi `cleanupStreamingZipTemp()` NGAY SAU
      * khi `promptDownloadReady()` đóng (đã tải/share xong hoặc người dùng Huỷ) — không để rác tích
      * lại trong OPFS qua nhiều lượt dùng.
+     * SỬA (06/10/2026, Giang yêu cầu "zip lớn hơn 500MB thì chia thành nhóm rồi zip, hiển thị các file zip lẻ ở
+     * modal download") — gom entries (`collectEntriesFn`) rồi giao cho `workflowZipDownload.compressInParts()` +
+     * `deliver()` (event/workflow/zip-download.js — tự chia nhóm <= 500MB, tự dọn file tạm OPFS). Trả thêm status
+     * 'cancelled' khi CHƯA tải đủ mọi phần (bấm Huỷ/Xong sớm, huỷ Share Sheet) — `_runStorageActionForSource()` chỉ xoá
+     * dữ liệu khi 'ok', nên giờ KHÔNG còn xoá khi người dùng chưa thật sự tải về (trước đây bấm Huỷ ở modal 1 file vẫn
+     * tính là 'ok').
      * @param {string[]} keys
-     * @param {(keys:string[], onProgress:function) => Promise<Blob>} buildZipFn
-     * @param {string} zipFileName - tên file .zip ĐẦY ĐỦ (đã gồm ".zip")
-     * @returns {Promise<{status:'ok'|'zipError', message?:string}>}
+     * @param {(keys:string[]) => Promise<Array<{filename:string, blob:Blob}>>} collectEntriesFn
+     * @param {string} zipFileName - tên file .zip ĐẦY ĐỦ (đã gồm ".zip") — có nhiều phần thì thêm hậu tố "-part{i}of{n}"
+     * @returns {Promise<{status:'ok'|'zipError'|'cancelled', message?:string}>}
      */
-    async zipAndDownloadOrFallback(keys, buildZipFn, zipFileName) {
-        let zipBlob;
+    async zipAndDownloadOrFallback(keys, collectEntriesFn, zipFileName) {
+        let zipParts;
         try {
             await withLoadingShield(t('common.storage.zippingStart'), async () => {
-                zipBlob = await buildZipFn(keys, (done, total, percent) => {
-                    const pct = percent != null ? Math.round(percent) : Math.round((done / total) * 100);
-                    loadingText.textContent = tFormat('common.storage.zippingProgress', { percent: pct });
-                });
+                const entries = await collectEntriesFn(keys); // core/storage-manager.js
+                zipParts = await workflowZipDownload.compressInParts(entries, zipFileName); // event/workflow/zip-download.js
             });
         } catch (err) {
             console.error('[file-manager-storage] Lỗi đóng gói zip:', err);
@@ -356,9 +362,9 @@ const workflowFileManagerStorage = {
         // đã hết hạn sau khi chờ tính dung lượng + build zip xong) — giao cho promptDownloadReady()
         // (core/id3-export.js), nút "Tải xuống" bên trong modal đó mới thật sự gọi
         // triggerDownload() với activation MỚI/còn nguyên.
-        await promptDownloadReady(zipBlob, zipFileName); // core/id3-export.js
-        if (zipBlob._opfsTempName) await cleanupStreamingZipTemp(zipBlob._opfsTempName); // core/streaming-zip.js — dọn file tạm OPFS SAU khi modal đã đóng (tải/share xong hoặc Huỷ), tránh tích rác
-        return { status: 'ok' };
+        const allDownloaded = await workflowZipDownload.deliver(zipParts); // event/workflow/zip-download.js — tự dọn file tạm OPFS sau khi modal đóng
+        const statusByAllDownloaded = { true: 'ok', false: 'cancelled' };
+        return { status: statusByAllDownloaded[allDownloaded] };
     },
 
     /** Dọn RAM/UI sau khi xoá sạch Video (thoát Video Player mode nếu đang bật + rỗng hoá
@@ -414,7 +420,7 @@ const workflowFileManagerStorage = {
         // từng trạng thái "không phải lỗi".
         if (sourceKey === 'song') {
             const result = downloadEnabled
-                ? await this._downloadZipFor(getAllSongKeys, buildAllSongsZipBlob, t('fileManager.song.storageAction.zipNameSong'))
+                ? await this._downloadZipFor(getAllSongKeys, collectAllSongsZipEntries, t('fileManager.song.storageAction.zipNameSong'))
                 : { status: 'ok' };
             if (deleteEnabled && result.status === 'ok') {
                 await withLoadingShield(t('common.storage.deletingData'), async () => { await workflowFileManagerStorage.clearAllStoredData(); }); // SỬA 24/09/2026 — dời từ core/storage-manager.js (Song)
@@ -425,7 +431,7 @@ const workflowFileManagerStorage = {
         }
         if (sourceKey === 'video') {
             const result = downloadEnabled
-                ? await this._downloadZipFor(getAllVideoKeys, buildAllVideosZipBlob, t('fileManager.song.storageAction.zipNameVideo'))
+                ? await this._downloadZipFor(getAllVideoKeys, collectAllVideosZipEntries, t('fileManager.song.storageAction.zipNameVideo'))
                 : { status: 'ok' };
             if (deleteEnabled && result.status === 'ok') {
                 await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllVideosData(); }); // core/storage-manager.js
@@ -435,7 +441,7 @@ const workflowFileManagerStorage = {
         }
         if (sourceKey === 'photo') {
             const result = downloadEnabled
-                ? await this._downloadZipFor(getAllImageKeys, buildAllPhotosZipBlob, t('storageDrawer.zipNamePhoto'))
+                ? await this._downloadZipFor(getAllImageKeys, collectAllPhotosZipEntries, t('storageDrawer.zipNamePhoto'))
                 : { status: 'ok' };
             if (deleteEnabled && result.status === 'ok') {
                 await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllPhotosData(); }); // core/storage-manager.js
@@ -457,6 +463,13 @@ const workflowFileManagerStorage = {
         if (downloadEnabled && zipError) {
             // Xoá đã bị BỎ QUA cho (các) nguồn lỗi zip (xem _runStorageActionForSource), báo rõ.
             alertModal(tFormat('fileManager.song.storageAction.zipErrorSkippedDelete', { message: escapeHtml(zipError.message) }));
+            return;
+        }
+        // MỚI (06/10/2026, chia zip nhiều phần) — có nguồn CHƯA tải đủ mọi phần ('cancelled') -> dữ liệu nguồn đó KHÔNG
+        // bị xoá (xem _runStorageActionForSource), báo rõ thay vì báo "đã tải + xoá xong".
+        const notAllDownloaded = results.some((r) => r && r.status === 'cancelled');
+        if (downloadEnabled && deleteEnabled && notAllDownloaded) {
+            alertModal(t('fileManager.song.storageAction.notAllDownloadedSkippedDelete'));
             return;
         }
         if (downloadEnabled && deleteEnabled) alertModal(tFormat('fileManager.song.storageAction.doneDownloadAndDelete', { scope: scopeLabel }));
