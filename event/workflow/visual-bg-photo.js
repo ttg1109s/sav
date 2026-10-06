@@ -86,6 +86,22 @@ Object.assign(workflowVisualBg, {
      * hỏng) hoặc `showImage()` throw giữa chừng -> Engine CHƯA NHẬN ownership, VBG tự revoke ngay,
      * không để URL treo lại không ai dọn. Lỗi thật (nếu có) vẫn ném tiếp ra ngoài, không nuốt.
      * @param {string|null} key */
+    /** MỚI (06/10/2026, plan-media-db-split.md mục 7) — key ảnh VBG đang hiện (theo `_listIndex` trong list nguồn) — đọc bởi
+     * request trung tâm `workflowMediaInUse` (nơi đó tự kiểm VBG đang là type 'photo'). */
+    getCurrentPhotoKey() {
+        const list = appConfigVisualBg.getAll().source.list;
+        return list[this._listIndex] || null;
+    },
+
+    /** MỚI (06/10/2026) — hiện lại ảnh VBG đang chạy sau khi file của nó vừa bị thay (đọc record mới qua `_showCurrentPhoto()`).
+     * CHỈ gọi từ `workflowMediaInUse` (đã kiểm state). */
+    async reloadCurrentPhoto() {
+        const key = this.getCurrentPhotoKey();
+        if (!key) return; // guard
+        await this._showCurrentPhoto(key);
+        console.log(`[workflowVisualBg.reloadCurrentPhoto] hiện lại ảnh nền "${key}"`);
+    },
+
     async _showCurrentPhoto(key) {
         if (!key) { if (typeof workflowVisualBgPhotoMotion !== 'undefined') await workflowVisualBgPhotoMotion.showImage(null); return; }
         const record = await getImageRecord(key);

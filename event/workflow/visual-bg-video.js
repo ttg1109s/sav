@@ -188,6 +188,28 @@ Object.assign(workflowVisualBg, {
      * [0, mốc 'playing'] (thường <1s), cùng mốc `hideUntilReady` dùng để lộ hình thật.
      * @param {string} videoKey
      */
+    /** MỚI (06/10/2026, plan-media-db-split.md mục 7) — key video VBG đang THẬT SỰ nạp trong bgVideoElement (null nếu
+     * chưa nạp) — request trung tâm `workflowMediaInUse` đọc qua getter này, không đụng field private. */
+    getCurrentVideoKey() {
+        return this._currentVideoKey;
+    },
+
+    /** MỚI (06/10/2026, plan-media-db-split.md mục 7) — nạp lại video VBG đang chạy sau khi file/thumb của nó vừa bị thay —
+     * giữ vị trí. Xoá `_currentVideoKey` để `_playVideoKey()` không coi là "đúng video đang nạp" (guard đầu hàm) và hiện
+     * tĩnh qua cầu thumb như video đầu (không Transition). CHỈ gọi từ `workflowMediaInUse` (đã kiểm state). */
+    async reloadCurrentVideoKeepingPosition() {
+        const videoKey = this._currentVideoKey;
+        if (videoKey === null || this._isSwappingVideo) return; // guard: không còn video nào / đang đổi nguồn
+        const resumeAtSec = bgVideoElement.currentTime;
+        this._currentVideoKey = null;
+        await this._playVideoKey(videoKey);
+        if (this._currentVideoKey !== videoKey) return; // nạp lỗi / đã bị lượt khác thay
+        bgVideoElement.addEventListener('loadedmetadata', () => {
+            bgVideoElement.currentTime = Math.min(resumeAtSec, bgVideoElement.duration || resumeAtSec);
+        }, { once: true });
+        console.log(`[workflowVisualBg.reloadCurrentVideoKeepingPosition] nạp lại video nền "${videoKey}" tại ${resumeAtSec.toFixed(1)}s`);
+    },
+
     async _playVideoKey(videoKey) {
         if (
             (videoKey === this._currentVideoKey && workflowVideoPlayer._objectUrl && bgVideoElement.getAttribute('src') === workflowVideoPlayer._objectUrl)

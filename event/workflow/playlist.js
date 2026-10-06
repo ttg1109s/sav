@@ -501,8 +501,8 @@ const workflowPlaylist = {
         if (key !== appState.get('currentKey')) return;
         playerTitle.textContent = meta.tag.title; playerArtist.textContent = meta.tag.artist;
         const refreshCoverUrlByChange = {
-            file: () => this._replaceCurrentCoverUrl(createBlobUrl(pendingCover)), // service/blob-url.js
-            remove: () => this._replaceCurrentCoverUrl(DEFAULT_VINYL),
+            file: () => this.replaceCurrentCoverUrl(createBlobUrl(pendingCover)), // service/blob-url.js
+            remove: () => this.replaceCurrentCoverUrl(DEFAULT_VINYL),
             keep: () => {},
         };
         refreshCoverUrlByChange[coverChange]();
@@ -516,14 +516,15 @@ const workflowPlaylist = {
         }
     },
 
-    /** Thay URL ảnh bìa bài ĐANG phát (thu hồi URL blob cũ) + gán lại #record-art. #record-art là phần tử ĐỘNG (tạo lại
+    /** Thay URL ảnh bìa bài ĐANG phát (thu hồi URL blob cũ) + gán lại #record-art. DÙNG CHUNG với
+     * workflowPlayer.reloadCurrentSongKeepingPosition() (request trung tâm mediaInUse, 06/10/2026). #record-art là phần tử ĐỘNG (tạo lại
      * qua innerHTML mỗi lần đổi bài) nên tự getElementById tại chỗ; gắn lại fallback mỗi lần đổi src (core/playlist/render.js).
      * @param {string} url */
-    _replaceCurrentCoverUrl(url) {
+    replaceCurrentCoverUrl(url) {
         const oldUrl = appState.get('currentCoverObjectURL');
         if (oldUrl && oldUrl.startsWith('blob:')) revokeBlobUrl(oldUrl); // service/blob-url.js
         appState.set('currentCoverObjectURL', url);
-        console.log(`writer: "workflowPlaylist._replaceCurrentCoverUrl", page: "currentCoverObjectURL", content: "${url.startsWith('blob:') ? 'blob mới' : url}"`);
+        console.log(`writer: "workflowPlaylist.replaceCurrentCoverUrl", page: "currentCoverObjectURL", content: "${url.startsWith('blob:') ? 'blob mới' : url}"`);
         const recordArtEl = document.getElementById('record-art');
         if (!recordArtEl) return;
         recordArtEl.src = url;

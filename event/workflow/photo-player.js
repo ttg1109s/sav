@@ -378,6 +378,29 @@ const workflowPhotoPlayer = {
 
     /** Dọn object URL thumb (record-art) — gọi TRƯỚC khi tạo URL mới (đổi ảnh) hoặc lúc thoát mode hẳn.
      * SỬA (25/09/2026) — URL ảnh chính KHÔNG còn ở đây (Image surface sở hữu + tự revoke). */
+    /**
+     * MỚI (06/10/2026, plan-media-db-split.md mục 7) — vẽ lại ảnh ĐANG hiện ở Photo Player từ DB sau khi file của nó vừa
+     * bị thay (sửa ảnh "Ghi đè", upload ghi đè). KHÔNG reset đồng hồ, không đếm lượt xem; chỉ cập nhật thời lượng mới
+     * (sửa ảnh tính lại duration). CHỈ gọi từ request trung tâm `workflowMediaInUse` (đã kiểm state).
+     */
+    async reloadCurrentPhoto() {
+        const photoKey = appState.get('currentKey');
+        const record = await getMediaRecord('photo', photoKey); // service/db.js
+        if (!record || !record.blob) return; // guard: ảnh vừa bị xoá ở nơi khác
+        this._revokeObjectUrls();
+        const objectUrl = URL.createObjectURL(record.blob); // giao cho Image surface — surface tự revoke
+        this._thumbObjectUrl = URL.createObjectURL(record.thumbBlob || record.blob);
+        this._photoGeneration += 1;
+        const generation = this._photoGeneration;
+        this._currentRecord = record;
+        const durationSec = record.duration || 5;
+        appState.set('photoPlayerDurationSec', durationSec, { skipCheck: true });
+        console.log(`writer: "workflowPhotoPlayer.reloadCurrentPhoto", page: "photoPlayerDurationSec", content: "${photoKey} -> ${durationSec}"`);
+        const recordArtEl = document.getElementById('record-art'); // phần tử ĐỘNG (dựng lại mỗi lần đổi ảnh)
+        if (recordArtEl) recordArtEl.src = this._thumbObjectUrl;
+        this._showOnSurface(objectUrl, record, 'next', generation);
+    },
+
     _revokeObjectUrls() {
         if (this._thumbObjectUrl) { URL.revokeObjectURL(this._thumbObjectUrl); this._thumbObjectUrl = null; }
     },

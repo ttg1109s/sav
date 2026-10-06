@@ -331,4 +331,42 @@ const workflowPlayer = {
             await alertModal(tFormat('common.playSong.error', { message: escapeHtml(rawMsg) }));
         });
     },
+
+    /**
+     * MỚI (06/10/2026, plan-media-db-split.md mục 7) — nạp lại bài ĐANG load trong audioPlayer từ DB sau khi file của nó
+     * vừa bị thay (upload ghi đè trùng tên) — GIỮ vị trí phát + trạng thái phát/dừng, làm mới cover/tiêu đề. CHỈ gọi
+     * từ request trung tâm `workflowMediaInUse` (event/workflow/media-in-use.js) — nơi đó đã kiểm state "bài này đang
+     * nạp ở Player chính". KHÔNG đếm lượt nghe, không báo 'visualBg.songChanged'/'gameplay.mediaChanged' (cùng 1 bài).
+     */
+    async reloadCurrentSongKeepingPosition() {
+        const key = appState.get('currentKey');
+        const record = await getMediaRecord('song', key); // service/db.js
+        if (!record || !record.blob) return; // guard: bài vừa bị xoá ở nơi khác
+        const resumeAtSec = audioPlayer.currentTime;
+        const wasPlaying = !audioPlayer.paused;
+        const oldUrl = appState.get('currentObjectURL');
+        const newUrl = createBlobUrl(record.blob); // service/blob-url.js
+        appState.set('currentObjectURL', newUrl);
+        console.log(`writer: "workflowPlayer.reloadCurrentSongKeepingPosition", page: "currentObjectURL", content: "${key} — nạp lại tại ${resumeAtSec.toFixed(1)}s (${wasPlaying ? 'đang phát' : 'đang dừng'})"`);
+        const resumeByWasPlaying = {
+            true: () => audioPlayer.play().catch((err) => console.error('[workflow:player] play() sau khi nạp lại lỗi:', err)),
+            false: () => {},
+        };
+        audioPlayer.addEventListener('loadedmetadata', () => {
+            audioPlayer.currentTime = Math.min(resumeAtSec, audioPlayer.duration || resumeAtSec);
+            resumeByWasPlaying[wasPlaying]();
+        }, { once: true });
+        audioPlayer.src = newUrl;
+        if (oldUrl) revokeBlobUrl(oldUrl); // service/blob-url.js
+
+        workflowPlaylist.replaceCurrentCoverUrl(record.cover ? createBlobUrl(record.cover) : DEFAULT_VINYL); // event/workflow/playlist.js
+        playerTitle.textContent = record.tag.title; playerArtist.textContent = record.tag.artist;
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: record.tag.title || "Visual Master",
+                artist: record.tag.artist || "Unknown Artist",
+                artwork: record.cover ? [{ src: appState.get('currentCoverObjectURL'), sizes: '512x512', type: record.cover.type || 'image/jpeg' }] : []
+            });
+        }
+    },
 };

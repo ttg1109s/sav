@@ -645,6 +645,24 @@ const workflowVideoPlayer = {
      * `applyFolderScope()`/`applyAllSongsScope()` (event/workflow/playlist-scope.js) tự lo HẾT: nạp
      * lại cache ĐÚNG phạm vi (folder đang active nếu có, nhặt luôn video vừa upload) + Filter +
      * render — không cần gọi gì thêm trước đó. */
+    /**
+     * MỚI (06/10/2026, plan-media-db-split.md mục 7) — nạp lại video ĐANG phát ở Player Video từ DB sau khi file/thumb
+     * của nó vừa bị thay (Video editor "Ghi đè", upload ghi đè, sửa thumbnail) — GIỮ vị trí + trạng thái phát/dừng. CHỈ gọi
+     * từ request trung tâm `workflowMediaInUse` (đã kiểm state "đang ở Video Player mode với đúng video này"). Đi qua
+     * `swapBgVideoSource()` (đọc record mới, tạo object URL mới, thu hồi URL cũ) — không Transition, không đếm lượt xem.
+     */
+    async reloadCurrentVideoKeepingPosition() {
+        const videoKey = appState.get('currentKey');
+        const resumeAtSec = bgVideoElement.currentTime;
+        const wasPlaying = !bgVideoElement.paused;
+        const record = await this.swapBgVideoSource(videoKey, false, null, false, !wasPlaying); // skipAutoplay khi đang dừng
+        if (!record) return; // guard: video vừa bị xoá ở nơi khác
+        bgVideoElement.addEventListener('loadedmetadata', () => {
+            bgVideoElement.currentTime = Math.min(resumeAtSec, bgVideoElement.duration || resumeAtSec);
+        }, { once: true });
+        console.log(`[workflowVideoPlayer.reloadCurrentVideoKeepingPosition] nạp lại "${videoKey}" tại ${resumeAtSec.toFixed(1)}s (${wasPlaying ? 'đang phát' : 'đang dừng'})`);
+    },
+
     async refreshVideoPlaylistIfActive() {
         if (appState.get('activeMediaSource') !== 'video') return;
         const activeFolderIdForVideo = appState.get('activePlayListFolder').video;
