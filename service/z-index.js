@@ -18,7 +18,7 @@
  * PHẢI nạp TRƯỚC mọi file core/ có dùng z-index (đặt cùng nhóm service/ với state.js/operation.js).
  */
         const Z_INDEX = Object.freeze({
-            APP_STACK: 60,                  // #app-stack (main.js) — mốc tham chiếu thấp nhất
+            APP_STACK: 60,                  // #app-stack (components/app-mount.js) — mốc tham chiếu thấp nhất
             GENERIC_DRAWER: 128,             // core/generic-drawer.js — panel; overlay tự dùng GENERIC_DRAWER - 1
             // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 4, sửa lại theo Giang chỉ ra —
             // menu long-press PHẢI là dropdown thật (core/dropdown-menu.js), không phải modalChoice)
