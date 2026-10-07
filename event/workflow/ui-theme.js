@@ -106,7 +106,7 @@ const workflowUiTheme = {
     },
 
     /** MỚI (21/09/2026, Giang yêu cầu "nền preload trang của Morphin") — mirror 2 chuỗi CSS vào `localStorage['uiThemeBoot']` cho script preloader
-     * đầu <body> (index.html) đọc ĐỒNG BỘ lần mở app SAU: `preloaderBg` (nền preloader — cùng cách `updatePlaylistBg()` vẽ: gradient/solid ->
+     * (service/boot-preloader.js, nạp trong <head>) đọc ĐỒNG BỘ lần mở app SAU: `preloaderBg` (nền preloader — cùng cách `updatePlaylistBg()` vẽ: gradient/solid ->
      * `linear-gradient(135deg, from, to)` (solid = from==to nên ra 1 màu), ảnh -> màu mép trên đã lấy mẫu (KHÔNG mirror được chính ảnh: blob nằm
      * trong IndexedDB, bất đồng bộ), không có nền -> slate-900 = `appBaseBg` Morphin) và `statusBar` (màu status bar, cùng giá trị vừa tô).
      * Theme khác Morphin -> XOÁ key (preloader Light/Dark dùng nhánh class như cũ). Hex gradient lọc qua regex trước khi ghép vào chuỗi CSS
@@ -137,7 +137,7 @@ const workflowUiTheme = {
 
     /** MỚI (21/09/2026) — 2 việc CẤP TRANG (ngoài `data-uitk`) đi kèm MỖI lần theme đổi/khôi phục: (1) `color-scheme`
      * của <html> (xem UI_THEME_COLOR_SCHEME); (2) mirror tên theme vào `localStorage['uiThemeName']` cho script
-     * preloader đầu <body> index.html đọc ĐỒNG BỘ (preloader chạy TRƯỚC mọi file JS, không đợi được IndexedDB) — trước
+     * service/boot-preloader.js (trong <head> index.html) đọc ĐỒNG BỘ (preloader chạy TRƯỚC mọi file JS, không đợi được IndexedDB) — trước
      * đây phần mirror này chỉ nằm ở bản sao lạc chỗ `event/ui-theme.js` (KHÔNG được nạp) nên preloader chưa bao giờ
      * nhận 'dark'. try/catch — Safari Private Mode chặn localStorage vẫn không được làm vỡ luồng đổi theme chính. */
     _applyPageLevelTheme(themeName) {

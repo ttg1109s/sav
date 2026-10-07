@@ -180,11 +180,10 @@ const workflowAppBoot = {
         // hidePlaylistLoading() tự no-op nếu lớp chưa từng hiện/đã ẩn.
         workflowPlaylistRender.hidePlaylistLoading(); // SỬA (02/10/2026) — dời từ core (taskManager trong core, Rule 3)
 
-        // MỚI (phản hồi Giang — "shield loading không full-screen + Video không có shield") — báo
-        // cho preloader full-screen (index.html, đầu <body>) biết Playlist đã THẬT SỰ dựng xong (renderOrder
-        // đã render ra DOM, không chỉ script tải xong) — preloader tự ẩn NGAY khi nhận được tín hiệu
-        // này (nếu script cũng đã tải xong). Đặt Ở ĐÂY — SAU CÙNG mọi bước dựng Playlist (kể cả
-        // Scope/Filter/render DOM) — để không còn khoảng hở "list trống nhưng header/nút đã hiện".
-        if (typeof window.markPlaylistBootReady === 'function') window.markPlaylistBootReady();
+        // Ẩn preloader full-screen khi Playlist đã THẬT SỰ dựng xong (renderOrder đã ra DOM). Đặt SAU CÙNG mọi bước dựng
+        // Playlist (Scope/Filter/render) để không có khoảng hở "list trống nhưng header/nút đã hiện".
+        // SỬA (07/10/2026, Giang) — thay `window.markPlaylistBootReady()` của khối inline cũ: preloader tách ra
+        // service/boot-preloader.js, ẩn = 1 class trên <html>.
+        hideAppPreloader(document.documentElement); // core/loading-shield-util.js
     },
 };
