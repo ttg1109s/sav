@@ -37,17 +37,33 @@
 const SEEK_GATE_SEEKED_TIMEOUT_MS = 3000; // đợi 'seeked'/'loadedmetadata' tối đa — phòng media không bao giờ xong (file lỗi) để không câm vĩnh viễn
 const SEEK_GATE_UNMUTE_RAMP_SEC = 0.03;   // mở tiếng dần 30ms — tránh tiếng "tách"
 
+/** MỚI (07/10/2026) — hook mặc định của cổng seek (Song không cần đóng băng hình). Video truyền hook của riêng nó
+ * (workflowVideoPlayer.seekGateHooks()) — cổng KHÔNG biết gì về layer A/B (nguyên tắc tua vít). */
+const SEEK_GATE_NO_HOOKS = {
+    beforeReload: async () => {},   // trước `load()` — media còn khung hình/vị trí cũ
+    waitFrameReady: async () => {}, // sau khi seek xong — đợi khung ở mốc mới hiện ra
+    release: () => {},              // cổng xong / huỷ (media đổi giữa chừng) — dọn mọi thứ hook đã dựng
+};
+
+/** MỚI (07/10/2026) — cổng xong: đồng bộ thanh/nhãn thời gian 1 lần theo vị trí MỚI ('timeupdate' lúc seek đã bị hold nuốt —
+ * media đang dừng thì thanh đứng sai chỗ tới lần phát kế tiếp, vd cử chỉ seek-hold). Song thêm Media Session (nạp lại đã reset). */
+const SEEK_GATE_DONE_SYNC_BY_MEDIA = {
+    song: () => {
+        updateMediaPositionState(); // core/player-controls.js
+        workflowPlayerControls.handleAudioTimeUpdateEvent();
+    },
+    video: () => workflowVideoPlayer.handleVideoTimeUpdate(), // event/workflow/video-player.js
+};
+
 /** Lặp 1 bài (repeat-one, hết bài tự nhiên) — phát lại từ đầu theo loại media đang phát (readme/event-bus-flow.md mục 7).
  * SỬA (29/09/2026, Giang báo: lặp 1 bài vẫn lọt ĐUÔI tiếng cũ, thanh tiến trình/timer vẫn chạy từ 0 -> tiếng lệch sau
  * currentTime, phụ đề lệch dồn qua mỗi vòng) — Song trước đây gán `currentTime = 0` TRẦN (bỏ qua cổng seek), hàng đợi
  * tiếng cũ của iOS không bị xoá nên vài giây cuối phát lại SAU khi currentTime đã về 0. Nay Song đi qua cổng seek
- * (`_restartSongForRepeatOne()`, nạp lại nguồn = xoá hàng đợi). Video/Photo giữ nguyên hành vi cũ. */
+ * (`_restartSongForRepeatOne()`, nạp lại nguồn = xoá hàng đợi). Photo giữ nguyên hành vi cũ. SỬA 07/10/2026 — Video cũng qua cổng. */
 const REPEAT_ONE_RESTART_BY_MEDIA = {
     song: () => workflowPlayerControls._restartSongForRepeatOne(),
-    video: (activeEl) => {
-        activeEl.currentTime = 0;
-        activeEl.play().catch((err) => console.error('[workflowPlayerControls] bgVideoElement.play() lỗi:', err));
-    },
+    // SỬA (07/10/2026, Giang chốt) — Video cũng qua cổng seek v3 (cùng lỗi Song 29/09: gán currentTime=0 trần lọt đuôi tiếng cũ).
+    video: () => workflowVideoPlayer.restartForRepeatOne(), // event/workflow/video-player.js
     // Photo: không có sự kiện 'play' DOM thật (photoPlayerFakeMediaElement.play() chỉ đổi cờ) nên PHẢI gọi
     // startListenClock() THẲNG — handleMediaEnded() vừa dừng đồng hồ ngay trước (xem goToNextTrack()). SỬA 25/09/2026:
     // + chạy lại Point Move từ đầu (event/workflow/photo-player.js).
@@ -286,79 +302,103 @@ const workflowPlayerControls = {
      *     phát. Trong lúc giữ, 'pause'/'play'/'timeupdate' do chính cổng gây ra bị bỏ qua (không nháy icon/đồng hồ nghe/
      *     VBG/auto-switch, thanh thời gian không nhảy về 0:00 — xem `isHeldBySeekGate()`); 'loadedmetadata' VẪN chạy bình
      *     thường vì `load()` trả `playbackRate` về mặc định và handler đó áp lại đúng tốc độ phát.
-     *   - Video: CHƯA nạp lại (Giang chưa chốt — `load()` với video sẽ hiện ảnh poster một nhịp). Giữ cổng mute -> (giữ +
-     *     pause nếu đang phát) -> seek -> mở tiếng -> play().
+     *   - v3 cho Video (MỚI 07/10/2026, Giang chốt "làm luôn, đóng băng khung hình hiện tại"): Video cũng nạp lại nguồn như
+     *     Song, và cũng LUÔN giữ (trước đây chỉ giữ khi đang phát) — nạp lại làm 'timeupdate' về 0 + 'loadedmetadata' bắn lại
+     *     dù đang dừng. `load()` làm `<video>` mất khung hình tới khi seek xong -> nơi gọi truyền `hooks` đóng băng khung
+     *     hiện tại (xem SEEK_GATE_NO_HOOKS + workflowVideoPlayer.seekGateHooks()): chụp khung -> che -> nạp lại -> seek ->
+     *     đợi khung mới hiện -> bỏ che -> mở tiếng -> play().
      * Bỏ hẳn phần ngắt nhánh ra loa + đo analyser của v2 (không còn tác dụng) — core/audio-engine.js xoá 2 hàm tương ứng.
      *
      * @param {HTMLMediaElement} mediaEl - audioPlayer (Song) hoặc bgVideoElement (Video)
      * @param {number} targetSec
-     * @param {boolean} resumeAfter - true = `play()` sau seek dù cổng không tự giữ (Video đã bị pause lúc kéo tay)
+     * @param {boolean} resumeAfter - true = `play()` sau seek dù cổng không tự giữ lúc đang phát (Video đã bị pause THẬT lúc
+     *   kéo tay — 'play' khi đó được thả cho tới UI, xem `_releaseHoldForVisiblePlay()`)
      * @param {number|null} [verifyToleranceSec] - Video: sau 'seeked' đọc lại currentTime, lệch > mức này thì gán lại; null = không kiểm (Song)
+     * @param {{beforeReload: () => Promise<void>, waitFrameReady: () => Promise<void>, release: () => void}|null} [hooks] - MỚI
+     *   07/10/2026, xem SEEK_GATE_NO_HOOKS. null = không hook (Song).
      * @returns {Promise<boolean>} MỚI (29/09/2026) — true = cổng chạy TRỌN (đã seek + mở tiếng + thả hold); false = bị lệnh seek
      *   mới hơn tiếp quản / media đổi giữa chừng / play() lỗi. Nơi gọi cũ không await — không ảnh hưởng.
      */
-    async runGatedSeek(mediaEl, targetSec, resumeAfter, verifyToleranceSec = null) {
+    async runGatedSeek(mediaEl, targetSec, resumeAfter, verifyToleranceSec = null, hooks = null) {
         const token = ++this._seekGateToken;
         const srcAtStart = mediaEl.currentSrc;
         const startMs = performance.now();
-        const isSong = mediaEl === audioPlayer;
+        const mediaKind = mediaEl === audioPlayer ? 'song' : 'video'; // chọn GIÁ TRỊ (key object map)
+        const gateHooks = hooks || SEEK_GATE_NO_HOOKS;
         this._seekGateActiveEl = mediaEl;
         this._seekGateTargetSec = targetSec;
         this._setMasterGainForSeekGate(true);
 
-        // Giữ media: Song LUÔN giữ (nạp lại tự pause, kể cả đang dừng — để 'timeupdate' về 0 không lọt ra UI); Video chỉ
-        // giữ khi đang phát. Lệnh cũ (bị thay giữa chừng) đã giữ sẵn -> hold còn hiệu lực, lệnh này kế thừa.
+        // Giữ media — LUÔN giữ (SỬA 07/10/2026: Video cũng nạp lại nên giữ cả lúc đang dừng, như Song). Lệnh cũ (bị thay giữa
+        // chừng) đã giữ sẵn -> hold còn hiệu lực, lệnh này kế thừa `_seekGateResume`.
         const wasPlaying = !mediaEl.paused || this.isHeldBySeekGate(mediaEl) && this._seekGateResume;
-        if (isSong || !mediaEl.paused) {
-            if (!this.isHeldBySeekGate(mediaEl)) this._seekGateResume = !mediaEl.paused;
-            this._seekGateHeldEl = mediaEl;
-            this._seekGateHeldSrc = srcAtStart;
-            if (!mediaEl.paused) mediaEl.pause();
-        }
+        if (!this.isHeldBySeekGate(mediaEl)) this._seekGateResume = !mediaEl.paused;
+        this._seekGateHeldEl = mediaEl;
+        this._seekGateHeldSrc = srcAtStart;
+        if (!mediaEl.paused) mediaEl.pause();
 
-        if (isSong) {
-            // Nạp lại nguồn = xoá hàng đợi tiếng cũ của iOS.
-            const metaPromise = this._waitMediaEvent(mediaEl, 'loadedmetadata');
-            mediaEl.load();
-            await metaPromise;
-            if (token !== this._seekGateToken) return false; // lệnh seek mới hơn đã tiếp quản — nó tự lo play()/mở tiếng
-            if (mediaEl.currentSrc !== srcAtStart) { this._abortSeekGate(); return false; } // media đã đổi giữa lúc chờ (Next/chọn bài)
-        }
+        // Video: đóng băng khung hiện tại TRƯỚC khi nạp lại (no-op với Song).
+        await gateHooks.beforeReload();
+        if (token !== this._seekGateToken) return false; // lệnh seek mới hơn đã tiếp quản — nó tự lo phần còn lại
+        if (mediaEl.currentSrc !== srcAtStart) { this._abortSeekGate(gateHooks); return false; } // media đã đổi (Next/chọn bài)
 
-        // Seek. [SỬA 21/09/2026 — giữ nguyên] còn seek dở HOẶC lệch mốc -> luôn gán lại (seek mới huỷ seek dở); Video kiểm lại vị trí.
-        const needsAssign = mediaEl.seeking || Math.abs(mediaEl.currentTime - targetSec) > 0.001;
-        if (needsAssign) {
-            const maxAttempts = verifyToleranceSec === null ? 1 : 3;
-            for (let attempt = 0; attempt < maxAttempts; attempt++) {
-                const seekedPromise = this._waitMediaEvent(mediaEl, 'seeked'); // đăng ký listener TRƯỚC khi gán currentTime
-                mediaEl.currentTime = targetSec;
-                await seekedPromise;
-                if (token !== this._seekGateToken) return false;
-                if (verifyToleranceSec === null || Math.abs(mediaEl.currentTime - targetSec) <= verifyToleranceSec) break;
-            }
+        // Nạp lại nguồn = xoá hàng đợi tiếng cũ của iOS.
+        const metaPromise = this._waitMediaEvent(mediaEl, 'loadedmetadata');
+        mediaEl.load();
+        await metaPromise;
+        if (token !== this._seekGateToken) return false;
+        if (mediaEl.currentSrc !== srcAtStart) { this._abortSeekGate(gateHooks); return false; }
+
+        // Seek. SỬA (07/10/2026) — LUÔN gán (bỏ điều kiện "lệch mốc" cũ): sau `load()` currentTime = 0 nên mốc 0 (lặp 1 bài) trước
+        // đây bị bỏ qua -> video đang dừng không được tải khung nào (khung che phải đợi hết hạn). Gán currentTime = 0 vẫn chạy
+        // đủ thuật toán seek ('seeked' + tải khung). Video kiểm lại vị trí (tối đa 3 lần).
+        const maxAttempts = verifyToleranceSec === null ? 1 : 3;
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            const seekedPromise = this._waitMediaEvent(mediaEl, 'seeked'); // đăng ký listener TRƯỚC khi gán currentTime
+            mediaEl.currentTime = targetSec;
+            await seekedPromise;
+            if (token !== this._seekGateToken) return false;
+            if (verifyToleranceSec === null || Math.abs(mediaEl.currentTime - targetSec) <= verifyToleranceSec) break;
         }
         if (token !== this._seekGateToken) return false;
-        if (mediaEl.currentSrc !== srcAtStart) { this._abortSeekGate(); return false; }
+        if (mediaEl.currentSrc !== srcAtStart) { this._abortSeekGate(gateHooks); return false; }
+
+        // Video: khung ở mốc mới đã hiện -> bỏ khung đóng băng (no-op với Song).
+        await gateHooks.waitFrameReady();
+        if (token !== this._seekGateToken) return false;
+        if (mediaEl.currentSrc !== srcAtStart) { this._abortSeekGate(gateHooks); return false; }
+        gateHooks.release();
 
         // Mở tiếng TRƯỚC rồi mới play() (play() lúc trang không ra tiếng làm iOS bỏ Next/Prev ở màn hình khoá — xem lịch sử v2).
         this._setMasterGainForSeekGate(false);
         const heldByGate = this.isHeldBySeekGate(mediaEl);
-        const shouldPlay = resumeAfter || (heldByGate && this._seekGateResume) || this._seekGatePlayRequested;
+        const resumeByGate = heldByGate && this._seekGateResume;
+        const shouldPlay = resumeAfter || resumeByGate || this._seekGatePlayRequested;
+        this._releaseHoldForVisiblePlay(mediaEl, heldByGate && resumeAfter && !resumeByGate);
         if (shouldPlay) {
             try {
                 await mediaEl.play(); // promise xong SAU khi sự kiện 'play' đã qua listener -> hold còn nguyên lúc đó -> bị bỏ qua đúng ý
             } catch (err) {
                 console.error('[workflowPlayerControls] runGatedSeek: play() lỗi sau seek:', err);
                 this._clearSeekGateActive();
-                if (heldByGate) { this._releaseSeekGateHold(mediaEl, true); return false; } // không phát lại được -> báo 'pause' THẬT cho UI
+                if (this.isHeldBySeekGate(mediaEl)) { this._releaseSeekGateHold(mediaEl, true); return false; } // không phát lại được -> báo 'pause' THẬT cho UI
             }
             if (token !== this._seekGateToken) return false;
         }
         this._clearSeekGateActive();
-        if (heldByGate) this._releaseSeekGateHold(mediaEl, false);
-        if (isSong) updateMediaPositionState(); // core/player-controls.js — Media Session đúng vị trí mới (nạp lại đã reset)
-        console.log(`[seekGate] ${isSong ? 'song (nạp lại)' : 'video'} ${wasPlaying ? 'đang phát' : 'đang dừng'} -> ${targetSec.toFixed(2)}s | tổng ${Math.round(performance.now() - startMs)}ms`);
+        if (this.isHeldBySeekGate(mediaEl)) this._releaseSeekGateHold(mediaEl, false);
+        SEEK_GATE_DONE_SYNC_BY_MEDIA[mediaKind]();
+        console.log(`[seekGate] ${mediaKind} (nạp lại) ${wasPlaying ? 'đang phát' : 'đang dừng'} -> ${targetSec.toFixed(2)}s | tổng ${Math.round(performance.now() - startMs)}ms`);
         return true;
+    },
+
+    /** MỚI (07/10/2026) — 'pause' trước đó là THẬT (Video: kéo thanh seek tự pause lúc chưa có cổng -> UI đã đổi sang dừng)
+     * mà cổng sắp play() lại (`resumeAfter`) -> thả hold TRƯỚC để 'play' cũng THẬT tới UI (icon/đồng hồ nghe/Point Move).
+     * Ngược lại (pause do cổng/cử chỉ tự gây ra, đã bị hold nuốt) thì giữ hold -> 'play' cũng bị nuốt, UI không nháy.
+     * @param {HTMLMediaElement} mediaEl @param {boolean} isVisiblePlay */
+    _releaseHoldForVisiblePlay(mediaEl, isVisiblePlay) {
+        if (!isVisiblePlay) return; // guard
+        this._releaseSeekGateHold(mediaEl, false);
     },
 
     /** MỚI (29/09/2026) — lặp 1 bài cho Song: cổng seek về 0 (nạp lại nguồn -> xoá hàng đợi tiếng cũ của iOS) rồi MỚI play().
@@ -414,8 +454,10 @@ const workflowPlayerControls = {
         }
     },
 
-    /** Media đổi giữa lúc cổng đang chạy — thả mọi thứ: bỏ hold (media mới tự lo play/pause của nó), mở tiếng ngay. */
-    _abortSeekGate() {
+    /** Media đổi giữa lúc cổng đang chạy — thả mọi thứ: bỏ hold (media mới tự lo play/pause của nó), dọn hook, mở tiếng ngay.
+     * @param {object} [gateHooks] - hook của lệnh cổng đang huỷ (xem SEEK_GATE_NO_HOOKS) */
+    _abortSeekGate(gateHooks = SEEK_GATE_NO_HOOKS) {
+        gateHooks.release(); // MỚI 07/10/2026 — Video: bỏ khung đóng băng
         this._clearSeekGateActive(); // media mới tự lo play/pause — bỏ luôn lời xin play() của media cũ
         this._seekGateHeldEl = null;
         this._seekGateHeldSrc = '';

@@ -36,6 +36,12 @@ const VIDEO_SEEK_VERIFY_TOLERANCE_SEC = 0.15; // sau 'seeked', lệch > mức n�
 const VIDEO_SCRUB_SEEKED_TIMEOUT_MS = 1500;   // đợi 'seeked' của 1 lệnh scrub tối đa — phòng seek không bao giờ xong để hàng đợi không kẹt
 const VIDEO_SCRUB_TIMEOUT_TASK = 'videoScrubSeekedTimeout';
 
+// MỚI (07/10/2026, Giang chốt "cổng seek v3 cho Video — đóng băng khung hình hiện tại") — xem `seekGateHooks()`.
+const VIDEO_SEEK_FREEZE_MAX_SIDE_PX = 1920;    // khung đóng băng chỉ hiện vài trăm ms — thu nhỏ cho mã hoá JPEG nhanh (video 4K)
+const VIDEO_SEEK_FREEZE_JPEG_QUALITY = 0.85;
+const VIDEO_SEEK_FRAME_TIMEOUT_MS = 600;       // đợi video có khung ở mốc mới tối đa — hết hạn vẫn bỏ che (ghi log)
+const VIDEO_SEEK_FRAME_TIMEOUT_TASK = 'videoSeekFreezeFrameTimeout';
+
 const workflowVideoPlayer = {
     _objectUrl: null, // object URL HIỆN TẠI đang gán cho bgVideoElement (revoke trước khi tạo url mới)
     _thumbObjectUrl: null, // object URL của thumbBlob HIỆN TẠI (poster + cover ở player bar, #record-container) — revoke trước khi tạo url mới
@@ -47,6 +53,10 @@ const workflowVideoPlayer = {
     _scrubPendingTarget: null, // mốc scrub MỚI NHẤT đang chờ (null = không có) — lệnh seek đang bay xong mới gửi, xem `_requestScrubSeek()`
     _scrubInFlight: false,     // đang có 1 lệnh seek scrub chưa 'seeked'
     _scrubSeq: 0,              // tăng mỗi lệnh scrub/lần huỷ — listener 'seeked'/timeout của lệnh cũ tự bỏ qua nếu lệch số
+    // MỚI (07/10/2026) — đóng băng khung hình lúc cổng seek nạp lại nguồn, xem `seekGateHooks()`
+    _seekFreeze: null,         // { generation, layerState } lúc đang che; null = không che
+    _seekFreezePromise: null,  // lượt chụp + che đang chạy (lệnh cổng mới hơn tới giữa chừng thì đợi chung lượt này)
+    _swapInProgress: false,    // `swapBgVideoSource()` đang đổi video (đã pause, chưa gán src mới) — 'pause' lúc này KHÔNG xả hàng đợi
 
     /**
      * Nạp `videoKey` vào `bgVideoElement` — CƠ CHẾ SWAP DUY NHẤT, DÙNG CHUNG giữa Video Player mode
@@ -117,9 +127,13 @@ const workflowVideoPlayer = {
     async swapBgVideoSource(videoKey, isTransition = false, beforePlay = null, hideUntilReady = false, skipAutoplay = false, hooks = null) {
         this._mediaGeneration++; // MỚI (21/09/2026) — vô hiệu hoá mọi phiên seek đang treo của media CŨ, xem handleVideoSeekCommit()
         const swapGeneration = this._mediaGeneration; // chốt để `finish()` (bên dưới) biết lượt swap này đã bị lượt mới hơn/thoát mode thay thế chưa
+        // MỚI (07/10/2026) — bỏ khung đóng băng của cổng seek (nếu đang che) TRƯỚC mọi thao tác layer A/B của lượt swap; cổng
+        // đang chạy dở tự huỷ khi thấy src đổi. Đánh dấu đang swap: 'pause' ngay dưới không được xả hàng đợi (nạp lại video CŨ).
+        this._cancelSeekFreeze();
+        this._swapInProgress = true;
         bgVideoElement.pause(); // (1) đứng hình NGAY — CHƯA đụng src, khung hình cũ giữ nguyên
         const record = await getVideoRecord(videoKey); // (2) service/db.js — trong lúc đợi, màn hình vẫn đứng yên ở khung hình cũ
-        if (!record) return null;
+        if (!record) { this._swapInProgress = false; return null; }
 
         // MỚI (21/09/2026, yêu cầu Giang) — LẦN VÀO Video Player mode (`isTransition=false`, gọi từ
         // `startFromPlaylist()`) cũng dùng lớp thumb full-res như Next/Prev: decode `thumbFullBlob` vào layer B
@@ -207,6 +221,7 @@ const workflowVideoPlayer = {
         // (3) Gán 1 lần liền mạch — KHÔNG còn khoảng hở giữa các dòng.
         bgVideoElement.poster = this._thumbObjectUrl;
         bgVideoElement.src = this._objectUrl;
+        this._swapInProgress = false; // MỚI 07/10/2026 — src mới đã gán (nguồn khác _objectUrl cũ), hết khoảng cấm xả
         // SỬA (08/09/2026, Game Mode gate) — skipAutoplay=true (playVideoByKey() truyền lúc đang
         // armed) bỏ hẳn .play() ở đây, chỉ nạp khung hình tĩnh (poster) — xem docstring tham số
         // skipAutoplay đầu hàm.
@@ -357,6 +372,7 @@ const workflowVideoPlayer = {
      * (dừng nhánh video trang trí, event/workflow/visual-bg.js). KHÔNG đụng muted/loop/pointer-
      * events/currentKey/isVideoPlayerMode/wake-lock — việc riêng của `exitVideoPlayerMode()`. */
     clearBgVideoSource() {
+        this._cancelSeekFreeze(); // MỚI 07/10/2026 — thoát mode giữa lúc cổng seek đang che khung
         bgVideoElement.pause();
         bgVideoElement.classList.add('hidden');
         bgVideoElement.removeAttribute('poster');
@@ -675,7 +691,9 @@ const workflowVideoPlayer = {
      * `bgVideoElement` (DUY NHẤT — khác bản đầu từng toggle CẢ audioPlayer). */
     togglePlayPauseVideo() {
         requestWakeLock(); // core/player-controls.js — cùng khuôn togglePlayPause() của Song
-        if (bgVideoElement.paused) bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
+        // SỬA (07/10/2026) — phát qua playAfterSeekGate(): bấm phát lại ĐÚNG lúc cổng đang xả hàng đợi sau pause (nạp lại nguồn)
+        // thì để cổng play() sau khi seek xong — play() thẳng lúc đó phát từ 0:00 + lọt tiếng đầu video.
+        if (bgVideoElement.paused) workflowPlayerControls.playAfterSeekGate(bgVideoElement); // event/workflow/player-controls.js
         else bgVideoElement.pause();
     },
 
@@ -710,6 +728,7 @@ const workflowVideoPlayer = {
         releaseWakeLock(); workflowListenStats.stopClock(); // event/workflow/listen-stats.js (SỬA 06/10/2026 — dời từ core) 
         workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — MỚI 26/09/2026
         workflowPlayerDisplaySettings.pauseVideoMotion(); // MỚI (25/09/2026, đợt 4) — Point Move/React Beat đứng yên cùng video (no-op nếu Player không giữ Video surface), event/workflow/player-display-settings.js
+        this._flushVideoQueueAfterPause(); // MỚI 07/10/2026 — xả hàng đợi tiếng iOS ngay lúc pause (cùng hướng Song 29/09)
     },
 
     /** Ứng với 'playerControls.video.loadedmetadata' — đặt lại max thanh tiến trình + tổng thời
@@ -718,6 +737,9 @@ const workflowVideoPlayer = {
         progressBar.max = bgVideoElement.duration;
         durationTimeDisplay.textContent = formatTime(bgVideoElement.duration); // core/playlist/state.js
         applyPlaybackSpeedToActiveMedia(true, false, appConfigViz.getAll().playbackSpeed); // core/player-controls.js
+        // MỚI (07/10/2026) — cổng seek v3 nạp lại CÙNG video (không phải nội dung mới): chỉ cần áp lại tốc độ (`load()` reset
+        // playbackRate) ở trên, KHÔNG chạy lại Point Move từ đầu.
+        if (workflowPlayerControls.isHeldBySeekGate(bgVideoElement)) return; // guard — event/workflow/player-controls.js
         if (typeof workflowPlayerDisplaySettings !== 'undefined') workflowPlayerDisplaySettings.syncVideoPlayerPointMove(); // event/workflow/player-display-settings.js — advanceMs cần bgVideoElement.duration, chỉ có ĐÚNG tại đây
     },
 
@@ -728,6 +750,7 @@ const workflowVideoPlayer = {
     handleVideoTimeUpdate() {
         // SỬA 21/09/2026 — đang kéo tay thì KHÔNG đụng cả nhãn giờ (scrub xếp hàng làm currentTime chạy sau ngón tay -> nhãn nhấp nháy giữa 2 giá trị)
         if (appState.get('isSeeking')) return;
+        if (workflowPlayerControls.isHeldBySeekGate(bgVideoElement)) return; // MỚI 07/10/2026 — cổng seek đang nạp lại nguồn, currentTime tạm = 0 (cùng guard Song)
         progressBar.value = bgVideoElement.currentTime; updateProgressBarCSS(); // core/visualizer/visualizer-display.js
         currentTimeDisplay.textContent = formatTime(bgVideoElement.currentTime);
     },
@@ -781,7 +804,7 @@ const workflowVideoPlayer = {
         // (`_activateSeekHold()`) và tự resume ở `_stopSeekHold()` -> ở đây CHỈ seek chính xác, `resumeAfter=false` (KHÔNG dùng
         // `_wasPlayingBeforeSeek` — đó là của lần kéo thanh trước, sẽ tự play() giữa lúc đang giữ tay).
         if (isGesture) {
-            workflowPlayerControls.runGatedSeek(bgVideoElement, this._clampSeekTarget(Number(value)), false, VIDEO_SEEK_VERIFY_TOLERANCE_SEC); // event/workflow/player-controls.js
+            workflowPlayerControls.runGatedSeek(bgVideoElement, this._clampSeekTarget(Number(value)), false, VIDEO_SEEK_VERIFY_TOLERANCE_SEC, this.seekGateHooks()); // event/workflow/player-controls.js
             return;
         }
         const isStaleSession = this._seekGeneration !== this._mediaGeneration;
@@ -792,7 +815,105 @@ const workflowVideoPlayer = {
         if (isStaleSession) return;
         // [SỬA 21/09/2026] Cổng seek: mute -> gán currentTime -> ĐỢI 'seeked' -> play() (nếu trước đó đang phát) ->
         // mở tiếng — không còn `play()` ngay khi seek chưa xong (video/audio lọt vị trí cũ/trung gian).
-        workflowPlayerControls.runGatedSeek(bgVideoElement, this._clampSeekTarget(Number(value)), this._wasPlayingBeforeSeek, VIDEO_SEEK_VERIFY_TOLERANCE_SEC); // event/workflow/player-controls.js
+        workflowPlayerControls.runGatedSeek(bgVideoElement, this._clampSeekTarget(Number(value)), this._wasPlayingBeforeSeek, VIDEO_SEEK_VERIFY_TOLERANCE_SEC, this.seekGateHooks()); // event/workflow/player-controls.js
+    },
+
+    // ===================== MỚI (07/10/2026) — cổng seek v3 cho Video =====================
+    // Giang chốt: làm luôn; đóng băng khung hình hiện tại; gộp cả lặp 1 bài + xả hàng đợi lúc pause. Cổng (workflowPlayerControls.
+    // runGatedSeek()) nạp lại nguồn để xoá hàng đợi tiếng cũ của iOS -> `<video>` mất khung hình tới khi seek xong. 3 hook dưới che
+    // khoảng đó bằng khung vừa chụp ở layer B — cổng không biết gì về layer (nguyên tắc tua vít).
+
+    /** Hook truyền cho `runGatedSeek()` ở MỌI lệnh cổng của Player Video (kéo thanh seek, cử chỉ seek-hold, lặp 1 bài, xả lúc pause).
+     * @returns {{beforeReload: () => Promise<void>, waitFrameReady: () => Promise<void>, release: () => void}} */
+    seekGateHooks() {
+        return {
+            beforeReload: () => this._freezeSeekFrame(),
+            waitFrameReady: () => this._waitSeekFrameShown(),
+            release: () => this._cancelSeekFreeze(),
+        };
+    },
+
+    /** Chụp + che (1 lượt cho cả chuỗi lệnh cổng): đã che sẵn (lệnh trước bị thay giữa chừng — video lúc này có thể đã mất
+     * khung) -> giữ nguyên; đang chụp dở -> đợi chung lượt đó. @returns {Promise<void>} */
+    _freezeSeekFrame() {
+        if (this._seekFreeze) return Promise.resolve(); // guard — đang che
+        if (this._seekFreezePromise) return this._seekFreezePromise; // guard — đang chụp dở, đợi chung
+        this._seekFreezePromise = this._captureAndFreezeSeekFrame().finally(() => { this._seekFreezePromise = null; });
+        return this._seekFreezePromise;
+    },
+
+    async _captureAndFreezeSeekFrame() {
+        if (!bgVideoElement.videoWidth || bgVideoElement.readyState < 2) return; // guard — chưa có khung để chụp (HAVE_CURRENT_DATA), bỏ che
+        if (this._swapInProgress) return; // guard — đang đổi video (layer A/B thuộc lượt swap/Transition), không chen vào
+        if (document.hidden) return; // guard — app đang ẩn: không ai thấy hình, và rAF dừng hẳn lúc ẩn (cổng sẽ treo tới khi mở lại app)
+        const generation = this._mediaGeneration;
+        const naturalSize = { width: bgVideoElement.videoWidth, height: bgVideoElement.videoHeight };
+        const canvas = captureVideoFrameToCanvasMaxSide(bgVideoElement, VIDEO_SEEK_FREEZE_MAX_SIDE_PX); // core/video-player-capture.js
+        const blob = await canvasToJpegBlob(canvas, VIDEO_SEEK_FREEZE_JPEG_QUALITY); // core/video-player-capture.js
+        const url = await decodeForcedBgThumb(blob); // core/video-player.js — decode xong + double-rAF
+        if (!url) return; // guard — mã hoá lỗi, bỏ che
+        if (generation !== this._mediaGeneration) { URL.revokeObjectURL(url); return; } // guard — đã đổi video giữa lúc chụp
+        if (this._forcedBgObjectUrl) { try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {} }
+        this._forcedBgObjectUrl = url; // layer B giữ khung này làm lớp dự phòng tới lượt swap kế tiếp (clearBgVideoSource() tự thu hồi)
+        applyVisualBgImageToDOM(true, url); // core/visual-bg-photo.js
+        workflowPlayerDisplaySettings.syncVideoPlayerResolutionLayerB(naturalSize); // event/workflow/player-display-settings.js — layer B khớp Resolution theo kích thước video
+        this._seekFreeze = { generation, layerState: readSeekFreezeLayerState() }; // core/video-player.js
+        applySeekFreezeLayersToDOM(); // core/video-player.js
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))); // khung che đã PAINT rồi mới để cổng load()
+    },
+
+    /** Sau khi cổng seek xong: đợi video có khung ở mốc mới (readyState ≥ HAVE_CURRENT_DATA, chưa có thì chờ 'loadeddata' —
+     * tối đa VIDEO_SEEK_FRAME_TIMEOUT_MS) + double-rAF cho khung đó lên màn hình. Không che thì không cần đợi. @returns {Promise<void>} */
+    _waitSeekFrameShown() {
+        if (!this._seekFreeze) return Promise.resolve(); // guard
+        return new Promise((resolve) => {
+            let done = false;
+            const finish = () => {
+                if (done) return;
+                done = true;
+                bgVideoElement.removeEventListener('loadeddata', finish);
+                taskManager.kill(VIDEO_SEEK_FRAME_TIMEOUT_TASK);
+                requestAnimationFrame(() => requestAnimationFrame(resolve));
+            };
+            const onTimeout = () => {
+                console.log('[workflowVideoPlayer] cổng seek: hết hạn chờ khung hình mới -> vẫn bỏ che'); // log điều phối
+                finish();
+            };
+            if (bgVideoElement.readyState >= 2) { finish(); return; } // guard — đã có khung
+            bgVideoElement.addEventListener('loadeddata', finish, { once: true });
+            taskManager.once(onTimeout, VIDEO_SEEK_FRAME_TIMEOUT_MS, VIDEO_SEEK_FRAME_TIMEOUT_TASK);
+        });
+    },
+
+    /** Bỏ che: trả layer A/B về đúng trạng thái trước khi che. Gọi lặp vô hại (cổng xong/huỷ, swap, thoát mode). */
+    _cancelSeekFreeze() {
+        if (!this._seekFreeze) return; // guard
+        restoreSeekFreezeLayersToDOM(this._seekFreeze.layerState); // core/video-player.js
+        this._seekFreeze = null;
+    },
+
+    /** Lặp 1 bài (hết video tự nhiên): cổng seek về 0 rồi MỚI play() — cùng khuôn `_restartSongForRepeatOne()` (event/workflow/
+     * player-controls.js): sau 'ended' video đã dừng THẬT (UI đã nhận 'pause'), play() SAU khi cổng thả hold phát 'play' thật. */
+    async restartForRepeatOne() {
+        const completed = await workflowPlayerControls.runGatedSeek(bgVideoElement, 0, false, VIDEO_SEEK_VERIFY_TOLERANCE_SEC, this.seekGateHooks());
+        if (!completed) return; // guard — lệnh seek/đổi video mới hơn tự lo
+        bgVideoElement.play().catch((err) => console.error('[workflowVideoPlayer] bgVideoElement.play() lỗi khi lặp 1 bài:', err));
+    },
+
+    /** Xả hàng đợi tiếng iOS NGAY lúc pause (cùng hướng Song, `_flushSongQueueAfterPause()`): nạp lại + seek về chỗ dừng qua cổng
+     * (khung đóng băng che lúc nạp lại). Mọi đường phát lại sau đó chỉ là play() thường. Loại trừ: xem shouldFlushVideoQueueOnPause(). */
+    async _flushVideoQueueAfterPause() {
+        const { currentKey, isVideoPlayerMode, isSeeking } = appState.get(['currentKey', 'isVideoPlayerMode', 'isSeeking']);
+        const shouldFlush = shouldFlushVideoQueueOnPause({ // core/video-player.js
+            isPaused: bgVideoElement.paused, isEnded: bgVideoElement.ended, isVideoPlayerMode, isSeeking,
+            isSwapping: this._swapInProgress, hasFrame: bgVideoElement.readyState >= 2,
+            currentKey, currentObjectURL: this._objectUrl, mediaSrc: bgVideoElement.src,
+        });
+        if (!shouldFlush) return;
+        const completed = await workflowPlayerControls.runGatedSeek(bgVideoElement, bgVideoElement.currentTime, false, VIDEO_SEEK_VERIFY_TOLERANCE_SEC, this.seekGateHooks());
+        // Bấm phát lại NGAY trong lúc cổng đang xả: 'play' bị hold nuốt -> cổng xong mà video đang phát thì gửi lại 'play' cho UI.
+        if (!completed || bgVideoElement.paused) return; // guard
+        eventBus.send({ router: 'playerControls', type: 'playerControls.video.play', payload: {} });
     },
 
     /** Huỷ toàn bộ hàng đợi scrub (đầu phiên kéo mới / lúc thả tay). Tăng `_scrubSeq` để listener/timeout của lệnh đang bay tự bỏ qua. */
