@@ -95,6 +95,7 @@ function sampleImageTopEdgeColor(imageUrl, viewportW, viewportH, overlayAlpha) {
  * cũ (body class `appBaseBg` vốn cũng đi qua propagation): canvas nhận màu -> status bar iOS đổi màu, các lớp z âm vẫn hiện.
  * @param {string} color  'rgb(...)'/'#rrggbb' hoặc '' để gỡ */
 function applyStatusBarColor(color) {
+    document.documentElement.classList.remove('app-boot-statusbar'); // màu tạm lúc boot (service/boot-preloader.js) hết vai trò từ lần tô thật đầu tiên
     document.body.style.backgroundColor = color;
     const themeColorValue = color || '#000000';
     document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => meta.setAttribute('content', themeColorValue));
