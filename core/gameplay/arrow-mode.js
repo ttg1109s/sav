@@ -79,10 +79,11 @@ function advanceArrowCursor(elapsedMs, lastTickAt, now, periodMs, maxFrameDeltaM
  * @returns {{ inputIndex: number, outcome: 'correct'|'complete'|'wrong'|'ignored' }}
  */
 function applyArrowInput(arrows, inputIndex, dir) {
-    if (inputIndex >= arrows.length) return { inputIndex, outcome: 'ignored' };
-    if (arrows[inputIndex].expectedDir !== dir) return { inputIndex: 0, outcome: 'wrong' };
-    const nextIndex = inputIndex + 1;
-    return { inputIndex: nextIndex, outcome: nextIndex >= arrows.length ? 'complete' : 'correct' };
+    const isAlreadyComplete = inputIndex >= arrows.length;
+    const isCorrect = !isAlreadyComplete && arrows[inputIndex].expectedDir === dir;
+    const nextIndex = isAlreadyComplete ? inputIndex : (isCorrect ? inputIndex + 1 : 0);
+    const outcome = isAlreadyComplete ? 'ignored' : (!isCorrect ? 'wrong' : (nextIndex >= arrows.length ? 'complete' : 'correct'));
+    return { inputIndex: nextIndex, outcome };
 }
 
 /**
@@ -120,4 +121,14 @@ function computeArrowTargetZoneGeometry(cfg) {
 function computeArrowEndExtras(roundCount, playCount, cfg) {
     const perfectTier = cfg.tiers.find((entry) => entry.name === 'perfect');
     return { maxScore: roundCount * perfectTier.score, isPluralPlayCount: playCount !== 1 };
+}
+
+/** Toạ độ (px, hệ toạ độ `#gameplay-tier-popup-layer` = `#gameplay-layer`) hiện tier popup ngay DƯỚI giữa dải (phía trên
+ * là thanh tiến trình — popup đè lên sẽ che vạch đích). `stripRect`/`layerRect` = getBoundingClientRect() do Workflow đọc
+ * (Rule 3b: core không tự đọc DOM). @returns {{ x: number, y: number }} */
+function computeArrowPopupAnchor(stripRect, layerRect) {
+    return {
+        x: stripRect.left + stripRect.width / 2 - layerRect.left,
+        y: stripRect.bottom - layerRect.top + 26,
+    };
 }

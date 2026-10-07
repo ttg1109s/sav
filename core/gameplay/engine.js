@@ -143,3 +143,21 @@ function setGameDifficultyPreference(gameId, difficulty) {
     appConfigViz.mutateAll(cfg => { cfg.gameplayDifficultyByGame[gameId] = difficulty; });
     console.log(`writer: "setGameDifficultyPreference", page: "gameplayDifficultyByGame.${gameId}", content: "${difficulty}"`);
 }
+
+// ===================== MỚI (07/10/2026, game "Arrow") — điều khiển media DÙNG CHUNG mọi mode =====================
+// Workflow không tự .pause()/.play()/.currentTime= (event-bus-flow.md §7.1) — gọi 2 hàm này, truyền phần tử từ
+// getActiveMediaElement() (core/player-controls.js). Đặt ở engine.js (không phải engine-ui.js — không dựng UI, Rule 5c).
+
+/** Đưa media đang chơi về đầu — PAUSE trước rồi seek 0 (cùng thứ tự workflowGameplay.start()/replay()/exitToPlaylist()
+ * của Circle). Vô hại khi đã dừng/đã ở 0. `mediaEl` = getActiveMediaElement() (audio / video / đồng hồ giả Photo). */
+function resetGameplayMediaToStart(mediaEl) {
+    mediaEl.pause();
+    mediaEl.currentTime = 0;
+}
+
+/** Phát media lúc hết đếm ngược. `play()` của audio/video trả Promise (có thể bị từ chối) — bắt lỗi ghi log; đồng hồ
+ * giả Photo không trả gì. */
+function startGameplayMedia(mediaEl) {
+    const playResult = mediaEl.play();
+    if (playResult && typeof playResult.catch === 'function') playResult.catch((err) => console.error('[startGameplayMedia] play() lỗi:', err));
+}

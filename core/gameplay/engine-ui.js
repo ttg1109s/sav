@@ -178,17 +178,3 @@ function setGameplayLayerMode(layerEl, mode) {
 function setGameplayPlayerBarHidden(playerContainerEl, hidden) {
     playerContainerEl.classList.toggle('gameplay-controls-hidden', hidden);
 }
-
-/** Đưa media đang chơi về đầu — PAUSE trước rồi seek 0 (cùng thứ tự workflowGameplay.start()/replay()/exitToPlaylist()
- * của Circle). Vô hại khi đã dừng/đã ở 0. `mediaEl` = getActiveMediaElement() (audio / video / đồng hồ giả Photo). */
-function resetGameplayMediaToStart(mediaEl) {
-    mediaEl.pause();
-    mediaEl.currentTime = 0;
-}
-
-/** Phát media lúc hết đếm ngược. `play()` của audio/video trả Promise (có thể bị từ chối) — bắt lỗi ghi log; đồng hồ
- * giả Photo không trả gì. */
-function startGameplayMedia(mediaEl) {
-    const playResult = mediaEl.play();
-    if (playResult && typeof playResult.catch === 'function') playResult.catch((err) => console.error('[startGameplayMedia] play() lỗi:', err));
-}
