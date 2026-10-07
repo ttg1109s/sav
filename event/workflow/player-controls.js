@@ -266,6 +266,11 @@ const workflowPlayerControls = {
     _seekGateToken: 0, // tăng mỗi lần `runGatedSeek()` — lệnh seek mới HƠN thay thế lệnh cũ (lệnh cũ tự bỏ dở, KHÔNG mở tiếng/không play() nữa)
     _seekGateHeldEl: null,  // media mà CỔNG tự pause/nạp lại và sẽ tự play() lại — sự kiện của nó bị bỏ qua, xem isHeldBySeekGate()
     _seekGateHeldSrc: '',   // currentSrc lúc cổng giữ — media đổi (Next/chọn bài) thì hold tự hết hiệu lực
+    // MỚI (07/10/2026, sửa "cử chỉ seek tiến/lùi đều bị phát lại từ đầu") — lệnh cổng đang chạy: Song nạp lại nguồn nên
+    // trong lúc chờ 'loadedmetadata' currentTime = 0, duration = NaN -> nơi khác đọc vị trí lúc đó sẽ ra 0. Xem getSeekGatePosition().
+    _seekGateActiveEl: null,     // media có lệnh cổng đang chạy (null = không có)
+    _seekGateTargetSec: 0,       // mốc của lệnh cổng đang chạy — vị trí "thật" trong lúc cổng chạy
+    _seekGatePlayRequested: false, // nơi gọi xin play() SAU khi cổng xong (playAfterSeekGate()) — không play() giữa lúc nạp lại
 
     /**
      * [v3 — 25/09/2026] Seek KHÔNG lọt âm thanh CŨ. Lịch sử + số liệu đo trên máy thật (iPhone, log Debug console):
@@ -297,6 +302,8 @@ const workflowPlayerControls = {
         const srcAtStart = mediaEl.currentSrc;
         const startMs = performance.now();
         const isSong = mediaEl === audioPlayer;
+        this._seekGateActiveEl = mediaEl;
+        this._seekGateTargetSec = targetSec;
         this._setMasterGainForSeekGate(true);
 
         // Giữ media: Song LUÔN giữ (nạp lại tự pause, kể cả đang dừng — để 'timeupdate' về 0 không lọt ra UI); Video chỉ
@@ -336,16 +343,18 @@ const workflowPlayerControls = {
         // Mở tiếng TRƯỚC rồi mới play() (play() lúc trang không ra tiếng làm iOS bỏ Next/Prev ở màn hình khoá — xem lịch sử v2).
         this._setMasterGainForSeekGate(false);
         const heldByGate = this.isHeldBySeekGate(mediaEl);
-        const shouldPlay = resumeAfter || (heldByGate && this._seekGateResume);
+        const shouldPlay = resumeAfter || (heldByGate && this._seekGateResume) || this._seekGatePlayRequested;
         if (shouldPlay) {
             try {
                 await mediaEl.play(); // promise xong SAU khi sự kiện 'play' đã qua listener -> hold còn nguyên lúc đó -> bị bỏ qua đúng ý
             } catch (err) {
                 console.error('[workflowPlayerControls] runGatedSeek: play() lỗi sau seek:', err);
+                this._clearSeekGateActive();
                 if (heldByGate) { this._releaseSeekGateHold(mediaEl, true); return false; } // không phát lại được -> báo 'pause' THẬT cho UI
             }
             if (token !== this._seekGateToken) return false;
         }
+        this._clearSeekGateActive();
         if (heldByGate) this._releaseSeekGateHold(mediaEl, false);
         if (isSong) updateMediaPositionState(); // core/player-controls.js — Media Session đúng vị trí mới (nạp lại đã reset)
         console.log(`[seekGate] ${isSong ? 'song (nạp lại)' : 'video'} ${wasPlaying ? 'đang phát' : 'đang dừng'} -> ${targetSec.toFixed(2)}s | tổng ${Math.round(performance.now() - startMs)}ms`);
@@ -371,6 +380,29 @@ const workflowPlayerControls = {
     },
     _seekGateResume: false, // media ĐANG PHÁT lúc cổng bắt đầu giữ -> cuối cổng play() lại
 
+    /** MỚI (07/10/2026) — vị trí hiện tại của `mediaEl` cho nơi cần TÍNH mốc seek tiếp theo (cử chỉ seek-hold): đang có lệnh
+     * cổng chạy trên media này -> trả mốc của lệnh đó (Song nạp lại nguồn, currentTime tạm = 0 tới khi seek xong); không có
+     * -> currentTime thật. @param {HTMLMediaElement} mediaEl @returns {number} */
+    getSeekGatePosition(mediaEl) {
+        if (this._seekGateActiveEl === mediaEl) return this._seekGateTargetSec;
+        return mediaEl.currentTime || 0;
+    },
+
+    /** MỚI (07/10/2026) — xin phát lại `mediaEl`: đang có lệnh cổng chạy trên nó -> để cổng play() SAU khi seek xong + mở
+     * tiếng (play() giữa lúc Song nạp lại nguồn sẽ phát từ 0:00 rồi mới nhảy tới mốc, lọt tiếng đầu bài); không có -> play() ngay.
+     * @param {HTMLMediaElement} mediaEl */
+    playAfterSeekGate(mediaEl) {
+        if (this._seekGateActiveEl === mediaEl) { this._seekGatePlayRequested = true; return; }
+        mediaEl.play().catch((err) => console.error('[workflowPlayerControls] playAfterSeekGate: play() lỗi:', err));
+    },
+
+    /** Lệnh cổng đang chạy đã xong/huỷ hẳn — dọn mốc + lời xin play(). */
+    _clearSeekGateActive() {
+        this._seekGateActiveEl = null;
+        this._seekGateTargetSec = 0;
+        this._seekGatePlayRequested = false;
+    },
+
     /** Bỏ hold. `notifyPaused` = true khi media vẫn đứng yên (play() lỗi) — gửi lại 'pause' THẬT để UI/đồng hồ đồng bộ đúng.
      * @param {HTMLMediaElement} mediaEl @param {boolean} notifyPaused */
     _releaseSeekGateHold(mediaEl, notifyPaused) {
@@ -384,6 +416,7 @@ const workflowPlayerControls = {
 
     /** Media đổi giữa lúc cổng đang chạy — thả mọi thứ: bỏ hold (media mới tự lo play/pause của nó), mở tiếng ngay. */
     _abortSeekGate() {
+        this._clearSeekGateActive(); // media mới tự lo play/pause — bỏ luôn lời xin play() của media cũ
         this._seekGateHeldEl = null;
         this._seekGateHeldSrc = '';
         this._seekGateResume = false;

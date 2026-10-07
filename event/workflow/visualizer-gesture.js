@@ -52,7 +52,8 @@
  *
  * Seek THẬT qua message CÓ SẴN 'playerControls.progressBar.seekCommit' (y hệt buông tay kéo thanh
  * tiến trình) — TỰ đúng cho cả Song/Video (event/router/player-controls.js), không viết lại logic
- * seek. Pause/resume gọi THẲNG lên `bgVideoElement`/`audioPlayer` — 2 element này tự bắn sự kiện
+ * seek. Pause gọi THẲNG lên `bgVideoElement`/`audioPlayer`; resume qua workflowPlayerControls.playAfterSeekGate()
+ * (SỬA 07/10/2026 — chờ lệnh cổng seek cuối xong mới play()) — 2 element này tự bắn sự kiện
  * 'pause'/'play' NGUYÊN BẢN, các listener có sẵn (core/player-controls.js, event/listener/
  * video-player.js) tự lo icon/wake lock/Media Session, không cần dispatch gì thêm ở đây.
  *
@@ -150,6 +151,11 @@ const workflowVisualizerGesture = {
     _seekHoldMediaEl: null, // media element đang seek (chốt lúc kích hoạt, dùng xuyên suốt phiên)
     _seekHoldWasPlaying: false, // đang phát trước lúc pause để seek — biết có cần resume lúc dừng không
     _seekHoldTotalSec: 0, // tổng đã tua trong phiên hiện tại — hiện lên badge, cộng dồn mỗi tick
+    // MỚI (07/10/2026, sửa "seek tiến/lùi đều bị phát lại từ đầu") — vị trí + thời lượng do PHIÊN tự giữ, KHÔNG đọc lại từ
+    // media mỗi tick: Song đi qua cổng seek v3 (nạp lại nguồn) -> trong lúc chờ 'loadedmetadata' currentTime = 0, duration =
+    // NaN. Tick đọc đúng lúc đó: tiến -> 0 + bước; lùi -> kẹp về 0 + coi là chạm biên -> dừng phiên -> phát lại từ đầu.
+    _seekHoldPositionSec: 0, // mốc đã gửi gần nhất (khởi đầu = vị trí lúc kích hoạt)
+    _seekHoldDurationSec: 0, // thời lượng chốt lúc kích hoạt
 
     /** Ứng với 'visualizerGesture.touch.start'. @param {number} x @param {number} y */
     handleTouchStart(x, y) {
@@ -283,9 +289,16 @@ const workflowVisualizerGesture = {
      * file). */
     _activateSeekHold() {
         const isVideo = appState.get('isVideoPlayerMode');
-        this._seekHoldMediaEl = isVideo ? bgVideoElement : audioPlayer;
-        this._seekHoldWasPlaying = !this._seekHoldMediaEl.paused;
-        this._seekHoldMediaEl.pause();
+        const mediaEl = isVideo ? bgVideoElement : audioPlayer;
+        // MỚI (07/10/2026) — chốt thời lượng + vị trí 1 lần lúc kích hoạt. Media chưa có thời lượng (chưa nạp xong) -> không
+        // vào seek mode (kẹp biên với duration 0 sẽ ra mốc 0 = phát lại từ đầu).
+        const durationSec = mediaEl.duration;
+        if (!Number.isFinite(durationSec) || durationSec <= 0) return; // guard
+        this._seekHoldDurationSec = durationSec;
+        this._seekHoldPositionSec = workflowPlayerControls.getSeekGatePosition(mediaEl); // event/workflow/player-controls.js — cổng đang chạy thì lấy mốc của nó
+        this._seekHoldMediaEl = mediaEl;
+        this._seekHoldWasPlaying = !mediaEl.paused;
+        mediaEl.pause();
 
         this._seekHoldActive = true;
         this._seekHoldTotalSec = 0;
@@ -295,23 +308,24 @@ const workflowVisualizerGesture = {
         taskManager.operator(SEEK_HOLD_TICK_TASK, 'enabled');
     },
 
-    /** 1 lần tua — đọc currentTime/duration TRỰC TIẾP từ `_seekHoldMediaEl` (chốt lúc kích hoạt),
-     * di chuyển theo Time 1 (gestureSeekStepMs — ĐƠN VỊ NHẢY, KHÁC Time 2 là nhịp lặp gọi hàm
+    /** 1 lần tua — tính từ mốc phiên tự giữ (`_seekHoldPositionSec`, chốt lúc kích hoạt rồi cộng dồn — SỬA 07/10/2026, trước
+     * đây đọc currentTime/duration của media mỗi tick), di chuyển theo Time 1 (gestureSeekStepMs — ĐƠN VỊ NHẢY, KHÁC Time 2 là nhịp lặp gọi hàm
      * này), kẹp biên (core), commit qua message CÓ SẴN, cộng dồn + cập nhật badge. Chạm biên -> tự
      * dừng. */
     _runSeekTick() {
-        const mediaEl = this._seekHoldMediaEl;
-        const durationSec = mediaEl.duration || 0;
-        const currentSec = mediaEl.currentTime || 0;
+        // SỬA (07/10/2026) — tính từ mốc phiên tự giữ (`_seekHoldPositionSec`/`_seekHoldDurationSec`), KHÔNG đọc currentTime/
+        // duration của media: lệnh cổng seek của tick trước có thể còn đang nạp lại nguồn (Song) -> currentTime = 0.
         const stepSec = (appConfigViz.getAll().gestureSeekStepMs || 2000) / 1000; // Time 1 — đơn vị nhảy
-        const targetSec = currentSec + this._seekHoldDirection * stepSec;
-        const { clampedSec, hitBoundary } = clampSeekPosition(targetSec, durationSec); // core/visualizer-gesture.js
+        const fromSec = this._seekHoldPositionSec;
+        const targetSec = fromSec + this._seekHoldDirection * stepSec;
+        const { clampedSec, hitBoundary } = clampSeekPosition(targetSec, this._seekHoldDurationSec); // core/visualizer-gesture.js
+        this._seekHoldPositionSec = clampedSec;
         // SỬA 21/09/2026 — `fromGesture: true`: nhánh Video của router KHÔNG có "phiên kéo" nào cho cử chỉ (không có 'seeking' trước), bản cũ bị
         // `handleVideoSeekCommit()` coi là phiên cũ (`_seekGeneration` null) nên bỏ qua hẳn -> seek-hold ở Video không làm gì. Cờ này cho nó
         // đi nhánh riêng (media đã bị `_activateSeekHold()` pause, seek chính xác + KHÔNG tự play() — `_stopSeekHold()` lo resume).
         eventBus.send({ router: 'playerControls', type: 'playerControls.progressBar.seekCommit', payload: { value: clampedSec, fromGesture: true } });
 
-        this._seekHoldTotalSec += stepSec;
+        this._seekHoldTotalSec += Math.abs(clampedSec - fromSec); // SỬA 07/10/2026 — chạm biên chỉ cộng phần thật sự tua
         const sign = this._seekHoldDirection > 0 ? '+' : '-';
         showSeekHoldIndicator(this._seekHoldDirection, `${sign}${this._seekHoldTotalSec.toFixed(1)}s`); // core/visualizer-gesture.js
 
@@ -324,7 +338,9 @@ const workflowVisualizerGesture = {
         taskManager.kill(SEEK_HOLD_TICK_TASK);
         this._seekHoldActive = false;
         hideSeekHoldIndicator(); // core/visualizer-gesture.js
-        if (this._seekHoldWasPlaying && this._seekHoldMediaEl) this._seekHoldMediaEl.play().catch(() => {});
+        // SỬA (07/10/2026) — không play() thẳng: lệnh cổng seek của tick cuối có thể còn đang nạp lại nguồn (Song) -> play() lúc
+        // đó phát từ 0:00 rồi mới nhảy tới mốc (nghe như phát lại từ đầu). Để cổng play() sau khi seek xong.
+        if (this._seekHoldWasPlaying && this._seekHoldMediaEl) workflowPlayerControls.playAfterSeekGate(this._seekHoldMediaEl); // event/workflow/player-controls.js
         this._seekHoldMediaEl = null;
     },
 };
