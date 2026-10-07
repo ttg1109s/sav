@@ -89,7 +89,7 @@ function showSelectionIndicator(node, key, selectedMediaKeys, themeClasses) {
     const indicator = document.createElement('div');
     indicator.dataset.role = 'selection-indicator';
     indicator.className = `absolute top-2 left-2 z-10 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors border-transparent ${themeClasses.indicatorSelected}`;
-    indicator.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+    indicator.innerHTML = renderSelectionIndicatorCheckHtml(); // components/playlist-view.js — SỬA 07/10/2026: chuỗi icon dời khỏi core
     node.appendChild(indicator);
 }
 

@@ -19,30 +19,8 @@
  * relocate đợt này, xem docstring từng hàm).
  */
 
-        function songActionMenuButtonHtml(key, onDarkBg) {
-            // FIX (11/07/2026, phản hồi Giang — "thiếu dấu ba chấm như trước đây mỗi song item"):
-            // NGUYÊN NHÂN THẬT (đợt trước đoán SAI là do màu/nền — Giang xác nhận không liên quan):
-            // 2 chỗ GỌI hàm này (dòng ~104/118 bên dưới) bọc nút trong
-            // `opacity-0 group-hover:opacity-100` — CHỈ hiện khi HOVER CHUỘT THẬT. Cảm ứng KHÔNG
-            // CÓ hover thật — trước đây WebKit "giả lập" hover khi chạm (đúng bug "hover kẹt" đã
-            // sửa ở index.html qua `tailwind.config.future.hoverOnlyWhenSupported`), nên NÚT NÀY
-            // TỪNG hiện ra được là NHỜ chính cái bug đó — sửa xong bug hover kẹt (đúng), tác dụng
-            // phụ là nút này mất luôn khả năng hiện trên cảm ứng (chưa từng có cách hiện HỢP LỆ).
-            // Đã xoá `opacity-0 group-hover:opacity-100` ở 2 nơi gọi — LUÔN hiện, không phụ thuộc
-            // hover.
-            // SỬA (09/09/2026, Giang yêu cầu "bỏ vòng tròn bao quanh, sửa màu") — bỏ hẳn nền tròn mờ
-            // riêng của CHÍNH nút này (`rounded-full bg-black/30`) — Grid view vẫn có vòng tròn
-            // riêng BỌC NGOÀI (`bg-black/40`, event/workflow/playlist-render.js dòng ~79, KHÔNG phải
-            // ở đây) nên vẫn đủ tương phản trên ảnh bìa bất kỳ. Màu icon giờ tách theo `onDarkBg`
-            // (tham số MỚI — nơi gọi tự truyền `appState.get('isGridView')`): List view (false) nút
-            // nằm trực tiếp trên nền sáng -> icon tối; Grid view (true) nút nằm trong vòng tròn tối
-            // ở trên -> icon vẫn phải sáng.
-            const colorCls = onDarkBg ? 'text-white/70 hover:text-white' : ''; // trên nền tối cố định (vòng tròn đen đè ảnh bìa) — không theo theme
-            const themeKeyAttr = onDarkBg ? '' : ' data-uitk="iconBtnMuted"'; // SỬA 21/09/2026 — nền theo theme: màu icon/hover là key theme, không còn text-slate-400/700 cứng
-            return `<button data-action="menu" data-key="${key}" class="p-2 rounded-full transition-colors z-10 ${colorCls}"${themeKeyAttr} title="${t('playlistView.songMenu.title')}">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 6a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg>
-            </button>`;
-        }
+        // DỜI (07/10/2026, rà soát SVG — Rule 5d) — `songActionMenuButtonHtml(key, onDarkBg)` (chỉ là template HTML nút 3 chấm)
+        // sang components/playlist-view.js::renderSongActionMenuButtonHtml(), thân + toàn bộ ghi chú lịch sử giữ nguyên.
 
         /**
          * Ver 8 refine (mục 4 — lỗi ảnh cover không hiển thị): GẮN onerror NGAY SAU khi tạo

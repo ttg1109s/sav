@@ -277,7 +277,7 @@
             songEditAlbumInput.value = tag.album || '';
         }
 
-        /** Gán nội dung tab "Chi tiết" (HTML dựng sẵn từ songInfoRowHtml() ở Workflow — giá trị người dùng đã escape). */
+        /** Gán nội dung tab "Chi tiết" (HTML dựng sẵn từ renderSongInfoRowHtml() — components/playlist-view.js, gọi từ Workflow — giá trị người dùng đã escape). */
         function setSongEditDetailsHtml(html) {
             songEditTabDetails.innerHTML = html;
         }
@@ -422,21 +422,5 @@
         // workflowPlaylist.exportSongWithTag()/exportVideoFile() — event/workflow/playlist.js,
         // Batch "Export dọn nợ kiến trúc" — không mất tính năng, chỉ gộp điểm vào).
 
-        /**
-         * SỬA (09/09/2026, Giang yêu cầu "xoá box bao quanh, làm phẳng") — TRƯỚC ĐÂY mỗi dòng là 1
-         * "card" riêng (nền + viền + bo góc, data-uitk="cardBg cardBorder") — bỏ hẳn, giờ chỉ còn 1
-         * hàng phẳng (icon tròn màu + label + giá trị), phân tách bằng đường viền mảnh phía dưới
-         * (border-b, trừ dòng CUỐI qua CSS `:last-child` ngay dưới) thay vì khối riêng biệt.
-         */
-        // SỬA 23/09/2026 (rà soát theme) — tham số thứ 2 giờ là TÊN HUE trong bảng `iconTone` (core/ui-theme/*.js) thay vì chuỗi class
-        // cứng `bg-X-100 text-X-600` (ô pastel chói trên nền Dark/Morphin). Light giữ đúng màu cũ.
-        function songInfoRowHtml(iconPath, hue, label, value) {
-            return `
-                <div class="flex items-center gap-3 py-2.5 border-b last:border-b-0" data-uitk="dividerBorder">
-                    <div class="w-7 h-7 rounded-full flex items-center justify-center shrink-0" data-uitk="iconTone:${hue}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${iconPath}" /></svg>
-                    </div>
-                    <span class="text-[11px] font-semibold uppercase tracking-wide shrink-0 w-[88px]" data-uitk="textSecondary">${label}</span>
-                    <span class="text-sm text-right flex-1 break-all" data-uitk="textPrimary">${value}</span>
-                </div>`;
-        }
+        // DỜI (07/10/2026, rà soát SVG — Rule 5d) — `songInfoRowHtml()` (template 1 dòng tab "Chi tiết") sang
+        // components/playlist-view.js::renderSongInfoRowHtml(), thân + ghi chú giữ nguyên.
