@@ -19,7 +19,7 @@
  * workflowStatisPanel / `_hardChainQueue` của Circle), không đưa vào appState. Core trả object kết quả, Workflow chỉ gán
  * lại (event-bus-flow.md mục 7.1). Rẽ nhánh theo kết quả nhập = object map (mục 7.2).
  *
- * NẠP SAU: core/gameplay/arrow-config.js, core/gameplay/arrow-mode.js, core/gameplay/arrow-mode-ui.js,
+ * NẠP SAU: core/gameplay/arrow-config.js, core/gameplay/arrow-mode.js, core/gameplay/arrow-stage.js,
  * core/gameplay/engine.js, core/gameplay/engine-ui.js, components/gameplay-arrow-stage.js
  * (renderGameplayArrowStripHtml), core/player-controls.js (getActiveMediaElement, setPlayerControlsBlocked),
  * event/workflow/gameplay-engine.js, event/workflow/gameplay.js (GAMEPLAY_NEXT_LABEL_KEY_BY_MEDIA),
@@ -40,6 +40,12 @@ const GAMEPLAY_ARROW_TIER_LABEL_KEY_BY_NAME = {
 const GAMEPLAY_ARROW_PLAY_COUNT_KEY_BY_PLURAL = {
     true: 'gameplayCircle.ended.playCountLabel.plural',
     false: 'gameplayCircle.ended.playCountLabel.singular',
+};
+// Nhãn độ khó ở modal kết quả — tra bảng thay vì ghép chuỗi key trong Workflow (§7.1).
+const GAMEPLAY_ARROW_DIFFICULTY_LABEL_KEY_BY_ID = {
+    easy: 'gameplayCircle.difficulty.easy',
+    medium: 'gameplayCircle.difficulty.medium',
+    hard: 'gameplayCircle.difficulty.hard',
 };
 // Phản hồi theo kết quả 1 lần bấm hướng (core applyArrowInput() trả `outcome`).
 const GAMEPLAY_ARROW_INPUT_FEEDBACK_BY_OUTCOME = {
@@ -69,13 +75,13 @@ const workflowGameplayArrow = {
         console.log(`writer: "workflowGameplayArrow.start", page: "gameplayPhase", content: "ready"`);
 
         workflowPlaceholderPanels.close(gamePanel); // event/workflow/placeholder-panels.js — idempotent
-        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode)); // core-ui (engine-ui.js) + core/player-controls.js
+        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode)); // core (engine.js) + core/player-controls.js
 
         setGameplayLayerMode(gameplayLayer, GAMEPLAY_ARROW_MODE_ID); // core-ui (engine-ui.js)
         showGameplayLayer(gameplayLayer); // core-ui (engine-ui.js)
         setPlayerControlsBlocked(true); // core (player-controls.js)
         setGameplayPlayerBarHidden(playerContainer, true); // core-ui (engine-ui.js)
-        paintArrowTargetZone(gameplayArrowZone, gameplayArrowTarget, computeArrowTargetZoneGeometry(GAMEPLAY_ARROW_CONFIG)); // core-ui + core
+        paintArrowTargetZone(gameplayArrowZone, gameplayArrowTarget, computeArrowTargetZoneGeometry(GAMEPLAY_ARROW_CONFIG)); // core (arrow-stage.js) + core
         this._paintIdleStage();
 
         this.startCountdown();
@@ -93,23 +99,18 @@ const workflowGameplayArrow = {
         appState.set('gameplayPhase', 'playing', { skipCheck: true });
         console.log(`writer: "workflowGameplayArrow._beginPlaying", page: "gameplayPhase", content: "playing"`);
         this._beginRound(performance.now());
-        startGameplayMedia(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode)); // core-ui (engine-ui.js)
+        startGameplayMedia(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode)); // core (engine.js)
     },
 
     /** Nút "Chơi lại" ở modal kết quả — media về đầu, phiên mới từ level đầu, thẳng vào đếm ngược. */
     replay() {
         const { isVideoPlayerMode, isPhotoPlayerMode, gameplayDifficulty } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode', 'gameplayDifficulty']);
-        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode)); // core-ui
+        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode)); // core (engine.js)
         this._resetSession(gameplayDifficulty);
         appState.set('gameplayPhase', 'ready', { skipCheck: true });
         console.log(`writer: "workflowGameplayArrow.replay", page: "gameplayPhase", content: "ready"`);
         this._paintIdleStage();
         this.startCountdown();
-    },
-
-    /** Nút "Bài tiếp theo" — sang media kế; tín hiệu 'gameplay.mediaChanged' tự mở lại phiên (game vẫn armed). */
-    nextSong() {
-        workflowPlayerControls.goToNextTrack(true); // event/workflow/player-controls.js
     },
 
     /** Thoát hẳn — nút X overlay / "Về Playlist" ở modal / disarm trên Game Panel (qua workflowGameplayEngine.
@@ -122,7 +123,7 @@ const workflowGameplayArrow = {
         taskManager.kill(GAMEPLAY_SCORE_COUNTUP_TASK);
         this._round = null;
 
-        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode)); // core-ui
+        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode)); // core (engine.js)
         hideGameplayCountdown(gameplayCountdownScreen); // core-ui
         hideGameplayLayer(gameplayLayer); // core-ui
         setPlayerControlsBlocked(false); // core (player-controls.js)
@@ -173,11 +174,11 @@ const workflowGameplayArrow = {
             },
             title: escapeHtml(title), // core (modal-choice-ui.js) — tên file/tag là dữ liệu người dùng
             durationLabel,
-            difficultyLabel: t(`gameplayCircle.difficulty.${gameplayDifficulty}`),
+            difficultyLabel: t(GAMEPLAY_ARROW_DIFFICULTY_LABEL_KEY_BY_ID[gameplayDifficulty] || GAMEPLAY_ARROW_DIFFICULTY_LABEL_KEY_BY_ID.hard),
             playCountLabel: tFormat(GAMEPLAY_ARROW_PLAY_COUNT_KEY_BY_PLURAL[extras.isPluralPlayCount], { count: playCount }),
             nextLabel: t(nextLabelKey),
             onReplay: () => this.replay(),
-            onNext: () => this.nextSong(),
+            onNext: () => workflowPlayerControls.goToNextTrack(true), // event/workflow/player-controls.js — sang media kế; 'gameplay.mediaChanged' tự mở lại phiên (game vẫn armed)
             onEnd: () => this.exitToPlaylist(),
         });
     },
@@ -196,7 +197,7 @@ const workflowGameplayArrow = {
         round.elapsedMs = step.elapsedMs;
         round.lastTickAt = now;
         round.progressPercent = step.progressPercent;
-        paintArrowCursor(gameplayArrowCursorRail, gameplayArrowTrackFill, step.progressPercent); // core-ui
+        paintArrowCursor(gameplayArrowCursorRail, gameplayArrowTrackFill, step.progressPercent); // core (arrow-stage.js)
 
         if (step.hasWrapped) this._finishRound(now); // bước tuỳ chọn — chạm 100%
     },
@@ -245,11 +246,11 @@ const workflowGameplayArrow = {
         const timing = computeArrowRoundTiming(audioAnalysis.bpmText(), this._lap, this._diffCfg, cfg); // core + service/audio-analysis.js
         this._round = { arrows, inputIndex: 0, periodMs: timing.periodMs, elapsedMs: 0, lastTickAt: now, progressPercent: 0, isResolved: false };
 
-        paintArrowStrip(gameplayArrowStrip, renderGameplayArrowStripHtml(arrows)); // core-ui + components/gameplay-arrow-stage.js
-        paintArrowStripProgress(gameplayArrowStrip, 0); // core-ui
-        paintArrowCommitReady(btnGameplayArrowCommit, false); // core-ui
-        paintArrowCursor(gameplayArrowCursorRail, gameplayArrowTrackFill, 0); // core-ui
-        paintArrowHud(gameplayArrowLevel, gameplayArrowSpeed, this._level, timing.speedMultiplier); // core-ui
+        paintArrowStrip(gameplayArrowStrip, renderGameplayArrowStripHtml(arrows)); // core (arrow-stage.js) + components/gameplay-arrow-stage.js
+        paintArrowStripProgress(gameplayArrowStrip, 0); // core (arrow-stage.js)
+        paintArrowCommitReady(btnGameplayArrowCommit, false); // core (arrow-stage.js)
+        paintArrowCursor(gameplayArrowCursorRail, gameplayArrowTrackFill, 0); // core (arrow-stage.js)
+        paintArrowHud(gameplayArrowLevel, gameplayArrowSpeed, this._level, timing.speedMultiplier); // core (arrow-stage.js)
     },
 
     /** Nút tròn chạm 100%: vòng chưa commit -> miss; lên level rồi mở vòng mới. */
@@ -280,30 +281,30 @@ const workflowGameplayArrow = {
         appState.set('gameplayHitCounts', totals.hitCounts, { skipCheck: true });
         console.log(`writer: "workflowGameplayArrow._resolveRound", page: "gameplayHitCounts", content: "${tier.name}+1"`);
 
-        paintArrowStripResult(gameplayArrowStrip, tier.name); // core-ui
-        paintArrowCommitReady(btnGameplayArrowCommit, false); // core-ui
-        const anchor = measureArrowPopupAnchor(gameplayArrowStrip, gameplayLayer); // core-ui
+        paintArrowStripResult(gameplayArrowStrip, tier.name); // core (arrow-stage.js)
+        paintArrowCommitReady(btnGameplayArrowCommit, false); // core (arrow-stage.js)
+        const anchor = computeArrowPopupAnchor(gameplayArrowStrip.getBoundingClientRect(), gameplayLayer.getBoundingClientRect()); // đọc kích thước (chuẩn bị) -> core thuần tính toạ độ
         showTapTierPopup(gameplayTierPopupLayer, t(GAMEPLAY_ARROW_TIER_LABEL_KEY_BY_NAME[tier.name]), tier.name, anchor.x, anchor.y, newComboByTier[tier.name] || 0, cfg); // core-ui (engine-ui.js)
     },
 
     /** Bấm đúng — tô lại tiến độ dải; `isComplete` -> nút Enter sáng chờ commit. */
     _paintInputProgress(isComplete) {
-        paintArrowStripProgress(gameplayArrowStrip, this._round.inputIndex); // core-ui
-        paintArrowCommitReady(btnGameplayArrowCommit, isComplete); // core-ui
+        paintArrowStripProgress(gameplayArrowStrip, this._round.inputIndex); // core (arrow-stage.js)
+        paintArrowCommitReady(btnGameplayArrowCommit, isComplete); // core (arrow-stage.js)
     },
 
     /** Bấm sai — mọi ô về chưa nhập, dải rung. */
     _paintWrongInput() {
-        paintArrowStripProgress(gameplayArrowStrip, this._round.inputIndex); // core-ui (inputIndex đã về 0)
-        paintArrowCommitReady(btnGameplayArrowCommit, false); // core-ui
-        flashArrowStripWrong(gameplayArrowStrip); // core-ui
+        paintArrowStripProgress(gameplayArrowStrip, this._round.inputIndex); // core (arrow-stage.js) (inputIndex đã về 0)
+        paintArrowCommitReady(btnGameplayArrowCommit, false); // core (arrow-stage.js)
+        flashArrowStripWrong(gameplayArrowStrip); // core (arrow-stage.js)
     },
 
     /** Stage rỗng (trước đếm ngược / sau khi thoát / hết bài): không dải, nút tròn ở 0%, Enter tắt, HUD level đầu. */
     _paintIdleStage() {
-        paintArrowStrip(gameplayArrowStrip, ''); // core-ui
-        paintArrowCursor(gameplayArrowCursorRail, gameplayArrowTrackFill, 0); // core-ui
-        paintArrowCommitReady(btnGameplayArrowCommit, false); // core-ui
-        paintArrowHud(gameplayArrowLevel, gameplayArrowSpeed, this._level, 1); // core-ui
+        paintArrowStrip(gameplayArrowStrip, ''); // core (arrow-stage.js)
+        paintArrowCursor(gameplayArrowCursorRail, gameplayArrowTrackFill, 0); // core (arrow-stage.js)
+        paintArrowCommitReady(btnGameplayArrowCommit, false); // core (arrow-stage.js)
+        paintArrowHud(gameplayArrowLevel, gameplayArrowSpeed, this._level, 1); // core (arrow-stage.js)
     },
 };

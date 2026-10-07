@@ -94,6 +94,7 @@ const workflowGameplay = {
      * đó) — dòng NÀY vẫn giữ làm lớp phòng thủ thứ 2 cho lối vào 'gameplay.mediaChanged' (bài mới
      * đổi lúc đã armed từ trước), gọi trùng 2 lần không hại gì (idempotent). */
     start(mode) {
+        const { isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode']); // SỬA 07/10/2026 — gộp 1 lần get (§4B)
         this._resetSessionCounters();
         appState.set('gameplayMode', mode, { skipCheck: true });
         console.log(`writer: "workflowGameplay.start", page: "gameplayMode", content: "${mode}"`);
@@ -108,9 +109,8 @@ const workflowGameplay = {
         // KIỆN, không branch theo trạng thái hiện tại (đang phát/đang dừng/đang seek dở) — .pause()
         // trên phần tử đã pause sẵn hay .currentTime=0 trên phần tử đã ở 0 đều vô hại (no-op thật
         // sự), nên không cần if nào phân biệt "đang ở đâu" trước khi reset.
-        const activeEl = getActiveMediaElement(appState.get('isVideoPlayerMode'), appState.get('isPhotoPlayerMode')); // core/player-controls.js
-        activeEl.pause();
-        activeEl.currentTime = 0;
+        // SỬA 07/10/2026 — pause + seek 0 qua core (Workflow không tự điều khiển media, §7.1), thứ tự giữ nguyên.
+        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode)); // core (engine.js) + core/player-controls.js
 
         setGameplayLayerMode(gameplayLayer, 'circle'); // core-ui (engine-ui.js) — MỚI 07/10/2026: hiện canvas/tap-surface, ẩn stage Arrow
         showGameplayLayer(gameplayLayer); // core-ui (engine-ui.js)

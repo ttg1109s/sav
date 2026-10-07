@@ -72,7 +72,7 @@ const workflowGameCatalog = {
      * ĐÚNG game này. Có bài/video load sẵn (`currentKey`) -> vào game LUÔN (KHÔNG còn modal chọn độ
      * khó/Start, xem event/workflow/gameplay.js::start()). */
     armGame(gameId) {
-        const armedGameId = appState.get('gameplayArmedGameId');
+        const { gameplayArmedGameId: armedGameId, currentKey } = appState.get(['gameplayArmedGameId', 'currentKey']); // SỬA 07/10/2026 — gộp 1 lần get (§4B)
         if (armedGameId && armedGameId !== gameId) return;
 
         setGameplayArmedGameId(gameId); // core (engine.js)
@@ -84,7 +84,7 @@ const workflowGameCatalog = {
         workflowPlaceholderPanels.close(gamePanel); // event/workflow/placeholder-panels.js — liên tuyến domain, ĐÚNG hành động nút X, VÔ ĐIỀU KIỆN
         this.renderList();
 
-        if (appState.get('currentKey')) workflowGameplayEngine.startMode(gameId); // event/workflow/gameplay-engine.js — SỬA 07/10/2026: mở ĐÚNG mode (Circle/Arrow), liên tuyến domain
+        if (currentKey) workflowGameplayEngine.startMode(gameId); // event/workflow/gameplay-engine.js — SỬA 07/10/2026: mở ĐÚNG mode (Circle/Arrow), liên tuyến domain
     },
 
     /** Ứng với 'gameCatalog.card.exit.click' — disarm. [Yêu cầu Giang mục 4 "phải thoát game đó ra
