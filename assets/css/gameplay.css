@@ -29,6 +29,7 @@
     animation: gameplayTierPopupFloat 650ms ease-out forwards;
     pointer-events: none;
     white-space: nowrap;
+    text-transform: uppercase; /* MỚI (07/10/2026, game Arrow) — Arrow truyền nhãn tier đã dịch (t()) thay vì tự viết hoa trong Workflow; Circle vốn truyền chữ hoa nên không đổi */
 }
 @keyframes gameplayTierPopupFloat {
     0%   { opacity: 0; transform: translateY(6px) scale(0.85); }
