@@ -146,7 +146,7 @@ const LANG_PATCH_FILE_MANAGER = {
     // core/file-manager/folder-list-ui.js (ĐÃ XOÁ HẲN, thay bằng grid Generic Drawer tái dùng
     // itemTemplateFolderTile() có sẵn — không hiện số bài/type badge nữa, đúng "không mở rộng gì").
     'fileManager.folderBrowser.listTitle': 'Folders',
-    'fileManager.folderBrowser.listInfo': 'Tap a folder to play only its media in the current source. Hold a folder for 1s to open its menu (rename, delete, filter settings, properties).', // MỚI 07/10/2026 (Giang)
+    'fileManager.folderBrowser.listInfo': 'Tap a folder to play only its media in the current source. Hold a folder for 1s to open its menu.', // MỚI 07/10/2026 (Giang)
     'fileManager.folderBrowser.defaultNewFolderName': 'Folder {n}',
     // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 4) — menu hành động giữ tay 1s trên 1
     // folder tile, xem event/workflow/file-manager-folder-browser.js::openTileActionsMenu().
