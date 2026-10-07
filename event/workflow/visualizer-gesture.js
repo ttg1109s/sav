@@ -312,12 +312,14 @@ const workflowVisualizerGesture = {
         const targetSec = fromSec + this._seekHoldDirection * stepSec;
         const { clampedSec, hitBoundary } = clampSeekPosition(targetSec, this._seekHoldDurationSec); // core/visualizer-gesture.js
         this._seekHoldPositionSec = clampedSec;
-        setProgressBarValue(clampedSec); // core/player-controls.js — không có ngón tay thật trên thanh, tự đặt thumb
-        eventBus.send({ router: 'playerControls', type: 'playerControls.progressBar.seeking', payload: { value: clampedSec } });
-
+        // SỬA (07/10/2026) — badge vẽ TRƯỚC khi gửi 'seeking': UI của cử chỉ không phụ thuộc nơi nhận (trước đây phụ đề Song ném lỗi
+        // trong 'seeking' -> badge không bao giờ hiện, nhịp lặp cũng không được dựng).
         this._seekHoldTotalSec += Math.abs(clampedSec - fromSec); // chạm biên chỉ cộng phần thật sự tua
         const sign = this._seekHoldDirection > 0 ? '+' : '-';
         showSeekHoldIndicator(this._seekHoldDirection, `${sign}${this._seekHoldTotalSec.toFixed(1)}s`); // core/visualizer-gesture.js
+
+        setProgressBarValue(clampedSec); // core/player-controls.js — không có ngón tay thật trên thanh, tự đặt thumb
+        eventBus.send({ router: 'playerControls', type: 'playerControls.progressBar.seeking', payload: { value: clampedSec } });
 
         if (hitBoundary) this._stopSeekHold(); // chạm biên 0 / (thời lượng - 1s) -> tự nhả "ngón tay ảo", commit ngay
     },
