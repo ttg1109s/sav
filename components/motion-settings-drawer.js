@@ -51,7 +51,7 @@ function renderMotionListBody(presets, paginationHtml) {
         <div data-motion-preset-tile="${escapeHtml(p.id)}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-3 cursor-pointer" data-uitk="cardBg cardBorder cardHoverBg">
             <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${escapeHtml(p.name)}</span>
             <button type="button" data-motion-preset-quickdelete="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full shrink-0" data-uitk="iconBtnDestructive" title="${t('motionPresetsDrawer.list.delete.title')}">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                ${iconSvg('trash', 'h-4 w-4')}
             </button>
         </div>
     `).join('');
@@ -68,7 +68,7 @@ function renderMotionListBody(presets, paginationHtml) {
  * @param {{id:string,name:string}[]} presets - đúng trang cần vẽ (Workflow đã cắt sẵn)
  * @param {string|null} selectedId - nháp đang chọn, null = "None" @param {string} [paginationHtml] */
 function renderMotionPickerBody(presets, selectedId, paginationHtml) {
-    const checkHtml = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="accentText" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>`;
+    const checkHtml = iconSvg('check', 'h-5 w-5 shrink-0', 'data-uitk="accentText"');
     const rowHtml = (id, name, isSelected) => `
         <div data-motion-picker-option="${escapeHtml(id)}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-3 cursor-pointer transition-colors" data-uitk="${isSelected ? 'rowActiveBg rowActiveBorder' : 'cardBg cardBorder cardHoverBg'}">
             <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${escapeHtml(name)}</span>
@@ -108,7 +108,7 @@ const MOTION_SETTINGS_BEATREACT_DIRECTIONS_Y = [
  * slider trong nhóm (event/workflow/motion-presets.js::randomizeBeatReactValues()/randomizePointMoveValues()).
  * @param {string} id @returns {string} */
 function motionRandomButtonHtml(id) {
-    return `<button type="button" id="${id}" class="w-7 h-7 flex items-center justify-center rounded-lg shrink-0" data-uitk="btnNeutralBg btnNeutralHoverBg btnNeutralText" title="${escapeHtml(t('motionPresetsDrawer.randomValues.title'))}"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5" stroke-linejoin="round"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor" stroke="none"/></svg></button>`;
+    return `<button type="button" id="${id}" class="w-7 h-7 flex items-center justify-center rounded-lg shrink-0" data-uitk="btnNeutralBg btnNeutralHoverBg btnNeutralText" title="${escapeHtml(t('motionPresetsDrawer.randomValues.title'))}">${iconSvg('dice', 'h-4 w-4')}</button>`;
 }
 
 /** Dựng các hàng (checkbox bật + [select hướng + checkbox reverse + tick Random Max] + ô nhập số +
@@ -306,7 +306,7 @@ function renderMotionEditBody(preset) {
                             <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.list.label">${t('motionSettingsDrawer.pointMove.list.label')}</span>
                             <span class="flex items-center gap-1.5 text-xs shrink-0" data-uitk="textSecondary">
                                 ${tFormat('motionSettingsDrawer.pointMove.list.count', { n: preset.pointMoves.length })}
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                                ${iconSvg('chevron-right', 'h-3.5 w-3.5')}
                             </span>
                         </button>
                         <div class="flex justify-between items-center p-4${preset.pointMoveRunMode === 'one' ? ' border-b' : ''}" data-uitk="dividerBorder cardHoverBg">
@@ -410,7 +410,7 @@ function renderPointMoveListBody(preset) {
             </div>
             <button type="button" id="btn-motion-pointmove-timing" class="flex justify-between items-center p-4 w-full text-left" data-uitk="cardHoverBg">
                 <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.timing.label">${t('motionSettingsDrawer.pointMove.timing.label')}</span>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                ${iconSvg('chevron-right', 'h-4 w-4 shrink-0', 'data-uitk="textMutedIcon"')}
             </button>
         </div>
     ` : '';
@@ -418,18 +418,18 @@ function renderPointMoveListBody(preset) {
         <div class="w-full px-2 py-2.5 rounded-2xl mb-2 flex items-center gap-1.5" data-uitk="cardBg cardBorder" data-ptmove-row="${escapeHtml(p.id)}">
             ${i === 0 ? `<span class="w-5 h-8 shrink-0"></span>` : `
             <span class="w-5 h-8 flex items-center justify-center shrink-0 cursor-grab touch-none" data-uitk="textMutedIcon" data-ptmove-drag-handle="${escapeHtml(p.id)}" title="${t('motionSettingsDrawer.pointMove.dragHandle.title')}">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><circle cx="6" cy="5" r="1.4"/><circle cx="14" cy="5" r="1.4"/><circle cx="6" cy="10" r="1.4"/><circle cx="14" cy="10" r="1.4"/><circle cx="6" cy="15" r="1.4"/><circle cx="14" cy="15" r="1.4"/></svg>
+                ${iconSvg('drag-handle', 'h-4 w-4')}
             </span>`}
             <input type="checkbox" data-ptmove-checkbox="${escapeHtml(p.id)}" class="w-4 h-4 rounded shrink-0" data-uitk="accentControl" ${p.checked ? 'checked' : ''} ${i === 0 ? 'disabled' : ''}>
             <span class="flex-1 text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${tFormat('motionSettingsDrawer.pointMove.itemName', { n: i })}</span>
             <button type="button" data-ptmove-duplicate="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full shrink-0" data-uitk="iconBtnAccent" title="${t('motionSettingsDrawer.pointMove.duplicate.title')}">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                ${iconSvg('duplicate', 'h-4 w-4')}
             </button>
             <button type="button" data-ptmove-delete="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full shrink-0 disabled:opacity-30 disabled:pointer-events-none" data-uitk="iconBtnDestructive" ${(canDelete && i !== 0) ? '' : 'disabled'} title="${t('motionPresetsDrawer.list.delete.title')}">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                ${iconSvg('trash', 'h-4 w-4')}
             </button>
             <button type="button" data-ptmove-edit="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full shrink-0" data-uitk="iconBtnAccent">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                ${iconSvg('pencil-alt', 'h-4 w-4')}
             </button>
         </div>
     `).join('');

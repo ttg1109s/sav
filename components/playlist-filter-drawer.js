@@ -26,13 +26,13 @@ function renderPlaylistFilterListBody(presets, activeId, paginationHtml) {
         const rowThemeKeys = isActive ? 'rowActiveBg rowActiveBorder' : 'cardBg cardBorder cardHoverBg';
         const actionsHtml = isActive
             ? `<button type="button" data-playlist-filter-quickunselect="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full" data-uitk="iconBtnCaution" title="${t('playlistFilterPresetsDrawer.list.unselect.title')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" /></svg>
+                    ${iconSvg('minus-sm', 'h-4 w-4')}
                 </button>`
             : `<button type="button" data-playlist-filter-quickselect="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full" data-uitk="iconBtnAccent" title="${t('playlistFilterPresetsDrawer.list.select.title')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    ${iconSvg('check', 'h-4 w-4')}
                 </button>
                 <button type="button" data-playlist-filter-quickdelete="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full" data-uitk="iconBtnDestructive" title="${t('playlistFilterPresetsDrawer.list.delete.title')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    ${iconSvg('trash', 'h-4 w-4')}
                 </button>`;
         return `
         <div data-playlist-filter-tile="${escapeHtml(p.id)}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-2 transition-colors cursor-pointer" data-uitk="${rowThemeKeys}">
@@ -179,15 +179,13 @@ function renderPlaylistFilterEditBody(preset, source, isActive) {
  * @returns {string}
  */
 function buildFolderFilterEditHeaderHtml() {
-    return `
-        <div class="flex justify-between items-center gap-2 px-5 pb-3" data-uitk="headerBorder">
-            <button id="btn-folder-filter-edit-back" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors shrink-0" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.back')}">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-            </button>
-            <h3 class="text-base font-bold truncate flex-1 text-center" data-uitk="headerTitle">${t('fileManager.folderBrowser.tileMenu.filterSettings')}</h3>
-            <button id="btn-folder-filter-edit-apply" type="button" class="shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold" data-uitk="btnPrimaryBg btnPrimaryHoverBg textOnAccent">${t('common.apply')}</button>
-        </div>
-    `;
+    // SỬA 07/10/2026 — header dùng chung buildDrawerHeaderHtml() (components/generic-drawer.js)
+    return buildDrawerHeaderHtml({
+        backId: 'btn-folder-filter-edit-back',
+        title: t('fileManager.folderBrowser.tileMenu.filterSettings'),
+        actionsHtml: `<button id="btn-folder-filter-edit-apply" type="button" class="shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold" data-uitk="btnPrimaryBg btnPrimaryHoverBg textOnAccent">${t('common.apply')}</button>`,
+        close: false,
+    });
 }
 
 /**

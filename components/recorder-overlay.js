@@ -22,7 +22,7 @@ const TPL_RECORDER_OVERLAY = `
                 <div class="recorder-edge-glow"></div>
 
                 <button id="btn-recorder-stop" class="absolute top-4 left-3 sm:left-6 z-20 w-10 h-10 shrink-0 flex items-center justify-center glass-panel hover:bg-white/10 rounded-full transition-colors shadow-lg pointer-events-auto" data-i18n-title="recorder.stop.title" title="${t('recorder.stop.title')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    ${iconSvg('x', 'h-5 w-5 text-slate-300')}
                 </button>
 
                 <div id="recorder-indicator" class="recorder-indicator glass-panel">
@@ -48,8 +48,8 @@ function renderRecorderReviewBody() {
             </div>
             <div class="flex items-center gap-3">
                 <button type="button" id="btn-recorder-preview-toggle" class="w-10 h-10 shrink-0 rounded-full flex items-center justify-center" data-uitk="btnPrimaryBg textOnAccent" title="${t('recorder.review.playPause')}">
-                    <svg id="recorder-preview-icon-play" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 001.5.86l10.5-6.5a1 1 0 000-1.72L9.5 4.64A1 1 0 008 5.5z" /></svg>
-                    <svg id="recorder-preview-icon-pause" xmlns="http://www.w3.org/2000/svg" class="hidden h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /></svg>
+                    ${iconSvg('play', 'h-5 w-5', 'id="recorder-preview-icon-play"')}
+                    ${iconSvg('pause', 'hidden h-5 w-5', 'id="recorder-preview-icon-pause"')}
                 </button>
                 <div class="flex flex-col min-w-0">
                     <span id="recorder-preview-time" class="text-sm font-medium tabular-nums">0:00 / 0:00</span>

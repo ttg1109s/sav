@@ -169,7 +169,7 @@ function renderFileManagerStorageManagementPanelBody() {
                                 <div class="text-sm font-medium" data-i18n="storageDrawer.scanBroken.label">${t('storageDrawer.scanBroken.label')}</div>
                                 <div class="text-xs mt-0.5" data-uitk="textSecondary" data-i18n="storageDrawer.scanBroken.hint">${t('storageDrawer.scanBroken.hint')}</div>
                             </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="categoryAccent:amber" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" /></svg>
+                            ${iconSvg('search', 'h-5 w-5 shrink-0', 'data-uitk="categoryAccent:amber"')}
                         </button>
                         <div id="storage-scan-result" class="hidden p-4 flex flex-col gap-3 border-t" data-uitk="dividerBorder">
                             <p id="storage-scan-summary" class="text-sm" data-uitk="textPrimary"></p>
@@ -199,7 +199,7 @@ function renderFileManagerStorageManagementPanelBody() {
                                 <div class="text-sm font-medium truncate" data-i18n="fileManager.cleanup.label">${t('fileManager.cleanup.label')}</div>
                                 <div class="text-xs mt-0.5" data-uitk="textSecondary" data-i18n="fileManager.cleanup.hint">${t('fileManager.cleanup.hint')}</div>
                             </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            ${iconSvg('trash', 'h-5 w-5 shrink-0', 'data-uitk="textMutedIcon"')}
                         </button>
                     </div>
                 </div>

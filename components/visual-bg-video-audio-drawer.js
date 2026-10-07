@@ -23,3 +23,27 @@ function renderVisualBgVideoAudioPanelBody(listHtml) {
                 </div>
 `;
 }
+
+/**
+ * MỚI (07/10/2026, rà soát SVG mục A — dời khỏi Workflow) — icon loa của 1 hàng Video audio: loa có sóng (bật) / loa gạch
+ * chéo (tắt), màu theo theme key `stateUitk` (Workflow chọn). Dùng chung lúc vẽ hàng lần đầu lẫn lúc đổi đúng 1 nút sau toggle.
+ * @param {boolean} enabled @param {string} stateUitk @returns {string}
+ */
+function renderVisualBgVideoAudioIconHtml(enabled, stateUitk) {
+    return iconSvg(enabled ? 'speaker-wave' : 'speaker-off', 'h-4 w-4', `data-uitk="${stateUitk}"`);
+}
+
+/**
+ * MỚI (07/10/2026, dời khỏi workflowVisualBg._buildVideoAudioRowsHtml()) — danh sách: tên video | icon loa (bật/tắt ngay) |
+ * "x%" (mở modal chỉnh mức). Mỗi hàng đã được Workflow tính sẵn trạng thái.
+ * @param {{key:string, name:string, enabled:boolean, volumePercent:number, stateUitk:string}[]} rows @returns {string}
+ */
+function renderVisualBgVideoAudioRowsHtml(rows) {
+    if (rows.length === 0) return `<div class="p-4 text-sm text-center" data-uitk="textSecondary">${t('visualBgSettingsDrawer.videoAudio.empty')}</div>`;
+    return rows.map(({ key, name, enabled, volumePercent, stateUitk }) => `
+        <div class="p-4 last:border-b-0 flex items-center gap-2 border-b" data-uitk="dividerBorder">
+            <span class="text-sm font-medium truncate min-w-0 flex-1">${escapeHtml(name)}</span>
+            <button type="button" data-visual-bg-video-audio-toggle="${escapeHtml(key)}" class="shrink-0 p-2 transition-colors">${renderVisualBgVideoAudioIconHtml(enabled, stateUitk)}</button>
+            <button type="button" data-visual-bg-video-audio-open-volume="${escapeHtml(key)}" class="shrink-0 px-1 py-2 transition-colors"><span data-visual-bg-video-audio-volume-display="${escapeHtml(key)}" class="text-xs font-mono tabular-nums" data-uitk="${stateUitk}">${volumePercent}%</span></button>
+        </div>`).join('');
+}

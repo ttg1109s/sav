@@ -55,7 +55,7 @@ const TPL_VIDEO_PREVIEW = `
             </div>
 
             <div id="video-preview-play-indicator" class="video-preview-play-indicator">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 001.5.87l11-6.5a1 1 0 000-1.74l-11-6.5A1 1 0 008 5.5z"/></svg>
+                ${iconSvg('play')}
             </div>
 
             <div id="video-preview-crop-layer" class="video-preview-crop-layer">
@@ -64,33 +64,33 @@ const TPL_VIDEO_PREVIEW = `
 
             <div id="video-preview-float-ui" class="video-preview-float-ui">
                 <button id="video-preview-close-btn" type="button" class="video-preview-float-btn video-preview-float-back">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M15 5l-7 7 7 7"/></svg>
+                    ${iconSvg('chevron-left')}
                 </button>
                 <button id="video-preview-more-btn" type="button" class="video-preview-float-btn video-preview-float-more">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+                    ${iconSvg('dots-horizontal')}
                 </button>
 
                 <div id="video-preview-toolbar" class="video-preview-toolbar">
                     <button id="video-preview-trim-tool-btn" type="button" class="video-preview-tool-item">
-                        <span class="video-preview-tool-circle"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="6" cy="6" r="2.6" stroke-width="2"/><circle cx="6" cy="18" r="2.6" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.2 7.5L20 17M8.2 16.5L20 7M13 12h.01"/></svg></span>
+                        <span class="video-preview-tool-circle">${iconSvg('scissors')}</span>
                         <span id="video-preview-trim-tool-label" class="video-preview-tool-label"></span>
                     </button>
                     <button id="video-preview-crop-tool-btn" type="button" class="video-preview-tool-item">
-                        <span class="video-preview-tool-circle"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 2v14a2 2 0 002 2h14M2 6h14a2 2 0 012 2v14"/></svg></span>
+                        <span class="video-preview-tool-circle">${iconSvg('crop-video')}</span>
                         <span id="video-preview-crop-tool-label" class="video-preview-tool-label"></span>
                     </button>
                     <button id="video-preview-rotate-btn" type="button" class="video-preview-tool-item">
-                        <span class="video-preview-tool-circle"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4a8 8 0 018 8a8 8 0 01-8 8a8 8 0 01-8-8"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1.5 9.5L4 12l3.5-1.5"/></svg></span>
+                        <span class="video-preview-tool-circle">${iconSvg('rotate')}</span>
                         <span id="video-preview-rotate-label" class="video-preview-tool-label"></span>
                     </button>
                     <button id="video-preview-flip-btn" type="button" class="video-preview-tool-item">
-                        <span class="video-preview-tool-circle"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 8L4 12l4 4M16 8l4 4-4 4"/></svg></span>
+                        <span class="video-preview-tool-circle">${iconSvg('flip-horizontal')}</span>
                         <span id="video-preview-flip-label" class="video-preview-tool-label"></span>
                     </button>
                     <!-- MỚI (29/09/2026, Giang) — Chụp khung hình đang dừng/phát của video trong editor, lưu vào
                          Photo. Bắn ĐÚNG event của nút Capture ở Control Center (xem core/file-manager/video-ui.js). -->
                     <button id="video-preview-capture-btn" type="button" class="video-preview-tool-item">
-                        <span class="video-preview-tool-circle"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg></span>
+                        <span class="video-preview-tool-circle">${iconSvg('camera')}</span>
                         <span id="video-preview-capture-label" class="video-preview-tool-label"></span>
                     </button>
                 </div>
@@ -135,16 +135,16 @@ const TPL_VIDEO_PREVIEW = `
                 <button type="button" class="video-preview-tool-btn video-preview-ratio-btn" data-ratio-idx="3"></button>
                 <button type="button" class="video-preview-tool-btn video-preview-ratio-btn" data-ratio-idx="4"></button>
                 <button id="video-preview-ratio-flip" type="button" class="video-preview-tool-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="video-preview-tool-btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 8L4 12l4 4M16 8l4 4-4 4"/></svg>
+                    ${iconSvg('flip-horizontal', 'video-preview-tool-btn-icon')}
                 </button>
             </div>
         </div>
 
         <div id="video-preview-save-bar" class="video-preview-save-bar">
             <button id="video-preview-save-mode-btn" type="button" class="video-preview-save-mode">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h9l5 5v9a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4v5h7"/></svg>
+                ${iconSvg('save-file')}
                 <span id="video-preview-save-mode-label"></span>
-                <svg class="video-preview-save-mode-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M6 9l6 6 6-6"/></svg>
+                ${iconSvg('chevron-down', 'video-preview-save-mode-chevron')}
             </button>
             <button id="video-preview-save-btn" type="button" class="video-preview-save-btn"></button>
         </div>

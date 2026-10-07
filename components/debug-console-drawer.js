@@ -19,13 +19,14 @@
  * trên #debug-console-list ở core/settings-misc-ui.js.
  */
 
-const DEBUG_CONSOLE_ICON_COPY = 'M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z';
-const DEBUG_CONSOLE_ICON_CHECK = 'M5 13l4 4L19 7';
-const DEBUG_CONSOLE_ICON_REMOVE = 'M6 18L18 6M6 6l12 12';
-const DEBUG_CONSOLE_ICON_TRASH = 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16';
+// SỬA 07/10/2026 — tên icon trong components/icons.js (trước là path SVG)
+const DEBUG_CONSOLE_ICON_COPY = 'duplicate';
+const DEBUG_CONSOLE_ICON_CHECK = 'check';
+const DEBUG_CONSOLE_ICON_REMOVE = 'x';
+const DEBUG_CONSOLE_ICON_TRASH = 'trash';
 
-function _renderDebugConsoleIconSvg(pathD, sizeClass) {
-    return `<svg xmlns="http://www.w3.org/2000/svg" class="${sizeClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${pathD}" /></svg>`;
+function _renderDebugConsoleIconSvg(iconName, sizeClass) {
+    return iconSvg(iconName, sizeClass); // core/theme/icon-svg-ui.js — SỬA 07/10/2026: kho icon chung
 }
 
 /** Icon của nút Copy TỪNG DÒNG — `isDone` true = dấu tick (báo đã copy xong, Workflow tự trả về icon

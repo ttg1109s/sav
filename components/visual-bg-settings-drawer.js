@@ -55,10 +55,10 @@ function renderVisualBgMediaPanelBody() {
                                 </div>
                                 <div class="flex items-center gap-1 shrink-0">
                                     <button type="button" id="setting-visual-bg-refresh-source" title="${t('visualBgSettingsDrawer.refreshSource.title')}" class="hidden w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="textSecondary hoverAccentText hoverAccentSoftBg">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                        ${iconSvg('refresh', 'h-4 w-4')}
                                     </button>
                                     <button type="button" id="setting-visual-bg-clear-source" title="${t('visualBgSettingsDrawer.clearSource.title')}" class="hidden w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="iconBtnDestructive">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 010 5.656l-3 3a4 4 0 01-5.656-5.656l1.5-1.5M10.172 13.828a4 4 0 010-5.656l3-3a4 4 0 015.656 5.656l-1.5 1.5M3 3l18 18" /></svg>
+                                        ${iconSvg('link-off', 'h-4 w-4')}
                                     </button>
                                 </div>
                             </div>
@@ -131,7 +131,7 @@ function renderVisualBgMediaPanelBody() {
                             <span class="text-sm font-medium shrink-0" data-i18n="visualBgSettingsDrawer.motion.label">${t('visualBgSettingsDrawer.motion.label')}</span>
                             <span class="flex items-center gap-1 min-w-0">
                                 <span data-visual-bg-motion-name class="text-xs truncate" data-uitk="textSecondary"></span>
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                                ${iconSvg('chevron-right', 'h-4 w-4 shrink-0', 'data-uitk="textMutedIcon"')}
                             </span>
                         </button>
 
@@ -149,13 +149,13 @@ function renderVisualBgMediaPanelBody() {
                         <!-- Hiện khi type='video' VÀ ≥1 item sống — Workflow tự toggle qua refreshPanelUI(). -->
                         <button id="setting-visual-bg-open-video-audio" class="flex justify-between items-center p-4 w-full text-left hidden" data-uitk="cardHoverBg">
                             <div class="flex items-center gap-3 min-w-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="accentText" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M12 6v12M6 9v6a2 2 0 002 2h2l4 4V3l-4 4H8a2 2 0 00-2 2z" /></svg>
+                                ${iconSvg('speaker-wave', 'h-5 w-5 shrink-0', 'data-uitk="accentText"')}
                                 <div class="min-w-0">
                                     <div class="text-sm font-medium truncate" data-i18n="visualBgSettingsDrawer.openVideoAudio.label">${t('visualBgSettingsDrawer.openVideoAudio.label')}</div>
                                     <div class="text-xs mt-0.5 truncate" data-uitk="textSecondary" data-i18n="visualBgSettingsDrawer.openVideoAudio.hint">${t('visualBgSettingsDrawer.openVideoAudio.hint')}</div>
                                 </div>
                             </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                            ${iconSvg('chevron-right', 'h-5 w-5 shrink-0', 'data-uitk="textMutedIcon"')}
                         </button>
                     </div>
                 </div>
@@ -191,7 +191,7 @@ function renderVisualBgColorPanelBody() {
                                 <div id="visual-bg-gradient-swatch" class="w-8 h-8 rounded-lg shrink-0" data-uitk="inputBorder"></div>
                                 <div class="text-sm font-medium truncate" data-i18n="visualBgSettingsDrawer.openGradient.label">${t('visualBgSettingsDrawer.openGradient.label')}</div>
                             </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                            ${iconSvg('chevron-right', 'h-5 w-5 shrink-0', 'data-uitk="textMutedIcon"')}
                         </button>
                     </div>
                 </div>

@@ -57,3 +57,49 @@ const TPL_GENERIC_DRAWER = `
         <div id="generic-drawer-body" class="flex-1 min-h-0"></div>
     </div>
 `;
+
+/**
+ * MỚI (07/10/2026, Giang chốt rà soát SVG — mục B) — header DÙNG CHUNG cho mọi màn Generic Drawer, THAY ~15 bản header viết
+ * tay (rải ở components/, core -ui và cả Workflow) vốn lệch nhau ở padding/nút/màu hover. 2 bố cục:
+ *   - 'start' (mặc định): [tiêu đề | (nút phụ) (X)] — màn danh sách/công cụ.
+ *   - 'center': tiêu đề GIỮA, nút Back tuyệt đối bên trái, (nút phụ)(X) tuyệt đối bên phải — màn con có Back (Settings,
+ *     Edit EQ, chọn font, Filter của folder...). Có `backId` mà không truyền `layout` -> tự dùng 'center'.
+ * Nút Back/X cùng 1 kiểu (w-8 h-8, headerCloseHover headerCloseIcon), icon lấy từ kho chung (iconSvg()). Id nút giữ
+ * nguyên theo tham số -> wiring sẵn có của từng màn không đổi.
+ * @param {object} o
+ * @param {string} [o.title] - tiêu đề đã dịch (dữ liệu người dùng phải escape sẵn)
+ * @param {string} [o.titleAttrs] - thuộc tính thêm cho <h3>, vd 'data-i18n="eqPresets.title"'
+ * @param {string} [o.titleSuffixHtml] - đứng ngay sau tiêu đề (vd nút (i)) — chỉ bố cục 'start'
+ * @param {string} [o.leftHtml] - THAY cả khối tiêu đề (vd hàng tab) — chỉ bố cục 'start'
+ * @param {string} [o.backId] - id nút Back (có -> hiện nút Back)
+ * @param {string} [o.backTitle] - tooltip nút Back (mặc định common.back)
+ * @param {string} [o.actionsHtml] - nút phụ đứng TRƯỚC nút đóng
+ * @param {boolean} [o.close=true] - có nút đóng không
+ * @param {string} [o.closeId='btn-generic-drawer-close']
+ * @param {string} [o.closeAttrs] - thuộc tính thêm cho nút đóng, vd 'data-ce-close="1"'
+ * @param {'start'|'center'} [o.layout]
+ * @returns {string}
+ */
+function buildDrawerHeaderHtml(o) {
+    const opts = Object.assign({ title: '', titleAttrs: '', titleSuffixHtml: '', leftHtml: '', backId: '', backTitle: t('common.back'), actionsHtml: '', close: true, closeId: 'btn-generic-drawer-close', closeAttrs: '', layout: '' }, o);
+    const btnClass = 'w-8 h-8 flex items-center justify-center rounded-full shrink-0';
+    const closeHtml = opts.close ? `<button type="button" id="${opts.closeId}" class="${btnClass}" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.close')}"${opts.closeAttrs ? ` ${opts.closeAttrs}` : ''}>${iconSvg('x', 'h-5 w-5')}</button>` : '';
+    const rightHtml = `${opts.actionsHtml}${closeHtml}`;
+    const titleHtml = `<h3 class="text-base truncate${opts.backId || opts.layout === 'center' ? ' text-center' : ''}" data-uitk="headerTitle"${opts.titleAttrs ? ` ${opts.titleAttrs}` : ''}>${opts.title}</h3>`;
+    const layout = opts.layout || (opts.backId ? 'center' : 'start');
+    if (layout === 'center') {
+        const backHtml = opts.backId ? `<button type="button" id="${opts.backId}" class="absolute left-4 top-1/2 -translate-y-1/2 ${btnClass}" data-uitk="headerCloseHover headerCloseIcon" title="${opts.backTitle}">${iconSvg('chevron-left', 'h-5 w-5')}</button>` : '';
+        return `
+            <div class="relative flex items-center justify-center px-14 py-3" data-uitk="headerBorder">
+                ${backHtml}
+                ${titleHtml}
+                ${rightHtml ? `<div class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">${rightHtml}</div>` : ''}
+            </div>`;
+    }
+    const left = opts.leftHtml || (opts.titleSuffixHtml ? `<div class="flex items-center gap-2 min-w-0">${titleHtml}${opts.titleSuffixHtml}</div>` : titleHtml);
+    return `
+        <div class="flex justify-between items-center gap-2 px-5 pb-3" data-uitk="headerBorder">
+            ${left}
+            ${rightHtml ? `<div class="flex items-center gap-1 shrink-0">${rightHtml}</div>` : ''}
+        </div>`;
+}

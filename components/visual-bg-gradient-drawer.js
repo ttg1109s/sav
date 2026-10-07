@@ -136,3 +136,22 @@ function renderVisualBgGradientPanelBody() {
                 </div>
 `;
 }
+
+/**
+ * MỚI (07/10/2026, rà soát SVG mục A — dời khỏi Workflow) — các hàng color stop của gradient: ô màu + slider vị trí + nhãn % +
+ * nút xoá (mờ + không bấm được khi đã ở số stop tối thiểu). Trước đây dựng thẳng trong
+ * workflowVisualBg._renderGradientStopRows() (event/workflow/visual-bg-common.js), nay Workflow chỉ gán innerHTML.
+ * @param {{color:string, position:number}[]} stops @param {boolean} canRemove @returns {string}
+ */
+function renderVisualBgGradientStopRowsHtml(stops, canRemove) {
+    return stops.map((stop, i) => `
+        <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" data-visual-bg-stop-color="${i}" value="${stop.color}" class="w-11 h-11 -m-2 cursor-pointer bg-transparent border-0"></div>
+            <input type="range" data-visual-bg-stop-position="${i}" min="0" max="100" step="1" value="${stop.position}" class="flex-1" data-uitk="accentControl">
+            <span data-visual-bg-stop-label="${i}" class="text-xs w-10 text-right tabular-nums" data-uitk="textSecondary">${stop.position}%</span>
+            <button type="button" data-visual-bg-stop-remove="${i}" class="w-7 h-7 flex items-center justify-center rounded-full transition-colors shrink-0 ${canRemove ? '' : 'opacity-30 pointer-events-none'}" data-uitk="iconBtnDestructive">
+                ${iconSvg('x', 'h-4 w-4')}
+            </button>
+        </div>
+    `).join('');
+}

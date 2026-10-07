@@ -48,15 +48,11 @@
  */
 
 function renderEqListHeader() {
-    return `
-        <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
-            <h3 class="text-base font-bold" data-uitk="headerTitle" data-i18n="eqPresets.title">${t('eqPresets.title')}</h3>
-            <div class="flex items-center gap-1 shrink-0">
-                <button id="btn-eq-drawer-add" class="w-8 h-8 flex items-center justify-center rounded-full" data-uitk="cardHoverBg textSecondaryStrong" title="${t('eqPresets.addButton.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg></button>
-                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.close')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
-            </div>
-        </div>
-    `;
+    // SỬA 07/10/2026 — header dùng chung buildDrawerHeaderHtml() (components/generic-drawer.js)
+    return buildDrawerHeaderHtml({
+        title: t('eqPresets.title'), titleAttrs: 'data-i18n="eqPresets.title"',
+        actionsHtml: `<button type="button" id="btn-eq-drawer-add" class="w-8 h-8 flex items-center justify-center rounded-full" data-uitk="cardHoverBg textSecondaryStrong" title="${t('eqPresets.addButton.title')}">${iconSvg('plus', 'h-5 w-5')}</button>`,
+    });
 }
 
 /** @param {object[]} presets @param {string} activeId */
@@ -73,9 +69,9 @@ function renderEqListBody(presets, activeId, paginationHtml) {
             <span class="flex items-center gap-2 min-w-0">
                 <span class="text-sm font-semibold truncate" data-uitk="textPrimary">${escapeHtml(p.name)}</span>
                 ${isActive ? `<span class="shrink-0 w-1.5 h-1.5 rounded-full" data-uitk="btnPrimaryPillBg"></span>` : ''}
-                ${p.locked ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>` : ''}
+                ${p.locked ? iconSvg('lock-closed', 'h-3.5 w-3.5 shrink-0', 'data-uitk="textMutedIcon"') : ''}
             </span>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+            ${iconSvg('chevron-right', 'h-4 w-4 shrink-0', 'data-uitk="textMutedIcon"')}
         </button>
     `;
     }).join('') + `<div id="eq-list-pagination">${paginationHtml || ''}</div>`;
@@ -92,17 +88,16 @@ function renderEqEditHeader(preset, isBuiltIn) {
     // lúc seed lần đầu (KHÔNG tự lưu DB — vẫn phải bấm Lưu mới ghi, cùng 1 cửa duy nhất với sửa
     // tay), xem event/workflow/eq-presets.js::_resetEditToDefault().
     const resetBtn = (!preset.locked && isBuiltIn)
-        ? `<button id="btn-eq-drawer-reset" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors shrink-0" data-uitk="headerCloseHover headerCloseIcon" title="${t('eqPresets.resetButton.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M4 9a8 8 0 1 1 2.34 5.66" /></svg></button>`
+        ? `<button id="btn-eq-drawer-reset" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors shrink-0" data-uitk="headerCloseHover headerCloseIcon" title="${t('eqPresets.resetButton.title')}">${iconSvg('reset', 'h-[18px] w-[18px]')}</button>`
         : '';
     // XOÁ (07/10/2026, Giang: "bỏ tính năng save") — nút Lưu ở header: mọi chỉnh sửa (slider, tên) giờ TỰ LƯU, preset
     // đang áp dụng thì slider có tác dụng NGAY khi kéo — xem event/workflow/eq-presets.js::_wireEditView().
-    return `
-        <div class="relative flex items-center justify-center px-14 py-3 border-b" data-uitk="dividerBorder">
-            <button id="btn-generic-drawer-back" class="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full shrink-0" data-uitk="cardHoverBg textSecondaryStrong" title="${t('eqPresets.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg></button>
-            <h3 class="text-sm font-bold truncate px-10" data-uitk="textPrimary" data-i18n="eqPresets.editTitle">${t('eqPresets.editTitle')}</h3>
-            <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 shrink-0">${resetBtn}</div>
-        </div>
-    `;
+    // SỬA 07/10/2026 — header dùng chung buildDrawerHeaderHtml() (components/generic-drawer.js)
+    return buildDrawerHeaderHtml({
+        backId: 'btn-generic-drawer-back', backTitle: t('eqPresets.title'),
+        title: t('eqPresets.editTitle'), titleAttrs: 'data-i18n="eqPresets.editTitle"',
+        actionsHtml: resetBtn, close: false,
+    });
 }
 
 // XOÁ (07/10/2026, Giang: "bỏ box các slider chỉnh kênh, slider nằm ngang, mỗi kênh 1 dòng, giống slider bình thường")
@@ -122,7 +117,7 @@ function renderEqEditBody(preset, isActive) {
                     <span class="w-10 shrink-0 text-right text-xs font-semibold tabular-nums" data-uitk="textPrimary" id="eq-edit-val-${i}">${g > 0 ? `+${g}` : g}</span>
                 </div>`).join('');
     const applyBtn = isActive
-        ? `<button id="eq-drawer-apply" type="button" data-eq-applied="1" class="${preset.locked ? 'w-full' : 'flex-1'} py-3 rounded-2xl transition-colors text-sm font-medium flex items-center justify-center gap-1.5" data-uitk="btnNeutralBg btnNeutralText"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg><span data-i18n="eqPresets.applied">${t('eqPresets.applied')}</span></button>`
+        ? `<button id="eq-drawer-apply" type="button" data-eq-applied="1" class="${preset.locked ? 'w-full' : 'flex-1'} py-3 rounded-2xl transition-colors text-sm font-medium flex items-center justify-center gap-1.5" data-uitk="btnNeutralBg btnNeutralText">${iconSvg('lock-closed', 'h-4 w-4 shrink-0')}<span data-i18n="eqPresets.applied">${t('eqPresets.applied')}</span></button>`
         : `<button id="eq-drawer-apply" type="button" class="${preset.locked ? 'w-full' : 'flex-1'} py-3 rounded-2xl transition-colors text-sm font-medium" data-uitk="btnAccentSoft" data-i18n="eqPresets.apply">${t('eqPresets.apply')}</button>`;
 
     return `

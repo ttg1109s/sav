@@ -18,12 +18,8 @@
  */
 
 function renderKaraokeDrawerHeader() {
-    return `
-        <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
-            <h3 class="text-base font-bold" data-uitk="headerTitle">${t('subtitleEditor.karaoke.title')}</h3>
-            <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.close')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
-        </div>
-    `;
+    // SỬA 07/10/2026 — header dùng chung buildDrawerHeaderHtml() (components/generic-drawer.js)
+    return buildDrawerHeaderHtml({ title: t('subtitleEditor.karaoke.title') });
 }
 
 /** @param {Array<{word: string, ms: number}>} words
@@ -88,8 +84,8 @@ function renderKaraokeWordRow(word, ms, index, isOnlyWord) {
             <span class="flex-1 min-w-0 text-sm truncate" data-uitk="textPrimary">${escapeHtml(word)}</span>
             <input type="number" inputmode="numeric" min="${KARAOKE_MIN_WORD_MS}" step="10" value="${ms}" data-karaoke-word-ms="${index}"${isOnlyWord ? ' readonly' : ''} class="w-20 text-center text-xs font-mono rounded-lg px-1.5 py-1 outline-none" data-uitk="inputBg inputBorder inputText">
             <button type="button" disabled data-karaoke-word-play="${index}" class="w-7 h-7 flex items-center justify-center rounded-full bg-sky-500/15 hover:bg-sky-500/25 text-sky-500 transition-colors shrink-0 disabled:opacity-40 disabled:pointer-events-none">
-                <svg xmlns="http://www.w3.org/2000/svg" class="karaoke-word-play-icon h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
-                <svg xmlns="http://www.w3.org/2000/svg" class="karaoke-word-pause-icon h-3.5 w-3.5 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 5h4v14H6zm8 0h4v14h-4z"></path></svg>
+                ${iconSvg('play', 'karaoke-word-play-icon h-3.5 w-3.5')}
+                ${iconSvg('pause', 'karaoke-word-pause-icon h-3.5 w-3.5 hidden')}
             </button>
         </div>
     `;

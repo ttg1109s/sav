@@ -19,12 +19,8 @@ function renderCustomEffectHeader(type, cfg) {
     const style = cfg[styleField];
     const styleLabelKey = (CUSTOM_EFFECT_STYLE_LABEL_KEYS[type] || {})[style]; // core/custom-effect.js
     const title = styleLabelKey ? t(styleLabelKey) : t(VISUALIZER_GROUP_LABEL_KEYS[type] || type);
-    return `
-        <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
-            <h3 class="text-base font-bold" data-uitk="headerTitle">${title}</h3>
-            <button id="btn-generic-drawer-close" data-ce-close="1" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
-        </div>
-    `;
+    // SỬA 07/10/2026 — header dùng chung buildDrawerHeaderHtml() (components/generic-drawer.js)
+    return buildDrawerHeaderHtml({ title, closeAttrs: 'data-ce-close="1"' });
 }
 
 
@@ -50,7 +46,7 @@ function _renderCeColorSection(cfg) {
                 <span class="text-sm" data-uitk="textSecondary" data-i18n="visualizerSettingsDrawer.dynamicColor.label">${t('visualizerSettingsDrawer.dynamicColor.label')}</span>
                 <div class="flex items-center gap-2">
                     <div class="w-8 h-8 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" id="ce-dyn-color-a" value="${cfg.dynA}" class="w-10 h-10 -m-1 cursor-pointer"></div>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                    ${iconSvg('arrow-narrow-right', 'h-4 w-4', 'data-uitk="textMutedIcon"')}
                     <div class="w-8 h-8 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" id="ce-dyn-color-b" value="${cfg.dynB}" class="w-10 h-10 -m-1 cursor-pointer"></div>
                 </div>
             </div>

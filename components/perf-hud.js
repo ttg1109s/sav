@@ -17,13 +17,14 @@
  * `data-pph-bar`. Không còn tay cầm kéo — chạm giữ vào HUD để kéo (Giang yêu cầu).
  */
 
-// Icon Lucide (https://lucide.dev, ISC) — nét 2px, viewBox 24. `fill` riêng cho icon đặc như ảnh mẫu (tia sét, camera).
+// Icon Lucide (https://lucide.dev, ISC) — SỬA 07/10/2026: thân icon dời vào kho chung components/icons.js (tiền tố `hud-`),
+// ở đây chỉ còn bảng khoá -> tên icon.
 const PERF_HUD_ICONS = {
-    monitor: '<rect width="20" height="14" x="2" y="3" rx="2" fill="currentColor" fill-opacity="0.18"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
-    zap: '<path fill="currentColor" d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>',
-    clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
-    codeXml: '<path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/>',
-    video: '<path fill="currentColor" d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect fill="currentColor" x="2" y="6" width="14" height="12" rx="2"/>',
+    monitor: 'hud-monitor',
+    zap: 'hud-zap',
+    clock: 'hud-clock',
+    codeXml: 'hud-code',
+    video: 'hud-video',
 };
 
 /** 4 chỉ số phụ (FPS đứng riêng làm khối chính) — thứ tự hiển thị của cả 2 kiểu. */
@@ -35,7 +36,7 @@ const PERF_HUD_METRIC_ITEMS = [
 ];
 
 function _perfHudSvg(iconKey) {
-    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${PERF_HUD_ICONS[iconKey]}</svg>`;
+    return iconSvg(PERF_HUD_ICONS[iconKey]); // core/theme/icon-svg-ui.js
 }
 
 /** Kiểu "HUD Strip". @returns {string} */

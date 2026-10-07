@@ -38,11 +38,8 @@ const ESE_LENGTH_UNITS = ['px', '%', 'em', 'rem', 'vw', 'vh', 'pt', 'cm', 'mm', 
 function renderElementStyleEditorHeader(activeTab) {
     const tabBtn = (key, label) => `
         <button data-ese-tab="${key}" class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors" data-uitk="${activeTab === key ? 'btnPrimaryPillBg textOnAccent' : 'btnNeutralBg btnNeutralText'}">${label}</button>`;
-    return `
-        <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
-            <div class="flex items-center gap-2">${tabBtn('box', t('elementStyleEditor.tab.box'))}${tabBtn('text', t('elementStyleEditor.tab.text'))}</div>
-            <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
-        </div>`;
+    // SỬA 07/10/2026 — header dùng chung buildDrawerHeaderHtml() (components/generic-drawer.js)
+    return buildDrawerHeaderHtml({ leftHtml: `<div class="flex items-center gap-2">${tabBtn('box', t('elementStyleEditor.tab.box'))}${tabBtn('text', t('elementStyleEditor.tab.text'))}</div>` });
 }
 
 /** MỚI (16/08/2026 — Giang yêu cầu "ô preview cố định ở trong body drawer") — `_renderEsePreviewBox()`
@@ -356,7 +353,7 @@ function _renderEseFontFamilyField(f, loadedGoogleFonts) {
             <span class="text-xs" data-uitk="textSecondary">${t('elementStyleEditor.font.name')}</span>
             <button type="button" id="ese-fontfamily-open-picker" class="w-32 flex items-center justify-between gap-1 rounded-lg px-2 py-1.5 text-xs outline-none transition-colors" data-uitk="inputBg inputBorder inputText cardHoverBg">
                 <span class="truncate">${f.value || t('elementStyleEditor.font.namePlaceholder')}</span>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                ${iconSvg('chevron-right', 'h-3.5 w-3.5 shrink-0', 'data-uitk="textMutedIcon"')}
             </button>
         </div>
         <div class="flex justify-between items-center">
@@ -373,13 +370,8 @@ function _renderEseFontFamilyField(f, loadedGoogleFonts) {
  * viết riêng ở đây vì màn này KHÔNG thuộc ngăn xếp đó (Element Style Editor tự quản lý push/back 1
  * màn của riêng nó, xem `workflowElementStyleEditor._renderFontPicker()`). */
 function renderEseFontPickerHeader() {
-    return `
-        <div class="relative flex items-center justify-center px-14 py-3 border-b" data-uitk="dividerBorder">
-            <button id="btn-ese-fontpicker-back" class="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full" data-uitk="cardHoverBg textSecondaryStrong">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-            </button>
-            <h3 class="text-base font-bold truncate text-center" data-uitk="headerTitle">${t('elementStyleEditor.font.name')}</h3>
-        </div>`;
+    // SỬA 07/10/2026 — header dùng chung buildDrawerHeaderHtml() (components/generic-drawer.js)
+    return buildDrawerHeaderHtml({ backId: 'btn-ese-fontpicker-back', title: t('elementStyleEditor.font.name'), close: false });
 }
 
 /** MỚI (mục 2) — body màn con: 1 ô tìm kiếm tĩnh (KHÔNG sticky — tránh lặp lại đúng bug "khe hở"
@@ -410,7 +402,7 @@ function _renderEseFontListItems(query, currentValue) {
             <span class="truncate">${f.name}</span>
             <span class="flex items-center gap-2 shrink-0">
                 <span class="text-[10px] uppercase tracking-wide" data-uitk="textMutedIcon">${f.scripts.join(' ')}</span>
-                ${isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" data-uitk="accentText" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>' : ''}
+                ${isSelected ? iconSvg('check', 'h-4 w-4', 'data-uitk="accentText"') : ''}
             </span>
         </button>`;
     }).join('');

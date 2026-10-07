@@ -56,7 +56,7 @@ const TPL_VISUALIZER_OVERLAY = `
                  #stats-panel — toggle ẩn/hiện qua Settings) + Quay lại Danh sách (phải). -->
             <div id="visualizer-top-bar" class="absolute top-4 left-3 right-3 sm:left-6 sm:right-6 z-40 flex items-center justify-between gap-2 pointer-events-none">
                 <button id="btn-open-control-center" class="w-10 h-10 shrink-0 flex items-center justify-center glass-panel hover:bg-white/10 rounded-full transition-colors group shadow-lg pointer-events-auto" data-i18n-title="visualizerOverlay.btnControlCenter.title" title="${t('visualizerOverlay.btnControlCenter.title')}">
-                    <svg id="icon-control-center-down" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-300 group-hover:text-white transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                    ${iconSvg('chevron-down', 'h-5 w-5 text-slate-300 group-hover:text-white transition-transform', 'id="icon-control-center-down"')}
                 </button>
 
                 <div id="stats-panel" class="flex-1 min-w-0 flex justify-center items-center gap-4 sm:gap-12 pointer-events-none select-none sub-text-glow">
@@ -65,7 +65,7 @@ const TPL_VISUALIZER_OVERLAY = `
                     <div class="flex flex-col items-center"><span class="text-slate-300 font-semibold tracking-wider text-[8px] sm:text-[9px] mb-0.5 whitespace-nowrap">ENERGY</span><span id="stat-energy" class="font-mono text-white font-bold text-xs sm:text-sm">0%</span></div>
                 </div>
 
-                <button id="btn-back-playlist" class="w-10 h-10 shrink-0 flex items-center justify-center glass-panel hover:bg-white/10 rounded-full transition-colors group shadow-lg pointer-events-auto" data-i18n-title="visualizerOverlay.btnBackPlaylist.title" title="${t('visualizerOverlay.btnBackPlaylist.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-300 group-hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg></button>
+                <button id="btn-back-playlist" class="w-10 h-10 shrink-0 flex items-center justify-center glass-panel hover:bg-white/10 rounded-full transition-colors group shadow-lg pointer-events-auto" data-i18n-title="visualizerOverlay.btnBackPlaylist.title" title="${t('visualizerOverlay.btnBackPlaylist.title')}">${iconSvg('menu-alt-2', 'h-5 w-5 text-slate-300 group-hover:text-white')}</button>
             </div>
 
             <!-- Panel "Control Center" — phóng ra từ vị trí nút mở (top-left), kính mờ trong suốt.
@@ -74,50 +74,50 @@ const TPL_VISUALIZER_OVERLAY = `
             <div id="visualizer-control-center" class="absolute top-16 left-3 right-3 sm:left-6 sm:right-6 glass-control-center rounded-3xl shadow-2xl transform scale-0 opacity-0 transition-all duration-300 ease-out z-[46] pointer-events-auto p-4" style="transform-origin: top left;">
                 <div class="grid grid-cols-3 sm:grid-cols-6 gap-1 sm:gap-2 w-full">
                     <button id="btn-cycle-mode" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors relative" data-i18n-title="visualizerOverlay.cycleMode.title" title="${t('visualizerOverlay.cycleMode.title')}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 11a9 9 0 019 9M4 11a9 9 0 019-9m9 9a9 9 0 01-9-9m9 9a9 9 0 01-9 9m-9-9h18" /></svg>
+                        ${iconSvg('effect', 'h-6 w-6 text-sky-400')}
                         <span id="mode-cycle-label" class="text-[10px] text-white font-medium truncate max-w-full">${t('visualizerOverlay.cycleMode.label')}</span>
                     </button>
                     <button id="btn-shuffle" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.shuffle.title" title="${t('visualizerOverlay.shuffle.title')}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                        ${iconSvg('switch-horizontal', 'w-6 h-6')}
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.shuffle.label">${t('visualizerOverlay.shuffle.label')}</span>
                     </button>
                     <button id="btn-repeat" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70 relative" data-i18n-title="visualizerOverlay.repeat.title" title="${t('visualizerOverlay.repeat.title')}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /><path id="repeat-one-digit" class="hidden" stroke-linecap="round" stroke-linejoin="round" d="M10.5 9.5L12.5 8V15.5" /></svg>
+                        ${iconSvg('repeat', 'w-6 h-6')}
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.repeat.label">${t('visualizerOverlay.repeat.label')}</span>
                     </button>
                     <!-- MỚI (25/09/2026, Giang yêu cầu) — #btn-restart-track: phát lại bài/video/ảnh hiện tại từ đầu. Thay hành vi cũ
                          "Prev quá 3s thì tua về đầu" (Prev giờ LUÔN sang bài trước) — xem workflowPlayerControls.restartCurrentTrack(). -->
                     <button id="btn-restart-track" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.restart.title" title="${t('visualizerOverlay.restart.title')}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12a8 8 0 108-8H9" /><path stroke-linecap="round" stroke-linejoin="round" d="M11.5 1.5L9 4l2.5 2.5" /><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 9.5v5l4-2.5-4-2.5z" /></svg>
+                        ${iconSvg('replay', 'w-6 h-6')}
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.restart.label">${t('visualizerOverlay.restart.label')}</span>
                     </button>
                     <!-- Chỉ hiện lúc Video Player mode — xem setBgVideoElementForPlayerMode(),
                          core/video-player.js. -->
                     <button id="btn-capture-video-frame" data-cc-action class="hidden flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.captureFrame.title" title="${t('visualizerOverlay.captureFrame.title')}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        ${iconSvg('camera', 'w-6 h-6')}
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.captureFrame.label">${t('visualizerOverlay.captureFrame.label')}</span>
                     </button>
                     <!-- MỚI (29/09/2026, Giang) — kính lúp: bật/tắt Zoom mode (tắt cử chỉ app, dùng pinch/pan để zoom
                          Video/Photo). Chỉ hiện ở Video/Photo Player mode — xem event/workflow/player-zoom.js. -->
                     <button id="btn-player-zoom" data-cc-action class="hidden flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.playerZoom.title" title="${t('visualizerOverlay.playerZoom.title')}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.2-5.2M10.5 17a6.5 6.5 0 100-13 6.5 6.5 0 000 13z" /><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 7.5v6M7.5 10.5h6" /></svg>
+                        ${iconSvg('zoom-in', 'w-6 h-6')}
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.playerZoom.label">${t('visualizerOverlay.playerZoom.label')}</span>
                     </button>
                     <!-- MỚI (01/10/2026, Giang yêu cầu) — Ghi âm: mic + tiếng đang phát trộn thành 1 bản ghi. Hiện ở Song/Video
                          Player, ẩn ở Photo (không có tiếng — core/photo-player.js). Bắt đầu ghi -> overlay #recorder-layer
                          chặn mọi thao tác (components/recorder-overlay.js) — xem event/workflow/recorder.js. -->
                     <button id="btn-record-start" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="recorder.start.title" title="${t('recorder.start.title')}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3a3 3 0 00-3 3v6a3 3 0 006 0V6a3 3 0 00-3-3z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-14 0M12 18v3M8.5 21h7" /></svg>
+                        ${iconSvg('microphone', 'w-6 h-6')}
                         <span class="text-[10px] font-medium" data-i18n="recorder.start.label">${t('recorder.start.label')}</span>
                     </button>
                     <button id="btn-open-volume" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.volume.title" title="${t('visualizerOverlay.volume.title')}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5 6 9H3v6h3l5 4V5z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.5 8.5a5 5 0 010 7M18 6a9 9 0 010 12" /></svg>
+                        ${iconSvg('volume', 'w-6 h-6')}
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.volume.label">${t('visualizerOverlay.volume.label')}</span>
                     </button>
                     <!-- Ẩn ở Photo Player mode (không có playbackRate) — toggle bởi core/player-
                          display-apply.js, cùng cách #btn-capture-video-frame ẩn/hiện theo mode. -->
                     <button id="btn-open-speed" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.speed.title" title="${t('visualizerOverlay.speed.title')}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 12l4-3" /><path stroke-linecap="round" stroke-linejoin="round" d="M8 15a5 5 0 018-4" /></svg>
+                        ${iconSvg('gauge', 'w-6 h-6')}
                         <span id="speed-badge-label" class="text-[10px] font-medium">1x</span>
                     </button>
                     <!-- #btn-cycle-eq (đổi preset EQ, giống #btn-cycle-mode) — SỬA (12/08/2026,
@@ -127,7 +127,7 @@ const TPL_VISUALIZER_OVERLAY = `
                          eq-presets-drawer.js) — xem event/workflow/eq-presets.js
                          (startCycleHold()/endCycleHold()/cancelCycleHold()). -->
                     <button id="btn-cycle-eq" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.cycleEq.title" title="${t('visualizerOverlay.cycleEq.title')}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 6a2 2 0 104 0 2 2 0 00-4 0zm16 6H4m16 0a2 2 0 11-4 0 2 2 0 014 0zM4 18h16M4 18a2 2 0 104 0 2 2 0 00-4 0z" /></svg>
+                        ${iconSvg('sliders', 'w-6 h-6')}
                         <span id="eq-badge-label" class="text-[10px] font-medium truncate max-w-full">Default</span>
                     </button>
                 </div>
@@ -142,13 +142,7 @@ ${TPL_RECORDER_OVERLAY}
                  khuôn Generic Drawer, Workflow tự wire trực tiếp vì đây là panel nổi riêng, không
                  phải Settings Stack). -->
             <div id="visualizer-volume-hud" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-[47] glass-control-center rounded-full shadow-2xl pointer-events-auto flex items-center gap-3 px-5 py-3 w-64 max-w-[80vw]">
-                <svg id="volume-hud-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor" stroke="none" />
-                    <path id="volume-hud-wave-1" stroke-linecap="round" stroke-linejoin="round" d="M15 9.5a3.5 3.5 0 010 5" />
-                    <path id="volume-hud-wave-2" stroke-linecap="round" stroke-linejoin="round" d="M17.5 7a7 7 0 010 10" />
-                    <path id="volume-hud-wave-3" stroke-linecap="round" stroke-linejoin="round" d="M20 4.5a11 11 0 010 15" />
-                    <path id="volume-hud-mute" class="hidden" stroke-linecap="round" stroke-linejoin="round" d="M15.5 9.5l5 5m0-5l-5 5" />
-                </svg>
+                ${iconSvg('volume-hud', 'w-5 h-5 text-white shrink-0', 'id="volume-hud-icon"')}
                 <input type="range" id="volume-hud-slider" min="0" max="100" step="1" class="setting-slider flex-1">
             </div>
 

@@ -26,13 +26,13 @@ function renderSubtitlePanelBody() {
                         </div>
                         <button id="setting-open-subtitle-styling" class="hidden flex justify-between items-center p-4 w-full text-left border-t" data-uitk="dividerBorder cardHoverBg">
                             <div class="flex items-center gap-3 min-w-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="categoryAccent:yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10M12 17v4M5 3h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" /></svg>
+                                ${iconSvg('monitor', 'h-5 w-5 shrink-0', 'data-uitk="categoryAccent:yellow"')}
                                 <div class="min-w-0">
                                     <div class="text-sm font-medium truncate" data-i18n="settingsSubtitleStyle.styling.label">${t('settingsSubtitleStyle.styling.label')}</div>
                                     <div class="text-xs mt-0.5 truncate" data-uitk="textSecondary" data-i18n="settingsSubtitleStyle.styling.hint">${t('settingsSubtitleStyle.styling.hint')}</div>
                                 </div>
                             </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                            ${iconSvg('chevron-right', 'h-5 w-5 shrink-0', 'data-uitk="textMutedIcon"')}
                         </button>
                         <div id="setting-subtitle-default-fields" class="flex flex-col gap-3 p-4 border-t" data-uitk="dividerBorder">
                             <div class="flex justify-between items-center gap-2">

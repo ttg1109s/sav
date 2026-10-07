@@ -28,7 +28,7 @@ const TPL_GAMEPLAY_OVERLAY = `
                 <div id="gameplay-tap-surface" class="absolute inset-0 pointer-events-auto"></div>
 
                 <button id="btn-gameplay-exit" class="absolute top-4 left-3 sm:left-6 z-20 w-10 h-10 shrink-0 flex items-center justify-center glass-panel hover:bg-white/10 rounded-full transition-colors shadow-lg pointer-events-auto">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    ${iconSvg('x', 'h-5 w-5 text-slate-300')}
                 </button>
 
                 <canvas id="gameplay-canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
