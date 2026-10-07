@@ -27,7 +27,7 @@ Background, Visualizer):
 
 Toàn bộ code được chấm theo [event-bus-flow.md](./readme/event-bus-flow.md),
 [core-function-conventions.md](./readme/core-function-conventions.md) và
-[task-manager-conventions.md](./readme/task-manager-conventions.md). Kết quả 07/10/2026: **1312 vi phạm ở 142 file**
+[task-manager-conventions.md](./readme/task-manager-conventions.md). Kết quả 07/10/2026: **1308 vi phạm ở 141 file**
 (10 mục chờ chốt) — 27,6% dòng code nằm trong hàm có vi phạm. **Nợ cũ vẫn là vi phạm**; sửa xong dòng nào thì xoá
 dòng đó khỏi sổ: **[readme/core-legacy-audit.md](./readme/core-legacy-audit.md)**.
 
@@ -51,6 +51,6 @@ dòng đó khỏi sổ: **[readme/core-legacy-audit.md](./readme/core-legacy-aud
 
 ## Cách dùng nhanh
 
-Mở `index.html` bằng double-click, hoặc deploy lên GitHub Pages / static host (khuyến nghị — IndexedDB, Service
-Worker và tải file lớn ổn định hơn trên `https://`). Cần Internet ở lần mở đầu để tải thư viện qua CDN. Chi tiết và
+Mở `index.html` bằng double-click, hoặc deploy lên GitHub Pages / static host (khuyến nghị — IndexedDB và
+tải file ổn định hơn trên `https://`). Cần Internet ở lần mở đầu để tải thư viện qua CDN. Chi tiết và
 lưu ý theo từng bản ở [readme/usage.md](./readme/usage.md).
