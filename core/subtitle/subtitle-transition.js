@@ -72,3 +72,18 @@ function computeSubtitleLineNextBoundary(t, sub, commingWindow, outingWindow, co
     }
     return next;
 }
+
+/**
+ * MỚI (07/10/2026 — BỔ SUNG hàm bị sót ở patch chống lệch phụ đề 06/10/2026, phương án A Giang chọn). event/workflow/
+ * subtitle-display.js::_displayTime() gọi hàm này từ 06/10 nhưng nó chưa từng tồn tại -> mọi sync() phụ đề ném
+ * ReferenceError (phụ đề Song không cập nhật theo 'timeupdate'/kéo thanh seek; cử chỉ seek-hold ở Song mất badge vì lỗi
+ * xảy ra trước lúc vẽ badge). Vị trí media -> thời điểm phụ đề nên hiển thị: tiếng ra loa TRỄ hơn `currentTime` đúng
+ * bằng độ trễ đầu ra của AudioContext (baseLatency + outputLatency) -> trừ đi để chữ khớp tiếng nghe thật. Trình duyệt
+ * không báo giá trị nào (undefined/NaN) thì coi là 0 (không bù). Không trả số âm.
+ * @param {number} mediaTimeSec @param {number|undefined} baseLatency @param {number|undefined} outputLatency @returns {number}
+ */
+function computeSubtitleDisplayTime(mediaTimeSec, baseLatency, outputLatency) {
+    const base = Number.isFinite(baseLatency) ? baseLatency : 0;
+    const output = Number.isFinite(outputLatency) ? outputLatency : 0;
+    return Math.max(0, mediaTimeSec - base - output);
+}
