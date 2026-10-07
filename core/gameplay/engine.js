@@ -46,6 +46,18 @@ function computeComboScoreGain(tierName, tierScore, comboByTierBefore, cfg) {
     return { pointsGained: Math.floor(tierScore * multiplier), newComboByTier };
 }
 
+/** MỚI (07/10/2026, game Arrow) — tổng điểm/số lượt đã chấm/breakdown tier SAU 1 lần chấm (tap/commit/miss), trả object
+ * MỚI (không sửa tại chỗ) để Workflow chỉ việc ghi lại appState. Circle hiện vẫn tự cộng trong Workflow (nợ cũ, sổ vi
+ * phạm "Workflow tự tính toán") — có thể chuyển sang hàm này khi đụng tới.
+ * @returns {{ totalScore: number, resolvedCount: number, hitCounts: object }} */
+function computeScoreTotalsAfterResolve(totalScore, resolvedCount, hitCounts, tierName, pointsGained) {
+    return {
+        totalScore: totalScore + pointsGained,
+        resolvedCount: resolvedCount + 1,
+        hitCounts: { ...hitCounts, [tierName]: (hitCounts[tierName] || 0) + 1 },
+    };
+}
+
 /** Tìm target theo Z-ORDER (`entries` PHẢI đã xếp topmost -> bottom TRƯỚC khi truyền vào — ĐÚNG
  * thứ tự `gameplayWaves` gốc, wave xuất hiện SỚM HƠN đứng trước, xem nơi gọi + docstring tick(),
  * event/workflow/gameplay.js) — trả về phần tử ĐẦU TIÊN nằm trong `tolerancePercent`.
