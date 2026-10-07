@@ -121,6 +121,7 @@ const LANG_PATCH_VISUALIZER = {
     'effectPicker.title': 'Choose effect',
     'effectPicker.groupLabel': 'Category',
     'effectPicker.styleLabel': 'Style',
+    'effectPicker.holdHint': 'Hold the effect button for 1.5s to customize the active effect.', // MỚI 07/10/2026 (Giang)
     'effectPicker.autoSwitchLocked': 'Auto-Switch Effect is on, so effects can\'t be picked or customized manually. Turn it off in Settings › Auto-Switch Effect.', // MỚI 26/09/2026; SỬA 07/10/2026 — giữ icon cũng bị chặn (Custom Effect), bỏ câu "Hold the icon..." 
     'visualizerSettingsDrawer.mirrorCount.label': 'Number of bars (per side)',
     'visualizerSettingsDrawer.rainStyle.label': 'Rain effect style',
@@ -322,7 +323,6 @@ const LANG_PATCH_VISUALIZER = {
     'gestureSettings.action.none': 'None',
     'gestureSettings.sectionSeek': 'Seek',
     'gestureSettings.seekHoldEnable.label': 'Hold to seek',
-    'gestureSettings.seekHoldEnable.hint': 'Hold the left/right half of the screen for 2s to start rewinding/fast-forwarding repeatedly',
     'gestureSettings.seekStep.label': 'Seek step',
     'gestureSettings.seekStep.pickerTitle': 'Seek step',
     'gestureSettings.seekHoldInterval.label': 'Hold time per step',
