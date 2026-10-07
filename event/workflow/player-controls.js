@@ -40,9 +40,9 @@ const SEEK_GATE_UNMUTE_RAMP_SEC = 0.03;   // mở tiếng dần 30ms — tránh 
 /** MỚI (07/10/2026) — hook mặc định của cổng seek (Song không cần đóng băng hình). Video truyền hook của riêng nó
  * (workflowVideoPlayer.seekGateHooks()) — cổng KHÔNG biết gì về layer A/B (nguyên tắc tua vít). */
 const SEEK_GATE_NO_HOOKS = {
-    beforeReload: async () => {},   // trước `load()` — media còn khung hình/vị trí cũ
-    waitFrameReady: async () => {}, // sau khi seek xong — đợi khung ở mốc mới hiện ra
-    release: () => {},              // cổng xong / huỷ (media đổi giữa chừng) — dọn mọi thứ hook đã dựng
+    beforeReload: async () => {}, // trước `load()` — media còn khung hình/vị trí cũ
+    afterSeek: () => {},          // seek xong, ngay TRƯỚC khi mở tiếng/play() — SỬA 07/10/2026: KHÔNG chờ gì (Video giao khung che cho 'playing')
+    abort: () => {},              // cổng huỷ (media đổi giữa chừng) — dọn ngay mọi thứ hook đã dựng
 };
 
 /** MỚI (07/10/2026) — cổng xong: đồng bộ thanh/nhãn thời gian 1 lần theo vị trí MỚI ('timeupdate' lúc seek đã bị hold nuốt —
@@ -306,7 +306,8 @@ const workflowPlayerControls = {
      *     Song, và cũng LUÔN giữ (trước đây chỉ giữ khi đang phát) — nạp lại làm 'timeupdate' về 0 + 'loadedmetadata' bắn lại
      *     dù đang dừng. `load()` làm `<video>` mất khung hình tới khi seek xong -> nơi gọi truyền `hooks` đóng băng khung
      *     hiện tại (xem SEEK_GATE_NO_HOOKS + workflowVideoPlayer.seekGateHooks()): chụp khung -> che -> nạp lại -> seek ->
-     *     đợi khung mới hiện -> bỏ che -> mở tiếng -> play().
+     *     mở tiếng -> play() NGAY; khung che giữ tới sự kiện 'playing' (như swapBgVideoSource() — SỬA 07/10/2026, Giang báo
+     *     chớp đen khi bỏ che sớm theo readyState).
      * Bỏ hẳn phần ngắt nhánh ra loa + đo analyser của v2 (không còn tác dụng) — core/audio-engine.js xoá 2 hàm tương ứng.
      *
      * @param {HTMLMediaElement} mediaEl - audioPlayer (Song) hoặc bgVideoElement (Video)
@@ -314,7 +315,7 @@ const workflowPlayerControls = {
      * @param {boolean} resumeAfter - true = `play()` sau seek dù cổng không tự giữ lúc đang phát (Video đã bị pause THẬT lúc
      *   kéo tay — 'play' khi đó được thả cho tới UI, xem `_releaseHoldForVisiblePlay()`)
      * @param {number|null} [verifyToleranceSec] - Video: sau 'seeked' đọc lại currentTime, lệch > mức này thì gán lại; null = không kiểm (Song)
-     * @param {{beforeReload: () => Promise<void>, waitFrameReady: () => Promise<void>, release: () => void}|null} [hooks] - MỚI
+     * @param {{beforeReload: () => Promise<void>, afterSeek: () => void, abort: () => void}|null} [hooks] - MỚI
      *   07/10/2026, xem SEEK_GATE_NO_HOOKS. null = không hook (Song).
      * @returns {Promise<boolean>} MỚI (29/09/2026) — true = cổng chạy TRỌN (đã seek + mở tiếng + thả hold); false = bị lệnh seek
      *   mới hơn tiếp quản / media đổi giữa chừng / play() lỗi. Nơi gọi cũ không await — không ảnh hưởng.
@@ -363,11 +364,8 @@ const workflowPlayerControls = {
         if (token !== this._seekGateToken) return false;
         if (mediaEl.currentSrc !== srcAtStart) { this._abortSeekGate(gateHooks); return false; }
 
-        // Video: khung ở mốc mới đã hiện -> bỏ khung đóng băng (no-op với Song).
-        await gateHooks.waitFrameReady();
-        if (token !== this._seekGateToken) return false;
-        if (mediaEl.currentSrc !== srcAtStart) { this._abortSeekGate(gateHooks); return false; }
-        gateHooks.release();
+        // Video: giao khung đóng băng cho sự kiện 'playing' — không chờ gì ở đây (no-op với Song).
+        gateHooks.afterSeek();
 
         // Mở tiếng TRƯỚC rồi mới play() (play() lúc trang không ra tiếng làm iOS bỏ Next/Prev ở màn hình khoá — xem lịch sử v2).
         this._setMasterGainForSeekGate(false);
@@ -457,7 +455,7 @@ const workflowPlayerControls = {
     /** Media đổi giữa lúc cổng đang chạy — thả mọi thứ: bỏ hold (media mới tự lo play/pause của nó), dọn hook, mở tiếng ngay.
      * @param {object} [gateHooks] - hook của lệnh cổng đang huỷ (xem SEEK_GATE_NO_HOOKS) */
     _abortSeekGate(gateHooks = SEEK_GATE_NO_HOOKS) {
-        gateHooks.release(); // MỚI 07/10/2026 — Video: bỏ khung đóng băng
+        gateHooks.abort(); // MỚI 07/10/2026 — Video: bỏ khung đóng băng ngay
         this._clearSeekGateActive(); // media mới tự lo play/pause — bỏ luôn lời xin play() của media cũ
         this._seekGateHeldEl = null;
         this._seekGateHeldSrc = '';
