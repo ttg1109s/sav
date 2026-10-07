@@ -137,6 +137,7 @@
                         <span class="text-xs text-slate-400">${t('effectPicker.styleLabel')}</span>
                         <select id="effect-picker-style" class="w-full py-2.5 px-3 rounded-xl bg-slate-800 border border-slate-600 text-sm text-white outline-none">${renderStyleOptions(currentGroup, currentStyle)}</select>
                     </div>
+                    <p class="text-xs text-slate-400">${t('effectPicker.holdHint')}</p>
                 </div>
             `;
 
