@@ -978,6 +978,10 @@ const workflowVisualBg = {
 
         const count = this._effectiveCount(this._effectiveDisplayedList(cfg));
         const isList = count > 1;
+        // MỚI (07/10/2026, Giang báo "card Playback vẫn hiện dù chưa chọn media nào") — chưa có media sống nào thì ẩn CẢ nhóm Playback
+        // (tiêu đề + card): Motion / Sync speed trước đây chỉ phụ thuộc `type`, không phụ thuộc đã chọn media chưa.
+        const playbackGroup = q('#visual-bg-playback-group');
+        if (playbackGroup) playbackGroup.classList.toggle('hidden', count < 1);
         if (listPlaybackRow) listPlaybackRow.classList.toggle('hidden', !isList);
         if (nextOrderRow) nextOrderRow.classList.toggle('hidden', !isList);
 
