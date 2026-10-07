@@ -105,6 +105,17 @@
         const btnGameplayExit = document.getElementById('btn-gameplay-exit');
         const gameplayCountdownScreen = document.getElementById('gameplay-countdown-screen');
         const gameplayCountdownNumber = document.getElementById('gameplay-countdown-number');
+        // MỚI (07/10/2026, game "Arrow") — stage TĨNH components/gameplay-arrow-stage.js (nằm trong #gameplay-layer), điều
+        // phối ở event/workflow/gameplay-arrow.js, listener bàn phím ở event/listener/gameplay.js.
+        const gameplayArrowStrip = document.getElementById('gameplay-arrow-strip');
+        const gameplayArrowCursorRail = document.getElementById('gameplay-arrow-cursor-rail');
+        const gameplayArrowTrackFill = document.getElementById('gameplay-arrow-track-fill');
+        const gameplayArrowZone = document.getElementById('gameplay-arrow-zone');
+        const gameplayArrowTarget = document.getElementById('gameplay-arrow-target');
+        const gameplayArrowLevel = document.getElementById('gameplay-arrow-level');
+        const gameplayArrowSpeed = document.getElementById('gameplay-arrow-speed');
+        const gameplayArrowPad = document.getElementById('gameplay-arrow-pad');
+        const btnGameplayArrowCommit = document.getElementById('btn-gameplay-arrow-commit');
         
         const playPauseBtn = document.getElementById('play-pause-btn'), iconPlay = document.getElementById('icon-play'), iconPause = document.getElementById('icon-pause');
         const btnPrev = document.getElementById('btn-prev'), btnNext = document.getElementById('btn-next');
