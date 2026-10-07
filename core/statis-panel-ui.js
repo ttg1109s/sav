@@ -56,10 +56,10 @@
  * @typedef {{itemCount:number, playCount:number, totalTime:number, playSharePercent:number}} StatisTypeTotal
  * @typedef {{key:string, mediaType:'song'|'video'|'photo', name:string, count:number, totalTime:number}} StatisTopItem
  */
-const STATIS_TYPE_ICON_PATH = {
-    song: 'M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z', // nốt nhạc — CÙNG path fieldPlayCount đã dùng (core/playlist/actions.js)
-    video: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z', // máy quay
-    photo: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', // ảnh
+const STATIS_TYPE_ICON_NAME = { // SỬA 07/10/2026 — tên icon trong components/icons.js (trước là path SVG)
+    song: 'music-notes', // nốt nhạc — CÙNG path fieldPlayCount đã dùng (core/playlist/actions.js)
+    video: 'video-camera', // máy quay
+    photo: 'photograph', // ảnh
 };
 const STATIS_TYPE_ACCENT = {
     song: 'bg-indigo-500/15 text-indigo-500', // SỬA 21/09/2026 — nền pastel đặc (-100) -> lớp màu độ trong suốt 15%: gần như y hệt trên nền sáng, và không thành mảng pastel chói trên nền Dark
@@ -183,7 +183,7 @@ function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterT
             <div class="rounded-2xl p-3 flex-1 min-w-0 text-center" data-uitk="cardBg">
                 <div class="flex items-center justify-center gap-1.5 mb-2">
                     <span class="w-2 h-2 rounded-full shrink-0 bg-current" data-uitk="${STATIS_TYPE_CHART_KEY[mediaType]}"></span>
-                    <span class="w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${STATIS_TYPE_ACCENT[mediaType]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="${STATIS_TYPE_ICON_PATH[mediaType]}"/></svg></span>
+                    <span class="w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${STATIS_TYPE_ACCENT[mediaType]}">${iconSvg(STATIS_TYPE_ICON_NAME[mediaType], 'w-3.5 h-3.5')}</span>
                     <span class="text-xs font-semibold truncate" data-uitk="textPrimary" data-i18n="statisPanel.type.${mediaType}">${t('statisPanel.type.' + mediaType)}</span>
                 </div>
                 <p class="text-2xl font-bold leading-none" data-uitk="textPrimary">${num(totals[sharePercentKey], 'int', totals[sharePercentKey])}<span class="text-sm font-semibold">%</span></p>
@@ -194,11 +194,10 @@ function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterT
     }).join('');
 
     // Nút chuyển cách chia % — pill 2 icon (play = theo lượt phát, đồng hồ = theo thời gian), icon đang chọn tô accent (CÙNG cách tô "đang chọn" của segmented sort/chip lọc).
-    const shareSwitchIcon = { count: 'M5 3l14 9-14 9V3z', totalTime: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' }; // play (đặc) / đồng hồ (nét)
+    const shareSwitchIcon = { count: 'play', totalTime: 'clock' }; // play (đặc) / đồng hồ (nét)
     const shareSwitchBtn = (mode, titleKey) => {
         const active = mode === shareMode;
-        const fillAttrs = mode === 'count' ? 'fill="currentColor" stroke="none"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
-        return `<button type="button" class="statis-share-btn w-7 h-6 rounded-md flex items-center justify-center transition-colors" data-uitk="${active ? 'btnPrimaryPillBg textOnAccent' : 'textSecondary'}" data-share-mode="${mode}" aria-pressed="${active}" title="${t(titleKey)}" aria-label="${t(titleKey)}"><svg viewBox="0 0 24 24" class="w-3.5 h-3.5" ${fillAttrs}><path d="${shareSwitchIcon[mode]}"/></svg></button>`;
+        return `<button type="button" class="statis-share-btn w-7 h-6 rounded-md flex items-center justify-center transition-colors" data-uitk="${active ? 'btnPrimaryPillBg textOnAccent' : 'textSecondary'}" data-share-mode="${mode}" aria-pressed="${active}" title="${t(titleKey)}" aria-label="${t(titleKey)}">${iconSvg(shareSwitchIcon[mode], 'w-3.5 h-3.5')}</button>`;
     };
     const shareSwitch = `<div class="flex p-0.5 gap-0.5 rounded-lg" data-uitk="btnNeutralBg">${shareSwitchBtn('count', 'statisPanel.share.byPlays')}${shareSwitchBtn('totalTime', 'statisPanel.share.byTime')}</div>`;
 
@@ -234,7 +233,7 @@ function buildStatisPanelBodyHtml(grandTotal, byType, topList, sortMode, filterT
             return `
                 <div class="flex items-center gap-2.5 py-2 border-b last:border-b-0" data-uitk="dividerBorder">
                     <span class="text-xs font-bold text-center shrink-0" style="min-width:20px;" data-uitk="${rankBase + index < 3 ? 'accentText' : 'textSecondary'}">${rankBase + index + 1}</span>
-                    <span class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${STATIS_TYPE_ACCENT[item.mediaType]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="${STATIS_TYPE_ICON_PATH[item.mediaType]}"/></svg></span>
+                    <span class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${STATIS_TYPE_ACCENT[item.mediaType]}">${iconSvg(STATIS_TYPE_ICON_NAME[item.mediaType], 'w-4 h-4')}</span>
                     <span class="flex-1 min-w-0 text-sm truncate" data-uitk="textPrimary">${escapeHtml(item.name)}</span>
                     <span class="shrink-0 text-right">
                         <span class="block text-xs font-semibold" data-uitk="textPrimary">${primary}</span>

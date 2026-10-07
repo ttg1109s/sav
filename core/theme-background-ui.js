@@ -72,7 +72,7 @@ function _themeGlassSliderHtml(part, labelKey, value, min, max, unit, t) {
 function buildThemeBackgroundCardsHtml(state, t) {
     const labelKey = { none: 'appSettings.theme.bg.none', gradient: 'appSettings.theme.bg.gradient', background: 'appSettings.theme.bg.media' };
     const colorInput = (id, value) => `<div class="w-8 h-8 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" id="${id}" class="w-10 h-10 -m-1 cursor-pointer" value="${value}"></div>`;
-    const arrowIcon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>';
+    const arrowIcon = iconSvg('arrow-narrow-right', 'h-3.5 w-3.5 shrink-0', 'data-uitk="textMutedIcon"');
     const pickBtn = (kind, labelI18nKey) => `<button type="button" data-theme-bg-pick="${kind}" class="h-8 px-2.5 rounded-full text-xs font-semibold transition-colors" data-uitk="btnNeutralBg btnNeutralText" data-i18n="${labelI18nKey}">${t(labelI18nKey)}</button>`;
 
     const controls = {
@@ -81,10 +81,10 @@ function buildThemeBackgroundCardsHtml(state, t) {
         background: `${pickBtn('photo', 'appSettings.theme.bg.media.pickPhoto')}${pickBtn('video', 'appSettings.theme.bg.media.pickVideo')}`,
     };
 
-    const plusIcon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>';
-    const playBadge = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path d="M6.3 2.84A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.27l9.34-5.89a1.5 1.5 0 000-2.54L6.3 2.84z"/></svg>';
-    const noneIcon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M5.64 5.64l12.72 12.72"/></svg>';
-    const checkIcon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>';
+    const plusIcon = iconSvg('plus', 'h-6 w-6');
+    const playBadge = iconSvg('play', 'h-3 w-3');
+    const noneIcon = iconSvg('ban', 'h-7 w-7');
+    const checkIcon = iconSvg('check', 'h-3 w-3');
 
     const cards = THEME_BG_CARD_MODES.map((mode) => {
         const selected = state.themeMode === mode;

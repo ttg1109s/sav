@@ -77,7 +77,7 @@ function showInfoPopover(text, anchorEl) {
     closeBtn.type = 'button';
     closeBtn.className = 'w-6 h-6 flex items-center justify-center rounded-full transition-colors shrink-0';
     closeBtn.dataset.uitk = 'headerCloseHover headerCloseIcon';
-    closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
+    closeBtn.innerHTML = iconSvg('x', 'h-4 w-4');
     popover.appendChild(closeBtn);
 
     const arrow = document.createElement('div');

@@ -22,9 +22,11 @@
  * NẠP SAU: core/generic-drawer.js, core/dom-refs.js, service/z-index.js, lang/lang.js.
  */
 
-/** Config Generic Drawer cho picker media (height/maxHeight 90vh, header "tiêu đề + nút X").
- * @param {string} title - đã dịch sẵn @param {string} bodyHtml @returns {object} config cho workflowGenericDrawerHelpers.open()/update() */
-function buildMediaPickerDrawerConfig(title, bodyHtml) {
+/** Config Generic Drawer cho picker media (height/maxHeight 90vh).
+ * SỬA (07/10/2026, rà soát SVG mục B) — nhận `headerHtml` dựng sẵn (Workflow gọi buildDrawerHeaderHtml(),
+ * components/generic-drawer.js) thay vì tự dựng header từ `title` — core không gọi component.
+ * @param {string} headerHtml @param {string} bodyHtml @returns {object} config cho workflowGenericDrawerHelpers.open()/update() */
+function buildMediaPickerDrawerConfig(headerHtml, bodyHtml) {
     return {
         height: '90vh',
         // SỬA (24/09/2026) — Generic Drawer giờ đặt `height` THẬT (không còn cơ chế min-height), 90vh là chiều cao cố định
@@ -40,14 +42,7 @@ function buildMediaPickerDrawerConfig(title, bodyHtml) {
         // nên chỉ thêm `maxHeight` làm trần CHẶN, không đổi ý định gốc "luôn ~90vh".
         maxHeight: '90vh',
         zIndex: Z_INDEX.GENERIC_DRAWER, // service/z-index.js — mặc định, KHÔNG có modal xem ảnh nào mở đồng thời với picker này (khác action-menu cần z=131)
-        headerHtml: `
-            <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
-                <h3 class="text-base font-bold" data-uitk="headerTitle">${title}</h3>
-                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.close')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-            </div>
-        `,
+        headerHtml,
         bodyHtml,
         bodyClass: 'flex flex-col',
     };
@@ -76,4 +71,22 @@ function wireMediaPickerConfirmButtonUi(routerName, msgPrefix) {
 
     // --- addEventListener: gom cuối hàm (Rule 5a) ---
     if (confirmBtn) confirmBtn.addEventListener('click', () => eventBus.send({ router: routerName, type: `${msgPrefix}.confirm.click`, payload: {} }));
+}
+
+/**
+ * MỚI (07/10/2026, rà soát SVG mục A) — badge góc tile của lưới ảnh/video trong picker: đang chọn có số thứ tự -> hiện số;
+ * còn lại -> icon thùng rác (mode 'quickDelete') hoặc dấu tick (chọn). Trước đây 2 bản Y HỆT nằm trong Workflow
+ * (photo-gallery-window.js / video-gallery-window.js::_createBadgeElement()), khác nhau mỗi tiền tố class.
+ * @param {'photo'|'video'} classPrefix - tiền tố class CSS (`photo-tile-badge` / `video-tile-badge`)
+ * @param {'quickDelete'|'multiSelect'} badgeMode @param {number|null} orderNumber @returns {HTMLSpanElement}
+ */
+function createGalleryTileBadgeUi(classPrefix, badgeMode, orderNumber) {
+    const isDelete = badgeMode === 'quickDelete';
+    const badge = document.createElement('span');
+    badge.className = `${classPrefix}-tile-badge ${classPrefix}-tile-badge-${isDelete ? 'delete' : 'select'}`;
+    const showNumber = !isDelete && !!orderNumber;
+    badge.innerHTML = showNumber
+        ? `<span class="${classPrefix}-tile-badge-num">${orderNumber}</span>`
+        : iconSvg(isDelete ? 'trash' : 'check', 'h-3 w-3 text-white'); // core/theme/icon-svg-ui.js (ngoại lệ Rule 3 đã audit)
+    return badge;
 }
