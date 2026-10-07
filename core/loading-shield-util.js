@@ -9,7 +9,7 @@
  *    CHUYỂN BÀI: trước đây mỗi lần Next/Prev lại nháy lớp đen bg-black/80 rồi fade, gây cảm giác
  *    "chớp" (đặc biệt khi có video nền). Giờ chuyển bài gọi với display=false nên im lặng hoàn toàn.
  *
- * PHẢI nạp sau khi #loading-shield/#loading-text đã có trong DOM (sau main.js, cùng nhóm
+ * PHẢI nạp sau khi #loading-shield/#loading-text đã có trong DOM (sau components/app-mount.js, cùng nhóm
  * core đầu tiên — đặt cạnh db.js).
  */
         const SHIELD_FADE_MS = 200; // khớp duration-200 trong CSS của #loading-shield

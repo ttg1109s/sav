@@ -6,7 +6,7 @@
  * Ý TƯỞNG: KHÔNG dựng sẵn HTML cố định trong template tĩnh — modal loại này không phải lúc nào
  * cũng xuất hiện, không cần giữ DOM tồn tại sẵn suốt đời app. `modalChoice()` tự DỰNG DOM động
  * ngay lúc gọi, gắn vào `document.body` (NGOÀI #app-root, không phụ thuộc timing mount của
- * main.js), và TỰ XOÁ HẲN khỏi DOM ngay sau khi người dùng chọn 1 lựa chọn hoặc bấm Huỷ.
+ * components/app-mount.js), và TỰ XOÁ HẲN khỏi DOM ngay sau khi người dùng chọn 1 lựa chọn hoặc bấm Huỷ.
  *
  * CÁCH DÙNG:
  *   modalChoice(text, choices, options?)

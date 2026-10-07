@@ -78,7 +78,7 @@
             // gỡ class đó làm #visualizer-ui rơi về `.fade-enter { opacity:0 }` NGAY (transition opacity của
             // `.fade-enter-active` bị `#visualizer-ui { transition: transform … }` ở layout-nav.css — selector ID — ghi đè
             // hẳn, nên không có fade). Giờ UI trượt ra bằng transform cùng nhịp thanh player dưới; tới mốc 500ms ẩn cùng
-            // #visualizer-stage (lớp cha, xem main.js) + `hideVisualizerUiAfterFade()`. Chặn chạm trong lúc trượt:
+            // #visualizer-stage (lớp cha, xem components/app-mount.js) + `hideVisualizerUiAfterFade()`. Chặn chạm trong lúc trượt:
             // `setVisualizerUiInert()` (Workflow gọi).
             canvas.classList.add('opacity-0');
             const webglCanvasEl = document.getElementById('webgl-canvas');
