@@ -48,7 +48,7 @@ const SETTINGS_CAROUSEL_SETS = 5;
  * phóng to lên current ở `initSettingsCarousel()` (hiệu ứng mở drawer), không phải do HTML này.
  * `data-gd-ignore-mutation` ở vùng bọc ngoài — báo cho MutationObserver auto-height của
  * core/generic-drawer.js KHÔNG đo lại chiều cao mỗi lần card đổi `style` lúc đang cuộn (60 lần/giây).
- * @param {{key:string, icon:string, labelKey:string, hintKey:string}[]} rows - `icon`: tên icon trong components/icons.js (SỬA 07/10/2026 — trước là path SVG) */
+ * @param {{key:string, icon:string, labelKey:string, hintKey:string}[]} rows - `icon`: tên icon trong assets/icon/icons.js (SỬA 07/10/2026 — trước là path SVG) */
 function renderAppSettingsCarousel(rows) {
     const cardHtml = (row, index, copy) => `
         <button type="button" data-carousel-card data-carousel-key="${row.key}" data-carousel-index="${index}" data-carousel-copy="${copy}" class="rounded-3xl flex flex-col items-center text-center px-4 py-5" data-uitk="cardBg cardBorder" style="flex:0 0 50%; height:232px; scroll-snap-align:center; transform:scale(0.8); opacity:0.5;">
@@ -77,7 +77,7 @@ function renderAppSettingsCarousel(rows) {
  * ĐÚNG khuôn `renderEqListBody()` (components/eq-presets-drawer.js): mỗi row 1 card
  * `bg-slate-50 border border-slate-200 rounded-2xl`, không còn danh sách "dính liền" bọc trong 1
  * khối lớn như bản glass-modal cũ.
- * @param {{key:string, icon:string, labelKey:string, hintKey?:string}[]} rows - `icon`: tên icon trong components/icons.js */
+ * @param {{key:string, icon:string, labelKey:string, hintKey?:string}[]} rows - `icon`: tên icon trong assets/icon/icons.js */
 function renderAppSettingsRowList(rows) {
     return rows.map((row) => `
         <button type="button" data-app-settings-nav="${row.key}" class="w-full text-left px-4 py-3.5 rounded-2xl mb-2 flex items-center justify-between gap-3" data-uitk="cardBg cardBorder cardHoverBg">
