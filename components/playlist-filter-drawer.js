@@ -173,6 +173,24 @@ function renderPlaylistFilterEditBody(preset, source, isActive) {
 }
 
 /**
+ * MỚI (07/10/2026, Giang chốt dời khỏi Workflow) — header màn "Cài đặt filter" riêng của 1 folder: nút Back
+ * `#btn-folder-filter-edit-back` + tiêu đề + nút Áp dụng `#btn-folder-filter-edit-apply` (core/file-manager/folder-picker-ui.js
+ * ::wireFolderFilterEditUi() gắn sự kiện). Trước đây là workflowFileManagerFolderBrowser._buildFilterEditHeaderHtml().
+ * @returns {string}
+ */
+function buildFolderFilterEditHeaderHtml() {
+    return `
+        <div class="flex justify-between items-center gap-2 px-5 pb-3" data-uitk="headerBorder">
+            <button id="btn-folder-filter-edit-back" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors shrink-0" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.back')}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <h3 class="text-base font-bold truncate flex-1 text-center" data-uitk="headerTitle">${t('fileManager.folderBrowser.tileMenu.filterSettings')}</h3>
+            <button id="btn-folder-filter-edit-apply" type="button" class="shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold" data-uitk="btnPrimaryBg btnPrimaryHoverBg textOnAccent">${t('common.apply')}</button>
+        </div>
+    `;
+}
+
+/**
  * Body màn "Cài đặt filter" riêng của 1 folder (Generic Drawer, event/workflow/file-manager-folder-browser.js::
  * filterFromTileMenu()) — chỉ các hàng field rule (`data-filter-owner="folder"`), nút Áp dụng ở header. Drawer đã
  * tự cuộn (bodyClass overflow-y-auto), không bọc scroll riêng.

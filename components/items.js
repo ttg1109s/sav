@@ -227,6 +227,39 @@ function buildFolderBrowserListHeaderHtml() {
 }
 
 /**
+ * MỚI (07/10/2026, Giang chốt dời khỏi Workflow) — thân modal Thuộc tính folder (kiểu Windows): Contains/Size + 3 checkbox
+ * Read-only / Hidden / Apply filter (id cố định — core/file-manager/folder-picker-ui.js::wireFolderPropertiesModalUi() gắn
+ * sự kiện). Trước đây chuỗi này dựng thẳng trong workflowFileManagerFolderBrowser._showFolderProperties().
+ * @param {string} countLabel - nhãn đã định dạng ("12 songs"…) @param {number} totalBytes
+ * @param {{isReadOnly?: boolean, excludeFromMainPlaylist?: boolean, applyFilter?: boolean}} folderRecord
+ * @returns {string}
+ */
+function buildFolderPropertiesBodyHtml(countLabel, totalBytes, folderRecord) {
+    return `
+        <div class="space-y-3">
+            <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+                <span data-uitk="textSecondary">${t('fileManager.folderBrowser.tileMenu.propertiesContains')}</span><span class="font-medium" data-uitk="textPrimary">${escapeHtml(countLabel)}</span>
+                <span data-uitk="textSecondary">${t('fileManager.folderBrowser.tileMenu.propertiesSize')}</span><span class="font-medium" data-uitk="textPrimary">${formatBytes(totalBytes)}</span>
+            </div>
+            <div class="border-t pt-3 space-y-2.5" data-uitk="dividerBorder">
+                <label class="flex items-center gap-2.5 text-sm cursor-pointer" data-uitk="textPrimary">
+                    <input type="checkbox" id="folder-properties-readonly-checkbox" class="w-4 h-4 rounded" data-uitk="accentControl"${folderRecord.isReadOnly ? ' checked' : ''}>
+                    ${t('fileManager.folderBrowser.tileMenu.readOnlyLabel')}
+                </label>
+                <label class="flex items-center gap-2.5 text-sm cursor-pointer" data-uitk="textPrimary">
+                    <input type="checkbox" id="folder-properties-hidden-checkbox" class="w-4 h-4 rounded" data-uitk="accentControl"${folderRecord.excludeFromMainPlaylist ? ' checked' : ''}>
+                    ${t('fileManager.folderBrowser.tileMenu.hiddenLabel')}
+                </label>
+                <label class="flex items-center gap-2.5 text-sm cursor-pointer" data-uitk="textPrimary">
+                    <input type="checkbox" id="folder-properties-applyfilter-checkbox" class="w-4 h-4 rounded" data-uitk="accentControl"${folderRecord.applyFilter !== false ? ' checked' : ''}>
+                    ${t('fileManager.folderBrowser.tileMenu.applyFilterLabel')}
+                </label>
+            </div>
+        </div>
+    `;
+}
+
+/**
  * Dựng 1 danh sách item bằng cách gán `containerEl.innerHTML` (nếu có) **1 LẦN DUY NHẤT** (thay N
  * lần createElement+appendChild) — đủ mượt tới ~100-200 item trên mobile webview (xem docstring
  * đầu file). Hàm THUẦN, KHÔNG tự gắn sự kiện click — nơi gọi (Workflow) tự querySelector +
