@@ -60,10 +60,10 @@ function buildGamePanelListHtml(games, armedGameId, gameplayPhase, difficultyByG
 
         const actionBtn = isArmed
             ? `<button type="button" class="game-card-exit-btn shrink-0 w-11 h-11 rounded-full flex items-center justify-center bg-rose-500/90 hover:bg-rose-500 text-white shadow-lg shadow-rose-500/20 transition-colors" data-game-id="${game.id}" aria-label="${t('gamePanel.card.exit')}">` +
-                `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>` +
+                iconSvg('x', 'w-5 h-5') +
                 `</button>`
             : `<button type="button" class="game-card-play-btn shrink-0 w-11 h-11 rounded-full flex items-center justify-center transition-colors ${isLocked ? 'cursor-not-allowed' : 'shadow-lg shadow-sky-500/20'}" data-uitk="${isLocked ? 'btnNeutralBg textMutedIcon' : 'btnPrimaryPillBg btnPrimaryPillHoverBg textOnAccent'}" data-game-id="${game.id}" ${isLocked ? 'disabled' : ''} aria-label="${t('gamePanel.card.play')}" ${isLocked ? `title="${t('gamePanel.card.lockedHint')}" data-i18n-title="gamePanel.card.lockedHint"` : ''}>` +
-                `<svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 ml-0.5"><path d="M8 5v14l11-7z"/></svg>` +
+                iconSvg('play', 'w-5 h-5 ml-0.5') +
                 `</button>`;
 
         const difficultyBtn = `<button type="button" class="game-card-difficulty-btn shrink-0 h-11 flex items-center gap-1.5 px-3.5 rounded-full border text-xs font-bold tracking-wide transition-colors ${difficultyLocked ? 'opacity-40 cursor-not-allowed' : 'hover:brightness-95'}" data-uitk="chipTone:${difficultyHue[difficulty]}" data-game-id="${game.id}" ${difficultyLocked ? 'disabled' : ''}>` +
