@@ -105,7 +105,7 @@ const workflowImageEdit = {
         const ready = await this.ensureEditSessionReady(); // phòng hờ bấm quá nhanh trước khi modal kịp tự decode xong
         if (!ready || !this._activeImageModalHandle) return; // guard: modal đóng/ảnh bị xoá giữa chừng
         // SỬA (24/09/2026) — mở qua Workflow helper (core không tự mở Drawer nữa, Rule 3) rồi wire nội dung vừa gắn.
-        workflowGenericDrawerHelpers.open(buildPhotoEditToolGridDrawerConfig(t('fileManager.photo.image.editGridTitle'), this._buildEditToolGridHtml())); // core/file-manager/photo-ui.js
+        workflowGenericDrawerHelpers.open(buildPhotoEditToolGridDrawerConfig(buildDrawerHeaderHtml({ title: t('fileManager.photo.image.editGridTitle') }), this._buildEditToolGridHtml())); // SỬA 07/10/2026 — header dùng chung (components/generic-drawer.js) // core/file-manager/photo-ui.js
         wirePhotoEditToolGridDrawerUi(); // core/file-manager/photo-ui.js
     },
 
@@ -114,18 +114,18 @@ const workflowImageEdit = {
      * KHÔNG còn ở đây — đã tách thành icon Save riêng trên header (xem `openSaveMenu()`).
      * `openEditTool()` phân luồng theo `tool.key`. */
     _buildEditToolGridHtml() {
-        const svg = (path) => `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${path}"/></svg>`;
+        const svg = (name) => iconSvg(name, 'w-5 h-5'); // core/theme/icon-svg-ui.js — SỬA 07/10/2026: kho icon chung
         const tools = [
-            { key: 'brightness', icon: svg('M12 3v2m0 14v2m9-9h-2M5 12H3m15.364-6.364l-1.414 1.414M7.05 16.95l-1.414 1.414m12.728 0l-1.414-1.414M7.05 7.05L5.636 5.636M16 12a4 4 0 11-8 0 4 4 0 018 0z'), labelKey: 'fileManager.photo.image.editToolBrightness' },
-            { key: 'contrast', icon: svg('M12 21a9 9 0 100-18 9 9 0 000 18zM12 3v18'), labelKey: 'fileManager.photo.image.editToolContrast' },
-            { key: 'saturation', icon: svg('M12 2.69l5.66 5.66a8 8 0 11-11.31 0z'), labelKey: 'fileManager.photo.image.editToolSaturation' },
-            { key: 'temperature', icon: svg('M10 2a2 2 0 00-2 2v9.17a4 4 0 104 0V4a2 2 0 00-2-2z'), labelKey: 'fileManager.photo.image.editToolTemperature' },
-            { key: 'tint', icon: svg('M7 21a4 4 0 01-4-4V5a2 2 0 012-2h10a2 2 0 012 2v3M7 21h10a2 2 0 002-2v-3a4 4 0 00-4-4H9'), labelKey: 'fileManager.photo.image.editToolTint' },
-            { key: 'sharpen', icon: svg('M3 20h18L12 4 3 20z'), labelKey: 'fileManager.photo.image.editToolSharpen' },
-            { key: 'crop', icon: svg('M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3'), labelKey: 'fileManager.photo.image.editToolCrop' },
-            { key: 'text', icon: svg('M4 7V4h16v3M9 20h6M12 4v16'), labelKey: 'fileManager.photo.image.editToolText' },
-            { key: 'draw', icon: svg('M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z'), labelKey: 'fileManager.photo.image.editToolDraw' },
-            { key: 'shape', icon: svg('M12 3l8 6-3 10H7L4 9z'), labelKey: 'fileManager.photo.image.editToolShape' },
+            { key: 'brightness', icon: svg('brightness'), labelKey: 'fileManager.photo.image.editToolBrightness' },
+            { key: 'contrast', icon: svg('contrast'), labelKey: 'fileManager.photo.image.editToolContrast' },
+            { key: 'saturation', icon: svg('saturation'), labelKey: 'fileManager.photo.image.editToolSaturation' },
+            { key: 'temperature', icon: svg('thermometer'), labelKey: 'fileManager.photo.image.editToolTemperature' },
+            { key: 'tint', icon: svg('tint'), labelKey: 'fileManager.photo.image.editToolTint' },
+            { key: 'sharpen', icon: svg('sharpen'), labelKey: 'fileManager.photo.image.editToolSharpen' },
+            { key: 'crop', icon: svg('crop'), labelKey: 'fileManager.photo.image.editToolCrop' },
+            { key: 'text', icon: svg('text'), labelKey: 'fileManager.photo.image.editToolText' },
+            { key: 'draw', icon: svg('pencil-alt'), labelKey: 'fileManager.photo.image.editToolDraw' },
+            { key: 'shape', icon: svg('shape-polygon'), labelKey: 'fileManager.photo.image.editToolShape' },
         ];
         return `
             <div class="grid grid-cols-5 gap-2 px-5 py-1">
@@ -163,8 +163,8 @@ const workflowImageEdit = {
         const ready = await this.ensureEditSessionReady();
         if (!ready) return; // guard hiếm: modal đóng/ảnh bị xoá giữa chừng
         const items = [
-            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4l-4 4m0 0L7 3m4 4V1"/></svg>', name: t('fileManager.photo.image.btnSaveOverwrite'), callback: () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.saveOverwrite.click', payload: {} }) },
-            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>', name: t('fileManager.photo.image.btnSaveNew'), callback: () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.saveAsNew.click', payload: {} }) },
+            { icon: iconSvg('save-image'), name: t('fileManager.photo.image.btnSaveOverwrite'), callback: () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.saveOverwrite.click', payload: {} }) },
+            { icon: iconSvg('plus'), name: t('fileManager.photo.image.btnSaveNew'), callback: () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.saveAsNew.click', payload: {} }) },
         ];
         openDropdownMenu(anchorEl, items, { zIndex: 132 }); // core/dropdown-menu.js
     },
@@ -789,12 +789,12 @@ const workflowImageEdit = {
         const anchorEl = createPointAnchorEl(clientX, clientY); // core/dropdown-menu.js
         const items = [];
         if (layer.type === 'text') {
-            items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>', name: t('fileManager.photo.image.layerMenuEditContent'), callback: () => this.editLayerTextContent(index) });
+            items.push({ icon: iconSvg('text'), name: t('fileManager.photo.image.layerMenuEditContent'), callback: () => this.editLayerTextContent(index) });
         }
         items.push(
-            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>', name: t('fileManager.photo.image.layerMenuEdit'), callback: () => this.openLayerStyleEditor(index) },
-            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>', name: t('fileManager.photo.image.layerMenuDuplicate'), callback: () => this.duplicateLayer(index) },
-            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>', name: t('fileManager.photo.image.layerMenuDelete'), callback: () => this.deleteLayer(index), destructive: true },
+            { icon: iconSvg('pencil-alt'), name: t('fileManager.photo.image.layerMenuEdit'), callback: () => this.openLayerStyleEditor(index) },
+            { icon: iconSvg('duplicate'), name: t('fileManager.photo.image.layerMenuDuplicate'), callback: () => this.duplicateLayer(index) },
+            { icon: iconSvg('trash'), name: t('fileManager.photo.image.layerMenuDelete'), callback: () => this.deleteLayer(index), destructive: true },
         );
         openDropdownMenu(anchorEl, items, { zIndex: 132 }); // core/dropdown-menu.js
         anchorEl.remove(); // vị trí đã đọc xong ĐỒNG BỘ bên trong openDropdownMenu(), an toàn gỡ ngay

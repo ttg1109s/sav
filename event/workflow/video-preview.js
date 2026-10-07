@@ -197,8 +197,8 @@ function _formatVideoPreviewTime(seconds) {
 }
 
 /** Icon dùng riêng cho dropdown Lưu (core/dropdown-menu.js — nhận sẵn chuỗi SVG, không tự build). */
-function _svgIcon(d) {
-    return `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${d}"/></svg>`;
+function _svgIcon(name) {
+    return iconSvg(name, 'h-5 w-5'); // core/theme/icon-svg-ui.js — SỬA 07/10/2026: kho icon chung
 }
 
 const workflowVideoPreview = {
@@ -591,7 +591,7 @@ const workflowVideoPreview = {
      * khỏi hàng công cụ chính, đúng chỗ FB đặt các lựa chọn ít dùng). @param {HTMLElement} anchorEl */
     handleMoreClick(anchorEl) {
         openDropdownMenu(anchorEl, [ // core/dropdown-menu.js
-            { icon: _svgIcon('M4 4v5h.6M20 20v-5h-.6M19.4 9A8 8 0 006 6.6M4.6 15a8 8 0 0013.4 2.4'), name: t('videoPreview.rail.reset'), destructive: true, callback: () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.reset.click', payload: {} }) },
+            { icon: _svgIcon('reset-transform'), name: t('videoPreview.rail.reset'), destructive: true, callback: () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.reset.click', payload: {} }) },
         ], { zIndex: Z_INDEX.VIDEO_PREVIEW_MENU }); // service/z-index.js
     },
 
@@ -996,8 +996,8 @@ const workflowVideoPreview = {
     handleSaveModeClick(anchorEl) {
         const pick = (mode) => eventBus.send({ router: 'videoPreview', type: 'videoPreview.saveMode.select', payload: { mode } });
         openDropdownMenu(anchorEl, [ // core/dropdown-menu.js
-            { icon: _svgIcon('M8 16V5a1 1 0 011-1h9a1 1 0 011 1v9a1 1 0 01-1 1H9M8 16H5a1 1 0 01-1-1V6a1 1 0 011-1h3m0 11v3a1 1 0 001 1h9a1 1 0 001-1v-9a1 1 0 00-1-1h-3'), name: t('videoPreview.save.asNew'), callback: () => pick('asNew') },
-            { icon: _svgIcon('M4 7h16M9 7V4h6v3m-7 0v13a1 1 0 001 1h8a1 1 0 001-1V7H7z'), name: t('videoPreview.save.overwrite'), callback: () => pick('overwrite') },
+            { icon: _svgIcon('copy-new'), name: t('videoPreview.save.asNew'), callback: () => pick('asNew') },
+            { icon: _svgIcon('overwrite'), name: t('videoPreview.save.overwrite'), callback: () => pick('overwrite') },
         ], { zIndex: Z_INDEX.VIDEO_PREVIEW_MENU }); // service/z-index.js
     },
 

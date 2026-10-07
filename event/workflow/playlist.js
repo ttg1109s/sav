@@ -20,8 +20,8 @@
 
 /** MỚI (06/10/2026) — icon 2 mục dropdown "Choose" ở tab Ảnh bìa (openCoverChooseMenu()). Chuỗi SVG cố định trong
  * code (không có input người dùng) — core/dropdown-menu.js dán thẳng qua innerHTML. */
-const SONG_EDIT_COVER_ICON_PHOTO = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>';
-const SONG_EDIT_COVER_ICON_VIDEO = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>';
+const SONG_EDIT_COVER_ICON_PHOTO = iconSvg('photograph');
+const SONG_EDIT_COVER_ICON_VIDEO = iconSvg('video-camera');
 
 // DỜI (06/10/2026) — hằng số VIDEO_* chụp khung đầu/thumb vuông sang event/workflow/video-thumb-extract.js.
 
@@ -93,51 +93,51 @@ const SONG_EDIT_FIELDS_FILLER = {
     photo: (cached, meta) => workflowPlaylist._fillPhotoEditFields(cached, meta),
 };
 
-/** Icon (path SVG) dùng trong tab "Chi tiết" — giữ NGUYÊN các path của bản core cũ. */
+/** Icon dùng trong tab "Chi tiết" — SỬA 07/10/2026: tên icon trong kho components/icons.js (trước là path SVG). */
 const SONG_INFO_ICON = {
-    file: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
-    resolution: 'M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4',
-    album: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0',
-    playCount: 'M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z',
-    clock: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
-    size: 'M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0l-2 7H6l-2-7m16 0H4',
-    title: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z',
-    artist: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
+    file: 'document-text',
+    resolution: 'arrows-expand',
+    album: 'album',
+    playCount: 'music-notes',
+    clock: 'clock',
+    size: 'drive',
+    title: 'music-note',
+    artist: 'user',
 };
 
-/** HTML tab "Chi tiết" theo loại media — đúng thứ tự/màu/nhãn của bản core cũ. songInfoRowHtml(): core/playlist/actions.js;
+/** HTML tab "Chi tiết" theo loại media — đúng thứ tự/màu/nhãn của bản core cũ. renderSongInfoRowHtml(): components/playlist-view.js (DỜI từ core/playlist/actions.js 07/10/2026);
  * formatListenTime(): core/listen-stats.js; formatBytes(): core/about-stats.js; formatTime(): core/playlist/state.js. */
 const SONG_EDIT_DETAILS_HTML = {
     video: (cached, meta, stats) => {
         const emptyVal = t('playlistView.songInfo.empty');
         const resolutionText = (meta && meta.width && meta.height) ? `${meta.width}×${meta.height}` : emptyVal;
-        return songInfoRowHtml(SONG_INFO_ICON.file, 'sky', t('playlistView.songInfo.fieldFilename'), (meta && meta.filename) ? escapeHtml(meta.filename) : emptyVal)
-            + songInfoRowHtml(SONG_INFO_ICON.resolution, 'emerald', t('playlistView.songInfo.fieldResolution'), resolutionText)
-            + songInfoRowHtml(SONG_INFO_ICON.album, 'fuchsia', t('playlistView.songInfo.fieldAlbum'), (meta && meta.album) ? escapeHtml(meta.album) : emptyVal)
-            + songInfoRowHtml(SONG_INFO_ICON.playCount, 'rose', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count }))
-            + songInfoRowHtml(SONG_INFO_ICON.clock, 'indigo', t('playlistView.songInfo.fieldViewDuration'), formatListenTime(stats.totalTime))
-            + songInfoRowHtml(SONG_INFO_ICON.size, 'teal', t('playlistView.songInfo.fieldSize'), formatBytes(cached.size));
+        return renderSongInfoRowHtml(SONG_INFO_ICON.file, 'sky', t('playlistView.songInfo.fieldFilename'), (meta && meta.filename) ? escapeHtml(meta.filename) : emptyVal)
+            + renderSongInfoRowHtml(SONG_INFO_ICON.resolution, 'emerald', t('playlistView.songInfo.fieldResolution'), resolutionText)
+            + renderSongInfoRowHtml(SONG_INFO_ICON.album, 'fuchsia', t('playlistView.songInfo.fieldAlbum'), (meta && meta.album) ? escapeHtml(meta.album) : emptyVal)
+            + renderSongInfoRowHtml(SONG_INFO_ICON.playCount, 'rose', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count }))
+            + renderSongInfoRowHtml(SONG_INFO_ICON.clock, 'indigo', t('playlistView.songInfo.fieldViewDuration'), formatListenTime(stats.totalTime))
+            + renderSongInfoRowHtml(SONG_INFO_ICON.size, 'teal', t('playlistView.songInfo.fieldSize'), formatBytes(cached.size));
     },
     photo: (cached, meta, stats) => {
         const emptyVal = t('playlistView.songInfo.empty');
         const resolutionText = (cached.width && cached.height) ? `${cached.width}×${cached.height}` : emptyVal;
-        return songInfoRowHtml(SONG_INFO_ICON.file, 'sky', t('playlistView.songInfo.fieldFilename'), (meta && meta.filename) ? escapeHtml(meta.filename) : emptyVal)
-            + songInfoRowHtml(SONG_INFO_ICON.resolution, 'emerald', t('playlistView.songInfo.fieldResolution'), resolutionText)
-            + songInfoRowHtml(SONG_INFO_ICON.album, 'fuchsia', t('playlistView.songInfo.fieldAlbum'), (meta && meta.album) ? escapeHtml(meta.album) : emptyVal)
-            + songInfoRowHtml(SONG_INFO_ICON.clock, 'amber', t('playlistView.songInfo.fieldDuration'), formatTime(cached.duration))
-            + songInfoRowHtml(SONG_INFO_ICON.playCount, 'rose', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count }))
-            + songInfoRowHtml(SONG_INFO_ICON.clock, 'indigo', t('playlistView.songInfo.fieldViewDuration'), formatListenTime(stats.totalTime))
-            + songInfoRowHtml(SONG_INFO_ICON.size, 'teal', t('playlistView.songInfo.fieldSize'), formatBytes(cached.size));
+        return renderSongInfoRowHtml(SONG_INFO_ICON.file, 'sky', t('playlistView.songInfo.fieldFilename'), (meta && meta.filename) ? escapeHtml(meta.filename) : emptyVal)
+            + renderSongInfoRowHtml(SONG_INFO_ICON.resolution, 'emerald', t('playlistView.songInfo.fieldResolution'), resolutionText)
+            + renderSongInfoRowHtml(SONG_INFO_ICON.album, 'fuchsia', t('playlistView.songInfo.fieldAlbum'), (meta && meta.album) ? escapeHtml(meta.album) : emptyVal)
+            + renderSongInfoRowHtml(SONG_INFO_ICON.clock, 'amber', t('playlistView.songInfo.fieldDuration'), formatTime(cached.duration))
+            + renderSongInfoRowHtml(SONG_INFO_ICON.playCount, 'rose', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count }))
+            + renderSongInfoRowHtml(SONG_INFO_ICON.clock, 'indigo', t('playlistView.songInfo.fieldViewDuration'), formatListenTime(stats.totalTime))
+            + renderSongInfoRowHtml(SONG_INFO_ICON.size, 'teal', t('playlistView.songInfo.fieldSize'), formatBytes(cached.size));
     },
     song: (cached, meta, stats) => {
         const emptyVal = t('playlistView.songInfo.empty');
-        return songInfoRowHtml(SONG_INFO_ICON.title, 'sky', t('playlistView.songInfo.fieldTitle'), cached.tag.title ? escapeHtml(cached.tag.title) : emptyVal)
-            + songInfoRowHtml(SONG_INFO_ICON.artist, 'violet', t('playlistView.songInfo.fieldArtist'), cached.tag.artist ? escapeHtml(cached.tag.artist) : emptyVal)
-            + songInfoRowHtml(SONG_INFO_ICON.album, 'emerald', t('playlistView.songInfo.fieldAlbum'), cached.tag.album ? escapeHtml(cached.tag.album) : emptyVal)
-            + songInfoRowHtml(SONG_INFO_ICON.clock, 'amber', t('playlistView.songInfo.fieldDuration'), formatTime(cached.duration))
-            + songInfoRowHtml(SONG_INFO_ICON.playCount, 'rose', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count }))
-            + songInfoRowHtml(SONG_INFO_ICON.clock, 'indigo', t('playlistView.songInfo.fieldListened'), formatListenTime(stats.totalTime))
-            + songInfoRowHtml(SONG_INFO_ICON.size, 'teal', t('playlistView.songInfo.fieldSize'), formatBytes(cached.size));
+        return renderSongInfoRowHtml(SONG_INFO_ICON.title, 'sky', t('playlistView.songInfo.fieldTitle'), cached.tag.title ? escapeHtml(cached.tag.title) : emptyVal)
+            + renderSongInfoRowHtml(SONG_INFO_ICON.artist, 'violet', t('playlistView.songInfo.fieldArtist'), cached.tag.artist ? escapeHtml(cached.tag.artist) : emptyVal)
+            + renderSongInfoRowHtml(SONG_INFO_ICON.album, 'emerald', t('playlistView.songInfo.fieldAlbum'), cached.tag.album ? escapeHtml(cached.tag.album) : emptyVal)
+            + renderSongInfoRowHtml(SONG_INFO_ICON.clock, 'amber', t('playlistView.songInfo.fieldDuration'), formatTime(cached.duration))
+            + renderSongInfoRowHtml(SONG_INFO_ICON.playCount, 'rose', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count }))
+            + renderSongInfoRowHtml(SONG_INFO_ICON.clock, 'indigo', t('playlistView.songInfo.fieldListened'), formatListenTime(stats.totalTime))
+            + renderSongInfoRowHtml(SONG_INFO_ICON.size, 'teal', t('playlistView.songInfo.fieldSize'), formatBytes(cached.size));
     },
 };
 
@@ -1751,18 +1751,8 @@ const workflowPlaylist = {
         const confirmCount = this._folderPickerSelectedIds.length;
         const confirmBtnHtml = this._folderPickerMultiSelect ? `
             <button type="button" id="playlist-folder-picker-confirm" class="text-xs font-semibold px-1 disabled:opacity-40 disabled:cursor-not-allowed" data-uitk="accentText" ${confirmCount === 0 ? 'disabled' : ''}>${confirmCount === 0 ? t('visualBgSettingsDrawer.picker.confirmEmpty') : tFormat('visualBgSettingsDrawer.picker.confirm', { count: confirmCount })}</button>` : '';
-        return `
-            <div class="flex justify-between items-center px-5 pb-3 gap-2" data-uitk="headerBorder">
-                <h3 class="text-base font-bold shrink-0" data-uitk="headerTitle">${t('fileManager.folderPicker.title')}</h3>
-                <div class="flex items-center gap-2 shrink-0">
-                    ${typeDropdownHtml}
-                    ${confirmBtnHtml}
-                    <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.close')}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-            </div>
-        `;
+        // SỬA 07/10/2026 — header dùng chung (components/generic-drawer.js), không còn markup trong Workflow
+        return buildDrawerHeaderHtml({ title: t('fileManager.folderPicker.title'), actionsHtml: `<div class="flex items-center gap-2">${typeDropdownHtml}${confirmBtnHtml}</div>` });
     },
 
     /** msg.type = 'playlist.folderPicker.tile.click'. SỬA (29/08/2026) — nhánh multiSelect: TOGGLE

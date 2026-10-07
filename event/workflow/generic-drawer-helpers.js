@@ -221,7 +221,7 @@ const workflowGenericDrawerHelpers = {
      * `open()`/`update()` ở trên, rồi mới wire (core, Rule 5a — callback chỉ bắn eventBus).
      * @param {{routerName:string, msgPrefix:string, title:string, bodyHtml:string, tileSelector:string, tileDataKey:string, showConfirmButton?:boolean, updateInPlace?:boolean}} opts */
     mountMediaPicker(opts) {
-        const config = buildMediaPickerDrawerConfig(opts.title, opts.bodyHtml); // core/media-picker-drawer-ui.js
+        const config = buildMediaPickerDrawerConfig(buildDrawerHeaderHtml({ title: opts.title }), opts.bodyHtml); // core/media-picker-drawer-ui.js + components/generic-drawer.js (SỬA 07/10/2026)
         if (opts.updateInPlace) this.update(config); else this.open(config);
         wireMediaPickerDrawerUi(opts.routerName, opts.msgPrefix, opts.tileSelector, opts.tileDataKey); // core/media-picker-drawer-ui.js
         if (opts.showConfirmButton) wireMediaPickerConfirmButtonUi(opts.routerName, opts.msgPrefix); // core/media-picker-drawer-ui.js

@@ -97,21 +97,7 @@ const workflowAppSettings = {
             scrollReset,
             height: 'auto', // MỚI (phản hồi Giang mục 2) — tự co theo nội dung, xem core/generic-drawer.js
             maxHeight: '85vh',
-            headerHtml: `
-                <div class="relative flex items-center justify-center px-14 py-3 border-b" data-uitk="dividerBorder">
-                    ${hasBack ? `
-                    <button id="btn-app-settings-back" class="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full" data-uitk="cardHoverBg headerCloseIcon">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                    </button>` : ''}
-                    <h3 class="text-base truncate text-center" data-uitk="headerTitle">${title}</h3>
-                    <div class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                        ${extraHeaderHtml || ''}
-                        <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full" data-uitk="cardHoverBg headerCloseIcon">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                    </div>
-                </div>
-            `,
+            headerHtml: buildDrawerHeaderHtml({ layout: 'center', backId: hasBack ? 'btn-app-settings-back' : '', title, actionsHtml: extraHeaderHtml || '' }), // SỬA 07/10/2026 — header dùng chung (components/generic-drawer.js), không còn markup trong Workflow
             bodyHtml: `<div class="p-4" data-uitk="textPrimary">${bodyHtml}</div>`,
             bodyClass: 'overflow-y-auto',
         };
@@ -246,13 +232,13 @@ const workflowAppSettings = {
     _renderSystem() {
         this._currentRenderFn = () => this._renderSystem();
         const rows = [
-            { key: 'theme', icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h9a2 2 0 012 2v12a4 4 0 01-4 4H7zm0 0h10a2 2 0 002-2v-9', labelKey: 'appSettings.system.theme.label', hintKey: 'appSettings.system.theme.hint' },
-            { key: 'motion', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', labelKey: 'appSettings.system.motion.label', hintKey: 'appSettings.system.motion.hint' },
-            { key: 'language', icon: 'M3.6 9h16.8M3.6 15h16.8M11.5 3a17 17 0 000 18M12.5 3a17 17 0 010 18M21 12a9 9 0 11-18 0 9 9 0 0118 0z', labelKey: 'appSettings.system.language.label', hintKey: 'appSettings.system.language.hint' },
+            { key: 'theme', icon: 'theme', labelKey: 'appSettings.system.theme.label', hintKey: 'appSettings.system.theme.hint' },
+            { key: 'motion', icon: 'photograph', labelKey: 'appSettings.system.motion.label', hintKey: 'appSettings.system.motion.hint' },
+            { key: 'language', icon: 'globe', labelKey: 'appSettings.system.language.label', hintKey: 'appSettings.system.language.hint' },
             // DỜI (05/10/2026, Giang yêu cầu) — Ghi âm từ Visualizer Screen > Player sang System, đứng trên Pagination.
-            { key: 'recorder', icon: 'M12 3a3 3 0 00-3 3v6a3 3 0 006 0V6a3 3 0 00-3-3zM19 11a7 7 0 01-14 0M12 18v3M8.5 21h7', labelKey: 'appSettings.system.recorder.label', hintKey: 'appSettings.system.recorder.hint' },
+            { key: 'recorder', icon: 'microphone', labelKey: 'appSettings.system.recorder.label', hintKey: 'appSettings.system.recorder.hint' },
             // MỚI 23/09/2026 (Giang yêu cầu) — cài đặt CHUNG cho mọi danh sách có phân trang, xem _renderPagination() bên dưới.
-            { key: 'pagination', icon: 'M4 6h16M4 11h16M8 16l-2 2.5L8 21M16 16l2 2.5-2 2.5', labelKey: 'appSettings.system.pagination.label', hintKey: 'appSettings.system.pagination.hint' },
+            { key: 'pagination', icon: 'pagination', labelKey: 'appSettings.system.pagination.label', hintKey: 'appSettings.system.pagination.hint' },
         ];
         this._render(t('appSettings.row.system'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js
     },
@@ -467,23 +453,23 @@ const workflowAppSettings = {
     _renderVisualizerScreen() {
         this._currentRenderFn = () => this._renderVisualizerScreen();
         const rows = [
-            { key: 'display', icon: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v10a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM8 21h8m-4-4v4', labelKey: 'settingsVisualizer.openDisplay.label', hintKey: 'settingsVisualizer.openDisplay.hint' },
+            { key: 'display', icon: 'monitor', labelKey: 'settingsVisualizer.openDisplay.label', hintKey: 'settingsVisualizer.openDisplay.hint' },
             // DỜI (05/10/2026, Giang yêu cầu) — Subtitles từ nút trong panel Display ra thành row riêng ở đây.
-            { key: 'subtitle', icon: 'M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z', labelKey: 'settingsSubtitleStyle.sectionTitle', hintKey: 'settingsSubtitleStyle.openPanel.hint' },
-            { key: 'autoSwitch', icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15', labelKey: 'settingsVisualizer.openAutoSwitch.label', hintKey: 'settingsVisualizer.openAutoSwitch.hint' },
+            { key: 'subtitle', icon: 'subtitle', labelKey: 'settingsSubtitleStyle.sectionTitle', hintKey: 'settingsSubtitleStyle.openPanel.hint' },
+            { key: 'autoSwitch', icon: 'refresh', labelKey: 'settingsVisualizer.openAutoSwitch.label', hintKey: 'settingsVisualizer.openAutoSwitch.hint' },
             // SỬA (05/10/2026, Giang yêu cầu) — "Visual Background" đổi thành "Background Color": màn này chỉ còn card màu
             // nền; phần media (toggle tổng + Media + Playback) dời sang Player > Song > Background Media.
-            { key: 'visualBgColor', icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01', labelKey: 'settingsVisualizer.bgColor.label', hintKey: 'settingsVisualizer.bgColor.hint' },
+            { key: 'visualBgColor', icon: 'color-swatch', labelKey: 'settingsVisualizer.bgColor.label', hintKey: 'settingsVisualizer.bgColor.hint' },
             // MỚI (Giang chốt "gesture cùng nhóm chủ đề với Display/Visual Background — cử chỉ chỉ
             // có tác dụng trên #visualizer-gesture-surface") — DỜI từ System sang đây, đổi
             // labelKey/hintKey sang cặp key CÙNG namespace 'settingsVisualizer.*' đã có sẵn (chưa
             // từng dùng tới trước đợt này, xem lang/patch/patch-subtitle-settings.js) thay vì giữ
             // cặp key cũ 'appSettings.system.gesture.*' (namespace đó giờ không còn khớp vị trí
             // thật) — router 'gesture' -> _renderGesture() KHÔNG đổi gì, chỉ đổi CHỖ trỏ tới nó.
-            { key: 'gesture', icon: 'M7 11.5V9a2 2 0 114 0v1.5M11 9.5V6a2 2 0 114 0v5m0-3.5V8a2 2 0 114 0v4c0 4-2 6-6 6s-5.5-1-7-4l-1.5-3a1.7 1.7 0 012.6-2.1L8 10', labelKey: 'settingsVisualizer.gesture.label', hintKey: 'settingsVisualizer.gesture.hint' },
+            { key: 'gesture', icon: 'hand', labelKey: 'settingsVisualizer.gesture.label', hintKey: 'settingsVisualizer.gesture.hint' },
             // MỚI (Giang yêu cầu "Player" — Resolution + Motion của Video/Photo lúc phát chính,
             // xem core/player-display-settings.js) — CÙNG nhóm chủ đề, đặt cuối danh sách.
-            { key: 'player', icon: 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664zM21 12a9 9 0 11-18 0 9 9 0 0118 0z', labelKey: 'appSettings.player.label', hintKey: 'appSettings.player.hint' },
+            { key: 'player', icon: 'play-circle', labelKey: 'appSettings.player.label', hintKey: 'appSettings.player.hint' },
         ];
         this._render(t('appSettings.row.visualizerScreen'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js — data-app-settings-nav, TÁI DÙNG cơ chế chung
     },
@@ -548,9 +534,9 @@ const workflowAppSettings = {
     _renderPlayer() {
         this._currentRenderFn = () => this._renderPlayer();
         const rows = [
-            { key: 'playerSong', icon: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3', labelKey: 'appSettings.player.song.label', hintKey: 'appSettings.player.song.hint' },
-            { key: 'playerVideo', icon: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z', labelKey: 'appSettings.player.video.label', hintKey: 'appSettings.player.video.hint' },
-            { key: 'playerPhoto', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', labelKey: 'appSettings.player.photo.label', hintKey: 'appSettings.player.photo.hint' },
+            { key: 'playerSong', icon: 'music-note', labelKey: 'appSettings.player.song.label', hintKey: 'appSettings.player.song.hint' },
+            { key: 'playerVideo', icon: 'video-camera', labelKey: 'appSettings.player.video.label', hintKey: 'appSettings.player.video.hint' },
+            { key: 'playerPhoto', icon: 'photograph', labelKey: 'appSettings.player.photo.label', hintKey: 'appSettings.player.photo.hint' },
         ];
         this._render(t('appSettings.player.label'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js — TÁI DÙNG cơ chế chung data-app-settings-nav
     },
@@ -559,7 +545,7 @@ const workflowAppSettings = {
     _renderPlayerSong() {
         this._currentRenderFn = () => this._renderPlayerSong();
         const rows = [
-            { key: 'playerSongBgMedia', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', labelKey: 'appSettings.player.song.bgMedia.label', hintKey: 'appSettings.player.song.bgMedia.hint' },
+            { key: 'playerSongBgMedia', icon: 'photograph', labelKey: 'appSettings.player.song.bgMedia.label', hintKey: 'appSettings.player.song.bgMedia.hint' },
         ];
         this._render(t('appSettings.player.song.label'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js
     },

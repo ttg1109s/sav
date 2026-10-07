@@ -12,7 +12,7 @@
  * SỬA TẬN GỐC theo Rule 3b ("Core là tầng THI HÀNH, Workflow là tầng CHUẨN BỊ") — gộp cả 4 vào 1
  * object `workflowPlaylistRender`, gọi lẫn nhau qua `this.xxx()` (Workflow gọi Workflow CÙNG object
  * — không phải Core gọi Core, hợp lệ, CÙNG khuôn `workflowPlaylistOrder` đã làm). `core/playlist/
- * render.js` giờ CHỈ còn hàm THUẦN/tiện ích nhỏ (songActionMenuButtonHtml/attachCoverFallback/
+ * render.js` giờ CHỈ còn hàm THUẦN/tiện ích nhỏ (attachCoverFallback/
  * revokeNodeCoverUrl/showPlaylistLoading/updatePlaylistLoading/
  * hidePlaylistLoading/resetPlaylistScrollTop — thuần hẳn) + nhóm tự đọc `appState` nhưng KHÔNG gọi
  * chéo hàm nào trong cụm này (`updateEmptyState`/`scrollToSongIfPending`/`scrollToCurrentKeyInstant`/
@@ -32,7 +32,7 @@
  * TOÀN BỘ node ẩn trong DOM gần như không tốn gì (trình duyệt bỏ paint phần tử display:none) — rẻ
  * hơn nhiều so với build lại + tải lại ảnh mỗi lần gõ rồi xoá tìm kiếm.
  *
- * NẠP SAU: core/playlist/render.js (revokeNodeCoverUrl/songActionMenuButtonHtml/
+ * NẠP SAU: core/playlist/render.js (revokeNodeCoverUrl/
  * attachCoverFallback/updateEmptyState), core/playlist/state.js
  * (formatTime), core/dom-refs.js (playlistContainer/btnPlaylistEmptyPlay/DEFAULT_VINYL/bgVideoElement/
  * audioPlayer). NẠP TRƯỚC: mọi file gọi `workflowPlaylistRender.*` — event/workflow/playlist.js,
@@ -112,7 +112,7 @@ const workflowPlaylistRender = {
         // Next/Prev, ảnh/video tự chuyển, đổi grid/list) bị 2 vòng tròn khi bấm chọn, kẹt nền đã-chọn khi bỏ
         // chọn, thoát chọn thì còn vòng tròn + mất nút 3 chấm.
         const isGridViewNow = appState.get('isGridView'); // đọc 1 lần, dùng lại cho cả menuBtnHtml lẫn nhánh render bên dưới
-        const menuBtnHtml = songActionMenuButtonHtml(key, isGridViewNow); // core/playlist/render.js — tham số 2 MỚI (09/09/2026), xem docstring hàm đó
+        const menuBtnHtml = renderSongActionMenuButtonHtml(key, isGridViewNow); // components/playlist-view.js (DỜI từ core/playlist/render.js 07/10/2026) — tham số 2 MỚI (09/09/2026), xem docstring hàm đó
 
         const wrapper = document.createElement('div');
         wrapper.dataset.key = key;

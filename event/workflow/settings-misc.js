@@ -78,14 +78,7 @@ const workflowSettingsMisc = {
             height: 'auto',
             maxHeight: '85vh',
             zIndex: Z_INDEX.LOADING_SHIELD + 10, // service/z-index.js
-            headerHtml: `
-                <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
-                    <h3 class="text-base font-bold" data-uitk="headerTitle">${t('settingsMisc.debugConsole.title')}</h3>
-                    <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.close')}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-            `,
+            headerHtml: buildDrawerHeaderHtml({ title: t('settingsMisc.debugConsole.title') }), // SỬA 07/10/2026 — header dùng chung (components/generic-drawer.js), không còn markup trong Workflow
             bodyHtml: `<div class="p-4" data-uitk="textPrimary">${renderDebugConsolePanelBody()}</div>`, // components/debug-console-drawer.js
             bodyClass: 'overflow-y-auto',
         });

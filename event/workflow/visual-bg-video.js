@@ -484,26 +484,19 @@ Object.assign(workflowVisualBg, {
 
     /** Danh sách: tên video | icon loa (1, toggle ngay) | "x%" (2, mở modal chỉnh mức). @returns {string} */
     _buildVideoAudioRowsHtml(rows, videoAudioMap) {
-        if (rows.length === 0) return `<div class="p-4 text-sm text-center" data-uitk="textSecondary">${t('visualBgSettingsDrawer.videoAudio.empty')}</div>`;
-        return rows.map(({ key, name }) => {
+        // SỬA 07/10/2026 — markup dời sang components/visual-bg-video-audio-drawer.js; Workflow chỉ tính trạng thái từng hàng.
+        const rowStates = rows.map(({ key, name }) => {
             const { enabled, volumePercent } = getVisualBgVideoAudioSetting(videoAudioMap, key);
-            return `
-            <div class="p-4 last:border-b-0 flex items-center gap-2 border-b" data-uitk="dividerBorder">
-                <span class="text-sm font-medium truncate min-w-0 flex-1">${escapeHtml(name)}</span>
-                <button type="button" data-visual-bg-video-audio-toggle="${escapeHtml(key)}" class="shrink-0 p-2 transition-colors">${this._videoAudioIconInnerHtml(enabled)}</button>
-                <button type="button" data-visual-bg-video-audio-open-volume="${escapeHtml(key)}" class="shrink-0 px-1 py-2 transition-colors"><span data-visual-bg-video-audio-volume-display="${escapeHtml(key)}" class="text-xs font-mono tabular-nums" data-uitk="${this._videoAudioStateUitk(enabled)}">${volumePercent}%</span></button>
-            </div>`;
-        }).join('');
+            return { key, name, enabled, volumePercent, stateUitk: this._videoAudioStateUitk(enabled) };
+        });
+        return renderVisualBgVideoAudioRowsHtml(rowStates); // components/visual-bg-video-audio-drawer.js
     },
 
     /** Icon loa thường (bật) / loa gạch chéo (tắt) — DÙNG CHUNG lúc vẽ hàng lần đầu
      * (`_buildVideoAudioRowsHtml()`) LẪN lúc cập nhật lại đúng 1 nút sau khi toggle
      * (`_refreshVideoAudioRowButtons()`) — tránh viết trùng markup 2 chỗ. */
     _videoAudioIconInnerHtml(enabled) {
-        const iconPath = enabled
-            ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M12 6v12M6 9v6a2 2 0 002 2h2l4 4V3l-4 4H8a2 2 0 00-2 2z" />'
-            : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12M6 9v6a2 2 0 002 2h2l4 4V3l-4 4H8a2 2 0 00-2 2z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9l4 6m0-6l-4 6" />';
-        return `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" data-uitk="${this._videoAudioStateUitk(enabled)}" fill="none" viewBox="0 0 24 24" stroke="currentColor">${iconPath}</svg>`;
+        return renderVisualBgVideoAudioIconHtml(enabled, this._videoAudioStateUitk(enabled)); // components/visual-bg-video-audio-drawer.js — SỬA 07/10/2026
     },
 
     /** SỬA 23/09/2026 (rà soát theme) — key theme cho icon loa + chữ % theo trạng thái bật/tắt (trước đây class cứng text-sky-600/text-slate-500). */

@@ -107,14 +107,7 @@ const workflowFileManagerStorage = {
         workflowGenericDrawerHelpers.open({ // event/workflow/generic-drawer-helpers.js — SỬA 24/09/2026: lối mở DUY NHẤT
             height: 'auto', // MỚI (phản hồi Giang mục 2) — tự co theo nội dung, xem core/generic-drawer.js
             maxHeight: '85vh',
-            headerHtml: `
-                <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
-                    <h3 class="text-base font-bold" data-uitk="headerTitle">${t('storageDrawer.title')}</h3>
-                    <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.close')}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-            `,
+            headerHtml: buildDrawerHeaderHtml({ title: t('storageDrawer.title') }), // SỬA 07/10/2026 — header dùng chung (components/generic-drawer.js), không còn markup trong Workflow
             // SỬA (phản hồi Giang mục 2 — "styling lỗi, cụm bị co vào nhau, theo theme setting/custom
             // effect") — GỐC BỆNH: renderFileManagerStorageManagementPanelBody() (components/file-
             // manager-storage.js) viết bằng bảng màu TỐI (text-white/text-slate-300/.glass-modal/
