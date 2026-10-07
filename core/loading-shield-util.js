@@ -52,3 +52,10 @@
                 appState.set('isShieldBusy', false);
             }
         }
+
+        /** Ẩn Preloader toàn màn hình (index.html) — chỉ thêm class `app-preloader-hidden` lên `<html>`; CSS lo fade +
+         * visibility (không gỡ phần tử, không hẹn giờ). Gọi lại nhiều lần vô hại. Lưới an toàn 10 s ở service/boot-preloader.js
+         * thêm đúng class này. @param {HTMLElement} rootEl document.documentElement */
+        function hideAppPreloader(rootEl) {
+            rootEl.classList.add('app-preloader-hidden');
+        }
