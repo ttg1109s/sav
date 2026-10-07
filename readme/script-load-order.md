@@ -197,10 +197,10 @@ nạp. Các hàm cần IndexedDB của `lang.js` chỉ chạy khi người dùng
 
 ### 2.7 Icon
 
-`components/icons.js` (chỉ dữ liệu `ICON_REGISTRY`) rồi `core/ui-theme/icon-svg-ui.js` (`iconSvg()`, ngoại lệ Rule 3e).
+`assets/icon/icons.js` (chỉ dữ liệu `ICON_REGISTRY`) rồi `core/ui-theme/icon-svg-ui.js` (`iconSvg()`, ngoại lệ Rule 3e).
 Đứng trước mọi component vì nhiều template gọi `iconSvg()` lúc nạp.
 
-45. `components/icons.js`
+45. `assets/icon/icons.js`
 46. `core/ui-theme/icon-svg-ui.js`
 
 ### 2.8 Components
@@ -708,7 +708,7 @@ Trang riêng, mở qua `pages/subtitle-editor.html?song=<key mã hoá>` (`servic
 
 **Icon**
 
-18. `components/icons.js`
+18. `assets/icon/icons.js`
 19. `core/ui-theme/icon-svg-ui.js`
 
 **z-index và UI Theme**
@@ -801,7 +801,7 @@ của video; Back/Lưu quay về `../index.html` và cuộn tới mục. Một v
 
 **Icon**
 
-14. `components/icons.js`
+14. `assets/icon/icons.js`
 15. `core/ui-theme/icon-svg-ui.js`
 
 **z-index, UI Theme, modal**
@@ -870,7 +870,7 @@ Các file sau được nạp ở hơn 1 trang — sửa file thì nâng `?v=` �
 |---|---|---|
 | `assets/css/tailwind.css` | index, subtitle-editor, video-editor | `20260924r1` |
 | `components/generic-drawer.js` | index, subtitle-editor | `20261007svg1` |
-| `components/icons.js` | index, subtitle-editor, video-editor | `20261007svg1` |
+| `assets/icon/icons.js` | index, subtitle-editor, video-editor | `20261007svg1` |
 | `components/loading-shield.js` | index, video-editor | `20260910v1` |
 | `core/dropdown-menu.js` | index, video-editor | `20260921v7` |
 | `core/file-manager/folder.js` | index, video-editor | `20261006db2` |

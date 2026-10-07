@@ -310,7 +310,7 @@ nào để log) — Rule 4 (`console.log("writer: ...")` cho `set()`/`mutate()`)
 ### 3e — Ngoại lệ ĐÃ audit chính thức: `iconSvg()` (MỚI, 07/10/2026, Giang chốt rà soát SVG)
 
 `core/ui-theme/icon-svg-ui.js::iconSvg(name, className = '', extraAttrs = '')` là hàm dựng chuỗi `<svg>` DUY NHẤT của
-app — tra `ICON_REGISTRY` (`components/icons.js`, CHỈ dữ liệu) rồi bọc thẻ `<svg>` chuẩn hoá (viewBox 24, stroke 2,
+app — tra `ICON_REGISTRY` (`assets/icon/icons.js`, CHỈ dữ liệu) rồi bọc thẻ `<svg>` chuẩn hoá (viewBox 24, stroke 2,
 round cap/join; glyph đặc `fill` CHỈ cho play/pause/rewind/fast-forward/drag-handle; `aria-hidden="true"`).
 **Được phép gọi từ:** `components/*.js`, `event/workflow/*.js`, và core `-ui.js` (Rule 5c) — đây là lời gọi core→core
 DUY NHẤT được miễn Rule 3a, vì hàm là LÁ thuần (không state, không DOM, không gọi gì khác, cùng input → cùng chuỗi),

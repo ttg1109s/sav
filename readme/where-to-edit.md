@@ -40,7 +40,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Mục lặt vặt trong Settings (About, Troubleshooting…) | `components/settings/troubleshooting.js`, `core/settings-misc-ui.js`, `core/about-stats.js`; cụm `settingsMisc` |
 | Ngôn ngữ | `lang/lang.js`, `lang/patch/patch-*.js`; UI `components/settings/language.js`; cụm `languageSettings` |
 | Theme (Sáng/Tối/Morphin) | Bảng màu `core/ui-theme/light.js`, `dark.js`, `morphin.js`; đăng ký `core/ui-theme/registry.js`; áp `core/ui-theme/apply-ui.js`, `event/workflow/ui-theme.js`; màu thanh trạng thái `core/ui-theme/status-bar-color.js`; nền theme `core/theme-background-ui.js`; cụm `theme` |
-| Icon SVG dùng chung | Bộ path `components/icons.js`; dựng thẻ `core/ui-theme/icon-svg-ui.js` |
+| Icon SVG dùng chung | Bộ path `assets/icon/icons.js`; dựng thẻ `core/ui-theme/icon-svg-ui.js` |
 | Phân trang (Settings > Pagination) | `components/settings/pagination.js`, `core/pagination.js`, `core/pagination-ui.js`, `event/workflow/pagination.js` |
 | Drawer dùng chung (Generic Drawer) | `components/generic-drawer.js`, `core/generic-drawer.js`, `event/workflow/generic-drawer-helpers.js`; cụm `genericDrawer` |
 | Modal hỏi quyết định | `core/modal-choice-ui.js` (`modalChoice(text, buttons, options?)`) — ngoại lệ không qua bus ([event-bus-flow.md](./event-bus-flow.md)) |
