@@ -540,8 +540,10 @@
          * Phụ đề: workflowPlayerControls.handleAudioTimeUpdateEvent() gọi workflowSubtitleDisplay.sync() sau hàm này.
          */
         function handleAudioTimeUpdate() {
-            if (!appState.get('isSeeking')) { progressBar.value = audioPlayer.currentTime; updateProgressBarCSS(); } 
-            currentTimeDisplay.textContent = formatTime(audioPlayer.currentTime);
+            // SỬA (07/10/2026) — nhãn giờ cũng KHÔNG cập nhật lúc đang kéo (trước đây vẫn ghi đè): kéo tay thì 'input' liên tục ghi
+            // lại nên không thấy, nhưng cử chỉ seek-hold ("ngón tay ảo") chỉ gửi 'seeking' mỗi Time 2 -> nhãn nhảy qua lại giữa giờ
+            // đang phát và mốc tua. Cùng cách Video (workflowVideoPlayer.handleVideoTimeUpdate()).
+            if (!appState.get('isSeeking')) { progressBar.value = audioPlayer.currentTime; updateProgressBarCSS(); currentTimeDisplay.textContent = formatTime(audioPlayer.currentTime); }
             if (Date.now() - lastPositionSync > 5000) { updateMediaPositionState(); lastPositionSync = Date.now(); }
             // (Thống kê thời lượng nghe KHÔNG còn tính ở đây — xem "Bộ đếm thời gian nghe thật"
             //  phía trên: đo bằng đồng hồ thực, độc lập với currentTime/thanh tiến trình.)
@@ -553,6 +555,13 @@
          * thời gian theo VỊ TRÍ ĐANG KÉO (chưa commit). Phụ đề theo vị trí kéo: workflowPlayerControls.handleSongSeeking().
          * @param {number} value - progressBar.value tại thời điểm kéo
          */
+        /** MỚI (07/10/2026) — đặt thumb thanh tiến trình tới `value` khi KHÔNG có ngón tay thật trên thanh (cử chỉ seek-hold —
+         * "ngón tay ảo", event/workflow/visualizer-gesture.js). Kéo tay thật thì trình duyệt tự đặt. Màu phần đã chạy do handler
+         * 'seeking' (updateProgressBarCSS) vẽ lại ngay sau. @param {number} value */
+        function setProgressBarValue(value) {
+            progressBar.value = value;
+        }
+
         function handleProgressBarSeeking(value) {
             appState.set('isSeeking', true); currentTimeDisplay.textContent = formatTime(value); updateProgressBarCSS();
         }
