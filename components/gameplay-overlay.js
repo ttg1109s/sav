@@ -22,10 +22,16 @@
  * modalChoice() (z-[130], TOÀN CỤC, gắn thẳng document.body) CHE MẤT lúc màn Start/Kết quả đang mở —
  * CHỦ Ý, không phải bug: modalChoice() tự có nút riêng cho 2 trường hợp đó, nút exit cố định chỉ lo
  * phần 'playing'/'countdown' (2 phase không có màn hỏi nào khác để thoát).
+ *
+ * MỚI (07/10/2026, game "Arrow") — `${TPL_GAMEPLAY_ARROW_STAGE}` (components/gameplay-arrow-stage.js, PHẢI nạp TRƯỚC file
+ * này) chèn ngay sau tap-surface: DƯỚI nút exit (z-20), countdown (z-10) và tier popup layer (sau trong DOM). Layer
+ * mang `data-game-mode` (core/gameplay/engine-ui.js::setGameplayLayerMode()) — CSS (assets/css/gameplay-arrow.css)
+ * hiện stage Arrow + ẩn canvas/tap-surface khi `arrow`, ngược lại khi `circle`/chưa gán.
  */
 const TPL_GAMEPLAY_OVERLAY = `
             <div id="gameplay-layer" class="hidden absolute inset-0 z-[65]">
                 <div id="gameplay-tap-surface" class="absolute inset-0 pointer-events-auto"></div>
+${TPL_GAMEPLAY_ARROW_STAGE}
 
                 <button id="btn-gameplay-exit" class="absolute top-4 left-3 sm:left-6 z-20 w-10 h-10 shrink-0 flex items-center justify-center glass-panel hover:bg-white/10 rounded-full transition-colors shadow-lg pointer-events-auto">
                     ${iconSvg('x', 'h-5 w-5 text-slate-300')}
