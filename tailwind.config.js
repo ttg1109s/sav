@@ -11,7 +11,7 @@
 module.exports = {
     content: [
         './index.html',
-        './subtitle-editor.html',
+        './pages/*.html', // subtitle-editor.html, video-editor.html — dời vào pages/ 07/10/2026
         './components/**/*.js',
         './core/**/*.js',
         './event/**/*.js',
