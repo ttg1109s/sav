@@ -56,7 +56,7 @@
  * @typedef {{itemCount:number, playCount:number, totalTime:number, playSharePercent:number}} StatisTypeTotal
  * @typedef {{key:string, mediaType:'song'|'video'|'photo', name:string, count:number, totalTime:number}} StatisTopItem
  */
-const STATIS_TYPE_ICON_NAME = { // SỬA 07/10/2026 — tên icon trong components/icons.js (trước là path SVG)
+const STATIS_TYPE_ICON_NAME = { // SỬA 07/10/2026 — tên icon trong assets/icon/icons.js (trước là path SVG)
     song: 'music-notes', // nốt nhạc — CÙNG path fieldPlayCount đã dùng (core/playlist/actions.js)
     video: 'video-camera', // máy quay
     photo: 'photograph', // ảnh

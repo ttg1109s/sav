@@ -39,7 +39,7 @@ function wirePaginationControls(containerEl, routerName, msgType, extraPayload) 
 /** Class CẤU TRÚC dùng chung cho mọi nút tròn 32px (không chứa màu — màu qua data-uitk). */
 const PAGINATION_BTN_CLASS = 'w-8 h-8 flex items-center justify-center rounded-full text-xs font-semibold shrink-0 disabled:opacity-30 disabled:pointer-events-none';
 
-/** Icon của 4 nút điều hướng — tên trong components/icons.js (SỬA 07/10/2026, trước là path SVG). */
+/** Icon của 4 nút điều hướng — tên trong assets/icon/icons.js (SỬA 07/10/2026, trước là path SVG). */
 const PAGINATION_ICON_NAME = {
     first: 'chevron-double-left',
     prev: 'chevron-left',
