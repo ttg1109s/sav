@@ -139,6 +139,7 @@ Preloader **không còn `<script>` inline** (tách ra file 07/10/2026, Giang duy
 28. [CSS] `assets/css/misc.css`
 29. [CSS] `assets/css/motion-engine.css`
 30. [CSS] `assets/css/gameplay.css`
+30a. [CSS] `assets/css/gameplay-arrow.css` — MỚI 07/10/2026 (game Arrow)
 31. [CSS] `assets/css/recorder.css`
 32. [CSS] `assets/css/perf-hud.css`
 33. [CSS] `assets/css/game-panel.css`
@@ -214,7 +215,8 @@ Mỗi file chỉ định nghĩa `TPL_*` (chuỗi HTML tĩnh) hoặc hàm `render
 47. `components/loading-shield.js` — cần: `lang/lang.js` (t)
 48. `components/app-view-stack.js`
 49. `components/playlist-view.js` — cần: `lang/lang.js` (t); `core/ui-theme/icon-svg-ui.js` (iconSvg)
-50. `components/gameplay-overlay.js` — cần: `core/ui-theme/icon-svg-ui.js` (iconSvg)
+49a. `components/gameplay-arrow-stage.js` — MỚI 07/10/2026 — cần: `lang/lang.js` (t); `core/ui-theme/icon-svg-ui.js` (iconSvg)
+50. `components/gameplay-overlay.js` — cần: `core/ui-theme/icon-svg-ui.js` (iconSvg); `components/gameplay-arrow-stage.js` (TPL_GAMEPLAY_ARROW_STAGE)
 51. `components/recorder-overlay.js` — cần: `lang/lang.js` (t); `core/ui-theme/icon-svg-ui.js` (iconSvg)
 52. `components/zip-download-parts.js`
 53. `components/visualizer-overlay.js` — cần: `lang/lang.js` (t); `core/ui-theme/icon-svg-ui.js` (iconSvg); `components/gameplay-overlay.js` (TPL_GAMEPLAY_OVERLAY); `components/recorder-overlay.js` (TPL_RECORDER_OVERLAY)
@@ -381,6 +383,9 @@ group.
 174. `core/gameplay/engine-ui.js`
 175. `core/gameplay/circle-mode.js`
 176. `core/gameplay/circle-mode-ui.js`
+176a. `core/gameplay/arrow-config.js` — MỚI 07/10/2026 (GAMEPLAY_ARROW_CONFIG, chỉ dữ liệu)
+176b. `core/gameplay/arrow-mode.js` — MỚI 07/10/2026
+176c. `core/gameplay/arrow-mode-ui.js` — MỚI 07/10/2026
 177. `core/gameplay/catalog.js`
 178. `core/gameplay/game-panel-ui.js`
 179. `core/statis-panel-ui.js`
@@ -577,8 +582,9 @@ sự kiện lúc nạp (cần `core/dom-refs.js`, đôi khi cần workflow của
 343. `event/workflow/number-countup.js`
 344. `event/workflow/gameplay-engine.js`
 345. `event/workflow/gameplay.js` — cần: `core/dom-refs.js` (gameplayLayer)
+345a. `event/workflow/gameplay-arrow.js` — MỚI 07/10/2026 — cần: `core/dom-refs.js` (gameplayLayer, gameplayArrow*), `event/workflow/gameplay.js` (GAMEPLAY_NEXT_LABEL_KEY_BY_MEDIA)
 346. `event/router/gameplay.js` — cần: `event/bus.js` (eventBus)
-347. `event/listener/gameplay.js` — cần: `core/dom-refs.js` (gameplayTapSurface, btnGameplayExit)
+347. `event/listener/gameplay.js` — cần: `core/dom-refs.js` (gameplayTapSurface, btnGameplayExit, gameplayArrowPad, btnGameplayArrowCommit)
 348. `event/workflow/game-catalog.js`
 349. `event/router/game-catalog.js` — cần: `event/bus.js` (eventBus)
 350. `event/listener/game-catalog.js` — cần: `core/dom-refs.js` (gamePanelList)

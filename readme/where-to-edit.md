@@ -141,6 +141,8 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 |---|---|
 | Danh mục game | `components/game-panel.js`, `core/gameplay/catalog.js`, `core/gameplay/game-panel-ui.js`; cụm `gameCatalog` |
 | Lối chơi, chấm điểm | `core/gameplay/engine.js`, `engine-ui.js`, `circle-mode.js`, `circle-mode-ui.js`; `event/workflow/gameplay.js`, `event/workflow/gameplay-engine.js`; overlay `components/gameplay-overlay.js`; state `service/state/gameplay-runtime.js`; cụm `gameplay` |
+| Game Arrow (MỚI 07/10/2026) | config `core/gameplay/arrow-config.js` (level, mũi tên đỏ, tốc độ, vùng đích, tier); `core/gameplay/arrow-mode.js`, `arrow-mode-ui.js`; `event/workflow/gameplay-arrow.js`; khung `components/gameplay-arrow-stage.js`; style `assets/css/gameplay-arrow.css` |
+| Thêm 1 game mới | `core/gameplay/catalog.js` (1 phần tử) + 4 bảng `GAMEPLAY_*_BY_MODE` đầu `event/workflow/gameplay-engine.js` (start/exit/hết media/tick) |
 | Phép toán Rubik | `core/rubik-math.js` |
 
 ## 8. Trang riêng
