@@ -875,7 +875,7 @@
          EQ/volume" — giờ ở visualizers/visualizer-display.js (khu VISUALIZERS dưới), vì đúng
          ranh giới nghiệp vụ là cấu hình Visualizer, không phải điều khiển phát nhạc. Xem comment
          đầu core/player-controls.js để biết đầy đủ lý do tách + đảm bảo thứ tự nạp an toàn. -->
-    <script src="core/player-controls.js?v=20261006db5"></script>
+    <script src="core/player-controls.js?v=20261007sg2"></script>
     <!-- MỚI (21/07/2026, mục 4 — Video Player mode) — core/video-player.js: tính next/prev key,
          mutate state, toggle UI nút. Đặt CẠNH core/player-controls.js cho dễ đọc (2 tính năng liên
          quan chặt, dù KHÔNG đụng chung file nào). NẠP SAU service/state.js (đã nạp từ đầu). -->
@@ -1300,7 +1300,7 @@
          mediaType khi click video trong Playlist (đi qua eventBus để Block gate chặn khoá chéo với
          Video nền). PHẢI nạp SAU event/workflow/video-player.js (cần workflowVideoPlayer.
          startFromPlaylist() đã tồn tại). -->
-    <script src="event/workflow/video-player.js?v=20261007sg1"></script>
+    <script src="event/workflow/video-player.js?v=20261007sg2"></script>
     <script src="event/router/video-player.js?v=20260929cap1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
     <!-- MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — event/workflow/photo-
@@ -1351,8 +1351,8 @@
     <!-- MỚI (06/10/2026, plan-media-db-split.md mục 6) — workflowListenStats: thống kê nghe/xem từng media (lưu trong meta,
          RAM key `type:key`) + đồng hồ nghe (dời từ core/listen-stats.js + core/player-controls.js). Chỉ gọi lúc chạy. -->
     <script src="event/workflow/listen-stats.js?v=20261006db4"></script>
-    <script src="event/workflow/player-controls.js?v=20261007sg1"></script>
-    <script src="event/router/player-controls.js?v=20261005stg2"></script>
+    <script src="event/workflow/player-controls.js?v=20261007sg2"></script>
+    <script src="event/router/player-controls.js?v=20261007sg2"></script>
     <script src="event/listener/player-controls.js?v=20261005stg2"></script>
     <!-- Cụm "visualizerDisplay": ảnh nền, độ mờ nền, cycle effect, panel "Display". Cấu hình riêng
          effect ĐÃ DỜI sang cụm "customEffect" (Custom Effect Drawer, xem file ngay dưới) — router
@@ -1447,7 +1447,7 @@
          (core/config.js) + taskManager (debounce tap/double-tap, seek-hold LẶP LẠI theo bước cấu
          hình — cùng khuôn listenClock, core/player-controls.js). CẦN core/visualizer-gesture.js,
          core/dom-refs.js (visualizerGestureSurface, bgVideoElement/audioPlayer cho seek). -->
-    <script src="event/workflow/visualizer-gesture.js?v=20261007sg1"></script>
+    <script src="event/workflow/visualizer-gesture.js?v=20261007sg2"></script>
     <script src="event/router/visualizer-gesture.js?v=20260811v2"></script>
     <script src="event/listener/visualizer-gesture.js?v=20260811v2"></script>
     <!-- MỚI (29/09/2026) — cụm "playerZoom" (kính lúp Control Center, Zoom mode Player Video/Photo). -->
