@@ -66,7 +66,7 @@ function renderPlayerDisplayBody(kind, cfg, motionPresets) {
                 <span class="text-sm font-medium shrink-0">${t(s.labelKey)}</span>
                 <span class="flex items-center gap-1 min-w-0">
                     <span class="text-xs truncate" data-uitk="textSecondary">${escapeHtml(_resolvePlayerMotionSlotName(motionPresets, cfg[field]))}</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    ${iconSvg('chevron-right', 'h-4 w-4 shrink-0', 'data-uitk="textMutedIcon"')}
                 </span>
             </button>
         `;

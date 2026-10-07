@@ -57,10 +57,10 @@ const TPL_SETTINGS_PLAYLIST_VIEW = `
                 <!-- MỚI (mục 1b) — "Sắp xếp" giờ mở SUBPANEL (2 trục), thay cho <select> tĩnh cũ. -->
                 <button id="setting-open-playlist-sort" class="flex justify-between items-center p-4 w-full text-left border-b" data-uitk="dividerBorder cardHoverBg">
                     <div class="flex items-center gap-3 min-w-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="accentTextSoft" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9M3 12h9m-9 4h5M17 4v16m0 0l-4-4m4 4l4-4" /></svg>
+                        ${iconSvg('sort-descending', 'h-5 w-5 shrink-0', 'data-uitk="accentTextSoft"')}
                         <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.sortMode.label">${t('settingsPlaylistBg.sortMode.label')}</span>
                     </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    ${iconSvg('chevron-right', 'h-5 w-5 shrink-0', 'data-uitk="textMutedIcon"')}
                 </button>
                 <!-- SỬA (09/09/2026, phản hồi Giang mục 2 — "bỏ toggle, bỏ manage filter, chỉ giữ
                      Filter để vào nơi quản lý") — RÚT GỌN lại bản 08/09/2026 từng tách "Lọc" thành
@@ -71,10 +71,10 @@ const TPL_SETTINGS_PLAYLIST_VIEW = `
                      playlist-filter-presets.js). -->
                 <button id="setting-open-playlist-filter" class="flex justify-between items-center p-4 w-full text-left" data-uitk="cardHoverBg">
                     <div class="flex items-center gap-3 min-w-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="accentTextSoft" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h18l-7 8v6l-4 2v-8L3 4z" /></svg>
+                        ${iconSvg('filter', 'h-5 w-5 shrink-0', 'data-uitk="accentTextSoft"')}
                         <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.filter.label">${t('settingsPlaylistBg.filter.label')}</span>
                     </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    ${iconSvg('chevron-right', 'h-5 w-5 shrink-0', 'data-uitk="textMutedIcon"')}
                 </button>
             </div>
 

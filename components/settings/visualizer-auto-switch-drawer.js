@@ -62,7 +62,7 @@ function _renderAutoSwitchItemRow(listBy, item) {
     return `
         <div class="w-full px-2 py-2 rounded-2xl mb-2 flex items-center gap-1.5" data-uitk="cardBg cardBorder" data-as-row="${item.key}">
             <span class="w-5 h-8 flex items-center justify-center shrink-0 cursor-grab touch-none" data-uitk="textMutedIcon" data-as-drag="${item.key}" title="${t('motionSettingsDrawer.pointMove.dragHandle.title')}">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><circle cx="6" cy="5" r="1.4"/><circle cx="14" cy="5" r="1.4"/><circle cx="6" cy="10" r="1.4"/><circle cx="14" cy="10" r="1.4"/><circle cx="6" cy="15" r="1.4"/><circle cx="14" cy="15" r="1.4"/></svg>
+                ${iconSvg('drag-handle', 'h-4 w-4')}
             </span>
             <input type="checkbox" data-as-check="${item.key}" class="w-4 h-4 rounded shrink-0" data-uitk="accentControl" ${item.enabled ? 'checked' : ''}>
             <span class="flex-1 min-w-0 flex flex-col">
@@ -115,7 +115,7 @@ function renderVisualizerAutoSwitchPanelBody(model) {
                         <span class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.autoSwitchList.label">${t('visualizerSettingsDrawer.autoSwitchList.label')}</span>
                         <span class="flex items-center gap-1 shrink-0">
                             <span class="text-xs" data-uitk="textSecondary">${t(model.listBy === 'group' ? 'visualizerSettingsDrawer.autoSwitchListBy.group' : 'visualizerSettingsDrawer.autoSwitchListBy.style')} &middot; ${model.items.filter((item) => item.enabled).length}/${model.items.length}</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" data-uitk="textMutedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                            ${iconSvg('chevron-right', 'h-4 w-4 shrink-0', 'data-uitk="textMutedIcon"')}
                         </span>
                     </button>
                     ${_renderAutoSwitchSelectRow('setting-auto-switch-mode', 'visualizerSettingsDrawer.autoSwitchMode.label', [
