@@ -1,7 +1,7 @@
 /* assets/css/gameplay-arrow.css — MỚI (07/10/2026, Giang yêu cầu game "Arrow"). Style màn chơi mode Arrow
  * (components/gameplay-arrow-stage.js): thanh tiến trình + vạch đích, dải vòng tròn mũi tên nổi khối 3D, bàn phím tròn
  * 8 hướng + nút Enter. CSS thuần (không class Tailwind mới — tailwind.css build sẵn, readme/tailwind-build.md).
- * Trạng thái lấy từ data-* do core/gameplay/arrow-mode-ui.js ghi (data-game-mode, data-state, data-result...).
+ * Trạng thái lấy từ data-* do core/gameplay/arrow-stage.js + engine-ui.js ghi (data-game-mode, data-state, data-result...).
  */
 
 /* ── Hiện/ẩn theo mode ──────────────────────────────────────────────────────────────────────────── */
