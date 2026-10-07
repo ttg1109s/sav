@@ -34,7 +34,17 @@ const routerGameplay = (() => {
                 break;
 
             case 'gameplay.exit.click':
-                workflowGameplay.exitToPlaylist();
+                // SỬA (07/10/2026, game "Arrow") — nút X dùng chung mọi mode -> thoát ĐÚNG mode đang chơi.
+                workflowGameplayEngine.exitActiveMode();
+                break;
+
+            // MỚI (07/10/2026, game "Arrow") — bàn phím tròn 8 hướng + nút Enter (event/listener/gameplay.js).
+            case 'gameplay.arrow.direction.press':
+                workflowGameplayArrow.handleDirection(msg.payload.dir);
+                break;
+
+            case 'gameplay.arrow.commit.press':
+                workflowGameplayArrow.handleCommit();
                 break;
 
             case 'gameplay.mediaChanged': {
@@ -53,7 +63,8 @@ const routerGameplay = (() => {
                 // đích, khai báo rõ, tránh cảnh báo"). KHÔNG đổi hành vi thật, chỉ dọn log noise.
                 const armedGameId = appState.get('gameplayArmedGameId');
                 VirtualMachineState.run([
-                    { state: armedGameId, operation: '!==', value: null, callback: () => workflowGameplay.start(armedGameId) },
+                    // SỬA (07/10/2026, game "Arrow") — mở ĐÚNG game đang armed (bảng điều phối theo mode, event/workflow/gameplay-engine.js).
+                    { state: armedGameId, operation: '!==', value: null, callback: () => workflowGameplayEngine.startMode(armedGameId) },
                     { state: armedGameId, operation: '===', value: null, callback: () => {} }, // không có game armed — no-op có chủ đích (khai báo rõ, tránh cảnh báo "không rule nào khớp")
                 ]);
                 break;

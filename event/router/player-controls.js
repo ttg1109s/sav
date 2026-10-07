@@ -236,7 +236,8 @@ const routerPlayerControls = (() => {
                 const endedOwner = recordPhase !== 'idle' ? 'recorder' : (gameplayPhase !== 'idle' ? 'game' : 'player');
                 VirtualMachineState.run([
                     { state: endedOwner, operation: '===', value: 'player', callback: () => workflowPlayerControls.handleMediaEnded() },
-                    { state: endedOwner, operation: '===', value: 'game', callback: () => workflowGameplay.onSongEnded() },
+                    // SỬA (07/10/2026, game "Arrow") — modal kết quả của ĐÚNG mode đang chơi (event/workflow/gameplay-engine.js).
+                    { state: endedOwner, operation: '===', value: 'game', callback: () => workflowGameplayEngine.onActiveModeMediaEnded() },
                     { state: endedOwner, operation: '===', value: 'recorder', callback: () => workflowRecorder.onMediaEnded() },
                 ]);
                 break;
