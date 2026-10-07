@@ -46,3 +46,22 @@ function buildExtractedPhotoFilename(date = new Date()) {
     for (let i = 0; i < 5; i++) randomPart += chars[Math.floor(Math.random() * chars.length)];
     return `${datePart}_${randomPart}`;
 }
+
+/** MỚI (07/10/2026, cổng seek v3 cho Video — đóng băng khung hình) — chụp khung hiện tại của `<video>` ra canvas, thu nhỏ
+ * để cạnh dài nhất ≤ `maxSidePx` (giữ tỉ lệ; video nhỏ hơn thì giữ nguyên). Khung đóng băng chỉ hiện vài trăm ms trong lúc
+ * cổng nạp lại nguồn — không cần full-res 4K, thu nhỏ để mã hoá JPEG nhanh.
+ * @param {HTMLVideoElement} videoEl @param {number} maxSidePx @returns {HTMLCanvasElement} */
+function captureVideoFrameToCanvasMaxSide(videoEl, maxSidePx) {
+    const scale = Math.min(1, maxSidePx / Math.max(videoEl.videoWidth, videoEl.videoHeight));
+    const canvas = document.createElement('canvas'); // canvas nội bộ, không gắn DOM
+    canvas.width = Math.max(1, Math.round(videoEl.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(videoEl.videoHeight * scale));
+    canvas.getContext('2d').drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+    return canvas;
+}
+
+/** MỚI (07/10/2026) — mã hoá canvas ra JPEG. @param {HTMLCanvasElement} canvas @param {number} quality 0..1
+ * @returns {Promise<Blob|null>} */
+function canvasToJpegBlob(canvas, quality) {
+    return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+}

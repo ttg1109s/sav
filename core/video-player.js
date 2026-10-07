@@ -131,3 +131,42 @@ function decodeForcedBgThumb(blob) {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve(url)));
     }));
 }
+
+// ===================== MỚI (07/10/2026) — cổng seek v3 cho Video: đóng băng khung hình =====================
+// Cổng seek nạp lại nguồn (`load()`) để xoá hàng đợi tiếng cũ của iOS -> `<video>` mất khung hình tới khi seek xong. Trong
+// lúc đó khung hiện tại (đã chụp) nằm ở layer B (`#visual-bg-image`), layer A (`#bg-video`) trong suốt. Cả 2 layer cùng nằm
+// trong wrapper React Beat/Point Move/Zoom nên di chuyển cùng 1 khối. Đổi bằng opacity + `.me-current` (không `display:none`).
+
+/** Trạng thái layer A/B trước khi đóng băng — để trả lại ĐÚNG như cũ. @returns {{videoOpacity: string, videoCurrent: boolean, imageCurrent: boolean}} */
+function readSeekFreezeLayerState() {
+    return {
+        videoOpacity: bgVideoElement.style.opacity,
+        videoCurrent: bgVideoElement.classList.contains('me-current'),
+        imageCurrent: !!visualBgImageElement && visualBgImageElement.classList.contains('me-current'),
+    };
+}
+
+/** Lộ layer B (khung đóng băng vừa gắn vào), ẩn layer A bằng opacity. `.me-current` trên layer B chỉ có hiệu lực khi layer
+ * mang `.motion-layer` (Video surface); ngoài surface, layer B vốn nằm dưới layer A nên chỉ cần ẩn A. */
+function applySeekFreezeLayersToDOM() {
+    if (visualBgImageElement) visualBgImageElement.classList.add('me-current');
+    bgVideoElement.style.opacity = '0';
+}
+
+/** Trả layer A/B về đúng trạng thái trước khi đóng băng. @param {{videoOpacity: string, videoCurrent: boolean, imageCurrent: boolean}} state */
+function restoreSeekFreezeLayersToDOM(state) {
+    bgVideoElement.style.opacity = state.videoOpacity;
+    bgVideoElement.classList.toggle('me-current', state.videoCurrent);
+    if (visualBgImageElement) visualBgImageElement.classList.toggle('me-current', state.imageCurrent);
+}
+
+/**
+ * MỚI (07/10/2026, Giang chốt gộp "xả hàng đợi lúc pause" cho Video, cùng hướng Song 29/09) — 'pause' vừa tới có phải lần
+ * DỪNG THẬT của đúng video đang phát ở Player Video không, để Workflow xả hàng đợi tiếng iOS (nạp lại + seek về chỗ dừng).
+ * Loại trừ: đã phát lại, hết video ('pause' đi trước 'ended'), không ở Player Video / đã bỏ media, đang kéo thanh seek (kéo
+ * tay tự pause để scrub — cổng chạy lúc thả tay), đang đổi video (swap tự pause trước khi gán src mới), nguồn đã đổi, video
+ * chưa có khung hình (vừa nạp, chưa có gì để xả). Thuần — mọi giá trị do Workflow đọc sẵn. @returns {boolean}
+ */
+function shouldFlushVideoQueueOnPause({ isPaused, isEnded, isVideoPlayerMode, isSeeking, isSwapping, hasFrame, currentKey, currentObjectURL, mediaSrc }) {
+    return isPaused && !isEnded && isVideoPlayerMode && !isSeeking && !isSwapping && hasFrame && currentKey !== null && !!currentObjectURL && mediaSrc === currentObjectURL;
+}
