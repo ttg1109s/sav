@@ -237,28 +237,7 @@ const workflowFileManagerFolderBrowser = {
         const records = await Promise.all(keys.map((key) => FOLDER_RECORD_GETTER_BY_TYPE[mediaType](key)));
         const totalBytes = records.reduce((sum, record) => sum + (record && record.blob ? record.blob.size : 0), 0);
         const countLabel = tFormat(FOLDER_COUNT_LABEL_KEY_BY_TYPE[mediaType], { count: String(keys.length) });
-        const bodyHtml = `
-            <div class="space-y-3">
-                <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-                    <span data-uitk="textSecondary">${t('fileManager.folderBrowser.tileMenu.propertiesContains')}</span><span class="font-medium" data-uitk="textPrimary">${escapeHtml(countLabel)}</span>
-                    <span data-uitk="textSecondary">${t('fileManager.folderBrowser.tileMenu.propertiesSize')}</span><span class="font-medium" data-uitk="textPrimary">${formatBytes(totalBytes)}</span>
-                </div>
-                <div class="border-t pt-3 space-y-2.5" data-uitk="dividerBorder">
-                    <label class="flex items-center gap-2.5 text-sm cursor-pointer" data-uitk="textPrimary">
-                        <input type="checkbox" id="folder-properties-readonly-checkbox" class="w-4 h-4 rounded" data-uitk="accentControl"${folderRecord.isReadOnly ? ' checked' : ''}>
-                        ${t('fileManager.folderBrowser.tileMenu.readOnlyLabel')}
-                    </label>
-                    <label class="flex items-center gap-2.5 text-sm cursor-pointer" data-uitk="textPrimary">
-                        <input type="checkbox" id="folder-properties-hidden-checkbox" class="w-4 h-4 rounded" data-uitk="accentControl"${folderRecord.excludeFromMainPlaylist ? ' checked' : ''}>
-                        ${t('fileManager.folderBrowser.tileMenu.hiddenLabel')}
-                    </label>
-                    <label class="flex items-center gap-2.5 text-sm cursor-pointer" data-uitk="textPrimary">
-                        <input type="checkbox" id="folder-properties-applyfilter-checkbox" class="w-4 h-4 rounded" data-uitk="accentControl"${folderRecord.applyFilter !== false ? ' checked' : ''}>
-                        ${t('fileManager.folderBrowser.tileMenu.applyFilterLabel')}
-                    </label>
-                </div>
-            </div>
-        `;
+        const bodyHtml = buildFolderPropertiesBodyHtml(countLabel, totalBytes, folderRecord); // components/items.js — SỬA 07/10/2026: dời markup khỏi Workflow
         modalChoice( // core/modal-choice-ui.js
             '',
             keys.length > 0 ? [
@@ -342,24 +321,12 @@ const workflowFileManagerFolderBrowser = {
             scrollReset: true,
             height: 'auto',
             maxHeight: '80vh',
-            headerHtml: this._buildFilterEditHeaderHtml(),
+            headerHtml: buildFolderFilterEditHeaderHtml(), // components/playlist-filter-drawer.js — SỬA 07/10/2026: dời markup khỏi Workflow
             bodyHtml,
             bodyClass: 'overflow-y-auto',
         });
         workflowFilterRuleEdit.syncUi(this._filterEditDraft); // event/workflow/filter-rule-edit.js
         wireFolderFilterEditUi(); // core/file-manager/folder-picker-ui.js — nút Back/Áp dụng; field đi qua delegate chung (event/listener/playlist.js)
-    },
-
-    _buildFilterEditHeaderHtml() {
-        return `
-            <div class="flex justify-between items-center gap-2 px-5 pb-3" data-uitk="headerBorder">
-                <button id="btn-folder-filter-edit-back" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors shrink-0" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.back')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h3 class="text-base font-bold truncate flex-1 text-center" data-uitk="headerTitle">${t('fileManager.folderBrowser.tileMenu.filterSettings')}</h3>
-                <button id="btn-folder-filter-edit-apply" type="button" class="shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold" data-uitk="btnPrimaryBg btnPrimaryHoverBg textOnAccent">${t('common.apply')}</button>
-            </div>
-        `;
     },
 
     /** 'fileManagerFolderBrowser.filterEdit.back.click' — bỏ draft (chưa ghi DB), quay về List. */
