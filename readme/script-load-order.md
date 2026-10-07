@@ -23,6 +23,13 @@ phải tồn tại sẵn trước khi bất kỳ file component nào chạy. `la
 `listAvailableLanguages`) chỉ thực sự gọi tới khi người dùng tương tác (luôn sau khi `db.js` đã nạp
 xong từ lâu).
 
+## 1b. `components/icons.js` rồi `core/theme/icon-svg-ui.js` (MỚI 07/10/2026)
+
+Nạp NGAY SAU `lang/lang.js`, TRƯỚC mọi `components/*.js` — nhiều template `TPL_*` gọi `iconSvg()` ngay lúc
+parse (cùng lý do `t()` ở trên). `components/icons.js` chỉ khai báo `ICON_REGISTRY` (dữ liệu); `icon-svg-ui.js`
+định nghĩa `iconSvg()` (xem Rule 3e, core-function-conventions.md). Áp dụng cho CẢ `index.html`,
+`subtitle-editor.html`, `video-editor.html` (mỗi trang tự nạp 2 file này ngay sau `lang/lang.js`).
+
 ## 2. `components/*.js` (kể cả `components/settings/*.js`)
 
 Chỉ định nghĩa biến `TPL_...` (chuỗi HTML), chưa đụng vào DOM. `components/settings/*.js` (6 file)

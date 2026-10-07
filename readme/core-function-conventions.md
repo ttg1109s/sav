@@ -300,6 +300,24 @@ nào để log) — Rule 4 (`console.log("writer: ...")` cho `set()`/`mutate()`)
 
 ---
 
+### 3e — Ngoại lệ ĐÃ audit chính thức: `iconSvg()` (MỚI, 07/10/2026, Giang chốt rà soát SVG)
+
+`core/theme/icon-svg-ui.js::iconSvg(name, className = '', extraAttrs = '')` là hàm dựng chuỗi `<svg>` DUY NHẤT của
+app — tra `ICON_REGISTRY` (`components/icons.js`, CHỈ dữ liệu) rồi bọc thẻ `<svg>` chuẩn hoá (viewBox 24, stroke 2,
+round cap/join; glyph đặc `fill` CHỈ cho play/pause/rewind/fast-forward/drag-handle; `aria-hidden="true"`).
+**Được phép gọi từ:** `components/*.js`, `event/workflow/*.js`, và core `-ui.js` (Rule 5c) — đây là lời gọi core→core
+DUY NHẤT được miễn Rule 3a, vì hàm là LÁ thuần (không state, không DOM, không gọi gì khác, cùng input → cùng chuỗi),
+giống bản chất `t()`.
+
+- **KHÔNG mở rộng tiền lệ:** không suy ra "hàm thuần dựng chuỗi nào cũng được gọi chéo" — chỉ ĐÚNG `iconSvg()`.
+- **Core KHÔNG hậu tố `-ui` KHÔNG được gọi `iconSvg()`** — nếu cần icon, phần HTML đó là template → dời về
+  `components/*.js` (Rule 5d). Vd 07/10/2026: nút 3 chấm / dòng "Chi tiết" / tick chọn nhiều của Playlist dời từ
+  `core/playlist/{render,actions,selection}.js` sang `components/playlist-view.js`
+  (`renderSongActionMenuButtonHtml`/`renderSongInfoRowHtml`/`renderSelectionIndicatorCheckHtml`).
+- **Icon MỚI:** thêm vào `ICON_REGISTRY` (tên theo Heroicons v1 nếu trùng hình, `body` = phần bên trong `<svg>`),
+  KHÔNG viết `<svg>` inline. Đồ hoạ không phải icon (spinner, vòng điểm, biểu đồ, con trỏ karaoke...) giữ inline.
+- Tên không có trong kho → `console.warn('[iconSvg] ...')` + trả chuỗi rỗng (không ném lỗi).
+
 ## Rule 4 — `appState.set()`/`mutate()` PHẢI có `console.log` ngay dưới
 
 Mọi lời gọi `appState.set(...)` hoặc `appState.mutate(...)` trong 1 function core phải có

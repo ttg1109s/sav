@@ -389,3 +389,13 @@ tại từ ver 11 (xem [why-no-es6-module.md](./why-no-es6-module.md)), đườn
   đích, dây thẳng/bẻ góc vuông, nút tròn tại điểm chạm, tài nguyên xung bit.
 - `core/visualizer/groups/connector/circuit.js` — bước frame: chọn chân phóng (dải tần + năng lượng + pitch), xung bit đi
   hết vào chân đích, màu dây, 3 chế độ camera (orbit / bám bit / cố định).
+
+## Bổ sung 07/10/2026 (rà soát SVG — kho icon chung)
+
+- `components/icons.js` — MỚI: `ICON_REGISTRY` (kho ~114 icon, chỉ dữ liệu `{ fill, body }`).
+- `core/theme/icon-svg-ui.js` — MỚI (thư mục `core/theme/` mới): `iconSvg(name, className, extraAttrs)`.
+- `core/pagination-ui.js` — nhận 4 hàm `buildPagination*Html` + `PAGINATION_BTN_CLASS`/`PAGINATION_ICON_NAME` dời từ
+  `core/pagination.js` (Rule 5c).
+- `components/generic-drawer.js` — thêm `buildDrawerHeaderHtml(o)` (header Generic Drawer dùng chung: tiêu đề,
+  nút back, nút đóng, slot actions; layout `start`/`center`).
+
