@@ -1,16 +1,4 @@
 <!DOCTYPE html>
-<!--
-    video-editor.html — Trang RIÊNG cho trình sửa video (MỚI 06/10/2026, Giang: "tách trình editor video thành một trang
-    html riêng, tham khảo subtitle editor"; chốt giữ ĐƠN GIẢN, 1 video 1 đoạn cắt — không làm đa clip).
-    Mở từ menu 3 chấm của 1 video trong Playlist (workflowPlaylist.navigateToActiveMenuVideoEdit()) qua
-    `?video=<key đã mã hoá>` (service/song-key-cipher.js). Nút "<" / Lưu xong -> quay về index.html, tự cuộn tới video.
-
-    KHÔNG nạp lại index.html/main.js — chỉ những gì editor cần: Tailwind build + assets/css/video-preview.css, lang +
-    patch, theme Light (modalChoice/dropdown), loading shield, appState (package 'video-preview' + 'app-misc'), bus,
-    service/db.js, core crop/engine/filmstrip, file-manager video/image/folder (Lưu + Chụp), 3 workflow dùng chung tách
-    từ index.html (video-thumb-extract, photo-duration, video-frame-capture) và cụm videoPreview (workflow/router/listener
-    — trước đây sống trong index.html).
--->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -18,46 +6,43 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <title>Video Editor</title>
-    <!-- Cùng thứ tự với index.html: Tailwind trước, video-preview.css sau (ghi đè được class tiện ích). -->
+
     <link rel="stylesheet" href="assets/css/tailwind.css?v=20260924r1">
     <link rel="stylesheet" href="assets/css/video-preview.css?v=20261006r6">
 </head>
 <body class="h-screen overflow-hidden" style="background:#111111;color:#fff">
 
-    <!-- ===================== SCRIPT ===================== -->
     <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
-    <!-- lang.js Object.assign() ĐỦ 9 biến LANG_PATCH_* — thiếu file nào cũng vỡ lang.js (xem subtitle-editor.html). -->
+
     <script src="lang/patch/patch-common.js?v=20261006z2"></script>
     <script src="lang/patch/patch-playlist.js?v=20261006audivis1"></script>
-    <script src="lang/patch/patch-visualizer.js?v=20261007ui1"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20261007ui1"></script>
+    <script src="lang/patch/patch-visualizer.js?v=20261007ui2"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20261007ui2"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20261006r4"></script>
-    <script src="lang/patch/patch-file-manager.js?v=20261006z1"></script>
-    <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20261007fi2"></script>
+    <script src="lang/patch/patch-subtitle-editor.js?v=20260930kr4"></script>
     <script src="lang/patch/patch-video-preview.js?v=20260929cap1"></script>
     <script src="lang/patch/patch-app-panel-nav.js?v=20261005set3"></script>
     <script src="lang/lang.js?v=20260731v1"></script>
-    <!-- MỚI (07/10/2026, Giang chốt rà soát SVG) — kho icon chung (components/icons.js, chỉ dữ liệu) + hàm dựng iconSvg()
-         (core/theme/icon-svg-ui.js). PHẢI nạp TRƯỚC mọi components/ + core -ui có dựng icon (nhiều component dựng HTML ngay lúc nạp). -->
+
     <script src="components/icons.js?v=20261007svg1"></script>
-    <script src="core/theme/icon-svg-ui.js?v=20261007svg1"></script>
+    <script src="core/ui-theme/icon-svg-ui.js?v=20261007svg1"></script>
+
     <script src="service/z-index.js?v=20261006r1"></script>
-    <!-- Theme: chỉ cần chuỗi class mặc định (Light) cho modalChoice/alertModal/dropdown — như subtitle-editor.html. -->
     <script src="core/ui-theme/light.js?v=20260923v5"></script>
     <script src="core/ui-theme/dark.js?v=20260923v5"></script>
     <script src="core/ui-theme/morphin.js?v=20260923v5"></script>
     <script src="core/ui-theme/registry.js?v=20260921v6"></script>
     <script src="core/ui-theme/apply-ui.js?v=20260909v1"></script>
     <script src="core/modal-choice-ui.js?v=20261006r1"></script>
-    <!-- Loading shield (% lúc nạp video / lúc xuất) — mount TAY + 2 ref DOM mà core/loading-shield-util.js và
-         workflowVideoPreview._setShieldPercent() dùng (index.html lấy từ core/dom-refs.js). -->
+
     <script src="components/loading-shield.js?v=20260910v1"></script>
     <script>
         document.body.insertAdjacentHTML('beforeend', TPL_LOADING_SHIELD);
         const loadingShield = document.getElementById('loading-shield');
         const loadingText = document.getElementById('loading-text');
     </script>
-    <!-- appState: 'video-preview' (state của editor) + 'app-misc' (isShieldBusy, dbReadyPromise). -->
+
     <script src="service/state.js?v=20261001aa1"></script>
     <script src="service/state/video-preview.js?v=20261006r7"></script>
     <script src="service/state/app-misc.js?v=20260725v1"></script>
@@ -70,7 +55,7 @@
     <script src="service/song-key-cipher.js?v=20260710v1"></script>
     <script src="service/component-dynamic.js?v=20260803v1"></script>
     <script src="service/blob-url.js?v=20260803v1"></script>
-    <!-- Core -->
+
     <script src="core/loading-shield-util.js?v=20260625v10"></script>
     <script src="core/dropdown-menu.js?v=20260921v7"></script>
     <script src="core/upload-validation.js?v=20261006z1"></script>
@@ -79,20 +64,19 @@
     <script src="core/video-editor/webcodecs-engine.js?v=20261006r6"></script>
     <script src="core/video-editor/filmstrip.js?v=20261006r7"></script>
     <script src="core/video-editor/opfs-temp.js?v=20260926p1"></script>
-    <script src="core/video-player-capture.js?v=20260810v1"></script>
+    <script src="core/video-player-capture.js?v=20261007sg1"></script>
     <script src="core/file-manager/folder.js?v=20261006db2"></script>
     <script src="core/file-manager/image.js?v=20261006db5"></script>
     <script src="core/file-manager/video.js?v=20261006db5"></script>
     <script src="components/video-preview.js?v=20261007svg1"></script>
     <script src="core/file-manager/video-ui.js?v=20261006r6"></script>
-    <!-- Workflow dùng chung (tách từ index.html 06/10/2026) + cụm videoPreview -->
+
     <script src="event/workflow/media-transform-helpers.js?v=20260804v1"></script>
     <script src="event/workflow/video-thumb-extract.js?v=20261006r6"></script>
     <script src="event/workflow/photo-duration.js?v=20261006r6"></script>
     <script src="event/workflow/video-frame-capture.js?v=20261006r6"></script>
     <script src="event/workflow/video-preview.js?v=20261007svg1"></script>
     <script src="event/router/video-preview.js?v=20261006r6"></script>
-    <!-- listener PHẢI nạp CUỐI — bắn 'videoPreview.page.boot' ngay khi chạy (đọc ?video= rồi mở editor). -->
     <script src="event/listener/video-preview.js?v=20261006r6"></script>
 </body>
 </html>
