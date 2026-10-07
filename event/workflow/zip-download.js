@@ -19,8 +19,8 @@
  * lúc modal mở — cùng cách event/workflow/recorder.js giữ trạng thái modal nghe lại.
  *
  * MỞ RỘNG (06/10/2026, dọn nợ Rule 1/3 — Giang yêu cầu) — cụm này giờ lo MỌI lượt tải file ra ngoài, không riêng zip:
- *   - `deliverFile(blob, filename)` — THAY core `triggerDownload()`: chọn đường Service Worker / Share / <a download>
- *     bằng object map, gọi core thi hành từng đường (core/large-file-download.js, core/id3-export.js).
+ *   - `deliverFile(blob, filename)` — THAY core `triggerDownload()`: chọn đường Share / <a download> bằng object map, gọi
+ *     core thi hành từng đường (core/id3-export.js). Đường Service Worker bỏ 07/10/2026 (sw.js đã xoá).
  *   - `promptSingle(blob, filename)` — THAY core `promptDownloadReady()`: modal "Sẵn sàng tải xuống" 1 file, nút đi qua
  *     eventBus ('zipDownload.single.click' / '.cancel') -> `downloadSingle()` / `cancelSingle()`.
  *   - `collectEntries(type, keys)` — THAY core `collectAll*ZipEntries()`/`_collectZipEntries()` (core tự đọc DB): đọc
@@ -57,14 +57,9 @@ const ZIP_PARTS_SUMMARY_BY_HAS_DURATION = {
     false: (vars) => tFormat('common.export.partsBody', vars),
 };
 
-/** Đường giao file cho hệ điều hành — chọn trong deliverFile(). Share hỏng (không phải huỷ) và Service Worker lỗi đều rơi về
+/** Đường giao file cho hệ điều hành — chọn trong deliverFile(). Share hỏng (không phải huỷ) rơi về
  * <a download> (lưới cuối, như bản core cũ). */
 const FILE_DELIVERY_BY_ROUTE = {
-    serviceWorker: (blob, filename) => triggerLargeFileDownloadViaServiceWorker(blob, filename) // core/large-file-download.js
-        .then(() => true, (err) => {
-            console.warn('[zip-download] Tải qua Service Worker lỗi, rơi về <a download>:', err);
-            return workflowZipDownload._deliverViaAnchor(blob, filename);
-        }),
     share: (blob, filename, file) => shareFileViaSystem(file) // core/id3-export.js
         .then((result) => SHARE_RESULT_TO_DELIVERED[result](blob, filename)),
     anchor: (blob, filename) => Promise.resolve(workflowZipDownload._deliverViaAnchor(blob, filename)),
@@ -206,20 +201,17 @@ const workflowZipDownload = {
     /**
      * Giao 1 file cho hệ điều hành — THAY core `triggerDownload()` (06/10/2026). PHẢI gọi đồng bộ ngay trong lượt bấm thật
      * (eventBus đồng bộ) — trước bước Share KHÔNG có await nào. Chọn đường:
-     *   - file > LARGE_FILE_SKIP_SHARE_BYTES (core/id3-export.js) + Service Worker khả dụng (HTTPS) -> 'serviceWorker';
-     *   - file nhỏ hơn + trình duyệt cho share đúng File này -> 'share';
+     *   - file <= LARGE_FILE_SKIP_SHARE_BYTES (core/id3-export.js) + trình duyệt cho share đúng File này -> 'share';
      *   - còn lại -> 'anchor' (<a download>, có thể dính lỗi WebKitBlobResource với file rất lớn qua file://).
      * @param {Blob} blob @param {string} filename
-     * @returns {Promise<boolean>} true = đã giao (SW/anchor không có tín hiệu "xong" nên coi như đã giao), false = huỷ Share Sheet
+     * @returns {Promise<boolean>} true = đã giao (anchor không có tín hiệu "xong" nên coi như đã giao), false = huỷ Share Sheet
      */
     deliverFile(blob, filename) {
         const isLargeFile = blob.size > LARGE_FILE_SKIP_SHARE_BYTES; // core/id3-export.js
         // File lớn KHÔNG bọc new File() (bản cũ nghi bước này ép sao chép byte) — chỉ cần cho đường Share.
         const file = isLargeFile ? null : new File([blob], filename, { type: blob.type || 'application/octet-stream' });
         const canShare = !!file && !!navigator.canShare && !!navigator.share && navigator.canShare({ files: [file] });
-        const route = (isLargeFile && isLargeFileDownloadSupported() && 'serviceWorker') // core/large-file-download.js
-            || (canShare && 'share')
-            || 'anchor';
+        const route = (canShare && 'share') || 'anchor'; // SỬA 07/10/2026 — bỏ đường Service Worker (sw.js đã xoá)
         console.log(`[zip-download] Giao "${filename}" (${(blob.size / (1024 * 1024)).toFixed(1)}MB) qua đường "${route}"`);
         return FILE_DELIVERY_BY_ROUTE[route](blob, filename, file);
     },

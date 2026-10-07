@@ -24,14 +24,8 @@ const workflowAppBoot = {
         // trước đây loadConfig() (core) tự gọi updateTypeUI() (core cũ, đã tách về Workflow).
         workflowVisualizerRender.activateCurrentStyle(); // event/workflow/visualizer-render.js
         workflowSubtitleDisplay.initFromConfig(); // event/workflow/subtitle-display.js — cờ bật/tắt, style khung, karaoke
-        // MỚI (10/09/2026, Giang yêu cầu "tạm thời dùng Service Worker" — vá bug tải file zip lớn
-        // (>500MB) lỗi "WebKitBlobResource error 1" trên Safari, xem docstring đầy đủ ở core/
-        // large-file-download.js) — đăng ký NGAY LÚC BOOT, KHÔNG await (không ảnh hưởng gì tới hiển
-        // thị Playlist/Visualizer ngay sau, tự âm thầm bỏ qua nếu môi trường không hỗ trợ — vd chạy
-        // qua file://) — cần đăng ký sớm để `navigator.serviceWorker.controller` (điều kiện của
-        // `isLargeFileDownloadSupported()`) kịp có giá trị trước khi người dùng bấm "Tải xuống" lần
-        // đầu.
-        if (typeof registerLargeFileDownloadWorker === 'function') registerLargeFileDownloadWorker(); // core/large-file-download.js
+        // SỬA (07/10/2026, Giang bỏ Service Worker tải file lớn) — thay lệnh đăng ký sw.js cũ: gỡ bản đã cài trên máy (không await).
+        this._retireLegacyDownloadServiceWorker();
         // MỚI (09/09/2026, hệ UI Theme Light/Dark/Morphin) — áp theme màu app THẬT (panel/card/
         // text/nút bấm) CÀNG SỚM CÀNG TỐT, trước khi bất kỳ Generic Drawer nào có thể mở — KHÔNG
         // phụ thuộc thứ tự với các dòng migrate/khôi phục config bên dưới (domain độc lập hoàn
@@ -185,5 +179,14 @@ const workflowAppBoot = {
         // SỬA (07/10/2026, Giang) — thay `window.markPlaylistBootReady()` của khối inline cũ: preloader tách ra
         // service/boot-preloader.js, ẩn = 1 class trên <html>.
         hideAppPreloader(document.documentElement); // core/loading-shield-util.js
+    },
+
+    /** Gỡ Service Worker + cache tải file lớn đời cũ còn sót trên máy đã cài (sw.js đã xoá 07/10/2026). Không có
+     * `navigator.serviceWorker` (file://, HTTP thường) thì chưa từng cài được -> bỏ qua. XOÁ từ ver 14. */
+    _retireLegacyDownloadServiceWorker() {
+        if (!navigator.serviceWorker) return;
+        navigator.serviceWorker.getRegistrations()
+            .then((registrations) => retireLegacyDownloadServiceWorker(registrations)) // core/file-manager/cleanup.js
+            .catch((err) => console.warn('[app-boot] Không gỡ được Service Worker đời cũ (bỏ qua):', err));
     },
 };
