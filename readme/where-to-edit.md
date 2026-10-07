@@ -25,6 +25,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Đọc/ghi IndexedDB (DB v6) | `service/db.js` ([plan/plan-media-db-split.md](./plan/plan-media-db-split.md)) |
 | Cấp/thu `blob:` URL | `service/blob-url.js` |
 | Dựng component HTML động | `service/component-dynamic.js` |
+| Lắp giao diện tĩnh của `index.html` (ghép các `TPL_*` vào `#app-root`, `#visualizer-ui` vào `#visualizer-stage`) | `components/app-mount.js` (trước đây `main.js` ở gốc) |
 | Thứ tự nạp file, giải thích từng `<script>` | [script-load-order.md](./script-load-order.md) — các trang HTML không còn comment |
 
 ## 2. Khung app, điều hướng, Settings
@@ -47,6 +48,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Icon (i) giải thích | `core/info-icon-ui.js`; cụm `infoIcon` |
 | Dropdown menu | `core/dropdown-menu.js` |
 | Màn chờ (loading shield) | `components/loading-shield.js`, `core/loading-shield-util.js` |
+| Preloader lúc mở app | Theme + lưới an toàn: `service/boot-preloader.js` (trong `<head>`); giao diện: khối `<style>` + `#app-preloader` đầu `<body>` của `index.html`; ẩn: `hideAppPreloader()` (`core/loading-shield-util.js`) gọi từ `event/workflow/app-boot.js`; nền Morphin ghi sẵn cho lần mở sau: `_mirrorBootBackdrop()` (`event/workflow/ui-theme.js`) |
 | Panel "đang làm" (placeholder) | `core/placeholder-panel.js`; cụm `placeholderPanels` |
 | Debug console, Perf HUD | `components/debug-console-drawer.js`, `core/debug-console.js`; `components/perf-hud.js`, `core/perf-hud.js`, `core/perf-hud-ui.js`, cụm `perfHud` |
 | Lỗi khởi động | `core/fatal-error.js` — chỉ còn comment; `index.html` chưa có handler `error`/`unhandledrejection` toàn cục ([changelog/v13.md](./changelog/v13.md) mục 7) |
@@ -145,8 +147,8 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 
 | Muốn sửa... | Vào file... |
 |---|---|
-| Trang Subtitle Editor (`subtitle-editor.html`) | `event/listener/subtitle-editor.js` → `event/router/subtitle-editor.js` → `event/workflow/subtitle-editor.js`; core `core/subtitle/subtitles*.js`, `subtitle-karaoke.js`, `core/audio-segment.js`; state `service/state/subtitle-editor.js`, `service/state/record/subtitle-editor.js` |
-| Trang Video Editor (`video-editor.html`) | Cụm `videoPreview` (`event/*/video-preview.js`), `components/video-preview.js`; core `core/video-editor/*.js` (WebCodecs, filmstrip, OPFS tạm, kiểm tương thích); state `service/state/video-preview.js`, `service/state/record/video-editor.js` |
+| Trang Subtitle Editor (`pages/subtitle-editor.html`) | `event/listener/subtitle-editor.js` → `event/router/subtitle-editor.js` → `event/workflow/subtitle-editor.js`; core `core/subtitle/subtitles*.js`, `subtitle-karaoke.js`, `core/audio-segment.js`; state `service/state/subtitle-editor.js`, `service/state/record/subtitle-editor.js` |
+| Trang Video Editor (`pages/video-editor.html`) | Cụm `videoPreview` (`event/*/video-preview.js`), `components/video-preview.js`; core `core/video-editor/*.js` (WebCodecs, filmstrip, OPFS tạm, kiểm tương thích); state `service/state/video-preview.js`, `service/state/record/video-editor.js` |
 | Build CSS Tailwind | `tailwind.config.js` ([tailwind-build.md](./tailwind-build.md)) |
 | Service Worker (tải file lớn) | `sw.js` |
 

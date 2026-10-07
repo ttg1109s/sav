@@ -292,7 +292,7 @@ gửi" trong workflow của miền mà chính router miền đó không còn dù
 // event/workflow/subtitle-modal.js
 const workflowSubtitleModal = {
     navigateToEditor(songKey) {
-        window.location.href = `subtitle-editor.html?song=${encodeSongKeyForUrl(songKey)}`; // service/song-key-cipher.js
+        window.location.href = `pages/subtitle-editor.html?song=${encodeSongKeyForUrl(songKey)}`; // service/song-key-cipher.js
     },
 };
 

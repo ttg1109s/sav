@@ -2,7 +2,7 @@
 
 > Đọc cùng [core-function-conventions.md](./core-function-conventions.md) Rule 3 (ranh giới Core/Workflow) — file
 > NÀY tập trung riêng vào TaskManager (API + ai được dùng). Đồng bộ 07/10/2026 (chốt ver 13): bỏ ngoại lệ
-> `tab-hide-reload.js` (file đã gỡ), thêm phạm vi Web Worker, khối inline Preloader, `requestAnimationFrame` thô
+> `tab-hide-reload.js` (file đã gỡ), thêm phạm vi Web Worker, ngoại lệ lưới an toàn Preloader, `requestAnimationFrame` thô
 > (chờ chốt). Vi phạm hiện có: [sổ vi phạm](./core-legacy-audit.md) mục 4.3.
 
 ## 1. TUYỆT ĐỐI cấm `setInterval`/`setTimeout` thô trong toàn bộ app
@@ -18,20 +18,23 @@ Lý do: `taskManager` là NGUỒN QUẢN LÝ TIMER TẬP TRUNG DUY NHẤT của 
 "app này đang có bao nhiêu timer sống, timer nào" chỉ bằng cách đọc `taskManager.plan`. Rải
 `setTimeout` thô ở nhiều nơi phá vỡ hoàn toàn khả năng đó.
 
-**Không còn ngoại lệ nào trong code app.** Ngoại lệ cũ `core/tab-hide-reload.js` (debounce 50 ms lúc ẩn tab) đã gỡ
-cùng file đó. Các chỗ còn `setTimeout`/`setInterval` thô là vi phạm, liệt kê ở sổ vi phạm (mục "Timer thô").
+**Đúng 1 ngoại lệ đã duyệt (Giang, 07/10/2026): lưới an toàn 10 giây của `service/boot-preloader.js`.** File này chạy
+trong `<head>`, trước `service/task-manager.js` và trước toàn bộ kiến trúc; lưới an toàn phải độc lập với mọi file nạp
+sau (nó tồn tại để Preloader tự ẩn khi boot lỗi giữa chừng). Ngoại lệ cũ `core/tab-hide-reload.js` (debounce 50 ms lúc ẩn
+tab) đã gỡ cùng file đó. Mọi chỗ khác còn `setTimeout`/`setInterval` thô là vi phạm, liệt kê ở sổ vi phạm (mục "Timer
+thô").
 
 **Phạm vi:**
 
 - **Web Worker** (`core/workers/*.js`) nằm ngoài kiến trúc (Giang chốt 07/10/2026) — worker chạy luồng riêng, không
   có `taskManager`; timer bên trong worker không tính.
-- **Khối inline Preloader** đầu `<body>` của `index.html` dùng `setTimeout` thô (hẹn giờ an toàn + gỡ phần tử sau
-  fade) — chạy TRƯỚC khi `service/task-manager.js` được nạp nên không thể dùng `taskManager`. **Chưa chốt** có tính là
-  ngoại lệ hay không ([script-load-order.md](./script-load-order.md) giải thích khối này).
+- **Preloader** — trước đây là khối inline với 2 `setTimeout` thô (lưới an toàn + gỡ phần tử sau fade). Từ 07/10/2026:
+  lưới an toàn ở `service/boot-preloader.js` (ngoại lệ trên); bước gỡ phần tử bỏ hẳn — ẩn bằng 1 class, CSS lo fade +
+  `visibility`, không cần hẹn giờ ([script-load-order.md](./script-load-order.md) mục 2.2).
 - **`requestAnimationFrame` thô** — mục này chỉ ghi `setTimeout`/`setInterval`, nhưng `taskManager` đã có mode
   `raf` (mục 4b). 10 chỗ `requestAnimationFrame` thô (chờ 1–2 khung hình để trình duyệt layout) đang để **chờ chốt**
   trong sổ, chưa tính FAIL.
-- `subtitle-editor.html` và `video-editor.html` đều nạp `service/task-manager.js` — không có lý do "trang không có
+- `pages/subtitle-editor.html` và `pages/video-editor.html` đều nạp `service/task-manager.js` — không có lý do "trang không có
   taskManager".
 
 ## 2. CHỈ Workflow (`event/workflow/*.js`) được dùng `taskManager`

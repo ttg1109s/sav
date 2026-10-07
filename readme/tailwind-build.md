@@ -8,7 +8,7 @@ làm Generic Drawer thụt chiều cao lần đầu mở màn con; kèm cần m�
 |---|---|
 | `tailwind.config.js` | Cấu hình: file được quét tìm class (`content`), `hoverOnlyWhenSupported`, `safelist` |
 | `assets/css/tailwind.input.css` | Nguồn build (3 dòng `@tailwind`) — KHÔNG nạp trong trang |
-| `assets/css/tailwind.css` | Kết quả (minify) — `index.html` + `subtitle-editor.html` nạp file này |
+| `assets/css/tailwind.css` | Kết quả (minify) — `index.html`, `pages/subtitle-editor.html`, `pages/video-editor.html` nạp file này |
 
 Kích thước lúc tạo: ~57 KB minify, ~10 KB khi nén gzip.
 
@@ -41,7 +41,7 @@ Dùng Tailwind **v3.4.x** (KHÔNG dùng v4 — định dạng config khác hẳn
 npx tailwindcss@3 -c tailwind.config.js -i assets/css/tailwind.input.css -o assets/css/tailwind.css --minify
 ```
 
-Build xong: tăng `?v=` của `assets/css/tailwind.css` trong `index.html` và `subtitle-editor.html` để máy lấy bản mới.
+Build xong: tăng `?v=` của `assets/css/tailwind.css` trong `index.html`, `pages/subtitle-editor.html` và `pages/video-editor.html` để máy lấy bản mới.
 
 ## Nén gzip
 
