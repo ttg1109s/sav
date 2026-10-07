@@ -37,6 +37,10 @@
     <script src="lang/patch/patch-video-preview.js?v=20260929cap1"></script>
     <script src="lang/patch/patch-app-panel-nav.js?v=20261005set3"></script>
     <script src="lang/lang.js?v=20260731v1"></script>
+    <!-- MỚI (07/10/2026, Giang chốt rà soát SVG) — kho icon chung (components/icons.js, chỉ dữ liệu) + hàm dựng iconSvg()
+         (core/theme/icon-svg-ui.js). PHẢI nạp TRƯỚC mọi components/ + core -ui có dựng icon (nhiều component dựng HTML ngay lúc nạp). -->
+    <script src="components/icons.js?v=20261007svg1"></script>
+    <script src="core/theme/icon-svg-ui.js?v=20261007svg1"></script>
     <script src="service/z-index.js?v=20261006r1"></script>
     <!-- Theme: chỉ cần chuỗi class mặc định (Light) cho modalChoice/alertModal/dropdown — như subtitle-editor.html. -->
     <script src="core/ui-theme/light.js?v=20260923v5"></script>
@@ -79,14 +83,14 @@
     <script src="core/file-manager/folder.js?v=20261006db2"></script>
     <script src="core/file-manager/image.js?v=20261006db5"></script>
     <script src="core/file-manager/video.js?v=20261006db5"></script>
-    <script src="components/video-preview.js?v=20261006r6"></script>
+    <script src="components/video-preview.js?v=20261007svg1"></script>
     <script src="core/file-manager/video-ui.js?v=20261006r6"></script>
     <!-- Workflow dùng chung (tách từ index.html 06/10/2026) + cụm videoPreview -->
     <script src="event/workflow/media-transform-helpers.js?v=20260804v1"></script>
     <script src="event/workflow/video-thumb-extract.js?v=20261006r6"></script>
     <script src="event/workflow/photo-duration.js?v=20261006r6"></script>
     <script src="event/workflow/video-frame-capture.js?v=20261006r6"></script>
-    <script src="event/workflow/video-preview.js?v=20261006r7"></script>
+    <script src="event/workflow/video-preview.js?v=20261007svg1"></script>
     <script src="event/router/video-preview.js?v=20261006r6"></script>
     <!-- listener PHẢI nạp CUỐI — bắn 'videoPreview.page.boot' ngay khi chạy (đọc ?video= rồi mở editor). -->
     <script src="event/listener/video-preview.js?v=20261006r6"></script>

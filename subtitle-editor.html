@@ -350,6 +350,10 @@
          xem lang/lang.js) — KHÔNG được bớt file nào dù trang này chỉ thật sự DÙNG patch-common/
          patch-subtitle-editor. -->
     <script src="lang/lang.js?v=20260731v1"></script>
+    <!-- MỚI (07/10/2026, Giang chốt rà soát SVG) — kho icon chung (components/icons.js, chỉ dữ liệu) + hàm dựng iconSvg()
+         (core/theme/icon-svg-ui.js). PHẢI nạp TRƯỚC mọi components/ + core -ui có dựng icon (nhiều component dựng HTML ngay lúc nạp). -->
+    <script src="components/icons.js?v=20261007svg1"></script>
+    <script src="core/theme/icon-svg-ui.js?v=20261007svg1"></script>
     <!-- service/z-index.js — bảng z-index TẬP TRUNG (dời từ core/config.js, đợt tái cấu trúc
          state 25/07/2026) — PHẢI nạp TRƯỚC core/modal-choice-ui.js (dùng Z_INDEX.MODAL_CHOICE). -->
     <script src="service/z-index.js?v=20260725v1"></script>
@@ -374,7 +378,7 @@
          core/generic-drawer.js). CẦN Z_INDEX (service/z-index.js, đã nạp trên)+_activeUiThemeKeyList/
          applyUiThemeToDom (core/ui-theme/apply-ui.js, đã nạp ngay trên) — KHÔNG cần gì khác của
          index.html (không dom-refs.js/block.js đầy đủ). -->
-    <script src="components/generic-drawer.js?v=20260924r7"></script>
+    <script src="components/generic-drawer.js?v=20261007svg1"></script>
     <script>
         document.body.insertAdjacentHTML('beforeend', TPL_GENERIC_DRAWER);
         const genericDrawerOverlay = document.getElementById('generic-drawer-overlay');
@@ -415,14 +419,14 @@
          thành bài mới (event/workflow/subtitle-editor.js::_insertCutBlobAsNewSong()). Chỉ cần lang/lang.js (tFormat). -->
     <script src="core/upload-validation.js?v=20261006z1"></script>
     <script src="core/subtitle/subtitles.js?v=20260930kr1"></script>
-    <script src="core/subtitle/subtitles-ui.js?v=20260930kr2"></script>
+    <script src="core/subtitle/subtitles-ui.js?v=20261007svg1"></script>
     <!-- MỚI (17/09/2026, yêu cầu Giang — tính năng karaoke) — core THUẦN tách từ/chia ms/kéo-gõ
          chỉnh timing (subtitle-karaoke.js) + component dựng header/body Generic Drawer cho tính
          năng này (subtitle-karaoke-drawer.js, CÙNG khuôn components/eq-presets-drawer.js) — component
          cần escapeHtml() (core/modal-choice-ui.js, đã nạp trên) + KARAOKE_MIN_WORD_MS (file THUẦN
          ngay trên). -->
     <script src="core/subtitle/subtitle-karaoke.js?v=20261001kr1"></script>
-    <script src="components/subtitle-karaoke-drawer.js?v=20260930kr5"></script>
+    <script src="components/subtitle-karaoke-drawer.js?v=20261007svg1"></script>
     <!-- MỚI (30/09/2026) — core THUẦN xử lý đoạn PCM (gộp mono/cắt đoạn/peaks/đóng gói WAV) cho waveform
          mini của drawer Karaoke (có audio RIÊNG đúng đoạn dòng — nút ▶ từng từ phát trên đó). Không phụ
          thuộc gì, chỉ cần nạp TRƯỚC event/workflow/subtitle-editor.js. -->
@@ -434,7 +438,7 @@
     <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
     <!-- MỚI (17/09/2026) — closeFully() dùng chung cho MỌI tính năng Generic Drawer (ở đây: drawer
          karaoke) — file THUẦN, chỉ cần core/generic-drawer.js + genericDrawerPanel (đã nạp trên). -->
-    <script src="event/workflow/generic-drawer-helpers.js?v=20260924r9"></script>
+    <script src="event/workflow/generic-drawer-helpers.js?v=20261007svg1"></script>
     <script src="event/workflow/subtitle-editor.js?v=20261006db2"></script>
     <script src="event/router/subtitle-editor.js?v=20260712v7"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowSubtitleEditor.init() ngay khi chạy. -->
