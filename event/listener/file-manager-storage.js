@@ -3,7 +3,7 @@
  *
  * XOÁ (đợt tái cấu trúc bottom nav App Panel) — `btnOpenFileManagerSong`/`btnOpenFileManagerStorage`
  * (2 nút TĨNH của section File Manager cũ trong Settings, `components/settings/
- * file-manager-section.js` — section đó KHÔNG còn mount, xem main.js) — Folder/Storage giờ mở từ
+ * file-manager-section.js` — section đó KHÔNG còn mount, xem components/app-mount.js) — Folder/Storage giờ mở từ
  * bottom nav App Panel (`event/workflow/app-panel-nav.js::openFolder()/openStorage()`), KHÔNG cần
  * 2 nút TĨNH này nữa. `core/dom-refs.js` vẫn giữ 2 dom-ref đó (trả `null`, vô hại — element không
  * còn tồn tại trong DOM, giữ nguyên không xoá theo tinh thần Rule 0.5).
