@@ -151,17 +151,17 @@ function openImagePreviewModal(image) {
     shapeTypePopup.id = 'image-edit-shape-type-popup';
     shapeTypePopup.className = 'hidden absolute bottom-0 left-0 w-full photo-preview-scrim-bottom p-5 pb-8';
     const shapeTypes = [
-        { key: 'rect', path: 'M4 5h16v14H4z' },
-        { key: 'circle', path: 'M12 4a8 8 0 100 16 8 8 0 000-16z' },
-        { key: 'line', path: 'M4 20L20 4' },
-        { key: 'arrow', path: 'M4 20L20 4M20 4H10M20 4v10' },
-        { key: 'polygon', path: 'M12 3l8 6-3 10H7L4 9z' },
+        { key: 'rect', icon: 'shape-rect' },
+        { key: 'circle', icon: 'shape-circle' },
+        { key: 'line', icon: 'shape-line' },
+        { key: 'arrow', icon: 'shape-arrow' },
+        { key: 'polygon', icon: 'shape-polygon' },
     ];
     shapeTypePopup.innerHTML = `
         <div class="flex justify-center gap-3">
             ${shapeTypes.map(s => `
                 <button type="button" data-shape-type="${s.key}" class="w-12 h-12 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${s.path}"/></svg>
+                    ${iconSvg(s.icon, 'h-6 w-6')}
                 </button>
             `).join('')}
         </div>
@@ -181,7 +181,7 @@ function openImagePreviewModal(image) {
             <div class="flex items-center gap-2">
                 <span id="image-edit-adjust-value" class="text-primary font-mono bg-white/10 px-2 py-0.5 rounded"></span>
                 <button id="image-edit-adjust-done" type="button" class="w-7 h-7 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    ${iconSvg('check', 'h-4 w-4')}
                 </button>
             </div>
         </div>
@@ -197,11 +197,11 @@ function openImagePreviewModal(image) {
     contextBar.className = 'hidden photo-preview-scrim-top flex justify-between items-center px-4 pt-4 pb-3';
     contextBar.innerHTML = `
         <button id="image-edit-context-cancel" type="button" class="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            ${iconSvg('x', 'h-5 w-5')}
         </button>
         <span id="image-edit-context-title" class="text-white text-sm font-semibold tracking-wide"></span>
         <button id="image-edit-context-apply" type="button" class="w-9 h-9 flex items-center justify-center rounded-full bg-primary hover:bg-blue-500 transition-colors text-white shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            ${iconSvg('check', 'h-5 w-5')}
         </button>
     `;
     overlay.appendChild(contextBar);
@@ -265,7 +265,7 @@ function openImagePreviewModal(image) {
     header.className = 'photo-preview-scrim-top flex justify-between items-center px-4 pt-4 pb-3 gap-2';
     const closeBtn = document.createElement('button');
     closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
-    closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
+    closeBtn.innerHTML = iconSvg('x', 'h-5 w-5');
     header.appendChild(closeBtn);
 
     // XOÁ (gộp View/Zoom/Edit làm 1, bỏ dropdown "...") — menuBtn ("...", mở core/dropdown-menu.js)
@@ -281,13 +281,13 @@ function openImagePreviewModal(image) {
     const saveBtn = document.createElement('button');
     saveBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
     saveBtn.title = t('fileManager.photo.image.saveMenuTitle');
-    saveBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4l-4 4m0 0L7 3m4 4V1"/></svg>';
+    saveBtn.innerHTML = iconSvg('save-image', 'h-5 w-5');
     rightGroup.appendChild(saveBtn);
 
     const toolsBtn = document.createElement('button');
     toolsBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
     toolsBtn.title = t('fileManager.photo.image.editGridTitle');
-    toolsBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>';
+    toolsBtn.innerHTML = iconSvg('pencil-alt', 'h-5 w-5');
     rightGroup.appendChild(toolsBtn);
     header.appendChild(rightGroup);
     overlay.appendChild(header);
@@ -430,19 +430,12 @@ function openImagePreviewModal(image) {
  * `openGenericDrawer()`, Rule 3) + `wirePhotoEditToolGridDelegation()` (delegated click trên `genericDrawerBody` TĨNH,
  * phải trả hàm gỡ, Workflow giữ suốt phiên modal) THAY bằng 2 hàm: config thuần + wire trên nội dung động. Workflow
  * (event/workflow/image-edit.js::openEditToolGrid()) mở qua `workflowGenericDrawerHelpers.open()` rồi gọi wire.
- * @param {string} title @param {string} bodyHtml @returns {object} config Generic Drawer lưới tool Edit mode */
-function buildPhotoEditToolGridDrawerConfig(title, bodyHtml) {
+ * @param {string} headerHtml @param {string} bodyHtml @returns {object} config Generic Drawer lưới tool Edit mode */
+function buildPhotoEditToolGridDrawerConfig(headerHtml, bodyHtml) { // SỬA 07/10/2026 — nhận headerHtml dựng sẵn (buildDrawerHeaderHtml(), components/generic-drawer.js)
     return {
         height: 'auto', maxHeight: '70vh',
         zIndex: Z_INDEX.IMAGE_ACTION_MENU_DRAWER, // service/z-index.js (131) — TRÊN modal xem ảnh (130)
-        headerHtml: `
-            <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
-                <h3 class="text-base font-bold" data-uitk="headerTitle">${title}</h3>
-                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.close')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-            </div>
-        `,
+        headerHtml,
         bodyHtml,
         bodyClass: 'overflow-y-auto',
     };
