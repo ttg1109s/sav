@@ -82,7 +82,8 @@ function renderVisualBgMediaPanelBody() {
                 </div>
 
                 <!-- ===================== PLAYBACK — cách phát + Motion, tách khỏi Media ===================== -->
-                <div class="mt-6">
+                <!-- SỬA (07/10/2026, Giang) — cả nhóm ẨN khi chưa chọn media nào (workflowVisualBg.refreshPanelUI()). -->
+                <div id="visual-bg-playback-group" class="mt-6 hidden">
                     <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2" data-uitk="accentText" data-i18n="visualBgSettingsDrawer.groupPlayback.title">${t('visualBgSettingsDrawer.groupPlayback.title')}</h3>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
 

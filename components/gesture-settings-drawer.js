@@ -145,7 +145,6 @@ function renderGestureSettingsPanelBody() {
                     <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder">
                         <div class="pr-3">
                             <div class="text-sm font-medium" data-i18n="gestureSettings.seekHoldEnable.label">${t('gestureSettings.seekHoldEnable.label')}</div>
-                            <div class="text-xs mt-0.5" data-uitk="textSecondary" data-i18n="gestureSettings.seekHoldEnable.hint">${t('gestureSettings.seekHoldEnable.hint')}</div>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer shrink-0">
                             <input type="checkbox" id="setting-gesture-seek-hold-enable" class="sr-only peer">
