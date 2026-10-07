@@ -35,3 +35,22 @@ if (btnGameplayExit) {
         eventBus.send({ router: 'gameplay', type: 'gameplay.exit.click', payload: {} });
     });
 }
+
+// MỚI (07/10/2026, game "Arrow") — bàn phím tròn 8 hướng + nút Enter (DOM TĨNH, components/gameplay-arrow-stage.js).
+// `pointerdown` (không đợi click/pointerup) — phản hồi tức thời như tap-surface Circle, nhiều ngón bấm dồn vẫn nhận đủ.
+// Delegation trên `#gameplay-arrow-pad`: `closest('[data-arrow-dir]')` chỉ để biết nút nào bị chạm (event-bus-flow.md
+// mục 1) rồi gửi hướng 0..7. Zoom double-tap/cuộn đã chặn bằng CSS `touch-action: none` (assets/css/gameplay-arrow.css) —
+// không preventDefault để trạng thái :active (nút lún xuống) vẫn hiện.
+if (gameplayArrowPad) {
+    gameplayArrowPad.addEventListener('pointerdown', (e) => {
+        const btn = e.target.closest('[data-arrow-dir]');
+        if (!btn) return;
+        eventBus.send({ router: 'gameplay', type: 'gameplay.arrow.direction.press', payload: { dir: Number(btn.dataset.arrowDir) } });
+    });
+}
+
+if (btnGameplayArrowCommit) {
+    btnGameplayArrowCommit.addEventListener('pointerdown', () => {
+        eventBus.send({ router: 'gameplay', type: 'gameplay.arrow.commit.press', payload: {} });
+    });
+}
