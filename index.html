@@ -246,7 +246,7 @@
 
     <!-- CSS tách riêng theo domain, ?v= ép tải lại khi deploy (không đụng CDN — đã tự version). -->
     <link rel="stylesheet" href="assets/css/base.css?v=20261001kr1">
-    <link rel="stylesheet" href="assets/css/sliders.css?v=20261007ui1">
+    <link rel="stylesheet" href="assets/css/sliders.css?v=20261007ui2">
     <link rel="stylesheet" href="assets/css/glass.css?v=20260923v5">
     <link rel="stylesheet" href="assets/css/animations.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/layout-nav.css?v=20261005vs2">
@@ -390,8 +390,8 @@
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
     <script src="lang/patch/patch-common.js?v=20261006z2"></script>
     <script src="lang/patch/patch-playlist.js?v=20261006audivis1"></script>
-    <script src="lang/patch/patch-visualizer.js?v=20261007ui1"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20261007ui1"></script>
+    <script src="lang/patch/patch-visualizer.js?v=20261007ui2"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20261007ui2"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20261006r4"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 2 drawer con Song/Photo & Album, xem plan-v12-multimedia-decisions.md). -->
@@ -434,7 +434,7 @@
          (`#setting-open-playlist-sort/-filter`, TPL_SETTINGS_PLAYLIST_VIEW) đã mất cùng đợt bỏ
          Settings cũ (xem ngay dưới), tạm KHÔNG có lối vào UI nào — GIỮ NGUYÊN script (chỉ là hàm
          render, vô hại khi chưa gọi tới, đợi hướng dẫn nối lại sau). -->
-    <script src="components/playlist-sort-drawer.js?v=20261007ui1"></script>
+    <script src="components/playlist-sort-drawer.js?v=20261007ui2"></script>
     <script src="components/playlist-filter-drawer.js?v=20260930hidden2"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel, phản hồi Giang) — bottom nav 7 mục Media/
          Folder/Photo/Storage/Game/Statis/Setting. -->
@@ -471,7 +471,7 @@
     <script src="components/generic-drawer.js?v=20260924r7"></script>
     <!-- Nội dung Generic Drawer cho "Edit EQ" (list preset + view sửa) — components/
          eq-presets-drawer.js, dùng bởi event/workflow/eq-presets.js. -->
-    <script src="components/eq-presets-drawer.js?v=20261007ui1"></script>
+    <script src="components/eq-presets-drawer.js?v=20261007ui2"></script>
     <!-- Nội dung Generic Drawer cho "Custom Effect" (mở qua GIỮ 1.5s #btn-cycle-mode) — components/
          custom-effect-drawer.js, dùng bởi event/workflow/custom-effect.js. -->
     <script src="components/custom-effect-drawer.js?v=20260928p6"></script>
@@ -495,21 +495,21 @@
     <script src="components/subtitle-settings-drawer.js?v=20261001kr1"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Motion Settings Drawer (Cấu hình Transition/Ken Burns/
          React Beat Audio, hệ preset độc lập — xem components/motion-settings-drawer.js). -->
-    <script src="components/motion-settings-drawer.js?v=20261007ui1"></script>
-    <script src="components/visual-bg-settings-drawer.js?v=20261005set3"></script>
+    <script src="components/motion-settings-drawer.js?v=20261007ui2"></script>
+    <script src="components/visual-bg-settings-drawer.js?v=20261007ui2"></script>
     <script src="components/visual-bg-gradient-drawer.js?v=20260924r1"></script>
     <script src="components/visual-bg-video-audio-drawer.js?v=20261005fix5"></script>
     <!-- MỚI (Giang yêu cầu "Player" — Resolution + Motion của Video/Photo lúc phát chính) — CẦN
          core/player-display-settings.js (nạp bên dưới, PLAYER_RESOLUTION_MODES/PLAYER_MOTION_SLOTS/
          resolvePlayer*Field()). -->
-    <script src="components/settings/player-display-settings.js?v=20260929zs1"></script>
+    <script src="components/settings/player-display-settings.js?v=20261007ui2"></script>
     <!-- MỚI (01/10/2026) — Settings > Player > Ghi âm (renderRecorderSettingsBody()). -->
     <script src="components/settings/recorder-settings.js?v=20261007rec3"></script>
     <!-- MỚI (23/09/2026) — màn Settings > System > Pagination. CẦN core/pagination.js (nạp bên dưới —
          PAGINATION_PLACES/PAGINATION_STYLES chỉ đọc lúc DỰNG màn, không lúc nạp). -->
     <script src="components/settings/pagination.js?v=20260924v1"></script>
     <!-- Panel Settings "Cử chỉ" (cụm gestureSettings) — cùng pattern push/pop Settings Stack. -->
-    <script src="components/gesture-settings-drawer.js?v=20260923v1"></script>
+    <script src="components/gesture-settings-drawer.js?v=20261007ui2"></script>
 
     <!-- =====================================================================
          2) MAIN (bootstrap): lắp toàn bộ component vào #app-root.
@@ -770,7 +770,7 @@
     <script src="core/motion-engine.js?v=20260903v4"></script>
     <!-- Core THUẦN cho hệ "Cấu hình Motion" (preset đặt tên được, độc lập khỏi Visual Background)
          — xem core/motion-presets.js. -->
-    <script src="core/motion-presets.js?v=20261007ui1"></script>
+    <script src="core/motion-presets.js?v=20261007ui2"></script>
     <!-- MỚI (Giang yêu cầu "Player") — hằng số thuần PLAYER_RESOLUTION_MODES/PLAYER_MOTION_SLOTS +
          2 hàm resolve tên field + normalizePlayerResolutionMode(), xem core/player-display-settings.js. Không phụ thuộc file nào. -->
     <script src="core/player-display-settings.js?v=20260929zs1"></script>
@@ -956,7 +956,7 @@
          ứng #btn-cycle-mode, volume, EQ preset). PHẢI nạp sau core/dom-refs.js, core/config.js,
          core/custom-effect.js, core/webgl/three-vortex.js, core/canvas-scene-setup.js,
          core/color-utils.js — đều đã nạp ở khu CORE. -->
-    <script src="core/visualizer/visualizer-display.js?v=20261006cir1"></script>
+    <script src="core/visualizer/visualizer-display.js?v=20261007ui2"></script>
     <!-- Tự động đổi hiệu ứng Visualizer theo thời gian (ver 10, ĐỔI vị trí ver 11: trước đây nạp
          ngay sau player-controls.js ở khu CORE — giờ PHẢI nạp SAU visualizer-display.js vì file
          đó định nghĩa saveConfig mà auto-switch-visual.js cần, xem comment đầu file
@@ -1142,9 +1142,9 @@
     <script src="event/workflow/visual-bg-photo-motion.js?v=20260925p3"></script>
     <!-- Cấu hình Motion (Settings > System > Motion + chế độ Chọn). Listener delegate trên Generic Drawer
          (event/listener/motion-presets.js) thay cho wiring trong onMount của app-settings.js. -->
-    <script src="event/workflow/motion-presets.js?v=20261007ui1"></script>
-    <script src="event/router/motion-presets.js?v=20261007ui1"></script>
-    <script src="event/listener/motion-presets.js?v=20261007ui1"></script>
+    <script src="event/workflow/motion-presets.js?v=20261007ui2"></script>
+    <script src="event/router/motion-presets.js?v=20261007ui2"></script>
+    <script src="event/listener/motion-presets.js?v=20261007ui2"></script>
 
     <!-- MỚI (Giang chỉ ra: "đã tách bạch rõ trách nhiệm motion phải quản lý việc apply live bất kể
          nơi tiêu thụ... sau này có N nơi tiêu thụ thì cũng ko thể nhân bản để áp dụng") — 3 module
@@ -1184,7 +1184,7 @@
 
     <!-- Cụm "visualBg" — Workflow tách 3 file: common (định nghĩa `workflowVisualBg`), video/photo
          (`Object.assign()` thêm vào) — common PHẢI nạp trước video/photo. -->
-    <script src="event/workflow/visual-bg-common.js?v=20261005set3"></script>
+    <script src="event/workflow/visual-bg-common.js?v=20261007ui2"></script>
     <script src="event/workflow/visual-bg-video.js?v=20261006db3"></script>
     <script src="event/workflow/visual-bg-photo.js?v=20261006db3"></script>
     <script src="event/router/visual-bg.js?v=20261005fix5"></script>
@@ -1209,7 +1209,7 @@
     <script src="event/workflow/video-thumb-extract.js?v=20261006r6"></script>
     <script src="event/workflow/photo-duration.js?v=20261006r6"></script>
     <script src="event/workflow/video-frame-capture.js?v=20261006r6"></script>
-    <script src="event/workflow/file-manager-photo.js?v=20261007ui1"></script>
+    <script src="event/workflow/file-manager-photo.js?v=20261007ui2"></script>
     <script src="event/router/file-manager-photo.js?v=20260731v8"></script>
     <!-- TÁCH RA (31/07/2026, yêu cầu Giang) — cụm "imageEdit", Edit mode của modal xem ảnh Photo
          (trước đây sống chung trong file-manager-photo.js). CẦN workflowFileManagerPhoto (3 khe đọc
@@ -1261,7 +1261,7 @@
          core/listen-stats.js (bumpSongPlayCount), event/workflow/video-player.js (workflowVideoPlayer
          — chỉ dùng trong callback runtime, không bắt buộc thứ tự nạp so với dòng NGAY DƯỚI). -->
     <script src="event/workflow/player.js?v=20261006db4"></script>
-    <script src="event/workflow/playlist.js?v=20261007ui1"></script>
+    <script src="event/workflow/playlist.js?v=20261007ui2"></script>
     <script src="event/router/playlist.js?v=20261006audivis3"></script>
     <script src="event/listener/playlist.js?v=20261006audivis3"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel + phân phối lại section Settings, phản hồi
@@ -1358,7 +1358,7 @@
          effect ĐÃ DỜI sang cụm "customEffect" (Custom Effect Drawer, xem file ngay dưới) — router
          visualizerDisplay dispatch case cyclePress/cycle.click sang workflowCustomEffect, nên
          event/workflow/custom-effect.js PHẢI nạp TRƯỚC event/router/visualizer-display.js. -->
-    <script src="event/workflow/custom-effect.js?v=20261007ui1"></script>
+    <script src="event/workflow/custom-effect.js?v=20261007ui2"></script>
     <!-- MỚI — Workflow công cụ CHUNG "Element Style Editor" (API duy nhất: open(targetEl), CHƯA
          có nơi nào gọi thật, xem docstring đầu file). CẦN core/generic-drawer.js, event/workflow/
          generic-drawer-helpers.js, core/element-style-editor.js, components/
@@ -1468,7 +1468,7 @@
          core/eq-presets.js). CẦN core/generic-drawer.js, components/eq-presets-drawer.js,
          event/workflow/generic-drawer-helpers.js (closeFully(), đã nạp ở nhóm trên), đã nạp SAU
          cả 3 — an toàn. -->
-    <script src="event/workflow/eq-presets.js?v=20261007ui1"></script>
+    <script src="event/workflow/eq-presets.js?v=20261007ui2"></script>
     <script src="event/router/eq-presets.js?v=20260924v1"></script>
     <script src="event/listener/eq-presets.js?v=20260813v1"></script>
     <!-- MỚI (06/10/2026, dọn nợ Rule 2/3) — workflowAppCleanup (dời từ core/app-cleanup.js::executeAppCleanup). -->
