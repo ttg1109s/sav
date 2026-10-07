@@ -4,7 +4,7 @@
  *
  * Nốt nhạc bay lên (DOM, không phải canvas) trên #record-container khi nhạc đủ mạnh, bất kể kiểu hiệu
  * ứng nào đang chọn. TÁCH RIÊNG (19/07/2026, yêu cầu Giang — mỗi hàm 1 file trong core/visualizer/draw/)
- * từ file gộp cũ core/visualizer/draw-helpers.js (đã xoá, xem readme/folder-structure.md).
+ * từ file gộp cũ core/visualizer/draw-helpers.js (đã xoá, xem readme/changelog/v13.md mục 6).
  *
  * [SỬA — 28/09/2026, Phase 2 dọn visualizer] `spawnFlyingNote()` cũ ĐÃ XOÁ — hàm đó tự đọc appState
  * (`frameCounter`, `globalHueOffset`) và tự hẹn giờ gỡ nốt bằng `taskManager.once()` (taskManager CẤM

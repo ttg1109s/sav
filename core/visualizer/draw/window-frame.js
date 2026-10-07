@@ -2,7 +2,7 @@
  * Vẽ khung cửa sổ NHÀ (canvas 2D, thanh chữ thập chia 4 ô kính) — dùng bởi Rain kiểu "glass"
  * (core/visualizer/types/rain.js, đứng nhìn mưa ngoài cửa sổ). TÁCH RIÊNG (19/07/2026, yêu cầu
  * Giang — mỗi hàm 1 file trong core/visualizer/draw/) từ file gộp cũ
- * core/visualizer/draw-helpers.js (đã xoá, xem readme/folder-structure.md).
+ * core/visualizer/draw-helpers.js (đã xoá, xem readme/changelog/v13.md mục 6).
  */
         function drawWindowFrame(ctx) {
             let fw = 25 * appState.get('dpr'); let midW = 15 * appState.get('dpr'); 
