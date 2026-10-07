@@ -12,10 +12,9 @@
  *
  * MỚI (10/09/2026, Giang yêu cầu) — `cleanupOrphanedZipTempFiles()` MỞ RỘNG phạm vi file này thêm 1
  * bậc: KHÔNG chỉ IndexedDB nữa mà còn quét rác OPFS (file .zip tạm bỏ dở khi phiên nén bị gián đoạn
- * — xem docstring hàm đó) VÀ Cache Storage (`cleanupOrphanedLargeFileDownloadCacheEntries()` — entry
- * tải file lớn bỏ dở, xem docstring hàm đó) — gọi thẳng `navigator.storage`/`caches` (API trình
- * duyệt gốc, KHÔNG tính "core khác" theo Rule 1-4 ngay dưới, cùng tinh thần core/streaming-zip.js/
- * core/large-file-download.js cũng gọi thẳng các API này).
+ * — xem docstring hàm đó) — gọi thẳng `navigator.storage` (API trình duyệt gốc, KHÔNG tính "core khác" theo Rule 1-4
+ * ngay dưới, cùng tinh thần core/streaming-zip.js). (Mục dọn Cache Storage tải file lớn bỏ 07/10/2026 cùng sw.js —
+ * thay bằng retireLegacyDownloadServiceWorker() cuối file, gọi lúc boot.)
  *
  * REGISTRY: mỗi kiểu quan hệ mồ côi đăng ký 1 hàm quét+tự sửa riêng qua `registerCleanupCheck()` —
  * tính năng SAU NÀY phát sinh quan hệ mới chỉ cần viết thêm 1 hàm + đăng ký thêm 1 dòng, KHÔNG sửa
@@ -164,46 +163,18 @@ registerCleanupCheck('orphanedFolderSongMaps', cleanupOrphanedFolderSongMaps);
 registerCleanupCheck('orphanedZipTempFiles', cleanupOrphanedZipTempFiles);
 
 /**
- * MỒ CÔI #7 — entry trong Cache Storage (`sav-download-cache-v1`, core/large-file-download.js —
- * tên lặp lại Ở ĐÂY, cùng lý do "Core THUẦN" như MỒ CÔI #6 ngay trên) bị BỎ LẠI khi người dùng đóng
- * tab/thoát app trong vòng 60 giây sau khi bấm "Tải xuống" 1 file lớn (>500MB, qua đường Service
- * Worker) — `triggerLargeFileDownloadViaServiceWorker()` (core/large-file-download.js) tự dọn bằng
- * `setTimeout` 60s, nhưng KHÔNG chạy được nếu trang đã đóng trước đó — vá bằng registry dọn rác
- * chung này, cùng tinh thần MỒ CÔI #6.
- *
- * MỖI entry có URL dạng `/__sav-download__/<timestamp>-<tên file>` (xem hàm trên) — LẤY TUỔI từ
- * `<timestamp>` nhúng sẵn, CHỈ xoá entry CŨ HƠN 1 giờ (cùng ngưỡng/lý do với MỒ CÔI #6 — tránh xoá
- * nhầm 1 lượt tải đang thật sự diễn ra ở tab/cửa sổ KHÁC của CÙNG app).
- * @returns {Promise<number>} số entry đã dọn.
+ * GỠ Service Worker tải file lớn đời cũ (sw.js + core/large-file-download.js — ĐÃ XOÁ 07/10/2026, Giang: đường đó chỉ dùng cho
+ * file > 600MB, mà từ 06/10/2026 mỗi media và mỗi phần zip tối đa 500MB nên không bao giờ chạy tới). Máy đã cài vẫn còn bản
+ * đăng ký + cache `sav-download-cache-v1` dù file đã xoá -> gỡ cả hai lúc boot. Workflow đọc danh sách đăng ký rồi truyền
+ * vào (event/workflow/app-boot.js). XOÁ hàm này từ ver 14 (đủ 1 phiên bản để các máy đã cài tự dọn).
+ * @param {ServiceWorkerRegistration[]} registrations
+ * @returns {Promise<void>}
  */
-async function cleanupOrphanedLargeFileDownloadCacheEntries() {
-    if (typeof caches === 'undefined') return 0; // Cache Storage không khả dụng (vd chạy qua file://, hoặc trình duyệt rất cũ) -> chắc chắn không có gì để dọn
-    const CACHE_NAME = 'sav-download-cache-v1'; // PHẢI khớp SAV_DOWNLOAD_CACHE, core/large-file-download.js
-    const PATH_PREFIX = '/__sav-download__/'; // PHẢI khớp SAV_DOWNLOAD_PATH_PREFIX, core/large-file-download.js
-    const MAX_AGE_MS = 60 * 60 * 1000; // 1 giờ — xem giải thích ở docstring hàm này
-    let fixedCount = 0;
-    try {
-        const cache = await caches.open(CACHE_NAME);
-        const requests = await cache.keys();
-        const now = Date.now();
-        for (const request of requests) {
-            const path = new URL(request.url).pathname;
-            if (!path.startsWith(PATH_PREFIX)) continue; // phòng thủ — cache này chỉ nên chứa đúng 1 loại entry, nhưng vẫn kiểm tra lại cho chắc
-            const match = /^(\d+)-/.exec(path.slice(PATH_PREFIX.length));
-            const createdAt = match ? Number(match[1]) : 0;
-            if (createdAt && (now - createdAt) < MAX_AGE_MS) continue; // còn quá mới -> có thể đang tải dở THẬT, bỏ qua, để lần dọn sau tự xử lý
-            try {
-                await cache.delete(request);
-                fixedCount++;
-            } catch (e) { /* hiếm khi lỗi — bỏ qua, thử lại lần dọn sau */ }
-        }
-    } catch (err) {
-        console.warn('[file-manager/cleanup] Không quét được Cache Storage tải file lớn (bỏ qua, không nghiêm trọng):', err);
-    }
-    return fixedCount;
+async function retireLegacyDownloadServiceWorker(registrations) {
+    await Promise.all(registrations.map((registration) => registration.unregister()));
+    await caches.delete('sav-download-cache-v1');
+    console.log(`[file-manager/cleanup] Đã gỡ ${registrations.length} Service Worker đời cũ + cache tải file lớn.`);
 }
-
-registerCleanupCheck('largeFileDownloadCacheEntries', cleanupOrphanedLargeFileDownloadCacheEntries);
 
 /**
  * Dọn 4 khoá `meta` MỒ CÔI của cơ chế nền cũ (v13 Batch F) — đều đã ngừng ghi từ Batch A/B/C:
