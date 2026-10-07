@@ -61,12 +61,10 @@
          * crash, nhưng `<a download>` với `blob:` URL lại lỗi "Không thể hoàn tất tác vụ (Lỗi
          * WebKitBlobResource 1.)" — bug WebKit đã ghi nhận từ 2019, chưa sửa, CHỈ xảy ra với URL
          * `blob:` lớn, tìm kiếm không thấy cách vá ở tầng JS cho chính đường `blob:` này) — file lớn
-         * giờ ưu tiên `triggerLargeFileDownloadViaServiceWorker()` (core/large-file-download.js —
-         * Cache Storage + Service Worker, phục vụ qua 1 URL CÙNG ORIGIN THẬT thay vì `blob:`, né hẳn
-         * lớp bug đó) NẾU khả dụng (`isLargeFileDownloadSupported()` — cần HTTPS, KHÔNG hoạt động
-         * qua `file://`); không khả dụng thì mới rơi về `<a download>`/`blob:` cũ như trước (vẫn có
-         * thể dính đúng bug WebKitBlobResource, CHƯA có cách nào khác đã xác nhận hoạt động qua
-         * `file://`).
+         * từng ưu tiên đường Cache Storage + Service Worker (sw.js, core/large-file-download.js). ĐÃ BỎ
+         * 07/10/2026 (Giang): từ 06/10/2026 mỗi media và mỗi phần zip tối đa 500MB, dưới ngưỡng
+         * LARGE_FILE_SKIP_SHARE_BYTES (600MB) nên mọi file đều đi Share; file vượt ngưỡng (không còn xảy
+         * ra) rơi về `<a download>`/`blob:`.
          *
          * Đồng thời bỏ luôn bước bọc `new File([blob], filename, {type})` cho nhánh `<a download>`/
          * `blob:` cuối (dù file lớn hay nhỏ) — `a.download` đã tự đặt tên hiển thị, KHÔNG cần dựng
@@ -81,8 +79,8 @@
          */
         // SỬA (06/10/2026, Giang đo bằng share-size-test.html: share 600MB vẫn ổn trên PWA) — nâng ngưỡng bỏ
         // share từ 500MB lên 600MB. BẮT BUỘC > cỡ tối đa mỗi phần zip (MEDIA_FILE_MAX_BYTES = 500MB, core/
-        // upload-validation.js) cộng phần header zip — nếu không, 1 phần zip ~500MB + vài KB header sẽ rơi sang
-        // nhánh Service Worker, mà trong PWA iOS nhánh đó mở màn "Open in..." kẹt app (Quick Look).
+        // upload-validation.js) cộng phần header zip. (Nhánh Service Worker cho file lớn hơn ngưỡng đã bỏ 07/10/2026 —
+        // trong PWA iOS nó mở màn "Open in..." kẹt app; file vượt ngưỡng giờ đi <a download>.)
         const LARGE_FILE_SKIP_SHARE_BYTES = 600 * 1024 * 1024;
 
         // DỜI (06/10/2026, dọn nợ Rule 1/3 — Giang yêu cầu "xử lý nốt nợ kỹ thuật") — `triggerDownload()` (core tự rẽ 3 đường
