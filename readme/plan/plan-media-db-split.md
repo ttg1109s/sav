@@ -1,6 +1,6 @@
 # Plan — Tách Blob khỏi bản ghi media + gộp thống kê vào meta media
 
-> Đặt tại `readme/plan-media-db-split.md`. Trạng thái: **ĐÃ DUYỆT (06/10/2026)** — đang làm theo mục 8.
+> Đặt tại `readme/plan/plan-media-db-split.md`. Trạng thái: **ĐÃ DUYỆT (06/10/2026)** — đang làm theo mục 8.
 > Phạm vi: 2 việc gộp chung 1 dự án vì dùng chung 1 lần chuyển dữ liệu:
 > **(A)** tách Blob ra store riêng theo từng loại media (mục 2.1); **(B)** đưa `songStats` (+ điểm Game) vào bản ghi meta của từng media.
 
@@ -248,7 +248,7 @@ Với bất biến mới, chỉ 🟡 còn có thể làm chết URL đang dùng,
 | **1** | `service/db.js`: v6 + 9 store (mục 2.1, 4), accessor nhiều store, API mục 3. |
 | **2** | Đổi 18 chỗ ghi (mục 5), đổi đường xoá, gỡ `set*Record` cũ + 6 chỗ `rematerializeBlob`; mục 7. |
 | **3** | Thống kê + điểm Game vào meta (mục 6). |
-| **4** | Sửa lỗi sau thử máy; cập nhật readme (`folder-structure.md`, `where-to-edit.md`, docstring đầu `service/db.js`, `core/listen-stats.js`). |
+| **4** | Sửa lỗi sau thử máy; cập nhật readme (`where-to-edit.md`, docstring đầu `service/db.js`, `core/listen-stats.js`). |
 
 Lượt 1 + 2 + 3 **phát hành chung 1 lần** (Giang chốt làm cùng đợt; Lượt 1 đứng riêng thì đường ghi cũ ghi Blob ngược vào
 store meta). Bỏ Lượt 0 (hotfix Game mode) — Lượt 2 sửa tận gốc.

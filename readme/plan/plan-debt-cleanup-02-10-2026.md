@@ -1,8 +1,8 @@
 # Plan dọn nợ kỹ thuật sau đợt Playlist 10000 item (lập 02/10/2026)
 
 Nguồn: bảng nợ mục **"Rà 'file đã đụng' — đợt Playlist 10000 item (02/10/2026)"** trong
-[core-legacy-audit.md](./core-legacy-audit.md). Plan này chỉ sắp xếp CÁCH và THỨ TỰ trả nợ. Nó không thay đổi rule
-nào ([core-function-conventions.md](./core-function-conventions.md), [event-bus-flow.md](./event-bus-flow.md) mục 7).
+[core-legacy-audit.md](../core-legacy-audit.md). Plan này chỉ sắp xếp CÁCH và THỨ TỰ trả nợ. Nó không thay đổi rule
+nào ([core-function-conventions.md](../core-function-conventions.md), [event-bus-flow.md](../event-bus-flow.md) mục 7).
 
 ## 1. Phạm vi
 
@@ -39,7 +39,7 @@ Rule 0.5 giữ nguyên với nhóm này: chỉ sửa khi đụng thật.
 
 | Mã | Dạng gặp | Sửa thành |
 |---|---|---|
-| **K1** | `if (typeof workflowX !== 'undefined') workflowX.y()` / `typeof fn === 'function'` | Kiểm thứ tự nạp trong [script-load-order.md](./script-load-order.md) + index.html. Luôn nạp trước -> bỏ điều kiện (cùng cách đã bỏ `typeof applyUiThemeToDom`). Có trang không nạp (subtitle-editor.html) -> giữ, ghi lý do tại chỗ. |
+| **K1** | `if (typeof workflowX !== 'undefined') workflowX.y()` / `typeof fn === 'function'` | Kiểm thứ tự nạp trong [script-load-order.md](../script-load-order.md) + index.html. Luôn nạp trước -> bỏ điều kiện (cùng cách đã bỏ `typeof applyUiThemeToDom`). Có trang không nạp (subtitle-editor.html) -> giữ, ghi lý do tại chỗ. |
 | **K2** | Bước tuỳ chọn `if (x) doStep()` | Method riêng mở đầu bằng guard, nơi gọi gọi thẳng (mục 7). |
 | **K3** | `if/else`, `else if`, 3 ngôi chọn 2 lời gọi hàm | Object map `X_BY_Y` cấp module, khoá boolean thật. Rẽ theo trạng thái app ngoài hot path -> có thể dùng `VirtualMachineState.run()` (mục 7a). |
 | **K4** | Điều kiện nhiều vế / phép tính quyết định nhánh | Core THUẦN trả 1 giá trị trạng thái (vd `resolveNewSongsDisplayMode()`), Workflow tra map. |
