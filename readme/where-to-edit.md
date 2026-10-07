@@ -1,111 +1,153 @@
 # Muốn sửa gì thì sửa ở đâu?
 
-> **[CẬP NHẬT 12/07/2026]** Bổ sung các hàng cho Nhóm B/C/D/A (Đa phương tiện, Settings/Theme,
-> Subtitle Editor trang riêng, Documents) — bản trước (viết ở ver 11) chưa có gì cho các tính năng
-> này. Từ ver 11, phần lớn LOGIC nghiệp vụ (không phải UI/hàm core thuần) chạy qua kiến trúc
-> `/event/` — xem 2 hàng đầu tiên trước khi tìm các hàng còn lại, vì "sửa hành vi khi bấm 1 nút"
-> giờ thường nằm ở **router**, không phải ở nơi gắn listener.
+> Viết lại 07/10/2026 (chốt ver 13) theo đúng cây thư mục hiện tại. Mọi đường dẫn trong file này đều có thật trong
+> source; bản cũ (viết ở ver 11–12) trỏ tới nhiều file đã gỡ nên bị thay toàn bộ.
 
-## Kiến trúc chung — đọc trước
+## 1. Kiến trúc chung — đọc trước
+
+Từ ver 11, nghiệp vụ đi theo chuỗi **Listener → Bus → Router → Workflow → Core**
+([event-bus-flow.md](./event-bus-flow.md)). "Sửa hành vi khi bấm 1 nút" gần như luôn nằm ở **router/workflow**, không ở
+nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event/router/<cụm>.js`, `event/workflow/<cụm>.js`.
 
 | Muốn... | Vào... |
 |---|---|
-| Sửa hành vi khi 1 nút/input được bấm/đổi (nghiệp vụ, không phải browser lifecycle) | Tìm đúng `msg.type` trong `event/listener/<cụm>.js` → LOGIC THẬT nằm ở `event/router/<cụm>.js` (nếu chỉ 1 hàm core) hoặc `event/workflow/<cụm>.js` (nếu nhiều bước/có shield/modal) — 24 cụm hiện có (14 gốc ver 11, xem bảng ở [changelog/v11.md](./changelog/v11.md) mục 2, + 10 cụm mới Nhóm A/B/C/D liệt kê ở [folder-structure.md](./folder-structure.md)) |
-| Thêm 1 listener DOM mới cho nghiệp vụ đã có cụm | Thêm vào ĐÚNG `event/listener/<cụm>.js` đã có sẵn, gửi `eventBus.send({ router: '<cụm>', type: '<cụm>.hànhĐộng.sựKiện', payload })`, thêm `case` tương ứng ở `event/router/<cụm>.js` — bắt buộc đối chiếu `msg.type` khớp nhau giữa 2 file + `node --check` cả 2 sau khi sửa |
-| Thêm 1 cụm nghiệp vụ hoàn toàn mới | Tạo cả 3 file `event/router/<cụm>.js` (bắt buộc, tự `eventBus.register()`), `event/listener/<cụm>.js` (bắt buộc), `event/workflow/<cụm>.js` (chỉ nếu >1 hàm core hoặc cần shield/modal) — thêm đúng thứ tự 3 dòng `<script>` vào cuối `index.html` (workflow → router → listener), xem [script-load-order.md](./script-load-order.md) mục 5 |
-| Đọc/ghi 1 biến state nghiệp vụ toàn app (không phải context riêng của 1 router) | `service/state.js` — thêm key vào `STATE_SCHEMA` (kèm kiểu dữ liệu) + giá trị khởi tạo trong `STATE`, đọc/ghi qua `appState.get('key')`/`appState.set('key', value)`/`appState.mutate('key', fn)` ở MỌI nơi, không khai `let` cục bộ mới |
-| Đọc/ghi state chỉ dùng RIÊNG trong 1 router (context giữa 2 message liên tiếp) | `new EventStore('tênRouter')` ngay trong file router đó — xem comment đầu `event/store.js` |
-| Thêm 1 hằng số cấu hình mới (không đổi trong lúc chạy) | `service/state.js` — thêm vào `CONST` (`Object.freeze`) theo đúng kiểu, đọc qua `CONST.xxx` ở nơi dùng. `core/config.js` chỉ còn giữ local `EQ_FREQS`/`EQ_LABELS` (2 hằng KHÔNG thuộc `CONST`) |
+| Sửa hành vi khi 1 nút/input được bấm/đổi | Tìm `type` trong `event/listener/<cụm>.js` → `case` cùng tên ở `event/router/<cụm>.js` → hàm trong `event/workflow/<cụm>.js` |
+| Thêm listener cho nghiệp vụ đã có cụm | Thêm vào đúng `event/listener/<cụm>.js`, gửi `eventBus.send({ router: '<cụm>', type: '<cụm>.hànhĐộng', payload })`, thêm `case` ở router. Đối chiếu `type` khớp giữa 2 file và `node --check` cả 2 |
+| Thêm cụm nghiệp vụ mới | Tạo `event/router/<cụm>.js` (tự `eventBus.register()`), `event/listener/<cụm>.js`, `event/workflow/<cụm>.js`; thêm 3 thẻ `<script>` theo thứ tự workflow → router → listener vào trang dùng nó ([script-load-order.md](./script-load-order.md)) |
+| Chặn/gom thông báo khi đang có việc dài (shield, block) | `event/block.js` (gate trong Bus) |
+| Rẽ nhánh theo trạng thái máy trong Workflow | `event/virtual-machine-state.js` ([event-bus-flow.md](./event-bus-flow.md) mục 7a) |
+| State nhớ giữa 2 message của cùng 1 router | `new EventStore('<tên>')` — `event/store.js` |
+| Biến state nghiệp vụ toàn app | `service/state/<miền>.js` (`AppState.definePackage`) + khai package cho trang ở `service/state/record/index.js` (hoặc `subtitle-editor.js`/`video-editor.js`); đọc/ghi qua `appState.get/set/mutate` |
+| Giá trị người dùng chỉnh trong Settings (có default/restore) | Default + `AppConfig.defineDomain(...)` ở `core/config.js` (domain `viz`, `visualBg`, `reader`, `playlist`, `player`, `uiTheme`, `playerDisplay`, `pagination`, `recorder`, `perfHud`); runtime ở class `AppConfig` trong `service/state.js` |
+| Số liệu phân tích audio (beat, energy, BPM, phổ) | Kho đọc-only `audioAnalysis` — `service/audio-analysis.js`; tính ở `core/audio-analysis.js`, `core/audio-tempo.js`; điều phối `event/workflow/audio-analysis.js` |
+| Mọi timer lặp / bắn một lần / vòng `raf` | `service/task-manager.js` ([task-manager-conventions.md](./task-manager-conventions.md)) |
+| Lớp z-index | `service/z-index.js` |
+| Đọc/ghi IndexedDB (DB v6) | `service/db.js` ([plan/plan-media-db-split.md](./plan/plan-media-db-split.md)) |
+| Cấp/thu `blob:` URL | `service/blob-url.js` |
+| Dựng component HTML động | `service/component-dynamic.js` |
+| Thứ tự nạp file, giải thích từng `<script>` | [script-load-order.md](./script-load-order.md) — các trang HTML không còn comment |
 
-## Theo tính năng cụ thể
+## 2. Khung app, điều hướng, Settings
 
 | Muốn sửa... | Vào file... |
 |---|---|
-| Giao diện danh sách bài hát | `components/playlist-view.js` |
-| Logo "SAV" góc trái Playlist (wordmark) | `components/playlist-view.js` (khối `#sav-logo`); logic mở/thu ở `core/sav-logo.js` (`setSavLogoExpanded()`), gắn qua `event/listener,router/sav-logo.js` (cụm `savLogo`, patch 6) |
-| Tab "Ảnh bìa" trong modal sửa thông tin bài hát | `components/playlist-view.js` (HTML 2 tab trong `#song-edit-modal`), `core/playlist/actions.js` (logic lưu); listener/router qua cụm `playlist` |
-| Menu "Chọn file nhạc / Chọn cả thư mục" | `components/playlist-view.js` (HTML `#upload-action-menu`), `core/playlist/loader.js` (`handleAudioFiles()`); listener/router qua cụm `playlist` |
-| Modal hỏi quyết định dùng chung | `core/modal-choice.js` (`modalChoice(text, buttons, options?)`) — hạ tầng dùng chung, KHÔNG qua bus (xem lý do ở [folder-structure.md](./folder-structure.md)) |
-| Modal "Tiếp tục nghe?" sau khi tab bị ẩn | `core/player-controls.js` (`showResumeChoiceModal()`), `core/resume-state-storage.js` (lưu/đọc qua localStorage, `checkPendingResumeStateOnBoot()`), `core/tab-hide-reload.js` (phát hiện ẩn tab thật vs F5) |
-| Mọi timer lặp/bắn-một-lần | `service/task-manager.js` (instance global `taskManager` — `addNew`/`once`/`pause`/`resume`/`kill`/`isTaskRunning`) |
-| "Xoá hết dữ liệu" / tải nhạc về rồi xoá | `core/storage-manager.js` (`clearAllStoredData`); UI/listener/router qua cụm `settingsMisc` (patch 5, nhánh `storageDrawer`) |
-| Khởi động lại app / Khôi phục cài đặt mặc định | `core/app-recovery.js`; UI ở `components/settings/misc.js`; listener/router qua cụm `settingsMisc` (patch 5, nhánh `appRecovery`) |
-| Dọn tài nguyên khi tab đóng thật (F5/điều hướng) | `event/workflow/app-cleanup.js` (`workflowAppCleanup.run()`, dời từ core 06/10/2026), gọi từ `event/tab.js` |
-| Toggle ẩn/hiện dải BPM/Pitch/Energy | `core/stats-panel-toggle.js`; UI nút ở `components/visualizer-overlay.js` (`#btn-toggle-stats-panel`); listener/router qua cụm `statsPanel` (patch 4) |
-| Đa ngôn ngữ (i18n) — bộ điều phối, dịch text | `lang/lang.js` (`LANG_EN_KEYS` gộp từ `lang/patch/*.js`, English cứng RAM, gốc/fallback). Hàm `t(key, fallback?)`/`tFormat(key, vars)` |
-| Đa ngôn ngữ — thêm/sửa 1 key dịch | `lang/patch/*.js` (đúng file patch theo namespace — xem comment đầu `lang/lang.js`) |
-| Đa ngôn ngữ — UI chọn/upload/xóa ngôn ngữ | `components/settings/language.js` (HTML), `lang/language-settings.js` (`renderLanguageOptions()`); listener/router qua cụm `languageSettings` (patch 7) |
-| Đa ngôn ngữ — lưu trữ IndexedDB | `service/db.js` (store `languages`, `DB_VERSION` 3, CRUD `getLanguagePack`/`setLanguagePack`/`deleteLanguagePack`/`getAllLanguageCodes`) |
-| Kiểu xem (Danh sách/Lưới) + Sắp xếp Playlist | `components/settings/playlist-view.js` (HTML — TÁCH khỏi `playlist-background.js` cũ 07/07/2026, file cũ đó nay KHÔNG còn mount), `core/playlist/main.js` (`initViewMode()`/`initSortMenu()`); listener/router qua cụm `playlist` |
-| Tự động đổi hiệu ứng Visualizer theo thời gian | `core/auto-switch-visual.js`; UI ở `components/visualizer-settings-drawer.js`; listener/router qua cụm `autoSwitchVisual` (patch 10) |
-| Giao diện ngăn cài đặt — khung ngoài | `components/settings-drawer.js` (object `SettingsDrawer`) |
-| Giao diện ngăn cài đặt — nội dung từng khối | `components/settings/*.js` (9 file dùng thật — Playlist View/Theme/File Manager/Visualizer/Audio EQ/Phụ đề/Khác/Ngôn ngữ; `playlist-background.js` còn trên đĩa nhưng KHÔNG mount, xem `folder-structure.md`) |
-| Drawer "Tùy chỉnh Visualizer" | `components/visualizer-settings-drawer.js` |
-| Visual "Bar" | `core/visualizer/types/bar.js` |
-| Visual "Rain" | `core/visualizer/types/rain.js` |
-| Visual "Rubik" | `core/visualizer/types/rubik.js` (map nốt→trục ở `RUBIK_NOTE_TO_TURN` trong `core/dom-refs.js`) |
-| Visual Lightning / Black Hole | `core/visualizer/types/lightning.js`, `black-hole.js` |
-| Visual Vortex (WebGL) | `core/visualizer/types/vortex.js` (vẽ mỗi khung hình), `core/webgl/three-vortex.js` (khởi tạo scene) |
-| Visual Space "Galaxy Journey" (WebGL, MỚI 20/07/2026) | `core/visualizer/types/space.js` (vài hàm nhỏ chạy mỗi frame: camera/chain/dust/render), `core/webgl/three-space.js` (`class GalaxyCluster`, 10 hàm `generate*Positions`, shader, texture, dust — DÙNG CHUNG canvas/renderer với Vortex); điều phối toàn bộ ở `event/workflow/visualizer-render.js::_tickSpace()`/`_manageSpaceChain()`; 4 slider tinh chỉnh + dropdown kiểu con ở `components/visualizer-settings-drawer.js`, listener/router/workflow qua cụm `visualizerDisplay` — xem `plan-space-galaxy.md` |
-| Vòng lặp render chính, thêm visual mới | TỪ 28/09/2026: host `event/workflow/visualizer-render.js` (vòng đời, frame context, registry) + 1 file / group `event/workflow/visualizer/{bar,rain,lighting,shape,vortex,connector}.js` (bảng `styles` + hook `activate/onResize/onStyleApplied/onSeek/onNewMedia/rebuild`) — xem readme/visual-conventions.md mục "Cấu trúc Workflow vẽ". (Lịch sử: `VISUALIZER_DRAWERS` ĐÃ BỎ.) |
-| Điểm khởi động app (`DOMContentLoaded`) | `event/router/app-boot.js` (MỚI 20/07/2026 — dời từ `core/visualizer/draw-visualizer.js`) |
-| Hàm vẽ dùng chung | `core/visualizer/draw/` (mỗi hàm 1 file: `water-drop.js`, `window-frame.js`, `flying-note-ui.js` (đổi tên 28/09/2026); `spaceship-frame.js`/`space-collision-flash.js` RỖNG — KHÔNG dùng lại cho Galaxy, xem `plan-space-galaxy.md` mục B1) |
-| Điều khiển hiển thị Visualizer (màu/EQ mode/bar style...) | `core/visualizer/visualizer-display.js`; listener/router qua cụm `visualizerDisplay` (có workflow) |
-| Mở/đóng drawer Visualizer/Subtitle, đổi kiểu hiệu ứng, giữ màn hình sáng | `core/visualizer/visualizer-misc-settings.js`; listener/router qua cụm `visualizerMiscSettings` (patch 13) |
-| Control Center (panel 6 icon trên Visualizer) | `components/visualizer-overlay.js` (HTML), `core/state-and-video-bg.js` (mở/đóng panel); listener/router/workflow qua cụm `visualizerControlCenter` (patch 11) |
-| Logic phát nhạc, next/prev, shuffle | `core/playlist/actions.js` (`playSong`), `core/playlist/order.js` (hàng đợi/shuffle), `core/player-controls.js` (next/prev/toggleShuffle); listener/router qua cụm `playerControls` (patch 3) — 16/17 msg.type KHÔNG có workflow, RIÊNG `shuffle.click` có `event/workflow/player-controls.js` (MỚI 03/07/2026, trộn theo "hiện hành" — xem comment đầu file) |
-| Lưu trữ IndexedDB (nhạc/tag/cover/sub/ảnh-video nền) | `service/db.js` |
-| Lưu/đọc state phát nhạc qua localStorage khi tab bị ẩn | `core/resume-state-storage.js` (bao gồm vị trí video nền `videoCurrentTime`) |
-| Validate định dạng file upload | `core/upload-validation.js` |
-| Che màn hình khi xử lý | `core/loading-shield-util.js` (`withLoadingShield`) |
-| Sửa tag/info/ảnh bìa/export | `core/playlist/actions.js` (modal sửa), `core/id3-export.js` (export APIC) |
-| Thuật toán sort / ô tìm kiếm / tách hiển-thị khỏi hàng-đợi-phát | `core/playlist/order.js`, `core/playlist/render.js`, `core/playlist/main.js` |
-| Số lần nghe / thời gian nghe riêng từng bài | `core/listen-stats.js`, cộng dồn ở `core/player-controls.js` |
-| Giữ màn hình sáng (wake lock) | `core/wakelock.js` (`requestWakeLock`/`releaseWakeLock`, gate theo `appState.get('vizConfig').keepScreenOn`); UI ở `components/settings/misc.js` |
-| Ẩn tab (reload + resume state) | `core/tab-hide-reload.js` (`triggerHideAndReload()`), `event/tab.js` (3 lifecycle listener), `core/app-cleanup.js` (dọn khi đóng tab thật) |
-| Video nền (bật/tắt, gán src, chống chớp trắng) | `core/state-and-video-bg.js` (`handleVideoBackground`) |
-| Ảnh nền tĩnh cho màn Visualizer (MỚI 03/07/2026, khác ảnh nền Playlist) | `core/state-and-video-bg.js` (`applyVisualBgImageToDOM`), `assets/css/style.css` (`#visual-bg-image`); đặt qua menu "Đặt làm nền Visual" trên ảnh — `core/file-manager/photo-ui.js` (modal) + `event/workflow/file-manager-photo.js` (`setAsVisualBackground`); resolve lúc boot ở `event/router/app-boot.js` (DỜI từ `core/visualizer/draw-visualizer.js` 20/07/2026, cùng vùng miễn audit) |
-| Slideshow nền Visual — nguồn nền thứ 3, chiếu 1 Album (Batch 8, 03/07/2026) | Engine (hàm thuần): `core/file-manager/slideshow.js`; orchestration (task lặp, đọc DB, persist): `event/workflow/slideshow.js` (`workflowSlideshow`); 13 kiểu transition (CSS animation): `assets/css/slideshow.css`; Settings Drawer: `components/slideshow-settings-drawer.js`, mở qua nút dưới "Hiện Visual" (`components/settings/visualizer-geometry-color.js`); listener/router qua cụm `slideshowSettings`; chọn album NGAY từ Photo & Album qua nút "Dùng làm nền Slideshow" (`event/workflow/file-manager-photo.js::setAsSlideshowBackground`). Ken Burns CHƯA tách riêng khỏi `transitionType` (vẫn độc quyền lẫn nhau) — nợ kỹ thuật mở, xem `changelog/v12.md` |
-| Thống kê "Về trình phát" (About Drawer) | `core/about-stats.js`, `components/about-drawer.js`; listener/router qua cụm `settingsMisc` (nhánh `aboutDrawer`) |
-| Kích hoạt style đang chọn (nhãn icon, vizConfig, ẩn/hiện #webgl-canvas, FFT) / áp style chọn tay-auto-switch | `workflowVisualizerRender.activateCurrentStyle()` / `.applyStyle(style)` (event/workflow/visualizer-render.js) — THAY `updateTypeUI()`/`applyVisualizerStyleChoice()` core cũ (đã bỏ 28/09/2026) |
-| Equalizer | `core/equalizer.js`; UI ở `components/settings/audio-eq.js`; listener/router qua cụm `equalizerSettings` (patch 14, 1 listener delegation) |
-| Phụ đề (.srt) — logic parse/SRT/auto-timing, hiển thị lúc phát nhạc | `core/subtitle/subtitles.js`, `core/subtitle/subtitle-display.js` (render block đang active theo `currentTime`, dùng ở `index.html` lúc nghe nhạc); style khung/chữ — `core/subtitle/subtitle-style-settings.js`, UI ở `components/settings/subtitle-style.js`; listener/router qua cụm `subtitleStyleSettings` (style, patch 12) |
-| Phụ đề — bật/tắt nhanh (nút "Sub" ở Control Center) | `core/subtitle/subtitle-style-settings.js` (`setSubtitlesEnabled`); listener/router qua cụm `subtitleModal` (TÊN CŨ, modal thật đã xoá 10/07 — cụm chỉ còn đúng 1 msg.type `toggleEnabled.click`, xem [folder-structure.md](./folder-structure.md)) |
-| Phụ đề — SỬA NỘI DUNG (waveform, region, Cut MP3, Shift, auto-timing) | `subtitle-editor.html` (trang RIÊNG, KHÔNG phải modal) — mở qua menu 3 chấm mỗi bài trong Playlist; logic ở cụm `event/{workflow,router,listener}/subtitle-editor.js`, UI dòng phụ đề ở `core/subtitle/subtitles-ui.js` (`buildLineCard`); nợ kỹ thuật MỞ: seek-trước-rồi-phát khiến progress/region/dòng lệch (xem `changelog/v12.md` mục 10) |
-| Hiệu ứng Vortex (Three.js) | `core/three-vortex.js` (khởi tạo) + `core/visualizer/types/vortex.js` (mỗi khung hình) |
-| Khởi tạo đèn đường/hàng rào/mưa phố | `core/canvas-scene-setup.js` (`generateStreetScene`, `getPlayerBarSafeHeight`) |
-| Phát hiện pitch (YIN), nốt MIDI cho Rubik; beat/BPM/Energy thanh trạng thái | Điều phối: `event/workflow/audio-analysis.js` (`workflowAudioAnalysis`, 28/09/2026); tính toán: Core thuần cuối `core/audio-analysis.js` (flux chuẩn hoá 128 bin, `isSpectralFluxBeat`, `resolveAnalysisPlaybackPhase`, `computeMidiNoteFromFrequency`...); BPM: `core/audio-tempo.js` (tự tương quan đường bao onset theo dải, 01/10/2026). Đặc trưng mở rộng (dải Hz, onset theo dải, centroid/rolloff/flatness, chroma/key/hợp âm, vibrato, RMS/ZCR, im lặng, build-up/drop): tính ở `core/audio-analysis.js`, điều phối `event/workflow/audio-analysis.js`. MỌI số liệu audio đọc qua kho `audioAnalysis` (`service/audio-analysis.js`, API chỉ đọc — 01/10/2026), effect nhận thêm `frame.audio`; phổ để vẽ xin theo cỡ FFT (`audioAnalysis.requireSpectrum()`, host vẽ tự xin theo style). Số liệu chung đọc phổ PHÂN TÍCH cố định (`analysisSpectrumArray`, analyserPitch FFT 2048), effect đọc phổ VẼ `vizDataArray`; worker: điều phối `event/workflow/audio-engine.js` (`workflowAudioEngine.requestPitch()`, 01/10/2026) + builder `core/audio-engine.js` + `core/workers/pitch-worker.js` |
-| Thêm trường cấu hình mới (lưu vào `vizConfig`) | **PHẢI khai ở CẢ 2 nơi** — `core/config.js` VÀ `service/state.js` có 2 object `DEFAULT_VIZ_CONFIG` ĐỘC LẬP, không tự đồng bộ (bỏ sót 1 chỗ → field `undefined` ở lần khởi tạo thật đầu tiên, xem `changelog/v12.md` mục 6) — đọc/ghi qua `appState.get/set('vizConfig')` ở nơi dùng |
-| Màu sắc, nền | `core/color-utils.js` (`forceGlassRepaint()` fix backdrop-filter stale) |
-| Toàn bộ CSS, theme kính mờ | `assets/css/style.css` (dùng chung `index.html`+`subtitle-editor.html`), `assets/css/slideshow.css` (transition + Ken Burns) |
-| File Manager — điều hướng chung (3 drawer con) | `components/settings/file-manager-section.js` (section trong Settings, KHÔNG còn overlay cấp cao), `components/file-manager.js` (3 drawer), `core/file-manager/nav.js`; listener/router/workflow qua các cụm `fileManager`/`fileManagerSong`/`fileManagerPhoto`/`fileManagerDocument`/`fileManagerCleanup` |
-| File Manager — Song (folder/scope playlist theo 1 folder) | `core/file-manager/folder.js` (CRUD), `folder-list-ui.js`, `folder-detail-ui.js`, `folder-picker-ui.js`; scope playlist ở `core/playlist/scope.js`; block gate chặn "Áp dụng" khi folder rỗng ở `event/block.js` (`fileManagerSong.folder.applyToPlaylist.click`) |
-| File Manager — Photo & Album (lưới ảnh group-theo-ngày + window ảo, carousel, Slideshow album) | `core/file-manager/image.js` (CRUD ảnh + `sortImagesByAddedDateDesc()`/`buildPhotoGridRows()`), `photo-ui.js` (carousel/picker/modal xem ảnh — lưới ảnh cũ đã xoá, xem dưới), `album.js` (CRUD album); lưới ảnh giờ ở `event/workflow/file-manager-photo.js::setupPhotoGridWindow()` + `components/items.js` (`itemTemplateImageGridRow()`/`computeVariableVirtualWindowRange()`) |
-| File Manager — Documents (upload .txt/.docx, đọc, sửa) | `core/file-manager/document.js` (`sanitizeDocumentHtml`/`resolveDocumentHtml`/`convertDocumentHtmlToPlainText` — content model: `.txt` = `string[]` lưu thẳng, `.docx`/user-edited = HTML lọc whitelist), `document-ui.js` (modal/drawer), `document-pagination.js` (core nghiệp vụ phân trang Reader); Workflow gộp List+Read+Editor ở `event/workflow/document-reader.js` (đã gộp `document-picker.js` cũ — file cũ CÒN TRÊN ĐĨA, không nạp, xem `changelog/v12.md`) |
-| Generic Drawer (khung List↔Read dùng chung, hiện CHỈ Document dùng) | `core/generic-drawer.js` (`openDrawer`/`updateDrawer`/`closeDrawer`, KHÔNG có overlay — đã bỏ hẳn), `components/generic-drawer.js` (HTML tĩnh) |
-| Danh sách item dùng chung (`components/items.js`) | `renderItemList()`/`computeVirtualWindowRange()` (chiều cao đều, hiện wire cho Document Picker, chưa windowing thật) — `itemTemplateImageGridRow()`/`computeVariableVirtualWindowRange()` (chiều cao không đều, windowing thật, Photo & Album — Patch mục 1/2, 14/07/2026) |
-| Dọn rác tài nguyên orphan (ảnh/document không còn bài trỏ tới) | `core/file-manager/cleanup.js` (`registerCleanupCheck()`), UI nút "Dọn rác" cuối section File Manager trong Settings |
-| Settings — điều hướng ngăn xếp (push/pop, cuộn ngang) | `core/settings-panel-stack.js` (KHÔNG animate `left` thủ công — cuộn ngang thật qua `core/slider-panel-scroll.js`, dùng CHUNG với `core/player-controls.js`); listener/router qua cụm `settingsStackNav` |
-| Settings — Theme (Sáng/Tối/Background/Gradient) | `components/settings/theme.js` (UI 4 card), `event/workflow/theme.js` (`refreshThemeCardUI()`); listener/router qua cụm `theme`; "Sáng" mới LƯU lựa chọn, CHƯA áp màu app thật (nợ kỹ thuật mở lớn nhất Nhóm D, xem `changelog/v12.md`) |
+| Khởi động app (seed config, nạp DB, dựng playlist) | `event/workflow/app-boot.js` (cụm `appBoot`); dọn khi thoát `event/workflow/app-cleanup.js`; khôi phục `core/app-recovery.js` |
+| Ẩn/hiện tab, PWA quay lại, AudioContext bị treo | `event/listener/app-visibility.js` → `event/router/app-visibility.js` → `event/workflow/app-visibility.js`; theo dõi tab `event/tab.js`; wakelock `core/wakelock.js` (state `service/state/wakelock-tab.js`) |
+| Thanh điều hướng dưới, chồng view | `components/app-bottom-nav.js`, `components/app-view-stack.js`; logic cụm `appPanelNav` (`core/app-panel-nav.js`, `event/workflow/app-panel-nav.js`, state `service/state/app-panel-nav.js`) |
+| Cuộn ngang giữa các panel | `core/slider-panel-scroll.js` |
+| Màn Settings chính, carousel | `components/settings/app-settings-main.js`, `core/app-settings-ui.js`, `core/settings-carousel-ui.js`; cụm `appSettings` |
+| Mục lặt vặt trong Settings (About, Troubleshooting…) | `components/settings/troubleshooting.js`, `core/settings-misc-ui.js`, `core/about-stats.js`; cụm `settingsMisc` |
+| Ngôn ngữ | `lang/lang.js`, `lang/patch/patch-*.js`; UI `components/settings/language.js`; cụm `languageSettings` |
+| Theme (Sáng/Tối/Morphin) | Bảng màu `core/ui-theme/light.js`, `dark.js`, `morphin.js`; đăng ký `core/ui-theme/registry.js`; áp `core/ui-theme/apply-ui.js`, `event/workflow/ui-theme.js`; màu thanh trạng thái `core/ui-theme/status-bar-color.js`; nền theme `core/theme-background-ui.js`; cụm `theme` |
+| Icon SVG dùng chung | Bộ path `components/icons.js`; dựng thẻ `core/ui-theme/icon-svg-ui.js` |
+| Phân trang (Settings > Pagination) | `components/settings/pagination.js`, `core/pagination.js`, `core/pagination-ui.js`, `event/workflow/pagination.js` |
+| Drawer dùng chung (Generic Drawer) | `components/generic-drawer.js`, `core/generic-drawer.js`, `event/workflow/generic-drawer-helpers.js`; cụm `genericDrawer` |
+| Modal hỏi quyết định | `core/modal-choice-ui.js` (`modalChoice(text, buttons, options?)`) — ngoại lệ không qua bus ([event-bus-flow.md](./event-bus-flow.md)) |
+| Modal nhập số bằng slider / chọn giờ | `core/slider-input-modal.js`, `core/time-picker-modal.js` |
+| Icon (i) giải thích | `core/info-icon-ui.js`; cụm `infoIcon` |
+| Dropdown menu | `core/dropdown-menu.js` |
+| Màn chờ (loading shield) | `components/loading-shield.js`, `core/loading-shield-util.js` |
+| Panel "đang làm" (placeholder) | `core/placeholder-panel.js`; cụm `placeholderPanels` |
+| Debug console, Perf HUD | `components/debug-console-drawer.js`, `core/debug-console.js`; `components/perf-hud.js`, `core/perf-hud.js`, `core/perf-hud-ui.js`, cụm `perfHud` |
+| Lỗi khởi động | `core/fatal-error.js` — chỉ còn comment; `index.html` chưa có handler `error`/`unhandledrejection` toàn cục ([changelog/v13.md](./changelog/v13.md) mục 7) |
+
+## 3. Playlist và File Manager
+
+| Muốn sửa... | Vào file... |
+|---|---|
+| Giao diện danh sách, modal sửa bài, menu upload | `components/playlist-view.js`; cụm `playlist` |
+| Nạp file nhạc / thư mục | `core/playlist/loader.js` (`handleAudioFiles()`), kiểm file `core/upload-validation.js` |
+| Dựng node danh sách, cuộn tới bài hiện tại | `core/playlist/render.js`, `event/workflow/playlist-render.js` |
+| Thứ tự, xáo trộn, lặp | `core/playlist/order.js`, `event/workflow/playlist-order.js`; state `service/state/shuffle-repeat.js` |
+| Phạm vi folder ↔ playlist | `core/playlist/scope.js`, `event/workflow/playlist-scope.js` |
+| Chọn nhiều, thao tác hàng loạt | `core/playlist/selection.js`, `core/playlist/bulk-actions.js`, `core/playlist/actions.js` |
+| Filter, preset Filter | `components/playlist-filter-drawer.js`, `core/playlist/filter.js`, `core/playlist/filter-presets.js`, `event/workflow/filter-rule-edit.js`; cụm `playlistFilterPresets` |
+| Sort | `components/playlist-sort-drawer.js`; cài đặt hiển thị `components/settings/playlist-view.js` |
+| Tìm kiếm | `core/song-search.js` |
+| Màn trống khi chưa có bài | cụm `playlistEmptyState` |
+| Logo SAV góc Playlist | `core/sav-logo.js` (`setSavLogoExpanded()`); cụm `savLogo` |
+| Media đang dùng bị thay nội dung | cụm `mediaInUse` (`event/router/media-in-use.js`, `event/workflow/media-in-use.js`) |
+| File Manager — Video | `core/file-manager/video.js`, `video-ui.js`; lưới `event/workflow/video-gallery-window.js`; thumbnail `event/workflow/video-thumb-extract.js` |
+| File Manager — Photo | `core/file-manager/image.js`, `photo-ui.js`; lưới `event/workflow/photo-gallery-window.js`; cụm `fileManagerPhoto` |
+| Folder | `core/file-manager/folder.js`, `folder-picker-ui.js`; cụm `fileManagerFolderBrowser` |
+| Quét/dọn file hỏng | `core/file-manager/cleanup.js`; cụm `fileManagerCleanup` |
+| Quản lý lưu trữ | `components/file-manager-storage.js`, `core/storage-manager.js`; cụm `fileManagerStorage` |
+| Tải zip | `core/streaming-zip.js`, worker `core/workers/opfs-zip-worker.js`, UI `core/zip-download-ui.js`, nhiều phần `components/zip-download-parts.js`, file lớn `core/large-file-download.js` + `sw.js`; cụm `zipDownload` |
+| Xuất ID3 | `core/id3-export.js` |
+| Thống kê nghe | `core/listen-stats.js`, `event/workflow/listen-stats.js`, state `service/state/listen-stats.js`; panel `components/statis-panel.js`, `core/statis-panel-ui.js`, cụm `statisPanel` |
+
+## 4. Phát media
+
+| Muốn sửa... | Vào file... |
+|---|---|
+| Nút phát, Next/Prev, tua, tốc độ, Media Session | `components/bottom-player.js`, `core/player-controls.js`, `event/workflow/player-controls.js`, `event/workflow/player.js`; cụm `playerControls` |
+| Audio graph, EQ | `core/audio-engine.js`, `event/workflow/audio-engine.js`, state `service/state/audio-engine.js`; preset EQ `components/eq-presets-drawer.js`, `core/eq-presets.js`, cụm `eqPresets` |
+| Video Player mode | `core/video-player.js`, `event/workflow/video-player.js`, `event/workflow/video-motion-surface.js`, state `service/state/video-player-mode.js`; cụm `videoPlayer` |
+| Chụp khung hình | `core/video-player-capture.js`, `event/workflow/video-frame-capture.js` |
+| Photo Player mode | `core/photo-player.js`, `event/workflow/photo-player.js`, `event/workflow/photo-duration.js`, state `service/state/photo-player-mode.js` |
+| Player Zoom | `core/player-zoom.js`, `event/workflow/player-zoom.js`, state `service/state/player-zoom.js`; cụm `playerZoom` |
+| Player Display (Resolution, ô preset Motion) | `components/settings/player-display-settings.js`, `core/player-display-settings.js`, `core/player-display-apply.js`, `event/workflow/player-display-settings.js` |
+| Phụ đề trên Player | `core/subtitle/subtitles.js`, `subtitle-display-ui.js`, `subtitle-transition.js`; karaoke `subtitle-karaoke*.js`; `event/workflow/subtitle-display.js`, `event/workflow/subtitle-modal.js`; cài đặt `components/subtitle-settings-drawer.js`, `components/subtitle-karaoke-drawer.js`, `core/subtitle/subtitle-style-settings.js`, cụm `subtitleStyleSettings` |
+| Ghi âm | `components/recorder-overlay.js`, `core/recorder.js`, `core/recorder-ui.js`, `event/workflow/recorder.js`, state `service/state/recorder.js`, cài đặt `components/settings/recorder-settings.js`; cụm `recorder` |
+| Sửa ảnh, crop, vẽ | `core/photo-editor-engine.js`, `core/media-transform.js`, `event/workflow/image-edit.js`, `event/workflow/media-transform-helpers.js`; cụm `imageEdit` |
+| Element Style Editor | `components/element-style-editor-drawer.js`, `core/element-style-editor.js`, `event/workflow/element-style-editor.js`; font `core/google-fonts-list.js` |
+| Đếm số tăng dần | `core/number-countup.js`, `event/workflow/number-countup.js` |
+
+## 5. Motion và Visual Background
+
+| Muốn sửa... | Vào file... |
+|---|---|
+| Preset Motion (CRUD) | `components/motion-settings-drawer.js`, `core/motion-presets.js`, `event/workflow/motion-presets.js`, state `service/state/motion-presets.js`; cụm `motionPresets`; trục Timing `core/point-move-timing-ui.js` |
+| Cơ chế Motion (engine, runner, host) | `core/motion-engine.js`; `event/workflow/motion-stage.js`, `motion-transition-runner.js`, `motion-point-move-runner.js`, `motion-beat-react-runner.js` |
+| VBG chung | `components/visual-bg-settings-drawer.js`, `core/visual-bg-common.js`, `event/workflow/visual-bg-common.js`, state `service/state/visual-bg.js`; cụm `visualBg` |
+| VBG Photo | `core/visual-bg-photo.js`, `event/workflow/visual-bg-photo.js`, `event/workflow/visual-bg-photo-motion.js` |
+| VBG Video, âm thanh từng video | `core/visual-bg-video.js`, `event/workflow/visual-bg-video.js`, `components/visual-bg-video-audio-drawer.js` |
+| Nền gradient | `components/visual-bg-gradient-drawer.js` |
+| Chọn media từ thư viện | `core/media-picker-drawer-ui.js` |
+
+## 6. Visualizer
+
+| Muốn sửa... | Vào file... |
+|---|---|
+| Vòng render (2 task `raf`), host các group | `event/workflow/visualizer-render.js`; mỗi group `event/workflow/visualizer/<group>.js` |
+| Code vẽ từng style | `core/visualizer/groups/<group>/<style>.js` (bar, connector, lighting, rain, shape, vortex) |
+| Màu / blur của effect | `core/visualizer/effect-paint.js` (`getComputedColor`, `getActiveBlurMult`) |
+| Thanh BPM/Pitch/Energy | `core/visualizer/stats-bar.js` |
+| Ánh xạ tần số dùng chung | `core/visualizer/tonotopic.js` |
+| Đồng hồ khung hình | `core/visualizer/frame-clock.js` |
+| Hiệu ứng phụ (nốt bay, giọt nước, khung cửa sổ, chớp màn) | `core/visualizer/draw/*.js` |
+| Resize → dựng lại cảnh | `event/listener/visualizer-viewport.js` → `event/router/visualizer-viewport.js` → `workflowVisualizerRender.onViewportResize()` → hook `onResize` từng group |
+| WebGL (camera, renderer, composer, OrbitControls) | `core/webgl/three-common.js`, `three-vortex.js`, `three-connector.js`; điều phối `event/workflow/visualizer/vortex.js`, `connector.js`; state `service/state/three-*.js` |
+| Cửa sổ beat flux (rẽ ống Vortex, camera circuit, finale pháo hoa) | `core/visualizer/beat-window.js` + `event/workflow/visualizer/beat-window.js` |
+| Custom Effect drawer | `components/custom-effect-drawer.js`, `core/custom-effect.js`, `core/custom-effect-drawer-ui.js`; `event/listener/custom-effect.js` → router → `event/workflow/custom-effect.js` |
+| Field cần dựng lại scene khi đổi | `CUSTOM_EFFECT_REFRESH_BY_NAME` (`event/workflow/custom-effect.js`) |
+| Style không có khối Blur (vd fireworks) | `CUSTOM_EFFECT_NO_BLUR_STYLES` (`core/custom-effect.js`) |
+| Bar black hole: số cột theo chu vi, độ rộng, bo góc | `computeBlackHoleBarLayout` (`core/visualizer/groups/bar/black-hole.js`) |
+| Bar dot: dải màu ở mode gradient | `BAR_DOT_COLORS_BY_GRADIENT` (`event/workflow/visualizer/bar.js`) |
+| Shape clock: vạch phút sáng, nền mặt số, quả lắc | `stepClockTickGlow`, `paintClockBackground` (`core/visualizer/groups/shape/clock.js`) + `_syncClockBackground` (`event/workflow/visualizer/shape.js`); chọn ảnh `pickImageField()` (`event/workflow/custom-effect.js`) |
+| Auto-switch | `core/auto-switch-visual.js` (`resolveAutoSwitchSyncPhase()`), `event/workflow/auto-switch-visual.js` (`syncPlayState()` dùng VMState), state `service/state/auto-switch.js`, drawer `components/settings/visualizer-auto-switch-drawer.js`; cụm `autoSwitchVisual` |
+| Visualizer Screen (hiển thị, ẩn UI) | `components/settings/visualizer-display-panel.js`, `core/visualizer/visualizer-display.js`, `core/visualizer-ui-visibility.js`, `event/workflow/visualizer-display.js`; cụm `visualizerDisplay` |
+| Overlay, Control Center | `components/visualizer-overlay.js`, `core/visualizer-control-center.js`; cụm `visualizerControlCenter` |
+| Cử chỉ trên màn Visualizer | `core/visualizer-gesture.js`, `event/workflow/visualizer-gesture.js`; cài đặt `components/gesture-settings-drawer.js`, cụm `gestureSettings`, `visualizerGesture` |
+| HUD (tốc độ, âm lượng…) | `core/hud.js`; cụm `hud` |
+| Dựng canvas | `core/canvas-scene-setup.js`; màu `core/color-utils.js` |
+| Cao độ (pitch) | worker `core/workers/pitch-worker.js` (ngoài kiến trúc Bus) |
+
+## 7. Game
+
+| Muốn sửa... | Vào file... |
+|---|---|
+| Danh mục game | `components/game-panel.js`, `core/gameplay/catalog.js`, `core/gameplay/game-panel-ui.js`; cụm `gameCatalog` |
+| Lối chơi, chấm điểm | `core/gameplay/engine.js`, `engine-ui.js`, `circle-mode.js`, `circle-mode-ui.js`; `event/workflow/gameplay.js`, `event/workflow/gameplay-engine.js`; overlay `components/gameplay-overlay.js`; state `service/state/gameplay-runtime.js`; cụm `gameplay` |
+| Phép toán Rubik | `core/rubik-math.js` |
+
+## 8. Trang riêng
+
+| Muốn sửa... | Vào file... |
+|---|---|
+| Trang Subtitle Editor (`subtitle-editor.html`) | `event/listener/subtitle-editor.js` → `event/router/subtitle-editor.js` → `event/workflow/subtitle-editor.js`; core `core/subtitle/subtitles*.js`, `subtitle-karaoke.js`, `core/audio-segment.js`; state `service/state/subtitle-editor.js`, `service/state/record/subtitle-editor.js` |
+| Trang Video Editor (`video-editor.html`) | Cụm `videoPreview` (`event/*/video-preview.js`), `components/video-preview.js`; core `core/video-editor/*.js` (WebCodecs, filmstrip, OPFS tạm, kiểm tương thích); state `service/state/video-preview.js`, `service/state/record/video-editor.js` |
+| Build CSS Tailwind | `tailwind.config.js` ([tailwind-build.md](./tailwind-build.md)) |
+| Service Worker (tải file lớn) | `sw.js` |
 
 ← [Quay lại README](../README.md)
-
-### Bổ sung 28/09/2026 (Phase 3-4 dọn visualizer)
-
-| Muốn sửa | File |
-|---|---|
-| Resize cửa sổ -> dựng lại cảnh | `event/listener/visualizer-viewport.js` -> `event/router/visualizer-viewport.js` -> `workflowVisualizerRender.onViewportResize()` -> hook `onResize` từng group |
-| Dispose / resize WebGL (camera, renderer, composer, OrbitControls) | `core/webgl/three-common.js`; điều phối ở `event/workflow/visualizer/vortex.js`, `connector.js` |
-| Cửa sổ beat flux (rẽ ống Vortex, cinematic circuit, fireworks finale) | `core/visualizer/beat-window.js` + `event/workflow/visualizer/beat-window.js` |
-| Control trong Custom Effect Drawer (màu, blur, slider, đèn, chữ pháo hoa, nút đóng) | `event/listener/custom-effect.js` (bảng tuyến) -> `event/router/custom-effect.js` -> `event/workflow/custom-effect.js`; sửa DOM tại chỗ: `core/custom-effect-drawer-ui.js` |
-| Field Custom Effect cần dựng lại scene (`refresh`) | `CUSTOM_EFFECT_REFRESH_BY_NAME` (event/workflow/custom-effect.js) |
-| Auto-switch: pha đồng hồ play/pause | `resolveAutoSwitchSyncPhase()` (core/auto-switch-visual.js) + `syncPlayState()` (VMState, event/workflow/auto-switch-visual.js) |
-| Black Hole: số cột theo chu vi (ô 15px/cột), độ rộng 5-15px, bo góc đỉnh 0-5px | `core/visualizer/groups/bar/black-hole.js` (`computeBlackHoleBarLayout`, `paintBlackHoleBarShapes`) |
-| Dot: dải màu theo vị trí ở mode gradient | `BAR_DOT_COLORS_BY_GRADIENT` (event/workflow/visualizer/bar.js) |
-| Clock: vạch phút sáng theo kim giây, ảnh nền mặt số (bìa bài / ảnh thư viện), con lắc | `core/visualizer/groups/shape/clock.js` (`stepClockTickGlow`, `paintClockBackground`) + `event/workflow/visualizer/shape.js` (`_syncClockBackground`); field ảnh `imagePick` — components/custom-effect-drawer.js + `pickImageField()` (event/workflow/custom-effect.js) |
-| Style tắt khối Blur riêng (vd fireworks) | `CUSTOM_EFFECT_NO_BLUR_STYLES` (core/custom-effect.js) |
-
-> Bổ sung 01/10/2026: màu/blur effect (`getComputedColor`/`getActiveBlurMult`) -> `core/visualizer/effect-paint.js`; chữ + ghi DOM
-> thanh BPM/Pitch/Energy -> `core/visualizer/stats-bar.js` (cả 2 dời khỏi core/audio-analysis.js).
-> Cách effect đọc audio (`frame.audio.xxx()`) + group tự khai báo cỡ phổ (`spectrumSize(style)`): xem readme/visual-conventions.md mục "Đọc dữ liệu audio trong effect".
-

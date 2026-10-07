@@ -1,9 +1,13 @@
-# Luồng kiến trúc `/event/` — sơ đồ đầy đủ (ver 12)
+# Luồng kiến trúc `/event/` — sơ đồ đầy đủ (ver 13)
 
 > Tài liệu này mô tả ĐÚNG luồng thật đang chạy trong code, không phải kế hoạch. Đọc cùng
-> [folder-structure.md](./folder-structure.md) (cấu trúc thư mục), [where-to-edit.md](./where-to-edit.md)
-> (sửa ở đâu khi cần thêm tính năng) và [script-load-order.md](./script-load-order.md) (thứ tự nạp
-> `<script>`).
+> [where-to-edit.md](./where-to-edit.md) (sửa ở đâu), [script-load-order.md](./script-load-order.md) (thứ tự nạp
+> `<script>`), [core-function-conventions.md](./core-function-conventions.md) (quy tắc Core) và
+> [core-legacy-audit.md](./core-legacy-audit.md) (sổ vi phạm hiện tại — chấm theo đúng các quy tắc ở đây).
+>
+> Đồng bộ 07/10/2026 (chốt ver 13): Block gate có `notify`/`groupNotify` và đường dẫn `payload.`/`<domain>Config.`;
+> `VirtualMachineState.runAsync()`; ví dụ thay bằng code hiện có; mục 7 cập nhật theo các phán quyết 07/10
+> (chấm theo nội dung nhánh, switch A/B, guard, Workflow không tự thi hành).
 
 ## Sơ đồ tổng quan
 
@@ -13,11 +17,11 @@ Listener (DOM/tab/window/...)
         ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ event/bus.js                                                    │
-│                                                                   │
-│  Block gate (event/block.js — DATA, CÓ 1 entry thật: xem mục 2) │
-│  isBlocked(msg.type)? ──── true ────▶  DỪNG, KHÔNG vào Router   │
-│       │ false                          (im lặng, đúng thiết kế) │
-└───────┼───────────────────────────────────────────────────────┘
+│                                                                 │
+│  Block gate (event/block.js — DATA, 10 entry: xem mục 2)        │
+│  isBlocked(msg.type, payload)? ── true ──▶ DỪNG, KHÔNG vào Router│
+│       │ false                     (im lặng, hoặc alert notify)  │
+└───────┼─────────────────────────────────────────────────────────┘
         ▼
     Router.handle(msg)
         │  switch (msg.type)
@@ -43,128 +47,150 @@ nhánh riêng — mọi rẽ nhánh theo state trong case đều đi qua `Virtua
 | Tầng | Chạy khi nào | Biết `appState` không | Trả về / hành vi | Có thể chọn "chạy cái gì" không |
 |---|---|---|---|---|
 | **Block** (`event/block.js` + `bus.js`) | Trước khi vào Router | Có (đọc để quyết định chặn) | boolean — chặn hẳn hoặc không | **KHÔNG** — chỉ chặn/không chặn, không chọn đích |
-| **`VirtualMachineState`** | Trong 1 case | KHÔNG (router tự đọc, truyền `state` sẵn vào rule) | gọi 0..N callback | Có — 1 rule khớp (đơn đích) hay nhiều rule khớp (đa đích) đều cùng 1 API |
+| **`VirtualMachineState`** | Trong 1 case (hoặc trong Workflow, mục 7a) | KHÔNG (nơi gọi tự đọc, truyền `state` sẵn vào rule) | gọi 0..N callback | Có — 1 rule khớp (đơn đích) hay nhiều rule khớp (đa đích) đều cùng 1 API |
 
 ## 1. Listener — nguồn trigger
 
 DOM (`click`/`change`/`input`...), `tab`/`window` lifecycle (`visibilitychange`/`pagehide`/
 `beforeunload`...), hoặc nguồn khác (`audioPlayer` media events). Chỉ làm 1 việc: đăng ký sự kiện
-+ gọi `eventBus.send({ router, type, payload })`. KHÔNG chứa logic nghiệp vụ, KHÔNG đọc `appState`
-để quyết định gì (đó là việc của Block/Router/VirtualMachineState phía sau).
++ gọi `eventBus.send({ router, type, payload })`. KHÔNG chứa logic nghiệp vụ, KHÔNG đọc `appState`,
+KHÔNG sửa DOM, KHÔNG gọi Core/Workflow (đó là việc của Block/Router/Workflow phía sau).
 
-> **[MỚI, 20/07/2026, plan-space-galaxy.md Phần A]** Vòng lặp render chính
-> (`event/workflow/visualizer-render.js`) là 1 TRƯỜNG HỢP RIÊNG, đứng NGOÀI sơ đồ
-> Listener→Router→Core/Workflow ở trên: Workflow đó tự đăng ký task `taskManager` mode `raf`
-> (`service/task-manager.js`, MỚI) và tự "tick" 60 lần/giây, KHÔNG có Listener nào gửi
-> `eventBus.send()`, KHÔNG có Router nào `switch(msg.type)`. Đây vẫn ĐÚNG định nghĩa vai trò
-> Workflow (tự đọc `appState`, tự quyết định gọi Core nào, xem mục 4B dưới) — chỉ khác nguồn
-> "kích hoạt" là 1 vòng lặp tự nuôi sống (`taskManager` mode `raf`) thay vì 1 sự kiện DOM rời rạc.
-> Từ 21/09/2026 file này quản lý 2 task `raf`: `audioAnalysis` (phân tích audio + status bar + Game tick,
-> luôn chạy) và `visualizerRender` (chỉ vẽ, tự đăng ký/kill theo `cfg.visualEnabled` — Show Visual — qua
-> `_syncRenderTask()` gọi mỗi frame từ task `audioAnalysis`, KHÔNG qua eventBus/Router).
-> Điểm khởi động DUY NHẤT của vòng lặp này là `event/workflow/audio-engine.js::_buildGraph()` (qua
-> `workflowAudioEngine.setup()`) gọi `workflowVisualizerRender.start()` — Workflow gọi Workflow. **[01/10/2026]** Trước
-> đó là `core/audio-engine.js::setupAudioContext()` — ngoại lệ Core-gọi-Workflow duy nhất, nay ĐÃ HẾT (hàm đó đã xoá).
-> Cùng trường hợp riêng này: hồi đáp của pitch worker (`onmessage`/`onerror`) được `workflowAudioEngine` gắn và xử lý
-> trực tiếp — là nửa sau của vòng phân tích mỗi frame, không đi qua Listener/Router.
+**Ủy quyền (delegation) là hợp lệ:** 1 listener gắn trên phần tử cha, dùng `closest()` hoặc bảng tuyến
+(`data-*` → `type`) chỉ để xác định phần tử nào được chạm rồi `eventBus.send` — không phải rẽ nhánh nghiệp vụ.
+Khác với gọi trực tiếp ở chỗ số lệnh gắn ít hơn và phần tử dựng lại (innerHTML) không cần gắn lại; nội dung
+callback vẫn chỉ là `send`.
 
-Ngoại lệ đã chốt từ trước (rule 2b.7 + audit đầy đủ ở [changelog/v11.md mục
-2](./changelog/v11.md), 18/18 `addEventListener` ngoài `/event/` được liệt kê tên + lý do): browser
-lifecycle events gắn thẳng trên `window`/`document` đứng NGOÀI `/event/` (`core/tab-hide-reload.js`,
-`core/wakelock.js`, `core/app-cleanup.js`, `event/tab.js`) — không đổi ở ver 12. CỘNG THÊM (cùng
-danh sách 18, hay bị bỏ sót khi chỉ đọc lướt): `core/modal-choice.js` (2 — click nút/overlay của
-MỌI modal động) và vài chỗ dò `duration`/seek media 1 lần (`core/playlist/loader.js`/`render.js`,
-`core/resume-state-storage.js`, `core/state-and-video-bg.js`).
+Listener cũng có thể nằm trong hàm `wire*()` của file core `-ui.js` (DOM dựng động — xem Rule 5a,
+[core-function-conventions.md](./core-function-conventions.md)): callback chỉ `eventBus.send`, gom cuối hàm.
 
-> **[SỬA, 25/07/2026, đợt tái cấu trúc state]** `DOMContentLoaded`/`error`/`unhandledrejection`
-> (app-boot) TRƯỚC ĐÂY gọi trực tiếp, với comment viện dẫn "cùng quy ước lifecycle boot (mục 1)" —
-> rà lại danh sách 18/18 đã audit chính thức ở trên thì `DOMContentLoaded`/app-boot **CHƯA TỪNG**
-> nằm trong đó (comment cũ tự nhận ngoại lệ nhưng KHÔNG qua audit — cùng lỗi mà mục "Vì sao
-> `core/modal-choice.js` được miễn" bên dưới cảnh báo tránh). SỬA lại cho ĐÚNG: `app.boot` và
-> `app.fatalError` giờ đi qua `eventBus` như mọi cụm khác (`event/listener,router,workflow/
-> app-boot.js`) — KHÔNG còn là ngoại lệ. Riêng 2 listener `error`/`unhandledrejection` vẫn PHẢI
-> đăng ký SỚM (đầu tài liệu, trước `event/bus.js`) để bắt lỗi xảy ra trong lúc phần còn lại của
-> app đang nạp — tự kiểm tra `typeof eventBus` để gửi qua bus (có) hoặc gọi thẳng
-> `_reportFatalError()` làm lưới an toàn (chưa có) — xem comment đầy đủ ở
-> `event/listener/app-boot.js`.
+**Vòng lặp `raf` — trường hợp riêng, ngoài Listener→Router:** `event/workflow/visualizer-render.js` và
+`event/workflow/audio-analysis.js` tự đăng ký task `taskManager` mode `raf` (`service/task-manager.js`) và tự
+"tick" mỗi khung hình — không có Listener nào gửi `eventBus.send()`, không có Router nào `switch(msg.type)`. Vẫn
+đúng vai trò Workflow (tự đọc state, quyết định gọi Core nào); chỉ khác nguồn kích hoạt. Hai task: `audioAnalysis`
+(phân tích audio, status bar, nhịp Game — luôn chạy) và `visualizerRender` (chỉ vẽ, tự đăng ký/kill theo Show
+Visual). Điểm khởi động duy nhất: `workflowAudioEngine.setup()` (`event/workflow/audio-engine.js`) gọi
+`workflowVisualizerRender.start()` — Workflow gọi Workflow; không còn Core nào gọi Workflow.
 
+**Web Worker** (`core/workers/*.js`) nằm ngoài kiến trúc (Giang chốt 07/10/2026): hồi đáp `onmessage`/`onerror`
+của worker do Workflow chủ quản gắn và xử lý trực tiếp, không đi qua Listener/Router, không chấm theo rule.
 
-**Vì sao `core/modal-choice.js` được miễn — PHẢI ĐỦ CẢ 3 điều kiện, không phải "là UI nên miễn"**
+### Ngoại lệ `addEventListener` ngoài `/event/` còn hiệu lực
+
+Danh sách gốc là 18 chỗ đã audit ở [changelog/v11.md](./changelog/v11.md) mục 2. Sau khi gỡ các file cũ
+(`tab-hide-reload.js`, `app-cleanup.js` ở core, `resume-state-storage.js`, `state-and-video-bg.js`…), số còn lại
+trong code là:
+
+| File | Gắn gì | Lý do |
+|---|---|---|
+| `event/tab.js` | `beforeunload` trên `window` | Lifecycle trình duyệt |
+| `core/wakelock.js` | `touchstart`/`click` `{ once: true }` trên `body` | Xin lại wakelock sau cử chỉ người dùng đầu tiên (yêu cầu của trình duyệt) |
+| `core/playlist/loader.js`, `core/playlist/render.js` | Sự kiện media một lần (dò `duration`) | Đọc metadata, không phải tương tác người dùng |
+| `core/modal-choice-ui.js` — `modalChoice()` | Click nút/overlay của mọi modal động | Hạ tầng dùng chung, xem 3 điều kiện ngay dưới |
+
+`app.boot` đi qua `eventBus` như mọi cụm (`event/listener/app-boot.js` nghe `DOMContentLoaded`). Message
+`app.fatalError` đã bỏ. Handler `error`/`unhandledrejection` toàn cục hiện **không có** trong `index.html`
+(`core/fatal-error.js` chỉ còn comment) — ghi ở [changelog/v13.md](./changelog/v13.md) mục 7, chưa sửa.
+
+**Vì sao `modalChoice()` được miễn — PHẢI ĐỦ CẢ 3 điều kiện, không phải "là UI nên miễn"**
 (xem thêm [core-function-conventions.md Rule 5](./core-function-conventions.md)):
 
-1. **Hạ tầng dùng CHUNG toàn app** — không tách riêng theo 1 nghiệp vụ cụ thể nào (Song/Photo/
-   Document...). Nếu 1 file `addEventListener` chỉ phục vụ ĐÚNG 1 tính năng (như
-   `core/file-manager/document-ui.js`/`photo-ui.js`) thì KHÔNG đạt điều kiện này, dù viết kỹ thuật
-   y hệt.
-2. **Callback bên trong `addEventListener` CHỈ gọi tham số nhận từ nơi gọi** — đọc thẳng code:
-   `btnEl.addEventListener('click', () => { closeModal(); if (typeof btnDef.onClick ===
-   'function') btnDef.onClick(); })` — `modalChoice()` KHÔNG hề gọi tên bất kỳ hàm core cụ thể nào
-   khác, `onClick` là 1 tham số MỜ (opaque) do nơi gọi tự truyền vào; bản thân hàm không biết và
-   không cần biết `onClick` làm gì. Nếu 1 hàm VỪA `addEventListener` VỪA gọi thẳng tên 1 core file
-   khác trong callback (như `document-ui.js` bản đầu Nhóm A gọi `resolveDocumentHtml()`) thì VẪN
-   vi phạm Rule 3 dù đạt điều kiện 1.
-3. **Đã qua audit chính thức, có tên, có số liệu** — `changelog/v11.md` mục 2, không phải tự nhận
-   trong docstring của chính file đó. Một số file sau này (`folder-picker-ui.js`) từng tự ghi
-   "cùng pattern với `modalChoice()`" để suy ra miễn trừ tương tự — **KHÔNG hợp lệ**, vì chưa từng
-   qua audit, và (thường) không đạt điều kiện 1 (gắn với 1 nghiệp vụ cụ thể, không phải hạ tầng
-   chung).
+1. **Hạ tầng dùng CHUNG toàn app** — không gắn với 1 nghiệp vụ cụ thể (Song/Photo/Video...). File
+   `addEventListener` chỉ phục vụ 1 tính năng (như `core/file-manager/photo-ui.js`) KHÔNG đạt điều kiện này, dù
+   viết kỹ thuật y hệt.
+2. **Callback bên trong `addEventListener` CHỈ gọi tham số nhận từ nơi gọi** —
+   `btnEl.addEventListener('click', () => { closeModal(); if (typeof btnDef.onClick === 'function') btnDef.onClick(); })`
+   — `modalChoice()` không gọi tên bất kỳ hàm core cụ thể nào khác, `onClick` là tham số mờ do nơi gọi truyền vào.
+   Hàm VỪA `addEventListener` VỪA gọi thẳng tên 1 core khác trong callback thì VẪN vi phạm Rule 3 dù đạt điều kiện 1.
+3. **Đã qua audit chính thức, có tên, có số liệu** — `changelog/v11.md` mục 2, không phải tự nhận trong docstring
+   của chính file đó. File tự ghi "cùng pattern với `modalChoice()`" (vd `core/file-manager/folder-picker-ui.js`)
+   **không** được miễn.
 
 ## 2. Block gate — chặn TRƯỚC khi vào Router
 
-`eventBus.send(msg)` tra `event/block.js` (đăng ký qua `eventBus.registerBlock(msgType, groups)`)
-TRƯỚC khi gọi `router.handle(msg)`. Nếu khớp block, `send()` `return` ngay — Router, Core, Workflow
-đều KHÔNG chạy, không có ngoại lệ nào lọt qua.
+`eventBus.send(msg)` gọi `isBlocked(msg.type, msg.payload)` — tra các entry đăng ký qua
+`eventBus.registerBlock(msgType, groups, options?)` trong `event/block.js` — TRƯỚC khi gọi `router.handle(msg)`.
+Nếu khớp, `send()` `return` ngay — Router, Core, Workflow đều KHÔNG chạy.
 
 **Chỉ dùng khi:**
-- Điều kiện chặn dùng ở **≥2 router khác nhau** cho cùng 1 ý nghĩa nghiệp vụ (tránh lệch logic
-  giữa các entry point — đây là lý do ra đời cơ chế này, xem case thật ở
-  [v12.md](./changelog/v12.md) mục 1), HOẶC
+- Điều kiện chặn dùng ở **≥2 entry point/router khác nhau** cho cùng 1 ý nghĩa nghiệp vụ (tránh lệch logic
+  giữa các entry point — lý do ra đời cơ chế này, xem [v12.md](./changelog/v12.md) mục 1), HOẶC
 - Bản chất là **chặn hẳn** (không chạy gì khi điều kiện đúng), không phải chọn giữa nhiều đích.
 
-**KHÔNG dùng khi** cần chọn "workflow nào chạy" tuỳ state — Block chỉ trả boolean, không có chỗ
-nào cho "gọi hàm gì". Trường hợp đó thuộc mục 4/5 dưới.
+**KHÔNG dùng khi** cần chọn "workflow nào chạy" tuỳ state — Block chỉ trả boolean. Trường hợp đó thuộc mục 4C.
 
-Xem cú pháp đầy đủ ở comment đầu `event/block.js`/`event/bus.js`.
+### Cú pháp
+
+```js
+eventBus.registerBlock('router.action.event', [
+    // mảng NGOÀI = các NHÓM — 1 nhóm đúng là CHẶN (OR, dừng ở nhóm khớp đầu tiên)
+    [
+        // mảng TRONG = điều kiện — TẤT CẢ đúng thì nhóm mới tính (AND)
+        { field: 'isActiveFolderReadOnly', operator: '===', value: true },
+    ],
+], { notify: 'Lý do chặn', groupNotify: ['Lý do nhóm 0', /* ... */] });
+```
+
+- **`field`** — đường dẫn lồng bất kỳ độ sâu. Gốc quyết định nguồn đọc (`resolveFieldPath()` trong `event/bus.js`):
+  - `payload.xxx` — dữ liệu của chính message đang xét (vd "thứ sắp xoá có phải thứ đang được tham chiếu không").
+  - `<domain>Config.xxx` — domain `AppConfig` đã đăng ký (vd `perfHudConfig.enabled` đọc
+    `appConfig.access('perfHud').getAll().enabled`). Nhận diện tự động theo `AppConfig._domains`.
+  - Tên khác — key `appState`.
+- **`operator`** — `'===' | '!==' | '>' | '<' | '>=' | '<=' | 'in' | 'notIn'` (`service/operation.js`).
+- **`value`** hoặc **`valueField`** — vế phải là giá trị cố định, hoặc 1 đường dẫn khác resolve cùng cách trên.
+- **`options.notify`** — chặn thật thì tự `alertModal(notify)` (không chờ modal đóng). Không có → chặn im lặng.
+- **`options.groupNotify[i]`** — thông báo riêng cho nhóm thứ `i` khớp đầu tiên; không có thì dùng `notify`.
+
+### Entry hiện có (10)
+
+| `msg.type` | Chặn khi | Thông báo |
+|---|---|---|
+| `playlist.uploadMenu.open` | Folder đang Scope là read-only (`isActiveFolderReadOnly`) | Có |
+| `playlist.actionMenu.addToFolder` | Generic Drawer đang mở (`isGenericDrawerOpen`) | Im lặng |
+| `visualBg.openPanel.click` | Nguồn Playlist không phải Song (`activeMediaSource !== 'song'`) | Có |
+| `recorder.start.click` | Đang có phiên ghi, hoặc Photo Player mode, hoặc đang ở Game (3 nhóm OR) | Im lặng |
+| `playerControls.next.click`, `.prev.click`, `.playPause.click`, `.restart.click` | Đang có phiên ghi (`recordPhase !== 'idle'`) — dùng chung `RECORDER_SESSION_ACTIVE_BLOCK` | Im lặng |
+| `perfHud.app.pointerdown` | Perf HUD tắt (`perfHudConfig.enabled !== true`) | Im lặng |
+
+Tính năng mới nào mở Generic Drawer phải tự đăng ký block cho `msg.type` của nó (khuôn
+`playlist.actionMenu.addToFolder`), không tự suy luận miễn trừ.
 
 ## 3. Router — switch theo `msg.type`
 
-Mỗi cụm (`storage`, `playlist`, `visualizerDisplay`...) có đúng 1 router, tự
-`eventBus.register(name, routerObject)` lúc nạp. `handle(msg)` switch theo `msg.type`
-(namespace `<router>.<action>.<event>`), mỗi case đi 1 trong 3 hướng ở mục 4 dưới.
+Mỗi cụm (`playlist`, `visualizerDisplay`, `recorder`...) có đúng 1 router, tự
+`eventBus.register(name, routerObject)` lúc nạp — 43 router hiện có (danh sách ở
+[where-to-edit.md](./where-to-edit.md)). `handle(msg)` switch theo `msg.type` (namespace `<router>.<action>.<event>`),
+mỗi case đi 1 trong 3 hướng ở mục 4. Router chỉ điều phối: không đọc `appState` để nuôi core, không gọi `service/`,
+không tự tính dữ liệu cho bước sau.
 
 ### 3a. Đơn tuyến vs liên tuyến domain
 
-Event bus hoàn toàn có thể hoạt động XUYÊN MIỀN — cần phân biệt rạch ròi 2 khái niệm khác nhau:
+Event bus hoàn toàn có thể hoạt động XUYÊN MIỀN — cần phân biệt 2 khái niệm:
 
-- **Namespace/quản lý** (message của miền nào đăng ký ở đâu, router nào sở hữu tên đó, ai chịu
-  trách nhiệm bảo trì) — đây là chuyện "nơi chứa, thuộc về".
-- **Khả năng phối hợp xuyên miền** (1 listener/router/workflow của miền này có được gọi sang miền
-  khác không) — đây là chuyện "có làm được, có nên làm không".
+- **Namespace/quản lý** (message của miền nào đăng ký ở đâu, router nào sở hữu tên đó, ai bảo trì) — chuyện
+  "nơi chứa, thuộc về".
+- **Khả năng phối hợp xuyên miền** (1 listener/router/workflow của miền này có được gọi sang miền khác không) —
+  chuyện "có làm được, có nên làm không".
 
-2 khái niệm này KHÔNG đồng nhất. Giống như trong 1 công ty có nhiều phòng ban: mỗi phòng ban tự
-quản lý nhân viên của mình, và nhân viên phải đứng đúng phòng ban phù hợp với chức trách/nhiệm
-vụ/chuyên môn của họ (đó là "namespace/quản lý") — nhưng điều đó KHÔNG có nghĩa công ty cấm các
-phòng ban phối hợp với nhau để hoàn thành 1 nghiệp vụ chung. Việc phối hợp đó gọi là **nghiệp vụ
-liên domain**, và nó là chuyện bình thường, được thiết kế cho phép xảy ra — miễn luồng thực thi vẫn
-LUÔN đi đúng thứ tự **Listener → Router → Workflow** (không đảo ngược, không nhảy cóc tầng).
+Giống 1 công ty nhiều phòng ban: mỗi phòng tự quản lý nhân viên của mình (namespace), nhưng không cấm các phòng phối
+hợp cho 1 nghiệp vụ chung. Phối hợp đó gọi là **nghiệp vụ liên domain** — hợp lệ, miễn luồng thực thi vẫn LUÔN đi
+đúng thứ tự **Listener → Router → Workflow** (không đảo ngược, không nhảy cóc tầng).
 
-Có 2 trường hợp phối hợp:
-
-**TH1 — Đơn tuyến domain:** Listener của miền X gửi message tới Router của ĐÚNG miền X, Router gọi
-Core/Workflow của ĐÚNG miền X. Toàn bộ chuỗi nằm trong 1 miền — đây là trường hợp phổ biến nhất,
-mặc định nên dùng khi không có lý do cụ thể để đi liên tuyến.
+**TH1 — Đơn tuyến domain:** Listener của miền X gửi tới Router của ĐÚNG miền X, Router gọi Core/Workflow của
+ĐÚNG miền X. Mặc định nên dùng khi không có lý do cụ thể để đi liên tuyến.
 
 ```
 Listener(X) ──▶ Router(X) ──▶ Workflow(X) ──▶ Core(X)
 ```
 
-Ví dụ thật (miền `settingsMisc`, nút "Xoá" của panel Debug Console) — cả 4 tầng đều `settingsMisc`:
+Ví dụ thật (miền `settingsMisc`, nút "Xoá" của panel Debug Console):
 
 ```js
-// core/settings-misc-ui.js — Listener (DOM động, wire lúc dựng panel)
+// core/settings-misc-ui.js — Listener (DOM động, wire lúc dựng panel; callback chỉ eventBus.send)
 function wireDebugConsolePanelActions(panelEl) {
     const clearBtn = panelEl.querySelector('#btn-debug-console-clear');
-    if (clearBtn) clearBtn.addEventListener('click', () => eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.debugConsole.clear.click', payload: {} }));
+    // ...
+    clearBtn.addEventListener('click', () => eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.debugConsole.clear.click', payload: {} }));
 }
 
 // event/router/settings-misc.js — Router
@@ -176,6 +202,7 @@ case 'settingsMisc.debugConsole.clear.click': {
 // event/workflow/settings-misc.js — Workflow
 clearDebugConsoleLog() {
     clearDebugConsoleLogs(); // core/debug-console.js
+    this._debugConsolePageIndex = 0;
     if (this._debugConsolePanelEl) this._renderDebugConsoleList(this._debugConsolePanelEl);
 },
 
@@ -185,136 +212,71 @@ function clearDebugConsoleLogs() {
 }
 ```
 
-**TH2 — Liên tuyến domain:** Listener của miền X hoàn toàn có thể gửi message tới Router của miền
-B (khác X); Router(B) gọi Workflow(C); trong thân Workflow(C), hoàn toàn có thể gọi tiếp
-Workflow(D) mà KHÔNG cần D cùng miền với C — miễn mỗi bước chuyển tầng vẫn đúng vai trò của tầng đó
-(Router vẫn chỉ điều phối, Workflow vẫn là nơi duy nhất được đọc `appState`/gọi `service` rồi quyết
-định gọi Core nào).
+**TH2 — Liên tuyến domain:** Router(B) gọi Workflow(C); Workflow(C) gọi tiếp Workflow(D) hoặc Core(E) khác miền —
+miễn mỗi bước chuyển tầng vẫn đúng vai trò của tầng đó.
 
 ```
 Listener(X) ──▶ Router(B) ──▶ Workflow(C) ──▶ Workflow(D) ──▶ Core(D)
-                (khác X)      (khác B)        (khác C)
-```
-
-Ví dụ thật (Workflow miền `fileManagerFolderBrowser` gọi thẳng Workflow miền `playlistScope` khác
-hẳn) — `enableScope()` KHÔNG tự viết lại logic lưu scope, tái dùng nguyên `persistScopeChoice()` đã
-có sẵn ở miền khác:
-
-```js
-// event/workflow/file-manager-folder-browser.js (miền "fileManagerFolderBrowser")
-async enableScope() {
-    if (this._readAllItems.length === 0 && this._readFolderId !== appState.get('activePlayListFolder')) return;
-    const folderId = this._readFolderId;
-    await workflowPlaylistScope.persistScopeChoice(folderId); // tái dùng THẲNG Workflow miền khác
-    this._updateScopeToggleUI(this._readAllItems.length === 0);
-    workflowPlaylistScope.askReloadToApplyNow(/* ... */);
-},
-```
-
-**Workflow gọi thẳng Core của miền khác cũng CÙNG thuộc TH2** — không bắt buộc phải đi qua 1
-Workflow trung gian của đúng miền Core đó rồi mới được gọi. Nhiều file Core vốn được viết ra để
-DÙNG CHUNG xuyên miền ngay từ đầu:
-
-```
 Listener(X) ──▶ Router(B) ──▶ Workflow(C) ──▶ Core(E)
-                (khác X)      (khác B)        (khác C)
 ```
 
-Ví dụ thật 1 (`core/crop-selector.js` — cơ chế tương tác crop thuần, viết ra để dùng chung bởi CẢ
-Photo Edit lẫn Video Editor, không thuộc riêng miền nào cả):
+Ví dụ thật 1 — Workflow miền `fileManagerFolderBrowser` gọi thẳng 2 Workflow miền khác, không viết lại logic
+Scope:
 
 ```js
-// event/workflow/image-edit.js (miền "imageEdit")
-_startCropTool() {
-    // ...
-    this._cropSession = initCropSession(handle.baseCanvas.width, handle.baseCanvas.height); // core/crop-selector.js — Core DÙNG CHUNG, không phải Core riêng của imageEdit
-    this._drawCropOverlay();
+// event/workflow/file-manager-folder-browser.js
+async applyFolderFromTile(folderId) {
+    const mediaType = appState.get('activeMediaSource');
+    await withLoadingShield(t('common.loading.generic'), async () => { // core/loading-shield-util.js
+        await workflowPlaylistScope.persistScopeChoice(folderId, mediaType); // miền playlistScope
+        await workflowPlaylistScope.applyFolderScope(folderId, mediaType);
+        workflowPlaylistRender.scrollToCurrentOrTop();                       // miền playlistRender
+    });
+    this.closeBrowser();
 },
 ```
 
-Ví dụ thật 2 (`workflowSlideshow`, miền `slideshowSettings`, gọi thẳng 1 hàm Core sống trong domain
-Photo):
+Ví dụ thật 2 — Core dùng chung xuyên miền: `initCropSession()` (`core/media-transform.js`) được cả
+`event/workflow/image-edit.js` (crop ảnh) lẫn `event/workflow/video-preview.js` (Video Editor) gọi thẳng.
 
-```js
-// event/workflow/slideshow.js (miền "slideshowSettings")
-async openAlbumPicker() {
-    // ...
-    renderSlideshowAlbumPickerGrid(gridEl, albums, activeAlbumId, imageRecordsByKey); // core/file-manager/photo-ui.js — Core của miền "Photo", KHÔNG phải "slideshowSettings"
-},
-```
+Ràng buộc DUY NHẤT không đổi dù đi tuyến nào: **Core không được gọi Core khác** (Rule 3) — liên tuyến nới lỏng ai
+được gọi tới Core từ tầng Workflow, KHÔNG nới lỏng việc Core tự gọi lẫn nhau.
 
-Ràng buộc DUY NHẤT không đổi dù đi tuyến nào: bản thân **Core vẫn tuyệt đối không được gọi Core
-khác** (Rule 3, core-function-conventions.md) — liên tuyến domain nới lỏng ai được gọi tới Core từ
-tầng Workflow/Router, KHÔNG nới lỏng việc Core tự gọi lẫn nhau.
+**KHÔNG lạm dụng liên tuyến.** Trước khi gọi chéo, tự hỏi:
 
-Ví dụ thật của TH2 đã có trong codebase — xem "Tái dùng Workflow giữa các miền khác nhau" ở mục 4B
-dưới đây (`workflowPlaylist` gọi thẳng `workflowSubtitleModal.navigateToEditor()`).
-
-**KHÔNG được lạm dụng liên tuyến domain.** Trước khi quyết định 1 luồng nên đi đơn tuyến (TH1) hay
-liên tuyến (TH2) — dù là Workflow gọi Workflow khác miền hay Workflow gọi thẳng Core khác miền —
-phải xác định rõ và đánh giá CẦN/NÊN, không phải cứ tiện tay là gọi chéo. Vài câu hỏi để đánh giá:
-
-- Hành vi ở đích đến có thật sự là 1 nghiệp vụ ĐỘC LẬP, đã có sẵn và đúng là thứ mình cần tái dùng
-  nguyên vẹn — hay chỉ đang muốn "tiện đường" gọi sang cho đỡ viết lại?
-- Nếu tách msg.type RIÊNG cho đúng miền của nó rồi định tuyến (TH1) thì có thực sự phức tạp hơn,
-  hay chỉ là ngại tạo thêm 1 case/1 hàm nhỏ?
-- Việc gọi chéo có làm người đọc code SAU NÀY khó lần ra "hành vi này bắt nguồn từ đâu, ai sở hữu
-  nó" không — nếu chuỗi gọi chéo càng dài (X→B→C→D→...), khả năng truy vết càng giảm.
-
-Liên tuyến domain là công cụ hợp lệ cho nghiệp vụ liên domain THẬT SỰ tồn tại — không phải lối tắt
-mặc định để né việc định tuyến đúng chỗ.
+- Đích đến có thật là 1 nghiệp vụ ĐỘC LẬP, đúng thứ cần tái dùng nguyên vẹn — hay chỉ "tiện đường"?
+- Tách `msg.type` riêng cho đúng miền (TH1) có thật sự phức tạp hơn, hay chỉ ngại thêm 1 case/1 hàm?
+- Chuỗi gọi chéo càng dài (X→B→C→D…) càng khó truy "hành vi này bắt nguồn từ đâu, ai sở hữu".
 
 ## 4. Trong 1 case — 3 hướng có thể đi (không loại trừ nhau, chọn tuỳ nhu cầu case đó)
 
 ### (A) Gọi thẳng Core — message tự đủ nghĩa, KHÔNG cần đọc `appState` nào cho core
 
-Chỉ áp dụng khi case **không cần lấy bất kỳ giá trị `appState` nào** để đưa vào core — hàm core
-chỉ cần đúng `msg.payload` (hoặc không cần tham số gì), hành vi không phụ thuộc bất kỳ state nào
-khác:
+Chỉ khi case **không cần lấy bất kỳ giá trị `appState` nào** để đưa vào core — core chỉ cần `msg.payload` (hoặc
+không cần tham số):
 ```js
 case 'cluster.action.click':
     coreFunctionX(msg.payload);
     break;
 ```
-Nếu core cần bất kỳ giá trị `appState` nào ngoài `msg.payload` — dù chỉ 1 key, dù case chỉ gọi
-đúng 1 hàm core — KHÔNG còn là (A) nữa, xem (B) ngay dưới.
+Core cần bất kỳ giá trị `appState` nào ngoài `msg.payload` — dù chỉ 1 key, dù chỉ 1 hàm core — thì là (B).
 
 ### (B) Giao Workflow — cần ≥1 bước chuẩn bị (lấy state/gọi service) hoặc ≥2 lời gọi nối tiếp
 
-**Workflow không chỉ được định nghĩa bằng SỐ BƯỚC.** Bản chất Workflow là tầng ĐIỀU PHỐI — nơi
-duy nhất được phép vừa đọc `appState`/gọi `service/` vừa quyết định gọi Core nào — nên Workflow
-cần thiết bất cứ khi nào 1 case phải hoàn thành 1 mục tiêu nghiệp vụ LỚN HƠN "gọi đúng 1 hàm với
-đúng `msg.payload` nó có sẵn", bất kể việc đó gói gọn trong 1 bước hay nhiều bước:
+Workflow là tầng ĐIỀU PHỐI — nơi duy nhất vừa đọc `appState`/gọi `service/` vừa quyết định gọi Core nào:
 
-- **≥2 lời gọi (core hoặc hàm khác) nối tiếp, có phụ thuộc thứ tự** — gọi ≥2 hàm mà **ít nhất 1
-  hàm không có return được dùng** (chỉ tạo side-effect) và chạy **đồng bộ hoặc bất đồng bộ có chờ**
-  (bước sau chạy sau khi bước trước đã chạy/hoàn thành) → LUÔN là Workflow, bất kể đơn giản hay
-  phức tạp, có `shield`/`modal` hay không. `shield`/`modal` vẫn THƯỜNG xuất hiện (nhiều thao tác cần
-  chờ — IndexedDB, network...) nhưng chỉ là 1 LÝ DO hay gặp, không còn là điều kiện quyết định.
-- **CHUẨN BỊ state cho Core, dù chỉ gọi ĐÚNG 1 hàm core** — tự nó cũng là Workflow, không có ngoại
-  lệ nào biện minh kiểu "chỉ 1 core nên không cần Workflow". Core không được tự `appState.get()`
-  (Rule 2) — nghĩa là LUÔN có 1 tầng nào đó đứng ra đọc state rồi truyền vào, và tầng đó, theo
-  đúng định nghĩa, CHÍNH LÀ Workflow — dù công việc "chuẩn bị" đó chỉ vỏn vẹn 1 dòng
-  `appState.get(...)` rồi gọi thẳng core ngay sau. Router không tự làm việc này thay Workflow được
-  — Router chỉ chuyển tiếp `msg`, không đọc `appState` để nuôi core.
-- Cùng logic, **gọi `service/` (db.js, operation.js...) để chuẩn bị dữ liệu cho Core** cũng là
-  Workflow, không phải ngoại lệ của Router — Router không tự gọi `service/` để chuẩn bị input cho
-  Core.
+- **≥2 lời gọi nối tiếp có phụ thuộc thứ tự** (ít nhất 1 hàm chỉ tạo side-effect, chạy đồng bộ hoặc async có chờ)
+  → LUÔN là Workflow, bất kể có `shield`/`modal` hay không.
+- **CHUẨN BỊ state cho Core, dù chỉ gọi ĐÚNG 1 hàm core** — Core không được tự `appState.get()` (Rule 2), nên tầng
+  đứng ra đọc rồi truyền vào CHÍNH LÀ Workflow. Router không làm thay được.
+- **Gọi `service/` (db.js, operation.js...) để chuẩn bị dữ liệu cho Core** — cũng là Workflow.
 
-**Ranh giới đếm "≥2 giá trị" là theo CẢ 1 lần thực thi Workflow, KHÔNG phải theo từng lời gọi Core
-riêng lẻ.** Nếu 1 method Workflow gọi 2 Core khác nhau, mỗi Core chỉ cần ĐÚNG 1 giá trị `appState`
-(2 core, 2 field khác nhau, không trùng) — vẫn PHẢI gộp thành 1 lần `appState.get([key1, key2])`
-duy nhất ở đầu method, KHÔNG được tách thành 2 lần `get(key)` rời rạc (mỗi lần ngay trước lúc gọi
-Core tương ứng). Đứng từ góc Workflow: tổng nhu cầu đọc state của CẢ method là 2 giá trị, bất kể
-2 giá trị đó cuối cùng "đi" tới cùng 1 Core hay rẽ ra phục vụ 2 Core khác nhau — quy tắc mảng tính
-theo tổng số giá trị Workflow cần lấy trong 1 lần chạy, không tính theo "core này cần bao nhiêu".
-Chỉ khi CẢ method chỉ cần vỏn vẹn 1 giá trị `appState` duy nhất (dù để nuôi 1 hay nhiều Core) thì
-mới gọi đơn `get(key)` như bình thường — quy tắc mảng bắt buộc ngay khi tổng số giá trị cần lấy
-trong method đó từ 2 trở lên.
+**Gộp đọc state: ranh giới "≥2 giá trị" tính theo CẢ 1 lần thực thi method Workflow**, không theo từng Core. Method
+cần tổng ≥2 giá trị `appState` (dù nuôi 1 Core hay rẽ ra nhiều Core) → 1 lần `appState.get([key1, key2])` ở đầu
+method; chỉ khi cả method cần đúng 1 giá trị mới dùng `get(key)` đơn.
 
-**Ngoại lệ:** lời gọi bất đồng bộ và KHÔNG chờ (fire-and-forget, không `await`) không tạo phụ
-thuộc thứ tự — KHÔNG tính là Workflow, được gọi thẳng trong Core/Router như bình thường (miễn
-không cần `appState` nào để gọi, đúng điều kiện (A) ở trên).
+**Ngoại lệ:** lời gọi bất đồng bộ KHÔNG chờ (fire-and-forget) không tạo phụ thuộc thứ tự — không bắt buộc Workflow
+(miễn không cần `appState` nào để gọi).
 
 ```js
 case 'cluster.action.change':
@@ -322,54 +284,37 @@ case 'cluster.action.change':
     break;
 ```
 
-**Tái dùng Workflow giữa các miền khác nhau** — trường hợp cụ thể của liên tuyến domain (TH2, xem
-mục 3a): nếu 2 router KHÁC MIỀN (2 nguồn listener khác nhau, vd `playlist` và `subtitleModal`) cần
-chạy **CÙNG 1 logic điều phối** (không phải trùng hợp bề ngoài — thật sự cùng các bước, cùng thứ
-tự), KHÔNG bắt buộc mỗi miền phải tự viết 1 bản Workflow RIÊNG của chính nó — router miền A có thể
-gọi THẲNG method của `workflowB` (miền khác), Workflow-gọi-Workflow là tự do, không bị Rule 3 (rule
-đó CHỈ áp cho Core). Chuyển 1 hàm từ "riêng của workflowA" thành "dùng chung" khi phát hiện ≥2 nơi
-cần y hệt — KHÔNG cần đoán trước, viết trùng lặp trước rồi gộp lại lúc phát hiện trùng vẫn ổn hơn
-tách sai chỗ từ đầu. Vẫn phải qua bước đánh giá CẦN/NÊN ở mục 3a trước khi chọn hướng này thay vì
-tách msg.type riêng cho đúng miền.
-
-Ví dụ THẬT (Subtitle Editor, `event/workflow/subtitle-modal.js` + `event/workflow/playlist.js`) —
-**CẬP NHẬT 10/07/2026 lần 2:** nút "Sub" ở Control Center (miền `subtitleModal`) đã đổi thành TOGGLE
-bật/tắt thuần (không còn điều hướng, xem router — gọi thẳng core, không cần workflow cho việc đó
-nữa), nhưng `navigateToEditor()` VẪN sống trong `workflowSubtitleModal` vì lối vào Subtitle Editor
-DUY NHẤT còn lại (menu 3 chấm mỗi bài hát, miền `playlist`) vẫn cần nó — CHỈ CÒN 1 nơi gọi, nhưng ví
-dụ này vẫn hữu ích để minh hoạ: hàm dùng chung có thể "sống ký gửi" trong 1 workflow file mà CHÍNH
-router của file đó không còn dùng tới nữa, miễn còn ÍT NHẤT 1 miền khác cần nó.
+**Tái dùng Workflow giữa các miền** (TH2, mục 3a): 2 router khác miền cần CÙNG 1 logic điều phối thì gọi thẳng
+method của workflow miền kia — Workflow-gọi-Workflow tự do (Rule 3 chỉ áp cho Core). Hàm dùng chung có thể "sống ký
+gửi" trong workflow của miền mà chính router miền đó không còn dùng tới:
 
 ```js
-// event/workflow/subtitle-modal.js (miền "subtitleModal")
+// event/workflow/subtitle-modal.js
 const workflowSubtitleModal = {
-    navigateToEditor(songKey) { // DÙNG CHUNG — miền khác gọi thẳng được
-        window.location.href = `subtitle-editor.html?song=${encodeSongKeyForUrl(songKey)}`;
+    navigateToEditor(songKey) {
+        window.location.href = `subtitle-editor.html?song=${encodeSongKeyForUrl(songKey)}`; // service/song-key-cipher.js
     },
 };
 
-// event/workflow/playlist.js (miền "playlist" — KHÁC router hoàn toàn)
+// event/workflow/playlist.js — miền khác
 openSubtitleEditorForSongMenu() {
     const key = playlistStore.get('songActionMenuKey');
     if (!key) return;
-    closeSongActionMenu();
-    workflowSubtitleModal.navigateToEditor(key); // tái dùng THẲNG, không viết lại
+    workflowPlaylist.closeActionMenu();
+    workflowSubtitleModal.navigateToEditor(key);
 },
 ```
 
 ### (C) `VirtualMachineState.run([...])` — MỌI rẽ nhánh theo state, kể cả đơn đích lẫn đa đích
 
-Dùng khi 1 case cần đọc **1 hoặc nhiều field `appState` KHÁC** (không phải `msg.payload` của
-chính nó) để quyết định chạy gì — **luôn qua `VirtualMachineState`, không viết switch/if tay đọc
-`appState` trong case nữa**, kể cả khi chỉ có 1 điều kiện/1 đích duy nhất. Lý do đổi từ khuyến
-nghị trước (từng cho phép switch/if tay nếu đơn đích): 1 API duy nhất cho "rẽ nhánh theo state"
-dễ đọc/dễ audit hơn 2 cách viết khác nhau tuỳ case đơn hay đa đích — quét toàn bộ router chỉ cần
-tìm `VirtualMachineState.run(` là ra hết chỗ nào đang rẽ nhánh theo state, không sót chỗ viết tay.
+Case cần đọc **1 hoặc nhiều field `appState` KHÁC** (không phải `msg.payload`) để quyết định chạy gì → **luôn qua
+`VirtualMachineState`**, không viết switch/if tay đọc `appState` trong case, kể cả 1 điều kiện/1 đích. Quét toàn bộ
+router chỉ cần tìm `VirtualMachineState.run(` là ra hết chỗ rẽ nhánh theo state.
 
-**Đa đích (nhiều rule cùng khớp là đúng, không loại trừ nhau):**
+**Đa đích (nhiều rule cùng khớp là đúng):**
 ```js
 case 'cluster.action.click': {
-    const someState = appState.get('someState'); // đọc 1 lần
+    const someState = appState.get('someState');
     VirtualMachineState.run([
         { state: someState, operation: '===', value: 10, callback: () => coreOrWorkflowA(msg) },
         { state: someState, operation: '>=',  value: 10, callback: () => coreOrWorkflowB(msg) },
@@ -377,18 +322,12 @@ case 'cluster.action.click': {
     break;
 }
 ```
-`someState = 10` khớp CẢ HAI rule → CẢ HAI callback chạy — không phải chọn 1 trong 2.
+`someState = 10` khớp CẢ HAI rule → CẢ HAI callback chạy.
 
-> **Lưu ý thứ tự chạy:** khi ≥2 rule CÙNG khớp trong 1 lần `run()`, callback được gọi **tuần tự
-> theo đúng thứ tự khai báo trong mảng, từ trên xuống dưới** (`run()` là vòng `for` thường, không
-> chạy song song, không tự sắp xếp lại) — rule khai báo trước LUÔN chạy xong trước rule khai báo
-> sau. Nếu 2 workflow/core cùng khớp có side-effect đụng nhau (vd cùng ghi 1 field `appState`,
-> cùng động vào 1 vùng DOM), thứ tự viết trong mảng chính là thứ tự ai-ghi-đè-ai — cân nhắc kỹ khi
-> sắp xếp, không coi 2 rule khớp cùng lúc là độc lập tuyệt đối về mặt thời gian chạy.
+> **Thứ tự chạy:** các rule khớp được gọi **tuần tự theo thứ tự khai báo** (vòng `for` thường) — rule trước chạy
+> xong trước. 2 callback có side-effect đụng nhau thì thứ tự trong mảng chính là thứ tự ai-ghi-đè-ai.
 
-**Đơn đích (loại trừ nhau, giống switch/if cũ)** — viết y hệt cú pháp trên, chỉ khác các `value`
-so sánh vốn đã loại trừ nhau tự nhiên (1 field không thể vừa `'dong'` vừa `'bac'` cùng lúc), nên
-CHỈ 1 rule khớp — không cần cơ chế "dừng sớm" riêng, tự nhiên chỉ 1 callback chạy:
+**Đơn đích (loại trừ nhau)** — cùng cú pháp, các `value` tự loại trừ nên chỉ 1 rule khớp:
 ```js
 case 'cluster.action.click': {
     const doorMaterial = appState.get('doorMaterial');
@@ -399,93 +338,116 @@ case 'cluster.action.click': {
     break;
 }
 ```
-Không rule nào khớp (vd `doorMaterial` mang giá trị lạ, chưa tính tới) → `run()` tự
-`console.warn('[VirtualMachineState] run() — không rule nào khớp.', rules)` — thay hẳn cho nhánh
-`default: console.warn(...)` từng viết tay trong switch, không cần viết lại.
+Không rule nào khớp → `run()` tự `console.warn('[VirtualMachineState] run() — không rule nào khớp.', rules)`.
+
+**`runAsync(rules)`** — cùng cú pháp `run()`, trả `Promise.all(...)` kết quả của mọi callback khớp — dùng khi nơi gọi
+cần `await` các nhánh xong rồi mới đi tiếp. `run()` giữ nguyên fire-and-forget, không trả gì.
 
 ## 5. `callback` trong `VirtualMachineState` gọi gì?
 
-`VirtualMachineState` không biết Core hay Workflow là gì — `callback` là 1 arrow function router
-tự viết, bên trong gọi thẳng hàm Core hoặc `workflowX.method()` tuỳ case đó cần gì (giống hệt
-tiêu chí (A)/(B) ở mục 4, chỉ khác là được BỌC trong 1 rule thay vì gọi trực tiếp trong case).
+`VirtualMachineState` không biết Core hay Workflow là gì — `callback` là arrow function nơi gọi tự viết, bên trong
+gọi thẳng hàm Core hoặc `workflowX.method()` tuỳ case (tiêu chí (A)/(B) ở mục 4, chỉ khác là được bọc trong 1 rule).
 
 ## 6. Ngưỡng chọn (A) / (B) / (C) / Block — tóm tắt quyết định
 
 | Câu hỏi | Chọn |
 |---|---|
-| Không cần đọc `appState` nào cả để nuôi Core (kể cả chỉ dùng `msg.payload` của chính message)? | (A) gọi thẳng Core |
-| Cần đọc dù chỉ 1 giá trị `appState`/gọi `service/` để CHUẨN BỊ input cho Core — dù case chỉ gọi đúng 1 hàm? | (B) Workflow — "chuẩn bị state cho Core" tự nó là Workflow, không có ngoại lệ "1 core thì khỏi cần" |
-| Cần gọi ≥2 hàm nối tiếp, ít nhất 1 hàm void/side-effect, chạy đồng bộ hoặc async có chờ (tạo phụ thuộc thứ tự)? | (B) Workflow — bất kể đơn giản hay cần shield/modal |
-| Cần đọc `appState` KHÁC để quyết định CHẠY GÌ (chọn giữa các Core/Workflow khác nhau) — dù chỉ 1 điều kiện/1 đích hay nhiều? | (C) `VirtualMachineState` — LUÔN dùng, không viết switch/if tay đọc `appState` trong case nữa |
-| Tổng cả 1 lần thực thi Workflow cần lấy ≥2 giá trị `appState` (dù để nuôi 1 Core hay rẽ ra nhiều Core khác nhau)? | `appState.get([key1, key2, ...])` dạng mảng — không gọi rời từng key theo từng Core |
-| Điều kiện chặn dùng ở ≥2 router, hoặc bản chất là chặn hẳn không chạy gì? | Block (`event/block.js`) — chặn TRƯỚC router, không phải trong case |
+| Không cần đọc `appState` nào để nuôi Core (chỉ dùng `msg.payload`)? | (A) gọi thẳng Core |
+| Cần đọc dù chỉ 1 giá trị `appState`/gọi `service/` để CHUẨN BỊ input cho Core — dù chỉ 1 hàm? | (B) Workflow |
+| Cần gọi ≥2 hàm nối tiếp, ít nhất 1 hàm side-effect, đồng bộ hoặc async có chờ? | (B) Workflow |
+| Cần đọc `appState` KHÁC để quyết định CHẠY GÌ — dù 1 điều kiện hay nhiều? | (C) `VirtualMachineState` |
+| Cả 1 lần thực thi Workflow cần ≥2 giá trị `appState`? | `appState.get([key1, key2, ...])` 1 lần |
+| Điều kiện chặn dùng ở ≥2 entry point, hoặc bản chất là chặn hẳn? | Block (`event/block.js`) |
 
-## 7. Rẽ nhánh BÊN TRONG Workflow — chỉ guard clause + object map (MỚI 28/09/2026, Giang chốt)
+## 7. Bên trong Workflow — chỉ chuẩn bị và điều phối
 
-Workflow là tầng ĐIỀU PHỐI nghiệp vụ nên **được quyền dùng object map** để chọn hàm (khác Core —
-Rule 1 ở `core-function-conventions.md` vẫn CẤM object map chọn tiến trình bên trong 1 function core).
-Đồng thời **mọi rẽ nhánh KHÔNG phải guard trong Workflow đều PHẢI viết bằng object map function** —
-không còn `if/else`, `else if`, `switch`, hay toán tử 3 ngôi chọn giữa 2 lời gọi hàm.
+### 7.1 Workflow không tự thi hành (Giang chốt 07/10/2026 — "tính hết")
 
-Phạm vi: mọi method trong `event/workflow/*.js`, cả hot path 60fps lẫn không. Theo Rule 0.5: bắt buộc
-với code MỚI và phần code bị SỬA; code cũ chuyển dần (lộ trình dọn visualizer Phase 3-4, hoặc khi đụng
-tới). Router (`switch (msg.type)` ở mục 3, `VirtualMachineState` ở mục 4C) KHÔNG đổi.
+Workflow chỉ làm 2 việc:
 
-| Dạng | Được viết thế nào |
+- **Chuẩn bị:** đọc `appState`/`appConfig`/kho `audioAnalysis`, gọi `service/` (DB, blob URL…).
+- **Điều phối:** chọn Core/Workflow để gọi, đăng ký/dừng task `taskManager`, ghi state, gửi `eventBus`.
+
+Mọi việc **thi hành** đều thuộc Core — Workflow tự làm là vi phạm (FAIL trong
+[sổ vi phạm](./core-legacy-audit.md)), kể cả phép nhỏ và kể cả hot path visualizer:
+
+| Việc | Ví dụ bị tính |
 |---|---|
-| **Guard clause** — thoát sớm khi chưa đủ điều kiện, xoá `if` đi hàm vẫn còn ĐÚNG 1 kịch bản (phép thử Rule 1): `if (!x) return;`, `continue`/`break` trong vòng lặp, `return false` của hàm vị từ | Giữ `if` như bình thường |
-| **≥2 tiến trình khác nhau** theo 1 giá trị rời rạc (type/style/mode/tên/trạng thái boolean...) | Object map: `const X_BY_Y = { a: (...) => ..., b: (...) => ... }; X_BY_Y[key](...)` |
-| **Bước tuỳ chọn** — `if (flag) doStep();` (bật/tắt 1 bước, không có nhánh thay thế) | Tách bước đó thành method riêng MỞ ĐẦU bằng guard (`if (!flag) return;`), nơi gọi gọi thẳng không điều kiện |
-| **Chọn GIÁ TRỊ dữ liệu** (không gọi hàm khác nhau): `isVideo ? bgVideoElement : audioPlayer`, `MAP[key] \|\| MAP.fallback` | Được phép — không phải rẽ tiến trình |
-| **Điều kiện là PHÉP TÍNH** (ngưỡng năng lượng, xác suất, cửa sổ flux, clamp...) | Chuyển vào Core THUẦN trả về giá trị/boolean; Workflow dùng kết quả qua guard hoặc object map |
+| Thao tác DOM | `el.style.x =`, `classList`, `textContent`, `innerHTML`, `appendChild`, `querySelector` để sửa |
+| Dựng template HTML | Chuỗi markup trong Workflow |
+| Gắn sự kiện | `addEventListener`, `.onX =` |
+| Điều khiển media | `.play()`, `.pause()`, `.currentTime =`, `.src =` trên `audio`/`video` |
+| Vẽ canvas | `ctx.fillRect`, `ctx.drawImage`… |
+| Tính toán | `Math.*`, clamp, regex, `.reduce()`, chuẩn hoá, nội suy… |
+
+Hướng sửa: gom thành **Core thuần trả về nhiều kết quả một lần** (1 object kết quả chứa mọi giá trị bước sau cần),
+Workflow chỉ nhận rồi phân phát — tránh tách thành hàng chục core lẻ mỗi core 1 phép.
+
+### 7.2 Rẽ nhánh — guard clause + object map
+
+Workflow là tầng ĐIỀU PHỐI nên **được dùng object map** để chọn hàm (khác Core — Rule 1 CẤM object map/VMState chọn
+tiến trình trong core). **Mọi rẽ nhánh nghiệp vụ trong Workflow viết bằng object map** (hoặc `VirtualMachineState`,
+mục 7a) — không `if/else`, `else if`, `switch`, hay toán tử 3 ngôi chọn giữa 2 lời gọi hàm.
+
+**Chấm theo NỘI DUNG nhánh, không xét điều kiện** (giống Rule 1 của Core). Phạm vi: mọi method trong
+`event/workflow/*.js`, cả hot path. Code cũ chưa sửa vẫn là vi phạm (có trong sổ) — Rule 0.5 chỉ quyết định *khi nào*
+sửa. Router (`switch (msg.type)` ở mục 3, `VirtualMachineState` ở mục 4C) KHÔNG đổi.
+
+| Dạng | Chấm / viết thế nào |
+|---|---|
+| **Guard clause** — thoát sớm khi chưa đủ điều kiện: `if (!x) return;`, `continue`/`break`, `return false` của hàm vị từ | Giữ `if` — PASS |
+| **Guard kèm báo lỗi** — chỉ `alertModal(...)`/thông báo rồi `return` | PASS |
+| **Guard kèm việc khác** — dọn/huỷ/đổi state, hoặc chuyển tiến trình (`back()`, `goToNextTrack()`, `_abortSeekGate()`…) rồi `return` | FAIL — đó là 2 tiến trình, viết object map |
+| **Switch A/B trên cùng 1 đối tượng** — play/pause, mở/đóng, hiện/ẩn, bật/tắt task, chọn/bỏ chọn, nạp/gỡ nền | 1 nghiệp vụ — PASS (Giang chốt 07/10/2026) |
+| **Bước tuỳ chọn** — `if (flag) doStep();` (bật/tắt 1 bước, không có nhánh thay thế) | 1 nghiệp vụ — PASS (Giang chốt 07/10/2026). Tách method mở đầu bằng guard vẫn là cách viết tốt khi bước dài |
+| **Mọi nhánh ghi ĐÚNG cùng tập vị trí, chỉ khác giá trị** | PASS — đó là chọn giá trị. Lệch 1 vị trí là FAIL |
+| **Chọn GIÁ TRỊ dữ liệu**: `isVideo ? bgVideoElement : audioPlayer`, `MAP[key] \|\| MAP.fallback` | PASS — không rẽ tiến trình |
+| **≥2 tiến trình khác nhau** theo 1 giá trị rời rạc (type/style/mode/tên/boolean...) — chọn hình vẽ, chọn luật tính, migrate dữ liệu… | Object map: `const X_BY_Y = { a: (...) => ..., b: (...) => ... }; X_BY_Y[key](...)` |
+| **Điều kiện là PHÉP TÍNH** (ngưỡng năng lượng, xác suất, cửa sổ flux...) | Phép tính vào Core thuần trả giá trị/boolean (mục 7.1); Workflow dùng kết quả qua guard hoặc object map |
 
 Quy ước viết object map:
-- Đặt ở cấp module (`const` UPPER_SNAKE, đuôi `_BY_<KHOÁ>`), giá trị là arrow function gọi method/Core —
-  nạp file không chạy gì, chỉ tra lúc chạy.
-- Khoá boolean dùng thẳng giá trị boolean (JS tự đổi thành `'true'`/`'false'`) — biến khoá PHẢI là boolean
-  thật (so sánh, `!!x`), không phải giá trị truthy bất kỳ.
-- Khoá có thể không có trong bảng: hoặc guard `const fn = MAP[key]; if (!fn) return;`, hoặc
-  `(MAP[key] || MAP.fallback)(...)` khi cần nhánh mặc định.
-- Không dùng `VirtualMachineState.run()` trong hot path 60fps: mỗi lần gọi cấp phát mảng rule + closure mới,
-  và `console.warn` mỗi khi không rule nào khớp (60 lần/giây với 1 toggle đang tắt). Các chỗ Workflow
-  đang dùng `VirtualMachineState` sẵn (không phải if/else) giữ nguyên.
+- Đặt ở cấp module (`const` UPPER_SNAKE, đuôi `_BY_<KHOÁ>`), giá trị là arrow function gọi method/Core — nạp file
+  không chạy gì, chỉ tra lúc chạy.
+- Khoá boolean dùng thẳng giá trị boolean (JS tự đổi thành `'true'`/`'false'`) — biến khoá PHẢI là boolean thật.
+- Khoá có thể không có trong bảng: guard `const fn = MAP[key]; if (!fn) return;`, hoặc
+  `(MAP[key] || MAP.fallback)(...)`.
+- Không dùng `VirtualMachineState.run()` trong hot path: mỗi lần gọi cấp phát mảng rule + closure mới, và
+  `console.warn` mỗi khi không rule nào khớp.
 
 Ví dụ thật — `event/workflow/audio-analysis.js`:
 
 ```js
-// Tiến trình số liệu theo trạng thái phát — object map thay if/else
-const AUDIO_STATS_BY_PLAYING = {
-    true: (frame) => workflowAudioAnalysis._analyzePlayingStats(frame),
-    false: () => workflowAudioAnalysis._resetPlayingStats(),
+// Tiến trình số liệu theo pha phát — object map, khoá do core thuần resolveAnalysisPlaybackPhase() trả
+const AUDIO_STATS_BY_PHASE = {
+    playing: (frame) => workflowAudioAnalysis._analyzePlayingStats(frame),
+    held: () => workflowAudioAnalysis._breakTimeline(),
+    stopped: () => workflowAudioAnalysis._stopPlayingStats(),
 };
-AUDIO_STATS_BY_PLAYING[isPlayingStats]({ now, flux, energyPercent });
-
-// Bước tuỳ chọn — method riêng mở đầu bằng guard, nơi gọi không còn if
-_commitBpm(bpm) {
-    if (bpm === null) return;
-    appState.set('currentCalculatedBpm', String(bpm), { skipCheck: true });
-},
+AUDIO_STATS_BY_PHASE[phase]({ nowPerf, onset });
 
 // Điều kiện là phép tính — nằm trong Core thuần (core/audio-analysis.js)
-const isBeat = isSpectralFluxBeat(flux, computeArrayMean(fluxHistory), now, lastBeatTime, minWaitMs);
+const isBeat = isSpectralFluxBeat(d.flux, computeArrayMean(d.fluxHistory), frame.nowPerf, d.lastBeatTime, APP_CONFIG.bpmMinWaitTime);
 ```
 
-### 7a. Bổ sung 28/09/2026 — VirtualMachineState cho rẽ nhánh THEO TRẠNG THÁI ngoài hot path (Giang chốt: auto-switch)
+(Chính file này vẫn còn vài phép `Math.*` lẻ — đã ghi trong sổ, mục "Workflow tự tính toán".)
 
-Ngoài hot path 60fps, rẽ nhánh **theo trạng thái** (chế độ player, màn đang hiện, pha đồng hồ...) trong Workflow
-**được viết bằng `VirtualMachineState.run()`** — tương đương object map (vẫn là bảng rule, không `if/else`), ưu tiên
-khi nhánh phụ thuộc trạng thái app. Quy ước riêng:
-- Khai báo ĐỦ mọi giá trị trạng thái; trường hợp "không làm gì" có rule no-op có chủ đích (tránh cảnh báo "không
-  rule nào khớp" — cùng khuôn `event/router/gameplay.js`).
-- Cần giá trị trả về: callback gán vào biến cục bộ khai báo ngay trước `run()` (vd `_pickNextStyle()`).
+### 7a. VirtualMachineState cho rẽ nhánh THEO TRẠNG THÁI ngoài hot path (28/09/2026, Giang chốt: auto-switch)
+
+Ngoài hot path, rẽ nhánh **theo trạng thái** (chế độ player, màn đang hiện, pha đồng hồ...) trong Workflow **được viết
+bằng `VirtualMachineState.run()`** — tương đương object map (vẫn là bảng rule, không `if/else`). Quy ước:
+- Khai báo ĐỦ mọi giá trị trạng thái; trường hợp "không làm gì" có rule no-op có chủ đích (cùng khuôn
+  `event/router/gameplay.js`).
+- Cần giá trị trả về: callback gán vào biến cục bộ khai báo ngay trước `run()` (vd `_pickNextStyle()`), hoặc dùng
+  `runAsync()` khi cần chờ.
 - Điều kiện nhiều vế gộp thành 1 giá trị trạng thái bằng Core thuần trước (vd `resolveAutoSwitchSyncPhase()` trả
   `'off' | 'start' | 'resume' | 'pause'`).
-- Hot path (vòng vẽ/phân tích mỗi frame) vẫn CHỈ object map + guard.
+- Hot path (vòng vẽ/phân tích mỗi frame) CHỈ object map + guard.
+- VMState/object map **chỉ ở Workflow/Router** — dùng trong Core là rẽ nhánh (Rule 1).
 
 Ví dụ thật — `event/workflow/auto-switch-visual.js::syncPlayState()`:
 
 ```js
-const phase = resolveAutoSwitchSyncPhase(isFixedActive, hasTimerTask, this._isRunAllowed()); // core thuần
+const phase = resolveAutoSwitchSyncPhase(isFixedActive, !!taskManager.plan[AUTO_SWITCH_VISUAL_TASK_TIMER], this._isRunAllowed()); // core thuần
 VirtualMachineState.run([
     { state: phase, operation: '===', value: 'off',    callback: () => this.killAllTasks() },
     { state: phase, operation: '===', value: 'start',  callback: () => this.startBranch() },
@@ -494,15 +456,15 @@ VirtualMachineState.run([
 ]);
 ```
 
-### 7b. Visualizer sau Phase 3-4 (28/09/2026) — áp mục 7 thế nào
+### 7b. Visualizer — áp mục 7 thế nào
 
-- Style -> hàm vẽ: registry `styles` của từng group (`event/workflow/visualizer/<group>.js`), host tra 1 lần/frame.
+- Style → hàm vẽ: registry `styles` của từng group (`event/workflow/visualizer/<group>.js`), host tra 1 lần/frame.
 - Toggle Custom Effect (bật/tắt 1 lớp vẽ): method riêng mở đầu bằng guard (`_paintClockGlass()`, `_paintGlassCity()`...).
-  Không cần "pipeline biên dịch sẵn" — guard 1 phép so sánh rẻ hơn mọi cơ chế biên dịch lại khi đổi config.
 - Kết quả trạng thái của Core (`'destroy'/'arrive'`, `'split'/'alive'/'dead'`): object map theo kết quả
-  (`CIRCUIT_SIGNAL_BY_RESULT`, `FIREWORKS_PARTICLE_BY_STATUS`), Core KHÔNG phải đổi.
-- Điều kiện 1 so sánh với ngưỡng trong config (`beatScale <= 0.55`, `val <= 140`) giữ làm guard tại chỗ — cần
-  giữ đúng thứ tự tiêu thụ `Math.random()` (short-circuit) như bản cũ; điều kiện nhiều vế dùng chung nhiều nơi
-  -> Core (`shouldFireTonotopicNode()`, `isPitchNoteFresh()`, `computeFrameDeltaMs()`).
+  (`CIRCUIT_SIGNAL_BY_RESULT`, `FIREWORKS_PARTICLE_BY_STATUS`).
+- Điều kiện nhiều vế dùng chung nhiều nơi → Core (`shouldFireTonotopicNode()`, `isPitchNoteFresh()`,
+  `computeFrameDeltaMs()`). Giữ đúng thứ tự tiêu thụ `Math.random()` (short-circuit) khi chuyển.
+- Lệnh vẽ canvas và phép tính trong workflow group là vi phạm mục 7.1 — hướng sửa: core vẽ/tính của group nhận
+  frame + config, trả kết quả gộp.
 
 ← [Quay lại README](../README.md)

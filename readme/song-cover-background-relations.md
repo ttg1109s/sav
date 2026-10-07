@@ -1,5 +1,11 @@
 # Quan hệ tham chiếu: Ảnh bìa bài hát ↔ Ảnh nền Playlist ↔ Ảnh nền Visual
 
+> **LƯU TRỮ (đánh dấu 07/10/2026, chốt ver 13).** Đây là tài liệu điều tra của ver 12, giữ để tra lịch sử quyết định.
+> Hiện trạng đã khác hẳn: Visual Background hợp nhất (`vbg.type`/`vbg.source`, domain config `visualBg`), DB v6 tách
+> meta/blob/thumb cho từng loại media, `mediaInUse` nạp lại nơi đang dùng khi thay nội dung — xem
+> [changelog/v13.md](./changelog/v13.md) và [changelog/v13-media-storage.md](./changelog/v13-media-storage.md). Các
+> file nhắc bên dưới có ghi "(đã gỡ)" không còn trong source.
+
 > Tài liệu ĐIỀU TRA (chưa code) — chuẩn bị cho mục 4.c/4.d của `plan-v12-multimedia.md` (dùng
 > chung 1 `openImagePicker({ target, onSelect })` đọc từ store `images` cho 3 đích: tab "Ảnh bìa"
 > khi sửa thông tin bài hát, "Đặt ảnh nền" Playlist, "Đặt ảnh nền" Visual). Mục đích: làm rõ CÁC
@@ -12,13 +18,13 @@
 > **CẬP NHẬT 03/07/2026 — ĐÃ TRIỂN KHAI 1 PHẦN** (batch "hạ tầng z-index nền Visual"): hướng field
 > mới `bgImageKey`/`visualBgImageKey` song song field cũ (mục 3.2) + cascade dọn mồ côi chủ động
 > (mục 3.1) đã code thật — xem `service/state.js` (`DEFAULT_VIZ_CONFIG`),
-> `core/state-and-video-bg.js` (`applyVisualBgImageToDOM`), `event/workflow/file-manager-photo.js`
+> `core/state-and-video-bg.js` (đã gỡ) (`applyVisualBgImageToDOM`), `event/workflow/file-manager-photo.js`
 > (`setAsPlaylistBackground`/`setAsVisualBackground`, cascade trong `onDelete`),
-> `core/visualizer/draw-visualizer.js` (resolve lúc boot). Câu hỏi #1 (mục 4) coi như đã trả lời.
+> `core/visualizer/draw-visualizer.js` (đã gỡ) (resolve lúc boot). Câu hỏi #1 (mục 4) coi như đã trả lời.
 > Câu hỏi #3 (loại trừ hay chồng giữa các nguồn nền) tạm xử lý 1 CHIỀU: đặt ảnh nền Visual chủ động
 > tắt video nền; chiều ngược lại (bật video không tự tắt ảnh nền Visual) CHƯA đối xứng — ghi nhận
 > nợ kỹ thuật, xử lý sau khi hoàn thành hết patch ver 12 (xem comment đầu
-> `core/state-and-video-bg.js`). Câu hỏi #2 và mục 3.3 (hàm resolve cover dùng chung cho
+> `core/state-and-video-bg.js` (đã gỡ)). Câu hỏi #2 và mục 3.3 (hàm resolve cover dùng chung cho
 > `id3-export.js`/Media Session/render) VẪN MỞ — batch này CHƯA đụng cover bài hát, chỉ mới làm 2
 > loại nền.
 
@@ -62,7 +68,7 @@ phức tạp không cần thiết. Ngược lại, quét từ phía "ảnh" ngư
 vizConfig.bgImage/visualBgImage... thuộc Batch [z-index nền Visual], CHƯA code ở đây vì 2 field đó
 CHƯA tồn tại"). Khi field đó ra đời, đây là quan hệ mồ côi CÙNG LOẠI với `record.folder[folderId]`
 mồ côi đã ghi nhận ở `plan-v12-multimedia-update-2.md` mục 2.1 (registry `registerCleanupCheck` —
-`core/app-cleanup.js`, dời xuống batch cuối) — **NHƯNG KHÁC Ở MỘT ĐIỂM QUAN TRỌNG:**
+`core/app-cleanup.js` (đã gỡ), dời xuống batch cuối) — **NHƯNG KHÁC Ở MỘT ĐIỂM QUAN TRỌNG:**
 
 - `record.folder[folderId]` mồ côi là dữ liệu **TĨNH, không ai đọc lại** cho tới khi cố tình
   match — vô hại, dọn muộn (batch cuối) không sao.
@@ -125,6 +131,6 @@ nếu có `coverImageKey`, fallback `record.cover`) thay vì sửa lặp lại l
    vẫn CHƯA chốt loại trừ lẫn nhau hay cho phép chồng — ảnh hưởng trực tiếp tới việc
    `visualBgImageKey` có cần thêm cờ enable riêng như `bgImageEnabled` hiện có không.
 4. Hàm resolve dùng chung (mục 3.3) đặt ở đâu — `core/file-manager/image.js` (cùng nhà với
-   `images` store) hay 1 file mới `core/cover-resolver.js`?
+   `images` store) hay 1 file mới `core/cover-resolver.js` (chưa từng tạo)?
 
 ← [Quay lại README](../README.md)

@@ -1,14 +1,15 @@
 # Mục lục Changelog
 
-Bản hiện tại: **ver 12** — hạ tầng rẽ nhánh theo `appState` cho `/event/` (`service/operation.js`,
-`event/block.js`, `event/virtual-machine-state.js` — **nay đã wire thật**, ≥15 điểm gọi), Đa
-phương tiện (Slideshow/Ảnh/Documents v1, IndexedDB v4), tái cấu trúc Settings + Theme 4 mode
-(Sáng/Tối/Background/Gradient — riêng "Sáng" mới chỉ lưu lựa chọn, CHƯA áp màu thật), Subtitle
-Editor tách từ modal sang trang riêng `subtitle-editor.html`, Documents viết lại hoàn chỉnh lần 2
-(Nhóm A), Rule 5 cho hàm dựng UI (`readme/core-function-conventions.md`). Xem đầy đủ ở
-[v12.md](./changelog/v12.md) — file này gộp nhiều phiên rải từ đầu tháng 7 tới 12/07/2026, trước
-đó chỉ tài liệu hoá trong các bản `sav12-handoff-plan*.md` tạm, chưa gộp vào changelog chính thức.
+Bản hiện tại: **ver 13** (14/07 → 07/10/2026) — app đổi tên **Audivis**; App Panel + thanh điều hướng dưới;
+Song/Video/Photo chung một playlist (Video/Photo Player, Folder ↔ Playlist, Filter preset); Motion thay Slideshow;
+UI Theme Light/Dark/Morphin; DB v6 + giới hạn 500 MB; 4 tính năng lớn mới (Game, Statistics, Ghi âm, Video Editor
+trang riêng); Karaoke; làm lại Visualizer (`audioAnalysis`, tách vòng render, effect mới); audit kiến trúc 07/10
+(sổ vi phạm thay toàn bộ `core-legacy-audit.md`). Xem [v13.md](./changelog/v13.md).
 
+- [v13.md](./changelog/v13.md) — quyết định kiến trúc, thay đổi phá vỡ (DB v6, 500 MB, Tailwind build sẵn),
+  tính năng đã gỡ, bố cục/Settings/Theme, Game, Statistics, Ghi âm, Video Editor, Karaoke, audit 07/10. Tách riêng:
+  [v13-media-storage.md](./changelog/v13-media-storage.md), [v13-motion-vbg.md](./changelog/v13-motion-vbg.md),
+  [v13-visualizer.md](./changelog/v13-visualizer.md)
 - [v12.md](./changelog/v12.md) — hạ tầng block/VM-state (nay đã wire), Đa phương tiện, Settings/
   Theme, Subtitle Editor trang riêng, Documents Nhóm A, Rule 5 — nợ kỹ thuật mới: seek-trước-rồi-
   phát Subtitle Editor, 2 file mồ côi, Rule 3 mới ở `photo-ui.js`/`settings-panel-stack.js`. Kèm
@@ -34,7 +35,13 @@ Editor tách từ modal sang trang riêng `subtitle-editor.html`, Documents vi�
 - [v2.md](./changelog/v2.md)
 - [v1.md](./changelog/v1.md)
 
-## Tóm tắt từng bản (cũ → mới)
+## Tóm tắt từng bản (mới → cũ)
+
+Ver 13 kéo dài gần 3 tháng sau v12. Phía người dùng: tên mới Audivis, bố cục App Panel với tab Folder/Storage/
+Game/Statistics, Settings trong Generic Drawer dạng carousel, 3 nguồn media phát chung, Motion cho cả nền lẫn
+Player, UI Theme thật, Game, Statistics, Ghi âm, Video Editor và Karaoke. Phía kiến trúc: AppState/AppConfig theo
+domain, Rule 3b/3d/5d, object map trong Workflow (§7), vòng render host + workflow theo group, kho `audioAnalysis`,
+DB v6 không chuyển dữ liệu, và đợt audit 07/10 với sổ vi phạm mới. Chi tiết ở [v13.md](./changelog/v13.md).
 
 Ver 12 mở đầu bằng hạ tầng rẽ nhánh theo `appState` cho kiến trúc `/event/` — `service/operation.js`
 (so sánh toán tử dùng chung), `event/block.js` (chặn 1 `msg.type` TRƯỚC khi vào router, đăng ký qua

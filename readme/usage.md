@@ -3,8 +3,10 @@
 Mở `index.html` bằng double-click (hoặc kéo vào trình duyệt), hoặc deploy
 lên GitHub Pages / bất kỳ static host nào (khuyến nghị từ ver 5 vì IndexedDB
 hoạt động ổn định hơn theo origin `https://` so với `file://`). Ứng dụng cần
-kết nối Internet ở lần mở đầu để tải các thư viện qua CDN (Tailwind,
-jsmediatags, NoSleep.js, Three.js, idb-keyval, browser-id3-writer).
+kết nối Internet ở lần mở đầu để tải các thư viện qua CDN (jsmediatags, NoSleep.js, Three.js
++ các module postprocessing, GSAP, idb-keyval, browser-id3-writer, Panzoom, zip.js,
+flickr-justified-gallery; trang Subtitle Editor thêm wavesurfer.js và lamejs). CSS Tailwind đã build sẵn
+ở `assets/css/tailwind.css` ([tailwind-build.md](./tailwind-build.md)).
 
 **Lưu ý quan trọng (ver 5):** nhạc/tag/cover/phụ đề/ảnh-video nền giờ lưu
 trong IndexedDB của trình duyệt — gắn theo từng trình duyệt + thiết bị cụ
@@ -65,10 +67,9 @@ log đó.
 **English** (đổi từ tiếng Việt) — đây là lựa chọn tạm thời cho bản test này,
 để xác nhận cơ chế dịch đã chạy đúng (không nhầm với cache file cũ). Vào
 Settings → mục "Ngôn ngữ" để: chọn lại ngôn ngữ đang hiển thị, tải lên 1 file
-ngôn ngữ mới (`.json`, đúng format xem `lang/vi.json` đi kèm trong project),
-hoặc xóa 1 ngôn ngữ đã tải lên (không xóa được English — luôn có sẵn). Muốn
-dùng tiếng Việt: vào Settings → "Ngôn ngữ" → "Tải lên ngôn ngữ mới (.json)"
-→ chọn file `lang/vi.json` đi kèm → chọn lại "Tiếng Việt" trong danh sách.
+ngôn ngữ mới (`.json`), hoặc xóa 1 ngôn ngữ đã tải lên (không xóa được English — luôn có
+sẵn). *(Cập nhật ver 13: project không còn kèm file `lang/vi.json`; bộ khoá English nằm trong
+`lang/patch/*.js`, file `.json` tải lên phải theo đúng bộ khoá đó. Màn Ngôn ngữ nay ở Settings > System.)*
 **Batch này CHƯA test trên browser thật** — chỉ qua test harness Node, xem
 mục "Nợ kỹ thuật" trong [changelog/v10-lang-test.md](./changelog/v10-lang-test.md).
 
@@ -79,5 +80,11 @@ hưởng hành vi đã thấy). Ver 11 CHÍNH THỨC CHỐT 2 batch trước t�
 (nợ kỹ thuật video nền chưa khôi phục đúng `currentTime` — đọc lại code xác nhận đã có cơ chế lưu/
 khôi phục đầy đủ, dù chưa test trên trình duyệt thật) và batch i18n (vẫn CHƯA có xác nhận chạy
 thật trên trình duyệt, không đổi gì thêm). Xem đầy đủ ở [changelog/v11.md](./changelog/v11.md).
+
+**Lưu ý mới (ver 13):** **DB lên v6 — dữ liệu media cũ (bài hát, video, ảnh) bị xoá khi mở bản này lần đầu**,
+cần nạp lại thư viện (không có bước chuyển dữ liệu). Mỗi file media tối đa 500 MB. Ver 13 thêm 3 nguồn phát chung
+1 playlist (Song/Video/Photo), Motion, Visual Background hợp nhất, Game, Statistics, Ghi âm, Video Editor, Karaoke —
+xem [changelog/v13.md](./changelog/v13.md). Nhiều mục còn ghi "chờ test trên máy" (seek gate v3 của Video, DB v6,
+mô hình 3 tầng Motion).
 
 ← [Quay lại README](../README.md)

@@ -1,14 +1,15 @@
 # Quy ước dùng TaskManager
 
-> MỚI (04/07/2026, mục 7 phản hồi Giang). Đọc cùng `core-function-conventions.md` Rule 3 (VIẾT LẠI
-> cùng ngày) — file đó định nghĩa ranh giới Core/Workflow nói chung, file NÀY tập trung riêng vào
-> quy ước TaskManager (API + ai được dùng).
+> Đọc cùng [core-function-conventions.md](./core-function-conventions.md) Rule 3 (ranh giới Core/Workflow) — file
+> NÀY tập trung riêng vào TaskManager (API + ai được dùng). Đồng bộ 07/10/2026 (chốt ver 13): bỏ ngoại lệ
+> `tab-hide-reload.js` (file đã gỡ), thêm phạm vi Web Worker, khối inline Preloader, `requestAnimationFrame` thô
+> (chờ chốt). Vi phạm hiện có: [sổ vi phạm](./core-legacy-audit.md) mục 4.3.
 
 ## 1. TUYỆT ĐỐI cấm `setInterval`/`setTimeout` thô trong toàn bộ app
 
 **Không có ngoại lệ.** Mọi nhu cầu chạy code sau N ms (1 lần) hoặc lặp lại (nhiều lần) — dù là
 animation 300ms, debounce lưu config, đóng menu sau khi bấm ra ngoài, đếm giây nghe nhạc, hay 1 vòng
-lặp sống suốt đời app như slideshow/auto-switch-visual — **PHẢI đăng ký qua `taskManager`**
+lặp sống suốt đời app như Motion runner/auto-switch-visual — **PHẢI đăng ký qua `taskManager`**
 (`service/task-manager.js`, instance global `taskManager`). KHÔNG được gọi thẳng
 `window.setInterval()`/`window.setTimeout()`/`setInterval()`/`setTimeout()` ở BẤT KỲ đâu khác.
 
@@ -17,25 +18,21 @@ Lý do: `taskManager` là NGUỒN QUẢN LÝ TIMER TẬP TRUNG DUY NHẤT của 
 "app này đang có bao nhiêu timer sống, timer nào" chỉ bằng cách đọc `taskManager.plan`. Rải
 `setTimeout` thô ở nhiều nơi phá vỡ hoàn toàn khả năng đó.
 
-**1 ngoại lệ ĐÃ BIẾT, giữ nguyên có chủ đích:** `core/tab-hide-reload.js::triggerHideAndReload()`
-dùng `setTimeout` thô (debounce 50ms phân biệt "ẩn tab thật" vs F5/đóng tab) — code này chạy NGAY
-TRONG lúc trang sắp bị unload/ẩn (`visibilitychange`/`pagehide`), cùng nhóm "browser lifecycle event
-đứng ngoài `/event/`" đã có tiền lệ ở `event-bus-flow.md` — thời điểm này không đáng tin cậy để phụ
-thuộc vào bất kỳ hạ tầng nào khác (kể cả `taskManager`).
+**Không còn ngoại lệ nào trong code app.** Ngoại lệ cũ `core/tab-hide-reload.js` (debounce 50 ms lúc ẩn tab) đã gỡ
+cùng file đó. Các chỗ còn `setTimeout`/`setInterval` thô là vi phạm, liệt kê ở sổ vi phạm (mục "Timer thô").
 
-> **[ĐÍNH CHÍNH 12/07/2026]** Từng ghi nhận 1 ngoại lệ thứ 2 ở đây cho
-> `event/workflow/subtitle-editor.js` (5 chỗ `setTimeout`/`setInterval` thô, lý do "trang
-> `subtitle-editor.html` không nạp `service/task-manager.js`") — SAI, đã kiểm tra lại kỹ hơn:
-> `service/task-manager.js` KHÔNG có dependency gì cả (không cần `appState`, không cần
-> `event/tab.js`, không cần bất kỳ file nào khác — đọc thẳng file đó xác nhận 0 tham chiếu
-> `appState`/`document`). Coupling với `event/tab.js` mà lý do cũ viện dẫn KHÔNG CÓ THẬT — kiểm tra
-> lại còn phát hiện thêm: `event/tab.js` **CHƯA TỪNG gọi `taskManager.pauseAll()`/`resumeAll()`**
-> ở BẤT KỲ ĐÂU trong toàn bộ app, kể cả `index.html` (`pauseAll`/`resumeAll` chỉ được ĐỊNH NGHĨA
-> trong `service/task-manager.js`, không nơi nào gọi tới — dead code). Đã sửa: thêm
-> `service/task-manager.js` vào `subtitle-editor.html`, đổi cả 5 chỗ sang
-> `taskManager.once()`/`addNew()` — **không còn ngoại lệ thứ 2 nữa**, chỉ còn đúng 1 ngoại lệ ở
-> trên. KHÔNG quét thấy chỗ nào khác dùng `setTimeout`/`setInterval` thô ngoài
-> `service/task-manager.js` (định nghĩa gốc) và ngoại lệ trên tại thời điểm viết tài liệu này.
+**Phạm vi:**
+
+- **Web Worker** (`core/workers/*.js`) nằm ngoài kiến trúc (Giang chốt 07/10/2026) — worker chạy luồng riêng, không
+  có `taskManager`; timer bên trong worker không tính.
+- **Khối inline Preloader** đầu `<body>` của `index.html` dùng `setTimeout` thô (hẹn giờ an toàn + gỡ phần tử sau
+  fade) — chạy TRƯỚC khi `service/task-manager.js` được nạp nên không thể dùng `taskManager`. **Chưa chốt** có tính là
+  ngoại lệ hay không ([script-load-order.md](./script-load-order.md) giải thích khối này).
+- **`requestAnimationFrame` thô** — mục này chỉ ghi `setTimeout`/`setInterval`, nhưng `taskManager` đã có mode
+  `raf` (mục 4b). 10 chỗ `requestAnimationFrame` thô (chờ 1–2 khung hình để trình duyệt layout) đang để **chờ chốt**
+  trong sổ, chưa tính FAIL.
+- `subtitle-editor.html` và `video-editor.html` đều nạp `service/task-manager.js` — không có lý do "trang không có
+  taskManager".
 
 ## 2. CHỈ Workflow (`event/workflow/*.js`) được dùng `taskManager`
 
@@ -66,7 +63,7 @@ Workflow, không phải lý do để Router tự gọi `taskManager`.
 ## 3. Vì sao lại là Workflow, không phải Core?
 
 Theo Rule 3 mới: Core không được tự gọi Core khác, không được tự đọc `appState`. Một task lặp
-(slideshow, auto-switch-visual, watchdog...) về bản chất LUÔN cần cả 2 thứ đó mỗi lần "tick" — đọc
+(Motion runner, auto-switch-visual, keep-alive audio nền...) về bản chất LUÔN cần cả 2 thứ đó mỗi lần "tick" — đọc
 `appState` để biết tình huống hiện tại, rồi gọi ĐÚNG (những) hàm core cần thiết theo tình huống đó.
 Nếu để Core tự làm cả 2 việc này bên trong 1 `taskManager.once()`/`addNew()` của chính nó, Core đó
 sẽ vừa vi phạm "không tự đọc appState" vừa vi phạm "không tự gọi Core khác" — 2 lần vi phạm cùng
@@ -103,19 +100,17 @@ chế tự-tái-sinh của mode `timeout` (`#runRaf()`, cấu trúc giống hệ
 chế hẹn giờ). **KHÔNG liên quan gì tới `eventBus`** — đừng nhầm "vòng lặp tự nuôi sống qua
 `taskManager`" với "bắn sự kiện qua `eventBus`", đây là 2 khái niệm độc lập.
 
-Dùng cho `event/workflow/visualizer-render.js` — TỪ 21/09/2026 gồm 2 task `raf`, cả 2 đều do file
-này đăng ký (thay `requestAnimationFrame(drawVisualizer)` thô trước đây trong
-`core/visualizer/draw-visualizer.js`, nay file đó đã RỖNG):
+Dùng cho 2 task `raf` của vòng Visualizer (thay `requestAnimationFrame(drawVisualizer)` thô trước đây):
 
-- `audioAnalysis` — phân tích audio (FFT, beat/energy/hue, BPM/pitch/status bar, Game tick, nốt
-  nhạc bay). LUÔN chạy, KHÔNG dừng theo Show Visual (Game/React Beat/VBG đều đọc dữ liệu task này
-  ghi vào appState). **Từ 28/09/2026** task này thuộc `event/workflow/audio-analysis.js`
-  (`workflowAudioAnalysis`, hằng `AUDIO_ANALYSIS_TASK`); `workflowVisualizerRender` vẫn là nơi
-  điều phối vòng đời chung (start/stop/suspend/resume) của CẢ 2 task. Việc gỡ nốt nhạc bay sau
-  1.5s cũng hẹn giờ ở đây (`taskManager.once`) — trước đây nằm lậu trong core `spawnFlyingNote()`.
-- `visualizerRender` — CHỈ vẽ canvas 2D/WebGL. Đăng ký/`kill()` tự động theo `cfg.visualEnabled`
-  (`_syncRenderTask()` gọi mỗi frame từ task phân tích). Tắt phải dùng `kill()`, KHÔNG dùng
-  `pause()` — `resumeAll()` lúc hiện lại tab sẽ resume nhầm task đang "tắt".
+- `audioAnalysis` — phân tích audio (FFT, beat/energy/hue, BPM/pitch/status bar, Game tick, nốt nhạc bay). LUÔN
+  chạy, không dừng theo Show Visual (Game/React Beat/VBG đều đọc kết quả qua kho `audioAnalysis`,
+  `service/audio-analysis.js`). Thuộc `event/workflow/audio-analysis.js` (`workflowAudioAnalysis`, hằng
+  `AUDIO_ANALYSIS_TASK`). Việc gỡ nốt nhạc bay sau 1,5 s cũng hẹn giờ ở Workflow (`taskManager.once`).
+- `visualizerRender` — CHỈ vẽ canvas 2D/WebGL, thuộc `event/workflow/visualizer-render.js`. Đăng ký/`kill()` tự động
+  theo Show Visual (`_syncRenderTask()` gọi mỗi frame từ task phân tích). Tắt phải dùng `kill()`, KHÔNG dùng `pause()`.
+
+`workflowVisualizerRender` điều phối vòng đời chung của cả 2 task (`start`/`stop`/`suspendForBackground`/
+`resumeFromBackground`). Về Playlist trên màn <1024px chỉ tạm dừng 2 task này.
 
 ```js
 // event/workflow/audio-analysis.js (workflowAudioAnalysis.start(), gọi từ workflowVisualizerRender.start())
@@ -125,12 +120,13 @@ taskManager.operator(AUDIO_ANALYSIS_TASK, 'enabled');
 // taskManager.kill('visualizerRender') khi tắt.
 ```
 
-`pause()`/`resume()`/`kill()` hoạt động y hệt 2 mode kia (dùng chung `pauseAll()`/`resumeAll()`
-lúc tab ẩn/hiện, xem `event/tab.js`) — chỉ khác cơ chế hẹn giờ bên trong `Loop`, không cần biết gì
-thêm ở tầng gọi.
+`pause()`/`resume()`/`kill()` hoạt động y hệt 2 mode kia — chỉ khác cơ chế hẹn giờ bên trong `Loop`. Lưu ý:
+`pauseAll()`/`resumeAll()` có trong API nhưng **không nơi nào gọi**; ẩn/hiện tab do `event/workflow/app-visibility.js`
+xử lý từng task (gọi `workflowVisualizerRender.suspendForBackground()`/`resumeFromBackground()`, task keep-alive audio
+nền riêng).
 
 
-## 5. Ví dụ ĐÚNG — Workflow tự tick, tự gọi core (mẫu chuẩn từ `event/workflow/slideshow.js`)
+## 5. Ví dụ ĐÚNG — Workflow tự tick, tự gọi core
 
 ```js
 // core/....js — hàm THUẦN, không đụng taskManager/appState, không gọi hàm khác trong file
@@ -155,19 +151,11 @@ const workflowSomething = {
 };
 ```
 
-## 6. Nợ kỹ thuật đã biết (KHÔNG bắt buộc sửa ngay — theo Rule 0.5)
+## 6. Vi phạm hiện có
 
-Rule 3 vừa SIẾT CHẶT hơn hẳn bản trước (từng cho phép Core dùng `taskManager.once()` cho lời gọi
-"bất đồng bộ không chờ"). Các hàm Core LEGACY sau ĐANG dùng `taskManager` theo quy ước CŨ, viết TRƯỚC
-04/07/2026 — KHÔNG bắt buộc sửa ngay (Rule 0.5: chỉ bắt buộc khi hàm đó bị ĐỤNG TỚI thật), nhưng
-PHẢI đưa về tuân thủ ĐẦY ĐỦ (tách hẳn phần `taskManager` ra Workflow tương ứng, đúng mẫu mục 5) ngay
-khi có nhu cầu sửa/mở rộng chúng:
-- ~~`core/auto-switch-visual.js` (`scheduleNextAutoSwitchVisualTimer`/`exe`)~~ — **ĐÃ SỬA 25/09/2026**: toàn bộ điều phối
-  (2 task `autoSwitchVisualTimer`/`autoSwitchVisualMarks`) dời về `event/workflow/auto-switch-visual.js`
-  (`workflowAutoSwitchVisual`), core chỉ còn hàm thuần — làm cùng đợt cụm `appVisibility` (ẩn tab/PWA dừng render).
-- `core/state-and-video-bg.js` (`taskManager.once('hideVideoBgAfterFade')` trong `handleVideoBackground()`).
-- Khả năng còn sót — CHƯA quét lại toàn bộ codebase sau khi Rule 3 đổi (việc quét lại quy mô lớn,
-  cập nhật số liệu ở `readme/core-legacy-audit.md`, dời sang batch riêng nếu Giang muốn làm ngay).
+Không còn danh sách nợ riêng ở đây — mọi vi phạm TaskManager (timer thô, `taskManager` dùng trong Core,
+`requestAnimationFrame` thô chờ chốt) nằm ở [sổ vi phạm](./core-legacy-audit.md) mục 4.3, cùng quy tắc "nợ cũ vẫn là
+FAIL". `core/auto-switch-visual.js` đã sạch từ 25/09/2026 (điều phối dời về `event/workflow/auto-switch-visual.js`).
 
 ← [core-function-conventions.md](core-function-conventions.md) (Rule 3 đầy đủ) ·
 [core-legacy-audit.md](core-legacy-audit.md) (nợ kỹ thuật tổng hợp)

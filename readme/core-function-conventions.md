@@ -1,17 +1,15 @@
-# Quy tắc viết function Core / nghiệp vụ — từ ver 12 trở đi
+# Quy tắc viết function Core / nghiệp vụ (ver 13)
 
-> **Áp dụng cho function MỚI viết hoặc được SỬA kể từ ver 12** — **[Đã chốt]** core di sản (~110
-> file hiện có, phần lớn đang tự `appState.get()` trực tiếp, đúng theo quy ước cũ ở
-> `service/state.js`) **giữ nguyên, KHÔNG rewrite/audit hồi tố**. Chỉ code mới viết hoặc bị đụng
-> tới (sửa thật, không phải chỉ đọc lướt qua) từ ver 12 trở đi mới bắt buộc theo 5 rule dưới đây —
-> **BAO GỒM hàm dựng UI (modal/drawer/toolbar)**, xem Rule 5 — KHÔNG có ngoại lệ "core UI thuần"
-> nào đứng ngoài phạm vi 5 rule này.
+> **Áp dụng cho TOÀN BỘ code core** — kể cả hàm dựng UI (modal/drawer/toolbar), xem Rule 5. Không có ngoại lệ "core UI
+> thuần" đứng ngoài 5 rule này.
+>
+> **Rule 0.5 — nợ cũ vẫn là vi phạm** (Giang chốt 07/10/2026). Code viết trước khi rule ra đời mà không đạt vẫn tính
+> **FAIL** và nằm trong [sổ vi phạm](./core-legacy-audit.md). Chính sách "sửa khi đụng tới" chỉ quyết định *khi nào*
+> sửa (bắt buộc với code mới và phần code bị sửa thật; phần còn lại dọn theo sổ), không biến vi phạm thành hợp lệ.
 
 Đọc cùng [event-bus-flow.md](./event-bus-flow.md) — tài liệu đó quy định luồng
-`listener → router → core/workflow/VirtualMachineState`; tài liệu NÀY quy định riêng bên TRONG 1
-function Core/nghiệp vụ được viết ra sao. Xem [core-legacy-audit.md](./core-legacy-audit.md) —
-danh sách **nợ kỹ thuật chính thức**: function core di sản đang vi phạm 5 rule dưới đây (không bắt
-buộc sửa ngay, chỉ bắt buộc khi function đó bị đụng tới thật — xem đầu file đó).
+`listener → router → core/workflow/VirtualMachineState` và việc của Workflow (mục 7); tài liệu NÀY quy định riêng bên
+TRONG 1 function Core được viết ra sao.
 
 ---
 
@@ -33,6 +31,19 @@ còn là việc của 1 function core duy nhất — tách thành nhiều functi
 hợp lệ) — đó không phải "tiến trình khác nhau", chỉ là điều kiện tiên quyết để chạy ĐÚNG 1 tiến
 trình duy nhất của hàm.
 
+**Cách chấm — theo NỘI DUNG nhánh, không xét điều kiện** (Giang chốt 07/10/2026; dùng cho sổ vi phạm):
+
+| Nhánh | Kết quả |
+|---|---|
+| Chỉ dừng sớm (guard), chỉ tính giá trị vào biến cục bộ, chỉ kiểm tra phần tử tồn tại (`if (el) el.x()`) | PASS |
+| Guard chỉ báo lỗi (`alertModal`…) rồi `return` | PASS |
+| Guard dọn/huỷ/đổi state, hoặc chuyển sang tiến trình khác, rồi `return` | FAIL |
+| Mọi nhánh ghi **đúng cùng tập vị trí** (thuộc tính, class, lời gọi, field của object kết quả), chỉ khác giá trị | PASS — đó là chọn giá trị. Lệch 1 vị trí là FAIL |
+| **Switch A/B trên cùng 1 đối tượng** — play/pause, mở/đóng, hiện/ẩn, bật/tắt task, chọn/bỏ chọn, nạp/gỡ nền | 1 nghiệp vụ — PASS |
+| `if` bật/tắt **1 bước** (không có nhánh thay thế) | 1 nghiệp vụ — PASS |
+| Chọn hình vẽ, chọn luật tính, `moveTo`/`lineTo`, migrate dữ liệu… theo điều kiện | FAIL — dù trông như A/B |
+| `VirtualMachineState.run()` hoặc object map chọn hàm **trong core** | FAIL — vẫn là rẽ nhánh |
+
 **Phép thử nhanh — xoá điều kiện `if` đó đi, hàm còn lại thế nào?**
 - Vẫn còn nguyên ĐÚNG 1 kịch bản, chỉ mất phần "dừng sớm nếu chưa đủ điều kiện" → **guard clause,
   được phép.**
@@ -46,7 +57,7 @@ function applyVisualType(type) {
     const idx = MODES.indexOf(type);
     if (idx === -1) return; // chưa đủ điều kiện -> dừng, KHÔNG phải "tiến trình khác"
     appState.set('currentModeIndex', idx);
-    updateTypeUI();
+    console.log(`writer: "applyVisualType", page: "currentModeIndex", content: "${idx}"`);
 }
 ```
 
@@ -60,7 +71,7 @@ function applyVisualType(type) {
     const idx = MODES.indexOf(type);
     if (idx === -1) return;
     appState.set('currentModeIndex', idx);
-    updateTypeUI();
+    console.log(`writer: "applyVisualType", page: "currentModeIndex", content: "${idx}"`);
 }
 ```
 Sửa đúng: bỏ hẳn nhánh `autoSwitchVisualEnabled` khỏi function (nó vi phạm luôn Rule 2 — đọc
@@ -162,10 +173,8 @@ lẫn `-ui.js`, Rule 5c) — không có ngoại lệ theo nguồn hay theo loạ
 - `service/blob-url.js::revokeBlobUrl(url)` — CHỈ hàm này, KHÔNG gồm `createBlobUrl()` (tạo mới tài
   nguyên → thuộc Workflow, truyền url xuống Core làm tham số).
 
-> **Nợ kỹ thuật (phát hiện lúc siết rule):** nhiều file `core/` hiện có (`playlist/loader.js`,
-> `player-controls.js`, `storage-manager.js`, `file-manager/*.js`...) đang gọi thẳng `get*`/
-> `getAll*Keys` của `service/db.js` — vi phạm rule mới. Không bắt sửa ngay (Rule 0.5,
-> `core-legacy-audit.md`), chỉ bắt buộc khi đụng lại file đó.
+> Các chỗ core còn gọi thẳng hàm ĐỌC của `service/db.js` (hoặc đọc nguồn khác như `localStorage`) là vi phạm —
+> liệt kê ở [sổ vi phạm](./core-legacy-audit.md), mục "Rule 3b".
 
 **KHÔNG bao gồm** `appState.get()` và **KHÔNG bao gồm `taskManager`** (xem lý do ngay dưới) — 2 thứ
 này KHÔNG nằm trong danh sách được Core gọi.
@@ -178,7 +187,7 @@ Workflow, không phải core thuần.
 ### 3c — Hàm con phục vụ vòng lặp (MỚI, 13/07/2026, phản hồi Giang)
 
 **1 function core được phép tự chứa hàm con** (closure lồng bên trong, KHÔNG phải hàm top-level
-riêng — xem ví dụ `sanitizeDocumentHtml()::walk()`, `core/file-manager/document.js`) khi TẤT CẢ
+riêng — xem ví dụ `openTimePickerModal()::boundsFor()`, `core/time-picker-modal.js`) khi TẤT CẢ
 điều kiện sau đều đúng:
 
 1. **Chỉ giới hạn cho việc loop** — bản thân hàm con có chứa vòng lặp/đệ quy (`for`/`while`/tự gọi
@@ -197,11 +206,9 @@ riêng — xem ví dụ `sanitizeDocumentHtml()::walk()`, `core/file-manager/doc
    `appState.get()` (Rule 2), không gọi core/hàm con nào khác ngoài chính nó (Rule 3, đệ quy áp
    dụng), ghi state qua `set()`/`mutate()` phải kèm `console.log` (Rule 4).
 
-Ví dụ hợp lệ: `sanitizeDocumentHtml()::walk()` (đệ quy) — `computeNextDocumentReaderSlot()::
-sliceBlockByTextRange()`/`splitOversizedBlockToFit()`/`findWordBoundaryBefore()` (đều có vòng
-lặp/đệ quy nội bộ, kết quả trả về là giá trị trung gian — vd `findWordBoundaryBefore()` chỉ trả 1
-chỉ số, vô nghĩa nếu đứng riêng, phải phối hợp với `sliceBlockByTextRange()` mới thành 1 đoạn text
-thật — xem `core/file-manager/document-pagination.js`).
+Ví dụ hợp lệ: `openTimePickerModal()::boundsFor(levelIndex)` (`core/time-picker-modal.js`) — vòng lặp cộng dồn các
+tầng thời gian phía trên để ra cặp `[min, max]` của 1 cột; cặp chỉ số đó vô nghĩa nếu đứng riêng, phải có hàm cha dùng
+để kẹp cuộn mới thành kết quả thật.
 
 ### 3d — Wrapper cho API thư viện ngoài: hợp lệ có điều kiện, KHÔNG áp dụng được cho core khác (MỚI, 03/08/2026, phản hồi Giang)
 
@@ -211,7 +218,7 @@ mọi lời gọi thư viện — chỉ hợp lệ khi CẢ 2 đúng:
 
 1. **Có lý do thật để cô lập thư viện** — dự tính CÓ THỂ đổi thư viện sau này mà không muốn mọi nơi
    gọi (Workflow) phải sửa theo — wrapper giữ NGUYÊN chữ ký hàm, chỉ viết lại THÂN khi đổi thư viện
-   (xem `core/image-zoom.js`, đầu file).
+   (xem wrapper Panzoom trong `core/media-transform.js`).
 2. **Được chỉ định/audit rõ trong docstring đầu file** (không suy diễn ngầm) — đúng tinh thần
    "Ngoại lệ ĐÃ audit chính thức" ở Rule 5a (`modalChoice()`) — không được tự nhận "giống file X đã
    có" để suy ra miễn trừ.
@@ -232,20 +239,20 @@ không?
 ```js
 // SAI — relay 1:1 sang core khác, "trông như Workflow" nhưng không điều phối gì
 applySelect(session, ratio) {
-    setCropSessionAspectRatio(session, ratio); // core/crop-selector.js — relay rỗng
+    setCropSessionAspectRatio(session, ratio); // core/media-transform.js — relay rỗng
 },
 ```
 ```js
 // ĐÚNG — có logic thật (guard clause + phép tính), không chỉ relay
 applyFlip(session) {
     if (Number.isNaN(session.aspectRatio) || session.aspectRatio === 1) return;
-    setCropSessionAspectRatio(session, 1 / session.aspectRatio); // core/crop-selector.js
+    setCropSessionAspectRatio(session, 1 / session.aspectRatio); // core/media-transform.js
 },
 ```
 ```js
 // ĐÚNG — wrapper thư viện ngoài ĐÃ audit (docstring nêu rõ lý do cô lập để sau này đổi thư viện)
 function initPanzoomSession(el, options) {
-    return Panzoom(el, options); // core/image-zoom.js, xem docstring đầu file
+    return Panzoom(el, options); // core/media-transform.js
 }
 ```
 ```js
@@ -264,7 +271,7 @@ Vì core không còn được tự gọi core khác hay tự đọc `appState`, 
    `appState.get()` nhiều lần rời rạc.
 2. **Nếu core B cần kết quả của core A** — Workflow tự gọi A trước, lấy kết quả, rồi truyền vào
    làm tham số khi gọi B. Workflow đứng NGOÀI, gọi CẢ HAI, KHÔNG để A gọi B nội bộ.
-3. **Nếu cần lặp lại (task lặp, ví dụ slideshow/auto-switch-visual)** — Workflow tự đăng ký qua
+3. **Nếu cần lặp lại (task lặp, ví dụ Motion runner/auto-switch-visual)** — Workflow tự đăng ký qua
    `taskManager`, bên trong callback của task đó Workflow (không phải core) tự đọc `appState` +
    gọi các hàm core cần thiết theo đúng thứ tự, TỪNG hàm core gọi riêng lẻ từ Workflow — xem ví dụ
    dưới.
@@ -302,7 +309,7 @@ nào để log) — Rule 4 (`console.log("writer: ...")` cho `set()`/`mutate()`)
 
 ### 3e — Ngoại lệ ĐÃ audit chính thức: `iconSvg()` (MỚI, 07/10/2026, Giang chốt rà soát SVG)
 
-`core/theme/icon-svg-ui.js::iconSvg(name, className = '', extraAttrs = '')` là hàm dựng chuỗi `<svg>` DUY NHẤT của
+`core/ui-theme/icon-svg-ui.js::iconSvg(name, className = '', extraAttrs = '')` là hàm dựng chuỗi `<svg>` DUY NHẤT của
 app — tra `ICON_REGISTRY` (`components/icons.js`, CHỈ dữ liệu) rồi bọc thẻ `<svg>` chuẩn hoá (viewBox 24, stroke 2,
 round cap/join; glyph đặc `fill` CHỈ cho play/pause/rewind/fast-forward/drag-handle; `aria-hidden="true"`).
 **Được phép gọi từ:** `components/*.js`, `event/workflow/*.js`, và core `-ui.js` (Rule 5c) — đây là lời gọi core→core
@@ -345,18 +352,16 @@ function addEqFilter(filter) {
 }
 ```
 
-**Ngoại lệ bắt buộc — KHÔNG log trong hot path 60fps** (giống hệt lý do ở Rule 3): vòng vẽ
-visualizer (`core/visualizer/draw-visualizer.js`) gọi `appState.set(..., { skipCheck: true })`
-rất nhiều lần MỖI FRAME (`frameCounter`, `beatScale`, `smoothedEnergy`, `globalHueOffset`...) —
-log từng lần sẽ spam console/tốn hiệu năng thật, KHÔNG áp dụng Rule 4 cho các lời gọi này.
+**Ngoại lệ bắt buộc — KHÔNG log trong hot path 60fps:** các hàm chạy mỗi khung hình trong 2 vòng `raf`
+(`event/workflow/visualizer-render.js`, `event/workflow/audio-analysis.js` và core vẽ/phân tích chúng gọi) ghi state
+với `{ skipCheck: true }` nhiều lần mỗi frame — log từng lần sẽ spam console và tốn hiệu năng thật, KHÔNG áp dụng
+Rule 4 cho các lời gọi này.
 
 ## Rule 5 — Hàm dựng UI VẪN là hàm nghiệp vụ; `addEventListener` được phép NHƯNG phải gom cuối hàm; KHÔNG dùng DOM để rẽ nhánh
 
-**[MỚI, 10/07/2026, phản hồi Giang]** Một số file trước đây (`core/file-manager/photo-ui.js`,
-`core/file-manager/folder-picker-ui.js`, bản đầu `core/file-manager/document-ui.js`) tự ghi trong
-docstring "hàm dựng UI thuần, không thuộc phạm vi 4 rule core-function-conventions.md" —
-**TUYÊN BỐ NÀY KHÔNG CÓ CĂN CỨ trong tài liệu này, SAI, cần sửa khi file đó bị đụng tới lại (đúng
-tinh thần nợ kỹ thuật — xem [core-legacy-audit.md](./core-legacy-audit.md)).** KHÔNG có khái niệm
+**[10/07/2026, phản hồi Giang]** Một số file (`core/file-manager/photo-ui.js`,
+`core/file-manager/folder-picker-ui.js`…) từng tự ghi trong docstring "hàm dựng UI thuần, không thuộc phạm vi rule
+core" — **tuyên bố đó không có căn cứ.** KHÔNG có khái niệm
 "core UI thuần đứng ngoài rule" — dựng DOM/modal/drawer VẪN là 1 nhiệm vụ nghiệp vụ, chịu ĐẦY ĐỦ
 Rule 1-4 ở trên, CỘNG THÊM 2 rule riêng dưới đây (đặc thù cho việc dựng UI có tương tác — Rule 1-4
 gốc không lường tới DOM).
@@ -430,17 +435,15 @@ function buildXModal(data) {
 }
 ```
 
-**Ngoại lệ ĐÃ audit chính thức, giữ nguyên — `core/modal-choice.js::modalChoice()`:** callback gọi
+**Ngoại lệ ĐÃ audit chính thức, giữ nguyên — `core/modal-choice-ui.js::modalChoice()`:** callback gọi
 thẳng tham số `onClick` truyền vào lúc gọi hàm (không qua bus). Ngoại lệ này CHỈ áp dụng cho ĐÚNG
 `modalChoice()` — bất kỳ file nào khác muốn miễn trừ tương tự PHẢI qua audit chính thức riêng,
 KHÔNG được tự nhận "giống modalChoice()" để suy ra miễn trừ (tiền lệ bị bác chính xác pattern này ở
 `folder-picker-ui.js`, xem [event-bus-flow.md](./event-bus-flow.md)).
 
-> **Không hồi tố** — điều kiện 1 (MỚI) chỉ áp dụng cho hàm dựng UI MỚI viết/bị đụng thật từ thời
-> điểm chốt rule này (13/07/2026) trở đi, đúng chính sách chung ở đầu tài liệu. Code hiện có ngoài
-> `modalChoice()` (tương tác bên trong Generic Drawer ở `event/workflow/document-reader.js`,
-> `core/file-manager/folder-picker-ui.js`, `buildDocumentEditorSurface()`, danh sách item động ở
-> `components/items.js`...) GIỮ NGUYÊN, ghi nhận là nợ kỹ thuật, không bắt sửa ngay.
+Gán `.onX = ...` tính như `addEventListener`. Lệnh tra phần tử (`querySelector`) và `return` xen giữa khối gắn cuối
+hàm không tính là "rải rác". Hàm wire của file `-ui.js` không đạt 2 điều kiện trên là vi phạm (sổ vi phạm, mục
+"Rule 5a") — không có miễn trừ "code cũ".
 
 ### 5b — KHÔNG dùng trạng thái DOM làm điều kiện rẽ nhánh nghiệp vụ (lách Rule 1)
 
@@ -452,26 +455,28 @@ vụ khác nhau VẪN VI PHẠM Rule 1**, dù không hề đụng `appState.get(
 này qua grep vì không có `appState.get(` để tìm — PHẢI tự rà bằng mắt).
 
 ```js
-// SAI — dùng DOM (classList) làm điều kiện rẽ nhánh 2 tiến trình khác nhau — lách Rule 1
-function toggleXPanel(panelEl) {
-    if (panelEl.classList.contains('hidden')) {
-        panelEl.classList.remove('hidden'); // tiến trình 1: mở
-        panelEl.focus();
+// SAI — dùng DOM (classList) làm điều kiện chọn giữa 2 tiến trình dựng khác nhau — lách Rule 1
+function refreshItems(containerEl, items) {
+    if (containerEl.classList.contains('grid-view')) {
+        fillGrid(containerEl, items); // tiến trình 1: dựng lưới
     } else {
-        panelEl.classList.add('hidden'); // tiến trình 2: đóng — KHÁC HẲN tiến trình 1
+        fillList(containerEl, items); // tiến trình 2: dựng danh sách — cấu trúc DOM khác hẳn
     }
 }
 ```
-Sửa đúng: tách `openXPanel(panelEl)`/`closeXPanel(panelEl)` riêng, để nơi gọi (Workflow) tự đọc
-`classList.contains(...)` RỒI chọn gọi đúng hàm — cùng khuôn "rẽ nhánh theo tham số" ở Rule 1, chỉ
-khác nguồn đọc là DOM thay vì `appState`.
+Sửa đúng: tách 2 hàm đơn tuyến, để nơi gọi (Workflow) tự đọc trạng thái (state, hoặc DOM nếu buộc phải) rồi chọn bằng
+object map — cùng khuôn "rẽ nhánh theo tham số" ở Rule 1, chỉ khác nguồn đọc là DOM thay vì `appState`.
+
+Lưu ý: mở/đóng hay hiện/ẩn **cùng 1 phần tử** theo trạng thái hiện tại là switch A/B — 1 nghiệp vụ, không vi phạm
+(Rule 1, cách chấm). Ví dụ trên vi phạm vì 2 nhánh là 2 tiến trình dựng khác nhau, không phải 2 trạng thái của 1 đối
+tượng.
 
 ### 5c — File core chuyên dựng UI PHẢI có hậu tố `-ui` trong TÊN FILE
 
 **[MỚI, 10/07/2026]** Core file mà TOÀN BỘ (hoặc phần lớn) hàm bên trong là hàm dựng UI theo nghĩa
 Rule 5a (tạo cụm DOM MỚI bằng `createElement`, KHÔNG phải chỉ đọc/ghi `classList`/`style` lên phần
 tử TĨNH có sẵn từ `core/dom-refs.js`) **PHẢI đặt tên file kết thúc bằng `-ui.js`** — vd
-`document-ui.js`, `photo-ui.js`, `folder-picker-ui.js`, `folder-list-ui.js`, `folder-detail-ui.js`.
+`core/file-manager/photo-ui.js`, `video-ui.js`, `folder-picker-ui.js`, `core/modal-choice-ui.js`.
 Mục đích: nhìn TÊN FILE là biết ngay Rule 5a/5b áp dụng cho file đó, không cần mở ra đọc mới biết.
 
 **KHÔNG đặt hậu tố `-ui`** cho file chỉ thao tác trên DOM TĨNH có sẵn (đọc/ghi `classList`/`style`/
@@ -483,19 +488,15 @@ không tự tạo phần tử mới) KHÔNG cần hậu tố này.
 (1 file thường + 1 file `-ui.js`), KHÔNG giữ chung 1 file không có hậu tố mà bên trong lại có hàm
 `createElement` dựng modal/drawer.
 
-> **Ghi nhận nợ kỹ thuật phát hiện khi thêm rule này:** `core/modal-choice.js` tự `createElement`
-> dựng modal (đúng định nghĩa Rule 5a) nhưng KHÔNG có hậu tố `-ui` trong tên — vi phạm Rule 5c.
-> File này thuộc diện ngoại lệ đã audit ở Rule 5a/event-bus-flow.md (miễn `addEventListener`), NHƯNG
-> đó là miễn Rule 5a, KHÔNG miễn Rule 5c (2 rule độc lập) — tên file vẫn sai quy ước. Theo Rule 0.5
-> (`core-legacy-audit.md`): không bắt buộc đổi tên ngay, chỉ bắt buộc khi file đó bị đụng/sửa thật
-> lần tới (đổi tên + cập nhật mọi nơi `<script src="core/modal-choice.js">` tham chiếu tới).
+> `core/modal-choice.js` từng thiếu hậu tố — đã đổi tên thành `core/modal-choice-ui.js` trong ver 13 (miễn Rule 5a của
+> `modalChoice()` không miễn Rule 5c — 2 rule độc lập). Các file còn thiếu hậu tố: sổ vi phạm, mục "Rule 5c".
 
 ### 5d — Khung HTML tĩnh (không đổi giữa các lần mở) → `components/*.js`, không dựng bằng `createElement` (MỚI, 03/08/2026, phản hồi Giang)
 
 Phần DOM của 1 modal/panel KHÔNG đổi giữa các lần mở/đóng (cùng cấu trúc, chỉ khác data hiển thị)
 PHẢI tách thành template ở `components/*.js` — hoặc 1 hằng số chuỗi HTML tĩnh (khuôn
 `TPL_GENERIC_DRAWER`, dùng khi mount 1 lần lúc boot), hoặc 1 hàm `render*()` trả về chuỗi HTML (khuôn
-`renderAboutPanelBody()`, dùng khi tạo mới mỗi lần mở — hàm này được phép nội suy `t()`/data KHÔNG
+`renderGestureSettingsPanelBody()` ở `components/gesture-settings-drawer.js`, dùng khi tạo mới mỗi lần mở — hàm này được phép nội suy `t()`/data KHÔNG
 đổi theo instance trực tiếp vào chuỗi, vì luôn chạy lại lúc mở, không bị "đông cứng" như hằng số
 tĩnh). Phần THẬT SỰ khác theo từng instance (dữ liệu người dùng như filename, hay giá trị chỉ biết
 sau khi có metadata) vẫn phải là slot rỗng, gán qua DOM API sau khi instantiate — không nội suy
@@ -508,14 +509,21 @@ gom cuối hàm (Rule 5a), trả `handle`. KHÔNG tự viết lại `createEleme
 trúc TĨNH nữa — chỉ còn cần cho phần THẬT SỰ động về số lượng (vd danh sách khung hình filmstrip,
 tạo bằng vòng lặp runtime, chèn vào container đã có sẵn từ template).
 
+**Mọi chuỗi markup HTML trong core** (kể cả đoạn nhỏ: nút, dòng thông tin, tick chọn) thuộc hàm `render*()` ở
+`components/` — tiền lệ 07/10/2026 dời HTML Playlist (Rule 3e). Core giữ markup là vi phạm (sổ vi phạm, mục "Rule 5d").
+
 ---
 
 ## Bảng tổng hợp
 
-| Câu hỏi | Đúng luật ver 12 (cập nhật 04/07/2026) |
+| Câu hỏi | Đúng luật ver 13 |
 |---|---|
 | Function có `if/else`/`switch` chọn giữa ≥2 TIẾN TRÌNH/logic nghiệp vụ khác nhau (bất kể điều kiện lấy từ `appState`, tham số, hay đâu khác)? | **KHÔNG được** — tách thành nhiều function đơn tuyến, để nơi gọi chọn |
-| Function có guard clause thuần (validate, early-return, vẫn chỉ 1 tiến trình)? | **ĐƯỢC** — không phải Rule 1 |
+| Function có guard clause thuần (validate, early-return, vẫn chỉ 1 tiến trình; hoặc chỉ báo lỗi rồi thoát)? | **ĐƯỢC** — không phải Rule 1. Guard dọn/đổi state hoặc chuyển tiến trình rồi thoát thì KHÔNG |
+| Nhánh chỉ là switch A/B trên cùng 1 đối tượng (mở/đóng, play/pause…), hoặc bật/tắt 1 bước? | **ĐƯỢC** — 1 nghiệp vụ (Giang chốt 07/10/2026) |
+| Mọi nhánh ghi cùng tập vị trí, chỉ khác giá trị? | **ĐƯỢC** — chọn giá trị, không phải rẽ tiến trình |
+| Core dùng `VirtualMachineState.run()` hoặc object map chọn hàm? | **KHÔNG được** — vẫn là rẽ nhánh (Rule 1); chỉ Workflow/Router được dùng |
+| Code cũ (trước khi rule ra đời) vi phạm? | **Vẫn FAIL** — ghi trong sổ vi phạm; Rule 0.5 chỉ quyết định khi nào sửa |
 | Function có tự `appState.get()` bên trong (kể cả dạng `get([...])` mới)? | **KHÔNG được** — nhận qua tham số |
 | Function có tự `appState.set()`/`mutate()`? | **ĐƯỢC** — coi là API `service/`, không tính "gọi hàm core khác" |
 | Function có tự gọi `service/db.js` để GHI/XOÁ (`setMeta`/`setSongRecord`/`deleteXxxRecord`...)? | **ĐƯỢC** — cùng lý do trên |
@@ -526,11 +534,12 @@ tạo bằng vòng lặp runtime, chèn vào container đã có sẵn từ templ
 | Function core có `taskManager` (once/addNew/...)? | **CẤM TUYỆT ĐỐI** — `taskManager` CHỈ dùng ở Workflow |
 | Function core gọi thẳng API 1 thư viện NGOÀI project (CDN/vendor)? | **ĐƯỢC, có điều kiện** — chỉ khi có lý do cô lập để sau này đổi thư viện VÀ được audit rõ trong docstring (Rule 3d) |
 | 1 hàm (dù đặt ở core hay Workflow) chỉ relay nguyên văn tham số sang 1 hàm khác, không thêm logic/điều phối gì? | **Hàm vô nghĩa — xoá**, gọi thẳng đích (Rule 3d) |
-| Function có `appState.set()`/`mutate()`? | Bắt buộc `console.log` `writer/page/content` ngay dưới, TRỪ hot path 60fps |
+| Function có `appState.set()`/`mutate()`? | Bắt buộc `console.log` `writer/page/content` ngay dưới, TRỪ hot path 60fps (vòng `raf`) |
 | Function dựng UI (modal/drawer/toolbar) có được coi là "core UI thuần, ngoài phạm vi rule"? | **KHÔNG** — dựng UI VẪN là hàm nghiệp vụ, chịu ĐẦY ĐỦ Rule 1-4 + Rule 5 (xem Rule 5) |
-| Function có `addEventListener`? | **CẤM**, TRỪ hàm dựng ra cụm DOM MỚI (không tĩnh) — khi đó ĐƯỢC, nhưng callback chỉ gọi tham số (không gọi core khác) VÀ phải gom hết ở CUỐI hàm (Rule 5a) |
+| Function có `addEventListener` (hoặc `.onX =`)? | **CẤM**, TRỪ hàm dựng ra cụm DOM MỚI trong file `-ui.js` — khi đó ĐƯỢC, nhưng callback CHỈ `eventBus.send(...)` VÀ phải gom hết ở CUỐI hàm (Rule 5a). Ngoại lệ duy nhất: `modalChoice()` |
 | Function dùng `classList`/`dataset`/`querySelector(...)` tồn tại hay không làm điều kiện chọn giữa ≥2 tiến trình khác nhau? | **KHÔNG được** — cùng vi phạm Rule 1, chỉ khác nguồn đọc là DOM thay vì `appState` (Rule 5b) |
-| File core có hàm tự `createElement` dựng cụm DOM mới (modal/drawer/toolbar) — tên file cần gì? | **PHẢI kết thúc bằng `-ui.js`** (vd `document-ui.js`) — file chỉ thao tác DOM tĩnh có sẵn (`dom-refs.js`) thì KHÔNG cần (Rule 5c) |
-| Phần DOM không đổi giữa các lần mở/đóng (cùng cấu trúc, khác data) đặt ở đâu? | **`components/*.js`** (TPL_* tĩnh hoặc hàm `render*()`) — Core-ui KHÔNG tự `createElement` dựng lại, chỉ soạn `slotMap` rồi gọi `instantiateComponent()` (Rule 5d) |
+| File core có hàm tự `createElement` dựng cụm DOM mới (modal/drawer/toolbar) — tên file cần gì? | **PHẢI kết thúc bằng `-ui.js`** (vd `photo-ui.js`) — file chỉ thao tác DOM tĩnh có sẵn (`dom-refs.js`) thì KHÔNG cần (Rule 5c) |
+| Phần DOM không đổi giữa các lần mở/đóng (cùng cấu trúc, khác data) đặt ở đâu? | **`components/*.js`** (TPL_* tĩnh hoặc hàm `render*()`) — Core-ui KHÔNG tự `createElement` dựng lại, chỉ soạn `slotMap` rồi gọi `instantiateComponent()`; core không giữ chuỗi markup (Rule 5d) |
+| Function core gọi `iconSvg()`? | **CHỈ** core `-ui.js` (cùng `components/`, Workflow) — ngoại lệ Rule 3a duy nhất (Rule 3e) |
 
 ← [Quay lại README](../README.md)

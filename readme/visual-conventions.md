@@ -1,110 +1,82 @@
-# Quy ước BẮT BUỘC khi viết / sửa một Visual (từ ver 6, đường dẫn cập nhật ver 11)
+# Quy ước BẮT BUỘC khi viết / sửa một effect Visualizer (ver 13)
 
-Mọi visual trong `core/visualizer/types/*.js` PHẢI hỗ trợ đầy đủ 4 nhóm cấu hình chung dưới đây.
-Đây là hợp đồng chung — visual nào bỏ sót sẽ bị coi là lỗi:
+> Viết lại 07/10/2026 theo cấu trúc hiện tại. Bản cũ (ver 6–11) mô tả `core/visualizer/types/*.js`,
+> `VISUALIZER_DRAWERS`, `CONST.PERFORMANCE_PROFILES` và group Space/Galaxy — đều đã gỡ.
 
-1. **Video nền (`vizConfig.videoBgEnabled`)** — khi BẬT, visual KHÔNG được tô một lớp nền đục phủ
-   kín canvas (sky/background fill) đè lên video. Hãy bọc mọi lệnh
-   `fillRect(0,0,canvas.width,canvas.height)` mang tính "nền" trong
-   `if (!appState.get('vizConfig').videoBgEnabled) { ... }` để video hiện xuyên qua (mẫu: cả
-   `drawRainGlass` lẫn `drawRainStreet` trong `rain.js`). Các phần tử tiền cảnh (thanh, hạt, đèn,
-   mặt đất...) vẫn vẽ đè bình thường lên trên video.
-2. **Màu nền (`vizConfig.bgColor`)** — khi KHÔNG dùng video, nền phải theo `bgColor` người dùng
-   chọn (qua `updateDOMBackground()` cho body, và/hoặc lệnh fill nền trong chính visual).
-3. **Chế độ màu (`vizConfig.mode` = `solid` | `dynamic` | `rainbow/auto`)** — màu của các phần tử
-   vẽ phải lấy từ helper màu chung (`getComputedColor()` / `interpolateColor()` /
-   `vizConfig.solidColor` / `dynA`-`dynB`) thay vì hard-code, để nhất quán với lựa chọn người dùng.
-4. **Hiệu năng (`vizConfig.quality` + `PERFORMANCE_PROFILES`)** — số lượng phần tử (hạt, thanh,
-   tia...) phải co giãn theo `perf` được truyền vào hàm vẽ, để máy yếu vẫn chạy mượt.
+## 1. Cấu trúc: host + group + core vẽ
 
-**[v11] Cách đọc `vizConfig` — BẮT BUỘC qua `appState.get('vizConfig')`, không còn biến `vizConfig`
-trần nào để đọc trực tiếp** (đã migrate 100% qua `service/state.js`, xem
-[changelog/v11.md](./changelog/v11.md) mục 3). Trong 1 hàm vẽ gọi nhiều lần/khung hình, đọc 1 lần
-ra biến cục bộ đầu hàm (`const cfg = appState.get('vizConfig');`) rồi dùng `cfg.xxx` trong toàn hàm
-— KHÔNG gọi `appState.get('vizConfig')` lặp lại nhiều lần trong cùng 1 vòng lặp vẽ (đúng khuyến
-nghị hiệu năng hot path 60fps của `service/state.js`). `PERFORMANCE_PROFILES`/`MODES` [v11] đã
-migrate sang `CONST` (`service/state.js`) — đọc qua `CONST.PERFORMANCE_PROFILES`/`CONST.MODES`,
-không còn bản local trong `core/config.js` nữa. Property LỒNG BÊN TRONG (`CONST.PERFORMANCE_PROFILES[quality].stars`/`.streetRain`/`.tunnelRings`...)
-giữ nguyên như cũ, chỉ tên hằng số ngoài cùng đổi.
+- **Host** — `event/workflow/visualizer-render.js` (`workflowVisualizerRender`): vòng đời task `visualizerRender`
+  (mode `raf`), Show Visual, seek, resize, `applyStyle()`/`activateCurrentStyle()`. Mỗi frame dựng **frame context**
+  1 lần rồi `clearRect` canvas 2D và gọi style của group:
 
-(LỊCH SỬ — từ 28/09/2026 xem mục "Cấu trúc Workflow vẽ" ngay dưới; trạng thái điều phối riêng của 1 group
-— cửa sổ beat, bộ đệm dot/clock — là thuộc tính của object workflow group đó, như các biến `_fw*`/`_dot*` cấp module
-trước đây; dữ liệu cảnh dùng chung nhiều nơi vẫn ở appState.)
-Khi thêm visual mới: đăng ký hàm vẽ vào `VISUALIZER_DRAWERS` trong
-`core/visualizer/draw-visualizer.js`, thêm tên `type` vào `MODES` (`core/config.js`), và tự kiểm 4
-mục trên trước khi coi là hoàn tất. Nếu visual mới cần đọc/ghi biến runtime riêng (kiểu
-`beatTimes`/`stars`/`rubikCubes`...), khai thêm key vào `STATE_SCHEMA` (`service/state.js`) thay vì
-tự khai `let` cục bộ mới trong file visual — xem quy ước STATE ở
-[changelog/v11.md](./changelog/v11.md) mục 3.
+  ```js
+  const frame = { ctx, canvas, cfg, group, style, perf: { blurMult }, isPlaying, audio: audioAnalysis, dpr };
+  ```
 
-## Cấu trúc Workflow vẽ từ 28/09/2026 (Phase 3-4 dọn visualizer) — THAY `VISUALIZER_DRAWERS`
+- **Group** — `event/workflow/visualizer/<group>.js`, 1 file/group (`bar`, `connector`, `lighting`, `rain`, `shape`,
+  `vortex`): trạng thái riêng của group + `styles` + `defaultStyle` (style lạ → mặc định) + `spectrumSize(style)` + hook
+  vòng đời tuỳ chọn `activate(style)`, `onResize(viewport)`, `onStyleApplied(viewport)`, `onSeek()`, `onNewMedia()`,
+  `rebuild()`; `usesWebgl: true` nếu vẽ lên `#webgl-canvas`. Cuối file:
+  `workflowVisualizerRender.registerGroup('<group>', ...)`.
+- **Core vẽ** — `core/visualizer/groups/<group>/<style>.js` (+ `common.js` của group): core thuần, không gọi core
+  khác, không `appState.get()`, không đọc kho `audioAnalysis` — group workflow đọc rồi truyền tham số.
+- **Dùng chung** — `core/visualizer/effect-paint.js` (màu, blur), `core/visualizer/beat-window.js` +
+  `event/workflow/visualizer/beat-window.js` (cửa sổ beat flux, mỗi effect giữ 1 object riêng từ
+  `createBeatFluxWindow()`), `core/visualizer/tonotopic.js` (ánh xạ tần số), `core/visualizer/frame-clock.js`,
+  `core/visualizer/draw/*.js` (nốt bay, giọt nước, khung cửa sổ, chớp màn).
+- **WebGL** — `core/webgl/three-common.js` (camera/renderer/composer/dispose), `three-vortex.js`,
+  `three-connector.js`. Renderer dùng chung tạo qua `workflowVisualizerRender.ensureSharedRenderer(pixelRatio)`.
 
-`VISUALIZER_DRAWERS` và chuỗi `if/else` theo type/style trong `_drawFrame()` ĐÃ BỎ. Nay:
+**Thêm STYLE vào group có sẵn:** hàm vẽ vào `styles` của file group + core vẽ trong `core/visualizer/groups/<group>/`
++ tên style vào `EFFECT_GROUPS` (`service/state/visualizer-runtime.js`) + field Custom Effect nếu có.
 
-- `event/workflow/visualizer-render.js` = HOST: vòng đời task, Show Visual, seek, resize, `applyStyle()` /
-  `activateCurrentStyle()`, dựng **frame context** 1 lần/frame
-  (`{ ctx, canvas, cfg, group, style, perf, isPlaying, beatScale, smoothedEnergy, hue, vizDataArray, analyser,
-  bufferLength, dpr, lastBeatTime, midiNote }`), `clearRect` canvas 2D rồi gọi `styles[style](frame)` của group.
-- `event/workflow/visualizer/<group>.js` = 1 file / group (bar, rain, lighting, shape, vortex, connector): trạng thái
-  RIÊNG của group + `styles` + `defaultStyle` (style lạ -> mặc định) + hook vòng đời tuỳ chọn:
-  `activate(style)`, `onResize(viewport)`, `onStyleApplied(viewport)`, `onSeek()`, `onNewMedia()`, `rebuild()`;
-  `usesWebgl: true` nếu vẽ lên `#webgl-canvas`. Cuối file: `workflowVisualizerRender.registerGroup('<group>', ...)`.
-- `event/workflow/visualizer/beat-window.js` + `core/visualizer/beat-window.js` = cửa sổ beat flux dùng chung (mỗi
-  effect giữ 1 object riêng từ `createBeatFluxWindow()`).
+**Thêm GROUP mới:** tạo `event/workflow/visualizer/<group>.js` theo khuôn trên, thêm thẻ `<script>` SAU
+`event/workflow/visualizer-render.js` ([script-load-order.md](./script-load-order.md)), khai group trong `EFFECT_GROUPS`,
+có `spectrumSize(style)` (thiếu thì host không xin được phổ, effect không vẽ). Cảnh phụ thuộc kích thước canvas dựng lại
+ở `onResize`, KHÔNG gắn listener resize riêng.
 
-**Khi thêm STYLE mới vào group có sẵn:** thêm hàm vẽ vào `styles` của file group + core vẽ trong
-`core/visualizer/groups/<group>/`. **Khi thêm GROUP mới:** tạo file `event/workflow/visualizer/<group>.js` theo khuôn trên,
-thêm thẻ `<script>` SAU `visualizer-render.js` (index.html), đăng ký group trong `EFFECT_GROUPS`/`MODES`
-(service/state/visualizer-runtime.js). Cảnh phụ thuộc kích thước canvas dựng lại ở `onResize`, KHÔNG gắn listener resize riêng.
+Quy tắc rẽ nhánh và "Workflow không tự thi hành" áp cho cả group workflow — [event-bus-flow.md](./event-bus-flow.md)
+mục 7 và 7b. Lệnh vẽ canvas và phép tính còn nằm trong group workflow là vi phạm, có trong
+[sổ vi phạm](./core-legacy-audit.md).
 
-Phase 5 (28/09/2026): mọi core trong `core/visualizer/groups/**` + `core/webgl/*` là core thuần (không gọi core khác,
-không `appState.get()`); builder scene (WebGL + cảnh 2D) trả dữ liệu, group workflow ghi appState. Renderer WebGL dùng chung
-tạo qua `workflowVisualizerRender.ensureSharedRenderer(pixelRatio)`. Field Custom Effect kiểu `imagePick` (chọn ảnh thư viện,
-null = nguồn mặc định) có sẵn cho effect khác dùng.
+## 2. Hợp đồng chung mọi effect
 
-Vòng đời WebGL: resize CHỈ đổi camera/renderer/composer (`core/webgl/three-common.js`); dựng lại scene (Custom Effect
-đổi số vòng/neuron...) PHẢI dispose scene cũ trước (`disposeThreeObjectTree`, composer, OrbitControls, texture).
+1. **Nền trong suốt.** Canvas Visualizer chỉ vẽ tiền cảnh; nền (màu đặc/gradient, ảnh, video của Visual Background)
+   nằm ở các lớp DOM bên dưới (`#visual-bg-image`, `#bg-video`…). Effect không tô lớp nền đục phủ kín canvas — trừ khi
+   chính lớp đó là một phần của hình (kính mưa, chớp màn, lõi hố đen) và có chủ đích.
+2. **Màu theo Custom Effect của chính style.** Lấy màu qua `getComputedColor(i, total, value)`
+   (`core/visualizer/effect-paint.js`) — trả `{ fill, fillNoAlpha, glow }` theo color mode `solid`/`dynamic`/`gradient`
+   của effect đang chạy. Không hard-code màu. Đưa màu vào `THREE.Color` dùng `fillNoAlpha`.
+3. **Blur/glow theo `frame.perf.blurMult`** (`getActiveBlurMult()`). Style không có khối Blur khai trong
+   `CUSTOM_EFFECT_NO_BLUR_STYLES` (`core/custom-effect.js`).
+4. **Giá trị Custom Effect không dùng chung giữa các style cùng group** (Giang chốt 25/09/2026) — chỉnh `maxH` ở
+   mirror không được đổi ở cascade. Drawer chia thẻ theo loại cài đặt; trong thẻ thứ tự công tắc > dropdown > input >
+   slider. Field đổi xong cần dựng lại scene khai trong `CUSTOM_EFFECT_REFRESH_BY_NAME`
+   (`event/workflow/custom-effect.js`).
+5. **Tính theo `dt`**, không theo số frame (`computeFrameDeltaMs()`, `core/visualizer/frame-clock.js`) — tốc độ không
+   đổi theo tần số màn hình.
 
-## Ghi chú cho visual WebGL (Vortex, Space "Galaxy Journey") — bổ sung 21/07/2026
+## 3. Đọc dữ liệu audio trong effect (chuẩn từ 01/10/2026)
 
-> (Đoạn dưới là ghi chú LỊCH SỬ trước 28/09/2026 — `VISUALIZER_DRAWERS`/`_tick()` nay đã thay bằng cấu trúc ở mục ngay trên; 4 nguyên tắc nền/màu/video vẫn giữ nguyên.)
+- **Một cách đọc duy nhất:** `frame.audio.xxx()` — `frame.audio` là kho `audioAnalysis` (`service/audio-analysis.js`).
+  Ví dụ: `frame.audio.beatScale()`, `frame.audio.smoothedEnergy()`, `frame.audio.hueOffset()`,
+  `frame.audio.lastBeatTime()`, `frame.audio.pitchMidi()`, `frame.audio.isPitchFresh(ms)`, `frame.audio.bpmOr(fallback)`,
+  `frame.audio.fluxHistory()`, `frame.audio.band('bass')`, `frame.audio.isBandOnset('bass', ms)`… (danh sách đầy đủ ở
+  đầu `service/audio-analysis.js`).
+- **Phổ để vẽ — group tự khai cỡ:** hằng số cạnh code group (`BAR_FFT_SIZE`/`BAR_MIRROR_FFT_SIZE`, `LIGHTING_FFT_SIZE`,
+  `RAIN_FFT_SIZE`, `SHAPE_FFT_SIZE`, `VORTEX_FFT_SIZE`, `CONNECTOR_FFT_SIZE`) + `spectrumSize(style)`. Host xin đúng cỡ khi
+  kích hoạt style (và tự khớp lại mỗi frame). Trong effect: `const spectrum = frame.audio.spectrum(VORTEX_FFT_SIZE);` —
+  số bin = `spectrum.length`; cần minDecibels/maxDecibels/sampleRate thì `frame.audio.spectrumAnalyser(SIZE)`. Chỉ đọc
+  cỡ style của mình đã khai (cỡ khác có thể `null`).
+- Âm lượng người dùng không ảnh hưởng phân tích; EQ có ảnh hưởng (có chủ đích). Beat/energy/BPM dùng chung, không đổi
+  theo FFT size của effect.
 
-`VISUALIZER_DRAWERS` (mục "Khi thêm visual mới" ở trên) ĐÃ DỜI sang
-`event/workflow/visualizer-render.js` từ 20/07/2026 (plan-space-galaxy.md Phần A,
-`core/visualizer/draw-visualizer.js` nay RỖNG) — đăng ký hàm vẽ 2D mới ở object đó thay vì file cũ.
-2 visual dùng canvas WebGL riêng (`#webgl-canvas`, dùng CHUNG 1 `tRenderer`) KHÔNG nằm trong bảng
-`VISUALIZER_DRAWERS` (xử lý riêng bằng `if/else` ngay trong `_tick()`), nhưng VẪN PHẢI tuân đủ 4
-mục ở trên — cách áp dụng có khác biệt so với visual canvas 2D thường:
+## 4. WebGL
 
-1. **Video nền** — TỰ ĐỘNG thoả mãn: `tRenderer` khởi tạo với `alpha: true`
-   (`core/webgl/three-vortex.js`), scene KHÔNG set `scene.background`, nên phần khung hình không
-   có mesh nào che phủ luôn trong suốt, video nền hiện xuyên qua bình thường — KHÔNG cần thêm
-   `if (!videoBgEnabled)` như visual 2D.
-2. **Màu nền** — TỰ ĐỘNG thoả mãn cùng lý do trên: nền THẬT SỰ là CSS/body (`updateDOMBackground()`
-   theo `bgColor`), canvas WebGL trong suốt để lộ ra.
-3. **Chế độ màu (`mode`)** — PHẢI tự áp dụng trong code sinh màu của visual, KHÔNG tự động như 2
-   mục trên. FIX (21/07/2026, phản hồi Giang mục 4 — Space từng bỏ sót mục này, luôn dùng
-   `dynA`/`dynB` bất kể `mode`): xem `pickGalaxyPalette()` (`core/webgl/three-space.js`) —
-   `mode === 'solid'` dùng `solidColor` cho cả colorIn/colorOut, `dynamic`/`gradient` dùng
-   `dynA`/`dynB` (gradient còn hue-shift theo `globalHueOffset` mỗi frame, xem
-   `GalaxyCluster.update()`). Vortex hiện KHÔNG đổi màu theo `mode` (nợ kỹ thuật cũ, chưa đụng tới).
-4. **Hiệu năng** — `PERFORMANCE_PROFILES` áp dụng bình thường (`galaxyStarsMin/Max`,
-   `galaxyNebulaCount`, `galaxyDustCount` cho Space; `stars`/`tunnelRings` cho Vortex).
+- `#webgl-canvas` dùng chung 1 renderer (`alpha: true`, scene không set `scene.background`) — nền tự trong suốt, video/ảnh
+  nền hiện xuyên qua.
+- Resize CHỈ đổi camera/renderer/composer (`core/webgl/three-common.js`); dựng lại scene (Custom Effect đổi số vòng,
+  số chip…) PHẢI dispose scene cũ trước (`disposeThreeObjectTree`, composer, OrbitControls, texture).
+- Color mode phải tự áp trong code sinh màu của scene (không tự động như nền).
 
 ← [Quay lại README](../README.md)
-
-## Đọc dữ liệu audio trong effect (CHUẨN từ 01/10/2026)
-
-- **Một cách đọc duy nhất:** `frame.audio.xxx()` — `frame.audio` là kho `audioAnalysis` (service/audio-analysis.js). `frame`
-  KHÔNG còn các trường ảnh chụp `beatScale/smoothedEnergy/hue/vizDataArray/analyser/bufferLength/lastBeatTime/midiNote`.
-  Ví dụ: `frame.audio.beatScale()`, `frame.audio.smoothedEnergy()`, `frame.audio.hueOffset()`, `frame.audio.lastBeatTime()`,
-  `frame.audio.pitchMidi()`, `frame.audio.isPitchFresh(ms)`, `frame.audio.bpmOr(fallback)`, `frame.audio.fluxHistory()`,
-  `frame.audio.band('bass')`, `frame.audio.isBandOnset('bass', ms)`... (danh sách đầy đủ: đầu file service/audio-analysis.js).
-- **Phổ để vẽ — group tự khai báo cỡ:** hằng số cạnh code group (`BAR_FFT_SIZE`/`BAR_MIRROR_FFT_SIZE`, `LIGHTING_FFT_SIZE`,
-  `RAIN_FFT_SIZE`, `SHAPE_FFT_SIZE`, `VORTEX_FFT_SIZE`, `CONNECTOR_FFT_SIZE`) + method `spectrumSize(style)` trên object group.
-  Host (workflowVisualizerRender) xin đúng cỡ khi kích hoạt style (và tự khớp lại mỗi frame). Trong effect:
-  `const spectrum = frame.audio.spectrum(VORTEX_FFT_SIZE);` — số bin = `spectrum.length`; cần minDecibels/maxDecibels/
-  sampleRate thì `frame.audio.spectrumAnalyser(SIZE)`. Chỉ đọc cỡ mà style của mình đã khai báo (cỡ khác có thể null).
-- **Core effect** (`core/visualizer/groups/**`) KHÔNG gọi kho (Rule 2) — workflow đọc qua `frame.audio` rồi truyền tham số.
-- Group mới: thêm `spectrumSize(style)` vào object group — thiếu method này host không xin được phổ, effect sẽ không vẽ.
-
