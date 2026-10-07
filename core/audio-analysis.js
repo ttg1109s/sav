@@ -30,8 +30,9 @@
          * console.log — đúng ngoại lệ đã ghi ở `core-function-conventions.md` Rule 4).
          */
 
-        /** Trung bình biên độ dải bass (bassCount phần tử đầu của vizDataArray), chuẩn hoá 0-1. */
-        function computeBeatScale(vizDataArray, bassCount) {
+        /** Trung bình biên độ dải bass (`bassRatio` = tỉ lệ số bin đầu của vizDataArray, vd 0.1), chuẩn hoá 0-1. */
+        function computeBeatScale(vizDataArray, bassRatio) {
+            const bassCount = Math.floor(vizDataArray.length * bassRatio); // SỬA 07/10/2026 — trước đây Workflow tự tính số bin
             let bassSum = 0;
             for (let i = 0; i < bassCount; i++) bassSum += vizDataArray[i];
             return (bassSum / bassCount) / 255;
