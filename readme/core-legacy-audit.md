@@ -13,8 +13,9 @@
 
 ## 1. Tổng quan
 
-- **1308 FAIL** ở **141 file**; 10 chờ chốt; 872 dòng máy quét báo nhưng review loại (mục 5).
+- **1303 FAIL** ở **141 file**; 10 chờ chốt; 872 dòng máy quét báo nhưng review loại (mục 5).
 - Cập nhật 07/10/2026 (cùng ngày lập sổ): gỡ Service Worker tải file lớn (`sw.js`, `core/large-file-download.js`) xoá 4 dòng FAIL (1312 → 1308, 142 → 141 file). Bảng tỉ lệ ngay dưới giữ số đo lúc lập sổ.
+- Cập nhật 07/10/2026 (game Arrow): sửa nợ trong đúng các method bị đụng khi nối game mới — `workflowGameplay.start` (3 dòng: pause/currentTime trong Workflow, 2 lần get), `workflowGameCatalog.armGame` (2 lần get), `workflowAudioAnalysis._tick` (Math.floor) — xoá 5 dòng FAIL (1308 → 1303). Code mới của game Arrow không thêm dòng nào.
 
 | Tầng | File vi phạm | Hàm / đơn vị vi phạm | Dòng code nằm trong hàm vi phạm |
 |---|---|---|---|
@@ -773,7 +774,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `event/workflow/filter-rule-edit.js:135` | `_setRowBodyEnabledUi` | 2 chỗ: bodyBlockEl.classList.toggle() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/filter-rule-edit.js:145` | `_setRowModeUi` | 2 chỗ: rangeBlock.classList.toggle() · singleBlock.classList.toggle() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/game-catalog.js:54` | `renderList` | 1 chỗ: gamePanelList.innerHTML = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/gameplay.js:113` | `start` | 1 chỗ: activeEl.currentTime = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/gameplay.js:550` | `replay` | 1 chỗ: activeEl.currentTime = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/gameplay.js:585` | `exitToPlaylist` | 1 chỗ: activeEl.currentTime = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/generic-drawer-helpers.js:137` | `_setScrollState` | 1 chỗ: genericDrawerBody.scrollTop = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
@@ -971,7 +971,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 | `event/workflow/audio-analysis.js:55` | `<lúc nạp file>` | 1 chỗ: Math.ceil() | FAIL | Review (máy quét bỏ sót) | — | Hot path visualizer. Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/audio-analysis.js:181` | `_tick` | 1 chỗ: Math.floor() | FAIL | Review (máy quét bỏ sót) | — | Hot path visualizer. Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/audio-analysis.js:277` | `_acceptTempoEstimate` | 1 chỗ: Math.round() | FAIL | Review (máy quét bỏ sót) | — | Hot path visualizer. Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/audio-analysis.js:292` | `_detectPitch` | 1 chỗ: Math.round() | FAIL | Review (máy quét bỏ sót) | — | Hot path visualizer. Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/audio-analysis.js:320` | `_track` | 2 chỗ: Math.min() · Math.max() | FAIL | Review (máy quét bỏ sót) | — | Hot path visualizer. Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
@@ -1120,7 +1119,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `event/workflow/app-visibility.js:120` | `_enforcePlayerMediaPaused` | 1 chỗ: bgVideoElement.pause() | FAIL | Review (máy quét bỏ sót) | — | play/pause/src/currentTime là thi hành → core nhận phần tử media qua tham số |
 | `event/workflow/app-visibility.js:134` | `_restorePlayerMedia` | 1 chỗ: bgVideoElement.play() | FAIL | Review (máy quét bỏ sót) | — | play/pause/src/currentTime là thi hành → core nhận phần tử media qua tham số |
 | `event/workflow/file-manager-storage.js:86` | `clearAllStoredData` | 2 chỗ: audioPlayer.pause() · audioPlayer.src = … | FAIL | Review (máy quét bỏ sót) | — | play/pause/src/currentTime là thi hành → core nhận phần tử media qua tham số |
-| `event/workflow/gameplay.js:112` | `start` | 1 chỗ: activeEl.pause() | FAIL | Review (máy quét bỏ sót) | — | play/pause/src/currentTime là thi hành → core nhận phần tử media qua tham số |
 | `event/workflow/gameplay.js:144` | `_beginPlaying` | 2 chỗ: activeEl.play() | FAIL | Review (máy quét bỏ sót) | — | play/pause/src/currentTime là thi hành → core nhận phần tử media qua tham số |
 | `event/workflow/gameplay.js:549` | `replay` | 1 chỗ: activeEl.pause() | FAIL | Review (máy quét bỏ sót) | — | play/pause/src/currentTime là thi hành → core nhận phần tử media qua tham số |
 | `event/workflow/gameplay.js:584` | `exitToPlaylist` | 1 chỗ: activeEl.pause() | FAIL | Review (máy quét bỏ sót) | — | play/pause/src/currentTime là thi hành → core nhận phần tử media qua tham số |
@@ -1306,8 +1304,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `event/workflow/file-manager-folder-browser.js:287` | `_reloadAllViewIfShowing` | 2 lần appState.get cho 2 key ('activeMediaSource', 'activePlayListFolder') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/file-manager-storage.js:66` | `clearAllStoredData` | 5 lần appState.get cho 3 key ('currentKey', 'currentObjectURL', 'currentCoverObjectURL') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/file-manager-storage.js:393` | `_resetVideoRuntimeStateAfterClear` | 2 lần appState.get cho 2 key ('isVideoPlayerMode', 'activeMediaSource') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/game-catalog.js:74` | `armGame` | 2 lần appState.get cho 2 key ('gameplayArmedGameId', 'currentKey') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/gameplay.js:96` | `start` | 2 lần appState.get cho 2 key ('isVideoPlayerMode', 'isPhotoPlayerMode') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/gameplay.js:132` | `_beginPlaying` | 2 lần appState.get cho 2 key ('isVideoPlayerMode', 'isPhotoPlayerMode') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/gameplay.js:150` | `handleTap` | 4 lần appState.get cho 7 key ('gameplayPhase', 'isVideoPlayerMode', 'isPhotoPlayerMode', 'gameplayWaves'…) — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/gameplay.js:192` | `tick` | 6 lần appState.get cho 9 key ('gameplayPhase', 'isVideoPlayerMode', 'isPhotoPlayerMode', 'gameplayWaves'…) — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |

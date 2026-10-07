@@ -385,7 +385,7 @@ group.
 176. `core/gameplay/circle-mode-ui.js`
 176a. `core/gameplay/arrow-config.js` — MỚI 07/10/2026 (GAMEPLAY_ARROW_CONFIG, chỉ dữ liệu)
 176b. `core/gameplay/arrow-mode.js` — MỚI 07/10/2026
-176c. `core/gameplay/arrow-mode-ui.js` — MỚI 07/10/2026
+176c. `core/gameplay/arrow-stage.js` — MỚI 07/10/2026
 177. `core/gameplay/catalog.js`
 178. `core/gameplay/game-panel-ui.js`
 179. `core/statis-panel-ui.js`
