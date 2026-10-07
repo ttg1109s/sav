@@ -84,7 +84,7 @@ const workflowGameCatalog = {
         workflowPlaceholderPanels.close(gamePanel); // event/workflow/placeholder-panels.js — liên tuyến domain, ĐÚNG hành động nút X, VÔ ĐIỀU KIỆN
         this.renderList();
 
-        if (appState.get('currentKey')) workflowGameplay.start(gameId); // event/workflow/gameplay.js — liên tuyến domain
+        if (appState.get('currentKey')) workflowGameplayEngine.startMode(gameId); // event/workflow/gameplay-engine.js — SỬA 07/10/2026: mở ĐÚNG mode (Circle/Arrow), liên tuyến domain
     },
 
     /** Ứng với 'gameCatalog.card.exit.click' — disarm. [Yêu cầu Giang mục 4 "phải thoát game đó ra
@@ -95,7 +95,7 @@ const workflowGameCatalog = {
         setGameplayArmedGameId(null); // core (engine.js)
 
         const gameplayMode = appState.get('gameplayMode');
-        if (gameplayMode === gameId) workflowGameplay.exitToPlaylist(); // event/workflow/gameplay.js — liên tuyến domain, tự set gameplayPhase='idle' + ẩn overlay
+        if (gameplayMode === gameId) workflowGameplayEngine.exitActiveMode(); // event/workflow/gameplay-engine.js — SỬA 07/10/2026: thoát ĐÚNG mode, tự set gameplayPhase='idle' + ẩn overlay
 
         this.renderList();
     },

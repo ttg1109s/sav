@@ -112,6 +112,7 @@ const workflowGameplay = {
         activeEl.pause();
         activeEl.currentTime = 0;
 
+        setGameplayLayerMode(gameplayLayer, 'circle'); // core-ui (engine-ui.js) — MỚI 07/10/2026: hiện canvas/tap-surface, ẩn stage Arrow
         showGameplayLayer(gameplayLayer); // core-ui (engine-ui.js)
         // [MỚI — 02/09/2026, Giang yêu cầu "game mode chặn luôn toàn bộ thao tác ở player control
         // bottom"] Chặn NGAY lúc mở overlay, gỡ lại Ở ĐÚNG 1 nơi — exitToPlaylist() (lúc đóng hẳn

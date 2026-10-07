@@ -38,7 +38,57 @@ function appendGameplayScore(meta, mode, difficulty, finalScore) {
     return { ...meta, game };
 }
 
+// MỚI (07/10/2026, game "Arrow") — bảng điều phối THEO MODE cho các lối vào DÙNG CHUNG (arm/tín hiệu đổi media, nút exit,
+// hết media, tick mỗi frame). Object map (event-bus-flow.md §7.2), giá trị là arrow function tra lúc chạy — workflowGameplay
+// (Circle, event/workflow/gameplay.js) và workflowGameplayArrow (event/workflow/gameplay-arrow.js) nạp SAU file này vẫn an
+// toàn. Khoá = `id` game (core/gameplay/catalog.js) = `gameplayMode`. Thêm game mới: thêm 1 dòng mỗi bảng.
+const GAMEPLAY_START_BY_MODE = {
+    circle: () => workflowGameplay.start('circle'),
+    arrow: () => workflowGameplayArrow.start(),
+};
+const GAMEPLAY_EXIT_BY_MODE = {
+    circle: () => workflowGameplay.exitToPlaylist(),
+    arrow: () => workflowGameplayArrow.exitToPlaylist(),
+};
+const GAMEPLAY_MEDIA_ENDED_BY_MODE = {
+    circle: () => workflowGameplay.onSongEnded(),
+    arrow: () => workflowGameplayArrow.onMediaEnded(),
+};
+const GAMEPLAY_TICK_BY_MODE = {
+    circle: (nowPerf) => workflowGameplay.tick(nowPerf),
+    arrow: (nowPerf) => workflowGameplayArrow.tick(nowPerf),
+};
+
 const workflowGameplayEngine = {
+
+    // ===================== Điều phối theo mode (MỚI 07/10/2026, game "Arrow") =====================
+
+    /** Mở phiên chơi cho ĐÚNG game `mode` — gọi bởi router 'gameplay.mediaChanged' (game đang armed) và
+     * workflowGameCatalog.armGame() (armed lúc đã có media). Id lạ -> bỏ qua (guard). */
+    startMode(mode) {
+        const startFn = GAMEPLAY_START_BY_MODE[mode];
+        if (!startFn) return;
+        startFn();
+    },
+
+    /** Thoát hẳn phiên đang chạy theo `gameplayMode` hiện tại — nút X overlay (router 'gameplay.exit.click') và
+     * workflowGameCatalog.disarmGame(). Chưa có mode (null) -> luồng Circle như trước khi có nhiều game. */
+    exitActiveMode() {
+        (GAMEPLAY_EXIT_BY_MODE[appState.get('gameplayMode')] || GAMEPLAY_EXIT_BY_MODE.circle)();
+    },
+
+    /** Hết bài/video/ảnh lúc đang ở Game (router player-controls, chủ thể 'game') — modal kết quả của ĐÚNG mode. */
+    onActiveModeMediaEnded() {
+        (GAMEPLAY_MEDIA_ENDED_BY_MODE[appState.get('gameplayMode')] || GAMEPLAY_MEDIA_ENDED_BY_MODE.circle)();
+    },
+
+    /** Mỗi frame từ event/workflow/audio-analysis.js::_tick() (hot path — object map + guard). Chưa có mode (chưa từng
+     * vào Game) -> không tick gì (Circle tick vốn tự no-op khi gameplayPhase 'idle'). */
+    tickActiveMode(nowPerf) {
+        const tickFn = GAMEPLAY_TICK_BY_MODE[appState.get('gameplayMode')];
+        if (!tickFn) return;
+        tickFn(nowPerf);
+    },
 
     /** Đếm ngược GAMEPLAY_COUNTDOWN_SECONDS giây rồi gọi `onComplete()` — taskManager mode
      * 'timeout' (CẤM setTimeout thô, readme/task-manager-conventions.md). */

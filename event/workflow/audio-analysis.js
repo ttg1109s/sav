@@ -204,8 +204,9 @@ const workflowAudioAnalysis = {
         // Lúc cổng seek giữ media (vài trăm ms), phổ bị câm tạm — giữ nguyên 3 ô thay vì nháy về 0%/---.
         this._paintStats(s.isStatsPanelVisible && phase !== 'held', `${d.energyPercent}%`, audioAnalysis.bpmText(), noteText);
 
-        // Game Mode Circle dùng CHUNG vòng lặp này (layer game là DOM riêng, chạy cả khi Show Visual tắt).
-        workflowGameplay.tick(nowPerf);
+        // Game Mode dùng CHUNG vòng lặp này (layer game là DOM riêng, chạy cả khi Show Visual tắt). SỬA (07/10/2026, game
+        // "Arrow") — tick ĐÚNG mode đang chơi qua bảng điều phối của event/workflow/gameplay-engine.js (trước: luôn Circle).
+        workflowGameplayEngine.tickActiveMode(nowPerf);
         this._spawnFlyingNote(isPlaying, d.smoothedEnergy, d.frameIndex, d.hueOffset);
     },
 
