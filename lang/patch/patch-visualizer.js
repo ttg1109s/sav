@@ -16,6 +16,10 @@ const LANG_PATCH_VISUALIZER = {
     // 'gameplayCircle.ready.text'/'ready.startLabel'/'difficulty.hint.*' — modal "sẵn sàng" (chọn
     // độ khó + Start) ĐÃ XOÁ, xem docstring event/workflow/gameplay-engine.js. `difficulty.easy/
     // medium/hard` VẪN dùng (nút cycle độ khó trên card Game Panel + nhãn ở modal Kết quả).
+    // MỚI (07/10/2026) — màn chơi game "Arrow" (components/gameplay-arrow-stage.js). Modal kết quả/độ khó dùng chung
+    // key gameplayCircle.* ở dưới.
+    'gameplayArrow.hud.level': 'Lv',
+    'gameplayArrow.commit.label': 'Enter',
     'gameplayCircle.difficulty.easy': 'Easy',
     'gameplayCircle.difficulty.medium': 'Medium',
     'gameplayCircle.difficulty.hard': 'Hard',

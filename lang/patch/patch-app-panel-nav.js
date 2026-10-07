@@ -27,6 +27,9 @@ const LANG_PATCH_APP_PANEL_NAV = {
     // 'gamePanel.catalog.<id game>.*' khớp ĐÚNG `id` trong catalog.
     'gamePanel.catalog.circle.name': 'Circle',
     'gamePanel.catalog.circle.description': 'Tap the wave right as it closes in on the center ring — the tighter the timing, the higher the score.',
+    // MỚI (07/10/2026) — game "Arrow" (core/gameplay/catalog.js id 'arrow').
+    'gamePanel.catalog.arrow.name': 'Arrow',
+    'gamePanel.catalog.arrow.description': 'Enter the arrows from left to right, then hit Enter as the marker crosses the target line. Red arrows must be entered in the opposite direction.',
     // Nhãn/label chung cho MỌI card (core/gameplay/game-panel-ui.js).
     'gamePanel.card.play': 'Play',
     'gamePanel.card.exit': 'Exit',
