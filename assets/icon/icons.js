@@ -21,6 +21,7 @@
 const ICON_REGISTRY = Object.freeze({
     'album': { fill: false, body: '<path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0"/>' },
     'arrow-narrow-right': { fill: false, body: '<path d="M17 8l4 4m0 0l-4 4m4-4H3"/>' },
+    'arrow-sm-up': { fill: false, body: '<path d="M7 11l5-5m0 0l5 5m-5-5v12"/>' }, // MỚI 07/10/2026 — mũi tên game Arrow (xoay theo hướng bằng CSS)
     'arrows-expand': { fill: false, body: '<path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>' },
     'arrows-horizontal': { fill: false, body: '<path d="M4 12h16M4 12l3-3m-3 3l3 3m13-3l-3-3m3 3l-3 3"/>' },
     'arrows-vertical': { fill: false, body: '<path d="M12 4v16M12 4l-3 3m3-3l3 3m-3 13l-3-3m3 3l3-3"/>' },
