@@ -205,6 +205,28 @@ function buildFolderGridWrapperHtml(innerHtml) {
 }
 
 /**
+ * MỚI (07/10/2026, Giang chốt dời khỏi Workflow) — header Generic Drawer của tab Folder (Folder Browser List): tiêu đề
+ * "Folders" + nút (i) giải thích ngắn (chạm = phát folder, giữ 1s = menu) + nút đóng `#btn-generic-drawer-close`.
+ * Trước đây là `workflowFileManagerFolderBrowser._buildListHeaderHtml()` (markup UI nằm trong Workflow) — body của
+ * drawer này vốn đã dựng ở đây (buildFolderGridWrapperHtml()/buildAddFolderTileHtml()), header giờ cùng chỗ.
+ * Nơi gọi: event/workflow/file-manager-folder-browser.js::_renderList(). Nút (i): core/info-icon-ui.js.
+ * @returns {string}
+ */
+function buildFolderBrowserListHeaderHtml() {
+    return `
+        <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
+            <div class="flex items-center gap-2 min-w-0">
+                <h3 class="text-base font-bold" data-uitk="headerTitle">${t('fileManager.folderBrowser.listTitle')}</h3>
+                ${infoIconHtml(t('fileManager.folderBrowser.listInfo'))}
+            </div>
+            <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.close')}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+    `;
+}
+
+/**
  * Dựng 1 danh sách item bằng cách gán `containerEl.innerHTML` (nếu có) **1 LẦN DUY NHẤT** (thay N
  * lần createElement+appendChild) — đủ mượt tới ~100-200 item trên mobile webview (xem docstring
  * đầu file). Hàm THUẦN, KHÔNG tự gắn sự kiện click — nơi gọi (Workflow) tự querySelector +
