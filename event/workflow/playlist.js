@@ -93,7 +93,7 @@ const SONG_EDIT_FIELDS_FILLER = {
     photo: (cached, meta) => workflowPlaylist._fillPhotoEditFields(cached, meta),
 };
 
-/** Icon dùng trong tab "Chi tiết" — SỬA 07/10/2026: tên icon trong kho components/icons.js (trước là path SVG). */
+/** Icon dùng trong tab "Chi tiết" — SỬA 07/10/2026: tên icon trong kho assets/icon/icons.js (trước là path SVG). */
 const SONG_INFO_ICON = {
     file: 'document-text',
     resolution: 'arrows-expand',
