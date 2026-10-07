@@ -25,10 +25,10 @@
  * NẠP SAU: lang/lang.js (t()), core/subtitle/subtitles.js (secToStr()).
  */
 
-const PLAY_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" class="sub-line-play-icon h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>'
-    + '<svg xmlns="http://www.w3.org/2000/svg" class="sub-line-pause-icon h-3.5 w-3.5 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 5h4v14H6zm8 0h4v14h-4z"></path></svg>';
-const X_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>';
-const CHECK_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>';
+const PLAY_ICON_SVG = iconSvg('play', 'sub-line-play-icon h-3.5 w-3.5')
+    + iconSvg('pause', 'sub-line-pause-icon h-3.5 w-3.5 hidden');
+const X_ICON_SVG = iconSvg('x', 'h-3.5 w-3.5');
+const CHECK_ICON_SVG = iconSvg('check', 'h-3.5 w-3.5');
 
 /** Tạo 1 card MỚI HOÀN TOÀN cho 1 dòng phụ đề — mọi listener gắn NGAY TẠI ĐÂY (đóng gói closure
  * theo ĐÚNG `sub`/`uiState` lúc dựng — an toàn vì Workflow luôn `cardNodesById.clear()`/`.delete()`
@@ -60,7 +60,7 @@ function buildLineCard(sub, uiState, callbacks) {
         checkboxWrap.className = 'flex items-center pl-4';
         const checkbox = document.createElement('div');
         checkbox.className = 'w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ' + (isChecked ? 'bg-sky-500 border-sky-500' : 'border-slate-500');
-        if (isChecked) checkbox.innerHTML = CHECK_ICON_SVG.replace('h-3.5 w-3.5', 'h-3 w-3 text-white');
+        if (isChecked) checkbox.innerHTML = iconSvg('check', 'h-3 w-3 text-white'); // core/theme/icon-svg-ui.js — SỬA 07/10/2026 (trước: .replace() chuỗi class)
         checkboxWrap.appendChild(checkbox);
         card.appendChild(checkboxWrap);
     }
@@ -148,7 +148,7 @@ function buildLineCard(sub, uiState, callbacks) {
             const appliedBadge = document.createElement('span');
             appliedBadge.className = 'sub-line-kr-applied';
             appliedBadge.style.cssText = 'position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:9999px;background:#10b981;border:2px solid #0b0f1a;display:flex;align-items:center;justify-content:center;pointer-events:none';
-            appliedBadge.innerHTML = CHECK_ICON_SVG.replace('h-3.5 w-3.5', 'text-white').replace('<svg ', '<svg style="width:8px;height:8px" ');
+            appliedBadge.innerHTML = iconSvg('check', 'text-white', 'style="width:8px;height:8px"'); // SỬA 07/10/2026 — trước: .replace() chuỗi markup
             krBtn.appendChild(appliedBadge);
         }
         actionsWrap.appendChild(krBtn);
