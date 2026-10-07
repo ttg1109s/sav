@@ -36,9 +36,10 @@
  *   3. gestureSeekHoldIntervalMs (Time 2, setting) — SAU KHI đã vào seek mode (qua ngưỡng #1), giữ
  *      TIẾP đủ Time 2 thì mới kích hoạt 1 lệnh seek theo Time 1 — lặp lại liên tục: giữ Time 2 ->
  *      seek Time 1 -> giữ Time 2 -> seek Time 1 -> ...
- * Dừng khi thả tay / touch bị huỷ (touchcancel — hệ thống chen ngang) — muốn tua tiếp phải giữ tay lại từ đầu (không tự nối
- * phiên, phải qua lại ngưỡng #1). Chạm biên 0 / (thời lượng - 1s) thì NGỪNG tick nhưng phiên vẫn mở tới lúc thả tay (như ngón
- * tay dí ở đầu/cuối thanh). touchmove chỉ dùng để HUỶ hẹn giờ NẾU CHƯA kích hoạt (tay di chuyển quá xa = đang thành vuốt,
+ * Dừng khi thả tay / touch bị huỷ (touchcancel — hệ thống chen ngang) / chạm biên 0 hoặc (thời lượng - 1s) — chạm biên TỰ NHẢ
+ * "ngón tay ảo" (commit ngay, không chờ thả tay — SỬA 07/10/2026, Giang). Muốn tua tiếp phải giữ tay lại từ đầu (không tự nối
+ * phiên, phải qua lại ngưỡng #1); touchend sau khi đã tự nhả rơi xuống nhánh cử chỉ thường nhưng không khớp gì (giữ > 300ms
+ * nên không phải tap, đứng yên nên không phải vuốt). touchmove chỉ dùng để HUỶ hẹn giờ NẾU CHƯA kích hoạt (tay di chuyển quá xa = đang thành vuốt,
  * không phải giữ yên) — KHÔNG huỷ 1 phiên seek ĐANG chạy.
  *
  * SỬA (07/10/2026, Giang chốt "ngón tay ảo") — cử chỉ ĐI ĐÚNG luồng kéo tay thanh tiến trình, KHÔNG còn cơ chế seek riêng:
@@ -296,6 +297,7 @@ const workflowVisualizerGesture = {
         this._seekHoldActive = true;
         this._seekHoldTotalSec = 0;
         this._runSeekTick();
+        if (!this._seekHoldActive) return; // guard — tick đầu đã chạm biên và tự nhả, không dựng nhịp lặp (sẽ commit lần 2)
         const holdIntervalMs = appConfigViz.getAll().gestureSeekHoldIntervalMs || 2000; // Time 2 — nhịp lặp lại
         taskManager.addNew(SEEK_HOLD_TICK_TASK, { time: holdIntervalMs, exe: () => this._runSeekTick(), mode: 'timeout', count: 0 });
         taskManager.operator(SEEK_HOLD_TICK_TASK, 'enabled');
@@ -303,7 +305,7 @@ const workflowVisualizerGesture = {
 
     /** 1 tick — dời "ngón tay ảo" thêm Time 1 (gestureSeekStepMs — ĐƠN VỊ NHẢY, KHÁC Time 2 là nhịp lặp gọi hàm này) từ mốc phiên
      * tự giữ, kẹp biên (core), đặt thumb thanh tiến trình + gửi 'seeking' (y hệt 'input' khi kéo tay — CHƯA seek thật), cộng dồn +
-     * cập nhật badge. Chạm biên -> ngừng tick, phiên vẫn mở tới lúc thả tay. */
+     * cập nhật badge. Chạm biên -> tự nhả (commit ngay). */
     _runSeekTick() {
         const stepSec = (appConfigViz.getAll().gestureSeekStepMs || 2000) / 1000; // Time 1 — đơn vị nhảy
         const fromSec = this._seekHoldPositionSec;
@@ -317,10 +319,10 @@ const workflowVisualizerGesture = {
         const sign = this._seekHoldDirection > 0 ? '+' : '-';
         showSeekHoldIndicator(this._seekHoldDirection, `${sign}${this._seekHoldTotalSec.toFixed(1)}s`); // core/visualizer-gesture.js
 
-        if (hitBoundary) taskManager.kill(SEEK_HOLD_TICK_TASK); // ngừng tick, chờ thả tay mới commit
+        if (hitBoundary) this._stopSeekHold(); // chạm biên 0 / (thời lượng - 1s) -> tự nhả "ngón tay ảo", commit ngay
     },
 
-    /** Thả "ngón tay ảo" (touchend/touchcancel) — gỡ badge, gửi 'seekCommit' ĐÚNG 1 lần (y hệt 'change' khi thả tay trên thanh):
+    /** Thả "ngón tay ảo" (touchend/touchcancel/chạm biên) — gỡ badge, gửi 'seekCommit' ĐÚNG 1 lần (y hệt 'change' khi thả tay trên thanh):
      * Song/Video tự chạy cổng seek + phát lại đúng như kéo tay. Đang giữ tay mà media đã đổi (Song phát tiếp, hết bài -> bài mới)
      * thì commit đúng vị trí hiện tại của media mới — chỉ để đóng phiên kéo (`isSeeking`), không đẩy mốc của bài cũ sang bài mới. */
     _stopSeekHold() {
