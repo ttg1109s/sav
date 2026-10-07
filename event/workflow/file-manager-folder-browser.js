@@ -95,7 +95,10 @@ const workflowFileManagerFolderBrowser = {
     _buildListHeaderHtml() {
         return `
             <div class="flex justify-between items-center px-5 pb-3" data-uitk="headerBorder">
-                <h3 class="text-base font-bold" data-uitk="headerTitle">${t('fileManager.folderBrowser.listTitle')}</h3>
+                <div class="flex items-center gap-2 min-w-0">
+                    <h3 class="text-base font-bold" data-uitk="headerTitle">${t('fileManager.folderBrowser.listTitle')}</h3>
+                    ${infoIconHtml(t('fileManager.folderBrowser.listInfo'))} <!-- MỚI 07/10/2026 (Giang) — core/info-icon-ui.js -->
+                </div>
                 <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.close')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
