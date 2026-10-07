@@ -54,7 +54,7 @@ const workflowVideoPlayer = {
     _scrubInFlight: false,     // đang có 1 lệnh seek scrub chưa 'seeked'
     _scrubSeq: 0,              // tăng mỗi lệnh scrub/lần huỷ — listener 'seeked'/timeout của lệnh cũ tự bỏ qua nếu lệch số
     // MỚI (07/10/2026) — đóng băng khung hình lúc cổng seek nạp lại nguồn, xem `seekGateHooks()`
-    _seekFreeze: null,         // { generation, layerState, onPlaying, onPlay } lúc đang che; null = không che
+    _seekFreeze: null,         // { generation, layerState, onPlaying, onPlay, frameHandle } lúc đang che; null = không che
     _seekFreezePromise: null,  // lượt chụp + che đang chạy (lệnh cổng mới hơn tới giữa chừng thì đợi chung lượt này)
     _seekFreezeRefreshing: false, // đang chụp lại khung che (kéo thanh seek lúc video còn che, xem `_refreshFrozenSeekFrame()`)
     _seekFreezeRefreshPending: false, // có mốc scrub mới tới trong lúc đang chụp -> chụp thêm 1 lần sau
@@ -846,7 +846,7 @@ const workflowVideoPlayer = {
         const url = await this._captureSeekFrameToLayerB();
         if (!url) return; // guard — không chụp được, bỏ che
         if (generation !== this._mediaGeneration) return; // guard — đã đổi video giữa lúc chụp (swap đã thay layer B)
-        this._seekFreeze = { generation, layerState: readSeekFreezeLayerState(), onPlaying: null, onPlay: null }; // core/video-player.js
+        this._seekFreeze = { generation, layerState: readSeekFreezeLayerState(), onPlaying: null, onPlay: null, frameHandle: null }; // core/video-player.js
         applySeekFreezeLayersToDOM(); // core/video-player.js
         await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))); // khung che đã PAINT rồi mới để cổng load()
     },
@@ -870,12 +870,19 @@ const workflowVideoPlayer = {
         return url;
     },
 
-    /** Cổng seek xong (ngay TRƯỚC khi mở tiếng/play()): giao khung che cho sự kiện 'playing' — bỏ che ĐÚNG lúc video có khung
-     * đang chạy thật (không chờ thêm gì, cùng mốc `finish()` của swapBgVideoSource()). Lưới an toàn: đã 'play' mà 2s chưa có
-     * 'playing' -> vẫn bỏ che. Video vẫn dừng -> giữ che tới lần phát kế tiếp. Gọi lặp (nhiều lệnh cổng nối nhau) vô hại. */
+    /** Cổng seek xong (ngay TRƯỚC khi mở tiếng/play()): giao khung che cho 2 tín hiệu "layer A đã có hình thật":
+     *   - đang phát: sự kiện 'playing' (Giang chốt 07/10/2026 — không chờ gì thêm, cùng mốc `finish()` của swapBgVideoSource()).
+     *     Lưới an toàn: đã 'play' mà 2s chưa có 'playing' -> vẫn bỏ che.
+     *   - đang dừng (MỚI 07/10/2026, Giang "xử lý luôn" ca pause rồi bấm Next/Prev): khung ở mốc seek ĐÃ ĐƯỢC TRÌNH CHIẾU lên màn
+     *     hình — `requestVideoFrameCallback` (chỉ báo khi khung thật sự đã tới compositor, không đoán theo readyState như bản bị
+     *     chớp đen). Nhờ vậy video dừng không còn che mãi tới lần phát kế tiếp -> lượt đổi video (Next/Prev lúc đang dừng) bắt đầu
+     *     Transition từ layer A ĐÃ có hình, không phải từ 1 video chưa vẽ (đen). Trình duyệt không có API này / không báo -> giữ
+     *     che tới 'playing' như trên.
+     * Gọi lặp (nhiều lệnh cổng nối nhau) vô hại. */
     _revealSeekFrameOnPlaying() {
         const freeze = this._seekFreeze;
         if (!freeze) return; // guard — không che (không chụp được)
+        this._watchSeekFramePresented(freeze); // mốc seek mới -> theo dõi lại khung trình chiếu (lệnh cổng trước có thể đã đăng ký)
         if (freeze.onPlaying) return; // guard — đã giao cho 'playing' từ lệnh cổng trước
         freeze.onPlaying = () => this._cancelSeekFreeze();
         freeze.onPlay = () => taskManager.once(() => this._cancelSeekFreeze(), VIDEO_SEEK_FREEZE_PLAYING_FALLBACK_MS, VIDEO_SEEK_FREEZE_PLAYING_FALLBACK_TASK);
@@ -883,14 +890,35 @@ const workflowVideoPlayer = {
         bgVideoElement.addEventListener('play', freeze.onPlay, { once: true });
     },
 
-    /** Bỏ che NGAY: trả layer A/B về đúng trạng thái trước khi che + gỡ listener 'playing'/'play' + lưới an toàn. Gọi lặp vô hại
-     * ('playing', cổng huỷ, swap, thoát mode). */
+    /** Đăng ký (lại) báo "khung đã trình chiếu" cho khung che đang có. Khung tới lúc video ĐANG DỪNG = khung ở mốc seek đã lên màn
+     * hình -> bỏ che. Tới lúc đang phát -> bỏ qua, để 'playing' quyết (đúng mốc Giang chốt). @param {object} freeze */
+    _watchSeekFramePresented(freeze) {
+        if (typeof bgVideoElement.requestVideoFrameCallback !== 'function') return; // guard — trình duyệt không hỗ trợ
+        this._cancelSeekFrameWatch(freeze);
+        freeze.frameHandle = bgVideoElement.requestVideoFrameCallback(() => {
+            freeze.frameHandle = null;
+            if (this._seekFreeze !== freeze) return; // guard — khung che này đã bỏ
+            if (!bgVideoElement.paused) return; // guard — đang phát: chờ 'playing'
+            this._cancelSeekFreeze();
+        });
+    },
+
+    /** @param {object} freeze */
+    _cancelSeekFrameWatch(freeze) {
+        if (freeze.frameHandle === null) return; // guard
+        bgVideoElement.cancelVideoFrameCallback(freeze.frameHandle);
+        freeze.frameHandle = null;
+    },
+
+    /** Bỏ che NGAY: trả layer A/B về đúng trạng thái trước khi che + gỡ listener 'playing'/'play', báo khung, lưới an toàn. Gọi lặp
+     * vô hại ('playing', khung đã trình chiếu lúc dừng, cổng huỷ, swap, thoát mode). */
     _cancelSeekFreeze() {
         const freeze = this._seekFreeze;
         if (!freeze) return; // guard
         this._seekFreeze = null;
         bgVideoElement.removeEventListener('playing', freeze.onPlaying); // null (chưa giao cho 'playing') -> no-op
         bgVideoElement.removeEventListener('play', freeze.onPlay);
+        this._cancelSeekFrameWatch(freeze);
         taskManager.kill(VIDEO_SEEK_FREEZE_PLAYING_FALLBACK_TASK);
         restoreSeekFreezeLayersToDOM(freeze.layerState); // core/video-player.js
     },
@@ -900,6 +928,7 @@ const workflowVideoPlayer = {
      * hay chưa). Đang chụp dở mà có mốc mới -> chụp thêm đúng 1 lần sau (mốc mới nhất). */
     _refreshFrozenSeekFrame() {
         if (!this._seekFreeze) return; // guard — không che: layer A tự hiện khung scrub như cũ
+        this._watchSeekFramePresented(this._seekFreeze); // khung scrub lên màn hình -> bỏ che, layer A tự xem trước tiếp
         if (this._seekFreezeRefreshing) { this._seekFreezeRefreshPending = true; return; } // guard — đang chụp
         this._seekFreezeRefreshing = true;
         this._captureSeekFrameToLayerB().finally(() => {
