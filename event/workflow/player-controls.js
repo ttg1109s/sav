@@ -498,6 +498,8 @@ const workflowPlayerControls = {
     handleAudioTimeUpdateEvent() {
         if (this.isHeldBySeekGate(audioPlayer)) return;
         handleAudioTimeUpdate(); // core/player-controls.js
+        // MỚI (07/10/2026) — đang kéo (tay hoặc cử chỉ seek-hold): phụ đề đang theo mốc kéo (handleSongSeeking), không kéo về giờ đang phát.
+        if (appState.get('isSeeking')) return; // guard
         workflowSubtitleDisplay.sync(audioPlayer.currentTime); // event/workflow/subtitle-display.js
     },
 

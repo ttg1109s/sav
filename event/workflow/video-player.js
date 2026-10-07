@@ -756,8 +756,8 @@ const workflowVideoPlayer = {
     },
 
     /** Ứng với 'playerControls.progressBar.seeking' khi `isVideoPlayerMode=true` — người dùng đang
-     * kéo tay THANH SEEK (KHÔNG phải cử chỉ giữ tay — cử chỉ đó có cơ chế pause/resume RIÊNG, xem
-     * `_activateSeekHold()`/`_stopSeekHold()`, event/workflow/visualizer-gesture.js). KHÁC
+     * kéo tay THANH SEEK — hoặc cử chỉ giữ tay seek-hold (SỬA 07/10/2026: cử chỉ là "ngón tay ảo" trên thanh, gửi đúng
+     * message này mỗi tick, event/workflow/visualizer-gesture.js). KHÁC
      * `handleProgressBarSeeking()` (Song, chỉ đổi text) — Video có HÌNH để xem trước nên PAUSE +
      * scrub `currentTime` NGAY theo từng nhịp kéo (trình duyệt tự decode/vẽ đúng khung dù đang
      * pause — kỹ thuật scrub chuẩn, không cần xử lý riêng "không bật âm": đang pause thì tiếng tự
@@ -795,18 +795,11 @@ const workflowVideoPlayer = {
      * Giờ mỗi phiên kéo gắn với `_mediaGeneration` lúc bắt đầu — media đã đổi giữa chừng thì chỉ dọn
      * `isSeeking`, KHÔNG đụng currentTime/play của video mới. `null` (không có phiên — commit tới mà
      * chưa từng có 'seeking' ở nhánh Video) cũng coi như phiên cũ: không có gì hợp lệ để commit.
+     * SỬA (07/10/2026) — BỎ nhánh riêng `isGesture` (21/09/2026): cử chỉ seek-hold giờ là "ngón tay ảo" trên thanh tiến trình,
+     * gửi 'seeking' ở mỗi tick (mở phiên kéo như tay thật) rồi 'seekCommit' 1 lần lúc thả tay -> đi đúng hàm này như kéo tay.
      * @param {number} value
-     * @param {boolean} [isGesture] - true = từ seek-hold (không có phiên kéo), xem đầu hàm
      */
-    handleVideoSeekCommit(value, isGesture = false) {
-        // [MỚI 21/09/2026] Seek-hold (cử chỉ giữ tay) đi CÙNG message nhưng KHÔNG có phiên kéo: không có 'seeking' trước -> `_seekGeneration`
-        // luôn null -> nhánh dưới coi là "phiên cũ" và bỏ qua hẳn (lỗi "cử chỉ seek không có tác dụng ở Video"). Cử chỉ đã tự pause media
-        // (`_activateSeekHold()`) và tự resume ở `_stopSeekHold()` -> ở đây CHỈ seek chính xác, `resumeAfter=false` (KHÔNG dùng
-        // `_wasPlayingBeforeSeek` — đó là của lần kéo thanh trước, sẽ tự play() giữa lúc đang giữ tay).
-        if (isGesture) {
-            workflowPlayerControls.runGatedSeek(bgVideoElement, this._clampSeekTarget(Number(value)), false, VIDEO_SEEK_VERIFY_TOLERANCE_SEC, this.seekGateHooks()); // event/workflow/player-controls.js
-            return;
-        }
+    handleVideoSeekCommit(value) {
         const isStaleSession = this._seekGeneration !== this._mediaGeneration;
         this._seekGeneration = null;
         this._resetScrubSeek(); // huỷ lệnh scrub đang bay/chờ — mốc CUỐI do runGatedSeek() bên dưới lo

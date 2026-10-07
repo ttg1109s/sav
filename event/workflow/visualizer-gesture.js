@@ -36,26 +36,25 @@
  *   3. gestureSeekHoldIntervalMs (Time 2, setting) — SAU KHI đã vào seek mode (qua ngưỡng #1), giữ
  *      TIẾP đủ Time 2 thì mới kích hoạt 1 lệnh seek theo Time 1 — lặp lại liên tục: giữ Time 2 ->
  *      seek Time 1 -> giữ Time 2 -> seek Time 1 -> ...
- * Dừng khi thả tay / chạm biên 0 / (thời lượng - 1s) / touch bị huỷ (touchcancel — hệ thống chen
- * ngang) — muốn tua tiếp phải giữ tay lại từ đầu (không tự nối phiên, phải qua lại ngưỡng #1).
- * touchmove chỉ dùng để HUỶ hẹn giờ NẾU CHƯA kích hoạt (tay di chuyển quá xa = đang thành vuốt,
+ * Dừng khi thả tay / touch bị huỷ (touchcancel — hệ thống chen ngang) — muốn tua tiếp phải giữ tay lại từ đầu (không tự nối
+ * phiên, phải qua lại ngưỡng #1). Chạm biên 0 / (thời lượng - 1s) thì NGỪNG tick nhưng phiên vẫn mở tới lúc thả tay (như ngón
+ * tay dí ở đầu/cuối thanh). touchmove chỉ dùng để HUỶ hẹn giờ NẾU CHƯA kích hoạt (tay di chuyển quá xa = đang thành vuốt,
  * không phải giữ yên) — KHÔNG huỷ 1 phiên seek ĐANG chạy.
  *
- * TỰ PAUSE media lúc kích hoạt, RESUME lại (nếu trước đó đang phát) lúc dừng — không pause thì
- * giữa 2 lần tick, media vẫn tự chạy tiếp bình thường, cộng dồn ngược chiều với bước tua lùi -> vị
- * trí thực tế sai lệch so với bước đã cấu hình. Pause loại bỏ hẳn xung đột — mỗi tick là 1 bước
- * NHẢY CHÍNH XÁC, không bị playback "kéo ngược" giữa chừng.
+ * SỬA (07/10/2026, Giang chốt "ngón tay ảo") — cử chỉ ĐI ĐÚNG luồng kéo tay thanh tiến trình, KHÔNG còn cơ chế seek riêng:
+ *   - kích hoạt + mỗi tick: cộng dồn mốc (tự giữ `_seekHoldPositionSec`, KHÔNG đọc lại currentTime — Song vẫn phát tiếp lúc
+ *     giữ tay), đặt thumb thanh tiến trình tới mốc (setProgressBarValue(), core/player-controls.js) rồi gửi
+ *     'playerControls.progressBar.seeking' — y hệt sự kiện 'input' khi kéo tay: Song chỉ đổi nhãn giờ + phụ đề (vẫn phát);
+ *     Video tự pause + xem trước khung hình (hàng đợi scrub).
+ *   - thả tay / touchcancel: gửi 'playerControls.progressBar.seekCommit' ĐÚNG 1 lần — y hệt 'change' khi thả tay: 1 lệnh cổng
+ *     seek duy nhất, chạy NGAY trong touchend (thao tác chạm của người dùng). Video tự phát lại nếu trước đó đang phát.
+ * Trước đây mỗi tick là 1 lệnh seek THẬT qua cổng seek (tự pause/resume media, cờ `fromGesture` + nhánh riêng ở
+ * workflowVideoPlayer.handleVideoSeekCommit()) -> mỗi tick 1 lần nạp lại nguồn, thả tay phải đợi lệnh cuối xong mới phát
+ * (Giang báo trễ, trong khi chọn mốc trên thanh gần như không trễ). Đã bỏ toàn bộ phần riêng đó.
  *
  * Mũi tên + số giây đã tua (core/visualizer-gesture.js — showSeekHoldIndicator()/
  * hideSeekHoldIndicator()) — CỐ ĐỊNH giữa theo chiều dọc, tại tâm nửa trái/phải màn hình tuỳ chiều
  * (KHÔNG bám toạ độ chạm) — hiện lúc kích hoạt, cộng dồn theo từng tick, gỡ lúc dừng.
- *
- * Seek THẬT qua message CÓ SẴN 'playerControls.progressBar.seekCommit' (y hệt buông tay kéo thanh
- * tiến trình) — TỰ đúng cho cả Song/Video (event/router/player-controls.js), không viết lại logic
- * seek. Pause gọi THẲNG lên `bgVideoElement`/`audioPlayer`; resume qua workflowPlayerControls.playAfterSeekGate()
- * (SỬA 07/10/2026 — chờ lệnh cổng seek cuối xong mới play()) — 2 element này tự bắn sự kiện
- * 'pause'/'play' NGUYÊN BẢN, các listener có sẵn (core/player-controls.js, event/listener/
- * video-player.js) tự lo icon/wake lock/Media Session, không cần dispatch gì thêm ở đây.
  *
  * NẠP SAU: core/visualizer-gesture.js, core/dom-refs.js, service/task-manager.js,
  * event/router/player-controls.js, event/router/visualizer-control-center.js, core/hud.js
@@ -147,14 +146,12 @@ const workflowVisualizerGesture = {
     _startX: 0, _startY: 0, _startTime: 0, _startEdge: null,
     _tapCount: 0, // số lần chạm liên tiếp đang đếm dồn trong cửa sổ TAP_WINDOW_MS (1/2/3)
     _seekHoldDirection: 0, // 1 = tua tiến (nửa phải), -1 = tua lùi (nửa trái) — set lúc touchstart
-    _seekHoldActive: false, // đã qua ngưỡng SEEK_HOLD_ACTIVATE_MS, đang thật sự tua lặp lại
-    _seekHoldMediaEl: null, // media element đang seek (chốt lúc kích hoạt, dùng xuyên suốt phiên)
-    _seekHoldWasPlaying: false, // đang phát trước lúc pause để seek — biết có cần resume lúc dừng không
+    _seekHoldActive: false, // đã qua ngưỡng SEEK_HOLD_ACTIVATE_MS, phiên "ngón tay ảo" đang mở (tới lúc thả tay)
+    _seekHoldKey: null, // currentKey lúc kích hoạt — Song phát tiếp lúc giữ tay, hết bài giữa chừng thì KHÔNG commit mốc lên bài mới
     _seekHoldTotalSec: 0, // tổng đã tua trong phiên hiện tại — hiện lên badge, cộng dồn mỗi tick
-    // MỚI (07/10/2026, sửa "seek tiến/lùi đều bị phát lại từ đầu") — vị trí + thời lượng do PHIÊN tự giữ, KHÔNG đọc lại từ
-    // media mỗi tick: Song đi qua cổng seek v3 (nạp lại nguồn) -> trong lúc chờ 'loadedmetadata' currentTime = 0, duration =
-    // NaN. Tick đọc đúng lúc đó: tiến -> 0 + bước; lùi -> kẹp về 0 + coi là chạm biên -> dừng phiên -> phát lại từ đầu.
-    _seekHoldPositionSec: 0, // mốc đã gửi gần nhất (khởi đầu = vị trí lúc kích hoạt)
+    // MỚI (07/10/2026) — vị trí + thời lượng do PHIÊN tự giữ, KHÔNG đọc lại từ media mỗi tick (Song vẫn phát tiếp lúc giữ tay;
+    // cổng seek nạp lại nguồn làm currentTime tạm = 0).
+    _seekHoldPositionSec: 0, // mốc "ngón tay ảo" đang đứng (khởi đầu = vị trí lúc kích hoạt)
     _seekHoldDurationSec: 0, // thời lượng chốt lúc kích hoạt
 
     /** Ứng với 'visualizerGesture.touch.start'. @param {number} x @param {number} y */
@@ -186,7 +183,7 @@ const workflowVisualizerGesture = {
 
     /** Ứng với 'visualizerGesture.touch.end'. @param {number} x @param {number} y */
     handleTouchEnd(x, y) {
-        if (this._seekHoldActive) { this._stopSeekHold(); return; }
+        if (this._seekHoldActive) { this._stopSeekHold(); return; } // thả "ngón tay ảo" -> commit (trong touchend, như 'change' của thanh)
         taskManager.kill(SEEK_HOLD_PENDING_TASK); // thả tay trước khi qua ngưỡng -> huỷ hẹn, xử lý như cử chỉ thường
 
         const cfg = appConfigViz.getAll();
@@ -281,24 +278,20 @@ const workflowVisualizerGesture = {
         if (run) run();
     },
 
-    /** Hết ngưỡng CỐ ĐỊNH SEEK_HOLD_ACTIVATE_MS (2s) giữ tay yên (touchend chưa fire) -> vào chế
-     * độ tua lặp lại: PAUSE media trước (tránh xung đột với playback tự nhiên, xem docstring đầu
-     * file), hiện badge, chạy 1 tick NGAY, rồi lặp lại mỗi Time 2 (gestureSeekHoldIntervalMs —
-     * taskManager mode 'timeout', cùng khuôn listenClock, core/player-controls.js) tới khi
-     * _stopSeekHold(). Time 2 ≠ ngưỡng kích hoạt — 2 khái niệm HOÀN TOÀN riêng (xem docstring đầu
-     * file). */
+    /** Hết ngưỡng CỐ ĐỊNH SEEK_HOLD_ACTIVATE_MS (2s) giữ tay yên (touchend chưa fire) -> mở phiên "ngón tay ảo": hiện badge,
+     * chạy 1 tick NGAY, rồi lặp lại mỗi Time 2 (gestureSeekHoldIntervalMs — taskManager mode 'timeout', cùng khuôn
+     * listenClock, core/player-controls.js) tới khi chạm biên hoặc thả tay. Time 2 ≠ ngưỡng kích hoạt — 2 khái niệm HOÀN TOÀN
+     * riêng (xem docstring đầu file). SỬA 07/10/2026 — KHÔNG còn tự pause media (xem docstring đầu file). */
     _activateSeekHold() {
         const isVideo = appState.get('isVideoPlayerMode');
-        const mediaEl = isVideo ? bgVideoElement : audioPlayer;
-        // MỚI (07/10/2026) — chốt thời lượng + vị trí 1 lần lúc kích hoạt. Media chưa có thời lượng (chưa nạp xong) -> không
-        // vào seek mode (kẹp biên với duration 0 sẽ ra mốc 0 = phát lại từ đầu).
+        const mediaEl = isVideo ? bgVideoElement : audioPlayer; // chọn GIÁ TRỊ để đọc vị trí/thời lượng
+        // Chốt thời lượng + vị trí 1 lần lúc kích hoạt. Media chưa có thời lượng (chưa nạp xong) -> không vào seek mode (kẹp biên
+        // với duration 0 sẽ ra mốc 0 = phát lại từ đầu).
         const durationSec = mediaEl.duration;
         if (!Number.isFinite(durationSec) || durationSec <= 0) return; // guard
         this._seekHoldDurationSec = durationSec;
         this._seekHoldPositionSec = workflowPlayerControls.getSeekGatePosition(mediaEl); // event/workflow/player-controls.js — cổng đang chạy thì lấy mốc của nó
-        this._seekHoldMediaEl = mediaEl;
-        this._seekHoldWasPlaying = !mediaEl.paused;
-        mediaEl.pause();
+        this._seekHoldKey = appState.get('currentKey');
 
         this._seekHoldActive = true;
         this._seekHoldTotalSec = 0;
@@ -308,39 +301,35 @@ const workflowVisualizerGesture = {
         taskManager.operator(SEEK_HOLD_TICK_TASK, 'enabled');
     },
 
-    /** 1 lần tua — tính từ mốc phiên tự giữ (`_seekHoldPositionSec`, chốt lúc kích hoạt rồi cộng dồn — SỬA 07/10/2026, trước
-     * đây đọc currentTime/duration của media mỗi tick), di chuyển theo Time 1 (gestureSeekStepMs — ĐƠN VỊ NHẢY, KHÁC Time 2 là nhịp lặp gọi hàm
-     * này), kẹp biên (core), commit qua message CÓ SẴN, cộng dồn + cập nhật badge. Chạm biên -> tự
-     * dừng. */
+    /** 1 tick — dời "ngón tay ảo" thêm Time 1 (gestureSeekStepMs — ĐƠN VỊ NHẢY, KHÁC Time 2 là nhịp lặp gọi hàm này) từ mốc phiên
+     * tự giữ, kẹp biên (core), đặt thumb thanh tiến trình + gửi 'seeking' (y hệt 'input' khi kéo tay — CHƯA seek thật), cộng dồn +
+     * cập nhật badge. Chạm biên -> ngừng tick, phiên vẫn mở tới lúc thả tay. */
     _runSeekTick() {
-        // SỬA (07/10/2026) — tính từ mốc phiên tự giữ (`_seekHoldPositionSec`/`_seekHoldDurationSec`), KHÔNG đọc currentTime/
-        // duration của media: lệnh cổng seek của tick trước có thể còn đang nạp lại nguồn (Song) -> currentTime = 0.
         const stepSec = (appConfigViz.getAll().gestureSeekStepMs || 2000) / 1000; // Time 1 — đơn vị nhảy
         const fromSec = this._seekHoldPositionSec;
         const targetSec = fromSec + this._seekHoldDirection * stepSec;
         const { clampedSec, hitBoundary } = clampSeekPosition(targetSec, this._seekHoldDurationSec); // core/visualizer-gesture.js
         this._seekHoldPositionSec = clampedSec;
-        // SỬA 21/09/2026 — `fromGesture: true`: nhánh Video của router KHÔNG có "phiên kéo" nào cho cử chỉ (không có 'seeking' trước), bản cũ bị
-        // `handleVideoSeekCommit()` coi là phiên cũ (`_seekGeneration` null) nên bỏ qua hẳn -> seek-hold ở Video không làm gì. Cờ này cho nó
-        // đi nhánh riêng (media đã bị `_activateSeekHold()` pause, seek chính xác + KHÔNG tự play() — `_stopSeekHold()` lo resume).
-        eventBus.send({ router: 'playerControls', type: 'playerControls.progressBar.seekCommit', payload: { value: clampedSec, fromGesture: true } });
+        setProgressBarValue(clampedSec); // core/player-controls.js — không có ngón tay thật trên thanh, tự đặt thumb
+        eventBus.send({ router: 'playerControls', type: 'playerControls.progressBar.seeking', payload: { value: clampedSec } });
 
-        this._seekHoldTotalSec += Math.abs(clampedSec - fromSec); // SỬA 07/10/2026 — chạm biên chỉ cộng phần thật sự tua
+        this._seekHoldTotalSec += Math.abs(clampedSec - fromSec); // chạm biên chỉ cộng phần thật sự tua
         const sign = this._seekHoldDirection > 0 ? '+' : '-';
         showSeekHoldIndicator(this._seekHoldDirection, `${sign}${this._seekHoldTotalSec.toFixed(1)}s`); // core/visualizer-gesture.js
 
-        if (hitBoundary) this._stopSeekHold();
+        if (hitBoundary) taskManager.kill(SEEK_HOLD_TICK_TASK); // ngừng tick, chờ thả tay mới commit
     },
 
-    /** Dừng phiên seek-hold — gỡ badge, RESUME lại media nếu trước đó đang phát (xem docstring đầu
-     * file). */
+    /** Thả "ngón tay ảo" (touchend/touchcancel) — gỡ badge, gửi 'seekCommit' ĐÚNG 1 lần (y hệt 'change' khi thả tay trên thanh):
+     * Song/Video tự chạy cổng seek + phát lại đúng như kéo tay. Đang giữ tay mà media đã đổi (Song phát tiếp, hết bài -> bài mới)
+     * thì commit đúng vị trí hiện tại của media mới — chỉ để đóng phiên kéo (`isSeeking`), không đẩy mốc của bài cũ sang bài mới. */
     _stopSeekHold() {
         taskManager.kill(SEEK_HOLD_TICK_TASK);
         this._seekHoldActive = false;
         hideSeekHoldIndicator(); // core/visualizer-gesture.js
-        // SỬA (07/10/2026) — không play() thẳng: lệnh cổng seek của tick cuối có thể còn đang nạp lại nguồn (Song) -> play() lúc
-        // đó phát từ 0:00 rồi mới nhảy tới mốc (nghe như phát lại từ đầu). Để cổng play() sau khi seek xong.
-        if (this._seekHoldWasPlaying && this._seekHoldMediaEl) workflowPlayerControls.playAfterSeekGate(this._seekHoldMediaEl); // event/workflow/player-controls.js
-        this._seekHoldMediaEl = null;
+        const mediaChanged = appState.get('currentKey') !== this._seekHoldKey;
+        const activeMediaEl = appState.get('isVideoPlayerMode') ? bgVideoElement : audioPlayer; // chọn GIÁ TRỊ
+        const commitSec = mediaChanged ? workflowPlayerControls.getSeekGatePosition(activeMediaEl) : this._seekHoldPositionSec; // chọn GIÁ TRỊ
+        eventBus.send({ router: 'playerControls', type: 'playerControls.progressBar.seekCommit', payload: { value: commitSec } });
     },
 };
