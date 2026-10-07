@@ -105,12 +105,14 @@ function renderPlayerDisplayBody(kind, cfg, motionPresets) {
         </div>
 
         <div class="mt-6">
-            <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2" data-uitk="accentText">${t('playerDisplaySettings.zoom.groupTitle')}</h3>
+            <div class="flex items-center gap-2 mb-2 ml-2">
+                <h3 class="text-xs font-bold uppercase tracking-widest" data-uitk="accentText">${t('playerDisplaySettings.zoom.groupTitle')}</h3>
+                ${infoIconHtml(t('playerDisplaySettings.zoom.hint'))}
+            </div>
             <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                 ${zoomRowsHtml}
                 <button type="button" id="setting-player-${kind}-zoom-reset" class="w-full p-4 text-sm font-medium text-center" data-uitk="cardHoverBg accentText">${t('playerDisplaySettings.zoom.reset')}</button>
             </div>
-            <p class="text-xs mt-2 ml-2" data-uitk="textSecondary">${t('playerDisplaySettings.zoom.hint')}</p>
         </div>
     `;
 }
