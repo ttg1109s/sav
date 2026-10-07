@@ -580,7 +580,7 @@ function renderSongActionMenuButtonHtml(key, onDarkBg) {
  */
 // SỬA 23/09/2026 (rà soát theme) — tham số thứ 2 giờ là TÊN HUE trong bảng `iconTone` (core/ui-theme/*.js) thay vì chuỗi class
 // cứng `bg-X-100 text-X-600` (ô pastel chói trên nền Dark/Morphin). Light giữ đúng màu cũ.
-function renderSongInfoRowHtml(iconName, hue, label, value) { // iconName: tên icon trong components/icons.js (SỬA 07/10/2026)
+function renderSongInfoRowHtml(iconName, hue, label, value) { // iconName: tên icon trong assets/icon/icons.js (SỬA 07/10/2026)
     return `
         <div class="flex items-center gap-3 py-2.5 border-b last:border-b-0" data-uitk="dividerBorder">
             <div class="w-7 h-7 rounded-full flex items-center justify-center shrink-0" data-uitk="iconTone:${hue}">

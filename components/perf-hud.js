@@ -17,7 +17,7 @@
  * `data-pph-bar`. Không còn tay cầm kéo — chạm giữ vào HUD để kéo (Giang yêu cầu).
  */
 
-// Icon Lucide (https://lucide.dev, ISC) — SỬA 07/10/2026: thân icon dời vào kho chung components/icons.js (tiền tố `hud-`),
+// Icon Lucide (https://lucide.dev, ISC) — SỬA 07/10/2026: thân icon dời vào kho chung assets/icon/icons.js (tiền tố `hud-`),
 // ở đây chỉ còn bảng khoá -> tên icon.
 const PERF_HUD_ICONS = {
     monitor: 'hud-monitor',

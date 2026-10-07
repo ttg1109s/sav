@@ -19,7 +19,7 @@
  * trên #debug-console-list ở core/settings-misc-ui.js.
  */
 
-// SỬA 07/10/2026 — tên icon trong components/icons.js (trước là path SVG)
+// SỬA 07/10/2026 — tên icon trong assets/icon/icons.js (trước là path SVG)
 const DEBUG_CONSOLE_ICON_COPY = 'duplicate';
 const DEBUG_CONSOLE_ICON_CHECK = 'check';
 const DEBUG_CONSOLE_ICON_REMOVE = 'x';
