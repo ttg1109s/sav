@@ -385,7 +385,14 @@ const workflowPlayerControls = {
         }
         this._clearSeekGateActive();
         if (this.isHeldBySeekGate(mediaEl)) this._releaseSeekGateHold(mediaEl, false);
-        SEEK_GATE_DONE_SYNC_BY_MEDIA[mediaKind]();
+        // SỬA (07/10/2026, Giang báo lặp 1 bài quay về đầu rồi đứng) — bước đồng bộ thanh/nhãn/phụ đề CHỈ là hiển thị: lỗi ở
+        // đây (vd phụ đề) trước đây làm cả lệnh cổng ném lỗi -> nơi gọi await (lặp 1 bài) không bao giờ tới play(). Bắt lỗi tại
+        // chỗ, cổng vẫn báo chạy trọn.
+        try {
+            SEEK_GATE_DONE_SYNC_BY_MEDIA[mediaKind]();
+        } catch (err) {
+            console.error('[workflowPlayerControls] runGatedSeek: đồng bộ hiển thị sau seek lỗi:', err);
+        }
         console.log(`[seekGate] ${mediaKind} (nạp lại) ${wasPlaying ? 'đang phát' : 'đang dừng'} -> ${targetSec.toFixed(2)}s | tổng ${Math.round(performance.now() - startMs)}ms`);
         return true;
     },
@@ -399,15 +406,14 @@ const workflowPlayerControls = {
         this._releaseSeekGateHold(mediaEl, false);
     },
 
-    /** MỚI (29/09/2026) — lặp 1 bài cho Song: cổng seek về 0 (nạp lại nguồn -> xoá hàng đợi tiếng cũ của iOS) rồi MỚI play().
-     * Không để cổng tự play (resumeAfter = false): sau 'ended' media đã dừng THẬT (sự kiện 'pause' thật đã tới UI/đồng hồ
-     * nghe/VBG), play() trong lúc cổng còn giữ sẽ bị bỏ qua -> UI kẹt ở trạng thái dừng. play() SAU khi cổng thả hold phát
-     * sự kiện 'play' thật -> icon, đồng hồ nghe, VBG, auto-switch chạy lại như bản cũ. Cổng không chạy trọn (người dùng
-     * seek/đổi bài giữa chừng) -> lệnh mới tự lo, không play() chồng. */
-    async _restartSongForRepeatOne() {
-        const completed = await this.runGatedSeek(audioPlayer, 0, false);
-        if (!completed) return;
-        audioPlayer.play().catch((err) => console.error('[workflowPlayerControls] audioPlayer.play() lỗi khi lặp 1 bài:', err));
+    /** MỚI (29/09/2026) — lặp 1 bài cho Song: cổng seek về 0 (nạp lại nguồn -> xoá hàng đợi tiếng cũ của iOS) rồi phát lại.
+     * SỬA (07/10/2026, Giang báo "lặp 1 bài quay về đầu rồi pause") — trước đây cổng chạy với resumeAfter = false rồi nơi gọi
+     * TỰ play() sau `await`: mọi lỗi/huỷ ở cuối cổng (vd bước đồng bộ hiển thị mới thêm hôm nay) làm play() không bao giờ chạy.
+     * Nay để CỔNG tự play() (resumeAfter = true) ngay sau khi mở tiếng, TRƯỚC bước đồng bộ hiển thị: 'pause' lúc 'ended' là
+     * THẬT nên cổng thả hold trước khi play (`_releaseHoldForVisiblePlay()`) -> sự kiện 'play' cũng THẬT tới UI (icon, đồng
+     * hồ nghe, VBG, auto-switch) — đúng ý bản cũ. Người dùng seek/đổi bài giữa chừng -> lệnh mới tự lo. */
+    _restartSongForRepeatOne() {
+        this.runGatedSeek(audioPlayer, 0, true); // KHÔNG await — cổng tự phát lại
     },
 
     /** Sự kiện của `mediaEl` lúc này là do CỔNG tự pause/nạp lại/play tạm (Workflow bỏ qua: handleAudioPlayEvent/

@@ -939,12 +939,11 @@ const workflowVideoPlayer = {
         });
     },
 
-    /** Lặp 1 bài (hết video tự nhiên): cổng seek về 0 rồi MỚI play() — cùng khuôn `_restartSongForRepeatOne()` (event/workflow/
-     * player-controls.js): sau 'ended' video đã dừng THẬT (UI đã nhận 'pause'), play() SAU khi cổng thả hold phát 'play' thật. */
-    async restartForRepeatOne() {
-        const completed = await workflowPlayerControls.runGatedSeek(bgVideoElement, 0, false, VIDEO_SEEK_VERIFY_TOLERANCE_SEC, this.seekGateHooks());
-        if (!completed) return; // guard — lệnh seek/đổi video mới hơn tự lo
-        bgVideoElement.play().catch((err) => console.error('[workflowVideoPlayer] bgVideoElement.play() lỗi khi lặp 1 bài:', err));
+    /** Lặp 1 bài (hết video tự nhiên): cổng seek về 0 rồi CỔNG tự play() — cùng khuôn `_restartSongForRepeatOne()` (event/workflow/
+     * player-controls.js, SỬA 07/10/2026: không còn play() riêng sau `await` — lỗi cuối cổng từng làm video đứng ở 0:00). 'pause'
+     * lúc 'ended' là THẬT nên cổng thả hold trước khi play -> 'play' THẬT tới UI. */
+    restartForRepeatOne() {
+        workflowPlayerControls.runGatedSeek(bgVideoElement, 0, true, VIDEO_SEEK_VERIFY_TOLERANCE_SEC, this.seekGateHooks()); // KHÔNG await
     },
 
     /** Xả hàng đợi tiếng iOS NGAY lúc pause (cùng hướng Song, `_flushSongQueueAfterPause()`): nạp lại + seek về chỗ dừng qua cổng
