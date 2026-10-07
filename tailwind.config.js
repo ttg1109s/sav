@@ -13,6 +13,7 @@ module.exports = {
         './index.html',
         './pages/*.html', // subtitle-editor.html, video-editor.html — dời vào pages/ 07/10/2026
         './components/**/*.js',
+        './assets/icon/*.js', // kho icon (ICON_REGISTRY) — có class trong thân SVG
         './core/**/*.js',
         './event/**/*.js',
         './service/**/*.js',
