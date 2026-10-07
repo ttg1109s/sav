@@ -1,6 +1,6 @@
 /**
  * Component: Visualizer UI Overlay — lớp giao diện đè lên canvas khi đang phát nhạc (stats,
- * cử chỉ, Control Center). Biến này chứa chuỗi HTML, main.js chèn vào DOM lúc khởi động.
+ * cử chỉ, Control Center). Biến này chứa chuỗi HTML, components/app-mount.js chèn vào DOM lúc khởi động.
  *
  * #visualizer-gesture-surface: lớp phủ chạm RIÊNG cho toàn bộ cử chỉ (event/workflow/visualizer-
  * gesture.js) — nằm TRÊN canvas (#visualizer z-index 10) + bgVideoElement (#bg-video z-index 0)

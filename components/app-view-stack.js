@@ -63,10 +63,10 @@
  * (anh em với `#side-left-container`, KHÔNG lồng bên trong) là `#app-bottom-nav` (MỚI,
  * components/app-bottom-nav.js — 7 mục Media/Folder/Photo/Storage/Game/Statis/Setting, LUÔN cố
  * định đáy `#app-stack`). Xem `TPL_APP_VIEW_STACK_CLOSE_SIDE`/`TPL_APP_VIEW_STACK_CLOSE_OUTER`
- * ngay dưới — tách làm 2 để `#app-bottom-nav` chèn được vào giữa lúc main.js ghép chuỗi.
+ * ngay dưới — tách làm 2 để `#app-bottom-nav` chèn được vào giữa lúc components/app-mount.js ghép chuỗi.
  *
  * NẠP SAU: components/playlist-view.js (TPL_PLAYLIST_VIEW) — biến này được NHÉT VÀO GIỮA
- * `TPL_APP_VIEW_STACK_OPEN`/`TPL_APP_VIEW_STACK_CLOSE_SIDE` khi main.js ghép chuỗi (xem main.js).
+ * `TPL_APP_VIEW_STACK_OPEN`/`TPL_APP_VIEW_STACK_CLOSE_SIDE` khi components/app-mount.js ghép chuỗi (xem components/app-mount.js).
  */
 const TPL_APP_VIEW_STACK_OPEN = `
     <div id="app-stack" class="fixed inset-0 z-[60]">

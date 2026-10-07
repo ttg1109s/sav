@@ -1,6 +1,6 @@
 /**
  * Component: Bottom Player (thanh điều khiển phát nhạc ở dưới cùng)
- * Biến này chứa chuỗi HTML, được main.js chèn vào DOM lúc khởi động.
+ * Biến này chứa chuỗi HTML, được components/app-mount.js chèn vào DOM lúc khởi động.
  */
 const TPL_BOTTOM_PLAYER = `
     <!-- FIX (04/07/2026, mục 4 phản hồi Giang) — z-index HẠ từ 70 xuống 40 (nằm GIỮA

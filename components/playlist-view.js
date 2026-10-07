@@ -1,6 +1,6 @@
 /**
  * Component: Playlist View (màn hình danh sách bài hát)
- * Biến này chứa chuỗi HTML, được main.js chèn vào DOM lúc khởi động.
+ * Biến này chứa chuỗi HTML, được components/app-mount.js chèn vào DOM lúc khởi động.
  *
  * FIX (04/07/2026, mục 1b/4 phản hồi Giang) — `position: absolute` -> `fixed`. Nguyên nhân bug
  * "bàn phím trượt lên làm khuyết mất 1 phần Playlist UI" (Settings drawer KHÔNG bị, cùng bug):

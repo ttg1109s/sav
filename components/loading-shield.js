@@ -1,6 +1,6 @@
 /**
  * Component: Loading Shield (màn hình che khi đang xử lý / nạp nhạc)
- * Biến này chứa chuỗi HTML, được main.js chèn vào DOM lúc khởi động.
+ * Biến này chứa chuỗi HTML, được components/app-mount.js chèn vào DOM lúc khởi động.
  *
  * MỚI (10/09/2026, Giang yêu cầu — "lối tắt cưỡng chế mở Debug Console ngay trên layer loading
  * shield") — `#btn-loading-shield-debug` SỐNG NGAY BÊN TRONG chính shield này (KHÔNG phải 1 nút
