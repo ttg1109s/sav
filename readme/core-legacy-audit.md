@@ -13,7 +13,8 @@
 
 ## 1. Tổng quan
 
-- **1312 FAIL** ở **142 file**; 10 chờ chốt; 874 dòng máy quét báo nhưng review loại (mục 5).
+- **1308 FAIL** ở **141 file**; 10 chờ chốt; 872 dòng máy quét báo nhưng review loại (mục 5).
+- Cập nhật 07/10/2026 (cùng ngày lập sổ): gỡ Service Worker tải file lớn (`sw.js`, `core/large-file-download.js`) xoá 4 dòng FAIL (1312 → 1308, 142 → 141 file). Bảng tỉ lệ ngay dưới giữ số đo lúc lập sổ.
 
 | Tầng | File vi phạm | Hàm / đơn vị vi phạm | Dòng code nằm trong hàm vi phạm |
 |---|---|---|---|
@@ -46,18 +47,18 @@
 |---|---|---|---|
 | Core rule | Rule 1 — rẽ nhánh nghiệp vụ | 33 |  |
 | Core rule | Rule 2 — Core tự appState.get() | 43 |  |
-| Core rule | Rule 3a — Core gọi Core | 195 |  |
+| Core rule | Rule 3a — Core gọi Core | 194 |  |
 | Core rule | Rule 3b — Core tự đọc DB/service | 37 |  |
 | Core rule | Rule 3b — Core tự đọc nguồn khác | 29 |  |
 | Core rule | Rule 4 — ghi state thiếu console.log | 24 |  |
-| Core rule | Rule 5a — Core gắn sự kiện | 72 |  |
+| Core rule | Rule 5a — Core gắn sự kiện | 71 |  |
 | Core rule | Rule 5c — thiếu hậu tố -ui | 5 |  |
 | Core rule | Rule 5d — template HTML trong core | 55 |  |
 | Event bus | Listener gọi thẳng Workflow | 1 |  |
 | Event bus | Listener làm việc ngoài eventBus.send | 1 |  |
 | Event bus | Listener đọc appState | 7 |  |
 | Event bus | Router tự chuẩn bị dữ liệu | 1 |  |
-| Event bus | Workflow tự dựng template HTML | 20 |  |
+| Event bus | Workflow tự dựng template HTML | 19 |  |
 | Event bus | Workflow tự gắn sự kiện | 73 |  |
 | Event bus | Workflow tự thao tác DOM | 214 |  |
 | Event bus | Workflow tự tính toán | 123 |  |
@@ -65,10 +66,10 @@
 | Event bus | Workflow tự điều khiển media | 49 |  |
 | Event bus | Workflow §7: rẽ nhánh không dùng object map | 108 |  |
 | Event bus | Workflow: ≥2 key không gộp get([…]) | 184 |  |
-| TaskManager | Timer thô | 13 |  |
+| TaskManager | Timer thô | 12 |  |
 | TaskManager | requestAnimationFrame thô |  | 10 |
 | TaskManager | taskManager dùng trong Core | 11 |  |
-| **Tổng** | | **1312** | **10** |
+| **Tổng** | | **1308** | **10** |
 
 ## 4. Chi tiết
 
@@ -162,7 +163,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/wakelock.js:54` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
 | `core/wakelock.js:54` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
 
-#### Rule 3a — Core gọi Core (195)
+#### Rule 3a — Core gọi Core (194)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -200,7 +201,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/element-style-editor.js:184` | `applyElementStyleCssStringToDraft` | gọi parseElementStyleCssString() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/file-manager/cleanup.js:163` | `<lúc nạp file>` | gọi registerCleanupCheck() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có | Gọi lúc nạp file (top-level) |
 | `core/file-manager/cleanup.js:164` | `<lúc nạp file>` | gọi registerCleanupCheck() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có | Gọi lúc nạp file (top-level) |
-| `core/file-manager/cleanup.js:206` | `<lúc nạp file>` | gọi registerCleanupCheck() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có | Gọi lúc nạp file (top-level) |
 | `core/file-manager/folder-picker-ui.js:63` | `openRenameFolderModal` | gọi applyUiThemeToDom() (core/ui-theme/apply-ui.js) | FAIL | Máy quét | Có |  |
 | `core/file-manager/photo-ui.js:53` | `syncEditCanvasDisplaySize` | gọi computeCoverOrContain() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/file-manager/photo-ui.js:302` | `openImagePreviewModal` | gọi computeCoverOrContain() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
@@ -467,7 +467,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/wakelock.js:39` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
 | `core/wakelock.js:54` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
 
-#### Rule 5a — Core gắn sự kiện (72)
+#### Rule 5a — Core gắn sự kiện (71)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -501,7 +501,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/gameplay/engine-ui.js:145` | `showShatterEffect` | addEventListener: callback không gửi eventBus.send (gọi anchor.remove); không gom cuối hàm (sau nó còn: container.appendChild(anchor);) | FAIL | Máy quét + review | Không |  |
 | `core/info-icon-ui.js:128` | `showInfoPopover` | addEventListener: callback không gửi eventBus.send (gọi scrim.remove) | FAIL | Máy quét + review | Không |  |
 | `core/info-icon-ui.js:129` | `showInfoPopover` | addEventListener: callback không gửi eventBus.send (gọi closePopover) | FAIL | Máy quét + review | Không |  |
-| `core/large-file-download.js:44` | `<lúc nạp file>` | addEventListener: file core không có hậu tố -ui tự gắn sự kiện; callback không gửi eventBus.send (gọi console.log) | FAIL | Máy quét + review | Không |  |
 | `core/modal-choice-ui.js:136` | `_buildCancelButton` | addEventListener: callback không gửi eventBus.send (gọi closeModal, options.onCancel) | FAIL | Máy quét + review | Có |  |
 | `core/modal-choice-ui.js:162` | `_appendButtonRow` | addEventListener: callback không gửi eventBus.send (gọi closeModal, btnDef.onClick); không gom cuối hàm (sau nó còn: card.appendChild(buttonRow);) | FAIL | Máy quét + review | Có |  |
 | `core/modal-choice-ui.js:193` | `_appendDropdownRow` | addEventListener: callback không gửi eventBus.send (gọi closeModal, chosen.onClick); không gom cuối hàm (sau nó còn: row.appendChild(confirmBtn);) | FAIL | Máy quét + review | Có |  |
@@ -646,7 +645,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 |---|---|---|---|---|---|---|
 | `event/router/playlist-empty-state.js:44` | `case 'playlistEmptyState.play.click'` | Router gọi core (resolvePlayingMediaType, isPlayingMediaListed) để tính state và tự chọn key phát (resumableKey \|\| displayOrder[0]) — việc chuẩn bị thuộc Workflow (§4B) | FAIL | Review (máy quét bỏ sót) | — |  |
 
-#### Workflow tự dựng template HTML (20)
+#### Workflow tự dựng template HTML (19)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -669,7 +668,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `event/workflow/theme.js:71` | `_buildMediaPickerBodyHtml` | 1 chỗ: ` <div class="flex-1 min-h-0 overflow-y-auto relative" id="${scrollId}">  | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/video-player.js:610` | `playVideoByKey` | 1 chỗ: `<img id="record-art" src="${this._thumbObjectUrl}" class="w-full h-full rounded-full obje | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/visual-bg-common.js:1177` | `_buildMultiPickerBodyHtml` | 1 chỗ: ` <div class="flex-1 min-h-0 overflow-y-auto relative" id="${scrollId}">  | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
-| `event/workflow/zip-download.js:65` | `serviceWorker` | 1 chỗ: '[zip-download] Tải qua Service Worker lỗi, rơi về <a download>:' | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 
 #### Workflow tự gắn sự kiện (73)
 
@@ -1473,12 +1471,11 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 
 ### 4.3 TaskManager
 
-#### Timer thô (13)
+#### Timer thô (12)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 | `core/dropdown-menu.js:124` | `closeDropdownMenu` | setTimeout() thô — phải qua taskManager (task-manager-conventions.md §1) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/large-file-download.js:130` | `triggerLargeFileDownloadViaServiceWorker` | setTimeout() thô — phải qua taskManager (task-manager-conventions.md §1) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/streaming-zip.js:115` | `_withTimeout` | setTimeout() thô — phải qua taskManager (task-manager-conventions.md §1) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/streaming-zip.js:146` | `buildZipStreamingToOpfs` | setInterval() thô — phải qua taskManager (task-manager-conventions.md §1) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/streaming-zip.js:174` | `buildZipStreamingToOpfs` | setInterval() thô — phải qua taskManager (task-manager-conventions.md §1) | FAIL | Review (máy quét bỏ sót) | Không |  |
@@ -1526,18 +1523,18 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 
 | Rule máy | Lý do loại | Số dòng |
 |---|---|---|
-| CORE-1 | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng | 665 |
+| CORE-1 | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng | 664 |
 | CORE-5A | Hàm wire của file -ui: callback chỉ eventBus.send, listener gom cuối hàm (khuôn wireDebugConsolePanelActions ở event-bus-flow §3a) | 99 |
 | EV-LISTENER-1 | Ủy quyền closest()/bảng tuyến chỉ để xác định phần tử rồi eventBus.send — không phải rẽ nhánh nghiệp vụ (review) | 42 |
 | CORE-3A | Gọi phương thức của phần tử media/zipWriter/animation trùng tên hàm core (vd bgVideoElement.pause()) — không phải core | 18 |
-| CORE-5C | createElement canvas/a/video/script/link để xử lý hoặc tải file — không phải dựng UI | 11 |
+| CORE-5C | createElement canvas/a/video/script/link để xử lý hoặc tải file — không phải dựng UI | 10 |
 | CORE-5A | Ngoại lệ đã audit: nằm trong danh sách 18 chỗ đã audit (changelog/v11.md mục 2) | 10 |
 | CORE-4 | Hot path 60fps (vòng vẽ visualizer) — ngoại lệ chính thức của Rule 4 | 9 |
 | CORE-5B | Rule chấm theo điều kiện bị bỏ — Rule 1 chấm theo nội dung nhánh đã bao (guard = PASS) | 9 |
 | EV-LISTENER-1 | Trùng với dòng "Listener đọc appState" (EV-LISTENER-2) — gộp, không đếm 2 lần | 7 |
 | CORE-1 | Switch A/B trên cùng một đối tượng (play/pause, mở/đóng, hiện/ẩn…) = 1 nghiệp vụ — phán quyết Giang 07/10 | 4 |
 
-<details><summary>Danh sách đầy đủ (874 dòng)</summary>
+<details><summary>Danh sách đầy đủ (872 dòng)</summary>
 
 | Rule máy | Vị trí | Lý do |
 |---|---|---|
@@ -1650,7 +1647,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | CORE-1 (REVIEW) | `core/element-style-editor.js:164` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
 | CORE-1 (REVIEW) | `core/eq-presets.js:40` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
 | CORE-1 (REVIEW) | `core/file-manager/cleanup.js:145` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/file-manager/cleanup.js:193` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
 | CORE-1 (REVIEW) | `core/file-manager/folder.js:161` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
 | CORE-1 (REVIEW) | `core/file-manager/folder.js:163` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
 | CORE-1 (REVIEW) | `core/file-manager/folder.js:212` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
@@ -2357,7 +2353,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | CORE-5B | `core/visual-bg-video.js:16` | Rule chấm theo điều kiện bị bỏ — Rule 1 chấm theo nội dung nhánh đã bao (guard = PASS) |
 | CORE-5C | `core/element-style-editor.js:1` | createElement canvas/a/video/script/link để xử lý hoặc tải file — không phải dựng UI |
 | CORE-5C | `core/id3-export.js:1` | createElement canvas/a/video/script/link để xử lý hoặc tải file — không phải dựng UI |
-| CORE-5C | `core/large-file-download.js:1` | createElement canvas/a/video/script/link để xử lý hoặc tải file — không phải dựng UI |
 | CORE-5C | `core/photo-editor-engine.js:1` | createElement canvas/a/video/script/link để xử lý hoặc tải file — không phải dựng UI |
 | CORE-5C | `core/storage-manager.js:1` | createElement canvas/a/video/script/link để xử lý hoặc tải file — không phải dựng UI |
 | CORE-5C | `core/streaming-zip.js:1` | createElement canvas/a/video/script/link để xử lý hoặc tải file — không phải dựng UI |

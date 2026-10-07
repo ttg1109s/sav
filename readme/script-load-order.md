@@ -55,9 +55,9 @@ CSS/CDN nào ở đây để không chờ mạng trước khi vẽ Preloader.
 - `apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style=black`.
 - `apple-mobile-web-app-title` và `<title>` đều là **"Audivis"** (đổi 06/10/2026). Tên phải ngắn: SpringBoard iOS thiếu
   chỗ sẽ tự xoá dấu cách rồi mới cắt "…" (gốc lỗi "tên dính liền" thời "Simple Audio Visualizer").
-- `favicon.png` (nền trong suốt) và `apple-touch-icon.png` (180×180, **full-bleed nền đặc, không tự bo góc** — iOS tô
+- `assets/icon/favicon.png` (nền trong suốt) và `assets/icon/apple-touch-icon.png` (dời từ gốc dự án 07/10/2026; 180×180, **full-bleed nền đặc, không tự bo góc** — iOS tô
   pixel trong suốt thành đen rồi áp mask bo góc riêng). iOS bỏ qua `favicon.png` khi tạo icon màn hình chính, nên
-  phải có thẻ `apple-touch-icon` riêng.
+  phải có thẻ `apple-touch-icon` riêng (thẻ này trỏ đúng đường dẫn nên icon không cần nằm ở gốc).
 
 ### 2.2 Preloader — `<head>` + đầu `<body>`
 
@@ -428,41 +428,40 @@ group.
 221. `core/about-stats.js`
 222. `core/app-recovery.js`
 223. `lang/language-settings.js`
-224. `core/large-file-download.js`
-225. `core/id3-export.js`
-226. `core/streaming-zip.js`
-227. `core/storage-manager.js`
-228. `core/zip-download-ui.js`
-229. `core/visualizer/visualizer-display.js`
-230. `core/auto-switch-visual.js`
-231. `core/visualizer/draw/water-drop.js`
-232. `core/visualizer/draw/window-frame.js`
-233. `core/visualizer/draw/flying-note-ui.js`
-234. `core/visualizer/beat-window.js`
-235. `core/visualizer/frame-clock.js`
-236. `core/visualizer/tonotopic.js`
-237. `core/visualizer/draw/screen-flash.js`
-238. `core/visualizer/draw/screen-flash-alpha.js`
-239. `core/visualizer/groups/bar/common.js`
-240. `core/visualizer/groups/bar/mirror.js`
-241. `core/visualizer/groups/bar/cascade.js`
-242. `core/visualizer/groups/bar/dot.js`
-243. `core/visualizer/groups/bar/black-hole.js`
-244. `core/visualizer/groups/shape/common.js`
-245. `core/visualizer/groups/shape/rubik.js`
-246. `core/visualizer/groups/shape/clock.js`
-247. `core/visualizer/groups/vortex/common.js`
-248. `core/visualizer/groups/vortex/rings.js`
-249. `core/visualizer/groups/vortex/bars.js`
-250. `core/visualizer/groups/vortex/wave.js`
-251. `core/visualizer/groups/rain/common.js`
-252. `core/visualizer/groups/rain/glass.js`
-253. `core/visualizer/groups/rain/street.js`
-254. `core/visualizer/groups/lighting/common.js`
-255. `core/visualizer/groups/lighting/thunder.js`
-256. `core/visualizer/groups/lighting/fireworks.js`
-257. `core/visualizer/groups/connector/common.js`
-258. `core/visualizer/groups/connector/circuit.js`
+224. `core/id3-export.js`
+225. `core/streaming-zip.js`
+226. `core/storage-manager.js`
+227. `core/zip-download-ui.js`
+228. `core/visualizer/visualizer-display.js`
+229. `core/auto-switch-visual.js`
+230. `core/visualizer/draw/water-drop.js`
+231. `core/visualizer/draw/window-frame.js`
+232. `core/visualizer/draw/flying-note-ui.js`
+233. `core/visualizer/beat-window.js`
+234. `core/visualizer/frame-clock.js`
+235. `core/visualizer/tonotopic.js`
+236. `core/visualizer/draw/screen-flash.js`
+237. `core/visualizer/draw/screen-flash-alpha.js`
+238. `core/visualizer/groups/bar/common.js`
+239. `core/visualizer/groups/bar/mirror.js`
+240. `core/visualizer/groups/bar/cascade.js`
+241. `core/visualizer/groups/bar/dot.js`
+242. `core/visualizer/groups/bar/black-hole.js`
+243. `core/visualizer/groups/shape/common.js`
+244. `core/visualizer/groups/shape/rubik.js`
+245. `core/visualizer/groups/shape/clock.js`
+246. `core/visualizer/groups/vortex/common.js`
+247. `core/visualizer/groups/vortex/rings.js`
+248. `core/visualizer/groups/vortex/bars.js`
+249. `core/visualizer/groups/vortex/wave.js`
+250. `core/visualizer/groups/rain/common.js`
+251. `core/visualizer/groups/rain/glass.js`
+252. `core/visualizer/groups/rain/street.js`
+253. `core/visualizer/groups/lighting/common.js`
+254. `core/visualizer/groups/lighting/thunder.js`
+255. `core/visualizer/groups/lighting/fireworks.js`
+256. `core/visualizer/groups/connector/common.js`
+257. `core/visualizer/groups/connector/circuit.js`
 
 </details>
 
@@ -473,25 +472,25 @@ group.
 `workflowVisualizerRender` lúc nạp nên phải đứng sau host. Các file này chạy ngoài Listener→Router (vòng `raf` tự nuôi,
 xem [event-bus-flow.md](./event-bus-flow.md) mục 1).
 
-259. `event/workflow/audio-engine.js`
-260. `event/workflow/audio-analysis.js` — cần: `core/audio-tempo.js` (createOnsetEnvelope, TEMPO_ENVELOPE_CAPACITY, TEMPO_WINDOW_MS…); `core/audio-analysis.js` (AUDIO_FEATURE_BANDS, AUDIO_FEATURE_RING_CAPACITY)
-261. `event/workflow/visualizer-render.js`
-262. `event/workflow/visualizer/beat-window.js`
-263. `event/workflow/visualizer/bar.js` — cần: `core/visualizer/groups/bar/dot.js` (DOT_VIB_SLOTS); `core/visualizer/beat-window.js` (createBeatFluxWindow); `event/workflow/visualizer-render.js` (workflowVisualizerRender)
-264. `event/workflow/visualizer/rain.js` — cần: `event/workflow/visualizer-render.js` (workflowVisualizerRender)
-265. `event/workflow/visualizer/lighting.js` — cần: `core/visualizer/beat-window.js` (createBeatFluxWindow); `event/workflow/visualizer-render.js` (workflowVisualizerRender)
-266. `event/workflow/visualizer/shape.js` — cần: `event/workflow/visualizer-render.js` (workflowVisualizerRender)
-267. `event/workflow/visualizer/vortex.js` — cần: `core/visualizer/beat-window.js` (createBeatFluxWindow); `event/workflow/visualizer-render.js` (workflowVisualizerRender)
-268. `event/workflow/visualizer/connector.js` — cần: `core/visualizer/beat-window.js` (createBeatFluxWindow); `event/workflow/visualizer-render.js` (workflowVisualizerRender)
+258. `event/workflow/audio-engine.js`
+259. `event/workflow/audio-analysis.js` — cần: `core/audio-tempo.js` (createOnsetEnvelope, TEMPO_ENVELOPE_CAPACITY, TEMPO_WINDOW_MS…); `core/audio-analysis.js` (AUDIO_FEATURE_BANDS, AUDIO_FEATURE_RING_CAPACITY)
+260. `event/workflow/visualizer-render.js`
+261. `event/workflow/visualizer/beat-window.js`
+262. `event/workflow/visualizer/bar.js` — cần: `core/visualizer/groups/bar/dot.js` (DOT_VIB_SLOTS); `core/visualizer/beat-window.js` (createBeatFluxWindow); `event/workflow/visualizer-render.js` (workflowVisualizerRender)
+263. `event/workflow/visualizer/rain.js` — cần: `event/workflow/visualizer-render.js` (workflowVisualizerRender)
+264. `event/workflow/visualizer/lighting.js` — cần: `core/visualizer/beat-window.js` (createBeatFluxWindow); `event/workflow/visualizer-render.js` (workflowVisualizerRender)
+265. `event/workflow/visualizer/shape.js` — cần: `event/workflow/visualizer-render.js` (workflowVisualizerRender)
+266. `event/workflow/visualizer/vortex.js` — cần: `core/visualizer/beat-window.js` (createBeatFluxWindow); `event/workflow/visualizer-render.js` (workflowVisualizerRender)
+267. `event/workflow/visualizer/connector.js` — cần: `core/visualizer/beat-window.js` (createBeatFluxWindow); `event/workflow/visualizer-render.js` (workflowVisualizerRender)
 
 ### 2.14 Hạ tầng sự kiện
 
 `event/bus.js` (`eventBus`), `event/block.js` (đăng ký Block gate lúc nạp), `event/virtual-machine-state.js`.
 Phải đứng trước mọi router.
 
-269. `event/bus.js`
-270. `event/block.js` — cần: `event/bus.js` (eventBus); `lang/lang.js` (t)
-271. `event/virtual-machine-state.js`
+268. `event/bus.js`
+269. `event/block.js` — cần: `event/bus.js` (eventBus); `lang/lang.js` (t)
+270. `event/virtual-machine-state.js`
 
 ### 2.15 Cụm sự kiện
 
@@ -503,146 +502,146 @@ sự kiện lúc nạp (cần `core/dom-refs.js`, đôi khi cần workflow của
 
 <details><summary>Thứ tự (140 mục)</summary>
 
-272. `event/workflow/info-icon.js`
-273. `event/router/info-icon.js` — cần: `event/bus.js` (eventBus)
-274. `event/listener/info-icon.js`
-275. `event/router/generic-drawer.js` — cần: `event/bus.js` (eventBus)
-276. `event/listener/generic-drawer.js` — cần: `core/dom-refs.js` (genericDrawerBody)
-277. `core/settings-misc-ui.js`
-278. `event/workflow/settings-misc.js`
-279. `event/router/settings-misc.js` — cần: `event/bus.js` (eventBus)
-280. `event/listener/settings-misc.js` — cần: `core/dom-refs.js` (btnLoadingShieldDebug, btnRestartApp)
-281. `event/workflow/playlist-order.js`
-282. `event/workflow/playlist-render.js`
-283. `event/workflow/playlist-scope.js` — cần: `service/db.js` (getAllSongRecords, getSongRecordsByKeys, getAllVideoRecords…)
-284. `event/workflow/filter-rule-edit.js`
-285. `event/workflow/playlist-filter-presets.js`
-286. `event/router/playlist-filter-presets.js` — cần: `event/bus.js` (eventBus)
-287. `event/listener/playlist-filter-presets.js` — cần: `core/dom-refs.js` (genericDrawerBody)
-288. `event/workflow/zip-download.js` — cần: `core/upload-validation.js` (MEDIA_FILE_MAX_BYTES)
-289. `event/router/zip-download.js` — cần: `event/bus.js` (eventBus)
-290. `event/workflow/media-in-use.js`
-291. `event/router/media-in-use.js` — cần: `event/bus.js` (eventBus)
-292. `event/workflow/file-manager-storage.js`
-293. `event/router/file-manager-storage.js` — cần: `event/bus.js` (eventBus)
-294. `event/workflow/file-manager-folder-browser.js` — cần: `core/ui-theme/icon-svg-ui.js` (iconSvg)
-295. `event/router/file-manager-folder-browser.js` — cần: `event/bus.js` (eventBus)
-296. `event/listener/file-manager-storage.js` — cần: `core/dom-refs.js` (genericDrawerBody)
-297. `event/workflow/visual-bg-photo-motion.js`
-298. `event/workflow/motion-presets.js`
-299. `event/router/motion-presets.js` — cần: `event/bus.js` (eventBus)
-300. `event/listener/motion-presets.js` — cần: `core/dom-refs.js` (genericDrawerBody, genericDrawerHeader)
-301. `event/workflow/motion-transition-runner.js`
-302. `event/workflow/motion-point-move-runner.js`
-303. `event/workflow/motion-beat-react-runner.js`
-304. `event/workflow/motion-stage.js`
-305. `event/workflow/video-motion-surface.js`
-306. `event/workflow/player-display-settings.js`
-307. `event/workflow/pagination.js`
-308. `event/workflow/visual-bg-common.js`
-309. `event/workflow/visual-bg-video.js` — cần: `event/workflow/visual-bg-common.js` (workflowVisualBg)
-310. `event/workflow/visual-bg-photo.js` — cần: `event/workflow/visual-bg-common.js` (workflowVisualBg)
-311. `event/router/visual-bg.js` — cần: `event/bus.js` (eventBus)
-312. `event/listener/visual-bg.js` — cần: `core/dom-refs.js` (genericDrawerBody, bgVideoElement)
-313. `event/workflow/gesture-settings.js`
-314. `event/router/gesture-settings.js` — cần: `event/bus.js` (eventBus)
-315. `event/listener/gesture-settings.js` — cần: `core/dom-refs.js` (genericDrawerBody)
-316. `event/workflow/video-thumb-extract.js`
-317. `event/workflow/photo-duration.js`
-318. `event/workflow/video-frame-capture.js`
-319. `event/workflow/file-manager-photo.js`
-320. `event/router/file-manager-photo.js` — cần: `event/bus.js` (eventBus)
-321. `event/workflow/image-edit.js`
-322. `event/router/image-edit.js` — cần: `event/bus.js` (eventBus)
-323. `event/listener/image-edit.js`
-324. `event/workflow/file-manager-cleanup.js`
-325. `event/router/file-manager-cleanup.js` — cần: `event/bus.js` (eventBus)
-326. `event/workflow/photo-gallery-window.js`
-327. `event/workflow/video-gallery-window.js`
-328. `event/workflow/player.js`
-329. `event/workflow/playlist.js` — cần: `core/ui-theme/icon-svg-ui.js` (iconSvg)
-330. `event/router/playlist.js` — cần: `event/bus.js` (eventBus)
-331. `event/listener/playlist.js` — cần: `core/dom-refs.js` (25 biến DOM)
-332. `event/workflow/app-settings.js`
-333. `event/router/app-settings.js` — cần: `event/bus.js` (eventBus)
-334. `event/workflow/placeholder-panels.js`
-335. `event/router/placeholder-panels.js` — cần: `event/bus.js` (eventBus)
-336. `event/listener/placeholder-panels.js` — cần: `core/dom-refs.js` (btnGamePanelClose, btnStatisPanelClose)
-337. `event/workflow/app-panel-nav.js`
-338. `event/router/app-panel-nav.js` — cần: `event/bus.js` (eventBus)
-339. `event/listener/app-panel-nav.js` — cần: `core/dom-refs.js` (appBottomNav)
-340. `event/workflow/video-player.js`
-341. `event/router/video-player.js` — cần: `event/bus.js` (eventBus)
-342. `event/listener/video-player.js` — cần: `core/dom-refs.js` (bgVideoElement, btnCaptureVideoFrame)
-343. `event/workflow/photo-player.js`
-344. `event/workflow/number-countup.js`
-345. `event/workflow/gameplay-engine.js`
-346. `event/workflow/gameplay.js` — cần: `core/dom-refs.js` (gameplayLayer)
-347. `event/router/gameplay.js` — cần: `event/bus.js` (eventBus)
-348. `event/listener/gameplay.js` — cần: `core/dom-refs.js` (gameplayTapSurface, btnGameplayExit)
-349. `event/workflow/game-catalog.js`
-350. `event/router/game-catalog.js` — cần: `event/bus.js` (eventBus)
-351. `event/listener/game-catalog.js` — cần: `core/dom-refs.js` (gamePanelList)
-352. `event/workflow/statis-panel.js`
-353. `event/router/statis-panel.js` — cần: `event/bus.js` (eventBus)
-354. `event/listener/statis-panel.js` — cần: `core/dom-refs.js` (statisPanelBody)
-355. `event/workflow/listen-stats.js`
-356. `event/workflow/player-controls.js`
-357. `event/router/player-controls.js` — cần: `event/bus.js` (eventBus)
-358. `event/listener/player-controls.js` — cần: `core/player-controls.js` (STACKED_SCREEN_LAYOUT_QUERY); `core/dom-refs.js` (10 biến DOM)
-359. `event/workflow/custom-effect.js`
-360. `event/workflow/element-style-editor.js`
-361. `event/workflow/visualizer-display.js`
-362. `event/router/visualizer-display.js` — cần: `event/bus.js` (eventBus)
-363. `event/listener/visualizer-display.js` — cần: `core/dom-refs.js` (btnCycleMode, genericDrawerBody)
-364. `event/router/custom-effect.js` — cần: `event/bus.js` (eventBus)
-365. `event/listener/custom-effect.js` — cần: `core/dom-refs.js` (genericDrawerBody, genericDrawerHeader)
-366. `event/router/visualizer-viewport.js` — cần: `event/bus.js` (eventBus)
-367. `event/listener/visualizer-viewport.js`
-368. `core/theme-background-ui.js`
-369. `event/workflow/theme.js`
-370. `event/router/theme.js` — cần: `event/bus.js` (eventBus)
-371. `event/listener/theme.js` — cần: `core/dom-refs.js` (appStack)
-372. `event/workflow/app-visibility.js`
-373. `event/router/app-visibility.js` — cần: `event/bus.js` (eventBus)
-374. `event/listener/app-visibility.js`
-375. `event/workflow/recorder.js`
-376. `event/router/recorder.js` — cần: `event/bus.js` (eventBus)
-377. `event/listener/recorder.js` — cần: `core/dom-refs.js` (btnRecordStart, btnRecorderStop)
-378. `event/workflow/perf-hud.js`
-379. `event/router/perf-hud.js` — cần: `event/bus.js` (eventBus)
-380. `event/listener/perf-hud.js`
-381. `event/workflow/sav-logo.js`
-382. `event/router/sav-logo.js` — cần: `event/bus.js` (eventBus)
-383. `event/listener/sav-logo.js` — cần: `core/dom-refs.js` (savLogo); `core/sav-logo.js` (hasRealHoverDevice)
-384. `event/workflow/language-settings.js`
-385. `event/router/language-settings.js` — cần: `event/bus.js` (eventBus)
-386. `event/listener/language-settings.js` — cần: `core/dom-refs.js` (3 biến DOM)
-387. `event/workflow/playlist-empty-state.js`
-388. `event/router/playlist-empty-state.js` — cần: `event/bus.js` (eventBus)
-389. `event/listener/playlist-empty-state.js` — cần: `core/dom-refs.js` (btnPlaylistEmptyPlay, btnPlaylistEmptyShuffle)
-390. `event/workflow/subtitle-modal.js`
-391. `event/workflow/auto-switch-visual.js`
-392. `event/router/auto-switch-visual.js` — cần: `event/bus.js` (eventBus)
-393. `event/listener/auto-switch-visual.js` — cần: `core/dom-refs.js` (genericDrawerBody)
-394. `event/router/visualizer-control-center.js` — cần: `event/bus.js` (eventBus)
-395. `event/listener/visualizer-control-center.js` — cần: `core/dom-refs.js` (3 biến DOM)
-396. `event/workflow/hud.js`
-397. `event/router/hud.js` — cần: `event/bus.js` (eventBus)
-398. `event/listener/hud.js` — cần: `core/dom-refs.js` (5 biến DOM)
-399. `event/workflow/visualizer-gesture.js` — cần: `core/dom-refs.js` (6 biến DOM)
-400. `event/router/visualizer-gesture.js` — cần: `event/bus.js` (eventBus)
-401. `event/listener/visualizer-gesture.js` — cần: `core/dom-refs.js` (visualizerGestureSurface)
-402. `event/workflow/player-zoom.js` — cần: `core/player-zoom.js` (PLAYER_ZOOM_DEFAULT)
-403. `event/router/player-zoom.js` — cần: `event/bus.js` (eventBus)
-404. `event/listener/player-zoom.js` — cần: `core/dom-refs.js` (btnPlayerZoom, playerZoomSurface)
-405. `event/workflow/subtitle-display.js`
-406. `event/workflow/subtitle-style-settings.js`
-407. `event/router/subtitle-style-settings.js` — cần: `event/bus.js` (eventBus)
-408. `event/listener/subtitle-style-settings.js` — cần: `core/dom-refs.js` (genericDrawerBody)
-409. `event/workflow/eq-presets.js`
-410. `event/router/eq-presets.js` — cần: `event/bus.js` (eventBus)
-411. `event/listener/eq-presets.js` — cần: `core/dom-refs.js` (btnCycleEq)
+271. `event/workflow/info-icon.js`
+272. `event/router/info-icon.js` — cần: `event/bus.js` (eventBus)
+273. `event/listener/info-icon.js`
+274. `event/router/generic-drawer.js` — cần: `event/bus.js` (eventBus)
+275. `event/listener/generic-drawer.js` — cần: `core/dom-refs.js` (genericDrawerBody)
+276. `core/settings-misc-ui.js`
+277. `event/workflow/settings-misc.js`
+278. `event/router/settings-misc.js` — cần: `event/bus.js` (eventBus)
+279. `event/listener/settings-misc.js` — cần: `core/dom-refs.js` (btnLoadingShieldDebug, btnRestartApp)
+280. `event/workflow/playlist-order.js`
+281. `event/workflow/playlist-render.js`
+282. `event/workflow/playlist-scope.js` — cần: `service/db.js` (getAllSongRecords, getSongRecordsByKeys, getAllVideoRecords…)
+283. `event/workflow/filter-rule-edit.js`
+284. `event/workflow/playlist-filter-presets.js`
+285. `event/router/playlist-filter-presets.js` — cần: `event/bus.js` (eventBus)
+286. `event/listener/playlist-filter-presets.js` — cần: `core/dom-refs.js` (genericDrawerBody)
+287. `event/workflow/zip-download.js` — cần: `core/upload-validation.js` (MEDIA_FILE_MAX_BYTES)
+288. `event/router/zip-download.js` — cần: `event/bus.js` (eventBus)
+289. `event/workflow/media-in-use.js`
+290. `event/router/media-in-use.js` — cần: `event/bus.js` (eventBus)
+291. `event/workflow/file-manager-storage.js`
+292. `event/router/file-manager-storage.js` — cần: `event/bus.js` (eventBus)
+293. `event/workflow/file-manager-folder-browser.js` — cần: `core/ui-theme/icon-svg-ui.js` (iconSvg)
+294. `event/router/file-manager-folder-browser.js` — cần: `event/bus.js` (eventBus)
+295. `event/listener/file-manager-storage.js` — cần: `core/dom-refs.js` (genericDrawerBody)
+296. `event/workflow/visual-bg-photo-motion.js`
+297. `event/workflow/motion-presets.js`
+298. `event/router/motion-presets.js` — cần: `event/bus.js` (eventBus)
+299. `event/listener/motion-presets.js` — cần: `core/dom-refs.js` (genericDrawerBody, genericDrawerHeader)
+300. `event/workflow/motion-transition-runner.js`
+301. `event/workflow/motion-point-move-runner.js`
+302. `event/workflow/motion-beat-react-runner.js`
+303. `event/workflow/motion-stage.js`
+304. `event/workflow/video-motion-surface.js`
+305. `event/workflow/player-display-settings.js`
+306. `event/workflow/pagination.js`
+307. `event/workflow/visual-bg-common.js`
+308. `event/workflow/visual-bg-video.js` — cần: `event/workflow/visual-bg-common.js` (workflowVisualBg)
+309. `event/workflow/visual-bg-photo.js` — cần: `event/workflow/visual-bg-common.js` (workflowVisualBg)
+310. `event/router/visual-bg.js` — cần: `event/bus.js` (eventBus)
+311. `event/listener/visual-bg.js` — cần: `core/dom-refs.js` (genericDrawerBody, bgVideoElement)
+312. `event/workflow/gesture-settings.js`
+313. `event/router/gesture-settings.js` — cần: `event/bus.js` (eventBus)
+314. `event/listener/gesture-settings.js` — cần: `core/dom-refs.js` (genericDrawerBody)
+315. `event/workflow/video-thumb-extract.js`
+316. `event/workflow/photo-duration.js`
+317. `event/workflow/video-frame-capture.js`
+318. `event/workflow/file-manager-photo.js`
+319. `event/router/file-manager-photo.js` — cần: `event/bus.js` (eventBus)
+320. `event/workflow/image-edit.js`
+321. `event/router/image-edit.js` — cần: `event/bus.js` (eventBus)
+322. `event/listener/image-edit.js`
+323. `event/workflow/file-manager-cleanup.js`
+324. `event/router/file-manager-cleanup.js` — cần: `event/bus.js` (eventBus)
+325. `event/workflow/photo-gallery-window.js`
+326. `event/workflow/video-gallery-window.js`
+327. `event/workflow/player.js`
+328. `event/workflow/playlist.js` — cần: `core/ui-theme/icon-svg-ui.js` (iconSvg)
+329. `event/router/playlist.js` — cần: `event/bus.js` (eventBus)
+330. `event/listener/playlist.js` — cần: `core/dom-refs.js` (25 biến DOM)
+331. `event/workflow/app-settings.js`
+332. `event/router/app-settings.js` — cần: `event/bus.js` (eventBus)
+333. `event/workflow/placeholder-panels.js`
+334. `event/router/placeholder-panels.js` — cần: `event/bus.js` (eventBus)
+335. `event/listener/placeholder-panels.js` — cần: `core/dom-refs.js` (btnGamePanelClose, btnStatisPanelClose)
+336. `event/workflow/app-panel-nav.js`
+337. `event/router/app-panel-nav.js` — cần: `event/bus.js` (eventBus)
+338. `event/listener/app-panel-nav.js` — cần: `core/dom-refs.js` (appBottomNav)
+339. `event/workflow/video-player.js`
+340. `event/router/video-player.js` — cần: `event/bus.js` (eventBus)
+341. `event/listener/video-player.js` — cần: `core/dom-refs.js` (bgVideoElement, btnCaptureVideoFrame)
+342. `event/workflow/photo-player.js`
+343. `event/workflow/number-countup.js`
+344. `event/workflow/gameplay-engine.js`
+345. `event/workflow/gameplay.js` — cần: `core/dom-refs.js` (gameplayLayer)
+346. `event/router/gameplay.js` — cần: `event/bus.js` (eventBus)
+347. `event/listener/gameplay.js` — cần: `core/dom-refs.js` (gameplayTapSurface, btnGameplayExit)
+348. `event/workflow/game-catalog.js`
+349. `event/router/game-catalog.js` — cần: `event/bus.js` (eventBus)
+350. `event/listener/game-catalog.js` — cần: `core/dom-refs.js` (gamePanelList)
+351. `event/workflow/statis-panel.js`
+352. `event/router/statis-panel.js` — cần: `event/bus.js` (eventBus)
+353. `event/listener/statis-panel.js` — cần: `core/dom-refs.js` (statisPanelBody)
+354. `event/workflow/listen-stats.js`
+355. `event/workflow/player-controls.js`
+356. `event/router/player-controls.js` — cần: `event/bus.js` (eventBus)
+357. `event/listener/player-controls.js` — cần: `core/player-controls.js` (STACKED_SCREEN_LAYOUT_QUERY); `core/dom-refs.js` (10 biến DOM)
+358. `event/workflow/custom-effect.js`
+359. `event/workflow/element-style-editor.js`
+360. `event/workflow/visualizer-display.js`
+361. `event/router/visualizer-display.js` — cần: `event/bus.js` (eventBus)
+362. `event/listener/visualizer-display.js` — cần: `core/dom-refs.js` (btnCycleMode, genericDrawerBody)
+363. `event/router/custom-effect.js` — cần: `event/bus.js` (eventBus)
+364. `event/listener/custom-effect.js` — cần: `core/dom-refs.js` (genericDrawerBody, genericDrawerHeader)
+365. `event/router/visualizer-viewport.js` — cần: `event/bus.js` (eventBus)
+366. `event/listener/visualizer-viewport.js`
+367. `core/theme-background-ui.js`
+368. `event/workflow/theme.js`
+369. `event/router/theme.js` — cần: `event/bus.js` (eventBus)
+370. `event/listener/theme.js` — cần: `core/dom-refs.js` (appStack)
+371. `event/workflow/app-visibility.js`
+372. `event/router/app-visibility.js` — cần: `event/bus.js` (eventBus)
+373. `event/listener/app-visibility.js`
+374. `event/workflow/recorder.js`
+375. `event/router/recorder.js` — cần: `event/bus.js` (eventBus)
+376. `event/listener/recorder.js` — cần: `core/dom-refs.js` (btnRecordStart, btnRecorderStop)
+377. `event/workflow/perf-hud.js`
+378. `event/router/perf-hud.js` — cần: `event/bus.js` (eventBus)
+379. `event/listener/perf-hud.js`
+380. `event/workflow/sav-logo.js`
+381. `event/router/sav-logo.js` — cần: `event/bus.js` (eventBus)
+382. `event/listener/sav-logo.js` — cần: `core/dom-refs.js` (savLogo); `core/sav-logo.js` (hasRealHoverDevice)
+383. `event/workflow/language-settings.js`
+384. `event/router/language-settings.js` — cần: `event/bus.js` (eventBus)
+385. `event/listener/language-settings.js` — cần: `core/dom-refs.js` (3 biến DOM)
+386. `event/workflow/playlist-empty-state.js`
+387. `event/router/playlist-empty-state.js` — cần: `event/bus.js` (eventBus)
+388. `event/listener/playlist-empty-state.js` — cần: `core/dom-refs.js` (btnPlaylistEmptyPlay, btnPlaylistEmptyShuffle)
+389. `event/workflow/subtitle-modal.js`
+390. `event/workflow/auto-switch-visual.js`
+391. `event/router/auto-switch-visual.js` — cần: `event/bus.js` (eventBus)
+392. `event/listener/auto-switch-visual.js` — cần: `core/dom-refs.js` (genericDrawerBody)
+393. `event/router/visualizer-control-center.js` — cần: `event/bus.js` (eventBus)
+394. `event/listener/visualizer-control-center.js` — cần: `core/dom-refs.js` (3 biến DOM)
+395. `event/workflow/hud.js`
+396. `event/router/hud.js` — cần: `event/bus.js` (eventBus)
+397. `event/listener/hud.js` — cần: `core/dom-refs.js` (5 biến DOM)
+398. `event/workflow/visualizer-gesture.js` — cần: `core/dom-refs.js` (6 biến DOM)
+399. `event/router/visualizer-gesture.js` — cần: `event/bus.js` (eventBus)
+400. `event/listener/visualizer-gesture.js` — cần: `core/dom-refs.js` (visualizerGestureSurface)
+401. `event/workflow/player-zoom.js` — cần: `core/player-zoom.js` (PLAYER_ZOOM_DEFAULT)
+402. `event/router/player-zoom.js` — cần: `event/bus.js` (eventBus)
+403. `event/listener/player-zoom.js` — cần: `core/dom-refs.js` (btnPlayerZoom, playerZoomSurface)
+404. `event/workflow/subtitle-display.js`
+405. `event/workflow/subtitle-style-settings.js`
+406. `event/router/subtitle-style-settings.js` — cần: `event/bus.js` (eventBus)
+407. `event/listener/subtitle-style-settings.js` — cần: `core/dom-refs.js` (genericDrawerBody)
+408. `event/workflow/eq-presets.js`
+409. `event/router/eq-presets.js` — cần: `event/bus.js` (eventBus)
+410. `event/listener/eq-presets.js` — cần: `core/dom-refs.js` (btnCycleEq)
 
 </details>
 
@@ -652,11 +651,11 @@ sự kiện lúc nạp (cần `core/dom-refs.js`, đôi khi cần workflow của
 `event/workflow/app-boot.js` + `event/router/app-boot.js` **cuối cùng**: router `appBoot` phải đăng ký trước khi
 `DOMContentLoaded` bắn (sau khi toàn bộ script đồng bộ chạy xong).
 
-412. `event/workflow/app-cleanup.js`
-413. `event/tab.js`
-414. `event/workflow/ui-theme.js`
-415. `event/workflow/app-boot.js`
-416. `event/router/app-boot.js` — cần: `event/bus.js` (eventBus)
+411. `event/workflow/app-cleanup.js`
+412. `event/tab.js`
+413. `event/workflow/ui-theme.js`
+414. `event/workflow/app-boot.js`
+415. `event/router/app-boot.js` — cần: `event/bus.js` (eventBus)
 
 ## 3. `pages/subtitle-editor.html`
 

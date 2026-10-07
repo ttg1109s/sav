@@ -74,7 +74,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Folder | `core/file-manager/folder.js`, `folder-picker-ui.js`; cụm `fileManagerFolderBrowser` |
 | Quét/dọn file hỏng | `core/file-manager/cleanup.js`; cụm `fileManagerCleanup` |
 | Quản lý lưu trữ | `components/file-manager-storage.js`, `core/storage-manager.js`; cụm `fileManagerStorage` |
-| Tải zip | `core/streaming-zip.js`, worker `core/workers/opfs-zip-worker.js`, UI `core/zip-download-ui.js`, nhiều phần `components/zip-download-parts.js`, file lớn `core/large-file-download.js` + `sw.js`; cụm `zipDownload` |
+| Tải zip | `core/streaming-zip.js`, worker `core/workers/opfs-zip-worker.js`, UI `core/zip-download-ui.js`, nhiều phần `components/zip-download-parts.js`; cụm `zipDownload` |
 | Xuất ID3 | `core/id3-export.js` |
 | Thống kê nghe | `core/listen-stats.js`, `event/workflow/listen-stats.js`, state `service/state/listen-stats.js`; panel `components/statis-panel.js`, `core/statis-panel-ui.js`, cụm `statisPanel` |
 
@@ -150,6 +150,6 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Trang Subtitle Editor (`pages/subtitle-editor.html`) | `event/listener/subtitle-editor.js` → `event/router/subtitle-editor.js` → `event/workflow/subtitle-editor.js`; core `core/subtitle/subtitles*.js`, `subtitle-karaoke.js`, `core/audio-segment.js`; state `service/state/subtitle-editor.js`, `service/state/record/subtitle-editor.js` |
 | Trang Video Editor (`pages/video-editor.html`) | Cụm `videoPreview` (`event/*/video-preview.js`), `components/video-preview.js`; core `core/video-editor/*.js` (WebCodecs, filmstrip, OPFS tạm, kiểm tương thích); state `service/state/video-preview.js`, `service/state/record/video-editor.js` |
 | Build CSS Tailwind | `tailwind.config.js` ([tailwind-build.md](./tailwind-build.md)) |
-| Service Worker (tải file lớn) | `sw.js` |
+| Icon app (tab trình duyệt, màn hình chính iOS) | `assets/icon/favicon.png`, `assets/icon/apple-touch-icon.png` (180×180, nền đặc, không bo góc) |
 
 ← [Quay lại README](../README.md)
