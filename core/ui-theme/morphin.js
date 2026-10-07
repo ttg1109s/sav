@@ -24,8 +24,8 @@
  * sẽ vỡ layout mọi drawer/menu fixed.
  *
  * HẠN CHẾ: giống Dark — các file feature CÒN class màu cứng chưa migrate sẽ lẫn màu ở Morphin (xem "CÒN NỢ" cuối light.js).
- * Chữ trắng trên kính cần nền ĐỦ TỐI/ĐA SẮC: chọn Solid màu rất sáng (vd trắng) sẽ khó đọc. Class MỚI với Tailwind CDN được tiêm
- * bất đồng bộ — danh sách class của bộ này cũng nằm trong primer `#ui-theme-class-primer` (index.html); sửa bộ màu nhớ cập nhật primer.
+ * Chữ trắng trên kính cần nền ĐỦ TỐI/ĐA SẮC: chọn Solid màu rất sáng (vd trắng) sẽ khó đọc. Sửa bộ màu dùng class Tailwind chưa
+ * từng xuất hiện trong project thì build lại Tailwind (readme/tailwind-build.md).
  */
 const UI_THEME_MORPHIN = {
 

@@ -27,10 +27,9 @@
  * (slate/sky) chưa migrate — ở Dark các chỗ đó sẽ lẫn màu cũ cho tới khi migrate xong (xem "CÒN NỢ" cuối
  * light.js). Chỉ Light/Dark đang cho chọn (`UI_THEME_SELECTABLE_NAMES`, registry.js).
  *
- * LƯU Ý Tailwind CDN — class MỚI (chưa từng xuất hiện ở đâu trong app) được tiêm CSS BẤT ĐỒNG BỘ, lần đầu
- * chuyển sang Dark có thể thấy 1 khung hình chưa lên màu. Giảm thiểu bằng phần tử ẩn "primer" liệt kê MỌI
- * class của bộ này trong index.html (`#ui-theme-class-primer`) để CDN quét/tiêm sẵn lúc boot — KHI SỬA
- * BỘ MÀU DƯỚI ĐÂY nhớ cập nhật lại danh sách class ở primer đó.
+ * LƯU Ý Tailwind build sẵn (assets/css/tailwind.css) — tailwind.config.js quét cả file này, nên class viết NGUYÊN VẸN
+ * ở đây tự có CSS. Sửa bộ màu dùng class Tailwind chưa từng xuất hiện trong project thì build lại Tailwind
+ * (readme/tailwind-build.md).
  */
 const UI_THEME_DARK = {
 
