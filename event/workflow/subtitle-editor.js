@@ -1887,7 +1887,7 @@ const workflowSubtitleEditor = {
             localStorage.setItem('sav_editingSubtitle', 'true');
             localStorage.setItem('sav_scrollToSongKey', appState.get('_songKey'));
         }
-        window.location.href = 'index.html';
+        window.location.href = '../index.html'; // trang nằm trong pages/ (07/10/2026)
     },
 
     /** MỚI (yêu cầu Giang) — nút tải lại KHÔNG dùng cache. Hỏi xác nhận trước (modalChoice() có

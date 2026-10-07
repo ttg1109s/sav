@@ -1537,7 +1537,7 @@ const workflowPlaylist = {
         workflowPlaylist.closeActionMenu();
         // SỬA (06/10/2026, Giang — trình sửa video tách thành trang riêng video-editor.html, cùng khuôn subtitle-editor.html):
         // chuyển trang thay vì mở modal. Key mã hoá qua service/song-key-cipher.js (dùng chung, không riêng Song).
-        window.location.href = `video-editor.html?video=${encodeSongKeyForUrl(key)}`;
+        window.location.href = `pages/video-editor.html?video=${encodeSongKeyForUrl(key)}`;
     },
 
     /** MỚI (Giang yêu cầu — "thêm dropdown edit image -> mở openImagePreview()") — mirror ĐÚNG

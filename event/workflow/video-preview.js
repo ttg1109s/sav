@@ -144,7 +144,7 @@ function _loadVideoEditorScriptOnce(src) {
     return promise;
 }
 
-const MEDIABUNNY_VENDOR_PATH = 'assets/vendor/mediabunny.js';
+const MEDIABUNNY_VENDOR_PATH = '../assets/vendor/mediabunny.js'; // tương đối với pages/video-editor.html
 
 /** SỬA (Phase 1, 26/09/2026 — Giang: "Mediabunny offline luôn vào thư mục assets/vendor/") — chỉ
  * nạp file cục bộ. SỬA (cùng ngày, Giang báo lỗi thiếu thư viện) — trả LÝ DO cụ thể thay vì true/
@@ -176,7 +176,7 @@ async function _ensureMediabunnyLoaded() {
         try {
             const aacOk = await Mediabunny.canEncodeAudio('aac');
             if (!aacOk) {
-                const r = await _loadVideoEditorScriptOnce('assets/vendor/mediabunny-aac-encoder.js');
+                const r = await _loadVideoEditorScriptOnce('../assets/vendor/mediabunny-aac-encoder.js');
                 if (r.loaded && window.MediabunnyAacEncoder) {
                     MediabunnyAacEncoder.registerAacEncoder();
                     console.log('[_ensureMediabunnyLoaded] đã đăng ký encoder AAC (WASM) cho máy không tự encode được AAC');
@@ -1156,7 +1156,7 @@ const workflowVideoPreview = {
      * boot). @param {string|null} scrollKey */
     _leaveToPlaylist(scrollKey) {
         this._rememberScrollTarget(scrollKey);
-        window.location.href = 'index.html';
+        window.location.href = '../index.html'; // trang nằm trong pages/ (07/10/2026)
     },
 
     _rememberScrollTarget(scrollKey) {

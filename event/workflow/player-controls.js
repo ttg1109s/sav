@@ -183,7 +183,7 @@ const workflowPlayerControls = {
 
     /** MỚI (05/10/2026, Giang chốt — "về Playlist -> pause audioAnalysis + visualizerRender + ẩn ở lớp cha
      * visualizer") — gọi lúc Playlist đã trượt vào xong. Từ 05/10/2026 (lượt 2) #visualizer-ui cũng nằm trong lớp cha
-     * này (main.js) nên ẩn cùng. Media (Song/Video/Photo) VẪN phát tiếng. Bỏ qua ở desktop (2 cột
+     * này (components/app-mount.js) nên ẩn cùng. Media (Song/Video/Photo) VẪN phát tiếng. Bỏ qua ở desktop (2 cột
      * hiện song song) hoặc nếu lúc tới hẹn người dùng đã vào lại Visualizer. */
     _suspendVisualStage() {
         if (appStack.classList.contains('playlist-hidden')) return; // guard — đã vào lại Visualizer trước khi tới hẹn

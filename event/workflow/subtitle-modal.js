@@ -5,6 +5,6 @@
 const workflowSubtitleModal = {
     /** Lối vào duy nhất của Subtitle Editor. @param {string} songKey */
     navigateToEditor(songKey) {
-        window.location.href = `subtitle-editor.html?song=${encodeSongKeyForUrl(songKey)}`; // service/song-key-cipher.js
+        window.location.href = `pages/subtitle-editor.html?song=${encodeSongKeyForUrl(songKey)}`; // service/song-key-cipher.js
     },
 };
