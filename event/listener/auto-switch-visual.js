@@ -14,7 +14,10 @@
  * (components/settings/visualizer-auto-switch-drawer.js), mọi phần tử ĐỀU delegate trên `genericDrawerBody`:
  *   - 'change': 5 select/toggle theo ID + checkbox item (data-as-check) + dropdown style của group (data-as-group-style).
  *   - 'click' : nút mở time picker (data-as-seconds = tên field giây).
- * Kéo thả item gắn ở workflowVisualizerDisplay.openAutoSwitchPanel() (cần pointer capture trên từng tay cầm).
+ * Kéo thả item: SỬA (12/10/2026, plan-event-bus-wiring-07-10-2026 đợt 4) — trước đây
+ * workflowVisualizerDisplay.openAutoSwitchPanel() tự gắn 4 listener pointer lên từng tay cầm; nay delegate
+ * 'pointerdown'/'pointermove'/'pointerup'/'pointercancel' ở cuối file (Workflow gọi setPointerCapture qua core -ui
+ * nên các pha sau tới đúng tay cầm rồi nổi bọt lên đây).
  * Bỏ: 3 input số giây + 3 block ẩn/hiện theo timeMode (thay bằng time picker + vẽ lại panel).
  */
 
@@ -67,7 +70,40 @@ function handleAutoSwitchVisualDelegatedClick(e) {
     eventBus.send({ router: 'autoSwitchVisual', type: 'autoSwitchVisual.seconds.click', payload: { fieldName: btn.dataset.asSeconds } });
 }
 
+/** Tay cầm kéo của 1 item (`data-as-drag` = khoá item, components/settings/visualizer-auto-switch-drawer.js). */
+function _autoSwitchDragHandle(target) {
+    return target.closest ? target.closest('[data-as-drag]') : null;
+}
+
+/** MỚI (12/10/2026) — mỗi pha kéo 1 msg.type; `pointerdown` chặn mặc định (không cuộn/bôi chữ) như bản gắn trực tiếp cũ.
+ * listBy đọc thẳng dropdown của panel (cùng cách 'autoSwitchVisual.item.toggle'). */
+function handleAutoSwitchVisualDragPointerDown(e) {
+    const handle = _autoSwitchDragHandle(e.target);
+    if (!handle) return;
+    e.preventDefault();
+    eventBus.send({ router: 'autoSwitchVisual', type: 'autoSwitchVisual.drag.start', payload: { listBy: _autoSwitchPanelListBy(genericDrawerBody), key: handle.dataset.asDrag, clientY: e.clientY, handleEl: handle, pointerId: e.pointerId } });
+}
+
+function handleAutoSwitchVisualDragPointerMove(e) {
+    if (!_autoSwitchDragHandle(e.target)) return;
+    eventBus.send({ router: 'autoSwitchVisual', type: 'autoSwitchVisual.drag.move', payload: { clientY: e.clientY } });
+}
+
+function handleAutoSwitchVisualDragPointerUp(e) {
+    if (!_autoSwitchDragHandle(e.target)) return;
+    eventBus.send({ router: 'autoSwitchVisual', type: 'autoSwitchVisual.drag.end', payload: {} });
+}
+
+function handleAutoSwitchVisualDragPointerCancel(e) {
+    if (!_autoSwitchDragHandle(e.target)) return;
+    eventBus.send({ router: 'autoSwitchVisual', type: 'autoSwitchVisual.drag.cancel', payload: {} });
+}
+
 if (genericDrawerBody) { // SỬA (đợt migrate Visualizer Screen) — settingsStackBody nay thuộc Photo
     genericDrawerBody.addEventListener('change', handleAutoSwitchVisualDelegatedChange);
     genericDrawerBody.addEventListener('click', handleAutoSwitchVisualDelegatedClick);
+    genericDrawerBody.addEventListener('pointerdown', handleAutoSwitchVisualDragPointerDown); // MỚI 12/10/2026
+    genericDrawerBody.addEventListener('pointermove', handleAutoSwitchVisualDragPointerMove);
+    genericDrawerBody.addEventListener('pointerup', handleAutoSwitchVisualDragPointerUp);
+    genericDrawerBody.addEventListener('pointercancel', handleAutoSwitchVisualDragPointerCancel);
 }
