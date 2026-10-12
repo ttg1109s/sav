@@ -4,6 +4,16 @@ Nguồn: rà soát 07/10/2026 sau patch `sav-13-ui-batch-patch.zip` (Edit EQ). P
 nợ, KHÔNG đổi rule nào ([event-bus-flow.md](../event-bus-flow.md) mục 1, [core-function-conventions.md](../core-function-conventions.md)
 Rule 5a). Nợ được ghi ở [core-legacy-audit.md](../core-legacy-audit.md), mục "Rà wiring sự kiện trong Workflow (07/10/2026)".
 
+## 0. Tiến độ
+
+| Đợt | Trạng thái |
+|---|---|
+| 1 — EQ | Xong 12/10/2026 (`sav-13-wiring-wave1-eq-patch.zip`), chờ test máy |
+
+Câu chốt mục 6 (Giang, ghi ở cột Ghi chú của sổ nợ): (1) nhóm D — bỏ listener `input`, đọc `.value` trong `onClick`
+của `modalChoice()`; (2) nhóm F — miễn trừ CHỈ theo danh sách audit chính thức -> không miễn, phải sửa; (3) tính cả
+`subtitle-editor.js`; (4) mỗi đợt 1 patch.
+
 ## 1. Vấn đề
 
 `event-bus-flow.md` mục 1: CHỈ tầng Listener đăng ký sự kiện, và chỉ làm 1 việc là `eventBus.send()`. Luồng luôn đi
