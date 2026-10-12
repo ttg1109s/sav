@@ -1,45 +1,42 @@
 /**
- * Component: nội dung Generic Drawer cho "Karaoke timing" (event/workflow/subtitle-editor.js mở
- * qua nút "kr" mỗi dòng, xem core/subtitle/subtitles-ui.js::buildLineCard()) — MỚI (17/09/2026,
- * yêu cầu Giang). CÙNG khuôn components/eq-presets-drawer.js (string template, gọi t()/escapeHtml()
- * ngay lúc render — component KHÔNG tự addEventListener, Workflow tự querySelector + wire SAU mỗi
- * lần openGenericDrawer()/updateGenericDrawer(), xem docstring core/generic-drawer.js).
+ * Component: nội dung Generic Drawer "Karaoke timing" của subtitle-editor.html (mở qua nút "kr" mỗi dòng —
+ * core/subtitle/subtitles-ui.js::buildLineCard()). Chỉ trả chuỗi HTML (t()/escapeHtml() lúc render), KHÔNG gắn sự kiện —
+ * mọi thao tác trong drawer đi Listener ủy quyền trên genericDrawerHeader/genericDrawerBody (event/listener/subtitle-editor.js,
+ * selector `#karaoke-drawer-*`, `data-karaoke-*`).
  *
- * Body = 1 khung waveform mini (`#karaoke-mini-waveform`, Workflow tự tạo WaveSurfer + Regions bên
- * trong sau khi HTML này được gán — xem event/workflow/subtitle-editor.js::
- * _initKaraokeMiniWaveform(); SỬA 30/09/2026: waveform mini CÓ audio riêng — đúng đoạn dòng đó — nút
- * ▶ từng từ phát TRÊN chính nó) + danh sách hàng "từ | ô ms | nút ▶ nghe riêng từ đó" + nút "Áp
- * dụng" cuối (MỚI 30/09/2026: kèm nút "Bỏ áp dụng" bên trái nếu dòng đang có karaoke). Dòng CHƯA có chữ (không từ nào) -> chỉ hiện 1 dòng thông báo, không có waveform/nút Áp
- * dụng (Workflow đã chặn từ trước, không mở drawer cho trường hợp này — xem openKaraokeDrawer() —
- * nhánh này chỉ là lưới an toàn thứ 2).
+ * Body = khung waveform mini (`#karaoke-mini-waveform` — Workflow tự tạo WaveSurfer + Regions bên trong, đúng đoạn audio của
+ * dòng; nút ▶ từng từ phát trên chính đoạn đó) + danh sách hàng "từ | ô ms | nút ▶" + nút "Áp dụng" (kèm "Bỏ áp dụng" bên
+ * trái nếu dòng đang có karaoke). Dòng chưa có chữ -> 1 dòng thông báo (Workflow đã chặn không mở drawer — đây chỉ là lưới an
+ * toàn). Thêm: chữ của vùng TỪ và lớp núm kéo mốc chia trên waveform mini (Workflow chèn qua core/subtitle/
+ * subtitle-karaoke-drawer-ui.js).
  *
- * NẠP SAU: lang/lang.js (t()), core/modal-choice-ui.js (escapeHtml()), core/subtitle/
- * subtitle-karaoke.js (KARAOKE_MIN_WORD_MS, KARAOKE_MINI_HEIGHT_PX).
+ * NẠP SAU: lang/lang.js (t()), core/modal-choice-ui.js (escapeHtml()), core/subtitle/subtitle-karaoke.js
+ * (KARAOKE_MIN_WORD_MS, KARAOKE_MINI_HEIGHT_PX), components/generic-drawer.js (buildDrawerHeaderHtml).
  */
 
+/** Header dùng chung (nút X `#btn-generic-drawer-close`). */
 function renderKaraokeDrawerHeader() {
-    // SỬA 07/10/2026 — header dùng chung buildDrawerHeaderHtml() (components/generic-drawer.js)
     return buildDrawerHeaderHtml({ title: t('subtitleEditor.karaoke.title') });
 }
 
 /** @param {Array<{word: string, ms: number}>} words
- * @param {boolean} isApplied dòng ĐANG có karaoke đã Áp dụng -> hiện thêm nút "Bỏ áp dụng" (MỚI 30/09/2026) */
+ * @param {boolean} isApplied dòng ĐANG có karaoke đã Áp dụng -> hiện thêm nút "Bỏ áp dụng" */
 function renderKaraokeDrawerBody(words, isApplied) {
     if (words.length === 0) {
         return `<div class="px-4 py-6 text-sm text-center" data-uitk="textSecondary">${t('subtitleEditor.karaoke.noWords')}</div>`;
     }
-    // SỬA (30/09/2026, lần 3, Giang) — khối waveform mini:
+    // Khối waveform mini:
     //   - Sát mép (không gap/không bo góc) + `sticky top-0` ĐẦU body Drawer: cuộn danh sách từ bên dưới
     //     vẫn luôn thấy waveform (cùng cách preview của Element Style Editor, components/
     //     element-style-editor-drawer.js::_renderEsePreviewBox() — sticky, KHÔNG fixed thật). Body Drawer
     //     không có padding riêng nên dính đúng mép dưới header, không hở.
-    //   - Waveform KHÔNG cuộn bằng tay nữa (`touch-action: pan-y` — vuốt ngang không làm gì, không giành
+    //   - Waveform KHÔNG cuộn bằng tay (`touch-action: pan-y` — vuốt ngang không làm gì, không giành
     //     sự kiện với núm kéo mốc); dòng dài/nhiều từ cuộn ẢO qua thanh trượt `#karaoke-mini-scroll` bên
     //     dưới (chỉ hiện khi sóng rộng hơn khung — Workflow tự bật).
     //   - `#karaoke-mini-knobs`: lớp núm kéo mốc chia — NGOÀI khung sóng (khung sóng tự overflow-hidden,
     //     lớp này thì không) nên núm tròn nằm vắt ngang mép dưới, tràn ra ngoài khung. `padding-bottom`
     //     của khối chừa chỗ cho phần núm tràn xuống.
-    //   - `user-select: none` cả khối (SỬA lần 4, Giang): nhấn giữ/kéo trên sóng, chữ từ, núm, thanh trượt
+    //   - `user-select: none` cả khối: nhấn giữ/kéo trên sóng, chữ từ, núm, thanh trượt
     //     không bôi chọn chữ / hiện menu copy của iOS (phần bên trong Shadow DOM của WaveSurfer do
     //     Workflow chèn style riêng, xem _setupKaraokeMiniScroll()).
     // Style inline (không thêm class Tailwind mới — tailwind.css build sẵn).
@@ -70,13 +67,10 @@ function renderKaraokeDrawerBody(words, isApplied) {
     `;
 }
 
-/** 1 hàng "từ | ô ms | nút ▶" — 2 icon play/pause CÙNG khuôn PLAY_ICON_SVG (core/subtitle/
- * subtitles-ui.js) nhưng class RIÊNG (karaoke-word-play-icon/karaoke-word-pause-icon) — subtree
- * body Generic Drawer tách biệt hẳn danh sách dòng chính, không lo trùng querySelector.
- * SỬA (30/09/2026) — nút ▶ phát QUA waveform mini (không còn qua waveform chính của trang) nên dựng
- * sẵn `disabled`, Workflow mở khoá khi waveform mini sẵn sàng (lỗi -> giữ khoá). Dòng CHỈ 1 từ: ô ms
- * `readonly` (không có mốc nào để chỉnh — thời lượng luôn = cả dòng; trước đây gõ được nhưng giá trị
- * gõ không ăn, ô hiện số sai).
+/** 1 hàng "từ | ô ms | nút ▶" — 2 icon play/pause class RIÊNG (karaoke-word-play-icon/karaoke-word-pause-icon), không
+ * trùng querySelector với danh sách dòng chính. Nút ▶ phát qua waveform mini nên dựng sẵn `disabled`, Workflow mở khoá khi
+ * waveform mini sẵn sàng (lỗi -> giữ khoá). Dòng CHỈ 1 từ: ô ms `readonly` (không có mốc nào để chỉnh — thời lượng luôn =
+ * cả dòng).
  * @param {string} word @param {number} ms @param {number} index @param {boolean} isOnlyWord */
 function renderKaraokeWordRow(word, ms, index, isOnlyWord) {
     return `
@@ -89,4 +83,18 @@ function renderKaraokeWordRow(word, ms, index, isOnlyWord) {
             </button>
         </div>
     `;
+}
+
+/** Chữ của 1 từ, gắn vào vùng TỪ trên waveform mini (core/subtitle/subtitle-karaoke-drawer-ui.js::decorateKaraokeWordRegion()).
+ * Style inline — không thêm class Tailwind mới. @param {string} word */
+function renderKaraokeWordRegionLabel(word) {
+    return `<div style="width:100%;box-sizing:border-box;padding:3px 3px 0;font-size:11px;line-height:13px;font-weight:600;color:#334155;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 0 3px #fff,0 0 3px #fff;pointer-events:none">${escapeHtml(word)}</div>`;
+}
+
+/** `count` núm kéo mốc chia cho `#karaoke-mini-knobs` (`data-karaoke-knob` = chỉ số mốc). Núm vắt ngang mép dưới khung
+ * sóng, tràn ra ngoài; vùng chạm 28px (chấm tròn thật 12px) cho dễ bắt bằng ngón tay. Chấm tròn là phần tử con ĐẦU TIÊN
+ * (core/subtitle/subtitle-karaoke-drawer-ui.js::setKaraokeKnobGrabbed()). Vị trí do Workflow đặt (`_positionKaraokeKnobs()`).
+ * @param {number} count */
+function renderKaraokeKnobsHtml(count) {
+    return Array.from({ length: count }, (_, i) => `<div data-karaoke-knob="${i}" style="position:absolute;left:0;top:0;width:28px;height:28px;margin-left:-14px;margin-top:-14px;display:flex;align-items:center;justify-content:center;touch-action:none;pointer-events:auto;cursor:ew-resize"><div style="width:12px;height:12px;box-sizing:border-box;border-radius:9999px;background:#f59e0b;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .12s ease"></div></div>`).join('');
 }
