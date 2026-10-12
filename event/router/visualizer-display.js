@@ -1,13 +1,7 @@
 /**
- * event/router/visualizer-display.js — Router tên "visualizerDisplay".
- *
- * Cấu hình riêng effect (màu/blur/style con/kích thước) ĐÃ DỜI sang Custom Effect Drawer — case
- * tương ứng ĐÃ BỎ khỏi router này, xem event/workflow/custom-effect.js (wiring trực tiếp trong
- * Drawer, không qua eventBus). Router này giờ chỉ còn: độ mờ nền, cycle effect (hold mở Drawer/
- * click đổi effect — CÙNG khuôn event/router/eq-presets.js), volume, panel "Display". Case
- * 'visualizerDisplay.bgImage.toggle' (bật/tắt + chọn ảnh nền qua carousel) đã xoá — mồ côi từ
- * 07/07/2026, chọn ảnh nền giờ qua Theme card "Background" (Generic Drawer picker, xem
- * event/workflow/theme.js::pickNewBackgroundImage()).
+ * event/router/visualizer-display.js — Router tên "visualizerDisplay": cycle effect #btn-cycle-mode (giữ mở Custom
+ * Effect Drawer / bấm đổi effect — cùng khuôn event/router/eq-presets.js), volume (Control Center HUD), panel "Display"
+ * (Hiện Visual + 4 toggle UI chrome). Cấu hình riêng effect nằm ở Custom Effect Drawer (cụm 'customEffect').
  *
  * QUY TẮC RẼ NHÁNH: nghiệp vụ chỉ cần ĐÚNG 1 hàm core -> gọi THẲNG; cần shield/modal hoặc >1 hàm
  * core nối tiếp -> giao workflowVisualizerDisplay.
@@ -27,9 +21,6 @@ const routerVisualizerDisplay = (() => {
                 break;
             }
 
-            // XOÁ 12/10/2026 — case 'visualizerDisplay.openAutoSwitchPanel.click' (không còn listener nào gửi; method
-            // openAutoSwitchPanel() bỏ, kéo thả Auto-Switch đi router 'autoSwitchVisual.drag.*').
-
             // ===================== Cycle effect (#btn-cycle-mode) — CÙNG khuôn #btn-cycle-eq =====================
             case 'visualizerDisplay.cyclePress.start':
                 workflowCustomEffect.startHold();
@@ -44,12 +35,10 @@ const routerVisualizerDisplay = (() => {
                 workflowCustomEffect.onCycleModeClick();
                 break;
 
-            // DỌN 23/09/2026: case 'visualizerDisplay.bgBlur.input' ĐÃ XOÁ — blur ảnh nền đã bỏ hẳn (Giang: Morphin vốn đã mờ).
-
             // ===================== Volume (Control Center HUD) =====================
             case 'visualizerDisplay.volume.input': {
                 const { value } = msg.payload;
-                workflowAudioEngine.setVolume(value); // event/workflow/audio-engine.js — SỬA 01/10/2026: thay setVolume() core (đã xoá)
+                workflowAudioEngine.setVolume(value); // event/workflow/audio-engine.js
                 break;
             }
 

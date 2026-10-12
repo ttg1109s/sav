@@ -1,9 +1,8 @@
 /**
- * event/router/element-style-editor.js — Router cụm "elementStyleEditor" (MỚI 12/10/2026, plan-event-bus-wiring-
- * 07-10-2026 đợt 5) — nội dung Generic Drawer "Element Style Editor", nhận thư từ event/listener/element-style-editor.js,
- * giao hết cho `workflowElementStyleEditor` (mọi thao tác đọc/ghi draft `eseDraft` + vẽ lại Drawer — (B) Workflow,
- * readme/event-bus-flow.md mục 4). Mỗi case gọi ĐÚNG việc mà callback tự gắn cũ (`_wire()`...) đã làm.
- * (Cửa mở công cụ — `workflowElementStyleEditor.open()` — vẫn do Workflow domain khác gọi thẳng như trước.)
+ * event/router/element-style-editor.js — Router cụm "elementStyleEditor" — nội dung Generic Drawer "Element Style
+ * Editor", nhận thư từ event/listener/element-style-editor.js, giao hết cho `workflowElementStyleEditor` (mọi thao tác
+ * đọc/ghi draft `eseDraft` + vẽ lại Drawer — (B) Workflow, readme/event-bus-flow.md mục 4). Cửa mở công cụ —
+ * `workflowElementStyleEditor.open()` — do Workflow domain khác gọi thẳng.
  *
  * NẠP SAU: event/bus.js, event/workflow/element-style-editor.js. NẠP TRƯỚC: event/listener/element-style-editor.js.
  */

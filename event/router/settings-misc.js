@@ -1,53 +1,39 @@
 /**
  * event/router/settings-misc.js — Router tên "settingsMisc", tự đăng ký với eventBus lúc nạp.
  *
- * Gộp các nhánh nhỏ của Settings vào 1 router (không phải vì cùng nghiệp vụ, mà vì mỗi nhánh quá nhỏ để
- * xứng đáng 1 router/listener riêng — quyết định gom nhóm đã thống nhất, xem plan.md):
- *   - `debugConsole`  — xem/copy/xoá log console trong app.
- *   - `appRecovery`   — Khởi động lại app / Khôi phục cài đặt mặc định.
- * [21/09/2026] Nhánh `aboutDrawer` ĐÃ XOÁ (nút mở không còn tồn tại trong UI Settings).
- *
- * Ver 12 "Multi Media": nhánh `storageDrawer` ("Quản lý dung lượng") đã DỜI sang cụm "fileManagerSong"
- * (event/router/file-manager-song.js, plan-v12-multimedia.md mục 3).
+ * Gộp các nhánh nhỏ của Settings vào 1 router (mỗi nhánh quá nhỏ để xứng đáng 1 router/listener riêng):
+ *   - `debugConsole`  — xem/copy/xoá log console trong app (kể cả lối tắt mở cưỡng chế trên loading shield).
+ *   - `appRecovery`   — Khởi động lại app / Khôi phục cài đặt mặc định / Xoá cache.
  *
  * QUY TẮC RẼ NHÁNH:
  *   - Nghiệp vụ CHỈ CẦN ĐÚNG 1 HÀM CORE -> router tự gọi thẳng, BỎ QUA workflow.
  *   - Cần >1 hàm core (hoặc modal/shield) -> router giao cho workflowSettingsMisc.
  *
- * NẠP SAU: event/bus.js, core/app-recovery.js, core/debug-console.js (MỚI
- * 18/07/2026 — getDebugConsoleLogs/clearDebugConsoleLogs), core/settings-panel-stack-ui.js (cần
- * pushSettingsPanel),
- * components/debug-console-drawer.js (MỚI — cần renderDebugConsolePanelBody), lang/lang.js
- * (cần t()), event/workflow/settings-misc.js (cần workflowSettingsMisc tồn tại).
- * NẠP TRƯỚC: event/listener/settings-misc.js.
+ * NẠP SAU: event/bus.js, core/app-recovery.js, core/debug-console.js, components/debug-console-drawer.js, lang/lang.js,
+ * event/workflow/settings-misc.js. NẠP TRƯỚC: event/listener/settings-misc.js.
  */
 const routerSettingsMisc = (() => {
     /** @param {import('../bus.js').EventMessage} msg */
     function handle(msg) {
         switch (msg.type) {
 
-            // MỚI (18/07/2026, Giang yêu cầu — xem log console ngay trong app).
             case 'settingsMisc.debugConsole.open': {
                 workflowSettingsMisc.openDebugConsole(); // >1 hàm core (push panel + đọc buffer + wire nút) -> workflow
                 break;
             }
 
-            // MỚI (10/09/2026, Giang yêu cầu — lối tắt cưỡng chế mở Debug Console ngay trên layer
-            // loading shield, xem docstring workflowSettingsMisc.forceOpenDebugConsole()).
+            // Lối tắt cưỡng chế mở Debug Console ngay trên layer loading shield (workflowSettingsMisc.forceOpenDebugConsole()).
             case 'settingsMisc.debugConsole.forceOpen': {
                 workflowSettingsMisc.forceOpenDebugConsole();
                 break;
             }
-            // MỚI (12/10/2026, plan-event-bus-wiring đợt 2) — nút X của Debug Console mở cưỡng chế (event/listener/
-            // settings-misc.js). Gọi thẳng helper đóng (trước đây chính callback Workflow tự gắn gọi hàm này).
+            // Nút X của Debug Console mở cưỡng chế (event/listener/settings-misc.js) — đóng hẳn Generic Drawer.
             case 'settingsMisc.debugConsole.forceClose.click': {
                 workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
                 break;
             }
 
-            // MỚI (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow")
-            // — nút Copy/Xoá wire 1 lần ở core/settings-misc-ui.js, KHÔNG còn gán trực tiếp trong
-            // Workflow.
+            // Nút Copy all / Clear all — wire 1 lần ở core/settings-misc-ui.js.
             case 'settingsMisc.debugConsole.copy.click': {
                 workflowSettingsMisc.copyDebugConsoleLog();
                 break;
@@ -57,24 +43,18 @@ const routerSettingsMisc = (() => {
                 break;
             }
 
-            // MỚI (20/09/2026) — Copy/Xoá TỪNG DÒNG log (delegate trên #debug-console-list, xem
-            // core/settings-misc-ui.js). Rẽ nhánh theo payload.action của CHÍNH message này.
-            case 'settingsMisc.debugConsole.page.change': { // MỚI 23/09/2026 — thanh phân trang Debug console
+            case 'settingsMisc.debugConsole.page.change': { // thanh phân trang Debug console
                 workflowSettingsMisc.setDebugConsolePage(msg.payload.pageIndex);
                 break;
             }
 
+            // Copy/Xoá TỪNG DÒNG log (delegate trên #debug-console-list, core/settings-misc-ui.js) — rẽ theo payload.action.
             case 'settingsMisc.debugConsole.item.click': {
                 const { action, id, btnEl } = msg.payload;
                 if (action === 'copy') workflowSettingsMisc.copyDebugConsoleItem(id, btnEl);
                 else if (action === 'remove') workflowSettingsMisc.removeDebugConsoleItem(id);
                 break;
             }
-
-            // (aboutDrawer.close ĐÃ XOÁ — đóng About giờ dùng CHUNG 'settingsStackNav.back.click'
-            // cho MỌI panel, xem event/router,workflow/settings-stack-nav.js)
-
-            // (storageDrawer đã dời sang cụm "fileManagerSong" — xem header comment ở trên)
 
             // ===================== appRecovery =====================
 
@@ -102,7 +82,7 @@ const routerSettingsMisc = (() => {
                 break;
             }
 
-            // MỚI (14/07/2026, Giang yêu cầu — "nút xoá cache js/css cho page")
+            // Xoá cache js/css của trang.
             case 'settingsMisc.clearCache.click': {
                 workflowSettingsMisc.askClearCache({
                     onConfirmSend: () => eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.clearCache.confirm', payload: {} })
@@ -114,9 +94,6 @@ const routerSettingsMisc = (() => {
                 executeClearCache(); // core/app-recovery.js — async, không cần await ở đây (router không giữ gì sau lệnh gọi)
                 break;
             }
-
-            // (05/10/2026) 2 case 'settingsMisc.perfProbe.*' ĐÃ DỜI — Performance HUD có router riêng 'perfHud'
-            // (event/router/perf-hud.js), không còn sống ký gửi ở cụm settingsMisc.
 
             default:
                 console.warn(`[router:settingsMisc] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`);

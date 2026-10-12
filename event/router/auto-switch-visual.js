@@ -1,19 +1,14 @@
 /**
- * event/router/auto-switch-visual.js — Router tên "autoSwitchVisual".
- *
- * Batch D3 (Settings restructure, 06/07/2026) — core đã refactor Rule 1-4 đầy đủ (Batch D2 CHỐT
- * áp dụng chung), không còn tự gọi core khác nội bộ — cả 4 msg.type giờ ĐỔI sang gọi workflow
- * (event/workflow/auto-switch-visual.js), KHÔNG còn gọi thẳng core như trước.
+ * event/router/auto-switch-visual.js — Router tên "autoSwitchVisual" (panel Auto-Switch Effect + sub panel "Effect
+ * list"). Mọi msg.type giao workflowAutoSwitchVisual (event/workflow/auto-switch-visual.js).
  */
 const routerAutoSwitchVisual = (() => {
     function handle(msg) {
         switch (msg.type) {
-            // VIẾT LẠI (26/09/2026, Giang "cải tiến lại Auto-Switch Effect") — thêm listBy/item/groupStyle/fixedKind/
-            // seconds picker; bỏ 'secondsField.change' (3 input số giây cũ).
             case 'autoSwitchVisual.enable.change':
                 workflowAutoSwitchVisual.setEnabled(msg.payload.checked);
                 break;
-            case 'autoSwitchVisual.openList.click': // MỚI 26/09/2026 — sub panel "Effect list"
+            case 'autoSwitchVisual.openList.click': // sub panel "Effect list"
                 workflowAutoSwitchVisual.openListPanel();
                 break;
             case 'autoSwitchVisual.listBy.change':
@@ -28,7 +23,7 @@ const routerAutoSwitchVisual = (() => {
             case 'autoSwitchVisual.item.move':
                 workflowAutoSwitchVisual.moveItem(msg.payload.listBy, msg.payload.fromKey, msg.payload.toKey);
                 break;
-            // MỚI 12/10/2026 (plan-event-bus-wiring đợt 4) — kéo thả item, từng pha 1 msg.type (event/listener/auto-switch-visual.js)
+            // Kéo thả item — từng pha 1 msg.type (event/listener/auto-switch-visual.js)
             case 'autoSwitchVisual.drag.start':
                 workflowAutoSwitchVisual.startItemDrag(msg.payload);
                 break;

@@ -1,16 +1,11 @@
 /**
  * event/router/eq-presets.js — Router tên "eqPresets".
  *
- * SỬA (12/08/2026, Giang yêu cầu "gộp eq edit vào hold 3s") — case 'eqPresets.openDrawer.click' cũ
- * (1 nút riêng #btn-edit-eq, ĐÃ BỎ) THAY bằng 3 case 'eqPresets.cyclePress.*' (start/end/cancel,
- * ứng pointerdown/pointerup/pointercancel+leave trên DUY NHẤT #btn-cycle-eq) chỉ lo ĐẾM GIỜ giữ —
- * 'eqPresets.cycle.click' (ứng sự kiện `click` DOM thật, GIỮ NGUYÊN — xem docstring event/
- * listener/eq-presets.js lý do không gộp vào pointerup) mới THẬT SỰ chạy cyclePreset() (qua
- * onCycleClick(), có chặn nếu vừa giữ đủ 1.5s) — xem event/workflow/eq-presets.js.
- *
- * SỬA (12/10/2026, plan-event-bus-wiring-07-10-2026 đợt 1) — thêm các case 'eqPresets.list.*' / 'eqPresets.edit.*' cho
- * nội dung Generic Drawer (trước đây Workflow tự gắn sự kiện, bỏ qua Router) — mỗi case gọi ĐÚNG method mà callback cũ
- * của `_wireListView()`/`_wireEditView()` đã gọi.
+ * Nút #btn-cycle-eq: 3 case 'eqPresets.cyclePress.*' (start/end/cancel — pointerdown/pointerup/pointercancel+leave)
+ * chỉ lo ĐẾM GIỜ giữ 1.5s; 'eqPresets.cycle.click' (sự kiện `click` DOM thật — xem docstring event/listener/eq-presets.js
+ * lý do tách khỏi pointerup) mới chạy cyclePreset() (qua onCycleClick(), có chặn nếu vừa giữ đủ 1.5s).
+ * Các case 'eqPresets.list.*' / 'eqPresets.edit.*' — nội dung Generic Drawer List/Edit (event/listener/eq-presets.js
+ * ủy quyền).
  *
  * NẠP SAU: event/bus.js, event/workflow/eq-presets.js.
  * NẠP TRƯỚC: event/listener/eq-presets.js.
@@ -30,10 +25,10 @@ const routerEqPresets = (() => {
             case 'eqPresets.cycle.click':
                 workflowEqPresets.onCycleClick();
                 break;
-            case 'eqPresets.list.page.change': // MỚI 23/09/2026 — thanh phân trang của List (core/pagination-ui.js)
+            case 'eqPresets.list.page.change': // thanh phân trang của List (core/pagination-ui.js)
                 workflowEqPresets.setListPage(msg.payload.pageIndex);
                 break;
-            // --- MỚI 12/10/2026 — nội dung Drawer (event/listener/eq-presets.js ủy quyền) ---
+            // --- nội dung Drawer (event/listener/eq-presets.js ủy quyền) ---
             case 'eqPresets.list.close.click':
                 workflowEqPresets.closeDrawer();
                 break;
