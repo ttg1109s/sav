@@ -19,7 +19,7 @@ Rule 5a). Nợ được ghi ở [core-legacy-audit.md](../core-legacy-audit.md),
 | 6b-1 — Nhóm F: thay bằng API Promise | Xong 12/10/2026 (`sav-13-wiring-wave6b1-promise-api-patch.zip`), chờ test máy — `new Image()` onload/onerror → `img.decode()` (core -ui MỚI `core/image-load-ui.js`), `FileReader` → `file.text()` (`importSrtFile`) |
 | 6b-2 — `subtitle-editor.js` 2 modal (Split/Shift) | Chưa làm — Giang chọn phương án A: chuyển sang `modalChoice()`, markup sang `components/`, đọc `.value`/radio trong `onClick` |
 | 6b-3 — Nhóm F: đối tượng tạo động | Xong 13/10/2026 (`sav-13-wiring-wave6b3-dynamic-objects-patch.zip`), chờ test máy — Giang chọn (y): adapter `core/dynamic-object-ui.js` (ngoại lệ chính thức, event-bus-flow.md); `track 'ended'` → `core/recorder-ui.js::wireRecorderMicEnded()` |
-| 6b-4 — Nhóm F: phần tử tĩnh | Chưa làm — audio/video chính, `window` (`player-controls.js` `_waitMediaEvent`, `player.js`, `video-player.js`, `visual-bg-video.js`): phương án (b) danh sách chờ ở Workflow, chờ Giang duyệt |
+| 6b-4 — Nhóm F: phần tử tĩnh | Xong 13/10/2026 (`sav-13-wiring-wave6b4-media-wait-patch.zip`), chờ test máy — cụm MỚI `mediaWait` (Listener gắn sẵn 4 sự kiện của `audioPlayer`/`bgVideoElement` → Router → `workflowMediaWait.notify()`; Workflow đăng ký lượt chờ bằng `once()`/`wait()`), core -ui MỚI `core/media-element-ui.js` (gán src/tua/phát) |
 
 Câu chốt mục 6 (Giang, ghi ở cột Ghi chú của sổ nợ): (1) nhóm D — bỏ listener `input`, đọc `.value` trong `onClick`
 của `modalChoice()`; (2) nhóm F — miễn trừ CHỈ theo danh sách audit chính thức -> không miễn, phải sửa; (3) tính cả
