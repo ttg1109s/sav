@@ -1,21 +1,18 @@
 /**
  * event/workflow/video-thumb-extract.js — Workflow DÙNG CHUNG đọc kích thước/thời lượng + chụp 2 thumbnail của 1 file
- * video (khung đầu full-res + thumb vuông). TÁCH (06/10/2026, Giang — tách trình sửa video thành trang riêng
- * video-editor.html) NGUYÊN VẸN từ event/workflow/playlist.js: trang editor cần đúng hàm này lúc Lưu nhưng không thể nạp
- * cả workflowPlaylist (phụ thuộc toàn bộ index.html). Không đổi logic — chỉ đổi tên public:
- *   - `extractVideoThumbAndMeta(file)` -> `extract(file)` (workflowPlaylist.extractVideoThumbAndMeta() giữ tên cũ, gọi sang đây).
- *   - `_probeVideoFrame(source)` -> `probeFrame(source)` (workflowPlaylist._probeVideoFrame() giữ tên cũ, gọi sang đây —
- *     workflowFileManagerStorage._classifyThumbBlob() vẫn gọi qua tên cũ).
+ * video (khung đầu full-res + thumb vuông). File riêng (không nằm trong playlist.js) vì trang video-editor.html cần
+ * đúng hàm này lúc Lưu nhưng không nạp được cả workflowPlaylist. Public: `extract(file)`, `probeFrame(source)`
+ * (workflowPlaylist.extractVideoThumbAndMeta()/_probeVideoFrame() gọi sang đây).
  * Dùng ở: index.html (upload video, Scan & fix video thumbnails) + video-editor.html (Lưu).
  *
- * NẠP SAU: service/task-manager.js. Không phụ thuộc gì khác của index.html.
+ * `<video>` tạm + sự kiện của nó đi qua core/dynamic-object-ui.js (ngoại lệ chính thức — đối tượng tạo động).
+ *
+ * NẠP SAU: service/task-manager.js, core/dynamic-object-ui.js. Không phụ thuộc gì khác của index.html.
  */
-/** DỜI từ event/workflow/file-manager-video.js (file đó đã xoá) — cạnh thumbnail vuông cố định
- * cho video upload, dùng bởi `uploadVideos()`/`extractVideoThumbAndMeta()` bên dưới. */
+/** Cạnh thumbnail vuông cố định của video (`extract()`). */
 const VIDEO_THUMBNAIL_SIZE = 320;
 
-/** MỚI (19/09/2026) — hằng số cho việc chụp KHUNG HÌNH ĐẦU video lúc upload (`extractVideoThumbAndMeta()`
- * và các hàm `_captureFirstFrame()`/`_probeVideoFrame()` cùng file). */
+/** Hằng số chụp KHUNG HÌNH ĐẦU video (`extract()`, `_captureFirstFrame()`, `probeFrame()`). */
 const VIDEO_MAX_CANVAS_PIXELS = 16777216; // trần diện tích canvas của Safari/iOS (4096×4096) — vượt là canvas không dùng được (ảnh đen)
 const VIDEO_PROBE_SIZE = 32; // cạnh canvas nhỏ dùng đo alpha + độ sáng của khung vừa vẽ
 const VIDEO_BLACK_PIXEL_LUMA = 26; // pixel coi là "đen" khi luma ≤ ngưỡng (~10% dải 0–255 — cùng mặc định pix_th của ffmpeg blackdetect)
@@ -26,33 +23,22 @@ const VIDEO_FIRST_FRAME_MAX_MEDIA_TIME_SEC = 0.25; // khung rVFC đầu có medi
 const VIDEO_FIRST_FRAME_MAX_ATTEMPTS = 12; // số lần thử ở đường dự phòng / thumb vuông
 const VIDEO_FIRST_FRAME_RETRY_MS = 150; // khoảng cách giữa 2 lần thử
 const VIDEO_SEEK_TIMEOUT_MS = 3000; // đợi 'seeked' tối đa
-const VIDEO_EXTRACT_TIMEOUT_MS = 10000; // timeout tổng 1 file (trước đây 8000)
+const VIDEO_EXTRACT_TIMEOUT_MS = 10000; // timeout tổng 1 file
 
 const workflowVideoThumbExtract = {
-    // ===================== Chụp khung hình đầu video lúc upload — VIẾT LẠI (19/09/2026) =====================
-    // Giang chốt "quan trọng nhất là lấy chính xác frame đầu khi upload để làm full res". Bản cũ chụp ở
-    // sự kiện nào tới trước (loadeddata/canplay/seeked) rồi KHÓA LUÔN bằng cờ, không nhìn vào pixel —
-    // khung chưa sẵn sàng thì `drawImage()` không vẽ gì (canvas trong suốt), JPEG ép nền ĐEN, blob vẫn
-    // khác null nên lọt vào record. Bản mới: (1) chụp qua ĐÚNG đường player sẽ hiện — phát từ t=0 rồi lấy
-    // khung ĐẦU TIÊN mà trình duyệt thật sự present (requestVideoFrameCallback, có `mediaTime`), không
-    // seek epsilon; (2) kiểm tra ngay sau khi vẽ: alpha=0 -> KHÔNG vẽ được (thử lại), alpha đủ + đen ->
-    // đen (thử lại vài lần rồi coi là đen THẬT, vd fade-in); (3) canvas không vượt trần 16.777.216 px của
-    // Safari/iOS, và luôn thu nhỏ về 0 sau khi dùng; (4) `<video>` được giải phóng thật sự (gỡ src + load()).
+    // ===================== Chụp khung hình đầu video =====================
+    // Mục tiêu: lấy CHÍNH XÁC khung đầu làm thumb full-res. (1) Chụp qua ĐÚNG đường player sẽ hiện — phát từ t=0 rồi
+    // lấy khung ĐẦU TIÊN trình duyệt thật sự present (requestVideoFrameCallback, có `mediaTime`), không seek epsilon;
+    // (2) kiểm tra ngay sau khi vẽ: alpha=0 -> KHÔNG vẽ được (thử lại), alpha đủ + đen -> đen (thử lại vài lần rồi coi
+    // là đen THẬT, vd fade-in); (3) canvas không vượt trần 16.777.216 px của Safari/iOS, luôn thu nhỏ về 0 sau khi
+    // dùng; (4) `<video>` được giải phóng thật sự (gỡ src + load()).
 
     /** Đợi 1 sự kiện của `<video>` hoặc hết `timeoutMs`. @returns {Promise<boolean>} true nếu sự kiện bắn, false nếu hết giờ. */
     _waitVideoEvent(videoEl, eventName, timeoutMs) {
+        const wait = listenEventOnce(videoEl, eventName); // core/dynamic-object-ui.js
         return new Promise((resolve) => {
-            let done = false;
-            const onEvent = () => finish(true);
-            const finish = (ok) => {
-                if (done) return;
-                done = true;
-                videoEl.removeEventListener(eventName, onEvent);
-                timer.kill();
-                resolve(ok);
-            };
-            const timer = taskManager.once(() => finish(false), timeoutMs);
-            videoEl.addEventListener(eventName, onEvent, { once: true });
+            const timer = taskManager.once(() => { wait.cancel(); resolve(false); }, timeoutMs);
+            wait.promise.then(() => { timer.kill(); resolve(true); });
         });
     },
 
@@ -216,48 +202,40 @@ const workflowVideoThumbExtract = {
      *     mode sẽ hiện lúc bắt đầu phát (dùng làm lớp nền dự phòng lúc Next/Prev, xem
      *     workflowVideoPlayer.swapBgVideoSource()). Chụp bằng `_captureFirstFrame()`.
      *   - `thumbBlob`: thumb VUÔNG `VIDEO_THUMBNAIL_SIZE` (center-crop), mốc `min(1, duration/2)` — lưới/cover.
-     * `width`/`height` trả về là kích thước GỐC của video (KHÔNG phải kích thước thumb). Đặt ở Workflow
-     * (không phải core) vì cần `<video>`/`canvas` — DOM API, core không được đụng theo Rule 1-4.
+     * `width`/`height` trả về là kích thước GỐC của video (KHÔNG phải kích thước thumb).
+     * `<video>` được giải phóng thật (pause + gỡ src + load()) ở MỌI đường thoát, timeout tổng VIDEO_EXTRACT_TIMEOUT_MS.
      *
-     * VIẾT LẠI (19/09/2026, Giang: "quan trọng nhất là lấy chính xác frame đầu khi upload") — bản cũ chụp ở
-     * sự kiện tới trước (loadeddata/canplay/seeked), khóa bằng cờ, không nhìn pixel; hỏng ở ~10% video
-     * (khung chưa sẵn sàng -> drawImage không vẽ gì -> JPEG đen; hoặc frame đầu có timestamp > 0 nên seek
-     * 0.0001 không có khung để hiện). Xem các hàm `_captureFirstFrame()`/`_probeVideoFrame()` ngay trên.
-     * `<video>` giờ được giải phóng thật (pause + gỡ src + load()) ở MỌI đường thoát, timeout tổng
-     * VIDEO_EXTRACT_TIMEOUT_MS (trước đây 8000ms).
-     *
-     * Reject nếu không đọc được video / không vẽ được khung nào / toBlob null (như bản 18/09/2026) — nơi gọi
-     * (`uploadVideos()`) skip đúng file đó, KHÔNG lưu record.
+     * Reject nếu không đọc được video / không vẽ được khung nào / toBlob null — nơi gọi (`uploadVideos()`) skip đúng
+     * file đó, KHÔNG lưu record.
      * Tên PUBLIC (bỏ `_`) vì TÁI DÙNG chéo miền: `workflowFileManagerStorage.executeRepairBroken()` gọi lại
      * đúng hàm này để tạo lại thumb cho video ĐÃ lưu (event-bus-flow.md mục 4B).
      * @param {File|Blob} file - File lúc upload MỚI, hoặc `record.blob` của 1 video ĐÃ LƯU.
      * @returns {Promise<{thumbBlob: Blob, thumbFullBlob: Blob, thumbFullIsBlack: boolean, width: number, height: number, duration: number}>}
-     *   `thumbFullIsBlack` (MỚI 19/09/2026): khung đầu VẼ ĐƯỢC nhưng đen sau nhiều lần chụp = đen THẬT — nơi gọi
+     *   `thumbFullIsBlack`: khung đầu VẼ ĐƯỢC nhưng đen sau nhiều lần chụp = đen THẬT — nơi gọi
      *   ghi xuống record (`saveVideo()`/`setVideoThumbnails()`) để scan không báo lỗi lặp.
      */
     extract(file) {
         return new Promise((resolve, reject) => {
             const objectUrl = URL.createObjectURL(file);
-            const videoEl = document.createElement('video');
-            videoEl.muted = true;
-            videoEl.playsInline = true;
-            videoEl.preload = 'auto';
+            const videoEl = createDetachedVideoElement(); // core/dynamic-object-ui.js
+            const errorWait = listenEventOnce(videoEl, 'error'); // core/dynamic-object-ui.js
+            let metaWait = null;
             let settled = false;
             const dispose = () => {
-                try { videoEl.pause(); videoEl.removeAttribute('src'); videoEl.load(); } catch (e) {} // giải phóng decoder thật sự, không chờ GC
+                errorWait.cancel();
+                if (metaWait) metaWait.cancel();
+                releaseMediaElement(videoEl); // core/dynamic-object-ui.js — giải phóng decoder thật sự, không chờ GC
                 try { URL.revokeObjectURL(objectUrl); } catch (e) {}
             };
             const safetyTimeout = taskManager.once(() => fail(new Error('[extractVideoThumbAndMeta] timeout đọc video')), VIDEO_EXTRACT_TIMEOUT_MS);
             const fail = (err) => { if (settled) return; settled = true; safetyTimeout.kill(); dispose(); reject(err); };
             const succeed = (result) => { if (settled) return; settled = true; safetyTimeout.kill(); dispose(); resolve(result); };
-            videoEl.addEventListener('error', () => fail(new Error('[extractVideoThumbAndMeta] không đọc được video')), { once: true });
+            errorWait.promise.then(() => fail(new Error('[extractVideoThumbAndMeta] không đọc được video')));
 
             (async () => {
                 try {
-                    await new Promise((resolveMeta) => {
-                        videoEl.addEventListener('loadedmetadata', resolveMeta, { once: true });
-                        videoEl.src = objectUrl;
-                    });
+                    metaWait = loadMediaElementMetadata(videoEl, objectUrl); // core/dynamic-object-ui.js
+                    await metaWait.promise;
                     const width = videoEl.videoWidth, height = videoEl.videoHeight;
                     if (!width || !height) throw new Error('[extractVideoThumbAndMeta] video không có kích thước hợp lệ');
 

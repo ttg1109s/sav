@@ -1,144 +1,65 @@
 /**
- * event/workflow/video-preview.js — Workflow "videoPreview". Modal xem/sửa Video kiểu Story: trạng
- * thái xem (video tràn màn hình + rail dọc) và 2 công cụ Cắt / Cắt khung (mỗi lúc 1 công cụ, xem mục
- * SỬA 26/09/2026 dưới).
+ * event/workflow/video-preview.js — Workflow "videoPreview" của trang video-editor.html (không nạp ở index.html).
+ * Trình sửa Video kiểu Story: thẻ video khít đúng tỉ lệ nội dung (`_fitCardToContent()`), hàng công cụ ngang ở đáy thẻ,
+ * dải seek ngoài màn xem (`handleOuterSeekPointerDown()`/`_renderOuterSeek()`, chạy trong đoạn Start..End).
  *
- * SỬA (29/09/2026, Giang) — BỎ HẲN zoom-pan (Panzoom) trong editor: không còn session, không còn
- * reset/snapshot zoom. Thêm nút Chụp (Capture) ở hàng công cụ — bắn ĐÚNG event Control Center
- * 'videoPlayer.captureFrame.click' (kèm `sourceVideoEl` = `<video>` của editor), xem
- * core/file-manager/video-ui.js + event/workflow/video-player.js::captureCurrentFrame().
+ * Vào trang = `bootFromUrl()` (?video=<key mã hoá>, service/song-key-cipher.js); "đóng" = quay về index.html
+ * (`_reallyClose()` -> `_leaveToPlaylist()`, cuộn tới đúng item qua localStorage `sav_editingSubtitle` +
+ * `sav_scrollToSongKey` — cùng cơ chế subtitle-editor.html, xem event/listener/render.js).
  *
- * `open()` bọc TOÀN BỘ trong `withLoadingShield()` (core/loading-shield-util.js) — chỉ tắt shield
- * SAU KHI modal đã dựng xong VÀ đã có metadata thật (crop/trim sẵn sàng tương tác), không
- * chỉ sau khi DOM append xong.
+ * `open()` bọc TOÀN BỘ trong `withLoadingShield()` (core/loading-shield-util.js) — chỉ tắt shield SAU KHI modal đã dựng
+ * xong VÀ đã có metadata thật; `<video>` không có metadata sau VIDEO_PREVIEW_METADATA_TIMEOUT_MS -> báo + quay về.
+ * Hiện % lúc tải (chuẩn bị + trích dải phim) và lúc xuất (tiến độ Conversion + chụp thumb/ghi DB).
  *
- * `this._modalHandle`/`this._beforeToolSnapshot`/`this._resolveMetadataReady` giữ TRỰC TIẾP trên
- * object Workflow (KHÔNG qua appState — không phải dữ liệu nghiệp vụ tuần tự hoá được).
+ * Công cụ: ĐÚNG 1 công cụ tại 1 thời điểm (`videoPreviewActiveTool` 'none'|'trim'|'crop'), thoát qua Huỷ/Xong ở topbar
+ * (`handleToolOpen/Cancel/Done`). Snapshot trước khi mở công cụ (`_beforeToolSnapshot`) dùng CHUNG cho Cắt lẫn Cắt
+ * khung — Huỷ khôi phục cả cờ `videoPreviewHasUnsavedChanges`. Không có Undo/Redo; Đặt lại (menu "•••",
+ * `handleMoreClick`) phải xác nhận qua `modalChoice()`. Xoay/Lật áp LIVE lên `<video>` (+ canvas Crop khi đang Cắt
+ * khung). Nút Chụp lưu khung hiện tại thành ảnh (workflowVideoFrameCapture). Không có zoom-pan.
  *
- * SỬA (05/08/2026, đợt 5, phản hồi Giang):
- * - MỤC 1 — "loại bỏ toàn bộ tính năng undo/redo, giữ nút reset [+ cảnh báo]": bỏ hẳn
- *   `videoPreviewHistorySession`/`core/edit-history.js` (KHÔNG còn Workflow nào dùng file đó nữa —
- *   RÁC, đề nghị Giang tự xoá `core/edit-history.js` + dòng `<script>` tương ứng trong index.html đã
- *   gỡ sẵn ở patch này). `_buildSnapshot()`/`_applySnapshot()` VẪN GIỮ — phục vụ RIÊNG cơ chế khôi
- *   phục lúc Huỷ công cụ (`_beforeToolSnapshot`, KHÔNG phải Undo/Redo, xem comment tại đó). Reset giờ
- *   bắt buộc qua `modalChoice()` xác nhận trước khi chạy — trước đó KHÔNG hề có bước xác nhận nào.
- * - MỤC 2 — "zoom-pan kéo ra bị 'phóng to/thu nhỏ kích thước' chứ không 'zoom' như ảnh": so với
- *   Photo Edit (nơi Panzoom chạy ĐÚNG, xem `core/file-manager/photo-ui.js::openImagePreviewModal()`
- *   → `.photo-preview-image`, `position:absolute; inset:0`), tìm ra 2 khác biệt CỤ THỂ, đã sửa cả 2
- *   (CHƯA có cách tự kiểm chứng lại trên máy thật — cần Giang xác nhận):
- *   (a) `initPanzoomSession(videoEl, ...)` TRƯỚC ĐÂY gọi trong lúc `videoEl` VẪN CÒN class `hidden`
- *       (`display:none`) — `getBoundingClientRect()` của phần tử `display:none` LUÔN trả về
- *       `{0,0,0,0}`, khiến Panzoom đo kích thước SAI ngay lúc khởi tạo (`contain:'outside'` cần đo
- *       đúng để tính giới hạn pan/zoom) — giờ dời xuống SAU dòng gỡ `hidden`.
- *   (b) `videoEl`/`posterEl` TRƯỚC ĐÂY là block tĩnh thường (`w-full h-full`, KHÔNG `position:
- *       absolute`) — khác `.photo-preview-image` (`position:absolute; inset:0`, pin cứng theo khung
- *       chứa). Đã thêm `absolute inset-0` cho cả 2 (xem components/video-preview.js) — khớp tuyệt
- *       đối cách Photo Edit đang chạy đúng.
+ * Xuất: `Mediabunny.Conversion` (core/video-editor/webcodecs-engine.js) ghi thẳng vào file tạm OPFS
+ * (core/video-editor/opfs-temp.js; không hỗ trợ -> RAM). Mediabunny nạp OFFLINE từ assets/vendor/mediabunny.js (+ tuỳ
+ * chọn assets/vendor/mediabunny-aac-encoder.js khi máy không tự encode được AAC). Lưu 2 bước: viên chọn kiểu lưu
+ * (`handleSaveModeClick` -> Lưu đè / Video mới, state `videoPreviewSaveMode`, mặc định 'asNew') + nút "Lưu"
+ * (`handleSaveClick` -> `_runSave()`), toàn bộ trong shield. Thumb qua workflowVideoThumbExtract; Lưu đè qua
+ * `replaceVideoMedia()`; Video mới vào folder Video đang Scope (meta `activePlayListFolder`). Xong: báo rồi quay về,
+ * cuộn tới video vừa lưu.
  *
- * SỬA (26/09/2026, Giang — "cải tổ editor video theo hướng Story Facebook", chốt: GIỮ tỉ lệ gốc,
- * chỉ đổi UI/UX, làm KHUNG UI trước; layer chữ/sticker sau này hiện SUỐT video):
- * - Bỏ mô hình "Cut luôn hiện + Crop toggle song song". Giờ ĐÚNG 1 công cụ tại 1 thời điểm
- *   (`videoPreviewActiveTool` 'none'|'trim'|'crop'), mở từ rail dọc, thoát qua Huỷ/Xong ở topbar
- *   (`handleToolOpen/Cancel/Done`) — thay `modalChoice` Áp dụng/Huỷ lúc tắt Crop cũ. Snapshot
- *   trước khi mở công cụ (`_beforeToolSnapshot`) dùng CHUNG cho cả Cắt lẫn Cắt khung, Huỷ khôi phục
- *   cả cờ `videoPreviewHasUnsavedChanges` về đúng giá trị trước đó (trước đây Huỷ Crop vẫn bật cờ).
- * - Mỗi lần đổi công cụ, `#video-preview-media-wrap` đổi kích thước (topbar/panel dưới hiện/ẩn) →
- *   `_renderTransformPreview()` tính lại hệ số scale xoay 90°/270° theo khung MỚI.
- * - (Từng thêm Tắt tiếng — ĐÃ BỎ 27/09/2026 theo yêu cầu Giang; engine vẫn nhận `muteAudio` tuỳ chọn), rail mở
- *   rộng nhãn (`handleRailExpandClick`), biểu tượng Play giữa màn hình (`handleVideoPlayState`).
- * - Lật khi đang Cắt khung giờ đồng bộ lại canvas Crop (trước đây nút Lật trong dải tỉ lệ chỉ lật
- *   `<video>`, canvas Crop KHÔNG lật theo → khung crop lệch khỏi hình).
+ * `this._modalHandle`/`this._beforeToolSnapshot`/`this._resolveMetadataReady` giữ TRỰC TIẾP trên object Workflow (KHÔNG
+ * qua appState — không phải dữ liệu nghiệp vụ tuần tự hoá được).
  *
- * PHASE 1 (26/09/2026, Giang):
- * - Engine xuất mới (`Mediabunny.Conversion`, core/video-editor/webcodecs-engine.js) ghi thẳng vào
- *   file tạm OPFS (core/video-editor/opfs-temp.js; máy không hỗ trợ -> RAM). Mediabunny nạp OFFLINE từ
- *   assets/vendor/mediabunny.js (+ tuỳ chọn assets/vendor/mediabunny-aac-encoder.js nếu máy không tự
- *   encode được AAC).
- * - Hiện % lúc tải video vào edit (các bước chuẩn bị + trích dải phim, dải phim giờ trích TRONG
- *   shield) và lúc xuất (tiến độ Conversion + bước chụp thumb/ghi DB) — `loadingText` (tiền lệ
- *   workflowPlaylist.uploadVideos()).
- * - Lưu: bọc trong shield (hết bấm Lưu 2 lần/đóng modal giữa chừng), thumb dùng lại
- *   `workflowPlaylist.extractVideoThumbAndMeta()` (có timeout + thumb full-res), Lưu đè qua
- *   `replaceVideoMedia()` (giữ customName...), Lưu mới gắn vào folder Video đang scope, xong thì
- *   làm mới playlist + ĐÓNG modal (như nút Chia sẻ của Story — nguồn trong modal đã cũ sau khi lưu).
- * - Zoom-pan = CHẾ ĐỘ XEM + hệ toạ độ gắn chữ/sticker sau này (Giang chốt), KHÔNG vào file xuất —
- *   `_computeCropFraction()` (trộn pan CSS-px với crop px gốc, sai đơn vị) thay bằng
- *   `_computeCropRect()` chỉ đọc khung crop. Panzoom chuyển sang `stageEl` (bọc poster + video) để
- *   không giẫm transform xoay/lật trên `<video>`. Mở Cắt khung thì đưa zoom về 1 (khung crop không
- *   zoom theo).
- * - `<video>` lỗi/không có metadata sau 15s -> đóng modal + báo, không kẹt shield.
- * - Guard crop pointerMove/Up khi chưa có session (listener document bắn MỌI lúc toàn app -> trước
- *   đây TypeError ở mỗi lần chạm khi modal đóng).
- *
- * UI LẦN 2 (26/09/2026, Giang gửi ảnh chụp editor Story Facebook thật): bỏ rail dọc + nút mở rộng
- * nhãn (`handleRailExpandClick`, state `videoPreviewRailExpanded`). Hàng công cụ ngang ở đáy thẻ
- * video; Đặt lại dời vào menu "•••" (`handleMoreClick`). Lưu tách 2 bước kiểu FB "Bạn bè" + "Chia
- * sẻ": viên chọn kiểu lưu (`handleSaveModeClick` -> dropdown Lưu đè / Video mới, state
- * `videoPreviewSaveMode`, mặc định 'asNew' — an toàn, không đè mất bản gốc) + nút xanh "Lưu"
- * (`handleSaveClick` -> `_runSave(kiểu đang chọn)`). Nhãn Âm lượng cố định (icon tự đổi theo tắt/bật).
- *
- * TÁCH TRANG (06/10/2026, Giang — "tách trình editor video thành một trang html riêng, tham khảo subtitle editor";
- * sau đó chốt BỎ hẳn hướng đa clip, giữ đơn giản): Workflow này giờ chạy trên video-editor.html (không còn nạp ở
- * index.html). Vào trang = `bootFromUrl()` (?video=<key mã hoá>, service/song-key-cipher.js); "đóng modal" = quay về
- * index.html (`_reallyClose()` -> `_leaveToPlaylist()`, cùng cơ chế cuộn tới đúng item của subtitle-editor.html:
- * localStorage `sav_editingSubtitle` + `sav_scrollToSongKey` — tên cờ giữ nguyên, xem event/listener/render.js).
- * Lưu xong: báo kết quả rồi quay về, cuộn tới video vừa lưu (Lưu mới -> key mới). Bỏ những gì chỉ có ở index.html:
- * `mediaInUse` (index nạp lại từ đầu khi quay về), `workflowVideoPlayer.refreshVideoPlaylistIfActive()`; folder đích của
- * "Video mới" đọc từ meta `activePlayListFolder` trong DB (index.html tự ghi mỗi lần đổi Scope); thumb qua
- * workflowVideoThumbExtract, nút Chụp qua workflowVideoFrameCapture (2 workflow dùng chung, tách từ index).
- * Cùng đợt: thẻ video khít đúng tỉ lệ nội dung (`_fitCardToContent()`, hết mép đen thừa) + dải seek ngoài màn xem
- * (`handleOuterSeekPointerDown()`/`_renderOuterSeek()`, chạy trong đoạn Start..End).
- *
- * NẠP SAU: core/file-manager/video-ui.js, core/media-transform.js (gộp crop-selector.js +
- * image-zoom.js + cycleRotation(), 04/08/2026), core/video-editor/compat-guard.js/filmstrip.js/
- * webcodecs-engine.js, core/video-player-capture.js, core/file-manager/video.js/image.js, service/state/
- * video-preview.js, service/blob-url.js, event/workflow/media-transform-helpers.js (đổi tên từ
- * crop-ratio-helpers.js).
+ * NẠP SAU: core/file-manager/video-ui.js, core/media-transform.js, core/video-editor/compat-guard.js/filmstrip.js/
+ * webcodecs-engine.js, core/video-player-capture.js, core/file-manager/video.js/image.js, core/dynamic-object-ui.js,
+ * service/state/video-preview.js, service/blob-url.js, event/workflow/media-transform-helpers.js.
  */
-// SỬA (06/10/2026, Giang #4: "lấy tổng time của video / 10 lấy được các mốc khung ảnh lưu tạm vào ram") — 14 -> 10 ô,
-// mốc ô thứ i = i × thời lượng/10 (core/video-editor/filmstrip.js). Ô nào không trích được ảnh: tạm hiện ảnh của ô gần
-// nhất (không còn ô đen), rồi trích LẠI ở giữa ô khi thả tay cầm Start/End (`_refillMissingFilmstripFrames()`).
+// Dải phim 10 ô (giữ trong RAM): mốc ô thứ i = i × thời lượng/10 (core/video-editor/filmstrip.js). Ô nào không trích được ảnh: tạm hiện ảnh của ô gần
+// nhất (không để ô đen), rồi trích LẠI ở giữa ô khi thả tay cầm Start/End (`_refillMissingFilmstripFrames()`).
 const FILMSTRIP_FRAME_COUNT = 10;
 const FILMSTRIP_THUMB_H = 56;              // = chiều cao dải phim (assets/css/video-preview.css)
 const FILMSTRIP_REFILL_OFFSET = 0.5;       // trích lại tại GIỮA ô (mốc đầu ô đã không có khung)
 const MIN_TRIM_DURATION = 0.3; // giây — khoảng cách tối thiểu giữa Start/End
 
-const VIDEO_PREVIEW_METADATA_TIMEOUT_MS = 15000; // Phase 1 — quá hạn chờ `<video>` báo metadata thì coi như hỏng, không kẹt shield
+const VIDEO_PREVIEW_METADATA_TIMEOUT_MS = 15000; // quá hạn chờ `<video>` báo metadata thì coi như hỏng, không kẹt shield
 
-/** Nạp 1 file script cục bộ. Thành công thì nhớ lại (không nạp lần 2); THẤT BẠI thì KHÔNG nhớ —
- * SỬA (26/09/2026, Giang báo "library is missing"): bản trước cache luôn cả promise thất bại, nên
- * chép file vào assets/vendor/ SAU lần mở đầu tiên vẫn báo thiếu cho tới khi tải lại trang.
- * Bắt thêm lỗi CHẠY script (vd tải nhầm bản .mjs/ESM hoặc bản CommonJS cho Node — script vẫn "load"
- * nhưng ném SyntaxError/ReferenceError, không tạo biến global) để báo đúng nguyên nhân lên màn hình.
+/** Nạp 1 file script cục bộ (core/dynamic-object-ui.js::loadScriptFile()). Thành công thì nhớ lại (không nạp lần 2);
+ * THẤT BẠI thì KHÔNG nhớ — chép file vào assets/vendor/ sau lần mở đầu vẫn nạp lại được mà không cần tải lại trang.
+ * Lỗi CHẠY script (nhầm bản .mjs/ESM hoặc bản Node — vẫn "load" nhưng không tạo biến global) trả về `runError` để báo
+ * đúng nguyên nhân lên màn hình.
  * @param {string} src @returns {Promise<{loaded: boolean, runError: (string|null)}>} */
 function _loadVideoEditorScriptOnce(src) {
     window._videoEditorScriptPromises = window._videoEditorScriptPromises || {};
+    window._videoEditorScriptRetry = window._videoEditorScriptRetry || {};
     if (window._videoEditorScriptPromises[src]) return window._videoEditorScriptPromises[src];
-    const promise = new Promise((resolve) => {
-        const el = document.createElement('script');
-        let runError = null;
-        // file:// (origin mờ) trình duyệt che tên file trong lỗi -> lỗi không có filename phát ra giữa
-        // lúc gắn thẻ và 'load' cũng tính là của file này.
-        const onRunError = (e) => {
-            if (!e.filename || e.filename.indexOf(src) !== -1) runError = e.message || String(e.error) || 'Script error';
-        };
-        window.addEventListener('error', onRunError);
-        const done = (loaded) => {
-            window.removeEventListener('error', onRunError);
-            if (!loaded || runError || (src === MEDIABUNNY_VENDOR_PATH && !window.Mediabunny)) { // lần sau thử lại từ đầu
-                el.remove();
-                delete window._videoEditorScriptPromises[src];
-                window._videoEditorScriptRetry[src] = true;
-            }
-            resolve({ loaded, runError });
-        };
-        // Lần thử lại sau 1 lần hỏng: thêm tham số chống cache — không thì trình duyệt trả lại đúng bản
-        // file sai đã nhớ, dù Giang đã chép đè bản đúng.
-        window._videoEditorScriptRetry = window._videoEditorScriptRetry || {};
-        el.src = window._videoEditorScriptRetry[src] ? `${src}?retry=${Date.now()}` : src;
-        el.onload = () => done(true);
-        el.onerror = () => { console.error(`[_loadVideoEditorScriptOnce] không tìm thấy/không tải được "${src}"`); done(false); };
-        document.head.appendChild(el);
+    // Lần thử lại sau 1 lần hỏng: thêm tham số chống cache — không thì trình duyệt trả lại đúng bản file sai đã nhớ.
+    const url = window._videoEditorScriptRetry[src] ? `${src}?retry=${Date.now()}` : src;
+    const promise = loadScriptFile(src, url).then(({ loaded, runError, el }) => { // core/dynamic-object-ui.js
+        if (!loaded) console.error(`[_loadVideoEditorScriptOnce] không tìm thấy/không tải được "${src}"`);
+        if (!loaded || runError || (src === MEDIABUNNY_VENDOR_PATH && !window.Mediabunny)) { // lần sau thử lại từ đầu
+            removeScriptElement(el); // core/dynamic-object-ui.js
+            delete window._videoEditorScriptPromises[src];
+            window._videoEditorScriptRetry[src] = true;
+        }
+        return { loaded, runError };
     });
     window._videoEditorScriptPromises[src] = promise;
     return promise;
@@ -146,9 +67,7 @@ function _loadVideoEditorScriptOnce(src) {
 
 const MEDIABUNNY_VENDOR_PATH = '../assets/vendor/mediabunny.js'; // tương đối với pages/video-editor.html
 
-/** SỬA (Phase 1, 26/09/2026 — Giang: "Mediabunny offline luôn vào thư mục assets/vendor/") — chỉ
- * nạp file cục bộ. SỬA (cùng ngày, Giang báo lỗi thiếu thư viện) — trả LÝ DO cụ thể thay vì true/
- * false để thông báo chỉ đúng chỗ sai:
+/** Nạp Mediabunny OFFLINE (chỉ file cục bộ assets/vendor/). Trả LÝ DO cụ thể để thông báo chỉ đúng chỗ sai:
  *   'mediabunnyMissing'    — không tìm thấy file (sai tên/sai thư mục/chưa chép).
  *   'mediabunnyWrongBuild' — file có nhưng không tạo `window.Mediabunny` (tải nhầm bản .mjs/ESM hoặc
  *                            bản cho Node; cần bản `dist/bundles/mediabunny.cjs`). Kèm lỗi chạy script.
@@ -165,7 +84,7 @@ async function _ensureMediabunnyLoaded() {
         }
     }
     if (!(Mediabunny.VideoSample && Mediabunny.VideoSample.prototype && typeof Mediabunny.VideoSample.prototype.setFlip === 'function')) {
-        // Quên bản cũ để lần mở sau nạp lại file (Giang chép đè bản mới không cần tải lại trang).
+        // Quên bản đã nạp để lần mở sau nạp lại file (chép đè bản mới không cần tải lại trang).
         window.Mediabunny = undefined;
         delete window._videoEditorScriptPromises[MEDIABUNNY_VENDOR_PATH];
         window._videoEditorScriptRetry[MEDIABUNNY_VENDOR_PATH] = true;
@@ -198,23 +117,23 @@ function _formatVideoPreviewTime(seconds) {
 
 /** Icon dùng riêng cho dropdown Lưu (core/dropdown-menu.js — nhận sẵn chuỗi SVG, không tự build). */
 function _svgIcon(name) {
-    return iconSvg(name, 'h-5 w-5'); // core/theme/icon-svg-ui.js — SỬA 07/10/2026: kho icon chung
+    return iconSvg(name, 'h-5 w-5'); // core/theme/icon-svg-ui.js — kho icon chung
 }
 
 const workflowVideoPreview = {
     _modalHandle: null,
-    _beforeToolSnapshot: null, // { snapshot, hadUnsaved } lúc mở Cắt/Cắt khung — Huỷ khôi phục (RIÊNG, không phải Undo/Redo — mục đó đã bỏ hẳn 05/08/2026)
+    _beforeToolSnapshot: null, // { snapshot, hadUnsaved } lúc mở Cắt/Cắt khung — Huỷ khôi phục (không có Undo/Redo)
     _resolveMetadataReady: null,
-    _filmstripUrls: [], // Phase 1 — blob URL ảnh dải phim, revoke khi đóng modal (trước đây rò rỉ 14 URL/lần mở)
-    _filmstripRefilling: false, // MỚI 06/10/2026 — đang trích lại ô thiếu ảnh (chỉ 1 lượt 1 lúc)
-    _dragResumePlay: false, // SỬA (05/08/2026, mục 6) — nhớ lại video đang play hay pause TRƯỚC khi kéo tay cầm/tua, để nhả tay cầm KHÔNG tự auto-play nếu trước đó đang pause
+    _filmstripUrls: [], // blob URL ảnh dải phim, revoke khi đóng modal
+    _filmstripRefilling: false, // đang trích lại ô thiếu ảnh (chỉ 1 lượt 1 lúc)
+    _dragResumePlay: false, // video đang play hay pause TRƯỚC khi kéo tay cầm/tua — nhả tay chỉ tự play lại nếu trước đó đang play
 
     /** Cập nhật dòng chữ shield thành "... N%". @param {string} key @param {number} percent */
     _setShieldPercent(key, percent) {
         loadingText.textContent = tFormat(key, { percent: Math.max(0, Math.min(100, Math.round(percent))) }); // dom-refs (tiền lệ workflowPlaylist.uploadVideos())
     },
 
-    /** MỚI (06/10/2026) — vào trang video-editor.html: đọc `?video=` rồi mở editor; không mở được -> báo (open() tự báo
+    /** Vào trang video-editor.html: đọc `?video=` rồi mở editor; không mở được -> báo (open() tự báo
      * lý do) rồi quay về Playlist. Gọi 1 lần từ event/listener/video-preview.js qua router. */
     async bootFromUrl() {
         const encoded = new URLSearchParams(window.location.search).get('video');
@@ -224,7 +143,7 @@ const workflowVideoPreview = {
         if (!opened) this._leaveToPlaylist(videoKey);
     },
 
-    /** @param {string} videoKey @returns {Promise<boolean>} true = editor đã mở (SỬA 06/10/2026 — trước đây không trả gì) */
+    /** @param {string} videoKey @returns {Promise<boolean>} true = editor đã mở */
     async open(videoKey) {
         let failKey = null; // key thông báo lỗi — báo SAU khi shield tắt
         let failDetail = ''; // chi tiết kỹ thuật kèm theo (vd lỗi chạy file thư viện) — hiện luôn lên màn hình
@@ -264,10 +183,10 @@ const workflowVideoPreview = {
 
             const metadataOk = await metadataReadyPromise; // true = crop/trim đã dựng xong; false = `<video>` lỗi/quá hạn
             metadataTimeout.kill();
-            if (!metadataOk) { this._disposeModal(); failKey = 'videoPreview.metadataFailed'; return; } // SỬA 06/10/2026 — chỉ dọn, bootFromUrl() tự quay về sau khi báo
+            if (!metadataOk) { this._disposeModal(); failKey = 'videoPreview.metadataFailed'; return; } // chỉ dọn, bootFromUrl() tự quay về sau khi báo
             pct(35);
 
-            // Dải phim trích TRONG shield (Phase 1 — Giang: hiện % lúc tải video vào edit) — bước tốn
+            // Dải phim trích TRONG shield (hiện % lúc tải video vào edit) — bước tốn
             // thời gian nhất, % chạy 35 -> 100 theo từng khung trích xong.
             try {
                 await this._renderFilmstripFrames((done, total) => pct(35 + (done / (total || 1)) * 65));
@@ -297,12 +216,11 @@ const workflowVideoPreview = {
         appState.set('videoPreviewCropSession', cropSession);
 
         // Chuyển từ poster tĩnh sang video thật (đứng yên tại khung hình 0 — KHÔNG auto-play).
-        // (29/09/2026 — zoom-pan Panzoom đã bỏ hẳn, không còn init gì trên `stageEl`.)
         this._modalHandle.posterEl.classList.add('hidden');
         this._modalHandle.videoEl.classList.remove('hidden');
 
         this._renderTrimPositions();
-        this._renderTransformPreview(); // MỚI 06/10/2026 — thẻ video khít tỉ lệ ngay khi biết kích thước thật
+        this._renderTransformPreview(); // thẻ video khít tỉ lệ ngay khi biết kích thước thật
 
         if (this._resolveMetadataReady) { this._resolveMetadataReady(true); this._resolveMetadataReady = null; }
     },
@@ -343,8 +261,8 @@ const workflowVideoPreview = {
     },
 
     /** Vẽ lại 10 ô từ RAM: ô thiếu ảnh mượn ảnh của ô gần nhất có ảnh (không còn dải đen).
-     * #video-preview-filmstrip-frames TÁCH RIÊNG khỏi #video-preview-filmstrip-track (SỬA 04/08/2026) — track không còn
-     * overflow:hidden nên 2 tay cầm ở 0%/100% không bị cắt mất nửa; container riêng này mới overflow:hidden để bo góc. */
+     * #video-preview-filmstrip-frames TÁCH RIÊNG khỏi #video-preview-filmstrip-track — track không overflow:hidden nên 2
+     * tay cầm ở 0%/100% không bị cắt mất nửa; container riêng này mới overflow:hidden để bo góc. */
     _renderFilmstripCells() {
         const slots = appState.get('videoPreviewFilmstripFrames');
         const framesEl = this._modalHandle.filmstripFramesEl;
@@ -368,7 +286,7 @@ const workflowVideoPreview = {
         return null;
     },
 
-    /** MỚI (06/10/2026, Giang #4: "cập nhật khi start/end trim kết thúc") — thả tay cầm Start/End: ô nào vẫn thiếu ảnh
+    /** Thả tay cầm Start/End: ô nào vẫn thiếu ảnh
      * (và chưa trích lại lần nào) được trích LẠI ở giữa ô, chạy nền (không shield), xong vẽ lại dải. Mỗi ô chỉ thử lại 1
      * lần — vẫn không có khung thì giữ ảnh mượn của ô gần nhất. */
     async _refillMissingFilmstripFrames() {
@@ -407,21 +325,21 @@ const workflowVideoPreview = {
         this._modalHandle.startHandleEl.style.left = `${leftPx}px`;
         this._modalHandle.endHandleEl.style.left = `${trackWidth - rightPx}px`;
         this._modalHandle.trimLengthLabelEl.textContent = _formatVideoPreviewTime(cutEnd - cutStart); // độ dài đoạn đang chọn (panel Cắt)
-        this._renderOuterSeek(this._modalHandle.videoEl.currentTime); // MỚI 06/10/2026 — độ dài đoạn đổi -> dải seek ngoài đổi theo
+        this._renderOuterSeek(this._modalHandle.videoEl.currentTime); // độ dài đoạn đổi -> dải seek ngoài đổi theo
     },
 
     // ===================== Cut: tay cầm Start/End =====================
 
     /** @param {string} handle - 'start' | 'end' */
     handleTrimDragStart(handle) {
-        this._dragResumePlay = appState.get('videoPreviewIsPlaying'); // nhớ lại TRƯỚC khi pause (mục 6)
+        this._dragResumePlay = appState.get('videoPreviewIsPlaying'); // nhớ lại TRƯỚC khi pause
         appState.set('videoPreviewActiveDrag', handle);
         this._modalHandle.videoEl.pause();
         appState.set('videoPreviewIsPlaying', false);
     },
 
     /** Ấn/tua trong dải phim (NGOÀI 2 tay cầm Start/End) — nhảy playhead tới đó ngay, kéo tiếp thì
-     * tua tiếp (mục 7, phản hồi Giang). Bắn TỪ `filmstripTrackEl` nên bubbling qua CẢ click trên tay
+     * tua tiếp. Bắn TỪ `filmstripTrackEl` nên bubbling qua CẢ click trên tay
      * cầm Start/End (do 2 tay cầm là con của track) — Workflow tự đọc `videoPreviewActiveDrag` đã bị
      * handler của tay cầm (chạy TRƯỚC, cùng sự kiện pointerdown) chiếm chưa để bỏ qua, KHÔNG tua đè.
      * @param {number} clientX */
@@ -450,7 +368,7 @@ const workflowVideoPreview = {
         const activeDrag = appState.get('videoPreviewActiveDrag');
         if (!activeDrag) return; // bắn liên tục từ document, guard bình thường
         if (activeDrag === 'seek') { this._seekToClientX(clientX); return; }
-        if (activeDrag === 'outerSeek') { this._seekOuterToClientX(clientX); return; } // MỚI 06/10/2026 — dải seek ngoài
+        if (activeDrag === 'outerSeek') { this._seekOuterToClientX(clientX); return; } // dải seek ngoài
 
         const duration = appState.get('videoPreviewSourceDuration');
         const rect = this._modalHandle.filmstripTrackEl.getBoundingClientRect();
@@ -475,8 +393,8 @@ const workflowVideoPreview = {
         appState.set('videoPreviewActiveDrag', null);
         if (!activeDrag) return;
         if (activeDrag !== 'seek' && activeDrag !== 'outerSeek') appState.set('videoPreviewHasUnsavedChanges', true); // tua thuần không phải thao tác sửa
-        this._refillFilmstripAfterHandleDrag(activeDrag); // MỚI 06/10/2026 (#4)
-        if (this._dragResumePlay) { // CHỈ tự play lại nếu TRƯỚC đó đang play (mục 6 — không còn auto-play mặc định)
+        this._refillFilmstripAfterHandleDrag(activeDrag);
+        if (this._dragResumePlay) { // CHỈ tự play lại nếu TRƯỚC đó đang play
             this._modalHandle.videoEl.play().catch(() => {});
             appState.set('videoPreviewIsPlaying', true);
         }
@@ -505,10 +423,10 @@ const workflowVideoPreview = {
         const trackWidth = this._modalHandle.filmstripTrackEl.getBoundingClientRect().width || 1;
         this._modalHandle.playheadEl.style.left = `${(currentTime / duration) * trackWidth}px`;
         this._modalHandle.currentTimeLabelEl.textContent = _formatVideoPreviewTime(currentTime);
-        this._renderOuterSeek(currentTime); // MỚI 06/10/2026
+        this._renderOuterSeek(currentTime);
     },
 
-    // ===================== Dải seek ngoài màn xem (MỚI 06/10/2026, Giang) =====================
+    // ===================== Dải seek ngoài màn xem =====================
 
     /** 'videoPreview.outerSeek.pointerDown' — chạm/kéo dải seek ngoài: tua trong đoạn Start..End (kéo tiếp đi qua
      * 'videoPreview.trimDrag.move' như dải phim, `videoPreviewActiveDrag` = 'outerSeek'). @param {number} clientX */
@@ -543,7 +461,7 @@ const workflowVideoPreview = {
         h.seekTotalLabelEl.textContent = _formatVideoPreviewTime(span);
     },
 
-    // ===================== Chụp / đổi kích thước màn (MỚI 06/10/2026) =====================
+    // ===================== Chụp / đổi kích thước màn =====================
 
     /** 'videoPreview.capture.click' — chụp khung hình đang dừng/phát thành ảnh mới (CÙNG luồng nút Capture ở Control
      * Center của index.html). */
@@ -578,7 +496,7 @@ const workflowVideoPreview = {
         this._modalHandle.overlayEl.classList.toggle('is-playing', playing);
     },
 
-    /** Tap màn hình — đảo phát/dừng (mục 1, phản hồi Giang). */
+    /** Tap màn hình — đảo phát/dừng. */
     handleMediaTapClick() {
         const videoEl = this._modalHandle.videoEl;
         if (videoEl.paused) { videoEl.play().catch(() => {}); appState.set('videoPreviewIsPlaying', true); }
@@ -646,8 +564,7 @@ const workflowVideoPreview = {
 
     /** Chuỗi CSS transform xoay + lật ngang hiện tại + hệ số scale bù (90°/270°) — DÙNG CHUNG cho
      * `<video>` (`_renderTransformPreview()`) VÀ `cropCanvasEl` (`_syncCropCanvasBox()`) khi Crop
-     * đang mở, để 2 phần tử biến đổi Y HỆT nhau quanh CÙNG 1 tâm (mục "xoay + crop", phản hồi Giang
-     * 05/08/2026, đợt 5). Xoay/Đặt lại nằm trên rail — bị ẨN suốt lúc Cắt khung (26/09/2026), nên
+     * đang mở, để 2 phần tử biến đổi Y HỆT nhau quanh CÙNG 1 tâm. Xoay/Đặt lại bị ẨN suốt lúc Cắt khung, nên
      * `videoPreviewRotateDeg` cố định suốt 1 phiên Crop. Lật THÌ CÓ trong panel Cắt khung —
      * `handleFlipClick()` tự đồng bộ lại canvas khi đang Cắt khung.
      *
@@ -678,19 +595,14 @@ const workflowVideoPreview = {
      * cần tính lại `session.rect` theo hướng đã xoay (vẫn nguyên hệ toạ độ pixel gốc, xem
      * `_toCropCanvasCoords()` lo phần quy đổi ngược).
      *
-     * SỬA (05/08/2026, phản hồi Giang đợt 4) — BUG THẬT #2 trong 2 bug độc lập với layout (Giang chỉ
-     * ra: chọn tỉ lệ co nhỏ nằm giữa màn hình, cách xa header/dải cắt, vẫn không kéo được — tức
-     * KHÔNG PHẢI do chồng lấn). Bản CŨ dùng thẳng `videoEl.getBoundingClientRect()` — SAI, vì
-     * `object-contain` KHÔNG đổi kích thước layout của phần tử, chỉ đổi cách ảnh VẼ BÊN TRONG khung
+     * KHÔNG dùng thẳng `videoEl.getBoundingClientRect()`: `object-contain` KHÔNG đổi kích thước layout của phần tử, chỉ đổi cách ảnh VẼ BÊN TRONG khung
      * đó — `getBoundingClientRect()` trả về khung LAYOUT (ở đây luôn bằng `mediaWrapEl` do class
      * `w-full h-full`), KHÔNG trừ phần letterbox đen 2 bên/trên-dưới khi tỉ lệ video khác tỉ lệ
      * container. Canvas vì vậy có thể bị đặt to/lệch hơn vùng pixel video thật đang hiển thị, khiến
      * phép quy đổi toạ độ ở `_toCropCanvasCoords()` (dựa 1 hệ số `scale` DUY NHẤT theo bề rộng) sai
-     * theo trục còn lại — tự tính lại bằng công thức `object-contain` chuẩn (so khung chứa với tỉ lệ
-     * native W/H) thay vì tin `getBoundingClientRect()` của chính `<video>`.
+     * theo trục còn lại — nên tự tính bằng công thức `object-contain` chuẩn (so khung chứa với tỉ lệ native W/H).
      *
-     * Gọi lại mỗi lần vào Crop — CHƯA xử lý resize/xoay MÀN HÌNH giữa chừng (nợ kỹ thuật nhỏ, ít gặp
-     * trên mobile PWA đang mở modal). */
+     * Gọi lại mỗi lần vào Crop và khi đổi cỡ màn hình lúc đang Cắt khung (`handleWindowResize()`). */
     _syncCropCanvasBox() {
         const w = appState.get('videoPreviewNativeW'), h = appState.get('videoPreviewNativeH');
         const canvas = this._modalHandle.cropCanvasEl;
@@ -728,13 +640,8 @@ const workflowVideoPreview = {
     },
 
     /** Đồng bộ trạng thái "đang bật" cho CẢ 2 nút Lật — `flipBtn` ở hàng công cụ (trạng thái xem) VÀ
-     * `ratioFlipBtn` trong panel Cắt khung (26/09/2026; trước là toolsGroupEl/ratioGroupEl) — cùng phản ánh 1 state DUY
-     * NHẤT `videoPreviewFlipH` (mục "flip lật cả ảnh/video", phản hồi Giang 05/08/2026, đợt 6 —
-     * TRƯỚC ĐÓ `ratioFlipBtn` làm việc KHÁC hẳn — đảo tỉ lệ khung Crop (`applyFlip()`,
-     * event/workflow/media-transform-helpers.js — giờ KHÔNG còn nơi nào gọi, RÁC, đề nghị Giang tự
-     * xoá hàm đó) — Giang chỉ ra "flip" phải lật CẢ ảnh/video, không phải riêng crop, nên 2 nút giờ
-     * bắn CHUNG 1 event `videoPreview.flip.click` → `handleFlipClick()`, xem core/file-manager/
-     * video-ui.js). */
+     * `ratioFlipBtn` trong panel Cắt khung — cùng phản ánh 1 state DUY NHẤT `videoPreviewFlipH` (lật CẢ video, không
+     * riêng khung crop); 2 nút bắn CHUNG `videoPreview.flip.click` → `handleFlipClick()` (core/file-manager/video-ui.js). */
     _renderFlipButtonState() {
         const active = appState.get('videoPreviewFlipH');
         this._modalHandle.flipBtn.classList.toggle('is-active', active);
@@ -744,9 +651,8 @@ const workflowVideoPreview = {
     /** Quy đổi toạ độ màn hình -> toạ độ canvas (px nguồn, CHƯA xoay/lật) — dùng chung cho pointerDown/
      * Move VÀ `_moveOrResizeCropSession()` (tránh lặp lại phép tính `scale` ở nhiều chỗ).
      *
-     * SỬA (05/08/2026, đợt 5) — thêm bù NGƯỢC Flip ngang (mục 4, phản hồi Giang). Thứ tự lột NGƯỢC
-     * đúng thứ tự đã áp ở `_getRotateTransform()` (rotate(deg) scale(fit) scaleX(-1) — flip áp
-     * TRƯỚC/trong cùng, rotate áp SAU/ngoài cùng): lột rotate/scale trước (như cũ), lột flip SAU
+     * Bù NGƯỢC xoay + Flip ngang theo thứ tự ngược với `_getRotateTransform()` (rotate(deg) scale(fit) scaleX(-1) —
+     * flip áp TRƯỚC/trong cùng, rotate áp SAU/ngoài cùng): lột rotate/scale trước, lột flip SAU
      * CÙNG (đối xứng X quanh tâm — tự nghịch đảo, chỉ cần đảo dấu `dx` 1 lần).
      * @param {number} clientX @param {number} clientY @returns {{x:number,y:number}} */
     _toCropCanvasCoords(clientX, clientY) {
@@ -780,7 +686,7 @@ const workflowVideoPreview = {
     /** @param {number} clientX @param {number} clientY */
     handleCropCanvasPointerMove(clientX, clientY) {
         const session = appState.get('videoPreviewCropSession');
-        if (!session || !session.activeHandle) return; // listener document bắn MỌI lúc toàn app — modal đóng thì session null (Phase 1: trước đây TypeError mỗi lần chạm)
+        if (!session || !session.activeHandle) return; // listener document bắn MỌI lúc toàn app — modal đóng thì session null
         this._moveOrResizeCropSession(this._toCropCanvasCoords(clientX, clientY));
         this._drawCropOverlay();
     },
@@ -829,29 +735,27 @@ const workflowVideoPreview = {
         appState.set('videoPreviewHasUnsavedChanges', true);
     },
 
-    /** Lật ngang CẢ nội dung video (mục 4 + đợt 6, phản hồi Giang 05/08/2026) — bắn từ nút Lật ở hàng
+    /** Lật ngang CẢ nội dung video — bắn từ nút Lật ở hàng
      * công cụ HOẶC trong panel Cắt khung. */
     handleFlipClick() {
         appState.set('videoPreviewFlipH', !appState.get('videoPreviewFlipH'));
         this._renderTransformPreview();
-        if (appState.get('videoPreviewActiveTool') === 'crop') { this._syncCropCanvasBox(); this._drawCropOverlay(); } // canvas Crop lật theo video (26/09/2026)
+        if (appState.get('videoPreviewActiveTool') === 'crop') { this._syncCropCanvasBox(); this._drawCropOverlay(); } // canvas Crop lật theo video
         this._renderFlipButtonState();
         appState.set('videoPreviewHasUnsavedChanges', true);
     },
 
-    /** Áp CSS xoay + lật LIVE lên `<video>` ngay trong modal (mục 3 cũ — trước đây bấm Xoay không
-     * thấy gì đổi cho tới khi Lưu/mở lại). Dùng chung `_getRotateTransform()` với
+    /** Áp CSS xoay + lật LIVE lên `<video>` ngay trong modal. Dùng chung `_getRotateTransform()` với
      * `_syncCropCanvasBox()`. Canvas Crop (nếu đang Cắt khung) do nơi gọi tự đồng bộ — xem
      * `handleFlipClick()`.
      *
-     * SỬA (27/09/2026, Giang: "Crop done -> vẫn chưa cập nhật màn hình main") — trước đây khung crop
-     * CHỈ áp lúc xuất file, màn xem vẫn hiện nguyên khung hình. Giờ 2 nhánh:
-     *   - Đang Cắt khung, HOẶC chưa cắt khung (khung phủ toàn bộ): như cũ — video full khung
+     * 2 nhánh:
+     *   - Đang Cắt khung, HOẶC chưa cắt khung (khung phủ toàn bộ): video full khung
      *     (`object-contain` + transform xoay/lật), canvas Crop khớp đúng video để kéo khung.
      *   - Trạng thái xem / Thu ngắn MÀ đã cắt khung: hiện ĐÚNG vùng đã cắt, phóng vừa khung chứa —
      *     `_applyCroppedPreview()` (cắt bằng khung cha `cropViewEl`, KHÔNG dùng clip-path). */
     _renderTransformPreview() {
-        this._fitCardToContent(); // MỚI 06/10/2026 — thẻ đổi kích thước TRƯỚC, mọi phép đo bên dưới (và _getRotateTransform()) đọc thẻ mới
+        this._fitCardToContent(); // thẻ đổi kích thước TRƯỚC, mọi phép đo bên dưới (và _getRotateTransform()) đọc thẻ mới
         const videoEl = this._modalHandle.videoEl;
         const cropViewEl = this._modalHandle.cropViewEl;
         const cropRect = appState.get('videoPreviewActiveTool') === 'crop' ? null : this._computeCropRect();
@@ -862,10 +766,10 @@ const workflowVideoPreview = {
         videoEl.style.transform = this._getRotateTransform().transform;
     },
 
-    /** MỚI (06/10/2026, Giang: "thừa mép đen trên dưới video") — thẻ video (`mediaWrapEl`) lấy ĐÚNG tỉ lệ nội dung đang
+    /** Thẻ video (`mediaWrapEl`) lấy ĐÚNG tỉ lệ nội dung đang
      * hiện rồi phóng vừa khít vùng bọc `cardAreaEl` (kiểu contain): trạng thái xem/Cắt = vùng đã cắt khung (nếu có) sau
      * xoay; đang Cắt khung = cả khung hình sau xoay (để thấy hết mà kéo khung). Video bên trong vẫn `object-contain`/
-     * `_applyCroppedPreview()` nên lấp đúng thẻ, không còn dải đen thừa. Chưa có metadata -> trả về 100% (CSS). */
+     * `_applyCroppedPreview()` nên lấp đúng thẻ, không có dải đen thừa. Chưa có metadata -> trả về 100% (CSS). */
     _fitCardToContent() {
         const cardEl = this._modalHandle.mediaWrapEl;
         const w = appState.get('videoPreviewNativeW'), h = appState.get('videoPreviewNativeH');
@@ -885,10 +789,8 @@ const workflowVideoPreview = {
         return (deg === 90 || deg === 270) ? { w: base.h, h: base.w } : base;
     },
 
-    /** Xem trước kết quả cắt khung ngay trên màn chính.
-     * SỬA (27/09/2026, Giang: "crop chỉ làm resize ảnh chứ không crop thật") — bản trước cắt bằng
-     * `clip-path` trên chính `<video>`; WebKit/iOS vẽ video ở lớp compositing riêng và BỎ QUA
-     * clip-path đó, nên chỉ thấy video phóng to (resize) mà vẫn đủ khung hình. Giờ cắt bằng KHUNG CHA
+    /** Xem trước kết quả cắt khung ngay trên màn chính. KHÔNG dùng `clip-path` trên `<video>` (WebKit/iOS vẽ video ở lớp
+     * compositing riêng và BỎ QUA clip-path) — cắt bằng KHUNG CHA
      * `cropViewEl` (`overflow:hidden`, cắt chữ nhật — loại cắt WebKit tôn trọng với video):
      *   - `cropViewEl` = đúng kích thước vùng crop SAU XOAY, phóng vừa khít khung chứa (kiểu contain),
      *     đặt giữa.
@@ -931,9 +833,7 @@ const workflowVideoPreview = {
         videoEl.style.transform = `${deg ? `rotate(${deg}deg)` : ''}${flipH ? ' scaleX(-1)' : ''}`;
     },
 
-    /** Bấm Reset — PHẢI xác nhận trước khi chạy (mục 1, phản hồi Giang: "loại bỏ toàn bộ Undo/Redo,
-     * giữ nút reset và cảnh báo modal") — TRƯỚC ĐÂY reset chạy NGAY không hỏi gì, chấp nhận được vì
-     * còn Undo cứu lại; giờ không còn đường lùi nào khác nên bắt buộc hỏi trước. */
+    /** Bấm Reset — PHẢI xác nhận trước khi chạy (không có Undo để lùi lại). */
     handleReset() {
         modalChoice( // core/modal-choice-ui.js
             t('videoPreview.resetConfirm.desc'),
@@ -962,7 +862,7 @@ const workflowVideoPreview = {
 
     /** @returns {object} snapshot — crop rect/tỉ lệ + rotate + flip + cut hiện tại. DÙNG
      * RIÊNG cho khôi phục lúc Huỷ công cụ (`_beforeToolSnapshot`, xem `handleToolOpen()`/
-     * `handleToolCancel()`) — KHÔNG còn liên quan Undo/Redo (đã bỏ hẳn, mục 1 phản hồi Giang). */
+     * `handleToolCancel()`). */
     _buildSnapshot() {
         const cropSession = appState.get('videoPreviewCropSession');
         return {
@@ -1012,9 +912,7 @@ const workflowVideoPreview = {
         return this._runSave(appState.get('videoPreviewSaveMode'));
     },
 
-    /** SỬA (Phase 1, Giang: "zoom pan không liên quan tới xuất video, đó là chế độ xem") — thay
-     * `_computeCropFraction()` (từng gộp pan/zoom Panzoom — đơn vị CSS-px — vào khung crop px gốc,
-     * sai đơn vị → file xuất cắt lệch). Giờ CHỈ đọc khung crop.
+    /** Khung cắt (px GỐC) từ phiên Crop.
      * @returns {{x:number,y:number,w:number,h:number}|null} px GỐC; null nếu khung phủ toàn bộ (không cắt). */
     _computeCropRect() {
         const session = appState.get('videoPreviewCropSession');
@@ -1047,9 +945,8 @@ const workflowVideoPreview = {
         return `${base}-edit-${pad(stamp.getHours())}${pad(stamp.getMinutes())}${pad(stamp.getSeconds())}.mp4`;
     },
 
-    /** Luồng lưu DUY NHẤT cho cả 2 kiểu (Phase 1). Toàn bộ nằm trong shield: không bấm Lưu 2 lần,
-     * không đóng modal giữa chừng (trước đây đóng giữa chừng -> `videoPreviewRecord` null -> crash sau
-     * khi encode xong, file mất). % = 0-90 tiến độ Conversion, 90-100 chụp thumb + ghi DB.
+    /** Luồng lưu DUY NHẤT cho cả 2 kiểu. Toàn bộ nằm trong shield: không bấm Lưu 2 lần, không đóng giữa chừng
+     * (đóng giữa chừng -> `videoPreviewRecord` null -> crash sau khi encode xong, mất file). % = 0-90 tiến độ Conversion, 90-100 chụp thumb + ghi DB.
      * @param {string} mode - 'overwrite' | 'asNew' */
     async _runSave(mode) {
         this._modalHandle.videoEl.pause();
@@ -1057,8 +954,8 @@ const workflowVideoPreview = {
         const params = this._buildProcessParams();
         let resultKey = null; // key thông báo sau khi shield tắt
         let saved = false;
-        let tooLargeReason = null; // MỚI (06/10/2026) — video xuất ra vượt 500MB/file -> không lưu, báo sau khi shield tắt
-        let savedKey = null; // MỚI (06/10/2026, trang riêng) — key video vừa lưu, để quay về Playlist cuộn đúng tới nó
+        let tooLargeReason = null; // video xuất ra vượt giới hạn dung lượng -> không lưu, báo sau khi shield tắt
+        let savedKey = null; // key video vừa lưu, để quay về Playlist cuộn đúng tới nó
 
         await withLoadingShield(tFormat('videoPreview.save.progress', { percent: 0 }), async () => { // core/loading-shield-util.js
             const pct = (p) => this._setShieldPercent('videoPreview.save.progress', p);
@@ -1077,25 +974,25 @@ const workflowVideoPreview = {
                     temp = null;
                 }
                 const blob = result.blob || await readVideoEditTempFile(temp.fileHandle); // core/video-editor/opfs-temp.js
-                // MỚI (06/10/2026, Giang chốt "media do app tự tạo chặn 500MB") — cùng giới hạn upload (core/upload-validation.js);
-                // dừng TRƯỚC khi chụp thumb/ghi DB, finally bên dưới tự dọn file tạm OPFS.
+                // Media do app tự tạo chịu cùng giới hạn dung lượng như upload (core/upload-validation.js); dừng TRƯỚC khi chụp
+                // thumb/ghi DB, finally bên dưới tự dọn file tạm OPFS.
                 const sizeCheck = validateMediaFileSize(blob); // core/upload-validation.js
                 if (!sizeCheck.valid) { tooLargeReason = sizeCheck.reason; return; }
                 pct(92);
 
-                const meta = await workflowVideoThumbExtract.extract(blob); // event/workflow/video-thumb-extract.js — timeout + thumb vuông + full-res (SỬA 06/10/2026: tách khỏi workflowPlaylist)
+                const meta = await workflowVideoThumbExtract.extract(blob); // event/workflow/video-thumb-extract.js — timeout + thumb vuông + full-res
                 pct(96);
 
                 if (mode === 'overwrite') {
                     const r = await replaceVideoMedia(videoKey, { blob, ...meta }); // core/file-manager/video.js — giữ customName/addedAt...
                     if (r.status === 'notFound') { resultKey = 'videoPreview.videoNotFound'; return; }
-                    // XOÁ (06/10/2026, trang riêng) — báo 'mediaInUse' (router của index.html): quay về là index nạp lại từ đầu.
+                    // Không báo 'mediaInUse' — quay về là index.html nạp lại từ đầu.
                     savedKey = videoKey;
                 } else {
                     const newFilename = this._buildNewFilename();
-                    const newKey = await resolveVideoKey(newFilename); // service/db.js — SỬA 06/10/2026: key resolve ở Workflow (Rule 3)
+                    const newKey = await resolveVideoKey(newFilename); // service/db.js — key resolve ở Workflow (Rule 3)
                     await saveVideo(newKey, blob, newFilename, meta.thumbBlob, meta.width, meta.height, meta.duration, meta.thumbFullBlob, meta.thumbFullIsBlack); // core/file-manager/video.js
-                    await this._attachToActiveVideoFolder(newKey); // SỬA 06/10/2026 (trang riêng) — folder Video đang Scope đọc từ DB
+                    await this._attachToActiveVideoFolder(newKey); // folder Video đang Scope đọc từ DB
                     savedKey = newKey;
                 }
                 pct(100);
@@ -1112,13 +1009,13 @@ const workflowVideoPreview = {
 
         if (tooLargeReason) { await alertModal(tFormat('common.validate.generatedNotSaved', { reason: tooLargeReason })); return; } // editor giữ nguyên để chỉnh tiếp (vd cắt ngắn hơn)
         if (resultKey) await alertModal(t(resultKey));
-        // SỬA (06/10/2026, trang riêng) — báo kết quả TRƯỚC rồi mới quay về Playlist (index.html nạp lại, cuộn tới video vừa lưu).
+        // Báo kết quả TRƯỚC rồi mới quay về Playlist (index.html nạp lại, cuộn tới video vừa lưu).
         if (!saved) return; // guard: lưu hỏng -> ở lại sửa tiếp
         appState.set('videoPreviewHasUnsavedChanges', false);
         this._reallyClose(savedKey);
     },
 
-    /** MỚI (06/10/2026, trang riêng) — "Video mới" vào folder Video đang Scope (cùng khuôn upload video): trang này không có
+    /** "Video mới" vào folder Video đang Scope (cùng khuôn upload video): trang này không có
      * appState của index.html nên đọc meta `activePlayListFolder` (index.html ghi mỗi lần đổi Scope,
      * workflowPlaylistScope.persistScopeChoice()). Đang ở "Tất cả"/folder vừa bị xoá -> bỏ qua. @param {string} newKey */
     async _attachToActiveVideoFolder(newKey) {
@@ -1143,7 +1040,7 @@ const workflowVideoPreview = {
         );
     },
 
-    /** SỬA (06/10/2026, trang riêng) — "đóng" = dọn rồi quay về Playlist, cuộn tới `scrollKey` (mặc định video đang sửa).
+    /** "Đóng" = dọn rồi quay về Playlist, cuộn tới `scrollKey` (mặc định video đang sửa).
      * @param {string} [scrollKey] */
     _reallyClose(scrollKey) {
         const key = scrollKey || appState.get('videoPreviewVideoKey');
@@ -1156,7 +1053,7 @@ const workflowVideoPreview = {
      * boot). @param {string|null} scrollKey */
     _leaveToPlaylist(scrollKey) {
         this._rememberScrollTarget(scrollKey);
-        window.location.href = '../index.html'; // trang nằm trong pages/ (07/10/2026)
+        window.location.href = '../index.html'; // trang nằm trong pages/
     },
 
     _rememberScrollTarget(scrollKey) {
@@ -1165,9 +1062,9 @@ const workflowVideoPreview = {
         localStorage.setItem('sav_scrollToSongKey', scrollKey);
     },
 
-    /** Dọn tài nguyên + DOM editor (thân `_reallyClose()` cũ, trước khi tách trang). */
+    /** Dọn tài nguyên + DOM editor. */
     _disposeModal() {
-        this._filmstripUrls.forEach((url) => revokeBlobUrl(url)); // service/blob-url.js — Phase 1
+        this._filmstripUrls.forEach((url) => revokeBlobUrl(url)); // service/blob-url.js
         this._filmstripUrls = [];
         this._filmstripRefilling = false;
         if (this._modalHandle) { this._modalHandle.close(); this._modalHandle = null; }

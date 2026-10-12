@@ -1,12 +1,12 @@
 /**
- * event/workflow/recorder.js — Workflow chế độ GHI ÂM ở Player Song/Video (MỚI 01/10/2026, Giang yêu cầu + chốt).
+ * event/workflow/recorder.js — Workflow chế độ GHI ÂM ở Player Song/Video.
  *
  * LUỒNG:
  *   1. Icon Ghi âm (Control Center) -> start(): xin mic (Audio Session 'play-and-record'), dựng graph ghi (core/recorder.js
- *      — mic + nhạc lấy sau masterGainNode, trộn NGAY lúc ghi, Giang chốt phương án A), MediaRecorder chạy, overlay
+ *      — mic + nhạc lấy sau masterGainNode, trộn NGAY lúc ghi), MediaRecorder chạy, overlay
  *      #recorder-layer che toàn màn Visualizer + chặn thanh player (giống Game). Media đang dừng thì tự phát.
  *   2. Dừng ghi = X / media hết THẬT / bị ngắt từ ngoài (pause từ tai nghe-màn hình khoá-cuộc gọi, ẩn app, mic bị thu
- *      hồi) — Giang chốt ngắt ngoài xử lý NHƯ X: pause media -> dừng MediaRecorder -> trả Audio Session 'playback' ->
+ *      hồi) — ngắt ngoài xử lý NHƯ X: pause media -> dừng MediaRecorder -> trả Audio Session 'playback' ->
  *      bản ghi (Blob) vào RAM state (`recordBlob`) -> modal nghe lại (mini waveform, tự phát lặp, chạm waveform để tua).
  *      Hết bài KHÔNG tự chuyển bài (event/router/player-controls.js chuyển 'ended' về đây khi recordPhase !== 'idle').
  *   3. Huỷ: bỏ bản ghi trong RAM -> media đang phát dở thì phát tiếp, đã hết thật thì sang bài kế (handleMediaEnded() —
@@ -17,8 +17,8 @@
  * Cấu hình bền (Settings > System > Ghi âm) — domain AppConfig 'recorder' (core/config.js), lưu meta.recorderConfig
  * (`loadPersistedConfigOnBoot()`/`changeConfigField()`).
  *
- * [07/10/2026, Giang — cải tiến Ghi âm, tên tính năng theo các app karaoke/thu âm]
- *   - BỎ Echo cancellation: mic luôn thu thô (core/recorder.js::buildRecorderMicConstraints()).
+ * Tính năng (tên theo các app karaoke/thu âm):
+ *   - Mic luôn thu thô, không Echo cancellation (core/recorder.js::buildRecorderMicConstraints()).
  *   - Recording mode: 'speaker' = CHỈ mic (nhạc từ loa + giọng); 'headphones' = nhạc gốc + mic, nhạc trễ theo Sync.
  *   - Count-in: đếm ngược N giây (media tạm dừng) rồi nhạc + MediaRecorder cùng bắt đầu. Trong lúc đếm phase vẫn là
  *     'starting' (Block gate + khoá điều khiển như đang ghi); X / ẩn app / mic bị thu hồi -> huỷ phiên, trả media như cũ.
@@ -27,15 +27,14 @@
  *   - Recording quality: bitrate MediaRecorder (audioBitsPerSecond).
  *   - Latency calibration (Headphones): phát tick ra tai nghe đặt sát mic, đo độ lệch trong cùng graph -> điền Sync.
  *
- * NGOẠI LỆ CÓ CHỦ ĐÍCH (cùng loại pitch worker của workflowAudioEngine, event-bus-flow.md mục 1): `ondataavailable`/
- * 'stop' của MediaRecorder là NỬA SAU bất đồng bộ của chính API ghi -> gắn + xử lý ngay tại đây, không qua Listener/
- * Router (thuần thu dữ liệu / đợi xong, không quyết định nghiệp vụ). Riêng 'ended' của track mic (mic bị hệ điều hành
- * thu hồi) LÀ 1 sự kiện nghiệp vụ -> callback CHỈ eventBus.send() về router 'recorder' (đúng tinh thần Rule 5a).
+ * Sự kiện của MediaRecorder ('dataavailable', 'stop') và ScriptProcessorNode (đo trễ) là nửa sau bất đồng bộ của chính
+ * API ghi -> nhận qua core/dynamic-object-ui.js (ngoại lệ chính thức, event-bus-flow.md). 'ended' của track mic (mic
+ * bị hệ điều hành thu hồi) là sự kiện nghiệp vụ -> core/recorder-ui.js::wireRecorderMicEnded() gửi eventBus.
  *
  * NẠP SAU: core/recorder.js, core/recorder-ui.js, core/config.js (appConfigRecorder), core/audio-engine.js
  * (applyPlayAndRecordAudioSession/applyPlaybackAudioSession), core/player-controls.js (getActiveMediaElement/
  * setPlayerControlsBlocked), core/playlist/state.js (formatTime), core/modal-choice-ui.js (modalChoice/alertModal/
- * escapeHtml), components/recorder-overlay.js (renderRecorderReviewBody), service/blob-url.js, service/db.js
+ * escapeHtml), components/recorder-overlay.js (renderRecorderReviewBody), core/dynamic-object-ui.js, service/blob-url.js, service/db.js
  * (getMeta/setMeta), service/task-manager.js. Gọi lúc chạy: workflowPlaylist (event/workflow/playlist.js),
  * workflowPlayerControls (event/workflow/player-controls.js).
  */
@@ -46,7 +45,7 @@ const RECORDER_PREVIEW_TASK = 'recorderPreviewPlayhead';
 const RECORDER_STOP_TIMEOUT_TASK = 'recorderStopTimeout';
 const RECORDER_STOP_TIMEOUT_MS = 3000; // MediaRecorder không bắn 'stop' (hiếm, iOS) -> vẫn lấy phần đã thu
 const RECORDER_TIMESLICE_MS = 1000; // gom dữ liệu theo từng giây — dừng đột ngột vẫn còn gần đủ
-const RECORDER_MIC_ANALYSER_FFT = 2048; // SỬA 07/10/2026 (512 -> 2048) — khung dài hơn, Clip warning ít sót đỉnh hơn
+const RECORDER_MIC_ANALYSER_FFT = 2048; // khung dài -> Clip warning ít sót đỉnh
 const RECORDER_COUNT_IN_TASK = 'recorderCountIn';
 const RECORDER_COUNT_IN_INTERVAL_MS = 1000;
 const RECORDER_CALIB_TASK = 'recorderCalibration';
@@ -70,7 +69,7 @@ const RECORDER_PREVIEW_TOGGLE_BY_PAUSED = {
     false: (el) => el.pause(),
 };
 
-/** Chuẩn hoá giá trị Settings theo field (field lạ -> bỏ qua). SỬA 07/10/2026 — bỏ echoCancellation; thêm mode/countInSec/quality. */
+/** Chuẩn hoá giá trị Settings theo field (field lạ -> bỏ qua). */
 const RECORDER_CONFIG_NORMALIZER_BY_FIELD = {
     mode: (value) => normalizeRecorderMode(value), // core/recorder.js
     latencyMs: (value) => clampRecorderLatencyMs(value),
@@ -138,7 +137,7 @@ const workflowRecorder = {
     async loadPersistedConfigOnBoot() {
         const saved = await getMeta('recorderConfig'); // service/db.js
         if (!saved || typeof saved !== 'object') return;
-        // SỬA 07/10/2026 — `echoCancellation` cũ BỎ (không đọc; lần lưu kế tiếp tự rơi khỏi meta.recorderConfig).
+        // Field lạ trong meta cũ (vd `echoCancellation`) không đọc — lần lưu kế tiếp tự rơi khỏi meta.recorderConfig.
         appConfigRecorder.mutateAll((cfg) => {
             cfg.mode = normalizeRecorderMode(saved.mode ?? cfg.mode); // core/recorder.js
             cfg.latencyMs = clampRecorderLatencyMs(saved.latencyMs ?? cfg.latencyMs);
@@ -200,7 +199,7 @@ const workflowRecorder = {
             sourceTag: cached.tag || null,     // Song: tag ID3 thật; Video: tag adapter (title = tên video, artist rỗng)
             sourceCover: cached.cover || null, // Song: cover ID3; Video: thumbnail
             mimeType: this._mediaRecorder.mimeType || '',
-            mode: cfg.mode, // MỚI 07/10/2026
+            mode: cfg.mode,
             latencyMs: cfg.latencyMs, // chỉ có tác dụng ở chế độ 'headphones'
             mediaEnded: false,
             durationSec: 0,
@@ -229,7 +228,7 @@ const workflowRecorder = {
         this._ensureMediaPlaying(activeEl);
     },
 
-    // ===================== Count-in (MỚI 07/10/2026) =====================
+    // ===================== Count-in =====================
 
     /** Dừng media (nếu đang phát — nhớ để huỷ thì phát lại), hiện số đếm, mỗi giây trừ 1; hết thì ghi.
      * @param {number} seconds @param {HTMLMediaElement} activeEl */
@@ -271,7 +270,7 @@ const workflowRecorder = {
         RECORDER_RESUME_BY_WAS_PLAYING[countIn.resumeAfterCancel](activeEl);
     },
 
-    /** Xin mic (thu thô — Echo cancellation đã bỏ 07/10/2026). Bị từ chối/lỗi -> báo người dùng, trả null.
+    /** Xin mic (thu thô). Bị từ chối/lỗi -> báo người dùng, trả null.
      * @returns {Promise<MediaStream|null>} */
     async _requestMic() {
         try {
@@ -294,10 +293,8 @@ const workflowRecorder = {
         const options = buildRecorderOptions(mimeType, cfg.quality); // core/recorder.js
         this._chunks = [];
         this._mediaRecorder = new MediaRecorder(this._graph.destination.stream, options);
-        this._mediaRecorder.ondataavailable = (e) => this._collectChunk(e.data); // nửa sau bất đồng bộ của API ghi (xem đầu file)
-        stream.getAudioTracks().forEach((track) => {
-            track.addEventListener('ended', () => eventBus.send({ router: 'recorder', type: 'recorder.mic.ended', payload: {} }), { once: true });
-        });
+        listenEventStream(this._mediaRecorder, 'dataavailable', (e) => this._collectChunk(e.data)); // core/dynamic-object-ui.js — nửa sau bất đồng bộ của API ghi
+        wireRecorderMicEnded(stream); // core/recorder-ui.js — mic bị thu hồi -> eventBus 'recorder.mic.ended'
         const session = navigator.audioSession ? `${navigator.audioSession.type}/${navigator.audioSession.state}` : 'không hỗ trợ';
         console.log(`[recorder] Sẵn sàng ghi — mode=${cfg.mode}, mimeType="${this._mediaRecorder.mimeType}", bitrate=${options.audioBitsPerSecond}, audioSession=${session}, sync=${cfg.latencyMs}ms, countIn=${cfg.countInSec}s, sampleRate=${audioContext.sampleRate}, baseLatency=${audioContext.baseLatency}, outputLatency=${audioContext.outputLatency}`);
     },
@@ -333,7 +330,7 @@ const workflowRecorder = {
 
     // ===================== Dừng ghi =====================
 
-    /** Ứng 'recorder.stop.click' (X): đang ghi -> dừng; đang Count-in -> huỷ phiên (SỬA 07/10/2026). */
+    /** Ứng 'recorder.stop.click' (X): đang ghi -> dừng; đang Count-in -> huỷ phiên. */
     stop() {
         (RECORDER_STOP_BY_PHASE[appState.get('recordPhase')] || (() => {}))();
     },
@@ -357,7 +354,7 @@ const workflowRecorder = {
         await RECORDER_REVIEW_BY_HAS_AUDIO[blob.size > 0](blob, elapsedSec);
     },
 
-    /** Ngắt từ ngoài (pause tai nghe/màn hình khoá/cuộc gọi, mic bị thu hồi) — Giang chốt xử lý NHƯ X. Bước tuỳ chọn:
+    /** Ngắt từ ngoài (pause tai nghe/màn hình khoá/cuộc gọi, mic bị thu hồi) — xử lý NHƯ X. Bước tuỳ chọn:
      * chỉ chạy khi đang ghi thật, nơi gọi gọi thẳng không điều kiện (event-bus-flow.md mục 7). */
     handleInterruption() {
         if (appState.get('recordPhase') !== 'recording') return;
@@ -396,16 +393,18 @@ const workflowRecorder = {
         const recorder = this._mediaRecorder;
         const buildBlob = () => new Blob(this._chunks, { type: recorder.mimeType || '' });
         if (recorder.state === 'inactive') return Promise.resolve(buildBlob());
+        const stopWait = listenEventOnce(recorder, 'stop'); // core/dynamic-object-ui.js — nửa sau bất đồng bộ của API ghi
         return new Promise((resolve) => {
             let settled = false;
             const done = () => {
                 if (settled) return;
                 settled = true;
                 timeout.kill();
+                stopWait.cancel();
                 resolve(buildBlob());
             };
             const timeout = taskManager.once(done, RECORDER_STOP_TIMEOUT_MS, RECORDER_STOP_TIMEOUT_TASK);
-            recorder.addEventListener('stop', done, { once: true }); // nửa sau bất đồng bộ của API ghi (xem đầu file)
+            stopWait.promise.then(done);
             try { recorder.stop(); } catch (err) { console.warn('[recorder] MediaRecorder.stop() lỗi:', err); done(); }
         });
     },
@@ -435,7 +434,7 @@ const workflowRecorder = {
         stopMediaStreamTracks(stream); // core/recorder.js
     },
 
-    // ===================== Latency calibration (MỚI 07/10/2026, chế độ Headphones) =====================
+    // ===================== Latency calibration (chế độ Headphones) =====================
 
     /** Ứng 'appSettings.recorder.calibrate.click' — kiểm tra điều kiện rồi mở modal hướng dẫn (đặt tai nghe sát mic). */
     async openCalibration() {
@@ -480,13 +479,12 @@ const workflowRecorder = {
         if (audioContext.state !== 'running') await audioContext.resume();
         const graph = buildLatencyCalibrationGraph(audioContext, stream, audioContext.currentTime + RECORDER_CALIB_LEAD_SEC); // core/recorder.js
         const refParts = [], micParts = [];
-        // NGOẠI LỆ CÓ CHỦ ĐÍCH (cùng loại ondataavailable của MediaRecorder, xem đầu file): onaudioprocess là nửa thu dữ
-        // liệu của chính phép đo — chỉ chép mẫu, không quyết định gì.
-        graph.processor.onaudioprocess = (e) => {
+        // Nửa thu dữ liệu của chính phép đo — chỉ chép mẫu, không quyết định gì.
+        listenAudioProcess(graph.processor, (e) => { // core/dynamic-object-ui.js
             refParts.push(new Float32Array(e.inputBuffer.getChannelData(0)));
             micParts.push(new Float32Array(e.inputBuffer.getChannelData(1)));
-        };
-        const waitMs = Math.max(0, (graph.endAt - audioContext.currentTime) * 1000);
+        });
+        const waitMs = computeRecorderCalibrationWaitMs(graph.endAt, audioContext.currentTime); // core/recorder.js
         await new Promise((resolve) => taskManager.once(resolve, waitMs, RECORDER_CALIB_TASK));
         disposeLatencyCalibrationGraph(graph); // core/recorder.js
         const result = detectCalibrationLatencyMs(this._concatSamples(refParts), this._concatSamples(micParts), audioContext.sampleRate); // core/recorder.js
@@ -641,8 +639,8 @@ const workflowRecorder = {
         this._teardownPreview();
         this._setPhase('saving');
         const song = this._buildRecordedSong(recordBlob, recordMeta, new Date());
-        // MỚI (06/10/2026, Giang chốt "media do app tự tạo chặn 500MB") — cùng giới hạn upload (core/upload-validation.js):
-        // quá cỡ thì báo, KHÔNG lưu, kết thúc phiên như Huỷ.
+        // Media do app tự tạo chịu cùng giới hạn dung lượng như upload (core/upload-validation.js): quá cỡ thì báo, KHÔNG
+        // lưu, kết thúc phiên như Huỷ.
         const sizeCheck = validateMediaFileSize(song.blob); // core/upload-validation.js
         if (!sizeCheck.valid) {
             await alertModal(tFormat('common.validate.generatedNotSaved', { reason: sizeCheck.reason }));
@@ -660,7 +658,7 @@ const workflowRecorder = {
     },
 
     /**
-     * Dựng dữ liệu Song từ bản ghi — tag tự tạo (Giang chốt): "<tên gốc> (Recording dd/MM HH:mm)", nghệ sĩ gốc (Video
+     * Dựng dữ liệu Song từ bản ghi — tag tự tạo: "<tên gốc> (Recording dd/MM HH:mm)", nghệ sĩ gốc (Video
      * không có -> "Unknown artist"), album "Recording", cover gốc. Blob gán lại MIME gốc (bỏ ";codecs=...") để lưu sạch.
      * @param {Blob} blob @param {object} meta - recordMeta @param {Date} now
      */
