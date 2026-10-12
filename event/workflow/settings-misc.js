@@ -70,7 +70,7 @@ const workflowSettingsMisc = {
      * Drawer vẫn nằm trên shield bất kể thứ tự DOM), header CHỈ có nút Đóng (KHÔNG có Back — đây là
      * lối tắt độc lập, không thuộc ngăn xếp điều hướng của `workflowAppSettings`), rồi tái dùng
      * NGUYÊN `openDebugConsole()` ngay trên để vẽ danh sách log + wire nút Copy/Xoá, y hệt luồng
-     * Settings bình thường. Đóng bằng `workflowGenericDrawerHelpers.closeFully()` — CHỈ đóng Generic
+     * Settings bình thường. Đóng (nút X — qua Listener -> Router từ 12/10/2026) bằng `workflowGenericDrawerHelpers.closeFully()` — CHỈ đóng Generic
      * Drawer, KHÔNG đụng gì tới shield/tác vụ đang chạy dở bên dưới (2 lớp hoàn toàn độc lập).
      */
     forceOpenDebugConsole() {
@@ -78,12 +78,14 @@ const workflowSettingsMisc = {
             height: 'auto',
             maxHeight: '85vh',
             zIndex: Z_INDEX.LOADING_SHIELD + 10, // service/z-index.js
-            headerHtml: buildDrawerHeaderHtml({ title: t('settingsMisc.debugConsole.title') }), // SỬA 07/10/2026 — header dùng chung (components/generic-drawer.js), không còn markup trong Workflow
-            bodyHtml: `<div class="p-4" data-uitk="textPrimary">${renderDebugConsolePanelBody()}</div>`, // components/debug-console-drawer.js
+            // SỬA 07/10/2026 — header dùng chung (components/generic-drawer.js), không còn markup trong Workflow.
+            // SỬA 12/10/2026 (plan-event-bus-wiring đợt 2) — nút X mang `data-debug-force-close`: Listener ủy quyền
+            // (event/listener/settings-misc.js) -> Router 'settingsMisc.debugConsole.forceClose.click' -> closeFully().
+            // Trước đây Workflow tự addEventListener lên nút X ngay sau khi mở (bỏ qua Listener -> Router).
+            headerHtml: buildDrawerHeaderHtml({ title: t('settingsMisc.debugConsole.title'), closeAttrs: 'data-debug-force-close="1"' }),
+            bodyHtml: renderDebugConsoleForceOpenBody(), // components/debug-console-drawer.js — SỬA 12/10/2026: wrapper dời khỏi Workflow
             bodyClass: 'overflow-y-auto',
         });
-        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-        if (closeBtn) closeBtn.addEventListener('click', () => workflowGenericDrawerHelpers.closeFully()); // event/workflow/generic-drawer-helpers.js
         this.openDebugConsole(); // vẽ danh sách log + wire nút Copy/Xoá — TÁI DÙNG nguyên logic có sẵn ngay trên
     },
 

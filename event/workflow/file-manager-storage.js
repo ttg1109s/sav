@@ -107,7 +107,11 @@ const workflowFileManagerStorage = {
         workflowGenericDrawerHelpers.open({ // event/workflow/generic-drawer-helpers.js — SỬA 24/09/2026: lối mở DUY NHẤT
             height: 'auto', // MỚI (phản hồi Giang mục 2) — tự co theo nội dung, xem core/generic-drawer.js
             maxHeight: '85vh',
-            headerHtml: buildDrawerHeaderHtml({ title: t('storageDrawer.title') }), // SỬA 07/10/2026 — header dùng chung (components/generic-drawer.js), không còn markup trong Workflow
+            // SỬA 07/10/2026 — header dùng chung (components/generic-drawer.js), không còn markup trong Workflow.
+            // SỬA 12/10/2026 (plan-event-bus-wiring đợt 2, khuôn W6) — nút X mang `data-storage-close`, đăng ký ở Listener
+            // (event/listener/file-manager-storage.js, ủy quyền trên genericDrawerHeader); trước đây Workflow tự
+            // addEventListener (callback vốn đã chỉ eventBus.send — đúng Router, sai NƠI đăng ký).
+            headerHtml: buildDrawerHeaderHtml({ title: t('storageDrawer.title'), closeAttrs: 'data-storage-close="1"' }),
             // SỬA (phản hồi Giang mục 2 — "styling lỗi, cụm bị co vào nhau, theo theme setting/custom
             // effect") — GỐC BỆNH: renderFileManagerStorageManagementPanelBody() (components/file-
             // manager-storage.js) viết bằng bảng màu TỐI (text-white/text-slate-300/.glass-modal/
@@ -129,11 +133,9 @@ const workflowFileManagerStorage = {
             // TRỰC TIẾP bằng bảng màu sáng (xem docstring components/file-manager-storage.js), không
             // còn 1 class tối nào cần đè. Wrapper chỉ còn `text-slate-900` (màu chữ mặc định kế thừa
             // xuống) + `p-4`, không còn ý nghĩa "scope đè màu" nào nữa.
-            bodyHtml: `<div class="p-4" data-uitk="textPrimary">${renderFileManagerStorageManagementPanelBody()}</div>`, // SỬA 21/09/2026 — màu chữ mặc định theo theme (trước đây text-slate-900 cứng)
+            bodyHtml: renderFileManagerStorageDrawerBody(), // components/file-manager-storage.js — SỬA 12/10/2026: wrapper `p-4` + màu chữ theo theme dời khỏi Workflow (SỬA 21/09/2026 — trước đây text-slate-900 cứng)
             bodyClass: 'overflow-y-auto',
         });
-        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-        if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.closePanel.click', payload: {} }));
 
         workflowAppPanelNav.setActiveTab('storage'); // event/workflow/app-panel-nav.js — liên tuyến domain
         await this.refreshTab();
