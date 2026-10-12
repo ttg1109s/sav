@@ -10,6 +10,11 @@ Rule 5a). Nợ được ghi ở [core-legacy-audit.md](../core-legacy-audit.md),
 |---|---|
 | 1 — EQ | Xong 12/10/2026 (`sav-13-wiring-wave1-eq-patch.zip`), chờ test máy |
 | 2 — X Debug Console + X Storage | Xong 12/10/2026 (`sav-13-wiring-wave2-close-btn-patch.zip`), chờ test máy. `recorder.js` `track.ended` dời sang nhóm F (MediaStreamTrack tạo động, Listener không ủy quyền được) |
+| 3 — `gameplay.js` window.resize (W5) | Xong 12/10/2026 (`sav-13-wiring-wave3-game-resize-patch.zip`), chờ test máy. Phát hiện thêm `ResizeObserver` cấp module cùng file — giữ cơ chế, chờ chốt dời đăng ký sang Listener |
+| 4 — Auto-Switch kéo thả (W4) | Xong 12/10/2026 (`sav-13-wiring-wave4-autoswitch-drag-patch.zip`), chờ test máy. Phiên kéo đặt ở `workflowAutoSwitchVisual` (domain của Router `autoSwitchVisual`), `openAutoSwitchPanel()` xoá |
+| 5 — Element Style Editor | Xong 12/10/2026 (`sav-13-wiring-wave5-element-style-editor-patch.zip`), chờ test máy. Cụm MỚI `elementStyleEditor` (event/listener + event/router) |
+| 6a — Nhóm D (2 modal) | Xong 12/10/2026 (`sav-13-wiring-wave6a-modal-input-patch.zip`), chờ test máy — bỏ listener `input`, đọc `.value` trong `onClick` |
+| 6b — Nhóm F + `subtitle-editor.js` + phát hiện mới | Chưa làm — F cần thiết kế riêng (mục 6 câu 2: "hỏi lại trước khi viết code"); `subtitle-editor.js` (trang riêng) cần rà hạ tầng bus của trang trước |
 
 Câu chốt mục 6 (Giang, ghi ở cột Ghi chú của sổ nợ): (1) nhóm D — bỏ listener `input`, đọc `.value` trong `onClick`
 của `modalChoice()`; (2) nhóm F — miễn trừ CHỈ theo danh sách audit chính thức -> không miễn, phải sửa; (3) tính cả
