@@ -92,7 +92,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Phụ đề trên Player | `core/subtitle/subtitles.js`, `subtitle-display-ui.js`, `subtitle-transition.js`; karaoke `subtitle-karaoke*.js`; `event/workflow/subtitle-display.js`, `event/workflow/subtitle-modal.js`; cài đặt `components/subtitle-settings-drawer.js`, `components/subtitle-karaoke-drawer.js`, `core/subtitle/subtitle-style-settings.js`, cụm `subtitleStyleSettings` |
 | Ghi âm | `components/recorder-overlay.js`, `core/recorder.js`, `core/recorder-ui.js`, `event/workflow/recorder.js`, state `service/state/recorder.js`, cài đặt `components/settings/recorder-settings.js`; cụm `recorder` |
 | Sửa ảnh, crop, vẽ | `core/photo-editor-engine.js`, `core/media-transform.js`, `event/workflow/image-edit.js`, `event/workflow/media-transform-helpers.js`; cụm `imageEdit` |
-| Element Style Editor | `components/element-style-editor-drawer.js`, `core/element-style-editor.js`, `event/workflow/element-style-editor.js`; font `core/google-fonts-list.js` |
+| Element Style Editor | `components/element-style-editor-drawer.js`, `core/element-style-editor.js`, `core/element-style-editor-ui.js`, cụm `elementStyleEditor` (listener/router/workflow, listener+router MỚI 12/10/2026); font `core/google-fonts-list.js` |
 | Đếm số tăng dần | `core/number-countup.js`, `event/workflow/number-countup.js` |
 
 ## 5. Motion và Visual Background

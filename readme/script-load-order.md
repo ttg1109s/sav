@@ -330,6 +330,7 @@ group.
 121. `core/custom-effect.js`
 122. `core/custom-effect-drawer-ui.js`
 123. `core/element-style-editor.js`
+123a. `core/element-style-editor-ui.js` — MỚI 12/10/2026 (ô màu đối ứng, danh sách font — plan-event-bus-wiring đợt 5)
 124. `event/store.js`
 125. `core/dom-refs.js`
 126. `core/slider-panel-scroll.js`
@@ -604,6 +605,8 @@ sự kiện lúc nạp (cần `core/dom-refs.js`, đôi khi cần workflow của
 362. `event/listener/visualizer-display.js` — cần: `core/dom-refs.js` (btnCycleMode, genericDrawerBody)
 363. `event/router/custom-effect.js` — cần: `event/bus.js` (eventBus)
 364. `event/listener/custom-effect.js` — cần: `core/dom-refs.js` (genericDrawerBody, genericDrawerHeader)
+364a. `event/router/element-style-editor.js` — MỚI 12/10/2026 — cần: `event/bus.js` (eventBus)
+364b. `event/listener/element-style-editor.js` — MỚI 12/10/2026 — cần: `core/dom-refs.js` (genericDrawerBody, genericDrawerHeader)
 365. `event/router/visualizer-viewport.js` — cần: `event/bus.js` (eventBus)
 366. `event/listener/visualizer-viewport.js`
 367. `core/theme-background-ui.js`
