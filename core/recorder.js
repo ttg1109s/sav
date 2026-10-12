@@ -1,15 +1,14 @@
 /**
- * core/recorder.js — Core THUẦN của chế độ Ghi âm (MỚI 01/10/2026, Giang yêu cầu). Mỗi hàm 1 việc, nhận tham số,
+ * core/recorder.js — Core THUẦN của chế độ Ghi âm. Mỗi hàm 1 việc, nhận tham số,
  * không appState.get(), không gọi core khác, không taskManager (Rule 1-3). Điều phối: event/workflow/recorder.js.
  *
- * [07/10/2026, Giang — cải tiến Ghi âm] BỎ Echo cancellation (mic luôn thu thô: echoCancellation/noiseSuppression/
- * autoGainControl = false — Android Chrome bật EC thì chuyển sang chế độ cuộc gọi, đẩy tiếng ra loa thoại; Safari bật EC
+ * Mic luôn thu thô (echoCancellation/noiseSuppression/autoGainControl = false — Android Chrome bật EC thì chuyển sang chế độ cuộc gọi, đẩy tiếng ra loa thoại; Safari bật EC
  * thì hạ mạnh mức mic). 2 CHẾ ĐỘ THU (`mode`, Settings > System > Ghi âm):
  *   - 'speaker'    (Loa ngoài): CHỈ mic — nhạc phát ra loa + giọng cùng vào mic (không trộn nhạc gốc: tránh nhạc vào bản
  *                  ghi 2 lần, không cần Sync vì cả 2 tới mic cùng lúc). buildRecorderMicOnlyGraph().
  *   - 'headphones' (Tai nghe): nhạc gốc + mic, nhạc trễ theo Sync để khớp giọng (graph dưới). buildRecorderMixGraph().
  *
- * GRAPH 'headphones' (Giang chốt phương án A — trộn NGAY lúc ghi, 1 MediaRecorder, không trộn lại sau):
+ * GRAPH 'headphones' (trộn NGAY lúc ghi, 1 MediaRecorder, không trộn lại sau):
  *
  *   masterGainNode (sau EQ, TRƯỚC âm lượng người dùng) -> DelayNode (Sync) -+
  *                                                                            +-> MediaStreamAudioDestinationNode -> MediaRecorder
@@ -23,14 +22,14 @@
  * NẠP SAU: không phụ thuộc file nào lúc nạp (chỉ khai báo hằng số + hàm).
  */
 
-/** Sync (trước là "Bù trễ giọng", Settings > System > Ghi âm, chỉ chế độ Tai nghe) — giới hạn slider, đơn vị ms. */
+/** Sync (Settings > System > Ghi âm, chỉ chế độ Tai nghe) — giới hạn slider, đơn vị ms. */
 const RECORDER_LATENCY_MIN_MS = 0;
 const RECORDER_LATENCY_MAX_MS = 500;
 const RECORDER_LATENCY_STEP_MS = 10;
 /** Trần DelayNode (giây) — phải ≥ RECORDER_LATENCY_MAX_MS. */
 const RECORDER_DELAY_NODE_MAX_SEC = 1;
 
-/** MỚI (07/10/2026) — chế độ thu (mặc định = phần tử đầu), Count-in (giây, 0 = tắt), Recording quality -> bitrate. */
+/** Chế độ thu (mặc định = phần tử đầu), Count-in (giây, 0 = tắt), Recording quality -> bitrate. */
 const RECORDER_MODES = Object.freeze(['speaker', 'headphones']);
 const RECORDER_COUNT_IN_OPTIONS = Object.freeze([0, 3, 5]);
 const RECORDER_COUNT_IN_DEFAULT = 3;
@@ -40,7 +39,7 @@ const RECORDER_QUALITY_DEFAULT = 'standard';
 const RECORDER_CLIP_THRESHOLD = 0.98;
 const RECORDER_CLIP_HOLD_MS = 1000;
 
-/** MỚI (07/10/2026) — Latency calibration (chế độ Tai nghe): phát chuỗi tiếng "tick" ra tai nghe đặt sát mic, so thời
+/** Latency calibration (chế độ Tai nghe): phát chuỗi tiếng "tick" ra tai nghe đặt sát mic, so thời
  * điểm tick trong tín hiệu gốc với lúc mic nghe thấy NGAY TRONG CÙNG 1 graph — đúng độ lệch mà graph ghi phải bù. */
 const RECORDER_CALIB_LEAD_SEC = 0.6;        // chờ trước tick đầu (mic ổn định)
 const RECORDER_CALIB_CLICK_COUNT = 6;
@@ -52,7 +51,7 @@ const RECORDER_CALIB_PROCESSOR_SIZE = 2048;
 const RECORDER_CALIB_MIN_MATCHES = 3;
 const RECORDER_CALIB_MAX_SPREAD_MS = 40;    // các lần đo lệch nhau quá mức này -> không tin được (ồn, mic không nghe rõ)
 
-/** MIME ưu tiên cho MediaRecorder — "lưu định dạng theo OS" (Giang chốt): iOS/Safari chỉ có audio/mp4 (AAC), Chrome
+/** MIME ưu tiên cho MediaRecorder — lưu định dạng theo OS: iOS/Safari chỉ có audio/mp4 (AAC), Chrome
  * Android thường audio/webm (Opus). Workflow lọc qua MediaRecorder.isTypeSupported() rồi lấy cái đầu tiên. */
 const RECORDER_MIME_CANDIDATES = Object.freeze(['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']);
 
@@ -82,7 +81,7 @@ function isMediaRecordingSupported(nav, mediaRecorderCtor) {
 }
 
 /**
- * Ràng buộc getUserMedia cho mic — SỬA (07/10/2026, Giang bỏ Echo cancellation): luôn thu THÔ, tắt cả 3 bộ xử lý giọng
+ * Ràng buộc getUserMedia cho mic — luôn thu THÔ, tắt cả 3 bộ xử lý giọng
  * nói (EC làm Android chuyển chế độ cuộc gọi/ra loa thoại và Safari hạ mức mic; NS/AGC bóp méo, tự tăng giảm âm lượng).
  * @returns {MediaStreamConstraints}
  */
@@ -123,7 +122,7 @@ function clampRecorderLatencyMs(ms) {
 }
 
 /**
- * MỚI (07/10/2026) — graph ghi chế độ 'speaker': CHỈ mic vào bản ghi (nhạc tới mic qua loa). Không chạm graph phát nhạc.
+ * Graph ghi chế độ 'speaker': CHỈ mic vào bản ghi (nhạc tới mic qua loa). Không chạm graph phát nhạc.
  * @param {AudioContext} audioContext @param {MediaStream} micStream @param {number} micAnalyserFftSize
  * @returns {{destination: MediaStreamAudioDestinationNode, musicTapNode: null, musicDelay: null,
  *   micSource: MediaStreamAudioSourceNode, micAnalyser: AnalyserNode}}
@@ -190,7 +189,7 @@ function computeRecorderMicLevel(buf) {
     return Math.min(1, rms * 4);
 }
 
-/** MỚI (07/10/2026) — Clip warning: biên độ đỉnh |mẫu| của 1 khung time-domain (0..1+). @param {Float32Array} buf @returns {number} */
+/** Clip warning: biên độ đỉnh |mẫu| của 1 khung time-domain (0..1+). @param {Float32Array} buf @returns {number} */
 function computeRecorderMicPeak(buf) {
     let peak = 0;
     for (let i = 0; i < buf.length; i++) {
@@ -200,11 +199,11 @@ function computeRecorderMicPeak(buf) {
     return peak;
 }
 
-// ===================== Latency calibration (MỚI 07/10/2026) =====================
+// ===================== Latency calibration =====================
 
 /**
  * Graph đo trễ: N tiếng tick (sóng sin ngắn, có bao biên) lên lịch từ `startAt` -> (a) loa/tai nghe, (b) kênh 0 của bộ
- * gộp (tín hiệu GỐC); mic -> kênh 1. Bộ gộp -> ScriptProcessor (2 kênh vào; thu mẫu do Workflow gắn onaudioprocess) ->
+ * gộp (tín hiệu GỐC); mic -> kênh 1. Bộ gộp -> ScriptProcessor (2 kênh vào; Workflow nhận mẫu qua core/dynamic-object-ui.js::listenAudioProcess()) ->
  * gain 0 -> destination (để trình duyệt chịu chạy processor). Hai kênh đi qua CÙNG 1 lượt render nên độ lệch tick giữa
  * 2 kênh = đúng độ lệch giữa nhánh nhạc gốc và mic trong graph ghi.
  * @param {AudioContext} audioContext @param {MediaStream} micStream @param {number} startAt - audioContext.currentTime + lead
@@ -247,6 +246,12 @@ function buildLatencyCalibrationGraph(audioContext, micStream, startAt) {
 function disposeLatencyCalibrationGraph(graph) {
     graph.processor.onaudioprocess = null;
     graph.nodes.forEach((node) => { try { node.disconnect(); } catch (e) { /* đã gỡ */ } });
+}
+
+/** Thời gian (ms) còn phải thu tới hết chuỗi tick của graph đo — không âm.
+ * @param {number} endAt - graph.endAt (giây, thang audioContext) @param {number} currentTime @returns {number} */
+function computeRecorderCalibrationWaitMs(endAt, currentTime) {
+    return Math.max(0, (endAt - currentTime) * 1000);
 }
 
 /**
@@ -339,7 +344,7 @@ function resolveRecorderFileExtension(baseMime) {
     return RECORDER_FILE_EXT_BY_BASE_MIME[baseMime] || RECORDER_FALLBACK_FILE_EXT;
 }
 
-/** Nhãn thời điểm cho tag tiêu đề: 'dd/MM HH:mm' (Giang chốt). @param {Date} date @returns {string} */
+/** Nhãn thời điểm cho tag tiêu đề: 'dd/MM HH:mm'. @param {Date} date @returns {string} */
 function formatRecordingDateLabel(date) {
     const pad = (n) => String(n).padStart(2, '0');
     return `${pad(date.getDate())}/${pad(date.getMonth() + 1)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;

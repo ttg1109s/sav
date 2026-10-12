@@ -1,7 +1,7 @@
 /**
- * core/recorder-ui.js — Core-UI chế độ Ghi âm (MỚI 01/10/2026). Rule 5c: file có `wireRecorderReviewBody()` gắn sự
- * kiện lên DOM ĐỘNG (bodyHtml của modalChoice — tạo mới mỗi lần mở, không có sẵn lúc boot nên không wire được ở
- * event/listener/) -> hậu tố -ui. Các hàm còn lại chỉ đọc/ghi DOM nhận qua tham số, không tự quyết định nghiệp vụ.
+ * core/recorder-ui.js — Core-UI chế độ Ghi âm. Rule 5c: file có `wireRecorderReviewBody()` gắn sự kiện lên DOM ĐỘNG
+ * (bodyHtml của modalChoice — tạo mới mỗi lần mở, không có sẵn lúc boot nên không wire được ở event/listener/) và
+ * `wireRecorderMicEnded()` gắn lên track mic (tạo mỗi lần xin mic) -> hậu tố -ui. Các hàm còn lại chỉ đọc/ghi DOM nhận qua tham số, không tự quyết định nghiệp vụ.
  * Điều phối: event/workflow/recorder.js.
  *
  * NẠP SAU: event/bus.js chỉ cần lúc CLICK (không lúc nạp) — vị trí nạp tự do sau core/dom-refs.js.
@@ -44,11 +44,19 @@ function wireRecorderReviewBody(bodyEl) {
 }
 
 /**
+ * Track mic bị hệ điều hành thu hồi ('ended') -> eventBus 'recorder.mic.ended' (Rule 5a — callback CHỈ eventBus.send).
+ * @param {MediaStream} stream
+ */
+function wireRecorderMicEnded(stream) {
+    stream.getAudioTracks().forEach((track) => {
+        track.addEventListener('ended', () => eventBus.send({ router: 'recorder', type: 'recorder.mic.ended', payload: {} }), { once: true });
+    });
+}
+
+/**
  * Vẽ mini waveform: cột đối xứng quanh trục giữa, cột trước `progressRatio` tô màu "đã phát". Kích thước bộ đệm
- * canvas = kích thước KHUNG CHỨA × devicePixelRatio (modal đổi cỡ theo màn hình).
- * SỬA (02/10/2026, Giang báo modal vỡ layout, cột waveform tràn khỏi modal) — trước đây đo `canvasEl.clientWidth`:
- * thiếu CSS co canvas về 100% khung thì cỡ hiển thị = thuộc tính width/height vừa gán -> mỗi frame lại nhân thêm dpr,
- * canvas phình vô hạn. Giờ đo KHUNG CHỨA (parentElement, cỡ cố định 72px) — không còn vòng phản hồi.
+ * canvas = kích thước KHUNG CHỨA × devicePixelRatio (modal đổi cỡ theo màn hình). Đo KHUNG CHỨA (parentElement, cỡ cố
+ * định 72px) chứ không đo chính canvas — đo canvas thì cỡ hiển thị = thuộc tính vừa gán, mỗi frame nhân thêm dpr.
  * @param {HTMLCanvasElement} canvasEl @param {Float32Array} peaks 0..1 @param {number} progressRatio 0..1 @param {number} dpr
  */
 function drawRecorderWaveform(canvasEl, peaks, progressRatio, dpr) {
@@ -89,7 +97,7 @@ function setRecorderPreviewState(bodyEl, isPlaying, timeText) {
     if (timeEl && timeEl.textContent !== timeText) timeEl.textContent = timeText;
 }
 
-/** MỚI (07/10/2026) — Count-in: hiện số giây còn lại (lớp .is-counting trên #recorder-layer làm mờ viên REC); `seconds`
+/** Count-in: hiện số giây còn lại (lớp .is-counting trên #recorder-layer làm mờ viên REC); `seconds`
  * <= 0 -> ẩn số + gỡ lớp. @param {HTMLElement} layerEl @param {HTMLElement} countEl @param {number} seconds */
 function setRecorderCountIn(layerEl, countEl, seconds) {
     const counting = seconds > 0;
@@ -98,12 +106,12 @@ function setRecorderCountIn(layerEl, countEl, seconds) {
     countEl.textContent = counting ? String(seconds) : '';
 }
 
-/** MỚI (07/10/2026) — Clip warning: tô đỏ vạch mức mic. @param {HTMLElement} indicatorEl @param {boolean} clipping */
+/** Clip warning: tô đỏ vạch mức mic. @param {HTMLElement} indicatorEl @param {boolean} clipping */
 function setRecorderClip(indicatorEl, clipping) {
     indicatorEl.classList.toggle('is-clipping', clipping);
 }
 
-/** MỚI (07/10/2026) — nút Latency calibration (Settings > System > Ghi âm) lúc đang đo: khoá nút + đổi nhãn. Không có nút
+/** Nút Latency calibration (Settings > System > Ghi âm) lúc đang đo: khoá nút + đổi nhãn. Không có nút
  * (đang ở màn khác / chế độ Speaker) -> bỏ qua. @param {HTMLElement} bodyEl @param {boolean} busy @param {string} label */
 function setRecorderCalibrationBusy(bodyEl, busy, label) {
     const btn = bodyEl.querySelector('#setting-recorder-calibrate');
@@ -113,7 +121,7 @@ function setRecorderCalibrationBusy(bodyEl, busy, label) {
     btn.textContent = label;
 }
 
-/** MỚI (07/10/2026) — đo xong: đặt slider Sync + nhãn theo giá trị mới (màn không cần vẽ lại). @param {HTMLElement} bodyEl @param {number} ms */
+/** Đo xong: đặt slider Sync + nhãn theo giá trị mới (màn không cần vẽ lại). @param {HTMLElement} bodyEl @param {number} ms */
 function setRecorderLatencyControl(bodyEl, ms) {
     const slider = bodyEl.querySelector('#setting-recorder-latency');
     const labelEl = bodyEl.querySelector('#setting-recorder-latency-value');
@@ -121,7 +129,7 @@ function setRecorderLatencyControl(bodyEl, ms) {
     if (labelEl) labelEl.textContent = `${ms} ms`;
 }
 
-/** Nhãn giá trị slider Sync (trước là "Bù trễ giọng") cập nhật trong lúc kéo. @param {HTMLElement} bodyEl @param {number} ms */
+/** Nhãn giá trị slider Sync cập nhật trong lúc kéo. @param {HTMLElement} bodyEl @param {number} ms */
 function setRecorderLatencyLabel(bodyEl, ms) {
     const labelEl = bodyEl.querySelector('#setting-recorder-latency-value');
     if (labelEl) labelEl.textContent = `${ms} ms`;
