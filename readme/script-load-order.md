@@ -419,6 +419,7 @@ group.
 207. `core/photo-player.js`
 208. `core/video-player-capture.js`
 209. `core/eq-presets.js`
+209a. `core/eq-presets-drawer-ui.js` — MỚI 12/10/2026 (setEqBandValueText — Edit EQ, plan-event-bus-wiring đợt 1)
 210. `core/audio-engine.js`
 211. `core/recorder.js`
 212. `core/recorder-ui.js`
@@ -647,7 +648,7 @@ sự kiện lúc nạp (cần `core/dom-refs.js`, đôi khi cần workflow của
 407. `event/listener/subtitle-style-settings.js` — cần: `core/dom-refs.js` (genericDrawerBody)
 408. `event/workflow/eq-presets.js`
 409. `event/router/eq-presets.js` — cần: `event/bus.js` (eventBus)
-410. `event/listener/eq-presets.js` — cần: `core/dom-refs.js` (btnCycleEq)
+410. `event/listener/eq-presets.js` — cần: `core/dom-refs.js` (btnCycleEq, genericDrawerHeader, genericDrawerBody)
 
 </details>
 
