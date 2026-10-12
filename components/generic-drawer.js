@@ -73,6 +73,9 @@ const TPL_GENERIC_DRAWER = `
  * @param {string} [o.leftHtml] - THAY cả khối tiêu đề (vd hàng tab) — chỉ bố cục 'start'
  * @param {string} [o.backId] - id nút Back (có -> hiện nút Back)
  * @param {string} [o.backTitle] - tooltip nút Back (mặc định common.back)
+ * @param {string} [o.backAttrs] - MỚI (12/10/2026, plan-event-bus-wiring đợt 1) — thuộc tính thêm cho nút Back, vd
+ *        'data-eq-back="1"' — cùng vai trò `closeAttrs`: Listener ủy quyền của cụm nhận đúng nút Back của mình (id Back
+ *        dùng chung mọi Drawer)
  * @param {string} [o.actionsHtml] - nút phụ đứng TRƯỚC nút đóng
  * @param {boolean} [o.close=true] - có nút đóng không
  * @param {string} [o.closeId='btn-generic-drawer-close']
@@ -81,14 +84,14 @@ const TPL_GENERIC_DRAWER = `
  * @returns {string}
  */
 function buildDrawerHeaderHtml(o) {
-    const opts = Object.assign({ title: '', titleAttrs: '', titleSuffixHtml: '', leftHtml: '', backId: '', backTitle: t('common.back'), actionsHtml: '', close: true, closeId: 'btn-generic-drawer-close', closeAttrs: '', layout: '' }, o);
+    const opts = Object.assign({ title: '', titleAttrs: '', titleSuffixHtml: '', leftHtml: '', backId: '', backTitle: t('common.back'), backAttrs: '', actionsHtml: '', close: true, closeId: 'btn-generic-drawer-close', closeAttrs: '', layout: '' }, o);
     const btnClass = 'w-8 h-8 flex items-center justify-center rounded-full shrink-0';
     const closeHtml = opts.close ? `<button type="button" id="${opts.closeId}" class="${btnClass}" data-uitk="headerCloseHover headerCloseIcon" title="${t('common.close')}"${opts.closeAttrs ? ` ${opts.closeAttrs}` : ''}>${iconSvg('x', 'h-5 w-5')}</button>` : '';
     const rightHtml = `${opts.actionsHtml}${closeHtml}`;
     const titleHtml = `<h3 class="text-base truncate${opts.backId || opts.layout === 'center' ? ' text-center' : ''}" data-uitk="headerTitle"${opts.titleAttrs ? ` ${opts.titleAttrs}` : ''}>${opts.title}</h3>`;
     const layout = opts.layout || (opts.backId ? 'center' : 'start');
     if (layout === 'center') {
-        const backHtml = opts.backId ? `<button type="button" id="${opts.backId}" class="absolute left-4 top-1/2 -translate-y-1/2 ${btnClass}" data-uitk="headerCloseHover headerCloseIcon" title="${opts.backTitle}">${iconSvg('chevron-left', 'h-5 w-5')}</button>` : '';
+        const backHtml = opts.backId ? `<button type="button" id="${opts.backId}" class="absolute left-4 top-1/2 -translate-y-1/2 ${btnClass}" data-uitk="headerCloseHover headerCloseIcon" title="${opts.backTitle}"${opts.backAttrs ? ` ${opts.backAttrs}` : ''}>${iconSvg('chevron-left', 'h-5 w-5')}</button>` : '';
         return `
             <div class="relative flex items-center justify-center px-14 py-3" data-uitk="headerBorder">
                 ${backHtml}

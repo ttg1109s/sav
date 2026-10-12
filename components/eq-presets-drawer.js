@@ -42,15 +42,18 @@
  *     THẲNG view Sửa (đã có sẵn ô Name để đổi nếu muốn — Giang chỉ ra "đằng nào cũng sửa được sau").
  *   (Điểm 5 — Volume HUD không tô màu phần đã kéo — thuộc core/hud.js, KHÔNG phải file này.)
  *
- * Generic Drawer KHÔNG biết nội dung là gì — event/workflow/eq-presets.js tự querySelector +
- * addEventListener SAU MỖI lần openGenericDrawer()/updateGenericDrawer() (KHÔNG qua eventBus cho
- * các nút động này, xem docstring core/generic-drawer.js).
+ * SỬA (12/10/2026, plan-event-bus-wiring-07-10-2026 đợt 1) — nội dung Drawer KHÔNG còn bị Workflow tự gắn sự kiện:
+ * event/listener/eq-presets.js ủy quyền 1 lần trên genericDrawerBody/genericDrawerHeader, nhận phần tử qua id/attribute
+ * có tiền tố cụm (`data-eq-close`, `data-eq-back`, `data-eq-id` hàng List, `data-eq-apply-id`/`data-eq-reset-id`/
+ * `data-eq-delete-id` mang id preset, `.eq-band-slider` + `data-index`, `#eq-drawer-name`, `#btn-eq-drawer-add`).
+ * Id nút chrome chung (#btn-generic-drawer-close/back) GIỮ nguyên.
  */
 
 function renderEqListHeader() {
     // SỬA 07/10/2026 — header dùng chung buildDrawerHeaderHtml() (components/generic-drawer.js)
     return buildDrawerHeaderHtml({
         title: t('eqPresets.title'), titleAttrs: 'data-i18n="eqPresets.title"',
+        closeAttrs: 'data-eq-close="1"', // MỚI 12/10/2026 — Listener ủy quyền nhận đúng nút X của EQ (id X dùng chung mọi Drawer)
         actionsHtml: `<button type="button" id="btn-eq-drawer-add" class="w-8 h-8 flex items-center justify-center rounded-full" data-uitk="cardHoverBg textSecondaryStrong" title="${t('eqPresets.addButton.title')}">${iconSvg('plus', 'h-5 w-5')}</button>`,
     });
 }
@@ -88,13 +91,13 @@ function renderEqEditHeader(preset, isBuiltIn) {
     // lúc seed lần đầu (KHÔNG tự lưu DB — vẫn phải bấm Lưu mới ghi, cùng 1 cửa duy nhất với sửa
     // tay), xem event/workflow/eq-presets.js::_resetEditToDefault().
     const resetBtn = (!preset.locked && isBuiltIn)
-        ? `<button id="btn-eq-drawer-reset" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors shrink-0" data-uitk="headerCloseHover headerCloseIcon" title="${t('eqPresets.resetButton.title')}">${iconSvg('reset', 'h-[18px] w-[18px]')}</button>`
+        ? `<button id="btn-eq-drawer-reset" data-eq-reset-id="${preset.id}" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors shrink-0" data-uitk="headerCloseHover headerCloseIcon" title="${t('eqPresets.resetButton.title')}">${iconSvg('reset', 'h-[18px] w-[18px]')}</button>`
         : '';
     // XOÁ (07/10/2026, Giang: "bỏ tính năng save") — nút Lưu ở header: mọi chỉnh sửa (slider, tên) giờ TỰ LƯU, preset
-    // đang áp dụng thì slider có tác dụng NGAY khi kéo — xem event/workflow/eq-presets.js::_wireEditView().
+    // đang áp dụng thì slider có tác dụng NGAY khi kéo — xem event/workflow/eq-presets.js::_previewBandGain()/_commitGains().
     // SỬA 07/10/2026 — header dùng chung buildDrawerHeaderHtml() (components/generic-drawer.js)
     return buildDrawerHeaderHtml({
-        backId: 'btn-generic-drawer-back', backTitle: t('eqPresets.title'),
+        backId: 'btn-generic-drawer-back', backAttrs: 'data-eq-back="1"', backTitle: t('eqPresets.title'), // backAttrs MỚI 12/10/2026 — xem docstring đầu file
         title: t('eqPresets.editTitle'), titleAttrs: 'data-i18n="eqPresets.editTitle"',
         actionsHtml: resetBtn, close: false,
     });
@@ -107,6 +110,8 @@ function renderEqEditHeader(preset, isBuiltIn) {
 /** SỬA (07/10/2026, Giang) — 10 kênh giờ là 10 DÒNG ngang (nhãn tần số | slider thường | giá trị dB), cùng kiểu
  * slider/hàng của các màn Settings khác; nút Áp dụng có 2 trạng thái: chưa áp dụng (nút nhấn) / ĐANG áp dụng
  * (khoá — vẫn bấm được để hiện thông báo "đang áp dụng rồi", xem event/workflow/eq-presets.js::onApplyClick()).
+ * SỬA (12/10/2026) — nút Áp dụng/Xoá mang `data-eq-apply-id`/`data-eq-delete-id` = id preset: Listener đọc làm payload
+ * (trước đây Workflow tự gắn callback có sẵn `preset.id` trong closure).
  * @param {{id: string, name: string, gains: number[], locked: boolean}} preset
  * @param {boolean} isActive - preset này đang là preset được chọn (`eqPresetId`) — Workflow tự tính. */
 function renderEqEditBody(preset, isActive) {
@@ -117,8 +122,8 @@ function renderEqEditBody(preset, isActive) {
                     <span class="w-10 shrink-0 text-right text-xs font-semibold tabular-nums" data-uitk="textPrimary" id="eq-edit-val-${i}">${g > 0 ? `+${g}` : g}</span>
                 </div>`).join('');
     const applyBtn = isActive
-        ? `<button id="eq-drawer-apply" type="button" data-eq-applied="1" class="${preset.locked ? 'w-full' : 'flex-1'} py-3 rounded-2xl transition-colors text-sm font-medium flex items-center justify-center gap-1.5" data-uitk="btnNeutralBg btnNeutralText">${iconSvg('lock-closed', 'h-4 w-4 shrink-0')}<span data-i18n="eqPresets.applied">${t('eqPresets.applied')}</span></button>`
-        : `<button id="eq-drawer-apply" type="button" class="${preset.locked ? 'w-full' : 'flex-1'} py-3 rounded-2xl transition-colors text-sm font-medium" data-uitk="btnAccentSoft" data-i18n="eqPresets.apply">${t('eqPresets.apply')}</button>`;
+        ? `<button id="eq-drawer-apply" type="button" data-eq-apply-id="${preset.id}" data-eq-applied="1" class="${preset.locked ? 'w-full' : 'flex-1'} py-3 rounded-2xl transition-colors text-sm font-medium flex items-center justify-center gap-1.5" data-uitk="btnNeutralBg btnNeutralText">${iconSvg('lock-closed', 'h-4 w-4 shrink-0')}<span data-i18n="eqPresets.applied">${t('eqPresets.applied')}</span></button>`
+        : `<button id="eq-drawer-apply" type="button" data-eq-apply-id="${preset.id}" class="${preset.locked ? 'w-full' : 'flex-1'} py-3 rounded-2xl transition-colors text-sm font-medium" data-uitk="btnAccentSoft" data-i18n="eqPresets.apply">${t('eqPresets.apply')}</button>`;
 
     return `
         <div class="flex flex-col gap-4">
@@ -132,7 +137,7 @@ function renderEqEditBody(preset, isActive) {
             ${preset.locked ? applyBtn : `
             <div class="flex gap-2">
                 ${applyBtn}
-                <button id="eq-drawer-delete" type="button" class="flex-1 py-3 rounded-2xl transition-colors text-sm font-medium" data-uitk="btnDestructiveSoft" data-i18n="eqPresets.delete">${t('eqPresets.delete')}</button>
+                <button id="eq-drawer-delete" type="button" data-eq-delete-id="${preset.id}" class="flex-1 py-3 rounded-2xl transition-colors text-sm font-medium" data-uitk="btnDestructiveSoft" data-i18n="eqPresets.delete">${t('eqPresets.delete')}</button>
             </div>`}
         </div>
     `;
