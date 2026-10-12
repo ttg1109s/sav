@@ -1,25 +1,12 @@
 /**
- * Component: panel body "Auto-Switch Effect" (components/settings/visualizer-geometry-color.js mở
- * qua #setting-open-visualizer-auto-switch, panel RIÊNG ngang hàng "Customize Visualizer").
- *
- * MỚI (12/08/2026, Giang yêu cầu tái cấu trúc Setting Main mục 4f) — TÁCH từ card "AUTO-SWITCH
- * EFFECT" cũ (từng là 1 trong 4 section bên trong panel "Customize Visualizer", components/
- * visualizer-settings-drawer.js) thành panel RIÊNG — ĐÚNG NGUYÊN markup/id/logic cũ (core/
- * auto-switch-visual.js, event/workflow/visualizer-display.js::openAutoSwitchPanel(), hàm MỚI TÁCH
- * từ openPanel() — xem docstring ở đó), KHÔNG đổi gì ngoài vị trí. Bỏ H3 tiêu đề card lặp lại tên
- * panel (panel header đã có sẵn "Auto-Switch Effect" — CÙNG khuôn panel Cử chỉ/EQ, không panel nào
- * lặp lại tên chính nó thành 1 section con bên trong).
- *
- * SỬA (09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — viết LẠI TRỰC TIẾP bằng bảng màu sáng,
- * không còn phụ thuộc `.app-settings-scope` đè màu (assets/css/layout-nav.css).
- *
- * VIẾT LẠI (26/09/2026, Giang "cải tiến lại Auto-Switch Effect"): (1) mọi tuỳ chọn LUÔN hiện dù bật hay tắt;
- * (3a) dropdown danh sách theo Group/Style; (3b) danh sách item kéo thả (tay cầm ⋮⋮, CÙNG khuôn hàng Point Move —
- * components/motion-settings-drawer.js::renderPointMoveListBody()) + checkbox tham gia; (3c) group có thêm
- * dropdown style cụ thể / Random; (3d) thứ tự chạy theo sắp xếp / ngẫu nhiên; (4) thời gian Fixed (const |
- * random min-max, nút mở time picker 10s-1h) | Per media. Render THUẦN từ `model` (Workflow dựng —
- * workflowAutoSwitchVisual.buildPanelModel()), không đọc config trực tiếp. Wiring: event/listener/
- * auto-switch-visual.js (change/click delegated) + listener ủy quyền pointer (kéo thả, SỬA 12/10/2026 — trước là workflowVisualizerDisplay.openAutoSwitchPanel()).
+ * Component: Settings > Visualizer Screen > Auto-Switch Effect — panel chính + sub panel "Effect list".
+ *   - Panel chính: bật/tắt, thứ tự chạy (theo sắp xếp / ngẫu nhiên), thời gian Fixed (const | random min-max, nút mở
+ *     time picker 10s-1h) | Per media, hàng mở sub panel "Effect list". Mọi tuỳ chọn LUÔN hiện dù bật hay tắt.
+ *   - Sub panel "Effect list": dropdown danh sách theo Group/Style + danh sách item kéo thả (tay cầm ⋮⋮, cùng khuôn hàng
+ *     Point Move — components/motion-settings-drawer.js::renderPointMoveListBody()) + checkbox tham gia; group có thêm
+ *     dropdown style cụ thể / Random.
+ * Render THUẦN từ `model` (workflowAutoSwitchVisual.buildPanelModel()), không đọc config trực tiếp. Sự kiện:
+ * event/listener/auto-switch-visual.js (change/click/pointer delegate trên genericDrawerBody).
  */
 
 /** "1h 05m 30s" / "2m 05s" / "45s" — hiển thị giá trị giây trên nút mở time picker. */
@@ -129,9 +116,9 @@ function renderVisualizerAutoSwitchPanelBody(model) {
 `;
 }
 
-/** SUB PANEL "Effect list" (MỚI 26/09/2026, Giang "cho danh sách style/group vào sub panel riêng, tránh dài quá") —
- * dropdown Group/Style + gợi ý kéo thả + danh sách item. Mở từ hàng #btn-auto-switch-open-list của panel chính
- * (event/workflow/app-settings.js::_renderAutoSwitchList()). Kéo thả: event/listener/auto-switch-visual.js -> workflowAutoSwitchVisual.startItemDrag()... (SỬA 12/10/2026).
+/** SUB PANEL "Effect list" (danh sách tách khỏi panel chính cho gọn) — dropdown Group/Style + gợi ý kéo thả + danh sách
+ * item. Mở từ hàng #btn-auto-switch-open-list của panel chính (event/workflow/app-settings.js::_renderAutoSwitchList()).
+ * Kéo thả: event/listener/auto-switch-visual.js -> workflowAutoSwitchVisual.startItemDrag()...
  * @param {{cfg:object, listBy:'group'|'style', items:object[]}} model */
 function renderVisualizerAutoSwitchListBody(model) {
     return `
