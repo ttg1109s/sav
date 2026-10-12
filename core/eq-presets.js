@@ -58,6 +58,17 @@ function applyEqGains(eqBandNodes, gains) {
     }
 }
 
+/** MỚI (12/10/2026, plan-event-bus-wiring đợt 1 — dọn nợ trong method bị đụng `_previewBandGain()`) — đọc giá trị thô
+ * của 1 slider kênh Edit EQ (`data-index` + `value`, Listener gửi nguyên chuỗi) thành số kênh/số dB + chữ hiển thị
+ * cạnh slider ('+7' / '0' / '-5'). Trước đây Workflow tự parseInt + định dạng (Workflow tự tính toán).
+ * @param {string} rawIndex @param {string} rawValue
+ * @returns {{isValid: boolean, index: number, value: number, text: string}} — `isValid` false khi `data-index` hỏng */
+function resolveEqBandSliderInput(rawIndex, rawValue) {
+    const index = parseInt(rawIndex, 10);
+    const value = parseInt(rawValue, 10);
+    return { isValid: !isNaN(index), index, value, text: value > 0 ? `+${value}` : `${value}` };
+}
+
 /** Đồng bộ tên preset ĐANG CHỌN lên nhãn nút EQ Control Center (#eq-badge-label) — gọi mỗi khi đổi
  * preset (cycle/lưu preset đang active/xoá preset đang active).
  * @param {string} name */
