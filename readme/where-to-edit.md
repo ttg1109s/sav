@@ -70,7 +70,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Logo SAV góc Playlist | `core/sav-logo.js` (`setSavLogoExpanded()`); cụm `savLogo` |
 | Media đang dùng bị thay nội dung | cụm `mediaInUse` (`event/router/media-in-use.js`, `event/workflow/media-in-use.js`) |
 | File Manager — Video | `core/file-manager/video.js`, `video-ui.js`; lưới `event/workflow/video-gallery-window.js`; thumbnail `event/workflow/video-thumb-extract.js` |
-| File Manager — Photo | `core/file-manager/image.js`, `photo-ui.js`; lưới `event/workflow/photo-gallery-window.js`; cụm `fileManagerPhoto` |
+| File Manager — Photo | `core/file-manager/image.js`, `photo-ui.js`; lưới `event/workflow/photo-gallery-window.js`; cụm `fileManagerPhoto`; giải mã/thu nhỏ ảnh `core/image-load-ui.js` |
 | Folder | `core/file-manager/folder.js`, `folder-picker-ui.js`; cụm `fileManagerFolderBrowser` |
 | Quét/dọn file hỏng | `core/file-manager/cleanup.js`; cụm `fileManagerCleanup` |
 | Quản lý lưu trữ | `components/file-manager-storage.js`, `core/storage-manager.js`; cụm `fileManagerStorage` |

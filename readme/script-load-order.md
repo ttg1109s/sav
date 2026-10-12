@@ -347,6 +347,7 @@ group.
 136. `core/pagination-ui.js`
 137. `core/file-manager/image.js`
 138. `core/file-manager/photo-ui.js`
+138a. `core/image-load-ui.js` — MỚI 12/10/2026 (decodeImageFromUrl/renderImageScaledToJpegBlob/releaseDecodedImage — plan-event-bus-wiring đợt 6b-1); gọi lúc chạy từ event/workflow/file-manager-photo.js, file-manager-storage.js, visualizer/shape.js
 139. `core/media-picker-drawer-ui.js`
 140. `core/photo-editor-engine.js`
 141. `core/media-transform.js`
