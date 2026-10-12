@@ -33,63 +33,11 @@ const workflowVisualizerDisplay = {
         panelEl.querySelector('#setting-control-center-button-enable').checked = cfg.controlCenterButtonVisible !== false;
     },
 
-    /** Ứng với msg.type = 'visualizerDisplay.openAutoSwitchPanel.click' — push panel "Auto-Switch
-     * Effect" (MỚI 12/08/2026, mục 4f — tách từ card "Auto-switch effect" cũ trong panel
-     * "Customize Visualizer") + đồng bộ mọi input (thay `initAutoSwitchVisualUI()` cũ — xem
-     * core/auto-switch-visual.js). */
-    /** Đồng bộ mọi input panel "Auto-Switch Effect" (thay `initAutoSwitchVisualUI()` cũ — xem
-     * core/auto-switch-visual.js). SỬA (đợt migrate Visualizer Screen) — KHÔNG còn
-     * `pushSettingsPanel()`, cùng khuôn openDisplayPanel() ngay trên. */
-    openAutoSwitchPanel() {
-        // VIẾT LẠI (26/09/2026, Giang "cải tiến lại Auto-Switch Effect") — body đã vẽ SẴN giá trị từ model
-        // (components/settings/visualizer-auto-switch-drawer.js), không còn đồng bộ từng input ở đây. Chỉ còn gắn
-        // KÉO THẢ danh sách item — CÙNG cảm giác kéo Point Move (hàng NỔI LÊN + bám con trỏ, hàng đích tô viền,
-        // event/workflow/app-settings.js::_renderPointMoveList()), nhưng dùng setPointerCapture() trên tay cầm
-        // thay vì listener `document` (không cộng dồn listener mỗi lần vẽ lại panel). Thả = DỜI mục tới vị trí
-        // hàng đích (không hoán đổi).
-        const panelEl = genericDrawerBody;
-        const listEl = panelEl.querySelector('#auto-switch-item-list');
-        if (!listEl) return;
-        const listBy = appConfigViz.getAll().autoSwitchVisualListBy === 'group' ? 'group' : 'style';
-        const rows = Array.from(listEl.querySelectorAll('[data-as-row]'));
-        listEl.querySelectorAll('[data-as-drag]').forEach((handle) => {
-            let rowEl = null, startY = 0, hoverEl = null;
-            const clearHover = () => { if (hoverEl) { hoverEl.style.outline = ''; hoverEl = null; } };
-            handle.addEventListener('pointerdown', (e) => {
-                e.preventDefault();
-                rowEl = rows.find((row) => row.dataset.asRow === handle.dataset.asDrag) || null;
-                if (!rowEl) return;
-                startY = e.clientY;
-                handle.setPointerCapture(e.pointerId);
-                Object.assign(rowEl.style, { position: 'relative', zIndex: '30', boxShadow: '0 10px 24px rgba(0,0,0,0.25)', userSelect: 'none' });
-                document.body.style.userSelect = 'none';
-            });
-            handle.addEventListener('pointermove', (e) => {
-                if (!rowEl) return;
-                rowEl.style.transform = `translateY(${e.clientY - startY}px) scale(1.02)`;
-                const target = rows.find((row) => {
-                    if (row === rowEl) return false;
-                    const rect = row.getBoundingClientRect();
-                    return e.clientY >= rect.top && e.clientY <= rect.bottom;
-                }) || null;
-                if (target !== hoverEl) { clearHover(); hoverEl = target; if (hoverEl) hoverEl.style.outline = '2px solid rgba(56,189,248,0.7)'; }
-            });
-            const finish = (commit) => {
-                if (!rowEl) return;
-                Object.assign(rowEl.style, { position: '', zIndex: '', boxShadow: '', transform: '', userSelect: '' });
-                document.body.style.userSelect = '';
-                const fromKey = rowEl.dataset.asRow;
-                const toKey = hoverEl ? hoverEl.dataset.asRow : null;
-                clearHover();
-                rowEl = null;
-                if (commit && toKey && toKey !== fromKey) {
-                    eventBus.send({ router: 'autoSwitchVisual', type: 'autoSwitchVisual.item.move', payload: { listBy, fromKey, toKey } });
-                }
-            };
-            handle.addEventListener('pointerup', () => finish(true));
-            handle.addEventListener('pointercancel', () => finish(false));
-        });
-    },
+    // XOÁ (12/10/2026, plan-event-bus-wiring-07-10-2026 đợt 4) — `openAutoSwitchPanel()`: chỉ còn việc tự gắn 4 listener
+    // pointer kéo thả lên từng tay cầm của sub panel "Effect list" (bỏ qua Listener -> Router). Kéo thả nay đi
+    // event/listener/auto-switch-visual.js -> Router 'autoSwitchVisual.drag.*' -> workflowAutoSwitchVisual.startItemDrag()...
+    // (phiên kéo về đúng domain Auto-Switch). Case router 'visualizerDisplay.openAutoSwitchPanel.click' (không còn nơi
+    // gửi) xoá cùng; event/workflow/app-settings.js bỏ onMount gọi hàm này.
 
     // (14 method set* cho màu/blur/style con/kích thước ĐÃ DỜI sang event/workflow/custom-effect.js)
     // (Phần B, Galaxy — 5 method spaceStyle/4 slider ĐÃ BỎ 21/07/2026)

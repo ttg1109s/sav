@@ -484,16 +484,15 @@ const workflowAppSettings = {
     /** Sub panel "Effect list" của Auto-Switch (MỚI 26/09/2026 — tách danh sách group/style khỏi panel chính cho gọn). */
     _renderAutoSwitchList() {
         this._currentRenderFn = () => this._renderAutoSwitchList();
-        this._render(t('visualizerSettingsDrawer.autoSwitchList.label'), renderVisualizerAutoSwitchListBody(workflowAutoSwitchVisual.buildPanelModel()), () => { // components/settings/visualizer-auto-switch-drawer.js
-            workflowVisualizerDisplay.openAutoSwitchPanel(); // event/workflow/visualizer-display.js — gắn kéo thả
-        });
+        // SỬA 12/10/2026 (plan-event-bus-wiring đợt 4) — bỏ onMount `workflowVisualizerDisplay.openAutoSwitchPanel()` (gắn kéo thả
+        // trực tiếp): kéo thả nay ủy quyền ở event/listener/auto-switch-visual.js.
+        this._render(t('visualizerSettingsDrawer.autoSwitchList.label'), renderVisualizerAutoSwitchListBody(workflowAutoSwitchVisual.buildPanelModel())); // components/settings/visualizer-auto-switch-drawer.js
     },
 
     _renderAutoSwitch() {
         this._currentRenderFn = () => this._renderAutoSwitch();
-        this._render(t('visualizerAutoSwitchDrawer.title'), renderVisualizerAutoSwitchPanelBody(workflowAutoSwitchVisual.buildPanelModel()), () => { // SỬA 26/09/2026 — body vẽ từ model (event/workflow/auto-switch-visual.js)
-            workflowVisualizerDisplay.openAutoSwitchPanel(); // event/workflow/visualizer-display.js
-        });
+        // SỬA 12/10/2026 — bỏ onMount `openAutoSwitchPanel()` (panel chính không có danh sách kéo thả — hàm vốn tự return sớm).
+        this._render(t('visualizerAutoSwitchDrawer.title'), renderVisualizerAutoSwitchPanelBody(workflowAutoSwitchVisual.buildPanelModel())); // SỬA 26/09/2026 — body vẽ từ model (event/workflow/auto-switch-visual.js)
     },
 
     /** SỬA (05/10/2026, Giang yêu cầu — tách màn Visual Background cũ) — Visualizer Screen > Background Color: CHỈ card

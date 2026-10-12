@@ -42,6 +42,10 @@
 const AUTO_SWITCH_VISUAL_TASK_TIMER = 'autoSwitchVisualTimer';
 
 const workflowAutoSwitchVisual = {
+    // MỚI (12/10/2026, plan-event-bus-wiring đợt 4) — phiên kéo thả 1 item của sub panel "Effect list":
+    // {listBy, rowEl, startY, rows, dragIndex, hoverEl} — null = không kéo. Xem startItemDrag().
+    _itemDrag: null,
+
 
     setEnabled(checked) {
         setAutoSwitchVisualEnabled(checked); // core/auto-switch-visual.js
@@ -95,6 +99,66 @@ const workflowAutoSwitchVisual = {
         moveAutoSwitchVisualItem(listBy, fromKey, toKey);
         saveConfig();
         this._rerenderPanel();
+    },
+
+    // ===================== Kéo thả item — MỚI 12/10/2026 =====================
+    // plan-event-bus-wiring-07-10-2026 đợt 4 (khuôn W4, cùng khuôn workflowMotionPresets.startPointMoveDrag()):
+    // THAY 4 listener pointer mà event/workflow/visualizer-display.js::openAutoSwitchPanel() (đã xoá) tự gắn lên từng tay
+    // cầm sau mỗi lần vẽ panel. Listener ủy quyền (event/listener/auto-switch-visual.js) -> Router 'autoSwitchVisual.drag.*'
+    // -> 4 method dưới. Hiệu ứng + kết quả giữ nguyên: hàng nổi lên bám con trỏ, hàng đích viền xanh, thả = DỜI mục tới
+    // vị trí hàng đích (gửi 'autoSwitchVisual.item.move' như cũ), pointercancel = huỷ không dời.
+
+    /** 'autoSwitchVisual.drag.start' — nhấc hàng có khoá `key` lên, ghi phiên kéo.
+     * @param {{listBy: string, key: string, clientY: number, handleEl: HTMLElement, pointerId: number}} payload */
+    startItemDrag({ listBy, key, clientY, handleEl, pointerId }) {
+        const rows = Array.from(genericDrawerBody.querySelectorAll('#auto-switch-item-list [data-as-row]'));
+        const dragIndex = findAutoSwitchRowIndexByKey(rows.map((row) => row.dataset.asRow), key); // core/auto-switch-visual.js
+        const rowEl = rows[dragIndex];
+        if (!rowEl) return;
+        this._itemDrag = { listBy, rowEl, startY: clientY, rows, dragIndex, hoverEl: null };
+        liftAutoSwitchDragRow(rowEl, handleEl, pointerId); // core/auto-switch-visual-ui.js
+    },
+
+    /** 'autoSwitchVisual.drag.move' — hàng bám con trỏ, tô viền hàng đích. @param {number} clientY */
+    moveItemDrag(clientY) {
+        const drag = this._itemDrag;
+        if (!drag) return; // guard: rê chuột qua tay cầm mà không kéo
+        setAutoSwitchDragRowTransform(drag.rowEl, computeAutoSwitchDragTransform(drag.startY, clientY)); // core/auto-switch-visual-ui.js + core/auto-switch-visual.js
+        const index = findAutoSwitchDropRowIndex(drag.rows.map((row) => row.getBoundingClientRect()), clientY, drag.dragIndex); // core/auto-switch-visual.js
+        this._setItemDragHover(drag, drag.rows[index] || null);
+    },
+
+    /** 'autoSwitchVisual.drag.end' (pointerup) — trả hàng về; có hàng đích khác chính nó -> dời mục (qua bus như cũ). */
+    endItemDrag() {
+        const drag = this._itemDrag;
+        if (!drag) return;
+        const { fromKey, toKey } = this._releaseItemDrag(drag);
+        if (!toKey || toKey === fromKey) return; // thả tại chỗ / ngoài danh sách -> không dời
+        eventBus.send({ router: 'autoSwitchVisual', type: 'autoSwitchVisual.item.move', payload: { listBy: drag.listBy, fromKey, toKey } });
+    },
+
+    /** 'autoSwitchVisual.drag.cancel' (pointercancel) — trả hàng về, KHÔNG dời. */
+    cancelItemDrag() {
+        const drag = this._itemDrag;
+        if (!drag) return;
+        this._releaseItemDrag(drag);
+    },
+
+    /** Kết thúc phiên kéo (dùng chung end/cancel): xoá phiên, trả style hàng, bỏ viền đích. Trả 2 khoá cho endItemDrag(). */
+    _releaseItemDrag(drag) {
+        this._itemDrag = null;
+        dropAutoSwitchDragRow(drag.rowEl); // core/auto-switch-visual-ui.js
+        const keys = { fromKey: drag.rowEl.dataset.asRow, toKey: drag.hoverEl ? drag.hoverEl.dataset.asRow : null };
+        this._setItemDragHover(drag, null);
+        return keys;
+    },
+
+    /** Đổi hàng đích đang tô viền (cùng hàng -> bỏ qua). */
+    _setItemDragHover(drag, rowEl) {
+        if (drag.hoverEl === rowEl) return;
+        setAutoSwitchDropTargetOutline(drag.hoverEl, false); // core/auto-switch-visual-ui.js
+        setAutoSwitchDropTargetOutline(rowEl, true);
+        drag.hoverEl = rowEl;
     },
 
     /** Mở time picker (core/time-picker-modal.js, format giờ-phút-giây, 10s-1h) cho 1 trong 3 field giây. */
