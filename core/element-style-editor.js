@@ -18,9 +18,8 @@ function setElementStyleActiveTab(tab) {
     console.log(`writer: "setElementStyleActiveTab", page: "eseActiveTab", content: "${tab}"`);
 }
 
-/** MỚI (12/10/2026, plan-event-bus-wiring đợt 5) — Core thuần: giá trị thô của 1 ô `.ese-field` (Listener gửi nguyên
- * chuỗi `value`) -> giá trị ghi vào draft: ô có `data-numeric` -> số (parseFloat), còn lại giữ chuỗi. Trước đây phép
- * chọn này nằm trong callback Workflow tự gắn (Workflow tự tính toán).
+/** Core thuần: giá trị thô của 1 ô `.ese-field` (Listener gửi nguyên chuỗi `value`) -> giá trị ghi vào draft: ô có
+ * `data-numeric` -> số (parseFloat), còn lại giữ chuỗi.
  * @param {string} raw @param {boolean} isNumeric @returns {number|string} */
 function resolveElementStyleFieldValue(raw, isNumeric) {
     return isNumeric ? parseFloat(raw) : raw;
@@ -39,7 +38,7 @@ function setElementStyleField(section, key, patch) {
     console.log(`writer: "setElementStyleField", page: "eseDraft.${section}.${key}", content: "${JSON.stringify(patch)}"`);
 }
 
-/** MỚI (15/08/2026, Giang chỉ ra "None là dropdown") — ghi THẲNG giá trị string cho field
+/** Ghi THẲNG giá trị string cho field
  * dropdown-thuần (fontWeight/fontStyle/textAlign/textDecoration/textTransform/whiteSpace,
  * service/state/element-style-editor.js) — KHÔNG merge object như setElementStyleField(), vì bản
  * thân field chỉ là 1 string (`'none'` = không áp, tự thân dropdown làm công tắc, không cần
@@ -98,12 +97,9 @@ function buildElementStyleCssString(draft) {
     return parts.join('; ');
 }
 
-/** MỚI (16/08/2026, mục 2 — Giang yêu cầu "cung cấp cấu hình mặc định cho subtitles giống như
- * hiện tại khi bật styling editor") — đọc NGƯỢC 1 chuỗi CSS ĐÃ BUILD trước đó (đúng định dạng xuất
- * bởi buildElementStyleCssString(), vd `subtitleBoxCss` đã lưu, core/subtitle/subtitle-style-
- * settings.js) thành PATCH ghi đè lên draft trắng — để Drawer tự nạp khớp giá trị hiện tại thay vì
- * luôn mở trắng mỗi lần (xem docstring open(), event/workflow/element-style-editor.js — hàm ĐÓ đã
- * dự trù đúng điểm mở rộng này: "nơi gọi tự đọc style hiện có + dựng lại draft tương ứng").
+/** Đọc NGƯỢC 1 chuỗi CSS ĐÃ BUILD trước đó (đúng định dạng xuất bởi buildElementStyleCssString(), vd `subtitleBoxCss`
+ * đã lưu) thành PATCH ghi đè lên draft trắng — Drawer mở ra khớp style hiện tại (xem open(),
+ * event/workflow/element-style-editor.js, tham số `initialCssString`).
  *
  * Thuần tính toán, không đụng appState/DOM (đối xứng buildElementStyleCssString(), CÙNG file, CÙNG
  * Rule 1-5) — mỗi nhánh `if (prop === ...)` CHỈ khớp ĐÚNG 1 khai báo CSS đã biết, không chia sẻ
@@ -180,7 +176,7 @@ function parseElementStyleCssString(cssString) {
     return patch;
 }
 
-/** MỚI (16/08/2026, mục 2) — đọc 1 chuỗi CSS đã lưu (vd `subtitleBoxCss`) rồi GHI ĐÈ đúng field
+/** Đọc 1 chuỗi CSS đã lưu (vd `subtitleBoxCss`) rồi GHI ĐÈ đúng field
  * tương ứng lên `eseDraft` HIỆN TẠI trong appState (property nào KHÔNG có mặt trong chuỗi thì GIỮ
  * NGUYÊN mặc định trắng của chính field đó — merge NÔNG, CÙNG cơ chế setElementStyleField()) — gọi
  * NGAY SAU resetElementStyleDraft() lúc open() 1 target ĐÃ CÓ style lưu sẵn (xem event/workflow/

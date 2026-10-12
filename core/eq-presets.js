@@ -1,16 +1,13 @@
 /**
- * core/eq-presets.js — Core THUẦN (Rule 1-5) cho hệ thống preset EQ lưu DB (THAY HẲN bảng
- * EQ_PRESETS tĩnh + chế độ 'manual' riêng cũ — core/equalizer.js/event/workflow/
- * equalizer-settings.js đã xoá).
+ * core/eq-presets.js — Core THUẦN (Rule 1-5) cho hệ thống preset EQ lưu DB.
  *
  * Preset = {id, name, gains: number[10], locked}. Danh sách preset SỐNG ở `appState.eqPresets`
- * (service/state/audio-engine.js), NẠP lúc boot từ `meta.eqPresets` (IndexedDB, cùng cơ chế
- * `meta.playerConfig`) — xem event/workflow/eq-presets.js::loadPresetsOnBoot(). Preset ĐANG CHỌN
- * là 1 field string đơn giản `appConfigViz.eqPresetId` (thay `eqMode` cũ), lưu bền qua saveConfig()
- * như mọi field vizConfig khác.
+ * (service/state/audio-engine.js), NẠP lúc boot từ `meta.eqPresets` (IndexedDB) — xem
+ * event/workflow/eq-presets.js::loadPresetsOnBoot(). Preset ĐANG CHỌN là field `appConfigViz.eqPresetId`, lưu bền qua
+ * saveConfig() như mọi field vizConfig khác.
  *
- * Chỉ preset 'flat' (Default) khoá sửa/xoá (`locked:true`) — 5 preset gốc còn lại + preset người
- * dùng tự tạo đều sửa/xoá được (phản hồi Giang, mục b/d).
+ * Chỉ preset 'flat' (Default) khoá sửa/xoá (`locked:true`) — 5 preset gốc còn lại + preset người dùng tự tạo đều
+ * sửa/xoá được.
  */
 
 /** 6 preset gốc — seed lần đầu vào `meta.eqPresets` nếu DB chưa có (xem loadPresetsOnBoot()).
@@ -47,9 +44,7 @@ function generateEqPresetId() {
     return `custom_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** Áp gains vào audio graph thật — THAY applyEQPreset(mode) cũ (tra bảng cố định EQ_PRESETS),
- * nhận thẳng mảng gains (từ preset DB-backed) + mảng node qua tham số (Rule 2 — không tự đọc
- * appState.get('eqBandNodes') như bản cũ).
+/** Áp gains vào audio graph thật — nhận mảng gains (của preset) + mảng node qua tham số (Rule 2).
  * @param {GainNode[]} eqBandNodes @param {number[]} gains */
 function applyEqGains(eqBandNodes, gains) {
     if (!eqBandNodes || eqBandNodes.length === 0) return;
@@ -58,9 +53,8 @@ function applyEqGains(eqBandNodes, gains) {
     }
 }
 
-/** MỚI (12/10/2026, plan-event-bus-wiring đợt 1 — dọn nợ trong method bị đụng `_previewBandGain()`) — đọc giá trị thô
- * của 1 slider kênh Edit EQ (`data-index` + `value`, Listener gửi nguyên chuỗi) thành số kênh/số dB + chữ hiển thị
- * cạnh slider ('+7' / '0' / '-5'). Trước đây Workflow tự parseInt + định dạng (Workflow tự tính toán).
+/** Đọc giá trị thô của 1 slider kênh Edit EQ (`data-index` + `value`, Listener gửi nguyên chuỗi) thành số kênh/số dB +
+ * chữ hiển thị cạnh slider ('+7' / '0' / '-5').
  * @param {string} rawIndex @param {string} rawValue
  * @returns {{isValid: boolean, index: number, value: number, text: string}} — `isValid` false khi `data-index` hỏng */
 function resolveEqBandSliderInput(rawIndex, rawValue) {

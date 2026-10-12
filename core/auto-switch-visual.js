@@ -1,79 +1,21 @@
 /**
- * Tự động đổi hiệu ứng Visualizer theo thời gian (ver 10).
+ * core/auto-switch-visual.js — Tự động đổi hiệu ứng Visualizer: hàm THUẦN (nhận tham số, trả kết quả — Rule 1-3) +
+ * setter chỉ mutate appConfigViz + 2 hàm đồng bộ trạng thái khoá của nút/ select đổi hiệu ứng tay. Phần ĐIỀU PHỐI
+ * (taskManager, đọc appState, start/stop/pause/resume, áp visual + lưu config, phiên kéo thả) nằm ở
+ * event/workflow/auto-switch-visual.js (workflowAutoSwitchVisual).
  *
- * VIẾT LẠI (26/09/2026, Giang) — xem khối "VIẾT LẠI" ngay trên các hàm thuần bên dưới: danh sách group/style
- * kéo thả + checkbox, thời gian 'fixed' (const/random, 10s-1h) | 'perMedia'. Phần mô tả 2 nhánh 'fixed'/'random'
- * + 'duration' (mốc bài hát) ngay dưới là LỊCH SỬ — nhánh 'duration' ĐÃ BỎ, 'random' giờ là kiểu con của 'fixed'.
+ * 2 KHÁI NIỆM TÁCH BIỆT, KHÔNG GỘP CHUNG:
+ *   (A) "Visual kế tiếp là gì": danh sách chạy theo GROUP hoặc STYLE (vizConfig.autoSwitchVisualListBy), mỗi danh sách
+ *       có thứ tự RIÊNG do người dùng kéo thả + checkbox tham gia; group còn chọn 1 style cụ thể hoặc 'random' trong
+ *       group. Cách chọn (vizConfig.autoSwitchVisualMode) = 'sequential' (theo thứ tự) | 'random' (trong các mục đã tick).
+ *   (B) "Khi nào đổi" (vizConfig.autoSwitchVisualTimeMode):
+ *       - 'fixed': ĐỒNG HỒ ĐỘC LẬP — 'const' (đủ X giây) | 'random' (X random lại mỗi vòng trong [min, max]), kẹp
+ *         10s-1h; chạy xuyên qua nhiều media, KHÔNG reset khi đổi media; dừng khi media pause/app ẩn, không quan tâm
+ *         currentTime/seek.
+ *       - 'perMedia': đổi mỗi khi 1 media MỚI (song/video/photo) bắt đầu, không có đồng hồ.
  *
- * QUAN TRỌNG — 2 KHÁI NIỆM HOÀN TOÀN TÁCH BIỆT, KHÔNG ĐƯỢC GỘP CHUNG:
- *
- *   (A) "Loại hình visual sắp tới là gì" — vizConfig.autoSwitchVisualMode ('sequential' | 'random').
- *       Chỉ quyết định CÁCH CHỌN kiểu kế tiếp, độc lập hoàn toàn với CÁCH TÍNH THỜI GIAN ở (B).
- *
- *   (B) "Tới giây nào thì nhảy sang visual khác" — vizConfig.autoSwitchVisualTimeMode, có 2 NHÁNH
- *       cơ chế khác nhau hẳn (không phải biến thể của nhau):
- *
- *       NHÁNH 1 — 'fixed' (c1) và 'random' (c2): ĐỒNG HỒ ĐỘC LẬP, không quan tâm bài nào đang
- *       phát, không quan tâm currentTime/duration của bài. Chỉ đơn giản: cứ đếm đủ X giây (c1: X
- *       cố định người điền; c2: X random lại mỗi vòng trong [10, X người điền]) là đổi, rồi đếm
- *       lại từ đầu — CHẠY XUYÊN QUA NHIỀU BÀI, không reset/không liên quan gì tới việc đổi bài hay
- *       vị trí cụ thể trong bài. Cơ chế: 1 task qua taskManager, mode 'timeout' (bù trôi), đếm lùi
- *       y hệt kiểu _listenTickHandle (player-controls.js) — pause()/resume() theo đúng audioPlayer
- *       play/pause (nhạc dừng thì đồng hồ phụ này cũng dừng, đúng cảm giác "không tính giờ chết"),
- *       nhưng KHÔNG đụng gì tới currentTime/seek — seek tới/lùi tuỳ ý không ảnh hưởng đồng hồ này.
- *
- *       NHÁNH 2 — 'duration' (c3): DUY NHẤT mode này thực sự gắn với KHUNG THỜI GIAN của bài đang
- *       phát — X người điền là số chia trong công thức (duration / X), hệ thống tự kẹp X không
- *       vượt round(duration/2) để đảm bảo LUÔN có tối thiểu 1 lần đổi xảy ra giữa bài (nếu không
- *       kẹp, X quá lớn so với duration sẽ làm phép chia ra 0 lần đổi — vô nghĩa với 1 tính năng
- *       "tự động đổi"). Vì mode này phụ thuộc TRỰC TIẾP vị trí trong bài, cần xử lý đúng khi người
- *       dùng SEEK (tua) tới/lùi tay: build trước 1 mảng mốc TUYỆT ĐỐI theo giây của bài (không
- *       phải khoảng cách tương đối), mỗi mốc TỰ NHỚ visual của riêng nó — lần đầu đi qua 1 đoạn
- *       mới chọn visual MỚI và ghi nhớ vào mốc đó; mọi lần SAU đó rơi lại đúng đoạn này (kể cả do
- *       tua lùi về) chỉ áp dụng LẠI đúng visual đã nhớ, KHÔNG chọn mới — tua qua tua lại vẫn nhất
- *       quán, không bị "nhảy ngẫu nhiên" mỗi lần đi qua lại 1 chỗ đã từng qua.
- *
- *       CHỈ 1 trong 2 nhánh chạy tại 1 thời điểm, theo đúng vizConfig.autoSwitchVisualTimeMode —
- *       2 task riêng (tên khác nhau trong taskManager), không bao giờ chạy đồng thời.
- *
- * Build lại marks (nhánh 2) khi: đổi bài (loadedmetadata, vì duration mới khác hẳn), hoặc đổi
- * autoSwitchVisualSecondsFixed/Random/Duration (field tương ứng nhánh đang chạy). Reset đồng hồ
- * (nhánh 1) khi: bật tính năng, đổi autoSwitchVisualTimeMode sang 'fixed'/'random', hoặc đổi field
- * giây tương ứng — KHÔNG reset khi đổi bài (đặc điểm cốt
- * lõi của nhánh 1: không quan tâm bài nào đang phát).
- *
- * PHẢI nạp SAU: core/config.js (AUTO_SWITCH_VISUAL_MIN_SECONDS, MODES), core/dom-refs.js
- * (currentModeIndex, audioPlayer), service/task-manager.js (taskManager), core/equalizer-settings.js
- * (saveConfig), core/visualizer/visualizer-display.js (updateTypeUI — ver 11: hàm này đã dời từ
- * player-controls.js sang đây, xem comment đầu file đó) — xem index.html.
- *
- * === Batch D3 (Settings restructure, 06/07/2026) ===
- * Panel Visualizer Settings (chứa cả section "Tự động đổi hiệu ứng") giờ PUSH/POP động — 4 hàm
- * `set*`/`syncAutoSwitchTimeModeBlocks()` REFACTOR ĐẦY ĐỦ Rule 1-4 theo CHỐT của Giang (Batch D2):
- * bỏ hẳn `saveConfig()`/`updateCycleModeButtonState()`/`startAutoSwitchVisualBranch()` nội bộ, dời
- * ra `event/workflow/auto-switch-visual.js`. `initAutoSwitchVisualUI()` cũ TÁCH LÀM 2: phần Control
- * Center (`#btn-cycle-mode`, KHÔNG di chuyển) đổi tên `initAutoSwitchCycleButtonFromConfig()`, vẫn
- * gọi từ loadConfig(); phần đồng bộ panel (7 field) dời sang
- * `workflowVisualizerDisplay.openPanel()` (core/visualizer/visualizer-display.js đảm nhiệm push
- * panel, sync CẢ 2 section trong CÙNG 1 panel — xem file đó).
+ * PHẢI nạp SAU: core/config.js (AUTO_SWITCH_VISUAL_MIN/MAX_SECONDS, MODES), core/dom-refs.js (btnCycleMode).
  */
-        // [SỬA — 25/09/2026, dọn nợ task-manager-conventions.md mục 6, làm cùng đợt "ẩn tab/PWA dừng render"] Toàn bộ
-        // phần ĐIỀU PHỐI (taskManager, đọc appState, start/stop/pause/resume nhánh, áp visual + lưu config) ĐÃ DỜI sang
-        // event/workflow/auto-switch-visual.js (workflowAutoSwitchVisual) theo đúng mẫu mục 5 của tài liệu đó. File này
-        // giờ CHỈ còn hàm THUẦN (nhận tham số, trả kết quả — Rule 1-3). Hằng tên task AUTO_SWITCH_VISUAL_TASK_TIMER/
-        // _MARKS dời theo. Đã XOÁ khỏi đây: applyAutoSwitchVisualType, scheduleNextAutoSwitchVisualTimer,
-        // autoSwitchVisualMarksTick, killAllAutoSwitchVisualTasks, startAutoSwitchVisualBranch,
-        // onAutoSwitchVisualSongChanged, syncAutoSwitchVisualPlayState (bản Workflow tương ứng: _applyType, _scheduleNextTimer,
-        // _marksTick, killAllTasks, startBranch, onSongChanged, syncPlayState). Giải thích cơ chế 2 nhánh ở đầu file VẪN ĐÚNG.
-
-        // ===================== VIẾT LẠI (26/09/2026, Giang "cải tiến lại Auto-Switch Effect") =====================
-        // Danh sách chạy theo GROUP hoặc STYLE (vizConfig.autoSwitchVisualListBy), mỗi danh sách có thứ tự RIÊNG do
-        // người dùng kéo thả + checkbox tham gia; group còn chọn 1 style cụ thể hoặc 'random' trong group. Cách chọn
-        // kế tiếp (autoSwitchVisualMode) = 'sequential' (theo thứ tự danh sách) | 'random' (trong các mục đã tick).
-        // Thời gian: 'fixed' (const | random [min,max], 10s-1h, time picker) | 'perMedia' (mỗi song/video/photo
-        // mới). Mode cũ 'duration' (chia độ dài bài) + mảng mốc ĐÃ BỎ (config cũ migrate sang 'perMedia').
-        // Mọi hàm dưới đây THUẦN (nhận tham số, trả kết quả) hoặc chỉ mutate appConfigViz (setter) — Rule 1-3.
-
         /** Chuẩn hoá danh sách GROUP đã lưu theo EFFECT_GROUPS hiện tại: giữ thứ tự mục còn hợp lệ, bỏ group
          * không còn tồn tại, thêm group mới vào CUỐI (tick sẵn, style 'random'); style không thuộc group -> 'random'.
          * @param {Array<{key:string, enabled:boolean, style:string}>} list @param {Object<string,string[]>} effectGroups
@@ -158,34 +100,15 @@
             return clamp(cfg.autoSwitchVisualSecondsFixed) * 1000;
         }
 
-        // ===================== UI binding (Settings, section "Tự động đổi hiệu ứng") =====================
+        // ===================== Khoá đổi hiệu ứng tay khi Auto-Switch bật =====================
 
         /**
-         * Đồng bộ trạng thái khoá/mở của nút "Đổi hiệu ứng" (#btn-cycle-mode, Control Center màn
-         * Visualizer) theo ĐÚNG vizConfig.autoSwitchVisualEnabled hiện tại.
-         *
-         * YÊU CẦU MỚI: khi tự động đổi hiệu ứng đang BẬT, nút này phải vô hiệu HOÀN TOÀN — không
-         * bấm được, bấm cũng không có tác dụng — tránh xung đột giữa đổi tự động (theo giờ) và
-         * đổi tay (theo ý người dùng) cùng lúc. Trước đây nút luôn hoạt động bất kể auto-switch
-         * đang bật hay tắt, đây CHÍNH là hành vi gây xung đột cần sửa.
-         *
-         * Đặt thuộc tính HTML `disabled` THẬT (không chỉ class CSS mờ) — input/button có
-         * `disabled` tự động không nhận click/focus/keyboard ở tầng trình duyệt, là lớp chặn đáng
-         * tin cậy nhất. player-controls.js (btnCycleMode click listener) vẫn tự kiểm tra thêm
-         * `vizConfig.autoSwitchVisualEnabled` làm lớp chặn THỨ HAI — phòng trường hợp nút bị gọi
-         * `.click()` bằng JS từ nơi khác (lúc đó thuộc tính `disabled` không chặn được vì đó chỉ
-         * chặn tương tác CHUỘT/BÀN PHÍM THẬT của người dùng, không chặn gọi hàm JS trực tiếp).
-         *
-         * Gọi hàm này ở MỌI nơi autoSwitchVisualEnabled có thể thay đổi: đồng bộ UI lúc
-         * initAutoSwitchVisualUI() chạy (kể cả mỗi lần loadConfig() — đảm bảo đúng trạng thái
-         * ngay từ lúc mở app, không cần đợi người dùng vào Settings trước), và lúc listener
-         * 'change' của toggle bật/tắt chạy.
+         * Nút "Đổi hiệu ứng" (#btn-cycle-mode, Control Center) theo vizConfig.autoSwitchVisualEnabled: Auto-Switch BẬT thì
+         * chặn việc CHỌN effect tay (tránh xung đột với đổi tự động). KHÔNG đặt `disabled` (sẽ chặn luôn GIỮ 1.5s mở Custom
+         * Effect Drawer) — chỉ làm mờ để báo trạng thái; CLICK bị chặn ở workflowCustomEffect.onCycleModeClick() (hiện
+         * thông báo). Gọi lúc boot (initAutoSwitchCycleButtonFromConfig()) và mỗi lần bật/tắt Auto-Switch.
          */
         function updateCycleModeButtonState() {
-            // SỬA (26/09/2026, Giang "Auto-Switch On -> block CHỌN effect ở icon center") — KHÔNG còn `disabled`
-            // cả nút: `disabled` chặn luôn GIỮ 1.5s (mở Custom Effect Drawer), không đúng ý chỉ chặn việc CHỌN
-            // effect. Giờ chỉ làm mờ để báo trạng thái; CLICK bị chặn ở workflowCustomEffect.onCycleModeClick()
-            // (hiện thông báo), GIỮ vẫn mở Custom Effect Drawer như thường.
             if (typeof btnCycleMode === 'undefined' || !btnCycleMode) return;
             const locked = appConfigViz.getAll().autoSwitchVisualEnabled === true;
             btnCycleMode.disabled = false;
@@ -194,14 +117,9 @@
         }
 
         /**
-         * FIX BUG (19/07/2026, yêu cầu Giang — mục 5) — khi "Tự động đổi hiệu ứng" đang BẬT, select
-         * "Kiểu hiệu ứng" (#setting-visualizer-type, Settings chính) VẪN chọn tay được, dù nút cycle
-         * (#btn-cycle-mode, Control Center) đã bị khoá đúng — 2 đường CÙNG đổi visual tay nhưng chỉ
-         * 1 đường được khoá, người dùng vẫn lách qua được bằng select. Khoá CẢ 2 nơi, CÙNG lý do và
-         * CÙNG cách làm như updateCycleModeButtonState() ngay trên (thuộc tính `disabled` HTML thật,
-         * không chỉ CSS mờ) — gọi hàm này ở ĐÚNG những chỗ đã gọi updateCycleModeButtonState().
-         * Truy vấn TƯƠI (không dom-refs tĩnh) dù select này thực ra tĩnh từ lúc boot — chỉ để nhất
-         * quán với các hàm truy vấn tươi khác trong file này.
+         * Select "Kiểu hiệu ứng" (#setting-visualizer-type) — đường đổi visual tay thứ 2: Auto-Switch BẬT thì khoá bằng
+         * thuộc tính `disabled` thật + làm mờ. Gọi ở ĐÚNG những chỗ gọi updateCycleModeButtonState(). Truy vấn tươi (phần
+         * tử có thể không tồn tại -> bỏ qua).
          */
         function updateVisualizerTypeSelectState() {
             const selectEl = document.getElementById('setting-visualizer-type');
@@ -214,21 +132,15 @@
 
 
         /**
-         * Đồng bộ boot-time PHẦN KHÔNG PHỤ THUỘC PANEL — nút cycle Control Center (#btn-cycle-mode)
-         * theo `autoSwitchVisualEnabled` đã lưu. Batch D3 — ĐỔI TÊN từ `initAutoSwitchVisualUI()`
-         * (hàm cũ gộp cả phần Control Center lẫn phần đồng bộ panel; phần panel giờ tách sang
-         * `workflowVisualizerDisplay.openPanel()` vì panel không còn tồn tại lúc boot — gọi hàm cũ
-         * lúc boot sẽ luôn no-op do guard `if (!elAutoSwitchEnable...) return` ở đầu, khiến
-         * `updateCycleModeButtonState()` KHÔNG BAO GIỜ chạy được lúc boot nữa nếu để nguyên trong
-         * cùng 1 hàm — tách riêng để phần Control Center luôn chạy đúng bất kể panel đóng/mở).
-         * Gọi từ loadConfig() (core/config.js) qua guard `typeof === 'function'`.
+         * Đồng bộ boot-time trạng thái khoá đổi hiệu ứng tay theo `autoSwitchVisualEnabled` đã lưu (không phụ thuộc panel
+         * Settings có đang mở hay không). Gọi từ loadConfig() (core/config.js) qua guard `typeof === 'function'`.
          */
         function initAutoSwitchCycleButtonFromConfig() {
             updateCycleModeButtonState();
-            updateVisualizerTypeSelectState(); // FIX BUG 19/07/2026 (mục 5) — xem docstring hàm này ở trên
+            updateVisualizerTypeSelectState();
         }
 
-        /** Core thuần: toggle bật/tắt. SỬA (26/09/2026) — các tuỳ chọn LUÔN hiện (Giang), không còn ẩn/hiện khối. */
+        /** Core thuần: toggle bật/tắt (các tuỳ chọn trong panel luôn hiện). */
         function setAutoSwitchVisualEnabled(checked) {
             appConfigViz.mutateAll(cfg => { cfg.autoSwitchVisualEnabled = checked; });
         }
@@ -243,12 +155,12 @@
             appConfigViz.mutateAll(cfg => { cfg.autoSwitchVisualTimeMode = value === 'perMedia' ? 'perMedia' : 'fixed'; });
         }
 
-        /** Core thuần: kiểu của nhánh 'fixed' — 'const' | 'random'. MỚI 26/09/2026. */
+        /** Core thuần: kiểu của nhánh 'fixed' — 'const' | 'random'. */
         function setAutoSwitchVisualFixedKind(value) {
             appConfigViz.mutateAll(cfg => { cfg.autoSwitchVisualFixedKind = value === 'random' ? 'random' : 'const'; });
         }
 
-        /** Core thuần: danh sách chạy theo 'group' | 'style'. MỚI 26/09/2026. */
+        /** Core thuần: danh sách chạy theo 'group' | 'style'. */
         function setAutoSwitchVisualListBy(value) {
             appConfigViz.mutateAll(cfg => { cfg.autoSwitchVisualListBy = value === 'group' ? 'group' : 'style'; });
         }
@@ -295,15 +207,12 @@
             });
         }
 
-        // ===================== Liên kết với trạng thái phát nhạc =====================
-        // SỬA 25/09/2026 — play/pause/loadedmetadata của audioPlayer giờ đi Router -> event/workflow/player-controls.js
-        // (handleAudioPlayEvent/handleAudioPauseEvent/handleAudioLoadedMetadataEvent) -> workflowAutoSwitchVisual.
-        // syncPlayState()/onSongChanged(); core/player-controls.js KHÔNG còn gọi vào đây nữa.
+        // ===================== Liên kết với trạng thái phát media =====================
 
-        /** MỚI (28/09/2026, auto-switch -> VirtualMachineState) — Việc cần làm với đồng hồ nhánh 'fixed' khi media
+        /** Việc cần làm với đồng hồ nhánh 'fixed' khi media
          * play/pause hoặc app vào/ra nền: 'off' (tính năng tắt / không có media / không phải nhánh 'fixed' -> dọn task),
          * 'start' (chưa từng có task -> bắt đầu), 'resume' / 'pause' (theo điều kiện được chạy). Hàm thuần, Workflow
-         * tự đọc 3 giá trị đầu vào. */
+         * tự đọc 3 giá trị đầu vào rồi rẽ bằng VirtualMachineState. */
         function resolveAutoSwitchSyncPhase(isFixedActive, hasTimerTask, isRunAllowed) {
             if (!isFixedActive) return 'off';
             if (!hasTimerTask) return 'start';
@@ -311,10 +220,9 @@
         }
 
 
-        // ===================== Kéo thả danh sách item (MỚI 12/10/2026) =====================
-        // plan-event-bus-wiring-07-10-2026 đợt 4 (khuôn W4) — phép tính của phiên kéo dời từ
-        // event/workflow/visualizer-display.js::openAutoSwitchPanel() (Workflow tự tính) về đây; Workflow giữ phiên kéo
-        // (workflowAutoSwitchVisual.startItemDrag()/moveItemDrag()/endItemDrag()/cancelItemDrag()).
+        // ===================== Kéo thả danh sách item =====================
+        // Phép tính của phiên kéo; Workflow giữ phiên (workflowAutoSwitchVisual.startItemDrag()/moveItemDrag()/
+        // endItemDrag()/cancelItemDrag()), DOM qua core/auto-switch-visual-ui.js.
 
         /** Core thuần: vị trí hàng có `data-as-row` = `key` trong danh sách khoá hàng (theo thứ tự DOM). -1 = không có.
          * @param {string[]} rowKeys @param {string} key @returns {number} */

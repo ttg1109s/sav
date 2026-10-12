@@ -1,11 +1,8 @@
 /**
- * core/auto-switch-visual-ui.js — [MỚI 12/10/2026, plan-event-bus-wiring-07-10-2026 đợt 4] Thao tác DOM của phiên kéo
- * thả danh sách item Auto-Switch (sub panel "Effect list", components/settings/visualizer-auto-switch-drawer.js).
- *
- * Tách từ event/workflow/visualizer-display.js::openAutoSwitchPanel() — trước đây Workflow tự gắn 4 listener pointer
- * lên từng tay cầm và tự sửa style ngay trong callback. Nay: listener ủy quyền (event/listener/auto-switch-visual.js)
- * -> router 'autoSwitchVisual' -> workflowAutoSwitchVisual (giữ phiên kéo) -> các hàm dưới đây. Hiệu ứng giữ NGUYÊN
- * (hàng nổi lên + đổ bóng + bám con trỏ, hàng đích viền xanh). Mỗi hàm 1 việc, không đọc appState, không gọi core khác.
+ * core/auto-switch-visual-ui.js — thao tác DOM của phiên kéo thả danh sách item Auto-Switch (sub panel "Effect list",
+ * components/settings/visualizer-auto-switch-drawer.js): hàng nổi lên + đổ bóng + bám con trỏ, hàng đích viền xanh.
+ * Luồng: event/listener/auto-switch-visual.js -> router 'autoSwitchVisual' -> workflowAutoSwitchVisual (giữ phiên kéo)
+ * -> các hàm dưới đây. Mỗi hàm 1 việc, không đọc appState, không gọi core khác.
  */
 
 /** Nhấc hàng lên: bắt con trỏ trên tay cầm (pointermove/pointerup sau đó về đúng tay cầm, nổi bọt lên listener ủy
