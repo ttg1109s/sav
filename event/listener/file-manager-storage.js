@@ -1,19 +1,10 @@
 /**
- * event/listener/file-manager-storage.js — TẤT CẢ listener của cụm "fileManagerStorage".
+ * event/listener/file-manager-storage.js — TẤT CẢ listener của cụm "fileManagerStorage" (Generic Drawer Storage, mở từ
+ * tab Storage của bottom nav). Delegate trên `genericDrawerBody` ('click' + 'change') và `genericDrawerHeader` (nút X).
+ * Nút "Dọn dẹp dữ liệu" (`#btn-file-manager-cleanup-run`) nằm trong nội dung Storage nhưng gửi cho router
+ * "fileManagerCleanup".
  *
- * XOÁ (đợt tái cấu trúc bottom nav App Panel) — `btnOpenFileManagerSong`/`btnOpenFileManagerStorage`
- * (2 nút TĨNH của section File Manager cũ trong Settings, `components/settings/
- * file-manager-section.js` — section đó KHÔNG còn mount, xem components/app-mount.js) — Folder/Storage giờ mở từ
- * bottom nav App Panel (`event/workflow/app-panel-nav.js::openFolder()/openStorage()`), KHÔNG cần
- * 2 nút TĨNH này nữa. `core/dom-refs.js` vẫn giữ 2 dom-ref đó (trả `null`, vô hại — element không
- * còn tồn tại trong DOM, giữ nguyên không xoá theo tinh thần Rule 0.5).
- *
- * MỚI (mục 2d) — nút "Dọn dẹp dữ liệu" (`#btn-file-manager-cleanup-run`, router "fileManagerCleanup"
- * — KHÔNG đổi gì ở router/workflow/core đó) nằm TRONG nội dung Storage, giờ delegate qua
- * `genericDrawerBody` (đã migrate sang Generic Drawer, xem event/workflow/file-manager-storage.js).
- *
- * QUY TẮC: giống event/listener/playlist.js — listener KHÔNG biết nghiệp vụ, chỉ bắt sự kiện DOM +
- * gửi message qua eventBus.send().
+ * QUY TẮC: listener KHÔNG biết nghiệp vụ, chỉ bắt sự kiện DOM + gửi message qua eventBus.send().
  *
  * NẠP SAU CÙNG (sau bus, core, workflow, router, VÀ SAU dom-refs.js).
  */
@@ -21,9 +12,8 @@
 
 
 function handleFileManagerStorageDelegatedClick(e) {
-    // MỚI (29/07/2026, yêu cầu Giang mục 2) — ấn vào 1 đoạn thanh dung lượng (4 div màu, mỗi đoạn
-    // có sẵn data-legend-key + dataset.bytes gắn lúc renderStorageStats() vẽ lại — core/storage-
-    // manager.js) -> hiện số byte thật của đúng đoạn đó.
+    // Ấn vào 1 đoạn thanh dung lượng (mỗi đoạn có data-legend-key + dataset.bytes gắn lúc vẽ thống kê) -> hiện số byte
+    // thật của đúng đoạn đó.
     const barSegment = e.target.closest('[data-legend-key]');
     if (barSegment && barSegment.id.startsWith('stat-storage-bar-')) {
         eventBus.send({
@@ -34,7 +24,7 @@ function handleFileManagerStorageDelegatedClick(e) {
         return;
     }
 
-    // ===================== Dọn dẹp dữ liệu (DỜI từ event/listener/file-manager-cleanup.js) =====
+    // ===================== Dọn dẹp dữ liệu =====================
     if (e.target.closest('#btn-file-manager-cleanup-run')) {
         eventBus.send({ router: 'fileManagerCleanup', type: 'fileManagerCleanup.run.click', payload: {} });
         return;
@@ -51,8 +41,6 @@ function handleFileManagerStorageDelegatedClick(e) {
         eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.scanBroken.click', payload: {} });
         return;
     }
-    // ĐỔI TÊN (18/09/2026, cùng lúc gộp tính năng "Sửa file lỗi") — id/msg.type đổi theo
-    // components/file-manager-storage.js + event/router/file-manager-storage.js.
     if (e.target.closest('#btn-storage-fix-broken')) {
         eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.fixBroken.click', payload: {} });
         return;
@@ -64,7 +52,7 @@ function handleFileManagerStorageDelegatedClick(e) {
 }
 
 /**
- * Delegate RIÊNG cho sự kiện 'change' — 3 toggle nguồn (MỚI, THAY <select> phạm vi cũ) + 2 toggle
+ * Delegate RIÊNG cho sự kiện 'change' — 3 toggle nguồn + 2 toggle
  * hành động (Tải xuống/Xoá) — 'click' không bắt được đổi trạng thái checkbox đúng ngữ nghĩa 'change'.
  */
 function handleFileManagerStorageDelegatedChange(e) {
@@ -90,18 +78,13 @@ function handleFileManagerStorageDelegatedChange(e) {
     }
 }
 
-// SỬA (đợt tái cấu trúc bottom nav App Panel) — Storage KHÔNG còn sống trong `settingsStackBody`
-// (đã chuyển hẳn sang `genericDrawerBody`, xem event/workflow/file-manager-storage.js) — bỏ
-// binding cũ trên `settingsStackBody` (nay dành riêng cho Photo, xem event/listener/
-// file-manager-photo.js), chỉ còn delegate trên `genericDrawerBody`.
 if (genericDrawerBody) {
     genericDrawerBody.addEventListener('click', handleFileManagerStorageDelegatedClick);
     genericDrawerBody.addEventListener('change', handleFileManagerStorageDelegatedChange);
 }
 
-// MỚI (12/10/2026, plan-event-bus-wiring-07-10-2026 đợt 2, khuôn W6) — nút X của Storage (header mang
-// `data-storage-close`, xem workflowFileManagerStorage.openPanel()). Trước đây Workflow tự addEventListener (callback
-// chỉ eventBus.send). Drawer khác không có attribute này -> bỏ qua.
+// Nút X của Storage (header mang `data-storage-close`, xem workflowFileManagerStorage.openPanel()). Drawer khác không có
+// attribute này -> bỏ qua.
 if (genericDrawerHeader) {
     genericDrawerHeader.addEventListener('click', (e) => {
         if (!(e.target.closest && e.target.closest('[data-storage-close]'))) return;

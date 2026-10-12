@@ -1,17 +1,12 @@
 /**
- * event/listener/element-style-editor.js — Listener cụm "elementStyleEditor" (MỚI 12/10/2026, plan-event-bus-wiring-
- * 07-10-2026 đợt 5).
- *
- * Trước đây event/workflow/element-style-editor.js tự `querySelector` + `addEventListener` lên từng tab/toggle/ô/nút của
- * Drawer sau MỖI lần vẽ (`_wire()`/`_wireFontPicker()`/`_wireFontPickerListClicks()`), callback gọi thẳng Workflow/core —
- * bỏ qua Listener -> Router (và Block gate). Nay: ủy quyền 1 lần trên `genericDrawerBody`/`genericDrawerHeader` (TĨNH,
- * core/dom-refs.js), khuôn event/listener/custom-effect.js — bảng tuyến `match(target) -> send(el)`, Listener CHỈ đọc
- * giá trị/dataset phần tử làm payload rồi chuyển thư cho Router 'elementStyleEditor'.
+ * event/listener/element-style-editor.js — Listener cụm "elementStyleEditor": nội dung Generic Drawer "Element Style
+ * Editor". Ủy quyền 1 lần trên `genericDrawerBody`/`genericDrawerHeader` (TĨNH, core/dom-refs.js), khuôn
+ * event/listener/custom-effect.js — bảng tuyến `match(target) -> send(el)`, Listener CHỈ đọc giá trị/dataset phần tử làm
+ * payload rồi chuyển thư cho Router 'elementStyleEditor'.
  *
  * Selector đều riêng của công cụ (`data-ese-*`, `.ese-*`, `#ese-*`, `#btn-ese-*`) -> Drawer khác dùng chung body/header
- * không khớp tuyến nào, bỏ qua. Cặp sự kiện của `.ese-field` giữ đúng bản cũ: `<select>` nghe `change`, ô nhập (text/
- * number/color) nghe `input` — KHÔNG để select lọt vào tuyến `input` (Chrome cũng bắn `input` cho select) hay ô nhập lọt
- * vào tuyến `change` (bắn lúc rời ô).
+ * không khớp tuyến nào, bỏ qua. `.ese-field`: `<select>` nghe `change`, ô nhập (text/number/color) nghe `input` — KHÔNG
+ * để select lọt vào tuyến `input` (Chrome cũng bắn `input` cho select) hay ô nhập lọt vào tuyến `change` (bắn lúc rời ô).
  *
  * NẠP SAU CÙNG (sau bus, core/dom-refs.js, event/router/element-style-editor.js).
  */

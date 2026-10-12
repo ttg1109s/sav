@@ -1,24 +1,12 @@
 /**
- * event/listener/auto-switch-visual.js — TẤT CẢ listener của cụm "autoSwitchVisual".
- *
- * === Batch D3 (Settings restructure, 06/07/2026) ===
- * 6 input (enable/mode/timeMode/3 số giây) sống BÊN TRONG panel Visualizer Settings (cùng panel
- * với event/listener/visualizer-display.js, section "Tự động đổi hiệu ứng") — ĐỔI sang delegation
- * trên `settingsStackBody`, CHUẨN đã dùng từ Batch D2. Payload mỗi loại KHÁC NHAU đủ nhiều (cần
- * thêm phần tử phụ: optionsEl cho enable, 3 block cho timeMode) nên viết THEO ID riêng thay vì ép
- * vào 1 bảng tra chung như visualizer-display.js.
- */
-
-/*
- * VIẾT LẠI (26/09/2026, Giang "cải tiến lại Auto-Switch Effect") — panel vẽ lại từ model mỗi khi đổi cấu trúc
- * (components/settings/visualizer-auto-switch-drawer.js), mọi phần tử ĐỀU delegate trên `genericDrawerBody`:
+ * event/listener/auto-switch-visual.js — TẤT CẢ listener của cụm "autoSwitchVisual". Panel Auto-Switch vẽ lại từ model
+ * mỗi khi đổi cấu trúc (components/settings/visualizer-auto-switch-drawer.js), mọi phần tử ĐỀU delegate trên
+ * `genericDrawerBody`:
  *   - 'change': 5 select/toggle theo ID + checkbox item (data-as-check) + dropdown style của group (data-as-group-style).
- *   - 'click' : nút mở time picker (data-as-seconds = tên field giây).
- * Kéo thả item: SỬA (12/10/2026, plan-event-bus-wiring-07-10-2026 đợt 4) — trước đây
- * workflowVisualizerDisplay.openAutoSwitchPanel() tự gắn 4 listener pointer lên từng tay cầm; nay delegate
- * 'pointerdown'/'pointermove'/'pointerup'/'pointercancel' ở cuối file (Workflow gọi setPointerCapture qua core -ui
- * nên các pha sau tới đúng tay cầm rồi nổi bọt lên đây).
- * Bỏ: 3 input số giây + 3 block ẩn/hiện theo timeMode (thay bằng time picker + vẽ lại panel).
+ *   - 'click' : nút mở sub panel "Effect list" + nút mở time picker (data-as-seconds = tên field giây).
+ *   - 'pointerdown'/'pointermove'/'pointerup'/'pointercancel': kéo thả item theo tay cầm `data-as-drag` (Workflow gọi
+ *     setPointerCapture qua core -ui nên các pha sau tới đúng tay cầm rồi nổi bọt lên đây — không gắn lên `document`).
+ * Payload mỗi loại khác nhau nên viết theo ID/attribute riêng thay vì 1 bảng tra chung.
  */
 
 /** Danh sách đang hiện trên panel ('group' | 'style') — đọc thẳng dropdown, khỏi tra config. */
@@ -61,7 +49,7 @@ function handleAutoSwitchVisualDelegatedChange(e) {
 }
 
 function handleAutoSwitchVisualDelegatedClick(e) {
-    if (e.target.closest && e.target.closest('#btn-auto-switch-open-list')) { // MỚI 26/09/2026 — sub panel "Effect list"
+    if (e.target.closest && e.target.closest('#btn-auto-switch-open-list')) { // sub panel "Effect list"
         eventBus.send({ router: 'autoSwitchVisual', type: 'autoSwitchVisual.openList.click', payload: {} });
         return;
     }
@@ -75,7 +63,7 @@ function _autoSwitchDragHandle(target) {
     return target.closest ? target.closest('[data-as-drag]') : null;
 }
 
-/** MỚI (12/10/2026) — mỗi pha kéo 1 msg.type; `pointerdown` chặn mặc định (không cuộn/bôi chữ) như bản gắn trực tiếp cũ.
+/** Mỗi pha kéo 1 msg.type; `pointerdown` chặn mặc định (không cuộn/bôi chữ).
  * listBy đọc thẳng dropdown của panel (cùng cách 'autoSwitchVisual.item.toggle'). */
 function handleAutoSwitchVisualDragPointerDown(e) {
     const handle = _autoSwitchDragHandle(e.target);
@@ -99,10 +87,10 @@ function handleAutoSwitchVisualDragPointerCancel(e) {
     eventBus.send({ router: 'autoSwitchVisual', type: 'autoSwitchVisual.drag.cancel', payload: {} });
 }
 
-if (genericDrawerBody) { // SỬA (đợt migrate Visualizer Screen) — settingsStackBody nay thuộc Photo
+if (genericDrawerBody) {
     genericDrawerBody.addEventListener('change', handleAutoSwitchVisualDelegatedChange);
     genericDrawerBody.addEventListener('click', handleAutoSwitchVisualDelegatedClick);
-    genericDrawerBody.addEventListener('pointerdown', handleAutoSwitchVisualDragPointerDown); // MỚI 12/10/2026
+    genericDrawerBody.addEventListener('pointerdown', handleAutoSwitchVisualDragPointerDown);
     genericDrawerBody.addEventListener('pointermove', handleAutoSwitchVisualDragPointerMove);
     genericDrawerBody.addEventListener('pointerup', handleAutoSwitchVisualDragPointerUp);
     genericDrawerBody.addEventListener('pointercancel', handleAutoSwitchVisualDragPointerCancel);

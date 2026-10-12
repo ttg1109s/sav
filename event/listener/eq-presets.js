@@ -1,32 +1,18 @@
 /**
- * event/listener/eq-presets.js — TẤT CẢ listener của cụm "eqPresets".
+ * event/listener/eq-presets.js — TẤT CẢ listener của cụm "eqPresets": 1 nút TĨNH (#btn-cycle-eq, Control Center) + nội
+ * dung ĐỘNG bên trong Generic Drawer (List/Edit).
  *
- * 1 nút TĨNH (Control Center, components/visualizer-overlay.js) + nội dung ĐỘNG bên trong Generic Drawer (List/Edit).
- * SỬA (12/10/2026, plan-event-bus-wiring-07-10-2026 đợt 1) — nội dung Drawer trước đây do event/workflow/eq-presets.js
- * tự querySelector + addEventListener sau mỗi lần vẽ (bỏ qua Listener -> Router và Block gate). Nay ủy quyền 1 lần
- * trên `genericDrawerBody`/`genericDrawerHeader` (khuôn event/listener/custom-effect.js): bảng tuyến
- * `match(target) -> send(el)`, Listener CHỈ đọc giá trị/dataset phần tử làm payload. Selector đều có tiền tố cụm
- * (`data-eq-*`, `#eq-drawer-*`, `#btn-eq-drawer-*`, `.eq-band-slider`) -> Drawer khác dùng chung body/header không
- * khớp tuyến nào, bỏ qua.
+ * #btn-cycle-eq nghe `pointerdown`/`pointerup`/`pointercancel`/`pointerleave` (1 bộ event cho cả chuột lẫn chạm) chỉ để
+ * ĐẾM GIỜ giữ 1.5s — chỉ gửi msg, đếm giờ là việc của `taskManager` ở Workflow (readme/task-manager-conventions.md mục
+ * 2). `pointerleave`: ngón tay/chuột trượt ra khỏi nút TRƯỚC khi thả -> huỷ hẹn giờ, không cycle.
+ * Listener `click` riêng (KHÔNG gộp vào `pointerup`): nút này là 1 target của hệ Tap-3-lần/Action-slot
+ * (GESTURE_TRIPLE_TAP_TARGET_ELS, event/workflow/visualizer-gesture.js) — cơ chế đó gọi `targetEl.click()`, chỉ phát
+ * sinh `click` chứ không có pointer event, nên cycle THẬT nằm ở nhánh `click`; nhánh pointerup chỉ huỷ hẹn giờ (tránh
+ * cycle 2 lần cho 1 lần bấm tay). Cờ `_cycleHoldFired` (Workflow) chặn `click` ngay sau khi vừa giữ đủ 1.5s.
  *
- * SỬA (12/08/2026, Giang yêu cầu "gộp eq edit vào hold 3s, bỏ icon edit riêng") — #btn-edit-eq (2
- * listener 'click' cũ) ĐÃ BỎ HẲN cùng nút. #btn-cycle-eq giờ nghe THÊM `pointerdown`/`pointerup`/
- * `pointercancel`/`pointerleave` (Pointer Events — CÙNG khuôn event/listener/image-edit.js,
- * event/listener/video-preview.js đã dùng — 1 bộ event duy nhất cho CẢ chuột lẫn chạm) chỉ để ĐẾM
- * GIỜ giữ 1.5s — 4 listener này chỉ GỬI msg qua eventBus, KHÔNG tự đếm giờ ở đây (đếm giờ là việc
- * của `taskManager`, CHỈ Workflow được dùng — xem readme/task-manager-conventions.md mục 2).
- * `pointerleave` xử lý case ngón tay/chuột trượt ra khỏi nút TRƯỚC khi thả (huỷ hẹn giờ, không
- * cycle) — CÙNG tinh thần touchmove huỷ seek-hold ở event/listener/visualizer-gesture.js.
- *
- * VẪN GIỮ NGUYÊN listener `click` riêng (KHÔNG gộp vào `pointerup`) — lý do: nút này còn là 1
- * trong 8 (nay 7) target của hệ Tap-3-lần/Action-slot (GESTURE_TRIPLE_TAP_TARGET_ELS, event/
- * workflow/visualizer-gesture.js), cơ chế đó gọi THẲNG `targetEl.click()` để "bấm hộ" — 1 lệnh
- * `.click()` JS chỉ phát sinh đúng 1 sự kiện `click` DOM, KHÔNG kéo theo `pointerdown`/`pointerup`
- * nào cả, nên logic cycle THẬT SỰ phải nằm ở nhánh `click` (chạy được CẢ lúc người dùng bấm tay
- * thật LẪN lúc bị gesture bấm hộ) — nhánh pointerup chỉ lo huỷ hẹn giờ, không tự cycle (tránh cycle
- * 2 lần cho đúng 1 lần bấm tay thật: 1 lần từ pointerup THEO THIẾT KẾ CŨ + 1 lần từ click tự nhiên
- * ngay sau đó). Cờ `_cycleHoldFired` (event/workflow/eq-presets.js) chặn nhánh `click` KHÔNG chạy
- * thêm nếu vừa giữ đủ 1.5s xong (Drawer đã mở) — xem onCycleClick().
+ * Nội dung Drawer: ủy quyền 1 lần trên `genericDrawerBody`/`genericDrawerHeader` (khuôn event/listener/custom-effect.js),
+ * bảng tuyến `match(target) -> send(el)`, chỉ đọc giá trị/dataset phần tử làm payload. Selector có tiền tố cụm
+ * (`data-eq-*`, `#eq-drawer-*`, `#btn-eq-drawer-*`, `.eq-band-slider`) -> Drawer khác dùng chung body/header bỏ qua.
  */
 if (btnCycleEq) {
     btnCycleEq.addEventListener('pointerdown', () => {
@@ -46,7 +32,7 @@ if (btnCycleEq) {
     });
 }
 
-// ===================== Nội dung Generic Drawer (List / Edit) — MỚI 12/10/2026 =====================
+// ===================== Nội dung Generic Drawer (List / Edit) =====================
 
 const EQ_PRESETS_HEADER_CLICK_ROUTES = [
     { match: (t) => (t.closest ? t.closest('[data-eq-close]') : null), send: () => ['eqPresets.list.close.click', {}] },
