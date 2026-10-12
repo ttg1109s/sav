@@ -1,39 +1,27 @@
 /**
- * event/workflow/file-manager-photo.js — "THẰNG THỰC THI CUỐI" cho phần còn lại của miền Photo sau
- * khi Photo Panel full-screen bị xoá (hợp nhất vào Playlist làm 1 Source, xem event/workflow/
- * playlist.js::switchSource()). Còn 2 nhóm việc:
- *   1. Modal xem ảnh full-screen — mở từ mục "Edit image" trong dropdown dòng Photo ở Playlist
- *      (event/workflow/playlist.js), KHÔNG còn mở từ tap ảnh trong lưới cũ. View/Zoom/Edit đã GỘP
- *      làm 1 THẬT SỰ, KHÔNG có khái niệm "mode" nào cần thoát HAY pause/resume (bỏ dropdown "..."
- *      cũ) — Panzoom gắn lên `mediaWrap` (bọc CHUNG `<img>` + canvasWrap, xem core/file-manager/
- *      photo-ui.js), KHÔNG gắn thẳng `<img>`, nên `_initZoom()` gọi ĐÚNG 1 LẦN lúc mở modal và chạy
- *      LIÊN TỤC cho tới khi đóng hẳn — Edit mode ẩn `<img>`/hiện canvasWrap bên TRONG `mediaWrap`
- *      không hề đụng tới session Panzoom đang chạy.
- *   2. Picker chọn 1 ảnh dùng chung qua Generic Drawer (cover bài hát/nền Theme) — gọi bởi
- *      playlist.js::pickCoverFromLibrary() và theme.js::pickNewBackgroundImage().
- * `resizeImageForThumbnail()`/`computePhotoDuration()` DÙNG CHUNG với playlist.js::uploadPhotos()
- * (upload ảnh giờ qua nút upload chung của Playlist) và image-edit.js::saveEditOverwrite().
+ * event/workflow/file-manager-photo.js — Workflow phần còn lại của miền Photo (Photo là 1 Source của Playlist, xem
+ * event/workflow/playlist.js::switchSource()). 2 nhóm việc:
+ *   1. Modal xem ảnh full-screen — mở từ mục "Edit image" trong dropdown dòng Photo ở Playlist. Xem/Zoom/Edit là 1,
+ *      không có "mode": Panzoom gắn lên `mediaWrap` (bọc CHUNG `<img>` + canvasWrap, core/file-manager/photo-ui.js),
+ *      `_initZoom()` gọi ĐÚNG 1 LẦN lúc mở modal và chạy tới khi đóng hẳn; canvas Edit vẽ đè bên trong `mediaWrap`
+ *      không đụng session Panzoom.
+ *   2. Picker chọn 1 ảnh dùng chung qua Generic Drawer (bìa bài hát, nền mặt Clock của Custom Effect).
+ * `resizeImageForThumbnail()`/`computePhotoDuration()` DÙNG CHUNG với playlist.js::uploadPhotos() và
+ * image-edit.js (Lưu đè/Lưu mới).
  *
- * NẠP SAU: core/file-manager/image.js, core/file-manager/photo-ui.js, core/media-transform.js
+ * NẠP SAU: core/file-manager/image.js, core/file-manager/photo-ui.js, core/image-load-ui.js, core/media-transform.js
  * (initPanzoomSession/destroyPanzoomSession), core/media-picker-drawer-ui.js,
  * core/generic-drawer.js.
  */
 let _imagePickerSession = null; // session picker ảnh Generic Drawer đang mở (null = đang đóng) — handle UI, KHÔNG phải state nghiệp vụ ảnh hưởng rẽ nhánh Router.
 
-// MỚI (Giai đoạn 1, rewrite Photo/Album, mục 3b/3c) — chiều cao CỐ ĐỊNH (px) của 1 hàng ảnh kiểu
-// "justified row" (Google Photos thật). Dùng ở 2 chỗ, BẮT BUỘC khớp nhau:
-//   1. `resizeImageForThumbnail()` (ngay dưới) — resize `thumbBlob` lúc upload đúng chiều cao này.
-//   2. `rowHeight` truyền vào fjGallery (event/workflow/photo-gallery-window.js) — thư viện tự nong/
-//      co MỖI HÀNG THẬT quanh giá trị này (đúng thuật toán Flickr/Google Photos).
+// Chiều cao HIỂN THỊ (px) của 1 hàng ảnh "justified row" — `rowHeight` truyền vào fjGallery
+// (event/workflow/photo-gallery-window.js), thư viện tự nong/co mỗi hàng quanh giá trị này.
 const PHOTO_ROW_HEIGHT_PX = 120;
-// Hệ số co CẢ 2 chiều lúc resize `thumbBlob` — TÁCH BIỆT hẳn khỏi PHOTO_ROW_HEIGHT_PX (chỉ còn ý
-// nghĩa "chiều cao HIỂN THỊ trong lưới" truyền cho fjGallery).
+// Hệ số co CẢ 2 chiều lúc resize `thumbBlob` (giữ nguyên tỉ lệ ảnh) — độc lập với PHOTO_ROW_HEIGHT_PX.
 const THUMBNAIL_SCALE_RATIO = 0.2;
 
-// DỜI (06/10/2026) — 5 hằng số DURATION_* của computePhotoDuration() sang event/workflow/photo-duration.js.
-
-
-/** MỚI (07/10/2026) — dọn picker ảnh xong: picker mở ĐÈ (drawer riêng) -> đóng hẳn drawer; picker mở TẠI CHỖ trong drawer
+/** Dọn picker ảnh xong: picker mở ĐÈ (drawer riêng) -> đóng hẳn drawer; picker mở TẠI CHỖ trong drawer
  * của nơi gọi (Custom Effect) -> giữ drawer, nơi gọi tự vẽ lại màn của mình trong callback. */
 const IMAGE_PICKER_DRAWER_TEARDOWN_BY_IN_PLACE = {
     true: () => {},
@@ -72,12 +60,10 @@ const workflowFileManagerPhoto = {
 
     /** Chọn 1 ảnh (bìa bài hát — event/workflow/playlist.js; nền mặt Clock — event/workflow/custom-effect.js):
      * bấm ảnh nào chọn NGAY ảnh đó + đóng drawer, không nút xác nhận.
-     * SỬA (07/10/2026, Giang báo "Custom Effect clock -> picker ảnh -> X thoát luôn cả picker lẫn Custom Effect, phải
-     * back lại") — thêm `opts.inPlace`: nơi gọi ĐANG đứng trong chính Generic Drawer (Custom Effect) thì picker THAY
-     * nội dung tại chỗ (`updateInPlace`, cùng cách picker Theme/VBG) và lúc chọn/X KHÔNG đóng drawer — nơi gọi tự vẽ
-     * lại màn của mình trong callback. Trước đây picker luôn `closeFully()` (hẹn giờ ẩn drawer sau khi trượt xuống)
-     * rồi callback gọi `workflowCustomEffect.open()` NGAY — drawer lúc đó chưa kịp `hidden` nên open() chỉ thay nội
-     * dung, sau đó hẹn giờ ẩn của closeFully() vẫn chạy -> ẩn mất luôn Custom Effect.
+     * `opts.inPlace`: nơi gọi ĐANG đứng trong chính Generic Drawer (Custom Effect) -> picker THAY nội dung tại chỗ
+     * (`updateInPlace`, cùng cách picker Theme/VBG) và lúc chọn/X KHÔNG đóng drawer — nơi gọi tự vẽ lại màn của mình
+     * trong callback. (Đóng hẳn bằng `closeFully()` rồi nơi gọi mở lại ngay thì hẹn giờ ẩn của closeFully() vẫn chạy
+     * -> ẩn mất màn vừa mở.)
      * @param {(imageKey: string) => void} onSelect
      * @param {() => void} [onCancel] - gọi khi đóng bằng nút X mà chưa chọn gì.
      * @param {{inPlace?: boolean}} [opts]
@@ -149,64 +135,40 @@ const workflowFileManagerPhoto = {
         _imagePickerSession = null;
     },
 
-    /** MỚI (Giai đoạn 1, rewrite Photo/Album, mục 3c/3d) — resize 1 ảnh lúc upload.
-     * SỬA (Giang yêu cầu — "resize theo tỉ lệ 20% width và 20% height") — THAY hẳn cách tính cũ
-     * (height CỐ ĐỊNH = PHOTO_ROW_HEIGHT_PX, width suy theo tỉ lệ ảnh gốc). Giờ CẢ 2 chiều đều co
-     * theo ĐÚNG 1 hệ số 20% trên chính kích thước ảnh gốc — tỉ lệ ảnh (aspect ratio) TỰ giữ nguyên
-     * (co đều 2 chiều cùng hệ số), KHÔNG còn phụ thuộc `PHOTO_ROW_HEIGHT_PX` nữa (hằng số đó giờ
-     * CHỈ còn dùng cho `rowHeight` truyền vào fjGallery — chiều cao HIỂN THỊ trong lưới, KHÁC hẳn
-     * kích thước THẬT của file `thumbBlob` lưu trong DB).
+    /** Resize 1 ảnh làm `thumbBlob`: CẢ 2 chiều co theo `THUMBNAIL_SCALE_RATIO` (giữ nguyên tỉ lệ ảnh) — giải mã + vẽ
+     * ở core/image-load-ui.js.
      * Trả thêm `width`/`height` GỐC (trước resize) để fjGallery (thư viện, xem event/workflow/
      * photo-gallery-window.js) tính tỉ lệ hiển thị MÀ KHÔNG cần decode ảnh lại lúc dựng lưới.
-     * Đặt ở Workflow (KHÔNG phải core/file-manager/image.js) vì cần `Image`/`canvas` — DOM API, core
-     * không được đụng theo Rule 1-4. Dùng CHUNG bởi `playlist.js::uploadPhotos()` VÀ
-     * `workflowImageEdit` (event/workflow/image-edit.js — Lưu đè/Lưu mới cũng cần resize thumbnail).
+     * Dùng CHUNG bởi `playlist.js::uploadPhotos()` VÀ `workflowImageEdit` (event/workflow/image-edit.js — Lưu đè/Lưu
+     * mới cũng cần resize thumbnail).
      * @param {File} file
      * @returns {Promise<{thumbBlob: Blob, width: number, height: number}>}
      */
-    resizeImageForThumbnail(file) {
-        return new Promise((resolve, reject) => {
-            const objectUrl = URL.createObjectURL(file);
-            const img = new Image();
-            img.onload = () => {
-                const width = img.naturalWidth;
-                const height = img.naturalHeight;
-                const targetWidth = Math.max(1, Math.round(width * THUMBNAIL_SCALE_RATIO)); // guard: tối thiểu 1px, tránh canvas rộng 0 nếu ảnh hỏng tỉ lệ
-                const targetHeight = Math.max(1, Math.round(height * THUMBNAIL_SCALE_RATIO));
-                const canvas = document.createElement('canvas');
-                canvas.width = targetWidth;
-                canvas.height = targetHeight;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
-                URL.revokeObjectURL(objectUrl);
-                canvas.toBlob((thumbBlob) => {
-                    if (!thumbBlob) { reject(new Error('[resizeImageForThumbnail] canvas.toBlob trả về null')); return; }
-                    resolve({ thumbBlob, width, height });
-                }, 'image/jpeg', 0.82);
-            };
-            img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('[resizeImageForThumbnail] không đọc được ảnh để resize')); };
-            img.src = objectUrl;
-        });
+    async resizeImageForThumbnail(file) {
+        const objectUrl = URL.createObjectURL(file);
+        const img = await decodeImageFromUrl(objectUrl); // core/image-load-ui.js
+        URL.revokeObjectURL(objectUrl); // ảnh đã giải mã vẫn vẽ được sau khi thu hồi URL
+        if (!img) throw new Error('[resizeImageForThumbnail] không đọc được ảnh để resize');
+        const thumbBlob = await renderImageScaledToJpegBlob(img, THUMBNAIL_SCALE_RATIO, 0.82); // core/image-load-ui.js
+        if (!thumbBlob) throw new Error('[resizeImageForThumbnail] canvas.toBlob trả về null');
+        return { thumbBlob, width: img.naturalWidth, height: img.naturalHeight };
     },
 
-    /** DỜI (06/10/2026) — thân hàm sang event/workflow/photo-duration.js (workflowPhotoDuration.compute(), dùng chung với
-     * trang video-editor.html — nút Chụp lưu ảnh mới). Tên cũ giữ làm cửa ngõ cho mọi nơi gọi (uploadPhotos(),
-     * saveEditOverwrite()). @param {File|Blob} file @param {number} width @param {number} height @returns {Promise<number>} */
+    /** Cửa ngõ tới workflowPhotoDuration.compute() (event/workflow/photo-duration.js, dùng chung với trang
+     * video-editor.html) cho các nơi gọi trong app (uploadPhotos(), image-edit.js).
+     * @param {File|Blob} file @param {number} width @param {number} height @returns {Promise<number>} */
     computePhotoDuration(file, width, height) {
         return workflowPhotoDuration.compute(file, width, height); // event/workflow/photo-duration.js
     },
 
     /** Ứng với mục "Edit image" trong dropdown action-menu dòng Photo ở Playlist (event/workflow/
-     * playlist.js) — KHÔNG còn mở từ tap ảnh trong list item (tap ảnh giờ PHÁT ảnh làm track như
-     * Song/Video, xem event/router/playlist.js case 'playlist.item.playClick').
-     * DUY NHẤT 1 mặt canvas dùng chung xem/zoom/pan/edit (Giang chốt, KHÔNG có khái niệm "mode") —
+     * playlist.js); tap ảnh trong list item là PHÁT ảnh (event/router/playlist.js case 'playlist.item.playClick').
+     * DUY NHẤT 1 mặt canvas dùng chung xem/zoom/pan/edit (KHÔNG có khái niệm "mode") —
      * decode ảnh vào canvas NGAY LÚC MỞ MODAL (`workflowImageEdit.ensureEditSessionReady()`,
      * Workflow-gọi-Workflow tự do), KHÔNG đợi bấm icon Edit. Zoom (Panzoom) bật NGAY qua
      * `_initZoom()`, chạy LIÊN TỤC suốt vòng đời modal.
      * Tăng `count` trong `mediaStatsMap` (dùng CHUNG với Song/Video, Sort trục thống kê đọc field
-     * này — ý nghĩa đổi thành "lượt click xem" cho Photo) mỗi lần mở xem.
-     * XOÁ (06/10/2026, Giang xoá action "View full thumbnail" của Video) — tham số 2 `viewOnlyImage` (chế độ CHỈ XEM
-     * 1 ảnh ngoài bảng ảnh, sinh ra RIÊNG cho action đó) bỏ hẳn; hàm về đúng hành vi trước 19/09/2026.
+     * này — với Photo là "lượt click xem") mỗi lần mở xem.
      * @param {string} imageKey
      */
     async openImagePreview(imageKey) {
@@ -215,9 +177,9 @@ const workflowFileManagerPhoto = {
         const image = { key: imageKey, ...record };
 
         this._activeImageKey = imageKey; // workflowImageEdit cần lại lúc decode canvas
-        workflowListenStats.bumpPlayCount('photo', imageKey); // event/workflow/listen-stats.js — Photo dùng làm "lượt click xem" (SỬA 06/10/2026: thêm loại media)
+        workflowListenStats.bumpPlayCount('photo', imageKey); // event/workflow/listen-stats.js — Photo dùng làm "lượt click xem"
 
-        this._activeImageModalHandle = openImagePreviewModal(image); // core/file-manager/photo-ui.js — KHÔNG còn callbacks (Rule 5a, Core tự bắn eventBus cố định), Router gọi lại các hàm dưới đây, đọc _activeImageKey thay vì closure
+        this._activeImageModalHandle = openImagePreviewModal(image); // core/file-manager/photo-ui.js — Core tự bắn eventBus cố định (Rule 5a), Router gọi lại các hàm dưới đây
         this._initZoom();
         workflowImageEdit.ensureEditSessionReady(); // event/workflow/image-edit.js — decode canvas NGAY, không đợi bấm Edit (không await — modal đã hiện `<img>` tức thời, canvas tự vẽ đè lên khi decode xong)
     },
@@ -228,7 +190,7 @@ const workflowFileManagerPhoto = {
      * hàm này ĐÚNG 1 LẦN lúc mở modal (`openImagePreview()`), chạy tới khi đóng hẳn modal
      * (`closeImagePreview()`).
      * `exclude: [interactCanvas]` — interactCanvas tự có pointer handler riêng (kéo khung Crop/nét
-     * Vẽ/chạm Tách nền, wire ở core/file-manager/photo-ui.js), KHÔNG để Panzoom giành mất cử chỉ đó
+     * Vẽ/layer, wire ở core/file-manager/photo-ui.js), KHÔNG để Panzoom giành mất cử chỉ đó
      * thành pan (2 hệ thống cùng nghe pointerdown trên cùng 1 vùng nếu không loại trừ tường minh).
      */
     _initZoom() {
@@ -243,18 +205,11 @@ const workflowFileManagerPhoto = {
     },
 
     /** Đóng THẬT modal xem ảnh — dọn phiên Panzoom nếu còn + dọn Edit mode nếu còn + đóng handle.
-     * Router gọi khi bấm X (không còn Block gate nào chặn — GỘP View/Zoom/Edit làm 1, xem
-     * event/block.js).
+     * Router gọi khi bấm X.
      */
     closeImagePreview() {
         if (this._activePanzoomSession) { destroyPanzoomSession(this._activePanzoomSession); this._activePanzoomSession = null; } // core/media-transform.js
         workflowImageEdit.exitEditMode();
         if (this._activeImageModalHandle) { this._activeImageModalHandle.close(); this._activeImageModalHandle = null; }
     },
-
-    // XOÁ (Giang yêu cầu bỏ "Đặt làm nền Playlist") — setAsPlaylistBackground() (nút header modal
-    // xem ảnh) bỏ hẳn cùng tính năng, không còn entry point nào gọi tới applyBgImage() từ Photo (hàm này cũng đã xoá 21/09/2026).
-    // XOÁ (loại bỏ Album khỏi Photo Panel) — setAsSlideshowBackground() (nút "Dùng làm nền
-    // Slideshow" ở thanh quản lý album) bỏ hẳn — Visual Background mất tuỳ chọn "Nhóm ảnh" tạm
-    // thời, sẽ thay bằng Folder Photo (File Browser overhaul, đợt riêng, pending).
 };

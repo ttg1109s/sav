@@ -2,13 +2,9 @@
  * event/workflow/subtitle-editor.js — Workflow DUY NHẤT của trang `subtitle-editor.html` (KHÔNG
  * nạp ở `index.html`, chạy như 1 trang độc lập).
  *
- * Trang này TRƯỚC ĐÂY không dùng `appState` — SỬA 25/07/2026 (đợt tái cấu trúc state, lượt 2):
- * trang này giờ CÓ nạp `service/state.js`, 20 field state sống trong `appState` (package
- * 'subtitle-editor', xem `service/state/subtitle-editor.js` +
- * `service/state/record/subtitle-editor.js`) — CÙNG hạ tầng schema/registry() như mọi trang khác
- * (lượt 1 từng nhét 20 field này vào EventStore — SAI ranh giới, EventStore chỉ dành cho "state
- * context" nhỏ giữa 2 message, không phải state nghiệp vụ toàn trang). Mọi method đọc/ghi qua
- * `appState.get('_xxx')`/`appState.set('_xxx', value)` trực tiếp. Mọi timer/interval đều qua
+ * State sống trong `appState` (package 'subtitle-editor', xem `service/state/subtitle-editor.js` +
+ * `service/state/record/subtitle-editor.js`) — mọi method đọc/ghi qua `appState.get('_xxx')`/`appState.set('_xxx',
+ * value)` (key giữ dấu `_`). Mọi timer/interval đều qua
  * `taskManager` (`service/task-manager.js`, có nạp ở trang này) — không dùng
  * `setTimeout`/`setInterval` thô, xem `readme/task-manager-conventions.md`.
  *
@@ -21,19 +17,10 @@
  * "đóng" (trang không tự đóng khi lưu — nút "←" quay lại riêng, xem `back()`).
  *
  * NẠP SAU: core/subtitle/subtitles.js, core/subtitle/subtitles-ui.js, core/time-picker-modal.js
- * (MỚI 18/07/2026 — openTimePickerModal() dùng chung, xem docstring hàm cùng tên trong file này),
+ * (openTimePickerModal() dùng chung),
  * service/db.js, lang/lang.js, WaveSurfer.js (CDN) + Regions plugin (CDN).
  */
 const workflowSubtitleEditor = {
-    // SỬA (25/07/2026, đợt tái cấu trúc state) — 20 field state dưới đây KHÔNG còn là property
-    // của object literal này nữa — sống thật trong `appState` (package `subtitle-editor`, xem
-    // `service/state/subtitle-editor.js` + `service/state/record/subtitle-editor.js`), CÙNG hạ
-    // tầng schema/registry() như mọi domain khác của app — KHÔNG dùng EventStore (bản trước đó
-    // dùng nhầm EventStore cho state nghiệp vụ toàn trang, đã sửa lại theo đúng ranh giới đã chốt:
-    // EventStore chỉ dành cho "state context" nhỏ giữa 2 message, không phải state nghiệp vụ của
-    // cả 1 trang). MỌI method bên dưới đọc/ghi qua `appState.get('_xxx')`/`appState.set('_xxx',
-    // value)` — giữ nguyên tên field kèm dấu `_` làm key.
-
     /** Chạy 1 LẦN lúc trang load xong (xem event/listener/subtitle-editor.js). */
     async init() {
         const encoded = new URLSearchParams(window.location.search).get('song');
@@ -58,19 +45,15 @@ const workflowSubtitleEditor = {
     },
 
     async _initWaveform(blob) {
-        // FIX (11/07/2026, phản hồi Giang) — trước đây KHÔNG có try/catch/kiểm tra gì quanh
-        // WaveSurfer — nếu CDN chặn/lỗi (`WaveSurfer`/`WaveSurfer.Regions` undefined) hay
-        // `load()`/decode thất bại, khung waveform biến mất im lặng, KHÔNG có gì báo cho người
-        // dùng biết. Giờ LUÔN hiện `#waveform-frame` (chiều cao cố định, xem subtitle-editor.html)
-        // — lỗi ở BẤT KỲ bước nào đều hiện `#waveform-error` NGAY TRONG khung đó, không biến mất.
+        // `#waveform-frame` LUÔN hiện (chiều cao cố định, xem subtitle-editor.html) — lỗi ở BẤT KỲ bước nào (CDN
+        // chặn, `load()`/decode thất bại...) đều hiện `#waveform-error` NGAY TRONG khung đó, không biến mất im lặng.
         if (typeof WaveSurfer === 'undefined' || typeof WaveSurfer.Regions === 'undefined') {
             console.error('[subtitle-editor] WaveSurfer.js không tải được (CDN chặn/lỗi mạng?).');
             this._showWaveformError();
             return;
         }
 
-        // ĐIỀU TRA 11/07/2026 (mục 1, yêu cầu Giang) — record.blob CÓ THỂ rỗng/undefined (bản ghi
-        // hỏng, hoặc field bị đổi tên ở đâu đó) — không phải lỗi WaveSurfer, nhưng biểu hiện GIỐNG
+        // record.blob CÓ THỂ rỗng/undefined (bản ghi hỏng) — không phải lỗi WaveSurfer, nhưng biểu hiện GIỐNG
         // HỆT lỗi waveform (khung trống/báo lỗi), nên kiểm tra riêng để log rõ đúng nguyên nhân.
         if (!blob) {
             console.error('[subtitle-editor] record.blob rỗng — bản ghi bài hát không có dữ liệu âm thanh.');
@@ -79,11 +62,8 @@ const workflowSubtitleEditor = {
         }
 
         try {
-            // FIX MỚI (11/07/2026, điều tra mục 1) — record.blob ở đây LUÔN tới từ 1 lượt
-            // getSongRecord() (xem init()), tức ĐÚNG điều kiện cần rematerializeBlob() (xem comment
-            // đầy đủ ở service/db.js::rematerializeBlob()) để né lỗi "Blob round-trip qua
-            // IndexedDB" đã biết của Chromium — trước đây _initWaveform() dùng THẲNG record.blob,
-            // bỏ sót đúng bước này (saveToDatabase() ở dưới ĐÃ áp dụng đúng, nơi đây thì chưa).
+            // record.blob tới từ getSongRecord() (xem init()) -> rematerializeBlob() để né lỗi "Blob round-trip qua
+            // IndexedDB" của Chromium (service/db.js::rematerializeBlob()).
             const freshBlob = await rematerializeBlob(blob); // service/db.js
             const url = URL.createObjectURL(freshBlob);
             appState.set('_regionsPlugin', WaveSurfer.Regions.create());
@@ -132,13 +112,13 @@ const workflowSubtitleEditor = {
                 this._updateRegionTimeDisplay();
             });
 
-            // MỚI (11/07/2026, mục 2) — chỉ hiện thanh Play/Pause + giờ start/end SAU KHI waveform
+            // Chỉ hiện thanh Play/Pause + giờ start/end SAU KHI waveform
             // thật sự sẵn sàng (decode xong + đã vẽ xong), tránh hiện điều khiển cho 1 waveform
             // chưa có gì để play/pause.
             appState.get('_wavesurfer').on('ready', () => {
                 waveformControlsEl.classList.remove('hidden');
                 this._updateRegionTimeDisplay();
-                this._primeAudioPlayback(); // THỬ NGHIỆM (13/07/2026, yêu cầu Giang) — xem docstring hàm
+                this._primeAudioPlayback(); // xem docstring hàm
             });
             appState.get('_wavesurfer').on('play', () => {
                 iconWaveformPlay.classList.add('hidden');
@@ -168,9 +148,8 @@ const workflowSubtitleEditor = {
         }
     },
 
-    /** THỬ NGHIỆM — bắn play() rồi pause() ngay (tắt tiếng lúc làm) lúc waveform 'ready', thử xem
-     * việc "chạm" vào thẻ audio sớm có giúp thẻ đó sẵn sàng nhận seek từ lần đầu người dùng thao
-     * tác hay không (không chắc chắn dứt điểm — _seekWithRetry() vẫn giữ làm lớp bảo vệ thứ 2).
+    /** Bắn play() rồi pause() ngay (tắt tiếng lúc làm) lúc waveform 'ready' — "chạm" thẻ audio sớm để sẵn sàng nhận
+     * seek từ lần thao tác đầu (không dứt điểm — _seekWithRetry() vẫn là lớp bảo vệ thứ 2).
      * .catch() nuốt lỗi "play() interrupted by pause()" và lỗi chặn autoplay — đều vô hại. */
     _primeAudioPlayback() {
         if (!appState.get('_wavesurfer')) return;
@@ -193,7 +172,7 @@ const workflowSubtitleEditor = {
         waveformErrorEl.classList.remove('hidden');
     },
 
-    /** MỚI (11/07/2026, mục 2) — cập nhật 2 nhãn giờ start/end theo ĐÚNG appState.get('_region') hiện tại,
+    /** Cập nhật 2 nhãn giờ start/end theo ĐÚNG appState.get('_region') hiện tại,
      * cùng định dạng "HH:MM:SS,mmm" như ô giờ mỗi dòng phụ đề (secToStr(), core/subtitle/
      * subtitles.js) cho nhất quán. Gọi lại mỗi lần region 'update' (kéo tay cầm) + lúc 'ready'. */
     _updateRegionTimeDisplay() {
@@ -202,7 +181,7 @@ const workflowSubtitleEditor = {
         waveformRegionEndEl.textContent = secToStr(appState.get('_region').end); // core
     },
 
-    /** MỚI (yêu cầu Giang, mục 2) — cập nhật nhãn giờ đang phát HIỆN TẠI (khác giờ start/end vùng
+    /** Cập nhật nhãn giờ đang phát HIỆN TẠI (khác giờ start/end vùng
      * chọn ở trên) — gọi liên tục lúc đang phát ('timeupdate') VÀ mỗi lần seek thủ công
      * (seekFromClick() bên dưới). */
     _updateCurrentTimeDisplay(currentTime) {
@@ -253,7 +232,7 @@ const workflowSubtitleEditor = {
         }, 80);
     },
 
-    /** MỚI (yêu cầu Giang, mục 1) — zoom in/out waveform qua WaveSurfer.zoom() (API CÓ SẴN, đổi
+    /** Zoom in/out waveform qua WaveSurfer.zoom() (API CÓ SẴN, đổi
      * "pixel/giây" đang hiển thị — timeline (nếu tải được) + region + con trỏ TỰ đồng bộ theo,
      * không cần code thêm gì). Nhân/chia 1.5x mỗi lần bấm — kẹp trong [20, 500] px/giây, đủ rộng để
      * từ "cả bài" (zoom out hết cỡ, bài dài vài phút vẫn gói gọn trong khung nhìn) tới "từng chữ"
@@ -307,8 +286,7 @@ const workflowSubtitleEditor = {
         waveformDebugPanelEl.scrollTop = waveformDebugPanelEl.scrollHeight;
     },
 
-    /** MỚI (yêu cầu Giang, mục 3) — chép TOÀN BỘ log hiện có vào clipboard, để Giang dán ra chỗ
-     * khác (Notes, gửi lại cho Claude...) thay vì phải tự gõ/chụp màn hình từng dòng lỗi. */
+    /** Chép TOÀN BỘ log hiện có vào clipboard (dán ra chỗ khác thay vì chụp màn hình từng dòng lỗi). */
     copyDebugLogToClipboard() {
         const lines = window.__sedLog || [];
         const text = lines.length
@@ -398,14 +376,14 @@ const workflowSubtitleEditor = {
             start: appState.get('_editingPendingStart'),
             end: appState.get('_editingPendingEnd'),
         };
-        // MỚI (17/09/2026, yêu cầu Giang mục 4, tính năng karaoke) — sửa text làm SỐ TỪ hoặc NỘI
+        // Karaoke: sửa text làm SỐ TỪ hoặc NỘI
         // DUNG từ đổi khác `karaoke` đã lưu -> reset về null (rơi về chia đều lúc mở drawer timing
         // lại lần sau, xem openKaraokeDrawer()) — GIỮ NGUYÊN nếu vẫn khớp (vd chỉ sửa giờ start/end,
         // không đụng chữ).
         const current = appState.get('_subtitles').find((s) => s.id === id);
         if (current && current.karaoke && !isKaraokeMatchingText(current.karaoke, text)) changes.karaoke = null; // core
-        // SỬA (30/09/2026) — chữ vẫn khớp nhưng giờ start/end đổi -> co/giãn karaoke theo thời lượng MỚI
-        // (trước đây giữ nguyên tổng ms cũ -> lệch dòng). Dòng không có karaoke / vừa reset null -> core bỏ qua.
+        // Chữ vẫn khớp nhưng giờ start/end đổi -> co/giãn karaoke theo thời lượng mới. Dòng không có karaoke / vừa
+        // reset null -> core bỏ qua.
         const updated = computeUpdatedSubtitles(appState.get('_subtitles'), id, changes); // core
         appState.set('_subtitles', fitSubtitlesKaraokeToDuration(updated, new Set([id]))); // core/subtitle/subtitle-karaoke.js
         this._exitLineEditMode();
@@ -468,16 +446,9 @@ const workflowSubtitleEditor = {
     /** Modal "bánh xe cuộn số" chọn giờ start/end 1 dòng — CHỈ mở được lúc dòng đó đang ở chế độ
      * sửa (nút start/end chỉ hiện trong chế độ đó). Xác nhận -> cập nhật PENDING + đồng bộ ngược
      * vào `_region`, KHÔNG commit thẳng vào dòng (chờ bấm ✓ Áp dụng).
-     *
-     * TÁCH RA (18/07/2026, phản hồi Giang — "tách modal đó ra như 1 core thuần chung để tái sử
-     * dụng") — cơ chế "bánh xe cuộn số" (scroll-snap, rubber-band, N cột phụ thuộc nhau theo tầng)
-     * ĐÃ CHUYỂN HẲN sang `core/time-picker-modal.js::openTimePickerModal()` (DÙNG CHUNG, không
-     * riêng gì Subtitle Editor nữa) — hàm NÀY giờ CHỈ còn 1 wrapper mỏng: tự tính min/max/giá trị
-     * hiện tại theo SECONDS (giữ NGUYÊN cách tính cũ, KHÔNG đổi 1 chữ), quy đổi sang MILI GIÂY
-     * (đơn vị canonical của modal dùng chung — xem docstring core/time-picker-modal.js), gọi modal
-     * với `format: 'h-m-s-ms'` (giữ ĐÚNG 4 cột hh/mm/ss/x100ms như bản gốc), rồi convert NGƯỢC kết
-     * quả (mili giây) về giây trước khi chạy lại ĐÚNG logic onConfirm cũ (cập nhật PENDING + đồng
-     * bộ `_region`) — HÀNH VI ĐẦU RA ĐỐI VỚI NGƯỜI DÙNG GIỮ NGUYÊN 100%, KHÔNG đổi gì cả.
+     * Wrapper mỏng của `core/time-picker-modal.js::openTimePickerModal()` (dùng chung): tính min/max/giá trị hiện tại
+     * theo GIÂY, quy đổi sang MILI GIÂY (đơn vị của modal), `format: 'h-m-s-ms'` (4 cột hh/mm/ss/x100ms), kết quả đổi
+     * ngược về giây rồi cập nhật PENDING + đồng bộ `_region`.
      * @param {string} subId @param {'start'|'end'} kind @param {number} currentSeconds
      */
     openTimePickerModal(subId, kind, currentSeconds) {
@@ -529,7 +500,7 @@ const workflowSubtitleEditor = {
             appState.set('_subtitles', sortSubtitlesByStart([...appState.get('_subtitles'), newSub])); // core
             this._resetAutoTiming();
             this._renderLines();
-            this._scrollLineIntoView(newSub.id); // SỬA (17/09/2026) — thiếu dòng này, khác addNewLine()/createLineFromSelection() (đều có gọi)
+            this._scrollLineIntoView(newSub.id); // cùng addNewLine()/createLineFromSelection()
         }
     },
 
@@ -538,10 +509,8 @@ const workflowSubtitleEditor = {
         iconAutoTimingRecording.classList.add('hidden'); iconAutoTimingIdle.classList.remove('hidden');
     },
 
-    /** "+ Thêm dòng" — nối sau dòng cuối +2s — GIỮ NGUYÊN hành vi cũ (KHÔNG dùng region, xem
-     * createLineFromSelection() bên dưới cho tool MỚI dùng region). */
-    /** SỬA (yêu cầu Giang) — khoảng cách tối thiểu 1s giữa start dòng MỚI và end dòng CUỐI hiện có
-     * (trước đây chỉ +0.1s, quá sát — 2 dòng liền kề gần như dính nhau). */
+    /** "+ Thêm dòng" — nối sau dòng cuối, cách end dòng CUỐI 1s (KHÔNG dùng region, xem createLineFromSelection()
+     * cho tool dùng region). */
     addNewLine() {
         const list = appState.get('_subtitles');
         const last = list[list.length - 1];
@@ -552,26 +521,22 @@ const workflowSubtitleEditor = {
         this._scrollLineIntoView(newSub.id); // cuộn tới đúng dòng vừa thêm, khỏi phải tự cuộn tay
     },
 
-    /** SỬA (30/09/2026) — nhập .srt THAY TOÀN BỘ danh sách: trước đây nếu đang sửa 1 dòng (hoặc đang
-     * chọn Shift) lúc nhập, `_editingLineId` vẫn trỏ tới dòng CŨ đã biến mất -> mọi dòng MỚI dựng ở
-     * trạng thái "bị khoá bởi dòng khác đang sửa" (mờ, không bấm được) mà không còn nút ✓/✕ nào để
-     * thoát — kẹt cứng tới khi tải lại trang. Giờ thoát sạch 2 chế độ đó trước khi dựng lại. */
-    importSrtFile(file) {
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-            appState.set('_subtitles', sortSubtitlesByStart(parseSRT(evt.target.result))); // core
-            appState.set('_editingLineId', null);
-            appState.set('_editingPendingStart', null);
-            appState.set('_editingPendingEnd', null);
-            appState.set('_editingCardEl', null);
-            appState.set('_isShiftSelectionMode', false);
-            appState.set('_shiftSelectedIds', new Set());
-            appState.get('_lineCardNodesById').clear();
-            this._renderLines();
-            this._renderShiftBar();
-            this._updateWaveformControlsBlockState();
-        };
-        reader.readAsText(file);
+    /** Nhập .srt THAY TOÀN BỘ danh sách. Thoát sạch chế độ đang sửa dòng / chọn Shift trước khi dựng lại — không thì
+     * `_editingLineId` trỏ tới dòng đã biến mất, mọi dòng mới bị khoá "đang sửa dòng khác" mà không có nút thoát.
+     * @param {File} file */
+    async importSrtFile(file) {
+        const text = await file.text(); // UTF-8, như readAsText mặc định
+        appState.set('_subtitles', sortSubtitlesByStart(parseSRT(text))); // core
+        appState.set('_editingLineId', null);
+        appState.set('_editingPendingStart', null);
+        appState.set('_editingPendingEnd', null);
+        appState.set('_editingCardEl', null);
+        appState.set('_isShiftSelectionMode', false);
+        appState.set('_shiftSelectedIds', new Set());
+        appState.get('_lineCardNodesById').clear();
+        this._renderLines();
+        this._renderShiftBar();
+        this._updateWaveformControlsBlockState();
     },
 
     async exportSrt() {
@@ -584,7 +549,7 @@ const workflowSubtitleEditor = {
         URL.revokeObjectURL(url);
     },
 
-    // ============================== Toolbar: MỚI (yêu cầu Giang) ==============================
+    // ============================== Toolbar: vùng chọn ==============================
 
     /** "Lấy giờ từ vùng chọn" — tạo dòng MỚI từ appState.get('_region') hiện tại (KHÁC "+ Thêm dòng" — hàm đó
      * vẫn nối sau dòng cuối, hàm này lấy ĐÚNG mốc đang kéo trên waveform). */
@@ -605,7 +570,7 @@ const workflowSubtitleEditor = {
         if (node && typeof node.scrollIntoView === 'function') node.scrollIntoView({ behavior: 'smooth', block: 'center' });
     },
 
-    // ============================== Karaoke (MỚI, 17/09/2026, yêu cầu Giang) ==============================
+    // ============================== Karaoke ==============================
     // Nút "kr" mỗi dòng (core/subtitle/subtitles-ui.js::buildLineCard()) -> Generic Drawer (PORT từ
     // index.html, xem subtitle-editor.html) hiện 1 waveform mini CHỈ vùng audio dòng đó + danh sách
     // từ/ms/nút nghe riêng. Kéo mốc chia trên waveform HOẶC gõ số ms trực tiếp đều quy về CÙNG 1 lõi
@@ -618,9 +583,8 @@ const workflowSubtitleEditor = {
      * `sub.karaoke` sẵn VÀ vẫn khớp text hiện tại (isKaraokeMatchingText()) -> đọc thẳng vào làm
      * việc; ngược lại (chưa timing lần nào, hoặc timing cũ đã lệch sau khi sửa text — xem
      * applyLineEdit()) -> chia đều mặc định.
-     * SỬA (30/09/2026): (1) timing đã lưu nhưng tổng ms lệch thời lượng dòng (dữ liệu cũ, trước khi
-     * applyLineEdit()/_applyShift() biết co/giãn) -> co/giãn cho khớp ngay lúc mở, không để mốc chia
-     * vượt khỏi dòng; (2) dừng mọi phát trên waveform CHÍNH — nghe trong drawer chỉ chạy trên waveform
+     * (1) Timing đã lưu nhưng tổng ms lệch thời lượng dòng (dữ liệu lưu từ bản cũ) -> co/giãn cho khớp ngay lúc mở,
+     * không để mốc chia vượt khỏi dòng; (2) dừng mọi phát trên waveform CHÍNH — nghe trong drawer chỉ chạy trên waveform
      * mini, không để 2 nguồn phát chồng nhau. */
     openKaraokeDrawer(id) {
         const found = appState.get('_subtitles').find((s) => s.id === id);
@@ -642,7 +606,7 @@ const workflowSubtitleEditor = {
         this._renderKaraokeDrawer();
     },
 
-    /** MỚI (30/09/2026) — dừng hẳn phát trên waveform CHÍNH (kể cả lượt ▶ dòng/vùng đang canh dừng ở
+    /** Dừng hẳn phát trên waveform CHÍNH (kể cả lượt ▶ dòng/vùng đang canh dừng ở
      * end) — dùng lúc mở drawer karaoke + lúc bấm ▶ 1 từ trong drawer. */
     _stopMainPlayback() {
         const main = appState.get('_wavesurfer');
@@ -663,7 +627,7 @@ const workflowSubtitleEditor = {
             bodyClass: 'overflow-y-auto',
         };
         if (genericDrawerPanel.classList.contains('hidden')) {
-            workflowGenericDrawerHelpers.open(config); // event/workflow/generic-drawer-helpers.js — SỬA 24/09/2026: lối mở/thay DUY NHẤT
+            workflowGenericDrawerHelpers.open(config); // event/workflow/generic-drawer-helpers.js — lối mở/thay DUY NHẤT
         } else {
             workflowGenericDrawerHelpers.update(config); // co/giãn chiều cao
         }
@@ -671,7 +635,7 @@ const workflowSubtitleEditor = {
         this._initKaraokeMiniWaveform();
     },
 
-    /** MỚI (30/09/2026) — dòng đang mở drawer CÓ karaoke đã Áp dụng chưa (quyết định hiện nút "Bỏ áp
+    /** Dòng đang mở drawer CÓ karaoke đã Áp dụng chưa (quyết định hiện nút "Bỏ áp
      * dụng") — CÙNG điều kiện dấu tích xanh ở nút "kr" (core/subtitle/subtitles-ui.js::buildLineCard()). */
     _isKaraokeLineApplied() {
         const id = appState.get('_karaokeEditingLineId');
@@ -710,32 +674,26 @@ const workflowSubtitleEditor = {
             });
         });
 
-        // MỚI (30/09/2026, lần 3) — thanh trượt cuộn ẢO waveform mini (chỉ hiện với dòng dài, xem _setupKaraokeMiniScroll()).
+        // Thanh trượt cuộn ẢO waveform mini (chỉ hiện với dòng dài, xem _setupKaraokeMiniScroll()).
         const scrollSlider = genericDrawerBody.querySelector('#karaoke-mini-scroll');
         if (scrollSlider) scrollSlider.addEventListener('input', (e) => this._onKaraokeMiniScrollInput(parseInt(e.target.value, 10) || 0));
     },
 
-    /** VIẾT LẠI (30/09/2026, Giang báo "Unable to load the mini waveform" + "play của word chỉ được
-     * play ở mini waveform này"; SỬA LẦN 2 cùng ngày: phát từ bằng Web Audio, chỉ bôi xanh vùng phát,
-     * chữ nằm TRONG vùng chia từng từ, cuộn ngang cho dòng dài/nhiều từ).
-     *
-     * NGUYÊN NHÂN LỖI GỐC: bản đầu tạo WaveSurfer mini TẢI + GIẢI MÃ LẠI NGUYÊN CẢ BÀI (lần giải mã thứ
-     * 2, song song waveform chính) — nặng, dễ hỏng trên iOS.
-     *
-     * CÁCH LÀM: waveform mini chỉ chứa ĐÚNG đoạn [start,end] của dòng (trục mini: 0 = start dòng):
+    /** Waveform mini của drawer karaoke — KHÔNG để WaveSurfer tải + giải mã lại nguyên cả bài (nặng, dễ hỏng trên
+     * iOS). Waveform mini chỉ chứa ĐÚNG đoạn [start,end] của dòng (trục mini: 0 = start dòng):
      *   1. Nguồn PCM mono (`_getKaraokeSourceAudio()`): giải mã file gốc 1 LẦN/phiên trang ở
      *      KARAOKE_DECODE_SAMPLE_RATE, cache cho mọi dòng; lỗi/bài quá dài -> PCM 8000Hz của waveform chính.
      *   2. Cắt đúng đoạn (`_karaokeSegment`) -> peaks để VẼ (WaveSurfer không tự giải mã gì) + 1 WAV nhỏ
      *      CHỈ để <audio> nội bộ của WaveSurfer có nguồn hợp lệ (không phát qua nó — xem
      *      _toggleKaraokeWordPlay(): phát bằng Web Audio trên CHÍNH đoạn PCM này).
      *   3. Bề rộng: mỗi từ trung bình ≥ KARAOKE_MINI_MIN_WORD_PX — dòng ngắn/ít từ vừa khung, dòng
-     *      dài/nhiều từ tự rộng hơn khung -> cuộn ẢO qua thanh trượt bên dưới (SỬA lần 3: KHÔNG cuộn tay
-     *      trên sóng nữa — xem _setupKaraokeMiniScroll()); kéo mốc qua núm tròn ngoài khung.
+     *      dài/nhiều từ tự rộng hơn khung -> cuộn ẢO qua thanh trượt bên dưới (KHÔNG cuộn tay trên sóng — xem
+     *      _setupKaraokeMiniScroll()); kéo mốc qua núm tròn ngoài khung.
      * Lỗi bất kỳ bước nào -> báo lỗi NGAY TRONG khung, nút ▶ giữ khoá (ô ms vẫn dùng được). */
     async _initKaraokeMiniWaveform() {
         const token = appState.get('_karaokeInitToken') + 1;
         appState.set('_karaokeInitToken', token);
-        this._destroyKaraokeMiniWaveform(); // dọn instance CŨ (phòng hờ, dù drawer luôn đóng hẳn trước khi mở dòng khác)
+        this._destroyKaraokeMiniWaveform(); // dọn instance trước đó (phòng hờ, dù drawer luôn đóng hẳn trước khi mở dòng khác)
         const containerEl = document.getElementById('karaoke-mini-waveform');
         if (!containerEl || typeof WaveSurfer === 'undefined' || typeof WaveSurfer.Regions === 'undefined') {
             console.error('[subtitle-editor] karaoke mini waveform: thiếu khung hoặc WaveSurfer/Regions (CDN lỗi?).');
@@ -765,7 +723,7 @@ const workflowSubtitleEditor = {
                 container: containerEl,
                 height: KARAOKE_MINI_HEIGHT_PX, // khớp height của #karaoke-mini-waveform (components/subtitle-karaoke-drawer.js)
                 waveColor: '#94a3b8',
-                progressColor: '#94a3b8', // SỬA — KHÔNG tô tiến trình từ đầu dòng; chỉ bôi xanh ĐÚNG vùng đang phát (region highlight, _tickKaraokeWordProgress())
+                progressColor: '#94a3b8', // KHÔNG tô tiến trình từ đầu dòng; chỉ bôi xanh ĐÚNG vùng đang phát (region highlight, _tickKaraokeWordProgress())
                 cursorWidth: 0,
                 normalize: true,
                 interact: false, // chạm vào sóng KHÔNG seek — chỉ kéo mốc chia + nút ▶ từng từ
@@ -774,7 +732,7 @@ const workflowSubtitleEditor = {
                 autoCenter: false,
                 minPxPerSec: pxPerSec,
                 fillParent: true,
-                hideScrollbar: true, // SỬA (lần 4) — không hiện thanh cuộn native (cuộn ảo qua thanh trượt, xem _setupKaraokeMiniScroll())
+                hideScrollbar: true, // không hiện thanh cuộn native (cuộn ảo qua thanh trượt, xem _setupKaraokeMiniScroll())
                 plugins: [appState.get('_karaokeRegionsPlugin')],
             });
             appState.set('_karaokeWavesurfer', ws);
@@ -881,8 +839,7 @@ const workflowSubtitleEditor = {
      * gõ ô ms) + dựng lại núm kéo mốc. THỨ TỰ quan trọng (dựng sau nằm trên):
      *   1. Vùng TỪ (N region [đầu từ, cuối từ]) — chữ của từ nằm TRONG vùng đó, nền xen kẽ nhạt để phân
      *      biệt từ liền kề. `pointer-events: none`.
-     *   2. Vạch mốc chia (N-1 region điểm start===end) — CHỈ HIỂN THỊ (SỬA 30/09/2026 lần 3: không kéo
-     *      qua Regions nữa, `pointer-events: none`).
+     *   2. Vạch mốc chia (N-1 region điểm start===end) — CHỈ HIỂN THỊ (`pointer-events: none`, không kéo qua Regions).
      *   3. Núm kéo (`#karaoke-mini-knobs`, NGOÀI khung sóng) — mỗi mốc 1 núm tròn nhỏ vắt ngang mép dưới
      *      khung, tràn ra ngoài; kéo núm = kéo mốc (pointer events tự viết, _onKaraokeKnobPointer*()).
      *      Vùng chạm 28px (chấm tròn thật chỉ 12px) cho dễ bắt bằng ngón tay.
@@ -1047,12 +1004,9 @@ const workflowSubtitleEditor = {
         this._positionKaraokeKnobs();
     },
 
-    /** Lúc waveform mini 'ready': TẮT cuộn tay của WaveSurfer — Giang: "bỏ scroll trên wave form để
-     * tránh tranh event kéo mốc", cuộn chỉ qua thanh trượt; hiện thanh trượt nếu sóng rộng hơn khung.
-     * SỬA (30/09/2026, lần 4, Giang báo "vẫn chưa ẩn được thanh cuộn native") — bản trước chỉ gán inline
-     * `overflowX = 'hidden'` lên khung cuộn nội bộ: stylesheet trong Shadow DOM của WaveSurfer (và chính
-     * WaveSurfer lúc vẽ lại) vẫn thắng/ghi đè -> thanh cuộn native còn hiện. Giờ chèn hẳn 1 <style>
-     * `!important` VÀO shadow root của waveform mini (stylesheet !important thắng mọi inline thường):
+    /** Lúc waveform mini 'ready': TẮT cuộn tay của WaveSurfer (tránh tranh event kéo mốc), cuộn chỉ qua thanh trượt;
+     * hiện thanh trượt nếu sóng rộng hơn khung. Gán inline `overflowX` không đủ (stylesheet trong Shadow DOM của
+     * WaveSurfer thắng/ghi đè) -> chèn 1 <style> `!important` VÀO shadow root của waveform mini (stylesheet !important thắng mọi inline thường):
      * khung cuộn `overflow-x: hidden` (vuốt/lăn chuột không cuộn được, `setScroll()` bằng code vẫn chạy)
      * + ẩn thanh cuộn (Firefox `scrollbar-width`, WebKit `::-webkit-scrollbar`) + `user-select: none`
      * cho mọi thứ bên trong (chữ từ trong region không bị bôi chọn/hiện menu khi nhấn giữ). Thêm option
@@ -1104,12 +1058,11 @@ const workflowSubtitleEditor = {
         });
     },
 
-    /** Nút ▶ từng từ. SỬA LẦN 2 (30/09/2026, Giang báo "play 1 từ -> phát từ khác -> không có tiếng"):
-     * bỏ hẳn cách phát qua <audio> WAV của WaveSurfer mini (seek <audio> trên iOS lúc đang dừng/đang
-     * tắt tiếng chờ metadata không đáng tin — lượt phát thứ 2 im lặng). Giờ phát bằng Web Audio:
+    /** Nút ▶ từng từ — phát bằng Web Audio, KHÔNG qua <audio> WAV của WaveSurfer mini (seek <audio> trên iOS lúc
+     * đang dừng/chờ metadata không đáng tin — lượt phát thứ 2 im lặng):
      * AudioBufferSourceNode trên CHÍNH đoạn PCM của dòng (`_karaokeSegment`) — start(0, đầu từ, độ dài từ)
      * chính xác tới từng mẫu, không seek, mỗi lượt 1 node MỚI nên phát bao nhiêu lần/đổi từ liên tục
-     * đều có tiếng. Bấm lại đúng từ đang phát = dừng; bấm từ khác = dừng từ cũ, phát từ mới.
+     * đều có tiếng. Bấm lại đúng từ đang phát = dừng; bấm từ khác = dừng từ đang phát, phát từ mới.
      * Tiến trình vẽ bằng region highlight (chỉ bôi xanh [đầu từ, vị trí đang phát]) qua task raf. */
     _toggleKaraokeWordPlay(index) {
         if (!appState.get('_karaokeMiniReady')) return;
@@ -1254,11 +1207,11 @@ const workflowSubtitleEditor = {
         if (id === null) return;
         const karaokeArray = workingWordsToKaraokeArray(appState.get('_karaokeWords')); // core
         appState.set('_subtitles', computeUpdatedSubtitles(appState.get('_subtitles'), id, { karaoke: karaokeArray })); // core
-        this._rebuildLineCard(id); // MỚI (30/09/2026) — dựng lại card để hiện dấu tích xanh ở nút "kr"
+        this._rebuildLineCard(id); // dựng lại card để hiện dấu tích xanh ở nút "kr"
         this.closeKaraokeDrawer();
     },
 
-    /** MỚI (30/09/2026, yêu cầu Giang) — nút "Bỏ áp dụng": gỡ karaoke khỏi dòng (`karaoke` = null — lần
+    /** Nút "Bỏ áp dụng": gỡ karaoke khỏi dòng (`karaoke` = null — lần
      * mở sau quay về chia đều), dựng lại card (dấu tích xanh ở nút "kr" biến mất) rồi đóng drawer. CÙNG
      * quy ước Áp dụng: chỉ đổi `_subtitles` làm việc, bấm "Lưu" mới ghi DB. */
     unapplyKaraokeDrawer() {
@@ -1370,7 +1323,7 @@ const workflowSubtitleEditor = {
 
     /** Chia ĐỀU appState.get('_region') hiện tại thành `count` dòng phụ đề LIỀN NHAU (dòng sau nối đúng mốc
      * dòng trước, không hở/không đè) — text để RỖNG, placeholder có sẵn của textarea tự hiện (xem
-     * core/subtitle/subtitles-ui.js), Giang tự gõ lời vào từng dòng sau khi chia. Dòng CUỐI lấy
+     * core/subtitle/subtitles-ui.js), người dùng tự gõ lời vào từng dòng sau khi chia. Dòng CUỐI lấy
      * ĐÚNG `_region.end` (không tính bằng cộng dồn perLine) để né sai số cộng dồn số thực. */
     _splitRegionIntoLines(count) {
         if (!appState.get('_region')) return;
@@ -1521,8 +1474,7 @@ const workflowSubtitleEditor = {
                 }
             }
         }
-        // XOÁ (30/09/2026) — nhánh icon nút ▶ từng từ trong drawer karaoke (id giả '__karaoke_word_<index>')
-        // bỏ hẳn: nghe từng từ giờ chạy trên waveform MINI, icon do _updateKaraokeWordPlayIcons() lo.
+        // Icon nút ▶ từng từ trong drawer karaoke do _updateKaraokeWordPlayIcons() lo.
     },
 
     /** Đặt appState.get('_region').start = vị trí phát hiện tại (getCurrentTime()) — "chốt mốc" thay thế kéo
@@ -1544,8 +1496,8 @@ const workflowSubtitleEditor = {
     },
 
     /** Đối xứng với setRegionStartToCurrentTime() ở trên — current <= start hiện tại (bấm "chốt
-     * end" nhưng vị trí đang nghe lại NẰM TRƯỚC start hiện tại) -> HOÁN ĐỔI: start CŨ thành end
-     * MỚI, current thành start MỚI. */
+     * end" nhưng vị trí đang nghe lại NẰM TRƯỚC start hiện tại) -> HOÁN ĐỔI: start hiện tại thành end,
+     * current thành start. */
     setRegionEndToCurrentTime() {
         if (!appState.get('_region') || !appState.get('_wavesurfer')) return;
         const current = appState.get('_wavesurfer').getCurrentTime();
@@ -1555,10 +1507,10 @@ const workflowSubtitleEditor = {
             appState.get('_region').setOptions({ start: current, end: appState.get('_region').start });
         }
         this._updateRegionTimeDisplay();
-        this._syncPendingFromRegion(); // FIX (yêu cầu Giang, mục 1) — cùng lý do ở trên
+        this._syncPendingFromRegion(); // cùng lý do ở trên
     },
 
-    // ============================== Toolbar: MỚI — tool "Cut MP3" (yêu cầu Giang, mục 1) ==============================
+    // ============================== Toolbar: tool "Cut MP3" ==============================
 
     /** Bấm "Cut" — cắt ĐÚNG đoạn appState.get('_region') hiện tại thành 1 file .mp3 thật, xong hiện modal 3
      * lựa chọn (modalChoice() có sẵn, core/modal-choice-ui.js) Huỷ/Tải xuống/Chèn. Tự khoá nút trong
@@ -1629,9 +1581,7 @@ const workflowSubtitleEditor = {
         return new Blob(mp3Chunks, { type: 'audio/mpeg' });
     },
 
-    /** Modal 3 lựa chọn sau khi cắt xong — TÁI DÙNG modalChoice() có sẵn (core/modal-choice-ui.js,
-     * đúng yêu cầu Giang "modal choice") thay vì dựng modal riêng như Split/Shift (ở đây chỉ cần
-     * chọn 1 trong 3 nút, không cần input gì thêm — modalChoice() vừa khớp, không cần viết thêm). */
+    /** Modal 3 lựa chọn sau khi cắt xong — modalChoice() (core/modal-choice-ui.js). */
     _showCutResultModal(blob) {
         const startStr = secToStr(appState.get('_region').start); // core
         const endStr = secToStr(appState.get('_region').end); // core
@@ -1660,13 +1610,12 @@ const workflowSubtitleEditor = {
      * nhất quán. Không cần tự thêm vào playlistOrder — initPlaylistFromDB() coi store `songs` là
      * chân lý duy nhất, tự quét lại khi index.html mở, bài mới sẽ tự xuất hiện. */
     async _insertCutBlobAsNewSong(blob, fileName) {
-        // MỚI (06/10/2026, Giang chốt "media do app tự tạo chặn 500MB") — cùng giới hạn upload. core/upload-validation.js
-        // giờ cũng nạp ở subtitle-editor.html (xem thẻ <script> ở đó).
+        // Media do app tự tạo chịu cùng giới hạn dung lượng như upload (core/upload-validation.js, nạp ở subtitle-editor.html).
         const sizeCheck = validateMediaFileSize(blob); // core/upload-validation.js
         if (!sizeCheck.valid) { await alertModal(tFormat('common.validate.generatedNotSaved', { reason: sizeCheck.reason })); return; }
         const key = await resolveSongKey(fileName); // service/db.js
         const baseTitle = appState.get('_record').tag?.title || appState.get('_songKey');
-        // SỬA (06/10/2026, plan-media-db-split.md) — cover lấy từ bài gốc (Blob ĐỌC TỪ IndexedDB) -> vật chất hoá thành Blob
+        // Cover lấy từ bài gốc (Blob ĐỌC TỪ IndexedDB) -> vật chất hoá thành Blob
         // mới trước khi ghi sang record khác (tránh lỗi round-trip); `blob` đoạn cắt vốn là Blob mới vừa encode.
         const sourceCover = appState.get('_record').cover;
         const cover = sourceCover ? await rematerializeBlob(sourceCover) : null; // service/db.js
@@ -1683,14 +1632,14 @@ const workflowSubtitleEditor = {
             duration: appState.get('_region').end - appState.get('_region').start,
             addedAt: Date.now(),
         };
-        await createMediaRecord('song', key, record); // service/db.js — SỬA 06/10/2026: 3 store
+        await createMediaRecord('song', key, record); // service/db.js — ghi đủ 3 store
         await alertModal(t('subtitleEditor.cutMp3.inserted')); // core/modal-choice-ui.js
     },
 
-    // ============================== Toolbar: MỚI — tool "Shift" (yêu cầu Giang, mục 5) ==============================
+    // ============================== Toolbar: tool "Shift" ==============================
 
     /** Bấm nút "Shift" trên thanh công cụ — bật/tắt "chế độ chọn dòng" để dịch giờ hàng loạt. Thoát
-     * chế độ (tắt) luôn xoá sạch lựa chọn cũ. Đổi hẳn cấu trúc của mọi card (có/không ô tròn chọn)
+     * chế độ (tắt) luôn xoá sạch lựa chọn. Đổi hẳn cấu trúc của mọi card (có/không ô tròn chọn)
      * nên phải xoá sạch cache, ép dựng lại toàn bộ danh sách. Chặn hẳn nếu đang sửa 1 dòng (2 chế
      * độ loại trừ nhau). */
     toggleShiftSelectionMode() {
@@ -1702,9 +1651,8 @@ const workflowSubtitleEditor = {
         this._renderShiftBar();
     },
 
-    /** Bấm NGUYÊN 1 card lúc đang ở chế độ chọn dòng — thêm/bớt khỏi tập đang chọn.
-     * MỚI (yêu cầu Giang, mục 7) — CHỈ card của ĐÚNG dòng vừa bấm cần dựng lại (đổi ô tròn chọn +
-     * nền highlight) — các dòng khác giữ nguyên card cũ. */
+    /** Bấm NGUYÊN 1 card lúc đang ở chế độ chọn dòng — thêm/bớt khỏi tập đang chọn. CHỈ dựng lại card của ĐÚNG dòng
+     * vừa bấm (ô tròn chọn + nền highlight), các dòng khác giữ nguyên. */
     toggleLineSelection(id) {
         if (appState.get('_shiftSelectedIds').has(id)) appState.get('_shiftSelectedIds').delete(id);
         else appState.get('_shiftSelectedIds').add(id);
@@ -1782,12 +1730,8 @@ const workflowSubtitleEditor = {
             { key: 'start', label: t('subtitleEditor.shift.targetStart') },
             { key: 'end', label: t('subtitleEditor.shift.targetEnd') },
         ];
-        // SỬA (09/09/2026, hệ UI Theme mở rộng) — trạng thái chọn/không chọn của 3 nút này đổi qua
-        // classList.toggle() lúc bấm (KHÔNG qua data-uitk tĩnh, vì cần đổi NGAY lúc click, không đợi
-        // applyUiThemeToDom() quét lại) — tự tra class active/inactive 1 LẦN qua resolveUiThemeClass()
-        // (core/ui-theme/registry.js) nếu hạ tầng đã nạp, fallback hardcode y hệt giá trị Light nếu
-        // chưa (trang chưa kịp nạp core/ui-theme/*.js — không nên xảy ra ở cả 2 trang sau đợt này,
-        // nhưng giữ fallback cho an toàn tuyệt đối).
+        // Trạng thái chọn của 3 nút đổi qua classList.toggle() lúc bấm (không đợi applyUiThemeToDom() quét lại) — tra
+        // class active/inactive 1 LẦN qua resolveUiThemeClass() (core/ui-theme/registry.js), fallback giá trị Light.
         const activeCls = (typeof resolveUiThemeClass === 'function' && typeof _activeUiThemeKeyList !== 'undefined')
             ? `${resolveUiThemeClass(_activeUiThemeKeyList, 'modalCardBg')} ${resolveUiThemeClass(_activeUiThemeKeyList, 'textPrimary')}`
             : 'bg-white text-slate-900';
@@ -1816,7 +1760,7 @@ const workflowSubtitleEditor = {
         const confirmBtn = document.createElement('button');
         confirmBtn.type = 'button';
         confirmBtn.className = 'flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors';
-        confirmBtn.dataset.uitk = 'btnPrimaryBg btnPrimaryHoverBg textOnAccent'; // SỬA (09/09/2026) — trước đây bg-cyan-600 riêng, giờ hợp nhất về primary chung (sky)
+        confirmBtn.dataset.uitk = 'btnPrimaryBg btnPrimaryHoverBg textOnAccent';
         confirmBtn.textContent = t('subtitleEditor.shift.applyBtn');
         buttonRow.appendChild(confirmBtn);
         card.appendChild(buttonRow);
@@ -1846,14 +1790,12 @@ const workflowSubtitleEditor = {
         if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(overlay, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
     },
 
-    /** Cộng `amountSec` (có thể âm) vào start/end/cả 2 của MỌI dòng đang chọn qua
-     * shiftSubtitleTimes() (core, THUẦN) rồi thoát hẳn chế độ chọn dòng. */
-    /** MỚI (yêu cầu Giang, mục 7) — _applyShift() vừa ĐỔI GIỜ các dòng đã chọn, VỪA thoát hẳn chế
-     * độ chọn dòng (đổi CẤU TRÚC của MỌI card, không riêng các dòng bị dịch giờ) — xoá SẠCH cache
-     * (không chỉ riêng các id đã chọn) để render lại đúng, cùng lý do toggleShiftSelectionMode(). */
+    /** Cộng `amountSec` (có thể âm) vào start/end/cả 2 của MỌI dòng đang chọn qua shiftSubtitleTimes() (core, THUẦN)
+     * rồi thoát hẳn chế độ chọn dòng — đổi CẤU TRÚC của MỌI card nên xoá SẠCH cache card, cùng lý do
+     * toggleShiftSelectionMode(). */
     _applyShift(amountSec, target) {
         const shifted = shiftSubtitleTimes(appState.get('_subtitles'), appState.get('_shiftSelectedIds'), amountSec, target); // core
-        // SỬA (30/09/2026) — Shift CHỈ start hoặc CHỈ end đổi thời lượng dòng -> co/giãn karaoke cho khớp
+        // Shift CHỈ start hoặc CHỈ end đổi thời lượng dòng -> co/giãn karaoke cho khớp
         // (Shift cả 2 giữ nguyên thời lượng -> core tự bỏ qua, không đổi gì).
         appState.set('_subtitles', fitSubtitlesKaraokeToDuration(shifted, appState.get('_shiftSelectedIds'))); // core/subtitle/subtitle-karaoke.js
         appState.set('_isShiftSelectionMode', false);
@@ -1866,9 +1808,7 @@ const workflowSubtitleEditor = {
     // ============================== Lưu / điều hướng ==============================
 
     /** Nút "Lưu" — ghi xuống IndexedDB NGAY (KHÔNG tự điều hướng đi đâu — tách biệt "lưu" và
-     * "rời trang", đúng yêu cầu Giang thêm nút "←" RIÊNG).
-     * SỬA (06/10/2026, plan-media-db-split.md) — phụ đề nằm trong meta: ghi qua `updateMediaMeta()` (CHỈ store meta),
-     * không còn đọc + ghi lại nguyên record kèm Blob (bỏ rematerializeBlob — hết lỗi round-trip tận gốc). */
+     * "rời trang" — nút "←" riêng). Phụ đề nằm trong meta: ghi qua `updateMediaMeta()` (CHỈ store meta, không đụng Blob). */
     async saveToDatabase() {
         const subtitles = appState.get('_subtitles').slice();
         const result = await updateMediaMeta('song', appState.get('_songKey'), (meta) => ({ ...meta, subtitles })); // service/db.js
@@ -1887,10 +1827,10 @@ const workflowSubtitleEditor = {
             localStorage.setItem('sav_editingSubtitle', 'true');
             localStorage.setItem('sav_scrollToSongKey', appState.get('_songKey'));
         }
-        window.location.href = '../index.html'; // trang nằm trong pages/ (07/10/2026)
+        window.location.href = '../index.html'; // trang nằm trong pages/
     },
 
-    /** MỚI (yêu cầu Giang) — nút tải lại KHÔNG dùng cache. Hỏi xác nhận trước (modalChoice() có
+    /** Nút tải lại KHÔNG dùng cache. Hỏi xác nhận trước (modalChoice() có
      * sẵn, core/modal-choice-ui.js) vì `this._subtitles` là mảng làm việc TRONG BỘ NHỚ — CHƯA CHẮC đã
      * ghi xuống IndexedDB (bấm "Lưu" mới ghi thật, xem saveToDatabase()) — tải lại mà chưa Lưu sẽ
      * MẤT mọi chỉnh sửa dở dang, cần cảnh báo rõ trước khi làm. */

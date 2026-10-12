@@ -15,7 +15,7 @@
  * QUY TẮC: chuỗi gọi hàm core thuần, withLoadingShield()/alertModal()/modalChoice() CHỈ đặt ở tầng này.
  *
  * NẠP SAU: core/storage-manager.js, core/about-stats.js, core/file-manager/video.js, core/file-manager/image.js,
- * core/generic-drawer.js, event/workflow/generic-drawer-helpers.js, event/workflow/app-panel-nav.js.
+ * core/image-load-ui.js, core/generic-drawer.js, event/workflow/generic-drawer-helpers.js, event/workflow/app-panel-nav.js.
  * NẠP TRƯỚC: event/router/file-manager-storage.js, event/listener/file-manager-storage.js.
  */
 /** Đếm-lên các con số thống kê dung lượng
@@ -657,22 +657,16 @@ const workflowFileManagerStorage = {
      * @returns {Promise<'ok'|'black'|'undecodable'>} */
     async _classifyThumbBlob(blob) {
         const url = URL.createObjectURL(blob);
-        const img = new Image();
+        const img = await decodeImageFromUrl(url); // core/image-load-ui.js
         try {
-            await new Promise((resolve, reject) => {
-                img.onload = resolve;
-                img.onerror = () => reject(new Error('thumb không decode được'));
-                img.src = url;
-            });
-            if (img.decode) await img.decode();
+            if (!img) return 'undecodable';
             const probe = workflowPlaylist._probeVideoFrame(img); // event/workflow/playlist.js
             if (!probe.drawn) return 'undecodable';
             return probe.isBlack ? 'black' : 'ok';
         } catch (err) {
             return 'undecodable';
         } finally {
-            img.onload = null; img.onerror = null;
-            img.removeAttribute('src');
+            releaseDecodedImage(img); // core/image-load-ui.js
             try { URL.revokeObjectURL(url); } catch (e) {}
         }
     },
