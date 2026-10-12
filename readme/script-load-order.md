@@ -767,7 +767,9 @@ Trang riêng, mở qua `pages/subtitle-editor.html?song=<key mã hoá>` (`servic
 41. `core/subtitle/subtitles.js`
 42. `core/subtitle/subtitles-ui.js` — cần: `core/ui-theme/icon-svg-ui.js` (iconSvg)
 43. `core/subtitle/subtitle-karaoke.js`
-44. `components/subtitle-karaoke-drawer.js`
+43a. `core/subtitle/subtitle-karaoke-drawer-ui.js` — MỚI 13/10/2026 (plan-event-bus-wiring đợt 6b-2: chữ vùng TỪ, núm kéo mốc của drawer Karaoke); không phụ thuộc
+44. `components/subtitle-karaoke-drawer.js` — cần lúc chạy: `core/modal-choice-ui.js` (escapeHtml), `components/generic-drawer.js` (buildDrawerHeaderHtml)
+44a. `components/subtitle-editor-modals.js` — MỚI 13/10/2026 (thân modal Split/Shift cho `modalChoice()`, đợt 6b-2); cần lúc chạy: `lang/lang.js` (t())
 45. `core/audio-segment.js`
 46. `core/slider-panel-scroll.js`
 
@@ -776,7 +778,7 @@ Trang riêng, mở qua `pages/subtitle-editor.html?song=<key mã hoá>` (`servic
 47. `event/workflow/generic-drawer-helpers.js`
 48. `event/workflow/subtitle-editor.js`
 49. `event/router/subtitle-editor.js` — cần: `event/bus.js` (eventBus)
-50. `event/listener/subtitle-editor.js` — cần: `event/workflow/subtitle-editor.js` (workflowSubtitleEditor)
+50. `event/listener/subtitle-editor.js` — cần: `event/workflow/subtitle-editor.js` (workflowSubtitleEditor), khối khai `genericDrawerHeader`/`genericDrawerBody` inline (ủy quyền drawer Karaoke)
 
 **Gán nhãn i18n**
 
@@ -900,7 +902,7 @@ Các file sau được nạp ở hơn 1 trang — sửa file thì nâng `?v=` �
 | `core/media-transform.js` | index, video-editor | `20260804v1` |
 | `core/modal-choice-ui.js` | index, subtitle-editor, video-editor | `20261006r1` |
 | `core/slider-panel-scroll.js` | index, subtitle-editor | `20260712v1` |
-| `core/subtitle/subtitle-karaoke.js` | index, subtitle-editor | `20261001kr1` |
+| `core/subtitle/subtitle-karaoke.js` | index, subtitle-editor | `20261013ev12` |
 | `core/time-picker-modal.js` | index, subtitle-editor | `20261006r1` |
 | `core/ui-theme/apply-ui.js` | index, subtitle-editor, video-editor | `20260909v1` |
 | `core/ui-theme/dark.js` | index, subtitle-editor, video-editor | `20260923v5` |

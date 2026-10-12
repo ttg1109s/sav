@@ -13,7 +13,7 @@
 
 ## 1. Tổng quan
 
-- **1216 FAIL** ở **141 file**; 10 chờ chốt; 872 dòng máy quét báo nhưng review loại (mục 5).
+- **1194 FAIL** ở **141 file**; 10 chờ chốt; 872 dòng máy quét báo nhưng review loại (mục 5).
 - Cập nhật 07/10/2026 (cùng ngày lập sổ): gỡ Service Worker tải file lớn (`sw.js`, `core/large-file-download.js`) xoá 4 dòng FAIL (1312 → 1308, 142 → 141 file). Bảng tỉ lệ ngay dưới giữ số đo lúc lập sổ.
 - Cập nhật 07/10/2026 (game Arrow): sửa nợ trong đúng các method bị đụng khi nối game mới — `workflowGameplay.start` (3 dòng: pause/currentTime trong Workflow, 2 lần get), `workflowGameCatalog.armGame` (2 lần get), `workflowAudioAnalysis._tick` (Math.floor) — xoá 5 dòng FAIL (1308 → 1303). Code mới của game Arrow không thêm dòng nào.
 - Cập nhật 12/10/2026 (plan-event-bus-wiring-07-10-2026 **đợt 1 — EQ**): nội dung Generic Drawer Edit EQ đi Listener → Router (ủy quyền 1 lần, `data-eq-*`), xoá `_wireListView()`/`_wireEditView()` — xoá 11 dòng "Workflow tự gắn sự kiện"; method bị đụng `_previewBandGain` dọn luôn nợ ghi DOM (core -ui mới `core/eq-presets-drawer-ui.js`) — xoá 1 dòng "Workflow tự thao tác DOM" (1303 → 1291). Số đầu mục/bảng §3 đếm lại theo dòng thật (đã lệch từ cập nhật game Arrow).
@@ -26,6 +26,7 @@
 - Cập nhật 12/10/2026 (plan-event-bus-wiring **đợt 6b-1 — nhóm F, phần thay bằng API Promise**, Giang chọn): `onload`/`onerror` của `new Image()` thay bằng `img.decode()`, `FileReader` thay bằng `file.text()` — không còn listener nên không cần qua bus. 3 method ảnh (`resizeImageForThumbnail`, `_classifyThumbBlob`, `_loadClockBgImage`) dọn luôn nợ DOM/tính toán/vẽ sang core -ui MỚI `core/image-load-ui.js`; `importSrtFile` dùng `file.text()` — xoá 6 dòng "Workflow tự gắn sự kiện" + 3 dòng DOM + 1 dòng tính toán + 1 dòng vẽ canvas (1260 → 1249).
 - Cập nhật 13/10/2026 (plan-event-bus-wiring **đợt 6b-3 — nhóm F, đối tượng tạo động**, Giang chọn phương án (y)): core -ui MỚI `core/dynamic-object-ui.js` là adapter đổi sự kiện của đối tượng tạo động (MediaRecorder, ScriptProcessorNode, `<video>`/`<script>` tạm) thành Promise / callback dữ liệu — ghi thành ngoại lệ chính thức ở event-bus-flow.md (kèm bảng nơi dùng) và core-function-conventions.md Rule 5a. `track 'ended'` của mic chuyển sang `core/recorder-ui.js::wireRecorderMicEnded()` (callback chỉ eventBus.send, đúng Rule 5a). Xoá 10 dòng "Workflow tự gắn sự kiện"; method bị đụng dọn luôn: `extract` (2 dòng DOM/media → adapter), `_loadVideoEditorScriptOnce` (1 dòng DOM → `loadScriptFile()`), `_measureLatency` (1 dòng tính toán → `computeRecorderCalibrationWaitMs()`, core/recorder.js) — tổng 1249 → 1235.
 - Cập nhật 13/10/2026 (plan-event-bus-wiring **đợt 6b-4 — phần tử media TĨNH**): chờ sự kiện của `audioPlayer`/`bgVideoElement` trong Workflow chuyển sang cụm MỚI `mediaWait` — Listener `event/listener/media-wait.js` gắn sẵn lúc tải trang (`loadedmetadata`/`seeked`/`play`/`playing`) → Router `event/router/media-wait.js` → `workflowMediaWait.notify()` (event/workflow/media-wait.js) gọi các lượt chờ đã đăng ký bằng `once()`/`wait()`. Thao tác thi hành trên phần tử media (gán src, tua, tua kẹp thời lượng, phát) vào core -ui MỚI `core/media-element-ui.js`. Xoá 10 dòng "Workflow tự gắn sự kiện"; method bị đụng dọn luôn: `reloadCurrentSongKeepingPosition` (Math.min + 3 chỗ media + get gộp), 2 hàm `reloadCurrentVideoKeepingPosition` (Math.min + currentTime), `_flushScrubSeek` (currentTime + if-return → object map) — tổng 1235 → 1216.
+- Cập nhật 13/10/2026 (plan-event-bus-wiring **đợt 6b-2 — `subtitle-editor.js`**, Giang chọn phương án A): 2 modal Split/Shift chuyển sang `modalChoice()` + thân ở components MỚI `components/subtitle-editor-modals.js` (Shift: 3 lựa chọn là radio gốc), đọc `.value`/radio trong `onClick`, kiểm tra số qua core thuần `resolveSubtitleSplitCount()`/`resolveSubtitleShiftAmount()` (core/subtitle/subtitles.js). Drawer Karaoke (nút X, Áp dụng/Bỏ áp dụng, ô ms, nút ▶, thanh cuộn ảo, núm kéo mốc) đi Listener ủy quyền trên genericDrawerHeader/Body (event/listener/subtitle-editor.js) → Router 'subtitleEditor.karaoke.*'; markup chữ vùng TỪ + núm sang components/subtitle-karaoke-drawer.js, ghi DOM qua core -ui MỚI `core/subtitle/subtitle-karaoke-drawer-ui.js`, tính toán qua core/subtitle/subtitle-karaoke.js. Xoá 15 dòng "Workflow tự gắn sự kiện" (hết nhóm); method bị đụng dọn luôn: `_renderKaraokeRegions` (DOM + get gộp), 2 hàm núm kéo (DOM), `openSplitModal`/`closeModal`/`openShiftModal` (DOM) — tổng 1216 → 1194.
 
 | Tầng | File vi phạm | Hàm / đơn vị vi phạm | Dòng code nằm trong hàm vi phạm |
 |---|---|---|---|
@@ -70,17 +71,17 @@
 | Event bus | Listener đọc appState | 7 |  |
 | Event bus | Router tự chuẩn bị dữ liệu | 1 |  |
 | Event bus | Workflow tự dựng template HTML | 15 |  |
-| Event bus | Workflow tự gắn sự kiện | 15 |  |
-| Event bus | Workflow tự thao tác DOM | 205 |  |
+| Event bus | Workflow tự gắn sự kiện | 0 |  |
+| Event bus | Workflow tự thao tác DOM | 199 |  |
 | Event bus | Workflow tự tính toán | 117 |  |
 | Event bus | Workflow tự vẽ canvas | 13 |  |
 | Event bus | Workflow tự điều khiển media | 43 |  |
 | Event bus | Workflow §7: rẽ nhánh không dùng object map | 105 |  |
-| Event bus | Workflow: ≥2 key không gộp get([…]) | 179 |  |
+| Event bus | Workflow: ≥2 key không gộp get([…]) | 178 |  |
 | TaskManager | Timer thô | 12 |  |
 | TaskManager | requestAnimationFrame thô |  | 10 |
 | TaskManager | taskManager dùng trong Core | 11 |  |
-| **Tổng** | | **1216** | **10** |
+| **Tổng** | | **1194** | **10** |
 
 ## 4. Chi tiết
 
@@ -676,27 +677,14 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `event/workflow/video-player.js:610` | `playVideoByKey` | 1 chỗ: `<img id="record-art" src="${this._thumbObjectUrl}" class="w-full h-full rounded-full obje | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/visual-bg-common.js:1177` | `_buildMultiPickerBodyHtml` | 1 chỗ: ` <div class="flex-1 min-h-0 overflow-y-auto relative" id="${scrollId}">  | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 
-#### Workflow tự gắn sự kiện (15)
+#### Workflow tự gắn sự kiện (0)
+
+_Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
-| `event/workflow/subtitle-editor.js:687` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Giang chốt: tính cả subtitle-editor |
-| `event/workflow/subtitle-editor.js:690` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Giang chốt: tính cả subtitle-editor |
-| `event/workflow/subtitle-editor.js:693` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Giang chốt: tính cả subtitle-editor |
-| `event/workflow/subtitle-editor.js:698` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Giang chốt: tính cả subtitle-editor |
-| `event/workflow/subtitle-editor.js:707` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Giang chốt: tính cả subtitle-editor |
-| `event/workflow/subtitle-editor.js:715` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Giang chốt: tính cả subtitle-editor |
-| `event/workflow/subtitle-editor.js:949` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Giang chốt: tính cả subtitle-editor |
-| `event/workflow/subtitle-editor.js:950` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Giang chốt: tính cả subtitle-editor |
-| `event/workflow/subtitle-editor.js:951` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Giang chốt: tính cả subtitle-editor |
-| `event/workflow/subtitle-editor.js:952` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Giang chốt: tính cả subtitle-editor |
-| `event/workflow/subtitle-editor.js:1359` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Giang chốt: tính cả subtitle-editor |
-| `event/workflow/subtitle-editor.js:1360` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Giang chốt: tính cả subtitle-editor |
-| `event/workflow/subtitle-editor.js:1828` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Giang chốt: tính cả subtitle-editor |
-| `event/workflow/subtitle-editor.js:1830` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Giang chốt: tính cả subtitle-editor |
-| `event/workflow/subtitle-editor.js:1838` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Giang chốt: tính cả subtitle-editor |
 
-#### Workflow tự thao tác DOM (205)
+#### Workflow tự thao tác DOM (199)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -819,10 +807,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `event/workflow/subtitle-editor.js:785` | `_initKaraokeMiniWaveform` | 1 chỗ: loadingEl.classList.add() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-editor.js:848` | `_decodeKaraokeSourceHiRes` | 1 chỗ: ctx.close() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-editor.js:855` | `_showKaraokeWaveformError` | 2 chỗ: el.classList.remove() · loadingEl.classList.add() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/subtitle-editor.js:901` | `_renderKaraokeRegions` | 13 chỗ: document.createElement() · label.textContent = … · label.style.cssText = … … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-editor.js:982` | `_positionKaraokeKnobs` | 2 chỗ: knob.style.transform = … · knob.style.display = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/subtitle-editor.js:993` | `_onKaraokeKnobPointerDown` | 1 chỗ: knob.firstChild.style.transform = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/subtitle-editor.js:1011` | `_onKaraokeKnobPointerUp` | 1 chỗ: knob.firstChild.style.transform = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-editor.js:1046` | `_syncKaraokeMiniScrollUi` | 1 chỗ: slider.value = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-editor.js:1068` | `_setupKaraokeMiniScroll` | 5 chỗ: document.createElement() · style.dataset.karaokeMini = … · scrollEl.style.setProperty() … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-editor.js:1103` | `_syncKaraokeWordInputs` | 1 chỗ: input.value = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
@@ -830,13 +815,10 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `event/workflow/subtitle-editor.js:1237` | `_updateKaraokeWordPlayIcons` | 2 chỗ: playIcon.classList.toggle() · pauseIcon.classList.toggle() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-editor.js:1245` | `_setKaraokeWordPlayEnabled` | 1 chỗ: btn.disabled = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-editor.js:1276` | `_rebuildLineCard` | 1 chỗ: node.remove() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/subtitle-editor.js:1306` | `openSplitModal` | 37 chỗ: document.createElement() · overlay.id = … · overlay.className = … … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/subtitle-editor.js:1358` | `closeModal` | 2 chỗ: overlay.remove() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-editor.js:1510` | `_updatePlaybackIcons` | 4 chỗ: iconPlayRegionPlay.classList.toggle() · iconPlayRegionPause.classList.toggle() · playIcon.classList.toggle() … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-editor.js:1570` | `cutMp3FromRegion` | 4 chỗ: btnCutMp3.dataset.busy = … · btnCutMp3.classList.add() · btnCutMp3.classList.remove() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-editor.js:1653` | `_downloadCutBlob` | 1 chỗ: document.createElement() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-editor.js:1720` | `_renderShiftBar` | 3 chỗ: shiftSelectionBarEl.classList.toggle() · shiftSelectionCountEl.textContent = … · btnShiftContinue.classList.toggle() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/subtitle-editor.js:1733` | `openShiftModal` | 56 chỗ: document.createElement() · overlay.id = … · overlay.className = … … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-style-settings.js:21` | `refresh` | 8 chỗ: panel.querySelector('#setting-subtitle-use-custom-styling').checked = … · panel.querySelector('#setting-subtitle-default-fontsize').value = … · panel.querySelector('#setting-subtitle-default-color').value = … … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-style-settings.js:86` | `_syncCustomStylingVisibility` | 2 chỗ: genericDrawerBody.querySelector('#setting-open-subtitle-styling').classList.toggle() · genericDrawerBody.querySelector('#setting-subtitle-default-fields').classList.toggle() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-style-settings.js:96` | `_syncMagnitudeButton` | 2 chỗ: btn.dataset.ms = … · btn.textContent = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
@@ -1204,7 +1186,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `event/workflow/visualizer-gesture.js:226` | `_resolveTap` | if-return: {set _tapCount, call taskManager.kill} / {call taskManager.once} | FAIL | Review (máy quét bỏ sót) | — | Nhánh chạy việc khác (dọn/chuyển hướng/tiến trình khác) rồi return — không phải guard thuần |
 | `event/workflow/visualizer-gesture.js:274` | `_dispatchGestureAction` | if-return: {call _clickControlCenterTarget} / {call run} | FAIL | Review (máy quét bỏ sót) | — | Nhánh chạy việc khác (dọn/chuyển hướng/tiến trình khác) rồi return — không phải guard thuần |
 
-#### Workflow: ≥2 key không gộp get([…]) (179)
+#### Workflow: ≥2 key không gộp get([…]) (178)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -1322,7 +1304,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `event/workflow/subtitle-editor.js:735` | `_initKaraokeMiniWaveform` | 7 lần appState.get cho 5 key ('_karaokeInitToken', '_karaokeLineStart', '_karaokeLineEnd', '_karaokeWords'…) — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/subtitle-editor.js:810` | `_getKaraokeSourceAudio` | 3 lần appState.get cho 3 key ('_karaokeSourceAudio', '_wavesurfer', '_record') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/subtitle-editor.js:861` | `_destroyKaraokeMiniWaveform` | 4 lần appState.get cho 2 key ('_karaokeWavesurfer', '_karaokeAudioUrl') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/subtitle-editor.js:892` | `_renderKaraokeRegions` | 5 lần appState.get cho 5 key ('_karaokeRegionsPlugin', '_karaokeMiniReady', '_karaokeLabelRegions', '_karaokeMarkerRegions'…) — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/subtitle-editor.js:960` | `_getKaraokeMiniGeometry` | 2 lần appState.get cho 2 key ('_karaokeWavesurfer', '_karaokeMiniDurationSec') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/subtitle-editor.js:1017` | `_applyKaraokeBoundaryDrag` | 3 lần appState.get cho 3 key ('_karaokeWords', '_karaokeMarkerRegions', '_karaokeLabelRegions') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/subtitle-editor.js:1114` | `_toggleKaraokeWordPlay` | 4 lần appState.get cho 4 key ('_karaokeMiniReady', '_karaokePlayingIndex', '_karaokeWords', '_karaokeRegionsPlugin') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
