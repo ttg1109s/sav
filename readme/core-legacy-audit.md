@@ -13,7 +13,7 @@
 
 ## 1. Tổng quan
 
-- **1265 FAIL** ở **141 file**; 10 chờ chốt; 872 dòng máy quét báo nhưng review loại (mục 5).
+- **1261 FAIL** ở **141 file**; 10 chờ chốt; 872 dòng máy quét báo nhưng review loại (mục 5).
 - Cập nhật 07/10/2026 (cùng ngày lập sổ): gỡ Service Worker tải file lớn (`sw.js`, `core/large-file-download.js`) xoá 4 dòng FAIL (1312 → 1308, 142 → 141 file). Bảng tỉ lệ ngay dưới giữ số đo lúc lập sổ.
 - Cập nhật 07/10/2026 (game Arrow): sửa nợ trong đúng các method bị đụng khi nối game mới — `workflowGameplay.start` (3 dòng: pause/currentTime trong Workflow, 2 lần get), `workflowGameCatalog.armGame` (2 lần get), `workflowAudioAnalysis._tick` (Math.floor) — xoá 5 dòng FAIL (1308 → 1303). Code mới của game Arrow không thêm dòng nào.
 - Cập nhật 12/10/2026 (plan-event-bus-wiring-07-10-2026 **đợt 1 — EQ**): nội dung Generic Drawer Edit EQ đi Listener → Router (ủy quyền 1 lần, `data-eq-*`), xoá `_wireListView()`/`_wireEditView()` — xoá 11 dòng "Workflow tự gắn sự kiện"; method bị đụng `_previewBandGain` dọn luôn nợ ghi DOM (core -ui mới `core/eq-presets-drawer-ui.js`) — xoá 1 dòng "Workflow tự thao tác DOM" (1303 → 1291). Số đầu mục/bảng §3 đếm lại theo dòng thật (đã lệch từ cập nhật game Arrow).
@@ -21,6 +21,7 @@
 - Cập nhật 12/10/2026 (plan-event-bus-wiring **đợt 3**): `window.resize` riêng của `event/workflow/gameplay.js` bỏ, lưới Game đi chung luồng `visualizerViewport.window.resize` — xoá 1 dòng; **phát hiện mới** thêm 1 dòng: `ResizeObserver` cấp module cùng file (máy quét lẫn review 07/10 bỏ sót) — tổng giữ 1287.
 - Cập nhật 12/10/2026 (plan-event-bus-wiring **đợt 4 — Auto-Switch kéo thả**): 4 listener pointer trong `workflowVisualizerDisplay.openAutoSwitchPanel()` (đã xoá) dời sang Listener ủy quyền + Router `autoSwitchVisual.drag.*`; phiên kéo ở `workflowAutoSwitchVisual`, phép tính ở core thuần (`core/auto-switch-visual.js`), ghi style ở core -ui mới `core/auto-switch-visual-ui.js` — xoá 4 dòng "Workflow tự gắn sự kiện" + 1 dòng "Workflow tự thao tác DOM" (1287 → 1282).
 - Cập nhật 12/10/2026 (plan-event-bus-wiring **đợt 5 — Element Style Editor**): cụm MỚI `elementStyleEditor` (listener ủy quyền + router), xoá `_wire()`/`_wireFontPicker()`/`_wireFontPickerListClicks()` — xoá 12 dòng "Workflow tự gắn sự kiện"; code bị đụng dọn luôn: ghi danh sách font qua core -ui mới `core/element-style-editor-ui.js` (1 dòng DOM), `_render` + callback `.ese-field` rẽ bằng object map (2 dòng §7), gộp `get([…])` (2 dòng) — tổng 1282 → 1265.
+- Cập nhật 12/10/2026 (plan-event-bus-wiring **đợt 6a — nhóm D**, theo câu chốt của Giang): modal Timing X (Point Move) và modal sửa chữ layer Photo bỏ listener `input`, đọc `.value` trong `onClick` (giữ tham chiếu ô ngay sau khi mở) — xoá 2 dòng "Workflow tự gắn sự kiện"; markup body 2 modal dời sang components (`renderPointMoveTimingModalBody()`, file MỚI `components/image-edit-modals.js`) — xoá 2 dòng "Workflow tự dựng template HTML" (1265 → 1261).
 
 | Tầng | File vi phạm | Hàm / đơn vị vi phạm | Dòng code nằm trong hàm vi phạm |
 |---|---|---|---|
@@ -64,8 +65,8 @@
 | Event bus | Listener làm việc ngoài eventBus.send | 1 |  |
 | Event bus | Listener đọc appState | 7 |  |
 | Event bus | Router tự chuẩn bị dữ liệu | 1 |  |
-| Event bus | Workflow tự dựng template HTML | 17 |  |
-| Event bus | Workflow tự gắn sự kiện | 44 |  |
+| Event bus | Workflow tự dựng template HTML | 15 |  |
+| Event bus | Workflow tự gắn sự kiện | 42 |  |
 | Event bus | Workflow tự thao tác DOM | 210 |  |
 | Event bus | Workflow tự tính toán | 122 |  |
 | Event bus | Workflow tự vẽ canvas | 14 |  |
@@ -75,7 +76,7 @@
 | TaskManager | Timer thô | 12 |  |
 | TaskManager | requestAnimationFrame thô |  | 10 |
 | TaskManager | taskManager dùng trong Core | 11 |  |
-| **Tổng** | | **1265** | **10** |
+| **Tổng** | | **1261** | **10** |
 
 ## 4. Chi tiết
 
@@ -651,7 +652,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 |---|---|---|---|---|---|---|
 | `event/router/playlist-empty-state.js:44` | `case 'playlistEmptyState.play.click'` | Router gọi core (resolvePlayingMediaType, isPlayingMediaListed) để tính state và tự chọn key phát (resumableKey \|\| displayOrder[0]) — việc chuẩn bị thuộc Workflow (§4B) | FAIL | Review (máy quét bỏ sót) | — |  |
 
-#### Workflow tự dựng template HTML (17)
+#### Workflow tự dựng template HTML (15)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -660,8 +661,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `event/workflow/file-manager-photo.js:114` | `_buildImagePickerBodyHtml` | 1 chỗ: ` <div class="flex-1 min-h-0 overflow-y-auto relative" id="file-manager-image- | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/file-manager-storage.js:529` | `askScanBrokenScope` | 1 chỗ: `${t('storageDrawer.scanBroken.modalBody')} <select id="modal-scan-scope" class="mt-3 w-fu | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/image-edit.js:130` | `_buildEditToolGridHtml` | 1 chỗ: ` <div class="grid grid-cols-5 gap-2 px-5 py-1"> ${tools.map(t | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
-| `event/workflow/image-edit.js:923` | `editLayerTextContent` | 1 chỗ: `<textarea id="layer-edit-content-textarea" rows="3" class="w-full rounded-lg border borde | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
-| `event/workflow/motion-presets.js:794` | `openPointMoveTimingNodeModal` | 1 chỗ: ` <label class="block text-xs mb-1" data-uitk="textMutedIcon">${escape | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/photo-player.js:244` | `playPhotoByKey` | 1 chỗ: `<img id="record-art" src="${this._thumbObjectUrl}" class="w-full h-full rounded-full obje | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/player.js:233` | `playMedia` | 1 chỗ: `<img id="record-art" src="${appState.get('currentCoverObjectURL')}" class="w-full h-full  | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/playlist-render.js:93` | `buildSongNode` | 3 chỗ: `${artist} <span class="opacity-50">·</span> ${durationLabel}` · `<div class="flex items-end gap-[2px] h-3 w-3"><div class="w-[3px] eq-1" data-uitk="eqBarB · `<div class="w-2 h-2 rounded-full shadow-[0_0_5px_rgba(14,165,233,0.8)]" data-uitk="btnPri | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
@@ -673,7 +672,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `event/workflow/video-player.js:610` | `playVideoByKey` | 1 chỗ: `<img id="record-art" src="${this._thumbObjectUrl}" class="w-full h-full rounded-full obje | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/visual-bg-common.js:1177` | `_buildMultiPickerBodyHtml` | 1 chỗ: ` <div class="flex-1 min-h-0 overflow-y-auto relative" id="${scrollId}">  | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 
-#### Workflow tự gắn sự kiện (44)
+#### Workflow tự gắn sự kiện (42)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -682,8 +681,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `event/workflow/file-manager-storage.js:773` | `_classifyThumbBlob` | img.onload = … (dạng gán handler) trong Workflow | FAIL | Review (máy quét bỏ sót) | — | Không thuộc danh sách 18 chỗ đã audit |
 | `event/workflow/file-manager-storage.js:774` | `_classifyThumbBlob` | img.onerror = … (dạng gán handler) trong Workflow | FAIL | Review (máy quét bỏ sót) | — | Không thuộc danh sách 18 chỗ đã audit |
 | `event/workflow/gameplay.js:636` |  | `new ResizeObserver(...)` cấp module trong Workflow (theo dõi `#gameplay-layer`) — callback gọi thẳng `workflowGameplay._handleLayoutResize()`, bỏ qua Listener → Router | FAIL | Review (phát hiện 12/10/2026, đợt 3) | — | Plan 07/10 đợt 3 ghi "giữ nguyên cơ chế" — cơ chế giữ, chờ Giang chốt dời ĐĂNG KÝ sang Listener (tiền lệ ResizeObserver ở event/listener/playlist.js) |
-| `event/workflow/image-edit.js:925` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Plan 07/10 nhóm D — Giang chốt: bỏ listener input, đọc .value trong onClick |
-| `event/workflow/motion-presets.js:801` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Plan 07/10 nhóm D — Giang chốt: bỏ listener input, đọc .value trong onClick |
 | `event/workflow/player-controls.js:483` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Plan 07/10 nhóm F — Giang chốt: miễn trừ chỉ theo audit chính thức → không miễn |
 | `event/workflow/player.js:355` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Plan 07/10 nhóm F — Giang chốt: miễn trừ chỉ theo audit chính thức → không miễn |
 | `event/workflow/recorder.js:297` | `_beginCapture` | this._mediaRecorder.ondataavailable = … (dạng gán handler) trong Workflow | FAIL | Review (máy quét bỏ sót) | — | Không thuộc danh sách 18 chỗ đã audit |

@@ -243,6 +243,7 @@ Mỗi file chỉ định nghĩa `TPL_*` (chuỗi HTML tĩnh) hoặc hàm `render
 74. `components/settings/visualizer-auto-switch-drawer.js`
 75. `components/subtitle-settings-drawer.js`
 76. `components/motion-settings-drawer.js`
+76a. `components/image-edit-modals.js` — MỚI 12/10/2026 (body modal sửa chữ layer Photo — plan-event-bus-wiring đợt 6a)
 77. `components/visual-bg-settings-drawer.js`
 78. `components/visual-bg-gradient-drawer.js`
 79. `components/visual-bg-video-audio-drawer.js`
