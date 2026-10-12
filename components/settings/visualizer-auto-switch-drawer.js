@@ -19,7 +19,7 @@
  * dropdown style cụ thể / Random; (3d) thứ tự chạy theo sắp xếp / ngẫu nhiên; (4) thời gian Fixed (const |
  * random min-max, nút mở time picker 10s-1h) | Per media. Render THUẦN từ `model` (Workflow dựng —
  * workflowAutoSwitchVisual.buildPanelModel()), không đọc config trực tiếp. Wiring: event/listener/
- * auto-switch-visual.js (change/click delegated) + workflowVisualizerDisplay.openAutoSwitchPanel() (kéo thả).
+ * auto-switch-visual.js (change/click delegated) + listener ủy quyền pointer (kéo thả, SỬA 12/10/2026 — trước là workflowVisualizerDisplay.openAutoSwitchPanel()).
  */
 
 /** "1h 05m 30s" / "2m 05s" / "45s" — hiển thị giá trị giây trên nút mở time picker. */
@@ -131,7 +131,7 @@ function renderVisualizerAutoSwitchPanelBody(model) {
 
 /** SUB PANEL "Effect list" (MỚI 26/09/2026, Giang "cho danh sách style/group vào sub panel riêng, tránh dài quá") —
  * dropdown Group/Style + gợi ý kéo thả + danh sách item. Mở từ hàng #btn-auto-switch-open-list của panel chính
- * (event/workflow/app-settings.js::_renderAutoSwitchList()). Kéo thả gắn ở workflowVisualizerDisplay.openAutoSwitchPanel().
+ * (event/workflow/app-settings.js::_renderAutoSwitchList()). Kéo thả: event/listener/auto-switch-visual.js -> workflowAutoSwitchVisual.startItemDrag()... (SỬA 12/10/2026).
  * @param {{cfg:object, listBy:'group'|'style', items:object[]}} model */
 function renderVisualizerAutoSwitchListBody(model) {
     return `
