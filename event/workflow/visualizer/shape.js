@@ -1,15 +1,12 @@
 /**
  * event/workflow/visualizer/shape.js — Group "shape" (canvas 2D, 2 style: rubik / clock).
  *
- * [TÁCH — 28/09/2026, Phase 4 dọn visualizer] Từ `_tickRubik()`/`_tickClock()` của event/workflow/visualizer-render.js
- * cũ + các biến `_clock*` (nay là trạng thái riêng của group). Hành vi mỗi frame giữ nguyên; rẽ nhánh -> guard +
- * object map (readme/event-bus-flow.md mục 7). Resize: dựng lại 27 khối Rubik (thay phần tương ứng của
- * resizeCanvas() cũ).
- * SỬA (28/09/2026, Giang) — clock: bỏ vòng Time scan (chỉ còn toggle con lắc), vạch phút sáng/phóng theo kim giây
- * thay vì theo phổ, thêm ảnh nền mặt số (bìa bài hoặc ảnh thư viện, độ đục chỉnh được).
+ * Trạng thái riêng của group (`_clock`, `_clockBg`); rẽ nhánh -> guard + object map (readme/event-bus-flow.md mục 7).
+ * Resize: dựng lại 27 khối Rubik. Clock: toggle con lắc, 60 vạch phút sáng/phóng theo kim giây, ảnh nền mặt số (bìa
+ * bài hoặc ảnh thư viện, độ đục chỉnh được — tải qua core/image-load-ui.js).
  */
 
-/** Cỡ phổ VẼ của group (01/10/2026: group tự khai báo, host xin qua audioAnalysis.requireSpectrum()). */
+/** Cỡ phổ VẼ của group (group tự khai báo, host xin qua audioAnalysis.requireSpectrum()). */
 const SHAPE_FFT_SIZE = 256;
 
 const CLOCK_SECOND_HAND_COLOR = '#e0283f';
@@ -50,14 +47,13 @@ const CLOCK_BG_LOAD_BY_KIND = {
 
 const workflowVizShape = {
     defaultStyle: 'rubik',
-    /** Cỡ phổ VẼ style cần — host gọi khi kích hoạt style để xin qua audioAnalysis.requireSpectrum() (01/10/2026). */
+    /** Cỡ phổ VẼ style cần — host gọi khi kích hoạt style để xin qua audioAnalysis.requireSpectrum(). */
     spectrumSize() { return SHAPE_FFT_SIZE; },
 
-    /** Trạng thái style clock (KHÔNG thuộc STATE) — trước đây là các biến `_clock*` cấp module. `tickGlow` = mức 60
-     * vạch phút vừa được kim giây quét (28/09/2026, thay vạch theo phổ). */
+    /** Trạng thái style clock (KHÔNG thuộc STATE). `tickGlow` = mức 60 vạch phút vừa được kim giây quét. */
     _clock: { drive: null, lastTime: 0, geomKey: '', layout: null, outlines: null, pitch: null, pendulum: null, tickGlow: new Float32Array(60) },
 
-    /** Ảnh nền mặt số (28/09/2026): `sourceId` = nguồn đang dùng ('lib:<key>' | 'cover:<url>' | ''), `image` = ảnh đã
+    /** Ảnh nền mặt số: `sourceId` = nguồn đang dùng ('lib:<key>' | 'cover:<url>' | ''), `image` = ảnh đã
      * tải xong (null khi chưa có/đang tải), `objectUrl` = URL tự tạo từ blob thư viện (phải revoke khi đổi nguồn). */
     _clockBg: { sourceId: '', image: null, objectUrl: null, loadToken: 0 },
 
@@ -79,7 +75,7 @@ const workflowVizShape = {
         const beatScale = frame.audio.beatScale(); // service/audio-analysis.js
         const vizDataArray = frame.audio.spectrum(SHAPE_FFT_SIZE); // service/audio-analysis.js
         const currentMidi = frame.audio.pitchMidi();
-        const rubikPitchAvg = frame.audio.pitchAverage(); // service/audio-analysis.js (01/10/2026, trước đây appState rubikPitchAvg)
+        const rubikPitchAvg = frame.audio.pitchAverage(); // service/audio-analysis.js
 
         advanceRubikSelfSpin(isPlaying, currentMidi, rubikPitchAvg, smoothedEnergy, cfg.pitchSensitivity); // core
         maybeTriggerRubikLayerTurn(isPlaying, smoothedEnergy, currentMidi, cfg.rotationEnergyThreshold, rubikPitchAvg); // core
@@ -143,7 +139,7 @@ const workflowVizShape = {
         const glowPx = CLOCK_GLOW_PX * dpr * frame.perf.blurMult;
 
         const bpm = frame.audio.bpmOr(0); // service/audio-analysis.js — chưa đo -> 0 -> core dùng ×1
-        const noteFresh = frame.audio.isPitchFresh(CLOCK_PITCH_FRESH_MS); // service/audio-analysis.js (01/10/2026)
+        const noteFresh = frame.audio.isPitchFresh(CLOCK_PITCH_FRESH_MS); // service/audio-analysis.js
         clock.pitch = advanceClockPitchHands(clock.pitch, dt, isPlaying, frame.audio.pitchMidi(), noteFresh, this._clockStartSec(), bpm); // core
         const totalSec = clock.pitch.virtualSec;
         const handsDir = clock.pitch.level / 2; // bánh răng + vòng quỹ đạo cùng chiều kim, bậc 1/7 = 1.5×
@@ -155,7 +151,6 @@ const workflowVizShape = {
         const levels = computeClockGearLevels(vizDataArray, clock.layout, isPlaying); // core
         const gearCount = clock.layout.gears.length;
 
-        // SỬA (28/09/2026, Giang) — bỏ vòng Time scan: chỉ còn toggle con lắc (clockPendulumEnabled).
         clock.pendulum = advanceClockPendulum(clock.pendulum, dt, cfg.clockPendulumEnabled !== false, isPlaying, smoothedEnergy, jam); // core
         const caseR = dialR * (caseVisible ? 1.08 : 1.0);
         const pl = computeClockPendulumLayout(H, dialR, clock.pendulum.progress, caseVisible, caseR, 1, cfg.clockPendulumLength); // core
@@ -235,7 +230,7 @@ const workflowVizShape = {
         paintClockGlassGlare(paint.ctx, paint.dialR, paint.dpr); // core
     },
 
-    /** 60 vạch phút (toggle clockTicksVisible) — SỬA 28/09/2026: sáng/phóng theo kim giây (tickGlow), không theo phổ.
+    /** 60 vạch phút (toggle clockTicksVisible) — sáng/phóng theo kim giây (tickGlow).
      * Vẽ SAU kính + vỏ để vạch đang sáng không bị kính che. */
     _paintClockTicks(paint) {
         if (paint.cfg.clockTicksVisible === false) return;
@@ -244,7 +239,7 @@ const workflowVizShape = {
         paintClockTicks(paint.ctx, paint.dialR, glows, tickColors, paint.glowPx, paint.dpr); // core
     },
 
-    // ===================== clock — ảnh nền mặt số (MỚI 28/09/2026) =====================
+    // ===================== clock — ảnh nền mặt số =====================
 
     /** Lớp DƯỚI CÙNG của đồng hồ — chỉ khi bật và ảnh nguồn đã tải xong. */
     _paintClockBackdrop(paint) {
@@ -264,7 +259,7 @@ const workflowVizShape = {
         CLOCK_BG_LOAD_BY_KIND[sourceId.slice(0, sourceId.indexOf(':'))](sourceId.slice(sourceId.indexOf(':') + 1), ++this._clockBg.loadToken);
     },
 
-    /** Bỏ ảnh cũ + revoke URL tự tạo (URL bìa thuộc player, không revoke). */
+    /** Bỏ ảnh đang dùng + revoke URL tự tạo (URL bìa thuộc player, không revoke). */
     _releaseClockBackground() {
         const bg = this._clockBg;
         bg.image = null;
@@ -289,9 +284,7 @@ const workflowVizShape = {
     /** Tải 1 URL thành Image; chỉ nhận nếu nguồn chưa đổi trong lúc tải (token). URL rỗng (bài không bìa) -> không nền. */
     _loadClockBgImage(url, token) {
         if (!url) return;
-        const img = new Image();
-        img.onload = () => this._acceptClockBgImage(img, token);
-        img.src = url;
+        decodeImageFromUrl(url).then((img) => { if (img) this._acceptClockBgImage(img, token); }); // core/image-load-ui.js — lỗi tải -> không nền
     },
 
     _acceptClockBgImage(img, token) {
