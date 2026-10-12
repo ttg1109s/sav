@@ -9,6 +9,7 @@ Rule 5a). Nợ được ghi ở [core-legacy-audit.md](../core-legacy-audit.md),
 | Đợt | Trạng thái |
 |---|---|
 | 1 — EQ | Xong 12/10/2026 (`sav-13-wiring-wave1-eq-patch.zip`), chờ test máy |
+| 2 — X Debug Console + X Storage | Xong 12/10/2026 (`sav-13-wiring-wave2-close-btn-patch.zip`), chờ test máy. `recorder.js` `track.ended` dời sang nhóm F (MediaStreamTrack tạo động, Listener không ủy quyền được) |
 
 Câu chốt mục 6 (Giang, ghi ở cột Ghi chú của sổ nợ): (1) nhóm D — bỏ listener `input`, đọc `.value` trong `onClick`
 của `modalChoice()`; (2) nhóm F — miễn trừ CHỈ theo danh sách audit chính thức -> không miễn, phải sửa; (3) tính cả
