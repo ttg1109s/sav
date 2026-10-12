@@ -3,17 +3,12 @@
  * wave, vẽ canvas, tick() mỗi frame. Cooldown/modal Start-End/lưu điểm DÙNG CHUNG mọi mode đã tách
  * sang event/workflow/gameplay-engine.js — gọi vào đó cho mọi phần không đặc thù Circle.
  *
- * `gameplayArmedGameId` (AppState, session-only — [SỬA 02/09/2026] KHÔNG còn ở vizConfig/
- * PERSISTENT như bản đổi tên hồi sáng cùng ngày, xem service/state/gameplay-runtime.js) khớp ĐÚNG
- * mode này -> mọi lần media đổi thật tự mở overlay (hook `'gameplay.mediaChanged'`, event/router/
- * gameplay.js — tín hiệu trung lập, gửi từ CẢ Song (`workflowPlayer.playMedia()`) LẪN Video
- * (`workflowVideoPlayer.playVideoByKey()`), KHÔNG phụ thuộc domain "visualBg"). `gameplayPhase`
- * (idle->ready->countdown->playing->ended, xem service/state/gameplay-runtime.js) RIÊNG BIỆT với
- * `gameplayArmedGameId`. Armed/disarm (nút Play/Exit trên card Game Panel, ĐỒNG THỜI đóng Game
- * Panel + icon/chấm nav — xem docstring event/workflow/game-catalog.js) do file đó sở hữu HOÀN
- * TOÀN, KHÔNG phải file này — [SỬA 02/09/2026] file này KHÔNG còn gọi ngược lại
- * `workflowGameCatalog.renderList()` ở đâu cả (bản trước gọi ở MỌI mốc đổi `gameplayPhase`, nhưng
- * icon/chấm nav giờ CHỈ bám `gameplayArmedGameId` — field đó không đổi ở file này, không cần báo).
+ * `gameplayArmedGameId` (AppState, session-only — service/state/gameplay-runtime.js) khớp ĐÚNG mode này -> mọi lần
+ * media đổi thật tự mở overlay (tín hiệu trung lập 'gameplay.mediaChanged', event/router/gameplay.js — gửi từ CẢ Song
+ * `workflowPlayer.playMedia()` LẪN Video `workflowVideoPlayer.playVideoByKey()`). `gameplayPhase`
+ * (idle->ready->countdown->playing->ended) RIÊNG BIỆT với `gameplayArmedGameId`. Armed/disarm (nút Play/Exit trên card
+ * Game Panel, kèm đóng Game Panel + icon/chấm nav) do event/workflow/game-catalog.js sở hữu hoàn toàn — file này không
+ * gọi ngược sang đó.
  *
  * `tick()` KHÔNG tự có RAF riêng — gọi TỪ BÊN TRONG event/workflow/visualizer-render.js::_tick()
  * (dùng chung vòng lặp, tránh 2 RAF song song). Mọi thao tác play/pause/currentTime đều qua
@@ -26,24 +21,22 @@
  * core/gameplay/circle-mode-ui.js (canvas) THEO THỨ TỰ tại đây — Core KHÔNG được gọi lẫn nhau
  * (Rule 3a). Màu vòng (custom-effect.js) và globalHueOffset (audio-analysis.js) cũng đọc/gọi Ở ĐÂY.
  *
- * Spawn khoá theo BEAT THẬT: so appState `lastBeatTime` (SỬA 28/09/2026 — trước đây là biến toàn cục
- * cùng tên ở core/dom-refs.js, đã bỏ; event/workflow/audio-analysis.js ghi mốc này) với
+ * Spawn khoá theo BEAT THẬT: so mốc beat mới nhất (`audioAnalysis.lastBeatTime()`, service/audio-analysis.js) với
  * mốc đã tiêu thụ (`_lastConsumedBeatTime`). Đủ điều kiện CẦN rồi còn qua `isBeatEligibleForSpawn()`
  * (lọc theo độ khó) VÀ roll xác suất theo Energy (`computeSpawnProbability()`) mới THẬT SỰ spawn.
  * Vị trí lấy từ lưới pitch→ô (`gameplayPitchCellMap`), `shrinkDurationMs` theo BPM hiện tại — LƯU
  * vào wave lúc spawn, wave co theo `performance.now()` riêng, độc lập audio.currentTime.
  *
- * `fluxHistory` (appState, đẩy 1 mẫu MỖI FRAME render — core/audio-analysis.js) không đổi, vẫn là
- * nguồn beat detection thật; `tick()` tự gộp thành `_beatFluxHistory` (1 mốc/BEAT, trung bình đoạn
+ * `fluxHistory` (`audioAnalysis.fluxHistory()`, 1 mẫu MỖI FRAME render) là nguồn beat detection thật; `tick()` tự gộp thành `_beatFluxHistory` (1 mốc/BEAT, trung bình đoạn
  * giữa 2 beat) TRƯỚC khi gọi `detectMusicTransition()` — độc lập fps máy, threshold tỉ lệ tương đối.
  *
  * NẠP SAU: event/workflow/gameplay-engine.js, core/gameplay/circle-mode.js, core/gameplay/engine.js,
  * core/gameplay/circle-mode-ui.js, core/player-controls.js (getActiveMediaElement),
- * core/visualizer/beat-window.js (detectMusicTransition/isPhraseBoundary — dời từ core/audio-analysis.js 01/10/2026).
+ * core/visualizer/beat-window.js (detectMusicTransition/isPhraseBoundary).
  */
 const GAMEPLAY_MISS_SHATTER_COLOR = '#f87171'; // đỏ-400, khớp màu .gameplay-tier-popup--miss (assets/css/gameplay.css)
 
-// MỚI (29/09/2026) — mediaType (playlistCache) -> key nhãn nút Next ở modal Kết quả, xem onSongEnded().
+// mediaType (playlistCache) -> key nhãn nút Next ở modal Kết quả, xem onSongEnded().
 const GAMEPLAY_NEXT_LABEL_KEY_BY_MEDIA = {
     song: 'gameplayCircle.ended.nextLabel',
     video: 'gameplayCircle.ended.nextVideoLabel',
@@ -58,43 +51,24 @@ const workflowGameplay = {
     _beatsSincePhraseRefresh: 0,       // xấp xỉ ranh giới phrase (đếm beat cố định)
     _beatFluxHistory: [],              // 1 mốc/BEAT (trung bình đoạn), cap 24 — xem docstring đầu file
     _pendingBeatFluxSum: 0, _pendingBeatFluxCount: 0, // tích luỹ giữa 2 beat, gộp lúc beat mới tới
-    _hardChainLevel: 1,                // MỚI — cấp độ chuỗi "sinh sản" (chỉ Hard), reset lúc bảng sạch/refresh
-    _hardChainQueue: [],                // MỚI — pitch còn lại trong chuỗi CHƯA spawn, nhả DẦN 1 wave/eligible beat (KHÔNG bung hết 1 lần)
-    _hardChainLastSpawnAt: 0,           // MỚI — mốc ms (performance.now()) lần nhả wave chuỗi gần nhất, so với computeChainSpacingMs()
+    _hardChainLevel: 1,                // cấp độ chuỗi "sinh sản" (chỉ Hard), reset lúc bảng sạch/refresh
+    _hardChainQueue: [],               // pitch còn lại trong chuỗi CHƯA spawn, nhả DẦN từng wave (không bung hết 1 lần)
+    _hardChainLastSpawnAt: 0,          // mốc ms (performance.now()) lần nhả wave chuỗi gần nhất, so với computeChainSpacingMs()
     _gridCols: 1, _gridRows: 1,        // lưới pitch→ô hiện hành (tính lại lúc resize/vào ready)
     _zoneOriginX: 0, _zoneOriginY: 0,  // góc trên-trái spawnZone, px thật
     _canvasWidthPx: 0, _canvasHeightPx: 0,
 
-    /** Ứng với 'gameplay.modeEnabled.change' — công tắc "GAME MODE" CŨ ở Settings (checkbox 1
-     * boolean DUY NHẤT, components/settings/misc.js, KHÔNG có trong đợt zip này). [SỬA — 02/09/2026,
-     * Game Panel app-store list] Giữ tương thích ngược: ánh xạ sang armed/disarm ĐÚNG game 'circle'
-     * (game DUY NHẤT từng tồn tại lúc checkbox này còn là cách duy nhất bật Game Mode) — liên tuyến
-     * domain, tái dùng THẲNG `workflowGameCatalog` (event/workflow/game-catalog.js, tự lo cả
-     * render list lẫn start()/exitToPlaylist() nếu cần), KHÔNG viết lại logic arm/disarm ở đây. */
-    setModeEnabled(checked) {
-        if (checked) workflowGameCatalog.armGame('circle');
-        else workflowGameCatalog.disarmGame('circle');
-    },
-
     /** Ứng với tín hiệu 'gameplay.mediaChanged' (game đang armed, xem event/router/gameplay.js)
      * HOẶC được `workflowGameCatalog.armGame()` gọi thẳng khi armed lúc đã có bài load sẵn — mở
-     * layer rồi NHẢY THẲNG vào countdown. [SỬA — 02/09/2026, Game Panel app-store list, Giang yêu
-     * cầu "bỏ modal chọn độ khó, tự động vào cooldown/playing"] KHÔNG còn dừng ở phase 'ready' chờ
-     * bấm nút Start trong modal nữa — độ khó giờ chọn SẴN trên card Game Panel TRƯỚC khi armed (xem
-     * core/gameplay/game-panel-ui.js), modal hỏi lại là thừa. Phase 'ready' vẫn set (mốc chuyển
-     * tiếp hợp lệ, đúng enum gameplayPhase — service/state/gameplay-runtime.js) nhưng chỉ tồn tại
-     * trong đúng 1 lần gọi hàm này, KHÔNG có UI nào hiện ra cho phase đó nữa.
+     * layer rồi NHẢY THẲNG vào countdown (độ khó đã chọn sẵn trên card Game Panel, không có modal
+     * hỏi lại). Phase 'ready' vẫn set (mốc chuyển tiếp hợp lệ của enum gameplayPhase) nhưng chỉ tồn
+     * tại trong đúng 1 lần gọi hàm này, không có UI riêng.
      *
-     * [MỚI — 02/09/2026, Giang yêu cầu "khi play thì tự động tắt tab game"] 1 phiên chơi THẬT vừa
-     * bắt đầu -> đóng Game Panel bằng ĐÚNG hành động nút X của panel đó (`workflowPlaceholderPanels.
-     * close(gamePanel)`, event/workflow/placeholder-panels.js) — KHÔNG tự viết lại logic đóng
-     * riêng. Gọi VÔ ĐIỀU KIỆN (panel đã đóng sẵn thì lệnh này vô hại, cùng cách nút X tự nó cũng
-     * không kiểm tra "đã đóng chưa" trước khi chạy) — [SỬA cùng ngày] `workflowGameCatalog.
-     * armGame()` giờ CŨNG tự đóng panel NGAY lúc armed (không chờ start() nữa, xem docstring file
-     * đó) — dòng NÀY vẫn giữ làm lớp phòng thủ thứ 2 cho lối vào 'gameplay.mediaChanged' (bài mới
-     * đổi lúc đã armed từ trước), gọi trùng 2 lần không hại gì (idempotent). */
+     * Đóng Game Panel bằng ĐÚNG hành động nút X của panel (`workflowPlaceholderPanels.close(gamePanel)`)
+     * — vô điều kiện, idempotent: `armGame()` cũng đã đóng panel lúc armed, dòng này là lớp phòng thủ
+     * cho lối vào 'gameplay.mediaChanged' (media đổi lúc đã armed từ trước). */
     start(mode) {
-        const { isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode']); // SỬA 07/10/2026 — gộp 1 lần get (§4B)
+        const { isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode']);
         this._resetSessionCounters();
         appState.set('gameplayMode', mode, { skipCheck: true });
         console.log(`writer: "workflowGameplay.start", page: "gameplayMode", content: "${mode}"`);
@@ -103,24 +77,18 @@ const workflowGameplay = {
 
         workflowPlaceholderPanels.close(gamePanel); // event/workflow/placeholder-panels.js — liên tuyến domain, ĐÚNG hành động nút X
 
-        // [SỬA — 02/09/2026, Giang yêu cầu "kể cả nhạc đang phát/tạm dừng/seek ở đâu đều phải reset
-        // toàn bộ trạng thái nhạc, pause -> seek 0"] PAUSE TRƯỚC rồi mới seek — ngược thứ tự bản cũ
-        // (seek rồi mới pause, có thể thấy giật hình 1 khung lúc còn đang phát). Luôn chạy VÔ ĐIỀU
-        // KIỆN, không branch theo trạng thái hiện tại (đang phát/đang dừng/đang seek dở) — .pause()
-        // trên phần tử đã pause sẵn hay .currentTime=0 trên phần tử đã ở 0 đều vô hại (no-op thật
-        // sự), nên không cần if nào phân biệt "đang ở đâu" trước khi reset.
-        // SỬA 07/10/2026 — pause + seek 0 qua core (Workflow không tự điều khiển media, §7.1), thứ tự giữ nguyên.
+        // Media đang ở đâu (phát/dừng/seek dở) cũng reset: PAUSE TRƯỚC rồi mới seek 0 (seek trước có thể giật 1 khung
+        // lúc còn phát). Vô điều kiện — pause/seek 0 trên phần tử đã dừng/đã ở 0 là no-op. Qua core (§7.1).
         resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode)); // core (engine.js) + core/player-controls.js
 
-        setGameplayLayerMode(gameplayLayer, 'circle'); // core-ui (engine-ui.js) — MỚI 07/10/2026: hiện canvas/tap-surface, ẩn stage Arrow
+        setGameplayLayerMode(gameplayLayer, 'circle'); // core-ui (engine-ui.js) — hiện canvas/tap-surface, ẩn stage Arrow
         showGameplayLayer(gameplayLayer); // core-ui (engine-ui.js)
-        // [MỚI — 02/09/2026, Giang yêu cầu "game mode chặn luôn toàn bộ thao tác ở player control
-        // bottom"] Chặn NGAY lúc mở overlay, gỡ lại Ở ĐÚNG 1 nơi — exitToPlaylist() (lúc đóng hẳn
-        // Game Mode) — xem docstring đầy đủ ở setPlayerControlsBlocked() (core/player-controls.js).
+        // Game Mode chặn toàn bộ thao tác ở player control bottom: chặn NGAY lúc mở overlay, gỡ ở ĐÚNG 1 nơi —
+        // exitToPlaylist() (xem setPlayerControlsBlocked(), core/player-controls.js).
         setPlayerControlsBlocked(true); // core (player-controls.js)
         this._recomputeGridGeometry();
 
-        this.startCountdown(); // THẲNG vào countdown — KHÔNG còn workflowGameplayEngine.showStartModal()
+        this.startCountdown();
     },
 
     startCountdown() {
@@ -135,12 +103,12 @@ const workflowGameplay = {
         console.log(`writer: "workflowGameplay._beginPlaying", page: "gameplayPhase", content: "playing"`);
         // Snapshot lastBeatTime NGAY LÚC NÀY — tránh 1 beat CŨ (detect trước khi countdown bắt đầu)
         // bị hiểu nhầm là "vừa mới có" rồi spawn ngay lập tức.
-        this._lastConsumedBeatTime = audioAnalysis.lastBeatTime(); // service/audio-analysis.js (SỬA 01/10/2026 — trước đó appState lastBeatTime)
+        this._lastConsumedBeatTime = audioAnalysis.lastBeatTime(); // service/audio-analysis.js
         this._beatsSinceEligible = 0;
         this._beatsSincePhraseRefresh = 0;
         this._nextSpawnIndex = 0;
         const isVideoPlayerMode = appState.get('isVideoPlayerMode');
-        const isPhotoPlayerMode = appState.get('isPhotoPlayerMode'); // SỬA (Giang yêu cầu, Photo tích hợp duration)
+        const isPhotoPlayerMode = appState.get('isPhotoPlayerMode');
         const activeEl = getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode); // core/player-controls.js
         if (isVideoPlayerMode) activeEl.play().catch((err) => console.error('[workflowGameplay] bgVideoElement.play() lỗi:', err));
         else activeEl.play();
@@ -159,12 +127,12 @@ const workflowGameplay = {
         if (gameplayWaves.length === 0) return;
 
         const entries = gameplayWaves.map(w => ({ id: w.id, x: w.x, y: w.y, radius: computeWaveRadius(w, now) })); // core (circle-mode.js) — ĐÚNG thứ tự gameplayWaves gốc (xuất hiện sớm hơn đứng trước) = z-order topmost-trước, xem docstring findTopmostNoteInTolerance()
-        const nearest = findTopmostNoteInTolerance(entries, tapX, tapY, cfg.tapHitTolerancePx); // core (engine.js) — [SỬA] KHÔNG còn nearest-by-distance, xem docstring hàm đó
+        const nearest = findTopmostNoteInTolerance(entries, tapX, tapY, cfg.tapHitTolerancePx); // core (engine.js)
         if (!nearest) return;
 
         const tier = classifyTapTier(nearest.radius, cfg); // core (engine.js)
         const tierName = tier ? tier.name : 'miss';
-        const tierScore = tier ? tier.score : cfg.missScore; // [SỬA — bảng điểm mới] tap trật giờ -2 (cfg.missScore), không còn 0
+        const tierScore = tier ? tier.score : cfg.missScore; // tap trật = cfg.missScore
         const { pointsGained, newComboByTier } = computeComboScoreGain(tierName, tierScore, gameplayComboByTier, cfg); // core (engine.js)
         const waveRef = gameplayWaves.find(w => w.id === nearest.id);
 
@@ -182,8 +150,8 @@ const workflowGameplay = {
         appState.mutate('gameplayHitCounts', counts => { counts[tierName] = (counts[tierName] || 0) + 1; }, { skipCheck: true });
         console.log(`writer: "workflowGameplay.handleTap", page: "gameplayHitCounts", content: "${tierName}+1"`);
 
-        // [SỬA — phản hồi Giang] combo hiện NGAY tại popup (streak riêng của tierName, 0 nếu tier
-        // không combo-eligible), KHÔNG còn HUD riêng (đã xoá). Vỡ vụn màu ĐÚNG wave vừa tap trúng.
+        // Combo hiện NGAY tại popup (streak riêng của tierName, 0 nếu tier không combo-eligible). Vỡ vụn màu ĐÚNG
+        // wave vừa tap trúng.
         showTapTierPopup(gameplayTierPopupLayer, tierName.toUpperCase(), tierName, nearest.x, nearest.y, newComboByTier[tierName] || 0, cfg); // core-ui
         if (waveRef) showShatterEffect(gameplayTierPopupLayer, nearest.x, nearest.y, waveRef.colorMain); // core-ui — "tap hoàn thành"
     },
@@ -201,8 +169,8 @@ const workflowGameplay = {
             'gameplayWaves', 'gameplayCircleCount', 'gameplayDifficulty', 'gameplayPitchCellMap',
             'gameplayRefreshPending', 'gameplayTotalScore',
         ]);
-        // SỬA 01/10/2026 — số liệu audio đọc từ kho audioAnalysis (service/audio-analysis.js). BPM giữ dạng chữ ("---" khi
-        // chưa có) vì core gameplay tự parseFloat + rơi về giá trị dự phòng — hành vi y như trước.
+        // Số liệu audio đọc từ kho audioAnalysis (service/audio-analysis.js). BPM giữ dạng chữ ("---" khi chưa có) vì core
+        // gameplay tự parseFloat + rơi về giá trị dự phòng.
         const currentCalculatedBpm = audioAnalysis.bpmText();
         const smoothedEnergy = audioAnalysis.smoothedEnergy();
         const lastValidMidiNote = audioAnalysis.pitchMidi();
@@ -216,12 +184,7 @@ const workflowGameplay = {
             this._pendingBeatFluxCount++;
         }
 
-        // [SỬA — viết lại thuật toán pitch map, phản hồi Giang "dải MIDI cố định [0-127], không
-        // phải dải đã biết"] computePitchRangeUpdate() ĐÃ XOÁ — bảng gán pitch→ô giờ CỐ ĐỊNH theo
-        // hình học lưới (không phụ thuộc note nào đã detect), chỉ cần build LẠI khi resize/refresh,
-        // KHÔNG còn cần "nới dải" mỗi frame nữa.
-        //
-        // Bảng gán pitch→ô: build LẦN ĐẦU (map rỗng) HOẶC refresh khi pending VÀ vừa hết wave
+        // Bảng gán pitch→ô cố định theo hình học lưới trên dải MIDI [0-127] (không phụ thuộc note đã detect): build LẦN ĐẦU (map rỗng) HOẶC refresh khi pending VÀ vừa hết wave
         // (KHÔNG ép re-target wave đang sống — chỉ chặn spawn mới, chờ board rỗng rồi xáo lại).
         let activeMap = gameplayPitchCellMap;
         let justRebuilt = false;
@@ -229,7 +192,7 @@ const workflowGameplay = {
             activeMap = this._rebuildPitchCellMap();
             justRebuilt = true;
             if (gameplayRefreshPending) appState.set('gameplayRefreshPending', false, { skipCheck: true });
-            this._hardChainLevel = 1; // [MỚI] refresh chấm dứt chuỗi "sinh sản" Hard (phản hồi Giang)
+            this._hardChainLevel = 1; // refresh chấm dứt chuỗi "sinh sản" Hard
             this._hardChainQueue = []; // refresh chấm dứt LUÔN phần chuỗi đang xếp hàng dở dang
             this._hardChainLastSpawnAt = 0;
         }
@@ -260,14 +223,11 @@ const workflowGameplay = {
                 }
             }
 
-            // [SỬA — phản hồi Giang "medium 2-5 nốt"] trần số wave giờ có thể là 1 KHOẢNG (Medium) —
-            // computeConcurrentWaveCap() tự roll ngẫu nhiên MỖI LẦN xét (mật độ dao động, không còn
-            // 1 số cố định); Easy/Hard vẫn trả thẳng số cố định (1/Infinity), không đổi hành vi.
+            // Trần số wave: Medium là 1 KHOẢNG (computeConcurrentWaveCap() roll lại MỖI LẦN xét — mật độ dao động);
+            // Easy/Hard là số cố định (1/Infinity).
             const concurrentWaveCap = computeConcurrentWaveCap(diffCfg, Math.random()); // core (circle-mode.js)
-            // [SỬA — phản hồi Giang "Hard giảm quãng s mỗi wave chuỗi còn spawnEligibleEveryNBeats/2"]
-            // Nhả hàng đợi chuỗi "sinh sản" Hard KHÔNG còn nằm trong nhánh isBeatEligibleForSpawn()
-            // nữa (đếm NGUYÊN beat, không biểu diễn được nửa beat) — dời hẳn RA NGOÀI khối isNewBeat,
-            // xem đoạn code NGAY DƯỚI (chạy mỗi frame, tự so mốc thời gian ms).
+            // Chuỗi "sinh sản" Hard không nhả ở đây (đếm nguyên beat không biểu diễn được nửa beat) — xem khối ngay dưới
+            // khối isNewBeat (chạy mỗi frame, so mốc ms).
             if (!gameplayRefreshPending && gameplayWaves.length < concurrentWaveCap && this._hardChainQueue.length === 0 && isBeatEligibleForSpawn(this._beatsSinceEligible, diffCfg.spawnEligibleEveryNBeats)) { // core
                 this._beatsSinceEligible = 0;
                 const spawnProbability = computeSpawnProbability(smoothedEnergy, cfg); // core
@@ -278,11 +238,8 @@ const workflowGameplay = {
             }
         }
 
-        // [MỚI — phản hồi Giang, quãng s riêng cho chuỗi "sinh sản" Hard] Nhả hàng đợi chuỗi CHẠY
-        // MỖI FRAME (KHÔNG gate theo isNewBeat/isBeatEligibleForSpawn nữa — đếm nguyên beat không ra
-        // được nửa beat) — tự so `now` (ms) với mốc lần nhả trước, đủ `computeChainSpacingMs()` mới
-        // nhả tiếp. Rỗng hàng đợi (đa số thời gian, kể cả Easy/Medium — field luôn rỗng) -> no-op
-        // ngay từ điều kiện đầu, không tốn gì thêm mỗi frame.
+        // Nhả hàng đợi chuỗi "sinh sản" Hard — chạy MỖI FRAME, tự so `now` (ms) với mốc lần nhả trước, đủ
+        // `computeChainSpacingMs()` mới nhả tiếp. Hàng đợi rỗng (đa số thời gian; Easy/Medium luôn rỗng) -> no-op.
         if (diffCfg.chainReproductionEnabled && this._hardChainQueue.length > 0) {
             const chainSpacingMs = computeChainSpacingMs(currentCalculatedBpm, diffCfg.spawnEligibleEveryNBeats, cfg); // core
             if (now - this._hardChainLastSpawnAt >= chainSpacingMs) {
@@ -307,9 +264,7 @@ const workflowGameplay = {
             appState.set('gameplayComboByTier', { perfect: 0, excellent: 0 }, { skipCheck: true }); // reset TẤT CẢ, giống tier không combo-eligible (engine.js::computeComboScoreGain())
             appState.set('gameplayCircleCount', gameplayCircleCount + missedIds.length, { skipCheck: true });
             appState.mutate('gameplayHitCounts', counts => { counts.miss = (counts.miss || 0) + missedIds.length; }, { skipCheck: true });
-            // [SỬA — phản hồi Giang, bảng điểm mới "Miss -2"] TRƯỚC ĐÂY wave tự hết hạn KHÔNG hề trừ
-            // điểm (chỉ tính ở tap-miss trong handleTap()) — giờ áp ĐÚNG cfg.missScore cho MỖI wave
-            // tự hết hạn, nhất quán với tap-miss (2 nguồn miss cùng 1 mức phạt).
+            // Mỗi wave tự hết hạn bị phạt ĐÚNG cfg.missScore — cùng mức với tap-miss trong handleTap().
             appState.set('gameplayTotalScore', gameplayTotalScore + missedIds.length * cfg.missScore, { skipCheck: true });
             for (const entry of missedEntries) {
                 showTapTierPopup(gameplayTierPopupLayer, 'MISS', 'miss', entry.x, entry.y, 0, cfg); // core-ui
@@ -318,15 +273,9 @@ const workflowGameplay = {
         }
 
         const remainingEntries = radiusEntries.filter(e => !missedEntries.includes(e));
-        // [MỚI — Giang yêu cầu "vòng tròn xuất hiện trước có z-index lớn hơn, tránh trường hợp vòng
-        // tròn sát nhau"] `waves`/`radiusEntries`/`remainingEntries` ĐANG giữ ĐÚNG thứ tự spawn gốc
-        // (push() nối cuối mảng — index 0 = wave xuất hiện SỚM NHẤT). Canvas 2D vẽ theo kiểu "vẽ sau
-        // đè lên trên" — giữ NGUYÊN thứ tự này thì wave MỚI (index cuối) lại đè lên wave CŨ, ngược ý
-        // muốn. Đảo ngược NGAY TRƯỚC 2 lệnh vẽ dưới đây — CHỈ ảnh hưởng thứ tự vẽ, KHÔNG đụng
-        // `remainingEntries` gốc (drawOrderEntries là mảng MỚI, appState/radiusEntries không đổi).
-        // `findTopmostNoteInTolerance()` (engine.js, hit-test) dùng `entries` xây TRỰC TIẾP từ
-        // `gameplayWaves` (KHÔNG qua biến này) nên vẫn đúng thứ tự spawn gốc (topmost-trước) —
-        // KHÔNG cần đảo ở đó, xem docstring hàm đó.
+        // Wave xuất hiện TRƯỚC phải nằm TRÊN (Giang chốt). Mảng giữ thứ tự spawn (index 0 = sớm nhất) mà canvas 2D
+        // "vẽ sau đè lên trên" -> đảo thứ tự CHỈ cho 2 lệnh vẽ (mảng mới, không đụng appState). Hit-test
+        // (`findTopmostNoteInTolerance()`) dựng `entries` thẳng từ `gameplayWaves` nên vẫn topmost-trước.
         const drawOrderEntries = [...remainingEntries].reverse();
         const ctx = gameplayCanvas.getContext('2d');
         clearGameplayCanvas(ctx, this._canvasWidthPx, this._canvasHeightPx); // core-ui
@@ -334,22 +283,19 @@ const workflowGameplay = {
         drawTargetCircles(ctx, drawOrderEntries.map(e => ({ x: e.x, y: e.y, centerRadius: cfg.centerRadius, colorMain: e.colorMain }))); // core-ui
     },
 
-    /** Spawn ĐÚNG 1 wave tại 1 pitch — DÙNG CHUNG bởi cả cú spawn trigger đầu tiên (_trySpawnWave())
-     * lẫn nhả từng phần tử hàng đợi chuỗi "sinh sản" Hard (_spawnNextChainedWave()) — tách riêng
-     * [SỬA — phản hồi Giang, bug "xN xuất hiện đồng thời"] để 1 wave chỉ chiếm ĐÚNG 1 eligible beat,
-     * không còn vòng lặp bung cả chuỗi trong 1 lần gọi như bản trước.
+    /** Spawn ĐÚNG 1 wave tại 1 pitch — DÙNG CHUNG bởi cú spawn trigger đầu tiên (_trySpawnWave())
+     * lẫn nhả từng phần tử hàng đợi chuỗi "sinh sản" Hard (_spawnNextChainedWave()), để chuỗi xuất hiện
+     * lần lượt chứ không bung cùng lúc.
      * @returns {boolean} true nếu spawn thành công (đã push vào gameplayWaves) */
     _spawnOneWaveAtPitch(now, cfg, diffCfg, pitchCellMap, currentWaves, bpmString, pitch) {
-        // Chưa detect pitch hợp lệ (map rỗng/pitch null) -> fallback ô GIỮA spawnZone (giữ ĐÚNG hành
-        // vi gốc trước khi có findAvailableCell()) — vẫn cần đúng {col,row}.
+        // Chưa detect pitch hợp lệ (map rỗng/pitch null) -> fallback ô GIỮA spawnZone — vẫn cần đúng {col,row}.
         const targetCell = findCellForPitch(pitchCellMap, pitch) || { // core
             col: Math.floor(this._gridCols / 2), row: Math.floor(this._gridRows / 2),
             cellX: this._zoneOriginX + (this._gridCols * cfg.gridCellSizePx) / 2,
             cellY: this._zoneOriginY + (this._gridRows * cfg.gridCellSizePx) / 2,
         };
-        // [SỬA — phản hồi Giang "dùng thuật toán xoay của rubik để chọn ô kế cận, try 2 lần"]
-        // startOffsetIndex/rotationDir PHẢI do Workflow tự random rồi truyền vào (Core không tự
-        // random) — xem findAvailableCell(), core/gameplay/circle-mode.js.
+        // Chọn ô kế cận kiểu xoay rubik, thử 2 lần: startOffsetIndex/rotationDir do Workflow random rồi truyền vào
+        // (Core không tự random) — xem findAvailableCell(), core/gameplay/circle-mode.js.
         const occupiedCellKeys = new Set(currentWaves.map((w) => `${w.col},${w.row}`));
         const startOffsetIndex = Math.floor(Math.random() * 8);
         const rotationDir = Math.random() < 0.5 ? 1 : -1;
@@ -382,8 +328,7 @@ const workflowGameplay = {
     /** Trigger 1 sự kiện spawn — CHỈ spawn NGAY pitch ĐẦU (bản gốc thật, đây là beat "khơi mào").
      * Phần còn lại của chuỗi "sinh sản" (nếu escalate, chỉ Hard) XẾP HÀNG vào `_hardChainQueue`,
      * nhả DẦN đúng 1 wave/eligible beat kế tiếp qua _spawnNextChainedWave() (tick()) — KHÔNG bung
-     * hết trong lần gọi này [SỬA — phản hồi Giang, bug "xN xuất hiện đồng thời phải là lần lượt,
-     * cách quãng s (dựa thông số audio)" — "quãng s" = ĐÚNG spawnEligibleEveryNBeats hiện hành].
+     * hết trong lần gọi này (chuỗi xuất hiện lần lượt, cách quãng theo nhịp — computeChainSpacingMs()).
      *
      * [Cơ chế "sinh sản" CHỈ Hard] `diffCfg.chainReproductionEnabled` — lúc spawn mà bảng CÒN wave
      * sống (`currentWaves.length > 0`), `this._hardChainLevel` tăng thêm 1 (trần `chainMaxLevel`);
@@ -398,16 +343,15 @@ const workflowGameplay = {
                 : 1;
             chainLevel = this._hardChainLevel;
         }
-        // [SỬA — viết lại thuật toán pitch map] Clamp chuỗi trong dải MIDI CỐ ĐỊNH [0,127] (không
-        // còn dải "đã quan sát được" — computePitchRangeUpdate() ĐÃ XOÁ).
+        // Clamp chuỗi trong dải MIDI CỐ ĐỊNH [0,127].
         const pitchChain = computeChainedPitches(midiNote, chainLevel, 0, 127); // core
 
         this._spawnOneWaveAtPitch(now, cfg, diffCfg, pitchCellMap, currentWaves, bpmString, pitchChain[0]);
         if (pitchChain.length > 1) this._hardChainQueue.push(...pitchChain.slice(1)); // phần còn lại nhả DẦN, xem docstring
     },
 
-    /** Nhả ĐÚNG 1 wave kế tiếp trong hàng đợi chuỗi "sinh sản" Hard — gọi mỗi eligible beat khi
-     * `_hardChainQueue` còn phần tử (xem tick()), KHÔNG roll xác suất (đã "cam kết" từ lúc
+    /** Nhả ĐÚNG 1 wave kế tiếp trong hàng đợi chuỗi "sinh sản" Hard — gọi từ tick() khi `_hardChainQueue` còn phần tử
+     * và đã đủ quãng `computeChainSpacingMs()`, KHÔNG roll xác suất (đã "cam kết" từ lúc
      * escalate ở _trySpawnWave(), không phải quyết định ngẫu nhiên mới). */
     _spawnNextChainedWave(now, cfg, diffCfg, pitchCellMap, bpmString) {
         const pitch = this._hardChainQueue.shift();
@@ -433,9 +377,8 @@ const workflowGameplay = {
 
     /** Xáo lại bảng gán pitch→ô — CHỌN NGẪU NHIÊN 1 trong 5 kiểu duyệt lưới (mỗi lần rebuild đều
      * có thể ra kiểu khác, tạo cảm giác mới mỗi lần refresh — Rule 3a: Workflow tự chọn + gọi ĐÚNG
-     * 1 hàm Core, không phải Core tự gọi Core khác), rồi phân phối 128 note MIDI round-robin +
-     * shuffle qua buildPitchCellMap() (circle-mode.js). [SỬA — viết lại thuật toán pitch map, phản
-     * hồi Giang] KHÔNG còn nhận pitchRangeMin/Max — dải MIDI giờ CỐ ĐỊNH [0-127]. */
+     * 1 hàm Core, không phải Core tự gọi Core khác), rồi phân phối 128 note MIDI (dải cố định [0-127])
+     * round-robin + shuffle qua buildPitchCellMap() (circle-mode.js). */
     _rebuildPitchCellMap() {
         const cfg = GAMEPLAY_CIRCLE_CONFIG;
         const cols = this._gridCols, rows = this._gridRows;
@@ -457,43 +400,28 @@ const workflowGameplay = {
         return map;
     },
 
-    /** [SỬA TÊN — 08/09/2026, phản hồi Giang bug "về lại Visualizer sau khi Game Mode đã armed lúc
-     * còn ở Playlist không thấy màn chơi"] ĐỔI TÊN từ `_handleWindowResize()` — giờ dùng CHUNG cho
-     * CẢ 2 nguồn kích hoạt: resize/xoay màn hình cửa sổ THẬT (như cũ — SỬA 12/10/2026: qua Listener -> Router
-     * 'visualizerViewport.window.resize', xem event/router/visualizer-viewport.js) VÀ ResizeObserver trên
-     * `#gameplay-layer` (MỚI — cuối file).
-     * Gọi từ Router nên là cửa vào công khai của Workflow này (giữ tên cũ có `_` để không đổi nơi gọi khác).
-     *
-     * Lý do cần thêm nguồn thứ 2: `start()` (dòng ~112) gọi `_recomputeGridGeometry()` NGAY LÚC
-     * ARMED — nếu lúc đó `#visualizer-ui` (tổ tiên DOM của `#gameplay-layer`) đang `.hidden`
-     * (`display:none`, user còn ở Playlist, CHƯA từng `switchToVisualizer()` — hoàn toàn hợp lệ,
-     * Giang chốt "không bắt buộc phải về thẳng Visualizer lúc chơi"), `gameplayCanvas.
-     * clientWidth/clientHeight` (đọc trong `resizeGameplayCanvas()`, core/gameplay/
-     * circle-mode-ui.js) trả về 0 — canvas bị set bitmap THẬT 0×0, lưới suy biến 1×1 ở gốc toạ độ.
-     * Sự kiện `window.resize` KHÔNG bắn khi chỉ đổi CSS `display` (đổi màn Playlist<->Visualizer
-     * không phải resize cửa sổ thật) — user quay lại Visualizer sau đó (icon "Now playing"/
-     * `btnReturnVisual` hay bất kỳ đường nào khác) KHÔNG có gì kích hoạt tính lại, canvas kẹt 0×0
-     * vĩnh viễn dù layer giờ đã hiện đúng. ResizeObserver bắt ĐÚNG lúc layer chuyển từ không có
-     * kích thước thật sang có — tự phục hồi bất kể user quay lại Visualizer bằng đường nào (đúng
-     * tinh thần "1 điểm sửa chung", không vá riêng từng lối vào).
-     *
-     * Tính lại lưới VÀ xáo lại bảng gán luôn (sự kiện hiếm, chủ động, khác trigger tự động theo
-     * audio nên không gate qua pending). */
-    _handleLayoutResize() {
+    /** Lưới pitch→ô phải khớp kích thước THẬT của `#gameplay-layer`. 2 nguồn kích hoạt, cùng đi Listener -> Router:
+     *   - 'visualizerViewport.window.resize' (event/router/visualizer-viewport.js) — đổi kích thước cửa sổ/xoay máy.
+     *   - 'gameplay.layer.resize' (ResizeObserver trên `#gameplay-layer`, event/listener/gameplay.js) — bắt cả lúc layer
+     *     chuyển từ ẩn sang hiện: armed lúc còn ở Playlist thì `start()` đo canvas khi `#visualizer-ui` đang
+     *     `display:none` -> 0×0, lưới suy biến 1×1; `window.resize` không bắn khi chỉ đổi `display` nên phải theo dõi
+     *     chính layer để tự phục hồi dù quay lại Visualizer bằng đường nào.
+     * Không có ván (phase 'idle') -> bỏ qua. Tính lại lưới VÀ xáo lại bảng gán luôn (sự kiện hiếm, chủ động, khác
+     * trigger tự động theo audio nên không gate qua pending). */
+    handleLayoutResize() {
         if (appState.get('gameplayPhase') === 'idle') return;
         this._recomputeGridGeometry();
         this._rebuildPitchCellMap();
     },
 
     /** Ứng với 'playerControls.audio.ended' HOẶC 'playerControls.video.ended' (1 case dùng chung
-     * ở router) KHI gameplayPhase !== 'idle' — dừng đếm giờ nghe, hiện modal kết quả (engine).
-     * [SỬA — phản hồi Giang, modal end cần rõ title/thời lượng/độ khó/số lượt chơi] `durationSeconds`
-     * ĐỌC TRƯỚC khi bài/video bị dọn (currentTime reset ở replay()/nextSong() sau đó) — element vừa
-     * hết THẬT nên `.duration` vẫn còn hợp lệ tại đây. `title` escape ở TẦNG NÀY (Workflow, được
+     * ở router) KHI gameplayPhase !== 'idle' — dừng đếm giờ nghe, hiện modal kết quả (engine) gồm
+     * title/thời lượng/độ khó/số lượt chơi. Thời lượng ĐỌC TRƯỚC khi bài/video bị dọn (currentTime reset ở
+     * replay()/nextSong() sau đó) — element vừa hết THẬT nên `.duration` vẫn hợp lệ tại đây. `title` escape ở TẦNG NÀY (Workflow, được
      * gọi Core tự do) — `core/gameplay/engine-ui.js` (Core-ui) KHÔNG được gọi `escapeHtml()`
      * (Rule 3a, hàm đó nằm ở modal-choice-ui.js, KHÁC file). */
     async onSongEnded() {
-        workflowListenStats.stopClock(); // event/workflow/listen-stats.js (SỬA 06/10/2026 — dời từ core) — giữ parity với workflowPlayerControls.handleMediaEnded()
+        workflowListenStats.stopClock(); // event/workflow/listen-stats.js — giữ parity với workflowPlayerControls.handleMediaEnded()
         const { gameplayTotalScore, gameplayCircleCount, gameplayHitCounts, gameplayDifficulty, isVideoPlayerMode, isPhotoPlayerMode } = appState.get([
             'gameplayTotalScore', 'gameplayCircleCount', 'gameplayHitCounts', 'gameplayDifficulty', 'isVideoPlayerMode', 'isPhotoPlayerMode',
         ]);
@@ -502,15 +430,13 @@ const workflowGameplay = {
         const perfectTier = cfg.tiers.find(tier => tier.name === 'perfect');
         const maxScore = gameplayCircleCount * perfectTier.score;
         const starRating = computeStarRating(gameplayTotalScore, maxScore, cfg); // core (engine.js)
-        const durationLabel = formatTime(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode).duration); // core (core/playlist/state.js) — SỬA (Giang yêu cầu, Photo tích hợp duration)
-        // MỚI (29/09/2026, Giang yêu cầu "đổi ngữ cảnh cho phù hợp") — nhãn nút Next theo loại media ĐANG chơi (Next
-        // đi tiếp trong CÙNG playlist Nguồn đó nên cùng loại). Object map (event-bus-flow.md §7), không if/else.
-        // Đọc TRƯỚC khi persistScore()/Next đổi currentKey.
+        const durationLabel = formatTime(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode).duration); // core (core/playlist/state.js)
+        // Nhãn nút Next theo loại media ĐANG chơi (Next đi tiếp trong CÙNG playlist Nguồn đó nên cùng loại). Object map
+        // (event-bus-flow.md §7). Đọc TRƯỚC khi persistScore()/Next đổi currentKey.
         const endedCached = appState.get('playlistCache').get(appState.get('currentKey'));
         const nextLabelKey = GAMEPLAY_NEXT_LABEL_KEY_BY_MEDIA[endedCached && endedCached.mediaType] || GAMEPLAY_NEXT_LABEL_KEY_BY_MEDIA.song;
 
-        // SỬA (05/10/2026) — truyền loại media ĐANG chơi để ghi điểm đúng store (trước đây luôn 'songs' -> Video/Photo không lưu
-        // được điểm). Chọn GIÁ TRỊ theo chế độ phát, cùng nguồn với getActiveMediaElement().
+        // Loại media ĐANG chơi -> ghi điểm đúng store. Chọn GIÁ TRỊ theo chế độ phát, cùng nguồn với getActiveMediaElement().
         const playingMediaType = isVideoPlayerMode ? 'video' : (isPhotoPlayerMode ? 'photo' : 'song');
         const { title, playCount } = await workflowGameplayEngine.persistScore('circle', gameplayDifficulty, finalScore, playingMediaType);
 
@@ -530,8 +456,7 @@ const workflowGameplay = {
             title: escapeHtml(title), // core (modal-choice-ui.js) — title là dữ liệu người dùng (tên file/tag), PHẢI escape trước khi chèn HTML
             durationLabel,
             difficultyLabel: t('gameplayCircle.difficulty.' + gameplayDifficulty),
-            // [SỬA — phản hồi Giang "cấu trúc played N times"] số ít/nhiều tách 2 key riêng — tránh
-            // "Played 1 times" sai ngữ pháp.
+            // Số ít/nhiều tách 2 key riêng — tránh "Played 1 times" sai ngữ pháp.
             playCountLabel: playCount === 1
                 ? t('gameplayCircle.ended.playCountLabel.singular')
                 : tFormat('gameplayCircle.ended.playCountLabel.plural', { count: playCount }),
@@ -542,11 +467,9 @@ const workflowGameplay = {
         });
     },
 
-    /** Nút "Chơi lại" — phát lại ĐÚNG bài/video hiện tại từ đầu. [SỬA — 02/09/2026, cùng lý do
-     * start()] KHÔNG còn hiện lại modal Start — nhảy thẳng countdown, cùng khuôn start(). PAUSE
-     * TRƯỚC rồi mới seek 0 (KHÔNG phải ngược lại — xem comment trong start()), chạy VÔ ĐIỀU KIỆN
-     * bất kể đang phát/đang dừng/đang seek dở (không `.play()` ngay — chỉ phát thật ở
-     * _beginPlaying()). */
+    /** Nút "Chơi lại" — phát lại ĐÚNG bài/video hiện tại từ đầu, nhảy thẳng countdown (cùng khuôn start()). PAUSE
+     * TRƯỚC rồi mới seek 0 (xem comment trong start()), vô điều kiện; không `.play()` ngay — chỉ phát thật ở
+     * _beginPlaying(). */
     replay() {
         const activeEl = getActiveMediaElement(appState.get('isVideoPlayerMode'), appState.get('isPhotoPlayerMode')); // core/player-controls.js
         activeEl.pause();
@@ -554,29 +477,20 @@ const workflowGameplay = {
         this._resetSessionCounters();
         appState.set('gameplayPhase', 'ready', { skipCheck: true });
         console.log(`writer: "workflowGameplay.replay", page: "gameplayPhase", content: "ready"`);
-        this.startCountdown(); // THẲNG vào countdown — KHÔNG còn workflowGameplayEngine.showStartModal()
+        this.startCountdown();
     },
 
     /** Nút "Bài tiếp theo" — `workflowPlayerControls.goToNextTrack(true)` TỰ wrap về đầu playlist
-     * nếu đang ở bài cuối. KHÔNG tự mở lại modal ready: hook TỰ ĐỘNG ở 'gameplay.mediaChanged' (xem
-     * docstring đầu file) lo việc đó — [SỬA — 02/09/2026, cùng đợt sửa bug "vào lại ĐÚNG bài vừa
-     * phát không kích hoạt start"] hook đó giờ gửi VÔ ĐIỀU KIỆN mỗi lần `playMedia()`/
-     * `playVideoByKey()` chạy (event/workflow/player.js/video-player.js), KỂ CẢ playlist chỉ có 1
-     * bài (`goToNextTrack(true)` vẫn đi qua `playMedia()` với ĐÚNG key cũ ở trường hợp đó — xem
-     * event/workflow/player-controls.js::goToNextTrack()) — fallback gọi `start()` thủ công riêng
-     * cho trường hợp này ĐÃ XOÁ (dead code, trùng với tín hiệu tự động, gọi 2 lần thừa). */
+     * nếu đang ở bài cuối. Không tự mở lại ván: tín hiệu 'gameplay.mediaChanged' gửi VÔ ĐIỀU KIỆN mỗi lần
+     * `playMedia()`/`playVideoByKey()` chạy (kể cả playlist chỉ có 1 bài — goToNextTrack(true) vẫn đi qua
+     * playMedia() với đúng key cũ) và lo việc đó. */
     nextSong() {
         workflowPlayerControls.goToNextTrack(true); // event/workflow/player-controls.js
     },
 
     /** Ứng với 'gameplay.exit.click' HOẶC nút Cancel/"Về Playlist" trong modal — thoát hẳn Game
-     * Mode, tự pause nhạc/video, tái dùng luồng "Back to Playlist" có sẵn.
-     *
-     * [SỬA — 02/09/2026, Giang yêu cầu "khi game mode bắt đầu/exit/thoát playing, kể cả nhạc đang
-     * phát/tạm dừng/seek ở đâu đều phải reset toàn bộ trạng thái nhạc, pause -> seek 0"] TRƯỚC ĐÂY
-     * hàm này CHỈ `.pause()`, KHÔNG reset `currentTime` — người chơi thoát Game Mode xong nhạc vẫn
-     * kẹt ở giữa bài. Giờ PAUSE TRƯỚC rồi seek 0 NGAY SAU (cùng thứ tự start()/replay()), chạy VÔ
-     * ĐIỀU KIỆN bất kể đang phát/đang dừng/đang seek dở lúc bấm Exit. */
+     * Mode, tái dùng luồng "Back to Playlist" có sẵn. Media reset về đầu: PAUSE TRƯỚC rồi seek 0 (cùng thứ tự
+     * start()/replay()), vô điều kiện. */
     exitToPlaylist() {
         appState.set('gameplayPhase', 'idle', { skipCheck: true });
         console.log(`writer: "workflowGameplay.exitToPlaylist", page: "gameplayPhase", content: "idle"`);
@@ -589,7 +503,7 @@ const workflowGameplay = {
 
         hideGameplayCountdown(gameplayCountdownScreen); // core-ui
         hideGameplayLayer(gameplayLayer); // core-ui
-        setPlayerControlsBlocked(false); // core (player-controls.js) — MỚI, gỡ lại ĐÚNG cặp với start()
+        setPlayerControlsBlocked(false); // core (player-controls.js) — gỡ lại ĐÚNG cặp với start()
         const ctx = gameplayCanvas.getContext('2d');
         clearGameplayCanvas(ctx, this._canvasWidthPx || gameplayCanvas.clientWidth, this._canvasHeightPx || gameplayCanvas.clientHeight); // core-ui
 
@@ -604,16 +518,14 @@ const workflowGameplay = {
         this._beatFluxHistory = [];
         this._pendingBeatFluxSum = 0;
         this._pendingBeatFluxCount = 0;
-        this._hardChainLevel = 1; // MỚI — reset chuỗi "sinh sản" đầu mỗi phiên
-        this._hardChainQueue = []; // MỚI — xoá phần chuỗi dở dang (nếu có) từ phiên trước
+        this._hardChainLevel = 1; // reset chuỗi "sinh sản" đầu mỗi phiên
+        this._hardChainQueue = []; // xoá phần chuỗi dở dang (nếu có) từ phiên trước
         this._hardChainLastSpawnAt = 0;
 
         workflowGameplayEngine.resetScoreCounters();
 
         appState.set('gameplayWaves', [], { skipCheck: true });
         console.log(`writer: "workflowGameplay._resetSessionCounters", page: "gameplayWaves", content: "reset"`);
-        // [SỬA — viết lại thuật toán pitch map] gameplayPitchRangeMin/Max ĐÃ XOÁ khỏi schema — dải
-        // MIDI giờ CỐ ĐỊNH [0-127], không còn gì cần reset ở đây.
         appState.set('gameplayPitchCellMap', [], { skipCheck: true });
         console.log(`writer: "workflowGameplay._resetSessionCounters", page: "gameplayPitchCellMap", content: "reset"`);
         appState.set('gameplayRefreshPending', false, { skipCheck: true });
@@ -625,15 +537,3 @@ const workflowGameplay = {
         }
     },
 };
-
-// Lưới pitch→ô phải khớp kích thước layer thật — resize/xoay màn hình giữa ván phải tính lại.
-// XOÁ (12/10/2026, plan-event-bus-wiring-07-10-2026 đợt 3, khuôn W5) — `window.addEventListener('resize', ...)` riêng
-// của Workflow này (viện dẫn tiền lệ core/canvas-scene-setup.js — tiền lệ đó đã xoá 28/09/2026). Nay đi CHUNG luồng
-// có sẵn: event/listener/visualizer-viewport.js -> Router 'visualizerViewport.window.resize' -> gọi thêm
-// `workflowGameplay._handleLayoutResize()` (không tạo listener resize thứ 2).
-// MỚI (08/09/2026) — xem docstring _handleLayoutResize() ở trên: window 'resize' không bắt được
-// case layer chuyển display:none -> hiện do đổi màn hình (Playlist<->Visualizer), CHỈ đổi kích
-// thước cửa sổ/xoay máy thật. ResizeObserver trên chính `#gameplay-layer` bắt đúng cả 2 loại thay
-// đổi kích thước (kể cả từ 0×0 lúc ẩn sang kích thước thật lúc hiện), dùng CHUNG 1 hàm xử lý ở
-// trên — không viết logic riêng.
-new ResizeObserver(() => workflowGameplay._handleLayoutResize()).observe(gameplayLayer);
