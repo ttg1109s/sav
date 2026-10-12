@@ -1,12 +1,5 @@
 /**
- * event/workflow/settings-misc.js — "THẰNG THỰC THI CUỐI" của router "settingsMisc".
- *
- * [21/09/2026] Nhánh `aboutDrawer` (`openAbout()`) ĐÃ XOÁ — nút mở `#setting-open-about` không còn tồn tại trong UI Settings
- * (carousel mới chỉ có Playlist/System/Visualizer Screen/Troubleshooting) nên `openAbout()`/`renderAboutPanelBody()`
- * không còn ai gọi tới (đã kiểm tra toàn project) — xoá cả cụm.
- *
- * Ver 12 "Multi Media": nhánh `storageDrawer` đã DỜI sang workflowFileManagerSong
- * (event/workflow/file-manager-song.js, plan-v12-multimedia.md mục 3).
+ * event/workflow/settings-misc.js — "THẰNG THỰC THI CUỐI" của router "settingsMisc" (Debug console + appRecovery).
  *
  * QUY TẮC:
  *   - Workflow KHÔNG tự nghĩ ra logic nghiệp vụ mới — chỉ là 1 CHUỖI GỌI hàm core đã có sẵn.
@@ -15,7 +8,7 @@
  *   - alertModal() KHÔNG bao giờ gọi BÊN TRONG callback của withLoadingShield() — luôn gọi SAU
  *     KHI shield đã đóng hẳn.
  */
-/** MỚI 23/09/2026 — MỌI key meta (IndexedDB) chứa CÀI ĐẶT, bị xoá hẳn ở Restore default settings
+/** MỌI key meta (IndexedDB) chứa CÀI ĐẶT, bị xoá hẳn ở Restore default settings
  * (confirmRestoreDefaults()). Thêm 1 domain cài đặt mới có persist qua meta -> PHẢI thêm key vào đây.
  * CỐ Ý KHÔNG có: folderIndex/deletedFolderIds (thư viện), songStats/totalListenSeconds (thống kê),
  * *Migrated (cờ migrate 1 lần), clearingInProgress (cờ tác vụ). */
@@ -23,42 +16,35 @@ const RESTORE_DEFAULTS_META_KEYS = [
     'configBackup', // bản backup vizConfig — PHẢI xoá, không loadConfig() sẽ phục hồi lại cấu hình cũ từ đây
     'visualBgConfig',
     'eqPresets',
-    'motionPresets', // SỬA 24/09/2026 — 'motionApply' BỎ (cơ chế đăng ký Motion vào nơi tiêu thụ đã xoá, boot tự delMeta key cũ)
+    'motionPresets',
     'playlistFilterPresets', 'playlistFilterActivePresetId', 'playlistFilterAppliedConfig', 'playlistFilterAppliesToFolder',
     'playlistConfig', 'playerConfig', 'playerDisplayConfig', 'uiThemeConfig', 'paginationConfig',
-    'recorderConfig', // MỚI 01/10/2026 — Ghi âm (chế độ thu / Sync / Count-in / chất lượng — SỬA 07/10/2026), event/workflow/recorder.js
-    'perfHudConfig', // MỚI 05/10/2026 — Performance HUD (bật/tắt, kiểu, chiều, vị trí), event/workflow/perf-hud.js
+    'recorderConfig', // Ghi âm (chế độ thu / Sync / Count-in / chất lượng), event/workflow/recorder.js
+    'perfHudConfig', // Performance HUD (bật/tắt, kiểu, chiều, vị trí), event/workflow/perf-hud.js
     'activePlayListFolder', // thư mục đang áp cho từng Nguồn -> về "Tất cả"
 ];
 
-/** MỚI 23/09/2026 — MỌI key localStorage chứa CÀI ĐẶT (cùng lý do trên). V20 = key cũ loadConfig() còn đọc fallback. */
+/** MỌI key localStorage chứa CÀI ĐẶT (cùng lý do trên). V20 = key cũ loadConfig() còn đọc fallback. */
 const RESTORE_DEFAULTS_LOCAL_STORAGE_KEYS = ['visualMasterConfigV21', 'visualMasterConfigV20', 'uiThemeName', 'uiThemeBoot'];
 
 const workflowSettingsMisc = {
 
-    // (05/10/2026) setPerfProbeEnabled()/setPerfProbeOrientation() ĐÃ DỜI sang workflowPerfHud (event/workflow/perf-hud.js).
+    _debugConsolePageIndex: 0, // trang đang xem của Debug console (nơi 'debugConsole' của Pagination), core tự kẹp
+    _debugConsolePanelEl: null, // phần tử chứa Debug Console đang mở (genericDrawerBody) — clear/xoá dòng/đổi trang cần vẽ lại danh sách
 
-    _debugConsolePageIndex: 0, // MỚI 23/09/2026 — trang đang xem của Debug console (nơi 'debugConsole' của Pagination), core tự kẹp
-    _debugConsolePanelEl: null, // panel Debug Console đang mở (pushSettingsPanel() dựng mới mỗi lần) — clearDebugConsoleLog() cần vẽ lại danh sách
-
-    /**
-     * MỚI (18/07/2026, Giang yêu cầu — "mục mới Settings > Misc, vào hiện console log"). SỬA
-     * (đợt tái cấu trúc bottom nav + phân phối lại Settings, phản hồi Giang — "Troubleshooting =
-     * debug console panel setting") — KHÔNG còn `pushSettingsPanel()`, bodyHtml do event/workflow/
-     * app-settings.js cung cấp SẴN qua `navigateTo()` — hàm này chỉ còn vẽ danh sách log + wire 2
-     * nút vào `genericDrawerBody` (core/generic-drawer.js, LUÔN có sẵn).
-     */
+    /** Debug console (Settings > Troubleshooting, hoặc lối tắt forceOpenDebugConsole()): body khung đã vẽ sẵn
+     * (event/workflow/app-settings.js / components/debug-console-drawer.js) — hàm này vẽ danh sách log + wire 2 nút
+     * Copy all / Clear all trong `genericDrawerBody`. */
     async openDebugConsole() {
         const panelEl = genericDrawerBody;
         this._debugConsolePanelEl = panelEl;
-        this._debugConsolePageIndex = 0; // MỚI 23/09/2026 — mở lại luôn về trang 1 (= log mới nhất khi đang phân trang)
+        this._debugConsolePageIndex = 0; // mở lại luôn về trang 1 (= log mới nhất khi đang phân trang)
         this._renderDebugConsoleList(panelEl);
         wireDebugConsolePanelActions(panelEl); // core/settings-misc-ui.js
     },
 
-    /** Ứng với 'settingsMisc.debugConsole.forceOpen' — MỚI (10/09/2026, Giang yêu cầu — "lối tắt
-     * cưỡng chế mở Debug Console ngay cả khi đang bị #loading-shield che", phục vụ debug lúc app bị
-     * kẹt/treo giữa chừng 1 tác vụ, không đợi tác vụ đó xong mới xem được log). Nút kích hoạt
+    /** Ứng với 'settingsMisc.debugConsole.forceOpen' — lối tắt cưỡng chế mở Debug Console ngay cả khi đang bị
+     * #loading-shield che (debug lúc app kẹt/treo giữa chừng 1 tác vụ). Nút kích hoạt
      * (`#btn-loading-shield-debug`) SỐNG NGAY BÊN TRONG chính `#loading-shield` (components/loading-
      * shield.js, z-[200]) nên LUÔN bấm được bất kể tác vụ nào đang chạy dở/treo bên dưới.
      *
@@ -70,20 +56,17 @@ const workflowSettingsMisc = {
      * Drawer vẫn nằm trên shield bất kể thứ tự DOM), header CHỈ có nút Đóng (KHÔNG có Back — đây là
      * lối tắt độc lập, không thuộc ngăn xếp điều hướng của `workflowAppSettings`), rồi tái dùng
      * NGUYÊN `openDebugConsole()` ngay trên để vẽ danh sách log + wire nút Copy/Xoá, y hệt luồng
-     * Settings bình thường. Đóng (nút X — qua Listener -> Router từ 12/10/2026) bằng `workflowGenericDrawerHelpers.closeFully()` — CHỈ đóng Generic
+     * Settings bình thường. Nút X (header mang `data-debug-force-close`) đi Listener -> Router
+     * 'settingsMisc.debugConsole.forceClose.click' -> `workflowGenericDrawerHelpers.closeFully()` — CHỈ đóng Generic
      * Drawer, KHÔNG đụng gì tới shield/tác vụ đang chạy dở bên dưới (2 lớp hoàn toàn độc lập).
      */
     forceOpenDebugConsole() {
-        workflowGenericDrawerHelpers.open({ // event/workflow/generic-drawer-helpers.js — SỬA 24/09/2026: lối mở DUY NHẤT (áp theme + dọn hẹn giờ)
+        workflowGenericDrawerHelpers.open({ // event/workflow/generic-drawer-helpers.js — lối mở DUY NHẤT (áp theme + dọn hẹn giờ)
             height: 'auto',
             maxHeight: '85vh',
             zIndex: Z_INDEX.LOADING_SHIELD + 10, // service/z-index.js
-            // SỬA 07/10/2026 — header dùng chung (components/generic-drawer.js), không còn markup trong Workflow.
-            // SỬA 12/10/2026 (plan-event-bus-wiring đợt 2) — nút X mang `data-debug-force-close`: Listener ủy quyền
-            // (event/listener/settings-misc.js) -> Router 'settingsMisc.debugConsole.forceClose.click' -> closeFully().
-            // Trước đây Workflow tự addEventListener lên nút X ngay sau khi mở (bỏ qua Listener -> Router).
-            headerHtml: buildDrawerHeaderHtml({ title: t('settingsMisc.debugConsole.title'), closeAttrs: 'data-debug-force-close="1"' }),
-            bodyHtml: renderDebugConsoleForceOpenBody(), // components/debug-console-drawer.js — SỬA 12/10/2026: wrapper dời khỏi Workflow
+            headerHtml: buildDrawerHeaderHtml({ title: t('settingsMisc.debugConsole.title'), closeAttrs: 'data-debug-force-close="1"' }), // components/generic-drawer.js
+            bodyHtml: renderDebugConsoleForceOpenBody(), // components/debug-console-drawer.js
             bodyClass: 'overflow-y-auto',
         });
         this.openDebugConsole(); // vẽ danh sách log + wire nút Copy/Xoá — TÁI DÙNG nguyên logic có sẵn ngay trên
@@ -114,7 +97,7 @@ const workflowSettingsMisc = {
         if (this._debugConsolePanelEl) this._renderDebugConsoleList(this._debugConsolePanelEl);
     },
 
-    /** MỚI (20/09/2026) — ứng với `settingsMisc.debugConsole.item.click` payload.action === 'copy':
+    /** Ứng với `settingsMisc.debugConsole.item.click` payload.action === 'copy':
      * Copy ĐÚNG 1 dòng. KHÔNG dùng alertModal (mỗi lần copy 1 dòng mà bật 1 modal thì quá nặng) — đổi
      * icon nút sang dấu tick ~1s rồi trả lại icon gốc (báo nhẹ, không chặn thao tác).
      * @param {number} id @param {HTMLElement} btnEl - nút Copy vừa bấm */
@@ -131,7 +114,7 @@ const workflowSettingsMisc = {
         taskManager.once(() => setDebugConsoleCopyIcon(btnEl, renderDebugConsoleCopyIconHtml(false)), 1000, `debugConsoleCopyFlash_${id}`);
     },
 
-    /** MỚI (20/09/2026) — ứng với `settingsMisc.debugConsole.item.click` payload.action === 'remove':
+    /** Ứng với `settingsMisc.debugConsole.item.click` payload.action === 'remove':
      * Xoá ĐÚNG 1 dòng rồi vẽ lại danh sách, GIỮ NGUYÊN vị trí cuộn (không nhảy xuống cuối như lúc mở).
      * @param {number} id */
     removeDebugConsoleItem(id) {
@@ -144,8 +127,8 @@ const workflowSettingsMisc = {
      * components/debug-console-drawer.js::renderDebugConsoleListHtml() dựng (đã escapeHtml nội dung log);
      * item vẽ SAU khi Generic Drawer đã áp theme nên phải áp lại `data-uitk` (core/ui-theme/apply-ui.js).
      *
-     * SỬA 23/09/2026 — nơi 'debugConsole' của Settings > System > Pagination:
-     *   - TẮT (mặc định): y hệt cũ — toàn bộ log cũ -> mới, tự cuộn xuống dòng MỚI NHẤT (`keepScroll`
+     * Theo nơi 'debugConsole' của Settings > System > Pagination:
+     *   - TẮT (mặc định): toàn bộ log cũ -> mới, tự cuộn xuống dòng MỚI NHẤT (`keepScroll`
      *     = true thì giữ vị trí cuộn, dùng khi xoá 1 dòng giữa danh sách).
      *   - BẬT: log MỚI NHẤT lên ĐẦU (trang 1 = mới nhất — cách duy nhất để mọi kiểu phân trang, kể cả
      *     'loadMore' cộng dồn từ đầu, đều mở ra thấy log mới trước), cuộn về đầu danh sách; xoá 1 dòng vẫn
@@ -171,7 +154,7 @@ const workflowSettingsMisc = {
         listEl.scrollTop = keepScroll ? prevScrollTop : (isPaginated ? 0 : listEl.scrollHeight);
     },
 
-    /** MỚI 23/09/2026 — ứng với 'settingsMisc.debugConsole.page.change' (thanh phân trang Debug console).
+    /** Ứng với 'settingsMisc.debugConsole.page.change' (thanh phân trang Debug console).
      * @param {number} pageIndex */
     setDebugConsolePage(pageIndex) {
         this._debugConsolePageIndex = pageIndex;
@@ -205,11 +188,8 @@ const workflowSettingsMisc = {
         );
     },
 
-    /** Ứng với msg.type = 'settingsMisc.restoreDefaults.confirm'.
-     * SỬA (23/09/2026, Giang: "Đã là Restore default setting -> thì mọi thứ phải reset hết về gốc, không có
-     * ngoại lệ và vùng cấm") — TRƯỚC ĐÂY chỉ reset 3 thứ (vizConfig, visualBgConfig, 5 preset EQ gốc — preset
-     * người dùng tự tạo được GIỮ), bỏ sót Theme, Player, Pagination, Motion, Filter, cấu hình Playlist/Player,
-     * thư mục đang áp... Giờ = "y hệt lúc mới cài" về mặt CÀI ĐẶT:
+    /** Ứng với msg.type = 'settingsMisc.restoreDefaults.confirm'. Quy tắc (Giang chốt): Restore default settings reset
+     * MỌI cài đặt về gốc, không ngoại lệ — "y hệt lúc mới cài" về mặt CÀI ĐẶT:
      *   1. XOÁ HẲN mọi bản lưu cài đặt — RESTORE_DEFAULTS_META_KEYS (IndexedDB meta) +
      *      RESTORE_DEFAULTS_LOCAL_STORAGE_KEYS — rồi reload: boot tự seed mặc định cho từng domain đúng như
      *      lần chạy đầu (mọi loader đã xử lý sẵn trường hợp "chưa từng lưu": EQ seed 6 preset gốc, Motion/
@@ -239,8 +219,7 @@ const workflowSettingsMisc = {
         location.reload();
     },
 
-    /** MỚI (14/07/2026, Giang yêu cầu — "nút xoá cache js/css cho page") — ứng với msg.type =
-     * 'settingsMisc.clearCache.click'. */
+    /** Nút xoá cache js/css của trang — ứng với msg.type = 'settingsMisc.clearCache.click'. */
     askClearCache(payload) {
         const { onConfirmSend } = payload;
         modalChoice(

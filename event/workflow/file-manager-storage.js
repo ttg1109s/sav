@@ -1,46 +1,24 @@
 /**
- * event/workflow/file-manager-storage.js — MỚI (29/07/2026, yêu cầu Giang). "THẰNG THỰC THI CUỐI"
- * của router "fileManagerStorage" — THAY HẲN event/workflow/file-manager-song.js đã xoá.
+ * event/workflow/file-manager-storage.js — "THẰNG THỰC THI CUỐI" của router "fileManagerStorage" (Generic Drawer "Quản
+ * lý lưu trữ" — storageDrawer.title, mở từ tab Storage của bottom nav, gộp CẢ 3 domain Song/Video/Photo):
+ *   - Thống kê dung lượng: Workflow đọc record 3 loại + tổng giây nghe + estimate quota, core thuần tổng hợp, rồi
+ *     `renderStorageStats()` (core/storage-manager.js) vẽ.
+ *   - "Chọn mục xoá": 3 toggle nguồn ĐỘC LẬP (song/video/photo) — router (event/router/file-manager-storage.js) giữ
+ *     closure `{song,video,photo}`. Là tổ hợp BOOLEAN ĐỘC LẬP (2^3 khả năng, không phải 1 enum hữu hạn để
+ *     VirtualMachineState so khớp) nên Router gọi THẲNG 1 method (`executeStorageAction()`), method đó tự LẶP qua từng
+ *     nguồn đang bật.
+ *   - "Dọn file lỗi": modal riêng chọn loại quét (askScanBrokenScope()), quét -> sửa/xoá theo từng lô.
+ *   - "Dọn dẹp dữ liệu" (registry fileManagerCleanup) KHÔNG thuộc file/router này.
+ * Storage dùng `genericDrawerBody` (TĨNH, luôn tồn tại); `genericDrawerPanel.classList.contains('hidden')` cho biết đang
+ * mở/đóng (xem các guard bên dưới). Không có sub-panel lồng bên trong.
  *
- * Panel "Quản lý lưu trữ" (storageDrawer.title) giờ gộp CẢ 3 domain (Song/Video/Photo) — KHÔNG
- * còn là "panel Song & Video kèm thống kê" như trước:
- *   - Thống kê dung lượng: `computeStats()`/`computeVideoStats()`/`computeImageStats()` (3 core
- *     khác nhau, chạy song song) -> `renderStorageStats()` (core/storage-manager.js, ĐÃ viết lại
- *     nhận đủ 3 stats).
- *   - "Chọn mục xoá": 3 toggle nguồn ĐỘC LẬP (song/video/photo, không loại trừ nhau) THAY
- *     `<select>` phạm vi cũ — router (event/router/file-manager-storage.js) giữ closure
- *     `{song,video,photo}` (KHÔNG còn 1 enum 'song'|'video'|'both'). Vì đây là tổ hợp
- *     BOOLEAN ĐỘC LẬP (2^3 khả năng, KHÔNG phải 1 giá trị enum hữu hạn để VirtualMachineState so
- *     khớp), Router KHÔNG dùng VMState ở bước thực thi — gọi THẲNG 1 method DUY NHẤT
- *     (`executeStorageAction()`), method đó tự LẶP qua từng nguồn đang bật, gọi core tương ứng —
- *     ĐÚNG tinh thần Workflow "orchestrate nhiều bước", cùng khuôn `executeStorageActionBoth()` cũ
- *     (đã tự xử lý 2 domain tuần tự trong 1 method, không cần VMState nội bộ) — chỉ tổng quát hoá
- *     từ "2 domain cố định" lên "N domain bất kỳ trong tập 3".
- *   - "Dọn file lỗi" DÙNG CHUNG đúng 3 toggle nguồn trên để biết quét kho nào.
- *   - "Dọn dẹp dữ liệu" (registry fileManagerCleanup) KHÔNG thuộc file/router này — chỉ ĐỔI NƠI
- *     listener wiring (xem event/listener/file-manager-storage.js), router/workflow/core cleanup
- *     GIỮ NGUYÊN 100%.
+ * QUY TẮC: chuỗi gọi hàm core thuần, withLoadingShield()/alertModal()/modalChoice() CHỈ đặt ở tầng này.
  *
- * QUY TẮC: giống hệt event/workflow/playlist.js — chuỗi gọi hàm core thuần, withLoadingShield()/
- * alertModal()/modalChoice() CHỈ đặt ở tầng này.
- *
- * NẠP SAU: core/storage-manager.js, core/about-stats.js, core/file-manager/video.js, core/file-
- * manager/image.js, core/generic-drawer.js, event/workflow/
- * generic-drawer-helpers.js, event/workflow/app-panel-nav.js.
+ * NẠP SAU: core/storage-manager.js, core/about-stats.js, core/file-manager/video.js, core/file-manager/image.js,
+ * core/generic-drawer.js, event/workflow/generic-drawer-helpers.js, event/workflow/app-panel-nav.js.
  * NẠP TRƯỚC: event/router/file-manager-storage.js, event/listener/file-manager-storage.js.
- *
- * SỬA (đợt tái cấu trúc bottom nav App Panel, phản hồi Giang — "Storage mở trực tiếp") — panel
- * "Quản lý lưu trữ" KHÔNG còn PUSH vào `#drawer-settings` cũ (đã xoá hẳn) — giờ mở THẲNG qua
- * core/generic-drawer.js (singleton chung, cùng khuôn Folder browser, event/workflow/
- * file-manager-folder-browser.js). Mọi `genericDrawerBody.querySelector(...)` đổi cơ giới
- * sang `genericDrawerBody.querySelector(...)` — Storage KHÔNG có sub-panel lồng bên trong (khác
- * Photo), nên KHÔNG có xung đột singleton nào cần xử lý thêm.
  */
-// SỬA (đợt tái cấu trúc bottom nav App Panel) — `fileManagerStoragePanelEl` KHÔNG còn ý nghĩa
-// (Storage giờ dùng `genericDrawerBody`, phần tử TĨNH luôn tồn tại) — dùng
-// `genericDrawerPanel.classList.contains('hidden')` để biết đang mở/đóng, xem các guard bên dưới.
-
-/** MỚI (21/09/2026, Giang yêu cầu "number ở storage cũng cần animation number") — đếm-lên các con số thống kê dung lượng
+/** Đếm-lên các con số thống kê dung lượng
  * (tổng byte + số Song/Video/Photo) mỗi lần `refreshTab()` vẽ lại, dùng CHUNG core `computeCountupValue()` (core/number-countup.js)
  * + vòng lặp `workflowNumberCountup.run()` (event/workflow/number-countup.js) — cùng cơ chế Game/Statistics. Ease-out cubic như Statistics. */
 const STORAGE_COUNTUP_TASK = 'storageStatsCountUp';
@@ -49,8 +27,7 @@ const STORAGE_COUNTUP_EASE_POWER = 3;
 
 const workflowFileManagerStorage = {
 
-    /** DỜI (24/09/2026, dọn nợ "Core gọi Workflow") từ core/storage-manager.js::clearAllStoredData() — thân GIỮ NGUYÊN, chỉ đổi bước "về Playlist" sang `workflowPlayerControls.returnToPlaylistUI()`.
-     * Xóa TOÀN BỘ dữ liệu app khỏi IndexedDB: cả 2 store songs + meta — dùng chung cho cả 2 nút giải phóng bộ nhớ.
+    /** Xóa TOÀN BỘ thư viện Song khỏi IndexedDB (3 store Song + tổng giây nghe) rồi đồng bộ lại RAM/UI và về Playlist.
      *
      * AN TOÀN KHI BỊ GIÁN ĐOẠN (đóng tab/crash giữa chừng):
      *   - meta.clearingInProgress = true được ghi NGAY ĐẦU hàm, TRƯỚC khi xoá bất kỳ key nào —
@@ -71,28 +48,24 @@ const workflowFileManagerStorage = {
             // [QUYẾT ĐỊNH 1.8] "Xóa hết dữ liệu" CHỈ xóa bài hát (và thống kê nghe riêng từng bài,
             // vì bài hát đã mất). KHÔNG đụng tới ảnh/video nền (bgImage/videoBg) — đó là tài nguyên
             // người dùng thiết lập riêng, không nằm trong "thư viện nhạc".
-            await clearAllMediaOfType('song'); // service/db.js — SỬA 06/10/2026: xoá 3 store Song trong 1 transaction (thay vòng deleteSongRecord)
+            await clearAllMediaOfType('song'); // service/db.js — xoá 3 store Song trong 1 transaction
             await delMeta('totalListenSeconds');
-            workflowListenStats.forgetType('song'); // event/workflow/listen-stats.js — SỬA 06/10/2026: thống kê mất cùng record, chỉ dọn RAM loại Song
+            workflowListenStats.forgetType('song'); // event/workflow/listen-stats.js — thống kê mất cùng record, chỉ dọn RAM loại Song
 
             // Đồng bộ lại toàn bộ state RAM — không reload trang, để người dùng thấy ngay kết quả.
             appState.set('playlistOrder', []); appState.set('displayOrder', []); appState.mutate('playlistCache', m => m.clear()); appState.mutate('songNameIndex', m => m.clear()); appState.mutate('confirmedBrokenKeys', s => s.clear());
             appState.mutate('pendingResortKeys', s => s.clear());
-            // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — recomputeRenderOrder()
-            // ĐÃ DỜI hẳn sang event/workflow/playlist-order.js (workflowPlaylistOrder) — CÙNG
-            // ghi chú nợ "Core gọi Workflow" như các chỗ khác đã sửa trong đợt này. Giữ NGUYÊN
-            // guard phòng thủ (kiểm tra tồn tại trước khi gọi) — CHỈ đổi đối tượng kiểm tra.
             if (typeof workflowPlaylistOrder !== 'undefined') workflowPlaylistOrder.recomputeRenderOrder();
             if (appState.get('currentKey')) { audioPlayer.pause(); audioPlayer.src = ''; appState.set('currentKey', null); }
-            workflowAutoSwitchVisual.killAllTasks(); // event/workflow/auto-switch-visual.js (dời từ core 25/09/2026)
+            workflowAutoSwitchVisual.killAllTasks(); // event/workflow/auto-switch-visual.js
             if (appState.get('currentObjectURL')) { URL.revokeObjectURL(appState.get('currentObjectURL')); appState.set('currentObjectURL', null); }
             if (appState.get('currentCoverObjectURL')) { URL.revokeObjectURL(appState.get('currentCoverObjectURL')); appState.set('currentCoverObjectURL', null); }
             playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
-            if (typeof workflowPlaylistOrder !== 'undefined') workflowPlaylistOrder.updateShuffleArray(); // event/workflow/playlist-order.js (dời từ core/playlist/order.js)
+            if (typeof workflowPlaylistOrder !== 'undefined') workflowPlaylistOrder.updateShuffleArray(); // event/workflow/playlist-order.js
             workflowPlaylistRender.renderPlaylistFull();
             saveConfig();
-            workflowPlayerControls.returnToPlaylistUI(); // event/workflow/player-controls.js (thay core forceBackToPlaylistUI(), 24/09/2026)
-            if (typeof setVisualizerActiveFalse === 'function') setVisualizerActiveFalse(); // MỚI (08/07/2026, HOTFIX 10) — forceBackToPlaylistUI() không còn tự set nữa
+            workflowPlayerControls.returnToPlaylistUI(); // event/workflow/player-controls.js
+            if (typeof setVisualizerActiveFalse === 'function') setVisualizerActiveFalse(); // returnToPlaylistUI() không tự set cờ này
 
             await delMeta('clearingInProgress'); // chỉ xoá cờ SAU KHI mọi bước trên đã xong hoàn toàn
         } finally {
@@ -104,36 +77,14 @@ const workflowFileManagerStorage = {
     /** Ứng với 'fileManagerStorage.openPanel.click'. Mở Generic Drawer "Quản lý lưu trữ" — cùng
      * khuôn `workflowFileManagerFolderBrowser._renderList()` (header title + nút X). */
     async openPanel() {
-        workflowGenericDrawerHelpers.open({ // event/workflow/generic-drawer-helpers.js — SỬA 24/09/2026: lối mở DUY NHẤT
-            height: 'auto', // MỚI (phản hồi Giang mục 2) — tự co theo nội dung, xem core/generic-drawer.js
+        workflowGenericDrawerHelpers.open({ // event/workflow/generic-drawer-helpers.js — lối mở DUY NHẤT
+            height: 'auto', // tự co theo nội dung, xem core/generic-drawer.js
             maxHeight: '85vh',
-            // SỬA 07/10/2026 — header dùng chung (components/generic-drawer.js), không còn markup trong Workflow.
-            // SỬA 12/10/2026 (plan-event-bus-wiring đợt 2, khuôn W6) — nút X mang `data-storage-close`, đăng ký ở Listener
-            // (event/listener/file-manager-storage.js, ủy quyền trên genericDrawerHeader); trước đây Workflow tự
-            // addEventListener (callback vốn đã chỉ eventBus.send — đúng Router, sai NƠI đăng ký).
-            headerHtml: buildDrawerHeaderHtml({ title: t('storageDrawer.title'), closeAttrs: 'data-storage-close="1"' }),
-            // SỬA (phản hồi Giang mục 2 — "styling lỗi, cụm bị co vào nhau, theo theme setting/custom
-            // effect") — GỐC BỆNH: renderFileManagerStorageManagementPanelBody() (components/file-
-            // manager-storage.js) viết bằng bảng màu TỐI (text-white/text-slate-300/.glass-modal/
-            // border-white/bg-white/[0.03] — vốn dành cho nền TỐI của Visualizer) nhưng Generic
-            // Drawer LUÔN nền TRẮNG cố định (loại trừ theme, xem core/generic-drawer.js) — chữ trắng
-            // trên nền trắng gần như vô hình, ĐÚNG hiện tượng "các cụm bị co vào nhau"/nhoè trong ảnh
-            // Giang gửi (không phải lỗi spacing thật, là lỗi TƯƠNG PHẢN). `.glass-modal` còn có
-            // `backdrop-filter: blur(24px)` (thiết kế để làm mờ Visualizer PHÍA SAU) — trên Generic
-            // Drawer chỉ còn làm mờ chính nền trắng của panel, không có tác dụng, VÀ tạo 1 stacking
-            // context riêng (CSS spec) — nhiều khả năng CHÍNH LÀ nguyên nhân nút X không ấn được
-            // (WebKit/iOS có nhiều bug đã biết về backdrop-filter chồng lấn hit-test trong bottom
-            // sheet). SỬA LÚC ĐÓ: bọc `.app-settings-scope` — mượn kỹ thuật event/workflow/
-            // app-settings.js đã dùng cho CHÍNH bug này ở Settings (đè toàn bộ class tối kể trên sang
-            // sáng qua CSS `!important`, KHÔNG cần viết lại template). `p-4` DỜI vào wrapper này (khỏi
-            // bodyClass) — ĐÚNG quy ước Settings (bodyClass CHỈ còn overflow-y-auto, không tự có
-            // padding).
-            // SỬA TIẾP (09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — `.app-settings-scope`
-            // (CSS đè màu) ĐÃ XOÁ HẲN — renderFileManagerStorageManagementPanelBody() giờ tự viết
-            // TRỰC TIẾP bằng bảng màu sáng (xem docstring components/file-manager-storage.js), không
-            // còn 1 class tối nào cần đè. Wrapper chỉ còn `text-slate-900` (màu chữ mặc định kế thừa
-            // xuống) + `p-4`, không còn ý nghĩa "scope đè màu" nào nữa.
-            bodyHtml: renderFileManagerStorageDrawerBody(), // components/file-manager-storage.js — SỬA 12/10/2026: wrapper `p-4` + màu chữ theo theme dời khỏi Workflow (SỬA 21/09/2026 — trước đây text-slate-900 cứng)
+            // Nút X mang `data-storage-close` — Listener ủy quyền (event/listener/file-manager-storage.js) gửi
+            // 'fileManagerStorage.closePanel.click'.
+            headerHtml: buildDrawerHeaderHtml({ title: t('storageDrawer.title'), closeAttrs: 'data-storage-close="1"' }), // components/generic-drawer.js
+            // `p-4` nằm trong wrapper của body (quy ước Settings: bodyClass chỉ overflow-y-auto, không tự có padding).
+            bodyHtml: renderFileManagerStorageDrawerBody(), // components/file-manager-storage.js
             bodyClass: 'overflow-y-auto',
         });
 
@@ -143,7 +94,7 @@ const workflowFileManagerStorage = {
         this.updateStorageActionUI({ song: false, video: false, photo: false }, false, false);
     },
 
-    /** Ứng với 'fileManagerStorage.closePanel.click' — MỚI (đợt tái cấu trúc bottom nav). */
+    /** Ứng với 'fileManagerStorage.closePanel.click' — đóng Drawer, trả bottom nav về Media. */
     closePanel() {
         taskManager.kill(STORAGE_COUNTUP_TASK); // dừng đếm-lên nếu panel đóng giữa chừng
         workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
@@ -151,8 +102,7 @@ const workflowFileManagerStorage = {
     },
 
     /**
-     * DỜI (06/10/2026, dọn nợ Rule 3b) từ core/storage-manager.js::estimateOriginStorage() — đọc
-     * `navigator.storage.estimate()`: dung lượng ĐANG DÙNG + TỐI ĐA của CẢ origin (IndexedDB + OPFS + Cache Storage gộp
+     * Đọc `navigator.storage.estimate()`: dung lượng ĐANG DÙNG + TỐI ĐA của CẢ origin (IndexedDB + OPFS + Cache Storage gộp
      * chung — Safari không có `usageDetails`). Safari hỗ trợ từ iOS 17; web app màn hình chính có quota khoảng 60% dung
      * lượng máy. Số là ƯỚC TÍNH. Không hỗ trợ/lỗi -> `null` (KHÔNG throw).
      * @returns {Promise<{usage: number, quota: number}|null>}
@@ -174,9 +124,8 @@ const workflowFileManagerStorage = {
     async refreshTab() {
         if (genericDrawerPanel.classList.contains('hidden')) return; // panel đã đóng — an toàn bỏ qua
 
-        // SỬA (06/10/2026, dọn nợ Rule 3b — Giang yêu cầu) — Workflow ĐỌC toàn bộ dữ liệu (record 3 loại — 1 transaction mỗi
-        // loại thay vì mỗi record 1 transaction; tổng giây nghe; estimate quota) rồi core THUẦN tổng hợp. Trước đây
-        // computeStats()/computeVideoStats()/computeImageStats() + estimateOriginStorage() là core tự đọc DB/trình duyệt.
+        // Workflow ĐỌC toàn bộ dữ liệu (record 3 loại — 1 transaction mỗi loại; tổng giây nghe; estimate quota) rồi core
+        // THUẦN tổng hợp (Rule 3b).
         const [songRecords, videoRecords, imageRecords, totalListenSeconds, originEstimate] = await Promise.all([
             getAllSongRecords(), getAllVideoRecords(), getAllImageRecords(), getMeta('totalListenSeconds'), this._estimateOriginStorage(),
         ]); // service/db.js
@@ -209,13 +158,13 @@ const workflowFileManagerStorage = {
         );
     },
 
-    /** MỚI (21/09/2026) — đếm-lên 4 con số (tổng dung lượng + số Song/Video/Photo) từ 0 tới số `renderStorageStats()` vừa ghi: ép về
+    /** Đếm-lên 4 con số (tổng dung lượng + số Song/Video/Photo) từ 0 tới số `renderStorageStats()` vừa ghi: ép về
      * khung 0 NGAY (đồng bộ, không nháy số cuối trước khi đếm) rồi chạy `workflowNumberCountup.run()`; giá trị mỗi khung do
      * `computeCountupValue()` (core), định dạng byte dùng `formatBytes()` (core/about-stats.js — chính hàm đã dùng lúc ghi số cuối, nên khung cuối
      * khớp từng ký tự). Gọi lại `refreshTab()` (vd sau khi xoá xong) tự huỷ lượt cũ (`run()` kill trùng tên). */
     _startStorageCountup(els, songStats, videoStats, photoStats, originBreakdown) {
         const asInteger = (value) => `${value}`;
-        // MỚI (06/10/2026) — "còn trống / tối đa": chỉ phần còn trống đếm lên, tối đa giữ nguyên.
+        // "còn trống / tối đa": chỉ phần còn trống đếm lên, tối đa giữ nguyên.
         // Không có estimate thì el = null (bị filter bỏ ngay dưới) — dòng đó vốn đang ẩn.
         const freeTarget = originBreakdown
             ? { el: els.freeBytesEl, finalValue: originBreakdown.freeBytes, format: (value) => `${formatBytes(value)} / ${formatBytes(originBreakdown.quota)}` } // core/about-stats.js
@@ -237,12 +186,9 @@ const workflowFileManagerStorage = {
         workflowNumberCountup.run(STORAGE_COUNTUP_TASK, { steps: STORAGE_COUNTUP_STEPS, onFrame: paintFrame }); // event/workflow/number-countup.js
     },
 
-    /** Ứng với 'fileManagerStorage.storageBarSegment.click' — MỚI (29/07/2026, yêu cầu Giang mục 2
-     * — "thêm phần số dung lượng khi ấn vào mỗi phần của thanh dung lượng") — hiện `alertModal()`
-     * với ĐÚNG số byte của đoạn vừa ấn (đọc từ `dataset.bytes`, gắn sẵn lúc `renderStorageStats()`
-     * vẽ lại thanh — core/storage-manager.js). `legendKey` là 1 trong 3 key
-     * `storageDrawer.legend{Songs,Videos,Photos}` (TÁI DÙNG NGUYÊN — không cần label
-     * riêng cho việc này).
+    /** Ứng với 'fileManagerStorage.storageBarSegment.click' — hiện `alertModal()` với ĐÚNG số byte của đoạn vừa ấn (đọc
+     * từ `dataset.bytes`, gắn sẵn lúc `renderStorageStats()` vẽ lại thanh). `legendKey` là key nhãn của đoạn
+     * (`storageDrawer.legend{Songs,Videos,Photos,Other}`).
      * @param {{bytes: number, legendKey: string}} payload
      */
     showSegmentBytes(payload) {
@@ -271,8 +217,7 @@ const workflowFileManagerStorage = {
 
         const executeBtn = genericDrawerBody.querySelector('#btn-storage-execute');
         if (executeBtn) {
-            // MỚI — thêm điều kiện "có ít nhất 1 nguồn được chọn" (select cũ LUÔN có đúng 1 giá trị
-            // nên không cần kiểm tra riêng; 3 checkbox độc lập giờ CÓ THỂ đều tắt hết).
+            // Cần ít nhất 1 nguồn (3 checkbox độc lập có thể đều tắt) VÀ ít nhất 1 hành động.
             const anySource = sources.song || sources.video || sources.photo;
             const anyAction = downloadEnabled || deleteEnabled;
             executeBtn.disabled = !(anySource && anyAction);
@@ -315,17 +260,8 @@ const workflowFileManagerStorage = {
         );
     },
 
-    /** DÙNG CHUNG bởi Song/Video/Photo — build zip (nếu có gì để đóng gói) rồi tải xuống ngay.
-     * SỬA (06/09/2026, hợp nhất Folder vào Playlist — buildAllSongsZipBlob()/buildAllVideosZipBlob()/
-     * buildAllPhotosZipBlob() thêm tham số `keys` tuỳ chọn, xem core/storage-manager.js) — truyền
-     * THẲNG `keys` vừa lấy được ở dòng dưới vào `buildZipFn`, tránh gọi `getKeysFn()` LẦN 2 một cách
-     * ngầm bên trong `buildZipFn` (trước đây `buildZipFn` tự gọi `getAllSongKeys()` v.v. riêng).
-     *
-     * XOÁ (10/09/2026, Giang yêu cầu "loại bỏ toàn bộ JSZip") — tham số `getRecordFn` bỏ hẳn, chỉ
-     * dùng cho nhánh "ước lượng dung lượng + tải riêng từng file" (dự phòng JSZip) đã xoá ở
-     * `zipAndDownloadOrFallback()` ngay dưới, xem docstring hàm đó.
-     * SỬA (06/10/2026, chia zip nhiều phần + dọn nợ Rule 3b) — tham số hàm gom đổi thành `mediaType`: gom entries qua
-     * `workflowZipDownload.collectEntries(mediaType, keys)` (event/workflow/zip-download.js — Workflow tự đọc record).
+    /** DÙNG CHUNG bởi Song/Video/Photo — lấy toàn bộ key của loại media rồi zip + tải xuống (zipAndDownloadOrFallback()).
+     * Không có gì để đóng gói -> 'noItems'.
      * @param {'song'|'video'|'photo'} mediaType
      * @param {() => Promise<string[]>} getKeysFn
      * @param {string} zipNamePrefix - đã dịch sẵn qua t(), dùng làm tên file
@@ -340,29 +276,14 @@ const workflowFileManagerStorage = {
     },
 
     /**
-     * MỚI (10/09/2026, Giang báo bug "zip video >1GB làm crash PWA, bị cưỡng chế reload") — DÙNG
-     * CHUNG bởi `_downloadZipFor()` ngay trên (Storage Management) VÀ `_downloadFolderZip()`
-     * (event/workflow/file-manager-folder-browser.js — "Folder Properties -> Download").
-     *
-     * XOÁ (10/09/2026, Giang yêu cầu "loại bỏ toàn bộ JSZip") — TRƯỚC ĐÂY, khi streaming OPFS hoàn
-     * toàn không khả dụng (`isStreamingZipAvailable()` false, browser rất cũ), hàm này ước lượng
-     * dung lượng rồi hỏi người dùng chuyển sang tải RIÊNG TỪNG FILE làm lưới an toàn cho nhánh JSZip
-     * dự phòng (dựng liền 1 khối trong RAM). JSZip đã bỏ hẳn khỏi app — KHÔNG còn nhánh nào để cần
-     * lưới an toàn đó nữa, nên bỏ luôn bước ước lượng/hỏi này: streaming không khả dụng thì
-     * `buildZipFn()` bên dưới tự ném lỗi, rơi thẳng vào nhánh `catch` báo `zipError`, KHÔNG cần
-     * "thiết kế luồng riêng" cho trường hợp không tải được (theo đúng ý Giang).
-     *
-     * DỌN FILE TẠM OPFS: khi `zipBlob` build ra là 1 File streaming (có `_opfsTempName`, xem
-     * `buildZipStreamingToOpfs()`, core/streaming-zip.js), gọi `cleanupStreamingZipTemp()` NGAY SAU
-     * khi `promptDownloadReady()` đóng (đã tải/share xong hoặc người dùng Huỷ) — không để rác tích
-     * lại trong OPFS qua nhiều lượt dùng.
-     * SỬA (06/10/2026, Giang yêu cầu "zip lớn hơn 500MB thì chia thành nhóm rồi zip, hiển thị các file zip lẻ ở
-     * modal download") — gom entries (`collectEntriesFn`) rồi giao cho `workflowZipDownload.compressInParts()` +
-     * `deliver()` (event/workflow/zip-download.js — tự chia nhóm <= 500MB, tự dọn file tạm OPFS). Trả thêm status
-     * 'cancelled' khi CHƯA tải đủ mọi phần (bấm Huỷ/Xong sớm, huỷ Share Sheet) — `_runStorageActionForSource()` chỉ xoá
-     * dữ liệu khi 'ok', nên giờ KHÔNG còn xoá khi người dùng chưa thật sự tải về (trước đây bấm Huỷ ở modal 1 file vẫn
-     * tính là 'ok').
-     * @param {'song'|'video'|'photo'} mediaType - SỬA 06/10/2026 (thay `collectEntriesFn`, dọn nợ Rule 3b)
+     * Zip + tải xuống 1 tập key — DÙNG CHUNG bởi `_downloadZipFor()` ngay trên (Storage Management) VÀ
+     * `_downloadFolderZip()` (event/workflow/file-manager-folder-browser.js — "Folder Properties -> Download").
+     * Gom entries (`workflowZipDownload.collectEntries()`) rồi giao `compressInParts()` + `deliver()`
+     * (event/workflow/zip-download.js — zip stream qua OPFS, tự chia nhóm <= 500MB, tự dọn file tạm OPFS). Streaming
+     * không khả dụng -> lỗi rơi vào `catch` báo 'zipError'. 'cancelled' khi CHƯA tải đủ mọi phần (bấm Huỷ/Xong sớm, huỷ
+     * Share Sheet) — `_runStorageActionForSource()` chỉ xoá dữ liệu khi 'ok', nên không bao giờ xoá khi người dùng chưa
+     * thật sự tải về.
+     * @param {'song'|'video'|'photo'} mediaType
      * @param {string[]} keys
      * @param {string} zipFileName - tên file .zip ĐẦY ĐỦ (đã gồm ".zip") — có nhiều phần thì thêm hậu tố "-part{i}of{n}"
      * @returns {Promise<{status:'ok'|'zipError'|'cancelled', message?:string}>}
@@ -378,20 +299,15 @@ const workflowFileManagerStorage = {
             console.error('[file-manager-storage] Lỗi đóng gói zip:', err);
             return { status: 'zipError', message: err && err.message ? err.message : String(err) };
         }
-        // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — KHÔNG
-        // triggerDownload() thẳng ngay đây nữa (user-activation của lượt bấm gốc gần như chắc chắn
-        // đã hết hạn sau khi chờ tính dung lượng + build zip xong) — giao cho promptDownloadReady()
-        // (core/id3-export.js), nút "Tải xuống" bên trong modal đó mới thật sự gọi
-        // triggerDownload() với activation MỚI/còn nguyên.
+        // Không tải thẳng ở đây: user-activation của lượt bấm gốc đã hết hạn sau khi build zip (PWA sẽ mở Quick Look thay
+        // vì tải) — modal của deliver() có nút "Tải xuống" tạo activation MỚI.
         const allDownloaded = await workflowZipDownload.deliver(zipParts); // event/workflow/zip-download.js — tự dọn file tạm OPFS sau khi modal đóng
         const statusByAllDownloaded = { true: 'ok', false: 'cancelled' };
         return { status: statusByAllDownloaded[allDownloaded] };
     },
 
-    /** Dọn RAM/UI sau khi xoá sạch Video (thoát Video Player mode nếu đang bật + rỗng hoá
-     * playlistCache/playlistOrder nếu Playlist đang browse nguồn Video) — GIỮ NGUYÊN 100% từ
-     * event/workflow/file-manager-song.js (đã xoá) — xem giải thích đầy đủ ở core/storage-
-     * manager.js::clearAllVideosData(). */
+    /** Dọn RAM/UI sau khi xoá sạch Video: thoát Video Player mode nếu đang bật + rỗng hoá playlistCache/playlistOrder
+     * nếu Playlist đang browse nguồn Video (không để danh sách hiện video đã xoá). */
     async _resetVideoRuntimeStateAfterClear() {
         if (appState.get('isVideoPlayerMode')) {
             await workflowVideoPlayer.exitVideoPlayerMode(); // event/workflow/video-player.js — Workflow gọi Workflow miền khác, tự do
@@ -399,52 +315,39 @@ const workflowFileManagerStorage = {
         if (appState.get('activeMediaSource') === 'video') {
             appState.set('playlistOrder', []);
             appState.mutate('playlistCache', (m) => m.clear());
-            // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — updateShuffleArray()/
-            // recomputeDisplayOrder()/recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/
-            // playlist-order.js (workflowPlaylistOrder) — gọi trực tiếp, tự đọc playlistOrder=[]
-            // vừa set ở trên qua appState, không cần truyền tham số nữa.
-            workflowPlaylistOrder.updateShuffleArray(); workflowPlaylistOrder.recomputeDisplayOrder(); workflowPlaylistOrder.recomputeRenderOrder(); workflowPlaylistRender.renderPlaylistDiff(); workflowPlaylistRender.syncEmptyState(); // 3 method đầu + renderPlaylistDiff() ở event/workflow/playlist-order.js + playlist-render.js (dời từ core/playlist/order.js + render.js), syncEmptyState() ở playlist-render.js (SỬA 02/10/2026 — thay core updateEmptyState())
+            workflowPlaylistOrder.updateShuffleArray(); workflowPlaylistOrder.recomputeDisplayOrder(); workflowPlaylistOrder.recomputeRenderOrder(); workflowPlaylistRender.renderPlaylistDiff(); workflowPlaylistRender.syncEmptyState(); // event/workflow/playlist-order.js (tự đọc playlistOrder=[] vừa set) + playlist-render.js
         }
     },
 
-    /** MỚI (hợp nhất Photo vào Playlist) — cùng lý do `_resetVideoRuntimeStateAfterClear()` ngay
-     * trên: Photo giờ CŨNG là 1 Nguồn của Playlist (activeMediaSource='photo') — xoá sạch Photo
-     * qua Storage Management trong khi Playlist đang browse ĐÚNG Nguồn đó phải dọn sạch
-     * playlistCache/playlistOrder NGAY, không để danh sách hiện ảnh đã xoá. Photo KHÔNG có
-     * "player mode" riêng để thoát (khác Video) nên bước đó bỏ qua.
+    /** Cùng lý do `_resetVideoRuntimeStateAfterClear()` ngay trên — Playlist đang browse Nguồn Photo thì dọn sạch
+     * playlistCache/playlistOrder NGAY. Photo không có bước thoát "player mode" ở đây (khác Video).
      */
     async _resetPhotoRuntimeStateAfterClear() {
         if (appState.get('activeMediaSource') === 'photo') {
             appState.set('playlistOrder', []);
             appState.mutate('playlistCache', (m) => m.clear());
-            // SỬA — CÙNG LÝ DO _resetVideoRuntimeStateAfterClear() ngay trên.
-            workflowPlaylistOrder.updateShuffleArray(); workflowPlaylistOrder.recomputeDisplayOrder(); workflowPlaylistOrder.recomputeRenderOrder(); workflowPlaylistRender.renderPlaylistDiff(); workflowPlaylistRender.syncEmptyState(); // 3 method đầu + renderPlaylistDiff() ở event/workflow/playlist-order.js + playlist-render.js (dời từ core/playlist/order.js + render.js), syncEmptyState() ở playlist-render.js (SỬA 02/10/2026 — thay core updateEmptyState())
+            workflowPlaylistOrder.updateShuffleArray(); workflowPlaylistOrder.recomputeDisplayOrder(); workflowPlaylistOrder.recomputeRenderOrder(); workflowPlaylistRender.renderPlaylistDiff(); workflowPlaylistRender.syncEmptyState(); // event/workflow/playlist-order.js + playlist-render.js
         }
     },
 
     /** Chạy "tải xuống + xoá" (tuỳ 2 toggle) cho ĐÚNG 1 nguồn cụ thể — TÁCH riêng thành hàm con vì
      * mỗi nguồn cần gọi core hoàn toàn khác nhau (Rule 3: core không được gọi core khác — nhưng
      * Workflow thì tự do, hàm này chỉ là 1 bước orchestration nội bộ của executeStorageAction()
-     * ngay dưới, KHÔNG phải rẽ nhánh Router/VirtualMachineState — 4 nguồn là tổ hợp BOOLEAN ĐỘC
+     * ngay dưới, KHÔNG phải rẽ nhánh Router/VirtualMachineState — 3 nguồn là tổ hợp BOOLEAN ĐỘC
      * LẬP, không phải 1 enum hữu hạn để so khớp qua VMState, xem docstring đầu file).
      * @param {'song'|'video'|'photo'} sourceKey
      * @param {boolean} downloadEnabled @param {boolean} deleteEnabled
      * @returns {Promise<{status: string, message?: string}>}
      */
     async _runStorageActionForSource(sourceKey, downloadEnabled, deleteEnabled) {
-        // FIX (10/09/2026, Giang báo bug "zip video >1GB làm crash PWA") — điều kiện xoá dữ liệu
-        // TRƯỚC ĐÂY chỉ chặn khi `status === 'zipError'`, KHÔNG chặn `status === 'cancelled'` (trạng
-        // thái MỚI, xem `zipAndDownloadOrFallback()`) — nếu không sửa, người dùng bấm Huỷ ở modal
-        // "quá lớn" vẫn bị XOÁ SẠCH dữ liệu dù CHƯA hề có bản sao nào (cực kỳ nguy hiểm, mất dữ liệu
-        // thật). Đổi hẳn sang chỉ cho xoá khi `status === 'ok'` (thành công THẬT SỰ, dù bằng zip hay
-        // tải riêng từng file) — an toàn với MỌI status mới phát sinh sau này, không cần liệt kê tay
-        // từng trạng thái "không phải lỗi".
+        // Chỉ xoá dữ liệu khi `status === 'ok'` (tải về THẬT SỰ thành công) — mọi status khác ('zipError', 'cancelled'...)
+        // đều giữ dữ liệu, tránh mất dữ liệu khi chưa có bản sao.
         if (sourceKey === 'song') {
             const result = downloadEnabled
                 ? await this._downloadZipFor('song', getAllSongKeys, t('fileManager.song.storageAction.zipNameSong'))
                 : { status: 'ok' };
             if (deleteEnabled && result.status === 'ok') {
-                await withLoadingShield(t('common.storage.deletingData'), async () => { await workflowFileManagerStorage.clearAllStoredData(); }); // SỬA 24/09/2026 — dời từ core/storage-manager.js (Song)
+                await withLoadingShield(t('common.storage.deletingData'), async () => { await workflowFileManagerStorage.clearAllStoredData(); });
                 await clearAllFolderSongData(); // core/file-manager/folder.js
                 if (appState.get('activePlayListFolder').song) await workflowPlaylistScope.persistScopeChoice(null, 'song');
             }
@@ -455,7 +358,7 @@ const workflowFileManagerStorage = {
                 ? await this._downloadZipFor('video', getAllVideoKeys, t('fileManager.song.storageAction.zipNameVideo'))
                 : { status: 'ok' };
             if (deleteEnabled && result.status === 'ok') {
-                await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllMediaOfType('video'); workflowListenStats.forgetType('video'); }); // service/db.js — SỬA 06/10/2026 (thay core clearAllVideosData)
+                await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllMediaOfType('video'); workflowListenStats.forgetType('video'); }); // service/db.js
                 await this._resetVideoRuntimeStateAfterClear();
             }
             return result;
@@ -465,7 +368,7 @@ const workflowFileManagerStorage = {
                 ? await this._downloadZipFor('photo', getAllImageKeys, t('storageDrawer.zipNamePhoto'))
                 : { status: 'ok' };
             if (deleteEnabled && result.status === 'ok') {
-                await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllMediaOfType('photo'); workflowListenStats.forgetType('photo'); }); // service/db.js — SỬA 06/10/2026 (thay core clearAllPhotosData)
+                await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllMediaOfType('photo'); workflowListenStats.forgetType('photo'); }); // service/db.js
                 await this._resetPhotoRuntimeStateAfterClear();
             }
             return result;
@@ -486,7 +389,7 @@ const workflowFileManagerStorage = {
             alertModal(tFormat('fileManager.song.storageAction.zipErrorSkippedDelete', { message: escapeHtml(zipError.message) }));
             return;
         }
-        // MỚI (06/10/2026, chia zip nhiều phần) — có nguồn CHƯA tải đủ mọi phần ('cancelled') -> dữ liệu nguồn đó KHÔNG
+        // Có nguồn CHƯA tải đủ mọi phần ('cancelled') -> dữ liệu nguồn đó KHÔNG
         // bị xoá (xem _runStorageActionForSource), báo rõ thay vì báo "đã tải + xoá xong".
         const notAllDownloaded = results.some((r) => r && r.status === 'cancelled');
         if (downloadEnabled && deleteEnabled && notAllDownloaded) {
@@ -512,15 +415,12 @@ const workflowFileManagerStorage = {
         this._reportStorageActionResult(sources, downloadEnabled, deleteEnabled, results);
     },
 
-    // ===================== Dọn file lỗi — tự hỏi phạm vi quét qua modal riêng (KHÔNG còn dùng
-    // chung 4 toggle nguồn của "Delete & Backup" nữa) =========================================
+    // ===================== Dọn file lỗi — tự hỏi phạm vi quét qua modal riêng =========================================
 
-    /** Ứng với msg.type = 'fileManagerStorage.scanBroken.click' — MỚI (29/07/2026, yêu cầu Giang,
-     * THAY hẳn cách cũ dùng chung `storageSources` của "Delete & Backup") — mở modalChoice() với 1
-     * `<select>` (dropdown) NHÚNG THẲNG vào phần `text` (modalChoice() gán `innerHTML`, xem
-     * core/modal-choice-ui.js — `<select>` là "phrasing content", hợp lệ nằm trong `<p>`) để người
-     * dùng tự chọn phạm vi quét, tách BIỆT hẳn khỏi lựa chọn nguồn ở "Delete & Backup" (tránh nhầm/
-     * quên đang bật gì ở đó). Nút "Huỷ" không làm gì; nút "Thực hiện" đọc `select.value` lúc bấm
+    /** Ứng với msg.type = 'fileManagerStorage.scanBroken.click' — mở modalChoice() với 1 `<select>` NHÚNG THẲNG vào phần
+     * `text` (modalChoice() gán `innerHTML` — `<select>` là "phrasing content", hợp lệ nằm trong `<p>`) để người dùng tự
+     * chọn phạm vi quét, tách biệt khỏi 3 toggle nguồn của "Chọn mục xoá" (tránh nhầm/quên đang bật gì ở đó). Nút "Huỷ"
+     * không làm gì; nút "Thực hiện" đọc `select.value` lúc bấm
      * (đọc SAU khi modalChoice() đã đóng + `overlay.remove()` khỏi DOM — vẫn đọc được `.value` bình
      * thường vì gỡ khỏi cây DOM KHÔNG xoá state nội bộ của phần tử `<select>`, chỉ mất kết nối hiển
      * thị) rồi gửi tiếp `onConfirmSend(scope)`.
@@ -561,15 +461,11 @@ const workflowFileManagerStorage = {
         return { song: scope === 'song', video: scope === 'video', photo: scope === 'photo' };
     },
 
-    /** Ứng với msg.type = 'fileManagerStorage.fixBroken.click' — ĐỔI TÊN (18/09/2026, cùng lúc
-     * gộp tính năng mới) từ `askDeleteBroken()`: trước đây MỌI kết quả quét đều là "lỗi thật, chỉ
-     * xoá được" nên chỉ có 1 nội dung modal cố định. Giờ `scanResults` (Video) có thể mang thêm
-     * `fixable: true` (thiếu thumb, blob chính vẫn đọc được — xem `isVideoRecordCorrupted()`,
-     * core/storage-manager.js) — modal xác nhận đọc trước xem lô có gì, chọn ĐÚNG nội dung/màu nút:
-     *   - Chỉ có phần tử `fixable:false` (ca CŨ, Song/Photo LUÔN rơi vào đây — 2 domain đó chưa có
-     *     khái niệm "fixable") -> GIỮ NGUYÊN 100% modal xoá cũ (tái dùng đúng 3 lang key cũ).
-     *   - Có ÍT NHẤT 1 phần tử `fixable:true` -> đổi hẳn sang modal MỚI (tiêu đề/nút "Sửa file
-     *     lỗi"), nội dung tuỳ còn phần `fixable:false` hay không (kết hợp cả xoá+sửa hay chỉ sửa).
+    /** Ứng với msg.type = 'fileManagerStorage.fixBroken.click' — modal xác nhận, đọc trước xem lô có gì để chọn ĐÚNG nội
+     * dung/màu nút (`fixable: true` = Video thiếu thumb nhưng blob chính vẫn đọc được, xem `isVideoRecordCorrupted()`):
+     *   - Chỉ có phần tử `fixable:false` (Song/Photo luôn rơi vào đây) -> modal xoá.
+     *   - Có ÍT NHẤT 1 phần tử `fixable:true` -> modal "Sửa file lỗi", nội dung tuỳ còn phần `fixable:false` hay không
+     *     (kết hợp cả xoá+sửa hay chỉ sửa).
      * @param {{scanResults: Array, onConfirmSend: function}} payload
      */
     askFixBroken(payload) {
@@ -578,7 +474,7 @@ const workflowFileManagerStorage = {
         const fixableResults = scanResults.filter((r) => r.fixable);
         let bodyText, title, btnLabel, destructive;
         if (fixableResults.length === 0) {
-            // Không có gì "sửa" được — Y HỆT hành vi cũ (askDeleteBroken()), không đổi copy nào.
+            // Không có gì "sửa" được — modal xoá.
             bodyText = tFormat('common.storage.deleteBrokenConfirm', { n: brokenResults.length });
             title = t('common.storage.deleteBrokenTitle');
             btnLabel = t('common.storage.deleteBrokenConfirmBtn');
@@ -605,9 +501,7 @@ const workflowFileManagerStorage = {
 
     /** Ứng với msg.type = 'fileManagerStorage.fixBroken.confirm', NHÁNH XOÁ — Router
      * (`VirtualMachineState.run()`) đã tự lọc `scanResults` chỉ còn phần tử `fixable:false` TRƯỚC
-     * khi gọi hàm này (xem event/router/file-manager-storage.js) — thân hàm GIỮ NGUYÊN 100% so với
-     * `executeDeleteBroken()` cũ (chỉ đổi Ở ĐÂU lọc dữ liệu, không đổi hành vi xoá). `scanResults`
-     * vẫn có thể chứa CẢ 3 mediaType (song/video/photo, gắn sẵn ở executeScanBroken()) — tách theo
+     * khi gọi hàm này (xem event/router/file-manager-storage.js). `scanResults` có thể chứa CẢ 3 mediaType (song/video/photo, gắn sẵn ở executeScanBroken()) — tách theo
      * mediaType, xoá ĐÚNG store cho từng phần. Song/Photo LUÔN rơi hết vào đây (chưa có khái niệm
      * `fixable`); Video chỉ còn phần thật sự hỏng blob chính.
      * @param {{scanResults: Array, currentKey: string|null}} payload
@@ -621,15 +515,15 @@ const workflowFileManagerStorage = {
 
         await withLoadingShield(t('common.storage.deletingBroken'), async () => {
             if (songResults.length > 0) {
-                const deletedSongKeys = await deleteCorruptedMediaRecords('song', songResults, currentKey); // core/storage-manager.js — GỘP 06/10/2026
+                const deletedSongKeys = await deleteCorruptedMediaRecords('song', songResults, currentKey); // core/storage-manager.js
                 deletedSongKeys.forEach((key) => workflowPlaylistOrder.removeKeyFromDisplay(key)); // event/workflow/playlist-order.js
             }
             if (videoResults.length > 0) {
-                const deletedVideoKeys = await deleteCorruptedMediaRecords('video', videoResults, currentKey); // core/storage-manager.js — GỘP 06/10/2026
-                deletedVideoKeys.forEach((key) => workflowPlaylistOrder.removeKeyFromDisplay(key)); // event/workflow/playlist-order.js (dời từ core 24/09/2026)
+                const deletedVideoKeys = await deleteCorruptedMediaRecords('video', videoResults, currentKey); // core/storage-manager.js
+                deletedVideoKeys.forEach((key) => workflowPlaylistOrder.removeKeyFromDisplay(key)); // event/workflow/playlist-order.js
             }
             if (photoResults.length > 0) {
-                await deleteCorruptedMediaRecords('photo', photoResults, null); // core/storage-manager.js — GỘP 06/10/2026
+                await deleteCorruptedMediaRecords('photo', photoResults, null); // core/storage-manager.js
             }
             if (!genericDrawerPanel.classList.contains('hidden')) {
                 resetScanResultUI(
@@ -643,7 +537,7 @@ const workflowFileManagerStorage = {
         await alertModal(t('common.storage.deleteBrokenDone'));
     },
 
-    /** Ứng với msg.type = 'fileManagerStorage.fixBroken.confirm', NHÁNH SỬA — MỚI (18/09/2026).
+    /** Ứng với msg.type = 'fileManagerStorage.fixBroken.confirm', NHÁNH SỬA.
      * Router đã lọc `scanResults` chỉ còn phần tử `fixable:true` (LUÔN là Video — Song/Photo chưa
      * có khái niệm `fixable`, xem `isVideoRecordCorrupted()` core/storage-manager.js) TRƯỚC khi gọi
      * hàm này. KHÔNG xoá record nào — đọc lại `record.blob` (vẫn đọc/phát được, đã xác nhận lúc
@@ -668,8 +562,8 @@ const workflowFileManagerStorage = {
                 if (!record || !record.blob) { failedCount++; continue; }
                 try {
                     const { thumbBlob, thumbFullBlob, thumbFullIsBlack } = await workflowPlaylist.extractVideoThumbAndMeta(record.blob); // event/workflow/playlist.js
-                    await setVideoThumbnails(key, thumbBlob, thumbFullBlob, thumbFullIsBlack); // core/file-manager/video.js — thumbFullIsBlack: đen THẬT -> scan lần sau bỏ qua (MỚI 19/09/2026)
-                    // MỚI (06/10/2026, plan-media-db-split.md mục 7) — báo request trung tâm: video này đang dùng thì tự làm tươi ảnh.
+                    await setVideoThumbnails(key, thumbBlob, thumbFullBlob, thumbFullIsBlack); // core/file-manager/video.js — thumbFullIsBlack: đen THẬT -> scan lần sau bỏ qua
+                    // Báo request trung tâm (plan-media-db-split.md mục 7): video này đang dùng thì tự làm tươi ảnh.
                     eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced', payload: { type: 'video', key } });
                     fixedCount++;
                 } catch (err) {
@@ -678,7 +572,7 @@ const workflowFileManagerStorage = {
                 }
             }
             if (!genericDrawerPanel.classList.contains('hidden')) {
-                resetScanResultUI( // SỬA (20/09/2026) — giờ CHỈ còn dùng bởi màn Troubleshooting > Scan & fix video thumbnails (id `video-thumb-*`)
+                resetScanResultUI( // màn Troubleshooting > Scan & fix video thumbnails (id `video-thumb-*`)
                     genericDrawerBody.querySelector('#video-thumb-scan-result'),
                     genericDrawerBody.querySelector('#video-thumb-scan-list')
                 );
@@ -692,15 +586,10 @@ const workflowFileManagerStorage = {
         }
     },
 
-    /** Ứng với msg.type = 'fileManagerStorage.scanBroken.click' — đọc `payload.sources` (DÙNG
-     * CHUNG đúng 4 toggle của "Chọn mục xoá") — quét TUẦN TỰ từng nguồn đang bật (KHÔNG VMState,
-    /** Ứng với msg.type = 'fileManagerStorage.scanBroken.confirm' — đọc `payload.sources` (MỚI,
-     * 29/07/2026: giờ tới từ dropdown của askScanBrokenScope() qua Router::_scopeToSources(), KHÔNG
-     * còn tới từ `storageSources` của "Delete & Backup" nữa) — quét TUẦN TỰ từng nguồn đang bật
-     * (KHÔNG VMState, cùng lý do executeStorageAction() ở trên — tổ hợp boolean độc lập, không phải
-     * enum). Mỗi kết quả gắn thêm `mediaType` — executeDeleteBroken() cần biết để xoá ĐÚNG store.
-     * Hàm này GIỮ NGUYÊN 100% — chỉ đổi NƠI `sources` tới từ (dropdown thay vì checkbox chia sẻ),
-     * bản thân hàm không quan tâm nguồn gốc của tham số.
+    /** Ứng với msg.type = 'fileManagerStorage.scanBroken.confirm' — `payload.sources` tới từ dropdown của
+     * askScanBrokenScope() (qua `_scopeToSources()`) — quét TUẦN TỰ từng nguồn đang bật (KHÔNG VMState, cùng lý do
+     * executeStorageAction() — tổ hợp boolean độc lập, không phải enum). Mỗi kết quả gắn thêm `mediaType` —
+     * executeDeleteBroken() cần biết để xoá ĐÚNG store.
      * @param {{sources: Object, onScanComplete: (results: Array) => void}} payload
      */
     async executeScanBroken(payload) {
@@ -712,10 +601,9 @@ const workflowFileManagerStorage = {
             };
             if (sources.song) results = results.concat((await scanAllSongsForCorruption(onScanProgress)).map((r) => ({ ...r, mediaType: 'song' })));
             if (sources.video) {
-                // SỬA (20/09/2026, Giang yêu cầu — "chỉ lấy phần scan và fix thumb full res của video sang Troubleshooting,
-                // KHÔNG lấy scan & broken của Storage") — Storage CHỈ còn báo video hỏng THẬT (blob chính không đọc/decode
-                // được -> `fixable:false`, xoá được); phần thiếu/đen/không decode thumb (`fixable:true`) DỜI SANG
-                // Setting > Troubleshooting > "Scan & fix video thumbnails" (`executeScanVideoThumbs()` ngay dưới).
+                // Storage CHỈ báo video hỏng THẬT (blob chính không đọc/decode được -> `fixable:false`, xoá được); phần
+                // thiếu/đen/không decode thumb (`fixable:true`) thuộc Settings > Troubleshooting > "Scan & fix video
+                // thumbnails" (`executeScanVideoThumbs()`).
                 const videoScanResults = (await scanAllVideosForCorruption(onScanProgress)).filter((r) => !r.fixable); // core/storage-manager.js
                 results = results.concat(videoScanResults.map((r) => ({ ...r, mediaType: 'video' })));
             }
@@ -727,20 +615,20 @@ const workflowFileManagerStorage = {
                     genericDrawerBody.querySelector('#storage-scan-result'),
                     genericDrawerBody.querySelector('#storage-scan-summary'),
                     genericDrawerBody.querySelector('#storage-scan-list'),
-                    genericDrawerBody.querySelector('#btn-storage-fix-broken') // ĐỔI TÊN 18/09/2026 từ #btn-storage-delete-broken
+                    genericDrawerBody.querySelector('#btn-storage-fix-broken')
                 );
             }
         });
         if (onScanComplete) onScanComplete(results);
     },
 
-    /** MỚI (19/09/2026) — lượt quét thứ 2 của Video: thumb full-res ĐÃ CÓ trong record nhưng ĐEN (hoặc
-     * không decode được). `isVideoRecordCorrupted()` (core/storage-manager.js) chỉ kiểm tra thumb CÓ
-     * TỒN TẠI, không nhìn pixel — chụp lỗi ở bản cũ (khung chưa sẵn sàng -> JPEG đen) vì vậy lọt qua quét.
+    /** Lượt quét thứ 2 của Video: thumb full-res ĐÃ CÓ trong record nhưng ĐEN (hoặc không decode được).
+     * `isVideoRecordCorrupted()` (core/storage-manager.js) chỉ kiểm tra thumb CÓ TỒN TẠI, không nhìn pixel — thumb chụp
+     * lúc khung chưa sẵn sàng (JPEG đen) vì vậy lọt qua lượt quét đó.
      * Bỏ qua: video đã có kết quả từ lượt quét core (không chồng 2 lý do cho cùng 1 video), record thiếu
      * blob/thumb (lượt core lo), và record có `thumbFullBlack === true` (đã chụp lại đúng cách vẫn đen =
      * đen THẬT của nội dung — không báo lỗi lặp vô tận sau khi sửa). Kết quả LUÔN `fixable:true` — "sửa"
-     * = chụp lại thumb qua `executeRepairBroken()` (cùng pipeline mới lúc upload).
+     * = chụp lại thumb qua `executeRepairBroken()` (cùng pipeline lúc upload).
      * @param {Array<{key:string}>} alreadyFlagged - kết quả `scanAllVideosForCorruption()`.
      * @param {(current:number, total:number) => void} [onScanProgress]
      * @returns {Promise<Array<{key:string, filename:string, reason:string, fixable:boolean}>>}
@@ -789,13 +677,12 @@ const workflowFileManagerStorage = {
         }
     },
 
-    /** MỚI (20/09/2026, Giang yêu cầu — chuyển "scan check thumb full res video + fix" từ Storage sang
-     * Setting > Troubleshooting) — ứng với msg.type = 'fileManagerStorage.videoThumb.scan.click'. CHỈ quét
+    /** Settings > Troubleshooting > "Scan & fix video thumbnails" — ứng với msg.type =
+     * 'fileManagerStorage.videoThumb.scan.click'. CHỈ quét
      * Video, CHỈ báo phần thumb (`fixable:true`): thiếu thumb cover/full-res (lượt quét core
      * `scanAllVideosForCorruption()`, lọc lại `fixable`) + thumb full-res ĐEN/không decode được
-     * (`_scanBlackVideoThumbs()` ngay dưới, dùng lại NGUYÊN). Video hỏng THẬT (blob chính) KHÔNG báo ở đây —
-     * đó là việc của "Scan & clean broken files" ở Storage. Sửa = `executeRepairBroken()` (giữ nguyên, chụp
-     * lại thumb, không xoá gì). Hiển thị vào khối `#video-thumb-scan-*` của màn Troubleshooting
+     * (`_scanBlackVideoThumbs()`). Video hỏng THẬT (blob chính) KHÔNG báo ở đây — đó là việc của "Scan & clean broken
+     * files" ở Storage. Sửa = `executeRepairBroken()` (chụp lại thumb, không xoá gì). Hiển thị vào khối `#video-thumb-scan-*` của màn Troubleshooting
      * (components/settings/troubleshooting.js::renderVideoThumbRepairBody()).
      * @param {{onScanComplete: (results: Array) => void}} payload */
     async executeScanVideoThumbs(payload) {

@@ -1,11 +1,6 @@
 /**
- * event/workflow/image-edit.js — TÁCH RA từ event/workflow/file-manager-photo.js (31/07/2026, yêu
- * cầu Giang) — toàn bộ công cụ chỉnh sửa của modal xem ảnh Photo (lưới tool phẳng, Điều chỉnh/Crop/
- * Vẽ/Text/Shape, Lưu đè/Lưu mới). Router riêng: event/router/image-edit.js (tên `imageEdit`).
- * XOÁ (Giang yêu cầu bỏ hẳn tool "Tách nền"/Cutout) — `_startMagicTool()`/`updateMagicSlider()`/
- * `magicPointerDown()` cùng `magicPopup`/`magicSliderEl`/`magicValueEl` (core/file-manager/photo-
- * ui.js) đã xoá hẳn, không còn entry point nào khác gọi tới `applyMagicCutout()` (core/photo-editor-
- * engine.js — TỰ AUDIT xác nhận 0 lời gọi còn lại, xoá luôn hàm đó).
+ * event/workflow/image-edit.js — toàn bộ công cụ chỉnh sửa của modal xem ảnh Photo (lưới tool phẳng, Điều chỉnh/Crop/
+ * Vẽ/Text/Shape, layer Text/Shape, Lưu đè/Lưu mới). Router riêng: event/router/image-edit.js (tên `imageEdit`).
  *
  * Biên giới tách theo TRÁCH NHIỆM, không theo file — `workflowFileManagerPhoto` (miền khác) vẫn giữ
  * vòng đời modal xem ảnh (mở/đóng/Zoom), lộ 2 khe ĐỌC cho workflow này tự lấy lại
@@ -15,16 +10,19 @@
  * Workflow-gọi-Workflow tự do, xem event-bus-flow.md mục 4B "Tái dùng Workflow giữa các miền khác
  * nhau".
  *
- * KHÔNG có khái niệm "mode" nào cả — DUY NHẤT 1 mặt canvas dùng chung cho xem/zoom/pan/edit (Giang
- * chốt: "1 canvas hình ảnh dùng luôn xem, zoom pan và edit"), decode + sẵn sàng NGAY LÚC MỞ MODAL
+ * KHÔNG có khái niệm "mode" nào cả — DUY NHẤT 1 mặt canvas dùng chung cho xem/zoom/pan/edit, decode + sẵn sàng NGAY LÚC MỞ MODAL
  * (`workflowFileManagerPhoto.openImagePreview()` gọi `ensureEditSessionReady()` ngay, KHÔNG đợi
  * bấm icon Edit). Icon Edit trên header CHỈ mở bảng công cụ (`openEditToolGrid()`) — KHÔNG "vào"
  * gì cả, không có bước ẩn/hiện `<img>`/canvas nào để làm (canvas đã hiện sẵn từ đầu). Chọn 1 công
  * cụ vẽ/chỉnh THẲNG lên canvas đang xem đó. Đóng Drawer (nút X) CHỈ đóng Drawer; bấm lại icon Edit
  * chỉ đơn giản mở lại lưới. Chỉ khi đóng HẲN modal xem ảnh mới dọn sạch state (`exitEditMode()`).
  *
+ * Pointer của `interactCanvas`/`floatingText` wire VĨNH VIỄN 1 lần (core/file-manager/photo-ui.js,
+ * event/listener/image-edit.js); Router tự gate theo `getActiveSubTool()`/`_textDragging`.
+ *
  * NẠP SAU: event/workflow/file-manager-photo.js, event/workflow/generic-drawer-helpers.js,
- * core/photo-editor-engine.js, core/crop-selector.js, core/generic-drawer.js, service/z-index.js.
+ * core/photo-editor-engine.js, core/crop-selector.js, core/generic-drawer.js, service/z-index.js,
+ * components/image-edit-modals.js.
  */
 const workflowImageEdit = {
 
@@ -35,12 +33,12 @@ const workflowImageEdit = {
     _activeSubTool: 'none',        // 'none'|'crop'|'draw'|'text'|'shapePlacement' — KHÁC 'adjust' (live-preview trực tiếp, không có sub-tool mode riêng)
     _cropSession: null,            // session core/crop-selector.js — dùng CHUNG cho 'crop' VÀ 'shapePlacement' (kéo khung/handle giống hệt nhau về mặt hình học, xem selectShapeType()) — chỉ có nghĩa khi _activeSubTool là 1 trong 2 tool đó
     _drawType: 'brush',            // 'brush'|'eraser'
-    _drawSessionActive: false,     // SỬA (31/07/2026, Nhóm B) — THAY biến `isDrawing` closure cũ (đã xoá cùng _wireSubToolPointerEvents()) — true trong lúc đang kéo vẽ 1 nét
-    _drawLastPos: null,            // THAY biến `lastPos` closure cũ — điểm cuối cùng đã vẽ, nối tiếp nét kế tiếp
-    _textDragging: false,          // SỬA (31/07/2026, Nhóm B) — THAY biến `dragging` closure cũ (đã xoá cùng _wireFloatingTextDrag()) — true trong lúc đang kéo floatingText. Router gọi updateTextDrag()/endTextDrag() TỪ document pointermove/pointerup TOÀN APP (event/listener/image-edit.js) — field này là "cổng" duy nhất quyết định có làm gì hay không
+    _drawSessionActive: false,     // true trong lúc đang kéo vẽ 1 nét
+    _drawLastPos: null,            // điểm cuối cùng đã vẽ, nối tiếp nét kế tiếp
+    _textDragging: false,          // true trong lúc đang kéo floatingText. Router gọi updateTextDrag()/endTextDrag() TỪ document pointermove/pointerup TOÀN APP (event/listener/image-edit.js) — field này là "cổng" duy nhất quyết định có làm gì hay không
 
-    // ===== Layer (Text/Shape) — MỚI, Giang yêu cầu "text/shape là layer chỉnh sửa lại được" =====
-    // KHÁC HẲN Crop/Vẽ/Tách nền (nướng thẳng vào baseCanvas, không hoàn tác được) — layer giữ dạng
+    // ===== Layer (Text/Shape) — chỉnh sửa lại được =====
+    // KHÁC HẲN Crop/Vẽ (nướng thẳng vào baseCanvas, không hoàn tác được) — layer giữ dạng
     // OBJECT trong suốt phiên xem ảnh, vẽ lại MỖI LẦN đổi lên `layerCanvas` riêng (xem
     // _renderLayers()), chỉ "nướng" thật vào pixel lúc Lưu (_exportEditedBlob() gộp layerCanvas vào
     // ảnh xuất).
@@ -61,8 +59,7 @@ const workflowImageEdit = {
      * MỞ MODAL (`workflowFileManagerPhoto.openImagePreview()`, cross-domain, chủ động — canvas
      * PHẢI sẵn sàng từ đầu, không đợi bấm gì cả), (2) phòng hờ ở `openSaveMenu()`/
      * `openEditToolGrid()` (bấm quá nhanh, trước khi bước (1) kịp xong — hiếm, do (1) chạy gần như
-     * ngay khi modal mở). Wire delegation lưới tool CHỈ 1 LẦN/modal ở đây (không còn tách riêng
-     * theo "vào Edit mode" nữa vì không còn khái niệm đó).
+     * ngay khi modal mở).
      * @returns {Promise<boolean>} false nếu không còn modal/ảnh để decode (guard hiếm)
      */
     async ensureEditSessionReady() {
@@ -87,34 +84,23 @@ const workflowImageEdit = {
         return true;
     },
 
-    // XOÁ (24/09/2026) — `_wireEditToolGridDelegation()`: delegated click trên `genericDrawerBody` TĨNH 1 lần/phiên modal
-    // (phải giữ hàm gỡ). Nay wire trên nội dung động mỗi lần mở lưới — core/file-manager/photo-ui.js::
-    // wirePhotoEditToolGridDrawerUi(), gọi trong `openEditToolGrid()`.
-
-    /** Mở Generic Drawer hiện lưới tool (phẳng, không nhóm header) — TRỰC TIẾP đích của icon Edit
-     * trên header (Router gọi thẳng, KHÔNG còn nhánh nào khác — không có khái niệm "vào Edit mode
-     * lần đầu" nữa, canvas đã sẵn sàng từ lúc mở modal). Gọi lại NHIỀU LẦN trong 1 phiên (mỗi lần
-     * Huỷ/Áp dụng xong 1 tool, xem `exitSubTool()`, HOẶC bấm lại icon Edit sau khi đã tự đóng
-     * Drawer) — chỉ dựng lại header/bodyHtml, KHÔNG wire lại delegated click (đã wire ở
-     * `ensureEditSessionReady()`); nút X đóng PHẢI wire lại mỗi lần (phần tử MỚI trong headerHtml).
-     * SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow") — phần
-     * dựng Generic Drawer + wire closeBtn ĐÃ DỜI sang core/file-manager/photo-ui.js::
-     * openPhotoEditToolGridDrawerUi() (Rule 5a, cùng lý do `_wireEditToolGridDelegation()`).
+    /** Mở Generic Drawer hiện lưới tool (phẳng, không nhóm header) — đích của icon Edit trên header (canvas đã sẵn
+     * sàng từ lúc mở modal). Gọi lại NHIỀU LẦN trong 1 phiên (mỗi lần Huỷ/Áp dụng xong 1 tool, xem `exitSubTool()`,
+     * HOẶC bấm lại icon Edit sau khi đã tự đóng Drawer) — mỗi lần dựng lại header/body nên wire lại nút X + tile
+     * (core/file-manager/photo-ui.js::wirePhotoEditToolGridDrawerUi(), Rule 5a).
      */
     async openEditToolGrid() {
         const ready = await this.ensureEditSessionReady(); // phòng hờ bấm quá nhanh trước khi modal kịp tự decode xong
         if (!ready || !this._activeImageModalHandle) return; // guard: modal đóng/ảnh bị xoá giữa chừng
-        // SỬA (24/09/2026) — mở qua Workflow helper (core không tự mở Drawer nữa, Rule 3) rồi wire nội dung vừa gắn.
-        workflowGenericDrawerHelpers.open(buildPhotoEditToolGridDrawerConfig(buildDrawerHeaderHtml({ title: t('fileManager.photo.image.editGridTitle') }), this._buildEditToolGridHtml())); // SỬA 07/10/2026 — header dùng chung (components/generic-drawer.js) // core/file-manager/photo-ui.js
+        workflowGenericDrawerHelpers.open(buildPhotoEditToolGridDrawerConfig(buildDrawerHeaderHtml({ title: t('fileManager.photo.image.editGridTitle') }), this._buildEditToolGridHtml())); // core/file-manager/photo-ui.js + components/generic-drawer.js (header dùng chung)
         wirePhotoEditToolGridDrawerUi(); // core/file-manager/photo-ui.js
     },
 
-    /** @returns {string} bodyHtml lưới tool — DANH SÁCH PHẲNG (Giang yêu cầu bỏ hết group header
-     * "Điều chỉnh"/"Công cụ"/"Vẽ") — 10 tile cùng 1 lưới `grid-cols-5` (2 hàng đều). Lưu đè/Lưu mới
-     * KHÔNG còn ở đây — đã tách thành icon Save riêng trên header (xem `openSaveMenu()`).
+    /** @returns {string} bodyHtml lưới tool — DANH SÁCH PHẲNG, 10 tile cùng 1 lưới `grid-cols-5` (2 hàng đều). Lưu
+     * đè/Lưu mới ở icon Save riêng trên header (xem `openSaveMenu()`).
      * `openEditTool()` phân luồng theo `tool.key`. */
     _buildEditToolGridHtml() {
-        const svg = (name) => iconSvg(name, 'w-5 h-5'); // core/theme/icon-svg-ui.js — SỬA 07/10/2026: kho icon chung
+        const svg = (name) => iconSvg(name, 'w-5 h-5'); // core/theme/icon-svg-ui.js — kho icon chung
         const tools = [
             { key: 'brightness', icon: svg('brightness'), labelKey: 'fileManager.photo.image.editToolBrightness' },
             { key: 'contrast', icon: svg('contrast'), labelKey: 'fileManager.photo.image.editToolContrast' },
@@ -169,12 +155,8 @@ const workflowImageEdit = {
         openDropdownMenu(anchorEl, items, { zIndex: 132 }); // core/dropdown-menu.js
     },
 
-    /** 1 tile "Điều chỉnh" được bấm — đóng Generic Drawer, hiện popup slider.
-     * SỬA (31/07/2026, Giang chỉ ra vi phạm Rule 5a) — `adjustDoneBtn.onclick` KHÔNG còn gán ở đây
-     * nữa (từng bị gán LẠI mỗi lần mở tool khác nhau — vi phạm "gom cuối hàm", xem docstring
-     * `exitAdjustTool()`) — nút đó giờ wire ĐÚNG 1 LẦN lúc dựng modal (core/file-manager/photo-
-     * ui.js), bắn `imageEdit.adjust.done.click` cố định.
-     * `adjustSliderEl.oninput` VẪN gọi thẳng `this._renderEditPreview()` (không qua eventBus) —
+    /** 1 tile "Điều chỉnh" được bấm — đóng Generic Drawer, hiện popup slider. Slider + nút "xong" wire 1 lần lúc dựng
+     * modal (core/file-manager/photo-ui.js) -> `updateAdjustSlider()`/`exitAdjustTool()`.
      * @param {string} paramKey - 'brightness'|'contrast'|'saturation'|'temperature'|'tint'|'sharpen'
      */
     openAdjustTool(paramKey) {
@@ -192,9 +174,7 @@ const workflowImageEdit = {
         handle.adjustPopup.classList.remove('hidden');
     },
 
-    /** Ứng với `imageEdit.adjust.slider.input` (kéo slider popup Điều chỉnh, wire 1 lần ở photo-
-     * ui.js — SỬA 31/07/2026, Giang chỉ ra Nhóm B không có ngoại lệ, dời khỏi `.oninput=` gán lại
-     * mỗi lần mở tool). Debounce qua `taskManager.once()`. Public — Router gọi trực tiếp.
+    /** Ứng với `imageEdit.adjust.slider.input` (kéo slider popup Điều chỉnh, wire 1 lần ở photo-ui.js). Debounce qua `taskManager.once()`. Public — Router gọi trực tiếp.
      * @param {number} value
      */
     updateAdjustSlider(value) {
@@ -230,8 +210,7 @@ const workflowImageEdit = {
      * (dùng CHUNG cho cả 4 sub-tool, hành vi khác nhau theo tool đang mở). */
     getActiveSubTool() { return this._activeSubTool; },
 
-    /** FIX (Giang báo Crop/Vẽ/Tách nền không nhận tương tác — gốc chung `_editScale()`/
-     * `applyTextTool()` bên dưới) — hình học `object-fit` THẬT của cụm canvas Edit (`interactCanvas`
+    /** Hình học `object-fit` THẬT của cụm canvas Edit (`interactCanvas`
      * đại diện, cả 4 canvas luôn CÙNG kích thước/object-fit qua `syncEditCanvasDisplaySize()`) —
      * gộp 1 chỗ DUY NHẤT trong chính Workflow này (KHÔNG phải Core — Rule 3a không áp dụng giữa các
      * hàm Workflow cùng file) để `_editScale()` (kích thước) VÀ `applyTextTool()` (toạ độ tuyệt đối,
@@ -269,14 +248,8 @@ const workflowImageEdit = {
      * DÙNG CHUNG cho cả 4 sub-tool — hành vi GIỐNG HỆT nhau bất kể tool nào đang mở, nên KHÔNG cần
      * Router phân theo `_activeSubTool` như `apply`). Thoát 1 sub-tool VỀ lưới tool — xoá
      * `interactCanvas`, ẩn contextBar/floatingText/popup riêng từng tool, hiện lại header, mở lại
-     * Generic Drawer. Public — Router gọi trực tiếp.
-     * SỬA (31/07/2026, Giang chỉ ra Nhóm B không có ngoại lệ) — KHÔNG còn gỡ
-     * `_subToolPointerCleanup`/`_textDragCleanup` (2 field đó đã XOÁ) — `interactCanvas`/
-     * `floatingText`/`document` giờ wire VĨNH VIỄN 1 lần ở photo-ui.js/listener, KHÔNG theo vòng
-     * đời sub-tool nữa (Router tự gate theo `_activeSubTool`/`_textDragging`, xem
-     * `getActiveSubTool()`/2 case pointer/floatingText ở event/router/image-edit.js). Vẫn phải
-     * dừng phiên kéo Text đang dở (nếu có) — set `_textDragging = false`, KHÔNG có DOM listener nào
-     * để gỡ cả. */
+     * Generic Drawer. Public — Router gọi trực tiếp. Pointer wire vĩnh viễn nên không có gì để gỡ — chỉ dừng phiên
+     * kéo Text đang dở (`_textDragging = false`). */
     exitSubTool() {
         const handle = this._activeImageModalHandle;
         if (!handle) return;
@@ -299,12 +272,11 @@ const workflowImageEdit = {
     // này chỉ giữ `_cropSession` + phần "Áp dụng" riêng của Photo (cắt pixel thật ngay).
 
     /** Vào tool Crop — Photo mặc định KHÔNG khoá tỉ lệ (aspectRatio NaN = Tự do), người dùng tự
-     * chọn tỉ lệ qua `cropRatioPopup` (MỚI, `setCropAspectRatio()` dưới đây). Pointer events KHÔNG
-     * wire ở đây nữa (Core đã wire vĩnh viễn, xem `cropPointerDown()`/`cropPointerMove()`/
+     * chọn tỉ lệ qua `cropRatioPopup` (`setCropAspectRatio()` dưới đây). Pointer events wire vĩnh viễn (xem `cropPointerDown()`/`cropPointerMove()`/
      * `cropPointerUp()` — Router tự gọi khi `getActiveSubTool()==='crop'`). */
     _startCropTool() {
         const handle = this._activeImageModalHandle;
-        workflowGenericDrawerHelpers.closeFully(); // FIX (bug có từ trước) — thiếu dòng này khiến Generic Drawer còn mở đè lên contextBar/interactCanvas, tưởng tool "không làm gì" — cùng khuôn openAdjustTool()
+        workflowGenericDrawerHelpers.closeFully(); // Drawer phải đóng, không thì đè lên contextBar/interactCanvas — cùng khuôn openAdjustTool()
         this._activeSubTool = 'crop';
         handle.header.classList.add('hidden');
         handle.contextBar.classList.remove('hidden');
@@ -316,10 +288,8 @@ const workflowImageEdit = {
         this._drawCropOverlay();
     },
 
-    /** Ứng với 1 nút trong `cropRatioPopup` (MỚI, Giang yêu cầu "crop không có danh sách chọn tỉ
-     * lệ"). `ratioKey` 'free' -> NaN (core hiểu là Tự do); 'W:H' -> parse thành số W/H — TÁI DÙNG
-     * NGUYÊN `setCropSessionAspectRatio()` (core/crop-selector.js, đã có sẵn từ Video Editor, chỉ
-     * chưa từng có UI gọi tới cho Photo) — hàm đó tự tính lại `session.rect` CĂN GIỮA theo tỉ lệ
+    /** Ứng với 1 nút trong `cropRatioPopup`. `ratioKey` 'free' -> NaN (core hiểu là Tự do); 'W:H' -> parse thành số
+     * W/H — dùng `setCropSessionAspectRatio()` (core/crop-selector.js, chung với Video Editor) — hàm đó tự tính lại `session.rect` CĂN GIỮA theo tỉ lệ
      * mới, không cần Workflow tự làm. Public — Router gọi trực tiếp (case
      * 'imageEdit.crop.setRatio.click').
      * @param {string} ratioKey - 'free'|'1:1'|'4:3'|'3:4'|'16:9'|'9:16'
@@ -344,16 +314,9 @@ const workflowImageEdit = {
     },
 
     /** Ứng với `imageEdit.interactCanvas.pointerMove` lúc `getActiveSubTool()` là 'crop' HOẶC
-     * 'shapePlacement'. Public — Router gọi trực tiếp.
-     * FIX (Giang báo "kéo khung/handle Shape xong nhưng shape thật không di chuyển theo") —
-     * TRƯỚC ĐÂY chỉ cập nhật `_cropSession.rect` + vẽ lại overlay khung/handle trên `interactCanvas`
-     * — ĐÚNG cho Crop (không có gì khác cần vẽ lại, "cắt" chỉ xảy ra lúc Áp dụng), nhưng SAI cho
-     * 'shapePlacement': shape THẬT nằm trên `layerCanvas` riêng (vẽ bởi `_renderLayers()`), TRƯỚC
-     * ĐÂY chỉ đồng bộ rect vào layer ĐÚNG 1 LẦN lúc Áp dụng (`applyShapePlacement()`) — suốt quá
-     * trình kéo, khung/handle (interactCanvas) chạy tự do trong khi shape thật (layerCanvas) đứng
-     * yên, trông như 2 thứ tách rời nhau. SỬA: 'shapePlacement' giờ ĐỒNG BỘ SỐNG — mỗi lần kéo, gán
-     * lại rect vào layer đang đặt rồi `_renderLayers()` ngay, y hệt cách `layerPointerMove()` (kéo
-     * layer khi KHÔNG có sub-tool nào mở) đã làm.
+     * 'shapePlacement'. Public — Router gọi trực tiếp. Crop chỉ cần vẽ lại overlay khung/handle ("cắt" xảy ra lúc Áp
+     * dụng); 'shapePlacement' còn ĐỒNG BỘ SỐNG rect vào layer đang đặt rồi `_renderLayers()` ngay (shape thật nằm trên
+     * `layerCanvas` — phải chạy theo khung), cùng cách `layerPointerMove()`.
      * @param {{x:number,y:number}} pos */
     cropPointerMove(pos) {
         if (!this._cropSession) return;
@@ -378,9 +341,8 @@ const workflowImageEdit = {
 
     /** Đọc `session.activeHandle` rồi chọn ĐÚNG 1 trong 3 hàm tính rect thuần của core/crop-
      * selector.js (move/resize-tự-do/resize-khoá-tỉ-lệ) — việc CHỌN thuộc Workflow (core không tự
-     * dispatch giữa các tiến trình). Photo không khoá tỉ lệ (`aspectRatio` luôn NaN) nên nhánh khoá
-     * tỉ lệ không bao giờ chạy ở đây — vẫn viết đủ, khớp Video Editor (event/workflow/video-
-     * editor.js), tránh lệch code nếu sau này Photo cũng thêm khoá tỉ lệ.
+     * dispatch giữa các tiến trình). Nhánh khoá tỉ lệ chạy khi đã chọn tỉ lệ ở `cropRatioPopup` (`aspectRatio` khác
+     * NaN) — khớp Video Editor (event/workflow/video-editor.js).
      * @param {{x:number,y:number}} pos
      */
     _moveOrResizeCropSession(pos) {
@@ -416,7 +378,6 @@ const workflowImageEdit = {
         const handle = this._activeImageModalHandle;
         const rect = getCropSessionRect(this._cropSession); // core/crop-selector.js
         const cropped = cropCanvas(handle.renderCanvas, rect); // core/photo-editor-engine.js
-        // FIX (bug — layerCanvas THIẾU trong danh sách resize, layer lệch vị trí/tỉ lệ sau Crop) —
         // layerCanvas PHẢI cùng kích thước base/render/interact LUÔN (4 canvas xếp chồng khít lên
         // nhau, xem core/file-manager/photo-ui.js), quên nó là layer (Text/Shape) sẽ lệch hẳn toạ
         // độ so với ảnh đã crop.
@@ -425,9 +386,9 @@ const workflowImageEdit = {
         handle.renderCanvas.getContext('2d').drawImage(cropped, 0, 0);
         syncEditCanvasDisplaySize(handle); // core/file-manager/photo-ui.js — tỉ lệ ảnh đổi sau Crop, phải tính lại cover/contain
         this._activeEditParams = { brightness: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, sharpen: 0 };
-        // MỚI (layer Text/Shape) — Crop dịch GỐC toạ độ (0,0 mới = góc trên-trái vùng vừa cắt) —
+        // Layer Text/Shape — Crop dịch GỐC toạ độ (0,0 mới = góc trên-trái vùng vừa cắt) —
         // mọi layer đang có PHẢI dịch NGƯỢC LẠI đúng bấy nhiêu (trừ `rect.x`/`rect.y`) để vẫn hiện
-        // ĐÚNG chỗ cũ trên ảnh (layer NẰM NGOÀI vùng crop vẫn giữ nguyên toạ độ đã dịch — tự nằm
+        // ĐÚNG chỗ trên ảnh (layer NẰM NGOÀI vùng crop vẫn giữ nguyên toạ độ đã dịch — tự nằm
         // ngoài canvas mới, trình duyệt tự không vẽ ra phần thừa, không cần lọc/xoá tường minh).
         this._layers.forEach(layer => { layer.x -= rect.x; layer.y -= rect.y; });
         this._renderLayers();
@@ -437,13 +398,12 @@ const workflowImageEdit = {
 
     // ===================== Vẽ (Cọ/Tẩy) =====================
 
-    /** Vào tool Vẽ — mặc định Cọ, gắn Pointer Events vẽ nét trực tiếp lên `interactCanvas` (nháp,
+    /** Vào tool Vẽ — mặc định Cọ, vẽ nét trực tiếp lên `interactCanvas` (nháp,
      * chưa gộp vào base tới khi bấm Áp dụng). Nút Cọ/Tẩy wire 1 lần ở photo-ui.js (xem
-     * `selectDrawBrush()`/`selectDrawEraser()`). Pointer events KHÔNG wire ở đây nữa (Core đã wire
-     * vĩnh viễn, xem `drawPointerDown()`/`drawPointerMove()`/`drawPointerUp()`). */
+     * `selectDrawBrush()`/`selectDrawEraser()`). Pointer events wire vĩnh viễn (xem `drawPointerDown()`/`drawPointerMove()`/`drawPointerUp()`). */
     _startDrawTool() {
         const handle = this._activeImageModalHandle;
-        workflowGenericDrawerHelpers.closeFully(); // FIX (bug có từ trước) — xem ghi chú _startCropTool()
+        workflowGenericDrawerHelpers.closeFully(); // xem ghi chú _startCropTool()
         this._activeSubTool = 'draw';
         this._drawType = 'brush';
         this._drawSessionActive = false;
@@ -540,14 +500,14 @@ const workflowImageEdit = {
 
     // ===================== Văn bản =====================
 
-    /** Vào tool Text — khung chữ nổi (`floatingText`) hiện giữa màn hình, kéo-thả được (Pointer
-     * events KHÔNG wire ở đây nữa — Core wire `floatingText.pointerdown` vĩnh viễn, `document`
+    /** Vào tool Text — khung chữ nổi (`floatingText`) hiện giữa màn hình, kéo-thả được (Core wire
+     * `floatingText.pointerdown` vĩnh viễn, `document`
      * pointermove/pointerup wire vĩnh viễn ở event/listener/image-edit.js, xem
      * `startTextDrag()`/`updateTextDrag()`/`endTextDrag()`). Nút Huỷ/Áp dụng wire 1 lần ở
      * photo-ui.js. */
     _startTextTool() {
         const handle = this._activeImageModalHandle;
-        workflowGenericDrawerHelpers.closeFully(); // FIX (bug có từ trước) — xem ghi chú _startCropTool()
+        workflowGenericDrawerHelpers.closeFully(); // xem ghi chú _startCropTool()
         this._activeSubTool = 'text';
         this._textDragging = false;
         handle.header.classList.add('hidden');
@@ -596,7 +556,7 @@ const workflowImageEdit = {
         this._textDragging = false;
     },
 
-    /** Áp dụng Text — MỚI (layer) — KHÔNG còn "nướng" vào pixel, TẠO 1 layer text MỚI (giữ dạng
+    /** Áp dụng Text — KHÔNG "nướng" vào pixel, TẠO 1 layer text MỚI (giữ dạng
      * object trong `_layers`, chọn lại/sửa lại được sau này qua long-press -> "Sửa" -> style
      * editor, xem docstring đầu file). Bỏ qua nếu rỗng/toàn khoảng trắng. Public — Router gọi qua
      * case 'imageEdit.subTool.apply.click'.
@@ -606,12 +566,8 @@ const workflowImageEdit = {
         const text = handle.floatingText.textContent;
         if (!text || !text.trim()) { this.exitSubTool(); return; }
 
-        // FIX (cùng bug `_editScale()`/`computeInteractPos()` ở trên) — TRƯỚC ĐÂY nhân thẳng
-        // `_editScale()` mà KHÔNG trừ `offsetX`/`offsetY` (viền đen 'contain'/phần tràn 'cover') —
-        // layer Text vì vậy "nướng" sai vị trí canvas-pixel so với chỗ khung `floatingText` đang
-        // hiện trên màn hình bất cứ khi nào `object-fit` không phủ khít `canvasRect`. Dùng
-        // `_editFitGeometry()` (gộp chung 1 chỗ, xem docstring hàm đó) — trừ offset TRƯỚC khi nhân
-        // `1/displayScale`, cùng công thức `computeInteractPos()`.
+        // Trừ offset `object-fit` (viền đen 'contain'/phần tràn 'cover') TRƯỚC khi nhân `1/displayScale` — cùng công
+        // thức `computeInteractPos()` (xem `_editFitGeometry()`).
         const { rect: canvasRect, displayScale, offsetX, offsetY } = this._editFitGeometry();
         const textRect = handle.floatingText.getBoundingClientRect();
         const scale = 1 / displayScale;
@@ -627,7 +583,7 @@ const workflowImageEdit = {
         this.exitSubTool();
     },
 
-    // ===================== Shape (MỚI, layer) =====================
+    // ===================== Shape (layer) =====================
     // Kéo khung/handle lúc ĐẶT shape mới TÁI DÙNG NGUYÊN core/crop-selector.js (cùng thuật toán
     // hình học với tool Crop — 4 handle góc + di chuyển cả khung — chỉ khác Ở CHỖ Áp dụng: Crop cắt
     // pixel thật, Shape chỉ đồng bộ rect vào layer rồi giữ NGUYÊN dạng object, xem
@@ -638,7 +594,7 @@ const workflowImageEdit = {
      * ẩn — chưa có gì để áp dụng lúc này) để có đường lùi lại lưới tool nếu đổi ý không thêm shape. */
     _startShapeTool() {
         const handle = this._activeImageModalHandle;
-        workflowGenericDrawerHelpers.closeFully(); // FIX (bug có từ trước) — xem ghi chú _startCropTool()
+        workflowGenericDrawerHelpers.closeFully(); // xem ghi chú _startCropTool()
         this._activeSubTool = 'none'; // CHƯA vào sub-tool thật (chỉ đang chọn loại) — giữ 'none' để interactCanvas pointer vẫn xử lý layer bình thường nếu lỡ chạm ra ngoài popup
         handle.header.classList.add('hidden');
         handle.contextBar.classList.remove('hidden');
@@ -709,7 +665,7 @@ const workflowImageEdit = {
 
     /** Chạm xuống — hit-test layer TOPMOST khớp vị trí chạm (layer thêm SAU cùng ưu tiên trước, vì
      * nó nằm TRÊN nếu chồng lấn). Không trúng layer nào -> không làm gì. Trúng -> ghi nhớ vị trí
-     * bắt đầu + hẹn giờ 1.5s mở menu Sửa/Xoá/Nhân bản (Giang chốt: "nhấn giữ 1.5s") — bị HUỶ ngay
+     * bắt đầu + hẹn giờ 1.5s mở menu Sửa/Xoá/Nhân bản — bị HUỶ ngay
      * nếu ngón tay di chuyển đủ xa TRƯỚC khi hết giờ (coi là kéo di chuyển layer thay vì long-press,
      * xem `layerPointerMove()`).
      * @param {{x:number,y:number}} pos
@@ -774,10 +730,8 @@ const workflowImageEdit = {
     /** Mở dropdown lựa chọn (Sửa nội dung/Sửa kiểu/Xoá/Nhân bản) NEO tại vị trí chạm thật trên màn
      * hình — quy đổi NGƯỢC toạ độ canvas-pixel (`pos`) về toạ độ CLIENT (nghịch đảo
      * `computeInteractPos()`, core/file-manager/photo-ui.js) để tạo neo tạm đúng chỗ
-     * (`createPointAnchorEl()`, core/dropdown-menu.js).
-     * SỬA (tách "Sửa" cũ ra 2 mục — Element Style Editor CHỈ chỉnh style, không có field nội dung
-     * chữ, xem docstring `editLayerTextContent()`) — "Sửa nội dung" CHỈ hiện với layer Text (Shape
-     * không có nội dung chữ để sửa).
+     * (`createPointAnchorEl()`, core/dropdown-menu.js). "Sửa nội dung" CHỈ hiện với layer Text (Shape không có nội
+     * dung chữ); "Sửa kiểu" mở Element Style Editor (chỉ chỉnh style).
      * @param {number} index @param {{x:number,y:number}} pos
      */
     _openLayerActionMenuAt(index, pos) {
@@ -808,7 +762,7 @@ const workflowImageEdit = {
     },
 
     /** "Nhân bản" trong menu layer — lệch nhẹ (20px canvas) khỏi bản gốc, để thấy rõ đã tạo bản
-     * MỚI thay vì đè khít lên bản cũ (khó nhận ra). @param {number} index */
+     * MỚI thay vì đè khít lên bản gốc (khó nhận ra). @param {number} index */
     duplicateLayer(index) {
         const original = this._layers[index];
         const copy = { ...original, id: ++this._layerIdSeq, x: original.x + 20, y: original.y + 20 };
@@ -816,17 +770,14 @@ const workflowImageEdit = {
         this._renderLayers();
     },
 
-    /** "Sửa kiểu" trong menu layer — MỚI (Giang chỉ ra `workflowElementStyleEditor` vốn đã là công
-     * cụ CHUNG, dùng bởi Subtitle Styling — KHÔNG tự chế Generic Drawer riêng nữa) — thay hẳn cho
-     * `openPhotoLayerStyleDrawerUi()`/`wireLayerStyleDrawerDelegation()`/`updateLayerStyleField()`/
-     * `closeLayerStyleEditor()` cũ (CẢ 4 đã xoá, xem core/file-manager/photo-ui.js).
+    /** "Sửa kiểu" trong menu layer — dùng `workflowElementStyleEditor` (công cụ CHUNG, cũng dùng bởi Subtitle
+     * Styling).
      * `targetEl = null` — layer là object vẽ lên canvas (`_renderLayers()`), KHÔNG phải DOM sống,
      * không có gì để `applyElementStyleToDom()` áp thẳng (hàm đó tự guard `!targetEl`) — nhận kết
      * quả hoàn toàn qua `onApply(cssString)` (`_applyLayerStyleCssString()` bên dưới).
      * `zIndex` PHẢI truyền riêng — mặc định Element Style Editor dùng z-index 128
      * (GENERIC_DRAWER_DEFAULT_Z_INDEX), THẤP HƠN modal xem ảnh Photo (`Z_INDEX.IMAGE_PREVIEW` = 130,
-     * service/z-index.js) — không truyền thì Drawer bị modal đè khuất, không bấm tới được. Dùng lại
-     * ĐÚNG `Z_INDEX.IMAGE_ACTION_MENU_DRAWER` (131) mà bản tự chế cũ từng dùng.
+     * service/z-index.js) — không truyền thì Drawer bị modal đè khuất -> dùng `Z_INDEX.IMAGE_ACTION_MENU_DRAWER` (131).
      * `startTab` — Text mở sẵn tab 'text' (tab 'box' vô nghĩa với chữ vẽ canvas — không có khái
      * niệm padding/margin/width/height khi "nướng" thẳng lên pixel); Shape giữ mặc định 'box' (fill/
      * viền ánh xạ ĐÚNG vào background-color/border của tab đó, xem `_applyLayerStyleCssString()`).
@@ -873,10 +824,9 @@ const workflowImageEdit = {
      * Tab Box với Shape (background/border) ÁP ĐƯỢC — ánh xạ đúng vào fillColor/strokeColor+
      * strokeWidth vốn đã có sẵn trên shape.
      * Property KHÔNG có mặt trong `cssString` (property đó đang TẮT trong draft, xem
-     * `buildElementStyleCssString()`) — coi là "tắt" (Text: giữ nguyên giá trị cũ, vì color/font-
+     * `buildElementStyleCssString()`) — coi là "tắt" (Text: giữ nguyên giá trị đang có, vì color/font-
      * size/weight/style tắt vẫn cần 1 giá trị hợp lệ để vẽ, KHÔNG có "trạng thái tắt" cho canvas;
-     * Shape: fillColor -> null/strokeWidth -> 0, giống hệt semantics `hasFill` checkbox của bản tự
-     * chế cũ). @param {string} cssString */
+     * Shape: fillColor -> null/strokeWidth -> 0). @param {string} cssString */
     _applyLayerStyleCssString(cssString) {
         const layer = this._layers[this._selectedLayerIndex];
         if (!layer) return;
@@ -901,10 +851,8 @@ const workflowImageEdit = {
      * field nội dung chữ nào — tách riêng ra đây, dùng lại `modalChoice()` (core/modal-choice-ui.js,
      * công cụ CHUNG có sẵn, KHÔNG tự chế UI mới) với 1 `<textarea>` qua `bodyHtml`.
      * `modalChoice()` tự xoá DOM TRƯỚC khi gọi `onClick` của nút được bấm (xem docstring hàm đó) — KHÔNG tìm lại được
-     * textarea bằng id BÊN TRONG onClick. SỬA (12/10/2026, plan-event-bus-wiring đợt 6a — nhóm D, Giang chốt "bỏ
-     * listener input, đọc .value trong onClick") — trước đây bám giá trị đang gõ vào `draftText` qua listener 'input';
-     * nay giữ THAM CHIẾU textarea ngay sau khi mở và đọc `.value` trong onClick (phần tử đã tách khỏi DOM vẫn đọc được).
-     * Markup body dời sang components/image-edit-modals.js::renderLayerEditContentModalBody().
+     * textarea bằng id BÊN TRONG onClick -> giữ THAM CHIẾU textarea ngay sau khi mở và đọc `.value` trong onClick
+     * (phần tử đã tách khỏi DOM vẫn đọc được). Body: components/image-edit-modals.js::renderLayerEditContentModalBody().
      * @param {number} index */
     editLayerTextContent(index) {
         const layer = this._layers[index];
@@ -916,7 +864,7 @@ const workflowImageEdit = {
                     label: t('common.save'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent',
                     onClick: () => {
                         const trimmed = textareaEl.value.trim();
-                        if (trimmed) layer.text = trimmed; // guard: rỗng thì giữ nguyên chữ cũ, không cho xoá trắng qua đường này
+                        if (trimmed) layer.text = trimmed; // guard: rỗng thì giữ nguyên chữ đang có, không cho xoá trắng qua đường này
                         this._renderLayers();
                     },
                 },
@@ -936,7 +884,7 @@ const workflowImageEdit = {
         ctx.clearRect(0, 0, handle.layerCanvas.width, handle.layerCanvas.height);
         for (const layer of this._layers) {
             if (layer.type === 'text') {
-                drawTextOnCanvas(handle.layerCanvas, layer); // core/photo-editor-engine.js — SỬA: nhận nguyên layer (fontWeight/fontStyle)
+                drawTextOnCanvas(handle.layerCanvas, layer); // core/photo-editor-engine.js — nhận nguyên layer (fontWeight/fontStyle)
             } else {
                 drawShapeOnCanvas(handle.layerCanvas, layer); // core/photo-editor-engine.js
             }
@@ -944,11 +892,9 @@ const workflowImageEdit = {
     },
 
     /** Xuất ảnh cuối cùng ra 1 Blob JPEG chất lượng cao — dùng chung bởi `saveEditOverwrite()`/
-     * `saveEditAsNew()`. MỚI (layer Text/Shape) — GỘP `layerCanvas` (Text/Shape còn ở dạng object,
+     * `saveEditAsNew()`. GỘP `layerCanvas` (Text/Shape còn ở dạng object,
      * KHÔNG lưu chồng lên `baseCanvas` như Crop/Vẽ) đè lên `renderCanvas` (base + Điều chỉnh) TRƯỚC
-     * khi xuất — dựng 1 canvas TẠM để gộp, KHÔNG mutate `renderCanvas` (vẫn cần giữ nguyên để còn
-     * chỉnh sửa tiếp nếu Giang bấm Lưu mà quay lại sửa tiếp, dù hiện tại `saveEdit*()` đóng modal
-     * ngay sau — vẫn giữ đúng nguyên tắc "hàm xuất không phá dữ liệu nguồn").
+     * khi xuất — dựng 1 canvas TẠM để gộp, KHÔNG mutate `renderCanvas` (nguyên tắc "hàm xuất không phá dữ liệu nguồn").
      * @returns {Promise<Blob>} */
     _exportEditedBlob() {
         const handle = this._activeImageModalHandle;
@@ -966,7 +912,7 @@ const workflowImageEdit = {
     },
 
     /** Sinh tên file MỚI cho "Lưu mới" — BẮT BUỘC khác tên gốc: `resolveImageKey()` (core/file-
-     * manager/image.js) coi TRÙNG tên là "cùng ảnh, ghi đè đúng key cũ" — dùng nguyên tên gốc sẽ vô
+     * manager/image.js) coi TRÙNG tên là "cùng ảnh, ghi đè đúng key đang có" — dùng nguyên tên gốc sẽ vô
      * tình ghi đè thay vì tạo ảnh mới.
      * @param {string} originalFilename @returns {string} */
     _buildEditedNewFilename(originalFilename) {
@@ -979,26 +925,24 @@ const workflowImageEdit = {
     /** Ứng với "Ghi đè" trong dropdown Save (icon Save trên header, `openSaveMenu()`) — xuất
      * `renderCanvas` -> resize thumbnail (`workflowFileManagerPhoto.resizeImageForThumbnail()`,
      * dùng chung upload) -> `updateImageBlob()` (core/file-manager/image.js) ghi đè ĐÚNG key đang
-     * mở. Đóng modal SAU KHI lưu xong.
-     * SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — thêm bước tính lại `duration`
-     * (`workflowFileManagerPhoto.computePhotoDuration()`) TRƯỚC `updateImageBlob()` — crop/rotate
-     * đổi cả kích thước lẫn dung lượng ảnh, giữ nguyên số `duration` cũ sẽ SAI so với nội dung ảnh
-     * thật (cùng lý do `thumbBlob`/`width`/`height` cũng phải tính lại, xem comment gốc trên).
+     * mở. Đóng modal SAU KHI lưu xong. Tính lại `duration` (`workflowFileManagerPhoto.computePhotoDuration()`) cùng
+     * `thumbBlob`/`width`/`height` — crop đổi cả kích thước lẫn dung lượng ảnh. Blob quá lớn (core/upload-validation.js)
+     * -> không lưu, báo SAU khi shield tắt, giữ modal mở.
      */
     async saveEditOverwrite() {
         const handle = this._activeImageModalHandle;
         if (!handle || !this._activeEditParams) return; // guard: hiếm, không ở Edit mode nữa
         const imageKey = this._activeImageKey;
 
-        let tooLargeReason = null; // MỚI (06/10/2026, Giang chốt "media do app tự tạo chặn 500MB") — báo SAU khi shield tắt
+        let tooLargeReason = null; // báo SAU khi shield tắt
         await withLoadingShield(t('common.loading.savingImageEdit'), async () => {
             const finalBlob = await this._exportEditedBlob();
             const sizeCheck = validateMediaFileSize(finalBlob); // core/upload-validation.js
             if (!sizeCheck.valid) { tooLargeReason = sizeCheck.reason; return; }
             const { thumbBlob, width, height } = await workflowFileManagerPhoto.resizeImageForThumbnail(finalBlob);
-            const duration = await workflowFileManagerPhoto.computePhotoDuration(finalBlob, width, height); // MỚI — event/workflow/file-manager-photo.js
+            const duration = await workflowFileManagerPhoto.computePhotoDuration(finalBlob, width, height); // event/workflow/file-manager-photo.js
             await updateImageBlob(imageKey, finalBlob, thumbBlob, width, height, duration); // core/file-manager/image.js
-            // MỚI (06/10/2026, plan-media-db-split.md mục 7) — báo request trung tâm: ảnh này đang hiện/làm nền thì tự nạp lại.
+            // Báo request trung tâm: ảnh này đang hiện/làm nền thì tự nạp lại.
             eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced', payload: { type: 'photo', key: imageKey } });
         });
         if (tooLargeReason) { await alertModal(tFormat('common.validate.generatedNotSaved', { reason: tooLargeReason })); return; } // giữ modal sửa ảnh mở
@@ -1008,25 +952,23 @@ const workflowImageEdit = {
 
     /** Ứng với "Lưu mới" trong dropdown Save (icon Save trên header, `openSaveMenu()`) — xuất
      * `renderCanvas` -> resize thumbnail -> `saveImage()` (core/file-manager/image.js, dùng CHUNG
-     * hàm upload) với tên file MỚI (`_buildEditedNewFilename()`). Đóng modal SAU KHI lưu xong.
-     * SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — thêm bước tính `duration`
-     * (`workflowFileManagerPhoto.computePhotoDuration()`) TRƯỚC `saveImage()`, cùng lý do
-     * `saveEditOverwrite()` ngay trên.
+     * hàm upload) với tên file MỚI (`_buildEditedNewFilename()`). Đóng modal SAU KHI lưu xong. `duration` + chặn
+     * dung lượng: cùng cách `saveEditOverwrite()` ngay trên.
      */
     async saveEditAsNew() {
         const handle = this._activeImageModalHandle;
         if (!handle || !this._activeEditParams) return; // guard: hiếm, không ở Edit mode nữa
 
-        let tooLargeReason = null; // MỚI (06/10/2026) — cùng lý do saveEditOverwrite() ngay trên
+        let tooLargeReason = null; // cùng lý do saveEditOverwrite() ngay trên
         await withLoadingShield(t('common.loading.savingImageEdit'), async () => {
-            const originalRecord = await getMediaMeta('photo', this._activeImageKey); // service/db.js — SỬA 06/10/2026: chỉ cần filename, không mở Blob
+            const originalRecord = await getMediaMeta('photo', this._activeImageKey); // service/db.js — chỉ cần filename, không mở Blob
             const finalBlob = await this._exportEditedBlob();
             const sizeCheck = validateMediaFileSize(finalBlob); // core/upload-validation.js
             if (!sizeCheck.valid) { tooLargeReason = sizeCheck.reason; return; }
             const { thumbBlob, width, height } = await workflowFileManagerPhoto.resizeImageForThumbnail(finalBlob);
-            const duration = await workflowFileManagerPhoto.computePhotoDuration(finalBlob, width, height); // MỚI — event/workflow/file-manager-photo.js
+            const duration = await workflowFileManagerPhoto.computePhotoDuration(finalBlob, width, height); // event/workflow/file-manager-photo.js
             const newFilename = this._buildEditedNewFilename(originalRecord ? originalRecord.filename : 'photo.jpg');
-            const newKey = await resolveImageKey(newFilename); // service/db.js — SỬA 06/10/2026: key resolve ở Workflow (Rule 3)
+            const newKey = await resolveImageKey(newFilename); // service/db.js — key resolve ở Workflow (Rule 3)
             await saveImage(newKey, finalBlob, newFilename, thumbBlob, width, height, duration); // core/file-manager/image.js
         });
         if (tooLargeReason) { await alertModal(tFormat('common.validate.generatedNotSaved', { reason: tooLargeReason })); return; } // giữ modal sửa ảnh mở
@@ -1034,44 +976,11 @@ const workflowImageEdit = {
         await alertModal(t('fileManager.photo.image.editSaveNewSuccess'));
     },
 
-    /** Dọn Edit mode (nếu đang ở đó) — ẩn canvasWrap, hiện lại `<img>`, gỡ delegated click lưới
-     * tool, đóng popup/contextBar từng tool + Generic Drawer, xoá sạch state/snapshot. An toàn gọi
-     * khi KHÔNG đang Edit mode (guard `_activeEditParams`). Public — `workflowFileManagerPhoto` gọi
-     * ngược lại lúc đóng HẲN modal xem ảnh (`closeImagePreview()`) — KHÔNG gọi ở bất kỳ đâu khác
-     * (đóng Generic Drawer bằng nút X KHÔNG gọi hàm này, xem case 'imageEdit.toolGrid.close.click'
-     * — không có khái niệm "thoát Edit mà vẫn xem ảnh tiếp"). `toolsBtn` KHÔNG còn bị ẩn ở đây —
-     * icon Edit LUÔN hiện trên header (core/file-manager/photo-ui.js), không theo vòng đời Edit
-     * mode nữa. Xử lý được cả trường hợp thoát GIỮA CHỪNG 1 sub-tool.
-     * SỬA (31/07/2026, Nhóm B) — KHÔNG còn gỡ `_subToolPointerCleanup`/`_textDragCleanup` (2 field
-     * đó đã XOÁ, `interactCanvas`/`floatingText`/`document` wire VĨNH VIỄN 1 lần, không theo vòng
-     * đời sub-tool nữa) — chỉ cần reset `_drawSessionActive`/`_textDragging` về false (dừng MỌI
-     * phiên kéo/vẽ đang dở, nếu có).
-     */
-    /** Dọn Edit mode (nếu đang ở đó) — ẩn canvasWrap, hiện lại `<img>`, gỡ delegated click lưới
-     * tool, đóng popup/contextBar từng tool + Generic Drawer, xoá sạch state/snapshot. An toàn gọi
-     * khi KHÔNG đang Edit mode (guard `_activeEditParams`). Public — `workflowFileManagerPhoto` gọi
-     * ngược lại lúc đóng HẲN modal xem ảnh (`closeImagePreview()`) — KHÔNG gọi ở bất kỳ đâu khác
-     * (đóng Generic Drawer bằng nút X KHÔNG gọi hàm này, xem case 'imageEdit.toolGrid.close.click'
-     * — không có khái niệm "thoát Edit mà vẫn xem ảnh tiếp"). `toolsBtn` KHÔNG còn bị ẩn ở đây —
-     * icon Edit LUÔN hiện trên header (core/file-manager/photo-ui.js), không theo vòng đời Edit
-     * mode nữa. Xử lý được cả trường hợp thoát GIỮA CHỪNG 1 sub-tool.
-     * SỬA (31/07/2026, Nhóm B) — KHÔNG còn gỡ `_subToolPointerCleanup`/`_textDragCleanup` (2 field
-     * đó đã XOÁ, `interactCanvas`/`floatingText`/`document` wire VĨNH VIỄN 1 lần, không theo vòng
-     * đời sub-tool nữa) — chỉ cần reset `_drawSessionActive`/`_textDragging` về false (dừng MỌI
-     * phiên kéo/vẽ đang dở, nếu có).
-     * MỚI (layer Text/Shape) — reset SẠCH toàn bộ state layer: huỷ hẹn giờ long-press nếu còn
-     * treo (tránh callback chạy TRỄ sau khi modal đã đóng, đọc phải `_activeImageModalHandle` đã
-     * null), gỡ delegation style editor nếu đang mở, đóng luôn `shapeTypePopup` — `_layers` array
-     * TỰ MẤT theo modal (KHÔNG lưu lại giữa các lần mở ảnh khác nhau, mỗi phiên Edit MỚI bắt đầu
-     * `_layers = []` lại từ đầu ở `ensureEditSessionReady()`).
-     */
-    /** Dọn TOÀN BỘ state Edit (nếu đã decode/đang dùng) — gỡ delegated click lưới tool, đóng
-     * popup/contextBar từng tool + Generic Drawer, xoá sạch state/snapshot/layer. Public —
-     * `workflowFileManagerPhoto` gọi ngược lại lúc đóng HẲN modal xem ảnh (`closeImagePreview()`)
-     * — KHÔNG gọi ở bất kỳ đâu khác. KHÔNG còn đụng gì tới `imgEl`/`canvasWrap` (không có khái
-     * niệm ẩn/hiện qua lại giữa 2 thứ đó nữa — chỉ 1 mặt canvas DUY NHẤT dùng suốt vòng đời modal,
-     * đóng modal thì `closeModal()` bên photo-ui.js tự dọn nguyên cụm DOM, không cần đụng riêng ở
-     * đây). Xử lý được cả trường hợp thoát GIỮA CHỪNG 1 sub-tool.
+    /** Dọn TOÀN BỘ state Edit (nếu đã decode/đang dùng) — đóng Generic Drawer, dừng MỌI phiên kéo/vẽ đang dở, huỷ hẹn
+     * giờ long-press còn treo (tránh callback chạy TRỄ đọc `_activeImageModalHandle` đã null), xoá sạch state/snapshot/
+     * layer (`_layers` không giữ giữa các lần mở ảnh). Public — `workflowFileManagerPhoto` gọi ngược lại lúc đóng HẲN
+     * modal xem ảnh (`closeImagePreview()`) — KHÔNG gọi ở đâu khác (nút X của Drawer chỉ đóng Drawer). DOM của modal do
+     * `closeModal()` (core/file-manager/photo-ui.js) tự dọn. Xử lý được cả trường hợp thoát GIỮA CHỪNG 1 sub-tool.
      */
     exitEditMode() {
         if (!this._activeEditParams) return;

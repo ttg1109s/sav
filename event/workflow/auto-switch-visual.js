@@ -1,51 +1,36 @@
 /**
- * event/workflow/auto-switch-visual.js — "THẰNG THỰC THI CUỐI" của router "autoSwitchVisual".
+ * event/workflow/auto-switch-visual.js — "THẰNG THỰC THI CUỐI" của router "autoSwitchVisual": điều phối Auto-Switch
+ * Effect (taskManager, đọc appState, áp visual + lưu config) — core/auto-switch-visual.js chỉ chứa hàm thuần.
  *
- * MỚI (Batch D3, Settings restructure, 06/07/2026) — TRƯỚC ĐÂY router gọi thẳng core (mỗi
- * msg.type chỉ cần 1 hàm, không cần workflow). GIỜ CẦN workflow vì core/auto-switch-visual.js đã
- * refactor Rule 1-4 đầy đủ (bỏ `saveConfig()`/`updateCycleModeButtonState()`/
- * `startAutoSwitchVisualBranch()`/`syncAutoSwitchTimeModeBlocks()` nội bộ) — mọi msg.type giờ là
- * >1 hàm core nối tiếp.
+ * 2 nhánh thời gian:
+ *   - 'fixed' (const | random [min,max]): đồng hồ độc lập qua taskManager — chạy khi media đang phát (song/video/photo)
+ *     VÀ app không ở chế độ nền (`_isRunAllowed()`), đứng khi pause/ẩn app, KHÔNG reset khi đổi media.
+ *   - 'perMedia': KHÔNG task — đổi hiệu ứng mỗi khi 1 media MỚI bắt đầu (`onMediaChanged()`, gọi ngay sau khi
+ *     currentKey đổi ở event/workflow/player.js / video-player.js / photo-player.js). Media đầu tiên sau khi bật chỉ
+ *     được ghi nhận, không đổi.
+ * Chọn style kế tiếp theo danh sách group/style (core). Panel Settings luôn hiện đủ tuỳ chọn; mọi thay đổi cấu trúc vẽ
+ * lại panel qua workflowAppSettings (giữ vị trí cuộn).
  *
- * [MỚI — 25/09/2026, dọn nợ readme/task-manager-conventions.md mục 6, cùng đợt "ẩn tab/PWA dừng render Visualizer"]
- * Toàn bộ phần ĐIỀU PHỐI 2 nhánh (taskManager, đọc appState, áp visual + lưu config) dời từ core/auto-switch-visual.js
- * về ĐÂY theo đúng mẫu mục 5 của tài liệu đó — core giờ chỉ còn hàm thuần (pickNextAutoSwitchVisualType,
- * computeAutoSwitchVisualTimerDelayMs, buildAutoSwitchVisualMarks, findAutoSwitchVisualMarkIndex). Hành vi 2 nhánh GIỮ
- * NGUYÊN, chỉ THÊM 1 điều kiện chạy: `_isRunAllowed()` = Song đang phát VÀ app KHÔNG ở chế độ nền
- * (`isBackgroundSuspended`, event/workflow/app-visibility.js) -> ẩn app thì đồng hồ/mốc đổi hiệu ứng đứng yên, kể cả khi
- * Song tự Next giữa lúc ẩn (sự kiện 'play' của bài mới gọi `syncPlayState()` cũng đọc điều kiện này).
- * Điểm gọi (thay các lời gọi core cũ):
- *   - `syncPlayState()` — event/workflow/player-controls.js (handleAudioPlayEvent/handleAudioPauseEvent),
- *     event/workflow/app-visibility.js (vào/ra chế độ nền).
- *   - (`onSongChanged()` ĐÃ BỎ 26/09/2026 — thay bằng `onMediaChanged()`, xem khối VIẾT LẠI ngay dưới.)
- *   - `killAllTasks()` — event/workflow/playlist.js, event/workflow/file-manager-storage.js (xoá bài đang phát/Clear all).
- *   - `startBranch()` — 3 setter Settings ngay dưới.
+ * Điểm gọi từ ngoài:
+ *   - `syncPlayState()` — event/workflow/player-controls.js (play/pause), event/workflow/app-visibility.js (vào/ra nền).
+ *   - `onMediaChanged()` — 3 player khi currentKey đổi.
+ *   - `killAllTasks()` — event/workflow/playlist.js, event/workflow/file-manager-storage.js (xoá media đang phát/Clear all).
+ *   - `startBranch()` — các setter Settings ngay dưới.
  *
- * NẠP SAU: core/auto-switch-visual.js, core/config.js (saveConfig, MODES), service/task-manager.js,
- * core/dom-refs.js (audioPlayer), event/virtual-machine-state.js. Lúc chạy: event/workflow/visualizer-render.js
- * (`applyStyle()` — thay applyVisualizerStyleChoice() của core cũ).
+ * Mọi rẽ nhánh THEO TRẠNG THÁI viết bằng `VirtualMachineState.run()` (khai báo đủ mọi trường hợp — trường hợp "không làm
+ * gì" có rule no-op có chủ đích); điều kiện nhiều vế tính ở core (`resolveAutoSwitchSyncPhase()`). Còn lại chỉ guard
+ * clause (readme/event-bus-flow.md mục 7).
  *
- * [SỬA — 28/09/2026, Giang "chuyển auto-switch sang VMState"] Mọi rẽ nhánh THEO TRẠNG THÁI trong file này viết bằng
- * `VirtualMachineState.run()` (danh sách rule khai báo đủ mọi trường hợp — trường hợp "không làm gì" có rule no-op
- * có chủ đích, cùng khuôn event/router/gameplay.js); điều kiện nhiều vế tính ở core (`resolveAutoSwitchSyncPhase()`).
- * Còn lại chỉ guard clause (readme/event-bus-flow.md mục 7).
+ * NẠP SAU: core/auto-switch-visual.js, core/auto-switch-visual-ui.js, core/config.js (saveConfig, MODES),
+ * service/task-manager.js, core/dom-refs.js (audioPlayer), event/virtual-machine-state.js. Lúc chạy:
+ * event/workflow/visualizer-render.js (`applyStyle()`).
  */
-// VIẾT LẠI (26/09/2026, Giang "cải tiến lại Auto-Switch Effect") — 2 nhánh thời gian:
-//   - 'fixed' (const | random [min,max]): đồng hồ độc lập qua taskManager (y như nhánh 1 cũ) — chạy khi media đang
-//     phát (song/video/photo — trước đây chỉ Song), đứng khi pause/ẩn app, KHÔNG reset khi đổi media.
-//   - 'perMedia': KHÔNG task — đổi hiệu ứng mỗi khi 1 media MỚI bắt đầu (`onMediaChanged()`, gọi ngay sau khi
-//     currentKey đổi ở event/workflow/player.js / video-player.js / photo-player.js). Media đầu tiên sau khi bật
-//     chỉ được ghi nhận, không đổi.
-// Nhánh 'duration' (mốc theo độ dài bài) + task marks ĐÃ BỎ. Chọn style kế tiếp theo danh sách group/style
-// (core/auto-switch-visual.js). Panel Settings luôn hiện đủ tuỳ chọn; mọi thay đổi cấu trúc vẽ lại panel qua
-// workflowAppSettings._renderAutoSwitch() (giữ vị trí cuộn).
 const AUTO_SWITCH_VISUAL_TASK_TIMER = 'autoSwitchVisualTimer';
 
 const workflowAutoSwitchVisual = {
-    // MỚI (12/10/2026, plan-event-bus-wiring đợt 4) — phiên kéo thả 1 item của sub panel "Effect list":
-    // {listBy, rowEl, startY, rows, dragIndex, hoverEl} — null = không kéo. Xem startItemDrag().
+    // Phiên kéo thả 1 item của sub panel "Effect list": {listBy, rowEl, startY, rows, dragIndex, hoverEl} — null = không
+    // kéo. Xem startItemDrag().
     _itemDrag: null,
-
 
     setEnabled(checked) {
         setAutoSwitchVisualEnabled(checked); // core/auto-switch-visual.js
@@ -101,12 +86,10 @@ const workflowAutoSwitchVisual = {
         this._rerenderPanel();
     },
 
-    // ===================== Kéo thả item — MỚI 12/10/2026 =====================
-    // plan-event-bus-wiring-07-10-2026 đợt 4 (khuôn W4, cùng khuôn workflowMotionPresets.startPointMoveDrag()):
-    // THAY 4 listener pointer mà event/workflow/visualizer-display.js::openAutoSwitchPanel() (đã xoá) tự gắn lên từng tay
-    // cầm sau mỗi lần vẽ panel. Listener ủy quyền (event/listener/auto-switch-visual.js) -> Router 'autoSwitchVisual.drag.*'
-    // -> 4 method dưới. Hiệu ứng + kết quả giữ nguyên: hàng nổi lên bám con trỏ, hàng đích viền xanh, thả = DỜI mục tới
-    // vị trí hàng đích (gửi 'autoSwitchVisual.item.move' như cũ), pointercancel = huỷ không dời.
+    // ===================== Kéo thả item =====================
+    // Listener ủy quyền (event/listener/auto-switch-visual.js) -> Router 'autoSwitchVisual.drag.*' -> 4 method dưới (cùng
+    // khuôn workflowMotionPresets.startPointMoveDrag()). Hàng nổi lên bám con trỏ, hàng đích viền xanh; thả = DỜI mục tới
+    // vị trí hàng đích (gửi 'autoSwitchVisual.item.move'); pointercancel = huỷ, không dời.
 
     /** 'autoSwitchVisual.drag.start' — nhấc hàng có khoá `key` lên, ghi phiên kéo.
      * @param {{listBy: string, key: string, clientY: number, handleEl: HTMLElement, pointerId: number}} payload */
@@ -128,7 +111,7 @@ const workflowAutoSwitchVisual = {
         this._setItemDragHover(drag, drag.rows[index] || null);
     },
 
-    /** 'autoSwitchVisual.drag.end' (pointerup) — trả hàng về; có hàng đích khác chính nó -> dời mục (qua bus như cũ). */
+    /** 'autoSwitchVisual.drag.end' (pointerup) — trả hàng về; có hàng đích khác chính nó -> dời mục (qua bus). */
     endItemDrag() {
         const drag = this._itemDrag;
         if (!drag) return;
@@ -223,7 +206,7 @@ const workflowAutoSwitchVisual = {
 
     // ===================== Điều phối =====================
 
-    /** Media đang phát thật (song / video / photo theo chế độ player hiện tại). MỚI 26/09/2026 — trước đây chỉ Song. */
+    /** Media đang phát thật (song / video / photo theo chế độ player hiện tại). */
     _isMediaPlaying() {
         const playerMode = appState.get('isPhotoPlayerMode') ? 'photo' : (appState.get('isVideoPlayerMode') ? 'video' : 'song');
         let playing = false;
@@ -259,8 +242,7 @@ const workflowAutoSwitchVisual = {
         return next;
     },
 
-    /** Áp 1 style (null/trùng style đang chạy -> bỏ qua). Đi qua CÙNG đường chọn tay (SỬA 28/09/2026:
-     * `workflowVisualizerRender.applyStyle()` thay applyVisualizerStyleChoice() của core cũ). */
+    /** Áp 1 style (null/trùng style đang chạy -> bỏ qua). Đi qua CÙNG đường chọn tay (`workflowVisualizerRender.applyStyle()`). */
     _applyStyle(style) {
         if (!style || MODES.indexOf(style) === appState.get('currentModeIndex')) return;
         workflowVisualizerRender.applyStyle(style); // event/workflow/visualizer-render.js (tự log writer currentModeIndex)

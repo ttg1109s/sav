@@ -11,7 +11,7 @@
  * core/settings-carousel-ui.js). Motion: Quản lý mở từ System; nơi tiêu thụ (Visual Background, Player) mở danh sách
  * ở chế độ Chọn (`_renderMotionPicker()`, workflowMotionPresets.openPicker()).
  *
- * CÒN NỢ (Giang dời lại): nút Cancel của picker chọn THƯ MỤC video trong Visual Background chưa tự quay lại màn Visual
+ * CÒN NỢ: nút Cancel của picker chọn THƯ MỤC video trong Visual Background chưa tự quay lại màn Visual
  * Background (hạ tầng `workflowPlaylist._openFolderPickerDrawer()` dùng chung với Playlist).
  *
  * NẠP SAU: core/generic-drawer.js, core/app-settings-ui.js, core/settings-carousel-ui.js, core/pagination-ui.js,
@@ -41,15 +41,15 @@ const workflowAppSettings = {
 
     _carouselTouching: false, // ngón tay còn đang chạm carousel Main — không nhảy scrollLeft lúc đang kéo tay
     _screenStack: [], // mảng hàm render (KHÔNG gồm màn hiện tại) — back() pop ra màn NGAY TRƯỚC
-    _playlistFilterListPageIndex: 0, // MỚI 23/09/2026 — trang đang xem của danh sách preset Filter (nơi 'filterPresets' của Pagination), core tự kẹp
-    _playlistFilterListSource: null, // MỚI 23/09/2026 — Nguồn của lần vẽ danh sách Filter trước — đổi Nguồn thì về trang 1
-    _motionListPageIndex: 0, // MỚI 23/09/2026 — trang đang xem của danh sách preset Motion (nơi 'motionPresets' của Pagination), sống theo phiên, core tự kẹp
-    _scrollResetPending: false, // MỚI (24/09/2026) — true = lần `_render()` kế tiếp là màn ĐI TỚI (open/navigateTo) -> bắt đầu từ đầu; false = vẽ lại tại chỗ hoặc quay lại -> giữ/khôi phục vị trí cuộn (event/workflow/generic-drawer-helpers.js, `scrollKey`)
-    _mainCarouselIndex: 0, // MỚI (20/09/2026) — mục (0..4) đang ở giữa carousel Main lần cuối người dùng bấm mở 1 màn con — Back về Main giữ đúng mục đó ở giữa; `open()` luôn reset về 0 (mục đầu tiên)
+    _playlistFilterListPageIndex: 0, // trang đang xem của danh sách preset Filter (nơi 'filterPresets' của Pagination), core tự kẹp
+    _playlistFilterListSource: null, // Nguồn của lần vẽ danh sách Filter trước — đổi Nguồn thì về trang 1
+    _motionListPageIndex: 0, // trang đang xem của danh sách preset Motion (nơi 'motionPresets' của Pagination), sống theo phiên, core tự kẹp
+    _scrollResetPending: false, // true = lần `_render()` kế tiếp là màn ĐI TỚI (open/navigateTo) -> bắt đầu từ đầu; false = vẽ lại tại chỗ hoặc quay lại -> giữ/khôi phục vị trí cuộn (event/workflow/generic-drawer-helpers.js, `scrollKey`)
+    _mainCarouselIndex: 0, // mục (0..4) đang ở giữa carousel Main lần cuối người dùng bấm mở 1 màn con — Back về Main giữ đúng mục đó ở giữa; `open()` luôn reset về 0 (mục đầu tiên)
 
     open() {
         this._screenStack = [];
-        this._scrollResetPending = true; // MỚI (24/09/2026) — mở Settings luôn từ đầu
+        this._scrollResetPending = true; // mở Settings luôn từ đầu
         this._mainCarouselIndex = 0;
         this._renderMain();
         workflowAppPanelNav.setActiveTab('setting');
@@ -65,7 +65,7 @@ const workflowAppSettings = {
      * @param {() => void} renderFn */
     navigateTo(renderFn) {
         this._screenStack.push(this._currentRenderFn);
-        this._scrollResetPending = true; // MỚI (24/09/2026) — màn đi TỚI bắt đầu từ đầu; vị trí màn vừa rời đã được nhớ theo key độ sâu (event/workflow/generic-drawer-helpers.js)
+        this._scrollResetPending = true; // màn đi TỚI bắt đầu từ đầu; vị trí màn vừa rời đã được nhớ theo key độ sâu (event/workflow/generic-drawer-helpers.js)
         renderFn();
     },
 
@@ -73,7 +73,7 @@ const workflowAppSettings = {
     back() {
         const prev = this._screenStack.pop();
         if (!prev) { this.close(); return; } // không còn gì để lùi (không nên xảy ra — Main không có nút Back) -> đóng hẳn cho an toàn
-        prev(); // SỬA (24/09/2026) — `_scrollResetPending` vẫn false -> `_render()` khôi phục đúng vị trí cuộn lúc rời màn này (event/workflow/generic-drawer-helpers.js)
+        prev(); // `_scrollResetPending` vẫn false -> `_render()` khôi phục đúng vị trí cuộn lúc rời màn này (event/workflow/generic-drawer-helpers.js)
     },
 
     // ===================== Khung dùng chung =====================
@@ -85,8 +85,7 @@ const workflowAppSettings = {
      */
     _render(title, bodyHtml, onMount, extraHeaderHtml) {
         const hasBack = this._screenStack.length > 0;
-        // MỚI (24/09/2026, Giang báo "vẽ lại panel mất scroll cũ" + "quay về panel cũ luôn về 0") — mỗi độ
-        // sâu ngăn xếp là 1 `scrollKey` riêng (màn ở độ sâu N luôn là màn đang hiện/sẽ quay lại ở độ sâu đó).
+        // Mỗi độ sâu ngăn xếp là 1 `scrollKey` riêng (màn ở độ sâu N luôn là màn đang hiện/sẽ quay lại ở độ sâu đó).
         // Vẽ lại tại chỗ (cùng độ sâu, kể cả từ Workflow miền khác) -> giữ vị trí; `back()` -> về đúng vị trí
         // lúc rời đi (kể cả khi giữa chừng Drawer bị picker/Element Style Editor chiếm tạm rồi gọi lại
         // `_renderXxx()`); `open()`/`navigateTo()` -> từ đầu.
@@ -95,9 +94,9 @@ const workflowAppSettings = {
         const config = {
             scrollKey: `appSettings@${this._screenStack.length}`,
             scrollReset,
-            height: 'auto', // MỚI (phản hồi Giang mục 2) — tự co theo nội dung, xem core/generic-drawer.js
+            height: 'auto', // tự co theo nội dung, xem core/generic-drawer.js
             maxHeight: '85vh',
-            headerHtml: buildDrawerHeaderHtml({ layout: 'center', backId: hasBack ? 'btn-app-settings-back' : '', title, actionsHtml: extraHeaderHtml || '' }), // SỬA 07/10/2026 — header dùng chung (components/generic-drawer.js), không còn markup trong Workflow
+            headerHtml: buildDrawerHeaderHtml({ layout: 'center', backId: hasBack ? 'btn-app-settings-back' : '', title, actionsHtml: extraHeaderHtml || '' }), // components/generic-drawer.js — header dùng chung
             bodyHtml: `<div class="p-4" data-uitk="textPrimary">${bodyHtml}</div>`,
             bodyClass: 'overflow-y-auto',
         };
@@ -105,7 +104,7 @@ const workflowAppSettings = {
         wireAppSettingsHeader(genericDrawerHeader); // core/app-settings-ui.js — Rule 5a
 
         if (onMount) onMount(genericDrawerBody);
-        // MỚI (24/09/2026) — onMount có thể làm nội dung CAO thêm (bỏ `hidden` các hàng theo config, vd Visual
+        // onMount có thể làm nội dung CAO thêm (bỏ `hidden` các hàng theo config, vd Visual
         // BG `refreshPanelUI()`) — lúc gắn nội dung còn thấp nên vị trí cuộn bị kẹp; áp lại đích sau onMount.
         workflowGenericDrawerHelpers.restoreScroll(); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
     },
@@ -114,7 +113,7 @@ const workflowAppSettings = {
 
     _renderMain() {
         this._currentRenderFn = () => this._renderMain();
-        this._render(t('appSettings.title'), renderAppSettingsMainBody(), (body) => { // components/settings/app-settings-main.js — carousel ngang (SỬA 20/09/2026)
+        this._render(t('appSettings.title'), renderAppSettingsMainBody(), (body) => { // components/settings/app-settings-main.js — carousel ngang
             wireAppSettingsMainCarousel(body); // core/app-settings-ui.js — chỉ wire sự kiện -> eventBus
             const scrollerEl = body.querySelector('#app-settings-carousel');
             this._carouselTouching = false;
@@ -168,12 +167,7 @@ const workflowAppSettings = {
         this._render(t('appSettings.row.playlist'), TPL_SETTINGS_PLAYLIST_VIEW, (body) => {
             const mediaSourceSelect = body.querySelector('#setting-playlist-media-source');
             if (mediaSourceSelect) mediaSourceSelect.value = appState.get('activeMediaSource');
-            // XOÁ (06/09/2026, Giang chốt mục 3.1 — "badge thay HẲN UI khoá select") — lời gọi
-            // `PlaylistMain.updateActiveFolderUI(mediaSourceSelect)` (khoá <select> + chèn option
-            // tên folder khi có Scope) bỏ hẳn cùng hàm đó — `<select>` "Nguồn" ở đây trở lại bình
-            // thường, chỉ còn đồng bộ `.value` như dòng ngay trên. Báo "đang Scope folder nào" giờ
-            // là việc của badge trong ô tìm kiếm Playlist (components/playlist-view.js), tự cập
-            // nhật từ event/workflow/playlist-scope.js, không liên quan gì tới màn Settings này nữa.
+            // "Đang Scope folder nào" hiện ở badge trong ô tìm kiếm Playlist (components/playlist-view.js), không ở đây.
             const viewModeSelect = body.querySelector('#setting-playlist-view-mode');
             if (viewModeSelect) viewModeSelect.value = appState.get('isGridView') ? 'grid' : 'list';
             wireAppSettingsPlaylist(body); // core/app-settings-ui.js
@@ -182,10 +176,10 @@ const workflowAppSettings = {
 
     _renderPlaylistSort() {
         this._currentRenderFn = () => this._renderPlaylistSort();
-        const source = appState.get('activeMediaSource'); // MỚI (hợp nhất Photo vào Playlist) — Photo ẩn 2 field times/duration
-        // SỬA (05/10/2026) — truyền field Stats để template dựng sẵn đúng hàng Hướng (chiều cao đo đúng ngay, không giật).
+        const source = appState.get('activeMediaSource'); // Photo ẩn 2 field times/duration
+        // Truyền field Stats để template dựng sẵn đúng hàng Hướng (chiều cao đo đúng ngay, không giật).
         this._render(t('playlistSortPanel.title'), renderPlaylistSortPanelBody(source, appState.get('displayStatSortField')), () => {
-            workflowPlaylist.openSortPanel(); // event/workflow/playlist.js — đồng bộ giá trị (đã migrate sang genericDrawerBody)
+            workflowPlaylist.openSortPanel(); // event/workflow/playlist.js — đồng bộ giá trị
         });
     },
 
@@ -235,15 +229,14 @@ const workflowAppSettings = {
             { key: 'theme', icon: 'theme', labelKey: 'appSettings.system.theme.label', hintKey: 'appSettings.system.theme.hint' },
             { key: 'motion', icon: 'photograph', labelKey: 'appSettings.system.motion.label', hintKey: 'appSettings.system.motion.hint' },
             { key: 'language', icon: 'globe', labelKey: 'appSettings.system.language.label', hintKey: 'appSettings.system.language.hint' },
-            // DỜI (05/10/2026, Giang yêu cầu) — Ghi âm từ Visualizer Screen > Player sang System, đứng trên Pagination.
             { key: 'recorder', icon: 'microphone', labelKey: 'appSettings.system.recorder.label', hintKey: 'appSettings.system.recorder.hint' },
-            // MỚI 23/09/2026 (Giang yêu cầu) — cài đặt CHUNG cho mọi danh sách có phân trang, xem _renderPagination() bên dưới.
+            // Cài đặt CHUNG cho mọi danh sách có phân trang, xem _renderPagination().
             { key: 'pagination', icon: 'pagination', labelKey: 'appSettings.system.pagination.label', hintKey: 'appSettings.system.pagination.hint' },
         ];
         this._render(t('appSettings.row.system'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js
     },
 
-    // ===================== Pagination (MỚI 23/09/2026) — mỗi NƠI 1 checkbox + số item/trang + kiểu riêng =====================
+    // ===================== Pagination — mỗi NƠI 1 checkbox + số item/trang + kiểu riêng =====================
     // Domain 'pagination' (core/config.js::DEFAULT_PAGINATION_CONFIG.places), đọc/ghi qua workflowPagination
     // (event/workflow/pagination.js — gọi trực tiếp, cùng cách Player gọi workflowPlayerDisplaySettings).
 
@@ -269,24 +262,19 @@ const workflowAppSettings = {
         if (field === 'enabled') await workflowPagination.changePlaceEnabled(place, value); // event/workflow/pagination.js
         else if (field === 'pageSize') await workflowPagination.changePlacePageSize(place, value);
         else if (field === 'style') await workflowPagination.changePlaceStyle(place, value);
-        this._renderPagination(); // vẽ lại tại chỗ — `_render()` tự giữ vị trí cuộn (SỬA 24/09/2026, bỏ lưu/khôi phục tay cũ)
+        this._renderPagination(); // vẽ lại tại chỗ — `_render()` tự giữ vị trí cuộn
     },
 
     // ===================== Theme — CHỈ 1 lựa chọn "Color" (Light/Dark/Morphin) =====================
-    // SỬA 21/09/2026 (Giang yêu cầu "bỏ phần Background, thay Interface = Color; chỉ hiện chọn ảnh nền/gradient khi chọn
-    // Morphin"): select "Background" cũ (viz.themeMode light/dark/glass) ĐÃ XOÁ — light/dark của nó thực chất không vẽ gì
-    // (chỉ 'gradient'/'background' mới có nền, xem core/color-utils.js::updatePlaylistBg). Giờ 1 select "Color" = UI Theme
-    // (core/ui-theme/*), và phần chọn NỀN (None/Gradient/Background media) CHỈ dựng khi Color = Morphin — nền chỉ có nghĩa với kính mờ.
-    // Các luồng nền GIỮ NGUYÊN: TÁI DÙNG router 'theme' gốc (event/router/theme.js — KHÔNG đổi gì) qua eventBus.
+    // 1 select "Color" = UI Theme (core/ui-theme/*). Phần chọn NỀN (3 card None/Gradient/Background media) CHỈ dựng khi
+    // Color = Morphin — nền chỉ có nghĩa với kính mờ. Đổi nền đi qua router 'theme' (event/router/theme.js) bằng eventBus.
 
-    /** SỬA 23/09/2026 — 3 card nền Morphin giờ là None/Gradient/Background media (Giang bỏ Solid — mode 'solid' + `bgSolidColor` đã xoá, xem
-     * DEFAULT_VIZ_CONFIG, core/config.js). */
+
     _renderTheme() {
         this._currentRenderFn = () => this._renderTheme();
         const activeUiTheme = getSelectableUiThemeNames().includes(appConfigUiTheme.getAll().activeUiTheme) ? appConfigUiTheme.getAll().activeUiTheme : UI_THEME_DEFAULT_NAME; // core/config.js + core/ui-theme/registry.js — tên lạ/không cho chọn -> Light (khớp theme THẬT đang áp)
         const isMorphin = activeUiTheme === 'morphin';
-        // SỬA 21/09/2026 (Giang yêu cầu 3 card + sửa lỗi dropdown nền nhảy ngược): phần nền CHỈ dựng khi Morphin — 3 card Solid/Gradient/Background media
-        // (core/theme-background-ui.js), trạng thái do workflowTheme.buildBackgroundCardState() đọc từ config (mode `solid` giờ có thật, không "đoán" nữa).
+        // Trạng thái 3 card do workflowTheme.buildBackgroundCardState() đọc từ config.
         const backgroundSectionHtml = isMorphin ? buildThemeBackgroundCardsHtml(workflowTheme.buildBackgroundCardState(), t) : ''; // core/theme-background-ui.js
         const bodyHtml = `
             <div class="flex flex-col gap-2">
@@ -317,18 +305,15 @@ const workflowAppSettings = {
     async handleUiThemeChange(themeName) {
         await workflowUiTheme.switchUiTheme(themeName); // event/workflow/ui-theme.js
         const vizCfg = appConfigViz.getAll();
-        const morphinAlreadyHasBackground = ['none', 'gradient', 'background'].includes(vizCfg.themeMode); // SỬA 23/09/2026 — 'solid' đã bỏ, thêm 'none'
-        // Vào Morphin lúc đang Light/Dark: SỬA 23/09/2026 (Giang báo "Morphin -> chọn media -> chọn kiểu khác -> đổi theme -> vào lại Morphin bị fallback về
-        // Background media") — trước đây cứ còn media là ép 'background', bỏ qua kiểu vừa chọn. Giờ dùng đúng kiểu Morphin chọn gần nhất
-        // (event/workflow/theme.js::resolveMorphinEntryMode()).
+        const morphinAlreadyHasBackground = ['none', 'gradient', 'background'].includes(vizCfg.themeMode);
+        // Vào Morphin lúc đang Light/Dark: dùng đúng kiểu nền Morphin chọn gần nhất (event/workflow/theme.js::resolveMorphinEntryMode()).
         const morphinStartMode = workflowTheme.resolveMorphinEntryMode();
         if (themeName === 'morphin' && !morphinAlreadyHasBackground) eventBus.send({ router: 'theme', type: 'theme.selectMode.click', payload: { mode: morphinStartMode } });
         else if (themeName !== 'morphin') eventBus.send({ router: 'theme', type: 'theme.selectMode.click', payload: { mode: themeName } }); // 'light' | 'dark' — tắt nền
         this._renderTheme();
     },
 
-    // ===================== Gesture (TÁI DÙNG NGUYÊN renderGestureSettingsPanelBody() +
-    // workflowGestureSettings — ĐÃ migrate sang genericDrawerBody) =====================
+    // ===================== Gesture (renderGestureSettingsPanelBody() + workflowGestureSettings) =====================
 
     _renderGesture() {
         this._currentRenderFn = () => this._renderGesture();
@@ -354,7 +339,7 @@ const workflowAppSettings = {
         );
     },
 
-    /** MỚI 23/09/2026 — ứng với 'appSettings.playlistFilterList.page.change' (thanh phân trang danh sách
+    /** Ứng với 'appSettings.playlistFilterList.page.change' (thanh phân trang danh sách
      * preset Filter). Vẽ lại tại chỗ, cuộn về đầu. @param {number} pageIndex */
     setPlaylistFilterListPage(pageIndex) {
         this._playlistFilterListPageIndex = pageIndex;
@@ -362,7 +347,7 @@ const workflowAppSettings = {
         genericDrawerBody.scrollTop = 0;
     },
 
-    /** MỚI 23/09/2026 — ứng với 'appSettings.motionList.page.change' (thanh phân trang danh sách Motion).
+    /** Ứng với 'appSettings.motionList.page.change' (thanh phân trang danh sách Motion).
      * Vẽ lại tại chỗ (không push ngăn xếp), cuộn về đầu để thấy trang mới từ trên xuống.
      * @param {number} pageIndex */
     setMotionListPage(pageIndex) {
@@ -435,9 +420,7 @@ const workflowAppSettings = {
         );
     },
 
-    // ===================== Language (TÁI DÙNG NGUYÊN TPL_SETTINGS_LANGUAGE +
-    // renderLanguageOptions()/updateLanguageDeleteButtonVisibility() — ĐÃ migrate sang
-    // genericDrawerBody, listener cụm "languageSettings" KHÔNG đổi gì) =====================
+    // ===================== Language (TPL_SETTINGS_LANGUAGE + renderLanguageOptions(), cụm "languageSettings") =====================
 
     _renderLanguage() {
         this._currentRenderFn = () => this._renderLanguage();
@@ -446,29 +429,19 @@ const workflowAppSettings = {
         });
     },
 
-    // ===================== Visualizer Screen — Display/Auto-Switch/Visual Background (TÁI DÙNG
-    // NGUYÊN 5 hàm render + workflowVisualizerDisplay/workflowVisualBg — ĐÃ migrate sang
-    // genericDrawerBody) =====================
+    // ===================== Visualizer Screen — Display/Subtitles/Auto-Switch/Background Color/Gesture/Player =====================
 
     _renderVisualizerScreen() {
         this._currentRenderFn = () => this._renderVisualizerScreen();
         const rows = [
             { key: 'display', icon: 'monitor', labelKey: 'settingsVisualizer.openDisplay.label', hintKey: 'settingsVisualizer.openDisplay.hint' },
-            // DỜI (05/10/2026, Giang yêu cầu) — Subtitles từ nút trong panel Display ra thành row riêng ở đây.
             { key: 'subtitle', icon: 'subtitle', labelKey: 'settingsSubtitleStyle.sectionTitle', hintKey: 'settingsSubtitleStyle.openPanel.hint' },
             { key: 'autoSwitch', icon: 'refresh', labelKey: 'settingsVisualizer.openAutoSwitch.label', hintKey: 'settingsVisualizer.openAutoSwitch.hint' },
-            // SỬA (05/10/2026, Giang yêu cầu) — "Visual Background" đổi thành "Background Color": màn này chỉ còn card màu
-            // nền; phần media (toggle tổng + Media + Playback) dời sang Player > Song > Background Media.
+            // Chỉ card màu nền; phần media (toggle tổng + Media + Playback) ở Player > Song > Background Media.
             { key: 'visualBgColor', icon: 'color-swatch', labelKey: 'settingsVisualizer.bgColor.label', hintKey: 'settingsVisualizer.bgColor.hint' },
-            // MỚI (Giang chốt "gesture cùng nhóm chủ đề với Display/Visual Background — cử chỉ chỉ
-            // có tác dụng trên #visualizer-gesture-surface") — DỜI từ System sang đây, đổi
-            // labelKey/hintKey sang cặp key CÙNG namespace 'settingsVisualizer.*' đã có sẵn (chưa
-            // từng dùng tới trước đợt này, xem lang/patch/patch-subtitle-settings.js) thay vì giữ
-            // cặp key cũ 'appSettings.system.gesture.*' (namespace đó giờ không còn khớp vị trí
-            // thật) — router 'gesture' -> _renderGesture() KHÔNG đổi gì, chỉ đổi CHỖ trỏ tới nó.
+            // Cử chỉ chỉ có tác dụng trên #visualizer-gesture-surface nên nằm ở nhóm này (-> _renderGesture()).
             { key: 'gesture', icon: 'hand', labelKey: 'settingsVisualizer.gesture.label', hintKey: 'settingsVisualizer.gesture.hint' },
-            // MỚI (Giang yêu cầu "Player" — Resolution + Motion của Video/Photo lúc phát chính,
-            // xem core/player-display-settings.js) — CÙNG nhóm chủ đề, đặt cuối danh sách.
+            // Resolution + Motion của Video/Photo lúc phát chính (core/player-display-settings.js).
             { key: 'player', icon: 'play-circle', labelKey: 'appSettings.player.label', hintKey: 'appSettings.player.hint' },
         ];
         this._render(t('appSettings.row.visualizerScreen'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js — data-app-settings-nav, TÁI DÙNG cơ chế chung
@@ -481,21 +454,18 @@ const workflowAppSettings = {
         });
     },
 
-    /** Sub panel "Effect list" của Auto-Switch (MỚI 26/09/2026 — tách danh sách group/style khỏi panel chính cho gọn). */
+    /** Sub panel "Effect list" của Auto-Switch (danh sách group/style; kéo thả ủy quyền ở event/listener/auto-switch-visual.js). */
     _renderAutoSwitchList() {
         this._currentRenderFn = () => this._renderAutoSwitchList();
-        // SỬA 12/10/2026 (plan-event-bus-wiring đợt 4) — bỏ onMount `workflowVisualizerDisplay.openAutoSwitchPanel()` (gắn kéo thả
-        // trực tiếp): kéo thả nay ủy quyền ở event/listener/auto-switch-visual.js.
         this._render(t('visualizerSettingsDrawer.autoSwitchList.label'), renderVisualizerAutoSwitchListBody(workflowAutoSwitchVisual.buildPanelModel())); // components/settings/visualizer-auto-switch-drawer.js
     },
 
     _renderAutoSwitch() {
         this._currentRenderFn = () => this._renderAutoSwitch();
-        // SỬA 12/10/2026 — bỏ onMount `openAutoSwitchPanel()` (panel chính không có danh sách kéo thả — hàm vốn tự return sớm).
-        this._render(t('visualizerAutoSwitchDrawer.title'), renderVisualizerAutoSwitchPanelBody(workflowAutoSwitchVisual.buildPanelModel())); // SỬA 26/09/2026 — body vẽ từ model (event/workflow/auto-switch-visual.js)
+        this._render(t('visualizerAutoSwitchDrawer.title'), renderVisualizerAutoSwitchPanelBody(workflowAutoSwitchVisual.buildPanelModel())); // body vẽ từ model (event/workflow/auto-switch-visual.js)
     },
 
-    /** SỬA (05/10/2026, Giang yêu cầu — tách màn Visual Background cũ) — Visualizer Screen > Background Color: CHỈ card
+    /** Visualizer Screen > Background Color: CHỈ card
      * màu nền (Solid/Gradient), sub panel Gradient (`_renderVisualBgGradient()`). Phần media ở
      * `_renderPlayerSongBgMedia()`. CÙNG workflowVisualBg (openPanel()/refreshPanelUI() tự bỏ qua control không có). */
     _renderVisualBgColor() {
@@ -512,7 +482,7 @@ const workflowAppSettings = {
         });
     },
 
-    /** SỬA (05/10/2026) — danh sách hàng dựng SẴN trong bodyHtml (workflowVisualBg đọc DB TRƯỚC khi chuyển màn, xem
+    /** Danh sách hàng dựng SẴN trong bodyHtml (workflowVisualBg đọc DB TRƯỚC khi chuyển màn, xem
      * event/workflow/visual-bg-video.js::openVideoAudioPanel()) -> chiều cao Drawer đo đúng ngay, không co rồi giãn. */
     _renderVisualBgVideoAudio() {
         this._currentRenderFn = () => this._renderVisualBgVideoAudio();
@@ -521,15 +491,12 @@ const workflowAppSettings = {
         });
     },
 
-    // ===================== Player (MỚI, Giang yêu cầu — Resolution + Motion của Video/Photo lúc
-    // PHÁT CHÍNH, xem core/player-display-settings.js/core/config.js::DEFAULT_PLAYER_DISPLAY_CONFIG.
-    // Lựa chọn Motion mỗi vai trò lưu ở domain 'playerDisplay' — chọn qua màn Chọn của Motion (SỬA
-    // 24/09/2026 — thay select + cơ chế đăng ký consumer 'player' cũ), xem event/workflow/player-
-    // display-settings.js::openMotionSlotPicker(). 2 kind 'video'/'photo' hoàn toàn ĐỐI XỨNG -> dùng
-    // chung _renderPlayerDetail() thay vì viết 2 hàm gần như giống hệt nhau) =====================
+    // ===================== Player — Song (Background Media) + Resolution/Motion của Video/Photo lúc PHÁT CHÍNH =====
+    // core/player-display-settings.js, core/config.js::DEFAULT_PLAYER_DISPLAY_CONFIG. Motion mỗi vai trò lưu ở domain
+    // 'playerDisplay', chọn qua màn Chọn của Motion (event/workflow/player-display-settings.js::openMotionSlotPicker()).
+    // 2 kind 'video'/'photo' đối xứng -> dùng chung _renderPlayerDetail().
 
-    /** Danh sách con — Song/Video/Photo, CÙNG khuôn renderAppSettingsRowList() (data-app-settings-nav). SỬA (05/10/2026,
-     * Giang yêu cầu) — thêm Song (đầu danh sách, chứa Background Media); Ghi âm DỜI sang System. */
+    /** Danh sách con — Song/Video/Photo, CÙNG khuôn renderAppSettingsRowList() (data-app-settings-nav). */
     _renderPlayer() {
         this._currentRenderFn = () => this._renderPlayer();
         const rows = [
@@ -540,7 +507,7 @@ const workflowAppSettings = {
         this._render(t('appSettings.player.label'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js — TÁI DÙNG cơ chế chung data-app-settings-nav
     },
 
-    /** MỚI (05/10/2026, Giang yêu cầu) — Player > Song: danh sách con, hiện có 1 row Background Media. */
+    /** Player > Song: danh sách con, hiện có 1 row Background Media. */
     _renderPlayerSong() {
         this._currentRenderFn = () => this._renderPlayerSong();
         const rows = [
@@ -549,7 +516,7 @@ const workflowAppSettings = {
         this._render(t('appSettings.player.song.label'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js
     },
 
-    /** MỚI (05/10/2026, tách từ màn Visual Background cũ) — Player > Song > Background Media: toggle tổng + Media + Playback
+    /** Player > Song > Background Media: toggle tổng + Media + Playback
      * của Visual Background. Sub panel Video audio (`_renderVisualBgVideoAudio()`) + picker Generic Drawer con (video/ảnh/
      * thư mục — event/workflow/visual-bg-common.js tự gọi lại hàm này để quay về đúng chỗ, xem `_closePickerDrawer()`). */
     _renderPlayerSongBgMedia() {
@@ -569,8 +536,8 @@ const workflowAppSettings = {
         this._renderPlayerDetail('photo');
     },
 
-    /** MỚI (01/10/2026, Ghi âm) — System > Ghi âm (DỜI 05/10/2026 từ Player, Giang yêu cầu), domain 'recorder' (core/config.js).
-     * SỬA 07/10/2026 — Recording mode / Count-in / Recording quality (select) + Sync (slider) + Latency calibration (nút);
+    /** System > Ghi âm, domain 'recorder' (core/config.js).
+     * Recording mode / Count-in / Recording quality (select) + Sync (slider) + Latency calibration (nút);
      * đổi Recording mode -> workflowRecorder.changeConfigField() gọi lại hàm này (Sync + nút đo chỉ có ở Headphones). */
     _renderRecorder() {
         this._currentRenderFn = () => this._renderRecorder();
@@ -580,9 +547,8 @@ const workflowAppSettings = {
     /** Dựng CHUNG 1 màn Resolution + Motion cho Video/Photo (2 kind gần như đối xứng, chỉ khác
      * field config đọc/ghi — Photo lọc bỏ vai trò `reactBeat`, xem core/player-display-settings.js
      * ::getPlayerMotionSlotsForKind()) — xem components/settings/player-display-settings.js
-     * ::renderPlayerDisplayBody(). SỬA (24/09/2026) — mỗi vai trò Motion là 1 HÀNG (tên preset đang
-     * gắn / "None") mở màn Chọn của Motion, KHÔNG còn select lọc theo consumer 'player' đã đăng ký —
-     * truyền TOÀN BỘ `motionPresets` chỉ để tra tên preset đang gắn.
+     * ::renderPlayerDisplayBody(). Mỗi vai trò Motion là 1 HÀNG (tên preset đang gắn / "None") mở màn Chọn của
+     * Motion — truyền TOÀN BỘ `motionPresets` chỉ để tra tên preset đang gắn.
      * @param {'video'|'photo'} kind */
     _renderPlayerDetail(kind) {
         const cfg = appConfigPlayerDisplay.getAll(); // core/config.js
@@ -599,7 +565,7 @@ const workflowAppSettings = {
         await workflowPlayerDisplaySettings.changeResolutionMode(kind, value); // event/workflow/player-display-settings.js
     },
 
-    /** MỚI (29/09/2026, Giang) — ứng nút reset nhanh zoom/pan (Player > Video/Photo > Zoom): về gốc rồi vẽ lại màn
+    /** Ứng nút reset nhanh zoom/pan (Player > Video/Photo > Zoom): về gốc rồi vẽ lại màn
      * tại chỗ (cùng độ sâu -> giữ scroll) để 3 con số Zoom/Pan X/Pan Y hiện lại giá trị mới.
      * @param {'video'|'photo'} kind */
     async handlePlayerZoomReset(kind) {
@@ -607,13 +573,8 @@ const workflowAppSettings = {
         this._renderPlayerDetail(kind);
     },
 
-    // XOÁ (24/09/2026) — handlePlayerMotionSlotChange() (ứng select Motion cũ): hàng Motion giờ mở màn Chọn,
-    // router gọi thẳng workflowPlayerDisplaySettings.openMotionSlotPicker() (event/router/app-settings.js).
-
-    /** Subtitle — MỚI phát hiện lúc migrate: nằm LỒNG bên trong Display (nút "Phụ đề", components/
-     * settings/visualizer-display-panel.js), không phải row riêng ở Visualizer Screen — đúng vị trí
-     * cũ, chỉ đổi cơ chế hiển thị. Mở TỪ event/router/subtitle-style-settings.js (navigateTo()),
-     * KHÔNG có row Main/System nào trỏ thẳng vào đây. */
+    /** Subtitle — row "Subtitles" ở Visualizer Screen (key 'subtitle', event/router/app-settings.js); event/workflow/
+     * subtitle-style-settings.js gọi lại để quay về sau Element Style Editor. */
     _renderSubtitle() {
         this._currentRenderFn = () => this._renderSubtitle();
         this._render(t('subtitleSettingsDrawer.title'), renderSubtitlePanelBody(), () => {
@@ -621,19 +582,16 @@ const workflowAppSettings = {
         });
     },
 
-    // ===================== Troubleshooting (SỬA 20/09/2026, Giang yêu cầu gộp vào 1 nhóm; SỬA 05/10/2026 sắp xếp lại)
-    // — màn danh sách PHẲNG 5 hàng: [Debug console >] · [Scan & fix video thumbnails >] · [Performance HUD >] ·
-    // [Restore default settings] · [Clear app cache] (2 hàng hành động xuống cuối).
-    // "Restart app" KHÔNG còn ở Settings — chuyển lên icon header Playlist (components/playlist-view.js,
-    // id `setting-restart-app`, đã có sẵn listener ở event/listener/settings-misc.js). =====================
+    // ===================== Troubleshooting — danh sách PHẲNG: [Debug console >] · [Scan & fix video thumbnails >] ·
+    // [Performance HUD >] · [Restore default settings] · [Clear app cache]. "Restart app" ở icon header Playlist
+    // (components/playlist-view.js, listener event/listener/settings-misc.js). =====================
 
     _renderTroubleshooting() {
         this._currentRenderFn = () => this._renderTroubleshooting();
-        // SỬA (05/10/2026, Giang yêu cầu) — Performance HUD thành màn con (_renderPerfHudSettings()), không còn truyền trạng thái.
         this._render(t('appSettings.row.troubleshooting'), renderTroubleshootingBody(), wireAppSettingsTroubleshooting); // components/settings/troubleshooting.js, core/app-settings-ui.js
     },
 
-    /** MỚI (05/10/2026, Giang yêu cầu) — màn con Performance HUD: Hiển thị / Kiểu / Chiều (chỉ khi Kiểu = strip). Gọi lại
+    /** Màn con Performance HUD: Hiển thị / Kiểu / Chiều (chỉ khi Kiểu = strip). Gọi lại
      * tại chỗ từ workflowPerfHud.setStyle()/setOrientation() (event/workflow/perf-hud.js) để cập nhật nút đang chọn. */
     _renderPerfHudSettings() {
         this._currentRenderFn = () => this._renderPerfHudSettings();
@@ -648,7 +606,7 @@ const workflowAppSettings = {
         });
     },
 
-    /** Scan & fix video thumbnails — CHỈ phần kiểm tra/sửa thumb của Video (Giang yêu cầu, 20/09/2026).
+    /** Scan & fix video thumbnails — CHỈ phần kiểm tra/sửa thumb của Video.
      * KHÔNG phải "Scan & clean broken files" của panel Storage (khối đó GIỮ NGUYÊN ở Storage). Wire 3 nút ở
      * core/app-settings-ui.js::wireAppSettingsVideoThumb() -> router 'fileManagerStorage'. */
     _renderVideoThumbRepair() {
