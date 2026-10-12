@@ -98,3 +98,13 @@ if (genericDrawerBody) {
     genericDrawerBody.addEventListener('click', handleFileManagerStorageDelegatedClick);
     genericDrawerBody.addEventListener('change', handleFileManagerStorageDelegatedChange);
 }
+
+// MỚI (12/10/2026, plan-event-bus-wiring-07-10-2026 đợt 2, khuôn W6) — nút X của Storage (header mang
+// `data-storage-close`, xem workflowFileManagerStorage.openPanel()). Trước đây Workflow tự addEventListener (callback
+// chỉ eventBus.send). Drawer khác không có attribute này -> bỏ qua.
+if (genericDrawerHeader) {
+    genericDrawerHeader.addEventListener('click', (e) => {
+        if (!(e.target.closest && e.target.closest('[data-storage-close]'))) return;
+        eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.closePanel.click', payload: {} });
+    });
+}

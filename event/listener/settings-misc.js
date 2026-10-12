@@ -26,6 +26,16 @@ if (btnLoadingShieldDebug) {
     });
 }
 
+// MỚI (12/10/2026, plan-event-bus-wiring-07-10-2026 đợt 2) — nút X của Debug Console mở cưỡng chế (header mang
+// `data-debug-force-close`, xem workflowSettingsMisc.forceOpenDebugConsole()). Trước đây Workflow tự addEventListener.
+// Ủy quyền 1 lần trên genericDrawerHeader (TĨNH, core/dom-refs.js); Drawer khác không có attribute này -> bỏ qua.
+if (genericDrawerHeader) {
+    genericDrawerHeader.addEventListener('click', (e) => {
+        if (!(e.target.closest && e.target.closest('[data-debug-force-close]'))) return;
+        eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.debugConsole.forceClose.click', payload: {} });
+    });
+}
+
 // (btnBackAbout ĐÃ XOÁ — Batch D1: About không còn header/nút Back riêng, `#drawer-about` cũ
 // không còn tồn tại. Back giờ dùng CHUNG `#btn-settings-stack-back`, xem
 // event/listener/settings-stack-nav.js — KHÔNG để lại `if (x)` rỗng cho biến đã xoá.)
