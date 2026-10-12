@@ -87,6 +87,23 @@ trong code là:
 | `core/wakelock.js` | `touchstart`/`click` `{ once: true }` trên `body` | Xin lại wakelock sau cử chỉ người dùng đầu tiên (yêu cầu của trình duyệt) |
 | `core/playlist/loader.js`, `core/playlist/render.js` | Sự kiện media một lần (dò `duration`) | Đọc metadata, không phải tương tác người dùng |
 | `core/modal-choice-ui.js` — `modalChoice()` | Click nút/overlay của mọi modal động | Hạ tầng dùng chung, xem 3 điều kiện ngay dưới |
+| `core/dynamic-object-ui.js` | Sự kiện của đối tượng TẠO ĐỘNG (danh sách nơi dùng ngay dưới) | Giang chốt phương án (y) 13/10/2026, xem mục ngay dưới |
+
+**Ngoại lệ: adapter đối tượng tạo động** (`core/dynamic-object-ui.js`). Đối tượng tạo ra lúc app đang chạy thì
+Listener không gắn trước được. Sự kiện của chúng là NỬA SAU bất đồng bộ của chính API đang gọi (đợi xong / thu dữ
+liệu), không quyết định nghiệp vụ → adapter đổi thành Promise (`listenEventOnce()`, `loadMediaElementMetadata()`,
+`loadScriptFile()`) hoặc callback dữ liệu (`listenEventStream()`, `listenAudioProcess()`); Workflow `await`/nhận dữ
+liệu, KHÔNG tự `addEventListener`. Sự kiện mang ý nghĩa nghiệp vụ (vd mic bị thu hồi) KHÔNG dùng adapter — gửi
+`eventBus.send` từ hàm `wire*()` của core `-ui` như Rule 5a. Phần tử DOM tĩnh (audio/video chính, `window`) KHÔNG thuộc
+ngoại lệ này. Nơi dùng (thêm chỗ mới = cập nhật bảng này):
+
+| Nơi gọi | Đối tượng | Sự kiện |
+|---|---|---|
+| `event/workflow/recorder.js` — `_beginCapture` | MediaRecorder | `dataavailable` (luồng) |
+| `event/workflow/recorder.js` — `_finishMediaRecorder` | MediaRecorder | `stop` (1 lần) |
+| `event/workflow/recorder.js` — `_measureLatency` | ScriptProcessorNode | `audioprocess` (luồng) |
+| `event/workflow/video-thumb-extract.js` — `_waitVideoEvent`, `extract` | `<video>` tạm | `seeked`, `error`, `loadedmetadata` (1 lần) |
+| `event/workflow/video-preview.js` — `_loadVideoEditorScriptOnce` (qua `loadScriptFile()`) | `<script>` tạm + `window` `error` trong lúc nạp | `load`/`error` (1 lần) |
 
 `app.boot` đi qua `eventBus` như mọi cụm (`event/listener/app-boot.js` nghe `DOMContentLoaded`). Message
 `app.fatalError` đã bỏ. Handler `error`/`unhandledrejection` toàn cục hiện **không có** trong `index.html`

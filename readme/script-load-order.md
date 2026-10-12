@@ -348,6 +348,7 @@ group.
 137. `core/file-manager/image.js`
 138. `core/file-manager/photo-ui.js`
 138a. `core/image-load-ui.js` — MỚI 12/10/2026 (decodeImageFromUrl/renderImageScaledToJpegBlob/releaseDecodedImage — plan-event-bus-wiring đợt 6b-1); gọi lúc chạy từ event/workflow/file-manager-photo.js, file-manager-storage.js, visualizer/shape.js
+138b. `core/dynamic-object-ui.js` — MỚI 13/10/2026 (adapter sự kiện đối tượng tạo động — ngoại lệ chính thức, plan-event-bus-wiring đợt 6b-3); không phụ thuộc; gọi lúc chạy từ event/workflow/recorder.js, video-thumb-extract.js
 139. `core/media-picker-drawer-ui.js`
 140. `core/photo-editor-engine.js`
 141. `core/media-transform.js`
@@ -863,6 +864,7 @@ của video; Back/Lưu quay về `../index.html` và cuộn tới mục. Một v
 48. `core/file-manager/video.js`
 49. `components/video-preview.js` — cần: `core/ui-theme/icon-svg-ui.js` (iconSvg)
 50. `core/file-manager/video-ui.js`
+50a. `core/dynamic-object-ui.js` — MỚI 13/10/2026; cần trước lúc chạy của `event/workflow/video-thumb-extract.js`, `event/workflow/video-preview.js`
 
 **Workflow dùng chung và cụm videoPreview**
 

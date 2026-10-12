@@ -441,6 +441,11 @@ thẳng tham số `onClick` truyền vào lúc gọi hàm (không qua bus). Ngo�
 KHÔNG được tự nhận "giống modalChoice()" để suy ra miễn trừ (tiền lệ bị bác chính xác pattern này ở
 `folder-picker-ui.js`, xem [event-bus-flow.md](./event-bus-flow.md)).
 
+**Ngoại lệ ĐÃ chốt chính thức (13/10/2026) — `core/dynamic-object-ui.js`:** adapter sự kiện của đối tượng TẠO ĐỘNG
+(`<video>`/`<script>` tạm, MediaRecorder, ScriptProcessorNode) — đổi sự kiện thành Promise / callback dữ liệu cho
+Workflow, không qua bus. Chỉ cho sự kiện là nửa sau bất đồng bộ của chính API đang gọi; danh sách nơi dùng ở
+[event-bus-flow.md](./event-bus-flow.md) mục "Ngoại lệ: adapter đối tượng tạo động".
+
 Gán `.onX = ...` tính như `addEventListener`. Lệnh tra phần tử (`querySelector`) và `return` xen giữa khối gắn cuối
 hàm không tính là "rải rác". Hàm wire của file `-ui.js` không đạt 2 điều kiện trên là vi phạm (sổ vi phạm, mục
 "Rule 5a") — không có miễn trừ "code cũ".
@@ -536,7 +541,7 @@ tạo bằng vòng lặp runtime, chèn vào container đã có sẵn từ templ
 | 1 hàm (dù đặt ở core hay Workflow) chỉ relay nguyên văn tham số sang 1 hàm khác, không thêm logic/điều phối gì? | **Hàm vô nghĩa — xoá**, gọi thẳng đích (Rule 3d) |
 | Function có `appState.set()`/`mutate()`? | Bắt buộc `console.log` `writer/page/content` ngay dưới, TRỪ hot path 60fps (vòng `raf`) |
 | Function dựng UI (modal/drawer/toolbar) có được coi là "core UI thuần, ngoài phạm vi rule"? | **KHÔNG** — dựng UI VẪN là hàm nghiệp vụ, chịu ĐẦY ĐỦ Rule 1-4 + Rule 5 (xem Rule 5) |
-| Function có `addEventListener` (hoặc `.onX =`)? | **CẤM**, TRỪ hàm dựng ra cụm DOM MỚI trong file `-ui.js` — khi đó ĐƯỢC, nhưng callback CHỈ `eventBus.send(...)` VÀ phải gom hết ở CUỐI hàm (Rule 5a). Ngoại lệ duy nhất: `modalChoice()` |
+| Function có `addEventListener` (hoặc `.onX =`)? | **CẤM**, TRỪ hàm dựng ra cụm DOM MỚI trong file `-ui.js` — khi đó ĐƯỢC, nhưng callback CHỈ `eventBus.send(...)` VÀ phải gom hết ở CUỐI hàm (Rule 5a). Ngoại lệ: `modalChoice()`, `core/dynamic-object-ui.js` |
 | Function dùng `classList`/`dataset`/`querySelector(...)` tồn tại hay không làm điều kiện chọn giữa ≥2 tiến trình khác nhau? | **KHÔNG được** — cùng vi phạm Rule 1, chỉ khác nguồn đọc là DOM thay vì `appState` (Rule 5b) |
 | File core có hàm tự `createElement` dựng cụm DOM mới (modal/drawer/toolbar) — tên file cần gì? | **PHẢI kết thúc bằng `-ui.js`** (vd `photo-ui.js`) — file chỉ thao tác DOM tĩnh có sẵn (`dom-refs.js`) thì KHÔNG cần (Rule 5c) |
 | Phần DOM không đổi giữa các lần mở/đóng (cùng cấu trúc, khác data) đặt ở đâu? | **`components/*.js`** (TPL_* tĩnh hoặc hàm `render*()`) — Core-ui KHÔNG tự `createElement` dựng lại, chỉ soạn `slotMap` rồi gọi `instantiateComponent()`; core không giữ chuỗi markup (Rule 5d) |
