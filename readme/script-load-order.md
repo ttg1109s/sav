@@ -440,6 +440,7 @@ group.
 227. `core/zip-download-ui.js`
 228. `core/visualizer/visualizer-display.js`
 229. `core/auto-switch-visual.js`
+229a. `core/auto-switch-visual-ui.js` — MỚI 12/10/2026 (DOM phiên kéo thả item Auto-Switch — plan-event-bus-wiring đợt 4)
 230. `core/visualizer/draw/water-drop.js`
 231. `core/visualizer/draw/window-frame.js`
 232. `core/visualizer/draw/flying-note-ui.js`

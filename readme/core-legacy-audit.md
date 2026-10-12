@@ -13,11 +13,13 @@
 
 ## 1. Tổng quan
 
-- **1287 FAIL** ở **141 file**; 10 chờ chốt; 872 dòng máy quét báo nhưng review loại (mục 5).
+- **1282 FAIL** ở **141 file**; 10 chờ chốt; 872 dòng máy quét báo nhưng review loại (mục 5).
 - Cập nhật 07/10/2026 (cùng ngày lập sổ): gỡ Service Worker tải file lớn (`sw.js`, `core/large-file-download.js`) xoá 4 dòng FAIL (1312 → 1308, 142 → 141 file). Bảng tỉ lệ ngay dưới giữ số đo lúc lập sổ.
 - Cập nhật 07/10/2026 (game Arrow): sửa nợ trong đúng các method bị đụng khi nối game mới — `workflowGameplay.start` (3 dòng: pause/currentTime trong Workflow, 2 lần get), `workflowGameCatalog.armGame` (2 lần get), `workflowAudioAnalysis._tick` (Math.floor) — xoá 5 dòng FAIL (1308 → 1303). Code mới của game Arrow không thêm dòng nào.
 - Cập nhật 12/10/2026 (plan-event-bus-wiring-07-10-2026 **đợt 1 — EQ**): nội dung Generic Drawer Edit EQ đi Listener → Router (ủy quyền 1 lần, `data-eq-*`), xoá `_wireListView()`/`_wireEditView()` — xoá 11 dòng "Workflow tự gắn sự kiện"; method bị đụng `_previewBandGain` dọn luôn nợ ghi DOM (core -ui mới `core/eq-presets-drawer-ui.js`) — xoá 1 dòng "Workflow tự thao tác DOM" (1303 → 1291). Số đầu mục/bảng §3 đếm lại theo dòng thật (đã lệch từ cập nhật game Arrow).
 - Cập nhật 12/10/2026 (plan-event-bus-wiring **đợt 2**): nút X của Debug Console mở cưỡng chế (`data-debug-force-close`) và của Storage (`data-storage-close`) đăng ký ở Listener (ủy quyền trên `genericDrawerHeader`) — xoá 2 dòng "Workflow tự gắn sự kiện"; 2 method bị đụng (`forceOpenDebugConsole`, `openPanel`) dời wrapper markup sang `components/` (`renderDebugConsoleForceOpenBody()`, `renderFileManagerStorageDrawerBody()`) — xoá 2 dòng "Workflow tự dựng template HTML" (1291 → 1287). `recorder.js` `track.ended` xếp vào nhóm F (đối tượng không phải DOM, tạo động — chờ thiết kế riêng).
+- Cập nhật 12/10/2026 (plan-event-bus-wiring **đợt 3**): `window.resize` riêng của `event/workflow/gameplay.js` bỏ, lưới Game đi chung luồng `visualizerViewport.window.resize` — xoá 1 dòng; **phát hiện mới** thêm 1 dòng: `ResizeObserver` cấp module cùng file (máy quét lẫn review 07/10 bỏ sót) — tổng giữ 1287.
+- Cập nhật 12/10/2026 (plan-event-bus-wiring **đợt 4 — Auto-Switch kéo thả**): 4 listener pointer trong `workflowVisualizerDisplay.openAutoSwitchPanel()` (đã xoá) dời sang Listener ủy quyền + Router `autoSwitchVisual.drag.*`; phiên kéo ở `workflowAutoSwitchVisual`, phép tính ở core thuần (`core/auto-switch-visual.js`), ghi style ở core -ui mới `core/auto-switch-visual-ui.js` — xoá 4 dòng "Workflow tự gắn sự kiện" + 1 dòng "Workflow tự thao tác DOM" (1287 → 1282).
 
 | Tầng | File vi phạm | Hàm / đơn vị vi phạm | Dòng code nằm trong hàm vi phạm |
 |---|---|---|---|
@@ -62,8 +64,8 @@
 | Event bus | Listener đọc appState | 7 |  |
 | Event bus | Router tự chuẩn bị dữ liệu | 1 |  |
 | Event bus | Workflow tự dựng template HTML | 17 |  |
-| Event bus | Workflow tự gắn sự kiện | 60 |  |
-| Event bus | Workflow tự thao tác DOM | 212 |  |
+| Event bus | Workflow tự gắn sự kiện | 56 |  |
+| Event bus | Workflow tự thao tác DOM | 211 |  |
 | Event bus | Workflow tự tính toán | 122 |  |
 | Event bus | Workflow tự vẽ canvas | 14 |  |
 | Event bus | Workflow tự điều khiển media | 48 |  |
@@ -72,7 +74,7 @@
 | TaskManager | Timer thô | 12 |  |
 | TaskManager | requestAnimationFrame thô |  | 10 |
 | TaskManager | taskManager dùng trong Core | 11 |  |
-| **Tổng** | | **1287** | **10** |
+| **Tổng** | | **1282** | **10** |
 
 ## 4. Chi tiết
 
@@ -670,7 +672,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `event/workflow/video-player.js:610` | `playVideoByKey` | 1 chỗ: `<img id="record-art" src="${this._thumbObjectUrl}" class="w-full h-full rounded-full obje | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/visual-bg-common.js:1177` | `_buildMultiPickerBodyHtml` | 1 chỗ: ` <div class="flex-1 min-h-0 overflow-y-auto relative" id="${scrollId}">  | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 
-#### Workflow tự gắn sự kiện (60)
+#### Workflow tự gắn sự kiện (56)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -690,7 +692,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `event/workflow/file-manager-photo.js:187` | `resizeImageForThumbnail` | img.onerror = … (dạng gán handler) trong Workflow | FAIL | Review (máy quét bỏ sót) | — | Không thuộc danh sách 18 chỗ đã audit |
 | `event/workflow/file-manager-storage.js:773` | `_classifyThumbBlob` | img.onload = … (dạng gán handler) trong Workflow | FAIL | Review (máy quét bỏ sót) | — | Không thuộc danh sách 18 chỗ đã audit |
 | `event/workflow/file-manager-storage.js:774` | `_classifyThumbBlob` | img.onerror = … (dạng gán handler) trong Workflow | FAIL | Review (máy quét bỏ sót) | — | Không thuộc danh sách 18 chỗ đã audit |
-| `event/workflow/gameplay.js:629` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Plan 07/10 nhóm E (window.resize) |
+| `event/workflow/gameplay.js:636` |  | `new ResizeObserver(...)` cấp module trong Workflow (theo dõi `#gameplay-layer`) — callback gọi thẳng `workflowGameplay._handleLayoutResize()`, bỏ qua Listener → Router | FAIL | Review (phát hiện 12/10/2026, đợt 3) | — | Plan 07/10 đợt 3 ghi "giữ nguyên cơ chế" — cơ chế giữ, chờ Giang chốt dời ĐĂNG KÝ sang Listener (tiền lệ ResizeObserver ở event/listener/playlist.js) |
 | `event/workflow/image-edit.js:925` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Plan 07/10 nhóm D — Giang chốt: bỏ listener input, đọc .value trong onClick |
 | `event/workflow/motion-presets.js:801` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Plan 07/10 nhóm D — Giang chốt: bỏ listener input, đọc .value trong onClick |
 | `event/workflow/player-controls.js:483` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Plan 07/10 nhóm F — Giang chốt: miễn trừ chỉ theo audit chính thức → không miễn |
@@ -729,13 +731,9 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `event/workflow/video-thumb-extract.js:253` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Plan 07/10 nhóm F — Giang chốt: miễn trừ chỉ theo audit chính thức → không miễn |
 | `event/workflow/video-thumb-extract.js:258` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Plan 07/10 nhóm F — Giang chốt: miễn trừ chỉ theo audit chính thức → không miễn |
 | `event/workflow/visual-bg-video.js:207` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Plan 07/10 nhóm F — Giang chốt: miễn trừ chỉ theo audit chính thức → không miễn |
-| `event/workflow/visualizer-display.js:58` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Plan 07/10 nhóm B (kéo-thả) |
-| `event/workflow/visualizer-display.js:67` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Plan 07/10 nhóm B (kéo-thả) |
-| `event/workflow/visualizer-display.js:89` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Plan 07/10 nhóm B (kéo-thả) |
-| `event/workflow/visualizer-display.js:90` |  | addEventListener trong Workflow — bỏ qua Listener → Router (và Block gate) | FAIL | Máy quét (REVIEW) → review | — | Plan 07/10 nhóm B (kéo-thả) |
 | `event/workflow/visualizer/shape.js:293` | `_loadClockBgImage` | img.onload = … (dạng gán handler) trong Workflow | FAIL | Review (máy quét bỏ sót) | — | Không thuộc danh sách 18 chỗ đã audit |
 
-#### Workflow tự thao tác DOM (212)
+#### Workflow tự thao tác DOM (211)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -948,7 +946,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `event/workflow/visual-bg-video.js:553` | `_refreshVideoAudioRowButtons` | 3 chỗ: iconBtn.innerHTML = … · display.textContent = … · display.dataset.uitk = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/visual-bg-video.js:607` | `openPickVideo` | 1 chỗ: emptyEl.classList.toggle() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/visualizer-display.js:28` | `openDisplayPanel` | 6 chỗ: panelEl.querySelector('#setting-visual-enable').checked = … · panelEl.querySelector('#setting-subtitles-enabled').checked = … · panelEl.querySelector('#setting-stats-panel-enable').checked = … … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/visualizer-display.js:57` | `openAutoSwitchPanel` | 5 chỗ: hoverEl.style.outline = … · document.body.style.userSelect = … · rowEl.style.transform = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/visualizer-gesture.js:256` | `_clickControlCenterTarget` | 1 chỗ: targetEl.click() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/visualizer/shape.js:294` | `_loadClockBgImage` | 1 chỗ: img.src = … | FAIL | Review (máy quét bỏ sót) | — | Hot path visualizer. Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 
