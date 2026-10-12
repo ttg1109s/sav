@@ -18,6 +18,14 @@ function setElementStyleActiveTab(tab) {
     console.log(`writer: "setElementStyleActiveTab", page: "eseActiveTab", content: "${tab}"`);
 }
 
+/** MỚI (12/10/2026, plan-event-bus-wiring đợt 5) — Core thuần: giá trị thô của 1 ô `.ese-field` (Listener gửi nguyên
+ * chuỗi `value`) -> giá trị ghi vào draft: ô có `data-numeric` -> số (parseFloat), còn lại giữ chuỗi. Trước đây phép
+ * chọn này nằm trong callback Workflow tự gắn (Workflow tự tính toán).
+ * @param {string} raw @param {boolean} isNumeric @returns {number|string} */
+function resolveElementStyleFieldValue(raw, isNumeric) {
+    return isNumeric ? parseFloat(raw) : raw;
+}
+
 /** Ghi 1 field bất kỳ trong draft (box hoặc text) — `patch` là object PARTIAL, merge NÔNG vào
  * field hiện có (vd chỉ đổi `{ enabled: true }` hoặc `{ value: 20 }`, giữ nguyên các key khác của
  * CHÍNH field đó). `section`/`field` chỉ dùng để LẬP CHỈ MỤC đúng chỗ ghi — không tạo ra 2 tiến
