@@ -459,8 +459,10 @@ const workflowGameplay = {
 
     /** [SỬA TÊN — 08/09/2026, phản hồi Giang bug "về lại Visualizer sau khi Game Mode đã armed lúc
      * còn ở Playlist không thấy màn chơi"] ĐỔI TÊN từ `_handleWindowResize()` — giờ dùng CHUNG cho
-     * CẢ 2 nguồn kích hoạt (xem 2 nơi gọi cuối file): resize/xoay màn hình cửa sổ THẬT (như cũ) VÀ
-     * ResizeObserver trên `#gameplay-layer` (MỚI).
+     * CẢ 2 nguồn kích hoạt: resize/xoay màn hình cửa sổ THẬT (như cũ — SỬA 12/10/2026: qua Listener -> Router
+     * 'visualizerViewport.window.resize', xem event/router/visualizer-viewport.js) VÀ ResizeObserver trên
+     * `#gameplay-layer` (MỚI — cuối file).
+     * Gọi từ Router nên là cửa vào công khai của Workflow này (giữ tên cũ có `_` để không đổi nơi gọi khác).
      *
      * Lý do cần thêm nguồn thứ 2: `start()` (dòng ~112) gọi `_recomputeGridGeometry()` NGAY LÚC
      * ARMED — nếu lúc đó `#visualizer-ui` (tổ tiên DOM của `#gameplay-layer`) đang `.hidden`
@@ -624,10 +626,11 @@ const workflowGameplay = {
     },
 };
 
-// Lưới pitch→ô phải khớp kích thước layer thật — resize/xoay màn hình giữa ván phải tính lại (đúng
-// tiền lệ core/canvas-scene-setup.js cho canvas visualizer chính, ngoại lệ browser-level đứng ngoài
-// /event/ bus).
-window.addEventListener('resize', () => workflowGameplay._handleLayoutResize());
+// Lưới pitch→ô phải khớp kích thước layer thật — resize/xoay màn hình giữa ván phải tính lại.
+// XOÁ (12/10/2026, plan-event-bus-wiring-07-10-2026 đợt 3, khuôn W5) — `window.addEventListener('resize', ...)` riêng
+// của Workflow này (viện dẫn tiền lệ core/canvas-scene-setup.js — tiền lệ đó đã xoá 28/09/2026). Nay đi CHUNG luồng
+// có sẵn: event/listener/visualizer-viewport.js -> Router 'visualizerViewport.window.resize' -> gọi thêm
+// `workflowGameplay._handleLayoutResize()` (không tạo listener resize thứ 2).
 // MỚI (08/09/2026) — xem docstring _handleLayoutResize() ở trên: window 'resize' không bắt được
 // case layer chuyển display:none -> hiện do đổi màn hình (Playlist<->Visualizer), CHỈ đổi kích
 // thước cửa sổ/xoay máy thật. ResizeObserver trên chính `#gameplay-layer` bắt đúng cả 2 loại thay
