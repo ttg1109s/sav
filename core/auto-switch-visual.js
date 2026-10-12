@@ -310,3 +310,26 @@
             return isRunAllowed ? 'resume' : 'pause';
         }
 
+
+        // ===================== Kéo thả danh sách item (MỚI 12/10/2026) =====================
+        // plan-event-bus-wiring-07-10-2026 đợt 4 (khuôn W4) — phép tính của phiên kéo dời từ
+        // event/workflow/visualizer-display.js::openAutoSwitchPanel() (Workflow tự tính) về đây; Workflow giữ phiên kéo
+        // (workflowAutoSwitchVisual.startItemDrag()/moveItemDrag()/endItemDrag()/cancelItemDrag()).
+
+        /** Core thuần: vị trí hàng có `data-as-row` = `key` trong danh sách khoá hàng (theo thứ tự DOM). -1 = không có.
+         * @param {string[]} rowKeys @param {string} key @returns {number} */
+        function findAutoSwitchRowIndexByKey(rowKeys, key) {
+            return rowKeys.indexOf(key);
+        }
+
+        /** Core thuần: hàng đang nằm dưới `clientY` để làm đích thả — bỏ qua chính hàng đang kéo (`dragIndex`). -1 = không có.
+         * @param {Array<{top:number,bottom:number}>} rects @param {number} clientY @param {number} dragIndex @returns {number} */
+        function findAutoSwitchDropRowIndex(rects, clientY, dragIndex) {
+            return rects.findIndex((rect, i) => i !== dragIndex && clientY >= rect.top && clientY <= rect.bottom);
+        }
+
+        /** Core thuần: CSS transform của hàng đang kéo — bám theo con trỏ theo trục dọc + phóng nhẹ (cảm giác "nhấc lên").
+         * @param {number} startY @param {number} clientY @returns {string} */
+        function computeAutoSwitchDragTransform(startY, clientY) {
+            return `translateY(${clientY - startY}px) scale(1.02)`;
+        }
