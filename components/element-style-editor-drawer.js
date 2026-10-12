@@ -39,7 +39,9 @@ function renderElementStyleEditorHeader(activeTab) {
     const tabBtn = (key, label) => `
         <button data-ese-tab="${key}" class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors" data-uitk="${activeTab === key ? 'btnPrimaryPillBg textOnAccent' : 'btnNeutralBg btnNeutralText'}">${label}</button>`;
     // SỬA 07/10/2026 — header dùng chung buildDrawerHeaderHtml() (components/generic-drawer.js)
-    return buildDrawerHeaderHtml({ leftHtml: `<div class="flex items-center gap-2">${tabBtn('box', t('elementStyleEditor.tab.box'))}${tabBtn('text', t('elementStyleEditor.tab.text'))}</div>` });
+    // SỬA 12/10/2026 (plan-event-bus-wiring đợt 5) — nút X mang `data-ese-close`: Listener ủy quyền (event/listener/
+    // element-style-editor.js) nhận đúng nút X của Element Style Editor (id X dùng chung mọi Drawer).
+    return buildDrawerHeaderHtml({ leftHtml: `<div class="flex items-center gap-2">${tabBtn('box', t('elementStyleEditor.tab.box'))}${tabBtn('text', t('elementStyleEditor.tab.text'))}</div>`, closeAttrs: 'data-ese-close="1"' });
 }
 
 /** MỚI (16/08/2026 — Giang yêu cầu "ô preview cố định ở trong body drawer") — `_renderEsePreviewBox()`
