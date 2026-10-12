@@ -124,3 +124,32 @@ function fitSubtitlesKaraokeToDuration(subtitles, ids) {
         return { ...sub, karaoke: sub.karaoke.map((pair, i) => [pair[0], msList[i]]) };
     });
 }
+
+/** Khoảng (giây, trục waveform mini: 0 = đầu dòng) của N vùng TỪ + N-1 vạch mốc chia, từ mốc ms cộng dồn
+ * (computeKaraokeWordBoundariesMs()). `shade` 0/1 xen kẽ — tô nền phân biệt 2 từ liền kề.
+ * @param {Array<number>} boundariesMs dài N+1
+ * @returns {{words: Array<{start: number, end: number, shade: number}>, markers: Array<number>}} */
+function computeKaraokeRegionRangesSec(boundariesMs) {
+    const words = boundariesMs.slice(0, -1).map((ms, i) => ({ start: ms / 1000, end: boundariesMs[i + 1] / 1000, shade: i % 2 }));
+    const markers = boundariesMs.slice(1, -1).map((ms) => ms / 1000);
+    return { words, markers };
+}
+
+/** Kéo núm mốc chia: mốc lúc bắt đầu kéo + độ lệch ngón tay (px) quy ra ms theo px/giây thật của waveform mini — tính
+ * từ mốc gốc mỗi lần (không cộng dồn từng bước nên không trôi sai số).
+ * @param {number} startMs @param {number} startX @param {number} clientX @param {number} pxPerSec @returns {number} */
+function computeKaraokeKnobDragMs(startMs, startX, clientX, pxPerSec) {
+    return startMs + ((clientX - startX) / pxPerSec) * 1000;
+}
+
+/** Chuỗi thô từ drawer Karaoke (dataset chỉ số từ/mốc, ô ms gõ tay) -> số nguyên; NaN = không hợp lệ.
+ * @param {string} raw @returns {number} */
+function parseKaraokeDrawerInt(raw) {
+    return parseInt(raw, 10);
+}
+
+/** Giá trị thanh trượt cuộn ảo `#karaoke-mini-scroll` (0..1000) -> số nguyên; không hợp lệ = 0.
+ * @param {string} raw @returns {number} */
+function parseKaraokeMiniScrollValue(raw) {
+    return parseInt(raw, 10) || 0;
+}

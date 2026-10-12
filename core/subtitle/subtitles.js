@@ -1,27 +1,16 @@
 /**
- * core/subtitle/subtitles.js — Core NGHIỆP VỤ THUẦN cho phụ đề (parse/build SRT, tạo/sửa/xoá dòng)
- * — tuân Rule 1-5 ĐẦY ĐỦ (core-function-conventions.md).
+ * core/subtitle/subtitles.js — Core THUẦN cho phụ đề của trang subtitle-editor.html: parse/build SRT, tạo/sửa/xoá/dịch giờ
+ * dòng, kiểm tra số nhập ở modal Split/Shift. Mọi hàm nhận `subtitles` (mảng) qua tham số và trả mảng MỚI (không sửa mảng
+ * gốc) — Workflow (event/workflow/subtitle-editor.js) tự đọc/ghi `appState` quanh các lời gọi.
  *
- * VIẾT LẠI HOÀN TOÀN (10/07/2026, Subtitle Editor chuyển sang trang riêng — phản hồi Giang) — bản
- * cũ (modal `#subtitle-modal`) từng đọc/ghi `appState.get('subtitles')` trực tiếp NGAY TRONG các
- * hàm này (vi phạm Rule 2) và trộn DOM read (`document.getElementById('edit-start-'+id)`) vào core
- * (vi phạm Rule 5). Bản MỚI: MỌI hàm ở đây THUẦN — nhận `subtitles` (mảng) làm THAM SỐ, trả về mảng
- * MỚI (không sửa mảng gốc) — Workflow (event/workflow/subtitle-editor.js) tự đọc/ghi `appState`
- * quanh các lời gọi này.
- *
- * UI MỚI (mỗi dòng LUÔN sửa được tại chỗ, không còn "chế độ sửa" ẩn/hiện qua click — xem
- * core/subtitle/subtitles-ui.js) không cần `editingSubId` nữa — state đó ĐÃ XOÁ khỏi
- * `service/state.js` (nếu còn sót, không dùng tới nữa, xoá tay khi tiện).
- *
- * NẠP SAU: không phụ thuộc gì (core THUẦN, không đụng DOM/appState/taskManager).
+ * NẠP SAU: không phụ thuộc gì (không đụng DOM/appState/taskManager).
  */
 
 /** @param {number} sec @returns {string} "HH:MM:SS,mmm" */
 function secToStr(sec) {
     if (isNaN(sec) || sec < 0) return '00:00:00,000';
-    // SỬA (30/09/2026) — TRƯỚC ĐÂY tính ms bằng `Math.floor((sec % 1) * 1000)` — sai số dấu phẩy động
-    // (vd 2.3 % 1 = 0.29999...) khiến ",300" thành ",299": nhập .srt rồi xuất lại (hoặc Lưu) là giờ bị
-    // hụt 1ms, lệch dần qua mỗi lần. Làm tròn TỔNG ms 1 lần rồi mới tách h/m/s/ms.
+    // Làm tròn TỔNG ms 1 lần rồi mới tách h/m/s/ms — tách phần lẻ `sec % 1` dính sai số dấu phẩy động (2.3 % 1 =
+    // 0.2999...), ",300" thành ",299", giờ hụt dần qua mỗi lần nhập/xuất.
     const totalMs = Math.round(sec * 1000);
     const h = Math.floor(totalMs / 3600000); const m = Math.floor((totalMs % 3600000) / 60000); const s = Math.floor((totalMs % 60000) / 1000); const ms = totalMs % 1000;
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`;
@@ -36,8 +25,7 @@ function strToSec(str) {
 
 /** @param {string} data nội dung file .srt @returns {Array<Object>} */
 function parseSRT(data) {
-    // SỬA (30/09/2026) — file .srt lưu kiểu Windows (CRLF `\r\n`) hoặc có BOM đầu file TRƯỚC ĐÂY không khớp
-    // regex (chỉ nhận `\n`) -> nhập vào ra danh sách RỖNG, im lặng. Chuẩn hoá xuống dòng + bỏ BOM trước.
+    // Chuẩn hoá xuống dòng (CRLF của Windows) + bỏ BOM đầu file trước — regex chỉ nhận `\n`.
     const text = String(data || '').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
     const regex = /(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n([\s\S]*?)(?=\n\n|\n*$)/g;
     const result = []; let match;
@@ -94,7 +82,7 @@ function computeRemovedSubtitles(subtitles, id) {
 }
 
 /**
- * MỚI (yêu cầu Giang, tool "Shift") — cộng `amountSec` (có thể ÂM, lùi giờ) vào start/end (hoặc cả
+ * Tool "Shift" — cộng `amountSec` (có thể ÂM, lùi giờ) vào start/end (hoặc cả
  * 2, theo `target`) của MỌI dòng có id nằm trong `ids` — hàm THUẦN (Rule 1/2), trả mảng MỚI, không
  * sửa mảng gốc. Clamp kết quả về 0 nếu ra âm (không cho giờ âm). Nếu kết quả khiến end <= start
  * (vd lùi "end" quá tay), BỎ QUA dòng đó (giữ nguyên, không áp) — tránh tạo dòng vô nghĩa hàng loạt
@@ -113,4 +101,18 @@ function shiftSubtitleTimes(subtitles, ids, amountSec, target) {
         if (newEnd <= newStart) return sub; // kết quả vô nghĩa -> bỏ qua, giữ nguyên dòng này
         return { ...sub, start: newStart, end: newEnd, startStr: secToStr(newStart), endStr: secToStr(newEnd) };
     });
+}
+
+/** Số dòng nhập ở modal Split (chuỗi thô của ô số) — hợp lệ khi là số nguyên ≥ 2.
+ * @param {string} raw @returns {{isValid: boolean, count: number}} */
+function resolveSubtitleSplitCount(raw) {
+    const count = parseInt(raw, 10);
+    return { isValid: Number.isFinite(count) && count >= 2, count };
+}
+
+/** Số giây dịch nhập ở modal Shift (chuỗi thô, cho phép âm) — hợp lệ khi là số khác 0.
+ * @param {string} raw @returns {{isValid: boolean, amount: number}} */
+function resolveSubtitleShiftAmount(raw) {
+    const amount = parseFloat(raw);
+    return { isValid: Number.isFinite(amount) && amount !== 0, amount };
 }
