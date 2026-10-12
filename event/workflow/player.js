@@ -1,173 +1,84 @@
 /**
- * event/workflow/player.js — [MỚI, plan-playmedia-reorg.md] `workflowPlayer.playMedia()`.
+ * event/workflow/player.js — `workflowPlayer.playMedia()`: điểm vào DUY NHẤT để phát 1 item của Playlist (Song/Video/
+ * Photo), và `reloadCurrentSongKeepingPosition()` (nạp lại bài đang phát sau khi file bị thay).
  *
- * DỜI NGUYÊN XI thân `window.playSong()` (TRƯỚC ĐÂY khai báo global trong core/playlist/actions.js)
- * sang ĐÚNG tầng Workflow — hàm này CHƯA TỪNG là Core thuần (đọc DB bất đồng bộ qua getSongRecord(),
- * dựng UI, dispatch eventBus, gọi workflowVideoPlayer — đúng bản chất Workflow, core-function-
- * conventions.md Rule 3b "Core là tầng THI HÀNH, Workflow là tầng CHUẨN BỊ"), chỉ SAI CHỖ Ở (global
- * gắn vào `window` thay vì method của 1 Workflow có tổ chức, không có Router riêng dẫn vào) — xem
- * plan-playmedia-reorg.md mục 2 để biết đầy đủ lý do.
+ * `workflowPlayer` KHÔNG gắn với 1 Router riêng — Workflow "dùng chung xuyên miền" (TH2, event-bus-flow.md mục 3a), được
+ * gọi THẲNG từ:
+ *   - `workflowPlayerControls.goToNextTrack()`/`goToPrevTrack()` (event/workflow/player-controls.js — Next/Prev, hết bài)
+ *   - case 'playlist.item.playClick' (event/router/playlist.js)
+ *   - 2 nút "Phát"/"Trộn bài" của Playlist rỗng (event/workflow/playlist-empty-state.js)
+ * và từ core/player-controls.js (`togglePlayPause()` lúc `currentKey===null`, `handleAudioEnded()`) — Core gọi Workflow
+ * là nợ kỹ thuật đã có sẵn, xem docstring từng hàm ở file đó.
  *
- * KHÔNG ĐỔI 1 DÒNG LOGIC bên trong thân hàm so với `window.playSong()` gốc — CHỈ đổi khai báo
- * (`window.playSong = function(key, options) {...}` -> `playMedia(key, options) {...}` là method của
- * object `workflowPlayer`), xoá tiền tố `window.` ở nơi gọi (đổi hết sang `workflowPlayer.playMedia`).
- *
- * `workflowPlayer` KHÔNG gắn với 1 Router riêng nào — đây là Workflow "dùng chung xuyên miền" (TH2,
- * event-bus-flow.md mục 3a), được gọi THẲNG từ NHIỀU router/Workflow khác miền:
- *   - `playerControls` — qua `workflowPlayerControls.goToNextTrack()`/`goToPrevTrack()` (event/
- *     workflow/player-controls.js, thay cho `playNext()`/`playPrev()` cũ đã xoá)
- *   - `playlist` — case 'playlist.item.playClick' (event/router/playlist.js), gọi thẳng khi
- *     `selectionMode=false`
- *   - `playlistEmptyState` — 2 nút to "Phát"/"Trộn bài" (event/router/playlist-empty-state.js +
- *     event/workflow/playlist-empty-state.js)
- * và từ 2 chỗ Core gọi THẲNG (core/player-controls.js — `togglePlayPause()` lúc `currentKey===null`,
- * `handleAudioEnded()` cho case tương đương "hết bài -> next") — Core gọi Workflow trực tiếp ở các điểm này là
- * nợ kỹ thuật ĐÃ CÓ SẴN, CÙNG KHUÔN với `handleAudioPlay()`/`handleAudioPause()` (chính file đó, gọi
- * thẳng `workflowVisualBg.syncPlaybackToAudio()`) — KHÔNG phát sinh mới do đợt reorg này, xem
- * docstring từng hàm ở core/player-controls.js.
- *
- * NẠP SAU: core/playlist/actions.js (removeKeyFromDisplay), core/playlist/render.js
- * (attachCoverFallback/scrollToCurrentKeyAnimated), core/playlist/order.js, core/player-controls.js
- * (requestWakeLock/switchToVisualizer), core/listen-stats.js (bumpSongPlayCount), event/workflow/
- * subtitle-display.js (workflowSubtitleDisplay.clearAll — chỉ gọi lúc chạy), event/workflow/audio-engine.js (workflowAudioEngine.setup — thay setupAudioContext() từ 01/10/2026),
- * core/visualizer/visualizer-display.js (updateTypeUI), event/bus.js, event/workflow/video-player.js
- * (workflowVideoPlayer.exitVideoPlayerMode). NẠP TRƯỚC: event/workflow/player-controls.js,
- * event/router/playlist.js, event/router/playlist-empty-state.js (cả 3 đều gọi
- * `workflowPlayer.playMedia()`).
+ * NẠP SAU: core/playlist/actions.js, core/playlist/render.js (attachCoverFallback), core/playlist/order.js,
+ * core/player-controls.js (requestWakeLock), core/listen-stats.js, core/media-element-ui.js, event/workflow/
+ * subtitle-display.js (chỉ gọi lúc chạy), event/workflow/audio-engine.js (workflowAudioEngine.setup), event/bus.js,
+ * event/workflow/video-player.js, event/workflow/media-wait.js (lúc chạy). NẠP TRƯỚC: event/workflow/player-controls.js,
+ * event/router/playlist.js, event/router/playlist-empty-state.js (cả 3 đều gọi `workflowPlayer.playMedia()`).
  */
+/** Nạp lại bài đang phát xong: đang phát thì phát tiếp, đang dừng thì để yên. */
+const RELOAD_SONG_RESUME_BY_WAS_PLAYING = {
+    true: () => playMediaElement(audioPlayer, '[workflow:player] nạp lại —'), // core/media-element-ui.js
+    false: () => {},
+};
+
 const workflowPlayer = {
 
     /**
-     * FIX (03/07/2026, mục 5 yêu cầu — "next/prev không được cưỡng chế rời khỏi Playlist UI").
-     * Tham số THỨ 2 tuỳ chọn `options.switchScreen` (mặc định `true`, GIỮ NGUYÊN 100% hành vi cũ
-     * cho MỌI lời gọi hiện có chưa truyền — bấm 1 bài trong danh sách, "Phát"/"Trộn bài" ở header,
-     * modal "Tiếp tục nghe?"...). CHỈ `workflowPlayerControls.goToNextTrack()`/`goToPrevTrack()`
-     * (event/workflow/player-controls.js, thay cho `playNext()`/`playPrev()` cũ) truyền
-     * `{ switchScreen: false }` — 2 hàm ĐÓ là nguồn DUY NHẤT của next/prev "không phải người dùng
-     * chủ động chọn bài này" (bấm nút Next/Prev ở thanh dưới — CHỈ hiện khi đã đang ở màn
-     * Visualizer, xem switchToVisualizer()/forceBackToPlaylistUI() — hoặc tự động chuyển bài khi 1
-     * bài kết thúc, handleAudioEnded() -> workflowPlayerControls.goToNextTrack(false)). Vì nút
-     * Next/Prev chỉ hiện lúc ĐÃ ở Visualizer, "không switch" ở đó vô hại (đang sẵn ở đó); còn tự
-     * động chuyển bài lúc đang xem Playlist thì "không switch" đúng là điều cần sửa — 1 điều kiện
-     * `switchScreen: false` phủ ĐÚNG cả 2 trường hợp, không cần biết màn hình nào đang hiện tại
-     * thời điểm gọi.
-     *
-     * GHI NHẬN THẲNG THẮN (không né tránh) — hàm này là hàm CORE/WORKFLOW DI SẢN cực lớn, nhiều
-     * chục vi phạm Rule 1/2/3 nếu soi theo core-function-conventions.md (đúng ra hàm này vốn chưa
-     * từng thuộc phạm vi 4 rule đó, vì bản chất là Workflow — chỉ SAI CHỖ Ở như đã nói ở docstring
-     * đầu file). Đưa hàm này về gọn gàng hơn (tách nhỏ theo từng bước) là việc LỚN hơn RẤT nhiều so
-     * với phạm vi đợt reorg này (chỉ đổi CHỖ Ở, không đổi logic) — KHÔNG động thêm gì trong thân
-     * hàm ngoài việc bỏ tiền tố `window.`/đổi khai báo hàm.
+     * `options.switchScreen` (mặc định `true`): CHỈ `workflowPlayerControls.goToNextTrack()`/`goToPrevTrack()` truyền
+     * `false` — Next/Prev và tự chuyển bài khi hết bài KHÔNG cưỡng chế rời Playlist UI. Hàm lớn còn nợ Rule 1/2/3 (sổ
+     * vi phạm) — tách nhỏ là việc riêng.
      * @param {string} key
-     * @param {{switchScreen?: boolean, direction?: 'next'|'prev'}} [options] - `direction` MỚI
-     *        (Giang yêu cầu Transition Video Player mode) — CHỈ Video Player mode dùng (Next/Prev
-     *        dùng 2 preset Transition RIÊNG), Song/Photo bỏ qua.
+     * @param {{switchScreen?: boolean, direction?: 'next'|'prev'}} [options] - `direction` CHỈ Video/Photo Player mode dùng
+     *        (Next/Prev dùng 2 preset Transition riêng), Song bỏ qua.
      */
     playMedia(key, options) {
-        // ===================== Ver 12 "Song/Video Unification" — Batch 2 (mục 3) =====================
-        // Guard clause ĐẦU hàm — hàm "phát nhạc hợp nhất" giờ đọc `cached.mediaType` (chuẩn hoá
-        // bởi buildAdaptedPlaylistCache(), Batch 1) để quyết định delegate hẳn sang Video Player
-        // mode hay tiếp tục luồng Song gốc bên dưới. Rule 1: đây là guard clause thuần — bỏ 2
-        // khối if này đi, phần còn lại của hàm vẫn giữ NGUYÊN 100% ĐÚNG 1 kịch bản (phát Song),
-        // không đổi bất kỳ dòng nào — đúng nguyên tắc riêng của plan "KHÔNG sửa/động code đang
-        // phục vụ RIÊNG cho Song".
+        // Guard clause theo `cached.mediaType` (buildAdaptedPlaylistCache()): Video/Photo chuyển hẳn sang Player mode của
+        // nó; phần còn lại của hàm là luồng Song.
         const cachedForDispatch = appState.get('playlistCache').get(key);
 
-        // MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — nếu đang ở Photo Player
-        // mode và bài/video/ảnh MỚI KHÔNG phải Photo, dọn dẹp mode đó TRƯỚC (kill task đồng hồ,
-        // khôi phục #visual-bg-image về ĐÚNG cấu hình VBG thật, trả canvas về bình thường) rồi mới
-        // để 2 guard clause Video/Song bên dưới chạy TIẾP như chưa từng có gì thay đổi — CHỈ 1 chỗ
-        // xử lý mọi hướng thoát (Photo -> Song, Photo -> Video), không rải rác guard riêng ở từng
-        // nhánh. KHÔNG `await` (playMedia() không async, giữ nguyên) — [SỬA 21/09/2026] an toàn để
-        // fire-and-forget CHỈ vì `exitPhotoPlayerMode()` giờ dọn MỌI state ĐỒNG BỘ (task, Resolution,
-        // URL, isPhotoPlayerMode, wake lock, đồng hồ nghe) trước khi return promise — phần async còn lại
-        // duy nhất là khôi phục lớp nền VBG. Đích là Video thì KHÔNG khôi phục VBG (`false`): Video
-        // Player mode tự chiếm `bgVideoElement`/`#visual-bg-image` ngay sau đây, VBG được trả lại lúc
-        // thoát Video Player (`exitVideoPlayerMode()`).
+        // Đang ở Photo Player mode mà item MỚI không phải Photo -> thoát mode đó TRƯỚC (1 chỗ cho mọi hướng thoát). KHÔNG
+        // `await` — `exitPhotoPlayerMode()` dọn MỌI state ĐỒNG BỘ trước khi trả promise, phần async còn lại chỉ là khôi phục
+        // lớp nền VBG. Đích là Video thì KHÔNG khôi phục VBG (`false`): Video Player mode tự chiếm `bgVideoElement`/
+        // `#visual-bg-image`, VBG được trả lại lúc thoát Video Player.
         if (appState.get('isPhotoPlayerMode') && (!cachedForDispatch || cachedForDispatch.mediaType !== 'photo')) {
             const isDestinationVideo = !!cachedForDispatch && cachedForDispatch.mediaType === 'video';
             workflowPhotoPlayer.exitPhotoPlayerMode(!isDestinationVideo); // event/workflow/photo-player.js
         }
 
         if (cachedForDispatch && cachedForDispatch.mediaType === 'video') {
-            // SỬA (Giang chốt: "chọn Video thì cũng phải kiểm tra block gate mới được cho
-            // chọn") — đi qua eventBus (router 'videoPlayer') THAY VÌ gọi thẳng
-            // workflowVideoPlayer.startFromPlaylist() như bản đầu. Block gate (event/block.js)
-            // CHỈ chặn được message đi qua eventBus.send(), không chặn được lời gọi hàm trực
-            // tiếp — nên đường vào Video Player mode BẮT BUỘC phải đi qua bus tại ĐÚNG điểm
-            // này để tái tạo khoá chéo với "Use Video Background" (vizConfig.videoBgEnabled)
-            // mà checkbox cũ từng có (xem event/block.js). ĐẶT dispatch ở NGAY guard clause
-            // này (không phải ở từng nơi gọi playMedia()) vì đây là điểm DUY NHẤT chắc
-            // chắn chặn được MỌI đường vào video: click 1 video trong Playlist, "Phát tất
-            // cả"/"Trộn bài"/resume lúc activeMediaSource='video', VÀ (Giang chốt tiếp: "video
-            // thừa hưởng cơ chế Playlist, không tạo cơ chế next/prev riêng") CẢ Next/Prev vật
-            // lý/cử chỉ vuốt (workflowPlayerControls.goToNextTrack()/goToPrevTrack(), event/
-            // workflow/player-controls.js, DÙNG CHUNG với Song) đều đi qua ĐÚNG dòng này mỗi lần
-            // chuyển bài — router 'videoPlayer' (event/router/video-player.js) tự phân biệt "đã
-            // ở mode, chỉ đổi video" hay "vào mode lần đầu" bằng VirtualMachineState theo
-            // isVideoPlayerMode.
-            //
-            // SỬA (fix router video, phản hồi Giang 29/07/2026, "về visualizer không hoạt
-            // động") — TRƯỚC ĐÂY payload chỉ có `key`, làm rớt mất `options.switchScreen`
-            // (Next/Prev truyền `{switchScreen:false}`, xem core/player-controls.js) — router
-            // không có cách nào biết "có cần chuyển màn hình không", nên tự conflate việc đó
-            // với `isVideoPlayerMode` (nhánh "đã ở mode" gọi thẳng playVideoByKey(), KHÔNG bao
-            // giờ switchToVisualizer() — đúng cho Next/Prev vật lý vì đang đứng sẵn ở
-            // Visualizer, nhưng SAI khi Giang bấm lại video đang phát TỪ màn Playlist — mode
-            // vẫn `true` do video chạy nền, nên rơi đúng nhánh đó, không quay lại Visualizer
-            // được). Tính `switchScreen` GIỐNG HỆT công thức Song ở dòng dưới (`!options ||
-            // options.switchScreen !== false`) rồi gửi kèm — router giờ quyết định switch màn
-            // hình dựa vào ĐÚNG ý định của người gọi, không dựa vào isVideoPlayerMode nữa.
+            // Đi qua eventBus (router 'videoPlayer') để Block gate (event/block.js) chặn được — đây là điểm DUY NHẤT phủ MỌI
+            // đường vào video (click Playlist, Phát tất cả/Trộn bài/resume, Next/Prev/vuốt). Router tự phân biệt "đã ở mode,
+            // chỉ đổi video" hay "vào mode lần đầu" (VirtualMachineState theo isVideoPlayerMode); `switchScreen` gửi kèm để
+            // router chuyển màn theo ĐÚNG ý định người gọi.
             const switchScreen = !options || options.switchScreen !== false;
-            const direction = (options && options.direction) || 'next'; // MỚI — mặc định 'next' (đúng cho auto-advance hết bài, KHÔNG có "hướng" thật)
+            const direction = (options && options.direction) || 'next'; // mặc định 'next' (tự chuyển khi hết bài, không có "hướng" thật)
             eventBus.send({ router: 'videoPlayer', type: 'videoPlayer.startFromPlaylist.click', payload: { key, switchScreen, direction } });
             return;
         }
 
-        // MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video, "quy chế phát của nó cũng
-        // không khác biệt") — mirror ĐÚNG guard clause Video ngay trên, nhưng KHÔNG đi qua eventBus/
-        // Block Gate (khác Video — Photo không cần khoá chéo với tính năng nào khác, xem docstring
-        // đầu event/workflow/photo-player.js) — gọi THẲNG Workflow miền "photoPlayer" (Workflow gọi
-        // Workflow miền khác, TỰ DO theo event-bus-flow.md mục 4B). `isPhotoPlayerMode` phân biệt
-        // "đã ở mode, chỉ đổi ảnh" (Next/Prev vật lý, bấm lại đúng ảnh đang hiện) hay "vào mode lần
-        // đầu" — CÙNG Ý NGHĨA video dùng router phân biệt qua VirtualMachineState, chỉ khác chỗ
-        // quyết định (ở đây, không phải ở router — Photo không có router riêng).
+        // Photo: cùng khuôn guard Video nhưng KHÔNG qua eventBus/Block gate (Photo không cần khoá chéo) — gọi THẲNG
+        // workflowPhotoPlayer (event-bus-flow.md mục 4B). `isPhotoPlayerMode` phân biệt "đã ở mode, chỉ đổi ảnh" hay "vào
+        // mode lần đầu".
         if (cachedForDispatch && cachedForDispatch.mediaType === 'photo') {
             const switchScreen = !options || options.switchScreen !== false;
             if (appState.get('isPhotoPlayerMode')) {
-                // SỬA (25/09/2026, đợt 3 Motion) — truyền `direction` (CÙNG công thức nhánh Video ngay trên) để
-                // Player Photo chọn đúng slot Transition Next/Prev. Vào mode lần đầu (nhánh dưới) KHÔNG cần —
-                // ảnh đầu luôn hiện tĩnh, không có gì để transition từ.
+                // `direction` chọn slot Transition Next/Prev. Vào mode lần đầu (nhánh dưới) không cần — ảnh đầu hiện tĩnh.
                 const direction = (options && options.direction) || 'next';
                 workflowPhotoPlayer.playPhotoByKey(key, switchScreen, direction); // event/workflow/photo-player.js — đã ở mode, chỉ đổi ảnh
             } else {
-                // FIX (10/09/2026, Giang báo bug "hết bài lúc đang duyệt Playlist Video/Photo bị ép
-                // mở Visualizer") — TRƯỚC ĐÂY gọi `startFromPlaylist(key)` KHÔNG kèm `switchScreen`
-                // (biến đã tính đúng ở dòng trên bị RỚT MẤT ngay tại đây) — hàm đó tự mặc định
-                // `true` VÔ ĐIỀU KIỆN, ép mở Visualizer kể cả lúc auto-next (switchScreen=false)
-                // đang đứng ở Playlist. Giờ truyền xuống đúng, xem docstring `startFromPlaylist()`
-                // (event/workflow/photo-player.js).
+                // Truyền `switchScreen` — tự chuyển bài lúc đang xem Playlist không được ép mở Visualizer.
                 workflowPhotoPlayer.startFromPlaylist(key, switchScreen); // event/workflow/photo-player.js — vào mode lần đầu
             }
             return;
         }
         const switchScreen = !options || options.switchScreen !== false;
-        // [SỬA — 02/09/2026, Giang chỉ ra bug "exit game mode rồi vào lại ĐÚNG song vừa phát thì
-        // không kích hoạt start game, nhạc vẫn chạy tiếp bình thường"] Nhánh NÀY (bấm lại ĐÚNG bài
-        // đang load sẵn, `key === currentKey`) `return` NGAY — dòng gửi 'gameplay.mediaChanged'
-        // TRƯỚC ĐÂY đứng SAU trong thân hàm (đợt sửa gate `previousKey !== key` hôm trước) KHÔNG
-        // BAO GIỜ chạy tới được ở nhánh này, nên bug vẫn còn dù đã bỏ gate đó. Gửi NGAY TẠI ĐÂY —
-        // cùng lý do đã giải thích ở dòng gửi phía dưới (playMedia() CHỈ gọi từ hành động "muốn
-        // phát" thật, an toàn gửi vô điều kiện).
+        // Bấm lại ĐÚNG bài đang load sẵn: return sớm, nhưng vẫn gửi 'gameplay.mediaChanged' (Game Mode đang armed phải tự
+        // bắt đầu — cùng lý do dòng gửi ở cuối hàm).
         if (key === appState.get('currentKey')) {
-            workflowPlayerControls.showTrackChange(switchScreen); // event/workflow/player-controls.js — SỬA (02/10/2026): if/else -> object map ở đó
-            // SỬA (08/09/2026, Giang yêu cầu "toàn bộ case không được phát trước khi cooldown
-            // xong") — bấm lại ĐÚNG bài đang armed Game Mode KHÔNG được .play() ngay tại đây nữa,
-            // kể cả đang pause (đang phát dở cũng phải reset qua cooldown, không riêng gì lúc đang
-            // dừng). `gameplay.mediaChanged` gửi ngay dưới kích `workflowGameplay.start()` (event/
-            // workflow/gameplay.js) -> pause/seek 0 (vô hại, audioPlayer CHƯA kịp phát) -> countdown
-            // -> `_beginPlaying()` MỚI thật sự gọi `.play()`. KHÔNG armed: giữ NGUYÊN 100% hành vi
-            // cũ (.play() ngay tại đây nếu đang pause).
+            workflowPlayerControls.showTrackChange(switchScreen); // event/workflow/player-controls.js
+            // Game Mode đang armed: KHÔNG .play() ở đây — `gameplay.mediaChanged` kích `workflowGameplay.start()` -> countdown
+            // -> `_beginPlaying()` mới phát. Không armed: đang pause thì phát.
             if (appState.get('gameplayArmedGameId') == null && audioPlayer.paused) audioPlayer.play();
             eventBus.send({ router: 'gameplay', type: 'gameplay.mediaChanged', payload: {} });
             return;
@@ -177,29 +88,12 @@ const workflowPlayer = {
         // display=false: chuyển bài chạy logic trong shield (khoá chồng lệnh) nhưng KHÔNG hiện
         // lớp che -> bỏ cú nháy đen bg-black/80 mỗi lần Next/Prev (rõ nhất khi có video nền).
         //
-        // FIX (log 9->10): trước đây withLoadingShield() KHÔNG có .catch() ở đây, và mọi nơi
-        // gọi playMedia(...) (playPauseBtn, Next/Prev, click bài trong list) đều
-        // gọi fire-and-forget (không await, không .catch()). Nếu thân hàm bên dưới throw — ví
-        // dụ await getSongRecord(key) reject vì connection IndexedDB đã chết (xem giải thích
-        // đầy đủ ở db.js, đã sửa thêm cơ chế tự mở lại connection + retry 1 lần ở đó) — lỗi đó
-        // dừng hàm NGAY TẠI ĐÓ, audioPlayer.src/audioPlayer.play() ở các dòng sau KHÔNG BAO GIỜ
-        // chạy tới (im lặng hoàn toàn, không alert, không crash gì khác — đúng kiểu "vẫn
-        // next/prev được vì chỉ tính index trong RAM, nhưng không có tiếng vì không lấy được
-        // blob thật từ IndexedDB"), rồi thoát ra ngoài dưới dạng unhandled promise rejection.
-        // Sau khi db.js đã tự retry, trường hợp này hiếm xảy ra hơn nhiều, nhưng vẫn cần lớp
-        // bảo vệ cuối: nếu thật sự thất bại (retry cũng lỗi, hoặc lỗi khác hẳn), alertModal()
-        // đúng nguyên văn lỗi thay vì im lặng — cùng tinh thần đã áp dụng cho luồng upload.
-        // FIX (patch alert -> alertModal): trước đây dùng alert() native (chặn luồng JS) — đổi
-        // sang alertModal() (modal-choice-ui.js) để không bị chặn/crash khi gọi đúng lúc 1
-        // #loading-shield khác đang chạy (alert() native từng gây "đứng" cảm giác app crash).
+        // Mọi nơi gọi playMedia() đều fire-and-forget -> `.catch()` cuối chuỗi là lớp bảo vệ cuối: thân hàm throw (vd
+        // getSongRecord() reject dù db.js đã tự retry) thì alertModal() đúng nguyên văn lỗi thay vì im lặng không tiếng.
         let notFoundAlert = false; // cờ mang ra ngoài withLoadingShield — KHÔNG await alertModal() ngay trong fn() của shield (xem giải thích dưới)
         return withLoadingShield(t('common.loading.switchingSong'), async () => {
-            // FIX (09/08/2026, mục 1 phản hồi Giang — "video bg vẫn không mute, phát đè tới lúc
-            // song chèn vào") — TRƯỚC ĐÂY exitVideoPlayerMode() gọi KHÔNG await NGAY TRƯỚC shield
-            // này: phần đồng bộ (mute/pause bgVideoElement) chạy kịp, nhưng phần BẤT ĐỒNG BỘ của
-            // nó (applyCurrentVisualBg() — nạp lại Audio B của VBG nếu type='video') chạy ngầm,
-            // không đồng bộ với audioPlayer.play() bên dưới. AWAIT ngay đầu shield — đảm bảo dọn
-            // Video Player mode + tái áp VBG XONG HẲN trước khi Song bắt đầu phát.
+            // AWAIT thoát Video Player mode (gồm tái áp VBG) XONG HẲN trước khi Song bắt đầu phát — không thì video nền
+            // còn phát đè lúc bài mới vào.
             if (appState.get('isVideoPlayerMode')) await workflowVideoPlayer.exitVideoPlayerMode(); // event/workflow/video-player.js
 
             if (appState.get('currentObjectURL')) { URL.revokeObjectURL(appState.get('currentObjectURL')); appState.set('currentObjectURL', null); }
@@ -209,8 +103,8 @@ const workflowPlayer = {
 
             const record = await getSongRecord(key);
             if (!record) {
-                workflowPlaylistOrder.removeKeyFromDisplay(key); // event/workflow/playlist-order.js (dời từ core 24/09/2026)
-                // FIX (xung đột shield/modal): KHÔNG await alertModal() ở đây — fn() này còn đang
+                workflowPlaylistOrder.removeKeyFromDisplay(key); // event/workflow/playlist-order.js
+                // KHÔNG await alertModal() ở đây — fn() này còn đang
                 // chạy TRONG withLoadingShield(), và isShieldBusy chỉ được giải phóng ở finally
                 // SAU KHI fn() resolve (xem loading-shield-util.js). alertModal() trả Promise chỉ
                 // resolve khi người dùng bấm OK -> nếu await ngay tại đây, #loading-shield (lớp
@@ -224,102 +118,53 @@ const workflowPlayer = {
             }
 
             appState.set('currentKey', key);
-            workflowAutoSwitchVisual.onMediaChanged(); // event/workflow/auto-switch-visual.js — MỚI 26/09/2026, nhánh 'perMedia'
+            workflowAutoSwitchVisual.onMediaChanged(); // event/workflow/auto-switch-visual.js — nhánh 'perMedia'
             appState.set('currentCoverObjectURL', record.cover ? URL.createObjectURL(record.cover) : DEFAULT_VINYL);
             appState.set('currentObjectURL', URL.createObjectURL(record.blob));
             audioPlayer.src = appState.get('currentObjectURL');
 
             playerTitle.textContent = record.tag.title; playerArtist.textContent = record.tag.artist;
             recordContainer.innerHTML = `<img id="record-art" src="${appState.get('currentCoverObjectURL')}" class="w-full h-full rounded-full object-cover shadow-lg relative z-20 ${audioPlayer.paused ? 'paused' : 'animate-spin-slow'}" alt="Record"><div class="absolute inset-0 m-auto w-3 h-3 bg-slate-900 rounded-full border border-slate-700 z-30"></div>`;
-            // Ver 8 refine (mục 4): cover Blob có thể không decode được làm ảnh thật (ID3 cover
-            // lỗi/cắt cụt, jsmediatags đọc nhầm định dạng...) -> <img> "vỡ" thay vì hiện vinyl
-            // mặc định. attachCoverFallback() (định nghĩa ở render.js) gắn onerror tự fallback
-            // về DEFAULT_VINYL — tái dùng đúng 1 hàm cho mọi nơi hiển thị cover trong app.
+            // Cover Blob có thể không decode được (ID3 lỗi/cắt cụt) -> attachCoverFallback() (render.js) tự về DEFAULT_VINYL.
             attachCoverFallback(document.getElementById('record-art'));
 
             if ('mediaSession' in navigator) {
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: record.tag.title || "Visual Master",
                     artist: record.tag.artist || "Unknown Artist",
-                    // Ver 8 refine (mục 4): dùng ĐÚNG record.cover.type thật (đã được validate
-                    // ở loader.js, đảm bảo là MIME ảnh hợp lệ) thay cho hard-code 'image/jpeg'
-                    // trước đây — khai báo sai MIME (ví dụ cover thật là PNG nhưng báo JPEG) có
-                    // thể khiến hệ điều hành/màn hình khóa từ chối hiển thị artwork dù dữ liệu
-                    // ảnh hoàn toàn hợp lệ. Fallback 'image/jpeg' chỉ dùng khi vì lý do nào đó
-                    // record.cover.type rỗng (hiếm, nhưng Blob.type có thể rỗng trên 1 số trình
-                    // duyệt cũ dù nội dung vẫn đúng).
+                    // MIME thật của cover (khai sai MIME thì màn hình khoá có thể không hiện artwork); 'image/jpeg' chỉ khi rỗng.
                     artwork: record.cover ? [{ src: appState.get('currentCoverObjectURL'), sizes: '512x512', type: record.cover.type || 'image/jpeg' }] : []
                 });
             }
 
-            workflowListenStats.bumpPlayCount('song', key); // event/workflow/listen-stats.js — +1 số lần nghe ngay khi bắt đầu phát bài mới (SỬA 06/10/2026: thêm loại media)
+            workflowListenStats.bumpPlayCount('song', key); // event/workflow/listen-stats.js — +1 số lần nghe ngay khi bắt đầu phát bài mới
 
-            // SỬA (phản hồi Giang 29/07/2026, mục 2 — "next/prev... phải scroll tới nhưng có
-            // hiệu ứng cuộn") — nhánh switchScreen=false (Next/Prev vật lý) giờ gọi
-            // scrollToCurrentKeyAnimated() (core/playlist/render.js) THAY vì không làm gì cả —
-            // hàm đó tự no-op nếu Playlist đang ẩn (đứng ở Visualizer), chỉ thật sự cuộn khi
-            // Playlist đang hiển thị (vd bấm Next/Prev từ thanh player mini trong lúc đang
-            // xem Playlist).
-            // FIX (29/07/2026, "scroll tại playlist đang không đúng vị trí") — TRƯỚC ĐÂY gọi
-            // scrollToCurrentKeyAnimated() NGAY TẠI ĐÂY, tức là TRƯỚC cả refreshSongNode(key)/
-            // renderPlaylistDiff() ngay dưới — hàm đó tự tra `domNodesByKey.get(key)` (xem
-            // render.js), mà lúc này `key` có thể CHƯA có node nào trong `domNodesByKey` (bài
-            // vừa lọc/chưa từng render, renderPlaylistDiff() dưới đây mới là chỗ thật sự thêm
-            // node cho nó) -> guard `if (!node) return` của hàm đó lặng lẽ bỏ qua, cuộn KHÔNG hề
-            // chạy, Playlist đứng yên ở vị trí CŨ (đúng triệu chứng "không đúng vị trí"). Dời
-            // xuống SAU refreshSongNode()/renderPlaylistDiff() để `domNodesByKey` chắc chắn đã
-            // có node ĐÚNG (mới nhất) cho `key` trước khi tính offset cuộn — cùng thứ tự đã đúng
-            // ở luồng Video (event/workflow/video-player.js::playVideoByKey(), refreshSongNode()
-            // xong rồi mới switchToVisualizer()/scrollToCurrentKeyAnimated()).
-            // SỬA (08/09/2026, cùng đợt/cùng lý do nhánh `key === currentKey` phía trên) — armed
-            // Game Mode thì KHÔNG `.play()` ở đây, nhường cho `_beginPlaying()` (event/workflow/
-            // gameplay.js) tự phát ĐÚNG audioPlayer sau cooldown qua 'gameplay.mediaChanged' gửi
-            // cuối hàm này. `switchToVisualizer()` KHÔNG bị gate — Giang chốt: vào Game Mode không
-            // bắt buộc phải về thẳng Visualizer, 2 việc độc lập nhau.
+            // Game Mode armed: KHÔNG .play() — `_beginPlaying()` (event/workflow/gameplay.js) phát sau countdown. Chuyển màn
+            // Visualizer không phụ thuộc Game Mode. Next/Prev (switchScreen=false) cuộn Playlist tới bài mới — SAU
+            // refreshSongNode()/renderPlaylistDiff() để node của `key` chắc chắn đã có.
             if (appState.get('gameplayArmedGameId') == null) audioPlayer.play();
-            workflowPlayerControls.switchToVisualizerIfRequested(switchScreen); // event/workflow/player-controls.js — SỬA (02/10/2026): dời từ core, bước tuỳ chọn -> method có guard
+            workflowPlayerControls.switchToVisualizerIfRequested(switchScreen); // event/workflow/player-controls.js
             if (previousKey) workflowPlaylistRender.refreshSongNode(previousKey);
             workflowPlaylistRender.refreshSongNode(key);
             if (!appState.get('domNodesByKey').has(key)) workflowPlaylistRender.renderPlaylistDiff();
             if (!switchScreen) workflowPlaylistRender.scrollToCurrentOrDefer();
-            workflowPlaylistRender.syncPlayButtonPlayingState(); // event/workflow/playlist-render.js — SỬA (02/10/2026): khớp cả loại media (key trùng giữa các Nguồn)
-            // (DỜI 01/10/2026: reset số liệu phân tích theo bài — flux/BPM/ô BPM+Pitch/pitch worker/rubikPitch* — sang
-            // workflowAudioAnalysis.resetForNewMedia(), gọi qua workflowVisualizerRender.resetForNewMedia() ngay dưới; dùng
-            // chung với nhánh Video. `beatTimes` bỏ hẳn — BPM nay tính ở core/audio-tempo.js.)
-            appState.set('raindrops', []); appState.set('ripples', []); appState.set('glassStaticDrops', []); appState.set('glassStreaks', []); appState.set('activeLightnings', []); // (starFlashes — ĐÃ BỎ 29/09/2026, chớp sao Black Hole bỏ hẳn)
-            workflowVisualizerRender.resetForNewMedia(); // event/workflow/visualizer-render.js — SỬA 28/09/2026 (thay resetConnectorPerTrackState() gọi thẳng): mọi group dọn trạng thái theo bài (connector: tia/tín hiệu còn bay dở)
-            workflowAudioEngine.setup(); workflowVisualizerRender.activateCurrentStyle(); // SỬA 01/10/2026 — thay setupAudioContext() (core cũ, đã xoá)
-            // SỬA 28/09/2026 — thay updateTypeUI() (core cũ)
+            workflowPlaylistRender.syncPlayButtonPlayingState(); // event/workflow/playlist-render.js — khớp cả loại media (key trùng giữa các Nguồn)
+            appState.set('raindrops', []); appState.set('ripples', []); appState.set('glassStaticDrops', []); appState.set('glassStreaks', []); appState.set('activeLightnings', []);
+            workflowVisualizerRender.resetForNewMedia(); // event/workflow/visualizer-render.js — mọi group (và phân tích audio) dọn trạng thái theo bài
+            workflowAudioEngine.setup(); workflowVisualizerRender.activateCurrentStyle();
 
             appState.set('subtitles', record.subtitles ? record.subtitles.slice() : []);
             workflowSubtitleDisplay.clearAll(); // event/workflow/subtitle-display.js — dọn khối phụ đề + karaoke bài cũ
 
-            // MỚI (v13 Batch D, hoàn thiện ở Batch E) — báo cho domain "Visual Background" biết
-            // bài hát vừa ĐỔI THẬT, thay cho task poll `currentKey` mỗi 1s mà engine slideshow
-            // từng tự dựng (`_startSongWatcher()`, đã xoá). So sánh KEY chứ không phải
-            // currentTime: seek trong CÙNG bài KHÔNG lọt vào đây, đúng hành vi cũ.
-            // Đây là NƠI DUY NHẤT biết chắc "bài hát vừa đổi" (next/prev/hết bài tự next/chọn
-            // bài khác đều đi qua đúng hàm này), nên hook đặt ở đây thay vì rải 3 chỗ.
+            // Báo domain "Visual Background" bài vừa ĐỔI THẬT (so KEY — seek trong cùng bài không tính). Đây là NƠI DUY NHẤT
+            // biết chắc bài vừa đổi (next/prev/hết bài/chọn bài khác đều đi qua hàm này).
             // Gửi QUA BUS (không gọi thẳng Workflow): việc quyết định nguồn nền nào cần phản
             // ứng là rẽ nhánh theo state -> thuộc tầng Router, xử lý bằng
             // `VirtualMachineState.run()` ở event/router/visual-bg.js.
             if (previousKey !== key) eventBus.send({ router: 'visualBg', type: 'visualBg.songChanged', payload: {} });
-            // [SỬA — phản hồi Giang "visualBg.songChanged liên quan gì tới video play mode?"] Tín
-            // hiệu "media đổi thật" cho Game Mode giờ TÁCH RIÊNG khỏi 'visualBg.songChanged' ở trên
-            // (2 domain không liên quan nhau) — gửi qua router "gameplay" (event/router/gameplay.js).
-            // Video (workflowVideoPlayer.playVideoByKey(), event/workflow/video-player.js) cũng
-            // dispatch CÙNG msg.type này ở đúng điểm tương đương — Game Mode tự mở khi bài đổi giờ
-            // hoạt động ĐÚNG cho cả 2 nguồn.
-            //
-            // [SỬA — 02/09/2026, Giang chỉ ra bug "exit game mode rồi vào lại ĐÚNG video/song vừa
-            // phát thì không kích hoạt start game, nhạc vẫn chạy tiếp bình thường"] TRƯỚC ĐÂY gate
-            // `previousKey !== key` (GIỐNG dòng visualBg trên) — bấm Play lại ĐÚNG bài đang load sẵn
-            // (key KHÔNG đổi) thì KHÔNG gửi tín hiệu này, nên `workflowGameplay.start()` không có cơ
-            // hội chạy dù đang armed. Bỏ hẳn gate cho DÒNG NÀY — `playMedia()` CHỈ được gọi từ hành
-            // động "muốn phát" thật của người dùng (click Playlist/Next/Prev/hết bài tự next, KHÔNG
-            // có nơi nào poll/gọi lặp), nên gửi VÔ ĐIỀU KIỆN ở đây an toàn, không spam. GIỮ NGUYÊN
-            // gate cho 'visualBg.songChanged' phía trên — đó là domain KHÁC (đổi ảnh/video nền), đúng
-            // ý ban đầu "seek/phát lại CÙNG bài không tính là đổi nền".
+            // Tín hiệu "media đổi" cho Game Mode (router "gameplay", tách khỏi 'visualBg.songChanged'; nhánh Video gửi ở
+            // workflowVideoPlayer.playVideoByKey()). Gửi VÔ ĐIỀU KIỆN — playMedia() chỉ chạy từ hành động "muốn phát" thật,
+            // phát lại ĐÚNG bài vẫn phải kích Game Mode đang armed.
             eventBus.send({ router: 'gameplay', type: 'gameplay.mediaChanged', payload: {} });
         }, false).then(async () => {
             // Shield đã đóng HẲN (isShieldBusy = false) tới đây — an toàn để hiện modal, không
@@ -333,39 +178,35 @@ const workflowPlayer = {
     },
 
     /**
-     * MỚI (06/10/2026, plan-media-db-split.md mục 7) — nạp lại bài ĐANG load trong audioPlayer từ DB sau khi file của nó
+     * Nạp lại bài ĐANG load trong audioPlayer từ DB sau khi file của nó
      * vừa bị thay (upload ghi đè trùng tên) — GIỮ vị trí phát + trạng thái phát/dừng, làm mới cover/tiêu đề. CHỈ gọi
      * từ request trung tâm `workflowMediaInUse` (event/workflow/media-in-use.js) — nơi đó đã kiểm state "bài này đang
      * nạp ở Player chính". KHÔNG đếm lượt nghe, không báo 'visualBg.songChanged'/'gameplay.mediaChanged' (cùng 1 bài).
      */
     async reloadCurrentSongKeepingPosition() {
-        const key = appState.get('currentKey');
+        const { currentKey: key, currentObjectURL: oldUrl } = appState.get(['currentKey', 'currentObjectURL']);
         const record = await getMediaRecord('song', key); // service/db.js
         if (!record || !record.blob) return; // guard: bài vừa bị xoá ở nơi khác
         const resumeAtSec = audioPlayer.currentTime;
         const wasPlaying = !audioPlayer.paused;
-        const oldUrl = appState.get('currentObjectURL');
         const newUrl = createBlobUrl(record.blob); // service/blob-url.js
         appState.set('currentObjectURL', newUrl);
         console.log(`writer: "workflowPlayer.reloadCurrentSongKeepingPosition", page: "currentObjectURL", content: "${key} — nạp lại tại ${resumeAtSec.toFixed(1)}s (${wasPlaying ? 'đang phát' : 'đang dừng'})"`);
-        const resumeByWasPlaying = {
-            true: () => audioPlayer.play().catch((err) => console.error('[workflow:player] play() sau khi nạp lại lỗi:', err)),
-            false: () => {},
-        };
-        audioPlayer.addEventListener('loadedmetadata', () => {
-            audioPlayer.currentTime = Math.min(resumeAtSec, audioPlayer.duration || resumeAtSec);
-            resumeByWasPlaying[wasPlaying]();
-        }, { once: true });
-        audioPlayer.src = newUrl;
+        workflowMediaWait.once(audioPlayer, 'loadedmetadata', () => { // event/workflow/media-wait.js
+            seekMediaElementClamped(audioPlayer, resumeAtSec); // core/media-element-ui.js
+            RELOAD_SONG_RESUME_BY_WAS_PLAYING[wasPlaying]();
+        });
+        setMediaElementSource(audioPlayer, newUrl); // core/media-element-ui.js
         if (oldUrl) revokeBlobUrl(oldUrl); // service/blob-url.js
 
-        workflowPlaylist.replaceCurrentCoverUrl(record.cover ? createBlobUrl(record.cover) : DEFAULT_VINYL); // event/workflow/playlist.js
+        const newCoverUrl = record.cover ? createBlobUrl(record.cover) : DEFAULT_VINYL; // service/blob-url.js
+        workflowPlaylist.replaceCurrentCoverUrl(newCoverUrl); // event/workflow/playlist.js
         playerTitle.textContent = record.tag.title; playerArtist.textContent = record.tag.artist;
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: record.tag.title || "Visual Master",
                 artist: record.tag.artist || "Unknown Artist",
-                artwork: record.cover ? [{ src: appState.get('currentCoverObjectURL'), sizes: '512x512', type: record.cover.type || 'image/jpeg' }] : []
+                artwork: record.cover ? [{ src: newCoverUrl, sizes: '512x512', type: record.cover.type || 'image/jpeg' }] : []
             });
         }
     },

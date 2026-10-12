@@ -1,51 +1,32 @@
 /**
- * event/workflow/player-controls.js — "THẰNG THỰC THI CUỐI" của router "playerControls".
+ * event/workflow/player-controls.js — Workflow của router "playerControls".
  *
- * MỚI (fix 03/07/2026, mục 3b yêu cầu — "Nút shuffle trong Control Center phải chỉ random cho
- * playlist hiện hành"). File này TRƯỚC ĐÂY không tồn tại (comment cũ ở event/router/player-controls.js
- * ghi rõ "17 msg.type chỉ cần ĐÚNG 1 HÀM CORE, KHÔNG có workflow") — giờ CẦN vì
- * 'playerControls.shuffle.click' đã đổi hình dạng: toggleShuffle() (core/player-controls.js) giờ
- * đơn tuyến, chỉ đảo cờ + đồng bộ UI, trả về giá trị MỚI; bước "tính lại shuffleIndices theo hiện
- * hành" là 1 lời gọi core THỨ HAI (updateShuffleArrayFromQueue(), core/playlist/order.js) — 2 hàm
- * core nối tiếp, có phụ thuộc thứ tự (bước 2 cần giá trị isShuffle MỚI từ bước 1) -> đúng hình dạng
- * Workflow (event-bus-flow.md mục 4B), không còn "gọi thẳng core" 1 bước như 16 msg.type còn lại
- * của cụm này.
+ * - Shuffle: `toggleShuffle()` (core, trả giá trị MỚI) rồi tính lại thứ tự (updateShuffleArrayFromQueue()) — 2 core nối
+ *   tiếp có phụ thuộc thứ tự.
+ * - `goToNextTrack()`/`goToPrevTrack()`, `handleMediaEnded()` (dùng chung 'audio.ended' lẫn 'video.ended'),
+ *   `handlePlayPauseClick()` (chưa có gì đang tải -> phát bài đầu tiên).
+ * - Cổng seek (`runGatedSeek()`): pause -> nạp lại nguồn -> seek -> mở tiếng -> play, chờ sự kiện qua
+ *   event/workflow/media-wait.js.
+ * - Sân khấu Visualizer khi ra/vào Playlist (`switchToVisualizer()`/`returnToPlaylistUI()`).
+ * `getActiveMediaElement(isVideoPlayerMode)` (core/player-controls.js) dùng chung với `workflowGameplay`.
  *
- * MỚI (plan-playmedia-reorg.md) — 4 method THÊM: `goToNextTrack()`/`goToPrevTrack()` (thay
- * `playNext()`/`playPrev()` cũ, core/player-controls.js, ĐÃ XOÁ), `handleMediaEnded()` (thay
- * `handleAudioEnded()` cũ VÀ `workflowVideoPlayer.handleVideoPlayerEnded()` cũ, gộp 2 hàm trùng
- * thân thành 1, dùng chung cho cả 'audio.ended' lẫn 'video.ended'), `handlePlayPauseClick()` (tách
- * khỏi `togglePlayPause()` cũ — phần "chưa có gì đang tải -> phát bài đầu tiên"). Cả 4 đều đúng
- * hình dạng Workflow (đọc nhiều field appState RỒI gọi ≥1 Core/Workflow khác theo thứ tự phụ
- * thuộc) — xem docstring từng method.
- *
- * MỚI (Game Mode + Video Player mode, phản hồi Giang) — `getActiveMediaElement(isVideoPlayerMode)`
- * (core/player-controls.js) DÙNG CHUNG bởi `goToNextTrack()`/`goToPrevTrack()` ở đây VÀ
- * `workflowGameplay` (event/workflow/gameplay.js) — tránh 2 nơi tự viết lại ternary
- * `isVideoPlayerMode ? bgVideoElement : audioPlayer` riêng.
- *
- * NẠP SAU: core/player-controls.js (toggleShuffle, togglePlayPause, requestWakeLock,
- * scrollSideLeftToSettingsSmooth/scrollSideLeftToPlaylistSmooth/validateVideoBgOnClose — HOTFIX 8,
- * dọn lại HOTFIX 11), core/playlist/order.js (updateShuffleArrayFromQueue, computeListStep/
- * decideBoundaryAction/shouldRestartInsteadOfAdvance/recomputeDisplayOrder — MỚI), core/listen-
- * stats.js (stopListenClock), core/settings-panel-stack.js (resetSettingsStackToMain),
- * event/workflow/player.js (workflowPlayer.playMedia — MỚI, cần cho goToNextTrack/goToPrevTrack/
- * handlePlayPauseClick).
+ * NẠP SAU: core/player-controls.js, core/playlist/order.js, core/listen-stats.js, core/settings-panel-stack.js,
+ * event/workflow/player.js (workflowPlayer.playMedia), event/workflow/media-wait.js (lúc chạy).
  * NẠP TRƯỚC: event/router/player-controls.js.
  */
-// ===== Cổng seek (MỚI 21/09/2026, v2 25/09/2026, v3 25/09/2026) — xem `workflowPlayerControls.runGatedSeek()` =====
+// ===== Cổng seek — xem `workflowPlayerControls.runGatedSeek()` =====
 const SEEK_GATE_SEEKED_TIMEOUT_MS = 3000; // đợi 'seeked'/'loadedmetadata' tối đa — phòng media không bao giờ xong (file lỗi) để không câm vĩnh viễn
 const SEEK_GATE_UNMUTE_RAMP_SEC = 0.03;   // mở tiếng dần 30ms — tránh tiếng "tách"
 
-/** MỚI (07/10/2026) — hook mặc định của cổng seek (Song không cần đóng băng hình). Video truyền hook của riêng nó
+/** Hook mặc định của cổng seek (Song không cần đóng băng hình). Video truyền hook của riêng nó
  * (workflowVideoPlayer.seekGateHooks()) — cổng KHÔNG biết gì về layer A/B (nguyên tắc tua vít). */
 const SEEK_GATE_NO_HOOKS = {
     beforeReload: async () => {}, // trước `load()` — media còn khung hình/vị trí cũ
-    afterSeek: () => {},          // seek xong, ngay TRƯỚC khi mở tiếng/play() — SỬA 07/10/2026: KHÔNG chờ gì (Video giao khung che cho 'playing')
+    afterSeek: () => {},          // seek xong, ngay TRƯỚC khi mở tiếng/play() — KHÔNG chờ gì (Video giao khung che cho 'playing')
     abort: () => {},              // cổng huỷ (media đổi giữa chừng) — dọn ngay mọi thứ hook đã dựng
 };
 
-/** MỚI (07/10/2026) — cổng xong: đồng bộ thanh/nhãn thời gian 1 lần theo vị trí MỚI ('timeupdate' lúc seek đã bị hold nuốt —
+/** Cổng xong: đồng bộ thanh/nhãn thời gian 1 lần theo vị trí MỚI ('timeupdate' lúc seek đã bị hold nuốt —
  * media đang dừng thì thanh đứng sai chỗ tới lần phát kế tiếp, vd cử chỉ seek-hold). Song thêm Media Session (nạp lại đã reset). */
 const SEEK_GATE_DONE_SYNC_BY_MEDIA = {
     song: () => {
@@ -56,34 +37,30 @@ const SEEK_GATE_DONE_SYNC_BY_MEDIA = {
 };
 
 /** Lặp 1 bài (repeat-one, hết bài tự nhiên) — phát lại từ đầu theo loại media đang phát (readme/event-bus-flow.md mục 7).
- * SỬA (29/09/2026, Giang báo: lặp 1 bài vẫn lọt ĐUÔI tiếng cũ, thanh tiến trình/timer vẫn chạy từ 0 -> tiếng lệch sau
- * currentTime, phụ đề lệch dồn qua mỗi vòng) — Song trước đây gán `currentTime = 0` TRẦN (bỏ qua cổng seek), hàng đợi
- * tiếng cũ của iOS không bị xoá nên vài giây cuối phát lại SAU khi currentTime đã về 0. Nay Song đi qua cổng seek
- * (`_restartSongForRepeatOne()`, nạp lại nguồn = xoá hàng đợi). Photo giữ nguyên hành vi cũ. SỬA 07/10/2026 — Video cũng qua cổng. */
+ * Song/Video đi qua cổng seek (nạp lại nguồn = xoá hàng đợi tiếng của iOS — gán `currentTime = 0` trần thì lọt đuôi
+ * tiếng cũ, phụ đề lệch dồn qua mỗi vòng). */
 const REPEAT_ONE_RESTART_BY_MEDIA = {
     song: () => workflowPlayerControls._restartSongForRepeatOne(),
-    // SỬA (07/10/2026, Giang chốt) — Video cũng qua cổng seek v3 (cùng lỗi Song 29/09: gán currentTime=0 trần lọt đuôi tiếng cũ).
     video: () => workflowVideoPlayer.restartForRepeatOne(), // event/workflow/video-player.js
     // Photo: không có sự kiện 'play' DOM thật (photoPlayerFakeMediaElement.play() chỉ đổi cờ) nên PHẢI gọi
-    // startListenClock() THẲNG — handleMediaEnded() vừa dừng đồng hồ ngay trước (xem goToNextTrack()). SỬA 25/09/2026:
-    // + chạy lại Point Move từ đầu (event/workflow/photo-player.js).
+    // startListenClock() THẲNG — handleMediaEnded() vừa dừng đồng hồ ngay trước (xem goToNextTrack()); + chạy lại Point
+    // Move từ đầu (event/workflow/photo-player.js).
     photo: (activeEl) => {
         activeEl.currentTime = 0;
         activeEl.play();
-        workflowListenStats.startClock(); // event/workflow/listen-stats.js (SỬA 06/10/2026 — dời từ core)
+        workflowListenStats.startClock(); // event/workflow/listen-stats.js
         workflowPhotoPlayer.onClockRestarted();
     },
 };
 
-/** MỚI (02/10/2026, xử lý nợ 02/10/2026) — đổi bài xong: bấm tay 1 dòng Playlist (switchScreen=true) -> sang Visualizer;
- * Next/Prev/tự chuyển (false) -> chỉ cuộn Playlist tới bài mới. Trước đây mỗi player (player.js/video-player.js/
- * photo-player.js) tự viết `if (switchScreen) switchToVisualizer(); else ...scrollToCurrentOrDefer();`. */
+/** Đổi bài xong: bấm tay 1 dòng Playlist (switchScreen=true) -> sang Visualizer; Next/Prev/tự chuyển (false) -> chỉ cuộn
+ * Playlist tới bài mới. Dùng chung cho player.js/video-player.js/photo-player.js. */
 const TRACK_CHANGE_SCREEN_BY_SWITCH = {
     true: () => workflowPlayerControls.switchToVisualizer(),
     false: () => workflowPlaylistRender.scrollToCurrentOrDefer(), // event/workflow/playlist-render.js
 };
 
-// MỚI (05/10/2026, Giang chốt hướng sửa "về Playlist rồi vào lại thì giật toàn bộ video/motion/visual") — xem
+// Sân khấu Visualizer khi ra/vào Playlist (tránh giật video/motion/visual khi vào lại) — xem
 // switchToVisualizer()/returnToPlaylistUI()/_suspendVisualStage()/_revealEffectsWhenMediaReady().
 const PLAYLIST_OFFSTAGE_TASK = 'playlistOffstageAfterSlide'; // hẹn đưa Playlist ra khỏi cây render sau khi trượt xong
 const HIDE_VISUALIZER_UI_TASK = 'hideVisualizerUiAfterFade'; // hẹn ẩn UI + sân khấu Visualizer sau khi Playlist trượt vào xong
@@ -91,7 +68,7 @@ const SCREEN_SLIDE_MS = 500; // khớp transition transform 0.5s của #app-stac
 const MEDIA_READY_TIMEOUT_TASK = 'visualizerMediaReadyTimeout';
 const MEDIA_READY_TIMEOUT_MS = 6000; // lưới an toàn: media không bao giờ báo 'canplaythrough' -> vẫn hiện effect, ghi log
 
-/** MỚI (05/10/2026) — đổi bố cục màn hình lúc đang chạy (xoay iPad/kéo cửa sổ qua mốc 1024px), key = bố cục xếp chồng. */
+/** Đổi bố cục màn hình lúc đang chạy (xoay iPad/kéo cửa sổ qua mốc 1024px), key = bố cục xếp chồng. */
 const SCREEN_LAYOUT_CHANGE_BY_STACKED = {
     true: () => workflowPlayerControls._applyStackedLayout(),
     false: () => workflowPlayerControls._applyDesktopLayout(),
@@ -117,29 +94,26 @@ const workflowPlayerControls = {
     // ===== Sân khấu Visualizer khi ra/vào Playlist — state nội bộ (KHÔNG thuộc STATE) =====
     _mediaReadyToken: 0, // tăng mỗi lần vào Visualizer / về Playlist — lượt chờ media cũ thấy token lệch thì tự bỏ
 
-    /** DỜI (02/10/2026) từ core/player-controls.js::switchToVisualizer() — thứ tự giữ nguyên: trượt Playlist ra -> cuộn
-     * Playlist tới bài đang phát NGAY lúc nó vừa rời khung nhìn (yêu cầu Giang 29/07/2026 "scroll tức thì cả 2 chiều")
-     * -> hiện UI Visualizer -> 50ms sau fade-in canvas. */
+    /** Trượt Playlist ra -> cuộn Playlist tới bài đang phát NGAY lúc nó vừa rời khung nhìn -> hiện UI Visualizer -> sân
+     * khấu hình trở lại cây render -> effect chạy lại khi media nạp đủ. */
     switchToVisualizer() {
-        // MỚI (05/10/2026, sửa race) — vào lại Visualizer TRONG lúc Playlist còn đang trượt vào (<500ms) thì huỷ hẹn ẩn
+        // Vào lại Visualizer TRONG lúc Playlist còn đang trượt vào (<500ms) thì huỷ hẹn ẩn
         // của lượt về Playlist trước: không huỷ thì tới hẹn `hideVisualizerUiAfterFade()` vẫn gắn 'hidden' cho
         // #visualizer-ui/#player-container ngay khi người dùng đang ở Visualizer (mất nút + thanh điều khiển).
         taskManager.kill(HIDE_VISUALIZER_UI_TASK);
         slidePlaylistOut(); // core/player-controls.js
         workflowPlaylistRender.scrollToCurrentInstant(); // event/workflow/playlist-render.js
         showVisualizerUi(); // core/player-controls.js
-        // SỬA (05/10/2026, Giang chốt) — (1) sân khấu hình trở lại cây render NGAY (video/ảnh hiện + nạp tiếp), (2)
-        // Playlist trượt ra xong thì ra khỏi cây render, (3) effect (2 task Visualizer + fade-in canvas) CHỈ chạy lại khi
-        // media hiện tại nạp đủ ('canplaythrough' / ảnh giải mã xong) — trước đây fade-in canvas cố định sau 50ms.
-        // Ý "tạo 1 thao tác chạm giả" Giang đề xuất: KHÔNG làm được — sự kiện chạm do JS tạo (dispatchEvent) luôn
-        // isTrusted=false, không đi qua hệ cử chỉ native của iOS.
+        // (1) sân khấu hình trở lại cây render NGAY (video/ảnh hiện + nạp tiếp), (2) Playlist trượt ra xong thì ra khỏi
+        // cây render, (3) effect (2 task Visualizer + fade-in canvas) CHỈ chạy lại khi media hiện tại nạp đủ
+        // ('canplaythrough' / ảnh giải mã xong).
         this._resumeVisualStage();
         this._schedulePlaylistOffstage();
         const token = ++this._mediaReadyToken;
         taskManager.once(() => this._revealEffectsWhenMediaReady(token), 50, 'showVisualizerFadeIn'); // service/task-manager.js
     },
 
-    /** MỚI (05/10/2026) — Playlist trượt ra xong (SCREEN_SLIDE_MS) -> ra khỏi cây render. Bỏ qua nếu lúc tới hẹn
+    /** Playlist trượt ra xong (SCREEN_SLIDE_MS) -> ra khỏi cây render. Bỏ qua nếu lúc tới hẹn
      * người dùng đã quay về Playlist, hoặc đang ở bố cục desktop (2 cột hiện song song). */
     _schedulePlaylistOffstage() {
         taskManager.once(() => {
@@ -149,7 +123,7 @@ const workflowPlayerControls = {
         }, SCREEN_SLIDE_MS, PLAYLIST_OFFSTAGE_TASK);
     },
 
-    /** MỚI (05/10/2026) — chờ media hiện tại nạp đủ rồi mới chạy lại effect + fade-in canvas. Lượt chờ bị thay thế
+    /** Chờ media hiện tại nạp đủ rồi mới chạy lại effect + fade-in canvas. Lượt chờ bị thay thế
      * (đổi màn tiếp/vào lại) thì tự bỏ. Lưới an toàn MEDIA_READY_TIMEOUT_MS: hết hạn vẫn hiện effect (ghi log lý do).
      * @param {number} token */
     async _revealEffectsWhenMediaReady(token) {
@@ -165,7 +139,7 @@ const workflowPlayerControls = {
         revealVisualizerCanvas(appConfigViz.getAll().type); // core/player-controls.js
     },
 
-    /** MỚI (05/10/2026) — chờ MỌI media đang dùng trên sân khấu: phần tử audio/video theo chế độ phát
+    /** Chờ MỌI media đang dùng trên sân khấu: phần tử audio/video theo chế độ phát
      * (MEDIA_ELEMENTS_TO_WAIT_BY_MODE) + mọi ảnh nền đang hiển thị. @returns {Promise<string>} tóm tắt kết quả cho log */
     async _waitCurrentMediaReady() {
         const mode = appState.get('isVideoPlayerMode') ? 'video' : (appState.get('isPhotoPlayerMode') ? 'photo' : 'song'); // chọn GIÁ TRỊ (key object map)
@@ -175,15 +149,14 @@ const workflowPlayerControls = {
         return `${mode} [${results.join(', ') || 'không có media'}]`;
     },
 
-    /** MỚI (05/10/2026) — lớp cha sân khấu hình trở lại cây render (gọi lặp vô hại). 2 task Visualizer KHÔNG chạy lại ở
+    /** Lớp cha sân khấu hình trở lại cây render (gọi lặp vô hại). 2 task Visualizer KHÔNG chạy lại ở
      * đây — chờ `_revealEffectsWhenMediaReady()`. */
     _resumeVisualStage() {
         setVisualStageOffstage(false); // core/player-controls.js
     },
 
-    /** MỚI (05/10/2026, Giang chốt — "về Playlist -> pause audioAnalysis + visualizerRender + ẩn ở lớp cha
-     * visualizer") — gọi lúc Playlist đã trượt vào xong. Từ 05/10/2026 (lượt 2) #visualizer-ui cũng nằm trong lớp cha
-     * này (components/app-mount.js) nên ẩn cùng. Media (Song/Video/Photo) VẪN phát tiếng. Bỏ qua ở desktop (2 cột
+    /** Về Playlist: hold audioAnalysis + visualizerRender + ẩn lớp cha sân khấu (gồm #visualizer-ui, components/
+     * app-mount.js) — gọi lúc Playlist đã trượt vào xong. Media (Song/Video/Photo) VẪN phát tiếng. Bỏ qua ở desktop (2 cột
      * hiện song song) hoặc nếu lúc tới hẹn người dùng đã vào lại Visualizer. */
     _suspendVisualStage() {
         if (appStack.classList.contains('playlist-hidden')) return; // guard — đã vào lại Visualizer trước khi tới hẹn
@@ -192,7 +165,7 @@ const workflowPlayerControls = {
         setVisualStageOffstage(true); // core/player-controls.js
     },
 
-    /** DỜI (02/10/2026) từ core/visualizer-control-center.js::returnToVisualizer() — quay về Visualizer nếu đang có bài. */
+    /** Quay về Visualizer nếu đang có bài. */
     returnToVisualizer() {
         if (!appState.get('currentKey')) return; // guard — chưa phát gì
         this.switchToVisualizer();
@@ -210,26 +183,24 @@ const workflowPlayerControls = {
         TRACK_CHANGE_SCREEN_BY_SWITCH[!!switchScreen]();
     },
 
-    /** MỚI (24/09/2026, dọn nợ "taskManager trong core") — THAY core `forceBackToPlaylistUI()` cũ ở MỌI nơi "về
-     * Playlist" (nút Back, xoá bài/video đang là currentKey, xoá hàng loạt, Clear All). Thứ tự giữ đúng bản cũ:
-     * cuộn Playlist tới bài đang phát (lúc còn nằm ngoài khung nhìn) -> trượt/đổi class -> đóng Control Center ->
+    /** MỌI nơi "về Playlist" (nút Back, xoá bài/video đang là currentKey, xoá hàng loạt, Clear All). Thứ tự: cuộn
+     * Playlist tới bài đang phát (lúc còn nằm ngoài khung nhìn) -> trượt/đổi class -> đóng Control Center ->
      * 500ms sau (khớp transition transform 0.5s, assets/css/style.css) ẩn hẳn UI Visualizer + diff lại danh sách.
-     * KHÔNG đụng `isVisualizerActive` — nơi gọi tự `setVisualizerActiveFalse()` nếu cần (y như bản cũ). */
+     * KHÔNG đụng `isVisualizerActive` — nơi gọi tự `setVisualizerActiveFalse()` nếu cần. */
     returnToPlaylistUI() {
-        // MỚI (05/10/2026) — huỷ hẹn ẩn Playlist + lượt chờ media đang dở, trả Playlist vào cây render TRƯỚC bước cuộn
+        // Huỷ hẹn ẩn Playlist + lượt chờ media đang dở, trả Playlist vào cây render TRƯỚC bước cuộn
         // (node phải có hộp để đo vị trí).
         taskManager.kill(PLAYLIST_OFFSTAGE_TASK);
         taskManager.kill(MEDIA_READY_TIMEOUT_TASK);
         this._mediaReadyToken++;
         setPlaylistOffstage(false); // core/player-controls.js
-        workflowPlaylistRender.scrollToCurrentInstant(); // SỬA (02/10/2026) — bản đúng rule (core scrollToCurrentKeyInstant() tự appState.get())
+        workflowPlaylistRender.scrollToCurrentInstant(); // event/workflow/playlist-render.js
         slideBackToPlaylistUi(); // core/player-controls.js
-        // MỚI (05/10/2026) — UI giờ còn hiện suốt lúc trượt ra (không còn tắt opacity tức thì) -> chặn chạm trong lúc
-        // đó. Desktop: UI Visualizer vẫn hiện song song, không chặn. (chọn GIÁ TRỊ, không rẽ tiến trình)
+        // UI còn hiện suốt lúc trượt ra -> chặn chạm trong lúc đó. Desktop: UI Visualizer vẫn hiện song song, không chặn. (chọn GIÁ TRỊ, không rẽ tiến trình)
         setVisualizerUiInert(isStackedScreenLayout()); // core/player-controls.js
         if (typeof closeControlCenter === 'function') closeControlCenter(); // core/visualizer-control-center.js — phòng panel còn mở sót
-        // SỬA (05/10/2026) — `_suspendVisualStage()` chạy ĐẦU TIÊN: trước đây đứng sau `renderPlaylistDiff()`, diff
-        // ném lỗi (taskManager nuốt lỗi của cả callback) thì sân khấu không ẩn + 2 task Visualizer chạy tiếp ở Playlist.
+        // `_suspendVisualStage()` chạy ĐẦU TIÊN — `renderPlaylistDiff()` ném lỗi (taskManager nuốt lỗi của cả callback) thì
+        // sân khấu vẫn ẩn + 2 task Visualizer vẫn dừng.
         taskManager.once(() => {
             this._suspendVisualStage(); // Playlist đã che kín: dừng Visualizer + ẩn sân khấu (gồm #visualizer-ui)
             hideVisualizerUiAfterFade(); // core/player-controls.js
@@ -237,7 +208,7 @@ const workflowPlayerControls = {
         }, SCREEN_SLIDE_MS, HIDE_VISUALIZER_UI_TASK);
     },
 
-    /** MỚI (05/10/2026) — boot (event/workflow/app-boot.js): app luôn mở ở Playlist -> đưa sân khấu Visualizer ra khỏi
+    /** Boot (event/workflow/app-boot.js): app luôn mở ở Playlist -> đưa sân khấu Visualizer ra khỏi
      * cây render ngay từ đầu (bố cục xếp chồng), để "đang ở Playlist = sân khấu offstage" đúng cả trước lần vào
      * Visualizer đầu tiên. Chưa có task Visualizer nào lúc này (chỉ dựng khi phát lần đầu) nên không cần hold. */
     offstageVisualStageOnBoot() {
@@ -245,9 +216,8 @@ const workflowPlayerControls = {
         setVisualStageOffstage(true); // core/player-controls.js
     },
 
-    /** MỚI (05/10/2026) — ứng 'playerControls.screenLayout.change' (event/listener/player-controls.js): bố cục đổi qua
-     * mốc 1024px lúc đang chạy. Trước đây: đang ở Playlist (2 task bị hold) mà chuyển sang desktop thì Visualizer hiện
-     * lại nhưng đứng hình tới lần vào Visualizer kế tiếp. @param {boolean} isStacked */
+    /** Ứng 'playerControls.screenLayout.change' (event/listener/player-controls.js): bố cục đổi qua mốc 1024px lúc đang
+     * chạy (sang desktop lúc 2 task đang hold thì phải chạy lại, không thì Visualizer đứng hình). @param {boolean} isStacked */
     handleScreenLayoutChange(isStacked) {
         SCREEN_LAYOUT_CHANGE_BY_STACKED[isStacked === true]();
     },
@@ -269,9 +239,8 @@ const workflowPlayerControls = {
         revealVisualizerCanvas(appConfigViz.getAll().type); // core/player-controls.js
     },
 
-    /** DỜI (24/09/2026) từ core/player-controls.js::handleBackToPlaylistClick() — ứng với
-     * 'playerControls.backToPlaylist.click'. Video vẫn chạy theo nhạc. SỬA (05/10/2026) — hình video/effect giờ được ẩn
-     * khỏi cây render + Visualizer dừng sau khi Playlist trượt vào xong (`returnToPlaylistUI()` -> `_suspendVisualStage()`),
+    /** Ứng với 'playerControls.backToPlaylist.click'. Video vẫn chạy theo nhạc; hình video/effect được ẩn khỏi cây render
+     * + Visualizer dừng sau khi Playlist trượt vào xong (`returnToPlaylistUI()` -> `_suspendVisualStage()`),
      * tiếng vẫn phát. */
     handleBackToPlaylistClick() {
         this.returnToPlaylistUI();
@@ -282,43 +251,33 @@ const workflowPlayerControls = {
     _seekGateToken: 0, // tăng mỗi lần `runGatedSeek()` — lệnh seek mới HƠN thay thế lệnh cũ (lệnh cũ tự bỏ dở, KHÔNG mở tiếng/không play() nữa)
     _seekGateHeldEl: null,  // media mà CỔNG tự pause/nạp lại và sẽ tự play() lại — sự kiện của nó bị bỏ qua, xem isHeldBySeekGate()
     _seekGateHeldSrc: '',   // currentSrc lúc cổng giữ — media đổi (Next/chọn bài) thì hold tự hết hiệu lực
-    // MỚI (07/10/2026, sửa "cử chỉ seek tiến/lùi đều bị phát lại từ đầu") — lệnh cổng đang chạy: Song nạp lại nguồn nên
+    // Lệnh cổng đang chạy: Song/Video nạp lại nguồn nên
     // trong lúc chờ 'loadedmetadata' currentTime = 0, duration = NaN -> nơi khác đọc vị trí lúc đó sẽ ra 0. Xem getSeekGatePosition().
     _seekGateActiveEl: null,     // media có lệnh cổng đang chạy (null = không có)
     _seekGateTargetSec: 0,       // mốc của lệnh cổng đang chạy — vị trí "thật" trong lúc cổng chạy
     _seekGatePlayRequested: false, // nơi gọi xin play() SAU khi cổng xong (playAfterSeekGate()) — không play() giữa lúc nạp lại
 
     /**
-     * [v3 — 25/09/2026] Seek KHÔNG lọt âm thanh CŨ. Lịch sử + số liệu đo trên máy thật (iPhone, log Debug console):
-     *   - v1 (21/09): mute masterGain -> seek -> 'seeked' (~47ms) -> mở tiếng sau ~140ms. Gain=0 đúng lúc seek, vậy mà
-     *     vẫn nghe tiếng cũ SAU khi mở -> tiếng cũ nằm trong 1 hàng đợi GIỮA trình phát iOS và Web Audio
-     *     (createMediaElementSource), seek chỉ đổi vị trí phần tử, không xoá hàng đợi đó.
-     *   - v2: pause rồi chờ analyser im lặng (đuôi cũ chảy hết) mới seek. Đo được "chờ đuôi" LUÔN ~150ms (analyser im gần
-     *     như ngay khi pause) mà vẫn lọt tiếng cũ -> iOS KHÔNG xả hàng đợi khi pause, chỉ ĐÓNG BĂNG nó; play() lại thì
-     *     phần cũ phát tiếp. Không đo/chờ nào xả được.
-     *   - v3 (Song): XOÁ hàng đợi bằng cách NẠP LẠI nguồn — `load()` (cùng blob URL) dựng lại trình phát nội bộ của iOS,
-     *     hàng đợi cũ bị bỏ cùng nó (cùng lý do đổi bài không lọt đuôi bài trước). Trình tự: mute masterGain -> giữ (hold)
-     *     + `load()` -> đợi 'loadedmetadata' -> gán currentTime -> đợi 'seeked' -> mở tiếng dần -> play() nếu trước đó đang
-     *     phát. Trong lúc giữ, 'pause'/'play'/'timeupdate' do chính cổng gây ra bị bỏ qua (không nháy icon/đồng hồ nghe/
-     *     VBG/auto-switch, thanh thời gian không nhảy về 0:00 — xem `isHeldBySeekGate()`); 'loadedmetadata' VẪN chạy bình
-     *     thường vì `load()` trả `playbackRate` về mặc định và handler đó áp lại đúng tốc độ phát.
-     *   - v3 cho Video (MỚI 07/10/2026, Giang chốt "làm luôn, đóng băng khung hình hiện tại"): Video cũng nạp lại nguồn như
-     *     Song, và cũng LUÔN giữ (trước đây chỉ giữ khi đang phát) — nạp lại làm 'timeupdate' về 0 + 'loadedmetadata' bắn lại
-     *     dù đang dừng. `load()` làm `<video>` mất khung hình tới khi seek xong -> nơi gọi truyền `hooks` đóng băng khung
-     *     hiện tại (xem SEEK_GATE_NO_HOOKS + workflowVideoPlayer.seekGateHooks()): chụp khung -> che -> nạp lại -> seek ->
-     *     mở tiếng -> play() NGAY; khung che giữ tới sự kiện 'playing' (như swapBgVideoSource() — SỬA 07/10/2026, Giang báo
-     *     chớp đen khi bỏ che sớm theo readyState).
-     * Bỏ hẳn phần ngắt nhánh ra loa + đo analyser của v2 (không còn tác dụng) — core/audio-engine.js xoá 2 hàm tương ứng.
+     * Seek KHÔNG lọt âm thanh CŨ. Trên iOS tiếng cũ nằm trong 1 hàng đợi GIỮA trình phát và Web Audio
+     * (createMediaElementSource): seek chỉ đổi vị trí, mute masterGain không chặn được, pause chỉ ĐÓNG BĂNG hàng đợi
+     * (đã đo trên iPhone). Cách duy nhất xoá được là NẠP LẠI nguồn — `load()` (cùng blob URL) dựng lại trình phát nội bộ.
+     * Trình tự: mute masterGain -> giữ (hold) + `load()` -> đợi 'loadedmetadata' -> gán currentTime -> đợi 'seeked' -> mở
+     * tiếng dần -> play() nếu trước đó đang phát. Chờ sự kiện qua event/workflow/media-wait.js. Trong lúc giữ,
+     * 'pause'/'play'/'timeupdate' do chính cổng gây ra bị bỏ qua (xem `isHeldBySeekGate()`); 'loadedmetadata' VẪN chạy
+     * bình thường vì `load()` trả `playbackRate` về mặc định và handler đó áp lại đúng tốc độ phát.
+     * Video: `load()` làm `<video>` mất khung tới khi seek xong -> nơi gọi truyền `hooks` đóng băng khung hiện tại (xem
+     * SEEK_GATE_NO_HOOKS + workflowVideoPlayer.seekGateHooks()): chụp khung -> che -> nạp lại -> seek -> mở tiếng -> play()
+     * NGAY; khung che giữ tới sự kiện 'playing' (bỏ che sớm theo readyState thì chớp đen).
      *
      * @param {HTMLMediaElement} mediaEl - audioPlayer (Song) hoặc bgVideoElement (Video)
      * @param {number} targetSec
      * @param {boolean} resumeAfter - true = `play()` sau seek dù cổng không tự giữ lúc đang phát (Video đã bị pause THẬT lúc
      *   kéo tay — 'play' khi đó được thả cho tới UI, xem `_releaseHoldForVisiblePlay()`)
      * @param {number|null} [verifyToleranceSec] - Video: sau 'seeked' đọc lại currentTime, lệch > mức này thì gán lại; null = không kiểm (Song)
-     * @param {{beforeReload: () => Promise<void>, afterSeek: () => void, abort: () => void}|null} [hooks] - MỚI
-     *   07/10/2026, xem SEEK_GATE_NO_HOOKS. null = không hook (Song).
-     * @returns {Promise<boolean>} MỚI (29/09/2026) — true = cổng chạy TRỌN (đã seek + mở tiếng + thả hold); false = bị lệnh seek
-     *   mới hơn tiếp quản / media đổi giữa chừng / play() lỗi. Nơi gọi cũ không await — không ảnh hưởng.
+     * @param {{beforeReload: () => Promise<void>, afterSeek: () => void, abort: () => void}|null} [hooks] - xem
+     *   SEEK_GATE_NO_HOOKS. null = không hook (Song).
+     * @returns {Promise<boolean>} true = cổng chạy TRỌN (đã seek + mở tiếng + thả hold); false = bị lệnh seek mới hơn tiếp
+     *   quản / media đổi giữa chừng / play() lỗi.
      */
     async runGatedSeek(mediaEl, targetSec, resumeAfter, verifyToleranceSec = null, hooks = null) {
         const token = ++this._seekGateToken;
@@ -330,8 +289,8 @@ const workflowPlayerControls = {
         this._seekGateTargetSec = targetSec;
         this._setMasterGainForSeekGate(true);
 
-        // Giữ media — LUÔN giữ (SỬA 07/10/2026: Video cũng nạp lại nên giữ cả lúc đang dừng, như Song). Lệnh cũ (bị thay giữa
-        // chừng) đã giữ sẵn -> hold còn hiệu lực, lệnh này kế thừa `_seekGateResume`.
+        // Giữ media — LUÔN giữ (nạp lại làm 'timeupdate' về 0 + 'loadedmetadata' bắn lại cả lúc đang dừng). Lệnh trước (bị
+        // thay giữa chừng) đã giữ sẵn -> hold còn hiệu lực, lệnh này kế thừa `_seekGateResume`.
         const wasPlaying = !mediaEl.paused || this.isHeldBySeekGate(mediaEl) && this._seekGateResume;
         if (!this.isHeldBySeekGate(mediaEl)) this._seekGateResume = !mediaEl.paused;
         this._seekGateHeldEl = mediaEl;
@@ -350,12 +309,11 @@ const workflowPlayerControls = {
         if (token !== this._seekGateToken) return false;
         if (mediaEl.currentSrc !== srcAtStart) { this._abortSeekGate(gateHooks); return false; }
 
-        // Seek. SỬA (07/10/2026) — LUÔN gán (bỏ điều kiện "lệch mốc" cũ): sau `load()` currentTime = 0 nên mốc 0 (lặp 1 bài) trước
-        // đây bị bỏ qua -> video đang dừng không được tải khung nào (khung che phải đợi hết hạn). Gán currentTime = 0 vẫn chạy
-        // đủ thuật toán seek ('seeked' + tải khung). Video kiểm lại vị trí (tối đa 3 lần).
+        // Seek — LUÔN gán, kể cả mốc 0 (sau `load()` currentTime đã = 0, nhưng gán vẫn chạy đủ thuật toán seek: 'seeked' +
+        // tải khung — không thì video đang dừng không có khung nào). Video kiểm lại vị trí (tối đa 3 lần).
         const maxAttempts = verifyToleranceSec === null ? 1 : 3;
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
-            const seekedPromise = this._waitMediaEvent(mediaEl, 'seeked'); // đăng ký listener TRƯỚC khi gán currentTime
+            const seekedPromise = this._waitMediaEvent(mediaEl, 'seeked'); // đăng ký lượt chờ TRƯỚC khi gán currentTime
             mediaEl.currentTime = targetSec;
             await seekedPromise;
             if (token !== this._seekGateToken) return false;
@@ -367,7 +325,7 @@ const workflowPlayerControls = {
         // Video: giao khung đóng băng cho sự kiện 'playing' — không chờ gì ở đây (no-op với Song).
         gateHooks.afterSeek();
 
-        // Mở tiếng TRƯỚC rồi mới play() (play() lúc trang không ra tiếng làm iOS bỏ Next/Prev ở màn hình khoá — xem lịch sử v2).
+        // Mở tiếng TRƯỚC rồi mới play() (play() lúc trang không ra tiếng làm iOS bỏ Next/Prev ở màn hình khoá).
         this._setMasterGainForSeekGate(false);
         const heldByGate = this.isHeldBySeekGate(mediaEl);
         const resumeByGate = heldByGate && this._seekGateResume;
@@ -385,9 +343,7 @@ const workflowPlayerControls = {
         }
         this._clearSeekGateActive();
         if (this.isHeldBySeekGate(mediaEl)) this._releaseSeekGateHold(mediaEl, false);
-        // SỬA (07/10/2026, Giang báo lặp 1 bài quay về đầu rồi đứng) — bước đồng bộ thanh/nhãn/phụ đề CHỈ là hiển thị: lỗi ở
-        // đây (vd phụ đề) trước đây làm cả lệnh cổng ném lỗi -> nơi gọi await (lặp 1 bài) không bao giờ tới play(). Bắt lỗi tại
-        // chỗ, cổng vẫn báo chạy trọn.
+        // Bước đồng bộ thanh/nhãn/phụ đề CHỈ là hiển thị: bắt lỗi tại chỗ (vd phụ đề), cổng vẫn báo chạy trọn.
         try {
             SEEK_GATE_DONE_SYNC_BY_MEDIA[mediaKind]();
         } catch (err) {
@@ -397,7 +353,7 @@ const workflowPlayerControls = {
         return true;
     },
 
-    /** MỚI (07/10/2026) — 'pause' trước đó là THẬT (Video: kéo thanh seek tự pause lúc chưa có cổng -> UI đã đổi sang dừng)
+    /** 'pause' trước đó là THẬT (Video: kéo thanh seek tự pause lúc chưa có cổng -> UI đã đổi sang dừng)
      * mà cổng sắp play() lại (`resumeAfter`) -> thả hold TRƯỚC để 'play' cũng THẬT tới UI (icon/đồng hồ nghe/Point Move).
      * Ngược lại (pause do cổng/cử chỉ tự gây ra, đã bị hold nuốt) thì giữ hold -> 'play' cũng bị nuốt, UI không nháy.
      * @param {HTMLMediaElement} mediaEl @param {boolean} isVisiblePlay */
@@ -406,12 +362,10 @@ const workflowPlayerControls = {
         this._releaseSeekGateHold(mediaEl, false);
     },
 
-    /** MỚI (29/09/2026) — lặp 1 bài cho Song: cổng seek về 0 (nạp lại nguồn -> xoá hàng đợi tiếng cũ của iOS) rồi phát lại.
-     * SỬA (07/10/2026, Giang báo "lặp 1 bài quay về đầu rồi pause") — trước đây cổng chạy với resumeAfter = false rồi nơi gọi
-     * TỰ play() sau `await`: mọi lỗi/huỷ ở cuối cổng (vd bước đồng bộ hiển thị mới thêm hôm nay) làm play() không bao giờ chạy.
-     * Nay để CỔNG tự play() (resumeAfter = true) ngay sau khi mở tiếng, TRƯỚC bước đồng bộ hiển thị: 'pause' lúc 'ended' là
-     * THẬT nên cổng thả hold trước khi play (`_releaseHoldForVisiblePlay()`) -> sự kiện 'play' cũng THẬT tới UI (icon, đồng
-     * hồ nghe, VBG, auto-switch) — đúng ý bản cũ. Người dùng seek/đổi bài giữa chừng -> lệnh mới tự lo. */
+    /** Lặp 1 bài cho Song: cổng seek về 0 (nạp lại nguồn -> xoá hàng đợi tiếng cũ của iOS) và để CỔNG tự play()
+     * (resumeAfter = true) ngay sau khi mở tiếng, trước bước đồng bộ hiển thị. 'pause' lúc 'ended' là THẬT nên cổng thả
+     * hold trước khi play (`_releaseHoldForVisiblePlay()`) -> 'play' cũng THẬT tới UI (icon, đồng hồ nghe, VBG,
+     * auto-switch). Người dùng seek/đổi bài giữa chừng -> lệnh mới tự lo. */
     _restartSongForRepeatOne() {
         this.runGatedSeek(audioPlayer, 0, true); // KHÔNG await — cổng tự phát lại
     },
@@ -424,7 +378,7 @@ const workflowPlayerControls = {
     },
     _seekGateResume: false, // media ĐANG PHÁT lúc cổng bắt đầu giữ -> cuối cổng play() lại
 
-    /** MỚI (07/10/2026) — vị trí hiện tại của `mediaEl` cho nơi cần TÍNH mốc seek tiếp theo (cử chỉ seek-hold): đang có lệnh
+    /** Vị trí hiện tại của `mediaEl` cho nơi cần TÍNH mốc seek tiếp theo (cử chỉ seek-hold): đang có lệnh
      * cổng chạy trên media này -> trả mốc của lệnh đó (Song nạp lại nguồn, currentTime tạm = 0 tới khi seek xong); không có
      * -> currentTime thật. @param {HTMLMediaElement} mediaEl @returns {number} */
     getSeekGatePosition(mediaEl) {
@@ -432,7 +386,7 @@ const workflowPlayerControls = {
         return mediaEl.currentTime || 0;
     },
 
-    /** MỚI (07/10/2026) — xin phát lại `mediaEl`: đang có lệnh cổng chạy trên nó -> để cổng play() SAU khi seek xong + mở
+    /** Xin phát lại `mediaEl`: đang có lệnh cổng chạy trên nó -> để cổng play() SAU khi seek xong + mở
      * tiếng (play() giữa lúc Song nạp lại nguồn sẽ phát từ 0:00 rồi mới nhảy tới mốc, lọt tiếng đầu bài); không có -> play() ngay.
      * @param {HTMLMediaElement} mediaEl */
     playAfterSeekGate(mediaEl) {
@@ -461,7 +415,7 @@ const workflowPlayerControls = {
     /** Media đổi giữa lúc cổng đang chạy — thả mọi thứ: bỏ hold (media mới tự lo play/pause của nó), dọn hook, mở tiếng ngay.
      * @param {object} [gateHooks] - hook của lệnh cổng đang huỷ (xem SEEK_GATE_NO_HOOKS) */
     _abortSeekGate(gateHooks = SEEK_GATE_NO_HOOKS) {
-        gateHooks.abort(); // MỚI 07/10/2026 — Video: bỏ khung đóng băng ngay
+        gateHooks.abort(); // Video: bỏ khung đóng băng ngay
         this._clearSeekGateActive(); // media mới tự lo play/pause — bỏ luôn lời xin play() của media cũ
         this._seekGateHeldEl = null;
         this._seekGateHeldSrc = '';
@@ -469,25 +423,15 @@ const workflowPlayerControls = {
         this._setMasterGainForSeekGate(false);
     },
 
-    /** Đợi 1 sự kiện 1 lần của `mediaEl` (kèm timeout an toàn — cùng 1 task tên cố định, lệnh sau huỷ timeout lệnh trước).
+    /** Đợi 1 sự kiện 1 lần của `mediaEl` qua event/workflow/media-wait.js (kèm timeout an toàn — cùng 1 task tên cố định,
+     * lệnh sau thay timeout lệnh trước).
      * @param {HTMLMediaElement} mediaEl @param {'seeked'|'loadedmetadata'} eventName @returns {Promise<void>} */
     _waitMediaEvent(mediaEl, eventName) {
-        return new Promise((resolve) => {
-            let done = false;
-            const finish = () => {
-                if (done) return;
-                done = true;
-                mediaEl.removeEventListener(eventName, finish);
-                resolve();
-            };
-            mediaEl.addEventListener(eventName, finish, { once: true });
-            taskManager.once(finish, SEEK_GATE_SEEKED_TIMEOUT_MS, 'seekGateEventTimeout');
-        });
+        return workflowMediaWait.wait(mediaEl, eventName, SEEK_GATE_SEEKED_TIMEOUT_MS, 'seekGateEventTimeout').then(() => {}); // event/workflow/media-wait.js
     },
 
-    /** Mute/mở tiếng `masterGainNode` cho cổng seek (v1 — đã xác nhận có hiệu lực, gain=0 trong log). SỬA 01/10/2026: âm
-     * lượng người dùng đã tách sang `volumeGainNode` (event/workflow/audio-engine.js) nên master chỉ còn là CỔNG — mở tiếng
-     * về 1 (không còn đọc `appConfigViz.volume`), mở dần 30ms. Chưa có audio graph -> no-op. @param {boolean} muted */
+    /** Mute/mở tiếng `masterGainNode` cho cổng seek. Âm lượng người dùng nằm ở `volumeGainNode` (event/workflow/
+     * audio-engine.js) nên master chỉ là CỔNG — mở tiếng về 1, mở dần 30ms. Chưa có audio graph -> no-op. @param {boolean} muted */
     _setMasterGainForSeekGate(muted) {
         const { masterGainNode, audioContext } = appState.get(['masterGainNode', 'audioContext']);
         if (!masterGainNode || !audioContext) return;
@@ -497,12 +441,12 @@ const workflowPlayerControls = {
         if (!muted) masterGainNode.gain.linearRampToValueAtTime(1, now + SEEK_GATE_UNMUTE_RAMP_SEC);
     },
 
-    /** Ứng với 'playerControls.audio.timeupdate'. Lúc cổng seek v3 đang nạp lại nguồn, currentTime tạm về 0 -> bỏ qua để
+    /** Ứng với 'playerControls.audio.timeupdate'. Lúc cổng seek đang nạp lại nguồn, currentTime tạm về 0 -> bỏ qua để
      * thanh/nhãn thời gian + phụ đề không nhảy về 0:00. */
     handleAudioTimeUpdateEvent() {
         if (this.isHeldBySeekGate(audioPlayer)) return;
         handleAudioTimeUpdate(); // core/player-controls.js
-        // MỚI (07/10/2026) — đang kéo (tay hoặc cử chỉ seek-hold): phụ đề đang theo mốc kéo (handleSongSeeking), không kéo về giờ đang phát.
+        // Đang kéo (tay hoặc cử chỉ seek-hold): phụ đề đang theo mốc kéo (handleSongSeeking), không kéo về giờ đang phát.
         if (appState.get('isSeeking')) return; // guard
         workflowSubtitleDisplay.sync(audioPlayer.currentTime); // event/workflow/subtitle-display.js
     },
@@ -515,9 +459,7 @@ const workflowPlayerControls = {
     },
 
     /** Ứng với 'playerControls.progressBar.seekCommit' khi `isVideoPlayerMode=false` (Song) — thả tay/chạm chọn
-     * điểm, commit vị trí + cổng seek (xem `runGatedSeek()`). THAY `handleProgressBarSeekCommit()` (core,
-     * core/player-controls.js) — hàm đó chỉ gán `currentTime` trần, không kiểm soát được phần lọt âm thanh cũ,
-     * và không dùng được `taskManager` (Rule 3, chỉ Workflow). @param {string|number} value */
+     * điểm, commit vị trí + cổng seek (xem `runGatedSeek()`) — không gán `currentTime` trần (lọt âm thanh cũ). @param {string|number} value */
     handleSongSeekCommit(value) {
         appState.set('isSeeking', false);
         console.log(`writer: "workflowPlayerControls.handleSongSeekCommit", page: "isSeeking", content: "false"`);
@@ -527,24 +469,11 @@ const workflowPlayerControls = {
 
     /**
      * Ứng với 'playerControls.playPause.click' khi `isVideoPlayerMode=false` (xem
-     * VirtualMachineState ở event/router/player-controls.js).
-     *
-     * [SỬA — plan-playmedia-reorg.md, xử lý triệt để, KHÔNG chỉ đổi tên] TRƯỚC ĐÂY
-     * `togglePlayPause()` (Core, core/player-controls.js) tự gộp 2 TIẾN TRÌNH nghiệp vụ khác nhau
-     * trong 1 hàm — "chưa có bài nào đang tải -> phát bài đầu tiên" (gọi thẳng `window.playSong()`)
-     * và "đang có bài đã tải -> toggle play/pause" — vi phạm Rule 1 (core-function-conventions.md:
-     * phép thử "xoá điều kiện if đi, hàm còn lại có còn là 1 kịch bản duy nhất không" — ở đây bỏ
-     * nhánh `currentKey===null` đi, phần còn lại VẪN là 1 kịch bản hoàn chỉnh khác hẳn, không phải
-     * guard clause), cộng thêm tự `appState.get()` 3 lần bên trong (vi phạm Rule 2). Method NÀY
-     * (Workflow — tầng DUY NHẤT được đọc appState để chọn gọi Core nào) giờ đứng ra:
-     *   1. `requestWakeLock()` — core, side-effect vô điều kiện (giữ ĐÚNG hành vi gốc: gọi trước
-     *      cả khi playlist rỗng).
-     *   2. Guard `playlistOrder.length === 0` — không làm gì (giữ nguyên vị trí guard gốc).
-     *   3. `currentKey === null` -> gọi `workflowPlayer.playMedia()` (Workflow gọi Workflow khác
-     *      miền, tự do — event-bus-flow.md mục 3a) với bài đầu tiên (`displayOrder[0] ||
-     *      playlistOrder[0]`, ĐÚNG công thức gốc).
-     *   4. Ngược lại -> gọi `togglePlayPause(audioContext)` (Core, giờ CHỈ còn ĐÚNG 1 việc, nhận
-     *      audioContext qua tham số — Rule 2 hợp lệ).
+     * VirtualMachineState ở event/router/player-controls.js):
+     *   1. `requestWakeLock()` — vô điều kiện (cả khi playlist rỗng).
+     *   2. Guard `playlistOrder.length === 0`.
+     *   3. `currentKey === null` -> `workflowPlayer.playMedia()` bài đầu tiên (`displayOrder[0] || playlistOrder[0]`).
+     *   4. Ngược lại -> `togglePlayPause(audioContext)` (core).
      */
     handlePlayPauseClick() {
         requestWakeLock(); // core
@@ -559,21 +488,14 @@ const workflowPlayerControls = {
 
     /**
      * Ứng với 'playerControls.next.click' (force=true, LUÔN — bấm nút Next là ý định người dùng
-     * rõ ràng, giữ ĐÚNG hành vi gốc `playNext(true)`) và được TÁI DÙNG (Workflow gọi Workflow khác
+     * rõ ràng) và được TÁI DÙNG (Workflow gọi Workflow khác
      * miền, tự do) bởi: `handleSongEnded()` ngay dưới (force=false — hết bài tự động, tôn trọng
      * repeatMode), `event/workflow/video-player.js` (video hết/bị xoá giữa lúc phát — force=false/
      * true tuỳ tình huống, DÙNG CHUNG với Song), `event/workflow/gameplay.js::nextSong()`
      * (force=true — nút "Bài tiếp theo" trong Game Mode).
-     *
-     * [SỬA — plan-playmedia-reorg.md] TRƯỚC ĐÂY là `playNext()` (Core, core/player-controls.js) —
-     * tự `appState.get()` 7-10 lần + if/else gộp shuffle/tuần tự (2 tiến trình khác nhau theo Rule
-     * 1) + gọi thẳng `window.playSong()` (Core gọi Workflow trá hình) — ĐÃ XOÁ. Logic "tiến 1 bước"
-     * tách thành Core thuần dùng chung `computeListStep()` (core/playlist/order.js, KHÔNG quan tâm
-     * list là shuffle hay tuần tự); quyết định "tại biên làm gì" tách thành `decideBoundaryAction()`
-     * (repeatMode/force); case đặc biệt lặp-1-bài tách thành `shouldRestartInsteadOfAdvance()`.
-     * Method NÀY (Workflow) đọc state, chọn ĐÚNG list (shuffleIndices hay displayOrder) truyền vào
-     * `computeListStep()`, rồi tự quyết định phát bài nào — GIỮ NGUYÊN 100% kết quả cuối cùng so
-     * với `playNext()` gốc ở mọi tình huống (xem checklist đối chiếu, plan-playmedia-reorg.md mục 4).
+     * Core thuần (core/playlist/order.js): `computeListStep()` (tiến 1 bước, không quan tâm list shuffle hay tuần tự),
+     * `decideBoundaryAction()` (tại biên làm gì theo repeatMode/force), `shouldRestartInsteadOfAdvance()` (lặp 1 bài).
+     * Method này đọc state, chọn ĐÚNG list (shuffleIndices hay displayOrder) rồi quyết định phát bài nào.
      * @param {boolean} [force=false]
      */
     goToNextTrack(force = false) {
@@ -582,9 +504,9 @@ const workflowPlayerControls = {
             'isVideoPlayerMode', 'isPhotoPlayerMode', 'repeatMode', 'isShuffle', 'currentKey', 'shuffleIndices', 'displayOrder', 'playlistOrder', 'pendingResortKeys',
         ]);
         if (playlistOrder.length === 0) return;
-        const activeEl = getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode); // core/player-controls.js — DÙNG CHUNG Song/Video/Photo (Next/Prev + Game Mode) — SỬA (Giang yêu cầu, Photo tích hợp duration) thêm isPhotoPlayerMode
+        const activeEl = getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode); // core/player-controls.js — DÙNG CHUNG Song/Video/Photo (Next/Prev + Game Mode)
 
-        if (shouldRestartInsteadOfAdvance(repeatMode, force)) { // core mới (order.js) — repeat-mode-2, KHÔNG force
+        if (shouldRestartInsteadOfAdvance(repeatMode, force)) { // core/playlist/order.js — repeat-mode-2, KHÔNG force
             // Nhánh này CHỈ tới được từ `handleMediaEnded()` (hết tự nhiên) — đồng hồ nghe vừa bị dừng ngay trước. Song/Video
             // tự khởi động lại đồng hồ qua sự kiện 'play' THẬT; Photo gọi thẳng (xem REPEAT_ONE_RESTART_BY_MEDIA).
             const mediaKind = isVideoPlayerMode ? 'video' : (isPhotoPlayerMode ? 'photo' : 'song');
@@ -592,35 +514,34 @@ const workflowPlayerControls = {
             return;
         }
 
-        const list = isShuffle ? shuffleIndices : displayOrder; // NGUỒN danh sách — chỉ khác biệt CHỦ Ý giữa 2 nhánh cũ
-        const step = computeListStep(list, currentKey, 1); // core mới (order.js)
+        const list = isShuffle ? shuffleIndices : displayOrder; // NGUỒN danh sách
+        const step = computeListStep(list, currentKey, 1); // core/playlist/order.js
         let nextKey;
         if (step.atBoundary) {
-            const action = decideBoundaryAction(repeatMode, force); // core mới (order.js)
+            const action = decideBoundaryAction(repeatMode, force); // core/playlist/order.js
             if (action === 'stopAtEnd') {
-                // Tín hiệu "hết hẳn playlist" cho domain khác (vd visualBg) — ĐÚNG hành vi gốc
-                // (playNext() cũ, MỚI 09/08/2026). Rule 4: log ngay dưới set().
+                // Tín hiệu "hết hẳn playlist" cho domain khác (vd visualBg). Rule 4: log ngay dưới set().
                 appState.set('playbackStoppedAtPlaylistEnd', true);
                 console.log(`writer: "workflowPlayerControls.goToNextTrack", page: "playbackStoppedAtPlaylistEnd", content: "true"`);
                 activeEl.pause();
                 return;
             }
-            // wrapToStart — CHỈ nhánh tuần tự (KHÔNG shuffle) mới áp lại sort thật cho bài mới
-            // thêm giữa lúc nghe (pendingResortKeys), ĐÚNG hành vi gốc — shuffle KHÔNG có bước này.
-            if (!isShuffle && pendingResortKeys.size > 0) workflowPlaylistOrder.recomputeDisplayOrder(); // event/workflow/playlist-order.js (dời từ core/playlist/order.js), side-effect -> đọc lại displayOrder MỚI ngay dưới
+            // wrapToStart — CHỈ nhánh tuần tự (KHÔNG shuffle) mới áp lại sort thật cho bài mới thêm giữa lúc nghe
+            // (pendingResortKeys).
+            if (!isShuffle && pendingResortKeys.size > 0) workflowPlaylistOrder.recomputeDisplayOrder(); // event/workflow/playlist-order.js — side-effect -> đọc lại displayOrder MỚI ngay dưới
             const freshList = isShuffle ? shuffleIndices : appState.get('displayOrder');
             nextKey = freshList[0];
         } else {
             nextKey = list[step.index];
         }
-        workflowPlayer.playMedia(nextKey, { switchScreen: false, direction: 'next' }); // event/workflow/player.js — MỚI `direction` (Giang yêu cầu Transition Video Player mode — Next/Prev dùng 2 preset RIÊNG, xem core/player-display-settings.js::PLAYER_MOTION_SLOTS)
+        workflowPlayer.playMedia(nextKey, { switchScreen: false, direction: 'next' }); // event/workflow/player.js — `direction`: Next/Prev dùng 2 preset Transition RIÊNG (core/player-display-settings.js::PLAYER_MOTION_SLOTS)
     },
 
     /**
-     * Ứng với 'playerControls.prev.click'. CÙNG KHUÔN `goToNextTrack()` ở trên nhưng KHÔNG có
-     * `force`/`decideBoundaryAction()`/`shouldRestartInsteadOfAdvance()` — hành vi gốc `playPrev()`
-     * CHƯA TỪNG có khái niệm "dừng hẳn ở đầu playlist" hay "lặp 1 bài", LUÔN wrap vô điều kiện khi
-     * chạm biên đầu — giữ ĐÚNG bất đối xứng đó, KHÔNG tự thêm cho "đối xứng" giả tạo với Next.
+     * Ứng với 'playerControls.prev.click'. CÙNG KHUÔN `goToNextTrack()` nhưng KHÔNG có `force`/`decideBoundaryAction()`/
+     * `shouldRestartInsteadOfAdvance()` — Prev không có "dừng hẳn ở đầu playlist" hay "lặp 1 bài", LUÔN wrap khi chạm biên
+     * đầu (bất đối xứng có chủ đích). Prev LUÔN sang bài trước (mọi đường gửi: nút, cử chỉ, Media Session); phát lại từ
+     * đầu là icon riêng -> `restartCurrentTrack()`.
      */
     goToPrevTrack() {
         requestWakeLock(); // core
@@ -628,27 +549,22 @@ const workflowPlayerControls = {
             'isVideoPlayerMode', 'isPhotoPlayerMode', 'isShuffle', 'currentKey', 'shuffleIndices', 'displayOrder', 'playlistOrder', 'pendingResortKeys',
         ]);
         if (playlistOrder.length === 0) return;
-        // XOÁ (25/09/2026, Giang yêu cầu "Prev đúng chuẩn prev bài trước") — nhánh cũ "quá 3s vào bài/video hiện tại -> chỉ
-        // tua về đầu" (hành vi gốc `playPrev()`). Prev giờ LUÔN sang bài trước; phát lại từ đầu dời sang icon riêng ở Control
-        // Center -> `restartCurrentTrack()` ngay dưới. Áp dụng cho MỌI đường gửi 'playerControls.prev.click' (nút, cử chỉ,
-        // Media Session màn hình khoá).
         const list = isShuffle ? shuffleIndices : displayOrder;
-        const step = computeListStep(list, currentKey, -1); // core mới (order.js)
+        const step = computeListStep(list, currentKey, -1); // core/playlist/order.js
         let prevKey;
         if (step.atBoundary) {
-            if (!isShuffle && pendingResortKeys.size > 0) workflowPlaylistOrder.recomputeDisplayOrder(); // event/workflow/playlist-order.js (dời từ core/playlist/order.js) — CHỈ nhánh tuần tự, ĐÚNG hành vi gốc
+            if (!isShuffle && pendingResortKeys.size > 0) workflowPlaylistOrder.recomputeDisplayOrder(); // event/workflow/playlist-order.js — CHỈ nhánh tuần tự
             const freshList = isShuffle ? shuffleIndices : appState.get('displayOrder');
             prevKey = freshList[freshList.length - 1];
         } else {
             prevKey = list[step.index];
         }
-        workflowPlayer.playMedia(prevKey, { switchScreen: false, direction: 'prev' }); // event/workflow/player.js — MỚI `direction`, cùng lý do goToNextTrack() ở trên
+        workflowPlayer.playMedia(prevKey, { switchScreen: false, direction: 'prev' }); // event/workflow/player.js — `direction`, cùng lý do goToNextTrack()
     },
 
-    /** MỚI (25/09/2026, Giang yêu cầu) — ứng với 'playerControls.restart.click' (icon "Phát lại" ở Control Center): phát lại
-     * nội dung ĐANG phát từ đầu, GIỮ nguyên trạng thái phát/dừng (thay nhánh "Prev quá 3s" đã xoá ở `goToPrevTrack()`).
-     * Song/Video đi qua cổng seek `runGatedSeek()` (không lọt tiếng/hình vị trí cũ); Photo tua đồng hồ giả về 0 + chạy lại
-     * Point Move (cùng cách nhánh cũ). Chưa có gì đang phát -> bỏ qua. */
+    /** Ứng với 'playerControls.restart.click' (icon "Phát lại" ở Control Center): phát lại nội dung ĐANG phát từ đầu, GIỮ
+     * nguyên trạng thái phát/dừng. Song/Video đi qua cổng seek `runGatedSeek()` (không lọt tiếng/hình vị trí cũ); Photo tua
+     * đồng hồ giả về 0 + chạy lại Point Move. Chưa có gì đang phát -> bỏ qua. */
     restartCurrentTrack() {
         const { isVideoPlayerMode, isPhotoPlayerMode, currentKey } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode', 'currentKey']);
         if (!currentKey) return;
@@ -668,42 +584,31 @@ const workflowPlayerControls = {
      * DÙNG CHUNG cho cả 2 msg.type — audio/video hết bài xử lý Y HỆT nhau, không có lý do tách 2
      * đường) — bài/video phát hết, dừng đếm giờ nghe rồi tự chuyển bài kế tiếp (không force, tôn
      * trọng repeatMode/wrap-around như Next thường).
-     *
-     * [SỬA — plan-playmedia-reorg.md, xử lý triệt để] TRƯỚC ĐÂY là 2 hàm RIÊNG, TRÙNG Y HỆT thân —
-     * `handleAudioEnded()` (Core, core/player-controls.js, ĐÃ XOÁ ở đợt trước — 2 lời gọi Core nối
-     * tiếp `stopListenClock()` rồi `playNext(false)`, vốn đã vi phạm Rule 3, đúng bản chất Workflow)
-     * VÀ `workflowVideoPlayer.handleVideoPlayerEnded()` (event/workflow/video-player.js, ĐÃ XOÁ —
-     * thân giống hệt, chỉ khác object chứa). Gộp làm 1 — dùng chung cho cả 2 nguồn, đúng yêu cầu
-     * "không viết thêm hàm nào chỉ để tạo ra hai đường không cần thiết".
      */
     handleMediaEnded() {
-        workflowListenStats.stopClock(); // event/workflow/listen-stats.js (SỬA 06/10/2026 — dời từ core)
+        workflowListenStats.stopClock(); // event/workflow/listen-stats.js
         this.goToNextTrack(false); // Workflow gọi method khác trong CÙNG object — tự do
     },
 
-    /** MỚI (24/09/2026, rà soát refresh DOM — dọn nợ "Core gọi Workflow") — ứng với 'playerControls.audio.play'.
-     * `handleAudioPlay()` (core/player-controls.js) trước đây TỰ gọi `workflowPlaylistRender.refreshSongNode()` +
-     * `workflowVisualBg.syncPlaybackToAudio()` bên trong (core gọi Workflow, kèm tự `appState.get('currentKey')`).
-     * 2 lời gọi đó dời RA đây, đứng cạnh lời gọi core — thứ tự giữ nguyên như bản cũ (core trước, vẽ lại hàng
-     * đang phát, rồi đồng bộ Visual BG). */
+    /** Ứng với 'playerControls.audio.play' — core cập nhật UI, rồi đồng hồ nghe, auto-switch, vẽ lại hàng đang phát,
+     * đồng bộ Visual BG (đúng thứ tự). */
     handleAudioPlayEvent() {
-        if (this.isHeldBySeekGate(audioPlayer)) return; // MỚI 25/09/2026 — play() tạm của cổng seek v2, không phải người dùng phát lại
+        if (this.isHeldBySeekGate(audioPlayer)) return; // play() tạm của cổng seek, không phải người dùng phát lại
         handleAudioPlay(); // core/player-controls.js
-        workflowListenStats.startClock(); // event/workflow/listen-stats.js — DỜI 06/10/2026 từ trong core handleAudioPlay() (cùng vị trí thứ tự)
-        workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — DỜI 25/09/2026 từ trong core handleAudioPlay() (cùng vị trí thứ tự)
+        workflowListenStats.startClock(); // event/workflow/listen-stats.js
+        workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js
         const currentKey = appState.get('currentKey');
         if (currentKey) workflowPlaylistRender.refreshSongNode(currentKey); // event/workflow/playlist-render.js — EQ bars "đang phát"
         workflowVisualBg.syncPlaybackToAudio(); // event/workflow/visual-bg-common.js
     },
 
-    /** MỚI (24/09/2026) — ứng với 'playerControls.audio.pause', đối xứng `handleAudioPlayEvent()` ngay trên.
-     * SỬA (29/09/2026) — cuối cùng xả hàng đợi tiếng iOS (`_flushSongQueueAfterPause()`), xem docblock method đó. */
+    /** Ứng với 'playerControls.audio.pause', đối xứng `handleAudioPlayEvent()` ngay trên. Cuối cùng xả hàng đợi tiếng iOS (`_flushSongQueueAfterPause()`), xem docblock method đó. */
     handleAudioPauseEvent() {
-        if (this.isHeldBySeekGate(audioPlayer)) return; // MỚI 25/09/2026 — pause() tạm của cổng seek v2 (chờ đuôi tiếng cũ), không đổi icon/đồng hồ/VBG
+        if (this.isHeldBySeekGate(audioPlayer)) return; // pause() tạm của cổng seek, không đổi icon/đồng hồ/VBG
         handleAudioPause(); // core/player-controls.js
-        releaseWakeLock(); // core/wakelock.js — DỜI 06/10/2026 từ trong core handleAudioPause() (Rule 3a)
-        workflowListenStats.stopClock(); // event/workflow/listen-stats.js — DỜI 06/10/2026 từ trong core handleAudioPause()
-        workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — DỜI 25/09/2026 từ trong core handleAudioPause()
+        releaseWakeLock(); // core/wakelock.js
+        workflowListenStats.stopClock(); // event/workflow/listen-stats.js
+        workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js
         const currentKey = appState.get('currentKey');
         if (currentKey) workflowPlaylistRender.refreshSongNode(currentKey); // event/workflow/playlist-render.js — chấm "đang pause"
         workflowVisualBg.syncPlaybackToAudio(); // event/workflow/visual-bg-common.js
@@ -711,10 +616,9 @@ const workflowPlayerControls = {
     },
 
     /**
-     * MỚI (29/09/2026, Giang báo resume Song còn dư âm; Giang chọn hướng B "xả hàng đợi lúc pause"). iOS không xả hàng đợi
-     * tiếng (giữa <audio> và Web Audio) khi pause mà chỉ ĐÓNG BĂNG nó (đo ở cổng seek v2) -> resume phát phần đóng băng
-     * trước (nghe như dư âm), currentTime đi trước tiếng thật -> thanh/timer/phụ đề lệch dồn qua mỗi lần pause. Xả NGAY lúc
-     * pause bằng đúng cơ chế cổng seek v3: nạp lại nguồn + seek về chỗ dừng (cổng giữ hold -> sự kiện tạm không lọt ra
+     * Xả hàng đợi tiếng lúc pause. iOS không xả hàng đợi tiếng (giữa <audio> và Web Audio) khi pause mà chỉ ĐÓNG BĂNG nó
+     * -> resume phát phần đóng băng trước (nghe như dư âm), currentTime đi trước tiếng thật -> thanh/timer/phụ đề lệch dồn
+     * qua mỗi lần pause. Xả NGAY lúc pause bằng đúng cơ chế cổng seek: nạp lại nguồn + seek về chỗ dừng (cổng giữ hold -> sự kiện tạm không lọt ra
      * UI). Mọi đường resume sau đó (nút trong app, cử chỉ, màn hình khoá, tai nghe, Control Center iOS) chỉ là play()
      * thường, không trễ. Pause bị loại trừ: xem shouldFlushSongQueueOnPause() (core/player-controls.js).
      */
@@ -737,13 +641,9 @@ const workflowPlayerControls = {
         eventBus.send({ router: 'playerControls', type: 'playerControls.audio.play', payload: {} });
     },
 
-    /** MỚI (25/09/2026) — ứng với 'playerControls.audio.loadedmetadata': core cập nhật thanh tiến trình/Media Session/tốc độ,
-     * rồi auto-switch-visual build lại mốc cho bài mới (trước đây core `handleAudioLoadedMetadata()` tự gọi
-     * `onAutoSwitchVisualSongChanged()` — core gọi core; phần điều phối đó giờ là Workflow). */
+    /** Ứng với 'playerControls.audio.loadedmetadata': core cập nhật thanh tiến trình/Media Session/tốc độ. */
     handleAudioLoadedMetadataEvent() {
         handleAudioLoadedMetadata(); // core/player-controls.js
-        // SỬA 26/09/2026 — bỏ workflowAutoSwitchVisual.onSongChanged() (mode 'duration' đã bỏ; 'perMedia' báo qua
-        // onMediaChanged() ngay lúc currentKey đổi, event/workflow/player.js).
     },
 
     /**
@@ -751,28 +651,24 @@ const workflowPlayerControls = {
      * "hiện hành" (displayOrder tại thời điểm bấm — có thể đang là 1 section vừa chọn-phát qua
      * playSelectedSongs(), event/workflow/playlist.js, KHÁC hẳn top-level playlistOrder). So sánh
      * với 2 nút to "Phát"/"Trộn bài" (event/workflow/playlist-empty-state.js) — 2 nút đó LUÔN ép về
-     * top-level trước khi phát/trộn (đúng ý mục 3a), còn Shuffle ở đây LUÔN tôn trọng hiện hành
-     * (đúng ý mục 3b) — 2 hành vi khác nhau CHỦ ĐÍCH, không phải thiếu nhất quán.
+     * top-level trước khi phát/trộn, còn Shuffle ở đây LUÔN tôn trọng hiện hành — 2 hành vi khác nhau CHỦ ĐÍCH.
      */
     toggleShuffleAndReshuffle() {
         const isShuffleCurrent = appState.get('isShuffle');
-        const next = toggleShuffle(isShuffleCurrent); // core có sẵn, CÓ return, DÙNG ngay dưới
+        const next = toggleShuffle(isShuffleCurrent); // core/player-controls.js — trả giá trị MỚI
 
         const activeQueueKeys = appState.get('displayOrder'); // "hiện hành" — section HOẶC top-level
         const topLevelKeys = appState.get('playlistOrder');
-        updateShuffleArrayFromQueue(activeQueueKeys, topLevelKeys, next); // core mới (order.js), Rule 2 nhận qua tham số
-        this._persistPlayerConfig(); // MỚI (phản hồi Giang, mục 3) — nhớ trạng thái Shuffle
+        updateShuffleArrayFromQueue(activeQueueKeys, topLevelKeys, next); // core/playlist/order.js
+        this._persistPlayerConfig(); // nhớ trạng thái Shuffle
     },
 
     /**
-     * Ứng với 'playerControls.repeat.click' — MỚI, tách khỏi router (phản hồi Giang, mục 3 "nhớ
-     * trạng thái shuffle/repeat/stats"): trước đây router gọi thẳng `cycleRepeatMode()` (đúng "1
-     * hàm core" theo quy ước router này) — giờ cần thêm bước lưu bền (`_persistPlayerConfig()`,
-     * async, đụng IndexedDB) NGAY SAU, thành ≥2 bước -> đúng quy ước router "giao cho Workflow"
-     * (xem docstring đầu event/router/player-controls.js).
+     * Ứng với 'playerControls.repeat.click' — `cycleRepeatMode()` (core) rồi lưu bền (`_persistPlayerConfig()`) — ≥2 bước
+     * nên giao cho Workflow (quy ước đầu event/router/player-controls.js).
      */
     cycleRepeatModeAndPersist() {
-        cycleRepeatMode(); // core có sẵn (core/player-controls.js)
+        cycleRepeatMode(); // core/player-controls.js
         this._persistPlayerConfig();
     },
 
@@ -809,14 +705,8 @@ const workflowPlayerControls = {
         appState.set('isShuffle', !!cfg.isShuffle);
         appState.set('repeatMode', cfg.repeatMode || 0);
         console.log(`writer: "loadPersistedPlayerConfigOnBoot", page: "isShuffle/repeatMode/isStatsPanelVisible", content: "khôi phục từ meta.playerConfig"`);
-        syncShuffleUI(appState.get('isShuffle')); // core mới (core/player-controls.js)
-        syncRepeatUI(appState.get('repeatMode')); // core mới (core/player-controls.js)
+        syncShuffleUI(appState.get('isShuffle')); // core/player-controls.js
+        syncRepeatUI(appState.get('repeatMode')); // core/player-controls.js
         setStatsPanelVisible(cfg.isStatsPanelVisible !== false); // core/visualizer-ui-visibility.js
     },
-
-    // XOÁ (đợt tái cấu trúc bottom nav App Panel, phản hồi Giang) — closeSettingsDrawer() (từng
-    // gọi resetSettingsStackToMain()/scrollSideLeftToPlaylistSmooth(), 2 core ĐÃ XOÁ) không còn ý
-    // nghĩa: đóng Settings giờ do workflowAppSettings.close() đảm nhiệm (event/workflow/
-    // app-settings.js) — Router (event/router/player-controls.js, case
-    // 'playerControls.settingsDrawer.close') đã trỏ thẳng sang đó, KHÔNG còn gọi qua đây nữa.
 };
