@@ -29,7 +29,7 @@ Toàn bộ code được chấm theo [event-bus-flow.md](./readme/event-bus-flow
 [core-function-conventions.md](./readme/core-function-conventions.md) và
 [task-manager-conventions.md](./readme/task-manager-conventions.md). Kết quả 07/10/2026: **1308 vi phạm ở 141 file**
 (10 mục chờ chốt) — 27,6% dòng code nằm trong hàm có vi phạm. Sau đợt dọn wiring 12/10/2026 (plan-event-bus-wiring đợt
-1–7, 6b-1): **1249 vi phạm ở 141 file**. **Nợ cũ vẫn là vi phạm**; sửa xong dòng nào thì xoá
+1–7, 6b-1, 6b-3): **1235 vi phạm ở 141 file**. **Nợ cũ vẫn là vi phạm**; sửa xong dòng nào thì xoá
 dòng đó khỏi sổ: **[readme/core-legacy-audit.md](./readme/core-legacy-audit.md)**.
 
 ## Đọc tiếp ở đâu
