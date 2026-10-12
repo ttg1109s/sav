@@ -556,3 +556,14 @@ function renderPointMoveTimingBody(pointMoves) {
         </div>
     `;
 }
+
+/** MỚI (12/10/2026, plan-event-bus-wiring đợt 6a — dọn nợ trong method bị đụng `openPointMoveTimingNodeModal()`) — body
+ * modal nhập CHÍNH XÁC vị trí X của 1 node trên thanh Timing (trước đây Workflow tự dựng chuỗi này). Ô số
+ * `#ptmove-modal-x-input` — Workflow đọc `.value` lúc bấm Lưu.
+ * @param {number} minX @param {number} maxX @param {number} value */
+function renderPointMoveTimingModalBody(minX, maxX, value) {
+    return `
+        <label class="block text-xs mb-1" data-uitk="textMutedIcon">${escapeHtml(t('motionSettingsDrawer.pointMove.timing.xLabel'))}</label>
+        <input type="number" id="ptmove-modal-x-input" min="${minX}" max="${maxX}" step="0.01" value="${value}" class="w-full rounded-lg px-3 py-2 text-sm outline-none" data-uitk="inputBg inputBorder inputText">
+    `;
+}
