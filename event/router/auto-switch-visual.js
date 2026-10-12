@@ -28,6 +28,19 @@ const routerAutoSwitchVisual = (() => {
             case 'autoSwitchVisual.item.move':
                 workflowAutoSwitchVisual.moveItem(msg.payload.listBy, msg.payload.fromKey, msg.payload.toKey);
                 break;
+            // MỚI 12/10/2026 (plan-event-bus-wiring đợt 4) — kéo thả item, từng pha 1 msg.type (event/listener/auto-switch-visual.js)
+            case 'autoSwitchVisual.drag.start':
+                workflowAutoSwitchVisual.startItemDrag(msg.payload);
+                break;
+            case 'autoSwitchVisual.drag.move':
+                workflowAutoSwitchVisual.moveItemDrag(msg.payload.clientY);
+                break;
+            case 'autoSwitchVisual.drag.end':
+                workflowAutoSwitchVisual.endItemDrag();
+                break;
+            case 'autoSwitchVisual.drag.cancel':
+                workflowAutoSwitchVisual.cancelItemDrag();
+                break;
             case 'autoSwitchVisual.mode.change':
                 workflowAutoSwitchVisual.setMode(msg.payload.value);
                 break;

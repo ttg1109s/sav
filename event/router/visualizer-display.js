@@ -27,10 +27,8 @@ const routerVisualizerDisplay = (() => {
                 break;
             }
 
-            case 'visualizerDisplay.openAutoSwitchPanel.click': {
-                workflowVisualizerDisplay.openAutoSwitchPanel();
-                break;
-            }
+            // XOÁ 12/10/2026 — case 'visualizerDisplay.openAutoSwitchPanel.click' (không còn listener nào gửi; method
+            // openAutoSwitchPanel() bỏ, kéo thả Auto-Switch đi router 'autoSwitchVisual.drag.*').
 
             // ===================== Cycle effect (#btn-cycle-mode) — CÙNG khuôn #btn-cycle-eq =====================
             case 'visualizerDisplay.cyclePress.start':
