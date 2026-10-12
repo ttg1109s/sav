@@ -38,6 +38,12 @@ const routerSettingsMisc = (() => {
                 workflowSettingsMisc.forceOpenDebugConsole();
                 break;
             }
+            // MỚI (12/10/2026, plan-event-bus-wiring đợt 2) — nút X của Debug Console mở cưỡng chế (event/listener/
+            // settings-misc.js). Gọi thẳng helper đóng (trước đây chính callback Workflow tự gắn gọi hàm này).
+            case 'settingsMisc.debugConsole.forceClose.click': {
+                workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
+                break;
+            }
 
             // MỚI (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow")
             // — nút Copy/Xoá wire 1 lần ở core/settings-misc-ui.js, KHÔNG còn gán trực tiếp trong
