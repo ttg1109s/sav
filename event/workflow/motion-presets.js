@@ -782,23 +782,20 @@ const workflowMotionPresets = {
         if (idx <= 0) return; // guard: không tìm thấy HOẶC đúng Point 0 (không còn là node trên đồ thị nữa) — phòng hờ
         const pm = preset.pointMoves[idx];
         const { minX, maxX } = this._pointMoveTimingBounds(preset); // SỬA (phản hồi Giang) — biên ĐỘNG, không còn cố định [0,100]
-        let draftX = pm.timingX;
+        // SỬA (12/10/2026, plan-event-bus-wiring đợt 6a — nhóm D, Giang chốt "bỏ listener input, đọc .value trong onClick")
+        // — trước đây gắn listener `input` lên ô số để giữ `draftX` trong closure. Nay giữ THAM CHIẾU ô ngay sau khi mở;
+        // modalChoice() gỡ overlay khỏi DOM TRƯỚC khi gọi onClick nhưng phần tử đã tách vẫn đọc được `.value`.
+        // Markup body dời sang components/motion-settings-drawer.js::renderPointMoveTimingModalBody().
         modalChoice( // core/modal-choice-ui.js
             tFormat('motionSettingsDrawer.pointMove.itemName', { n: idx }),
             [{
                 label: t('common.save'),
                 className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent',
-                onClick: () => this._commitPointMoveTimingModal(id, draftX),
+                onClick: () => this._commitPointMoveTimingModal(id, Number(xInput.value)),
             }],
-            {
-                bodyHtml: `
-                    <label class="block text-xs mb-1" data-uitk="textMutedIcon">${escapeHtml(t('motionSettingsDrawer.pointMove.timing.xLabel'))}</label>
-                    <input type="number" id="ptmove-modal-x-input" min="${minX}" max="${maxX}" step="0.01" value="${pm.timingX}" class="w-full rounded-lg px-3 py-2 text-sm outline-none" data-uitk="inputBg inputBorder inputText">
-                `,
-            },
+            { bodyHtml: renderPointMoveTimingModalBody(minX, maxX, pm.timingX) }, // components/motion-settings-drawer.js
         );
         const xInput = document.getElementById('ptmove-modal-x-input');
-        if (xInput) xInput.addEventListener('input', (e) => { draftX = Number(e.target.value); });
     },
 
     /** Ứng nút "Lưu" trong modal (`openPointMoveTimingNodeModal()`) — commit số ĐÃ gõ, tự kẹp biên

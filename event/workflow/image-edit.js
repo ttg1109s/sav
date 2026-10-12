@@ -900,29 +900,30 @@ const workflowImageEdit = {
      * dung chữ). Element Style Editor (dùng cho "Sửa kiểu" ở trên) CHỈ chỉnh CSS style, KHÔNG có
      * field nội dung chữ nào — tách riêng ra đây, dùng lại `modalChoice()` (core/modal-choice-ui.js,
      * công cụ CHUNG có sẵn, KHÔNG tự chế UI mới) với 1 `<textarea>` qua `bodyHtml`.
-     * `modalChoice()` tự xoá DOM TRƯỚC khi gọi `onClick` của nút được bấm (xem docstring hàm đó) —
-     * KHÔNG thể đọc textarea BÊN TRONG onClick — phải tự bám giá trị đang gõ dở vào biến closure
-     * `draftText` qua listener 'input' ngay sau khi mở.
+     * `modalChoice()` tự xoá DOM TRƯỚC khi gọi `onClick` của nút được bấm (xem docstring hàm đó) — KHÔNG tìm lại được
+     * textarea bằng id BÊN TRONG onClick. SỬA (12/10/2026, plan-event-bus-wiring đợt 6a — nhóm D, Giang chốt "bỏ
+     * listener input, đọc .value trong onClick") — trước đây bám giá trị đang gõ vào `draftText` qua listener 'input';
+     * nay giữ THAM CHIẾU textarea ngay sau khi mở và đọc `.value` trong onClick (phần tử đã tách khỏi DOM vẫn đọc được).
+     * Markup body dời sang components/image-edit-modals.js::renderLayerEditContentModalBody().
      * @param {number} index */
     editLayerTextContent(index) {
         const layer = this._layers[index];
         if (!layer) return;
-        let draftText = layer.text;
         modalChoice( // core/modal-choice-ui.js
             t('fileManager.photo.image.layerEditContentTitle'),
             [
                 {
                     label: t('common.save'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent',
                     onClick: () => {
-                        const trimmed = draftText.trim();
+                        const trimmed = textareaEl.value.trim();
                         if (trimmed) layer.text = trimmed; // guard: rỗng thì giữ nguyên chữ cũ, không cho xoá trắng qua đường này
                         this._renderLayers();
                     },
                 },
             ],
-            { bodyHtml: `<textarea id="layer-edit-content-textarea" rows="3" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900">${escapeHtml(layer.text)}</textarea>` }
+            { bodyHtml: renderLayerEditContentModalBody(layer.text) } // components/image-edit-modals.js
         );
-        document.getElementById('modal-choice-body').querySelector('#layer-edit-content-textarea').addEventListener('input', (e) => { draftText = e.target.value; });
+        const textareaEl = document.getElementById('modal-choice-body').querySelector('#layer-edit-content-textarea');
     },
 
     /** Vẽ lại TOÀN BỘ layer lên `layerCanvas` — gọi lại mỗi lần `_layers` đổi (thêm/xoá/sửa/kéo).
