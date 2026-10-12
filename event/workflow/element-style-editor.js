@@ -23,14 +23,32 @@
  *     `subtitleBoxCss` (setSubtitleVizField(), core/subtitle/subtitle-style-settings.js) rồi `saveConfig()`.
  *
  * Nội dung Box/Text HOÀN TOÀN template string tĩnh (components/element-style-editor-drawer.js,
- * KHÔNG dùng createElement) — Workflow tự querySelector + addEventListener trên genericDrawerBody/
- * Header SAU mỗi lần render (KHÔNG qua eventBus cho các control động trong Drawer), CÙNG pattern
- * event/workflow/custom-effect.js.
+ * KHÔNG dùng createElement). SỬA (12/10/2026, plan-event-bus-wiring-07-10-2026 đợt 5) — Workflow KHÔNG còn tự
+ * querySelector + addEventListener sau mỗi lần vẽ (`_wire()`/`_wireFontPicker()`/`_wireFontPickerListClicks()` đã xoá):
+ * mọi tab/toggle/ô/nút đi Listener ủy quyền (event/listener/element-style-editor.js) -> Router 'elementStyleEditor'
+ * (event/router/element-style-editor.js, cụm MỚI) -> các method "cửa vào từ Router" bên dưới — CÙNG khuôn
+ * event/listener/custom-effect.js (28/09/2026). Ghi DOM tại chỗ (ô màu đối ứng, danh sách font) qua
+ * core/element-style-editor-ui.js.
  *
- * NẠP SAU: core/generic-drawer.js, core/element-style-editor.js, components/
+ * NẠP SAU: core/generic-drawer.js, core/element-style-editor.js, core/element-style-editor-ui.js (MỚI 12/10/2026), components/
  * element-style-editor-drawer.js, service/state/element-style-editor.js, event/workflow/
  * generic-drawer-helpers.js (closeFully()), core/dom-refs.js (genericDrawerPanel/Header/Body).
  */
+
+/** MỚI (12/10/2026, dọn nợ §7 trong method bị đụng `_render()`) — đang ở màn con "Chọn Google Font" hay màn chính
+ * Box/Text (trước: `if (this._fontPickerOpen) { this._renderFontPicker(); return; }`). */
+const ESE_RENDER_BY_FONT_PICKER_OPEN = {
+    true: () => workflowElementStyleEditor._renderFontPicker(),
+    false: () => workflowElementStyleEditor._renderMain(),
+};
+
+/** MỚI (12/10/2026, dọn nợ §7 — callback `.ese-field` cũ: `if (rerender) this._render(); else this._updatePreview();`)
+ * — ô có `data-rerender` (đổi mode width/height, nguồn font...) mới vẽ lại toàn body; còn lại chỉ sơn lại preview
+ * (ô tự hiện giá trị mới của chính nó). */
+const ESE_AFTER_FIELD_INPUT_BY_RERENDER = {
+    true: () => workflowElementStyleEditor._render(),
+    false: () => workflowElementStyleEditor._updatePreview(),
+};
 
 const workflowElementStyleEditor = {
     /** DOM đang được chỉnh trong phiên Drawer hiện tại — chỉ tồn tại trong RAM của Workflow
@@ -95,11 +113,15 @@ const workflowElementStyleEditor = {
         this._render();
     },
 
+    /** Vẽ (lại) màn hiện tại. SỬA (12/10/2026, method bị đụng -> dọn nợ, Rule 0.5): rẽ màn con font / màn chính qua
+     * object map `ESE_RENDER_BY_FONT_PICKER_OPEN` (trước: if-return); thân màn chính tách sang `_renderMain()`. */
     _render() {
-        if (this._fontPickerOpen) { this._renderFontPicker(); return; } // MỚI (mục 2) — đang ở màn con "Chọn Google Font"
-        const activeTab = appState.get('eseActiveTab');
-        const draft = appState.get('eseDraft');
-        const loadedFonts = appState.get('eseLoadedGoogleFonts');
+        ESE_RENDER_BY_FONT_PICKER_OPEN[this._fontPickerOpen](); // MỚI (mục 2) — đang ở màn con "Chọn Google Font" hay màn chính
+    },
+
+    /** Màn chính Box/Text (thân `_render()` cũ). SỬA (12/10/2026) — 3 key đọc gộp 1 lần `appState.get([...])` (§4B). */
+    _renderMain() {
+        const { eseActiveTab: activeTab, eseDraft: draft, eseLoadedGoogleFonts: loadedFonts } = appState.get(['eseActiveTab', 'eseDraft', 'eseLoadedGoogleFonts']);
         // FIX (Giang chỉ ra — kiểm lại thấy config này CHƯA TỪNG truyền height/maxHeight, kể cả
         // trước đợt sửa z-index/startTab cho Photo layer) — ĐÚNG loại bug đã gặp + fix ở
         // event/workflow/eq-presets.js::openListView()/event/workflow/custom-effect.js (xem comment
@@ -125,84 +147,87 @@ const workflowElementStyleEditor = {
         if (this._zIndex) config.zIndex = this._zIndex; // xem docstring field `_zIndex` — mặc định (không set) giữ NGUYÊN hành vi cũ
         if (genericDrawerPanel.classList.contains('hidden')) workflowGenericDrawerHelpers.open(config); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
         else workflowGenericDrawerHelpers.update(config);
-        this._wire();
-        workflowGenericDrawerHelpers.restoreScroll(); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js — MỚI (24/09/2026) áp lại sau wire (khối input con có thể vừa hiện ra)
+        // SỬA (12/10/2026) — `this._wire()` cũ bỏ (sự kiện nay đi Listener -> Router); việc cuối của nó là sơn preview NGAY
+        // sau mỗi lần vẽ lại body (tab đổi, toggle bật/tắt...) — giữ nguyên tại đây.
+        this._updatePreview();
+        workflowGenericDrawerHelpers.restoreScroll(); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js — MỚI (24/09/2026) áp lại sau khi vẽ (khối input con có thể vừa hiện ra)
     },
 
-    _wire() {
-        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-        if (closeBtn) closeBtn.addEventListener('click', () => this._close());
+    // ===================== Cửa vào từ Router 'elementStyleEditor' — MỚI 12/10/2026 =====================
+    // Thân mỗi method = đúng callback mà `_wire()`/`_wireFontPicker()`/`_wireFontPickerListClicks()` cũ tự gắn
+    // (plan-event-bus-wiring-07-10-2026 đợt 5, khuôn W1–W3); phần tính toán/ghi DOM/rẽ nhánh trong callback cũ dời về
+    // core thuần / core -ui / object map (code mới phải đạt rule).
 
-        genericDrawerHeader.querySelectorAll('[data-ese-tab]').forEach((btn) => {
-            btn.addEventListener('click', (e) => {
-                setElementStyleActiveTab(e.currentTarget.dataset.eseTab); // core
-                this._render();
-            });
-        });
+    /** 'elementStyleEditor.tab.click' — đổi tab Box/Text (trước: callback gọi thẳng core `setElementStyleActiveTab()`).
+     * @param {'box'|'text'} tab */
+    selectTab(tab) {
+        setElementStyleActiveTab(tab); // core
+        this._render();
+    },
 
-        // Toggle bật/tắt property — LUÔN re-render toàn body (hiện/ẩn khối input con).
-        genericDrawerBody.querySelectorAll('.ese-enable').forEach((el) => {
-            el.addEventListener('change', (e) => {
-                const t = e.currentTarget;
-                setElementStyleField(t.dataset.section, t.dataset.field, { enabled: t.checked }); // core
-                this._render();
-            });
-        });
+    /** 'elementStyleEditor.enable.change' — bật/tắt 1 property, LUÔN vẽ lại toàn body (hiện/ẩn khối input con).
+     * @param {string} section @param {string} field @param {boolean} checked */
+    setFieldEnabled(section, field, checked) {
+        setElementStyleField(section, field, { enabled: checked }); // core
+        this._render();
+    },
 
-        // Mọi input/select giá trị field — data-rerender="1" (vd mode width/height, source font)
-        // mới cần vẽ lại toàn body, còn lại chỉ ghi state, giữ nguyên UI (input tự hiện giá trị
-        // mới của chính nó, không cần đồng bộ tay).
-        genericDrawerBody.querySelectorAll('.ese-field').forEach((el) => {
-            const evt = el.tagName === 'SELECT' ? 'change' : 'input';
-            el.addEventListener(evt, (e) => {
-                const t = e.currentTarget;
-                const { section, field, subkey, numeric, rerender } = t.dataset;
-                setElementStyleField(section, field, { [subkey]: numeric ? parseFloat(t.value) : t.value }); // core
-                if (rerender) this._render();
-                else this._updatePreview(); // _render() ở trên ĐÃ tự gọi _updatePreview() ở cuối rồi, tránh gọi 2 lần
-            });
-        });
+    /** 'elementStyleEditor.field.input' — 1 ô `.ese-field` đổi giá trị (`input` với ô nhập, `change` với select — Listener
+     * giữ đúng cặp sự kiện cũ). Ghi field -> vẽ lại body (ô `data-rerender`) hoặc chỉ sơn preview -> đồng bộ ô đối ứng của
+     * cặp màu (`data-cross-target`, trước là 1 listener `input` riêng chạy SAU listener `.ese-field`).
+     * @param {{section: string, field: string, subkey: string, raw: string, isNumeric: boolean, rerender: boolean,
+     *          crossTargetId: string|null}} p */
+    setFieldValue({ section, field, subkey, raw, isNumeric, rerender, crossTargetId }) {
+        setElementStyleField(section, field, { [subkey]: resolveElementStyleFieldValue(raw, isNumeric) }); // core
+        ESE_AFTER_FIELD_INPUT_BY_RERENDER[rerender]();
+        setEseCrossTargetValue(genericDrawerBody, crossTargetId, raw); // core/element-style-editor-ui.js
+    },
 
-        // MỚI (15/08/2026, "None là dropdown") — field dropdown-thuần (fontWeight/fontStyle/
-        // textAlign/textDecoration/textTransform/whiteSpace) — ghi THẲNG giá trị string, không qua
-        // cơ chế merge subkey của .ese-field (bản thân field không phải object). Không field nào
-        // trong nhóm này có UI con phụ thuộc giá trị -> không cần re-render.
-        genericDrawerBody.querySelectorAll('.ese-simple-field').forEach((el) => {
-            el.addEventListener('change', (e) => {
-                const t = e.currentTarget;
-                setElementStyleSimpleField(t.dataset.section, t.dataset.field, t.value); // core
-                this._updatePreview();
-            });
-        });
+    /** 'elementStyleEditor.simpleField.change' — field dropdown-thuần (fontWeight/fontStyle/textAlign/textDecoration/
+     * textTransform/whiteSpace): ghi THẲNG chuỗi, không UI con phụ thuộc -> chỉ sơn preview.
+     * @param {string} section @param {string} field @param {string} value */
+    setSimpleField(section, field, value) {
+        setElementStyleSimpleField(section, field, value); // core
+        this._updatePreview();
+    },
 
-        // Đồng bộ hiển thị 2 input cùng 1 giá trị (text hex <-> color picker) — CÙNG pattern
-        // ce-solid-color-text/picker (components/custom-effect-drawer.js).
-        genericDrawerBody.querySelectorAll('[data-cross-target]').forEach((el) => {
-            el.addEventListener('input', (e) => {
-                const target = genericDrawerBody.querySelector(`#${e.currentTarget.dataset.crossTarget}`);
-                if (target) target.value = e.currentTarget.value;
-            });
-        });
+    /** 'elementStyleEditor.loadFont.click' — nạp Google Font đang chọn rồi vẽ lại. SỬA (12/10/2026) — 2 key đọc gộp 1 lần. */
+    loadSelectedGoogleFont() {
+        const { eseDraft: draft, eseLoadedGoogleFonts: loaded } = appState.get(['eseDraft', 'eseLoadedGoogleFonts']);
+        loadGoogleFont(draft.text.fontFamily.value, draft.text.fontFamily.googleWeight, loaded); // core
+        this._render();
+    },
 
-        const loadFontBtn = genericDrawerBody.querySelector('#ese-fontfamily-load-btn');
-        if (loadFontBtn) {
-            loadFontBtn.addEventListener('click', () => {
-                const draft = appState.get('eseDraft');
-                const loaded = appState.get('eseLoadedGoogleFonts');
-                loadGoogleFont(draft.text.fontFamily.value, draft.text.fontFamily.googleWeight, loaded); // core
-                this._render();
-            });
-        }
+    /** 'elementStyleEditor.fontPicker.open.click' — nút tên font (nguồn 'google') mở màn con danh sách. */
+    openFontPicker() {
+        this._fontPickerOpen = true;
+        this._render();
+    },
 
-        // MỚI (mục 2, thay `_wireFontFamilyPicker()` cũ) — nút hiển thị tên font (nguồn 'google')
-        // giờ CHỈ mở màn con danh sách, KHÔNG tự gõ/lọc tại chỗ nữa.
-        const openFontPickerBtn = genericDrawerBody.querySelector('#ese-fontfamily-open-picker');
-        if (openFontPickerBtn) openFontPickerBtn.addEventListener('click', () => { this._fontPickerOpen = true; this._render(); });
+    /** 'elementStyleEditor.fontPicker.back.click' — đóng màn con (KHÔNG đóng cả Drawer — "ghi nhớ back lại"). */
+    closeFontPicker() {
+        this._fontPickerOpen = false;
+        this._render();
+    },
 
-        const applyBtn = genericDrawerBody.querySelector('#ese-apply-btn');
-        if (applyBtn) applyBtn.addEventListener('click', () => this._apply());
+    /** 'elementStyleEditor.fontPicker.search.input' — lọc lại danh sách TẠI CHỖ (chỉ thay danh sách, không vẽ lại cả màn —
+     * ô tìm không mất focus khi gõ), áp theme cho dòng mới. Không cần gắn lại click từng dòng nữa (Listener ủy quyền).
+     * @param {string} query */
+    filterFontPicker(query) {
+        const currentValue = appState.get('eseDraft').text.fontFamily.value;
+        const listEl = genericDrawerBody.querySelector('#ese-fontpicker-list');
+        setEseFontPickerListHtml(listEl, _renderEseFontListItems(query, currentValue)); // core/element-style-editor-ui.js + components/element-style-editor-drawer.js
+        applyUiThemeToDom(listEl, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — SỬA 23/09/2026: dòng font tô màu qua `data-uitk`, gán lại danh sách phải áp theme lại
+    },
 
-        this._updatePreview(); // MỚI — sơn preview NGAY sau mỗi lần vẽ lại body (tab đổi, toggle bật/tắt...)
+    /** 'elementStyleEditor.fontPicker.option.click' — chọn 1 font: ghi state rồi TỰ quay lại màn chính.
+     * SỬA (mục 1 — "giờ mặc định sẽ chỉ có google font") — LUÔN ghi kèm `source:'google'` (KHÔNG chỉ `value`) — phòng
+     * draft đang parse ra `source:'system'` từ 1 style ĐÃ LƯU TỪ TRƯỚC (initialCssString) lúc app còn hỗ trợ nguồn đó.
+     * @param {string} fontName */
+    selectFont(fontName) {
+        setElementStyleField('text', 'fontFamily', { value: fontName, source: 'google' }); // core
+        this._fontPickerOpen = false; // "ghi nhớ back lại" — tự quay về màn chính, không kẹt ở danh sách
+        this._render(); // vẽ lại màn chính, nút font name hiện ĐÚNG tên vừa chọn + preview tự cập nhật
     },
 
     /** MỚI (16/08/2026 — Giang yêu cầu "ô preview cố định ở trong body drawer") — sơn LẠI
@@ -243,46 +268,12 @@ const workflowElementStyleEditor = {
         if (this._zIndex) config.zIndex = this._zIndex;
         if (genericDrawerPanel.classList.contains('hidden')) workflowGenericDrawerHelpers.open(config); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
         else workflowGenericDrawerHelpers.update(config);
-        this._wireFontPicker();
+        // SỬA (12/10/2026) — `this._wireFontPicker()` cũ bỏ: Back / ô tìm / chọn font đi Listener -> Router (xem
+        // closeFontPicker()/filterFontPicker()/selectFont()).
     },
 
-    /** Wire màn con font: nút Back (đóng màn con, KHÔNG đóng cả Drawer — "ghi nhớ back lại" đúng
-     * yêu cầu Giang) + ô tìm kiếm (lọc lại danh sách tại chỗ, KHÔNG re-render cả màn — chỉ gán lại
-     * `list.innerHTML`, tránh input mất focus giữa chừng lúc gõ, CÙNG lý do bản dropdown cũ) + click
-     * 1 dòng font = ghi state rồi TỰ ĐỘNG quay lại màn chính (KHÔNG cần người dùng bấm Back tay). */
-    _wireFontPicker() {
-        const backBtn = genericDrawerHeader.querySelector('#btn-ese-fontpicker-back');
-        if (backBtn) backBtn.addEventListener('click', () => { this._fontPickerOpen = false; this._render(); });
-
-        const searchInput = genericDrawerBody.querySelector('#ese-fontpicker-search');
-        const list = genericDrawerBody.querySelector('#ese-fontpicker-list');
-        this._wireFontPickerListClicks(list);
-        if (searchInput) {
-            searchInput.addEventListener('input', () => {
-                const currentValue = appState.get('eseDraft').text.fontFamily.value;
-                list.innerHTML = _renderEseFontListItems(searchInput.value, currentValue); // components/element-style-editor-drawer.js
-                applyUiThemeToDom(list, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — SỬA 23/09/2026: dòng font giờ tô màu qua `data-uitk`, gán lại innerHTML phải áp theme lại
-                this._wireFontPickerListClicks(list);
-            });
-        }
-    },
-
-    /** Tách riêng khỏi `_wireFontPicker()` — cần gọi LẠI mỗi lần `list.innerHTML` bị gán lại lúc
-     * gõ tìm kiếm (nút cũ trong DOM bị thay hẳn, listener cũ mất theo, phải wire lại nút MỚI). */
-    _wireFontPickerListClicks(list) {
-        if (!list) return;
-        list.querySelectorAll('.ese-font-option').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                // SỬA (mục 1 — "giờ mặc định sẽ chỉ có google font") — LUÔN ghi kèm `source:'google'`
-                // (KHÔNG chỉ `value`) — phòng draft đang parse ra `source:'system'` từ 1 style ĐÃ LƯU
-                // TỪ TRƯỚC (initialCssString, applyElementStyleCssStringToDraft() core) lúc app còn
-                // hỗ trợ nguồn đó — chọn lại font 1 lần ở đây là tự sửa đúng luôn, không cần UI riêng.
-                setElementStyleField('text', 'fontFamily', { value: btn.dataset.fontName, source: 'google' }); // core
-                this._fontPickerOpen = false; // "ghi nhớ back lại" — tự quay về màn chính, không kẹt ở danh sách
-                this._render(); // vẽ lại màn chính, nút font name giờ hiện ĐÚNG tên vừa chọn + preview tự cập nhật (_wire() cuối _render() gọi _updatePreview())
-            });
-        });
-    },
+    // XOÁ (12/10/2026, plan-event-bus-wiring đợt 5) — `_wireFontPicker()` + `_wireFontPickerListClicks()`: thân dời sang
+    // closeFontPicker()/filterFontPicker()/selectFont() ở trên.
 
     /** Build chuỗi CSS -> lưu state -> áp inline lên targetEl (nếu có) -> báo `onApply` (nếu có,
      * để nơi gọi tự persist) -> đóng Drawer. */
