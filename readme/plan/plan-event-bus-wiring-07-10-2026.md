@@ -15,7 +15,10 @@ Rule 5a). Nợ được ghi ở [core-legacy-audit.md](../core-legacy-audit.md),
 | 5 — Element Style Editor | Xong 12/10/2026 (`sav-13-wiring-wave5-element-style-editor-patch.zip`), chờ test máy. Cụm MỚI `elementStyleEditor` (event/listener + event/router) |
 | 6a — Nhóm D (2 modal) | Xong 12/10/2026 (`sav-13-wiring-wave6a-modal-input-patch.zip`), chờ test máy — bỏ listener `input`, đọc `.value` trong `onClick` |
 | 7 — `ResizeObserver` `#gameplay-layer` | Xong 12/10/2026 (`sav-13-wiring-wave7-game-layer-observer-patch.zip`), chờ test máy — đăng ký dời sang Listener (Giang: "làm gì cũng được, đúng rule") |
-| 6b — Nhóm F + `subtitle-editor.js` + phát hiện mới | Chưa làm — F cần thiết kế riêng (mục 6 câu 2: "hỏi lại trước khi viết code"); `subtitle-editor.js` (trang riêng) cần rà hạ tầng bus của trang trước |
+| Dọn comment | Xong 12/10/2026 (`sav-13-wiring-comment-cleanup-patch.zip`) — 33 file đã đụng ở đợt 1–7: bỏ comment lịch sử (SỬA/MỚI/XOÁ kèm ngày, "trước đây..."), sửa comment sai thực tế; code KHÔNG đổi (đối chiếu chuỗi token) |
+| 6b-1 — Nhóm F: thay bằng API Promise | Xong 12/10/2026 (`sav-13-wiring-wave6b1-promise-api-patch.zip`), chờ test máy — `new Image()` onload/onerror → `img.decode()` (core -ui MỚI `core/image-load-ui.js`), `FileReader` → `file.text()` (`importSrtFile`) |
+| 6b-2 — `subtitle-editor.js` 2 modal (Split/Shift) | Chưa làm — Giang chọn phương án A: chuyển sang `modalChoice()`, markup sang `components/`, đọc `.value`/radio trong `onClick` |
+| 6b-3 — Nhóm F còn lại | Chưa làm — phương án (b): phần tử tĩnh (audio/video/window) dùng danh sách chờ ở Workflow, chờ duyệt; đối tượng tạo động bắt buộc listener (`MediaRecorder`, `track.ended`, `ScriptProcessor`, video tạm `video-thumb-extract.js`, `script.onload`) chờ chọn cách (x)/(y) |
 
 Câu chốt mục 6 (Giang, ghi ở cột Ghi chú của sổ nợ): (1) nhóm D — bỏ listener `input`, đọc `.value` trong `onClick`
 của `modalChoice()`; (2) nhóm F — miễn trừ CHỈ theo danh sách audit chính thức -> không miễn, phải sửa; (3) tính cả
