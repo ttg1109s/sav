@@ -24,6 +24,13 @@
  * Push ĐỘNG vào Settings Stack (core/settings-panel-stack.js), CÙNG khuôn panel Photo —
  * xem event/workflow/file-manager-storage.js::openPanel().
  */
+/** MỚI (12/10/2026, plan-event-bus-wiring đợt 2 — dọn nợ trong method bị đụng `openPanel()`) — body Generic Drawer
+ * Storage: `renderFileManagerStorageManagementPanelBody()` bọc `p-4` + màu chữ mặc định theo theme (trước đây Workflow
+ * tự dựng chuỗi wrapper này — Workflow tự dựng template HTML). */
+function renderFileManagerStorageDrawerBody() {
+    return `<div class="p-4" data-uitk="textPrimary">${renderFileManagerStorageManagementPanelBody()}</div>`;
+}
+
 function renderFileManagerStorageManagementPanelBody() {
     // SỬA (khôi phục — Giang báo "section title dính liền card bên trên") — 4 khối
     // <div><h3>tiêu đề</h3><div class="glass-modal">card</div></div> ở dưới TRƯỚC ĐÂY nối liền

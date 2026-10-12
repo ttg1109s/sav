@@ -48,6 +48,13 @@ function renderDebugConsolePanelBody() {
     `;
 }
 
+/** MỚI (12/10/2026, plan-event-bus-wiring đợt 2 — dọn nợ trong method bị đụng `forceOpenDebugConsole()`) — body của
+ * lối tắt cưỡng chế mở Debug Console trên loading shield: khung `renderDebugConsolePanelBody()` bọc `p-4` + màu chữ
+ * theo theme (trước đây Workflow tự dựng chuỗi wrapper này — Workflow tự dựng template HTML). */
+function renderDebugConsoleForceOpenBody() {
+    return `<div class="p-4" data-uitk="textPrimary">${renderDebugConsolePanelBody()}</div>`;
+}
+
 /** Trạng thái rỗng (chưa có log / đã Xoá hết). */
 function renderDebugConsoleEmptyHtml() {
     return `<div class="text-sm text-center py-10" data-uitk="emptyStateText">${t('settingsMisc.debugConsole.emptyMsg')}</div>`;
