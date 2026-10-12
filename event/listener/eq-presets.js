@@ -1,9 +1,13 @@
 /**
  * event/listener/eq-presets.js — TẤT CẢ listener của cụm "eqPresets".
  *
- * Chỉ 1 nút TĨNH (Control Center, components/visualizer-overlay.js). Nội dung ĐỘNG bên trong
- * Generic Drawer (list preset/sửa preset) do event/workflow/eq-presets.js tự wire trực tiếp —
- * KHÔNG qua eventBus, xem docstring đầu file đó.
+ * 1 nút TĨNH (Control Center, components/visualizer-overlay.js) + nội dung ĐỘNG bên trong Generic Drawer (List/Edit).
+ * SỬA (12/10/2026, plan-event-bus-wiring-07-10-2026 đợt 1) — nội dung Drawer trước đây do event/workflow/eq-presets.js
+ * tự querySelector + addEventListener sau mỗi lần vẽ (bỏ qua Listener -> Router và Block gate). Nay ủy quyền 1 lần
+ * trên `genericDrawerBody`/`genericDrawerHeader` (khuôn event/listener/custom-effect.js): bảng tuyến
+ * `match(target) -> send(el)`, Listener CHỈ đọc giá trị/dataset phần tử làm payload. Selector đều có tiền tố cụm
+ * (`data-eq-*`, `#eq-drawer-*`, `#btn-eq-drawer-*`, `.eq-band-slider`) -> Drawer khác dùng chung body/header không
+ * khớp tuyến nào, bỏ qua.
  *
  * SỬA (12/08/2026, Giang yêu cầu "gộp eq edit vào hold 3s, bỏ icon edit riêng") — #btn-edit-eq (2
  * listener 'click' cũ) ĐÃ BỎ HẲN cùng nút. #btn-cycle-eq giờ nghe THÊM `pointerdown`/`pointerup`/
@@ -40,4 +44,49 @@ if (btnCycleEq) {
     btnCycleEq.addEventListener('click', () => {
         eventBus.send({ router: 'eqPresets', type: 'eqPresets.cycle.click', payload: {} });
     });
+}
+
+// ===================== Nội dung Generic Drawer (List / Edit) — MỚI 12/10/2026 =====================
+
+const EQ_PRESETS_HEADER_CLICK_ROUTES = [
+    { match: (t) => (t.closest ? t.closest('[data-eq-close]') : null), send: () => ['eqPresets.list.close.click', {}] },
+    { match: (t) => (t.closest ? t.closest('#btn-eq-drawer-add') : null), send: () => ['eqPresets.list.add.click', {}] },
+    { match: (t) => (t.closest ? t.closest('[data-eq-back]') : null), send: () => ['eqPresets.edit.back.click', {}] },
+    { match: (t) => (t.closest ? t.closest('[data-eq-reset-id]') : null), send: (el) => ['eqPresets.edit.reset.click', { id: el.dataset.eqResetId }] },
+];
+
+const EQ_PRESETS_BODY_CLICK_ROUTES = [
+    { match: (t) => (t.closest ? t.closest('[data-eq-id]') : null), send: (el) => ['eqPresets.list.row.click', { id: el.dataset.eqId }] },
+    { match: (t) => (t.closest ? t.closest('[data-eq-apply-id]') : null), send: (el) => ['eqPresets.edit.apply.click', { id: el.dataset.eqApplyId }] },
+    { match: (t) => (t.closest ? t.closest('[data-eq-delete-id]') : null), send: (el) => ['eqPresets.edit.delete.click', { id: el.dataset.eqDeleteId }] },
+];
+
+const EQ_PRESETS_BODY_INPUT_ROUTES = [
+    { match: (t) => (t.id === 'eq-drawer-name' ? t : null), send: (el) => ['eqPresets.edit.name.input', { value: el.value }] },
+    { match: (t) => (t.classList && t.classList.contains('eq-band-slider') ? t : null), send: (el) => ['eqPresets.edit.band.input', { index: el.dataset.index, raw: el.value }] },
+];
+
+const EQ_PRESETS_BODY_CHANGE_ROUTES = [
+    { match: (t) => (t.id === 'eq-drawer-name' ? t : null), send: () => ['eqPresets.edit.name.change', {}] },
+    { match: (t) => (t.classList && t.classList.contains('eq-band-slider') ? t : null), send: () => ['eqPresets.edit.band.change', {}] },
+];
+
+/** Tìm tuyến đầu tiên khớp phần tử bị tác động rồi chuyển thư cho Router 'eqPresets' (không khớp -> bỏ qua). */
+function _eqDispatch(routes, e) {
+    for (const route of routes) {
+        const el = route.match(e.target);
+        if (!el) continue;
+        const [type, payload] = route.send(el);
+        eventBus.send({ router: 'eqPresets', type, payload });
+        return;
+    }
+}
+
+if (genericDrawerHeader) {
+    genericDrawerHeader.addEventListener('click', (e) => _eqDispatch(EQ_PRESETS_HEADER_CLICK_ROUTES, e));
+}
+if (genericDrawerBody) {
+    genericDrawerBody.addEventListener('click', (e) => _eqDispatch(EQ_PRESETS_BODY_CLICK_ROUTES, e));
+    genericDrawerBody.addEventListener('input', (e) => _eqDispatch(EQ_PRESETS_BODY_INPUT_ROUTES, e));
+    genericDrawerBody.addEventListener('change', (e) => _eqDispatch(EQ_PRESETS_BODY_CHANGE_ROUTES, e));
 }
