@@ -349,6 +349,7 @@ group.
 138. `core/file-manager/photo-ui.js`
 138a. `core/image-load-ui.js` — MỚI 12/10/2026 (decodeImageFromUrl/renderImageScaledToJpegBlob/releaseDecodedImage — plan-event-bus-wiring đợt 6b-1); gọi lúc chạy từ event/workflow/file-manager-photo.js, file-manager-storage.js, visualizer/shape.js
 138b. `core/dynamic-object-ui.js` — MỚI 13/10/2026 (adapter sự kiện đối tượng tạo động — ngoại lệ chính thức, plan-event-bus-wiring đợt 6b-3); không phụ thuộc; gọi lúc chạy từ event/workflow/recorder.js, video-thumb-extract.js
+138c. `core/media-element-ui.js` — MỚI 13/10/2026 (setMediaElementSource/seekMediaElement/seekMediaElementClamped/playMediaElement — plan-event-bus-wiring đợt 6b-4); không phụ thuộc; gọi lúc chạy từ event/workflow/player.js, video-player.js, visual-bg-video.js
 139. `core/media-picker-drawer-ui.js`
 140. `core/photo-editor-engine.js`
 141. `core/media-transform.js`
@@ -656,6 +657,9 @@ sự kiện lúc nạp (cần `core/dom-refs.js`, đôi khi cần workflow của
 408. `event/workflow/eq-presets.js`
 409. `event/router/eq-presets.js` — cần: `event/bus.js` (eventBus)
 410. `event/listener/eq-presets.js` — cần: `core/dom-refs.js` (btnCycleEq, genericDrawerHeader, genericDrawerBody)
+410a. `event/workflow/media-wait.js` — MỚI 13/10/2026 (đợt 6b-4); cần lúc NẠP: `core/dom-refs.js` (audioPlayer, bgVideoElement — dựng `MEDIA_WAIT_TARGET_BY_ELEMENT`); lúc chạy: `service/task-manager.js`
+410b. `event/router/media-wait.js` — cần: `event/bus.js` (eventBus)
+410c. `event/listener/media-wait.js` — cần: `core/dom-refs.js` (audioPlayer, bgVideoElement); PHẢI nạp SAU mọi Listener khác của 2 phần tử này (visual-bg.js, video-player.js, player-controls.js) để lượt chờ chạy sau listener cố định
 
 </details>
 

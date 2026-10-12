@@ -105,6 +105,16 @@ ngoại lệ này. Nơi dùng (thêm chỗ mới = cập nhật bảng này):
 | `event/workflow/video-thumb-extract.js` — `_waitVideoEvent`, `extract` | `<video>` tạm | `seeked`, `error`, `loadedmetadata` (1 lần) |
 | `event/workflow/video-preview.js` — `_loadVideoEditorScriptOnce` (qua `loadScriptFile()`) | `<script>` tạm + `window` `error` trong lúc nạp | `load`/`error` (1 lần) |
 
+**Chờ sự kiện của phần tử media TĨNH — cụm `mediaWait`** (đợt 6b-4). Workflow cần đợi `audioPlayer`/`bgVideoElement`
+bắn 1 sự kiện (tua xong, phát được, nạp xong metadata) thì KHÔNG tự `addEventListener`, mà đăng ký lượt chờ với
+`workflowMediaWait` (event/workflow/media-wait.js): `once(el, tên, callback)` trả hàm huỷ, `wait(el, tên, timeoutMs,
+taskName)` trả Promise<boolean> (`false` = hết giờ). Listener `event/listener/media-wait.js` gắn SẴN lúc tải trang
+4 sự kiện `loadedmetadata`/`seeked`/`play`/`playing` của 2 phần tử → `eventBus.send({router: 'mediaWait', type:
+'mediaWait.event'})` → Router gọi `workflowMediaWait.notify()`, chạy các lượt chờ khớp ĐỒNG BỘ (cùng thời điểm với
+`{ once: true }` cũ). Bộ ba nạp SAU mọi Listener khác của 2 phần tử → lượt chờ vẫn chạy sau các listener cố định như
+trước. Cần thêm sự kiện/phần tử = thêm vào `MEDIA_WAIT_LISTEN_TARGETS`/`MEDIA_WAIT_LISTEN_EVENTS` (listener) và
+`MEDIA_WAIT_TARGET_BY_ELEMENT` (workflow).
+
 `app.boot` đi qua `eventBus` như mọi cụm (`event/listener/app-boot.js` nghe `DOMContentLoaded`). Message
 `app.fatalError` đã bỏ. Handler `error`/`unhandledrejection` toàn cục hiện **không có** trong `index.html`
 (`core/fatal-error.js` chỉ còn comment) — ghi ở [changelog/v13.md](./changelog/v13.md) mục 7, chưa sửa.
