@@ -3,42 +3,32 @@
  * hệ preset EQ — core/eq-presets.js/components/eq-presets-drawer.js). Motion KHÔNG sở hữu/quản lý/
  * biết nơi tiêu thụ nào. 2 lối vào: Settings > System > Motion -> danh sách preset (Quản lý), và
  * từ CHÍNH nơi tiêu thụ (VBG Photo, Player Video/Photo) -> danh sách preset ở chế độ CHỌN (màn 6).
- * SỬA (24/09/2026, Giang yêu cầu) — nhóm "Áp dụng cho" (đăng ký nơi tiêu thụ) ở màn Edit ĐÃ XOÁ.
  *
  * 6 màn (mỗi màn 1 hàm render, tất cả điều hướng qua workflowAppSettings.navigateTo(), xem
  * event/workflow/app-settings.js + event/workflow/motion-presets.js; tương tác qua event/listener/motion-presets.js):
- *   1. `renderMotionListBody(presets)` — danh sách preset, tap = sửa, nút xoá nhanh mỗi dòng.
+ *   1. `renderMotionListBody(presets, paginationHtml)` — danh sách preset, tap = sửa, nút xoá nhanh mỗi dòng.
  *   2. `renderMotionEditBody(preset)` — sửa 1 preset: Transition + Point Move (thay Ken Burns, xem
  *      core/motion-presets.js) + React Beat Audio + "Quản lý" (đổi tên/Reset/Xoá).
- *   3. `renderPointMoveListBody(pointMoves)` — danh sách point move: checkbox | tên | xoá | sửa.
+ *   3. `renderPointMoveListBody(preset)` — danh sách point move: [kéo] | checkbox | tên | nhân bản | xoá | sửa.
  *   4. `renderPointMoveEditBody(pointMove)` — sửa 6 thông số (Linear X/Y, Rotate, Zoom, Flip X/Y).
- *   5. `renderPointMoveTimingBody()` — khung chứa đường cong Timing (SVG dựng bởi
+ *   5. `renderPointMoveTimingBody()` (+ `renderPointMoveTimingModalBody()`) — khung chứa đường cong Timing (SVG dựng bởi
  *      core/point-move-timing-ui.js, workflow tự append vào #ptmove-timing-container).
  *   6. `renderMotionPickerBody(presets, selectedId, paginationHtml)` + `renderMotionPickerApplyButtonHtml()`
- *      — MỚI (24/09/2026) — danh sách preset ở chế độ CHỌN (nơi tiêu thụ mở qua workflowMotionPresets.
+ *      — danh sách preset ở chế độ CHỌN (nơi tiêu thụ mở qua workflowMotionPresets.
  *      openPicker()): tap dòng = chọn, nút "Apply" ở header = xác nhận.
  *
  * Logic: event/workflow/motion-presets.js (workflowMotionPresets). Router/Listener: cụm
  * "motionPresets" (event/router/motion-presets.js).
  * NẠP SAU: core/modal-choice-ui.js (escapeHtml()), core/motion-engine.js/motion-presets.js,
  * components/settings/app-settings-main.js (renderAppSettingsRowList()).
- *
- * SỬA (09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — toàn bộ 5 màn viết LẠI TRỰC TIẾP bằng
- * bảng màu sáng (trước đây `glass-modal`/`border-white/5`/toggle track `bg-slate-600`/select
- * `bg-black/50`, phụ thuộc `.app-settings-scope` đè màu — assets/css/layout-nav.css). Đồng thời phát
- * hiện + sửa 3 rule CSS `.ptmove-*` (assets/css/sliders.css) vẫn dùng track/tick màu
- * `rgba(255,255,255,x)` — gần như vô hình trên nền trắng Generic Drawer, CÙNG lỗi đã fix trước đây
- * cho EQ slider (`.eq-preset-slider*` thay `.eq-slider`) nhưng chưa lan sang Point Move lúc đó.
+ * Màu theo key UI Theme (data-uitk); slider Point Move dùng rule `.ptmove-*` (assets/css/sliders.css).
  */
 
-/** @param {{id:string, name:string}[]} presets */
-/** SỬA 23/09/2026 — thêm `paginationHtml` (thanh phân trang, nơi 'motionPresets' của Settings > System >
- * Pagination — Workflow cắt sẵn `presets` = đúng trang cần vẽ rồi truyền thanh vào; '' khi tắt/1 trang),
- * đặt trong `#motion-list-pagination` cuối danh sách để Workflow wire (core/pagination-ui.js).
+/** `paginationHtml` = thanh phân trang (nơi 'motionPresets' của Settings > System > Pagination — Workflow cắt sẵn
+ * `presets` = đúng trang cần vẽ; '' khi tắt/1 trang), đặt trong `#motion-list-pagination` để Workflow wire
+ * (core/pagination-ui.js).
  * @param {Array} presets @param {string} [paginationHtml] */
 function renderMotionListBody(presets, paginationHtml) {
-    // XOÁ (07/10/2026, Giang) — nút "Random" (sinh cả 1 preset ngẫu nhiên) cạnh "Thêm" đã bỏ; thay bằng nút Random
-    // theo nhóm (React Beat / Point Move Edit), xem `motionRandomButtonHtml()`.
     const addRowHtml = `
         <div class="flex gap-2 mb-2">
             <button type="button" id="btn-motion-list-add" class="flex-1 min-w-0 truncate text-center px-4 py-3.5 rounded-2xl text-sm font-semibold" data-uitk="btnAccentSoft accentSoftBorder">${t('motionPresetsDrawer.list.add.label')}</button>
@@ -58,10 +48,10 @@ function renderMotionListBody(presets, paginationHtml) {
     return addRowHtml + itemsHtml + `<div id="motion-list-pagination">${paginationHtml || ''}</div>`;
 }
 
-/** MỚI (24/09/2026, Giang yêu cầu — thay cơ chế đăng ký "Áp dụng cho") — danh sách preset ở chế độ CHỌN.
+/** Danh sách preset ở chế độ CHỌN.
  * CÙNG khung dòng với `renderMotionListBody()` nhưng KHÔNG có nút thêm/xoá nhanh (màn này chỉ để chọn —
  * Quản lý vẫn ở Settings > System > Motion). Dòng "None" (`data-motion-picker-option=""`) LUÔN đứng đầu,
- * NGOÀI phân trang (gỡ Motion khỏi nơi tiêu thụ — thay option "None" của select cũ). Dòng đang chọn (nháp)
+ * NGOÀI phân trang (gỡ Motion khỏi nơi tiêu thụ). Dòng đang chọn (nháp)
  * tô nền/viền `rowActiveBg rowActiveBorder` (CÙNG key danh sách Filter) + dấu tick bên phải.
  * Thanh phân trang (nơi 'motionPresets' — DÙNG CHUNG cài đặt với màn Quản lý) đặt trong
  * `#motion-picker-pagination` để Workflow wire (core/pagination-ui.js).
@@ -83,14 +73,13 @@ function renderMotionPickerBody(presets, selectedId, paginationHtml) {
     return noneRowHtml + itemsHtml + `<div id="motion-picker-pagination">${paginationHtml || ''}</div>`;
 }
 
-/** MỚI (24/09/2026) — nút "Apply" chèn vào header màn Chọn (tham số `extraHeaderHtml` của
- * workflowAppSettings._render()) — Workflow tự wire ở onMount. @returns {string} */
+/** Nút "Apply" chèn vào header màn Chọn (tham số `extraHeaderHtml` của workflowAppSettings._render()) — bấm đi qua
+ * event/listener/motion-presets.js. @returns {string} */
 function renderMotionPickerApplyButtonHtml() {
     return `<button type="button" id="btn-motion-picker-apply" class="h-8 px-3 rounded-full text-xs font-semibold" data-uitk="btnPrimaryBg btnPrimaryHoverBg textOnAccent" data-i18n="motionPresetsDrawer.picker.apply.label">${t('motionPresetsDrawer.picker.apply.label')}</button>`;
 }
 
-/** Option {value,labelKey} cho select hướng — trục ngang (Pan X/Rotate) vs trục dọc (Pan Y, MỚI —
- * phản hồi Giang "chia Pan thành Pan X/Pan Y"). Dùng bởi renderMotionBeatReactEffectRows() ngay dưới. */
+/** Option {value,labelKey} cho select hướng — trục ngang (Pan X/Rotate) vs trục dọc (Pan Y). Dùng bởi renderMotionBeatReactEffectRows() ngay dưới. */
 const MOTION_SETTINGS_BEATREACT_DIRECTIONS_X = [
     { value: 'left', labelKey: 'motionPresetsDrawer.beatReact.direction.left' },
     { value: 'right', labelKey: 'motionPresetsDrawer.beatReact.direction.right' },
@@ -104,7 +93,7 @@ const MOTION_SETTINGS_BEATREACT_DIRECTIONS_Y = [
     { value: 'downToUp', labelKey: 'motionPresetsDrawer.beatReact.direction.downToUp' },
 ];
 
-/** MỚI (07/10/2026, Giang) — nút Random nhỏ (icon xúc xắc) của 1 nhóm slider: mỗi lần bấm sinh lại giá trị các
+/** Nút Random nhỏ (icon xúc xắc) của 1 nhóm slider: mỗi lần bấm sinh lại giá trị các
  * slider trong nhóm (event/workflow/motion-presets.js::randomizeBeatReactValues()/randomizePointMoveValues()).
  * @param {string} id @returns {string} */
 function motionRandomButtonHtml(id) {
@@ -113,11 +102,8 @@ function motionRandomButtonHtml(id) {
 
 /** Dựng các hàng (checkbox bật + [select hướng + checkbox reverse + tick Random Max] + ô nhập số +
  * slider max biên độ) cho 1 hiệu ứng con (zoom/panX/panY/rotate) trong nhóm "React Beat Audio" —
- * DÙNG CHUNG cả 4. SỬA (phản hồi Giang — ô input số sync 2 chiều với slider + tick "Random Max" dưới
- * Reverse) — `cfg.directions` (mảng {value,labelKey}) thay vì hard-code trái/phải, để Pan Y dùng
- * được bộ hướng lên/xuống riêng (core/motion-presets.js::MOTION_BEAT_REACT_DIRECTIONS_Y) mà không
- * cần viết lại cả hàm. Hiệu ứng KHÔNG có hướng (zoom) vẫn có Random Max — đặt ngay dưới ô nhập số/
- * slider max (không có hàng Reverse để bám vào).
+ * DÙNG CHUNG cả 4. Ô số sync 2 chiều với slider. `cfg.directions` (mảng {value,labelKey}) cho từng trục (Pan Y
+ * dùng bộ lên/xuống riêng). Hiệu ứng KHÔNG có hướng (zoom) vẫn có Random Max — đặt ngay dưới ô nhập số/slider max.
  * @param {'zoom'|'panX'|'panY'|'rotate'} key @param {object} effect - `preset.reactBeatAudio[key]`.
  * @param {{titleKey:string, maxLabelKey:string, boundMin:number, boundMax:number, step:number, suffix:string, hasDirection:boolean, directions?:{value:string,labelKey:string}[], isLast?:boolean}} cfg
  */
@@ -137,8 +123,7 @@ function renderMotionBeatReactEffectRows(key, effect, cfg) {
                             <input type="checkbox" id="setting-motion-beatreact-${key}-reverse" class="w-4 h-4 rounded shrink-0" data-uitk="accentControl" ${effect.reverse ? 'checked' : ''}>
                             <span class="text-xs" data-uitk="textSecondary" data-i18n="motionPresetsDrawer.beatReact.reverse.label">${t('motionPresetsDrawer.beatReact.reverse.label')}</span>
                         </label>` : '';
-    // MỚI (phản hồi Giang — "bổ sung tick random Max ở dưới Reverse") — hiệu ứng CÓ hướng (Reverse
-    // đứng trên) thì Random Max nối NGAY sau; hiệu ứng KHÔNG có hướng (zoom, không có Reverse) thì
+    // Hiệu ứng CÓ hướng thì Random Max nối NGAY sau Reverse; hiệu ứng KHÔNG có hướng (zoom, không có Reverse) thì
     // Random Max đặt ngay dưới ô nhập số/slider max (xem cuối template).
     const randomMaxHtml = `
                         <label class="flex items-center gap-2.5 px-4 ${cfg.hasDirection ? 'pb-3' : 'pt-3'} cursor-pointer">
@@ -166,8 +151,7 @@ function renderMotionBeatReactEffectRows(key, effect, cfg) {
     `;
 }
 
-/** SỬA (24/09/2026) — bỏ 2 tham số `motionApply`/`consumerKey` (nhóm "Áp dụng cho" đã xoá).
- * @param {object} preset - 1 phần tử `appState.motionPresets` (core/motion-presets.js). */
+/** @param {object} preset - 1 phần tử `appState.motionPresets` (core/motion-presets.js). */
 function renderMotionEditBody(preset) {
     return `
                 <!-- ===================== NHÓM 1: CHUYỂN CẢNH ===================== -->
@@ -386,15 +370,10 @@ function renderMotionEditBody(preset) {
     `;
 }
 
-/** Danh sách point move — [kéo] | checkbox | tên | icon nhân bản | icon xoá | icon sửa. SỬA (phản
- * hồi Giang — "Point 0 = start point") — Point 0 (index 0) giờ KHÔNG BAO GIỜ kéo-thả/xoá được nữa
- * (start point CỐ ĐỊNH, `timingX` khoá cứng = 0 — xem core/motion-presets.js), CHỈ còn bấm SỬA được
- * (6 field chuyển động vẫn chỉnh bình thường) — bỏ hẳn tay cầm kéo + nút xoá LUÔN disabled ở hàng đó
- * (KHÔNG còn phụ thuộc `canDelete`/số lượng còn lại như các hàng khác). Checkbox vẫn khoá
- * (disabled, luôn checked) như trước.
- * MỚI (phản hồi Giang — dời "Endpoint: force baseline" (đổi tên "Return baseline") + "Timing" vào
- * ĐÂY, bỏ khỏi màn Edit chính) — 1 card nhỏ phía trên danh sách, CHỈ hiện khi `pointMoveRunMode ===
- * 'all'` (2 field này vốn chỉ có ý nghĩa với mode đó).
+/** Danh sách point move — [kéo] | checkbox | tên | icon nhân bản | icon xoá | icon sửa. Point 0 = start point
+ * (`timingX` khoá cứng = 0, core/motion-presets.js): không tay cầm kéo, nút xoá LUÔN disabled, checkbox khoá
+ * (luôn checked) — chỉ bấm Sửa được. Card nhỏ phía trên ("Return baseline" + "Timing") CHỈ hiện khi
+ * `pointMoveRunMode === 'all'`.
  * @param {object} preset - preset ĐANG sửa (cần `pointMoves`/`pointMoveEndForceBaseline`/`pointMoveRunMode`). */
 function renderPointMoveListBody(preset) {
     const pointMoves = preset.pointMoves;
@@ -462,14 +441,9 @@ function renderPointMoveFieldRows(key, field, cfg) {
                         <input type="range" data-ptmove-range="min" data-suffix="${cfg.suffix}" id="setting-ptmove-${key}-rangemin" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.rangeMin}" class="ptmove-range-input">
                         <input type="range" data-ptmove-range="max" data-suffix="${cfg.suffix}" id="setting-ptmove-${key}-rangemax" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.rangeMax}" class="ptmove-range-input">
                     </div>`;
-    // MỚI (phản hồi Giang — ô nhập số type=number sync 2 chiều với slider) — single mode: 1 ô; range
-    // mode: 2 ô (min/max), cùng min/max/step với slider tương ứng (kẹp biên ở event/workflow/
-    // motion-presets.js::commitPointMoveNumberInput()).
-    // MỚI LẦN 2 (phản hồi Giang — `inputmode="decimal"` fix được bàn phím full nhưng bàn phím decimal
-    // của iOS KHÔNG có phím trừ, field cho phép âm (boundMin<0 — CẢ 6 field Point Move) không gõ được
-    // số âm nữa) — thêm nút "±" nhỏ cạnh MỖI ô input thuộc field cho phép âm, bấm để ĐẢO DẤU giá trị
-    // hiện tại (thay cho việc gõ dấu trừ bằng bàn phím) — CHỈ hiện khi `cfg.boundMin < 0` (field
-    // React Beat max — zoom/panX/panY/rotate — toàn số dương, KHÔNG cần nút này).
+    // Ô số sync 2 chiều với slider — single mode: 1 ô; range mode: 2 ô (min/max), cùng min/max/step với slider
+    // (kẹp biên ở event/workflow/motion-presets.js::commitPointMoveNumberInput()).
+    // Bàn phím decimal iOS không có phím trừ -> field cho phép âm (`cfg.boundMin < 0`) có nút "±" cạnh MỖI ô để đảo dấu.
     const signToggleBtnHtml = (inputId) => cfg.boundMin < 0 ? `<button type="button" data-ptmove-sign-toggle="${inputId}" class="w-7 h-7 shrink-0 flex items-center justify-center rounded-lg text-sm font-bold" data-uitk="inputBg inputBorder inputText" title="${escapeHtml(t('motionSettingsDrawer.pointMove.signToggle.title'))}">±</button>` : '';
     const singleInputHtml = `
                     <div class="flex items-center gap-1${isSingle ? '' : ' hidden'}" id="ptmove-${key}-single-input-wrap">
@@ -511,7 +485,7 @@ function renderPointMoveFieldRows(key, field, cfg) {
 function renderPointMoveEditBody(pointMove) {
     const linearBounds = pointMove.linearX.unit === 'px' ? { min: -1000, max: 1000, step: 10 } : { min: -200, max: 200, step: 5 };
     const linearYBounds = pointMove.linearY.unit === 'px' ? { min: -1000, max: 1000, step: 10 } : { min: -200, max: 200, step: 5 };
-    // MỚI (07/10/2026, Giang) — nút Random của nhóm Point Move: hàng tiêu đề nhỏ trên card 6 thông số (cùng kiểu
+    // Nút Random của nhóm Point Move: hàng tiêu đề nhỏ trên card 6 thông số (cùng kiểu
     // tiêu đề nhóm của màn Edit preset), mỗi lần bấm sinh lại giá trị cả 6 slider (giữ mode/đơn vị).
     return `
                 <div>
@@ -532,15 +506,13 @@ function renderPointMoveEditBody(pointMove) {
 }
 
 /** Khung chứa thanh Timing — SVG THẬT dựng bởi core/point-move-timing-ui.js, workflow tự append
- * vào `#ptmove-timing-container` sau khi `_render()` xong. CHỈ 1 TRỤC X (phản hồi Giang — "loại bỏ
- * toàn bộ timing Y") — kéo trực tiếp trên thanh để chỉnh gần đúng (2 nhãn sống "Point N" bám node +
+ * vào `#ptmove-timing-container` sau khi `_render()` xong. CHỈ 1 TRỤC X — kéo trực tiếp trên thanh để chỉnh gần đúng (2 nhãn sống "Point N" bám node +
  * "X: NN%" cố định góc trái trên tự hiện lúc ấn, core-ui tự lo — không cần gì thêm ở component này);
  * TAP (không kéo) vào 1 node mở modal nhập số chính xác, xem event/workflow/motion-presets.js::
  * openPointMoveTimingNodeModal(). 2 nút zoom +/- CHỈ đổi CSS `transform:scaleX()` cục bộ theo trục
  * thời gian (KHÔNG lưu, KHÔNG qua eventBus — thuần view, giãn khoảng cách giữa các node để đỡ bấm/
  * kéo nhầm, xem event/workflow/motion-presets.js::stepPointMoveTimingZoom()).
- * @param {object[]} pointMoves - CHƯA dùng trực tiếp trong hàm này nữa (danh sách ô nhập số ĐÃ bỏ)
- *   — giữ tham số để chữ ký hàm ổn định, phòng cần lại sau này. */
+ * @param {object[]} pointMoves - chưa dùng (giữ chữ ký ổn định). */
 function renderPointMoveTimingBody(pointMoves) {
     return `
         <p class="text-xs mb-2 px-1" data-uitk="textSecondary">${t('motionSettingsDrawer.pointMove.timing.hint')}</p>
@@ -557,8 +529,7 @@ function renderPointMoveTimingBody(pointMoves) {
     `;
 }
 
-/** MỚI (12/10/2026, plan-event-bus-wiring đợt 6a — dọn nợ trong method bị đụng `openPointMoveTimingNodeModal()`) — body
- * modal nhập CHÍNH XÁC vị trí X của 1 node trên thanh Timing (trước đây Workflow tự dựng chuỗi này). Ô số
+/** Body modal nhập CHÍNH XÁC vị trí X của 1 node trên thanh Timing (workflowMotionPresets.openPointMoveTimingNodeModal()). Ô số
  * `#ptmove-modal-x-input` — Workflow đọc `.value` lúc bấm Lưu.
  * @param {number} minX @param {number} maxX @param {number} value */
 function renderPointMoveTimingModalBody(minX, maxX, value) {

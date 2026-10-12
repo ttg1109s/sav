@@ -1,31 +1,21 @@
 /**
- * Component: nội dung Generic Drawer cho "Element Style Editor" (công cụ CHUNG dựng CSS box model
- * + text style, xem event/workflow/element-style-editor.js). 2 tab Box/Chữ — chuyển tab RE-RENDER
- * TOÀN BỘ body (cùng cơ chế `_rerenderBody()` của Custom Effect Drawer, components/
- * custom-effect-drawer.js). Bảng màu SÁNG cố định (Generic Drawer loại trừ theme).
+ * Component: nội dung Generic Drawer cho "Element Style Editor" (công cụ CHUNG dựng CSS box model + text style, xem
+ * event/workflow/element-style-editor.js). 2 tab Box/Chữ — chuyển tab RE-RENDER TOÀN BỘ body. Màu qua `data-uitk`.
  *
- * i18n (MỚI — trước đây hard-code tiếng Việt thẳng, Giang yêu cầu nối vào hệ chung) — namespace
- * `elementStyleEditor.*`, key EN mặc định ở lang/patch/patch-visualizer.js (CÙNG nhà
- * `customEffectDrawer.*`/`eqPresetsDrawer.*`/`visualizerSettingsDrawer.*`, mọi Drawer nội dung
- * visualizer đều gom về đó). CHỈ dịch NHÃN mô tả (tên field/mode/nguồn font...) — KHÔNG dịch giá
- * trị option là keyword CSS thuần (px/em/solid/dashed/left/center...), vì đó là token kỹ thuật
- * quốc tế, không phải văn bản ngôn ngữ (cùng lý do core/custom-effect.js không dịch 'mirror'/
- * 'cascade' RA GIÁ TRỊ lưu — chỉ dịch NHÃN hiển thị của chúng qua CUSTOM_EFFECT_STYLE_LABEL_KEYS,
- * ở đây đơn giản hơn nên không tách bảng label riêng, giữ luôn giá trị CSS làm text hiển thị).
+ * i18n — namespace `elementStyleEditor.*`, key EN mặc định ở lang/patch/patch-visualizer.js. CHỈ dịch NHÃN mô tả (tên
+ * field/mode...) — KHÔNG dịch giá trị option là keyword CSS thuần (px/em/solid/dashed/left/center...) — token kỹ thuật,
+ * giữ luôn giá trị CSS làm text hiển thị.
  *
- * QUY ƯỚC data-attribute — Workflow querySelectorAll theo class chung để wire, KHÔNG hard-code
- * từng field 1 (mirror `.ce-field-toggle`/`.ce-field-slider` của Custom Effect Drawer):
- *   - `.ese-enable` (checkbox) — data-section, data-field. Bật/tắt 1 property, ĐỔI thì phải
- *     re-render (hiện/ẩn khối input con), Workflow tự biết qua chính class này.
- *   - `.ese-field` (input/select bất kỳ) — data-section, data-field, data-subkey, data-numeric
- *     ("1" nếu cần parseFloat), data-rerender ("1" nếu đổi field này cũng cần re-render toàn body,
- *     vd đổi `mode` width/height ẩn/hiện khối value+unit). DÙNG CHO field DẠNG OBJECT.
- *   - `.ese-simple-field` (select) — MỚI (15/08/2026) — data-section, data-field. Field
- *     DROPDOWN-THUẦN (string, "None" LÀ 1 option ngay trong list, tự làm công tắc — KHÔNG có
- *     `.ese-enable` riêng cho nhóm field này nữa) — fontWeight/fontStyle/textAlign/
- *     textDecoration/textTransform/whiteSpace.
- *   - `data-cross-target="<id>"` — đồng bộ hiển thị 2 input cùng biểu diễn 1 giá trị (text hex +
- *     color picker), CÙNG pattern `#ce-solid-color-text`/`#ce-solid-color-picker`.
+ * QUY ƯỚC data-attribute — Listener (event/listener/element-style-editor.js) ủy quyền theo class chung, KHÔNG hard-code
+ * từng field 1:
+ *   - `.ese-enable` (checkbox) — data-section, data-field. Bật/tắt 1 property, đổi thì re-render (hiện/ẩn khối input con).
+ *   - `.ese-field` (input/select) — data-section, data-field, data-subkey, data-numeric ("1" nếu cần parseFloat),
+ *     data-rerender ("1" nếu đổi field này cũng cần re-render toàn body, vd đổi `mode` width/height ẩn/hiện khối
+ *     value+unit). DÙNG CHO field DẠNG OBJECT.
+ *   - `.ese-simple-field` (select) — data-section, data-field. Field DROPDOWN-THUẦN (string, "None" là 1 option tự làm
+ *     công tắc) — fontWeight/fontStyle/textAlign/textDecoration/textTransform/whiteSpace.
+ *   - `data-cross-target="<id>"` — đồng bộ hiển thị 2 input cùng biểu diễn 1 giá trị (text hex + color picker).
+ *   - Nút X header mang `data-ese-close` (id X dùng chung mọi Drawer); tab `data-ese-tab`.
  *
  * NẠP SAU: components/generic-drawer.js, lang/lang.js (cần hàm t()).
  */
@@ -38,33 +28,16 @@ const ESE_LENGTH_UNITS = ['px', '%', 'em', 'rem', 'vw', 'vh', 'pt', 'cm', 'mm', 
 function renderElementStyleEditorHeader(activeTab) {
     const tabBtn = (key, label) => `
         <button data-ese-tab="${key}" class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors" data-uitk="${activeTab === key ? 'btnPrimaryPillBg textOnAccent' : 'btnNeutralBg btnNeutralText'}">${label}</button>`;
-    // SỬA 07/10/2026 — header dùng chung buildDrawerHeaderHtml() (components/generic-drawer.js)
-    // SỬA 12/10/2026 (plan-event-bus-wiring đợt 5) — nút X mang `data-ese-close`: Listener ủy quyền (event/listener/
-    // element-style-editor.js) nhận đúng nút X của Element Style Editor (id X dùng chung mọi Drawer).
+    // components/generic-drawer.js — nút X mang `data-ese-close` cho Listener ủy quyền.
     return buildDrawerHeaderHtml({ leftHtml: `<div class="flex items-center gap-2">${tabBtn('box', t('elementStyleEditor.tab.box'))}${tabBtn('text', t('elementStyleEditor.tab.text'))}</div>`, closeAttrs: 'data-ese-close="1"' });
 }
 
-/** MỚI (16/08/2026 — Giang yêu cầu "ô preview cố định ở trong body drawer") — `_renderEsePreviewBox()`
- * LUÔN đứng ĐẦU body (TRƯỚC nội dung 2 tab), `sticky top-0` — "cố định" theo đúng nghĩa Giang yêu
- * cầu: body Drawer cuộn dọc (`overflow-y-auto`, bodyClass truyền từ Workflow), riêng khối preview
- * PHẢI dính lại đỉnh khi cuộn qua các card field bên dưới, KHÔNG cuộn mất — sticky (KHÔNG phải
- * fixed thật) chính là cách làm ĐÚNG cho 1 phần tử "cố định bên trong 1 vùng cuộn cụ thể" (fixed
- * thật sẽ neo theo viewport, sai ngữ cảnh — trôi ra ngoài Drawer lúc Drawer tự cuộn/đóng).
- * `-mx-4 px-4` — triệt tiêu padding NGANG `px-4` của chính body (bodyClass, truyền từ Workflow) CHỈ
- * cho riêng khối này, để nền trắng (`bg-white`) phủ TRÀN 2 mép khi dính đỉnh (không vậy sẽ hở 2
- * bên, thấy card bên dưới lọt qua viền trái/phải lúc cuộn).
- *
- * SỬA (mục 3, Giang chỉ ra "preview đang có khe hở ở top") — TỪNG dùng THÊM `-mt-3` (bù trừ padding
- * DỌC `py-3` của body, cùng cơ chế với `-mx-4`) NHƯNG margin ÂM không triệt tiêu ĐÁNG TIN CẬY padding-
- * top của vùng cuộn cha khi áp lên 1 phần tử `position: sticky` (khác hẳn phần tử thường) — vài
- * engine (đặc biệt Safari/WebKit, xem lịch sử khó khăn tương tự ở components/generic-drawer.js) tính
- * điểm "dính" của sticky dựa trên mép PADDING của vùng cuộn cha, bỏ qua phần margin âm đã kéo box
- * lên — kết quả: dù vị trí TĨNH (trước khi cuộn) đúng khớp mép trên, lúc đã "dính" lại hở ra ĐÚNG 1
- * khoảng bằng `py-3` gốc của body. SỬA TẬN GỐC — bỏ hẳn cơ chế "trừ đi rồi cộng lại" cho TRỤC DỌC:
- * body (event/workflow/element-style-editor.js::_render()) đổi bodyClass bỏ hẳn `pt-*` (chỉ còn
- * `pb-3`, không đụng gì trục ngang), NHƯỜNG TOÀN BỘ padding-top cho ĐÚNG 1 nơi — `pt-3` của chính
- * khối preview này — không còn gì để "triệt tiêu" nữa nên không còn phụ thuộc hành vi margin âm +
- * sticky của bất kỳ engine nào.
+/** Ô preview LUÔN đứng ĐẦU body (TRƯỚC nội dung 2 tab), `sticky top-0` — dính đỉnh vùng cuộn của Drawer khi cuộn qua
+ * các card field (sticky, không phải fixed — fixed neo theo viewport, trôi ra ngoài Drawer).
+ * `-mx-4 px-4` — triệt tiêu padding NGANG `px-4` của body CHỈ cho khối này, để nền phủ TRÀN 2 mép khi dính đỉnh.
+ * Trục DỌC: body KHÔNG có `pt-*` (bodyClass chỉ `pb-3`, xem workflowElementStyleEditor._renderMain()) — padding-top
+ * nằm ở `pt-3` của chính khối này. Không dùng margin âm để bù padding-top: WebKit tính điểm "dính" của sticky theo mép
+ * PADDING vùng cuộn cha, bỏ qua margin âm -> lúc dính hở 1 khe.
  * Nội dung preview LUÔN hiển thị CHUNG cả Box lẫn Text (KHÔNG đổi theo tab đang xem) — vì Style áp
  * dụng đồng thời cả 2 nhóm property lúc build CSS cuối (buildElementStyleCssString(), core/
  * element-style-editor.js đọc CẢ `draft.box` LẪN `draft.text` cùng lúc, không tách theo tab).
@@ -113,11 +86,9 @@ function _eseSelect(section, field, subkey, options, current, rerender) {
     return `<select class="ese-field rounded-lg px-2 py-1.5 text-xs outline-none" data-uitk="inputBg inputBorder inputText" data-section="${section}" data-field="${field}" data-subkey="${subkey}" ${rerender ? 'data-rerender="1"' : ''}>${opts}</select>`;
 }
 
-/** MỚI (15/08/2026, Giang chỉ ra "None là dropdown") — select cho field DROPDOWN-THUẦN (string,
- * KHÔNG phải object {enabled,value}) — class RIÊNG `.ese-simple-field` (KHÔNG phải `.ese-field`,
- * wiring khác — event/workflow/element-style-editor.js gọi setElementStyleSimpleField() thẳng,
- * không qua cơ chế merge subkey). "None" LUÔN là option ĐẦU (tự làm công tắc tắt/mở, không cần
- * checkbox riêng nữa). */
+/** Select cho field DROPDOWN-THUẦN (string, KHÔNG phải object {enabled,value}) — class RIÊNG `.ese-simple-field`
+ * (Workflow ghi thẳng qua setElementStyleSimpleField(), không qua cơ chế merge subkey). "None" LUÔN là option ĐẦU (tự
+ * làm công tắc tắt/mở). */
 function _eseSimpleSelect(section, field, options, current) {
     const opts = options.map((o) => `<option value="${o.value}" ${o.value === current ? 'selected' : ''}>${o.label}</option>`).join('');
     return `<select class="ese-simple-field rounded-lg px-2 py-1.5 text-xs outline-none" data-uitk="inputBg inputBorder inputText" data-section="${section}" data-field="${field}">${opts}</select>`;
@@ -137,10 +108,8 @@ function _eseNumber(section, field, subkey, value, step) {
     return `<input type="number" value="${value}" step="${step || 1}" class="ese-field w-20 rounded-lg px-2 py-1.5 text-xs outline-none" data-uitk="inputBg inputBorder inputText" data-section="${section}" data-field="${field}" data-subkey="${subkey}" data-numeric="1">`;
 }
 
-/** MỚI (16/08/2026, mục 2) — cặp input màu (text hex đồng bộ 2 chiều <-> color picker tròn, CÙNG
- * `data-cross-target`) DÙNG CHUNG cho 4 field màu trong Drawer (text.color/box.border.color/
- * box.background.value/text.textShadow.color, TÁCH từ 2 bản gần giống hệt nhau trước đó —
- * `_renderEseColorField()`/phần màu của `_renderEseBorderField()`). `idPrefix` PHẢI duy nhất/field
+/** Cặp input màu (text hex đồng bộ 2 chiều <-> color picker tròn, CÙNG `data-cross-target`) DÙNG CHUNG cho 4 field màu
+ * trong Drawer (text.color/box.border.color/box.background.value/text.textShadow.color). `idPrefix` PHẢI duy nhất/field
  * (id DOM toàn trang, đụng nhau thì `data-cross-target` đồng bộ NHẦM field khác). */
 function _eseColorPair(idPrefix, section, field, subkey, value) {
     return `
@@ -182,10 +151,8 @@ function _renderEseBoxTab(box) {
     `;
 }
 
-/** MỚI (15/08/2026) — Width/Height bỏ hẳn card+toggle riêng — `mode` thêm lựa chọn `'none'`
- * (LÀM CÔNG TẮC LUÔN, xem cloneElementStyleDraftDefaults(), service/state/element-style-editor.js)
- * — vẫn dùng `_eseSelect()` thường (KHÔNG phải `_eseSimpleSelect()`) vì `mode` vẫn là SUBKEY của
- * object {mode,value,unit}, không phải field dropdown-thuần. */
+/** Width/Height — không có toggle riêng: `mode` có lựa chọn `'none'` làm công tắc (cloneElementStyleDraftDefaults(),
+ * service/state/element-style-editor.js). Dùng `_eseSelect()` thường vì `mode` là SUBKEY của object {mode,value,unit}. */
 function _renderEseSizeRow(label, section, field, f) {
     const modeOptions = [
         { value: 'none', label: t('elementStyleEditor.mode.none') },
@@ -211,15 +178,8 @@ function _renderEseSizeRow(label, section, field, f) {
         </div>`;
 }
 
-/** SỬA (16/08/2026, Giang phát hiện — "phần rìa input left đang bị ra ngoài") — hàng 4 input Top/
- * Right/Bottom/Left TỪNG dùng `flex justify-between gap-2` + input `w-20` (80px) CỐ ĐỊNH: 4×80px +
- * 3×gap(8px) = 344px, CỘNG padding 2 lớp bao ngoài (body px-4 + card px-4 = 64px) VƯỢT bề rộng màn
- * hình hẹp (iPhone ~375-393px khả dụng ~329px cho riêng hàng này) -> input cuối (Left) bị đẩy tràn
- * ra ngoài viewport (flex item không tự co vì `width` khai báo cứng "thắng" trước khi flex-shrink
- * kịp tính, xem hội thoại). SỬA: đổi `grid grid-cols-4` (4 cột LUÔN chia đều bề rộng khả dụng, tự
- * co giãn theo màn hình, không phụ thuộc bề rộng nội dung input) + input đổi `w-20` cố định ->
- * `w-full min-w-0` (co theo đúng cột grid của nó, `min-w-0` bắt buộc — mặc định input vẫn giữ 1 sàn
- * bề rộng tối thiểu riêng nếu thiếu khai báo này, dù đã nằm trong ô grid hẹp hơn). */
+/** Hàng 4 input Top/Right/Bottom/Left: `grid grid-cols-4` (4 cột chia đều bề rộng khả dụng — input bề rộng cố định sẽ
+ * tràn viewport trên màn hẹp) + input `w-full min-w-0` (`min-w-0` bắt buộc, không thì input giữ sàn bề rộng riêng). */
 function _renderEseSidesField(section, field, f) {
     const sideInput = (side, labelKey) => `
         <div class="flex flex-col items-center gap-1 min-w-0">
@@ -236,7 +196,7 @@ function _renderEseSidesField(section, field, f) {
         </div>`;
 }
 
-/** MỚI (16/08/2026, mục 2 — Giang chỉ ra "đang thiếu background cho box"). */
+/** Background của box (1 cặp màu). */
 function _renderEseBackgroundField(bg) {
     return `
         <div class="flex justify-between items-center">
@@ -265,10 +225,8 @@ function _renderEseBorderField(b) {
         </div>`;
 }
 
-/** MỚI — Opacity (0-100, quy đổi sang 0-1 lúc build CSS, xem buildElementStyleCssString(),
- * core/element-style-editor.js). Input số thay vì slider — nhất quán các field số khác trong
- * Drawer này (fontSize/letterSpacing...), tránh thêm cơ chế wiring riêng cho live-label của
- * slider (đơn giản hoá, xem hội thoại). */
+/** Opacity (0-100, quy đổi sang 0-1 lúc build CSS, xem buildElementStyleCssString(), core/element-style-editor.js).
+ * Input số (không slider) — nhất quán các field số khác trong Drawer này (fontSize/letterSpacing...). */
 function _renderEseOpacityField(o) {
     return `
         <div class="flex justify-between items-center">
@@ -306,7 +264,7 @@ function _renderEseColorField(c) {
         </div>`;
 }
 
-/** MỚI (16/08/2026, mục 2 — Giang chỉ ra "chưa có text-shadow cho text") — 3 input số (offsetX/
+/** Text-shadow — 3 input số (offsetX/
  * offsetY/blur, LUÔN px, xem docstring cloneElementStyleDraftDefaults(), service/state/
  * element-style-editor.js) + 1 cặp màu DÙNG CHUNG (_eseColorPair()). */
 function _renderEseTextShadowField(ts) {
@@ -329,26 +287,12 @@ function _renderEseTextShadowField(ts) {
         </div>`;
 }
 
-/** SỬA (mục 2, Giang yêu cầu "chuyển dropdown google > dạng drawer generic list (subpanel), nhấn
- * vào để chọn > ghi nhớ back lại và đưa vào font name, không dùng input hay dropdown nữa") — ô
- * search+dropdown tự chế (`_renderEseGoogleFontPicker()`/`_renderEseFontDropdownItems()` cũ, absolute
- * positioned, ĐÃ XOÁ) THAY bằng 1 nút thuần hiển thị tên đang chọn (`#ese-fontfamily-open-picker`) —
- * bấm vào ĐẨY SANG 1 màn riêng TRONG CÙNG Generic Drawer (danh sách Google Font cuộn dọc thật, có
- * nút Back ở header — CÙNG khuôn "push/back 1 màn" mà `workflowAppSettings._screenStack` dùng cho
- * Settings, xem `workflowElementStyleEditor._fontPickerOpen`/`_renderFontPicker()`, event/workflow/
- * element-style-editor.js) THAY vì dropdown nổi đè lên UI xung quanh. Chọn 1 font trong danh sách đó
- * TỰ ĐỘNG quay lại màn này (Workflow tự nhớ để back, người dùng không cần bấm Back tay) — tên font
- * MỚI hiện NGAY trên nút.
- *
- * XOÁ (mục 1, Giang yêu cầu "bỏ row source vì giờ mặc định sẽ chỉ có google font") — dropdown chọn
- * nguồn 'system'/'google' (`sourceOptions`) + nhánh input tự do cho nguồn 'system' ĐÃ XOÁ HẲN — app
- * giờ CHỈ hỗ trợ Google Font, không còn lựa chọn nào khác nên KHÔNG cần hàng "Source" nữa. Field
- * `source` VẪN giữ trong state/CSS xuất ra (core/element-style-editor.js dùng để quyết định thêm
- * fallback `, sans-serif`) — mặc định draft MỚI giờ `'google'` (service/state/element-style-
- * editor.js) + Workflow LUÔN ghi ĐÈ lại `'google'` mỗi lần chọn font qua picker (xem event/workflow/
- * element-style-editor.js::_wireFontPickerListClicks()), phòng trường hợp NẠP LẠI 1 style đã lưu
- * TỪ TRƯỚC (lúc còn nguồn 'system') qua `initialCssString` — parse ra `source:'system'` nhưng
- * KHÔNG còn UI nào cho thấy sự khác biệt đó nữa, chọn lại font 1 lần là tự sửa đúng luôn. */
+/** Font family — CHỈ Google Font. 1 nút hiển thị tên đang chọn (`#ese-fontfamily-open-picker`) — bấm vào ĐẨY SANG màn
+ * con "Chọn Google Font" TRONG CÙNG Generic Drawer (danh sách cuộn dọc + nút Back ở header; Element Style Editor tự quản
+ * lý push/back, xem `workflowElementStyleEditor._fontPickerOpen`/`_renderFontPicker()`). Chọn 1 font tự quay lại màn
+ * này, tên mới hiện ngay trên nút.
+ * Field `source` vẫn có trong state/CSS (core dùng để thêm fallback `, sans-serif`) — mặc định `'google'`, và Workflow
+ * luôn ghi `'google'` mỗi lần chọn font (style lưu từ lúc còn nguồn 'system' tự sửa đúng khi chọn lại). */
 function _renderEseFontFamilyField(f, loadedGoogleFonts) {
     return `
         <div class="flex justify-between items-center">
@@ -367,18 +311,15 @@ function _renderEseFontFamilyField(f, loadedGoogleFonts) {
     `;
 }
 
-/** MỚI (mục 2) — header màn con "Chọn Google Font" (đẩy sang bởi `#ese-fontfamily-open-picker`) —
- * CÙNG khuôn header có nút Back của `workflowAppSettings._render()` (event/workflow/app-settings.js),
- * viết riêng ở đây vì màn này KHÔNG thuộc ngăn xếp đó (Element Style Editor tự quản lý push/back 1
- * màn của riêng nó, xem `workflowElementStyleEditor._renderFontPicker()`). */
+/** Header màn con "Chọn Google Font" (đẩy sang bởi `#ese-fontfamily-open-picker`) — có nút Back riêng
+ * (`#btn-ese-fontpicker-back`), không thuộc ngăn xếp của workflowAppSettings. */
 function renderEseFontPickerHeader() {
-    // SỬA 07/10/2026 — header dùng chung buildDrawerHeaderHtml() (components/generic-drawer.js)
+    // components/generic-drawer.js
     return buildDrawerHeaderHtml({ backId: 'btn-ese-fontpicker-back', title: t('elementStyleEditor.font.name'), close: false });
 }
 
-/** MỚI (mục 2) — body màn con: 1 ô tìm kiếm tĩnh (KHÔNG sticky — tránh lặp lại đúng bug "khe hở"
- * ở mục 3, xem docstring `_renderEsePreviewBox()`) + danh sách cuộn dọc thật (KHÔNG absolute/nổi
- * đè, đúng yêu cầu "dạng drawer generic list"). `currentValue` để tô đậm + tick dòng đang chọn. */
+/** Body màn con: 1 ô tìm kiếm tĩnh (KHÔNG sticky — tránh khe hở sticky, xem `_renderEsePreviewBox()`) + danh sách cuộn
+ * dọc. `currentValue` để tô đậm + tick dòng đang chọn. */
 function renderEseFontPickerBody(currentValue) {
     return `
         <div class="flex flex-col gap-3">
@@ -387,9 +328,8 @@ function renderEseFontPickerBody(currentValue) {
         </div>`;
 }
 
-/** MỚI (mục 2, thay `_renderEseFontDropdownItems()` cũ) — dựng danh sách kết quả lọc TRONG màn con
- * (KHÔNG phải dropdown nổi) — gọi lại mỗi lần gõ (Workflow tự gán `list.innerHTML`, xem
- * `_wireFontPicker()`, event/workflow/element-style-editor.js). Lọc theo tên, KHÔNG phân biệt hoa/
+/** Danh sách kết quả lọc trong màn con — gọi lại mỗi lần gõ (workflowElementStyleEditor.filterFontPicker() thay
+ * danh sách qua core -ui). Lọc theo tên, KHÔNG phân biệt hoa/
  * thường, so khớp CHỨA. `f.scripts` hiện kèm bên phải mỗi dòng (vd "VI JA"). Dòng TRÙNG
  * `currentValue` tô đậm xanh + tick — người dùng thấy ngay đang chọn font nào lúc mở lại danh sách. */
 function _renderEseFontListItems(query, currentValue) {

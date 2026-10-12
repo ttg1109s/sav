@@ -1,7 +1,6 @@
 /**
- * components/image-edit-modals.js — [MỚI 12/10/2026, plan-event-bus-wiring-07-10-2026 đợt 6a] Markup body các modal
- * nhỏ của trình sửa ảnh Photo (event/workflow/image-edit.js) — trước đây Workflow tự dựng chuỗi HTML (Workflow tự dựng
- * template HTML, Rule 5d: markup thuộc `render*()` ở components/).
+ * components/image-edit-modals.js — markup body các modal nhỏ của trình sửa ảnh Photo (event/workflow/image-edit.js).
+ * Markup thuộc `render*()` ở components/ (Rule 5d), Workflow chỉ gọi hàm.
  *
  * NẠP SAU: lang/lang.js (t). Lúc chạy: core/modal-choice-ui.js (escapeHtml).
  */

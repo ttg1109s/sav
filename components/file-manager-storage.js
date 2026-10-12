@@ -1,43 +1,22 @@
 /**
- * components/file-manager-storage.js — MỚI (29/07/2026, yêu cầu Giang).
- *
- * Panel "Quản lý lưu trữ" (storageDrawer.title) — THAY HẲN nội dung "thống kê + giải phóng bộ nhớ
- * + dọn file lỗi" từng nằm TRONG panel "Song & Video" cũ (renderFileManagerSongPanelBody(),
- * components/file-manager.js — ĐÃ XOÁ HẲN function đó). Panel Song & Video giờ KHÔNG còn tồn tại —
- * hàng "Song & Video" ở section chính (components/settings/file-manager-section.js) giờ mở THẲNG
- * Generic Drawer duyệt thư mục (event/workflow/file-manager-folder-browser.js::openList()), bỏ qua
- * mọi panel trung gian.
- *
- * MỞ RỘNG (mục 2a/2c, phản hồi Giang):
- *   - Thống kê dung lượng giờ gồm ĐỦ 3 domain (Song/Video/Photo) — thanh chia đoạn 3 màu THAY 2
- *     màu cũ, "vòng tròn số lượng" THAY bằng 1 LIST 3 hàng (nhãn trái - số lượng phải).
- *   - "Giải phóng bộ nhớ" đổi tên "Chọn mục xoá" — <select> phạm vi (song/video/both) cũ THAY bằng
- *     3 checkbox toggle ĐỘC LẬP (Song/Video/Photo, không loại trừ nhau) — kết hợp CÙNG 2
- *     toggle sẵn có (Tải xuống trước/Xoá khỏi thư viện). "Dọn file lỗi" DÙNG CHUNG đúng 3 checkbox
- *     này để biết quét kho nào (xem event/workflow/file-manager-storage.js).
- *   - Nút "Dọn dẹp dữ liệu" (trước ở cuối section chính, components/settings/file-manager-
- *     section.js) DỜI VÀO ĐÂY (mục 2d) — ID giữ NGUYÊN (`btn-file-manager-cleanup-run`), router/
- *     workflow/core (fileManagerCleanup) KHÔNG đổi gì, chỉ đổi NƠI listener wiring (delegate qua
- *     `settingsStackBody`, xem event/listener/file-manager-storage.js — THAY static binding cũ ở
- *     event/listener/file-manager-cleanup.js đã xoá).
- *
- * Push ĐỘNG vào Settings Stack (core/settings-panel-stack.js), CÙNG khuôn panel Photo —
- * xem event/workflow/file-manager-storage.js::openPanel().
+ * components/file-manager-storage.js — body Generic Drawer "Quản lý lưu trữ" (storageDrawer.title), mở từ tab Storage
+ * của bottom nav (event/workflow/file-manager-storage.js::openPanel()). 4 khối:
+ *   - Thống kê dung lượng 3 domain (Song/Video/Photo): thanh chia đoạn (ấn từng đoạn xem số byte thật) + list 3 hàng
+ *     (nhãn - số lượng, chấm màu khớp thanh).
+ *   - "Chọn mục xoá": 3 toggle nguồn ĐỘC LẬP (Song/Video/Photo) + 2 toggle hành động (Tải xuống trước / Xoá khỏi thư
+ *     viện) + nút Thực hiện.
+ *   - "Dọn file lỗi": nút quét mở modalChoice() riêng chọn loại quét (xem askScanBrokenScope()), khung kết quả + nút
+ *     Sửa file lỗi / Bỏ qua.
+ *   - "Dọn dẹp dữ liệu" (`#btn-file-manager-cleanup-run`, router 'fileManagerCleanup').
+ * Sự kiện: delegate trên genericDrawerBody ở event/listener/file-manager-storage.js.
  */
-/** MỚI (12/10/2026, plan-event-bus-wiring đợt 2 — dọn nợ trong method bị đụng `openPanel()`) — body Generic Drawer
- * Storage: `renderFileManagerStorageManagementPanelBody()` bọc `p-4` + màu chữ mặc định theo theme (trước đây Workflow
- * tự dựng chuỗi wrapper này — Workflow tự dựng template HTML). */
+/** Body Generic Drawer Storage: `renderFileManagerStorageManagementPanelBody()` bọc `p-4` + màu chữ mặc định theo theme. */
 function renderFileManagerStorageDrawerBody() {
     return `<div class="p-4" data-uitk="textPrimary">${renderFileManagerStorageManagementPanelBody()}</div>`;
 }
 
 function renderFileManagerStorageManagementPanelBody() {
-    // SỬA (khôi phục — Giang báo "section title dính liền card bên trên") — 4 khối
-    // <div><h3>tiêu đề</h3><div class="glass-modal">card</div></div> ở dưới TRƯỚC ĐÂY nối liền
-    // nhau không có margin/gap nào — thiếu đúng lớp bọc `space-y-5` mà mọi màn dạng "list tiêu đề +
-    // card" khác trong app đã dùng (xem components/settings-drawer.js::renderMainPanel(), cùng
-    // khuôn `max-w-2xl mx-auto space-y-5` bọc quanh các TPL_SETTINGS_* nối chuỗi y hệt cấu trúc ở
-    // đây) — bọc lại ĐÚNG class đó, không cần đổi gì bên trong từng khối.
+    // Lớp bọc `space-y-5` tạo khoảng cách giữa các khối "tiêu đề + card" (cùng khuôn mọi màn dạng list tiêu đề + card).
     return `
                 <div class="space-y-5">
                 <!-- SECTION: THỐNG KÊ DUNG LƯỢNG (3 domain: Song/Video/Photo) -->
@@ -48,18 +27,12 @@ function renderFileManagerStorageManagementPanelBody() {
                             <span class="text-sm font-medium" data-uitk="textPrimary" data-i18n="storageDrawer.statTotalBytes">${t('storageDrawer.statTotalBytes')}</span>
                             <span id="stat-storage-total-bytes" class="text-lg font-bold font-mono tabular-nums" data-uitk="textPrimary">—</span>
                         </div>
-                        <!-- MỚI (29/07/2026, yêu cầu Giang mục 2) — mỗi đoạn giờ ấn được (cursor-
-                             pointer + data-legend-key, đọc bởi event/listener/file-manager-
-                             storage.js) — hiện số byte THẬT của đúng đoạn đó qua alertModal (xem
-                             event/workflow/file-manager-storage.js::showSegmentBytes()). -->
-                        <!-- MỚI (06/10/2026, Giang yêu cầu "dùng navigator.storage.estimate() ngay thanh tính
-                             dung lượng của các media") — khi có estimate, THANG ĐO của thanh = quota của app
-                             (kiểu Settings > Dung lượng của iOS): 3 đoạn media + 1 đoạn "Khác" (usage
-                             của origin trừ phần media — OPFS zip tạm, Cache Storage, dữ liệu app khác),
-                             phần track còn lại = còn trống. Không có estimate (trình duyệt cũ/file://)
-                             thì thanh rơi về cách cũ (tỉ lệ giữa 3 media), dòng "còn trống" ẩn.
-                             Đoạn "Khác" dùng màu inline (slate-400) — class bg-slate-400 CHƯA có trong
-                             assets/css/tailwind.css, tránh phải rebuild CSS chỉ vì 1 màu dữ liệu. -->
+                        <!-- Mỗi đoạn ấn được (data-legend-key) — hiện số byte THẬT của đoạn đó
+                             (workflowFileManagerStorage.showSegmentBytes()). Có navigator.storage.estimate():
+                             thang đo = quota của app — 3 đoạn media + "Khác" (usage origin trừ media), phần
+                             track còn lại = còn trống. Không có estimate (trình duyệt cũ/file://): tỉ lệ giữa
+                             3 media, dòng "còn trống" ẩn. Đoạn "Khác" màu inline (slate-400) vì bg-slate-400
+                             chưa có trong assets/css/tailwind.css. -->
                         <div class="flex flex-col gap-1.5">
                             <div class="h-2.5 w-full rounded-full overflow-hidden flex" data-uitk="progressTrackBg">
                                 <div id="stat-storage-bar-songs" class="h-full bg-sky-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendSongs" style="width:0%"></div>
@@ -68,7 +41,7 @@ function renderFileManagerStorageManagementPanelBody() {
                                 <div id="stat-storage-bar-other" class="h-full transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendOther" style="width:0%;background-color:#94a3b8"></div>
                             </div>
                             <div id="stat-storage-free-row" class="hidden flex items-baseline justify-between">
-                                <!-- SỬA (06/10/2026, Giang) — + icon (i) giải thích con số ước lượng (core/info-icon-ui.js) -->
+                                <!-- icon (i) giải thích con số ước lượng (core/info-icon-ui.js) -->
                                 <span class="flex items-center gap-1.5">
                                     <span class="text-xs" data-uitk="textSecondary" data-i18n="storageDrawer.statFreeBytes">${t('storageDrawer.statFreeBytes')}</span>
                                     ${infoIconHtml(t('storageDrawer.statFreeBytesInfo'))}
@@ -76,16 +49,7 @@ function renderFileManagerStorageManagementPanelBody() {
                                 <span id="stat-storage-free-bytes" class="text-xs font-mono tabular-nums" data-uitk="textSecondary">—</span>
                             </div>
                         </div>
-                        <!-- MỚI (mục 2b, phản hồi Giang "list ngay dưới song/video/photo
-                             (bên trái) - count items (bên phải)") — THAY hẳn 2 "vòng tròn số lượng"
-                             cũ (song/video), giờ 1 list 3 hàng, chấm màu khớp ĐÚNG màu thanh chia
-                             đoạn ở trên cho từng domain. -->
-                        <!-- SỬA (phản hồi Giang mục 2) — divide-white/5 đổi thẳng sang divide-slate-100:
-                             .app-settings-scope (assets/css/layout-nav.css) chỉ đè "border-white/*"
-                             qua selector [class*="border-white/"], KHÔNG khớp "divide-white/5"
-                             (utility Tailwind khác, sinh ra border qua selector con "> * + *", không
-                             phải class "border-*" trực tiếp) — để nguyên sẽ lọt lưới, đường kẻ vẫn
-                             gần như vô hình trên nền trắng dù đã bọc scope. -->
+                        <!-- List số lượng 3 domain, chấm màu khớp màu thanh chia đoạn ở trên. -->
                         <div class="flex flex-col divide-y mt-1" data-uitk="divideBorder">
                             <div class="flex items-center justify-between py-2">
                                 <span class="flex items-center gap-2 text-sm" data-uitk="textPrimary"><span class="w-2 h-2 rounded-full bg-sky-400 shrink-0"></span><span data-i18n="storageDrawer.legendSongs">${t('storageDrawer.legendSongs')}</span></span>
@@ -103,12 +67,8 @@ function renderFileManagerStorageManagementPanelBody() {
                     </div>
                 </div>
 
-                <!-- SECTION: CHỌN MỤC XOÁ — VIẾT LẠI (mục 2c, phản hồi Giang "dropdown source ->
-                     checkbox toggle cho song/video/photo, kết hợp option trước") — 1
-                     <select> phạm vi cũ (song/video/both) THAY bằng 3 toggle ĐỘC LẬP (không loại
-                     trừ nhau, có thể bật nhiều cái cùng lúc) — GIỮ NGUYÊN 2 toggle sẵn có (Tải
-                     xuống trước/Xoá khỏi thư viện) + nút Thực hiện. "Dọn file lỗi" (section ngay
-                     dưới) DÙNG CHUNG đúng 3 toggle nguồn này để biết quét kho nào. -->
+                <!-- SECTION: CHỌN MỤC XOÁ — 3 toggle nguồn ĐỘC LẬP (bật nhiều cùng lúc được) + 2 toggle
+                     hành động (Tải xuống trước / Xoá khỏi thư viện) + nút Thực hiện. -->
                 <div>
                     <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2" data-uitk="categoryAccent:rose" data-i18n="storageDrawer.selectSourceSectionTitle">${t('storageDrawer.selectSourceSectionTitle')}</h3>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
@@ -145,12 +105,6 @@ function renderFileManagerStorageManagementPanelBody() {
                         </div>
                         <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder">
                             <div class="pr-3">
-                                <!-- SỬA (phản hồi Giang mục 2) — text-rose-300 đổi sang text-rose-600:
-                                     .app-settings-scope KHÔNG có rule cho text-rose-*, để nguyên -300
-                                     (vốn hợp nền tối) sẽ quá nhạt/khó đọc trên nền trắng — đổi sang
-                                     rose-600, KHỚP màu bg-rose-600 của #btn-storage-fix-broken (ĐỔI
-                                     TÊN 18/09/2026 từ #btn-storage-delete-broken, cùng khối "cảnh báo
-                                     xoá"). -->
                                 <div class="text-sm font-medium" data-uitk="categoryAccent:rose" data-i18n="fileManager.song.storageAction.deleteToggle.label">${t('fileManager.song.storageAction.deleteToggle.label')}</div>
                                 <div class="text-xs mt-0.5" data-uitk="textSecondary" data-i18n="fileManager.song.storageAction.deleteToggle.hint">${t('fileManager.song.storageAction.deleteToggle.hint')}</div>
                             </div>
@@ -163,11 +117,8 @@ function renderFileManagerStorageManagementPanelBody() {
                     </div>
                 </div>
 
-                <!-- SECTION: DỌN FILE LỖI — SỬA (29/07/2026, yêu cầu Giang) — KHÔNG còn dùng chung
-                     3 toggle nguồn của "Delete & Backup" ở trên nữa (dễ nhầm/quên đang bật gì) —
-                     bấm nút này giờ tự mở modalChoice() RIÊNG với 1 dropdown chọn loại quét
-                     (Tất cả/Song/Video/Photo) ngay trong modal, có nút Huỷ/Thực hiện —
-                     xem event/workflow/file-manager-storage.js::askScanBrokenScope(). -->
+                <!-- SECTION: DỌN FILE LỖI — nút quét mở modalChoice() RIÊNG chọn loại quét (Tất cả/Song/
+                     Video/Photo), không dùng chung 3 toggle nguồn ở trên — xem askScanBrokenScope(). -->
                 <div>
                     <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2" data-uitk="categoryAccent:amber" data-i18n="storageDrawer.brokenSectionTitle">${t('storageDrawer.brokenSectionTitle')}</h3>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
@@ -182,12 +133,8 @@ function renderFileManagerStorageManagementPanelBody() {
                             <p id="storage-scan-summary" class="text-sm" data-uitk="textPrimary"></p>
                             <div id="storage-scan-list" class="flex flex-col gap-1.5 max-h-48 overflow-y-auto text-xs" data-uitk="textSecondary"></div>
                             <div class="flex gap-3 mt-1">
-                                <!-- ĐỔI TÊN (18/09/2026, gộp tính năng "Sửa file lỗi") — id/key từ
-                                     #btn-storage-delete-broken/storageDrawer.btnDeleteBroken. Màu nút
-                                     TĨNH giữ nguyên destructive (đa số lô quét vẫn có phần xoá thật) —
-                                     riêng modal xác nhận (askFixBroken(), event/workflow/
-                                     file-manager-storage.js) mới tự đổi màu/nội dung ĐÚNG theo từng
-                                     lô (thuần sửa thumb thì không còn destructive). -->
+                                <!-- Màu nút tĩnh destructive (đa số lô quét có phần xoá thật) — modal xác nhận
+                                     (askFixBroken()) mới đổi màu/nội dung đúng theo từng lô. -->
                                 <button id="btn-storage-fix-broken" class="flex-1 py-2.5 rounded-xl text-sm font-semibold" data-uitk="btnDestructiveBg btnDestructiveHoverBg textOnAccent" data-i18n="storageDrawer.btnFixBroken">${t('storageDrawer.btnFixBroken')}</button>
                                 <button id="btn-storage-dismiss-scan" class="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors" data-uitk="btnNeutralBg btnNeutralHoverBg btnNeutralText" data-i18n="storageDrawer.btnDismissScan">${t('storageDrawer.btnDismissScan')}</button>
                             </div>
@@ -195,10 +142,8 @@ function renderFileManagerStorageManagementPanelBody() {
                     </div>
                 </div>
 
-                <!-- SECTION: DỌN DẸP DỮ LIỆU — DỜI TỪ section chính File Manager (mục 2d, phản hồi
-                     Giang), ID GIỮ NGUYÊN — xem core/file-manager/cleanup.js (registry) +
-                     event/workflow/file-manager-cleanup.js (KHÔNG đổi gì, chỉ đổi nơi wiring click,
-                     xem event/listener/file-manager-storage.js). -->
+                <!-- SECTION: DỌN DẸP DỮ LIỆU — core/file-manager/cleanup.js (registry) +
+                     event/workflow/file-manager-cleanup.js. -->
                 <div>
                     <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                         <button id="btn-file-manager-cleanup-run" class="flex justify-between items-center p-4 w-full text-left" data-uitk="cardHoverBg">

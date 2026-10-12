@@ -1,32 +1,25 @@
 /**
- * Component: Debug Console Drawer — panel hiện log đã bắt được từ console.log/warn/error (xem
- * core/debug-console.js). MỚI (18/07/2026, Giang yêu cầu — debug lúc test mobile không mở được
- * DevTools thật).
+ * Component: Debug Console Drawer — panel hiện log đã bắt được từ console.log/warn/error (core/debug-console.js) — để
+ * debug trên điện thoại không có DevTools.
+ *   - mỗi dòng log = 1 ITEM (card `cardBg cardBorder`, log lỗi/cảnh báo nền rose/amber nhạt): bên trái nội dung (giờ +
+ *     cấp độ + text), bên phải 2 icon nút — Copy dòng đó + Xoá dòng đó;
+ *   - 2 nút trên cùng: Copy all = `btnPrimary*`, Clear all = `btnDestructive*`, có icon.
  *
- * SỬA (20/09/2026, Giang yêu cầu "chuyển các line thành item list: Nội dung | icon copy + clear,
- * styling theo chuẩn theme Light, sửa luôn styling 2 nút Copy all / Clear all") — TRƯỚC ĐÂY khối log
- * là 1 khung đen (`bg-black/40`, chữ `slate-300`, sót từ theme tối cũ) và 2 nút nền tối cứng; giờ:
- *   - mỗi dòng log = 1 ITEM (card `cardBg cardBorder`, log lỗi/cảnh báo nền rose/amber nhạt): bên trái
- *     nội dung (giờ + cấp độ + text), bên phải 2 icon nút — Copy dòng đó + Xoá dòng đó;
- *   - 2 nút trên cùng dùng ĐÚNG bộ key chuẩn của theme Light: Copy all = `btnPrimary*`, Clear all =
- *     `btnDestructive*` (cùng khuôn nút Storage/EQ), có icon.
- *
- * `renderDebugConsolePanelBody()` chỉ dựng KHUNG (2 nút + khung rỗng #debug-console-list) — DANH SÁCH
- * LOG THẬT được `event/workflow/settings-misc.js::_renderDebugConsoleList()` vẽ SAU bằng
- * `renderDebugConsoleListHtml()` bên dưới (đọc `getDebugConsoleLogs()` — core, đổi liên tục nên KHÔNG
- * vẽ 1 lần cố định ở template tĩnh này). Nút Copy/Xoá từng dòng mang `data-debug-log-action`
- * ('copy'|'remove') + `data-debug-log-id` (id dòng, core/debug-console.js) — wire bằng delegate 1 lần
- * trên #debug-console-list ở core/settings-misc-ui.js.
+ * `renderDebugConsolePanelBody()` chỉ dựng KHUNG (2 nút + khung rỗng #debug-console-list) — DANH SÁCH LOG THẬT được
+ * `event/workflow/settings-misc.js::_renderDebugConsoleList()` vẽ SAU bằng `renderDebugConsoleListHtml()` (log đổi liên
+ * tục nên không vẽ cố định ở template). Nút Copy/Xoá từng dòng mang `data-debug-log-action` ('copy'|'remove') +
+ * `data-debug-log-id` (id dòng, core/debug-console.js) — wire bằng delegate 1 lần trên #debug-console-list ở
+ * core/settings-misc-ui.js.
  */
 
-// SỬA 07/10/2026 — tên icon trong assets/icon/icons.js (trước là path SVG)
+// Tên icon trong kho chung assets/icon/icons.js
 const DEBUG_CONSOLE_ICON_COPY = 'duplicate';
 const DEBUG_CONSOLE_ICON_CHECK = 'check';
 const DEBUG_CONSOLE_ICON_REMOVE = 'x';
 const DEBUG_CONSOLE_ICON_TRASH = 'trash';
 
 function _renderDebugConsoleIconSvg(iconName, sizeClass) {
-    return iconSvg(iconName, sizeClass); // core/theme/icon-svg-ui.js — SỬA 07/10/2026: kho icon chung
+    return iconSvg(iconName, sizeClass); // core/ui-theme/icon-svg-ui.js
 }
 
 /** Icon của nút Copy TỪNG DÒNG — `isDone` true = dấu tick (báo đã copy xong, Workflow tự trả về icon
@@ -48,9 +41,8 @@ function renderDebugConsolePanelBody() {
     `;
 }
 
-/** MỚI (12/10/2026, plan-event-bus-wiring đợt 2 — dọn nợ trong method bị đụng `forceOpenDebugConsole()`) — body của
- * lối tắt cưỡng chế mở Debug Console trên loading shield: khung `renderDebugConsolePanelBody()` bọc `p-4` + màu chữ
- * theo theme (trước đây Workflow tự dựng chuỗi wrapper này — Workflow tự dựng template HTML). */
+/** Body của lối tắt cưỡng chế mở Debug Console trên loading shield (workflowSettingsMisc.forceOpenDebugConsole()):
+ * khung `renderDebugConsolePanelBody()` bọc `p-4` + màu chữ theo theme. */
 function renderDebugConsoleForceOpenBody() {
     return `<div class="p-4" data-uitk="textPrimary">${renderDebugConsolePanelBody()}</div>`;
 }
@@ -66,7 +58,7 @@ function renderDebugConsoleEmptyHtml() {
 function renderDebugConsoleItemHtml(entry) {
     const isError = entry.level === 'error';
     const isWarn = entry.level === 'warn';
-    // SỬA 23/09/2026 (rà soát theme) — khung/chữ dòng error/warn trước đây class cứng (bg-rose-50/text-rose-700...), giờ theo key theme.
+    // Khung/chữ dòng error/warn theo key theme.
     const boxTheme = ` data-uitk="${isError ? 'dangerSoftSurface' : isWarn ? 'cautionSoftSurface' : 'cardBg cardBorder'}"`;
     const textTheme = ` data-uitk="${isError ? 'destructiveText' : isWarn ? 'cautionText' : 'textPrimary'}"`;
     const levelLabel = (isError || isWarn) ? ` · ${entry.level.toUpperCase()}` : '';

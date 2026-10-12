@@ -1,72 +1,33 @@
 /**
- * Component: nội dung Generic Drawer cho "Edit EQ" (event/workflow/eq-presets.js mở qua GIỮ 1.5s
- * #btn-cycle-eq — 12/08/2026: icon #btn-edit-eq riêng ĐÃ BỎ, gộp vào hold, xem docstring
- * event/workflow/eq-presets.js). 2 mode, CÙNG khuôn Document Reader (List <-> Read):
- *   - 'list': danh sách preset (tên + khoá-icon nếu locked) + nút "+" trong HEADER để tạo preset
- *     mới (KHÔNG còn ô nhập tên/nút Tạo trong body — xem SỬA 2 bên dưới).
- *   - 'edit': tên (hàng "Name | input", khoá nếu locked) + 10 dòng slider NGANG -12..+12 (khoá nếu
- *     locked) + Áp dụng + Xoá (Xoá ẩn nếu locked). SỬA (07/10/2026, Giang) — bỏ Lưu: chỉnh là tự lưu,
- *     preset đang áp dụng thì có tác dụng ngay; slider dọc trong box -> dòng ngang thường; Áp dụng có
- *     trạng thái khoá "Đang áp dụng" (xem renderEqEditBody()).
+ * Component: nội dung Generic Drawer "Edit EQ" (event/workflow/eq-presets.js mở khi GIỮ 1.5s #btn-cycle-eq). 2 mode:
+ *   - 'list': danh sách preset (tên + chấm "đang dùng" + khoá-icon nếu locked) + nút "+" trong HEADER — tạo NGAY 1
+ *     preset tên tự sinh ("New preset", "New preset 2"...) rồi mở thẳng Edit.
+ *   - 'edit': hàng "Name | input" + 10 dòng slider NGANG -12..+12 (khoá nếu locked) + Áp dụng + Xoá (Xoá ẩn nếu
+ *     locked). Không có nút Lưu: chỉnh là tự lưu, preset đang áp dụng thì có tác dụng ngay; Áp dụng có trạng thái khoá
+ *     "Đang áp dụng" (xem renderEqEditBody()). Preset gốc chưa khoá có thêm nút "Khôi phục mặc định" ở header.
  *
- * SỬA 3 (12/08/2026, Giang yêu cầu "thêm nút apply cạnh nút delete") — hàng dưới cùng body Edit
- * TRƯỚC ĐÂY chỉ có Xoá (full-width) — giờ thêm `#eq-drawer-apply` NGAY BÊN CẠNH (`flex gap-2`, mỗi
- * nút `flex-1`) — CHỌN preset đang sửa làm preset ĐANG DÙNG + áp NGAY gains đang chỉnh dở trên
- * slider (kể cả CHƯA bấm Lưu) lên audio graph thật, cho nghe thử trực tiếp trong lúc chỉnh — KHÁC
- * Lưu (chỉ ghi DB, chỉ áp gains NẾU preset đó ĐÃ SẴN đang active từ trước) — xem
- * event/workflow/eq-presets.js::_applyPreset().
- *
- * SỬA (11/08/2026, Giang chỉ ra "loại bỏ tư duy cũ, khớp với Generic Drawer") — bản đầu lỡ bê
- * NGUYÊN bảng màu TỐI (glass-modal/text-white/bg-black...) vào đây — SAI, vì Generic Drawer thuộc
- * vùng LOẠI TRỪ theme, nền LUÔN TRẮNG cố định (mục 7 plan-v12-extended.md, xem docstring
- * components/generic-drawer.js). Đã đổi HẲN sang bảng màu SÁNG (text-slate-900/700/500/400,
- * border-slate-200...) — ĐÚNG bảng màu Generic Drawer (nền trắng) đã dùng, cùng bộ id nút chrome
- * header CHUNG (#btn-generic-drawer-close/back/save) — xem docstring event/workflow/eq-presets.js.
- *
- * SỬA 2 (12/08/2026, phản hồi Giang round 2 — 5 điểm):
- *   1+2. Track dọc vô hình + số dính rìa box — TRƯỚC ĐÂY dùng chung `.eq-slider`/
- *     `.eq-slider-container` (assets/css/style.css) — track nền `rgba(255,255,255,0.1)` thiết kế
- *     cho theme TỐI của core/equalizer.js CŨ, gần như vô hình trên nền TRẮNG của Generic Drawer;
- *     10 cột lại xếp bằng `justify-between` không có gap/padding riêng nên 2 cột đầu/cuối dính sát
- *     rìa box. SỬA: đổi sang class MỚI RIÊNG `.eq-preset-slider*` (track sáng `slate-200` + mốc 0dB
- *     giữa + dải MÀU tím kéo dài từ mốc 0 ra giá trị hiện tại, xem CSS) + đổi layout hàng 10 cột
- *     sang `gap` cố định (không còn `justify-between`) + `overflow-x-auto` (an toàn cho màn hình
- *     rất hẹp, không bao giờ còn cảnh tràn/dính rìa dù cỡ máy nào).
- *   3. Khối "Name" đổi sang ĐÚNG khuôn 1 hàng "label trái | input phải" như mọi hàng Settings khác
- *     (vd "Kiểu hiệu ứng", components/settings/visualizer-geometry-color.js) — trước đây label
- *     NẰM TRÊN, input NẰM DƯỚI (2 hàng), không khớp quy ước chung của app.
- *   4. Nút "Tạo preset mới" dời HẲN vào HEADER (icon "+" cạnh nút đóng, CÙNG khuôn Generic Drawer
- *     xếp nhiều nút hành động ở góc phải header) — bấm là tạo NGAY 1 preset tên tự sinh
- *     ("New preset"/"New preset 2"...), KHÔNG còn ô nhập tên/nút Tạo trong body — CÙNG khuôn
- *     createFolderInPicker()/_computeDefaultFolderName() (event/workflow/playlist.js): tạo xong mở
- *     THẲNG view Sửa (đã có sẵn ô Name để đổi nếu muốn — Giang chỉ ra "đằng nào cũng sửa được sau").
- *   (Điểm 5 — Volume HUD không tô màu phần đã kéo — thuộc core/hud.js, KHÔNG phải file này.)
- *
- * SỬA (12/10/2026, plan-event-bus-wiring-07-10-2026 đợt 1) — nội dung Drawer KHÔNG còn bị Workflow tự gắn sự kiện:
- * event/listener/eq-presets.js ủy quyền 1 lần trên genericDrawerBody/genericDrawerHeader, nhận phần tử qua id/attribute
- * có tiền tố cụm (`data-eq-close`, `data-eq-back`, `data-eq-id` hàng List, `data-eq-apply-id`/`data-eq-reset-id`/
- * `data-eq-delete-id` mang id preset, `.eq-band-slider` + `data-index`, `#eq-drawer-name`, `#btn-eq-drawer-add`).
- * Id nút chrome chung (#btn-generic-drawer-close/back) GIỮ nguyên.
+ * Màu qua `data-uitk` (theme). Sự kiện: event/listener/eq-presets.js ủy quyền 1 lần trên genericDrawerBody/Header, nhận
+ * phần tử qua id/attribute có tiền tố cụm (`data-eq-close`, `data-eq-back`, `data-eq-id` hàng List,
+ * `data-eq-apply-id`/`data-eq-reset-id`/`data-eq-delete-id` mang id preset, `.eq-band-slider` + `data-index`,
+ * `#eq-drawer-name`, `#btn-eq-drawer-add`). Id nút chrome chung (#btn-generic-drawer-close/back) giữ nguyên.
  */
 
 function renderEqListHeader() {
-    // SỬA 07/10/2026 — header dùng chung buildDrawerHeaderHtml() (components/generic-drawer.js)
-    return buildDrawerHeaderHtml({
+    return buildDrawerHeaderHtml({ // components/generic-drawer.js
         title: t('eqPresets.title'), titleAttrs: 'data-i18n="eqPresets.title"',
-        closeAttrs: 'data-eq-close="1"', // MỚI 12/10/2026 — Listener ủy quyền nhận đúng nút X của EQ (id X dùng chung mọi Drawer)
+        closeAttrs: 'data-eq-close="1"', // Listener ủy quyền nhận đúng nút X của EQ (id X dùng chung mọi Drawer)
         actionsHtml: `<button type="button" id="btn-eq-drawer-add" class="w-8 h-8 flex items-center justify-center rounded-full" data-uitk="cardHoverBg textSecondaryStrong" title="${t('eqPresets.addButton.title')}">${iconSvg('plus', 'h-5 w-5')}</button>`,
     });
 }
 
-/** @param {object[]} presets @param {string} activeId */
-/** SỬA 23/09/2026 — thêm `paginationHtml` (nơi 'eqPresets' của Settings > System > Pagination — Workflow
- * cắt sẵn `presets` = đúng trang cần vẽ; '' khi tắt/1 trang), đặt trong `#eq-list-pagination` cuối danh
- * sách để Workflow wire (core/pagination-ui.js).
+/** `presets` = đúng trang cần vẽ (Workflow cắt sẵn theo nơi 'eqPresets' của Settings > System > Pagination);
+ * `paginationHtml` ('' khi tắt/1 trang) đặt trong `#eq-list-pagination` cuối danh sách để Workflow wire
+ * (core/pagination-ui.js).
  * @param {Array} presets @param {string} activeId @param {string} [paginationHtml] */
 function renderEqListBody(presets, activeId, paginationHtml) {
     return presets.map((p) => {
         const isActive = p.id === activeId;
-        const rowUitk = isActive ? 'rowActiveBg rowActiveBorder' : 'btnGhostHoverBg'; // SỬA 23/09/2026 (rà soát theme) — trước đây class cứng bg-sky-50/border-sky-300/hover:bg-slate-100
+        const rowUitk = isActive ? 'rowActiveBg rowActiveBorder' : 'btnGhostHoverBg';
         return `
         <button type="button" data-eq-id="${p.id}" class="w-full text-left px-4 py-3.5 rounded-xl mb-1.5 flex items-center justify-between gap-3 transition-colors ${isActive ? '' : 'border border-transparent'}" data-uitk="${rowUitk}">
             <span class="flex items-center gap-2 min-w-0">
@@ -84,34 +45,22 @@ function renderEqListBody(presets, activeId, paginationHtml) {
  * gốc (1 trong 6 id cố định của buildDefaultEqPresets(), core/eq-presets.js) — Workflow tự tính
  * (Rule 3, component KHÔNG tự tra core) rồi truyền vào, quyết định hiện/ẩn nút "Khôi phục mặc định". */
 function renderEqEditHeader(preset, isBuiltIn) {
-    // FIX (12/08/2026, Giang yêu cầu — "eq mặc định có nút reset ở header") — preset GỐC (built-in,
-    // isBuiltIn=true) mà CHƯA khoá (5/6 preset gốc sửa được, xem core/eq-presets.js) giờ có thêm
-    // icon "khôi phục mặc định" cạnh Lưu, GỘP CHUNG 1 wrapper flex bên phải (KHÔNG 2 toạ độ absolute
-    // cứng riêng — tránh đè lên nhau nếu 1 trong 2 đổi độ rộng) — CHỈ đổi _draftGains về giá trị GỐC
-    // lúc seed lần đầu (KHÔNG tự lưu DB — vẫn phải bấm Lưu mới ghi, cùng 1 cửa duy nhất với sửa
-    // tay), xem event/workflow/eq-presets.js::_resetEditToDefault().
+    // Preset GỐC (built-in) chưa khoá có nút "khôi phục mặc định" ở header — ghi lại gains GỐC lúc seed, xem
+    // event/workflow/eq-presets.js::_resetEditToDefault().
     const resetBtn = (!preset.locked && isBuiltIn)
         ? `<button id="btn-eq-drawer-reset" data-eq-reset-id="${preset.id}" class="w-8 h-8 flex items-center justify-center rounded-full transition-colors shrink-0" data-uitk="headerCloseHover headerCloseIcon" title="${t('eqPresets.resetButton.title')}">${iconSvg('reset', 'h-[18px] w-[18px]')}</button>`
         : '';
-    // XOÁ (07/10/2026, Giang: "bỏ tính năng save") — nút Lưu ở header: mọi chỉnh sửa (slider, tên) giờ TỰ LƯU, preset
-    // đang áp dụng thì slider có tác dụng NGAY khi kéo — xem event/workflow/eq-presets.js::_previewBandGain()/_commitGains().
-    // SỬA 07/10/2026 — header dùng chung buildDrawerHeaderHtml() (components/generic-drawer.js)
-    return buildDrawerHeaderHtml({
-        backId: 'btn-generic-drawer-back', backAttrs: 'data-eq-back="1"', backTitle: t('eqPresets.title'), // backAttrs MỚI 12/10/2026 — xem docstring đầu file
+    return buildDrawerHeaderHtml({ // components/generic-drawer.js
+        backId: 'btn-generic-drawer-back', backAttrs: 'data-eq-back="1"', backTitle: t('eqPresets.title'), // backAttrs — xem docstring đầu file
         title: t('eqPresets.editTitle'), titleAttrs: 'data-i18n="eqPresets.editTitle"',
         actionsHtml: resetBtn, close: false,
     });
 }
 
-// XOÁ (07/10/2026, Giang: "bỏ box các slider chỉnh kênh, slider nằm ngang, mỗi kênh 1 dòng, giống slider bình thường")
-// — `computeEqFillRect()` (dải fill tím của slider DỌC) + khung `.eq-preset-slider-box` từng kênh; CSS
-// `.eq-preset-slider*` đã gỡ khỏi assets/css/sliders.css.
-
-/** SỬA (07/10/2026, Giang) — 10 kênh giờ là 10 DÒNG ngang (nhãn tần số | slider thường | giá trị dB), cùng kiểu
- * slider/hàng của các màn Settings khác; nút Áp dụng có 2 trạng thái: chưa áp dụng (nút nhấn) / ĐANG áp dụng
- * (khoá — vẫn bấm được để hiện thông báo "đang áp dụng rồi", xem event/workflow/eq-presets.js::onApplyClick()).
- * SỬA (12/10/2026) — nút Áp dụng/Xoá mang `data-eq-apply-id`/`data-eq-delete-id` = id preset: Listener đọc làm payload
- * (trước đây Workflow tự gắn callback có sẵn `preset.id` trong closure).
+/** 10 kênh = 10 DÒNG ngang (nhãn tần số | slider | giá trị dB), cùng kiểu hàng slider các màn Settings khác. Nút Áp
+ * dụng có 2 trạng thái: chưa áp dụng (nút nhấn) / ĐANG áp dụng (khoá — vẫn bấm được để hiện thông báo "đang áp dụng
+ * rồi", xem event/workflow/eq-presets.js::onApplyClick()). Nút Áp dụng/Xoá mang `data-eq-apply-id`/`data-eq-delete-id`
+ * = id preset (Listener đọc làm payload).
  * @param {{id: string, name: string, gains: number[], locked: boolean}} preset
  * @param {boolean} isActive - preset này đang là preset được chọn (`eqPresetId`) — Workflow tự tính. */
 function renderEqEditBody(preset, isActive) {
