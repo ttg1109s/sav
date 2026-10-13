@@ -210,7 +210,7 @@ Mỗi file chỉ định nghĩa `TPL_*` (chuỗi HTML tĩnh) hoặc hàm `render
 `gameplay-overlay.js` và `recorder-overlay.js` trước `visualizer-overlay.js` (nội suy `TPL_GAMEPLAY_OVERLAY`,
 `TPL_RECORDER_OVERLAY`); `core/google-fonts-list.js` trước `element-style-editor-drawer.js` (đọc `listGoogleFont`).
 
-<details><summary>Thứ tự (38 mục)</summary>
+<details><summary>Thứ tự (39 mục)</summary>
 
 47. `components/loading-shield.js` — cần: `lang/lang.js` (t)
 48. `components/app-view-stack.js`
@@ -250,6 +250,7 @@ Mỗi file chỉ định nghĩa `TPL_*` (chuỗi HTML tĩnh) hoặc hàm `render
 80. `components/settings/player-display-settings.js`
 81. `components/settings/recorder-settings.js`
 82. `components/settings/pagination.js`
+82a. `components/pagination-controls.js` — MỚI 13/10/2026 (template thanh phân trang, dời từ core/pagination-ui.js — plan-debt-domains đợt 3)
 83. `components/gesture-settings-drawer.js`
 83a. `components/info-icon.js` — MỚI 13/10/2026 (renderInfoIconHtml/renderInfoPopoverHtml — plan-debt-domains đợt 1); gọi lúc chạy: `escapeHtml()` (core/modal-choice-ui.js), `iconSvg()`
 
