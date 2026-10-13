@@ -328,7 +328,7 @@ runtime, cần `components/app-mount.js`), `service/task-manager.js`, `service/d
 core xung quanh. Nhóm visualizer: `core/visualizer/*` rồi `core/visualizer/groups/<group>/common.js` trước style của
 group.
 
-<details><summary>Thứ tự (139 mục)</summary>
+<details><summary>Thứ tự (140 mục)</summary>
 
 121. `core/custom-effect.js`
 122. `core/custom-effect-drawer-ui.js`
@@ -419,6 +419,7 @@ group.
 199. `core/playlist/main.js` — cần: `service/state.js` (appState); `core/dom-refs.js` (genericDrawerBody)
 200. `core/playlist/filter.js`
 201. `core/playlist/filter-presets.js`
+201a. `core/playlist/filter-rule-ui.js` — MỚI 13/10/2026 (DOM hàng rule filter — plan-debt-domains đợt 4)
 202. `core/playlist/scope.js`
 203. `core/playlist/selection.js`
 204. `core/playlist/bulk-actions.js`

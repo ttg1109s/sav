@@ -63,7 +63,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Thứ tự, xáo trộn, lặp | `core/playlist/order.js`, `event/workflow/playlist-order.js`; state `service/state/shuffle-repeat.js` |
 | Phạm vi folder ↔ playlist | `core/playlist/scope.js`, `event/workflow/playlist-scope.js` |
 | Chọn nhiều, thao tác hàng loạt | `core/playlist/selection.js`, `core/playlist/bulk-actions.js`, `core/playlist/actions.js` |
-| Filter, preset Filter | `components/playlist-filter-drawer.js`, `core/playlist/filter.js`, `core/playlist/filter-presets.js`, `event/workflow/filter-rule-edit.js`; cụm `playlistFilterPresets` |
+| Filter, preset Filter | `components/playlist-filter-drawer.js`, `core/playlist/filter.js`, `core/playlist/filter-presets.js`, `core/playlist/filter-rule-ui.js`, `event/workflow/filter-rule-edit.js`; cụm `playlistFilterPresets` |
 | Sort | `components/playlist-sort-drawer.js`; cài đặt hiển thị `components/settings/playlist-view.js` |
 | Tìm kiếm | `core/song-search.js` |
 | Màn trống khi chưa có bài | cụm `playlistEmptyState` |
