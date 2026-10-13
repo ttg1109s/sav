@@ -1,34 +1,20 @@
 /**
- * core/info-icon-ui.js — Core-UI DÙNG CHUNG: 1 icon nhỏ "i" chèn cạnh BẤT KỲ tiêu đề/label nào, bấm
- * vào hiện 1 POPOVER giải thích ngắn (text thuần + nút X) NGAY TẠI vị trí icon. MỚI (phản hồi Giang —
- * "thêm 1 hàm core chung phụ trợ tạo icon (i) nhỏ, click hiện text phù hợp, gồm cả nút X"). Nơi dùng: cạnh
- * tiêu đề "Motion" ở Settings > Visualizer Screen > Player, Settings > System > Recording.
+ * core/info-icon-ui.js — popover giải thích (toggletip) của icon (i) dùng chung. Template: components/info-icon.js
+ * (`renderInfoIconHtml()`, `renderInfoPopoverHtml()`). Luồng: event/listener/info-icon.js -> router 'infoIcon' ->
+ * workflowInfoIcon -> mountInfoPopover() -> (Workflow áp theme) -> placeInfoPopover().
  *
- * SỬA (06/10/2026, Giang: "(i) ấn vào không phải mở modal mà popover ngay vị trí của (i)") — thay popup giữa
- * màn (overlay đen + blur) bằng TOGGLETIP (mẫu Carbon/TPGi: bấm icon mới hiện, bấm lại icon hoặc bấm ra ngoài
- * thì đóng, nội dung `role="status"`). Vị trí kiểu Floating UI: ưu tiên NẰM DƯỚI icon, không đủ chỗ thì LẬT
- * lên trên; trượt ngang (shift) để luôn cách mép màn `INFO_POPOVER_EDGE_PX`.
- * SỬA (06/10/2026, Giang: "thêm cái tam giác, đỉnh tại vị trí (i)") — mũi tên = 1 ô vuông xoay 45° CÙNG theme key
- * card (modalCardBg + modalCardBorder), anh em SAU card (vẽ đè lên viền card), `clip-path` cắt còn đúng NỬA tam giác
- * nhô ra ngoài — nên không có phần chồng lên thân card (Morphin là kính trong suốt, chồng lên sẽ lộ 2 lớp kính). Đáy
- * tam giác lấn vào card đúng 1px để che đường viền của card ở chỗ giao. Đỉnh nằm thẳng tâm icon (i), cách icon
- * `INFO_POPOVER_TIP_GAP_PX`. Popover bị kẹp dọc (màn quá thấp, không đủ chỗ cả trên lẫn dưới) -> ẩn mũi tên.
+ * Vị trí kiểu Floating UI: ưu tiên nằm dưới icon, thiếu chỗ thì lật lên trên; trượt ngang để cách mép màn
+ * `INFO_POPOVER_EDGE_PX`. Mũi tên = ô vuông xoay 45° cùng theme key card, `clip-path` cắt còn nửa tam giác nhô ra ngoài
+ * (không chồng lên thân card — Morphin là kính trong suốt); đáy lấn vào card 1px để che viền; đỉnh thẳng tâm icon.
+ * Popover bị kẹp dọc (màn quá thấp) -> ẩn mũi tên.
  *
- * Bấm ra ngoài: 1 lớp "scrim" TRONG SUỐT (cụm DOM tự tạo — đúng Rule 5a, không gắn listener lên document/window)
- * phủ toàn màn, bấm vào = đóng + nuốt luôn cú bấm đó (giống popover iOS) — bấm lại đúng icon (i) cũng rơi vào
- * scrim nên tự thành "toggle" mà không cần Workflow giữ trạng thái. Scrim KHÔNG có màu/blur (không tốn compositor).
+ * Bấm ra ngoài: scrim trong suốt phủ màn — bấm vào là đóng và nuốt luôn cú bấm (bấm lại icon (i) cũng rơi vào scrim nên
+ * tự thành toggle). Callback chỉ eventBus.send (Rule 5a).
  *
- * `infoIconHtml(text)` — hàm THUẦN trả về 1 chuỗi HTML `<button>` nhỏ, nhúng thẳng vào BẤT KỲ
- * template tĩnh nào ở components/*.js (Rule 5d, core-function-conventions.md) — `text` được tự
- * escapeHtml() sẵn vào `data-info-text`, nơi gọi KHÔNG cần tự lo escape. Click do
- * event/listener/info-icon.js bắt DELEGATED trên `document.body` (1 chỗ DUY NHẤT cho TOÀN app), qua
- * event/router/info-icon.js -> workflowInfoIcon.show() (event/workflow/info-icon.js) -> `showInfoPopover()`.
- *
- * NẠP SAU: service/z-index.js (Z_INDEX), core/modal-choice-ui.js (escapeHtml()),
- * core/ui-theme/apply-ui.js (applyUiThemeToDom(), _activeUiThemeKeyList).
+ * NẠP SAU: service/z-index.js (Z_INDEX), service/component-dynamic.js (instantiateComponent).
  */
 
-const INFO_POPOVER_MAX_WIDTH_PX = 280; // bề rộng tối đa của popover
+const INFO_POPOVER_MAX_WIDTH_PX = 280;
 const INFO_POPOVER_EDGE_PX = 8;        // khoảng cách tối thiểu tới mép màn hình
 const INFO_POPOVER_ARROW_PX = 12;      // cạnh ô vuông mũi tên (trước khi xoay)
 const INFO_POPOVER_TIP_GAP_PX = 2;     // khoảng cách đỉnh mũi tên <-> icon
@@ -40,59 +26,37 @@ const INFO_POPOVER_ARROW_INSET_PX = 16; // mũi tên không sát góc bo của c
 const INFO_POPOVER_ARROW_CLIP_UP = 'polygon(0 0, 100% 0, 0 100%)';
 const INFO_POPOVER_ARROW_CLIP_DOWN = 'polygon(100% 0, 100% 100%, 0 100%)';
 
-/** @param {string} text - nội dung giải thích, văn bản THUẦN (KHÔNG hỗ trợ HTML, khác modalChoice()
- * — escapeHtml() ngay tại đây nên nơi gọi không cần tự lo). @returns {string} */
-function infoIconHtml(text) {
-    return `<button type="button" class="info-icon-btn inline-flex items-center justify-center h-[18px] w-[18px] rounded-full text-[10px] font-bold leading-none shrink-0" data-uitk="accentIconBoxBg accentIconBoxText" data-info-text="${escapeHtml(text)}">i</button>`;
-}
-
-/** Core-UI: dựng + hiện popover giải thích neo tại `anchorEl` (icon (i) vừa bấm).
- * @param {string} text @param {HTMLElement} anchorEl */
-function showInfoPopover(text, anchorEl) {
-    // Tự đóng popover cũ (nếu lỡ có) — cùng phòng hờ như modalChoice().
-    const stale = document.getElementById('info-popover-scrim');
-    if (stale) stale.remove();
-
-    const scrim = document.createElement('div');
-    scrim.id = 'info-popover-scrim';
-    scrim.className = 'fixed inset-0';
+/** Dựng popover (card còn ẩn, chưa đặt vị trí) từ template, gắn vào <body>.
+ * @param {string} html - renderInfoPopoverHtml() @param {string} text - văn bản thuần (gán textContent)
+ * @returns {{scrim: HTMLElement, popover: HTMLElement, arrow: HTMLElement}} */
+function mountInfoPopover(html, text) {
+    const fragment = instantiateComponent(html, { // service/component-dynamic.js
+        text: { selector: '[data-info-popover-text]', prop: 'textContent', value: text },
+    });
+    const scrim = fragment.firstElementChild;
+    const popover = scrim.querySelector('[data-info-popover-card]');
+    const arrow = scrim.querySelector('[data-info-popover-arrow]');
+    const closeBtn = scrim.querySelector('[data-info-popover-close]');
     scrim.style.zIndex = String(Z_INDEX.INFO_POPUP);
-
-    const popover = document.createElement('div');
-    popover.setAttribute('role', 'status');
-    popover.className = 'fixed rounded-xl p-3 shadow-2xl flex items-start gap-2';
-    popover.dataset.uitk = 'modalCardBg modalCardBorder';
     popover.style.width = `${Math.min(INFO_POPOVER_MAX_WIDTH_PX, window.innerWidth - INFO_POPOVER_EDGE_PX * 2)}px`;
-    popover.style.left = '0px';
-    popover.style.top = '0px';
-    popover.style.visibility = 'hidden'; // đo kích thước thật trước, đặt vị trí xong mới hiện
-
-    const textEl = document.createElement('p');
-    textEl.className = 'text-sm leading-relaxed flex-1';
-    textEl.dataset.uitk = 'modalBodyText';
-    textEl.textContent = text; // textContent, KHÔNG innerHTML — text nhận từ dataset đã tự giải mã HTML entity qua parser
-    popover.appendChild(textEl);
-
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'w-6 h-6 flex items-center justify-center rounded-full transition-colors shrink-0';
-    closeBtn.dataset.uitk = 'headerCloseHover headerCloseIcon';
-    closeBtn.innerHTML = iconSvg('x', 'h-4 w-4');
-    popover.appendChild(closeBtn);
-
-    const arrow = document.createElement('div');
-    arrow.className = 'fixed';
-    arrow.dataset.uitk = 'modalCardBg modalCardBorder';
     arrow.style.width = `${INFO_POPOVER_ARROW_PX}px`;
     arrow.style.height = `${INFO_POPOVER_ARROW_PX}px`;
-    arrow.style.boxShadow = 'none'; // theme kính có box-shadow — bóng của ô vuông xoay sẽ lộ ra ngoài tam giác
-
-    scrim.appendChild(popover);
-    scrim.appendChild(arrow); // SAU card -> đè lên viền card ở đáy tam giác
     document.body.appendChild(scrim);
-    if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(scrim, _activeUiThemeKeyList); // theme áp TRƯỚC khi đo (padding/viền đổi kích thước)
 
-    // --- Đặt vị trí: dưới icon, thiếu chỗ thì lật lên trên; kẹp ngang trong màn hình ---
+    // --- addEventListener: gom cuối hàm (Rule 5a) ---
+    closeBtn.addEventListener('click', () => eventBus.send({ router: 'infoIcon', type: 'infoIcon.popover.close', payload: {} }));
+    scrim.addEventListener('click', (e) => {
+        if (e.target !== scrim) return; // bấm trong card (chữ) thì giữ nguyên
+        eventBus.send({ router: 'infoIcon', type: 'infoIcon.popover.close', payload: {} });
+    });
+
+    return { scrim, popover, arrow };
+}
+
+/** Đo card (theme đã áp — padding/viền đổi kích thước), đặt vị trí card + mũi tên neo tại `anchorEl`, rồi hiện.
+ * @param {{popover: HTMLElement, arrow: HTMLElement}} handle @param {HTMLElement} anchorEl - icon (i) vừa bấm */
+function placeInfoPopover(handle, anchorEl) {
+    const { popover, arrow } = handle;
     const anchorRect = anchorEl.getBoundingClientRect();
     const popW = popover.offsetWidth, popH = popover.offsetHeight;
     const viewW = window.innerWidth, viewH = window.innerHeight;
@@ -108,7 +72,7 @@ function showInfoPopover(text, anchorEl) {
     popover.style.transformOrigin = `${anchorCenterX - left}px ${placeAbove ? '100%' : '0%'}`; // phóng ra từ phía icon
     popover.style.visibility = '';
 
-    // --- Mũi tên: tâm ô vuông nằm trên mép card (lấn vào 1px), x = tâm icon kẹp trong phần cạnh thẳng của card ---
+    // Mũi tên: tâm ô vuông nằm trên mép card (lấn vào 1px), x = tâm icon kẹp trong phần cạnh thẳng của card
     const arrowCenterX = Math.max(left + INFO_POPOVER_ARROW_INSET_PX, Math.min(anchorCenterX, left + popW - INFO_POPOVER_ARROW_INSET_PX));
     const arrowCenterY = placeAbove ? top + popH - 1 : top + 1;
     arrow.style.left = `${arrowCenterX - INFO_POPOVER_ARROW_PX / 2}px`;
@@ -116,18 +80,16 @@ function showInfoPopover(text, anchorEl) {
     arrow.style.transform = 'rotate(45deg)';
     arrow.style.clipPath = placeAbove ? INFO_POPOVER_ARROW_CLIP_DOWN : INFO_POPOVER_ARROW_CLIP_UP;
     arrow.style.webkitClipPath = arrow.style.clipPath;
-    arrow.style.display = top === rawTop ? '' : 'none'; // bị kẹp dọc -> đỉnh không còn chỉ đúng icon, ẩn đi
+    arrow.style.display = top === rawTop ? '' : 'none'; // bị kẹp dọc -> đỉnh không còn chỉ đúng icon
 
     if (typeof popover.animate === 'function') {
         popover.animate([{ opacity: 0, transform: 'scale(0.92)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 140, easing: 'ease-out' });
         arrow.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: 'ease-out' });
     }
+}
 
-    // --- addEventListener: gom cuối hàm (Rule 5a — cụm DOM MỚI tự tạo bên trong chính hàm này) ---
-    function closePopover() { scrim.remove(); }
-    closeBtn.addEventListener('click', closePopover);
-    scrim.addEventListener('click', (e) => {
-        if (e.target !== scrim) return; // bấm TRONG popover (chữ) thì giữ nguyên
-        closePopover();
-    });
+/** Gỡ popover đang mở (nếu có) — listener đi theo phần tử. */
+function removeInfoPopover() {
+    const scrim = document.getElementById('info-popover-scrim');
+    if (scrim) scrim.remove();
 }
