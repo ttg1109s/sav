@@ -246,7 +246,7 @@ function _renderCeFireworksTextsSection(cfg) {
  * SỬA (25/09/2026, Giang báo "gap rộng" so với EQ) — wrapper TRƯỚC ĐÂY có thêm `px-4 py-3` chồng lên
  * `bodyClass: 'overflow-y-auto px-4 py-3'` (event/workflow/custom-effect.js) -> lề 2 lần. Giờ chỉ
  * `flex flex-col gap-4`, đúng khuôn renderEqEditBody() (components/eq-presets-drawer.js).
- * @param {string} type @param {object} cfg - getEffectConfig(type), core/custom-effect.js */
+ * @param {string} type @param {object} cfg - resolveEffectConfig(), core/custom-effect.js */
 function renderCustomEffectBody(type, cfg) {
     const fields = CUSTOM_EFFECT_FIELDS[type] || []; // core/custom-effect.js
     const isFireworks = type === 'lighting' && cfg.lightingStyle === 'fireworks';
