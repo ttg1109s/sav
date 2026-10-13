@@ -21,12 +21,6 @@
  * event/workflow/filter-rule-edit.js, event/workflow/app-settings.js (runtime), event/workflow/playlist-scope.js (runtime).
  */
 
-// Ghép ảnh chốt vào bucket sống theo việc Nguồn đó có preset active hợp lệ hay không.
-const FILTER_LIVE_BUCKET_BY_HAS_ACTIVE = {
-    true: (defaultBucket, appliedBucket) => ({ ...defaultBucket, ...appliedBucket }),
-    false: (defaultBucket) => defaultBucket,
-};
-
 const workflowPlaylistFilterPresets = {
     _editingId: null,     // preset đang sửa (màn Edit)
     _editingSource: null, // Nguồn của preset đang sửa — chốt lúc mở Edit
@@ -34,18 +28,15 @@ const workflowPlaylistFilterPresets = {
     /** Boot (qua workflowPlaylist.loadPersistedFilterConfigOnBoot()) — đọc meta, sanitize theo từng Nguồn, tính lại
      * playlistFilterConfig. PHẢI chạy TRƯỚC khối Scope (applyAllSongsScope()/applyFolderScope() đọc giá trị này). */
     async loadOnBoot() {
-        const rawPresets = await getMeta('playlistFilterPresets');
-        const presetsMap = sanitizePlaylistFilterPresetsMap(rawPresets); // core/playlist/filter-presets.js
-        const rawActiveIdMap = await getMeta('playlistFilterActivePresetId');
-        const activeIdMap = sanitizePlaylistFilterActiveIdMap(rawActiveIdMap, presetsMap); // core
-        const rawApplied = await getMeta('playlistFilterAppliedConfig');
-        const appliedConfig = { ...clonePlaylistFilterConfigDefaults(), ...((rawApplied && typeof rawApplied === 'object') ? rawApplied : {}) };
-        const rawAppliesToFolder = await getMeta('playlistFilterAppliesToFolder');
-        const appliesToFolderMap = {
-            song: typeof rawAppliesToFolder?.song === 'boolean' ? rawAppliesToFolder.song : true,
-            video: typeof rawAppliesToFolder?.video === 'boolean' ? rawAppliesToFolder.video : true,
-            photo: typeof rawAppliesToFolder?.photo === 'boolean' ? rawAppliesToFolder.photo : true,
+        const rawPresets = (await getMeta('playlistFilterPresets')) || {}; // service/db.js
+        const presetsMap = { // core/playlist/filter-presets.js
+            song: sanitizePlaylistFilterPresets(rawPresets.song, 'song'),
+            video: sanitizePlaylistFilterPresets(rawPresets.video, 'video'),
+            photo: sanitizePlaylistFilterPresets(rawPresets.photo, 'photo'),
         };
+        const activeIdMap = sanitizePlaylistFilterActiveIdMap(await getMeta('playlistFilterActivePresetId'), presetsMap); // core
+        const appliedConfig = sanitizePlaylistFilterAppliedConfig(await getMeta('playlistFilterAppliedConfig'), clonePlaylistFilterConfigDefaults()); // core + service/state/playlist.js
+        const appliesToFolderMap = sanitizePlaylistFilterAppliesToFolderMap(await getMeta('playlistFilterAppliesToFolder')); // core
 
         appState.set('playlistFilterPresets', presetsMap);
         appState.set('playlistFilterActivePresetId', activeIdMap);
@@ -57,25 +48,18 @@ const workflowPlaylistFilterPresets = {
 
     /** Tính lại `playlistFilterConfig` cả 3 Nguồn từ preset active + ảnh chốt. Thuần state, không render/reload. */
     _recomputeLiveConfig() {
-        const presetsMap = appState.get('playlistFilterPresets');
-        const activeIdMap = appState.get('playlistFilterActivePresetId');
-        const appliedMap = appState.get('playlistFilterAppliedConfig');
-        const next = clonePlaylistFilterConfigDefaults();
-        const summary = [];
-        for (const source of ['song', 'video', 'photo']) {
-            const hasValidActive = !!findPlaylistFilterPresetById(presetsMap[source], activeIdMap[source]); // core
-            next[source] = FILTER_LIVE_BUCKET_BY_HAS_ACTIVE[hasValidActive](next[source], appliedMap[source]);
-            summary.push(`${source}=${hasValidActive ? 'ảnh chốt' : 'rỗng'}`);
-        }
-        appState.set('playlistFilterConfig', next);
-        console.log(`writer: "workflowPlaylistFilterPresets._recomputeLiveConfig", page: "playlistFilterConfig", content: "${summary.join(', ')}"`);
+        const { playlistFilterPresets, playlistFilterActivePresetId, playlistFilterAppliedConfig } = appState.get(['playlistFilterPresets', 'playlistFilterActivePresetId', 'playlistFilterAppliedConfig']);
+        const live = computePlaylistFilterLiveConfig(playlistFilterPresets, playlistFilterActivePresetId, playlistFilterAppliedConfig, clonePlaylistFilterConfigDefaults()); // core/playlist/filter-presets.js
+        appState.set('playlistFilterConfig', live.config);
+        console.log(`writer: "workflowPlaylistFilterPresets._recomputeLiveConfig", page: "playlistFilterConfig", content: "${live.summary}"`);
     },
 
     async _persist() {
-        await setMeta('playlistFilterPresets', appState.get('playlistFilterPresets'));
-        await setMeta('playlistFilterActivePresetId', appState.get('playlistFilterActivePresetId'));
-        await setMeta('playlistFilterAppliedConfig', appState.get('playlistFilterAppliedConfig'));
-        await setMeta('playlistFilterAppliesToFolder', appState.get('playlistFilterAppliesToFolder'));
+        const s = appState.get(['playlistFilterPresets', 'playlistFilterActivePresetId', 'playlistFilterAppliedConfig', 'playlistFilterAppliesToFolder']);
+        await setMeta('playlistFilterPresets', s.playlistFilterPresets); // service/db.js
+        await setMeta('playlistFilterActivePresetId', s.playlistFilterActivePresetId);
+        await setMeta('playlistFilterAppliedConfig', s.playlistFilterAppliedConfig);
+        await setMeta('playlistFilterAppliesToFolder', s.playlistFilterAppliesToFolder);
     },
 
     /** Preset đang sửa (màn Edit), null nếu đã bị xoá. */
@@ -99,11 +83,9 @@ const workflowPlaylistFilterPresets = {
 
     /** 'playlistFilterPresets.add.click' — tạo preset trắng ("New filter N") cho Nguồn đang chọn, mở Edit ngay. */
     async createNew() {
-        const source = appState.get('activeMediaSource');
-        const presetsMap = appState.get('playlistFilterPresets');
-        const list = presetsMap[source];
-        const preset = buildBlankPlaylistFilterPreset(tFormat('playlistFilterPresetsDrawer.defaultName', { n: list.length + 1 }), source); // core/playlist/filter-presets.js
-        appState.set('playlistFilterPresets', { ...presetsMap, [source]: [...list, preset] });
+        const { activeMediaSource: source, playlistFilterPresets: presetsMap } = appState.get(['activeMediaSource', 'playlistFilterPresets']);
+        const preset = buildBlankPlaylistFilterPreset(tFormat('playlistFilterPresetsDrawer.defaultName', { n: resolveNextPlaylistFilterPresetOrdinal(presetsMap, source) }), source); // core/playlist/filter-presets.js
+        appState.set('playlistFilterPresets', appendPlaylistFilterPreset(presetsMap, source, preset)); // core
         console.log(`writer: "createNew", page: "playlistFilterPresets", content: "[${source}] +${preset.id} \\"${preset.name}\\""`);
         await this._persist();
         this._editingId = preset.id;
@@ -200,18 +182,16 @@ const workflowPlaylistFilterPresets = {
      * @param {string} id @param {'song'|'video'|'photo'} source
      */
     async selectPreset(id, source) {
-        const preset = findPlaylistFilterPresetById(appState.get('playlistFilterPresets')[source], id); // core
+        const s = appState.get(['playlistFilterPresets', 'playlistFilterActivePresetId', 'playlistFilterAppliedConfig', 'playlistFilterAppliesToFolder']);
+        const preset = findPlaylistFilterPresetById(s.playlistFilterPresets[source], id); // core
         if (!preset) return;
         if (!hasValidPlaylistFilterField(preset.config)) { // core/playlist/filter-presets.js
             alertModal(t('playlistFilterPresetsDrawer.invalidWarning')); // core/modal-choice-ui.js
             return;
         }
-        const activeIdMap = appState.get('playlistFilterActivePresetId');
-        appState.set('playlistFilterActivePresetId', { ...activeIdMap, [source]: id });
-        const appliedMap = appState.get('playlistFilterAppliedConfig');
-        appState.set('playlistFilterAppliedConfig', { ...appliedMap, [source]: JSON.parse(JSON.stringify(preset.config)) });
-        const appliesToFolderMap = appState.get('playlistFilterAppliesToFolder');
-        appState.set('playlistFilterAppliesToFolder', { ...appliesToFolderMap, [source]: preset.appliesToFolder });
+        appState.set('playlistFilterActivePresetId', { ...s.playlistFilterActivePresetId, [source]: id });
+        appState.set('playlistFilterAppliedConfig', { ...s.playlistFilterAppliedConfig, [source]: clonePlaylistFilterBucket(preset.config) }); // core
+        appState.set('playlistFilterAppliesToFolder', { ...s.playlistFilterAppliesToFolder, [source]: preset.appliesToFolder });
         console.log(`writer: "selectPreset", page: "playlistFilterActivePresetId", content: "[${source}] ${id} (\\"${preset.name}\\"), đã chụp ảnh chốt config + appliesToFolder=${preset.appliesToFolder}"`);
         this._recomputeLiveConfig();
         await this._persist();
@@ -236,9 +216,9 @@ const workflowPlaylistFilterPresets = {
 
     /** Xoá preset khỏi `playlistFilterPresets[source]`; nếu đang active thì tự gỡ + reload ngay. @param {string} id @param {string} source */
     async _deletePresetById(id, source) {
-        const wasActive = appState.get('playlistFilterActivePresetId')[source] === id;
-        const presetsMap = appState.get('playlistFilterPresets');
-        appState.set('playlistFilterPresets', { ...presetsMap, [source]: presetsMap[source].filter((p) => p.id !== id) });
+        const { playlistFilterActivePresetId: activeIdMap, playlistFilterPresets: presetsMap } = appState.get(['playlistFilterActivePresetId', 'playlistFilterPresets']);
+        const wasActive = activeIdMap[source] === id;
+        appState.set('playlistFilterPresets', removePlaylistFilterPreset(presetsMap, source, id)); // core/playlist/filter-presets.js
         this._forgetEditing(id);
         this._clearActiveStateIf(wasActive, source);
         console.log(`writer: "_deletePresetById", page: "playlistFilterPresets", content: "[${source}] -${id}${wasActive ? ' (đang active, tự bỏ chọn + dọn ảnh chốt)' : ''}"`);
@@ -255,12 +235,10 @@ const workflowPlaylistFilterPresets = {
 
     /** Gỡ preset active của `source`: active id null, ảnh chốt về rỗng, appliesToFolder về mặc định BẬT. */
     _clearActiveState(source) {
-        const activeIdMap = appState.get('playlistFilterActivePresetId');
-        appState.set('playlistFilterActivePresetId', { ...activeIdMap, [source]: null });
-        const appliedMap = appState.get('playlistFilterAppliedConfig');
-        appState.set('playlistFilterAppliedConfig', { ...appliedMap, [source]: clonePlaylistFilterConfigDefaults()[source] });
-        const appliesToFolderMap = appState.get('playlistFilterAppliesToFolder');
-        appState.set('playlistFilterAppliesToFolder', { ...appliesToFolderMap, [source]: true });
+        const s = appState.get(['playlistFilterActivePresetId', 'playlistFilterAppliedConfig', 'playlistFilterAppliesToFolder']);
+        appState.set('playlistFilterActivePresetId', { ...s.playlistFilterActivePresetId, [source]: null });
+        appState.set('playlistFilterAppliedConfig', { ...s.playlistFilterAppliedConfig, [source]: clonePlaylistFilterConfigDefaults()[source] }); // service/state/playlist.js
+        appState.set('playlistFilterAppliesToFolder', { ...s.playlistFilterAppliesToFolder, [source]: true });
     },
 
     _clearActiveStateIf(wasActive, source) {

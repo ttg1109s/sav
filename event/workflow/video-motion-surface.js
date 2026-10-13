@@ -78,6 +78,8 @@ const workflowVideoMotionSurface = {
     release(owner) {
         if (!owner || this._owner !== owner) return;
         workflowMotionStage.release(this._stageToken); // event/workflow/motion-stage.js — no-op nếu đã bị thay ca
+        resetMotionEngineLayerClasses(bgVideoElement); // core/motion-engine.js — gỡ me-current/me-layer-enter/me-layer-exit còn sót
+        resetMotionEngineLayerClasses(visualBgImageElement);
         detachVideoPlayerMotionFromSharedReactLayer(); // core/player-display-apply.js
         this._stageToken = 0;
         this._owner = null;

@@ -320,7 +320,7 @@ const workflowFileManagerFolderBrowser = {
             maxHeight: '80vh',
             headerHtml: buildFolderFilterEditHeaderHtml(), // components/playlist-filter-drawer.js
             bodyHtml,
-            bodyClass: 'overflow-y-auto',
+            bodyClass: 'overflow-y-auto p-4', // cách mép Drawer như màn Edit preset Filter (Settings bọc `p-4`)
         });
         workflowFilterRuleEdit.syncUi(this._filterEditDraft); // event/workflow/filter-rule-edit.js
         wireFolderFilterEditUi(); // core/file-manager/folder-picker-ui.js — nút Back/Áp dụng; field đi qua delegate chung (event/listener/playlist.js)

@@ -134,13 +134,13 @@ Object.assign(workflowVisualBg, {
     },
 
     /** MỚI (30/09/2026, Giang — dropdown Resolution ở card Media VBG, giống Player) — chuỗi `background-size` cho 1 ảnh
-     * VBG theo `photoResolutionMode` của VBG (KHÔNG phải của Player). Tái dùng ĐÚNG hàm tính của Player Photo
-     * (computePhotoPlayerBackgroundSizeCss(), core/player-display-apply.js — đo khung `visualBgPhotoMotionContainer`, CHÍNH
-     * khung Image surface mà VBG Photo đang dùng) — chỉ khác giá trị mode truyền vào. 'trueMax' cần `record.width/height`
+     * VBG theo `photoResolutionMode` của VBG (KHÔNG phải của Player). Tái dùng ĐÚNG phép tính của Player Photo
+     * (workflowPlayerDisplaySettings.resolvePhotoBackgroundSizeCss() — đo khung Image surface mà VBG Photo đang dùng) — chỉ
+     * khác giá trị mode truyền vào. 'trueMax' cần `record.width/height`
      * (record cũ thiếu -> 'contain').
      * @param {object|null} record @returns {string} */
     _computePhotoResolutionCss(record) {
-        return computePhotoPlayerBackgroundSizeCss(this._resolutionModeFor('photo'), record && record.width, record && record.height); // core/player-display-apply.js
+        return workflowPlayerDisplaySettings.resolvePhotoBackgroundSizeCss(this._resolutionModeFor('photo'), record); // event/workflow/player-display-settings.js
     },
 
     /** Đổi Resolution sống lúc VBG Photo đang hiện ảnh — gọi từ changeResolutionMode(). No-op nếu surface không

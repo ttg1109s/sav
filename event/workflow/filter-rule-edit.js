@@ -9,14 +9,14 @@
  * `data-filter-owner` của khối chứa.
  *
  * NẠP SAU: core/playlist/filter.js (_filterFieldKind/_parseFilterNumberInput/_formatFilterNumberForInput/
- * _formatSecondsAsHms), core/time-picker-modal.js, core/dom-refs.js (genericDrawerBody).
+ * _formatSecondsAsHms/resolveFilter*()), core/playlist/filter-rule-ui.js, core/time-picker-modal.js, core/dom-refs.js.
  */
 
-// Hiển thị giá trị rule: 'seconds' là <button> time-picker (text), còn lại là <input> (value).
+// Hiển thị giá trị rule: 'seconds' là <button> time-picker (textContent), còn lại là <input> (value).
 const FILTER_RULE_DISPLAY_BY_KIND = { // core/playlist/filter.js
-    seconds: (el, kind, value) => { el.textContent = _formatSecondsAsHms(value); },
-    text: (el, kind, value) => { el.value = value || ''; },
-    numeric: (el, kind, value) => { el.value = _formatFilterNumberForInput(kind, value); },
+    seconds: (kind, value) => ({ prop: 'textContent', text: _formatSecondsAsHms(value) }),
+    text: (kind, value) => ({ prop: 'value', text: value || '' }),
+    numeric: (kind, value) => ({ prop: 'value', text: _formatFilterNumberForInput(kind, value) }),
 };
 const FILTER_RULE_PARSE_BY_IS_TEXT = { // core/playlist/filter.js
     true: (kind, raw) => raw,
@@ -32,7 +32,7 @@ const FILTER_RULE_BY_ENABLED = {
 };
 const FILTER_RULE_PROP_SETTER = {
     op: (rule, field, kind, raw) => { rule.op = raw; },
-    mode: (rule, field, kind, raw) => { rule.mode = raw; workflowFilterRuleEdit._setRowModeUi(workflowFilterRuleEdit._rowEl(field), raw); },
+    mode: (rule, field, kind, raw) => { rule.mode = raw; setFilterRuleRowMode(workflowFilterRuleEdit._rowEl(field), raw); }, // core/playlist/filter-rule-ui.js
     value: (rule, field, kind, raw) => { rule.value = FILTER_RULE_PARSE_BY_IS_TEXT[kind === 'text'](kind, raw); },
     valueTo: (rule, field, kind, raw) => { rule.valueTo = _parseFilterNumberInput(kind, raw); }, // core/playlist/filter.js
 };
@@ -50,7 +50,7 @@ const FILTER_RULE_ROW_SYNC_BY_HAS_MODE_BLOCKS = {
         wf._setDisplayUi(singleBlock && singleBlock.querySelector('[data-filter-prop="value"]'), kind, rule.value);
         wf._setDisplayUi(rangeBlock && rangeBlock.querySelector('[data-filter-prop="value"]'), kind, rule.value);
         wf._setDisplayUi(rangeBlock && rangeBlock.querySelector('[data-filter-prop="valueTo"]'), kind, rule.valueTo);
-        wf._setRowModeUi(rowEl, rule.mode);
+        setFilterRuleRowMode(rowEl, rule.mode); // core/playlist/filter-rule-ui.js
     },
 };
 
@@ -62,14 +62,9 @@ const workflowFilterRuleEdit = {
             const rule = config[field];
             const rowEl = this._rowEl(field);
             if (!rowEl) continue;
-            const enableEl = rowEl.querySelector('[data-filter-prop="enabled"]');
-            if (enableEl) enableEl.checked = !!rule;
-            this._setRowBodyEnabledUi(rowEl, !!rule);
+            fillFilterRuleRowControls(rowEl, rule); // core/playlist/filter-rule-ui.js
+            setFilterRuleRowBodyEnabled(rowEl, !!rule);
             if (!rule) continue;
-            const opEl = rowEl.querySelector('[data-filter-prop="op"]');
-            if (opEl && rule.op !== undefined) opEl.value = rule.op;
-            const modeEl = rowEl.querySelector('[data-filter-prop="mode"]');
-            if (modeEl && rule.mode !== undefined) modeEl.value = rule.mode;
             const rangeBlock = rowEl.querySelector('[data-filter-range-block]');
             const singleBlock = rowEl.querySelector('[data-filter-single-block]');
             FILTER_RULE_ROW_SYNC_BY_HAS_MODE_BLOCKS[!!(rangeBlock || singleBlock)](rowEl, _filterFieldKind(field), rule, rangeBlock, singleBlock); // core/playlist/filter.js
@@ -93,11 +88,11 @@ const workflowFilterRuleEdit = {
         openTimePickerModal({ // core/time-picker-modal.js
             title: t(`playlistFilterPanel.field.${field}`),
             format: 'h-m-s',
-            valueMs: (rule[prop] || 0) * 1000,
+            valueMs: resolveFilterPickerMsFromSeconds(rule[prop]), // core/playlist/filter.js
             minMs: 0,
             maxMs: 359999000, // 99:59:59
             onConfirm: (resultMs) => {
-                const seconds = Math.round(resultMs / 1000);
+                const seconds = resolveFilterSecondsFromPickerMs(resultMs); // core/playlist/filter.js
                 this._setDisplayUi(genericDrawerBody.querySelector(`[data-filter-field="${field}"][data-filter-prop="${prop}"][data-filter-time-trigger]`), 'seconds', seconds);
                 onPick(seconds);
             },
@@ -106,7 +101,7 @@ const workflowFilterRuleEdit = {
 
     _setFieldEnabled(config, field, kind, enabled) {
         config[field] = FILTER_RULE_BY_ENABLED[enabled](kind);
-        this._setRowBodyEnabledUi(this._rowEl(field), enabled);
+        setFilterRuleRowBodyEnabled(this._rowEl(field), enabled); // core/playlist/filter-rule-ui.js
         return true;
     },
 
@@ -125,24 +120,7 @@ const workflowFilterRuleEdit = {
 
     _setDisplayUi(el, kind, value) {
         if (!el) return;
-        (FILTER_RULE_DISPLAY_BY_KIND[kind] || FILTER_RULE_DISPLAY_BY_KIND.numeric)(el, kind, value);
-    },
-
-    /** Mờ + khoá thân hàng khi field tắt (checkbox bật/tắt nằm ngoài `data-filter-body` nên không bị khoá theo). */
-    _setRowBodyEnabledUi(rowEl, enabled) {
-        const bodyBlockEl = rowEl && rowEl.querySelector('[data-filter-body]');
-        if (!bodyBlockEl) return;
-        bodyBlockEl.classList.toggle('opacity-40', !enabled);
-        bodyBlockEl.classList.toggle('pointer-events-none', !enabled);
-    },
-
-    /** Hiện khối single hoặc range theo mode. */
-    _setRowModeUi(rowEl, mode) {
-        if (!rowEl || mode === undefined) return;
-        const rangeBlock = rowEl.querySelector('[data-filter-range-block]');
-        const singleBlock = rowEl.querySelector('[data-filter-single-block]');
-        if (!rangeBlock || !singleBlock) return;
-        rangeBlock.classList.toggle('hidden', mode === 'single');
-        singleBlock.classList.toggle('hidden', mode !== 'single');
+        const display = (FILTER_RULE_DISPLAY_BY_KIND[kind] || FILTER_RULE_DISPLAY_BY_KIND.numeric)(kind, value);
+        setFilterRuleControlDisplay(el, display.prop, display.text); // core/playlist/filter-rule-ui.js
     },
 };

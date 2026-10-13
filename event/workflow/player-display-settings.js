@@ -33,8 +33,8 @@
  * liên tuyến domain), nút Apply ở đó gọi lại `changeMotionSlot()` qua `onApply`.
  *
  * NẠP SAU: core/config.js (appConfigPlayerDisplay), core/player-display-settings.js
- * (PLAYER_MOTION_SLOTS/resolvePlayerMotionPresetField/resolvePlayerResolutionField),
- * core/player-display-apply.js (apply*ToDOM()/clear*FromDOM()), core/dom-refs.js
+ * (PLAYER_MOTION_SLOTS/resolvePlayer*()/computeVideoPointMoveAdvanceMs()),
+ * core/player-display-apply.js (apply*ToDOM()/measure*()/clear*FromDOM()), core/dom-refs.js
  * (motionEngineReactLayer/bgVideoElement/visualBgImageElement), core/motion-presets.js
  * (findMotionPresetById()/isReactBeatPresetActive()), event/workflow/visual-bg-photo-motion.js
  * (MOTION_ENGINE_NO_OP_PRESET đã dời về core/motion-presets.js 25/09/2026),
@@ -49,6 +49,19 @@
 
 // MỚI (25/09/2026, đợt 4) — chuỗi owner MỜ của Player Video khi mượn Video surface (surface chỉ so bằng).
 const PLAYER_VIDEO_MOTION_SURFACE_OWNER = 'playerVideo';
+
+/** Đổi Resolution trong Settings: áp sống ngay nếu đang ở đúng Player mode của `kind` (Video: 2 layer A/B; Photo: Photo
+ * Player tự áp lại lên đúng layer đang hiện vì giữ record + surface). */
+const PLAYER_RESOLUTION_LIVE_BY_KIND = {
+    video: (modes, value) => {
+        if (!modes.isVideoPlayerMode) return;
+        workflowPlayerDisplaySettings._applyVideoResolution(value);
+    },
+    photo: (modes) => {
+        if (!modes.isPhotoPlayerMode) return;
+        workflowPhotoPlayer.refreshResolution(); // event/workflow/photo-player.js
+    },
+};
 
 const workflowPlayerDisplaySettings = {
 
@@ -125,27 +138,17 @@ const workflowPlayerDisplaySettings = {
         }
     },
 
-    /** Ứng select Resolution đổi (màn Player > Video hoặc Photo). KHÔNG validate `value` khớp
-     * PLAYER_RESOLUTION_MODES ở đây — `<select>` chỉ có đúng 3 `<option>` hợp lệ nên giá trị luôn
-     * sạch, cùng tinh thần các select đơn giản khác trong app-settings.js (vd Theme mode).
-     *
-     * ÁP LIVE ngay nếu đang Ở ĐÚNG mode kind vừa đổi — người dùng thấy hiệu ứng NGAY trong lúc
-     * Video/Photo đang phát (không cần thoát/vào lại mode). Photo cần `record` của ảnh ĐANG hiện
-     * (đọc lại `currentKey`, `trueMax` phụ thuộc kích thước ảnh) — Video KHÔNG cần (object-fit
-     * trình duyệt tự tính lại, xem docstring core/player-display-apply.js).
-     * @param {'video'|'photo'} kind @param {string} value */
+    /** Select Resolution (Player > Video hoặc Photo) — `<select>` chỉ có option hợp lệ nên không validate. Áp sống nếu
+     * đang ở đúng mode (PLAYER_RESOLUTION_LIVE_BY_KIND). @param {'video'|'photo'} kind @param {string} value */
     async changeResolutionMode(kind, value) {
         const field = resolvePlayerResolutionField(kind); // core/player-display-settings.js
         appConfigPlayerDisplay.mutateAll((cfg) => { cfg[field] = value; }); // core/config.js
         console.log(`writer: "workflowPlayerDisplaySettings.changeResolutionMode", page: "playerDisplayConfig", content: "${field}=${value}"`);
         await setMeta('playerDisplayConfig', appConfigPlayerDisplay.getAll()); // service/db.js
-
-        if (kind === 'video' && appState.get('isVideoPlayerMode')) {
-            applyVideoPlayerResolutionToDOM(value); // core/player-display-apply.js — layer A
-            applyVideoPlayerResolutionToLayerBDOM(value); // core/player-display-apply.js — layer B, CÙNG giá trị `value` vừa áp cho layer A
-        } else if (kind === 'photo' && appState.get('isPhotoPlayerMode')) {
-            workflowPhotoPlayer.refreshResolution(); // event/workflow/photo-player.js — SỬA 25/09/2026: Photo giữ record + surface của mình, tự áp lại lên ĐÚNG layer đang hiện
-        }
+        const modes = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode']);
+        const applyLive = PLAYER_RESOLUTION_LIVE_BY_KIND[kind];
+        if (!applyLive) return;
+        applyLive(modes, value);
     },
 
     // ===================== Zoom (MỚI 29/09/2026, Giang — mức zoom/pan của Zoom mode kính lúp lưu bền, video riêng
@@ -207,43 +210,41 @@ const workflowPlayerDisplaySettings = {
         appConfigPlayerDisplay.mutateAll((cfg) => { cfg[field] = value || null; }); // core/config.js
         console.log(`writer: "workflowPlayerDisplaySettings.changeMotionSlot", page: "playerDisplayConfig", content: "${field}=${value || null}"`);
         await setMeta('playerDisplayConfig', appConfigPlayerDisplay.getAll()); // service/db.js
-
-        if (kind === 'video' && slot === 'showing' && appState.get('isVideoPlayerMode')) {
+        const { isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode']);
+        if (kind === 'video' && slot === 'showing' && isVideoPlayerMode) {
             this.syncVideoPlayerReactBeat();
             this.resyncVideoPlayerPointMovePreset();
         }
-        // MỚI (25/09/2026, đợt 3) — Point Move Photo áp SỐNG lên ảnh đang hiện (2 slot Transition tự có hiệu
-        // lực ở lượt chuyển ảnh kế tiếp, không cần làm gì).
-        if (kind === 'photo' && slot === 'pointMove' && appState.get('isPhotoPlayerMode')) {
+        // Point Move Photo áp sống lên ảnh đang hiện (2 slot Transition tự có hiệu lực ở lượt chuyển ảnh kế tiếp).
+        if (kind === 'photo' && slot === 'pointMove' && isPhotoPlayerMode) {
             workflowPhotoPlayer.refreshPointMovePreset(); // event/workflow/photo-player.js
         }
     },
 
-    /** Áp Resolution Video (đọc từ config đã lưu) lên CẢ layer A (`bgVideoElement`) LẪN layer B
-     * (`visualBgImageElement`, xem docstring core/player-display-apply.js — 2 layer NGANG HÀNG,
-     * mô hình giống VBG) — gọi ĐÚNG 1 LẦN lúc VÀO Video Player mode (event/workflow/video-player.js
-     * ::startFromPlaylist()) — không cần gọi lại mỗi lần Next/Prev cho RIÊNG layer A (CSS
-     * `object-fit` trình duyệt tự tính lại), NHƯNG layer B thì CÓ, xem
-     * `syncVideoPlayerResolutionLayerB()` ngay dưới. */
+    /** Áp Resolution Video đã lưu lên 2 layer — 1 lần lúc vào Video Player mode (event/workflow/video-player.js
+     * ::startFromPlaylist()). */
     applyVideoPlayerResolutionOnEnter() {
-        const mode = appConfigPlayerDisplay.getAll().videoResolutionMode; // core/config.js
-        applyVideoPlayerResolutionToDOM(mode); // core/player-display-apply.js — layer A
-        applyVideoPlayerResolutionToLayerBDOM(mode); // core/player-display-apply.js — layer B, CÙNG giá trị `mode`
+        this._applyVideoResolution(appConfigPlayerDisplay.getAll().videoResolutionMode); // core/config.js
     },
 
-    /** Đồng bộ lại Resolution cho layer B (`visualBgImageElement`) NGAY sau khi nội dung layer B
-     * vừa đổi lúc swap video (event/workflow/video-player.js::swapBgVideoSource(), CHỈ lúc THẬT SỰ
-     * đang ở Video Player mode — hàm đó DÙNG CHUNG với Visual Background, guard ở nơi gọi) — layer A
-     * KHÔNG cần gọi lại tương ứng (CSS `object-fit` tự tính theo video hiện tại, xem docstring
-     * `applyVideoPlayerResolutionOnEnter()`) nhưng layer B (`background-size`, tính tay) THÌ CÓ —
-     * mỗi lần nội dung layer B đổi (ảnh khác), phải tính LẠI theo kích thước ảnh MỚI đó.
-     * FIX (30/09/2026, Giang) — kích thước gốc cho 'trueMax' lấy từ `record.width/height` của video MỚI (thumb vừa vào
-     * layer B), KHÔNG còn đọc `bgVideoElement.videoWidth` (lúc hook chạy vẫn là video CŨ) — xem docstring core/player-
-     * display-apply.js::applyVideoPlayerResolutionToLayerBDOM().
-     * @param {object|null} record - record video có thumb vừa vào layer B (hook `onLayerBFilled(record)`). */
+    /** Tính lại Resolution cho layer B ngay sau khi nội dung layer B đổi lúc swap video (hook `onLayerBFilled(record)` của
+     * workflowVideoPlayer.swapBgVideoSource(), chỉ khi đang ở Video Player mode) — kích thước gốc lấy từ record video MỚI.
+     * @param {object|null} record */
     syncVideoPlayerResolutionLayerB(record) {
         const naturalSize = { width: (record && record.width) || null, height: (record && record.height) || null };
-        applyVideoPlayerResolutionToLayerBDOM(appConfigPlayerDisplay.getAll().videoResolutionMode, naturalSize); // core/player-display-apply.js + core/config.js
+        this._applyVideoLayerBResolution(appConfigPlayerDisplay.getAll().videoResolutionMode, naturalSize); // core/config.js
+    },
+
+    /** Layer A (`object-fit`) + layer B (`background-size`) cùng 1 mode. @param {string} mode */
+    _applyVideoResolution(mode) {
+        applyVideoPlayerResolutionToDOM(resolvePlayerObjectFitCss(mode)); // core/player-display-apply.js + core/player-display-settings.js
+        this._applyVideoLayerBResolution(mode);
+    },
+
+    /** @param {string} mode @param {{width:(number|null), height:(number|null)}} [naturalSize] */
+    _applyVideoLayerBResolution(mode, naturalSize) {
+        const m = measureVideoPlayerLayerB(naturalSize); // core/player-display-apply.js
+        applyVideoPlayerResolutionToLayerBDOM(resolvePlayerBackgroundSizeCss(mode, m.naturalWidth, m.naturalHeight, m.containerWidth, m.containerHeight)); // core/player-display-settings.js
     },
 
     /** Gỡ override Resolution khỏi `bgVideoElement` — gọi lúc THOÁT Video Player mode
@@ -267,11 +268,18 @@ const workflowPlayerDisplaySettings = {
         return (presetId && findMotionPresetById(appState.get('motionPresets'), presetId)) || MOTION_ENGINE_NO_OP_PRESET; // core/motion-presets.js
     },
 
-    /** `background-size` cho 1 record ảnh theo Resolution Photo đang lưu (`trueMax` cần kích thước gốc RIÊNG
-     * của từng ảnh). @param {{width?:number, height?:number}|null|undefined} record @returns {string} */
+    /** `background-size` cho 1 record ảnh theo Resolution Photo của Player (`trueMax` cần kích thước gốc riêng từng ảnh).
+     * @param {{width?:number, height?:number}|null|undefined} record @returns {string} */
     computePhotoPlayerBackgroundSize(record) {
-        const mode = appConfigPlayerDisplay.getAll().photoResolutionMode; // core/config.js
-        return computePhotoPlayerBackgroundSizeCss(mode, record && record.width, record && record.height); // core/player-display-apply.js
+        return this.resolvePhotoBackgroundSizeCss(appConfigPlayerDisplay.getAll().photoResolutionMode, record); // core/config.js
+    },
+
+    /** `background-size` cho 1 ảnh trong Image surface theo `mode` bất kỳ — dùng chung Player Photo và VBG Photo
+     * (workflowVisualBg, theo Resolution riêng của VBG). Record cũ thiếu width/height -> 'trueMax' rơi về 'contain'.
+     * @param {string} mode @param {{width?:number, height?:number}|null|undefined} record @returns {string} */
+    resolvePhotoBackgroundSizeCss(mode, record) {
+        const box = measurePhotoPlayerContainer(); // core/player-display-apply.js
+        return resolvePlayerBackgroundSizeCss(mode, record && record.width, record && record.height, box.width, box.height); // core/player-display-settings.js
     },
 
     /** Core thuần phụ — preset ĐANG gắn cho `videoShowingPresetId` (gộp 1 field cho CẢ Point Move
@@ -335,12 +343,8 @@ const workflowPlayerDisplaySettings = {
         return (presetId && findMotionPresetById(appState.get('motionPresets'), presetId)) || MOTION_ENGINE_NO_OP_PRESET; // core/motion-presets.js
     },
 
-    /** Core thuần phụ — thời lượng hành trình Point Move Video: thời lượng video chia tốc độ phát
-     * hiện tại. `bgVideoElement.duration` chưa sẵn sàng (NaN/Infinity) hoặc 0 -> trả 0 (Runner tự
-     * hiểu là bỏ qua Point Move hoàn toàn). @returns {number} */
+    /** Thời lượng hành trình Point Move Video theo video đang nạp + tốc độ phát hiện tại. @returns {number} */
     _computeVideoPointMoveAdvanceMs() {
-        const durationSec = bgVideoElement.duration;
-        const speed = appConfigViz.getAll().playbackSpeed || 1; // core/config.js
-        return isFinite(durationSec) && durationSec > 0 ? (durationSec * 1000) / speed : 0;
+        return computeVideoPointMoveAdvanceMs(bgVideoElement.duration, appConfigViz.getAll().playbackSpeed); // core/player-display-settings.js + core/config.js
     },
 };
