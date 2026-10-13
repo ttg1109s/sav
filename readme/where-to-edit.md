@@ -35,7 +35,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Khởi động app (seed config, nạp DB, dựng playlist) | `event/workflow/app-boot.js` (cụm `appBoot`); dọn khi thoát `event/workflow/app-cleanup.js`; khôi phục `core/app-recovery.js` |
 | Ẩn/hiện tab, PWA quay lại, AudioContext bị treo | `event/listener/app-visibility.js` → `event/router/app-visibility.js` → `event/workflow/app-visibility.js`; theo dõi tab `event/tab.js`; wakelock `core/wakelock.js` (state `service/state/wakelock-tab.js`) |
 | Thanh điều hướng dưới, chồng view | `components/app-bottom-nav.js`, `components/app-view-stack.js`; logic cụm `appPanelNav` (`core/app-panel-nav.js`, `event/workflow/app-panel-nav.js`, state `service/state/app-panel-nav.js`) |
-| Cuộn ngang giữa các panel | `core/slider-panel-scroll.js` |
+| Nút mũi tên cuộn thanh công cụ Subtitle Editor | `core/slider-panel-scroll.js` |
 | Màn Settings chính, carousel | `components/settings/app-settings-main.js`, `core/app-settings-ui.js`, `core/settings-carousel-ui.js`; cụm `appSettings` |
 | Mục lặt vặt trong Settings (About, Troubleshooting…) | `components/settings/troubleshooting.js`, `core/settings-misc-ui.js`, `core/about-stats.js`; cụm `settingsMisc` |
 | Ngôn ngữ | `lang/lang.js`, `lang/patch/patch-*.js`; UI `components/settings/language.js`; cụm `languageSettings` |
@@ -69,8 +69,8 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Màn trống khi chưa có bài | cụm `playlistEmptyState` |
 | Logo SAV góc Playlist | `core/sav-logo.js` (`setSavLogoExpanded()`); cụm `savLogo` |
 | Media đang dùng bị thay nội dung | cụm `mediaInUse` (`event/router/media-in-use.js`, `event/workflow/media-in-use.js`) |
-| File Manager — Video | `core/file-manager/video.js`, `video-ui.js`; lưới `event/workflow/video-gallery-window.js`; thumbnail `event/workflow/video-thumb-extract.js` |
-| File Manager — Photo | `core/file-manager/image.js`, `photo-ui.js`; lưới `event/workflow/photo-gallery-window.js`; cụm `fileManagerPhoto`; giải mã/thu nhỏ ảnh `core/image-load-ui.js` |
+| File Manager — Video | `core/file-manager/video.js`, `video-ui.js` (modal trình sửa video, pages/video-editor.html); lưới `event/workflow/video-gallery-window.js` (DOM `core/file-manager/gallery-window-ui.js`, markup `components/media-gallery.js`); thumbnail `event/workflow/video-thumb-extract.js` |
+| File Manager — Photo | `core/file-manager/image.js`, `photo-ui.js` (modal xem/sửa ảnh, markup `components/image-preview-modal.js`); lưới `event/workflow/photo-gallery-window.js` (cùng DOM/markup với Video); cụm `fileManagerPhoto`; giải mã/thu nhỏ ảnh `core/image-load-ui.js` |
 | Folder | `event/workflow/folder.js` (`workflowFolder` — mọi đọc DB + điều phối tạo/đổi tên/xoá/cài đặt/thành viên/migrate), `core/file-manager/folder.js` (tính thuần + ghi), `folder-picker-ui.js` (wiring lưới; chạm/giữ tay tile ở `workflowFolder`); cụm `fileManagerFolderBrowser` |
 | Quét/dọn file hỏng | `core/file-manager/cleanup.js`; cụm `fileManagerCleanup` |
 | Quản lý lưu trữ | `components/file-manager-storage.js`, `core/storage-manager.js`; cụm `fileManagerStorage` |
@@ -105,7 +105,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | VBG Photo | `core/visual-bg-photo.js`, `event/workflow/visual-bg-photo.js`, `event/workflow/visual-bg-photo-motion.js` |
 | VBG Video, âm thanh từng video | `core/visual-bg-video.js`, `event/workflow/visual-bg-video.js`, `components/visual-bg-video-audio-drawer.js` |
 | Nền gradient | `components/visual-bg-gradient-drawer.js` |
-| Chọn media từ thư viện | `core/media-picker-drawer-ui.js` |
+| Chọn media từ thư viện | `core/media-picker-drawer-ui.js`; khung cuộn `components/media-gallery.js::renderMediaPickerBodyHtml()` |
 
 ## 6. Visualizer
 

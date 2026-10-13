@@ -65,7 +65,6 @@ Schema Folder chi tiết: docstring đầu `core/file-manager/folder.js`.
 | `getMediaRecord(type, key)`, `getSongRecord` / `getVideoRecord` / `getImageRecord(key)` | Ghép meta + blob + thumb trong 1 transaction, trả record hình dạng gộp |
 | `get{Song,Video,Image}RecordsByKeys(keys, onProgress)`, `getAll{Song,Video,Image}Records(onProgress)` | Đọc gộp hàng loạt |
 | `getMediaMeta(type, key)`, `getAllMediaMeta(type)` | CHỈ meta (không mở Blob) — `getAllMediaMeta` gộp `key` vào từng phần tử |
-| `getMediaBlob(type, key)`, `getMediaThumbs(type, key)` | Đọc riêng file chính / object thumb |
 | `resolveMediaKey(type, filename, fallbackSlug)`, `resolve{Song,Video,Image}Key(filename)` | Sinh key (đọc meta để tránh trùng; cùng `filename` thì trả đúng key cũ để ghi đè) |
 | `getAll{Song,Video,Image}Keys()`, `getMeta`, `getFolderRecord`, `getFolderSongMap`, `getAllFolderKeys`, `getAllFolderSongKeys`, `getLanguagePack`… | Đọc store khác |
 

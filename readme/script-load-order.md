@@ -244,6 +244,8 @@ Mỗi file chỉ định nghĩa `TPL_*` (chuỗi HTML tĩnh) hoặc hàm `render
 75. `components/subtitle-settings-drawer.js`
 76. `components/motion-settings-drawer.js`
 76a. `components/image-edit-modals.js` — MỚI 12/10/2026 (body modal sửa chữ layer Photo — plan-event-bus-wiring đợt 6a)
+76b. `components/image-preview-modal.js` — MỚI 13/10/2026 (markup modal xem/sửa ảnh — plan-debt-domains đợt 7)
+76c. `components/media-gallery.js` — MỚI 13/10/2026 (markup lưới ảnh/video nhóm ngày + khung picker — đợt 7)
 77. `components/visual-bg-settings-drawer.js`
 78. `components/visual-bg-gradient-drawer.js`
 79. `components/visual-bg-video-audio-drawer.js`
@@ -325,8 +327,8 @@ Phần lớn chỉ khai báo hàm. Xen giữa có vài file không thuộc `core
 runtime, cần `components/app-mount.js`), `service/task-manager.js`, `service/db.js`, `service/component-dynamic.js`,
 `service/blob-url.js`, `service/song-key-cipher.js`, `event/workflow/generic-drawer-helpers.js`,
 `event/workflow/media-transform-helpers.js`, `lang/language-settings.js` — các file này không có ràng buộc lúc nạp với
-core xung quanh. Nhóm visualizer: `core/visualizer/*` rồi `core/visualizer/groups/<group>/common.js` trước style của
-group.
+core xung quanh. Nhóm visualizer: `core/visualizer/*` rồi `core/visualizer/groups/<group>/common.js` (group nào có) trước style
+của group.
 
 <details><summary>Thứ tự (141 mục)</summary>
 
@@ -337,7 +339,6 @@ group.
 123b. `core/gesture-settings-ui.js` — MỚI 13/10/2026 (fillGestureSettingsPanel — plan-debt-domains đợt 1)
 124. `event/store.js`
 125. `core/dom-refs.js`
-126. `core/slider-panel-scroll.js`
 127. `core/sav-logo.js`
 128. `service/task-manager.js`
 129. `service/db.js`
@@ -350,9 +351,11 @@ group.
 136. `core/pagination-ui.js`
 137. `core/file-manager/image.js`
 138. `core/file-manager/photo-ui.js`
-138a. `core/image-load-ui.js` — MỚI 12/10/2026 (decodeImageFromUrl/renderImageScaledToJpegBlob/releaseDecodedImage — plan-event-bus-wiring đợt 6b-1); gọi lúc chạy từ event/workflow/file-manager-photo.js, file-manager-storage.js, visualizer/shape.js
-138b. `core/dynamic-object-ui.js` — MỚI 13/10/2026 (adapter sự kiện đối tượng tạo động — ngoại lệ chính thức, plan-event-bus-wiring đợt 6b-3); không phụ thuộc; gọi lúc chạy từ event/workflow/recorder.js, video-thumb-extract.js
-138c. `core/media-element-ui.js` — MỚI 13/10/2026 (setMediaElementSource/seekMediaElement/seekMediaElementClamped/playMediaElement — plan-event-bus-wiring đợt 6b-4); không phụ thuộc; gọi lúc chạy từ event/workflow/player.js, video-player.js, visual-bg-video.js
+138a. `core/file-manager/gallery-window.js` — MỚI 13/10/2026 (core thuần badge lưới — đợt 7)
+138b. `core/file-manager/gallery-window-ui.js` — MỚI 13/10/2026 (ghi DOM lưới nhóm ngày — đợt 7)
+138c. `core/image-load-ui.js` — MỚI 12/10/2026 (decodeImageFromUrl/renderImageScaledToJpegBlob/releaseDecodedImage — plan-event-bus-wiring đợt 6b-1); gọi lúc chạy từ event/workflow/file-manager-photo.js, file-manager-storage.js, visualizer/shape.js
+138d. `core/dynamic-object-ui.js` — MỚI 13/10/2026 (adapter sự kiện đối tượng tạo động — ngoại lệ chính thức, plan-event-bus-wiring đợt 6b-3); không phụ thuộc; gọi lúc chạy từ event/workflow/recorder.js, video-thumb-extract.js
+138e. `core/media-element-ui.js` — MỚI 13/10/2026 (setMediaElementSource/seekMediaElement/seekMediaElementClamped/playMediaElement — plan-event-bus-wiring đợt 6b-4); không phụ thuộc; gọi lúc chạy từ event/workflow/player.js, video-player.js, visual-bg-video.js
 139. `core/media-picker-drawer-ui.js`
 140. `core/photo-editor-engine.js`
 141. `core/media-transform.js`
@@ -464,7 +467,6 @@ group.
 240. `core/visualizer/groups/bar/cascade.js`
 241. `core/visualizer/groups/bar/dot.js`
 242. `core/visualizer/groups/bar/black-hole.js`
-243. `core/visualizer/groups/shape/common.js`
 244. `core/visualizer/groups/shape/rubik.js`
 245. `core/visualizer/groups/shape/clock.js`
 246. `core/visualizer/groups/vortex/common.js`
@@ -474,7 +476,6 @@ group.
 250. `core/visualizer/groups/rain/common.js`
 251. `core/visualizer/groups/rain/glass.js`
 252. `core/visualizer/groups/rain/street.js`
-253. `core/visualizer/groups/lighting/common.js`
 254. `core/visualizer/groups/lighting/thunder.js`
 255. `core/visualizer/groups/lighting/fireworks.js`
 256. `core/visualizer/groups/connector/common.js`
@@ -901,13 +902,12 @@ Các file sau được nạp ở hơn 1 trang — sửa file thì nâng `?v=` �
 | `components/loading-shield.js` | index, video-editor | `20260910v1` |
 | `core/dropdown-menu.js` | index, video-editor | `20260921v7` |
 | `core/file-manager/folder.js` | index, video-editor | `20261006db2` |
-| `core/file-manager/image.js` | index, video-editor | `20261006db5` |
-| `core/file-manager/video.js` | index, video-editor | `20261006db5` |
+| `core/file-manager/image.js` | index, video-editor | `20261013w7` |
+| `core/file-manager/video.js` | index, video-editor | `20261013w7` |
 | `core/generic-drawer.js` | index, subtitle-editor | `20260924r8` |
 | `core/loading-shield-util.js` | index, video-editor | `20261007pl1` |
-| `core/media-transform.js` | index, video-editor | `20260804v1` |
+| `core/media-transform.js` | index, video-editor | `20261013w7` |
 | `core/modal-choice-ui.js` | index, subtitle-editor, video-editor | `20261006r1` |
-| `core/slider-panel-scroll.js` | index, subtitle-editor | `20260712v1` |
 | `core/subtitle/subtitle-karaoke.js` | index, subtitle-editor | `20261013ev12` |
 | `core/time-picker-modal.js` | index, subtitle-editor | `20261006r1` |
 | `core/ui-theme/apply-ui.js` | index, subtitle-editor, video-editor | `20260909v1` |
@@ -916,20 +916,20 @@ Các file sau được nạp ở hơn 1 trang — sửa file thì nâng `?v=` �
 | `core/ui-theme/light.js` | index, subtitle-editor, video-editor | `20260923v5` |
 | `core/ui-theme/morphin.js` | index, subtitle-editor, video-editor | `20260923v5` |
 | `core/ui-theme/registry.js` | index, subtitle-editor, video-editor | `20260921v6` |
-| `core/upload-validation.js` | index, subtitle-editor, video-editor | `20261006z1` |
+| `core/upload-validation.js` | index, subtitle-editor, video-editor | `20261013w7` |
 | `core/video-player-capture.js` | index, video-editor | `20261007sg1` |
 | `event/bus.js` | index, subtitle-editor, video-editor | `20260703v1` |
 | `event/virtual-machine-state.js` | index, video-editor | `20260701v1` |
 | `event/workflow/generic-drawer-helpers.js` | index, subtitle-editor | `20261007svg1` |
-| `event/workflow/media-transform-helpers.js` | index, video-editor | `20260804v1` |
+| `event/workflow/media-transform-helpers.js` | index, video-editor | `20261013w7` |
 | `event/workflow/photo-duration.js` | index, video-editor | `20261006r6` |
 | `event/workflow/video-frame-capture.js` | index, video-editor | `20261006r6` |
 | `event/workflow/video-thumb-extract.js` | index, video-editor | `20261006r6` |
 | `lang/lang.js` | index, subtitle-editor, video-editor | `20260731v1` |
 | `lang/patch/patch-app-panel-nav.js` | index, subtitle-editor, video-editor | `20261005set3` |
-| `lang/patch/patch-common.js` | index, subtitle-editor, video-editor | `20261006z2` |
+| `lang/patch/patch-common.js` | index, subtitle-editor, video-editor | `20261013w7` |
 | `lang/patch/patch-file-manager.js` | index, subtitle-editor, video-editor | `20261007fi2` |
-| `lang/patch/patch-playlist.js` | index, subtitle-editor, video-editor | `20261006audivis1` |
+| `lang/patch/patch-playlist.js` | index, subtitle-editor, video-editor | `20261013w7` |
 | `lang/patch/patch-settings-misc.js` | index, subtitle-editor, video-editor | `20261006r4` |
 | `lang/patch/patch-subtitle-editor.js` | index, subtitle-editor, video-editor | `20260930kr4` |
 | `lang/patch/patch-subtitle-settings.js` | index, subtitle-editor, video-editor | `20261007ui2` |
@@ -937,7 +937,7 @@ Các file sau được nạp ở hơn 1 trang — sửa file thì nâng `?v=` �
 | `lang/patch/patch-visualizer.js` | index, subtitle-editor, video-editor | `20261007ui2` |
 | `service/blob-url.js` | index, video-editor | `20260803v1` |
 | `service/component-dynamic.js` | index, video-editor | `20260803v1` |
-| `service/db.js` | index, subtitle-editor, video-editor | `20261006dbg1` |
+| `service/db.js` | index, subtitle-editor, video-editor | `20261013w7` |
 | `service/operation.js` | index, video-editor | `20260701v1` |
 | `service/song-key-cipher.js` | index, subtitle-editor, video-editor | `20260710v1` |
 | `service/state.js` | index, subtitle-editor, video-editor | `20261001aa1` |

@@ -13,7 +13,7 @@
 
 ## 1. Tổng quan
 
-- **1019 FAIL** ở **112 file**; 10 chờ chốt; 872 dòng máy quét báo nhưng review loại (mục 5).
+- **981 FAIL** ở **107 file**; 10 chờ chốt; 872 dòng máy quét báo nhưng review loại (mục 5).
 - Cập nhật 07/10/2026 (cùng ngày lập sổ): gỡ Service Worker tải file lớn (`sw.js`, `core/large-file-download.js`) xoá 4 dòng FAIL (1312 → 1308, 142 → 141 file). Bảng tỉ lệ ngay dưới giữ số đo lúc lập sổ.
 - Cập nhật 07/10/2026 (game Arrow): sửa nợ trong đúng các method bị đụng khi nối game mới — `workflowGameplay.start` (3 dòng: pause/currentTime trong Workflow, 2 lần get), `workflowGameCatalog.armGame` (2 lần get), `workflowAudioAnalysis._tick` (Math.floor) — xoá 5 dòng FAIL (1308 → 1303). Code mới của game Arrow không thêm dòng nào.
 - Cập nhật 12/10/2026 (plan-event-bus-wiring-07-10-2026 **đợt 1 — EQ**): nội dung Generic Drawer Edit EQ đi Listener → Router (ủy quyền 1 lần, `data-eq-*`), xoá `_wireListView()`/`_wireEditView()` — xoá 11 dòng "Workflow tự gắn sự kiện"; method bị đụng `_previewBandGain` dọn luôn nợ ghi DOM (core -ui mới `core/eq-presets-drawer-ui.js`) — xoá 1 dòng "Workflow tự thao tác DOM" (1303 → 1291). Số đầu mục/bảng §3 đếm lại theo dòng thật (đã lệch từ cập nhật game Arrow).
@@ -34,6 +34,7 @@
 - Cập nhật 13/10/2026 (plan-debt-domains **đợt 3 — Custom Effect · HUD · Pagination**): `getEffectConfig(type)` → core thuần `resolveEffectConfig(customEffect, type)` (hết tự đọc AppConfig), 7 Workflow gọi truyền `appConfigViz.getAll().customEffect`; `getEffectBlurMult` xoá (không nơi gọi); `getConnectorGlowMult()` → `resolveConnectorGlowMult(ec)`; `setCustomEffectField` (if-return ghi 2 chỗ khác nhau) tách `setCustomEffectGroupField`/`setCustomEffectStyleField`, Workflow chọn qua `isCustomEffectPerStyleField()` + map. **Giữ lại 2 dòng** `getActiveEffectConfig` (Rule 3a + 3b): nơi gọi còn là core vẽ (`effect-paint.js`, `visualizer-display.js`) — gỡ cùng đợt 23a. HUD: `syncVolumeHudIcon(level)` nhận mốc, `syncSpeedHudUI(..., view)` nhận `resolveSpeedHudView()` (xoá `syncSpeedHudSliderFill`/`formatPlaybackSpeedLabel`); hiện/ẩn panel + đặt slider qua core (`showHudPanel`/`hideHudPanel`/`setVolumeHudSliderValue`); `selectSpeed` gộp `get([…])` + map theo loại media (bỏ 2 guard `typeof` — K1); badge tốc độ lúc boot: `workflowHud.syncSpeedUI()` gọi từ app-boot sau `loadConfig()` — kéo theo xoá dòng `core/config.js::loadConfig` gọi `syncSpeedHudUI()` (Rule 3a, sổ xếp đợt 16). Pagination: 4 template + 2 hằng dời sang components MỚI `components/pagination-controls.js` (`renderPagination*Html()`); chuẩn hoá cài đặt / ô nhập / trang của item → core thuần `sanitizePaginationPlace()`/`resolvePaginationPageSizeInput()`/`computePaginationPageOfItem()`. Kèm (Workflow tự tính, chưa có trong sổ): `workflowCustomEffect` — trim/viết hoa chữ pháo hoa, thêm/xoá/sửa mảng đèn + chữ, bật/tắt kiểu nổ, parse + chữ hiển thị slider, tra meta field → core (`appendFireworksText`, `appendCustomLamp`, `removeCustomEffectListItem`, `replaceCustomLampField`, `toggleFireworksStyleList`, `resolveCustomEffectSliderInput`, `findCustomEffectFieldMeta`; bỏ 4 map tính toán cấp module); `clampAndRoundPlaybackSpeed` tự parse chuỗi. Tổng 1099 → 1074 (126 → 121 file).
 - Cập nhật 13/10/2026 (plan-debt-domains **đợt 4 — Player display settings · Playlist Filter**): `core/player-display-apply.js` nhận chuỗi CSS đã tính (`resolvePlayerObjectFitCss`/`resolvePlayerBackgroundSizeCss` do Workflow gọi), tách số đo khung ra `measureVideoPlayerLayerB()`/`measurePhotoPlayerContainer()` (thay `computePhotoPlayerBackgroundSizeCss`); `resetMotionEngineLayerClasses()` gọi từ `workflowVideoMotionSurface.release()` trước khi detach; Workflow: `_applyVideoResolution`/`_applyVideoLayerBResolution`, `resolvePhotoBackgroundSizeCss(mode, record)` dùng chung Player Photo + VBG Photo (`visual-bg-photo.js`), `changeResolutionMode` → map theo `kind` + gộp `get([…])`, `changeMotionSlot` gộp `get([…])`. Filter: `sanitizePlaylistFilterPresetsMap` bỏ (Workflow gọi `sanitizePlaylistFilterPresets` từng Nguồn), `sanitizePlaylistFilterActiveIdMap` tự tra tồn tại; `applyPlaylistFilter` gộp nội dung `_startOfLocalDayMs`/`_evaluateFilterRule` (xoá 2 hàm + 2 hằng mồ côi); ghi DOM hàng rule qua core -ui MỚI `core/playlist/filter-rule-ui.js`; time picker quy đổi ms ↔ giây qua core; 6 method `workflowPlaylistFilterPresets` gộp `get([…])`. Kèm (Workflow tự tính, chưa có trong sổ): `_computeVideoPointMoveAdvanceMs` → core `computeVideoPointMoveAdvanceMs()`; `loadOnBoot` chuẩn hoá ảnh chốt / appliesToFolder → core `sanitizePlaylistFilterAppliedConfig()`/`sanitizePlaylistFilterAppliesToFolderMap()`; `_recomputeLiveConfig` → `computePlaylistFilterLiveConfig()`, thêm/xoá preset + số thứ tự tên + deep clone ảnh chốt → core. **Bug UI sửa kèm:** màn "Cài đặt filter" của folder (Generic Drawer) thiếu khoảng cách quanh card — `bodyClass` thêm `p-4` (như màn Edit preset Filter). Tổng 1074 → 1047 (121 → 115 file).
 - Cập nhật 13/10/2026 (plan-debt-domains **đợt 6 — Statistics + listen stats**): toàn bộ template của panel (`buildStatisPanelBodyHtml`/`buildStatisPanelSkeletonHtml`/biểu đồ tròn + 4 hằng) dời sang `components/statis-panel.js` (`renderStatisPanelBodyHtml({…})`/`renderStatisPanelSkeletonHtml()`/`renderStatisShareChartHtml()`) — hết 15 dòng Rule 5d + 5 dòng Rule 3a; `core/statis-panel-ui.js` chỉ còn ghi DOM (`setStatisPanelBodyHtml`, khung đếm-lên); phép tính → core thuần MỚI `core/statis-panel.js` (`computeStatisAggregates`, `rankStatisItems`, `computeStatisShareChart` — hình học lát tròn, `formatStatisCount`, `pickMediaRecordsWithBlob`); khung đếm-lên rẽ theo `data-countup-fmt` bằng object map; bỏ 2 guard `typeof applyUiThemeToDom` (K1). `workflowListenStats.flush`/`_tick` gộp `get([…])`; kèm (Workflow tự tính, chưa có trong sổ): nhịp đồng hồ nghe (delta, kẹp 4s, cộng dồn, ngưỡng 5s) → `computeListenTick()`, dựng bản ghi flush → `buildMediaStatsFlushEntries()`, cộng totalListenSeconds → `addTotalListenSeconds()` (core/listen-stats.js). Tổng 1047 → 1019 (115 → 112 file).
+- Cập nhật 13/10/2026 (plan-debt-domains **đợt 7 — Photo/Video gallery**, kèm đợt 0 + rà dead code): modal xem/sửa ảnh dựng từ template MỚI `components/image-preview-modal.js` (`renderImagePreviewModalHtml()`) — hết 5 dòng Rule 5d; `openImagePreviewModal(html, url, filename)` gom mọi `addEventListener` cuối hàm (hết 11 dòng Rule 5a — `object-fit` của `<img>` giờ do Workflow chỉnh sau `img.decode()`, không còn listener `load`); `computeCoverOrContain()` thành core thuần ở `core/file-manager/image.js` (nhận kích thước màn hình), `syncEditCanvasDisplaySize(handle, fitMode)` nhận giá trị đã tính (hết 2 dòng Rule 3a); object URL ảnh gốc do Workflow tạo/thu hồi (K6). Lưới nhóm ngày: markup `components/media-gallery.js`, ghi DOM `core/file-manager/gallery-window-ui.js`, trạng thái badge `core/file-manager/gallery-window.js` (`computeGalleryTileStates`) — hết 13 dòng "Workflow tự thao tác DOM" của `{photo,video}-gallery-window.js` (kèm rẽ nhánh observer -> object map, chưa có trong sổ); `setTileBadge()` (2 bản, không nơi gọi) xoá; khung picker ảnh `renderMediaPickerBodyHtml()` (hết 1 dòng "Workflow tự dựng template" + 1 dòng DOM). Dead code xoá: `handleProgressBarSeekCommit` (2 dòng: Rule 3a + Rule 4), `songMatchesQuery` (3 dòng Rule 3a), `validateVideoFile` (1 dòng Rule 3a) cùng hằng `VALID_VIDEO_*` + key lang `common.validate.typeLabel.video`, và các hàm/hằng không nơi gọi khác (không có dòng sổ). Tổng 1019 → 981 (112 → 107 file).
 
 | Tầng | File vi phạm | Hàm / đơn vị vi phạm | Dòng code nằm trong hàm vi phạm |
 |---|---|---|---|
@@ -66,20 +67,20 @@
 |---|---|---|---|
 | Core rule | Rule 1 — rẽ nhánh nghiệp vụ | 30 |  |
 | Core rule | Rule 2 — Core tự appState.get() | 43 |  |
-| Core rule | Rule 3a — Core gọi Core | 160 |  |
+| Core rule | Rule 3a — Core gọi Core | 153 |  |
 | Core rule | Rule 3b — Core tự đọc DB/service | 9 |  |
 | Core rule | Rule 3b — Core tự đọc nguồn khác | 26 |  |
-| Core rule | Rule 4 — ghi state thiếu console.log | 23 |  |
-| Core rule | Rule 5a — Core gắn sự kiện | 57 |  |
+| Core rule | Rule 4 — ghi state thiếu console.log | 22 |  |
+| Core rule | Rule 5a — Core gắn sự kiện | 46 |  |
 | Core rule | Rule 5c — thiếu hậu tố -ui | 5 |  |
-| Core rule | Rule 5d — template HTML trong core | 32 |  |
+| Core rule | Rule 5d — template HTML trong core | 27 |  |
 | Event bus | Listener gọi thẳng Workflow | 1 |  |
 | Event bus | Listener làm việc ngoài eventBus.send | 1 |  |
 | Event bus | Listener đọc appState | 7 |  |
 | Event bus | Router tự chuẩn bị dữ liệu | 0 |  |
-| Event bus | Workflow tự dựng template HTML | 12 |  |
+| Event bus | Workflow tự dựng template HTML | 11 |  |
 | Event bus | Workflow tự gắn sự kiện | 0 |  |
-| Event bus | Workflow tự thao tác DOM | 182 |  |
+| Event bus | Workflow tự thao tác DOM | 169 |  |
 | Event bus | Workflow tự tính toán | 110 |  |
 | Event bus | Workflow tự vẽ canvas | 13 |  |
 | Event bus | Workflow tự điều khiển media | 43 |  |
@@ -88,7 +89,7 @@
 | TaskManager | Timer thô | 12 |  |
 | TaskManager | requestAnimationFrame thô |  | 10 |
 | TaskManager | taskManager dùng trong Core | 7 |  |
-| **Tổng** | | **1019** | **10** |
+| **Tổng** | | **981** | **10** |
 
 ## 4. Chi tiết
 
@@ -179,7 +180,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/wakelock.js:54` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
 | `core/wakelock.js:54` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
 
-#### Rule 3a — Core gọi Core (160)
+#### Rule 3a — Core gọi Core (153)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -206,8 +207,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/dropdown-menu.js:37` | `openDropdownMenu` | gọi _removeDropdownMenuImmediately() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/dropdown-menu.js:61` | `openDropdownMenu` | gọi closeDropdownMenu() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/dropdown-menu.js:72` | `openDropdownMenu` | gọi applyUiThemeToDom() (core/ui-theme/apply-ui.js) | FAIL | Máy quét | Không |  |
-| `core/file-manager/photo-ui.js:53` | `syncEditCanvasDisplaySize` | gọi computeCoverOrContain() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/file-manager/photo-ui.js:302` | `openImagePreviewModal` | gọi computeCoverOrContain() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/gameplay/circle-mode.js:243` | `findAvailableCell` | gọi rotateNeighborOffset90() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/modal-choice-ui.js:114` | `alertModal` | gọi modalChoice() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/modal-choice-ui.js:147` | `_appendButtonRow` | gọi _buildCancelButton() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
@@ -251,7 +250,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/player-controls.js:547` | `handleAudioTimeUpdate` | gọi updateMediaPositionState() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/player-controls.js:566` | `handleProgressBarSeeking` | gọi formatTime() (core/playlist/state.js) | FAIL | Máy quét | Có |  |
 | `core/player-controls.js:566` | `handleProgressBarSeeking` | gọi updateProgressBarCSS() (core/visualizer/visualizer-display.js) | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:576` | `handleProgressBarSeekCommit` | gọi updateMediaPositionState() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/playlist/actions.js:207` | `<lúc nạp file>` | gọi attachCoverFallback() (core/playlist/render.js) | FAIL | Máy quét | Có | Gọi lúc nạp file (top-level) |
 | `core/playlist/actions.js:291` | `closeSongEditModal` | gọi revokeSongEditPendingPreview() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/playlist/actions.js:306` | `changeSongEditCover` | gọi validateImageFile() (core/upload-validation.js) | FAIL | Máy quét | Có |  |
@@ -274,9 +272,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/settings-carousel-ui.js:155` | `getSettingsCarouselFocusCard` | gọi _measureSettingsCarousel() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/settings-carousel-ui.js:163` | `scrollSettingsCarouselTo` | gọi _getSettingsCarouselCenterScrollLeft() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/slider-input-modal.js:146` | `openSliderInputModal` | gọi applyUiThemeToDom() (core/ui-theme/apply-ui.js) | FAIL | Máy quét | Không |  |
-| `core/song-search.js:39` | `songMatchesQuery` | gọi normalizeSongName() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/song-search.js:40` | `songMatchesQuery` | gọi normalizeSongName() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/song-search.js:41` | `songMatchesQuery` | gọi normalizeSongName() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/storage-manager.js:217` | `_compressZipEntries` | gọi isStreamingZipAvailable() (core/streaming-zip.js) | FAIL | Máy quét | Có |  |
 | `core/storage-manager.js:222` | `_compressZipEntries` | gọi buildZipStreamingToOpfs() (core/streaming-zip.js) | FAIL | Máy quét | Có |  |
 | `core/storage-manager.js:264` | `isRecordCorrupted` | gọi readAudioDuration() (core/playlist/loader.js) | FAIL | Máy quét | Có |  |
@@ -322,7 +317,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/upload-validation.js:63` | `validateFileType` | gọi getFileExtension() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/upload-validation.js:69` | `validateAudioFile` | gọi validateFileType() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/upload-validation.js:72` | `validateImageFile` | gọi validateFileType() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/upload-validation.js:75` | `validateVideoFile` | gọi validateFileType() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/video-editor/opfs-temp.js:37` | `openVideoEditTempTarget` | gọi _withTimeoutVideoEditTemp() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/video-editor/webcodecs-engine.js:61` | `_mapCropRectToOutputFrame` | gọi _mapPointToOutputFrame() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/video-editor/webcodecs-engine.js:62` | `_mapCropRectToOutputFrame` | gọi _mapPointToOutputFrame() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
@@ -389,7 +383,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/visual-bg-common.js:231` | `getVisualBgFillStyle` | appConfigVisualBg.getAll() — Core tự đọc AppConfig | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/wakelock.js:31` | `requestWakeLock` | appConfigViz.getAll() — Core tự đọc AppConfig | FAIL | Review (máy quét bỏ sót) | Có |  |
 
-#### Rule 4 — ghi state thiếu console.log (23)
+#### Rule 4 — ghi state thiếu console.log (22)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -404,7 +398,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/photo-player.js:140` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Không |  |
 | `core/player-controls.js:390` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
 | `core/player-controls.js:566` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:576` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
 | `core/playlist/loader.js:202` |  | appState.mutate() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
 | `core/playlist/loader.js:225` |  | appState.mutate() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
 | `core/playlist/loader.js:226` |  | appState.mutate() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
@@ -417,24 +410,13 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/wakelock.js:39` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
 | `core/wakelock.js:54` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
 
-#### Rule 5a — Core gắn sự kiện (57)
+#### Rule 5a — Core gắn sự kiện (46)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 | `core/app-settings-ui.js:202` | `wireAppSettingsPagination` | addEventListener: callback không gửi eventBus.send (gọi el.blur) | FAIL | Máy quét + review | Không |  |
 | `core/dropdown-menu.js:43` | `openDropdownMenu` | addEventListener: file core không có hậu tố -ui tự gắn sự kiện; callback không gửi eventBus.send (gọi document.getElementById, overlay.remove, setTimeout); không gom cuối hàm (sau nó còn: const menu = document.createElement('div');) | FAIL | Máy quét + review | Không |  |
 | `core/dropdown-menu.js:60` | `openDropdownMenu` | addEventListener: file core không có hậu tố -ui tự gắn sự kiện; callback không gửi eventBus.send (gọi closeDropdownMenu, item.callback); không gom cuối hàm (sau nó còn: document.body.appendChild(overlay);) | FAIL | Máy quét + review | Không |  |
-| `core/file-manager/photo-ui.js:301` | `openImagePreviewModal` | addEventListener: callback không gửi eventBus.send (gọi computeCoverOrContain); không gom cuối hàm (sau nó còn: const computeInteractPos = (clientX, clientY) => {) | FAIL | Máy quét + review | Có |  |
-| `core/file-manager/photo-ui.js:307` | `openImagePreviewModal` | addEventListener: không gom cuối hàm (sau nó còn: const computeInteractPos = (clientX, clientY) => {) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/file-manager/photo-ui.js:308` | `openImagePreviewModal` | addEventListener: không gom cuối hàm (sau nó còn: const computeInteractPos = (clientX, clientY) => {) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/file-manager/photo-ui.js:309` | `openImagePreviewModal` | addEventListener: không gom cuối hàm (sau nó còn: const computeInteractPos = (clientX, clientY) => {) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/file-manager/photo-ui.js:318` | `openImagePreviewModal` | addEventListener: không gom cuối hàm (sau nó còn: const computeInteractPos = (clientX, clientY) => {) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/file-manager/photo-ui.js:319` | `openImagePreviewModal` | addEventListener: không gom cuối hàm (sau nó còn: const computeInteractPos = (clientX, clientY) => {) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/file-manager/photo-ui.js:320` | `openImagePreviewModal` | addEventListener: không gom cuối hàm (sau nó còn: const computeInteractPos = (clientX, clientY) => {) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/file-manager/photo-ui.js:321` | `openImagePreviewModal` | addEventListener: không gom cuối hàm (sau nó còn: const computeInteractPos = (clientX, clientY) => {) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/file-manager/photo-ui.js:322` | `openImagePreviewModal` | addEventListener: không gom cuối hàm (sau nó còn: const computeInteractPos = (clientX, clientY) => {) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/file-manager/photo-ui.js:325` | `openImagePreviewModal` | addEventListener: không gom cuối hàm (sau nó còn: const computeInteractPos = (clientX, clientY) => {) | FAIL | Máy quét + review | Có |  |
-| `core/file-manager/photo-ui.js:331` | `openImagePreviewModal` | addEventListener: không gom cuối hàm (sau nó còn: const computeInteractPos = (clientX, clientY) => {) | FAIL | Máy quét + review | Có |  |
 | `core/gameplay/engine-ui.js:121` | `showTapTierPopup` | addEventListener: callback không gửi eventBus.send (gọi anchor.remove) | FAIL | Máy quét + review | Không |  |
 | `core/gameplay/engine-ui.js:145` | `showShatterEffect` | addEventListener: callback không gửi eventBus.send (gọi anchor.remove); không gom cuối hàm (sau nó còn: container.appendChild(anchor);) | FAIL | Máy quét + review | Không |  |
 | `core/modal-choice-ui.js:136` | `_buildCancelButton` | addEventListener: callback không gửi eventBus.send (gọi closeModal, options.onCancel) | FAIL | Máy quét + review | Có |  |
@@ -489,16 +471,11 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/time-picker-modal.js:1` | `(cả file)` | createElement dựng modal nhưng tên file không có -ui | FAIL | Máy quét + review | Không |  |
 | `core/visualizer-gesture.js:1` | `(cả file)` | createElement tạo indicator seek-hold nhưng tên file không có -ui | FAIL | Máy quét + review | Không |  |
 
-#### Rule 5d — template HTML trong core (32)
+#### Rule 5d — template HTML trong core (27)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 | `core/dropdown-menu.js:59` |  | Chuỗi HTML 157 ký tự: `<span class="w-4 h-4 shrink-0 flex items-center justify-center [&>svg | FAIL | Review (máy quét bỏ sót; đoạn kiểm tra 5d của máy là code chết) | Không | Đã đọc: markup cấu trúc cố định, chỉ khác data → phải là render*() trong components/ (tiền lệ 07/10 dời HTML Playlist) |
-| `core/file-manager/photo-ui.js:160` |  | Chuỗi HTML 396 ký tự: ` <div class="flex justify-center gap-3"> ${shapeTypes.map(s => ` <but | FAIL | Review (máy quét bỏ sót; đoạn kiểm tra 5d của máy là code chết) | Có | Đã đọc: markup cấu trúc cố định, chỉ khác data → phải là render*() trong components/ (tiền lệ 07/10 dời HTML Playlist) |
-| `core/file-manager/photo-ui.js:178` |  | Chuỗi HTML 750 ký tự: ` <div class="flex justify-between items-center mb-3 text-sm"> <span i | FAIL | Review (máy quét bỏ sót; đoạn kiểm tra 5d của máy là code chết) | Có | Đã đọc: markup cấu trúc cố định, chỉ khác data → phải là render*() trong components/ (tiền lệ 07/10 dời HTML Playlist) |
-| `core/file-manager/photo-ui.js:198` |  | Chuỗi HTML 614 ký tự: ` <button id="image-edit-context-cancel" type="button" class="w-9 h-9  | FAIL | Review (máy quét bỏ sót; đoạn kiểm tra 5d của máy là code chết) | Có | Đã đọc: markup cấu trúc cố định, chỉ khác data → phải là render*() trong components/ (tiền lệ 07/10 dời HTML Playlist) |
-| `core/file-manager/photo-ui.js:226` |  | Chuỗi HTML 245 ký tự: ` <button type="button" data-crop-ratio="${r.key}" class="shrink-0 px- | FAIL | Review (máy quét bỏ sót; đoạn kiểm tra 5d của máy là code chết) | Có | Đã đọc: markup cấu trúc cố định, chỉ khác data → phải là render*() trong components/ (tiền lệ 07/10 dời HTML Playlist) |
-| `core/file-manager/photo-ui.js:245` |  | Chuỗi HTML 719 ký tự: ` <div class="flex justify-between items-center w-full mb-3"> <div cla | FAIL | Review (máy quét bỏ sót; đoạn kiểm tra 5d của máy là code chết) | Có | Đã đọc: markup cấu trúc cố định, chỉ khác data → phải là render*() trong components/ (tiền lệ 07/10 dời HTML Playlist) |
 | `core/gameplay/engine-ui.js:45` |  | Chuỗi HTML 110 ký tự: `<span class="gameplay-star${lit ? ' gameplay-star--lit' : ''}" style= | FAIL | Review (máy quét bỏ sót; đoạn kiểm tra 5d của máy là code chết) | Không | Đã đọc: markup cấu trúc cố định, chỉ khác data → phải là render*() trong components/ (tiền lệ 07/10 dời HTML Playlist) |
 | `core/gameplay/engine-ui.js:48` |  | Chuỗi HTML 228 ký tự: ` <div> <div class="font-mono font-bold" id="gameplay-hit-${name}" dat | FAIL | Review (máy quét bỏ sót; đoạn kiểm tra 5d của máy là code chết) | Không | Đã đọc: markup cấu trúc cố định, chỉ khác data → phải là render*() trong components/ (tiền lệ 07/10 dời HTML Playlist) |
 | `core/gameplay/engine-ui.js:55` |  | Chuỗi HTML 1010 ký tự: ` <div class="flex flex-col items-center gap-3"> <div class="w-full te | FAIL | Review (máy quét bỏ sót; đoạn kiểm tra 5d của máy là code chết) | Không | Đã đọc: markup cấu trúc cố định, chỉ khác data → phải là render*() trong components/ (tiền lệ 07/10 dời HTML Playlist) |
@@ -557,12 +534,11 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 
-#### Workflow tự dựng template HTML (12)
+#### Workflow tự dựng template HTML (11)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 | `event/workflow/app-settings.js:291` | `_renderTheme` | 1 chỗ: ` <div class="flex flex-col gap-2"> <div class="rounded-2xl fl | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
-| `event/workflow/file-manager-photo.js:114` | `_buildImagePickerBodyHtml` | 1 chỗ: ` <div class="flex-1 min-h-0 overflow-y-auto relative" id="file-manager-image- | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/file-manager-storage.js:529` | `askScanBrokenScope` | 1 chỗ: `${t('storageDrawer.scanBroken.modalBody')} <select id="modal-scan-scope" class="mt-3 w-fu | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/image-edit.js:130` | `_buildEditToolGridHtml` | 1 chỗ: ` <div class="grid grid-cols-5 gap-2 px-5 py-1"> ${tools.map(t | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/photo-player.js:244` | `playPhotoByKey` | 1 chỗ: `<img id="record-art" src="${this._thumbObjectUrl}" class="w-full h-full rounded-full obje | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
@@ -581,7 +557,7 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 
-#### Workflow tự thao tác DOM (182)
+#### Workflow tự thao tác DOM (169)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -590,7 +566,6 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/app-settings.js:362` | `setPlaylistFilterListPage` | 1 chỗ: genericDrawerBody.scrollTop = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/app-settings.js:371` | `setMotionListPage` | 1 chỗ: genericDrawerBody.scrollTop = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/audio-engine.js:111` | `_applyVolumeGain` | 1 chỗ: volumeGainNode.gain.value = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/file-manager-photo.js:106` | `_openImagePickerDrawer` | 1 chỗ: emptyEl.classList.toggle() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/file-manager-storage.js:231` | `_startStorageCountup` | 1 chỗ: el.textContent = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/file-manager-storage.js:262` | `updateStorageActionUI` | 3 chỗ: el.checked = … · executeBtn.disabled = … · executeBtn.textContent = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/game-catalog.js:54` | `renderList` | 1 chỗ: gamePanelList.innerHTML = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
@@ -637,12 +612,6 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/motion-presets.js:882` | `commitBeatReactMaxInput` | 1 chỗ: inputEl.value = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/motion-presets.js:1027` | `setPickerPage` | 1 chỗ: genericDrawerBody.scrollTop = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/motion-transition-runner.js:116` | `runTransition` | 2 chỗ: outgoingEl.classList.remove() · incomingEl.classList.add() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/photo-gallery-window.js:48` | `mount` | 7 chỗ: document.createElement() · containerEl.className = … · scrollEl.appendChild() … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/photo-gallery-window.js:84` | `unmount` | 1 chỗ: m.containerEl.remove() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/photo-gallery-window.js:113` | `_loadGroup` | 21 chỗ: record.el.style.height = … · record.el.classList.remove() · record.el.innerHTML = … … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/photo-gallery-window.js:175` | `_unloadGroup` | 3 chỗ: record.el.innerHTML = … · record.el.style.height = … · record.el.classList.add() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/photo-gallery-window.js:199` | `setBadgeMode` | 4 chỗ: oldBadge.remove() · itemEl.classList.remove() · itemEl.appendChild() … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/photo-gallery-window.js:224` | `setTileBadge` | 3 chỗ: tileEl.classList.toggle() · oldBadge.remove() · tileEl.appendChild() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/photo-player.js:244` | `playPhotoByKey` | 1 chỗ: recordContainer.innerHTML = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/photo-player.js:400` | `reloadCurrentPhoto` | 1 chỗ: recordArtEl.src = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/player-controls.js:71` | `photo` | 1 chỗ: activeEl.currentTime = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
@@ -706,12 +675,6 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/ui-theme.js:132` | `_mirrorBootBackdrop` | 1 chỗ: preloaderEl.style.background = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/ui-theme.js:144` | `_applyPageLevelTheme` | 1 chỗ: document.documentElement.style.colorScheme = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/video-frame-capture.js:15` | `captureToPhoto` | 1 chỗ: sourceCanvas.toBlob() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/video-gallery-window.js:33` | `mount` | 7 chỗ: document.createElement() · containerEl.className = … · scrollEl.appendChild() … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/video-gallery-window.js:68` | `unmount` | 1 chỗ: m.containerEl.remove() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/video-gallery-window.js:95` | `_loadGroup` | 23 chỗ: record.el.style.height = … · record.el.classList.remove() · record.el.innerHTML = … … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/video-gallery-window.js:142` | `_unloadGroup` | 3 chỗ: record.el.innerHTML = … · record.el.style.height = … · record.el.classList.add() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/video-gallery-window.js:162` | `setBadgeMode` | 4 chỗ: oldBadge.remove() · tileEl.classList.remove() · tileEl.appendChild() … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/video-gallery-window.js:183` | `setTileBadge` | 3 chỗ: tileEl.classList.toggle() · oldBadge.remove() · tileEl.appendChild() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/video-motion-surface.js:55` | `showBridgeLayer` | 1 chỗ: visualBgImageElement.classList.add() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/video-player.js:186` | `swapBgVideoSource` | 10 chỗ: visualBgImageElement.classList.add() · bgVideoElement.style.opacity = … · bgVideoElement.style.transform = … … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/video-player.js:357` | `showStaticBgThumb` | 3 chỗ: bgVideoElement.classList.add() · bgVideoElement.removeAttribute() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |

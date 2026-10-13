@@ -165,7 +165,7 @@ lẫn `-ui.js`, Rule 5c) — không có ngoại lệ theo nguồn hay theo loạ
   XOÁ). `updateMediaMeta*` xếp nhóm GHI/SỬA (đọc-sửa-ghi TRONG data layer, `mutate` thuần — cùng bản chất
   `appState.mutate()`).
   **CẤM** mọi hàm đọc (`getMeta`/`getSongRecord`/`getImageRecord`/`getVideoRecord`/`getMediaRecord`/`getMediaMeta`/
-  `getAllMediaMeta`/`getMediaBlob`/`getMediaThumbs`/`resolve*Key`/`getFolderRecord`/`getFolderSongMap`/`getAll*Keys`...).
+  `getAllMediaMeta`/`resolve*Key`/`getFolderRecord`/`getFolderSongMap`/`getAll*Keys`...).
 - `service/db.js::slugify(filename)` — sửa/biến đổi thẳng tham số nhận vào, không lấy thêm gì.
 - `service/component-dynamic.js::instantiateComponent(html, slotMap)` — clone rồi GHI ĐÈ slot, cùng
   bản chất `mutate()`.
