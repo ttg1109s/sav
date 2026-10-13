@@ -77,7 +77,7 @@ folder tắt chặn > cấu hình chung).
   `getAllMediaMeta`, `getMediaBlob`, `getMediaThumbs` (đọc).
 - **`mediaInUse`** — thay nội dung một media thì gửi `{type, key}` tới yêu cầu trung tâm; nó tự kiểm state (node
   playlist / player chính / VBG) và nạp lại nơi đang dùng.
-- Thiết kế đầy đủ: `readme/plan/plan-media-db-split.md`. Chờ test trên máy.
+- Schema + API hiện hành: [readme/db-schema.md](../db-schema.md) (plan thiết kế gốc `plan-media-db-split.md` đã gộp vào đó và xoá 13/10/2026). Chờ test trên máy.
 
 ## 7. Ảnh
 
