@@ -73,7 +73,7 @@ Ràng buộc khi sửa:
 - Listener KHÔNG đọc `appState`, KHÔNG rẽ nhánh nghiệp vụ — chỉ đọc giá trị/dataset phần tử làm payload.
 - Tuyến không khớp drawer của mình -> bỏ qua (drawer khác dùng chung `genericDrawerBody`). Selector phải đủ riêng
   (id/attribute có tiền tố cụm) để không bắt nhầm.
-- Không đổi hành vi, không đổi thứ tự bước (cùng nguyên tắc plan-debt-cleanup-02-10-2026.md mục 2).
+- Không đổi hành vi, không đổi thứ tự bước (cùng nguyên tắc plan-debt-domains-13-10-2026.md mục 1).
 
 ## 4. Các đợt
 

@@ -5,8 +5,8 @@ Nguồn số liệu: [core-legacy-audit.md](../core-legacy-audit.md). Lúc lập
 ([core-function-conventions.md](../core-function-conventions.md), [event-bus-flow.md](../event-bus-flow.md),
 [task-manager-conventions.md](../task-manager-conventions.md)).
 
-Thay phần thứ tự của [plan-debt-cleanup-02-10-2026.md](./plan-debt-cleanup-02-10-2026.md) (chia đợt theo file Workflow).
-Bộ khuôn sửa K1–K8 ở plan đó vẫn dùng nguyên.
+Thay hẳn plan-debt-cleanup-02-10-2026.md (chia đợt theo file Workflow — đã xoá; bộ khuôn K1–K8 và ghi chú kỹ thuật
+từng đợt của nó chuyển vào mục 3 và mục 4 dưới đây).
 
 ## 1. Nguyên tắc
 
@@ -18,7 +18,7 @@ Bộ khuôn sửa K1–K8 ở plan đó vẫn dùng nguyên.
    - Method bị đụng dọn luôn nợ của nó; gặp bug thì sửa luôn theo rule; vi phạm chưa có trong sổ thì sửa hoặc ghi thêm.
    - Xoá comment lạc hậu/lịch sử (SỬA/MỚI/XOÁ kèm ngày, "trước đây…"), rút gọn comment trong file bị đụng.
    - `node --check`; boot harness Chromium (stub CDN) chạy kịch bản của đợt, 0 lỗi JS; checklist phần cần test máy.
-   - Nâng `?v=` mọi trang có nạp file đổi; cập nhật sổ (xoá dòng xong, ghi dòng mới), bảng tiến độ ở mục 5.
+   - Nâng `?v=` mọi trang có nạp file đổi; cập nhật sổ (xoá dòng xong, ghi dòng mới), bảng tiến độ ở mục 6.
 5. **Không đổi hành vi** ngoài bug được ghi rõ trong mô tả patch.
 
 ## 2. Thang độ khó
@@ -32,7 +32,21 @@ Bộ khuôn sửa K1–K8 ở plan đó vẫn dùng nguyên.
 | 5 — Riêng | Hot path visualizer (đo FPS), 2 trang riêng (Subtitle Editor, Video Editor) |
 | Cuối | Hạ tầng UI dùng chung (Giang chốt để đợt cuối) |
 
-## 3. Hàng đợi
+## 3. Bộ khuôn sửa (dùng thống nhất mọi đợt)
+
+| Mã | Dạng gặp | Sửa thành |
+|---|---|---|
+| **K1** | `if (typeof workflowX !== 'undefined') workflowX.y()` / `typeof fn === 'function'` | Kiểm thứ tự nạp ([script-load-order.md](../script-load-order.md) + index.html). Luôn nạp trước -> bỏ điều kiện. Có trang không nạp (subtitle-editor.html, video-editor.html) -> giữ, ghi lý do tại chỗ. |
+| **K2** | Bước tuỳ chọn `if (x) doStep()` | PASS theo sổ (bật/tắt 1 bước). Bước dài -> method riêng mở đầu bằng guard. |
+| **K3** | `if/else`, `else if`, 3 ngôi chọn 2 lời gọi hàm | Object map `X_BY_Y` cấp module, khoá boolean thật. Rẽ theo trạng thái app ngoài hot path -> có thể dùng `VirtualMachineState.run()` (event-bus-flow.md mục 7a). |
+| **K4** | Điều kiện nhiều vế / phép tính quyết định nhánh | Core THUẦN trả 1 giá trị trạng thái, Workflow tra map. |
+| **K5** | Chuỗi "kiểm hợp lệ rồi gán" (`if (LIST.includes(saved.x)) cfg.x = saved.x`) | Core THUẦN `sanitizeXConfig(saved, defaults)`, mỗi field là 1 phép chọn giá trị. |
+| **K6** | `if (url) { try { URL.revokeObjectURL(url) } catch {} }` lặp lại | `revokeBlobUrl()` (service/blob-url.js); Workflow tạo URL qua `createBlobUrl()`. |
+| **K7** | Core tự đọc DB / localStorage / appConfig | Workflow đọc rồi truyền vào; core chỉ GHI. Hàm core không còn nơi gọi -> xoá. |
+| **K8** | Hot path 60fps | CHỈ object map + guard; không VMState, không log mỗi frame. |
+| **giữ** | `if (el) el.x = …` kiểm DOM ref null | Giữ nguyên — phòng vệ, không phải rẽ tiến trình. |
+
+## 4. Hàng đợi
 
 Ký hiệu loại nợ: R1/R2/R3a/R3b/R4/R5a/R5c/R5d = Rule core; WF-DOM / WF-tính / WF-canvas / WF-media / WF-template =
 Workflow tự thi hành; WF-§7 = rẽ nhánh không object map; WF-get = chưa gộp `get([…])`; TM-core = `taskManager` trong
@@ -74,19 +88,24 @@ Còn 1131 FAIL (đã trừ đợt 5). 10 dòng `requestAnimationFrame` thô dọ
 ### Ghi chú theo đợt
 
 - **0** — Không đổi code; đối chiếu chuỗi token trước/sau để chứng minh chỉ đổi comment (khuôn đợt dọn comment 12/10).
-- **5 ✓** — Xong 13/10/2026: modal đổi tên sang `modalChoice()`; phiên giữ tay tile dời về `workflowFolder`; registry dọn rác bỏ, bảng bước dọn ở Workflow. Chi tiết: mục 4.
-- **11** — Đợt 2 của plan 02/10 (`photo-player.js`), giờ kèm `core/photo-player.js`; `app-boot.js` dời sang đợt 13.
-- **13** — Kèm xoá `retireLegacyDownloadServiceWorker()` (core/file-manager/cleanup.js) + `workflowAppBoot._retireLegacyDownloadServiceWorker()` — Giang hẹn xoá ở ver 14; để tới đợt này vì phải đụng `boot()`.
+- **5 ✓** — Xong 13/10/2026: modal đổi tên sang `modalChoice()`; phiên giữ tay tile dời về `workflowFolder`; registry dọn rác bỏ, bảng bước dọn ở Workflow. Chi tiết: mục 5.
+- **11** — Gồm `core/photo-player.js` + `event/workflow/photo-player.js`: `startFromPlaylist`, `exitPhotoPlayerMode`, `togglePlayPausePhoto` (K2/K3); `_revokeObjectUrls` (K6).
+- **13** — `app-boot.js::boot()`: phần lớn là K1 (~13 dòng `typeof workflowX`); nhánh Scope folder / cả thư viện dùng lại `SOURCE_SCOPE_APPLY_BY_HAS_FOLDER` của `switchSource()` (đưa map lên `workflowPlaylistScope`, không viết map thứ 2). Kèm xoá `retireLegacyDownloadServiceWorker()` (core/file-manager/cleanup.js) + `workflowAppBoot._retireLegacyDownloadServiceWorker()` — Giang hẹn xoá ở ver 14; để tới đợt này vì phải đụng `boot()`.
 - **13, 14, 19, 20** — Có iOS (phát nền, Media Session, khoá màn hình, mic): checklist máy bắt buộc.
 - **16** — `core/config.js` đọc `localStorage`/DB trong core và hẹn giờ ghi backup → Workflow config mới hoặc
   `workflowSettingsMisc`; boot phải chạy với config cũ, hỏng, thiếu field.
-- **18–22** — Tương ứng đợt 3–7 của plan 02/10 (giữ yêu cầu "thứ tự các bước giữ nguyên tuyệt đối" của `playMedia()`).
+- **17a** — `file-manager-storage.js`: `clearAllStoredData`, `executeScanBroken`, 3 hàm `execute*Broken`, `_runStorageActionForSource` (K2/K3, chọn hàm theo Nguồn -> map theo `mediaType`); core `video.js`/`image.js` còn tự đọc DB (`computeVideoStats`/`computeImageStats` -> Workflow đọc cả lô bằng `getAll*Records()`, core chỉ cộng).
+- **18c** — `playlist.js` chia 3 lượt: upload (`uploadSongs`/`uploadVideos`/`uploadPhotos`, `_captureFirstFrame`/`_probeVideoFrame` là chuỗi chờ khung hình — giữ y thứ tự), xoá/xuất (chọn hàm theo `mediaType` -> map), còn lại (`executeSaveEdit`, `applyCoverFromLibrary`, `playSelectedSongs`, `loadPersistedPlaylistConfigOnBoot`…).
+- **19b** — `player.js::playMedia()` là cổng phát duy nhất: phân luồng theo loại media (map theo `mediaType` + K4 cho "đang Photo mode mà bài không phải ảnh"), "cùng key = bật/tắt" giữ 1 nhánh map riêng, dọn object URL cũ (K6), bước tuỳ chọn (Game gate, mediaSession, báo VBG…). **Thứ tự các bước giữ nguyên tuyệt đối** (đã có bug lịch sử do đổi thứ tự). `player-controls.js::runGatedSeek`: mỗi lối `abort → return false` là guard, giữ; chỉ tách nhánh Song / không Song + bước phát lại theo `shouldPlay`. `goToNextTrack`/`goToPrevTrack`: K3.
+- **20** — `swapBgVideoSource`: K6 cho 3 URL; mỗi hook/cờ (`onLayerBFilled`/`runTransition`, `isTransition`/`isSurfaceEntry`/`hideVideoUntilReady`/`skipAutoplay`) 1 method có guard, gọi đúng thứ tự cũ; "transition hook có / không" -> K3. `playVideoByKey`, `showStaticBgThumb`, `clearBgVideoSource`, `startFromPlaylist`: K2/K3.
+- **21a** — `visual-bg-common.js::loadPersistedSettingsOnBoot` gần như toàn K5 -> core thuần `sanitizeVisualBgConfig(saved, defaults)`; `_tickGradientMovement` là hot path (K8). Test boot với config VBG cũ/hỏng/thiếu field.
+- **18–22** — Giữ yêu cầu "không đổi hành vi"; mỗi lượt test máy đủ Next/Prev/auto-next cả 3 loại media, seek khi đang phát/dừng, khoá màn hình + Media Session.
 - **23** — Chỉ object map + guard; đo FPS trước/sau (Perf HUD) trên máy; giữ thứ tự tiêu thụ `Math.random()`.
 - **26 (cuối, Giang chốt)** — `dropdown-menu`, `slider-input-modal`, `time-picker-modal` còn gắn sự kiện gọi callback (R5a) và
   thiếu hậu tố `-ui` (R5c, đổi tên file kéo theo `index.html` + 2 trang + script-load-order.md). `modalChoice()` giữ ngoại lệ
   đã audit, chỉ dọn phần R1/R3a. Đổi API ở đây kéo theo sửa lại nơi gọi ở các miền đã dọn — chấp nhận, gom vào cùng đợt.
 
-## 4. Miền Folder — trạng thái (13/10/2026)
+## 5. Miền Folder — trạng thái (13/10/2026)
 
 **Đã sạch nợ** (0 dòng trong sổ), qua 2 đợt — đợt Folder (`sav-14-debt-folder-patch.zip`, 1194 → 1152) và đợt 5
 (`sav-14-debt-wave5-folder-patch.zip`, 1152 → 1131):
@@ -120,7 +139,7 @@ Bug sửa kèm: badge tên folder không đổi sau khi đổi tên folder đang
   thuộc Folder đã dọn.
 - Đợt 13: xoá `retireLegacyDownloadServiceWorker()` (Giang hẹn ở ver 14).
 
-## 5. Tiến độ
+## 6. Tiến độ
 
 | Đợt | Trạng thái |
 |---|---|
