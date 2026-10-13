@@ -29,8 +29,7 @@
  * pagination chỉ gọi workflow đó, KHÔNG tự gọi thẳng các hàm dưới đây (sẽ bỏ qua cài đặt).
  *
  * `computePage()`/`computeLoadMorePage()`/`computePaginationPageSlots()` — core NGHIỆP VỤ THUẦN (Rule
- * 1-4): không DOM, không appState, không gọi core khác (chỉ toán học kẹp giá trị — cùng tinh thần
- * `computeVirtualWindowRange()` ở components/items.js).
+ * 1-4): không DOM, không appState, không gọi core khác (chỉ toán học kẹp giá trị).
  *
  * [DỜI 07/10/2026, rà soát SVG mục A — Rule 5c] `buildPagination*Html()` + 2 hằng PAGINATION_BTN_CLASS/PAGINATION_ICON_NAME
  * đã chuyển sang core/pagination-ui.js (hàm dựng UI phải nằm trong file `-ui.js`; nay còn gọi iconSvg()). Ghi chú gốc:
