@@ -1,48 +1,18 @@
 /**
- * core/file-manager/image.js — Ảnh trong File Manager → Photo, ver 12 "Multi Media", Batch 3
- * (03/07/2026). Schema ĐÃ CHỐT từ hạ tầng DB trước đó (xem comment DB_VERSION ở service/db.js):
- * store 'images', key = imageKey, value = { blob, filename, addedAt }.
+ * core/file-manager/image.js — Ảnh trong thư viện: ghi record, thống kê, gom nhóm ngày cho lưới, chọn object-fit xem
+ * ảnh. Record (3 store media, xem readme/db-schema.md): { blob, thumbBlob, width, height, duration, filename, addedAt }.
+ *   - `thumbBlob`: ảnh resize lúc upload (event/workflow/file-manager-photo.js::resizeImageForThumbnail()) cho lưới.
+ *   - `width`/`height`: kích thước gốc — attribute của `<img>` để fjGallery tính tỉ lệ trước khi ảnh tải xong.
+ *   - `duration`: giây (event/workflow/file-manager-photo.js::computePhotoDuration()).
+ * Record cũ có thể thiếu 4 field trên — nơi đọc tự fallback (`thumbBlob || blob`, `width > 0 ? … : 1`).
+ * Xoá ảnh: `deleteMediaRecord('photo', …)` (service/db.js).
  *
- * MỚI (Giai đoạn 1, rewrite Photo/Album — mục 3c/3d) — record thêm 3 field: `thumbBlob` (ảnh đã
- * resize lúc upload, height cố định — event/workflow/file-manager-photo.js::resizeImageForThumbnail(),
- * DÙNG cho lưới ảnh), `width`/`height` (kích thước ẢNH GỐC, đo lúc resize — DÙNG làm attribute
- * width/height thật trên thẻ <img> để fjGallery (thư viện, event/workflow/photo-gallery-window.js)
- * tính tỉ lệ hiển thị mà KHÔNG cần đợi ảnh decode xong mới layout được). `blob` gốc CHỈ dùng khi
- * mở full view (openImagePreviewModal()/carousel) — KHÔNG đổi.
- * Record CŨ (upload trước bản này) THIẾU 3 field trên — mọi nơi đọc PHẢI tự fallback (`thumbBlob ||
- * blob`, `width > 0 ? ... : 1` coi như ảnh vuông) — KHÔNG migrate DB_VERSION (idb-keyval tự do field).
- *
- * MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video, chạy trong Playlist/visualizer
- * thừa hưởng đúng cơ chế Play/Next-Prev/Shuffle, im lặng hoàn toàn lúc hiển thị) — record thêm field
- * `duration` (giây, số thực — event/workflow/file-manager-photo.js::computePhotoDuration(),
- * deterministic từ size+resolution+SHA-256 của chính file). CÙNG NGUYÊN TẮC fallback record cũ như
- * `thumbBlob`/`width`/`height` — record cũ (upload trước field này tồn tại) THIẾU `duration`, nơi
- * đọc PHẢI tự fallback (xem core/playlist/loader.js::buildAdaptedPlaylistCache()).
- *
- * XOÁ (loại bỏ Album khỏi Photo Panel) — không còn cascade dọn ảnh khỏi album lúc xoá (Album đã
- * xoá hẳn khỏi app, xem core/file-manager/image.js::deleteImage()).
- *
- * Trùng filename: ÁP DỤNG Y HỆT logic resolveSongKey() (mục 6 "Đã chốt" — ảnh/docs dùng chung công
- * thức với song). KHÔNG lặp lại thuật toán, gọi thẳng slugify() dùng chung.
- *
- * NẠP SAU: service/db.js (createMediaRecord/updateMediaMeta/setMediaBlob/setMediaThumbs — API media 3 store, 06/10/2026).
- *
- * PATCH mục 1/2 (14/07/2026, group ảnh theo ngày + Item/window ảo); VIẾT LẠI (rewrite Photo/
- * Album, dùng fjGallery) — 2 hàm THUẦN `sortImagesByAddedDateDesc()`/`groupImagesByDay()` (đổi
- * tên từ `buildPhotoGridRows()`, giờ CHỈ gom nhóm theo ngày, không tự đóng gói hàng/tính width
- * nào nữa) — CHUẨN BỊ dữ liệu cho lưới ảnh Photo, xem event/workflow/photo-gallery-
- * window.js.
+ * NẠP SAU: service/db.js (createMediaRecord/updateMediaMeta/setMediaBlob/setMediaThumbs).
  */
 
-// DỜI (06/10/2026, plan-media-db-split.md) — `resolveImageKey()` (core TỰ ĐỌC DB — vi phạm Rule 3) sang service/db.js
-// (data layer, dùng chung `resolveMediaKey()` với Song/Video). Workflow gọi nó rồi truyền key vào `saveImage()`.
-// XOÁ (06/10/2026) — `deleteImage()`: không còn nơi nào gọi (xoá ảnh đi qua `deleteMediaRecord('photo', ...)`).
-
 /**
- * Lưu 1 ảnh mới (hoặc ghi đè trọn nếu trùng filename — key do Workflow resolve sẵn qua `resolveImageKey()`,
- * service/db.js). `thumbBlob`/`width`/`height`/`duration` PHẢI tính SẴN ở Workflow.
- * SỬA (06/10/2026, plan-media-db-split.md) — ghi qua `createMediaRecord('photo', ...)` (3 store), nhận `imageKey`
- * qua tham số (Rule 3).
+ * Lưu 1 ảnh mới (hoặc ghi đè trọn nếu trùng filename — key do Workflow resolve qua `resolveImageKey()`, service/db.js).
+ * `thumbBlob`/`width`/`height`/`duration` tính sẵn ở Workflow.
  * @param {string} imageKey
  * @param {File|Blob} file - ảnh GỐC, Blob MỚI (không đọc từ IndexedDB).
  * @param {string} filename
@@ -58,11 +28,9 @@ async function saveImage(imageKey, file, filename, thumbBlob, width, height, dur
 }
 
 /**
- * Ghi đè ảnh sau khi sửa ("Ghi đè" trong Edit mode), giữ nguyên `filename`/`addedAt`/folder/thống kê... Nhận cả
- * `thumbBlob`/`width`/`height`/`duration` MỚI (crop/rotate đổi cả kích thước lẫn nội dung).
- * SỬA (06/10/2026, plan-media-db-split.md) — 3 bước ghi riêng từng store: meta (kích thước/thời lượng — cũng là bước
- * kiểm tồn tại), file chính, thumb; không đọc lại record (Rule 3 + lỗi round-trip). Báo "đang dùng" là việc của
- * Workflow nơi gọi (request trung tâm `mediaInUse`).
+ * Ghi đè ảnh sau khi sửa ("Ghi đè" trong Edit), giữ `filename`/`addedAt`/folder/thống kê. Ghi riêng từng store: meta
+ * (kích thước/thời lượng — cũng là bước kiểm tồn tại), file chính, thumb. Báo "đang dùng" là việc của Workflow nơi gọi
+ * (`mediaInUse`).
  * @param {string} imageKey @param {Blob} newBlob @param {Blob} thumbBlob
  * @param {number} width @param {number} height @param {number} duration
  * @returns {Promise<{status: 'notFound'|'ok'}>}
@@ -76,13 +44,8 @@ async function updateImageBlob(imageKey, newBlob, thumbBlob, width, height, dura
     return { status: 'ok' };
 }
 
-// XOÁ (02/10/2026, Giang duyệt) — `listImages()` (core TỰ ĐỌC DB — vi phạm Rule 3b; đọc MỖI record 1 transaction song
-// song — thư viện lớn làm sập trang). Nơi gọi duy nhất (event/workflow/playlist-scope.js::PICKABLE_MEDIA_LISTER) giờ
-// gọi thẳng `getAllImageRecords()` (service/db.js — 1 transaction, cursor).
-
 /**
- * Thống kê Photo (số lượng, dung lượng) — THAY (06/10/2026, dọn nợ Rule 3b — Giang yêu cầu) `computeImageStats()` (core tự
- * đọc DB): giờ THUẦN tổng hợp từ record Workflow đã đọc (getAllImageRecords()). Bỏ qua record thiếu Blob.
+ * Thống kê Photo (số lượng, dung lượng) từ record Workflow đã đọc (getAllImageRecords()). Bỏ qua record thiếu Blob.
  * @param {Array<object>} records
  * @returns {{totalImages: number, totalBytes: number}}
  */
@@ -94,17 +57,10 @@ function summarizeImageLibrary(records) {
     };
 }
 
-// ===================== Group theo ngày + Window ảo (Patch mục 1/2, 14/07/2026) ====================
-// 2 hàm THUẦN dưới đây CHUẨN BỊ dữ liệu cho lưới ảnh Photo & Album — xem event/workflow/
-// file-manager-photo.js::setupPhotoGridWindow() (Workflow gọi CẢ HAI, RỒI mới giao
-// workflowPhotoGalleryWindow.mount() — event/workflow/photo-gallery-window.js) + core/
-// file-manager/photo-ui.js (docstring đầu file, giải thích đầy đủ vì sao tách qua Workflow thay
-// vì tự gọi nhau).
+// ===================== Gom nhóm ngày cho lưới (event/workflow/photo-gallery-window.js) =====================
 
 /**
- * Sắp xếp danh sách ảnh theo `addedAt` MỚI NHẤT lên đầu (kiểu Google Photos) — CHUẨN BỊ cho
- * buildPhotoGridRows() nhóm theo ngày. Hàm THUẦN — không mutate mảng gốc, không appState, không
- * gọi core khác.
+ * Sắp xếp ảnh theo `addedAt` mới nhất lên đầu (không mutate mảng gốc).
  * @param {Array<{key:string, blob:Blob, filename:string, addedAt:number}>} images
  * @returns {Array} bản sao MỚI đã sắp xếp
  */
@@ -113,10 +69,8 @@ function sortImagesByAddedDateDesc(images) {
 }
 
 /**
- * MỚI (rewrite Photo/Album, thay itemTemplateImageGridRow() đã xoá) — format nhãn header ngày hiển
- * thị phía trên mỗi nhóm ảnh (vd "Thứ Hai, 15 thg 7"). Theo `navigator.language` — tên thứ/tháng
- * không thuộc bộ key dịch `t()`/`tFormat()` hiện có, nên KHÔNG qua hệ i18n, dùng thẳng
- * `Intl.DateTimeFormat` (built-in JS, không phải DOM API — an toàn với Rule 1-4).
+ * Nhãn header ngày phía trên mỗi nhóm ảnh (vd "Thứ Hai, 15 thg 7") — theo `navigator.language` qua
+ * `Intl.DateTimeFormat` (tên thứ/tháng không thuộc bộ key dịch).
  * @param {number} addedAt - timestamp (ms) của 1 ảnh BẤT KỲ trong nhóm ngày đó.
  * @returns {string}
  */
@@ -128,18 +82,7 @@ function formatPhotoDayHeaderLabel(addedAt) {
 }
 
 /**
- * Gom danh sách ảnh ĐÃ sắp xếp (sortImagesByAddedDateDesc()) thành các NHÓM THEO NGÀY — dùng làm
- * đơn vị windowing cấp NHÓM (KHÔNG phải cấp hàng/pixel) cho event/workflow/photo-gallery-window.js.
- *
- * ĐẬP ĐI LÀM LẠI (rewrite Photo/Album, Giang yêu cầu "không dùng window virtual tự tạo nữa, dùng
- * thư viện") — THAY HẲN `buildPhotoGridRows()` (bản trước ở đây, tự cộng dồn width để đóng gói
- * TỪNG HÀNG — đúng nguồn gốc hàng loạt bug layout/lệch cuộn đã gặp). Giờ core CHỈ còn việc gom
- * nhóm theo ngày — việc "xếp ảnh vào đúng hàng, hàng cao bao nhiêu, ảnh nào rộng bao nhiêu" giao
- * HẲN cho fjGallery (thư viện thật, thuật toán Flickr/Google Photos, xem event/workflow/
- * photo-gallery-window.js) — core không tự tính toán layout nào nữa.
- *
- * Hàm THUẦN (Rule 1-4 core-function-conventions.md) — không appState, không DOM, không gọi core
- * khác (khoá ngày tính INLINE ngay trong vòng lặp, KHÔNG tách hàm riêng — tránh Core gọi Core).
+ * Gom ảnh đã sắp xếp thành các nhóm theo ngày — đơn vị windowing của lưới (layout trong nhóm do fjGallery lo).
  * @param {Array<{key:string, blob:Blob, thumbBlob?:Blob, width?:number, height?:number, filename:string, addedAt:number}>} sortedImages
  * @returns {Array<{dayKey:string, addedAt:number, images:Array}>}
  */
@@ -158,4 +101,14 @@ function groupImagesByDay(sortedImages) {
         currentGroup.images.push(image);
     }
     return groups;
+}
+
+/** Ảnh cùng hướng màn hình (cùng ngang/cùng dọc) -> 'cover' (chỉ cắt rất ít), lệch hướng -> 'contain' (hiện trọn ảnh).
+ * Dùng chung cho `<img>` xem tạm và 4 canvas Edit của modal xem ảnh.
+ * @param {number} naturalW @param {number} naturalH - kích thước gốc ảnh (0 = chưa có)
+ * @param {number} viewW @param {number} viewH - kích thước màn hình
+ * @returns {'cover'|'contain'|null} null khi chưa có kích thước ảnh */
+function computeCoverOrContain(naturalW, naturalH, viewW, viewH) {
+    if (!naturalW || !naturalH) return null;
+    return ((naturalW >= naturalH) === (viewW >= viewH)) ? 'cover' : 'contain';
 }

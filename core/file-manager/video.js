@@ -1,60 +1,22 @@
 /**
- * core/file-manager/video.js — File Manager -> Video, MỚI (21/07/2026). Schema store 'videos' xem
- * comment DB_VERSION ở service/db.js: key = videoKey, value = { blob, thumbBlob, thumbFullBlob,
- * width, height, duration, filename, addedAt, customName, thumbFullBlack }.
+ * core/file-manager/video.js — Video trong thư viện: ghi record, thống kê, gom nhóm ngày cho lưới, định dạng tên/thời
+ * lượng. Record (3 store media, xem readme/db-schema.md): { blob, thumbBlob, thumbFullBlob, width, height, duration,
+ * filename, addedAt, customName, thumbFullBlack }.
+ *   - `thumbBlob`: khung vuông `VIDEO_THUMBNAIL_SIZE` chụp tại giây `min(1, duration/2)` — cho lưới/cover.
+ *   - `thumbFullBlob`: khung đầu (time=0) đúng kích thước gốc; `null` với video cũ hoặc khi toBlob() lỗi — không chặn
+ *     phát/hiển thị.
+ *   - `thumbFullBlack`: khung đầu đã chụp đúng nhưng đen thật (fade-in…) — Scan broken bỏ qua record có cờ này.
+ *   - `customName`: tên hiển thị người dùng đặt, chỉ trong app (download vẫn theo `filename`); không có thì hiển thị
+ *     `stripFileExtension(filename)`.
+ * Thumb/kích thước/thời lượng do Workflow đo lúc upload (cần `<video>`/canvas). Xoá video: Workflow gỡ khỏi folder rồi
+ * `deleteMediaRecord()` (service/db.js).
  *
- * MỚI (19/09/2026) — `thumbFullBlack` (boolean, mặc định false/undefined): `true` = khung hình ĐẦU của
- * video này ĐÃ được chụp ĐÚNG (nhiều lần, vẽ được thật) nhưng vẫn ĐEN — đen THẬT của nội dung (fade-in
- * ...), không phải lỗi chụp. Scan broken (`workflowFileManagerStorage._scanBlackVideoThumbs()`) BỎ QUA
- * record có cờ này để không báo lỗi lặp vô tận sau khi đã sửa. Record cũ chưa có field = chưa biết,
- * scan sẽ đo lại thumb.
- *
- * XOÁ (29/07/2026, yêu cầu Giang mục 1/2 — "chỉ giữ filename/RESOLUTION/playcount/listened ở tab
- * Chi tiết") — 6 field mediainfo.js cũ (`format` đã bỏ trước đó 28/07, giờ bỏ NỐT `codec`/`fps`/
- * `bitrate`/`audioCodec`/`audioBitrate`) ĐÃ XOÁ HẲN khỏi schema — tab "Chi tiết" không còn hiện các
- * field này nữa (core/playlist/actions.js::openSongEditModal()) nên phân tích mediainfo.js (WASM,
- * CDN unpkg) lúc upload cũng bỏ theo (event/workflow/file-manager-video.js::
- * _extractVideoMediaInfo() ĐÃ XOÁ, cùng thẻ `<script>` CDN ở index.html). `saveVideo()` KHÔNG còn
- * tham số `mediaInfo` nữa.
- *
- * MỚI (29/07/2026, yêu cầu Giang mục 2 — "thêm thumbnail blob full RESOLUTION tại frame 1") —
- * `thumbFullBlob` (Blob|null): khung hình ĐẦU TIÊN (time=0) của video, chụp ở ĐÚNG kích thước GỐC
- * (KHÔNG center-crop vuông, KHÔNG resize) — TÁCH RIÊNG hoàn toàn với `thumbBlob` (vuông
- * `VIDEO_THUMBNAIL_SIZE`×`VIDEO_THUMBNAIL_SIZE`, chụp tại giây `min(1, duration/2)`, dùng cho lưới/
- * cover — GIỮ NGUYÊN 100%, KHÔNG bị thay thế). `null` cho video cũ (trước batch này) hoặc nếu
- * `canvas.toBlob()` hiếm khi lỗi — field PHỤ, không có cũng không chặn phát/hiển thị video.
- *
- * MỚI (ver12 "Song/Video Unification", Batch 5, mục 6c) — `customName`:
- *   - `customName` (string|null, mặc định null) — tên hiển thị người dùng TỰ đặt (tab "Chi tiết"),
- *     CHỈ hiển thị TRONG app (Playlist/Video Player/danh sách folder) — KHÔNG remux/nhúng vào file,
- *     download vẫn lấy theo `filename` GỐC. Video TẠO TRƯỚC batch này không có field này (undefined,
- *     coi như null) — mọi nơi ĐỌC để hiển thị PHẢI tự rơi về `customName || stripFileExtension(filename)`
- *     (SỬA phản hồi Giang 28/07/2026 — bỏ đuôi mở rộng khỏi tên hiển thị mặc định, xem
- *     stripFileExtension() bên dưới).
- *
- * CÙNG KHUÔN core/file-manager/image.js (Batch 3, Photo) — `thumbBlob`/`width`/`height` resize sẵn
- * lúc upload (event/workflow/file-manager-video.js::_extractVideoThumbAndMeta(), cần `<video>`/
- * `canvas` — DOM API, core không được đụng theo Rule 1-4). THÊM `duration` (giây, số thực) — riêng
- * của Video, đo cùng lúc lấy thumbnail.
- *
- * KHÔNG có Album cho Video (Giang chốt — chỉ Photo mới có khái niệm Album) — cascade dọn folder khi
- * xoá 1 video nằm ở tầng Workflow (`event/workflow/playlist.js::MEDIA_DELETE_ACCESSOR`), KHÔNG còn
- * ở đây (xem `deleteVideo()` — ĐÃ XOÁ, thay bằng `deleteVideoRecord()` thuần CRUD, service/db.js).
- *
- * NẠP SAU: service/db.js (createMediaRecord/updateMediaMeta/setMediaBlob/setMediaThumbs — API media 3 store, 06/10/2026).
+ * NẠP SAU: service/db.js (createMediaRecord/updateMediaMeta/setMediaBlob/setMediaThumbs).
  */
 
-// DỜI (06/10/2026, plan-media-db-split.md) — `resolveVideoKey()` (core TỰ ĐỌC DB — vi phạm Rule 3) sang service/db.js
-// (data layer, dùng chung `resolveMediaKey()` với Song/Photo). Workflow gọi nó rồi truyền key vào `saveVideo()`.
-// XOÁ (06/10/2026) — `setVideoCustomName()`: không còn nơi nào gọi (tên riêng ghi qua tab "Sửa", core/playlist/actions.js).
-
 /**
- * Lưu 1 video mới (hoặc ghi đè trọn nếu trùng filename — key do Workflow resolve sẵn qua `resolveVideoKey()`,
- * service/db.js). `thumbBlob`/`width`/`height`/`duration`/`thumbFullBlob` PHẢI tính SẴN (Workflow —
- * event/workflow/playlist.js::extractVideoThumbAndMeta()) — hàm này CHỈ ghi lại nguyên xi.
- * SỬA (06/10/2026, plan-media-db-split.md) — ghi qua `createMediaRecord('video', ...)` (tự tách meta / file / thumb
- * vào 3 store); nhận `videoKey` qua tham số thay vì tự resolve (Rule 3 — core không gọi hàm đọc).
- * `customName` khởi tạo `null` (tab "Chi tiết" rơi về `filename` gốc khi hiện).
+ * Lưu 1 video mới (hoặc ghi đè trọn nếu trùng filename — key do Workflow resolve qua `resolveVideoKey()`, service/db.js).
+ * Thumb/kích thước/thời lượng tính sẵn ở Workflow (event/workflow/playlist.js::extractVideoThumbAndMeta()).
  * @param {string} videoKey
  * @param {File|Blob} file - blob video GỐC (không resize), Blob MỚI (không đọc từ IndexedDB).
  * @param {string} filename
@@ -76,11 +38,8 @@ async function saveVideo(videoKey, file, filename, thumbBlob, width, height, dur
 }
 
 /**
- * MỚI (18/09/2026, "Sửa file lỗi" — Storage → Scan broken) — thay thumb của 1 video ĐÃ TỒN TẠI (blob chính vẫn
- * phát được). Nơi gọi (`workflowFileManagerStorage.executeRepairBroken()`) tự chụp thumb mới rồi mới gọi hàm này.
- * SỬA (06/10/2026, plan-media-db-split.md) — không còn đọc/ghi lại nguyên record (Rule 3 + lỗi round-trip): cờ
- * `thumbFullBlack` ghi qua `updateMediaMeta()` (CHỈ store meta — cũng là bước kiểm tồn tại), 2 thumb MỚI ghi qua
- * `setMediaThumbs()` (CHỈ store thumb). Không đụng file chính.
+ * Thay thumb của 1 video đã có (Storage → Scan broken → "Sửa file lỗi"; Workflow chụp thumb mới trước). Cờ
+ * `thumbFullBlack` ghi qua `updateMediaMeta()` (cũng là bước kiểm tồn tại), 2 thumb qua `setMediaThumbs()`.
  * @param {string} videoKey
  * @param {Blob} thumbBlob
  * @param {Blob} thumbFullBlob
@@ -96,11 +55,9 @@ async function setVideoThumbnails(videoKey, thumbBlob, thumbFullBlob, thumbFullI
 }
 
 /**
- * MỚI (Phase 1 editor video, 26/09/2026) — thay NỘI DUNG media của 1 video ĐÃ TỒN TẠI ("Lưu đè" từ modal sửa
- * Video), GIỮ NGUYÊN mọi field khác (`customName`, `addedAt`, `filename`, folder, thống kê...).
- * SỬA (06/10/2026, plan-media-db-split.md) — 3 bước ghi riêng từng store: meta (kích thước/thời lượng/cờ đen — cũng
- * là bước kiểm tồn tại), file chính, thumb. Báo "đang dùng" (nạp lại nếu video này đang phát/làm nền) là việc của
- * Workflow nơi gọi (request trung tâm `mediaInUse`), không phải của hàm này.
+ * Thay nội dung media của 1 video đã có ("Lưu đè" từ trình sửa Video), giữ mọi field khác (tên riêng, ngày thêm,
+ * folder, thống kê…). Ghi riêng từng store: meta (cũng là bước kiểm tồn tại), file chính, thumb. Báo "đang dùng" là
+ * việc của Workflow nơi gọi (`mediaInUse`).
  * @param {string} videoKey
  * @param {{blob: Blob, thumbBlob: Blob, thumbFullBlob: (Blob|null), thumbFullIsBlack: boolean, width: number, height: number, duration: number}} media
  * @returns {Promise<{status: 'notFound'|'ok'}>}
@@ -121,19 +78,8 @@ async function replaceVideoMedia(videoKey, media) {
 }
 
 /**
- * Không có hàm xoá Video kèm dọn folder ở đây: Workflow tự gỡ item khỏi mọi folder (`workflowFolder.removeItemFromAllFolders()`
- * / `removeKeysFromAllFolders()`, event/workflow/folder.js) TRƯỚC khi xoá record bằng `deleteMediaRecord()` (service/db.js) —
- * đồng nhất cho Song/Video/Photo (event/workflow/playlist.js xoá 1 / nhiều, event/workflow/file-manager-storage.js xoá file lỗi).
- */
-
-// XOÁ (02/10/2026, Giang duyệt) — `listVideos()` (core TỰ ĐỌC DB — vi phạm Rule 3b; đọc MỖI record 1 transaction song
-// song — thư viện lớn làm sập trang). Nơi gọi duy nhất (event/workflow/playlist-scope.js::PICKABLE_MEDIA_LISTER) giờ
-// gọi thẳng `getAllVideoRecords()` (service/db.js — 1 transaction, cursor).
-
-/**
- * Thống kê Video (số lượng, dung lượng) — THAY (06/10/2026, dọn nợ Rule 3b — Giang yêu cầu) `computeVideoStats()` (core
- * tự đọc DB, mỗi video 1 transaction): giờ THUẦN tổng hợp từ record Workflow đã đọc (getAllVideoRecords()). Cộng cả
- * thumbBlob + thumbFullBlob vào dung lượng thật như bản cũ; bỏ qua record thiếu Blob.
+ * Thống kê Video (số lượng, dung lượng gồm cả 2 thumb) từ record Workflow đã đọc (getAllVideoRecords()). Bỏ qua record
+ * thiếu Blob.
  * @param {Array<object>} records
  * @returns {{totalVideos: number, totalBytes: number}}
  */
@@ -145,11 +91,8 @@ function summarizeVideoLibrary(records) {
     };
 }
 
-// ===================== Group theo ngày (windowing IntersectionObserver, cùng khuôn Photo) =========
-// 2 hàm THUẦN dưới đây CHUẨN BỊ dữ liệu cho lưới Video — xem event/workflow/video-gallery-window.js.
-// TRÙNG LOGIC với sortImagesByAddedDateDesc()/groupImagesByDay()/formatPhotoDayHeaderLabel() (core/
-// file-manager/image.js) — CỐ Ý viết riêng bản của Video, KHÔNG gọi thẳng hàm bên image.js (Rule 3:
-// core cấm gọi core khác) — mỗi domain module tự chứa, đúng quy ước sẵn có trong project.
+// ===================== Gom nhóm ngày cho lưới (event/workflow/video-gallery-window.js) =====================
+// Trùng logic bản Photo (core/file-manager/image.js) — viết riêng vì core không gọi core.
 
 /**
  * Sắp xếp danh sách video theo `addedAt` MỚI NHẤT lên đầu. Hàm THUẦN — không mutate mảng gốc.
@@ -196,12 +139,7 @@ function groupVideosByDay(sortedVideos) {
 }
 
 /**
- * Cắt bỏ đuôi mở rộng (".mp4"/".mov"/...) khỏi filename — dùng ở MỌI nơi hiện "tên hiển thị" của 1
- * video (title lúc phát, danh sách folder, ô nhập customName...) khi CHƯA đặt customName riêng —
- * MỚI (phản hồi Giang 28/07/2026, "custom name phải bỏ đuôi mở rộng"). Pure, không I/O — coi như
- * ngoại lệ "hàm định dạng thuần" giống `formatVideoDuration()` ngay dưới (không phải core gọi core
- * nghiệp vụ — xem giải thích đầy đủ ở core/playlist/actions.js::openSongEditModal(), nơi gọi hàm
- * này cùng lý do; core/file-manager/video-ui.js — nơi giải thích GỐC — ĐÃ XOÁ ở Batch 6 mục 6d).
+ * Bỏ đuôi mở rộng khỏi filename — tên hiển thị mặc định khi chưa đặt customName.
  * @param {string} filename
  * @returns {string}
  */
@@ -212,8 +150,7 @@ function stripFileExtension(filename) {
 }
 
 /**
- * Format số giây thành "m:ss" (vd 75 -> "1:15") — CÙNG STYLE `formatTime()` (core/playlist/
- * state.js) nhưng viết riêng bản của Video (Rule 3: core cấm gọi core khác, kể cả hàm gần giống).
+ * Format số giây thành "m:ss" (vd 75 -> "1:15").
  * @param {number} seconds
  * @returns {string}
  */
