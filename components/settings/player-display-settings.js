@@ -107,7 +107,7 @@ function renderPlayerDisplayBody(kind, cfg, motionPresets) {
         <div class="mt-6">
             <div class="flex items-center gap-2 mb-2 ml-2">
                 <h3 class="text-xs font-bold uppercase tracking-widest" data-uitk="accentText">${t('playerDisplaySettings.zoom.groupTitle')}</h3>
-                ${infoIconHtml(t('playerDisplaySettings.zoom.hint'))}
+                ${renderInfoIconHtml(t('playerDisplaySettings.zoom.hint'))}
             </div>
             <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
                 ${zoomRowsHtml}

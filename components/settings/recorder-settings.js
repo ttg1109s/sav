@@ -20,7 +20,7 @@ function _renderRecorderSelectRow(id, labelKey, infoKey, options, current) {
         <div class="flex justify-between items-center gap-3 p-4 border-b" data-uitk="dividerBorder">
             <div class="flex items-center gap-2 min-w-0">
                 <span class="text-sm font-medium">${t(labelKey)}</span>
-                ${infoIconHtml(t(infoKey))}
+                ${renderInfoIconHtml(t(infoKey))}
             </div>
             <select id="${id}" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right shrink-0" data-uitk="inputBg inputBorder inputText">${opts}</select>
         </div>
@@ -34,7 +34,7 @@ function _renderRecorderSyncRows(cfg) {
             <div class="flex justify-between items-center mb-3">
                 <div class="flex items-center gap-2 min-w-0">
                     <span class="text-sm font-medium">${t('recorderSettings.sync.label')}</span>
-                    ${infoIconHtml(t('recorderSettings.sync.info'))}
+                    ${renderInfoIconHtml(t('recorderSettings.sync.info'))}
                 </div>
                 <span id="setting-recorder-latency-value" class="text-xs font-mono" data-uitk="accentText">${cfg.latencyMs} ms</span>
             </div>
@@ -43,7 +43,7 @@ function _renderRecorderSyncRows(cfg) {
         <div class="flex justify-between items-center gap-3 p-4" data-uitk="dividerBorder">
             <div class="flex items-center gap-2 min-w-0">
                 <span class="text-sm font-medium">${t('recorderSettings.calibration.label')}</span>
-                ${infoIconHtml(t('recorderSettings.calibration.info'))}
+                ${renderInfoIconHtml(t('recorderSettings.calibration.info'))}
             </div>
             <button type="button" id="setting-recorder-calibrate" class="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold" data-uitk="btnPrimaryBg btnPrimaryHoverBg textOnAccent">${t('recorderSettings.calibration.button')}</button>
         </div>
