@@ -45,7 +45,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Drawer dùng chung (Generic Drawer) | `components/generic-drawer.js`, `core/generic-drawer.js`, `event/workflow/generic-drawer-helpers.js`; cụm `genericDrawer` |
 | Modal hỏi quyết định | `core/modal-choice-ui.js` (`modalChoice(text, buttons, options?)`) — ngoại lệ không qua bus ([event-bus-flow.md](./event-bus-flow.md)) |
 | Modal nhập số bằng slider / chọn giờ | `core/slider-input-modal.js`, `core/time-picker-modal.js` |
-| Icon (i) giải thích | `core/info-icon-ui.js`; cụm `infoIcon` |
+| Icon (i) giải thích | template `components/info-icon.js`, popover `core/info-icon-ui.js`; cụm `infoIcon` |
 | Dropdown menu | `core/dropdown-menu.js` |
 | Màn chờ (loading shield) | `components/loading-shield.js`, `core/loading-shield-util.js` |
 | Preloader lúc mở app | Theme + lưới an toàn: `service/boot-preloader.js` (trong `<head>`); giao diện: khối `<style>` + `#app-preloader` đầu `<body>` của `index.html`; ẩn: `hideAppPreloader()` (`core/loading-shield-util.js`) gọi từ `event/workflow/app-boot.js`; nền Morphin ghi sẵn cho lần mở sau: `_mirrorBootBackdrop()` (`event/workflow/ui-theme.js`) |
@@ -130,7 +130,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Auto-switch | `core/auto-switch-visual.js` (`resolveAutoSwitchSyncPhase()`), `event/workflow/auto-switch-visual.js` (`syncPlayState()` dùng VMState), state `service/state/auto-switch.js`, drawer `components/settings/visualizer-auto-switch-drawer.js`; cụm `autoSwitchVisual` |
 | Visualizer Screen (hiển thị, ẩn UI) | `components/settings/visualizer-display-panel.js`, `core/visualizer/visualizer-display.js`, `core/visualizer-ui-visibility.js`, `event/workflow/visualizer-display.js`; cụm `visualizerDisplay` |
 | Overlay, Control Center | `components/visualizer-overlay.js`, `core/visualizer-control-center.js`; cụm `visualizerControlCenter` |
-| Cử chỉ trên màn Visualizer | `core/visualizer-gesture.js`, `event/workflow/visualizer-gesture.js`; cài đặt `components/gesture-settings-drawer.js`, cụm `gestureSettings`, `visualizerGesture` |
+| Cử chỉ trên màn Visualizer | `core/visualizer-gesture.js`, `event/workflow/visualizer-gesture.js`; cài đặt `components/gesture-settings-drawer.js` + `core/gesture-settings-ui.js`, cụm `gestureSettings`, `visualizerGesture` |
 | HUD (tốc độ, âm lượng…) | `core/hud.js`; cụm `hud` |
 | Dựng canvas | `core/canvas-scene-setup.js`; màu `core/color-utils.js` |
 | Cao độ (pitch) | worker `core/workers/pitch-worker.js` (ngoài kiến trúc Bus) |

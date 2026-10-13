@@ -210,7 +210,7 @@ Mỗi file chỉ định nghĩa `TPL_*` (chuỗi HTML tĩnh) hoặc hàm `render
 `gameplay-overlay.js` và `recorder-overlay.js` trước `visualizer-overlay.js` (nội suy `TPL_GAMEPLAY_OVERLAY`,
 `TPL_RECORDER_OVERLAY`); `core/google-fonts-list.js` trước `element-style-editor-drawer.js` (đọc `listGoogleFont`).
 
-<details><summary>Thứ tự (37 mục)</summary>
+<details><summary>Thứ tự (38 mục)</summary>
 
 47. `components/loading-shield.js` — cần: `lang/lang.js` (t)
 48. `components/app-view-stack.js`
@@ -251,6 +251,7 @@ Mỗi file chỉ định nghĩa `TPL_*` (chuỗi HTML tĩnh) hoặc hàm `render
 81. `components/settings/recorder-settings.js`
 82. `components/settings/pagination.js`
 83. `components/gesture-settings-drawer.js`
+83a. `components/info-icon.js` — MỚI 13/10/2026 (renderInfoIconHtml/renderInfoPopoverHtml — plan-debt-domains đợt 1); gọi lúc chạy: `escapeHtml()` (core/modal-choice-ui.js), `iconSvg()`
 
 </details>
 
@@ -326,12 +327,13 @@ runtime, cần `components/app-mount.js`), `service/task-manager.js`, `service/d
 core xung quanh. Nhóm visualizer: `core/visualizer/*` rồi `core/visualizer/groups/<group>/common.js` trước style của
 group.
 
-<details><summary>Thứ tự (138 mục)</summary>
+<details><summary>Thứ tự (139 mục)</summary>
 
 121. `core/custom-effect.js`
 122. `core/custom-effect-drawer-ui.js`
 123. `core/element-style-editor.js`
-123a. `core/element-style-editor-ui.js` — MỚI 12/10/2026 (ô màu đối ứng, danh sách font — plan-event-bus-wiring đợt 5)
+123a. `core/element-style-editor-ui.js` — MỚI 12/10/2026 (ô màu đối ứng, danh sách font, xoá style preview)
+123b. `core/gesture-settings-ui.js` — MỚI 13/10/2026 (fillGestureSettingsPanel — plan-debt-domains đợt 1)
 124. `event/store.js`
 125. `core/dom-refs.js`
 126. `core/slider-panel-scroll.js`
