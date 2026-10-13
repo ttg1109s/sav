@@ -1,107 +1,38 @@
 /**
- * components/items.js — Catalog template item + renderItemList() dùng CHUNG (mục 3
- * plan-v12-extended.md, 10/07/2026, Nhóm A).
+ * components/items.js — template lưới Folder dùng chung (Folder Browser, picker "Thêm vào thư mục", picker "Thư mục" của
+ * Visual Background) + `renderItemList()`. Chỉ trả chuỗi HTML, không gắn sự kiện (wiring:
+ * core/file-manager/folder-picker-ui.js). Generic Drawer không biết "item" là gì, file này không biết "drawer" là gì —
+ * Workflow nối 2 thứ.
  *
- * XOÁ (loại bỏ Document Reader khỏi app) — `itemTemplateDocumentRow()` (template dòng Document
- * Picker, consumer GỐC ban đầu của file này) bỏ hẳn cùng tính năng. File này giờ CHỈ còn phục vụ
- * "Add to Folder" picker (`itemTemplateFolderTile()`) — File Manager Song/Photo (tự createElement
- * từng dòng) vẫn GIỮ NGUYÊN, chưa đụng.
- *
- * Mốc hiệu năng đã hiệu chỉnh: ~100-200 item (không phải 1000+). Ở mốc này, `renderItemList()`
- * render đầy đủ 1 lần là đủ mượt — KHÔNG tự windowing bên trong hàm này (xem lý do ở
- * `computeVirtualWindowRange()` bên dưới).
- *
- * [SỬA 13/07/2026, tự audit lại theo core-function-conventions.md + event-bus-flow.md] — bản đầu
- * (cùng ngày) từng nhét CẢ vòng đời windowing (tạo spacer/viewport, gắn `scroll` listener, tự
- * quyết định khi nào vẽ lại) THẲNG vào `renderItemList()` — VI PHẠM:
- * - Rule 1 (core-function-conventions.md) — hàm chọn giữa 3 TIẾN TRÌNH khác nhau (trả chuỗi/render
- *   đầy đủ/render windowed có state riêng) theo hình dạng tham số, đúng mẫu SAI
- *   `handleUpload(file, isVideo)` trong tài liệu.
- * - Rule 3 + mục "Listener" (event-bus-flow.md) — callback của `scroll` listener gọi THẲNG TÊN 1
- *   hàm khác cùng file — vẫn vi phạm dù addEventListener được phép. Không thể tự nhận miễn trừ kiểu
- *   modalChoice() — tài liệu đã bác chính xác pattern này ở folder-picker-ui.js ("tự ghi cùng
- *   pattern... KHÔNG hợp lệ, chưa qua audit").
- * - Rule 5c — thêm `document.createElement()` dựng cụm DOM mới (spacer/viewport) mà không đổi tên
- *   file thành `-ui.js`.
- *
- * SỬA ĐÚNG: windowing là ĐIỀU PHỐI liên tục theo dữ liệu — đúng vai trò Workflow (Rule 3: 2 hàm
- * core phụ thuộc kết quả nhau, `computeVirtualWindowRange()` RỒI `renderItemList()`, CHỈ Workflow
- * được gọi cả 2). File này CHỈ giữ hàm THUẦN tính toán (không DOM/`appState`/gọi hàm khác) — KHÔNG
- * có phần "tạo spacer/gắn scroll listener" ở đây.
- *
- * `scroll` — SỬA 14/07/2026 (Giang chỉ ra bản trước SAI): đi ĐÚNG luồng listener->bus->router->
- * workflow như MỌI sự kiện khác (kể cả tần suất cao), KHÔNG Workflow tự `addEventListener`.
- *
- * ĐẬP ĐI LÀM LẠI (rewrite Photo/Album, Giang yêu cầu "không dùng window virtual tự tạo nữa, dùng
- * thư viện") — `computeVariableVirtualWindowRange()`/`itemTemplateImageGridRow()` (từng ở file này,
- * dùng cho lưới ảnh Photo — xem lịch sử "CONSUMER THẬT ĐẦU TIÊN" cũ) XOÁ HẲN cùng lúc bỏ
- * hẳn `event/workflow,router,listener/virtual-list.js`. Lưới ảnh Photo GIỜ KHÔNG còn dùng
- * gì ở file NÀY nữa — chuyển hẳn sang `event/workflow/photo-gallery-window.js` (windowing cấp NHÓM
- * NGÀY qua `IntersectionObserver` + fjGallery, thư viện thật). `computeVirtualWindowRange()` (giả
- * định chiều cao đều — GIỮ NGUYÊN, dùng cho danh sách đều bất kỳ) là hàm windowing DUY NHẤT còn lại
- * ở file này — hiện CHƯA có consumer thật nào gọi tới nó (xem docstring hàm đó).
- *
- * Generic Drawer (core/generic-drawer.js) và items.js TÁCH BIỆT HOÀN TOÀN, không phụ thuộc nhau:
- * Drawer không biết "item" là gì (chỉ nhận `bodyHtml` là 1 chuỗi có sẵn), items.js không biết
- * "drawer" là gì (chỉ trả chuỗi HTML). Workflow là nơi DUY NHẤT nối 2 thứ — xem
- * `itemTemplateFolderTile()` bên dưới cho ví dụ thật (event/workflow/playlist.js::
- * createFolderInPicker()).
- *
- * NẠP SAU: core/modal-choice-ui.js (dùng chung escapeHtml()).
+ * NẠP SAU: core/modal-choice-ui.js (escapeHtml), core/ui-theme/icon-svg-ui.js (iconSvg), lang/lang.js (t/tFormat),
+ * components/generic-drawer.js (buildDrawerHeaderHtml), core/info-icon-ui.js (infoIconHtml), core/about-stats.js (formatBytes).
  */
 
-/**
- * Tile 1 folder trong Generic Drawer grid (Add to Folder picker, MỚI 14/07/2026, Giang yêu cầu —
- * "before: modal, after: generic drawer grid") — icon TRÊN + tên DƯỚI (đầy đủ, tối đa 2 dòng, dùng
- * `-webkit-line-clamp` inline thay vì class `line-clamp-2` của Tailwind — CDN bản đang dùng KHÔNG
- * chắc có plugin đó, style inline ĐẢM BẢO chạy đúng bất kể phiên bản Tailwind nào).
- *
- * 2 CHẾ ĐỘ loại trừ nhau: bình thường (tap để chọn) HOẶC đang sửa tên (input, dùng NGAY sau khi
- * tạo folder mới qua buildAddFolderTileHtml() — xem event/workflow/playlist.js::
- * createFolderInPicker()) — biết qua `ctx.editingFolderId === folder.id`.
- * @param {{id: string, name: string}} folder
- * @param {{editingFolderId: string|null}} [ctx]
- * @returns {string}
- */
-/**
- * SỬA (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — thêm icon type (song/video)
- * chồng GIỮA icon thư mục (KHÔNG PHẢI badge góc nhỏ như bản Batch 4 cũ, đã bỏ khi viết lại Folder
- * Browser ở Batch 5 mục 6e) — `type: null`/chưa xác định giữ NGUYÊN icon thư mục mặc định, không
- * chồng gì thêm. DÙNG CHUNG cho cả Folder Browser (event/workflow/file-manager-folder-browser.js)
- * lẫn "Add to Folder" picker (event/workflow/playlist.js) — cả 2 đều gọi `workflowFolder.list()` (record
- * THÔ, có sẵn field `type`), không cần đổi gì ở 2 nơi gọi.
- * @param {{id: string, name: string, type?: 'song'|'video'|'photo'|null}} folder
- */
-/** MỚI (06/10/2026, Giang: "lớp cha dùng clip-path cắt thành hình folder") — hình thư mục cho ô 56x56 (w-14 h-14) của
- * folder tile, toạ độ px tuyệt đối: tab bo tròn góc trên-trái (y 6..13), thân bo góc 6px (y 13..52, x 2..54). DÙNG CHUNG
- * cho clip-path của ô lẫn nét viền chọn (selectedRingHtml) — sửa 1 chỗ, 2 nơi khớp nhau. */
+/** Hình thư mục cho ô 56x56 (w-14 h-14) của folder tile, toạ độ px: tab bo tròn trên-trái (y 6..13), thân bo góc 6px
+ * (y 13..52, x 2..54). Dùng chung cho clip-path của ô và nét viền chọn — sửa 1 chỗ, 2 nơi khớp nhau. */
 const FOLDER_TILE_SHAPE_PATH = 'M2 12 Q2 6 8 6 L19 6 Q21.8 6 23.5 8.2 L25.5 10.8 Q27.2 13 30 13 L48 13 Q54 13 54 19 L54 46 Q54 52 48 52 L8 52 Q2 52 2 46 Z';
 
+// Icon loại chồng giữa ô (màu phân loại cố định -500, đủ tương phản trên cả 3 theme). Folder chưa có type: không icon.
+const FOLDER_TILE_TYPE_ICON = {
+    song: { icon: 'music-note', colorClass: 'text-emerald-500' },
+    video: { icon: 'video-camera', colorClass: 'text-violet-500' },
+    photo: { icon: 'photograph', colorClass: 'text-sky-500' },
+};
+
+/**
+ * Tile 1 folder: ô màu theme cắt hình thư mục (clip-path) + icon loại, tên bên dưới (tối đa 2 dòng, line-clamp inline).
+ * 2 chế độ: bình thường (nút chạm/giữ tay) hoặc đang sửa tên (`ctx.editingFolderId === folder.id` — ô nhập, ngay sau khi
+ * tạo folder mới). `ctx.selectedOrder` (Map<folderId, thứ tự>, picker chọn nhiều) -> viền + badge số thứ tự.
+ * @param {{id: string, name: string, type?: 'song'|'video'|'photo'|null}} folder
+ * @param {{editingFolderId?: string|null, selectedOrder?: Map<string, number>|null}} [ctx]
+ * @returns {string}
+ */
 function itemTemplateFolderTile(folder, ctx) {
     const isEditing = !!(ctx && ctx.editingFolderId === folder.id);
-    // type: null/chưa xác định -> '' (giữ NGUYÊN icon thư mục mặc định, không chồng gì).
-    // SỬA (khôi phục — Giang báo "folder photo chưa có icon như song/video") — 'photo' bị THIẾU
-    // hẳn khỏi ternary này từ đầu (chỉ viết cho song/video lúc "Song/Video Unification", Photo
-    // hợp nhất vào Playlist SAU — folder.type === 'photo' rơi về nhánh mặc định '', không icon).
-    const typeOverlaySvg = folder.type === 'song'
-        ? iconSvg('music-note', 'h-6 w-6')
-        : folder.type === 'video'
-        ? iconSvg('video-camera', 'h-6 w-6')
-        : folder.type === 'photo'
-        ? iconSvg('photograph', 'h-6 w-6')
+    const typeIcon = FOLDER_TILE_TYPE_ICON[folder.type];
+    const typeOverlayHtml = typeIcon
+        ? `<div class="absolute inset-0 flex items-center justify-center pointer-events-none ${typeIcon.colorClass}" style="padding-top:9px">${iconSvg(typeIcon.icon, 'h-6 w-6')}</div>`
         : '';
-    // SỬA (06/10/2026, Giang báo "icon folder song/video/photo có 1 vòng tròn, đổi theme Dark/Morphin mới lộ") — BỎ hẳn
-    // nền tròn tối (`w-6 h-6 rounded-full bg-[#0f172a]`) phủ giữa.
-    // SỬA LẦN 2 (06/10/2026, Giang: "icon bỏ hình dạng thư mục đi, chỉ có icon; lớp cha dùng clip-path cắt thành hình
-    // folder") — BỎ luôn SVG viền thư mục: chính ô màu theme (accentIconBoxBg) được cắt thành hình thư mục bằng
-    // clip-path (FOLDER_TILE_SHAPE_PATH), bên trong CHỈ còn icon loại (to hơn: h-4 -> h-6), đặt giữa phần thân (dưới
-    // tab — `padding-top:9px`). Folder chưa có type -> chỉ còn hình thư mục trơn. Màu phân loại vẫn hardcode (-500, đủ
-    // tương phản trên ô của cả 3 theme). Ô KHÔNG còn rounded-2xl (clip-path tự bo góc).
-    const typeOverlayColorClass = folder.type === 'song' ? 'text-emerald-500' : folder.type === 'photo' ? 'text-sky-500' : 'text-violet-500';
-    const typeOverlayHtml = typeOverlaySvg
-        ? `<div class="absolute inset-0 flex items-center justify-center pointer-events-none ${typeOverlayColorClass}" style="padding-top:9px">${typeOverlaySvg}</div>`
-        : '';
-    // SỬA (09/09/2026, hệ UI Theme) — màu ô ĐI QUA `data-uitk` (accentIconBoxBg/Text, core/ui-theme/*.js).
     const iconBoxHtml = `<div class="relative w-14 h-14 shrink-0" style="clip-path:path('${FOLDER_TILE_SHAPE_PATH}');-webkit-clip-path:path('${FOLDER_TILE_SHAPE_PATH}')" data-uitk="accentIconBoxBg accentIconBoxText">${typeOverlayHtml}</div>`;
 
     if (isEditing) {
@@ -112,16 +43,10 @@ function itemTemplateFolderTile(folder, ctx) {
             </div>
         `;
     }
-    // MỚI (29/08/2026, phản hồi Giang mục 5 — "multi selection phải đánh số theo thứ tự") —
-    // `ctx.selectedOrder` là Map<folderId, order> (Visual Background picker Thư mục multi-select,
-    // xem event/workflow/playlist.js::_renderFolderPickerGrid()) — có giá trị -> viền xanh + badge
-    // số ở góc; không có (null, hoặc id chưa được chọn) -> tile bình thường như trước.
     const order = ctx && ctx.selectedOrder ? ctx.selectedOrder.get(folder.id) : null;
     const selectedRingClass = order ? ' generic-item-folder-tile-selected' : '';
     const selectedBadgeHtml = order ? `<span class="generic-folder-tile-badge">${order}</span>` : '';
-    // SỬA (06/10/2026) — viền chọn KHÔNG còn là box-shadow trên ô (clip-path cắt mất) mà là 1 SVG vẽ NÉT theo đúng
-    // FOLDER_TILE_SHAPE_PATH, chồng ngoài ô (không bị cắt). drop-shadow cũng không dùng được: ô nền trong mờ ở Dark/
-    // Morphin làm bóng xanh ló xuyên qua cả lòng ô.
+    // Viền chọn là SVG vẽ nét theo đúng hình thư mục, chồng ngoài ô (box-shadow bị clip-path cắt mất).
     const selectedRingHtml = order ? `<svg class="absolute inset-0 w-14 h-14 pointer-events-none" viewBox="0 0 56 56" fill="none"><path d="${FOLDER_TILE_SHAPE_PATH}" stroke="#0ea5e9" stroke-width="2.5" stroke-linejoin="round"/></svg>` : '';
     return `
         <button type="button" class="generic-item-folder-tile select-none flex flex-col items-center gap-1.5 w-20${selectedRingClass}" data-folder-id="${escapeHtml(folder.id)}">
@@ -131,12 +56,7 @@ function itemTemplateFolderTile(folder, ctx) {
     `;
 }
 
-/**
- * Tile "Tạo folder mới" — CỐ ĐỊNH, đặt cuối grid, KHÔNG đi qua renderItemList() (không phải 1 item
- * trong danh sách folder, chỉ 1 nút hành động) — Workflow tự nối chuỗi này vào SAU
- * `renderItemList(null, folders, itemTemplateFolderTile, ctx)`, xem event/workflow/playlist.js.
- * @returns {string}
- */
+/** Tile "Tạo folder mới" — cố định cuối lưới, không qua renderItemList() (là nút hành động, không phải 1 folder). */
 function buildAddFolderTileHtml() {
     return `
         <button type="button" id="generic-folder-picker-add-tile" class="flex flex-col items-center gap-1.5 w-20">
@@ -149,59 +69,24 @@ function buildAddFolderTileHtml() {
 }
 
 /**
- * Wrapper CHUNG cho MỌI grid folder tile (Folder Browser List, Add to Folder picker, Thư mục VBG
- * picker — 3 nơi TÁI DÙNG `itemTemplateFolderTile()`/`buildAddFolderTileHtml()`, giờ tái dùng LUÔN
- * đúng 1 wrapper, tránh 2 chuỗi CSS trùng nhau dễ lệch khi sửa sau này).
- *
- * SỬA (06/09/2026, Giang chỉ ra bug tiếp — ảnh chụp màn Folder Browser List, khoảng trống thừa bên
- * phải khi hàng đầy, tile dồn hẳn về trái) — bản CŨ `flex flex-wrap justify-start gap-4` (đổi từ
- * `justify-center` hồi 14/07/2026, xem event/workflow/playlist.js) chỉ giải quyết ĐƯỢC 1 nửa: hàng
- * cuối chưa đầy thì đúng là căn trái (không bị "cả cụm" kéo về giữa), NHƯNG đổi lại các hàng ĐÃ ĐẦY
- * cũng bị dồn trái ln, để trống hẳn 1 dải bên phải nếu bề ngang khung KHÔNG chia hết cho
- * (width tile + gap) — Flexbox không có cách nào vừa "hàng đầy giãn đều 2 bên" vừa "hàng cuối lẻ
- * căn trái" CÙNG LÚC (`justify-between`/`justify-around` sẽ kéo luôn cả hàng lẻ dở dang ra giãn
- * đều, ngược lại đúng thứ Giang KHÔNG muốn).
- * FIX: đổi hẳn sang CSS Grid — `grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr))` (số
- * cột tự tính theo bề ngang khung, mỗi cột tối thiểu 5rem = đúng bề ngang 1 tile `w-20` hiện có,
- * *co giãn thêm bằng `1fr` để lấp hết khoảng trống thừa* — trả lời đúng ý "chỉnh kích thước/gap để
- * tận dụng khoảng trống, giãn đều 2 bên"). `justify-items-center` canh tile (vẫn giữ nguyên `w-20`,
- * không đổi) vào GIỮA mỗi cột đã giãn rộng ra — trả lời đúng ý "icon folder ở giữa". Khác Flexbox,
- * Grid xếp item theo đúng cột/hàng CỐ ĐỊNH (`grid-auto-flow` mặc định `row`) — hàng cuối thiếu tile
- * tự nhiên chỉ chiếm các cột ĐẦU (trái), KHÔNG có khái niệm "giãn đều cả hàng lẻ" như Flexbox —
- * cùng lúc thoả cả 2 yêu cầu tưởng chừng ngược nhau ở trên mà không cần media query/breakpoint nào.
- *
- * SỬA (09/09/2026, Giang báo lại bug "mở Folder Browser LẦN ĐẦU trong phiên -> panel dư/hụt so với
- * nội dung thật (khoảng trống dưới), đóng-mở lại thì ĐÚNG" — bug từng fix ở lượt 14/07/2026
- * (event/workflow/playlist.js, height cố định '60vh' -> 'auto') nhưng đó là fix cho NGUYÊN NHÂN
- * KHÁC (panel không co theo nội dung); bug NÀY tái xuất hiện đúng từ lượt đổi Flexbox -> CSS Grid
- * ở CHÍNH hàm này (06/09/2026, ngay trên).
- * NGUYÊN NHÂN GỐC: Tailwind nạp qua CDN (`<script src="https://cdn.tailwindcss.com">`, index.html)
- * — bản CDN này tự quét DOM và TIÊM CSS cho class MỚI GẶP LẦN ĐẦU một cách BẤT ĐỒNG BỘ (qua
- * MutationObserver RIÊNG của chính nó, không đồng bộ với luồng JS của app). 2 class Tailwind ở
- * wrapper này — `grid-cols-[repeat(auto-fill,minmax(5rem,1fr))]` (trừu tượng) VÀ
- * `justify-items-center` — grep xác nhận CHỈ xuất hiện ĐÚNG 1 CHỖ NÀY trong toàn bộ app, nên CSS
- * thật của chúng CHƯA được Tailwind CDN tiêm kịp đúng lúc `_measureGenericDrawerNaturalHeightPx()`
- * (core/generic-drawer.js) đo chiều cao tự nhiên — hàm đó chạy ĐỒNG BỘ, NGAY SAU KHI gán `bodyHtml`
- * (cùng tick), tức là đo TRÚNG lúc div còn CHƯA thật sự là `display:grid` (trình duyệt rơi về
- * block mặc định, tile xếp dọc). Min-height của Generic Drawer chốt theo con số ĐO SAI đó; Tailwind
- * CDN tiêm CSS thật xong ngay sau (không đồng bộ với animation mở Drawer), nội dung tự co lại
- * ĐÚNG theo Grid thật — NGẮN hơn hẳn min-height đã chốt trước đó -> để lại khoảng trống dưới, đúng
- * triệu chứng Giang mô tả. Mở lại (CSS 2 class này Tailwind CDN đã tiêm sẵn vào <style> từ lượt
- * trước, không mất đi khi đóng Drawer) đo ĐÚNG ngay từ đầu -> hết bug, đúng cũng là triệu chứng.
- * FIX: 2 thuộc tính quyết định layout/kích thước (`display:grid`, `grid-template-columns`,
- * `justify-items`) chuyển hẳn qua `style` inline — trình duyệt áp dụng NGAY, không phụ thuộc
- * Tailwind CDN tiêm kịp hay chưa. CÙNG cách né mà `itemTemplateFolderTile()` (phía trên trong file
- * này) đã dùng cho `-webkit-line-clamp` (khác nhau ở NGUYÊN NHÂN — chỗ đó là CDN có thể THIẾU hẳn
- * plugin `line-clamp`, chỗ này là CDN có tiêm nhưng KHÔNG KỊP lúc đo — nhưng CÙNG cách né: CSS thật
- * nằm ngay trong `style`, không qua class phải chờ Tailwind sinh). `gap-4`/`p-5` GIỮ NGUYÊN dạng
- * class Tailwind — cả 2 đã dùng rộng rãi ở nhiều nơi khác trong app từ trước (CSS đã có sẵn trong
- * stylesheet Tailwind tiêm từ lúc app boot, không có nguy cơ tương tự).
- * @param {string} innerHtml - chuỗi HTML các tile (renderItemList() + buildAddFolderTileHtml() nối
- *        sẵn), hàm này CHỈ bọc wrapper, không tự dựng tile.
+ * Wrapper chung cho mọi lưới folder tile. CSS Grid `repeat(auto-fill, minmax(5rem, 1fr))`: hàng đầy giãn đều, hàng cuối lẻ
+ * căn trái, tile nằm giữa mỗi cột (Flexbox không làm được cả 2 cùng lúc). `display`/`grid-template-columns`/`justify-items`
+ * để inline để có hiệu lực ngay lúc Generic Drawer đo chiều cao tự nhiên.
+ * @param {string} innerHtml - các tile đã dựng sẵn
  * @returns {string}
  */
 function buildFolderGridWrapperHtml(innerHtml) {
     return `<div class="gap-4 p-5" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr)); justify-items: center;">${innerHtml}</div>`;
+}
+
+/**
+ * Thân modal đổi tên folder (`bodyHtml` của modalChoice()) — ô nhập rỗng; tên hiện tại do
+ * core/file-manager/folder-picker-ui.js::fillRenameFolderModalInput() điền qua DOM (dữ liệu người dùng, không nội suy).
+ * Nơi gọi: event/workflow/file-manager-folder-browser.js::renameFromTileMenu().
+ * @returns {string}
+ */
+function renderRenameFolderModalBody() {
+    return `<input id="rename-folder-input" type="text" class="w-full rounded-lg px-3 py-2 text-sm outline-none transition-colors" data-uitk="inputBg inputBorder inputText">`;
 }
 
 /**
@@ -249,22 +134,18 @@ function buildFolderPickerHeaderActionsHtml(typeOptions, multiSelect, confirmCou
 }
 
 /**
- * MỚI (07/10/2026, Giang chốt dời khỏi Workflow) — header Generic Drawer của tab Folder (Folder Browser List): tiêu đề
- * "Folders" + nút (i) giải thích ngắn (chạm = phát folder, giữ 1s = menu) + nút đóng `#btn-generic-drawer-close`.
- * Trước đây là `workflowFileManagerFolderBrowser._buildListHeaderHtml()` (markup UI nằm trong Workflow) — body của
- * drawer này vốn đã dựng ở đây (buildFolderGridWrapperHtml()/buildAddFolderTileHtml()), header giờ cùng chỗ.
- * Nơi gọi: event/workflow/file-manager-folder-browser.js::_renderList(). Nút (i): core/info-icon-ui.js.
+ * Header Generic Drawer của Folder Browser (màn List): tiêu đề + nút (i) giải thích (chạm = áp folder, giữ 1s = menu) + nút
+ * đóng `#btn-generic-drawer-close`. Nơi gọi: event/workflow/file-manager-folder-browser.js::_renderList().
  * @returns {string}
  */
 function buildFolderBrowserListHeaderHtml() {
-    // SỬA 07/10/2026 — header dùng chung buildDrawerHeaderHtml() (components/generic-drawer.js)
-    return buildDrawerHeaderHtml({ title: t('fileManager.folderBrowser.listTitle'), titleSuffixHtml: infoIconHtml(t('fileManager.folderBrowser.listInfo')) });
+    return buildDrawerHeaderHtml({ title: t('fileManager.folderBrowser.listTitle'), titleSuffixHtml: infoIconHtml(t('fileManager.folderBrowser.listInfo')) }); // components/generic-drawer.js
 }
 
 /**
- * MỚI (07/10/2026, Giang chốt dời khỏi Workflow) — thân modal Thuộc tính folder (kiểu Windows): Contains/Size + 3 checkbox
- * Read-only / Hidden / Apply filter (id cố định — core/file-manager/folder-picker-ui.js::wireFolderPropertiesModalUi() gắn
- * sự kiện). Trước đây chuỗi này dựng thẳng trong workflowFileManagerFolderBrowser._showFolderProperties().
+ * Thân modal Thuộc tính folder: Contains/Size + 3 checkbox Read-only / Hidden / Apply filter (id cố định —
+ * core/file-manager/folder-picker-ui.js::wireFolderPropertiesModalUi() gắn sự kiện). Nơi gọi:
+ * event/workflow/file-manager-folder-browser.js::_showFolderProperties().
  * @param {string} countLabel - nhãn đã định dạng ("12 songs"…) @param {number} totalBytes
  * @param {{isReadOnly?: boolean, excludeFromMainPlaylist?: boolean, applyFilter?: boolean}} folderRecord
  * @returns {string}
@@ -295,60 +176,12 @@ function buildFolderPropertiesBodyHtml(countLabel, totalBytes, folderRecord) {
 }
 
 /**
- * Dựng 1 danh sách item bằng cách gán `containerEl.innerHTML` (nếu có) **1 LẦN DUY NHẤT** (thay N
- * lần createElement+appendChild) — đủ mượt tới ~100-200 item trên mobile webview (xem docstring
- * đầu file). Hàm THUẦN, KHÔNG tự gắn sự kiện click — nơi gọi (Workflow) tự querySelector +
- * addEventListener SAU khi HTML đã vào DOM thật (xem event/workflow/playlist.js::
- * createFolderInPicker() cho ví dụ thật).
- * @param {HTMLElement|null} containerEl - truyền `null` nếu CHỈ cần chuỗi HTML trả về (vd để làm
- *        `bodyHtml` cho openGenericDrawer()/updateGenericDrawer() — nơi đó mới THẬT SỰ gán vào
- *        DOM, gán 2 lần là thừa).
+ * Nối chuỗi HTML của danh sách item theo `templateFn` (dùng làm `bodyHtml` của Generic Drawer).
  * @param {Array<Object>} items
  * @param {(item: Object, ctx?: Object) => string} templateFn
- * @param {Object} [ctx] - dữ liệu NGOÀI item dùng chung cho MỌI item (vd editingFolderId).
- * @returns {string} chuỗi HTML đã dựng.
+ * @param {Object} [ctx] - dữ liệu dùng chung cho mọi item (vd editingFolderId)
+ * @returns {string}
  */
-function renderItemList(containerEl, items, templateFn, ctx) {
-    const html = items.map((item) => templateFn(item, ctx)).join('');
-    if (containerEl) containerEl.innerHTML = html;
-    return html;
+function renderItemList(items, templateFn, ctx) {
+    return items.map((item) => templateFn(item, ctx)).join('');
 }
-
-/**
- * THUẦN (Rule 1-4 core-function-conventions.md: không DOM, không `appState`, không gọi hàm nào
- * khác, không rẽ nhánh tiến trình — chỉ kẹp giá trị toán học) — tính khoảng chỉ số [startIdx,
- * endIdx) CẦN hiển thị cho 1 danh sách windowing, dựa trên vị trí cuộn/kích thước khung nhìn hiện
- * tại. GIẢ ĐỊNH mọi item cao ĐỀU NHAU (`itemHeight` cố định, đo 1 lần bên ngoài hàm này — không phù
- * hợp cho template có chiều cao co giãn theo nội dung).
- *
- * Workflow nào cần windowing THẬT (hiện CHƯA có nơi gọi — xem docstring đầu file) tự gọi hàm này
- * MỖI LẦN cuộn, rồi tự `renderItemList(viewportEl, items.slice(startIdx, endIdx), templateFn, ctx)`
- * — 2 lời gọi TÁCH RỜI do Workflow điều phối, KHÔNG hàm core nào gọi hàm core kia.
- *
- * @param {number} scrollTop - vị trí cuộn hiện tại (px) của khung chứa.
- * @param {number} viewHeight - chiều cao khung nhìn thấy (px, thường = containerEl.clientHeight).
- * @param {number} itemHeight - chiều cao 1 dòng/tile (px, đo 1 lần từ item đầu tiên, dùng chung).
- * @param {number} itemCount - tổng số item trong danh sách đầy đủ.
- * @param {number} [bufferRows] - số dòng đệm thêm mỗi phía NGOÀI vùng nhìn thấy (mặc định 4) — cuộn
- *        nhanh không bị chớp trắng trước khi kịp vẽ dòng mới.
- * @returns {{startIdx: number, endIdx: number}}
- */
-function computeVirtualWindowRange(scrollTop, viewHeight, itemHeight, itemCount, bufferRows) {
-    const buffer = bufferRows == null ? 4 : bufferRows;
-    const safeItemHeight = itemHeight > 0 ? itemHeight : 1; // kẹp an toàn — tránh chia cho 0 nếu nơi gọi lỡ đo ra 0
-    const startIdx = Math.max(0, Math.floor(scrollTop / safeItemHeight) - buffer);
-    const endIdx = Math.min(itemCount, Math.ceil((scrollTop + viewHeight) / safeItemHeight) + buffer);
-    return { startIdx, endIdx };
-}
-
-// ===================== ĐÃ GỠ (rewrite Photo/Album, Giang yêu cầu "không dùng window virtual tự tạo
-// nữa, dùng thư viện thật") — computeVariableVirtualWindowRange()/itemTemplateImageGridRow() ========
-// 2 hàm (bản trước ở đây) XOÁ HẲN — nguồn gốc hàng loạt bug layout/lệch cuộn đã gặp (tự tính offset/
-// chiều cao hàng bằng tay). Lưới ảnh Photo giờ dùng event/workflow/photo-gallery-window.js:
-// windowing cấp NHÓM NGÀY qua IntersectionObserver (trình duyệt tự lo, không tính tay) + fjGallery
-// (thư viện thật, thuật toán Flickr/Google Photos) lo layout thật bên trong mỗi nhóm — tile ảnh giờ
-// dựng bằng DOM node thật (createElement) NGAY trong file đó, không còn qua template chuỗi HTML ở
-// đây nữa (badge chọn/xoá toggle TRỰC TIẾP trên node đã có, không cần render lại).
-
-// XOÁ (loại bỏ Album khỏi Photo Panel) — itemTemplateAlbumListRow() (1 hàng trong Album List
-// sub-panel) bỏ hẳn cùng tính năng — panel đó không còn tồn tại.
