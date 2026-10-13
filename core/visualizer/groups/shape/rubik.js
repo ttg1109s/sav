@@ -1,9 +1,5 @@
 /**
- * core/visualizer/groups/shape/rubik.js — [CHUYỂN NHÓM, 05/09/2026, yêu cầu Giang] Trước đây đứng
- * riêng `core/visualizer/types/rubik.js` — giờ thuộc group "shape" (core/visualizer/groups/shape/,
- * xem registry ở common.js cùng thư mục). Nội dung hàm GIỮ NGUYÊN 100%, chỉ đổi đường dẫn file.
- * Giang cần XOÁ TAY file cũ `core/visualizer/types/rubik.js` (không tự xoá qua patch) — index.html
- * cần cập nhật `<script src="...">` tương ứng.
+ * core/visualizer/groups/shape/rubik.js — style "rubik" của group "shape".
  *
  * Visual RUBIK — khối Rubik 3x3x3 chiếu phối cảnh thủ công (không dùng Three.js).
  *
