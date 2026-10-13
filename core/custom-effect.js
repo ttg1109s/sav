@@ -1,19 +1,11 @@
 /**
- * core/custom-effect.js — Core thuần cho hệ Custom Effect (config riêng từng effect, xem
- * DEFAULT_CUSTOM_EFFECT ở core/config.js). Key = đúng giá trị GROUP (khớp Object.keys(EFFECT_GROUPS),
- * service/state/visualizer-runtime.js — bar/lighting/rain/vortex/shape).
+ * core/custom-effect.js — core thuần của hệ Custom Effect (config riêng từng effect, DEFAULT_CUSTOM_EFFECT ở
+ * core/config.js). Key = GROUP (Object.keys(EFFECT_GROUPS): bar/lighting/rain/vortex/shape/connector). Style con chọn
+ * qua modal group -> style (giữ #btn-cycle-mode, core/visualizer/visualizer-display.js::openEffectPickerModal()) —
+ * CUSTOM_EFFECT_STYLE/CUSTOM_EFFECT_STYLE_LABEL_KEYS là nguồn dữ liệu cho modal đó.
  *
- * [SỬA — 05/09/2026, yêu cầu Giang, "group hoá" effect picker] Trước đây key = giá trị MODES phẳng
- * ('bar'/'black hole'/'lighting'/...), CUSTOM_EFFECT_STYLE dùng để dựng dropdown "chọn style con"
- * NGAY TRONG Custom Effect Drawer (components/custom-effect-drawer.js). Dropdown đó ĐÃ BỎ HẲN
- * (Giang: "bỏ phần chọn style trong toàn bộ các custom effect") — style con giờ CHỈ chọn qua modal
- * 2-dropdown (group -> style) mở bằng GIỮ #btn-cycle-mode, xem
- * core/visualizer/visualizer-display.js::openEffectPickerModal(). CUSTOM_EFFECT_STYLE/
- * CUSTOM_EFFECT_STYLE_LABEL_KEYS bên dưới GIỮ LẠI (không xoá) — vẫn là nguồn dữ liệu cho modal đó
- * đọc field/options/label, chỉ KHÔNG còn dựng dropdown Ở TRONG DRAWER nữa.
- *
- * NẠP SAU: core/config.js (DEFAULT_CUSTOM_EFFECT, appConfigViz), service/state/
- * visualizer-runtime.js (EFFECT_GROUPS/GROUP_STYLE_FIELD/STYLE_TO_GROUP).
+ * NẠP SAU: core/config.js (DEFAULT_CUSTOM_EFFECT, appConfigViz), service/state/visualizer-runtime.js
+ * (EFFECT_GROUPS/GROUP_STYLE_FIELD/STYLE_TO_GROUP).
  */
 
 // Đèn tuỳ chỉnh (Rain, style street) — customEffect.rain.customLamps, xem components/
@@ -317,15 +309,10 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'maxPinsPerFire', labelKey: 'customEffectDrawer.field.maxPinsPerFire', type: 'slider', min: 1, max: 8, step: 1, card: 'reaction' },
     ],
 };
-/** MỚI (25/09/2026, Giang báo "maxH chỉnh ở mirror, sang cascade vẫn dùng chung giá trị -> sai") — field
- * mà NHIỀU style con cùng hiện/cùng đọc trong 1 group -> lưu RIÊNG theo từng style, không dùng chung 1 giá
- * trị cho cả group nữa. Chỗ lưu: `customEffect[group].byStyle[style][field]` (chỉ tạo khi người dùng chỉnh).
- * Đọc: getEffectConfig() đè giá trị của style ĐANG CHỌN (field style = CUSTOM_EFFECT_STYLE[group].field) lên
- * bucket group; style CHƯA từng chỉnh field đó -> rơi về giá trị group cũ (= giá trị dùng chung trước bản
- * này) rồi default -> save cũ không cần migrate, mọi style giữ nguyên giá trị đang thấy, chỉ tách ra từ lần
- * chỉnh đầu tiên. Field CHỈ 1 style dùng (có showIf riêng 1 style) vẫn lưu phẳng ở bucket group như cũ —
- * không đưa vào đây (các hàm dựng scene đọc thẳng getEffectConfig(group) lúc resize/init, không phụ thuộc
- * style đang chọn). Group chỉ 1 style (shape) không cần entry.
+/** Field mà NHIỀU style con cùng hiện/cùng đọc trong 1 group -> lưu RIÊNG theo style: `customEffect[group].byStyle[style]
+ * [field]` (chỉ tạo khi người dùng chỉnh). Đọc (resolveEffectConfig()): giá trị của style đang chọn đè lên bucket group;
+ * style chưa từng chỉnh -> rơi về giá trị group rồi default (save cũ không cần migrate). Field chỉ 1 style dùng vẫn lưu
+ * phẳng ở bucket group. Group chỉ 1 style (shape) không cần entry.
  * Rà soát 25/09/2026 — field dùng chung đã tách:
  *   - Khối chung màu (mode/solidColor/dynA/dynB) mọi group nhiều style; blur (blurEnabled/blurIntensity)
  *     ở bar + lighting (group còn lại nằm trong CUSTOM_EFFECT_NO_BLUR).
@@ -347,13 +334,11 @@ const CUSTOM_EFFECT_PER_STYLE_FIELDS = {
     connector: [...CUSTOM_EFFECT_COLOR_FIELDS, 'glowEnabled', 'glowIntensity', 'fireThreshold', 'lateralInhibitStrength', 'sectionWindowBeats', 'fluxThreshold'],
 };
 
-/** Config đầy đủ (default merge field thiếu) của 1 effect theo type. SỬA (25/09/2026) — đè thêm giá trị
- * RIÊNG của style đang chọn cho các field trong CUSTOM_EFFECT_PER_STYLE_FIELDS (xem docblock bảng đó).
- * `byStyle` là chỗ lưu nội bộ, không trả ra ngoài -> nơi đọc (Drawer, hàm vẽ) vẫn thấy
- * object phẳng y như trước. */
-function getEffectConfig(type) {
-    const cfg = appConfigViz.getAll();
-    const merged = { ...DEFAULT_CUSTOM_EFFECT[type], ...(cfg.customEffect && cfg.customEffect[type]) };
+/** Config đầy đủ của 1 effect: default + giá trị đã lưu, đè thêm giá trị RIÊNG của style đang chọn cho các field trong
+ * CUSTOM_EFFECT_PER_STYLE_FIELDS. `byStyle` là chỗ lưu nội bộ, không trả ra — nơi đọc (Drawer, hàm vẽ) thấy object phẳng.
+ * @param {object} customEffect - vizConfig.customEffect @param {string} type @returns {object} */
+function resolveEffectConfig(customEffect, type) {
+    const merged = { ...DEFAULT_CUSTOM_EFFECT[type], ...(customEffect && customEffect[type]) };
     const perStyleFields = CUSTOM_EFFECT_PER_STYLE_FIELDS[type] || [];
     const styleDef = CUSTOM_EFFECT_STYLE[type];
     const own = (styleDef && merged.byStyle && merged.byStyle[merged[styleDef.field]]) || {};
@@ -362,43 +347,91 @@ function getEffectConfig(type) {
     return merged;
 }
 
-/** Config effect ĐANG CHẠY (cfg.type) — dùng bởi getComputedColor()/getActiveBlurMult()
- * (core/audio-analysis.js) và mọi hàm vẽ (core/visualizer/types/*.js). */
+/** Config effect ĐANG CHẠY (cfg.type) — còn dùng bởi core vẽ (core/visualizer/effect-paint.js, visualizer-display.js)
+ * và 2 Workflow; nợ Rule 3a/3b gỡ cùng các core đó (đợt 23a). */
 function getActiveEffectConfig() {
-    return getEffectConfig(appConfigViz.getAll().type);
+    const cfg = appConfigViz.getAll();
+    return resolveEffectConfig(cfg.customEffect, cfg.type);
 }
 
-/** Ghi 1 field vào customEffect[type] — DUY NHẤT nơi mutate (Rule 2), Workflow tự gọi saveConfig()
- * sau. Rule 1: luôn tạo bucket effect nếu thiếu rồi ghi field, đúng 1 tiến trình.
- * SỬA (25/09/2026) — field nằm trong CUSTOM_EFFECT_PER_STYLE_FIELDS[type] ghi vào ô RIÊNG của style đang
- * chọn (`byStyle[style]`) thay vì bucket group — vẫn đúng 1 tiến trình "ghi 1 field", chỉ tra bảng để
- * chọn ô đích. `byStyle`/ô style luôn tạo object MỚI (không sửa tại chỗ object có thể đang tham chiếu
- * chung với DEFAULT_CUSTOM_EFFECT qua spread nông). */
-function setCustomEffectField(type, field, value) {
+/** Field `field` của effect `type` lưu RIÊNG theo style đang chọn (`byStyle[style]`) hay chung cả group.
+ * @param {string} type @param {string} field @returns {boolean} */
+function isCustomEffectPerStyleField(type, field) {
+    return !!CUSTOM_EFFECT_STYLE[type] && (CUSTOM_EFFECT_PER_STYLE_FIELDS[type] || []).includes(field);
+}
+
+/** Ghi 1 field chung của group vào customEffect[type] (tạo bucket nếu thiếu). Workflow tự saveConfig() sau. */
+function setCustomEffectGroupField(type, field, value) {
+    appConfigViz.mutateAll(cfg => {
+        if (!cfg.customEffect[type]) cfg.customEffect[type] = { ...DEFAULT_CUSTOM_EFFECT[type] };
+        cfg.customEffect[type][field] = value;
+    });
+}
+
+/** Ghi 1 field vào ô RIÊNG của style đang chọn (`byStyle[style]`, tạo bucket nếu thiếu). `byStyle`/ô style luôn là
+ * object MỚI (không sửa tại chỗ object có thể tham chiếu chung với DEFAULT_CUSTOM_EFFECT qua spread nông). */
+function setCustomEffectStyleField(type, field, value) {
     appConfigViz.mutateAll(cfg => {
         if (!cfg.customEffect[type]) cfg.customEffect[type] = { ...DEFAULT_CUSTOM_EFFECT[type] };
         const bucket = cfg.customEffect[type];
-        const styleDef = CUSTOM_EFFECT_STYLE[type];
-        const isPerStyle = !!styleDef && (CUSTOM_EFFECT_PER_STYLE_FIELDS[type] || []).includes(field);
-        if (!isPerStyle) { bucket[field] = value; return; }
-        const style = bucket[styleDef.field] || DEFAULT_CUSTOM_EFFECT[type][styleDef.field];
+        const styleField = CUSTOM_EFFECT_STYLE[type].field;
+        const style = bucket[styleField] || DEFAULT_CUSTOM_EFFECT[type][styleField];
         const byStyle = { ...(bucket.byStyle || {}) };
         byStyle[style] = { ...(byStyle[style] || {}), [field]: value };
         bucket.byStyle = byStyle;
     });
 }
 
-/** Cường độ blur/glow quy đổi 0-1 cho 1 effect bất kỳ (không nhất thiết đang active) — dùng bởi
- * core/canvas-scene-setup.js lúc khởi tạo scene, KHÔNG qua audio-analysis.js (tránh phụ thuộc
- * chéo lúc file đó chưa nạp). */
-function getEffectBlurMult(type) {
-    const ec = getEffectConfig(type);
-    return ec.blurEnabled ? ec.blurIntensity / 100 : 0;
+/** Glow sprite Three.js của connector (glowEnabled/glowIntensity) quy đổi 0-1.
+ * @param {object} ec - resolveEffectConfig(..., 'connector') @returns {number} */
+function resolveConnectorGlowMult(ec) {
+    return ec.glowEnabled ? ec.glowIntensity / 100 : 0;
 }
 
-/** Glow sprite Three.js của connector — cơ chế khác hẳn shadowBlur canvas 2D nên đọc field riêng
- * (glowEnabled/glowIntensity), không dùng chung getEffectBlurMult(). */
-function getConnectorGlowMult() {
-    const ec = getEffectConfig('connector');
-    return ec.glowEnabled ? ec.glowIntensity / 100 : 0;
+// ===================== Phép tính cho Workflow (event/workflow/custom-effect.js) =====================
+
+/** Meta field `field` của effect `type` trong CUSTOM_EFFECT_FIELDS (undefined nếu không có). */
+function findCustomEffectFieldMeta(type, field) {
+    return (CUSTOM_EFFECT_FIELDS[type] || []).find((f) => f.id === field);
+}
+
+/** Ô màu solid: đủ dạng #RRGGBB chưa (ô chữ gõ dở thì chưa áp). @param {string} value @returns {boolean} */
+function isCustomEffectHexColor(value) {
+    return /^#[0-9A-F]{6}$/i.test(value);
+}
+
+/** Giá trị thô của 1 slider -> số + chữ hiển thị cạnh slider (`decimals` chữ số thập phân với slider số thực).
+ * @param {string} raw @param {boolean} isFloat @param {number} decimals @param {string} suffix
+ * @returns {{value: number, text: string}} */
+function resolveCustomEffectSliderInput(raw, isFloat, decimals, suffix) {
+    const value = isFloat ? parseFloat(raw) : parseInt(raw, 10);
+    return { value, text: `${isFloat ? value.toFixed(decimals) : value}${suffix}` };
+}
+
+/** Danh sách kiểu nổ pháo hoa sau khi tick (thêm) / bỏ tick (lọc ra) `key`. @returns {string[]} mảng MỚI */
+function toggleFireworksStyleList(list, key, checked) {
+    return checked ? [...list, key] : list.filter((s) => s !== key);
+}
+
+/** Thêm 1 chữ bắn pháo hoa (trim + viết hoa); rỗng hoặc đã đủ CUSTOM_EFFECT_MAX_TEXTS -> không hợp lệ.
+ * @param {string[]} customTexts @param {string} rawText @returns {{isValid: boolean, list: string[]}} */
+function appendFireworksText(customTexts, rawText) {
+    const text = rawText.trim().toUpperCase();
+    return { isValid: !!text && customTexts.length < CUSTOM_EFFECT_MAX_TEXTS, list: [...customTexts, text] };
+}
+
+/** Thêm 1 đèn mặc định; đã đủ CUSTOM_EFFECT_MAX_LAMPS -> không hợp lệ.
+ * @param {object[]} customLamps @returns {{isValid: boolean, list: object[]}} */
+function appendCustomLamp(customLamps) {
+    return { isValid: customLamps.length < CUSTOM_EFFECT_MAX_LAMPS, list: [...customLamps, { ...CUSTOM_EFFECT_DEFAULT_LAMP }] };
+}
+
+/** Mảng MỚI bỏ phần tử thứ `index` (chữ pháo hoa / đèn). */
+function removeCustomEffectListItem(list, index) {
+    return list.filter((_, i) => i !== index);
+}
+
+/** Mảng đèn MỚI với `field` của đèn thứ `index` = `value`. */
+function replaceCustomLampField(customLamps, index, field, value) {
+    return customLamps.map((l, i) => (i === index ? { ...l, [field]: value } : l));
 }

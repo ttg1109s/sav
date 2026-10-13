@@ -1,45 +1,14 @@
 /**
- * core/pagination.js — Pagination DÙNG CHUNG (mới, 14/07/2026, tích hợp Generic Drawer/Item/
- * windowing — Giang yêu cầu). KHÔNG gắn riêng 1 tính năng nào — file này KHÔNG biết gì về
- * "folder"/"song"/... — chỉ nhận `items`/`pageIndex`/`pageSize` thuần.
+ * core/pagination.js — pagination dùng chung: chỉ nhận `items`/`pageIndex`/`pageSize` thuần, không biết danh sách nào.
  *
- * SỬA (23/09/2026, Giang yêu cầu "cải tiến theo đề xuất + dùng key theme + đem cài đặt vào Settings >
- * System > Pagination, áp dụng chung cho mọi nơi dùng pagination"):
- *   - Dãy số trang ('list'/'full') RÚT GỌN bằng dấu "…" — luôn giữ trang đầu + trang cuối + trang
- *     hiện tại ± PAGINATION_SIBLING_COUNT, tối đa 2*sibling+5 ô (= 7) dù có bao nhiêu trang. Trước đây
- *     render TOÀN BỘ số trang (50 trang = 50 nút). Dãy ô do `computePaginationPageSlots()` tính (core
- *     riêng — kết quả có ý nghĩa nghiệp vụ riêng, KHÔNG làm hàm con được, Rule 3c), Workflow tính xong
- *     truyền vào template (Rule 3 — template KHÔNG tự gọi).
- *   - 'arrow' thêm 2 nút về trang đầu/cuối (« ») — 'list'/'full' KHÔNG cần (trang 1 + trang cuối luôn
- *     hiện sẵn trong dãy số rút gọn).
- *   - Style MỚI 'loadMore' — 1 nút "Tải thêm" (cộng dồn), tính trang bằng `computeLoadMorePage()`.
- *   - Mọi nút có `aria-label` (t()), trang hiện tại có `aria-current="page"`, khung là `<nav>`.
- *   - MỌI màu đi qua theme key (`data-uitk`) — KHÔNG còn class màu Tailwind nào trong file này. Nơi
- *     gọi chèn HTML xong PHẢI tự `applyUiThemeToDom(containerEl, _activeUiThemeKeyList)` (core/ui-
- *     theme/apply-ui.js) — Generic Drawer tự làm cho nội dung của nó lúc `openGenericDrawer()`/
- *     `updateGenericDrawer()`, chèn LẠI sau đó (vd đổi trang) thì phải tự gọi.
- *   - MỌI nút (kể cả ‹ › « » và "Tải thêm") mang sẵn `data-page-index` = trang ĐÍCH khi bấm — nơi wire
- *     (core/pagination-ui.js::wirePaginationControls()) chỉ việc đọc 1 thuộc tính đó, KHÔNG cần biết
- *     trang hiện tại để tự cộng/trừ. `data-pagination-action` (first/prev/next/last/goto/loadMore) giữ
- *     lại cho CSS/đọc code.
+ * - Dãy số trang ('list'/'full') rút gọn bằng "…": luôn giữ trang đầu + cuối + trang hiện tại ± PAGINATION_SIBLING_COUNT
+ *   (tối đa 2*sibling+5 ô) — computePaginationPageSlots(). 'arrow' có thêm « »; 'loadMore' cộng dồn (computeLoadMorePage()).
+ * - Template 4 style: components/pagination-controls.js — mọi nút mang `data-page-index` = trang ĐÍCH, mọi màu qua theme
+ *   key (`data-uitk`); chèn HTML ngoài lúc Generic Drawer dựng thì nơi gọi tự `applyUiThemeToDom()`.
+ * - Bật/tắt + page size + style riêng từng nơi (core/config.js::DEFAULT_PAGINATION_CONFIG.places, Settings > System >
+ *   Pagination) — nơi dùng chỉ gọi event/workflow/pagination.js (workflowPagination), không gọi thẳng các hàm dưới.
  *
- * Bật/tắt + page size + style RIÊNG TỪNG NƠI — domain config 'pagination' (core/config.js::
- * DEFAULT_PAGINATION_CONFIG.places), Settings > System > Pagination. `event/workflow/pagination.js`
- * (workflowPagination) đọc config của ĐÚNG nơi rồi CHỌN hàm tính trang + template theo style — nơi dùng
- * pagination chỉ gọi workflow đó, KHÔNG tự gọi thẳng các hàm dưới đây (sẽ bỏ qua cài đặt).
- *
- * `computePage()`/`computeLoadMorePage()`/`computePaginationPageSlots()` — core NGHIỆP VỤ THUẦN (Rule
- * 1-4): không DOM, không appState, không gọi core khác (chỉ toán học kẹp giá trị).
- *
- * [DỜI 07/10/2026, rà soát SVG mục A — Rule 5c] `buildPagination*Html()` + 2 hằng PAGINATION_BTN_CLASS/PAGINATION_ICON_NAME
- * đã chuyển sang core/pagination-ui.js (hàm dựng UI phải nằm trong file `-ui.js`; nay còn gọi iconSvg()). Ghi chú gốc:
- * `buildPagination*Html()` — 4 hàm TEMPLATE riêng, mỗi style 1 hàm (tinh thần `itemTemplateFolderTile()`
- * ở components/items.js — KHÔNG gộp chung 1 hàm rồi rẽ nhánh theo style bên trong, Rule 1 "nơi gọi tự
- * chọn đúng hàm"). HTML nút ‹/›/«/» VIẾT LẶP LẠI trong TỪNG hàm cần nó (KHÔNG trích hàm phụ top-level —
- * Rule 3, xem ghi chú bản 14/07); phần DÙNG CHUNG được là DỮ LIỆU (hằng class/path icon ngay dưới), không
- * phải hàm. Không hàm nào tự `addEventListener`.
- *
- * NẠP SAU: lang/lang.js (t/tFormat — nhãn aria + chữ "Tải thêm").
+ * Mọi hàm thuần: không DOM, không appState, không gọi core khác.
  */
 
 /** Số trang kề 2 bên trang hiện tại trong dãy số rút gọn ('list'/'full'). 1 -> tối đa 7 ô
@@ -151,3 +120,27 @@ function computePaginationPageSlots(pageIndex, totalPages, siblingCount) {
     return [0, null, ...range(left, right), null, total - 1];
 }
 
+/** Cài đặt đã chuẩn hoá của 1 nơi — giá trị lạ (meta cũ/hỏng, style đã bỏ, số ngoài biên) rơi về mặc định / bị kẹp.
+ * @param {object|undefined} place - appConfigPagination.getAll().places[key] @param {{pageSize:number, style:string}} defaults
+ * @returns {{enabled:boolean, pageSize:number, style:string}} */
+function sanitizePaginationPlace(place, defaults) {
+    const p = place || {};
+    const size = Math.round(Number(p.pageSize));
+    return {
+        enabled: p.enabled === true,
+        pageSize: Number.isFinite(size) ? Math.max(PAGINATION_PAGE_SIZE_MIN, Math.min(PAGINATION_PAGE_SIZE_MAX, size)) : defaults.pageSize,
+        style: PAGINATION_STYLES.some((st) => st.value === p.style) ? p.style : defaults.style,
+    };
+}
+
+/** Ô nhập số item/trang (chuỗi từ `<input type=number>`): làm tròn + kẹp [MIN, MAX]; rỗng/không phải số -> không hợp lệ.
+ * @param {string|number} value @returns {{isValid: boolean, size: number}} */
+function resolvePaginationPageSizeInput(value) {
+    const size = Math.round(Number(value));
+    return { isValid: value !== '' && Number.isFinite(size), size: Math.max(PAGINATION_PAGE_SIZE_MIN, Math.min(PAGINATION_PAGE_SIZE_MAX, size)) };
+}
+
+/** Trang (0-based) chứa item thứ `itemIndex`. @param {number} itemIndex @param {number} pageSize @returns {number} */
+function computePaginationPageOfItem(itemIndex, pageSize) {
+    return Math.floor(itemIndex / pageSize);
+}

@@ -39,7 +39,7 @@
             // dùng chung -> sai] Field mà NHIỀU style con cùng dùng (màu/blur, maxH, chớp, glow...)
             // KHÔNG còn dùng chung 1 giá trị cho cả group — giá trị dưới đây chỉ là mặc định/giá trị cũ,
             // chỉnh ở style nào lưu riêng style đó (`byStyle[style]`), xem CUSTOM_EFFECT_PER_STYLE_FIELDS
-            // + getEffectConfig()/setCustomEffectField() (core/custom-effect.js).
+            // + resolveEffectConfig()/setCustomEffectGroupField()/setCustomEffectStyleField() (core/custom-effect.js).
             bar: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
                 barStyle: 'mirror', minH: 4, maxH: 400, mirrorBarCount: 32,
@@ -1098,23 +1098,7 @@
             // openVolume(), đọc appConfigViz tươi) — không cần đồng bộ UI tĩnh nào ở đây (khác bản cũ có
             // #setting-volume tĩnh từ lúc boot, đã xoá cùng UI Settings EQ/Volume cũ).
 
-            // SỬA (Giang báo bug "label tốc độ ở icon Control Center vẫn hiện 1x sau khi thoát/vào
-            // lại app, dù thực tế đang phát tốc độ khác 1x") — KHÁC Volume ngay trên: nút
-            // #btn-open-volume chỉ có icon + nhãn TĨNH ("Âm lượng"), không tự hiện giá trị nào
-            // ngoài popup nên không cần đồng bộ lúc boot. Nút #btn-open-speed lại có
-            // `#speed-badge-label` — 1 badge hiện SẴN giá trị NGAY TRÊN nút, LUÔN HIỂN THỊ (nằm
-            // ngoài `#visualizer-speed-hud`, popup ẩn mặc định) — mặc định cứng "1x" trong
-            // TPL_VISUALIZER_OVERLAY (components/visualizer-overlay.js), CHỈ được
-            // `syncSpeedHudUI()` (core/hud.js, ĐỔI TÊN 18/09/2026 từ syncSpeedHudOptions()) cập nhật đúng lúc mở popup
-            // (`workflowHud.openSpeed()`) hoặc đổi tốc độ (`workflowHud.selectSpeed()`) — 2 nơi đó
-            // CHƯA BAO GIỜ chạy lúc mới boot. `playbackSpeed` đã nạp đúng từ config ở trên, tốc độ
-            // THẬT vẫn áp đúng qua `applyPlaybackSpeedToActiveMedia()` lúc bài hát load
-            // (`handleAudioLoadedMetadata()`, core/player-controls.js) — chỉ riêng CÁI BADGE bị bỏ
-            // quên, đứng yên ở giá trị tĩnh trong HTML cho tới khi người dùng tự mở/đổi popup Speed
-            // 1 lần trong phiên. Đồng bộ NGAY ở đây, cùng lúc UI khác hydrate từ config lúc boot.
-            if (typeof syncSpeedHudUI === 'function' && typeof speedHudOptions !== 'undefined') {
-                syncSpeedHudUI(speedHudSlider, speedHudValueLabel, speedHudOptions, speedBadgeLabel, appConfigViz.getAll().playbackSpeed); // core/hud.js
-            }
+            // (Badge tốc độ trên nút Speed: workflowHud.syncSpeedUI(), gọi từ app-boot sau loadConfig().)
 
             {
                 // [SỬA — 05/09/2026] MODES giờ là 12 STYLE con phẳng, không phải group — suy style
