@@ -13,7 +13,7 @@
                 // "Tất cả bài"; có giá trị = đang scoping theo đúng folderId (CÙNG type) của Nguồn
                 // đó. Đổi source không còn xoá mất lựa chọn Scope của Nguồn kia. Dữ liệu cũ (lưu
                 // dạng string phẳng qua meta) tự migrate 1 lần lúc boot, xem
-                // core/file-manager/folder.js::migrateActivePlayListFolderIfNeeded().
+                // event/workflow/folder.js::migrateOnBoot().
                 activePlayListFolder: 'object', // {song: string|null, video: string|null, photo: string|null}
                 // `isReadOnly` của folder đang Scope ở Nguồn đang hiển thị — field PHẲNG để Block gate
                 // (event/block.js) chặn upload. Ghi bởi playlist-scope.js::applyFolderScope()/applyAllSongsScope()
