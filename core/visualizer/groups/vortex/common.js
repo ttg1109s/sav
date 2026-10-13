@@ -1,26 +1,12 @@
 /**
- * core/visualizer/groups/vortex/common.js — Registry style con của group "vortex" (đăng ký theo
- * yêu cầu Giang, 05/09/2026 — tách "groups", làm phẳng file effect thành từng style riêng). Trước
- * đây `core/visualizer/types/vortex.js` gộp 3 style 'rings'/'bars'/'wave' — giờ mỗi style 1 file
- * riêng (`rings.js`/`bars.js`/`wave.js`, cùng thư mục).
+ * core/visualizer/groups/vortex/common.js — phần dùng chung của 3 style group "vortex" (`rings.js`, `bars.js`,
+ * `wave.js`): tốc độ bay `computeVortexWarpSpeed()`, camera `placeVortexCamera()`, dời gốc/cuộn z
+ * (`shiftVortexSceneZ()`, `wrapVortexObjectZ()`). `tWarpSpeed` là biến module-level ngoài STATE
+ * (core/webgl/three-vortex.js); object Three.js nhận qua tham số. Workflow `_tickVortexRender()`
+ * (event/workflow/visualizer/vortex.js) đọc state, chọn style rồi gọi từng hàm.
  *
- * `computeVortexWarpSpeed()` + camera (`placeVortexCamera()`) + dời gốc/cuộn z
- * (`shiftVortexSceneZ()`/`wrapVortexObjectZ()`, 25/09/2026) là cơ chế CHUNG (Rule 2/3 — biến module-level ngoài STATE / chỉ nhận
- * tham số đã resolve sẵn) dùng bởi CẢ 3 style — đặt ở đây để 3 file đó không phải định nghĩa
- * trùng lặp. Workflow (`_tickVortexRender()`, event/workflow/visualizer-render.js) tự đọc TOÀN BỘ
- * appState/cfg TRƯỚC, tự chọn ĐÚNG style (Rule 1), rồi tự vòng lặp gọi RIÊNG LẺ từng hàm "1 bước/1
- * item" — mỗi hàm chỉ nhận Center (đã `getVortexCenterAt()` sẵn)/Color (đã `getComputedColor()`
- * sẵn) làm tham số, KHÔNG tự gọi 2 hàm đó nữa (Rule 3, core/webgl/three-vortex.js /
- * core/audio-analysis.js). `ring`/`wave`/`tBarsMesh`/`tCamera`/`dummy` là object Three.js NHẬN QUA
- * THAM SỐ — mutate trực tiếp thuộc tính của chúng KHÔNG vi phạm Rule 2 (rule chỉ cấm
- * `appState.get()`).
- *
- * NẠP: TRƯỚC `rings.js`/`bars.js`/`wave.js`.
+ * NẠP TRƯỚC: `rings.js`, `bars.js`, `wave.js`.
  */
-
-/** Danh sách style con thuộc group "vortex" — tên file khớp CHÍNH XÁC tên trong mảng này
- * (`<tên>.js`). */
-const VORTEX_GROUP_STYLE_KEYS = ['rings', 'bars', 'wave'];
 
 /** Tốc độ bay mượt theo nhạc — `tWarpSpeed` là biến module-level PERSISTENT (khai báo ở
  * `core/webgl/three-vortex.js`, tự ghi chú "KHÔNG thuộc STATE") — đọc/ghi trực tiếp KHÔNG vi phạm
