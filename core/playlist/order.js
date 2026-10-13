@@ -217,3 +217,24 @@ function resolveNewSongsDisplayMode(newKeyCount, hasCurrent) {
     if (newKeyCount === 0) return 'resync';
     return hasCurrent ? 'append' : 'resort';
 }
+
+/** Nút to "Phát" (header Playlist) — gộp các điều kiện thành 1 việc cần làm: media đang phát nằm trong danh sách đang xem
+ * -> 'visualizer' (về màn Visualizer, không phát lại); đang phát 1 section con -> 'resetTopLevel'; Nguồn rỗng -> 'none';
+ * còn lại -> 'play' với `key` = bài đang phát nếu cùng loại media với Nguồn đang xem (key trùng giữa các Nguồn là có
+ * thật), không thì bài đầu. Hàm THUẦN.
+ * @param {{isPlayingListed: boolean, sectionActive: boolean, playingMediaType: string, activeMediaSource: string,
+ *          currentKey: string|null, displayOrder: string[]}} p
+ * @returns {{action: 'visualizer'|'resetTopLevel'|'play'|'none', key: string|undefined}} */
+function resolvePlaylistEmptyPlayAction({ isPlayingListed, sectionActive, playingMediaType, activeMediaSource, currentKey, displayOrder }) {
+    const resumableKey = playingMediaType === activeMediaSource ? currentKey : null;
+    const action = isPlayingListed ? 'visualizer'
+        : sectionActive ? 'resetTopLevel'
+            : displayOrder.length > 0 ? 'play' : 'none';
+    return { action, key: resumableKey || displayOrder[0] };
+}
+
+/** Bài phát tiếp sau khi đưa hàng đợi về top-level: bài đang phát nếu còn trong hàng đợi, không thì bài đầu. Hàm THUẦN.
+ * @param {string|null} currentKey @param {string[]} displayOrder @returns {string|undefined} */
+function resolveTopLevelResumeKey(currentKey, displayOrder) {
+    return currentKey != null && displayOrder.includes(currentKey) ? currentKey : displayOrder[0];
+}
