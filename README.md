@@ -46,6 +46,7 @@ dòng đó khỏi sổ: **[readme/core-legacy-audit.md](./readme/core-legacy-aud
 | Quy ước bắt buộc khi viết/sửa 1 effect Visualizer | [readme/visual-conventions.md](./readme/visual-conventions.md) |
 | Build CSS Tailwind | [readme/tailwind-build.md](./readme/tailwind-build.md) |
 | Cách chạy / deploy ứng dụng + các lưu ý theo từng bản | [readme/usage.md](./readme/usage.md) |
+| Hàng đợi dọn nợ v14 theo miền (đang làm) | [readme/plan/plan-debt-domains-13-10-2026.md](./readme/plan/plan-debt-domains-13-10-2026.md) |
 | Kế hoạch đang mở (DB v6, nối event bus, dọn nợ) | [readme/plan/](./readme/plan/) |
 | Điều tra cũ: Ảnh bìa ↔ ảnh nền (lưu trữ ver 12) | [readme/song-cover-background-relations.md](./readme/song-cover-background-relations.md) |
 | Vì sao không dùng ES6 module | [readme/why-no-es6-module.md](./readme/why-no-es6-module.md) |
