@@ -1138,7 +1138,7 @@
             // visualizer-misc-settings.js, đã xoá): chỉ đồng bộ 3 control keepScreenOn/visualizerType/gameMode mà id
             // không còn trong DOM (const luôn null) — cả cụm "visualizerMiscSettings" đã chết, xoá cùng lúc.
             // (Phụ đề: áp cờ bật/tắt + style khung + karaoke ở workflowSubtitleDisplay.initFromConfig(), gọi từ app-boot.)
-            if (typeof initAutoSwitchCycleButtonFromConfig === 'function') initAutoSwitchCycleButtonFromConfig();
+            // (Khoá nút/select đổi hiệu ứng tay theo Auto-Switch: workflowAutoSwitchVisual.syncLockedControls(), gọi từ app-boot.)
             // 3 toggle ẩn/hiện UI chrome màn Visualizer, tự áp lại lúc boot (khác setStatsPanelVisible()
             // — domain 'player' RIÊNG, tự áp qua workflowPlayerControls.loadPersistedPlayerConfigOnBoot(),
             // xem event/workflow/app-boot.js).

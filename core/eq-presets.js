@@ -28,6 +28,42 @@ function findEqPresetById(presets, id) {
     return presets.find((p) => p.id === id) || null;
 }
 
+/** Danh sách MỚI với gains của preset `id` thay bằng bản copy của `gains` (bản nháp còn bị slider sửa tại chỗ).
+ * @param {object[]} presets @param {string} id @param {number[]} gains @returns {object[]} */
+function replaceEqPresetGains(presets, id, gains) {
+    return presets.map((p) => (p.id === id ? { ...p, gains: gains.slice() } : p));
+}
+
+/** Rời ô Tên của Edit: tên đã trim; rỗng -> `isBlank` (giữ tên cũ `current.name`). `presets` = danh sách MỚI đã đổi tên
+ * (chỉ dùng khi không rỗng). @param {object[]} presets @param {object} current - preset đang sửa @param {string} draftName
+ * @returns {{isBlank: boolean, name: string, presets: object[]}} */
+function resolveEqPresetRename(presets, current, draftName) {
+    const name = draftName.trim();
+    return { isBlank: !name, name: name || current.name, presets: presets.map((p) => (p.id === current.id ? { ...p, name } : p)) };
+}
+
+/** Thêm 1 preset mới (gains phẳng, không khoá) tên tự sinh không trùng — `baseName`, `baseName 2`, `baseName 3`...
+ * @param {object[]} presets @param {string} baseName @param {string} id - generateEqPresetId()
+ * @returns {{preset: object, presets: object[]}} `presets` = danh sách MỚI */
+function buildEqPresetListWithNew(presets, baseName, id) {
+    const existingNames = new Set(presets.map((p) => p.name));
+    let name = baseName;
+    let n = 2;
+    while (existingNames.has(name)) { name = `${baseName} ${n}`; n++; }
+    const preset = { id, name, gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], locked: false };
+    return { preset, presets: [...presets, preset] };
+}
+
+/** Vị trí preset `id` trong danh sách (-1 nếu không có). @param {object[]} presets @param {string} id @returns {number} */
+function findEqPresetIndexById(presets, id) {
+    return presets.findIndex((p) => p.id === id);
+}
+
+/** Danh sách MỚI bỏ preset `id`. @param {object[]} presets @param {string} id @returns {object[]} */
+function removeEqPresetById(presets, id) {
+    return presets.filter((p) => p.id !== id);
+}
+
 /** Id preset kế tiếp trong danh sách (xoay vòng hết-quay-lại-đầu) — dùng cho nút cycle EQ ở
  * Control Center, CÙNG khuôn xoay MODES (đổi hiệu ứng Visualizer).
  * @param {object[]} presets @param {string} currentId @returns {string} */

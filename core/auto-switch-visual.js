@@ -1,6 +1,6 @@
 /**
  * core/auto-switch-visual.js — Tự động đổi hiệu ứng Visualizer: hàm THUẦN (nhận tham số, trả kết quả — Rule 1-3) +
- * setter chỉ mutate appConfigViz + 2 hàm đồng bộ trạng thái khoá của nút/ select đổi hiệu ứng tay. Phần ĐIỀU PHỐI
+ * setter chỉ mutate appConfigViz + 2 hàm đồng bộ trạng thái khoá của nút / select đổi hiệu ứng tay. Phần ĐIỀU PHỐI
  * (taskManager, đọc appState, start/stop/pause/resume, áp visual + lưu config, phiên kéo thả) nằm ở
  * event/workflow/auto-switch-visual.js (workflowAutoSwitchVisual).
  *
@@ -102,42 +102,26 @@
 
         // ===================== Khoá đổi hiệu ứng tay khi Auto-Switch bật =====================
 
-        /**
-         * Nút "Đổi hiệu ứng" (#btn-cycle-mode, Control Center) theo vizConfig.autoSwitchVisualEnabled: Auto-Switch BẬT thì
-         * chặn việc CHỌN effect tay (tránh xung đột với đổi tự động). KHÔNG đặt `disabled` (sẽ chặn luôn GIỮ 1.5s mở Custom
-         * Effect Drawer) — chỉ làm mờ để báo trạng thái; CLICK bị chặn ở workflowCustomEffect.onCycleModeClick() (hiện
-         * thông báo). Gọi lúc boot (initAutoSwitchCycleButtonFromConfig()) và mỗi lần bật/tắt Auto-Switch.
-         */
-        function updateCycleModeButtonState() {
-            if (typeof btnCycleMode === 'undefined' || !btnCycleMode) return;
-            const locked = appConfigViz.getAll().autoSwitchVisualEnabled === true;
+        /** Nút "Đổi hiệu ứng" (#btn-cycle-mode, Control Center): Auto-Switch bật thì chỉ làm mờ — không `disabled` (sẽ chặn
+         * luôn GIỮ 1.5s mở Custom Effect Drawer); click bị chặn ở workflowCustomEffect.onCycleModeClick().
+         * @param {boolean} autoSwitchEnabled - vizConfig.autoSwitchVisualEnabled */
+        function updateCycleModeButtonState(autoSwitchEnabled) {
+            if (!btnCycleMode) return;
+            const locked = autoSwitchEnabled === true;
             btnCycleMode.disabled = false;
             btnCycleMode.classList.toggle('opacity-50', locked);
             btnCycleMode.classList.remove('opacity-40', 'cursor-not-allowed');
         }
 
-        /**
-         * Select "Kiểu hiệu ứng" (#setting-visualizer-type) — đường đổi visual tay thứ 2: Auto-Switch BẬT thì khoá bằng
-         * thuộc tính `disabled` thật + làm mờ. Gọi ở ĐÚNG những chỗ gọi updateCycleModeButtonState(). Truy vấn tươi (phần
-         * tử có thể không tồn tại -> bỏ qua).
-         */
-        function updateVisualizerTypeSelectState() {
+        /** Select "Kiểu hiệu ứng" (#setting-visualizer-type, chỉ có khi panel Settings đang mở): Auto-Switch bật thì
+         * `disabled` thật + làm mờ. @param {boolean} autoSwitchEnabled - vizConfig.autoSwitchVisualEnabled */
+        function updateVisualizerTypeSelectState(autoSwitchEnabled) {
             const selectEl = document.getElementById('setting-visualizer-type');
             if (!selectEl) return;
-            const locked = appConfigViz.getAll().autoSwitchVisualEnabled === true;
+            const locked = autoSwitchEnabled === true;
             selectEl.disabled = locked;
             selectEl.classList.toggle('opacity-40', locked);
             selectEl.classList.toggle('cursor-not-allowed', locked);
-        }
-
-
-        /**
-         * Đồng bộ boot-time trạng thái khoá đổi hiệu ứng tay theo `autoSwitchVisualEnabled` đã lưu (không phụ thuộc panel
-         * Settings có đang mở hay không). Gọi từ loadConfig() (core/config.js) qua guard `typeof === 'function'`.
-         */
-        function initAutoSwitchCycleButtonFromConfig() {
-            updateCycleModeButtonState();
-            updateVisualizerTypeSelectState();
         }
 
         /** Core thuần: toggle bật/tắt (các tuỳ chọn trong panel luôn hiện). */
