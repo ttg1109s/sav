@@ -102,7 +102,7 @@ const workflowAudioEngine = {
         console.log(`writer: "workflowAudioEngine.setVolume", page: "vizConfig", content: "volume=${volume}"`);
         this._applyVolumeGain(appState.get('volumeGainNode'), volume);
         saveConfig(); // core/config.js
-        syncVolumeHudIcon(volume); // core/hud.js — icon loa Volume HUD khớp dù đổi âm lượng từ đâu
+        syncVolumeHudIcon(resolveVolumeIconLevel(volume)); // core/hud.js — icon loa Volume HUD khớp dù đổi âm lượng từ đâu
     },
 
     /** Chưa có audio graph (chưa phát lần nào) -> bỏ qua; lượt dựng graph đầu tiên tự đọc volume từ config. */

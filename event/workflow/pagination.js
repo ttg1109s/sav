@@ -1,53 +1,41 @@
 /**
- * event/workflow/pagination.js — MỚI (23/09/2026, Giang yêu cầu). "THẰNG THỰC THI CUỐI" cho domain
- * 'pagination' (core/config.js::DEFAULT_PAGINATION_CONFIG) + là CỬA DUY NHẤT để 1 danh sách dùng
- * pagination — đọc cài đặt RIÊNG của đúng nơi (`placeKey`, PAGINATION_PLACES ở core/pagination.js) rồi
- * chọn đúng hàm core theo style (Rule 1 — core không tự rẽ nhánh theo style).
+ * event/workflow/pagination.js — Workflow domain 'pagination' (core/config.js::DEFAULT_PAGINATION_CONFIG) và là cửa duy nhất
+ * để 1 danh sách dùng pagination: đọc cài đặt riêng của đúng nơi (`placeKey`, PAGINATION_PLACES ở core/pagination.js) rồi
+ * chọn hàm tính trang + template theo style. Mỗi nơi 1 bộ {enabled, pageSize, style}; nơi đang TẮT -> computePlaceView()
+ * trả toàn bộ `items` (style null), buildControlsHtml() trả ''. Persist qua `meta.paginationConfig` (setMeta mỗi lần đổi).
  *
- * SỬA (23/09/2026, Giang: "những nơi áp dụng được liệt kê checkbox vuông tại setting, khi true thì nơi
- * đó áp dụng, mỗi checkbox có ô nhập item/page + style riêng") — bỏ cài đặt chung, mỗi nơi 1 bộ
- * {enabled, pageSize, style}. Nơi đang TẮT -> `computePlaceView()` trả view "đi thẳng" (toàn bộ
- * `items`, style null) và `buildControlsHtml()` trả '' — nơi dùng KHÔNG cần tự rẽ nhánh bật/tắt.
- *
- * Persist qua `meta.paginationConfig` (IndexedDB, `setMeta()` mỗi lần đổi, KHÔNG debounce — tần suất
- * đổi cực thấp), cùng khuôn event/workflow/player-display-settings.js. Settings gọi trực tiếp từ
- * workflowAppSettings (cùng cách workflowPlayerDisplaySettings).
- *
- * CÁCH MỘT DANH SÁCH DÙNG (nơi dùng tự giữ `pageIndex` của riêng nó trong Workflow của mình):
+ * CÁCH MỘT DANH SÁCH DÙNG (nơi dùng tự giữ `pageIndex` của riêng nó):
  *   const view = workflowPagination.computePlaceView('<placeKey>', items, pageIndex);
  *   this._pageIndex = view.pageIndex;                                  // giá trị đã kẹp
  *   ...vẽ view.pageItems (đánh số từ view.startIndex nếu cần)...
- *   controlsEl.innerHTML = workflowPagination.buildControlsHtml(view); // '' nếu tắt / 1 trang / tải hết
- *   applyUiThemeToDom(controlsEl, _activeUiThemeKeyList);              // nếu chèn ngoài lúc Generic Drawer dựng
+ *   ...chèn workflowPagination.buildControlsHtml(view) ('' nếu tắt / 1 trang / tải hết), áp theme nếu chèn ngoài Drawer...
  *   wirePaginationControls(controlsEl, '<router>', '<type>');          // core/pagination-ui.js (hoặc delegate sẵn có)
- * Đổi dữ liệu nguồn (lọc/sắp xếp) thì nơi dùng tự đưa `pageIndex` về 0; muốn nhảy tới trang chứa 1 item
- * cụ thể -> `pageIndexOfItem()`. Style 'loadMore' dùng CÙNG luồng (`view.pageItems` = phần cộng dồn).
- * Đổi cài đặt ở Settings KHÔNG tự dựng lại danh sách nào đang mở — lần dựng sau tự đọc cài đặt mới.
+ * Đổi dữ liệu nguồn thì tự đưa `pageIndex` về 0; nhảy tới trang chứa 1 item -> pageIndexOfItem(). Đổi cài đặt ở Settings
+ * không tự dựng lại danh sách đang mở.
  *
  * NẠP SAU: core/config.js (appConfigPagination, DEFAULT_PAGINATION_PLACE), core/pagination.js,
- * service/db.js (getMeta/setMeta).
- * NẠP TRƯỚC: event/workflow/app-settings.js, event/workflow/app-boot.js và MỌI workflow nơi dùng.
+ * components/pagination-controls.js, service/db.js.
+ * NẠP TRƯỚC: event/workflow/app-settings.js, event/workflow/app-boot.js và mọi workflow nơi dùng.
  */
 
-/** Bảng tra style -> (hàm tính trang, hàm dựng HTML thanh điều khiển). Đây là chỗ DUY NHẤT nối style
- * với hàm core — thêm style mới = thêm 1 dòng ở đây + 1 mục PAGINATION_STYLES (core/pagination.js).
- * Bọc arrow function (không gán thẳng tên hàm) để không phụ thuộc thứ tự nạp lúc khởi tạo object. */
+/** Style -> (hàm tính trang, template thanh điều khiển) — chỗ duy nhất nối style với hàm; thêm style mới = 1 dòng ở đây +
+ * 1 mục PAGINATION_STYLES (core/pagination.js) + 1 template (components/pagination-controls.js). */
 const PAGINATION_STYLE_HANDLERS = {
     arrow: {
         compute: (items, pageIndex, pageSize) => computePage(items, pageIndex, pageSize), // core/pagination.js
-        buildHtml: (view) => buildPaginationArrowsHtml(view.pageIndex, view.totalPages), // core/pagination.js
+        buildHtml: (view) => renderPaginationArrowsHtml(view.pageIndex, view.totalPages), // components/pagination-controls.js
     },
     list: {
         compute: (items, pageIndex, pageSize) => computePage(items, pageIndex, pageSize),
-        buildHtml: (view) => buildPaginationListHtml(view.pageIndex, computePaginationPageSlots(view.pageIndex, view.totalPages, PAGINATION_SIBLING_COUNT)),
+        buildHtml: (view) => renderPaginationListHtml(view.pageIndex, computePaginationPageSlots(view.pageIndex, view.totalPages, PAGINATION_SIBLING_COUNT)),
     },
     full: {
         compute: (items, pageIndex, pageSize) => computePage(items, pageIndex, pageSize),
-        buildHtml: (view) => buildPaginationFullHtml(view.pageIndex, view.totalPages, computePaginationPageSlots(view.pageIndex, view.totalPages, PAGINATION_SIBLING_COUNT)),
+        buildHtml: (view) => renderPaginationFullHtml(view.pageIndex, view.totalPages, computePaginationPageSlots(view.pageIndex, view.totalPages, PAGINATION_SIBLING_COUNT)),
     },
     loadMore: {
         compute: (items, pageIndex, pageSize) => computeLoadMorePage(items, pageIndex, pageSize), // core/pagination.js
-        buildHtml: (view) => buildPaginationLoadMoreHtml(view.pageIndex, view.hasNext, view.pageItems.length, view.totalCount), // core/pagination.js
+        buildHtml: (view) => renderPaginationLoadMoreHtml(view.pageIndex, view.hasNext, view.pageItems.length, view.totalCount),
     },
 };
 
@@ -57,17 +45,10 @@ const PAGINATION_PREVIEW_PAGE_INDEX = 4;
 
 const workflowPagination = {
 
-    /** Cài đặt ĐÃ CHUẨN HOÁ của 1 nơi — giá trị lạ (meta cũ/hỏng, style đã bỏ, số ngoài biên) rơi về
-     * mặc định / bị kẹp, để nơi dùng luôn nhận 1 bộ hợp lệ.
-     * @param {string} placeKey @returns {{enabled:boolean, pageSize:number, style:string}} */
+    /** Cài đặt đã chuẩn hoá của 1 nơi. @param {string} placeKey @returns {{enabled:boolean, pageSize:number, style:string}} */
     getPlaceSettings(placeKey) {
-        const place = (appConfigPagination.getAll().places || {})[placeKey] || {}; // core/config.js
-        const size = Math.round(Number(place.pageSize));
-        return {
-            enabled: place.enabled === true,
-            pageSize: Number.isFinite(size) ? Math.max(PAGINATION_PAGE_SIZE_MIN, Math.min(PAGINATION_PAGE_SIZE_MAX, size)) : DEFAULT_PAGINATION_PLACE.pageSize,
-            style: PAGINATION_STYLE_HANDLERS[place.style] ? place.style : DEFAULT_PAGINATION_PLACE.style,
-        };
+        const places = appConfigPagination.getAll().places || {}; // core/config.js
+        return sanitizePaginationPlace(places[placeKey], DEFAULT_PAGINATION_PLACE); // core/pagination.js
     },
 
     /** Cắt trang `items` theo cài đặt của `placeKey`. Kết quả = kết quả core (pageItems/pageIndex/
@@ -86,7 +67,7 @@ const workflowPagination = {
     pageIndexOfItem(placeKey, itemIndex) {
         const { enabled, pageSize } = this.getPlaceSettings(placeKey);
         if (!enabled || itemIndex < 0) return 0;
-        return Math.floor(itemIndex / pageSize);
+        return computePaginationPageOfItem(itemIndex, pageSize); // core/pagination.js
     },
 
     /** @param {string} style - đã chuẩn hoá @param {Array} items @param {number} pageIndex @param {number} pageSize */
@@ -136,13 +117,12 @@ const workflowPagination = {
         await this._setPlaceField(placeKey, 'enabled', enabled === true);
     },
 
-    /** Ô nhập số item/trang của 1 nơi — `value` từ `<input type=number>` (chuỗi). Làm tròn + KẸP về
-     * [PAGINATION_PAGE_SIZE_MIN, PAGINATION_PAGE_SIZE_MAX]; rỗng/không phải số -> BỎ QUA (giữ giá trị cũ —
-     * nơi gọi dựng lại màn nên ô tự hiện lại số cũ). @param {string} placeKey @param {string|number} value */
+    /** Ô nhập số item/trang của 1 nơi — rỗng/không phải số -> bỏ qua (giữ giá trị cũ; nơi gọi dựng lại màn nên ô tự hiện lại
+     * số cũ). @param {string} placeKey @param {string|number} value */
     async changePlacePageSize(placeKey, value) {
-        const size = Math.round(Number(value));
-        if (value === '' || !Number.isFinite(size)) return;
-        await this._setPlaceField(placeKey, 'pageSize', Math.max(PAGINATION_PAGE_SIZE_MIN, Math.min(PAGINATION_PAGE_SIZE_MAX, size)));
+        const input = resolvePaginationPageSizeInput(value); // core/pagination.js
+        if (!input.isValid) return;
+        await this._setPlaceField(placeKey, 'pageSize', input.size);
     },
 
     /** Select kiểu của 1 nơi. Style lạ -> bỏ qua. @param {string} placeKey @param {string} style */
