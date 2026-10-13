@@ -38,11 +38,6 @@ function disposeOrbitControls(controls) {
     controls.dispose();
 }
 
-/** Giải phóng 1 texture. */
-function disposeThreeTexture(texture) {
-    texture.dispose();
-}
-
 /** Dừng mọi tween GSAP đang chạy trên camera + điểm nhìn (cinematic shift của circuit). */
 function stopThreeCameraTweens(camera, controls) {
     gsap.killTweensOf(camera.position);
