@@ -29,7 +29,7 @@ Toàn bộ code được chấm theo [event-bus-flow.md](./readme/event-bus-flow
 [core-function-conventions.md](./readme/core-function-conventions.md) và
 [task-manager-conventions.md](./readme/task-manager-conventions.md). Kết quả 07/10/2026: **1308 vi phạm ở 141 file**
 (10 mục chờ chốt) — 27,6% dòng code nằm trong hàm có vi phạm. Sau đợt dọn wiring 12/10/2026 (plan-event-bus-wiring đợt
-1–7, 6b-1…6b-4): **1194 vi phạm ở 141 file**; sau đợt Folder 13/10/2026: **1152 vi phạm ở 139 file**. **Nợ cũ vẫn là vi phạm**; sửa xong dòng nào thì xoá
+1–7, 6b-1…6b-4): **1194 vi phạm ở 141 file**; sau đợt Folder 13/10/2026: **1152 vi phạm ở 139 file**; sau đợt 5 (Folder phần còn lại): **1131 vi phạm ở 137 file**. **Nợ cũ vẫn là vi phạm**; sửa xong dòng nào thì xoá
 dòng đó khỏi sổ: **[readme/core-legacy-audit.md](./readme/core-legacy-audit.md)**.
 
 ## Đọc tiếp ở đâu
@@ -47,7 +47,7 @@ dòng đó khỏi sổ: **[readme/core-legacy-audit.md](./readme/core-legacy-aud
 | Build CSS Tailwind | [readme/tailwind-build.md](./readme/tailwind-build.md) |
 | Cách chạy / deploy ứng dụng + các lưu ý theo từng bản | [readme/usage.md](./readme/usage.md) |
 | Hàng đợi dọn nợ v14 theo miền (đang làm) | [readme/plan/plan-debt-domains-13-10-2026.md](./readme/plan/plan-debt-domains-13-10-2026.md) |
-| Kế hoạch đang mở (DB v6, nối event bus, dọn nợ) | [readme/plan/](./readme/plan/) |
+| Kế hoạch khác (DB v6) | [readme/plan/](./readme/plan/) |
 | Điều tra cũ: Ảnh bìa ↔ ảnh nền (lưu trữ ver 12) | [readme/song-cover-background-relations.md](./readme/song-cover-background-relations.md) |
 | Vì sao không dùng ES6 module | [readme/why-no-es6-module.md](./readme/why-no-es6-module.md) |
 
