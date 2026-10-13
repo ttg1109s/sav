@@ -22,7 +22,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Số liệu phân tích audio (beat, energy, BPM, phổ) | Kho đọc-only `audioAnalysis` — `service/audio-analysis.js`; tính ở `core/audio-analysis.js`, `core/audio-tempo.js`; điều phối `event/workflow/audio-analysis.js` |
 | Mọi timer lặp / bắn một lần / vòng `raf` | `service/task-manager.js` ([task-manager-conventions.md](./task-manager-conventions.md)) |
 | Lớp z-index | `service/z-index.js` |
-| Đọc/ghi IndexedDB (DB v6) | `service/db.js` ([plan/plan-media-db-split.md](./plan/plan-media-db-split.md)) |
+| Đọc/ghi IndexedDB (DB v6) | `service/db.js` — schema + API + bất biến: [db-schema.md](./db-schema.md) |
 | Cấp/thu `blob:` URL | `service/blob-url.js` |
 | Dựng component HTML động | `service/component-dynamic.js` |
 | Lắp giao diện tĩnh của `index.html` (ghép các `TPL_*` vào `#app-root`, `#visualizer-ui` vào `#visualizer-stage`) | `components/app-mount.js` (trước đây `main.js` ở gốc) |

@@ -160,7 +160,7 @@ lẫn `-ui.js`, Rule 5c) — không có ngoại lệ theo nguồn hay theo loạ
 
 **Danh sách cụ thể ĐƯỢC Core gọi (thuộc nhóm Ghi/Sửa):**
 - `service/db.js` — CHỈ hàm ghi/xoá (`setMeta`/`setFolderRecord`/`setFolderSongMap`/`deleteFolder*`... và — SỬA
-  06/10/2026, plan-media-db-split.md — API media 3 store: `createMediaRecord`/`updateMediaMeta`/`updateMediaMetaBatch`/
+  06/10/2026, [db-schema.md](./db-schema.md) — API media 3 store: `createMediaRecord`/`updateMediaMeta`/`updateMediaMetaBatch`/
   `setMediaBlob`/`setMediaThumbs`/`deleteMediaRecord`/`clearAllMediaOfType`; `set*Record`/`delete*Record` media cũ ĐÃ
   XOÁ). `updateMediaMeta*` xếp nhóm GHI/SỬA (đọc-sửa-ghi TRONG data layer, `mutate` thuần — cùng bản chất
   `appState.mutate()`).
