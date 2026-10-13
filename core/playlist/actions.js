@@ -58,7 +58,7 @@
          * kiểm tra toàn project trước đợt sửa này), và bản thân hàm cũ VỐN ĐÃ mixed core/workflow
          * (tự gọi alertModal/withLoadingShield — vi phạm "core không biết shield/modal") nên gộp
          * thẳng vào caller thay vì giữ 2 lớp giả. Các bước con dưới đây (getRecordFn theo mediaType,
-         * removeSongFromAllFolders/deleteRecord (registry)/removeSongStats/
+         * workflowFolder.removeItemFromAllFolders/deleteRecord (registry)/removeSongStats/
          * removeKeyFromDisplay) VẪN core thuần, KHÔNG đổi gì — Workflow mới chỉ đổi CHỖ GỌI.
          */
 

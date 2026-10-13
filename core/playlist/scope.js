@@ -2,7 +2,7 @@
  * core/playlist/scope.js — view "Tất cả" (main playlist): mọi item trừ item thuộc folder Hidden
  * (`excludeFromMainPlaylist`). `playlistCache` luôn khớp đúng phạm vi hiện tại (nạp bởi
  * `workflowPlaylistScope.loadPlaylistCacheForSource()`), nên không cần giao lại với folder.
- * Tập key bị loại lấy từ `getExcludedSongKeysFromFolders()` (core/file-manager/folder.js).
+ * Tập key bị loại lấy từ `workflowFolder.readExcludedKeys()` (event/workflow/folder.js).
  *
  * NẠP SAU: (không phụ thuộc — chỉ đọc tham số).
  */

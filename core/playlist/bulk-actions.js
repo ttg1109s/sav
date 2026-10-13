@@ -3,13 +3,13 @@
  * (ver 12 "Multi Media", plan-v12-multimedia.md mục 4.b1).
  *
  * SỬA (sau trao đổi Rule 2/3/4): bản trước có `deleteSongsBatch()` (core) gọi
- * `removeSongFromAllFolders()`/`removeSongStats()` (2 hàm VOID, không return — vi phạm Rule 3) và
+ * `workflowFolder.removeItemFromAllFolders()`/`removeSongStats()` (2 hàm VOID, không return — vi phạm Rule 3) và
  * `removeKeysFromDisplay()` (core) tự `appState.get('playlistOrder'/'displayOrder')` (vi phạm
  * Rule 2) rồi gọi tiếp 4 hàm void khác (`updateShuffleArray`/`recomputeRenderOrder`/
  * `renderPlaylistDiff`/`updateEmptyState` — vi phạm Rule 3), lại KHÔNG có `console.log` nào cho 6
  * lượt ghi appState (vi phạm Rule 4). Sửa đúng:
  *   - Bỏ hẳn `deleteSongsBatch()` khỏi core — vòng lặp xoá (đọc record + gọi
- *     `removeSongFromAllFolders`/`deleteSongRecord`/`removeSongStats` nối tiếp nhau) dời THẲNG vào
+ *     `workflowFolder.removeItemFromAllFolders`/`deleteSongRecord`/`removeSongStats` nối tiếp nhau) dời THẲNG vào
  *     workflow (`event/workflow/playlist.js`, `deleteSelectedMedia()`) — đúng vai trò workflow
  *     (được gọi nhiều hàm core void tự do), không cần bọc qua 1 lớp core giả.
  *   - `removeKeysFromDisplay()` → `removeKeysFromDisplayState()`: CHỈ còn phần đồng bộ appState

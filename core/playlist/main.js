@@ -122,7 +122,7 @@
              * ý định vừa lưu, dù 2 hàm đó luôn gọi liền nhau trong thực tế nên khác biệt không lộ ra).
              */
             // DỜI (02/10/2026, rà Rule 2/3b) — `updateActiveFolderBadge()` (tự appState.get() + tự đọc DB getFolderRecord +
-            // if/else) tách: Workflow đọc (workflowPlaylistScope._syncActiveFolderBadge()), Core vẽ (applyActiveFolderBadge()
+            // if/else) tách: Workflow đọc (workflowPlaylistScope.syncActiveFolderBadge()), Core vẽ (applyActiveFolderBadge()
             // ngay dưới object này).
         };
 
