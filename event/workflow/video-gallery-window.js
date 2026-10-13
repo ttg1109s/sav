@@ -1,57 +1,43 @@
 /**
- * event/workflow/video-gallery-window.js — MỚI (21/07/2026), File Manager -> Video. Giang chốt:
- * "cuộn liên tục kiểu Photo" (IntersectionObserver theo nhóm ngày) NHƯNG "grid full width" (tile tỉ
- * lệ ĐỒNG NHẤT, KHÔNG justified/masonry như Photo) — nên mirror ĐÚNG cơ chế windowing cấp NHÓM NGÀY
- * của event/workflow/photo-gallery-window.js (mount/unmount/IntersectionObserver/placeholder đo
- * offsetHeight thật), CHỈ thay bước layout BÊN TRONG mỗi nhóm: THAY `fjGallery()` (thư viện, layout
- * justified) bằng CSS Grid cố định cột (`.video-grid`, assets/css/style.css) — KHÔNG cần biết
- * width/height gốc của từng video để tính tỉ lệ (khác Photo).
+ * event/workflow/video-gallery-window.js — lưới video theo nhóm ngày, cùng cơ chế windowing với
+ * event/workflow/photo-gallery-window.js; khác ở layout trong nhóm: CSS Grid cố định cột (`.video-grid`), tile tỉ lệ
+ * đồng nhất, không cần kích thước gốc video. Click tile ủy quyền ở nơi mở picker.
  *
- * Click tile KHÔNG wire ở đây — đi qua eventBus (delegated `data-video-key`, event/listener/
- * file-manager-video.js) — engine này CHỈ lo dựng/gỡ DOM, không quan tâm nghiệp vụ click nào chạy
- * sau đó (CÙNG khuôn photo-gallery-window.js).
- *
- * NẠP SAU: core/file-manager/video.js (sortVideosByAddedDateDesc/groupVideosByDay/
- * formatVideoDayHeaderLabel/formatVideoDuration).
+ * NẠP SAU: core/file-manager/video.js, core/file-manager/gallery-window.js, core/file-manager/gallery-window-ui.js,
+ * components/media-gallery.js, service/blob-url.js.
  */
+
+const VIDEO_GALLERY_TILE_SPEC = { tileSelector: '.video-tile', keyName: 'videoKey', badgeSelector: '.video-tile-badge', markedClass: 'video-tile-marked' };
+const VIDEO_DAY_GROUP_PLACEHOLDER_CLASS = 'video-day-group-placeholder';
+
 const workflowVideoGalleryWindow = {
-    _mounts: new Map(), // mountKey -> { scrollEl, containerEl, groupRecords, observer, badgeMode, selectedKeys }
+    _mounts: new Map(), // mountKey -> { mountKey, containerEl, groupRecords, observer, badgeMode, selectedKeys }
+
+    /** Nhóm vào / ra vùng giữ của IntersectionObserver. */
+    _GROUP_ACTION_BY_INTERSECTING: {
+        true: (self, m, record) => self._loadGroup(m, record),
+        false: (self, m, record) => self._unloadGroup(record),
+    },
 
     /**
-     * Dựng (hoặc dựng LẠI TỪ ĐẦU nếu đã tồn tại) toàn bộ khối nhóm-ngày + IntersectionObserver cho
-     * 1 khung cuộn.
-     * @param {string} mountKey - 'videoGrid' (lưới chính) hoặc 'genericDrawer' (picker video, Batch 2).
-     * @param {{scrollEl: HTMLElement, videos: Array, badgeMode?: 'quickDelete'|'multiSelect'|null, selectedKeys?: Set<string>|Map<string,number>}} config
+     * Dựng (lại từ đầu nếu đã có) khung nhóm ngày + IntersectionObserver cho 1 khung cuộn.
+     * @param {string} mountKey - 'genericDrawer' (picker video)
+     * @param {{scrollEl: HTMLElement, videos: Array, badgeMode?: 'multiSelect'|null, selectedKeys?: Set<string>|Map<string,number>}} config
      */
     mount(mountKey, { scrollEl, videos, badgeMode, selectedKeys }) {
         this.unmount(mountKey);
         if (!scrollEl) return;
 
-        const sortedVideos = sortVideosByAddedDateDesc(videos); // core/file-manager/video.js
-        const dayGroups = groupVideosByDay(sortedVideos); // core/file-manager/video.js, hàm thuần
+        const dayGroups = groupVideosByDay(sortVideosByAddedDateDesc(videos)); // core/file-manager/video.js
+        const { containerEl, groupEls } = mountGalleryWindowUi(scrollEl, renderGalleryWindowHtml('video', dayGroups.map((g) => g.dayKey))); // core/file-manager/gallery-window-ui.js + components/media-gallery.js
+        const groupRecords = dayGroups.map((group, i) => ({ dayKey: group.dayKey, addedAt: group.addedAt, videos: group.videos, el: groupEls[i], loaded: false, heightPx: null }));
+        const m = { mountKey, containerEl, groupRecords, observer: null, badgeMode: badgeMode || null, selectedKeys: selectedKeys || new Set() };
 
-        const containerEl = document.createElement('div');
-        containerEl.className = 'video-gallery-window';
-        scrollEl.appendChild(containerEl);
-
-        const groupRecords = dayGroups.map((group) => {
-            const groupEl = document.createElement('div');
-            groupEl.className = 'video-day-group';
-            groupEl.dataset.dayKey = group.dayKey;
-            containerEl.appendChild(groupEl);
-            return { dayKey: group.dayKey, addedAt: group.addedAt, videos: group.videos, el: groupEl, loaded: false, heightPx: null };
-        });
-
-        const m = { mountKey, scrollEl, containerEl, groupRecords, observer: null, badgeMode: badgeMode || null, selectedKeys: selectedKeys || new Set() };
-
-        // rootMargin ~200% chiều cao khung cuộn mỗi phía — giữ trước/sau ~2 màn hình, CÙNG hằng số
-        // đã dùng ở photo-gallery-window.js.
         m.observer = new IntersectionObserver((entries) => {
             entries.forEach((entry) => {
                 const record = groupRecords.find((g) => g.el === entry.target);
                 if (!record) return;
-                if (entry.isIntersecting) this._loadGroup(m, record);
-                else this._unloadGroup(record);
+                this._GROUP_ACTION_BY_INTERSECTING[entry.isIntersecting](this, m, record);
             });
         }, { root: scrollEl, rootMargin: '200% 0px' });
 
@@ -59,132 +45,60 @@ const workflowVideoGalleryWindow = {
         this._mounts.set(mountKey, m);
     },
 
-    /** Gỡ 1 mount — dọn observer + revoke toàn bộ object URL còn sống + xoá DOM. */
+    /** Gỡ 1 mount — dừng observer, thu hồi object URL còn sống, xoá DOM. */
     unmount(mountKey) {
         const m = this._mounts.get(mountKey);
-        if (!m) return; // guard — gỡ 1 mount không tồn tại là no-op
+        if (!m) return;
         m.observer.disconnect();
         m.groupRecords.forEach((record) => this._unloadGroup(record));
-        m.containerEl.remove();
+        removeGalleryWindowUi(m.containerEl); // core/file-manager/gallery-window-ui.js
         this._mounts.delete(mountKey);
     },
 
-    /** Dựng 1 phần tử badge — MỞ RỘNG (29/08/2026, Visual Background picker multi-select) — TRƯỚC
-     * ĐÂY chỉ mode 'quickDelete' (icon xoá cố định, "Video không có multi-select album như Photo").
-     * Giờ thêm mode 'multiSelect' — CÙNG khuôn `photo-gallery-window.js::_createBadgeElement()`:
-     * icon dấu tick khi chưa có số, SỐ thứ tự chọn khi có (`orderNumber`).
-     * @param {'quickDelete'|'multiSelect'} badgeMode
-     * @param {number|null} [orderNumber]
-     */
-    _createBadgeElement(badgeMode, orderNumber) {
-        return createGalleryTileBadgeUi('video', badgeMode, orderNumber); // core/media-picker-drawer-ui.js — SỬA 07/10/2026: dời DOM khỏi Workflow
+    /** Tile + badge của 1 nhóm (tạo object URL thumb). */
+    _buildTiles(m, videos) {
+        const states = computeGalleryTileStates(videos.map((video) => video.key), m.badgeMode, m.selectedKeys); // core/file-manager/gallery-window.js
+        return videos.map((video, i) => ({
+            key: video.key,
+            src: createBlobUrl(video.thumbBlob), // service/blob-url.js
+            alt: video.filename || '',
+            durationText: formatVideoDuration(video.duration), // core/file-manager/video.js
+            marked: states[i].marked,
+            badgeHtml: renderGalleryTileBadgeHtml('video', states[i]), // components/media-gallery.js
+        }));
     },
 
-    /** MỚI (29/08/2026) — cùng `_readOrderNumber()` bên photo-gallery-window.js. */
-    _readOrderNumber(selectedKeys, key) {
-        return selectedKeys instanceof Map ? (selectedKeys.get(key) || null) : null;
-    },
-
-    /** Dựng DOM thật (header ngày + grid tile CSS) cho 1 nhóm ngày — CHỈ khi nhóm đó CHƯA đang tải
-     * (guard idempotent, IntersectionObserver có thể bắn nhiều lần cho cùng 1 target). KHÔNG gọi
-     * fjGallery() (khác Photo) — `.video-grid` (assets/css/style.css) tự lo layout bằng CSS Grid cố
-     * định cột, mỗi tile tỉ lệ đồng nhất (aspect-ratio CSS), không cần đo width/height gốc video. */
+    /** Dựng nội dung thật cho 1 nhóm ngày (idempotent — observer có thể báo nhiều lần). */
     _loadGroup(m, record) {
         if (record.loaded) return;
         record.loaded = true;
-        record.el.style.height = ''; // bỏ placeholder cố định — nội dung thật tự quyết định chiều cao
-        record.el.classList.remove('video-day-group-placeholder');
-        record.el.innerHTML = '';
-
-        const headerEl = document.createElement('div');
-        headerEl.className = m.mountKey === 'genericDrawer' ? 'video-day-header video-day-header--on-light' : 'video-day-header';
-        headerEl.textContent = formatVideoDayHeaderLabel(record.addedAt); // core/file-manager/video.js, hàm thuần
-        record.el.appendChild(headerEl);
-
-        const gridEl = document.createElement('div');
-        gridEl.className = 'video-grid';
-        record.el.appendChild(gridEl);
-
-        record.videos.forEach((video) => {
-            const tileEl = document.createElement('div');
-            tileEl.className = 'video-tile';
-            tileEl.dataset.videoKey = video.key;
-
-            const img = document.createElement('img');
-            const objectUrl = URL.createObjectURL(video.thumbBlob);
-            img.src = objectUrl;
-            img.alt = video.filename || '';
-            tileEl.appendChild(img);
-
-            const durationEl = document.createElement('span');
-            durationEl.className = 'video-tile-duration';
-            durationEl.textContent = formatVideoDuration(video.duration); // core/file-manager/video.js, hàm thuần
-            tileEl.appendChild(durationEl);
-
-            if (m.badgeMode) {
-                const badge = this._createBadgeElement(m.badgeMode, this._readOrderNumber(m.selectedKeys, video.key));
-                tileEl.appendChild(badge);
-                if (m.selectedKeys.has(video.key)) tileEl.classList.add('video-tile-marked');
-            }
-
-            gridEl.appendChild(tileEl);
+        const html = renderVideoDayGroupHtml({ // components/media-gallery.js
+            onLight: m.mountKey === 'genericDrawer', // nền Generic Drawer sáng -> chữ header tối
+            headerText: formatVideoDayHeaderLabel(record.addedAt), // core/file-manager/video.js
+            tiles: this._buildTiles(m, record.videos),
         });
-
-        record.heightPx = record.el.offsetHeight;
+        fillGalleryDayGroupUi(record.el, VIDEO_DAY_GROUP_PLACEHOLDER_CLASS, html); // core/file-manager/gallery-window-ui.js
+        record.heightPx = measureGalleryDayGroupHeightUi(record.el);
     },
 
-    /** Gỡ DOM 1 nhóm ngày, thay bằng placeholder cao đúng bằng mốc đã đo — revoke object URL TRƯỚC
-     * khi xoá (tránh rò rỉ RAM). */
+    /** Gỡ nội dung 1 nhóm, thu hồi object URL, giữ chỗ bằng placeholder. */
     _unloadGroup(record) {
         if (!record.loaded) return;
         record.loaded = false;
-        record.el.querySelectorAll('img').forEach((img) => { try { URL.revokeObjectURL(img.src); } catch (e) {} });
-        record.el.innerHTML = '';
-        if (record.heightPx) record.el.style.height = record.heightPx + 'px'; // giữ ĐÚNG chỗ trống — cuộn không giật
-        record.el.classList.add('video-day-group-placeholder');
+        clearGalleryDayGroupUi(record.el, VIDEO_DAY_GROUP_PLACEHOLDER_CLASS, record.heightPx).forEach(revokeBlobUrl); // core/file-manager/gallery-window-ui.js + service/blob-url.js
     },
 
-    /** Bật/tắt chế độ badge trên mount ĐANG có — KHÔNG revoke/tạo lại object URL nào, KHÔNG
-     * dựng lại nhóm (chỉ thêm/bớt badge phủ lên) — cùng khuôn `setBadgeMode()` Photo.
-     * @param {string} mountKey
-     * @param {'quickDelete'|'multiSelect'|null} badgeMode
-     * @param {Set<string>|Map<string,number>} [selectedKeys]
-     */
+    /** Đổi chế độ badge / tập đã chọn của mount đang có — chỉ vẽ lại badge các nhóm đang hiển thị.
+     * @param {string} mountKey @param {'multiSelect'|null} badgeMode @param {Set<string>|Map<string,number>} [selectedKeys] */
     setBadgeMode(mountKey, badgeMode, selectedKeys) {
         const m = this._mounts.get(mountKey);
         if (!m) return;
         m.badgeMode = badgeMode || null;
         m.selectedKeys = selectedKeys || new Set();
-        m.groupRecords.forEach((record) => {
-            if (!record.loaded) return; // nhóm placeholder — bỏ qua, tự đúng khi tải lại sau này
-            record.el.querySelectorAll('.video-tile').forEach((tileEl) => {
-                const oldBadge = tileEl.querySelector('.video-tile-badge');
-                if (oldBadge) oldBadge.remove();
-                tileEl.classList.remove('video-tile-marked');
-                if (!m.badgeMode) return;
-                tileEl.appendChild(this._createBadgeElement(m.badgeMode, this._readOrderNumber(m.selectedKeys, tileEl.dataset.videoKey)));
-                if (m.selectedKeys.has(tileEl.dataset.videoKey)) tileEl.classList.add('video-tile-marked');
-            });
+        m.groupRecords.filter((record) => record.loaded).forEach((record) => {
+            const states = computeGalleryTileStates(record.videos.map((video) => video.key), m.badgeMode, m.selectedKeys); // core/file-manager/gallery-window.js
+            const tileByKey = new Map(states.map((state) => [state.key, { marked: state.marked, badgeHtml: renderGalleryTileBadgeHtml('video', state) }]));
+            setGalleryTileBadgesUi(record.el, VIDEO_GALLERY_TILE_SPEC, tileByKey); // core/file-manager/gallery-window-ui.js
         });
-    },
-
-    /** Toggle badge 1 tile CỤ THỂ đã biết `videoKey`, kèm SỐ thứ tự MỚI (nếu multi-select) — patch
-     * DOM TRỰC TIẾP, KHÔNG dựng lại cả nhóm.
-     * @param {string} mountKey
-     * @param {string} videoKey
-     * @param {boolean} isMarked
-     * @param {number|null} [orderNumber]
-     */
-    setTileBadge(mountKey, videoKey, isMarked, orderNumber) {
-        const m = this._mounts.get(mountKey);
-        if (!m) return;
-        const tileEl = m.containerEl.querySelector(`[data-video-key="${CSS.escape(videoKey)}"]`);
-        if (!tileEl) return; // nhóm chứa video này hiện đang là placeholder — bỏ qua
-        tileEl.classList.toggle('video-tile-marked', isMarked);
-        if (m.badgeMode) {
-            const oldBadge = tileEl.querySelector('.video-tile-badge');
-            if (oldBadge) oldBadge.remove();
-            tileEl.appendChild(this._createBadgeElement(m.badgeMode, orderNumber || null));
-        }
     },
 };

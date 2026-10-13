@@ -1,85 +1,46 @@
 /**
- * event/workflow/playlist.js — "THẰNG THỰC THI CUỐI" của router "playlist".
+ * event/workflow/playlist.js — Workflow của router "playlist": xoá/sửa/xuất từng mục, ảnh bìa, đổi Nguồn, upload,
+ * picker "Thêm vào thư mục", chọn nhiều (phát/xuất ZIP/thêm vào thư mục/xoá hàng loạt), lưu/khôi phục cấu hình Playlist.
  *
- * QUY TẮC (giống workflow/storage.js):
- *   - Workflow KHÔNG tự nghĩ ra logic nghiệp vụ mới — toàn bộ logic xử lý dữ liệu đã tồn tại SẴN
- *     dưới dạng hàm core thuần ở playlist/actions.js. Workflow chỉ là 1 CHUỖI GỌI các hàm đó
- *     ("chân tay") — đưa đúng data hàm nào cần, hàm nào không cần thì không đưa.
- *   - withLoadingShield() và alertModal()/modalChoice() ĐẶT Ở TẦNG NÀY — core hoàn toàn không
- *     biết 2 thứ này tồn tại.
- *   - QUY TẮC SHIELD/MODAL: alertModal() KHÔNG bao giờ gọi BÊN TRONG callback của
- *     withLoadingShield() — luôn gọi SAU KHI shield đã đóng hẳn.
- *
- * Ban đầu (ver 11) chỉ 2 msg.type của router "playlist" cần phối hợp >1 hàm core (hoặc cần
- * shield) -> giao cho workflow xử lý ở đây: 'playlist.playbackError.delete' và 'playlist.edit.save'.
- * Ver 12 "Multi Media" (plan-v12-multimedia.md mục 4.b1) thêm 4 method cho "Chọn nhiều" (Phát đã
- * chọn/Xuất ZIP/Thêm vào thư mục/Xoá hàng loạt) — xem khối riêng cuối file. Mọi msg.type còn lại
- * router tự gọi thẳng 1 hàm core, KHÔNG đi qua workflow (xem router/playlist.js).
+ * Shield/modal đặt ở tầng này (core không biết tới). alertModal() không bao giờ gọi bên trong callback của
+ * withLoadingShield() — luôn gọi sau khi shield đã đóng.
  */
-// DỜI (06/10/2026) — VIDEO_THUMBNAIL_SIZE sang event/workflow/video-thumb-extract.js.
 
-/** MỚI (06/10/2026) — icon 2 mục dropdown "Choose" ở tab Ảnh bìa (openCoverChooseMenu()). Chuỗi SVG cố định trong
- * code (không có input người dùng) — core/dropdown-menu.js dán thẳng qua innerHTML. */
+/** Icon 2 mục dropdown "Choose" ở tab Ảnh bìa (openCoverChooseMenu()) — tên trong kho icon, không có input người dùng. */
 const SONG_EDIT_COVER_ICON_PHOTO = iconSvg('photograph');
 const SONG_EDIT_COVER_ICON_VIDEO = iconSvg('video-camera');
 
-// DỜI (06/10/2026) — hằng số VIDEO_* chụp khung đầu/thumb vuông sang event/workflow/video-thumb-extract.js.
-
-/** MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video) — trần của time-picker mở ở
- * `openPhotoEditDurationPicker()` (dưới). SỬA (Giang chỉ ra đúng — modal `openTimePickerModal()`,
- * core/time-picker-modal.js, KHÔNG hề tự áp giới hạn gì — `maxMs` chỉ là 1 tham số config, nơi gọi
- * (TỨC file này) tự chọn giá trị) — hằng số dưới KHÔNG phải "trần của widget", mà là lựa chọn CỦA
- * RIÊNG chỗ gọi này. Ràng buộc THẬT DUY NHẤT nằm ở `buildColumn()` (core/time-picker-modal.js):
- * `count` dòng của cột thô nhất PHẢI hữu hạn (vòng lặp `appendChild()` DOM thật, không ảo hoá) —
- * truyền `Infinity` sẽ treo trình duyệt (tạo vô hạn phần tử).
- * SỬA (Giang yêu cầu — format đổi 'm-s' -> 'h-m-s') — cột thô nhất giờ là 'h' (giờ), TRẦN TỰ NHIÊN
- * (`TIME_PICKER_UNIT_CAP.h`, core/time-picker-modal.js) đã là 24 — `count = Math.max(naturalCap,
- * countFromMaxMs)` nên bất kỳ `maxMs` nào ≤ 24 giờ đều cho ĐÚNG 24 dòng giờ (0-23), trần tự nhiên
- * tự thắng, không cần chọn số to hơn nữa. Đặt thẳng 24 giờ cho rõ ý, RỘNG HƠN RẤT NHIỀU bất kỳ giá
- * trị nào computePhotoDuration() (event/workflow/file-manager-photo.js) thực tế tạo ra (~vài phút
- * ngay cả ảnh RAW cỡ trăm MB) — không phải cố tình giới hạn thấp.
- */
+/** Trần time-picker thời lượng Photo (`openPhotoEditDurationPicker()`) — lựa chọn của chỗ gọi, không phải giới hạn của
+ * widget. Phải hữu hạn: cột thô nhất của time-picker dựng đủ `count` dòng DOM thật. Cột 'h' có trần tự nhiên 24, nên
+ * 24 giờ cho đúng 24 dòng; rộng hơn nhiều mọi giá trị computePhotoDuration() thực tế tạo ra. */
 const PHOTO_EDIT_DURATION_PICKER_MAX_MS = 24 * 60 * 60 * 1000; // 24 giờ
 
-/** MỚI (phản hồi Giang — "1 khung, không nhân bản, VMState theo activeMediaSource") — `accept`
- * của 2 input DÙNG CHUNG (`fileInput`/`folderInput`, core/dom-refs.js — #media-upload/
- * #media-upload-folder) đổi ĐỘNG theo Nguồn, xem `workflowPlaylist._applyUploadInputAccept()`. */
+/** `accept` của 2 input upload dùng chung (#media-upload/#media-upload-folder, core/dom-refs.js) theo Nguồn — xem
+ * `workflowPlaylist._applyUploadInputAccept()`. */
 const UPLOAD_ACCEPT_BY_SOURCE = {
     song: '.mp3,.wav,.ogg,.m4a,.aac,.flac,audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/aac,audio/flac',
     video: 'video/*',
     photo: 'image/*',
 };
 
-/** MỚI (07/09/2026, gộp 3 hàm switchToSongSource()/switchToVideoSource()/switchToPhotoSource() cũ
- * thành `switchSource(mediaType)` — 3 hàm đó chỉ khác nhau đúng 2 i18n key này, không khác luồng) —
- * dùng bởi `workflowPlaylist.switchSource()`. */
+/** i18n key theo Nguồn — dùng bởi `workflowPlaylist.switchSource()`. */
 const MEDIA_SWITCH_I18N = {
     song: { loadingKey: 'playlistView.loading.withCount', placeholderKey: 'playlistView.search.placeholder' },
     video: { loadingKey: 'playlistView.loading.withCountVideo', placeholderKey: 'playlistView.search.placeholderVideo' },
     photo: { loadingKey: 'playlistView.loading.withCountPhoto', placeholderKey: 'playlistView.search.placeholderPhoto' },
 };
 
-/** MỚI (07/09/2026, gộp phần "chọn đúng get/delete record theo mediaType" — trước đây lặp lại y hệt
- * bằng ternary ở CẢ `deleteMediaFromActionMenu()` LẪN `deleteSelectedMedia()` bên dưới) — dùng bởi cả
- * 2 hàm đó, VÀ tái dùng ở `event/workflow/file-manager-storage.js::executeDeleteBroken()` (xoá
- * broken qua Quản lý dung lượng — CÙNG 3 bước get record/dọn folder/xoá record, chỉ khác nguồn key
- * đến từ đâu).
- * SỬA (07/09/2026, Giang chỉ ra "đằng nào cũng sửa, đổi tên luôn đỡ nhầm") — CẢ 3 `deleteRecord` đều
- * là hàm CRUD THUẦN (`service/db.js`, KHÔNG tự cascade folder) — đối xứng thật sự, không còn 2 tầng
- * hành vi khác nhau (trước đây `deleteVideo()`/`deleteImage()`, core/file-manager/video.js/image.js,
- * tự cascade RỒI xoá — 2 hàm đó ĐÃ XOÁ). Nơi gọi (Workflow) LUÔN tự gọi `workflowFolder.removeItemFromAllFolders()`
- * TRƯỚC bước `deleteRecord` — ĐỒNG NHẤT cho cả 3 loại, không còn ai "tự lo" khác ai. */
-// SỬA (06/10/2026, plan-media-db-split.md) — deleteSongRecord/deleteVideoRecord/deleteImageRecord ĐÃ XOÁ HẲN: xoá qua
-// `deleteMediaRecord(type, key)` (3 store trong 1 transaction). `getRecord` giờ CHỈ đọc meta (chỉ cần field `folder`
-// cho workflowFolder.removeItemFromAllFolders(), không cần mở Blob).
+/** mediaType -> đọc meta (chỉ cần field `folder` cho workflowFolder.removeItemFromAllFolders()) + xoá record (3 store/1
+ * transaction). Dùng bởi deleteMediaFromActionMenu(), deleteSelectedMedia() và
+ * event/workflow/file-manager-storage.js::executeDeleteBroken(). Nơi gọi luôn gỡ khỏi folder TRƯỚC khi xoá record. */
 const MEDIA_DELETE_ACCESSOR = {
     song: { getRecord: (key) => getMediaMeta('song', key), deleteRecord: (key) => deleteMediaRecord('song', key) }, // service/db.js
     video: { getRecord: (key) => getMediaMeta('video', key), deleteRecord: (key) => deleteMediaRecord('video', key) },
     photo: { getRecord: (key) => getMediaMeta('photo', key), deleteRecord: (key) => deleteMediaRecord('photo', key) },
 };
 
-/** MỚI (06/10/2026, dọn nợ Rule 2/3 — modal Sửa thông tin dời từ core) — đọc meta cho modal: Video/Photo cần field CHỈ có
- * trên record thô (customName/filename/album/width/height) — chỉ store meta, không mở Blob; Song dùng thẳng playlistCache. */
+/** Đọc meta cho modal Sửa thông tin: Video/Photo cần field chỉ có trên record (customName/filename/album/width/height)
+ * — chỉ store meta, không mở Blob; Song dùng thẳng playlistCache. */
 const SONG_EDIT_META_READER = {
     song: () => Promise.resolve(null),
     video: (key) => getMediaMeta('video', key), // service/db.js
@@ -93,7 +54,7 @@ const SONG_EDIT_FIELDS_FILLER = {
     photo: (cached, meta) => workflowPlaylist._fillPhotoEditFields(cached, meta),
 };
 
-/** Icon dùng trong tab "Chi tiết" — SỬA 07/10/2026: tên icon trong kho assets/icon/icons.js (trước là path SVG). */
+/** Icon dùng trong tab "Chi tiết" (tên trong kho assets/icon/icons.js). */
 const SONG_INFO_ICON = {
     file: 'document-text',
     resolution: 'arrows-expand',
@@ -105,8 +66,8 @@ const SONG_INFO_ICON = {
     artist: 'user',
 };
 
-/** HTML tab "Chi tiết" theo loại media — đúng thứ tự/màu/nhãn của bản core cũ. renderSongInfoRowHtml(): components/playlist-view.js (DỜI từ core/playlist/actions.js 07/10/2026);
- * formatListenTime(): core/listen-stats.js; formatBytes(): core/about-stats.js; formatTime(): core/playlist/state.js. */
+/** HTML tab "Chi tiết" theo loại media. renderSongInfoRowHtml(): components/playlist-view.js; formatListenTime():
+ * core/listen-stats.js; formatBytes(): core/about-stats.js; formatTime(): core/playlist/state.js. */
 const SONG_EDIT_DETAILS_HTML = {
     video: (cached, meta, stats) => {
         const emptyVal = t('playlistView.songInfo.empty');
@@ -141,15 +102,14 @@ const SONG_EDIT_DETAILS_HTML = {
     },
 };
 
-/** MỚI (01/10/2026, Ghi âm) — lưu bản ghi xong: cập nhật danh sách RAM theo Nguồn đang chọn (event-bus-flow.md mục 7 —
- * object map). Chỉ Nguồn Song đụng danh sách; Video/Photo không làm gì (loader nạp lại từ DB khi chuyển sang Song). */
+/** Ghi âm — lưu bản ghi xong: chỉ Nguồn Song cập nhật danh sách RAM; Video/Photo không làm gì (loader nạp lại từ DB
+ * khi chuyển sang Song). */
 const RECORDED_SONG_INDEX_BY_SOURCE = {
     song: (key, record) => workflowPlaylist._indexRecordedSongInSongSource(key, record),
     other: () => {},
 };
 
-/** MỚI (02/10/2026, rà event-bus-flow.md mục 7) — switchSource(): Nguồn mới có folder Scope đang nhớ -> áp folder đó;
- * không -> cả thư viện. Trước đây if/else. Khoá boolean thật `!!folderForThisSource`. */
+/** switchSource(): Nguồn mới có folder Scope đang nhớ -> áp folder đó; không -> cả thư viện. */
 const SOURCE_SCOPE_APPLY_BY_HAS_FOLDER = {
     true: (folderId, mediaType, onProgress) => workflowPlaylistScope.applyFolderScope(folderId, mediaType, onProgress),
     false: (folderId, mediaType, onProgress) => workflowPlaylistScope.applyAllSongsScope(mediaType, onProgress),
@@ -173,19 +133,15 @@ const FOLDER_PICKER_CLOSE_BY_HAS_ON_CLOSE = {
 
 const workflowPlaylist = {
 
-    /** MỚI (21/09/2026, Giang yêu cầu — cuộn hoãn khi menu 3 chấm đang mở) — ĐƯỜNG ĐÓNG DUY NHẤT của menu 3 chấm
-     * từ tầng Workflow/Router: đóng menu (core `closeSongActionMenu()`) RỒI chạy lượt cuộn tới bài đang phát nếu
-     * bị hoãn lúc menu còn mở (`workflowPlaylistRender.scrollToCurrentOrDefer()`, event/workflow/playlist-render.js).
-     * Mọi nơi trước đây gọi thẳng `closeSongActionMenu()` giờ gọi hàm này. */
+    /** Đường đóng duy nhất của menu 3 chấm từ Workflow/Router: đóng menu rồi chạy lượt cuộn tới bài đang phát nếu bị
+     * hoãn lúc menu còn mở (`workflowPlaylistRender.flushPendingScrollToCurrent()`). */
     closeActionMenu() {
         closeSongActionMenu(); // core/playlist/actions.js
         workflowPlaylistRender.flushPendingScrollToCurrent(); // no-op nếu không có cuộn nào đang chờ
     },
 
-    /** MỚI (phản hồi Giang — "1 khung, không nhân bản, VMState theo activeMediaSource") — đổi
-     * `accept` của 2 input upload DÙNG CHUNG theo Nguồn hiện tại. Gọi từ CẢ 3 hàm switchTo*Source()
-     * LẪN loadPersistedPlaylistConfigOnBoot() (khôi phục Nguồn lúc boot) — 4 nơi DUY NHẤT
-     * activeMediaSource có thể đổi giá trị.
+    /** Đổi `accept` của 2 input upload dùng chung theo Nguồn hiện tại. Gọi từ switchSource() và
+     * loadPersistedPlaylistConfigOnBoot() — 2 nơi activeMediaSource có thể đổi.
      * @param {'song'|'video'|'photo'} source
      */
     _applyUploadInputAccept(source) {
@@ -194,19 +150,8 @@ const workflowPlaylist = {
         if (folderInput) folderInput.accept = accept;
     },
 
-    /** MỚI (v13 Batch F) — ứng với 'playlist.actionMenu.delete.click'. THAY nhánh `action==='delete'`
-     * của core `handleSongActionMenuSelect()` (đã xoá).
-     * SỬA (07/09/2026, "đưa về chuẩn event bus + core rule") — GỘP THẲNG thân `window.removeSong()`
-     * cũ (core/playlist/actions.js, ĐÃ XOÁ) vào đây thay vì gọi chéo qua `window.` — hàm đó vốn
-     * mixed core/workflow (tự gọi alertModal/withLoadingShield, "core không biết shield/modal"
-     * không áp dụng) và CHỈ CÓ ĐÚNG 1 caller (chính hàm này, đã kiểm tra toàn project), nên gộp về
-     * ĐÚNG tầng Workflow thay vì giữ 2 lớp giả không cần thiết. Các bước con (get record theo
-     * mediaType, workflowFolder.removeItemFromAllFolders/deleteRecord/removeSongStats/removeKeyFromDisplay) VẪN LÀ
-     * core thuần (core/file-manager/*.js, core/playlist/actions.js, service/db.js), giữ nguyên 100%
-     * — chỉ orchestration đổi CHỖ GỌI.
-     * ĐỔI TÊN (07/09/2026, Giang chỉ ra "đằng nào cũng sửa, đổi tên đỡ nhầm") — `deleteSongFromActionMenu`
-     * (cũ, tên gợi ý CHỈ xử lý Song dù đã xử lý cả Video/Photo từ lâu — CÙNG kiểu nhầm lẫn tên gọi
-     * đã sửa cho `window.removeSong`) đổi thành `deleteMediaFromActionMenu` cho khớp thực tế.
+    /** Ứng với 'playlist.actionMenu.delete.click' — xoá 1 mục (Song/Video/Photo). Chặn nếu đang phát thật; xoá xong
+     * mà là currentKey thì dọn player/UI.
      * @param {string} mediaKey - key do listener đọc sẵn từ `playlistStore` và đặt vào payload.
      */
     deleteMediaFromActionMenu(mediaKey) {
@@ -215,13 +160,7 @@ const workflowPlaylist = {
 
         const cached = appState.get('playlistCache').get(mediaKey);
         const title = cached && cached.tag && cached.tag.title ? cached.tag.title : (cached ? cached.filename : mediaKey);
-        // FIX (Giang báo bug "Xoá Song không hoạt động") — TRƯỚC ĐÂY `cached ? cached.mediaType :
-        // 'song'` chỉ fallback lúc `cached` không tồn tại — Song's `cached.mediaType` từng luôn
-        // `undefined` (thiếu field, xem core/playlist/loader.js::buildSongPlaylistCache()) nên
-        // NHÁNH ĐÓ không chạy dù cached tồn tại, ra `mediaType=undefined`, phá
-        // `MEDIA_DELETE_ACCESSOR[undefined]`. ĐÃ SỬA GỐC ở loader.js (giờ Song luôn có
-        // `mediaType:'song'` thật), NHƯNG giữ luôn `||` ở đây làm lưới an toàn thứ 2 — fallback
-        // đúng cả khi `cached.mediaType` falsy vì BẤT KỲ lý do gì khác trong tương lai.
+        // `||` làm lưới an toàn: mediaType falsy vì bất kỳ lý do gì -> coi như Song.
         const mediaType = (cached && cached.mediaType) || 'song'; // 'song'|'video'|'photo'
         const isVideo = mediaType === 'video';
         const isCurrent = mediaKey === appState.get('currentKey');
@@ -235,15 +174,13 @@ const workflowPlaylist = {
         }
 
         return withLoadingShield(t('common.loading.deleting'), async () => {
-            // Dọn tham chiếu folder TRƯỚC khi xoá record — tránh để lại "ghost" trong folder_song
-            // nếu bài/video/ảnh đó đang nằm trong 1 folder (cùng thứ tự deleteSelectedMedia(), xoá
-            // hàng loạt, ngay trong file này).
+            // Gỡ khỏi folder TRƯỚC khi xoá record — tránh "ghost" trong folder.
             const { getRecord, deleteRecord } = MEDIA_DELETE_ACCESSOR[mediaType];
             const record = await getRecord(mediaKey);
             if (record) await workflowFolder.removeItemFromAllFolders(record); // event/workflow/folder.js
             await deleteRecord(mediaKey);
-            workflowListenStats.forget(mediaType, mediaKey); // event/workflow/listen-stats.js — dọn thống kê RAM của media đã xoá (SỬA 06/10/2026: đúng loại)
-            workflowPlaylistOrder.removeKeyFromDisplay(mediaKey); // event/workflow/playlist-order.js (dời từ core 24/09/2026)
+            workflowListenStats.forget(mediaType, mediaKey); // event/workflow/listen-stats.js — dọn thống kê RAM của media đã xoá
+            workflowPlaylistOrder.removeKeyFromDisplay(mediaKey); // event/workflow/playlist-order.js
 
             if (isCurrent && isVideo) {
                 // Video đang là currentKey (đã pause, hoặc chưa từng phát) — dọn bgVideoElement/
@@ -252,39 +189,34 @@ const workflowPlaylist = {
                 appState.set('currentKey', null);
                 playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
             } else if (isCurrent) {
-                // Bài vừa xoá là currentKey (đang pause) — dọn player/UI giống hệt khối tương ứng
-                // trong clearAllStoredData() (storage-manager.js) để không còn currentKey "ma".
+                // Mục vừa xoá là currentKey (đang pause) — dọn player/UI để không còn currentKey "ma".
                 if (appState.get('currentObjectURL')) { URL.revokeObjectURL(appState.get('currentObjectURL')); appState.set('currentObjectURL', null); }
                 if (appState.get('currentCoverObjectURL')) { URL.revokeObjectURL(appState.get('currentCoverObjectURL')); appState.set('currentCoverObjectURL', null); }
                 audioPlayer.pause(); audioPlayer.src = ''; appState.set('currentKey', null);
                 playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
-                workflowAutoSwitchVisual.killAllTasks(); // event/workflow/auto-switch-visual.js (dời từ core 25/09/2026)
-                workflowPlayerControls.returnToPlaylistUI(); // event/workflow/player-controls.js — SỬA 24/09/2026 (thay core forceBackToPlaylistUI())
+                workflowAutoSwitchVisual.killAllTasks(); // event/workflow/auto-switch-visual.js
+                workflowPlayerControls.returnToPlaylistUI(); // event/workflow/player-controls.js
                 if (typeof setVisualizerActiveFalse === 'function') setVisualizerActiveFalse();
             }
         }).then(() => {
-            // Shield đã đóng hẳn tới đây — an toàn để hiện modal, không bị #loading-shield
-            // (z-[200]) đè lên modalChoice (z-[130]).
+            // Shield đã đóng hẳn — an toàn để hiện modal (shield z-200 đè modalChoice z-130).
             alertModal(tFormat('playlistView.songMenu.deleteSuccess', { title }));
         });
     },
 
-    /** MỚI (v13 Batch F) — ứng với 'playlist.actionMenu.edit.click'. THAY nhánh `action==='edit'`.
-     * KHÔNG nhận key qua payload: chỉ nhánh XOÁ mới cần key trong payload (để Block gate kiểm được
-     * "bài này có đang làm Visual Background không"); nhánh sửa đọc thẳng `playlistStore` tại đây —
-     * Workflow được phép đọc store. */
+    /** Ứng với 'playlist.actionMenu.edit.click'. Đọc key thẳng từ `playlistStore` (chỉ nhánh xoá cần key trong payload
+     * để Block gate kiểm "mục này có đang làm Visual Background không"). */
     openSongEditFromActionMenu() {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return; // guard: menu không mở
         workflowPlaylist.closeActionMenu(); // core/playlist/actions.js
-        this.openSongEditModal(key); // SỬA 06/10/2026 — dời từ core (dọn nợ Rule 2/3), xem method ngay dưới
+        this.openSongEditModal(key);
     },
 
     /**
-     * DỜI (06/10/2026, dọn nợ Rule 2/3 — Giang yêu cầu "xử lý nốt nợ kỹ thuật") từ core/playlist/actions.js::openSongEditModal()
-     * — modal Sửa thông tin DÙNG CHUNG Song/Video/Photo (rẽ theo `cached.mediaType` bằng object map). Workflow ĐỌC mọi thứ
-     * (playlistCache, meta Video/Photo — chỉ store meta, thống kê đúng loại), TẠO blob URL preview cover, rồi gọi các bước
-     * core THI HÀNH (core/playlist/actions.js). Hành vi giữ nguyên bản core cũ.
+     * Modal Sửa thông tin dùng chung Song/Video/Photo (rẽ theo `cached.mediaType` bằng object map). Workflow đọc mọi thứ
+     * (playlistCache, meta Video/Photo, thống kê), tạo blob URL preview cover, rồi gọi các bước ghi DOM ở
+     * core/playlist/actions.js.
      * @param {string} key
      */
     async openSongEditModal(key) {
@@ -323,9 +255,8 @@ const workflowPlaylist = {
         console.log(`writer: "workflowPlaylist._fillPhotoEditFields", page: "playlistStore.songEditPendingPhotoDurationSec", content: "${cached.duration || 0}"`);
     },
 
-    /** MỚI (24/09/2026, dọn nợ "Core gọi Workflow") — ứng với 'playlist.playbackError.keep' (nút "Giữ lại"). THAY
-     * core `confirmKeepBrokenSong()` (tự đọc playlistStore + gọi removeKeyFromDisplay). Tái dùng core
-     * `getAndClearPlaybackErrorKey()` (đọc key + ẩn modal + xoá state context — y hệt nhánh "Xoá").
+    /** Ứng với 'playlist.playbackError.keep' (nút "Giữ lại") — đọc key + ẩn modal (`getAndClearPlaybackErrorKey()`),
+     * ghi nhận giữ bài lỗi, bỏ khỏi danh sách hiển thị.
      * @returns {{status: string}} */
     keepBrokenSong() {
         const key = getAndClearPlaybackErrorKey(); // core/playlist/actions.js
@@ -337,39 +268,22 @@ const workflowPlaylist = {
     },
 
     /**
-     * Ứng với msg.type = 'playlist.playbackError.delete' — cần ĐỌC state (key đang chờ xoá) rồi
-     * PHỐI HỢP shield + hàm core xoá -> rõ ràng là workflow (>1 hàm).
+     * Ứng với 'playlist.playbackError.delete' — đọc key đang chờ xoá rồi xoá trong shield.
      */
     async executePlaybackErrorDelete() {
-        // getAndClearPlaybackErrorKey() là core THUẦN, không shield — đọc xong là ẩn modal ngay
-        // (thuần UI), TRẢ VỀ key để workflow tự quyết định có cần xoá hay không.
         const key = getAndClearPlaybackErrorKey();
-        if (!key) return; // không có gì đang mở -> no-op, giống hành vi gốc (if (!playbackErrorKey) return;)
+        if (!key) return; // không có gì đang mở -> no-op
 
         await withLoadingShield(t('common.loading.deleting'), async () => {
-            // SỬA (24/09/2026) — 3 bước của core `deleteBrokenSongByKey()` cũ đứng cạnh nhau ở đây (bản cũ: core gọi
-            // core removeSongStats + removeKeyFromDisplay). Thứ tự giữ nguyên.
-            await deleteMediaRecord('song', key); // service/db.js — SỬA 06/10/2026 (3 store, plan-media-db-split.md)
-            workflowListenStats.forget('song', key); // event/workflow/listen-stats.js (SỬA 06/10/2026)
+            await deleteMediaRecord('song', key); // service/db.js
+            workflowListenStats.forget('song', key); // event/workflow/listen-stats.js
             workflowPlaylistOrder.removeKeyFromDisplay(key); // event/workflow/playlist-order.js
         });
-        // Bản gốc KHÔNG hiện alertModal nào sau khi xoá xong ở luồng này — giữ đúng hành vi cũ,
-        // không tự thêm thông báo mới.
+        // Luồng này không hiện thông báo sau khi xoá.
     },
 
-    /** MỚI (03/07/2026); VIẾT LẠI (04/07/2026, mục 3 phản hồi Giang — bỏ hẳn nút Upload, chỉ còn
-     * "Choose photo") — mở picker chọn 1 ảnh có sẵn trong File Manager làm cover.
-     *
-     * VIẾT LẠI (Giai đoạn 4, rewrite Photo/Album, mục 4, Giang yêu cầu "render ở file manager photo
-     * thế nào thì Generic Drawer như thế") — THAY HẲN `openPhotoUiImagePickerModal()` (modal riêng,
-     * core/file-manager/photo-ui.js — ĐÃ XOÁ) bằng `workflowFileManagerPhoto.openCoverImagePicker()`
-     * (Generic Drawer, TÁI DÙNG NGUYÊN hạ tầng picker vừa xây cho "thêm ảnh vào album" — event/
-     * workflow/file-manager-photo.js, chỉ khác mode single-select). Workflow gọi Workflow miền khác,
-     * TỰ DO theo event-bus-flow.md mục 4B — KHÔNG cần tự đọc `listImages()`/tự gọi
-     * `setupPhotoGridWindow()` ở đây nữa (picker MỚI tự lo toàn bộ, kể cả đọc DB). */
-    /** MỚI (06/10/2026, Giang: "nút Choose xổ xuống dropdown") — ứng với 'playlist.editCover.choose.click'. Dropdown
-     * nổi DÙNG CHUNG (core/dropdown-menu.js) neo dưới nút "Choose"; z-index mặc định 127 > modal Sửa thông tin
-     * (z-[120]) nên không cần truyền riêng. Mỗi mục CHỈ bắn eventBus (Rule 5a). */
+    /** Ứng với 'playlist.editCover.choose.click' — dropdown nổi dùng chung (core/dropdown-menu.js) neo dưới nút "Choose";
+     * z-index mặc định 127 > modal Sửa thông tin (z-120). Mỗi mục chỉ bắn eventBus (Rule 5a). */
     openCoverChooseMenu() {
         if (!songEditCoverChooseBtn) return; // guard: template chưa mount
         const send = (type) => () => eventBus.send({ router: 'playlist', type, payload: {} });
@@ -379,22 +293,17 @@ const workflowPlaylist = {
         ]);
     },
 
+    /** "Choose" -> "Photo": picker chọn 1 ảnh thư viện (event/workflow/file-manager-photo.js). */
     pickCoverFromLibrary() {
         workflowFileManagerPhoto.openCoverImagePicker((imageKey) => { // event/workflow/file-manager-photo.js
             this.applyCoverFromLibrary(imageKey);
         });
     },
 
-    // ===================== Ảnh bìa từ thumb video — MỚI (06/10/2026, Giang mục 3c) =====================
-    // "Choose" -> "Video thumbnail": picker video (Generic Drawer, single-select — bấm tile chọn NGAY, không nút xác
-    // nhận) -> lấy `thumbBlob` của video (thumb VUÔNG 320px — đúng "cover" video đang hiện ở lưới Playlist, xem
-    // extractVideoThumbAndMeta()); record cũ thiếu `thumbBlob` thì lùi về `thumbFullBlob` (khung đầu, kích thước gốc).
-    // Bọc thành `File` rồi TÁI DÙNG NGUYÊN changeSongEditCover() — y hệt nhánh Photo (applyCoverFromLibrary()): ảnh
-    // chỉ là PENDING, Lưu mới ghi DB + APIC, Huỷ bỏ hết.
-    // Hạ tầng picker: workflowGenericDrawerHelpers.mountMediaPicker() + workflowVideoGalleryWindow (CÙNG khuôn
-    // picker video nền của workflowTheme.pickBackgroundMedia()); mở MỚI (không updateInPlace — modal Sửa thông tin
-    // không nằm trong Generic Drawer) rồi đợi drawer trượt xong mới đọc DB + dựng lưới (CÙNG khuôn
-    // workflowFileManagerPhoto._openImagePickerDrawer()).
+    // ===================== Ảnh bìa từ thumb video =====================
+    // "Choose" -> "Video thumbnail": picker video (Generic Drawer, single-select) -> `thumbBlob` (vuông 320px; record cũ
+    // thiếu thì lùi về `thumbFullBlob`) -> `File` -> changeSongEditCover(): ảnh chỉ là pending, Lưu mới ghi DB + APIC.
+    // Mở mới (modal Sửa thông tin không nằm trong Generic Drawer), đợi drawer trượt xong rồi mới đọc DB + dựng lưới.
     _coverVideoPickerOpen: false, // guard: picker đang mở hay không (đóng rất nhanh lúc đang đọc DB / race tap)
 
     /** Ứng với 'playlist.editCover.pickFromVideoThumb'. */
@@ -461,36 +370,21 @@ const workflowPlaylist = {
         }
     },
 
-    /** Callback của picker ở trên — bọc Blob đã có sẵn thành `File` rồi TÁI DÙNG NGUYÊN
-     * changeSongEditCover() (không sửa gì ở core/playlist/actions.js — File LÀ MỘT Blob, luồng lưu/
-     * export/hiển thị cover cũ chạy y nguyên, xem mục 2 tài liệu trên).
+    /** Callback picker ảnh — bọc Blob thành `File` (File là Blob) rồi changeSongEditCover() (pending).
      * @param {string} imageKey
      */
     async applyCoverFromLibrary(imageKey) {
-        const record = await getImageRecord(imageKey); // core có sẵn (service/db.js), CÓ return, DÙNG ngay dưới
+        const record = await getImageRecord(imageKey); // service/db.js
         if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
         const file = new File([record.blob], record.filename, { type: record.blob.type });
-        const result = changeSongEditCover(file); // core có sẵn, CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
+        const result = changeSongEditCover(file); // core/playlist/actions.js
         if (result.status === 'invalid') {
             await alertModal(result.reason);
         }
     },
 
-    /**
-     * Ứng với msg.type = 'playlist.edit.save' — cần ĐỌC state form (key/newTag/pendingCover) rồi
-     * PHỐI HỢP shield + hàm core lưu + (có thể) alertModal not-found + dọn dẹp UI sau khi lưu ->
-     * rõ ràng là workflow (nhiều hàm, có rẽ nhánh theo status).
-     * SỬA (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — rẽ nhánh Song/Video NGAY
-     * ĐẦU (đọc `cached.mediaType` — quyết định "gọi cặp core nào", đúng tinh thần VMState ở Router
-     * cho cấp Song/Video, nhưng đặt Ở ĐÂY vì cần đọc playlistStore.songEditCurrentKey TRƯỚC —
-     * Router không có context đó). 2 nhánh gọi 2 CẶP core HOÀN TOÀN riêng (không core nào gọi core
-     * khác) — song vẫn dùng chung `closeSongEditModal()`/`this._refreshAfterMediaEditSave()` (2 hàm đó
-     * hoàn toàn trung lập, không có gì "của riêng Song").
-     */
-    /** DỜI (24/09/2026, rà soát refresh DOM) từ core/playlist/actions.js::refreshAfterSongEditSave() — thân GIỮ
-     * NGUYÊN. "Dọn dẹp sau khi lưu" 1 media (Song/Video/Photo): vẽ lại đúng hàng đó (ảnh/tên mới), đổi tên có thể
-     * ảnh hưởng sort -> cập nhật hàng đợi phát (chỉ khi 'az'/'za') + thứ tự hiển thị rồi diff lại danh sách. Bản cũ
-     * nằm ở core nhưng tự `appState.get()` + gọi 3 hàm Workflow — đúng vai Workflow nên dời hẳn về đây.
+    /** "Dọn dẹp sau khi lưu" 1 media: vẽ lại đúng hàng đó, đổi tên có thể ảnh hưởng sort -> cập nhật thứ tự hiển thị (chỉ
+     * khi 'az'/'za') + thứ tự render rồi diff lại danh sách.
      * @param {string} key */
     _refreshAfterMediaEditSave(key) {
         workflowPlaylistRender.refreshSongNode(key); // event/workflow/playlist-render.js — ảnh cũ trong DOM không tự đổi
@@ -501,15 +395,13 @@ const workflowPlaylist = {
     },
 
     /**
-     * SỬA (06/10/2026, plan-media-db-split.md) — ghi qua `updateMediaMeta()` (service/db.js — CHỈ store meta, không
-     * ghi lại Blob nào) với meta mới do core thuần dựng (`buildVideoEditMeta`/`buildPhotoEditMeta`/`buildSongEditMeta`,
-     * core/playlist/actions.js). Phần cập nhật RAM/DOM sau khi lưu (playlistCache, songNameIndex, tiêu đề player,
-     * Media Session) trước đây nằm trong 3 hàm core `apply*EditAndSave()` (tự appState.get + DOM — vi phạm Rule 2/3)
-     * giờ ở `_syncEdited*Runtime()` ngay dưới. Rẽ nhánh theo loại media qua object map (event-bus-flow.md mục 7).
+     * Ứng với 'playlist.edit.save' — rẽ theo loại media (object map); ghi qua `updateMediaMeta()` (chỉ store meta) với
+     * meta mới do core thuần dựng (`build*EditMeta`, core/playlist/actions.js); cập nhật RAM/DOM sau khi lưu ở
+     * `_syncEdited*Runtime()`.
      */
     async executeSaveEdit() {
         const key = playlistStore.get('songEditCurrentKey');
-        if (!key) return; // không có modal nào đang mở -> no-op, giống hành vi gốc
+        if (!key) return; // không có modal nào đang mở -> no-op
         const cached = appState.get('playlistCache').get(key);
         const mediaType = (cached && cached.mediaType) || 'song';
         const saveByType = {
@@ -518,10 +410,10 @@ const workflowPlaylist = {
             song: () => this._saveSongEdit(key),
         };
         const result = await saveByType[mediaType]();
-        // Shield đã đóng HẲN tới đây — an toàn để hiện modal (xem quy tắc shield/modal đầu file).
+        // Shield đã đóng hẳn — an toàn để hiện modal.
         if (result.status === 'notFound') await alertModal(t('common.songEdit.notFound'));
-        closeSongEditModal(); // core thuần UI — đóng modal trong MỌI trường hợp (giống bản gốc)
-        this._refreshAfterMediaEditSave(key); // vẽ lại danh sách/sắp xếp lại nếu cần
+        closeSongEditModal(); // core/playlist/actions.js — đóng modal trong mọi trường hợp
+        this._refreshAfterMediaEditSave(key);
     },
 
     async _saveVideoEdit(key) {
@@ -562,8 +454,7 @@ const workflowPlaylist = {
         return result;
     },
 
-    /** Cập nhật RAM/DOM sau khi lưu tab "Sửa" Video — thân DỜI từ core `applyVideoEditAndSave()` (06/10/2026), bỏ phần
-     * trỏ lại `cached.cover` (chỉ tồn tại để chữa lỗi round-trip, giờ Blob không bị ghi lại nên cover cũ vẫn dùng được). */
+    /** Cập nhật RAM/DOM sau khi lưu tab "Sửa" Video (playlistCache, songNameIndex, tiêu đề player, Media Session). */
     _syncEditedVideoRuntime(key, meta) {
         const displayName = meta.customName || stripFileExtension(meta.filename); // core/file-manager/video.js
         const cached = appState.get('playlistCache').get(key);
@@ -578,7 +469,7 @@ const workflowPlaylist = {
         if ('mediaSession' in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: displayName, artist: '', artwork: [] });
     },
 
-    /** Bản Photo của `_syncEditedVideoRuntime()` — thân DỜI từ core `applyPhotoEditAndSave()` (06/10/2026). */
+    /** Bản Photo của `_syncEditedVideoRuntime()`. */
     _syncEditedPhotoRuntime(key, meta) {
         const displayName = meta.customName || stripFileExtension(meta.filename); // core/file-manager/video.js
         const cached = appState.get('playlistCache').get(key);
@@ -596,7 +487,7 @@ const workflowPlaylist = {
         if ('mediaSession' in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: displayName, artist: '', artwork: [] });
     },
 
-    /** Bản Song — thân DỜI từ core `applySongEditAndSave()` (06/10/2026). Ảnh bìa trong RAM/DOM chỉ đổi khi người dùng
+    /** Bản Song. Ảnh bìa trong RAM/DOM chỉ đổi khi người dùng
      * chọn ảnh mới / xoá ảnh (`coverChange`); giữ nguyên thì URL cover đang hiện vẫn dùng tiếp.
      * @param {string} key @param {object} meta @param {'file'|'remove'|'keep'} coverChange @param {File|string|null} pendingCover */
     _syncEditedSongRuntime(key, meta, coverChange, pendingCover) {
@@ -624,9 +515,9 @@ const workflowPlaylist = {
         }
     },
 
-    /** Thay URL ảnh bìa bài ĐANG phát (thu hồi URL blob cũ) + gán lại #record-art. DÙNG CHUNG với
-     * workflowPlayer.reloadCurrentSongKeepingPosition() (request trung tâm mediaInUse, 06/10/2026). #record-art là phần tử ĐỘNG (tạo lại
-     * qua innerHTML mỗi lần đổi bài) nên tự getElementById tại chỗ; gắn lại fallback mỗi lần đổi src (core/playlist/render.js).
+    /** Thay URL ảnh bìa bài đang phát (thu hồi URL blob cũ) + gán lại #record-art. Dùng chung với
+     * workflowPlayer.reloadCurrentSongKeepingPosition() (`mediaInUse`). #record-art tạo lại qua innerHTML mỗi lần đổi bài
+     * nên getElementById tại chỗ; gắn lại fallback mỗi lần đổi src.
      * @param {string} url */
     replaceCurrentCoverUrl(url) {
         const oldUrl = appState.get('currentCoverObjectURL');
@@ -639,24 +530,17 @@ const workflowPlaylist = {
         attachCoverFallback(recordArtEl); // core/playlist/render.js
     },
 
-    /** Ứng với click nút duration ở tab "Sửa" của nhóm field Photo — mở time-picker (core/time-
-     * picker-modal.js, dùng chung với Slideshow/Visual Background gradient) thay vì input số tay
-     * (Giang chỉ định "dùng time picker, có min nhưng không max"). SỬA (Giang yêu cầu — format
-     * 'h-m-s', trước đây chỉ 'm-s') — thêm cột giờ. `maxMs` KHÔNG phải giới hạn của widget, chỉ là
-     * 1 config nơi gọi tự chọn (xem docstring `PHOTO_EDIT_DURATION_PICKER_MAX_MS` đầu file) — 24
-     * giờ, rộng hơn rất nhiều bất kỳ giá trị nào `computePhotoDuration()` (event/workflow/file-
-     * manager-photo.js) thực tế tạo ra. Giá trị THẬT lưu trong DB không hề bị hàm nào clamp — nếu 1
-     * ảnh có duration vượt 24 giờ (chưa từng xảy ra với công thức hiện tại), mở picker sẽ tự kẹp
-     * hiển thị về 24 giờ, không đụng gì tới số đã lưu. Chỉ set `min` — không có ý định giới hạn
-     * trên thật nào. */
+    /** Nút duration ở tab "Sửa" của Photo — mở time-picker h-m-s (core/time-picker-modal.js). Chỉ có sàn; `maxMs` là
+     * config của chỗ gọi (`PHOTO_EDIT_DURATION_PICKER_MAX_MS`). Giá trị trong DB không bị kẹp — vượt 24 giờ thì picker chỉ
+     * kẹp phần hiển thị. */
     openPhotoEditDurationPicker() {
         const currentSec = playlistStore.get('songEditPendingPhotoDurationSec') || 0;
         openTimePickerModal({ // core/time-picker-modal.js
             title: t('playlistView.songEdit.durationPickerTitle'),
             format: 'h-m-s',
             valueMs: currentSec * 1000,
-            minMs: DURATION_MIN_SEC * 1000, // event/workflow/file-manager-photo.js — CÙNG sàn computePhotoDuration() áp lúc upload
-            maxMs: PHOTO_EDIT_DURATION_PICKER_MAX_MS, // xem docstring hằng số đầu file — KHÔNG phải trần widget, chỉ là config
+            minMs: DURATION_MIN_SEC * 1000, // event/workflow/file-manager-photo.js — cùng sàn computePhotoDuration()
+            maxMs: PHOTO_EDIT_DURATION_PICKER_MAX_MS,
             onConfirm: (resultMs) => {
                 const resultSec = Math.round(resultMs / 1000 * 100) / 100;
                 playlistStore.set({ songEditPendingPhotoDurationSec: resultSec });
@@ -665,22 +549,14 @@ const workflowPlaylist = {
         });
     },
 
-    // ===================== Ver 12 "Multi Media" — Chọn nhiều (plan-v12-multimedia.md mục 4.b1) =====================
-    // Cụm sở hữu ĐÃ CHỐT: `playlist` (không phải `fileManagerSong`).
-    //
-    // SỬA (sau trao đổi Rule 1/2/VMState): render.js (buildSongNode/renderPlaylistFull/
-    // renderPlaylistDiff) KHÔNG được sửa để tự đọc selectionMode/selectedMediaKeys — những field đó
-    // CHỈ ảnh hưởng 1 lớp DOM-patch riêng, tách hẳn theo tiến trình đơn tuyến (showSelectionIndicator/
-    // hideSelectionIndicator/updateSelectionActionBar/applySelectionChrome,
-    // core/playlist/selection.js — hàm THUẦN, nhận state qua tham số, tự chọn hàm nào chạy qua
-    // VirtualMachineState thay vì if/else). Nơi ĐỌC appState rồi gọi các hàm thuần đó nối tiếp nhau
-    // LÀ ĐÂY (workflow) — đúng vai trò được appState.get() tự do.
+    // ===================== Chọn nhiều =====================
+    // Render danh sách (render.js) không đọc selectionMode/selectedMediaKeys — lớp chọn là DOM-patch riêng
+    // (core/playlist/selection.js, hàm thuần nhận state qua tham số). Workflow đọc appState rồi gọi nối tiếp.
 
-    /** Dọn dẹp DÙNG CHUNG khi thoát chế độ chọn (gọi từ 4 hành động dưới sau khi xong việc) —
-     * KHÔNG phải core (workflow không bị 4 rule ràng buộc), chỉ là helper nội bộ tránh lặp code. */
+    /** Dọn dẹp dùng chung khi thoát chế độ chọn (4 hành động dưới gọi sau khi xong việc). */
     _exitSelectionMode() {
-        // SỬA (02/10/2026, tối ưu 10000 item) — chỉ gỡ dấu ở node ĐÃ CHỌN (vòng trống của các node còn lại là CSS, tắt theo
-        // class `is-selecting` ở applySelectionChrome(false)). Lấy danh sách TRƯỚC khi disableSelectionMode() xoá tập chọn.
+        // Chỉ gỡ dấu ở node ĐÃ CHỌN (vòng trống của node còn lại là CSS theo class `is-selecting`). Lấy danh sách TRƯỚC khi
+        // disableSelectionMode() xoá tập chọn.
         const selectedKeysBefore = [...appState.get('selectedMediaKeys')];
         disableSelectionMode();
         const domNodesByKey = appState.get('domNodesByKey');
@@ -692,7 +568,7 @@ const workflowPlaylist = {
     /** Ứng với 'playlist.selection.toggle'. */
     toggleSelectionMode() {
         const enabled = !appState.get('selectionMode');
-        const selectedKeysBefore = [...appState.get('selectedMediaKeys')]; // SỬA (02/10/2026) — lấy TRƯỚC khi disableSelectionMode() xoá tập chọn
+        const selectedKeysBefore = [...appState.get('selectedMediaKeys')]; // lấy TRƯỚC khi disableSelectionMode() xoá tập chọn
         VirtualMachineState.run([
             { state: enabled, operation: '===', value: true, callback: () => enableSelectionMode() },
             { state: enabled, operation: '===', value: false, callback: () => disableSelectionMode() },
@@ -700,9 +576,7 @@ const workflowPlaylist = {
         const selectedMediaKeys = appState.get('selectedMediaKeys'); // đọc LẠI sau khi core ghi xong (disableSelectionMode có thể vừa clear nó)
         const domNodesByKey = appState.get('domNodesByKey');
         const themeClasses = this._selectionThemeClasses();
-        // SỬA (02/10/2026, tối ưu 10000 item) — trước đây lặp qua MỌI node (đo 10000 item: ~1,4 s). Vòng tròn trống + ẩn nút
-        // 3 chấm giờ là CSS theo class `is-selecting` (applySelectionChrome() ngay dưới), nên chỉ còn lặp qua các key ĐÃ
-        // CHỌN (thường rỗng lúc bật, vài key lúc tắt).
+        // Chỉ lặp qua key ĐÃ CHỌN — vòng tròn trống + ẩn nút 3 chấm là CSS theo class `is-selecting` (applySelectionChrome()).
         VirtualMachineState.run([
             { state: enabled, operation: '===', value: true, callback: () => selectedKeysBefore.forEach((key) => showSelectionIndicator(domNodesByKey.get(key), key, selectedMediaKeys, themeClasses)) },
             { state: enabled, operation: '===', value: false, callback: () => selectedKeysBefore.forEach((key) => hideSelectionIndicator(domNodesByKey.get(key))) },
@@ -721,15 +595,13 @@ const workflowPlaylist = {
 
         const selectedMediaKeys = appState.get('selectedMediaKeys'); // đọc LẠI sau khi core ghi xong ở trên
         const node = appState.get('domNodesByKey').get(key);
-        // Không cần VMState ở đây: đang Ở TRONG chế độ chọn (hàm này chỉ được router gọi khi
-        // selectionMode=true, xem router/playlist.js), nên LUÔN showSelectionIndicator — việc
-        // chọn/bỏ-chọn CHỈ đổi màu/tick bên trong nó (ternary trình bày thuần theo isSelected,
-        // không phải rẽ nhánh tiến trình, khác hẳn quyết định BẬT/TẮT cả chế độ chọn ở trên).
+        // Đang ở trong chế độ chọn (router chỉ gọi khi selectionMode=true) -> luôn showSelectionIndicator; chọn/bỏ chọn
+        // chỉ đổi màu/tick bên trong.
         showSelectionIndicator(node, key, selectedMediaKeys, this._selectionThemeClasses());
         updateSelectionActionBar(appState.get('selectionMode'), selectedMediaKeys.size);
     },
 
-    /** MỚI 23/09/2026 (rà soát theme) — class theo theme đang active cho chỉ báo chọn nhiều, tra 1 lần ở Workflow rồi truyền xuống
+    /** Class theo theme đang active cho chỉ báo chọn nhiều — tra 1 lần ở Workflow rồi truyền xuống
      * `showSelectionIndicator()` (core lá, không tự tra theme). `selectionTintBg`/`btnPrimaryPillBg`/`textOnAccent`: core/ui-theme/*.js.
      * @returns {{tint:string, indicatorSelected:string}} */
     _selectionThemeClasses() {
@@ -739,26 +611,14 @@ const workflowPlaylist = {
         };
     },
 
-    /** Ứng với 'playlist.uploadMenu.open' khi selectionMode=true (xem router) — CHỈ hiện modal,
-     * không mở menu upload. alertModal() chỉ tồn tại ở tầng workflow (core không biết), nên dù chỉ
-     * 1 lời gọi vẫn thuộc workflow, không thể gọi thẳng từ router. */
+    /** Ứng với 'playlist.uploadMenu.open' khi selectionMode=true — chỉ hiện modal báo chặn, không mở menu upload. */
     async showUploadBlockedBySelectionModal() {
         await alertModal(t('playlistView.selection.uploadBlocked'));
     },
 
-    // ===================== Upload Video — DỜI từ event/workflow/file-manager-video.js (phản hồi
-    // Giang — file đó đã xoá hẳn, cụm này lúc đó CHỈ được gọi từ input riêng `#video-upload-input`
-    // ở Playlist, nên chuyển thẳng về đây thay vì giữ 1 file/router/listener riêng chỉ để relay).
-    // GIỮ NGUYÊN 100% thân hàm. [CẬP NHẬT — phản hồi Giang "1 khung, không nhân bản"] input riêng
-    // đó ĐÃ XOÁ — giờ gọi từ `fileInput`/`folderInput` DÙNG CHUNG (case 'playlist.upload.
-    // fileChange'/'playlist.upload.folderChange', event/router/playlist.js, VirtualMachineState
-    // theo activeMediaSource) — xem docstring uploadVideos() ngay dưới. =====
-
     // ===================== Chụp khung hình đầu video lúc upload =====================
-    // DỜI (06/10/2026, tách trình sửa video thành trang riêng) — toàn bộ cụm chụp khung đầu/thumb vuông (hằng số
-    // VIDEO_* + _waitVideoEvent/_sleep/_seekVideoTo/_grabFullFrame/_canvasToJpegBlob/_captureFirstFrame/
-    // _captureSquareThumb) sang event/workflow/video-thumb-extract.js (workflowVideoThumbExtract), NGUYÊN logic. 2 tên
-    // cũ dưới giữ lại làm cửa ngõ để mọi nơi gọi (uploadVideos(), workflowFileManagerStorage) không phải sửa.
+    // Cửa ngõ tới event/workflow/video-thumb-extract.js (workflowVideoThumbExtract) cho uploadVideos(),
+    // workflowFileManagerStorage.
 
     /** Xem workflowVideoThumbExtract.extract() (event/workflow/video-thumb-extract.js).
      * @param {File|Blob} file @returns {Promise<{thumbBlob: Blob, thumbFullBlob: Blob, thumbFullIsBlack: boolean, width: number, height: number, duration: number}>} */
@@ -771,14 +631,11 @@ const workflowPlaylist = {
         return workflowVideoThumbExtract.probeFrame(source); // event/workflow/video-thumb-extract.js
     },
 
-    // ===================== Upload Song — DỜI (24/09/2026) từ core/playlist/loader.js =====================
+    // ===================== Upload Song =====================
 
     /**
-     * TÁCH (01/10/2026, Ghi âm — Giang duyệt) từ vòng lặp `uploadSongs()` — đưa 1 record Song VỪA ghi DB vào danh sách
-     * đang hiện trong RAM (Nguồn Song). `isNew` = key chưa có trong playlistOrder (bài mới, không phải ghi đè).
-     * FIX cũ giữ nguyên (Giang báo "song mới upload thiếu addedAt/size trong playlistCache"): object ghi vào cache có
-     * ĐỦ addedAt/size giống `buildSongPlaylistCache()` (core/playlist/loader.js) — đọc `record.blob.size` cho khớp 100%.
-     * CHỈ gọi khi Nguồn đang là Song — Video/Photo dùng chung các map này cho danh sách CỦA CHÚNG.
+     * Đưa 1 record Song vừa ghi DB vào danh sách RAM (Nguồn Song). `isNew` = key chưa có trong playlistOrder. Object ghi
+     * vào cache đủ addedAt/size như `buildSongPlaylistCache()`. Chỉ gọi khi Nguồn là Song (Video/Photo dùng chung các map).
      * @param {string} key @param {{filename:string, tag:object, cover:Blob|null, duration:number, addedAt:number, blob:Blob}} record @param {boolean} isNew
      */
     _indexSongInPlaylistState(key, record, isNew) {
@@ -790,8 +647,7 @@ const workflowPlaylist = {
     },
 
     /**
-     * TÁCH (01/10/2026) từ `uploadSongs()` — làm mới danh sách sau khi thêm bài (Nguồn Song). updateShuffleArray()/
-     * applyNewSongsToDisplayOrder()/recomputeRenderOrder() thuộc event/workflow/playlist-order.js (workflowPlaylistOrder).
+     * Làm mới danh sách sau khi thêm bài (Nguồn Song).
      * @param {string[]} newlyAddedKeys - CHỈ key mới (không gồm ghi đè)
      */
     _refreshPlaylistAfterSongsAdded(newlyAddedKeys) {
@@ -802,15 +658,8 @@ const workflowPlaylist = {
     },
 
     /**
-     * TÁCH (01/10/2026) từ `uploadSongs()` (MỚI 06/09/2026, hợp nhất Folder vào Playlist, Batch 6) — đang Scope 1 folder
-     * Song thì gắn mọi key (mới HOẶC ghi đè) vào ĐÚNG folder đó — 1 lượt bulk. Đọc `activePlayListFolder.song` — đúng
-     * folder Song kể cả khi Nguồn đang là Video (Ghi âm lúc phát Video, Giang chốt).
-     * @param {string[]} keys
-     */
-    /**
-     * MỚI (06/10/2026, plan-media-db-split.md — Rule 3b) — Workflow CHUẨN BỊ cho core `addSongsToFolder()` (core/file-manager/
-     * folder.js — giờ không tự đọc DB): đọc `folder_song` của folder đích, folder không tồn tại thì dừng. DÙNG CHUNG mọi
-     * nơi thêm media vào folder (upload, ghi âm, picker "Thêm vào thư mục", Video editor "Lưu mới").
+     * Đọc `folder_song` của folder đích rồi `addSongsToFolder()` (core/file-manager/folder.js); folder không tồn tại thì
+     * dừng. Dùng chung mọi nơi thêm media vào folder (upload, ghi âm, picker "Thêm vào thư mục", Video editor "Lưu mới").
      * @param {string[]} keys @param {string} folderId @param {'song'|'video'|'photo'} mediaType
      * @returns {Promise<{status: 'notFound'|'ok', addedCount: number}>}
      */
@@ -820,25 +669,24 @@ const workflowPlaylist = {
         return addSongsToFolder(keys, folderId, mediaType, folderMap); // core/file-manager/folder.js
     },
 
+    /** Đang Scope 1 folder Song thì gắn mọi key (mới hoặc ghi đè) vào folder đó — 1 lượt bulk. Đọc
+     * `activePlayListFolder.song` — đúng folder Song kể cả khi Nguồn đang là Video (Ghi âm lúc phát Video).
+     * @param {string[]} keys */
     async _attachSongsToActiveSongFolder(keys) {
         const activeFolderIdForSong = appState.get('activePlayListFolder').song;
         if (!activeFolderIdForSong || keys.length === 0) return;
-        await this.addMediaToFolder(keys, activeFolderIdForSong, 'song'); // workflowPlaylist.addMediaToFolder() — SỬA 06/10/2026 (đọc folder_song rồi gọi core addSongsToFolder)
+        await this.addMediaToFolder(keys, activeFolderIdForSong, 'song');
     },
 
     /**
-     * MỚI (01/10/2026, Ghi âm — Giang chốt) — lưu bản ghi thành 1 Song MỚI (tên file có dấu thời gian tới giây -> không
-     * đè bài cũ). LUÔN ghi DB `songs` + gắn folder Song đang active. Danh sách trong RAM (playlistOrder/playlistCache/
-     * songNameIndex) CHỈ cập nhật khi Nguồn đang là Song — đang ở Video thì để nguyên (các map đó đang chứa danh sách
-     * Video), chuyển sang Nguồn Song loader tự nạp lại từ DB nên bài ghi âm có mặt.
+     * Ghi âm — lưu bản ghi thành 1 Song mới (tên có dấu thời gian tới giây -> không đè). Luôn ghi DB + gắn folder Song đang
+     * active. Danh sách RAM chỉ cập nhật khi Nguồn là Song; Nguồn khác thì chuyển sang Song loader tự nạp lại.
      * @param {{filename:string, blob:Blob, tag:{title:string, artist:string, album:string}, cover:Blob|null, duration:number}} song
      * @returns {Promise<string>} key vừa lưu
      */
     async addRecordedSong(song) {
         const key = await resolveSongKey(song.filename); // service/db.js
-        // SỬA (06/10/2026, plan-media-db-split.md) — cover gốc lấy từ playlistCache (Blob ĐỌC TỪ IndexedDB của bài/video
-        // nguồn) nên vật chất hoá thành Blob mới trước khi ghi sang record khác (tránh lỗi round-trip); file ghi âm vốn
-        // là Blob mới. Ghi qua createMediaRecord() (3 store).
+        // Cover lấy từ playlistCache (Blob đọc từ IndexedDB) -> vật chất hoá thành Blob mới trước khi ghi sang record khác.
         const cover = song.cover ? await rematerializeBlob(song.cover) : null; // service/db.js
         const record = { filename: song.filename, blob: song.blob, tag: song.tag, cover, subtitles: [], duration: song.duration, addedAt: Date.now() };
         await createMediaRecord('song', key, record); // service/db.js
@@ -856,15 +704,8 @@ const workflowPlaylist = {
         this._refreshPlaylistAfterSongsAdded(isNew ? [key] : []);
     },
 
-
-    /** DỜI (24/09/2026, dọn nợ "Core gọi Workflow") từ core/playlist/loader.js::handleAudioFiles() — thân GIỮ NGUYÊN.
-     *
-     * Xử lý 1 FileList bất kỳ (từ input chọn file rời HOẶC input "Chọn cả thư mục") — TÁCH
-     * RA thành hàm riêng (ver 8 refine) để 2 input dùng chung 100% logic, không lặp code.
-     * webkitdirectory trả về FileList chứa MỌI file trong thư mục + thư mục con (ảnh, txt,
-     * .DS_Store, v.v., không chỉ nhạc) — validateAudioFile() ở vòng lọc bên dưới tự loại các
-     * file không phải nhạc, y hệt cách input file rời lọc file sai định dạng cố tình chọn.
-     */
+    /** Nạp 1 FileList Song (input file rời hoặc cả thư mục — webkitdirectory trả mọi file kể cả không phải nhạc,
+     * validateAudioFile() loại bớt). */
     async uploadSongs(fileList) {
       try {
         const allFiles = Array.from(fileList); if (allFiles.length === 0) return;
@@ -872,15 +713,11 @@ const workflowPlaylist = {
 
         const failedFiles = [];
         const newlyAddedKeys = [];
-        // MỚI (06/09/2026, Batch 6) — mọi key THẬT SỰ setSongRecord() thành công trong lượt
-        // này (mới HOẶC ghi đè) — xem chỗ push ở vòng lặp bên dưới + gắn folder cuối hàm.
+        // Mọi key ghi thành công (mới hoặc ghi đè) — gắn folder đang active cuối hàm.
         const allProcessedKeys = [];
 
-        // (3a) Lọc định dạng nhạc NGAY khi nhận file — accept="" của <input> chỉ là gợi ý UI,
-        // không chặn thật (xem upload-validation.js). File không hợp lệ bị loại khỏi danh sách
-        // xử lý và liệt kê chung với failedFiles, KHÔNG được đưa vào IndexedDB/playlist.
-        // SỬA (06/10/2026, Giang chốt "file <= 500MB mới được upload") — kiểm thêm dung lượng
-        // (core/upload-validation.js::validateMediaFileSize()), lấy lỗi ĐẦU TIÊN gặp phải để báo.
+        // Lọc định dạng + dung lượng (core/upload-validation.js) ngay khi nhận file — `accept` chỉ là gợi ý. File không hợp lệ
+        // liệt kê chung với failedFiles, không vào IndexedDB/playlist. Báo lỗi đầu tiên gặp phải.
         const files = [];
         for (const file of allFiles) {
             const firstFail = [validateAudioFile(file), validateMediaFileSize(file)].find((check) => !check.valid); // core/upload-validation.js
@@ -891,20 +728,11 @@ const workflowPlaylist = {
             if (failedFiles.length > 0) await alertModal(tFormat('common.upload.failedList', { n: failedFiles.length, list: failedFiles.join('\n\n') }));
             return;
         }
-        // TỐI ƯU (v7): trước đây dùng `playlistOrder.includes(key)` NGAY TRONG vòng `for` qua
-        // từng file -> O(files.length × playlistOrder.length), O(n²) khi nạp nhiều file vào
-        // playlist đã lớn. Dựng 1 Set tra cứu O(1) trước vòng lặp, đồng bộ thêm phần tử mỗi khi
-        // push key mới (kể cả khi 2 file trùng tên trong CÙNG 1 lượt chọn — resolveSongKey() có
-        // thể trả cùng 1 key cho 2 file liên tiếp, Set phải thấy được key đó NGAY để không bị
-        // hiểu sai thành "bài mới" ở vòng lặp kế). Kết quả/logic giữ nguyên 100% so với bản cũ.
+        // Set tra cứu O(1) thay `playlistOrder.includes()` trong vòng lặp; thêm key ngay khi push (2 file trùng tên trong cùng
+        // lượt có thể ra cùng 1 key).
         const playlistOrderSet = new Set(appState.get('playlistOrder'));
 
-        // FIX (ver 8 refine #2): withLoadingShield() im lặng return (không làm gì, không throw)
-        // nếu đã có 1 tác vụ khác đang dùng shield (isShieldBusy = true) — ví dụ người dùng bấm
-        // "Thêm nhạc" 2 lần liên tiếp quá nhanh, hoặc 1 tác vụ nền (xóa bài, lưu ảnh nền...) còn
-        // đang chạy. Trước đây trường hợp này HOÀN TOÀN im lặng: người dùng chọn file/thư mục
-        // xong, không thấy gì xảy ra, không có lỗi nào để biết nguyên nhân. Theo dõi qua biến cờ
-        // riêng để log + alert rõ ràng thay vì im lặng bỏ qua.
+        // withLoadingShield() im lặng bỏ qua nếu shield đang bận tác vụ khác — theo dõi qua cờ để báo rõ.
         let shieldRan = false;
         await withLoadingShield(tFormat('common.upload.loadingProgress', { done: 1, total: files.length }), async () => {
             shieldRan = true;
@@ -932,14 +760,9 @@ const workflowPlaylist = {
                                             if (tagResult.tags.picture && tagResult.tags.picture.data) {
                                                 const data = tagResult.tags.picture.data;
                                                 const format = tagResult.tags.picture.format;
-                                                // Ver 8 refine (mục 4 — lỗi ảnh cover không hiển thị): jsmediatags đôi khi trả
-                                                // `format` RỖNG hoặc KHÔNG PHẢI MIME ảnh hợp lệ (file MP3 ghi tag ID3 không
-                                                // chuẩn, hoặc bị cắt cụt) — Blob constructor KHÔNG throw lỗi dù `type` rác,
-                                                // nhưng <img> sau đó không decode được (hiện ảnh vỡ) vì browser không biết
-                                                // coi nội dung đó là ảnh gì. Validate MIME bằng VALID_IMAGE_MIME_TYPES (đã
-                                                // có sẵn ở upload-validation.js) NGAY tại nguồn — nếu sai, bỏ cover (null)
-                                                // thay vì lưu 1 Blob chắc chắn không hiển thị được; bài hát vẫn nạp bình
-                                                // thường, chỉ là không có ảnh bìa (fallback DEFAULT_VINYL, không phải lỗi).
+                                                // jsmediatags có thể trả `format` rỗng/không phải MIME ảnh (tag hỏng) — Blob
+                                                // vẫn tạo được nhưng <img> không decode. Kiểm bằng VALID_IMAGE_MIME_TYPES, sai
+                                                // thì bỏ cover (fallback DEFAULT_VINYL).
                                                 const normalizedFormat = (format || '').toLowerCase().trim();
                                                 if (normalizedFormat && VALID_IMAGE_MIME_TYPES.has(normalizedFormat) && data && data.length > 0) {
                                                     cover = new Blob([new Uint8Array(data)], { type: normalizedFormat });
@@ -970,34 +793,22 @@ const workflowPlaylist = {
                     const key = await resolveSongKey(file.name);
                     const isOverwrite = playlistOrderSet.has(key);
 
-                    // FIX (06/10/2026, Giang báo "bài VỪA upload: ẩn app thì nhạc dừng + mất Media Session; reload/vào lại thì ổn")
-                    // — `file` là File của ô chọn file: trên iOS nó trỏ tới file TẠM của trình chọn file, và Blob đọc lại từ
-                    // IndexedDB NGAY TRONG PHIÊN upload có thể vẫn trỏ về đúng file tạm đó (sau khi tải lại trang mới trỏ về bản
-                    // IndexedDB tự giữ — đúng triệu chứng "reload thì ổn"). App vào nền, iOS thu quyền/dọn file tạm -> nguồn phát
-                    // chết. Vật chất hoá thành Blob trong RAM trước khi ghi để bản lưu không còn dính file tạm (cùng cơ chế
-                    // rematerializeBlob(), service/db.js). Chỉ áp cho Song (phát nền); file Song thường chỉ vài chục MB.
+                    // iOS: File của ô chọn file có thể trỏ tới file tạm của trình chọn — vào nền thì bị thu/dọn, nguồn phát
+                    // chết. Vật chất hoá thành Blob trong RAM trước khi ghi (chỉ Song — phát nền).
                     const ownedBlob = await rematerializeBlob(file); // service/db.js
                     const record = { filename: file.name, blob: ownedBlob, tag, cover, subtitles: [], duration, addedAt: Date.now() };
                     if (isOverwrite) {
-                        // SỬA (06/10/2026, plan-media-db-split.md) — chỉ đọc meta (không mở Blob). Ghi đè giữ lại phụ đề
-                        // (như cũ) + folder / thống kê / điểm Game (giờ nằm trong meta — trước đây field folder bị mất khi ghi đè).
+                        // Chỉ đọc meta. Ghi đè giữ lại phụ đề + folder / thống kê / điểm Game.
                         const old = await getMediaMeta('song', key); // service/db.js
                         if (old) Object.assign(record, { subtitles: old.subtitles || [], folder: old.folder, stats: old.stats, game: old.game });
                     }
                     await createMediaRecord('song', key, record); // service/db.js — 3 store, file + cover đều là Blob mới
-                    // MỚI (06/10/2026, plan mục 7) — báo request trung tâm: nếu bài này đang phát/đang dùng thì tự nạp lại.
+                    // Báo `mediaInUse`: mục này đang phát/đang dùng thì tự nạp lại.
                     eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced', payload: { type: 'song', key } });
-                    // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 6 — "upload tự gắn
-                    // vào folder đang active") — gom key vào ĐÂY (CẢ 2 nhánh mới/ghi đè, xem
-                    // docstring cuối vòng lặp for) — gắn folder hàng loạt SAU vòng lặp, không
-                    // gọi addSongsToFolder() N lần riêng lẻ trong lúc lặp (tốn kém, xem docstring
-                    // addSongsToFolder()/removeSongsFromFolder(), core/file-manager/folder.js).
+                    // Gom key (cả mới lẫn ghi đè) — gắn folder hàng loạt sau vòng lặp.
                     allProcessedKeys.push(key);
 
                     if (!isOverwrite) { playlistOrderSet.add(key); newlyAddedKeys.push(key); }
-                    // SỬA (01/10/2026, Ghi âm — Giang duyệt tách) — 4 lần mutate playlistOrder/playlistCache/songNameIndex/
-                    // confirmedBrokenKeys dời vào `_indexSongInPlaylistState()` (dùng chung với `addRecordedSong()`), thứ tự
-                    // và nội dung GIỮ NGUYÊN (gồm fix addedAt/size trong playlistCache — xem docblock method đó).
                     this._indexSongInPlaylistState(key, record, !isOverwrite);
                 } catch (err) {
                     console.error(`[playlist] Không nạp được "${file.name}":`, err);
@@ -1005,16 +816,12 @@ const workflowPlaylist = {
                     failedFiles.push(`${escapeHtml(file.name)} — ${escapeHtml(errMsg)}`);
                 }
             }
-            // SỬA (01/10/2026, Ghi âm — Giang duyệt tách) — 4 bước làm mới danh sách + gắn folder đang active dời vào
-            // `_refreshPlaylistAfterSongsAdded()`/`_attachSongsToActiveSongFolder()` (dùng chung với `addRecordedSong()`),
-            // thứ tự và nội dung GIỮ NGUYÊN.
             this._refreshPlaylistAfterSongsAdded(newlyAddedKeys);
             await this._attachSongsToActiveSongFolder(allProcessedKeys);
         });
 
         if (!shieldRan) {
-            // withLoadingShield() đã bỏ qua lệnh gọi này vì đang bận tác vụ khác — KHÔNG có file
-            // nào được xử lý dù người dùng đã chọn xong. Báo rõ thay vì im lặng.
+            // withLoadingShield() bỏ qua vì đang bận tác vụ khác — báo rõ thay vì im lặng.
             console.warn('[upload] handleAudioFiles bị bỏ qua: đang có 1 tác vụ khác dùng loading shield (isShieldBusy=true). Hãy thử lại sau khi tác vụ hiện tại xong.');
             await alertModal(t('common.upload.shieldBusy'));
             return;
@@ -1029,15 +836,7 @@ const workflowPlaylist = {
       }
     },
 
-    /** DỜI (24/09/2026) từ core/playlist/loader.js::handleFilePickerChange() — thân GIỮ NGUYÊN (chỉ đổi lời gọi handleAudioFiles -> this.uploadSongs).
-     *
-     * Xử lý FileList đã chốt (Array thật) từ input chọn FILE RỜI (#media-upload — DÙNG CHUNG
-     * Song/Video/Photo từ phản hồi Giang "1 khung, không nhân bản"; hàm NÀY chỉ được router
-     * gọi khi activeMediaSource='song', xem event/router/playlist.js). Core THUẦN nhận Array
-     * qua tham số — KHÔNG tự đọc input/FileList (đã chốt ở listener, xem comment phía trên).
-     * Giữ NGUYÊN try/catch + alertModal() bên trong (giống handleAudioFiles() — đây vẫn là 1
-     * hàm core "lớn" có sẵn shield/modal nội bộ, KHÔNG tách ra workflow, theo đúng quyết định
-     * đã chốt khi tách cụm này vào /event/).
+    /** Input chọn file rời (#media-upload, dùng chung 3 Nguồn — router chỉ gọi hàm này khi Nguồn là Song).
      * @param {File[]} fileList
      */
     async handleSongFilePickerChange(fileList) {
@@ -1054,12 +853,7 @@ const workflowPlaylist = {
         }
     },
 
-    /** DỜI (24/09/2026) từ core/playlist/loader.js::handleFolderPickerChange() — thân GIỮ NGUYÊN (chỉ đổi lời gọi handleAudioFiles -> this.uploadSongs).
-     *
-     * Xử lý FileList đã chốt từ input chọn CẢ THƯ MỤC (#media-upload-folder — DÙNG CHUNG Song/
-     * Video/Photo, cùng lý do handleFilePickerChange() ngay trên; hàm NÀY chỉ được router gọi
-     * khi activeMediaSource='song'). Core THUẦN, cùng nguyên tắc như handleFilePickerChange()
-     * ở trên.
+    /** Input chọn cả thư mục (#media-upload-folder — router chỉ gọi khi Nguồn là Song).
      * @param {File[]} fileList
      */
     async handleSongFolderPickerChange(fileList) {
@@ -1077,44 +871,28 @@ const workflowPlaylist = {
         }
     },
 
-    /** Ứng với 'playlist.upload.fileChange'/'playlist.upload.folderChange' khi activeMediaSource=
-     * 'video' (SỬA — phản hồi Giang "1 khung, không nhân bản": trước đây có msg.type riêng
-     * 'playlist.upload.videoFileChange' từ input riêng #video-upload-input, ĐÃ XOÁ — giờ dùng
-     * CHUNG 2 input với Song/Photo, router (event/router/playlist.js) rẽ nhánh VirtualMachineState
-     * theo activeMediaSource, cả 2 case đều gọi hàm NÀY — hàm không phân biệt file đến từ input
-     * "chọn file" hay "chọn thư mục", chỉ cần 1 mảng File). Lỗi 1 file (vd file hỏng) KHÔNG chặn cả
-     * lô upload — bắt riêng, bỏ qua đúng file đó, tiếp tục file sau (Rule 1: vẫn 1 tiến trình
-     * "upload cả lô"). Hiện tiến trình "X/Y" qua `loadingText.textContent`, ĐÚNG pattern
-     * `handleAudioFiles()` (Song, core/playlist/loader.js) — tái dùng NGUYÊN lang key
-     * `common.upload.loadingProgress`.
-     *
-     * SỬA (18/09/2026, Giang yêu cầu "thiếu full-res lúc upload cũng là lỗi thật... cần thông báo
-     * với người dùng, khuyến nghị upload lại") — `extractVideoThumbAndMeta()` giờ reject luôn nếu
-     * thiếu full-res (xem SỬA cùng ngày ở hàm đó), rơi vào ĐÚNG nhánh catch có sẵn bên dưới — file
-     * đó tự động bị skip (KHÔNG lưu record), không cần đổi gì ở vòng lặp. Cái THIẾU trước đây: catch
-     * chỉ đếm số (`failedCount`), không nhớ TÊN file nào bị skip để báo — thêm `skippedFilenames`,
-     * cuối hàm nếu có ít nhất 1 file bị skip thì hiện THÊM 1 modal riêng liệt kê tên + khuyến nghị
-     * upload lại (TÁCH khỏi modal "Đã thêm N video" thành công cho rõ, không gộp chung 1 câu).
+    /** Upload Video (2 input dùng chung, router rẽ theo activeMediaSource). Lỗi 1 file không chặn cả lô — bỏ qua file đó.
+     * Tiến trình "X/Y" qua `loadingText` (`common.upload.loadingProgress`). File thiếu khung full-res bị
+     * extractVideoThumbAndMeta() reject -> skip, cuối lô báo riêng danh sách tên + khuyến nghị upload lại.
      * @param {FileList|File[]} files
      */
     async uploadVideos(files) {
-        // SỬA (06/10/2026, Giang chốt "file <= 500MB mới được upload") — tách file quá cỡ ra TRƯỚC
-        // vòng nạp (không chụp thumbnail, không lưu), báo riêng ở cuối hàm.
+        // Tách file quá 500MB ra trước vòng nạp, báo riêng cuối hàm.
         const { acceptedFiles: fileArray, oversizedLines } = this._splitOversizedFiles(files);
         if (fileArray.length === 0) { await this._alertOversizedFiles(oversizedLines); return; }
 
         let failedCount = 0;
-        const skippedFilenames = []; // MỚI (18/09/2026) — tên từng file bị skip, để báo cuối lô
-        const uploadedVideoKeys = []; // MỚI (06/09/2026, Batch 6) — gắn folder hàng loạt SAU vòng lặp, xem cuối hàm
+        const skippedFilenames = []; // tên file bị skip, báo cuối lô
+        const uploadedVideoKeys = []; // gắn folder hàng loạt sau vòng lặp
         await withLoadingShield(tFormat('common.upload.loadingProgress', { done: 1, total: fileArray.length }), async () => {
             for (let i = 0; i < fileArray.length; i++) {
                 const file = fileArray[i];
                 loadingText.textContent = tFormat('common.upload.loadingProgress', { done: i + 1, total: fileArray.length });
                 try {
                     const { thumbBlob, thumbFullBlob, thumbFullIsBlack, width, height, duration } = await this.extractVideoThumbAndMeta(file);
-                    const videoKey = await resolveVideoKey(file.name); // service/db.js — SỬA 06/10/2026: key resolve ở Workflow (Rule 3)
+                    const videoKey = await resolveVideoKey(file.name); // service/db.js
                     await saveVideo(videoKey, file, file.name, thumbBlob, width, height, duration, thumbFullBlob, thumbFullIsBlack); // core/file-manager/video.js
-                    eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced', payload: { type: 'video', key: videoKey } }); // MỚI 06/10/2026 — trùng tên = ghi đè, trung tâm tự nạp lại nếu đang dùng
+                    eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced', payload: { type: 'video', key: videoKey } }); // trùng tên = ghi đè, trung tâm tự nạp lại nếu đ
                     uploadedVideoKeys.push(videoKey);
                 } catch (err) {
                     console.error(`[uploadVideos] chụp thumbnail/lưu thất bại cho file "${file.name}":`, err);
@@ -1122,24 +900,18 @@ const workflowPlaylist = {
                     skippedFilenames.push(file.name);
                 }
             }
-            // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 6) — nếu đang Scope 1 folder
-            // Video, gắn LUÔN mọi file vừa upload vào ĐÚNG folder đó, CÙNG LÝ DO/CÙNG CHỖ GỌI
-            // handleAudioFiles() (core/playlist/loader.js).
+            // Đang Scope 1 folder Video -> gắn mọi file vừa upload vào folder đó.
             const activeFolderIdForVideo = appState.get('activePlayListFolder').video;
             if (activeFolderIdForVideo && uploadedVideoKeys.length > 0) {
-                await this.addMediaToFolder(uploadedVideoKeys, activeFolderIdForVideo, 'video'); // workflowPlaylist.addMediaToFolder() — SỬA 06/10/2026 (đọc folder_song rồi gọi core addSongsToFolder)
+                await this.addMediaToFolder(uploadedVideoKeys, activeFolderIdForVideo, 'video');
             }
         });
         // input tự dọn value trong chính listener của nó (event/listener/playlist.js, fileInput/folderInput dùng chung).
-        // MỚI (21/07/2026, Giang chỉ ra "không cập nhật lại list của video") — nếu Playlist đang
-        // browse nguồn Video, làm mới playlistCache/playlistOrder NGAY để Next/Prev thấy được video
-        // vừa upload — KHÔNG cần đổi Nguồn tắt/bật lại.
+        // Playlist đang ở Nguồn Video -> làm mới ngay để Next/Prev thấy video vừa upload.
         await workflowVideoPlayer.refreshVideoPlaylistIfActive(); // event/workflow/video-player.js — tự guard activeMediaSource, no-op nếu Playlist không ở nguồn Video
         const successCount = fileArray.length - failedCount;
-        await this._alertOversizedFiles(oversizedLines); // MỚI (06/10/2026) — file quá 500MB bị bỏ qua
-        // MỚI (18/09/2026) — báo riêng danh sách file bị skip TRƯỚC, rồi mới báo thành công (nếu
-        // có) — `r.filename`-style dữ liệu NGƯỜI DÙNG (tên file), PHẢI escapeHtml() trước khi nhúng,
-        // cùng nguyên tắc đã áp dụng ở renderScanResultUI() (core/storage-manager.js).
+        await this._alertOversizedFiles(oversizedLines); // file quá 500MB bị bỏ qua
+        // Báo file bị skip trước (tên file là dữ liệu người dùng -> escapeHtml()), rồi mới báo thành công.
         if (skippedFilenames.length > 0) {
             const namesHtml = skippedFilenames.map((n) => escapeHtml(n)).join(', ');
             await alertModal(tFormat('fileManager.video.uploadSkipped', { count: skippedFilenames.length, names: namesHtml }), { title: t('fileManager.video.uploadSkippedTitle') });
@@ -1150,56 +922,41 @@ const workflowPlaylist = {
     },
 
     /** Ứng với 'playlist.upload.fileChange'/'playlist.upload.folderChange' khi activeMediaSource=
-     * 'photo' — MỚI (phản hồi Giang "1 khung, không nhân bản" + "quá trình cũ của up photo có thể
-     * tái dùng nhưng phải đúng quy trình mẫu của song/video đã làm ở giao diện playlist"). TÁI
-     * DÙNG "quá trình cũ" ở đúng phần lõi (resize thumbnail — `workflowFileManagerPhoto.
-     * resizeImageForThumbnail()`, event/workflow/file-manager-photo.js, Workflow gọi Workflow miền
-     * khác, TỰ DO theo event-bus-flow.md mục 4B — KHÔNG viết lại thuật toán resize) + `saveImage()`
-     * (core/file-manager/image.js, không đổi) — nhưng KHÔNG gọi thẳng `uploadImages()` (hàm đó
-     * mang theo hành lý riêng của Photo Panel: check `photoPanel.classList.contains('hidden')`,
-     * tự dọn `#file-manager-image-upload-input`, tự `this.refresh()` lưới CỦA NÓ, tự alertModal
-     * theo ngữ cảnh Photo Panel — không khớp giao diện Playlist). Thân hàm NÀY viết MỚI, đúng
-     * KHUÔN `uploadVideos()` ngay trên (shield + tiến trình "X/Y" + bắt lỗi riêng từng file + xong
-     * thì tự làm mới Playlist nếu đang đứng ở Nguồn Photo, qua applyFolderScope()/applyAllSongsScope()
-     * — event/workflow/playlist-scope.js).
-     * SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — thêm bước gọi
-     * `workflowFileManagerPhoto.computePhotoDuration()` (cùng file với `resizeImageForThumbnail()`,
-     * cùng lý do TỰ DO gọi chéo Workflow) TRƯỚC `saveImage()`, `saveImage()` giờ nhận thêm `duration`.
+     * 'photo' — cùng khuôn uploadVideos(): shield + tiến trình "X/Y" + bắt lỗi từng file. Mỗi file: resize thumbnail +
+     * tính duration (workflowFileManagerPhoto) rồi `saveImage()`. Xong thì làm mới Playlist nếu đang ở Nguồn Photo.
      * @param {FileList|File[]} files
      */
     async uploadPhotos(files) {
-        // SỬA (06/10/2026) — cùng giới hạn 500MB/file như uploadVideos() ngay trên.
+        // Giới hạn 500MB/file như uploadVideos().
         const { acceptedFiles: fileArray, oversizedLines } = this._splitOversizedFiles(files);
         if (fileArray.length === 0) { await this._alertOversizedFiles(oversizedLines); return; }
 
         let failedCount = 0;
-        const uploadedImageKeys = []; // MỚI (06/09/2026, Batch 6) — gắn folder hàng loạt SAU vòng lặp, xem cuối hàm
+        const uploadedImageKeys = []; // gắn folder hàng loạt sau vòng lặp
         await withLoadingShield(tFormat('common.upload.loadingProgress', { done: 1, total: fileArray.length }), async () => {
             for (let i = 0; i < fileArray.length; i++) {
                 const file = fileArray[i];
                 loadingText.textContent = tFormat('common.upload.loadingProgress', { done: i + 1, total: fileArray.length });
                 try {
-                    const { thumbBlob, width, height } = await workflowFileManagerPhoto.resizeImageForThumbnail(file); // event/workflow/file-manager-photo.js — tái dùng NGUYÊN thuật toán resize cũ
-                    const duration = await workflowFileManagerPhoto.computePhotoDuration(file, width, height); // MỚI — Photo tích hợp duration như Song/Video (event/workflow/file-manager-photo.js)
-                    const imageKey = await resolveImageKey(file.name); // service/db.js — SỬA 06/10/2026: key resolve ở Workflow (Rule 3)
+                    const { thumbBlob, width, height } = await workflowFileManagerPhoto.resizeImageForThumbnail(file); // event/workflow/file-manager-photo.js
+                    const duration = await workflowFileManagerPhoto.computePhotoDuration(file, width, height); // event/workflow/file-manager-photo.js
+                    const imageKey = await resolveImageKey(file.name); // service/db.js
                     await saveImage(imageKey, file, file.name, thumbBlob, width, height, duration); // core/file-manager/image.js
-                    eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced', payload: { type: 'photo', key: imageKey } }); // MỚI 06/10/2026 — trùng tên = ghi đè
+                    eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced', payload: { type: 'photo', key: imageKey } }); // trùng tên = ghi đè
                     uploadedImageKeys.push(imageKey);
                 } catch (err) {
                     console.error(`[uploadPhotos] resize/lưu thất bại cho file "${file.name}":`, err);
                     failedCount++;
                 }
             }
-            // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 6) — CÙNG LÝ DO uploadVideos() ngay trên.
+            // Đang Scope 1 folder Photo -> gắn mọi ảnh vừa upload vào folder đó.
             const activeFolderIdForPhoto = appState.get('activePlayListFolder').photo;
             if (activeFolderIdForPhoto && uploadedImageKeys.length > 0) {
-                await this.addMediaToFolder(uploadedImageKeys, activeFolderIdForPhoto, 'photo'); // workflowPlaylist.addMediaToFolder() — SỬA 06/10/2026 (đọc folder_song rồi gọi core addSongsToFolder)
+                await this.addMediaToFolder(uploadedImageKeys, activeFolderIdForPhoto, 'photo');
             }
         });
         // input tự dọn value trong chính listener của nó (event/listener/playlist.js, fileInput/folderInput dùng chung).
-        // Làm mới Playlist NGAY nếu đang đứng ở Nguồn Photo — applyFolderScope()/applyAllSongsScope()
-        // (event/workflow/playlist-scope.js) tự nạp lại cache ĐÚNG phạm vi (folder đang active nếu
-        // có, nhặt luôn ảnh vừa upload) + Filter + render, không cần tự gọi gì thêm.
+        // Làm mới Playlist ngay nếu đang ở Nguồn Photo — apply*Scope() tự nạp lại đúng phạm vi + Filter + render.
         if (appState.get('activeMediaSource') === 'photo') {
             const activeFolderIdForPhotoRefresh = appState.get('activePlayListFolder').photo;
             if (activeFolderIdForPhotoRefresh) await workflowPlaylistScope.applyFolderScope(activeFolderIdForPhotoRefresh, 'photo');
@@ -1207,12 +964,12 @@ const workflowPlaylist = {
             console.log(`writer: "uploadPhotos", page: "playlistOrder", content: "${appState.get('playlistOrder').length} ảnh (làm mới sau upload)"`);
         }
         const successCount = fileArray.length - failedCount;
-        await this._alertOversizedFiles(oversizedLines); // MỚI (06/10/2026) — file quá 500MB bị bỏ qua
+        await this._alertOversizedFiles(oversizedLines); // file quá 500MB bị bỏ qua
         await alertModal(tFormat('fileManager.photo.image.uploadSuccess', { count: successCount })); // tái dùng NGUYÊN lang key cũ của Photo Panel
     },
 
     /**
-     * MỚI (06/10/2026, Giang chốt "file <= 500MB mới được upload") — DÙNG CHUNG uploadVideos()/uploadPhotos():
+     * Giới hạn 500MB/file — dùng chung uploadVideos()/uploadPhotos():
      * tách file vượt giới hạn (core/upload-validation.js::validateMediaFileSize()) khỏi danh sách nạp, trả kèm
      * từng dòng báo lỗi đã escape sẵn (tên file là dữ liệu người dùng). Song tự kiểm trong vòng lọc định dạng
      * riêng của uploadSongs() (gộp chung danh sách failedFiles có sẵn).
@@ -1235,81 +992,50 @@ const workflowPlaylist = {
     },
 
     /**
-     * "Phát bài đã chọn" — áp displaySortMode hiện tại NHƯNG chỉ trong tập đã chọn (tái dùng
-     * sortKeysByMode() có sẵn ở core/playlist/order.js, chỉ đổi input thành tập con).
-     *
-     * SỬA (fix 03/07/2026, mục 3a/3b yêu cầu) — đây chính là "section chọn bài -> phát" phải KHÁC
-     * "danh sách phát của playlist": trước đây chỉ ghi đè displayOrder, không đánh dấu gì, khiến
-     * app không còn cách nào biết "đang ở trong 1 section" để quay lại top-level. Giờ đặt
-     * sectionQueueActive=true (đọc bởi 2 nút to Phát/Trộn bài — event/workflow/playlist-empty-state.js
-     * — để biết cần chèn lại top-level trước khi phát) VÀ, nếu Shuffle đang BẬT sẵn từ trước khi
-     * vào section này, resync NGAY shuffleIndices theo section mới (updateShuffleArrayFromQueue) —
-     * tránh Next/Prev đầu tiên trong section "tràn" ngay sang top-level vì shuffleIndices cũ còn
-     * thuộc phạm vi khác.
+     * "Phát bài đã chọn" — sắp tập đã chọn theo displaySortMode hiện tại (sortKeysByMode()), đặt sectionQueueActive=true
+     * (2 nút to Phát/Trộn bài biết cần chèn lại top-level trước khi phát) và, nếu Shuffle đang bật, resync shuffleIndices
+     * theo section mới (tránh Next/Prev đầu tiên tràn sang top-level).
      */
     playSelectedSongs() {
         const keys = Array.from(appState.get('selectedMediaKeys'));
         if (keys.length === 0) return; // guard — chưa chọn gì thì không làm gì
 
-        // MỚI (ver12 Batch1) — sortKeysByMode() đổi chữ ký, nhận tham số thay vì tự appState.get()
-        // (Rule 2, xem comment tại định nghĩa hàm, core/playlist/order.js) — gộp 1 lần get([...]).
-        // FIX (regression, phản hồi Giang — "Chọn nhiều -> Phát ném TypeError") — sortKeysByMode()
-        // SAU ĐÓ đổi chữ ký THÊM LẦN NỮA (mục 3, tách trục thống kê: statField/statDirection chen
-        // vào GIỮA nameMode và songNameIndex, thêm mediaStatsMap cuối cùng — core/playlist/
-        // order.js) nhưng caller NÀY sót lại, vẫn gọi theo VỊ TRÍ CŨ 4 tham số — `songNameIndex`/
-        // `playlistCache` bị đẩy LỆCH xuống đúng vị trí `statField`/`statDirection`, 3 tham số
-        // cuối cùng (`songNameIndex`/`playlistCache`/`mediaStatsMap` THẬT) luôn `undefined` ->
-        // `_buildStatComparator()` rơi vào nhánh mặc định 'duration', gọi `playlistCache.get(k)`
-        // trên `undefined` -> TypeError ngay lần so sánh đầu (chắc chắn xảy ra khi chọn ≥2 bài).
-        // Đọc ĐỦ 6 field, gọi ĐÚNG thứ tự 7 tham số — CÙNG khuôn đã dùng đúng ở
-        // recomputeRenderOrder()/recomputeDisplayOrder() (core/playlist/order.js).
         const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache: cache, mediaStatsMap, activeMediaSource } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'activeMediaSource']);
-        const sorted = sortKeysByMode(keys, nameMode, statField, statDirection, songNameIndex, cache, mediaStatsMap, activeMediaSource); // core/playlist/order.js — SỬA 06/10/2026: + loại media (key thống kê `type:key`)
+        const sorted = sortKeysByMode(keys, nameMode, statField, statDirection, songNameIndex, cache, mediaStatsMap, activeMediaSource); // core/playlist/order.js
         appState.set('displayOrder', sorted);
         console.log(`writer: "playSelectedSongs", page: "displayOrder", content: "${sorted.length} bài đã chọn, sort theo displaySortMode hiện tại"`);
-        // FIX (vi phạm Rule 4 — core-function-conventions.md, mỗi lượt ghi appState phải có log)
-        // — dòng mutate() này TỪ TRƯỚC đã thiếu console.log, sót lại trong lúc hàm chỉ được sửa vì
-        // bug sortKeysByMode() ở trên — tiện sửa LUÔN, CÙNG khuôn "writer" đã dùng cho 2 lượt ghi
-        // còn lại trong CHÍNH hàm này, và đúng tiền lệ recomputeDisplayOrder() (core/playlist/
-        // order.js) đã bổ sung log cho ĐÚNG dòng `pendingResortKeys` y hệt.
         appState.mutate('pendingResortKeys', s => s.clear());
         console.log(`writer: "playSelectedSongs", page: "pendingResortKeys", content: "clear toàn bộ"`);
 
         appState.set('sectionQueueActive', true);
         console.log(`writer: "playSelectedSongs", page: "sectionQueueActive", content: "true"`);
         if (appState.get('isShuffle')) {
-            updateShuffleArrayFromQueue(sorted, appState.get('playlistOrder'), true); // core mới (order.js), CÓ tham số -> Rule 2 hợp lệ
+            updateShuffleArrayFromQueue(sorted, appState.get('playlistOrder'), true); // core/playlist/order.js
         }
 
         this._exitSelectionMode(); // thoát chế độ chọn trước khi chuyển màn hình phát
-        workflowPlayer.playMedia(sorted[0]); // [SỬA — plan-playmedia-reorg.md] thay window.playSong() cũ, Workflow gọi Workflow khác miền, tự do
+        workflowPlayer.playMedia(sorted[0]); // event/workflow/player.js
     },
 
     /**
-     * "Xuất ZIP" — build tag mới nhất cho từng bài (tái dùng buildTaggedBlob() có sẵn ở
-     * core/id3-export.js), gom vào 1 file .zip (`_compressZipEntries()`, core/storage-manager.js —
-     * SỬA 10/09/2026, ưu tiên streaming OPFS qua zip.js thay JSZip trực tiếp) rồi tải xuống 1 lần —
-     * KHÔNG gọi exportSongWithTag() có sẵn (mỗi lần tự bọc withLoadingShield() riêng — lồng shield
-     * sẽ bị chặn bởi isShieldBusy, xem loading-shield-util.js).
+     * "Xuất ZIP" (Song) — gắn tag mới nhất cho từng bài (buildTaggedBlob(), core/id3-export.js) rồi nén qua
+     * workflowZipDownload (chia phần <= 500MB). Không dùng exportSongWithTag() (mỗi lần tự bọc shield — lồng shield bị chặn)
+     * và giữ đường riêng để đếm `failedCount` bài phải dùng file gốc.
      */
     async exportSelectedSongsZip() {
         const keys = Array.from(appState.get('selectedMediaKeys'));
         if (keys.length === 0) return;
 
         let failedCount = 0;
-        let zipParts; // SỬA (06/10/2026) — nhiều phần zip <= 500MB (event/workflow/zip-download.js), trước là 1 zipBlob
-        // SỬA (10/09/2026, Giang yêu cầu "làm giống Folder Download/Storage Management") — TRƯỚC ĐÂY
-        // dùng `t('common.loading.exportingFile')` (chữ TĨNH, không hiện %) suốt cả quá trình — giờ
-        // ĐỔI sang ĐÚNG chữ + cách cập nhật % y hệt `zipAndDownloadOrFallback()`
-        // (event/workflow/file-manager-storage.js): `common.storage.zippingStart` lúc bắt đầu, rồi
-        // `onProgress` cập nhật `loadingText.textContent` theo `common.storage.zippingProgress`.
+        let zipParts;
+        // Chữ + % tiến độ như zipAndDownloadOrFallback(): `common.storage.zippingStart`, rồi `common.storage.zippingProgress`.
         await withLoadingShield(t('common.storage.zippingStart'), async () => {
             const entries = [];
             for (const key of keys) {
                 const record = await getSongRecord(key);
                 if (!record) { failedCount++; continue; } // guard: bài không còn tồn tại (race) — bỏ qua
                 try {
-                    const taggedBlob = await buildTaggedBlob(record); // core có sẵn, CÓ return, DÙNG ngay dưới
+                    const taggedBlob = await buildTaggedBlob(record); // core/id3-export.js
                     entries.push({ filename: record.filename, blob: taggedBlob });
                 } catch (e) {
                     console.error('[workflow:playlist] Lỗi ghi tag lúc xuất ZIP hàng loạt, dùng file gốc thay thế:', e);
@@ -1317,81 +1043,52 @@ const workflowPlaylist = {
                     failedCount++;
                 }
             }
-            // XOÁ (10/09/2026, Giang yêu cầu "loại bỏ toàn bộ JSZip") — TRƯỚC ĐÂY dùng thẳng
-            // `new JSZip()...generateAsync()` ở đây; giờ giao hẳn cho `_compressZipEntries()`
-            // (core/storage-manager.js — ĐƯỜNG DUY NHẤT để nén zip, JSZip đã bỏ hẳn khỏi app).
-            // SỬA (Giang báo bug "Storage Manager bỏ qua tag mp3") — `buildAllSongsZipBlob()`
-            // (core/storage-manager.js) GIỜ ĐÃ tự gọi `buildTaggedBlob()` cho từng file qua
-            // `_collectZipEntries()`, lẽ ra dùng lại được — nhưng hàm này VẪN giữ code riêng vì có
-            // thêm resilience per-file RIÊNG (`failedCount` báo người dùng biết CHÍNH XÁC bao nhiêu
-            // bài bị fallback, xem catch() ngay trên) mà `buildAllSongsZipBlob()` không trả ra
-            // ngoài (chỉ tự log console) — giữ 2 đường tách nhau CÓ CHỦ Ý cho khác biệt UI này.
-            // SỬA (06/10/2026, Giang yêu cầu chia zip >500MB) — nén qua workflowZipDownload (tự chia nhóm + cập nhật %).
             zipParts = await workflowZipDownload.compressInParts(entries, t('playlistView.selection.exportZipFilename')); // event/workflow/zip-download.js
         });
 
         this._exitSelectionMode();
-        // Shield đã đóng HẲN tới đây — an toàn để hiện modal.
-        // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — KHÔNG
-        // triggerDownload() thẳng ngay đây nữa (user-activation của lượt bấm gốc gần như chắc chắn
-        // đã hết hạn sau khi chờ build zip xong) — giao cho promptDownloadReady() (core/
-        // id3-export.js), nút "Tải xuống" bên trong modal đó mới thật sự gọi triggerDownload() với
-        // activation MỚI/còn nguyên.
+        // Shield đã đóng hẳn — an toàn để hiện modal. Tải xuống qua modal "File đã sẵn sàng" (nút trong modal gọi
+        // triggerDownload() với user-activation mới — PWA iOS không mở Quick Look).
         await workflowZipDownload.deliver(zipParts); // event/workflow/zip-download.js — 1 phần: modal cũ; nhiều phần: modal danh sách; tự dọn file tạm OPFS
         if (failedCount > 0) await alertModal(t('playlistView.selection.exportPartialFail'));
     },
 
     /**
-     * "Xuất file" — bản 1 file lẻ, dành cho Song. DỜI từ `core/id3-export.js::exportSongWithTag()`
-     * (Batch "Export dọn nợ kiến trúc", phản hồi Giang) — hàm này tự đọc DB + tự bọc
-     * `withLoadingShield()` + tự gọi `alertModal()`, đúng HÌNH DẠNG WORKFLOW, KHÔNG đổi 1 dòng logic
-     * bên trong, chỉ đổi NƠI Ở cho đúng kiến trúc.
+     * "Xuất file" 1 bài Song (ghi tag ID3).
      */
     async exportSongWithTag(key) {
-        // FIX (xung đột shield/modal): KHÔNG await alertModal() bên trong fn() của
-        // withLoadingShield() — xem giải thích chi tiết ở event/workflow/player.js (workflowPlayer.playMedia,
-        // [SỬA — plan-playmedia-reorg.md] dời từ core/playlist/actions.js::window.playSong() cũ).
-        // Tóm tắt: isShieldBusy chỉ giải phóng SAU KHI fn() resolve, còn alertModal() chỉ resolve
-        // khi người dùng bấm OK -> lồng vào nhau làm #loading-shield (z-[200]) treo, đè lên trên
-        // modalChoice() (z-[130]) suốt thời gian chờ. Dùng cờ mang thông tin ra ngoài, hiện modal
-        // SAU KHI withLoadingShield() đã resolve hoàn toàn.
+        // Không await alertModal() bên trong withLoadingShield() (shield chỉ giải phóng sau khi fn() resolve -> lồng nhau làm
+        // shield treo đè modal). Mang kết quả ra ngoài bằng cờ, hiện modal sau khi shield đóng.
         let resultFlag = null; // null = ổn (không cần báo gì) | 'notFound' | 'tagWriteFailed'
-        let successBlob = null; let successFilename = null; // MỚI (10/09/2026) — mang blob THÀNH CÔNG ra ngoài shield để prompt download sau, CÙNG lý do failedRecord ngay dưới
+        let successBlob = null; let successFilename = null; // mang blob thành công ra ngoài shield để prompt download sau
         let failedRecord = null; // giữ lại record gốc khi ghi tag lỗi — dùng để tải file gốc ở ngoài, tránh query lại DB lần 2
         await withLoadingShield(t('common.loading.exportingFile'), async () => {
             const record = await getSongRecord(key);
             if (!record) { resultFlag = 'notFound'; return; }
             try {
-                const taggedBlob = await buildTaggedBlob(record); // core có sẵn (core/id3-export.js)
+                const taggedBlob = await buildTaggedBlob(record); // core/id3-export.js
                 successBlob = taggedBlob; successFilename = record.filename;
             } catch (e) {
                 console.error('[workflow:playlist] Lỗi ghi tag lúc xuất file:', e);
                 resultFlag = 'tagWriteFailed';
                 failedRecord = record;
-                // Giữ ĐÚNG thứ tự hành vi gốc: alertModal() chạy XONG rồi mới tới bước tải file gốc
-                // — người dùng đọc thông báo lỗi TRƯỚC khi file (chưa ghi tag) được tải xuống.
+                // Thứ tự: báo lỗi xong rồi mới tải file gốc (chưa ghi tag).
             }
         });
 
-        // Shield đã đóng HẲN tới đây — an toàn để hiện modal.
-        // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — KHÔNG
-        // triggerDownload() thẳng nữa, giao cho promptDownloadReady() (core/id3-export.js) — xem
-        // docstring hàm đó/exportSelectedSongsZip() ngay trên.
+        // Shield đã đóng hẳn — an toàn để hiện modal.
         if (resultFlag === 'notFound') {
             await alertModal(t('common.export.notFound'));
         } else if (resultFlag === 'tagWriteFailed') {
             await alertModal(t('common.export.tagWriteFailed'));
-            await workflowZipDownload.promptSingle(failedRecord.blob, failedRecord.filename); // event/workflow/zip-download.js (SỬA 06/10/2026 — thay core promptDownloadReady)
+            await workflowZipDownload.promptSingle(failedRecord.blob, failedRecord.filename); // event/workflow/zip-download.js
         } else {
-            await workflowZipDownload.promptSingle(successBlob, successFilename); // event/workflow/zip-download.js (SỬA 06/10/2026 — thay core promptDownloadReady)
+            await workflowZipDownload.promptSingle(successBlob, successFilename); // event/workflow/zip-download.js
         }
     },
 
     /**
-     * "Xuất file" cho Video — bản 1 file lẻ, MỚI (Batch "Export dọn nợ kiến trúc", phản hồi Giang,
-     * plan-v12-song-video-unification.md mục 6f) — CÙNG CẤU TRÚC exportSongWithTag() ngay trên,
-     * CHỈ BỎ bước buildTaggedBlob() (Video không có 3 tag ID3, `customName` KHÔNG remux vào file —
-     * đã chốt ở mục 6c/6f) — tải thẳng record.blob/record.filename GỐC.
+     * "Xuất file" 1 Video — tải thẳng record.blob/filename gốc (Video không có tag ID3; `customName` không ghi vào file).
      */
     async exportVideoFile(key) {
         let notFound = false;
@@ -1402,16 +1099,11 @@ const workflowPlaylist = {
             blob = record.blob; filename = record.filename;
         });
         if (notFound) { await alertModal(t('common.export.notFound')); return; }
-        // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — xem
-        // docstring exportSelectedSongsZip()/promptDownloadReady() (core/id3-export.js).
-        await workflowZipDownload.promptSingle(blob, filename); // event/workflow/zip-download.js (SỬA 06/10/2026 — thay core promptDownloadReady)
+        await workflowZipDownload.promptSingle(blob, filename); // event/workflow/zip-download.js
     },
 
     /**
-     * "Xuất file" cho Photo — bản 1 ảnh lẻ, MỚI (Giang yêu cầu — "thêm export file/download ảnh vào
-     * dropdown action menu photo playlist") — CÙNG CẤU TRÚC exportVideoFile() ngay trên (ảnh cũng
-     * không có tag ID3 gì để ghi, tải thẳng record.blob/record.filename GỐC — không cần bước
-     * buildTaggedBlob() như exportSongWithTag()).
+     * "Xuất file" 1 ảnh — tải thẳng record.blob/filename gốc.
      */
     async exportImageFile(key) {
         let notFound = false;
@@ -1422,84 +1114,52 @@ const workflowPlaylist = {
             blob = record.blob; filename = record.filename;
         });
         if (notFound) { await alertModal(t('common.export.notFound')); return; }
-        // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — xem
-        // docstring exportSelectedSongsZip()/promptDownloadReady() (core/id3-export.js).
-        await workflowZipDownload.promptSingle(blob, filename); // event/workflow/zip-download.js (SỬA 06/10/2026 — thay core promptDownloadReady)
+        await workflowZipDownload.promptSingle(blob, filename); // event/workflow/zip-download.js
     },
 
     /**
-     * "Xuất ZIP" cho Video — bản hàng loạt, MỚI (cùng batch với exportVideoFile() ngay trên) — CÙNG
-     * CẤU TRÚC exportSelectedSongsZip(), CHỈ BỎ bước gắn tag (zip thẳng record.blob/filename gốc,
-     * không cần try/catch riêng vì không có bước ghi tag nào có thể lỗi).
+     * "Xuất ZIP" (Video) — như exportSelectedSongsZip(), không gắn tag.
      */
     async exportSelectedVideosZip() {
         const keys = Array.from(appState.get('selectedMediaKeys'));
         if (keys.length === 0) return;
 
-        let zipParts; // SỬA (06/10/2026) — nhiều phần zip, xem exportSelectedSongsZip()
+        let zipParts;
         let entries;
-        // SỬA (10/09/2026, Giang yêu cầu "làm giống Folder Download/Storage Management") — xem lý do
-        // đầy đủ ở exportSelectedSongsZip() ngay trên.
         await withLoadingShield(t('common.storage.zippingStart'), async () => {
-            // XOÁ (10/09/2026, Giang yêu cầu "loại bỏ toàn bộ JSZip") — TRƯỚC ĐÂY dùng thẳng
-            // `new JSZip()...generateAsync()` ở đây; giờ giao cho `_collectZipEntries()` +
-            // `_compressZipEntries()` (core/storage-manager.js — ĐƯỜNG DUY NHẤT để nén zip, JSZip
-            // đã bỏ hẳn khỏi app, xem docstring đầy đủ ở đó/core/streaming-zip.js).
-            entries = await workflowZipDownload.collectEntries('video', keys); // event/workflow/zip-download.js — SỬA 06/10/2026 (dọn nợ Rule 3b), tự bỏ qua key không còn tồn tại
+            entries = await workflowZipDownload.collectEntries('video', keys); // event/workflow/zip-download.js — tự bỏ qua key không còn tồn tại
             zipParts = await workflowZipDownload.compressInParts(entries, t('playlistView.selection.exportZipFilenameVideo')); // event/workflow/zip-download.js
         });
-        const failedCount = keys.length - entries.length; // key bị bỏ qua trong workflowZipDownload.collectEntries() (video không còn tồn tại, race) — CÙNG cách đếm cũ, không đọc lại DB lần 2
+        const failedCount = keys.length - entries.length; // key bị bỏ qua (không còn tồn tại)
 
         this._exitSelectionMode();
-        // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — xem
-        // docstring exportSelectedSongsZip()/promptDownloadReady() (core/id3-export.js).
         await workflowZipDownload.deliver(zipParts); // event/workflow/zip-download.js — tự dọn file tạm OPFS
         if (failedCount > 0) await alertModal(t('playlistView.selection.exportPartialFail'));
     },
 
     /**
-     * "Xuất ZIP" cho Photo — bản hàng loạt, MỚI (06/09/2026, Giang chốt mục 3.5 — "Photo cũng cần
-     * Download riêng ở Selection mode") — CÙNG CẤU TRÚC `exportSelectedVideosZip()` ngay trên
-     * (Photo cũng không có tag ID3 gì để ghi, zip thẳng `record.blob`/`record.filename` GỐC).
-     * Trước đây Photo rơi NHẦM vào nhánh Song ở router (đọc `getSongRecord()` trên photo key, luôn
-     * rỗng) — xem SỬA event/router/playlist.js, case 'playlist.selection.moreMenu.select'.
+     * "Xuất ZIP" (Photo) — như exportSelectedVideosZip().
      */
     async exportSelectedImagesZip() {
         const keys = Array.from(appState.get('selectedMediaKeys'));
         if (keys.length === 0) return;
 
-        let zipParts; // SỬA (06/10/2026) — nhiều phần zip, xem exportSelectedSongsZip()
+        let zipParts;
         let entries;
-        // SỬA (10/09/2026, Giang yêu cầu "làm giống Folder Download/Storage Management") — xem lý do
-        // đầy đủ ở exportSelectedSongsZip() ngay trên.
         await withLoadingShield(t('common.storage.zippingStart'), async () => {
-            entries = await workflowZipDownload.collectEntries('photo', keys); // event/workflow/zip-download.js — SỬA 06/10/2026 (dọn nợ Rule 3b), tự bỏ qua key không còn tồn tại
+            entries = await workflowZipDownload.collectEntries('photo', keys); // event/workflow/zip-download.js — tự bỏ qua key không còn tồn tại
             zipParts = await workflowZipDownload.compressInParts(entries, t('playlistView.selection.exportZipFilenamePhoto')); // event/workflow/zip-download.js
         });
-        const failedCount = keys.length - entries.length; // CÙNG cách đếm ở exportSelectedVideosZip() ngay trên
+        const failedCount = keys.length - entries.length; // key bị bỏ qua (không còn tồn tại)
 
         this._exitSelectionMode();
-        // FIX (10/09/2026, Giang báo bug "PWA mở Quick Look thay vì tải xuống thật") — xem
-        // docstring exportSelectedSongsZip()/promptDownloadReady() (core/id3-export.js).
         await workflowZipDownload.deliver(zipParts); // event/workflow/zip-download.js — tự dọn file tạm OPFS
         if (failedCount > 0) await alertModal(t('playlistView.selection.exportPartialFail'));
     },
 
     /**
-     * "Xuất file" cho ĐÚNG 1 item đang mở menu 3 chấm — MỚI (Batch "Export dọn nợ kiến trúc", phản
-     * hồi Giang) — TÁCH RIÊNG khỏi handleSongActionMenuSelect() cũ (core/playlist/actions.js, đã có
-     * sẵn nhánh if/else vi phạm Rule 1 — không mở rộng thêm, CÙNG PRECEDENT với addToFolder/
-     * editSubtitles/navigateToActiveMenuVideoEdit ở trên: đọc key đang mở menu, đóng menu, rồi rẽ
-     * theo `activeMediaSource` — CÙNG CÔNG THỨC openAddToFolderPickerForSongMenu() phía trên
-     * (Playlist chỉ browse ĐÚNG 1 nguồn tại 1 thời điểm, item đang mở menu luôn cùng loại với nguồn
-     * đang active) — Song -> exportSongWithTag() (kèm bước ghi tag ID3), Video -> exportVideoFile()
-     * (bỏ qua bước tag).
-     * SỬA (Giang yêu cầu — "thêm export file/download ảnh vào dropdown action menu photo playlist")
-     * — thêm nhánh thứ 3 'photo' -> exportImageFile() ngay trên (cùng công thức Video, ảnh không có
-     * tag ID3 gì để ghi). `activeMediaSource` giờ đọc TRỰC TIẾP (3 giá trị hợp lệ song/video/photo
-     * — xem loadPersistedPlaylistConfigOnBoot()), không còn ternary chỉ phân 2 nhánh video/song như
-     * bản cũ (bản cũ gộp LUÔN 'photo' vào default 'song' — SAI, gọi nhầm exportSongWithTag() cho ảnh
-     * nếu lỡ dropdown Photo có bấm được nút này trước khi được hiện đúng ở trên).
+     * "Xuất file" cho mục đang mở menu 3 chấm: đọc key, đóng menu, rẽ theo `activeMediaSource` (mục luôn cùng loại với
+     * Nguồn) — Song: exportSongWithTag(); Video: exportVideoFile(); Photo: exportImageFile().
      */
     async exportActiveMenuItem() {
         const key = playlistStore.get('songActionMenuKey');
@@ -1512,21 +1172,8 @@ const workflowPlaylist = {
     },
 
     /**
-     * MỚI (mục 1d, CHỐT 03/07/2026) — "Thêm vào thư mục" cho ĐÚNG 1 bài từ menu 3 chấm đơn lẻ.
-     * Song song với openAddToFolderPicker() ở dưới (chọn nhiều) — KHÔNG gộp chung 1 method vì 2
-     * message trigger khác nhau (đơn lẻ đọc `songActionMenuKey` trong playlistStore, chọn nhiều
-     * đọc `selectedMediaKeys` trong appState) và cần đóng đúng menu tương ứng (songActionMenu vs
-     * chế độ chọn nhiều) — viết chung sẽ phải rẽ nhánh theo "nguồn nào gọi tới", đúng thứ vi phạm
-     * Rule 1 nếu đặt trong core, và không cần thiết ở tầng workflow (workflow không bị Rule 1 ràng
-     * buộc, nhưng tách riêng vẫn rõ ràng hơn khi đọc). CẢ 2 giờ dùng CHUNG `_openFolderPickerDrawer()`
-     * (grid Generic Drawer, xem MỚI 14/07/2026 bên dưới) — chỉ khác `onPick` callback.
-     */
-    /**
-     * MỚI (10/07/2026) — "Sửa phụ đề" trong menu 3 chấm: đọc key bài đang mở menu, đóng menu, rồi
-     * TÁI DÙNG `workflowSubtitleModal.navigateToEditor()` (miền KHÁC — "subtitleModal" — nhưng
-     * CÙNG logic điều hướng với nút Sub ở Control Center, xem giải thích đầy đủ ở đó VÀ
-     * readme/event-bus-flow.md) — Workflow gọi Workflow khác MIỀN tự do, không bị Rule 3 (rule đó
-     * CHỈ áp cho Core).
+     * "Sửa phụ đề" trong menu 3 chấm: đọc key, đóng menu, rồi `workflowSubtitleModal.navigateToEditor()` (cùng điều hướng
+     * với nút Sub ở Control Center).
      */
     openSubtitleEditorForSongMenu() {
         const key = playlistStore.get('songActionMenuKey');
@@ -1536,29 +1183,16 @@ const workflowPlaylist = {
     },
 
     /**
-     * "Sửa video" trong menu 3 chấm. SỬA (phản hồi Giang — dẹp tầng trung gian) — TRƯỚC ĐÂY gọi
-     * `workflowFileManagerVideo.navigateToVideoEdit()` (hàm 1 dòng, chỉ relay tiếp sang
-     * `workflowVideoPreview.open()`, KHÔNG làm gì thêm) — file `file-manager-video.js` đã xoá hẳn
-     * (mọi logic thật của nó dời sang playlist.js/visualizer-control-center.js theo đúng người gọi
-     * thật) nên gọi THẲNG `workflowVideoPreview.open()` ở đây, bỏ hẳn 1 tầng relay vô nghĩa.
-     * XOÁ (phản hồi Giang — "bỏ luôn set background cho dropdown của video đi") —
-     * `setActiveMenuVideoAsBackground()` (action "setAsBgVideo") đã bỏ hẳn cùng lúc với nút dropdown
-     * tương ứng. TỰ AUDIT LẠI lúc xoá: `workflowFileManagerVideo.setVideoAsBackground()` tưởng còn
-     * picker "Use background video" dùng — THỰC RA KHÔNG (picker tự inline logic riêng) — đã XOÁ
-     * THẲNG hàm đó (0 lời gọi) cùng 2 lang key liên quan.
+     * "Sửa video" trong menu 3 chấm — chuyển sang trang pages/video-editor.html (key mã hoá qua service/song-key-cipher.js).
      */
     navigateToActiveMenuVideoEdit() {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return;
         workflowPlaylist.closeActionMenu();
-        // SỬA (06/10/2026, Giang — trình sửa video tách thành trang riêng video-editor.html, cùng khuôn subtitle-editor.html):
-        // chuyển trang thay vì mở modal. Key mã hoá qua service/song-key-cipher.js (dùng chung, không riêng Song).
         window.location.href = `pages/video-editor.html?video=${encodeSongKeyForUrl(key)}`;
     },
 
-    /** MỚI (Giang yêu cầu — "thêm dropdown edit image -> mở openImagePreview()") — mirror ĐÚNG
-     * khuôn navigateToActiveMenuVideoEdit() ngay trên, đích đến khác: modal xem/sửa ảnh (zoom/
-     * crop/rotate) đã có sẵn từ trước khi Photo được unified vào Playlist. */
+    /** "Edit image" trong menu 3 chấm — mở modal xem/sửa ảnh (event/workflow/file-manager-photo.js). */
     navigateToActiveMenuPhotoEdit() {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return;
@@ -1566,15 +1200,11 @@ const workflowPlaylist = {
         workflowFileManagerPhoto.openImagePreview(key); // event/workflow/file-manager-photo.js
     },
 
-    // XOÁ (06/10/2026, Giang yêu cầu "xoá action view thumb full res ở video playlist") — openActiveMenuVideoThumb()
-    // (mở thumbFullBlob của video trong modal xem ảnh ở chế độ chỉ xem) bỏ hẳn cùng action.
-
-    /** Lọc danh sách folder cho picker "Thêm vào thư mục" — MỚI (06/09/2026, hợp nhất Folder vào
-     * Playlist, mục 2 + 4b). Loại 2 loại folder KHÔNG hợp lệ làm đích "thêm vào":
+    /** Lọc danh sách folder cho picker "Thêm vào thư mục" — loại 2 loại folder không hợp lệ làm đích:
      *   - Folder ĐANG là Scope hiện tại của ĐÚNG Nguồn này — thêm vào chính folder đang xem không
      *     có ý nghĩa (bài đã hiển thị THÔNG QUA scope đó rồi).
-     *   - Folder Read-only (mục 4b, Giang chốt "không cho add thêm item").
-     * Pure — nhận `folders` (đã fetch qua `workflowFolder.list()`) qua tham số, không tự đọc DB (Rule 2).
+     *   - Folder Read-only.
+     * Nhận `folders` (đã đọc qua `workflowFolder.list()`) qua tham số.
      * @param {Array<{id:string, isReadOnly?:boolean}>} folders
      * @param {'song'|'video'|'photo'} mediaType
      * @returns {Array}
@@ -1584,32 +1214,23 @@ const workflowPlaylist = {
         return folders.filter((f) => f.id !== activeFolderId && !f.isReadOnly);
     },
 
+    /**
+     * "Thêm vào thư mục" cho 1 mục từ menu 3 chấm. Tách khỏi bản chọn nhiều (openAddToFolderPicker()) vì nguồn key khác
+     * (`songActionMenuKey` trong playlistStore vs `selectedMediaKeys`) và đóng menu khác nhau; cả 2 dùng chung
+     * `_openFolderPickerDrawer()`, chỉ khác `onPick`. Picker chỉ hiện folder đúng type của Nguồn đang active.
+     */
     async openAddToFolderPickerForSongMenu() {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return;
         workflowPlaylist.closeActionMenu();
 
-        // SỬA (hợp nhất Photo vào Playlist) — `activeMediaSource` giờ LÀ ĐÚNG mediaType cần dùng
-        // (3 giá trị hợp lệ duy nhất: song/video/photo — xem loadPersistedPlaylistConfigOnBoot()),
-        // không cần ternary fallback nữa. TRUYỀN THÊM `options.folders` = danh sách ĐÃ LỌC theo ĐÚNG
-        // type này (CHỐT Giang — "playlist source nào thì chỉ hiển thị type folder của source tương
-        // ứng") — picker giờ KHÔNG còn hiện lẫn folder khác type (trước đây hiện TOÀN BỘ, chỉ báo
-        // lỗi typeMismatch SAU KHI chọn nhầm — trải nghiệm kém).
         const mediaType = appState.get('activeMediaSource');
         await this._openFolderPickerDrawer(async (folderId) => {
             let result;
             await withLoadingShield(t('common.loading.savingInfo'), async () => {
-                result = await this.addMediaToFolder([key], folderId, mediaType); // workflowPlaylist.addMediaToFolder() — SỬA 06/10/2026 (đọc folder_song rồi gọi core addSongsToFolder)
+                result = await this.addMediaToFolder([key], folderId, mediaType);
             });
-            // XOÁ (hợp nhất Photo vào Playlist, cấu trúc folderIndex) — check `status==='typeMismatch'`
-            // bỏ hẳn: addSongsToFolder() không còn trả trạng thái đó nữa (picker giờ CHỈ đưa vào
-            // folder ĐÚNG type — không còn khả năng lệch để phải xử lý).
-            // SỬA 03/07/2026 (đợt 3): KHÔNG còn tự áp dụng ngay vào Playlist đang chạy — thêm bài
-            // không đổi "folder nào đang active", chỉ đổi DỮ LIỆU trong nó. Lần tải trang kế tiếp
-            // (hoặc lần bấm "Áp dụng" kế tiếp) sẽ tự đọc đúng danh sách mới — xem
-            // event/workflow/playlist-scope.js.
-            // SỬA (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — trước đây LUÔN
-            // "Added X song(s)" kể cả khi vừa thêm Video. MỞ RỘNG (hợp nhất Photo) — thêm nhánh photo.
+            // Thêm vào folder chỉ đổi dữ liệu trong folder, không áp lại Playlist đang chạy (lần áp Scope kế tiếp tự đọc).
             await alertModal(tFormat(mediaType === 'video' ? 'fileManager.folderPicker.addSuccessVideo' : mediaType === 'photo' ? 'fileManager.folderPicker.addSuccessPhoto' : 'fileManager.folderPicker.addSuccess', { count: 1 }));
         }, { folders: this._filterFoldersForAddPicker(await workflowFolder.list(mediaType), mediaType) }); // event/workflow/folder.js
     },
@@ -1626,35 +1247,24 @@ const workflowPlaylist = {
         await this._openFolderPickerDrawer(async (folderId) => {
             let result;
             await withLoadingShield(t('common.loading.savingInfo'), async () => {
-                result = await this.addMediaToFolder(keys, folderId, mediaType); // workflowPlaylist.addMediaToFolder() — SỬA 06/10/2026 (đọc folder_song rồi gọi core addSongsToFolder)
+                result = await this.addMediaToFolder(keys, folderId, mediaType);
             });
-            // XOÁ (hợp nhất Photo vào Playlist, cấu trúc folderIndex) — cùng lý do bản 1-bài phía
-            // trên: check `status==='typeMismatch'` bỏ hẳn.
-            // SỬA 03/07/2026 (đợt 3): KHÔNG còn tự áp dụng ngay vào Playlist đang chạy — xem lý do
-            // ở finishAdd() bản 1-bài phía trên (openAddToFolderPickerForSongMenu).
+            // Không áp lại Playlist đang chạy (xem bản 1 mục).
             this._exitSelectionMode();
             await alertModal(tFormat(mediaType === 'video' ? 'fileManager.folderPicker.addSuccessVideo' : mediaType === 'photo' ? 'fileManager.folderPicker.addSuccessPhoto' : 'fileManager.folderPicker.addSuccess', { count: keys.length }));
         }, { folders: this._filterFoldersForAddPicker(await workflowFolder.list(mediaType), mediaType) }); // event/workflow/folder.js
     },
 
-    // ===================== Add to Folder — Generic Drawer grid (MỚI 14/07/2026) =====================
-    // Trước đây: modal riêng (core/file-manager/folder-picker-ui.js::openFolderPickerModal() — ĐÃ
-    // XOÁ HẲN 14/07/2026, không còn nơi gọi nào).
-    // Giờ: Generic Drawer + grid folder (icon trên + tên dưới tối đa 2 dòng, xem
-    // components/items.js::itemTemplateFolderTile()) + 1 tile "Tạo folder mới" cố định cuối grid
-    // (buildAddFolderTileHtml()) — bấm vào tạo NGAY 1 folder tên tự động, vào thẳng chế độ sửa tên
-    // (input, focus sẵn). Toàn bộ tương tác trong Drawer (tap chọn folder/tap tạo mới/sửa tên/đóng)
-    // ĐỀU bắn qua eventBus (Rule 5a MỚI, readme/core-function-conventions.md — code MỚI viết từ
-    // 13/07/2026 không còn ngoại lệ "gọi thẳng tham số" như modalChoice()).
+    // ===================== Picker "Thêm vào thư mục" — Generic Drawer grid =====================
+    // Grid folder (components/items.js::itemTemplateFolderTile()) + tile "Tạo folder mới" cuối grid (bấm tạo ngay 1 folder
+    // tên tự động, vào thẳng chế độ sửa tên). Mọi tương tác trong Drawer đi qua eventBus.
 
-    _folderPickerShowAddTile: true, // v13 — false khi nơi gọi không cho tạo folder mới giữa chừng
-    _folderPickerEmptyMsg: '',      // v13 — câu hiển thị khi danh sách rỗng (rỗng = dùng grid trống như cũ)
+    _folderPickerShowAddTile: true, // false khi nơi gọi không cho tạo folder mới giữa chừng
+    _folderPickerEmptyMsg: '',      // câu hiển thị khi danh sách rỗng (rỗng = grid trống)
     _folderPickerFolders: [], // danh sách folder ĐANG hiển thị trong grid — cache RAM, chỉ dùng lúc Drawer đang mở
     _folderPickerEditingId: null, // folderId đang ở chế độ sửa tên (null = không có)
     _folderPickerOnPick: null, // callback(folderId) HOẶC callback(folderIds[], type) nếu multiSelect — set bởi entry method, gọi khi user CHỌN xong
-    // MỚI (29/08/2026) — 3 field cho chế độ multi-select (Visual Background "Thư mục" — gộp nhiều
-    // folder). false/rỗng/null = hành vi CŨ y nguyên (2 luồng "Thêm vào thư mục" của Playlist tự
-    // thân, tap 1 tile là chọn NGAY + đóng, không đổi gì).
+    // Chế độ multi-select (Visual Background "Thư mục" — gộp nhiều folder). Tắt = tap 1 tile là chọn ngay + đóng.
     _folderPickerMultiSelect: false,
     _folderPickerSelectedIds: [], // ordered — thứ tự CHỌN, chỉ dùng khi multiSelect
     _folderPickerTypeOptions: null, // { current: 'video'|'photo' } | null — có giá trị -> hiện dropdown đổi loại trong header
@@ -1663,35 +1273,17 @@ const workflowPlaylist = {
     /** Mở Drawer lần đầu (hoặc vẽ lại TẠI CHỖ nếu `isUpdate`) — đọc danh sách folder, vẽ grid, wire
      * sự kiện. */
     async _openFolderPickerDrawer(onPick, options, isUpdate) {
-        // SỬA (v13) — thêm `options` TUỲ CHỌN (không truyền -> hành vi CŨ y nguyên cho 2 luồng
-        // "Thêm vào thư mục" của Playlist):
-        //   `folders`     — danh sách ĐÃ LỌC SẴN do nơi gọi chuẩn bị (Rule 3b: lọc là chuẩn bị dữ
-        //                   liệu, thuộc Workflow gọi; hàm này không tự biết tiêu chí của từng miền).
-        //   `showAddTile` — false để bỏ tile "Tạo folder mới" (Visual Background: folder vừa tạo
-        //                   luôn rỗng nên không bao giờ là nguồn hợp lệ, bày ra chỉ gây hiểu nhầm).
-        //   `emptyMsg`    — câu hiển thị khi danh sách rỗng, thay vì grid trống trơn.
-        //   `onClose`     — MỚI (phản hồi Giang — sửa lỗ hổng "Cancel picker thư mục Visual
-        //                   Background không tự quay lại") — hàm gọi THAY VÌ `closeFully()` khi
-        //                   đóng picker (dù bấm X HAY vừa CHỌN xong — cả 2 đường đều đi qua
-        //                   `closeFolderPicker()` bên dưới) — dùng bởi nơi gọi ĐANG SỐNG CHUNG
-        //                   Generic Drawer với picker này (Visual Background, xem
-        //                   event/workflow/visual-bg.js::_openFolderPickerForType()) để tự mở lại
-        //                   đúng màn của mình thay vì đóng trắng cả Setting. KHÔNG truyền -> giữ
-        //                   NGUYÊN hành vi cũ (đóng hẳn) cho 2 luồng Playlist tự thân.
-        //   `multiSelect` — MỚI (29/08/2026) — true: tap tile TOGGLE chọn (không đóng ngay), header
-        //                   thêm nút "Chọn (N)" xác nhận — `onPick` nhận `(folderIds[], type)` thay
-        //                   vì `(folderId)`. false/không truyền -> hành vi CŨ (tap = chọn NGAY).
-        //   `typeOptions` — MỚI (29/08/2026) — `{ current: 'video'|'photo' }`, có giá trị -> header
-        //                   thêm dropdown đổi loại folder đang duyệt.
-        //   `onTypeChange`— MỚI (29/08/2026) — callback(newType), bắt buộc nếu có `typeOptions` —
-        //                   nơi gọi tự re-fetch folder đúng loại mới + gọi lại hàm NÀY (isUpdate=true).
-        //   `selectedIds` — MỚI (29/08/2026) — khôi phục lựa chọn đang dở khi vẽ lại TẠI CHỖ (đổi
-        //                   loại folder KHÔNG xoá lựa chọn cũ nếu id đó vẫn còn trong danh sách mới
-        //                   — hiếm khi trùng giữa 2 loại khác nhau nên thực tế luôn rỗng, giữ tham số
-        //                   để đúng nguyên tắc "Workflow chuẩn bị dữ liệu", không hardcode ở đây).
-        // @param {boolean} [isUpdate] - true: vẽ lại TẠI CHỖ (`updateGenericDrawer()`, không đóng/mở
-        //        lại) — dùng khi gọi lại từ chính picker đang mở (đổi loại/toggle chọn). Bỏ trống/
-        //        false: mở MỚI (`openGenericDrawer()`, hành vi CŨ).
+        // `options` (tuỳ chọn — không truyền = 2 luồng "Thêm vào thư mục" của Playlist):
+        //   `folders`      — danh sách đã lọc sẵn do nơi gọi chuẩn bị.
+        //   `showAddTile`  — false để bỏ tile "Tạo folder mới" (Visual Background: folder mới luôn rỗng, không làm nguồn được).
+        //   `emptyMsg`     — câu hiển thị khi danh sách rỗng.
+        //   `onClose`      — gọi THAY `closeFully()` khi đóng picker (bấm X hoặc chọn xong) — nơi gọi sống chung Generic
+        //                    Drawer (Visual Background) tự mở lại màn của mình.
+        //   `multiSelect`  — tap tile bật/tắt chọn, header có nút "Chọn (N)"; `onPick(folderIds[], type)`.
+        //   `typeOptions`  — `{ current: 'video'|'photo' }` -> header có dropdown đổi loại folder.
+        //   `onTypeChange` — callback(newType): nơi gọi re-fetch đúng loại + gọi lại hàm này (isUpdate=true).
+        //   `selectedIds`  — khôi phục lựa chọn đang dở khi vẽ lại tại chỗ.
+        // @param {boolean} [isUpdate] - true: vẽ lại tại chỗ (picker đang mở); bỏ trống: mở mới.
         const opts = options || {};
         this._folderPickerFolders = opts.folders || await workflowFolder.list(); // event/workflow/folder.js
         this._folderPickerShowAddTile = opts.showAddTile !== false;
@@ -1703,7 +1295,7 @@ const workflowPlaylist = {
         this._folderPickerSelectedIds = opts.multiSelect ? (opts.selectedIds || []) : [];
         this._folderPickerTypeOptions = opts.typeOptions || null;
         this._folderPickerOnTypeChange = opts.onTypeChange || null;
-        this._renderFolderPickerGrid(!isUpdate, true); // SỬA (24/09/2026) — mở/đổi loại = danh sách mới -> từ đầu
+        this._renderFolderPickerGrid(!isUpdate, true); // mở/đổi loại = danh sách mới -> cuộn từ đầu
     },
 
     /** Vẽ lại grid (mở lần đầu HOẶC sau khi thêm/sửa tên 1 folder, toggle chọn, đổi loại).
@@ -1815,19 +1407,8 @@ const workflowPlaylist = {
     },
 
     /**
-     * "Xoá hàng loạt" — ĐÚNG luồng bác chốt (câu 4 mục 6 plan): nếu bài đang phát nằm trong tập bị
-     * xoá, ép DỪNG phát + về UI Playlist NGAY (không hỏi/không chặn, khác hẳn `deleteMediaFromActionMenu()`
-     * đơn lẻ vốn chặn xoá nếu đang thực sự phát) -> bật shield -> xoá -> tắt shield -> modal "đã xoá".
-     * SỬA (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — media-aware: chọn
-     * nhiều CHỈ xảy ra trong ĐÚNG 1 nguồn tại 1 thời điểm (Playlist chỉ browse 1 nguồn) nên đọc
-     * `activeMediaSource` MỘT LẦN cho CẢ LÔ, không cần kiểm tra từng key. TRƯỚC ĐÂY hardcode
-     * getSongRecord/deleteSongRecord — Video sẽ ÂM THẦM không xoá được gì (record nằm store khác).
-     * ĐỔI TÊN (07/09/2026, cùng lý do `deleteSongFromActionMenu` -> `deleteMediaFromActionMenu`) —
-     * hàm này CŨNG xử lý cả Video/Photo từ Batch 6, tên cũ `deleteSelectedSongs` gây hiểu lầm y hệt.
-     * SỬA TIẾP (07/09/2026, "xử lý luôn") — `appState.selectedSongKeys` CŨNG đổi tên thành
-     * `selectedMediaKeys` (service/state/file-manager.js, cùng `selectSong()`/`deselectSong()` ->
-     * `selectMedia()`/`deselectMedia()`, core/playlist/selection.js) — cùng lý do, xử lý triệt để
-     * thay vì để dở dang.
+     * "Xoá hàng loạt" (đã chọn, cùng 1 Nguồn): mục đang phát nằm trong tập xoá thì ép dừng + về UI Playlist ngay (không
+     * hỏi/không chặn — khác `deleteMediaFromActionMenu()`) -> shield -> xoá -> modal "đã xoá".
      */
     async deleteSelectedMedia() {
         const keys = Array.from(appState.get('selectedMediaKeys'));
@@ -1840,69 +1421,49 @@ const workflowPlaylist = {
 
         if (wasPlayingSelected) {
             if (isVideo) {
-                // Dừng player Video + dọn RAM — dùng ĐÚNG hàm có sẵn (event/workflow/video-
-                // player.js), tránh tự inline lại logic cần _objectUrl riêng của Workflow đó.
+                // Dừng player Video + dọn RAM (event/workflow/video-player.js).
                 if (appState.get('isVideoPlayerMode')) await workflowVideoPlayer.exitVideoPlayerMode();
                 appState.set('currentKey', null);
                 playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
-                workflowPlayerControls.returnToPlaylistUI(); // event/workflow/player-controls.js — SỬA 24/09/2026
+                workflowPlayerControls.returnToPlaylistUI(); // event/workflow/player-controls.js
             } else {
-                // Dừng player + dọn RAM — GIỐNG HỆT khối tương ứng trong deleteMediaFromActionMenu() (đơn lẻ)/
-                // clearAllStoredData() (storage-manager.js) khi currentKey biến mất, để không còn
-                // currentKey "ma". Khác 2 nơi đó: KHÔNG kiểm tra audioPlayer.paused — ép dừng vô điều
-                // kiện, đúng ý bác (không chặn/không hỏi, chỉ dừng rồi xoá).
+                // Dừng player + dọn RAM để không còn currentKey "ma" — ép dừng vô điều kiện (không kiểm audioPlayer.paused).
                 if (appState.get('currentObjectURL')) { URL.revokeObjectURL(appState.get('currentObjectURL')); appState.set('currentObjectURL', null); }
                 if (appState.get('currentCoverObjectURL')) { URL.revokeObjectURL(appState.get('currentCoverObjectURL')); appState.set('currentCoverObjectURL', null); }
                 audioPlayer.pause(); audioPlayer.src = ''; appState.set('currentKey', null);
                 playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
-                workflowAutoSwitchVisual.killAllTasks(); // event/workflow/auto-switch-visual.js (dời từ core 25/09/2026)
-                workflowPlayerControls.returnToPlaylistUI(); // "về playui" — ép UI về màn Playlist ngay, TRƯỚC khi hiện shield (SỬA 24/09/2026 — thay core forceBackToPlaylistUI())
-                setVisualizerActiveFalse(); // MỚI (08/07/2026, HOTFIX 10) — forceBackToPlaylistUI() không còn tự set nữa
+                workflowAutoSwitchVisual.killAllTasks(); // event/workflow/auto-switch-visual.js
+                workflowPlayerControls.returnToPlaylistUI(); // ép UI về màn Playlist ngay, TRƯỚC khi hiện shield
+                setVisualizerActiveFalse();
             }
         }
 
         let deletedCount = 0;
         await withLoadingShield(t('common.loading.deleting'), async () => {
-            // Vòng lặp xoá ĐẶT THẲNG ở đây (workflow), KHÔNG bọc qua 1 lớp "core" giả — mỗi bước
-            // (đọc record, cascade folder, xoá record, xoá stat) là 1 hàm core void nối tiếp nhau,
-            // đúng vai trò workflow (Rule 3: core không được làm việc này, workflow thì được).
-            // XOÁ (v14) — `splitVisualBgProtectedKeys()`/chặn video đang làm Visual Background:
-            // nguồn giờ là 1 mảng key riêng của workflowVisualBg (đã copy tách khỏi Playlist), xoá
-            // video gốc ở đây không cần biết gì tới nó — lần advance()/apply() kế tiếp bên đó tự
-            // phát hiện record mất + tự chữa lành.
-            // MỞ RỘNG (hợp nhất Photo vào Playlist) — thêm nhánh 'photo' (store `images`) — trước
-            // đây thiếu nhánh này sẽ khiến deleteSongRecord() gọi nhầm lên key không tồn tại trong
-            // store `songs`, âm thầm KHÔNG xoá được gì.
-            // SỬA (07/09/2026) — tra bảng `MEDIA_DELETE_ACCESSOR` (đầu file) 1 LẦN trước vòng lặp
-            // (mediaType KHÔNG đổi trong suốt lô, = activeMediaSource) thay vì lặp lại ternary bên
-            // trong `for` — rẻ hơn, cùng registry dùng ở `deleteMediaFromActionMenu()`.
+            // Mỗi mục: đọc meta, gỡ khỏi folder, xoá record, quên thống kê (MEDIA_DELETE_ACCESSOR tra 1 lần — mediaType không
+            // đổi trong lô). Video đang làm Visual Background không cần chặn: VBG tự phát hiện record mất ở lượt advance/apply.
             const { getRecord, deleteRecord } = MEDIA_DELETE_ACCESSOR[mediaType];
             const deletedKeys = [];
             for (const key of keys) {
                 const record = await getRecord(key);
                 if (!record) continue; // guard: đã bị xoá từ trước (hiếm, race) — bỏ qua, không chặn cả lô
-                await workflowFolder.removeItemFromAllFolders(record); // event/workflow/folder.js — generic cho cả Song/Video/Photo
+                await workflowFolder.removeItemFromAllFolders(record); // event/workflow/folder.js
                 await deleteRecord(key);
-                workflowListenStats.forget(mediaType, key); // event/workflow/listen-stats.js (SỬA 06/10/2026: đúng loại)
+                workflowListenStats.forget(mediaType, key); // event/workflow/listen-stats.js
                 deletedKeys.push(key);
             }
             deletedCount = deletedKeys.length;
 
-            // Đồng bộ appState (core THUẦN, xem core/playlist/bulk-actions.js) rồi vẽ lại — đọc
-            // playlistOrder/displayOrder hiện tại TRƯỚC khi gọi (Rule 2: core không tự đọc).
+            // Đồng bộ appState (core/playlist/bulk-actions.js, nhận state qua tham số) rồi vẽ lại.
             removeKeysFromDisplayState(deletedKeys, appState.get('playlistOrder'), appState.get('displayOrder'));
-            // SỬA (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ") — updateShuffleArray()/
-            // recomputeRenderOrder() ĐÃ DỜI hẳn sang event/workflow/playlist-order.js
-            // (workflowPlaylistOrder) — gọi trực tiếp, tự đọc playlistOrder MỚI (đã gỡ deletedKeys
-            // ở removeKeysFromDisplayState() trên) qua appState, không cần truyền tham số nữa.
             workflowPlaylistOrder.updateShuffleArray();
             workflowPlaylistOrder.recomputeRenderOrder();
-            workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
-            workflowPlaylistRender.syncEmptyState(); // SỬA (02/10/2026) — thay core updateEmptyState() // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
+            workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js
+            workflowPlaylistRender.syncEmptyState();
         });
 
         this._exitSelectionMode();
-        // Shield đã đóng HẲN tới đây — an toàn để hiện modal.
+        // Shield đã đóng hẳn — an toàn để hiện modal.
         await alertModal(tFormat('playlistView.selection.deleteSuccess', { count: deletedCount }));
     },
 
@@ -1955,47 +1516,24 @@ const workflowPlaylist = {
         await workflowPlaylistScope.applyAllSongsScope(mediaType);
     },
 
-    // ===================== Ver 12 "Song/Video Unification" — Batch 1 (mục 1-2); GỘP 07/09/2026 =====================
-    // Ứng với select "Nguồn" ở Settings → Playlist đổi giá trị (event/router/playlist.js gọi thẳng
-    // `switchSource(source)`, KHÔNG cần VMState chọn hàm nữa — xem docstring dưới).
+    // ===================== Đổi Nguồn (Song/Video/Photo) =====================
 
     /**
-     * Đổi Nguồn Playlist (Song/Video/Photo) — GỘP (07/09/2026) từ 3 hàm switchToSongSource()/
-     * switchToVideoSource()/switchToPhotoSource() cũ, vốn giống hệt nhau ngoài 2 i18n key
-     * (`MEDIA_SWITCH_I18N`). Luồng: exit selection mode -> set activeMediaSource -> trong 1
-     * `withLoadingShield()`: `applyFolderScope()`/`applyAllSongsScope()` (event/workflow/
-     * playlist-scope.js) tự lo HẾT — nạp cache ĐÚNG phạm vi (folder đang nhớ cho Nguồn này nếu có)
-     * + Filter + render 1 LẦN DUY NHẤT — rồi cuộn tới media đang phát nếu có trong Nguồn mới, không thì về đầu
-     * (workflowPlaylistRender.scrollToCurrentOrTop(), SỬA 02/10/2026); ngoài shield: đổi search
-     * placeholder + upload accept + hiện 2 nút Play/Shuffle + lưu bền Nguồn.
-     * KHÔNG reset `displaySortMode` — sort mode là 1 lựa chọn CHUNG, độc lập Nguồn (Giang chốt
-     * "dùng chung hết" 4 kiểu sort az/za/newest/oldest cho cả 3).
+     * Đổi Nguồn Playlist (select "Nguồn" ở Settings → Playlist). Thoát chọn nhiều -> set activeMediaSource -> trong shield:
+     * apply*Scope() nạp đúng phạm vi + Filter + render, rồi cuộn tới media đang phát nếu có trong Nguồn mới (không thì về
+     * đầu); ngoài shield: placeholder tìm kiếm + `accept` upload + hiện nút Phát/Trộn + lưu bền Nguồn. Không reset
+     * `displaySortMode` (dùng chung cho cả 3 Nguồn).
      * @param {'song'|'video'|'photo'} mediaType
      */
     async switchSource(mediaType) {
-        // FIX (Giang báo — "đổi Source khi đang Multi-select không clear selection") — selection
-        // không phụ thuộc Nguồn, chỉ clear khi tắt Selection Mode; 2 Nguồn có key trùng slug
-        // filename (Exclude collision, workflowFolder.readExcludedKeys(), event/workflow/folder.js)
-        // có thể khiến Xoá/Phát hàng loạt nhắm nhầm record — thoát Selection Mode NGAY khi đổi Nguồn.
+        // Thoát Selection Mode ngay: 3 Nguồn sinh key theo cùng kiểu slug filename -> key trùng có thể làm Xoá/Phát hàng loạt
+        // nhắm nhầm record.
         this._exitSelectionMode();
 
-        // FIX (10/09/2026, Giang báo bug "chuyển qua lại giữa các playlist bị thừa icon 'đang
-        // phát'") — CÙNG gốc key-trùng-slug-filename đã ghi nhận ở comment trên (Song/Video/Photo
-        // SINH KEY THEO CÙNG kiểu slug filename dù 3 namespace DB khác nhau): renderPlaylistDiff()
-        // (event/workflow/playlist-render.js) coi 1 key "vẫn còn trong playlistOrder MỚI" là CHỈ
-        // ẨN/HIỆN LẠI node DOM CŨ (tái dùng nguyên, KHÔNG buildSongNode() lại) — ĐÚNG ý đồ thiết kế
-        // cho tình huống nó viết ra (gõ rồi xoá ô tìm kiếm, CÙNG 1 Nguồn) nhưng SAI khi đổi HẲN
-        // Nguồn: nếu 1 Video/Photo tình cờ trùng key (trùng tên file) với Song đang chiếm dòng đó
-        // trong domNodesByKey, node CŨ (đã build lúc còn là Song — có thể đang mang icon "đang
-        // phát" nếu Song đó chính là currentKey) bị giữ nguyên hiện lại CHO Video/Photo hoàn toàn
-        // khác, không hề gọi lại buildSongNode() để tính lại đúng nội dung/trạng thái. Dọn hẳn
-        // domNodesByKey NGAY khi Nguồn thật sự đổi — kích hoạt đúng lưới an toàn có sẵn của
-        // renderPlaylistDiff() (playlistContainer.children.length lệch domNodesByKey.size -> tự
-        // renderPlaylistFull() dựng lại HOÀN TOÀN MỚI mọi node), loại bỏ hẳn rủi ro tái dùng nhầm.
-        // KHÔNG áp dụng khi mediaType KHÔNG đổi (vd bấm lại đúng Nguồn đang xem) — giữ nguyên tối
-        // ưu diff cho các lượt gọi applyFolderScope()/applyAllSongsScope() khác (tap folder, upload-
-        // refresh...) vốn không đổi Nguồn nên không có rủi ro trùng key này.
-        this._dropDomNodesIfSourceChanged(mediaType); // SỬA (02/10/2026, rà event-bus-flow.md mục 7) — bước tuỳ chọn -> method mở đầu bằng guard
+        // Cùng gốc key trùng: renderPlaylistDiff() tái dùng node DOM cũ của key "vẫn còn" — đổi hẳn Nguồn thì node của Song
+        // (có thể mang icon "đang phát") bị hiện lại cho Video/Photo trùng key. Dọn domNodesByKey khi Nguồn thật sự đổi ->
+        // renderPlaylistDiff() tự dựng lại toàn bộ. Không đổi Nguồn thì giữ tối ưu diff.
+        this._dropDomNodesIfSourceChanged(mediaType);
 
         appState.set('activeMediaSource', mediaType);
         console.log(`writer: "switchSource", page: "activeMediaSource", content: "${mediaType}"`);
@@ -2004,20 +1542,17 @@ const workflowPlaylist = {
         await withLoadingShield(t('playlistView.loading.generic'), async () => {
             const folderForThisSource = appState.get('activePlayListFolder')[mediaType];
             const onProgress = (done, total) => { loadingText.textContent = tFormat(i18n.loadingKey, { done, total }); };
-            await SOURCE_SCOPE_APPLY_BY_HAS_FOLDER[!!folderForThisSource](folderForThisSource, mediaType, onProgress); // SỬA (02/10/2026, mục 7) — if/else -> object map
-            // SỬA (02/10/2026, Giang yêu cầu "current video -> đổi Nguồn Photo -> về lại Video -> phải về current") — trước
-            // đây LUÔN resetPlaylistScrollTop() (về 0). Giờ theo quy tắc A: Nguồn mới có media đang phát -> tới thẳng nó
-            // (tức thì); không có -> về 0 như cũ.
+            await SOURCE_SCOPE_APPLY_BY_HAS_FOLDER[!!folderForThisSource](folderForThisSource, mediaType, onProgress);
+            // Nguồn mới có media đang phát -> cuộn tới nó; không có -> về đầu.
             workflowPlaylistRender.scrollToCurrentOrTop(); // event/workflow/playlist-render.js
         });
         if (playlistSearchInput) playlistSearchInput.placeholder = t(i18n.placeholderKey);
-        this._applyUploadInputAccept(mediaType); // "1 khung, không nhân bản" — nút upload dùng chung cho cả 3 Nguồn, chỉ đổi accept
+        this._applyUploadInputAccept(mediaType); // nút upload dùng chung 3 Nguồn, chỉ đổi accept
         if (btnPlaylistEmptyPlay) btnPlaylistEmptyPlay.classList.remove('hidden');
         if (btnPlaylistEmptyShuffle) btnPlaylistEmptyShuffle.classList.remove('hidden');
         await this._persistPlaylistConfig(); // lưu bền Nguồn để không mất sau reload
     },
-    /** Tách từ switchSource() (02/10/2026, event-bus-flow.md mục 7 — bước tuỳ chọn) — Nguồn THẬT SỰ đổi thì dọn hẳn
-     * domNodesByKey (lý do: xem comment FIX 10/09/2026 trong switchSource()); bấm lại đúng Nguồn đang xem thì giữ nguyên.
+    /** Nguồn thật sự đổi thì dọn hẳn domNodesByKey (xem switchSource()); bấm lại đúng Nguồn đang xem thì giữ nguyên.
      * @param {'song'|'video'|'photo'} mediaType */
     _dropDomNodesIfSourceChanged(mediaType) {
         if (mediaType === appState.get('activeMediaSource')) return; // guard — Nguồn không đổi
@@ -2026,64 +1561,47 @@ const workflowPlaylist = {
         console.log(`writer: "workflowPlaylist._dropDomNodesIfSourceChanged", page: "domNodesByKey", content: "clear (đổi Nguồn sang ${mediaType})"`);
     },
 
-
     /**
-     * "Sắp xếp" đổi giá trị (Settings → Playlist) — MỚI, tách khỏi router (phản hồi Giang, mục 5
-     * "Đồng bộ lại config Playlist Settings"): trước đây router gọi thẳng `setDisplaySortMode()`
-     * (đúng "1 hàm core" theo quy ước router này) — giờ cần thêm bước lưu bền
-     * (`_persistPlaylistConfig()`), thành ≥2 bước -> đúng quy ước router "giao cho Workflow" (xem
-     * docstring đầu event/router/playlist.js).
+     * "Sắp xếp" đổi giá trị (Settings → Playlist) — đổi + lưu bền.
      */
     async changeSortMode(mode) {
-        workflowPlaylistOrder.setDisplaySortMode(mode); // event/workflow/playlist-order.js (dời từ core/playlist/order.js, Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ")
+        workflowPlaylistOrder.setDisplaySortMode(mode); // event/workflow/playlist-order.js
         await this._persistPlaylistConfig();
     },
 
-    /** Trục (2) — field thống kê (mục 1b/1c, panel "Sắp xếp", dropdown (1)) — SỬA (mục 3) tách
-     * khỏi hướng. CÙNG LÝ DO tách khỏi router như changeSortMode() ngay trên. */
+    /** Sort trục thống kê — field (panel "Sắp xếp"). */
     async changeStatSortField(field) {
-        workflowPlaylistOrder.setDisplayStatSortField(field); // event/workflow/playlist-order.js (dời từ core/playlist/order.js)
-        // MỚI (mục 3) — hiện/ẩn dropdown (2) "hướng" NGAY khi đổi field — CHỈ có ý nghĩa khi field
-        // khác 'none'. SỬA (đợt tái cấu trúc bottom nav App Panel) — panel Sắp xếp giờ sống trong
-        // `genericDrawerBody` (core/generic-drawer.js), KHÔNG còn qua `peekTopSettingsPanel()`
-        // (đó là stack CŨ, nay thuộc về Photo — xem event/workflow/app-settings.js).
+        workflowPlaylistOrder.setDisplayStatSortField(field); // event/workflow/playlist-order.js
+        // Hiện/ẩn dropdown "hướng" ngay khi đổi field (chỉ có nghĩa khi field khác 'none'). Panel sống trong genericDrawerBody.
         this._syncSortStatDependents(genericDrawerBody, field);
         await this._persistPlaylistConfig();
     },
 
-    /** Trục (2) — hướng (mục 3, phản hồi Giang, dropdown (2), CHỈ hiện khi field khác 'none'). */
+    /** Sort trục thống kê — hướng (chỉ hiện khi field khác 'none'). */
     async changeStatSortDirection(direction) {
-        workflowPlaylistOrder.setDisplayStatSortDirection(direction); // event/workflow/playlist-order.js (dời từ core/playlist/order.js)
+        workflowPlaylistOrder.setDisplayStatSortDirection(direction); // event/workflow/playlist-order.js
         await this._persistPlaylistConfig();
     },
 
     /**
-     * "Kiểu xem" đổi giá trị (Settings → Playlist) — CÙNG LÝ DO tách khỏi router như changeSortMode() ngay trên.
-     * SỬA (05/08/2026, Rule 3a, phản hồi Giang "xử lý triệt để") — `setPlaylistViewMode()` (core/
-     * playlist/main.js) KHÔNG còn tự gọi `renderPlaylistFull()` nội bộ (core gọi core, cấm) — 2
-     * lời gọi core độc lập này giờ đứng CẠNH NHAU ở đây, đúng vai Workflow điều phối.
+     * "Kiểu xem" đổi giá trị (Settings → Playlist) — ghi + vẽ lại toàn bộ + lưu bền.
      */
     async changeViewMode(mode) {
-        setPlaylistViewMode(mode); // core (core/playlist/main.js) — chỉ ghi isGridView + className
-        applySelectionChrome(appState.get('selectionMode')); // MỚI (02/10/2026) — className vừa bị gán lại, mất class `is-selecting` (vòng tròn chọn CSS) nếu đang chọn
-        workflowPlaylistRender.renderPlaylistFull(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — layout grid/list đổi cấu trúc node hoàn toàn, không diff được
+        setPlaylistViewMode(mode); // core/playlist/main.js — ghi isGridView + className
+        applySelectionChrome(appState.get('selectionMode')); // className vừa bị gán lại, mất class `is-selecting` (vòng tròn chọn CSS) nếu đang chọn
+        workflowPlaylistRender.renderPlaylistFull(); // event/workflow/playlist-render.js — grid/list đổi cấu trúc node, không diff được
         await this._persistPlaylistConfig();
     },
 
     /**
-     * Ghi bền 3 lựa chọn "Playlist Settings" (Nguồn/Sắp xếp/Kiểu xem) vào `appConfigPlaylist` +
-     * `meta.playlistConfig` (IndexedDB) — CÙNG KHUÔN domain 'slideshow' (event/workflow/
-     * slideshow.js, setMeta trực tiếp mỗi lần đổi, KHÔNG debounce như domain 'viz' vì tần suất đổi
-     * thấp). CHỦ Ý KHÔNG gồm 3 field "Giải phóng bộ nhớ" (mediaScope/downloadEnabled/deleteEnabled,
-     * event/router/file-manager-song.js) — xem giải thích đầy đủ ở core/config.js::
-     * DEFAULT_PLAYLIST_CONFIG (lưu bền sẽ vô hiệu hoá 1 lớp an toàn đã có chủ đích cho hành động
-     * phá huỷ dữ liệu — router đó CHỦ ĐỘNG reset 3 field này mỗi lần mở panel).
+     * Ghi bền 3 lựa chọn Playlist (Nguồn/Sắp xếp/Kiểu xem) vào `appConfigPlaylist` + `meta.playlistConfig` (setMeta mỗi lần
+     * đổi, tần suất thấp). Chủ ý không gồm 3 field "Giải phóng bộ nhớ" (mediaScope/downloadEnabled/deleteEnabled) — lưu bền
+     * sẽ vô hiệu 1 lớp an toàn cho hành động phá dữ liệu (xem core/config.js::DEFAULT_PLAYLIST_CONFIG).
      */
     async _persistPlaylistConfig() {
         appConfigPlaylist.setAll({
             activeMediaSource: appState.get('activeMediaSource'),
             displaySortMode: appState.get('displaySortMode'),
-            // SỬA (mục 3) — displayStatSortMode (gộp) tách thành 2 field riêng.
             displayStatSortField: appState.get('displayStatSortField'),
             displayStatSortDirection: appState.get('displayStatSortDirection'),
             isGridView: appState.get('isGridView'),
@@ -2092,13 +1610,9 @@ const workflowPlaylist = {
     },
 
     /**
-     * Khôi phục 3 lựa chọn "Playlist Settings" đã lưu bền LÚC BOOT — gọi từ event/workflow/
-     * app-boot.js, TRƯỚC bước quyết định nạp playlistCache theo nguồn nào (LƯU Ý THỨ TỰ, phản hồi
-     * Giang: phải biết `activeMediaSource` đã lưu TRƯỚC khi nạp cache đúng Nguồn — xem app-boot.js).
-     * Đồng bộ lại UI 4
-     * <select>/badge qua `this.syncPlaylistSettingsUI()` (đã có sẵn, chỉ gán lại theo appState) vì
-     * lần gọi ĐẦU của nó (cuối core/playlist/main.js, lúc nạp script) chạy TRƯỚC khi hàm này kịp
-     * đọc xong IndexedDB (bất đồng bộ) — không gọi lại thì UI hiện sai giá trị dù state runtime đã đúng.
+     * Khôi phục 3 lựa chọn Playlist lúc boot (event/workflow/app-boot.js, TRƯỚC bước nạp playlistCache — phải biết
+     * `activeMediaSource` trước). Đồng bộ lại UI qua `syncPlaylistSettingsUI()` (lần bootstrap ở cuối core/playlist/main.js
+     * chạy trước khi đọc xong IndexedDB).
      */
     async loadPersistedPlaylistConfigOnBoot() {
         const saved = await getMeta('playlistConfig');
@@ -2106,59 +1620,33 @@ const workflowPlaylist = {
             appConfigPlaylist.mutateAll((cfg) => Object.assign(cfg, saved));
         }
         const cfg = appConfigPlaylist.getAll();
-        // SỬA (hợp nhất Photo vào Playlist) — ternary nhị phân cũ (bất kỳ giá trị nào khác 'video'
-        // đều rơi về 'song') sẽ ÂM THẦM ép 'photo' đã lưu bền quay lại 'song' mỗi lần mở app — THAY
-        // bằng danh sách hợp lệ tường minh, giá trị lạ/thiếu mới rơi về 'song' (mặc định an toàn).
+        // Nguồn lạ/thiếu -> 'song'.
         const validSources = ['song', 'video', 'photo'];
         appState.set('activeMediaSource', validSources.includes(cfg.activeMediaSource) ? cfg.activeMediaSource : 'song');
         appState.set('displaySortMode', cfg.displaySortMode || 'az');
-        appState.set('displayStatSortField', cfg.displayStatSortField || 'none'); // SỬA (mục 3)
+        appState.set('displayStatSortField', cfg.displayStatSortField || 'none');
         appState.set('displayStatSortDirection', cfg.displayStatSortDirection || 'desc');
         appState.set('isGridView', !!cfg.isGridView);
         console.log(`writer: "loadPersistedPlaylistConfigOnBoot", page: "activeMediaSource/displaySortMode/isGridView", content: "khôi phục từ meta.playlistConfig"`);
         const restoredSource = appState.get('activeMediaSource');
         if (playlistSearchInput) playlistSearchInput.placeholder = t(restoredSource === 'video' ? 'playlistView.search.placeholderVideo' : restoredSource === 'photo' ? 'playlistView.search.placeholderPhoto' : 'playlistView.search.placeholder');
-        // SỬA (phản hồi Giang — "1 khung, không nhân bản") — thay cho việc toggle 'hidden' giữa
-        // btnUploadAudio/btnUploadVideo (2 nút riêng ĐÃ XOÁ), giờ chỉ cần đồng bộ lại `accept` của
-        // 2 input DÙNG CHUNG theo đúng Nguồn vừa khôi phục — nút bấm mở menu LUÔN hiện, không đổi.
+        // Đồng bộ `accept` của 2 input upload dùng chung theo Nguồn vừa khôi phục.
         this._applyUploadInputAccept(restoredSource);
-        // MỚI (hợp nhất Photo vào Playlist) — cùng lý do, hàng "Phát/Trộn bài" cũng phải tự đồng bộ
-        // ở đây (KHÔNG đi qua switchSource() lúc boot). SỬA (Giang yêu cầu — "bỏ ẩn cho 2
-        // nút phát và shuffle") — TRƯỚC ĐÂY toggle theo `restoredSource === 'photo'` (ẩn khi boot
-        // thẳng vào Photo) — giờ Photo không còn ẩn 2 nút này nữa, LUÔN
-        // gỡ 'hidden' bất kể Nguồn nào, khớp đúng cách switchSource() làm.
+        // Hàng Phát/Trộn bài luôn hiện (boot không đi qua switchSource()).
         if (btnPlaylistEmptyPlay) btnPlaylistEmptyPlay.classList.remove('hidden');
         if (btnPlaylistEmptyShuffle) btnPlaylistEmptyShuffle.classList.remove('hidden');
         await this.syncPlaylistSettingsUI();
     },
 
-    // ===================== Ver 12 "Filter/Sort subpanel" (mục 1b/1c/1d) =====================
+    // ===================== Filter / Sort subpanel =====================
 
-    /**
-     * Khôi phục `playlistFilterConfig` đã lưu bền LÚC BOOT — gọi từ event/workflow/app-boot.js,
-     * TRƯỚC khối Scope (applyAllSongsScope()/applyFolderScope() đọc field này để lọc
-     * playlistOrder, xem event/workflow/playlist-scope.js) — CÙNG VỊ TRÍ/LÝ DO THỨ TỰ với
-     * loadPersistedPlaylistConfigOnBoot() ngay trên. Không tìm thấy `meta.playlistFilterConfig`
-     * (lần đầu mở app) -> giữ nguyên default rỗng đã seed sẵn ở buildDefaults()
-     * (service/state/playlist.js) — mọi field `null`, applyPlaylistFilter() fast-path trả nguyên
-     * playlistOrder, hành vi giống hệt trước khi có Filter.
-     */
-    /** SỬA (08/09/2026, hệ "Playlist Filter Presets") — TRƯỚC ĐÂY hàm này tự đọc/migrate
-     * `meta.playlistFilterConfig` (bộ rule sống DUY NHẤT). Giờ chỉ delegate THẲNG sang
-     * `workflowPlaylistFilterPresets.loadOnBoot()` (event/workflow/playlist-filter-presets.js) —
-     * GIỮ NGUYÊN tên hàm + điểm gọi (event/workflow/app-boot.js, TRƯỚC khối Scope) để KHÔNG phải
-     * sửa app-boot.js, chỉ đổi NƠI logic thật sự sống. `meta.playlistFilterConfig` cũ KHÔNG migrate
-     * (CHỐT Giang — "bắt đầu lại từ đầu"), giờ mồ côi trong DB, an toàn (không nơi nào còn đọc). */
+    /** Khôi phục Filter lúc boot (TRƯỚC khối Scope ở app-boot.js) — giao workflowPlaylistFilterPresets.loadOnBoot(). */
     async loadPersistedFilterConfigOnBoot() {
-        await workflowPlaylistFilterPresets.loadOnBoot(); // liên tuyến domain, event/workflow/playlist-filter-presets.js
+        await workflowPlaylistFilterPresets.loadOnBoot(); // event/workflow/playlist-filter-presets.js
     },
 
-
-    /** Push panel "Sắp xếp" (mục 1b/1c; SỬA mục 3 — dropdown Stats tách field/hướng riêng, dropdown
-     * hướng CHỈ hiện khi field khác 'none') — đồng bộ giá trị hiện tại lúc mở. SỬA (đợt tái cấu
-     * trúc bottom nav + phân phối lại Settings) — KHÔNG còn `pushSettingsPanel()`, bodyHtml do
-     * event/workflow/app-settings.js cung cấp SẴN qua `navigateTo()` — chỉ còn đồng bộ giá trị vào
-     * `genericDrawerBody`. */
+    /** Panel "Sắp xếp" vừa mở (bodyHtml do event/workflow/app-settings.js dựng) — đồng bộ giá trị hiện tại vào
+     * `genericDrawerBody`; dropdown hướng chỉ hiện khi field khác 'none'. */
     openSortPanel() {
         const panelEl = genericDrawerBody;
         panelEl.querySelector('#setting-playlist-sort-name').value = appState.get('displaySortMode');
@@ -2168,7 +1656,7 @@ const workflowPlaylist = {
         this._syncSortStatDependents(panelEl, statField);
     },
 
-    /** MỚI (07/10/2026, Giang) — ẩn/hiện 2 phần tử CHỈ có nghĩa khi Stats đang chọn field khác 'none': hàng Hướng +
+    /** Ẩn/hiện 2 phần tử chỉ có nghĩa khi Stats chọn field khác 'none': hàng Hướng +
      * icon (i) giải thích cạnh nhãn Tên/Ngày (thay dòng gợi ý chữ cũ). Panel không mở (phần tử null) -> bỏ qua.
      * @param {HTMLElement} panelEl @param {string} statField */
     _syncSortStatDependents(panelEl, statField) {
@@ -2179,44 +1667,25 @@ const workflowPlaylist = {
         });
     },
 
-    // XOÁ (08/09/2026, hệ "Playlist Filter Presets") — openFilterPanel()/_syncFilterPanelUI()/
-    // openFilterTimePicker()/setFilterField()/applyFilterChanges() (bộ rule sống DUY NHẤT, nút
-    // "Áp dụng" đơn) đã thay bằng workflowPlaylistFilterPresets (event/workflow/
-    // playlist-filter-presets.js) — danh sách preset đặt tên, mirror EQ/Motion. _syncFilterPanelUI()
-    // ĐÃ PORT sang workflowPlaylistFilterPresets._syncEditUI() (đọc preset đang sửa thay vì
-    // playlistFilterConfig sống); 4 hàm còn lại có bản mirror bên đó (openFilterTimePicker/
-    // setFilterField giữ nguyên tên, "Áp dụng" đổi tên thành selectPreset() — "chọn áp dụng").
-
-
-    /** Ứng với nút X ở badge "đang Scope folder nào" (components/playlist-view.js) — MỚI (06/09/2026,
-     * hợp nhất Folder vào Playlist, Batch 3). Thoát Scope của ĐÚNG Nguồn hiện tại, áp SỐNG (xem
-     * event/workflow/playlist-scope.js) — `applyAllSongsScope()` tự ẩn badge lại (updateActiveFolderBadge()). */
+    /** Nút X ở badge "đang Scope folder nào" (components/playlist-view.js) — thoát Scope của Nguồn hiện tại, áp "Tất cả"
+     * (applyAllSongsScope() tự ẩn badge). */
     async exitActiveFolderScope() {
         const mediaType = appState.get('activeMediaSource');
         await withLoadingShield(t('common.loading.generic'), async () => {
             await workflowPlaylistScope.persistScopeChoice(null, mediaType);
             await workflowPlaylistScope.applyAllSongsScope(mediaType);
-            workflowPlaylistRender.scrollToCurrentOrTop(); // SỬA (02/10/2026) — quy tắc A, CÙNG lý do applyFolderFromTile() (event/workflow/file-manager-folder-browser.js)
+            workflowPlaylistRender.scrollToCurrentOrTop(); // event/workflow/playlist-render.js
         });
     },
 
     /**
-     * MỚI (05/08/2026, Rule 3a, phản hồi Giang "xử lý triệt để... theo event bus, rule core") —
-     * thay thế `PlaylistMain.init()` đã BỊ BỎ (core/playlist/main.js): hàm đó cũ gọi lần lượt 4
-     * method core khác NGAY BÊN TRONG chính nó — core gọi core, vi phạm Rule 3a. Việc GỌI TUẦN TỰ
-     * 4 method (điều phối, không phải nghiệp vụ) giờ chuyển hẳn ra đây — Workflow CHUẨN BỊ tham số
-     * (`appState.get('isGridView')`) rồi gọi từng Core method riêng biệt, đúng Rule 3b.
-     * Dùng lại ở MỌI nơi trước đây gọi `PlaylistMain.init()`: loadPersistedPlaylistConfigOnBoot()
-     * ngay trên, và event/workflow/app-boot.js (2 chỗ khôi phục lệch loại folder Scope).
+     * Đồng bộ các control Playlist Settings (Kiểu xem, Nguồn) theo appState — Workflow đọc state rồi gọi từng method của
+     * `PlaylistMain` (core/playlist/main.js). Dùng sau khi khôi phục cấu hình lúc boot.
      */
     async syncPlaylistSettingsUI() {
-        if (typeof PlaylistMain === 'undefined') return; // guard clause thuần (Rule 1) — giữ đúng kiểu phòng thủ cũ ở mọi nơi từng gọi PlaylistMain.init()
+        if (typeof PlaylistMain === 'undefined') return; // guard
         PlaylistMain.initViewMode(appState.get('isGridView'));
-        // XOÁ (06/09/2026, Giang chốt mục 3.1 — "badge thay HẲN UI khoá select") — truy vấn
-        // `mediaSourceSelectEl` + gọi `PlaylistMain.updateActiveFolderUI(...)` từng ở đây đã bỏ hẳn
-        // cùng hàm đó — badge mới tự cập nhật từ event/workflow/playlist-scope.js, không cần đồng
-        // bộ gì thêm ở đây nữa.
-        PlaylistMain.initMediaSource(genericDrawerBody.querySelector('#setting-playlist-media-source'), appState.get('activeMediaSource')); // SỬA (02/10/2026) — core nhận tham số (Rule 2)
+        PlaylistMain.initMediaSource(genericDrawerBody.querySelector('#setting-playlist-media-source'), appState.get('activeMediaSource')); // core/playlist/main.js
     }
 };
 

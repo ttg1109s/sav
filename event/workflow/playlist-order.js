@@ -5,10 +5,10 @@
  * "ghép hàm thuần, không tính Core gọi Core" mà bản thân tôi tự bịa, KHÔNG có trong core-function-
  * conventions.md):
  *   - `recomputeRenderOrder()`/`recomputeDisplayOrder()` — TRƯỚC ĐÂY ở order.js, gọi `liveKeys()`/
- *     `songMatchesQuery()`/`sortKeysByMode()` (đều là hàm core/nghiệp vụ TOP-LEVEL RIÊNG, KHÔNG
+ *     `sortKeysByMode()` (đều là hàm core/nghiệp vụ TOP-LEVEL RIÊNG, KHÔNG
  *     phải closure lồng) — đúng định nghĩa Rule 3a cấm tuyệt đối ("1 function core TUYỆT ĐỐI
  *     KHÔNG được gọi bất kỳ function core/nghiệp vụ nào khác"), KHÔNG đủ điều kiện hưởng ngoại lệ
- *     Rule 3c (hàm con chỉ được miễn khi là closure lồng bên trong VÀ tự chứa vòng lặp — 3 hàm bị
+ *     Rule 3c (hàm con chỉ được miễn khi là closure lồng bên trong VÀ tự chứa vòng lặp — các hàm bị
  *     gọi ở đây không thoả điều kiện nào).
  *   - `updateShuffleArray()`/`applyNewSongsToDisplayOrder()`/`setDisplaySortMode()`/
  *     `setDisplayStatSortField()`/`setDisplayStatSortDirection()` — TRƯỚC ĐÂY CŨNG tự
@@ -25,11 +25,11 @@
  * `shouldRestartInsteadOfAdvance()`.
  *
  * Workflow ở ĐÂY ĐƯỢC PHÉP tự `appState.get()` (Rule 2 CHỈ áp cho Core) và gọi nhiều Core nối tiếp
- * nhau (`liveKeys`/`songMatchesQuery`/`sortKeysByMode` — Core; `renderPlaylistDiff` giờ CŨNG là
+ * nhau (`liveKeys`/`sortKeysByMode` — Core; `renderPlaylistDiff` giờ CŨNG là
  * Workflow, gọi qua `workflowPlaylistRender.renderPlaylistDiff()` — Workflow gọi Workflow khác
  * domain, tự do) — Rule 3 CHỈ cấm Core gọi Core, không cấm Workflow gọi Core/Workflow khác.
  *
- * NẠP SAU: core/playlist/order.js (liveKeys/sortKeysByMode), core/song-search.js (songMatchesQuery),
+ * NẠP SAU: core/playlist/order.js (liveKeys/sortKeysByMode), core/song-search.js (normalizeSongName),
  * event/workflow/playlist-render.js (workflowPlaylistRender.renderPlaylistDiff — dời từ
  * core/playlist/render.js), service/state.js (appState). NẠP TRƯỚC: mọi
  * event/workflow/*.js hoặc core/*.js gọi 7 method dưới đây (xem danh sách callsite đã cập nhật ở
@@ -76,10 +76,8 @@ const workflowPlaylistOrder = {
         const { playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, mediaStatsMap, activeMediaSource } = appState.get([
             'playlistOrder', 'confirmedBrokenKeys', 'searchQuery', 'playlistCache', 'displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'mediaStatsMap', 'activeMediaSource',
         ]);
-        // SỬA (02/10/2026, tối ưu 10000 item) — trước đây songMatchesQuery() chuẩn hoá lại 3 field (title/artist/album) của
-        // MỌI bài ở MỖI lần lọc (10000 bài = 30000 lượt normalize NFD + regex mỗi ký tự gõ). Giờ chuỗi đã chuẩn hoá được nhớ
-        // theo key (_searchTextOf()), chỉ tính lại khi tag đổi. Kết quả lọc GIỮ NGUYÊN: khớp nếu query nằm trong 1 trong 3
-        // field (nối bằng ký tự xuống dòng — query 1 dòng không thể khớp vắt qua 2 field).
+        // Chuỗi tìm kiếm đã chuẩn hoá nhớ theo key (_searchTextOf()), chỉ tính lại khi tag đổi. Khớp nếu query nằm trong 1
+        // trong 3 field title/artist/album (nối bằng '\n' — query 1 dòng không khớp vắt qua 2 field).
         const live = liveKeys(playlistOrder, confirmedBrokenKeys); // core/playlist/order.js
         const searchTextMemo = this._searchTextMemo();
         const filtered = live.filter((key) => !searchQuery || this._searchTextOf(key, playlistCache.get(key), searchTextMemo).includes(searchQuery)); // không có query -> mọi bài khớp (vị từ boolean, không rẽ tiến trình)

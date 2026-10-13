@@ -1,141 +1,80 @@
 /**
- * event/workflow/app-boot.js — MỚI (25/07/2026, đợt tái cấu trúc state, mục "app-boot đi qua
- * eventBus"). Chuỗi ~15 bước boot dời NGUYÊN VẸN từ event/router/app-boot.js bản cũ (vốn dời từ
- * core/visualizer/draw-visualizer.js, 20/07/2026, plan-space-galaxy.md Phần A) — KHÔNG đổi thứ tự/
- * logic bên trong, chỉ đổi `appState.get/mutate('vizConfig', ...)` sang
- * `appConfigViz.getAll()/.mutateAll()` (cầu nối tương thích AppConfig, xem service/state.js).
- * [SỬA 27/07/2026] `seedConfig()` — trước đây gọi NGAY ĐẦU boot() ở đây — giờ dời hẳn sang
- * core/config.js (chạy ngay lúc nạp script, TRƯỚC khi accessor appConfigViz/... được tạo, xem
- * comment tại đó, lý do: xoá warning "chưa seed()" bắn lúc boot). boot() KHÔNG còn gọi
- * seedConfig() nữa — `loadConfig()` (dòng đầu tiên bên dưới) vẫn chạy SAU seed như cũ, chỉ khác
- * là seed đã xảy ra từ rất sớm (lúc nạp script), không còn ở đây nữa.
- *
- * File này (kế thừa quy chế miễn audit của draw-visualizer.js/event/router/app-boot.js cũ, xem
- * readme/core-legacy-audit.md) — thêm dòng mới vào đây KHÔNG phát sinh nghĩa vụ refactor cho
- * loadConfig()/loadPlaylistBgMediaAsset() (đổi tên 21/09/2026 từ loadPlaylistBgImageAsset — nay resolve ảnh/video nền từ thư viện).
+ * event/workflow/app-boot.js — chuỗi bước khởi động app (`app.boot` sau DOMContentLoaded). Thứ tự các bước có ràng buộc,
+ * ghi ngay tại từng bước. Seed config chạy sớm hơn, lúc nạp core/config.js.
  */
 const workflowAppBoot = {
     async boot() {
-        // MỚI (05/10/2026) — app luôn mở ở Playlist: sân khấu Visualizer (gồm #visualizer-ui) ra khỏi cây render ngay từ
-        // đầu ở bố cục xếp chồng — event/workflow/player-controls.js. Đồng bộ, không phụ thuộc gì bên dưới.
+        // App luôn mở ở Playlist: đưa sân khấu Visualizer ra khỏi cây render ngay từ đầu.
         workflowPlayerControls.offstageVisualStageOnBoot();
         await loadConfig();
         workflowAutoSwitchVisual.syncLockedControls(); // event/workflow/auto-switch-visual.js — khoá đổi hiệu ứng tay theo Auto-Switch đã lưu
         workflowHud.syncSpeedUI(appConfigViz.getAll().playbackSpeed); // event/workflow/hud.js — badge tốc độ trên nút Speed
-        // SỬA (28/09/2026, Phase 3 dọn visualizer) — kích hoạt style đã lưu (nhãn icon, vizConfig, scene WebGL nếu cần):
-        // trước đây loadConfig() (core) tự gọi updateTypeUI() (core cũ, đã tách về Workflow).
+        // Kích hoạt style đã lưu (nhãn icon, vizConfig, scene WebGL nếu cần).
         workflowVisualizerRender.activateCurrentStyle(); // event/workflow/visualizer-render.js
         workflowSubtitleDisplay.initFromConfig(); // event/workflow/subtitle-display.js — cờ bật/tắt, style khung, karaoke
-        // SỬA (07/10/2026, Giang bỏ Service Worker tải file lớn) — thay lệnh đăng ký sw.js cũ: gỡ bản đã cài trên máy (không await).
+        // Gỡ Service Worker tải file lớn đời cũ còn sót trên máy (không await).
         this._retireLegacyDownloadServiceWorker();
-        // MỚI (09/09/2026, hệ UI Theme Light/Dark/Morphin) — áp theme màu app THẬT (panel/card/
-        // text/nút bấm) CÀNG SỚM CÀNG TỐT, trước khi bất kỳ Generic Drawer nào có thể mở — KHÔNG
-        // phụ thuộc thứ tự với các dòng migrate/khôi phục config bên dưới (domain độc lập hoàn
-        // toàn, xem core/ui-theme/light.js). KHÔNG await chặn phần còn lại của boot — chỉ đổi màu
-        // 1 khung DOM tĩnh (Generic Drawer đang ẩn), không ảnh hưởng gì tới Playlist/Visualizer
-        // hiện lên ngay sau.
+        // Áp UI theme càng sớm càng tốt, trước khi Generic Drawer nào kịp mở; domain độc lập, không await.
         if (typeof workflowUiTheme !== 'undefined') workflowUiTheme.loadPersistedUiThemeOnBoot();
         // Tô nút nav tab Media ngay khung hình đầu (sau dòng nạp theme ở trên).
         workflowAppPanelNav.paintActiveTab('media'); // event/workflow/app-panel-nav.js
-        // MỚI (29/08/2026, hệ Cấu hình Motion) — PHẢI chạy TRƯỚC dòng
-        // `workflowVisualBg.loadPersistedSettingsOnBoot()` ngay dưới: hàm này tự migrate cấu hình
-        // Motion CŨ (từng nhúng thẳng trong `meta.visualBgConfig.slideshow`) thành preset đầu
-        // tiên + ghi thẳng `motionPresetId` vào CHÍNH `meta.visualBgConfig` — VBG đọc lại meta đó
-        // NGAY SAU sẽ thấy đúng giá trị đã migrate, xem docstring loadPresetsOnBoot()
-        // (event/workflow/motion-presets.js).
+        // PHẢI chạy trước `workflowVisualBg.loadPersistedSettingsOnBoot()`: migrate cấu hình Motion cũ (nhúng trong
+        // `meta.visualBgConfig.slideshow`) thành preset đầu tiên và ghi `motionPresetId` vào `meta.visualBgConfig`.
         if (typeof workflowMotionPresets !== 'undefined') await workflowMotionPresets.loadPresetsOnBoot();
-        // MỚI (Giang yêu cầu "Player" — Resolution + Motion của Video/Photo lúc phát chính) — domain
-        // 'playerDisplay' ĐỘC LẬP hoàn toàn (không migrate/phụ thuộc gì Motion Preset ở trên, chỉ đặt
-        // gần đây cho dễ theo dõi nhóm "nạp cấu hình Motion-liên-quan"), xem event/workflow/player-
-        // display-settings.js. CHƯA áp dụng gì lên DOM (chưa có cơ chế hoạt động, giai đoạn 1).
+        // Player display (Resolution + Motion lúc phát Video/Photo) — domain độc lập.
         if (typeof workflowPlayerDisplaySettings !== 'undefined') await workflowPlayerDisplaySettings.loadPersistedPlayerDisplayOnBoot();
-        // MỚI (23/09/2026) — domain 'pagination' (Settings > System > Pagination), độc lập hoàn toàn — nạp TRƯỚC khi bất kỳ danh
-        // sách phân trang nào kịp dựng (mọi danh sách chỉ dựng sau boot, lúc người dùng mở), xem event/workflow/pagination.js.
+        // Pagination — nạp trước khi danh sách phân trang nào kịp dựng (mọi danh sách dựng sau boot).
         if (typeof workflowPagination !== 'undefined') await workflowPagination.loadPersistedPaginationOnBoot();
-        if (typeof workflowRecorder !== 'undefined') await workflowRecorder.loadPersistedConfigOnBoot(); // MỚI 01/10/2026 — Ghi âm (meta.recorderConfig)
-        // MỚI (05/10/2026) — Performance HUD (meta.perfHudConfig): khôi phục cấu hình + bật lại HUD nếu lần trước đang bật.
-        // Thay `perfProbe.restoreOnBoot()` của service/perf-probe.js cũ (đã xoá, từng tự chạy lúc nạp script). KHÔNG await —
-        // độc lập hoàn toàn, không gì phía dưới phụ thuộc nó.
+        if (typeof workflowRecorder !== 'undefined') await workflowRecorder.loadPersistedConfigOnBoot(); // Ghi âm (meta.recorderConfig)
+        // Performance HUD: khôi phục cấu hình + bật lại nếu lần trước đang bật. Không await — độc lập.
         if (typeof workflowPerfHud !== 'undefined') workflowPerfHud.loadPersistedConfigOnBoot(); // event/workflow/perf-hud.js
-        // SỬA (fix bug "bật vbg nguồn video -> playlist mãi mới render") — KHÔNG await ở đây nữa.
-        // `loadPersistedSettingsOnBoot()` tự áp nền ngầm (video không còn chặn chờ 'playing' lúc
-        // boot — xem event/workflow/visual-bg.js::_playVideoKey()); boot() chạy thẳng xuống playlist
-        // ngay, không đứng chờ nền video nạp xong nữa.
+        // Không await: nền (kể cả video) áp ngầm, Playlist không phải chờ nền nạp xong.
         if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.loadPersistedSettingsOnBoot();
 
-        // MỚI (v13 Batch F) — dọn 4 khoá meta mồ côi của cơ chế nền cũ (2 trong đó là BẢN SAO Blob
-        // ảnh/video, có thể hàng trăm MB). Chạy SAU khi đã nạp xong cấu hình mới, không await chặn
-        // phần còn lại của boot vì nó không ảnh hưởng gì tới hiển thị.
+        // Dọn 4 khoá meta mồ côi của cơ chế nền cũ (có bản sao Blob ảnh/video lớn). Không chặn boot.
         purgeVisualBgLegacyMeta(); // core/file-manager/cleanup.js
         // AWAIT: `workflowFolder.list()` giả định `meta.folderIndex` đã đúng — migrate xong TRƯỚC khi người dùng mở được
         // Folder Browser/Add to Folder; `activePlayListFolder` dạng cũ (string phẳng) -> {song,video,photo} TRƯỚC mọi chỗ
         // đọc field này ngay dưới.
         await workflowFolder.migrateOnBoot(); // event/workflow/folder.js
-        // Nạp giá trị đã lưu bền (nay CHẮC CHẮN đúng schema object nhờ migrate ngay trên) vào
-        // appState — mọi chỗ đọc `activePlayListFolder[type]` ngay dưới trong file này (và về sau
-        // ở event/workflow/playlist.js::switchSource()) đều qua appState, không tự getMeta()
-        // riêng lẻ (cùng khuôn playlistConfig/playlistFilterConfig ngay trên).
+        // Nạp vào appState (schema object nhờ migrate ngay trên) — mọi chỗ đọc về sau đi qua appState.
         appState.set('activePlayListFolder', (await getMeta('activePlayListFolder')) || { song: null, video: null, photo: null });
-        // XOÁ (29/08/2026) — comment cũ "Domain slideshow đã gộp vào visualBgConfig.slideshow (v13
-        // Batch C)" không còn đúng — Motion tách hẳn thành hệ preset độc lập (migrate ở dòng
-        // `workflowMotionPresets.loadPresetsOnBoot()` phía trên), không còn nhúng trong VBG.
-        await workflowListenStats.loadAll(); // event/workflow/listen-stats.js — SỬA 06/10/2026 (thay core loadSongStats: thống kê nằm trong meta từng media)
+        await workflowListenStats.loadAll(); // event/workflow/listen-stats.js — thống kê nằm trong meta từng media
 
-        // MỚI (phản hồi Giang, mục 5 "Đồng bộ lại config Playlist Settings") — khôi phục
-        // Nguồn/Sắp xếp/Kiểu xem đã lưu bền TRƯỚC KHI quyết định nạp playlistCache theo nguồn nào
-        // ngay dưới đây (LƯU Ý THỨ TỰ, phản hồi Giang: bắt buộc biết `activeMediaSource` đã lưu
-        // TRƯỚC khi nạp cache — đảo ngược thứ tự sẽ tái diễn đúng bug ở mục 7 dưới đây).
+        // Khôi phục Nguồn/Sắp xếp/Kiểu xem TRƯỚC khi nạp playlistCache — phải biết `activeMediaSource` trước.
         if (typeof workflowPlaylist !== 'undefined') await workflowPlaylist.loadPersistedPlaylistConfigOnBoot();
-        // MỚI (mục 1d, Playlist Filter) — khôi phục `playlistFilterConfig` đã lưu bền TRƯỚC khối
-        // Scope ngay dưới (applyAllSongsScope()/applyFolderScope() đọc field này để lọc
-        // playlistOrder — xem event/workflow/playlist-scope.js) — CÙNG LÝ DO THỨ TỰ với dòng
-        // activeMediaSource ngay trên.
+        // Khôi phục `playlistFilterConfig` TRƯỚC khối Scope ngay dưới (applyAllSongsScope()/applyFolderScope() lọc theo nó).
         if (typeof workflowPlaylist !== 'undefined') await workflowPlaylist.loadPersistedFilterConfigOnBoot();
 
-        // MỚI (phản hồi Giang, mục 3 "thêm nhớ trạng thái shuffle/repeat/stats") — khôi phục 3
-        // icon toggle Control Center đã lưu bền — CÙNG NHÓM "khôi phục config đã lưu bền lúc boot"
-        // với dòng playlist ngay trên, không phụ thuộc thứ tự với nhau (2 domain độc lập).
+        // Khôi phục 3 toggle Control Center (shuffle/repeat/stats) — độc lập với dòng trên.
         if (typeof workflowPlayerControls !== 'undefined') await workflowPlayerControls.loadPersistedPlayerConfigOnBoot();
 
-        // MỚI (phản hồi Giang — hệ thống preset EQ lưu DB) — nạp/seed meta.eqPresets TRƯỚC khi
-        // audio graph có thể tồn tại (setupAudioContext() chỉ chạy SAU thao tác phát nhạc đầu
-        // tiên của người dùng, luôn SAU boot() — không cần await chặn phần còn lại, nhưng vẫn await
-        // ở đây để CHẮC CHẮN appState.eqPresets sẵn sàng trước khi người dùng kịp bấm phát, tránh
-        // race hiếm gặp trên máy rất chậm).
+        // Nạp/seed meta.eqPresets — await để appState.eqPresets sẵn sàng trước khi người dùng kịp bấm phát (audio graph
+        // chỉ dựng ở lần phát đầu tiên).
         if (typeof workflowEqPresets !== 'undefined') await workflowEqPresets.loadPresetsOnBoot();
 
-        // MỚI (25/09/2026, Giang yêu cầu "ẩn tab/PWA vẫn phát nền, đăng ký audio session") — khai báo Audio Session
-        // 'playback' TRƯỚC lần phát nhạc đầu tiên (iOS quyết định loại session lúc bắt đầu phát). Đồng bộ, không await.
+        // Khai báo Audio Session 'playback' TRƯỚC lần phát đầu tiên (iOS chọn loại session lúc bắt đầu phát).
         if (typeof workflowAppVisibility !== 'undefined') workflowAppVisibility.registerAudioSessionOnBoot(); // event/workflow/app-visibility.js
 
-        // SỬA (fix bug "folder Video Apply -> Playlist trống", phản hồi Giang mục 7) — nạp ĐÚNG
-        // playlistCache theo `activeMediaSource` vừa khôi phục ở trên, KHÔNG cố định Song.
-        // SỬA (07/09/2026, "workflow chuẩn dùng chung app boot + chuyển Nguồn", rồi "folder scope
-        // đúng ngay từ List step") — `applyFolderScope()`/`applyAllSongsScope()` (event/workflow/
-        // playlist-scope.js) giờ tự lo TOÀN BỘ: nạp cache ĐÚNG phạm vi (folder đang nhớ cho Nguồn
-        // này nếu có, chỉ đọc phần đó — không còn đọc dư cả thư viện rồi mới lọc) + Filter + render
-        // + badge — gọi 1 TRONG 2 hàm này là ĐỦ cho cả 3 Nguồn, không cần bước nạp cache riêng nữa.
+        // Nạp playlistCache theo `activeMediaSource` vừa khôi phục: applyFolderScope()/applyAllSongsScope()
+        // (event/workflow/playlist-scope.js) tự lo nạp đúng phạm vi + Filter + render + badge cho cả 3 Nguồn.
         const bootMediaSource = (typeof appState !== 'undefined') ? appState.get('activeMediaSource') : 'song';
         if (bootMediaSource === 'song') {
-            // PHÒNG THỦ "Clear All bị gián đoạn" (đóng tab/crash giữa lúc đang xoá — xem comment
-            // đầy đủ ở clearAllStoredData(), core/storage-manager.js) — CHỈ Song cần, chạy TRƯỚC
-            // khi đọc playlist. clearAllStoredData() an toàn để gọi lại (idempotent).
+            // Phòng thủ "Clear All bị gián đoạn" (đóng tab/crash giữa lúc xoá) — chạy lại trước khi đọc playlist;
+            // clearAllStoredData() idempotent.
             const wasClearing = await getMeta('clearingInProgress');
             if (wasClearing) {
                 await withLoadingShield(t('common.playlist.cleaningUpPrevious'), async () => {
-                    await workflowFileManagerStorage.clearAllStoredData(); // event/workflow/file-manager-storage.js (dời từ core 24/09/2026)
+                    await workflowFileManagerStorage.clearAllStoredData(); // event/workflow/file-manager-storage.js
                 });
             }
         }
-        // Progress "x/y bài" CHỈ cho Song (Video/Photo boot im lặng, như cũ) — showPlaylistLoading()
-        // chỉ bật ở LẦN GỌI ĐẦU TIÊN của onProgress; thư viện/folder rỗng thì onProgress không bao
-        // giờ được gọi (không có key nào để lặp) -> lớp loading tự nhiên KHÔNG hiện, không cần
-        // pre-check số lượng riêng.
+        // Progress "x/y bài" chỉ cho Song; hiện ở lần onProgress đầu tiên — thư viện/folder rỗng thì không bao giờ hiện.
         let bootOnProgress;
         if (bootMediaSource === 'song') {
             let shownLoadingOverlay = false;
             bootOnProgress = (done, total) => {
-                if (!shownLoadingOverlay) { workflowPlaylistRender.showPlaylistLoading(0, total); shownLoadingOverlay = true; } // core/playlist/render.js — tự fade out khi DOM list dựng xong (updateEmptyState(), trong applyFolderScope()/applyAllSongsScope())
+                if (!shownLoadingOverlay) { workflowPlaylistRender.showPlaylistLoading(0, total); shownLoadingOverlay = true; } // tự fade out khi list dựng xong
                 updatePlaylistLoading(done, total);
             };
         }
@@ -144,36 +83,23 @@ const workflowAppBoot = {
             if (folderIdForCurrentSource) {
                 await workflowPlaylistScope.applyFolderScope(folderIdForCurrentSource, bootMediaSource, bootOnProgress);
             } else {
-                // Chạy dù không có Scope, để lọc Exclude (chỉ ảnh hưởng view "Tất cả") có tác dụng
-                // đúng ngay từ lúc boot.
+                // Chạy cả khi không có Scope để lọc Exclude (chỉ ảnh hưởng view "Tất cả") đúng ngay từ boot.
                 await workflowPlaylistScope.applyAllSongsScope(bootMediaSource, bootOnProgress);
             }
         }
-        // Cuộn tới bài vừa sửa phụ đề xong (quay lại từ subtitle-editor.html qua nút "←") — đặt
-        // SAU CÙNG (đã nạp cache + khôi phục activePlayListFolder xong).
-        workflowPlaylistRender.scrollToSongIfPending(); // SỬA (02/10/2026) — dời từ core (Rule 2/3b), xem method đó
+        // Cuộn tới bài vừa sửa phụ đề (quay lại từ subtitle-editor.html) — sau khi đã nạp cache.
+        workflowPlaylistRender.scrollToSongIfPending(); // event/workflow/playlist-render.js
 
-        // XOÁ (30/07/2026, cùng ngày) — `workflowFileManagerVideo.regenerateAllVideoThumbFull()`
-        // (thêm rồi xoá NGAY TRONG CÙNG NGÀY, chạy ngầm 1 lần lúc boot quét lại toàn bộ video cũ) —
-        // Giang chốt: kỹ thuật chụp khung đầu robust (readyState>=2 + play()/pause() nudge) chỉ áp
-        // dụng cho video UPLOAD MỚI (event/workflow/file-manager-video.js::_extractVideoThumbAndMeta()),
-        // không cần thêm 1 lượt quét lại video cũ nữa — xem lịch sử đầy đủ ở file đó.
 
-        // "Chốt fade out" lớp `showPlaylistLoading()` (core/playlist/render.js) — AN TOÀN kể cả khi
-        // Nguồn boot không phải Song (chưa từng show()) hoặc render xong renderOrder vẫn rỗng (mọi
-        // record hỏng — `updateEmptyState()` chỉ tự hide khi renderOrder > 0, xem hàm đó) —
-        // hidePlaylistLoading() tự no-op nếu lớp chưa từng hiện/đã ẩn.
-        workflowPlaylistRender.hidePlaylistLoading(); // SỬA (02/10/2026) — dời từ core (taskManager trong core, Rule 3)
+        // Chốt ẩn lớp loading Playlist — no-op nếu chưa từng hiện (Nguồn không phải Song) hoặc đã ẩn.
+        workflowPlaylistRender.hidePlaylistLoading(); // event/workflow/playlist-render.js
 
-        // Ẩn preloader full-screen khi Playlist đã THẬT SỰ dựng xong (renderOrder đã ra DOM). Đặt SAU CÙNG mọi bước dựng
-        // Playlist (Scope/Filter/render) để không có khoảng hở "list trống nhưng header/nút đã hiện".
-        // SỬA (07/10/2026, Giang) — thay `window.markPlaylistBootReady()` của khối inline cũ: preloader tách ra
-        // service/boot-preloader.js, ẩn = 1 class trên <html>.
+        // Ẩn preloader full-screen khi Playlist đã thật sự dựng xong — sau mọi bước Scope/Filter/render.
         hideAppPreloader(document.documentElement); // core/loading-shield-util.js
     },
 
-    /** Gỡ Service Worker + cache tải file lớn đời cũ còn sót trên máy đã cài (sw.js đã xoá 07/10/2026). Không có
-     * `navigator.serviceWorker` (file://, HTTP thường) thì chưa từng cài được -> bỏ qua. XOÁ từ ver 14. */
+    /** Gỡ Service Worker + cache tải file lớn đời cũ còn sót trên máy đã cài. Không có `navigator.serviceWorker`
+     * (file://, HTTP thường) thì chưa từng cài -> bỏ qua. Xoá ở đợt 13 (ver 14). */
     _retireLegacyDownloadServiceWorker() {
         if (!navigator.serviceWorker) return;
         navigator.serviceWorker.getRegistrations()

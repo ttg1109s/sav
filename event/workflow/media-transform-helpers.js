@@ -32,10 +32,4 @@ const workflowMediaTransformHelpers = {
         return CROP_RATIO_PRESETS;
     },
 
-    /** @param {object} session @returns {{labelKey: string, ratio: number}|null} preset khớp `session.aspectRatio` hiện tại, null nếu không khớp preset nào (tỉ lệ tự kéo tay). */
-    findActivePreset(session) {
-        return CROP_RATIO_PRESETS.find((p) => (
-            Number.isNaN(p.ratio) ? Number.isNaN(session.aspectRatio) : p.ratio === session.aspectRatio
-        )) || null;
-    },
 };

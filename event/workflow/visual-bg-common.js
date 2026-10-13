@@ -13,19 +13,15 @@
  * service/state.js. NẠP TRƯỚC: event/workflow/visual-bg-video.js, event/workflow/visual-bg-photo.js,
  * event/router/visual-bg.js.
  */
-// MỚI (25/09/2026) — chuỗi owner MỜ của VBG khi dùng Image surface (event/workflow/visual-bg-photo-motion.js)
-// — surface giờ DÙNG CHUNG với Player Photo, chỉ so bằng chuỗi này để chặn chéo (xem docstring surface).
+// Chuỗi owner của VBG khi giữ Image surface (event/workflow/visual-bg-photo-motion.js — dùng chung với Player Photo,
+// so chuỗi này để chặn chéo).
 const VISUAL_BG_IMAGE_SURFACE_OWNER = 'visualBg';
-// MỚI (25/09/2026, đợt 5) — chuỗi owner MỜ của VBG khi dùng Video surface (event/workflow/video-motion-surface.js)
-// — surface DÙNG CHUNG với Player Video.
+// Chuỗi owner của VBG khi giữ Video surface (event/workflow/video-motion-surface.js — dùng chung với Player Video).
 const VISUAL_BG_VIDEO_SURFACE_OWNER = 'visualBg';
 let visualBgSettingsPanelEl = null;
 let visualBgGradientPanelEl = null;
 
-// MỚI (02/10/2026, Giang duyệt — đọc DB cả lô) — đọc nhiều record theo key trong 1 transaction (service/db.js), thay
-// `Promise.all(keys.map(getVideoRecord|getImageRecord))` (mỗi record 1 transaction mở cùng lúc — danh sách lớn làm sập
-// trang). Kèm dọn rẽ nhánh của 2 hàm bị sửa (_readOriginKeys/_applyNextOrderToKeys) sang object map — event-bus-flow.md
-// mục 7. Loại không có trong bảng -> 'photo', ĐÚNG hành vi cũ (`type === 'video' ? video : ảnh`).
+// type -> đọc nhiều record theo key trong 1 transaction (service/db.js). Loại không có trong bảng -> 'photo'.
 const VISUAL_BG_RECORDS_BY_TYPE = {
     video: (keys) => getVideoRecordsByKeys(keys), // service/db.js
     photo: (keys) => getImageRecordsByKeys(keys), // service/db.js
@@ -71,7 +67,7 @@ const workflowVisualBg = {
     _gradientMovementPhaseToSpread: null,
 
     /** Picker Generic Drawer multi-select dùng chung cho Video/Ảnh (không bao giờ mở đồng thời). */
-    _pickerOpen: false, // SỬA (24/09/2026) — THAY `_pickerCleanup` (hàm gỡ listener cũ của openMediaPickerDrawerUi(), không còn cần)
+    _pickerOpen: false,
     _pickerSelectedKeys: [], // ordered — thứ tự chọn
 
     /** Đọc lại `meta.visualBgConfig` + áp nền — gọi 1 lần lúc boot, SAU loadConfig(). */
@@ -126,13 +122,10 @@ const workflowVisualBg = {
                     if (typeof gm.colorSwapTransitionMs === 'number' && gm.colorSwapTransitionMs >= VISUAL_BG_GRADIENT_MOVEMENT_TRANSITION_MIN_MS && gm.colorSwapTransitionMs <= VISUAL_BG_GRADIENT_MOVEMENT_TRANSITION_MAX_MS) cfg.gradientMovement.colorSwapTransitionMs = gm.colorSwapTransitionMs;
                 }
                 if (typeof saved.motionPresetId === 'string' || saved.motionPresetId === null) cfg.motionPresetId = saved.motionPresetId;
-                if (typeof saved.enabled === 'boolean') cfg.enabled = saved.enabled; // MỚI 29/09/2026 — toggle tổng
-                // MỚI (30/09/2026) — Resolution riêng Video/Photo của VBG; thiếu/lạ -> 'fill' (core/player-display-settings.js).
-                // `saved.resolutionMode` = field chung của bản patch đầu (đã bỏ) — còn thì làm giá trị dự phòng cho cả 2.
+                if (typeof saved.enabled === 'boolean') cfg.enabled = saved.enabled; // toggle tổng
+                // Resolution riêng Video/Photo; thiếu/lạ -> 'fill'. `saved.resolutionMode` (field chung đời cũ) làm dự phòng.
                 cfg.videoResolutionMode = normalizePlayerResolutionMode(saved.videoResolutionMode || saved.resolutionMode);
                 cfg.photoResolutionMode = normalizePlayerResolutionMode(saved.photoResolutionMode || saved.resolutionMode);
-                // FIX (30/09/2026, Giang) — trước đây field này KHÔNG được nạp lại lúc boot -> toggle "Sync playback speed"
-                // luôn về false sau mỗi lần khởi động lại app dù đã lưu true.
                 if (typeof saved.videoSyncPlaybackSpeed === 'boolean') cfg.videoSyncPlaybackSpeed = saved.videoSyncPlaybackSpeed;
             });
             console.log(`writer: "workflowVisualBg.loadPersistedSettingsOnBoot", page: "visualBgConfig", content: "nạp lại từ meta"`);
@@ -190,10 +183,8 @@ const workflowVisualBg = {
 
     /** Điểm đồng bộ DUY NHẤT giữa config và DOM — gọi lúc boot + sau mọi thay đổi. Màu LUÔN sơn
      * (kể cả media rỗng); media chỉ áp khi `source.list` còn ít nhất 1 item sống.
-     * VÁ (25/09/2026, Giang duyệt) — CHẶN khi đang ở Video/Photo Player mode: VBG chỉ có nghĩa lúc Song phát,
-     * trước đây đổi cài đặt VBG (Settings) giữa lúc Player đang phát sẽ `clearMediaLayers()` + áp VBG ĐÈ lên
-     * nội dung Player (và `updateDOMBackground()` phá nền đen cưỡng chế của Video Player). Cấu hình vẫn được
-     * lưu bình thường ở nơi gọi — thoát Player mode sẽ áp ĐÚNG cấu hình mới qua `restoreAfterPlayerMode()`. */
+     * Đang ở Video/Photo Player mode thì bỏ qua (VBG chỉ có nghĩa lúc Song phát; áp đè sẽ phá nội dung + nền đen của
+     * Player) — cấu hình vẫn lưu ở nơi gọi, thoát mode áp lại qua `restoreAfterPlayerMode()`. */
     async applyCurrentVisualBg() {
         if (appState.get('isVideoPlayerMode') || appState.get('isPhotoPlayerMode')) {
             console.log('[workflowVisualBg] applyCurrentVisualBg() bỏ qua — đang ở Player mode, áp lại lúc thoát mode');
@@ -202,9 +193,8 @@ const workflowVisualBg = {
         return this._applyCurrentVisualBgNow();
     },
 
-    /** MỚI (25/09/2026) — khôi phục VBG lúc THOÁT Video/Photo Player mode (event/workflow/video-player.js
-     * ::exitVideoPlayerMode(), event/workflow/photo-player.js::exitPhotoPlayerMode()) — 2 nơi đó gọi TRƯỚC khi hạ
-     * cờ mode (thứ tự dọn dẹp cố ý, xem docstring từng hàm) nên PHẢI bỏ qua chặn của `applyCurrentVisualBg()`. */
+    /** Khôi phục VBG lúc thoát Video/Photo Player mode (exitVideoPlayerMode()/exitPhotoPlayerMode() gọi TRƯỚC khi hạ cờ
+     * mode) — nên bỏ qua chặn của `applyCurrentVisualBg()`. */
     async restoreAfterPlayerMode() {
         return this._applyCurrentVisualBgNow();
     },
@@ -214,9 +204,7 @@ const workflowVisualBg = {
         this.clearMediaLayers();
         updateDOMBackground();
         const cfg = appConfigVisualBg.getAll();
-        // MỚI (29/09/2026) — toggle tổng tắt: dừng ở đây — media đã dỡ hẳn (clearMediaLayers) + màu đã sơn
-        // (updateDOMBackground() tự bỏ ép đen khi tắt). Mọi đường áp lại (boot/đổi nguồn/thoát Player mode/Restore)
-        // đều đi qua ĐÚNG hàm này nên chỉ cần 1 guard.
+        // Toggle tổng tắt: dừng ở đây — media đã dỡ, màu đã sơn. Mọi đường áp lại đều qua hàm này nên 1 guard là đủ.
         if (!this._isMediaEnabled()) return;
         const count = this._effectiveCount(cfg.source.list);
         if (cfg.type === 'video') return this._applyVideo(cfg);
@@ -264,12 +252,10 @@ const workflowVisualBg = {
         this._videoLoopLastTimeSec = 0;
         this._killStuckRecoveryTimer();
         this._killVideoFixTimeTimer();
-        // MỚI (25/09/2026, đợt 5) — trả Video surface nếu VBG Video đang giữ (dừng Motion, đưa DOM A/B về "nhà", gỡ
-        // `.motion-layer`) TRƯỚC khi dọn nguồn video — no-op nếu owner khác (Player) đang giữ.
+        // Trả Video surface nếu VBG đang giữ (dừng Motion, đưa DOM A/B về chỗ cũ) trước khi dọn nguồn — no-op nếu Player giữ.
         if (typeof workflowVideoMotionSurface !== 'undefined') workflowVideoMotionSurface.release(VISUAL_BG_VIDEO_SURFACE_OWNER); // event/workflow/video-motion-surface.js
         if (typeof workflowVideoPlayer !== 'undefined') workflowVideoPlayer.clearBgVideoSource();
-        // MỚI (30/09/2026, Resolution VBG) — gỡ override Resolution VBG khỏi layer A/B (trả CSS mặc định) — Player vào mode
-        // (gọi hàm này TRƯỚC khi áp Resolution của nó) nhận 2 element sạch; VBG áp lại ở lượt hiện media kế tiếp.
+        // Gỡ override Resolution VBG khỏi layer A/B — Player vào mode nhận 2 element sạch; VBG áp lại ở lượt hiện media sau.
         this._videoNaturalSize = null;
         applyVisualBgVideoResolutionToDOM(''); // core/visual-bg-video.js
         applyVisualBgVideoBridgeSizeToDOM('');
@@ -283,7 +269,7 @@ const workflowVisualBg = {
      * `source.list.length<=1`. Dùng chung cho cả ảnh lẫn video — mọi quyết định "khi nào chuyển
      * ảnh" đều qua đúng 1 điểm này. */
     async advanceForSongChange() {
-        if (!this._isMediaEnabled()) return; // MỚI 29/09/2026 — tắt: không advance, pending (nếu có) giữ nguyên chờ bật lại
+        if (!this._isMediaEnabled()) return; // tắt: không advance, pending (nếu có) giữ nguyên chờ bật lại
         const cfg = appConfigVisualBg.getAll();
         if (await this._checkAndApplyPendingSource()) return;
         if (cfg.listPlaybackMode !== 'perSong') return;
@@ -316,16 +302,15 @@ const workflowVisualBg = {
      * thật) -> quay về placeholder tĩnh của đúng video đang phát, xem `_revertToPlaceholder()`. */
     syncPlaybackToAudio() {
         if (this._isSwappingVideo) return;
-        // VÁ (25/09/2026, cùng đợt với chặn ở applyCurrentVisualBg()) — sự kiện 'play'/'pause' của Song vẫn tới
-        // đây lúc đang ở Player mode (vd `audioPlayer.pause()` khi VÀO mode bắn 'pause' TRỄ) — VBG không được đụng
-        // `bgVideoElement`/surface đang thuộc Player. Thoát mode -> restoreAfterPlayerMode() tự đồng bộ lại.
+        // 'play'/'pause' của Song vẫn tới đây lúc ở Player mode (vd pause trễ khi vào mode) — không đụng bgVideoElement/surface
+        // của Player; thoát mode thì restoreAfterPlayerMode() đồng bộ lại.
         if (appState.get('isVideoPlayerMode') || appState.get('isPhotoPlayerMode')) return;
-        if (!this._isMediaEnabled()) return; // MỚI 29/09/2026 — tắt: không có media nào để phát/dừng, KHÔNG được tự nạp video (nhánh (1)) hay hẹn giờ ảnh
+        if (!this._isMediaEnabled()) return; // tắt: không có media để phát/dừng — không tự nạp video hay hẹn giờ ảnh
         const cfg = appConfigVisualBg.getAll();
-        const songActive = this._isSongActiveForVbg(); // SỬA 25/09/2026 — thay `!audioPlayer.paused`: app ẩn (chế độ nền) = coi như Song dừng
+        const songActive = this._isSongActiveForVbg(); // app ẩn (chế độ nền) = coi như Song dừng
         if (cfg.type !== 'video') {
             syncVisualBgVideoPlayback(!songActive);
-            if (typeof workflowVisualBgPhotoMotion !== 'undefined') { if (!songActive) workflowVisualBgPhotoMotion.pause(VISUAL_BG_IMAGE_SURFACE_OWNER); else workflowVisualBgPhotoMotion.resume(VISUAL_BG_IMAGE_SURFACE_OWNER); } // SỬA 25/09/2026 — kèm owner: surface giờ DÙNG CHUNG với Player Photo, sự kiện Song pause/play lúc Player Photo đang giữ surface không được đụng tới nó
+            if (typeof workflowVisualBgPhotoMotion !== 'undefined') { if (!songActive) workflowVisualBgPhotoMotion.pause(VISUAL_BG_IMAGE_SURFACE_OWNER); else workflowVisualBgPhotoMotion.resume(VISUAL_BG_IMAGE_SURFACE_OWNER); } // kèm owner: surface dùng chung với Player Photo, không đụng khi Player đang giữ
             this._syncPhotoTicking();
             return;
         }
@@ -336,16 +321,16 @@ const workflowVisualBg = {
         }
         if (appState.get('playbackStoppedAtPlaylistEnd')) { this._revertToPlaceholder(); return; }
         syncVisualBgVideoPlayback(true);
-        workflowVideoMotionSurface.pause(VISUAL_BG_VIDEO_SURFACE_OWNER); // MỚI (25/09/2026, đợt 5) — Motion VBG Video đứng yên theo Song, event/workflow/video-motion-surface.js
+        workflowVideoMotionSurface.pause(VISUAL_BG_VIDEO_SURFACE_OWNER); // event/workflow/video-motion-surface.js — Motion VBG Video đứng yên theo Song
     },
 
-    /** MỚI (29/09/2026) — toggle tổng VBG (`enabled`) đang bật hay không. Tắt = không nạp/không cycle media ảnh/video,
+    /** Toggle tổng VBG (`enabled`) có bật không. Tắt = không nạp/không cycle media ảnh/video,
      * lớp màu vẫn sơn. Field thiếu (config cũ) coi như bật. @returns {boolean} */
     _isMediaEnabled() {
         return appConfigVisualBg.getAll().enabled !== false;
     },
 
-    /** MỚI (29/09/2026, Giang) — toggle TỔNG đầu panel ('visualBg.enabled.change'). Tắt: dỡ hẳn media qua đúng đường
+    /** Toggle tổng đầu panel ('visualBg.enabled.change'). Tắt: dỡ hẳn media qua đúng đường
      * áp chung (`applyCurrentVisualBg()` -> `clearMediaLayers()` + sơn màu, guard `_isMediaEnabled()` dừng trước bước
      * nạp media). Bật: nạp lại TỪ ĐẦU — có pending (chọn nguồn mới lúc đang tắt) thì áp pending trước, cùng thứ tự
      * boot (`loadPersistedSettingsOnBoot()`). Đang ở Player mode: `applyCurrentVisualBg()` tự bỏ qua, thoát mode sẽ
@@ -360,17 +345,15 @@ const workflowVisualBg = {
         await this.applyCurrentVisualBg();
     },
 
-    /** MỚI (25/09/2026, Giang — ẩn tab/PWA chỉ để audio Song phát nền) — "Song đang chạy" THEO GÓC NHÌN VBG: Song
-     * phát thật VÀ app KHÔNG ở chế độ nền (`isBackgroundSuspended`, chỉ event/workflow/app-visibility.js ghi). Mọi
-     * chỗ VBG trước đây đọc `audioPlayer.paused` để quyết định phát video nền/chạy Motion/hẹn giờ đổi ảnh giờ đọc
-     * hàm này -> lúc app ẩn VBG đứng yên y như Song pause, KỂ CẢ khi đổi bài giữa lúc ẩn (Next tự động). App hiện
-     * lại -> `onBackgroundSuspendChange()` gọi `syncPlaybackToAudio()` khôi phục như lúc Song phát tiếp.
+    /** "Song đang chạy" theo góc nhìn VBG: Song phát thật VÀ app không ở chế độ nền (`isBackgroundSuspended`, chỉ
+     * event/workflow/app-visibility.js ghi). Mọi quyết định phát video nền/chạy Motion/hẹn giờ đổi ảnh đọc hàm này -> lúc
+     * app ẩn VBG đứng yên như Song pause, kể cả khi đổi bài giữa lúc ẩn. App hiện lại -> `onBackgroundSuspendChange()`.
      * @returns {boolean} */
     _isSongActiveForVbg() {
         return !audioPlayer.paused && !appState.get('isBackgroundSuspended');
     },
 
-    /** MỚI (25/09/2026) — app vừa vào/ra chế độ nền (event/workflow/app-visibility.js gọi SAU khi đã ghi
+    /** App vừa vào/ra chế độ nền (event/workflow/app-visibility.js gọi SAU khi đã ghi
      * `isBackgroundSuspended`): tạm dừng/chạy lại animation Movement của gradient (task riêng, không theo Song) rồi
      * đồng bộ video nền/Motion/hẹn giờ ảnh qua đúng 1 đường `syncPlaybackToAudio()` (Player mode tự thoát sớm ở đó). */
     onBackgroundSuspendChange() {
@@ -389,7 +372,6 @@ const workflowVisualBg = {
      * @returns {Promise<string[]>}
      */
     async _readOriginKeys(type, originKind, originId) {
-        // SỬA (02/10/2026) — chuỗi if theo originKind -> object map; mỗi nhánh cũ thành 1 method riêng ngay dưới (thân giữ nguyên).
         return (VISUAL_BG_ORIGIN_KEYS_BY_KIND[originKind] || VISUAL_BG_ORIGIN_KEYS_BY_KIND.group)(type, originId);
     },
 
@@ -439,7 +421,6 @@ const workflowVisualBg = {
      * `appConfigPlaylist.displaySortMode`. */
     async _applyNextOrderToKeys(type, keys) {
         if (appConfigVisualBg.getAll().nextOrder !== 'playlist' || keys.length === 0) return keys;
-        // SỬA (02/10/2026) — đọc cả lô trong 1 transaction; 2 rẽ nhánh theo type/mode cũ -> object map (xem đầu file).
         const records = await (VISUAL_BG_RECORDS_BY_TYPE[type] || VISUAL_BG_RECORDS_BY_TYPE.photo)(keys);
         const nameOf = VISUAL_BG_ITEM_NAME_BY_TYPE[type] || VISUAL_BG_ITEM_NAME_BY_TYPE.photo;
         const items = keys.map((k, i) => ({
@@ -721,8 +702,8 @@ const workflowVisualBg = {
     _renderGradientStopRows(stops) {
         const listEl = visualBgGradientPanelEl.querySelector('#visual-bg-gradient-stop-list');
         const canRemove = stops.length > VISUAL_BG_GRADIENT_MIN_STOPS;
-        listEl.innerHTML = renderVisualBgGradientStopRowsHtml(stops, canRemove); // components/visual-bg-gradient-drawer.js — SỬA 07/10/2026: dời markup khỏi Workflow
-        applyUiThemeToDom(listEl, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — SỬA 23/09/2026: hàng vẽ lại bằng innerHTML SAU lúc mở drawer -> phải áp theme lại (trước đây Dark/Morphin hàng mới mất màu)
+        listEl.innerHTML = renderVisualBgGradientStopRowsHtml(stops, canRemove); // components/visual-bg-gradient-drawer.js
+        applyUiThemeToDom(listEl, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — hàng vẽ lại sau lúc mở drawer -> áp theme lại
         visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-add').classList.toggle('opacity-30', stops.length >= VISUAL_BG_GRADIENT_MAX_STOPS);
     },
 
@@ -825,7 +806,7 @@ const workflowVisualBg = {
      * core/visualizer/types/space.js dùng cho camera Space. Pha mới luôn bắt đầu từ đúng giá trị
      * pha cũ vừa dừng (không "nhảy" góc). */
     _commitNextGradientPhase(gm) {
-        const bpm = audioAnalysis.bpmOr(120); // service/audio-analysis.js (SỬA 01/10/2026)
+        const bpm = audioAnalysis.bpmOr(120); // service/audio-analysis.js
         const energy = audioAnalysis.smoothedEnergy();
         const musicSpeedFactor = computeMusicSpeedFactor(bpm, energy, VISUAL_BG_GRADIENT_MUSIC_FACTOR_MIN, VISUAL_BG_GRADIENT_MUSIC_FACTOR_MAX);
         const duration = computeGradientPhaseDuration(VISUAL_BG_GRADIENT_PHASE_BASE_MS, musicSpeedFactor);
@@ -934,30 +915,23 @@ const workflowVisualBg = {
         await this.refreshPanelUI();
     },
 
-    /** SỬA (05/10/2026, tách màn VBG thành Background Media + Background Color) — 1 trong 2 màn VBG có đang gắn trong
-     * Generic Drawer không: nhận diện qua `[data-visual-bg-panel]` ở gốc mỗi màn (components/visual-bg-settings-drawer.js).
-     * Trước đây nhận diện bằng `#visual-bg-source-name` — màn Background Color không có phần tử đó nên sẽ không bao giờ
-     * được đồng bộ. Lịch sử (24/09/2026): màn Visual Background CHÍNH có đang thật sự gắn trong Generic
-     * Drawer không. Guard cũ chỉ hỏi "Drawer có đang mở" — không đủ: Drawer dùng CHUNG 1 body cho mọi màn, lúc
-     * đang mở Storage/Statistics/Settings khác thì guard cũ vẫn cho qua; nếu phiên này CHƯA TỪNG mở panel VBG
-     * thì `visualBgSettingsPanelEl` còn null -> TypeError giữa `_checkAndApplyPendingSource()` (boot/đổi bài/hết
-     * video/nhịp ảnh), bỏ lỡ `applyCurrentVisualBg()` và nhịp rearm của slideshow ảnh.
+    /** 1 trong 2 màn VBG (Background Media / Background Color) có đang gắn trong Generic Drawer không — nhận diện qua
+     * `[data-visual-bg-panel]` ở gốc mỗi màn. Drawer dùng chung 1 body cho mọi màn, nên chỉ hỏi "Drawer có mở" là không đủ
+     * (`visualBgSettingsPanelEl` có thể còn null -> TypeError ở các lượt boot/đổi bài/nhịp ảnh).
      * @returns {boolean} */
     _isPanelMounted() {
         if (!visualBgSettingsPanelEl || genericDrawerPanel.classList.contains('hidden')) return false;
         return !!visualBgSettingsPanelEl.querySelector('[data-visual-bg-panel]');
     },
 
-    /** Đồng bộ UI panel theo config hiện tại — gọi lúc mở panel + sau mọi thay đổi field. Guard
-     * đơn thuần: chỉ đồng bộ NẾU màn VBG chính đang gắn, không tự ý mở màn nào (kể cả khi gọi từ
-     * `_checkAndApplyPendingSource()` lúc boot). SỬA (24/09/2026) — guard đổi sang `_isMainPanelMounted()`; SỬA (05/10/2026)
-     * — `_isPanelMounted()` (màn Background Media HOẶC Background Color — mọi control đều `if (el)`, thiếu thì bỏ qua). */
+    /** Đồng bộ UI panel theo config hiện tại — gọi lúc mở panel + sau mọi thay đổi field. Chỉ đồng bộ nếu màn VBG đang
+     * gắn (`_isPanelMounted()`), không tự mở màn nào; mọi control đều `if (el)` (mỗi màn có tập control riêng). */
     async refreshPanelUI() {
         if (!this._isPanelMounted()) return;
         const cfg = appConfigVisualBg.getAll();
         const q = (sel) => visualBgSettingsPanelEl.querySelector(sel);
 
-        const enabledCheckbox = q('#setting-visual-bg-enabled'); // MỚI 29/09/2026 — toggle tổng đầu panel
+        const enabledCheckbox = q('#setting-visual-bg-enabled'); // toggle tổng đầu panel
         if (enabledCheckbox) enabledCheckbox.checked = cfg.enabled !== false;
 
         const listPlaybackSelect = q('#setting-visual-bg-list-playback-mode');
@@ -969,8 +943,7 @@ const workflowVisualBg = {
 
         const count = this._effectiveCount(this._effectiveDisplayedList(cfg));
         const isList = count > 1;
-        // MỚI (07/10/2026, Giang báo "card Playback vẫn hiện dù chưa chọn media nào") — chưa có media sống nào thì ẩn CẢ nhóm Playback
-        // (tiêu đề + card): Motion / Sync speed trước đây chỉ phụ thuộc `type`, không phụ thuộc đã chọn media chưa.
+        // Chưa có media sống nào thì ẩn cả nhóm Playback (tiêu đề + card).
         const playbackGroup = q('#visual-bg-playback-group');
         if (playbackGroup) playbackGroup.classList.toggle('hidden', count < 1);
         if (listPlaybackRow) listPlaybackRow.classList.toggle('hidden', !isList);
@@ -991,8 +964,7 @@ const workflowVisualBg = {
         const videoAudioRow = q('#setting-visual-bg-open-video-audio');
         if (videoAudioRow) videoAudioRow.classList.toggle('hidden', !(cfg.type === 'video' && count >= 1));
 
-        // MỚI (30/09/2026) — Resolution (card Media): LUÔN hiện (Giang); nhãn + giá trị theo `type` đang chọn (Video/Photo
-        // mỗi bên 1 giá trị riêng).
+        // Resolution (card Media): luôn hiện; nhãn + giá trị theo `type` đang chọn (Video/Photo mỗi bên 1 giá trị).
         const resolutionLabel = q('#visual-bg-resolution-label');
         if (resolutionLabel) resolutionLabel.textContent = t(cfg.type === 'video' ? 'visualBgSettingsDrawer.resolution.labelVideo' : 'visualBgSettingsDrawer.resolution.labelPhoto');
         const resolutionSelect = q('#setting-visual-bg-resolution');
@@ -1003,10 +975,9 @@ const workflowVisualBg = {
         const syncSpeedCheckbox = q('#setting-visual-bg-sync-speed');
         if (syncSpeedCheckbox) syncSpeedCheckbox.checked = cfg.videoSyncPlaybackSpeed;
 
-        // SỬA (24/09/2026) — hàng Motion giờ là nút mở màn Chọn (không còn select) — chỉ ẩn/hiện + điền tên
-        // preset đang gắn ("None" nếu chưa gắn / preset đã bị xoá).
+        // Hàng Motion là nút mở màn Chọn — ẩn/hiện + điền tên preset đang gắn ("None" nếu chưa gắn / preset đã xoá).
         const motionBtn = q('#setting-visual-bg-open-motion-picker');
-        if (motionBtn) motionBtn.classList.toggle('hidden', cfg.type !== 'photo' && cfg.type !== 'video'); // SỬA 25/09/2026 (đợt 5) — VBG Video cũng có Motion
+        if (motionBtn) motionBtn.classList.toggle('hidden', cfg.type !== 'photo' && cfg.type !== 'video');
         const motionNameEl = q('[data-visual-bg-motion-name]');
         const motionPreset = findMotionPresetById(appState.get('motionPresets'), cfg.motionPresetId); // core/motion-presets.js
         if (motionNameEl) motionNameEl.textContent = motionPreset ? motionPreset.name : t('visualBgSettingsDrawer.motion.none');
@@ -1026,11 +997,8 @@ const workflowVisualBg = {
         await this._refreshSourceNameLabel(cfg);
     },
 
-    /** MỚI (24/09/2026, Giang yêu cầu — THAY dropdown Motion + `_renderMotionPresetOptions()` lọc theo
-     * `appState.motionApply.photoVisualBg` cũ, cơ chế đăng ký đã xoá) — ứng tap hàng Motion: mở THẲNG
-     * danh sách Motion ở chế độ CHỌN (event/workflow/motion-presets.js::openPicker(), liên tuyến domain).
-     * Apply ở màn Chọn -> `changeMotionPresetId()` (ghi + áp live), rồi màn Chọn tự back() về đây —
-     * `_renderPlayerSongBgMedia()` dựng lại màn, `refreshPanelUI()` điền tên preset mới. */
+    /** Tap hàng Motion: mở danh sách Motion ở chế độ CHỌN (event/workflow/motion-presets.js::openPicker()). Apply ->
+     * `changeMotionPresetId()` (ghi + áp live), màn Chọn tự back() về đây, `refreshPanelUI()` điền tên preset mới. */
     openMotionPicker() {
         workflowMotionPresets.openPicker({ // event/workflow/motion-presets.js
             title: t('visualBgSettingsDrawer.motion.label'),
@@ -1039,22 +1007,17 @@ const workflowVisualBg = {
         });
     },
 
-    /** Ghi `motionPresetId` (''/null -> null = gỡ) rồi ÁP LIVE NGAY lên — SỬA (24/09/2026) gọi từ `onApply`
-     * của màn Chọn Motion (`openMotionPicker()` ngay trên), không còn từ select —
-     * ảnh đang hiện qua `workflowVisualBgPhotoMotion.updatePreset()` (SỬA, Giang chỉ ra bug: trước đây chỉ
-     * ghi config, đợi tới lần transition/song-change kế tiếp preset mới mới thật sự chạy — chọn
-     * "Không"/đổi preset không có tác dụng gì lên ảnh đang hiện). `updatePreset()` tự no-op nếu
-     * chưa có ảnh nào đang hiện (`_hasCurrentResource=false`) — KHÔNG cần check trước ở đây, đúng
-     * ranh giới: VBG chỉ nói "đổi preset", Motion tự quyết có áp được hay không.
+    /** Ghi `motionPresetId` (''/null -> null = gỡ) rồi áp live lên ảnh/video VBG đang hiện (`updatePreset()` /
+     * `_refreshVideoMotion()` tự no-op nếu chưa có media nào hiện hoặc surface đang thuộc Player).
      * @param {string|null} value */
     async changeMotionPresetId(value) {
         appConfigVisualBg.mutateAll((cfg) => { cfg.motionPresetId = value || null; });
         console.log(`writer: "workflowVisualBg.changeMotionPresetId", page: "visualBgConfig", content: "motionPresetId=${value || null}"`);
         await this._persist();
         if (typeof workflowVisualBgPhotoMotion !== 'undefined') {
-            workflowVisualBgPhotoMotion.updatePreset(VISUAL_BG_IMAGE_SURFACE_OWNER, this._currentMotionPreset(), this._photoRecord ? this._computePhotoAdvanceMs(this._photoRecord) : 0); // SỬA 25/09/2026 — kèm owner (no-op nếu Player Photo đang giữ surface)
+            workflowVisualBgPhotoMotion.updatePreset(VISUAL_BG_IMAGE_SURFACE_OWNER, this._currentMotionPreset(), this._photoRecord ? this._computePhotoAdvanceMs(this._photoRecord) : 0); // no-op nếu Player Photo đang giữ surface
         }
-        // MỚI (25/09/2026, đợt 5) — VBG Video: áp SỐNG preset mới lên video đang hiện (Point Move + React Beat).
+        // VBG Video: áp sống preset mới lên video đang hiện (Point Move + React Beat).
         if (typeof this._refreshVideoMotion === 'function') this._refreshVideoMotion(); // event/workflow/visual-bg-video.js — tự no-op nếu chưa có video VBG nào đang hiện
     },
 
@@ -1068,22 +1031,20 @@ const workflowVisualBg = {
         await this._persist();
         if (appConfigVisualBg.getAll().type === 'video' && !appState.get('isVideoPlayerMode') && typeof this._applyVideoPlaybackSpeedSetting === 'function') {
             this._applyVideoPlaybackSpeedSetting(); // event/workflow/visual-bg-video.js
-            this._refreshVideoMotion(); // MỚI (25/09/2026, đợt 5) — Point Move tính lại theo playbackRate mới, KHÔNG chạy lại hành trình
+            this._refreshVideoMotion(); // Point Move tính lại theo playbackRate mới, không chạy lại hành trình
         }
     },
 
-    /** MỚI (30/09/2026) — Resolution VBG của 1 kind, ĐÃ chuẩn hoá (core/player-display-settings.js). DÙNG CHUNG cho
+    /** Resolution VBG của 1 kind, đã chuẩn hoá (core/player-display-settings.js). Dùng chung cho
      * visual-bg-video.js ('video') + visual-bg-photo.js ('photo') + refreshPanelUI().
      * @param {'video'|'photo'} kind @returns {string} */
     _resolutionModeFor(kind) {
         return normalizePlayerResolutionMode(appConfigVisualBg.getAll()[resolvePlayerResolutionField(kind)]); // core/player-display-settings.js
     },
 
-    /** MỚI (30/09/2026, Giang — "dropdown chọn resolution cho media VBG giống Player") — ứng
-     * 'visualBg.resolutionMode.change' (select #setting-visual-bg-resolution, card Media). Ghi vào field của `type` ĐANG
-     * chọn (videoResolutionMode/photoResolutionMode — SỬA 30/09/2026, Giang: giá trị riêng mỗi type), rồi áp SỐNG lên
-     * media VBG đang hiện (không nạp lại, không Transition). Đang ở Video/Photo Player mode hoặc toggle tổng tắt -> chỉ
-     * lưu (VBG không đang hiện media; lượt áp VBG kế tiếp tự đọc giá trị mới).
+    /** Ứng 'visualBg.resolutionMode.change' (select #setting-visual-bg-resolution, card Media). Ghi vào field của `type`
+     * đang chọn (videoResolutionMode/photoResolutionMode), rồi áp sống lên media VBG đang hiện (không nạp lại, không
+     * Transition). Đang ở Player mode hoặc toggle tổng tắt -> chỉ lưu (lượt áp VBG kế tiếp tự đọc giá trị mới).
      * @param {string} value - 1 trong PLAYER_RESOLUTION_MODES[].value */
     async changeResolutionMode(value) {
         const kind = appConfigVisualBg.getAll().type;
@@ -1162,9 +1123,8 @@ const workflowVisualBg = {
         return record ? record.filename : none;
     },
 
-    /** Visual BG sống trong chính Generic Drawer picker vừa mượn — `closeFully()` sẽ đóng luôn
-     * Visual BG, không có gì để quay lại, nên tự mở lại màn chọn nguồn thay vì đóng hẳn. SỬA (05/10/2026) — màn đó
-     * giờ là Player > Song > Background Media (event/workflow/app-settings.js). */
+    /** Visual BG sống trong chính Generic Drawer picker vừa mượn — `closeFully()` sẽ đóng luôn Visual BG, nên mở lại màn
+     * chọn nguồn (Player > Song > Background Media, event/workflow/app-settings.js) thay vì đóng hẳn. */
     _closePickerDrawer() {
         this._pickerOpen = false;
         workflowAppSettings._renderPlayerSongBgMedia(); // event/workflow/app-settings.js
@@ -1256,7 +1216,7 @@ const workflowVisualBg = {
                 emptyMsg: eligible.length === 0
                     ? t(type === 'video' ? 'visualBgSettingsDrawer.folderPicker.emptyNoFolder.video' : 'visualBgSettingsDrawer.folderPicker.emptyNoFolder.photo')
                     : '',
-                onClose: () => workflowAppSettings._renderPlayerSongBgMedia(), // SỬA (05/10/2026) — màn chọn nguồn giờ ở Player > Song > Background Media
+                onClose: () => workflowAppSettings._renderPlayerSongBgMedia(), // màn chọn nguồn: Player > Song > Background Media
                 multiSelect: true,
                 typeOptions: { current: type },
                 onTypeChange: (newType) => this._openFolderPickerForType(newType, true),
