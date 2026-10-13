@@ -40,7 +40,7 @@ core; Timer = timer thô; L-* = Listener; rAF = `requestAnimationFrame` thô (ch
 
 | Đợt | Bậc | Miền | File chính | FAIL | Còn lại sau đợt | Loại nợ chính |
 |---|---|---|---|---|---|---|
-| 0 | — | Dọn comment các file đợt Folder | `event/workflow/{playlist,file-manager-folder-browser,playlist-scope,file-manager-storage}.js`… | 0 | 1152 | Comment lịch sử |
+| 0 | — | Dọn comment các file đợt Folder | `event/workflow/{playlist,playlist-scope,visual-bg-common,app-boot}.js`, `event/router/playlist.js`, `core/{storage-manager,playlist/main,playlist/actions,file-manager/video}.js`… | 0 | 1152 | Comment lịch sử |
 | 1 | 1 | Element Style Editor · Info icon · App Panel nav + Gesture settings | `core/element-style-editor.js`, `core/info-icon-ui.js`, `core/app-panel-nav.js`, `core/sav-logo.js`, `event/workflow/{element-style-editor,gesture-settings}.js` | 13 | 1139 | R3a 5 · R5a 2 · WF-DOM 2 |
 | 2 | 1 | Playlist Empty State · Auto-switch visual · EQ | `event/{workflow,router}/playlist-empty-state.js`, `core/auto-switch-visual.js`, `event/workflow/{auto-switch-visual,eq-presets}.js` | 19 | 1120 | WF-get 8 · WF-§7 4 · R3b 2 · Router 1 |
 | 3 | 1 | Custom Effect · HUD · Pagination | `core/custom-effect.js`, `core/hud.js`, `core/pagination-ui.js`, `event/workflow/{custom-effect,hud,pagination}.js` | 26 | 1094 | R3a 7 · R5d 7 · WF-tính 4 |
@@ -76,6 +76,7 @@ Tổng 1152 FAIL. 10 dòng `requestAnimationFrame` thô dọn theo miền chứa
 - **0** — Không đổi code; đối chiếu chuỗi token trước/sau để chứng minh chỉ đổi comment (khuôn đợt dọn comment 12/10).
 - **5** — `folder-picker-ui.js` còn hẹn giờ giữ tay bằng `taskManager` trong core (TM-core 4) → dời phiên giữ tay về Workflow.
 - **11** — Đợt 2 của plan 02/10 (`photo-player.js`), giờ kèm `core/photo-player.js`; `app-boot.js` dời sang đợt 13.
+- **13** — Kèm xoá `retireLegacyDownloadServiceWorker()` (core/file-manager/cleanup.js) + `workflowAppBoot._retireLegacyDownloadServiceWorker()` — Giang hẹn xoá ở ver 14; để tới đợt này vì phải đụng `boot()`.
 - **13, 14, 19, 20** — Có iOS (phát nền, Media Session, khoá màn hình, mic): checklist máy bắt buộc.
 - **16** — `core/config.js` đọc `localStorage`/DB trong core và hẹn giờ ghi backup → Workflow config mới hoặc
   `workflowSettingsMisc`; boot phải chạy với config cũ, hỏng, thiếu field.
@@ -91,6 +92,7 @@ Tổng 1152 FAIL. 10 dòng `requestAnimationFrame` thô dọn theo miền chứa
 |---|---|
 | Folder (trước plan này) | Xong 13/10/2026 (`sav-14-debt-folder-patch.zip`), chờ test máy — 1194 → 1152 |
 | 0 | Chưa làm |
-| 1–26 | Chưa làm |
+| 5 — Folder phần còn lại | Xong 13/10/2026 (`sav-14-debt-wave5-folder-patch.zip`), chờ test máy — 1152 → 1131 |
+| Còn lại 1–4, 6–26 | Chưa làm |
 
 ← [Quay lại README](../../README.md)
