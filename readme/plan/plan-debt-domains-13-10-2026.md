@@ -1,7 +1,7 @@
 # Plan v14 — hàng đợi dọn nợ theo miền (lập 13/10/2026)
 
 Nguồn số liệu: [core-legacy-audit.md](../core-legacy-audit.md). Lúc lập plan (sau đợt Folder): **1152 FAIL / 139 file**; hiện tại
-(sau đợt 6): **1019 FAIL / 112 file**, 10 chờ chốt (`requestAnimationFrame` thô). Cột "Còn lại sau đợt" tính từ số hiện tại. Plan này chỉ sắp **thứ tự và cách gom**; không đổi rule nào
+(sau đợt 7): **981 FAIL / 107 file**, 10 chờ chốt (`requestAnimationFrame` thô). Cột "Còn lại sau đợt" tính từ số hiện tại. Plan này chỉ sắp **thứ tự và cách gom**; không đổi rule nào
 ([core-function-conventions.md](../core-function-conventions.md), [event-bus-flow.md](../event-bus-flow.md),
 [task-manager-conventions.md](../task-manager-conventions.md)).
 
@@ -18,6 +18,8 @@ từng đợt của nó chuyển vào mục 3 và mục 4 dưới đây). Khuôn
 4. **Mỗi đợt kèm:**
    - Method bị đụng dọn luôn nợ của nó; gặp bug thì sửa luôn theo rule; vi phạm chưa có trong sổ thì sửa hoặc ghi thêm.
    - Xoá comment lạc hậu/lịch sử (SỬA/MỚI/XOÁ kèm ngày, "trước đây…"), rút gọn comment trong file bị đụng.
+   - Rà dead code (hàm/hằng/method/file không còn nơi gọi, CSS/lang key theo kèm) trong phạm vi đợt — có thì xoá, file chết
+     ghi trong mô tả patch để Giang xoá tay. Quét theo tên sau khi bỏ comment, rồi grep lại từng tên trước khi xoá.
    - `node --check`; boot harness Chromium (stub CDN) chạy kịch bản của đợt, 0 lỗi JS; checklist phần cần test máy.
    - Nâng `?v=` mọi trang có nạp file đổi; cập nhật sổ (xoá dòng xong, ghi dòng mới), bảng tiến độ ở mục 6.
 5. **Không đổi hành vi** ngoài bug được ghi rõ trong mô tả patch.
@@ -70,26 +72,26 @@ core; Timer = timer thô; L-* = Listener; rAF = `requestAnimationFrame` thô (ch
 
 | Đợt | Bậc | Miền | File chính | FAIL | Còn lại sau đợt | Loại nợ chính |
 |---|---|---|---|---|---|---|
-| 0 | — | Dọn comment các file đợt Folder | `event/workflow/{playlist,playlist-scope,visual-bg-common,app-boot}.js`, `event/router/playlist.js`, `core/{storage-manager,playlist/main,playlist/actions,file-manager/video}.js`… | 0 | 1019 | Comment lịch sử |
+| 0 ✓ | — | Dọn comment các file đợt Folder | `event/workflow/{playlist,playlist-scope,visual-bg-common,app-boot}.js`, `event/router/playlist.js`, `core/{storage-manager,playlist/main,playlist/actions,file-manager/video}.js`… | 0 | đã xong | Comment lịch sử |
 | 1 ✓ | 1 | Element Style Editor · Info icon · App Panel nav + Gesture settings | `core/element-style-editor.js`, `core/info-icon-ui.js`, `core/app-panel-nav.js`, `core/sav-logo.js`, `event/workflow/{element-style-editor,gesture-settings}.js` | 13 | đã xong | R3a 5 · R5a 2 · WF-DOM 2 |
 | 2 ✓ | 1 | Playlist Empty State · Auto-switch visual · EQ | `event/{workflow,router}/playlist-empty-state.js`, `core/auto-switch-visual.js`, `event/workflow/{auto-switch-visual,eq-presets}.js` | 19 | đã xong | WF-get 8 · WF-§7 4 · R3b 2 · Router 1 |
 | 3 ✓ | 1 | Custom Effect · HUD · Pagination | `core/custom-effect.js`, `core/hud.js`, `core/pagination-ui.js`, `event/workflow/{custom-effect,hud,pagination}.js` | 26 | đã xong | R3a 7 · R5d 7 · WF-tính 4 |
 | 4 ✓ | 2 | Player display settings · Playlist Filter | `core/player-display-apply.js`, `core/playlist/{filter,filter-presets}.js`, `event/workflow/{player-display-settings,playlist-filter-presets,filter-rule-edit}.js` | 27 | đã xong | R3a 11 · WF-get 8 · WF-DOM 6 |
 | 5 ✓ | 2 | Folder (phần còn lại) + dọn mồ côi | `core/file-manager/{folder-picker-ui,cleanup}.js` | 21 | đã xong | R5a 12 · TM-core 4 · R3a 3 · R3b 2 |
 | 6 ✓ | 2 | Statistics + listen stats | `core/statis-panel-ui.js`, `event/workflow/{statis-panel,listen-stats}.js` | 28 | đã xong | R5d 15 · R3a 5 |
-| 7 | 2 | Photo/Video gallery (File Manager) | `core/file-manager/photo-ui.js`, `event/workflow/{photo,video}-gallery-window.js`, `file-manager-photo.js` | 32 | 987 | WF-DOM 13 · R5a 11 · R5d 5 |
-| 8 | 2 | Theme / UI theme | `core/theme-background-ui.js`, `core/color-utils.js`, `core/ui-theme/{status-bar-color,apply-ui}.js`, `event/workflow/{theme,ui-theme}.js` | 32 (+1 rAF) | 955 | R3a 12 · R5d 7 |
-| 9 | 2 | Settings shell | `core/settings-carousel-ui.js`, `core/app-settings-ui.js`, `event/workflow/{app-settings,settings-misc,subtitle-style-settings}.js` | 35 | 920 | R3a 10 · WF-§7 9 · WF-DOM 8 |
-| 10 | 2 | Game | `core/gameplay/{game-panel-ui,engine-ui,engine,circle-mode}.js`, `event/workflow/{gameplay,gameplay-engine,game-catalog}.js` | 33 | 887 | R5d 12 · WF-get 6 · WF-media 3 |
-| 11 | 3 | Photo Player | `core/photo-player.js`, `event/workflow/{photo-player,photo-duration}.js` | 25 | 862 | R4 6 · WF-get 6 · R2 3 · R3a 3 |
-| 12 | 3 | Phụ đề hiển thị · Visualizer UI | `event/workflow/subtitle-display.js`, `core/subtitle/subtitle-karaoke-display-ui.js`, `core/visualizer/visualizer-display.js`, `core/visualizer-control-center.js`, `core/visualizer-gesture.js`, `event/workflow/{visualizer-display,visualizer-gesture}.js` | 36 | 826 | WF-get 8 · WF-tính 7 · R3a 6 |
-| 13 | 3 | Vòng đời app (wakelock, ẩn/hiện, boot) | `core/wakelock.js`, `event/workflow/{app-visibility,app-boot,app-cleanup}.js` | 19 | 807 | WF-get 7 · R2 3 · WF-media 2 |
-| 14 | 3 | Ghi âm | `event/workflow/recorder.js` | 17 | 790 | WF-media 8 · WF-DOM 3 |
-| 15 | 3 | Sửa ảnh | `event/workflow/image-edit.js`, `core/photo-editor-engine.js` | 39 | 751 | WF-DOM 17 · WF-§7 8 · WF-canvas 4 |
-| 16 | 3 | Config | `core/config.js` | 35 | 716 | R3a 14 · R3b 16 · TM-core 2 |
-| 17a/17b | 3 | Storage + Zip | 17a: `core/storage-manager.js`, `event/workflow/file-manager-storage.js` · 17b: `core/streaming-zip.js`, `event/workflow/zip-download.js`, `core/video-editor/opfs-temp.js` | 60 | 656 | R3a 19 · R5a 10 · Timer 8 · R3b 6 |
-| 18a/b/c | 4 | Playlist | 18a core: `core/playlist/{actions,main,loader,render,selection}.js`, `core/{song-search,upload-validation}.js` · 18b: `event/workflow/{playlist-render,playlist-order,playlist-scope}.js` · 18c: `event/workflow/playlist.js` (upload / xoá-xuất / còn lại) | 99 (+1 rAF) | 557 | WF-get 27 · R3a 19 · WF-DOM 15 · R2 7 · R3b 7 |
-| 19a/19b | 4 | Player / điều khiển phát | 19a: `core/player-controls.js`, `event/listener/video-player.js` · 19b: `event/workflow/{player,player-controls,media-in-use}.js` | 63 | 494 | R3a 13 · WF-§7 12 · R2 9 · WF-get 9 · L-đọcState 5 |
+| 7 ✓ | 2 | Photo/Video gallery (File Manager) | `core/file-manager/photo-ui.js`, `event/workflow/{photo,video}-gallery-window.js`, `file-manager-photo.js` | 32 | đã xong | WF-DOM 13 · R5a 11 · R5d 5 |
+| 8 | 2 | Theme / UI theme | `core/theme-background-ui.js`, `core/color-utils.js`, `core/ui-theme/{status-bar-color,apply-ui}.js`, `event/workflow/{theme,ui-theme}.js` | 32 (+1 rAF) | 949 | R3a 12 · R5d 7 |
+| 9 | 2 | Settings shell | `core/settings-carousel-ui.js`, `core/app-settings-ui.js`, `event/workflow/{app-settings,settings-misc,subtitle-style-settings}.js` | 35 | 914 | R3a 10 · WF-§7 9 · WF-DOM 8 |
+| 10 | 2 | Game | `core/gameplay/{game-panel-ui,engine-ui,engine,circle-mode}.js`, `event/workflow/{gameplay,gameplay-engine,game-catalog}.js` | 33 | 881 | R5d 12 · WF-get 6 · WF-media 3 |
+| 11 | 3 | Photo Player | `core/photo-player.js`, `event/workflow/{photo-player,photo-duration}.js` | 25 | 856 | R4 6 · WF-get 6 · R2 3 · R3a 3 |
+| 12 | 3 | Phụ đề hiển thị · Visualizer UI | `event/workflow/subtitle-display.js`, `core/subtitle/subtitle-karaoke-display-ui.js`, `core/visualizer/visualizer-display.js`, `core/visualizer-control-center.js`, `core/visualizer-gesture.js`, `event/workflow/{visualizer-display,visualizer-gesture}.js` | 36 | 820 | WF-get 8 · WF-tính 7 · R3a 6 |
+| 13 | 3 | Vòng đời app (wakelock, ẩn/hiện, boot) | `core/wakelock.js`, `event/workflow/{app-visibility,app-boot,app-cleanup}.js` | 19 | 801 | WF-get 7 · R2 3 · WF-media 2 |
+| 14 | 3 | Ghi âm | `event/workflow/recorder.js` | 17 | 784 | WF-media 8 · WF-DOM 3 |
+| 15 | 3 | Sửa ảnh | `event/workflow/image-edit.js`, `core/photo-editor-engine.js` | 39 | 745 | WF-DOM 17 · WF-§7 8 · WF-canvas 4 |
+| 16 | 3 | Config | `core/config.js` | 35 | 710 | R3a 14 · R3b 16 · TM-core 2 |
+| 17a/17b | 3 | Storage + Zip | 17a: `core/storage-manager.js`, `event/workflow/file-manager-storage.js` · 17b: `core/streaming-zip.js`, `event/workflow/zip-download.js`, `core/video-editor/opfs-temp.js` | 60 | 650 | R3a 19 · R5a 10 · Timer 8 · R3b 6 |
+| 18a/b/c | 4 | Playlist | 18a core: `core/playlist/{actions,main,loader,render,selection}.js`, `core/{song-search,upload-validation}.js` · 18b: `event/workflow/{playlist-render,playlist-order,playlist-scope}.js` · 18c: `event/workflow/playlist.js` (upload / xoá-xuất / còn lại) | 95 (+1 rAF) | 555 | WF-get 27 · R3a 19 · WF-DOM 15 · R2 7 · R3b 7 |
+| 19a/19b | 4 | Player / điều khiển phát | 19a: `core/player-controls.js`, `event/listener/video-player.js` · 19b: `event/workflow/{player,player-controls,media-in-use}.js` | 61 | 494 | R3a 13 · WF-§7 12 · R2 9 · WF-get 9 · L-đọcState 5 |
 | 20 | 4 | Video Player | `core/video-player.js`, `event/workflow/{video-player,video-motion-surface,video-frame-capture,video-thumb-extract}.js` | 48 (+4 rAF) | 446 | WF-DOM 16 · WF-media 10 · WF-§7 7 |
 | 21a/21b | 4 | Visual Background | 21a: `core/visual-bg-common.js`, `event/workflow/visual-bg-common.js`, `event/listener/visual-bg.js` · 21b: `event/workflow/visual-bg-{video,photo,photo-motion}.js` | 67 | 379 | WF-DOM 24 · WF-§7 20 · WF-tính 7 |
 | 22a/22b | 4 | Motion | 22a: `core/motion-presets.js`, `event/workflow/motion-presets.js` · 22b: 3 runner `event/workflow/motion-*-runner.js` | 56 | 323 | WF-DOM 22 · R3a 21 · WF-tính 11 |
@@ -98,7 +100,7 @@ core; Timer = timer thô; L-* = Listener; rAF = `requestAnimationFrame` thô (ch
 | 25a/25b | 5 | Trang Video Editor | `core/video-editor/{webcodecs-engine,filmstrip}.js`, `event/workflow/video-preview.js` | 71 | 49 | WF-get 21 · WF-DOM 14 · WF-tính 12 · WF-§7 10 |
 | 26a/26b | Cuối | Hạ tầng UI dùng chung | 26a: `core/dropdown-menu.js`, `core/loading-shield-util.js`, `event/workflow/generic-drawer-helpers.js`, `core/modal-choice-ui.js` · 26b: `core/slider-input-modal.js`, `core/time-picker-modal.js`, `core/point-move-timing-ui.js` | 49 (+3 rAF) | 0 | R5a 17 · R3a 13 · R5c 3 · Timer 2 |
 
-Còn 1019 FAIL (đã trừ đợt 5, 1, 2, 3, 4, 6; đợt 21a +1 dòng phát hiện ở đợt 1; đợt 16 −2 dòng `loadConfig` gỡ cùng đợt 2 và 3; đợt 23a +2 dòng `getActiveEffectConfig` dời từ đợt 3). 10 dòng `requestAnimationFrame` thô dọn theo miền chứa nó khi Giang chốt cách xử lý (taskManager mode
+Còn 981 FAIL (đã trừ đợt 5, 1, 2, 3, 4, 6, 7; đợt 18a −4 / 19a −2 dòng thuộc hàm chết xoá ở đợt 7; đợt 21a +1 dòng phát hiện ở đợt 1; đợt 16 −2 dòng `loadConfig` gỡ cùng đợt 2 và 3; đợt 23a +2 dòng `getActiveEffectConfig` dời từ đợt 3). 10 dòng `requestAnimationFrame` thô dọn theo miền chứa nó khi Giang chốt cách xử lý (taskManager mode
 `raf` hay giữ).
 
 ### Ghi chú theo đợt
@@ -106,6 +108,9 @@ Còn 1019 FAIL (đã trừ đợt 5, 1, 2, 3, 4, 6; đợt 21a +1 dòng phát hi
 - **0** — Không đổi code; đối chiếu chuỗi token trước/sau để chứng minh chỉ đổi comment (khuôn đợt dọn comment 12/10).
 - **Mọi đợt (comment)** — Comment trong code còn trỏ tới 2 plan đã xoá (`plan-media-db-split.md` — ~40 chỗ trong ~20 file, thay bằng
   `readme/db-schema.md` nếu còn cần; `plan-debt-cleanup-02-10-2026.md`) — sửa dần ở đợt chạm tới file đó.
+- **7 ✓** — Xong 13/10/2026 (gộp đợt 0 + rà dead code): modal xem/sửa ảnh dựng từ `components/image-preview-modal.js`, lưới nhóm ngày ghi DOM qua `core/file-manager/gallery-window-ui.js` + markup `components/media-gallery.js`. Khung picker `renderMediaPickerBodyHtml()` mới dùng ở picker ảnh — theme.js (đợt 8), playlist.js (18c), visual-bg-{photo,video}.js (21b) còn tự dựng chuỗi y hệt, chuyển sang hàm này khi tới đợt đó. Chi tiết: sổ, mục 1.
+- **0 ✓** — Xong 13/10/2026 (cùng patch đợt 7): comment lịch sử ở 9 file đợt Folder + `core/file-manager/image.js`; chứng minh chỉ đổi comment bằng so chuỗi token JS trước/sau.
+- **Dead code chờ Giang** — nhóm Subtitle Editor còn hàm không nơi gọi (`components/subtitle-editor-modals.js`, `core/subtitle/subtitle-karaoke-drawer-ui.js`, vài hàm ở `core/subtitle/{subtitle-karaoke,subtitles,subtitles-ui}.js`, `components/subtitle-karaoke-drawer.js`) — liên quan bản 6b-2 của `event/{workflow,router,listener}/subtitle-editor.js`; xử lý ở đợt 24 sau khi Giang xác nhận bản nào đang dùng.
 - **6 ✓** — Xong 13/10/2026: template panel Statistics về `components/statis-panel.js`, phép tính về core MỚI `core/statis-panel.js`, đồng hồ nghe tính ở `computeListenTick()`. Chi tiết: sổ, mục 1.
 - **4 ✓** — Xong 13/10/2026: Resolution Player nhận CSS đã tính, `background-size` ảnh dùng chung Player/VBG qua `workflowPlayerDisplaySettings.resolvePhotoBackgroundSizeCss()`; DOM hàng rule filter vào `core/playlist/filter-rule-ui.js`; sửa kèm khoảng cách màn "Cài đặt filter" của folder. Chi tiết: sổ, mục 1.
 - **3 ✓** — Xong 13/10/2026: `resolveEffectConfig(customEffect, type)` thay `getEffectConfig(type)`; ghi field tách theo style/group; HUD + Pagination dọn hết. `getActiveEffectConfig()` (2 dòng) dời sang 23a vì nơi gọi còn là core vẽ. Chi tiết: sổ, mục 1.
@@ -157,8 +162,6 @@ Bug sửa kèm: badge tên folder không đổi sau khi đổi tên folder đang
 
 **Còn chờ:**
 - Giang test máy 2 patch (checklist trong mô tả từng patch).
-- Đợt 0: comment lịch sử ở các file lớn đợt Folder chạm tới (`playlist.js`, `playlist-scope.js`, `router/playlist.js`…) — phần
-  thuộc Folder đã dọn.
 - Đợt 13: xoá `retireLegacyDownloadServiceWorker()` (Giang hẹn ở ver 14).
 
 ## 6. Tiến độ
@@ -166,13 +169,14 @@ Bug sửa kèm: badge tên folder không đổi sau khi đổi tên folder đang
 | Đợt | Trạng thái |
 |---|---|
 | Folder ✓ (trước plan này) | Xong 13/10/2026 (`sav-14-debt-folder-patch.zip`), chờ test máy — 1194 → 1152 |
-| 0 | Chưa làm |
+| 0 ✓ | Xong 13/10/2026 (gộp vào `sav-14-debt-wave7-patch.zip`) — chỉ comment |
 | 5 ✓ — Folder phần còn lại | Xong 13/10/2026 (`sav-14-debt-wave5-folder-patch.zip`), chờ test máy — 1152 → 1131 |
 | 1 ✓ — ESE · Info icon · App Panel nav + Gesture | Xong 13/10/2026 (`sav-14-debt-wave1-patch.zip`), chờ test máy — 1131 → 1119 (+1 dòng phát hiện mới ghi vào đợt 21a) |
 | 2 ✓ — Empty State · Auto-switch · EQ | Xong 13/10/2026 (`sav-14-debt-wave2-patch.zip`), chờ test máy — 1119 → 1099 (kèm 1 dòng đợt 16) |
 | 3 ✓ — Custom Effect · HUD · Pagination | Xong 13/10/2026 (`sav-14-debt-wave3-patch.zip`), chờ test máy — 1099 → 1074 (kèm 1 dòng đợt 16; 2 dòng dời sang 23a) |
 | 4 ✓ — Player display · Playlist Filter | Xong 13/10/2026 (`sav-14-debt-wave4-patch.zip`), chờ test máy — 1074 → 1047 |
 | 6 ✓ — Statistics + listen stats | Xong 13/10/2026 (`sav-14-debt-wave6-patch.zip`), chờ test máy — 1047 → 1019 |
-| Còn lại 7–26 | Chưa làm |
+| 7 ✓ — Photo/Video gallery (+ đợt 0 + dead code) | Xong 13/10/2026 (`sav-14-debt-wave7-patch.zip`), chờ test máy — 1019 → 981 |
+| Còn lại 8–26 | Chưa làm |
 
 ← [Quay lại README](../../README.md)
