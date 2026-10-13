@@ -67,11 +67,11 @@ const MEDIA_SWITCH_I18N = {
  * SỬA (07/09/2026, Giang chỉ ra "đằng nào cũng sửa, đổi tên luôn đỡ nhầm") — CẢ 3 `deleteRecord` đều
  * là hàm CRUD THUẦN (`service/db.js`, KHÔNG tự cascade folder) — đối xứng thật sự, không còn 2 tầng
  * hành vi khác nhau (trước đây `deleteVideo()`/`deleteImage()`, core/file-manager/video.js/image.js,
- * tự cascade RỒI xoá — 2 hàm đó ĐÃ XOÁ). Nơi gọi (Workflow) LUÔN tự gọi `removeSongFromAllFolders()`
+ * tự cascade RỒI xoá — 2 hàm đó ĐÃ XOÁ). Nơi gọi (Workflow) LUÔN tự gọi `workflowFolder.removeItemFromAllFolders()`
  * TRƯỚC bước `deleteRecord` — ĐỒNG NHẤT cho cả 3 loại, không còn ai "tự lo" khác ai. */
 // SỬA (06/10/2026, plan-media-db-split.md) — deleteSongRecord/deleteVideoRecord/deleteImageRecord ĐÃ XOÁ HẲN: xoá qua
 // `deleteMediaRecord(type, key)` (3 store trong 1 transaction). `getRecord` giờ CHỈ đọc meta (chỉ cần field `folder`
-// cho removeSongFromAllFolders(), không cần mở Blob).
+// cho workflowFolder.removeItemFromAllFolders(), không cần mở Blob).
 const MEDIA_DELETE_ACCESSOR = {
     song: { getRecord: (key) => getMediaMeta('song', key), deleteRecord: (key) => deleteMediaRecord('song', key) }, // service/db.js
     video: { getRecord: (key) => getMediaMeta('video', key), deleteRecord: (key) => deleteMediaRecord('video', key) },
@@ -155,6 +155,22 @@ const SOURCE_SCOPE_APPLY_BY_HAS_FOLDER = {
     false: (folderId, mediaType, onProgress) => workflowPlaylistScope.applyAllSongsScope(mediaType, onProgress),
 };
 
+// Picker "Thêm vào thư mục" (Generic Drawer) — mở lần đầu vs thay nội dung Drawer đang mở.
+const FOLDER_PICKER_DRAWER_MOUNT_BY_FIRST_OPEN = { // event/workflow/generic-drawer-helpers.js
+    true: (config) => workflowGenericDrawerHelpers.open(config),
+    false: (config) => workflowGenericDrawerHelpers.update(config),
+};
+// Tap 1 tile: multiSelect -> bật/tắt chọn; không -> chọn ngay + đóng.
+const FOLDER_PICKER_TAP_BY_MULTI_SELECT = {
+    true: (folderId) => workflowPlaylist._toggleFolderPickerSelection(folderId),
+    false: (folderId) => workflowPlaylist._pickSingleFolder(folderId),
+};
+// Đóng picker: nơi mở có truyền `onClose` -> giao nó; không -> đóng hẳn Drawer.
+const FOLDER_PICKER_CLOSE_BY_HAS_ON_CLOSE = {
+    true: (onClose) => onClose(),
+    false: () => workflowGenericDrawerHelpers.closeFully(), // event/workflow/generic-drawer-helpers.js
+};
+
 const workflowPlaylist = {
 
     /** MỚI (21/09/2026, Giang yêu cầu — cuộn hoãn khi menu 3 chấm đang mở) — ĐƯỜNG ĐÓNG DUY NHẤT của menu 3 chấm
@@ -185,7 +201,7 @@ const workflowPlaylist = {
      * mixed core/workflow (tự gọi alertModal/withLoadingShield, "core không biết shield/modal"
      * không áp dụng) và CHỈ CÓ ĐÚNG 1 caller (chính hàm này, đã kiểm tra toàn project), nên gộp về
      * ĐÚNG tầng Workflow thay vì giữ 2 lớp giả không cần thiết. Các bước con (get record theo
-     * mediaType, removeSongFromAllFolders/deleteRecord/removeSongStats/removeKeyFromDisplay) VẪN LÀ
+     * mediaType, workflowFolder.removeItemFromAllFolders/deleteRecord/removeSongStats/removeKeyFromDisplay) VẪN LÀ
      * core thuần (core/file-manager/*.js, core/playlist/actions.js, service/db.js), giữ nguyên 100%
      * — chỉ orchestration đổi CHỖ GỌI.
      * ĐỔI TÊN (07/09/2026, Giang chỉ ra "đằng nào cũng sửa, đổi tên đỡ nhầm") — `deleteSongFromActionMenu`
@@ -224,7 +240,7 @@ const workflowPlaylist = {
             // hàng loạt, ngay trong file này).
             const { getRecord, deleteRecord } = MEDIA_DELETE_ACCESSOR[mediaType];
             const record = await getRecord(mediaKey);
-            if (record) await removeSongFromAllFolders(record); // core/file-manager/folder.js
+            if (record) await workflowFolder.removeItemFromAllFolders(record); // event/workflow/folder.js
             await deleteRecord(mediaKey);
             workflowListenStats.forget(mediaType, mediaKey); // event/workflow/listen-stats.js — dọn thống kê RAM của media đã xoá (SỬA 06/10/2026: đúng loại)
             workflowPlaylistOrder.removeKeyFromDisplay(mediaKey); // event/workflow/playlist-order.js (dời từ core 24/09/2026)
@@ -1558,7 +1574,7 @@ const workflowPlaylist = {
      *   - Folder ĐANG là Scope hiện tại của ĐÚNG Nguồn này — thêm vào chính folder đang xem không
      *     có ý nghĩa (bài đã hiển thị THÔNG QUA scope đó rồi).
      *   - Folder Read-only (mục 4b, Giang chốt "không cho add thêm item").
-     * Pure — nhận `folders` (đã fetch qua `listFolders()`) qua tham số, không tự đọc DB (Rule 2).
+     * Pure — nhận `folders` (đã fetch qua `workflowFolder.list()`) qua tham số, không tự đọc DB (Rule 2).
      * @param {Array<{id:string, isReadOnly?:boolean}>} folders
      * @param {'song'|'video'|'photo'} mediaType
      * @returns {Array}
@@ -1595,7 +1611,7 @@ const workflowPlaylist = {
             // SỬA (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — trước đây LUÔN
             // "Added X song(s)" kể cả khi vừa thêm Video. MỞ RỘNG (hợp nhất Photo) — thêm nhánh photo.
             await alertModal(tFormat(mediaType === 'video' ? 'fileManager.folderPicker.addSuccessVideo' : mediaType === 'photo' ? 'fileManager.folderPicker.addSuccessPhoto' : 'fileManager.folderPicker.addSuccess', { count: 1 }));
-        }, { folders: this._filterFoldersForAddPicker(await listFolders(mediaType), mediaType) });
+        }, { folders: this._filterFoldersForAddPicker(await workflowFolder.list(mediaType), mediaType) }); // event/workflow/folder.js
     },
 
     /**
@@ -1603,12 +1619,10 @@ const workflowPlaylist = {
      * khác `onPick` (nhiều key + thoát chế độ chọn).
      */
     async openAddToFolderPicker() {
-        const keys = Array.from(appState.get('selectedMediaKeys'));
+        const { selectedMediaKeys, activeMediaSource: mediaType } = appState.get(['selectedMediaKeys', 'activeMediaSource']);
+        const keys = Array.from(selectedMediaKeys);
         if (keys.length === 0) return;
-
-        // SỬA (hợp nhất Photo vào Playlist) — cùng lý do openAddToFolderPickerForSongMenu() ngay
-        // trên: đọc thẳng activeMediaSource + lọc danh sách folder theo ĐÚNG type.
-        const mediaType = appState.get('activeMediaSource');
+        // Lọc danh sách folder theo ĐÚNG type của Nguồn đang active (cùng bản 1-bài ngay trên).
         await this._openFolderPickerDrawer(async (folderId) => {
             let result;
             await withLoadingShield(t('common.loading.savingInfo'), async () => {
@@ -1620,7 +1634,7 @@ const workflowPlaylist = {
             // ở finishAdd() bản 1-bài phía trên (openAddToFolderPickerForSongMenu).
             this._exitSelectionMode();
             await alertModal(tFormat(mediaType === 'video' ? 'fileManager.folderPicker.addSuccessVideo' : mediaType === 'photo' ? 'fileManager.folderPicker.addSuccessPhoto' : 'fileManager.folderPicker.addSuccess', { count: keys.length }));
-        }, { folders: this._filterFoldersForAddPicker(await listFolders(mediaType), mediaType) });
+        }, { folders: this._filterFoldersForAddPicker(await workflowFolder.list(mediaType), mediaType) }); // event/workflow/folder.js
     },
 
     // ===================== Add to Folder — Generic Drawer grid (MỚI 14/07/2026) =====================
@@ -1679,7 +1693,7 @@ const workflowPlaylist = {
         //        lại) — dùng khi gọi lại từ chính picker đang mở (đổi loại/toggle chọn). Bỏ trống/
         //        false: mở MỚI (`openGenericDrawer()`, hành vi CŨ).
         const opts = options || {};
-        this._folderPickerFolders = opts.folders || await listFolders(); // core có sẵn, CÓ return, DÙNG ngay dưới
+        this._folderPickerFolders = opts.folders || await workflowFolder.list(); // event/workflow/folder.js
         this._folderPickerShowAddTile = opts.showAddTile !== false;
         this._folderPickerEmptyMsg = opts.emptyMsg || '';
         this._folderPickerEditingId = null;
@@ -1692,86 +1706,54 @@ const workflowPlaylist = {
         this._renderFolderPickerGrid(!isUpdate, true); // SỬA (24/09/2026) — mở/đổi loại = danh sách mới -> từ đầu
     },
 
-    /** Vẽ lại grid (mở lần đầu HOẶC sau khi thêm/sửa tên 1 folder, toggle chọn, đổi loại) —
-     * `isFirstOpen` quyết định open vs update Generic Drawer (core/generic-drawer.js — 2 hàm khác
-     * nhau tuỳ Drawer đang đóng hay đã mở sẵn, xem docstring ở đó).
-     * @param {boolean} isFirstOpen
-     * @param {boolean} [scrollReset] - MỚI (24/09/2026) — true = danh sách mới (mở/đổi loại) -> cuộn từ đầu; mặc định
-     *        false = vẽ lại tại chỗ -> giữ vị trí cuộn. */
+    /** Vẽ lại grid (mở lần đầu HOẶC sau khi thêm/sửa tên 1 folder, toggle chọn, đổi loại).
+     * @param {boolean} isFirstOpen - true: mở Generic Drawer; false: thay nội dung Drawer đang mở
+     * @param {boolean} [scrollReset] - true = danh sách mới (mở/đổi loại) -> cuộn từ đầu; mặc định false = vẽ lại tại chỗ
+     *        -> giữ vị trí cuộn. */
     _renderFolderPickerGrid(isFirstOpen, scrollReset = false) {
-        // MỚI (29/08/2026) — `selectedOrder`: Map<folderId, order> cho multiSelect, đọc bởi
-        // `itemTemplateFolderTile()` (components/items.js) để vẽ badge số thứ tự — null khi không
-        // multiSelect (hành vi CŨ, không badge nào).
-        const selectedOrder = this._folderPickerMultiSelect ? new Map(this._folderPickerSelectedIds.map((id, i) => [id, i + 1])) : null;
+        // multiSelect: Map<folderId, thứ tự chọn> cho badge số trên tile; không multiSelect -> null (không badge).
+        const selectedOrder = this._folderPickerMultiSelect ? computeFolderSelectionOrder(this._folderPickerSelectedIds) : null; // core/file-manager/folder.js
         const itemsHtml = renderItemList(null, this._folderPickerFolders, itemTemplateFolderTile, { editingFolderId: this._folderPickerEditingId, selectedOrder }); // components/items.js
-        // SỬA (14/07/2026, Giang yêu cầu) — justify-center -> justify-start (căn trái thay vì căn
-        // giữa cả cụm khi hàng cuối chưa đầy).
-        // SỬA THÊM (06/09/2026, Giang chỉ ra bug tiếp — hàng ĐẦY vẫn dồn trái, thừa khoảng trống
-        // bên phải) — `justify-start` KHÔNG giải quyết được cùng lúc "hàng đầy giãn đều" VÀ "hàng
-        // cuối lẻ căn trái", đổi hẳn sang `buildFolderGridWrapperHtml()` (components/items.js, CSS
-        // Grid `auto-fill`/`minmax` — xem docstring ở đó cho lý do đầy đủ).
-        const addTileHtml = this._folderPickerShowAddTile ? buildAddFolderTileHtml() : ''; // components/items.js
-        const bodyHtml = (this._folderPickerFolders.length === 0 && !this._folderPickerShowAddTile && this._folderPickerEmptyMsg)
-            ? `<p class="text-sm text-center py-10 px-6" data-uitk="textSecondary">${this._folderPickerEmptyMsg}</p>`
-            : buildFolderGridWrapperHtml(`${itemsHtml}${addTileHtml}`); // components/items.js
-        const config = {
-            // MỚI (24/09/2026, Giang báo "vẽ lại panel mất scroll cũ") — vẽ lại TẠI CHỖ (toggle chọn/thêm/sửa tên
-            // folder) giữ vị trí cuộn; mở mới/đổi loại (`scrollReset`) từ đầu — core/generic-drawer.js.
+        const bodyHtml = buildFolderPickerBodyHtml(itemsHtml, this._folderPickerShowAddTile, this._folderPickerEmptyMsg, this._folderPickerFolders.length === 0); // components/items.js
+        FOLDER_PICKER_DRAWER_MOUNT_BY_FIRST_OPEN[isFirstOpen]({
             scrollKey: 'playlist:folderPicker',
             scrollReset,
-            // SỬA (14/07/2026, Giang báo — "layout grid thừa khoảng trống") — TRƯỚC ĐÂY height cố
-            // định '60vh' bất kể có bao nhiêu folder, để lại khoảng trống lớn phía dưới khi chỉ có
-            // vài tile. Giờ height:'auto' (panel tự co theo ĐÚNG nội dung thật) + maxHeight:'60vh'
-            // (không bao giờ vượt quá, nội dung dài tự cuộn nhờ bodyClass overflow-y-auto có sẵn) —
-            // xem docstring core/generic-drawer.js::openGenericDrawer(). Test thật bằng Chromium
-            // xác nhận: ít item -> panel co nhỏ đúng theo nội dung; nhiều item -> kẹp đúng ở maxHeight.
-            height: 'auto',
-            maxHeight: '60vh',
-            // SỬA (14/07/2026) — BỎ `zIndex: 40` cứng (thấp hơn #app-stack z-[60], gây Drawer bị đè
-            // khi mở từ Playlist) — rơi về GENERIC_DRAWER_DEFAULT_Z_INDEX (128) mặc định, xem
-            // docstring core/generic-drawer.js.
+            height: 'auto',     // panel co theo nội dung thật
+            maxHeight: '60vh',  // nhiều folder -> kẹp, body tự cuộn (bodyClass)
             headerHtml: this._buildFolderPickerHeaderHtml(),
             bodyHtml,
             bodyClass: 'overflow-y-auto',
-        };
-        if (isFirstOpen) workflowGenericDrawerHelpers.open(config); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
-        else workflowGenericDrawerHelpers.update(config); // event/workflow/generic-drawer-helpers.js (nhớ cuộn theo scrollKey) -> core/generic-drawer.js
-        wireFolderPickerDrawerEvents('playlist', 'playlist.folderPicker'); // core/file-manager/folder-picker-ui.js — hàm GỘP (v13 Batch B), msg.type KHÔNG đổi
+        });
+        wireFolderPickerDrawerEvents('playlist', 'playlist.folderPicker'); // core/file-manager/folder-picker-ui.js
     },
 
-    /** MỚI (29/08/2026) — thêm dropdown đổi loại (`typeOptions`) + nút "Chọn (N)" xác nhận
-     * (`multiSelect`) vào header CŨ — CẢ 2 đều tuỳ chọn, không truyền gì -> header y hệt trước
-     * (2 luồng "Thêm vào thư mục" của Playlist không đụng gì). */
+    /** Header picker: tiêu đề + (tuỳ chọn) dropdown đổi loại (`typeOptions`) + nút "Chọn (N)" (`multiSelect`). */
     _buildFolderPickerHeaderHtml() {
-        const typeDropdownHtml = this._folderPickerTypeOptions ? `
-            <select id="playlist-folder-picker-type" class="rounded-lg px-2 py-1 text-xs outline-none" data-uitk="inputBg inputBorder inputText">
-                <option value="video" ${this._folderPickerTypeOptions.current === 'video' ? 'selected' : ''}>${t('visualBgSettingsDrawer.folderPicker.typeVideo')}</option>
-                <option value="photo" ${this._folderPickerTypeOptions.current === 'photo' ? 'selected' : ''}>${t('visualBgSettingsDrawer.folderPicker.typePhoto')}</option>
-            </select>` : '';
-        const confirmCount = this._folderPickerSelectedIds.length;
-        const confirmBtnHtml = this._folderPickerMultiSelect ? `
-            <button type="button" id="playlist-folder-picker-confirm" class="text-xs font-semibold px-1 disabled:opacity-40 disabled:cursor-not-allowed" data-uitk="accentText" ${confirmCount === 0 ? 'disabled' : ''}>${confirmCount === 0 ? t('visualBgSettingsDrawer.picker.confirmEmpty') : tFormat('visualBgSettingsDrawer.picker.confirm', { count: confirmCount })}</button>` : '';
-        // SỬA 07/10/2026 — header dùng chung (components/generic-drawer.js), không còn markup trong Workflow
-        return buildDrawerHeaderHtml({ title: t('fileManager.folderPicker.title'), actionsHtml: `<div class="flex items-center gap-2">${typeDropdownHtml}${confirmBtnHtml}</div>` });
+        const actionsHtml = buildFolderPickerHeaderActionsHtml(this._folderPickerTypeOptions, this._folderPickerMultiSelect, this._folderPickerSelectedIds.length); // components/items.js
+        return buildDrawerHeaderHtml({ title: t('fileManager.folderPicker.title'), actionsHtml }); // components/generic-drawer.js
     },
 
-    /** msg.type = 'playlist.folderPicker.tile.click'. SỬA (29/08/2026) — nhánh multiSelect: TOGGLE
-     * chọn + vẽ lại grid TẠI CHỖ (số thứ tự/nút "Chọn" cập nhật theo), KHÔNG đóng picker. Nhánh
-     * mặc định (2 luồng Playlist) giữ NGUYÊN — tap = chọn NGAY + đóng. */
+    /** msg.type = 'playlist.folderPicker.tile.click' — multiSelect: bật/tắt chọn tile (vẽ lại tại chỗ, không đóng);
+     * mặc định (2 luồng "Thêm vào thư mục" của Playlist): chọn NGAY + đóng. */
     async pickFolderInPicker(folderId) {
-        if (this._folderPickerMultiSelect) {
-            const idx = this._folderPickerSelectedIds.indexOf(folderId);
-            if (idx >= 0) this._folderPickerSelectedIds.splice(idx, 1); else this._folderPickerSelectedIds.push(folderId);
-            this._renderFolderPickerGrid(false);
-            return;
-        }
+        await FOLDER_PICKER_TAP_BY_MULTI_SELECT[this._folderPickerMultiSelect](folderId);
+    },
+
+    /** Tap tile khi multiSelect — chọn/bỏ chọn, số thứ tự + nút "Chọn (N)" cập nhật theo. */
+    _toggleFolderPickerSelection(folderId) {
+        this._folderPickerSelectedIds = toggleFolderSelection(this._folderPickerSelectedIds, folderId); // core/file-manager/folder.js
+        this._renderFolderPickerGrid(false);
+    },
+
+    /** Tap tile khi KHÔNG multiSelect — đóng picker rồi giao `onPick`. */
+    async _pickSingleFolder(folderId) {
         const onPick = this._folderPickerOnPick;
         this.closeFolderPicker();
         if (onPick) await onPick(folderId);
     },
 
-    /** MỚI (29/08/2026) — msg.type = 'playlist.folderPicker.confirm.click' (chỉ hiện khi
-     * multiSelect). Commit `_folderPickerSelectedIds` (đúng thứ tự chọn) + `type` đang duyệt. */
+    /** msg.type = 'playlist.folderPicker.confirm.click' (chỉ hiện khi multiSelect). Commit `_folderPickerSelectedIds`
+     * (đúng thứ tự chọn) + `type` đang duyệt. */
     async confirmFolderPickerSelection() {
         if (!this._folderPickerMultiSelect || this._folderPickerSelectedIds.length === 0) return; // guard — nút đã disabled, phòng thủ kép
         const onPick = this._folderPickerOnPick;
@@ -1781,18 +1763,16 @@ const workflowPlaylist = {
         if (onPick) await onPick(ids, type);
     },
 
-    /** MỚI (29/08/2026) — msg.type = 'playlist.folderPicker.typeChange' (dropdown header, chỉ hiện
-     * khi có `typeOptions`). KHÔNG tự re-fetch ở đây — giao lại cho `onTypeChange` (nơi gọi biết
-     * đúng tiêu chí lọc của miền mình, Rule 3b) — hàm này chỉ relay. */
+    /** msg.type = 'playlist.folderPicker.typeChange' (dropdown header, chỉ hiện khi có `typeOptions`). Re-fetch là việc
+     * của `onTypeChange` (nơi gọi biết tiêu chí lọc của miền mình). */
     async changeFolderPickerType(value) {
         const cb = this._folderPickerOnTypeChange;
         if (!cb) return;
         await cb(value);
     },
 
-    /** msg.type = 'playlist.folderPicker.close.click'. SỬA (phản hồi Giang — sửa lỗ hổng picker
-     * thư mục Visual Background) — ưu tiên `onClose` nếu nơi mở picker có truyền (xem docstring
-     * `_openFolderPickerDrawer()`), mặc định vẫn đóng hẳn như cũ. */
+    /** msg.type = 'playlist.folderPicker.close.click' (và sau khi chọn xong) — nơi mở có truyền `onClose` (Visual
+     * Background sống chung Generic Drawer) thì giao nó, mặc định đóng hẳn Drawer. */
     closeFolderPicker() {
         this._folderPickerOnPick = null;
         const onClose = this._folderPickerOnClose;
@@ -1801,59 +1781,37 @@ const workflowPlaylist = {
         this._folderPickerSelectedIds = [];
         this._folderPickerTypeOptions = null;
         this._folderPickerOnTypeChange = null;
-        if (onClose) onClose(); else workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
+        FOLDER_PICKER_CLOSE_BY_HAS_ON_CLOSE[!!onClose](onClose);
     },
 
-    /** msg.type = 'playlist.folderPicker.addTile.click' — tạo NGAY 1 folder tên tự động (không
-     * trùng tên bất kỳ folder CÙNG TYPE nào đang có trong grid), thêm vào cache RAM, vẽ lại grid
-     * với tile MỚI ở chế độ sửa tên (focus sẵn, xem _wireFolderPickerEvents()). KHÔNG tự "chọn"
-     * folder này luôn — user vẫn cần tap vào tile (sau khi sửa tên xong) như MỌI tile khác để hoàn
-     * tất việc chọn, giữ đúng 1 mô hình tương tác duy nhất cho toàn bộ grid (tạo ≠ chọn, tách 2
-     * hành động RÕ RÀNG).
-     * CHỐT Giang (hợp nhất Photo vào Playlist) — "Playlist source nào -> tạo folder và gán luôn
-     * type cho nó": type gán NGAY = `activeMediaSource` hiện tại (đọc thẳng, không cần biết context
-     * nào gọi tới — hàm này CHỈ reachable từ 2 luồng Add-to-Folder gốc của Playlist, picker Visual
-     * Background dùng `showAddTile: false` nên tile "+" không hề xuất hiện ở đó, xem
-     * event/workflow/visual-bg.js::_openFolderPickerForType()).
-     */
+    /** msg.type = 'playlist.folderPicker.addTile.click' — tạo NGAY 1 folder tên tự động (không trùng tên folder nào trong
+     * grid), type = Nguồn đang active (tile "+" chỉ có ở 2 luồng "Thêm vào thư mục" của Playlist; picker Visual Background
+     * dùng `showAddTile: false`), vẽ lại grid với tile mới ở chế độ sửa tên. KHÔNG tự chọn folder mới — user vẫn tap
+     * tile như mọi tile khác (tạo ≠ chọn). */
     async createFolderInPicker() {
         const mediaType = appState.get('activeMediaSource');
-        const defaultName = this._computeDefaultFolderName();
-        // SỬA (14/07/2026, tự audit lại Rule 3) — createFolder() đổi chữ ký, không còn tự
-        // resolveFolderId() nội bộ, xem docstring createFolder() (core/file-manager/folder.js).
-        const folderId = await resolveFolderId(defaultName, mediaType); // core
-        const result = await createFolder(folderId, defaultName, mediaType); // core có sẵn (core/file-manager/folder.js)
-        if (result.status !== 'ok') return; // hiếm — trùng tên dù đã tự tính tên không trùng (race hiếm gặp), im lặng bỏ qua
+        const defaultName = computeNextPickerFolderName(this._folderPickerFolders); // core/file-manager/folder.js
+        const result = await workflowFolder.create(defaultName, mediaType); // event/workflow/folder.js
+        if (result.status !== 'ok') return; // hiếm — trùng tên do race, im lặng bỏ qua
         this._folderPickerFolders.push({ id: result.folderId, name: defaultName, type: mediaType });
         this._folderPickerEditingId = result.folderId;
         this._renderFolderPickerGrid(false);
     },
 
-    /** Tính tên mặc định KHÔNG trùng bất kỳ folder nào đang hiển thị trong grid — "Thư mục mới",
-     * "Thư mục mới 2", "Thư mục mới 3"... */
-    _computeDefaultFolderName() {
-        const base = t('fileManager.folderPicker.defaultNewFolderName');
-        const existingNames = new Set(this._folderPickerFolders.map((f) => f.name));
-        if (!existingNames.has(base)) return base;
-        let n = 2;
-        while (existingNames.has(`${base} ${n}`)) n++;
-        return `${base} ${n}`;
-    },
-
-    /** msg.type = 'playlist.folderPicker.rename.commit' — blur/Enter của ô sửa tên. Tên rỗng hoặc
-     * giữ nguyên tên tự động -> bỏ qua (KHÔNG gọi renameFolder() vô ích), chỉ thoát chế độ sửa. */
+    /** msg.type = 'playlist.folderPicker.rename.commit' — blur/Enter của ô sửa tên: thoát chế độ sửa, đổi tên nếu hợp lệ,
+     * vẽ lại grid. */
     async commitFolderPickerRename(folderId, name) {
         this._folderPickerEditingId = null;
-        const trimmed = (name || '').trim();
-        const folder = this._folderPickerFolders.find((f) => f.id === folderId);
-        if (trimmed && folder && trimmed !== folder.name) {
-            const result = await renameFolder(folderId, trimmed); // core có sẵn
-            if (result.status === 'ok') folder.name = trimmed;
-            // 'duplicateName' (hiếm — user tự gõ trùng tên folder khác) -> im lặng giữ tên cũ,
-            // không alertModal giữa lúc đang thao tác nhanh (khác hẳn form Sửa tên đầy đủ ở
-            // Settings -> File Manager -> Song, nơi đó VẪN báo lỗi rõ ràng).
-        }
+        await this._renameFolderInPicker(this._folderPickerFolders.find((f) => f.id === folderId), normalizeFolderNameInput(name)); // core/file-manager/folder.js
         this._renderFolderPickerGrid(false);
+    },
+
+    /** Tên rỗng / không đổi -> bỏ qua. Trùng tên folder khác -> im lặng giữ tên cũ (không alertModal giữa lúc thao tác
+     * nhanh; Folder Browser thì vẫn báo). */
+    async _renameFolderInPicker(folder, name) {
+        if (!folder || !name || name === folder.name) return; // guard
+        const result = await workflowFolder.rename(folder.id, name); // event/workflow/folder.js — kèm cập nhật badge Scope
+        if (result.status === 'ok') folder.name = name;
     },
 
     /**
@@ -1923,7 +1881,7 @@ const workflowPlaylist = {
             for (const key of keys) {
                 const record = await getRecord(key);
                 if (!record) continue; // guard: đã bị xoá từ trước (hiếm, race) — bỏ qua, không chặn cả lô
-                await removeSongFromAllFolders(record); // core có sẵn (core/file-manager/folder.js) — nhận record THÔ qua tham số, generic cho cả Song/Video/Photo
+                await workflowFolder.removeItemFromAllFolders(record); // event/workflow/folder.js — generic cho cả Song/Video/Photo
                 await deleteRecord(key);
                 workflowListenStats.forget(mediaType, key); // event/workflow/listen-stats.js (SỬA 06/10/2026: đúng loại)
                 deletedKeys.push(key);
@@ -1948,76 +1906,53 @@ const workflowPlaylist = {
         await alertModal(tFormat('playlistView.selection.deleteSuccess', { count: deletedCount }));
     },
 
-    /**
-     * "Gỡ khỏi thư mục" — Selection mode, MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 5).
-     * KHÁC hẳn `deleteSelectedMedia()` ngay trên: KHÔNG đụng bản ghi gốc/thư viện, chỉ gỡ khỏi
-     * DANH SÁCH của folder đang Scope — dùng `removeSongsFromFolder()` (core/file-manager/
-     * folder.js, bulk-subset, MỚI cùng đợt) rồi splice các key đó khỏi `playlistOrder`/
-     * `displayOrder` đang hiển thị (CÙNG khuôn `removeKeysFromDisplayState()`,
-     * core/playlist/bulk-actions.js, TÁI DÙNG NGUYÊN — bản chất đều là "gỡ N key khỏi danh sách
-     * đang hiển thị", không cần viết hàm core mới). Chỉ hiện được trong menu khi đang Scope 1
-     * folder (xem event/router/playlist.js, case 'playlist.selection.moreMenu.open'), nên
-     * `folderId` ở đây LUÔN có giá trị — không cần guard `!folderId`.
-     * Folder trống hẳn sau khi gỡ (gỡ hết mọi item còn lại) -> tự thoát Scope NGAY (áp sống, cùng
-     * chủ trương `removeItem()`/`confirmRemoveAllItems()` bản Read cũ đã bỏ — hành vi giữ nguyên,
-     * chỉ đổi nơi gọi).
-     */
+    /** "Gỡ khỏi thư mục" — Selection mode: gỡ các item đã chọn khỏi DANH SÁCH của folder đang Scope (không đụng
+     * bản ghi gốc/thư viện, khác `deleteSelectedMedia()`). Chỉ hiện trong menu khi đang Scope 1 folder không Read-only
+     * (event/router/playlist.js, case 'playlist.selection.moreMenu.open'). */
     async removeSelectedSongsFromFolder() {
-        const keys = Array.from(appState.get('selectedMediaKeys'));
+        const { selectedMediaKeys, activeMediaSource: mediaType, activePlayListFolder, isActiveFolderReadOnly } = appState.get(['selectedMediaKeys', 'activeMediaSource', 'activePlayListFolder', 'isActiveFolderReadOnly']);
+        const keys = Array.from(selectedMediaKeys);
         if (keys.length === 0) return;
-        const mediaType = appState.get('activeMediaSource');
-        const folderId = appState.get('activePlayListFolder')[mediaType];
+        const folderId = activePlayListFolder[mediaType];
         if (!folderId) return; // guard hiếm: nút lẽ ra đã ẩn nếu không có Scope, phòng vệ thêm
-        // MỚI (06/09/2026, hợp nhất Folder vào Playlist, mục 4b — "Read-only") — folder đang active
-        // Read-only thì không cho gỡ item — nút lẽ ra đã ẩn (xem event/router/playlist.js, case
+        // Folder đang Scope Read-only thì không cho gỡ — nút lẽ ra đã ẩn (event/router/playlist.js, case
         // 'playlist.selection.moreMenu.open'), guard này là lớp phòng vệ thứ 2.
-        if (appState.get('isActiveFolderReadOnly')) return;
-
-        await withLoadingShield(t('common.loading.generic'), async () => {
-            await removeSongsFromFolder(keys, folderId, mediaType); // core/file-manager/folder.js
-            removeKeysFromDisplayState(keys, appState.get('playlistOrder'), appState.get('displayOrder')); // core/playlist/bulk-actions.js
-            workflowPlaylistOrder.updateShuffleArray();
-            workflowPlaylistOrder.recomputeRenderOrder();
-            workflowPlaylistRender.renderPlaylistDiff();
-            workflowPlaylistRender.syncEmptyState(); // SỬA (02/10/2026) — thay core updateEmptyState()
-
-            const folderMap = await getFolderSongMap(folderId); // service/db.js
-            if (isFolderEmpty(folderMap)) { // core/file-manager/folder.js
-                await workflowPlaylistScope.persistScopeChoice(null, mediaType);
-                await workflowPlaylistScope.applyAllSongsScope(mediaType);
-            }
-        });
-
+        if (isActiveFolderReadOnly) return;
+        await this._removeKeysFromScopeFolder(keys, folderId, mediaType);
         this._exitSelectionMode();
     },
 
-    /** "Gỡ khỏi thư mục" — 1 item lẻ qua menu 3-chấm (khác hẳn bản Selection mode ngay trên: 1 key
-     * thay vì mảng đã chọn, không cần `_exitSelectionMode()`). MỚI (06/09/2026, hợp nhất Folder vào
-     * Playlist) — CÙNG ý nghĩa/CÙNG guard Read-only (mục 4b) với `removeSelectedSongsFromFolder()}`
-     * ngay trên — không đụng bản ghi gốc/thư viện, chỉ gỡ khỏi DANH SÁCH của folder đang Scope.
-     * @param {string} songKey
-     */
+    /** "Gỡ khỏi thư mục" — 1 item lẻ qua menu 3-chấm, cùng ý nghĩa/cùng guard Read-only với
+     * `removeSelectedSongsFromFolder()`. @param {string} songKey */
     async removeSongFromFolderMenu(songKey) {
-        workflowPlaylist.closeActionMenu(); // core/playlist/actions.js — SỬA (09/09/2026, cùng đợt nối dây lại action này) — mọi hành động khác từ menu 3-chấm đều tự đóng menu trước khi chạy (xem deleteMediaFromActionMenu() ngay trên), hàm này thiếu luôn từ đầu
-        const mediaType = appState.get('activeMediaSource');
-        const folderId = appState.get('activePlayListFolder')[mediaType];
+        workflowPlaylist.closeActionMenu(); // mọi hành động từ menu 3-chấm đều đóng menu trước khi chạy
+        const { activeMediaSource: mediaType, activePlayListFolder, isActiveFolderReadOnly } = appState.get(['activeMediaSource', 'activePlayListFolder', 'isActiveFolderReadOnly']);
+        const folderId = activePlayListFolder[mediaType];
         if (!folderId) return; // guard hiếm — cùng lý do removeSelectedSongsFromFolder()
-        if (appState.get('isActiveFolderReadOnly')) return; // guard: Read-only (mục 4b) — nút lẽ ra đã ẩn, phòng vệ thêm
+        if (isActiveFolderReadOnly) return; // guard: Read-only — nút lẽ ra đã ẩn, phòng vệ thêm
+        await this._removeKeysFromScopeFolder([songKey], folderId, mediaType);
+    },
 
+    /** Phần chung của 2 lối "Gỡ khỏi thư mục": gỡ khỏi folder_song -> gỡ khỏi danh sách đang hiển thị -> vẽ lại; folder
+     * trống hẳn thì tự thoát Scope về "Tất cả". */
+    async _removeKeysFromScopeFolder(keys, folderId, mediaType) {
         await withLoadingShield(t('common.loading.generic'), async () => {
-            await removeSongFromFolder(songKey, folderId, mediaType); // core/file-manager/folder.js
-            removeKeysFromDisplayState([songKey], appState.get('playlistOrder'), appState.get('displayOrder')); // core/playlist/bulk-actions.js
+            const folderMap = await workflowFolder.removeItems(keys, folderId, mediaType); // event/workflow/folder.js
+            const { playlistOrder, displayOrder } = appState.get(['playlistOrder', 'displayOrder']);
+            removeKeysFromDisplayState(keys, playlistOrder, displayOrder); // core/playlist/bulk-actions.js
             workflowPlaylistOrder.updateShuffleArray();
             workflowPlaylistOrder.recomputeRenderOrder();
             workflowPlaylistRender.renderPlaylistDiff();
-            workflowPlaylistRender.syncEmptyState(); // SỬA (02/10/2026) — thay core updateEmptyState()
-
-            const folderMap = await getFolderSongMap(folderId); // service/db.js
-            if (isFolderEmpty(folderMap)) { // core/file-manager/folder.js
-                await workflowPlaylistScope.persistScopeChoice(null, mediaType);
-                await workflowPlaylistScope.applyAllSongsScope(mediaType);
-            }
+            workflowPlaylistRender.syncEmptyState();
+            await this._exitScopeIfFolderEmpty(folderMap, mediaType);
         });
+    },
+
+    /** Folder đang Scope vừa trống hẳn -> thoát Scope về "Tất cả" ngay. */
+    async _exitScopeIfFolderEmpty(folderMap, mediaType) {
+        if (!folderMap || !isFolderEmpty(folderMap)) return; // guard — core/file-manager/folder.js
+        await workflowPlaylistScope.persistScopeChoice(null, mediaType);
+        await workflowPlaylistScope.applyAllSongsScope(mediaType);
     },
 
     // ===================== Ver 12 "Song/Video Unification" — Batch 1 (mục 1-2); GỘP 07/09/2026 =====================
@@ -2040,7 +1975,7 @@ const workflowPlaylist = {
     async switchSource(mediaType) {
         // FIX (Giang báo — "đổi Source khi đang Multi-select không clear selection") — selection
         // không phụ thuộc Nguồn, chỉ clear khi tắt Selection Mode; 2 Nguồn có key trùng slug
-        // filename (Exclude collision, core/file-manager/folder.js::getExcludedSongKeysFromFolders())
+        // filename (Exclude collision, workflowFolder.readExcludedKeys(), event/workflow/folder.js)
         // có thể khiến Xoá/Phát hàng loạt nhắm nhầm record — thoát Selection Mode NGAY khi đổi Nguồn.
         this._exitSelectionMode();
 

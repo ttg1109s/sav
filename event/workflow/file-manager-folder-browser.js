@@ -13,7 +13,7 @@
  * `handlePlaylistFilterPanelEvent()` (event/listener/playlist.js, `data-filter-owner="folder"`) và sửa qua
  * workflowFilterRuleEdit (dùng chung với màn Edit preset). Rẽ nhánh = guard + object map (readme/event-bus-flow.md §7).
  *
- * NẠP SAU: core/file-manager/folder.js, core/file-manager/folder-picker-ui.js, components/items.js, core/dropdown-menu.js,
+ * NẠP SAU: core/file-manager/folder.js, event/workflow/folder.js (workflowFolder — đọc/ghi DB của miền Folder), core/file-manager/folder-picker-ui.js, components/items.js, core/dropdown-menu.js,
  * core/modal-choice-ui.js, core/storage-manager.js, core/about-stats.js (formatBytes), components/playlist-filter-drawer.js
  * (buildFolderFilterEditBodyHtml), service/state/playlist.js (clonePlaylistFilterConfigDefaults), core/pagination-ui.js,
  * core/dom-refs.js, service/z-index.js, event/workflow/filter-rule-edit.js, event/workflow/generic-drawer-helpers.js,
@@ -61,20 +61,22 @@ const workflowFileManagerFolderBrowser = {
 
     /** Mở từ tab Folder (event/workflow/app-panel-nav.js::openFolder()) — nạp lại folder ĐÚNG loại Nguồn đang active, về trang 1. */
     async openList() {
-        this._folders = await listFolders(appState.get('activeMediaSource')); // core/file-manager/folder.js
+        this._folders = await workflowFolder.list(appState.get('activeMediaSource')); // event/workflow/folder.js
         this._editingFolderId = null;
         this._listPageIndex = 0;
         this._renderList(true);
     },
 
-    /** @param {boolean} isFirstOpen - true: mở Drawer; false: thay nội dung Drawer đang mở. */
-    _renderList(isFirstOpen) {
+    /** @param {boolean} isFirstOpen - true: mở Drawer; false: thay nội dung Drawer đang mở.
+     * @param {boolean} [scrollReset] - true: cuộn về đầu (đổi trang); mặc định giữ vị trí đã nhớ. */
+    _renderList(isFirstOpen, scrollReset = false) {
         const view = workflowPagination.computePlaceView('folderBrowser', this._folders, this._listPageIndex); // event/workflow/pagination.js
         this._listPageIndex = view.pageIndex;
         const itemsHtml = renderItemList(null, view.pageItems, itemTemplateFolderTile, { editingFolderId: this._editingFolderId }); // components/items.js
-        const bodyHtml = buildFolderGridWrapperHtml(`${itemsHtml}${buildAddFolderTileHtml()}`) + `<div id="folder-browser-pagination" class="px-3 pb-3">${workflowPagination.buildControlsHtml(view)}</div>`; // components/items.js
+        const bodyHtml = buildFolderBrowserListBodyHtml(itemsHtml, workflowPagination.buildControlsHtml(view)); // components/items.js
         FOLDER_DRAWER_MOUNT_BY_FIRST_OPEN[isFirstOpen]({
             scrollKey: 'folderBrowser:list',
+            scrollReset,
             height: 'auto',
             maxHeight: '60vh',
             headerHtml: buildFolderBrowserListHeaderHtml(), // components/items.js — SỬA 07/10/2026: dời markup header khỏi Workflow
@@ -88,8 +90,7 @@ const workflowFileManagerFolderBrowser = {
     /** 'fileManagerFolderBrowser.list.page.change'. @param {number} pageIndex */
     setListPage(pageIndex) {
         this._listPageIndex = pageIndex;
-        this._renderList(false);
-        genericDrawerBody.scrollTop = 0;
+        this._renderList(false, true);
     },
 
     /** 'fileManagerFolderBrowser.list.addTile.click' — tạo ngay folder tên tự động (type = Nguồn đang active),
@@ -97,11 +98,10 @@ const workflowFileManagerFolderBrowser = {
     async createFolderInBrowser() {
         const mediaType = appState.get('activeMediaSource');
         const defaultName = computeNextFolderName(this._folders); // core/file-manager/folder.js
-        const folderId = await resolveFolderId(defaultName, mediaType); // core/file-manager/folder.js
-        const result = await createFolder(folderId, defaultName, mediaType); // core/file-manager/folder.js
+        const result = await workflowFolder.create(defaultName, mediaType); // event/workflow/folder.js
         if (result.status !== 'ok') return; // guard: trùng tên do race — người dùng bấm lại
-        this._folders.push({ id: folderId, name: defaultName, type: mediaType });
-        this._editingFolderId = folderId;
+        this._folders.push({ id: result.folderId, name: defaultName, type: mediaType });
+        this._editingFolderId = result.folderId;
         this._listPageIndex = workflowPagination.pageIndexOfItem('folderBrowser', this._folders.length - 1);
         this._renderList(false);
     },
@@ -109,7 +109,7 @@ const workflowFileManagerFolderBrowser = {
     /** 'fileManagerFolderBrowser.list.rename.commit' — blur/Enter ô sửa tên; tên rỗng/trùng giữ tên cũ. */
     async commitListRename(folderId, rawName) {
         this._editingFolderId = null;
-        await this._renameFolder(folderId, rawName.trim());
+        await this._renameFolder(folderId, normalizeFolderNameInput(rawName)); // core/file-manager/folder.js
         this._renderList(false);
     },
 
@@ -164,10 +164,10 @@ const workflowFileManagerFolderBrowser = {
         this._renderListAfterRename(status, folderId);
     },
 
-    /** Đổi tên (DB + cache RAM). Tên rỗng -> bỏ qua. @returns {Promise<string>} status */
+    /** Đổi tên (DB + cache RAM + badge Scope). Tên rỗng -> bỏ qua. @returns {Promise<string>} status */
     async _renameFolder(folderId, name) {
         if (!name) return 'empty';
-        const result = await renameFolder(folderId, name); // core/file-manager/folder.js
+        const result = await workflowFolder.rename(folderId, name); // event/workflow/folder.js
         this._setCachedFolderName(result.status, folderId, name);
         return result.status;
     },
@@ -199,12 +199,8 @@ const workflowFileManagerFolderBrowser = {
             tFormat(`fileManager.song.deleteFolderConfirm${FOLDER_TEXT_SUFFIX_BY_TYPE[folderType]}`, { name: escapeHtml(folderRecord.name) }),
             [
                 { label: t('fileManager.song.btnDeleteFolder'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnDestructiveBg btnDestructiveHoverBg textOnAccent', onClick: async () => {
-                    // SỬA (06/10/2026, plan-media-db-split.md — Rule 3b) — Workflow đọc sẵn dữ liệu cho core deleteFolder().
-                    const [folderMap, folderIndex, deletedIds] = await Promise.all([
-                        getFolderSongMap(folderId), getMeta('folderIndex'), getMeta('deletedFolderIds'),
-                    ]); // service/db.js
-                    if (folderMap) await deleteFolder(folderId, folderType, folderMap, folderIndex || { song: [], video: [], photo: [] }, deletedIds || []); // core/file-manager/folder.js
-                    await this._reloadAllViewIfHiddenDeleted(folderRecord); // MỚI (06/10/2026, Giang) — xem docstring
+                    await workflowFolder.remove(folderId, folderType); // event/workflow/folder.js
+                    await this._reloadAllViewIfHiddenDeleted(folderRecord); // xem docstring
                     await this.openList();
                 } }
             ],
@@ -212,9 +208,8 @@ const workflowFileManagerFolderBrowser = {
         );
     },
 
-    /** MỚI (06/10/2026, Giang báo: xoá folder Hidden khi đang ở view "Tất cả" thì media trong đó KHÔNG hiện lại) —
-     * trước đây xoá xong chỉ vẽ lại List folder, `playlistOrder` vẫn là bản đã loại media của folder Hidden cho tới lần nạp
-     * lại kế tiếp (đổi Scope/boot). Folder vừa xoá là Hidden -> nạp lại view "Tất cả" ngay (nếu đang ở đúng view đó). */
+    /** Folder vừa xoá là Hidden -> nạp lại view "Tất cả" ngay (nếu đang ở đúng view đó) để media trong đó hiện lại —
+     * không thì `playlistOrder` vẫn loại chúng cho tới lần nạp lại kế tiếp (đổi Scope/boot). */
     async _reloadAllViewIfHiddenDeleted(folderRecord) {
         if (!folderRecord.excludeFromMainPlaylist) return; // guard: folder không Hidden — view "Tất cả" không đổi
         await this._reloadAllViewIfShowing(folderRecord.type || 'song');
@@ -235,7 +230,7 @@ const workflowFileManagerFolderBrowser = {
         const folderMap = await getFolderSongMap(folderId); // service/db.js
         const keys = getFolderSongKeys(folderMap); // core/file-manager/folder.js
         const records = await Promise.all(keys.map((key) => FOLDER_RECORD_GETTER_BY_TYPE[mediaType](key)));
-        const totalBytes = records.reduce((sum, record) => sum + (record && record.blob ? record.blob.size : 0), 0);
+        const totalBytes = sumFolderRecordBytes(records); // core/file-manager/folder.js
         const countLabel = tFormat(FOLDER_COUNT_LABEL_KEY_BY_TYPE[mediaType], { count: String(keys.length) });
         const bodyHtml = buildFolderPropertiesBodyHtml(countLabel, totalBytes, folderRecord); // components/items.js — SỬA 07/10/2026: dời markup khỏi Workflow
         modalChoice( // core/modal-choice-ui.js
@@ -250,25 +245,26 @@ const workflowFileManagerFolderBrowser = {
 
     /** 'fileManagerFolderBrowser.properties.readOnly.change'. */
     async changeReadOnlyFromProperties(folderId, mediaType, enabled) {
-        await setFolderReadOnlyFlag(folderId, enabled); // core/file-manager/folder.js
+        await workflowFolder.writeSetting(folderId, 'readOnly', enabled); // event/workflow/folder.js
         this._syncActiveFolderReadOnly(folderId, mediaType, enabled);
     },
 
     /** 'fileManagerFolderBrowser.properties.hidden.change' — view "Tất cả" đang hiện thì nạp lại ngay. */
     async changeHiddenFromProperties(folderId, mediaType, enabled) {
-        await setFolderExcludeFlag(folderId, enabled); // core/file-manager/folder.js
+        await workflowFolder.writeSetting(folderId, 'hidden', enabled); // event/workflow/folder.js
         await this._reloadAllViewIfShowing(mediaType);
     },
 
     /** 'fileManagerFolderBrowser.properties.applyFilter.change' — folder đang là Scope thì áp lại ngay. */
     async changeApplyFilterFromProperties(folderId, mediaType, enabled) {
-        await setFolderApplyFilterFlag(folderId, enabled); // core/file-manager/folder.js
+        await workflowFolder.writeSetting(folderId, 'applyFilter', enabled); // event/workflow/folder.js
         await this._reapplyScopeIfActive(folderId, mediaType);
     },
 
     /** Folder này có đang là Scope của Nguồn đang hiển thị không. */
     _isActiveScopeFolder(folderId, mediaType) {
-        return mediaType === appState.get('activeMediaSource') && folderId === appState.get('activePlayListFolder')[mediaType];
+        const { activeMediaSource, activePlayListFolder } = appState.get(['activeMediaSource', 'activePlayListFolder']);
+        return mediaType === activeMediaSource && folderId === activePlayListFolder[mediaType];
     },
 
     /** Đồng bộ `isActiveFolderReadOnly` (Block gate upload, event/block.js) khi đổi Read-only của chính folder đang Scope. */
@@ -285,8 +281,9 @@ const workflowFileManagerFolderBrowser = {
 
     /** Đang ở view "Tất cả" của đúng Nguồn này -> nạp lại (Hidden vừa đổi); đang Scope folder khác thì lần sau về "Tất cả" tự đúng. */
     async _reloadAllViewIfShowing(mediaType) {
-        if (mediaType !== appState.get('activeMediaSource')) return;
-        if (appState.get('activePlayListFolder')[mediaType] != null) return;
+        const { activeMediaSource, activePlayListFolder } = appState.get(['activeMediaSource', 'activePlayListFolder']);
+        if (mediaType !== activeMediaSource) return; // guard: Nguồn khác đang hiển thị
+        if (activePlayListFolder[mediaType] != null) return; // guard: đang Scope 1 folder, không ở view "Tất cả"
         await withLoadingShield(t('common.loading.generic'), () => workflowPlaylistScope.applyAllSongsScope(mediaType)); // event/workflow/playlist-scope.js
     },
 
@@ -341,7 +338,7 @@ const workflowFileManagerFolderBrowser = {
     async applyFolderFilterEdit() {
         const folderId = this._filterEditFolderId, mediaType = this._filterEditMediaType;
         if (!folderId) return; // guard: đã rời màn
-        await setFolderFilterConfig(folderId, this._filterEditDraft); // core/file-manager/folder.js
+        await workflowFolder.writeSetting(folderId, 'filterConfig', this._filterEditDraft); // event/workflow/folder.js
         await this._reapplyScopeIfActive(folderId, mediaType);
     },
 

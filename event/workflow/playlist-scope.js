@@ -39,7 +39,7 @@
  * + getAll*Keys/get*Record từng key),
  * event/workflow/playlist-order.js (workflowPlaylistOrder.*), core/playlist/render.js
  * (renderPlaylistDiff/updateEmptyState), core/modal-choice-ui.js (modalChoice),
- * core/file-manager/folder.js (getFolderRecord/getExcludedSongKeysFromFolders),
+ * service/db.js (getFolderRecord), event/workflow/folder.js (workflowFolder.readExcludedKeys — gọi lúc chạy),
  * core/playlist/filter.js (applyPlaylistFilter), core/playlist/loader.js
  * (buildAdaptedPlaylistCache/filterValidSongRecords/buildSongPlaylistCache).
  */
@@ -214,7 +214,7 @@ const workflowPlaylistScope = {
         workflowPlaylistOrder.recomputeRenderOrder();
         workflowPlaylistRender.renderPlaylistDiff();
         workflowPlaylistRender.syncEmptyState(); // SỬA (02/10/2026) — thay core updateEmptyState()
-        await this._syncActiveFolderBadge(); // SỬA (02/10/2026) — thay PlaylistMain.updateActiveFolderBadge() (core tự đọc state + DB)
+        await this.syncActiveFolderBadge(); // SỬA (02/10/2026) — thay PlaylistMain.updateActiveFolderBadge() (core tự đọc state + DB)
     },
 
     /**
@@ -233,7 +233,7 @@ const workflowPlaylistScope = {
         this._clearFolderScopeOf(mediaType); // SỬA (02/10/2026, mục 7) — bước tuỳ chọn -> method mở đầu bằng guard
         appState.set('isActiveFolderReadOnly', false);
         console.log(`writer: "applyAllSongsScope", page: "isActiveFolderReadOnly", content: "false"`); // MỚI (02/10/2026) — Rule 4 vốn thiếu
-        const excludedKeys = await getExcludedSongKeysFromFolders(mediaType); // core/file-manager/folder.js — CHỈ Exclude của ĐÚNG mediaType
+        const excludedKeys = await workflowFolder.readExcludedKeys(mediaType); // event/workflow/folder.js — CHỈ Exclude của ĐÚNG mediaType
         loadAllSongs(appState.get('playlistCache'), excludedKeys); // core/playlist/scope.js
         const beforeCount = appState.get('playlistOrder').length;
         const filteredKeys = applyPlaylistFilter(appState.get('playlistOrder'), appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig')[mediaType], mediaType); // core/playlist/filter.js — SỬA 06/10/2026: + loại media
@@ -245,7 +245,7 @@ const workflowPlaylistScope = {
         workflowPlaylistOrder.recomputeRenderOrder();
         workflowPlaylistRender.renderPlaylistDiff();
         workflowPlaylistRender.syncEmptyState();
-        await this._syncActiveFolderBadge();
+        await this.syncActiveFolderBadge();
     },
 
     /** Tách từ applyFolderScope()/applyAllSongsScope() (02/10/2026, mục 7 — bước tuỳ chọn): báo lại tiến độ với số
@@ -264,10 +264,11 @@ const workflowPlaylistScope = {
         console.log(`writer: "applyAllSongsScope", page: "activePlayListFolder", content: "${JSON.stringify(next)}"`);
     },
 
-    /** Dời từ PlaylistMain.updateActiveFolderBadge() (core/playlist/main.js — core tự appState.get() + tự đọc DB, Rule
-     * 2/3b): đọc folder đang Scope của Nguồn hiện tại rồi giao core applyActiveFolderBadge() vẽ. */
-    async _syncActiveFolderBadge() {
-        const folderId = appState.get('activePlayListFolder')[appState.get('activeMediaSource')];
+    /** Badge "đang xem folder" trong ô tìm kiếm: đọc folder đang Scope của Nguồn hiện tại (tên đọc lại từ DB) rồi giao
+     * core applyActiveFolderBadge() vẽ. Gọi sau mỗi lần áp Scope và sau khi đổi tên folder (workflowFolder.rename()). */
+    async syncActiveFolderBadge() {
+        const { activePlayListFolder, activeMediaSource } = appState.get(['activePlayListFolder', 'activeMediaSource']);
+        const folderId = activePlayListFolder[activeMediaSource];
         applyActiveFolderBadge(!!folderId, await this._readFolderName(folderId)); // core/playlist/main.js
     },
 
@@ -287,7 +288,7 @@ const workflowPlaylistScope = {
     async listPickableMedia(mediaType) {
         const [items, excludedKeys] = await Promise.all([
             PICKABLE_MEDIA_LISTER[mediaType](), // service/db.js (SỬA 02/10/2026 — trước đây core/file-manager/image.js | video.js)
-            getExcludedSongKeysFromFolders(mediaType), // core/file-manager/folder.js
+            workflowFolder.readExcludedKeys(mediaType), // event/workflow/folder.js
         ]);
         return filterOutExcludedMedia(items, excludedKeys); // core/playlist/scope.js
     },

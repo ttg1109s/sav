@@ -348,7 +348,7 @@ const workflowFileManagerStorage = {
                 : { status: 'ok' };
             if (deleteEnabled && result.status === 'ok') {
                 await withLoadingShield(t('common.storage.deletingData'), async () => { await workflowFileManagerStorage.clearAllStoredData(); });
-                await clearAllFolderSongData(); // core/file-manager/folder.js
+                await workflowFolder.clearAllItems(); // event/workflow/folder.js
                 if (appState.get('activePlayListFolder').song) await workflowPlaylistScope.persistScopeChoice(null, 'song');
             }
             return result;
@@ -509,21 +509,19 @@ const workflowFileManagerStorage = {
     async executeDeleteBroken(payload) {
         const { scanResults, currentKey } = payload;
         if (scanResults.length === 0) return;
-        const songResults = scanResults.filter((r) => r.mediaType === 'song');
-        const videoResults = scanResults.filter((r) => r.mediaType === 'video');
-        const photoResults = scanResults.filter((r) => r.mediaType === 'photo');
+        const { song: songResults, video: videoResults, photo: photoResults } = groupBrokenResultsByType(scanResults); // core/storage-manager.js
 
         await withLoadingShield(t('common.storage.deletingBroken'), async () => {
             if (songResults.length > 0) {
-                const deletedSongKeys = await deleteCorruptedMediaRecords('song', songResults, currentKey); // core/storage-manager.js
+                const deletedSongKeys = await this._deleteBrokenOfType('song', songResults, currentKey);
                 deletedSongKeys.forEach((key) => workflowPlaylistOrder.removeKeyFromDisplay(key)); // event/workflow/playlist-order.js
             }
             if (videoResults.length > 0) {
-                const deletedVideoKeys = await deleteCorruptedMediaRecords('video', videoResults, currentKey); // core/storage-manager.js
+                const deletedVideoKeys = await this._deleteBrokenOfType('video', videoResults, currentKey);
                 deletedVideoKeys.forEach((key) => workflowPlaylistOrder.removeKeyFromDisplay(key)); // event/workflow/playlist-order.js
             }
             if (photoResults.length > 0) {
-                await deleteCorruptedMediaRecords('photo', photoResults, null); // core/storage-manager.js
+                await this._deleteBrokenOfType('photo', photoResults, null);
             }
             if (!genericDrawerPanel.classList.contains('hidden')) {
                 resetScanResultUI(
@@ -535,6 +533,14 @@ const workflowFileManagerStorage = {
         });
 
         await alertModal(t('common.storage.deleteBrokenDone'));
+    },
+
+    /** Xoá các media hỏng của 1 loại (trừ `skipKey` = media đang phát): gỡ khỏi mọi folder TRƯỚC (không để key "ma" trong
+     * folder_song — upload lại cùng tên sẽ bị nhân đôi trong folder), rồi xoá record.
+     * @returns {Promise<string[]>} key đã xoá */
+    async _deleteBrokenOfType(mediaType, results, skipKey) {
+        await workflowFolder.removeKeysFromAllFolders(mediaType, pickDeletableBrokenKeys(results, skipKey)); // core/storage-manager.js + event/workflow/folder.js
+        return deleteCorruptedMediaRecords(mediaType, results, skipKey); // core/storage-manager.js
     },
 
     /** Ứng với msg.type = 'fileManagerStorage.fixBroken.confirm', NHÁNH SỬA.

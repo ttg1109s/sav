@@ -70,16 +70,10 @@ const workflowAppBoot = {
         // ảnh/video, có thể hàng trăm MB). Chạy SAU khi đã nạp xong cấu hình mới, không await chặn
         // phần còn lại của boot vì nó không ảnh hưởng gì tới hiển thị.
         purgeVisualBgLegacyMeta(); // core/file-manager/cleanup.js
-        // MỚI (hợp nhất Photo vào Playlist, cấu trúc folderIndex O(1)) — AWAIT (khác purge ngay
-        // trên, không await được) vì `listFolders()` (core/file-manager/folder.js) từ nay LUÔN giả
-        // định `meta.folderIndex` đã tồn tại đúng — phải chắc chắn migrate xong TRƯỚC KHI người
-        // dùng có thể mở Folder Browser/Add to Folder (ngay sau boot), tránh race hiếm "index rỗng
-        // tạm thời trong lúc đang build" khiến folder cũ hiện biến mất 1 nhịp.
-        await migrateFolderIndexIfNeeded(); // core/file-manager/folder.js
-        // MỚI (06/09/2026, đổi schema activePlayListFolder theo Nguồn) — migrate 1 lần dữ liệu cũ
-        // (1 giá trị phẳng) sang object {song,video,photo}, PHẢI chạy TRƯỚC bất kỳ chỗ nào đọc
-        // `meta.activePlayListFolder`/`appState.activePlayListFolder` ngay dưới trong file này.
-        await migrateActivePlayListFolderIfNeeded(); // core/file-manager/folder.js
+        // AWAIT: `workflowFolder.list()` giả định `meta.folderIndex` đã đúng — migrate xong TRƯỚC khi người dùng mở được
+        // Folder Browser/Add to Folder; `activePlayListFolder` dạng cũ (string phẳng) -> {song,video,photo} TRƯỚC mọi chỗ
+        // đọc field này ngay dưới.
+        await workflowFolder.migrateOnBoot(); // event/workflow/folder.js
         // Nạp giá trị đã lưu bền (nay CHẮC CHẮN đúng schema object nhờ migrate ngay trên) vào
         // appState — mọi chỗ đọc `activePlayListFolder[type]` ngay dưới trong file này (và về sau
         // ở event/workflow/playlist.js::switchSource()) đều qua appState, không tự getMeta()

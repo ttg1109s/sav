@@ -1246,12 +1246,7 @@ const workflowVisualBg = {
      *        `openPickFolder()` -> `openGenericDrawer()`.
      */
     async _openFolderPickerForType(type, isUpdate) {
-        const folders = await listFolders(type);
-        const counts = await Promise.all(folders.map(async (f) => {
-            const map = await getFolderSongMap(f.id);
-            return map ? getFolderSongKeys(map).length : 0;
-        }));
-        const eligible = folders.filter((_, i) => counts[i] > 0);
+        const eligible = await workflowFolder.listNonEmpty(type); // event/workflow/folder.js — folder rỗng không làm nguồn được
 
         await workflowPlaylist._openFolderPickerDrawer(
             (folderIds, pickedType) => this._commitFolderMultiSelection(folderIds, pickedType),

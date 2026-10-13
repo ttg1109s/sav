@@ -209,7 +209,7 @@ const workflowSettingsMisc = {
         restoreDefaultVisualBgConfig(); // core/config.js
         taskManager.kill('configBackupFlush'); // core/config.js hẹn ghi meta.configBackup sau 2s — không để nó ghi lại sau khi đã xoá
 
-        const folders = await listFolders(); // core/file-manager/folder.js — CẢ 3 loại
+        const folders = await workflowFolder.list(); // event/workflow/folder.js — CẢ 3 loại
         await Promise.all(folders.map((record) => resetFolderRecordSettings(record))); // core/file-manager/folder.js
         await Promise.all(RESTORE_DEFAULTS_META_KEYS.map((key) => delMeta(key))); // service/db.js
         for (const key of RESTORE_DEFAULTS_LOCAL_STORAGE_KEYS) {
