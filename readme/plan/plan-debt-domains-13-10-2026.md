@@ -6,7 +6,8 @@ Nguồn số liệu: [core-legacy-audit.md](../core-legacy-audit.md). Lúc lập
 [task-manager-conventions.md](../task-manager-conventions.md)).
 
 Thay hẳn plan-debt-cleanup-02-10-2026.md (chia đợt theo file Workflow — đã xoá; bộ khuôn K1–K8 và ghi chú kỹ thuật
-từng đợt của nó chuyển vào mục 3 và mục 4 dưới đây).
+từng đợt của nó chuyển vào mục 3 và mục 4 dưới đây). Khuôn nối sự kiện W1–W8 của plan-event-bus-wiring-07-10-2026 (đã xong,
+đã xoá) cũng ở mục 3.
 
 ## 1. Nguyên tắc
 
@@ -45,6 +46,21 @@ từng đợt của nó chuyển vào mục 3 và mục 4 dưới đây).
 | **K7** | Core tự đọc DB / localStorage / appConfig | Workflow đọc rồi truyền vào; core chỉ GHI. Hàm core không còn nơi gọi -> xoá. |
 | **K8** | Hot path 60fps | CHỈ object map + guard; không VMState, không log mỗi frame. |
 | **giữ** | `if (el) el.x = …` kiểm DOM ref null | Giữ nguyên — phòng vệ, không phải rẽ tiến trình. |
+
+Khuôn nối sự kiện (từ plan-event-bus-wiring-07-10-2026, đã xong và xoá 13/10/2026):
+
+| Mã | Dạng gặp | Sửa thành |
+|---|---|---|
+| **W1** | Workflow `querySelector(...).addEventListener(..., () => this.x())` trên nội dung Generic Drawer | `event/listener/<cụm>.js` ủy quyền 1 lần trên `genericDrawerBody`/`genericDrawerHeader`, bảng tuyến `{ match, send }` (khuôn `custom-effect.js`); Router thêm case; Workflow xoá `_wire*()`. |
+| **W2** | Nút header dùng id chung (`#btn-generic-drawer-close`/`-back`…) | Thêm attribute riêng của cụm (`data-eq-close`, `data-ce-close`…) để Listener không bắt nhầm drawer khác. |
+| **W3** | Phần tử lặp (hàng preset, slider từng kênh) | `data-*` mang khoá, Listener đọc dataset làm payload. |
+| **W4** | Kéo-thả pointer trong Workflow | Khuôn Point Move / Auto-Switch: Listener `pointerdown` (delegate) + `setPointerCapture`, mỗi pha 1 `msg.type`; Workflow giữ phiên kéo, core -ui tô DOM. |
+| **W5** | `window.resize` / `ResizeObserver` trong Workflow | Đi chung luồng `visualizer-viewport` hoặc đăng ký ở Listener của cụm. |
+| **W6** | Callback đã chỉ `eventBus.send()` nhưng đăng ký trong Workflow | Dời đăng ký sang Listener của cụm. |
+| **W7** | Ô nhập trong modal động | `modalChoice()` + thân ở `components/`, đọc `.value` trong `onClick` (không listener `input`). |
+| **W8** | Chờ sự kiện 1 lần của media/đối tượng tạo động | Phần tử TĨNH: `workflowMediaWait.once()/wait()`; đối tượng tạo động: adapter `core/dynamic-object-ui.js` (event-bus-flow.md mục 1). |
+
+Listener không đọc `appState`, không rẽ nhánh nghiệp vụ; selector phải đủ riêng để không bắt nhầm drawer khác.
 
 ## 4. Hàng đợi
 
