@@ -88,20 +88,40 @@ const routerPlaylist = (() => {
                 break;
             }
 
-            // ===================== Add to Folder — Generic Drawer grid (MỚI 14/07/2026) =====================
-            // SỬA (31/07/2026) — wiring giờ ở core/file-manager/folder-picker-ui.js::
-            // wirePlaylistFolderPickerEvents() (Rule 5a), KHÔNG còn ở Workflow. Mỗi case dưới đây
-            // vẫn CHỈ 1 hàm core (hoặc cần đọc thêm dữ liệu closure của Workflow như
-            // `_folderPickerOnPick`) nên router gọi THẲNG workflow, không cần VirtualMachineState.
+            // ===================== Picker "Thêm vào thư mục" (Generic Drawer) =====================
+            // Wiring: core/file-manager/folder-picker-ui.js::wireFolderPickerDrawerEvents(). Chạm/giữ tay tile: workflowFolder
+            // (event/workflow/folder.js) đếm giữ tay rồi phát lại `.tile.tap` / `.tile.longpress`.
+
+            case 'playlist.folderPicker.tile.pointerdown': {
+                workflowFolder.beginTileHold('playlist', 'playlist.folderPicker', msg.payload.folderId, msg.payload.anchorEl);
+                break;
+            }
+
+            case 'playlist.folderPicker.tile.pointerup': {
+                workflowFolder.endTileHold();
+                break;
+            }
+
+            case 'playlist.folderPicker.tile.pointercancel': {
+                workflowFolder.cancelTileHold();
+                break;
+            }
 
             case 'playlist.folderPicker.tile.click': {
+                workflowFolder.resolveTileClick('playlist', 'playlist.folderPicker', msg.payload.folderId);
+                break;
+            }
+
+            case 'playlist.folderPicker.tile.tap': {
                 workflowPlaylist.pickFolderInPicker(msg.payload.folderId);
                 break;
             }
 
-            // MỚI (29/08/2026) — nút "Chọn (N)" xác nhận + dropdown đổi loại, chỉ xuất hiện khi
-            // picker đang ở chế độ multiSelect (Visual Background "Thư mục") — xem docstring
-            // _openFolderPickerDrawer() (event/workflow/playlist.js).
+            // Picker không có menu giữ tay — giữ rồi thả chỉ không chọn gì (click tự phát đã bị nuốt).
+            case 'playlist.folderPicker.tile.longpress':
+                break;
+
+            // Nút "Chọn (N)" + dropdown đổi loại — chỉ có khi picker ở chế độ multiSelect (Visual Background "Thư mục").
             case 'playlist.folderPicker.confirm.click': {
                 workflowPlaylist.confirmFolderPickerSelection();
                 break;
@@ -119,6 +139,11 @@ const routerPlaylist = (() => {
 
             case 'playlist.folderPicker.rename.commit': {
                 workflowPlaylist.commitFolderPickerRename(msg.payload.folderId, msg.payload.name);
+                break;
+            }
+
+            case 'playlist.folderPicker.rename.keydown': {
+                workflowFolder.handleTileRenameKeydown(msg.payload.key);
                 break;
             }
 
