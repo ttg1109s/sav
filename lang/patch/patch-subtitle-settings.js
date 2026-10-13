@@ -561,7 +561,7 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'playlistFilterPanel.mode.single': 'Single value',
     'playlistFilterPanel.mode.range': 'In range',
     // MỚI (15/08/2026, Giang yêu cầu "thêm in range và out range cho khoảng") — phủ định của
-    // 'range': khớp bản ghi NẰM NGOÀI [from, to], xem _evaluateFilterRule() core/playlist/filter.js.
+    // 'range': khớp bản ghi NẰM NGOÀI [from, to], xem applyPlaylistFilter() core/playlist/filter.js.
     'playlistFilterPanel.mode.outRange': 'Out of range',
     'playlistFilterPanel.rangeFrom': 'From',
     'playlistFilterPanel.rangeTo': 'To',
