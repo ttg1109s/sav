@@ -104,6 +104,8 @@ Còn 1131 FAIL (đã trừ đợt 5). 10 dòng `requestAnimationFrame` thô dọ
 ### Ghi chú theo đợt
 
 - **0** — Không đổi code; đối chiếu chuỗi token trước/sau để chứng minh chỉ đổi comment (khuôn đợt dọn comment 12/10).
+- **Mọi đợt (comment)** — Comment trong code còn trỏ tới 2 plan đã xoá (`plan-media-db-split.md` — ~40 chỗ trong ~20 file, thay bằng
+  `readme/db-schema.md` nếu còn cần; `plan-debt-cleanup-02-10-2026.md`) — sửa dần ở đợt chạm tới file đó.
 - **5 ✓** — Xong 13/10/2026: modal đổi tên sang `modalChoice()`; phiên giữ tay tile dời về `workflowFolder`; registry dọn rác bỏ, bảng bước dọn ở Workflow. Chi tiết: mục 5.
 - **11** — Gồm `core/photo-player.js` + `event/workflow/photo-player.js`: `startFromPlaylist`, `exitPhotoPlayerMode`, `togglePlayPausePhoto` (K2/K3); `_revokeObjectUrls` (K6).
 - **13** — `app-boot.js::boot()`: phần lớn là K1 (~13 dòng `typeof workflowX`); nhánh Scope folder / cả thư viện dùng lại `SOURCE_SCOPE_APPLY_BY_HAS_FOLDER` của `switchSource()` (đưa map lên `workflowPlaylistScope`, không viết map thứ 2). Kèm xoá `retireLegacyDownloadServiceWorker()` (core/file-manager/cleanup.js) + `workflowAppBoot._retireLegacyDownloadServiceWorker()` — Giang hẹn xoá ở ver 14; để tới đợt này vì phải đụng `boot()`.
