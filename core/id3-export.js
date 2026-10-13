@@ -117,9 +117,7 @@
         }
 
         /** Định dạng số mili-giây thành chuỗi ngắn cho "thời gian xử lý" trong modal tải xuống
-         * (event/workflow/zip-download.js) — MỚI (10/09/2026, Giang yêu cầu). Cố tình KHÔNG dùng
-         * `formatDurationLong()` (core/about-stats.js, đơn vị giờ/phút — dành cho tổng thời lượng
-         * nghe, quá thô cho việc đo vài giây/vài chục giây của bước nén zip).
+         * (event/workflow/zip-download.js).
          * @param {number} ms @returns {string}
          */
         function _formatProcessingDuration(ms) {

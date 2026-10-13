@@ -3,15 +3,6 @@
  * (Trích từ file gốc, dòng 576-671 trong khối <script>)
  */
 
-        function dataURItoBlobUrl(dataURI) {
-            try {
-                let parts = dataURI.split(','); let byteString = atob(parts[1]); let mimeString = parts[0].split(':')[1].split(';')[0];
-                let ab = new ArrayBuffer(byteString.length); let ia = new Uint8Array(ab);
-                for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
-                return URL.createObjectURL(new Blob([ab], {type: mimeString}));
-            } catch(e) { return null; }
-        }
-
         // [XOÁ — 28/09/2026, Phase 3 dọn visualizer] `resizeCanvas()` + `window.addEventListener('resize', resizeCanvas)`
         // ĐÃ BỎ: core tự nghe sự kiện cửa sổ (bỏ qua Listener -> Router) và tự gọi 6 core khác (initStars/
         // initThreeJS/initRubik/generateStreetScene...), kèm lỗi dựng lại cả scene Vortex mỗi lần resize (rò GPU).

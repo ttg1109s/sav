@@ -565,13 +565,3 @@
         function handleProgressBarSeeking(value) {
             appState.set('isSeeking', true); currentTimeDisplay.textContent = formatTime(value); updateProgressBarCSS();
         }
-
-        /**
-         * Người dùng THẢ tay, commit vị trí mới (sự kiện 'change' trên progressBar) — set thật
-         * audioPlayer.currentTime, tắt cờ isSeeking, đồng bộ lại Media Session ngay. Ứng với
-         * msg.type 'playerControls.progressBar.seekCommit'.
-         * @param {number} value - progressBar.value tại thời điểm commit
-         */
-        function handleProgressBarSeekCommit(value) {
-            audioPlayer.currentTime = value; appState.set('isSeeking', false); updateMediaPositionState();
-        }

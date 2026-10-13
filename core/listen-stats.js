@@ -20,13 +20,6 @@ function mediaStatsKey(type, key) {
     return `${type}:${key}`;
 }
 
-/** Tách ngược key RAM `type:key` (key media là slug, không chứa ':'). @param {string} statsKey
- * @returns {{type: 'song'|'video'|'photo', key: string}} */
-function parseMediaStatsKey(statsKey) {
-    const colonAt = statsKey.indexOf(':');
-    return { type: statsKey.slice(0, colonAt), key: statsKey.slice(colonAt + 1) };
-}
-
 /** Dựng `mediaStatsMap` từ meta của cả 3 loại (getAllMediaMeta()) — media chưa có `stats` thì bỏ qua (coi như 0).
  * @param {{song: Array<object>, video: Array<object>, photo: Array<object>}} metasByType - mỗi meta đã gộp `key`
  * @returns {Map<string, {count: number, totalTime: number}>} */

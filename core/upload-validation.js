@@ -1,26 +1,10 @@
 /**
- * upload-validation.js — Chặn định dạng KHÔNG hợp lệ ở 3 nơi nhận file từ người dùng:
- * nạp nhạc (media-upload — SỬA tên, phản hồi Giang "1 khung, không nhân bản": input này giờ dùng
- * CHUNG cho cả nhạc/video/ảnh khi nạp vào Playlist, trước đây tên audio-upload), ảnh nền
- * (setting-bg-upload), video nền (setting-video-upload).
+ * core/upload-validation.js — chặn file sai định dạng/quá cỡ khi người dùng nạp nhạc (media-upload) và ảnh nền.
+ * `accept=""` của <input type="file"> chỉ là gợi ý (chọn "Tất cả file" hoặc kéo-thả là qua mặt), nên kiểm tra thật
+ * nằm ở đây, trước khi ghi IndexedDB hay tạo blob URL.
  *
- * VÌ SAO CẦN FILE NÀY (không chỉ dựa vào `accept=""` của <input type="file">): thuộc tính
- * `accept` chỉ là GỢI Ý cho hộp thoại chọn file của OS/browser — người dùng vẫn có thể chọn
- * "Tất cả file" rồi chọn bất kỳ thứ gì (.exe, .pdf, .txt đổi đuôi...), hoặc kéo-thả file trực
- * tiếp vào input (kéo-thả bỏ qua hoàn toàn bộ lọc accept). Validate THẬT phải nằm ở tầng JS,
- * ngay khi nhận `file` trong listener 'change', TRƯỚC khi ghi vào IndexedDB hay tạo blob URL.
- *
- * CHIẾN LƯỢC KIỂM TRA — 2 lớp, ưu tiên MIME, fallback qua đuôi file:
- *   (1) `file.type` (MIME do browser tự suy ra từ nội dung/đuôi file) khớp whitelist -> hợp lệ.
- *   (2) Một số OS/browser/file hiếm khi để `file.type` RỖNG (không suy ra được MIME) dù file
- *       thật chuẩn — không thể chỉ dựa lớp (1) nếu không muốn chặn nhầm file hợp lệ. Khi MIME
- *       rỗng, fallback kiểm tra ĐUÔI file qua whitelist riêng. Khi MIME CÓ giá trị nhưng KHÔNG
- *       khớp whitelist, coi là sai định dạng dứt khoát — không cho đuôi file "gỡ" lại, vì MIME
- *       sai rõ ràng là dấu hiệu file bị đổi đuôi giả mạo.
- *
- * Cùng tinh thần với VALID_MP3_MIME_TYPES + isQuickValidMime() đã có sẵn ở db.js (chấp nhận MIME
- * rỗng cho mp3) — file này áp dụng nguyên tắc đó rộng ra cho audio (đa định dạng hơn mp3),
- * ảnh nền, và video nền.
+ * Kiểm tra 2 lớp: MIME (`file.type`) khớp whitelist -> hợp lệ; MIME có nhưng không khớp -> sai dứt khoát (dấu hiệu đổi
+ * đuôi giả); MIME rỗng (một số OS/browser không suy ra được) -> xét đuôi file theo whitelist riêng.
  */
 
         // ===================== (a) NHẠC =====================
@@ -36,11 +20,6 @@
         // Theo đúng yêu cầu: CHỈ png, jpg/jpeg, webp (không mở rộng thêm gif/svg/bmp...).
         const VALID_IMAGE_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp']);
         const VALID_IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp']);
-
-        // ===================== (c) VIDEO NỀN =====================
-        // Định dạng video phổ biến trình duyệt phát được qua thẻ <video>: mp4, webm, ogv, mov (Safari).
-        const VALID_VIDEO_MIME_TYPES = new Set(['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime']);
-        const VALID_VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'ogv', 'ogg', 'mov']);
 
         /** Lấy đuôi file (không dấu chấm, chữ thường) — '' nếu không có đuôi. */
         function getFileExtension(filename) {
@@ -71,11 +50,8 @@
         function validateImageFile(file) {
             return validateFileType(file, VALID_IMAGE_MIME_TYPES, VALID_IMAGE_EXTENSIONS, t('common.validate.typeLabel.image'));
         }
-        function validateVideoFile(file) {
-            return validateFileType(file, VALID_VIDEO_MIME_TYPES, VALID_VIDEO_EXTENSIONS, t('common.validate.typeLabel.video'));
-        }
 
-        // ===================== (d) GIỚI HẠN DUNG LƯỢNG MỖI FILE =====================
+        // ===================== (c) GIỚI HẠN DUNG LƯỢNG MỖI FILE =====================
         // MỚI (06/10/2026, Giang chốt sau khi đo bằng share-size-test.html: share 600MB vẫn ổn) —
         // mỗi file media nạp vào thư viện (Song/Video/Photo) tối đa 500MB. Lý do: trong PWA iOS chỉ
         // navigator.share() lưu được file ra ngoài, và share phải đọc nguyên file vào RAM — giữ mọi

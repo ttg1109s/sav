@@ -149,7 +149,7 @@ function drawCropSessionOverlay(ctx, session, canvasWidth, canvasHeight, display
 /**
  * ================================ ZOOM-PAN ================================
  * Bọc Panzoom (timmywil, CDN). Dùng chung cho Zoom mode xem Ảnh (view-only, luôn reset khi thoát)
- * và Video Preview (đọc lại scale/pan để lưu, xem `getPanzoomState()`).
+ * và Video Preview (đọc lại scale/pan để lưu).
  * Session = instance Panzoom, Workflow tự giữ tham chiếu. NẠP SAU: Panzoom (CDN, global `Panzoom`).
  */
 function initPanzoomSession(el, options) {
@@ -162,18 +162,6 @@ function destroyPanzoomSession(session) {
     session.reset({ animate: false });
     session.destroy();
     session.resetStyle();
-}
-
-/** Đưa về scale/pan mặc định, không huỷ session. @param {any} session */
-function resetPanzoomSession(session) {
-    session.reset();
-}
-
-/** Đọc lại scale/pan hiện tại — không reset/destroy gì. Dùng khi cần lưu lại vị trí zoom/pan.
- * @param {any} session @returns {{scale: number, x: number, y: number}} */
-function getPanzoomState(session) {
-    const pan = session.getPan();
-    return { scale: session.getScale(), x: pan.x, y: pan.y };
 }
 
 /**
