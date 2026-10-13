@@ -162,3 +162,10 @@ function resolvePlayerBackgroundSizeCss(resolutionMode, naturalWidth, naturalHei
     }
     return 'cover'; // 'fill' (mặc định) — phóng từ giữa lấp đầy, giữ tỉ lệ, cắt phần dư; cũng là fallback cho giá trị lạ/cũ
 }
+
+/** Thời lượng hành trình Point Move Video (ms) = thời lượng video / tốc độ phát. Thời lượng chưa sẵn sàng (NaN/Infinity)
+ * hoặc 0 -> 0 (Runner hiểu là bỏ qua Point Move). @param {number} durationSec @param {number} speed @returns {number} */
+function computeVideoPointMoveAdvanceMs(durationSec, speed) {
+    const s = speed || 1;
+    return isFinite(durationSec) && durationSec > 0 ? (durationSec * 1000) / s : 0;
+}
