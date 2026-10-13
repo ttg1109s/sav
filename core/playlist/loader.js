@@ -172,7 +172,7 @@
          * 07/09/2026 (xem `MEDIA_ADAPTER_SHAPE` ngay trên) =====================
          * Chuẩn hoá 1 mảng record Video/Photo (đọc từ store `videos`/`images`) thành ĐÚNG shape mà
          * `playlistCache` đang dùng cho Song — nhờ vậy `recomputeRenderOrder()`/
-         * `recomputeDisplayOrder()`/`songMatchesQuery()`/`core/playlist/render.js` chạy NGUYÊN VẸN,
+         * `recomputeDisplayOrder()`/lọc tìm kiếm/`core/playlist/render.js` chạy NGUYÊN VẸN,
          * không cần biết gì về nguồn Video/Photo (xem plan-v12-song-video-unification.md mục 1).
          * Trước 07/09/2026 đây là 2 hàm riêng gần như GIỐNG HỆT nhau (`buildVideoPlaylistCache()`/
          * `buildPhotoPlaylistCache()`) — chỉ khác vài GIÁ TRỊ (fallback cover/duration, có field phụ

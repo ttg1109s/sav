@@ -7,10 +7,6 @@
  * Ver 8: lọc tìm kiếm thêm theo `tag.album` (trước đây chỉ title + artist) — gõ tên album vào ô
  * tìm kiếm giờ cũng ra kết quả đúng.
  *
- * [REFACTOR 23/07/2026] `matchesSearch()` (lớp trung gian tự appState.get()) ĐÃ XOÁ — logic so
- * khớp chuyển hẳn sang `songMatchesQuery()` (core/song-search.js, THUẦN, dùng CHUNG với module Video
- * Editor).
- *
  * SỬA TẬN GỐC (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ trừ chỉ định cụ thể theo tài liệu")
  * — file này TRƯỚC ĐÂY có 6 hàm tự `appState.get()`/gọi core khác (`recomputeRenderOrder()`,
  * `recomputeDisplayOrder()`, `updateShuffleArray()`, `applyNewSongsToDisplayOrder()`,
