@@ -1,48 +1,17 @@
 /**
- * core/playlist/filter.js — Playlist Filter (mục 1d, phản hồi Giang) — LỌC playlistOrder theo
- * điều kiện, mô phỏng cơ chế `SQL WHERE field1 = x AND field2 = y ...`: mỗi field trong
- * `playlistFilterConfig.<source>` là ĐÚNG 1 điều kiện (không phải danh sách điều kiện lặp lại
- * trên cùng 1 field) — field nào có rule (khác `null`) thì tham gia phép AND; tất cả rule đang
- * bật đều PHẢI khớp thì bản ghi mới lọt qua (`Array.every()` — đúng bản chất AND của WHERE).
+ * core/playlist/filter.js — Playlist Filter: lọc `playlistOrder` theo điều kiện kiểu `SQL WHERE f1 = x AND f2 = y` — mỗi
+ * field trong `playlistFilterConfig[source]` là đúng 1 điều kiện, field có rule (khác `null`) tham gia phép AND.
  *
- * KHÁC BIỆT VỚI Ô TÌM KIẾM (`songMatchesQuery()`, core/song-search.js): Search lọc `renderOrder`
- * (chỉ UI, đổi ngay theo từng ký tự gõ), CHUẨN HOÁ dấu tiếng Việt (`normalizeSongName()`). Filter
- * lọc `playlistOrder` NGAY GỐC — chỉ chạy lại ở ĐÚNG 2 nơi `playlistOrder` được TÍNH MỚI (đổi
- * Nguồn/áp Scope folder/boot — nay đều gói trong `event/workflow/playlist-scope.js::
- * applyFolderScope()`/`applyAllSongsScope()`, tự áp Filter bên trong). 2 cơ chế KHÔNG đụng nhau, không tái dùng logic của
- * nhau — Filter so khớp text KHÔNG phân biệt hoa/thường (`.toLowerCase()` JS builtin, viết NGAY
- * TRONG file này) nhưng CÓ phân biệt dấu tiếng Việt (KHÔNG gọi `normalizeSongName()`,
- * core/song-search.js — đó là 1 core KHÁC của project, Rule 3 cấm tuyệt đối Core gọi Core khác,
- * kể cả để tái dùng logic chuẩn hoá — xem core-function-conventions.md Rule 3).
+ * Khác ô tìm kiếm (core/song-search.js — lọc `renderOrder`, chuẩn hoá dấu): Filter lọc `playlistOrder` ngay gốc, chỉ chạy
+ * khi `playlistOrder` được tính mới (event/workflow/playlist-scope.js), so text không phân biệt hoa/thường nhưng CÓ phân
+ * biệt dấu tiếng Việt.
  *
- * Rule 2 — mọi hàm CHỈ nhận tham số, KHÔNG tự `appState.get()`. Rule 3 — không gọi core nào khác
- * của project — CHỈ gọi `operation.evaluate()` (service/operation.js, thuộc `service/`, được
- * phép theo Rule 3 "CHỈ được gọi API service/") + JS builtin thuần (`.toLowerCase()`).
- *
- * NẠP SAU: service/operation.js (operation.evaluate).
+ * Mọi hàm chỉ nhận tham số; chỉ gọi `operation.evaluate()` (service/operation.js) + JS builtin.
  */
 
-/** 2 hằng số dưới đây KHÔNG được `applyPlaylistFilter()` dùng tới (đọc field động qua
- * `Object.keys(rulesBucket)`, xem hàm đó) — mồ côi từ trước, giữ nguyên vị trí, CHỈ sửa lại nội
- * dung cho ĐÚNG hiện trạng (trước đây ghi sai/cũ, xem clonePlaylistFilterConfigDefaults(),
- * service/state/playlist.js — nguồn sự thật thật sự): song có 3 field text, video/photo có 2
- * (name/album, không có artist); cả 3 Nguồn giờ CÙNG 5 field số/ngày (SỬA, Giang yêu cầu "thêm
- * thời gian listen cho photo" — photo giờ cũng có totalTime, hết còn khác biệt với video). */
-const PLAYLIST_FILTER_TEXT_FIELDS = { song: ['name', 'album', 'artist'], video: ['name', 'album'], photo: ['name', 'album'] };
-const PLAYLIST_FILTER_NUMERIC_FIELDS = ['addedAt', 'count', 'totalTime', 'size', 'duration'];
-
-/**
- * Phân loại 1 field Filter — quyết định input nào hiển thị (text/date/number/seconds) + cách parse
- * giá trị gõ vào (`_parseFilterNumberInput()`) — dùng ở `event/workflow/playlist.js`
- * (`setFilterField()`/`_syncFilterPanelUI()`, đọc/ghi rule theo đúng đơn vị/kiểu). Đặt Ở ĐÂY
- * (cùng nhà 2 danh sách field trên) để chỉ có ĐÚNG 1 nơi định nghĩa "field nào thuộc loại gì".
- * SỬA (phản hồi Giang — "totalTime/duration phải dùng time picker modal, định dạng h:m:s") —
- * `totalTime`/`duration` giờ có kind RIÊNG `'seconds'` (trước đây chung `'number'` với `count`) —
- * UI dựng NÚT mở `openTimePickerModal()` (core/time-picker-modal.js, format 'h-m-s') thay vì
- * `<input type="number">` thô — xem components/playlist-filter-drawer.js.
- * @param {string} field
- * @returns {'text'|'date'|'sizeMb'|'seconds'|'number'}
- */
+/** Loại 1 field Filter — quyết định control hiển thị (components/playlist-filter-drawer.js) + cách parse/hiển thị giá trị:
+ * totalTime/duration là 'seconds' (nút mở time picker 'h-m-s'), count là 'number'.
+ * @param {string} field @returns {'text'|'date'|'sizeMb'|'seconds'|'number'} */
 function _filterFieldKind(field) {
     if (field === 'name' || field === 'album' || field === 'artist') return 'text';
     if (field === 'addedAt') return 'date';
@@ -51,16 +20,8 @@ function _filterFieldKind(field) {
     return 'number'; // count
 }
 
-/**
- * Định dạng số giây thành "H:MM:SS" (LUÔN có giờ, kể cả 0 — Giang chốt "tất cả đều h:m:s", đồng
- * bộ với 3 cột giờ/phút/giây của `openTimePickerModal()` format 'h-m-s') — dùng làm TEXT hiển thị
- * trên nút mở time-picker (`event/workflow/playlist.js::_syncFilterPanelUI()`/
- * `openFilterTimePicker()`). KHÁC `formatTime()` (core/playlist/state.js, "M:SS", KHÔNG giờ) —
- * CỐ Ý viết riêng bản này (Rule 3, core cấm gọi core khác — cùng lý do formatVideoDuration() ở
- * core/file-manager/video.js viết riêng thay vì gọi formatTime()).
- * @param {number} totalSeconds
- * @returns {string}
- */
+/** Số giây -> "H:MM:SS" (luôn có giờ, khớp time picker 'h-m-s') — chữ trên nút time picker. Viết riêng, không dùng
+ * formatTime() (core/playlist/state.js, "M:SS") — core không gọi core khác. @param {number} totalSeconds @returns {string} */
 function _formatSecondsAsHms(totalSeconds) {
     const s = Math.max(0, Math.floor(totalSeconds || 0));
     const h = Math.floor(s / 3600);
@@ -69,16 +30,9 @@ function _formatSecondsAsHms(totalSeconds) {
     return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
-/**
- * Parse 1 giá trị input THÔ (chuỗi từ `<input>`, hoặc số giây trả về từ `openTimePickerModal()`
- * cho kind 'seconds') thành số LƯU TRONG STATE theo đúng đơn vị nội bộ — 'date' -> epoch ms (đầu
- * ngày, giờ local); 'sizeMb' -> NGƯỜI DÙNG gõ MB, LƯU byte (nhân 1024*1024, khớp `cached.size` ở
- * core/playlist/loader.js); 'seconds'/'number' -> số thô (giây/lượt, KHÔNG quy đổi gì thêm —
- * `openFilterTimePicker()`, event/workflow/playlist.js, đã tự quy đổi ms->giây TRƯỚC khi gọi
- * `setFilterField()`, nên tới đây `rawValue` đã LÀ giây rồi).
- * @param {'date'|'sizeMb'|'seconds'|'number'} kind @param {string} rawValue
- * @returns {number}
- */
+/** Giá trị thô (chuỗi `<input>`, hoặc số giây từ time picker) -> số lưu trong rule: 'date' -> epoch ms 00:00 giờ local;
+ * 'sizeMb' -> người dùng gõ MB, lưu byte; 'seconds'/'number' -> số thô.
+ * @param {'date'|'sizeMb'|'seconds'|'number'} kind @param {string} rawValue @returns {number} */
 function _parseFilterNumberInput(kind, rawValue) {
     if (kind === 'date') { const ms = rawValue ? new Date(`${rawValue}T00:00:00`).getTime() : 0; return ms || 0; }
     if (kind === 'sizeMb') { const mb = parseFloat(rawValue); return (isFinite(mb) ? mb : 0) * 1024 * 1024; }
@@ -86,19 +40,13 @@ function _parseFilterNumberInput(kind, rawValue) {
     return isFinite(n) ? n : 0;
 }
 
-/**
- * Chiều NGƯỢC LẠI `_parseFilterNumberInput()` — đổi giá trị LƯU TRONG STATE thành chuỗi hiển thị
- * lại đúng lên `<input>` lúc mở panel (`workflowPlaylistFilterPresets._syncEditUI()`). KHÔNG dùng cho
- * kind 'seconds' (nút time-picker dùng `_formatSecondsAsHms()` riêng, TEXT không phải `.value`).
- * @param {'text'|'date'|'sizeMb'|'number'} kind @param {number|undefined} value
- */
+/** Ngược lại _parseFilterNumberInput(): giá trị trong rule -> chuỗi hiện lên `<input>` (không dùng cho 'seconds'). Ngày đọc
+ * năm/tháng/ngày theo LOCAL (toISOString() in theo UTC sẽ lùi 1 ngày ở múi giờ dương).
+ * @param {'text'|'date'|'sizeMb'|'number'} kind @param {number|undefined} value */
 function _formatFilterNumberForInput(kind, value) {
     if (value == null) return '';
     if (kind === 'date') {
         if (!value) return '';
-        // SỬA lỗi lệch ngày (chọn 20 -> hiện 19, mở lại lại lùi tiếp 19 -> 18...): `_parseFilterNumberInput()` lưu epoch ms
-        // của 00:00 GIỜ LOCAL, nhưng `toISOString()` in theo UTC -> ở múi giờ dương (VN = UTC+7) 00:00 local rơi vào 17:00
-        // NGÀY HÔM TRƯỚC (UTC) -> lùi 1 ngày. Đọc năm/tháng/ngày theo LOCAL để đúng chiều ngược lại với parse.
         const d = new Date(value);
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
@@ -107,48 +55,13 @@ function _formatFilterNumberForInput(kind, value) {
 }
 
 /**
- * So khớp 1 field bất kỳ (text HOẶC số/ngày) với đúng 1 rule — DÙNG CHUNG cho cả 2 loại, vì cả 2
- * cùng chung 1 hình dạng so sánh: `mode:'range'` (CHỈ numeric/date, 2 điều kiện >=/<= ANDed lại,
- * đúng cơ chế SQL `BETWEEN`), `mode:'outRange'` (MỚI, 15/08/2026, Giang yêu cầu "thêm out range
- * cho khoảng" — PHỦ ĐỊNH của `range`: khớp khi giá trị NẰM NGOÀI [value, valueTo], tức `</value`
- * HOẶC `>valueTo`, đúng cơ chế SQL `NOT BETWEEN`) hoặc so sánh đơn qua `rule.op` (text dùng
- * ===/!==/contains/notContains; numeric/date dùng ===/!==/>/</>=/<=). Text hoá thường CẢ 2 phía
- * (`isText`) trước khi so — case-insensitive nhưng CÓ phân biệt dấu tiếng Việt (xem docstring đầu
- * file, lý do Rule 3 không cho gọi `normalizeSongName()`).
- * @param {string|number} fieldValue @param {Object} rule @param {boolean} isText
- */
-function _evaluateFilterRule(fieldValue, rule, isText) {
-    if (!isText && rule.mode === 'range') return operation.evaluate(fieldValue, '>=', rule.value) && operation.evaluate(fieldValue, '<=', rule.valueTo);
-    if (!isText && rule.mode === 'outRange') return operation.evaluate(fieldValue, '<', rule.value) || operation.evaluate(fieldValue, '>', rule.valueTo);
-    if (isText) return operation.evaluate(String(fieldValue).toLowerCase(), rule.op, String(rule.value).toLowerCase());
-    return operation.evaluate(fieldValue, rule.op, rule.value);
-}
-
-/**
- * Đưa 1 mốc thời gian (epoch ms) về ĐẦU NGÀY (00:00 giờ LOCAL) — cùng đơn vị với giá trị rule kind 'date'
- * mà `_parseFilterNumberInput()` lưu. `addedAt` là `Date.now()` lúc upload (CÓ giờ:phút:giây) còn rule chỉ là
- * 00:00 của ngày đã chọn -> so `===`/`>`/`<=`... trực tiếp sẽ KHÔNG BAO GIỜ khớp đúng "cùng ngày" (vd video up 14:30
- * ngày 20 không `===` 00:00 ngày 20; khoảng "đến 20" cũng loại luôn các video up trong ngày 20). Quy về đầu ngày
- * TRƯỚC khi so thì mọi toán tử đều hiểu theo NGÀY. 0/rỗng giữ nguyên 0 (bản ghi thiếu addedAt).
- * @param {number} ms @returns {number}
- */
-function _startOfLocalDayMs(ms) {
-    if (!ms) return 0;
-    const d = new Date(ms);
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
-}
-
-/**
- * Rule 1: đơn tuyến — lọc `keys` theo TOÀN BỘ rule đang bật trong `rulesBucket` (AND hết, xem
- * docstring đầu file). `rulesBucket` rỗng (mọi field `null`) -> trả nguyên `keys` (fast path,
- * KHÔNG tốn 1 vòng lặp nào khi Giang chưa bật filter nào).
- * Rule 2: nhận `playlistCache`/`mediaStatsMap`/`rulesBucket` qua tham số.
- * @param {string[]} keys
- * @param {Map} playlistCache
- * @param {Map} mediaStatsMap
- * @param {Object<string, ?Object>} rulesBucket - `playlistFilterConfig.song` hoặc `.video`
- * @param {'song'|'video'|'photo'} mediaType - SỬA (06/10/2026, plan-media-db-split.md mục 6) — key `mediaStatsMap` là `type:key`.
+ * Lọc `keys` theo TOÀN BỘ rule đang bật trong `rulesBucket` (AND hết). Không rule nào bật -> trả nguyên `keys` (fast path).
+ * Mỗi rule so khớp: `mode:'range'` (chỉ số/ngày, >= value AND <= valueTo — như SQL BETWEEN), `mode:'outRange'` (NOT BETWEEN),
+ * còn lại so đơn qua `rule.op` (text: ===/!==/contains/notContains, hạ chữ thường cả 2 phía — phân biệt dấu tiếng Việt;
+ * số/ngày: ===/!==/>/</>=/<=). `addedAt` (có giờ:phút:giây) quy về 00:00 giờ LOCAL trước khi so (rule 'date' lưu đầu ngày —
+ * xem _parseFilterNumberInput()) để mọi toán tử hiểu theo NGÀY.
+ * @param {string[]} keys @param {Map} playlistCache @param {Map} mediaStatsMap - key `type:key`
+ * @param {Object<string, ?Object>} rulesBucket - `playlistFilterConfig[mediaType]` @param {'song'|'video'|'photo'} mediaType
  * @returns {string[]}
  */
 function applyPlaylistFilter(keys, playlistCache, mediaStatsMap, rulesBucket, mediaType) {
@@ -167,14 +80,30 @@ function applyPlaylistFilter(keys, playlistCache, mediaStatsMap, rulesBucket, me
             if (field === 'name') fieldValue = cached.tag.title || '';
             else if (field === 'album') fieldValue = cached.tag.album || '';
             else if (field === 'artist') fieldValue = cached.tag.artist || '';
-            else if (field === 'addedAt') fieldValue = _startOfLocalDayMs(cached.addedAt); // so theo NGÀY (xem _startOfLocalDayMs)
+            else if (field === 'addedAt') fieldValue = cached.addedAt ? new Date(cached.addedAt).setHours(0, 0, 0, 0) : 0; // đầu ngày local
             else if (field === 'count') fieldValue = stats.count || 0;
             else if (field === 'totalTime') fieldValue = stats.totalTime || 0;
             else if (field === 'size') fieldValue = cached.size || 0;
             else if (field === 'duration') fieldValue = cached.duration || 0;
-            else fieldValue = null; // guard — field lạ (không nên xảy ra, danh sách field đã cố định)
-            if (!_evaluateFilterRule(fieldValue, rule, isText)) return false; // AND — 1 rule không khớp là loại ngay
+            else fieldValue = null; // field lạ (danh sách field đã cố định)
+
+            let matched;
+            if (!isText && rule.mode === 'range') matched = operation.evaluate(fieldValue, '>=', rule.value) && operation.evaluate(fieldValue, '<=', rule.valueTo);
+            else if (!isText && rule.mode === 'outRange') matched = operation.evaluate(fieldValue, '<', rule.value) || operation.evaluate(fieldValue, '>', rule.valueTo);
+            else if (isText) matched = operation.evaluate(String(fieldValue).toLowerCase(), rule.op, String(rule.value).toLowerCase());
+            else matched = operation.evaluate(fieldValue, rule.op, rule.value);
+            if (!matched) return false; // AND — 1 rule không khớp là loại ngay
         }
         return true;
     });
+}
+
+/** Giá trị ms trả về từ time picker -> số giây lưu trong rule (làm tròn). @param {number} ms @returns {number} */
+function resolveFilterSecondsFromPickerMs(ms) {
+    return Math.round(ms / 1000);
+}
+
+/** Số giây của rule -> ms để mở time picker (rule chưa có giá trị -> 0). @param {number|undefined} seconds @returns {number} */
+function resolveFilterPickerMsFromSeconds(seconds) {
+    return (seconds || 0) * 1000;
 }

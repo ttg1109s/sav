@@ -1,26 +1,11 @@
 /**
- * core/playlist/filter-presets.js — Core THUẦN (Rule 1-5) cho hệ "Playlist Filter Presets" — mirror
- * core/motion-presets.js/core/eq-presets.js.
+ * core/playlist/filter-presets.js — core thuần của "Playlist Filter Presets" (khuôn core/eq-presets.js).
  *
- * SỬA (09/09/2026, phản hồi Giang — "mỗi source media 1 list filter khác nhau + mỗi source có
- * filter active khác nhau", tham khảo mẫu `activePlayListFolder` — service/state/file-manager.js:
- * `{song: string|null, video: string|null, photo: string|null}`) — `playlistFilterPresets`/
- * `playlistFilterActivePresetId` (service/state/playlist.js) giờ là OBJECT keyed theo Nguồn
- * `{song, video, photo}` — MỖI Nguồn có danh sách preset RIÊNG + preset active RIÊNG, hoàn toàn độc
- * lập nhau (đổi/chọn/xoá preset ở Song không đụng gì tới Video/Photo).
- *
- * Preset = {id, name, config} — TRƯỚC ĐÂY (08/09/2026) `config` ôm CẢ 3 bucket {song,video,photo}
- * (vì 1 preset dùng chung cho mọi Nguồn) — GIỜ preset đã thuộc RIÊNG 1 danh sách theo Nguồn nên
- * `config` chỉ còn CHÍNH bucket rule của Nguồn đó (vd preset trong `playlistFilterPresets.song` thì
- * `config` = {name,album,artist,addedAt,count,totalTime,duration,size} — shape CHÍNH XÁC bằng
- * `clonePlaylistFilterConfigDefaults().song`, service/state/playlist.js).
- *
- * Điều kiện filter CÓ hiệu lực trên Playlist thật cho 1 Nguồn (đọc bởi core/playlist/filter.js::
- * applyPlaylistFilter() qua `appState.playlistFilterConfig[source]` — KHÔNG đổi gì ở phía đọc) =
- * CHỈ `appState.playlistFilterActivePresetId[source]` trỏ ĐÚNG 1 preset còn tồn tại TRONG
- * `playlistFilterPresets[source]` (preset ĐANG active TỰ LÀ công tắc, không cần field riêng). Không
- * có preset active cho Nguồn đó -> `playlistFilterConfig[source]` suy ra rỗng (mọi field null),
- * hành vi giống hệt "chưa có Filter" — xem `_recomputeLiveConfig()` ở workflow.
+ * `playlistFilterPresets`/`playlistFilterActivePresetId`/`playlistFilterAppliedConfig`/`playlistFilterAppliesToFolder`
+ * (service/state/playlist.js) là object keyed theo Nguồn `{song, video, photo}` — mỗi Nguồn danh sách + preset active riêng.
+ * Preset = {id, name, config, appliesToFolder}; `config` = bucket rule của đúng Nguồn đó (shape
+ * `clonePlaylistFilterConfigDefaults()[source]`). Filter có hiệu lực cho 1 Nguồn khi `playlistFilterActivePresetId[source]`
+ * trỏ đúng 1 preset còn tồn tại — không có thì `playlistFilterConfig[source]` rỗng (computePlaylistFilterLiveConfig()).
  */
 
 /** Preset trắng (mọi field rule = null, `appliesToFolder` mặc định BẬT — phản hồi Giang 09/09/2026)
@@ -63,27 +48,68 @@ function sanitizePlaylistFilterPresets(raw, source) {
         }));
 }
 
-/** Validate CẢ object `{song,video,photo}` đọc lên lúc boot (`meta.playlistFilterPresets`) — gọi
- * `sanitizePlaylistFilterPresets()` cho từng Nguồn, Nguồn nào thiếu/hỏng tự rơi về mảng rỗng.
- * @param {*} raw @returns {{song:object[],video:object[],photo:object[]}} */
-function sanitizePlaylistFilterPresetsMap(raw) {
-    const source = (raw && typeof raw === 'object') ? raw : {};
-    return {
-        song: sanitizePlaylistFilterPresets(source.song, 'song'),
-        video: sanitizePlaylistFilterPresets(source.video, 'video'),
-        photo: sanitizePlaylistFilterPresets(source.photo, 'photo'),
-    };
-}
-
-/** Validate CẢ object `{song,video,photo}` active-preset-id đọc lên lúc boot
- * (`meta.playlistFilterActivePresetId`) — Nguồn nào ID không trỏ tới preset THẬT SỰ tồn tại trong
- * `presetsMap[source]` (preset đã bị xoá bằng cách nào đó, hoặc dữ liệu hỏng) tự rơi về `null`.
+/** Validate object active-preset-id `{song,video,photo}` đọc lúc boot — id không trỏ tới preset có thật trong
+ * `presetsMap[source]` (preset đã xoá / dữ liệu hỏng) -> null.
  * @param {*} raw @param {{song:object[],video:object[],photo:object[]}} presetsMap
  * @returns {{song:string|null,video:string|null,photo:string|null}} */
 function sanitizePlaylistFilterActiveIdMap(raw, presetsMap) {
     const source = (raw && typeof raw === 'object') ? raw : {};
-    const pick = (mediaType) => (typeof source[mediaType] === 'string' && findPlaylistFilterPresetById(presetsMap[mediaType], source[mediaType])) ? source[mediaType] : null;
+    const pick = (mediaType) => {
+        const id = source[mediaType];
+        return typeof id === 'string' && (presetsMap[mediaType] || []).some((p) => p.id === id) ? id : null;
+    };
     return { song: pick('song'), video: pick('video'), photo: pick('photo') };
+}
+
+/** Ảnh chốt đọc lúc boot (`meta.playlistFilterAppliedConfig`) gộp lên default (Nguồn thiếu giữ default).
+ * @param {*} raw @param {object} defaults - clonePlaylistFilterConfigDefaults() @returns {object} */
+function sanitizePlaylistFilterAppliedConfig(raw, defaults) {
+    return { ...defaults, ...((raw && typeof raw === 'object') ? raw : {}) };
+}
+
+/** Cờ appliesToFolder theo Nguồn đọc lúc boot — thiếu/hỏng -> true (mặc định BẬT).
+ * @param {*} raw @returns {{song:boolean,video:boolean,photo:boolean}} */
+function sanitizePlaylistFilterAppliesToFolderMap(raw) {
+    const src = (raw && typeof raw === 'object') ? raw : {};
+    return {
+        song: typeof src.song === 'boolean' ? src.song : true,
+        video: typeof src.video === 'boolean' ? src.video : true,
+        photo: typeof src.photo === 'boolean' ? src.photo : true,
+    };
+}
+
+/** `playlistFilterConfig` sống cả 3 Nguồn: Nguồn có preset active hợp lệ -> default + ảnh chốt; không -> default (rỗng).
+ * @param {object} presetsMap @param {object} activeIdMap @param {object} appliedMap @param {object} defaults -
+ *        clonePlaylistFilterConfigDefaults() @returns {{config: object, summary: string}} */
+function computePlaylistFilterLiveConfig(presetsMap, activeIdMap, appliedMap, defaults) {
+    const config = { ...defaults };
+    const summary = [];
+    for (const source of ['song', 'video', 'photo']) {
+        const hasValidActive = !!activeIdMap[source] && (presetsMap[source] || []).some((p) => p.id === activeIdMap[source]);
+        config[source] = hasValidActive ? { ...defaults[source], ...appliedMap[source] } : defaults[source];
+        summary.push(`${source}=${hasValidActive ? 'ảnh chốt' : 'rỗng'}`);
+    }
+    return { config, summary: summary.join(', ') };
+}
+
+/** Số thứ tự cho tên preset mới của 1 Nguồn ("New filter N"). @returns {number} */
+function resolveNextPlaylistFilterPresetOrdinal(presetsMap, source) {
+    return presetsMap[source].length + 1;
+}
+
+/** Map preset MỚI với `preset` thêm vào cuối danh sách của `source`. */
+function appendPlaylistFilterPreset(presetsMap, source, preset) {
+    return { ...presetsMap, [source]: [...presetsMap[source], preset] };
+}
+
+/** Map preset MỚI bỏ preset `id` khỏi danh sách của `source`. */
+function removePlaylistFilterPreset(presetsMap, source, id) {
+    return { ...presetsMap, [source]: presetsMap[source].filter((p) => p.id !== id) };
+}
+
+/** Bản sao sâu bucket rule — ảnh chốt lúc Chọn áp dụng (sửa field sau đó sửa object rule lồng trong preset). */
+function clonePlaylistFilterBucket(bucket) {
+    return JSON.parse(JSON.stringify(bucket));
 }
 
 /** MỚI (09/09/2026, phản hồi Giang mục 3a — "không có tối thiểu 1 trường được bật + trường bật rồi
