@@ -13,7 +13,7 @@
 
 ## 1. Tổng quan
 
-- **1152 FAIL** ở **139 file**; 10 chờ chốt; 872 dòng máy quét báo nhưng review loại (mục 5).
+- **1131 FAIL** ở **137 file**; 10 chờ chốt; 872 dòng máy quét báo nhưng review loại (mục 5).
 - Cập nhật 07/10/2026 (cùng ngày lập sổ): gỡ Service Worker tải file lớn (`sw.js`, `core/large-file-download.js`) xoá 4 dòng FAIL (1312 → 1308, 142 → 141 file). Bảng tỉ lệ ngay dưới giữ số đo lúc lập sổ.
 - Cập nhật 07/10/2026 (game Arrow): sửa nợ trong đúng các method bị đụng khi nối game mới — `workflowGameplay.start` (3 dòng: pause/currentTime trong Workflow, 2 lần get), `workflowGameCatalog.armGame` (2 lần get), `workflowAudioAnalysis._tick` (Math.floor) — xoá 5 dòng FAIL (1308 → 1303). Code mới của game Arrow không thêm dòng nào.
 - Cập nhật 12/10/2026 (plan-event-bus-wiring-07-10-2026 **đợt 1 — EQ**): nội dung Generic Drawer Edit EQ đi Listener → Router (ủy quyền 1 lần, `data-eq-*`), xoá `_wireListView()`/`_wireEditView()` — xoá 11 dòng "Workflow tự gắn sự kiện"; method bị đụng `_previewBandGain` dọn luôn nợ ghi DOM (core -ui mới `core/eq-presets-drawer-ui.js`) — xoá 1 dòng "Workflow tự thao tác DOM" (1303 → 1291). Số đầu mục/bảng §3 đếm lại theo dòng thật (đã lệch từ cập nhật game Arrow).
@@ -28,6 +28,7 @@
 - Cập nhật 13/10/2026 (plan-event-bus-wiring **đợt 6b-4 — phần tử media TĨNH**): chờ sự kiện của `audioPlayer`/`bgVideoElement` trong Workflow chuyển sang cụm MỚI `mediaWait` — Listener `event/listener/media-wait.js` gắn sẵn lúc tải trang (`loadedmetadata`/`seeked`/`play`/`playing`) → Router `event/router/media-wait.js` → `workflowMediaWait.notify()` (event/workflow/media-wait.js) gọi các lượt chờ đã đăng ký bằng `once()`/`wait()`. Thao tác thi hành trên phần tử media (gán src, tua, tua kẹp thời lượng, phát) vào core -ui MỚI `core/media-element-ui.js`. Xoá 10 dòng "Workflow tự gắn sự kiện"; method bị đụng dọn luôn: `reloadCurrentSongKeepingPosition` (Math.min + 3 chỗ media + get gộp), 2 hàm `reloadCurrentVideoKeepingPosition` (Math.min + currentTime), `_flushScrubSeek` (currentTime + if-return → object map) — tổng 1235 → 1216.
 - Cập nhật 13/10/2026 (plan-event-bus-wiring **đợt 6b-2 — `subtitle-editor.js`**, Giang chọn phương án A): 2 modal Split/Shift chuyển sang `modalChoice()` + thân ở components MỚI `components/subtitle-editor-modals.js` (Shift: 3 lựa chọn là radio gốc), đọc `.value`/radio trong `onClick`, kiểm tra số qua core thuần `resolveSubtitleSplitCount()`/`resolveSubtitleShiftAmount()` (core/subtitle/subtitles.js). Drawer Karaoke (nút X, Áp dụng/Bỏ áp dụng, ô ms, nút ▶, thanh cuộn ảo, núm kéo mốc) đi Listener ủy quyền trên genericDrawerHeader/Body (event/listener/subtitle-editor.js) → Router 'subtitleEditor.karaoke.*'; markup chữ vùng TỪ + núm sang components/subtitle-karaoke-drawer.js, ghi DOM qua core -ui MỚI `core/subtitle/subtitle-karaoke-drawer-ui.js`, tính toán qua core/subtitle/subtitle-karaoke.js. Xoá 15 dòng "Workflow tự gắn sự kiện" (hết nhóm); method bị đụng dọn luôn: `_renderKaraokeRegions` (DOM + get gộp), 2 hàm núm kéo (DOM), `openSplitModal`/`closeModal`/`openShiftModal` (DOM) — tổng 1216 → 1194.
 - Cập nhật 13/10/2026 (**đợt Folder** — dọn nợ + sửa bug "đổi tên folder đang Scope, badge ô tìm kiếm không đổi"): Workflow MỚI `event/workflow/folder.js` (`workflowFolder`) giữ mọi việc ĐỌC DB của miền Folder + điều phối (list/listNonEmpty/readExcludedKeys/create/rename/remove/writeSetting/removeItemFromAllFolders/removeKeysFromAllFolders/removeItems/clearAllItems/migrateOnBoot); `core/file-manager/folder.js` chỉ còn tính thuần + ghi — xoá 26 dòng Rule 3b + 1 dòng Rule 1 (`addSongsToFolder` bỏ VMState, chọn vị trí bằng chọn giá trị). `workflowFolder.rename()` gọi `workflowPlaylistScope.syncActiveFolderBadge()` (đổi tên từ `_syncActiveFolderBadge`) — sửa bug badge. Method bị đụng dọn luôn: Folder Browser (`_renderList` markup → `buildFolderBrowserListBodyHtml()`, `setListPage` DOM → `scrollReset`, `_showFolderProperties` `.reduce` → `sumFolderRecordBytes()`, 2 method gộp `get([…])`), picker "Thêm vào thư mục" của `workflowPlaylist` (đợt 6c, phần picker: `_renderFolderPickerGrid`/`_buildFolderPickerHeaderHtml` markup → components, `pickFolderInPicker`/`closeFolderPicker` → object map, `_computeDefaultFolderName` vòng lặp tính tên — máy quét/review bỏ sót — → core `computeNextPickerFolderName()`), 2 lối "Gỡ khỏi thư mục" + `openAddToFolderPicker` gộp `get([…])`. **Bug phát hiện thêm, sửa luôn:** Storage "xoá file lỗi" không gỡ item khỏi folder trước khi xoá (key "ma" trong folder_song; upload lại cùng tên bị nhân đôi trong folder) — `_deleteBrokenOfType()` gọi `workflowFolder.removeKeysFromAllFolders()` trước. Tổng 1194 → 1152 (141 → 139 file).
+- Cập nhật 13/10/2026 (plan-debt-domains **đợt 5 — Folder phần còn lại**): `core/file-manager/folder-picker-ui.js` — modal đổi tên dựng tay (createElement + listener gọi `overlay.remove`, gọi `applyUiThemeToDom`) thay bằng `modalChoice()` + thân `renderRenameFolderModalBody()` (components/items.js), core chỉ còn điền ô nhập (`fillRenameFolderModalInput()`); wire lưới gom listener cuối hàm, callback chỉ `eventBus.send`; phiên giữ tay tile (hẹn giờ `taskManager` trong core) dời sang `workflowFolder` (`beginTileHold`/`endTileHold`/`cancelTileHold`/`resolveTileClick` → phát `.tile.tap`/`.tile.longpress`), Enter ở ô sửa tên đi Router → `workflowFolder.handleTileRenameKeydown()` → core `blurFolderTileRenameInput()`. `core/file-manager/cleanup.js` bỏ registry tự đăng ký lúc nạp file (Rule 3a) và 2 lệnh đọc DB (Rule 3b) — bảng bước dọn `FILE_MANAGER_CLEANUP_STEPS` ở Workflow. Kèm: xoá `computeVirtualWindowRange()` (components/items.js, không nơi gọi), rút gọn comment các file đụng tới. Tổng 1152 → 1131 (139 → 137 file).
 
 | Tầng | File vi phạm | Hàm / đơn vị vi phạm | Dòng code nằm trong hàm vi phạm |
 |---|---|---|---|
@@ -60,11 +61,11 @@
 |---|---|---|---|
 | Core rule | Rule 1 — rẽ nhánh nghiệp vụ | 32 |  |
 | Core rule | Rule 2 — Core tự appState.get() | 43 |  |
-| Core rule | Rule 3a — Core gọi Core | 194 |  |
-| Core rule | Rule 3b — Core tự đọc DB/service | 11 |  |
+| Core rule | Rule 3a — Core gọi Core | 191 |  |
+| Core rule | Rule 3b — Core tự đọc DB/service | 9 |  |
 | Core rule | Rule 3b — Core tự đọc nguồn khác | 29 |  |
 | Core rule | Rule 4 — ghi state thiếu console.log | 24 |  |
-| Core rule | Rule 5a — Core gắn sự kiện | 71 |  |
+| Core rule | Rule 5a — Core gắn sự kiện | 59 |  |
 | Core rule | Rule 5c — thiếu hậu tố -ui | 5 |  |
 | Core rule | Rule 5d — template HTML trong core | 55 |  |
 | Event bus | Listener gọi thẳng Workflow | 1 |  |
@@ -81,8 +82,8 @@
 | Event bus | Workflow: ≥2 key không gộp get([…]) | 170 |  |
 | TaskManager | Timer thô | 12 |  |
 | TaskManager | requestAnimationFrame thô |  | 10 |
-| TaskManager | taskManager dùng trong Core | 11 |  |
-| **Tổng** | | **1152** | **10** |
+| TaskManager | taskManager dùng trong Core | 7 |  |
+| **Tổng** | | **1131** | **10** |
 
 ## 4. Chi tiết
 
@@ -175,7 +176,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/wakelock.js:54` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
 | `core/wakelock.js:54` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
 
-#### Rule 3a — Core gọi Core (194)
+#### Rule 3a — Core gọi Core (191)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -211,9 +212,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/dropdown-menu.js:61` | `openDropdownMenu` | gọi closeDropdownMenu() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/dropdown-menu.js:72` | `openDropdownMenu` | gọi applyUiThemeToDom() (core/ui-theme/apply-ui.js) | FAIL | Máy quét | Không |  |
 | `core/element-style-editor.js:184` | `applyElementStyleCssStringToDraft` | gọi parseElementStyleCssString() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/file-manager/cleanup.js:163` | `<lúc nạp file>` | gọi registerCleanupCheck() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có | Gọi lúc nạp file (top-level) |
-| `core/file-manager/cleanup.js:164` | `<lúc nạp file>` | gọi registerCleanupCheck() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có | Gọi lúc nạp file (top-level) |
-| `core/file-manager/folder-picker-ui.js:63` | `openRenameFolderModal` | gọi applyUiThemeToDom() (core/ui-theme/apply-ui.js) | FAIL | Máy quét | Có |  |
 | `core/file-manager/photo-ui.js:53` | `syncEditCanvasDisplaySize` | gọi computeCoverOrContain() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/file-manager/photo-ui.js:302` | `openImagePreviewModal` | gọi computeCoverOrContain() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/gameplay/circle-mode.js:243` | `findAvailableCell` | gọi rotateNeighborOffset90() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
@@ -374,15 +372,13 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/wakelock.js:31` | `requestWakeLock` | gọi releaseWakeLock() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/wakelock.js:33` | `requestWakeLock` | gọi _enableNoSleepFallback() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 
-#### Rule 3b — Core tự đọc DB/service (11)
+#### Rule 3b — Core tự đọc DB/service (9)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 | `core/config.js:842` |  | getImageRecord() — đọc DB trong core | FAIL | Máy quét | Có |  |
 | `core/config.js:847` |  | getVideoRecord() — đọc DB trong core | FAIL | Máy quét | Có |  |
 | `core/config.js:890` |  | getMeta() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/cleanup.js:89` |  | getAllFolderKeys() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/cleanup.js:89` |  | getAllFolderSongKeys() — đọc DB trong core | FAIL | Máy quét | Có |  |
 | `core/storage-manager.js:277` |  | getAllSongKeys() — đọc DB trong core | FAIL | Máy quét | Có |  |
 | `core/storage-manager.js:282` |  | getSongRecord() — đọc DB trong core | FAIL | Máy quét | Có |  |
 | `core/storage-manager.js:394` |  | getAllVideoKeys() — đọc DB trong core | FAIL | Máy quét | Có |  |
@@ -453,25 +449,13 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/wakelock.js:39` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
 | `core/wakelock.js:54` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
 
-#### Rule 5a — Core gắn sự kiện (71)
+#### Rule 5a — Core gắn sự kiện (59)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 | `core/app-settings-ui.js:202` | `wireAppSettingsPagination` | addEventListener: callback không gửi eventBus.send (gọi el.blur) | FAIL | Máy quét + review | Không |  |
 | `core/dropdown-menu.js:43` | `openDropdownMenu` | addEventListener: file core không có hậu tố -ui tự gắn sự kiện; callback không gửi eventBus.send (gọi document.getElementById, overlay.remove, setTimeout); không gom cuối hàm (sau nó còn: const menu = document.createElement('div');) | FAIL | Máy quét + review | Không |  |
 | `core/dropdown-menu.js:60` | `openDropdownMenu` | addEventListener: file core không có hậu tố -ui tự gắn sự kiện; callback không gửi eventBus.send (gọi closeDropdownMenu, item.callback); không gom cuối hàm (sau nó còn: document.body.appendChild(overlay);) | FAIL | Máy quét + review | Không |  |
-| `core/file-manager/folder-picker-ui.js:68` | `openRenameFolderModal` | addEventListener: callback không gửi eventBus.send (gọi overlay.remove) | FAIL | Máy quét + review | Có |  |
-| `core/file-manager/folder-picker-ui.js:69` | `openRenameFolderModal` | addEventListener: callback làm thêm ngoài eventBus.send: closeModal | FAIL | Máy quét + review | Có |  |
-| `core/file-manager/folder-picker-ui.js:88` | `wireFolderPickerDrawerEvents` | addEventListener: không gom cuối hàm (sau nó còn: if (renameInputEl) {) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/file-manager/folder-picker-ui.js:91` | `wireFolderPickerDrawerEvents` | addEventListener: không gom cuối hàm (sau nó còn: if (renameInputEl) {) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/file-manager/folder-picker-ui.js:94` | `wireFolderPickerDrawerEvents` | addEventListener: không gom cuối hàm (sau nó còn: if (renameInputEl) {) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/file-manager/folder-picker-ui.js:101` | `wireFolderPickerDrawerEvents` | addEventListener: callback không gửi eventBus.send (gọi taskManager.once); không gom cuối hàm (sau nó còn: if (renameInputEl) {) | FAIL | Máy quét + review | Có |  |
-| `core/file-manager/folder-picker-ui.js:108` | `wireFolderPickerDrawerEvents` | addEventListener: callback không gửi eventBus.send (gọi taskManager.kill); không gom cuối hàm (sau nó còn: if (renameInputEl) {) | FAIL | Máy quét + review | Có |  |
-| `core/file-manager/folder-picker-ui.js:109` | `wireFolderPickerDrawerEvents` | addEventListener: callback không gửi eventBus.send (gọi taskManager.kill); không gom cuối hàm (sau nó còn: if (renameInputEl) {) | FAIL | Máy quét + review | Có |  |
-| `core/file-manager/folder-picker-ui.js:110` | `wireFolderPickerDrawerEvents` | addEventListener: callback không gửi eventBus.send (gọi taskManager.kill); không gom cuối hàm (sau nó còn: if (renameInputEl) {) | FAIL | Máy quét + review | Có |  |
-| `core/file-manager/folder-picker-ui.js:111` | `wireFolderPickerDrawerEvents` | addEventListener: không gom cuối hàm (sau nó còn: if (renameInputEl) {) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/file-manager/folder-picker-ui.js:118` | `wireFolderPickerDrawerEvents` | addEventListener: không gom cuối hàm (sau nó còn: if (renameInputEl) {) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/file-manager/folder-picker-ui.js:126` | `wireFolderPickerDrawerEvents` | addEventListener: callback không gửi eventBus.send (gọi renameInputEl.blur) | FAIL | Máy quét + review | Có |  |
 | `core/file-manager/photo-ui.js:301` | `openImagePreviewModal` | addEventListener: callback không gửi eventBus.send (gọi computeCoverOrContain); không gom cuối hàm (sau nó còn: const computeInteractPos = (clientX, clientY) => {) | FAIL | Máy quét + review | Có |  |
 | `core/file-manager/photo-ui.js:307` | `openImagePreviewModal` | addEventListener: không gom cuối hàm (sau nó còn: const computeInteractPos = (clientX, clientY) => {) | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/file-manager/photo-ui.js:308` | `openImagePreviewModal` | addEventListener: không gom cuối hàm (sau nó còn: const computeInteractPos = (clientX, clientY) => {) | FAIL | Review (máy quét bỏ sót) | Có |  |
@@ -1362,16 +1346,12 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/video-player.js:851` | `_captureAndFreezeSeekFrame` | requestAnimationFrame thô — taskManager có mode raf; §1 chỉ ghi rõ setTimeout/setInterval | Chờ chốt | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/video-player.js:851` | `_captureAndFreezeSeekFrame` | requestAnimationFrame thô — taskManager có mode raf; §1 chỉ ghi rõ setTimeout/setInterval | Chờ chốt | Review (máy quét bỏ sót) | — |  |
 
-#### taskManager dùng trong Core (11)
+#### taskManager dùng trong Core (7)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 | `core/config.js:822` |  | taskManager chỉ thuộc Workflow (Rule 3 + task-manager-conventions §2) | FAIL | Máy quét | Có |  |
 | `core/config.js:825` |  | taskManager chỉ thuộc Workflow (Rule 3 + task-manager-conventions §2) | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder-picker-ui.js:103` |  | taskManager chỉ thuộc Workflow (Rule 3 + task-manager-conventions §2) | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder-picker-ui.js:108` |  | taskManager chỉ thuộc Workflow (Rule 3 + task-manager-conventions §2) | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder-picker-ui.js:109` |  | taskManager chỉ thuộc Workflow (Rule 3 + task-manager-conventions §2) | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder-picker-ui.js:110` |  | taskManager chỉ thuộc Workflow (Rule 3 + task-manager-conventions §2) | FAIL | Máy quét | Có |  |
 | `core/loading-shield-util.js:41` |  | taskManager chỉ thuộc Workflow (Rule 3 + task-manager-conventions §2) | FAIL | Máy quét | Có |  |
 | `core/playlist/loader.js:43` |  | taskManager chỉ thuộc Workflow (Rule 3 + task-manager-conventions §2) | FAIL | Máy quét | Có |  |
 | `core/playlist/loader.js:125` |  | taskManager chỉ thuộc Workflow (Rule 3 + task-manager-conventions §2) | FAIL | Máy quét | Có |  |
