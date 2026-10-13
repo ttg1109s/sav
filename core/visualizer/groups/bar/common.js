@@ -1,22 +1,9 @@
 /**
- * core/visualizer/groups/bar/common.js — Registry style con của group "bar" (đăng ký theo yêu
- * cầu Giang, 05/09/2026 — tách "groups", làm phẳng file effect thành từng style riêng). Trước đây
- * `core/visualizer/types/bar.js` gộp 2 style 'mirror'/'cascade', và `core/visualizer/types/
- * black-hole.js` đứng riêng — giờ cả 3 cùng thuộc group "bar", mỗi style 1 file riêng
- * (`mirror.js`/`cascade.js`/`black-hole.js`, cùng thư mục).
+ * core/visualizer/groups/bar/common.js — phần dùng chung của group "bar": `paintBarRects()` (chỉ Canvas API) cho
+ * `mirror.js` và `cascade.js`. `black-hole.js`/`dot.js` vẽ kiểu riêng, không dùng.
  *
- * `paintBarRects()` là cơ chế CHUNG (Rule 3 — chỉ Canvas API) dùng bởi CẢ `mirror.js` lẫn
- * `cascade.js` — đặt ở đây để 2 file đó không phải định nghĩa trùng lặp. `black-hole.js` có cách vẽ
- * riêng (dải cột toả tia quanh hố đen, không phải rect) nên KHÔNG dùng hàm này.
- *
- * NẠP: TRƯỚC `mirror.js`/`cascade.js` (2 file đó gọi `paintBarRects()` qua Workflow, không tự gọi
- * trực tiếp trong thân hàm — nhưng đặt common.js trước cho nhất quán thứ tự đọc).
+ * NẠP TRƯỚC: các style của group (thứ tự đọc).
  */
-
-/** Danh sách style con thuộc group "bar" — tên file khớp CHÍNH XÁC tên trong mảng này
- * (`<tên>.js`). 'black hole' giữ nguyên tên có khoảng trắng, khớp `cfg.type === 'black hole'`
- * hiện hành (dispatch chưa đổi trong lượt này — xem ghi chú cuối tin nhắn). */
-const BAR_GROUP_STYLE_KEYS = ['mirror', 'cascade', 'black hole', 'dot']; // 'dot' MỚI 25/09/2026 (dot.js)
 
 /** Vẽ 1 lô rect CÙNG màu/glow đã resolve sẵn — dùng chung cho bar mirror (bar 2 bên + bar trung
  * tâm, không đụng `globalAlpha`) và cascade (thân mờ dùng `fillRect` phẳng + đỉnh đặc dùng
