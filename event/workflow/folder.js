@@ -8,8 +8,23 @@
  *
  * Không có Router riêng — các Workflow khác gọi thẳng (TH2, readme/event-bus-flow.md mục 3a).
  *
- * NẠP SAU: service/db.js, core/file-manager/folder.js. Gọi lúc chạy: event/workflow/playlist-scope.js (badge).
+ * Cũng giữ phiên chạm/giữ tay tile của 2 lưới Folder (Folder Browser, picker "Thêm vào thư mục"): giữ FOLDER_TILE_HOLD_MS
+ * -> `${msgPrefix}.tile.longpress`, chạm thường -> `${msgPrefix}.tile.tap`, click tự phát ngay sau khi giữ bị nuốt. Router
+ * của lưới quyết định làm gì với 2 message đó.
+ *
+ * NẠP SAU: service/db.js, core/file-manager/folder.js. Gọi lúc chạy: event/workflow/playlist-scope.js (badge),
+ * service/task-manager.js, event/bus.js, core/file-manager/folder-picker-ui.js.
  */
+
+// Ngưỡng giữ tay mở menu hành động của 1 folder tile.
+const FOLDER_TILE_HOLD_MS = 1000;
+const FOLDER_TILE_HOLD_TASK = 'folderTileLongPress';
+
+// Click tới sau pointerup: vừa giữ đủ lâu -> nuốt (click tự phát của long-press); không -> chạm thường.
+const FOLDER_TILE_CLICK_BY_HOLD_FIRED = {
+    true: () => workflowFolder._clearTileHoldFired(),
+    false: (routerName, msgPrefix, folderId) => eventBus.send({ router: routerName, type: `${msgPrefix}.tile.tap`, payload: { folderId } }),
+};
 
 // Ghi 1 trường cài đặt của folder — khoá = tên trường phía Workflow gọi.
 const FOLDER_SETTING_WRITER_BY_FIELD = { // core/file-manager/folder.js
@@ -133,6 +148,46 @@ const workflowFolder = {
     /** Đặt mọi folder về rỗng (giữ record) — xoá sạch thư viện ở Storage. */
     async clearAllItems() {
         await clearAllFolderSongData(await getAllFolderKeys()); // core/file-manager/folder.js + service/db.js
+    },
+
+    // ============================== Chạm / giữ tay tile ==============================
+
+    _tileHoldFired: false,
+
+    /** `${msgPrefix}.tile.pointerdown` — bắt đầu đếm giữ tay. Giữ đủ FOLDER_TILE_HOLD_MS -> `${msgPrefix}.tile.longpress`.
+     * @param {string} routerName @param {string} msgPrefix @param {string} folderId @param {HTMLElement} anchorEl */
+    beginTileHold(routerName, msgPrefix, folderId, anchorEl) {
+        this._tileHoldFired = false;
+        taskManager.once(() => {
+            this._tileHoldFired = true;
+            eventBus.send({ router: routerName, type: `${msgPrefix}.tile.longpress`, payload: { folderId, anchorEl } });
+        }, FOLDER_TILE_HOLD_MS, FOLDER_TILE_HOLD_TASK);
+    },
+
+    /** `${msgPrefix}.tile.pointerup` — thả tay: dừng đếm, giữ cờ "vừa long-press" để nuốt click tự phát ngay sau. */
+    endTileHold() {
+        taskManager.kill(FOLDER_TILE_HOLD_TASK);
+    },
+
+    /** `${msgPrefix}.tile.pointercancel` (cả pointerleave) — huỷ cử chỉ: dừng đếm + bỏ cờ. */
+    cancelTileHold() {
+        taskManager.kill(FOLDER_TILE_HOLD_TASK);
+        this._tileHoldFired = false;
+    },
+
+    /** `${msgPrefix}.tile.click` — chạm thường -> `${msgPrefix}.tile.tap`; click ngay sau long-press -> nuốt. */
+    resolveTileClick(routerName, msgPrefix, folderId) {
+        FOLDER_TILE_CLICK_BY_HOLD_FIRED[this._tileHoldFired](routerName, msgPrefix, folderId);
+    },
+
+    _clearTileHoldFired() {
+        this._tileHoldFired = false;
+    },
+
+    /** `${msgPrefix}.rename.keydown` — Enter bỏ focus ô sửa tên (blur tự bắn `.rename.commit`). @param {string} key */
+    handleTileRenameKeydown(key) {
+        if (key !== 'Enter') return; // guard: chỉ Enter
+        blurFolderTileRenameInput(); // core/file-manager/folder-picker-ui.js
     },
 
     // ============================== Migrate lúc boot ==============================

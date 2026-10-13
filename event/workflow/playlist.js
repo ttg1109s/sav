@@ -1713,7 +1713,7 @@ const workflowPlaylist = {
     _renderFolderPickerGrid(isFirstOpen, scrollReset = false) {
         // multiSelect: Map<folderId, thứ tự chọn> cho badge số trên tile; không multiSelect -> null (không badge).
         const selectedOrder = this._folderPickerMultiSelect ? computeFolderSelectionOrder(this._folderPickerSelectedIds) : null; // core/file-manager/folder.js
-        const itemsHtml = renderItemList(null, this._folderPickerFolders, itemTemplateFolderTile, { editingFolderId: this._folderPickerEditingId, selectedOrder }); // components/items.js
+        const itemsHtml = renderItemList(this._folderPickerFolders, itemTemplateFolderTile, { editingFolderId: this._folderPickerEditingId, selectedOrder }); // components/items.js
         const bodyHtml = buildFolderPickerBodyHtml(itemsHtml, this._folderPickerShowAddTile, this._folderPickerEmptyMsg, this._folderPickerFolders.length === 0); // components/items.js
         FOLDER_PICKER_DRAWER_MOUNT_BY_FIRST_OPEN[isFirstOpen]({
             scrollKey: 'playlist:folderPicker',

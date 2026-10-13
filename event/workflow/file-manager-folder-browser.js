@@ -9,7 +9,7 @@
  *   - Filter Edit: bộ rule riêng của folder, draft RAM, chỉ ghi DB khi bấm "Áp dụng".
  *
  * Wiring DOM ở core/file-manager/folder-picker-ui.js (wireFolderPickerDrawerEvents/wireFolderPropertiesModalUi/
- * wireFolderFilterEditUi) + core/dropdown-menu.js; field rule của Filter Edit đi qua delegate chung
+ * wireFolderFilterEditUi) + core/dropdown-menu.js; chạm/giữ tay tile qua workflowFolder (event/workflow/folder.js); field rule của Filter Edit đi qua delegate chung
  * `handlePlaylistFilterPanelEvent()` (event/listener/playlist.js, `data-filter-owner="folder"`) và sửa qua
  * workflowFilterRuleEdit (dùng chung với màn Edit preset). Rẽ nhánh = guard + object map (readme/event-bus-flow.md §7).
  *
@@ -37,8 +37,6 @@ const FOLDER_RECORD_GETTER_BY_TYPE = { // service/db.js
     video: (key) => getVideoRecord(key),
     photo: (key) => getImageRecord(key),
 };
-// XOÁ (06/10/2026, dọn nợ Rule 3b) — bảng `FOLDER_ZIP_ENTRIES_BY_TYPE` (trỏ tới core collectAll*ZipEntries() tự đọc DB): truyền
-// thẳng `mediaType` cho workflowFileManagerStorage.zipAndDownloadOrFallback() — nó gom qua workflowZipDownload.collectEntries().
 const FOLDER_DRAWER_MOUNT_BY_FIRST_OPEN = { // event/workflow/generic-drawer-helpers.js
     true: (config) => workflowGenericDrawerHelpers.open(config),
     false: (config) => workflowGenericDrawerHelpers.update(config),
@@ -72,14 +70,14 @@ const workflowFileManagerFolderBrowser = {
     _renderList(isFirstOpen, scrollReset = false) {
         const view = workflowPagination.computePlaceView('folderBrowser', this._folders, this._listPageIndex); // event/workflow/pagination.js
         this._listPageIndex = view.pageIndex;
-        const itemsHtml = renderItemList(null, view.pageItems, itemTemplateFolderTile, { editingFolderId: this._editingFolderId }); // components/items.js
+        const itemsHtml = renderItemList(view.pageItems, itemTemplateFolderTile, { editingFolderId: this._editingFolderId }); // components/items.js
         const bodyHtml = buildFolderBrowserListBodyHtml(itemsHtml, workflowPagination.buildControlsHtml(view)); // components/items.js
         FOLDER_DRAWER_MOUNT_BY_FIRST_OPEN[isFirstOpen]({
             scrollKey: 'folderBrowser:list',
             scrollReset,
             height: 'auto',
             maxHeight: '60vh',
-            headerHtml: buildFolderBrowserListHeaderHtml(), // components/items.js — SỬA 07/10/2026: dời markup header khỏi Workflow
+            headerHtml: buildFolderBrowserListHeaderHtml(), // components/items.js
             bodyHtml,
             bodyClass: 'overflow-y-auto',
         });
@@ -118,14 +116,13 @@ const workflowFileManagerFolderBrowser = {
         workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
     },
 
-    /** 'fileManagerFolderBrowser.list.tile.click' — áp Scope folder này ngay rồi đóng Drawer. @param {string} folderId */
+    /** 'fileManagerFolderBrowser.list.tile.tap' — áp Scope folder này ngay rồi đóng Drawer. @param {string} folderId */
     async applyFolderFromTile(folderId) {
         const mediaType = appState.get('activeMediaSource');
         await withLoadingShield(t('common.loading.generic'), async () => { // core/loading-shield-util.js
             await workflowPlaylistScope.persistScopeChoice(folderId, mediaType);
             await workflowPlaylistScope.applyFolderScope(folderId, mediaType);
-            // SỬA (02/10/2026, Giang chốt quy tắc A cho cả đổi folder Scope) — trước đây giữ nguyên scrollTop cũ (của danh
-            // sách trước khi đổi Scope, vô nghĩa với danh sách mới). Folder có media đang phát -> tới thẳng nó, không -> về đầu.
+            // Quy tắc A: folder có media đang phát -> cuộn tới nó, không -> về đầu.
             workflowPlaylistRender.scrollToCurrentOrTop(); // event/workflow/playlist-render.js
         });
         this.closeBrowser();
@@ -133,7 +130,7 @@ const workflowFileManagerFolderBrowser = {
 
     // ============================== Long-press — dropdown ==============================
 
-    /** 'fileManagerFolderBrowser.list.tile.longpress' — mỗi mục chỉ bắn eventBus.
+    /** 'fileManagerFolderBrowser.list.tile.longpress' (workflowFolder phát sau khi giữ đủ lâu) — mỗi mục chỉ bắn eventBus.
      * @param {string} folderId @param {HTMLElement} anchorEl - tile vừa giữ tay. */
     async openTileActionsMenu(folderId, anchorEl) {
         const folderRecord = await getFolderRecord(folderId); // service/db.js
@@ -150,14 +147,17 @@ const workflowFileManagerFolderBrowser = {
         openDropdownMenu(anchorEl, items, { zIndex: Z_INDEX.FOLDER_TILE_ACTION_MENU }); // core/dropdown-menu.js
     },
 
-    /** 'fileManagerFolderBrowser.tileMenu.rename.click' — modal đổi tên (Lưu -> 'rename.confirm'). */
+    /** 'fileManagerFolderBrowser.tileMenu.rename.click' — modal đổi tên (modalChoice, OK -> confirmRenameFolder()). */
     async renameFromTileMenu(folderId) {
         const folderRecord = await getFolderRecord(folderId); // service/db.js
         if (!folderRecord) return; // guard: folder vừa bị xoá
-        openRenameFolderModal(folderRecord.name, folderId); // core/file-manager/folder-picker-ui.js
+        modalChoice('', [ // core/modal-choice-ui.js
+            { label: t('common.ok'), className: 'flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors', themeKeys: 'btnPrimaryPillBg btnPrimaryPillHoverBg textOnAccent', onClick: () => this.confirmRenameFolder(folderId, normalizeFolderNameInput(inputEl.value)) }, // core/file-manager/folder.js
+        ], { title: t('fileManager.song.renameFolderTitle'), bodyHtml: renderRenameFolderModalBody() }); // components/items.js
+        const inputEl = fillRenameFolderModalInput(folderRecord.name); // core/file-manager/folder-picker-ui.js
     },
 
-    /** 'fileManagerFolderBrowser.rename.confirm' — trùng tên thì báo; đổi được thì vẽ lại List. */
+    /** OK của modal đổi tên — tên rỗng bỏ qua; trùng tên thì báo; đổi được thì vẽ lại List. */
     async confirmRenameFolder(folderId, name) {
         const status = await this._renameFolder(folderId, name);
         await this._alertDuplicateFolderName(status, name);
@@ -232,7 +232,7 @@ const workflowFileManagerFolderBrowser = {
         const records = await Promise.all(keys.map((key) => FOLDER_RECORD_GETTER_BY_TYPE[mediaType](key)));
         const totalBytes = sumFolderRecordBytes(records); // core/file-manager/folder.js
         const countLabel = tFormat(FOLDER_COUNT_LABEL_KEY_BY_TYPE[mediaType], { count: String(keys.length) });
-        const bodyHtml = buildFolderPropertiesBodyHtml(countLabel, totalBytes, folderRecord); // components/items.js — SỬA 07/10/2026: dời markup khỏi Workflow
+        const bodyHtml = buildFolderPropertiesBodyHtml(countLabel, totalBytes, folderRecord); // components/items.js
         modalChoice( // core/modal-choice-ui.js
             '',
             keys.length > 0 ? [
@@ -318,7 +318,7 @@ const workflowFileManagerFolderBrowser = {
             scrollReset: true,
             height: 'auto',
             maxHeight: '80vh',
-            headerHtml: buildFolderFilterEditHeaderHtml(), // components/playlist-filter-drawer.js — SỬA 07/10/2026: dời markup khỏi Workflow
+            headerHtml: buildFolderFilterEditHeaderHtml(), // components/playlist-filter-drawer.js
             bodyHtml,
             bodyClass: 'overflow-y-auto',
         });

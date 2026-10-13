@@ -1,42 +1,53 @@
 /**
- * event/workflow/file-manager-cleanup.js — Workflow cụm "fileManagerCleanup" (nút "Dọn dẹp dữ
- * liệu" trong section File Manager, Settings). Lặp qua registry
- * `getRegisteredCleanupChecks()` (core/file-manager/cleanup.js) và gọi TỪNG hàm check — Workflow
- * được phép gọi nhiều hàm Core tuần tự (không bị Rule 3, rule đó CHỈ áp cho Core), ĐÚNG vai trò
- * "chuẩn bị + gọi core" của Workflow.
+ * event/workflow/file-manager-cleanup.js — Workflow cụm "fileManagerCleanup" (nút "Dọn dẹp dữ liệu", Settings). Chạy lần
+ * lượt các bước dọn rác ở `FILE_MANAGER_CLEANUP_STEPS` — mỗi bước tự đọc DB cần cho nó rồi giao core
+ * (core/file-manager/cleanup.js) dọn — rồi báo tổng số mục đã dọn. Thêm 1 kiểu rác mới = thêm 1 hàm core + 1 dòng ở bảng.
  *
- * NẠP SAU: core/file-manager/cleanup.js, core/dom-refs.js.
- * NẠP TRƯỚC: event/router/file-manager-cleanup.js, event/listener/file-manager-cleanup.js.
+ * NẠP SAU: core/file-manager/cleanup.js, service/db.js, core/loading-shield-util.js, core/modal-choice-ui.js.
+ * NẠP TRƯỚC: event/router/file-manager-cleanup.js.
  */
+
+// Thứ tự chạy = thứ tự trong mảng. `run()` trả số mục đã dọn.
+const FILE_MANAGER_CLEANUP_STEPS = [
+    { name: 'orphanedSongFolderFields', run: () => workflowFileManagerCleanup._cleanSongFolderFields() },
+    { name: 'orphanedFolderSongMaps', run: () => workflowFileManagerCleanup._cleanFolderSongMaps() },
+    { name: 'orphanedZipTempFiles', run: () => cleanupOrphanedZipTempFiles() }, // core/file-manager/cleanup.js
+];
+
 const workflowFileManagerCleanup = {
 
-    /** Ứng với bấm "Dọn dẹp dữ liệu" — chạy TOÀN BỘ check đã đăng ký, cộng dồn số mục đã dọn, hiện
-     * kết quả tổng qua alertModal.
-     * FIX (04/07/2026, phản hồi Giang) — BUG "treo ở Scanning...": trước đây `alertModal()` bị gọi
-     * LỒNG BÊN TRONG callback của `withLoadingShield()` — shield (z-[200], `pointer-events-auto`
-     * suốt thời gian `fn()` chạy, xem core/loading-shield-util.js) che kín + chặn click luôn cả
-     * alertModal (z-[130], THẤP HƠN shield) mọc ra bên trong nó, khiến người dùng KHÔNG THỂ bấm
-     * "OK" để `alertModal()` resolve -> `fn()` không bao giờ xong -> shield "Scanning..." kẹt vĩnh
-     * viễn. ĐÚNG cách (xem tiền lệ event/workflow/file-manager-photo.js): `withLoadingShield()`
-     * PHẢI await XONG HẲN (đã tự đóng shield) rồi MỚI gọi `alertModal()` ở NGOÀI, KHÔNG lồng vào
-     * trong. */
+    /** Bấm "Dọn dẹp dữ liệu" — chạy mọi bước dưới shield, rồi báo kết quả. `alertModal()` phải gọi SAU khi shield đã đóng
+     * (gọi bên trong thì shield z-[200] che mất nút OK, kẹt "Scanning..."). */
     async run() {
-        const total = await withLoadingShield(t('fileManager.cleanup.running'), async () => {
-            const checks = getRegisteredCleanupChecks(); // core
-            // MỚI (06/10/2026, plan-media-db-split.md — Rule 3b) — check cần đọc DB: Workflow chuẩn bị dữ liệu rồi gọi core.
-            const [songMetas, deletedFolderIds] = await Promise.all([getAllMediaMeta('song'), getMeta('deletedFolderIds')]); // service/db.js
-            const staleFolderFieldCount = await cleanupOrphanedSongFolderFields(songMetas, deletedFolderIds || []); // core/file-manager/cleanup.js
-            if (staleFolderFieldCount > 0) console.log(`[fileManagerCleanup] "orphanedSongFolderFields": đã dọn ${staleFolderFieldCount} mục.`);
-            let sum = staleFolderFieldCount;
-            for (const check of checks) {
-                const count = await check.run();
-                sum += count;
-                if (count > 0) console.log(`[fileManagerCleanup] "${check.name}": đã dọn ${count} mục.`);
-            }
-            return sum;
-        });
-        await alertModal(total > 0
+        const total = await withLoadingShield(t('fileManager.cleanup.running'), () => this._runAllSteps()); // core/loading-shield-util.js
+        await alertModal(total > 0 // core/modal-choice-ui.js
             ? tFormat('fileManager.cleanup.resultFound', { count: total })
             : t('fileManager.cleanup.resultClean'));
+    },
+
+    /** @returns {Promise<number>} tổng số mục đã dọn */
+    async _runAllSteps() {
+        const counts = [];
+        for (const step of FILE_MANAGER_CLEANUP_STEPS) {
+            const count = await step.run();
+            counts.push(count);
+            this._logStepResult(step.name, count);
+        }
+        return sumCleanupCounts(counts); // core/file-manager/cleanup.js
+    },
+
+    _logStepResult(name, count) {
+        if (count === 0) return; // guard: bước sạch
+        console.log(`[fileManagerCleanup] "${name}": đã dọn ${count} mục.`);
+    },
+
+    async _cleanSongFolderFields() {
+        const [songMetas, deletedFolderIds] = await Promise.all([getAllMediaMeta('song'), getMeta('deletedFolderIds')]); // service/db.js
+        return cleanupOrphanedSongFolderFields(songMetas, deletedFolderIds || []); // core/file-manager/cleanup.js
+    },
+
+    async _cleanFolderSongMaps() {
+        const [liveFolderIds, mapKeys] = await Promise.all([getAllFolderKeys(), getAllFolderSongKeys()]); // service/db.js
+        return cleanupOrphanedFolderSongMaps(liveFolderIds, mapKeys); // core/file-manager/cleanup.js
     },
 };
