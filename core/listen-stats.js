@@ -49,3 +49,33 @@ function formatListenTime(totalSeconds) {
     if (m > 0) return tFormat('common.listenTime.minuteSecond', { m, s: sec });
     return tFormat('common.listenTime.secondOnly', { s: sec });
 }
+
+/** Các bản ghi cần ghi xuống meta lúc flush: chỉ key bẩn còn trong `statsMap`, chốt {count, totalTime} ngay lúc gọi.
+ * @param {Set<string>} dirtyKeys @param {Map<string, {count:number, totalTime:number}>} statsMap
+ * @returns {Array<{type: string, key: string, stats: {count:number, totalTime:number}}>} */
+function buildMediaStatsFlushEntries(dirtyKeys, statsMap) {
+    return [...dirtyKeys]
+        .filter((statsKey) => statsMap.has(statsKey))
+        .map((statsKey) => {
+            const colonAt = statsKey.indexOf(':');
+            const source = statsMap.get(statsKey);
+            return { type: statsKey.slice(0, colonAt), key: statsKey.slice(colonAt + 1), stats: { count: source.count, totalTime: source.totalTime } };
+        });
+}
+
+/** 1 nhịp đồng hồ nghe: delta giây kể từ nhịp trước (kẹp 4s — tab bị treo/throttle nền rồi thức không cộng vọt), cộng vào
+ * phần chờ ghi; đủ 5s thì `shouldFlush` (ghi `pendingSeconds` vào totalListenSeconds rồi về 0).
+ * @param {number} nowMs @param {number} lastTickMs @param {number} pendingSeconds
+ * @returns {{isCounted: boolean, delta: number, pendingSeconds: number, shouldFlush: boolean}} `isCounted` false (delta <= 0 /
+ *          NaN) -> bỏ nhịp này */
+function computeListenTick(nowMs, lastTickMs, pendingSeconds) {
+    const raw = (nowMs - lastTickMs) / 1000;
+    const delta = raw > 4 ? 4 : raw;
+    const total = pendingSeconds + delta;
+    return { isCounted: raw > 0, delta, pendingSeconds: total, shouldFlush: total >= 5 };
+}
+
+/** Tổng thời gian nghe mới sau khi cộng phần vừa ghi. @param {number|undefined} stored @param {number} addSeconds @returns {number} */
+function addTotalListenSeconds(stored, addSeconds) {
+    return (stored || 0) + addSeconds;
+}
