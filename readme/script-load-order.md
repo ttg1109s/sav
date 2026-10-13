@@ -525,6 +525,7 @@ sự kiện lúc nạp (cần `core/dom-refs.js`, đôi khi cần workflow của
 279. `event/listener/settings-misc.js` — cần: `core/dom-refs.js` (btnLoadingShieldDebug, btnRestartApp)
 280. `event/workflow/playlist-order.js`
 281. `event/workflow/playlist-render.js`
+281a. `event/workflow/folder.js` — MỚI 13/10/2026 (đợt Folder); không cần gì lúc nạp (bảng `FOLDER_SETTING_WRITER_BY_FIELD` chỉ chứa arrow); lúc chạy: `service/db.js`, `core/file-manager/folder.js`, `workflowPlaylistScope`
 282. `event/workflow/playlist-scope.js` — cần: `service/db.js` (getAllSongRecords, getSongRecordsByKeys, getAllVideoRecords…)
 283. `event/workflow/filter-rule-edit.js`
 284. `event/workflow/playlist-filter-presets.js`

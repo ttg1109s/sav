@@ -13,7 +13,7 @@
 
 ## 1. Tổng quan
 
-- **1194 FAIL** ở **141 file**; 10 chờ chốt; 872 dòng máy quét báo nhưng review loại (mục 5).
+- **1152 FAIL** ở **139 file**; 10 chờ chốt; 872 dòng máy quét báo nhưng review loại (mục 5).
 - Cập nhật 07/10/2026 (cùng ngày lập sổ): gỡ Service Worker tải file lớn (`sw.js`, `core/large-file-download.js`) xoá 4 dòng FAIL (1312 → 1308, 142 → 141 file). Bảng tỉ lệ ngay dưới giữ số đo lúc lập sổ.
 - Cập nhật 07/10/2026 (game Arrow): sửa nợ trong đúng các method bị đụng khi nối game mới — `workflowGameplay.start` (3 dòng: pause/currentTime trong Workflow, 2 lần get), `workflowGameCatalog.armGame` (2 lần get), `workflowAudioAnalysis._tick` (Math.floor) — xoá 5 dòng FAIL (1308 → 1303). Code mới của game Arrow không thêm dòng nào.
 - Cập nhật 12/10/2026 (plan-event-bus-wiring-07-10-2026 **đợt 1 — EQ**): nội dung Generic Drawer Edit EQ đi Listener → Router (ủy quyền 1 lần, `data-eq-*`), xoá `_wireListView()`/`_wireEditView()` — xoá 11 dòng "Workflow tự gắn sự kiện"; method bị đụng `_previewBandGain` dọn luôn nợ ghi DOM (core -ui mới `core/eq-presets-drawer-ui.js`) — xoá 1 dòng "Workflow tự thao tác DOM" (1303 → 1291). Số đầu mục/bảng §3 đếm lại theo dòng thật (đã lệch từ cập nhật game Arrow).
@@ -27,6 +27,7 @@
 - Cập nhật 13/10/2026 (plan-event-bus-wiring **đợt 6b-3 — nhóm F, đối tượng tạo động**, Giang chọn phương án (y)): core -ui MỚI `core/dynamic-object-ui.js` là adapter đổi sự kiện của đối tượng tạo động (MediaRecorder, ScriptProcessorNode, `<video>`/`<script>` tạm) thành Promise / callback dữ liệu — ghi thành ngoại lệ chính thức ở event-bus-flow.md (kèm bảng nơi dùng) và core-function-conventions.md Rule 5a. `track 'ended'` của mic chuyển sang `core/recorder-ui.js::wireRecorderMicEnded()` (callback chỉ eventBus.send, đúng Rule 5a). Xoá 10 dòng "Workflow tự gắn sự kiện"; method bị đụng dọn luôn: `extract` (2 dòng DOM/media → adapter), `_loadVideoEditorScriptOnce` (1 dòng DOM → `loadScriptFile()`), `_measureLatency` (1 dòng tính toán → `computeRecorderCalibrationWaitMs()`, core/recorder.js) — tổng 1249 → 1235.
 - Cập nhật 13/10/2026 (plan-event-bus-wiring **đợt 6b-4 — phần tử media TĨNH**): chờ sự kiện của `audioPlayer`/`bgVideoElement` trong Workflow chuyển sang cụm MỚI `mediaWait` — Listener `event/listener/media-wait.js` gắn sẵn lúc tải trang (`loadedmetadata`/`seeked`/`play`/`playing`) → Router `event/router/media-wait.js` → `workflowMediaWait.notify()` (event/workflow/media-wait.js) gọi các lượt chờ đã đăng ký bằng `once()`/`wait()`. Thao tác thi hành trên phần tử media (gán src, tua, tua kẹp thời lượng, phát) vào core -ui MỚI `core/media-element-ui.js`. Xoá 10 dòng "Workflow tự gắn sự kiện"; method bị đụng dọn luôn: `reloadCurrentSongKeepingPosition` (Math.min + 3 chỗ media + get gộp), 2 hàm `reloadCurrentVideoKeepingPosition` (Math.min + currentTime), `_flushScrubSeek` (currentTime + if-return → object map) — tổng 1235 → 1216.
 - Cập nhật 13/10/2026 (plan-event-bus-wiring **đợt 6b-2 — `subtitle-editor.js`**, Giang chọn phương án A): 2 modal Split/Shift chuyển sang `modalChoice()` + thân ở components MỚI `components/subtitle-editor-modals.js` (Shift: 3 lựa chọn là radio gốc), đọc `.value`/radio trong `onClick`, kiểm tra số qua core thuần `resolveSubtitleSplitCount()`/`resolveSubtitleShiftAmount()` (core/subtitle/subtitles.js). Drawer Karaoke (nút X, Áp dụng/Bỏ áp dụng, ô ms, nút ▶, thanh cuộn ảo, núm kéo mốc) đi Listener ủy quyền trên genericDrawerHeader/Body (event/listener/subtitle-editor.js) → Router 'subtitleEditor.karaoke.*'; markup chữ vùng TỪ + núm sang components/subtitle-karaoke-drawer.js, ghi DOM qua core -ui MỚI `core/subtitle/subtitle-karaoke-drawer-ui.js`, tính toán qua core/subtitle/subtitle-karaoke.js. Xoá 15 dòng "Workflow tự gắn sự kiện" (hết nhóm); method bị đụng dọn luôn: `_renderKaraokeRegions` (DOM + get gộp), 2 hàm núm kéo (DOM), `openSplitModal`/`closeModal`/`openShiftModal` (DOM) — tổng 1216 → 1194.
+- Cập nhật 13/10/2026 (**đợt Folder** — dọn nợ + sửa bug "đổi tên folder đang Scope, badge ô tìm kiếm không đổi"): Workflow MỚI `event/workflow/folder.js` (`workflowFolder`) giữ mọi việc ĐỌC DB của miền Folder + điều phối (list/listNonEmpty/readExcludedKeys/create/rename/remove/writeSetting/removeItemFromAllFolders/removeKeysFromAllFolders/removeItems/clearAllItems/migrateOnBoot); `core/file-manager/folder.js` chỉ còn tính thuần + ghi — xoá 26 dòng Rule 3b + 1 dòng Rule 1 (`addSongsToFolder` bỏ VMState, chọn vị trí bằng chọn giá trị). `workflowFolder.rename()` gọi `workflowPlaylistScope.syncActiveFolderBadge()` (đổi tên từ `_syncActiveFolderBadge`) — sửa bug badge. Method bị đụng dọn luôn: Folder Browser (`_renderList` markup → `buildFolderBrowserListBodyHtml()`, `setListPage` DOM → `scrollReset`, `_showFolderProperties` `.reduce` → `sumFolderRecordBytes()`, 2 method gộp `get([…])`), picker "Thêm vào thư mục" của `workflowPlaylist` (đợt 6c, phần picker: `_renderFolderPickerGrid`/`_buildFolderPickerHeaderHtml` markup → components, `pickFolderInPicker`/`closeFolderPicker` → object map, `_computeDefaultFolderName` vòng lặp tính tên — máy quét/review bỏ sót — → core `computeNextPickerFolderName()`), 2 lối "Gỡ khỏi thư mục" + `openAddToFolderPicker` gộp `get([…])`. **Bug phát hiện thêm, sửa luôn:** Storage "xoá file lỗi" không gỡ item khỏi folder trước khi xoá (key "ma" trong folder_song; upload lại cùng tên bị nhân đôi trong folder) — `_deleteBrokenOfType()` gọi `workflowFolder.removeKeysFromAllFolders()` trước. Tổng 1194 → 1152 (141 → 139 file).
 
 | Tầng | File vi phạm | Hàm / đơn vị vi phạm | Dòng code nằm trong hàm vi phạm |
 |---|---|---|---|
@@ -57,10 +58,10 @@
 
 | Nhóm | Rule | FAIL | Chờ chốt |
 |---|---|---|---|
-| Core rule | Rule 1 — rẽ nhánh nghiệp vụ | 33 |  |
+| Core rule | Rule 1 — rẽ nhánh nghiệp vụ | 32 |  |
 | Core rule | Rule 2 — Core tự appState.get() | 43 |  |
 | Core rule | Rule 3a — Core gọi Core | 194 |  |
-| Core rule | Rule 3b — Core tự đọc DB/service | 37 |  |
+| Core rule | Rule 3b — Core tự đọc DB/service | 11 |  |
 | Core rule | Rule 3b — Core tự đọc nguồn khác | 29 |  |
 | Core rule | Rule 4 — ghi state thiếu console.log | 24 |  |
 | Core rule | Rule 5a — Core gắn sự kiện | 71 |  |
@@ -70,18 +71,18 @@
 | Event bus | Listener làm việc ngoài eventBus.send | 1 |  |
 | Event bus | Listener đọc appState | 7 |  |
 | Event bus | Router tự chuẩn bị dữ liệu | 1 |  |
-| Event bus | Workflow tự dựng template HTML | 15 |  |
+| Event bus | Workflow tự dựng template HTML | 12 |  |
 | Event bus | Workflow tự gắn sự kiện | 0 |  |
-| Event bus | Workflow tự thao tác DOM | 199 |  |
-| Event bus | Workflow tự tính toán | 117 |  |
+| Event bus | Workflow tự thao tác DOM | 198 |  |
+| Event bus | Workflow tự tính toán | 116 |  |
 | Event bus | Workflow tự vẽ canvas | 13 |  |
 | Event bus | Workflow tự điều khiển media | 43 |  |
-| Event bus | Workflow §7: rẽ nhánh không dùng object map | 105 |  |
-| Event bus | Workflow: ≥2 key không gộp get([…]) | 178 |  |
+| Event bus | Workflow §7: rẽ nhánh không dùng object map | 103 |  |
+| Event bus | Workflow: ≥2 key không gộp get([…]) | 170 |  |
 | TaskManager | Timer thô | 12 |  |
 | TaskManager | requestAnimationFrame thô |  | 10 |
 | TaskManager | taskManager dùng trong Core | 11 |  |
-| **Tổng** | | **1194** | **10** |
+| **Tổng** | | **1152** | **10** |
 
 ## 4. Chi tiết
 
@@ -89,7 +90,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 
 ### 4.1 Core rule
 
-#### Rule 1 — rẽ nhánh nghiệp vụ (33)
+#### Rule 1 — rẽ nhánh nghiệp vụ (32)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -99,7 +100,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/custom-effect.js:383` | `<anon>` | if-return: nhánh ghi/gọi khác chỗ — {set bucket[]} / {set byStyle[], set bucket.byStyle} | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/dropdown-menu.js:119` | `closeDropdownMenu` | if-return: nhánh ghi/gọi khác chỗ — {call overlay.remove} / {call overlay.remove, set menu.style.opacity} | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/element-style-editor.js:127` | `<anon>` | if-elseif: nhánh ghi/gọi khác chỗ — {set patch.box[]} / {set patch.box[]} / {set patch.box.background} | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/file-manager/folder.js:164` | `addSongsToFolder` | VirtualMachineState.run() ngay trong core: membershipState 'new' / 'tombstoned' / … → ghi folder/folderMap theo cách khác nhau | FAIL | Review (máy quét bỏ sót) | Có | VMState chỉ dành cho Router/Workflow; trong core là bảng chọn tiến trình = Rule 1 |
 | `core/gameplay/engine.js:36` | `computeComboScoreGain` | if-return: nhánh ghi/gọi khác chỗ — {set resetAll[]} / {set newComboByTier[], set newComboByTier[]]} | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/modal-choice-ui.js:251` | `modalChoice` | if-else: nhánh ghi/gọi khác chỗ — {call _appendDropdownRow} / {call _appendButtonRow} | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/photo-editor-engine.js:250` | `drawShapeOnCanvas` | if-elseif: nhánh ghi/gọi khác chỗ — {call ctx.fillRect, call ctx.strokeRect} / {call ctx.beginPath, call ctx.ellipse} / {call ctx.beginPath, call ctx.moveTo} | FAIL | Review (máy quét bỏ sót) | Không |  |
@@ -374,7 +374,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/wakelock.js:31` | `requestWakeLock` | gọi releaseWakeLock() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/wakelock.js:33` | `requestWakeLock` | gọi _enableNoSleepFallback() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 
-#### Rule 3b — Core tự đọc DB/service (37)
+#### Rule 3b — Core tự đọc DB/service (11)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -383,32 +383,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/config.js:890` |  | getMeta() — đọc DB trong core | FAIL | Máy quét | Có |  |
 | `core/file-manager/cleanup.js:89` |  | getAllFolderKeys() — đọc DB trong core | FAIL | Máy quét | Có |  |
 | `core/file-manager/cleanup.js:89` |  | getAllFolderSongKeys() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:38` |  | getMeta() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:42` |  | getFolderRecord() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:57` |  | getMeta() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:59` |  | getFolderRecord() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:78` |  | getFolderRecord() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:81` |  | getMeta() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:83` |  | getFolderRecord() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:134` |  | getAllFolderKeys() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:193` |  | getFolderSongMap() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:216` |  | getFolderSongMap() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:236` |  | getFolderSongMap() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:262` |  | getFolderRecord() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:276` |  | getFolderRecord() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:290` |  | getFolderRecord() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:304` |  | getFolderRecord() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:332` |  | getMeta() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:334` |  | getFolderRecord() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:337` |  | getFolderSongMap() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:352` |  | getMeta() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:354` |  | getFolderRecord() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:364` |  | getMeta() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:367` |  | getAllFolderKeys() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:368` |  | getFolderRecord() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:388` |  | getMeta() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:391` |  | getMeta() — đọc DB trong core | FAIL | Máy quét | Có |  |
-| `core/file-manager/folder.js:394` |  | getFolderRecord() — đọc DB trong core | FAIL | Máy quét | Có |  |
 | `core/storage-manager.js:277` |  | getAllSongKeys() — đọc DB trong core | FAIL | Máy quét | Có |  |
 | `core/storage-manager.js:282` |  | getSongRecord() — đọc DB trong core | FAIL | Máy quét | Có |  |
 | `core/storage-manager.js:394` |  | getAllVideoKeys() — đọc DB trong core | FAIL | Máy quét | Có |  |
@@ -657,12 +631,11 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 |---|---|---|---|---|---|---|
 | `event/router/playlist-empty-state.js:44` | `case 'playlistEmptyState.play.click'` | Router gọi core (resolvePlayingMediaType, isPlayingMediaListed) để tính state và tự chọn key phát (resumableKey \|\| displayOrder[0]) — việc chuẩn bị thuộc Workflow (§4B) | FAIL | Review (máy quét bỏ sót) | — |  |
 
-#### Workflow tự dựng template HTML (15)
+#### Workflow tự dựng template HTML (12)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 | `event/workflow/app-settings.js:291` | `_renderTheme` | 1 chỗ: ` <div class="flex flex-col gap-2"> <div class="rounded-2xl fl | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
-| `event/workflow/file-manager-folder-browser.js:75` | `_renderList` | 1 chỗ: `<div id="folder-browser-pagination" class="px-3 pb-3">${workflowPagination.buildControlsH | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/file-manager-photo.js:114` | `_buildImagePickerBodyHtml` | 1 chỗ: ` <div class="flex-1 min-h-0 overflow-y-auto relative" id="file-manager-image- | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/file-manager-storage.js:529` | `askScanBrokenScope` | 1 chỗ: `${t('storageDrawer.scanBroken.modalBody')} <select id="modal-scan-scope" class="mt-3 w-fu | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/image-edit.js:130` | `_buildEditToolGridHtml` | 1 chỗ: ` <div class="grid grid-cols-5 gap-2 px-5 py-1"> ${tools.map(t | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
@@ -670,8 +643,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `event/workflow/player.js:233` | `playMedia` | 1 chỗ: `<img id="record-art" src="${appState.get('currentCoverObjectURL')}" class="w-full h-full  | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/playlist-render.js:93` | `buildSongNode` | 3 chỗ: `${artist} <span class="opacity-50">·</span> ${durationLabel}` · `<div class="flex items-end gap-[2px] h-3 w-3"><div class="w-[3px] eq-1" data-uitk="eqBarB · `<div class="w-2 h-2 rounded-full shadow-[0_0_5px_rgba(14,165,233,0.8)]" data-uitk="btnPri | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/playlist.js:390` | `pickCoverFromVideoThumb` | 1 chỗ: ` <div class="flex-1 min-h-0 overflow-y-auto relative" id="${scrollId}">  | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
-| `event/workflow/playlist.js:1715` | `_renderFolderPickerGrid` | 1 chỗ: `<p class="text-sm text-center py-10 px-6" data-uitk="textSecondary">${this._folderPickerE | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
-| `event/workflow/playlist.js:1746` | `_buildFolderPickerHeaderHtml` | 3 chỗ: ` <select id="playlist-folder-picker-type" class="rounded-lg px-2 py-1 text-xs · ` <button type="button" id="playlist-folder-picker-confirm" class="text-xs fon · `<div class="flex items-center gap-2">${typeDropdownHtml}${confirmBtnHtml}</div>` | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/subtitle-editor.js:57` | `_showFatalError` | 1 chỗ: `<p class="text-sm text-slate-400 text-center py-10">${message}</p>` | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/theme.js:71` | `_buildMediaPickerBodyHtml` | 1 chỗ: ` <div class="flex-1 min-h-0 overflow-y-auto relative" id="${scrollId}">  | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
 | `event/workflow/video-player.js:610` | `playVideoByKey` | 1 chỗ: `<img id="record-art" src="${this._thumbObjectUrl}" class="w-full h-full rounded-full obje | FAIL | Review (máy quét bỏ sót) | — | Markup → render*() trong components/ (Rule 5d) |
@@ -684,7 +655,7 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 
-#### Workflow tự thao tác DOM (199)
+#### Workflow tự thao tác DOM (198)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -695,7 +666,6 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/audio-engine.js:111` | `_applyVolumeGain` | 1 chỗ: volumeGainNode.gain.value = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/eq-presets.js:196` | `setListPage` | 1 chỗ: genericDrawerBody.scrollTop = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/eq-presets.js:320` | `_commitName` | 1 chỗ: nameInput.value = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/file-manager-folder-browser.js:92` | `setListPage` | 1 chỗ: genericDrawerBody.scrollTop = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/file-manager-photo.js:106` | `_openImagePickerDrawer` | 1 chỗ: emptyEl.classList.toggle() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/file-manager-storage.js:231` | `_startStorageCountup` | 1 chỗ: el.textContent = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/file-manager-storage.js:262` | `updateStorageActionUI` | 3 chỗ: el.checked = … · executeBtn.disabled = … · executeBtn.textContent = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
@@ -888,7 +858,7 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/visualizer-display.js:28` | `openDisplayPanel` | 6 chỗ: panelEl.querySelector('#setting-visual-enable').checked = … · panelEl.querySelector('#setting-subtitles-enabled').checked = … · panelEl.querySelector('#setting-stats-panel-enable').checked = … … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/visualizer-gesture.js:256` | `_clickControlCenterTarget` | 1 chỗ: targetEl.click() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 
-#### Workflow tự tính toán (117)
+#### Workflow tự tính toán (116)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -900,7 +870,6 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/audio-analysis.js:396` | `_applyChord` | 1 chỗ: Math.max() | FAIL | Review (máy quét bỏ sót) | — | Hot path visualizer. Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/audio-analysis.js:442` | `_resetPitchRingsOnGap` | 1 chỗ: Math.abs() | FAIL | Review (máy quét bỏ sót) | — | Hot path visualizer. Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/custom-effect.js:190` | `setSolidColor` | 1 chỗ: regex /^#[0-9A-F]{6}$/i | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/file-manager-folder-browser.js:238` | `_showFolderProperties` | 1 chỗ: .reduce() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/filter-rule-edit.js:100` | `openTimePicker` | 1 chỗ: Math.round() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/gameplay.js:345` | `_spawnOneWaveAtPitch` | 3 chỗ: Math.floor() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/gameplay.js:396` | `_trySpawnWave` | 1 chỗ: Math.min() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
@@ -1076,7 +1045,7 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/visual-bg-video.js:396` | `_applyVideoAudioSettingToElement` | 2 chỗ: bgVideoElement.muted = … · bgVideoElement.volume = … | FAIL | Review (máy quét bỏ sót) | — | play/pause/src/currentTime là thi hành → core nhận phần tử media qua tham số |
 | `event/workflow/visual-bg-video.js:430` | `_resumeVideoWithDelayedAudio` | 2 chỗ: bgVideoElement.muted = … · bgVideoElement.play() | FAIL | Review (máy quét bỏ sót) | — | play/pause/src/currentTime là thi hành → core nhận phần tử media qua tham số |
 
-#### Workflow §7: rẽ nhánh không dùng object map (105)
+#### Workflow §7: rẽ nhánh không dùng object map (103)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -1132,8 +1101,6 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/playlist.js:1189` | `uploadPhotos` | if-else: {call workflowPlaylistScope.applyFolderScope} / {call workflowPlaylistScope.applyAllSongsScope} | FAIL | Review (máy quét bỏ sót) | — | Rẽ ≥2 tiến trình — phải viết object map / VirtualMachineState |
 | `event/workflow/playlist.js:1364` | `exportSongWithTag` | if-elseif: {call alertModal} / {call alertModal, call workflowZipDownload.promptSingle} / {call workflowZipDownload.promptSingle} | FAIL | Review (máy quét bỏ sót) | — | Rẽ ≥2 tiến trình — phải viết object map / VirtualMachineState |
 | `event/workflow/playlist.js:1493` | `exportActiveMenuItem` | if-elseif: {call exportVideoFile} / {call exportImageFile} / {call exportSongWithTag} | FAIL | Review (máy quét bỏ sót) | — | Rẽ ≥2 tiến trình — phải viết object map / VirtualMachineState |
-| `event/workflow/playlist.js:1762` | `pickFolderInPicker` | if-return: {call _folderPickerSelectedIds.splice, call _folderPickerSelectedIds.push} / {call closeFolderPicker, call onPick} | FAIL | Review (máy quét bỏ sót) | — | Nhánh chạy việc khác (dọn/chuyển hướng/tiến trình khác) rồi return — không phải guard thuần |
-| `event/workflow/playlist.js:1804` | `closeFolderPicker` | if-else: {call onClose} / {call workflowGenericDrawerHelpers.closeFully} | FAIL | Review (máy quét bỏ sót) | — | Rẽ ≥2 tiến trình — phải viết object map / VirtualMachineState |
 | `event/workflow/playlist.js:1884` | `deleteSelectedMedia` | if-else: {call workflowVideoPlayer.exitVideoPlayerMode, call appState.set:'currentKey'} / {call appState.set:'currentObjectURL', call appState.set:'currentCoverObjectURL'} | FAIL | Review (máy quét bỏ sót) | — | Rẽ ≥2 tiến trình — phải viết object map / VirtualMachineState |
 | `event/workflow/recorder.js:184` | `start` | if-return: {call _abortStart} / {call _beginCapture, call _releaseCaptureResources} | FAIL | Review (máy quét bỏ sót) | — | Nhánh chạy việc khác (dọn/chuyển hướng/tiến trình khác) rồi return — không phải guard thuần |
 | `event/workflow/recorder.js:647` | `save` | if-return: {call alertModal, call _endSession} / {call workflowPlaylist.addRecordedSong, call alertModal} | FAIL | Review (máy quét bỏ sót) | — | Nhánh chạy việc khác (dọn/chuyển hướng/tiến trình khác) rồi return — không phải guard thuần |
@@ -1186,7 +1153,7 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/visualizer-gesture.js:226` | `_resolveTap` | if-return: {set _tapCount, call taskManager.kill} / {call taskManager.once} | FAIL | Review (máy quét bỏ sót) | — | Nhánh chạy việc khác (dọn/chuyển hướng/tiến trình khác) rồi return — không phải guard thuần |
 | `event/workflow/visualizer-gesture.js:274` | `_dispatchGestureAction` | if-return: {call _clickControlCenterTarget} / {call run} | FAIL | Review (máy quét bỏ sót) | — | Nhánh chạy việc khác (dọn/chuyển hướng/tiến trình khác) rồi return — không phải guard thuần |
 
-#### Workflow: ≥2 key không gộp get([…]) (178)
+#### Workflow: ≥2 key không gộp get([…]) (170)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -1206,8 +1173,6 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/eq-presets.js:130` | `cyclePreset` | 2 lần appState.get cho 2 key ('eqPresets', 'eqBandNodes') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/eq-presets.js:362` | `_resetEditToDefault` | 2 lần appState.get cho 2 key ('eqPresets', 'eqBandNodes') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/eq-presets.js:383` | `_deletePreset` | 3 lần appState.get cho 2 key ('eqPresets', 'eqBandNodes') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/file-manager-folder-browser.js:270` | `_isActiveScopeFolder` | 2 lần appState.get cho 2 key ('activeMediaSource', 'activePlayListFolder') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/file-manager-folder-browser.js:287` | `_reloadAllViewIfShowing` | 2 lần appState.get cho 2 key ('activeMediaSource', 'activePlayListFolder') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/file-manager-storage.js:66` | `clearAllStoredData` | 5 lần appState.get cho 3 key ('currentKey', 'currentObjectURL', 'currentCoverObjectURL') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/file-manager-storage.js:393` | `_resetVideoRuntimeStateAfterClear` | 2 lần appState.get cho 2 key ('isVideoPlayerMode', 'activeMediaSource') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/gameplay.js:132` | `_beginPlaying` | 2 lần appState.get cho 2 key ('isVideoPlayerMode', 'isPhotoPlayerMode') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
@@ -1256,7 +1221,6 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/playlist-render.js:367` | `syncPlayButtonPlayingState` | 3 lần appState.get cho 3 key ('currentKey', 'activeMediaSource', 'displayOrder') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/playlist-scope.js:160` | `applyFolderScope` | 9 lần appState.get cho 7 key ('activePlayListFolder', 'isActiveFolderReadOnly', 'playlistCache', 'playlistOrder'…) — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/playlist-scope.js:228` | `applyAllSongsScope` | 6 lần appState.get cho 4 key ('playlistCache', 'playlistOrder', 'mediaStatsMap', 'playlistFilterConfig') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/playlist-scope.js:269` | `_syncActiveFolderBadge` | 2 lần appState.get cho 2 key ('activePlayListFolder', 'activeMediaSource') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/playlist.js:196` | `deleteMediaFromActionMenu` | 3 lần appState.get cho 3 key ('playlistCache', 'currentKey', 'isVideoPlayerMode') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/playlist.js:221` | `<anon>` | 5 lần appState.get cho 3 key ('isVideoPlayerMode', 'currentObjectURL', 'currentCoverObjectURL') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/playlist.js:551` | `_syncEditedVideoRuntime` | 2 lần appState.get cho 2 key ('playlistCache', 'currentKey') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
@@ -1267,13 +1231,8 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/playlist.js:699` | `toggleSongSelectionAndRefresh` | 4 lần appState.get cho 3 key ('selectedMediaKeys', 'domNodesByKey', 'selectionMode') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/playlist.js:1154` | `uploadPhotos` | 3 lần appState.get cho 3 key ('activeMediaSource', 'activePlayListFolder', 'playlistOrder') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/playlist.js:1234` | `playSelectedSongs` | 4 lần appState.get cho 10 key ('selectedMediaKeys', 'displaySortMode', 'displayStatSortField', 'displayStatSortDirection'…) — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/playlist.js:1605` | `openAddToFolderPicker` | 2 lần appState.get cho 2 key ('selectedMediaKeys', 'activeMediaSource') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/playlist.js:1874` | `deleteSelectedMedia` | 8 lần appState.get cho 6 key ('selectedMediaKeys', 'activeMediaSource', 'currentKey', 'isVideoPlayerMode'…) — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/playlist.js:1907` | `<anon>` | 2 lần appState.get cho 2 key ('playlistOrder', 'displayOrder') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/playlist.js:1965` | `removeSelectedSongsFromFolder` | 4 lần appState.get cho 4 key ('selectedMediaKeys', 'activeMediaSource', 'activePlayListFolder', 'isActiveFolderReadOnly') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/playlist.js:1976` | `<anon>` | 2 lần appState.get cho 2 key ('playlistOrder', 'displayOrder') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/playlist.js:2000` | `removeSongFromFolderMenu` | 3 lần appState.get cho 3 key ('activeMediaSource', 'activePlayListFolder', 'isActiveFolderReadOnly') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/playlist.js:2007` | `<anon>` | 2 lần appState.get cho 2 key ('playlistOrder', 'displayOrder') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/playlist.js:2087` | `_dropDomNodesIfSourceChanged` | 2 lần appState.get cho 2 key ('activeMediaSource', 'domNodesByKey') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/playlist.js:2147` | `_persistPlaylistConfig` | 5 lần appState.get cho 5 key ('activeMediaSource', 'displaySortMode', 'displayStatSortField', 'displayStatSortDirection'…) — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/playlist.js:2227` | `openSortPanel` | 3 lần appState.get cho 3 key ('displaySortMode', 'displayStatSortField', 'displayStatSortDirection') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |

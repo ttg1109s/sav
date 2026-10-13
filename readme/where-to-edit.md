@@ -71,7 +71,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Media đang dùng bị thay nội dung | cụm `mediaInUse` (`event/router/media-in-use.js`, `event/workflow/media-in-use.js`) |
 | File Manager — Video | `core/file-manager/video.js`, `video-ui.js`; lưới `event/workflow/video-gallery-window.js`; thumbnail `event/workflow/video-thumb-extract.js` |
 | File Manager — Photo | `core/file-manager/image.js`, `photo-ui.js`; lưới `event/workflow/photo-gallery-window.js`; cụm `fileManagerPhoto`; giải mã/thu nhỏ ảnh `core/image-load-ui.js` |
-| Folder | `core/file-manager/folder.js`, `folder-picker-ui.js`; cụm `fileManagerFolderBrowser` |
+| Folder | `event/workflow/folder.js` (`workflowFolder` — mọi đọc DB + điều phối tạo/đổi tên/xoá/cài đặt/thành viên/migrate), `core/file-manager/folder.js` (tính thuần + ghi), `folder-picker-ui.js`; cụm `fileManagerFolderBrowser` |
 | Quét/dọn file hỏng | `core/file-manager/cleanup.js`; cụm `fileManagerCleanup` |
 | Quản lý lưu trữ | `components/file-manager-storage.js`, `core/storage-manager.js`; cụm `fileManagerStorage` |
 | Tải zip | `core/streaming-zip.js`, worker `core/workers/opfs-zip-worker.js`, UI `core/zip-download-ui.js`, nhiều phần `components/zip-download-parts.js`; cụm `zipDownload` |
