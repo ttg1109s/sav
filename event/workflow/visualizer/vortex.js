@@ -70,7 +70,7 @@ const workflowVizVortex = {
     /** Phase 5 — THAY initThreeJS() (core cũ): đọc config, lấy renderer dùng chung, dựng scene bằng builder thuần,
      * ghi appState, ẩn/hiện theo style. */
     _build() {
-        const cfg = getEffectConfig('vortex'); // core/custom-effect.js
+        const cfg = resolveEffectConfig(appConfigViz.getAll().customEffect, 'vortex'); // core/custom-effect.js
         workflowVisualizerRender.ensureSharedRenderer(window.devicePixelRatio); // event/workflow/visualizer-render.js
         const built = buildVortexScene(cfg.tunnelRingCount, cfg.barsRingCount, cfg.barsPerRing, window.innerWidth / window.innerHeight); // core/webgl/three-vortex.js
         const entries = {

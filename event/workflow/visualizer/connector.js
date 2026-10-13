@@ -95,7 +95,7 @@ const workflowVizConnector = {
     },
 
     _build() {
-        const cfg = getEffectConfig('connector'); // core/custom-effect.js
+        const cfg = resolveEffectConfig(appConfigViz.getAll().customEffect, 'connector'); // core/custom-effect.js
         const renderer = workflowVisualizerRender.ensureSharedRenderer(Math.min(window.devicePixelRatio, 2)); // event/workflow/visualizer-render.js
         const width = window.innerWidth, height = window.innerHeight;
         const stage = buildConnectorStage(width / height, renderer); // core/webgl/three-connector.js
@@ -201,7 +201,7 @@ const workflowVizConnector = {
         const isSettling = this._settleFrames > 0;
         this._settleFrames = Math.max(0, this._settleFrames - 1);
         return {
-            glowMult: getConnectorGlowMult(), // core/custom-effect.js — 0 khi tắt Glow
+            glowMult: resolveConnectorGlowMult(resolveEffectConfig(appConfigViz.getAll().customEffect, 'connector')), // core/custom-effect.js — 0 khi tắt Glow
             deltaTime: Math.min(cnClock.getDelta(), 0.1), // core/webgl/three-connector.js
             isSettling,
         };

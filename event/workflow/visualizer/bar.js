@@ -97,7 +97,7 @@ const workflowVizBar = {
     /** Khung nhìn đổi: rải lại sao Black Hole (thay phần tương ứng của resizeCanvas() cũ). SỬA (29/09/2026) — chớp sao
      * (`starFlashes`) đã bỏ hẳn. */
     onResize(viewport) {
-        appState.set('stars', buildBlackHoleStars(getEffectConfig('bar').starCount, Math.max(canvas.width, canvas.height), viewport.dpr)); // core/canvas-scene-setup.js + core/custom-effect.js
+        appState.set('stars', buildBlackHoleStars(resolveEffectConfig(appConfigViz.getAll().customEffect, 'bar').starCount, Math.max(canvas.width, canvas.height), viewport.dpr)); // core/canvas-scene-setup.js + core/custom-effect.js
         console.log('writer: "workflowVizBar.onResize", page: "stars", content: "rải lại sao Black Hole"');
     },
 

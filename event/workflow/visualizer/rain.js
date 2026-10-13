@@ -38,7 +38,7 @@ const workflowVizRain = {
     /** Khung nhìn đổi (hoặc Custom Effect refresh 'resizeCanvas'): xoá gợn sóng/vệt chảy, rải lại giọt tĩnh, dựng
      * lại dãy nhà + cảnh phố theo kích thước mới. */
     onResize(viewport) {
-        const rainCfg = getEffectConfig('rain'); // core/custom-effect.js
+        const rainCfg = resolveEffectConfig(appConfigViz.getAll().customEffect, 'rain'); // core/custom-effect.js
         appState.set('ripples', []);
         appState.set('glassStreaks', []);
         appState.set('glassStaticDrops', buildGlassStaticDrops(rainCfg.glassDropDensity, canvas.width, canvas.height, viewport.dpr)); // core/canvas-scene-setup.js
