@@ -230,7 +230,7 @@ Mỗi file chỉ định nghĩa `TPL_*` (chuỗi HTML tĩnh) hoặc hàm `render
 61. `components/settings/troubleshooting.js`
 62. `components/perf-hud.js`
 63. `components/game-panel.js` — cần: `lang/lang.js` (t); `core/ui-theme/icon-svg-ui.js` (iconSvg)
-64. `components/statis-panel.js` — cần: `lang/lang.js` (t); `core/ui-theme/icon-svg-ui.js` (iconSvg)
+64. `components/statis-panel.js` — cần: `lang/lang.js` (t); `core/ui-theme/icon-svg-ui.js` (iconSvg); lúc chạy: `escapeHtml()`, `formatListenTime()` (core/listen-stats.js)
 65. `components/debug-console-drawer.js`
 66. `components/file-manager-storage.js`
 67. `components/generic-drawer.js`
@@ -328,7 +328,7 @@ runtime, cần `components/app-mount.js`), `service/task-manager.js`, `service/d
 core xung quanh. Nhóm visualizer: `core/visualizer/*` rồi `core/visualizer/groups/<group>/common.js` trước style của
 group.
 
-<details><summary>Thứ tự (140 mục)</summary>
+<details><summary>Thứ tự (141 mục)</summary>
 
 121. `core/custom-effect.js`
 122. `core/custom-effect-drawer-ui.js`
@@ -396,6 +396,7 @@ group.
 176c. `core/gameplay/arrow-stage.js` — MỚI 07/10/2026
 177. `core/gameplay/catalog.js`
 178. `core/gameplay/game-panel-ui.js`
+178a. `core/statis-panel.js` — MỚI 13/10/2026 (phép tính thuần panel Statistics — plan-debt-domains đợt 6)
 179. `core/statis-panel-ui.js`
 180. `core/hud.js`
 181. `core/visual-bg-common.js`

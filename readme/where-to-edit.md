@@ -76,7 +76,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Quản lý lưu trữ | `components/file-manager-storage.js`, `core/storage-manager.js`; cụm `fileManagerStorage` |
 | Tải zip | `core/streaming-zip.js`, worker `core/workers/opfs-zip-worker.js`, UI `core/zip-download-ui.js`, nhiều phần `components/zip-download-parts.js`; cụm `zipDownload` |
 | Xuất ID3 | `core/id3-export.js` |
-| Thống kê nghe | `core/listen-stats.js`, `event/workflow/listen-stats.js`, state `service/state/listen-stats.js`; panel `components/statis-panel.js`, `core/statis-panel-ui.js`, cụm `statisPanel` |
+| Thống kê nghe | `core/listen-stats.js`, `event/workflow/listen-stats.js`, state `service/state/listen-stats.js`; panel `components/statis-panel.js`, `core/statis-panel.js`, `core/statis-panel-ui.js`, cụm `statisPanel` |
 
 ## 4. Phát media
 
