@@ -1,7 +1,7 @@
 # Plan v14 — hàng đợi dọn nợ theo miền (lập 13/10/2026)
 
-Nguồn số liệu: [core-legacy-audit.md](../core-legacy-audit.md) sau đợt Folder — **1152 FAIL / 139 file**, 10 chờ chốt
-(`requestAnimationFrame` thô). Plan này chỉ sắp **thứ tự và cách gom**; không đổi rule nào
+Nguồn số liệu: [core-legacy-audit.md](../core-legacy-audit.md). Lúc lập plan (sau đợt Folder): **1152 FAIL / 139 file**; hiện tại
+(sau đợt 5): **1131 FAIL / 137 file**, 10 chờ chốt (`requestAnimationFrame` thô). Cột "Còn lại sau đợt" tính từ số hiện tại. Plan này chỉ sắp **thứ tự và cách gom**; không đổi rule nào
 ([core-function-conventions.md](../core-function-conventions.md), [event-bus-flow.md](../event-bus-flow.md),
 [task-manager-conventions.md](../task-manager-conventions.md)).
 
@@ -18,7 +18,7 @@ Bộ khuôn sửa K1–K8 ở plan đó vẫn dùng nguyên.
    - Method bị đụng dọn luôn nợ của nó; gặp bug thì sửa luôn theo rule; vi phạm chưa có trong sổ thì sửa hoặc ghi thêm.
    - Xoá comment lạc hậu/lịch sử (SỬA/MỚI/XOÁ kèm ngày, "trước đây…"), rút gọn comment trong file bị đụng.
    - `node --check`; boot harness Chromium (stub CDN) chạy kịch bản của đợt, 0 lỗi JS; checklist phần cần test máy.
-   - Nâng `?v=` mọi trang có nạp file đổi; cập nhật sổ (xoá dòng xong, ghi dòng mới), bảng tiến độ ở mục 4.
+   - Nâng `?v=` mọi trang có nạp file đổi; cập nhật sổ (xoá dòng xong, ghi dòng mới), bảng tiến độ ở mục 5.
 5. **Không đổi hành vi** ngoài bug được ghi rõ trong mô tả patch.
 
 ## 2. Thang độ khó
@@ -41,11 +41,11 @@ core; Timer = timer thô; L-* = Listener; rAF = `requestAnimationFrame` thô (ch
 | Đợt | Bậc | Miền | File chính | FAIL | Còn lại sau đợt | Loại nợ chính |
 |---|---|---|---|---|---|---|
 | 0 | — | Dọn comment các file đợt Folder | `event/workflow/{playlist,playlist-scope,visual-bg-common,app-boot}.js`, `event/router/playlist.js`, `core/{storage-manager,playlist/main,playlist/actions,file-manager/video}.js`… | 0 | 1152 | Comment lịch sử |
-| 1 | 1 | Element Style Editor · Info icon · App Panel nav + Gesture settings | `core/element-style-editor.js`, `core/info-icon-ui.js`, `core/app-panel-nav.js`, `core/sav-logo.js`, `event/workflow/{element-style-editor,gesture-settings}.js` | 13 | 1139 | R3a 5 · R5a 2 · WF-DOM 2 |
-| 2 | 1 | Playlist Empty State · Auto-switch visual · EQ | `event/{workflow,router}/playlist-empty-state.js`, `core/auto-switch-visual.js`, `event/workflow/{auto-switch-visual,eq-presets}.js` | 19 | 1120 | WF-get 8 · WF-§7 4 · R3b 2 · Router 1 |
-| 3 | 1 | Custom Effect · HUD · Pagination | `core/custom-effect.js`, `core/hud.js`, `core/pagination-ui.js`, `event/workflow/{custom-effect,hud,pagination}.js` | 26 | 1094 | R3a 7 · R5d 7 · WF-tính 4 |
-| 4 | 2 | Player display settings · Playlist Filter | `core/player-display-apply.js`, `core/playlist/{filter,filter-presets}.js`, `event/workflow/{player-display-settings,playlist-filter-presets,filter-rule-edit}.js` | 27 | 1067 | R3a 11 · WF-get 8 · WF-DOM 6 |
-| 5 | 2 | Folder (phần còn lại) + dọn mồ côi | `core/file-manager/{folder-picker-ui,cleanup}.js` | 21 | 1046 | R5a 12 · TM-core 4 · R3a 3 · R3b 2 |
+| 1 | 1 | Element Style Editor · Info icon · App Panel nav + Gesture settings | `core/element-style-editor.js`, `core/info-icon-ui.js`, `core/app-panel-nav.js`, `core/sav-logo.js`, `event/workflow/{element-style-editor,gesture-settings}.js` | 13 | 1118 | R3a 5 · R5a 2 · WF-DOM 2 |
+| 2 | 1 | Playlist Empty State · Auto-switch visual · EQ | `event/{workflow,router}/playlist-empty-state.js`, `core/auto-switch-visual.js`, `event/workflow/{auto-switch-visual,eq-presets}.js` | 19 | 1099 | WF-get 8 · WF-§7 4 · R3b 2 · Router 1 |
+| 3 | 1 | Custom Effect · HUD · Pagination | `core/custom-effect.js`, `core/hud.js`, `core/pagination-ui.js`, `event/workflow/{custom-effect,hud,pagination}.js` | 26 | 1073 | R3a 7 · R5d 7 · WF-tính 4 |
+| 4 | 2 | Player display settings · Playlist Filter | `core/player-display-apply.js`, `core/playlist/{filter,filter-presets}.js`, `event/workflow/{player-display-settings,playlist-filter-presets,filter-rule-edit}.js` | 27 | 1046 | R3a 11 · WF-get 8 · WF-DOM 6 |
+| 5 ✓ | 2 | Folder (phần còn lại) + dọn mồ côi | `core/file-manager/{folder-picker-ui,cleanup}.js` | 21 | đã xong | R5a 12 · TM-core 4 · R3a 3 · R3b 2 |
 | 6 | 2 | Statistics + listen stats | `core/statis-panel-ui.js`, `event/workflow/{statis-panel,listen-stats}.js` | 28 | 1018 | R5d 15 · R3a 5 |
 | 7 | 2 | Photo/Video gallery (File Manager) | `core/file-manager/photo-ui.js`, `event/workflow/{photo,video}-gallery-window.js`, `file-manager-photo.js` | 32 | 986 | WF-DOM 13 · R5a 11 · R5d 5 |
 | 8 | 2 | Theme / UI theme | `core/theme-background-ui.js`, `core/color-utils.js`, `core/ui-theme/{status-bar-color,apply-ui}.js`, `event/workflow/{theme,ui-theme}.js` | 32 (+1 rAF) | 954 | R3a 12 · R5d 7 |
@@ -68,13 +68,13 @@ core; Timer = timer thô; L-* = Listener; rAF = `requestAnimationFrame` thô (ch
 | 25a/25b | 5 | Trang Video Editor | `core/video-editor/{webcodecs-engine,filmstrip}.js`, `event/workflow/video-preview.js` | 71 | 49 | WF-get 21 · WF-DOM 14 · WF-tính 12 · WF-§7 10 |
 | 26a/26b | Cuối | Hạ tầng UI dùng chung | 26a: `core/dropdown-menu.js`, `core/loading-shield-util.js`, `event/workflow/generic-drawer-helpers.js`, `core/modal-choice-ui.js` · 26b: `core/slider-input-modal.js`, `core/time-picker-modal.js`, `core/point-move-timing-ui.js` | 49 (+3 rAF) | 0 | R5a 17 · R3a 13 · R5c 3 · Timer 2 |
 
-Tổng 1152 FAIL. 10 dòng `requestAnimationFrame` thô dọn theo miền chứa nó khi Giang chốt cách xử lý (taskManager mode
+Còn 1131 FAIL (đã trừ đợt 5). 10 dòng `requestAnimationFrame` thô dọn theo miền chứa nó khi Giang chốt cách xử lý (taskManager mode
 `raf` hay giữ).
 
 ### Ghi chú theo đợt
 
 - **0** — Không đổi code; đối chiếu chuỗi token trước/sau để chứng minh chỉ đổi comment (khuôn đợt dọn comment 12/10).
-- **5** — `folder-picker-ui.js` còn hẹn giờ giữ tay bằng `taskManager` trong core (TM-core 4) → dời phiên giữ tay về Workflow.
+- **5 ✓** — Xong 13/10/2026: modal đổi tên sang `modalChoice()`; phiên giữ tay tile dời về `workflowFolder`; registry dọn rác bỏ, bảng bước dọn ở Workflow. Chi tiết: mục 4.
 - **11** — Đợt 2 của plan 02/10 (`photo-player.js`), giờ kèm `core/photo-player.js`; `app-boot.js` dời sang đợt 13.
 - **13** — Kèm xoá `retireLegacyDownloadServiceWorker()` (core/file-manager/cleanup.js) + `workflowAppBoot._retireLegacyDownloadServiceWorker()` — Giang hẹn xoá ở ver 14; để tới đợt này vì phải đụng `boot()`.
 - **13, 14, 19, 20** — Có iOS (phát nền, Media Session, khoá màn hình, mic): checklist máy bắt buộc.
@@ -86,13 +86,47 @@ Tổng 1152 FAIL. 10 dòng `requestAnimationFrame` thô dọn theo miền chứa
   thiếu hậu tố `-ui` (R5c, đổi tên file kéo theo `index.html` + 2 trang + script-load-order.md). `modalChoice()` giữ ngoại lệ
   đã audit, chỉ dọn phần R1/R3a. Đổi API ở đây kéo theo sửa lại nơi gọi ở các miền đã dọn — chấp nhận, gom vào cùng đợt.
 
-## 4. Tiến độ
+## 4. Miền Folder — trạng thái (13/10/2026)
+
+**Đã sạch nợ** (0 dòng trong sổ), qua 2 đợt — đợt Folder (`sav-14-debt-folder-patch.zip`, 1194 → 1152) và đợt 5
+(`sav-14-debt-wave5-folder-patch.zip`, 1152 → 1131):
+
+| File | Vai trò |
+|---|---|
+| `core/file-manager/folder.js` | Core thuần + ghi DB |
+| `core/file-manager/folder-picker-ui.js` | Core -ui: ô nhập modal đổi tên, wiring lưới (callback chỉ `eventBus.send`) |
+| `core/file-manager/cleanup.js` | Core dọn mồ côi (không còn registry) |
+| `event/workflow/folder.js` | `workflowFolder` — mọi đọc DB của miền + điều phối + phiên chạm/giữ tay tile |
+| `event/workflow/file-manager-folder-browser.js` | Folder Browser |
+| `event/workflow/file-manager-cleanup.js` | Bảng bước "Dọn dẹp dữ liệu" |
+| `event/workflow/playlist.js` (phần picker "Thêm vào thư mục" + 2 lối "Gỡ khỏi thư mục") | Picker dùng chung Playlist / Visual Background |
+
+Bug sửa kèm: badge tên folder không đổi sau khi đổi tên folder đang Scope; "xoá file lỗi" không gỡ item khỏi folder.
+
+**Dòng nợ còn nhắc tới folder nhưng thuộc method của miền khác** — dọn ở đợt của miền đó:
+
+| Dòng nợ | Đợt |
+|---|---|
+| `event/workflow/playlist-filter-presets.js` — `_persist`, `selectPreset`, `_clearActiveState` (gộp `get`) | 4 |
+| `event/workflow/app-boot.js` — `boot` (if-else chọn Scope, gộp `get`) | 13 |
+| `event/workflow/playlist-scope.js` — `applyFolderScope` (gộp `get`) | 18b |
+| `event/workflow/playlist.js` — `uploadPhotos` (if-else chọn Scope, gộp `get`) | 18c |
+| `event/workflow/video-player.js` — `refreshVideoPlaylistIfActive` | 20 |
+| `event/workflow/video-preview.js` — lưu video mới vào folder (if-else) | 25 |
+
+**Còn chờ:**
+- Giang test máy 2 patch (checklist trong mô tả từng patch).
+- Đợt 0: comment lịch sử ở các file lớn đợt Folder chạm tới (`playlist.js`, `playlist-scope.js`, `router/playlist.js`…) — phần
+  thuộc Folder đã dọn.
+- Đợt 13: xoá `retireLegacyDownloadServiceWorker()` (Giang hẹn ở ver 14).
+
+## 5. Tiến độ
 
 | Đợt | Trạng thái |
 |---|---|
-| Folder (trước plan này) | Xong 13/10/2026 (`sav-14-debt-folder-patch.zip`), chờ test máy — 1194 → 1152 |
+| Folder ✓ (trước plan này) | Xong 13/10/2026 (`sav-14-debt-folder-patch.zip`), chờ test máy — 1194 → 1152 |
 | 0 | Chưa làm |
-| 5 — Folder phần còn lại | Xong 13/10/2026 (`sav-14-debt-wave5-folder-patch.zip`), chờ test máy — 1152 → 1131 |
+| 5 ✓ — Folder phần còn lại | Xong 13/10/2026 (`sav-14-debt-wave5-folder-patch.zip`), chờ test máy — 1152 → 1131 |
 | Còn lại 1–4, 6–26 | Chưa làm |
 
 ← [Quay lại README](../../README.md)
