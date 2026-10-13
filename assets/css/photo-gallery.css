@@ -42,8 +42,8 @@
     animation: photo-tile-shimmer 1.4s ease-in-out infinite;
 }
 
-/* Badge chọn (xanh)/xoá (đỏ) — overlay góc trên phải mỗi tile. Luôn hiện khung viền mờ, chỉ hiện
-   icon + màu đặc khi .photo-tile-marked (JS toggle trực tiếp, không dựng lại cả nhóm). */
+/* Badge chọn — overlay góc trên phải mỗi tile. Luôn hiện khung viền mờ, chỉ hiện icon/số + màu đặc khi
+   .photo-tile-marked (vẽ lại badge không dựng lại cả nhóm). */
 .photo-tile-badge {
     position: absolute;
     top: 6px;
@@ -62,8 +62,7 @@
 .photo-tile-badge svg {
     display: none;
 }
-/* MỚI (29/08/2026) — số thứ tự chọn (multi-select), thay icon dấu tick khi đã có số — ẩn mặc định
-   giống svg, chỉ hiện khi tile đã .photo-tile-marked (xem quy tắc ngay dưới). */
+/* Số thứ tự chọn (multi-select), thay dấu tick khi đã có số — chỉ hiện khi tile .photo-tile-marked. */
 .photo-tile-badge-num {
     display: none;
     font-size: 11px;
@@ -74,10 +73,6 @@
 .photo-tile-marked .photo-tile-badge-select {
     background: #0ea5e9;
     border-color: #38bdf8;
-}
-.photo-tile-marked .photo-tile-badge-delete {
-    background: #f43f5e;
-    border-color: #fb7185;
 }
 .photo-tile-marked .photo-tile-badge svg,
 .photo-tile-marked .photo-tile-badge-num {
