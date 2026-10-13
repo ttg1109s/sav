@@ -1,177 +1,121 @@
 /**
- * event/workflow/statis-panel.js — MỚI (Giang yêu cầu "tích hợp 1+2+3" cho panel Statis). "THẰNG
- * THỰC THI CUỐI" của router "statisPanel" — điều phối panel Statis (stat-grid tổng quan + card so
- * sánh Song/Video/Photo + Top list xếp hạng, xem components/statis-panel.js +
- * core/statis-panel-ui.js). CÙNG khuôn `workflowGameCatalog` (event/workflow/game-catalog.js).
+ * event/workflow/statis-panel.js — Workflow của router "statisPanel": panel Statistics (Overview + Media types + Top list).
+ * Đọc DB cả 3 store (workflowPlaylistScope.listMediaRecords() — `playlistCache` chỉ giữ 1 Nguồn) MỖI LẦN MỞ panel, chụp
+ * vào `_cache`; đổi sort/filter/share/trang chỉ tính lại trên `_cache`. `_sortMode`/`_filterType`/`_shareMode` là state UI
+ * cục bộ (không qua AppState, mất khi đóng app là đúng ý). Top list dùng icon loại tĩnh (không Blob URL) nên vẽ lại nhiều
+ * lần không cần dọn gì.
  *
- * `listMediaRecords()` đọc DB trực tiếp (Rule 3 — Core cấm) nên PHẢI gọi từ đây, KHÔNG phải Core —
- * đọc CẢ 3 store (Song/Video/Photo) độc lập với `playlistCache` (chỉ giữ ĐÚNG 1 Nguồn đang active,
- * xem event/workflow/playlist-scope.js — không dùng được cho panel cần gộp CẢ 3 cùng lúc).
- *
- * `_sortMode`/`_filterType` — 2 field toggle UI CỤC BỘ của panel này, KHÔNG qua AppState (khác
- * `gameplayArmedGameId` — field đó cần NHIỀU cụm khác đọc/ghi qua lại, xem service/state/
- * gameplay-runtime.js; 2 field ở đây chỉ Workflow này tự đọc/tự ghi, không cụm nào khác cần biết —
- * không đáng thêm 1 entry AppState schema mới cho state thuần UI-local, mất khi đóng app CŨNG ĐÚNG
- * ý — không cần nhớ qua lần mở panel sau nữa cũng được, đơn giản hơn).
- *
- * KHÔNG cap giới hạn thumbnail/Blob URL nào ở đây (Top list dùng icon loại media tĩnh, xem docstring
- * core/statis-panel-ui.js) — `renderContent()` an toàn gọi lại nhiều lần liên tiếp (đổi sort/filter)
- * mà không cần dọn dẹp gì giữa các lần, KHÁC hẳn `buildSongNode()` (core/playlist/render.js) phải tự
- * revoke Blob URL cũ trước khi tạo URL mới.
- *
- * NẠP SAU: core/number-countup.js (computeCountupValue), event/workflow/number-countup.js
- * (workflowNumberCountup), core/statis-panel-ui.js (buildStatisPanelBodyHtml), core/listen-stats.js (getSongStats),
- * core/playlist/loader.js (filterValidSongRecords), core/file-manager/video.js
- * (stripFileExtension), core/placeholder-panel.js (showPlaceholderPanel), core/dom-refs.js
- * (statisPanel, statisPanelBody), event/workflow/playlist-scope.js (workflowPlaylistScope.
- * listMediaRecords).
+ * NẠP SAU: core/statis-panel.js, core/statis-panel-ui.js, components/statis-panel.js, core/number-countup.js,
+ * event/workflow/number-countup.js, core/listen-stats.js, core/playlist/loader.js, core/file-manager/video.js,
+ * core/placeholder-panel.js, core/dom-refs.js, event/workflow/playlist-scope.js, event/workflow/pagination.js.
  * NẠP TRƯỚC: event/router/statis-panel.js.
  */
 const STATIS_COUNTUP_TASK = 'statisPanelCountUp'; // task đếm-lên số liệu lúc MỞ panel (workflowNumberCountup.run, event/workflow/number-countup.js)
 const STATIS_COUNTUP_STEPS = 24; // x 35ms mặc định của workflowNumberCountup ≈ 0.85s
 const STATIS_COUNTUP_EASE_POWER = 3; // ease-out cubic (computeCountupValue, core/number-countup.js) — nhanh lúc đầu, chậm dần khi chốt số
-const STATIS_TOP_LIST_LIMIT = 20; // Top N hiện trong list — thư viện lớn (hàng trăm/nghìn file) vẫn chỉ cần xem nhanh vài chục đầu bảng, KHÔNG render hết toàn bộ
+const STATIS_TOP_LIST_LIMIT = 20; // Top N khi không phân trang — thư viện lớn chỉ cần xem nhanh vài chục đầu bảng
+
+/** Khung đếm-lên theo loại số: thanh tiến độ (độ rộng %), thời gian nghe, số nguyên. */
+const STATIS_COUNTUP_PAINT_BY_FMT = {
+    bar: (el, value) => setStatisCountupBarWidth(el, value), // core/statis-panel-ui.js
+    time: (el, value) => setStatisCountupText(el, formatListenTime(value)), // core/listen-stats.js
+    int: (el, value) => setStatisCountupText(el, formatStatisCount(value)), // core/statis-panel.js
+};
 
 const workflowStatisPanel = {
     _sortMode: 'count', // 'count' | 'totalTime' — mặc định "Lượt phát nhiều nhất"
     _filterType: 'all', // 'all' | 'song' | 'video' | 'photo'
-    _shareMode: 'count', // 'count' | 'totalTime' — MỚI 21/09/2026: biểu đồ tròn + % của 3 card Media types chia theo LƯỢT PHÁT hay THỜI GIAN (nút chuyển ở phải tiêu đề Media types). Cùng loại state UI cục bộ với _sortMode/_filterType
-    _topListPageIndex: 0, // MỚI 23/09/2026 — trang đang xem của Top list (nơi 'statisTopList' của Pagination), core tự kẹp; về 0 khi mở panel/đổi sort/đổi filter
+    _shareMode: 'count', // 'count' | 'totalTime' — biểu đồ tròn + % Media types chia theo lượt phát / thời gian
+    _topListPageIndex: 0, // trang Top list (nơi 'statisTopList' của Pagination); về 0 khi mở panel/đổi sort/đổi filter
     _cache: null, // {items, byType, grandTotal} — chụp 1 lần lúc MỞ panel (openPanel()), đổi sort/filter chỉ lọc/sort lại trên đây
     _loadToken: 0, // tăng mỗi lần openPanel() — loại kết quả đọc DB của lần mở CŨ nếu đã có lần mở mới hơn
 
-    /** Ứng với 'appPanelNav.statis.click' — gọi THẲNG từ workflowAppPanelNav.openStatis() (liên
-     * tuyến domain, CÙNG khuôn workflowGameCatalog.openPanel()). Hiện SKELETON "đang tải" NGAY
-     * (tránh đứng hình lúc await đọc 3 store DB) RỒI mới hiện panel — KHÁC Game (data tĩnh, render
-     * xong mới hiện panel luôn) vì ở đây việc đọc DB thật sự tốn thời gian không xác định trước.
-     * SỬA 21/09/2026 (Giang yêu cầu "làm nốt"): (1) placeholder chữ "Loading stats…" đổi thành
-     * skeleton đúng bố cục thật (`buildStatisPanelSkeletonHtml()`, core/statis-panel-ui.js); (2) đọc
-     * DB CHỈ ở đây, mỗi lần MỞ panel — đổi sort/filter sau đó dùng lại `_cache`, không query lại. */
+    /** 'appPanelNav.statis.click' (gọi thẳng từ workflowAppPanelNav.openStatis()). Hiện skeleton ngay rồi mới hiện panel
+     * (đọc DB tốn thời gian không xác định), đọc xong vẽ thật + đếm-lên. */
     async openPanel() {
         const loadToken = ++this._loadToken;
         taskManager.kill(STATIS_COUNTUP_TASK); // mở lại panel lúc lượt đếm-lên cũ chưa xong
-        statisPanelBody.innerHTML = buildStatisPanelSkeletonHtml(t); // core/statis-panel-ui.js
-        if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(statisPanelBody, _activeUiThemeKeyList); // skeleton cũng dựng ĐỘNG (data-uitk) — phải áp theme như renderContent()
+        setStatisPanelBodyHtml(statisPanelBody, renderStatisPanelSkeletonHtml()); // core/statis-panel-ui.js + components/statis-panel.js
+        applyUiThemeToDom(statisPanelBody, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — nội dung dựng động (data-uitk)
         showPlaceholderPanel(statisPanel); // core/placeholder-panel.js
-        this._topListPageIndex = 0; // MỚI 23/09/2026 — mở panel luôn về trang 1 của Top list
+        this._topListPageIndex = 0;
         const data = await this._loadData();
-        if (loadToken !== this._loadToken) return; // người dùng đã đóng/mở lại panel trong lúc đọc DB — lần mở MỚI hơn sẽ tự vẽ, bỏ kết quả cũ này
+        if (loadToken !== this._loadToken) return; // đã đóng/mở lại trong lúc đọc DB — lần mở mới hơn tự vẽ
         this._cache = data;
-        this.renderContent(true); // CHỈ lúc MỞ panel mới animation đếm-lên số liệu
+        this.renderContent(true);
     },
 
-    /** Đọc lại TOÀN BỘ 3 store (Song/Video/Photo) + mediaStatsMap rồi TỔNG HỢP (items/byType/
-     * grandTotal) — CHỈ gọi từ `openPanel()`. Trả object thuần, KHÔNG tự ghi `_cache`/vẽ (việc của
-     * openPanel, sau khi kiểm tra token còn đúng). Số liệu chụp tại thời điểm MỞ panel — nếu vẫn đang
-     * phát nhạc/video phía sau, số chỉ cập nhật khi mở lại panel (panel phủ toàn màn hình, không
-     * nhìn số nhảy live). */
+    /** Đọc 3 store + thống kê nghe rồi tổng hợp — số liệu chụp lúc MỞ panel (panel phủ toàn màn, không cần số nhảy live). */
     async _loadData() {
         const [songRecordsRaw, videoRecords, photoRecords] = await Promise.all([
             workflowPlaylistScope.listMediaRecords('song'), // event/workflow/playlist-scope.js
             workflowPlaylistScope.listMediaRecords('video'),
             workflowPlaylistScope.listMediaRecords('photo'),
         ]);
-        const songRecords = filterValidSongRecords(songRecordsRaw, appState.get('confirmedBrokenKeys')); // core/playlist/loader.js — CÙNG guard applyFolderScope() dùng cho Song
-
+        const songRecords = filterValidSongRecords(songRecordsRaw, appState.get('confirmedBrokenKeys')); // core/playlist/loader.js
         const items = [
             ...songRecords.map((r) => this._buildStatisItem(r, 'song')),
-            ...videoRecords.filter((r) => r.blob).map((r) => this._buildStatisItem(r, 'video')), // guard `!record.blob` — CÙNG lý do buildAdaptedPlaylistCache() (core/playlist/loader.js)
-            ...photoRecords.filter((r) => r.blob).map((r) => this._buildStatisItem(r, 'photo')),
+            ...pickMediaRecordsWithBlob(videoRecords).map((r) => this._buildStatisItem(r, 'video')), // core/statis-panel.js
+            ...pickMediaRecordsWithBlob(photoRecords).map((r) => this._buildStatisItem(r, 'photo')),
         ];
-
-        const byType = {};
-        for (const mediaType of ['song', 'video', 'photo']) {
-            const ofType = items.filter((i) => i.mediaType === mediaType);
-            byType[mediaType] = {
-                itemCount: ofType.length,
-                playCount: ofType.reduce((sum, i) => sum + i.count, 0),
-                totalTime: ofType.reduce((sum, i) => sum + i.totalTime, 0),
-            };
-        }
-        const neverPlayedCount = items.filter((i) => i.count === 0).length;
-        const playedItemCount = items.length - neverPlayedCount;
-        const grandTotal = {
-            itemCount: items.length,
-            playCount: items.reduce((sum, i) => sum + i.count, 0),
-            totalTime: items.reduce((sum, i) => sum + i.totalTime, 0),
-            neverPlayedCount,
-            // `playedItemCount` (TRƯỚC ĐÂY UI đọc field này nhưng Workflow không tạo -> `itemCount - undefined` = NaN ở ô "Never played") + `playedPercent` cho card "Library played". Math.floor (KHÔNG round) để không bao giờ hiện 100% khi vẫn còn file chưa phát (vd 1023/1024).
-            playedItemCount,
-            playedPercent: items.length > 0 ? Math.floor((playedItemCount / items.length) * 100) : 0,
-        };
-        // Tỷ trọng % lượt phát từng loại trên TỔNG lượt phát (card "Media types") — tính ở Workflow, Core-ui chỉ vẽ. Math.round nên tổng 3 loại có thể lệch 99/101, chấp nhận được với số hiển thị.
-        for (const mediaType of ['song', 'video', 'photo']) {
-            byType[mediaType].playSharePercent = grandTotal.playCount > 0 ? Math.round((byType[mediaType].playCount / grandTotal.playCount) * 100) : 0;
-            byType[mediaType].playShareRaw = grandTotal.playCount > 0 ? (byType[mediaType].playCount / grandTotal.playCount) * 100 : 0; // MỚI 21/09/2026 — % CHƯA làm tròn cho biểu đồ tròn (tổng đúng 100, không hở/chồng lát) — buildStatisPlayShareChartHtml(), core/statis-panel-ui.js
-            // MỚI 21/09/2026 — cùng 2 con số nhưng theo THỜI GIAN nghe (khi `_shareMode` = 'totalTime'); UI chọn cặp trường theo chế độ, xem buildStatisPanelBodyHtml().
-            byType[mediaType].timeSharePercent = grandTotal.totalTime > 0 ? Math.round((byType[mediaType].totalTime / grandTotal.totalTime) * 100) : 0;
-            byType[mediaType].timeShareRaw = grandTotal.totalTime > 0 ? (byType[mediaType].totalTime / grandTotal.totalTime) * 100 : 0;
-        }
-        return { items, byType, grandTotal };
+        return { items, ...computeStatisAggregates(items) }; // core/statis-panel.js
     },
 
-    /** Vẽ lại HẲN nội dung panel từ `_cache` (ĐỒNG BỘ, không đọc DB) — gọi lúc mở panel xong tải (`animate` = true -> chạy đếm-lên số liệu,
-     * `_startCountup()`) VÀ mỗi lần đổi `_sortMode`/`_filterType` (không animate — chỉ vẽ lại số cuối, tránh
-     * mỗi lần bấm sort/filter là cả panel đếm lại từ 0). Vì không còn `await` nào nên các lần click liên tiếp chạy
-     * tuần tự đúng thứ tự, KHÔNG còn nguy cơ render cũ ghi đè render mới. `_cache` null (panel chưa
-     * tải xong mà người dùng đã bấm) -> bỏ qua, `openPanel()` tự vẽ khi tải xong với state mới nhất. */
+    /** Vẽ lại nội dung từ `_cache` (đồng bộ, không đọc DB) — lúc mở xong (`animate` = đếm-lên) và mỗi lần đổi sort/filter/
+     * share/trang (không animate). `_cache` null (chưa tải xong) -> bỏ qua, openPanel() tự vẽ với state mới nhất. */
     renderContent(animate) {
         if (!this._cache) return;
-        taskManager.kill(STATIS_COUNTUP_TASK); // đổi sort/filter lúc lượt đếm-lên đang chạy -> dừng, DOM cũ sắp bị thay
+        taskManager.kill(STATIS_COUNTUP_TASK); // DOM cũ sắp bị thay
         const { items, byType, grandTotal } = this._cache;
-
-        // Top list CHỈ xếp hạng item CÓ dữ liệu theo tiêu chí đang sort (count > 0 khi "Most played", totalTime > 0 khi "Most time") — item 0 lượt không chen vào đáy bảng và empty state theo loại mới đúng nghĩa.
-        const filteredByType = this._filterType === 'all' ? items : items.filter((i) => i.mediaType === this._filterType);
-        const ranked = filteredByType.filter((i) => i[this._sortMode] > 0).sort((a, b) => b[this._sortMode] - a[this._sortMode]); // `.filter()` đã trả mảng MỚI nên `.sort()` thẳng không đụng `items` trong cache
-        // SỬA 23/09/2026 — nơi 'statisTopList' của Settings > System > Pagination: BẬT -> phân trang TOÀN BỘ bảng
-        // xếp hạng (bỏ trần STATIS_TOP_LIST_LIMIT); TẮT -> y hệt cũ (chỉ Top STATIS_TOP_LIST_LIMIT, view đi thẳng).
+        // Pagination 'statisTopList' BẬT -> phân trang toàn bộ bảng xếp hạng; TẮT -> chỉ Top STATIS_TOP_LIST_LIMIT.
         const isPaginated = workflowPagination.getPlaceSettings('statisTopList').enabled; // event/workflow/pagination.js
-        const rankSource = isPaginated ? ranked : ranked.slice(0, STATIS_TOP_LIST_LIMIT);
+        const rankSource = rankStatisItems(items, this._filterType, this._sortMode, isPaginated ? null : STATIS_TOP_LIST_LIMIT); // core/statis-panel.js
         const view = workflowPagination.computePlaceView('statisTopList', rankSource, this._topListPageIndex);
         this._topListPageIndex = view.pageIndex; // giá trị đã kẹp
-
-        statisPanelBody.innerHTML = buildStatisPanelBodyHtml(grandTotal, byType, view.pageItems, this._sortMode, this._filterType, this._shareMode, t, view.startIndex, rankSource.length, workflowPagination.buildControlsHtml(view)); // core/statis-panel-ui.js
-        if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(statisPanelBody, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — nội dung dựng ĐỘNG, phải tự áp lại mỗi lần renderContent() chạy, CÙNG lý do renderList() của gameCatalog
+        const html = renderStatisPanelBodyHtml({ // components/statis-panel.js
+            grandTotal, byType,
+            topList: view.pageItems,
+            sortMode: this._sortMode, filterType: this._filterType, shareMode: this._shareMode,
+            rankOffset: view.startIndex,
+            rankedTotal: rankSource.length,
+            paginationHtml: workflowPagination.buildControlsHtml(view),
+            chart: computeStatisShareChart(byType, this._shareMode), // core/statis-panel.js
+        });
+        setStatisPanelBodyHtml(statisPanelBody, html); // core/statis-panel-ui.js
+        applyUiThemeToDom(statisPanelBody, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
         if (animate) this._startCountup();
     },
 
-    /** Đếm-lên các con số trong panel (Overview / Media types + thanh "Library played"; Top media KHÔNG còn — SỬA 21/09/2026 theo Giang)
-     * — MỚI 21/09/2026 (Giang yêu cầu animation number cho Overview và Statistics). Quét các phần tử
-     * `[data-countup]` core-ui đã gắn sẵn (core/statis-panel-ui.js: `data-countup` = số đích,
-     * `data-countup-fmt` = 'int' | 'time' | 'bar'), ép về khung 0 NGAY (đồng bộ ngay sau khi gán
-     * innerHTML -> không nhá số cuối trước khi đếm), rồi chạy vòng lặp dùng chung
-     * `workflowNumberCountup.run()`; giá trị mỗi khung do `computeCountupValue()` (core/number-countup.js). */
+    /** Đếm-lên các con số Overview / Media types + thanh "Library played" (Top media không đếm). Ép về khung 0 ngay (không
+     * nhá số cuối trước khi đếm) rồi chạy vòng lặp dùng chung workflowNumberCountup.run(). */
     _startCountup() {
-        const targets = [...statisPanelBody.querySelectorAll('[data-countup]')].map((el) => ({ el, finalValue: Number(el.dataset.countup), fmt: el.dataset.countupFmt }));
+        const targets = collectStatisCountupTargets(statisPanelBody); // core/statis-panel-ui.js
         if (targets.length === 0) return;
         const paintFrame = (step, steps) => {
             for (const { el, finalValue, fmt } of targets) {
-                const value = computeCountupValue(finalValue, step, steps, STATIS_COUNTUP_EASE_POWER, 0); // core
-                if (fmt === 'bar') el.style.width = `${value}%`;
-                else el.textContent = fmt === 'time' ? formatListenTime(value) : Number(value).toLocaleString(); // core/listen-stats.js
+                const value = computeCountupValue(finalValue, step, steps, STATIS_COUNTUP_EASE_POWER, 0); // core/number-countup.js
+                (STATIS_COUNTUP_PAINT_BY_FMT[fmt] || STATIS_COUNTUP_PAINT_BY_FMT.int)(el, value);
             }
         };
         paintFrame(0, STATIS_COUNTUP_STEPS);
-        workflowNumberCountup.run(STATIS_COUNTUP_TASK, { steps: STATIS_COUNTUP_STEPS, onFrame: paintFrame });
+        workflowNumberCountup.run(STATIS_COUNTUP_TASK, { steps: STATIS_COUNTUP_STEPS, onFrame: paintFrame }); // event/workflow/number-countup.js
     },
 
-    /** Chuẩn hoá 1 record (Song/Video/Photo) thành shape thuần Top list cần — tên hiển thị CÙNG công
-     * thức `buildAdaptedPlaylistCache()`/`buildSongPlaylistCache()` đã dùng (customName ưu tiên,
-     * fallback filename bỏ đuôi cho Video/Photo; Song dùng thẳng `tag.title` đã đọc ID3). */
+    /** 1 record -> item Top list; tên hiển thị cùng công thức playlist (Song: `tag.title`; Video/Photo: customName, không có
+     * thì filename bỏ đuôi). */
     _buildStatisItem(record, mediaType) {
         const name = mediaType === 'song' ? record.tag.title : (record.customName || stripFileExtension(record.filename)); // core/file-manager/video.js
         const stats = workflowListenStats.getStats(mediaType, record.key); // event/workflow/listen-stats.js — SỬA 06/10/2026: đúng loại media, {count, totalTime}
         return { key: record.key, mediaType, name, count: stats.count, totalTime: stats.totalTime };
     },
 
-    /** MỚI 23/09/2026 — ứng với 'statisPanel.topList.page.change' (thanh phân trang Top list). Vẽ lại từ
-     * `_cache`, không animate. @param {number} pageIndex */
+    /** 'statisPanel.topList.page.change'. @param {number} pageIndex */
     setTopListPage(pageIndex) {
         this._topListPageIndex = pageIndex;
         this.renderContent();
     },
 
-    /** Ứng với 'statisPanel.sort.click'. Đổi tiêu chí -> bảng xếp hạng khác hẳn, về trang 1. */
+    /** 'statisPanel.sort.click' — đổi tiêu chí, về trang 1. */
     setSortMode(mode) {
         if (this._sortMode === mode) return;
         this._sortMode = mode;
@@ -179,18 +123,18 @@ const workflowStatisPanel = {
         this.renderContent();
     },
 
-    /** Ứng với 'statisPanel.shareMode.click' — MỚI 21/09/2026: đổi cách chia % của Media types (lượt phát / thời gian). Vẽ lại từ `_cache`, không animate. */
+    /** 'statisPanel.shareMode.click' — chia % Media types theo lượt phát / thời gian. */
     setShareMode(mode) {
         if (this._shareMode === mode) return;
         this._shareMode = mode;
         this.renderContent();
     },
 
-    /** Ứng với 'statisPanel.filter.click'. */
+    /** 'statisPanel.filter.click' — đổi loại, về trang 1. */
     setFilterType(type) {
         if (this._filterType === type) return;
         this._filterType = type;
-        this._topListPageIndex = 0; // MỚI 23/09/2026 — danh sách nguồn đổi, về trang 1
+        this._topListPageIndex = 0;
         this.renderContent();
     },
 };

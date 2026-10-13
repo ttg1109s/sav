@@ -87,17 +87,10 @@ const workflowListenStats = {
     /** Ghi các key bẩn xuống meta NGAY (unload — event/tab.js; hoặc hết 4s throttle). Best-effort. */
     flush() {
         taskManager.kill(LISTEN_STATS_SAVE_TASK);
-        const dirtyKeys = appState.get('mediaStatsDirtyKeys');
+        const { mediaStatsDirtyKeys: dirtyKeys, mediaStatsMap: statsMap } = appState.get(['mediaStatsDirtyKeys', 'mediaStatsMap']);
         if (dirtyKeys.size === 0) return;
-        const statsMap = appState.get('mediaStatsMap');
-        const items = [...dirtyKeys]
-            .filter((statsKey) => statsMap.has(statsKey))
-            .map((statsKey) => {
-                const { type, key } = parseMediaStatsKey(statsKey); // core/listen-stats.js
-                const source = statsMap.get(statsKey);
-                const stats = { count: source.count, totalTime: source.totalTime }; // chốt giá trị NGAY lúc flush
-                return { type, key, mutate: (meta) => ({ ...meta, stats }) };
-            });
+        const items = buildMediaStatsFlushEntries(dirtyKeys, statsMap) // core/listen-stats.js — chốt giá trị ngay lúc flush
+            .map(({ type, key, stats }) => ({ type, key, mutate: (meta) => ({ ...meta, stats }) })); // hàm sửa meta cho service/db.js
         appState.set('mediaStatsDirtyKeys', new Set());
         console.log(`writer: "workflowListenStats.flush", page: "mediaStatsDirtyKeys", content: "ghi ${items.length} media"`);
         updateMediaMetaBatch(items).catch((e) => console.warn('[listen-stats] Lưu thống kê lỗi:', e)); // service/db.js
@@ -136,21 +129,17 @@ const workflowListenStats = {
      * (resolvePlayingMediaType) — key trùng giữa các loại không còn bị cộng nhầm. */
     _tick() {
         const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-        let delta = (now - appState.get('_listenLastTick')) / 1000;
+        const s = appState.get(['_listenLastTick', 'pendingListenSeconds', 'currentKey', 'isVideoPlayerMode', 'isPhotoPlayerMode']);
+        const tick = computeListenTick(now, s._listenLastTick, s.pendingListenSeconds); // core/listen-stats.js
         appState.set('_listenLastTick', now, { skipCheck: true });
-        if (!(delta > 0)) return;
-        if (delta > 4) delta = 4; // tab bị treo/throttle nền rồi thức — không cộng vọt
-        appState.set('pendingListenSeconds', appState.get('pendingListenSeconds') + delta, { skipCheck: true });
-        const currentKey = appState.get('currentKey');
-        const playingType = resolvePlayingMediaType(appState.get('isVideoPlayerMode'), appState.get('isPhotoPlayerMode')); // core/playlist/render.js
-        if (currentKey) this.addListenTime(playingType, currentKey, delta);
-        if (appState.get('pendingListenSeconds') < 5) return;
-        const toFlush = appState.get('pendingListenSeconds');
+        if (!tick.isCounted) return;
+        appState.set('pendingListenSeconds', tick.pendingSeconds, { skipCheck: true });
+        if (s.currentKey) this.addListenTime(resolvePlayingMediaType(s.isVideoPlayerMode, s.isPhotoPlayerMode), s.currentKey, tick.delta); // core/playlist/render.js
+        if (!tick.shouldFlush) return;
         appState.set('pendingListenSeconds', 0, { skipCheck: true });
-        // Best-effort — connection IndexedDB có thể bị hệ điều hành đóng lúc tab ẩn; luôn .catch() để không thành
-        // "unhandled promise rejection" lặp mỗi giây (FIX log 9->10 của bản cũ).
+        // Best-effort — IndexedDB có thể bị hệ điều hành đóng lúc tab ẩn; luôn .catch() để không lặp "unhandled rejection" mỗi giây.
         getMeta('totalListenSeconds')
-            .then((v) => setMeta('totalListenSeconds', (v || 0) + toFlush))
+            .then((v) => setMeta('totalListenSeconds', addTotalListenSeconds(v, tick.pendingSeconds))) // core/listen-stats.js
             .catch((err) => console.warn('[listen-stats] Không ghi được totalListenSeconds (best-effort, bỏ qua):', err));
     },
 };
