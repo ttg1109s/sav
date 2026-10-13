@@ -321,7 +321,7 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'playerDisplaySettings.motion.showing.label': 'Showing',
     'playerDisplaySettings.motion.none': 'None',
     // MỚI (phản hồi Giang — icon (i) cạnh tiêu đề "Motion", giải thích ngắn gọn các lựa chọn) — xem
-    // core/info-icon-ui.js::infoIconHtml() + components/settings/player-display-settings.js.
+    // components/info-icon.js::renderInfoIconHtml() + components/settings/player-display-settings.js.
     // LANG_EN_KEYS là ngôn ngữ gốc (xem lang/lang.js) nên viết tiếng Anh, cùng ngôn ngữ với mọi
     // key khác trong file này.
     'playerDisplaySettings.motion.infoText': 'Next/Previous Transition: the effect played when switching to the next/previous track. Point Move: continuous drift/movement of the image. Showing: combines Point Move and React Beat (pulses with the music) into one choice (Video only — Photo has no audio to react to). Pick "None" to turn an effect off.',
