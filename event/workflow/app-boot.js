@@ -20,6 +20,7 @@ const workflowAppBoot = {
         // đầu ở bố cục xếp chồng — event/workflow/player-controls.js. Đồng bộ, không phụ thuộc gì bên dưới.
         workflowPlayerControls.offstageVisualStageOnBoot();
         await loadConfig();
+        workflowAutoSwitchVisual.syncLockedControls(); // event/workflow/auto-switch-visual.js — khoá đổi hiệu ứng tay theo Auto-Switch đã lưu
         // SỬA (28/09/2026, Phase 3 dọn visualizer) — kích hoạt style đã lưu (nhãn icon, vizConfig, scene WebGL nếu cần):
         // trước đây loadConfig() (core) tự gọi updateTypeUI() (core cũ, đã tách về Workflow).
         workflowVisualizerRender.activateCurrentStyle(); // event/workflow/visualizer-render.js

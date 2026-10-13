@@ -16,6 +16,7 @@
  *   - `onMediaChanged()` — 3 player khi currentKey đổi.
  *   - `killAllTasks()` — event/workflow/playlist.js, event/workflow/file-manager-storage.js (xoá media đang phát/Clear all).
  *   - `startBranch()` — các setter Settings ngay dưới.
+ *   - `syncLockedControls()` — event/workflow/app-boot.js (sau loadConfig()).
  *
  * Mọi rẽ nhánh THEO TRẠNG THÁI viết bằng `VirtualMachineState.run()` (khai báo đủ mọi trường hợp — trường hợp "không làm
  * gì" có rule no-op có chủ đích); điều kiện nhiều vế tính ở core (`resolveAutoSwitchSyncPhase()`). Còn lại chỉ guard
@@ -35,10 +36,17 @@ const workflowAutoSwitchVisual = {
     setEnabled(checked) {
         setAutoSwitchVisualEnabled(checked); // core/auto-switch-visual.js
         saveConfig();
-        updateCycleModeButtonState(); // làm mờ/bỏ mờ #btn-cycle-mode (click chọn effect bị chặn khi bật)
-        updateVisualizerTypeSelectState();
+        this.syncLockedControls();
         appState.set('_autoSwitchLastMediaKey', appState.get('currentKey')); // perMedia: media đang phát không tính là "mới"
         this.startBranch();
+    },
+
+    /** Làm mờ/khoá nút "Đổi hiệu ứng" + select "Kiểu hiệu ứng" theo Auto-Switch bật/tắt — khi bật/tắt và lúc boot
+     * (event/workflow/app-boot.js, sau loadConfig()). */
+    syncLockedControls() {
+        const enabled = appConfigViz.getAll().autoSwitchVisualEnabled;
+        updateCycleModeButtonState(enabled); // core/auto-switch-visual.js
+        updateVisualizerTypeSelectState(enabled);
     },
 
     setMode(value) {
@@ -208,10 +216,11 @@ const workflowAutoSwitchVisual = {
 
     /** Media đang phát thật (song / video / photo theo chế độ player hiện tại). */
     _isMediaPlaying() {
-        const playerMode = appState.get('isPhotoPlayerMode') ? 'photo' : (appState.get('isVideoPlayerMode') ? 'video' : 'song');
+        const { isPhotoPlayerMode, isVideoPlayerMode, photoPlayerPaused } = appState.get(['isPhotoPlayerMode', 'isVideoPlayerMode', 'photoPlayerPaused']);
+        const playerMode = isPhotoPlayerMode ? 'photo' : (isVideoPlayerMode ? 'video' : 'song');
         let playing = false;
         VirtualMachineState.run([
-            { state: playerMode, operation: '===', value: 'photo', callback: () => { playing = !appState.get('photoPlayerPaused'); } },
+            { state: playerMode, operation: '===', value: 'photo', callback: () => { playing = !photoPlayerPaused; } },
             { state: playerMode, operation: '===', value: 'video', callback: () => { playing = !bgVideoElement.paused; } },
             { state: playerMode, operation: '===', value: 'song', callback: () => { playing = !audioPlayer.paused; } },
         ]);
@@ -296,9 +305,8 @@ const workflowAutoSwitchVisual = {
      * `isBackgroundSuspended`: media mới bắt đầu thì đổi luôn, lúc quay lại app đã đúng hiệu ứng mới. */
     onMediaChanged() {
         const cfg = appConfigViz.getAll();
-        const key = appState.get('currentKey');
+        const { currentKey: key, _autoSwitchLastMediaKey: lastKey } = appState.get(['currentKey', '_autoSwitchLastMediaKey']);
         if (!key) return;
-        const lastKey = appState.get('_autoSwitchLastMediaKey');
         appState.set('_autoSwitchLastMediaKey', key);
         if (!cfg.autoSwitchVisualEnabled || cfg.autoSwitchVisualTimeMode !== 'perMedia') return;
         if (lastKey === null || lastKey === key) return;
