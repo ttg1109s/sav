@@ -50,15 +50,10 @@ const workflowUiTheme = {
         this.syncStatusBarColor();
     },
 
-    /** MỚI (21/09/2026, Giang báo "nav màu không đồng bộ" — nút bottom nav vẫn xanh sky-600 / xám slate-400 của Light dù đang
-     * ở Morphin) — NGUYÊN NHÂN: `setAppPanelNavActiveTab()` (core/app-panel-nav.js) tô màu nút nav bằng CLASS TAILWIND gán
-     * TRỰC TIẾP (không phải `data-uitk`) nên `applyUiThemeToDom()` không quét tới, và hàm đó CHỈ chạy khi bấm chuyển tab/đóng
-     * overlay — KHÔNG chạy lại khi theme đổi; riêng lúc boot còn tệ hơn: `app-boot.js` gọi nó NGAY SAU
-     * `loadPersistedUiThemeOnBoot()` (async, không await) nên lúc đó theme cache còn là Light. Tô lại nav MỖI lần theme
-     * đổi/khôi phục, đọc tab đang active từ appState (Workflow được đọc appState, Rule 2 chỉ cấm ở core). */
+    /** Tô lại nút bottom nav theo theme mới — nav tô bằng class Tailwind gán trực tiếp (không `data-uitk`) nên
+     * `applyUiThemeToDom()` không quét tới. */
     _retintAppBottomNav() {
-        if (typeof setAppPanelNavActiveTab !== 'function') return; // core/app-panel-nav.js
-        setAppPanelNavActiveTab(appState.get('appPanelActiveTab'));
+        workflowAppPanelNav.paintActiveTab(appState.get('appPanelActiveTab')); // event/workflow/app-panel-nav.js
     },
 
     /** MỚI (21/09/2026, Giang báo "status bar màu không đồng bộ") — tô màu status bar iOS cho khớp NỀN THẬT của Morphin (xem

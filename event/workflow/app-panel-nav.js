@@ -1,79 +1,55 @@
 /**
- * event/workflow/app-panel-nav.js — "THẰNG THỰC THI CUỐI" của router "appPanelNav". Model: Media =
- * Home Screen mặc định (đứng dưới CÙNG, LUÔN hiện); Folder/Storage/Setting = overlay Generic
- * Drawer (singleton core/generic-drawer.js) đè lên; Game/Statis = overlay full-screen RIÊNG (ngang
- * cấp nhau, KHÔNG dùng Generic Drawer). Photo đã hợp nhất vào Playlist làm 1 Source (xem
- * event/workflow/playlist.js::switchSource()) — không còn tab/overlay riêng ở đây. Đóng bất
- * kỳ overlay nào đều gọi lại `activateMedia()` (liên tuyến domain, tái dùng THẲNG, mỗi cụm không
- * tự viết lại logic "quay về Media").
+ * event/workflow/app-panel-nav.js — Workflow của router "appPanelNav". Media = Home Screen (luôn ở dưới cùng);
+ * Folder/Storage/Setting = overlay Generic Drawer; Game/Statis = overlay full-screen riêng. Đóng overlay nào cũng gọi
+ * lại `activateMedia()`.
  *
- * `setActiveTab(tab)`/`activateMedia()` DÙNG CHUNG, public cho MỌI cụm khác gọi tới
- * (workflowAppSettings, workflowPlaceholderPanels, file-manager-folder-browser.js,
- * file-manager-storage.js) — không phải state nghiệp vụ riêng của appPanelNav.
+ * `setActiveTab()`/`activateMedia()`/`paintActiveTab()` dùng chung cho các cụm khác (workflowAppSettings,
+ * workflowPlaceholderPanels, Folder Browser, Storage, workflowUiTheme, workflowAppBoot).
  *
- * `openGame()` [SỬA 02/09/2026] gọi `workflowGameCatalog.openPanel()` (event/workflow/
- * game-catalog.js) — panel Game giờ có nghiệp vụ thật (danh sách card, xem docstring file đó).
- *
- * `openStatis()` [SỬA — Giang yêu cầu "tích hợp 1+2+3"] gọi `workflowStatisPanel.openPanel()`
- * (event/workflow/statis-panel.js) — CÙNG lý do/khuôn `openGame()` ngay trên, panel Statis giờ có
- * nghiệp vụ thật (stat-grid + so sánh + Top list, xem docstring file đó).
- *
- * NẠP SAU: core/app-panel-nav.js (setAppPanelNavActiveTab), core/placeholder-panel.js
- * (showPlaceholderPanel/hidePlaceholderPanel), core/generic-drawer.js,
- * event/workflow/generic-drawer-helpers.js (closeFully), event/workflow/
- * file-manager-folder-browser.js (openList), event/workflow/file-manager-storage.js (openPanel).
+ * NẠP SAU: core/app-panel-nav.js, core/ui-theme/registry.js + apply-ui.js (resolveUiThemeClass, _activeUiThemeKeyList).
+ * Các Workflow đích (game-catalog, statis-panel...) nạp sau file này — chỉ gọi lúc runtime nên không cần đúng thứ tự.
  * NẠP TRƯỚC: event/router/app-panel-nav.js.
  */
 const workflowAppPanelNav = {
 
-    /** Tô sáng đúng tab + ghi appState — DÙNG CHUNG, mọi cụm mở overlay gọi hàm này thay vì tự
-     * appState.set() lấy lệ (tránh lệch nếu sau này logic tô sáng cần thêm bước). */
+    /** Tô sáng đúng tab + ghi appState — mọi cụm mở overlay gọi hàm này. */
     setActiveTab(tab) {
-        setAppPanelNavActiveTab(tab); // core/app-panel-nav.js
+        this.paintActiveTab(tab);
         appState.set('appPanelActiveTab', tab);
         console.log(`writer: "workflowAppPanelNav.setActiveTab", page: "appPanelActiveTab", content: "${tab}"`);
     },
 
-    /** Đóng MỌI overlay đang mở (Generic Drawer dùng chung cho Folder/Storage/Setting, HOẶC 1
-     * trong 2 panel full-screen riêng Game/Statis) rồi về Media — dùng CHUNG bởi mọi cụm đóng
-     * overlay (xem docstring đầu file) VÀ bởi chính `openMedia()` ngay dưới (bấm tab Media trong
-     * lúc đang có overlay khác mở). */
+    /** Chỉ tô màu nút nav theo theme đang chạy (không ghi state) — dùng thêm khi theme đổi/khôi phục và lúc boot. */
+    paintActiveTab(tab) {
+        const activeCls = resolveUiThemeClass(_activeUiThemeKeyList, 'accentText'); // core/ui-theme/registry.js
+        const inactiveCls = resolveUiThemeClass(_activeUiThemeKeyList, 'navInactiveText');
+        setAppPanelNavActiveTab(tab, activeCls, inactiveCls); // core/app-panel-nav.js
+    },
+
+    /** Về Media (dùng chung bởi mọi cụm đóng overlay). */
     activateMedia() {
         this.setActiveTab('media');
     },
 
-    /** Ứng với 'appPanelNav.folder.click' — liên tuyến domain (TH2), tái dùng THẲNG hàm ĐÃ CÓ,
-     * KHÔNG viết lại (Folder browser vốn đã hoạt động đúng, chỉ đổi NƠI GỌI, xem event/workflow/
-     * file-manager-storage.js đợt trước làm mẫu cùng kiểu). */
+    /** 'appPanelNav.folder.click' */
     openFolder() {
         this.setActiveTab('folder');
         workflowFileManagerFolderBrowser.openList(); // event/workflow/file-manager-folder-browser.js
     },
 
-    /** Ứng với 'appPanelNav.storage.click' — Storage ĐÃ migrate sang Generic Drawer (xem
-     * event/workflow/file-manager-storage.js), gọi THẲNG y hệt Folder. */
+    /** 'appPanelNav.storage.click' */
     openStorage() {
         this.setActiveTab('storage');
         workflowFileManagerStorage.openPanel(); // event/workflow/file-manager-storage.js
     },
 
-    /** Ứng với 'appPanelNav.game.click' — [SỬA — 02/09/2026, Game Panel app-store list] KHÔNG còn
-     * placeholder — liên tuyến domain, tái dùng THẲNG `workflowGameCatalog.openPanel()`
-     * (event/workflow/game-catalog.js, tự lo render list + hiện panel). LƯU Ý nạp: file đó khai báo
-     * SAU file này trong index.html (đặt cạnh cụm "gameplay" nó phụ thuộc) — vẫn AN TOÀN vì đây là
-     * lời gọi lúc RUNTIME (bấm tab Game, sau khi toàn bộ script đã nạp xong), không phải lúc parse
-     * file, nên không cần đúng thứ tự khai báo giữa 2 file này. */
+    /** 'appPanelNav.game.click' */
     openGame() {
         this.setActiveTab('game');
         workflowGameCatalog.openPanel(); // event/workflow/game-catalog.js
     },
 
-    /** Ứng với 'appPanelNav.statis.click' — [SỬA — Giang yêu cầu "tích hợp 1+2+3"] KHÔNG còn
-     * placeholder — liên tuyến domain, tái dùng THẲNG `workflowStatisPanel.openPanel()`
-     * (event/workflow/statis-panel.js, tự lo render nội dung + hiện panel, CÙNG khuôn openGame()
-     * ngay trên). LƯU Ý nạp: file đó khai báo SAU file này trong index.html — vẫn AN TOÀN vì đây
-     * là lời gọi lúc RUNTIME (bấm tab Statis, sau khi toàn bộ script đã nạp xong), không phải lúc
-     * parse file (cùng lý do openGame() đã ghi chú). */
+    /** 'appPanelNav.statis.click' */
     openStatis() {
         this.setActiveTab('statis');
         workflowStatisPanel.openPanel(); // event/workflow/statis-panel.js
