@@ -45,7 +45,7 @@ function renderPlaylistSortPanelBody(source, statField) {
                                  workflowPlaylist._syncSortStatDependents()). -->
                             <div class="flex items-center gap-1.5 min-w-0">
                                 <span class="text-sm font-medium truncate" data-i18n="playlistSortPanel.nameMode.label">${t('playlistSortPanel.nameMode.label')}</span>
-                                <span data-sort-stat-info class="${statField === 'none' ? 'hidden ' : ''}flex shrink-0">${infoIconHtml(t('playlistSortPanel.statField.hint'))}</span>
+                                <span data-sort-stat-info class="${statField === 'none' ? 'hidden ' : ''}flex shrink-0">${renderInfoIconHtml(t('playlistSortPanel.statField.hint'))}</span>
                             </div>
                             <select id="setting-playlist-sort-name" class="rounded-lg px-2 py-1.5 text-xs outline-none w-36 text-right" data-uitk="inputBg inputBorder inputText">
                                 <option value="az" data-i18n="settingsPlaylistBg.sortMode.az">${t('settingsPlaylistBg.sortMode.az')}</option>

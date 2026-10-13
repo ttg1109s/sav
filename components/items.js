@@ -5,7 +5,7 @@
  * Workflow nối 2 thứ.
  *
  * NẠP SAU: core/modal-choice-ui.js (escapeHtml), core/ui-theme/icon-svg-ui.js (iconSvg), lang/lang.js (t/tFormat),
- * components/generic-drawer.js (buildDrawerHeaderHtml), core/info-icon-ui.js (infoIconHtml), core/about-stats.js (formatBytes).
+ * components/generic-drawer.js (buildDrawerHeaderHtml), components/info-icon.js (renderInfoIconHtml), core/about-stats.js (formatBytes).
  */
 
 /** Hình thư mục cho ô 56x56 (w-14 h-14) của folder tile, toạ độ px: tab bo tròn trên-trái (y 6..13), thân bo góc 6px
@@ -139,7 +139,7 @@ function buildFolderPickerHeaderActionsHtml(typeOptions, multiSelect, confirmCou
  * @returns {string}
  */
 function buildFolderBrowserListHeaderHtml() {
-    return buildDrawerHeaderHtml({ title: t('fileManager.folderBrowser.listTitle'), titleSuffixHtml: infoIconHtml(t('fileManager.folderBrowser.listInfo')) }); // components/generic-drawer.js
+    return buildDrawerHeaderHtml({ title: t('fileManager.folderBrowser.listTitle'), titleSuffixHtml: renderInfoIconHtml(t('fileManager.folderBrowser.listInfo')) }); // components/generic-drawer.js
 }
 
 /**
