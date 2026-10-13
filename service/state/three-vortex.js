@@ -42,4 +42,4 @@
 
         // TUNNEL_DEPTH — KHÔNG khai lại ở đây, bản THẬT ở core/webgl/three-vortex.js (giá trị cố
         // định, không đổi theo config). barsRingCount/barsPerRing/tunnelRingCount giờ đọc thẳng từ
-        // customEffect.vortex (core/custom-effect.js::getEffectConfig()), không còn hằng số module.
+        // customEffect.vortex (core/custom-effect.js::resolveEffectConfig()), không còn hằng số module.
