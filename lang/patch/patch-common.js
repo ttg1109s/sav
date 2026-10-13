@@ -144,7 +144,6 @@ const LANG_PATCH_COMMON = {
     'common.validate.unknownFormat': 'Could not determine the format of file "{filename}". Only {typeLabel} is accepted.',
     'common.validate.typeLabel.audio': 'music files (mp3, wav, ogg, m4a, aac, flac)',
     'common.validate.typeLabel.image': 'PNG, JPG, or WEBP images',
-    'common.validate.typeLabel.video': 'MP4, WEBM, OGG, or MOV videos',
     // MỚI (06/10/2026, Giang chốt "file <= 500MB mới được upload") — core/upload-validation.js::validateMediaFileSize()
     'common.validate.fileTooLarge': 'File is too large ({sizeMb} MB). The limit is {limitMb} MB per file.',
     // MỚI (06/10/2026, Giang chốt "media do app tự tạo chặn 500MB") — ghi âm, cắt đoạn (Subtitle editor), xuất video
