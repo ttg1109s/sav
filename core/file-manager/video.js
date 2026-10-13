@@ -121,15 +121,9 @@ async function replaceVideoMedia(videoKey, media) {
 }
 
 /**
- * SỬA (07/09/2026, Giang chỉ ra "đằng nào cũng sửa, đổi tên luôn đỡ nhầm") — hàm `deleteVideo()`
- * (tự dọn cascade folder rồi mới xoá record) ĐÃ XOÁ — không còn nơi nào gọi (kiểm tra lại toàn
- * project). Lý do xoá: Workflow (`event/workflow/playlist.js::MEDIA_DELETE_ACCESSOR`, dùng bởi
- * `deleteMediaFromActionMenu()`/`deleteSelectedMedia()`, VÀ `event/workflow/file-manager-storage.js::
- * executeDeleteBroken()`) giờ LUÔN tự gọi `removeSongFromAllFolders()` TRƯỚC khi xoá — ĐỒNG NHẤT
- * cho cả Song/Video/Photo — nên registry đó dùng THẲNG `deleteVideoRecord()` (service/db.js, CRUD
- * thô, KHÔNG cascade) thay vì hàm này, đối xứng với `deleteSongRecord()`/`deleteImageRecord()` (2
- * hàm đó CŨNG thuần CRUD, không cascade) — tránh 3 entry trong CÙNG 1 bảng có 3 "tầng" hành vi khác
- * nhau (2 thuần CRUD, 1 tự cascade) gây nhầm lẫn khi đọc code.
+ * Không có hàm xoá Video kèm dọn folder ở đây: Workflow tự gỡ item khỏi mọi folder (`workflowFolder.removeItemFromAllFolders()`
+ * / `removeKeysFromAllFolders()`, event/workflow/folder.js) TRƯỚC khi xoá record bằng `deleteMediaRecord()` (service/db.js) —
+ * đồng nhất cho Song/Video/Photo (event/workflow/playlist.js xoá 1 / nhiều, event/workflow/file-manager-storage.js xoá file lỗi).
  */
 
 // XOÁ (02/10/2026, Giang duyệt) — `listVideos()` (core TỰ ĐỌC DB — vi phạm Rule 3b; đọc MỖI record 1 transaction song

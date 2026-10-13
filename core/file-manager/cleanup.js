@@ -51,7 +51,7 @@ function getRegisteredCleanupChecks() {
  * MỒ CÔI #1 — `record.folder[folderId]` còn sót trên bài hát SAU KHI folder đã bị xoá, cho những
  * bài đã TOMBSTONE khỏi folder TRƯỚC lúc folder bị xoá (deleteFolder() chỉ dọn được bài đang
  * ACTIVE tại thời điểm xoá — xem giải thích đầy đủ ở core/file-manager/folder.js dòng 40-52,
- * "resolveFolderId() — SỬA 03/07/2026 đợt 5"). Dùng `meta.deletedFolderIds` (danh sách ĐẦY ĐỦ mọi
+ * "computeUniqueFolderId()"). Dùng `meta.deletedFolderIds` (danh sách ĐẦY ĐỦ mọi
  * folderId từng bị xoá) để biết chính xác cần dọn field nào trên mỗi bài.
  * SỬA (06/10/2026, plan-media-db-split.md — setSongRecord đã xoá + Rule 3b): KHÔNG còn tự đọc DB và KHÔNG còn đăng ký
  * vào registry (registry chạy hàm không tham số). Workflow (event/workflow/file-manager-cleanup.js::run()) đọc sẵn meta
