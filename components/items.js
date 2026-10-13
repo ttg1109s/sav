@@ -68,7 +68,7 @@
  * chồng GIỮA icon thư mục (KHÔNG PHẢI badge góc nhỏ như bản Batch 4 cũ, đã bỏ khi viết lại Folder
  * Browser ở Batch 5 mục 6e) — `type: null`/chưa xác định giữ NGUYÊN icon thư mục mặc định, không
  * chồng gì thêm. DÙNG CHUNG cho cả Folder Browser (event/workflow/file-manager-folder-browser.js)
- * lẫn "Add to Folder" picker (event/workflow/playlist.js) — cả 2 đều gọi `listFolders()` (record
+ * lẫn "Add to Folder" picker (event/workflow/playlist.js) — cả 2 đều gọi `workflowFolder.list()` (record
  * THÔ, có sẵn field `type`), không cần đổi gì ở 2 nơi gọi.
  * @param {{id: string, name: string, type?: 'song'|'video'|'photo'|null}} folder
  */
@@ -202,6 +202,50 @@ function buildAddFolderTileHtml() {
  */
 function buildFolderGridWrapperHtml(innerHtml) {
     return `<div class="gap-4 p-5" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr)); justify-items: center;">${innerHtml}</div>`;
+}
+
+/**
+ * Thân Drawer Folder Browser (màn List): lưới tile + ô "Tạo mới" + hàng phân trang `#folder-browser-pagination`
+ * (core/pagination-ui.js::wirePaginationControls() tra id này). Nơi gọi:
+ * event/workflow/file-manager-folder-browser.js::_renderList().
+ * @param {string} itemsHtml - các tile (renderItemList()) @param {string} paginationHtml - workflowPagination.buildControlsHtml()
+ * @returns {string}
+ */
+function buildFolderBrowserListBodyHtml(itemsHtml, paginationHtml) {
+    return buildFolderGridWrapperHtml(`${itemsHtml}${buildAddFolderTileHtml()}`) + `<div id="folder-browser-pagination" class="px-3 pb-3">${paginationHtml}</div>`;
+}
+
+/**
+ * Thân Drawer picker "Thêm vào thư mục" (dùng chung Playlist + Visual Background): danh sách rỗng, không có ô "Tạo mới" và
+ * nơi gọi có câu báo rỗng -> hiện câu đó; còn lại -> lưới tile (+ ô "Tạo mới" nếu cho tạo).
+ * Nơi gọi: event/workflow/playlist.js::_renderFolderPickerGrid().
+ * @param {string} itemsHtml @param {boolean} showAddTile @param {string} emptyMsg - '' = không có câu báo rỗng
+ * @param {boolean} isEmpty - danh sách folder rỗng
+ * @returns {string}
+ */
+function buildFolderPickerBodyHtml(itemsHtml, showAddTile, emptyMsg, isEmpty) {
+    const addTileHtml = showAddTile ? buildAddFolderTileHtml() : '';
+    return (isEmpty && !showAddTile && emptyMsg)
+        ? `<p class="text-sm text-center py-10 px-6" data-uitk="textSecondary">${emptyMsg}</p>`
+        : buildFolderGridWrapperHtml(`${itemsHtml}${addTileHtml}`);
+}
+
+/**
+ * Phần nút bên phải header picker "Thêm vào thư mục": dropdown đổi loại (`typeOptions`, Visual Background) + nút "Chọn (N)"
+ * (multi-select) — cả 2 tuỳ chọn, không có thì chuỗi rỗng. Id cố định (core/file-manager/folder-picker-ui.js gắn sự kiện).
+ * Nơi gọi: event/workflow/playlist.js::_buildFolderPickerHeaderHtml().
+ * @param {{current: 'video'|'photo'}|null} typeOptions @param {boolean} multiSelect @param {number} confirmCount
+ * @returns {string}
+ */
+function buildFolderPickerHeaderActionsHtml(typeOptions, multiSelect, confirmCount) {
+    const typeDropdownHtml = typeOptions ? `
+            <select id="playlist-folder-picker-type" class="rounded-lg px-2 py-1 text-xs outline-none" data-uitk="inputBg inputBorder inputText">
+                <option value="video" ${typeOptions.current === 'video' ? 'selected' : ''}>${t('visualBgSettingsDrawer.folderPicker.typeVideo')}</option>
+                <option value="photo" ${typeOptions.current === 'photo' ? 'selected' : ''}>${t('visualBgSettingsDrawer.folderPicker.typePhoto')}</option>
+            </select>` : '';
+    const confirmBtnHtml = multiSelect ? `
+            <button type="button" id="playlist-folder-picker-confirm" class="text-xs font-semibold px-1 disabled:opacity-40 disabled:cursor-not-allowed" data-uitk="accentText" ${confirmCount === 0 ? 'disabled' : ''}>${confirmCount === 0 ? t('visualBgSettingsDrawer.picker.confirmEmpty') : tFormat('visualBgSettingsDrawer.picker.confirm', { count: confirmCount })}</button>` : '';
+    return `<div class="flex items-center gap-2">${typeDropdownHtml}${confirmBtnHtml}</div>`;
 }
 
 /**
