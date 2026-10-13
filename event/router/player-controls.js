@@ -320,7 +320,7 @@ const routerPlayerControls = (() => {
                         workflowVideoPlayer.handleVideoSeekCommit(value, fromGesture);
                     } },
                     { state: mode, operation: '===', value: 'song', callback: () => {
-                        workflowPlayerControls.handleSongSeekCommit(value); // event/workflow/player-controls.js — cổng seek (SỬA 21/09/2026, thay handleProgressBarSeekCommit() core)
+                        workflowPlayerControls.handleSongSeekCommit(value); // event/workflow/player-controls.js — cổng seek
                     } },
                 ]);
                 break;

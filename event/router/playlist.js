@@ -1,45 +1,14 @@
 /**
- * event/router/playlist.js — Router tên "playlist", tự đăng ký với eventBus lúc nạp.
+ * event/router/playlist.js — Router "playlist": màn Playlist (menu 3 chấm, modal lỗi phát/sửa thông tin, nạp media,
+ * sắp xếp/kiểu xem/tìm kiếm, chọn nhiều, picker "Thêm vào thư mục"). Tự đăng ký với eventBus lúc nạp.
  *
- * PHẠM VI: gộp CẢ 3 file gốc của "module Playlist" (actions.js, loader.js, main.js) vào CÙNG 1
- * router — đúng tinh thần "ranh giới nhóm theo CHỨC NĂNG" của plan.md (không tách theo tên file
- * core cũ). Cả 3 đều thuộc 1 khái niệm chức năng "màn hình Playlist": hành động trên 1 bài (menu
- * 3 chấm, modal lỗi phát/sửa/info), nạp nhạc mới, sắp xếp/kiểu xem/tìm kiếm.
+ * Rẽ nhánh: nghiệp vụ chỉ cần 1 hàm core -> gọi thẳng; cần nhiều bước/shield/modal -> giao Workflow. Rẽ theo appState
+ * (activeMediaSource, selectionMode) đi qua VirtualMachineState.
  *
- * QUY TẮC RẼ NHÁNH (giống router/storage.js):
- *   - Nghiệp vụ chỉ cần ĐÚNG 1 HÀM CORE -> router tự gọi thẳng hàm đó, BỎ QUA workflow hoàn toàn.
- *   - Nghiệp vụ cần >1 hàm core (hoặc cần phối hợp shield/modal) -> router giao cho
- *     workflowPlaylist xử lý (chỉ 'playlist.playbackError.delete', 'playlist.editCover.pickFromLibrary',
- *     'playlist.editCover.pickFromVideoThumb' (+ 2 message picker video), 'playlist.edit.save' rơi vào nhánh
- *     này — xem workflow/playlist.js).
+ * State của các modal (songActionMenuKey, playbackErrorKey, songEditCurrentKey, songEditPendingCover…) sống trong
+ * `playlistStore` (event/store.js, tạo ở core/playlist/actions.js) — Router không giữ state riêng.
  *
- * NGOẠI LỆ ĐÃ CHỐT: handleFilePickerChange()/handleFolderPickerChange() (nạp nhạc mới) GIỮ
- * NGUYÊN là hàm core "lớn" có sẵn withLoadingShield + nhiều alertModal LỒNG SẴN bên trong (giống
- * `workflowPlayer.playMedia()`) — router gọi THẲNG, KHÔNG tách shield/modal ra
- * workflow riêng. Lý do: logic quá phức tạp (jsmediatags đọc tag, timeout an toàn nhiều lớp, vòng
- * lặp xử lý từng file) để tách an toàn mà không viết lại gần như toàn bộ — rủi ro cao hơn lợi ích.
- *
- * KHÔNG đưa vào /event/ (không phải "lượt bấm người dùng", chỉ là chi tiết triển khai nội bộ của
- * 1 hàm core dùng 1 lần rồi tự gỡ): listener 'error' trên từng <img> cụ thể (attachCoverFallback,
- * render.js) và 2 listener 'loadedmetadata'/'error' trên 1 <audio> tạm (readAudioDuration,
- * loader.js) — không có message nghiệp vụ nào tương ứng, đưa vào sẽ phá vỡ ý nghĩa "router xử
- * lý nghiệp vụ" thành "router xử lý sự kiện DOM thô".
- *
- * STATE CONTEXT: TRƯỚC ĐÂY (mẫu storage) state context sống Ở ROUTER. Ở cụm playlist này, sau khi
- * cân nhắc, đã CHỐT khác đi: 5 field state của các modal (songActionMenuKey, playbackErrorKey,
- * songEditCurrentKey, songEditPendingCover, songEditPendingCoverPreviewUrl — `songInfoCurrentKey`
- * ĐÃ XOÁ cùng #song-info-modal, 10/07/2026, gộp vào tab đầu song-edit-modal)
- * SỐNG TRONG `playlistStore` (event/store.js), được CÁC HÀM CORE trong core/playlist/actions.js trực
- * tiếp đọc/ghi — KHÔNG sống ở đây. Lý do: đây là state "modal nào đang mở, đang hiện bài gì" —
- * gắn chặt với vòng đời UI của modal (mở/đóng/đổi tab/đổi preview), không phải "hồ sơ vụ việc
- * giữa 2 lượt nghiệp vụ" như lastScanResults ở storage. Router playlist do đó KHÔNG giữ state
- * riêng nào của mình — mọi msg.type ở đây chỉ gọi thẳng hoặc giao workflow, không có nhánh
- * if (state...) nào dựa trên context riêng của router.
- *
- * NẠP SAU: event/bus.js, event/store.js (playlistStore đã được new ở core/playlist/actions.js, KHÔNG
- * phải ở file này), core/playlist/actions.js + core/playlist/loader.js + core/playlist/main.js (cần toàn bộ hàm
- * core), event/workflow/playlist.js (cần workflowPlaylist tồn tại), event/workflow/player.js (cần
- * `workflowPlayer.playMedia()` — MỚI, plan-playmedia-reorg.md, thay `window.playSong()` cũ).
+ * NẠP SAU: event/bus.js, core/playlist/{actions,loader,main}.js, event/workflow/{playlist,player}.js.
  * NẠP TRƯỚC: event/listener/playlist.js.
  */
 const routerPlaylist = (() => {
@@ -50,25 +19,17 @@ const routerPlaylist = (() => {
 
             // ===================== Menu 3 chấm =====================
             case 'playlist.actionOverlay.click': {
-                // SỬA 21/09/2026 — trước đây CHỈ 1 hàm core -> gọi thẳng; giờ đóng menu còn phải chạy lượt cuộn đang
-                // hoãn (nếu có) = 2 việc nối tiếp -> (B) Workflow (workflowPlaylist.closeActionMenu()).
+                // Đóng menu + chạy lượt cuộn đang hoãn (nếu có) -> Workflow.
                 workflowPlaylist.closeActionMenu();
                 break;
             }
 
-            // SỬA (v13 Batch F) — 'playlist.actionMenu.select' + core `handleSongActionMenuSelect()`
-            // ĐÃ XOÁ HẲN. Hàm core đó vừa tự đọc `playlistStore` (Rule 2) vừa if/else giữa 2 nghiệp
-            // vụ khác hẳn nhau — xoá bài / mở modal sửa (Rule 1); comment ở event/listener/playlist.js
-            // đã 3 lần né nó thay vì sửa. Mỗi hành động giờ là 1 msg.type + 1 Workflow riêng.
-            // Cả 2 đều cần ≥2 lời gọi side-effect nối tiếp (đóng menu + hành động) -> (B) Workflow.
+            // Mỗi hành động của menu là 1 msg.type riêng; cần đóng menu + hành động -> Workflow.
             case 'playlist.actionMenu.delete.click': {
                 workflowPlaylist.deleteMediaFromActionMenu(msg.payload.songKey);
                 break;
             }
 
-            // MỚI (09/09/2026, Giang báo bug "Gỡ khỏi thư mục ở menu 1 item không dùng được") —
-            // nút + hàm workflow đã có sẵn từ 06/09/2026 (hợp nhất Folder vào Playlist) nhưng LỠ SÓT
-            // không nối dây msg.type này — xem comment cùng ngày ở event/listener/playlist.js.
             case 'playlist.actionMenu.removeFromFolder.click': {
                 workflowPlaylist.removeSongFromFolderMenu(msg.payload.songKey);
                 break;
@@ -79,10 +40,7 @@ const routerPlaylist = (() => {
                 break;
             }
 
-            // MỚI (mục 1d, CHỐT 03/07/2026) — cần ≥2 lời gọi nối tiếp (đọc key + đóng menu + mở
-            // picker folder) -> workflow, KHÔNG nhét vào handleSongActionMenuSelect() cũ (đã có
-            // sẵn 4 nhánh if/else vi phạm Rule 1 — không mở rộng thêm, tránh phát sinh nghĩa vụ
-            // đưa nguyên hàm cũ về đủ 4 rule).
+            // Đọc key + đóng menu + mở picker folder -> Workflow.
             case 'playlist.actionMenu.addToFolder': {
                 workflowPlaylist.openAddToFolderPickerForSongMenu();
                 break;
@@ -160,24 +118,11 @@ const routerPlaylist = (() => {
 
             case 'playlist.item.playClick': {
                 const { key } = msg.payload;
-                // Ver 12 "Multi Media": rẽ nhánh theo appState KHÁC (selectionMode) -> BẮT BUỘC qua
-                // VirtualMachineState. Nhánh selectionMode=true gọi WORKFLOW (không phải core thẳng)
-                // vì cần ĐỌC thêm domNodesByKey/selectedMediaKeys rồi patch DOM nối tiếp — đúng hình
-                // dạng Workflow (event-bus-flow.md mục 4B), xem toggleSongSelectionAndRefresh().
-                // MỞ RỘNG (hợp nhất Photo vào Playlist, CHỐT Giang — dùng hẳn UI Song/Video) —
-                // TRƯỚC ĐÂY click ảnh mở XEM (`openImagePreview()`) thay vì playMedia()/vào
-                // visualizer, tách riêng khỏi Song/Video. SỬA (Giang yêu cầu — Photo tích hợp
-                // `duration` như Song/Video, "quy chế phát của nó cũng không khác biệt") — bỏ hẳn
-                // nhánh riêng đó, ảnh giờ ĐI CHUNG đúng 1 đường playMedia() với Song/Video (KHÔNG
-                // còn tổ hợp `isPhotoSource` nào cần tách nữa) — click ảnh giờ PHÁT ảnh làm track
-                // (event/workflow/photo-player.js), không còn mở modal xem ảnh qua đường này nữa
-                // (`openImagePreview()` vẫn còn nguyên hàm, chỉ không còn ai gọi từ đây — Rule 0.5,
-                // không xoá, phòng cần nối lại điểm vào khác sau này, vd nút riêng trong action menu).
+                // Rẽ theo selectionMode qua VirtualMachineState: đang chọn nhiều -> Workflow đảo chọn + patch DOM; không ->
+                // phát (Song/Video/Photo chung đường playMedia()).
                 const selectionMode = appState.get('selectionMode');
                 VirtualMachineState.run([
                     { state: selectionMode, operation: '===', value: true, callback: () => workflowPlaylist.toggleSongSelectionAndRefresh(key) },
-                    // [SỬA — plan-playmedia-reorg.md] `window.playSong()` -> `workflowPlayer.playMedia()`
-                    // (event/workflow/player.js, MỚI) — chỉ đổi tên gọi, hình dạng lời gọi không đổi.
                     { state: selectionMode, operation: '===', value: false, callback: () => workflowPlayer.playMedia(key) },
                 ]);
                 break;
@@ -185,13 +130,13 @@ const routerPlaylist = (() => {
 
             // ===================== Modal: Bài hát lỗi lúc phát =====================
             case 'playlist.playbackError.keep': {
-                // SỬA (24/09/2026) — core `confirmKeepBrokenSong()` cũ gọi removeKeyFromDisplay (đã dời sang Workflow) -> giao Workflow.
+                // Giữ bài lỗi: bỏ khỏi danh sách hiển thị -> Workflow.
                 workflowPlaylist.keepBrokenSong();
                 break;
             }
 
             case 'playlist.playbackError.delete': {
-                // CẦN shield + >1 hàm core -> giao workflow.
+                // Shield + nhiều bước -> Workflow.
                 workflowPlaylist.executePlaybackErrorDelete();
                 break;
             }
@@ -203,30 +148,25 @@ const routerPlaylist = (() => {
                 break;
             }
 
-            // MỚI (batch 03/07/2026); VIẾT LẠI (04/07/2026, mục 3 — bỏ hẳn nút Upload/case
-            // 'playlist.editCover.change', chỉ còn "Choose photo" mở picker). >1 hàm core nối
-            // tiếp (đọc danh sách ảnh + mở picker) -> workflow.
+            // "Choose photo" — đọc danh sách ảnh + mở picker -> Workflow.
             case 'playlist.editCover.pickFromLibrary': {
                 workflowPlaylist.pickCoverFromLibrary();
                 break;
             }
 
-            // MỚI (06/10/2026, Giang) — nút "Choose" xổ dropdown Photo / Video thumbnail: dựng danh sách mục (mỗi mục
-            // bắn eventBus — Rule 5a) rồi mở dropdown neo nút -> Workflow.
+            // Nút "Choose" xổ dropdown Photo / Video thumbnail (mỗi mục bắn eventBus) -> Workflow.
             case 'playlist.editCover.choose.click': {
                 workflowPlaylist.openCoverChooseMenu();
                 break;
             }
 
-            // MỚI (06/10/2026, Giang mục 3c) — mục "Video thumbnail" của dropdown: mở picker video + (sau khi chọn)
-            // đọc record + áp thumb làm ảnh bìa -> nhiều bước nối tiếp -> Workflow.
+            // Mục "Video thumbnail": mở picker video, chọn xong đọc record + áp thumb làm ảnh bìa -> Workflow.
             case 'playlist.editCover.pickFromVideoThumb': {
                 workflowPlaylist.pickCoverFromVideoThumb();
                 break;
             }
 
-            // MỚI (06/10/2026) — 2 message của picker video chọn thumb làm ảnh bìa (bắn từ core/media-picker-drawer-ui.js
-            // với msgPrefix 'playlist.editCover.videoPicker').
+            // 2 message của picker video chọn thumb làm ảnh bìa (msgPrefix 'playlist.editCover.videoPicker').
             case 'playlist.editCover.videoPicker.tile.click': {
                 workflowPlaylist.handleCoverVideoPickerTileClick(msg.payload.videoKey);
                 break;
@@ -238,7 +178,7 @@ const routerPlaylist = (() => {
             }
 
             case 'playlist.editCover.remove': {
-                // CHỈ CẦN ĐÚNG 1 HÀM CORE (không shield/modal) -> gọi THẲNG.
+                // 1 hàm core -> gọi thẳng.
                 removeSongEditCover();
                 break;
             }
@@ -249,70 +189,50 @@ const routerPlaylist = (() => {
             }
 
             case 'playlist.edit.save': {
-                // CẦN shield + đọc state + >1 hàm core + dọn dẹp UI sau cùng -> giao workflow.
+                // Shield + đọc state + nhiều bước + dọn UI -> Workflow.
                 workflowPlaylist.executeSaveEdit();
                 break;
             }
 
-            // ===================== "Sửa phụ đề" (menu 3 chấm) — MỚI (10/07/2026) =====================
-            // #song-info-modal cũ ĐÃ XOÁ (gộp vào tab đầu song-edit-modal) — 'playlist.info.close'/
-            // 'playlist.info.export' KHÔNG còn ý nghĩa gì, xoá luôn 2 case đó.
-            // CẦN ≥2 lời gọi nối tiếp (đọc key + đóng menu + mã hoá key + điều hướng trang) ->
-            // workflow, CÙNG PRECEDENT với 'playlist.actionMenu.addToFolder' phía trên — KHÔNG
-            // nhét vào handleSongActionMenuSelect() cũ (lý do y hệt comment ở case addToFolder).
+            // ===================== "Sửa phụ đề" (menu 3 chấm) =====================
+            // Đọc key + đóng menu + mã hoá key + điều hướng trang -> Workflow.
             case 'playlist.actionMenu.editSubtitles': {
                 workflowPlaylist.openSubtitleEditorForSongMenu();
                 break;
             }
 
-            // MỚI (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — hành động
-            // RIÊNG của Video trong menu 3 chấm, CÙNG PRECEDENT với 'editSubtitles' ngay trên.
-            // 'playlist.actionMenu.setAsBgVideo' ĐÃ XOÁ (phản hồi Giang — bỏ hẳn "Set làm nền"
-            // khỏi dropdown Video).
+            // Hành động riêng của Video trong menu 3 chấm.
             case 'playlist.actionMenu.editVideoFile': {
                 workflowPlaylist.navigateToActiveMenuVideoEdit();
                 break;
             }
 
-            // MỚI (Giang yêu cầu — "thêm dropdown edit image -> mở openImagePreview()") — CÙNG
-            // PRECEDENT với 'editVideoFile' ngay trên.
+            // "Edit image" (Photo) — mở modal xem/sửa ảnh.
             case 'playlist.actionMenu.editImage': {
                 workflowPlaylist.navigateToActiveMenuPhotoEdit();
                 break;
             }
 
-            // XOÁ (06/10/2026, Giang) — case 'playlist.actionMenu.viewVideoThumb' bỏ hẳn cùng action.
-
-            // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video) — nút duration trong
-            // tab "Sửa" của nhóm field Photo, CHỈ CẦN ĐÚNG 1 HÀM WORKFLOW (mở time-picker — core/
-            // time-picker-modal.js, không phải core thuần vì cần import UI, xem event/workflow/
-            // playlist.js::openPhotoEditDurationPicker()) -> router gọi THẲNG.
+            // Nút duration ở tab "Sửa" của Photo — mở time-picker (event/workflow/playlist.js::openPhotoEditDurationPicker()).
             case 'playlist.edit.photoDuration.click': {
                 workflowPlaylist.openPhotoEditDurationPicker();
                 break;
             }
 
-            // MỚI (Batch "Export dọn nợ kiến trúc", phản hồi Giang) — "Xuất file", CÙNG PRECEDENT
-            // với 'editSubtitles' ở trên — quyết định "Song hay Video" (tự đọc key + đóng menu)
-            // giao HẲN cho workflowPlaylist (Rule 1 chỉ áp cho Core, Workflow không bị ràng buộc).
+            // "Xuất file" — Workflow tự đọc key, đóng menu, chọn Song/Video.
             case 'playlist.actionMenu.restore': {
                 workflowPlaylist.exportActiveMenuItem();
                 break;
             }
 
-            // ===================== Nạp media mới (file rời / cả thư mục) — DÙNG CHUNG Song/Video/
-            // Photo (phản hồi Giang "1 khung, không nhân bản, VMState theo activeMediaSource") —
-            // 2 input (#media-upload/#media-upload-folder, core/dom-refs.js) bắn CÙNG 1 msg.type
-            // bất kể Nguồn nào đang active, router tự đọc appState.activeMediaSource để rẽ đúng hàm
-            // xử lý. Video/Photo dùng CHUNG 1 hàm cho cả 2 case (file rời hay cả thư mục ra cùng 1
-            // FileList phẳng như nhau, hàm xử lý không cần biết nguồn gốc — xem uploadVideos()/
-            // uploadPhotos(), event/workflow/playlist.js) — chỉ Song còn phân biệt 2 hàm riêng
-            // (khác nhau đúng 1 câu thông báo khi FileList rỗng, xem core/playlist/loader.js). =====
+            // ===================== Nạp media mới (file rời / cả thư mục) — chung Song/Video/Photo =====================
+            // 2 input (#media-upload/#media-upload-folder) bắn cùng msg.type bất kể Nguồn; Router rẽ theo activeMediaSource.
+            // Video/Photo dùng 1 hàm cho cả 2 case (cùng là FileList phẳng); Song tách 2 hàm (khác câu báo khi rỗng).
             case 'playlist.upload.fileChange': {
                 const { fileList } = msg.payload;
                 const source = appState.get('activeMediaSource');
                 VirtualMachineState.run([
-                    { state: source, operation: '===', value: 'song', callback: () => workflowPlaylist.handleSongFilePickerChange(fileList) }, // SỬA 24/09/2026 — dời từ core/playlist/loader.js (shield/modal + gọi Workflow -> đúng vai Workflow)
+                    { state: source, operation: '===', value: 'song', callback: () => workflowPlaylist.handleSongFilePickerChange(fileList) },
                     { state: source, operation: '===', value: 'video', callback: () => workflowPlaylist.uploadVideos(fileList) },
                     { state: source, operation: '===', value: 'photo', callback: () => workflowPlaylist.uploadPhotos(fileList) },
                 ]);
@@ -323,7 +243,7 @@ const routerPlaylist = (() => {
                 const { fileList } = msg.payload;
                 const source = appState.get('activeMediaSource');
                 VirtualMachineState.run([
-                    { state: source, operation: '===', value: 'song', callback: () => workflowPlaylist.handleSongFolderPickerChange(fileList) }, // SỬA 24/09/2026 — tương tự dòng trên
+                    { state: source, operation: '===', value: 'song', callback: () => workflowPlaylist.handleSongFolderPickerChange(fileList) },
                     { state: source, operation: '===', value: 'video', callback: () => workflowPlaylist.uploadVideos(fileList) },
                     { state: source, operation: '===', value: 'photo', callback: () => workflowPlaylist.uploadPhotos(fileList) },
                 ]);
@@ -331,16 +251,8 @@ const routerPlaylist = (() => {
             }
 
             case 'playlist.uploadMenu.open': {
-                // Ver 12 "Multi Media": rẽ nhánh theo appState (selectionMode) -> BẮT BUỘC qua
-                // VirtualMachineState. KHÔNG dùng event/block.js ở đây — block.js CHỈ dùng cho
-                // "chặn hẳn, không chạy gì cả" (xem comment đầu event/block.js); ở đây cần CHẠY 1
-                // thứ khi bị chặn (hiện modal thông báo), nên đúng là việc của switch/if/VMState
-                // trong router, không phải block gate.
-                // SỬA (phản hồi Giang — "1 khung, không nhân bản") — #btn-upload-audio giờ LUÔN
-                // hiện bất kể Nguồn nào (nút riêng của Video, #btn-upload-video, ĐÃ XOÁ hẳn) — case
-                // này KHÔNG còn cần rẽ nhánh theo activeMediaSource nữa (khác hẳn 2 case fileChange/
-                // folderChange ngay trên — đó là xử lý SAU KHI đã chọn xong file, còn đây là bước
-                // MỞ MENU, giống hệt nhau cho cả 3 Nguồn), chỉ còn phân biệt selectionMode.
+                // Rẽ theo selectionMode qua VirtualMachineState (đang chọn nhiều -> báo chặn bằng modal; không dùng
+                // event/block.js vì cần chạy 1 việc khi bị chặn). Nút upload chung cho cả 3 Nguồn.
                 const selectionMode = appState.get('selectionMode');
                 VirtualMachineState.run([
                     { state: selectionMode, operation: '===', value: true, callback: () => workflowPlaylist.showUploadBlockedBySelectionModal() },
@@ -361,17 +273,14 @@ const routerPlaylist = (() => {
             }
 
             // ===================== Sắp xếp / Kiểu xem / Tìm kiếm =====================
-            // SỬA (phản hồi Giang, mục 5 "Đồng bộ lại config Playlist Settings") — trước đây gọi
-            // THẲNG 1 hàm core (setDisplaySortMode()/setPlaylistViewMode()) — giờ cần thêm bước lưu
-            // bền config (`_persistPlaylistConfig()`, async, đụng IndexedDB) NGAY SAU, thành ≥2
-            // bước phối hợp -> giao cho workflowPlaylist đúng quy ước đầu file này.
+            // Đổi chế độ + lưu bền config -> Workflow.
             case 'playlist.sortMode.change': {
                 const { mode } = msg.payload;
                 workflowPlaylist.changeSortMode(mode);
                 break;
             }
 
-            // MỚI (mục 1b/1c, Sort subpanel; SỬA mục 3 — tách field/hướng thành 2 case) — trục (2).
+            // Sort trục thống kê: field / hướng.
             case 'playlist.statSortField.change': {
                 const { field } = msg.payload;
                 workflowPlaylist.changeStatSortField(field);
@@ -384,18 +293,15 @@ const routerPlaylist = (() => {
                 break;
             }
 
-            // MỚI (mục 1b, Sort subpanel) — nút mở panel "Sắp xếp" (Settings → Playlist).
+            // Nút mở panel "Sắp xếp" (Settings → Playlist).
             case 'playlist.sortPanel.open.click': {
                 workflowPlaylist.openSortPanel();
                 break;
             }
 
-            // ===================== Ver 12 "Filter subpanel" (mục 1d) =====================
-            // XOÁ (08/09/2026, hệ "Playlist Filter Presets") — 4 case cũ (open/field.change/
-            // openTimePicker/apply) đã dời sang router "playlistFilterPresets", xem
-            // event/router/playlist-filter-presets.js + event/workflow/playlist-filter-presets.js.
+            // ===================== Filter (nút duration dùng time picker) =====================
 
-            // MỚI (phản hồi Giang — "totalTime/duration dùng time picker modal, h:m:s").
+            // totalTime/duration dùng time picker h:m:s.
 
             case 'playlist.viewMode.change': {
                 const { mode } = msg.payload;
@@ -403,17 +309,14 @@ const routerPlaylist = (() => {
                 break;
             }
 
-            // MỚI (ver12 "Song/Video Unification", Batch 1; GỘP 07/09/2026) — đổi Nguồn (Song/
-            // Video/Photo), select ở Settings → Playlist. `switchSource()` (event/workflow/
-            // playlist.js) gộp 3 hàm cũ thành 1, nhận thẳng `source` — không cần VMState chọn hàm nữa.
+            // Đổi Nguồn (Song/Video/Photo) — select ở Settings → Playlist; `switchSource()` nhận thẳng `source`.
             case 'playlist.mediaSource.change': {
                 const { source } = msg.payload;
                 workflowPlaylist.switchSource(source);
                 break;
             }
 
-            // SỬA (02/10/2026) — trước đây gọi thẳng 1 hàm core (handlePlaylistSearchInput/clearPlaylistSearch) nhưng 2 hàm đó
-            // lại tự gọi applySearchQuery() (core gọi core). Giờ ≥2 bước (UI ô nhập + lọc + cuộn theo quy tắc A) -> giao Workflow.
+            // Ô tìm kiếm: UI ô nhập + lọc + cuộn -> Workflow.
             case 'playlist.search.input': {
                 const { value } = msg.payload;
                 workflowPlaylistOrder.searchInput(value); // event/workflow/playlist-order.js
@@ -425,18 +328,15 @@ const routerPlaylist = (() => {
                 break;
             }
 
-            // MỚI (02/10/2026, phương án A content-visibility) — khung cuộn Playlist đổi kích thước (xoay máy...) -> đo lại
-            // chiều cao ước lượng của item (tile Grid cao theo bề rộng cột). Cần đọc state -> giao Workflow.
+            // Khung cuộn Playlist đổi kích thước (xoay máy…) -> đo lại chiều cao ước lượng item (tile Grid cao theo bề rộng cột).
             case 'playlist.viewport.resize': {
                 const { width } = msg.payload;
-                workflowPlaylistRender.onViewportResize(width); // event/workflow/playlist-render.js — SỬA (02/10/2026): chỉ đo lại khi bề rộng đổi
+                workflowPlaylistRender.onViewportResize(width); // event/workflow/playlist-render.js — chỉ đo lại khi bề rộng đổi
                 break;
             }
 
-            // MỚI (02/10/2026, tối ưu 10000 item) — node chờ bìa vừa lại gần khung nhìn (IntersectionObserver,
-            // event/listener/playlist.js) -> gắn object URL ảnh bìa. Cần tra state (node/cache theo key) -> giao Workflow.
-            // MỚI (02/10/2026, xử lý nợ Rule 5a của attachCoverFallback()) — ảnh bìa (Playlist / record art / modal sửa)
-            // tải lỗi -> về ảnh mặc định. Message tự đủ dữ liệu (chính thẻ <img>) -> gọi thẳng 1 hàm core.
+            // Node chờ bìa lại gần khung nhìn (IntersectionObserver, event/listener/playlist.js) -> gắn object URL ảnh bìa.
+            // Ảnh bìa tải lỗi -> ảnh mặc định (message tự đủ dữ liệu -> gọi thẳng core).
             case 'playlist.cover.error': {
                 applyDefaultCover(msg.payload.img); // core/playlist/render.js
                 break;
@@ -448,25 +348,20 @@ const routerPlaylist = (() => {
                 break;
             }
 
-            // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 3) — nút X badge "thoát folder"
-            // (components/playlist-view.js) — ≥2 bước (persistScopeChoice + applyAllSongsScope) ->
-            // Workflow.
+            // Nút X badge "thoát folder" — lưu ý định + áp "Tất cả" -> Workflow.
             case 'playlist.activeFolderBadge.exit.click': {
                 workflowPlaylist.exitActiveFolderScope();
                 break;
             }
 
-            // ===================== Ver 12 "Multi Media" — Chọn nhiều (mục 4.b1) =====================
+            // ===================== Chọn nhiều =====================
             case 'playlist.selection.toggle': {
-                workflowPlaylist.toggleSelectionMode(); // CẦN đọc domNodesByKey + patch DOM nối tiếp sau khi đổi state -> workflow
+                workflowPlaylist.toggleSelectionMode(); // đọc domNodesByKey + patch DOM sau khi đổi state -> Workflow
                 break;
             }
 
             case 'playlist.selection.moreMenu.open': {
-                // SỬA (06/09/2026, hợp nhất Folder vào Playlist, Batch 5) — chỉ hiện mục "Gỡ khỏi
-                // thư mục" khi Playlist đang Scope 1 folder của ĐÚNG Nguồn hiện tại — Router tự đọc
-                // appState tính SẴN boolean (cùng tiền lệ payload.checked cũ), core chỉ nhận qua
-                // tham số, không tự đọc (Rule 2).
+                // Mục "Gỡ khỏi thư mục" chỉ hiện khi đang Scope 1 folder của Nguồn hiện tại — Router tính sẵn boolean.
                 const canRemoveFromFolder = appState.get('activePlayListFolder')[appState.get('activeMediaSource')] != null;
                 openSelectionMoreMenu(canRemoveFromFolder); // core thuần UI (nhận tham số) -> gọi thẳng
                 break;
@@ -479,21 +374,12 @@ const routerPlaylist = (() => {
 
             case 'playlist.selection.moreMenu.select': {
                 const { action } = msg.payload;
-                closeSelectionMoreMenu(); // đóng menu trước khi chạy hành động, giống handleSongActionMenuSelect()
-                // 4 giá trị LOẠI TRỪ NHAU (đúng data-menu-action khai báo ở components/playlist-view.js)
-                // -> BẮT BUỘC qua VirtualMachineState, không viết switch/if tay.
+                closeSelectionMoreMenu(); // đóng menu trước khi chạy hành động
+                // 4 hành động loại trừ nhau (data-menu-action, components/playlist-view.js) -> VirtualMachineState.
                 VirtualMachineState.run([
                     { state: action, operation: '===', value: 'play', callback: () => workflowPlaylist.playSelectedSongs() },
                     { state: action, operation: '===', value: 'export', callback: () => {
-                        // SỬA (Batch "Export dọn nợ kiến trúc", phản hồi Giang) — LỒNG thêm 1
-                        // VirtualMachineState.run() đọc activeMediaSource, CÙNG KHUÔN nested VMState
-                        // đã dùng ở 'playlist.uploadMenu.open' — Song GIỮ NGUYÊN
-                        // exportSelectedSongsZip() (không đụng), Video dùng exportSelectedVideosZip() MỚI.
-                        // SỬA (06/09/2026, Giang chốt mục 3.5 — "Photo cũng cần Download riêng ở
-                        // Selection mode") — TRƯỚC ĐÂY chỉ 2 nhánh (video / notIn video), nghĩa là
-                        // Photo rơi NHẦM vào nhánh 'notIn video' -> gọi exportSelectedSongsZip() (đọc
-                        // getSongRecord() trên photo key -> không tìm thấy gì, zip rỗng, lỗi ÂM
-                        // THẦM). Tách rõ 3 nhánh loại trừ nhau.
+                        // Lồng VirtualMachineState theo activeMediaSource: Song / Video / Photo — 3 nhánh loại trừ nhau.
                         const mediaSource = appState.get('activeMediaSource');
                         VirtualMachineState.run([
                             { state: mediaSource, operation: '===', value: 'video', callback: () => workflowPlaylist.exportSelectedVideosZip() },
@@ -503,9 +389,7 @@ const routerPlaylist = (() => {
                     } },
                     { state: action, operation: '===', value: 'addToFolder', callback: () => workflowPlaylist.openAddToFolderPicker() },
                     { state: action, operation: '===', value: 'delete', callback: () => workflowPlaylist.deleteSelectedMedia() },
-                    // MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 5) — chỉ hiện trong menu
-                    // khi đang Scope 1 folder (xem 'playlist.selection.moreMenu.open' ngay trên), nên
-                    // callback này CHỈ chạy khi hợp lệ — không cần guard lại action này ở đây nữa.
+                    // Chỉ hiện khi đang Scope 1 folder (xem 'playlist.selection.moreMenu.open') — không cần guard lại.
                     { state: action, operation: '===', value: 'removeFromFolder', callback: () => workflowPlaylist.removeSelectedSongsFromFolder() },
                 ]);
                 break;
