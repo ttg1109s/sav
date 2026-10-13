@@ -1,5 +1,8 @@
 # Plan dọn nợ kỹ thuật sau đợt Playlist 10000 item (lập 02/10/2026)
 
+> **Thứ tự đợt ở plan này đã được thay** bởi [plan-debt-domains-13-10-2026.md](./plan-debt-domains-13-10-2026.md) (hàng đợi
+> theo miền, dễ trước). Bộ khuôn K1–K8 (mục 3) vẫn dùng.
+
 Nguồn: bảng nợ mục **"Rà 'file đã đụng' — đợt Playlist 10000 item (02/10/2026)"** trong
 [core-legacy-audit.md](../core-legacy-audit.md). Plan này chỉ sắp xếp CÁCH và THỨ TỰ trả nợ. Nó không thay đổi rule
 nào ([core-function-conventions.md](../core-function-conventions.md), [event-bus-flow.md](../event-bus-flow.md) mục 7).
