@@ -302,6 +302,20 @@
          * @param {string|null} skipKey
          * @returns {Promise<string[]>} key đã xoá thật.
          */
+        /** Pure — tách kết quả quét lỗi theo loại media (`mediaType` gắn sẵn lúc quét). @returns {{song: Array, video: Array, photo: Array}} */
+        function groupBrokenResultsByType(scanResults) {
+            return {
+                song: scanResults.filter((r) => r.mediaType === 'song'),
+                video: scanResults.filter((r) => r.mediaType === 'video'),
+                photo: scanResults.filter((r) => r.mediaType === 'photo'),
+            };
+        }
+
+        /** Pure — key media hỏng sẽ bị xoá (bỏ `skipKey` = media đang phát), cùng quy tắc deleteCorruptedMediaRecords(). */
+        function pickDeletableBrokenKeys(scanResults, skipKey) {
+            return scanResults.map((r) => r.key).filter((key) => key !== skipKey);
+        }
+
         async function deleteCorruptedMediaRecords(type, scanResults, skipKey) {
             const deletedKeys = [];
             for (const { key } of scanResults) {
