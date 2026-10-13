@@ -10,8 +10,6 @@
  * Chớp màn hình (dùng chung với style 'fireworks' + Rain) = `computeScreenFlashAlpha()` + `drawScreenFlash()`
  * (core/visualizer/draw/screen-flash-alpha.js / screen-flash.js) — KHÔNG còn công thức chớp riêng ở đây;
  * `computeLightningEnergySpike()` vẫn là NGUỒN năng lượng của Thunder (dùng cho cả chớp lẫn bolt).
- *
- * NẠP SAU: core/visualizer/groups/lighting/common.js.
  */
 
 // ================================= Style "thunder" (tia sét) =================================

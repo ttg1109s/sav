@@ -19,7 +19,7 @@
  * Chớp màn hình khi burst lớn (dùng chung với style 'thunder' + Rain) = `computeScreenFlashAlpha()` +
  * `drawScreenFlash()` (core/visualizer/draw/) — nguồn năng lượng = beatScale tại lúc rocket nổ.
  *
- * NẠP SAU: core/visualizer/groups/lighting/common.js; core/config.js (FIREWORKS_STYLE_KEYS);
+ * NẠP SAU: core/config.js (FIREWORKS_STYLE_KEYS);
  * core/custom-effect.js (getActiveEffectConfig); core/visualizer/effect-paint.js (getComputedColor).
  */
 
