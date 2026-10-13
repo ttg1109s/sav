@@ -4,6 +4,13 @@ Nguồn: bảng nợ mục **"Rà 'file đã đụng' — đợt Playlist 10000 
 [core-legacy-audit.md](../core-legacy-audit.md). Plan này chỉ sắp xếp CÁCH và THỨ TỰ trả nợ. Nó không thay đổi rule
 nào ([core-function-conventions.md](../core-function-conventions.md), [event-bus-flow.md](../event-bus-flow.md) mục 7).
 
+## 0. Tiến độ
+
+| Đợt | Trạng thái |
+|---|---|
+| Folder (ngoài thứ tự, 13/10/2026) | Xong (`sav-14-debt-folder-patch.zip`), chờ test máy — gom trọn miền Folder: Workflow MỚI `event/workflow/folder.js`, `core/file-manager/folder.js` sạch (Rule 1 + 3b); làm luôn **phần folder picker của 6c** (`_renderFolderPickerGrid`, `_buildFolderPickerHeaderHtml`, `pickFolderInPicker`, `closeFolderPicker`, `createFolderInPicker`, `commitFolderPickerRename`) và 2 lối "Gỡ khỏi thư mục". Kèm sửa bug badge tên folder sau khi đổi tên, và bug "xoá file lỗi không gỡ khỏi folder" (đụng 1 method của đợt 5: `executeDeleteBroken`, chỉ phần xoá) |
+| 2 → 7b | Chưa làm |
+
 ## 1. Phạm vi
 
 | Nhóm | File | Số chỗ (quét tự động) |
