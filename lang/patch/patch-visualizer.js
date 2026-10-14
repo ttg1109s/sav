@@ -117,8 +117,8 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.clockGearSpeedBase': 'Gear speed',
     'customEffectDrawer.field.clockGearSpeedEnergyMult': 'Gear speed by energy',
     // MỚI (05/09/2026, yêu cầu Giang) — Modal chọn effect (2 dropdown group -> style + nút Chọn),
-    // mở qua GIỮ 1.5s #btn-cycle-mode — xem core/visualizer/visualizer-display.js::
-    // openEffectPickerModal(). Nút "Chọn"/"Huỷ" TÁI DÙNG common.select/common.cancel có sẵn
+    // mở qua BẤM #btn-cycle-mode — xem event/workflow/visualizer-display.js::
+    // openEffectPicker(). Nút "Chọn"/"Huỷ" TÁI DÙNG common.select/common.cancel có sẵn
     // (không dịch trùng).
     'effectPicker.title': 'Choose effect',
     'effectPicker.groupLabel': 'Category',
