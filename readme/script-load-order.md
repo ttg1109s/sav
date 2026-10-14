@@ -945,7 +945,7 @@ Các file sau được nạp ở hơn 1 trang — sửa file thì nâng `?v=` �
 | `service/state.js` | index, subtitle-editor, video-editor | `20261001aa1` |
 | `service/state/app-misc.js` | index, subtitle-editor, video-editor | `20260725v1` |
 | `service/state/generic-drawer.js` | index, subtitle-editor | `20260917v1` |
-| `service/task-manager.js` | index, subtitle-editor, video-editor | `20260720v1` |
+| `service/task-manager.js` | index, subtitle-editor, video-editor | `20261014w9` |
 | `service/z-index.js` | index, subtitle-editor, video-editor | `20261006r1` |
 
 ← [Quay lại README](../README.md)

@@ -2,10 +2,11 @@
 
 > Đọc cùng [core-function-conventions.md](./core-function-conventions.md) Rule 3 (ranh giới Core/Workflow) — file
 > NÀY tập trung riêng vào TaskManager (API + ai được dùng). Đồng bộ 07/10/2026 (chốt ver 13): bỏ ngoại lệ
-> `tab-hide-reload.js` (file đã gỡ), thêm phạm vi Web Worker, ngoại lệ lưới an toàn Preloader, `requestAnimationFrame` thô
-> (chờ chốt). Vi phạm hiện có: [sổ vi phạm](./core-legacy-audit.md) mục 4.3.
+> `tab-hide-reload.js` (file đã gỡ), thêm phạm vi Web Worker, ngoại lệ lưới an toàn Preloader. Giang chốt 14/10/2026:
+> `requestAnimationFrame` thô cũng là timer thô (mục 1), thay bằng `taskManager.onceFrame()` (mục 4c). Vi phạm hiện có:
+> [sổ vi phạm](./core-legacy-audit.md) mục 4.3.
 
-## 1. TUYỆT ĐỐI cấm `setInterval`/`setTimeout` thô trong toàn bộ app
+## 1. TUYỆT ĐỐI cấm `setInterval`/`setTimeout`/`requestAnimationFrame` thô trong toàn bộ app
 
 **Không có ngoại lệ.** Mọi nhu cầu chạy code sau N ms (1 lần) hoặc lặp lại (nhiều lần) — dù là
 animation 300ms, debounce lưu config, đóng menu sau khi bấm ra ngoài, đếm giây nghe nhạc, hay 1 vòng
@@ -31,9 +32,9 @@ thô").
 - **Preloader** — trước đây là khối inline với 2 `setTimeout` thô (lưới an toàn + gỡ phần tử sau fade). Từ 07/10/2026:
   lưới an toàn ở `service/boot-preloader.js` (ngoại lệ trên); bước gỡ phần tử bỏ hẳn — ẩn bằng 1 class, CSS lo fade +
   `visibility`, không cần hẹn giờ ([script-load-order.md](./script-load-order.md) mục 2.2).
-- **`requestAnimationFrame` thô** — mục này chỉ ghi `setTimeout`/`setInterval`, nhưng `taskManager` đã có mode
-  `raf` (mục 4b). 10 chỗ `requestAnimationFrame` thô (chờ 1–2 khung hình để trình duyệt layout) đang để **chờ chốt**
-  trong sổ, chưa tính FAIL.
+- **`requestAnimationFrame` thô** (Giang chốt 14/10/2026) — tính như `setTimeout` thô, kể cả chờ 1–2 khung hình để trình
+  duyệt layout/vẽ: chờ 1 lần qua `taskManager.onceFrame(fn, frames, name?)` (mục 4c), vòng lặp theo khung hình qua mode
+  `raf` (mục 4b). Core cần "làm A, khung sau làm B" thì tách 2 hàm core, Workflow hẹn khung giữa 2 lần gọi.
 - `pages/subtitle-editor.html` và `pages/video-editor.html` đều nạp `service/task-manager.js` — không có lý do "trang không có
   taskManager".
 
@@ -129,6 +130,20 @@ xử lý từng task (gọi `workflowVisualizerRender.suspendForBackground()`/`r
 nền riêng).
 
 
+### 4c. Chờ khung hình 1 lần — `onceFrame()` (MỚI, 14/10/2026)
+
+```js
+taskManager.onceFrame(fn, frames = 1, name);  // chạy fn ở khung hình thứ `frames`: 1 = requestAnimationFrame(fn),
+                                              // 2 = requestAnimationFrame lồng 2 lần (chờ trình duyệt đã PAINT).
+                                              // Loop mode 'raf', count = frames, tự kill khỏi plan khi chạy. `name` như once().
+// Dạng Promise trong Workflow async:
+await new Promise((resolve) => { taskManager.onceFrame(resolve, 2, 'videoSeekFramePaint'); });
+```
+
+Ví dụ thật — `event/workflow/theme.js::commitThemeMode()` ép lớp kính vẽ lại sau khi đổi nền: 2 hàm core độc lập
+(`suspendGlassBackdrop()` tắt tạm backdrop + ép reflow, trả danh sách phần tử; `restoreGlassBackdrop(els)` trả lại), Workflow
+hẹn khung kế bằng `onceFrame`.
+
 ## 5. Ví dụ ĐÚNG — Workflow tự tick, tự gọi core
 
 ```js
@@ -157,7 +172,7 @@ const workflowSomething = {
 ## 6. Vi phạm hiện có
 
 Không còn danh sách nợ riêng ở đây — mọi vi phạm TaskManager (timer thô, `taskManager` dùng trong Core,
-`requestAnimationFrame` thô chờ chốt) nằm ở [sổ vi phạm](./core-legacy-audit.md) mục 4.3, cùng quy tắc "nợ cũ vẫn là
+`requestAnimationFrame` thô) nằm ở [sổ vi phạm](./core-legacy-audit.md) mục 4.3, cùng quy tắc "nợ cũ vẫn là
 FAIL". `core/auto-switch-visual.js` đã sạch từ 25/09/2026 (điều phối dời về `event/workflow/auto-switch-visual.js`).
 
 ← [core-function-conventions.md](core-function-conventions.md) (Rule 3 đầy đủ) ·
