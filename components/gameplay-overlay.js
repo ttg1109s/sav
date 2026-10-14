@@ -1,32 +1,19 @@
 /**
- * Component: Game Mode overlay (Circle mode) — khung TĨNH, mount 1 LẦN lúc boot bên trong
- * TPL_VISUALIZER_OVERLAY (components/visualizer-overlay.js nội suy `${TPL_GAMEPLAY_OVERLAY}` — PHẢI
- * nạp file NÀY TRƯỚC file đó, xem index.html). Rule 5d: khung không đổi giữa các lần mở/đóng ->
- * hằng số chuỗi tĩnh, KHÔNG dựng bằng createElement.
+ * components/gameplay-overlay.js — khung tĩnh Game Mode, mount 1 lần lúc boot bên trong TPL_VISUALIZER_OVERLAY
+ * (components/visualizer-overlay.js nội suy `${TPL_GAMEPLAY_OVERLAY}` — file này nạp trước file đó, xem index.html); kèm
+ * template thân modal Kết quả (render*() dưới cùng, gọi từ event/workflow/gameplay-engine.js).
  *
- * `#gameplay-canvas` — vẽ circle+wave (core/gameplay/circle-mode-ui.js, canvas 2D, nền TRONG SUỐT
- * để visualizer phía sau xuyên qua). `#gameplay-tier-popup-layer` vẫn DOM+CSS (text nổi PERFECT/
- * MISS... + hiệu ứng vỡ vụn lúc tap hoàn thành/tự mất, xem core/gameplay/engine-ui.js — CSS
- * animation đơn giản hơn tự vẽ trên canvas, không cần đổi công nghệ chỗ này).
+ * `#gameplay-canvas`: vẽ circle + wave (core/gameplay/circle-mode-ui.js, nền trong suốt cho visualizer xuyên qua).
+ * `#gameplay-tier-popup-layer`: chữ tier nổi + hiệu ứng vỡ vụn bằng DOM + CSS animation (core/gameplay/engine-ui.js).
+ * `#gameplay-tap-surface`: lớp bắt chạm riêng của Game, nằm trên `#visualizer-gesture-surface` nên chiếm chạm trước.
+ * z-[65] cao hơn mốc cao nhất trong `#visualizer-ui` (z-[60] của #subtitle-display).
  *
- * [SỬA — phản hồi Giang "bỏ x Combo cố định"] `#gameplay-hud` (HUD combo góc trên) ĐÃ XOÁ — combo
- * giờ hiện NGAY tại vị trí tap (chữ to dần + glow theo streak, gắn liền tier popup) thay vì 1 số
- * cố định tách rời góc màn hình.
+ * `#btn-gameplay-exit` (đúng vị trí #btn-open-control-center) bị modalChoice() (z-[130]) che lúc modal Kết quả mở — chủ ý:
+ * modal có nút riêng, nút exit chỉ lo pha 'countdown'/'playing'.
  *
- * z-[65]: cao hơn mốc cao nhất hiện có trong stacking context `#visualizer-ui` (z-[60] của
- * #subtitle-display). `#gameplay-tap-surface` là lớp bắt chạm RIÊNG cho gameplay (KHÔNG dùng chung
- * #visualizer-gesture-surface) — nằm TRÊN gesture-surface về DOM/z-index nên chiếm chạm trước,
- * không cần thêm cờ appState nào để "khoá" gesture cũ.
- *
- * `#btn-gameplay-exit` (z-20, cố định top-4 left, ĐÚNG vị trí #btn-open-control-center thật) bị
- * modalChoice() (z-[130], TOÀN CỤC, gắn thẳng document.body) CHE MẤT lúc màn Start/Kết quả đang mở —
- * CHỦ Ý, không phải bug: modalChoice() tự có nút riêng cho 2 trường hợp đó, nút exit cố định chỉ lo
- * phần 'playing'/'countdown' (2 phase không có màn hỏi nào khác để thoát).
- *
- * MỚI (07/10/2026, game "Arrow") — `${TPL_GAMEPLAY_ARROW_STAGE}` (components/gameplay-arrow-stage.js, PHẢI nạp TRƯỚC file
- * này) chèn ngay sau tap-surface: DƯỚI nút exit (z-20), countdown (z-10) và tier popup layer (sau trong DOM). Layer
- * mang `data-game-mode` (core/gameplay/engine-ui.js::setGameplayLayerMode()) — CSS (assets/css/gameplay-arrow.css)
- * hiện stage Arrow + ẩn canvas/tap-surface khi `arrow`, ngược lại khi `circle`/chưa gán.
+ * `${TPL_GAMEPLAY_ARROW_STAGE}` (components/gameplay-arrow-stage.js, nạp trước file này) chèn sau tap-surface: dưới nút
+ * exit, countdown và popup layer. Layer mang `data-game-mode` (setGameplayLayerMode(), core/gameplay/engine-ui.js) — CSS
+ * (assets/css/gameplay-arrow.css) hiện stage Arrow hoặc canvas + tap-surface Circle.
  */
 const TPL_GAMEPLAY_OVERLAY = `
             <div id="gameplay-layer" class="hidden absolute inset-0 z-[65]">
@@ -45,3 +32,54 @@ ${TPL_GAMEPLAY_ARROW_STAGE}
                 </div>
             </div>
 `;
+
+/** Vòng tròn % điểm: mỗi lap 1 cặp track + fill. `--ring-circumference` (rỗng) / `--ring-target` (đích) đọc bởi @keyframes
+ * gameplayRingFill (assets/css/gameplay.css) — animation tự chạy khi chèn DOM.
+ * @param {ReturnType<typeof computeScoreRingGeometry>} geometry - core/gameplay/engine.js @returns {string} */
+function renderGameplayScoreRingSvg({ size, cx, cy, strokeWidth, circles }) {
+    const circlesHtml = circles.map(({ r, circumference, target, color, delayMs }) =>
+        `<circle class="gameplay-ring-track" cx="${cx}" cy="${cy}" r="${r}" stroke-width="${strokeWidth}"></circle>` +
+        `<circle class="gameplay-ring-fill" cx="${cx}" cy="${cy}" r="${r}" stroke-width="${strokeWidth}" stroke="${color}" ` +
+        `stroke-dasharray="${circumference} ${circumference}" stroke-dashoffset="${circumference}" ` +
+        `style="--ring-circumference:${circumference};--ring-target:${target};animation-delay:${delayMs}ms" ` +
+        `transform="rotate(-90 ${cx} ${cy})"></circle>`
+    ).join('');
+    return `<svg class="gameplay-score-ring" viewBox="0 0 ${size} ${size}">${circlesHtml}</svg>`;
+}
+
+/**
+ * Thân modal Kết quả: thông tin media (title/thời lượng/độ khó/số lượt chơi) trên cùng, vòng % làm nền với 2 dòng điểm
+ * (`#gameplay-score-main` / `#gameplay-score-sub`, Workflow đếm-lên sau khi mở) chồng giữa, sao, breakdown tier
+ * (`#gameplay-hit-<tier>`, ghi 1 lần). Không có tiêu đề. `title` đã escapeHtml() ở Workflow (dữ liệu người dùng).
+ * @returns {string}
+ */
+function renderGameplayResultBodyHtml({ ringSvg, starMax, starRating, tierOrder, tierLabels, title, durationLabel, difficultyLabel, playCountLabel }) {
+    const stars = Array.from({ length: starMax }, (_, i) =>
+        `<span class="gameplay-star${i < starRating ? ' gameplay-star--lit' : ''}" style="animation-delay:${i * 180}ms">★</span>`
+    ).join('');
+
+    const hitGrid = tierOrder.map((name) => `
+        <div>
+            <div class="font-mono font-bold" id="gameplay-hit-${name}" data-uitk="textPrimary">0</div>
+            <div class="text-[10px]" data-uitk="textSecondary">${tierLabels[name]}</div>
+        </div>
+    `).join('');
+
+    return `
+        <div class="flex flex-col items-center gap-3">
+            <div class="w-full text-center">
+                <div class="text-sm font-semibold truncate px-2" data-uitk="textPrimary">${title}</div>
+                <div class="text-xs mt-0.5" data-uitk="textSecondary">${durationLabel} · ${difficultyLabel} · ${playCountLabel}</div>
+            </div>
+            <div class="relative w-[120px] h-[120px]">
+                ${ringSvg}
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                    <div class="font-mono text-2xl font-bold" id="gameplay-score-main" data-uitk="textPrimary">0.000</div>
+                    <div class="font-mono text-xs" id="gameplay-score-sub" data-uitk="textSecondary">0/0</div>
+                </div>
+            </div>
+            <div class="flex gap-1 text-2xl">${stars}</div>
+            <div class="grid grid-cols-5 gap-2 text-center w-full pt-2 border-t" data-uitk="dividerBorder">${hitGrid}</div>
+        </div>
+    `;
+}
