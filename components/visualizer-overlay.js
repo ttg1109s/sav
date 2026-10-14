@@ -35,6 +35,12 @@ const TPL_VISUALIZER_OVERLAY = `
     <div id="visualizer-ui" class="fixed inset-0 z-30 pointer-events-none fade-enter hidden flex flex-col">
         <div class="flex-grow relative">
             <div id="visualizer-gesture-surface" class="absolute inset-0 z-20 pointer-events-auto"></div>
+            <!-- Mũi tên + số giây đã tua của cử chỉ seek-hold (core/visualizer-gesture.js — show/hideSeekHoldIndicator()).
+                 Giữa màn theo chiều dọc, tâm nửa trái (lùi) / phải (tiến). -->
+            <div id="visualizer-seek-hold-indicator" class="absolute top-1/2 z-[70] pointer-events-none flex flex-col items-center gap-1 hidden" style="transform: translate(-50%, -50%);">
+                <div class="seek-hold-arrow text-white" style="font-size: 3.25rem; line-height: 1; letter-spacing: -0.1em; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.45));"></div>
+                <div class="seek-hold-text text-white font-mono font-bold" style="font-size: 1.375rem; filter: drop-shadow(0 1px 4px rgba(0,0,0,0.45));"></div>
+            </div>
             <!-- MỚI (29/09/2026, Giang) — lớp bắt cử chỉ zoom/pan của Zoom mode (kính lúp), CHỈ hiện lúc Zoom mode,
                  đè LÊN #visualizer-gesture-surface (z 21) để tắt mọi cử chỉ app, vẫn DƯỚI top bar/Control Center.
                  Style ở assets/css/base.css (#player-zoom-surface) — xem event/workflow/player-zoom.js. -->
@@ -184,3 +190,16 @@ ${TPL_RECORDER_OVERLAY}
         </div>
     </div>
 `;
+
+/** Markup từng loại token của 1 dòng karaoke (tokenizeKaraokeSubtitleText(), core/subtitle/subtitle-karaoke-display.js). */
+const KARAOKE_TOKEN_MARKUP_BY_KIND = {
+    word: '<span class="kr-word"><span class="kr-base"></span><span class="kr-fill" aria-hidden="true"></span></span>',
+    space: ' ',
+    break: '<br>',
+};
+
+/** Thân 1 dòng karaoke trên Visualizer — mỗi từ `.kr-word` gồm `.kr-base` (chữ gốc) + `.kr-fill` (lớp màu karaoke); chữ điền
+ * qua slot ở core/subtitle/subtitle-karaoke-display-ui.js::buildKaraokeSubtitleBlockUi(). @param {Array<{kind: string}>} tokens */
+function renderKaraokeLineHtml(tokens) {
+    return tokens.map((token) => KARAOKE_TOKEN_MARKUP_BY_KIND[token.kind] || '').join('');
+}
