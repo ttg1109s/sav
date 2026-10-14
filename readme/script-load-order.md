@@ -596,8 +596,8 @@ sự kiện lúc nạp (cần `core/dom-refs.js`, đôi khi cần workflow của
 342. `event/workflow/photo-player.js`
 343. `event/workflow/number-countup.js`
 344. `event/workflow/gameplay-engine.js`
-345. `event/workflow/gameplay.js` — cần: `core/dom-refs.js` (gameplayLayer)
-345a. `event/workflow/gameplay-arrow.js` — MỚI 07/10/2026 — cần: `core/dom-refs.js` (gameplayLayer, gameplayArrow*), `event/workflow/gameplay.js` (GAMEPLAY_NEXT_LABEL_KEY_BY_MEDIA)
+345. `event/workflow/gameplay.js` — cần: `core/dom-refs.js` (gameplayLayer); `core/gameplay/circle-mode.js` (createCircleBeatTracker — gọi lúc nạp)
+345a. `event/workflow/gameplay-arrow.js` — MỚI 07/10/2026 — cần: `core/dom-refs.js` (gameplayLayer, gameplayArrow*), `event/workflow/gameplay-engine.js` (GAMEPLAY_TIER_LABEL_KEY_BY_NAME; resolveEndModalLabels lúc chạy)
 346. `event/router/gameplay.js` — cần: `event/bus.js` (eventBus)
 347. `event/listener/gameplay.js` — cần: `core/dom-refs.js` (gameplayTapSurface, btnGameplayExit, gameplayArrowPad, btnGameplayArrowCommit, gameplayLayer)
 348. `event/workflow/game-catalog.js`

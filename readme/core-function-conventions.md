@@ -435,6 +435,11 @@ function buildXModal(data) {
 }
 ```
 
+**Không cần listener khi trình duyệt có sẵn Promise:** chờ ảnh giải mã bằng `img.decode()`, đọc file bằng `file.text()`,
+chờ CSS animation xong bằng `Promise.allSettled(el.getAnimations({ subtree: true }).map((a) => a.finished))` (popup tier /
+vỡ vụn Game tự gỡ — core/gameplay/engine-ui.js). Đây là nửa sau bất đồng bộ của chính thao tác đang làm, không phải sự
+kiện người dùng, nên core `-ui` được `await` rồi làm tiếp.
+
 **Ngoại lệ ĐÃ audit chính thức, giữ nguyên — `core/modal-choice-ui.js::modalChoice()`:** callback gọi
 thẳng tham số `onClick` truyền vào lúc gọi hàm (không qua bus). Ngoại lệ này CHỈ áp dụng cho ĐÚNG
 `modalChoice()` — bất kỳ file nào khác muốn miễn trừ tương tự PHẢI qua audit chính thức riêng,
