@@ -252,6 +252,7 @@ Mỗi file chỉ định nghĩa `TPL_*` (chuỗi HTML tĩnh) hoặc hàm `render
 80. `components/settings/player-display-settings.js`
 81. `components/settings/recorder-settings.js`
 82. `components/settings/pagination.js`
+82a. `components/settings/theme.js` — MỚI 14/10/2026 (thân màn Settings > Theme + 3 card nền Morphin — plan-debt-domains đợt 8) — cần: `lang/lang.js` (t); `core/ui-theme/icon-svg-ui.js` (iconSvg); lúc chạy: `core/theme-background.js` (THEME_GLASS_*)
 82a. `components/pagination-controls.js` — MỚI 13/10/2026 (template thanh phân trang, dời từ core/pagination-ui.js — plan-debt-domains đợt 3)
 83. `components/gesture-settings-drawer.js`
 83a. `components/info-icon.js` — MỚI 13/10/2026 (renderInfoIconHtml/renderInfoPopoverHtml — plan-debt-domains đợt 1); gọi lúc chạy: `escapeHtml()` (core/modal-choice-ui.js), `iconSvg()`
@@ -620,6 +621,7 @@ sự kiện lúc nạp (cần `core/dom-refs.js`, đôi khi cần workflow của
 364b. `event/listener/element-style-editor.js` — MỚI 12/10/2026 — cần: `core/dom-refs.js` (genericDrawerBody, genericDrawerHeader)
 365. `event/router/visualizer-viewport.js` — cần: `event/bus.js` (eventBus)
 366. `event/listener/visualizer-viewport.js`
+366a. `core/theme-background.js` — MỚI 14/10/2026 (phép tính thuần nền App Panel / status bar / preloader — đợt 8)
 367. `core/theme-background-ui.js`
 368. `event/workflow/theme.js`
 369. `event/router/theme.js` — cần: `event/bus.js` (eventBus)
@@ -910,12 +912,12 @@ Các file sau được nạp ở hơn 1 trang — sửa file thì nâng `?v=` �
 | `core/modal-choice-ui.js` | index, subtitle-editor, video-editor | `20261006r1` |
 | `core/subtitle/subtitle-karaoke.js` | index, subtitle-editor | `20261013ev12` |
 | `core/time-picker-modal.js` | index, subtitle-editor | `20261006r1` |
-| `core/ui-theme/apply-ui.js` | index, subtitle-editor, video-editor | `20260909v1` |
+| `core/ui-theme/apply-ui.js` | index, subtitle-editor, video-editor | `20261014w8` |
 | `core/ui-theme/dark.js` | index, subtitle-editor, video-editor | `20260923v5` |
 | `core/ui-theme/icon-svg-ui.js` | index, subtitle-editor, video-editor | `20261007svg1` |
 | `core/ui-theme/light.js` | index, subtitle-editor, video-editor | `20260923v5` |
 | `core/ui-theme/morphin.js` | index, subtitle-editor, video-editor | `20260923v5` |
-| `core/ui-theme/registry.js` | index, subtitle-editor, video-editor | `20260921v6` |
+| `core/ui-theme/registry.js` | index, subtitle-editor, video-editor | `20261014w8` |
 | `core/upload-validation.js` | index, subtitle-editor, video-editor | `20261013w7` |
 | `core/video-player-capture.js` | index, video-editor | `20261007sg1` |
 | `event/bus.js` | index, subtitle-editor, video-editor | `20260703v1` |
@@ -926,13 +928,13 @@ Các file sau được nạp ở hơn 1 trang — sửa file thì nâng `?v=` �
 | `event/workflow/video-frame-capture.js` | index, video-editor | `20261006r6` |
 | `event/workflow/video-thumb-extract.js` | index, video-editor | `20261006r6` |
 | `lang/lang.js` | index, subtitle-editor, video-editor | `20260731v1` |
-| `lang/patch/patch-app-panel-nav.js` | index, subtitle-editor, video-editor | `20261005set3` |
+| `lang/patch/patch-app-panel-nav.js` | index, subtitle-editor, video-editor | `20261014w8` |
 | `lang/patch/patch-common.js` | index, subtitle-editor, video-editor | `20261013w7` |
 | `lang/patch/patch-file-manager.js` | index, subtitle-editor, video-editor | `20261007fi2` |
 | `lang/patch/patch-playlist.js` | index, subtitle-editor, video-editor | `20261013w7` |
 | `lang/patch/patch-settings-misc.js` | index, subtitle-editor, video-editor | `20261006r4` |
 | `lang/patch/patch-subtitle-editor.js` | index, subtitle-editor, video-editor | `20260930kr4` |
-| `lang/patch/patch-subtitle-settings.js` | index, subtitle-editor, video-editor | `20261007ui2` |
+| `lang/patch/patch-subtitle-settings.js` | index, subtitle-editor, video-editor | `20261014w8` |
 | `lang/patch/patch-video-preview.js` | index, subtitle-editor, video-editor | `20260929cap1` |
 | `lang/patch/patch-visualizer.js` | index, subtitle-editor, video-editor | `20261007ui2` |
 | `service/blob-url.js` | index, video-editor | `20260803v1` |
