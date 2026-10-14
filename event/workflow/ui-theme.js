@@ -1,98 +1,85 @@
 /**
- * event/workflow/ui-theme.js — "THẰNG THỰC THI CUỐI" cho hệ UI Theme (Light/Dark/Morphin — màu app
- * THẬT: panel/card/text/nút bấm, KHÔNG liên quan `viz.themeMode`/router "theme" cũ, xem docstring
- * core/ui-theme/light.js).
+ * event/workflow/ui-theme.js — đổi/khôi phục UI Theme (Light/Dark/Morphin — màu panel/card/chữ/nút) và các việc cấp trang
+ * đi kèm: `color-scheme`, màu status bar iOS, bản sao cho preloader lần mở sau (localStorage). Đổi Color từ Settings đi qua
+ * workflowAppSettings.handleUiThemeChange() (event/workflow/app-settings.js).
  *
- * CHƯA có Router/Listener riêng (09/09/2026, Giang chưa yêu cầu 1 màn Settings để BẤM đổi theme —
- * mới chỉ cần HẠ TẦNG "chuyển đổi qua lại, tự động áp dụng"). `switchUiTheme(themeName)` gọi được
- * THẲNG từ Console (debug/test) hoặc từ 1 Router mới thêm SAU NÀY khi có UI chọn theme thật — xem
- * event/router/theme.js làm mẫu (cùng khuôn `_commitThemeMode()`) lúc cần nối router đó.
- *
- * PHẠM VI ÁP DỤNG HIỆN TẠI — `applyUiThemeToDom(document, ...)` quét TOÀN BỘ trang, nhưng CHỈ phần
- * tử có `data-uitk` mới đổi màu — hiện mới gắn ở khung Generic Drawer (components/generic-
- * drawer.js: panel/header/handle). Nội dung từng feature (Folder Browser, Settings...) CHƯA gắn
- * `data-uitk`, xem "CÒN NỢ" cuối core/ui-theme/light.js.
- *
- * NẠP SAU: core/ui-theme/registry.js (UI_THEME_REGISTRY/resolveUiThemeKeyList),
- * core/ui-theme/apply-ui.js (applyUiThemeToDom), core/config.js (appConfigUiTheme, DEFAULT_UI_THEME_CONFIG),
- * service/db.js (getMeta/setMeta).
+ * NẠP SAU: core/ui-theme/registry.js, core/ui-theme/apply-ui.js, core/ui-theme/status-bar-color.js, core/config.js
+ * (appConfigUiTheme, appConfigViz), service/db.js (getMeta/setMeta). Lúc chạy: core/theme-background.js,
+ * event/workflow/{theme,app-panel-nav}.js.
  */
-/** MỚI (21/09/2026) — `color-scheme` CSS theo theme đang active: báo trình duyệt vẽ đúng thanh cuộn, popup của
- * `<select>`, ô nhập màu, caret... theo sáng/tối (mặc định luôn 'light' -> Dark còn popup select trắng chói).
- * Bảng theo TÊN theme (không đoán từ màu). Morphin (kính, chữ trắng) -> 'dark'. */
 const UI_THEME_COLOR_SCHEME = { light: 'light', dark: 'dark', morphin: 'dark' }; // Morphin: chữ trắng trên kính tối -> popup/ô nhập kiểu tối
 
+// Màu status bar theo nguồn do computeStatusBarColorSource() (core/theme-background.js) chọn.
+const STATUS_BAR_COLOR_BY_SOURCE = {
+    image: (source, viewportW, viewportH) => sampleImageTopEdgeColor(source.url, viewportW, viewportH, THEME_BG_OVERLAY_ALPHA), // core/ui-theme/status-bar-color.js
+    gradient: (source, viewportW, viewportH) => computeGradientTopEdgeColor(source.from, source.to, viewportW, viewportH), // core/ui-theme/status-bar-color.js
+    none: () => '',
+};
+
+// Bản sao nền cho preloader (service/boot-preloader.js đọc đồng bộ lần mở sau): Morphin -> ghi + đổi ngay nền preloader đang
+// hiện (boot phát hiện media mất -> fallback ngay, không đợi lần mở sau); theme khác -> xoá key (preloader dùng nhánh class).
+const BOOT_BACKDROP_MIRROR_BY_KEEP = {
+    true: (mirror) => {
+        localStorage.setItem('uiThemeBoot', mirror.storageJson);
+        applyBootPreloaderBackground(mirror.preloaderBg); // core/ui-theme/status-bar-color.js
+    },
+    false: () => localStorage.removeItem('uiThemeBoot'),
+};
+
 const workflowUiTheme = {
+    _statusBarSyncToken: 0, // bỏ kết quả lấy mẫu ảnh CŨ khi đã có lần gọi mới hơn (đổi nền liên tiếp)
+    _themeStatusBarColor: '', // màu status bar theo theme (Morphin: mép trên nền thật; còn lại '') — không phụ thuộc màn đang xem
 
     /**
-     * Đổi + CHỐT theme đang active — mutate appConfigUiTheme, ghi bền `meta.uiThemeConfig`
-     * (IndexedDB, CÙNG khuôn `meta.playerConfig`/`meta.playlistConfig` — event/workflow/player-
-     * controls.js/playlist.js — `setMeta()` trực tiếp mỗi lần đổi, KHÔNG debounce, tần suất đổi
-     * theme rất thấp), rồi áp NGAY vào DOM toàn trang.
-     *
-     * SỬA (09/09/2026, Giang yêu cầu "tạm bỏ Dark/Morphin khỏi select") — `themeName` KHÔNG nằm
-     * trong `UI_THEME_SELECTABLE_NAMES` (core/ui-theme/registry.js — hiện chỉ 'light') tự CHUẨN HOÁ
-     * về `UI_THEME_DEFAULT_NAME` NGAY TỪ ĐẦU, TRƯỚC khi ghi vào config — đảm bảo giá trị LƯU BỀN
-     * luôn khớp ĐÚNG giá trị THẬT SỰ áp dụng lên DOM (tránh lệch kiểu "config ghi 'dark' nhưng DOM
-     * lại lên màu Light" nếu chỉ chặn ở bước resolveUiThemeKeyList() mà không chặn ở đây).
+     * Đổi + chốt theme: ghi `meta.uiThemeConfig` (setMeta mỗi lần đổi, tần suất rất thấp), rồi áp ngay vào DOM toàn trang.
+     * Tên không cho chọn/lạ -> mặc định ngay từ đầu, để giá trị lưu luôn khớp theme thật sự áp.
      * @param {'light'|'dark'|'morphin'} themeName
      */
     async switchUiTheme(themeName) {
-        const safeThemeName = UI_THEME_SELECTABLE_NAMES.includes(themeName) ? themeName : UI_THEME_DEFAULT_NAME; // core/ui-theme/registry.js
+        const safeThemeName = resolveUiThemeName(themeName); // core/ui-theme/registry.js
         appConfigUiTheme.mutateAll((cfg) => { cfg.activeUiTheme = safeThemeName; }); // core/config.js
         console.log(`writer: "switchUiTheme", page: "uiTheme.activeUiTheme", content: "${safeThemeName}"`);
         await setMeta('uiThemeConfig', appConfigUiTheme.getAll()); // service/db.js
-        const keyList = resolveUiThemeKeyList(safeThemeName); // core/ui-theme/registry.js
-        setActiveUiThemeKeyList(keyList); // core/ui-theme/apply-ui.js — DÙNG CHUNG (không chỉ Generic Drawer nữa) — để lần mở/vẽ lại Drawer TIẾP THEO dùng ĐÚNG theme mới, không cần đợi user tự đóng/mở lại
+        this._applyTheme(safeThemeName);
+    },
+
+    /** Khôi phục theme đã lưu lúc boot (event/workflow/app-boot.js) + áp vào DOM. Chưa từng lưu -> giữ mặc định đã seed. */
+    async loadPersistedUiThemeOnBoot() {
+        const saved = await getMeta('uiThemeConfig'); // service/db.js
+        if (saved && typeof saved === 'object') {
+            appConfigUiTheme.mutateAll((cfg) => Object.assign(cfg, saved)); // core/config.js
+            console.log(`writer: "loadPersistedUiThemeOnBoot", page: "uiTheme.activeUiTheme", content: "khôi phục từ meta.uiThemeConfig"`);
+        }
+        this._applyTheme(resolveUiThemeName(appConfigUiTheme.getAll().activeUiTheme)); // core/ui-theme/registry.js
+        workflowTheme.syncBackgroundVideoPlayback(); // event/workflow/theme.js — video nền đã nạp lúc boot; đây quyết định có PHÁT không
+    },
+
+    /** Áp theme đã chuẩn hoá: cache key list dùng chung (lần dựng DOM kế tiếp dùng đúng theme), quét `data-uitk` toàn trang,
+     * việc cấp trang, nút bottom nav (tô bằng class trực tiếp, không `data-uitk`), status bar. @param {string} themeName */
+    _applyTheme(themeName) {
+        const keyList = resolveUiThemeKeyList(themeName); // core/ui-theme/registry.js
+        setActiveUiThemeKeyList(keyList); // core/ui-theme/apply-ui.js
         applyUiThemeToDom(document, keyList); // core/ui-theme/apply-ui.js
-        this._applyPageLevelTheme(safeThemeName);
-        this._retintAppBottomNav();
+        this._applyPageLevelTheme(themeName);
+        workflowAppPanelNav.paintActiveTab(appState.get('appPanelActiveTab')); // event/workflow/app-panel-nav.js
         this.syncStatusBarColor();
     },
 
-    /** Tô lại nút bottom nav theo theme mới — nav tô bằng class Tailwind gán trực tiếp (không `data-uitk`) nên
-     * `applyUiThemeToDom()` không quét tới. */
-    _retintAppBottomNav() {
-        workflowAppPanelNav.paintActiveTab(appState.get('appPanelActiveTab')); // event/workflow/app-panel-nav.js
-    },
-
-    /** MỚI (21/09/2026, Giang báo "status bar màu không đồng bộ") — tô màu status bar iOS cho khớp NỀN THẬT của Morphin (xem
-     * docstring core/ui-theme/status-bar-color.js: viewport-fit=cover đã bỏ nên vùng đó lấy nền trang, mà nền trang Morphin là
-     * slate-900 đặc chứ không phải ảnh/gradient người dùng chọn). CHỌN nguồn màu theo ĐÚNG thứ tự ưu tiên của
-     * `updatePlaylistBg()` (core/color-utils.js — ảnh trước, gradient sau, không có -> nền đặc mặc định): ảnh -> lấy mẫu dải mép trên
-     * ảnh (bất đồng bộ); gradient -> nội suy 2 màu tại giữa mép trên; còn lại / theme khác Morphin -> '' (gỡ inline, trả về màu
-     * `appBaseBg` của theme, Light/Dark KHÔNG đổi gì so với trước).
-     * Gọi lại ở MỌI nơi nền/theme đổi: `switchUiTheme()`/`loadPersistedUiThemeOnBoot()` (file này) + `workflowTheme._commitThemeMode()`/
-     * `setGradientFrom()`/`setGradientTo()` (event/workflow/theme.js). `_statusBarSyncToken` bỏ kết quả của lần lấy mẫu ảnh CŨ nếu đã có
-     * lần gọi mới hơn (đổi nền liên tiếp — lần lấy mẫu ảnh chậm về sau không được đè lên màu đúng). */
-    _statusBarSyncToken: 0,
-    _themeStatusBarColor: '', // màu status bar THEO THEME (Morphin: mép trên nền thật; còn lại ''), tính ở syncStatusBarColor() — KHÔNG phụ thuộc màn đang xem
+    /** Tô status bar iOS khớp nền thật (Morphin) — gọi ở mọi nơi nền/theme đổi (file này + workflowTheme.commitThemeMode()).
+     * Lấy mẫu ảnh là bất đồng bộ: lần gọi cũ về sau lần mới thì bỏ (`_statusBarSyncToken`). */
     async syncStatusBarColor() {
         const token = ++this._statusBarSyncToken;
-        const vizCfg = appConfigViz.getAll();
-        let color = '';
-        if (appConfigUiTheme.getAll().activeUiTheme === 'morphin') {
-            const viewportW = window.innerWidth, viewportH = window.innerHeight;
-            // SỬA 21/09/2026 — theo `themeMode` (nền media giờ giữ URL runtime cả khi đang ở Solid/Gradient nên không còn dựa vào "bgImage có giá trị"): 'background' ->
-            // lấy mẫu ảnh nền, hoặc thumb full-res nếu là VIDEO (video không lấy mẫu trực tiếp được); 'none' -> không đổi màu (như Light/Dark); 'gradient' -> nội suy 2 màu.
-            if (vizCfg.themeMode === 'background') {
-                const sampleUrl = vizCfg.bgVideo ? vizCfg.bgMediaThumb : vizCfg.bgImage;
-                if (sampleUrl) color = await sampleImageTopEdgeColor(sampleUrl, viewportW, viewportH, 0.4); // core/ui-theme/status-bar-color.js — 0.4 = lớp phủ đen của updatePlaylistBg()
-            }
-            // XOÁ 23/09/2026: nhánh 'solid' — nền Solid đã bỏ; 'none' (không nền) giữ giá trị mặc định như Light/Dark.
-            else if (vizCfg.themeMode === 'gradient') color = computeGradientTopEdgeColor(vizCfg.gradientFrom, vizCfg.gradientTo, viewportW, viewportH); // core/ui-theme/status-bar-color.js
-        }
-        if (token !== this._statusBarSyncToken) return; // đã có lần gọi mới hơn — bỏ kết quả cũ
+        const source = computeStatusBarColorSource(appConfigUiTheme.getAll().activeUiTheme, appConfigViz.getAll()); // core/theme-background.js
+        const color = await STATUS_BAR_COLOR_BY_SOURCE[source.kind](source, window.innerWidth, window.innerHeight);
+        if (token !== this._statusBarSyncToken) return;
         this._themeStatusBarColor = color;
         this.applyStatusBarForCurrentScreen();
-        this._mirrorBootBackdrop(color); // preloader luôn hiện TRƯỚC màn App Panel -> mirror theo màu theme, không theo màn đang xem
+        this._mirrorBootBackdrop(color); // preloader luôn hiện TRƯỚC màn App Panel -> theo màu theme, không theo màn đang xem
     },
 
-    /** MỚI (21/09/2026, Giang chỉ ra "bg của theme không được động chạm phần Visualizer — bg color của DOM visualizer là phần đặc thù có setting
-     * riêng") — màu status bar theo theme CHỈ áp lúc đang ở màn App Panel (Playlist). Đang ở màn Visualizer (`#app-stack.playlist-hidden`) -> gỡ
-     * override ('' -> body trả về màu class nền gốc, y như trước khi có tính năng này), để vùng đó KHÔNG mang nền Morphin sang màn Visualizer.
-     * Gọi từ `syncStatusBarColor()` (nền/theme đổi) VÀ từ `workflowTheme.onAppStackScreenChange()` (đổi màn, qua listener MutationObserver
-     * ở event/listener/theme.js -> router 'theme'). Chỉ ĐỌC class màn — không đụng gì tới `#visualizer-solid-bg`/`#visual-bg-*`. */
+    /** Màu status bar theo theme chỉ áp ở màn App Panel; màn Visualizer (`#app-stack.playlist-hidden`) gỡ override để nền
+     * Morphin không tràn sang Visualizer (nền Visualizer có cài đặt riêng). Gọi từ `syncStatusBarColor()` và
+     * `workflowTheme.onAppStackScreenChange()`. */
     applyStatusBarForCurrentScreen() {
         const visualizerScreenActive = appStack.classList.contains('playlist-hidden'); // core/dom-refs.js
         const color = visualizerScreenActive ? '' : this._themeStatusBarColor;
@@ -100,66 +87,25 @@ const workflowUiTheme = {
         console.log(`writer: "applyStatusBarForCurrentScreen", page: "statusBar", content: "${color || (visualizerScreenActive ? 'màn Visualizer — không override' : 'theo nền theme')}"`);
     },
 
-    /** MỚI (21/09/2026, Giang yêu cầu "nền preload trang của Morphin") — mirror 2 chuỗi CSS vào `localStorage['uiThemeBoot']` cho script preloader
-     * (service/boot-preloader.js, nạp trong <head>) đọc ĐỒNG BỘ lần mở app SAU: `preloaderBg` (nền preloader — cùng cách `updatePlaylistBg()` vẽ: gradient/solid ->
-     * `linear-gradient(135deg, from, to)` (solid = from==to nên ra 1 màu), ảnh -> màu mép trên đã lấy mẫu (KHÔNG mirror được chính ảnh: blob nằm
-     * trong IndexedDB, bất đồng bộ), không có nền -> slate-900 = `appBaseBg` Morphin) và `statusBar` (màu status bar, cùng giá trị vừa tô).
-     * Theme khác Morphin -> XOÁ key (preloader Light/Dark dùng nhánh class như cũ). Hex gradient lọc qua regex trước khi ghép vào chuỗi CSS
-     * (giá trị này sẽ được gán thẳng vào `style.background` ở lần mở sau).
-     * @param {string} statusBarColor màu vừa `applyStatusBarColor()` ('' nếu theme không phải Morphin / không có nền) */
+    /** Ghi/xoá bản sao nền cho preloader (computeBootBackdropMirror(), core/theme-background.js). localStorage bị chặn
+     * (Private Mode) -> bỏ qua, preloader Morphin dùng nền slate-900. @param {string} statusBarColor màu vừa tô ('' nếu không có) */
     _mirrorBootBackdrop(statusBarColor) {
+        const mirror = computeBootBackdropMirror(appConfigUiTheme.getAll().activeUiTheme, appConfigViz.getAll(), statusBarColor); // core/theme-background.js
         try {
-            if (appConfigUiTheme.getAll().activeUiTheme !== 'morphin') {
-                localStorage.removeItem('uiThemeBoot');
-                return;
-            }
-            const vizCfg = appConfigViz.getAll();
-            const isHex = (v) => typeof v === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(v);
-            let preloaderBg = '#0f172a'; // slate-900 = appBaseBg (core/ui-theme/morphin.js)
-            if (vizCfg.themeMode === 'background') preloaderBg = statusBarColor || preloaderBg; // ảnh/video -> màu mép trên đã lấy mẫu (không mirror được chính media: blob nằm trong IndexedDB, bất đồng bộ)
-            // XOÁ 23/09/2026: nhánh 'solid' — nền Solid đã bỏ; 'none' (không nền) giữ giá trị mặc định như Light/Dark.
-            else if (vizCfg.themeMode === 'gradient' && isHex(vizCfg.gradientFrom) && isHex(vizCfg.gradientTo)) preloaderBg = `linear-gradient(135deg, ${vizCfg.gradientFrom}, ${vizCfg.gradientTo})`;
-            localStorage.setItem('uiThemeBoot', JSON.stringify({ preloaderBg, statusBar: statusBarColor || '' }));
-            // MỚI 21/09/2026 (Giang: "media bị xoá/mất -> fallback, kể cả ngay khi app boot hiển thị preloader") — preloader lúc mở app dựng từ mirror của LẦN TRƯỚC (đồng bộ,
-            // trước khi biết media còn hay không); boot phát hiện media mất -> config đã về fallback -> hàm này chạy lại -> ĐỔI NGAY nền preloader đang hiện sang fallback,
-            // không đợi lần mở sau. Preloader đã ẩn/gỡ thì không có gì để đổi.
-            const preloaderEl = document.getElementById('app-preloader');
-            if (preloaderEl) preloaderEl.style.background = preloaderBg;
+            BOOT_BACKDROP_MIRROR_BY_KEEP[mirror.keep](mirror);
         } catch (e) {
             console.warn('[ui-theme] Không ghi được localStorage[\'uiThemeBoot\'] (preloader Morphin sẽ dùng nền slate-900) — có thể do Private Mode:', e);
         }
     },
 
-    /** MỚI (21/09/2026) — 2 việc CẤP TRANG (ngoài `data-uitk`) đi kèm MỖI lần theme đổi/khôi phục: (1) `color-scheme`
-     * của <html> (xem UI_THEME_COLOR_SCHEME); (2) mirror tên theme vào `localStorage['uiThemeName']` cho script
-     * service/boot-preloader.js (trong <head> index.html) đọc ĐỒNG BỘ (preloader chạy TRƯỚC mọi file JS, không đợi được IndexedDB) — trước
-     * đây phần mirror này chỉ nằm ở bản sao lạc chỗ `event/ui-theme.js` (KHÔNG được nạp) nên preloader chưa bao giờ
-     * nhận 'dark'. try/catch — Safari Private Mode chặn localStorage vẫn không được làm vỡ luồng đổi theme chính. */
+    /** Việc cấp trang đi kèm mỗi lần theme đổi/khôi phục: `color-scheme` của <html>; bản sao tên theme ở
+     * `localStorage['uiThemeName']` cho service/boot-preloader.js (chạy trước mọi file JS, không đợi được IndexedDB). */
     _applyPageLevelTheme(themeName) {
-        document.documentElement.style.colorScheme = UI_THEME_COLOR_SCHEME[themeName] || 'light';
+        applyPageColorScheme(UI_THEME_COLOR_SCHEME[themeName] || 'light'); // core/ui-theme/apply-ui.js
         try {
             localStorage.setItem('uiThemeName', themeName);
         } catch (e) {
             console.warn('[ui-theme] Không ghi được localStorage[\'uiThemeName\'] (preloader sẽ dùng mặc định Light) — có thể do Private Mode:', e);
         }
-    },
-
-    /** Khôi phục theme đã lưu bền LÚC BOOT + áp vào DOM — gọi từ event/workflow/app-boot.js, CÙNG
-     * khuôn `loadPersistedPlayerConfigOnBoot()` (event/workflow/player-controls.js). Chưa từng lưu
-     * (boot lần đầu) -> `saved` rỗng, giữ nguyên default `'light'` đã seed sẵn trong appConfigUiTheme. */
-    async loadPersistedUiThemeOnBoot() {
-        const saved = await getMeta('uiThemeConfig'); // service/db.js
-        if (saved && typeof saved === 'object') {
-            appConfigUiTheme.mutateAll((cfg) => Object.assign(cfg, saved)); // core/config.js
-            console.log(`writer: "loadPersistedUiThemeOnBoot", page: "uiTheme.activeUiTheme", content: "khôi phục từ meta.uiThemeConfig"`);
-        }
-        const activeThemeName = UI_THEME_SELECTABLE_NAMES.includes(appConfigUiTheme.getAll().activeUiTheme) ? appConfigUiTheme.getAll().activeUiTheme : UI_THEME_DEFAULT_NAME; // core/ui-theme/registry.js — tên lạ/không cho chọn -> Light, khớp resolveUiThemeKeyList()
-        const keyList = resolveUiThemeKeyList(activeThemeName); // core/ui-theme/registry.js
-        setActiveUiThemeKeyList(keyList); // core/ui-theme/apply-ui.js — DÙNG CHUNG (không chỉ Generic Drawer nữa)
-        applyUiThemeToDom(document, keyList); // core/ui-theme/apply-ui.js
-        this._applyPageLevelTheme(activeThemeName);
-        this._retintAppBottomNav(); // app-boot.js đã tô nav 1 lần TRƯỚC khi hàm async này xong (theme cache lúc đó còn Light) — tô lại cho khớp theme khôi phục
-        this.syncStatusBarColor(); // loadConfig() đã chạy xong trước (dòng đầu boot()) nên themeMode/gradient*/media (đã fallback nếu mất) đã sẵn
-        workflowTheme.syncBackgroundVideoPlayback(); // MỚI 21/09/2026 — updatePlaylistBg() (trong loadConfig) đã nạp video nền; đây quyết định có PHÁT không (App Panel + tab hiện)
     },
 };

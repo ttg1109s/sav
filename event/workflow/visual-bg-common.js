@@ -199,10 +199,17 @@ const workflowVisualBg = {
         return this._applyCurrentVisualBgNow();
     },
 
+    /** Sơn nền màu `#visualizer-solid-bg` theo cấu hình VBG hiện tại (đen khi video VBG che kín, gradient hoặc màu đặc). Gọi
+     * lúc boot (app-boot.js, sau loadConfig()) và sau mọi thay đổi ảnh hưởng nền màu (miền VBG, Video Player, audio engine). */
+    paintSolidBg() {
+        const cfg = appConfigVisualBg.getAll();
+        updateDOMBackground(cfg, buildVisualBgGradientCss(cfg.gradientStops, cfg.gradientAngleDeg)); // core/color-utils.js + core/visual-bg-common.js
+    },
+
     /** Thân gốc của `applyCurrentVisualBg()` (KHÔNG chặn) — chỉ gọi qua 2 hàm công khai ngay trên. */
     async _applyCurrentVisualBgNow() {
         this.clearMediaLayers();
-        updateDOMBackground();
+        this.paintSolidBg();
         const cfg = appConfigVisualBg.getAll();
         // Toggle tổng tắt: dừng ở đây — media đã dỡ, màu đã sơn. Mọi đường áp lại đều qua hàm này nên 1 guard là đủ.
         if (!this._isMediaEnabled()) return;
@@ -612,7 +619,7 @@ const workflowVisualBg = {
     _commitColorChange(mutatorFn, logContent) {
         appConfigVisualBg.mutateAll(mutatorFn);
         console.log(`writer: "workflowVisualBg._commitColorChange", page: "visualBgConfig", content: "${logContent}"`);
-        updateDOMBackground();
+        this.paintSolidBg();
         if (taskManager.isTaskRunning(VISUAL_BG_GRADIENT_MOVEMENT_TASK)) {
             this._gradientMovementBaseStops = appConfigVisualBg.getAll().gradientStops.slice();
         }
@@ -624,7 +631,7 @@ const workflowVisualBg = {
         if (!VISUAL_BG_COLOR_MODES.includes(value)) return;
         appConfigVisualBg.mutateAll((cfg) => { cfg.colorMode = value; });
         console.log(`writer: "workflowVisualBg.changeColorMode", page: "visualBgConfig", content: "colorMode=${value}"`);
-        updateDOMBackground();
+        this.paintSolidBg();
         this._syncGradientMovementTaskState();
         await this._persist();
         await this.refreshPanelUI();
@@ -732,7 +739,7 @@ const workflowVisualBg = {
 
     /** Dừng hẳn + dọn state transition tráo màu (nếu đang dở) — gọi khi tắt Movement/chuyển khỏi
      * colorMode 'gradient'. Nền gradient TĨNH (đứng yên tại giá trị GỐC lưu DB) tự động quay lại
-     * qua nhánh updateDOMBackground() bình thường ở nơi khác — KHÔNG cần vẽ lại gì thêm ở đây. */
+     * qua nhánh paintSolidBg() bình thường ở nơi khác — KHÔNG cần vẽ lại gì thêm ở đây. */
     _stopGradientMovementTask() {
         taskManager.kill(VISUAL_BG_GRADIENT_MOVEMENT_TASK);
         this._gradientMovementSwapStartTime = null;

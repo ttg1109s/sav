@@ -347,8 +347,8 @@ const workflowVideoPlayer = {
     /** Thoát Video Player mode: dừng + dọn `bgVideoElement`, trả về mặc định trang trí + khôi phục
      * `#visual-bg-image` về ĐÚNG cài đặt Settings thật (trong lúc ở mode, lớp này bị chèn cưỡng chế
      * thumb của video hiện tại — xem `swapBgVideoSource()` — KHÔNG phản ánh cấu hình Visual
-     * Background thật, phải trả lại đúng lúc thoát). `updateDOMBackground()` (core/color-utils.js)
-     * trả `visualizerSolidBg` về đúng màu/gradient cấu hình. */
+     * Background thật, phải trả lại đúng lúc thoát). `workflowVisualBg.paintSolidBg()` trả `visualizerSolidBg` về đúng
+     * màu/gradient cấu hình. */
     async exitVideoPlayerMode() {
         workflowPlayerZoom.onPlayerModeLeave(); // event/workflow/player-zoom.js — tắt Zoom mode + về mức 1 + ẩn kính lúp (ĐỒNG BỘ, trước mọi await)
         setBgVideoElementForPlayerMode(false); // core/video-player.js — trả lại muted+loop=true, pointer-events mặc định
@@ -360,7 +360,7 @@ const workflowVideoPlayer = {
         workflowPlayerDisplaySettings.releaseVideoMotion(); // event/workflow/player-display-settings.js
         this.clearBgVideoSource(); // dừng + dọn HẲN (pause, ẩn, gỡ src/poster, revoke cả 3 URL) — CƠ CHẾ DÙNG CHUNG
         bgVideoElement.load(); // buộc <video> bỏ hẳn tham chiếu blob URL vừa revoke (tránh giữ RAM)
-        updateDOMBackground(); // core/color-utils.js — trả visualizerSolidBg về cfg.bgColor
+        workflowVisualBg.paintSolidBg(); // event/workflow/visual-bg-common.js — trả visualizerSolidBg về màu/gradient cấu hình
 
         // Khôi phục VBG đúng cấu hình (cặp với `clearMediaLayers()` lúc VÀO mode). `restoreAfterPlayerMode()` thay
         // `applyCurrentVisualBg()` vì bản thường tự CHẶN khi đang ở Player mode (isVideoPlayerMode còn `true` tới

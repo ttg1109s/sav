@@ -256,7 +256,7 @@ Object.assign(workflowVisualBg, {
         this._isSwappingVideo = false;
         if (!record) { await this._markCurrentMissing(); return; }
         this._currentVideoKey = videoKey;
-        updateDOMBackground();
+        this.paintSolidBg();
         workflowVideoPlayer.waitBgVideoReady().then(() => {
             if (this._currentVideoKey !== videoKey) return;
             syncVisualBgVideoPlayback(!this._isSongActiveForVbg()); // đổi video giữa lúc app ẩn (Next tự động) -> nạp xong vẫn đứng yên

@@ -265,51 +265,27 @@ const workflowAppSettings = {
         this._renderPagination(); // vẽ lại tại chỗ — `_render()` tự giữ vị trí cuộn
     },
 
-    // ===================== Theme — CHỈ 1 lựa chọn "Color" (Light/Dark/Morphin) =====================
-    // 1 select "Color" = UI Theme (core/ui-theme/*). Phần chọn NỀN (3 card None/Gradient/Background media) CHỈ dựng khi
-    // Color = Morphin — nền chỉ có nghĩa với kính mờ. Đổi nền đi qua router 'theme' (event/router/theme.js) bằng eventBus.
-
+    // ===================== Theme — select "Color" (Light/Dark/Morphin) + 3 card nền (chỉ khi Morphin) =====================
+    // Đổi nền đi qua router 'theme' (event/router/theme.js) bằng eventBus.
 
     _renderTheme() {
         this._currentRenderFn = () => this._renderTheme();
-        const activeUiTheme = getSelectableUiThemeNames().includes(appConfigUiTheme.getAll().activeUiTheme) ? appConfigUiTheme.getAll().activeUiTheme : UI_THEME_DEFAULT_NAME; // core/config.js + core/ui-theme/registry.js — tên lạ/không cho chọn -> Light (khớp theme THẬT đang áp)
-        const isMorphin = activeUiTheme === 'morphin';
-        // Trạng thái 3 card do workflowTheme.buildBackgroundCardState() đọc từ config.
-        const backgroundSectionHtml = isMorphin ? buildThemeBackgroundCardsHtml(workflowTheme.buildBackgroundCardState(), t) : ''; // core/theme-background-ui.js
-        const bodyHtml = `
-            <div class="flex flex-col gap-2">
-                <div class="rounded-2xl flex flex-col overflow-hidden" data-uitk="cardBg cardBorder">
-                    <div class="flex justify-between items-center px-4 py-3.5">
-                        <span class="text-sm font-semibold truncate" data-uitk="textSecondaryStrong">${t('appSettings.theme.uiTheme.label')}</span>
-                        <select id="app-settings-ui-theme-select" class="rounded-lg px-2 py-1.5 text-xs outline-none w-40 text-right" data-uitk="inputBg inputBorder inputText">
-                            ${getSelectableUiThemeNames().map((name) => `<option value="${name}">${t('appSettings.theme.uiTheme.option.' + name)}</option>`).join('')}
-                        </select>
-                    </div>
-                    ${backgroundSectionHtml}
-                </div>
-            </div>
-        `;
-        this._render(t('appSettings.system.theme.label'), bodyHtml, (body) => {
-            body.querySelector('#app-settings-ui-theme-select').value = activeUiTheme;
+        const activeUiTheme = resolveUiThemeName(appConfigUiTheme.getAll().activeUiTheme); // core/ui-theme/registry.js — tên lạ -> Light (khớp theme thật đang áp)
+        const backgroundHtml = activeUiTheme === 'morphin' ? renderThemeBackgroundCardsHtml(computeThemeBackgroundView(appConfigViz.getAll()).cards) : ''; // components/settings/theme.js + core/theme-background.js
+        this._render(t('appSettings.system.theme.label'), renderAppSettingsThemeBody(getSelectableUiThemeNames(), activeUiTheme, backgroundHtml), (body) => { // components/settings/theme.js
             wireAppSettingsTheme(body); // core/app-settings-ui.js
-            wireThemeBackgroundCards(body); // core/theme-background-ui.js — no-op khi không có cụm 3 card (Color khác Morphin)
+            wireThemeBackgroundCards(body); // core/theme-background-ui.js — không có cụm 3 card (Color khác Morphin) thì không gắn gì
         });
     },
 
-    /** Ứng với 'appSettings.uiTheme.change' (Router gọi) — đổi màu GIAO DIỆN (Light/Dark/Morphin) RỒI đồng bộ NỀN phía sau
-     * app cho khớp: Morphin CẦN có nền (ảnh/gradient) để lớp kính có gì để làm mờ -> chưa có nền nào thì đặt mặc định
-     * 'gradient' (indigo→pink, core/config.js); Light/Dark dùng panel ĐẶC nên nền phía sau vô nghĩa -> tắt (mode 'light'/'dark' của
-     * router 'theme' gốc tự `applyBgImageEnabled(false)`, ảnh đã chọn bị bỏ, 2 màu gradient vẫn nhớ). Cuối cùng dựng lại màn
-     * Theme để phần chọn nền hiện/ẩn đúng theo Color mới. `eventBus.send` router 'theme' là đường DUY NHẤT vào luồng đổi nền
-     * (Router tự tính VirtualMachineState, xem event/router/theme.js). */
+    /** Ứng với 'appSettings.uiTheme.change' — đổi màu GIAO DIỆN rồi đồng bộ NỀN phía sau app: Morphin cần nền (kính có gì để
+     * làm mờ) -> vào Morphin dùng lại kiểu nền Morphin gần nhất; Light/Dark dùng panel đặc -> chốt mode 'light'/'dark' (nền
+     * media/màu gradient vẫn nhớ). Mode cần chốt do core thuần computeUiThemeChangeBgMode() tính ('' = giữ nguyên); chốt qua
+     * router 'theme'. Cuối cùng dựng lại màn Theme để phần chọn nền hiện/ẩn theo Color mới. */
     async handleUiThemeChange(themeName) {
         await workflowUiTheme.switchUiTheme(themeName); // event/workflow/ui-theme.js
-        const vizCfg = appConfigViz.getAll();
-        const morphinAlreadyHasBackground = ['none', 'gradient', 'background'].includes(vizCfg.themeMode);
-        // Vào Morphin lúc đang Light/Dark: dùng đúng kiểu nền Morphin chọn gần nhất (event/workflow/theme.js::resolveMorphinEntryMode()).
-        const morphinStartMode = workflowTheme.resolveMorphinEntryMode();
-        if (themeName === 'morphin' && !morphinAlreadyHasBackground) eventBus.send({ router: 'theme', type: 'theme.selectMode.click', payload: { mode: morphinStartMode } });
-        else if (themeName !== 'morphin') eventBus.send({ router: 'theme', type: 'theme.selectMode.click', payload: { mode: themeName } }); // 'light' | 'dark' — tắt nền
+        const mode = computeUiThemeChangeBgMode(themeName, appConfigViz.getAll()); // core/theme-background.js
+        if (mode) eventBus.send({ router: 'theme', type: 'theme.selectMode.click', payload: { mode } });
         this._renderTheme();
     },
 

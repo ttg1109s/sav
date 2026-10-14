@@ -71,7 +71,7 @@ const workflowAudioEngine = {
         this._commitGraphState(audioContext, analyserPitch, masterGainNode, volumeGainNode, eq.filters);
         this.ensurePitchWorker();
         workflowVisualizerRender.start(); // event/workflow/visualizer-render.js — cần analyser đã có trong state
-        updateDOMBackground(); // core/color-utils.js
+        workflowVisualBg.paintSolidBg(); // event/workflow/visual-bg-common.js
     },
 
     /** Ghi các node vào state — PHẢI trước `workflowVisualizerRender.start()` (start() đọc `analyser`). */

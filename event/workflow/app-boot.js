@@ -7,6 +7,9 @@ const workflowAppBoot = {
         // App luôn mở ở Playlist: đưa sân khấu Visualizer ra khỏi cây render ngay từ đầu.
         workflowPlayerControls.offstageVisualStageOnBoot();
         await loadConfig();
+        // Nền App Panel + nền màu Visualizer theo config vừa nạp (media nền đã resolve/fallback trong loadConfig()).
+        workflowTheme.repaintAppBackground(); // event/workflow/theme.js
+        workflowVisualBg.paintSolidBg(); // event/workflow/visual-bg-common.js
         workflowAutoSwitchVisual.syncLockedControls(); // event/workflow/auto-switch-visual.js — khoá đổi hiệu ứng tay theo Auto-Switch đã lưu
         workflowHud.syncSpeedUI(appConfigViz.getAll().playbackSpeed); // event/workflow/hud.js — badge tốc độ trên nút Speed
         // Kích hoạt style đã lưu (nhãn icon, vizConfig, scene WebGL nếu cần).
