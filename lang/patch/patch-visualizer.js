@@ -32,7 +32,6 @@ const LANG_PATCH_VISUALIZER = {
     'gameplayCircle.ended.nextLabel': 'Next song',
     // Nút Next ở modal Kết quả theo loại media vừa chơi — GAMEPLAY_NEXT_LABEL_KEY_BY_MEDIA (event/workflow/gameplay-engine.js).
     'gameplayCircle.ended.nextVideoLabel': 'Next video',
-    'gameplayCircle.ended.nextPhotoLabel': 'Next photo',
     'gameplayCircle.ended.endLabel': 'Back to playlist',
     'gameplayCircle.ended.playCountLabel.singular': 'Played 1 time',
     'gameplayCircle.ended.playCountLabel.plural': 'Played {count} times',
