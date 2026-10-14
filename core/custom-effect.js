@@ -1,7 +1,7 @@
 /**
  * core/custom-effect.js — core thuần của hệ Custom Effect (config riêng từng effect, DEFAULT_CUSTOM_EFFECT ở
  * core/config.js). Key = GROUP (Object.keys(EFFECT_GROUPS): bar/lighting/rain/vortex/shape/connector). Style con chọn
- * qua modal group -> style (giữ #btn-cycle-mode, core/visualizer/visualizer-display.js::openEffectPickerModal()) —
+ * qua modal group -> style (bấm #btn-cycle-mode, event/workflow/visualizer-display.js::openEffectPicker()) —
  * CUSTOM_EFFECT_STYLE/CUSTOM_EFFECT_STYLE_LABEL_KEYS là nguồn dữ liệu cho modal đó.
  *
  * NẠP SAU: core/config.js (DEFAULT_CUSTOM_EFFECT, appConfigViz), service/state/visualizer-runtime.js
@@ -82,8 +82,8 @@ const CUSTOM_EFFECT_NO_BLUR_STYLES = { lighting: ['fireworks'] };
 
 /** Style con của effect (nếu có) — field trong customEffect[group] + danh sách option. TRƯỚC ĐÂY
  * dùng để dựng dropdown ĐẦU TIÊN trong Custom Effect Drawer — dropdown đó ĐÃ BỎ (xem docstring đầu
- * file); giờ là nguồn dữ liệu CHO modal chọn effect 2-dropdown (core/visualizer/
- * visualizer-display.js::openEffectPickerModal()). MỌI group đều có entry, kể cả group chỉ 1
+ * file); giờ là nguồn dữ liệu CHO modal chọn effect 2-dropdown (event/workflow/
+ * visualizer-display.js::openEffectPicker()). MỌI group đều có entry, kể cả group chỉ 1
  * style (shape) — nhất quán, không cần rẽ nhánh riêng. */
 const CUSTOM_EFFECT_STYLE = {
     bar: { field: 'barStyle', options: ['mirror', 'cascade', 'black hole', 'dot'] },

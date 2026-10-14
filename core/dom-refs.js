@@ -72,6 +72,7 @@
         const visualizerControlCenter = document.getElementById('visualizer-control-center');
         // Lớp phủ chạm RIÊNG cho toàn bộ cử chỉ (event/workflow/visualizer-gesture.js).
         const visualizerGestureSurface = document.getElementById('visualizer-gesture-surface');
+        const seekHoldIndicator = document.getElementById('visualizer-seek-hold-indicator');
 
         // ===================== Game Mode (Circle mode v1, MỚI 16/08/2026) =====================
         // gameModeSettingToggle: components/settings/misc.js (Settings, section "GAME MODE").
