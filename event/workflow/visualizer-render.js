@@ -247,6 +247,7 @@ const workflowVisualizerRender = {
         setWebglCanvasHidden(document.getElementById('webgl-canvas'), !(usesWebgl && visualizerScreenShown)); // core
         this._callGroupHook(groupName, 'activate', style);
         this._requireSpectrumForStyle(groupName, style);
+        workflowVisualizerDisplay.syncProgressBarColor(); // event/workflow/visualizer-display.js — màu thanh tiến trình theo effect mới
     },
 
     /** Cỡ phổ VẼ effect hiện tại đang dùng (0 = chưa xin). */

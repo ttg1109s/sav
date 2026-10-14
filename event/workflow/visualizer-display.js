@@ -1,38 +1,34 @@
 /**
- * event/workflow/visualizer-display.js — "THẰNG THỰC THI CUỐI" của router "visualizerDisplay" (panel "Display" — Hiện
- * Visual + toggle UI chrome). Cấu hình riêng effect nằm ở Custom Effect Drawer (event/workflow/custom-effect.js).
+ * event/workflow/visualizer-display.js — Workflow router "visualizerDisplay": panel "Display" (Hiện Visual + toggle UI
+ * chrome), modal chọn effect (CLICK #btn-cycle-mode), màu thanh tiến trình theo effect đang chạy. Cấu hình riêng effect:
+ * Custom Effect Drawer (event/workflow/custom-effect.js).
  *
- * QUY TẮC:
- *   - Workflow KHÔNG tự nghĩ ra logic nghiệp vụ mới — chỉ gọi các hàm core thuần đã có.
- *   - withLoadingShield() và alertModal() ĐẶT Ở TẦNG NÀY — core hoàn toàn không biết 2 thứ này tồn tại.
- *   - alertModal() KHÔNG bao giờ gọi BÊN TRONG callback của withLoadingShield() — luôn gọi SAU KHI shield đã đóng hẳn.
+ * NẠP SAU: core/visualizer/visualizer-display.js, core/visualizer/effect-picker-ui.js, core/visualizer-control-center.js,
+ * core/visualizer-ui-visibility.js, core/custom-effect.js, core/modal-choice-ui.js, components/settings/visualizer-display-
+ * panel.js. Gọi lúc chạy: event/workflow/visualizer-render.js, player-controls.js.
  */
 const workflowVisualizerDisplay = {
+    _effectPickerStyleSelect: null, // dropdown style của modal chọn effect đang mở (đọc .value lúc bấm "Chọn")
 
-    /** Đồng bộ 6 toggle panel "Display" (components/settings/visualizer-display-panel.js) — bodyHtml do
-     * event/workflow/app-settings.js dựng sẵn qua `navigateTo()`, hàm này chỉ đồng bộ giá trị vào `genericDrawerBody`
-     * (kể cả "Show subtitles" ở card "Thành phần"). */
+    /** Đồng bộ 6 toggle panel "Display" (body do workflowAppSettings dựng sẵn trong genericDrawerBody). */
     openDisplayPanel() {
-        const panelEl = genericDrawerBody;
-        const cfg = appConfigViz.getAll();
-        panelEl.querySelector('#setting-visual-enable').checked = cfg.visualEnabled !== false;
-        panelEl.querySelector('#setting-subtitles-enabled').checked = cfg.subtitlesEnabled !== false;
-        panelEl.querySelector('#setting-stats-panel-enable').checked = appConfigPlayer.getAll().isStatsPanelVisible !== false;
-        panelEl.querySelector('#setting-bottom-player-enable').checked = cfg.bottomPlayerVisible !== false;
-        panelEl.querySelector('#setting-playlist-button-enable').checked = cfg.playlistButtonVisible !== false;
-        panelEl.querySelector('#setting-control-center-button-enable').checked = cfg.controlCenterButtonVisible !== false;
+        const view = computeVisualizerDisplayPanelView(appConfigViz.getAll(), appConfigPlayer.getAll()); // core/visualizer/visualizer-display.js
+        fillVisualizerDisplayPanel(genericDrawerBody, view);
     },
 
-    /** Ứng với 'visualizerDisplay.statsPanelEnable.change'. Lưu bền qua domain 'player' (CÙNG Shuffle/Repeat — tái dùng
-     * workflowPlayerControls._persistPlayerConfig()). */
+    /** 'visualizerDisplay.visualEnable.change'. */
+    setVisualEnabled(checked) {
+        setVisualEnabled(checked); // core/visualizer-control-center.js (cùng tên)
+        saveConfig(); // core/config.js
+    },
+
+    /** 'visualizerDisplay.statsPanelEnable.change' — lưu bền qua domain 'player' (cùng Shuffle/Repeat). */
     setStatsPanelEnabled(checked) {
         setStatsPanelVisible(checked); // core/visualizer-ui-visibility.js
-        workflowPlayerControls._persistPlayerConfig(); // event/workflow/player-controls.js — liên tuyến domain
+        workflowPlayerControls._persistPlayerConfig(); // event/workflow/player-controls.js
     },
 
-    /** 3 toggle RIÊNG — tên KHẲNG ĐỊNH, checked=true nghĩa là HIỆN. Tên method TRÙNG core cùng chức năng (lời gọi trần
-     * bên trong phân giải tới hàm core toàn cục). Ứng với 'visualizerDisplay.bottomPlayerVisible/playlistButtonVisible/
-     * controlCenterButtonVisible.change'. */
+    /** 3 toggle UI chrome (checked = HIỆN) — tên trùng core cùng chức năng (core/visualizer-ui-visibility.js). */
     setBottomPlayerVisible(checked) {
         setBottomPlayerVisible(checked); // core cùng tên
         appConfigViz.mutateAll(cfg => { cfg.bottomPlayerVisible = checked; });
@@ -47,5 +43,36 @@ const workflowVisualizerDisplay = {
         setControlCenterButtonVisible(checked); // core cùng tên
         appConfigViz.mutateAll(cfg => { cfg.controlCenterButtonVisible = checked; });
         saveConfig();
+    },
+
+    // ===================== Modal chọn effect =====================
+
+    /** CLICK #btn-cycle-mode: chọn group + style con trong 1 modal; "Chọn" -> workflowVisualizerRender.applyStyle(). Giữ
+     * tham chiếu dropdown style ngay sau khi mở — modalChoice() gỡ overlay khỏi DOM trước khi gọi onClick nhưng phần tử đã
+     * tách vẫn đọc được `.value`. */
+    openEffectPicker() {
+        const currentStyle = MODES[appState.get('currentModeIndex')]; // service/state/visualizer-runtime.js
+        modalChoice('', [{ // core/modal-choice-ui.js
+            label: t('common.select'),
+            className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent',
+            onClick: () => workflowVisualizerRender.applyStyle(this._effectPickerStyleSelect.value), // event/workflow/visualizer-render.js
+        }], { title: t('effectPicker.title'), bodyHtml: renderEffectPickerBodyHtml(STYLE_TO_GROUP[currentStyle], currentStyle) }); // components/settings/visualizer-display-panel.js
+        this._effectPickerStyleSelect = document.getElementById('effect-picker-style');
+    },
+
+    /** 'visualizerDisplay.effectPicker.group.change' — đổ lại dropdown style theo group vừa chọn. @param {string} group */
+    refillEffectPickerStyles(group) {
+        if (!this._effectPickerStyleSelect) return;
+        setEffectPickerStyleOptionsUi(this._effectPickerStyleSelect, renderEffectPickerStyleOptionsHtml(group, null)); // core/visualizer/effect-picker-ui.js + components
+    },
+
+    // ===================== Thanh tiến trình =====================
+
+    /** Màu thanh tiến trình theo effect đang chạy — gọi khi style hoặc màu effect đổi (visualizer-render.activateCurrentStyle(),
+     * custom-effect.js). updateProgressBarCSS() (core) vẽ lại bằng màu này mỗi lần cập nhật vị trí. */
+    syncProgressBarColor() {
+        const cfg = appConfigViz.getAll();
+        const color = computeProgressBarFillColor(resolveEffectConfig(cfg.customEffect, cfg.type)); // core/visualizer/visualizer-display.js + core/custom-effect.js
+        setProgressBarFillColor(progressBar, color);
     },
 };

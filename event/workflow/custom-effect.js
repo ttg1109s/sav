@@ -2,7 +2,7 @@
  * event/workflow/custom-effect.js — Workflow của hệ Custom Effect.
  *
  * #btn-cycle-mode — 1 nút 2 việc (cùng khuôn #btn-cycle-eq): bấm ngắn mở modal chọn effect (group -> style,
- * openEffectPickerModal(), core/visualizer/visualizer-display.js); giữ đủ 1.5s mở Custom Effect Drawer của effect đang
+ * workflowVisualizerDisplay.openEffectPicker(), event/workflow/visualizer-display.js); giữ đủ 1.5s mở Custom Effect Drawer của effect đang
  * chạy. Auto-switch đang bật thì cả 2 chỉ báo lý do. Đếm giờ qua taskManager.once(), cờ `_holdFired` chặn cú click sau
  * khi đã mở bằng giữ.
  *
@@ -29,7 +29,7 @@ const CUSTOM_EFFECT_REFRESH_BY_NAME = {
 /** CLICK #btn-cycle-mode: auto-switch đang bật -> chỉ báo lý do; không -> mở modal chọn effect (group -> style). */
 const CUSTOM_EFFECT_CYCLE_CLICK_BY_LOCKED = {
     true: () => alertModal(t('effectPicker.autoSwitchLocked'), { title: t('effectPicker.title') }), // core/modal-choice-ui.js
-    false: () => openEffectPickerModal((style) => workflowVisualizerRender.applyStyle(style)), // core/visualizer/visualizer-display.js
+    false: () => workflowVisualizerDisplay.openEffectPicker(), // event/workflow/visualizer-display.js
 };
 
 /** GIỮ #btn-cycle-mode đủ 1.5s — SỬA (07/10/2026, Giang: "khi auto switch bật cũng chặn luôn việc chỉnh custom
@@ -158,7 +158,7 @@ const workflowCustomEffect = {
         this._writeField(this._openType, 'mode', value); // core/custom-effect.js
         saveConfig();
         syncCustomEffectColorModeRows(genericDrawerBody, value); // core/custom-effect-drawer-ui.js
-        updateProgressBarCSS(); // core/visualizer/visualizer-display.js
+        workflowVisualizerDisplay.syncProgressBarColor(); // event/workflow/visualizer-display.js
     },
 
     /** Ô màu solid (picker hoặc ô chữ hex) — ô chữ gõ dở (chưa đủ #RRGGBB) thì chưa áp. Đồng bộ ô đối ứng. */
@@ -167,7 +167,7 @@ const workflowCustomEffect = {
         this._writeField(this._openType, 'solidColor', value); // core
         setCustomEffectInputValueById(genericDrawerBody, crossTargetId, value); // core/custom-effect-drawer-ui.js
         saveConfig();
-        updateProgressBarCSS(); // core
+        workflowVisualizerDisplay.syncProgressBarColor();
     },
 
     setDynColor(field, value) {
@@ -176,10 +176,10 @@ const workflowCustomEffect = {
         this._syncProgressBarForDynB(field);
     },
 
-    /** Progress bar mode dynamic chỉ dùng dynB (core/visualizer/visualizer-display.js::updateProgressBarCSS). */
+    /** Thanh tiến trình mode dynamic chỉ dùng dynB (computeProgressBarFillColor(), core/visualizer/visualizer-display.js). */
     _syncProgressBarForDynB(field) {
         if (field !== 'dynB') return;
-        updateProgressBarCSS(); // core
+        workflowVisualizerDisplay.syncProgressBarColor();
     },
 
     // ===================== Blur =====================

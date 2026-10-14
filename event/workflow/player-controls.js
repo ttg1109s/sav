@@ -454,7 +454,7 @@ const workflowPlayerControls = {
      * @param {string|number} value */
     handleSongSeeking(value) {
         handleProgressBarSeeking(value); // core/player-controls.js
-        workflowSubtitleDisplay.sync(Number(value)); // event/workflow/subtitle-display.js
+        workflowSubtitleDisplay.preview(Number(value)); // event/workflow/subtitle-display.js — phụ đề + karaoke theo mốc kéo
     },
 
     /** Ứng với 'playerControls.progressBar.seekCommit' khi `isVideoPlayerMode=false` (Song) — thả tay/chạm chọn
@@ -599,6 +599,7 @@ const workflowPlayerControls = {
         const currentKey = appState.get('currentKey');
         if (currentKey) workflowPlaylistRender.refreshSongNode(currentKey); // event/workflow/playlist-render.js — EQ bars "đang phát"
         workflowVisualBg.syncPlaybackToAudio(); // event/workflow/visual-bg-common.js
+        workflowSubtitleDisplay.sync(audioPlayer.currentTime); // event/workflow/subtitle-display.js — hiệu ứng phụ đề chạy tiếp ngay, không đợi 'timeupdate'
     },
 
     /** Ứng với 'playerControls.audio.pause', đối xứng `handleAudioPlayEvent()` ngay trên. Cuối cùng xả hàng đợi tiếng iOS (`_flushSongQueueAfterPause()`), xem docblock method đó. */

@@ -70,6 +70,7 @@ const workflowAppVisibility = {
         resumeAudioContextIfInterrupted(appState.get('audioContext'), this._isAnyMediaPlaying() || resumingVideo); // core/audio-engine.js
         this._exitBackgroundSuspend();
         this._reacquireWakeLockIfPlaying();
+        workflowSubtitleDisplay.resync(); // event/workflow/subtitle-display.js — ẩn lâu: karaoke/hiệu ứng phụ đề về đúng vị trí đang phát
     },
 
     /** Tách từ exitBackground() (06/10/2026) — khôi phục đúng những gì chế độ nền đã tạm dừng. */
