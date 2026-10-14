@@ -1,6 +1,6 @@
 /**
  * core/media-element-ui.js — thao tác thi hành trên phần tử media (audioPlayer, bgVideoElement) nhận qua tham số: gán
- * nguồn, tua về vị trí cũ, phát. Không đọc appState, không gọi core khác, không gắn sự kiện.
+ * nguồn, tua về vị trí cũ, phát, dừng. Không đọc appState, không gọi core khác, không gắn sự kiện.
  * NẠP SAU: không phụ thuộc gì.
  */
 
@@ -22,4 +22,9 @@ function seekMediaElementClamped(mediaEl, sec) {
 /** Phát; lỗi (vd bị chặn autoplay) chỉ ghi console. @param {HTMLMediaElement} mediaEl @param {string} logTag */
 function playMediaElement(mediaEl, logTag) {
     mediaEl.play().catch((err) => console.error(`${logTag} play() lỗi:`, err));
+}
+
+/** Dừng nếu đang phát (đang dừng thì không bắn lại 'pause'). @param {HTMLMediaElement} mediaEl */
+function pauseMediaElement(mediaEl) {
+    if (!mediaEl.paused) mediaEl.pause();
 }

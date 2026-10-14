@@ -268,26 +268,10 @@
         // DỜI (24/09/2026) — `handleBackToPlaylistClick()` (core gọi 2 core) sang event/workflow/player-controls.js::
         // `workflowPlayerControls.handleBackToPlaylistClick()`.
 
-        /**
-         * Element ĐANG THỰC SỰ PHÁT — `bgVideoElement` (Video Player mode) hay `audioPlayer` (Song).
-         * DÙNG CHUNG bởi MỌI domain cần biết "element nào đang chạy" — trước đây mỗi nơi (Next/Prev,
-         * Game Mode) tự viết lại ternary `isVideoPlayerMode ? bgVideoElement : audioPlayer` riêng
-         * (2 lần ở event/workflow/player-controls.js, SẮP thêm 6 lần nữa ở event/workflow/
-         * gameplay.js nếu không gộp) — tách ra ĐÚNG 1 chỗ, Core thuần (Rule 2: nhận
-         * `isVideoPlayerMode` qua tham số, KHÔNG tự `appState.get()`), mọi nơi gọi lại.
-         * @param {boolean} isVideoPlayerMode
-         * @returns {HTMLMediaElement}
-         */
-        function getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode) {
-            // SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — thêm tham số
-            // `isPhotoPlayerMode`, trả `photoPlayerFakeMediaElement` (core/photo-player.js) khi
-            // true — KHÔNG phải HTMLMediaElement thật (ảnh không có), nhưng mô phỏng ĐÚNG 4 thành
-            // viên (`currentTime` get/set, `paused` get, `play()`/`pause()`) mà 2 nơi gọi hiện có
-            // (goToNextTrack()/goToPrevTrack(), event/workflow/player-controls.js VÀ event/
-            // workflow/gameplay.js) cần — nơi gọi KHÔNG cần sửa gì thêm ngoài truyền thêm tham số
-            // này, mọi `activeEl.currentTime`/`.paused`/`.play()`/`.pause()` hiện có tự hoạt động
-            // đúng. Rule 2 vẫn giữ (2 tham số đều do nơi gọi tự đọc appState rồi truyền vào).
-            if (isPhotoPlayerMode) return photoPlayerFakeMediaElement; // core/photo-player.js
+        /** Media element đang phát: `bgVideoElement` (Video Player mode) hoặc `audioPlayer` (Song). Photo không có element
+         * thật — Next/Prev lấy "media giả" qua workflowPhotoPlayer.resolveActiveMedia() (event/workflow/photo-player.js).
+         * @param {boolean} isVideoPlayerMode @returns {HTMLMediaElement} */
+        function getActiveMediaElement(isVideoPlayerMode) {
             return isVideoPlayerMode ? bgVideoElement : audioPlayer;
         }
 
@@ -304,7 +288,7 @@
          * @param {boolean} isVideoPlayerMode @param {boolean} isPhotoPlayerMode @param {number} speed */
         function applyPlaybackSpeedToActiveMedia(isVideoPlayerMode, isPhotoPlayerMode, speed) {
             if (isPhotoPlayerMode) return;
-            const el = getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode);
+            const el = getActiveMediaElement(isVideoPlayerMode);
             el.playbackRate = speed;
             el.preservesPitch = true; el.mozPreservesPitch = true; el.webkitPreservesPitch = true;
         }

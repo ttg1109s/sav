@@ -1,0 +1,21 @@
+/**
+ * core/record-art-ui.js — ảnh tròn #record-art ở thanh phát đáy màn. Phần tử bị thay mỗi lần đổi media nên không có
+ * trong core/dom-refs.js; markup ở components/bottom-player.js::renderRecordArtHtml().
+ * NẠP SAU: service/component-dynamic.js, core/dom-refs.js.
+ */
+
+/** Thay #record-art trong khung chứa. `src`/`alt` gán qua slot (tên file có ký tự HTML không phá markup).
+ * @param {HTMLElement} containerEl - #record-container @param {string} html - renderRecordArtHtml()
+ * @param {string} src @param {string} alt */
+function mountRecordArt(containerEl, html, src, alt) {
+    containerEl.replaceChildren(instantiateComponent(html, {
+        src: { selector: '#record-art', prop: 'src', value: src },
+        alt: { selector: '#record-art', prop: 'alt', value: alt },
+    })); // service/component-dynamic.js
+}
+
+/** Đổi ảnh của #record-art đang hiện (không dựng lại). @param {string} src */
+function setRecordArtSrc(src) {
+    const recordArtEl = document.getElementById('record-art');
+    if (recordArtEl) recordArtEl.src = src;
+}
