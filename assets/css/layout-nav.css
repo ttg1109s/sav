@@ -11,12 +11,10 @@
    thiết bị, tránh lộ 1-2px nội dung ở rìa khi "đã trượt hết cỡ" nhưng vẫn lệch. */
 #app-stack.playlist-hidden { transform: translateX(calc(100% + 4px)); }
 #app-bg { position: absolute; inset: 0; } /* SỬA (bottom nav) — #side-left-container KHÔNG còn absolute (xem #app-stack flex-column bên dưới), chỉ #app-bg giữ full-bleed nền */
-/* #app-bg là khung cắt (overflow:hidden), 2 con TÁCH BIỆT: #app-bg-image (ảnh gốc, luôn nét, không
-   transform/filter) + #app-bg-blur-layer (đè lên trên, nhận scale/blur — core/color-utils.js::
-   updatePlaylistBg() gán cùng ảnh cho cả 2 khi bgBlur > 0). */
+/* #app-bg là khung cắt (overflow:hidden): video nền nằm dưới, #app-bg-image (ảnh/gradient/overlay) đè lên — components/app-view-stack.js. */
 #app-bg { overflow: hidden; }
-#app-bg-image, #app-bg-blur-layer { position: absolute; inset: 0; }
-#app-bg-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; } /* MỚI 21/09/2026 — video nền App (nằm dưới #app-bg-image, xem components/app-view-stack.js) */
+#app-bg-image { position: absolute; inset: 0; }
+#app-bg-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 #visualizer-ui, #player-container { transform: translateX(calc(-100% - 4px)); }
 #visualizer-ui.visualizer-active, #player-container.visualizer-active { transform: translateX(0); }
 
