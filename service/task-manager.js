@@ -1,56 +1,26 @@
 /**
- * service/task-manager.js — CHUYỂN từ `service/task-manager.js` (04/07/2026, phản hồi Giang mục 2:
- * đây là DỊCH VỤ HẠ TẦNG dùng chung toàn app — quản lý timer, không phải NGHIỆP VỤ — nên thuộc
- * nhóm `service/` cùng `state.js`/`operation.js`, không phải `core/`). KHÔNG đổi logic bên trong,
- * chỉ đổi đường dẫn file + đường dẫn `<script>` trong index.html.
+ * service/task-manager.js — quản lý TẬP TRUNG mọi hẹn giờ của app (dịch vụ hạ tầng, không phải nghiệp vụ): mọi chờ N ms, lặp,
+ * và chờ khung hình đều đăng ký qua instance `taskManager`, không gọi thẳng setTimeout/setInterval/requestAnimationFrame
+ * (readme/task-manager-conventions.md). Chuyển thể từ bản gốc ES module (class Loop/TaskManager) sang global-script.
  *
- * TaskManager — quản lý TẬP TRUNG mọi setInterval/setTimeout của app, để KHÔNG còn timer nào
- * "trôi tự do" bên ngoài. Chuyển thể từ bản gốc (ES module, class Loop/TaskManager) sang dạng
- * global-script khớp với toàn bộ project (không build step, chạy thẳng qua file://, các file
- * chia sẻ global scope qua <script> tag thường) — bỏ `export`, giữ NGUYÊN tên 2 class + toàn bộ
- * logic lõi (không sửa gì bên trong Loop/TaskManager so với bản gốc).
+ * 3 mode của `Loop`: 'timeout' (bù trôi — mọi task lặp thường dùng mode này), 'interval' (không dùng), 'raf'
+ * (requestAnimationFrame, tự xin khung kế; `time` vô nghĩa nên bỏ qua validate time > 0).
  *
- * QUYẾT ĐỊNH THIẾT KẾ (theo yêu cầu "mọi interval/timeout — 1 lần hay lặp — đều phải qua task"):
- *   - Mọi nơi trong app, kể cả timeout BẮN-1-LẦN (animation 300ms, debounce save, đóng menu...),
- *     đều đăng ký qua `taskManager` thay cho gọi trực tiếp setTimeout/setInterval. Lý do: đồng bộ
- *     1 nguồn quản lý timer duy nhất — khi cần pause/resume TOÀN BỘ (ẩn/quay lại tab), chỉ cần 1
- *     lệnh `taskManager.pauseAll()`/`resumeAll()` thay vì phải nhớ rải rác từng nơi.
- *   - mode 'interval' KHÔNG dùng ở đâu trong app: ngay cả _listenTickHandle (giây nghe nhạc,
- *     trước đây setInterval) cũng đổi sang mode 'timeout' (bù trôi) — chấp nhận overhead bù giờ
- *     ở MỌI task để đổi lấy 1 API thống nhất duy nhất, đúng yêu cầu.
+ * Các kiểu task:
+ *   (A) Task LẶP sống lâu, tên cố định: addNew() + operator(name, 'enabled'), pause()/resume(), kill() khi dọn hẳn
+ *       (vd 'listenClock', 'autoSwitchVisual', 'visualizerRender' mode 'raf').
+ *   (B) Chờ N ms 1 lần (thay setTimeout): once(fn, ms, name?).
+ *   (C) Chờ N khung hình 1 lần (thay requestAnimationFrame / rAF lồng nhau): onceFrame(fn, frames?, name?).
+ *   (B)/(C): không có `name` -> tự sinh tên duy nhất; có `name` cố định -> gọi lại cùng tên tự huỷ bản cũ rồi đặt lại
+ *   (debounce). Trả { name, kill() } để huỷ sớm.
  *
- * MODE `raf` (MỚI, 20/07/2026, plan-space-galaxy.md Phần A) — nhánh THỨ 3 của `Loop`, bên cạnh
- * `interval`/`timeout`: dùng `requestAnimationFrame`/`cancelAnimationFrame` thay cho
- * `setTimeout`/`setInterval` — TỰ GỌI LẠI CHÍNH NÓ bên trong, y hệt cơ chế tự-tái-sinh của mode
- * `timeout` (KHÔNG liên quan gì tới `eventBus` — đây là nhầm lẫn ban đầu đã sửa lúc lập plan: đừng
- * lẫn "vòng lặp tự nuôi sống" với "bắn sự kiện"). Dùng cho vòng lặp render 60fps
- * (`event/workflow/visualizer-render.js`) — nơi DUY NHẤT hợp lệ để 1 Workflow đăng ký task này
- * (Core CẤM TUYỆT ĐỐI dùng `taskManager`, xem mục 2 dưới, không đổi gì cho mode `raf`).
- * `time` VÔ NGHĨA với mode này (trình duyệt tự quyết định nhịp vẽ, không hẹn giờ) — `addNew()`/
- * `enabled()` BỎ QUA việc validate `time > 0` riêng cho mode `raf` (xem `#validate()`/`enabled()`).
- *
- * 2 KIỂU TASK dùng trong app:
- *   (A) Task LẶP, SỐNG LÂU, có tên cố định, dùng pause()/resume() khi tab ẩn/hiện hoặc nhạc
- *       dừng/phát tiếp — ví dụ 'listenClock', 'autoSwitchVisual', 'visualizerRender' (mode `raf`).
- *       Đăng ký 1 lần qua addNew(), enabled() lúc cần bắt đầu, pause()/resume() xuyên suốt đời
- *       sống, kill() khi dọn hẳn.
- *   (B) Task BẮN 1 LẦN (thay cho setTimeout cũ) — đăng ký qua taskManager.once(fn, ms, name?):
- *         - Nếu KHÔNG truyền name: tự sinh tên duy nhất (dùng cho timeout "tạm", có thể cần huỷ
- *           sớm qua taskManager.kill(tênTrảVề) — ví dụ 2 timeout race nhau trong 1 Promise).
- *         - Nếu CÓ truyền name: gọi lại nhiều lần với CÙNG name tự huỷ bản cũ + đặt lại từ đầu —
- *           đúng hành vi debounce (_validate() của TaskManager đã tự kill task trùng tên).
- *       once() trả về { name, kill() } để gọi nơi gọi có thể huỷ task đó bất kỳ lúc nào (tương
- *       đương clearTimeout(timeoutId) cũ).
- *
- * PHẢI nạp SỚM trong index.html (ngay sau dom-refs.js, TRƯỚC mọi file core/playlist/visualizer
- * khác) vì hầu hết các file đó dùng taskManager.once()/addNew() ngay khi gắn listener.
+ * Chỉ Workflow được dùng `taskManager` (Core/Router/Listener không). Nạp sớm (trước core/workflow).
  */
         class Loop {
             /**
-             * @param {number} time - Thời gian lặp (ms). VÔ NGHĨA khi mode = 'raf' (xem đầu file).
+             * @param {number} time - Thời gian lặp (ms). Vô nghĩa khi mode = 'raf'.
              * @param {function} callback - Hàm thực thi
-             * @param {string} mode - 'interval' (setInterval) hoặc 'timeout' (setTimeout bù giờ)
-             *   hoặc 'raf' (MỚI — requestAnimationFrame, xem đầu file).
+             * @param {string} mode - 'interval' | 'timeout' (bù giờ) | 'raf' (requestAnimationFrame)
              * @param {number} count - Số lần chạy (0 = vô hạn)
              */
             constructor(time = 0, callback = () => { }, mode = 'interval', count = 0) {
@@ -126,12 +96,7 @@
                 }, nextDelay);
             }
 
-            /**
-             * MỚI (mode 'raf') — y hệt cấu trúc #runTimeout() ở trên (chạy callback TRƯỚC, tự
-             * tái-sinh bằng cách gọi lại chính nó SAU), chỉ thay setTimeout/nextDelay bằng
-             * requestAnimationFrame (không có khái niệm "drift bù giờ" — mỗi lần trình duyệt sẵn
-             * sàng vẽ là chạy ngay, không hẹn giờ trước).
-             */
+            /** Cùng cấu trúc #runTimeout() (chạy callback trước, tự xin lượt kế sau), hẹn bằng requestAnimationFrame. */
             #runRaf() {
                 if (!this.isRunning || this.isPaused) return;
                 if (this.isBusy) { // hiếm — 1 tick trước còn đang chạy (lỗi đồng bộ lạ), bỏ qua tick này, vẫn xin tick kế tiếp
@@ -207,9 +172,7 @@
                     this.remainingTime = Math.max(0, this.expected - now);
                     clearTimeout(this.timerId);
                 } else if (this.mode === 'raf') {
-                    // mode 'raf' KHÔNG có khái niệm "thời gian còn lại tới lần chạy kế" (mỗi frame
-                    // chạy NGAY khi trình duyệt cho phép, không hẹn giờ trước) — resume() chỉ cần
-                    // xin lại 1 frame mới ngay lập tức, không dùng remainingTime.
+                    // raf không có "thời gian còn lại" — resume() xin lại khung mới ngay.
                     cancelAnimationFrame(this.timerId);
                 } else {
                     this.remainingTime = Math.max(0, this.time - (now - this.lastTick));
@@ -223,9 +186,6 @@
                 this.isPaused = false;
 
                 if (this.mode === 'raf') {
-                    // Không cần setTimeout trung gian như 2 mode kia — raf tự nhiên chạy vào frame
-                    // kế tiếp trình duyệt vẽ, xin thẳng 1 frame mới là đủ (đúng tinh thần "resume
-                    // tức thì" của mode này, không có gì để "bù trôi").
                     this.timerId = requestAnimationFrame(() => { if (this.isRunning) this.#runRaf(); });
                     return;
                 }
@@ -245,13 +205,7 @@
                     if (this.mode === 'interval') {
                         this.#runInterval();
                     } else {
-                        // FIX (bug double-tick): KHÔNG gọi this.#runTimeout() trực tiếp ở đây — hàm
-                        // đó tự chạy callback() ngay khi được gọi (xem #runTimeout(), dùng cho
-                        // chính setTimeout của nó), nên gọi nó đồng bộ ngay sau khi resume() VỪA
-                        // chạy callback() ở dòng trên sẽ bắn dư 1 tick trong cùng 1 lượt. Đặt lại
-                        // lịch giống đúng enabled() (this.timerId = setTimeout(...#runTimeout...,
-                        // this.time)) — #runTimeout() CHỈ được gọi từ trong setTimeout của chính
-                        // nó, không bao giờ gọi trực tiếp như một hàm "chạy callback ngay".
+                        // Đặt lịch như enabled() — gọi thẳng #runTimeout() ở đây sẽ chạy dư 1 tick (callback vừa chạy ở trên).
                         this.expected = Date.now() + this.time;
                         this.timerId = setTimeout(() => {
                             if (this.isRunning) this.#runTimeout();
@@ -276,22 +230,12 @@
                     return false;
                 }
 
-                // [FIX CRITICAL] Không bao giờ throw lỗi "Task already exists"
-                // Thay vào đó, âm thầm kill task cũ và overwrite
+                // Trùng tên -> kill task cũ rồi ghi đè (không throw).
                 if (this.plan[taskName]) {
                     this.kill(taskName);
                 }
 
-                // mode 'raf': `time` vô nghĩa (trình duyệt tự quyết định nhịp vẽ, không hẹn giờ) —
-                // BỎ QUA check time>0 cho mode này. FIX (bug thật, 20/07/2026 — Giang báo lỗi
-                // console "TaskManager: Invalid time for task visualizerRender"): trước đó CHỈ
-                // sửa `Loop.enabled()` bỏ qua check này — QUÊN MẤT `#validate()` ở ĐÂY, được gọi
-                // từ `addNew()` NGAY TRƯỚC khi 1 `Loop` được `new` ra (xem `addNew()` bên dưới:
-                // `if (!this.#validate(...)) return;` — return SỚM, `Loop` chưa kịp sinh ra thì
-                // `enabled()` không bao giờ được gọi tới). Kết quả: `taskManager.addNew('visualizerRender',
-                // { time: 0, mode: 'raf', ... })` bị chặn đứng NGAY TẠI ĐÂY, task không hề được
-                // thêm vào `this.plan` — `operator(name, 'enabled')` sau đó chỉ no-op (task không
-                // tồn tại) — vòng lặp render KHÔNG BAO GIỜ thực sự chạy dù không ném lỗi gì thêm.
+                // mode 'raf': `time` vô nghĩa — bỏ qua check time > 0 (cả ở đây lẫn Loop.enabled()).
                 if (mode !== 'raf' && (typeof time !== 'number' || time <= 0)) {
                     console.error(`TaskManager: Invalid time for task ${taskName}`);
                     return false;
@@ -304,17 +248,8 @@
                 return true;
             }
 
-            /**
-             * FIX (bug): this.running[taskName] là 1 cờ ĐỘC LẬP, được set true/false CHỈ bởi
-             * operator()/kill() — nhưng khi 1 Loop có `count` giới hạn (vd count: 1) tự chạy hết
-             * và tự gọi disabled() NỘI BỘ (xem Loop.#tickCount()), KHÔNG có cơ chế nào báo lại cho
-             * TaskManager biết để dọn this.running[taskName] — cờ đó vẫn đọc ra `true` mãi dù task
-             * thật đã dừng từ lâu (Loop.isRunning đã là `false`). Mọi chỗ cần biết "task này còn
-             * sống thật không" PHẢI đối chiếu CẢ HAI: cờ this.running[taskName] (lịch sử có
-             * enabled() qua operator() chưa) VÀ this.plan[taskName].isRunning (trạng thái THẬT của
-             * chính Loop instance, luôn đúng vì Loop tự cập nhật nó ở mọi nhánh enabled/disabled).
-             * pause()/resume() bên dưới dùng helper này thay cho đọc thẳng this.running[taskName].
-             */
+            /** Task còn chạy thật: đối chiếu cả cờ `running` (đã enabled qua operator()) lẫn `Loop.isRunning` (Loop có
+             * `count` giới hạn tự disabled() mà không báo lại cờ). Lưu ý: task đang pause vẫn trả true. */
             isTaskRunning(taskName) {
                 const taskLoop = this.plan[taskName];
                 return !!(taskLoop && this.running[taskName] && taskLoop.isRunning);
@@ -374,36 +309,48 @@
                 }
             }
 
-            // ===================== Tiện ích bổ sung cho app (KHÔNG có ở bản gốc) =====================
+            // ===================== Tiện ích bổ sung cho app (không có ở bản gốc) =====================
 
-            /**
-             * once(callback, ms, name?) — thay thế trực tiếp cho setTimeout(callback, ms) cũ, nhưng
-             * chạy qua đúng 1 Loop (mode 'timeout', count: 1, tự kill() khỏi this.plan ngay sau khi
-             * chạy xong — không để rác task đã xong nằm lại trong this.plan/this.running).
-             *
-             * - Không truyền `name`: tự sinh tên duy nhất (taskName trả về trong kết quả) — dùng cho
-             *   timeout "tạm/dùng 1 lần ở 1 chỗ", ví dụ 2 timeout race nhau trong cùng 1 Promise.
-             * - Có truyền `name` cố định: gọi lại nhiều lần với CÙNG tên sẽ tự huỷ bản cũ (addNew()
-             *   đã validate + kill task trùng tên) rồi đặt lại từ đầu — đúng hành vi debounce cũ
-             *   (clearTimeout(timer); timer = setTimeout(fn, ms)).
-             *
-             * Trả về { name, kill() } — gọi .kill() tương đương clearTimeout(timeoutId) cũ.
-             */
+            /** Chạy `callback` 1 lần sau `ms` (thay setTimeout). Loop mode 'timeout', count 1, tự kill() khỏi `plan` ngay khi
+             * chạy. Không `name` -> tên tự sinh; cùng `name` -> huỷ bản cũ, đặt lại (debounce). @returns {{name:string, kill:function}} */
             once(callback, ms, name) {
                 const taskName = name || `once_${TaskManager._onceSeq++}`;
                 this.addNew(taskName, {
                     time: ms,
                     exe: () => {
-                        // Dọn khỏi plan/running NGAY sau khi chạy — task 1 lần xong là kết thúc đời
-                        // sống, không cần Loop.disabled() còn nằm sót trong this.plan (kill() đã tự
-                        // gọi disabled() trước khi xoá, nhưng tại đây Loop tự #tickCount() ra false
-                        // và tự enabled=false, không có ai gọi kill() để dọn khỏi this.plan/running
-                        // — chủ động dọn ở đây để this.plan không phình to dần theo số lần once()).
-                        this.kill(taskName);
+                        this.kill(taskName); // dọn khỏi plan/running ngay — không để task đã xong nằm lại
                         callback();
                     },
                     mode: 'timeout',
                     count: 1
+                });
+                this.operator(taskName, 'enabled');
+                return {
+                    name: taskName,
+                    kill: () => this.kill(taskName)
+                };
+            }
+
+            /**
+             * Chạy `callback` 1 lần ở khung hình thứ `frames` kể từ bây giờ (thay requestAnimationFrame thô: frames 1 =
+             * `requestAnimationFrame(fn)`, 2 = 2 lần lồng nhau — chờ trình duyệt layout/vẽ xong). Loop mode 'raf', count = frames,
+             * tự kill() khỏi `plan` ngay khi chạy. `name` như once(). @returns {{name:string, kill:function}}
+             * @param {function} callback @param {number} [frames=1] @param {string} [name]
+             */
+            onceFrame(callback, frames = 1, name) {
+                const taskName = name || `onceFrame_${TaskManager._onceSeq++}`;
+                const targetFrame = Math.max(1, Math.floor(frames) || 1);
+                let frameIndex = 0;
+                this.addNew(taskName, {
+                    time: 0,
+                    exe: () => {
+                        frameIndex++;
+                        if (frameIndex < targetFrame) return;
+                        this.kill(taskName); // dọn khỏi plan/running ngay — không để task đã xong nằm lại
+                        callback();
+                    },
+                    mode: 'raf',
+                    count: targetFrame
                 });
                 this.operator(taskName, 'enabled');
                 return {
@@ -424,6 +371,5 @@
         }
         TaskManager._onceSeq = 0;
 
-        /** Instance DUY NHẤT dùng xuyên suốt toàn app — mọi file core/playlist/visualizer đều
-         * đăng ký task qua biến global này, không tự new TaskManager() riêng ở đâu khác. */
+        /** Instance DUY NHẤT của app — không tự new TaskManager() ở nơi khác. */
         const taskManager = new TaskManager();
