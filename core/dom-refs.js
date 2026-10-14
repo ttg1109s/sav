@@ -40,29 +40,13 @@
         const selectionActionBar = document.getElementById('selection-action-bar'), selectionCountLabel = document.getElementById('selection-count-label');
         const btnSelectionMore = document.getElementById('btn-selection-more'), selectionMoreMenu = document.getElementById('selection-more-menu');
         const canvas = document.getElementById('visualizer'), ctx = canvas.getContext('2d');
-        // MỚI (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings) — khung cuộn ngang bọc
-        // chung Playlist+Settings, xem components/app-view-stack.js.
-        // HOTFIX 16 (08/07/2026) — thêm `appStack` (khung ngoài cùng, nhận lại toàn bộ transform/
-        // vị trí responsive — xem assets/css/style.css) + `appBg` (lớp nền thuần, anh em với
-        // `sideLeftContainer`, KHÔNG còn là hậu duệ của khung cuộn ngang nữa — xem docstring đầy
-        // đủ ở components/app-view-stack.js). `sideLeftContainer` giờ CHỈ còn lo cuộn ngang.
-        const appStack = document.getElementById('app-stack'), appBg = document.getElementById('app-bg');
-        // SỬA (12/08/2026, bug "blur ảnh nền làm mất viền panel") — `#app-bg` giờ là khung CẮT
-        // (`overflow: hidden`, tự nó KHÔNG bao giờ mang `filter`) bọc 2 con — xem components/
-        // app-view-stack.js + core/color-utils.js::updatePlaylistBg().
-        // SỬA TIẾP (13/08/2026, Giang chỉ ra "scale 1.1 phải áp cho DOM ĐƯỢC BLUR, không phải cả
-        // DOM bg image") — tách THÊM `appBgImage` (ảnh gốc, KHÔNG BAO GIỜ scale/blur) RA KHỎI
-        // `appBgBlurLayer` (lớp phủ ĐÈ LÊN TRÊN, chỉ lớp NÀY nhận scale/blur) — bản 12/08 lỡ gộp cả
-        // 2 vai trò vào 1 phần tử.
+        // Khung App Panel (components/app-view-stack.js) — giữ vị trí/responsive, class `.playlist-hidden` = đang ở màn Visualizer.
+        const appStack = document.getElementById('app-stack');
+        // Nền App Panel trong `#app-bg`: ảnh/gradient + video nền (components/app-view-stack.js, ghi bởi core/color-utils.js::updatePlaylistBg()).
         const appBgImage = document.getElementById('app-bg-image');
-        const appBgVideo = document.getElementById('app-bg-video'); // MỚI 21/09/2026 — video nền App (components/app-view-stack.js)
-        const appBgBlurLayer = document.getElementById('app-bg-blur-layer');
+        const appBgVideo = document.getElementById('app-bg-video');
         const sideLeftContainer = document.getElementById('side-left-container');
         const playlistView = document.getElementById('playlist-view'), visualizerUI = document.getElementById('visualizer-ui'), playerContainer = document.getElementById('player-container');
-        // (playlistBg ĐÃ XOÁ — HOTFIX 15, 08/07/2026: div `#playlist-bg` riêng đã bỏ hẳn.
-        // HOTFIX 16: background-image giờ set lên `appBg` (khai báo ngay trên, KHÔNG phải
-        // `sideLeftContainer` như bản HOTFIX 15 ban đầu) — xem core/color-utils.js::
-        // updatePlaylistBg().)
         const playlistEmpty = document.getElementById('playlist-empty'), playlistContainer = document.getElementById('playlist-container');
         // 2 nút "Phát"/"Trộn bài" của empty-state (ver 11, cụm /event/ "playlistEmptyState") —
         // TRƯỚC ĐÂY dùng onclick="..." inline trong components/playlist-view.js (xem plan.md mục
@@ -248,11 +232,8 @@
         // (10 const elAutoSwitch* ĐÃ XOÁ — Batch D3: section "Tự động đổi hiệu ứng" giờ sống động
         // BÊN TRONG panel Visualizer Settings, không còn DOM tĩnh — event/listener/auto-switch-
         // visual.js dùng delegation trên settingsStackBody thay vì đọc const ở đây.)
-        // DỌN 23/09/2026: `bgBlurSlider`/`valBgBlurDisplay` ĐÃ XOÁ — #setting-bg-blur/#val-bg-blur không còn trong DOM (luôn null); blur ảnh nền đã bỏ hẳn.
         // (settingVisualBgImageEnableToggle ĐÃ XOÁ — v13 Batch A: toggle "#setting-visual-bg-image-enable"
         // không còn tồn tại, gộp vào panel "Visual Background" — xem btnOpenVisualBgSettings bên dưới.)
-        // DỌN DEADCODE 21/09/2026: 9 ref `themeModeCard*`/`themeBgBlurRow`/`themeGradientRow`/`themeGradientFromPicker`/`themeGradientToPicker`/`themeMockup*` ĐÃ XOÁ — chúng
-        // trỏ tới DOM của UI Theme cũ (không còn trong index.html từ khi Theme dời vào Settings), luôn null. UI nền hiện tại: core/theme-background-ui.js.
         // (qualitySelect/bgColorPicker/colorModeSelect/solidColor*/dynColor*/maxHeightSlider/
         // barWidthSlider/valMax.../blockMaxHeight/blockBarWidth/blockVortex/vortexStyleSelect/
         // blockRain/rainStyleSelect/glassFlashToggle/blockBarStyle/barStyleSelect/barMirrorOptions/

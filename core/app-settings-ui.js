@@ -174,12 +174,10 @@ function wireAppSettingsPlaylist(bodyEl) {
     if (filterBtn) filterBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.openManage.click', payload: {} }));
 }
 
-/** Màn Theme — CHỈ còn gắn select "Color" (Light/Dark/Morphin). SỬA 21/09/2026: phần chọn NỀN (dropdown loại nền + 3 ô màu + nút chọn ảnh) ĐÃ THAY bằng
- * 3 card Solid/Gradient/Background media (core/theme-background-ui.js — dựng bởi buildThemeBackgroundCardsHtml, gắn bởi wireThemeBackgroundCards; Workflow
- * gọi cả 2 hàm khi mount màn Theme, xem event/workflow/app-settings.js::_renderTheme()). Dropdown cũ dùng `<select>` + "đoán" loại nền từ config nên chọn mục khác
- * bị nhảy ngược về mục hiện tại. */
+/** Màn Theme — gắn select "Color" (Light/Dark/Morphin). Cụm 3 card nền gắn riêng ở
+ * core/theme-background-ui.js::wireThemeBackgroundCards() (event/workflow/app-settings.js::_renderTheme() gọi cả 2). */
 function wireAppSettingsTheme(bodyEl) {
-    const uiThemeSelect = bodyEl.querySelector('#app-settings-ui-theme-select'); // MỚI 21/09/2026 — màu giao diện Light/Dark
+    const uiThemeSelect = bodyEl.querySelector('#app-settings-ui-theme-select');
     if (uiThemeSelect) uiThemeSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.uiTheme.change', payload: { themeName: e.target.value } }));
 }
 

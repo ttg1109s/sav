@@ -1,178 +1,68 @@
 /**
- * Hàm tiện ích màu sắc & cập nhật nền (hexToRgb, interpolateColor, updateDOMBackground,
- * updatePlaylistBg — dùng CHUNG cho cả Playlist lẫn Settings từ 07/07/2026, xem
- * components/app-view-stack.js).
- * (Trích từ file gốc, dòng 553-575 trong khối <script>)
+ * core/color-utils.js — tiện ích màu + ghi 2 lớp nền tĩnh: `#visualizer-solid-bg` (updateDOMBackground) và nền App Panel
+ * `#app-bg-*` (updatePlaylistBg, setAppBgVideoPlayback, forceGlassRepaint). Không đọc config: Workflow đọc rồi truyền vào
+ * (workflowVisualBg.paintSolidBg(), workflowTheme — event/workflow/{visual-bg-common,theme}.js).
  */
+        /** '#rgb' / '#rrggbb' -> {r, g, b}; độ dài khác -> 0 cả 3 kênh. */
         function hexToRgb(hex) {
             let r = 0, g = 0, b = 0;
-            if (hex.length == 4) { r = "0x" + hex[1] + hex[1]; g = "0x" + hex[2] + hex[2]; b = "0x" + hex[3] + hex[3]; } 
+            if (hex.length == 4) { r = "0x" + hex[1] + hex[1]; g = "0x" + hex[2] + hex[2]; b = "0x" + hex[3] + hex[3]; }
             else if (hex.length == 7) { r = "0x" + hex[1] + hex[2]; g = "0x" + hex[3] + hex[4]; b = "0x" + hex[5] + hex[6]; }
             return {r: +r, g: +g, b: +b};
         }
 
+        /** Nội suy 2 màu hex theo `factor` (0-1) -> 'rgb(r, g, b)'. Tự đọc kênh màu (cùng cách hexToRgb()) — core không gọi core. */
         function interpolateColor(color1, color2, factor) {
-            const rgb1 = hexToRgb(color1); const rgb2 = hexToRgb(color2);
-            let result = { r: Math.round(rgb1.r + factor * (rgb2.r - rgb1.r)), g: Math.round(rgb1.g + factor * (rgb2.g - rgb1.g)), b: Math.round(rgb1.b + factor * (rgb2.b - rgb1.b)) };
-            return `rgb(${result.r}, ${result.g}, ${result.b})`;
+            const channels = [0, 0, 0];
+            for (let i = 0; i < 3; i++) {
+                const a = color1.length == 4 ? +("0x" + color1[i + 1] + color1[i + 1]) : (color1.length == 7 ? +("0x" + color1.slice(1 + i * 2, 3 + i * 2)) : 0);
+                const b = color2.length == 4 ? +("0x" + color2[i + 1] + color2[i + 1]) : (color2.length == 7 ? +("0x" + color2.slice(1 + i * 2, 3 + i * 2)) : 0);
+                channels[i] = Math.round(a + factor * (b - a));
+            }
+            return `rgb(${channels[0]}, ${channels[1]}, ${channels[2]})`;
         }
 
-        /** FIX (04/07/2026, mục 1a phản hồi Giang) — tô màu vào `#visualizer-solid-bg` (element
-         * riêng của Visualizer UI) THAY `document.body` — `document.body`'s background từng bị
-         * nghi ngờ là 1 phần nguyên nhân màu Settings tràn vào status bar/tai thỏ OS (1 số trình
-         * duyệt tự suy màu vùng đó từ nền `<body>` bất kể có gì đè lên trên). `body` giờ giữ
-         * NGUYÊN #000000 tĩnh khai báo thuần trong CSS, không còn bị JS đụng vào nữa. */
-        /** SỬA (v13 Batch A) — `vizConfig.videoBgEnabled` ĐÃ GỘP vào domain config `visualBg`;
-         * điều kiện "có video nền đang che lên" giờ = `enabled && mediaType==='video'`. Hàm này là
-         * CHỦ SỞ HỮU DUY NHẤT của màu `#visualizer-solid-bg` (Workflow domain `visualBg` gọi THẲNG
-         * hàm này thay vì tự viết 1 core song song — tránh 2 nơi cùng ghi 1 thuộc tính).
-         * Rule 1 KHÔNG vi phạm: vẫn ĐÚNG 1 tiến trình (gán màu nền), chỉ khác GIÁ TRỊ gán — viết
-         * lại thành 1 biểu thức 3 ngôi cho rõ điều đó. Rule 2 vẫn là nợ DI SẢN của file này (tự
-         * `appConfigViz.getAll()`) — KHÔNG mở rộng thêm, chỉ đổi đúng field bị gộp. */
-        function updateDOMBackground() { 
-            const cfg = appConfigVisualBg.getAll();
-            // Video nền che kín -> ép đen (nền màu bên dưới không ai thấy, vẽ gradient là phí).
-            // SỬA (v14) — `enabled && mediaType==='video'` (2 field đã xoá) -> `type==='video'` +
-            // còn ≥1 item sống trong `source.list`.
-            // SỬA (29/09/2026) — thêm `enabled !== false`: toggle tổng VBG tắt thì KHÔNG có video nào che, phải sơn
-            // lớp màu thật (Giang chốt: tắt chỉ bỏ media, giữ nền màu/gradient).
-            if (cfg.enabled !== false && cfg.type === 'video' && cfg.source.list.some((k) => k !== null)) {
-                visualizerSolidBg.style.backgroundImage = '';
-                visualizerSolidBg.style.backgroundColor = '#000000';
-                return;
-            }
-            // SỬA (v13) — `vizConfig.bgColor` ĐÃ DỜI sang `visualBgConfig.solidColor`, và thêm chế
-            // độ gradient. Vẫn ĐÚNG 1 tiến trình (sơn nền `#visualizer-solid-bg`), chỉ khác thuộc
-            // tính CSS dùng để sơn — gradient bắt buộc đi qua `background-image`.
-            const gradientCss = cfg.colorMode === 'gradient'
-                ? buildVisualBgGradientCss(cfg.gradientStops, cfg.gradientAngleDeg) // core/visual-bg.js
-                : '';
-            visualizerSolidBg.style.backgroundImage = gradientCss;
-            visualizerSolidBg.style.backgroundColor = gradientCss ? '' : cfg.solidColor;
+        /** Sơn `#visualizer-solid-bg` (nền màu màn Visualizer, chủ sở hữu duy nhất). Video VBG đang che kín (toggle tổng bật,
+         * type video, còn ≥1 item sống) -> ép đen; còn lại gradient hoặc màu đặc theo `colorMode` (gradient đi `background-image`).
+         * @param {object} cfg visualBgConfig @param {string} gradientCss buildVisualBgGradientCss() của cfg (Workflow tính sẵn) */
+        function updateDOMBackground(cfg, gradientCss) {
+            const isCoveredByVideo = cfg.enabled !== false && cfg.type === 'video' && cfg.source.list.some((k) => k !== null);
+            const paintedGradient = cfg.colorMode === 'gradient' ? gradientCss : '';
+            visualizerSolidBg.style.backgroundImage = isCoveredByVideo ? '' : paintedGradient;
+            visualizerSolidBg.style.backgroundColor = isCoveredByVideo ? '#000000' : (paintedGradient ? '' : cfg.solidColor);
         }
-        
+
         /**
-         * HOTFIX 16 (08/07/2026, Giang chốt) — SỬA TIẾP bản HOTFIX 15: bản đó set thẳng lên
-         * `#side-left-container`, đúng hướng "thoát khỏi vùng cuộn" nhưng lộ ra vấn đề MỚI —
-         * `#side-left-container` cũng chính là phần tử chứa nội dung thật (Playlist/Settings), nên
-         * `filter: blur()` (tính năng "Độ mờ nền") lem sang cả chữ/nút. SỬA: set lên `appBg` —
-         * phần tử MỚI (components/app-view-stack.js), ANH EM với `sideLeftContainer` (cùng nằm
-         * trong `#app-stack`, không phải hậu duệ của khung cuộn ngang) — vừa không bị `scrollLeft`
-         * của `sideLeftContainer` kéo theo (đúng lý do HOTFIX 15 đã đúng), vừa KHÔNG chứa chữ/nội
-         * dung gì nên `filter: blur()` giờ an toàn tuyệt đối, không lem sang đâu cả.
-         *
-         * Overlay đen 40% (trước là 1 div riêng, rồi gộp vào background-image ở HOTFIX 15) vẫn giữ
-         * nguyên kỹ thuật gộp lớp gradient — chỉ đổi phần tử đích.
-         *
-         * MỞ RỘNG (09/07/2026, Theme mode "Gradient" mới, phản hồi Giang mục 1) — thêm nhánh thứ 2:
-         * `cfg.themeMode === 'gradient'` -> vẽ `linear-gradient(135deg, gradientFrom, gradientTo)`
-         * thẳng lên `appBg` (không overlay đen, không blur — gradient tự nó đã đủ tương phản, khác
-         * ảnh thật cần overlay để chữ dễ đọc). THỨ TỰ ƯU TIÊN CỐ Ý: kiểm tra `cfg.bgImage` TRƯỚC —
-         * hàm này gọi được từ NHIỀU nơi (theme.js/visualizer-display.js/file-manager-photo.js), có
-         * những thời điểm `cfg.themeMode` chưa kịp cập nhật đồng bộ (vd đang giữa luồng mở picker
-         * ảnh) nhưng `cfg.bgImage` đã có Blob thật — ưu tiên hiển thị ĐÚNG NỘI DUNG THẬT đang có,
-         * không phụ thuộc `themeMode` có đồng bộ kịp hay chưa. `themeMode==='gradient'` chỉ đúng ý
-         * nghĩa khi CHẮC CHẮN không có ảnh nào đang áp (bgImage rỗng — bất biến này do
-         * `applyBgImageEnabled(false)` đảm bảo mỗi khi chuyển sang mode khác 'background', xem
-         * event/workflow/theme.js::applyNonBackgroundMode()).
-         *
-         * SỬA (12/08/2026, Giang báo bug "blur ảnh nền làm mất viền panel") — `filter: blur()` tự
-         * tràn ra ngoài biên hộp CSS gốc (không bị `overflow` của chính phần tử mang nó chặn) —
-         * `appBg` khớp CHÍNH XÁC viền `#app-stack` (`border-right` desktop, assets/css/style.css)
-         * nên phần tràn đó đè mờ luôn viền. SỬA: tách 1 lớp phủ RIÊNG, `blur`/`scale(1.1)` áp lên
-         * LỚP PHỦ ĐÓ THAY VÌ `appBg` — `appBg` (cha) giữ `overflow: hidden` (CSS, KHÔNG đụng gì ở
-         * đây) nên phần blur tràn ra do phóng to 110% bị cắt gọn NGAY TẠI khung, viền lại nét.
-         *
-         * SỬA TIẾP (13/08/2026, Giang chỉ ra "scale 1.1 phải áp cho DOM ĐƯỢC BLUR, không phải cả
-         * DOM bg image") — bản 12/08 lỡ GỘP 2 vai trò vào 1 phần tử `appBgBlurLayer` (vừa mang
-         * `background-image` thật vừa nhận scale/blur) — SAI với đúng yêu cầu gốc "thêm 1 LỚP PHỦ
-         * LÊN TRƯỚC [ảnh]" (nghĩa là phải có ảnh GỐC riêng + 1 lớp phủ THÊM VÀO, không phải biến
-         * luôn ảnh gốc thành lớp bị blur). SỬA ĐÚNG — tách hẳn 2 phần tử (components/
-         * app-view-stack.js):
-         *   - `appBgImage` — ảnh GỐC, LUÔN NÉT — nhận `background-image` TRỰC TIẾP, KHÔNG BAO GIỜ
-         *     `transform`/`filter`.
-         *   - `appBgBlurLayer` — lớp phủ ĐÈ LÊN TRÊN (a) — CHỈ tồn tại/có nội dung khi
-         *     `bgBlur > 0`: gán CÙNG 1 `background-image` với `appBgImage` RỒI MỚI áp
-         *     `scale(1.1)`/`blur()` lên CHÍNH nó — khi `bgBlur = 0`, layer này rỗng
-         *     (`background-image: none`), lộ nguyên ảnh nét ở `appBgImage` bên dưới (2 phần tử
-         *     luôn xếp chồng khít nhau, `position:absolute;inset:0` cả 2 — CSS).
-         * 2 nhánh gradient/none KHÔNG hề blur nên chỉ cần set lên `appBgImage` (ảnh gốc) như cũ —
-         * `appBg` (khung ngoài cùng) giờ THUẦN CẤU TRÚC, không tự mang `background-image` gì cả.
-         *
-         * SỬA (14/08/2026, Giang báo "blur background app -> image bị scale 1.1") — `scale(1.1)`
-         * TRƯỚC ĐÂY cố định BẤT KỂ `cfg.bgBlur` (0-20px, components/settings/theme.js): độ mờ NHẸ
-         * (vd 1-2px) vẫn bị phóng nguyên 10%, ảnh trông "nhảy zoom" rõ rệt dù blur gần như không
-         * đáng kể — mức phóng 10% đó vốn chỉ cần thiết để che hết viền trong suốt do blur tràn ra ở
-         * mức NẶNG NHẤT (20px). SỬA: nội suy tuyến tính scale theo `bgBlur/20` — 0px -> scale 1
-         * (không zoom gì), 20px -> scale 1.1 (giữ NGUYÊN mức đã kiểm chứng che đủ viền ở blur nặng
-         * nhất), các mức giữa co giãn theo tỉ lệ, không còn cảm giác zoom đột ngột ở blur nhẹ.
+         * Ghi nền App Panel theo `view` (computeThemeBackgroundView().playlistBg, core/theme-background.js): 2 biến CSS kính
+         * (`.uitk-glass-tunable`, assets/css/glass.css), video nền (`#app-bg-video`, nằm dưới) và `#app-bg-image` (ảnh/gradient,
+         * hoặc chỉ overlay khi nền là video). Video: có `videoSrc` -> nạp (cùng URL thì giữ nguyên, không giật); không có -> gỡ
+         * src để giải phóng decoder (chỉ pause vẫn giữ tài nguyên giải mã).
+         * @param {PlaylistBgView} view
          */
-        function updatePlaylistBg() {
-            const cfg = appConfigViz.getAll();
-            const OVERLAY = 'linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4))'; // lớp phủ đen 40% — luôn phủ LÊN ảnh/video nền (chữ trắng đọc được)
-            // SỬA 21/09/2026 (Giang: UI nền 3 card Solid/Gradient/Background media + nền video) — quyết định theo `cfg.themeMode`, KHÔNG còn theo
-            // "bgImage có giá trị hay không": item media nền (ảnh/video từ thư viện) giờ được GIỮ URL runtime cả khi đang ở Solid/Gradient (để card
-            // Background media hiện được preview và bấm lại là dùng ngay), nên chỉ ở mode 'background' mới vẽ ra. Thêm mode 'solid' riêng (xem
-            // DEFAULT_VIZ_CONFIG, core/config.js) và nhánh VIDEO (lớp `#app-bg-video` nằm DƯỚI `appBgImage`; ở nhánh video `appBgImage` chỉ mang overlay).
-            const isMediaMode = cfg.themeMode === 'background';
-
-            // MỚI 23/09/2026 (Giang: tinh chỉnh độ mờ kính Playlist chính) — gán 2 biến CSS lên <html>, được `.uitk-glass-tunable`
-            // (assets/css/glass.css, key theme `glassTunable` — chỉ Morphin có class) đọc. CHỈ lấy giá trị người dùng chỉnh khi nền đang là media
-            // (ảnh/video) — slider cũng chỉ hiện lúc đó; nền khác -> về đúng thông số kính mặc định (36px / 10%).
-            const isTunedGlass = isMediaMode && !!(cfg.bgVideo || cfg.bgImage);
-            // SỬA 23/09/2026 (Giang: min 10px / 5%) — kẹp lại cả lúc áp: data đã lưu dưới mức min (từ bản 0-40 trước) cũng tự lên đúng min.
-            const glassBlur = isTunedGlass && Number.isFinite(cfg.appGlassBlur) ? Math.max(10, Math.min(40, cfg.appGlassBlur)) : 36; // guard data cũ chưa có field
-            const glassTint = isTunedGlass && Number.isFinite(cfg.appGlassTint) ? Math.max(5, Math.min(40, cfg.appGlassTint)) : 10;
-            document.documentElement.style.setProperty('--uitk-app-glass-filter', `blur(${glassBlur}px) saturate(1.6)`);
-            document.documentElement.style.setProperty('--uitk-app-glass-tint', `rgba(255, 255, 255, ${glassTint / 100})`);
-
-            if (isMediaMode && cfg.bgVideo) {
-                if (appBgVideo.dataset.src !== cfg.bgVideo) { // đổi/khôi phục video -> nạp lại; cùng URL thì giữ nguyên, không giật
-                    appBgVideo.dataset.src = cfg.bgVideo;
-                    appBgVideo.muted = true; // iOS chỉ cho phát nền khi muted — gán cả property (attribute `muted` ở template chỉ là defaultMuted)
-                    appBgVideo.poster = cfg.bgMediaThumb || '';
-                    appBgVideo.src = cfg.bgVideo;
+        function updatePlaylistBg(view) {
+            document.documentElement.style.setProperty('--uitk-app-glass-filter', view.glassFilter);
+            document.documentElement.style.setProperty('--uitk-app-glass-tint', view.glassTint);
+            if (view.videoSrc) {
+                if (appBgVideo.dataset.src !== view.videoSrc) {
+                    appBgVideo.dataset.src = view.videoSrc;
+                    appBgVideo.muted = true; // iOS chỉ cho phát nền khi muted — gán cả property (attribute ở template chỉ là defaultMuted)
+                    appBgVideo.poster = view.videoPoster;
+                    appBgVideo.src = view.videoSrc;
                 }
-                appBgVideo.style.display = 'block';
-                appBgImage.style.backgroundImage = OVERLAY;
-                appBgBlurLayer.style.backgroundImage = 'none';
-                appBgBlurLayer.style.filter = 'none';
-                appBgBlurLayer.style.transform = 'scale(1)';
-                return;
-            }
-            if (appBgVideo.dataset.src) { // rời nền video -> GIẢI PHÓNG decoder (chỉ pause vẫn giữ tài nguyên giải mã)
+            } else if (appBgVideo.dataset.src) {
                 appBgVideo.pause();
                 appBgVideo.removeAttribute('src');
                 appBgVideo.removeAttribute('poster');
                 appBgVideo.load();
                 delete appBgVideo.dataset.src;
             }
-            appBgVideo.style.display = 'none';
-
-            if (isMediaMode && cfg.bgImage) {
-                const layerImage = `${OVERLAY}, url(${cfg.bgImage})`;
-                appBgImage.style.backgroundImage = layerImage; // ảnh GỐC — LUÔN nét, không đụng transform/filter
-                // SỬA 23/09/2026 (Giang: "Morphin bình thường đã mờ rồi, không cần tuỳ chỉnh blur cho photo") — BỎ nhánh blur ảnh theo `cfg.bgBlur`
-                // (field còn trong data cũ nhưng không đọc nữa -> ai đã từng chỉnh cũng không bị kẹt 1 độ mờ không còn chỗ chỉnh). Lớp blur luôn trong suốt.
-                appBgBlurLayer.style.backgroundImage = 'none';
-                appBgBlurLayer.style.filter = 'none';
-                appBgBlurLayer.style.transform = 'scale(1)';
-            }
-            // XOÁ 23/09/2026: nhánh themeMode 'solid' — Giang bỏ nền Solid; 'none' (Morphin không nền) rơi vào nhánh cuối như Light/Dark.
-            else if (cfg.themeMode === 'gradient') {
-                appBgBlurLayer.style.backgroundImage = 'none';
-                appBgImage.style.backgroundImage = `linear-gradient(135deg, ${cfg.gradientFrom}, ${cfg.gradientTo})`;
-            }
-            else {
-                appBgBlurLayer.style.backgroundImage = 'none';
-                appBgImage.style.backgroundImage = 'none';
-            }
+            appBgVideo.style.display = view.videoSrc ? 'block' : 'none';
+            appBgImage.style.backgroundImage = view.imageBg;
         }
 
         /**
-         * MỚI 21/09/2026 (Giang chọn "chỉ chạy khi ở App Panel, dừng khi vào Visualizer/ẩn app") — bật/tắt PHÁT của video nền App. CHỈ play/pause,
-         * không đụng src/hiển thị (việc của updatePlaylistBg()). Không có video nền đang nạp -> bỏ qua. `play()` bị trình duyệt từ chối (vd iOS Low
-         * Power Mode chặn tự phát) -> nuốt lỗi, poster (thumb full-res) vẫn hiện như ảnh tĩnh.
+         * Bật/tắt PHÁT video nền App (chỉ play/pause, src do updatePlaylistBg()). Chưa nạp video -> bỏ qua. `play()` bị từ chối
+         * (vd iOS Low Power Mode) -> nuốt lỗi, poster vẫn hiện như ảnh tĩnh.
          * @param {boolean} shouldPlay
          */
         function setAppBgVideoPlayback(shouldPlay) {
@@ -186,27 +76,10 @@
         }
 
         /**
-         * FIX (09/07/2026, phản hồi Giang mục 3 — "chọn background image thì bên các element vẫn
-         * bị background cũ, khi thao tác bất kỳ thì mới thấy sự trong suốt") — bug KHÔNG nằm ở
-         * logic app: `updatePlaylistBg()` ở trên ĐÃ ghi đúng giá trị mới NGAY LẬP TỨC. Đây là bug
-         * đã biết của WebKit/iOS Safari với `backdrop-filter` (`.glass-panel`/`.glass-modal`/
-         * `.drawer-glass`/`.glass-control-center`, xem assets/css/style.css) — compositor "chụp"
-         * lại NHỮNG GÌ NẰM PHÍA SAU 1 phần tử `backdrop-filter` tại thời điểm layer được tạo, và
-         * không PHẢI LÚC NÀO cũng tự chụp lại khi nội dung phía sau đổi qua đường JS thuần (đổi
-         * `background-image` không tự kích hoạt recomposite) — ảnh/gradient MỚI đã có ở `appBg`
-         * nhưng lớp kính mờ phía trên vẫn hiển thị "ảnh chụp" CŨ, cho tới khi có 1 tác động khác ép
-         * trình duyệt vẽ lại layer đó (cuộn, mở drawer khác...).
-         *
-         * Core thuần — CHỈ ép trình duyệt tính lại `backdrop-filter`, không đọc/ghi `appState`, KHÔNG
-         * đụng `transform` (nhiều phần tử kính trong app dùng `transform` qua class Tailwind để
-         * trượt/ẩn hiện — vd `-translate-y-full` — ghi đè `style.transform` ở đây sẽ PHÁ animation
-         * của chúng). Kỹ thuật: đổi TẠM `backdrop-filter` sang `blur(0px)` rồi trả về giá trị CSS
-         * gốc (qua class, không phải inline) ngay khung hình kế tiếp — ép compositor tính lại đúng
-         * lúc đó, chớp mắt không kịp thấy (dưới 1 frame ~16ms).
-         *
-         * Rule 3: hàm này KHÔNG tự gọi sau `updatePlaylistBg()` (2 core không được gọi nhau) — mọi
-         * Workflow đổi nền (theme.js/visualizer-display.js/file-manager-photo.js) tự gọi CẢ 2 hàm
-         * theo đúng thứ tự (updatePlaylistBg() trước, forceGlassRepaint() ngay sau).
+         * Ép WebKit/iOS Safari tính lại `backdrop-filter` của mọi lớp kính ngay sau khi nền đổi (compositor giữ "ảnh chụp" nền cũ
+         * phía sau kính tới khi có tác động khác). Đổi tạm `backdrop-filter` sang `blur(0px)` rồi trả về giá trị của class ở khung
+         * hình kế tiếp. Không đụng `transform` (nhiều lớp kính trượt/ẩn hiện bằng class transform). Workflow gọi ngay sau
+         * updatePlaylistBg().
          */
         function forceGlassRepaint() {
             const glassEls = document.querySelectorAll('.glass-panel, .glass-modal, .drawer-glass, .glass-control-center, .uitk-glass-surface, .uitk-glass-elevated');
@@ -221,34 +94,15 @@
             });
         }
 
-        // (updateSettingsBg() ĐÃ XOÁ — 07/07/2026, batch gộp Playlist+Settings chung container:
-        // `#playlist-bg` giờ VẬT LÝ dùng chung cho CẢ 2 màn (xem components/app-view-stack.js) —
-        // gọi `updatePlaylistBg()` 1 LẦN LÀ ĐỦ cho cả Playlist lẫn Settings, không cần hàm thứ 2
-        // áp lại y hệt cho 1 phần tử khác nữa. Mọi nơi gọi `updateSettingsBg(cfg)` trước đây ĐÃ BỎ
-        // dòng gọi đó — xem event/workflow/visualizer-display.js, event/workflow/file-manager-
-        // photo.js, core/config.js.)
-
-        /** Quy đổi góc CSS `linear-gradient(angleDeg, ...)` (0deg = lên trên, tăng theo chiều kim
-         * đồng hồ) sang 2 điểm đầu/cuối trục gradient cho Canvas2D `createLinearGradient()` — CÙNG
-         * thuật toán chuẩn CSS spec dùng (điểm chiếu vuông góc qua tâm hộp), để canvas vẽ KHỚP ĐÚNG
-         * `linear-gradient(angleDeg, ...)` hiển thị ở DOM, không lệch hướng. */
-        function computeCssGradientLine(angleDeg, width, height) {
+        /** Dựng CanvasGradient khớp `linear-gradient(angleDeg, stop.color stop.position%...)` của CSS — visual 2D vẽ đúng
+         * gradient VBG đang hiển thị (core/visual-bg-common.js::getVisualBgFillStyle()). Trục gradient tính theo đúng CSS spec
+         * (0deg = lên trên, theo chiều kim đồng hồ, điểm chiếu vuông góc qua tâm hộp). `stops` tự sort theo position. */
+        function buildCanvasLinearGradient(ctx, angleDeg, width, height, stops) {
             const rad = (angleDeg % 360) * Math.PI / 180;
             const dx = Math.sin(rad), dy = -Math.cos(rad);
             const halfW = width / 2, halfH = height / 2;
             const length = Math.abs(halfW * dx) + Math.abs(halfH * dy);
-            const cx = width / 2, cy = height / 2;
-            return { x0: cx - dx * length, y0: cy - dy * length, x1: cx + dx * length, y1: cy + dy * length };
-        }
-
-        /** Dựng CanvasGradient khớp `linear-gradient(angleDeg, stop.color stop.position%...)` CSS —
-         * dùng bởi visual 2D cần vẽ ĐÚNG gradient VBG đang hiển thị (kể cả khung hình Movement) lên
-         * canvas riêng thay vì tự bịa 1 màu phẳng — xem core/visual-bg.js::getVisualBgFillStyle().
-         * `stops` tự sort theo position (Movement spread/swap giữ nguyên thứ tự mảng gốc). */
-        function buildCanvasLinearGradient(ctx, angleDeg, width, height, stops) {
-            const line = computeCssGradientLine(angleDeg, width, height);
-            const grad = ctx.createLinearGradient(line.x0, line.y0, line.x1, line.y1);
+            const grad = ctx.createLinearGradient(halfW - dx * length, halfH - dy * length, halfW + dx * length, halfH + dy * length);
             stops.slice().sort((a, b) => a.position - b.position).forEach((s) => grad.addColorStop(Math.max(0, Math.min(1, s.position / 100)), s.color));
             return grad;
         }
-        

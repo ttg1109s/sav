@@ -177,7 +177,7 @@
             appGlassBlur: 36, appGlassTint: 10,
             // 'light' | 'dark' | 'none' (Morphin KHÔNG nền — chỉ appBaseBg) | 'gradient' (2 màu gradientFrom/gradientTo ngay dưới) |
             // 'background' (ảnh HOẶC video nền từ THƯ VIỆN — xem `bgMediaKind`/`bgMediaKey` dưới) — chọn qua event/router/theme.js,
-            // chốt tại event/workflow/theme.js::_commitThemeMode(). Mặc định 'dark'.
+            // chốt tại event/workflow/theme.js::commitThemeMode(). Mặc định 'dark'.
             // SỬA 21/09/2026 (Giang yêu cầu UI 3 card Solid/Gradient/Background media + sửa lỗi dropdown nền "chọn mục khác đều bị fallback về
             // cái hiện tại"): 'solid' TRƯỚC ĐÂY là mode 'gradient' với 2 màu Từ/Đến giống nhau, rồi UI "đoán" lại loại nền từ đó — gradient
             // có 2 màu tình cờ bằng nhau bị đoán thành solid nên dropdown luôn nhảy về Solid, không chọn được Gradient. NAY solid là mode
@@ -1087,9 +1087,8 @@
             appConfigViz.mutateAll(cfg => { cfg.bgImage = ''; cfg.bgVideo = ''; cfg.bgMediaThumb = ''; });
             await loadPlaylistBgMediaAsset();
             saveConfig();
-            updatePlaylistBg();
-            // XOÁ (24/09/2026, rà soát refresh DOM) — `workflowTheme.refreshThemeCardUI()` (core gọi Workflow): loadConfig()
-            // chỉ chạy lúc boot, Generic Drawer luôn đang đóng -> lời gọi đó luôn no-op (không có #theme-bg-cards nào để vá).
+            // (Vẽ nền App Panel + nền màu Visualizer: workflowTheme.repaintAppBackground() / workflowVisualBg.paintSolidBg(), gọi từ
+            //  app-boot sau loadConfig().)
 
             // XOÁ 01/10/2026: dòng gán masterGainNode.gain = volume — dòng chết (loadConfig() chỉ chạy lúc boot, audio graph chỉ
             // dựng ở lượt phát đầu tiên nên node chưa tồn tại) và nay sai nghĩa (master là cổng seek; âm lượng ở volumeGainNode,
@@ -1114,7 +1113,7 @@
                 if (idx === -1) idx = 0;
                 appState.set('currentModeIndex', idx);
             }
-            updateDOMBackground(); updatePlaylistBg(); updateProgressBarCSS();
+            updateProgressBarCSS();
             // (updateTypeUI() — BỎ 28/09/2026: đã tách về workflowVisualizerRender.activateCurrentStyle(), gọi ngay sau
             //  loadConfig() ở event/workflow/app-boot.js — core không gọi Workflow.)
 
