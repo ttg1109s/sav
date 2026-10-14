@@ -1,13 +1,12 @@
 /**
  * event/router/visualizer-display.js — Router tên "visualizerDisplay": cycle effect #btn-cycle-mode (giữ mở Custom
  * Effect Drawer / bấm đổi effect — cùng khuôn event/router/eq-presets.js), volume (Control Center HUD), panel "Display"
- * (Hiện Visual + 4 toggle UI chrome). Cấu hình riêng effect nằm ở Custom Effect Drawer (cụm 'customEffect').
+ * (Hiện Visual + 4 toggle UI chrome), modal chọn effect (đổi group). Cấu hình riêng effect: Custom Effect Drawer.
  *
  * QUY TẮC RẼ NHÁNH: nghiệp vụ chỉ cần ĐÚNG 1 hàm core -> gọi THẲNG; cần shield/modal hoặc >1 hàm
  * core nối tiếp -> giao workflowVisualizerDisplay.
  *
- * NẠP SAU: event/bus.js, core/visualizer/visualizer-display.js, core/visualizer-control-center.js
- * (setVisualEnabled), event/workflow/visualizer-display.js, event/workflow/custom-effect.js.
+ * NẠP SAU: event/bus.js, event/workflow/visualizer-display.js, event/workflow/custom-effect.js, event/workflow/audio-engine.js.
  * NẠP TRƯỚC: event/listener/visualizer-display.js.
  */
 const routerVisualizerDisplay = (() => {
@@ -44,7 +43,12 @@ const routerVisualizerDisplay = (() => {
 
             // ===================== Panel "Display" (Hiện Visual + 4 toggle UI chrome) =====================
             case 'visualizerDisplay.visualEnable.change': {
-                setVisualEnabled(msg.payload.checked); // core/visualizer-control-center.js
+                workflowVisualizerDisplay.setVisualEnabled(msg.payload.checked);
+                break;
+            }
+
+            case 'visualizerDisplay.effectPicker.group.change': {
+                workflowVisualizerDisplay.refillEffectPickerStyles(msg.payload.group);
                 break;
             }
 
