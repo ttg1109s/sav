@@ -1,7 +1,7 @@
 # Plan v14 — hàng đợi dọn nợ theo miền (lập 13/10/2026)
 
 Nguồn số liệu: [core-legacy-audit.md](../core-legacy-audit.md). Lúc lập plan (sau đợt Folder): **1152 FAIL / 139 file**; hiện tại
-(sau đợt 11): **862 FAIL / 86 file** (từ 14/10/2026 `requestAnimationFrame` thô tính FAIL, không còn mục chờ chốt). Cột "Còn lại sau đợt" tính từ số hiện tại. Plan này chỉ sắp **thứ tự và cách gom**; không đổi rule nào
+(sau đợt 12): **826 FAIL / 79 file** (từ 14/10/2026 `requestAnimationFrame` thô tính FAIL, không còn mục chờ chốt). Cột "Còn lại sau đợt" tính từ số hiện tại. Plan này chỉ sắp **thứ tự và cách gom**; không đổi rule nào
 ([core-function-conventions.md](../core-function-conventions.md), [event-bus-flow.md](../event-bus-flow.md),
 [task-manager-conventions.md](../task-manager-conventions.md)).
 
@@ -84,7 +84,7 @@ core; Timer = timer thô; L-* = Listener; rAF = `requestAnimationFrame` thô (FA
 | 9 ✓ | 2 | Settings shell | `core/settings-carousel-ui.js`, `core/app-settings-ui.js`, `event/workflow/{app-settings,settings-misc,subtitle-style-settings}.js` | 33 | đã xong | R3a 10 · WF-§7 9 · WF-DOM 7 |
 | 10 ✓ | 2 | Game | `core/gameplay/{game-panel-ui,engine-ui,engine,circle-mode}.js`, `event/workflow/{gameplay,gameplay-engine,game-catalog}.js` | 33 | đã xong | R5d 12 · WF-get 6 · WF-media 3 |
 | 11 ✓ | 3 | Photo Player (+ bỏ Game cho Photo) | `core/photo-player.js`, `event/workflow/{photo-player,photo-duration}.js` | 25 | đã xong | R4 6 · WF-get 6 · R2 3 · R3a 3 |
-| 12 | 3 | Phụ đề hiển thị · Visualizer UI | `event/workflow/subtitle-display.js`, `core/subtitle/subtitle-karaoke-display-ui.js`, `core/visualizer/visualizer-display.js`, `core/visualizer-control-center.js`, `core/visualizer-gesture.js`, `event/workflow/{visualizer-display,visualizer-gesture}.js` | 36 | 826 | WF-get 8 · WF-tính 7 · R3a 6 |
+| 12 ✓ | 3 | Phụ đề hiển thị · Visualizer UI (+ 3 bug phụ đề) | `event/workflow/subtitle-display.js`, `core/subtitle/subtitle-karaoke-display-ui.js`, `core/visualizer/visualizer-display.js`, `core/visualizer-control-center.js`, `core/visualizer-gesture.js`, `event/workflow/{visualizer-display,visualizer-gesture}.js` | 36 | đã xong | WF-get 8 · WF-tính 7 · R3a 6 |
 | 13 | 3 | Vòng đời app (wakelock, ẩn/hiện, boot) | `core/wakelock.js`, `event/workflow/{app-visibility,app-boot,app-cleanup}.js` | 19 | 807 | WF-get 7 · R2 3 · WF-media 2 |
 | 14 | 3 | Ghi âm | `event/workflow/recorder.js` | 17 | 790 | WF-media 8 · WF-DOM 3 |
 | 15 | 3 | Sửa ảnh | `event/workflow/image-edit.js`, `core/photo-editor-engine.js` | 39 | 751 | WF-DOM 17 · WF-§7 8 · WF-canvas 4 |
@@ -100,7 +100,7 @@ core; Timer = timer thô; L-* = Listener; rAF = `requestAnimationFrame` thô (FA
 | 25a/25b | 5 | Trang Video Editor | `core/video-editor/{webcodecs-engine,filmstrip}.js`, `event/workflow/video-preview.js` | 71 | 52 | WF-get 21 · WF-DOM 14 · WF-tính 12 · WF-§7 10 |
 | 26a/26b | Cuối | Hạ tầng UI dùng chung | 26a: `core/dropdown-menu.js`, `core/loading-shield-util.js`, `event/workflow/generic-drawer-helpers.js`, `core/modal-choice-ui.js` · 26b: `core/slider-input-modal.js`, `core/time-picker-modal.js`, `core/point-move-timing-ui.js` | 52 (+3 rAF) | 0 | R5a 17 · R3a 13 · R5c 3 · Timer 2 |
 
-Còn 862 FAIL (đã trừ đợt 5, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11; +10 dòng rAF thành FAIL 14/10 — 1 dọn cùng đợt 8, 9 dòng tính vào đợt 18/20/24/26; đợt 9 −2 dòng `_renderTheme` / đợt 16 −3 dòng `loadConfig` dọn cùng đợt 8; đợt 18a −4 / 19a −2 dòng thuộc hàm chết xoá ở đợt 7; đợt 21a +1 dòng phát hiện ở đợt 1; đợt 16 −2 dòng `loadConfig` gỡ cùng đợt 2 và 3; đợt 23a +2 dòng `getActiveEffectConfig` dời từ đợt 3). Dòng `requestAnimationFrame` thô (cột FAIL ghi "+N rAF") dọn theo miền chứa nó bằng `taskManager.onceFrame()`.
+Còn 826 FAIL (đã trừ đợt 5, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12; +10 dòng rAF thành FAIL 14/10 — 1 dọn cùng đợt 8, 9 dòng tính vào đợt 18/20/24/26; đợt 9 −2 dòng `_renderTheme` / đợt 16 −3 dòng `loadConfig` dọn cùng đợt 8; đợt 18a −4 / 19a −2 dòng thuộc hàm chết xoá ở đợt 7; đợt 21a +1 dòng phát hiện ở đợt 1; đợt 16 −2 dòng `loadConfig` gỡ cùng đợt 2 và 3; đợt 23a +2 dòng `getActiveEffectConfig` dời từ đợt 3). Dòng `requestAnimationFrame` thô (cột FAIL ghi "+N rAF") dọn theo miền chứa nó bằng `taskManager.onceFrame()`.
 
 ### Ghi chú theo đợt
 
@@ -123,6 +123,11 @@ Còn 862 FAIL (đã trừ đợt 5, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11; +10 dòng rA
 - **2 ✓** — Xong 13/10/2026: nút "Phát" giao hẳn Workflow (core `resolvePlaylistEmptyPlayAction()`); "Trộn bài" gọi thẳng `toggleShuffleAndReshuffle()` thay bấm hộ nút; khoá đổi hiệu ứng tay đồng bộ lúc boot qua `workflowAutoSwitchVisual.syncLockedControls()` (bỏ lời gọi trong `loadConfig()`); EQ dọn cả phép tính chưa có trong sổ. Chi tiết: sổ, mục 1.
 - **1 ✓** — Xong 13/10/2026: Info icon tách template sang `components/info-icon.js` (thêm `renderInfoPopoverHtml()` thay phần dựng tay), popover đóng qua bus; nav nhận class màu từ `workflowAppPanelNav.paintActiveTab()`; Gesture settings ghi panel qua `core/gesture-settings-ui.js`. Chi tiết: sổ, mục 1.
 - **5 ✓** — Xong 13/10/2026: modal đổi tên sang `modalChoice()`; phiên giữ tay tile dời về `workflowFolder`; registry dọn rác bỏ, bảng bước dọn ở Workflow. Chi tiết: mục 5.
+- **12 ✓** — Xong 14/10/2026 (kèm 3 bug phụ đề Giang báo + chống lệch timing): hiệu ứng Comming/Outing là Web Animation
+  ghim theo thời gian media (seek/pause/tốc độ/ẩn tab lâu đều về đúng), FLIP khi dòng thêm/bớt, Outing tách keyframe ra
+  (hết chạy ngược hướng), khung hiện trước khi ghim (dòng đầu / sau quãng trống có hiệu ứng). `updateProgressBarCSS()` lấy
+  màu từ biến CSS — 3 nơi gọi trong core (config.js đợt 16, player-controls.js đợt 19a) giữ nguyên nợ "core gọi core" của
+  chúng. `handleSongSeeking`/`handleAudioPlayEvent` (19b) và `exitBackground` (13) chỉ thêm 1 lời gọi phụ đề. Chi tiết: sổ, mục 1.
 - **11 ✓** — Xong 14/10/2026: "media giả" của Photo dời sang Workflow (`PHOTO_PLAYER_CLOCK_MEDIA`, lấy qua
   `workflowPhotoPlayer.resolveActiveMedia()`), `getActiveMediaElement()` chỉ còn audio/video; core Photo chỉ tính thuần + ghi
   UI; state MỚI `photoPlayerEnded`. Giang chốt **bỏ Game mode cho Photo** (ảnh không có audio): arm game lúc đang phát ảnh chỉ
@@ -195,6 +200,7 @@ Bug sửa kèm: badge tên folder không đổi sau khi đổi tên folder đang
 | rAF + 9 ✓ — `taskManager.onceFrame()` + Settings shell | Xong 14/10/2026 (`sav-14-debt-wave9-patch.zip`, áp SAU patch đợt 8), chờ test máy — 944 (+10 rAF thành FAIL) → 920 |
 | 10 ✓ — Game | Xong 14/10/2026 (`sav-14-debt-wave10-patch.zip`, áp SAU patch đợt 9), chờ test máy — 920 → 887 |
 | 11 ✓ — Photo Player (+ bỏ Game cho Photo) | Xong 14/10/2026 (`sav-14-debt-wave11-patch.zip`, áp SAU patch đợt 10), chờ test máy — 887 → 862 |
-| Còn lại 12–26 | Chưa làm |
+| 12 ✓ — Phụ đề hiển thị · Visualizer UI (+ 3 bug phụ đề) | Xong 14/10/2026 (`sav-14-debt-wave12-patch.zip`, áp SAU patch đợt 11), chờ test máy — 862 → 826 |
+| Còn lại 13–26 | Chưa làm |
 
 ← [Quay lại README](../../README.md)
