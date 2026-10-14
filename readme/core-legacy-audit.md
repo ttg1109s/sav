@@ -13,7 +13,7 @@
 
 ## 1. Tổng quan
 
-- **862 FAIL** ở **86 file**; 0 chờ chốt; 872 dòng máy quét báo nhưng review loại (mục 5).
+- **826 FAIL** ở **79 file**; 0 chờ chốt; 872 dòng máy quét báo nhưng review loại (mục 5).
 - Cập nhật 07/10/2026 (cùng ngày lập sổ): gỡ Service Worker tải file lớn (`sw.js`, `core/large-file-download.js`) xoá 4 dòng FAIL (1312 → 1308, 142 → 141 file). Bảng tỉ lệ ngay dưới giữ số đo lúc lập sổ.
 - Cập nhật 07/10/2026 (game Arrow): sửa nợ trong đúng các method bị đụng khi nối game mới — `workflowGameplay.start` (3 dòng: pause/currentTime trong Workflow, 2 lần get), `workflowGameCatalog.armGame` (2 lần get), `workflowAudioAnalysis._tick` (Math.floor) — xoá 5 dòng FAIL (1308 → 1303). Code mới của game Arrow không thêm dòng nào.
 - Cập nhật 12/10/2026 (plan-event-bus-wiring-07-10-2026 **đợt 1 — EQ**): nội dung Generic Drawer Edit EQ đi Listener → Router (ủy quyền 1 lần, `data-eq-*`), xoá `_wireListView()`/`_wireEditView()` — xoá 11 dòng "Workflow tự gắn sự kiện"; method bị đụng `_previewBandGain` dọn luôn nợ ghi DOM (core -ui mới `core/eq-presets-drawer-ui.js`) — xoá 1 dòng "Workflow tự thao tác DOM" (1303 → 1291). Số đầu mục/bảng §3 đếm lại theo dòng thật (đã lệch từ cập nhật game Arrow).
@@ -40,6 +40,7 @@
 - Cập nhật 14/10/2026 (plan-debt-domains **đợt 9 — Settings shell**): `core/settings-carousel-ui.js` bỏ 4 helper gọi chéo — đo layout 1 lần ở `measureSettingsCarousel()` rồi Workflow chuyển kết quả sang `applySettingsCarouselFocusStyles()`/`computeSettingsCarouselSettleLeft()`/`resolveSettingsCarouselTap()`; đặt/cuộn scrollLeft qua `setSettingsCarouselScrollLeftInstant()`/`scrollSettingsCarouselTo(left)` + `computeSettingsCarouselCenterLeft()` (hết 9 dòng 3a); tap card ở tâm: Workflow gửi lại `appSettings.nav.click` (Router hết rẽ theo giá trị trả về của Workflow). `wireAppSettingsSystem` (relay) bỏ, row list dùng `wireAppSettingsRowList`; Enter ở ô số Pagination đi bus `appSettings.pagination.input.keydown` → `handlePaginationInputKeydown()` → core `blurAppSettingsInput()` (hết 5a). `workflowAppSettings`: `back()` + 6 màn "bản ghi mất thì lùi" rẽ bằng map (`APP_SETTINGS_BACK_BY_HAS_PREV`, `APP_SETTINGS_SCREEN_BY_FOUND`), `handlePaginationPlaceChange` → `APP_SETTINGS_PAGINATION_CHANGE_BY_FIELD`, đổi trang danh sách Filter/Motion cuộn đầu bằng `scrollReset`, select màn Playlist qua core `setAppSettingsPlaylistSelects()`, gộp `get([…])` 4 method. Debug console: thứ tự + cách cuộn ở core thuần `computeDebugConsoleListPlan()`, ghi DOM `fillDebugConsoleList()`/`scrollDebugConsoleList()` (core/settings-misc-ui.js). Subtitles: `computeSubtitleStylePanelView()` + `syncSubtitleStylePanelUi()`/`setSubtitleCustomStylingVisibilityUi()`/`setSubtitleTransitionMagnitudeUi()` + `computeSubtitleTransitionMagnitude()`/`computeSignedSubtitleTransitionMs()` (core/subtitle/subtitle-style-settings.js). Kèm (chưa có trong sổ): Router `appSettings.carousel.card.click` rẽ theo giá trị trả về; `copyDebugConsoleLog`/`copyDebugConsoleItem`/`_formatDebugConsoleEntry` tự tính (→ `formatDebugConsoleLogsText()`/`findDebugConsoleLog()`, core/debug-console.js); dấu ± của Comming/Outing tính trong Workflow; `wireAppSettingsPlaylist` gắn listener rải rác. Tổng 953 → 920 (101 → 96 file).
 - Cập nhật 14/10/2026 (plan-debt-domains **đợt 10 — Game**): markup modal Kết quả (vòng %, sao, lưới tier) sang `components/gameplay-overlay.js` (`renderGameplayScoreRingSvg(geometry)` + `computeScoreRingGeometry()`/`computeScoreRingPercent()` ở core/gameplay/engine.js, `renderGameplayResultBodyHtml()`), danh sách card Game Panel sang `components/game-panel.js` (`renderGamePanelListHtml(view)` + `computeGamePanelView()`/`resolveGameDifficulty()`/`computeNextGameDifficulty()` ở core/gameplay/catalog.js); `core/gameplay/game-panel-ui.js` chỉ còn `setGamePanelListHtml()` (hết 12 dòng 5d). Popup tier / vỡ vụn tự gỡ bằng Promise `finished` của CSS animation (`getAnimations()`, không listener — hết 2 dòng 5a). `computeComboScoreGain` 1 đường (hết Rule 1), `findAvailableCell` tự xoay hướng (bỏ `rotateNeighborOffset90`, hết 3a). `workflowGameplay`: bộ theo dõi beat `createCircleBeatTracker`/`stepCircleBeatTracker`, cổng spawn/refresh/chuỗi Hard (`shouldRebuildCirclePitchMap`, `shouldRequestCircleRefresh`, `canConsiderCircleSpawn`, `isCircleSpawnRollHit`, `computeHardChainLevel`, `isHardChainReleaseDue`), xáo bảng `planCirclePitchMapRebuild` + map `GAMEPLAY_CIRCLE_TRAVERSAL_BY_PATTERN` (hết if-else 5 nhánh), ô dự phòng / vùng spawn / ô đã chiếm, tách wave miss + thứ tự vẽ `partitionCircleWaveEntries`, cộng điểm `computeScoreTotalsAfterResolve`/`computeScoreTotalsAfterMisses`, media qua `resetGameplayMediaToStart`/`startGameplayMedia`, gộp `get([…])` 6 method; `_countdownTick` → `computeGameplayCountdownStep` + map; `renderList` ghi DOM qua core -ui (bỏ guard `typeof` — K1). Kèm (chưa có trong sổ): `showShatterEffect` tự `Math.random()` trong core (→ `computeShatterShardLayout(count, randomValues)`); Workflow tự `getContext('2d')` 4 chỗ (`clearGameplayCanvas`/`drawApproachRings`/`drawTargetCircles` nhận canvas, xoá theo bộ đệm thật — bỏ `_canvasWidthPx/_canvasHeightPx`); màu wave if-else 3 nhánh → `GAMEPLAY_CIRCLE_WAVE_COLORS_BY_EFFECT_MODE`; nhãn số lượt chơi chọn giữa `t()`/`tFormat()` + `maxScore`/`toUpperCase` tự tính; `persistScore` tự ghép tên hiển thị (→ `resolveGameplayScoreTitle()`); `buildScoreRingSvg` (markup trong core -ui). Nhãn modal Kết quả dùng chung Circle/Arrow qua `workflowGameplayEngine.resolveEndModalLabels()` (bỏ 4 bảng trùng của Arrow). Dead code xoá: `computeScoreDeltaPercent` + tham số `deltaPercent` không dùng, field `totalCells`. Tổng 920 → 887 (96 → 89 file).
 - Cập nhật 14/10/2026 (plan-debt-domains **đợt 11 — Photo Player**, kèm **bỏ Game mode cho Photo** — Giang chốt): "media giả" `photoPlayerFakeMediaElement` (core tự đọc/ghi appState) dời sang Workflow thành `PHOTO_PLAYER_CLOCK_MEDIA` (event/workflow/photo-player.js — chỉ `currentTime =`/`play()`/`pause()` đi vào `seekClock()`/`setPaused()`), lấy qua `workflowPhotoPlayer.resolveActiveMedia()`; `getActiveMediaElement(isVideoPlayerMode)` (core/player-controls.js) bỏ nhánh Photo — 2 nơi gọi Next/Prev đổi lời gọi (nợ còn lại của 2 method đó giữ cho 19b), recorder bỏ tham số `false` thừa. `core/photo-player.js` chỉ còn tính thuần + ghi UI: `computePhotoPlayerElapsedSec(clock, nowMs)`, `computePhotoPlayerTickView()` (pha `frozen/ended/running` + giây hiển thị đã kẹp), `computePhotoPlayerClockOnPause/OnResume()`, `computePhotoPlayerSurfaceTiming()`, `applyPhotoPlayerTrackInfo()` (tên + Media Session — Workflow tự ghi DOM, chưa có trong sổ), `updatePhotoPlayerTimeLabels(currentLabel, durationLabel)` nhận nhãn đã `formatTime()` (hết 3 dòng 3a + 3 dòng R2 + 6 dòng R4). Workflow: tick/play-pause/vào-ra mode rẽ bằng map (`PHOTO_PLAYER_TICK_BY_PHASE`, `PHOTO_PLAYER_CLOCK_BY_PAUSED`, `PHOTO_PLAYER_PLAY_BY_HAS_BLOB`, `PHOTO_PLAYER_EXIT_VISUAL_BG_BY_RESTORE` — if-else khôi phục/dọn VBG chưa có trong sổ), dừng nguồn cũ qua `pauseMediaElement()` (core/media-element-ui.js), #record-art dựng từ `renderRecordArtHtml()` (components/bottom-player.js) + core -ui MỚI `core/record-art-ui.js` (`mountRecordArt`/`setRecordArtSrc`), object URL qua `createBlobUrl`/`revokeBlobUrl` (K6), bỏ 2 guard `typeof workflowVisualBg` (K1), gộp `get([…])` 6 method. `event/workflow/photo-duration.js`: công thức + 4 hằng `DURATION_*` sang core thuần `computePhotoDurationSec()` (core/file-manager/image.js), Workflow chỉ đọc SHA-256; xoá relay `workflowFileManagerPhoto.computePhotoDuration()` (Rule 3d — upload/sửa ảnh gọi thẳng `workflowPhotoDuration.compute()`). State MỚI `photoPlayerEnded` (như `HTMLMediaElement.ended`). **Bug sửa kèm:** (1) tên ảnh có `"`/`<` phá markup #record-art (nội suy thẳng vào `alt`) — giờ gán qua slot; (2) ảnh cuối hết lúc Repeat tắt: icon vẫn "đang phát", record-art vẫn quay, Point Move/Auto-switch vẫn chạy — `pause()` của media giả đi đủ luồng Pause, bấm Play phát lại ảnh từ đầu (như Song); tick không báo hết lặp lại. **Game:** Photo không còn Game mode — `armGame()` chỉ mở phiên khi `shouldStartArmedGameNow()` (core/gameplay/catalog.js: có media và không phải Photo); bỏ nhánh Photo ở `workflowGameplay`/`workflowGameplayArrow`/`workflowGameplayEngine` (loại media lưu điểm, nhãn Next), xoá key lang `gameplayCircle.ended.nextPhotoLabel`, xoá `startGameplayMedia()` (trùng `playMediaElement()`). Tổng 887 → 862 (89 → 86 file).
+- Cập nhật 14/10/2026 (plan-debt-domains **đợt 12 — Phụ đề hiển thị · Visualizer UI**, kèm **3 bug phụ đề + chống lệch timing** Giang báo): **Phụ đề** — core thuần `computeSubtitleLineStates()` (gộp khung/pha/mốc kế tiếp, thay 3 hàm tính rời + `Math.min` ở Workflow), `diffSubtitleActiveLines()`, `computeSubtitlePhasePin()`/`resolveSubtitlePhaseAnimation()`/`computeSubtitleMediaClock()`/`isSubtitleClockIdle()`/`shouldSyncSubtitleClock()`/`formatSubtitleLatencyLog()` (core/subtitle/subtitle-transition.js); hiệu ứng Comming/Outing đổi từ CSS transition (đồng hồ tường) sang Web Animation **ghim theo thời gian media** (`pinSubtitlePhaseAnimationUi()`, core/subtitle/subtitle-display-ui.js) + FLIP khi dòng thêm/bớt (`measureSubtitleBlockTopsUi`/`cancelSubtitleReflowUi`/`playSubtitleReflowUi`, thuộc tính `translate` riêng); `workflowSubtitleDisplay.preview()` (kéo thanh / seek-hold) + `resync()` (app hiện lại); karaoke bỏ qua khung hình cổng seek; gộp `get([…])` 6 method; dòng karaoke dựng từ `renderKaraokeLineHtml()` (components/visualizer-overlay.js) + slot chữ (hết 2 dòng Rule 1); bộ vẽ hạt `createKaraokeFxHandleUi()` (Workflow hết tự `getContext`). **Bug sửa:** (1) Outing "Slide up/down" chạy ngược hướng (dùng chung trạng thái ẩn với Comming) — tách keyframe `enter`/`exit`, thêm easing ease-out/ease-in; (2) dòng đầu tiên / dòng sau quãng trống không có hiệu ứng (khung còn `display:none` lúc chạy transition) — khung hiện trước khi ghim, Web Animation không cần trạng thái trước; (3) dòng chồng lấp: dòng cũ bị đẩy cứng — trượt mượt 280ms, pointer karaoke trượt cùng nhịp; kèm: pause giữa Comming/Outing dòng vẫn chạy hết hiệu ứng, tua trong cùng pha không đặt lại, kéo thanh để phụ đề bị đồng hồ mốc kéo về vị trí đang phát, karaoke tô về đầu bài trong lúc cổng seek nạp lại nguồn. **Visualizer UI** — thanh tiến trình: màu qua biến CSS `--progress-fill` (`computeProgressBarFillColor`/`setProgressBarFillColor`, `workflowVisualizerDisplay.syncProgressBarColor()` gọi từ `activateCurrentStyle()` + Custom Effect) — `updateProgressBarCSS()` hết đọc config (3 nơi gọi ở core/config.js, core/player-controls.js giữ nguyên, nợ của chúng ở đợt 16/19a); modal chọn effect dời sang `workflowVisualizerDisplay.openEffectPicker()` + template `renderEffectPickerBodyHtml()`/`renderEffectPickerStyleOptionsHtml()` (components/settings/visualizer-display-panel.js), đổi group đi Listener ủy quyền `document.body` → Router `visualizerDisplay.effectPicker.group.change` → core -ui MỚI `core/visualizer/effect-picker-ui.js` (hết 3a/R2/5a + 3 dòng 5d); panel Display ghi qua `computeVisualizerDisplayPanelView()`/`fillVisualizerDisplayPanel()`. Control Center: `toggleControlCenter()` tự đổi A/B (bỏ `openControlCenter`), grid ủy quyền `closest('[data-cc-action]')` ở Listener → `gridAction.click` (bỏ `handleControlCenterGridClick`), `setVisualEnabled` hết gọi `saveConfig()` (Workflow gọi). Cử chỉ: core thuần `computeGestureTouchStart()`/`classifyGestureRelease()`/`computeTapStep()`/`computeSeekHoldTick()`/`isGestureMovedBeyond()` thay 6 hàm lẻ; touch end/cancel/tap/dispatch rẽ bằng map (kèm chuỗi if edge/tap/swipe và if/else-if tap đơn/đúp — chưa có trong sổ); mũi tên seek-hold thành phần tử tĩnh `#visualizer-seek-hold-indicator` trong template overlay (hết 5c + 5d); bấm hộ nút qua `clickControlCenterButtonIfShown()`; bỏ 6 guard `typeof` (K1). Dead code xoá: `openControlCenter`, `handleControlCenterGridClick`, `isInTopEdgeZone`/`isTapGesture`/`resolveDominantSwipeAxis`/`resolveSwipeDirection`/`isInLeftHalf`/`clampSeekPosition`, `createKaraokeScratchCanvasUi`, `playSubtitleCommingUi`/`playSubtitleOutingUi`/`setSubtitleBlockStableUi`, `computeSubtitleTransitionWindow`/`resolveSubtitleLinePhase`/`computeSubtitleLineNextBoundary`. Tổng 862 → 826 (86 → 79 file).
 
 | Tầng | File vi phạm | Hàm / đơn vị vi phạm | Dòng code nằm trong hàm vi phạm |
 |---|---|---|---|
@@ -70,31 +71,31 @@
 
 | Nhóm | Rule | FAIL | Chờ chốt |
 |---|---|---|---|
-| Core rule | Rule 1 — rẽ nhánh nghiệp vụ | 28 |  |
-| Core rule | Rule 2 — Core tự appState.get() | 40 |  |
-| Core rule | Rule 3a — Core gọi Core | 124 |  |
+| Core rule | Rule 1 — rẽ nhánh nghiệp vụ | 26 |  |
+| Core rule | Rule 2 — Core tự appState.get() | 39 |  |
+| Core rule | Rule 3a — Core gọi Core | 118 |  |
 | Core rule | Rule 3b — Core tự đọc DB/service | 9 |  |
 | Core rule | Rule 3b — Core tự đọc nguồn khác | 24 |  |
 | Core rule | Rule 4 — ghi state thiếu console.log | 16 |  |
-| Core rule | Rule 5a — Core gắn sự kiện | 41 |  |
-| Core rule | Rule 5c — thiếu hậu tố -ui | 5 |  |
-| Core rule | Rule 5d — template HTML trong core | 8 |  |
+| Core rule | Rule 5a — Core gắn sự kiện | 40 |  |
+| Core rule | Rule 5c — thiếu hậu tố -ui | 4 |  |
+| Core rule | Rule 5d — template HTML trong core | 4 |  |
 | Event bus | Listener gọi thẳng Workflow | 1 |  |
 | Event bus | Listener làm việc ngoài eventBus.send | 1 |  |
 | Event bus | Listener đọc appState | 7 |  |
 | Event bus | Router tự chuẩn bị dữ liệu | 0 |  |
 | Event bus | Workflow tự dựng template HTML | 8 |  |
 | Event bus | Workflow tự gắn sự kiện | 0 |  |
-| Event bus | Workflow tự thao tác DOM | 153 |  |
-| Event bus | Workflow tự tính toán | 102 |  |
+| Event bus | Workflow tự thao tác DOM | 151 |  |
+| Event bus | Workflow tự tính toán | 95 |  |
 | Event bus | Workflow tự vẽ canvas | 13 |  |
 | Event bus | Workflow tự điều khiển media | 39 |  |
-| Event bus | Workflow §7: rẽ nhánh không dùng object map | 80 |  |
-| Event bus | Workflow: ≥2 key không gộp get([…]) | 135 |  |
+| Event bus | Workflow §7: rẽ nhánh không dùng object map | 76 |  |
+| Event bus | Workflow: ≥2 key không gộp get([…]) | 127 |  |
 | TaskManager | Timer thô | 12 |  |
 | TaskManager | requestAnimationFrame thô | 9 |  |
 | TaskManager | taskManager dùng trong Core | 7 |  |
-| **Tổng** | | **862** | **0** |
+| **Tổng** | | **826** | **0** |
 
 ## 4. Chi tiết
 
@@ -102,7 +103,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 
 ### 4.1 Core rule
 
-#### Rule 1 — rẽ nhánh nghiệp vụ (28)
+#### Rule 1 — rẽ nhánh nghiệp vụ (26)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -114,8 +115,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/photo-editor-engine.js:283` | `drawShapeOnCanvas` | if-else: nhánh ghi/gọi khác chỗ — {call ctx.moveTo} / {call ctx.lineTo} | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/rubik-math.js:16` | `<anon>` | if-elseif: nhánh ghi/gọi khác chỗ — {set rc.cy, set rc.cz} / {set rc.cx, set rc.cz} / {set rc.cx, set rc.cy} | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/streaming-zip.js:375` | `<anon>` | if-elseif: nhánh ghi/gọi khác chỗ — {call onProgress, call sendNextEntry} / {call worker.terminate} / {call worker.terminate} | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/subtitle/subtitle-karaoke-display-ui.js:42` | `<anon>` | if-return: nhánh ghi/gọi khác chỗ — {call block.appendChild, call document.createElement} / {call block.appendChild, call document.createElement} | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/subtitle/subtitle-karaoke-display-ui.js:43` | `<anon>` | if-return: nhánh ghi/gọi khác chỗ — {call block.appendChild} / {call document.createElement, set el.className} | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/subtitle/subtitles-ui.js:77` | `buildLineCard` | if-else: nhánh ghi/gọi khác chỗ — {call document.createElement, set textInput.type} / {call document.createElement, set textInput.className} | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/subtitle/subtitles-ui.js:105` | `buildLineCard` | if-else: nhánh ghi/gọi khác chỗ — {call document.createElement, set startBtn.type} / {call document.createElement, set startBtn.className} | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/subtitle/subtitles-ui.js:166` | `buildLineCard` | if-else: nhánh ghi/gọi khác chỗ — {call document.createElement, set cancelBtn.type} / {call document.createElement, set removeBtn.type} | FAIL | Review (máy quét bỏ sót) | Có |  |
@@ -135,7 +134,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/wakelock.js:33` | `requestWakeLock` | if-return: nhánh ghi/gọi khác chỗ — {call _enableNoSleepFallback} / {set _wakeLockRequestPending, call appState.set:'nativeWakeLock'} | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/webgl/three-connector.js:452` | `triggerCinematicCameraShift` | if-elseif: ORBIT/CLOSE animate camera.position + target, TRACK chỉ target | FAIL | Review (máy quét bỏ sót) | Có |  |
 
-#### Rule 2 — Core tự appState.get() (40)
+#### Rule 2 — Core tự appState.get() (39)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -175,12 +174,11 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/visualizer/draw/window-frame.js:20` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Không |  |
 | `core/visualizer/effect-paint.js:22` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
 | `core/visualizer/effect-paint.js:47` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
-| `core/visualizer/visualizer-display.js:118` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
 | `core/wakelock.js:34` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
 | `core/wakelock.js:54` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
 | `core/wakelock.js:54` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
 
-#### Rule 3a — Core gọi Core (124)
+#### Rule 3a — Core gọi Core (118)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -296,16 +294,10 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/video-editor/webcodecs-engine.js:141` | `processVideo` | gọi _buildCropProcess() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/video-player.js:50` | `setBgVideoElementForPlayerMode` | gọi setVideoBgGain() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/visual-bg-common.js:237` | `getVisualBgFillStyle` | gọi buildCanvasLinearGradient() (core/color-utils.js) | FAIL | Máy quét | Không |  |
-| `core/visualizer-control-center.js:55` | `toggleControlCenter` | gọi closeControlCenter() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/visualizer-control-center.js:55` | `toggleControlCenter` | gọi openControlCenter() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/visualizer-control-center.js:59` | `handleControlCenterGridClick` | gọi closeControlCenter() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/visualizer-control-center.js:86` | `setVisualEnabled` | gọi saveConfig() (core/config.js) | FAIL | Máy quét | Có |  |
 | `core/visualizer/effect-paint.js:22` | `getComputedColor` | gọi getActiveEffectConfig() (core/custom-effect.js) | FAIL | Máy quét | Có |  |
 | `core/visualizer/effect-paint.js:28` | `getComputedColor` | gọi interpolateColor() (core/color-utils.js) | FAIL | Máy quét | Có |  |
 | `core/visualizer/effect-paint.js:47` | `getActiveBlurMult` | gọi getActiveEffectConfig() (core/custom-effect.js) | FAIL | Máy quét | Có |  |
 | `core/visualizer/groups/bar/black-hole.js:503` | `paintBlackHoleBurstBolt` | gọi createBlackHoleRayGradient() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/visualizer/visualizer-display.js:89` | `updateProgressBarCSS` | gọi getActiveEffectConfig() (core/custom-effect.js) | FAIL | Máy quét | Có |  |
-| `core/visualizer/visualizer-display.js:149` | `openEffectPickerModal` | gọi modalChoice() (core/modal-choice-ui.js) | FAIL | Máy quét | Có |  |
 | `core/wakelock.js:31` | `requestWakeLock` | gọi releaseWakeLock() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/wakelock.js:33` | `requestWakeLock` | gọi _enableNoSleepFallback() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 
@@ -373,7 +365,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/wakelock.js:39` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
 | `core/wakelock.js:54` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
 
-#### Rule 5a — Core gắn sự kiện (41)
+#### Rule 5a — Core gắn sự kiện (40)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -417,9 +409,8 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/time-picker-modal.js:194` | `openTimePickerModal` | addEventListener: file core không có hậu tố -ui tự gắn sự kiện; callback không gửi eventBus.send (gọi clearTimeout, setTimeout); không gom cuối hàm (sau nó còn: const cols = units.map((u, i) => buildColumn(i, cu) | FAIL | Máy quét + review | Không |  |
 | `core/time-picker-modal.js:299` | `openTimePickerModal` | addEventListener: file core không có hậu tố -ui tự gắn sự kiện; callback không gửi eventBus.send (gọi overlay.remove); không gom cuối hàm (sau nó còn: document.body.appendChild(overlay);) | FAIL | Máy quét + review | Không |  |
 | `core/time-picker-modal.js:300` | `openTimePickerModal` | addEventListener: file core không có hậu tố -ui tự gắn sự kiện; callback không gửi eventBus.send (gọi units.forEach, closeModal, config.onConfirm); không gom cuối hàm (sau nó còn: document.body.appendChild(overlay);) | FAIL | Máy quét + review | Không |  |
-| `core/visualizer/visualizer-display.js:168` | `openEffectPickerModal` | addEventListener: file core không có hậu tố -ui tự gắn sự kiện; callback không gửi eventBus.send (gọi renderStyleOptions) | FAIL | Máy quét + review | Có |  |
 
-#### Rule 5c — thiếu hậu tố -ui (5)
+#### Rule 5c — thiếu hậu tố -ui (4)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -427,9 +418,8 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/playlist/selection.js:1` | `(cả file)` | createElement tạo indicator chọn nhiều nhưng tên file không có -ui | FAIL | Máy quét + review | Có |  |
 | `core/slider-input-modal.js:1` | `(cả file)` | createElement dựng modal nhưng tên file không có -ui | FAIL | Máy quét + review | Không |  |
 | `core/time-picker-modal.js:1` | `(cả file)` | createElement dựng modal nhưng tên file không có -ui | FAIL | Máy quét + review | Không |  |
-| `core/visualizer-gesture.js:1` | `(cả file)` | createElement tạo indicator seek-hold nhưng tên file không có -ui | FAIL | Máy quét + review | Không |  |
 
-#### Rule 5d — template HTML trong core (8)
+#### Rule 5d — template HTML trong core (4)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -437,10 +427,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/playlist/render.js:89` |  | Chuỗi HTML 777 ký tự: ` <div class="w-full aspect-square relative mb-2.5"> <img ${view.cover | FAIL | Review (máy quét bỏ sót; đoạn kiểm tra 5d của máy là code chết) | Có | Đã đọc: markup cấu trúc cố định, chỉ khác data → phải là render*() trong components/ (tiền lệ 07/10 dời HTML Playlist) |
 | `core/playlist/render.js:108` |  | Chuỗi HTML 680 ký tự: ` <img ${view.coverSrcAttr} loading="lazy" decoding="async" class="w-1 | FAIL | Review (máy quét bỏ sót; đoạn kiểm tra 5d của máy là code chết) | Có | Đã đọc: markup cấu trúc cố định, chỉ khác data → phải là render*() trong components/ (tiền lệ 07/10 dời HTML Playlist) |
 | `core/storage-manager.js:438` |  | Chuỗi HTML 119 ký tự: `<div class="truncate"><span class="text-amber-400">●</span> ${escapeH | FAIL | Review (máy quét bỏ sót; đoạn kiểm tra 5d của máy là code chết) | Có | Đã đọc: markup cấu trúc cố định, chỉ khác data → phải là render*() trong components/ (tiền lệ 07/10 dời HTML Playlist) |
-| `core/visualizer-gesture.js:72` |  | Chuỗi HTML 343 ký tự: ` <div class="seek-hold-arrow text-white" style="font-size: 3.25rem; l | FAIL | Review (máy quét bỏ sót; đoạn kiểm tra 5d của máy là code chết) | Không | Đã đọc: markup cấu trúc cố định, chỉ khác data → phải là render*() trong components/ (tiền lệ 07/10 dời HTML Playlist) |
-| `core/visualizer/visualizer-display.js:123` |  | Chuỗi HTML 131 ký tự: `<option value="${style}" ${style === preselectStyle ? 'selected' : '' | FAIL | Review (máy quét bỏ sót; đoạn kiểm tra 5d của máy là code chết) | Có | Đã đọc: markup cấu trúc cố định, chỉ khác data → phải là render*() trong components/ (tiền lệ 07/10 dời HTML Playlist) |
-| `core/visualizer/visualizer-display.js:127` |  | Chuỗi HTML 129 ký tự: `<option value="${group}" ${group === currentGroup ? 'selected' : ''}> | FAIL | Review (máy quét bỏ sót; đoạn kiểm tra 5d của máy là code chết) | Có | Đã đọc: markup cấu trúc cố định, chỉ khác data → phải là render*() trong components/ (tiền lệ 07/10 dời HTML Playlist) |
-| `core/visualizer/visualizer-display.js:130` |  | Chuỗi HTML 950 ký tự: ` <div class="flex flex-col gap-3"> <div class="flex flex-col gap-1">  | FAIL | Review (máy quét bỏ sót; đoạn kiểm tra 5d của máy là code chết) | Có | Đã đọc: markup cấu trúc cố định, chỉ khác data → phải là render*() trong components/ (tiền lệ 07/10 dời HTML Playlist) |
 
 ### 4.2 Event bus
 
@@ -493,7 +479,7 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 
-#### Workflow tự thao tác DOM (153)
+#### Workflow tự thao tác DOM (151)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -648,10 +634,8 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/visual-bg-video.js:225` | `_playVideoKey` | 1 chỗ: bgVideoElement.classList.remove() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/visual-bg-video.js:553` | `_refreshVideoAudioRowButtons` | 3 chỗ: iconBtn.innerHTML = … · display.textContent = … · display.dataset.uitk = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/visual-bg-video.js:607` | `openPickVideo` | 1 chỗ: emptyEl.classList.toggle() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/visualizer-display.js:28` | `openDisplayPanel` | 6 chỗ: panelEl.querySelector('#setting-visual-enable').checked = … · panelEl.querySelector('#setting-subtitles-enabled').checked = … · panelEl.querySelector('#setting-stats-panel-enable').checked = … … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/visualizer-gesture.js:256` | `_clickControlCenterTarget` | 1 chỗ: targetEl.click() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 
-#### Workflow tự tính toán (102)
+#### Workflow tự tính toán (95)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -687,10 +671,6 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/playlist.js:900` | `uploadSongs` | 1 chỗ: regex /\.[^/.]+$/ | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/recorder.js:499` | `_concatSamples` | 1 chỗ: .reduce() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/recorder.js:583` | `seekPreview` | 2 chỗ: Math.max() · Math.min() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/subtitle-display.js:218` | `_collectActiveLines` | 1 chỗ: Math.min() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/subtitle-display.js:256` | `_applyCommingPhase` | 1 chỗ: Math.max() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/subtitle-display.js:272` | `_applyOutingPhase` | 1 chỗ: Math.max() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/subtitle-display.js:437` | `_ensureKaraokeFx` | 1 chỗ: Math.min() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/subtitle-editor.js:120` | `_initWaveform` | 1 chỗ: Math.min() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/subtitle-editor.js:231` | `seekFromClick` | 2 chỗ: Math.max() · Math.min() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/subtitle-editor.js:247` | `_seekWithRetry` | 1 chỗ: Math.abs() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
@@ -730,9 +710,6 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/visual-bg-common.js:925` | `_formatMovementMs` | 1 chỗ: `(ms / 1000).toFixed(1)` định dạng "2.0s" | FAIL | Review 13/10/2026 (phát hiện ở đợt 1) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5). Docstring còn trỏ `workflowGestureSettings._formatSeekMs()` (đã xoá ở đợt 1) — sửa cùng đợt 21a |
 | `event/workflow/visual-bg-photo.js:57` | `_computePhotoAdvanceMs` | 2 chỗ: Math.max() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/visual-bg-video.js:325` | `_computeVideoPointMoveAdvanceMs` | 1 chỗ: Math.min() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/visualizer-gesture.js:181` | `handleTouchMove` | 1 chỗ: Math.hypot() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/visualizer-gesture.js:192` | `handleTouchEnd` | 1 chỗ: Math.hypot() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/visualizer-gesture.js:317` | `_runSeekTick` | 1 chỗ: Math.abs() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/visualizer-render.js:175` | `_detectMediaSeek` | 1 chỗ: Math.abs() | FAIL | Review (máy quét bỏ sót) | — | Hot path visualizer. Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/visualizer/bar.js:44` | `true` | 4 chỗ: Math.sqrt() · Math.min() · Math.max() | FAIL | Review (máy quét bỏ sót) | — | Hot path visualizer. Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/visualizer/bar.js:100` | `onResize` | 1 chỗ: Math.max() | FAIL | Review (máy quét bỏ sót) | — | Hot path visualizer. Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
@@ -820,7 +797,7 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/visual-bg-video.js:396` | `_applyVideoAudioSettingToElement` | 2 chỗ: bgVideoElement.muted = … · bgVideoElement.volume = … | FAIL | Review (máy quét bỏ sót) | — | play/pause/src/currentTime là thi hành → core nhận phần tử media qua tham số |
 | `event/workflow/visual-bg-video.js:430` | `_resumeVideoWithDelayedAudio` | 2 chỗ: bgVideoElement.muted = … · bgVideoElement.play() | FAIL | Review (máy quét bỏ sót) | — | play/pause/src/currentTime là thi hành → core nhận phần tử media qua tham số |
 
-#### Workflow §7: rẽ nhánh không dùng object map (80)
+#### Workflow §7: rẽ nhánh không dùng object map (76)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -900,12 +877,8 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/visual-bg-video.js:266` | `_playVideoKey` | if-return: {call _markCurrentMissing} / {set _currentVideoKey, call updateDOMBackground} | FAIL | Review (máy quét bỏ sót) | — | Nhánh chạy việc khác (dọn/chuyển hướng/tiến trình khác) rồi return — không phải guard thuần |
 | `event/workflow/visual-bg-video.js:344` | `_activateVideoPointMove` | if-else: {call workflowVideoMotionSurface.activatePointMoveForNewContent} / {call workflowVideoMotionSurface.activatePointMoveForPresetChange} | FAIL | Review (máy quét bỏ sót) | — | Rẽ ≥2 tiến trình — phải viết object map / VirtualMachineState |
 | `event/workflow/visual-bg-video.js:414` | `_markCurrentMissing` | if-return: {call clearSource} / {call appConfigVisualBg.mutateAll, call _persist} | FAIL | Review (máy quét bỏ sót) | — | Nhánh chạy việc khác (dọn/chuyển hướng/tiến trình khác) rồi return — không phải guard thuần |
-| `event/workflow/visualizer-gesture.js:187` | `handleTouchEnd` | if-return: {call _stopSeekHold} / {call taskManager.kill} | FAIL | Review (máy quét bỏ sót) | — | Nhánh chạy việc khác (dọn/chuyển hướng/tiến trình khác) rồi return — không phải guard thuần |
-| `event/workflow/visualizer-gesture.js:208` | `handleTouchCancel` | if-return: {call _stopSeekHold} / {call taskManager.kill} | FAIL | Review (máy quét bỏ sót) | — | Nhánh chạy việc khác (dọn/chuyển hướng/tiến trình khác) rồi return — không phải guard thuần |
-| `event/workflow/visualizer-gesture.js:226` | `_resolveTap` | if-return: {set _tapCount, call taskManager.kill} / {call taskManager.once} | FAIL | Review (máy quét bỏ sót) | — | Nhánh chạy việc khác (dọn/chuyển hướng/tiến trình khác) rồi return — không phải guard thuần |
-| `event/workflow/visualizer-gesture.js:274` | `_dispatchGestureAction` | if-return: {call _clickControlCenterTarget} / {call run} | FAIL | Review (máy quét bỏ sót) | — | Nhánh chạy việc khác (dọn/chuyển hướng/tiến trình khác) rồi return — không phải guard thuần |
 
-#### Workflow: ≥2 key không gộp get([…]) (135)
+#### Workflow: ≥2 key không gộp get([…]) (127)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -956,12 +929,6 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/playlist.js:2277` | `syncPlaylistSettingsUI` | 2 lần appState.get cho 2 key ('isGridView', 'activeMediaSource') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/recorder.js:342` | `_stopRecording` | 2 lần appState.get cho 2 key ('recordPhase', 'isVideoPlayerMode') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/recorder.js:454` | `runCalibration` | 2 lần appState.get cho 3 key ('recordPhase', 'audioContext', 'isVideoPlayerMode') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/subtitle-display.js:276` | `_syncDisplayVisibility` | 2 lần appState.get cho 2 key ('activeSubIds', 'karaokeFxDirty') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/subtitle-display.js:314` | `_realignKaraokePointer` | 2 lần appState.get cho 2 key ('karaokePointerLineId', 'karaokeRenderConfig') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/subtitle-display.js:341` | `_tickKaraoke` | 3 lần appState.get cho 3 key ('karaokeLastMediaTime', 'karaokeRenderConfig', 'karaokeLines') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/subtitle-display.js:465` | `_tickKaraokeParticles` | 3 lần appState.get cho 3 key ('karaokeFxDirty', 'karaokeParticles', 'karaokeSprites') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/subtitle-display.js:475` | `_clearKaraokeFx` | 2 lần appState.get cho 2 key ('karaokeFx', 'karaokeSprites') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/subtitle-display.js:489` | `_stopKaraokeLoopIfIdle` | 2 lần appState.get cho 2 key ('karaokeLines', 'karaokeFxDirty') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/subtitle-editor.js:60` | `_initWaveform` | 13 lần appState.get cho 4 key ('_timelinePlugin', '_zoomLevel', '_regionsPlugin', '_wavesurfer') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/subtitle-editor.js:116` | `<anon>` | 3 lần appState.get cho 3 key ('_wavesurfer', '_regionsPlugin', '_region') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/subtitle-editor.js:261` | `zoomIn` | 4 lần appState.get cho 2 key ('_wavesurfer', '_zoomLevel') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
@@ -1033,8 +1000,6 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | `event/workflow/visual-bg-common.js:197` | `applyCurrentVisualBg` | 2 lần appState.get cho 2 key ('isVideoPlayerMode', 'isPhotoPlayerMode') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/visual-bg-common.js:317` | `syncPlaybackToAudio` | 3 lần appState.get cho 3 key ('isVideoPlayerMode', 'isPhotoPlayerMode', 'playbackStoppedAtPlaylistEnd') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/visual-bg-common.js:1088` | `changeResolutionMode` | 2 lần appState.get cho 2 key ('isVideoPlayerMode', 'isPhotoPlayerMode') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/visualizer-gesture.js:286` | `_activateSeekHold` | 2 lần appState.get cho 2 key ('isVideoPlayerMode', 'currentKey') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/visualizer-gesture.js:330` | `_stopSeekHold` | 2 lần appState.get cho 2 key ('currentKey', 'isVideoPlayerMode') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/visualizer/connector.js:155` | `_disposeScene` | 2 lần appState.get cho 6 key ('cnInitialized', 'cnScene', 'cnCamera', 'cnControls'…) — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/visualizer/connector.js:167` | `onResize` | 2 lần appState.get cho 3 key ('cnInitialized', 'cnCamera', 'cnComposer') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/visualizer/connector.js:180` | `onNewMedia` | 2 lần appState.get cho 2 key ('cnInitialized', 'cnChips') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |

@@ -454,6 +454,7 @@ của group.
 226. `core/storage-manager.js`
 227. `core/zip-download-ui.js`
 228. `core/visualizer/visualizer-display.js`
+228a. `core/visualizer/effect-picker-ui.js` — MỚI 14/10/2026 (setEffectPickerStyleOptionsUi — modal chọn effect, đợt 12); gọi lúc chạy từ event/workflow/visualizer-display.js
 229. `core/auto-switch-visual.js`
 229a. `core/auto-switch-visual-ui.js` — MỚI 12/10/2026 (DOM phiên kéo thả item Auto-Switch — plan-event-bus-wiring đợt 4)
 230. `core/visualizer/draw/water-drop.js`
@@ -937,7 +938,7 @@ Các file sau được nạp ở hơn 1 trang — sửa file thì nâng `?v=` �
 | `lang/patch/patch-subtitle-editor.js` | index, subtitle-editor, video-editor | `20260930kr4` |
 | `lang/patch/patch-subtitle-settings.js` | index, subtitle-editor, video-editor | `20261014w8` |
 | `lang/patch/patch-video-preview.js` | index, subtitle-editor, video-editor | `20260929cap1` |
-| `lang/patch/patch-visualizer.js` | index, subtitle-editor, video-editor | `20261014w11` |
+| `lang/patch/patch-visualizer.js` | index, subtitle-editor, video-editor | `20261014w12` |
 | `service/blob-url.js` | index, video-editor | `20260803v1` |
 | `service/component-dynamic.js` | index, video-editor | `20260803v1` |
 | `service/db.js` | index, subtitle-editor, video-editor | `20261013w7` |
