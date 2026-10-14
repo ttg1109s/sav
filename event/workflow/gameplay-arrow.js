@@ -46,7 +46,7 @@ const workflowGameplayArrow = {
      * Đóng Game Panel (đúng hành động nút X), media về đầu, hiện stage Arrow, khoá + ẩn thanh phát nhạc đáy màn (chỗ cho
      * bàn phím), vẽ vùng đích theo config, rồi THẲNG vào đếm ngược (cùng khuôn workflowGameplay.start()). */
     start() {
-        const { isVideoPlayerMode, isPhotoPlayerMode, gameplayDifficulty } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode', 'gameplayDifficulty']);
+        const { isVideoPlayerMode, gameplayDifficulty } = appState.get(['isVideoPlayerMode', 'gameplayDifficulty']);
         this._resetSession(gameplayDifficulty);
         appState.set('gameplayMode', GAMEPLAY_ARROW_MODE_ID, { skipCheck: true });
         console.log(`writer: "workflowGameplayArrow.start", page: "gameplayMode", content: "${GAMEPLAY_ARROW_MODE_ID}"`);
@@ -54,7 +54,7 @@ const workflowGameplayArrow = {
         console.log(`writer: "workflowGameplayArrow.start", page: "gameplayPhase", content: "ready"`);
 
         workflowPlaceholderPanels.close(gamePanel); // event/workflow/placeholder-panels.js — idempotent
-        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode)); // core (engine.js) + core/player-controls.js
+        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode)); // core (engine.js) + core/player-controls.js
 
         setGameplayLayerMode(gameplayLayer, GAMEPLAY_ARROW_MODE_ID); // core-ui (engine-ui.js)
         showGameplayLayer(gameplayLayer); // core-ui (engine-ui.js)
@@ -74,17 +74,17 @@ const workflowGameplayArrow = {
 
     /** Hết đếm ngược -> mở vòng đầu + phát media thật. */
     _beginPlaying() {
-        const { isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode']);
+        const isVideoPlayerMode = appState.get('isVideoPlayerMode');
         appState.set('gameplayPhase', 'playing', { skipCheck: true });
         console.log(`writer: "workflowGameplayArrow._beginPlaying", page: "gameplayPhase", content: "playing"`);
         this._beginRound(performance.now());
-        startGameplayMedia(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode)); // core (engine.js)
+        playMediaElement(getActiveMediaElement(isVideoPlayerMode), '[workflowGameplayArrow._beginPlaying]'); // core (media-element-ui.js)
     },
 
     /** Nút "Chơi lại" ở modal kết quả — media về đầu, phiên mới từ level đầu, thẳng vào đếm ngược. */
     replay() {
-        const { isVideoPlayerMode, isPhotoPlayerMode, gameplayDifficulty } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode', 'gameplayDifficulty']);
-        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode)); // core (engine.js)
+        const { isVideoPlayerMode, gameplayDifficulty } = appState.get(['isVideoPlayerMode', 'gameplayDifficulty']);
+        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode)); // core (engine.js)
         this._resetSession(gameplayDifficulty);
         appState.set('gameplayPhase', 'ready', { skipCheck: true });
         console.log(`writer: "workflowGameplayArrow.replay", page: "gameplayPhase", content: "ready"`);
@@ -95,14 +95,14 @@ const workflowGameplayArrow = {
     /** Thoát hẳn — nút X overlay / "Về Playlist" ở modal / disarm trên Game Panel (qua workflowGameplayEngine.
      * exitActiveMode()). Dừng mọi task phiên, media về đầu, ẩn layer, mở lại + hiện thanh phát nhạc, về Playlist. */
     exitToPlaylist() {
-        const { isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode']);
+        const isVideoPlayerMode = appState.get('isVideoPlayerMode');
         appState.set('gameplayPhase', 'idle', { skipCheck: true });
         console.log(`writer: "workflowGameplayArrow.exitToPlaylist", page: "gameplayPhase", content: "idle"`);
         taskManager.kill(GAMEPLAY_COUNTDOWN_TASK);
         taskManager.kill(GAMEPLAY_SCORE_COUNTUP_TASK);
         this._round = null;
 
-        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode)); // core (engine.js)
+        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode)); // core (engine.js)
         hideGameplayCountdown(gameplayCountdownScreen); // core-ui
         hideGameplayLayer(gameplayLayer); // core-ui
         setPlayerControlsBlocked(false); // core (player-controls.js)
@@ -112,24 +112,24 @@ const workflowGameplayArrow = {
         eventBus.send({ router: 'playerControls', type: 'playerControls.backToPlaylist.click', payload: {} });
     },
 
-    /** Hết bài/video/ảnh lúc đang ở Game (router player-controls -> workflowGameplayEngine.onActiveModeMediaEnded()).
+    /** Hết bài/video lúc đang ở Game (router player-controls -> workflowGameplayEngine.onActiveModeMediaEnded()).
      * Vòng đang dở (chưa chấm) bỏ qua, không tính. Đọc thời lượng/loại media TRƯỚC khi lưu điểm (Next đổi currentKey). */
     async onMediaEnded() {
         workflowListenStats.stopClock(); // event/workflow/listen-stats.js — parity với Circle / handleMediaEnded()
         const cfg = GAMEPLAY_ARROW_CONFIG;
         const {
             gameplayTotalScore, gameplayCircleCount, gameplayHitCounts, gameplayDifficulty,
-            isVideoPlayerMode, isPhotoPlayerMode, playlistCache, currentKey,
+            isVideoPlayerMode, playlistCache, currentKey,
         } = appState.get([
             'gameplayTotalScore', 'gameplayCircleCount', 'gameplayHitCounts', 'gameplayDifficulty',
-            'isVideoPlayerMode', 'isPhotoPlayerMode', 'playlistCache', 'currentKey',
+            'isVideoPlayerMode', 'playlistCache', 'currentKey',
         ]);
         this._round = null; // tick()/bàn phím dừng ngay, kể cả lúc chờ lưu điểm
         this._paintIdleStage();
 
-        const durationLabel = formatTime(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode).duration); // core (core/playlist/state.js)
+        const durationLabel = formatTime(getActiveMediaElement(isVideoPlayerMode).duration); // core (core/playlist/state.js)
         const endedCached = playlistCache.get(currentKey);
-        const playingMediaType = isVideoPlayerMode ? 'video' : (isPhotoPlayerMode ? 'photo' : 'song'); // chọn giá trị, cùng nguồn getActiveMediaElement()
+        const playingMediaType = isVideoPlayerMode ? 'video' : 'song'; // chọn giá trị, cùng nguồn getActiveMediaElement()
 
         const finalScore = computeFinalAverageScore(gameplayTotalScore, gameplayCircleCount); // core (engine.js)
         const { title, playCount } = await workflowGameplayEngine.persistScore(GAMEPLAY_ARROW_MODE_ID, gameplayDifficulty, finalScore, playingMediaType);
@@ -156,10 +156,10 @@ const workflowGameplayArrow = {
     /** Hot path (event/workflow/audio-analysis.js -> workflowGameplayEngine.tickActiveMode()) — CHỈ guard + core.
      * Media đang dừng -> nút tròn đứng yên (mốc frame trước giữ nguyên; frame chạy lại đầu tiên bị kẹp maxFrameDeltaMs). */
     tick(now) {
-        const { gameplayPhase, isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['gameplayPhase', 'isVideoPlayerMode', 'isPhotoPlayerMode']);
+        const { gameplayPhase, isVideoPlayerMode } = appState.get(['gameplayPhase', 'isVideoPlayerMode']);
         const round = this._round;
         if (gameplayPhase !== 'playing' || !round) return;
-        if (getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode).paused) return; // core/player-controls.js
+        if (getActiveMediaElement(isVideoPlayerMode).paused) return; // core/player-controls.js
 
         const step = advanceArrowCursor(round.elapsedMs, round.lastTickAt, now, round.periodMs, GAMEPLAY_ARROW_CONFIG.maxFrameDeltaMs); // core
         round.elapsedMs = step.elapsedMs;
@@ -174,10 +174,10 @@ const workflowGameplayArrow = {
 
     /** 'gameplay.arrow.direction.press' — 1 lần bấm hướng (0..7). Vòng đã chấm (đã commit) -> bỏ qua tới vòng sau. */
     handleDirection(dir) {
-        const { gameplayPhase, isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['gameplayPhase', 'isVideoPlayerMode', 'isPhotoPlayerMode']);
+        const { gameplayPhase, isVideoPlayerMode } = appState.get(['gameplayPhase', 'isVideoPlayerMode']);
         const round = this._round;
         if (gameplayPhase !== 'playing' || !round || round.isResolved) return;
-        if (getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode).paused) return;
+        if (getActiveMediaElement(isVideoPlayerMode).paused) return;
 
         const result = applyArrowInput(round.arrows, round.inputIndex, dir); // core
         round.inputIndex = result.inputIndex;
@@ -186,10 +186,10 @@ const workflowGameplayArrow = {
 
     /** 'gameplay.arrow.commit.press' — Enter: chấm theo vị trí nút tròn hiện tại (frame gần nhất). Mỗi vòng 1 lần. */
     handleCommit() {
-        const { gameplayPhase, isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['gameplayPhase', 'isVideoPlayerMode', 'isPhotoPlayerMode']);
+        const { gameplayPhase, isVideoPlayerMode } = appState.get(['gameplayPhase', 'isVideoPlayerMode']);
         const round = this._round;
         if (gameplayPhase !== 'playing' || !round || round.isResolved) return;
-        if (getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode).paused) return;
+        if (getActiveMediaElement(isVideoPlayerMode).paused) return;
 
         const tier = classifyArrowCommitTier(round.progressPercent, round.inputIndex, round.arrows.length, GAMEPLAY_ARROW_CONFIG); // core
         this._resolveRound(tier);

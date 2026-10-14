@@ -3,7 +3,7 @@
  *   1. Modal xem ảnh full-screen — mở từ mục "Edit image" của dòng Photo. Xem/zoom/sửa là 1 mặt: Panzoom gắn lên
  *      `mediaWrap` (core/file-manager/photo-ui.js) suốt vòng đời modal; canvas Edit vẽ đè bên trong, không đụng Panzoom.
  *   2. Picker chọn 1 ảnh qua Generic Drawer (bìa bài hát, nền mặt Clock của Custom Effect).
- * `resizeImageForThumbnail()`/`computePhotoDuration()` dùng chung với playlist.js::uploadPhotos() và image-edit.js.
+ * `resizeImageForThumbnail()` dùng chung với playlist.js::uploadPhotos() và image-edit.js.
  *
  * NẠP SAU: core/file-manager/image.js, core/file-manager/photo-ui.js, core/file-manager/gallery-window-ui.js,
  * core/image-load-ui.js, core/media-transform.js, components/media-gallery.js, components/image-preview-modal.js,
@@ -128,12 +128,6 @@ const workflowFileManagerPhoto = {
         const thumbBlob = await renderImageScaledToJpegBlob(img, THUMBNAIL_SCALE_RATIO, 0.82); // core/image-load-ui.js
         if (!thumbBlob) throw new Error('[resizeImageForThumbnail] canvas.toBlob trả về null');
         return { thumbBlob, width: img.naturalWidth, height: img.naturalHeight };
-    },
-
-    /** Cửa ngõ tới workflowPhotoDuration.compute() (event/workflow/photo-duration.js) cho uploadPhotos(), image-edit.js.
-     * @param {File|Blob} file @param {number} width @param {number} height @returns {Promise<number>} */
-    computePhotoDuration(file, width, height) {
-        return workflowPhotoDuration.compute(file, width, height); // event/workflow/photo-duration.js
     },
 
     /** Ứng với mục "Edit image" trong menu dòng Photo ở Playlist. Mở modal, bật Panzoom, decode ảnh vào canvas ngay

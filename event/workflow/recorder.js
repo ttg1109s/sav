@@ -212,7 +212,7 @@ const workflowRecorder = {
         setRecorderLevel(recorderLevel, 0);
         setRecorderClip(recorderIndicator, false);
         this._clipUntilMs = 0;
-        const activeEl = getActiveMediaElement(isVideoPlayerMode, false); // core/player-controls.js
+        const activeEl = getActiveMediaElement(isVideoPlayerMode); // core/player-controls.js
         RECORDER_START_BY_COUNT_IN[cfg.countInSec > 0](cfg.countInSec, activeEl);
     },
 
@@ -266,7 +266,7 @@ const workflowRecorder = {
         appState.set('recordMeta', null);
         console.log('writer: "workflowRecorder._cancelCountIn", page: "recordMeta", content: "null (huỷ lúc Count-in)"');
         this._setPhase('idle');
-        const activeEl = getActiveMediaElement(appState.get('isVideoPlayerMode'), false); // core/player-controls.js
+        const activeEl = getActiveMediaElement(appState.get('isVideoPlayerMode')); // core/player-controls.js
         RECORDER_RESUME_BY_WAS_PLAYING[countIn.resumeAfterCancel](activeEl);
     },
 
@@ -341,7 +341,7 @@ const workflowRecorder = {
         this._setPhase('stopping'); // từ đây 'pause' do chính hàm này bắn sẽ bị handleInterruption() bỏ qua
         taskManager.kill(RECORDER_TIMER_TASK);
         const isVideoPlayerMode = appState.get('isVideoPlayerMode');
-        const activeEl = getActiveMediaElement(isVideoPlayerMode, false); // core/player-controls.js
+        const activeEl = getActiveMediaElement(isVideoPlayerMode); // core/player-controls.js
         this._markMediaEnded(activeEl.ended); // hết bài: 'pause' tới TRƯỚC 'ended' nhưng thuộc tính ended đã true
         activeEl.pause();
         const elapsedSec = (performance.now() - this._startedAtMs) / 1000;
@@ -456,7 +456,7 @@ const workflowRecorder = {
         if (!audioContext) return;
         this._calibrating = true;
         setRecorderCalibrationBusy(genericDrawerBody, true, t('recorderSettings.calibration.measuring')); // core/recorder-ui.js
-        const activeEl = getActiveMediaElement(isVideoPlayerMode, false); // core/player-controls.js
+        const activeEl = getActiveMediaElement(isVideoPlayerMode); // core/player-controls.js
         const resumeMedia = !activeEl.paused;
         activeEl.pause(); // nhạc lọt vào mic sẽ làm nhiễu phép đo
 
@@ -690,7 +690,7 @@ const workflowRecorder = {
         console.log('writer: "workflowRecorder._endSession", page: "recordMeta", content: "null"');
         this._setPhase('idle'); // mở Block gate TRƯỚC khi sang bài kế
         setPlayerControlsBlocked(false); // core/player-controls.js
-        RECORDER_AFTER_SESSION_BY_MEDIA_ENDED[mediaEnded](getActiveMediaElement(isVideoPlayerMode, false));
+        RECORDER_AFTER_SESSION_BY_MEDIA_ENDED[mediaEnded](getActiveMediaElement(isVideoPlayerMode));
     },
 
     /** @param {HTMLMediaElement} activeEl */

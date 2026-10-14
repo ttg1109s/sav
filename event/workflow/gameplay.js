@@ -6,7 +6,7 @@
  * workflowPlayer.playMedia() lẫn workflowVideoPlayer.playVideoByKey() — hoặc armGame() lúc đã có media). `gameplayPhase`
  * (idle -> ready -> countdown -> playing -> ended) tách biệt với `gameplayArmedGameId` (arm/disarm thuộc
  * event/workflow/game-catalog.js). tick() không có vòng rAF riêng — gọi từ vòng render chung (workflowGameplayEngine.
- * tickActiveMode()). Media luôn qua getActiveMediaElement() (core/player-controls.js) nên Song/Video/Photo cùng 1 đường;
+ * tickActiveMode()). Media luôn qua getActiveMediaElement() (core/player-controls.js) nên Song/Video cùng 1 đường (Photo không có Game);
  * pitch/BPM/energy của Video đúng vì graph Web Audio nối chung analyser.
  *
  * Spawn khoá theo BEAT thật: bộ theo dõi beat (`_beatTracker`, stepCircleBeatTracker()) so mốc beat mới nhất
@@ -65,7 +65,7 @@ const workflowGameplay = {
      * Game Panel (đúng hành động nút X, idempotent — phòng lối vào 'gameplay.mediaChanged'), chặn player control đáy màn
      * (gỡ ở exitToPlaylist()), đưa media về đầu. */
     start(mode) {
-        const { isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode']);
+        const isVideoPlayerMode = appState.get('isVideoPlayerMode');
         this._resetSessionCounters();
         appState.set('gameplayMode', mode, { skipCheck: true });
         console.log(`writer: "workflowGameplay.start", page: "gameplayMode", content: "${mode}"`);
@@ -73,7 +73,7 @@ const workflowGameplay = {
         console.log(`writer: "workflowGameplay.start", page: "gameplayPhase", content: "ready"`);
 
         workflowPlaceholderPanels.close(gamePanel); // event/workflow/placeholder-panels.js
-        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode)); // core/gameplay/engine.js + core/player-controls.js
+        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode)); // core/gameplay/engine.js + core/player-controls.js
 
         setGameplayLayerMode(gameplayLayer, 'circle'); // core/gameplay/engine-ui.js — hiện canvas/tap-surface, ẩn stage Arrow
         showGameplayLayer(gameplayLayer); // core/gameplay/engine-ui.js
@@ -96,22 +96,22 @@ const workflowGameplay = {
         console.log(`writer: "workflowGameplay._beginPlaying", page: "gameplayPhase", content: "playing"`);
         resetCircleBeatTrackerCounters(this._beatTracker, audioAnalysis.lastBeatTime()); // core/gameplay/circle-mode.js + service/audio-analysis.js
         this._nextSpawnIndex = 0;
-        const { isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode']);
-        startGameplayMedia(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode)); // core/gameplay/engine.js + core/player-controls.js
+        const isVideoPlayerMode = appState.get('isVideoPlayerMode');
+        playMediaElement(getActiveMediaElement(isVideoPlayerMode), '[workflowGameplay._beginPlaying]'); // core/media-element-ui.js + core/player-controls.js
     },
 
     /** 'gameplay.tap.press' — chỉ tính khi đang 'playing' và media đang phát. @param {number} tapX @param {number} tapY - px
      * theo hệ toạ độ canvas. */
     handleTap(tapX, tapY) {
         const {
-            gameplayPhase, isVideoPlayerMode, isPhotoPlayerMode,
+            gameplayPhase, isVideoPlayerMode,
             gameplayWaves, gameplayComboByTier, gameplayTotalScore, gameplayCircleCount, gameplayHitCounts,
         } = appState.get([
-            'gameplayPhase', 'isVideoPlayerMode', 'isPhotoPlayerMode',
+            'gameplayPhase', 'isVideoPlayerMode',
             'gameplayWaves', 'gameplayComboByTier', 'gameplayTotalScore', 'gameplayCircleCount', 'gameplayHitCounts',
         ]);
         if (gameplayPhase !== 'playing') return;
-        if (getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode).paused) return;
+        if (getActiveMediaElement(isVideoPlayerMode).paused) return;
         if (gameplayWaves.length === 0) return;
         const now = performance.now();
         const cfg = GAMEPLAY_CIRCLE_CONFIG;
@@ -145,16 +145,16 @@ const workflowGameplay = {
     /** Mỗi frame từ vòng render chung — hot path 60fps (object map + guard, không log; miễn Rule 4 cho set()). */
     tick(now) {
         const {
-            gameplayPhase, isVideoPlayerMode, isPhotoPlayerMode,
+            gameplayPhase, isVideoPlayerMode,
             gameplayWaves, gameplayCircleCount, gameplayDifficulty, gameplayPitchCellMap,
             gameplayRefreshPending, gameplayTotalScore, gameplayHitCounts,
         } = appState.get([
-            'gameplayPhase', 'isVideoPlayerMode', 'isPhotoPlayerMode',
+            'gameplayPhase', 'isVideoPlayerMode',
             'gameplayWaves', 'gameplayCircleCount', 'gameplayDifficulty', 'gameplayPitchCellMap',
             'gameplayRefreshPending', 'gameplayTotalScore', 'gameplayHitCounts',
         ]);
         if (gameplayPhase !== 'playing') return;
-        if (getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode).paused) return;
+        if (getActiveMediaElement(isVideoPlayerMode).paused) return;
         const cfg = GAMEPLAY_CIRCLE_CONFIG;
         const diffCfg = cfg.difficulty[gameplayDifficulty];
         // BPM giữ dạng chữ ("---" khi chưa có) — core tự parseFloat + rơi về giá trị dự phòng.
@@ -319,16 +319,16 @@ const workflowGameplay = {
         workflowListenStats.stopClock(); // event/workflow/listen-stats.js — giống workflowPlayerControls.handleMediaEnded()
         const {
             gameplayTotalScore, gameplayCircleCount, gameplayHitCounts, gameplayDifficulty,
-            isVideoPlayerMode, isPhotoPlayerMode, playlistCache, currentKey,
+            isVideoPlayerMode, playlistCache, currentKey,
         } = appState.get([
             'gameplayTotalScore', 'gameplayCircleCount', 'gameplayHitCounts', 'gameplayDifficulty',
-            'isVideoPlayerMode', 'isPhotoPlayerMode', 'playlistCache', 'currentKey',
+            'isVideoPlayerMode', 'playlistCache', 'currentKey',
         ]);
         const cfg = GAMEPLAY_CIRCLE_CONFIG;
         const finalScore = computeFinalAverageScore(gameplayTotalScore, gameplayCircleCount); // core/gameplay/engine.js
-        const durationLabel = formatTime(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode).duration); // core/playlist/state.js
+        const durationLabel = formatTime(getActiveMediaElement(isVideoPlayerMode).duration); // core/playlist/state.js
         const endedCached = playlistCache.get(currentKey);
-        const playingMediaType = isVideoPlayerMode ? 'video' : (isPhotoPlayerMode ? 'photo' : 'song'); // cùng nguồn getActiveMediaElement()
+        const playingMediaType = isVideoPlayerMode ? 'video' : 'song'; // cùng nguồn getActiveMediaElement()
         const { title, playCount } = await workflowGameplayEngine.persistScore('circle', gameplayDifficulty, finalScore, playingMediaType);
         const extras = computeCircleEndExtras(gameplayCircleCount, playCount, cfg); // core/gameplay/circle-mode.js
         const starRating = computeStarRating(gameplayTotalScore, extras.maxScore, cfg); // core/gameplay/engine.js
@@ -353,8 +353,8 @@ const workflowGameplay = {
 
     /** "Chơi lại" — media hiện tại về đầu rồi vào thẳng đếm ngược (phát thật ở _beginPlaying()). */
     replay() {
-        const { isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode']);
-        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode)); // core/gameplay/engine.js + core/player-controls.js
+        const isVideoPlayerMode = appState.get('isVideoPlayerMode');
+        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode)); // core/gameplay/engine.js + core/player-controls.js
         this._resetSessionCounters();
         appState.set('gameplayPhase', 'ready', { skipCheck: true });
         console.log(`writer: "workflowGameplay.replay", page: "gameplayPhase", content: "ready"`);
@@ -369,13 +369,13 @@ const workflowGameplay = {
 
     /** 'gameplay.exit.click' hoặc nút "Về Playlist" của modal — thoát hẳn Game Mode qua luồng Back to Playlist, media về đầu. */
     exitToPlaylist() {
-        const { isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode']);
+        const isVideoPlayerMode = appState.get('isVideoPlayerMode');
         appState.set('gameplayPhase', 'idle', { skipCheck: true });
         console.log(`writer: "workflowGameplay.exitToPlaylist", page: "gameplayPhase", content: "idle"`);
         taskManager.kill(GAMEPLAY_COUNTDOWN_TASK);
         taskManager.kill(GAMEPLAY_SCORE_COUNTUP_TASK);
 
-        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode)); // core/gameplay/engine.js + core/player-controls.js
+        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode)); // core/gameplay/engine.js + core/player-controls.js
         hideGameplayCountdown(gameplayCountdownScreen); // core/gameplay/engine-ui.js
         hideGameplayLayer(gameplayLayer); // core/gameplay/engine-ui.js
         setPlayerControlsBlocked(false); // core/player-controls.js — cặp với start()

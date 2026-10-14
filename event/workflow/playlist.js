@@ -12,7 +12,7 @@ const SONG_EDIT_COVER_ICON_VIDEO = iconSvg('video-camera');
 
 /** Trần time-picker thời lượng Photo (`openPhotoEditDurationPicker()`) — lựa chọn của chỗ gọi, không phải giới hạn của
  * widget. Phải hữu hạn: cột thô nhất của time-picker dựng đủ `count` dòng DOM thật. Cột 'h' có trần tự nhiên 24, nên
- * 24 giờ cho đúng 24 dòng; rộng hơn nhiều mọi giá trị computePhotoDuration() thực tế tạo ra. */
+ * 24 giờ cho đúng 24 dòng; rộng hơn nhiều mọi giá trị computePhotoDurationSec() thực tế tạo ra. */
 const PHOTO_EDIT_DURATION_PICKER_MAX_MS = 24 * 60 * 60 * 1000; // 24 giờ
 
 /** `accept` của 2 input upload dùng chung (#media-upload/#media-upload-folder, core/dom-refs.js) theo Nguồn — xem
@@ -539,7 +539,7 @@ const workflowPlaylist = {
             title: t('playlistView.songEdit.durationPickerTitle'),
             format: 'h-m-s',
             valueMs: currentSec * 1000,
-            minMs: DURATION_MIN_SEC * 1000, // event/workflow/file-manager-photo.js — cùng sàn computePhotoDuration()
+            minMs: DURATION_MIN_SEC * 1000, // core/file-manager/image.js — cùng sàn computePhotoDurationSec()
             maxMs: PHOTO_EDIT_DURATION_PICKER_MAX_MS,
             onConfirm: (resultMs) => {
                 const resultSec = Math.round(resultMs / 1000 * 100) / 100;
@@ -939,7 +939,7 @@ const workflowPlaylist = {
                 loadingText.textContent = tFormat('common.upload.loadingProgress', { done: i + 1, total: fileArray.length });
                 try {
                     const { thumbBlob, width, height } = await workflowFileManagerPhoto.resizeImageForThumbnail(file); // event/workflow/file-manager-photo.js
-                    const duration = await workflowFileManagerPhoto.computePhotoDuration(file, width, height); // event/workflow/file-manager-photo.js
+                    const duration = await workflowPhotoDuration.compute(file, width, height); // event/workflow/photo-duration.js
                     const imageKey = await resolveImageKey(file.name); // service/db.js
                     await saveImage(imageKey, file, file.name, thumbBlob, width, height, duration); // core/file-manager/image.js
                     eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced', payload: { type: 'photo', key: imageKey } }); // trùng tên = ghi đè

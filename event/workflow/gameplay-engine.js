@@ -14,7 +14,7 @@ const GAMEPLAY_SCORE_COUNTUP_STEPS = 24;
 const GAMEPLAY_SCORE_RING_MAX_EXTRA_LAPS = 3;
 const GAMEPLAY_SCORE_RING_PALETTE = ['#38bdf8', '#4ade80', '#fbbf24', '#f472b6']; // sky/emerald/amber/pink-400
 // Điểm Game nằm trong META của media (service/db.js updateMediaMeta(), không đụng Blob); loại media hợp lệ làm `type`.
-const GAMEPLAY_SCORE_MEDIA_TYPES = new Set(['song', 'video', 'photo']);
+const GAMEPLAY_SCORE_MEDIA_TYPES = new Set(['song', 'video']);
 
 // Nhãn modal Kết quả dùng chung mọi mode (resolveEndModalLabels()).
 const GAMEPLAY_TIER_ORDER = Object.freeze(['perfect', 'excellent', 'good', 'bad', 'miss']);
@@ -39,7 +39,6 @@ const GAMEPLAY_PLAY_COUNT_KEY_BY_PLURAL = {
 const GAMEPLAY_NEXT_LABEL_KEY_BY_MEDIA = {
     song: 'gameplayCircle.ended.nextLabel',
     video: 'gameplayCircle.ended.nextVideoLabel',
-    photo: 'gameplayCircle.ended.nextPhotoLabel',
 };
 
 // Điều phối theo mode cho các lối vào dùng chung (event-bus-flow.md §7.2). Khoá = `id` game (core/gameplay/catalog.js) =
@@ -90,7 +89,7 @@ const workflowGameplayEngine = {
         (GAMEPLAY_EXIT_BY_MODE[appState.get('gameplayMode')] || GAMEPLAY_EXIT_BY_MODE.circle)();
     },
 
-    /** Hết bài/video/ảnh lúc đang ở Game (router player-controls, chủ thể 'game') — modal Kết quả của đúng mode. */
+    /** Hết bài/video lúc đang ở Game (router player-controls, chủ thể 'game') — modal Kết quả của đúng mode. */
     onActiveModeMediaEnded() {
         (GAMEPLAY_MEDIA_ENDED_BY_MODE[appState.get('gameplayMode')] || GAMEPLAY_MEDIA_ENDED_BY_MODE.circle)();
     },
@@ -189,7 +188,7 @@ const workflowGameplayEngine = {
     /**
      * Thêm 1 lượt chơi vào `meta.game[mode][difficulty]` của media đang chơi (mỗi bộ (media, mode, độ khó) 1 mảng riêng).
      * @param {string} mode @param {string} difficulty @param {number} finalScore
-     * @param {'song'|'video'|'photo'} mediaType - loại media đang chơi (mode chọn theo chế độ phát)
+     * @param {'song'|'video'} mediaType - loại media đang chơi (mode chọn theo chế độ phát)
      * @returns {Promise<{ title: string, playCount: number }>} tên hiển thị + tổng lượt đã chơi (mode, độ khó) này, tính cả
      *          lượt vừa xong
      */

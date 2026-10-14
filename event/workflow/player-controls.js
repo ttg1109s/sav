@@ -8,7 +8,7 @@
  * - Cổng seek (`runGatedSeek()`): pause -> nạp lại nguồn -> seek -> mở tiếng -> play, chờ sự kiện qua
  *   event/workflow/media-wait.js.
  * - Sân khấu Visualizer khi ra/vào Playlist (`switchToVisualizer()`/`returnToPlaylistUI()`).
- * `getActiveMediaElement(isVideoPlayerMode)` (core/player-controls.js) dùng chung với `workflowGameplay`.
+ * Media đang phát cho Next/Prev: `workflowPhotoPlayer.resolveActiveMedia()` (audio/video thật hoặc đồng hồ giả Photo).
  *
  * NẠP SAU: core/player-controls.js, core/playlist/order.js, core/listen-stats.js, core/settings-panel-stack.js,
  * event/workflow/player.js (workflowPlayer.playMedia), event/workflow/media-wait.js (lúc chạy).
@@ -42,9 +42,8 @@ const SEEK_GATE_DONE_SYNC_BY_MEDIA = {
 const REPEAT_ONE_RESTART_BY_MEDIA = {
     song: () => workflowPlayerControls._restartSongForRepeatOne(),
     video: () => workflowVideoPlayer.restartForRepeatOne(), // event/workflow/video-player.js
-    // Photo: không có sự kiện 'play' DOM thật (photoPlayerFakeMediaElement.play() chỉ đổi cờ) nên PHẢI gọi
-    // startListenClock() THẲNG — handleMediaEnded() vừa dừng đồng hồ ngay trước (xem goToNextTrack()); + chạy lại Point
-    // Move từ đầu (event/workflow/photo-player.js).
+    // Photo: "media giả" không có sự kiện 'play' (đang phát nên play() không làm gì) — bật lại đồng hồ nghe THẲNG
+    // (handleMediaEnded() vừa dừng) + chạy lại Point Move từ đầu (event/workflow/photo-player.js).
     photo: (activeEl) => {
         activeEl.currentTime = 0;
         activeEl.play();
@@ -504,7 +503,7 @@ const workflowPlayerControls = {
             'isVideoPlayerMode', 'isPhotoPlayerMode', 'repeatMode', 'isShuffle', 'currentKey', 'shuffleIndices', 'displayOrder', 'playlistOrder', 'pendingResortKeys',
         ]);
         if (playlistOrder.length === 0) return;
-        const activeEl = getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode); // core/player-controls.js — DÙNG CHUNG Song/Video/Photo (Next/Prev + Game Mode)
+        const activeEl = workflowPhotoPlayer.resolveActiveMedia(isVideoPlayerMode, isPhotoPlayerMode); // event/workflow/photo-player.js — audio/video thật hoặc đồng hồ giả Photo
 
         if (shouldRestartInsteadOfAdvance(repeatMode, force)) { // core/playlist/order.js — repeat-mode-2, KHÔNG force
             // Nhánh này CHỈ tới được từ `handleMediaEnded()` (hết tự nhiên) — đồng hồ nghe vừa bị dừng ngay trước. Song/Video
@@ -568,7 +567,7 @@ const workflowPlayerControls = {
     restartCurrentTrack() {
         const { isVideoPlayerMode, isPhotoPlayerMode, currentKey } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode', 'currentKey']);
         if (!currentKey) return;
-        const activeEl = getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode); // core/player-controls.js
+        const activeEl = workflowPhotoPlayer.resolveActiveMedia(isVideoPlayerMode, isPhotoPlayerMode); // event/workflow/photo-player.js
         if (isPhotoPlayerMode) {
             activeEl.currentTime = 0;
             workflowPhotoPlayer.onClockRestarted(); // event/workflow/photo-player.js

@@ -925,7 +925,7 @@ const workflowImageEdit = {
     /** Ứng với "Ghi đè" trong dropdown Save (icon Save trên header, `openSaveMenu()`) — xuất
      * `renderCanvas` -> resize thumbnail (`workflowFileManagerPhoto.resizeImageForThumbnail()`,
      * dùng chung upload) -> `updateImageBlob()` (core/file-manager/image.js) ghi đè ĐÚNG key đang
-     * mở. Đóng modal SAU KHI lưu xong. Tính lại `duration` (`workflowFileManagerPhoto.computePhotoDuration()`) cùng
+     * mở. Đóng modal SAU KHI lưu xong. Tính lại `duration` (`workflowPhotoDuration.compute()`) cùng
      * `thumbBlob`/`width`/`height` — crop đổi cả kích thước lẫn dung lượng ảnh. Blob quá lớn (core/upload-validation.js)
      * -> không lưu, báo SAU khi shield tắt, giữ modal mở.
      */
@@ -940,7 +940,7 @@ const workflowImageEdit = {
             const sizeCheck = validateMediaFileSize(finalBlob); // core/upload-validation.js
             if (!sizeCheck.valid) { tooLargeReason = sizeCheck.reason; return; }
             const { thumbBlob, width, height } = await workflowFileManagerPhoto.resizeImageForThumbnail(finalBlob);
-            const duration = await workflowFileManagerPhoto.computePhotoDuration(finalBlob, width, height); // event/workflow/file-manager-photo.js
+            const duration = await workflowPhotoDuration.compute(finalBlob, width, height); // event/workflow/photo-duration.js
             await updateImageBlob(imageKey, finalBlob, thumbBlob, width, height, duration); // core/file-manager/image.js
             // Báo request trung tâm: ảnh này đang hiện/làm nền thì tự nạp lại.
             eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced', payload: { type: 'photo', key: imageKey } });
@@ -966,7 +966,7 @@ const workflowImageEdit = {
             const sizeCheck = validateMediaFileSize(finalBlob); // core/upload-validation.js
             if (!sizeCheck.valid) { tooLargeReason = sizeCheck.reason; return; }
             const { thumbBlob, width, height } = await workflowFileManagerPhoto.resizeImageForThumbnail(finalBlob);
-            const duration = await workflowFileManagerPhoto.computePhotoDuration(finalBlob, width, height); // event/workflow/file-manager-photo.js
+            const duration = await workflowPhotoDuration.compute(finalBlob, width, height); // event/workflow/photo-duration.js
             const newFilename = this._buildEditedNewFilename(originalRecord ? originalRecord.filename : 'photo.jpg');
             const newKey = await resolveImageKey(newFilename); // service/db.js — key resolve ở Workflow (Rule 3)
             await saveImage(newKey, finalBlob, newFilename, thumbBlob, width, height, duration); // core/file-manager/image.js

@@ -33,10 +33,10 @@ const workflowGameCatalog = {
     /**
      * 'gameCatalog.card.play.click' — arm game vừa bấm (session-only). Game KHÁC đang armed -> bỏ qua (nút Play đã disabled,
      * vẫn tự kiểm state thật). Đồng bộ độ khó của phiên (`gameplayDifficulty`) theo độ khó đã lưu của game này, đóng Game
-     * Panel (đúng hành động nút X), có media sẵn (`currentKey`) -> vào game luôn.
+     * Panel (đúng hành động nút X), có Song/Video đang nạp -> vào game luôn (đang phát Photo thì chờ media kế).
      */
     armGame(gameId) {
-        const { gameplayArmedGameId: armedGameId, currentKey } = appState.get(['gameplayArmedGameId', 'currentKey']);
+        const { gameplayArmedGameId: armedGameId, currentKey, isPhotoPlayerMode } = appState.get(['gameplayArmedGameId', 'currentKey', 'isPhotoPlayerMode']);
         if (armedGameId && armedGameId !== gameId) return;
 
         setGameplayArmedGameId(gameId); // core/gameplay/engine.js
@@ -48,7 +48,7 @@ const workflowGameCatalog = {
         workflowPlaceholderPanels.close(gamePanel); // event/workflow/placeholder-panels.js
         this.renderList();
 
-        if (currentKey) workflowGameplayEngine.startMode(gameId); // event/workflow/gameplay-engine.js
+        if (shouldStartArmedGameNow(currentKey, isPhotoPlayerMode)) workflowGameplayEngine.startMode(gameId); // core/gameplay/catalog.js + event/workflow/gameplay-engine.js
     },
 
     /** 'gameCatalog.card.exit.click' — disarm; đang chơi đúng game này -> thoát luôn phiên đang chạy. */

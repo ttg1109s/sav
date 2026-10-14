@@ -1,407 +1,310 @@
 /**
- * event/workflow/photo-player.js — "Photo Player mode": phát 1 ảnh làm nội dung chính trên màn
- * Visualizer, thừa hưởng ĐÚNG cơ chế Play/Next-Prev/Shuffle của Playlist (MỚI, Giang yêu cầu —
- * Photo tích hợp `duration` như Song/Video: "quy chế phát của nó cũng không khác biệt, chỉ khác
- * biệt duy nhất là photo không có duration"). Ảnh KHÔNG có audio — im lặng hoàn toàn lúc đang hiển
- * thị (audioPlayer/bgVideoElement đều pause), visualizer về trạng thái idle/tĩnh (xác nhận qua
- * trao đổi trực tiếp).
+ * event/workflow/photo-player.js — Photo Player mode: phát 1 ảnh làm nội dung chính trên màn Visualizer, dùng chung cơ chế
+ * Play/Next-Prev/Shuffle/Repeat của Playlist. Ảnh phát im lặng (audioPlayer/bgVideoElement dừng), visualizer ở trạng thái
+ * nghỉ. Không có Game Mode (không có audio để phân tích — workflowGameCatalog.armGame() không mở phiên lúc đang phát ảnh).
  *
- * Entry point DUY NHẤT vào mode: `startFromPlaylist(startKey)`, gọi từ `workflowPlayer.playMedia()`
- * (event/workflow/player.js) — mirror ĐÚNG khuôn `workflowVideoPlayer.startFromPlaylist()`
- * (event/workflow/video-player.js). KHÁC Video — KHÔNG có router/listener riêng: ảnh không có sự
- * kiện DOM thật (play/pause/timeupdate) để 1 listener lắng nghe, "đồng hồ" tự viết ngay trong
- * chính Workflow này (taskManager, mode 'timeout' tự lặp — CÙNG mẫu LISTEN_CLOCK/Motion Engine, xem
- * core/player-controls.js/event/workflow/visual-bg-photo-motion.js) gọi thẳng handler nội bộ, không cần round-
- * trip qua eventBus. `playMedia()` cũng gọi THẲNG `startFromPlaylist()`/`playPhotoByKey()` (Workflow
- * gọi Workflow miền khác, TỰ DO theo event-bus-flow.md mục 4B) — không cần Block Gate (event/
- * block.js) vì Photo KHÔNG cần khoá chéo với tính năng nào khác.
+ * Lối vào: `workflowPlayer.playMedia()` (event/workflow/player.js) gọi thẳng `startFromPlaylist()` (vào mode) hoặc
+ * `playPhotoByKey()` (đã ở mode, đổi ảnh). Không có Listener/Router riêng: ảnh không có sự kiện DOM, "đồng hồ giả" là task
+ * `taskManager` 1 giây/lần (`_tick()`), hết ảnh gửi 'playerControls.photo.ended' (cùng case với audio/video ended).
  *
- * SỬA (Giang chỉ ra đúng — "vbg chỉ hợp lệ với song thì quan tâm gì đang phát video/photo bị ngắt
- * quãng, kiểm tra lại logic") — TRƯỚC ĐÂY dựng RIÊNG element `#photo-player-image` (lo sợ tranh
- * giành với `#visual-bg-image` của VBG) — THỪA, ĐÃ XOÁ (dọn code thừa, xem core/photo-player.js).
- * VBG chỉ có ý nghĩa lúc Song đang phát, tự nhiên không áp dụng lúc Photo/Video đang phát — dùng
- * LẠI ĐÚNG cặp hàm Video Player mode đã dùng từ trước: `workflowVisualBg.clearMediaLayers()` (event/
- * workflow/visual-bg.js, gọi lúc VÀO mode — dọn lớp VBG đang hiện, KHÔNG đụng cấu hình đã lưu) +
- * `applyCurrentVisualBg()` (gọi lúc THOÁT mode — khôi phục ĐÚNG theo cấu hình). Ảnh hiện qua
- * `applyVisualBgImageToDOM()` (core/visual-bg.js, tái dùng `#visual-bg-image`) — object URL của
- * CHÍNH Photo Player mode (`_objectUrl`/`_thumbObjectUrl` dưới) tách biệt HẲN khỏi
- * `appState.visualBgImageObjectUrl` (bookkeeping RIÊNG của VBG, `clearMediaLayers()` tự lo revoke
- * đúng cái CỦA NÓ, không đụng gì tới object URL của Photo Player mode).
+ * Ảnh hiện qua Image surface dùng chung với VBG (`workflowVisualBgPhotoMotion`, owner PHOTO_PLAYER_IMAGE_SURFACE_OWNER):
+ * Transition Next/Prev + Point Move theo 3 slot Player, `background-size` theo Resolution từng ảnh. Surface sở hữu và tự
+ * thu hồi URL ảnh chính; file này chỉ giữ URL thumb của #record-art. Đồng hồ bị GIỮ (`photoPlayerClockHeld`) từ lúc đổi
+ * ảnh tới khi surface báo `onShown` (Giang chốt "Transition xong mới đếm").
  *
- * "Hết ảnh" phát hiện qua 1 `taskManager` LẶP LẠI mỗi giây (KHÔNG còn 200ms — seek bar đã ẩn hẳn lúc
- * Photo Player mode, core/photo-player.js::enterPhotoPlayerModeState(), chỉ còn nhãn giờ
- * current/duration cần cập nhật, 1 lần/giây đã đủ mượt cho mắt người) — mỗi tick tự đọc lại
- * `photoPlayerPaused`/elapsed MỚI NHẤT nên tự "chữa lành" trước MỌI cách đổi `currentTime` (repeat-
- * single restart, Prev "quá 3s về đầu", pause/resume) mà KHÔNG cần bất kỳ ai gọi lại/đặt lại gì cả —
- * xem `_photoPlayerTick()`.
+ * `PHOTO_PLAYER_CLOCK_MEDIA` là "media giả" cho Next/Prev (workflowPlayerControls.goToNextTrack()/restartCurrentTrack(), qua
+ * `resolveActiveMedia()`): `currentTime = 0`, `play()`, `pause()` đi vào đúng các method của file này.
  *
- * KHÔNG bắn `'gameplay.mediaChanged'` (khác Song/Video) — Game Mode "Circle" spawn theo beat/pitch/
- * energy PHÂN TÍCH TỪ AUDIO THẬT (core/audio-analysis.js) — ảnh im lặng hoàn toàn nên không có tín
- * hiệu gì để spawn, mở overlay Game Mode cho 1 track câm là vô nghĩa.
- *
- * NẠP SAU: core/photo-player.js, core/playlist/loader.js (đọc duration qua playlistCache), event/
- * workflow/player-controls.js (goToNextTrack/goToPrevTrack, requestWakeLock/releaseWakeLock/
- * startListenClock/stopListenClock), event/workflow/visual-bg.js (clearMediaLayers()/
- * applyCurrentVisualBg()).
- *
- * SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — Photo giờ TÍNH totalTime giống Video:
- * startListenClock() lúc bắt đầu phát/resume, stopListenClock() lúc pause/thoát mode (core/
- * player-controls.js — cơ chế key-agnostic sẵn có, chỉ thiếu lời gọi bật/tắt cho Photo trước đây).
- * Nhãn hiển thị ("Đã nghe"/"Listened") đổi thành "Watch time" riêng cho Video/Photo — CHỈ khác
- * chữ hiển thị, logic/field (`totalTime`, `formatListenTime()`) giữ NGUYÊN — xem core/playlist/
- * actions.js.
- *
- * ==== SỬA (25/09/2026, đợt 3 Motion — Giang duyệt mô hình 3 tầng) ====
- * Ảnh KHÔNG còn hiện qua `applyVisualBgImageToDOM()`/`#visual-bg-image` (1 layer, cắt cứng) — giờ MƯỢN
- * Image surface DÙNG CHUNG (`workflowVisualBgPhotoMotion`, event/workflow/visual-bg-photo-motion.js — giữ
- * NGUYÊN tên, Giang chốt không đổi tên) với owner `PHOTO_PLAYER_IMAGE_SURFACE_OWNER`: 2 layer A/B,
- * Transition Next/Prev + Point Move theo 3 slot Player (event/workflow/player-display-settings.js::
- * resolvePhotoMotionPreset()), `background-size` theo Resolution tính riêng TỪNG ảnh
- * (computePhotoPlayerBackgroundSize()). File này CHỈ giữ QUYẾT ĐỊNH của Player Photo (nguyên tắc tua vít):
- *   - Hướng Transition: `direction` từ workflowPlayer.playMedia() ('next' mặc định, 'prev' khi lùi).
- *   - "Transition xong mới đếm" (Giang chốt): đồng hồ giả bị GIỮ (`photoPlayerClockHeld`) từ lúc đổi ảnh
- *     tới khi surface báo `onShown` — ảnh hiện tĩnh thì nhả ngay. Point Move trải hết thời gian ảnh thật sự
- *     hiện = Transition vào + duration.
- *   - Pause/resume Point Move theo nút Play/Pause; tua về 0 (repeat-single / Prev "quá 3s") -> chạy lại
- *     Point Move từ đầu (`onClockRestarted()`, gọi từ event/workflow/player-controls.js).
- *   - URL ảnh chính: surface sở hữu + tự revoke (lúc Transition xong / lúc dừng). File này chỉ còn giữ URL
- *     thumb của record-art.
- *   - Không React Beat (ảnh câm).
- * ================================================================
+ * NẠP SAU: core/photo-player.js, core/record-art-ui.js, components/bottom-player.js, core/media-element-ui.js,
+ * core/file-manager/image.js (DURATION_MIN_SEC), service/blob-url.js, event/workflow/visual-bg-common.js. Gọi lúc chạy:
+ * event/workflow/player-controls.js, listen-stats.js, playlist-render.js, visual-bg-photo-motion.js,
+ * player-display-settings.js, auto-switch-visual.js, player-zoom.js, subtitle-display.js, video-player.js.
  */
 const PHOTO_PLAYER_TICK_TASK = 'photoPlayerTick';
-// MỚI (25/09/2026) — chuỗi owner MỜ khi dùng Image surface (surface chỉ so bằng, chặn chéo với VBG).
-const PHOTO_PLAYER_IMAGE_SURFACE_OWNER = 'photoPlayer';
-const PHOTO_PLAYER_TICK_INTERVAL_MS = 1000; // 1 lần/giây — seek bar đã ẩn, chỉ còn nhãn giờ cần cập nhật
+const PHOTO_PLAYER_IMAGE_SURFACE_OWNER = 'photoPlayer'; // chuỗi owner mờ — surface chỉ so bằng, chặn chéo với VBG
+const PHOTO_PLAYER_TICK_INTERVAL_MS = 1000; // thanh seek đã ẩn, chỉ còn nhãn giờ
+const PHOTO_PLAYER_CLOCK_KEYS = [
+    'photoPlayerPaused', 'photoPlayerClockHeld', 'photoPlayerEnded',
+    'photoPlayerElapsedBeforePauseSec', 'photoPlayerStartedAtMs', 'photoPlayerDurationSec',
+];
+
+const PHOTO_PLAYER_TRANSITION_SLOT_BY_DIRECTION = { next: 'transitionNext', prev: 'transitionPrev' };
+
+// Ảnh vừa đọc từ DB: mất blob (bị xoá ở nơi khác giữa lúc phát) -> tự sang ảnh kế; còn -> hiện.
+const PHOTO_PLAYER_PLAY_BY_HAS_BLOB = {
+    false: () => workflowPlayerControls.goToNextTrack(true), // event/workflow/player-controls.js
+    true: (record, photoKey, switchScreen, direction) => workflowPhotoPlayer._showRecord(record, photoKey, switchScreen, direction),
+};
+
+// Thoát mode: đích là Song (true) khôi phục lớp nền VBG (async); đích là Video (false) chỉ dọn lớp media — Video Player tự
+// chiếm các lớp nền và trả VBG lúc thoát Video.
+const PHOTO_PLAYER_EXIT_VISUAL_BG_BY_RESTORE = {
+    true: () => workflowVisualBg.restoreAfterPlayerMode(), // event/workflow/visual-bg-common.js
+    false: () => workflowVisualBg.clearMediaLayers(),
+};
+
+// 1 nhịp đồng hồ (computePhotoPlayerTickView()).
+const PHOTO_PLAYER_TICK_BY_PHASE = {
+    frozen: () => {},
+    ended: () => workflowPhotoPlayer._signalEnded(),
+    running: (view, durationSec) => updatePhotoPlayerTimeLabels(formatTime(view.displayElapsedSec), formatTime(durationSec)), // core/photo-player.js + core/playlist/state.js
+};
+
+// Pause/Play: đồng hồ mới (cùng 4 field), đồng hồ nghe, Point Move.
+const PHOTO_PLAYER_CLOCK_BY_PAUSED = {
+    true: (clock, nowMs) => computePhotoPlayerClockOnPause(clock, computePhotoPlayerElapsedSec(clock, nowMs)), // core/photo-player.js
+    false: (clock, nowMs) => computePhotoPlayerClockOnResume(clock, nowMs),
+};
+const PHOTO_PLAYER_LISTEN_CLOCK_BY_PAUSED = {
+    true: () => workflowListenStats.stopClock(), // event/workflow/listen-stats.js — giờ đứng yên không tính là đã xem
+    false: () => workflowListenStats.startClock(),
+};
+const PHOTO_PLAYER_MOTION_BY_PAUSED = {
+    true: () => workflowVisualBgPhotoMotion.pause(PHOTO_PLAYER_IMAGE_SURFACE_OWNER), // event/workflow/visual-bg-photo-motion.js
+    false: () => workflowVisualBgPhotoMotion.resume(PHOTO_PLAYER_IMAGE_SURFACE_OWNER),
+};
 
 const workflowPhotoPlayer = {
 
-    // XOÁ (25/09/2026) — `_objectUrl` (URL ảnh chính): Image surface nhận ownership + tự revoke.
-    _thumbObjectUrl: null, // object URL của thumbBlob (record-art tròn dưới player) — tự revoke lúc đổi ảnh/thoát mode
-    _currentRecord: null, // MỚI (25/09/2026) — record ảnh đang hiện (Resolution sống cần width/height)
-    _photoGeneration: 0,  // MỚI — tăng mỗi lần đổi ảnh/thoát mode; `onShown` của lượt cũ về muộn tự bỏ qua
-    _pointMoveDurationMs: 0, // MỚI — thời lượng Point Move khi chạy LẠI từ đầu / đổi preset sống (= duration ảnh)
+    _thumbObjectUrl: null,   // URL thumb của #record-art — thu hồi lúc đổi ảnh/thoát mode
+    _currentRecord: null,    // record ảnh đang hiện (Resolution sống cần width/height)
+    _photoGeneration: 0,     // tăng mỗi lần đổi ảnh/thoát mode; `onShown` của lượt cũ về muộn tự bỏ qua
+    _pointMoveDurationMs: 0, // thời lượng Point Move khi chạy lại từ đầu / đổi preset sống
 
-    /** Vào Photo Player mode LẦN ĐẦU (từ Song/Video hoặc chưa phát gì) — mirror ĐÚNG khuôn
-     * `workflowVideoPlayer.startFromPlaylist()`. Next/Prev VẬT LÝ trong lúc ĐÃ ở mode dùng
-     * `playPhotoByKey()` thẳng (qua `workflowPlayer.playMedia()`, KHÔNG gọi lại hàm này — hàm này
-     * CHỈ lo phần "vào mode": im lặng nguồn cũ + set state).
-     *
-     * FIX (10/09/2026, Giang báo bug "hết bài lúc đang duyệt Playlist Video/Photo bị ép mở
-     * Visualizer") — CÙNG lỗi/CÙNG sửa như `workflowVideoPlayer.startFromPlaylist()`: TRƯỚC ĐÂY
-     * hàm này LUÔN gọi `playPhotoByKey(startKey)` KHÔNG kèm `switchScreen`, rơi về mặc định
-     * `true` VÔ ĐIỀU KIỆN — làm rớt mất ý định "không đổi màn hình" của `workflowPlayer.
-     * playMedia()` (event/workflow/player.js) mỗi khi "bài/ảnh tiếp theo" tính ra lại LÀ Photo
-     * trong lúc đang duyệt Playlist (không phải bấm tay 1 dòng). Giờ nhận thêm `switchScreen`
-     * rồi truyền xuống ĐÚNG ý định người gọi.
-     * @param {string} startKey
-     * @param {boolean} [switchScreen=true] - đổi màn hình sau khi ảnh đã hiện, xem docstring
-     *        `playPhotoByKey()` — Next/Prev vật lý/auto-next truyền `false`.
-     */
+    /** Vào mode lần đầu (từ Song/Video hoặc chưa phát gì): dựng audio engine (vòng vẽ Visual phải chạy dù chưa phát
+     * Song/Video lần nào), dọn phụ đề, dừng nguồn cũ, thoát Video Player, bỏ highlight dòng cũ, dọn lớp VBG, rồi hiện ảnh.
+     * @param {string} startKey @param {boolean} [switchScreen=true] - false khi auto-next/Next/Prev (không ép mở Visualizer) */
     async startFromPlaylist(startKey, switchScreen = true) {
-        // FIX (Giang báo "visual effect phải hiện dù đang phát photo, theo đúng setting" — dò LẠI
-        // TỪ ĐẦU bằng cách bám theo lời gọi hàm thật, KHÔNG dựa vào comment cũ) — `setupAudioContext()`
-        // (core/audio-engine.js) là nơi DUY NHẤT gọi `workflowVisualizerRender.start()` — tức là
-        // vòng lặp `taskManager` VẼ Visual (canvas #visualizer/#webgl-canvas) CHƯA TỪNG bắt đầu chạy
-        // cho tới khi hàm đó được gọi ít nhất 1 lần. 3 nguồn media còn lại đều tự gọi hàm này
-        // (event/workflow/player.js cho Song, event/workflow/video-player.js cho Video, event/
-        // workflow/visual-bg.js cho VBG) — RIÊNG file này (Photo) TRƯỚC ĐÂY KHÔNG hề gọi, vì ảnh
-        // không cần audio thật để PHÁT. Hệ quả: nếu 1 phiên làm việc BẮT ĐẦU bằng phát Photo (chưa
-        // từng phát Song/Video/mở VBG trước đó), `analyser`/`vizDataArray` chưa tồn tại VÀ vòng lặp
-        // vẽ chưa từng khởi động — canvas không bao giờ được vẽ gì cả, HOÀN TOÀN độc lập với
-        // `cfg.visualEnabled` đang bật hay tắt (sửa riêng `isVisualOff` ở event/workflow/visualizer-
-        // render.js là ĐÚNG nhưng KHÔNG ĐỦ — chỉ sửa được phần "có vẽ hay không" của 1 vòng lặp vốn
-        // chưa từng chạy). SỬA: gọi `setupAudioContext()` NGAY ĐẦU hàm — hàm đó tự guard
-        // (`if (!appState.get('audioContext'))`) nên an toàn gọi lại nhiều lần/nhiều nguồn, Photo
-        // KHÔNG cần nối `source` nào vào analyser (không có audio thật) — chỉ cần đảm bảo
-        // audioContext/analyser/vizDataArray/vòng lặp render TỒN TẠI, phần "im lặng" Photo vẫn giữ
-        // nguyên (audioPlayer đứng yên/paused nên analyser tự đọc dữ liệu gần như 0, ra đúng
-        // animation "idle" như ý ban đầu).
-        workflowAudioEngine.setup(); // event/workflow/audio-engine.js — SỬA 01/10/2026: thay setupAudioContext() (core cũ, đã xoá); comment lịch sử phía trên giữ tên cũ
+        workflowAudioEngine.setup(); // event/workflow/audio-engine.js — tự guard, gọi lại an toàn
+        const { currentKey: previousKey, isVideoPlayerMode } = appState.get(['currentKey', 'isVideoPlayerMode']);
 
-        // Photo không dùng phụ đề: dọn trước audioPlayer.pause() (cùng lý do workflowVideoPlayer.startFromPlaylist()).
         appState.set('subtitles', []);
         workflowSubtitleDisplay.clearAll(); // event/workflow/subtitle-display.js
-        const previousKey = appState.get('currentKey');
-        // Im lặng NGUỒN CŨ bất kể đang là Song hay Video — Giang chốt "im lặng hoàn toàn" lúc Photo
-        // đang hiển thị, không phân biệt trước đó đang phát gì.
-        if (!audioPlayer.paused) audioPlayer.pause(); // bắn 'pause' NGUYÊN BẢN -> handleAudioPause() (core/player-controls.js, KHÔNG đụng) tự lo icon/wake lock/Media Session cho Song
-        if (!bgVideoElement.paused) bgVideoElement.pause();
-        if (appState.get('isVideoPlayerMode')) await workflowVideoPlayer.exitVideoPlayerMode(); // event/workflow/video-player.js — dọn HẲN bgVideoElement/state trước khi vào Photo mode
+        pauseMediaElement(audioPlayer); // core/media-element-ui.js — 'pause' nguyên bản lo icon/wake lock/Media Session của Song
+        pauseMediaElement(bgVideoElement);
+        if (isVideoPlayerMode) await workflowVideoPlayer.exitVideoPlayerMode(); // event/workflow/video-player.js
         if (previousKey !== null) {
             appState.set('currentKey', null);
-            workflowPlaylistRender.refreshSongNode(previousKey); // event/workflow/playlist-render.js (dời từ core/playlist/render.js) — patch riêng đúng 1 hàng, xoá highlight "đang phát"
+            workflowPlaylistRender.refreshSongNode(previousKey); // event/workflow/playlist-render.js
         }
 
-        // MỚI (Giang chỉ ra đúng — dùng lại cơ chế VBG có sẵn) — dọn lớp VBG đang hiện (nếu có)
-        // TRƯỚC khi hiện ảnh của CHÍNH Photo Player mode — mirror ĐÚNG workflowVideoPlayer.
-        // startFromPlaylist() gọi clearMediaLayers() tại điểm này. CŨNG dọn theo bgVideoElement
-        // (workflowVideoPlayer.clearBgVideoSource() nằm bên trong clearMediaLayers()) — đảm bảo
-        // #bg-video (z-index NGANG #visual-bg-image xét theo layer video, nhưng đứng TRÊN nó) không
-        // còn nội dung cũ nào che mất ảnh sắp hiện.
-        if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.clearMediaLayers(); // event/workflow/visual-bg.js — liên tuyến domain
+        workflowVisualBg.clearMediaLayers(); // event/workflow/visual-bg-common.js — dọn lớp VBG đang hiện, giữ cấu hình
 
         enterPhotoPlayerModeState(); // core/photo-player.js
-        workflowPlayerZoom.onPlayerModeEnter('photo'); // event/workflow/player-zoom.js — MỚI 29/09/2026: hiện kính lúp Control Center + áp lại zoom/pan đã lưu của Photo
-        await this.playPhotoByKey(startKey, switchScreen); // FIX (10/09/2026) — truyền ĐÚNG switchScreen của người gọi thay vì luôn mặc định true, xem docstring startFromPlaylist() ở trên
+        workflowPlayerZoom.onPlayerModeEnter('photo'); // event/workflow/player-zoom.js
+        await this.playPhotoByKey(startKey, switchScreen);
     },
 
-    /** Thoát Photo Player mode: dừng đồng hồ, khôi phục `#visual-bg-image` về ĐÚNG cấu hình VBG
-     * thật (trong lúc ở mode, lớp này bị chèn cưỡng chế ảnh Photo Player mode — KHÔNG phản ánh cấu
-     * hình VBG thật, phải trả lại đúng lúc thoát — CÙNG NGUYÊN TẮC `workflowVideoPlayer.
-     * exitVideoPlayerMode()`), trả visualizer về bình thường (canvas tự hiện lại — xem event/
-     * workflow/visualizer-render.js, guard `isPhotoPlayerMode` trong `isVisualOff`). Gọi bởi
-     * `workflowPlayer.playMedia()` NGAY TRƯỚC khi chuyển sang nhánh Song/Video (xem docstring đầu
-     * file đó) — KHÔNG tự gọi `playMedia()` tiếp, chỉ dọn dẹp phần CỦA Photo mode.
-     * SỬA (Giang chỉ ra đúng, dọn code thừa) — thay `setPhotoPlayerElementForMode(false)` (element
-     * riêng ĐÃ XOÁ) bằng `workflowVisualBg.applyCurrentVisualBg()` — hàm đó TỰ gọi `clearMediaLayers()`
-     * trước khi áp lại nên KHÔNG cần tự tay ẩn gì thêm ở đây. Đổi hẳn sang `async` (hàm đó `async`).
-     * @param {boolean} [restoreVisualBg=true] - `false` khi đích là Video Player mode (Video tự chiếm
-     *        các lớp nền, VBG được khôi phục lúc thoát Video) — xem thân hàm.
-     */
+    /** Thoát mode (gọi từ `workflowPlayer.playMedia()` trước khi sang Song/Video, không await). Mọi state dọn ĐỒNG BỘ trước
+     * lần await duy nhất (lớp nền VBG) — media mới bắt đầu ngay sau lời gọi không bị tắt nhầm wake lock/đồng hồ nghe.
+     * @param {boolean} [restoreVisualBg=true] - false khi đích là Video */
     async exitPhotoPlayerMode(restoreVisualBg = true) {
-        workflowPlayerZoom.onPlayerModeLeave(); // event/workflow/player-zoom.js — MỚI 29/09/2026: tắt Zoom mode + về mức 1 + ẩn kính lúp (ĐỒNG BỘ, trước mọi await)
+        workflowPlayerZoom.onPlayerModeLeave(); // event/workflow/player-zoom.js
         taskManager.kill(PHOTO_PLAYER_TICK_TASK);
-        this._photoGeneration += 1; // MỚI (25/09/2026) — `onShown` còn treo của ảnh cuối (surface dừng ngay dưới) tự bỏ qua
+        this._photoGeneration += 1;
         this._currentRecord = null;
         appState.set('photoPlayerClockHeld', false, { skipCheck: true });
+        appState.set('photoPlayerEnded', false, { skipCheck: true });
 
-        // [SỬA — 21/09/2026, race Photo -> Video/Song] TRƯỚC ĐÂY toàn bộ dọn dẹp (gỡ Resolution, revoke
-        // URL, `exitPhotoPlayerModeState()`, `releaseWakeLock()/stopListenClock()`) nằm SAU
-        // `await applyCurrentVisualBg()` — mà `playMedia()` (event/workflow/player.js) KHÔNG await hàm
-        // này, nên phần đuôi đó có thể chạy SAU khi Video/Song mới đã bắt đầu phát: tắt nhầm wake lock +
-        // đồng hồ nghe của media mới, và `isPhotoPlayerMode` còn `true` song song với
-        // `isVideoPlayerMode`. Giờ CHỈ lớp nền VBG (thứ duy nhất thật sự async) đứng cuối; mọi state
-        // khác dọn ĐỒNG BỘ ngay tại đây, không còn gì chạy sau `await`.
-        //
-        // `restoreVisualBg=false` (đích là Video — xem `workflowPlayer.playMedia()`): Video Player mode
-        // sắp TỰ chiếm `bgVideoElement` + `#visual-bg-image` (`startFromPlaylist()`) và VBG tự được
-        // khôi phục ĐÚNG lúc thoát Video Player (`exitVideoPlayerMode()` -> `applyCurrentVisualBg()`),
-        // nên khôi phục ở đây chỉ tạo phần async thừa (`showStaticBgThumb()`/`_applyPhoto()` ghi thumb/
-        // ảnh VBG lên đúng lớp `#visual-bg-image` Video Player đang dùng). Chỉ dọn lớp media của Photo
-        // (ĐỒNG BỘ, cùng hàm `startFromPlaylist()` của Video gọi) rồi thôi.
-        let restorePromise = null;
-        if (typeof workflowVisualBg !== 'undefined') {
-            if (restoreVisualBg) restorePromise = workflowVisualBg.restoreAfterPlayerMode(); // event/workflow/visual-bg.js — SỬA 25/09/2026: bản KHÔNG chặn Player mode (isPhotoPlayerMode còn true tới exitPhotoPlayerModeState() bên dưới) — liên tuyến domain; phần ĐỒNG BỘ đầu hàm (clearMediaLayers()) chạy NGAY ở dòng này, giữ ĐÚNG thứ tự cũ (dọn lớp trước, revoke URL sau)
-            else workflowVisualBg.clearMediaLayers(); // event/workflow/visual-bg.js
-        }
-        // XOÁ (25/09/2026) — gỡ Resolution khỏi #visual-bg-image: Photo không còn dùng element đó; Image surface
-        // tự xoá `background-size` + revoke URL ảnh chính khi `clearMediaLayers()` (ngay trên) dừng nó.
-        this._revokeObjectUrls();
+        const restorePromise = PHOTO_PLAYER_EXIT_VISUAL_BG_BY_RESTORE[restoreVisualBg](); // phần đồng bộ (dọn lớp, dừng surface) chạy ngay
+        this._revokeThumbUrl();
         exitPhotoPlayerModeState(); // core/photo-player.js
-        releaseWakeLock(); workflowListenStats.stopClock(); // event/workflow/listen-stats.js (SỬA 06/10/2026 — dời từ core) — SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — dừng đồng hồ totalTime lúc thoát mode, CÙNG khuôn workflowVideoPlayer.exitVideoPlayerMode
+        releaseWakeLock(); // core/wakelock.js
+        workflowListenStats.stopClock(); // event/workflow/listen-stats.js
 
-        if (restorePromise) await restorePromise; // lớp nền VBG nạp xong (chỉ để nơi gọi nào cần đợi thì đợi; playMedia() không đợi)
+        await restorePromise;
     },
 
-    /** Đổi ảnh ĐANG hiển thị (vào mode lần đầu HOẶC Next/Prev vật lý trong lúc đã ở mode) — mirror
-     * ĐÚNG khuôn `workflowVideoPlayer.playVideoByKey()`, đơn giản hơn nhiều (ảnh không cần chờ
-     * "sự kiện sẵn sàng" như video — CSS background-image hiện gần như tức thời, không cần
-     * `waitBgVideoReady()`-tương-đương).
-     * @param {string} photoKey
-     * @param {boolean} [switchScreen=true] - đổi màn hình/cuộn animated sau khi ảnh đã hiện — `true`
-     *        (bấm 1 dòng trong Playlist/vào mode lần đầu); Next/Prev vật lý truyền `false` (khớp
-     *        ĐÚNG cách `workflowPlayer.playMedia()` gọi cho Song/Video, event/workflow/player.js).
-     * @param {'next'|'prev'} [direction='next'] - MỚI (25/09/2026) — chọn slot Transition Next/Prev.
-     */
+    /** Đổi ảnh đang hiển thị (vào mode lần đầu hoặc Next/Prev trong mode).
+     * @param {string} photoKey @param {boolean} [switchScreen=true] @param {'next'|'prev'} [direction='next'] - slot Transition */
     async playPhotoByKey(photoKey, switchScreen = true, direction = 'next') {
         const record = await getImageRecord(photoKey); // service/db.js
-        if (!record || !record.blob) {
-            // guard: ảnh vừa bị xoá ở nơi khác giữa lúc đang phát — bỏ qua, tự next (CÙNG mẫu
-            // `_skipToNextAfterShield` của Video, nhưng Photo không có withLoadingShield() bọc
-            // ngoài nên gọi thẳng được luôn, không cần mang cờ ra ngoài).
-            workflowPlayerControls.goToNextTrack(true);
-            return;
-        }
+        PHOTO_PLAYER_PLAY_BY_HAS_BLOB[!!(record && record.blob)](record, photoKey, switchScreen, direction);
+    },
 
-        const previousKey = appState.get('currentKey'); // đọc TRƯỚC khi ghi đè — refresh đúng dòng cũ sau khi ảnh mới sẵn sàng
-        this._revokeObjectUrls();
-        const objectUrl = URL.createObjectURL(record.blob); // giao cho Image surface ngay dưới — surface tự revoke
-        this._thumbObjectUrl = URL.createObjectURL(record.thumbBlob || record.blob);
+    _showRecord(record, photoKey, switchScreen, direction) {
+        const previousKey = appState.get('currentKey'); // đọc trước khi ghi đè — refresh dòng cũ
+        this._revokeThumbUrl();
+        const objectUrl = createBlobUrl(record.blob); // service/blob-url.js — giao Image surface, surface tự thu hồi
+        this._thumbObjectUrl = createBlobUrl(record.thumbBlob || record.blob);
         this._photoGeneration += 1;
         const generation = this._photoGeneration;
         this._currentRecord = record;
 
         appState.set('currentKey', photoKey);
-        console.log(`writer: "playPhotoByKey", page: "currentKey", content: "${photoKey}"`);
-        workflowAutoSwitchVisual.onMediaChanged(); // event/workflow/auto-switch-visual.js — MỚI 26/09/2026, nhánh 'perMedia'
-        workflowListenStats.bumpPlayCount('photo', photoKey); // event/workflow/listen-stats.js (SỬA 06/10/2026: thêm loại media — key trùng giữa các loại không còn cộng chung)
+        console.log(`writer: "workflowPhotoPlayer._showRecord", page: "currentKey", content: "${photoKey}"`);
+        workflowAutoSwitchVisual.onMediaChanged(); // event/workflow/auto-switch-visual.js
+        workflowListenStats.bumpPlayCount('photo', photoKey); // event/workflow/listen-stats.js
 
-        const durationSec = record.duration || 5; // CÙNG fallback core/playlist/loader.js::buildAdaptedPlaylistCache() (MEDIA_ADAPTER_SHAPE.photo.durationFallback) cho record cũ thiếu field
+        const durationSec = record.duration || DURATION_MIN_SEC; // core/file-manager/image.js — record cũ thiếu field
         appState.set('photoPlayerDurationSec', durationSec, { skipCheck: true });
         appState.set('photoPlayerElapsedBeforePauseSec', 0, { skipCheck: true });
         appState.set('photoPlayerStartedAtMs', performance.now(), { skipCheck: true });
         appState.set('photoPlayerPaused', false, { skipCheck: true });
-        workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — MỚI 26/09/2026: Photo đang "phát"
+        appState.set('photoPlayerEnded', false, { skipCheck: true });
+        workflowAutoSwitchVisual.syncPlayState();
 
-        const title = record.customName || stripFileExtension(record.filename) || t('photoPlayer.untitled');
-        playerTitle.textContent = title;
-        playerArtist.textContent = ''; // Adapter shape — Photo không có artist, KHỚP buildAdaptedPlaylistCache() (core/playlist/loader.js)
-        if ('mediaSession' in navigator) {
-            navigator.mediaSession.metadata = new MediaMetadata({ title, artist: '', artwork: [] });
-        }
+        const title = record.customName || stripFileExtension(record.filename) || t('photoPlayer.untitled'); // core/file-manager/video.js
+        applyPhotoPlayerTrackInfo(title); // core/photo-player.js
+        mountRecordArt(recordContainer, renderRecordArtHtml('animate-spin-slow'), this._thumbObjectUrl, title); // core/record-art-ui.js + components/bottom-player.js
 
-        recordContainer.innerHTML = `<img id="record-art" src="${this._thumbObjectUrl}" class="w-full h-full rounded-full object-cover shadow-lg relative z-20 animate-spin-slow" alt="${title}"><div class="absolute inset-0 m-auto w-3 h-3 bg-slate-900 rounded-full border border-slate-700 z-30"></div>`;
+        this._showOnSurface(objectUrl, record, durationSec, direction, generation);
+        updatePhotoPlayerTimeLabels(formatTime(0), formatTime(durationSec)); // core/photo-player.js + core/playlist/state.js
+        updatePhotoPlayerPlayPauseIcon(true);
 
-        // SỬA (25/09/2026, đợt 3 Motion) — THAY applyVisualBgImageToDOM() + applyPhotoPlayerResolutionForRecord()
-        // (1 layer #visual-bg-image, cắt cứng): hiện qua Image surface dùng chung — Transition/Point Move/Resolution.
-        this._showOnSurface(objectUrl, record, direction, generation);
-        updatePhotoPlayerTimeLabels(0, durationSec); // core/photo-player.js — nhãn giờ ban đầu, seek bar không đụng tới (ẩn hẳn)
-        updatePhotoPlayerPlayPauseIcon(true); // core/photo-player.js
+        requestWakeLock(); // core/wakelock.js
+        workflowListenStats.startClock(); // event/workflow/listen-stats.js — Photo cũng đếm totalTime ("Watch time")
 
-        requestWakeLock(); workflowListenStats.startClock(); // event/workflow/listen-stats.js (SỬA 06/10/2026 — dời từ core) — SỬA (Giang yêu cầu "thêm thời gian listen cho photo") — Photo giờ đếm totalTime CÙNG cơ chế Video (mediaStatsMap key-agnostic đã sẵn key-agnostic từ trước, chỉ thiếu lời gọi bật đồng hồ); label hiển thị đổi thành "Watch time" (chỉ khác chữ hiển thị, xem core/playlist/actions.js), logic đếm giữ NGUYÊN
-
-        if (previousKey && previousKey !== photoKey) workflowPlaylistRender.refreshSongNode(previousKey); // event/workflow/playlist-render.js (dời từ core/playlist/render.js)
+        if (previousKey && previousKey !== photoKey) workflowPlaylistRender.refreshSongNode(previousKey); // event/workflow/playlist-render.js
         workflowPlaylistRender.refreshSongNode(photoKey);
-        workflowPlaylistRender.syncPlayButtonPlayingState(); // event/workflow/playlist-render.js — SỬA (02/10/2026): khớp cả loại media (key trùng giữa các Nguồn)
+        workflowPlaylistRender.syncPlayButtonPlayingState();
 
-        workflowPlayerControls.showTrackChange(switchScreen); // event/workflow/player-controls.js — SỬA (02/10/2026): if/else -> object map ở đó
+        workflowPlayerControls.showTrackChange(switchScreen); // event/workflow/player-controls.js
 
-        // Vòng lặp đồng hồ — kill task CŨ (nếu lỡ còn sót từ ảnh trước) rồi addNew() lại MỖI LẦN đổi
-        // ảnh (KHÔNG dùng taskManager.resume() — mỗi ảnh là 1 "phiên" đếm MỚI, cùng lý do
-        // startListenClock() làm vậy, xem core/player-controls.js).
+        // Mỗi ảnh 1 phiên đếm mới (kill bản cũ rồi tạo lại, không resume).
         taskManager.kill(PHOTO_PLAYER_TICK_TASK);
-        taskManager.addNew(PHOTO_PLAYER_TICK_TASK, { time: PHOTO_PLAYER_TICK_INTERVAL_MS, exe: () => this._photoPlayerTick(), mode: 'timeout', count: 0 });
+        taskManager.addNew(PHOTO_PLAYER_TICK_TASK, { time: PHOTO_PLAYER_TICK_INTERVAL_MS, exe: () => this._tick(), mode: 'timeout', count: 0 });
         taskManager.operator(PHOTO_PLAYER_TICK_TASK, 'enabled');
     },
 
-    /** Toggle Play/Pause — ứng với `mode==='photo'` trong VirtualMachineState của case
-     * 'playerControls.playPause.click' (event/router/player-controls.js). CHỈ đổi cờ
-     * `photoPlayerPaused` + icon — vòng lặp taskManager tự nhận lại ở tick kế tiếp (KHÔNG
-     * start/stop task ở đây, xem docstring đầu file). */
+    /** 'playerControls.playPause.click' khi đang Photo (router player-controls), và app ẩn/hiện (workflowAppVisibility). */
     togglePlayPausePhoto() {
-        const nowPaused = !appState.get('photoPlayerPaused');
-        if (nowPaused) {
-            // Chốt elapsed NGAY lúc pause — tránh tick tiếp theo (dù bị bỏ qua do cờ paused) tính
-            // sai nếu lỡ đọc lại startedAtMs cũ.
-            const { photoPlayerElapsedBeforePauseSec, photoPlayerStartedAtMs, photoPlayerPaused, photoPlayerClockHeld } = appState.get([
-                'photoPlayerElapsedBeforePauseSec', 'photoPlayerStartedAtMs', 'photoPlayerPaused', 'photoPlayerClockHeld',
-            ]);
-            const frozenElapsed = computePhotoPlayerElapsedSec(photoPlayerElapsedBeforePauseSec, photoPlayerStartedAtMs, photoPlayerPaused || photoPlayerClockHeld, performance.now()); // core/photo-player.js — đang GIỮ (chờ Transition) -> elapsed đứng yên
-            appState.set('photoPlayerElapsedBeforePauseSec', frozenElapsed, { skipCheck: true });
-            workflowListenStats.stopClock(); // event/workflow/listen-stats.js (SỬA 06/10/2026 — dời từ core) — MỚI (Giang yêu cầu "thêm thời gian listen cho photo") — dừng đếm totalTime lúc pause, không tính giờ đứng yên là "đã xem"
-        } else {
-            appState.set('photoPlayerStartedAtMs', performance.now(), { skipCheck: true });
-            workflowListenStats.startClock(); // event/workflow/listen-stats.js (SỬA 06/10/2026 — dời từ core) — MỚI — tiếp tục đếm totalTime lúc resume
-        }
-        appState.set('photoPlayerPaused', nowPaused, { skipCheck: true });
-        updatePhotoPlayerPlayPauseIcon(!nowPaused); // core/photo-player.js
-        workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — MỚI 26/09/2026
-        // MỚI (25/09/2026) — Point Move đứng/chạy theo nút Play/Pause (Transition là CSS 1 lần, tự hoàn tất).
-        if (nowPaused) workflowVisualBgPhotoMotion.pause(PHOTO_PLAYER_IMAGE_SURFACE_OWNER); // event/workflow/visual-bg-photo-motion.js
-        else workflowVisualBgPhotoMotion.resume(PHOTO_PLAYER_IMAGE_SURFACE_OWNER);
+        this.setPaused(!appState.get('photoPlayerPaused'));
     },
 
-    /** Tick nội bộ (taskManager, mỗi PHOTO_PLAYER_TICK_INTERVAL_MS) — đọc đồng hồ giả, cập nhật
-     * nhãn giờ current/duration (KHÔNG đụng progress bar — đã ẩn hẳn lúc Photo Player mode), tự bắn
-     * "hết ảnh" khi elapsed chạm duration. KHÔNG kill task khi paused — chỉ no-op, giữ vòng lặp
-     * sống (xem docstring đầu file, lý do Rule 3). */
-    _photoPlayerTick() {
-        if (appState.get('photoPlayerPaused') || appState.get('photoPlayerClockHeld')) return; // SỬA 25/09/2026 — GIỮ (chờ Transition xong) cũng no-op, nhãn giờ đứng ở 0
-        const { photoPlayerElapsedBeforePauseSec, photoPlayerStartedAtMs, photoPlayerDurationSec } = appState.get([
-            'photoPlayerElapsedBeforePauseSec', 'photoPlayerStartedAtMs', 'photoPlayerDurationSec',
-        ]);
-        const elapsedSec = computePhotoPlayerElapsedSec(photoPlayerElapsedBeforePauseSec, photoPlayerStartedAtMs, false, performance.now()); // core/photo-player.js
-        if (elapsedSec >= photoPlayerDurationSec) {
-            // "Hết ảnh" — CÙNG msg.type router đã DÙNG CHUNG cho audio/video (event/router/
-            // player-controls.js, case 'playerControls.audio.ended'/'video.ended') — tự branch
-            // ĐÚNG theo gameplayPhase (idle -> auto next, khác idle -> hiện màn kết quả Game Mode),
-            // KHÔNG viết logic riêng ở đây.
-            eventBus.send({ router: 'playerControls', type: 'playerControls.photo.ended', payload: {} });
-            return;
-        }
-        updatePhotoPlayerTimeLabels(elapsedSec, photoPlayerDurationSec); // core/photo-player.js
+    /** Dừng / phát tiếp. Vòng tick không dừng theo — tự đứng yên khi `photoPlayerPaused`. Đã đúng trạng thái -> bỏ qua.
+     * Phát tiếp ảnh đã báo hết (dừng ở cuối playlist) thì phát lại từ đầu, kể cả Point Move. @param {boolean} paused */
+    setPaused(paused) {
+        const clock = appState.get(PHOTO_PLAYER_CLOCK_KEYS);
+        if (clock.photoPlayerPaused === paused) return;
+        const next = PHOTO_PLAYER_CLOCK_BY_PAUSED[paused](clock, performance.now());
+        appState.set('photoPlayerElapsedBeforePauseSec', next.elapsedBeforePauseSec, { skipCheck: true });
+        appState.set('photoPlayerStartedAtMs', next.startedAtMs, { skipCheck: true });
+        appState.set('photoPlayerEnded', next.ended, { skipCheck: true });
+        PHOTO_PLAYER_LISTEN_CLOCK_BY_PAUSED[paused]();
+        appState.set('photoPlayerPaused', paused, { skipCheck: true });
+        updatePhotoPlayerPlayPauseIcon(!paused); // core/photo-player.js
+        workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js
+        PHOTO_PLAYER_MOTION_BY_PAUSED[paused]();
+        if (next.restarted) this.onClockRestarted();
     },
 
-    // ===================== Motion (MỚI 25/09/2026, đợt 3) — chỉ QUYẾT ĐỊNH của Player Photo =====================
+    /** Tua đồng hồ tới `sec` (Next/Prev chỉ gán 0 — repeat-one, icon "Phát lại"). @param {number} sec */
+    seekClock(sec) {
+        appState.set('photoPlayerElapsedBeforePauseSec', sec, { skipCheck: true });
+        appState.set('photoPlayerStartedAtMs', performance.now(), { skipCheck: true });
+        appState.set('photoPlayerEnded', false, { skipCheck: true });
+    },
 
-    /** Giao ảnh cho Image surface — surface tự quyết hiện tĩnh (ảnh đầu / vừa vào mode) hay Transition.
-     * Đồng hồ giả bị GIỮ tới `onShown` (Giang chốt "Transition xong mới đếm"). Point Move trải trên toàn bộ
-     * thời gian ảnh thật sự hiện: Transition vào (KHÔNG kẹp — `transitionCapMs: 0`) + duration.
-     * @param {string} objectUrl @param {object} record @param {'next'|'prev'} direction @param {number} generation */
-    _showOnSurface(objectUrl, record, direction, generation) {
-        const durationMs = appState.get('photoPlayerDurationSec') * 1000;
-        const transitionPreset = workflowPlayerDisplaySettings.resolvePhotoMotionPreset(direction === 'prev' ? 'transitionPrev' : 'transitionNext'); // event/workflow/player-display-settings.js
+    /** Media đang phát cho Next/Prev: đồng hồ giả của Photo, hoặc audio/video thật. Chọn giá trị.
+     * @param {boolean} isVideoPlayerMode @param {boolean} isPhotoPlayerMode */
+    resolveActiveMedia(isVideoPlayerMode, isPhotoPlayerMode) {
+        return isPhotoPlayerMode ? PHOTO_PLAYER_CLOCK_MEDIA : getActiveMediaElement(isVideoPlayerMode); // core/player-controls.js
+    },
+
+    /** Task mỗi PHOTO_PLAYER_TICK_INTERVAL_MS: cập nhật nhãn giờ, chạm thời lượng thì báo hết ảnh. */
+    _tick() {
+        const clock = appState.get(PHOTO_PLAYER_CLOCK_KEYS);
+        const view = computePhotoPlayerTickView(clock, computePhotoPlayerElapsedSec(clock, performance.now())); // core/photo-player.js
+        PHOTO_PLAYER_TICK_BY_PHASE[view.phase](view, clock.photoPlayerDurationSec);
+    },
+
+    /** Hết ảnh: đánh dấu trước (tick sau không báo lặp) rồi gửi cùng msg.type với audio/video ended — router tự chọn auto
+     * next / ghi âm. */
+    _signalEnded() {
+        appState.set('photoPlayerEnded', true, { skipCheck: true });
+        eventBus.send({ router: 'playerControls', type: 'playerControls.photo.ended', payload: {} });
+    },
+
+    /** Giao ảnh cho Image surface — surface tự chọn hiện tĩnh (ảnh đầu) hay Transition. Đồng hồ GIỮ tới `onShown`.
+     * @param {string} objectUrl @param {object} record @param {number} durationSec @param {'next'|'prev'} direction @param {number} generation */
+    _showOnSurface(objectUrl, record, durationSec, direction, generation) {
+        const transitionSlot = PHOTO_PLAYER_TRANSITION_SLOT_BY_DIRECTION[direction] || PHOTO_PLAYER_TRANSITION_SLOT_BY_DIRECTION.next;
+        const transitionPreset = workflowPlayerDisplaySettings.resolvePhotoMotionPreset(transitionSlot); // event/workflow/player-display-settings.js
         const pointMovePreset = workflowPlayerDisplaySettings.resolvePhotoMotionPreset('pointMove');
-        const willTransition = workflowVisualBgPhotoMotion.hasContent(PHOTO_PLAYER_IMAGE_SURFACE_OWNER) && transitionPreset.transitionEnabled; // event/workflow/visual-bg-photo-motion.js
-        this._pointMoveDurationMs = durationMs;
-        appState.set('photoPlayerClockHeld', true, { skipCheck: true }); // nhả trong _onPhotoShown() — hiện tĩnh thì nhả NGAY trong lời gọi dưới
+        const surfaceHasContent = workflowVisualBgPhotoMotion.hasContent(PHOTO_PLAYER_IMAGE_SURFACE_OWNER); // event/workflow/visual-bg-photo-motion.js
+        const timing = computePhotoPlayerSurfaceTiming(durationSec, surfaceHasContent, transitionPreset); // core/photo-player.js
+        this._pointMoveDurationMs = timing.pointMoveDurationMs;
+        appState.set('photoPlayerClockHeld', true, { skipCheck: true }); // hiện tĩnh thì nhả ngay trong lời gọi dưới
         try {
             workflowVisualBgPhotoMotion.showImage(objectUrl, {
                 owner: PHOTO_PLAYER_IMAGE_SURFACE_OWNER,
                 transitionPreset,
                 pointMovePreset,
-                advanceMs: durationMs + (willTransition ? transitionPreset.transitionDurationMs : 0),
-                transitionCapMs: 0,
+                advanceMs: timing.advanceMs,
+                transitionCapMs: 0, // không kẹp Transition vào
                 backgroundSize: workflowPlayerDisplaySettings.computePhotoPlayerBackgroundSize(record), // event/workflow/player-display-settings.js
                 onShown: () => this._onPhotoShown(generation),
             });
         } catch (e) {
-            URL.revokeObjectURL(objectUrl); // giao thất bại -> surface chưa kịp giữ, tự thu hồi
+            revokeBlobUrl(objectUrl); // service/blob-url.js — surface chưa kịp nhận
             appState.set('photoPlayerClockHeld', false, { skipCheck: true });
             throw e;
         }
     },
 
-    /** Ảnh hiện TRỌN (Transition xong / hiện tĩnh) — nhả đồng hồ, bắt đầu đếm từ 0. Lượt cũ về muộn (đã đổi
-     * ảnh/thoát mode) tự bỏ qua. Đang pause thì chỉ nhả cờ — `togglePlayPausePhoto()` đặt mốc lúc resume.
-     * @param {number} generation */
+    /** Ảnh hiện trọn (Transition xong / hiện tĩnh) — nhả đồng hồ, đếm từ 0. Lượt cũ về muộn tự bỏ qua; đang pause thì
+     * chỉ nhả cờ (Play đặt lại mốc). @param {number} generation */
     _onPhotoShown(generation) {
-        if (generation !== this._photoGeneration || !appState.get('isPhotoPlayerMode')) return;
-        if (!appState.get('photoPlayerClockHeld')) return;
+        const { isPhotoPlayerMode, photoPlayerClockHeld } = appState.get(['isPhotoPlayerMode', 'photoPlayerClockHeld']);
+        if (generation !== this._photoGeneration || !isPhotoPlayerMode || !photoPlayerClockHeld) return;
         appState.set('photoPlayerClockHeld', false, { skipCheck: true });
         appState.set('photoPlayerStartedAtMs', performance.now(), { skipCheck: true });
     },
 
-    /** Đồng hồ vừa tua về 0 (repeat-single / icon "Phát lại" Control Center — SỬA 25/09/2026, Prev không còn "quá 3s") — gọi từ event/workflow/player-controls.js. Chạy
-     * lại Point Move từ đầu (KHÔNG Transition — cùng 1 ảnh); đang pause thì đứng yên luôn. */
+    /** Đồng hồ vừa về 0 (repeat-one / icon "Phát lại" / Play lại ảnh đã hết) — chạy lại Point Move từ đầu (không
+     * Transition); đang pause thì đứng yên. */
     onClockRestarted() {
-        if (!appState.get('isPhotoPlayerMode')) return;
-        workflowVisualBgPhotoMotion.restartPointMove(PHOTO_PLAYER_IMAGE_SURFACE_OWNER, workflowPlayerDisplaySettings.resolvePhotoMotionPreset('pointMove'), this._pointMoveDurationMs); // event/workflow/visual-bg-photo-motion.js, event/workflow/player-display-settings.js
-        if (appState.get('photoPlayerPaused')) workflowVisualBgPhotoMotion.pause(PHOTO_PLAYER_IMAGE_SURFACE_OWNER);
+        const { isPhotoPlayerMode, photoPlayerPaused } = appState.get(['isPhotoPlayerMode', 'photoPlayerPaused']);
+        if (!isPhotoPlayerMode) return;
+        workflowVisualBgPhotoMotion.restartPointMove(PHOTO_PLAYER_IMAGE_SURFACE_OWNER, workflowPlayerDisplaySettings.resolvePhotoMotionPreset('pointMove'), this._pointMoveDurationMs); // event/workflow/visual-bg-photo-motion.js
+        if (photoPlayerPaused) workflowVisualBgPhotoMotion.pause(PHOTO_PLAYER_IMAGE_SURFACE_OWNER);
     },
 
-    /** Slot Point Move vừa đổi trong Settings — áp SỐNG lên ảnh đang hiện (event/workflow/player-display-settings.js
-     * ::changeMotionSlot()). Đang pause thì đứng yên luôn. */
+    /** Slot Point Move vừa đổi trong Settings (workflowPlayerDisplaySettings.changeMotionSlot()) — áp sống lên ảnh đang
+     * hiện; đang pause thì đứng yên. */
     refreshPointMovePreset() {
-        if (!appState.get('isPhotoPlayerMode')) return;
+        const { isPhotoPlayerMode, photoPlayerPaused } = appState.get(['isPhotoPlayerMode', 'photoPlayerPaused']);
+        if (!isPhotoPlayerMode) return;
         workflowVisualBgPhotoMotion.updatePreset(PHOTO_PLAYER_IMAGE_SURFACE_OWNER, workflowPlayerDisplaySettings.resolvePhotoMotionPreset('pointMove'), this._pointMoveDurationMs); // event/workflow/visual-bg-photo-motion.js
-        if (appState.get('photoPlayerPaused')) workflowVisualBgPhotoMotion.pause(PHOTO_PLAYER_IMAGE_SURFACE_OWNER);
+        if (photoPlayerPaused) workflowVisualBgPhotoMotion.pause(PHOTO_PLAYER_IMAGE_SURFACE_OWNER);
     },
 
-    /** Resolution Photo vừa đổi trong Settings — áp SỐNG lên ảnh đang hiện (event/workflow/player-display-settings.js
-     * ::changeResolutionMode()). */
+    /** Resolution Photo vừa đổi trong Settings (workflowPlayerDisplaySettings.changeResolutionMode()) — áp sống. */
     refreshResolution() {
         if (!appState.get('isPhotoPlayerMode') || !this._currentRecord) return;
         workflowVisualBgPhotoMotion.updateBackgroundSize(PHOTO_PLAYER_IMAGE_SURFACE_OWNER, workflowPlayerDisplaySettings.computePhotoPlayerBackgroundSize(this._currentRecord)); // event/workflow/visual-bg-photo-motion.js
     },
 
-    /** Dọn object URL thumb (record-art) — gọi TRƯỚC khi tạo URL mới (đổi ảnh) hoặc lúc thoát mode hẳn.
-     * SỬA (25/09/2026) — URL ảnh chính KHÔNG còn ở đây (Image surface sở hữu + tự revoke). */
-    /**
-     * MỚI (06/10/2026, plan-media-db-split.md mục 7) — vẽ lại ảnh ĐANG hiện ở Photo Player từ DB sau khi file của nó vừa
-     * bị thay (sửa ảnh "Ghi đè", upload ghi đè). KHÔNG reset đồng hồ, không đếm lượt xem; chỉ cập nhật thời lượng mới
-     * (sửa ảnh tính lại duration). CHỈ gọi từ request trung tâm `workflowMediaInUse` (đã kiểm state).
-     */
+    /** Vẽ lại ảnh đang hiện từ DB sau khi file của nó bị thay (sửa ảnh "Ghi đè", upload ghi đè) — chỉ gọi từ
+     * `workflowMediaInUse` (đã kiểm state). Không reset đồng hồ, không đếm lượt xem; cập nhật thời lượng mới. */
     async reloadCurrentPhoto() {
         const photoKey = appState.get('currentKey');
         const record = await getMediaRecord('photo', photoKey); // service/db.js
-        if (!record || !record.blob) return; // guard: ảnh vừa bị xoá ở nơi khác
-        this._revokeObjectUrls();
-        const objectUrl = URL.createObjectURL(record.blob); // giao cho Image surface — surface tự revoke
-        this._thumbObjectUrl = URL.createObjectURL(record.thumbBlob || record.blob);
+        if (!record || !record.blob) return; // ảnh vừa bị xoá ở nơi khác
+        this._revokeThumbUrl();
+        const objectUrl = createBlobUrl(record.blob); // service/blob-url.js — giao Image surface
+        this._thumbObjectUrl = createBlobUrl(record.thumbBlob || record.blob);
         this._photoGeneration += 1;
         const generation = this._photoGeneration;
         this._currentRecord = record;
-        const durationSec = record.duration || 5;
+        const durationSec = record.duration || DURATION_MIN_SEC; // core/file-manager/image.js
         appState.set('photoPlayerDurationSec', durationSec, { skipCheck: true });
         console.log(`writer: "workflowPhotoPlayer.reloadCurrentPhoto", page: "photoPlayerDurationSec", content: "${photoKey} -> ${durationSec}"`);
-        const recordArtEl = document.getElementById('record-art'); // phần tử ĐỘNG (dựng lại mỗi lần đổi ảnh)
-        if (recordArtEl) recordArtEl.src = this._thumbObjectUrl;
-        this._showOnSurface(objectUrl, record, 'next', generation);
+        setRecordArtSrc(this._thumbObjectUrl); // core/record-art-ui.js
+        this._showOnSurface(objectUrl, record, durationSec, 'next', generation);
     },
 
-    _revokeObjectUrls() {
-        if (this._thumbObjectUrl) { URL.revokeObjectURL(this._thumbObjectUrl); this._thumbObjectUrl = null; }
+    _revokeThumbUrl() {
+        revokeBlobUrl(this._thumbObjectUrl); // service/blob-url.js — null vô hại
+        this._thumbObjectUrl = null;
     },
+};
+
+// "Media giả" của Photo cho Next/Prev — chỉ 3 thành viên nơi gọi dùng (workflowPlayerControls: repeat-one, dừng ở cuối
+// playlist, icon "Phát lại").
+const PHOTO_PLAYER_CLOCK_MEDIA = {
+    set currentTime(sec) { workflowPhotoPlayer.seekClock(sec); },
+    play() { workflowPhotoPlayer.setPaused(false); },
+    pause() { workflowPhotoPlayer.setPaused(true); },
 };
