@@ -1,10 +1,9 @@
 /**
- * event/workflow/gameplay-arrow.js — MỚI (07/10/2026, Giang yêu cầu game "Arrow"). Workflow RIÊNG mode "Arrow" (id
- * 'arrow', core/gameplay/catalog.js). Đếm ngược / reset điểm / modal End / lưu điểm DÙNG CHUNG
+ * event/workflow/gameplay-arrow.js — Workflow riêng mode "Arrow" (id 'arrow', core/gameplay/catalog.js). Đếm ngược / reset điểm / modal End / lưu điểm DÙNG CHUNG
  * event/workflow/gameplay-engine.js (cùng khuôn Circle, event/workflow/gameplay.js). Lối vào chung (arm, đổi media,
  * nút X, hết media, tick) tới đây qua bảng điều phối theo mode của gameplay-engine.js.
  *
- * Cơ chế (yêu cầu Giang):
+ * Cơ chế:
  *   - Mỗi VÒNG = nút tròn trên thanh tiến trình chạy 0 -> 100% (thời lượng theo BPM + tăng tốc —
  *     core/gameplay/arrow-mode.js::computeArrowRoundTiming()), kèm 1 dải mũi tên `level` ô.
  *   - Bấm hướng trên bàn phím tròn: đúng -> ô xanh lá, sang ô kế; sai -> không tính VÀ huỷ mọi ô đã đúng, nhập lại từ
@@ -22,31 +21,11 @@
  * NẠP SAU: core/gameplay/arrow-config.js, core/gameplay/arrow-mode.js, core/gameplay/arrow-stage.js,
  * core/gameplay/engine.js, core/gameplay/engine-ui.js, components/gameplay-arrow-stage.js
  * (renderGameplayArrowStripHtml), core/player-controls.js (getActiveMediaElement, setPlayerControlsBlocked),
- * event/workflow/gameplay-engine.js, event/workflow/gameplay.js (GAMEPLAY_NEXT_LABEL_KEY_BY_MEDIA),
+ * event/workflow/gameplay-engine.js (resolveEndModalLabels, GAMEPLAY_TIER_LABEL_KEY_BY_NAME),
  * event/workflow/placeholder-panels.js, core/dom-refs.js.
  * NẠP TRƯỚC: event/router/gameplay.js.
  */
 const GAMEPLAY_ARROW_MODE_ID = 'arrow';
-const GAMEPLAY_ARROW_TIER_ORDER = ['perfect', 'excellent', 'good', 'bad', 'miss'];
-const GAMEPLAY_ARROW_TIER_LABEL_KEY_BY_NAME = {
-    perfect: 'gameplayCircle.ended.hitTier.perfect',
-    excellent: 'gameplayCircle.ended.hitTier.excellent',
-    good: 'gameplayCircle.ended.hitTier.good',
-    bad: 'gameplayCircle.ended.hitTier.bad',
-    miss: 'gameplayCircle.ended.hitTier.miss',
-};
-// Nhãn "Đã chơi N lần" số ít/nhiều — khoá boolean do core computeArrowEndExtras() trả. Key số ít không có {count},
-// tFormat() trả nguyên chuỗi.
-const GAMEPLAY_ARROW_PLAY_COUNT_KEY_BY_PLURAL = {
-    true: 'gameplayCircle.ended.playCountLabel.plural',
-    false: 'gameplayCircle.ended.playCountLabel.singular',
-};
-// Nhãn độ khó ở modal kết quả — tra bảng thay vì ghép chuỗi key trong Workflow (§7.1).
-const GAMEPLAY_ARROW_DIFFICULTY_LABEL_KEY_BY_ID = {
-    easy: 'gameplayCircle.difficulty.easy',
-    medium: 'gameplayCircle.difficulty.medium',
-    hard: 'gameplayCircle.difficulty.hard',
-};
 // Phản hồi theo kết quả 1 lần bấm hướng (core applyArrowInput() trả `outcome`).
 const GAMEPLAY_ARROW_INPUT_FEEDBACK_BY_OUTCOME = {
     correct: () => workflowGameplayArrow._paintInputProgress(false),
@@ -150,7 +129,6 @@ const workflowGameplayArrow = {
 
         const durationLabel = formatTime(getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode).duration); // core (core/playlist/state.js)
         const endedCached = playlistCache.get(currentKey);
-        const nextLabelKey = GAMEPLAY_NEXT_LABEL_KEY_BY_MEDIA[endedCached && endedCached.mediaType] || GAMEPLAY_NEXT_LABEL_KEY_BY_MEDIA.song; // event/workflow/gameplay.js
         const playingMediaType = isVideoPlayerMode ? 'video' : (isPhotoPlayerMode ? 'photo' : 'song'); // chọn giá trị, cùng nguồn getActiveMediaElement()
 
         const finalScore = computeFinalAverageScore(gameplayTotalScore, gameplayCircleCount); // core (engine.js)
@@ -164,19 +142,9 @@ const workflowGameplayArrow = {
         workflowGameplayEngine.showEndModal({
             finalScore, totalScore: gameplayTotalScore, maxScore: extras.maxScore, starMax: cfg.starMax, starRating,
             hitCounts: gameplayHitCounts,
-            tierOrder: GAMEPLAY_ARROW_TIER_ORDER,
-            tierLabels: {
-                perfect: t(GAMEPLAY_ARROW_TIER_LABEL_KEY_BY_NAME.perfect),
-                excellent: t(GAMEPLAY_ARROW_TIER_LABEL_KEY_BY_NAME.excellent),
-                good: t(GAMEPLAY_ARROW_TIER_LABEL_KEY_BY_NAME.good),
-                bad: t(GAMEPLAY_ARROW_TIER_LABEL_KEY_BY_NAME.bad),
-                miss: t(GAMEPLAY_ARROW_TIER_LABEL_KEY_BY_NAME.miss),
-            },
+            ...workflowGameplayEngine.resolveEndModalLabels(gameplayDifficulty, playCount, extras.isPluralPlayCount, endedCached && endedCached.mediaType),
             title: escapeHtml(title), // core (modal-choice-ui.js) — tên file/tag là dữ liệu người dùng
             durationLabel,
-            difficultyLabel: t(GAMEPLAY_ARROW_DIFFICULTY_LABEL_KEY_BY_ID[gameplayDifficulty] || GAMEPLAY_ARROW_DIFFICULTY_LABEL_KEY_BY_ID.hard),
-            playCountLabel: tFormat(GAMEPLAY_ARROW_PLAY_COUNT_KEY_BY_PLURAL[extras.isPluralPlayCount], { count: playCount }),
-            nextLabel: t(nextLabelKey),
             onReplay: () => this.replay(),
             onNext: () => workflowPlayerControls.goToNextTrack(true), // event/workflow/player-controls.js — sang media kế; 'gameplay.mediaChanged' tự mở lại phiên (game vẫn armed)
             onEnd: () => this.exitToPlaylist(),
@@ -284,7 +252,7 @@ const workflowGameplayArrow = {
         paintArrowStripResult(gameplayArrowStrip, tier.name); // core (arrow-stage.js)
         paintArrowCommitReady(btnGameplayArrowCommit, false); // core (arrow-stage.js)
         const anchor = computeArrowPopupAnchor(gameplayArrowStrip.getBoundingClientRect(), gameplayLayer.getBoundingClientRect()); // đọc kích thước (chuẩn bị) -> core thuần tính toạ độ
-        showTapTierPopup(gameplayTierPopupLayer, t(GAMEPLAY_ARROW_TIER_LABEL_KEY_BY_NAME[tier.name]), tier.name, anchor.x, anchor.y, newComboByTier[tier.name] || 0, cfg); // core-ui (engine-ui.js)
+        showTapTierPopup(gameplayTierPopupLayer, t(GAMEPLAY_TIER_LABEL_KEY_BY_NAME[tier.name]), tier.name, anchor.x, anchor.y, newComboByTier[tier.name] || 0, cfg); // core-ui (engine-ui.js)
     },
 
     /** Bấm đúng — tô lại tiến độ dải; `isComplete` -> nút Enter sáng chờ commit. */
