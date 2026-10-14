@@ -431,6 +431,7 @@ của group.
 205. `core/player-controls.js`
 206. `core/video-player.js`
 207. `core/photo-player.js`
+207a. `core/record-art-ui.js` — MỚI 14/10/2026 (mountRecordArt/setRecordArtSrc — #record-art dựng lại mỗi lần đổi media, đợt 11); cần `service/component-dynamic.js`; gọi lúc chạy từ event/workflow/photo-player.js
 208. `core/video-player-capture.js`
 209. `core/eq-presets.js`
 209a. `core/eq-presets-drawer-ui.js` — MỚI 12/10/2026 (setEqBandValueText — Edit EQ, plan-event-bus-wiring đợt 1)
@@ -904,7 +905,7 @@ Các file sau được nạp ở hơn 1 trang — sửa file thì nâng `?v=` �
 | `components/loading-shield.js` | index, video-editor | `20260910v1` |
 | `core/dropdown-menu.js` | index, video-editor | `20260921v7` |
 | `core/file-manager/folder.js` | index, video-editor | `20261006db2` |
-| `core/file-manager/image.js` | index, video-editor | `20261013w7` |
+| `core/file-manager/image.js` | index, video-editor | `20261014w11` |
 | `core/file-manager/video.js` | index, video-editor | `20261013w7` |
 | `core/generic-drawer.js` | index, subtitle-editor | `20260924r8` |
 | `core/loading-shield-util.js` | index, video-editor | `20261007pl1` |
@@ -924,7 +925,7 @@ Các file sau được nạp ở hơn 1 trang — sửa file thì nâng `?v=` �
 | `event/virtual-machine-state.js` | index, video-editor | `20260701v1` |
 | `event/workflow/generic-drawer-helpers.js` | index, subtitle-editor | `20261007svg1` |
 | `event/workflow/media-transform-helpers.js` | index, video-editor | `20261013w7` |
-| `event/workflow/photo-duration.js` | index, video-editor | `20261006r6` |
+| `event/workflow/photo-duration.js` | index, video-editor | `20261014w11` |
 | `event/workflow/video-frame-capture.js` | index, video-editor | `20261006r6` |
 | `event/workflow/video-thumb-extract.js` | index, video-editor | `20261006r6` |
 | `lang/lang.js` | index, subtitle-editor, video-editor | `20260731v1` |
@@ -936,7 +937,7 @@ Các file sau được nạp ở hơn 1 trang — sửa file thì nâng `?v=` �
 | `lang/patch/patch-subtitle-editor.js` | index, subtitle-editor, video-editor | `20260930kr4` |
 | `lang/patch/patch-subtitle-settings.js` | index, subtitle-editor, video-editor | `20261014w8` |
 | `lang/patch/patch-video-preview.js` | index, subtitle-editor, video-editor | `20260929cap1` |
-| `lang/patch/patch-visualizer.js` | index, subtitle-editor, video-editor | `20261007ui2` |
+| `lang/patch/patch-visualizer.js` | index, subtitle-editor, video-editor | `20261014w11` |
 | `service/blob-url.js` | index, video-editor | `20260803v1` |
 | `service/component-dynamic.js` | index, video-editor | `20260803v1` |
 | `service/db.js` | index, subtitle-editor, video-editor | `20261013w7` |
