@@ -1,79 +1,10 @@
 /**
- * core/gameplay/engine-ui.js — Core-ui (Rule 5c, hậu tố `-ui`) DÙNG CHUNG mọi mode Game: sao kết
- * quả, vòng tròn % điểm (nhiều lap màu khác nhau khi >100%), khung body modal kết thúc. TOÀN BỘ hàm
- * CHỈ dựng chuỗi HTML/SVG hoặc ghi text thuần vào element có sẵn — KHÔNG `addEventListener` (việc
- * gắn tương tác + đọc/ghi `appState` là của Workflow, xem event/workflow/gameplay-engine.js),
- * KHÔNG `appState.get()` (Rule 2).
+ * core/gameplay/engine-ui.js — ghi DOM dùng chung mọi mode Game: layer/đếm ngược, chữ tier nổi + hiệu ứng vỡ vụn, 2 dòng
+ * điểm đếm-lên + breakdown tier của modal Kết quả (markup modal: components/gameplay-overlay.js). Không đọc appState, không
+ * gọi core khác, không gắn listener.
  */
 
-/** [XOÁ — 02/09/2026, Game Panel app-store list] `buildDifficultySelectorHtml()` (bộ chọn độ khó
- * 3 nút cho modal "sẵn sàng") ĐÃ XOÁ — modal đó không còn tồn tại (xem docstring đầu
- * event/workflow/gameplay-engine.js), độ khó giờ chọn qua 1 nút cycle NGAY TRÊN card Game Panel
- * (core/gameplay/game-panel-ui.js::buildGamePanelListHtml(), KHÔNG dùng lại hàm này — thiết kế
- * compact 1 nút thay vì grid 3 nút, hợp không gian hẹp của card). */
-
-/** Vòng tròn % điểm — mỗi lap (core/gameplay/engine.js::computeScoreRingLaps()) 1 `<circle>` bán
- * kính giảm dần, màu riêng theo `palette` (cycle nếu nhiều lap hơn palette). `--ring-circumference`
- * (điểm xuất phát, rỗng hoàn toàn) và `--ring-target` (đích) là 2 CSS custom property đọc bởi
- * @keyframes gameplayRingFill (assets/css/gameplay.css) — animation tự chạy ngay khi DOM chèn xong,
- * KHÔNG cần JS toggle class. */
-function buildScoreRingSvg(laps, palette) {
-    const size = 120, cx = 60, cy = 60, baseRadius = 52, radiusStep = 11, strokeWidth = 7;
-    const circles = laps.map((percent, i) => {
-        const r = baseRadius - i * radiusStep;
-        const circumference = 2 * Math.PI * r;
-        const target = circumference * (1 - percent / 100);
-        const color = palette[i % palette.length];
-        const delayMs = i * 220;
-        return `<circle class="gameplay-ring-track" cx="${cx}" cy="${cy}" r="${r}" stroke-width="${strokeWidth}"></circle>` +
-            `<circle class="gameplay-ring-fill" cx="${cx}" cy="${cy}" r="${r}" stroke-width="${strokeWidth}" stroke="${color}" ` +
-            `stroke-dasharray="${circumference} ${circumference}" stroke-dashoffset="${circumference}" ` +
-            `style="--ring-circumference:${circumference};--ring-target:${target};animation-delay:${delayMs}ms" ` +
-            `transform="rotate(-90 ${cx} ${cy})"></circle>`;
-    }).join('');
-    return `<svg class="gameplay-score-ring" viewBox="0 0 ${size} ${size}">${circles}</svg>`;
-}
-
-/** Khung body modal kết thúc — khối thông tin (title/thời lượng/độ khó/số lượt chơi ĐÚNG độ khó
- * này) TRÊN CÙNG, vòng tròn % (SVG, dựng qua buildScoreRingSvg()) LÀM NỀN, 2 dòng điểm số (float
- * chính to + thực/tổng nhỏ, cả 2 do Workflow tự chạy count-up sau khi mở modal qua
- * renderScoreCountupFrame()) chồng GIỮA vòng tròn, sao + breakdown tier bên dưới. KHÔNG có tiêu đề
- * (phản hồi Giang — nội dung tự thân đã rõ ngữ nghĩa). */
-function buildResultBodyHtml({ ringSvg, starMax, starRating, hitCounts, tierOrder, tierLabels, title, durationLabel, difficultyLabel, playCountLabel }) {
-    const stars = Array.from({ length: starMax }, (_, i) => {
-        const lit = i < starRating;
-        return `<span class="gameplay-star${lit ? ' gameplay-star--lit' : ''}" style="animation-delay:${i * 180}ms">★</span>`;
-    }).join('');
-
-    const hitGrid = tierOrder.map((name) => `
-        <div>
-            <div class="font-mono font-bold" id="gameplay-hit-${name}" data-uitk="textPrimary">0</div>
-            <div class="text-[10px]" data-uitk="textSecondary">${tierLabels[name]}</div>
-        </div>
-    `).join('');
-
-    return `
-        <div class="flex flex-col items-center gap-3">
-            <div class="w-full text-center">
-                <div class="text-sm font-semibold truncate px-2" data-uitk="textPrimary">${title}</div>
-                <div class="text-xs mt-0.5" data-uitk="textSecondary">${durationLabel} · ${difficultyLabel} · ${playCountLabel}</div>
-            </div>
-            <div class="relative w-[120px] h-[120px]">
-                ${ringSvg}
-                <div class="absolute inset-0 flex flex-col items-center justify-center">
-                    <div class="font-mono text-2xl font-bold" id="gameplay-score-main" data-uitk="textPrimary">0.000</div>
-                    <div class="font-mono text-xs" id="gameplay-score-sub" data-uitk="textSecondary">0/0</div>
-                </div>
-            </div>
-            <div class="flex gap-1 text-2xl">${stars}</div>
-            <div class="grid grid-cols-5 gap-2 text-center w-full pt-2 border-t" data-uitk="dividerBorder">${hitGrid}</div>
-        </div>
-    `;
-}
-
-/** 1 khung hình count-up — ghi thẳng text 2 dòng điểm (main float + sub thực/tổng) VÀ breakdown
- * tier (nếu `hitCounts` có truyền — chỉ cần ghi 1 lần lúc cuối, không cần animate riêng). Element
- * không tồn tại (modal đã đóng giữa chừng — hiếm, người dùng bấm nút khác quá nhanh) -> no-op. */
+/** 1 khung đếm-lên 2 dòng điểm (main 3 số lẻ + sub thực/tổng). Modal đã đóng giữa chừng -> no-op. */
 function renderScoreCountupFrame(mainValue, subValue, subMax) {
     const mainEl = document.getElementById('gameplay-score-main');
     const subEl = document.getElementById('gameplay-score-sub');
@@ -81,8 +12,7 @@ function renderScoreCountupFrame(mainValue, subValue, subMax) {
     if (subEl) subEl.textContent = `${subValue}/${subMax}`;
 }
 
-/** Ghi breakdown hit-tier (perfect/excellent/good/bad/miss) — gọi 1 LẦN lúc mở modal, KHÔNG cần
- * animate (số nguyên nhỏ, count-up không thêm giá trị cảm nhận). */
+/** Ghi breakdown tier (1 lần lúc mở modal, không đếm-lên). */
 function renderHitBreakdown(tierOrder, hitCounts) {
     for (const name of tierOrder) {
         const el = document.getElementById(`gameplay-hit-${name}`);
@@ -90,16 +20,12 @@ function renderHitBreakdown(tierOrder, hitCounts) {
     }
 }
 
-/** Hiện text tier (PERFECT/EXCELLENT/.../MISS) thoáng qua tại (x,y) rồi tự dọn (CSS animation, xem
- * assets/css/gameplay.css .gameplay-tier-popup) — `addEventListener` CHỈ để tự remove() phần tử
- * vừa tạo (Rule 5a). x/y là PX THẬT khớp hệ toạ độ canvas gọi hàm này.
- *
- * [SỬA — phản hồi Giang "bỏ x Combo cố định, x combo ngay tại vị trí bay lên"] `comboStreak` (MỚI,
- * >1 mới hiện — streak RIÊNG của tier đó, xem computeComboScoreGain() core/gameplay/engine.js) gắn
- * NGAY vào popup ("EXCELLENT x2") thay vì 1 số riêng ở HUD góc màn hình (ĐÃ XOÁ). Chữ phóng to +
- * glow mạnh dần theo streak (`--combo-scale`, CSS đọc ở .gameplay-tier-popup--combo), trần
- * `cfg.comboPopupScaleMax` tránh chữ khổng lồ lúc streak rất cao. */
-function showTapTierPopup(container, tierLabel, tierClassSuffix, x, y, comboStreak, cfg) {
+/**
+ * Chữ tier (PERFECT/…/MISS) nổi lên tại (x,y) px rồi tự gỡ khi CSS animation xong (`.gameplay-tier-popup`,
+ * assets/css/gameplay.css) — chờ Promise `finished` của animation, không gắn listener. `comboStreak` > 1 -> "EXCELLENT x2",
+ * chữ to + glow dần theo streak (`--combo-scale`, trần `cfg.comboPopupScaleMax`).
+ */
+async function showTapTierPopup(container, tierLabel, tierClassSuffix, x, y, comboStreak, cfg) {
     const anchor = document.createElement('div');
     anchor.className = 'gameplay-tier-popup-anchor';
     anchor.style.left = `${x}px`;
@@ -109,8 +35,7 @@ function showTapTierPopup(container, tierLabel, tierClassSuffix, x, y, comboStre
     el.className = `gameplay-tier-popup gameplay-tier-popup--${tierClassSuffix}`;
     if (comboStreak > 1) {
         el.textContent = `${tierLabel} x${comboStreak}`;
-        const scale = Math.min(1 + (comboStreak - 1) * cfg.comboPopupScalePerStreak, cfg.comboPopupScaleMax);
-        el.style.setProperty('--combo-scale', scale);
+        el.style.setProperty('--combo-scale', Math.min(1 + (comboStreak - 1) * cfg.comboPopupScalePerStreak, cfg.comboPopupScaleMax));
         el.classList.add('gameplay-tier-popup--combo');
     } else {
         el.textContent = tierLabel;
@@ -118,43 +43,35 @@ function showTapTierPopup(container, tierLabel, tierClassSuffix, x, y, comboStre
     anchor.appendChild(el);
     container.appendChild(anchor);
 
-    el.addEventListener('animationend', () => anchor.remove());
+    await Promise.allSettled(anchor.getAnimations({ subtree: true }).map((a) => a.finished));
+    anchor.remove();
 }
 
-/** Hiệu ứng vòng tròn vỡ vụn — N mảnh nhỏ bay toả ra từ (x,y) rồi tự dọn (CSS animation). Gọi lúc
- * tap hoàn thành (chạm đúng note) HOẶC wave tự hết hạn (miss) — `color` khác nhau theo nơi gọi
- * (màu wave thật lúc tap trúng, màu đỏ cố định lúc miss, xem event/workflow/gameplay.js).
- * `addEventListener` CHỈ để tự remove() phần tử vừa tạo (Rule 5a) — đếm đủ N mảnh xong animation
- * mới remove() anchor (mỗi mảnh tự bắn animationend riêng, KHÔNG đợi mảnh chậm nhất qua timer). */
-function showShatterEffect(container, x, y, color) {
+/** Hiệu ứng vòng tròn vỡ vụn tại (x,y): mỗi mảnh bay theo `shards` (computeShatterShardLayout(), core/gameplay/engine.js),
+ * gỡ cả cụm khi mọi mảnh xong animation (`.gameplay-shatter-shard`). @param {string} color - màu mảnh */
+async function showShatterEffect(container, x, y, color, shards) {
     const anchor = document.createElement('div');
     anchor.className = 'gameplay-shatter-anchor';
     anchor.style.left = `${x}px`;
     anchor.style.top = `${y}px`;
-
-    const shardCount = 8;
-    let remaining = shardCount;
-    for (let i = 0; i < shardCount; i++) {
-        const angle = (360 / shardCount) * i + (Math.random() * 20 - 10);
-        const distance = 26 + Math.random() * 14;
+    shards.forEach(({ angleDeg, distancePx }) => {
         const shard = document.createElement('span');
         shard.className = 'gameplay-shatter-shard';
         shard.style.background = color;
-        shard.style.setProperty('--shard-angle', `${angle}deg`);
-        shard.style.setProperty('--shard-distance', `${distance}px`);
-        shard.addEventListener('animationend', () => {
-            remaining--;
-            if (remaining <= 0) anchor.remove();
-        });
+        shard.style.setProperty('--shard-angle', `${angleDeg}deg`);
+        shard.style.setProperty('--shard-distance', `${distancePx}px`);
         anchor.appendChild(shard);
-    }
+    });
     container.appendChild(anchor);
+
+    await Promise.allSettled(anchor.getAnimations({ subtree: true }).map((a) => a.finished));
+    anchor.remove();
 }
 
 function showGameplayLayer(layerEl) { layerEl.classList.remove('hidden'); }
 function hideGameplayLayer(layerEl) { layerEl.classList.add('hidden'); }
 
-/** Hiện/đổi số đếm ngược — retrigger animation CSS bằng remove+reflow+add class (thuần đồng bộ). */
+/** Hiện/đổi số đếm ngược — chạy lại animation CSS bằng remove + reflow + add class. */
 function showGameplayCountdown(screenEl, numberEl, value) {
     screenEl.classList.remove('hidden');
     numberEl.textContent = String(value);
@@ -164,17 +81,14 @@ function showGameplayCountdown(screenEl, numberEl, value) {
 }
 function hideGameplayCountdown(screenEl) { screenEl.classList.add('hidden'); }
 
-// ===================== MỚI (07/10/2026, game "Arrow") — phần DÙNG CHUNG mọi mode =====================
-
-/** Gán mode đang chơi lên `#gameplay-layer` (`data-game-mode`) — CSS (assets/css/gameplay-arrow.css) hiện stage Arrow
- * hoặc canvas + tap-surface Circle. Mỗi mode tự gọi lúc start(). */
+/** Gán mode đang chơi lên `#gameplay-layer` (`data-game-mode`) — CSS (assets/css/gameplay-arrow.css) hiện stage Arrow hoặc
+ * canvas + tap-surface Circle. Mỗi mode tự gọi lúc start(). */
 function setGameplayLayerMode(layerEl, mode) {
     layerEl.dataset.gameMode = mode;
 }
 
-/** Ẩn/hiện thanh điều khiển phát nhạc đáy màn (#player-container nổi TRÊN overlay Game — xem
- * core/player-controls.js::setPlayerControlsBlocked()) — mode Arrow cần đáy màn cho bàn phím. Chỉ `visibility` (class
- * `gameplay-controls-hidden`), không đụng class `hidden` mà luồng điều hướng Playlist/Visualizer đang dùng. */
+/** Ẩn/hiện thanh điều khiển phát nhạc đáy màn (#player-container nổi trên overlay Game) — mode Arrow cần đáy màn cho bàn
+ * phím. Chỉ `visibility` (class `gameplay-controls-hidden`), không đụng class `hidden` của luồng điều hướng. */
 function setGameplayPlayerBarHidden(playerContainerEl, hidden) {
     playerContainerEl.classList.toggle('gameplay-controls-hidden', hidden);
 }

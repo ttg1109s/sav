@@ -1,8 +1,7 @@
 /**
- * core/gameplay/engine.js — Core thuần DÙNG CHUNG cho mọi mode Game (không riêng Circle): chấm
- * điểm tier/combo, tổng kết cuối phiên (final/star/delta%), hit-test vị trí, phát hiện chuyển đoạn
- * nhạc theo flux, bật/tắt Game Mode, lưu độ khó ưa thích từng game. Rule 1-3: mỗi hàm 1 việc, chỉ
- * nhận tham số, không gọi hàm khác trong cùng file.
+ * core/gameplay/engine.js — core thuần dùng chung mọi mode Game: chấm điểm tier/combo, tổng kết cuối phiên (điểm trung
+ * bình/sao/vòng %), hit-test vị trí, đếm ngược, hiệu ứng vỡ vụn, ghi game đang armed / độ khó ưa thích từng game, điều khiển
+ * media lúc chơi. Mỗi hàm 1 việc, chỉ nhận tham số, không gọi hàm khác trong file.
  */
 
 /** Tier theo khoảng cách chuẩn hoá tới centerRadius (gapOuter/gapInner 2 phía khác mẫu số). */
@@ -17,38 +16,26 @@ function classifyTapTier(radius, cfg) {
 }
 
 /**
- * Điểm cộng + combo MỚI (theo TỪNG TIER riêng, KHÔNG phải 1 số chung) cho 1 lần tap.
- *
- * [SỬA — phản hồi Giang] `cfg.comboTierNames` là bảng XẾP HẠNG best->worst. Tier T được tap:
- *   - Tăng combo CHÍNH T (streak riêng của T).
- *   - RESET combo mọi tier ĐỨNG TRƯỚC T trong bảng (tốt hơn T) — 1 cú kém hơn phá vỡ chuỗi của
- *     tier giỏi hơn (VD: đang combo Perfect, tap Excellent -> combo Perfect reset).
- *   - GIỮ NGUYÊN combo mọi tier ĐỨNG SAU T (kém hơn T) — 1 cú tốt hơn KHÔNG ảnh hưởng chuỗi tier
- *     kém hơn (VD: đang combo Excellent, tap Perfect xen giữa -> combo Excellent KHÔNG đổi, vẫn
- *     tiếp tục đúng số khi Excellent lặp lại — đã kiểm chứng bằng test tay 2 kịch bản Giang đưa).
- * Tier KHÔNG combo-eligible (good/bad/miss) -> reset TẤT CẢ về 0.
+ * Điểm cộng + combo MỚI (theo TỪNG TIER riêng) cho 1 lần chấm. `cfg.comboTierNames` xếp hạng best -> worst; tier T:
+ *   - tăng streak của chính T; reset streak mọi tier TỐT HƠN T; giữ nguyên streak mọi tier KÉM HƠN T
+ *     (đang combo Excellent, Perfect xen giữa không làm đứt chuỗi Excellent).
+ * Tier không nằm trong bảng (good/bad/miss) -> reset tất cả về 0, điểm không nhân hệ số.
  * @param {object} comboByTierBefore - vd {perfect: 2, excellent: 0}
  * @returns {{ pointsGained: number, newComboByTier: object }}
  */
 function computeComboScoreGain(tierName, tierScore, comboByTierBefore, cfg) {
     const ranking = cfg.comboTierNames; // best -> worst
     const rank = ranking.indexOf(tierName);
-    if (rank === -1) {
-        const resetAll = {};
-        ranking.forEach((name) => { resetAll[name] = 0; });
-        return { pointsGained: tierScore, newComboByTier: resetAll };
-    }
-    const newComboByTier = { ...comboByTierBefore };
-    const streak = (comboByTierBefore[tierName] || 0) + 1;
-    newComboByTier[tierName] = streak;
-    for (let i = 0; i < rank; i++) newComboByTier[ranking[i]] = 0; // reset tier TỐT HƠN
-    const multiplier = 1 + Math.floor(streak / cfg.comboMultiplierConfig[tierName].stepSize) * cfg.comboMultiplierConfig[tierName].stepValue;
-    return { pointsGained: Math.floor(tierScore * multiplier), newComboByTier };
+    const isComboTier = rank !== -1;
+    const streak = isComboTier ? (comboByTierBefore[tierName] || 0) + 1 : 0;
+    const newComboByTier = isComboTier ? { ...comboByTierBefore } : {};
+    ranking.forEach((name, i) => { if (!isComboTier || i < rank) newComboByTier[name] = 0; }); // reset tier TỐT HƠN (hoặc tất cả)
+    if (isComboTier) newComboByTier[tierName] = streak;
+    const multiplier = isComboTier ? 1 + Math.floor(streak / cfg.comboMultiplierConfig[tierName].stepSize) * cfg.comboMultiplierConfig[tierName].stepValue : 1;
+    return { pointsGained: isComboTier ? Math.floor(tierScore * multiplier) : tierScore, newComboByTier };
 }
 
-/** MỚI (07/10/2026, game Arrow) — tổng điểm/số lượt đã chấm/breakdown tier SAU 1 lần chấm (tap/commit/miss), trả object
- * MỚI (không sửa tại chỗ) để Workflow chỉ việc ghi lại appState. Circle hiện vẫn tự cộng trong Workflow (nợ cũ, sổ vi
- * phạm "Workflow tự tính toán") — có thể chuyển sang hàm này khi đụng tới.
+/** Tổng điểm/số lượt đã chấm/breakdown tier SAU 1 lần chấm (tap/commit/miss) — object MỚI, Workflow chỉ việc ghi lại appState.
  * @returns {{ totalScore: number, resolvedCount: number, hitCounts: object }} */
 function computeScoreTotalsAfterResolve(totalScore, resolvedCount, hitCounts, tierName, pointsGained) {
     return {
@@ -58,17 +45,41 @@ function computeScoreTotalsAfterResolve(totalScore, resolvedCount, hitCounts, ti
     };
 }
 
-/** Tìm target theo Z-ORDER (`entries` PHẢI đã xếp topmost -> bottom TRƯỚC khi truyền vào — ĐÚNG
- * thứ tự `gameplayWaves` gốc, wave xuất hiện SỚM HƠN đứng trước, xem nơi gọi + docstring tick(),
- * event/workflow/gameplay.js) — trả về phần tử ĐẦU TIÊN nằm trong `tolerancePercent`.
- *
- * [SỬA — Giang yêu cầu "bỏ kiểu bấm xuyên qua lớp, tránh bấm vòng tròn này lại thành bấm vòng tròn
- * khác"] TRƯỚC ĐÂY chọn nearest-by-distance trong số các candidate nằm trong tolerance — 2 vòng
- * tròn chồng gần nhau, tap có thể "xuyên" qua vòng đang hiển thị TRÊN để tính trúng vòng NẰM DƯỚI
- * nếu vòng dưới tình cờ có tâm gần điểm tap hơn (dù mắt thường thấy đang tap đúng vòng trên). Giờ
- * TÔN TRỌNG thứ tự z (wave xuất hiện sớm hơn -> hiển thị trên cùng, xem tick()) — quét từ trên
- * xuống, phần tử ĐẦU TIÊN khớp tolerance được chọn NGAY, KHÔNG so khoảng cách với các candidate còn
- * lại nữa (khớp đúng cảm giác "tap vào cái đang thấy", không phải "tap vào cái GẦN NHẤT"). */
+/** Như computeScoreTotalsAfterResolve() cho `missCount` lượt miss cùng lúc (wave tự hết hạn, mỗi lượt cộng `missScore`).
+ * @returns {{ totalScore: number, resolvedCount: number, hitCounts: object }} */
+function computeScoreTotalsAfterMisses(totalScore, resolvedCount, hitCounts, missCount, missScore) {
+    return {
+        totalScore: totalScore + missCount * missScore,
+        resolvedCount: resolvedCount + missCount,
+        hitCounts: { ...hitCounts, miss: (hitCounts.miss || 0) + missCount },
+    };
+}
+
+/** Bước đếm ngược trước khi chơi: giá trị kế tiếp + còn đếm tiếp hay đã xong. @param {number} value @returns {{next:number, isRunning:boolean}} */
+function computeGameplayCountdownStep(value) {
+    const next = value - 1;
+    return { next, isRunning: next > 0 };
+}
+
+/** Thêm 1 lượt chơi vào `meta.game[mode][difficulty]` — THUẦN, dùng làm `mutate` cho updateMediaMeta() (service/db.js). */
+function appendGameplayScore(meta, mode, difficulty, finalScore) {
+    const game = { ...(meta.game || {}) };
+    const byMode = { ...(game[mode] || {}) };
+    byMode[difficulty] = [...(byMode[difficulty] || []), { time: Date.now(), score: finalScore }];
+    game[mode] = byMode;
+    return { ...meta, game };
+}
+
+/** Tên hiển thị ở modal Kết quả của media vừa chơi: tag title (Song) > customName > tên file bỏ đuôi > key — cùng công thức
+ * tên hiển thị toàn project (core/playlist/loader.js). @param {object} meta @param {string} key
+ * @param {string} filenameStem - stripFileExtension(meta.filename) (core/file-manager/video.js) */
+function resolveGameplayScoreTitle(meta, key, filenameStem) {
+    return (meta.tag && meta.tag.title) || meta.customName || (meta.filename ? filenameStem : key);
+}
+
+/** Note bị tap theo Z-ORDER: `entries` xếp sẵn trên -> dưới (đúng thứ tự `gameplayWaves`, wave xuất hiện sớm hơn nằm trên),
+ * trả phần tử ĐẦU TIÊN có tâm trong `tolerancePercent` px — "tap vào cái đang thấy", không xuyên xuống vòng nằm dưới dù tâm
+ * vòng dưới gần hơn. */
 function findTopmostNoteInTolerance(entries, tapX, tapY, tolerancePercent) {
     for (const entry of entries) {
         const dx = entry.x - tapX, dy = entry.y - tapY;
@@ -93,21 +104,10 @@ function computeStarRating(totalScore, maxScore, cfg) {
     return Math.min(cfg.starMax, rounded);
 }
 
-/** % lệch totalScore so với maxScore, giữ dấu +/- (KHÔNG clamp — vượt 100% khi combo bonus vượt lý
- * thuyết, nơi gọi tự quyết định hiển thị thế nào, xem engine-ui.js::buildScoreRingSvg()). */
-function computeScoreDeltaPercent(totalScore, maxScore) {
-    if (maxScore <= 0) return 0;
-    return ((totalScore - maxScore) / maxScore) * 100;
-}
-
-/** Phát hiện "nhạc vừa biến động" (energy/section) — DỜI sang core/audio-analysis.js
- * (detectMusicTransition(), gộp sẵn 2 cửa sổ) 28/08/2026, dùng chung ngoài phạm vi gameplay
- * (Space, Fireworks). Xem event/workflow/gameplay.js để biết cách gọi hiện tại. */
-
 /**
  * Chia % điểm (có thể >100%) thành các LAP cho vòng tròn kết quả — lap[0] luôn ≤100 (vòng chính);
- * mỗi 100% dư thêm 1 lap TRONG, tối đa `maxExtraLaps` lap thêm (dư nữa dồn hết vào lap cuối, KHÔNG
- * tràn vô hạn). VD totalPercent=250, maxExtraLaps=3 -> [100, 100, 50].
+ * mỗi 100% dư thêm 1 lap TRONG, tối đa `maxExtraLaps` lap thêm (phần dư sau đó bỏ). VD totalPercent=250,
+ * maxExtraLaps=3 -> [100, 100, 50].
  * @returns {number[]} mỗi phần tử trong (0,100], length <= 1+maxExtraLaps
  */
 function computeScoreRingLaps(totalPercent, maxExtraLaps) {
@@ -121,22 +121,44 @@ function computeScoreRingLaps(totalPercent, maxExtraLaps) {
     return laps;
 }
 
-/** Ghi ĐÚNG game đang "armed" — nullable (null = không game nào armed), khác `gameplayPhase` (đó
- * là trạng thái 1 PHIÊN chơi). [SỬA — 02/09/2026, Giang yêu cầu "game mode không lưu, trạng thái
- * tạm thời RAM"] Field này SỐNG Ở APPSTATE (service/state/gameplay-runtime.js, session-only, mất
- * khi reload) — KHÔNG còn ở AppConfig/vizConfig (PERSISTENT) như bản 1 boolean trước đó nữa, nên
- * KHÔNG còn gọi `saveConfig()` sau hàm này (xem nơi gọi, event/workflow/game-catalog.js). `set()`
- * ở Core VẪN hợp lệ (Rule 2 chỉ cấm `get()`), `skipCheck: true` khớp mọi field khác cùng domain
- * `gameplay-runtime` (gameplayPhase/gameplayMode…, xem event/workflow/gameplay.js). */
+/** % điểm cho vòng tròn kết quả (totalScore/maxScore x 100; maxScore 0 -> 0). */
+function computeScoreRingPercent(totalScore, maxScore) {
+    return maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
+}
+
+/** Bố cục `shardCount` mảnh vỡ toả đều quanh tâm, lệch góc ±10° + quãng bay 26-40px ngẫu nhiên.
+ * @param {number[]} randomValues - Math.random() của Workflow, 2 giá trị/mảnh theo thứ tự (góc, quãng)
+ * @returns {Array<{angleDeg:number, distancePx:number}>} */
+function computeShatterShardLayout(shardCount, randomValues) {
+    return Array.from({ length: shardCount }, (_, i) => ({
+        angleDeg: (360 / shardCount) * i + (randomValues[i * 2] * 20 - 10),
+        distancePx: 26 + randomValues[i * 2 + 1] * 14,
+    }));
+}
+
+/** Hình học vòng tròn % điểm — mỗi lap (computeScoreRingLaps()) 1 vòng bán kính giảm dần, màu theo `palette` (lặp nếu nhiều lap
+ * hơn palette), trễ animation so le. `circumference` = điểm xuất phát (rỗng), `target` = đích (CSS @keyframes gameplayRingFill).
+ * @param {number[]} laps @param {string[]} palette
+ * @returns {{size:number, cx:number, cy:number, strokeWidth:number, circles:Array<{r:number, circumference:number, target:number, color:string, delayMs:number}>}} */
+function computeScoreRingGeometry(laps, palette) {
+    const size = 120, cx = 60, cy = 60, baseRadius = 52, radiusStep = 11, strokeWidth = 7;
+    const circles = laps.map((percent, i) => {
+        const r = baseRadius - i * radiusStep;
+        const circumference = 2 * Math.PI * r;
+        return { r, circumference, target: circumference * (1 - percent / 100), color: palette[i % palette.length], delayMs: i * 220 };
+    });
+    return { size, cx, cy, strokeWidth, circles };
+}
+
+/** Ghi game đang "armed" (null = không game nào) — AppState session-only (service/state/gameplay-runtime.js), không lưu;
+ * khác `gameplayPhase` (trạng thái 1 phiên chơi). */
 function setGameplayArmedGameId(gameId) {
     appState.set('gameplayArmedGameId', gameId, { skipCheck: true });
     console.log(`writer: "setGameplayArmedGameId", page: "gameplayArmedGameId", content: "${gameId}"`);
 }
 
-/** Ghi độ khó đã chọn CHO ĐÚNG 1 game — MỚI (02/09/2026, Giang yêu cầu "phải lưu độ khó đã chọn cho
- * từng game" dù armed on/off không lưu). PERSISTENT (`gameplayDifficultyByGame`, core/config.js) —
- * KHÁC `gameplayDifficulty` (AppState, session-only, xem setGameplayArmedGameId() ở trên) là field
- * "đang áp dụng" cho phiên hiện tại. Không tự gọi saveConfig() (Rule 3a) — Workflow tự gọi ngay sau.
+/** Ghi độ khó đã chọn cho 1 game — PERSISTENT (`gameplayDifficultyByGame`, core/config.js), khác `gameplayDifficulty`
+ * (AppState, độ khó của phiên đang chơi). Workflow tự `saveConfig()` ngay sau.
  * @param {string} gameId
  * @param {'easy'|'medium'|'hard'} difficulty */
 function setGameDifficultyPreference(gameId, difficulty) {
@@ -144,12 +166,10 @@ function setGameDifficultyPreference(gameId, difficulty) {
     console.log(`writer: "setGameDifficultyPreference", page: "gameplayDifficultyByGame.${gameId}", content: "${difficulty}"`);
 }
 
-// ===================== MỚI (07/10/2026, game "Arrow") — điều khiển media DÙNG CHUNG mọi mode =====================
-// Workflow không tự .pause()/.play()/.currentTime= (event-bus-flow.md §7.1) — gọi 2 hàm này, truyền phần tử từ
-// getActiveMediaElement() (core/player-controls.js). Đặt ở engine.js (không phải engine-ui.js — không dựng UI, Rule 5c).
+// ── Điều khiển media lúc chơi (Workflow không tự .pause()/.play()/.currentTime=, event-bus-flow.md §7.1) ──────────
+// `mediaEl` = getActiveMediaElement() (core/player-controls.js): audio / video / đồng hồ giả Photo.
 
-/** Đưa media đang chơi về đầu — PAUSE trước rồi seek 0 (cùng thứ tự workflowGameplay.start()/replay()/exitToPlaylist()
- * của Circle). Vô hại khi đã dừng/đã ở 0. `mediaEl` = getActiveMediaElement() (audio / video / đồng hồ giả Photo). */
+/** Đưa media về đầu — PAUSE trước rồi seek 0 (seek trước có thể giật 1 khung lúc còn phát). Vô hại khi đã dừng/đã ở 0. */
 function resetGameplayMediaToStart(mediaEl) {
     mediaEl.pause();
     mediaEl.currentTime = 0;

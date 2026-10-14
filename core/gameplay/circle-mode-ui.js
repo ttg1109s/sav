@@ -1,20 +1,15 @@
 /**
- * core/gameplay/circle-mode-ui.js — Core-ui (Rule 5c) RIÊNG cho vẽ canvas mode "Circle": approach
- * ring + target circle. Tier popup/HUD combo/layer show-hide/countdown DÙNG CHUNG mọi mode đã dời
- * sang core/gameplay/engine-ui.js. KHÔNG appState.get() (Rule 2), KHÔNG gọi core khác (Rule 3a).
+ * core/gameplay/circle-mode-ui.js — vẽ canvas mode "Circle" (`#gameplay-canvas`): approach ring + target circle. Không đọc
+ * appState, không gọi core khác.
  *
- * Vẽ 2 PASS mỗi frame: pass 1 (drawApproachRings) LUÔN trước pass 2 (drawTargetCircles) — target
- * circle mọi note vì vậy luôn nổi trên approach ring mọi note. [SỬA — Giang yêu cầu "vòng tròn xuất
- * hiện trước có z-index lớn hơn, bỏ kiểu bấm xuyên qua lớp"] TRONG mỗi pass, thứ tự `entries` do
- * Workflow tự đảo NGƯỢC thứ tự spawn TRƯỚC khi truyền vào đây (event/workflow/gameplay.js::tick())
- * — wave xuất hiện SỚM HƠN giờ vẽ SAU CÙNG (đè lên trên) trong CẢ 2 pass. Hit-test tap giờ CŨNG tôn
- * trọng đúng thứ tự z này (KHÔNG còn "thuần toạ độ, không phụ thuộc thứ tự" như trước — xem
- * findTopmostNoteInTolerance() core/gameplay/engine.js) dù tự nó vẫn không đọc gì từ canvas, chỉ
- * ăn ĐÚNG quy ước thứ tự entries giống hệt file này.
+ * Mỗi frame 2 pass: approach ring (drawApproachRings) luôn trước target circle (drawTargetCircles) -> target của mọi note nổi
+ * trên ring của mọi note. Trong mỗi pass `entries` đã được đảo ngược thứ tự spawn (partitionCircleWaveEntries(),
+ * core/gameplay/circle-mode.js) — wave xuất hiện sớm hơn vẽ sau cùng (nằm trên), khớp thứ tự hit-test
+ * (findTopmostNoteInTolerance(), core/gameplay/engine.js).
  */
 
-/** Set kích thước canvas khớp devicePixelRatio — PHẢI gọi lại mỗi khi layer resize. Trả kích thước
- * CSS px (không nhân dpr) — Workflow dùng số này tính lưới pitch→ô (circle-mode.js). */
+/** Đặt kích thước bộ đệm canvas theo devicePixelRatio — gọi lại mỗi khi layer resize. Trả kích thước CSS px (không nhân
+ * dpr) để Workflow tính lưới pitch→ô. */
 function resizeGameplayCanvas(canvas) {
     const dpr = window.devicePixelRatio || 1;
     const widthPx = canvas.clientWidth;
@@ -26,13 +21,19 @@ function resizeGameplayCanvas(canvas) {
     return { widthPx, heightPx };
 }
 
-/** Xoá khung hình trước — nền TRONG SUỐT (KHÔNG fillRect), visualizer phía sau xuyên qua được. */
-function clearGameplayCanvas(ctx, widthPx, heightPx) {
-    ctx.clearRect(0, 0, widthPx, heightPx);
+/** Xoá toàn bộ canvas — nền trong suốt (không fillRect), visualizer phía sau xuyên qua. Xoá theo bộ đệm thật (bỏ transform
+ * dpr tạm thời) nên không cần biết kích thước CSS, kể cả canvas chưa từng resize. */
+function clearGameplayCanvas(canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
 }
 
 /** Pass 1 — approach ring (wave co dần): glow mờ, không viền cứng. `entries`: [{x,y,radius,opacity,colorLight}]. */
-function drawApproachRings(ctx, entries) {
+function drawApproachRings(canvas, entries) {
+    const ctx = canvas.getContext('2d');
     for (const entry of entries) {
         ctx.save();
         ctx.globalAlpha = entry.opacity;
@@ -46,8 +47,9 @@ function drawApproachRings(ctx, entries) {
     }
 }
 
-/** Pass 2 — target circle cố định, LUÔN vẽ sau (nổi trên) approach ring. `entries`: [{x,y,centerRadius,colorMain}]. */
-function drawTargetCircles(ctx, entries) {
+/** Pass 2 — target circle cố định, vẽ sau (nổi trên) approach ring. `entries`: [{x,y,centerRadius,colorMain}]. */
+function drawTargetCircles(canvas, entries) {
+    const ctx = canvas.getContext('2d');
     for (const entry of entries) {
         ctx.save();
         ctx.beginPath();

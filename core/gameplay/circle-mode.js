@@ -1,35 +1,29 @@
 /**
- * core/gameplay/circle-mode.js — Core thuần RIÊNG cho mode "Circle": spawn theo lưới pitch→ô, vật
- * lý wave (bán kính/opacity/miss), màu vòng. Chấm điểm/hit-test/tổng kết/flux dùng CHUNG mọi mode
- * đã tách sang core/gameplay/engine.js. Rule 1-3: mỗi hàm 1 việc, chỉ nhận tham số, không gọi hàm
- * khác trong cùng file — phối hợp nhiều hàm là việc của event/workflow/gameplay.js.
+ * core/gameplay/circle-mode.js — core thuần riêng mode "Circle": nhịp spawn theo beat, lưới pitch→ô, chuỗi "sinh sản" Hard,
+ * vật lý wave (bán kính/opacity/miss), màu vòng. Chấm điểm/hit-test/tổng kết dùng chung ở core/gameplay/engine.js. Mỗi hàm
+ * 1 việc, chỉ nhận tham số, không gọi hàm khác trong file — phối hợp là việc của event/workflow/gameplay.js. Ngẫu nhiên do
+ * Workflow `Math.random()` rồi truyền vào (tham số `*Random01` / `randomValues`).
  *
- * Mỗi note là 1 CẶP circle (đích, x/y px thật) + wave (co từ waveStartRadius về 0 tại đúng x/y đó).
- * Vùng hợp lệ TÍNH ĐIỂM (classifyTapTier(), engine.js) khác vùng hợp lệ VỊ TRÍ tap
- * (findTopmostNoteInTolerance(), engine.js — [SỬA] đổi tên + đổi hẳn tiêu chí chọn, KHÔNG còn
- * "gần nhất" mà theo z-order, xem docstring hàm đó).
+ * Mỗi note = 1 cặp target circle (x/y px) + wave co từ `waveStartRadius` về 0 tại đúng chỗ đó. Vùng tính điểm
+ * (classifyTapTier()) khác vùng nhận tap (findTopmostNoteInTolerance()), cả 2 ở engine.js.
  */
 
         // ── Spawn timing/mật độ ──────────────────────────────────────────────────────────────
 
-        /** Độ khó Medium chỉ xét spawn mỗi N beat (Easy/Hard N=1, không lọc gì thêm ở đây — Workflow
-         * tự truyền N đúng theo độ khó). Workflow tự đếm `beatsSinceEligible`, reset về 0 khi hàm này
-         * trả true. */
+        /** Đủ số beat để xét spawn (`spawnEligibleEveryNBeats` theo độ khó; Easy/Hard = 1). Workflow đếm `beatsSinceEligible`,
+         * đưa về 0 khi thật sự xét spawn. */
         function isBeatEligibleForSpawn(beatsSinceEligible, spawnEligibleEveryNBeats) {
             return beatsSinceEligible >= spawnEligibleEveryNBeats;
         }
 
-        /** Xác suất spawn thật khi đủ điều kiện cần — nội suy tuyến tính theo smoothedEnergy hiện
-         * tại. Workflow tự roll Math.random() so với số trả về đây (Core không tự random). */
+        /** Xác suất spawn khi đủ điều kiện — nội suy tuyến tính theo smoothedEnergy (roll: isCircleSpawnRollHit()). */
         function computeSpawnProbability(smoothedEnergy, cfg) {
             const energy = Math.min(1, Math.max(0, smoothedEnergy));
             return cfg.spawnProbabilityMin + energy * (cfg.spawnProbabilityMax - cfg.spawnProbabilityMin);
         }
 
-        /** Quy đổi BPM hiện tại thành thời gian co (ms) cho 1 wave = đúng beatsPerWave nhịp theo
-         * tempo đó, nhân `difficultyMultiplier` (Easy chậm hơn, Hard gốc), clamp trong
-         * [minShrinkDurationMs, maxShrinkDurationMs] SAU KHI nhân. BPM không hợp lệ -> fallback cố
-         * định, CŨNG bị nhân multiplier (nhất quán giữa mọi độ khó dù có/không xác định được BPM). */
+        /** Thời gian co (ms) của 1 wave = `beatsPerWave` nhịp theo BPM hiện tại x `difficultyMultiplier` (Easy chậm hơn), clamp
+         * [minShrinkDurationMs, maxShrinkDurationMs] sau khi nhân. BPM không hợp lệ -> `fallbackShrinkDurationMs` (cũng nhân). */
         function computeShrinkDurationMs(bpmString, cfg, difficultyMultiplier) {
             const bpm = parseFloat(bpmString);
             const raw = (!Number.isFinite(bpm) || bpm <= 0) ? cfg.fallbackShrinkDurationMs : (60000 / bpm) * cfg.beatsPerWave;
@@ -37,14 +31,8 @@
             return Math.min(cfg.maxShrinkDurationMs, Math.max(cfg.minShrinkDurationMs, adjusted));
         }
 
-        /**
-         * [SỬA — phản hồi Giang "không chia nửa, mà chỉ trừ đi 1/3 của nó"] Khoảng cách (ms) giữa 2
-         * wave LIÊN TIẾP trong chuỗi "sinh sản" Hard — quãng s gốc (`spawnEligibleEveryNBeats` quy
-         * đổi ra ms từ BPM) TRỪ ĐI 1/3 CHÍNH NÓ, tức còn lại 2/3 quãng s gốc (KHÔNG còn chia đôi như
-         * bản trước — 2/3 > 1/2, quãng cách giờ DÀI hơn, chuỗi giãn ra chậm hơn bản trước).
-         * BPM không hợp lệ -> fallback CÙNG công thức computeShrinkDurationMs() (beatPeriodMs xấp xỉ
-         * = fallbackShrinkDurationMs / beatsPerWave).
-         */
+        /** Khoảng cách (ms) giữa 2 wave liên tiếp của chuỗi "sinh sản" Hard = 2/3 quãng `spawnEligibleEveryNBeats` beat theo
+         * BPM. BPM không hợp lệ -> chu kỳ beat ≈ fallbackShrinkDurationMs / beatsPerWave. */
         function computeChainSpacingMs(bpmString, spawnEligibleEveryNBeats, cfg) {
             const bpm = parseFloat(bpmString);
             const beatPeriodMs = (!Number.isFinite(bpm) || bpm <= 0) ? (cfg.fallbackShrinkDurationMs / cfg.beatsPerWave) : (60000 / bpm);
@@ -54,24 +42,18 @@
 
         // ── Vị trí spawn: lưới pitch→ô ────────────────────────────────────────────────────────
 
-        /** Số cột/hàng lưới thật (px) khớp vùng spawnZone hiện tại của canvas — tính lại mỗi khi
-         * resize HOẶC mỗi lần refresh bảng gán (xem gameplayRefreshPending). */
+        /** Số cột/hàng lưới khớp vùng spawn (px) — tính lại mỗi lần canvas đổi kích thước. */
         function computeGridGeometry(zoneWidthPx, zoneHeightPx, cellSizePx) {
             const cols = Math.max(1, Math.floor(zoneWidthPx / cellSizePx));
             const rows = Math.max(1, Math.floor(zoneHeightPx / cellSizePx));
-            return { cols, rows, totalCells: cols * rows };
+            return { cols, rows };
         }
 
-        // ── Sinh thứ tự duyệt toàn bộ ô lưới (traversal order) ───────────────────────────────
-        // [MỚI — phản hồi Giang, viết lại thuật toán pitch map] 5 hàm THAM SỐ HOÁ (không phải 14
-        // hàm riêng — Rule 1/3a: đây là CÙNG 1 thuật toán mỗi loại, chỉ khác điểm xuất phát/chiều,
-        // không phải nhiều tiến trình khác nhau) phủ hết 14 kiểu Giang liệt kê + vài biến thể đối
-        // xứng tự nhiên đi kèm. Mỗi hàm trả ĐÚNG `cols*rows` phần tử {col,row}, không lặp, không
-        // thiếu ô nào — Workflow tự chọn 1 hàm + tham số (random mỗi lần rebuild, xem
-        // event/workflow/gameplay.js::_rebuildPitchCellMap()) rồi truyền vào buildPitchCellMap().
+        // ── Thứ tự duyệt toàn bộ ô lưới ───────────────────────────────────────────────────────
+        // 5 thuật toán tham số hoá (điểm xuất phát/chiều) phủ 14 kiểu duyệt; mỗi hàm trả đúng `cols*rows` phần tử {col,row},
+        // không lặp. Workflow chọn ngẫu nhiên 1 hàm mỗi lần dựng lại (planCirclePitchMapRebuild()) rồi đưa vào buildPitchCellMap().
 
-        /** Theo hàng (row-major) — hàng nào cũng quét CÙNG 1 chiều cột. `startFromBottom`/
-         * `startFromRight` chọn hàng đầu tiên/chiều quét cột — phủ 4 kiểu Giang liệt kê (1-4). */
+        /** Theo hàng — mọi hàng quét cùng 1 chiều cột. */
         function generateRowMajorOrder(cols, rows, startFromBottom, startFromRight) {
             const order = [];
             for (let ri = 0; ri < rows; ri++) {
@@ -84,8 +66,7 @@
             return order;
         }
 
-        /** Theo cột (column-major) — cột nào cũng quét CÙNG 1 chiều hàng. `startFromRight`/
-         * `startFromBottom` chọn cột đầu tiên/chiều quét hàng — phủ 4 kiểu Giang liệt kê (8-11). */
+        /** Theo cột — mọi cột quét cùng 1 chiều hàng. */
         function generateColumnMajorOrder(cols, rows, startFromRight, startFromBottom) {
             const order = [];
             for (let ci = 0; ci < cols; ci++) {
@@ -98,10 +79,7 @@
             return order;
         }
 
-        /** Rắn bò (boustrophedon) theo hàng — chiều quét cột TỰ ĐẢO mỗi hàng kế tiếp (hàng 1 trái
-         * qua phải, hàng 2 phải qua trái, hàng 3 lại trái qua phải...). `startFromBottom` chọn hàng
-         * đầu tiên, `startFromRight` chọn chiều quét cột CỦA HÀNG ĐẦU (hàng sau tự đảo theo) — phủ
-         * kiểu Giang liệt kê (12-13, cả biến thể "xuất phát từ trên/dưới" lẫn trái/phải). */
+        /** Rắn bò theo hàng — chiều quét cột đảo mỗi hàng; `startFromRight` là chiều của hàng đầu. */
         function generateBoustrophedonRowOrder(cols, rows, startFromBottom, startFromRight) {
             const order = [];
             for (let ri = 0; ri < rows; ri++) {
@@ -115,8 +93,7 @@
             return order;
         }
 
-        /** Rắn bò (boustrophedon) theo cột — chiều quét hàng TỰ ĐẢO mỗi cột kế tiếp. `startFromRight`
-         * chọn cột đầu tiên — phủ kiểu Giang liệt kê (14). */
+        /** Rắn bò theo cột — chiều quét hàng đảo mỗi cột; `startFromRight` chọn cột đầu. */
         function generateBoustrophedonColumnOrder(cols, rows, startFromRight) {
             const order = [];
             for (let ci = 0; ci < cols; ci++) {
@@ -130,11 +107,7 @@
             return order;
         }
 
-        /** Xoáy ốc (spiral) quanh tâm lưới — `clockwise` chọn chiều, `outsideIn` chọn xuất phát từ
-         * viền ngoài hay tâm (đảo ngược mảng outside-in để ra inside-out, CÙNG 1 đường đi hình học,
-         * chỉ khác thứ tự đọc) — phủ kiểu Giang liệt kê (5-7) + 1 biến thể đối xứng tự nhiên
-         * (ngược chiều kim đồng hồ, từ trong ra ngoài — Giang không liệt kê riêng nhưng cùng công
-         * thức, không thêm thuật toán mới). */
+        /** Xoáy ốc quanh tâm lưới — `clockwise` chọn chiều, `outsideIn` xuất phát từ viền (false = đảo ngược, từ tâm ra). */
         function generateSpiralOrder(cols, rows, clockwise, outsideIn) {
             const order = [];
             let top = 0, bottom = rows - 1, left = 0, right = cols - 1;
@@ -158,23 +131,9 @@
         // ── Bảng gán pitch→ô ──────────────────────────────────────────────────────────────────
 
         /**
-         * [SỬA — phản hồi Giang, viết lại thuật toán pitch map] Dải MIDI giờ CỐ ĐỊNH [0-127] (toàn
-         * bộ dải MIDI hợp lệ) — KHÔNG còn theo dõi "dải đã quan sát được" (computePitchRangeUpdate()
-         * ĐÃ XOÁ, cùng 2 field gameplayPitchRangeMin/Max) — bỏ hẳn nhóm code + edge case "dải chưa
-         * đủ rộng"/"chưa detect nốt nào -> map rỗng" của bản trước.
-         *
-         * Thuật toán: (1) phân phối ROUND-ROBIN toàn bộ 128 note vào ĐÚNG `traversalOrder` (1 trong
-         * 5 hàm generate*Order() ở trên, Workflow tự chọn + truyền vào) — note 0 -> traversalOrder[0],
-         * note 1 -> traversalOrder[1], ..., hết ô lại VÒNG LẠI từ traversalOrder[0] (note thứ
-         * totalCells lại rơi vào ô đầu) — CHẤP NHẬN số note/ô không đều nếu 128 không chia hết
-         * totalCells (Giang xác nhận chấp nhận được). (2) SAU ĐÓ shuffle — hoán vị VỊ TRÍ VẬT LÝ mỗi
-         * ô trong traversalOrder (Fisher-Yates), giữ NGUYÊN cụm note đã gán cho ô đó, chỉ đổi ô đó
-         * NẰM Ở ĐÂU trên lưới thật.
-         *
-         * Trả về mảng ĐÚNG 128 phần tử (index = note MIDI, 0-127) — `findCellForPitch()` giờ tra
-         * cứu O(1) bằng index thẳng, không còn tìm kiếm tuyến tính qua pitchMin/pitchMax.
-         * `randomValues` PHẢI do Workflow tự sinh sẵn (Core không tự random) — cần ít nhất
-         * `cols*rows` phần tử (dùng cho bước shuffle).
+         * Bảng gán pitch→ô trên dải MIDI cố định [0-127]: tâm các ô theo `traversalOrder` được xáo (Fisher-Yates, dùng
+         * `randomValues`, cần ≥ `cols*rows` giá trị) rồi chia round-robin 128 note (hết ô thì vòng lại — số note/ô có thể không
+         * đều). @returns {Array<{col,row,cellX,cellY}>} đúng 128 phần tử, index = note MIDI (findCellForPitch() tra O(1)).
          */
         function buildPitchCellMap(cols, rows, zoneOriginXPx, zoneOriginYPx, cfg, traversalOrder, randomValues) {
             const totalCells = cols * rows;
@@ -197,31 +156,21 @@
             return cellForMidi;
         }
 
+        // ── Chọn ô đặt wave ───────────────────────────────────────────────────────────────────
 
-        const GAMEPLAY_NEIGHBOR_OFFSETS = Object.freeze([[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]); // 8 hướng la bàn — CHỈ dùng làm điểm xuất phát random, KHÔNG quét tuần tự
-
-        /** Xoay 90° 1 offset (dc,dr) — CÙNG công thức ma trận xoay dùng cho rotateRubikIndices()
-         * (core/rubik-math.js, hiệu ứng Rubik's Cube): dir>0 xoay 1 chiều, dir<=0 xoay chiều ngược
-         * lại. Áp cho offset ô lân cận (2D) thay vì toạ độ khối lập phương (3D) — cùng nguyên lý ma
-         * trận xoay 90° rời rạc. */
-        function rotateNeighborOffset90(dc, dr, dir) {
-            return dir > 0 ? { dc: -dr, dr: dc } : { dc: dr, dr: -dc };
-        }
+        const GAMEPLAY_NEIGHBOR_OFFSETS = Object.freeze([[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]); // 8 hướng — chỉ làm hướng xuất phát ngẫu nhiên, không quét tuần tự
 
         /**
-         * [SỬA — phản hồi Giang "dùng thuật toán xoay của rubik để chọn ô kế cận, try 2 lần, lần 2
-         * false thì bỏ luôn"] Thay HẲN cách quét tuần tự 8 ô cố định + fallback ô rỗng-bucket (đã
-         * xoá `listUnusedGridCells()`) — giờ CHỌN 1 hướng NGẪU NHIÊN làm điểm xuất phát
-         * (`startOffsetIndex`), thử ô đó (lần 1); KHÔNG trống (hoặc ngoài biên) -> XOAY 90°
-         * (rotateNeighborOffset90(), CÙNG công thức rotateRubikIndices()) ra hướng thứ 2, thử tiếp
-         * (lần 2); lần 2 CŨNG không trống -> bỏ luôn (null), KHÔNG còn dò tiếp ô nào khác nữa.
+         * Ô đặt wave: ô đích còn trống -> dùng luôn; bận -> thử 1 ô lân cận theo hướng NGẪU NHIÊN (lần 1), bận/ngoài biên ->
+         * XOAY 90° hướng đó (cùng ma trận xoay rời rạc của rotateRubikIndices(), core/rubik-math.js) thử lần 2; vẫn không
+         * được -> null (bỏ, không dò tiếp).
          * @param {{col:number,row:number,cellX:number,cellY:number}} targetCell
-         * @param {number} startOffsetIndex - 0-7, Workflow tự Math.random() rồi truyền vào
-         * @param {1|-1} rotationDir - chiều xoay cho lần thử thứ 2, Workflow tự random
-         * @param {Set<string>} occupiedCellKeys - `"${col},${row}"` của MỌI wave đang sống
+         * @param {number} startRandom01 - Math.random() của Workflow -> hướng xuất phát (0-7)
+         * @param {number} rotationRandom01 - Math.random() của Workflow -> chiều xoay lần 2 (<0.5: thuận, còn lại: ngược)
+         * @param {Set<string>} occupiedCellKeys - `"${col},${row}"` của MỌI wave đang sống (collectOccupiedCellKeys())
          * @returns {{col:number,row:number,cellX:number,cellY:number}|null}
          */
-        function findAvailableCell(targetCell, cols, rows, cfg, zoneOriginXPx, zoneOriginYPx, startOffsetIndex, rotationDir, occupiedCellKeys) {
+        function findAvailableCell(targetCell, cols, rows, cfg, zoneOriginXPx, zoneOriginYPx, startRandom01, rotationRandom01, occupiedCellKeys) {
             const isFree = (col, row) => !occupiedCellKeys.has(`${col},${row}`);
             if (isFree(targetCell.col, targetCell.row)) return targetCell;
 
@@ -232,26 +181,44 @@
             });
             const tryOffset = (dc, dr) => {
                 const col = targetCell.col + dc, row = targetCell.row + dr;
-                if (col < 0 || col >= cols || row < 0 || row >= rows) return null; // ngoài biên lưới -> tính là 1 LẦN THỬ HỎNG (vẫn trừ vào quota 2 lần)
+                if (col < 0 || col >= cols || row < 0 || row >= rows) return null; // ngoài biên lưới -> tính là 1 LẦN THỬ HỎNG
                 return isFree(col, row) ? toCellCenter(col, row) : null;
             };
 
+            const startOffsetIndex = Math.floor(startRandom01 * 8);
+            const rotateClockwise = rotationRandom01 < 0.5;
             const [dc1, dr1] = GAMEPLAY_NEIGHBOR_OFFSETS[startOffsetIndex % GAMEPLAY_NEIGHBOR_OFFSETS.length];
             const try1 = tryOffset(dc1, dr1);
             if (try1) return try1;
-
-            const rotated = rotateNeighborOffset90(dc1, dr1, rotationDir);
-            const try2 = tryOffset(rotated.dc, rotated.dr);
-            if (try2) return try2;
-
-            return null; // 2 lần thử đều không trống (hoặc ngoài biên) -> bỏ luôn
+            return tryOffset(rotateClockwise ? -dr1 : dr1, rotateClockwise ? dc1 : -dc1);
         }
 
-        /** Trần số wave cùng lúc — cfg có khoảng (`minConcurrentWaves`/`maxConcurrentWaves` khác
-         * nhau, vd Medium 2-5) thì ROLL NGẪU NHIÊN trong khoảng đó MỖI LẦN gọi (mật độ dao động
-         * thay vì cố định 1 số) — cfg chỉ có 1 số cố định (Easy=1, Hard=Infinity, hoặc
-         * min===max) thì trả thẳng `maxConcurrentWaves`. `random01` PHẢI do Workflow tự
-         * Math.random() rồi truyền vào (Core không tự random). */
+        /** Tập ô đang có wave sống (`"${col},${row}"`). @param {Array<{col:number,row:number}>} waves @returns {Set<string>} */
+        function collectOccupiedCellKeys(waves) {
+            return new Set(waves.map((w) => `${w.col},${w.row}`));
+        }
+
+        /** Ô dự phòng khi pitch chưa có ô (map rỗng/pitch null): ô GIỮA vùng spawn. */
+        function computeFallbackGridCell(gridCols, gridRows, zoneOriginXPx, zoneOriginYPx, cfg) {
+            return {
+                col: Math.floor(gridCols / 2), row: Math.floor(gridRows / 2),
+                cellX: zoneOriginXPx + (gridCols * cfg.gridCellSizePx) / 2,
+                cellY: zoneOriginYPx + (gridRows * cfg.gridCellSizePx) / 2,
+            };
+        }
+
+        /** Vùng spawn (px) trong canvas theo `cfg.spawnZone` (%): góc trên-trái + kích thước. */
+        function computeSpawnZoneGeometry(canvasWidthPx, canvasHeightPx, zone) {
+            return {
+                originX: canvasWidthPx * zone.xMinPercent / 100,
+                originY: canvasHeightPx * zone.yMinPercent / 100,
+                widthPx: canvasWidthPx * (zone.xMaxPercent - zone.xMinPercent) / 100,
+                heightPx: canvasHeightPx * (zone.yMaxPercent - zone.yMinPercent) / 100,
+            };
+        }
+
+        /** Trần số wave cùng lúc: cfg có khoảng (Medium 2-5) -> roll trong khoảng mỗi lần xét (mật độ dao động); số cố định
+         * (Easy 1, Hard Infinity) -> trả thẳng `maxConcurrentWaves`. */
         function computeConcurrentWaveCap(diffCfg, random01) {
             const hasRange = diffCfg.minConcurrentWaves != null && diffCfg.minConcurrentWaves !== diffCfg.maxConcurrentWaves;
             if (!hasRange) return diffCfg.maxConcurrentWaves;
@@ -260,71 +227,151 @@
         }
 
         /**
-         * [MỚI — phản hồi Giang, cơ chế "sinh sản" riêng Hard] Chuỗi pitch cho 1 sự kiện spawn cấp
-         * `chainLevel` (2..8) — phần tử 0 LUÔN là `basePitch` (note gốc thật, không đổi); phần tử i
-         * (i>=1) = phần tử (i-1) + (i+1) bán cung ("quãng (i+1)": quãng 2 cho bản sao đầu, quãng 3
-         * cho bản sao kế TÍNH TỪ bản sao trước đó — KHÔNG phải từ gốc — đúng chuỗi Giang mô tả).
-         * Clamp mỗi bước vào [pitchMin, pitchMax] (dải pitch quan sát được) — tránh note vọt ra
-         * ngoài dải, không map được ô nào.
-         * @param {number} chainLevel - 1 = không sinh sản (chỉ [basePitch]), 2..8 = số phần tử trả về
-         * @returns {number[]} length === chainLevel (hoặc 1 nếu chainLevel<=1)
+         * Chuỗi pitch của 1 lần spawn cấp `chainLevel` (cơ chế "sinh sản" Hard): phần tử 0 là `basePitch`; phần tử i = phần tử
+         * i-1 + (i+1) bán cung (tính từ bản sao trước, không từ gốc), clamp [pitchMin, pitchMax].
+         * @param {number} chainLevel - 1 = chỉ [basePitch] @returns {number[]} length = max(1, chainLevel)
          */
         function computeChainedPitches(basePitch, chainLevel, pitchMin, pitchMax) {
             const pitches = [basePitch];
             let current = basePitch;
             for (let i = 1; i < chainLevel; i++) {
-                current = current + (i + 1); // "quãng (i+1)" TÍNH TỪ phần tử vừa thêm, không phải từ gốc
+                current = current + (i + 1);
                 current = Math.min(pitchMax, Math.max(pitchMin, current));
                 pitches.push(current);
             }
             return pitches;
         }
 
-        /** Tìm ô đã gán cho 1 pitch trong bảng map hiện hành — null nếu map rỗng hoặc pitch chưa
-         * detect. */
-        /** [SỬA — viết lại thuật toán pitch map] Tra cứu O(1) bằng index thẳng — `pitchCellMap` giờ
-         * LUÔN đúng 128 phần tử (index = note MIDI), không còn tìm kiếm tuyến tính qua
-         * pitchMin/pitchMax (bucket range ĐÃ XOÁ). `midiNote` ngoài [0,127] hoặc null -> null (Rule
-         * 2: Core không tự biết "chưa detect" nghĩa là gì, chỉ trả null cho input không hợp lệ). */
+        /** Ô đã gán cho 1 pitch (index thẳng vào bảng 128 phần tử). Map rỗng / pitch null / ngoài [0,127] -> null. */
         function findCellForPitch(pitchCellMap, midiNote) {
             if (midiNote == null || midiNote < 0 || midiNote > 127) return null;
             return pitchCellMap[midiNote] || null;
         }
 
-        /** Lệch tâm ngẫu nhiên trong ô, giới hạn (gridCellSizePx - cellJitterMarginPx) quanh tâm ô.
-         * `randomX01`/`randomY01` PHẢI do Workflow tự Math.random() rồi truyền vào. */
+        /** Lệch tâm ngẫu nhiên trong ô, giới hạn (gridCellSizePx - cellJitterMarginPx) quanh tâm ô. */
         function applyCellJitter(cellX, cellY, cfg, randomX01, randomY01) {
             const usable = cfg.gridCellSizePx - cfg.cellJitterMarginPx;
             return { x: cellX + (randomX01 - 0.5) * usable, y: cellY + (randomY01 - 0.5) * usable };
         }
 
-        // [SỬA — phản hồi Giang] isPositionTooClose() ĐÃ XOÁ (đo khoảng cách px, có thể lọt nếu
-        // jitter xui rơi xa nhau ngay trong CÙNG 1 ô — xem thảo luận) — thay HẲN bằng
-        // findAvailableCell() ở trên (occupancy chính xác theo chỉ số ô col/row).
+        // ── Nhịp spawn + refresh theo beat (bộ theo dõi beat sống ở Workflow, core sửa tại chỗ) ───────────────────
 
-        /** Cập nhật dải pitch quan sát được (min/max) — `midiNote` null (chưa detect) giữ nguyên
-         * dải cũ. */
-        // [SỬA — viết lại thuật toán pitch map, phản hồi Giang] computePitchRangeUpdate() ĐÃ XOÁ —
-        // dải MIDI giờ CỐ ĐỊNH [0-127], không còn "dải đã quan sát được" nào cần theo dõi/cập nhật.
+        /** Bộ theo dõi beat của 1 phiên Circle. `beatFluxHistory`: 1 mốc/BEAT (trung bình flux mỗi frame giữa 2 beat), trần 24 —
+         * độc lập fps máy. @param {number} lastBeatTime - mốc beat hiện tại (beat cũ không tính là "mới") */
+        function createCircleBeatTracker(lastBeatTime) {
+            return { lastConsumedBeatTime: lastBeatTime, beatsSinceEligible: 0, beatsSincePhraseRefresh: 0, beatFluxHistory: [], pendingSum: 0, pendingCount: 0 };
+        }
 
-        // ── Trigger refresh vị trí (section/energy/phrase) ───────────────────────────────────
+        /** Lúc bắt đầu phát (hết đếm ngược): chốt mốc beat hiện tại + đếm lại 2 bộ đếm — beat detect trước đó không bị hiểu là
+         * "vừa có". Giữ lịch sử flux. @param {object} tracker @param {number} lastBeatTime */
+        function resetCircleBeatTrackerCounters(tracker, lastBeatTime) {
+            tracker.lastConsumedBeatTime = lastBeatTime;
+            tracker.beatsSinceEligible = 0;
+            tracker.beatsSincePhraseRefresh = 0;
+        }
 
-        /** isPhraseBoundary() — DỜI sang core/audio-analysis.js 28/08/2026, dùng chung ngoài
-         * phạm vi gameplay (Space, Fireworks). */
+        /** 1 frame: cộng flux mới nhất vào bộ tích luỹ; có beat MỚI -> chốt mốc beat, tăng 2 bộ đếm, đẩy trung bình đoạn vào
+         * lịch sử (trần 24) rồi reset bộ tích luỹ. Sửa `tracker` tại chỗ (hot path, không cấp phát). @returns {boolean} có beat mới */
+        function stepCircleBeatTracker(tracker, fluxHistory, lastBeatTime) {
+            if (fluxHistory.length > 0) {
+                tracker.pendingSum += fluxHistory[fluxHistory.length - 1];
+                tracker.pendingCount++;
+            }
+            if (!(lastBeatTime > 0 && lastBeatTime !== tracker.lastConsumedBeatTime)) return false;
+            tracker.lastConsumedBeatTime = lastBeatTime;
+            tracker.beatsSinceEligible++;
+            tracker.beatsSincePhraseRefresh++;
+            if (tracker.pendingCount > 0) {
+                tracker.beatFluxHistory.push(tracker.pendingSum / tracker.pendingCount);
+                if (tracker.beatFluxHistory.length > 24) tracker.beatFluxHistory.shift();
+            }
+            tracker.pendingSum = 0;
+            tracker.pendingCount = 0;
+            return true;
+        }
+
+        /** Dựng lại bảng gán pitch→ô: lần đầu (map rỗng) hoặc đang chờ refresh mà bảng đã sạch wave (không ép wave đang sống đổi
+         * chỗ). */
+        function shouldRebuildCirclePitchMap(pitchMapLength, refreshPending, liveWaveCount) {
+            return pitchMapLength === 0 || (refreshPending && liveWaveCount === 0);
+        }
+
+        /** Yêu cầu refresh vị trí khi nhạc biến động / qua ranh giới phrase — chỉ khi map vừa không dựng lại và chưa đang chờ. */
+        function shouldRequestCircleRefresh(justRebuilt, refreshPending, musicTransition, phraseBoundary) {
+            return !justRebuilt && !refreshPending && (musicTransition || phraseBoundary);
+        }
+
+        /** Được xét spawn ở beat này: không chờ refresh, chưa chạm trần wave, không có chuỗi Hard đang nhả dở, đủ số beat. */
+        function canConsiderCircleSpawn(refreshPending, liveWaveCount, concurrentWaveCap, chainQueueLength, eligibleBeat) {
+            return !refreshPending && liveWaveCount < concurrentWaveCap && chainQueueLength === 0 && eligibleBeat;
+        }
+
+        /** Roll xác suất spawn. @param {number} random01 - Math.random() của Workflow */
+        function isCircleSpawnRollHit(random01, probability) {
+            return random01 < probability;
+        }
+
+        /** Cấp chuỗi "sinh sản" (chỉ Hard): spawn lúc bảng còn wave sống -> tăng 1 (trần `maxLevel`), bảng sạch -> về 1.
+         * Không bật cơ chế -> giữ cấp đang lưu, chuỗi 1 (không sinh sản). @returns {{level:number, chainLevel:number}} */
+        function computeHardChainLevel(enabled, currentLevel, liveWaveCount, maxLevel) {
+            const level = liveWaveCount > 0 ? Math.min(currentLevel + 1, maxLevel) : 1;
+            return { level: enabled ? level : currentLevel, chainLevel: enabled ? level : 1 };
+        }
+
+        /** Đến lượt nhả wave kế tiếp của chuỗi Hard (đủ quãng `spacingMs` kể từ lần nhả trước). */
+        function isHardChainReleaseDue(enabled, queueLength, now, lastSpawnAt, spacingMs) {
+            return enabled && queueLength > 0 && now - lastSpawnAt >= spacingMs;
+        }
+
+        /** Kế hoạch xáo lại bảng gán: 1 trong 5 kiểu duyệt lưới + 2 cờ hướng + số giá trị ngẫu nhiên cần cho bước shuffle.
+         * @param {number} patternRandom01 @param {number} flagRandomA01 @param {number} flagRandomB01 - Math.random() của Workflow */
+        function planCirclePitchMapRebuild(cols, rows, patternRandom01, flagRandomA01, flagRandomB01) {
+            return {
+                patternIndex: Math.floor(patternRandom01 * 5),
+                flagA: flagRandomA01 < 0.5,
+                flagB: flagRandomB01 < 0.5,
+                randomCount: cols * rows + 8,
+            };
+        }
+
+        /** Tách wave tự hết hạn khỏi wave còn sống trong 1 frame: danh sách miss + id, thứ tự VẼ (đảo — wave xuất hiện trước nằm
+         * trên, canvas "vẽ sau đè lên") và vòng đích tương ứng. @param {Array<object>} entries - theo thứ tự `gameplayWaves`
+         * @param {boolean[]} missedFlags - isWaveMissed() từng entry @param {number} centerRadius */
+        function partitionCircleWaveEntries(entries, missedFlags, centerRadius) {
+            const missed = [];
+            const remaining = [];
+            entries.forEach((entry, i) => (missedFlags[i] ? missed : remaining).push(entry));
+            const drawOrder = remaining.slice().reverse();
+            return {
+                missed,
+                missedIds: missed.map((entry) => entry.id),
+                drawOrder,
+                targetCircles: drawOrder.map((entry) => ({ x: entry.x, y: entry.y, centerRadius, colorMain: entry.colorMain })),
+            };
+        }
+
+        /** Danh sách wave mới bỏ các id đã chấm/miss (giữ thứ tự). @param {Array<{id:number}>} waves @param {number[]} ids */
+        function removeCircleWavesByIds(waves, ids) {
+            return waves.filter((w) => !ids.includes(w.id));
+        }
+
+        /** Số liệu phụ cho modal Kết quả: điểm tối đa lý thuyết (mọi vòng Perfect) + nhãn số lượt chơi số nhiều hay ít.
+         * @returns {{ maxScore: number, isPluralPlayCount: boolean }} */
+        function computeCircleEndExtras(circleCount, playCount, cfg) {
+            return { maxScore: circleCount * cfg.tiers.find((tier) => tier.name === 'perfect').score, isPluralPlayCount: playCount !== 1 };
+        }
 
         // ── Vật lý wave: bán kính / opacity / ngưỡng miss ────────────────────────────────────
 
-        /** Bán kính hiện tại của 1 wave — co tuyến tính từ startRadius về 0 trong đúng
-         * wave.shrinkDurationMs của riêng wave đó, clamp không âm. */
+        /** Bán kính hiện tại — co tuyến tính từ startRadius về 0 trong `wave.shrinkDurationMs` (chốt lúc spawn). */
         function computeWaveRadius(wave, now) {
             const elapsed = now - wave.spawnedAt;
             const ratio = Math.min(1, Math.max(0, elapsed / wave.shrinkDurationMs));
             return wave.startRadius * (1 - ratio);
         }
 
-        /** Opacity theo BÁN KÍNH hiện tại (không theo thời gian) — cố định opacityBase ngoài vùng
-         * gap, nội suy tuyến tính lên opacityAtInnerEdge khi đi vào [centerRadius-gapInner,
-         * centerRadius+gapOuter], đạt đỉnh đúng lúc chạm biên trong. */
+        /** Opacity theo bán kính: `opacityBase` ngoài vùng gap, nội suy lên `opacityAtInnerEdge` trong [centerRadius-gapInner,
+         * centerRadius+gapOuter], đạt đỉnh ở biên trong. */
         function computeWaveOpacity(radius, cfg) {
             const outerEdge = cfg.centerRadius + cfg.gapOuter;
             if (radius > outerEdge) return cfg.opacityBase;
@@ -334,31 +381,26 @@
             return cfg.opacityBase + progress * (cfg.opacityAtInnerEdge - cfg.opacityBase);
         }
 
-        /** Wave đã co vượt quá biên TRONG vùng hợp lệ (bấm trễ, không còn cơ hội) -> miss, PHẢI bị
-         * dọn khỏi danh sách wave đang sống dù không ai bấm tới. */
+        /** Wave co qua biên trong vùng hợp lệ (không còn cơ hội bấm) -> miss, dọn khỏi danh sách dù không ai bấm. */
         function isWaveMissed(radius, cfg) {
             return radius < (cfg.centerRadius - cfg.gapInner);
         }
 
         // ── Màu vòng tròn (theo effect đang chạy, chốt lúc spawn) ────────────────────────────
 
-        /** Mode `dynamic` — luân phiên nguyên bản A/B theo thứ tự spawn (không blend, không đổi
-         * theo audio). */
+        /** Effect `dynamic` — luân phiên màu A/B theo thứ tự spawn. */
         function computeCircleColorDynamic(dynA, dynB, spawnIndex) {
             return spawnIndex % 2 === 0 ? dynA : dynB;
         }
 
-        /** Mode `gradient` — 1 hue duy nhất lấy từ hueOffset TẠI lúc spawn (Workflow đọc
-         * globalHueOffset ngay lúc gọi), không dựng gradient nhiều màu trong 1 vòng tròn. */
+        /** Effect `gradient` — 1 hue lấy từ hueOffset lúc spawn. */
         function computeCircleColorGradientMain(hueOffset) {
             const hue = ((hueOffset % 360) + 360) % 360;
             return `hsl(${hue}, 70%, 55%)`;
         }
 
-        /** Màu vòng ngoài (nhạt hơn, KHÔNG dùng opacity) cho mode `gradient` — cùng hue, tăng
-         * lightness/giảm saturation trực tiếp. Mode solid/dynamic dùng
-         * core/color-utils.js::interpolateColor(main, '#ffffff', factor) có sẵn — Workflow tự gọi,
-         * không cần hàm riêng ở đây (Core cấm gọi Core khác). */
+        /** Màu vòng ngoài (nhạt hơn, không dùng opacity) cho effect `gradient` — cùng hue. Solid/dynamic dùng
+         * interpolateColor(main, '#ffffff', 0.5) (core/color-utils.js). */
         function computeCircleColorGradientLight(hueOffset) {
             const hue = ((hueOffset % 360) + 360) % 360;
             return `hsl(${hue}, 50%, 80%)`;
