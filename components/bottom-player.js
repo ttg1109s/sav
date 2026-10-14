@@ -47,3 +47,10 @@ const TPL_BOTTOM_PLAYER = `
         </div>
     </div>
 `;
+
+/** #record-art dựng lại mỗi lần đổi media (Song / Video / Photo). `src`/`alt` là dữ liệu từng media — slot rỗng, ghi qua
+ * core/record-art-ui.js::mountRecordArt(). @param {string} stateClass - 'animate-spin-slow' (đang quay) hoặc 'paused'
+ * @returns {string} */
+function renderRecordArtHtml(stateClass) {
+    return `<img id="record-art" src="" class="w-full h-full rounded-full object-cover shadow-lg relative z-20 ${stateClass}" alt=""><div class="absolute inset-0 m-auto w-3 h-3 bg-slate-900 rounded-full border border-slate-700 z-30"></div>`;
+}
