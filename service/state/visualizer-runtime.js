@@ -38,8 +38,8 @@
         // (khớp CUSTOM_EFFECT_STYLE, core/custom-effect.js) — MỌI group đều có field này, kể cả
         // group chỉ 1 style (shape), để cơ chế chung nhất quán, không cần rẽ nhánh riêng.
         // EFFECT_GROUPS: group -> danh sách style con thuộc group đó, ĐÚNG THỨ TỰ hiện trong
-        // dropdown 2 của modal chọn effect (xem core/visualizer/visualizer-display.js::
-        // openEffectPickerModal()) — nguồn CHÂN LÝ DUY NHẤT cho việc "style nào thuộc group nào",
+        // dropdown 2 của modal chọn effect (components/settings/visualizer-display-panel.js::
+        // renderEffectPickerStyleOptionsHtml()) — nguồn CHÂN LÝ DUY NHẤT cho việc "style nào thuộc group nào",
         // STYLE_TO_GROUP suy ra TỰ ĐỘNG từ bảng này (KHÔNG khai riêng, tránh lệch 2 bảng).
         const EFFECT_GROUPS = {
             bar: ['mirror', 'cascade', 'black hole', 'dot'], // 'dot' MỚI 25/09/2026 — trục thời gian chuyển từ connector brain
