@@ -1,14 +1,9 @@
 /**
- * core/app-settings-ui.js — wire nút ĐỘNG của mọi màn Setting (dựng lại mỗi lần
- * `event/workflow/app-settings.js::_render()` chạy) — Rule 5a: DOM động, callback CHỈ
- * `eventBus.send()`, KHÔNG gọi thẳng workflow/core khác. Router "appSettings" (event/router/
- * app-settings.js) nhận message rồi mới gọi `workflowAppSettings` thật.
+ * core/app-settings-ui.js — wire nút ĐỘNG của mọi màn Setting (dựng lại mỗi lần `event/workflow/app-settings.js::_render()`
+ * chạy) + vài lệnh ghi DOM nhỏ của các màn đó. Rule 5a: callback chỉ `eventBus.send()`, gom cuối hàm. Carousel Main: wire ở
+ * đây, scale/loop ở core/settings-carousel-ui.js.
  *
- * SỬA (20/09/2026) — thêm wireAppSettingsMainCarousel() cho màn Main dạng carousel ngang (phần tính
- * scale/loop nằm ở core/settings-carousel-ui.js, file này CHỈ wire sự kiện -> eventBus).
- *
- * NẠP SAU: event/bus.js.
- * NẠP TRƯỚC: event/workflow/app-settings.js.
+ * NẠP SAU: event/bus.js. NẠP TRƯỚC: event/workflow/app-settings.js.
  */
 
 /** Header dùng chung mọi màn — nút Back (nếu có) + Close X. */
@@ -19,18 +14,16 @@ function wireAppSettingsHeader(headerEl) {
     if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: 'appSettings', type: 'appSettings.close.click', payload: {} }));
 }
 
-/** Danh sách row có `data-app-settings-nav` (dùng bởi System/Visualizer Screen/Player — màn Main giờ dùng
- * wireAppSettingsMainCarousel() bên dưới) — mỗi row tự mang key đích. */
-function wireAppSettingsMain(bodyEl) {
+/** Danh sách row `data-app-settings-nav` (renderAppSettingsRowList() — System/Visualizer Screen/Player/Player > Song) — mỗi
+ * row tự mang key đích. */
+function wireAppSettingsRowList(bodyEl) {
     bodyEl.querySelectorAll('[data-app-settings-nav]').forEach((btn) => {
         btn.addEventListener('click', () => eventBus.send({ router: 'appSettings', type: 'appSettings.nav.click', payload: { key: btn.dataset.appSettingsNav } }));
     });
 }
 
-/** Màn Main — carousel ngang (components/settings/app-settings-main.js::renderAppSettingsCarousel()).
- * 4 loại sự kiện, callback nào cũng CHỈ `eventBus.send()` (Rule 5a) — KHÔNG timer/debounce ở đây
- * (task-manager-conventions.md: timer chỉ Workflow được dùng, xem workflowAppSettings.
- * handleCarouselScroll()):
+/** Màn Main — carousel ngang (components/settings/app-settings-main.js::renderAppSettingsCarousel()). Không debounce ở
+ * đây (hẹn giờ chỉ ở Workflow — workflowAppSettings.handleCarouselScroll()):
  *   - `scroll` -> 'appSettings.carousel.scroll' (mỗi lần) — cập nhật scale/opacity + hẹn "đã dừng".
  *   - `touchstart`/`touchend`/`touchcancel` -> 'appSettings.carousel.touch.start|end' — Workflow cần biết
  *     ngón tay còn chạm không (nhảy scrollLeft giữa lúc đang kéo tay sẽ làm iOS giật).
@@ -76,9 +69,8 @@ function wireAppSettingsTroubleshooting(bodyEl) {
     });
 }
 
-/** MỚI (05/10/2026) — màn con "Performance HUD" (components/settings/troubleshooting.js::renderPerfHudSettingsBody()) —
- * công tắc + nút Kiểu + nút Chiều (chỉ có khi Kiểu = strip), callback CHỈ `eventBus.send()` tới router 'perfHud'
- * (Rule 5a, gom cuối hàm). Thay 2 msg.type 'settingsMisc.perfProbe.*' cũ.
+/** Màn con "Performance HUD" (components/settings/troubleshooting.js::renderPerfHudSettingsBody()) — công tắc + nút Kiểu +
+ * nút Chiều (chỉ có khi Kiểu = strip) -> router 'perfHud'.
  * @param {HTMLElement} bodyEl */
 function wireAppSettingsPerfHud(bodyEl) {
     const enabledToggle = bodyEl.querySelector('#setting-perf-hud-enabled');
@@ -109,25 +101,13 @@ function wireAppSettingsVideoThumb(bodyEl) {
     if (dismissBtn) dismissBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.videoThumb.dismiss.click', payload: {} }));
 }
 
-/** Màn System — 4 row (Theme/Gesture/Slideshow/Language), CÙNG msg.type với Main (payload.key tự
- * phân biệt — Router đọc key để biết đích, KHÔNG phải rẽ nhánh theo appState khác nên không cần
- * VirtualMachineState, xem event-bus-flow.md mục 4B/(A)). */
-function wireAppSettingsSystem(bodyEl) {
-    wireAppSettingsMain(bodyEl); // cùng cơ chế data-app-settings-nav — tái dùng thẳng
-}
-
-/** Màn Player > Video/Photo (Settings > Visualizer Screen > Player) — 1 select Resolution + các HÀNG
- * Motion (PLAYER_MOTION_SLOTS lọc theo kind, core/player-display-settings.js), MỖI control gửi 1
- * msg.type riêng kèm `kind` ('video'|'photo') để Router/Workflow biết đang sửa domain field nào.
- * SỬA (24/09/2026, Giang yêu cầu — xoá cơ chế đăng ký Motion vào nơi tiêu thụ) — hàng Motion KHÔNG còn
- * là select nữa: tap hàng -> 'appSettings.player.motionSlot.openPicker.click' (mở THẲNG màn Chọn của
- * Motion, xem workflowPlayerDisplaySettings.openMotionSlotPicker()). Nhân tiện gom addEventListener về
- * CUỐI hàm (Rule 5a — bản cũ xen kẽ giữa các lần querySelector).
+/** Màn Player > Video/Photo — select Resolution, các HÀNG Motion (tap -> màn Chọn của Motion,
+ * workflowPlayerDisplaySettings.openMotionSlotPicker()), nút reset zoom/pan; mỗi control 1 msg.type kèm `kind`.
  * @param {HTMLElement} bodyEl @param {'video'|'photo'} kind */
 function wireAppSettingsPlayerDetail(bodyEl, kind) {
     const resolutionSelect = bodyEl.querySelector(`#setting-player-${kind}-resolution`);
     const motionSlotRows = bodyEl.querySelectorAll('[data-player-motion-slot]'); // components/settings/player-display-settings.js — chỉ dựng đúng slot của kind này
-    const zoomResetBtn = bodyEl.querySelector(`#setting-player-${kind}-zoom-reset`); // MỚI 29/09/2026 — reset nhanh zoom/pan
+    const zoomResetBtn = bodyEl.querySelector(`#setting-player-${kind}-zoom-reset`);
 
     // --- addEventListener: gom cuối hàm (Rule 5a) ---
     if (resolutionSelect) resolutionSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.player.resolution.change', payload: { kind, value: e.target.value } }));
@@ -137,12 +117,8 @@ function wireAppSettingsPlayerDetail(bodyEl, kind) {
     if (zoomResetBtn) zoomResetBtn.addEventListener('click', () => eventBus.send({ router: 'appSettings', type: 'appSettings.player.zoom.reset.click', payload: { kind } }));
 }
 
-/** Màn Playlist — 2 <select> (Nguồn/Kiểu xem, TÁI DÙNG msg.type gốc của cụm "playlist" — router đó
- * KHÔNG đổi gì) + 2 nút mở Sắp xếp/Lọc (điều hướng nội bộ Setting). */
-/** MỚI (01/10/2026, Ghi âm) — màn System > Ghi âm (dời từ Player 05/10/2026) (components/settings/recorder-settings.js). Select
- * bắn ở `change`; slider Sync bắn `input` (chỉ cập nhật nhãn) + `change` (thả tay -> lưu); nút Latency calibration bắn `click`.
- * SỬA (07/10/2026) — bỏ toggle Echo cancellation; thêm Recording mode / Count-in / Recording quality / Latency calibration.
- * Sync + nút đo chỉ có ở chế độ Headphones (querySelector null -> bỏ qua). Rule 5a — callback CHỈ eventBus.send, gom cuối hàm. */
+/** Màn System > Ghi âm (components/settings/recorder-settings.js). Select bắn `change`; slider Sync bắn `input` (chỉ nhãn) +
+ * `change` (thả tay -> lưu); nút Latency calibration bắn `click`. Sync + nút đo chỉ có ở chế độ Headphones. */
 function wireAppSettingsRecorder(bodyEl) {
     const modeSelect = bodyEl.querySelector('#setting-recorder-mode');
     const countInSelect = bodyEl.querySelector('#setting-recorder-count-in');
@@ -159,19 +135,26 @@ function wireAppSettingsRecorder(bodyEl) {
     if (calibrateBtn) calibrateBtn.addEventListener('click', () => eventBus.send({ router: 'appSettings', type: 'appSettings.recorder.calibrate.click', payload: {} }));
 }
 
+/** Màn Playlist — 2 select Nguồn/Kiểu xem (msg.type của cụm "playlist") + 2 nút mở Sắp xếp / danh sách preset Filter. */
 function wireAppSettingsPlaylist(bodyEl) {
     const mediaSourceSelect = bodyEl.querySelector('#setting-playlist-media-source');
-    if (mediaSourceSelect) mediaSourceSelect.addEventListener('change', (e) => eventBus.send({ router: 'playlist', type: 'playlist.mediaSource.change', payload: { source: e.target.value } }));
     const viewModeSelect = bodyEl.querySelector('#setting-playlist-view-mode');
-    if (viewModeSelect) viewModeSelect.addEventListener('change', (e) => eventBus.send({ router: 'playlist', type: 'playlist.viewMode.change', payload: { mode: e.target.value } }));
     const sortBtn = bodyEl.querySelector('#setting-open-playlist-sort');
-    if (sortBtn) sortBtn.addEventListener('click', () => eventBus.send({ router: 'appSettings', type: 'appSettings.nav.click', payload: { key: 'playlistSort' } }));
-    // SỬA (09/09/2026, phản hồi Giang mục 2 — "bỏ toggle, bỏ manage filter, chỉ giữ Filter để vào
-    // nơi quản lý") — RÚT GỌN lại bản 08/09/2026 (từng có công tắc tổng + nút "Quản lý bộ lọc"
-    // riêng) — về lại ĐÚNG 1 nút, mở thẳng danh sách preset — xem event/workflow/
-    // playlist-filter-presets.js (workflowPlaylistFilterPresets.openList()).
     const filterBtn = bodyEl.querySelector('#setting-open-playlist-filter');
+
+    // --- addEventListener: gom cuối hàm (Rule 5a) ---
+    if (mediaSourceSelect) mediaSourceSelect.addEventListener('change', (e) => eventBus.send({ router: 'playlist', type: 'playlist.mediaSource.change', payload: { source: e.target.value } }));
+    if (viewModeSelect) viewModeSelect.addEventListener('change', (e) => eventBus.send({ router: 'playlist', type: 'playlist.viewMode.change', payload: { mode: e.target.value } }));
+    if (sortBtn) sortBtn.addEventListener('click', () => eventBus.send({ router: 'appSettings', type: 'appSettings.nav.click', payload: { key: 'playlistSort' } }));
     if (filterBtn) filterBtn.addEventListener('click', () => eventBus.send({ router: 'playlistFilterPresets', type: 'playlistFilterPresets.openManage.click', payload: {} }));
+}
+
+/** Đổ giá trị 2 select của màn Playlist. @param {HTMLElement} bodyEl @param {string} mediaSource @param {'grid'|'list'} viewMode */
+function setAppSettingsPlaylistSelects(bodyEl, mediaSource, viewMode) {
+    const mediaSourceSelect = bodyEl.querySelector('#setting-playlist-media-source');
+    const viewModeSelect = bodyEl.querySelector('#setting-playlist-view-mode');
+    if (mediaSourceSelect) mediaSourceSelect.value = mediaSource;
+    if (viewModeSelect) viewModeSelect.value = viewMode;
 }
 
 /** Màn Theme — gắn select "Color" (Light/Dark/Morphin). Cụm 3 card nền gắn riêng ở
@@ -181,12 +164,10 @@ function wireAppSettingsTheme(bodyEl) {
     if (uiThemeSelect) uiThemeSelect.addEventListener('change', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.uiTheme.change', payload: { themeName: e.target.value } }));
 }
 
-/** MỚI 23/09/2026 — Màn System > Pagination (components/settings/pagination.js). Mọi control mang
- * `data-pagination-place` + `data-pagination-field` -> 1 msg.type chung 'appSettings.pagination.place.change'
- * (Rule 5a — callback CHỈ eventBus.send, gom cuối hàm). Checkbox + select bắn ở `change`; ô số bắn ở
- * `change` (rời ô / bấm Done trên bàn phím điện thoại) — KHÔNG bắn theo từng phím gõ (mỗi lần bắn là 1
- * lần dựng lại màn, gõ "150" sẽ mất focus sau chữ "1"). Enter -> blur -> tự phát `change`.
- * Khung Preview là `inert`, không có gì để wire.
+/** Màn System > Pagination (components/settings/pagination.js). Mọi control mang `data-pagination-place` +
+ * `data-pagination-field` -> 'appSettings.pagination.place.change'. Ô số bắn ở `change` (rời ô / Done trên bàn phím) — không
+ * bắn theo từng phím (mỗi lần bắn là 1 lần dựng lại màn, gõ "150" sẽ mất focus sau "1"); phím trong ô số ->
+ * 'appSettings.pagination.input.keydown' (Enter -> Workflow bỏ focus -> tự phát `change`). Khung Preview `inert`.
  * @param {HTMLElement} bodyEl */
 function wireAppSettingsPagination(bodyEl) {
     const controls = bodyEl.querySelectorAll('[data-pagination-place][data-pagination-field]');
@@ -197,6 +178,11 @@ function wireAppSettingsPagination(bodyEl) {
         el.addEventListener('change', () => eventBus.send({ router: 'appSettings', type: 'appSettings.pagination.place.change', payload: { place: el.dataset.paginationPlace, field: el.dataset.paginationField, value: el.type === 'checkbox' ? el.checked : el.value } }));
     });
     numberInputs.forEach((el) => {
-        el.addEventListener('keydown', (e) => { if (e.key === 'Enter') el.blur(); });
+        el.addEventListener('keydown', (e) => eventBus.send({ router: 'appSettings', type: 'appSettings.pagination.input.keydown', payload: { key: e.key, inputEl: el } }));
     });
+}
+
+/** Bỏ focus 1 ô nhập (Enter ở ô số màn Pagination -> trình duyệt tự phát `change`). @param {HTMLElement} inputEl */
+function blurAppSettingsInput(inputEl) {
+    if (inputEl) inputEl.blur();
 }

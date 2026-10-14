@@ -1,12 +1,12 @@
 /**
- * core/debug-console.js — MỚI (18/07/2026, Giang yêu cầu — "mục mới trong Settings > Misc, vào
- * hiện console log", phục vụ debug lúc test trên mobile không mở được DevTools thật).
+ * core/debug-console.js — bắt console log cho panel Debug Console (Settings > Troubleshooting), phục vụ debug lúc test
+ * trên mobile không mở được DevTools.
  *
  * Bọc `console.log`/`console.warn`/`console.error` để NGOÀI VIỆC vẫn in ra console thật (KHÔNG
  * thay thế hành vi gốc, chỉ "nghe lén" thêm), CÒN lưu lại vào 1 ring buffer trong RAM (tối đa
  * DEBUG_CONSOLE_MAX_ENTRIES dòng — dòng CŨ NHẤT tự bị đẩy ra khi đầy, tránh phình RAM vô hạn nếu
  * mở app rất lâu). `components/debug-console-drawer.js` + `event/workflow/settings-misc.js` đọc
- * buffer này qua `getDebugConsoleLogs()` để hiển thị trong panel Settings > Misc > Debug Console.
+ * buffer này qua `getDebugConsoleLogs()` để hiển thị trong panel Debug Console.
  *
  * NẠP SỚM NHẤT CÓ THỂ (đầu index.html, TRƯỚC CẢ i18n/lang.js) — để bắt được CÀNG NHIỀU log càng
  * tốt từ suốt quá trình boot (mọi file core/event khác đều `console.log` rất nhiều dòng dạng
@@ -23,7 +23,7 @@
  */
 const DEBUG_CONSOLE_MAX_ENTRIES = 500;
 const _debugConsoleBuffer = [];
-let _debugConsoleNextId = 1; // MỚI (20/09/2026) — id tăng dần cho từng dòng log, để nút Copy/Xoá TỪNG DÒNG ở Debug console nhận diện đúng dòng (time có thể trùng nhau)
+let _debugConsoleNextId = 1; // id tăng dần — nút Copy/Xoá từng dòng nhận diện đúng dòng (time có thể trùng nhau)
 
 const _originalConsoleLog = console.log.bind(console);
 const _originalConsoleWarn = console.warn.bind(console);
@@ -72,6 +72,28 @@ console.error = function (...args) { _pushDebugConsoleEntry('error', args); _ori
  */
 function getDebugConsoleLogs() {
     return _debugConsoleBuffer.slice();
+}
+
+/** Core thuần: dòng log theo `id` trong danh sách (undefined nếu không có). @param {Array<object>} logs @param {number} id */
+function findDebugConsoleLog(logs, id) {
+    return logs.find((entry) => entry.id === id);
+}
+
+/** Core thuần: văn bản để Copy — mỗi dòng log 1 dòng `[giờ] LEVEL: nội dung` (Copy all và Copy từng dòng cùng định dạng).
+ * @param {Array<{time:number, level:string, text:string}>} logs @returns {string} */
+function formatDebugConsoleLogsText(logs) {
+    return logs.map((entry) => `[${new Date(entry.time).toLocaleTimeString()}] ${entry.level.toUpperCase()}: ${entry.text}`).join('\n');
+}
+
+/** Core thuần: thứ tự hiển thị + cách cuộn của danh sách log. Không phân trang: cũ -> mới, cuộn xuống dòng mới nhất; phân trang:
+ * mới nhất lên đầu (trang 1 = mới nhất — mọi kiểu phân trang, kể cả 'loadMore', đều mở ra thấy log mới trước), cuộn về đầu.
+ * `keepScroll` (xoá 1 dòng giữa danh sách) -> giữ vị trí cuộn.
+ * @param {Array<object>} logs - bản sao từ getDebugConsoleLogs() @param {boolean} isPaginated @param {boolean} [keepScroll]
+ * @returns {{orderedLogs:Array<object>, scrollMode:'keep'|'top'|'bottom'}} */
+function computeDebugConsoleListPlan(logs, isPaginated, keepScroll) {
+    const orderedLogs = isPaginated ? logs.slice().reverse() : logs;
+    const scrollMode = keepScroll ? 'keep' : (isPaginated ? 'top' : 'bottom');
+    return { orderedLogs, scrollMode };
 }
 
 /** Core thuần: xoá sạch buffer (nút "Xoá" trong panel Debug Console). */

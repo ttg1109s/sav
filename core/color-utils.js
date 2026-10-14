@@ -1,6 +1,6 @@
 /**
  * core/color-utils.js — tiện ích màu + ghi 2 lớp nền tĩnh: `#visualizer-solid-bg` (updateDOMBackground) và nền App Panel
- * `#app-bg-*` (updatePlaylistBg, setAppBgVideoPlayback, forceGlassRepaint). Không đọc config: Workflow đọc rồi truyền vào
+ * `#app-bg-*` (updatePlaylistBg, setAppBgVideoPlayback, suspendGlassBackdrop/restoreGlassBackdrop). Không đọc config: Workflow đọc rồi truyền vào
  * (workflowVisualBg.paintSolidBg(), workflowTheme — event/workflow/{visual-bg-common,theme}.js).
  */
         /** '#rgb' / '#rrggbb' -> {r, g, b}; độ dài khác -> 0 cả 3 kênh. */
@@ -77,20 +77,25 @@
 
         /**
          * Ép WebKit/iOS Safari tính lại `backdrop-filter` của mọi lớp kính ngay sau khi nền đổi (compositor giữ "ảnh chụp" nền cũ
-         * phía sau kính tới khi có tác động khác). Đổi tạm `backdrop-filter` sang `blur(0px)` rồi trả về giá trị của class ở khung
-         * hình kế tiếp. Không đụng `transform` (nhiều lớp kính trượt/ẩn hiện bằng class transform). Workflow gọi ngay sau
-         * updatePlaylistBg().
+         * phía sau kính tới khi có tác động khác) — 2 bước, Workflow hẹn khung hình giữa 2 bước (workflowTheme._forceGlassRepaint()).
+         * Bước 1: đổi tạm `backdrop-filter` sang `blur(0px)` + ép reflow. Không đụng `transform` (nhiều lớp kính trượt/ẩn hiện
+         * bằng class transform). @returns {Element[]} các lớp kính vừa đổi (đưa cho restoreGlassBackdrop())
          */
-        function forceGlassRepaint() {
-            const glassEls = document.querySelectorAll('.glass-panel, .glass-modal, .drawer-glass, .glass-control-center, .uitk-glass-surface, .uitk-glass-elevated');
+        function suspendGlassBackdrop() {
+            const glassEls = [...document.querySelectorAll('.glass-panel, .glass-modal, .drawer-glass, .glass-control-center, .uitk-glass-surface, .uitk-glass-elevated')];
             glassEls.forEach((el) => {
                 el.style.webkitBackdropFilter = 'blur(0px)';
                 el.style.backdropFilter = 'blur(0px)';
-                void el.offsetHeight; // ép reflow — áp giá trị TẠM này ngay, không gộp batch với dòng dưới
-                requestAnimationFrame(() => {
-                    el.style.webkitBackdropFilter = '';
-                    el.style.backdropFilter = ''; // xoá inline -> quay lại đúng giá trị từ class CSS gốc
-                });
+                void el.offsetHeight; // ép reflow — áp giá trị tạm ngay, không gộp batch với bước 2
+            });
+            return glassEls;
+        }
+
+        /** Bước 2 (khung hình kế): xoá inline -> `backdrop-filter` về đúng giá trị của class. @param {Element[]} glassEls */
+        function restoreGlassBackdrop(glassEls) {
+            glassEls.forEach((el) => {
+                el.style.webkitBackdropFilter = '';
+                el.style.backdropFilter = '';
             });
         }
 
