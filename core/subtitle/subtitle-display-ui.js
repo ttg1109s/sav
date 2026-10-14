@@ -1,11 +1,15 @@
 /**
- * core/subtitle/subtitle-display-ui.js — Core DOM hiển thị phụ đề lúc phát (Song mode). THAY
- * core/subtitle/subtitle-display.js cũ (processSubtitles() tự đọc appState, core gọi core, rAF trong core).
- * Mỗi hàm 1 việc; điều phối (dòng nào active, pha nào, dựng kiểu nào): event/workflow/subtitle-display.js.
+ * core/subtitle/subtitle-display-ui.js — Core DOM hiển thị phụ đề lúc phát (Song). Mỗi hàm 1 việc; điều phối (dòng nào
+ * hiện, pha nào, ghim ra sao): event/workflow/subtitle-display.js.
  *
- * Dòng <p> KHÔNG gắn class font/màu/bóng — kế thừa hoàn toàn từ #subtitle-frame (style mặc định hoặc Element
- * Style Editor), để style tuỳ chỉnh luôn thắng.
+ * Dòng <p> không gắn class font/màu/bóng — kế thừa từ #subtitle-frame (style mặc định hoặc Element Style Editor).
+ * 2 lớp Web Animation trên mỗi dòng, khác thuộc tính nên không đè nhau:
+ *   - `sub-phase` (opacity/transform) — Comming/Outing, ghim theo thời gian media (pinSubtitlePhaseAnimationUi()).
+ *   - `sub-reflow` (translate) — dòng khác thêm/bớt làm dòng này xê dịch: trượt mượt từ chỗ cũ (FLIP).
  */
+const SUBTITLE_PHASE_ANIMATION_ID = 'sub-phase';
+const SUBTITLE_REFLOW_ANIMATION_ID = 'sub-reflow';
+const SUBTITLE_REFLOW_EASING = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
 
 /** Dựng khối <p> cho 1 dòng thường. @param {{id: string, start: number, text: string}} sub @returns {HTMLElement} */
 function buildPlainSubtitleBlockUi(sub) {
@@ -24,6 +28,11 @@ function insertSubtitleBlockUi(containerEl, block) {
     containerEl.insertBefore(block, next || null);
 }
 
+/** @returns {HTMLElement|null} */
+function findSubtitleBlockUi(containerEl, subId) {
+    return containerEl.querySelector(`#sub-active-${CSS.escape(subId)}`);
+}
+
 function removeSubtitleBlockUi(containerEl, subId) {
     const block = containerEl.querySelector(`#sub-active-${CSS.escape(subId)}`);
     if (block) block.remove();
@@ -38,35 +47,53 @@ function setSubtitleDisplayVisibleUi(displayEl, visible) {
     displayEl.classList.toggle('hidden', !visible);
 }
 
-/** Dọn class hiệu ứng In cũ + ghi pha mới. */
+/** Ghi pha mới: dọn class hiệu ứng In + huỷ hiệu ứng pha cũ. Pha không đổi -> giữ nguyên.
+ * @returns {boolean} true = vừa đổi pha */
 function markSubtitleBlockPhaseUi(block, phase) {
+    if (block.dataset.phase === phase) return false;
     block.dataset.phase = phase;
     block.classList.remove(...Object.values(SUBTITLE_IN_EFFECTS)); // core/subtitle/subtitle-transition.js (dữ liệu)
+    block.getAnimations().filter((a) => a.id === SUBTITLE_PHASE_ANIMATION_ID).forEach((a) => a.cancel());
+    return true;
 }
 
-/** Pha Comming có hiệu ứng: đặt trạng thái ẩn (tắt transition), ép reflow, rồi chạy sang trạng thái hiện trong
- * đúng thời gian còn lại của pha (vào giữa pha do seek vẫn kết thúc đúng mốc). @param {{hiddenCss: string,
- * visibleCss: string}} fx @param {number} remainingMs */
-function playSubtitleCommingUi(block, fx, remainingMs) {
-    block.style.cssText = `${fx.hiddenCss};transition:none`;
-    void block.offsetWidth;
-    block.style.cssText = `${fx.visibleCss};transition:all ${remainingMs}ms linear`;
-}
-
-/** Pha Outing có hiệu ứng: từ hiện chạy sang ẩn trong đúng thời gian còn lại của pha. */
-function playSubtitleOutingUi(block, fx, remainingMs) {
-    block.style.cssText = 'opacity:1;transition:none';
-    void block.offsetWidth;
-    block.style.cssText = `${fx.hiddenCss};transition:all ${remainingMs}ms linear`;
-}
-
-/** Trạng thái tĩnh (hiện đầy đủ / không hiệu ứng) — `stableCss` = visibleCss của Comming nếu có (không giật khi
- * chuyển comming -> in), không thì 'opacity:1'. */
-function setSubtitleBlockStableUi(block, stableCss) {
-    block.style.cssText = `${stableCss};transition:none`;
+/** Ghim hiệu ứng pha (tạo lần đầu, các lần sau chỉ chỉnh): đặt đúng tiến độ, theo tốc độ phát, chạy hoặc đứng yên.
+ * @param {HTMLElement} block @param {Keyframe[]} keyframes @param {string} easing
+ * @param {{durationMs: number, elapsedMs: number, running: boolean}} pin - computeSubtitlePhasePin()
+ * @param {number} playbackRate */
+function pinSubtitlePhaseAnimationUi(block, keyframes, easing, pin, playbackRate) {
+    const anim = block.getAnimations().find((a) => a.id === SUBTITLE_PHASE_ANIMATION_ID)
+        || block.animate(keyframes, { duration: pin.durationMs, easing, fill: 'both', id: SUBTITLE_PHASE_ANIMATION_ID });
+    anim.playbackRate = playbackRate;
+    if (pin.running) anim.play(); else anim.pause();
+    anim.currentTime = pin.elapsedMs; // đặt SAU play/pause — lệnh đó chỉ có hiệu lực ở khung hình kế, đặt trước sẽ trôi thêm 1 khung
 }
 
 /** Bật hiệu ứng In (class chạy liên tục suốt pha in). */
 function addSubtitleInEffectUi(block, inClass) {
     block.classList.add(inClass);
+}
+
+/** Vị trí đang NHÌN THẤY (kể cả đang trượt dở) của từng dòng — chụp trước khi thêm/bớt dòng.
+ * @returns {Map<string, number>} subId -> top (px) */
+function measureSubtitleBlockTopsUi(containerEl) {
+    return new Map(Array.from(containerEl.children).map((block) => [block.dataset.subId, block.getBoundingClientRect().top]));
+}
+
+/** Huỷ các lần trượt dở — để đo đúng vị trí bố cục mới. */
+function cancelSubtitleReflowUi(containerEl) {
+    Array.from(containerEl.children).forEach((block) => {
+        block.getAnimations().filter((a) => a.id === SUBTITLE_REFLOW_ANIMATION_ID).forEach((a) => a.cancel());
+    });
+}
+
+/** FLIP: dòng nào có vị trí cũ thì trượt từ chỗ cũ về chỗ mới (dòng mới thêm không trượt). Gọi sau
+ * cancelSubtitleReflowUi(). @param {Map<string, number>} beforeTops @param {number} durationMs */
+function playSubtitleReflowUi(containerEl, beforeTops, durationMs) {
+    Array.from(containerEl.children).forEach((block) => {
+        if (!beforeTops.has(block.dataset.subId)) return;
+        const dy = beforeTops.get(block.dataset.subId) - block.getBoundingClientRect().top;
+        if (Math.abs(dy) < 0.5) return;
+        block.animate([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: durationMs, easing: SUBTITLE_REFLOW_EASING, id: SUBTITLE_REFLOW_ANIMATION_ID });
+    });
 }

@@ -1,7 +1,7 @@
 /**
  * core/subtitle/subtitle-karaoke-display-ui.js — Core DOM/canvas cho karaoke trên phụ đề Visualizer (Rule 5,
- * hậu tố -ui vì tự dựng DOM/canvas). Mỗi hàm 1 việc, không gọi hàm khác trong app, không appState/taskManager,
- * không addEventListener. Điều phối: event/workflow/subtitle-display.js.
+ * hậu tố -ui vì tự dựng DOM/canvas). Mỗi hàm 1 việc, không gọi hàm khác trong app (trừ service/), không appState/
+ * taskManager, không addEventListener. Điều phối: event/workflow/subtitle-display.js.
  *
  * Mỗi từ = `.kr-word` (inline-block, nhận transform/opacity/viền) chứa `.kr-base` (chữ gốc, kế thừa style khung
  * phụ đề) + `.kr-fill` (bản sao màu karaoke đè lên, cắt bằng clip-path theo phần đã tô). Không dùng
@@ -28,32 +28,23 @@ const KARAOKE_POINTER_SHAPES = {
     },
 };
 
-/** Dựng khối <p> karaoke cho 1 dòng. Token 'word' -> .kr-word, 'space' -> ' ', 'break' -> <br>.
- * @param {string} subId @param {number} startSec @param {Array<{kind: string, text: string}>} tokens
+/** Dựng khối <p> karaoke cho 1 dòng từ markup (components/visualizer-overlay.js::renderKaraokeLineHtml()), điền chữ từng
+ * từ vào slot (dữ liệu người dùng — không nội suy vào chuỗi).
+ * @param {string} subId @param {number} startSec @param {string} lineHtml @param {string[]} wordTexts
  * @returns {{block: HTMLElement, words: Array<{el: HTMLElement, baseEl: HTMLElement, fillEl: HTMLElement}>}} */
-function buildKaraokeSubtitleBlockUi(subId, startSec, tokens) {
+function buildKaraokeSubtitleBlockUi(subId, startSec, lineHtml, wordTexts) {
     const block = document.createElement('p');
     block.id = `sub-active-${subId}`;
     block.dataset.subId = subId;
     block.dataset.start = String(startSec);
     block.classList.add('kr-line');
-    const words = [];
-    tokens.forEach((token) => {
-        if (token.kind === 'break') { block.appendChild(document.createElement('br')); return; }
-        if (token.kind === 'space') { block.appendChild(document.createTextNode(' ')); return; }
-        const el = document.createElement('span');
-        el.className = 'kr-word';
-        const baseEl = document.createElement('span');
-        baseEl.className = 'kr-base';
-        baseEl.textContent = token.text;
-        const fillEl = document.createElement('span');
-        fillEl.className = 'kr-fill';
-        fillEl.setAttribute('aria-hidden', 'true');
-        fillEl.textContent = token.text;
-        el.appendChild(baseEl);
-        el.appendChild(fillEl);
-        block.appendChild(el);
-        words.push({ el, baseEl, fillEl });
+    block.appendChild(instantiateComponent(lineHtml)); // service/component-dynamic.js
+    const words = Array.from(block.querySelectorAll('.kr-word')).map((el, i) => {
+        const baseEl = el.querySelector('.kr-base');
+        const fillEl = el.querySelector('.kr-fill');
+        baseEl.textContent = wordTexts[i];
+        fillEl.textContent = wordTexts[i];
+        return { el, baseEl, fillEl };
     });
     return { block, words };
 }
@@ -129,9 +120,15 @@ function readKaraokeTextStyleUi(el) {
     return { font: `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`, color: cs.color };
 }
 
-/** Canvas nháp để vẽ chữ lấy mẫu điểm ảnh. */
-function createKaraokeScratchCanvasUi() {
-    return document.createElement('canvas');
+/** Bộ vẽ hạt: context canvas hiệu ứng + canvas nháp lấy mẫu chữ + DPR (kẹp trần cho điện thoại).
+ * @param {HTMLCanvasElement} fxCanvasEl @param {number} devicePixelRatio @param {number} dprMax
+ * @returns {{ctx: CanvasRenderingContext2D, scratch: HTMLCanvasElement, dpr: number}} */
+function createKaraokeFxHandleUi(fxCanvasEl, devicePixelRatio, dprMax) {
+    return {
+        ctx: fxCanvasEl.getContext('2d'),
+        scratch: document.createElement('canvas'),
+        dpr: Math.min(dprMax, devicePixelRatio || 1),
+    };
 }
 
 /** Lấy mẫu điểm ảnh của chữ (vẽ lại lên canvas nháp) -> điểm (CSS px, hệ toạ độ canvas hiệu ứng) theo bước

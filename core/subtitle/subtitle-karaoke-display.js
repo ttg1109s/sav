@@ -181,8 +181,25 @@ function buildKaraokeParticles(points, spriteKey, preset, reverse, nowMs, lifeMs
     return particles;
 }
 
-/** Bỏ hạt đã hết đời + giữ trần KARAOKE_MAX_PARTICLES (bỏ hạt cũ nhất). @returns {Array<Object>} mảng MỚI */
-function pruneKaraokeParticles(particles, nowMs) {
-    const alive = particles.filter((p) => nowMs < p.t0 + p.life);
+/** Gộp hạt mới sinh (`spawned`, tuỳ chọn) rồi bỏ hạt hết đời + giữ trần KARAOKE_MAX_PARTICLES (bỏ hạt cũ nhất).
+ * @returns {Array<Object>} mảng MỚI */
+function pruneKaraokeParticles(particles, nowMs, spawned = []) {
+    const alive = particles.concat(spawned).filter((p) => nowMs < p.t0 + p.life);
     return alive.length > KARAOKE_MAX_PARTICLES ? alive.slice(alive.length - KARAOKE_MAX_PARTICLES) : alive;
+}
+
+/** Khoá cache sprite hạt theo màu + độ mềm. @param {string} color @param {number} spriteCore @returns {string} */
+function computeKaraokeSpriteKey(color, spriteCore) {
+    return `${color}|${spriteCore}`;
+}
+
+/** Thời điểm (performance.now()) hiện chữ thật sau hiệu ứng hạt tụ lại. @param {number} nowMs */
+function computeKaraokeRevealAt(nowMs) {
+    return nowMs + KARAOKE_REVEAL_MS;
+}
+
+/** Chữ của các token 'word' theo thứ tự (điền vào slot khối karaoke). @param {Array<{kind: string, text: string}>} tokens
+ * @returns {string[]} */
+function collectKaraokeWordTexts(tokens) {
+    return tokens.filter((token) => token.kind === 'word').map((token) => token.text);
 }
