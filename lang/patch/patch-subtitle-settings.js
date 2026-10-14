@@ -399,13 +399,6 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'visualBgSettingsDrawer.blockedByVisualBgOn': 'Visual Background is on. Videos play full screen, so they would cover it. Turn Visual Background off first.',
     'visualBgSettingsDrawer.keptDeleteInUse': 'One item was kept because it is currently used as your Visual Background. Release it in Settings > Visualizer > Visual Background to delete it.',
     'visualBgSettingsDrawer.clearSource.title': 'Release source',
-    // MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer, KHÁC ảnh nền Playlist ngay dưới.
-    // Đổi tên (07/07/2026, phản hồi Giang mục 3) — tên cũ "Use playlist background image" không
-    // còn đúng bản chất từ sau batch "nền chung" (06/07/2026): ảnh này giờ hiện CẢ Playlist LẪN
-    // Settings, không riêng Playlist nữa.
-    'settingsPlaylistBg.bgImageEnable.label': 'App background image',
-    'settingsPlaylistBg.bgBlur.label': 'Background blur',
-
     'settingsVisualizer.sectionTitle': 'Visualizer Screen',
     // Đổi hiệu ứng qua #btn-cycle-mode/Action ở Control Center — không còn select "Effect type" ở
     // Settings. 7 key .type.bar/.../.lighting (dùng ở VISUALIZER_TYPE_LABEL_KEYS, core/

@@ -170,20 +170,19 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.pagination.place.eqPresets': 'EQ presets',
     'appSettings.pagination.place.eqPresets.hint': 'EQ preset list (hold the EQ button)',
 
-    // SỬA 21/09/2026 — nhãn cũ 'Theme' đổi 'Background' (select này điều khiển NỀN phía sau app: sáng/tối/glass, KHÔNG phải màu giao diện) — tránh nhầm với hàng 'Interface' mới ngay trên nó.
+    // Màn Settings > Theme (components/settings/theme.js): select Color + 3 card nền Morphin + hàng kính.
     'appSettings.theme.uiTheme.label': 'Color',
     'appSettings.theme.uiTheme.option.light': 'Light',
     'appSettings.theme.uiTheme.option.dark': 'Dark',
     'appSettings.theme.uiTheme.option.morphin': 'Morphin',
-    // MỚI 21/09/2026 — UI nền Morphin 3 card (core/theme-background-ui.js). (Dọn deadcode 21/09/2026: bỏ 'appSettings.theme.select.*', 'appSettings.theme.glassType.*', 'appSettings.theme.solidColor.label' — dropdown cũ.)
     'appSettings.theme.bg.section': 'Background',
-    'appSettings.theme.bg.none': 'None', // SỬA 23/09/2026 — thay card Solid (đã bỏ): Morphin không dùng nền
+    'appSettings.theme.bg.none': 'None',
     'appSettings.theme.bg.gradient': 'Gradient',
     'appSettings.theme.bg.media': 'Background media',
     'appSettings.theme.bg.media.empty': 'Not set',
     'appSettings.theme.bg.media.pickPhoto': 'Photo',
     'appSettings.theme.bg.media.pickVideo': 'Video',
-    // MỚI 23/09/2026 — cụm tinh chỉnh kính Playlist chính (Morphin, chỉ hiện khi nền là Background media)
+    // Kính Playlist chính (chỉ hiện khi nền là Background media)
     'appSettings.theme.glass.section': 'Panel glass',
     'appSettings.theme.glass.blur': 'Blur',
     'appSettings.theme.glass.tint': 'Opacity',
