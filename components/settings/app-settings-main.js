@@ -1,31 +1,12 @@
 /**
- * components/settings/app-settings-main.js — Nội dung màn Main của Setting + helper dùng chung cho
- * mọi màn danh sách row (System, Visualizer Screen...).
+ * components/settings/app-settings-main.js — màn Main của Setting (carousel ngang) + danh sách row dùng chung cho System /
+ * Visualizer Screen / Player.
  *
- * SỬA (20/09/2026, Giang yêu cầu "thiết kế lại main setting — list sang dạng nằm ngang cuộn, item
- * prev | current | next, current scale lớn, thêm miêu tả") — màn Main KHÔNG còn là danh sách row dọc
- * nữa mà là CAROUSEL ngang (renderAppSettingsMainBody() -> renderAppSettingsCarousel()): mỗi mục 1
- * card lớn (icon lớn + tiêu đề + miêu tả), card ở giữa = "current" (scale 1), 2 card kề bên nhỏ dần
- * (scale/opacity giảm theo khoảng cách tới tâm), cuộn vô hạn (danh sách được lặp SETTINGS_CAROUSEL_SETS
- * lần, core/settings-carousel-ui.js tự nhảy lại về bản giữa khi cuộn dừng). renderAppSettingsRowList()
- * GIỮ NGUYÊN 100% — System/Visualizer Screen/Player vẫn dùng.
- *
- * Mọi kích thước/scroll-snap của carousel viết INLINE `style` (không dùng class Tailwind
- * arbitrary-bracket) — tránh đúng bug Tailwind Play CDN tiêm CSS bất đồng bộ lần đầu (đã dính ở
- * Folder Browser + time-picker): scrollLeft ban đầu được set NGAY lúc mount, cần layout đúng ngay,
- * không đợi CSS tới.
- *
- * SỬA (phản hồi Giang mục 4 — "styling lại toàn bộ generic drawer setting, tham khảo EQ/Custom
- * Effect") — bỏ hẳn bảng màu TỐI (`glass-modal`/`border-white/5`) từng dùng ở đây — ĐÚNG bảng màu
- * SÁNG mà components/eq-presets-drawer.js/custom-effect-drawer.js đã dùng (Generic Drawer thuộc
- * vùng LOẠI TRỪ theme, nền LUÔN TRẮNG — xem docstring components/generic-drawer.js): card
- * `bg-slate-50 border border-slate-200`, text `text-slate-900/500/400`, icon nhấn `text-sky-500`.
- *
- * 4 mục Main: Playlist/System/Visualizer Screen/Troubleshooting (SỬA 20/09/2026 — bỏ card "Reset app":
- * Restore defaults/Clear cache gộp vào Troubleshooting, Restart app lên icon header Playlist) — mỗi card
- * `data-carousel-key="<key>"` (KEY đích, cùng bộ key với NAV_TARGETS ở event/router/app-settings.js),
- * click do core/app-settings-ui.js::wireAppSettingsMainCarousel() gắn (Rule 5d — hàm ở đây chỉ trả
- * chuỗi HTML thuần, KHÔNG addEventListener).
+ * Main: 4 card Playlist/System/Visualizer Screen/Troubleshooting, card ở giữa = current (scale 1), card kề bên nhỏ/mờ dần theo
+ * khoảng cách tới tâm, cuộn vô hạn (lặp SETTINGS_CAROUSEL_SETS bản — core/settings-carousel-ui.js). Mỗi card mang
+ * `data-carousel-key` (cùng bộ key với NAV_TARGETS, event/router/app-settings.js); click gắn ở
+ * core/app-settings-ui.js::wireAppSettingsMainCarousel(). Kích thước/scroll-snap viết `style` inline (không class Tailwind
+ * ngoặc vuông — Tailwind CDN tiêm CSS bất đồng bộ, mà scrollLeft ban đầu cần layout đúng ngay lúc mount).
  */
 function renderAppSettingsMainBody() {
     const rows = [
@@ -39,16 +20,16 @@ function renderAppSettingsMainBody() {
 
 /** Số lần LẶP danh sách card để cuộn "vô hạn" — LẺ để có 1 bản chính giữa (bản `floor(SETS/2)`),
  * 5 bản (không phải 3) để 1 cú vuốt mạnh dài vẫn không chạm mép trước khi cuộn dừng và được kéo lại
- * (xem core/settings-carousel-ui.js::settleSettingsCarouselLoop()). 4 mục x 5 bản = 20 node, nhẹ. */
+ * (xem core/settings-carousel-ui.js::computeSettingsCarouselSettleLeft()). 4 mục x 5 bản = 20 node, nhẹ. */
 const SETTINGS_CAROUSEL_SETS = 5;
 
 /** Carousel ngang: [prev | CURRENT | next], card chiều rộng 50% khung -> 2 card kề lộ ra ~1/3 mỗi bên.
  * Trạng thái hiển thị ban đầu của MỌI card = "nhỏ + mờ" (scale .8/opacity .5, khớp
  * SETTINGS_CAROUSEL_MIN_SCALE/MIN_OPACITY ở core/settings-carousel-ui.js) — card đầu tiên tự
- * phóng to lên current ở `initSettingsCarousel()` (hiệu ứng mở drawer), không phải do HTML này.
+ * phóng to lên current lúc hiệu ứng mở drawer (`startSettingsCarouselEntrance()`), không phải do HTML này.
  * `data-gd-ignore-mutation` ở vùng bọc ngoài — báo cho MutationObserver auto-height của
  * core/generic-drawer.js KHÔNG đo lại chiều cao mỗi lần card đổi `style` lúc đang cuộn (60 lần/giây).
- * @param {{key:string, icon:string, labelKey:string, hintKey:string}[]} rows - `icon`: tên icon trong assets/icon/icons.js (SỬA 07/10/2026 — trước là path SVG) */
+ * @param {{key:string, icon:string, labelKey:string, hintKey:string}[]} rows - `icon`: tên icon trong assets/icon/icons.js */
 function renderAppSettingsCarousel(rows) {
     const cardHtml = (row, index, copy) => `
         <button type="button" data-carousel-card data-carousel-key="${row.key}" data-carousel-index="${index}" data-carousel-copy="${copy}" class="rounded-3xl flex flex-col items-center text-center px-4 py-5" data-uitk="cardBg cardBorder" style="flex:0 0 50%; height:232px; scroll-snap-align:center; transform:scale(0.8); opacity:0.5;">
