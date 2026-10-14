@@ -63,3 +63,31 @@ function renderVisualizerDisplayPanelBody() {
         </div>
 `;
 }
+
+/** <option> style con của 1 group (modal chọn effect). @param {string} group @param {string|null} selectedStyle */
+function renderEffectPickerStyleOptionsHtml(group, selectedStyle) {
+    return (EFFECT_GROUPS[group] || []).map((style) => // service/state/visualizer-runtime.js
+        `<option value="${style}" ${style === selectedStyle ? 'selected' : ''}>${t(VISUALIZER_STYLE_LABEL_KEYS[style] || style)}</option>`
+    ).join('');
+}
+
+/** Thân modal chọn effect (CLICK #btn-cycle-mode): dropdown group + dropdown style con của group đang chọn. Đổi group ->
+ * Listener event/listener/visualizer-display.js -> đổ lại dropdown style. @param {string} currentGroup @param {string} currentStyle */
+function renderEffectPickerBodyHtml(currentGroup, currentStyle) {
+    const groupOptions = Object.keys(EFFECT_GROUPS).map((group) =>
+        `<option value="${group}" ${group === currentGroup ? 'selected' : ''}>${t(VISUALIZER_GROUP_LABEL_KEYS[group] || group)}</option>`
+    ).join('');
+    return `
+        <div class="flex flex-col gap-3">
+            <div class="flex flex-col gap-1">
+                <span class="text-xs text-slate-400">${t('effectPicker.groupLabel')}</span>
+                <select id="effect-picker-group" class="w-full py-2.5 px-3 rounded-xl bg-slate-800 border border-slate-600 text-sm text-white outline-none">${groupOptions}</select>
+            </div>
+            <div class="flex flex-col gap-1">
+                <span class="text-xs text-slate-400">${t('effectPicker.styleLabel')}</span>
+                <select id="effect-picker-style" class="w-full py-2.5 px-3 rounded-xl bg-slate-800 border border-slate-600 text-sm text-white outline-none">${renderEffectPickerStyleOptionsHtml(currentGroup, currentStyle)}</select>
+            </div>
+            <p class="text-xs text-slate-400">${t('effectPicker.holdHint')}</p>
+        </div>
+    `;
+}
