@@ -3,12 +3,33 @@
  * ảnh. Record (3 store media, xem readme/db-schema.md): { blob, thumbBlob, width, height, duration, filename, addedAt }.
  *   - `thumbBlob`: ảnh resize lúc upload (event/workflow/file-manager-photo.js::resizeImageForThumbnail()) cho lưới.
  *   - `width`/`height`: kích thước gốc — attribute của `<img>` để fjGallery tính tỉ lệ trước khi ảnh tải xong.
- *   - `duration`: giây (event/workflow/file-manager-photo.js::computePhotoDuration()).
+ *   - `duration`: giây (computePhotoDurationSec() dưới; Workflow tính SHA-256 rồi truyền vào — event/workflow/photo-duration.js).
  * Record cũ có thể thiếu 4 field trên — nơi đọc tự fallback (`thumbBlob || blob`, `width > 0 ? … : 1`).
  * Xoá ảnh: `deleteMediaRecord('photo', …)` (service/db.js).
  *
  * NẠP SAU: service/db.js (createMediaRecord/updateMediaMeta/setMediaBlob/setMediaThumbs).
  */
+
+// Thời lượng ảnh — tuyến tính theo weight, KHÔNG trần (Giang chốt "không kẹp max"). DURATION_MIN_SEC là sàn, cũng là
+// thời lượng mặc định cho record cũ thiếu field (event/workflow/photo-player.js, picker sửa duration ở playlist.js).
+const DURATION_MIN_SEC = 5;
+const DURATION_PIXEL_WEIGHT = 2;            // 1 pixel ảnh gốc "nặng" bằng bao nhiêu byte
+const DURATION_PER_WEIGHT_SEC = 0.00000125; // giây cộng thêm cho mỗi byte-tương-đương
+const DURATION_JITTER_SEC = 0.4;            // jitter tối đa từ SHA-256 — chỉ phá trùng số giữa 2 ảnh cùng weight, không đảo thứ tự
+
+/**
+ * Thời lượng (giây, 2 chữ số thập phân) deterministic từ chính file:
+ * `DURATION_MIN_SEC + (fileSize + DURATION_PIXEL_WEIGHT × width × height) × DURATION_PER_WEIGHT_SEC + jitter`, jitter lấy từ
+ * 4 byte đầu SHA-256 (không có digest -> 0).
+ * @param {number} fileSize - byte ảnh GỐC @param {number} width @param {number} height
+ * @param {ArrayBuffer|null} digestBuffer - SHA-256 của file, null khi không tính được
+ * @returns {number}
+ */
+function computePhotoDurationSec(fileSize, width, height, digestBuffer) {
+    const weight = fileSize + DURATION_PIXEL_WEIGHT * (width * height);
+    const jitter = digestBuffer ? (new DataView(digestBuffer).getUint32(0) / 4294967295) * DURATION_JITTER_SEC : 0;
+    return Math.round((DURATION_MIN_SEC + weight * DURATION_PER_WEIGHT_SEC + jitter) * 100) / 100;
+}
 
 /**
  * Lưu 1 ảnh mới (hoặc ghi đè trọn nếu trùng filename — key do Workflow resolve qua `resolveImageKey()`, service/db.js).
