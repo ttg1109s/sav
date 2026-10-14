@@ -221,12 +221,8 @@ const routerPlayerControls = (() => {
                 // `workflowPlayerControls.handleMediaEnded()` (event/workflow/player-controls.js,
                 // DÙNG CHUNG cho cả audio lẫn video — thay `handleSongEnded()`/
                 // `workflowVideoPlayer.handleVideoPlayerEnded()` cũ, 2 hàm TRÙNG THÂN đã gộp làm 1).
-                // SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — thêm
-                // 'playerControls.photo.ended' (bắn từ event/workflow/photo-player.js::
-                // _photoPlayerTick() lúc đồng hồ giả chạm duration, KHÔNG phải sự kiện DOM thật vì
-                // ảnh không có — xem docstring đầu file đó) vào CÙNG fallthrough — hết ảnh xử lý Y
-                // HỆT hết bài/video (auto next lúc idle, hiện màn kết quả lúc đang Game Mode),
-                // KHÔNG có lý do tách case riêng.
+                // 'playerControls.photo.ended': đồng hồ giả của Photo chạm thời lượng (workflowPhotoPlayer._signalEnded()) —
+                // cùng fallthrough. Photo không có Game Mode nên chủ thể chỉ là 'player' (lúc ghi âm Photo bị Block gate).
                 //
                 // SỬA (01/10/2026, Ghi âm — Giang chốt "end cũng không tự động chuyển bài") — thêm chủ thể thứ 3: đang có
                 // phiên ghi âm (recordPhase KHÁC 'idle', kể cả lúc modal nghe lại đang mở) -> workflowRecorder.onMediaEnded()
