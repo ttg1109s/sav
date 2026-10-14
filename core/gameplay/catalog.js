@@ -68,3 +68,10 @@ function resolveGameDifficulty(difficultyByGameId, gameId) {
 function computeNextGameDifficulty(currentDifficulty) {
     return GAMEPLAY_DIFFICULTY_ORDER[(GAMEPLAY_DIFFICULTY_ORDER.indexOf(currentDifficulty) + 1) % GAMEPLAY_DIFFICULTY_ORDER.length];
 }
+
+/** Arm xong có vào game ngay không: cần media đã nạp, và không phải Photo (ảnh không có audio — Game chờ lần phát
+ * Song/Video kế tiếp qua 'gameplay.mediaChanged'). @param {string|null} currentKey @param {boolean} isPhotoPlayerMode
+ * @returns {boolean} */
+function shouldStartArmedGameNow(currentKey, isPhotoPlayerMode) {
+    return !!currentKey && !isPhotoPlayerMode;
+}

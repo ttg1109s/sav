@@ -33,7 +33,7 @@ const GAMEPLAY_ARROW_CONFIG = Object.freeze({
 
     // ── Thời lượng 1 vòng chạy 0 -> 100% của nút tròn ──────────────────────────────────────────────
     // Theo BPM bài đang phát: beatsPerRound nhịp, nhân đôi tới khi >= minBasePeriodMs (bài nhanh không quá gấp trên
-    // màn chạm). Chưa có BPM (Photo, đầu bài) -> fallbackPeriodMs. Sau đó CHIA hệ số tăng tốc (mỗi lần hết dải level
+    // màn chạm). Chưa có BPM (đầu bài) -> fallbackPeriodMs. Sau đó CHIA hệ số tăng tốc (mỗi lần hết dải level
     // quay về level đầu, xem difficulty.*.speedUpPerLap), kẹp [minPeriodMs, maxPeriodMs].
     beatsPerRound: 4,
     minBasePeriodMs: 2600,

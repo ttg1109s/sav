@@ -167,17 +167,11 @@ function setGameDifficultyPreference(gameId, difficulty) {
 }
 
 // ── Điều khiển media lúc chơi (Workflow không tự .pause()/.play()/.currentTime=, event-bus-flow.md §7.1) ──────────
-// `mediaEl` = getActiveMediaElement() (core/player-controls.js): audio / video / đồng hồ giả Photo.
+// `mediaEl` = getActiveMediaElement() (core/player-controls.js): audio hoặc video. Phát lúc hết đếm ngược dùng
+// playMediaElement() (core/media-element-ui.js).
 
 /** Đưa media về đầu — PAUSE trước rồi seek 0 (seek trước có thể giật 1 khung lúc còn phát). Vô hại khi đã dừng/đã ở 0. */
 function resetGameplayMediaToStart(mediaEl) {
     mediaEl.pause();
     mediaEl.currentTime = 0;
-}
-
-/** Phát media lúc hết đếm ngược. `play()` của audio/video trả Promise (có thể bị từ chối) — bắt lỗi ghi log; đồng hồ
- * giả Photo không trả gì. */
-function startGameplayMedia(mediaEl) {
-    const playResult = mediaEl.play();
-    if (playResult && typeof playResult.catch === 'function') playResult.catch((err) => console.error('[startGameplayMedia] play() lỗi:', err));
 }
