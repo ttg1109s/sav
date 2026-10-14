@@ -1,19 +1,11 @@
 /**
- * event/listener/visualizer-display.js — Listener cụm "visualizerDisplay": ảnh nền, độ mờ nền,
- * cycle effect (#btn-cycle-mode). Field cấu hình riêng effect (màu/blur/style con/kích thước) ĐÃ
- * DỜI sang Custom Effect Drawer (event/workflow/custom-effect.js, wiring TRỰC TIẾP không qua
- * eventBus — xem docstring core/generic-drawer.js).
+ * event/listener/visualizer-display.js — Listener cụm "visualizerDisplay": #btn-cycle-mode (pointerdown/up/cancel/leave
+ * đếm giờ giữ 1.5s mở Custom Effect Drawer — cùng khuôn #btn-cycle-eq; `click` riêng mở modal chọn effect, giữ cho
+ * Action slot của cử chỉ bấm hộ), panel "Display" (ủy quyền trên genericDrawerBody), dropdown group của modal chọn effect
+ * (ủy quyền trên document.body).
  *
- * #btn-cycle-mode nghe THÊM pointerdown/up/cancel/leave (CÙNG khuôn #btn-cycle-eq, event/listener/
- * eq-presets.js) chỉ để đếm giờ giữ 1.5s — `click` riêng vẫn giữ (tương thích hệ Tap-3-lần/
- * Action-slot gọi `.click()` hộ).
- *
- * KHÔNG tự document.getElementById — dùng biến sẵn có ở core/dom-refs.js.
- * NẠP SAU CÙNG (sau bus, router/visualizer-display.js, core/settings-panel-stack.js, dom-refs.js).
+ * NẠP SAU: event/bus.js, event/router/visualizer-display.js, core/dom-refs.js.
  */
-
-// XOÁ (24/09/2026, rà soát refresh DOM) — listener `btnOpenVisualizerDisplay`/`btnOpenVisualizerAutoSwitch` (2 id
-// không còn trong DOM; 2 màn mở qua Settings > Visualizer Screen, event/workflow/app-settings.js).
 
 if (btnCycleMode) {
     btnCycleMode.addEventListener('pointerdown', () => {
@@ -32,8 +24,6 @@ if (btnCycleMode) {
         eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.cycle.click', payload: {} });
     });
 }
-
-// DỌN 23/09/2026: listener `#setting-bg-blur` ĐÃ XOÁ — slider đó không còn trong DOM; blur ảnh nền đã bỏ hẳn (Giang: Morphin vốn đã mờ).
 
 // ===================== Volume (HUD Control Center, event/listener/hud.js) =====================
 // EQ ở cụm "eqPresets" riêng (event/listener/eq-presets.js).
@@ -54,6 +44,12 @@ function handleVisualizerDisplayPanelChange(e) {
     eventBus.send({ router: 'visualizerDisplay', type: entry.type, payload: { checked: e.target.checked } });
 }
 
-if (genericDrawerBody) { // SỬA (đợt migrate Visualizer Screen) — settingsStackBody nay thuộc Photo, nội dung này sống trong genericDrawerBody
+if (genericDrawerBody) {
     genericDrawerBody.addEventListener('change', handleVisualizerDisplayPanelChange);
 }
+
+// ===================== Modal chọn effect (modalChoice() gắn vào document.body — ủy quyền) =====================
+document.body.addEventListener('change', (e) => {
+    if (e.target.id !== 'effect-picker-group') return;
+    eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.effectPicker.group.change', payload: { group: e.target.value } });
+});

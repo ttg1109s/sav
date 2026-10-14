@@ -1,11 +1,7 @@
 /**
- * event/listener/visualizer-control-center.js — TẤT CẢ listener của cụm
- * "visualizerControlCenter".
+ * event/listener/visualizer-control-center.js — listener cụm "visualizerControlCenter" (nút mở, overlay, grid icon).
+ * "Hiện Visual" ở panel Display — event/listener/visualizer-display.js.
  */
-// XOÁ (09/09/2026, Giang yêu cầu "loại bỏ nút icon visualizer riêng ở header") — listener
-// btnReturnVisual ĐÃ BỎ (nút không còn tồn tại trong DOM) — returnToVisualizer() (core/
-// visualizer-control-center.js) giờ được gọi TRỰC TIẾP từ event/router/playlist-empty-state.js khi
-// nút Phát to đang ở trạng thái "Đang phát".
 
 if (btnOpenControlCenter) {
     btnOpenControlCenter.addEventListener('click', () => {
@@ -20,24 +16,9 @@ if (controlCenterOverlay) {
 }
 
 if (visualizerControlCenter) {
-    // Bấm bất kỳ icon nào trong grid (data-cc-action) -> đóng panel ngay.
+    // Ủy quyền: bấm icon trong grid (data-cc-action) -> đóng panel.
     visualizerControlCenter.addEventListener('click', (e) => {
-        eventBus.send({ router: 'visualizerControlCenter', type: 'visualizerControlCenter.gridClick', payload: { target: e.target } });
+        if (!e.target.closest('[data-cc-action]')) return;
+        eventBus.send({ router: 'visualizerControlCenter', type: 'visualizerControlCenter.gridAction.click', payload: {} });
     });
 }
-
-// XOÁ (v13 Batch A) — listener cho `videoEnableToggle` (#setting-video-enable) ĐÃ BỎ HẲN cùng
-// chính toggle đó: "Video nền" giờ là 1 tổ hợp (`type='video'`) bên trong panel "Visual
-// Background", điều khiển qua cụm router `visualBg` (event/listener,router,workflow/visual-bg.js).
-// Cơ chế Block gate khoá chéo với Video Player mode KHÔNG mất — v14 chuyển sang chặn thẳng ở 2
-// msg.type "Chọn nguồn" (`visualBg.pickVideo.click`/`pickPhoto.click`/`pickFolder.click`, xem event/block.js).
-
-// "setting-visual-enable" đã dời vào panel "Display" ĐỘNG — listener chuyển sang delegate
-// (event/listener/visualizer-display.js, router 'visualizerDisplay').
-
-// (LỊCH SỬ) block listener `videoUploadInput` (change + cancel) đã xoá 21/07/2026 — input
-// `#setting-video-upload` không còn tồn tại trong DOM.
-//
-// XOÁ (v13 Batch A) — listener cho `settingVisualBgImageEnableToggle` (#setting-visual-bg-image-enable)
-// ĐÃ BỎ HẲN cùng chính toggle đó: "Ảnh nền Visual" giờ là tổ hợp (mediaType='image' +
-// sourceMode='single') bên trong panel "Visual Background" — xem event/listener/visual-bg.js.
