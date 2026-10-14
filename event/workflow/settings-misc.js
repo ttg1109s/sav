@@ -1,12 +1,6 @@
 /**
- * event/workflow/settings-misc.js — "THẰNG THỰC THI CUỐI" của router "settingsMisc" (Debug console + appRecovery).
- *
- * QUY TẮC:
- *   - Workflow KHÔNG tự nghĩ ra logic nghiệp vụ mới — chỉ là 1 CHUỖI GỌI hàm core đã có sẵn.
- *   - withLoadingShield() và alertModal()/modalChoice() ĐẶT Ở TẦNG NÀY — core không biết 2 thứ
- *     này tồn tại.
- *   - alertModal() KHÔNG bao giờ gọi BÊN TRONG callback của withLoadingShield() — luôn gọi SAU
- *     KHI shield đã đóng hẳn.
+ * event/workflow/settings-misc.js — router "settingsMisc" (Debug console + appRecovery: Restart / Restore default settings /
+ * Clear cache). Modal xác nhận (modalChoice/alertModal) ở tầng này; alertModal() không gọi bên trong withLoadingShield().
  */
 /** MỌI key meta (IndexedDB) chứa CÀI ĐẶT, bị xoá hẳn ở Restore default settings
  * (confirmRestoreDefaults()). Thêm 1 domain cài đặt mới có persist qua meta -> PHẢI thêm key vào đây.
@@ -72,16 +66,9 @@ const workflowSettingsMisc = {
         this.openDebugConsole(); // vẽ danh sách log + wire nút Copy/Xoá — TÁI DÙNG nguyên logic có sẵn ngay trên
     },
 
-    /** Chuỗi 1 dòng log khi Copy (cả "Copy all" lẫn Copy từng dòng — CÙNG 1 định dạng, dán ra đọc y hệt). */
-    _formatDebugConsoleEntry(entry) {
-        return `[${new Date(entry.time).toLocaleTimeString()}] ${entry.level.toUpperCase()}: ${entry.text}`;
-    },
-
-    /** Ứng với `settingsMisc.debugConsole.copy.click` (nút Copy all, wire 1 lần ở core/settings-misc-
-     * ui.js). Public — Router gọi trực tiếp. */
+    /** Ứng với `settingsMisc.debugConsole.copy.click` (nút Copy all). */
     async copyDebugConsoleLog() {
-        const logs = getDebugConsoleLogs(); // core/debug-console.js
-        const text = logs.map((l) => this._formatDebugConsoleEntry(l)).join('\n');
+        const text = formatDebugConsoleLogsText(getDebugConsoleLogs()); // core/debug-console.js
         try {
             await navigator.clipboard.writeText(text);
             alertModal(t('settingsMisc.debugConsole.copiedMsg'));
@@ -90,7 +77,7 @@ const workflowSettingsMisc = {
         }
     },
 
-    /** Ứng với `settingsMisc.debugConsole.clear.click` (nút Clear all). Public — Router gọi trực tiếp. */
+    /** Ứng với `settingsMisc.debugConsole.clear.click` (nút Clear all). */
     clearDebugConsoleLog() {
         clearDebugConsoleLogs(); // core/debug-console.js
         this._debugConsolePageIndex = 0;
@@ -102,10 +89,10 @@ const workflowSettingsMisc = {
      * icon nút sang dấu tick ~1s rồi trả lại icon gốc (báo nhẹ, không chặn thao tác).
      * @param {number} id @param {HTMLElement} btnEl - nút Copy vừa bấm */
     async copyDebugConsoleItem(id, btnEl) {
-        const entry = getDebugConsoleLogs().find((l) => l.id === id); // core/debug-console.js
+        const entry = findDebugConsoleLog(getDebugConsoleLogs(), id); // core/debug-console.js
         if (!entry) return;
         try {
-            await navigator.clipboard.writeText(this._formatDebugConsoleEntry(entry));
+            await navigator.clipboard.writeText(formatDebugConsoleLogsText([entry])); // core/debug-console.js
         } catch (e) {
             alertModal(t('settingsMisc.debugConsole.copyFailedMsg'));
             return;
@@ -122,36 +109,19 @@ const workflowSettingsMisc = {
         if (this._debugConsolePanelEl) this._renderDebugConsoleList(this._debugConsolePanelEl, true);
     },
 
-    /** Vẽ lại danh sách log vào `#debug-console-list` bên trong `panelEl` — gọi lúc mở panel, sau
-     * "Clear all" (danh sách rỗng lại), sau khi xoá 1 dòng, và lúc đổi trang. HTML item do
-     * components/debug-console-drawer.js::renderDebugConsoleListHtml() dựng (đã escapeHtml nội dung log);
-     * item vẽ SAU khi Generic Drawer đã áp theme nên phải áp lại `data-uitk` (core/ui-theme/apply-ui.js).
-     *
-     * Theo nơi 'debugConsole' của Settings > System > Pagination:
-     *   - TẮT (mặc định): toàn bộ log cũ -> mới, tự cuộn xuống dòng MỚI NHẤT (`keepScroll`
-     *     = true thì giữ vị trí cuộn, dùng khi xoá 1 dòng giữa danh sách).
-     *   - BẬT: log MỚI NHẤT lên ĐẦU (trang 1 = mới nhất — cách duy nhất để mọi kiểu phân trang, kể cả
-     *     'loadMore' cộng dồn từ đầu, đều mở ra thấy log mới trước), cuộn về đầu danh sách; xoá 1 dòng vẫn
-     *     giữ vị trí cuộn. Thanh phân trang vẽ vào `#debug-console-pagination` (delegate đã wire 1 lần ở
-     *     core/settings-misc-ui.js::wireDebugConsolePanelActions()).
-     * @param {HTMLElement} panelEl @param {boolean} [keepScroll]
-     */
+    /** Vẽ lại danh sách log + thanh phân trang trong `panelEl` — lúc mở panel, sau Clear all, sau xoá 1 dòng (`keepScroll`), lúc
+     * đổi trang. Thứ tự + cách cuộn theo nơi 'debugConsole' của Pagination: computeDebugConsoleListPlan() (core/debug-console.js).
+     * @param {HTMLElement} panelEl @param {boolean} [keepScroll] */
     _renderDebugConsoleList(panelEl, keepScroll) {
-        const listEl = panelEl.querySelector('#debug-console-list');
-        if (!listEl) return;
-        const paginationEl = panelEl.querySelector('#debug-console-pagination');
-        const prevScrollTop = listEl.scrollTop;
         const isPaginated = workflowPagination.getPlaceSettings('debugConsole').enabled; // event/workflow/pagination.js
-        const logs = getDebugConsoleLogs(); // core/debug-console.js — bản sao, đảo được thoải mái
-        const view = workflowPagination.computePlaceView('debugConsole', isPaginated ? logs.reverse() : logs, this._debugConsolePageIndex);
+        const plan = computeDebugConsoleListPlan(getDebugConsoleLogs(), isPaginated, keepScroll); // core/debug-console.js
+        const view = workflowPagination.computePlaceView('debugConsole', plan.orderedLogs, this._debugConsolePageIndex);
         this._debugConsolePageIndex = view.pageIndex; // giá trị đã kẹp (vd vừa xoá hết dòng của trang cuối)
-        listEl.innerHTML = renderDebugConsoleListHtml(view.pageItems); // components/debug-console-drawer.js
-        applyUiThemeToDom(listEl, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
-        if (paginationEl) {
-            paginationEl.innerHTML = workflowPagination.buildControlsHtml(view);
-            applyUiThemeToDom(paginationEl, _activeUiThemeKeyList);
-        }
-        listEl.scrollTop = keepScroll ? prevScrollTop : (isPaginated ? 0 : listEl.scrollHeight);
+        const filled = fillDebugConsoleList(panelEl, renderDebugConsoleListHtml(view.pageItems), workflowPagination.buildControlsHtml(view)); // core/settings-misc-ui.js + components/debug-console-drawer.js
+        if (!filled) return;
+        applyUiThemeToDom(filled.listEl, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — item vẽ sau khi Drawer đã áp theme
+        if (filled.paginationEl) applyUiThemeToDom(filled.paginationEl, _activeUiThemeKeyList);
+        scrollDebugConsoleList(filled.listEl, plan.scrollMode, filled.prevScrollTop); // core/settings-misc-ui.js
     },
 
     /** Ứng với 'settingsMisc.debugConsole.page.change' (thanh phân trang Debug console).

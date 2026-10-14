@@ -49,7 +49,7 @@ const workflowTheme = {
         saveConfig(); // core/config.js
         const view = computeThemeBackgroundView(appConfigViz.getAll()); // core/theme-background.js
         updatePlaylistBg(view.playlistBg); // core/color-utils.js
-        forceGlassRepaint(); // core/color-utils.js — WebKit giữ ảnh chụp nền cũ sau lớp kính tới khi bị ép vẽ lại
+        this._forceGlassRepaint();
         workflowUiTheme.syncStatusBarColor(); // event/workflow/ui-theme.js — status bar iOS + mirror preloader
         this.syncBackgroundVideoPlayback();
         this._patchCards(view.cards);
@@ -132,7 +132,7 @@ const workflowTheme = {
         saveConfig();
         const view = computeThemeBackgroundView(appConfigViz.getAll());
         updatePlaylistBg(view.playlistBg);
-        forceGlassRepaint();
+        this._forceGlassRepaint();
         this._patchCards(view.cards);
     },
 
@@ -179,6 +179,13 @@ const workflowTheme = {
     /** Vẽ nền App Panel theo config hiện tại — lúc boot (event/workflow/app-boot.js, ngay sau loadConfig()). */
     repaintAppBackground() {
         updatePlaylistBg(computeThemeBackgroundView(appConfigViz.getAll()).playlistBg); // core/color-utils.js + core/theme-background.js
+    },
+
+    /** Ép lớp kính vẽ lại ngay sau khi nền đổi (WebKit giữ ảnh chụp nền cũ sau kính): tắt tạm backdrop, khung hình kế trả lại.
+     * Mỗi lần gọi tự trả đúng danh sách của nó (tên task tự sinh — gọi dồn lúc kéo slider không bỏ sót phần tử nào). */
+    _forceGlassRepaint() {
+        const glassEls = suspendGlassBackdrop(); // core/color-utils.js
+        taskManager.onceFrame(() => restoreGlassBackdrop(glassEls), 1); // core/color-utils.js
     },
 
     /** Vá 3 card ở màn Theme (nếu đang mở) rồi áp lại UI theme cho cụm (key theme của card vừa đổi). @param {ThemeBgCardsView} cards */

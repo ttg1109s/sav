@@ -23,10 +23,8 @@
  * NẠP TRƯỚC: event/router/player-controls.js, event/router/app-settings.js, event/router/app-panel-nav.js,
  * event/router/visual-bg.js.
  */
-/** Carousel Main (xem `_renderMain()`): chờ drawer trượt lên gần xong rồi mới cho card đầu tiên phóng
- * to, thời lượng phóng to, và độ trễ debounce sau sự kiện `scroll` CUỐI CÙNG để coi là "đã dừng hẳn"
- * (kéo lại về bản lặp giữa — xem core/settings-carousel-ui.js::settleSettingsCarouselLoop()). Timer
- * chạy qua taskManager (task-manager-conventions.md — CHỈ Workflow được hẹn giờ). */
+/** Carousel Main (`_renderMain()`): chờ drawer trượt lên gần xong rồi mới cho card ở tâm phóng to, thời lượng phóng to, và độ
+ * trễ debounce sau sự kiện `scroll` cuối cùng để coi là "đã dừng" (kéo về bản lặp giữa — computeSettingsCarouselSettleLeft()). */
 const APP_SETTINGS_CAROUSEL_ENTRANCE_DELAY_MS = 180;
 const APP_SETTINGS_CAROUSEL_ENTRANCE_MS = 420;
 const APP_SETTINGS_CAROUSEL_SETTLE_DELAY_MS = 140;
@@ -36,6 +34,31 @@ const APP_SETTINGS_CAROUSEL_SETTLE_TASK = 'appSettingsCarouselSettle';
 
 // 6 field của 1 Point Move (màn Point Move Edit).
 const APP_SETTINGS_POINT_MOVE_FIELD_KEYS = ['linearX', 'linearY', 'rotate', 'zoom', 'flipX', 'flipY'];
+
+// back(): còn màn trước -> vẽ lại màn đó; ngăn xếp rỗng (không nên xảy ra — Main không có nút Back) -> đóng hẳn.
+const APP_SETTINGS_BACK_BY_HAS_PREV = {
+    true: (prev) => prev(), // `_scrollResetPending` vẫn false -> `_render()` khôi phục vị trí cuộn lúc rời màn này
+    false: () => workflowAppSettings.close(),
+};
+// Màn con dựng từ 1 bản ghi (preset, point move…): bản ghi còn -> vẽ; vừa bị xoá ở nơi khác / phiên đã kết thúc -> lùi 1 màn.
+const APP_SETTINGS_SCREEN_BY_FOUND = {
+    true: (render) => render(),
+    false: () => workflowAppSettings.back(),
+};
+// Tap card carousel Main: card đang ở tâm -> nhớ mục (Back về Main giữ mục đó ở giữa) + mở màn đích; card bên cạnh -> cuộn vào giữa.
+const APP_SETTINGS_CAROUSEL_TAP_BY_FOCUSED = {
+    true: (scrollerEl, cardEl, tap, key) => {
+        workflowAppSettings._mainCarouselIndex = tap.index;
+        eventBus.send({ router: 'appSettings', type: 'appSettings.nav.click', payload: { key } });
+    },
+    false: (scrollerEl, cardEl) => scrollSettingsCarouselTo(scrollerEl, computeSettingsCarouselCenterLeft(scrollerEl, cardEl)), // core/settings-carousel-ui.js
+};
+// Đổi 1 control của 1 nơi ở màn Pagination (event/workflow/pagination.js).
+const APP_SETTINGS_PAGINATION_CHANGE_BY_FIELD = {
+    enabled: (place, value) => workflowPagination.changePlaceEnabled(place, value),
+    pageSize: (place, value) => workflowPagination.changePlacePageSize(place, value),
+    style: (place, value) => workflowPagination.changePlaceStyle(place, value),
+};
 
 const workflowAppSettings = {
 
@@ -72,8 +95,7 @@ const workflowAppSettings = {
     /** Ứng với nút Back động ở header (mọi màn trừ Main). */
     back() {
         const prev = this._screenStack.pop();
-        if (!prev) { this.close(); return; } // không còn gì để lùi (không nên xảy ra — Main không có nút Back) -> đóng hẳn cho an toàn
-        prev(); // `_scrollResetPending` vẫn false -> `_render()` khôi phục đúng vị trí cuộn lúc rời màn này (event/workflow/generic-drawer-helpers.js)
+        APP_SETTINGS_BACK_BY_HAS_PREV[Boolean(prev)](prev);
     },
 
     // ===================== Khung dùng chung =====================
@@ -117,10 +139,13 @@ const workflowAppSettings = {
             wireAppSettingsMainCarousel(body); // core/app-settings-ui.js — chỉ wire sự kiện -> eventBus
             const scrollerEl = body.querySelector('#app-settings-carousel');
             this._carouselTouching = false;
-            initSettingsCarousel(scrollerEl, this._mainCarouselIndex); // core/settings-carousel-ui.js — đặt mục hiện tại vào tâm, card vẫn nhỏ/mờ
-            // Hiệu ứng mở: đợi drawer trượt lên gần xong -> card ở tâm phóng to -> hết animation thì gỡ transition (cuộn theo tay tức thì).
+            // Hiệu ứng mở: đặt mục hiện tại vào tâm (card vẫn nhỏ/mờ) -> đợi drawer trượt lên gần xong -> card ở tâm phóng to ->
+            // hết animation thì gỡ transition (cuộn theo tay tức thì).
+            const startCardEl = beginSettingsCarouselEntrance(scrollerEl, this._mainCarouselIndex); // core/settings-carousel-ui.js
+            if (startCardEl) setSettingsCarouselScrollLeftInstant(scrollerEl, computeSettingsCarouselCenterLeft(scrollerEl, startCardEl)); // core/settings-carousel-ui.js
             taskManager.once(() => {
                 startSettingsCarouselEntrance(scrollerEl, APP_SETTINGS_CAROUSEL_ENTRANCE_MS); // core/settings-carousel-ui.js
+                this._applyCarouselFocus(scrollerEl);
                 taskManager.once(() => endSettingsCarouselEntrance(scrollerEl), APP_SETTINGS_CAROUSEL_ENTRANCE_MS + 40, APP_SETTINGS_CAROUSEL_ENTRANCE_END_TASK);
             }, APP_SETTINGS_CAROUSEL_ENTRANCE_DELAY_MS, APP_SETTINGS_CAROUSEL_ENTRANCE_TASK);
         });
@@ -129,8 +154,13 @@ const workflowAppSettings = {
     /** Mỗi sự kiện `scroll` của carousel Main (Router 'appSettings.carousel.scroll') — cập nhật
      * scale/opacity theo vị trí + đặt lại (debounce, cùng tên task) bộ đếm "đã dừng cuộn". */
     handleCarouselScroll(scrollerEl) {
-        updateSettingsCarouselFocus(scrollerEl); // core/settings-carousel-ui.js
+        this._applyCarouselFocus(scrollerEl);
         this._scheduleCarouselSettle(scrollerEl);
+    },
+
+    /** Card càng gần tâm càng to/rõ (bỏ qua lúc đang hiệu ứng mở / carousel đã rời DOM — core tự guard). */
+    _applyCarouselFocus(scrollerEl) {
+        applySettingsCarouselFocusStyles(scrollerEl, measureSettingsCarousel(scrollerEl)); // core/settings-carousel-ui.js
     },
 
     /** Ngón tay chạm/nhấc khỏi carousel Main (Router 'appSettings.carousel.touch.start|end'). Nhấc tay
@@ -140,45 +170,38 @@ const workflowAppSettings = {
         if (!isTouching) this._scheduleCarouselSettle(scrollerEl);
     },
 
+    /** Cuộn đã dừng (debounce cùng tên task): card current ở bản lặp ngoài thì nhảy về bản giữa — "vô hạn" 2 phía. */
     _scheduleCarouselSettle(scrollerEl) {
         taskManager.once(() => {
             if (this._carouselTouching) return; // còn đang kéo tay — touchend sẽ hẹn lại
-            settleSettingsCarouselLoop(scrollerEl); // core/settings-carousel-ui.js
+            const left = computeSettingsCarouselSettleLeft(scrollerEl, measureSettingsCarousel(scrollerEl)); // core/settings-carousel-ui.js
+            if (left !== null) setSettingsCarouselScrollLeftInstant(scrollerEl, left); // core/settings-carousel-ui.js
         }, APP_SETTINGS_CAROUSEL_SETTLE_DELAY_MS, APP_SETTINGS_CAROUSEL_SETTLE_TASK);
     },
 
-    /** Tap 1 card ở carousel Main (Router 'appSettings.carousel.card.click').
-     * @returns {boolean} true = card VỪA được cuộn vào giữa (chưa mở gì); false = card ĐÃ ở giữa
-     *          -> nhớ vị trí (để Back về Main giữ nguyên mục này ở giữa) và để Router mở màn đích. */
-    handleCarouselCardTap(scrollerEl, cardEl) {
-        const focusedCardEl = getSettingsCarouselFocusCard(scrollerEl); // core/settings-carousel-ui.js — dùng RETURN VALUE để rẽ nhánh
-        if (focusedCardEl !== cardEl) {
-            scrollSettingsCarouselTo(scrollerEl, cardEl); // core/settings-carousel-ui.js
-            return true;
-        }
-        this._mainCarouselIndex = Number(cardEl.dataset.carouselIndex) || 0;
-        return false;
+    /** Ứng với 'appSettings.carousel.card.click' — card ở tâm: mở màn đích (qua 'appSettings.nav.click'); card bên cạnh: cuộn
+     * vào giữa. @param {HTMLElement} scrollerEl @param {HTMLElement} cardEl @param {string} key */
+    handleCarouselCardTap(scrollerEl, cardEl, key) {
+        const tap = resolveSettingsCarouselTap(measureSettingsCarousel(scrollerEl), cardEl); // core/settings-carousel-ui.js
+        APP_SETTINGS_CAROUSEL_TAP_BY_FOCUSED[tap.isFocused](scrollerEl, cardEl, tap, key);
     },
 
     // ===================== Playlist (TÁI DÙNG TPL_SETTINGS_PLAYLIST_VIEW + workflowPlaylist) =====
 
     _renderPlaylist() {
         this._currentRenderFn = () => this._renderPlaylist();
+        const { activeMediaSource, isGridView } = appState.get(['activeMediaSource', 'isGridView']);
         this._render(t('appSettings.row.playlist'), TPL_SETTINGS_PLAYLIST_VIEW, (body) => {
-            const mediaSourceSelect = body.querySelector('#setting-playlist-media-source');
-            if (mediaSourceSelect) mediaSourceSelect.value = appState.get('activeMediaSource');
-            // "Đang Scope folder nào" hiện ở badge trong ô tìm kiếm Playlist (components/playlist-view.js), không ở đây.
-            const viewModeSelect = body.querySelector('#setting-playlist-view-mode');
-            if (viewModeSelect) viewModeSelect.value = appState.get('isGridView') ? 'grid' : 'list';
+            setAppSettingsPlaylistSelects(body, activeMediaSource, isGridView ? 'grid' : 'list'); // core/app-settings-ui.js
             wireAppSettingsPlaylist(body); // core/app-settings-ui.js
         });
     },
 
     _renderPlaylistSort() {
         this._currentRenderFn = () => this._renderPlaylistSort();
-        const source = appState.get('activeMediaSource'); // Photo ẩn 2 field times/duration
-        // Truyền field Stats để template dựng sẵn đúng hàng Hướng (chiều cao đo đúng ngay, không giật).
-        this._render(t('playlistSortPanel.title'), renderPlaylistSortPanelBody(source, appState.get('displayStatSortField')), () => {
+        const { activeMediaSource, displayStatSortField } = appState.get(['activeMediaSource', 'displayStatSortField']);
+        // Nguồn: Photo ẩn 2 field times/duration; field Stats: template dựng sẵn đúng hàng Hướng (chiều cao đo đúng ngay).
+        this._render(t('playlistSortPanel.title'), renderPlaylistSortPanelBody(activeMediaSource, displayStatSortField), () => {
             workflowPlaylist.openSortPanel(); // event/workflow/playlist.js — đồng bộ giá trị
         });
     },
@@ -187,9 +210,10 @@ const workflowAppSettings = {
      * trang 1. Tương tác: event/listener/playlist-filter-presets.js. */
     _renderPlaylistFilterList() {
         this._currentRenderFn = () => this._renderPlaylistFilterList();
-        const source = appState.get('activeMediaSource');
-        const presets = appState.get('playlistFilterPresets')[source];
-        const activeId = appState.get('playlistFilterActivePresetId')[source];
+        const s = appState.get(['activeMediaSource', 'playlistFilterPresets', 'playlistFilterActivePresetId']);
+        const source = s.activeMediaSource;
+        const presets = s.playlistFilterPresets[source];
+        const activeId = s.playlistFilterActivePresetId[source];
         this._resetFilterListPageOnSourceChange(source);
         const view = workflowPagination.computePlaceView('filterPresets', presets, this._playlistFilterListPageIndex); // event/workflow/pagination.js
         this._playlistFilterListPageIndex = view.pageIndex; // đã kẹp (vd vừa xoá preset cuối của trang cuối)
@@ -211,14 +235,13 @@ const workflowAppSettings = {
     _renderPlaylistFilterEdit() {
         this._currentRenderFn = () => this._renderPlaylistFilterEdit();
         const source = workflowPlaylistFilterPresets._editingSource;
-        const preset = findPlaylistFilterPresetById(appState.get('playlistFilterPresets')[source], workflowPlaylistFilterPresets._editingId); // core/playlist/filter-presets.js
-        if (!preset) { this.back(); return; } // guard: preset vừa bị xoá ở nơi khác
-        const isActive = preset.id === appState.get('playlistFilterActivePresetId')[source];
-        this._render(
+        const s = appState.get(['playlistFilterPresets', 'playlistFilterActivePresetId']);
+        const preset = findPlaylistFilterPresetById(s.playlistFilterPresets[source], workflowPlaylistFilterPresets._editingId); // core/playlist/filter-presets.js
+        APP_SETTINGS_SCREEN_BY_FOUND[Boolean(preset)](() => this._render(
             tFormat('playlistFilterPresetsDrawer.edit.titleForSource', { source: t('settingsPlaylistBg.mediaSource.' + source) }),
-            renderPlaylistFilterEditBody(preset, source, isActive), // components/playlist-filter-drawer.js
+            renderPlaylistFilterEditBody(preset, source, preset.id === s.playlistFilterActivePresetId[source]), // components/playlist-filter-drawer.js
             () => workflowPlaylistFilterPresets._syncEditUI(), // event/workflow/playlist-filter-presets.js — đổ giá trị field sau mount
-        );
+        ));
     },
 
     // ===================== System (Theme/Motion/Language/Recording/Pagination) =====================
@@ -233,7 +256,7 @@ const workflowAppSettings = {
             // Cài đặt CHUNG cho mọi danh sách có phân trang, xem _renderPagination().
             { key: 'pagination', icon: 'pagination', labelKey: 'appSettings.system.pagination.label', hintKey: 'appSettings.system.pagination.hint' },
         ];
-        this._render(t('appSettings.row.system'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js
+        this._render(t('appSettings.row.system'), renderAppSettingsRowList(rows), wireAppSettingsRowList); // core/app-settings-ui.js
     },
 
     // ===================== Pagination — mỗi NƠI 1 checkbox + số item/trang + kiểu riêng =====================
@@ -259,10 +282,16 @@ const workflowAppSettings = {
      * @param {{place:string, field:'enabled'|'pageSize'|'style', value:*}} payload */
     async handlePaginationPlaceChange(payload) {
         const { place, field, value } = payload;
-        if (field === 'enabled') await workflowPagination.changePlaceEnabled(place, value); // event/workflow/pagination.js
-        else if (field === 'pageSize') await workflowPagination.changePlacePageSize(place, value);
-        else if (field === 'style') await workflowPagination.changePlaceStyle(place, value);
+        const change = APP_SETTINGS_PAGINATION_CHANGE_BY_FIELD[field];
+        if (change) await change(place, value);
         this._renderPagination(); // vẽ lại tại chỗ — `_render()` tự giữ vị trí cuộn
+    },
+
+    /** Ứng với 'appSettings.pagination.input.keydown' — Enter ở ô số: bỏ focus (trình duyệt tự phát `change`).
+     * @param {string} key @param {HTMLElement} inputEl */
+    handlePaginationInputKeydown(key, inputEl) {
+        if (key !== 'Enter') return; // guard: chỉ Enter
+        blurAppSettingsInput(inputEl); // core/app-settings-ui.js
     },
 
     // ===================== Theme — select "Color" (Light/Dark/Morphin) + 3 card nền (chỉ khi Morphin) =====================
@@ -315,47 +344,43 @@ const workflowAppSettings = {
         );
     },
 
-    /** Ứng với 'appSettings.playlistFilterList.page.change' (thanh phân trang danh sách
-     * preset Filter). Vẽ lại tại chỗ, cuộn về đầu. @param {number} pageIndex */
+    /** Ứng với 'appSettings.playlistFilterList.page.change' — vẽ lại tại chỗ, bắt đầu từ đầu trang mới (`scrollReset`).
+     * @param {number} pageIndex */
     setPlaylistFilterListPage(pageIndex) {
         this._playlistFilterListPageIndex = pageIndex;
+        this._scrollResetPending = true;
         this._renderPlaylistFilterList();
-        genericDrawerBody.scrollTop = 0;
     },
 
-    /** Ứng với 'appSettings.motionList.page.change' (thanh phân trang danh sách Motion).
-     * Vẽ lại tại chỗ (không push ngăn xếp), cuộn về đầu để thấy trang mới từ trên xuống.
-     * @param {number} pageIndex */
+    /** Ứng với 'appSettings.motionList.page.change' — vẽ lại tại chỗ (không push ngăn xếp), từ đầu trang mới. @param {number} pageIndex */
     setMotionListPage(pageIndex) {
         this._motionListPageIndex = pageIndex;
+        this._scrollResetPending = true;
         this._renderMotionList();
-        genericDrawerBody.scrollTop = 0;
     },
 
     /** Danh sách preset ở chế độ Chọn (phiên do `workflowMotionPresets.openPicker()` giữ) — tap dòng = chọn nháp, nút
      * Apply ở header = xác nhận + back(). Phân trang dùng chung nơi 'motionPresets'. */
     _renderMotionPicker() {
         this._currentRenderFn = () => this._renderMotionPicker();
-        const data = workflowMotionPresets.getPickerRenderData(); // event/workflow/motion-presets.js
-        if (!data) { this.back(); return; } // guard: phiên Chọn đã kết thúc
-        this._render(
+        const data = workflowMotionPresets.getPickerRenderData(); // event/workflow/motion-presets.js — null = phiên Chọn đã kết thúc
+        APP_SETTINGS_SCREEN_BY_FOUND[Boolean(data)](() => this._render(
             data.title,
             renderMotionPickerBody(data.view.pageItems, data.draftId, workflowPagination.buildControlsHtml(data.view)), // components/motion-settings-drawer.js
             (body) => wirePaginationControls(body.querySelector('#motion-picker-pagination'), 'motionPresets', 'motionPresets.picker.page.change'), // core/pagination-ui.js
             renderMotionPickerApplyButtonHtml(), // components/motion-settings-drawer.js
-        );
+        ));
     },
 
     /** Sửa 1 preset (`workflowMotionPresets._editingId`). */
     _renderMotionEdit() {
         this._currentRenderFn = () => this._renderMotionEdit();
         const preset = findMotionPresetById(appState.get('motionPresets'), workflowMotionPresets._editingId); // core/motion-presets.js
-        if (!preset) { this.back(); return; } // guard: preset vừa bị xoá ở nơi khác
-        this._render(
+        APP_SETTINGS_SCREEN_BY_FOUND[Boolean(preset)](() => this._render(
             t('motionPresetsDrawer.edit.title'),
             renderMotionEditBody(preset), // components/motion-settings-drawer.js
             () => workflowMotionPresets._updateTransitionRatioLabel(preset.transitionDurationMs, preset.transitionInOutRatio), // event/workflow/motion-presets.js
-        );
+        ));
     },
 
     /** Danh sách point move của preset đang sửa — [kéo] | checkbox | tên | nhân bản | xoá | sửa. Kéo tay cầm hoán đổi
@@ -363,8 +388,7 @@ const workflowAppSettings = {
     _renderPointMoveList() {
         this._currentRenderFn = () => this._renderPointMoveList();
         const preset = findMotionPresetById(appState.get('motionPresets'), workflowMotionPresets._editingId); // core/motion-presets.js
-        if (!preset) { this.back(); return; }
-        this._render(t('motionSettingsDrawer.pointMove.list.label'), renderPointMoveListBody(preset)); // components/motion-settings-drawer.js
+        APP_SETTINGS_SCREEN_BY_FOUND[Boolean(preset)](() => this._render(t('motionSettingsDrawer.pointMove.list.label'), renderPointMoveListBody(preset))); // components/motion-settings-drawer.js
     },
 
     /** Sửa 1 point move (`workflowMotionPresets._editingPointMoveId`) — 6 field cùng hình dạng UI. */
@@ -372,12 +396,11 @@ const workflowAppSettings = {
         this._currentRenderFn = () => this._renderPointMoveEdit();
         const preset = findMotionPresetById(appState.get('motionPresets'), workflowMotionPresets._editingId); // core/motion-presets.js
         const pointMove = preset ? findPointMoveById(preset.pointMoves, workflowMotionPresets._editingPointMoveId) : null; // core/motion-presets.js
-        if (!pointMove) { this.back(); return; }
-        this._render(
+        APP_SETTINGS_SCREEN_BY_FOUND[Boolean(pointMove)](() => this._render(
             t('motionSettingsDrawer.pointMove.edit.title'),
             renderPointMoveEditBody(pointMove), // components/motion-settings-drawer.js
             () => APP_SETTINGS_POINT_MOVE_FIELD_KEYS.forEach((fieldKey) => workflowMotionPresets._updatePointMoveFieldLabel(fieldKey)), // event/workflow/motion-presets.js — ô số + dải tô màu lúc mở
-        );
+        ));
     },
 
     /** Đường cong Timing (chỉ khi `pointMoveRunMode==='all'`) — SVG dựng bởi `workflowMotionPresets._renderTimingCurve()`;
@@ -385,15 +408,14 @@ const workflowAppSettings = {
     _renderPointMoveTiming() {
         this._currentRenderFn = () => this._renderPointMoveTiming();
         const preset = findMotionPresetById(appState.get('motionPresets'), workflowMotionPresets._editingId); // core/motion-presets.js
-        if (!preset) { this.back(); return; }
-        this._render(
+        APP_SETTINGS_SCREEN_BY_FOUND[Boolean(preset)](() => this._render(
             t('motionSettingsDrawer.pointMove.timing.label'),
             renderPointMoveTimingBody(preset.pointMoves), // components/motion-settings-drawer.js
             (body) => {
                 workflowMotionPresets._renderTimingCurve(body.querySelector('#ptmove-timing-container')); // event/workflow/motion-presets.js
                 workflowMotionPresets.resetPointMoveTimingZoom();
             },
-        );
+        ));
     },
 
     // ===================== Language (TPL_SETTINGS_LANGUAGE + renderLanguageOptions(), cụm "languageSettings") =====================
@@ -420,7 +442,7 @@ const workflowAppSettings = {
             // Resolution + Motion của Video/Photo lúc phát chính (core/player-display-settings.js).
             { key: 'player', icon: 'play-circle', labelKey: 'appSettings.player.label', hintKey: 'appSettings.player.hint' },
         ];
-        this._render(t('appSettings.row.visualizerScreen'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js — data-app-settings-nav, TÁI DÙNG cơ chế chung
+        this._render(t('appSettings.row.visualizerScreen'), renderAppSettingsRowList(rows), wireAppSettingsRowList); // core/app-settings-ui.js — data-app-settings-nav, TÁI DÙNG cơ chế chung
     },
 
     _renderDisplay() {
@@ -480,7 +502,7 @@ const workflowAppSettings = {
             { key: 'playerVideo', icon: 'video-camera', labelKey: 'appSettings.player.video.label', hintKey: 'appSettings.player.video.hint' },
             { key: 'playerPhoto', icon: 'photograph', labelKey: 'appSettings.player.photo.label', hintKey: 'appSettings.player.photo.hint' },
         ];
-        this._render(t('appSettings.player.label'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js — TÁI DÙNG cơ chế chung data-app-settings-nav
+        this._render(t('appSettings.player.label'), renderAppSettingsRowList(rows), wireAppSettingsRowList); // core/app-settings-ui.js — TÁI DÙNG cơ chế chung data-app-settings-nav
     },
 
     /** Player > Song: danh sách con, hiện có 1 row Background Media. */
@@ -489,7 +511,7 @@ const workflowAppSettings = {
         const rows = [
             { key: 'playerSongBgMedia', icon: 'photograph', labelKey: 'appSettings.player.song.bgMedia.label', hintKey: 'appSettings.player.song.bgMedia.hint' },
         ];
-        this._render(t('appSettings.player.song.label'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js
+        this._render(t('appSettings.player.song.label'), renderAppSettingsRowList(rows), wireAppSettingsRowList); // core/app-settings-ui.js
     },
 
     /** Player > Song > Background Media: toggle tổng + Media + Playback

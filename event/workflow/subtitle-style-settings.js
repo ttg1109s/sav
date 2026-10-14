@@ -17,17 +17,10 @@ const workflowSubtitleStyleSettings = {
     refresh() {
         if (genericDrawerPanel.classList.contains('hidden')) return; // panel đã đóng
         const cfg = appConfigViz.getAll();
-        const panel = genericDrawerBody;
-        panel.querySelector('#setting-subtitle-use-custom-styling').checked = !!cfg.subtitleUseCustomStyling;
-        panel.querySelector('#setting-subtitle-default-fontsize').value = cfg.subtitleDefaultFontSize || 16;
-        panel.querySelector('#setting-subtitle-default-color').value = cfg.subtitleDefaultColor || '#ffffff';
-        this._syncCustomStylingVisibility(!!cfg.subtitleUseCustomStyling);
-        panel.querySelector('#setting-subtitle-comming-effect').value = cfg.subtitleCommingEffect || 'none';
-        panel.querySelector('#setting-subtitle-comming-sign').value = (cfg.subtitleCommingValueMs || 0) < 0 ? '-' : '+';
+        const view = computeSubtitleStylePanelView(cfg); // core/subtitle/subtitle-style-settings.js
+        syncSubtitleStylePanelUi(genericDrawerBody, view); // core/subtitle/subtitle-style-settings.js
+        this._syncCustomStylingVisibility(view.useCustomStyling);
         this._syncMagnitudeButton('comming', cfg.subtitleCommingValueMs);
-        panel.querySelector('#setting-subtitle-in-effect').value = cfg.subtitleInEffect || 'none';
-        panel.querySelector('#setting-subtitle-outing-effect').value = cfg.subtitleOutingEffect || 'none';
-        panel.querySelector('#setting-subtitle-outing-sign').value = (cfg.subtitleOutingValueMs || 0) < 0 ? '-' : '+';
         this._syncMagnitudeButton('outing', cfg.subtitleOutingValueMs);
         this._syncKaraokeSettings();
     },
@@ -83,34 +76,29 @@ const workflowSubtitleStyleSettings = {
 
     _syncCustomStylingVisibility(useCustom) {
         if (genericDrawerPanel.classList.contains('hidden')) return;
-        genericDrawerBody.querySelector('#setting-open-subtitle-styling').classList.toggle('hidden', !useCustom);
-        genericDrawerBody.querySelector('#setting-subtitle-default-fields').classList.toggle('hidden', useCustom);
+        setSubtitleCustomStylingVisibilityUi(genericDrawerBody, useCustom); // core/subtitle/subtitle-style-settings.js
     },
 
-    /** Nút độ lớn Comming/Outing: hiển thị |valueMs| dạng "Xs" + giữ mili giây ở data-ms. */
+    /** Nút độ lớn Comming/Outing: |valueMs| dạng "X.Xs" + giữ mili giây ở data-ms. */
     _syncMagnitudeButton(prefix, valueMs) {
         if (genericDrawerPanel.classList.contains('hidden')) return;
-        const btn = genericDrawerBody.querySelector(`#setting-subtitle-${prefix}-magnitude`);
-        if (!btn) return;
-        const ms = Math.abs(valueMs || 0);
-        btn.dataset.ms = String(ms);
-        btn.textContent = `${(ms / 1000).toFixed(1)}s`;
+        setSubtitleTransitionMagnitudeUi(genericDrawerBody, prefix, computeSubtitleTransitionMagnitude(valueMs)); // core/subtitle/subtitle-style-settings.js
     },
 
     /** Mở bánh xe chọn độ lớn Comming/Outing (format 's-ms'), xác nhận thì ghép dấu đang chọn thành ms có dấu.
      * @param {'comming'|'outing'} prefix */
     openMagnitudePicker(prefix) {
         if (genericDrawerPanel.classList.contains('hidden')) return;
-        const configField = prefix === 'comming' ? 'subtitleCommingValueMs' : 'subtitleOutingValueMs';
+        const configField = SUBTITLE_TRANSITION_VALUE_FIELD_BY_PREFIX[prefix]; // core/subtitle/subtitle-style-settings.js
         openTimePickerModal({ // core/time-picker-modal.js
             title: t(`settingsSubtitleStyle.${prefix}.label`),
             format: 's-ms',
-            valueMs: Math.abs(appConfigViz.getAll()[configField] || 0),
+            valueMs: computeSubtitleTransitionMagnitude(appConfigViz.getAll()[configField]).ms, // core/subtitle/subtitle-style-settings.js
             minMs: 0,
             maxMs: SUBTITLE_TRANSITION_MAX_MS, // core/subtitle/subtitle-transition.js
             onConfirm: (resultMs) => {
                 const signEl = genericDrawerBody.querySelector(`#setting-subtitle-${prefix}-sign`);
-                const signedMs = (signEl && signEl.value === '-' ? -1 : 1) * resultMs;
+                const signedMs = computeSignedSubtitleTransitionMs(signEl ? signEl.value : '+', resultMs); // core/subtitle/subtitle-style-settings.js
                 this._syncMagnitudeButton(prefix, signedMs);
                 this.setTransitionField(configField, signedMs);
             },
