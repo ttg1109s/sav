@@ -28,8 +28,8 @@ Background, Visualizer):
 Toàn bộ code được chấm theo [event-bus-flow.md](./readme/event-bus-flow.md),
 [core-function-conventions.md](./readme/core-function-conventions.md) và
 [task-manager-conventions.md](./readme/task-manager-conventions.md). Kết quả 07/10/2026: **1308 vi phạm ở 141 file**
-(10 mục chờ chốt) — 27,6% dòng code nằm trong hàm có vi phạm. Sau đợt dọn wiring 12/10/2026 (plan-event-bus-wiring đợt
-1–7, 6b-1…6b-4): **1194 vi phạm ở 141 file**; sau đợt Folder 13/10/2026: **1152 vi phạm ở 139 file**; sau đợt 5 (Folder phần còn lại): **1131 vi phạm ở 137 file**; sau đợt 8 (Theme, 14/10/2026): **944 vi phạm ở 101 file**. **Nợ cũ vẫn là vi phạm**; sửa xong dòng nào thì xoá
+(lúc đó 10 mục chờ chốt) — 27,6% dòng code nằm trong hàm có vi phạm. Sau đợt dọn wiring 12/10/2026 (plan-event-bus-wiring đợt
+1–7, 6b-1…6b-4): **1194 vi phạm ở 141 file**; sau đợt Folder 13/10/2026: **1152 vi phạm ở 139 file**; sau đợt 5 (Folder phần còn lại): **1131 vi phạm ở 137 file**; sau đợt 8 (Theme, 14/10/2026): **944 vi phạm ở 101 file**; sau đợt 9 (Settings shell, kèm `requestAnimationFrame` thô thành vi phạm): **920 vi phạm ở 96 file**. **Nợ cũ vẫn là vi phạm**; sửa xong dòng nào thì xoá
 dòng đó khỏi sổ: **[readme/core-legacy-audit.md](./readme/core-legacy-audit.md)**.
 
 ## Đọc tiếp ở đâu
